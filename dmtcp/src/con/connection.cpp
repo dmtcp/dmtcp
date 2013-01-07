@@ -32,6 +32,7 @@
 #include "connectionmanager.h"
 #include "dmtcpmessagetypes.h"
 #include "dmtcpplugin.h"
+#include "shareddata.h"
 #include "util.h"
 #include "util_descriptor.h"
 #include "resource_manager.h"
@@ -59,21 +60,6 @@ static bool really_verbose = true;
 #else
 static bool really_verbose = false;
 #endif
-
-static dmtcp::string _procFDPath(int fd)
-{
-  return "/proc/self/fd/" + jalib::XToString(fd);
-}
-
-static bool hasLock(const dmtcp::vector<int>& fds)
-{
-  JASSERT(fds.size() > 0);
-  int owner = fcntl(fds[0], F_GETOWN);
-  JASSERT(owner != 0) (owner) (JASSERT_ERRNO);
-  int self = getpid();
-  JASSERT(self >= 0);
-  return owner == self;
-}
 
 //this function creates a socket that is in an error state
 static int _makeDeadSocket()
@@ -156,8 +142,30 @@ static bool _isBlacklistedTcp(int sockfd,
   , _fcntlFlags(-1)
   , _fcntlOwner(-1)
   , _fcntlSignal(-1)
-    , _restoreInSecondIteration(false)
+  , _hasLock(false)
+  , _restoreInSecondIteration(false)
 {}
+
+void dmtcp::Connection::addFd(int fd)
+{
+  _fds.push_back(fd);
+}
+
+void dmtcp::Connection::removeFd(int fd)
+{
+  JASSERT(_fds.size() > 0);
+  if (_fds.size() == 1) {
+    JASSERT(_fds[0] == fd);
+    _fds.clear();
+  } else {
+    for (size_t i = 0; i < _fds.size(); i++) {
+      if (_fds[i] == fd) {
+        _fds.erase(_fds.begin() + i);
+        break;
+      }
+    }
+  }
+}
 
 dmtcp::TcpConnection& dmtcp::Connection::asTcp()
 {
@@ -179,64 +187,56 @@ dmtcp::InotifyConnection& dmtcp::Connection::asInotify()
 }
 #endif
 
-void dmtcp::Connection::restartDup2(int oldFd, int fd) {
-  errno = 0;
-  JWARNING(_real_dup2(oldFd, fd) == fd) (oldFd) (fd) (JASSERT_ERRNO);
-}
-
-void dmtcp::Connection::saveOptions(const dmtcp::vector<int>& fds)
+void dmtcp::Connection::saveOptions()
 {
   errno = 0;
-  _fcntlFlags = fcntl(fds[0],F_GETFL);
-  JASSERT(_fcntlFlags >= 0) (_fcntlFlags) (JASSERT_ERRNO);
+  _fcntlFlags = fcntl(_fds[0],F_GETFL);
+  JASSERT(_fcntlFlags >= 0) (_fds[0]) (_fcntlFlags) (_type) (JASSERT_ERRNO);
   errno = 0;
-  _fcntlOwner = fcntl(fds[0],F_GETOWN);
+  _fcntlOwner = fcntl(_fds[0],F_GETOWN);
   JASSERT(_fcntlOwner != -1) (_fcntlOwner) (JASSERT_ERRNO);
   errno = 0;
-  _fcntlSignal = fcntl(fds[0],F_GETSIG);
+  _fcntlSignal = fcntl(_fds[0],F_GETSIG);
   JASSERT(_fcntlSignal >= 0) (_fcntlSignal) (JASSERT_ERRNO);
 }
 
-void dmtcp::Connection::restoreOptions(const dmtcp::vector<int>& fds)
+void dmtcp::Connection::restoreOptions()
 {
   //restore F_GETFL flags
   JASSERT(_fcntlFlags >= 0) (_fcntlFlags);
   JASSERT(_fcntlOwner != -1) (_fcntlOwner);
   JASSERT(_fcntlSignal >= 0) (_fcntlSignal);
   errno = 0;
-  JASSERT(fcntl(fds[0], F_SETFL, _fcntlFlags) == 0)
-    (fds[0]) (_fcntlFlags) (JASSERT_ERRNO);
+  JASSERT(fcntl(_fds[0], F_SETFL, _fcntlFlags) == 0)
+    (_fds[0]) (_fcntlFlags) (JASSERT_ERRNO);
 
   errno = 0;
-  JASSERT(fcntl(fds[0], F_SETOWN, _fcntlOwner) == 0)
-   (fds[0]) (_fcntlOwner) (JASSERT_ERRNO);
+  JASSERT(fcntl(_fds[0], F_SETOWN, _fcntlOwner) == 0)
+   (_fds[0]) (_fcntlOwner) (JASSERT_ERRNO);
 
   // This JASSERT will almost always trigger until we fix the above mentioned
   // bug.
-  //JASSERT(fcntl(fds[0], F_GETOWN) == _fcntlOwner)
-  //(fcntl(fds[0], F_GETOWN)) (_fcntlOwner) (VIRTUAL_TO_REAL_PID(_fcntlOwner));
+  //JASSERT(fcntl(_fds[0], F_GETOWN) == _fcntlOwner)
+  //(fcntl(_fds[0], F_GETOWN)) (_fcntlOwner) (VIRTUAL_TO_REAL_PID(_fcntlOwner));
 
   errno = 0;
-  JASSERT(fcntl(fds[0], F_SETSIG,_fcntlSignal) == 0)
-    (fds[0]) (_fcntlSignal) (JASSERT_ERRNO);
+  JASSERT(fcntl(_fds[0], F_SETSIG,_fcntlSignal) == 0)
+    (_fds[0]) (_fcntlSignal) (JASSERT_ERRNO);
 }
 
-void dmtcp::Connection::doLocking(const dmtcp::vector<int>& fds)
+void dmtcp::Connection::doLocking()
 {
   errno = 0;
-  JASSERT(fcntl(fds[0], F_SETOWN, getpid()) == 0)
-   (fds[0]) (JASSERT_ERRNO);
+  _hasLock = false;
+  JASSERT(fcntl(_fds[0], F_SETOWN, getpid()) == 0)
+   (_fds[0]) (JASSERT_ERRNO);
 }
 
-#define MERGE_MISMATCH_TEXT \
-  .Text("Mismatch when merging connections from different restore targets")
-
-void dmtcp::Connection::mergeWith(const Connection& that) {
-  JASSERT(_id          == that._id)         MERGE_MISMATCH_TEXT;
-  JASSERT(_type        == that._type)       MERGE_MISMATCH_TEXT;
-  JWARNING(_fcntlFlags  == that._fcntlFlags) MERGE_MISMATCH_TEXT;
-  JWARNING(_fcntlOwner  == that._fcntlOwner) MERGE_MISMATCH_TEXT;
-  JWARNING(_fcntlSignal == that._fcntlSignal)MERGE_MISMATCH_TEXT;
+void dmtcp::Connection::checkLock()
+{
+  pid_t pid = fcntl(_fds[0], F_GETOWN);
+  JASSERT(pid != -1);
+  _hasLock = pid == getpid();
 }
 
 void dmtcp::Connection::serialize(jalib::JBinarySerializer& o)
@@ -244,6 +244,7 @@ void dmtcp::Connection::serialize(jalib::JBinarySerializer& o)
   JSERIALIZE_ASSERT_POINT("dmtcp::Connection");
   o & _id & _type & _fcntlFlags & _fcntlOwner & _fcntlSignal
     & _restoreInSecondIteration;
+  o.serializeVector(_fds);
   serializeSubClass(o);
 }
 
@@ -264,7 +265,7 @@ void dmtcp::SocketConnection::addSetsockopt(int level, int option,
   _sockOptions[level][option] = jalib::JBuffer(value, len);
 }
 
-void dmtcp::SocketConnection::restoreSocketOptions(const dmtcp::vector<int>& fds)
+void dmtcp::SocketConnection::restoreSocketOptions(dmtcp::vector<int>& fds)
 {
   typedef map<int, map< int, jalib::JBuffer> >::iterator levelIterator;
   typedef map<int, jalib::JBuffer>::iterator optionIterator;
@@ -462,58 +463,17 @@ void dmtcp::TcpConnection::onError()
   _type = TCP_ERROR;
 }
 
-#ifdef EXTERNAL_SOCKET_HANDLING
-void dmtcp::TcpConnection::preCheckpointPeerLookup(
-                                 const dmtcp::vector<int>& fds,
-                                 dmtcp::vector<TcpConnectionInfo>& conInfoTable)
+void dmtcp::TcpConnection::preCheckpoint(KernelBufferDrainer& drain)
 {
-  JASSERT(fds.size() > 0) (id());
-
-  switch (tcpType())
-  {
-    case TCP_CONNECT:
-    case TCP_ACCEPT:
-      if (hasLock(fds) && peerType() == PEER_UNKNOWN) {
-        socklen_t addrlen_local = sizeof(struct sockaddr_storage);
-        socklen_t addrlen_remote = sizeof(struct sockaddr_storage);
-        struct sockaddr_storage local, remote;
-
-        JASSERT(0 == getsockname(fds[0],(sockaddr*)&local, &addrlen_local))
-          (JASSERT_ERRNO);
-        JASSERT(0 == getpeername(fds[0],(sockaddr*)&remote, &addrlen_remote))
-          (JASSERT_ERRNO);
-        JASSERT(addrlen_local == addrlen_remote) (addrlen_local)
-          (addrlen_remote);
-        JASSERT(local.ss_family == remote.ss_family) (local.ss_family)
-          (remote.ss_family);
-        TcpConnectionInfo conInfo(id(), addrlen_local, local, remote);
-        conInfoTable.push_back(conInfo);
-      } else {
-        if (really_verbose) {
-          JTRACE("Did not get lock.  Won't lookup.") (fds[0]) (id());
-        }
-      }
-      break;
-    case TCP_LISTEN:
-    case TCP_BIND:
-      JASSERT(peerType() == PEER_UNKNOWN);
-      break;
-  }
-}
-#endif
-
-void dmtcp::TcpConnection::preCheckpoint(const dmtcp::vector<int>& fds,
-                                         KernelBufferDrainer& drain)
-{
-  JASSERT(fds.size() > 0) (id());
+  JASSERT(_fds.size() > 0) (id());
 
   if ((_fcntlFlags & O_ASYNC) != 0) {
     if (really_verbose) {
-      JTRACE("Removing O_ASYNC flag during checkpoint.") (fds[0]) (id());
+      JTRACE("Removing O_ASYNC flag during checkpoint.") (_fds[0]) (id());
     }
     errno = 0;
-    JASSERT(fcntl(fds[0],F_SETFL,_fcntlFlags & ~O_ASYNC) == 0)
-      (JASSERT_ERRNO) (fds[0]) (id());
+    JASSERT(fcntl(_fds[0],F_SETFL,_fcntlFlags & ~O_ASYNC) == 0)
+      (JASSERT_ERRNO) (_fds[0]) (id());
   }
 
   if (dmtcp_no_coordinator()) {
@@ -523,108 +483,77 @@ void dmtcp::TcpConnection::preCheckpoint(const dmtcp::vector<int>& fds,
   switch (tcpType()) {
     case TCP_CONNECT:
     case TCP_ACCEPT:
-      if (hasLock(fds)) {
-        const ConnectionIdentifier& toDrainId = id();
-        JTRACE("Will drain socket") (fds[0]) (toDrainId) (_remotePeerId);
-        drain.beginDrainOf(fds[0], toDrainId);
-      } else {
-        if (really_verbose) {
-          JTRACE("Did not get lock.  Won't drain") (fds[0]) (id());
-        }
-      }
+      JTRACE("Will drain socket") (_hasLock) (_fds[0]) (_id) (_remotePeerId);
+      drain.beginDrainOf(_fds[0], _id);
       break;
     case TCP_LISTEN:
-      drain.addListenSocket(fds[0]);
+      drain.addListenSocket(_fds[0]);
       break;
     case TCP_BIND:
-      JWARNING(tcpType() != TCP_BIND) (fds[0])
+      JWARNING(tcpType() != TCP_BIND) (_fds[0])
         .Text("If there are pending connections on this socket,\n"
               " they won't be checkpointed because"
               " it is not yet in a listen state.");
       break;
     case TCP_EXTERNAL_CONNECT:
-      JTRACE("Socket to External Process, won't be drained") (fds[0]);
+      JTRACE("Socket to External Process, won't be drained") (_fds[0]);
       break;
   }
 }
 
-void dmtcp::TcpConnection::doSendHandshakes(const dmtcp::vector<int>& fds,
-                                            const dmtcp::UniquePid& coordinator)
+void dmtcp::TcpConnection::doSendHandshakes(const dmtcp::UniquePid& coordinator)
 {
   switch (tcpType()) {
     case TCP_CONNECT:
     case TCP_ACCEPT:
-      if (hasLock(fds)) {
-        JTRACE("Sending handshake ...") (id()) (fds[0]);
-        jalib::JSocket sock(fds[0]);
-        sendHandshake(sock, coordinator);
-      } else {
-        if (really_verbose) {
-          JTRACE("Skipping handshake send(shared socket, not owner).")
-            (id()) (fds[0]);
-        }
-      }
+      JTRACE("Sending handshake ...") (id()) (_fds[0]);
+      sendHandshake(_fds[0], coordinator);
       break;
     case TCP_EXTERNAL_CONNECT:
-      JTRACE("Socket to External Process, skipping handshake send") (fds[0]);
+      JTRACE("Socket to External Process, skipping handshake send") (_fds[0]);
       break;
   }
 }
 
-void dmtcp::TcpConnection::doRecvHandshakes(const dmtcp::vector<int>& fds,
-                                            const dmtcp::UniquePid& coordinator)
+void dmtcp::TcpConnection::doRecvHandshakes(const dmtcp::UniquePid& coordinator)
 {
   switch (tcpType()) {
     case TCP_CONNECT:
     case TCP_ACCEPT:
-      if (hasLock(fds)) {
-        JTRACE("Receiving handshake ...") (id()) (fds[0]);
-        jalib::JSocket sock(fds[0]);
-        recvHandshake(sock, coordinator);
-        if (really_verbose) {
-          JTRACE("Received handshake.") (getRemoteId()) (fds[0]);
-        }
-      } else {
-        if (really_verbose) {
-          JTRACE("Skipping handshake recv(shared socket, not owner).")
-            (id()) (fds[0]);
-        }
-      }
+      recvHandshake(_fds[0], coordinator);
+      JTRACE("Received handshake.") (id()) (getRemoteId()) (_fds[0]);
       break;
     case TCP_EXTERNAL_CONNECT:
-      JTRACE("Socket to External Process, skipping handshake recv") (fds[0]);
+      JTRACE("Socket to External Process, skipping handshake recv") (_fds[0]);
       break;
   }
 }
 
-void dmtcp::TcpConnection::postCheckpoint(const dmtcp::vector<int>& fds,
-                                          bool isRestart)
+void dmtcp::TcpConnection::postRefill(bool isRestart)
 {
   if ((_fcntlFlags & O_ASYNC) != 0) {
-    JTRACE("Re-adding O_ASYNC flag.") (fds[0]) (id());
-    SocketConnection::restoreSocketOptions(fds);
+    JTRACE("Re-adding O_ASYNC flag.") (_fds[0]) (id());
+    SocketConnection::restoreSocketOptions(_fds);
   }
 }
 
-void dmtcp::TcpConnection::restoreOptions(const dmtcp::vector<int>& fds)
+void dmtcp::TcpConnection::restoreOptions()
 {
   if (_sockDomain != AF_INET6 && tcpType() != TCP_EXTERNAL_CONNECT) {
-    restoreSocketOptions(fds);
+    restoreSocketOptions(_fds);
   }
 
   //call base version(F_GETFL etc)
-  Connection::restoreOptions(fds);
+  Connection::restoreOptions();
 }
 
-void dmtcp::TcpConnection::restoreSocketPair(const dmtcp::vector<int>& fds,
-                                             dmtcp::TcpConnection *peer,
-                                             const dmtcp::vector<int>& peerfds)
+void dmtcp::TcpConnection::restoreSocketPair(dmtcp::TcpConnection *peer)
 {
   int sv[2];
   JASSERT(_peerType == PEER_SOCKETPAIR && _socketpairPeerId == peer->id())
    (_peerType) (_socketpairPeerId) (peer->id());
-  JASSERT(fds.size() > 0);
-  JASSERT(peerfds.size() > 0);
+  JASSERT(_fds.size() > 0);
+  JASSERT(peer->numFds() > 0);
 
   if (_socketPairRestored) {
     _socketPairRestored = false;
@@ -633,45 +562,23 @@ void dmtcp::TcpConnection::restoreSocketPair(const dmtcp::vector<int>& fds,
   JASSERT(_real_socketpair(_sockDomain,_sockType,_sockProtocol, sv) == 0)
    (JASSERT_ERRNO);
 
-  jalib::JSocket sock1(sv[0]);
-  jalib::JSocket sock2(sv[1]);
-
-  sock1.changeFd(fds[0]);
-  sock2.changeFd(peerfds[0]);
-
-  for (size_t i=1; i<fds.size(); ++i) {
-    JASSERT(_real_dup2(fds[0], fds[i]) == fds[i]) (fds[0]) (fds[i])
-      .Text("dup2() failed");
-  }
-
-  for (size_t i=1; i<peerfds.size(); ++i) {
-    JASSERT(_real_dup2(peerfds[0], peerfds[i]) == peerfds[i])
-      (peerfds[0]) (peerfds[i]) .Text("dup2() failed");
-  }
+  Util::dupFds(sv[0], _fds);
+  Util::dupFds(sv[1], peer->_fds);
   peer->_socketPairRestored = true;
-  JTRACE("Restored Socketpair") (id()) (peer->id()) (fds[0]) (peerfds[0]);
+  JTRACE("Restored Socketpair") (id()) (peer->id()) (_fds[0]) (peer->_fds[0]);
 }
 
-void dmtcp::TcpConnection::restore(const dmtcp::vector<int>& fds,
-                                   ConnectionRewirer *rewirer)
+void dmtcp::TcpConnection::restore(ConnectionRewirer *rewirer)
 {
-  JASSERT(fds.size() > 0);
+  JASSERT(_fds.size() > 0);
   switch (tcpType()) {
     case TCP_PREEXISTING:
     case TCP_ERROR: //not a valid socket
     case TCP_INVALID:
     case TCP_EXTERNAL_CONNECT:
-      {
-        JTRACE("Creating dead socket.") (fds[0]) (fds.size());
-        jalib::JSocket deadSock(_makeDeadSocket());
-        deadSock.changeFd(fds[0]);
-        for (size_t i=1; i<fds.size(); ++i)
-        {
-          JASSERT(_real_dup2(fds[0], fds[i]) == fds[i]) (fds[0]) (fds[i])
-            .Text("dup2() failed");
-        }
-        break;
-      }
+      JTRACE("Creating dead socket.") (_fds[0]) (_fds.size());
+      Util::dupFds(_makeDeadSocket(), _fds);
+      break;
     case TCP_CREATED:
     case TCP_BIND:
     case TCP_LISTEN:
@@ -682,18 +589,15 @@ void dmtcp::TcpConnection::restore(const dmtcp::vector<int>& fds,
           .Text("Socket type not yet [fully] supported.");
 
         if (really_verbose) {
-          JTRACE("Restoring socket.") (id()) (fds[0]);
+          JTRACE("Restoring socket.") (id()) (_fds[0]);
         }
 
         jalib::JSocket sock(_real_socket(_sockDomain, _sockType,
                                          _sockProtocol));
         JASSERT(sock.isValid());
-        sock.changeFd(fds[0]);
+        sock.changeFd(_fds[0]);
 
-        for (size_t i=1; i<fds.size(); ++i) {
-          JASSERT(_real_dup2(fds[0], fds[i]) == fds[i]) (fds[0]) (fds[i])
-            .Text("dup2() failed");
-        }
+        Util::dupFds(_fds[0], _fds);
 
         if (tcpType() == TCP_CREATED) break;
 
@@ -729,12 +633,12 @@ void dmtcp::TcpConnection::restore(const dmtcp::vector<int>& fds,
                 if (opt->first == IPV6_V6ONLY) {
                   if (really_verbose) {
                     JTRACE("Restoring socket option.")
-                      (fds[0]) (opt->first) (opt->second.size());
+                      (_fds[0]) (opt->first) (opt->second.size());
                   }
-                  int ret = _real_setsockopt(fds[0], lvl->first, opt->first,
+                  int ret = _real_setsockopt(_fds[0], lvl->first, opt->first,
                                               opt->second.buffer(),
                                               opt->second.size());
-                  JASSERT(ret == 0) (JASSERT_ERRNO) (fds[0]) (lvl->first)
+                  JASSERT(ret == 0) (JASSERT_ERRNO) (_fds[0]) (lvl->first)
                     (opt->first) (opt->second.buffer()) (opt->second.size())
                     .Text("Restoring setsockopt failed.");
                 }
@@ -764,31 +668,32 @@ void dmtcp::TcpConnection::restore(const dmtcp::vector<int>& fds,
       }
       break;
     case TCP_ACCEPT:
-      JASSERT(!_remotePeerId.isNull()) (id()) (_remotePeerId) (fds[0])
+      JASSERT(!_remotePeerId.isNull()) (id()) (_remotePeerId) (_fds[0])
         .Text("Can't restore a TCP_ACCEPT socket with null acceptRemoteId.\n"
               "  Perhaps handshake went wrong?");
-      JTRACE("registerOutgoing") (id()) (_remotePeerId) (fds[0]);
-      rewirer->registerOutgoing(_remotePeerId, fds);
+      JTRACE("registerOutgoing") (id()) (_remotePeerId) (_fds[0]);
+      rewirer->registerOutgoing(_remotePeerId, this);
       break;
     case TCP_CONNECT:
-      JTRACE("registerIncoming") (id()) (_remotePeerId) (fds[0]);
-      rewirer->registerIncoming(id(), fds);
+      JTRACE("registerIncoming") (id()) (_remotePeerId) (_fds[0]);
+      rewirer->registerIncoming(id(), this);
       break;
       //    case TCP_EXTERNAL_CONNECT:
       //      int sockFd = _real_socket(_sockDomain, _sockType, _sockProtocol);
       //      JASSERT(sockFd >= 0);
-      //      JASSERT(_real_dup2(sockFd, fds[0]) == fds[0]);
+      //      JASSERT(_real_dup2(sockFd, _fds[0]) == _fds[0]);
       //      JWARNING(0 == _real_connect(sockFd,(sockaddr*) &_connectAddr,
       //                                  _connectAddrlen))
-      //        (fds[0]) (JASSERT_ERRNO)
+      //        (_fds[0]) (JASSERT_ERRNO)
       //        .Text("Unable to connect to external process");
       //      break;
   }
 }
 
-void dmtcp::TcpConnection::sendHandshake(jalib::JSocket& remote,
+void dmtcp::TcpConnection::sendHandshake(int remotefd,
                                          const dmtcp::UniquePid& coordinator)
 {
+  jalib::JSocket remote(remotefd);
   dmtcp::DmtcpMessage hello_local;
   hello_local.type = dmtcp::DMT_HELLO_PEER;
   hello_local.from = id();
@@ -796,9 +701,10 @@ void dmtcp::TcpConnection::sendHandshake(jalib::JSocket& remote,
   remote << hello_local;
 }
 
-void dmtcp::TcpConnection::recvHandshake(jalib::JSocket& remote,
+void dmtcp::TcpConnection::recvHandshake(int remotefd,
                                          const dmtcp::UniquePid& coordinator)
 {
+  jalib::JSocket remote(remotefd);
   dmtcp::DmtcpMessage hello_remote;
   hello_remote.poison();
   remote >> hello_remote;
@@ -820,31 +726,6 @@ void dmtcp::TcpConnection::recvHandshake(jalib::JSocket& remote,
       (_remotePeerId) (hello_remote.from)
       .Text("Read handshake with a different 'from' field"
             " than a previous handshake.");
-  }
-}
-
-void dmtcp::TcpConnection::mergeWith(const Connection& _that)
-{
-  Connection::mergeWith(_that);
-  //Connection::_type match is checked in Connection::mergeWith
-  const TcpConnection& that =(const TcpConnection&)_that;
-  JWARNING(_sockDomain    == that._sockDomain)   MERGE_MISMATCH_TEXT;
-  JWARNING(_sockType      == that._sockType)     MERGE_MISMATCH_TEXT;
-  JWARNING(_sockProtocol  == that._sockProtocol) MERGE_MISMATCH_TEXT;
-  JWARNING(_listenBacklog == that._listenBacklog)MERGE_MISMATCH_TEXT;
-  JWARNING(_bindAddrlen   == that._bindAddrlen)  MERGE_MISMATCH_TEXT;
-  //todo: check _bindAddr and _sockOptions
-
-  JTRACE("Merging TcpConnections") (_remotePeerId) (that._remotePeerId);
-
-  //merge _remotePeerId smartly
-  if (_remotePeerId.isNull())
-    _remotePeerId = that._remotePeerId;
-
-  if (!that._remotePeerId.isNull()) {
-    JASSERT(_remotePeerId == that._remotePeerId) (id())
-      (_remotePeerId) (that._remotePeerId)
-      .Text("Merging connections disagree on remote host");
   }
 }
 
@@ -870,65 +751,48 @@ dmtcp::RawSocketConnection::RawSocketConnection(int domain, int type,
   JTRACE("Creating Raw socket.") (id()) (domain) (type) (protocol);
 }
 
-void dmtcp::RawSocketConnection::preCheckpoint(const dmtcp::vector<int>& fds,
-                                               KernelBufferDrainer& drain)
+void dmtcp::RawSocketConnection::preCheckpoint(KernelBufferDrainer& drain)
 {
-  JASSERT(fds.size() > 0) (id());
+  JASSERT(_fds.size() > 0) (id());
 
   if ((_fcntlFlags & O_ASYNC) != 0) {
     if (really_verbose) {
-      JTRACE("Removing O_ASYNC flag during checkpoint.") (fds[0]) (id());
+      JTRACE("Removing O_ASYNC flag during checkpoint.") (_fds[0]) (id());
     }
     errno = 0;
-    JASSERT(fcntl(fds[0], F_SETFL, _fcntlFlags & ~O_ASYNC) == 0)
-      (JASSERT_ERRNO) (fds[0]) (id());
+    JASSERT(fcntl(_fds[0], F_SETFL, _fcntlFlags & ~O_ASYNC) == 0)
+      (JASSERT_ERRNO) (_fds[0]) (id());
   }
 }
 
-void dmtcp::RawSocketConnection::restoreOptions(const dmtcp::vector<int>& fds)
+void dmtcp::RawSocketConnection::restoreOptions()
 {
   if (_sockDomain != AF_INET6) {
-    restoreSocketOptions(fds);
+    restoreSocketOptions(_fds);
   }
 
   //call base version(F_GETFL etc)
-  Connection::restoreOptions(fds);
+  Connection::restoreOptions();
 }
 
-void dmtcp::RawSocketConnection::postCheckpoint(const dmtcp::vector<int>& fds,
-                                                bool isRestart)
+void dmtcp::RawSocketConnection::postRefill(bool isRestart)
 {
   if ((_fcntlFlags & O_ASYNC) != 0) {
-    JTRACE("Re-adding O_ASYNC flag.") (fds[0]) (id());
-    SocketConnection::restoreSocketOptions(fds);
+    JTRACE("Re-adding O_ASYNC flag.") (_fds[0]) (id());
+    SocketConnection::restoreSocketOptions(_fds);
   }
 }
 
-void dmtcp::RawSocketConnection::restore(const dmtcp::vector<int>& fds,
-                                         ConnectionRewirer *rewirer)
+void dmtcp::RawSocketConnection::restore(ConnectionRewirer *rewirer)
 {
-  JASSERT(fds.size() > 0);
+  JASSERT(_fds.size() > 0);
   if (really_verbose) {
-    JTRACE("Restoring socket.") (id()) (fds[0]);
+    JTRACE("Restoring socket.") (id()) (_fds[0]);
   }
 
-  jalib::JSocket sock(_real_socket(_sockDomain,_sockType,_sockProtocol));
-  JASSERT(sock.isValid());
-  sock.changeFd(fds[0]);
-
-  for (size_t i=1; i<fds.size(); ++i) {
-    JASSERT(_real_dup2(fds[0], fds[i]) == fds[i]) (fds[0]) (fds[i])
-      .Text("dup2() failed");
-  }
-}
-
-void dmtcp::RawSocketConnection::mergeWith(const Connection& _that)
-{
-  Connection::mergeWith(_that);
-  const RawSocketConnection& that =(const RawSocketConnection&) _that;
-  JWARNING(_sockDomain    == that._sockDomain)   MERGE_MISMATCH_TEXT;
-  JWARNING(_sockType      == that._sockType)     MERGE_MISMATCH_TEXT;
-  JWARNING(_sockProtocol  == that._sockProtocol) MERGE_MISMATCH_TEXT;
+  int sockfd = _real_socket(_sockDomain,_sockType,_sockProtocol);
+  JASSERT(sockfd != -1);
+  Util::dupFds(sockfd, _fds);
 }
 
 void dmtcp::RawSocketConnection::serializeSubClass(jalib::JBinarySerializer& o)
@@ -945,7 +809,7 @@ static bool ptmxTestPacketMode(int masterFd)
 {
   char tmp_buf[100];
   int slave_fd, ioctlArg, rc;
-  fd_set readfds;
+  fd_set read_fds;
   struct timeval zeroTimeout = {0, 0}; /* Zero: will use to poll, not wait.*/
 
   _real_ptsname_r(masterFd, tmp_buf, 100);
@@ -966,14 +830,14 @@ static bool ptmxTestPacketMode(int masterFd)
      will tell master to flush it. */
   tcflush(masterFd, TCIFLUSH);
 
-  /* B. Now verify that readfds has no more characters to read. */
+  /* B. Now verify that read_fds has no more characters to read. */
   ioctlArg = 1;
   ioctl(masterFd, TIOCINQ, &ioctlArg);
   /* Now check if there's a command byte still to read. */
-  FD_ZERO(&readfds);
-  FD_SET(masterFd, &readfds);
-  select(masterFd + 1, &readfds, NULL, NULL, &zeroTimeout);
-  if (FD_ISSET(masterFd, &readfds)) {
+  FD_ZERO(&read_fds);
+  FD_SET(masterFd, &read_fds);
+  select(masterFd + 1, &read_fds, NULL, NULL, &zeroTimeout);
+  if (FD_ISSET(masterFd, &read_fds)) {
     // Clean up someone else's command byte from packet mode.
     // FIXME:  We should restore this on resume/restart.
     rc = read(masterFd, tmp_buf, 100);
@@ -998,12 +862,12 @@ static bool ptmxTestPacketMode(int masterFd)
 // Also record the count read on each iteration, in case it's packet mode
 static bool readyToRead(int fd)
 {
-  fd_set readfds;
+  fd_set read_fds;
   struct timeval zeroTimeout = {0, 0}; /* Zero: will use to poll, not wait.*/
-  FD_ZERO(&readfds);
-  FD_SET(fd, &readfds);
-  select(fd + 1, &readfds, NULL, NULL, &zeroTimeout);
-  return FD_ISSET(fd, &readfds);
+  FD_ZERO(&read_fds);
+  FD_SET(fd, &read_fds);
+  select(fd + 1, &read_fds, NULL, NULL, &zeroTimeout);
+  return FD_ISSET(fd, &read_fds);
 }
 
 // returns 0 if not ready to read; else returns -1, or size read incl. header
@@ -1082,18 +946,83 @@ static ssize_t ptmxWriteAll(int fd, const void *buf, bool isPacketMode)
   return(rc <= 0 ? rc : cum_count);
 }
 
-void dmtcp::PtyConnection::preCheckpoint(const dmtcp::vector<int>& fds,
-                                         KernelBufferDrainer& drain)
+dmtcp::PtyConnection::PtyConnection(int fd, const char *path,
+                                    int flags, mode_t mode, int type)
+  : Connection (PTY)
+  , _flags(flags)
+  , _mode(mode)
 {
-  if (ptyType() == PTY_MASTER && hasLock(fds)) {
+  char buf[PTS_PATH_MAX];
+  _type = type;
+  switch (_type) {
+
+    case PTY_DEV_TTY:
+      _ptsName = path;
+      break;
+
+    case PTY_CTTY:
+      _ptsName = path;
+      SharedData::getVirtPtyName(path, buf, sizeof(buf));
+      if (strlen(buf) == 0) {
+        SharedData::createVirtualPtyName(path, buf, sizeof(buf));
+      }
+      _virtPtsName = buf;
+      JTRACE("creating ptmx connection") (_ptsName) (_virtPtsName);
+
+      break;
+
+    case PTY_MASTER:
+      _masterName = path;
+      JASSERT(_real_ptsname_r(fd, buf, sizeof(buf)) == 0) (JASSERT_ERRNO);
+      _ptsName = buf;
+
+      // glibc allows only 20 char long buf
+      // Check if there is enough room to insert the string "dmtcp_" before the
+      //   terminal number, if not then we ASSERT here.
+      JASSERT((strlen(buf) + strlen("v")) <= 20)
+        .Text("string /dev/pts/<n> too long, can not be virtualized."
+              "Once possible workarong here is to replace the string"
+              "\"dmtcp_\" with something short like \"d_\" or even "
+              "\"d\" and recompile DMTCP");
+
+      // Generate new Unique buf
+      SharedData::createVirtualPtyName(_ptsName.c_str(), buf, sizeof(buf));
+      _virtPtsName = buf;
+      JTRACE("creating ptmx connection") (_ptsName) (_virtPtsName);
+      break;
+
+    case PTY_SLAVE:
+      _ptsName = path;
+      SharedData::getVirtPtyName(path, buf, sizeof(buf));
+      _virtPtsName = buf;
+      JASSERT(strlen(buf) != 0) (path);
+      JTRACE("creating pts connection") (_ptsName) (_virtPtsName);
+      break;
+
+    case PTY_BSD_MASTER:
+      _masterName = path;
+      break;
+
+    case PTY_BSD_SLAVE:
+      _ptsName = path;
+      break;
+
+    default:
+      break;
+  }
+}
+
+void dmtcp::PtyConnection::preCheckpoint(KernelBufferDrainer& drain)
+{
+  if (ptyType() == PTY_MASTER) {
     const int maxCount = 10000;
     char buf[maxCount];
     int numRead, numWritten;
-    // fds[0] is master fd
-    numRead = ptmxReadAll(fds[0], buf, maxCount);
-    _ptmxIsPacketMode = ptmxTestPacketMode(fds[0]);
-    JTRACE("fds[0] is master(/dev/ptmx)") (fds[0]) (_ptmxIsPacketMode);
-    numWritten = ptmxWriteAll(fds[0], buf, _ptmxIsPacketMode);
+    // _fds[0] is master fd
+    numRead = ptmxReadAll(_fds[0], buf, maxCount);
+    _ptmxIsPacketMode = ptmxTestPacketMode(_fds[0]);
+    JTRACE("_fds[0] is master(/dev/ptmx)") (_fds[0]) (_ptmxIsPacketMode);
+    numWritten = ptmxWriteAll(_fds[0], buf, _ptmxIsPacketMode);
     JASSERT(numRead == numWritten) (numRead) (numWritten);
   }
 
@@ -1102,42 +1031,33 @@ void dmtcp::PtyConnection::preCheckpoint(const dmtcp::vector<int>& fds,
   }
 }
 
-void dmtcp::PtyConnection::postCheckpoint(const dmtcp::vector<int>& fds,
-                                          bool isRestart)
+void dmtcp::PtyConnection::postRefill(bool isRestart)
 {
-  restoreOptions(fds);
+  restoreOptions();
 }
 
-void dmtcp::PtyConnection::restore(const dmtcp::vector<int>& fds,
-                                   ConnectionRewirer*)
+void dmtcp::PtyConnection::restore(ConnectionRewirer*)
 {
-  JASSERT(fds.size() > 0);
+  JASSERT(_fds.size() > 0);
 
   int tempfd;
+  char buf[PTS_PATH_MAX];
 
   switch (ptyType()) {
     case PTY_INVALID:
-      //tempfd = open("/dev/null", O_RDWR);
+      //tempfd = _real_open("/dev/null", O_RDWR);
       JTRACE("Restoring invalid PTY.") (id());
       return;
 
     case PTY_DEV_TTY:
       {
         dmtcp::string tty = "/dev/tty";
-
-        tempfd = open(tty.c_str(), _fcntlFlags);
+        tempfd = _real_open(tty.c_str(), _fcntlFlags);
         JASSERT(tempfd >= 0) (tempfd) (tty) (JASSERT_ERRNO)
           .Text("Error Opening the terminal device");
 
-        JASSERT(_real_dup2(tempfd, fds[0]) == fds[0]) (tempfd) (fds[0])
-          .Text("dup2() failed");
-
-        close(tempfd);
-
-        JTRACE("Restoring /dev/tty for the process") (tty) (fds[0]);
-
-        _ptsName = _uniquePtsName = tty;
-
+        JTRACE("Restoring /dev/tty for the process") (tty) (_fds[0]);
+        _ptsName = _virtPtsName = tty;
         break;
       }
 
@@ -1147,97 +1067,68 @@ void dmtcp::PtyConnection::restore(const dmtcp::vector<int>& fds,
         JASSERT(controllingTty.length() > 0) (STDIN_FILENO)
           . Text("Unable to restore terminal attached with the process");
 
-        tempfd = open(controllingTty.c_str(), _fcntlFlags);
+        tempfd = _real_open(controllingTty.c_str(), _fcntlFlags);
         JASSERT(tempfd >= 0) (tempfd) (controllingTty) (JASSERT_ERRNO)
           .Text("Error Opening the terminal attached with the process");
 
-        JASSERT(_real_dup2(tempfd, fds[0]) == fds[0]) (tempfd) (fds[0])
-          .Text("dup2() failed");
+        JTRACE("Restoring CTTY for the process") (controllingTty) (_fds[0]);
 
-        close(tempfd);
-
-        JTRACE("Restoring CTTY for the process") (controllingTty) (fds[0]);
-
-        _ptsName = _uniquePtsName = controllingTty;
-
+        _ptsName = controllingTty;
+        SharedData::insertPtyNameMap(_virtPtsName.c_str(), _ptsName.c_str());
         break;
       }
 
     case PTY_MASTER:
       {
         char pts_name[80];
-        JTRACE("Restoring /dev/ptmx") (fds[0]);
 
-        tempfd = open("/dev/ptmx", O_RDWR);
-
+        tempfd = _real_open("/dev/ptmx", O_RDWR);
         JASSERT(tempfd >= 0) (tempfd) (JASSERT_ERRNO)
           .Text("Error Opening /dev/ptmx");
 
         JASSERT(grantpt(tempfd) >= 0) (tempfd) (JASSERT_ERRNO);
-
         JASSERT(unlockpt(tempfd) >= 0) (tempfd) (JASSERT_ERRNO);
-
         JASSERT(_real_ptsname_r(tempfd, pts_name, 80) == 0)
           (tempfd) (JASSERT_ERRNO);
 
-        JASSERT(_real_dup2(tempfd, fds[0]) == fds[0]) (tempfd) (fds[0])
-          .Text("dup2() failed");
-
-        close(tempfd);
-
         _ptsName = pts_name;
-
-        //dmtcp::string deviceName = "ptmx[" + _ptsName + "]:" + "/dev/ptmx";
-
-        //dmtcp::KernelDeviceToConnection::instance().erase(id());
-
-        //dmtcp::KernelDeviceToConnection::instance().createPtyDevice(
-        //                                                  fds[0],
-        //                                                  deviceName,
-        //                                                  (Connection*) this);
-
-        UniquePtsNameToPtmxConId::instance().add(_uniquePtsName, id());
+        SharedData::insertPtyNameMap(_virtPtsName.c_str(), _ptsName.c_str());
 
         if (ptyType() == PTY_MASTER) {
           int packetMode = _ptmxIsPacketMode;
-          ioctl(fds[0], TIOCPKT, &packetMode); /* Restore old packet mode */
+          ioctl(_fds[0], TIOCPKT, &packetMode); /* Restore old packet mode */
         }
 
+        JTRACE("Restoring /dev/ptmx") (_fds[0]) (_ptsName) (_virtPtsName);
         break;
       }
     case PTY_SLAVE:
       {
         JASSERT(_ptsName.compare("?") != 0);
 
-        _ptsName = dmtcp::UniquePtsNameToPtmxConId::instance().
-                     retrieveCurrentPtsDeviceName(_uniquePtsName);
+        JTRACE("Restoring PTY slave") (_fds[0]) (_ptsName) (_virtPtsName);
+        while (1) {
+          SharedData::getRealPtyName(_virtPtsName.c_str(), buf, sizeof(buf));
+          if (strlen(buf) > 0) break;
+          struct timespec sleepTime = {0, 10*1000*1000};
+          nanosleep(&sleepTime, NULL);
+        };
+        _ptsName = buf;
 
-        tempfd = open(_ptsName.c_str(), O_RDWR);
-        JASSERT(tempfd >= 0) (_uniquePtsName) (_ptsName) (JASSERT_ERRNO)
+        tempfd = _real_open(_ptsName.c_str(), O_RDWR);
+        JASSERT(tempfd >= 0) (_virtPtsName) (_ptsName) (JASSERT_ERRNO)
           .Text("Error Opening PTS");
 
-        JASSERT(_real_dup2(tempfd, fds[0]) == fds[0]) (tempfd) (fds[0])
-          .Text("dup2() failed");
-
-        close(tempfd);
-
-        JTRACE("Restoring PTS real") (_ptsName) (_uniquePtsName) (fds[0]);
-
-        //dmtcp::string deviceName = "pts:" + _ptsName;
-
-        //dmtcp::KernelDeviceToConnection::instance().erase(id());
-
-        //dmtcp::KernelDeviceToConnection::instance().createPtyDevice(fds[0],
-        //                                      deviceName,(Connection*) this);
+        JTRACE("Restoring PTS real") (_ptsName) (_virtPtsName) (_fds[0]);
         break;
       }
     case PTY_BSD_MASTER:
       {
-        JTRACE("Restoring BSD Master Pty") (_bsdDeviceName) (fds[0]);
+        JTRACE("Restoring BSD Master Pty") (_masterName) (_fds[0]);
         dmtcp::string slaveDeviceName =
-          _bsdDeviceName.replace(0, strlen("/dev/pty"), "/dev/tty");
+          _masterName.replace(0, strlen("/dev/pty"), "/dev/tty");
 
-        tempfd = open(_bsdDeviceName.c_str(), O_RDWR);
+        tempfd = _real_open(_masterName.c_str(), O_RDWR);
 
         // FIXME: If unable to open the original BSD Master Pty, we should try to
         // open another one until we succeed and then open slave device
@@ -1249,30 +1140,17 @@ void dmtcp::PtyConnection::restore(const dmtcp::vector<int>& fds,
         // device name and current Master/Slave device name.
         JASSERT(tempfd >= 0) (tempfd) (JASSERT_ERRNO)
           .Text("Error Opening BSD Master Pty.(Already in use?)");
-
-        JASSERT(_real_dup2(tempfd, fds[0]) == fds[0]) (tempfd) (fds[0])
-          .Text("dup2() failed");
-
-        close(tempfd);
-
         break;
       }
     case PTY_BSD_SLAVE:
       {
-        JTRACE("Restoring BSD Slave Pty") (_bsdDeviceName) (fds[0]);
+        JTRACE("Restoring BSD Slave Pty") (_ptsName) (_fds[0]);
         dmtcp::string masterDeviceName =
-          _bsdDeviceName.replace(0, strlen("/dev/tty"), "/dev/pty");
+          _ptsName.replace(0, strlen("/dev/tty"), "/dev/pty");
 
-        tempfd = open(_bsdDeviceName.c_str(), O_RDWR);
-
+        tempfd = _real_open(_ptsName.c_str(), O_RDWR);
         JASSERT(tempfd >= 0) (tempfd) (JASSERT_ERRNO)
           .Text("Error Opening BSD Slave Pty.(Already in use?)");
-
-        JASSERT(_real_dup2(tempfd, fds[0]) == fds[0]) (tempfd) (fds[0])
-          .Text("dup2() failed");
-
-        close(tempfd);
-
         break;
       }
     default:
@@ -1281,91 +1159,14 @@ void dmtcp::PtyConnection::restore(const dmtcp::vector<int>& fds,
         JASSERT(false) .Text("Should never reach here.");
       }
   }
-
-  for (size_t i=1; i<fds.size(); ++i) {
-    JASSERT(_real_dup2(fds[0], fds[i]) == fds[i]) (fds[0]) (fds[i])
-      .Text("dup2() failed");
-  }
-}
-
-void dmtcp::PtyConnection::restoreOptions(const dmtcp::vector<int>& fds)
-{
-  switch (ptyType()) {
-    case PTY_INVALID:
-      return;
-
-    case PTY_DEV_TTY:
-      {
-        dmtcp::string device =
-          jalib::Filesystem::ResolveSymlink(_procFDPath(fds[0]));
-        JASSERT(device.compare("/dev/tty") == 0);
-        _ptsName = _uniquePtsName = device;
-        break;
-      }
-
-    case PTY_CTTY:
-      {
-        dmtcp::string device =
-          jalib::Filesystem::ResolveSymlink(_procFDPath(fds[0]));
-        _ptsName = _uniquePtsName = device;
-        break;
-      }
-
-    case PTY_MASTER:
-      {
-        char pts_name[80];
-
-        JASSERT(_real_ptsname_r(fds[0], pts_name, 80) == 0)
-          (fds[0]) (JASSERT_ERRNO);
-
-        _ptsName = pts_name;
-
-        JTRACE("Restoring Options /dev/ptmx real")
-          (_ptsName) (_uniquePtsName) (fds[0]);
-
-        UniquePtsNameToPtmxConId::instance().add(_uniquePtsName, id());
-
-        break;
-      }
-    case PTY_SLAVE:
-      {
-        JASSERT(_ptsName.compare("?") != 0);
-
-        _ptsName = jalib::Filesystem::ResolveSymlink(_procFDPath(fds[0]));
-
-        JTRACE("Restoring Options PTS real")
-          (_ptsName) (_uniquePtsName) (fds[0]);
-
-        break;
-      }
-    default:
-      {
-        // should never reach here
-        JASSERT(false) .Text("Should never reach here.");
-      }
-  }
-  Connection::restoreOptions(fds);
-}
-
-void dmtcp::PtyConnection::mergeWith(const Connection& _that)
-{
-  Connection::mergeWith(_that);
-  const PtyConnection& that =(const PtyConnection&)_that;
-  JWARNING(_ptsName       == that._ptsName)       MERGE_MISMATCH_TEXT;
-  JWARNING(_uniquePtsName == that._uniquePtsName) MERGE_MISMATCH_TEXT;
+  Util::dupFds(tempfd, _fds);
 }
 
 void dmtcp::PtyConnection::serializeSubClass(jalib::JBinarySerializer& o)
 {
   JSERIALIZE_ASSERT_POINT("dmtcp::PtyConnection");
-  o & _ptsName & _uniquePtsName & _bsdDeviceName & _type & _ptmxIsPacketMode;
-
-  if (o.isReader()) {
-    if (_type == dmtcp::PtyConnection::PTY_MASTER) {
-      dmtcp::UniquePtsNameToPtmxConId::instance().add(_uniquePtsName, _id);
-    }
-  }
-  JTRACE("Serializing PtyConn.") (_ptsName) (_uniquePtsName);
+  o & _ptsName & _virtPtsName & _masterName & _type & _ptmxIsPacketMode;
+  JTRACE("Serializing PtyConn.") (_ptsName) (_virtPtsName);
 }
 
 /*****************************************************************************
@@ -1376,7 +1177,7 @@ void dmtcp::PtyConnection::serializeSubClass(jalib::JBinarySerializer& o)
 // Default 100MB
 #define MAX_FILESIZE_TO_AUTOCKPT (100 * 1024 * 1024)
 
-void dmtcp::FileConnection::doLocking(const dmtcp::vector<int>& fds)
+void dmtcp::FileConnection::doLocking()
 {
   if (dmtcp::Util::strStartsWith(_path, "/proc/")) {
     int index = 6;
@@ -1389,7 +1190,7 @@ void dmtcp::FileConnection::doLocking(const dmtcp::vector<int>& fds)
       }
     }
   }
-  Connection::doLocking(fds);
+  Connection::doLocking();
 }
 
 void dmtcp::FileConnection::handleUnlinkedFile()
@@ -1428,30 +1229,28 @@ void dmtcp::FileConnection::calculateRelativePath()
   }
 }
 
-void dmtcp::FileConnection::preCheckpointResMgrFile(
-                                                  const dmtcp::vector<int>& fds)
+void dmtcp::FileConnection::preCheckpointResMgrFile()
 {
-  JTRACE("Pre-checkpoint Torque files") (fds.size());
-  for (unsigned int i=0; i< fds.size(); i++)
-    JTRACE("fds[i]=") (i) (fds[i]);
+  JTRACE("Pre-checkpoint Torque files") (_fds.size());
+  for (unsigned int i=0; i< _fds.size(); i++)
+    JTRACE("_fds[i]=") (i) (_fds[i]);
 
   if (isTorqueIOFile(_path)) {
     _rmtype = TORQUE_IO;
     // Save the content of stdio or node file
     // to restore it later in new IO file or in temporal Torque nodefile
-    saveFile(fds[0]);
+    saveFile(_fds[0]);
   } else if (isTorqueNodeFile(_path) || _rmtype == TORQUE_NODE) {
     _rmtype = TORQUE_NODE;
     // Save the content of stdio or node file
     // to restore it later in new IO file or in temporal Torque nodefile
-    saveFile(fds[0]);
+    saveFile(_fds[0]);
   }
 }
 
-void dmtcp::FileConnection::preCheckpoint(const dmtcp::vector<int>& fds,
-                                          KernelBufferDrainer& drain)
+void dmtcp::FileConnection::preCheckpoint(KernelBufferDrainer& drain)
 {
-  JASSERT(fds.size() > 0);
+  JASSERT(_fds.size() > 0);
 
   handleUnlinkedFile();
 
@@ -1460,53 +1259,48 @@ void dmtcp::FileConnection::preCheckpoint(const dmtcp::vector<int>& fds,
   _ckptFilesDir = UniquePid::getCkptFilesSubDir();
 
   // Read the current file descriptor offset
-  _offset = lseek(fds[0], 0, SEEK_CUR);
-  fstat(fds[0], &_stat);
+  _offset = lseek(_fds[0], 0, SEEK_CUR);
+  fstat(_fds[0], &_stat);
   _checkpointed = false;
   _restoreInSecondIteration = true;
 
   // If this file is related to supported Resource Management system
   // handle it specially
   if (_type == FILE_RESMGR) {
-    preCheckpointResMgrFile(fds);
+    preCheckpointResMgrFile();
     return;
   }
 
   if (_isBlacklistedFile(_path)) {
     return;
   }
-  if (hasLock(fds)) {
-    if (getenv(ENV_VAR_CKPT_OPEN_FILES) != NULL &&
-        _stat.st_uid == getuid()) {
-      saveFile(fds[0]);
-    } else if (_type == FILE_DELETED) {
-      saveFile(fds[0]);
-    // FIXME: Disable the following heuristic until we can comeup with a better
-    // one
-    //} else if ((_fcntlFlags &(O_WRONLY|O_RDWR)) != 0 &&
-    //           _offset < _stat.st_size &&
-    //           _stat.st_size < MAX_FILESIZE_TO_AUTOCKPT &&
-    //           _stat.st_uid == getuid()) {
-    //  saveFile(fds[0]);
-    } else if (_isVimApp() &&
-               (Util::strEndsWith(_path, ".swp") == 0 ||
-                Util::strEndsWith(_path, ".swo") == 0)) {
-      saveFile(fds[0]);
-    } else if (Util::strStartsWith(jalib::Filesystem::GetProgramName(),
-                                   "emacs")) {
-      saveFile(fds[0]);
-    } else {
-      _restoreInSecondIteration = true;
-    }
+  if (getenv(ENV_VAR_CKPT_OPEN_FILES) != NULL &&
+      _stat.st_uid == getuid()) {
+    saveFile(_fds[0]);
+  } else if (_type == FILE_DELETED) {
+    saveFile(_fds[0]);
+//   FIXME: Disable the following heuristic until we can comeup with a better
+//   one
+// } else if ((_fcntlFlags &(O_WRONLY|O_RDWR)) != 0 &&
+//             _offset < _stat.st_size &&
+//             _stat.st_size < MAX_FILESIZE_TO_AUTOCKPT &&
+//             _stat.st_uid == getuid()) {
+//    saveFile(_fds[0]);
+  } else if (_isVimApp() &&
+             (Util::strEndsWith(_path, ".swp") == 0 ||
+              Util::strEndsWith(_path, ".swo") == 0)) {
+    saveFile(_fds[0]);
+  } else if (Util::strStartsWith(jalib::Filesystem::GetProgramName(),
+                                 "emacs")) {
+    saveFile(_fds[0]);
   } else {
     _restoreInSecondIteration = true;
   }
 }
 
-void dmtcp::FileConnection::postCheckpoint(const dmtcp::vector<int>& fds,
-                                           bool isRestart)
+void dmtcp::FileConnection::postRefill(bool isRestart)
 {
-  restoreOptions(fds);
+  restoreOptions();
   if (_checkpointed && isRestart && _type == FILE_DELETED) {
     /* Here we want to unlink the file. We want to do it only at the time of
      * restart, but there is no way of finding out if we are restarting or not.
@@ -1522,13 +1316,13 @@ void dmtcp::FileConnection::postCheckpoint(const dmtcp::vector<int>& fds,
   }
 }
 
-void dmtcp::FileConnection::refreshPath(const dmtcp::vector<int>& fds)
+void dmtcp::FileConnection::refreshPath()
 {
   dmtcp::string cwd = jalib::Filesystem::GetCWD();
 
   if (_type == FILE_RESMGR) {
     // get new file name
-    dmtcp::string procpath = "/proc/self/fd/" + jalib::XToString(fds[0]);
+    dmtcp::string procpath = "/proc/self/fd/" + jalib::XToString(_fds[0]);
     dmtcp::string newpath = jalib::Filesystem::ResolveSymlink(procpath);
     JTRACE("This is Resource Manager file!") (newpath) (_path) (this);
     if (newpath != _path) {
@@ -1558,15 +1352,7 @@ void dmtcp::FileConnection::refreshPath(const dmtcp::vector<int>& fds)
   }
 }
 
-void dmtcp::FileConnection::restoreOptions(const dmtcp::vector<int>& fds)
-{
-  refreshPath(fds);
-  //call base version(F_GETFL etc)
-  Connection::restoreOptions(fds);
-}
-
-
-bool dmtcp::FileConnection::restoreResMgrFile(const dmtcp::vector<int>& fds)
+bool dmtcp::FileConnection::restoreResMgrFile()
 {
   char *ptr = getenv("PBS_HOME");
   if (ptr)
@@ -1577,7 +1363,7 @@ bool dmtcp::FileConnection::restoreResMgrFile(const dmtcp::vector<int>& fds)
   int tmpfd = 0;
 
   if (_rmtype == TORQUE_NODE) {
-    JTRACE("Restore Torque Node file") (fds.size());
+    JTRACE("Restore Torque Node file") (_fds.size());
     char newpath_tmpl[] = "/tmp/dmtcp_torque_nodefile.XXXXXX";
     dmtcp::string newpath;
     mktemp(newpath_tmpl);
@@ -1589,12 +1375,12 @@ bool dmtcp::FileConnection::restoreResMgrFile(const dmtcp::vector<int>& fds)
     _path = newpath;
     return false;
   }else if (_rmtype == TORQUE_IO) {
-    JTRACE("Restore Torque IO file") (fds.size());
+    JTRACE("Restore Torque IO file") (_fds.size());
     if (isTorqueStdout(_path)) {
-      JTRACE("Restore Torque STDOUT file") (fds.size());
+      JTRACE("Restore Torque STDOUT file") (_fds.size());
       tmpfd = 1;
     } else if (isTorqueStderr(_path)) {
-      JTRACE("Restore Torque STDERR file") (fds.size());
+      JTRACE("Restore Torque STDERR file") (_fds.size());
       tmpfd = 2;
     } else{
       return false;
@@ -1604,11 +1390,7 @@ bool dmtcp::FileConnection::restoreResMgrFile(const dmtcp::vector<int>& fds)
     dmtcp::string procpath = "/proc/self/fd/" + jalib::XToString(tmpfd);
     dmtcp::string newpath = jalib::Filesystem::ResolveSymlink(procpath);
 
-    for (size_t i=0; i<fds.size(); ++i)
-    {
-      JASSERT(_real_dup2(tmpfd , fds[i]) == fds[i]) (tmpfd) (fds[i])
-        .Text("dup2() failed");
-    }
+    Util::dupFds(tmpfd, _fds);
     restoreFile(newpath);
     return true;
   }
@@ -1616,23 +1398,22 @@ bool dmtcp::FileConnection::restoreResMgrFile(const dmtcp::vector<int>& fds)
 }
 
 
-void dmtcp::FileConnection::restore(const dmtcp::vector<int>& fds,
-                                    ConnectionRewirer*)
+void dmtcp::FileConnection::restore(ConnectionRewirer*)
 {
   struct stat buf;
   bool skip_open = false;
 
-  JASSERT(fds.size() > 0);
+  JASSERT(_fds.size() > 0);
 
   JTRACE("Restoring File Connection") (id()) (_path);
 
   if (_type == FILE_RESMGR) {
     dmtcp::string old_path = _path;
     JTRACE("Restore Resource Manager File") (_path);
-    skip_open = restoreResMgrFile(fds);
+    skip_open = restoreResMgrFile();
     JTRACE("Restore Resource Manager File #2") (old_path) (_path) (skip_open);
   } else {
-    refreshPath(fds);
+    refreshPath();
 
     if (_checkpointed) {
       JASSERT(jalib::Filesystem::FileExists(_path) == false) (_path)
@@ -1664,28 +1445,22 @@ void dmtcp::FileConnection::restore(const dmtcp::vector<int>& fds,
 
   if (!skip_open) {
     int tempfd = openFile();
-
-    JASSERT(tempfd > 0) (tempfd) (_path) (JASSERT_ERRNO);
-
-    for (size_t i=0; i<fds.size(); ++i) {
-      JASSERT(_real_dup2(tempfd, fds[i]) == fds[i]) (tempfd) (fds[i])
-        .Text("dup2() failed");
-    }
-    _real_close(tempfd);
+    Util::dupFds(tempfd, _fds);
   }
 
   errno = 0;
   if (jalib::Filesystem::FileExists(_path) &&
       stat(_path.c_str() ,&buf) == 0 && S_ISREG(buf.st_mode)) {
     if (_offset <= buf.st_size && _offset <= _stat.st_size) {
-      JASSERT(lseek(fds[0], _offset, SEEK_SET) == _offset)
+      JASSERT(lseek(_fds[0], _offset, SEEK_SET) == _offset)
         (_path) (_offset) (JASSERT_ERRNO);
-      //JTRACE("lseek(fds[0], _offset, SEEK_SET)") (fds[0]) (_offset);
+      //JTRACE("lseek(_fds[0], _offset, SEEK_SET)") (_fds[0]) (_offset);
     } else if (_offset > buf.st_size || _offset > _stat.st_size) {
       JWARNING(false) (_path) (_offset) (_stat.st_size) (buf.st_size)
         .Text("No lseek done:  offset is larger than min of old and new size.");
     }
   }
+  refreshPath();
 }
 
 static void CreateDirectoryStructure(const dmtcp::string& path)
@@ -1749,7 +1524,7 @@ int dmtcp::FileConnection::openFile()
     }
   }
 
-  fd = open(_path.c_str(), _fcntlFlags);
+  fd = _real_open(_path.c_str(), _fcntlFlags);
   JTRACE("open(_path.c_str(), _fcntlFlags)")
    (fd) (_path.c_str()) (_fcntlFlags);
 
@@ -1817,7 +1592,7 @@ void dmtcp::FileConnection::saveFile(int fd)
     const size_t bufSize = 2 * page_size;
     char *buf =(char*)JALLOC_HELPER_MALLOC(bufSize);
 
-    int destFd = open(savedFilePath.c_str(), O_CREAT | O_WRONLY | O_TRUNC,
+    int destFd = _real_open(savedFilePath.c_str(), O_CREAT | O_WRONLY | O_TRUNC,
                       S_IRWXU | S_IRWXG | S_IROTH |
                       S_IXOTH);
     JASSERT(destFd != -1) (_path) (savedFilePath) .Text("Read Failed");
@@ -1851,55 +1626,6 @@ dmtcp::string dmtcp::FileConnection::getSavedFilePath(const dmtcp::string& path)
   return os.str();
 }
 
-/* We want to check if the two file descriptor corresponding to the two
- * FileConnections are different or identical. This function verifies that the
- * filenames and offset on both fds are same. If they are same, and if
- * lseek()ing one fd changes the offset for other fd as well, then the two fds
- * are identical i.e. they were created by dup() and not by open().
- */
-bool dmtcp::FileConnection::isDupConnection(const Connection& _that,
-                                            dmtcp::ConnectionToFds& conToFds)
-{
-  bool retVal = false;
-
-  JASSERT(_that.conType() == Connection::FILE);
-
-  const FileConnection& that =(const FileConnection&)_that;
-
-  const dmtcp::vector<int>& thisFds = conToFds[_id];
-  const dmtcp::vector<int>& thatFds = conToFds[that._id];
-
-  if (_path == that._path &&
-      (lseek(thisFds[0], 0, SEEK_CUR) == lseek(thatFds[0], 0, SEEK_CUR))) {
-    off_t newOffset = lseek(thisFds[0], 1, SEEK_CUR);
-    JASSERT(newOffset != -1) (JASSERT_ERRNO) .Text("lseek failed");
-
-    if (newOffset == lseek(thatFds[0], 0, SEEK_CUR)) {
-      retVal = true;
-    }
-    // Now restore the old offset
-    JASSERT(-1 != lseek(thisFds[0], -1, SEEK_CUR)) .Text("lseek failed");
-  }
-  return retVal;
-}
-
-void dmtcp::FileConnection::mergeWith(const Connection& _that) {
-  const FileConnection& that =(const FileConnection&)_that;
-  JTRACE("Merging file connections") (_path) (_type) (that._path) (that._type);
-  Connection::mergeWith(_that);
-  JWARNING(_path   == that._path)   MERGE_MISMATCH_TEXT;
-  JWARNING(_offset == that._offset) MERGE_MISMATCH_TEXT;
-  if (!_checkpointed) {
-    _checkpointed = that._checkpointed;
-    _rel_path     = that._rel_path;
-    _ckptFilesDir = that._ckptFilesDir;
-    _restoreInSecondIteration = that._restoreInSecondIteration;
-  }
-
-  //JWARNING(false) (id())
-  //  .Text("We shouldn't be merging file connections, should we?");
-}
-
 void dmtcp::FileConnection::serializeSubClass(jalib::JBinarySerializer& o)
 {
   JSERIALIZE_ASSERT_POINT("dmtcp::FileConnection");
@@ -1913,31 +1639,21 @@ void dmtcp::FileConnection::serializeSubClass(jalib::JBinarySerializer& o)
  * FIFO Connection
  *****************************************************************************/
 
-void dmtcp::FifoConnection::preCheckpoint(const dmtcp::vector<int>& fds,
-                                          KernelBufferDrainer& drain)
+void dmtcp::FifoConnection::preCheckpoint(KernelBufferDrainer& drain)
 {
-  JASSERT(fds.size() > 0);
-
-  if (!hasLock(fds)) {
-    return;
-  }
-
-  _has_lock = true;
+  JASSERT(_fds.size() > 0);
 
   stat(_path.c_str(),&_stat);
-
-
-  JTRACE("Checkpoint fifo.") (fds[0]);
+  JTRACE("Checkpoint fifo.") (_fds[0]);
 
   int new_flags =(_fcntlFlags &(~(O_RDONLY|O_WRONLY))) | O_RDWR | O_NONBLOCK;
-  ckptfd = open(_path.c_str(),new_flags);
+  ckptfd = _real_open(_path.c_str(),new_flags);
   JASSERT(ckptfd >= 0) (ckptfd) (JASSERT_ERRNO);
 
   _in_data.clear();
   size_t bufsize = 256;
   char buf[bufsize];
   int size;
-
 
   while (1) { // flush fifo
     size = read(ckptfd,buf,bufsize);
@@ -1949,18 +1665,13 @@ void dmtcp::FifoConnection::preCheckpoint(const dmtcp::vector<int>& fds,
     }
   }
   close(ckptfd);
-  JTRACE("Checkpointing fifo:  end.") (fds[0]) (_in_data.size());
-
+  JTRACE("Checkpointing fifo:  end.") (_fds[0]) (_in_data.size());
 }
 
-void dmtcp::FifoConnection::postCheckpoint(const dmtcp::vector<int>& fds,
-                                           bool isRestart)
+void dmtcp::FifoConnection::postRefill(bool isRestart)
 {
-  if (!_has_lock)
-    return; // nothing to do now
-
   int new_flags =(_fcntlFlags &(~(O_RDONLY|O_WRONLY))) | O_RDWR | O_NONBLOCK;
-  ckptfd = open(_path.c_str(),new_flags);
+  ckptfd = _real_open(_path.c_str(),new_flags);
   JASSERT(ckptfd >= 0) (ckptfd) (JASSERT_ERRNO);
 
   size_t bufsize = 256;
@@ -1972,7 +1683,7 @@ void dmtcp::FifoConnection::postCheckpoint(const dmtcp::vector<int>& fds,
       buf[j] = _in_data[j+i*bufsize];
     }
     ret = Util::writeAll(ckptfd,buf,j);
-    JASSERT(ret ==(ssize_t)j) (JASSERT_ERRNO) (ret) (j) (fds[0]) (i);
+    JASSERT(ret ==(ssize_t)j) (JASSERT_ERRNO) (ret) (j) (_fds[0]) (i);
   }
   int start =(_in_data.size()/bufsize)*bufsize;
   for (j=0; j<_in_data.size()%bufsize; j++) {
@@ -1982,13 +1693,13 @@ void dmtcp::FifoConnection::postCheckpoint(const dmtcp::vector<int>& fds,
   buf[j] ='\0';
   JTRACE("Buf internals.") ((const char*)buf);
   ret = Util::writeAll(ckptfd,buf,j);
-  JASSERT(ret ==(ssize_t)j) (JASSERT_ERRNO) (ret) (j) (fds[0]);
+  JASSERT(ret ==(ssize_t)j) (JASSERT_ERRNO) (ret) (j) (_fds[0]);
 
   close(ckptfd);
   // unlock fifo
-  flock(fds[0],LOCK_UN);
-  JTRACE("End checkpointing fifo.") (fds[0]);
-  restoreOptions(fds);
+  flock(_fds[0],LOCK_UN);
+  JTRACE("End checkpointing fifo.") (_fds[0]);
+  restoreOptions();
 }
 
 void dmtcp::FifoConnection::refreshPath()
@@ -2005,36 +1716,14 @@ void dmtcp::FifoConnection::refreshPath()
   }
 }
 
-void dmtcp::FifoConnection::restoreOptions(const dmtcp::vector<int>& fds)
+void dmtcp::FifoConnection::restore(ConnectionRewirer*)
 {
-  refreshPath();
-  //call base version(F_GETFL etc)
-  Connection::restoreOptions(fds);
-}
-
-
-void dmtcp::FifoConnection::restore(const dmtcp::vector<int>& fds,
-                                    ConnectionRewirer*)
-{
-  JASSERT(fds.size() > 0);
-
+  JASSERT(_fds.size() > 0);
   JTRACE("Restoring Fifo Connection") (id()) (_path);
-  errno = 0;
   refreshPath();
   int tempfd = openFile();
-  bool shouldClose = true;
-  JASSERT(tempfd > 0) (tempfd) (_path) (JASSERT_ERRNO);
-
-  for (size_t i=0; i<fds.size(); ++i) {
-    JASSERT(_real_dup2(tempfd, fds[i]) == fds[i]) (tempfd) (fds[i])
-      .Text("dup2() failed.");
-    if (tempfd == fds[i]) {
-      shouldClose = false;
-    }
-  }
-  if (shouldClose) {
-    close(tempfd);
-  }
+  Util::dupFds(tempfd, _fds);
+  refreshPath();
 }
 
 int dmtcp::FifoConnection::openFile()
@@ -2046,7 +1735,7 @@ int dmtcp::FifoConnection::openFile()
     mkfifo(_path.c_str(),_stat.st_mode);
   }
 
-  fd = open(_path.c_str(), O_RDWR | O_NONBLOCK);
+  fd = _real_open(_path.c_str(), O_RDWR | O_NONBLOCK);
   JTRACE("Is opened") (_path.c_str()) (fd);
 
   JASSERT(fd != -1) (_path) (JASSERT_ERRNO);
@@ -2056,40 +1745,28 @@ int dmtcp::FifoConnection::openFile()
 void dmtcp::FifoConnection::serializeSubClass(jalib::JBinarySerializer& o)
 {
   JSERIALIZE_ASSERT_POINT("dmtcp::FifoConnection");
-  o & _path & _rel_path & _savedRelativePath & _stat & _in_data & _has_lock;
+  o & _path & _rel_path & _savedRelativePath & _stat & _in_data;
   JTRACE("Serializing FifoConn.") (_path) (_rel_path) (_savedRelativePath);
-}
-
-void dmtcp::FifoConnection::mergeWith(const Connection& _that)
-{
-  Connection::mergeWith(_that);
-  const FifoConnection& that =(const FifoConnection&)_that;
-  JWARNING(_path   == that._path)   MERGE_MISMATCH_TEXT;
-  //JWARNING(false) (id())
-  //.Text("We shouldn't be merging fifo connections, should we?");
 }
 
 /*****************************************************************************
  * Stdio Connection
  *****************************************************************************/
 
-void dmtcp::StdioConnection::preCheckpoint(const dmtcp::vector<int>& fds,
-                                           KernelBufferDrainer& drain)
+void dmtcp::StdioConnection::preCheckpoint(KernelBufferDrainer& drain)
 {
-  //JTRACE("Checkpointing stdio") (fds[0]) (id());
+  //JTRACE("Checkpointing stdio") (_fds[0]) (id());
 }
 
-void dmtcp::StdioConnection::postCheckpoint(const dmtcp::vector<int>& fds,
-                                            bool isRestart)
+void dmtcp::StdioConnection::postRefill(bool isRestart)
 {
-  restoreOptions(fds);
+  restoreOptions();
 }
 
-void dmtcp::StdioConnection::restore(const dmtcp::vector<int>& fds,
-                                     ConnectionRewirer*)
+void dmtcp::StdioConnection::restore(ConnectionRewirer*)
 {
-  for (size_t i=0; i<fds.size(); ++i) {
-    int fd = fds[i];
+  for (size_t i=0; i<_fds.size(); ++i) {
+    int fd = _fds[i];
     if (fd <= 2) {
       JTRACE("Skipping restore of STDIO, just inherit from parent") (fd);
       continue;
@@ -2116,78 +1793,48 @@ void dmtcp::StdioConnection::restore(const dmtcp::vector<int>& fds,
   }
 }
 
-void dmtcp::StdioConnection::restoreOptions(const dmtcp::vector<int>& fds)
-{
-  Connection::restoreOptions(fds);
-  //nothing
-}
-
 void dmtcp::StdioConnection::serializeSubClass(jalib::JBinarySerializer& o)
 {
   JSERIALIZE_ASSERT_POINT("dmtcp::StdioConnection");
   //JTRACE("Serializing STDIO") (id());
 }
 
-void dmtcp::StdioConnection::mergeWith(const Connection& that)
-{
-  //Connection::mergeWith(that);
-}
-
-void dmtcp::StdioConnection::restartDup2(int oldFd, int newFd)
-{
-  restore(dmtcp::vector<int>(1, newFd));
-}
-
 /*****************************************************************************
  * Epoll Connection
  *****************************************************************************/
 
-void dmtcp::EpollConnection::preCheckpoint(const dmtcp::vector<int>& fds,
-                                           KernelBufferDrainer& drain)
+void dmtcp::EpollConnection::preCheckpoint(KernelBufferDrainer& drain)
 {
-  JASSERT(fds.size() > 0);
+  JASSERT(_fds.size() > 0);
 }
 
-void dmtcp::EpollConnection::postCheckpoint(const dmtcp::vector<int>& fds,
-                                            bool isRestart)
+void dmtcp::EpollConnection::postRefill(bool isRestart)
 {
-  JASSERT(fds.size() > 0);
+  JASSERT(_fds.size() > 0);
+  if (isRestart) {
+    typedef dmtcp::map< int, struct epoll_event >::iterator fdEventIterator;
+    fdEventIterator fevt = _fdToEvent.begin();
+    for (; fevt != _fdToEvent.end(); fevt++) {
+      JTRACE("restore sfd options") (fevt->first);
+      int ret = _real_epoll_ctl(_fds[0], EPOLL_CTL_ADD, fevt->first,
+                                &(fevt->second));
+      JWARNING(ret == 0) (_fds[0]) (ret) (strerror(errno))
+        .Text("Error in restoring options");
+    }
+  }
 }
 
-void dmtcp::EpollConnection::mergeWith(const Connection& that)
+void dmtcp::EpollConnection::restore(ConnectionRewirer*)
 {
-  Connection::mergeWith(that);
-}
-
-void dmtcp::EpollConnection::restore(const dmtcp::vector<int>& fds,
-                                     ConnectionRewirer*)
-{
-  JASSERT(fds.size()>0);
-  JTRACE("Recreating epoll connection") (fds[0]) (id());
+  JASSERT(_fds.size()>0);
+  JTRACE("Recreating epoll connection") (_fds[0]) (id());
   int tempFd =  _real_epoll_create(_size) ;
   JASSERT(tempFd >= 0);
-  for (size_t i=0; i<fds.size(); ++i) {
-    JWARNING(_real_dup2(tempFd, fds[i]) == fds[i])
-      (tempFd) (fds[i]) (JASSERT_ERRNO);
-  }
+  Util::dupFds(tempFd, _fds);
 }
 
-void dmtcp::EpollConnection::restoreOptions(const dmtcp::vector<int>& fds)
+void dmtcp::EpollConnection::serializeSubClass(jalib::JBinarySerializer& o)
 {
-  Connection::restoreOptions(fds);
-  JTRACE("Restoring epoll connection") (fds[0]) (id());
-  typedef dmtcp::map< int, struct epoll_event >::iterator fdEventIterator;
-  fdEventIterator fevt = _fdToEvent.begin();
-  for (; fevt != _fdToEvent.end(); fevt++) {
-    JTRACE("restore sfd options") (fevt->first);
-    int ret = _real_epoll_ctl(fds[0], EPOLL_CTL_ADD, fevt->first,
-                              &(fevt->second));
-    JWARNING(ret == 0) (ret) (strerror(errno))
-      .Text("Error in restoring options");
-  }
-}
-
-void dmtcp::EpollConnection::serializeSubClass(jalib::JBinarySerializer& o) {
   JSERIALIZE_ASSERT_POINT("dmtcp::EpollConnection");
   o & _type & _stat;
   o.serializeMap(_fdToEvent);
@@ -2222,21 +1869,13 @@ void dmtcp::EpollConnection::onCTL(int op, int fd, struct epoll_event *event)
 /*****************************************************************************
  * Eventfd Connection
  *****************************************************************************/
-void dmtcp::EventFdConnection::preCheckpoint(const dmtcp::vector<int>& fds,
-                                             KernelBufferDrainer& drain)
+void dmtcp::EventFdConnection::preCheckpoint(KernelBufferDrainer& drain)
 {
-  JASSERT(fds.size() > 0);
-
-  if (!hasLock(fds)) {
-    return;
-  }
-
-  _has_lock = true;
-
-  JTRACE("Checkpoint eventfd.") (fds[0]);
+  JASSERT(_fds.size() > 0);
+  JTRACE("Checkpoint eventfd.") (_fds[0]);
 
   int new_flags =(_fcntlFlags &(~(O_RDONLY|O_WRONLY))) | O_RDWR | O_NONBLOCK;
-  int evtfd = fds[0];
+  int evtfd = _fds[0];
   JASSERT(evtfd >= 0) (evtfd) (JASSERT_ERRNO);
   // set the new flags
   JASSERT(fcntl(evtfd, F_SETFL, new_flags) == 0)
@@ -2266,140 +1905,100 @@ void dmtcp::EventFdConnection::preCheckpoint(const dmtcp::vector<int>& fds,
       (evtfd) (errno) (strerror(errno));
     _initval = 0;
   }
-  //Connection::restoreOptions(fds);
-  JTRACE("Checkpointing eventfd:  end.") (fds[0]) (_initval);
+  JTRACE("Checkpointing eventfd:  end.") (_fds[0]) (_initval);
 }
 
-void dmtcp::EventFdConnection::postCheckpoint(const dmtcp::vector<int>& fds,
-                                              bool isRestart)
+void dmtcp::EventFdConnection::postRefill(bool isRestart)
 {
-  if (!_has_lock)
-    return; // nothing to do now
-  JTRACE("Begin postCheckpoint eventfd.") (fds[0]);
-  JASSERT(fds.size() > 0);
-  evtfd = fds[0];
+  JTRACE("Begin postRefill eventfd.") (_fds[0]);
+  JASSERT(_fds.size() > 0);
+  evtfd = _fds[0];
   if (!isRestart) {
     uint64_t u =(unsigned long long) _initval;
     JTRACE("Writing") (u);
     JWARNING(write(evtfd, &u, sizeof(uint64_t)) == sizeof(uint64_t))
       (evtfd) (errno) (strerror(errno))
-      .Text("Write to eventfd failed during postCheckpoint");
+      .Text("Write to eventfd failed during postRefill");
   }
-  restoreOptions(fds);
-  JTRACE("End postCheckpoint eventfd.") (fds[0]);
+  restoreOptions();
+  JTRACE("End postRefill eventfd.") (_fds[0]);
 }
 
-void dmtcp::EventFdConnection::restoreOptions(const dmtcp::vector<int>& fds)
+void dmtcp::EventFdConnection::restore(ConnectionRewirer*)
 {
-  //call base version(F_GETFL etc)
-  Connection::restoreOptions(fds);
-}
-
-
-void dmtcp::EventFdConnection::restore(const dmtcp::vector<int>& fds,
-                                       ConnectionRewirer*)
-{
-  JASSERT(fds.size() > 0);
+  JASSERT(_fds.size() > 0);
 
   JTRACE("Restoring EventFd Connection") (id());
   errno = 0;
   int tempfd = _real_eventfd(_initval, _flags);
   JASSERT(tempfd > 0) (tempfd) (JASSERT_ERRNO);
-
-  for (size_t i=0; i<fds.size(); ++i)
-  {
-    JASSERT(_real_dup2(tempfd, fds[i]) == fds[i]) (tempfd) (fds[i])
-      .Text("dup2() failed.");
-  }
+  Util::dupFds(tempfd, _fds);
 }
 
 void dmtcp::EventFdConnection::serializeSubClass(jalib::JBinarySerializer& o)
 {
   JSERIALIZE_ASSERT_POINT("dmtcp::EventFdConnection");
-  o & _initval & _flags & _has_lock;
+  o & _initval & _flags;
   JTRACE("Serializing EvenFdConn.") ;
 }
 
 /*****************************************************************************
  * Signalfd Connection
  *****************************************************************************/
-void dmtcp::SignalFdConnection::preCheckpoint(const dmtcp::vector<int>& fds,
-                                              KernelBufferDrainer& drain)
+void dmtcp::SignalFdConnection::preCheckpoint(KernelBufferDrainer& drain)
 {
-  JASSERT(fds.size() > 0);
+  JASSERT(_fds.size() > 0);
 
-  if (!hasLock(fds)) {
-    return;
-  }
-
-  _has_lock = true;
-
-  JTRACE("Checkpoint signalfd.") (fds[0]);
+  JTRACE("Checkpoint signalfd.") (_fds[0]);
 
   int new_flags =(_fcntlFlags &(~(O_RDONLY|O_WRONLY))) | O_RDWR | O_NONBLOCK;
-  signlfd = fds[0];
+  signlfd = _fds[0];
   JASSERT(signlfd >= 0) (signlfd) (JASSERT_ERRNO);
   // set the new flags
   JASSERT(fcntl(signlfd, F_SETFL, new_flags) == 0)
    (signlfd) (new_flags) (JASSERT_ERRNO);
   ssize_t size;
-  struct signalfd_siginfo fdsi;
+  struct signalfd_siginfo _fdsi;
 
   // Read whatever is there on top of signalfd
-  size = read(signlfd, &fdsi, sizeof(struct signalfd_siginfo));
+  size = read(signlfd, &_fdsi, sizeof(struct signalfd_siginfo));
   if (-1 != size) {
     // Save the value, so that it can be restored in post-checkpoint
-    memcpy(&_fdsi, &fdsi, sizeof(struct signalfd_siginfo));
+    memcpy(&_fdsi, &_fdsi, sizeof(struct signalfd_siginfo));
 
   } else {
     JTRACE("Nothing to be read from signalfd.")
       (signlfd) (errno) (strerror(errno));
   }
-  JTRACE("Checkpointing signlfd:  end.") (fds[0]) ;
+  JTRACE("Checkpointing signlfd:  end.") (_fds[0]) ;
 }
 
-void dmtcp::SignalFdConnection::postCheckpoint(const dmtcp::vector<int>& fds,
-                                               bool isRestart)
+void dmtcp::SignalFdConnection::postRefill(bool isRestart)
 {
-  if (!_has_lock)
-    return; // nothing to do now
-  JTRACE("Begin postCheckpoint signalfd.") (fds[0]);
-  JASSERT(fds.size() > 0);
+  JTRACE("Begin postRefill signalfd.") (_fds[0]);
+  JASSERT(_fds.size() > 0);
   //raise the signals
   JTRACE("Raising the signal...") (_fdsi.ssi_signo);
   raise(_fdsi.ssi_signo);
-  restoreOptions(fds);
-  JTRACE("End postCheckpoint signalfd.") (fds[0]);
+  restoreOptions();
+  JTRACE("End postRefill signalfd.") (_fds[0]);
 }
 
-void dmtcp::SignalFdConnection::restoreOptions(const dmtcp::vector<int>& fds)
+void dmtcp::SignalFdConnection::restore(ConnectionRewirer*)
 {
-  //call base version(F_GETFL etc)
-  Connection::restoreOptions(fds);
-}
-
-
-void dmtcp::SignalFdConnection::restore(const dmtcp::vector<int>& fds,
-                                        ConnectionRewirer*)
-{
-  JASSERT(fds.size() > 0);
+  JASSERT(_fds.size() > 0);
 
   JTRACE("Restoring SignalFd Connection") (id());
   errno = 0;
   int tempfd = _real_signalfd(-1, &_mask, _flags);
   JASSERT(tempfd > 0) (tempfd) (JASSERT_ERRNO);
-
-  for (size_t i=0; i<fds.size(); ++i)
-  {
-    JASSERT(_real_dup2(tempfd, fds[i]) == fds[i]) (tempfd) (fds[i])
-      .Text("dup2() failed.");
-  }
+  Util::dupFds(tempfd, _fds);
 }
 
 void dmtcp::SignalFdConnection::serializeSubClass(jalib::JBinarySerializer& o)
 {
   JSERIALIZE_ASSERT_POINT("dmtcp::SignalFdConnection");
-  o &  _flags & _mask & _fdsi & _has_lock;
+  o &  _flags & _mask & _fdsi;
   JTRACE("Serializing SignalFdConn.") ;
 }
 
@@ -2407,66 +2006,51 @@ void dmtcp::SignalFdConnection::serializeSubClass(jalib::JBinarySerializer& o)
 /*****************************************************************************
  * Inotify Connection
  *****************************************************************************/
-void dmtcp::InotifyConnection::preCheckpoint(const dmtcp::vector<int>& fds,
-                                             KernelBufferDrainer& drain)
+void dmtcp::InotifyConnection::preCheckpoint(KernelBufferDrainer& drain)
 {
-  JASSERT(fds.size() > 0);
+  JASSERT(_fds.size() > 0);
 }
 
-void dmtcp::InotifyConnection::postCheckpoint(const dmtcp::vector<int>& fds,
-                                                bool isRestart)
+void dmtcp::InotifyConnection::postRefill(bool isRestart)
 {
-  JASSERT(fds.size() > 0);
-}
+  JASSERT(_fds.size() > 0);
+  if (isRestart) {
+    int num_of_descriptors;
+    Util::Descriptor descriptor;
+    descriptor_types_u  watch_descriptor;
 
-void dmtcp::InotifyConnection::mergeWith(const Connection& that)
-{
-  Connection::mergeWith(that);
-}
+    //get the number of watch descriptors stored in dmtcp
+    num_of_descriptors = descriptor.count_descriptors();
 
-void dmtcp::InotifyConnection::restore(const dmtcp::vector<int>& fds,
-                                       ConnectionRewirer*)
-{
-  for (size_t i=0; i<fds.size(); ++i) {
-    int old_inotify_fd = fds[i];
-    //create a new inotify instance and clone it as the old one
-    int new_inotify_fd =  _real_inotify_init1(_flags);
-    JASSERT(new_inotify_fd >= 0);
-    JASSERT(_real_dup2(new_inotify_fd, old_inotify_fd)== old_inotify_fd)
-      (new_inotify_fd) (old_inotify_fd) (JASSERT_ERRNO) ;
-  }
-}
+    JTRACE("inotify restoreOptions") (_fds[0]) (id()) (num_of_descriptors);
 
-void dmtcp::InotifyConnection::restoreOptions(const dmtcp::vector<int>& fds)
-{
-  int num_of_descriptors;
-  Util::Descriptor descriptor;
-  descriptor_types_u  watch_descriptor;
+    for (int i = 0; i < num_of_descriptors; i++) {
+      if (true == descriptor.get_descriptor(i, INOTIFY_ADD_WATCH_DESCRIPTOR,
+                                            &watch_descriptor)) {
+        int old_wd = watch_descriptor.add_watch.watch_descriptor;
 
-  //Connection::restoreOptions(fds)
+        int new_wd =
+          _real_inotify_add_watch(watch_descriptor.add_watch.file_descriptor,
+                                  watch_descriptor.add_watch.pathname,
+                                  watch_descriptor.add_watch.mask);
 
-  //get the number of watch descriptors stored in dmtcp
-  num_of_descriptors = descriptor.count_descriptors();
-
-  JTRACE("inotify restoreOptions") (fds[0]) (id()) (num_of_descriptors);
-
-  for (int i = 0; i < num_of_descriptors; i++) {
-    if (true == descriptor.get_descriptor(i, INOTIFY_ADD_WATCH_DESCRIPTOR,
-                                          &watch_descriptor)) {
-      int old_wd = watch_descriptor.add_watch.watch_descriptor;
-
-      int new_wd =
-        _real_inotify_add_watch(watch_descriptor.add_watch.file_descriptor,
-                                watch_descriptor.add_watch.pathname,
-                                watch_descriptor.add_watch.mask);
-
-      JWARNING(_real_dup2(new_wd, old_wd) == old_wd)
-        (new_wd) (old_wd) (JASSERT_ERRNO);
-      JTRACE("restore watch descriptors")
-        (old_wd) (new_wd) (watch_descriptor.add_watch.file_descriptor)
-        (watch_descriptor.add_watch.pathname) (watch_descriptor.add_watch.mask);
+        JWARNING(_real_dup2(new_wd, old_wd) == old_wd)
+          (new_wd) (old_wd) (JASSERT_ERRNO);
+        JTRACE("restore watch descriptors")
+          (old_wd) (new_wd) (watch_descriptor.add_watch.file_descriptor)
+          (watch_descriptor.add_watch.pathname)
+          (watch_descriptor.add_watch.mask);
+      }
     }
   }
+}
+
+void dmtcp::InotifyConnection::restore(ConnectionRewirer*)
+{
+  //create a new inotify instance and clone it as the old one
+  int tempfd =  _real_inotify_init1(_flags);
+  JASSERT(tempfd >= 0);
+  Util::dupFds(tempfd, _fds);
 }
 
 void dmtcp::InotifyConnection::serializeSubClass(jalib::JBinarySerializer& o)
@@ -2540,25 +2124,20 @@ void dmtcp::PosixMQConnection::on_mq_notify(const struct sigevent *sevp)
   }
 }
 
-void dmtcp::PosixMQConnection::preCheckpoint(const dmtcp::vector<int>& fds,
-                                             KernelBufferDrainer& drain)
+void dmtcp::PosixMQConnection::preCheckpoint(KernelBufferDrainer& drain)
 {
-  JASSERT(fds.size() > 0);
+  JASSERT(_fds.size() > 0);
 
-  if (!hasLock(fds)) {
-    return;
-  }
-
-  JTRACE("Checkpoint Posix Message Queue.") (fds[0]);
+  JTRACE("Checkpoint Posix Message Queue.") (_fds[0]);
 
   struct stat statbuf;
-  JASSERT(fstat(fds[0], &statbuf) != -1) (JASSERT_ERRNO);
+  JASSERT(fstat(_fds[0], &statbuf) != -1) (JASSERT_ERRNO);
   if (_mode == 0) {
     _mode = statbuf.st_mode;
   }
 
   struct mq_attr attr;
-  JASSERT(mq_getattr(fds[0], &attr) != -1) (JASSERT_ERRNO);
+  JASSERT(mq_getattr(_fds[0], &attr) != -1) (JASSERT_ERRNO);
   _attr = attr;
   if (attr.mq_curmsgs < 0) {
     return;
@@ -2571,7 +2150,7 @@ void dmtcp::PosixMQConnection::preCheckpoint(const dmtcp::vector<int>& fds,
   char *buf =(char*) JALLOC_HELPER_MALLOC(attr.mq_msgsize);
   for (long i = 0; i < _qnum; i++) {
     unsigned prio;
-    ssize_t numBytes = _real_mq_timedreceive(fds[0], buf, attr.mq_msgsize,
+    ssize_t numBytes = _real_mq_timedreceive(_fds[0], buf, attr.mq_msgsize,
                                              &prio, NULL);
     JASSERT(numBytes != -1) (JASSERT_ERRNO);
     _msgInQueue.push_back(jalib::JBuffer((const char*)buf, numBytes));
@@ -2581,11 +2160,10 @@ void dmtcp::PosixMQConnection::preCheckpoint(const dmtcp::vector<int>& fds,
   _real_mq_close(fd);
 }
 
-void dmtcp::PosixMQConnection::postCheckpoint(const dmtcp::vector<int>& fds,
-                                              bool isRestart)
+void dmtcp::PosixMQConnection::postRefill(bool isRestart)
 {
   for (long i = 0; i < _qnum; i++) {
-    JASSERT(_real_mq_timedsend(fds[0], _msgInQueue[i].buffer(),
+    JASSERT(_real_mq_timedsend(_fds[0], _msgInQueue[i].buffer(),
                                _msgInQueue[i].size(), _msgInQueuePrio[i],
                                NULL) != -1);
   }
@@ -2593,10 +2171,9 @@ void dmtcp::PosixMQConnection::postCheckpoint(const dmtcp::vector<int>& fds,
   _msgInQueuePrio.clear();
 }
 
-void dmtcp::PosixMQConnection::restore(const dmtcp::vector<int>& fds,
-                                       ConnectionRewirer*)
+void dmtcp::PosixMQConnection::restore(ConnectionRewirer*)
 {
-  JASSERT(fds.size() > 0);
+  JASSERT(_fds.size() > 0);
 
   errno = 0;
   if (_oflag & O_EXCL) {
@@ -2605,11 +2182,7 @@ void dmtcp::PosixMQConnection::restore(const dmtcp::vector<int>& fds,
 
   int tempfd = _real_mq_open(_name.c_str(), _oflag, _mode, &_attr);
   JASSERT(tempfd != -1) (JASSERT_ERRNO);
-
-  for (size_t i = 0; i < fds.size(); ++i) {
-    JASSERT(_real_dup2(tempfd, fds[i]) == fds[i]) (tempfd) (fds[i])
-      .Text("dup2() failed.");
-  }
+  Util::dupFds(tempfd, _fds);
 }
 
 void dmtcp::PosixMQConnection::serializeSubClass(jalib::JBinarySerializer& o)

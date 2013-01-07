@@ -58,6 +58,7 @@ namespace dmtcp
       void  postExec();
 
       void resetOnFork();
+      void postRestart();
 
       bool beginPthreadJoin(pthread_t thread);
       void endPthreadJoin(pthread_t thread);

@@ -36,7 +36,6 @@ using namespace dmtcp;
 
 dmtcp::CoordinatorAPI::CoordinatorAPI (int sockfd)
   : _coordinatorSocket(sockfd)
-  , _restoreSocket(PROTECTED_RESTORE_SOCK_FD)
 {
   return;
 }
@@ -268,7 +267,6 @@ void dmtcp::CoordinatorAPI::connectToCoordinatorWithoutHandshake()
 }
 
 // FIXME:
-static int theRestorePort = RESTORE_PORT_START;
 void dmtcp::CoordinatorAPI::sendCoordinatorHandshake(
                            const dmtcp::string& progname,
                            UniquePid compGroup /*= UniquePid()*/,
@@ -286,7 +284,6 @@ void dmtcp::CoordinatorAPI::sendCoordinatorHandshake(
   hello_local.type = msgType;
   hello_local.numPeers = np;
   hello_local.compGroup = compGroup;
-  hello_local.restorePort = theRestorePort;
 
   if (preForkHandshake || getenv(ENV_VAR_VIRTUAL_PID) == NULL) {
     hello_local.virtualPid = -1;
@@ -358,7 +355,10 @@ void dmtcp::CoordinatorAPI::recvCoordinatorHandshake()
 
   _coordinatorId = hello_remote.coordinator;
   DmtcpMessage::setDefaultCoordinator(_coordinatorId);
-  UniquePid::ComputationId() = hello_remote.compGroup;
+  if (UniquePid::ComputationId() == UniquePid(0,0,0) &&
+      hello_remote.compGroup != UniquePid(0,0,0)) {
+    UniquePid::ComputationId() = hello_remote.compGroup;
+  }
   _coordTimeStamp = hello_remote.coordTimeStamp;
   _virtualPid = hello_remote.virtualPid;
   JTRACE("Coordinator handshake RECEIVED!!!!!");
@@ -569,27 +569,6 @@ void dmtcp::CoordinatorAPI::startNewCoordinator(dmtcp::CoordinatorAPI::Coordinat
     JASSERT(WEXITSTATUS(coordinatorStatus) == 0)
       .Text("Failed to start coordinator, port already in use.  You may use a different port by running with \'-p 12345\'\n");
   }
-}
-
-jalib::JSocket& dmtcp::CoordinatorAPI::openRestoreSocket()
-{
-  JTRACE("restoreSockets begin");
-
-  theRestorePort = RESTORE_PORT_START;
-
-  jalib::JSocket restoreSocket (-1);
-  while (!restoreSocket.isValid() && theRestorePort < RESTORE_PORT_STOP) {
-    restoreSocket = jalib::JServerSocket(jalib::JSockAddr::ANY,
-                                         ++theRestorePort);
-    JTRACE("open listen socket attempt") (theRestorePort);
-  }
-  JASSERT(restoreSocket.isValid()) (RESTORE_PORT_START)
-    .Text("failed to open listen socket");
-  restoreSocket.changeFd(_restoreSocket.sockfd());
-  JTRACE("opening listen sockets")
-    (_restoreSocket.sockfd()) (restoreSocket.sockfd());
-  _restoreSocket = restoreSocket;
-  return _restoreSocket;
 }
 
 void dmtcp::CoordinatorAPI::sendCkptFilename()

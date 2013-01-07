@@ -20,7 +20,7 @@ INCLUDES= $(all_includes)
 noinst_LIBRARIES = libdmtcpinternal.a libsyscallsreal.a libnohijack.a \
 		   libsysvipc.a libjalib.a libconnection.a
 bin_PROGRAMS = dmtcp_checkpoint dmtcp_command dmtcp_coordinator \
-	       dmtcp_restart dmtcp_inspector dmtcp_nocheckpoint dmtcp_discover_rm
+	       dmtcp_restart dmtcp_nocheckpoint dmtcp_discover_rm
 pkglibexec_PROGRAMS = dmtcphijack.so libdmtcpaware.so.1.0.0
 include_HEADERS = dmtcpaware.h
 lib_LIBRARIES = libdmtcpaware.a
@@ -30,16 +30,15 @@ nobase_noinst_HEADERS = constants.h \
 	../jalib/jassert.h ../jalib/jalloc.h ../jalib/jalib.h \
 	../jalib/jbuffer.h ../jalib/jconvert.h ../jalib/jfilesystem.h \
 	../jalib/jserialize.h ../jalib/jsocket.h ../jalib/jtimer.h \
-	con/connectionstate.h con/connection.h \
+	sysvipc/sysvipc.h con/connection.h \
 	con/connectionmanager.h con/connectionrewirer.h \
-	con/kernelbufferdrainer.h con/sockettable.h con/util_descriptor.h\
-	sysvipc/sysvipc.h \
+	con/kernelbufferdrainer.h con/util_descriptor.h\
 	dmtcp_coordinator.h dmtcpmessagetypes.h \
 	dmtcpworker.h threadsync.h coordinatorapi.h \
 	mtcpinterface.h  protectedfds.h connectionidentifier.h \
 	syscallwrappers.h syslogwrappers.h \
 	uniquepid.h processinfo.h util.h virtualidtable.h \
-	restoretarget.h ckptserializer.h resource_manager.h remexecwrappers.h\
+	resource_manager.h remexecwrappers.h\
 	dmtcpplugin.h lookup_service.h trampolines.h shareddata.h
 
 # Note that libdmtcpinternal.a does not include wrappers.
@@ -50,12 +49,11 @@ libdmtcpinternal_a_SOURCES = dmtcpmessagetypes.cpp protectedfds.cpp \
 			     coordinatorapi.cpp connectionidentifier.cpp \
 			     util_exec.cpp util_gen.cpp util_init.cpp \
 			     jalibinterface.cpp processinfo.cpp \
-			     ckptserializer.cpp resource_manager.cpp
+			     resource_manager.cpp
 
 libconnection_a_SOURCES = con/con.cpp con/connection.cpp \
 			  con/connectionmanager.cpp con/connectionrewirer.cpp \
-			  con/connectionstate.cpp con/kernelbufferdrainer.cpp \
-			  con/sockettable.cpp con/util_descriptor.cpp \
+			  con/kernelbufferdrainer.cpp con/util_descriptor.cpp \
 			  resource_manager.cpp
 
 libsysvipc_a_SOURCES = sysvipc/sysvipc.cpp sysvipc/sysvipcwrappers.cpp
@@ -76,7 +74,7 @@ dmtcp_checkpoint_SOURCES = dmtcp_checkpoint.cpp
 
 dmtcp_nocheckpoint_SOURCES = dmtcp_nocheckpoint.c
 
-dmtcp_restart_SOURCES = dmtcp_restart.cpp restoretarget.cpp
+dmtcp_restart_SOURCES = dmtcp_restart.cpp util_exec.cpp
 
 dmtcp_command_SOURCES = dmtcp_command.cpp
 
@@ -90,8 +88,6 @@ dmtcphijack_so_SOURCES = dmtcpawareapi.cpp dmtcpworker.cpp threadsync.cpp \
 			 con/eventwrappers.cpp con/filewrappers.cpp \
 			 con/socketwrappers.cpp con/posixipcwrappers.cpp \
 			 sysvipc/sysvipcwrappers.cpp
-
-dmtcp_inspector_SOURCES = dmtcp_inspector.cpp
 
 dmtcp_discover_rm_SOURCES = dmtcp_discover_rm.cpp
 
@@ -109,10 +105,8 @@ dmtcp_coordinator_LDADD = libdmtcpinternal.a libconnection.a libjalib.a \
 dmtcp_checkpoint_LDADD  = libdmtcpinternal.a libconnection.a libjalib.a \
 			  libnohijack.a -ldl -lpthread -lrt
 dmtcp_restart_LDADD     = libdmtcpinternal.a libconnection.a libjalib.a \
-			  libnohijack.a -lpthread -lrt
+			  libnohijack.a -lpthread -lrt -ldl
 dmtcp_command_LDADD     = libdmtcpinternal.a libconnection.a libjalib.a \
-			  libnohijack.a -lpthread -lrt
-dmtcp_inspector_LDADD   = libconnection.a libdmtcpinternal.a libjalib.a \
 			  libnohijack.a -lpthread -lrt
 
 libdmtcpaware_a_SOURCES = dmtcpaware.c
@@ -130,4 +124,3 @@ AM_CFLAGS = $(PICFLAGS)
 AM_CXXFLAGS = $(PICFLAGS)
 AM_LDFLAGS = $(PICFLAGS)
 endif
-

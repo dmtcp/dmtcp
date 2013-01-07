@@ -616,6 +616,12 @@ void _real_exit (int status)
 }
 
 LIB_PRIVATE
+int _real_fcntl(int fd, int cmd, void *arg)
+{
+  REAL_FUNC_PASSTHROUGH (fcntl) (fd, cmd, arg);
+}
+
+LIB_PRIVATE
 int _real_getpt (void)
 {
   REAL_FUNC_PASSTHROUGH (getpt) ();

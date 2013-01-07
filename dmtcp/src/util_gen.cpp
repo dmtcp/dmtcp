@@ -166,6 +166,18 @@ ssize_t dmtcp::Util::skipBytes(int fd, size_t count)
   return totalSkipped;
 }
 
+void dmtcp::Util::dupFds(int oldfd, const dmtcp::vector<int>& newfds)
+{
+  JASSERT(_real_dup2(oldfd, newfds[0]) == newfds[0]);
+  if (oldfd != newfds[0]) {
+    _real_close(oldfd);
+  }
+  for (size_t i = 1; i < newfds.size(); i++) {
+    JASSERT(_real_dup2(newfds[0], newfds[i]) == newfds[i]);
+  }
+}
+
+
 /* Begin miscellaneous/helper functions. */
 // Reads from fd until count bytes are read, or newline encountered.
 // Returns NULL at EOF.
@@ -348,12 +360,7 @@ bool dmtcp::Util::isPtraced()
 
 bool dmtcp::Util::isValidFd(int fd)
 {
-  int f = _real_dup(fd);
-  if (f == -1) {
-    return false;
-  }
-  _real_close(f);
-  return true;
+  return _real_fcntl(fd, F_GETFL, 0) != -1;
 }
 
 size_t dmtcp::Util::pageSize()

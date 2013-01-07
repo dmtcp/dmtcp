@@ -33,6 +33,8 @@
 #include "processinfo.h"
 #include "dmtcpplugin.h"
 #include "shareddata.h"
+#include "util.h"
+#include "coordinatorapi.h"
 #include  "../jalib/jconvert.h"
 #include  "../jalib/jfilesystem.h"
 
@@ -51,16 +53,6 @@ static void _do_unlock_tbl()
 void dmtcp_ProcessInfo_ProcessEvent(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   switch (event) {
-    case DMTCP_EVENT_LEADER_ELECTION:
-      if (getppid() == 1) {
-        dmtcp::SharedData::setProcessTreeRoot();
-      }
-      break;
-
-    case DMTCP_EVENT_DRAIN:
-      dmtcp::ProcessInfo::instance().refreshProcessTreeRoots();
-      break;
-
     case DMTCP_EVENT_PRE_EXEC:
       {
         jalib::JBinarySerializeWriterRaw wr("", data->serializerInfo.fd);
@@ -76,11 +68,26 @@ void dmtcp_ProcessInfo_ProcessEvent(DmtcpEvent_t event, DmtcpEventData_t *data)
       }
       break;
 
+    case DMTCP_EVENT_LEADER_ELECTION:
+      if (getppid() == 1 ||
+          dmtcp::ProcessInfo::instance().isRootOfProcessTree()) {
+        dmtcp::SharedData::setProcessTreeRoot();
+      }
+      break;
+
+    case DMTCP_EVENT_DRAIN:
+      dmtcp::ProcessInfo::instance().refreshProcessTreeRoots();
+      break;
+
     case DMTCP_EVENT_WRITE_CKPT_PREFIX:
       {
        jalib::JBinarySerializeWriterRaw wr("", data->serializerInfo.fd);
         dmtcp::ProcessInfo::instance().serialize(wr);
       }
+      break;
+
+    case DMTCP_EVENT_POST_RESTART:
+      dmtcp::ProcessInfo::instance().postRestart();
       break;
 
     default:
@@ -112,6 +119,71 @@ dmtcp::ProcessInfo& dmtcp::ProcessInfo::instance()
     pInfo = new ProcessInfo();
   }
   return *pInfo;
+}
+
+static void recreateProcess(bool isChild, dmtcp::string filename,
+                            dmtcp::vector<dmtcp::string>& remainingFiles)
+{
+  pid_t pid = _real_syscall(SYS_fork);
+  JASSERT(pid != -1);
+  if (pid != 0) {
+    return;
+  }
+  if (!isChild) {
+    pid_t gchild = _real_syscall(SYS_fork);
+    JASSERT(gchild != -1);
+    if (gchild != 0) {
+      _real_exit(0);
+    }
+  }
+  dmtcp::CoordinatorAPI::instance().closeConnection();
+  //make sure JASSERT initializes now, rather than during restart
+  dmtcp::Util::initializeLogFile(dmtcp::ProcessInfo::instance().procname());
+  dmtcp::CoordinatorAPI coordinatorAPI;
+  coordinatorAPI.connectToCoordinator();
+  dmtcp::Util::writeCkptFilenamesToTmpfile(remainingFiles);
+  dmtcp::Util::runMtcpRestore(filename.c_str());
+}
+
+void dmtcp::ProcessInfo::postRestart()
+{
+  dmtcp::vector<dmtcp::string> ckptFiles;
+  vector<string> childCkptFiles;
+  vector<string> processTreeRootCkptFiles;
+  vector<string> remainingCkptFiles;
+  Util::lockFile(PROTECTED_CKPT_FILES_FD);
+  lseek(PROTECTED_CKPT_FILES_FD, 0, SEEK_SET);
+  jalib::JBinarySerializeReaderRaw rd("", PROTECTED_CKPT_FILES_FD);
+  rd.serializeVector(ckptFiles);
+  Util::unlockFile(PROTECTED_CKPT_FILES_FD);
+  for (size_t i = 0; i < ckptFiles.size(); i++) {
+    UniquePid upid(ckptFiles[i].c_str());
+    if (_childTable.find(upid.pid()) != _childTable.end()) {
+      childCkptFiles.push_back(ckptFiles[i]);
+    } else if (upid != UniquePid::ThisProcess()) {
+      size_t j;
+      for (j = 0; j < _processTreeRoots.size(); j++) {
+        if (upid == _processTreeRoots[j]) {
+          processTreeRootCkptFiles.push_back(ckptFiles[i]);
+          break;
+        }
+      }
+      if (j == _processTreeRoots.size()) {
+        remainingCkptFiles.push_back(ckptFiles[i]);
+      }
+    }
+  }
+  for (size_t i = 0; i < childCkptFiles.size(); i++) {
+      // This is a child process, we need to trigger restart for it.
+      JTRACE("Recreating child process") (ckptFiles[i]);
+      recreateProcess(true, childCkptFiles[i], remainingCkptFiles);
+  }
+  for (size_t i = 0; i < processTreeRootCkptFiles.size(); i++) {
+      // This is a child process, we need to trigger restart for it.
+      JTRACE("Recreating  process tree root") (ckptFiles[i]);
+      recreateProcess(false, processTreeRootCkptFiles[i], remainingCkptFiles);
+  }
+  _real_close(PROTECTED_CKPT_FILES_FD);
 }
 
 void dmtcp::ProcessInfo::restoreProcessGroupInfo()

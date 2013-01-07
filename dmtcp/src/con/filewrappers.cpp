@@ -48,88 +48,48 @@
 #include "constants.h"
 #include "connectionmanager.h"
 #include "syscallwrappers.h"
+#include "resource_manager.h"
+#include "shareddata.h"
 #include "util.h"
-#include  "../jalib/jassert.h"
-#include  "../jalib/jconvert.h"
+#include "../jalib/jassert.h"
+#include "../jalib/jconvert.h"
 
+using namespace dmtcp;
 #undef ptsname_r
 extern "C" int ptsname_r(int fd, char * buf, size_t buflen);
 
-#ifdef EXTERNAL_SOCKET_HANDLING
-extern dmtcp::vector <dmtcp::ConnectionIdentifier> externalTcpConnections;
-static void processClose(dmtcp::ConnectionIdentifier conId)
-{
-  if (dmtcp::DmtcpWorker::waitingForExternalSocketsToClose() == true) {
-    dmtcp::vector <dmtcp::ConnectionIdentifier>::iterator i = externalTcpConnections.begin();
-    for (i = externalTcpConnections.begin(); i != externalTcpConnections.end(); ++i) {
-      if (conId == *i) {
-        externalTcpConnections.erase(i);
-        break;
-      }
-    }
-    if (externalTcpConnections.empty() == true) {
-    }
-    sleep(4);
-  }
-}
-#endif
-
 extern "C" int close(int fd)
 {
-  if (dmtcp::ProtectedFDs::isProtected(fd))
-  {
+  if (dmtcp::ProtectedFDs::isProtected(fd)) {
     JTRACE("blocked attempt to close protected fd") (fd);
     errno = EBADF;
     return -1;
   }
 
-#ifdef EXTERNAL_SOCKET_HANDLING
-  dmtcp::ConnectionIdentifier conId;
-  if (dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING &&
-       dmtcp::DmtcpWorker::waitingForExternalSocketsToClose() == true &&
-       _real_dup2(fd,fd) != -1) {
-    conId = dmtcp::KernelDeviceToConnection::instance().retrieve(fd).id();
-  }
-
+  WRAPPER_EXECUTION_DISABLE_CKPT();
   int rv = _real_close(fd);
-
-  if (rv == 0) {
-    processClose(conId);
+  if (rv == 0 && dmtcp_is_running_state()) {
+    ConnectionList::instance().processClose(fd);
   }
-#else
-  int rv = _real_close(fd);
-#endif
-
+  WRAPPER_EXECUTION_ENABLE_CKPT();
   return rv;
 }
 
 extern "C" int fclose(FILE *fp)
 {
   int fd = fileno(fp);
-  if (dmtcp::ProtectedFDs::isProtected(fd))
-  {
+  if (dmtcp::ProtectedFDs::isProtected(fd)) {
     JTRACE("blocked attempt to fclose protected fd") (fd);
     errno = EBADF;
     return -1;
   }
 
-#ifdef EXTERNAL_SOCKET_HANDLING
-  dmtcp::ConnectionIdentifier conId;
-
-  if (dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING &&
-       dmtcp::DmtcpWorker::waitingForExternalSocketsToClose() == true &&
-       _real_dup2(fd,fd) != -1) {
-    conId = dmtcp::KernelDeviceToConnection::instance().retrieve(fd).id();
-  }
-
+  WRAPPER_EXECUTION_DISABLE_CKPT();
   int rv = _real_fclose(fp);
-
-  if (rv == 0) {
-    processClose(conId);
+  if (rv == 0 && dmtcp_is_running_state()) {
+    ConnectionList::instance().processClose(fd);
   }
-#else
-  int rv = _real_fclose(fp);
-#endif
+  WRAPPER_EXECUTION_ENABLE_CKPT();
 
   return rv;
 }
@@ -145,9 +105,9 @@ extern "C" int closedir(DIR *dir)
 
   WRAPPER_EXECUTION_DISABLE_CKPT();
   int rv = _real_closedir(dir);
-//  if (rv == 0 && dmtcp_is_running_state()) {
-//    ConnectionList::instance().processClose(fd);
-//  }
+  if (rv == 0 && dmtcp_is_running_state()) {
+    ConnectionList::instance().processClose(fd);
+  }
   WRAPPER_EXECUTION_ENABLE_CKPT();
 
   return rv;
@@ -157,6 +117,9 @@ extern "C" int dup(int oldfd)
 {
   WRAPPER_EXECUTION_DISABLE_CKPT();
   int newfd = _real_dup(oldfd);
+  if (newfd != -1 && dmtcp_is_running_state()) {
+    dmtcp::ConnectionList::instance().processDup(oldfd, newfd);
+  }
   WRAPPER_EXECUTION_ENABLE_CKPT();
   return newfd;
 }
@@ -165,6 +128,9 @@ extern "C" int dup2(int oldfd, int newfd)
 {
   WRAPPER_EXECUTION_DISABLE_CKPT();
   int res = _real_dup2(oldfd, newfd);
+  if (res != -1 && newfd != oldfd && dmtcp_is_running_state()) {
+    dmtcp::ConnectionList::instance().processDup(oldfd, newfd);
+  }
   WRAPPER_EXECUTION_ENABLE_CKPT();
   return newfd;
 }
@@ -175,6 +141,9 @@ extern "C" int dup3(int oldfd, int newfd, int flags)
 {
   WRAPPER_EXECUTION_DISABLE_CKPT();
   int res = _real_dup3(oldfd, newfd, flags);
+  if (res != -1 && newfd != oldfd && dmtcp_is_running_state()) {
+    dmtcp::ConnectionList::instance().processDup(oldfd, newfd);
+  }
   WRAPPER_EXECUTION_ENABLE_CKPT();
   return newfd;
 }
@@ -184,22 +153,22 @@ static int ptsname_r_work(int fd, char * buf, size_t buflen)
 {
   JTRACE("Calling ptsname_r");
 
-  dmtcp::Connection* c = &dmtcp::KernelDeviceToConnection::instance().retrieve(fd);
+  dmtcp::Connection* c = dmtcp::ConnectionList::instance().getConnection(fd);
   dmtcp::PtyConnection* ptyCon =(dmtcp::PtyConnection*) c;
 
-  dmtcp::string uniquePtsName = ptyCon->uniquePtsName();
+  dmtcp::string virtPtsName = ptyCon->virtPtsName();
 
-  JTRACE("ptsname_r") (uniquePtsName);
+  JTRACE("ptsname_r") (virtPtsName);
 
-  if (uniquePtsName.length() >= buflen)
+  if (virtPtsName.length() >= buflen)
   {
-    JWARNING(false) (uniquePtsName) (uniquePtsName.length()) (buflen)
+    JWARNING(false) (virtPtsName) (virtPtsName.length()) (buflen)
       .Text("fake ptsname() too long for user buffer");
     errno = ERANGE;
     return -1;
   }
 
-  strcpy(buf, uniquePtsName.c_str());
+  strcpy(buf, virtPtsName.c_str());
 
   return 0;
 }
@@ -242,125 +211,84 @@ extern "C" int __ptsname_r_chk(int fd, char * buf, size_t buflen, size_t nreal)
   return retVal;
 }
 
-// The current implementation simply increments the last count and returns it.
-// Although highly unlikely, this can cause a problem if the counter resets to
-// zero. In that case we should have some more sophisticated code which checks
-// to see if the value pointed by counter is in use or not.
-static int getNextFreeSlavePtyNum()
+extern "C" char *ttyname(int fd)
 {
-  static int counter = -1;
-  counter++;
-  JASSERT(counter != -1) .Text("See the comment above");
-  return counter;
+  static char tmpbuf[64];
+
+  if (ttyname_r(fd, tmpbuf, sizeof(tmpbuf)) != 0) {
+    return NULL;
+  }
+  return tmpbuf;
 }
 
-//DMTCP_PTS_PREFIX_STR
-
-/*
-static int _nextPtmxId()
+extern "C" int ttyname_r(int fd, char *buf, size_t buflen)
 {
-  static int id = 0;
-  return id++;
-}
-*/
+  char tmpbuf[64];
+  WRAPPER_EXECUTION_DISABLE_CKPT();
+  int ret = _real_ttyname_r(fd, tmpbuf, sizeof(tmpbuf));
 
-// XXX: The current implementation for handling Pseudo-Terminal Master-Slave pairs
-// works only if the process involved in it are restarted from the same
-// dmtcp_restart command.                               -- KAPIL
+  if (ret == 0 && strcmp(tmpbuf, "/dev/tty") != 0) {
+    Connection* c = dmtcp::ConnectionList::instance().getConnection(fd);
+    JASSERT(c != NULL) (fd) (tmpbuf);
+    dmtcp::PtyConnection* ptyCon =(dmtcp::PtyConnection*) c;
+    dmtcp::string virtPtsName = ptyCon->virtPtsName();
 
-static void processDevPtmxConnection(int fd)
-{
-  char ptsName[21];
+    if (virtPtsName.length() >= buflen) {
+      JWARNING(false) (virtPtsName) (virtPtsName.length()) (buflen)
+        .Text("fake ptsname() too long for user buffer");
+      errno = ERANGE;
+      ret = -1;
+    } else {
+      strncpy(buf, virtPtsName.c_str(), buflen);
+    }
+  }
+  WRAPPER_EXECUTION_ENABLE_CKPT();
 
-  JASSERT(_real_ptsname_r(fd, ptsName, 21) == 0) (JASSERT_ERRNO);
-
-  dmtcp::string ptsNameStr = ptsName;
-  dmtcp::string uniquePtsNameStr;
-
-  // glibc allows only 20 char long ptsname
-  // Check if there is enough room to insert the string "dmtcp_" before the
-  //   terminal number, if not then we ASSERT here.
-  JASSERT((strlen(ptsName) + strlen("dmtcp_")) <= 20)
-    .Text("string /dev/pts/<n> too long, can not be virtualized."
-          "Once possible workarong here is to replace the string"
-          "\"dmtcp_\" with something short like \"d_\" or even "
-          "\"d\" and recompile DMTCP");
-
-  // Generate new Unique ptsName
-  uniquePtsNameStr = UNIQUE_PTS_PREFIX_STR;
-  uniquePtsNameStr += jalib::XToString(getNextFreeSlavePtyNum());
-
-  dmtcp::string ptmxDevice =
-    jalib::Filesystem::ResolveSymlink("/proc/self/fd/" + jalib::XToString(fd));
-  dmtcp::string deviceName = "ptmx[" + ptsNameStr + "]:" + ptmxDevice; //"/dev/ptmx";
-
-//   dmtcp::string deviceName = "ptmx[" + dmtcp::UniquePid::ThisProcess().toString()
-//                            + ":" + jalib::XToString(_nextPtmxId())
-//                            + "]:" + device;
-
-  JTRACE("creating ptmx connection") (deviceName) (ptsNameStr) (uniquePtsNameStr);
-
-  int type = dmtcp::PtyConnection::PTY_MASTER;
-  dmtcp::Connection * c = new dmtcp::PtyConnection(ptsNameStr, uniquePtsNameStr, type);
-
-  dmtcp::KernelDeviceToConnection::instance().createPtyDevice(fd, deviceName, c);
-
-  dmtcp::UniquePtsNameToPtmxConId::instance().add(uniquePtsNameStr, c->id());
-}
-
-static void processDevPtsConnection(int fd, const char* uniquePtsName, const char* ptsName)
-{
-  dmtcp::string ptsNameStr = ptsName;
-  dmtcp::string uniquePtsNameStr = uniquePtsName;
-
-  dmtcp::string deviceName = "pts:" + ptsNameStr;
-
-  JTRACE("creating pts connection") (deviceName) (ptsNameStr) (uniquePtsNameStr);
-
-  int type = dmtcp::PtyConnection::PTY_SLAVE;
-  dmtcp::Connection * c = new dmtcp::PtyConnection(ptsNameStr, uniquePtsNameStr, type);
-
-  dmtcp::KernelDeviceToConnection::instance().createPtyDevice(fd, deviceName, c);
+  return ret;
 }
 
 extern "C" int getpt()
 {
+  WRAPPER_EXECUTION_DISABLE_CKPT();
   int fd = _real_getpt();
-  if (fd >= 0) {
-    processDevPtmxConnection(fd);
+  if (fd >= 0 && dmtcp_is_running_state()) {
+    ConnectionList::instance().processFileConnection(fd, "/dev/ptmx",
+                                                     O_RDWR | O_NOCTTY, -1);
   }
+  WRAPPER_EXECUTION_ENABLE_CKPT();
   return fd;
 }
 
 extern "C" int posix_openpt(int flags)
 {
+  WRAPPER_EXECUTION_DISABLE_CKPT();
   int fd = _real_posix_openpt(flags);
-  if (fd >= 0) {
-    processDevPtmxConnection(fd);
+  if (fd >= 0 && dmtcp_is_running_state()) {
+    ConnectionList::instance().processFileConnection(fd, "/dev/ptmx",
+                                                     flags, -1);
   }
+  WRAPPER_EXECUTION_ENABLE_CKPT();
   return fd;
 }
 
 static int _open_open64_work(int(*fn) (const char *path, int flags, ...),
                              const char *path, int flags, mode_t mode)
 {
-  dmtcp::string currPtsDevName;
+  char currPtsDevName[32];
   const char *newpath = path;
 
   WRAPPER_EXECUTION_DISABLE_CKPT();
 
-  if (dmtcp::Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR)) {
-    currPtsDevName = dmtcp::UniquePtsNameToPtmxConId::instance().
-      retrieveCurrentPtsDeviceName(path);
-    newpath = currPtsDevName.c_str();
+  if (dmtcp::Util::strStartsWith(path, VIRT_PTS_PREFIX_STR)) {
+    dmtcp::SharedData::getRealPtyName(path, currPtsDevName,
+                                      sizeof(currPtsDevName));
+    newpath = currPtsDevName;
   }
 
   int fd =(*fn) (newpath, flags, mode);
 
-  if (fd >= 0 && strcmp(path, "/dev/ptmx") == 0) {
-    processDevPtmxConnection(fd);
-  } else if (fd >= 0 && dmtcp::Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR)) {
-    processDevPtsConnection(fd, path, newpath);
+  if (fd >= 0 && dmtcp_is_running_state()) {
+    ConnectionList::instance().processFileConnection(fd, newpath, flags, mode);
   }
 
   WRAPPER_EXECUTION_ENABLE_CKPT();
@@ -417,30 +345,25 @@ extern "C" int __open64_2(const char *path, int flags)
 static FILE *_fopen_fopen64_work(FILE*(*fn) (const char *path, const char *mode),
                                  const char *path, const char *mode)
 {
-  WRAPPER_EXECUTION_DISABLE_CKPT();
-
-  dmtcp::string currPtsDevName;
+  char currPtsDevName[32];
   const char *newpath = path;
 
-  if (dmtcp::Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR)) {
-    currPtsDevName = dmtcp::UniquePtsNameToPtmxConId::instance().
-      retrieveCurrentPtsDeviceName(path);
-    newpath = currPtsDevName.c_str();
+  WRAPPER_EXECUTION_DISABLE_CKPT();
+
+  if (dmtcp::Util::strStartsWith(path, VIRT_PTS_PREFIX_STR)) {
+    dmtcp::SharedData::getRealPtyName(path, currPtsDevName,
+                                      sizeof(currPtsDevName));
+    newpath = currPtsDevName;
   }
 
   FILE *file =(*fn) (newpath, mode);
 
-  if (file != NULL) {
-    int fd = fileno(file);
-    if (strcmp(path, "/dev/ptmx") == 0) {
-      processDevPtmxConnection(fd);
-    } else if (dmtcp::Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR)) {
-      processDevPtsConnection(fd, path, newpath);
-    }
+  if (file != NULL && dmtcp_is_running_state()) {
+    ConnectionList::instance().processFileConnection(fileno(file), newpath,
+                                                     -1, -1);
   }
 
   WRAPPER_EXECUTION_ENABLE_CKPT();
-
   return file;
 }
 
@@ -462,12 +385,12 @@ extern "C" int openat(int dirfd, const char *path, int flags, ...)
   va_end(arg);
   WRAPPER_EXECUTION_DISABLE_CKPT();
   int fd = _real_openat(dirfd, path, flags, mode);
-//  if (fd >= 0 && dmtcp_is_running_state()) {
-//    dmtcp::string procpath = "/proc/self/fd/" + jalib::XToString(fd);
-//    dmtcp::string device = jalib::Filesystem::ResolveSymlink(procpath);
-//    ConnectionList::instance().processFileConnection(fd, device.c_str(),
-//                                                     flags, mode);
-//  }
+  if (fd >= 0 && dmtcp_is_running_state()) {
+    dmtcp::string procpath = "/proc/self/fd/" + jalib::XToString(fd);
+    dmtcp::string device = jalib::Filesystem::ResolveSymlink(procpath);
+    ConnectionList::instance().processFileConnection(fd, device.c_str(),
+                                                     flags, mode);
+  }
   WRAPPER_EXECUTION_ENABLE_CKPT();
   return fd;
 }
@@ -485,12 +408,12 @@ extern "C" int openat64(int dirfd, const char *path, int flags, ...)
   va_end(arg);
   WRAPPER_EXECUTION_DISABLE_CKPT();
   int fd = _real_openat64(dirfd, path, flags, mode);
-//  if (fd >= 0 && dmtcp_is_running_state()) {
-//    dmtcp::string procpath = "/proc/self/fd/" + jalib::XToString(fd);
-//    dmtcp::string device = jalib::Filesystem::ResolveSymlink(procpath);
-//    ConnectionList::instance().processFileConnection(fd, device.c_str(),
-//                                                     flags, mode);
-//  }
+  if (fd >= 0 && dmtcp_is_running_state()) {
+    dmtcp::string procpath = "/proc/self/fd/" + jalib::XToString(fd);
+    dmtcp::string device = jalib::Filesystem::ResolveSymlink(procpath);
+    ConnectionList::instance().processFileConnection(fd, device.c_str(),
+                                                     flags, mode);
+  }
   WRAPPER_EXECUTION_ENABLE_CKPT();
   return fd;
 }
@@ -503,9 +426,9 @@ extern "C" DIR *opendir(const char *name)
 {
   WRAPPER_EXECUTION_DISABLE_CKPT();
   DIR *dir = _real_opendir(name);
-//  if (dir != NULL) {
-//    ConnectionList::instance().processFileConnection(dirfd(dir), name, -1, -1);
-//  }
+  if (dir != NULL) {
+    ConnectionList::instance().processFileConnection(dirfd(dir), name, -1, -1);
+  }
   WRAPPER_EXECUTION_ENABLE_CKPT();
   return dir;
 }
@@ -514,9 +437,11 @@ static void updateStatPath(const char *path, char *newpath)
 {
   if (dmtcp::WorkerState::currentState() == dmtcp::WorkerState::UNKNOWN) {
     strncpy(newpath, path, PATH_MAX);
-  } else if (dmtcp::Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR)) {
-    dmtcp::string currPtsDevName = dmtcp::UniquePtsNameToPtmxConId::instance().retrieveCurrentPtsDeviceName(path);
-    strcpy(newpath, currPtsDevName.c_str());
+  } else if (dmtcp::Util::strStartsWith(path, VIRT_PTS_PREFIX_STR)) {
+    char currPtsDevName[32];
+    dmtcp::SharedData::getRealPtyName(path, currPtsDevName,
+                                      sizeof(currPtsDevName));
+    strcpy(newpath, currPtsDevName);
   } else {
     strcpy(newpath, path);
   }
@@ -599,6 +524,26 @@ extern "C" READLINK_RET_TYPE readlink(const char *path, char *buf,
   return retval;
 }
 
+extern "C" int fcntl(int fd, int cmd, ...)
+{
+  void *arg = NULL;
+  va_list ap;
+  va_start(ap, cmd);
+  arg = va_arg(ap, void *);
+  va_end(ap);
+
+  DMTCP_PLUGIN_DISABLE_CKPT();
+
+  int res = _real_fcntl(fd, cmd, arg);
+  if (res != -1 &&
+      (cmd == F_DUPFD || cmd == F_DUPFD_CLOEXEC) &&
+      dmtcp_is_running_state()) {
+    dmtcp::ConnectionList::instance().processDup(fd, res);
+  }
+
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  return res;
+}
 
 #if 0
 // TODO:  ioctl must use virtualized pids for request = TIOCGPGRP / TIOCSPGRP

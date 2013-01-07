@@ -244,6 +244,12 @@ void _real_exit (int status)
   REAL_FUNC_PASSTHROUGH_VOID (exit) (status);
 }
 
+LIB_PRIVATE
+int _real_fcntl(int fd, int cmd, void *arg)
+{
+  REAL_FUNC_PASSTHROUGH (fcntl) (fd, cmd, arg);
+}
+
 int _real_ptsname_r (int fd, char * buf, size_t buflen)
 {
   REAL_FUNC_PASSTHROUGH (ptsname_r) (fd, buf, buflen);

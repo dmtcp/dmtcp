@@ -1201,7 +1201,7 @@ static void setup_clone_entry (void)
       if (((p != NULL) && ((p[5] == '-') || (p[5] == '.'))) &&
           !mtcp_strstr(mtcp_libc_area.name, "debug")) break;
     }
-    close (mapsfd);
+    mtcp_sys_close (mapsfd);
     if (p == NULL) {
       MTCP_PRINTF("cannot find */libc[-.]* in /proc/self/maps\n");
       mtcp_abort ();
@@ -3133,5 +3133,5 @@ static void sync_shared_mem(void)
     }
   }
 
-  close (mapsfd);
+  mtcp_sys_close (mapsfd);
 }

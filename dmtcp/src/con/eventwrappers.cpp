@@ -36,6 +36,7 @@
 #include "syscallwrappers.h"
 #include  "../jalib/jassert.h"
 
+using namespace dmtcp;
 /* 'man 7 signal' says the following are not restarted after ckpt signal
  * even though the SA_RESTART option was used.  If we wrap these, we must
  * restart them when they are interrupted by a checkpoint signal.
@@ -123,8 +124,7 @@ EXTERNC int dmtcp_on_epoll_create(int ret, int size)
 {
 
   JTRACE("epoll fd created") (ret) (size);
-  dmtcp::KernelDeviceToConnection::instance().create
-    (ret, new dmtcp::EpollConnection(size));
+  dmtcp::ConnectionList::instance().add(ret, new dmtcp::EpollConnection(size));
   return ret;
 }
 
@@ -141,7 +141,7 @@ EXTERNC int dmtcp_on_epoll_ctl(int ret, int epfd, int op, int fd,
 {
   JTRACE("epoll fd CTL") (ret) (epfd) (fd) (op);
   dmtcp::EpollConnection& con =
-    dmtcp::KernelDeviceToConnection::instance().retrieve(epfd).asEpoll();
+    dmtcp::ConnectionList::instance().getConnection(epfd)->asEpoll();
 
   con.onCTL(op, fd, event);
   return ret;
@@ -151,16 +151,14 @@ EXTERNC int dmtcp_on_eventfd(int ret, int initval, int flags)
 {
 
   JTRACE("eventfd created") (ret) (initval) (flags);
-  dmtcp::KernelDeviceToConnection::instance().create
-    (ret, new dmtcp::EventFdConnection(initval, flags));
+  ConnectionList::instance().add(ret, new EventFdConnection(initval, flags));
   return ret;
 }
 
 EXTERNC int dmtcp_on_signalfd(int ret, int fd, const sigset_t *mask, int flags)
 {
   JTRACE("signalfd created") (fd) (flags);
-  dmtcp::KernelDeviceToConnection::instance().create
-    (ret, new dmtcp::SignalFdConnection(fd, mask, flags));
+  ConnectionList::instance().add(ret, new SignalFdConnection(fd, mask, flags));
   return ret;
 }
 
@@ -179,7 +177,7 @@ EXTERNC int dmtcp_on_inotify_init(int ret)
   JTRACE ( "inotify fd created" ) ( ret );
   //create the inotify object
   dmtcp::Connection *con = new dmtcp::InotifyConnection(0);
-  dmtcp::KernelDeviceToConnection::instance().create(ret, con);
+  dmtcp::ConnectionList::instance().add(ret, con);
   return ret;
 }
 
@@ -199,7 +197,7 @@ EXTERNC int dmtcp_on_inotify_init1(int ret, int flags)
 
   //create the inotify object
   dmtcp::Connection *con = new dmtcp::InotifyConnection(flags);
-  dmtcp::KernelDeviceToConnection::instance().create(ret, flags);
+  dmtcp::ConnectionList::instance().add(ret, flags);
   return ret;
 }
 
@@ -221,7 +219,7 @@ EXTERNC int dmtcp_on_inotify_add_watch(int ret, int fd,
    JTRACE("calling inotify class methods");
 
   dmtcp::InotifyConnection& inotify_con =
-    dmtcp::KernelDeviceToConnection::instance().retrieve(fd).asInotify();
+    dmtcp::ConnectionList::instance().getConnection(fd)->asInotify();
 
   inotify_con.add_watch_descriptors(ret, fd, pathname, mask);
   /*temp_pathname = pathname;
@@ -248,7 +246,7 @@ EXTERNC int dmtcp_on_inotify_rm_watch(int ret, int fd, int wd)
    JTRACE("remove inotify mapping from dmtcp") (ret) (fd) (wd);
 
    dmtcp::InotifyConnection& inotify_con =
-     dmtcp::KernelDeviceToConnection::instance().retrieve(fd).asInotify();
+     dmtcp::ConnectionList::instance().getConnection(fd)->asInotify();
    //inotify_con.remove_mappings(fd, wd);
    inotify_con.remove_watch_descriptors(wd);
    return ret;

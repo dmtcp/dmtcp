@@ -411,7 +411,6 @@ namespace
       {
         _identity = hello_remote.from.pid();
         _state = hello_remote.state;
-        _restorePort = hello_remote.restorePort;
         memset ( &_addr, 0, sizeof _addr );
         memcpy ( &_addr, remote, len );
       }
@@ -421,7 +420,6 @@ namespace
       dmtcp::WorkerState state() const { return _state; }
       const struct sockaddr_storage* addr() const { return &_addr; }
       socklen_t addrlen() const { return _addrlen; }
-      int restorePort() const { return _restorePort; }
       void setState ( dmtcp::WorkerState value ) { _state = value; }
       void progname(dmtcp::string pname){ _progname = pname; }
       dmtcp::string progname(void) const { return _progname; }
@@ -451,7 +449,6 @@ namespace
       dmtcp::WorkerState _state;
       struct sockaddr_storage _addr;
       socklen_t               _addrlen;
-      int _restorePort;
       dmtcp::string _hostname;
       dmtcp::string _progname;
       dmtcp::string _prefixDir;
@@ -822,7 +819,7 @@ void dmtcp::DmtcpCoordinator::onData ( jalib::JReaderInterface* sock )
         restMsg.type = DMT_RESTORE_WAITING;
         memcpy ( &restMsg.restoreAddr,client->addr(),client->addrlen() );
         restMsg.restoreAddrlen = client->addrlen();
-        restMsg.restorePort = client->restorePort();
+        restMsg.restorePort = msg.restorePort;
         JASSERT ( restMsg.restorePort > 0 )
           ( restMsg.restorePort ) ( client->identity() );
         JASSERT ( restMsg.restoreAddrlen > 0 )
@@ -1079,8 +1076,10 @@ void dmtcp::DmtcpCoordinator::onConnect ( const jalib::JSocket& sock,
     //JASSERT(hello_remote.virtualPid != -1);
     ds->virtualPid(hello_remote.virtualPid);
     _virtualPidToChunkReaderMap[ds->virtualPid()] = ds;
+    isRestarting = true;
   } else if ( hello_remote.type == DMT_HELLO_COORDINATOR &&
-              hello_remote.state == WorkerState::RUNNING) {
+              (hello_remote.state == WorkerState::RUNNING ||
+               hello_remote.state == WorkerState::UNKNOWN)) {
     if ( validateNewWorkerProcess ( hello_remote, remote, ds ) == false )
       return;
     _virtualPidToChunkReaderMap[ds->virtualPid()] = ds;
@@ -1211,8 +1210,18 @@ bool dmtcp::DmtcpCoordinator::validateRestartingWorkerProcess
 
   JASSERT(hello_remote.state == WorkerState::RESTARTING) (hello_remote.state);
 
-  if ( minimumState() != WorkerState::RESTARTING &&
-       minimumState() != WorkerState::CHECKPOINTED ) {
+  if (UniquePid::ComputationId() == dmtcp::UniquePid(0,0,0)) {
+    JASSERT ( minimumState() == WorkerState::UNKNOWN )
+      .Text ( "Coordinator should be idle at this moment" );
+    // Coordinator is free at this moment - set up all the things
+    UniquePid::ComputationId() = hello_remote.compGroup;
+    numPeers = hello_remote.numPeers;
+    curTimeStamp = time(NULL);
+    JNOTE ( "FIRST dmtcp_restart connection.  Set numPeers. Generate timestamp" )
+      ( numPeers ) ( curTimeStamp ) ( UniquePid::ComputationId() );
+    JTIMER_START(restart);
+  } else if (minimumState() != WorkerState::RESTARTING &&
+             minimumState() != WorkerState::CHECKPOINTED) {
     JNOTE ("Computation not in RESTARTING or CHECKPOINTED state."
            "  Reject incoming restarting computation process.")
       (UniquePid::ComputationId()) (hello_remote.compGroup) (minimumState());
@@ -1253,7 +1262,7 @@ bool dmtcp::DmtcpCoordinator::validateRestartingWorkerProcess
   // coordinator is not connected to any worker processes. The coordinator
   // would now process the connect() and may reject the worker because the
   // worker state is RESTARTING, but the minimumState() is UNKNOWN.
-  remote << hello_local;
+  //remote << hello_local;
 
   return true;
 }
@@ -1266,7 +1275,8 @@ bool dmtcp::DmtcpCoordinator::validateNewWorkerProcess
   hello_local.virtualPid = ds->virtualPid();
   CoordinatorStatus s = getStatus();
 
-  JASSERT(hello_remote.state == WorkerState::RUNNING) (hello_remote.state);
+  JASSERT(hello_remote.state == WorkerState::RUNNING ||
+          hello_remote.state == WorkerState::UNKNOWN) (hello_remote.state);
 
   if (workersRunningAndSuspendMsgSent == true) {
     /* Worker trying to connect after SUSPEND message has been sent.
@@ -1286,7 +1296,8 @@ bool dmtcp::DmtcpCoordinator::validateNewWorkerProcess
     DmtcpMessage suspendMsg (dmtcp::DMT_DO_SUSPEND);
     remote << suspendMsg;
 
-  } else if (s.numPeers > 0 && s.minimumState != WorkerState::RUNNING) {
+  } else if (s.numPeers > 0 && s.minimumState != WorkerState::RUNNING &&
+             s.minimumState != WorkerState::UNKNOWN) {
     // If some of the processes are not in RUNNING state
     JNOTE("Current computation not in RUNNING state."
           "  Refusing to accept new connections.")

@@ -43,7 +43,6 @@
 #include "processinfo.h"
 #include "syscallwrappers.h"
 #include "protectedfds.h"
-#include "ckptserializer.h"
 #include "remexecwrappers.h"
 #include "util.h"
 #include "syslogwrappers.h"
@@ -328,13 +327,13 @@ dmtcp::DmtcpWorker::DmtcpWorker (bool enableCheckpointing)
   }
   calculateArgvAndEnvSize();
 
-  WorkerState::setCurrentState (WorkerState::RUNNING);
 
   CoordinatorAPI::instance().connectToCoordinatorWithHandshake();
 
   // define "Weak Symbols for each library plugin in dmtcphijack.so
   processEvent(DMTCP_EVENT_INIT, NULL);
 
+  WorkerState::setCurrentState (WorkerState::RUNNING);
   /* Acquire the lock here, so that the checkpoint-thread won't be able to
    * process CHECKPOINT request until we are done with initializeMtcpEngine()
    */
@@ -734,6 +733,11 @@ void dmtcp::DmtcpWorker::postRestart()
   JTRACE("begin postRestart()");
 
   WorkerState::setCurrentState(WorkerState::RESTARTING);
+  string procname = ProcessInfo::instance().procname();
+  UniquePid compGroup = UniquePid::ComputationId();
+  size_t numPeers = ProcessInfo::instance().numPeers();
+  CoordinatorAPI::instance().sendCoordinatorHandshake(procname, compGroup,
+                                                      numPeers);
   CoordinatorAPI::instance().recvCoordinatorHandshake();
 }
 

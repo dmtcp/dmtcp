@@ -120,6 +120,12 @@ bool isResMgrFile(dmtcp::string &path)
     return true;
   return false;
 }
+
+bool isResMgrFile(const char *path)
+{
+  dmtcp::string p = path;
+  return isResMgrFile(p);
+}
 //---------------------------- Torque Resource Manager ---------------------//
 
 

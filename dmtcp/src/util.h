@@ -64,6 +64,7 @@ typedef char * VA;
 
 #define CEIL(a,b) ((a)%(b) ? ((a) + (b) - ((a)%(b))) : (a))
 
+extern "C" void initializeJalib();
 namespace dmtcp
 {
   namespace Util
@@ -81,6 +82,7 @@ namespace dmtcp
 
     void lockFile(int fd);
     void unlockFile(int fd);
+    void dupFds(int oldfd, const dmtcp::vector<int>& newfds);
 
     bool strStartsWith(const char *str, const char *pattern);
     bool strEndsWith(const char *str, const char *pattern);
@@ -115,6 +117,8 @@ namespace dmtcp
 
     void prepareDlsymWrapper();
     void adjustRlimitStack();
+    void writeCkptFilenamesToTmpfile(vector<string>& args);
+    void runMtcpRestore(const char* path);
 
     char readDec (int fd, VA *value);
     char readHex (int fd, VA *value);

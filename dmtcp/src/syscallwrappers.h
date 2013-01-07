@@ -300,7 +300,6 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   int _dmtcp_unsetenv(const char *name);
   void initialize_libc_wrappers();
   void initialize_libpthread_wrappers();
-  void initializeJalib();
 
   int _real_socket (int domain, int type, int protocol);
   int _real_connect (int sockfd,  const  struct sockaddr *serv_addr,
@@ -345,6 +344,7 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   int _real_dup (int oldfd);
   int _real_dup2 (int oldfd, int newfd);
   int _real_dup3 (int oldfd, int newfd, int flags);
+  int _real_fcntl(int fd, int cmd, void *arg);
 
   int _real_ttyname_r (int fd, char *buf, size_t buflen);
   int _real_ptsname_r (int fd, char * buf, size_t buflen);
@@ -434,9 +434,6 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   ssize_t _real_write(int fd, const void *buf, size_t count);
   int _real_select(int nfds, fd_set *readfds, fd_set *writefds,
                    fd_set *exceptfds, struct timeval *timeout);
-  int _real_dup(int oldfd);
-  int _real_dup2(int oldfd, int newfd);
-  int _real_dup3(int oldfd, int newfd, int flags);
   off_t _real_lseek(int fd, off_t offset, int whence);
   int _real_unlink(const char *pathname);
 

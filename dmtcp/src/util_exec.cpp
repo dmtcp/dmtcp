@@ -33,6 +33,7 @@
 #include  "util.h"
 #include  "syscallwrappers.h"
 #include  "uniquepid.h"
+#include  "protectedfds.h"
 #include  "../jalib/jassert.h"
 #include  "../jalib/jfilesystem.h"
 
@@ -382,6 +383,40 @@ void dmtcp::Util::prepareDlsymWrapper()
   sprintf(str, "%d", diff);
   setenv(ENV_VAR_DLSYM_OFFSET, str, 1);
   dlclose(handle);
+}
+
+void dmtcp::Util::writeCkptFilenamesToTmpfile(dmtcp::vector<dmtcp::string>& files)
+{
+  FILE *tmp = tmpfile();
+  JASSERT(tmp != NULL);
+  JASSERT(dup2(fileno(tmp), PROTECTED_CKPT_FILES_FD) == PROTECTED_CKPT_FILES_FD);
+  close(fileno(tmp));
+  jalib::JBinarySerializeWriterRaw wr("", PROTECTED_CKPT_FILES_FD);
+  wr.serializeVector(files);
+}
+
+void dmtcp::Util::runMtcpRestore(const char* path)
+{
+  static dmtcp::string mtcprestart =
+    jalib::Filesystem::FindHelperUtility ("mtcp_restart");
+
+  // Tell mtcp_restart process to write its debugging information to
+  // PROTECTED_STDERR_FD. This way we prevent it from spitting out garbage onto
+  // FD_STDERR if it is being used by the user process in a special way.
+  char protected_stderr_fd_str[16];
+  sprintf(protected_stderr_fd_str, "%d", PROTECTED_STDERR_FD);
+
+  char* newArgs[] = {
+    (char*) mtcprestart.c_str(),
+    (char*) "--stderr-fd",
+    protected_stderr_fd_str,
+    (char*) path,
+    NULL
+  };
+  JTRACE ("launching mtcp_restart") (path);
+  _real_execv(newArgs[0], newArgs);
+  JASSERT(false) (newArgs[0]) (newArgs[1]) (JASSERT_ERRNO)
+    .Text ("exec() failed");
 }
 
 void dmtcp::Util::adjustRlimitStack()
