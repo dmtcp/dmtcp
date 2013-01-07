@@ -808,6 +808,26 @@ FILE * _real_fopen64(const char *path, const char *mode) {
   REAL_FUNC_PASSTHROUGH_TYPED (FILE *, fopen64) (path, mode);
 }
 
+LIB_PRIVATE
+int _real_openat(int dirfd, const char *pathname, int flags, mode_t mode) {
+  REAL_FUNC_PASSTHROUGH (openat) (dirfd, pathname, flags, mode);
+}
+
+LIB_PRIVATE
+int _real_openat64(int dirfd, const char *pathname, int flags, mode_t mode) {
+  REAL_FUNC_PASSTHROUGH (openat64) (dirfd, pathname, flags, mode);
+}
+
+LIB_PRIVATE
+DIR* _real_opendir(const char *name) {
+  REAL_FUNC_PASSTHROUGH_TYPED (DIR*, opendir) (name);
+}
+
+LIB_PRIVATE
+int _real_closedir(DIR *dir) {
+  REAL_FUNC_PASSTHROUGH (closedir) (dir);
+}
+
 /* See comments for syscall wrapper */
 LIB_PRIVATE
 long int _real_syscall(long int sys_num, ...) {
