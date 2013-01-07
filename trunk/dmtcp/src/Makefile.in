@@ -127,8 +127,9 @@ libdmtcpinternal_a_AR = $(AR) $(ARFLAGS)
 libdmtcpinternal_a_LIBADD =
 am_libdmtcpinternal_a_OBJECTS = dmtcpmessagetypes.$(OBJEXT) \
 	protectedfds.$(OBJEXT) uniquepid.$(OBJEXT) \
-	coordinatorapi.$(OBJEXT) connectionidentifier.$(OBJEXT) \
-	util_exec.$(OBJEXT) util_gen.$(OBJEXT) util_init.$(OBJEXT) \
+	shareddata.$(OBJEXT) coordinatorapi.$(OBJEXT) \
+	connectionidentifier.$(OBJEXT) util_exec.$(OBJEXT) \
+	util_gen.$(OBJEXT) util_init.$(OBJEXT) \
 	jalibinterface.$(OBJEXT) processinfo.$(OBJEXT) \
 	ckptserializer.$(OBJEXT) resource_manager.$(OBJEXT)
 libdmtcpinternal_a_OBJECTS = $(am_libdmtcpinternal_a_OBJECTS)
@@ -191,7 +192,7 @@ am_dmtcphijack_so_OBJECTS = dmtcpawareapi.$(OBJEXT) \
 	dmtcpplugin.$(OBJEXT) popen.$(OBJEXT) syslogwrappers.$(OBJEXT) \
 	eventwrappers.$(OBJEXT) filewrappers.$(OBJEXT) \
 	socketwrappers.$(OBJEXT) posixipcwrappers.$(OBJEXT) \
-	sysvipcwrappers.$(OBJEXT) shareddata.$(OBJEXT)
+	sysvipcwrappers.$(OBJEXT)
 dmtcphijack_so_OBJECTS = $(am_dmtcphijack_so_OBJECTS)
 dmtcphijack_so_DEPENDENCIES = libdmtcpinternal.a libsysvipc.a \
 	libconnection.a libjalib.a libsyscallsreal.a \
@@ -372,7 +373,7 @@ nobase_noinst_HEADERS = constants.h \
 # dmtcp_checkpoint, dmtcp_command, dmtcp_coordinator, etc.
 #   should not need wrappers.
 libdmtcpinternal_a_SOURCES = dmtcpmessagetypes.cpp protectedfds.cpp \
-			     uniquepid.cpp \
+			     uniquepid.cpp shareddata.cpp \
 			     coordinatorapi.cpp connectionidentifier.cpp \
 			     util_exec.cpp util_gen.cpp util_init.cpp \
 			     jalibinterface.cpp processinfo.cpp \
@@ -409,7 +410,7 @@ dmtcphijack_so_SOURCES = dmtcpawareapi.cpp dmtcpworker.cpp threadsync.cpp \
 			 dmtcpplugin.cpp popen.cpp syslogwrappers.cpp \
 			 con/eventwrappers.cpp con/filewrappers.cpp \
 			 con/socketwrappers.cpp con/posixipcwrappers.cpp \
-			 sysvipc/sysvipcwrappers.cpp shareddata.cpp
+			 sysvipc/sysvipcwrappers.cpp
 
 dmtcp_inspector_SOURCES = dmtcp_inspector.cpp
 dmtcp_discover_rm_SOURCES = dmtcp_discover_rm.cpp
