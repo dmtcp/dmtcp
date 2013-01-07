@@ -134,6 +134,25 @@ extern "C" int fclose(FILE *fp)
   return rv;
 }
 
+extern "C" int closedir(DIR *dir)
+{
+  int fd = dirfd(dir);
+  if (dmtcp::ProtectedFDs::isProtected(fd)) {
+    JTRACE("blocked attempt to closedir protected fd") (fd);
+    errno = EBADF;
+    return -1;
+  }
+
+  WRAPPER_EXECUTION_DISABLE_CKPT();
+  int rv = _real_closedir(dir);
+//  if (rv == 0 && dmtcp_is_running_state()) {
+//    ConnectionList::instance().processClose(fd);
+//  }
+  WRAPPER_EXECUTION_ENABLE_CKPT();
+
+  return rv;
+}
+
 extern "C" int dup(int oldfd)
 {
   WRAPPER_EXECUTION_DISABLE_CKPT();
@@ -435,6 +454,61 @@ extern "C" FILE *fopen64(const char* path, const char* mode)
   return _fopen_fopen64_work(_real_fopen64, path, mode);
 }
 
+extern "C" int openat(int dirfd, const char *path, int flags, ...)
+{
+  va_list arg;
+  va_start(arg, flags);
+  mode_t mode = va_arg(arg, int);
+  va_end(arg);
+  WRAPPER_EXECUTION_DISABLE_CKPT();
+  int fd = _real_openat(dirfd, path, flags, mode);
+//  if (fd >= 0 && dmtcp_is_running_state()) {
+//    dmtcp::string procpath = "/proc/self/fd/" + jalib::XToString(fd);
+//    dmtcp::string device = jalib::Filesystem::ResolveSymlink(procpath);
+//    ConnectionList::instance().processFileConnection(fd, device.c_str(),
+//                                                     flags, mode);
+//  }
+  WRAPPER_EXECUTION_ENABLE_CKPT();
+  return fd;
+}
+
+extern "C" int openat_2(int dirfd, const char *path, int flags)
+{
+  return openat(dirfd, path, flags, 0);
+}
+
+extern "C" int openat64(int dirfd, const char *path, int flags, ...)
+{
+  va_list arg;
+  va_start(arg, flags);
+  mode_t mode = va_arg(arg, int);
+  va_end(arg);
+  WRAPPER_EXECUTION_DISABLE_CKPT();
+  int fd = _real_openat64(dirfd, path, flags, mode);
+//  if (fd >= 0 && dmtcp_is_running_state()) {
+//    dmtcp::string procpath = "/proc/self/fd/" + jalib::XToString(fd);
+//    dmtcp::string device = jalib::Filesystem::ResolveSymlink(procpath);
+//    ConnectionList::instance().processFileConnection(fd, device.c_str(),
+//                                                     flags, mode);
+//  }
+  WRAPPER_EXECUTION_ENABLE_CKPT();
+  return fd;
+}
+
+extern "C" int openat64_2(int dirfd, const char *path, int flags)
+{
+  return openat64(dirfd, path, flags, 0);
+}
+extern "C" DIR *opendir(const char *name)
+{
+  WRAPPER_EXECUTION_DISABLE_CKPT();
+  DIR *dir = _real_opendir(name);
+//  if (dir != NULL) {
+//    ConnectionList::instance().processFileConnection(dirfd(dir), name, -1, -1);
+//  }
+  WRAPPER_EXECUTION_ENABLE_CKPT();
+  return dir;
+}
 
 static void updateStatPath(const char *path, char *newpath)
 {
@@ -506,6 +580,7 @@ extern "C" int __lxstat64(int vers, const char *path, struct stat64 *buf)
   return retval;
 }
 
+//FIXME: Add wrapper for readlinkat
 extern "C" READLINK_RET_TYPE readlink(const char *path, char *buf,
                                       size_t bufsiz)
 {

@@ -185,8 +185,12 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   MACRO(open64)                             \
   MACRO(fopen)                              \
   MACRO(fopen64)                            \
+  MACRO(openat)                             \
+  MACRO(openat64)                           \
+  MACRO(opendir)                            \
   MACRO(close)                              \
   MACRO(fclose)                             \
+  MACRO(closedir)                           \
   MACRO(dup)                                \
   MACRO(dup2)                               \
   MACRO(dup3)                               \
@@ -331,8 +335,12 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   int _real_open64(const char *pathname, int flags, ...);
   FILE* _real_fopen(const char *path, const char *mode);
   FILE* _real_fopen64(const char *path, const char *mode);
+  int _real_openat(int dirfd, const char *pathname, int flags, mode_t mode);
+  int _real_openat64(int dirfd, const char *pathname, int flags, mode_t mode);
+  DIR* _real_opendir(const char *name);
   int _real_close (int fd);
   int _real_fclose (FILE *fp);
+  int _real_closedir (DIR *dir);
   void _real_exit (int status);
   int _real_dup (int oldfd);
   int _real_dup2 (int oldfd, int newfd);
