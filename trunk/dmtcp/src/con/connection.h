@@ -40,6 +40,7 @@
 #include "../jalib/jconvert.h"
 #include "../jalib/jalloc.h"
 #include "../jalib/jfilesystem.h"
+#include  "../jalib/jsocket.h"
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -78,8 +79,6 @@ enum { EFD_SEMAPHORE = 1 };
 struct signalfd_siginfo {uint32_t ssi_signo; int dummy;};
 #endif
 
-namespace jalib { class JSocket; }
-
 namespace dmtcp
 {
 
@@ -87,8 +86,6 @@ namespace dmtcp
   class ConnectionRewirer;
   class TcpConnection;
   class EpollConnection;
-  class KernelDeviceToConnection;
-  class ConnectionToFds;
 #ifdef DMTCP_USE_INOTIFY
   class InotifyConnection;
 #endif
@@ -120,35 +117,31 @@ namespace dmtcp
           SIGNALFD | INOTIFY | POSIXMQ
       };
 
+      Connection() {}
       virtual ~Connection() {}
 
-      int conType() const { return _type & TYPEMASK; }
-      int subType() const { return _type; }
+      void addFd(int fd);
+      void removeFd(int fd);
+      size_t numFds() const { return _fds.size(); }
+      const vector<int>& getFds() const { return _fds; }
+      int  conType() const { return _type & TYPEMASK; }
+      int  subType() const { return _type; }
       bool restoreInSecondIteration() { return _restoreInSecondIteration; }
+      bool hasLock() { return _hasLock; }
 
+      void  checkLock();
       const ConnectionIdentifier& id() const { return _id; }
 
-      virtual void preCheckpoint(const dmtcp::vector<int>& fds,
-                                 KernelBufferDrainer&) = 0;
-      virtual void postCheckpoint(const dmtcp::vector<int>& fds,
-                                  bool isRestart = false) = 0;
-      virtual void restore(const dmtcp::vector<int>&,
-                           ConnectionRewirer *rewirer = NULL) = 0;
+      virtual void preCheckpoint(KernelBufferDrainer&) = 0;
+      virtual void postRefill(bool isRestart = false) = 0;
+      virtual void restore(ConnectionRewirer *rewirer = NULL) = 0;
 
-      virtual bool isDupConnection(const Connection& _that,
-                                   dmtcp::ConnectionToFds& conToFds)
-      { return false; };
-      virtual void doLocking(const dmtcp::vector<int>& fds);
-      virtual void saveOptions(const dmtcp::vector<int>& fds);
-      virtual void restoreOptions(const dmtcp::vector<int>& fds);
+      virtual void doLocking();
+      virtual void saveOptions();
+      virtual void restoreOptions();
 
-      virtual void doSendHandshakes(const dmtcp::vector<int>& fds,
-                                    const dmtcp::UniquePid& coordinator) {};
-      virtual void doRecvHandshakes(const dmtcp::vector<int>& fds,
-                                    const dmtcp::UniquePid& coordinator) {};
-
-      //called on restart when _id collides with another connection
-      virtual void mergeWith(const Connection& that);
+      virtual void doSendHandshakes(const dmtcp::UniquePid& coordinator) {};
+      virtual void doRecvHandshakes(const dmtcp::UniquePid& coordinator) {};
 
       //convert with type checking
       virtual TcpConnection& asTcp();
@@ -157,9 +150,7 @@ namespace dmtcp
       virtual InotifyConnection& asInotify();
 #endif
 
-      virtual void restartDup2(int oldFd, int newFd);
-
-      virtual string str() { return "<Not-a-File>"; };
+      virtual string str() = 0;
 
       void serialize(jalib::JBinarySerializer& o);
     protected:
@@ -173,7 +164,9 @@ namespace dmtcp
       int                  _fcntlFlags;
       int                  _fcntlOwner;
       int                  _fcntlSignal;
+      bool                 _hasLock;
       bool                 _restoreInSecondIteration;
+      vector<int>          _fds;
   };
 
   class SocketConnection
@@ -189,9 +182,10 @@ namespace dmtcp
 
       enum PeerType peerType() const { return _peerType; }
 
+      SocketConnection() {}
       SocketConnection(int domain, int type, int protocol);
       void addSetsockopt(int level, int option, const char* value, int len);
-      void restoreSocketOptions(const dmtcp::vector<int>& fds);
+      void restoreSocketOptions(dmtcp::vector<int>& fds);
       void serialize(jalib::JBinarySerializer& o);
 
     protected:
@@ -219,20 +213,9 @@ namespace dmtcp
         TCP_EXTERNAL_CONNECT
       };
 
+      TcpConnection() {}
       int tcpType() const { return _type; }
 
-#ifdef EXTERNAL_SOCKET_HANDLING
-      void markInternal() {
-        if (_type == TCP_ACCEPT || _type == TCP_CONNECT)
-          _peerType = PEER_INTERNAL;
-      }
-      void markExternal() {
-        if (_type == TCP_ACCEPT || _type == TCP_CONNECT)
-          _peerType = PEER_EXTERNAL;
-      }
-      void preCheckpointPeerLookup(const dmtcp::vector<int>& fds,
-                               dmtcp::vector<TcpConnectionInfo>& conInfoTable);
-#endif
       // This accessor is needed because _type is protected.
       void markExternalConnect() { _type = TCP_EXTERNAL_CONNECT; }
 
@@ -247,46 +230,34 @@ namespace dmtcp
       TcpConnection(const TcpConnection& parent,
                     const ConnectionIdentifier& remote);
       void onError();
-      void onDisconnect(const dmtcp::vector<int>& fds);
+      void onDisconnect();
 
       void markPreExisting() { _type = TCP_PREEXISTING; }
 
       //basic checkpointing commands
-      virtual void preCheckpoint(const dmtcp::vector<int>& fds
-                                 , KernelBufferDrainer& drain);
-      virtual void postCheckpoint(const dmtcp::vector<int>& fds,
-                                  bool isRestart = false);
-      virtual void restore(const dmtcp::vector<int>&,
-                           ConnectionRewirer *rewirer = NULL);
-      virtual void restoreOptions(const dmtcp::vector<int>& fds);
+      virtual void preCheckpoint(KernelBufferDrainer& drain);
+      virtual void postRefill(bool isRestart = false);
+      virtual void restore(ConnectionRewirer *rewirer = NULL);
+      virtual void restoreOptions();
 
-      //virtual void doLocking(const dmtcp::vector<int>& fds);
+      virtual void doSendHandshakes(const dmtcp::UniquePid& coordinator);
+      virtual void doRecvHandshakes(const dmtcp::UniquePid& coordinator);
 
-      virtual void doSendHandshakes(const dmtcp::vector<int>& fds,
-                                    const dmtcp::UniquePid& coordinator);
-      virtual void doRecvHandshakes(const dmtcp::vector<int>& fds,
-                                    const dmtcp::UniquePid& coordinator);
-
-      void sendHandshake(jalib::JSocket& sock,
-                         const dmtcp::UniquePid& coordinator);
-      void recvHandshake(jalib::JSocket& sock,
-                         const dmtcp::UniquePid& coordinator);
+      void sendHandshake(int remotefd, const UniquePid& coordinator);
+      void recvHandshake(int remotefd, const UniquePid& coordinator);
 
       void setSocketpairPeer(ConnectionIdentifier id) {
         _peerType = PEER_SOCKETPAIR;
         _socketpairPeerId = id;
       }
 
-      void restoreSocketPair(const dmtcp::vector<int>& fds,
-                             dmtcp::TcpConnection *peer,
-                             const dmtcp::vector<int>& peerfds);
+      void restoreSocketPair(dmtcp::TcpConnection *peer);
       const ConnectionIdentifier& getRemoteId() const
       { return _remotePeerId;}
       const ConnectionIdentifier& getSocketpairPeerId() const
       { return _socketpairPeerId; }
+      virtual string str() { return "<TCP Socket>"; }
 
-      //called on restart when _id collides with another connection
-      virtual void mergeWith(const Connection& that);
       virtual void serializeSubClass(jalib::JBinarySerializer& o);
     private:
       TcpConnection& asTcp();
@@ -308,22 +279,18 @@ namespace dmtcp
   class RawSocketConnection : public Connection, public SocketConnection
   {
     public:
+      RawSocketConnection() {};
       //basic commands for updating state from wrappers
       RawSocketConnection(int domain, int type, int protocol);
 
       //basic checkpointing commands
-      virtual void preCheckpoint(const dmtcp::vector<int>& fds,
-                                 KernelBufferDrainer& drain);
-      virtual void postCheckpoint(const dmtcp::vector<int>& fds,
-                                  bool isRestart = false);
-      virtual void restore(const dmtcp::vector<int>&,
-                           ConnectionRewirer *rewirer = NULL);
-      virtual void restoreOptions(const dmtcp::vector<int>& fds);
-
-      //called on restart when _id collides with another connection
-      virtual void mergeWith(const Connection& that);
+      virtual void preCheckpoint(KernelBufferDrainer& drain);
+      virtual void postRefill(bool isRestart = false);
+      virtual void restore(ConnectionRewirer *rewirer = NULL);
+      virtual void restoreOptions();
 
       virtual void serializeSubClass(jalib::JBinarySerializer& o);
+      virtual string str() { return "<TCP Socket>"; }
     private:
       dmtcp::map< int, dmtcp::map< int, jalib::JBuffer > > _sockOptions;
   };
@@ -344,59 +311,25 @@ namespace dmtcp
           //        TYPEMASK = PTY_CTTY | PTY_Master | PTY_Slave
       };
 
-      PtyConnection(const dmtcp::string& ptsName,
-                    const dmtcp::string& uniquePtsName, int type)
-        : Connection(PTY)
-          , _ptsName(ptsName)
-          , _uniquePtsName(uniquePtsName)
-    {
-      _type = type;
-      JTRACE("Creating PtyConnection") (ptsName) (uniquePtsName) (id());
-      //if (type != PTY_CTTY &&  filename.compare("?") == 0)
-      //{
-      //  _type = PTY_INVALID;
-      //}
-    }
-
-      PtyConnection(const dmtcp::string& device, int type)
-        : Connection(PTY)
-          , _bsdDeviceName(device)
-    {
-      _type = type;
-      JTRACE("Creating BSDPtyConnection") (device) (id());
-    }
-
-      PtyConnection()
-        : Connection(PTY)
-          , _ptsName("?")
-          , _uniquePtsName("?")
-    {
-      _type = PTY_INVALID;
-      //JTRACE("Creating empty PtyConnection") (id());
-    }
+      PtyConnection() {}
+      PtyConnection(int fd, const char *path, int flags, mode_t mode, int type);
 
       int  ptyType() { return _type;}// & TYPEMASK);
       dmtcp::string ptsName() { return _ptsName;; }
-      dmtcp::string uniquePtsName() { return _uniquePtsName;; }
+      dmtcp::string virtPtsName() { return _virtPtsName;; }
 
-      //virtual void doLocking(const dmtcp::vector<int>& fds);
-      virtual void preCheckpoint(const dmtcp::vector<int>& fds
-                                 , KernelBufferDrainer& drain);
-      virtual void postCheckpoint(const dmtcp::vector<int>& fds,
-                                  bool isRestart = false);
-      virtual void restore(const dmtcp::vector<int>&,
-                           ConnectionRewirer *rewirer = NULL);
-      virtual void restoreOptions(const dmtcp::vector<int>& fds);
-
+      virtual void preCheckpoint(KernelBufferDrainer& drain);
+      virtual void postRefill(bool isRestart = false);
+      virtual void restore(ConnectionRewirer *rewirer = NULL);
       virtual void serializeSubClass(jalib::JBinarySerializer& o);
-
-      //called on restart when _id collides with another connection
-      virtual void mergeWith(const Connection& that);
+      virtual string str() { return _masterName + ":" + _ptsName; }
     private:
       //PtyType   _type;
+      dmtcp::string _masterName;
       dmtcp::string _ptsName;
-      dmtcp::string _uniquePtsName;
-      dmtcp::string _bsdDeviceName;
+      dmtcp::string _virtPtsName;
+      int           _flags;
+      mode_t        _mode;
       bool          _ptmxIsPacketMode;
 
   };
@@ -419,21 +352,14 @@ namespace dmtcp
         .Text("invalid fd for StdioConnection");
     }
 
-      StdioConnection(): Connection(STDIO_INVALID) {}
+      StdioConnection() {}
 
-      virtual void preCheckpoint(const dmtcp::vector<int>& fds
-                                 , KernelBufferDrainer& drain);
-      virtual void postCheckpoint(const dmtcp::vector<int>& fds,
-                                  bool isRestart = false);
-      virtual void restore(const dmtcp::vector<int>&,
-                           ConnectionRewirer *rewirer = NULL);
-      virtual void restoreOptions(const dmtcp::vector<int>& fds);
+      virtual void preCheckpoint(KernelBufferDrainer& drain);
+      virtual void postRefill(bool isRestart = false);
+      virtual void restore(ConnectionRewirer *rewirer = NULL);
 
+      virtual string str() { return "<STDIO>"; };
       virtual void serializeSubClass(jalib::JBinarySerializer& o);
-
-      virtual void mergeWith(const Connection& that);
-
-      virtual void restartDup2(int oldFd, int newFd);
   };
 
   class FileConnection : public Connection
@@ -454,32 +380,21 @@ namespace dmtcp
         TORQUE_NODE
       };
 
-      //called on restart when _id collides with another connection
-      virtual void mergeWith(const Connection& that);
-
-      inline FileConnection(const dmtcp::string& path, off_t offset=-1,
-                            int type = FILE_REGULAR)
+      FileConnection() {}
+      FileConnection(const dmtcp::string& path, int flags, mode_t mode,
+                     int type = FILE_REGULAR)
         : Connection(FILE)
-          , _path(path)
-          , _offset(offset)
-    {
-      _type = type;
-      if (_type == FILE_RESMGR)
-        JTRACE("New Resource Manager File connection created") (_path);
-      else if (path != "?") {
-        JTRACE("New File connection created") (_path);
+        , _path(path)
+        , _flags(flags)
+        , _mode(mode)
+      {
+         _type = type;
       }
-    }
 
-      virtual void doLocking(const dmtcp::vector<int>& fds);
-      virtual void preCheckpoint(const dmtcp::vector<int>& fds
-                                 , KernelBufferDrainer& drain);
-      virtual void postCheckpoint(const dmtcp::vector<int>& fds,
-                                  bool isRestart = false);
-
-      virtual void restoreOptions(const dmtcp::vector<int>& fds);
-      virtual void restore(const dmtcp::vector<int>&,
-                           ConnectionRewirer *rewirer = NULL);
+      virtual void doLocking();
+      virtual void preCheckpoint(KernelBufferDrainer& drain);
+      virtual void postRefill(bool isRestart = false);
+      virtual void restore(ConnectionRewirer *rewirer = NULL);
 
       virtual void serializeSubClass(jalib::JBinarySerializer& o);
 
@@ -491,38 +406,35 @@ namespace dmtcp
         _checkpointed = false; _restoreInSecondIteration = true;
       }
 
-      bool isDupConnection(const Connection& _that,
-                           dmtcp::ConnectionToFds& conToFds);
-
       int fileType() { return _type; }
 
     private:
       void saveFile(int fd);
       int  openFile();
-      void refreshPath(const dmtcp::vector<int>& fds);
       void refreshPath();
       void handleUnlinkedFile();
       void calculateRelativePath();
       dmtcp::string getSavedFilePath(const dmtcp::string& path);
-      void preCheckpointResMgrFile(const dmtcp::vector<int>&);
-      bool restoreResMgrFile(const dmtcp::vector<int>&);
+      void preCheckpointResMgrFile();
+      bool restoreResMgrFile();
 
       dmtcp::string _path;
       dmtcp::string _rel_path;
       dmtcp::string _ckptFilesDir;
-      bool        _checkpointed;
-      off_t       _offset;
-      struct stat _stat;
+      bool          _checkpointed;
+      int           _flags;
+      mode_t        _mode;
+      off_t         _offset;
+      struct stat   _stat;
       ResMgrFileType _rmtype;
   };
 
   class FifoConnection : public Connection
   {
     public:
-      //called on restart when _id collides with another connection
-      virtual void mergeWith(const Connection& that);
 
-      inline FifoConnection(const dmtcp::string& path)
+      FifoConnection() {}
+      FifoConnection(const dmtcp::string& path, int flags, mode_t mode)
         : Connection(FIFO)
           , _path(path)
     {
@@ -540,18 +452,12 @@ namespace dmtcp
       _in_data.clear();
     }
 
-      virtual void preCheckpoint(const dmtcp::vector<int>& fds
-                                 , KernelBufferDrainer& drain);
-      virtual void postCheckpoint(const dmtcp::vector<int>& fds,
-                                  bool isRestart = false);
+      virtual void preCheckpoint(KernelBufferDrainer& drain);
+      virtual void postRefill(bool isRestart = false);
+      virtual void restore(ConnectionRewirer *rewirer = NULL);
 
-      virtual void restoreOptions(const dmtcp::vector<int>& fds);
-      virtual void restore(const dmtcp::vector<int>&,
-                           ConnectionRewirer *rewirer = NULL);
-
+      virtual string str() { return _path; };
       virtual void serializeSubClass(jalib::JBinarySerializer& o);
-
-      //virtual void doLocking(const dmtcp::vector<int>& fds);
 
     private:
       int  openFile();
@@ -560,8 +466,9 @@ namespace dmtcp
       dmtcp::string _path;
       dmtcp::string _rel_path;
       dmtcp::string _savedRelativePath;
+      int           _flags;
+      mode_t        _mode;
       struct stat _stat;
-      bool _has_lock;
       vector<char> _in_data;
       int ckptfd;
   };
@@ -587,21 +494,9 @@ namespace dmtcp
 
       int epollType() const { return _type; }
 
-      virtual void preCheckpoint(const dmtcp::vector<int>& fds,
-                                 KernelBufferDrainer&);
-      virtual void postCheckpoint(const dmtcp::vector<int>& fds,
-                                  bool isRestart = false);
-      virtual void restore(const dmtcp::vector<int>&,
-                           ConnectionRewirer *rewirer = NULL);
-
-      //virtual void doLocking(const dmtcp::vector<int>& fds);
-      //virtual void saveOptions(const dmtcp::vector<int>& fds);
-      virtual void restoreOptions(const dmtcp::vector<int>& fds);
-
-      //called on restart when _id collides with another connection
-      virtual void mergeWith(const Connection& that);
-
-      //virtual void restartDup2(int oldFd, int newFd);
+      virtual void preCheckpoint(KernelBufferDrainer&);
+      virtual void postRefill(bool isRestart = false);
+      virtual void restore(ConnectionRewirer *rewirer = NULL);
       virtual void serializeSubClass(jalib::JBinarySerializer& o);
 
       virtual string str() { return "EPOLL-FD: <Not-a-File>"; };
@@ -627,18 +522,9 @@ namespace dmtcp
       JTRACE("new eventfd connection created");
     }
 
-      virtual void preCheckpoint(const dmtcp::vector<int>& fds,
-                                 KernelBufferDrainer&);
-      virtual void postCheckpoint(const dmtcp::vector<int>& fds,
-                                  bool isRestart = false);
-      virtual void restore(const dmtcp::vector<int>&,
-                           ConnectionRewirer *rewirer = NULL);
-
-      //virtual void doLocking(const dmtcp::vector<int>& fds);
-      //virtual void saveOptions(const dmtcp::vector<int>& fds);
-      virtual void restoreOptions(const dmtcp::vector<int>& fds);
-
-      //virtual void restartDup2(int oldFd, int newFd);
+      virtual void preCheckpoint(KernelBufferDrainer&);
+      virtual void postRefill(bool isRestart = false);
+      virtual void restore(ConnectionRewirer *rewirer = NULL);
       virtual void serializeSubClass(jalib::JBinarySerializer& o);
 
       virtual string str() { return "EVENT-FD: <Not-a-File>"; };
@@ -646,7 +532,6 @@ namespace dmtcp
     private:
       unsigned int   _initval; // initial counter value
       int         _flags; // flags
-      bool _has_lock;
       int evtfd;
   };
 
@@ -666,15 +551,9 @@ namespace dmtcp
       JTRACE("new signalfd  connection created");
     }
 
-      virtual void preCheckpoint(const dmtcp::vector<int>& fds,
-                                 KernelBufferDrainer&);
-      virtual void postCheckpoint(const dmtcp::vector<int>& fds,
-                                  bool isRestart = false);
-      virtual void restore(const dmtcp::vector<int>&,
-                           ConnectionRewirer *rewirer = NULL);
-
-      virtual void restoreOptions(const dmtcp::vector<int>& fds);
-
+      virtual void preCheckpoint(KernelBufferDrainer&);
+      virtual void postRefill(bool isRestart = false);
+      virtual void restore(ConnectionRewirer *rewirer = NULL);
       virtual void serializeSubClass(jalib::JBinarySerializer& o);
 
       virtual string str() { return "SIGNAL-FD: <Not-a-File>"; };
@@ -684,7 +563,6 @@ namespace dmtcp
       int         _flags; // flags
       sigset_t _mask; // mask for signals
       struct signalfd_siginfo _fdsi;
-      bool _has_lock;
   };
 
 #ifdef DMTCP_USE_INOTIFY
@@ -708,18 +586,9 @@ namespace dmtcp
       int inotifyState() const { return _state; }
       InotifyConnection& asInotify();
 
-      virtual void preCheckpoint(const dmtcp::vector<int>& fds,
-                                 KernelBufferDrainer&);
-      virtual void postCheckpoint(const dmtcp::vector<int>& fds,
-                                  bool isRestart = false);
-      virtual void restore(const dmtcp::vector<int>&,
-                           ConnectionRewirer *rewirer = NULL);
-
-      virtual void restoreOptions(const dmtcp::vector<int>& fds);
-
-      //called on restart when _id collides with another connection
-      virtual void mergeWith(const Connection& that);
-
+      virtual void preCheckpoint(KernelBufferDrainer&);
+      virtual void postRefill(bool isRestart = false);
+      virtual void restore(ConnectionRewirer *rewirer = NULL);
       virtual void serializeSubClass(jalib::JBinarySerializer& o);
 
       virtual string str() { return "INOTIFY-FD: <Not-a-File>"; };
@@ -752,12 +621,9 @@ namespace dmtcp
       }
     }
 
-      virtual void preCheckpoint(const dmtcp::vector<int>& fds,
-                                 KernelBufferDrainer&);
-      virtual void postCheckpoint(const dmtcp::vector<int>& fds,
-                                  bool isRestart = false);
-      virtual void restore(const dmtcp::vector<int>&,
-                           ConnectionRewirer *rewirer = NULL);
+      virtual void preCheckpoint(KernelBufferDrainer&);
+      virtual void postRefill(bool isRestart = false);
+      virtual void restore(ConnectionRewirer *rewirer = NULL);
 
       virtual void serializeSubClass(jalib::JBinarySerializer& o);
 

@@ -62,8 +62,7 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 bin_PROGRAMS = dmtcp_checkpoint$(EXEEXT) dmtcp_command$(EXEEXT) \
 	dmtcp_coordinator$(EXEEXT) dmtcp_restart$(EXEEXT) \
-	dmtcp_inspector$(EXEEXT) dmtcp_nocheckpoint$(EXEEXT) \
-	dmtcp_discover_rm$(EXEEXT)
+	dmtcp_nocheckpoint$(EXEEXT) dmtcp_discover_rm$(EXEEXT)
 pkglibexec_PROGRAMS = dmtcphijack.so$(EXEEXT) \
 	libdmtcpaware.so.1.0.0$(EXEEXT)
 subdir = src
@@ -115,8 +114,7 @@ libconnection_a_AR = $(AR) $(ARFLAGS)
 libconnection_a_LIBADD =
 am_libconnection_a_OBJECTS = con.$(OBJEXT) connection.$(OBJEXT) \
 	connectionmanager.$(OBJEXT) connectionrewirer.$(OBJEXT) \
-	connectionstate.$(OBJEXT) kernelbufferdrainer.$(OBJEXT) \
-	sockettable.$(OBJEXT) util_descriptor.$(OBJEXT) \
+	kernelbufferdrainer.$(OBJEXT) util_descriptor.$(OBJEXT) \
 	resource_manager.$(OBJEXT)
 libconnection_a_OBJECTS = $(am_libconnection_a_OBJECTS)
 libdmtcpaware_a_AR = $(AR) $(ARFLAGS)
@@ -131,7 +129,7 @@ am_libdmtcpinternal_a_OBJECTS = dmtcpmessagetypes.$(OBJEXT) \
 	connectionidentifier.$(OBJEXT) util_exec.$(OBJEXT) \
 	util_gen.$(OBJEXT) util_init.$(OBJEXT) \
 	jalibinterface.$(OBJEXT) processinfo.$(OBJEXT) \
-	ckptserializer.$(OBJEXT) resource_manager.$(OBJEXT)
+	resource_manager.$(OBJEXT)
 libdmtcpinternal_a_OBJECTS = $(am_libdmtcpinternal_a_OBJECTS)
 libjalib_a_AR = $(AR) $(ARFLAGS)
 libjalib_a_LIBADD =
@@ -170,15 +168,10 @@ dmtcp_coordinator_DEPENDENCIES = libdmtcpinternal.a libconnection.a \
 am_dmtcp_discover_rm_OBJECTS = dmtcp_discover_rm.$(OBJEXT)
 dmtcp_discover_rm_OBJECTS = $(am_dmtcp_discover_rm_OBJECTS)
 dmtcp_discover_rm_LDADD = $(LDADD)
-am_dmtcp_inspector_OBJECTS = dmtcp_inspector.$(OBJEXT)
-dmtcp_inspector_OBJECTS = $(am_dmtcp_inspector_OBJECTS)
-dmtcp_inspector_DEPENDENCIES = libconnection.a libdmtcpinternal.a \
-	libjalib.a libnohijack.a
 am_dmtcp_nocheckpoint_OBJECTS = dmtcp_nocheckpoint.$(OBJEXT)
 dmtcp_nocheckpoint_OBJECTS = $(am_dmtcp_nocheckpoint_OBJECTS)
 dmtcp_nocheckpoint_LDADD = $(LDADD)
-am_dmtcp_restart_OBJECTS = dmtcp_restart.$(OBJEXT) \
-	restoretarget.$(OBJEXT)
+am_dmtcp_restart_OBJECTS = dmtcp_restart.$(OBJEXT) util_exec.$(OBJEXT)
 dmtcp_restart_OBJECTS = $(am_dmtcp_restart_OBJECTS)
 dmtcp_restart_DEPENDENCIES = libdmtcpinternal.a libconnection.a \
 	libjalib.a libnohijack.a
@@ -222,17 +215,17 @@ SOURCES = $(libconnection_a_SOURCES) $(libdmtcpaware_a_SOURCES) \
 	$(libnohijack_a_SOURCES) $(libsyscallsreal_a_SOURCES) \
 	$(libsysvipc_a_SOURCES) $(dmtcp_checkpoint_SOURCES) \
 	$(dmtcp_command_SOURCES) $(dmtcp_coordinator_SOURCES) \
-	$(dmtcp_discover_rm_SOURCES) $(dmtcp_inspector_SOURCES) \
-	$(dmtcp_nocheckpoint_SOURCES) $(dmtcp_restart_SOURCES) \
-	$(dmtcphijack_so_SOURCES) $(libdmtcpaware_so_1_0_0_SOURCES)
+	$(dmtcp_discover_rm_SOURCES) $(dmtcp_nocheckpoint_SOURCES) \
+	$(dmtcp_restart_SOURCES) $(dmtcphijack_so_SOURCES) \
+	$(libdmtcpaware_so_1_0_0_SOURCES)
 DIST_SOURCES = $(libconnection_a_SOURCES) $(libdmtcpaware_a_SOURCES) \
 	$(libdmtcpinternal_a_SOURCES) $(libjalib_a_SOURCES) \
 	$(libnohijack_a_SOURCES) $(libsyscallsreal_a_SOURCES) \
 	$(libsysvipc_a_SOURCES) $(dmtcp_checkpoint_SOURCES) \
 	$(dmtcp_command_SOURCES) $(dmtcp_coordinator_SOURCES) \
-	$(dmtcp_discover_rm_SOURCES) $(dmtcp_inspector_SOURCES) \
-	$(dmtcp_nocheckpoint_SOURCES) $(dmtcp_restart_SOURCES) \
-	$(dmtcphijack_so_SOURCES) $(libdmtcpaware_so_1_0_0_SOURCES)
+	$(dmtcp_discover_rm_SOURCES) $(dmtcp_nocheckpoint_SOURCES) \
+	$(dmtcp_restart_SOURCES) $(dmtcphijack_so_SOURCES) \
+	$(libdmtcpaware_so_1_0_0_SOURCES)
 am__can_run_installinfo = \
   case $$AM_UPDATE_INFO_DIR in \
     n|no|NO) false;; \
@@ -356,16 +349,15 @@ nobase_noinst_HEADERS = constants.h \
 	../jalib/jassert.h ../jalib/jalloc.h ../jalib/jalib.h \
 	../jalib/jbuffer.h ../jalib/jconvert.h ../jalib/jfilesystem.h \
 	../jalib/jserialize.h ../jalib/jsocket.h ../jalib/jtimer.h \
-	con/connectionstate.h con/connection.h \
+	sysvipc/sysvipc.h con/connection.h \
 	con/connectionmanager.h con/connectionrewirer.h \
-	con/kernelbufferdrainer.h con/sockettable.h con/util_descriptor.h\
-	sysvipc/sysvipc.h \
+	con/kernelbufferdrainer.h con/util_descriptor.h\
 	dmtcp_coordinator.h dmtcpmessagetypes.h \
 	dmtcpworker.h threadsync.h coordinatorapi.h \
 	mtcpinterface.h  protectedfds.h connectionidentifier.h \
 	syscallwrappers.h syslogwrappers.h \
 	uniquepid.h processinfo.h util.h virtualidtable.h \
-	restoretarget.h ckptserializer.h resource_manager.h remexecwrappers.h\
+	resource_manager.h remexecwrappers.h\
 	dmtcpplugin.h lookup_service.h trampolines.h shareddata.h
 
 
@@ -377,12 +369,11 @@ libdmtcpinternal_a_SOURCES = dmtcpmessagetypes.cpp protectedfds.cpp \
 			     coordinatorapi.cpp connectionidentifier.cpp \
 			     util_exec.cpp util_gen.cpp util_init.cpp \
 			     jalibinterface.cpp processinfo.cpp \
-			     ckptserializer.cpp resource_manager.cpp
+			     resource_manager.cpp
 
 libconnection_a_SOURCES = con/con.cpp con/connection.cpp \
 			  con/connectionmanager.cpp con/connectionrewirer.cpp \
-			  con/connectionstate.cpp con/kernelbufferdrainer.cpp \
-			  con/sockettable.cpp con/util_descriptor.cpp \
+			  con/kernelbufferdrainer.cpp con/util_descriptor.cpp \
 			  resource_manager.cpp
 
 libsysvipc_a_SOURCES = sysvipc/sysvipc.cpp sysvipc/sysvipcwrappers.cpp
@@ -399,7 +390,7 @@ libnohijack_a_SOURCES = nosyscallsreal.c dmtcpnohijackstubs.cpp
 dmtcp_coordinator_SOURCES = dmtcp_coordinator.cpp lookup_service.cpp
 dmtcp_checkpoint_SOURCES = dmtcp_checkpoint.cpp
 dmtcp_nocheckpoint_SOURCES = dmtcp_nocheckpoint.c
-dmtcp_restart_SOURCES = dmtcp_restart.cpp restoretarget.cpp
+dmtcp_restart_SOURCES = dmtcp_restart.cpp util_exec.cpp
 dmtcp_command_SOURCES = dmtcp_command.cpp
 dmtcphijack_so_SOURCES = dmtcpawareapi.cpp dmtcpworker.cpp threadsync.cpp \
 			 coordinatorapi.cpp execwrappers.cpp \
@@ -412,7 +403,6 @@ dmtcphijack_so_SOURCES = dmtcpawareapi.cpp dmtcpworker.cpp threadsync.cpp \
 			 con/socketwrappers.cpp con/posixipcwrappers.cpp \
 			 sysvipc/sysvipcwrappers.cpp
 
-dmtcp_inspector_SOURCES = dmtcp_inspector.cpp
 dmtcp_discover_rm_SOURCES = dmtcp_discover_rm.cpp
 dmtcphijack_so_LDFLAGS = -shared
 
@@ -431,12 +421,9 @@ dmtcp_checkpoint_LDADD = libdmtcpinternal.a libconnection.a libjalib.a \
 			  libnohijack.a -ldl -lpthread -lrt
 
 dmtcp_restart_LDADD = libdmtcpinternal.a libconnection.a libjalib.a \
-			  libnohijack.a -lpthread -lrt
+			  libnohijack.a -lpthread -lrt -ldl
 
 dmtcp_command_LDADD = libdmtcpinternal.a libconnection.a libjalib.a \
-			  libnohijack.a -lpthread -lrt
-
-dmtcp_inspector_LDADD = libconnection.a libdmtcpinternal.a libjalib.a \
 			  libnohijack.a -lpthread -lrt
 
 libdmtcpaware_a_SOURCES = dmtcpaware.c
@@ -653,9 +640,6 @@ dmtcp_coordinator$(EXEEXT): $(dmtcp_coordinator_OBJECTS) $(dmtcp_coordinator_DEP
 dmtcp_discover_rm$(EXEEXT): $(dmtcp_discover_rm_OBJECTS) $(dmtcp_discover_rm_DEPENDENCIES) $(EXTRA_dmtcp_discover_rm_DEPENDENCIES) 
 	@rm -f dmtcp_discover_rm$(EXEEXT)
 	$(CXXLINK) $(dmtcp_discover_rm_OBJECTS) $(dmtcp_discover_rm_LDADD) $(LIBS)
-dmtcp_inspector$(EXEEXT): $(dmtcp_inspector_OBJECTS) $(dmtcp_inspector_DEPENDENCIES) $(EXTRA_dmtcp_inspector_DEPENDENCIES) 
-	@rm -f dmtcp_inspector$(EXEEXT)
-	$(CXXLINK) $(dmtcp_inspector_OBJECTS) $(dmtcp_inspector_LDADD) $(LIBS)
 dmtcp_nocheckpoint$(EXEEXT): $(dmtcp_nocheckpoint_OBJECTS) $(dmtcp_nocheckpoint_DEPENDENCIES) $(EXTRA_dmtcp_nocheckpoint_DEPENDENCIES) 
 	@rm -f dmtcp_nocheckpoint$(EXEEXT)
 	$(LINK) $(dmtcp_nocheckpoint_OBJECTS) $(dmtcp_nocheckpoint_LDADD) $(LIBS)
@@ -675,19 +659,16 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ckptserializer.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/con.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/connection.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/connectionidentifier.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/connectionmanager.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/connectionrewirer.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/connectionstate.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/coordinatorapi.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcp_checkpoint.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcp_command.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcp_coordinator.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcp_discover_rm.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcp_inspector.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcp_nocheckpoint.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcp_restart.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcpaware.Po@am__quote@
@@ -721,10 +702,8 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/protectedfds.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/remexecwrappers.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/resource_manager.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/restoretarget.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/shareddata.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/signalwrappers.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sockettable.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/socketwrappers.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/syscallsreal.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/syslogwrappers.Po@am__quote@
@@ -824,20 +803,6 @@ connectionrewirer.obj: con/connectionrewirer.cpp
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o connectionrewirer.obj `if test -f 'con/connectionrewirer.cpp'; then $(CYGPATH_W) 'con/connectionrewirer.cpp'; else $(CYGPATH_W) '$(srcdir)/con/connectionrewirer.cpp'; fi`
 
-connectionstate.o: con/connectionstate.cpp
-@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT connectionstate.o -MD -MP -MF $(DEPDIR)/connectionstate.Tpo -c -o connectionstate.o `test -f 'con/connectionstate.cpp' || echo '$(srcdir)/'`con/connectionstate.cpp
-@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/connectionstate.Tpo $(DEPDIR)/connectionstate.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='con/connectionstate.cpp' object='connectionstate.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o connectionstate.o `test -f 'con/connectionstate.cpp' || echo '$(srcdir)/'`con/connectionstate.cpp
-
-connectionstate.obj: con/connectionstate.cpp
-@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT connectionstate.obj -MD -MP -MF $(DEPDIR)/connectionstate.Tpo -c -o connectionstate.obj `if test -f 'con/connectionstate.cpp'; then $(CYGPATH_W) 'con/connectionstate.cpp'; else $(CYGPATH_W) '$(srcdir)/con/connectionstate.cpp'; fi`
-@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/connectionstate.Tpo $(DEPDIR)/connectionstate.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='con/connectionstate.cpp' object='connectionstate.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o connectionstate.obj `if test -f 'con/connectionstate.cpp'; then $(CYGPATH_W) 'con/connectionstate.cpp'; else $(CYGPATH_W) '$(srcdir)/con/connectionstate.cpp'; fi`
-
 kernelbufferdrainer.o: con/kernelbufferdrainer.cpp
 @am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT kernelbufferdrainer.o -MD -MP -MF $(DEPDIR)/kernelbufferdrainer.Tpo -c -o kernelbufferdrainer.o `test -f 'con/kernelbufferdrainer.cpp' || echo '$(srcdir)/'`con/kernelbufferdrainer.cpp
 @am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/kernelbufferdrainer.Tpo $(DEPDIR)/kernelbufferdrainer.Po
@@ -851,20 +816,6 @@ kernelbufferdrainer.obj: con/kernelbufferdrainer.cpp
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='con/kernelbufferdrainer.cpp' object='kernelbufferdrainer.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o kernelbufferdrainer.obj `if test -f 'con/kernelbufferdrainer.cpp'; then $(CYGPATH_W) 'con/kernelbufferdrainer.cpp'; else $(CYGPATH_W) '$(srcdir)/con/kernelbufferdrainer.cpp'; fi`
-
-sockettable.o: con/sockettable.cpp
-@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT sockettable.o -MD -MP -MF $(DEPDIR)/sockettable.Tpo -c -o sockettable.o `test -f 'con/sockettable.cpp' || echo '$(srcdir)/'`con/sockettable.cpp
-@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/sockettable.Tpo $(DEPDIR)/sockettable.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='con/sockettable.cpp' object='sockettable.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o sockettable.o `test -f 'con/sockettable.cpp' || echo '$(srcdir)/'`con/sockettable.cpp
-
-sockettable.obj: con/sockettable.cpp
-@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT sockettable.obj -MD -MP -MF $(DEPDIR)/sockettable.Tpo -c -o sockettable.obj `if test -f 'con/sockettable.cpp'; then $(CYGPATH_W) 'con/sockettable.cpp'; else $(CYGPATH_W) '$(srcdir)/con/sockettable.cpp'; fi`
-@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/sockettable.Tpo $(DEPDIR)/sockettable.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='con/sockettable.cpp' object='sockettable.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o sockettable.obj `if test -f 'con/sockettable.cpp'; then $(CYGPATH_W) 'con/sockettable.cpp'; else $(CYGPATH_W) '$(srcdir)/con/sockettable.cpp'; fi`
 
 util_descriptor.o: con/util_descriptor.cpp
 @am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT util_descriptor.o -MD -MP -MF $(DEPDIR)/util_descriptor.Tpo -c -o util_descriptor.o `test -f 'con/util_descriptor.cpp' || echo '$(srcdir)/'`con/util_descriptor.cpp

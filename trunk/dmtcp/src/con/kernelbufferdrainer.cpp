@@ -19,14 +19,14 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include "kernelbufferdrainer.h"
 
-#include  "../jalib/jassert.h"
 #include "constants.h"
-#include "sockettable.h"
-#include  "../jalib/jbuffer.h"
+#include "kernelbufferdrainer.h"
 #include "connectionmanager.h"
 #include "syscallwrappers.h"
+#include "dmtcpmessagetypes.h"
+#include "../jalib/jassert.h"
+#include "../jalib/jbuffer.h"
 
 namespace
 {

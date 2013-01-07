@@ -34,6 +34,7 @@
 #include "dmtcpplugin.h"
 #include "util.h"
 #include "coordinatorapi.h"
+#include "shareddata.h"
 #include  "../jalib/jconvert.h"
 #include  "../jalib/jassert.h"
 #include  "../jalib/jfilesystem.h"
@@ -222,8 +223,6 @@ static void execShortLivedProcessAndExit(const char *path, char *const argv[])
   exit(0);
 }
 
-void dmtcp_Connection_VirtualToRealPtsName(const char *virt, char *real,
-                                           size_t len);
 // FIXME:  Unify this code with code prior to execvp in dmtcp_checkpoint.cpp
 //   Can use argument to dmtcpPrepareForExec() or getenv("DMTCP_...")
 //   from DmtcpWorker constructor, to distinguish the two cases.
@@ -252,13 +251,13 @@ static void dmtcpPrepareForExec(const char *path, char *const argv[],
     // ptys, the slave name points to a virtual slave name, thus we need to
     // replace it with the real one.
     for (size_t i = 0; argv[i] != NULL; i++) {
-      if (dmtcp::Util::strStartsWith(argv[i], UNIQUE_PTS_PREFIX_STR)) {
+      if (dmtcp::Util::strStartsWith(argv[i], VIRT_PTS_PREFIX_STR)) {
         // FIXME: Potential memory leak if exec() fails.
         char *realPtsNameStr = (char*)JALLOC_HELPER_MALLOC(PTS_PATH_MAX);
         oldStr = argv[i];
         oldIdx = i;
-        dmtcp_Connection_VirtualToRealPtsName(argv[i], realPtsNameStr,
-                                              PTS_PATH_MAX);
+        dmtcp::SharedData::getRealPtyName(argv[i], realPtsNameStr,
+                                          PTS_PATH_MAX);
         // Override const restriction
         *(const char**)&argv[i] = realPtsNameStr;
       }

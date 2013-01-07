@@ -32,188 +32,56 @@
 
 namespace dmtcp
 {
-
-  class KernelDeviceToConnection;
-  class ConnectionToFds;
-  class ConnectionState;
-
   class ConnectionList
   {
-      friend class KernelDeviceToConnection;
     public:
 #ifdef JALIB_ALLOCATOR
       static void* operator new(size_t nbytes, void* p) { return p; }
       static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
       static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
 #endif
+      ConnectionList() {}
       typedef dmtcp::map<ConnectionIdentifier, Connection*>::iterator iterator;
       iterator begin() { return _connections.begin(); }
       iterator end() { return _connections.end(); }
       static ConnectionList& instance();
+      void resetOnFork();
+      void deleteStaleConnections();
       void erase(iterator i);
       void erase(ConnectionIdentifier& key);
-      ConnectionList();
       Connection& operator[](const ConnectionIdentifier& id);
       Connection *getConnection(const ConnectionIdentifier &id);
-
+      Connection *getConnection(int fd);
+      dmtcp::vector<int>& getFds(const ConnectionIdentifier& c);
+      void processClose(int fd);
+      void processDup(int oldfd, int newfd);
+      void processFileConnection(int fd, const char *path, int flags,
+                                 mode_t mode);
+      void list();
       void serialize(jalib::JBinarySerializer& o);
 
       //examine /proc/self/fd for unknown connections
       void scanForPreExisting();
-    protected:
-      void add(Connection* c);
+      void add(int fd, Connection* c);
+
+      // Moved from ConnectionState
+      void preLockSaveOptions();
+      void preCheckpointFdLeaderElection();
+      void preCheckpointDrain();
+      void preCheckpointHandshakes();
+      void refill(bool isRestart);
+      void postRestart();
+      void doReconnect();
+
+      void registerMissingCons();
+      void sendReceiveMissingFds();
+
     private:
-      typedef  dmtcp::map<ConnectionIdentifier, Connection*> ConnectionMapT;
+      typedef map<ConnectionIdentifier, Connection*> ConnectionMapT;
       ConnectionMapT _connections;
+
+      typedef map<int, Connection*> FdToConMapT;
+      FdToConMapT _fdToCon;
   };
-
-
-  class KernelDeviceToConnection
-  {
-    public:
-#ifdef JALIB_ALLOCATOR
-      static void* operator new(size_t nbytes, void* p) { return p; }
-      static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
-      static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
-#endif
-      static KernelDeviceToConnection& instance();
-      Connection& retrieve(int fd);
-      dmtcp::string getDevice(const ConnectionIdentifier& con);
-      void create(int fd, Connection* c);
-      void createPtyDevice(int fd, dmtcp::string deviceName, Connection* c);
-
-      void erase(const ConnectionIdentifier&);
-
-      dmtcp::string fdToDevice(int fd , bool noOnDemandConnection = false);
-
-      void dbgSpamFds();
-
-      //fix things up post-restart(all or KernelDevices have changed)
-      KernelDeviceToConnection(const ConnectionToFds& source);
-
-
-      void serialize(jalib::JBinarySerializer& o);
-
-      KernelDeviceToConnection();
-
-      void handlePreExistingFd(int fd);
-      void prepareForFork();
-
-      //called when a device name changes
-      void redirect(int fd, const ConnectionIdentifier& id);
-    protected:
-
-
-    private:
-      typedef map< string , ConnectionIdentifier >::iterator iterator;
-      map< dmtcp::string , ConnectionIdentifier > _table;
-  };
-
-  class ConnectionToFds
-  {
-    public:
-#ifdef JALIB_ALLOCATOR
-      static void* operator new(size_t nbytes, void* p) { return p; }
-      static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
-      static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
-#endif
-      ConnectionToFds() {
-      }
-      ConnectionToFds(KernelDeviceToConnection& source);
-      dmtcp::vector<int>& operator[](const ConnectionIdentifier& c)
-      { return _table[c]; }
-
-      typedef dmtcp::map< ConnectionIdentifier,
-                          dmtcp::vector<int> >::iterator iterator;
-      iterator begin() { return _table.begin(); }
-      iterator end() { return _table.end(); }
-      typedef dmtcp::map< ConnectionIdentifier,
-                          dmtcp::vector<int> >::const_iterator const_iterator;
-      const_iterator begin() const { return _table.begin(); }
-      const_iterator end() const { return _table.end(); }
-
-      size_t size() const { return _table.size(); }
-      void erase(const ConnectionIdentifier& conId);
-
-      void serialize(jalib::JBinarySerializer& o);
-
-    private:
-      dmtcp::map< ConnectionIdentifier, dmtcp::vector<int> > _table;
-  };
-
-
-  // Another mapping from Connection to FD
-  // This time to temporarily hold FD's which must be slid around as each FD
-  //jis put into use
-  class SlidingFdTable
-  {
-    public:
-#ifdef JALIB_ALLOCATOR
-      static void* operator new(size_t nbytes, void* p) { return p; }
-      static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
-      static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
-#endif
-      SlidingFdTable(int startingFd = 500)
-        : _nextFd(startingFd)
-        , _startFd(startingFd)
-      {}
-
-      int startFd() { return _startFd; }
-
-      ///
-      /// retrieve, and if needed assign an FD for id
-      int getFdFor(const ConnectionIdentifier& id);
-
-      ///
-      /// if the given FD is in use... reassign it to another FD
-      void freeUpFd(int fd);
-
-      bool isInUse(int fd) const;
-
-      static void changeFd(int oldfd, int newfd);
-
-      void closeAll();
-    private:
-      dmtcp::map< ConnectionIdentifier, int > _conToFd;
-      dmtcp::map< int, ConnectionIdentifier > _fdToCon;
-      int _nextFd;
-      int _startFd;
-  };
-
-
-  // UniquePtsNameToPtmxConId class holds the UniquePtsName -> Ptmx ConId
-  // mapping.
-  // This file should not be serialized. The contents are added to this file
-  // whenever a /dev/ptmx device is open()ed to create a pseudo-terminal
-  // master-slave pair.
-  class UniquePtsNameToPtmxConId
-  {
-    public:
-#ifdef JALIB_ALLOCATOR
-      static void* operator new(size_t nbytes, void* p) { return p; }
-      static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
-      static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
-#endif
-      UniquePtsNameToPtmxConId() {}
-      static UniquePtsNameToPtmxConId& instance();
-
-      ConnectionIdentifier& operator[](dmtcp::string s) { return _table[s]; }
-
-      dmtcp::Connection& retrieve(dmtcp::string str);
-
-      dmtcp::string retrieveCurrentPtsDeviceName(dmtcp::string str);
-
-      typedef map< string, ConnectionIdentifier >::iterator iterator;
-
-      //void serialize(jalib::JBinarySerializer& o);
-
-      void add(dmtcp::string str, ConnectionIdentifier cid)
-      { _table[str] = cid; }
-
-    private:
-      dmtcp::map< dmtcp::string, ConnectionIdentifier > _table;
-  };
-
 }
-
 #endif

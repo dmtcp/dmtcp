@@ -244,6 +244,7 @@ namespace dmtcp
           // Lock fileset before any operations
           Util::lockFile(fd);
           _do_lock_tbl();
+          JASSERT(lseek(fd, 0, SEEK_END) != -1);
 
           jalib::JBinarySerializeWriterRaw mapwr(mapFile, fd);
           mapwr.serializeMap(_idMapTable);

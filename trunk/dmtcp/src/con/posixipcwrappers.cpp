@@ -47,7 +47,7 @@ mqd_t mq_open(const char *name, int oflag, ...)
   if (res != -1) {
     dmtcp::PosixMQConnection *pcon = new dmtcp::PosixMQConnection(name, oflag,
                                                                   mode, attr);
-    dmtcp::KernelDeviceToConnection::instance().create(res, pcon);
+    dmtcp::ConnectionList::instance().add(res, pcon);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return res;
@@ -60,7 +60,7 @@ int mq_close(mqd_t mqdes)
   int res = _real_mq_close(mqdes);
   if (res != -1) {
     dmtcp::PosixMQConnection *con =(dmtcp::PosixMQConnection*)
-      &dmtcp::KernelDeviceToConnection::instance().retrieve(mqdes);
+      dmtcp::ConnectionList::instance().getConnection(mqdes);
     con->on_mq_close();
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -88,7 +88,7 @@ static void mq_notify_thread_start(union sigval sv)
 
   DMTCP_PLUGIN_DISABLE_CKPT();
   dmtcp::PosixMQConnection *con =(dmtcp::PosixMQConnection*)
-    &dmtcp::KernelDeviceToConnection::instance().retrieve(mqdes);
+    dmtcp::ConnectionList::instance().getConnection(mqdes);
   con->on_mq_notify(NULL);
   DMTCP_PLUGIN_ENABLE_CKPT();
 
@@ -118,7 +118,7 @@ int mq_notify(mqd_t mqdes, const struct sigevent *sevp)
 
   if (res != -1) {
     dmtcp::PosixMQConnection *con =(dmtcp::PosixMQConnection*)
-      &dmtcp::KernelDeviceToConnection::instance().retrieve(mqdes);
+      dmtcp::ConnectionList::instance().getConnection(mqdes);
     con->on_mq_notify(sevp);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();

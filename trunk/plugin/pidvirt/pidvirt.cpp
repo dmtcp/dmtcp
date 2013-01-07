@@ -42,16 +42,6 @@ void pidVirt_Init(DmtcpEventData_t *data)
   //pthread_atfork(NULL, pidVirt_pthread_atfork_parent, pidVirt_pthread_atfork_child);
 }
 
-dmtcp::string pidVirt_PidTableFilename()
-{
-  static int count = 0;
-  dmtcp::ostringstream os;
-
-  os << dmtcp_get_tmpdir() << "/dmtcpPidTable." << dmtcp_get_uniquepid_str()
-     << '_' << jalib::XToString ( count++ );
-  return os.str();
-}
-
 void pidVirt_ResetOnFork(DmtcpEventData_t *data)
 {
   dmtcp::VirtualPidTable::instance().resetOnFork();
@@ -72,6 +62,39 @@ void pidVirt_PostExec(DmtcpEventData_t *data)
   dmtcp::VirtualPidTable::instance().refresh();
 }
 
+int openSharedFile(dmtcp::string name, int flags)
+{
+  int fd;
+  // try to create, truncate & open file
+  if ((fd = _real_open(name.c_str(), O_EXCL|O_CREAT|O_TRUNC | flags, 0600)) >= 0) {
+    return fd;
+  }
+  if (fd < 0 && errno == EEXIST) {
+    if ((fd = _real_open(name.c_str(), flags, 0600)) > 0) {
+      return fd;
+    }
+  }
+  // unable to create & open OR open
+  JASSERT(false)(name)(strerror(errno)).Text("Cannot open file");
+  return -1;
+}
+
+static void openOriginalToCurrentMappingFiles()
+{
+  int fd;
+  dmtcp::ostringstream pidMapFile;
+  pidMapFile << dmtcp_get_tmpdir() << "/dmtcpPidMap."
+             << dmtcp_get_computation_id_str() << "."
+             << std::hex << dmtcp_get_coordinator_timestamp();
+  // Open and create pidMapFile if it doesn't exist.
+  JTRACE("Open dmtcpPidMapFile")(pidMapFile.str());
+  fd = openSharedFile(pidMapFile.str(), O_RDWR);
+  JASSERT (fd != -1);
+  JASSERT (dup2 (fd, PROTECTED_PIDMAP_FD) == PROTECTED_PIDMAP_FD)
+         (pidMapFile.str());
+  close (fd);
+}
+
 void pidVirt_PostRestart(DmtcpEventData_t *data)
 {
   if ( jalib::Filesystem::GetProgramName() == "screen" )
@@ -86,6 +109,7 @@ void pidVirt_PostRestart(DmtcpEventData_t *data)
   // We can't just send two SIGWINCH's now, since window size has not
   // changed yet, and 'screen' will assume that there's nothing to do.
 
+  openOriginalToCurrentMappingFiles();
   dmtcp::VirtualPidTable::instance().writeMapsToFile(PROTECTED_PIDMAP_FD);
 }
 

@@ -110,8 +110,6 @@ namespace dmtcp
       void sendCkptFilename();
       void updateHostAndPortEnv();
 
-      jalib::JSocket& openRestoreSocket();
-
       static void setupVirtualCoordinator();
       static void waitForCheckpointCommand();
       static bool noCoordinator();
@@ -130,7 +128,6 @@ namespace dmtcp
       UniquePid      _coordinatorId;
       jalib::JSocket _coordinatorSocket;
       time_t         _coordTimeStamp;
-      jalib::JSocket _restoreSocket;
       pid_t          _virtualPid;
     private:
   };

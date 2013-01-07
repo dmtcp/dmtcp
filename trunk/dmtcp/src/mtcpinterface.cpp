@@ -37,7 +37,6 @@
 #include "processinfo.h"
 #include "protectedfds.h"
 #include "dmtcpplugin.h"
-#include "ckptserializer.h"
 #include "coordinatorapi.h"
 #include "util.h"
 
@@ -204,7 +203,7 @@ static void callbackPostCheckpoint(int isRestart,
                                    char* mtcpRestoreArgvStartAddr)
 {
   if (isRestart) {
-    restoreArgvAfterRestart(mtcpRestoreArgvStartAddr);
+    //restoreArgvAfterRestart(mtcpRestoreArgvStartAddr);
     prctlRestoreProcessName();
 
     if (fred_record_replay_enabled == 0 || !fred_record_replay_enabled()) {
@@ -220,7 +219,7 @@ static void callbackPostCheckpoint(int isRestart,
     dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_POST_CKPT, NULL);
   }
 
-  /* FIXME: There is not need to call sendCkptFilenameToCoordinator() but if
+  /* FIXME: There is no need to call sendCkptFilenameToCoordinator() but if
    *        we do not call it, it exposes a bug in dmtcp_coordinator.
    * BUG: The restarting process reconnects to the coordinator and the old
    *      connection is discarded. However, the coordinator doesn't discard
@@ -272,10 +271,10 @@ static int callbackShouldCkptFD ( int /*fd*/ )
 
 static void callbackWriteCkptPrefix ( int fd )
 {
-  dmtcp::CkptSerializer::writeCkptSign(fd);
-  DmtcpEventData_t edata;
-  edata.serializerInfo.fd = fd;
-  dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_WRITE_CKPT_PREFIX, &edata);
+  // Not USED
+  //DmtcpEventData_t edata;
+  //edata.serializerInfo.fd = fd;
+  //dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_WRITE_CKPT_PREFIX, &edata);
 }
 
 void callbackHoldsAnyLocks(int *retval)

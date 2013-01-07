@@ -25,6 +25,7 @@
 #include "dmtcpalloc.h"
 #include  "../jalib/jsocket.h"
 #include "connectionidentifier.h"
+#include "connection.h"
 #include <map>
 #include <set>
 #include <vector>
@@ -35,28 +36,22 @@ namespace dmtcp
   class ConnectionRewirer : public jalib::JMultiSocketProgram
   {
     public:
-      ConnectionRewirer() : _coordinatorFd(-1) {}
+      ConnectionRewirer() : _coordFd(-1), _restorePort(-1) {}
 
-      void setCoordinatorFd(const int& theValue);
-      int coordinatorFd() const;
-
+      void openRestoreSocket();
       void doReconnect();
-
-      void registerIncoming(const ConnectionIdentifier& local
-                              , const dmtcp::vector<int>& fds);
-
-      void registerOutgoing(const ConnectionIdentifier& remote
-                              , const dmtcp::vector<int>& fds);
+      void registerIncoming(const ConnectionIdentifier& local,
+                            Connection *con);
+      void registerOutgoing(const ConnectionIdentifier& remote,
+                            Connection *con);
 
 
     protected:
 
       virtual void onData(jalib::JReaderInterface* sock);
-
       virtual void onConnect(const jalib::JSocket& sock,
                              const struct sockaddr* /*remoteAddr*/,
                              socklen_t /*remoteLen*/);
-
       virtual void onDisconnect(jalib::JReaderInterface* sock);
 
       void finishup();
@@ -67,12 +62,14 @@ namespace dmtcp
       void debugPrint() const;
 
     private:
-      int _coordinatorFd;
-      map<ConnectionIdentifier, vector<int> > _pendingIncoming;
-      map<ConnectionIdentifier, vector<int> > _pendingOutgoing;
-      typedef map<ConnectionIdentifier, vector<int> >::iterator iterator;
-      typedef map<ConnectionIdentifier, vector<int> >::const_iterator
-        const_iterator;
+      int _coordFd;
+      int _restorePort;
+
+      typedef map<ConnectionIdentifier, Connection*> ConnectionListT;
+      typedef ConnectionListT::iterator iterator;
+      typedef ConnectionListT::const_iterator const_iterator;
+      ConnectionListT _pendingIncoming;
+      ConnectionListT _pendingOutgoing;
   };
 
 }

@@ -28,21 +28,36 @@
 #include <sys/stat.h>
 #include <sys/ipc.h>
 #include <sys/shm.h>
+#include <sys/un.h>
 
 #include "constants.h"
 #include "protectedfds.h"
 #include "dmtcpalloc.h"
+#include "connectionidentifier.h"
 #include "dmtcpplugin.h"
 
 #define MAX_IPC_ID_MAPS 256
+#define MAX_PTY_NAME_MAPS 256
 #define MAX_PTRACE_ID_MAPS 256
 #define MAX_PROCESS_TREE_ROOTS 256
+#define MAX_MISSING_CONNECTIONS 10240
 
 namespace dmtcp {
   namespace SharedData {
     struct IPCIdMap {
-      pid_t virtualId;
-      pid_t realId;
+      pid_t virt;
+      pid_t real;
+    };
+
+    struct PtyNameMap {
+      char virt[PTS_PATH_MAX];
+      char real[PTS_PATH_MAX];
+    };
+
+    struct MissingConMap {
+      ConnectionIdentifier id;
+      struct sockaddr_un   addr;
+      socklen_t            len;
     };
 
     struct PtraceIdMaps {
@@ -51,17 +66,24 @@ namespace dmtcp {
     };
 
     struct Header {
-      bool                initialized;
-      char                versionStr[32];
-      char                coordHost[NI_MAXHOST];
-      int                 coordPort;
-      int                 ckptInterval;
-      struct IPCIdMap     ipcIdMap[MAX_IPC_ID_MAPS];
-      size_t              numIPCIdMaps;
-      struct PtraceIdMaps ptraceIdMap[MAX_PTRACE_ID_MAPS];
-      size_t              numPtraceIdMaps;
-      dmtcp::UniquePid    processTreeRoots[MAX_PROCESS_TREE_ROOTS];
-      size_t              numProcessTreeRoots;
+      bool                 initialized;
+      char                 versionStr[32];
+      char                 coordHost[NI_MAXHOST];
+      int                  coordPort;
+      int                  ckptInterval;
+      struct IPCIdMap      ipcIdMap[MAX_IPC_ID_MAPS];
+      size_t               numIPCIdMaps;
+      struct PtraceIdMaps  ptraceIdMap[MAX_PTRACE_ID_MAPS];
+      size_t               numPtraceIdMaps;
+      dmtcp::UniquePid     processTreeRoots[MAX_PROCESS_TREE_ROOTS];
+      size_t               numProcessTreeRoots;
+
+      struct PtyNameMap    ptyNameMap[MAX_PTY_NAME_MAPS];
+      size_t               numPtyNameMaps;
+      size_t               nextPtyName;
+
+      struct MissingConMap missingConMap[MAX_MISSING_CONNECTIONS];
+      size_t               numMissingConMaps;
     };
 
     void processEvent(DmtcpEvent_t event, DmtcpEventData_t *data);
@@ -78,14 +100,26 @@ namespace dmtcp {
     int  getCkptInterval();
     void setCkptInterval(int interval);
 
-    int  getRealIPCId(int virtualId);
-    void setIPCIdMap(int virtualId, int realId);
+    int  getRealIPCId(int virt);
+    void setIPCIdMap(int virt, int real);
 
     pid_t getPtraceVirtualId(pid_t tracerId);
     void setPtraceVirtualId(pid_t tracerId, pid_t childId);
 
     void setProcessTreeRoot();
     void getProcessTreeRoots(UniquePid **roots, size_t *numRoots);
+
+    void getRealPtyName(const char* virt, char* out, size_t len);
+    void getVirtPtyName(const char* real, char *out, size_t len);
+    void createVirtualPtyName(const char* real, char *out, size_t len);
+    void insertPtyNameMap(const char* virt, const char* real);
+    unsigned getNextVirtualPtyId();
+    void restoreNextVirtualPtyId(unsigned n);
+
+    void registerMissingCons(vector<ConnectionIdentifier>& ids,
+                             struct sockaddr_un receiverAddr,
+                             socklen_t len);
+    void getMissingConMaps(struct MissingConMap **map, size_t *nmaps);
   }
 }
 #endif

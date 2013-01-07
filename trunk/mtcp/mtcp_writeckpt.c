@@ -67,13 +67,11 @@ static int open_ckpt_to_write_hbict(int fd, int pipe_fds[2], char *hbict_path,
 #endif
 static int open_ckpt_to_write_gz(int fd, int pipe_fds[2], char *gzip_path);
 
-static int test_and_prepare_for_forked_ckpt(int tmpDMTCPHeaderFd);
+static int test_and_prepare_for_forked_ckpt();
 static int perform_open_ckpt_image_fd(const char *temp_ckpt_filename,
                                       int *use_compression,
                                       int *fdCkptFileOnDisk);
-static void write_ckpt_to_file(int fd, int tmpDMTCPHeaderFd,
-                               int fdCkptFileOnDisk);
-static int perform_callback_write_ckpt_header();
+static void write_ckpt_to_file(int fd, int fdCkptFileOnDisk);
 
 
 extern int mtcp_verify_count;  // number of checkpoints to go
@@ -280,10 +278,7 @@ void mtcp_checkpointeverything(const char *temp_ckpt_filename,
 {
   DPRINTF("thread:%d performing checkpoint.\n", mtcp_sys_kernel_gettid ());
 
-  /* This is a callback to DMTCP.  DMTCP writes header and returns fd. */
-  int tmpDMTCPHeaderFd = perform_callback_write_ckpt_header();
-
-  int forked_ckpt_status = test_and_prepare_for_forked_ckpt(tmpDMTCPHeaderFd);
+  int forked_ckpt_status = test_and_prepare_for_forked_ckpt(-1);
   if (forked_ckpt_status == FORKED_CKPT_PARENT) {
     DPRINTF("*** Using forked checkpointing.\n");
     return;
@@ -307,7 +302,7 @@ void mtcp_checkpointeverything(const char *temp_ckpt_filename,
     MTCP_ASSERT( use_compression || fd == fdCkptFileOnDisk );
   }
 
-  write_ckpt_to_file(fd, tmpDMTCPHeaderFd, fdCkptFileOnDisk);
+  write_ckpt_to_file(fd, fdCkptFileOnDisk);
 
   if (mtcpHookWriteCkptData == NULL) {
 #ifndef FAST_CKPT_RST_VIA_MMAP
@@ -358,43 +353,6 @@ void mtcp_checkpointeverything(const char *temp_ckpt_filename,
     mtcp_sys_exit (0); /* grandchild exits */
 
   DPRINTF("checkpoint complete\n");
-}
-
-static int perform_callback_write_ckpt_header()
-{
-  char tmpDMTCPHeaderBuf[PATH_MAX];
-  char pattern[] = "/dmtcp.XXXXXX";
-  char *tmpStr;
-  char *tmpDMTCPHeaderFileName = tmpDMTCPHeaderBuf;
-  tmpDMTCPHeaderBuf[sizeof(tmpDMTCPHeaderBuf)-1] = '\0'; // create canary
-  tmpStr = getenv("DMTCP_TMPDIR");
-  if (tmpStr == NULL) tmpStr = getenv("TMPDIR");
-  if (tmpStr == NULL) tmpStr = "/tmp";
-  mtcp_strncpy(tmpDMTCPHeaderBuf, tmpStr, sizeof(tmpDMTCPHeaderBuf)-sizeof(pattern));
-  mtcp_strncpy(tmpDMTCPHeaderBuf+strlen(tmpDMTCPHeaderBuf), pattern,sizeof(pattern));
-  if (tmpDMTCPHeaderBuf[sizeof(tmpDMTCPHeaderBuf)-1] != '\0') {
-    MTCP_PRINTF("*** Path of DMTCP_TMPDIR or TMPDIR is too long."
-                "*** Increase size of tmpDMTCPHeaderBuf, and re-compile.\n");
-    mtcp_abort();
-  }
-
-  int tmpfd = -1;
-  if (mtcp_callback_write_ckpt_header != NULL) {
-    /* Temp file for DMTCP header; will be written into the checkpoint file. */
-    tmpfd = mkstemp(tmpDMTCPHeaderFileName);
-    if (tmpfd < 0) {
-      MTCP_PRINTF("error %d creating temp file: %s\n", errno, strerror(errno));
-      mtcp_abort();
-    }
-
-    if (unlink(tmpDMTCPHeaderFileName) == -1) {
-      MTCP_PRINTF("error %d unlinking temp file: %s\n", errno, strerror(errno));
-    }
-
-    /* Better to do this in parent, not child, for most accurate header info */
-    (*mtcp_callback_write_ckpt_header)(tmpfd);
-  }
-  return tmpfd;
 }
 
 static int perform_open_ckpt_image_fd(const char *temp_ckpt_filename,
@@ -490,7 +448,7 @@ static int perform_open_ckpt_image_fd(const char *temp_ckpt_filename,
   return fd;
 }
 
-int test_and_prepare_for_forked_ckpt(int tmpDMTCPHeaderFd)
+int test_and_prepare_for_forked_ckpt()
 {
 #ifdef TEST_FORKED_CHECKPOINTING
   return 1;
@@ -512,7 +470,6 @@ int test_and_prepare_for_forked_ckpt(int tmpDMTCPHeaderFd)
       DPRINTF("error mtcp_sys_wait4: errno: %d", mtcp_sys_errno);
     }
     DPRINTF("checkpoint complete\n");
-    close(tmpDMTCPHeaderFd);
     return FORKED_CKPT_PARENT;
   } else {
     pid_t grandchild_pid = mtcp_sys_fork();
@@ -559,31 +516,12 @@ static void remap_nscd_areas(Area remap_nscd_areas_array[],
 }
 
 /* fd is file descriptor for gzip or other compression process */
-static void write_ckpt_to_file(int fd, int tmpDMTCPHeaderFd,
-                               int fdCkptFileOnDisk)
+static void write_ckpt_to_file(int fd, int fdCkptFileOnDisk)
 {
   Area area;
   DeviceInfo dev_info;
   int stack_was_seen = 0;
   static void *const frpointer = mtcp_finishrestore;
-
-  if (tmpDMTCPHeaderFd != -1 ) {
-    char tmpBuff[1024];
-    int retval = -1;
-    lseek(tmpDMTCPHeaderFd, 0, SEEK_SET);
-
-    while (retval != 0) {
-      retval = read (tmpDMTCPHeaderFd, tmpBuff, 1024);
-      if (retval == -1 && (errno == EAGAIN || errno == EINTR))
-        continue;
-      if (retval == -1) {
-        MTCP_PRINTF("Error writing checkpoint file: %s\n", strerror(errno));
-        mtcp_abort();
-      }
-      mtcp_writefile(fd, tmpBuff, retval);
-    }
-    close(tmpDMTCPHeaderFd);
-  }
 
   /* Drain stdin and stdout before checkpoint */
   tcdrain(STDOUT_FILENO);

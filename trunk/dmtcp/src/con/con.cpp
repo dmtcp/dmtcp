@@ -30,7 +30,6 @@
 #include "syscallwrappers.h"
 #include "connectionrewirer.h"
 #include "connectionmanager.h"
-#include "connectionstate.h"
 #include "dmtcpmessagetypes.h"
 #include "dmtcpworker.h"
 #include "dmtcpplugin.h"
@@ -51,78 +50,59 @@
 #include <linux/limits.h>
 #include <arpa/inet.h>
 
-// static dmtcp::KernelBufferDrainer* theDrainer = NULL;
-static dmtcp::ConnectionState* theCheckpointState = NULL;
-
-void dmtcp_Connection_VirtualToRealPtsName(const char *virt, char *real,
-                                           size_t len)
-{
-  JASSERT(dmtcp::Util::strStartsWith(virt, UNIQUE_PTS_PREFIX_STR));
-  dmtcp::string realname = dmtcp::UniquePtsNameToPtmxConId::instance().
-    retrieveCurrentPtsDeviceName(virt);
-  JASSERT(realname.length() <= len);
-  strcpy(real, realname.c_str());
-}
+using namespace dmtcp;
+// This is the first program after dmtcp_checkpoint
+static bool freshProcess = true;
 
 void dmtcp_Connection_ProcessEvent(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   switch (event) {
     case DMTCP_EVENT_INIT:
-      dmtcp::ConnectionList::instance().scanForPreExisting();
-      JTRACE("Initial socket table:");
-      dmtcp::KernelDeviceToConnection::instance().dbgSpamFds();
+      if (freshProcess) {
+        ConnectionList::instance().scanForPreExisting();
+      }
       break;
 
     case DMTCP_EVENT_WAIT_FOR_SUSPEND_MSG:
-      if (theCheckpointState != NULL) {
-        delete theCheckpointState;
-        theCheckpointState = NULL;
-      }
-
-      theCheckpointState = new dmtcp::ConnectionState();
       break;
 
     case DMTCP_EVENT_PRE_EXEC:
       {
         jalib::JBinarySerializeWriterRaw wr("", data->serializerInfo.fd);
-        dmtcp::KernelDeviceToConnection::instance().serialize(wr);
+        ConnectionList::instance().serialize(wr);
       }
       break;
 
     case DMTCP_EVENT_POST_EXEC:
       {
+        freshProcess = false;
         jalib::JBinarySerializeReaderRaw rd("", data->serializerInfo.fd);
-        dmtcp::KernelDeviceToConnection::instance().serialize(rd);
-        JTRACE("Initial socket table:");
-        dmtcp::KernelDeviceToConnection::instance().dbgSpamFds();
+        ConnectionList::instance().serialize(rd);
+        ConnectionList::instance().deleteStaleConnections();
       }
       break;
 
     case DMTCP_EVENT_POST_RESTART:
-      //dmtcp::SysVIPC::instance().postRestart();
-      JASSERT(theCheckpointState != NULL);
-      theCheckpointState->postRestart();
+      ConnectionList::instance().postRestart();
 
       break;
 
     case DMTCP_EVENT_PRE_FORK:
-      dmtcp::KernelDeviceToConnection::instance().prepareForFork();
       break;
 
     case DMTCP_EVENT_SUSPENDED:
-      theCheckpointState->preLockSaveOptions();
+      ConnectionList::instance().preLockSaveOptions();
       break;
 
     case DMTCP_EVENT_LEADER_ELECTION:
       JTRACE("locking...");
-      JASSERT(theCheckpointState != NULL);
-      theCheckpointState->preCheckpointFdLeaderElection();
+      ConnectionList::instance().preCheckpointFdLeaderElection();
       JTRACE("locked");
       break;
 
     case DMTCP_EVENT_DRAIN:
       JTRACE("draining...");
-      theCheckpointState->preCheckpointDrain();
+      ConnectionList::instance().preCheckpointDrain();
       JTRACE("drained");
       break;
 
@@ -130,24 +110,13 @@ void dmtcp_Connection_ProcessEvent(DmtcpEvent_t event, DmtcpEventData_t *data)
 #if HANDSHAKE_ON_CHECKPOINT == 1
       //handshake is done after one barrier after drain
       JTRACE("beginning handshakes");
-      theCheckpointState->preCheckpointHandshakes(
-                            dmtcp::CoordinatorAPI::instance().coordinatorId());
+      ConnectionList::instance().preCheckpointHandshakes();
       JTRACE("handshaking done");
 #endif
       break;
 
     case DMTCP_EVENT_REFILL:
-      JASSERT(theCheckpointState != NULL);
-      theCheckpointState->postCheckpoint(data->refillInfo.isRestart);
-      delete theCheckpointState;
-      theCheckpointState = NULL;
-      break;
-
-    case DMTCP_EVENT_WRITE_CKPT_PREFIX:
-      {
-        jalib::JBinarySerializeWriterRaw wr("", data->serializerInfo.fd);
-        theCheckpointState->outputDmtcpConnectionTable(wr);
-      }
+      ConnectionList::instance().refill(data->refillInfo.isRestart);
       break;
 
     default:

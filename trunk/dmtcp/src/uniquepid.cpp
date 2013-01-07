@@ -366,8 +366,9 @@ bool dmtcp::UniquePid::operator== ( const UniquePid& that ) const
 {
   return _hostid==that.hostid()
          && _pid==that.pid()
-         && _time==that.time()
-         && strncmp(_prefix, that.prefix(), sizeof(_prefix)) == 0;
+         && _time==that.time();
+         // FIXME: Reinstate prefix check
+         //&& strncmp(_prefix, that.prefix(), sizeof(_prefix)) == 0;
 }
 
 dmtcp::ostream& dmtcp::operator<< ( dmtcp::ostream& o,const dmtcp::UniquePid& id )

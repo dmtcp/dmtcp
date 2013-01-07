@@ -19,11 +19,11 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#include "coordinatorapi.h"
 #include "connectionrewirer.h"
 #include "dmtcpmessagetypes.h"
 #include "syscallwrappers.h"
-
-
+#include "util.h"
 
 void dmtcp::ConnectionRewirer::onData(jalib::JReaderInterface* sock)
 {
@@ -55,12 +55,9 @@ void dmtcp::ConnectionRewirer::onData(jalib::JReaderInterface* sock)
     JTRACE("got RESTORE_WAITING MESSAGE, reconnecting...")
       (msg.restorePid) (msg.restorePort) (msg.restoreAddrlen)
       (_pendingOutgoing.size()) (_pendingIncoming.size());
-    const dmtcp::vector<int>& fds = i->second;
-    JASSERT(fds.size() > 0);
-    int fd0 = fds[0];
 
     jalib::JSocket remote = jalib::JSocket::Create();
-    remote.changeFd(fd0);
+    remote.changeFd((i->second)->getFds()[0]);
     errno = 0;
     JASSERT(remote.connect((sockaddr*) &msg.restoreAddr, msg.restoreAddrlen,
                            msg.restorePort))
@@ -68,22 +65,16 @@ void dmtcp::ConnectionRewirer::onData(jalib::JReaderInterface* sock)
       .Text("failed to restore connection");
 
     {
-      DmtcpMessage peerMsg;
-      peerMsg.type = DMT_RESTORE_RECONNECTED;
+      DmtcpMessage peerMsg(DMT_RESTORE_RECONNECTED);
       peerMsg.restorePid = msg.restorePid;
       addWrite(new jalib::JChunkWriter(remote,(char*) &peerMsg,
                                         sizeof(peerMsg)));
     }
-
-    for (size_t n = 1; n<fds.size(); ++n) {
-      JTRACE("restoring extra fd") (fd0) (fds[n]);
-      JASSERT(_real_dup2(fd0,fds[n]) == fds[n]) (fd0) (fds[n]) (msg.restorePid)
-        .Text("dup2() failed");
-    }
+    Util::dupFds(remote.sockfd(), (i->second)->getFds());
     _pendingOutgoing.erase(i);
   }
 
-  if (pendingCount() ==0) finishup();
+  if (pendingCount() == 0) finishup();
 #ifdef DEBUG
   else debugPrint();
 #endif
@@ -106,22 +97,10 @@ void dmtcp::ConnectionRewirer::onConnect(const jalib::JSocket& sock,
   JASSERT(i != _pendingIncoming.end()) (msg.restorePid)
     .Text("got unexpected incoming restore request");
 
-  const dmtcp::vector<int>& fds = i->second;
-  JASSERT(fds.size() > 0);
-  int fd0 = fds[0];
+  Util::dupFds(remote.sockfd(), (i->second)->getFds());
 
-  remote.changeFd(fd0);
-
-  JTRACE("restoring incoming connection") (msg.restorePid) (fd0) (fds.size());
-
-  for (size_t i = 1; i<fds.size(); ++i) {
-    JTRACE("restoring extra fd") (fd0) (fds[i]);
-    JASSERT(_real_dup2(fd0,fds[i]) == fds[i]) (fd0) (fds[i]) (msg.restorePid)
-      .Text("dup2() failed");
-  }
-
+  JTRACE("restoring incoming connection") (msg.restorePid);
   _pendingIncoming.erase(i);
-
 
   if (pendingCount() ==0) finishup();
 #ifdef DEBUG
@@ -139,7 +118,7 @@ void dmtcp::ConnectionRewirer::finishup()
   //poison the coordinator socket listener
   for (size_t i=0; i<_dataSockets.size(); ++i)
     _dataSockets[i]->socket() = -1;
-
+  _real_close(PROTECTED_RESTORE_SOCK_FD);
   //     JTRACE("finishup end");
 }
 
@@ -149,43 +128,54 @@ void dmtcp::ConnectionRewirer::onDisconnect(jalib::JReaderInterface* sock)
     .Text("dmtcp_coordinator disconnected");
 }
 
-int dmtcp::ConnectionRewirer::coordinatorFd() const
-{
-  return _coordinatorFd;
-}
-
-
-void dmtcp::ConnectionRewirer::setCoordinatorFd(const int& theValue)
-{
-  _coordinatorFd = theValue;
-}
-
 void dmtcp::ConnectionRewirer::doReconnect()
 {
   if (pendingCount() > 0) monitorSockets();
 }
 
-void dmtcp::ConnectionRewirer::registerIncoming(
-                                            const ConnectionIdentifier& local,
-                                            const dmtcp::vector<int>& fds)
+void dmtcp::ConnectionRewirer::openRestoreSocket()
 {
-  _pendingIncoming[local] = fds;
+  _coordFd = CoordinatorAPI::instance().coordinatorSocket().sockfd();
+  addDataSocket(new jalib::JChunkReader(_coordFd, sizeof(DmtcpMessage)));
 
-  JTRACE("announcing pending incoming") (local);
+  // Add socket restore socket
+  _restorePort = RESTORE_PORT_START;
+  jalib::JSocket restoreSocket (-1);
+  JTRACE("restoreSockets begin");
+  while (!restoreSocket.isValid() && _restorePort < RESTORE_PORT_STOP) {
+    restoreSocket = jalib::JServerSocket(jalib::JSockAddr::ANY,
+                                         ++_restorePort);
+    JTRACE("open listen socket attempt") (_restorePort);
+  }
+  JASSERT(restoreSocket.isValid()) (RESTORE_PORT_START)
+    .Text("failed to open listen socket");
+  restoreSocket.changeFd(PROTECTED_RESTORE_SOCK_FD);
+  JTRACE("opening listen sockets") (restoreSocket.sockfd());
+  addListenSocket(restoreSocket);
+}
+
+void
+dmtcp::ConnectionRewirer::registerIncoming(const ConnectionIdentifier& local,
+                                           Connection* con)
+{
+  _pendingIncoming[local] = con;
+
   DmtcpMessage msg;
   msg.type = DMT_RESTORE_WAITING;
   msg.restorePid = local;
+  msg.restorePort = _restorePort;
+  JTRACE("announcing pending incoming") (local) (msg.restorePort);
 
-  JASSERT(_coordinatorFd > 0);
-  addWrite(new jalib::JChunkWriter(_coordinatorFd,(char*) &msg,
+  JASSERT(_coordFd != -1);
+  addWrite(new jalib::JChunkWriter(_coordFd,(char*) &msg,
                                     sizeof(DmtcpMessage)));
 }
 
-void dmtcp::ConnectionRewirer::registerOutgoing(
-                                            const ConnectionIdentifier& remote,
-                                            const dmtcp::vector<int>& fds)
+void
+dmtcp::ConnectionRewirer::registerOutgoing(const ConnectionIdentifier& remote,
+                                           Connection* con)
 {
-  _pendingOutgoing[remote] = fds;
+  _pendingOutgoing[remote] = con;
 }
 
 void dmtcp::ConnectionRewirer::debugPrint() const
@@ -193,12 +183,14 @@ void dmtcp::ConnectionRewirer::debugPrint() const
   JASSERT_STDERR << "Pending Incoming:\n";
   const_iterator i;
   for (i = _pendingIncoming.begin(); i!=_pendingIncoming.end(); ++i) {
-    JASSERT_STDERR << i->first << " numFds=" << i->second.size()
-      << " firstFd=" << i->second[0] << '\n';
+    Connection *con = i->second;
+    JASSERT_STDERR << i->first << " numFds=" << con->getFds().size()
+      << " firstFd=" << con->getFds()[0] << '\n';
   }
   JASSERT_STDERR << "Pending Outgoing:\n";
   for (i = _pendingOutgoing.begin(); i!=_pendingOutgoing.end(); ++i) {
-    JASSERT_STDERR << i->first << " numFds=" << i->second.size()
-      << " firstFd=" << i->second[0] << '\n';
+    Connection *con = i->second;
+    JASSERT_STDERR << i->first << " numFds=" << con->getFds().size()
+      << " firstFd=" << con->getFds()[0] << '\n';
   }
 }
