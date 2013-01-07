@@ -592,6 +592,24 @@ int _real_fclose (FILE *fp)
 }
 
 LIB_PRIVATE
+int _real_dup (int oldfd)
+{
+  REAL_FUNC_PASSTHROUGH (dup) (oldfd);
+}
+
+LIB_PRIVATE
+int _real_dup2 (int oldfd, int newfd)
+{
+  REAL_FUNC_PASSTHROUGH (dup2) (oldfd, newfd);
+}
+
+LIB_PRIVATE
+int _real_dup3 (int oldfd, int newfd, int flags)
+{
+  REAL_FUNC_PASSTHROUGH (dup3) (oldfd, newfd, flags);
+}
+
+LIB_PRIVATE
 void _real_exit (int status)
 {
   REAL_FUNC_PASSTHROUGH_VOID (exit) (status);
@@ -613,6 +631,11 @@ LIB_PRIVATE
 int _real_ptsname_r (int fd, char * buf, size_t buflen)
 {
   REAL_FUNC_PASSTHROUGH (ptsname_r) (fd, buf, buflen);
+}
+
+int _real_ttyname_r (int fd, char * buf, size_t buflen)
+{
+  REAL_FUNC_PASSTHROUGH (ttyname_r) (fd, buf, buflen);
 }
 
 LIB_PRIVATE

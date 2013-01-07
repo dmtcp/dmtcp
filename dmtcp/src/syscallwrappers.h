@@ -187,6 +187,9 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   MACRO(fopen64)                            \
   MACRO(close)                              \
   MACRO(fclose)                             \
+  MACRO(dup)                                \
+  MACRO(dup2)                               \
+  MACRO(dup3)                               \
   MACRO(__xstat)                            \
   MACRO(__xstat64)                          \
   MACRO(__lxstat)                           \
@@ -196,8 +199,9 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   MACRO(syscall)                            \
   MACRO(unsetenv)                           \
   MACRO(ptsname_r)                          \
+  MACRO(ttyname_r)                          \
   MACRO(getpt)                              \
-  MACRO(posix_openpt)                              \
+  MACRO(posix_openpt)                       \
   MACRO(openlog)                            \
   MACRO(closelog)                           \
                                             \
@@ -330,10 +334,11 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   int _real_close (int fd);
   int _real_fclose (FILE *fp);
   void _real_exit (int status);
+  int _real_dup (int oldfd);
+  int _real_dup2 (int oldfd, int newfd);
+  int _real_dup3 (int oldfd, int newfd, int flags);
 
-#define _real_dup  dup
-#define _real_dup2 dup2
-
+  int _real_ttyname_r (int fd, char *buf, size_t buflen);
   int _real_ptsname_r (int fd, char * buf, size_t buflen);
   int _real_getpt (void);
   int _real_posix_openpt (int flags);

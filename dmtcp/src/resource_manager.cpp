@@ -232,9 +232,9 @@ static int queryPbsConfig(dmtcp::string option, dmtcp::string &pbs_config)
   }
   if( cpid == 0 ){
     JTRACE ( "child process, will exec into external de-compressor");
-    fds[1] = dup(dup(dup(fds[1])));
+    fds[1] = _real_dup(_real_dup(_real_dup(fds[1])));
     close(fds[0]);
-    JASSERT(dup2(fds[1], STDOUT_FILENO) == STDOUT_FILENO);
+    JASSERT(_real_dup2(fds[1], STDOUT_FILENO) == STDOUT_FILENO);
     close(fds[1]);
     _real_execvp(pbs_config_path, (char **)pbs_config_args);
     /* should not get here */

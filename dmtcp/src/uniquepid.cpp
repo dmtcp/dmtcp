@@ -323,7 +323,7 @@ void dmtcp::UniquePid::setTmpDir(const char* envVarTmpDir) {
 
   int tmpFd = open ( o.str().c_str(), O_RDONLY  );
   JASSERT(tmpFd != -1);
-  JASSERT(dup2(tmpFd, PROTECTED_TMPDIR_FD)==PROTECTED_TMPDIR_FD);
+  JASSERT(_real_dup2(tmpFd, PROTECTED_TMPDIR_FD)==PROTECTED_TMPDIR_FD);
   close ( tmpFd );
 }
 

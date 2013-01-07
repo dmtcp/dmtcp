@@ -500,7 +500,7 @@ jalib::JChunkReader& jalib::JChunkReader::operator= ( const JChunkReader& that )
 void jalib::JSocket::changeFd ( int newFd )
 {
   if ( _sockfd == newFd ) return;
-  JASSERT ( newFd == dup2 ( _sockfd, newFd ) )
+  JASSERT ( newFd == jalib::dup2 ( _sockfd, newFd ) )
       ( _sockfd ) ( newFd ).Text ( "dup2 failed" );
   close();
   _sockfd = newFd;

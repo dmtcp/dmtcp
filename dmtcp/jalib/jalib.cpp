@@ -113,6 +113,14 @@ namespace jalib {
     REAL_FUNC_PASSTHROUGH(int, fclose) (fp);
   }
 
+  int dup(int oldfd) {
+    REAL_FUNC_PASSTHROUGH(int, dup) (oldfd);
+  }
+
+  int dup2(int oldfd, int newfd) {
+    REAL_FUNC_PASSTHROUGH(int, dup2) (oldfd, newfd);
+  }
+
   ssize_t readlink(const char *path, char *buf, size_t bufsiz) {
     REAL_FUNC_PASSTHROUGH(ssize_t, readlink) (path, buf,bufsiz);
   }

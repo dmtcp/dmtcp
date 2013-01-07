@@ -443,8 +443,8 @@ void dmtcp::CoordinatorAPI::startCoordinatorIfNeeded(dmtcp::CoordinatorAPI::Coor
   //fork a child process to probe the coordinator
   if (fork()==0) {
     //fork so if we hit an error parent won't die
-    dup2(2,1);                          //copy stderr to stdout
-    dup2(open("/dev/null",O_RDWR), 2);  //close stderr
+    _real_dup2(2,1);                          //copy stderr to stdout
+    _real_dup2(open("/dev/null",O_RDWR), 2);  //close stderr
     int numPeers;
     int isRunning;
     int coordErrorCode;
