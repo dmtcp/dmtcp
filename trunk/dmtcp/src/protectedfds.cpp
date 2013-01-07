@@ -22,6 +22,7 @@
 #include "protectedfds.h"
 
 #include "constants.h"
+#include "syscallwrappers.h"
 #include  "../jalib/jassert.h"
 #include  "../jalib/jconvert.h"
 #include <sys/types.h>
@@ -44,13 +45,13 @@ dmtcp::ProtectedFDs::ProtectedFDs()
 //    _usageTable[0] = true;
   int tmp = open ( "/dev/null",O_RDONLY );
   JASSERT ( tmp > 0 ) ( tmp );
-  JASSERT ( PFD ( 0 ) == dup2 ( tmp,PFD ( 0 ) ) ) ( PFD ( 0 ) ) ( tmp );
+  JASSERT ( PFD ( 0 ) == _real_dup2 ( tmp,PFD ( 0 ) ) ) ( PFD ( 0 ) ) ( tmp );
   close ( tmp );
 
   //"lock" all protected fds so system won't allocate them
   for ( int i=1; i<PROTECTED_FD_COUNT; ++i )
   {
-    JASSERT ( PFD ( i ) == dup2 ( PFD ( 0 ),PFD ( i ) ) ) ( i );
+    JASSERT ( PFD ( i ) == _real_dup2 ( PFD ( 0 ),PFD ( i ) ) ) ( i );
   }
 }
 
@@ -78,14 +79,14 @@ bool dmtcp::ProtectedFDs::isProtected ( int fd )
 //     JASSERT(isProtected(i))(fd)(i);
 //     _usageTable[i] = false;
 //     //"lock the fd"
-//     JASSERT(fd == dup2(PFD(0),fd))(fd);
+//     JASSERT(fd == _real_dup2(PFD(0),fd))(fd);
 // }
 
 // int dmtcp::ProtectedFDs::convertToProtected(int srcFd)
 // {
 //     JASSERT(srcFd >= 0)(srcFd);
 //     int newFd = acquire();
-//     JASSERT(newFd == dup2(srcFd, newFd))(srcFd)(newFd);
+//     JASSERT(newFd == _real_dup2(srcFd, newFd))(srcFd)(newFd);
 //     close(srcFd);
 //     return newFd;
 // }

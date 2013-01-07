@@ -224,6 +224,21 @@ int _real_fclose (FILE *fp)
   REAL_FUNC_PASSTHROUGH (fclose) (fp);
 }
 
+int _real_dup (int oldfd)
+{
+  REAL_FUNC_PASSTHROUGH (dup) (oldfd);
+}
+
+int _real_dup2 (int oldfd, int newfd)
+{
+  REAL_FUNC_PASSTHROUGH (dup2) (oldfd, newfd);
+}
+
+int _real_dup3 (int oldfd, int newfd, int flags)
+{
+  REAL_FUNC_PASSTHROUGH (dup3) (oldfd, newfd, flags);
+}
+
 void _real_exit (int status)
 {
   REAL_FUNC_PASSTHROUGH_VOID (exit) (status);

@@ -41,6 +41,7 @@
 // in sync with that.
 #define LIBC_FILENAME "libc.so.6"
 
+using namespace jalib;
 int jassert_quiet = 0;
 
 static int theLogFileFd = -1;
@@ -135,13 +136,13 @@ const char* jassert_internal::jassert_basename ( const char* str )
 static int _open_log_safe ( const char* filename, int protectedFd )
 {
   //open file
-  int tfd = jalib::open ( filename, O_WRONLY | O_APPEND | O_CREAT /*| O_SYNC*/,
-                                   S_IRUSR | S_IWUSR );
+  int tfd = jalib::open(filename, O_WRONLY | O_APPEND | O_CREAT /*| O_SYNC*/,
+                        S_IRUSR | S_IWUSR );
   if (tfd == -1) return -1;
   //change fd to 827 (jalib::logFd -- PFD(6))
-  int nfd = dup2 ( tfd, protectedFd );
+  int nfd = jalib::dup2 ( tfd, protectedFd );
   if (tfd != nfd) {
-    close ( tfd );
+    jalib::close ( tfd );
   }
 
   return nfd;
@@ -195,10 +196,10 @@ static void writeBacktrace() {
   o << jalib::dmtcp_get_tmpdir() << "/backtrace."
     << jalib::dmtcp_get_uniquepid_str();
   int fd = jalib::open(o.str().c_str(), O_WRONLY|O_CREAT|O_TRUNC,
-                      S_IRUSR|S_IWUSR);
+                       S_IRUSR|S_IWUSR);
   if (fd != -1) {
     backtrace_symbols_fd( buffer, nptrs, fd );
-    close(fd);
+    jalib::close(fd);
   }
 }
 
@@ -211,15 +212,16 @@ static void writeProcMaps() {
   int fd = jalib::open("/proc/self/maps", O_RDONLY, 0);
   if (fd == -1) return;
   count = jalib::readAll(fd, mapsBuf, sizeof(mapsBuf) - 1);
-  close(fd);
+  jalib::close(fd);
 
   dmtcp::ostringstream o;
   o << jalib::dmtcp_get_tmpdir() << "/proc-maps."
     << jalib::dmtcp_get_uniquepid_str();
-  fd = open(o.str().c_str(), O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR|S_IWUSR);
+  fd = jalib::open(o.str().c_str(), O_WRONLY | O_CREAT | O_TRUNC,
+                   S_IRUSR|S_IWUSR);
   if (fd == -1) return;
   count = jalib::writeAll(fd, mapsBuf, count);
-  close(fd);
+  jalib::close(fd);
 }
 
 jassert_internal::JAssert& jassert_internal::JAssert::jbacktrace ()
@@ -240,7 +242,7 @@ void jassert_internal::reset_on_fork ( )
 void jassert_internal::set_log_file ( const jalib::string& path )
 {
   theLogFilePath() = path;
-  if ( theLogFileFd != -1 ) close ( theLogFileFd );
+  if ( theLogFileFd != -1 ) jalib::close ( theLogFileFd );
   theLogFileFd = -1;
   if ( path.length() > 0 )
   {
@@ -273,7 +275,7 @@ static int _initJassertOutputDevices()
   if ( errpath != NULL )
     errConsoleFd = _open_log_safe ( errpath, jalib::stderrFd );
   else
-    errConsoleFd = dup2 ( fileno ( stderr ), jalib::stderrFd );
+    errConsoleFd = jalib::dup2 ( fileno ( stderr ), jalib::stderrFd );
 
   if( errConsoleFd == -1 ) {
     jwrite ( fileno (stderr ), "dmtcp: cannot open output channel for error logging\n");

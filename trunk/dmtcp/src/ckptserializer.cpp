@@ -148,13 +148,13 @@ static int open_ckpt_to_read(const char *filename)
       return fds[0];
     } else { /* child process */
       JTRACE ( "child process, will exec into external de-compressor");
-      fd = dup(dup(dup(fd)));
-      fds[1] = dup(fds[1]);
+      fd = _real_dup(_real_dup(_real_dup(fd)));
+      fds[1] = _real_dup(fds[1]);
       close(fds[0]);
       JASSERT(fd != -1);
-      JASSERT(dup2(fd, STDIN_FILENO) == STDIN_FILENO);
+      JASSERT(_real_dup2(fd, STDIN_FILENO) == STDIN_FILENO);
       close(fd);
-      JASSERT(dup2(fds[1], STDOUT_FILENO) == STDOUT_FILENO);
+      JASSERT(_real_dup2(fds[1], STDOUT_FILENO) == STDOUT_FILENO);
       close(fds[1]);
       _real_execvp(decomp_path, (char **)decomp_args);
       JASSERT(decomp_path!=NULL) (decomp_path)

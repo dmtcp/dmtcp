@@ -92,7 +92,8 @@ void dmtcp::SharedData::initialize()
       preExisting = true;
     }
     JASSERT(fd != -1) (JASSERT_ERRNO);
-    JASSERT(dup2(fd, PROTECTED_SHM_FD) == PROTECTED_SHM_FD) (JASSERT_ERRNO);
+    JASSERT(_real_dup2(fd, PROTECTED_SHM_FD) == PROTECTED_SHM_FD)
+      (JASSERT_ERRNO);
     _real_close(fd);
   }
 

@@ -87,7 +87,7 @@ extern "C" int close(int fd)
   dmtcp::ConnectionIdentifier conId;
   if (dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING &&
        dmtcp::DmtcpWorker::waitingForExternalSocketsToClose() == true &&
-       dup2(fd,fd) != -1) {
+       _real_dup2(fd,fd) != -1) {
     conId = dmtcp::KernelDeviceToConnection::instance().retrieve(fd).id();
   }
 
@@ -118,7 +118,7 @@ extern "C" int fclose(FILE *fp)
 
   if (dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING &&
        dmtcp::DmtcpWorker::waitingForExternalSocketsToClose() == true &&
-       dup2(fd,fd) != -1) {
+       _real_dup2(fd,fd) != -1) {
     conId = dmtcp::KernelDeviceToConnection::instance().retrieve(fd).id();
   }
 
@@ -133,6 +133,33 @@ extern "C" int fclose(FILE *fp)
 
   return rv;
 }
+
+extern "C" int dup(int oldfd)
+{
+  WRAPPER_EXECUTION_DISABLE_CKPT();
+  int newfd = _real_dup(oldfd);
+  WRAPPER_EXECUTION_ENABLE_CKPT();
+  return newfd;
+}
+
+extern "C" int dup2(int oldfd, int newfd)
+{
+  WRAPPER_EXECUTION_DISABLE_CKPT();
+  int res = _real_dup2(oldfd, newfd);
+  WRAPPER_EXECUTION_ENABLE_CKPT();
+  return newfd;
+}
+
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,27)) && __GLIBC_PREREQ(2,9)
+// dup3 appeared in Linux 2.6.27
+extern "C" int dup3(int oldfd, int newfd, int flags)
+{
+  WRAPPER_EXECUTION_DISABLE_CKPT();
+  int res = _real_dup3(oldfd, newfd, flags);
+  WRAPPER_EXECUTION_ENABLE_CKPT();
+  return newfd;
+}
+#endif
 
 static int ptsname_r_work(int fd, char * buf, size_t buflen)
 {
@@ -337,6 +364,11 @@ extern "C" int open(const char *path, int flags, ...)
   return _open_open64_work(_real_open, path, flags, mode);
 }
 
+extern "C" int __open_2(const char *path, int flags)
+{
+  return _open_open64_work(_real_open, path, flags, 0);
+}
+
 // FIXME: The 'fn64' version of functions is defined only when within
 // __USE_LARGEFILE64 is #defined. The wrappers in this file need to consider
 // this fact. The problem can occur, for example, when DMTCP is not compiled
@@ -358,6 +390,10 @@ extern "C" int open64(const char *path, int flags, ...)
   return _open_open64_work(_real_open64, path, flags, mode);
 }
 
+extern "C" int __open64_2(const char *path, int flags)
+{
+  return _open_open64_work(_real_open64, path, flags, 0);
+}
 
 static FILE *_fopen_fopen64_work(FILE*(*fn) (const char *path, const char *mode),
                                  const char *path, const char *mode)
