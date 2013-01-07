@@ -185,16 +185,15 @@ public:
       return false;
 
     size_t size = newres.node_map.size();
+    uint map_used[size];
     map.resize(size);
     for (size_t i = 0; i < size; i++) {
       map[i].clear();
-    }
-    uint map_used[size];
-    for (size_t i = 0; i < size; i++)
       map_used[i] = 0;
+    }
 
     // map old launch node to new launch node
-    uint old_launch, new_launch;
+    uint old_launch = 0, new_launch = 0;
     for (size_t i = 0; i < sorted_v.size(); i++) {
       if (sorted_v[i]->is_launch) {
         old_launch = i;

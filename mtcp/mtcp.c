@@ -889,7 +889,7 @@ void *mtcp_prepare_for_clone (int (*fn) (void *arg), void *child_stack,
                                 int *flags, void *arg, int *parent_tidptr,
                                 struct user_desc *newtls, int **child_tidptr)
 {
-  Thread *thread;
+  Thread *thread = NULL;
 
   /* Maybe they decided not to call mtcp_init */
   if (motherofall != NULL) {
@@ -3063,6 +3063,8 @@ static void setup_sig_handler (sighandler_t handler)
 {
   struct sigaction act, old_act;
 
+  memset(&act, 0, sizeof act);
+  memset(&act, 0, sizeof act);
   act.sa_handler = handler;
   sigfillset(&act.sa_mask);
   act.sa_flags = SA_RESTART;

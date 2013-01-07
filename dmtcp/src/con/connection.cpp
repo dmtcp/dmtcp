@@ -1675,7 +1675,8 @@ void dmtcp::FileConnection::restore(const dmtcp::vector<int>& fds,
   }
 
   errno = 0;
-  if (S_ISREG(buf.st_mode)) {
+  if (jalib::Filesystem::FileExists(_path) &&
+      stat(_path.c_str() ,&buf) == 0 && S_ISREG(buf.st_mode)) {
     if (_offset <= buf.st_size && _offset <= _stat.st_size) {
       JASSERT(lseek(fds[0], _offset, SEEK_SET) == _offset)
         (_path) (_offset) (JASSERT_ERRNO);
@@ -2021,11 +2022,18 @@ void dmtcp::FifoConnection::restore(const dmtcp::vector<int>& fds,
   errno = 0;
   refreshPath();
   int tempfd = openFile();
+  bool shouldClose = true;
   JASSERT(tempfd > 0) (tempfd) (_path) (JASSERT_ERRNO);
 
   for (size_t i=0; i<fds.size(); ++i) {
     JASSERT(_real_dup2(tempfd, fds[i]) == fds[i]) (tempfd) (fds[i])
       .Text("dup2() failed.");
+    if (tempfd == fds[i]) {
+      shouldClose = false;
+    }
+  }
+  if (shouldClose) {
+    close(tempfd);
   }
 }
 

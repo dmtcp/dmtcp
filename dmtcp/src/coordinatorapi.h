@@ -63,7 +63,7 @@ namespace dmtcp
 
       void closeConnection() { _coordinatorSocket.close(); }
 
-      void sendMsgToCoordinator(DmtcpMessage msg,
+      void sendMsgToCoordinator(const DmtcpMessage &msg,
                                 const void *ch = NULL, size_t len = 0);
       void recvMsgFromCoordinator(DmtcpMessage *msg, void **str = NULL);
 

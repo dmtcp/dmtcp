@@ -170,6 +170,8 @@
 //#define MAX_DLCLOSE_MTCP_CALLS 10
 #define MAX_DLCLOSE_MTCP_CALLS 1
 
+#define PTS_PATH_MAX 32
+
 // #define MIN_SIGNAL 1
 // #define MAX_SIGNAL 30
 

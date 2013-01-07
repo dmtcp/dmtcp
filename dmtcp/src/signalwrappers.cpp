@@ -38,12 +38,14 @@ static bool checkpointSignalBlockedForProcess = false;
 static __thread bool checkpointSignalBlockedForThread = false;
 
 
-static int bannedSignalNumber(){
+static int bannedSignalNumber()
+{
   const int cache = dmtcp::DmtcpWorker::determineMtcpSignal();
   return cache;
 }
 
-static int patchBSDMask(int mask){
+static int patchBSDMask(int mask)
+{
   const int allowedMask = ~sigmask(bannedSignalNumber());
   return mask & allowedMask;
 }
@@ -64,7 +66,8 @@ static inline void patchBSDUserMask(int how, const int mask, int *oldmask)
   }
 }
 
-static inline sigset_t patchPOSIXMask(const sigset_t* mask){
+static inline sigset_t patchPOSIXMask(const sigset_t* mask)
+{
   JASSERT(mask != NULL);
   sigset_t t = *mask;
 
@@ -72,7 +75,8 @@ static inline sigset_t patchPOSIXMask(const sigset_t* mask){
   return t;
 }
 
-static inline void patchPOSIXUserMaskWork(int how, const sigset_t *set, sigset_t *oldset,
+static inline void patchPOSIXUserMaskWork(int how, const sigset_t *set,
+                                          sigset_t *oldset,
                                           bool checkpointSignalBlocked)
 {
   if (oldset != NULL) {
@@ -109,7 +113,7 @@ static inline void patchPOSIXUserMaskMT(int how, const sigset_t *set, sigset_t *
 //set the handler
 EXTERNC sighandler_t signal(int signum, sighandler_t handler)
 {
-  if(signum == bannedSignalNumber()){
+  if(signum == bannedSignalNumber()) {
     return SIG_IGN;
   }
   return _real_signal( signum, handler );
@@ -119,55 +123,57 @@ EXTERNC sighandler_t signal(int signum, sighandler_t handler)
 EXTERNC int sigaction(int signum, const struct sigaction *act,
                       struct sigaction *oldact)
 {
-  if(signum == bannedSignalNumber()){
+  if(signum == bannedSignalNumber()) {
     act = NULL;
   }
   return _real_sigaction( signum, act, oldact);
 }
 
-EXTERNC int rt_sigaction(int signum, const struct sigaction *act, struct sigaction *oldact){
+EXTERNC int rt_sigaction(int signum, const struct sigaction *act,
+                         struct sigaction *oldact)
+{
   return sigaction (signum, act, oldact);
-  //if(signum == bannedSignalNumber()){
+  //if(signum == bannedSignalNumber()) {
   //  act = NULL;
   //}
   //return _real_rt_sigaction( signum, act, oldact);
 }
-EXTERNC int sigvec(int signum, const struct sigvec *vec, struct sigvec *ovec){
-  if(signum == bannedSignalNumber()){
+EXTERNC int sigvec(int signum, const struct sigvec *vec, struct sigvec *ovec)
+{
+  if(signum == bannedSignalNumber()) {
     vec = NULL;
   }
   return _real_sigvec( signum, vec, ovec );
 }
 
 //set the mask
-EXTERNC int sigblock(int mask){
+EXTERNC int sigblock(int mask)
+{
   int oldmask = _real_sigblock( patchBSDMask(mask) );
-
   patchBSDUserMask(SIG_BLOCK, mask, &oldmask);
-
   return oldmask;
 }
 
-EXTERNC int sigsetmask(int mask){
+EXTERNC int sigsetmask(int mask)
+{
   int oldmask = _real_sigsetmask( patchBSDMask(mask) );
-
   patchBSDUserMask(SIG_SETMASK, mask, &oldmask);
-
   return oldmask;
 }
 
-EXTERNC int siggetmask(void){
+EXTERNC int siggetmask(void)
+{
   int oldmask =  _real_siggetmask();
-
   patchBSDUserMask(SIG_BLOCK, 0, &oldmask);
-
   return oldmask;
 }
 
-EXTERNC int sigprocmask(int how, const sigset_t *set, sigset_t *oldset){
+EXTERNC int sigprocmask(int how, const sigset_t *set, sigset_t *oldset)
+{
+  sigset_t tmp;
   const sigset_t *orig = set;
   if (set != NULL) {
-    sigset_t tmp = patchPOSIXMask(set);
+    tmp = patchPOSIXMask(set);
     set = &tmp;
   }
 
@@ -179,11 +185,13 @@ EXTERNC int sigprocmask(int how, const sigset_t *set, sigset_t *oldset){
   return ret;
 }
 
-EXTERNC int rt_sigprocmask(int how, const sigset_t *set, sigset_t *oldset){
+EXTERNC int rt_sigprocmask(int how, const sigset_t *set, sigset_t *oldset)
+{
   return sigprocmask(how, set, oldset);
+//  sigset_t tmp;
 //  const sigset_t *orig = set;
 //  if (set != NULL) {
-//    sigset_t tmp = patchPOSIXMask(set);
+//    tmp = patchPOSIXMask(set);
 //    set = &tmp;
 //  }
 //
@@ -197,8 +205,9 @@ EXTERNC int rt_sigprocmask(int how, const sigset_t *set, sigset_t *oldset){
 
 EXTERNC int sigsuspend(const sigset_t *mask)
 {
+  sigset_t tmp;
   if (mask != NULL) {
-    sigset_t tmp = patchPOSIXMask(mask);
+    tmp = patchPOSIXMask(mask);
     mask = &tmp;
   }
 
@@ -261,10 +270,12 @@ EXTERNC int sigpause(int sig)
  * patchPOSIXUserMask function. This will declare the static variables with
  * __thread to make them thread local.
  */
-EXTERNC int pthread_sigmask(int how, const sigset_t *set, sigset_t *oldmask){
+EXTERNC int pthread_sigmask(int how, const sigset_t *set, sigset_t *oldmask)
+{
   const sigset_t *orig = set;
+  sigset_t tmp;
   if (set != NULL) {
-    sigset_t tmp = patchPOSIXMask(set);
+    tmp = patchPOSIXMask(set);
     set = &tmp;
   }
 
@@ -285,8 +296,9 @@ EXTERNC int pthread_sigmask(int how, const sigset_t *set, sigset_t *oldmask){
  */
 EXTERNC int sigwait(const sigset_t *set, int *sig)
 {
+  sigset_t tmp;
   if (set != NULL) {
-    sigset_t tmp = patchPOSIXMask(set);
+    tmp = patchPOSIXMask(set);
     set = &tmp;
   }
 

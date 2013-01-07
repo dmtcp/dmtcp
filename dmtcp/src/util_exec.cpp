@@ -97,7 +97,8 @@ int dmtcp::Util::safeSystem(const char *command)
   return rc;
 }
 
-int dmtcp::Util::expandPathname(const char *inpath, char * const outpath, size_t size)
+int dmtcp::Util::expandPathname(const char *inpath, char * const outpath,
+                                size_t size)
 {
   bool success = false;
   if (*inpath == '/' || strstr(inpath, "/") != NULL) {
@@ -151,19 +152,24 @@ int dmtcp::Util::expandPathname(const char *inpath, char * const outpath, size_t
   return (success ? 0 : -1);
 }
 
-int dmtcp::Util::elfType(const char *pathname, bool *isElf, bool *is32bitElf) {
+int dmtcp::Util::elfType(const char *pathname, bool *isElf, bool *is32bitElf)
+{
   const char *magic_elf = "\177ELF"; // Magic number for ELF
   const char *magic_elf32 = "\177ELF\001"; // Magic number for ELF 32-bit
   // Magic number for ELF 64-bit is "\177ELF\002"
   const int len = strlen(magic_elf32);
-  char argv_buf[len];
+  char argv_buf[len + 1];
   char full_path[PATH_MAX];
   expandPathname(pathname, full_path, sizeof(full_path));
   int fd = _real_open(full_path, O_RDONLY, 0);
-  if (fd == -1 || 5 != readAll(fd, argv_buf, 5))
+  if (fd == -1) {
     return -1;
-  else
-    close (fd);
+  }
+  ssize_t ret = readAll(fd, argv_buf, len);
+  close (fd);
+  if (ret != len) {
+    return -1;
+  }
   *isElf = (memcmp(magic_elf, argv_buf, strlen(magic_elf)) == 0);
   *is32bitElf = (memcmp(magic_elf32, argv_buf, strlen(magic_elf32)) == 0);
   return 0;
