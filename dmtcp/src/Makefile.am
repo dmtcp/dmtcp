@@ -46,7 +46,7 @@ nobase_noinst_HEADERS = constants.h \
 # dmtcp_checkpoint, dmtcp_command, dmtcp_coordinator, etc.
 #   should not need wrappers.
 libdmtcpinternal_a_SOURCES = dmtcpmessagetypes.cpp protectedfds.cpp \
-			     uniquepid.cpp \
+			     uniquepid.cpp shareddata.cpp \
 			     coordinatorapi.cpp connectionidentifier.cpp \
 			     util_exec.cpp util_gen.cpp util_init.cpp \
 			     jalibinterface.cpp processinfo.cpp \
@@ -89,7 +89,7 @@ dmtcphijack_so_SOURCES = dmtcpawareapi.cpp dmtcpworker.cpp threadsync.cpp \
 			 dmtcpplugin.cpp popen.cpp syslogwrappers.cpp \
 			 con/eventwrappers.cpp con/filewrappers.cpp \
 			 con/socketwrappers.cpp con/posixipcwrappers.cpp \
-			 sysvipc/sysvipcwrappers.cpp shareddata.cpp
+			 sysvipc/sysvipcwrappers.cpp
 
 dmtcp_inspector_SOURCES = dmtcp_inspector.cpp
 

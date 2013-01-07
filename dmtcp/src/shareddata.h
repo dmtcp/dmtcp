@@ -36,6 +36,7 @@
 
 #define MAX_IPC_ID_MAPS 256
 #define MAX_PTRACE_ID_MAPS 256
+#define MAX_PROCESS_TREE_ROOTS 256
 
 namespace dmtcp {
   namespace SharedData {
@@ -59,6 +60,8 @@ namespace dmtcp {
       size_t              numIPCIdMaps;
       struct PtraceIdMaps ptraceIdMap[MAX_PTRACE_ID_MAPS];
       size_t              numPtraceIdMaps;
+      dmtcp::UniquePid    processTreeRoots[MAX_PROCESS_TREE_ROOTS];
+      size_t              numProcessTreeRoots;
     };
 
     void processEvent(DmtcpEvent_t event, DmtcpEventData_t *data);
@@ -80,6 +83,9 @@ namespace dmtcp {
 
     pid_t getPtraceVirtualId(pid_t tracerId);
     void setPtraceVirtualId(pid_t tracerId, pid_t childId);
+
+    void setProcessTreeRoot();
+    void getProcessTreeRoots(UniquePid **roots, size_t *numRoots);
   }
 }
 #endif

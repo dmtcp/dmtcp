@@ -74,6 +74,7 @@ void dmtcp::SharedData::initializeHeader()
   sharedDataHeader->ckptInterval = -1;
   sharedDataHeader->numIPCIdMaps = 0;
   sharedDataHeader->numPtraceIdMaps = 0;
+  sharedDataHeader->numProcessTreeRoots = 0;
   sharedDataHeader->initialized = true;
 }
 
@@ -256,5 +257,24 @@ void dmtcp::SharedData::setPtraceVirtualId(pid_t tracerId, pid_t childId)
   sharedDataHeader->ptraceIdMap[i].tracerId = tracerId;
   sharedDataHeader->ptraceIdMap[i].childId = childId;
   sharedDataHeader->numPtraceIdMaps++;
+  Util::unlockFile(PROTECTED_SHM_FD);
+}
+
+void dmtcp::SharedData::setProcessTreeRoot()
+{
+  Util::lockFile(PROTECTED_SHM_FD);
+  JASSERT(sharedDataHeader->numProcessTreeRoots < MAX_PROCESS_TREE_ROOTS);
+  size_t i = sharedDataHeader->numProcessTreeRoots;
+  sharedDataHeader->processTreeRoots[i] = UniquePid::ThisProcess();
+  sharedDataHeader->numProcessTreeRoots++;
+  Util::unlockFile(PROTECTED_SHM_FD);
+}
+
+void dmtcp::SharedData::getProcessTreeRoots(dmtcp::UniquePid **roots,
+                                            size_t *numRoots)
+{
+  Util::lockFile(PROTECTED_SHM_FD);
+  *roots = sharedDataHeader->processTreeRoots;
+  *numRoots = sharedDataHeader->numProcessTreeRoots;
   Util::unlockFile(PROTECTED_SHM_FD);
 }

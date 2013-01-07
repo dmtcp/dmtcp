@@ -32,6 +32,7 @@
 #include "uniquepid.h"
 #include "processinfo.h"
 #include "dmtcpplugin.h"
+#include "shareddata.h"
 #include  "../jalib/jconvert.h"
 #include  "../jalib/jfilesystem.h"
 
@@ -50,6 +51,16 @@ static void _do_unlock_tbl()
 void dmtcp_ProcessInfo_ProcessEvent(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   switch (event) {
+    case DMTCP_EVENT_LEADER_ELECTION:
+      if (getppid() == 1) {
+        dmtcp::SharedData::setProcessTreeRoot();
+      }
+      break;
+
+    case DMTCP_EVENT_DRAIN:
+      dmtcp::ProcessInfo::instance().refreshProcessTreeRoots();
+      break;
+
     case DMTCP_EVENT_PRE_EXEC:
       {
         jalib::JBinarySerializeWriterRaw wr("", data->serializerInfo.fd);
@@ -67,7 +78,7 @@ void dmtcp_ProcessInfo_ProcessEvent(DmtcpEvent_t event, DmtcpEventData_t *data)
 
     case DMTCP_EVENT_WRITE_CKPT_PREFIX:
       {
-        jalib::JBinarySerializeWriterRaw wr("", data->serializerInfo.fd);
+       jalib::JBinarySerializeWriterRaw wr("", data->serializerInfo.fd);
         dmtcp::ProcessInfo::instance().serialize(wr);
       }
       break;
@@ -89,6 +100,7 @@ dmtcp::ProcessInfo::ProcessInfo()
   _childTable.clear();
   _tidVector.clear();
   _pthreadJoinId.clear();
+  _processTreeRoots.clear();
   _procSelfExe = jalib::Filesystem::ResolveSymlink("/proc/self/exe");
   _do_unlock_tbl();
 }
@@ -276,6 +288,17 @@ void dmtcp::ProcessInfo::refresh()
   JTRACE("CHECK GROUP PID")(_gid)(_fgid)(_ppid)(_pid);
 }
 
+void dmtcp::ProcessInfo::refreshProcessTreeRoots()
+{
+  UniquePid *pids;
+  size_t n = 0;
+  SharedData::getProcessTreeRoots(&pids, &n);
+  _processTreeRoots.clear();
+  if (n > 0) {
+    _processTreeRoots.assign(pids, pids + n);
+  }
+}
+
 void dmtcp::ProcessInfo::refreshTidVector()
 {
   dmtcp::vector< pid_t >::iterator iter;
@@ -307,7 +330,7 @@ void dmtcp::ProcessInfo::serialize ( jalib::JBinarySerializer& o )
 {
   JSERIALIZE_ASSERT_POINT ( "dmtcp::ProcessInfo:" );
 
-  if (o.isWriter()){
+  if (o.isWriter()) {
     refresh();
   }
 

@@ -66,6 +66,7 @@ namespace dmtcp
       void refresh();
       void refreshChildTable();
       void refreshTidVector();
+      void refreshProcessTreeRoots();
 
       void serialize ( jalib::JBinarySerializer& o );
 
@@ -113,6 +114,9 @@ namespace dmtcp
       dmtcp::map< pid_t , dmtcp::UniquePid > _childTable;
       dmtcp::vector< pid_t > _tidVector;
       dmtcp::map<pthread_t, pthread_t> _pthreadJoinId;
+      dmtcp::vector< UniquePid > _processTreeRoots;
+
+
 
       bool  _isRootOfProcessTree;
       pid_t _pid;
