@@ -226,10 +226,24 @@ open_ckpt_to_write(int fd, int pipe_fds[2], char **extcomp_args)
     //static int (*libc_execvp) (const char *path, char *const argv[]);
 
     mtcp_sys_close(pipe_fds[1]);
-    dup2(pipe_fds[0], STDIN_FILENO);
-    mtcp_sys_close(pipe_fds[0]);
-    dup2(fd, STDOUT_FILENO);
-    mtcp_sys_close(fd);
+    int infd = mtcp_sys_dup(pipe_fds[0]);
+    int outfd = mtcp_sys_dup(fd);
+    mtcp_sys_dup2(infd, STDIN_FILENO);
+    mtcp_sys_dup2(outfd, STDOUT_FILENO);
+
+    // No need to close the other FDS
+    if (pipe_fds[0] > STDERR_FILENO) {
+      mtcp_sys_close(pipe_fds[0]);
+    }
+    if (infd > STDERR_FILENO) {
+      mtcp_sys_close(infd);
+    }
+    if (outfd > STDERR_FILENO) {
+      mtcp_sys_close(outfd);
+    }
+    if (fd > STDERR_FILENO) {
+      mtcp_sys_close(fd);
+    }
 
     // Don't load dmtcphijack.so, etc. in exec.
     unsetenv("LD_PRELOAD"); // If in bash, this is bash env. var. version
