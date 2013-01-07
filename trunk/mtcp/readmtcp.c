@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 #include <sys/resource.h>
 #include "mtcp_internal.h"
 
@@ -28,7 +29,8 @@ static const char* theUsage =
   "\n"
 ;
 
-int main(int argc, char **argv) {
+int main(int argc, char **argv)
+{
   int fd = -1;
   char magicbuf[MAGIC_LEN], *restorename;
   char *version = PACKAGE_VERSION;
@@ -61,7 +63,8 @@ int main(int argc, char **argv) {
     }
   }
   if (memcmp (magicbuf, MAGIC, MAGIC_LEN) != 0) {
-    char command[512];
+    char command[PATH_MAX];
+    assert(strlen(argv[0]) < PATH_MAX);
     fprintf (stderr, "readmtcp: Not an mtcp image; trying it as dmtcp image\n");
     sprintf (command, "gzip -dc %s | %s -", restorename, argv[0]);
     exit( system(command) );

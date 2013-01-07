@@ -141,7 +141,7 @@ int main ( int argc, char** argv )
            "under certain conditions; see COPYING file for details.\n"
            "(Use flag \"--quiet\" to hide this message.)\n\n");
 
-  int coordErrorCode;
+  int coordErrorCode = CoordinatorAPI::NOERROR;
   int numPeers;
   int isRunning;
   CoordinatorAPI coordinatorAPI;

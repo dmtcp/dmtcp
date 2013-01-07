@@ -298,13 +298,14 @@ extern "C" int posix_openpt(int flags)
 static int _open_open64_work(int(*fn) (const char *path, int flags, ...),
                              const char *path, int flags, mode_t mode)
 {
+  dmtcp::string currPtsDevName;
   const char *newpath = path;
 
   WRAPPER_EXECUTION_DISABLE_CKPT();
 
   if (dmtcp::Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR)) {
-    dmtcp::string currPtsDevName =
-      dmtcp::UniquePtsNameToPtmxConId::instance().retrieveCurrentPtsDeviceName(path);
+    currPtsDevName = dmtcp::UniquePtsNameToPtmxConId::instance().
+      retrieveCurrentPtsDeviceName(path);
     newpath = currPtsDevName.c_str();
   }
 
@@ -346,7 +347,7 @@ extern "C" int open(const char *path, int flags, ...)
 // FIXME: Add the 'fn64' wrapper test cases to dmtcp test suite.
 extern "C" int open64(const char *path, int flags, ...)
 {
-  mode_t mode;
+  mode_t mode = 0;
   // Handling the variable number of arguments
   if (flags & O_CREAT) {
     va_list arg;
@@ -363,11 +364,12 @@ static FILE *_fopen_fopen64_work(FILE*(*fn) (const char *path, const char *mode)
 {
   WRAPPER_EXECUTION_DISABLE_CKPT();
 
+  dmtcp::string currPtsDevName;
   const char *newpath = path;
 
   if (dmtcp::Util::strStartsWith(path, UNIQUE_PTS_PREFIX_STR)) {
-    dmtcp::string currPtsDevName =
-      dmtcp::UniquePtsNameToPtmxConId::instance().retrieveCurrentPtsDeviceName(path);
+    currPtsDevName = dmtcp::UniquePtsNameToPtmxConId::instance().
+      retrieveCurrentPtsDeviceName(path);
     newpath = currPtsDevName.c_str();
   }
 

@@ -54,11 +54,14 @@
 // static dmtcp::KernelBufferDrainer* theDrainer = NULL;
 static dmtcp::ConnectionState* theCheckpointState = NULL;
 
-dmtcp::string dmtcp_Connection_VirtualToRealPtsName(const char *ptsname)
+void dmtcp_Connection_VirtualToRealPtsName(const char *virt, char *real,
+                                           size_t len)
 {
-  JASSERT(dmtcp::Util::strStartsWith(ptsname, UNIQUE_PTS_PREFIX_STR));
-  return dmtcp::UniquePtsNameToPtmxConId::instance().
-    retrieveCurrentPtsDeviceName(ptsname);
+  JASSERT(dmtcp::Util::strStartsWith(virt, UNIQUE_PTS_PREFIX_STR));
+  dmtcp::string realname = dmtcp::UniquePtsNameToPtmxConId::instance().
+    retrieveCurrentPtsDeviceName(virt);
+  JASSERT(realname.length() <= len);
+  strcpy(real, realname.c_str());
 }
 
 void dmtcp_Connection_ProcessEvent(DmtcpEvent_t event, DmtcpEventData_t *data)

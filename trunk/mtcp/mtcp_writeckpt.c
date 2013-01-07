@@ -434,6 +434,7 @@ static int perform_open_ckpt_image_fd(const char *temp_ckpt_filename,
      * for historical reasons there are differences between SIG_DFL and SIG_IGN
      * for SIGCHLD.  See sigaction(2), NOTES section for more details. */
     struct sigaction default_sigchld_action;
+    memset(&default_sigchld_action, 0, sizeof (default_sigchld_action));
     default_sigchld_action.sa_handler = SIG_IGN;
     sigaction(SIGCHLD, &default_sigchld_action, &saved_sigchld_action);
 

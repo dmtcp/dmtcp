@@ -9,7 +9,10 @@ void dmtcp::LookupService::reset()
 {
   keyValueMapIterator it;
   for (it = _keyValueMap.begin(); it != _keyValueMap.end(); it++) {
+    KeyValue *k = (KeyValue*)&(it->first);
     KeyValue *v = it->second;
+    k->destroy();
+    v->destroy();
     delete v;
   }
   _keyValueMap.clear();
@@ -38,7 +41,7 @@ const void* dmtcp::LookupService::query(const void *key, size_t keyLen,
   KeyValue *v = _keyValueMap[k];
   *val = v->data();
   *valLen = v->len();
-  
+
   return *val;
 }
 

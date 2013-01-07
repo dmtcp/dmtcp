@@ -27,17 +27,23 @@
 #include "dmtcpmessagetypes.h"
 #include "uniquepid.h"
 #include "../jalib/jsocket.h"
+#include "../jalib/jalloc.h"
 
 namespace dmtcp
 {
   class KeyValue {
     public:
       KeyValue(const void *data, const size_t len) {
-        _data = malloc(len);
+        _data = JALLOC_HELPER_MALLOC(len);
         _len = len;
         memcpy(_data, data, len);
       }
       ~KeyValue() {}
+
+      void destroy() {
+        JASSERT(_data != NULL);
+        JALLOC_HELPER_FREE(_data);
+      }
 
       void *data() {return _data;}
       size_t len() {return _len;}

@@ -143,7 +143,7 @@ void dmtcp::CoordinatorAPI::useAlternateCoordinatorFd() {
   _coordinatorSocket = jalib::JSocket(PROTECTED_COORD_ALT_FD);
 }
 
-void dmtcp::CoordinatorAPI::sendMsgToCoordinator(dmtcp::DmtcpMessage msg,
+void dmtcp::CoordinatorAPI::sendMsgToCoordinator(const dmtcp::DmtcpMessage &msg,
                                                  const void *extraData,
                                                  size_t len)
 {
