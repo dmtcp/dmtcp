@@ -666,7 +666,7 @@ GREP
 CPP
 PID_VIRTUALIZATION
 HBICT_DELTACOMP
-FAST_CKPT_RESTART
+FAST_RESTART
 PTRACE_SUPPORT
 subdirs
 OPENMP_CXXFLAGS
@@ -772,7 +772,7 @@ enable_condor_support
 enable_unique_checkpoint_filenames
 enable_ptrace_support
 enable_forked_checkpointing
-enable_fast_ckpt_restart
+enable_fast_restart
 enable_delta_compression
 enable_experts_only_space1
 enable_experts_only
@@ -1436,9 +1436,8 @@ Optional Features:
                           fork a child process to do checkpointing, so that
                           parent sees only minor delay during checkpoint.
                           (EXPERIMENTAL)
-  --enable-fast-ckpt-restart
-                          uses tricks to mmap from checkpoint image file
-                          (EXPERIMENTAL)
+  --enable-fast-restart   uses tricks to mmap from checkpoint image file;
+                          disables all kinds of compression (EXPERIMENTAL)
   --enable-delta-compression
                           enable incremental/differential checkpointing using
                           HBICT (hash-based incremental checkpointing) tool;
@@ -4450,18 +4449,20 @@ else
 fi
 
 
-# Check whether --enable-fast_ckpt_restart was given.
-if test "${enable_fast_ckpt_restart+set}" = set; then :
-  enableval=$enable_fast_ckpt_restart; use_fast_ckpt_restart=$enableval
+# Check whether --enable-fast_restart was given.
+if test "${enable_fast_restart+set}" = set; then :
+  enableval=$enable_fast_restart; use_fast_restart=$enableval
 else
-  use_fast_ckpt_restart=default
+  use_fast_restart=default
 fi
 
-if test "$use_fast_ckpt_restart" = "yes"; then
-  FAST_CKPT_RESTART=yes
+if test "$use_fast_restart" = "yes"; then
+  FAST_RESTART=yes
+
+  HBICT_DELTACOMP=no
 
 else
-  FAST_CKPT_RESTART=no
+  FAST_RESTART=no
 
 fi
 
@@ -6011,7 +6012,7 @@ fi
 # REPLACE BY FOLLOWING WHEN READY TO SUPPORT THIS EXTERNALLY:
 #            [AS_HELP_STRING([--with-record-replay],
 #                            [support record replay (EXPERIMENTAL)
-#			      forces fast_ckpt_restart unless --disable-fast-ckpt-restart specified])],
+#			      forces fast_restart unless --disable-fast-restart specified])],
 
 # Check whether --with-record-replay was given.
 if test "${with_record_replay+set}" = set; then :

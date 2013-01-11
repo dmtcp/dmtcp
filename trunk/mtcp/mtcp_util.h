@@ -31,8 +31,9 @@
 
 void mtcp_readcs (int fd, char cs);
 void mtcp_readfile(int fd, void *buf, size_t size);
+void mtcp_skipfile(int fd, size_t size);
 void mtcp_writecs (int fd, char cs);
-void mtcp_writefile (int fd, void const *buff, size_t size);
+size_t mtcp_writefile (int fd, void const *buff, size_t size);
 void mtcp_check_vdso_enabled(void);
 int  mtcp_is_executable(const char *exec_path);
 char *mtcp_find_executable(char *filename, const char* path_env,

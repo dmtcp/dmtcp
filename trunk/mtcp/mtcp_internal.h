@@ -257,6 +257,7 @@ struct Thread { Thread *next;         // next thread in 'threads' list
 // MTCP_PAGE_SIZE must be page-aligned:  multiple of sysconf(_SC_PAGESIZE).
 #define MTCP_PAGE_SIZE 4096
 #define MTCP_PAGE_MASK (~(MTCP_PAGE_SIZE-1))
+#define MTCP_PAGE_OFFSET_MASK (MTCP_PAGE_SIZE-1)
 #if defined(__i386__) || defined(__x86_64__)
 # if defined(__i386__) && defined(__PIC__)
 // FIXME:  After DMTCP-1.2.5, this can be made only case for i386/x86_64
@@ -327,20 +328,26 @@ struct Thread { Thread *next;         // next thread in 'threads' list
 #define STACKSIZE 1024      // size of temporary stack (in quadwords)
 //#define MTCP_MAX_PATH 256   // maximum path length for mtcp_find_executable
 
-typedef struct Area Area;
 typedef struct Jmpbuf Jmpbuf;
 
-struct Area { char *addr;   // args required for mmap to restore memory area
-              size_t size;
-              off_t filesize;
-              int prot;
-              int flags;
-              off_t offset;
-              char name[FILENAMESIZE];
-#ifdef FAST_CKPT_RST_VIA_MMAP
-              size_t mem_region_offset;
-#endif
-            };
+typedef union Area {
+  struct {
+  int type; // Content type (CS_XXX
+  char *addr;   // args required for mmap to restore memory area
+  size_t size;
+  off_t filesize;
+  int prot;
+  int flags;
+  off_t offset;
+  struct {
+    int fdnum;
+    off_t offset;
+    struct stat statbuf;
+  } fdinfo;
+  char name[FILENAMESIZE];
+  };
+  char _padding[4096];
+} Area;
 
 typedef struct DeviceInfo {
   unsigned int long devmajor;
@@ -348,43 +355,14 @@ typedef struct DeviceInfo {
   unsigned int long inodenum;
 } DeviceInfo;
 
-#ifdef FAST_CKPT_RST_VIA_MMAP
-# define MTCP_CKPT_IMAGE_VERSION 1.3
-typedef struct mtcp_ckpt_image_header {
-  float ckpt_image_version;
-
-  VA start_addr;
-  size_t hdr_offset_in_file;
-  size_t total_size;
-  size_t maps_offset;
-  size_t num_memory_regions;
-  size_t VmSize;
-
-  size_t restore_size;
-  VA restore_begin;
-  VA restore_start_fncptr; /* will be bound to fnc, mtcp_restore_start */
-  VA finish_retore_fncptr; /* will be bound to fnc, finishrestore */
-
+typedef struct mtcp_ckpt_image_hdr {
+  int version;
+  VA libmtcp_begin;
+  size_t libmtcp_size;
+  VA restore_start_fptr; /* will be bound to fnc, mtcp_restore_start */
+  VA finish_restore_fptr; /* will be bound to fnc, finishrestore */
   struct rlimit stack_rlimit;
-} mtcp_ckpt_image_header_t;
-
-VA fastckpt_mmap_addr();
-void fastckpt_write_mem_region(int fd, Area *area);
-void fastckpt_get_mem_region_info(size_t *vmsize, size_t *num_mem_regions);
-void fastckpt_prepare_for_ckpt(int ckptfd, VA restore_start, VA finishrestore);
-void fastckpt_save_restore_image(int fd, VA restore_begin, size_t restore_size);
-void fastckpt_finish_ckpt(int ckptfd);
-void fastckpt_read_header(int fd, struct rlimit *stack_rlimit, Area *area,
-                          VA *restore_start);
-void fastckpt_load_restore_image(int fd, Area *area);
-void fastckpt_prepare_for_restore(int fd);
-VA fastckpt_get_finishrestore();
-void fastckpt_finish_restore();
-int fastckpt_get_next_area_dscr(Area *area);
-void fastckpt_restore_mem_region(int fd, const Area *area);
-void fastckpt_populate_shared_file_from_ckpt_image(int ckptfd, int imagefd,
-                                                   Area* area);
-#endif
+} mtcp_ckpt_image_hdr_t;
 
 // order must match that in mtcp_jmpbuf.s
 // struct Jmpbuf { uLong ebx, esi, edi, ebp, esp;
@@ -471,13 +449,8 @@ static inline int atomic_setif_ptr(void *volatile *loc, void *newval,
   return (rc);
 }
 
-#ifndef USE_PROC_MAPS
-extern char mtcp_shareable_begin[];
-extern char mtcp_shareable_end[];
-#else
-extern VA mtcp_restore_begin;
-extern VA mtcp_restore_end;
-#endif
+extern VA mtcp_shareable_begin;
+extern VA mtcp_shareable_end;
 
 extern __attribute__ ((visibility ("hidden")))
 int mtcp_sigaction(int sig, const struct sigaction *act,
@@ -520,7 +493,7 @@ __attribute__ ((visibility ("hidden")))
    int mtcp_state_value(MtcpState * state);
 
 __attribute__ ((visibility ("hidden")))
-void mtcp_restoreverything (void);
+void mtcp_restoreverything (int should_mmap_ckpt_image, VA finishrestore_fptr);
 __attribute__ ((visibility ("hidden")))
 void mtcp_printf (char const *format, ...);
 void mtcp_maybebpt (void);
@@ -545,5 +518,9 @@ int mtcp_selfmap_close(int selfmapfd);
 void mtcp_checkpointeverything(const char *temp_ckpt_filename,
                                const char *perm_ckpt_filename);
 void mtcp_finishrestore(void);
-void mtcp_writeckpt_init(void *restore_start_fptr);
+void mtcp_restore_start(int fd, int verify, int should_mmap_ckpt_image,
+                        pid_t gzip_child_pid,
+                        char *ckpt_newname, char *cmd_file,
+                        char *argv[], char *envp[]);
+void mtcp_writeckpt_init(VA restore_start_fptr, VA finishrestore_fptr);
 #endif

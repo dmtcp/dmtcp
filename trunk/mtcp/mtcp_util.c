@@ -231,21 +231,14 @@ void mtcpHookWriteCkptData(const void *buf, size_t size) __attribute__ ((weak));
 
 /* Write something to checkpoint file */
 __attribute__ ((visibility ("hidden")))
-void mtcp_writefile (int fd, void const *buff, size_t size)
+size_t mtcp_writefile (int fd, void const *buff, size_t size)
 {
   if (mtcpHookWriteCkptData == NULL) {
     MTCP_ASSERT(mtcp_write_all(fd, buff, size) == size);
   } else {
     mtcpHookWriteCkptData(buff, size);
   }
-  return;
-}
-
-/* Write checkpoint section number to checkpoint file */
-__attribute__ ((visibility ("hidden")))
-void mtcp_writecs (int fd, char cs)
-{
-  mtcp_writefile (fd, &cs, sizeof cs);
+  return size;
 }
 
 __attribute__ ((visibility ("hidden")))
@@ -274,16 +267,21 @@ void mtcp_readfile(int fd, void *buf, size_t size)
 }
 
 __attribute__ ((visibility ("hidden")))
-void mtcp_readcs(int fd, char cs)
+void mtcp_skipfile(int fd, size_t size)
 {
-  char xcs;
-
-  mtcp_readfile (fd, &xcs, sizeof xcs);
-  if (xcs != cs) {
-    MTCP_PRINTF("checkpoint section %d next, expected %d\n", xcs, cs);
-    mtcp_abort ();
+  VA tmp_addr = mtcp_sys_mmap(0, size, PROT_WRITE | PROT_READ,
+                              MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+  if (tmp_addr == MAP_FAILED) {
+    MTCP_PRINTF("mtcp_sys_mmap() failed with error: %d", mtcp_sys_errno);
+    mtcp_abort();
+  }
+  mtcp_readfile(fd, tmp_addr, size);
+  if (mtcp_sys_munmap(tmp_addr, size) == -1) {
+    MTCP_PRINTF("mtcp_sys_munmap() failed with error: %d", mtcp_sys_errno);
+    mtcp_abort();
   }
 }
+
 
 // NOTE: This functions is called by mtcp_printf() so do not invoke
 // mtcp_printf() from within this function.

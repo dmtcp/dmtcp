@@ -29,7 +29,7 @@
 ##									##
 ##########################################################################
 
-MTCP_VERSION = 80
+MTCP_VERSION = 81
 LIBMTCP_SOVERSION_MAJOR=1
 LIBMTCP_SOVERSION_INFO=$(LIBMTCP_SOVERSION_MAJOR).0.0
 
@@ -84,10 +84,10 @@ ifdef HBICT_DELTACOMP
   MTCP_CFLAGS += -DHBICT_DELTACOMP
 endif
 
-# If ./configure --enable-fast-ckpt-restart defined, DMTCP 'make' will set this.
+# If ./configure --enable-fast-restart defined, DMTCP 'make' will set this.
 # If building MTCP standalone, change the line below to invoke this option.
-ifdef FAST_CKPT_RESTART
-  MTCP_CFLAGS += -DFAST_CKPT_RST_VIA_MMAP
+ifdef FAST_RESTART
+  MTCP_CFLAGS += -DFAST_RST_VIA_MMAP
 endif
 
 ifdef DMTCP_VERSION
@@ -174,15 +174,10 @@ uninstall:
 	rm -f "$(DESTDIR)$(includedir)/mtcp.h"
 	rm -f "$(DESTDIR)$(libdir)"/libmtcp.so*
 
-ifdef FAST_CKPT_RESTART
-readmtcp: readmtcp.c mtcp_internal.h libmtcp.so mtcp_util.o \
-	mtcp_printf.o mtcp_state.o mtcp_fastckpt.o mtcp_safemmap.o
-	${CC} ${MTCP_CFLAGS} -o readmtcp readmtcp.c $$PWD/libmtcp.so mtcp_util.o \
-	  mtcp_printf.o mtcp_state.o mtcp_fastckpt.o mtcp_safemmap.o
-else
-readmtcp: readmtcp.c mtcp_internal.h
-	${CC} ${MTCP_CFLAGS} -o readmtcp readmtcp.c
-endif
+readmtcp: readmtcp.c mtcp_internal.h mtcp_util.o \
+	mtcp_printf.o mtcp_state.o mtcp_safemmap.o
+	${CC} ${MTCP_CFLAGS} -o readmtcp readmtcp.c mtcp_util.o \
+	  mtcp_printf.o mtcp_state.o mtcp_safemmap.o
 
 build: libmtcp.so mtcp_restart testmtcp6
 # Don't do bigtestmtcp by default; Good for stress testing, but slow.
@@ -252,12 +247,12 @@ threadtest: threadtest.c
 mtcp_restart: mtcp_restart.c mtcp_internal.h mtcp_sys.h \
 	mtcp_printf.o mtcp_util.o mtcp_maybebpt.o \
 	mtcp_safemmap.o mtcp_state.o mtcp_safe_open.o \
-	mtcp_check_vdso.o mtcp_fastckpt.o ${ARM_EXTRAS}
+	mtcp_check_vdso.o ${ARM_EXTRAS}
 	${CC} $(MTCP_CFLAGS) ${ARM_BUG_FIX} -static -nodefaultlibs \
 	 -o mtcp_restart mtcp_restart.c mtcp_maybebpt.o \
 	 mtcp_printf.o mtcp_util.o mtcp_safemmap.o \
 	 mtcp_state.o mtcp_safe_open.o \
-	 mtcp_check_vdso.o mtcp_fastckpt.o ${ARM_EXTRAS}
+	 mtcp_check_vdso.o ${ARM_EXTRAS}
 
 ifeq ($(BUILDTYPE),arm)
 libc-do-syscall-arm-eabi.o: libc-do-syscall-arm-eabi.S
@@ -278,7 +273,7 @@ LIBRARY_OBJS = mtcp.o mtcp_writeckpt.o mtcp_restart_nolibc.o \
 	mtcp_maybebpt.o mtcp_printf.o mtcp_util.o \
 	mtcp_safemmap.o mtcp_safe_open.o \
 	mtcp_state.o mtcp_check_vdso.o mtcp_sigaction.o \
-	mtcp_fastckpt.o ${ARM_EXTRAS}
+	${ARM_EXTRAS}
 
 # for libtools -- not used
 %.lo : %.c
@@ -322,7 +317,7 @@ libmtcp.so: mtcp.t ${LIBRARY_OBJS}
 	${LD} ${MTCP_LDFLAGS} -T mtcp.t -Wl,-Map,mtcp.map \
 	  -Wl,--no-gc-sections -Wl,--no-strip-discarded \
 	  -o libmtcp.so.$(LIBMTCP_SOVERSION_INFO) ${LIBRARY_OBJS} \
-	  -ldl -lpthread -lm
+	  -ldl -lpthread -lm -z defs
 	ln -sf libmtcp.so.$(LIBMTCP_SOVERSION_INFO) \
 	  libmtcp.so.$(LIBMTCP_SOVERSION_MAJOR)
 	ln -sf libmtcp.so.$(LIBMTCP_SOVERSION_MAJOR) libmtcp.so
@@ -415,9 +410,6 @@ extractobjectmodule: extractobjectmodule.c
 
 mtcp_sigaction.o: mtcp_sigaction.c mtcp_sys.h
 	${CC} $(MTCP_CFLAGS) -c -o mtcp_sigaction.o mtcp_sigaction.c
-
-mtcp_fastckpt.o: mtcp_fastckpt.c mtcp_internal.h
-	${CC} $(MTCP_CFLAGS) -c -o mtcp_fastckpt.o mtcp_fastckpt.c
 
 dist: distclean
 	rm -f /tmp/mtcpv${MTCP_VERSION}

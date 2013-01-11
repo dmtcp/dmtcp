@@ -55,7 +55,11 @@
 #define BINARY_NAME "mtcp_restart"
 
 static char first_char(char *filename);
-static int open_ckpt_to_read(char *filename, char *envp[]);
+static int open_ckpt_to_read(char *filename, int should_mmap_ckpt_image,
+                             char *envp[]);
+static int read_header_and_restore_image(int fd, char *restorename,
+                                         VA *restore_start);
+static void prompt_load_symbol_file(mtcp_ckpt_image_hdr_t *hdr);
 
 static pid_t decomp_child_pid = -1;
 
@@ -79,11 +83,12 @@ static const char* theUsage =
 char **environ = NULL;
 int main (int argc, char *argv[], char *envp[])
 {
-  char magicbuf[MAGIC_LEN], *restorename;
+  char *restorename;
   int fd, verify;
-  size_t restore_size, offset=0;
-  void *restore_begin, *restore_mmap;
-  void (*restore_start) (int fd, int verify, pid_t decomp_child_pid,
+  int should_mmap_ckpt_image = 0;
+  size_t offset=0;
+  void (*restore_start) (int fd, int verify, int should_mmap_ckpt_image,
+                         pid_t decomp_child_pid,
                          char *ckpt_newname, char *cmd_file,
                          char *argv[], char *envp[]);
   char cmd_file[PATH_MAX+1];
@@ -134,6 +139,9 @@ int main (int argc, char *argv[], char *envp[])
       // If using with DMTCP/jassert, Pass in a non-standard stderr
       dmtcp_info_stderr_fd = mtcp_atoi(argv[1]);
       shift; shift;
+    } else if (mtcp_strcmp (argv[0], "--fast-restart") == 0 && argc >= 2) {
+      should_mmap_ckpt_image = 1;
+      shift;
     } else if (mtcp_strcmp (argv[0], "--") == 0 && argc == 2) {
       restorename = argv[1];
       break;
@@ -148,6 +156,10 @@ int main (int argc, char *argv[], char *envp[])
   // Restore argc and argv pointer
   argv = orig_argv;
   argc = orig_argc;
+
+#ifdef FAST_RST_VIA_MMAP
+  should_mmap_ckpt_image = 1;
+#endif
 
   /* XXX XXX XXX:
    *    DO NOT USE mtcp_printf OR DPRINTF BEFORE THIS BLOCK, IT'S DANGEROUS AND
@@ -198,8 +210,10 @@ int main (int argc, char *argv[], char *envp[])
     mtcp_strncpy(ckpt_newname, restorename, PATH_MAX);
   }
 
-  if (restorename!=NULL) fd = open_ckpt_to_read(restorename, envp);
-  if (offset>0) {
+  if (restorename != NULL) {
+    fd = open_ckpt_to_read(restorename, should_mmap_ckpt_image, envp);
+  }
+  if (offset > 0) {
     //skip into the file a bit
     VA addr = (VA) mtcp_sys_mmap(0, offset, PROT_READ | PROT_WRITE,
                                  MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
@@ -213,80 +227,11 @@ int main (int argc, char *argv[], char *envp[])
       mtcp_abort();
     }
   }
-  mtcp_memset(magicbuf, 0, sizeof magicbuf);
-  mtcp_readfile (fd, magicbuf, MAGIC_LEN);
-  if (mtcp_memcmp (magicbuf, MAGIC, MAGIC_LEN) != 0) {
-    MTCP_PRINTF("'%s' is '%s', but this restore is '%s' (fd=%d)\n",
-                restorename, magicbuf, MAGIC, fd);
-    return (-1);
+  if (read_header_and_restore_image(fd, restorename, (VA*)&restore_start) != 0) {
+    MTCP_PRINTF("restarting due to address conflict...\n");
+    mtcp_sys_close (fd);
+    mtcp_sys_execve (argv[0], argv, envp);
   }
-
-  /* Set the resource limits for stack from saved values */
-  struct rlimit stack_rlimit;
-
-#ifdef FAST_CKPT_RST_VIA_MMAP
-  Area area;
-  fastckpt_read_header(fd, &stack_rlimit, &area, (VA*) &restore_start);
-  restore_begin = area.addr;
-  restore_size = area.size;
-#else
-  mtcp_readcs (fd, CS_STACKRLIMIT); /* resource limit for stack */
-  mtcp_readfile (fd, &stack_rlimit, sizeof stack_rlimit);
-  /* Find where the restore image goes */
-  mtcp_readcs (fd, CS_RESTOREBEGIN); /* beginning of checkpointed libmtcp.so image */
-  mtcp_readfile (fd, &restore_begin, sizeof restore_begin);
-  mtcp_readcs (fd, CS_RESTORESIZE); /* size of checkpointed libmtcp.so image */
-  mtcp_readfile (fd, &restore_size, sizeof restore_size);
-  mtcp_readcs (fd, CS_RESTORESTART);
-  mtcp_readfile (fd, &restore_start, sizeof restore_start);
-
-  DPRINTF("saved stack resource limit: soft_lim:%p, hard_lim:%p\n",
-          stack_rlimit.rlim_cur, stack_rlimit.rlim_max);
-
-#endif // FAST_CKPT_RST_VIA_MMAP
-  mtcp_sys_setrlimit(RLIMIT_STACK, &stack_rlimit);
-
-  /* Read in the restore image to same address where it was loaded at time
-   *  of checkpoint.  This is libmtcp.so, including both text and data sections
-   *  as a single section.  Hence, we need both write and exec permission,
-   *  and MAP_ANONYMOUS, since the data could have changed.
-   */
-
-  DPRINTF("restoring anonymous area %p at %p\n", restore_size, restore_begin);
-
-  if (mtcp_sys_munmap(restore_begin, restore_size) < 0) {
-    MTCP_PRINTF("failed to unmap region at %p\n", restore_begin);
-    mtcp_abort ();
-  }
-
-#ifdef FAST_CKPT_RST_VIA_MMAP
-  fastckpt_load_restore_image(fd, &area);
-#else
-  restore_mmap = mtcp_safemmap (restore_begin, restore_size,
-                                PROT_READ | PROT_WRITE | PROT_EXEC,
-                                MAP_ANONYMOUS | MAP_FIXED | MAP_PRIVATE, -1, 0);
-  if (restore_mmap == MAP_FAILED) {
-#ifndef _XOPEN_UNIX
-    MTCP_PRINTF("Does mmap here support MAP_FIXED?\n");
-#endif
-    if (mtcp_sys_errno != EBUSY) {
-      MTCP_PRINTF("Error %d creating %p byte restore region at %p.\n",
-                  mtcp_sys_errno, restore_size, restore_begin);
-      mtcp_abort ();
-    } else {
-      MTCP_PRINTF("restarting due to address conflict...\n");
-      mtcp_sys_close (fd);
-      mtcp_sys_execve (argv[0], argv, envp);
-    }
-  }
-  if (restore_mmap != restore_begin) {
-    MTCP_PRINTF("%p byte restore region at %p got mapped at %p\n",
-                restore_size, restore_begin, restore_mmap);
-    mtcp_abort ();
-  }
-  mtcp_readcs (fd, CS_RESTOREIMAGE);
-  mtcp_readfile (fd, restore_begin, restore_size);
-#endif
 
 #ifndef __x86_64__
   // Copy command line to libmtcp.so, so that we can re-exec if randomized vdso
@@ -302,6 +247,84 @@ int main (int argc, char *argv[], char *envp[])
 #endif
 
 #ifdef LIBC_STATIC_AVAILABLE
+  prompt_load_symbol_file();
+#endif
+
+  /* Now call it - it shouldn't return */
+  (*restore_start) (fd, verify, should_mmap_ckpt_image, decomp_child_pid,
+                    ckpt_newname, cmd_file, argv, envp);
+  MTCP_PRINTF("restore routine returned (it should never do this!)\n");
+  mtcp_abort ();
+  return (0);
+}
+
+static int read_header_and_restore_image(int fd, char *restorename,
+                                          VA *restore_start)
+{
+  char magic[MAGIC_LEN];
+  char tmpBuf[MTCP_PAGE_SIZE];
+  mtcp_ckpt_image_hdr_t *ckpt_hdr;
+  void *restore_mmap;
+
+  mtcp_readfile(fd, &tmpBuf, MTCP_PAGE_SIZE);
+  if (mtcp_strncmp(tmpBuf, MAGIC, MAGIC_LEN) != 0) {
+    MTCP_PRINTF("***Error: Invalid checkpoint signature.\n");
+    mtcp_abort();
+  }
+
+  ckpt_hdr = (mtcp_ckpt_image_hdr_t*) &tmpBuf[MAGIC_LEN];
+  DPRINTF("saved stack resource limit: soft_lim:%p, hard_lim:%p\n",
+          ckpt_hdr->stack_rlimit.rlim_cur,
+          ckpt_hdr->stack_rlimit.rlim_max);
+
+  /* Set the resource limits for stack from saved values */
+  mtcp_sys_setrlimit(RLIMIT_STACK, &ckpt_hdr->stack_rlimit);
+
+  /* Read in the restore image to same address where it was loaded at time
+   *  of checkpoint.  This is libmtcp.so, including both text and data sections
+   *  as a single section.  Hence, we need both write and exec permission,
+   *  and MAP_ANONYMOUS, since the data could have changed.
+   */
+
+  DPRINTF("restoring anonymous area %p at %p\n",
+          ckpt_hdr->libmtcp_size, ckpt_hdr->libmtcp_begin);
+
+  if (mtcp_sys_munmap(ckpt_hdr->libmtcp_begin,
+                      ckpt_hdr->libmtcp_size) < 0) {
+    MTCP_PRINTF("failed to unmap region at %p\n", ckpt_hdr->libmtcp_begin);
+    mtcp_abort ();
+  }
+
+  restore_mmap = mtcp_safemmap (ckpt_hdr->libmtcp_begin,
+                                ckpt_hdr->libmtcp_size,
+                                PROT_READ | PROT_WRITE | PROT_EXEC,
+                                MAP_ANONYMOUS | MAP_FIXED | MAP_PRIVATE, -1, 0);
+  if (restore_mmap == MAP_FAILED) {
+#ifndef _XOPEN_UNIX
+    MTCP_PRINTF("Does mmap here support MAP_FIXED?\n");
+#endif
+    if (mtcp_sys_errno != EBUSY) {
+      MTCP_PRINTF("Error %d creating %p byte restore region at %p.\n",
+                  mtcp_sys_errno, ckpt_hdr->libmtcp_size,
+                  ckpt_hdr->libmtcp_begin);
+      mtcp_abort ();
+    } else {
+      return -1;
+    }
+  }
+  if (restore_mmap != ckpt_hdr->libmtcp_begin) {
+    MTCP_PRINTF("%p byte restore region at %p got mapped at %p\n",
+                ckpt_hdr->libmtcp_size, ckpt_hdr->libmtcp_begin, restore_mmap);
+    mtcp_abort ();
+  }
+  mtcp_readfile (fd, ckpt_hdr->libmtcp_begin, ckpt_hdr->libmtcp_size);
+
+  *restore_start = ckpt_hdr->restore_start_fptr;
+  return 0;
+}
+
+static void prompt_load_symbol_file(mtcp_ckpt_image_hdr_t *hdr)
+{
 /********************************************************************
  * Apparently, there is no consistent way to define LIBC_STATIC_AVAILABLE.
  * The purpose of the code below is to be able to use a symbolic debugger
@@ -315,13 +338,13 @@ int main (int argc, char *argv[], char *envp[])
  * Then try:  (gdb) shell ../utils/gdb-add-libmtcp-symbol-file.py
  * where ADDR will be restore_start or an arb. address in restore_start()
  ********************************************************************/
-# ifdef DEBUG
+# ifdef KDEBUG
   char *p, symbolbuff[256];
   FILE *symbolfile;
   long textbase; /* offset */
 
   MTCP_PRINTF("restore_begin=%p, restore_start=%p\n",
-      	restore_begin, restore_start);
+              hdr->libmtcp_begin, hdr->restore_start_fptr);
   textbase = 0;
 
   symbolfile = popen ("readelf -S libmtcp.so", "r");
@@ -337,22 +360,14 @@ int main (int argc, char *argv[], char *envp[])
       	 " checkpointed file can be\nmade available to gdb."
       	 "  Just type the command below in gdb:\n");
       mtcp_printf("     add-symbol-file libmtcp.so %p\n",
-               restore_begin + textbase);
+               hdr->libmtcp_begin + textbase);
       mtcp_printf("Then type \"continue\" to continue debugging.\n");
       mtcp_printf("**********\n");
     }
   }
   mtcp_maybebpt ();
 # endif
-#endif
-
-  /* Now call it - it shouldn't return */
-  (*restore_start) (fd, verify, decomp_child_pid, ckpt_newname, cmd_file, argv, envp);
-  MTCP_PRINTF("restore routine returned (it should never do this!)\n");
-  mtcp_abort ();
-  return (0);
 }
-
 int __libc_start_main (int (*main) (int, char **, char **),
                        int argc, char **argv,
                        void (*init) (void), void (*fini) (void),
@@ -379,36 +394,6 @@ void __libc_csu_fini (void)
 }
 
 /**
- * This function will return the first character of the given file.  If the
- * file is not readable, we will abort.
- *
- * @param filename the name of the file to read
- * @return the first character of the given file
- */
-static char first_char(char *filename)
-{
-    int fd, rc;
-    char c;
-
-    fd = mtcp_sys_open(filename, O_RDONLY, 0);
-    if(fd < 0)
-    {
-        MTCP_PRINTF("ERROR: Cannot open file %s\n", filename);
-        mtcp_abort();
-    }
-
-    rc = mtcp_sys_read(fd, &c, 1);
-    if(rc != 1)
-    {
-        MTCP_PRINTF("ERROR: Error reading from file %s\n", filename);
-        mtcp_abort();
-    }
-
-    mtcp_sys_close(fd);
-    return c;
-}
-
-/**
  * This function will open the checkpoint file stored at the given filename.
  * It will check the magic number and take the appropriate action.  If the
  * magic number is unknown, we will abort.  The fd returned points to the
@@ -418,11 +403,12 @@ static char first_char(char *filename)
  * @param filename the name of the checkpoint file
  * @return the fd to use
  */
-static int open_ckpt_to_read(char *filename, char *envp[])
+static int open_ckpt_to_read(char *filename, int should_mmap_ckpt_image,
+                             char *envp[])
 {
   int fd;
   int fds[2];
-  char fc;
+  char tmpBuf[MTCP_PAGE_SIZE];
   char *gzip_cmd = "gzip";
   static char *gzip_args[] = { "gzip", "-d", "-", NULL };
 #ifdef HBICT_DELTACOMP
@@ -433,21 +419,30 @@ static int open_ckpt_to_read(char *filename, char *envp[])
   static char **decomp_args;
   pid_t cpid;
 
-  fc = first_char(filename);
   fd = mtcp_sys_open(filename, O_RDONLY, 0);
   if(fd < 0) {
     MTCP_PRINTF("ERROR: Cannot open checkpoint file %s\n", filename);
     mtcp_abort();
   }
+  mtcp_readfile(fd, tmpBuf, sizeof(tmpBuf));
+  // Reset the cursor to the beginning of the file
+  mtcp_sys_lseek(fd, 0, SEEK_SET);
 
-  if (fc == MAGIC_FIRST || fc == 'D') /* no compression ('D' from DMTCP) */
+  if (mtcp_strncmp(tmpBuf, MAGIC, MAGIC_LEN) == 0) {
     return fd;
-  else if (fc == GZIP_FIRST
+  }
+
+  if (should_mmap_ckpt_image) {
+    MTCP_PRINTF("***ERROR: --fast-restart not supported with compressed files\n");
+    mtcp_abort();
+  }
+
+  if (tmpBuf[0] == GZIP_FIRST
 #ifdef HBICT_DELTACOMP
-           || fc == HBICT_FIRST
+      || tmpBuf[0] == HBICT_FIRST
 #endif
-          ) { /* Set prog_path */
-    if( fc == GZIP_FIRST ){
+     ) { /* Set prog_path */
+    if( tmpBuf[0] == GZIP_FIRST ){
       decomp_args = gzip_args;
       if( mtcp_find_executable(gzip_cmd, getenv("PATH"),
                                decomp_path) == NULL ) {
@@ -456,7 +451,7 @@ static int open_ckpt_to_read(char *filename, char *envp[])
       }
     }
 #ifdef HBICT_DELTACOMP
-    if( fc == HBICT_FIRST ){
+    if( tmpBuf[0] == HBICT_FIRST ){
       decomp_args = hbict_args;
       if( mtcp_find_executable(hbict_cmd, getenv("PATH"),
                               decomp_path) == NULL ) {

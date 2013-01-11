@@ -51,7 +51,7 @@
 static int test_use_compression(char *compressor, char *command, char *path,
                                 int def);
 static int open_ckpt_to_write(int fd, int pipe_fds[2], char **args);
-static void writefiledescrs (int fd, int fdCkptFileOnDisk);
+static size_t writefiledescrs (int fd, int fdCkptFileOnDisk);
 static void writememoryarea (int fd, Area *area,
 			     int stack_was_seen, int vsyscall_exists);
 //static void writefile (int fd, void const *buff, size_t size);
@@ -77,43 +77,39 @@ static void write_ckpt_to_file(int fd, int fdCkptFileOnDisk);
 extern int mtcp_verify_count;  // number of checkpoints to go
 extern int mtcp_verify_total;  // value given by envar
 extern VA mtcp_saved_heap_start;
-extern void (*mtcp_callback_write_ckpt_header)(int fd);
 extern int  (*mtcp_callback_ckpt_fd)(int fd);
 
 
 static pid_t mtcp_ckpt_extcomp_child_pid = -1;
 static struct sigaction saved_sigchld_action;
-static size_t restore_size;
-static VA restore_begin, restore_end;
-VA mtcp_restore_begin, mtcp_restore_end;
-static void (*restore_start)(); /* will be bound to fnc, mtcp_restore_start */
+static void (*restore_start_fptr)(); /* will be bound to fnc, mtcp_restore_start */
+static void (*finish_restore_fptr)(); /* will be bound to fnc, mtcp_restore_start */
 
-void mtcp_writeckpt_init(void *restore_start_fptr)
+void mtcp_writeckpt_init(VA restore_start_fn, VA finishrestore_fn)
 {
+  static size_t restore_size;
+  static VA restore_end;
   /* Need to get the addresses for the library only once */
   static int initialized = 0;
   if (initialized) {
     return;
   }
+
   /* Get size and address of the shareable - used to separate it from the rest
    * of the stuff. All routines needed to perform restore must be within this
    * address range
    */
-
 #ifndef USE_PROC_MAPS
-  restore_begin = (VA)((unsigned long int)mtcp_shareable_begin
-		       & -MTCP_PAGE_SIZE);
-  restore_size  = ((mtcp_shareable_end - restore_begin) + MTCP_PAGE_SIZE - 1)
-		   & -MTCP_PAGE_SIZE;
-  restore_end   = restore_begin + restore_size;
+  mtcp_shareable_begin = (VA)((unsigned long int)mtcp_shareable_begin)
+                         & MTCP_PAGE_MASK;
+  mtcp_shareable_end = (mtcp_shareable_end + MTCP_PAGE_SIZE - 1)
+                       & MTCP_PAGE_MASK;
 #else
-  mtcp_get_memory_region_of_this_library(&restore_begin, &restore_end);
-  restore_size  = restore_end - restore_begin;
+  mtcp_get_memory_region_of_this_library(&mtcp_shareable_begin,
+                                         &mtcp_shareable_end);
 #endif
-  /* Copy info for use by mtcp_restart_nolibc.c */
-  mtcp_restore_begin = restore_begin;
-  mtcp_restore_end = restore_end;
-  restore_start = restore_start_fptr;
+  restore_start_fptr = (void*)restore_start_fn;
+  finish_restore_fptr = (void*)finishrestore_fn;
   initialized = 1;
 }
 
@@ -126,6 +122,7 @@ void mtcp_writeckpt_init(void *restore_start_fptr)
 static int test_use_compression(char *compressor, char *command, char *path,
                                 int def)
 {
+  return 0;
   char *default_val;
   char env_var1[256] = "MTCP_";
   char env_var2[256] = "DMTCP_";
@@ -305,7 +302,6 @@ void mtcp_checkpointeverything(const char *temp_ckpt_filename,
   write_ckpt_to_file(fd, fdCkptFileOnDisk);
 
   if (mtcpHookWriteCkptData == NULL) {
-#ifndef FAST_CKPT_RST_VIA_MMAP
     if (use_compression) {
       /* IF OUT OF DISK SPACE, REPORT IT HERE. */
       /* In perform_open_ckpt_image_fd(), we set SIGCHLD to SIG_DFL.
@@ -331,7 +327,6 @@ void mtcp_checkpointeverything(const char *temp_ckpt_filename,
         mtcp_abort ();
       }
     }
-#endif
 
     /* Maybe it's time to verify the checkpoint.
      * If so, exec an mtcp_restore with the temp file (in case temp file is bad,
@@ -363,11 +358,7 @@ static int perform_open_ckpt_image_fd(const char *temp_ckpt_filename,
 
   /* 1. Open fd to checkpoint image on disk */
   /* Create temp checkpoint file and write magic number to it */
-#ifdef FAST_CKPT_RST_VIA_MMAP
-  int flags = O_CREAT | O_TRUNC | O_RDWR;
-#else
   int flags = O_CREAT | O_TRUNC | O_WRONLY;
-#endif
   int fd = mtcp_safe_open(temp_ckpt_filename, flags, 0600);
   *fdCkptFileOnDisk = fd; /* if use_compression, fd will be reset to pipe */
   if (fd < 0) {
@@ -376,8 +367,11 @@ static int perform_open_ckpt_image_fd(const char *temp_ckpt_filename,
     mtcp_abort();
   }
 
+#ifdef FAST_RST_VIA_MMAP
+  return fd;
+#endif
+
   /* 2. Test if using GZIP/HBICT compression */
-#ifndef FAST_CKPT_RST_VIA_MMAP
   /* 2a. Test if using GZIP compression */
   int use_gzip_compression = 0;
   int use_deltacompression = 0;
@@ -443,7 +437,6 @@ static int perform_open_ckpt_image_fd(const char *temp_ckpt_filename,
       mtcp_abort();
     }
   }
-#endif
 
   return fd;
 }
@@ -515,6 +508,43 @@ static void remap_nscd_areas(Area remap_nscd_areas_array[],
   }
 }
 
+static void write_header_and_restore_image(int fd, int fdCkptFileOnDisk)
+{
+  size_t num_written = 0;
+  char tmpBuf[MTCP_PAGE_SIZE];
+  mtcp_ckpt_image_hdr_t *ckpt_hdr;
+
+  memset(tmpBuf, 0, sizeof(tmpBuf));
+
+  memcpy(tmpBuf, MAGIC, MAGIC_LEN);
+  ckpt_hdr = (mtcp_ckpt_image_hdr_t*) &tmpBuf[MAGIC_LEN];
+
+  getrlimit(RLIMIT_STACK, &ckpt_hdr->stack_rlimit);
+  ckpt_hdr->libmtcp_begin = mtcp_shareable_begin;
+  ckpt_hdr->libmtcp_size = mtcp_shareable_end - mtcp_shareable_begin;
+  ckpt_hdr->restore_start_fptr = (VA) restore_start_fptr;
+  ckpt_hdr->finish_restore_fptr = (VA) finish_restore_fptr;
+
+  DPRINTF("saved stack resource limit: soft_lim:%p, hard_lim:%p\n",
+          ckpt_hdr->stack_rlimit.rlim_cur, ckpt_hdr->stack_rlimit.rlim_max);
+  DPRINTF("restore_begin %X at %p from [libmtcp.so]\n",
+          ckpt_hdr->libmtcp_size, ckpt_hdr->libmtcp_begin);
+
+  num_written = mtcp_writefile(fd, tmpBuf, sizeof(tmpBuf));
+  MTCP_ASSERT((num_written & MTCP_PAGE_OFFSET_MASK) == 0);
+
+  num_written += mtcp_writefile(fd, ckpt_hdr->libmtcp_begin,
+                                ckpt_hdr->libmtcp_size);
+  MTCP_ASSERT((num_written & MTCP_PAGE_OFFSET_MASK) == 0);
+
+  /* Write out file descriptors */
+  num_written += writefiledescrs (fd, fdCkptFileOnDisk);
+  if ((num_written & MTCP_PAGE_OFFSET_MASK) != 0) {
+    num_written += mtcp_writefile(fd, tmpBuf, MTCP_PAGE_SIZE -
+                                  (num_written & MTCP_PAGE_OFFSET_MASK));
+  }
+}
+
 /* fd is file descriptor for gzip or other compression process */
 static void write_ckpt_to_file(int fd, int fdCkptFileOnDisk)
 {
@@ -522,6 +552,8 @@ static void write_ckpt_to_file(int fd, int fdCkptFileOnDisk)
   DeviceInfo dev_info;
   int stack_was_seen = 0;
   static void *const frpointer = mtcp_finishrestore;
+  VA restore_begin = mtcp_shareable_begin;
+  VA restore_end = mtcp_shareable_end;
 
   /* Drain stdin and stdout before checkpoint */
   tcdrain(STDOUT_FILENO);
@@ -531,39 +563,7 @@ static void write_ckpt_to_file(int fd, int fdCkptFileOnDisk)
   // Preprocess special segments like vsyscall, stack, heap etc.
   preprocess_special_segments(&vsyscall_exists);
 
-  mtcp_writefile (fd, MAGIC, MAGIC_LEN);
-
-  DPRINTF("restore_begin %X at %p from [libmtcp.so]\n",
-          restore_size, restore_begin);
-
-#ifdef FAST_CKPT_RST_VIA_MMAP
-  fastckpt_prepare_for_ckpt(fd, restore_start, frpointer);
-  fastckpt_save_restore_image(fd, restore_begin, restore_size);
-  // MAYBE NEED TO CALL msync() here
-#else
-  struct rlimit stack_rlimit;
-  getrlimit(RLIMIT_STACK, &stack_rlimit);
-
-  DPRINTF("saved stack resource limit: soft_lim:%p, hard_lim:%p\n",
-          stack_rlimit.rlim_cur, stack_rlimit.rlim_max);
-
-  mtcp_writecs (fd, CS_STACKRLIMIT);
-  mtcp_writefile (fd, &stack_rlimit, sizeof stack_rlimit);
-
-  mtcp_writecs (fd, CS_RESTOREBEGIN);
-  mtcp_writefile (fd, &restore_begin, sizeof restore_begin);
-  mtcp_writecs (fd, CS_RESTORESIZE);
-  mtcp_writefile (fd, &restore_size, sizeof restore_size);
-  mtcp_writecs (fd, CS_RESTORESTART);
-  mtcp_writefile (fd, &restore_start, sizeof restore_start);
-  mtcp_writecs (fd, CS_RESTOREIMAGE);
-  mtcp_writefile (fd, restore_begin, restore_size);
-  mtcp_writecs (fd, CS_FINISHRESTORE);
-  mtcp_writefile (fd, &frpointer, sizeof frpointer);
-
-  /* Write out file descriptors */
-  writefiledescrs (fd, fdCkptFileOnDisk);
-#endif
+  write_header_and_restore_image(fd, fdCkptFileOnDisk);
 
   /* Finally comes the memory contents */
 
@@ -604,13 +604,6 @@ static void write_ckpt_to_file(int fd, int fdCkptFileOnDisk)
      */
     if (area_begin >= HIGHEST_VA && area_begin == (VA)0xffffffffff600000)
       continue;
-#endif
-
-#ifdef FAST_CKPT_RST_VIA_MMAP
-    /* We don't want to ckpt the mmap()'d area */
-    if (area_begin == fastckpt_mmap_addr()) {
-      continue;
-    }
 #endif
 
     /* Skip anything that has no read or execute permission.  This occurs
@@ -791,13 +784,10 @@ static void write_ckpt_to_file(int fd, int fdCkptFileOnDisk)
 
   close (mapsfd);
 
-  /* That's all folks */
-#ifdef FAST_CKPT_RST_VIA_MMAP
-  fastckpt_finish_ckpt(fd);
-#else
-  mtcp_writecs (fd, CS_THEEND);
-#endif
+  area.size = -1; // End of data
+  mtcp_writefile(fd, &area, sizeof(area));
 
+  /* That's all folks */
   if (mtcp_sys_close (fd) < 0) {
     MTCP_PRINTF("error closing checkpoint file: %s\n",
                 strerror(errno));
@@ -824,15 +814,15 @@ static int should_ckpt_fd (int fd)
 
 /* Write list of open files to the ckpt file.  fd is file descriptor to gzip
  * or other compression process.  May or may not be same as fdCkptFileOnDisk */
-static void writefiledescrs (int fd, int fdCkptFileOnDisk)
+static size_t writefiledescrs (int fd, int fdCkptFileOnDisk)
 {
+  Area area;
+  size_t num_written = 0;
   char dbuf[BUFSIZ], linkbuf[FILENAMESIZE], *p, procfdname[64];
   int doff, dsiz, fddir, fdnum, linklen, rc;
   off_t offset;
   struct linux_dirent *dent;
   struct stat lstatbuf, statbuf;
-
-  mtcp_writecs (fd, CS_FILEDESCRS);
 
   /* Open /proc/self/fd directory - it contains a list of files I have open */
 
@@ -864,12 +854,7 @@ static void writefiledescrs (int fd, int fdCkptFileOnDisk)
       fdnum = strtol (dent -> d_name, &p, 10);
       if ((*p == '\0') && (fdnum >= 0)
           && (fdnum != fd) && (fdnum != fdCkptFileOnDisk) && (fdnum != fddir)
-	  && (should_ckpt_fd (fdnum) > 0)) {
-
-#ifdef FAST_CKPT_RST_VIA_MMAP
-        MTCP_PRINTF("FAST ckpt restart not supported without DMTCP");
-        mtcp_abort();
-#endif
+          && (should_ckpt_fd (fdnum) > 0)) {
 
         // Read the symbolic link so we get the filename that's open on the fd
         sprintf (procfdname, "/proc/self/fd/%d", fdnum);
@@ -889,7 +874,7 @@ static void writefiledescrs (int fd, int fdCkptFileOnDisk)
           rc = lstat (procfdname, &lstatbuf);
           if (rc < 0) {
             MTCP_PRINTF("error statting %s -> %s: %s\n",
-	                 procfdname, linkbuf, strerror(-rc));
+                        procfdname, linkbuf, strerror(-rc));
             mtcp_abort ();
           }
 
@@ -903,20 +888,20 @@ static void writefiledescrs (int fd, int fdCkptFileOnDisk)
 
           /* Write state information to checkpoint file.
            * Replace file's permissions with current access flags
-	   * so restore will know how to open it.
-	   */
+           * so restore will know how to open it.
+           */
 
           else {
             offset = 0;
             if (S_ISREG (statbuf.st_mode))
-	      offset = mtcp_sys_lseek (fdnum, 0, SEEK_CUR);
+              offset = mtcp_sys_lseek (fdnum, 0, SEEK_CUR);
             statbuf.st_mode = (statbuf.st_mode & ~0777)
-			       | (lstatbuf.st_mode & 0777);
-            mtcp_writefile (fd, &fdnum, sizeof fdnum);
-            mtcp_writefile (fd, &statbuf, sizeof statbuf);
-            mtcp_writefile (fd, &offset, sizeof offset);
-            mtcp_writefile (fd, &linklen, sizeof linklen);
-            mtcp_writefile (fd, linkbuf, linklen);
+              | (lstatbuf.st_mode & 0777);
+            area.fdinfo.fdnum = fdnum;
+            area.fdinfo.statbuf = statbuf;
+            area.fdinfo.offset = offset;
+            strcpy(area.name, linkbuf);
+            num_written += mtcp_writefile(fd, &area, sizeof area);
           }
         }
       }
@@ -931,8 +916,9 @@ static void writefiledescrs (int fd, int fdCkptFileOnDisk)
 
   /* Write end-of-fd-list marker to checkpoint file */
 
-  fdnum = -1;
-  mtcp_writefile (fd, &fdnum, sizeof fdnum);
+  area.fdinfo.fdnum = -1;
+  num_written += mtcp_writefile(fd, &area, sizeof area);
+  return num_written;
 }
 
 /* This function detects if the given pages are zero pages or not. There is
@@ -1049,16 +1035,6 @@ static void mtcp_write_non_rwx_and_anonymous_pages(int fd, Area *orig_area)
     }
   }
 
-#ifdef FAST_CKPT_RST_VIA_MMAP
-  size_t size;
-  int is_zero;
-  mtcp_get_next_page_range(orig_area, &size, &is_zero);
-
-  if (is_zero == 1 && size == orig_area->size) {
-    area.prot |= MTCP_PROT_ZERO_PAGE;
-  }
-  fastckpt_write_mem_region(fd, &area);
-#else
   while (area.size > 0) {
     size_t size;
     int is_zero;
@@ -1069,10 +1045,7 @@ static void mtcp_write_non_rwx_and_anonymous_pages(int fd, Area *orig_area)
     a.prot |= is_zero ? MTCP_PROT_ZERO_PAGE : 0;
     a.size = size;
 
-    mtcp_writecs (fd, CS_AREADESCRIP);
-    mtcp_writefile (fd, &a, sizeof a);
-    mtcp_writecs(fd, CS_AREACONTENTS);
-
+    mtcp_writefile(fd, &a, sizeof(a));
     if (!is_zero) {
       mtcp_writefile(fd, a.addr, a.size);
     } else {
@@ -1081,11 +1054,9 @@ static void mtcp_write_non_rwx_and_anonymous_pages(int fd, Area *orig_area)
                     errno, a.addr, (int)a.size);
       }
     }
-
     area.addr += size;
     area.size -= size;
   }
-#endif
 
   /* Now remove the PROT_READ from the area if it didn't have it originally
   */
@@ -1155,14 +1126,8 @@ static void writememoryarea (int fd, Area *area, int stack_was_seen,
      *   implemented with backing files
      */
     if (area -> flags & MAP_ANONYMOUS || area -> flags & MAP_SHARED) {
-#ifdef FAST_CKPT_RST_VIA_MMAP
-      fastckpt_write_mem_region(fd, area);
-#else
-      mtcp_writecs (fd, CS_AREADESCRIP);
-      mtcp_writefile (fd, area, sizeof *area);
-      mtcp_writecs (fd, CS_AREACONTENTS);
-      mtcp_writefile (fd, area -> addr, area -> size);
-#endif
+      mtcp_writefile(fd, area, sizeof(*area));
+      mtcp_writefile(fd, area->addr, area->size);
     } else {
       MTCP_PRINTF("UnImplemented");
       mtcp_abort();
