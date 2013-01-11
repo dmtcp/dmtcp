@@ -362,9 +362,6 @@ static Thread *threads_freelist = NULL;
 static struct sigaction sigactions[NSIG];  /* signal handlers */
 static int originalstartup = 1;
 
-static void mtcp_restore_start(int fd, int verify, pid_t gzip_child_pid,
-                               char *ckpt_newname, char *cmd_file,
-                               char *argv[], char *envp[]);
 static void *saved_sysinfo;
 VA mtcp_saved_heap_start = NULL;
 static void (*callback_sleep_between_ckpt)(int sec) = NULL;
@@ -644,7 +641,7 @@ void mtcp_init (char const *checkpointfilename,
   /* Set up signal handler so we can interrupt the thread for checkpointing */
   setup_sig_handler(&stopthisthread);
 
-  mtcp_writeckpt_init((void*)mtcp_restore_start);
+  mtcp_writeckpt_init((VA)mtcp_restore_start, (VA) mtcp_finishrestore);
 
   /* Set up caller as one of our threads so we can work on it */
 
@@ -2695,7 +2692,9 @@ static int is_thread_locked (void)
 
 #define STRINGS_LEN 10000
 static char UNUSED_IN_64_BIT STRINGS[STRINGS_LEN];
-static void mtcp_restore_start (int fd, int verify, pid_t gzip_child_pid,
+static int should_mmap_ckpt_image = 0;
+void mtcp_restore_start (int fd, int verify, int mmap_ckpt_image,
+                         pid_t gzip_child_pid,
                          char *ckpt_newname, char *cmd_file,
                          char *argv[], char *envp[] )
 {
@@ -2703,6 +2702,7 @@ static void mtcp_restore_start (int fd, int verify, pid_t gzip_child_pid,
   int i;
   char *strings = STRINGS;
 #endif
+  should_mmap_ckpt_image = mmap_ckpt_image;
 
   DEBUG_RESTARTING = 1;
   /* If we just replace extendedStack by (tempstack+STACKSIZE) in "asm"
@@ -2786,7 +2786,7 @@ static void mtcp_restore_start (int fd, int verify, pid_t gzip_child_pid,
    */
 
   /* This should never return */
-  mtcp_restoreverything();
+  mtcp_restoreverything(should_mmap_ckpt_image, (void*)mtcp_finishrestore);
   mtcp_abort();
 }
 
