@@ -19,33 +19,11 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-// THESE INCLUDES ARE IN RANDOM ORDER.  LET'S CLEAN IT UP AFTER RELEASE. - Gene
 #include "constants.h"
-#include "syscallwrappers.h"
-#include "connection.h"
-#include  "../jalib/jassert.h"
-#include  "../jalib/jfilesystem.h"
-#include  "../jalib/jconvert.h"
-#include "kernelbufferdrainer.h"
-#include "syscallwrappers.h"
-#include "connectionrewirer.h"
-#include "connectionmanager.h"
-#include "dmtcpmessagetypes.h"
-#include "dmtcpworker.h"
+#include "connectionlist.h"
 #include "dmtcpplugin.h"
-#include "util.h"
-#include <sys/ioctl.h>
-#include <sys/select.h>
-#include <sys/un.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <sys/file.h>
-#include <termios.h>
-#include <iostream>
-#include <ios>
-#include <fstream>
-#include <linux/limits.h>
-#include <arpa/inet.h>
+#include "../jalib/jassert.h"
+#include "../jalib/jserialize.h"
 
 using namespace dmtcp;
 // This is the first program after dmtcp_checkpoint

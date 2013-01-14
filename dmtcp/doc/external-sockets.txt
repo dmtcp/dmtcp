@@ -1,6 +1,8 @@
 				External Sockets
 [ This is still in draft form.  It must be expanded and re-written. ]
 
+[Support for EXTERNAL SOCKETS has been removed from trunk]
+
 An external socket is a connection between two processes, where only
 one of the processes is under DMTCP checkpoint control.
 

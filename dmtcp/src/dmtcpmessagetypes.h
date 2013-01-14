@@ -30,7 +30,6 @@
 #include <string.h>
 #include <sys/types.h>
 #include <sys/socket.h>
-#include "connectionidentifier.h"
 
 namespace dmtcp
 {
@@ -38,7 +37,6 @@ namespace dmtcp
   enum DmtcpMessageType
   {
     DMT_NULL,
-    DMT_HELLO_PEER,          // on connect established peer-peer                1
     DMT_HELLO_COORDINATOR,   // on connect established worker-coordinator
     DMT_HELLO_WORKER,        // on connect established coordinator-worker
     DMT_UPDATE_PROCESS_INFO_AFTER_FORK,
@@ -55,9 +53,6 @@ namespace dmtcp
     DMT_DO_SUSPEND,          // when coordinator wants slave to suspend        8
     DMT_DO_RESUME,           // when coordinator wants slave to resume (after checkpoint)
     DMT_DO_FD_LEADER_ELECTION, // when coordinator wants slaves to do leader election
-#ifdef EXTERNAL_SOCKET_HANDLING
-    DMT_DO_PEER_LOOKUP,      // when coordinator wants, lookup peer for all sockets
-#endif
 
     DMT_DO_DRAIN,            // when coordinator wants slave to flush
     DMT_DO_CHECKPOINT,       // when coordinator wants slave to checkpoint
@@ -69,31 +64,20 @@ namespace dmtcp
 
     DMT_DO_REFILL,           // when coordinator wants slave to refill buffers
 
-#ifdef EXTERNAL_SOCKET_HANDLING
-    DMT_PEER_LOOKUP,        // Peer not found
-    DMT_UNKNOWN_PEER,        // Peer not found
-    DMT_EXTERNAL_SOCKETS_CLOSED,
-#endif
-
 //#ifdef COORD_NAMESERVICE
     DMT_REGISTER_NAME_SERVICE_DATA,
     DMT_NAME_SERVICE_QUERY,
     DMT_NAME_SERVICE_QUERY_RESPONSE,
 //#endif
 
-//    DMT_RESTORE_RECONNECTED, // sent to peer on reconnect
-//    DMT_RESTORE_WAITING,     // announce the existence of a restoring server on network
-//  DMT_RESTORE_SEARCHING,   // slave waiting wanting to know where to connect to
-
-    DMT_PEER_ECHO,           // used to get a peer to echo back a buffer at you param[0] is len
-                             // this is used to refill buffers after checkpointing
-    DMT_OK,                  // slave telling coordinator it is done (response to DMT_DO_*)
-                             //   this means slave reached barrier
+    DMT_OK,                  // slave telling coordinator it is done (response
+                             //   to DMT_DO_*)  this means slave reached barrier
     DMT_CKPT_FILENAME,       // a slave sending it's checkpoint filename to coordinator
     DMT_FORCE_RESTART,       // force a restart even if not all sockets are reconnected
 
     DMT_KILL_PEER,           // send kill message to peer
-    DMT_REJECT               // coordinator discards incoming connection because it is not from current computation group
+    DMT_REJECT               // coordinator discards incoming connection
+                             //because it is not from current computation group
 
 
   };
@@ -116,9 +100,6 @@ namespace dmtcp
         RUNNING,
         SUSPENDED,
         FD_LEADER_ELECTION,
-#ifdef EXTERNAL_SOCKET_HANDLING
-        PEER_LOOKUP_COMPLETE,
-#endif
         DRAINED,
         RESTARTING,
         CHECKPOINTED,
@@ -163,25 +144,12 @@ namespace dmtcp
     char _magicBits[16];
     int  _msgSize;
     DmtcpMessageType type;
-    ConnectionIdentifier from;
-//         UniquePidConId to;
+    UniquePid from;
 
-    UniquePid   coordinator;
+    DmtcpUniqueProcessId   coordinator;
     WorkerState state;
     UniquePid   compGroup;
     pid_t       virtualPid;
-
-    ConnectionIdentifier    restorePid;
-    struct sockaddr_storage restoreAddr;
-    socklen_t               restoreAddrlen;
-    int                     restorePort;
-
-#ifdef EXTERNAL_SOCKET_HANDLING
-    ConnectionIdentifier    conId;
-    struct sockaddr_storage localAddr;
-    socklen_t               localAddrlen;
-    struct sockaddr_storage remoteAddr;
-#endif
 
 //#ifdef COORD_NAMESERVICE
     size_t                  keyLen;
@@ -199,6 +167,7 @@ namespace dmtcp
     //must be zero in all messages except for in DMT_CKPT_FILENAME
     size_t extraBytes;
 
+    static void setDefaultCoordinator ( const DmtcpUniqueProcessId& id );
     static void setDefaultCoordinator ( const UniquePid& id );
     DmtcpMessage ( DmtcpMessageType t = DMT_NULL );
     void assertValid() const;

@@ -43,34 +43,6 @@ namespace dmtcp
   void __attribute__ ((weak)) initializeMtcpEngine();
   void __attribute__ ((weak)) killCkpthread();
 
-#ifdef EXTERNAL_SOCKET_HANDLING
-  class ConnectionState;
-
-  class TcpConnectionInfo {
-    public:
-      TcpConnectionInfo (const ConnectionIdentifier& id,
-                       socklen_t& len,
-                       struct sockaddr_storage& remote,
-                       struct sockaddr_storage& local) {
-        _conId      = id;
-        _addrlen    = len;
-        memcpy ( &_remoteAddr, &remote, len );
-        memcpy ( &_localAddr, &local, len );
-      }
-
-    ConnectionIdentifier&  conId() { return _conId; }
-    socklen_t addrlen() { return _addrlen; }
-    struct sockaddr_storage remoteAddr() { return _remoteAddr; }
-    struct sockaddr_storage localAddr() { return _localAddr; }
-
-    ConnectionIdentifier    _conId;
-    socklen_t               _addrlen;
-    struct sockaddr_storage _remoteAddr;
-    struct sockaddr_storage _localAddr;
-  };
-#endif
-
-
   class DmtcpWorker
   {
     public:
@@ -85,14 +57,7 @@ namespace dmtcp
                                  DmtcpMessageType type);
       void informCoordinatorOfRUNNINGState();
       void waitForStage1Suspend();
-#ifdef EXTERNAL_SOCKET_HANDLING
-      bool waitForStage2Checkpoint();
-      bool waitForStage2bCheckpoint();
-      void sendPeerLookupRequest(dmtcp::vector<TcpConnectionInfo>& conInfoTable );
-      static bool waitingForExternalSocketsToClose();
-#else
       void waitForStage2Checkpoint();
-#endif
       void waitForStage3Refill(bool isRestart);
       void waitForStage4Resume(bool isRestart);
       void restoreVirtualPidTable();

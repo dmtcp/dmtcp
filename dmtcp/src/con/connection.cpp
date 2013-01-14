@@ -19,23 +19,6 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-// THESE INCLUDES ARE IN RANDOM ORDER.  LET'S CLEAN IT UP AFTER RELEASE. - Gene
-#include "constants.h"
-#include "syscallwrappers.h"
-#include "connection.h"
-#include  "../jalib/jassert.h"
-#include  "../jalib/jfilesystem.h"
-#include  "../jalib/jconvert.h"
-#include "kernelbufferdrainer.h"
-#include "syscallwrappers.h"
-#include "connectionrewirer.h"
-#include "connectionmanager.h"
-#include "dmtcpmessagetypes.h"
-#include "dmtcpplugin.h"
-#include "shareddata.h"
-#include "util.h"
-#include "util_descriptor.h"
-#include  "../jalib/jsocket.h"
 #include <sys/ioctl.h>
 #include <sys/select.h>
 #include <sys/un.h>
@@ -48,6 +31,21 @@
 #include <fstream>
 #include <linux/limits.h>
 #include <arpa/inet.h>
+
+#include "constants.h"
+#include "syscallwrappers.h"
+#include "connection.h"
+#include "connectionlist.h"
+#include "kernelbufferdrainer.h"
+#include "connectionrewirer.h"
+#include "dmtcpplugin.h"
+#include "shareddata.h"
+#include "util.h"
+#include "util_descriptor.h"
+#include "../jalib/jsocket.h"
+#include "../jalib/jassert.h"
+#include "../jalib/jfilesystem.h"
+#include "../jalib/jconvert.h"
 
 static bool ptmxTestPacketMode(int masterFd);
 static ssize_t ptmxReadAll(int fd, const void *origBuf, size_t maxCount);
@@ -100,7 +98,7 @@ static bool _isBlacklistedFile(dmtcp::string& path)
   if ((dmtcp::Util::strStartsWith(path, "/dev/") &&
        !dmtcp::Util::strStartsWith(path, "/dev/shm/")) ||
       dmtcp::Util::strStartsWith(path, "/proc/") ||
-      dmtcp::Util::strStartsWith(path, dmtcp::UniquePid::getTmpDir().c_str())) {
+      dmtcp::Util::strStartsWith(path, dmtcp_get_tmpdir())) {
     return true;
   }
   return false;
@@ -499,13 +497,13 @@ void dmtcp::TcpConnection::preCheckpoint(KernelBufferDrainer& drain)
   }
 }
 
-void dmtcp::TcpConnection::doSendHandshakes(const dmtcp::UniquePid& coordinator)
+void dmtcp::TcpConnection::doSendHandshakes(const ConnectionIdentifier& coordId)
 {
   switch (tcpType()) {
     case TCP_CONNECT:
     case TCP_ACCEPT:
       JTRACE("Sending handshake ...") (id()) (_fds[0]);
-      sendHandshake(_fds[0], coordinator);
+      sendHandshake(_fds[0], coordId);
       break;
     case TCP_EXTERNAL_CONNECT:
       JTRACE("Socket to External Process, skipping handshake send") (_fds[0]);
@@ -513,12 +511,12 @@ void dmtcp::TcpConnection::doSendHandshakes(const dmtcp::UniquePid& coordinator)
   }
 }
 
-void dmtcp::TcpConnection::doRecvHandshakes(const dmtcp::UniquePid& coordinator)
+void dmtcp::TcpConnection::doRecvHandshakes(const ConnectionIdentifier& coordId)
 {
   switch (tcpType()) {
     case TCP_CONNECT:
     case TCP_ACCEPT:
-      recvHandshake(_fds[0], coordinator);
+      recvHandshake(_fds[0], coordId);
       JTRACE("Received handshake.") (id()) (getRemoteId()) (_fds[0]);
       break;
     case TCP_EXTERNAL_CONNECT:
@@ -689,39 +687,37 @@ void dmtcp::TcpConnection::restore(ConnectionRewirer *rewirer)
 }
 
 void dmtcp::TcpConnection::sendHandshake(int remotefd,
-                                         const dmtcp::UniquePid& coordinator)
+                                         const ConnectionIdentifier& coordId)
 {
   jalib::JSocket remote(remotefd);
-  dmtcp::DmtcpMessage hello_local;
-  hello_local.type = dmtcp::DMT_HELLO_PEER;
-  hello_local.from = id();
-  hello_local.coordinator = coordinator;
-  remote << hello_local;
+  ConnMsg msg(ConnMsg::HANDSHAKE);
+  msg.from = id();
+  msg.coordId = coordId;
+  remote << msg;
 }
 
 void dmtcp::TcpConnection::recvHandshake(int remotefd,
-                                         const dmtcp::UniquePid& coordinator)
+                                         const ConnectionIdentifier& coordId)
 {
   jalib::JSocket remote(remotefd);
-  dmtcp::DmtcpMessage hello_remote;
-  hello_remote.poison();
-  remote >> hello_remote;
-  hello_remote.assertValid();
-  JASSERT(hello_remote.type == dmtcp::DMT_HELLO_PEER);
-  JASSERT(hello_remote.coordinator == coordinator)
-   (hello_remote.coordinator) (coordinator)
+  ConnMsg msg;
+  msg.poison();
+  remote >> msg;
+
+  msg.assertValid(ConnMsg::HANDSHAKE);
+  JASSERT(msg.coordId == coordId) (msg.coordId) (coordId)
     .Text("Peer has a different dmtcp_coordinator than us!\n"
           "  It must be the same.");
 
   if (_remotePeerId.isNull()) {
     //first time
-    _remotePeerId = hello_remote.from;
+    _remotePeerId = msg.from;
     JASSERT(!_remotePeerId.isNull())
       .Text("Read handshake with invalid 'from' field.");
   } else {
     //next time
-    JASSERT(_remotePeerId == hello_remote.from)
-      (_remotePeerId) (hello_remote.from)
+    JASSERT(_remotePeerId == msg.from)
+      (_remotePeerId) (msg.from)
       .Text("Read handshake with a different 'from' field"
             " than a previous handshake.");
   }

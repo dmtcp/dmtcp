@@ -150,8 +150,6 @@
 
 #define DRAINER_WARNING_FREQ 10
 
-#define SOCKET_DRAIN_MAGIC_COOKIE_STR "[dmtcp{v0<DRAIN!"
-
 #define DMTCP_CHECKPOINT_CMD "dmtcp_checkpoint"
 
 #define DMTCP_RESTART_CMD "dmtcp_restart"

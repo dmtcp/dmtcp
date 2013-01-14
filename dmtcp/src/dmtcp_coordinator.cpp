@@ -341,10 +341,6 @@ static bool exitOnLast = false;
 static bool blockUntilDone = false;
 static int blockUntilDoneRemote = -1;
 static dmtcp::DmtcpMessage blockUntilDoneReply;
-#ifdef EXTERNAL_SOCKET_HANDLING
-static int numWorkersWithExternalSockets = 0;
-static dmtcp::vector<dmtcp::ConnectionIdentifier> workersWithExternalSockets;
-#endif
 
 static dmtcp::DmtcpCoordinator prog;
 
@@ -409,7 +405,7 @@ namespace
           , _clientNumber ( theNextClientNumber++ )
           , _addrlen ( len )
       {
-        _identity = hello_remote.from.pid();
+        _identity = hello_remote.from;
         _state = hello_remote.state;
         memset ( &_addr, 0, sizeof _addr );
         memcpy ( &_addr, remote, len );
@@ -475,35 +471,6 @@ pid_t dmtcp::DmtcpCoordinator::getNewVirtualPid()
   JASSERT(pid != -1) .Text("Not Reachable");
   return pid;
 }
-
-#ifdef EXTERNAL_SOCKET_HANDLING
-void dmtcp::DmtcpCoordinator::sendUnidentifiedPeerNotifications()
-{
-  _socketPeerLookupMessagesIterator it;
-  for ( it = _socketPeerLookupMessages.begin();
-        it != _socketPeerLookupMessages.end();
-        ++it ) {
-    DmtcpMessage msg (DMT_UNKNOWN_PEER);
-    msg.conId = it->conId;
-    jalib::JSocket remote(_workerSocketTable[it->from]);
-    remote << msg;
-    //*(it->second) << msg;
-
-    vector<dmtcp::ConnectionIdentifier>::iterator i;
-    for ( i  = workersWithExternalSockets.begin();
-          i != workersWithExternalSockets.end();
-          ++i) {
-      if ( *i == it->from ) {
-        break;
-      }
-    }
-    if ( i == workersWithExternalSockets.end() ) {
-      workersWithExternalSockets.push_back ( it->from );
-    }
-  }
-  _socketPeerLookupMessages.clear();
-}
-#endif
 
 void dmtcp::DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*= NULL*/)
 {
@@ -648,33 +615,6 @@ void dmtcp::DmtcpCoordinator::updateMinimumState(dmtcp::WorkerState oldState)
                      UniquePid::ComputationId(),
                      getStatus().numPeers );
   }
-#ifdef EXTERNAL_SOCKET_HANDLING
-  if ( oldState == WorkerState::SUSPENDED
-       && newState == WorkerState::FD_LEADER_ELECTION )
-  {
-    JNOTE ( "performing peerlookup for all sockets" );
-    broadcastMessage ( DMT_DO_PEER_LOOKUP );
-  }
-  if ( oldState == WorkerState::FD_LEADER_ELECTION
-       && newState == WorkerState::PEER_LOOKUP_COMPLETE )
-  {
-    if ( _socketPeerLookupMessages.empty() ) {
-      JNOTE ( "draining all nodes" );
-      broadcastMessage ( DMT_DO_DRAIN );
-    } else {
-      sendUnidentifiedPeerNotifications();
-      JNOTE ( "Not all socket peers were Identified, "
-              " resuming computation without checkpointing" );
-      broadcastMessage ( DMT_DO_RESUME );
-    }
-  }
-  if ( oldState == WorkerState::PEER_LOOKUP_COMPLETE
-       && newState == WorkerState::DRAINED )
-  {
-    JNOTE ( "checkpointing all nodes" );
-    broadcastMessage ( DMT_DO_CHECKPOINT );
-  }
-#else
   if ( oldState == WorkerState::SUSPENDED
        && newState == WorkerState::FD_LEADER_ELECTION )
   {
@@ -687,7 +627,6 @@ void dmtcp::DmtcpCoordinator::updateMinimumState(dmtcp::WorkerState oldState)
     JNOTE ( "checkpointing all nodes" );
     broadcastMessage ( DMT_DO_CHECKPOINT );
   }
-#endif
 
 #ifdef COORD_NAMESERVICE
   if ( oldState == WorkerState::DRAINED
@@ -839,59 +778,7 @@ void dmtcp::DmtcpCoordinator::onData ( jalib::JReaderInterface* sock )
           //                                 sizeof(DmtcpMessage)));
         }
         break;
-#ifdef EXTERNAL_SOCKET_HANDLING
-      case DMT_PEER_LOOKUP:
-      {
-        JTRACE ( "received PEER_LOOKUP msg" ) ( msg.conId );
-        JASSERT ( msg.localAddrlen > 0 )
-          ( msg.localAddrlen ) ( client->identity() );
-        _socketPeerLookupMessagesIterator i;
-        bool foundPeer = false;
-        for ( i = _socketPeerLookupMessages.begin();
-              i != _socketPeerLookupMessages.end();
-              ++i ) {
-          if ( ( msg.localAddrlen == i->localAddrlen ) &&
-               ( memcmp ( (void*) &msg.localAddr,
-                          (void*) &(i->remoteAddr),
-                          msg.localAddrlen ) == 0 ) ) {
-            _socketPeerLookupMessages.erase(i);
-            foundPeer = true;
-            break;
-          }
-        }
-        if ( !foundPeer ) {
-          _socketPeerLookupMessages.push_back(msg);
-          _workerSocketTable[msg.from] = sock->socket().sockfd();
-        }
-      }
-      break;
-      case DMT_EXTERNAL_SOCKETS_CLOSED:
-      {
-        vector<dmtcp::ConnectionIdentifier>::iterator i;
-        for ( i  = workersWithExternalSockets.begin();
-              i != workersWithExternalSockets.end();
-              ++i) {
-          if ( *i == msg.from ) {
-            break;
-          }
-        }
-        JASSERT ( i != workersWithExternalSockets.end() ) ( msg.from )
-          .Text ( "DMT_EXTERNAL_SOCKETS_CLOSED msg received from worker"
-		  " but it never had one" );
 
-        workersWithExternalSockets.erase(i);
-        JTRACE ("(Known) External Sockets closed by worker") (msg.from);
-
-        client->setState ( msg.state );
-
-        if (workersWithExternalSockets.empty() == true) {
-          JTRACE ( "External Sockets on all workers are closed now."
-		   "  Trying to checkpoint." );
-          handleUserCommand('c');
-        }
-      }
-      break;
-#endif
 
 #ifdef COORD_NAMESERVICE
       case DMT_REGISTER_NAME_SERVICE_DATA:
@@ -914,10 +801,10 @@ void dmtcp::DmtcpCoordinator::onData ( jalib::JReaderInterface* sock )
           dmtcp::string hostname = extraData;
           dmtcp::string progname = extraData + hostname.length() + 1;
           JNOTE("Updating process Information after fork()")
-            (hostname) (progname) (msg.from.pid()) (client->identity());
+            (hostname) (progname) (msg.from) (client->identity());
           client->progname(progname);
           client->hostname(hostname);
-          client->identity(msg.from.pid());
+          client->identity(msg.from);
       }
           break;
       default:
@@ -1254,7 +1141,7 @@ bool dmtcp::DmtcpCoordinator::validateNewWorkerProcess
     // If some of the processes are not in RUNNING state
     JNOTE("Current computation not in RUNNING state."
           "  Refusing to accept new connections.")
-      (UniquePid::ComputationId()) (hello_remote.from.pid())
+      (UniquePid::ComputationId()) (hello_remote.from)
       (s.numPeers) (s.minimumState);
     hello_local.type = dmtcp::DMT_REJECT;
     remote << hello_local;
@@ -1276,7 +1163,7 @@ bool dmtcp::DmtcpCoordinator::validateNewWorkerProcess
     // If first process, create the new computation group
     if (UniquePid::ComputationId() == UniquePid(0,0,0)) {
       // Connection of new computation.
-      UniquePid::ComputationId() = hello_remote.from.pid();
+      UniquePid::ComputationId() = hello_remote.from;
       localPrefix.clear();
       localHostName.clear();
       remotePrefix.clear();
@@ -1290,7 +1177,7 @@ bool dmtcp::DmtcpCoordinator::validateNewWorkerProcess
         (UniquePid::ComputationId());
     } else {
       JTRACE("New process connected")
-        (hello_remote.from.pid()) (ds->prefixDir()) (ds->virtualPid());
+        (hello_remote.from) (ds->prefixDir()) (ds->virtualPid());
       if (ds->hostname() == localHostName) {
         JASSERT(ds->prefixDir() == localPrefix) (ds->prefixDir()) (localPrefix);
       }

@@ -86,6 +86,15 @@ typedef union _DmtcpEventData_t {
   } resumeUserThreadInfo, refillInfo, resumeInfo, nameserviceInfo;
 } DmtcpEventData_t;
 
+typedef struct DmtcpUniqueProcessId {
+  long  _hostid; //gethostid()
+  pid_t _pid; //getpid()
+  time_t _time; //time()
+  int _generation; //generation()
+} DmtcpUniqueProcessId;
+
+EXTERNC int dmtcp_unique_pids_equal(DmtcpUniqueProcessId a,
+                                    DmtcpUniqueProcessId b);
 EXTERNC int dmtcp_plugin_disable_ckpt(void);
 EXTERNC void dmtcp_plugin_enable_ckpt(void);
 EXTERNC void dmtcp_process_event(DmtcpEvent_t event, DmtcpEventData_t *data);
@@ -111,6 +120,9 @@ EXTERNC int  dmtcp_is_running_state();
 EXTERNC int  dmtcp_is_initializing_wrappers();
 EXTERNC int  dmtcp_is_protected_fd(int fd);
 EXTERNC int dmtcp_no_coordinator();
+EXTERNC DmtcpUniqueProcessId dmtcp_get_uniquepid();
+EXTERNC DmtcpUniqueProcessId dmtcp_get_coord_id();
+EXTERNC const char* dmtcp_get_executable_path();
 
 EXTERNC int dmtcp_get_ptrace_fd();
 EXTERNC int dmtcp_get_readlog_fd();

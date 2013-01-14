@@ -49,12 +49,22 @@ EXTERNC void dmtcp_set_ckpt_dir(const char* dir)
   }
 }
 
+EXTERNC const char* dmtcp_get_executable_path()
+{
+  return dmtcp::ProcessInfo::instance().procSelfExe().c_str();
+}
+
 EXTERNC const char* dmtcp_get_uniquepid_str()
 {
   static dmtcp::string *uniquepid_str = NULL;
   uniquepid_str =
     new dmtcp::string(dmtcp::UniquePid::ThisProcess(true).toString());
   return uniquepid_str->c_str();
+}
+
+EXTERNC DmtcpUniqueProcessId dmtcp_get_uniquepid()
+{
+  return dmtcp::UniquePid::ThisProcess().upid();
 }
 
 EXTERNC const char* dmtcp_get_computation_id_str()
@@ -64,6 +74,20 @@ EXTERNC const char* dmtcp_get_computation_id_str()
     compid_str =
       new dmtcp::string(dmtcp::UniquePid::ComputationId().toString());
   return compid_str->c_str();
+}
+
+EXTERNC DmtcpUniqueProcessId dmtcp_get_coord_id()
+{
+  return CoordinatorAPI::instance().coordinatorId();
+}
+
+EXTERNC int dmtcp_unique_pids_equal(DmtcpUniqueProcessId a,
+                                    DmtcpUniqueProcessId b)
+{
+  return a._hostid == b._hostid &&
+         a._pid == b._pid &&
+         a._time == b._time &&
+         a._generation == b._generation;
 }
 
 EXTERNC time_t dmtcp_get_coordinator_timestamp()

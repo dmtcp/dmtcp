@@ -43,6 +43,11 @@ const char* dmtcp_get_uniquepid_str()
   return uniquepid_str.c_str();
 }
 
+DmtcpUniqueProcessId dmtcp_get_uniquepid()
+{
+  return  dmtcp::UniquePid::ThisProcess(true).upid();
+}
+
 int  dmtcp_is_running_state()
 {
   JASSERT(false);

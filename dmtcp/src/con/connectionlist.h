@@ -19,14 +19,14 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#ifndef CONNECTIONMANAGER_H
-#define CONNECTIONMANAGER_H
+#pragma once
+#ifndef CONNECTIONLIST_H
+#define CONNECTIONLIST_H
 
 #include "constants.h"
 #include "dmtcpalloc.h"
 #include "connection.h"
 #include "../jalib/jserialize.h"
-#include "../jalib/jfilesystem.h"
 #include "../jalib/jalloc.h"
 
 

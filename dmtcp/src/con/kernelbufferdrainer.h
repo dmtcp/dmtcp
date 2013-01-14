@@ -19,15 +19,16 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#ifndef DMTCPKERNELBUFFERDRAINER_H
-#define DMTCPKERNELBUFFERDRAINER_H
+#pragma once
+#ifndef KERNELBUFFERDRAINER_H
+#define KERNELBUFFERDRAINER_H
 
 #include <map>
 #include <vector>
 
 #include "dmtcpalloc.h"
-#include  "../jalib/jsocket.h"
 #include "connectionidentifier.h"
+#include "../jalib/jsocket.h"
 
 namespace dmtcp
 {

@@ -48,12 +48,6 @@ if test "$use_jtiming" = "yes"; then
   AC_DEFINE([TIMING],[],[Record timing information to stderr and jtimings.csv])
 fi
 
-AC_ARG_ENABLE([condor_support],
-            [AS_HELP_STRING([--enable-condor-support],
-                            [set configure options to support Condor.])],
-            [use_condor_support=$enableval],
-            [use_condor_support=no])
-
 AC_ARG_ENABLE([unique_checkpoint_filenames],
             [AS_HELP_STRING([--enable-unique-checkpoint-filenames],
                             [By default, successive checkpoints are written
@@ -118,20 +112,6 @@ AC_ARG_ENABLE([pid_virtualization],
                             performance reasons or for diagnosis of bugs.])],
             [use_pid_virt=$enableval],
             [use_pid_virt=yes])
-
-AC_ARG_ENABLE([external_socket_handling],
-            [AS_HELP_STRING([--enable-external-socket-handling],
-                            [wait for connection to external peer to close.])],
-            [use_external_socket_handling=$enableval],
-            [use_external_socket_handling=no])
-
-if test "$use_external_socket_handling" = "yes"; then
-  AC_DEFINE([EXTERNAL_SOCKET_HANDLING],[],[Socket with no peer is external; wait until communication finished])
-fi
-#Force other config options for Condor
-if test "$use_condor_support" = "yes"; then
-  AC_DEFINE([EXTERNAL_SOCKET_HANDLING],[yes])
-fi
 
 if test "$use_pid_virt" = "yes"; then
   AC_DEFINE([PID_VIRTUALIZATION],[],[Use virtual pids for pid-related system calls.])

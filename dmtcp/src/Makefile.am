@@ -30,12 +30,12 @@ nobase_noinst_HEADERS = constants.h \
 	../jalib/jassert.h ../jalib/jalloc.h ../jalib/jalib.h \
 	../jalib/jbuffer.h ../jalib/jconvert.h ../jalib/jfilesystem.h \
 	../jalib/jserialize.h ../jalib/jsocket.h ../jalib/jtimer.h \
-	sysvipc/sysvipc.h con/connection.h \
-	con/connectionmanager.h con/connectionrewirer.h \
+	sysvipc/sysvipc.h con/connection.h con/connectionidentifier.h \
+	con/connectionlist.h con/connectionrewirer.h \
 	con/kernelbufferdrainer.h con/util_descriptor.h\
 	dmtcp_coordinator.h dmtcpmessagetypes.h \
 	dmtcpworker.h threadsync.h coordinatorapi.h \
-	mtcpinterface.h  protectedfds.h connectionidentifier.h \
+	mtcpinterface.h  protectedfds.h \
 	syscallwrappers.h syslogwrappers.h \
 	uniquepid.h processinfo.h util.h virtualidtable.h \
 	dmtcpplugin.h lookup_service.h trampolines.h shareddata.h
@@ -45,13 +45,14 @@ nobase_noinst_HEADERS = constants.h \
 #   should not need wrappers.
 libdmtcpinternal_a_SOURCES = dmtcpmessagetypes.cpp protectedfds.cpp \
 			     uniquepid.cpp shareddata.cpp \
-			     coordinatorapi.cpp connectionidentifier.cpp \
+			     coordinatorapi.cpp \
 			     util_exec.cpp util_gen.cpp util_init.cpp \
 			     jalibinterface.cpp processinfo.cpp
 
 libconnection_a_SOURCES = con/con.cpp con/connection.cpp \
-			  con/connectionmanager.cpp con/connectionrewirer.cpp \
-			  con/kernelbufferdrainer.cpp con/util_descriptor.cpp
+			  con/connectionlist.cpp con/connectionrewirer.cpp \
+			  con/kernelbufferdrainer.cpp con/util_descriptor.cpp \
+			  con/connectionidentifier.cpp
 
 libsysvipc_a_SOURCES = sysvipc/sysvipc.cpp sysvipc/sysvipcwrappers.cpp
 
@@ -95,13 +96,13 @@ dmtcphijack_so_LDFLAGS = -shared
 dmtcphijack_so_LDADD    = libdmtcpinternal.a libsysvipc.a libconnection.a \
 			  libjalib.a libsyscallsreal.a  -ldl -lpthread -lrt \
 			  ../../mtcp/libmtcp.so
-dmtcp_coordinator_LDADD = libdmtcpinternal.a libconnection.a libjalib.a \
+dmtcp_coordinator_LDADD = libdmtcpinternal.a libjalib.a \
 			  libnohijack.a -lpthread -lrt
-dmtcp_checkpoint_LDADD  = libdmtcpinternal.a libconnection.a libjalib.a \
+dmtcp_checkpoint_LDADD  = libdmtcpinternal.a libjalib.a \
 			  libnohijack.a -ldl -lpthread -lrt
-dmtcp_restart_LDADD     = libdmtcpinternal.a libconnection.a libjalib.a \
+dmtcp_restart_LDADD     = libdmtcpinternal.a libjalib.a \
 			  libnohijack.a -lpthread -lrt -ldl
-dmtcp_command_LDADD     = libdmtcpinternal.a libconnection.a libjalib.a \
+dmtcp_command_LDADD     = libdmtcpinternal.a libjalib.a \
 			  libnohijack.a -lpthread -lrt
 
 libdmtcpaware_a_SOURCES = dmtcpaware.c

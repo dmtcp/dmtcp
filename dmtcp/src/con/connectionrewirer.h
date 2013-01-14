@@ -19,15 +19,13 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#ifndef DMTCPCONNECTIONREWIRER_H
-#define DMTCPCONNECTIONREWIRER_H
+#pragma once
+#ifndef CONNECTIONREWIRER_H
+#define CONNECTIONREWIRER_H
 
 #include "dmtcpalloc.h"
 #include "connectionidentifier.h"
 #include "connection.h"
-#include <map>
-#include <set>
-#include <vector>
 
 namespace dmtcp
 {
