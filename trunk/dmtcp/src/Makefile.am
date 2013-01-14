@@ -20,7 +20,7 @@ INCLUDES= $(all_includes)
 noinst_LIBRARIES = libdmtcpinternal.a libsyscallsreal.a libnohijack.a \
 		   libsysvipc.a libjalib.a libconnection.a
 bin_PROGRAMS = dmtcp_checkpoint dmtcp_command dmtcp_coordinator \
-	       dmtcp_restart dmtcp_nocheckpoint dmtcp_discover_rm
+	       dmtcp_restart dmtcp_nocheckpoint
 pkglibexec_PROGRAMS = dmtcphijack.so libdmtcpaware.so.1.0.0
 include_HEADERS = dmtcpaware.h
 lib_LIBRARIES = libdmtcpaware.a
@@ -38,7 +38,6 @@ nobase_noinst_HEADERS = constants.h \
 	mtcpinterface.h  protectedfds.h connectionidentifier.h \
 	syscallwrappers.h syslogwrappers.h \
 	uniquepid.h processinfo.h util.h virtualidtable.h \
-	resource_manager.h remexecwrappers.h\
 	dmtcpplugin.h lookup_service.h trampolines.h shareddata.h
 
 # Note that libdmtcpinternal.a does not include wrappers.
@@ -48,13 +47,11 @@ libdmtcpinternal_a_SOURCES = dmtcpmessagetypes.cpp protectedfds.cpp \
 			     uniquepid.cpp shareddata.cpp \
 			     coordinatorapi.cpp connectionidentifier.cpp \
 			     util_exec.cpp util_gen.cpp util_init.cpp \
-			     jalibinterface.cpp processinfo.cpp \
-			     resource_manager.cpp
+			     jalibinterface.cpp processinfo.cpp
 
 libconnection_a_SOURCES = con/con.cpp con/connection.cpp \
 			  con/connectionmanager.cpp con/connectionrewirer.cpp \
-			  con/kernelbufferdrainer.cpp con/util_descriptor.cpp \
-			  resource_manager.cpp
+			  con/kernelbufferdrainer.cpp con/util_descriptor.cpp
 
 libsysvipc_a_SOURCES = sysvipc/sysvipc.cpp sysvipc/sysvipcwrappers.cpp
 
@@ -82,14 +79,12 @@ dmtcphijack_so_SOURCES = dmtcpawareapi.cpp dmtcpworker.cpp threadsync.cpp \
 			 coordinatorapi.cpp execwrappers.cpp \
 		         mtcpinterface.cpp signalwrappers.cpp \
 			 workerhijack.cpp threadwrappers.cpp \
-			 miscwrappers.cpp remexecwrappers.cpp \
+			 miscwrappers.cpp \
 			 glibcsystem.cpp mallocwrappers.cpp \
 			 dmtcpplugin.cpp popen.cpp syslogwrappers.cpp \
 			 con/eventwrappers.cpp con/filewrappers.cpp \
 			 con/socketwrappers.cpp con/posixipcwrappers.cpp \
 			 sysvipc/sysvipcwrappers.cpp
-
-dmtcp_discover_rm_SOURCES = dmtcp_discover_rm.cpp
 
 dmtcphijack_so_LDFLAGS = -shared
 

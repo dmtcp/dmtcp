@@ -70,6 +70,7 @@ namespace dmtcp
       void preCheckpointDrain();
       void preCheckpointHandshakes();
       void refill(bool isRestart);
+      void resume(bool isRestart);
       void postRestart();
       void doReconnect();
 

@@ -48,7 +48,6 @@
 #include "constants.h"
 #include "connectionmanager.h"
 #include "syscallwrappers.h"
-#include "resource_manager.h"
 #include "shareddata.h"
 #include "util.h"
 #include "../jalib/jassert.h"

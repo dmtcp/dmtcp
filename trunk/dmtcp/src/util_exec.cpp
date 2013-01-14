@@ -69,7 +69,7 @@ static int isdir0700(const char *pathname)
           && (st.st_mode & 0777) == 0700
           && st.st_uid == getuid()
           && access(pathname, R_OK | W_OK | X_OK) == 0
-       );
+      );
 }
 
 int dmtcp::Util::safeMkdir(const char *pathname, mode_t mode)
@@ -451,5 +451,95 @@ void dmtcp::Util::adjustRlimitStack()
     }
   }
 # endif
+#endif
+}
+
+dmtcp::string dmtcp::Util::ckptCmdPath()
+{
+  dmtcp::string out;
+  const char *prefixPath = getenv (ENV_VAR_PREFIX_PATH);
+  if (prefixPath != NULL) {
+    out.append(prefixPath).append("/bin/");
+  }
+  out.append(DMTCP_CHECKPOINT_CMD);
+  return out;
+}
+
+
+void dmtcp::Util::getDmtcpArgs(dmtcp::vector<dmtcp::string> &dmtcp_args)
+{
+  const char * prefixPath           = getenv (ENV_VAR_PREFIX_PATH);
+  const char * coordinatorAddr      = getenv (ENV_VAR_NAME_HOST);
+
+  char buf[256];
+  if (coordinatorAddr == NULL) {
+    JASSERT(gethostname(buf, sizeof(buf)) == 0) (JASSERT_ERRNO);
+    coordinatorAddr = buf;
+  }
+  const char * coordinatorPortStr   = getenv (ENV_VAR_NAME_PORT);
+  const char * sigckpt              = getenv (ENV_VAR_SIGCKPT);
+  const char * compression          = getenv (ENV_VAR_COMPRESSION);
+#ifdef HBICT_DELTACOMP
+  const char * deltacompression     = getenv (ENV_VAR_DELTACOMPRESSION);
+#endif
+  const char * ckptOpenFiles        = getenv (ENV_VAR_CKPT_OPEN_FILES);
+  const char * ckptDir              = getenv (ENV_VAR_CHECKPOINT_DIR);
+  const char * tmpDir               = getenv (ENV_VAR_TMPDIR);
+  if (getenv(ENV_VAR_QUIET)) {
+    jassert_quiet                   = *getenv (ENV_VAR_QUIET) - '0';
+  } else {
+    jassert_quiet = 0;
+  }
+
+  //modify the command
+  dmtcp_args.clear();
+  if (coordinatorAddr != NULL) {
+    dmtcp_args.push_back("--host");
+    dmtcp_args.push_back(coordinatorAddr);
+  }
+
+  if (coordinatorPortStr != NULL) {
+    dmtcp_args.push_back("--port");
+    dmtcp_args.push_back(coordinatorPortStr);
+  }
+
+  if (sigckpt != NULL) {
+    dmtcp_args.push_back("--mtcp-checkpoint-signal");
+    dmtcp_args.push_back(sigckpt);
+  }
+
+  if (prefixPath != NULL) {
+    dmtcp_args.push_back("--prefix");
+    dmtcp_args.push_back(prefixPath);
+  }
+
+  if (ckptDir != NULL) {
+    dmtcp_args.push_back("--ckptdir");
+    dmtcp_args.push_back(ckptDir);
+  }
+
+  if (tmpDir != NULL) {
+    dmtcp_args.push_back("--tmpdir");
+    dmtcp_args.push_back(tmpDir);
+  }
+
+  if (ckptOpenFiles != NULL) {
+    dmtcp_args.push_back("--checkpoint-open-files");
+  }
+
+  if (compression != NULL) {
+    if (strcmp (compression, "0") == 0)
+      dmtcp_args.push_back("--no-gzip");
+    else
+      dmtcp_args.push_back("--gzip");
+  }
+
+#ifdef HBICT_DELTACOMP
+  if (deltacompression != NULL) {
+    if (strcmp(deltacompression, "0") == 0)
+      dmtcp_args.push_back("--no-hbict");
+    else
+      dmtcp_args.push_back("--hbict");
+  }
 #endif
 }

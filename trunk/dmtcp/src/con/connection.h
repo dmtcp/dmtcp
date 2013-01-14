@@ -126,14 +126,14 @@ namespace dmtcp
       const vector<int>& getFds() const { return _fds; }
       int  conType() const { return _type & TYPEMASK; }
       int  subType() const { return _type; }
-      bool restoreInSecondIteration() { return _restoreInSecondIteration; }
       bool hasLock() { return _hasLock; }
 
       void  checkLock();
       const ConnectionIdentifier& id() const { return _id; }
 
       virtual void preCheckpoint(KernelBufferDrainer&) = 0;
-      virtual void postRefill(bool isRestart = false) = 0;
+      virtual void refill(bool isRestart) = 0;
+      virtual void resume(bool isRestart) {};
       virtual void restore(ConnectionRewirer *rewirer = NULL) = 0;
 
       virtual void doLocking();
@@ -165,7 +165,6 @@ namespace dmtcp
       int                  _fcntlOwner;
       int                  _fcntlSignal;
       bool                 _hasLock;
-      bool                 _restoreInSecondIteration;
       vector<int>          _fds;
   };
 
@@ -236,7 +235,7 @@ namespace dmtcp
 
       //basic checkpointing commands
       virtual void preCheckpoint(KernelBufferDrainer& drain);
-      virtual void postRefill(bool isRestart = false);
+      virtual void refill(bool isRestart);
       virtual void restore(ConnectionRewirer *rewirer = NULL);
       virtual void restoreOptions();
 
@@ -285,7 +284,7 @@ namespace dmtcp
 
       //basic checkpointing commands
       virtual void preCheckpoint(KernelBufferDrainer& drain);
-      virtual void postRefill(bool isRestart = false);
+      virtual void refill(bool isRestart);
       virtual void restore(ConnectionRewirer *rewirer = NULL);
       virtual void restoreOptions();
 
@@ -319,7 +318,7 @@ namespace dmtcp
       dmtcp::string virtPtsName() { return _virtPtsName;; }
 
       virtual void preCheckpoint(KernelBufferDrainer& drain);
-      virtual void postRefill(bool isRestart = false);
+      virtual void refill(bool isRestart);
       virtual void restore(ConnectionRewirer *rewirer = NULL);
       virtual void serializeSubClass(jalib::JBinarySerializer& o);
       virtual string str() { return _masterName + ":" + _ptsName; }
@@ -355,7 +354,7 @@ namespace dmtcp
       StdioConnection() {}
 
       virtual void preCheckpoint(KernelBufferDrainer& drain);
-      virtual void postRefill(bool isRestart = false);
+      virtual void refill(bool isRestart);
       virtual void restore(ConnectionRewirer *rewirer = NULL);
 
       virtual string str() { return "<STDIO>"; };
@@ -371,13 +370,7 @@ namespace dmtcp
         FILE_REGULAR,
         FILE_PROCFS,
         FILE_DELETED,
-        FILE_RESMGR
-      };
-
-      enum ResMgrFileType
-      {
-        TORQUE_IO,
-        TORQUE_NODE
+        FILE_BATCH_QUEUE
       };
 
       FileConnection() {}
@@ -393,18 +386,16 @@ namespace dmtcp
 
       virtual void doLocking();
       virtual void preCheckpoint(KernelBufferDrainer& drain);
-      virtual void postRefill(bool isRestart = false);
+      virtual void refill(bool isRestart);
       virtual void restore(ConnectionRewirer *rewirer = NULL);
+      virtual void resume(bool isRestart);
 
       virtual void serializeSubClass(jalib::JBinarySerializer& o);
 
       virtual string str() { return _path; }
-      void restoreFile(dmtcp::string newpath = "", bool check_exist = true);
       dmtcp::string filePath() { return _path; }
       bool checkpointed() { return _checkpointed; }
-      void doNotRestoreCkptCopy() {
-        _checkpointed = false; _restoreInSecondIteration = true;
-      }
+      void doNotRestoreCkptCopy() { _checkpointed = false; }
 
       int fileType() { return _type; }
 
@@ -415,8 +406,6 @@ namespace dmtcp
       void handleUnlinkedFile();
       void calculateRelativePath();
       dmtcp::string getSavedFilePath(const dmtcp::string& path);
-      void preCheckpointResMgrFile();
-      bool restoreResMgrFile();
 
       dmtcp::string _path;
       dmtcp::string _rel_path;
@@ -426,7 +415,7 @@ namespace dmtcp
       mode_t        _mode;
       off_t         _offset;
       struct stat   _stat;
-      ResMgrFileType _rmtype;
+      int           _rmtype;
   };
 
   class FifoConnection : public Connection
@@ -453,7 +442,7 @@ namespace dmtcp
     }
 
       virtual void preCheckpoint(KernelBufferDrainer& drain);
-      virtual void postRefill(bool isRestart = false);
+      virtual void refill(bool isRestart);
       virtual void restore(ConnectionRewirer *rewirer = NULL);
 
       virtual string str() { return _path; };
@@ -495,7 +484,7 @@ namespace dmtcp
       int epollType() const { return _type; }
 
       virtual void preCheckpoint(KernelBufferDrainer&);
-      virtual void postRefill(bool isRestart = false);
+      virtual void refill(bool isRestart);
       virtual void restore(ConnectionRewirer *rewirer = NULL);
       virtual void serializeSubClass(jalib::JBinarySerializer& o);
 
@@ -523,7 +512,7 @@ namespace dmtcp
     }
 
       virtual void preCheckpoint(KernelBufferDrainer&);
-      virtual void postRefill(bool isRestart = false);
+      virtual void refill(bool isRestart);
       virtual void restore(ConnectionRewirer *rewirer = NULL);
       virtual void serializeSubClass(jalib::JBinarySerializer& o);
 
@@ -552,7 +541,7 @@ namespace dmtcp
     }
 
       virtual void preCheckpoint(KernelBufferDrainer&);
-      virtual void postRefill(bool isRestart = false);
+      virtual void refill(bool isRestart);
       virtual void restore(ConnectionRewirer *rewirer = NULL);
       virtual void serializeSubClass(jalib::JBinarySerializer& o);
 
@@ -587,7 +576,7 @@ namespace dmtcp
       InotifyConnection& asInotify();
 
       virtual void preCheckpoint(KernelBufferDrainer&);
-      virtual void postRefill(bool isRestart = false);
+      virtual void refill(bool isRestart);
       virtual void restore(ConnectionRewirer *rewirer = NULL);
       virtual void serializeSubClass(jalib::JBinarySerializer& o);
 
@@ -622,7 +611,7 @@ namespace dmtcp
     }
 
       virtual void preCheckpoint(KernelBufferDrainer&);
-      virtual void postRefill(bool isRestart = false);
+      virtual void refill(bool isRestart);
       virtual void restore(ConnectionRewirer *rewirer = NULL);
 
       virtual void serializeSubClass(jalib::JBinarySerializer& o);

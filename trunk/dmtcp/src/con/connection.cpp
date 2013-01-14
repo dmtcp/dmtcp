@@ -35,7 +35,6 @@
 #include "shareddata.h"
 #include "util.h"
 #include "util_descriptor.h"
-#include "resource_manager.h"
 #include  "../jalib/jsocket.h"
 #include <sys/ioctl.h>
 #include <sys/select.h>
@@ -53,7 +52,8 @@
 static bool ptmxTestPacketMode(int masterFd);
 static ssize_t ptmxReadAll(int fd, const void *origBuf, size_t maxCount);
 static ssize_t ptmxWriteAll(int fd, const void *buf, bool isPacketMode);
-static void CatFile(const dmtcp::string& src, const dmtcp::string& dest);
+static void CopyFile(const dmtcp::string& src, const dmtcp::string& dest);
+static void CreateDirectoryStructure(const dmtcp::string& path);
 
 #ifdef REALLY_VERBOSE_CONNECTION_CPP
 static bool really_verbose = true;
@@ -143,7 +143,6 @@ static bool _isBlacklistedTcp(int sockfd,
   , _fcntlOwner(-1)
   , _fcntlSignal(-1)
   , _hasLock(false)
-  , _restoreInSecondIteration(false)
 {}
 
 void dmtcp::Connection::addFd(int fd)
@@ -242,8 +241,7 @@ void dmtcp::Connection::checkLock()
 void dmtcp::Connection::serialize(jalib::JBinarySerializer& o)
 {
   JSERIALIZE_ASSERT_POINT("dmtcp::Connection");
-  o & _id & _type & _fcntlFlags & _fcntlOwner & _fcntlSignal
-    & _restoreInSecondIteration;
+  o & _id & _type & _fcntlFlags & _fcntlOwner & _fcntlSignal;
   o.serializeVector(_fds);
   serializeSubClass(o);
 }
@@ -529,7 +527,7 @@ void dmtcp::TcpConnection::doRecvHandshakes(const dmtcp::UniquePid& coordinator)
   }
 }
 
-void dmtcp::TcpConnection::postRefill(bool isRestart)
+void dmtcp::TcpConnection::refill(bool isRestart)
 {
   if ((_fcntlFlags & O_ASYNC) != 0) {
     JTRACE("Re-adding O_ASYNC flag.") (_fds[0]) (id());
@@ -775,7 +773,7 @@ void dmtcp::RawSocketConnection::restoreOptions()
   Connection::restoreOptions();
 }
 
-void dmtcp::RawSocketConnection::postRefill(bool isRestart)
+void dmtcp::RawSocketConnection::refill(bool isRestart)
 {
   if ((_fcntlFlags & O_ASYNC) != 0) {
     JTRACE("Re-adding O_ASYNC flag.") (_fds[0]) (id());
@@ -1025,20 +1023,36 @@ void dmtcp::PtyConnection::preCheckpoint(KernelBufferDrainer& drain)
     numWritten = ptmxWriteAll(_fds[0], buf, _ptmxIsPacketMode);
     JASSERT(numRead == numWritten) (numRead) (numWritten);
   }
-
-  if (ptyType() == PTY_SLAVE || ptyType() == PTY_BSD_SLAVE) {
-    _restoreInSecondIteration = true;
-  }
 }
 
-void dmtcp::PtyConnection::postRefill(bool isRestart)
+void dmtcp::PtyConnection::refill(bool isRestart)
 {
+  if (ptyType() == PTY_SLAVE || ptyType() == PTY_BSD_SLAVE) {
+    JASSERT(_ptsName.compare("?") != 0);
+    JTRACE("Restoring PTY slave") (_fds[0]) (_ptsName) (_virtPtsName);
+    if (ptyType() == PTY_SLAVE) {
+      char buf[32];
+      SharedData::getRealPtyName(_virtPtsName.c_str(), buf, sizeof(buf));
+      JASSERT(strlen(buf) > 0) (_virtPtsName) (_ptsName);
+      _ptsName = buf;
+    }
+
+    int tempfd = _real_open(_ptsName.c_str(), O_RDWR);
+    JASSERT(tempfd >= 0) (_virtPtsName) (_ptsName) (JASSERT_ERRNO)
+      .Text("Error Opening PTS");
+
+    JTRACE("Restoring PTS real") (_ptsName) (_virtPtsName) (_fds[0]);
+    Util::dupFds(tempfd, _fds);
+  }
   restoreOptions();
 }
 
 void dmtcp::PtyConnection::restore(ConnectionRewirer*)
 {
   JASSERT(_fds.size() > 0);
+  if (ptyType() == PTY_SLAVE || ptyType() == PTY_BSD_SLAVE) {
+    return;
+  }
 
   int tempfd;
   char buf[PTS_PATH_MAX];
@@ -1102,31 +1116,11 @@ void dmtcp::PtyConnection::restore(ConnectionRewirer*)
         JTRACE("Restoring /dev/ptmx") (_fds[0]) (_ptsName) (_virtPtsName);
         break;
       }
-    case PTY_SLAVE:
-      {
-        JASSERT(_ptsName.compare("?") != 0);
-
-        JTRACE("Restoring PTY slave") (_fds[0]) (_ptsName) (_virtPtsName);
-        while (1) {
-          SharedData::getRealPtyName(_virtPtsName.c_str(), buf, sizeof(buf));
-          if (strlen(buf) > 0) break;
-          struct timespec sleepTime = {0, 10*1000*1000};
-          nanosleep(&sleepTime, NULL);
-        };
-        _ptsName = buf;
-
-        tempfd = _real_open(_ptsName.c_str(), O_RDWR);
-        JASSERT(tempfd >= 0) (_virtPtsName) (_ptsName) (JASSERT_ERRNO)
-          .Text("Error Opening PTS");
-
-        JTRACE("Restoring PTS real") (_ptsName) (_virtPtsName) (_fds[0]);
-        break;
-      }
     case PTY_BSD_MASTER:
       {
         JTRACE("Restoring BSD Master Pty") (_masterName) (_fds[0]);
-        dmtcp::string slaveDeviceName =
-          _masterName.replace(0, strlen("/dev/pty"), "/dev/tty");
+        //dmtcp::string slaveDeviceName =
+          //_masterName.replace(0, strlen("/dev/pty"), "/dev/tty");
 
         tempfd = _real_open(_masterName.c_str(), O_RDWR);
 
@@ -1140,17 +1134,6 @@ void dmtcp::PtyConnection::restore(ConnectionRewirer*)
         // device name and current Master/Slave device name.
         JASSERT(tempfd >= 0) (tempfd) (JASSERT_ERRNO)
           .Text("Error Opening BSD Master Pty.(Already in use?)");
-        break;
-      }
-    case PTY_BSD_SLAVE:
-      {
-        JTRACE("Restoring BSD Slave Pty") (_ptsName) (_fds[0]);
-        dmtcp::string masterDeviceName =
-          _ptsName.replace(0, strlen("/dev/tty"), "/dev/pty");
-
-        tempfd = _real_open(_ptsName.c_str(), O_RDWR);
-        JASSERT(tempfd >= 0) (tempfd) (JASSERT_ERRNO)
-          .Text("Error Opening BSD Slave Pty.(Already in use?)");
         break;
       }
     default:
@@ -1191,6 +1174,7 @@ void dmtcp::FileConnection::doLocking()
     }
   }
   Connection::doLocking();
+  _checkpointed = false;
 }
 
 void dmtcp::FileConnection::handleUnlinkedFile()
@@ -1228,7 +1212,7 @@ void dmtcp::FileConnection::calculateRelativePath()
     _rel_path = "*";
   }
 }
-
+#if 0
 void dmtcp::FileConnection::preCheckpointResMgrFile()
 {
   JTRACE("Pre-checkpoint Torque files") (_fds.size());
@@ -1247,6 +1231,7 @@ void dmtcp::FileConnection::preCheckpointResMgrFile()
     saveFile(_fds[0]);
   }
 }
+#endif
 
 void dmtcp::FileConnection::preCheckpoint(KernelBufferDrainer& drain)
 {
@@ -1261,13 +1246,13 @@ void dmtcp::FileConnection::preCheckpoint(KernelBufferDrainer& drain)
   // Read the current file descriptor offset
   _offset = lseek(_fds[0], 0, SEEK_CUR);
   fstat(_fds[0], &_stat);
-  _checkpointed = false;
-  _restoreInSecondIteration = true;
 
   // If this file is related to supported Resource Management system
   // handle it specially
-  if (_type == FILE_RESMGR) {
-    preCheckpointResMgrFile();
+  if (_type == FILE_BATCH_QUEUE &&
+      dmtcp_bq_should_ckpt_file &&
+      dmtcp_bq_should_ckpt_file(_path.c_str(), &_rmtype)) {
+    saveFile(_fds[0]);
     return;
   }
 
@@ -1294,13 +1279,48 @@ void dmtcp::FileConnection::preCheckpoint(KernelBufferDrainer& drain)
                                  "emacs")) {
     saveFile(_fds[0]);
   } else {
-    _restoreInSecondIteration = true;
   }
 }
 
-void dmtcp::FileConnection::postRefill(bool isRestart)
+void dmtcp::FileConnection::refill(bool isRestart)
 {
+  struct stat buf;
+  if (!_checkpointed) {
+    JASSERT(jalib::Filesystem::FileExists(_path)) (_path)
+      .Text("File not found.");
+
+    if (stat(_path.c_str() ,&buf) == 0 && S_ISREG(buf.st_mode)) {
+      if (buf.st_size > _stat.st_size &&
+          (_fcntlFlags &(O_WRONLY|O_RDWR)) != 0) {
+        errno = 0;
+        JASSERT(truncate(_path.c_str(), _stat.st_size) ==  0)
+          (_path.c_str()) (_stat.st_size) (JASSERT_ERRNO);
+      } else if (buf.st_size < _stat.st_size) {
+        JWARNING(false) .Text("Size of file smaller than what we expected");
+      }
+    }
+    int tempfd = openFile();
+    Util::dupFds(tempfd, _fds);
+  }
+
+  errno = 0;
+  if (jalib::Filesystem::FileExists(_path) &&
+      stat(_path.c_str() ,&buf) == 0 && S_ISREG(buf.st_mode)) {
+    if (_offset <= buf.st_size && _offset <= _stat.st_size) {
+      JASSERT(lseek(_fds[0], _offset, SEEK_SET) == _offset)
+        (_path) (_offset) (JASSERT_ERRNO);
+      //JTRACE("lseek(_fds[0], _offset, SEEK_SET)") (_fds[0]) (_offset);
+    } else if (_offset > buf.st_size || _offset > _stat.st_size) {
+      JWARNING(false) (_path) (_offset) (_stat.st_size) (buf.st_size)
+        .Text("No lseek done:  offset is larger than min of old and new size.");
+    }
+  }
+  refreshPath();
   restoreOptions();
+}
+
+void dmtcp::FileConnection::resume(bool isRestart)
+{
   if (_checkpointed && isRestart && _type == FILE_DELETED) {
     /* Here we want to unlink the file. We want to do it only at the time of
      * restart, but there is no way of finding out if we are restarting or not.
@@ -1320,7 +1340,7 @@ void dmtcp::FileConnection::refreshPath()
 {
   dmtcp::string cwd = jalib::Filesystem::GetCWD();
 
-  if (_type == FILE_RESMGR) {
+  if (_type == FILE_BATCH_QUEUE) {
     // get new file name
     dmtcp::string procpath = "/proc/self/fd/" + jalib::XToString(_fds[0]);
     dmtcp::string newpath = jalib::Filesystem::ResolveSymlink(procpath);
@@ -1352,115 +1372,38 @@ void dmtcp::FileConnection::refreshPath()
   }
 }
 
-bool dmtcp::FileConnection::restoreResMgrFile()
-{
-  char *ptr = getenv("PBS_HOME");
-  if (ptr)
-    JTRACE("Have access to pbs env:") (ptr);
-  else
-    JTRACE("Have NO access to pbs env");
-
-  int tmpfd = 0;
-
-  if (_rmtype == TORQUE_NODE) {
-    JTRACE("Restore Torque Node file") (_fds.size());
-    char newpath_tmpl[] = "/tmp/dmtcp_torque_nodefile.XXXXXX";
-    dmtcp::string newpath;
-    mktemp(newpath_tmpl);
-    if (newpath_tmpl[0] == '\0') {
-      strcpy(newpath_tmpl,"/tmp/dmtcp_torque_nodefile");
-    }
-    newpath = newpath_tmpl;
-    restoreFile(newpath,false);
-    _path = newpath;
-    return false;
-  }else if (_rmtype == TORQUE_IO) {
-    JTRACE("Restore Torque IO file") (_fds.size());
-    if (isTorqueStdout(_path)) {
-      JTRACE("Restore Torque STDOUT file") (_fds.size());
-      tmpfd = 1;
-    } else if (isTorqueStderr(_path)) {
-      JTRACE("Restore Torque STDERR file") (_fds.size());
-      tmpfd = 2;
-    } else{
-      return false;
-    }
-
-    // get new file name
-    dmtcp::string procpath = "/proc/self/fd/" + jalib::XToString(tmpfd);
-    dmtcp::string newpath = jalib::Filesystem::ResolveSymlink(procpath);
-
-    Util::dupFds(tmpfd, _fds);
-    restoreFile(newpath);
-    return true;
-  }
-  return false;
-}
-
-
 void dmtcp::FileConnection::restore(ConnectionRewirer*)
 {
-  struct stat buf;
-  bool skip_open = false;
+  int tempfd;
 
   JASSERT(_fds.size() > 0);
+  if (!_checkpointed) return;
 
   JTRACE("Restoring File Connection") (id()) (_path);
+  dmtcp::string savedFilePath = getSavedFilePath(_path);
+  JASSERT(jalib::Filesystem::FileExists(savedFilePath))
+    (savedFilePath) (_path) .Text("Unable to Find checkpointed copy of File");
 
-  if (_type == FILE_RESMGR) {
-    dmtcp::string old_path = _path;
+  if (_type == FILE_BATCH_QUEUE) {
+    JASSERT(dmtcp_bq_restore_file);
+    tempfd = dmtcp_bq_restore_file(_path.c_str(), savedFilePath.c_str(),
+                               _fcntlFlags, _rmtype);
     JTRACE("Restore Resource Manager File") (_path);
-    skip_open = restoreResMgrFile();
-    JTRACE("Restore Resource Manager File #2") (old_path) (_path) (skip_open);
   } else {
     refreshPath();
+    JASSERT(jalib::Filesystem::FileExists(_path) == false) (_path)
+      .Text("\n**** File already exists! Checkpointed copy can't be "
+            "restored.\n"
+            "****Delete the existing file and try again!");
 
-    if (_checkpointed) {
-      JASSERT(jalib::Filesystem::FileExists(_path) == false) (_path)
-        .Text("\n**** File already exists! Checkpointed copy can't be "
-              "restored.\n"
-              "****Delete the existing file and try again!");
-
-      //      JWARNING(jalib::Filesystem::FileExists(_path) == false) (_path)
-      //        .Text("\n**** File already exists! Deleting it ");
-      //
-      //      unlink(_path.c_str());
-
-      restoreFile();
-
-    } else if (jalib::Filesystem::FileExists(_path)) {
-
-      if (stat(_path.c_str() ,&buf) == 0 && S_ISREG(buf.st_mode)) {
-        if (buf.st_size > _stat.st_size &&
-            (_fcntlFlags &(O_WRONLY|O_RDWR)) != 0) {
-          errno = 0;
-          JASSERT(truncate(_path.c_str(), _stat.st_size) ==  0)
-            (_path.c_str()) (_stat.st_size) (JASSERT_ERRNO);
-        } else if (buf.st_size < _stat.st_size) {
-          JWARNING(false) .Text("Size of file smaller than what we expected");
-        }
-      }
-    }
+    JNOTE("File not present, copying from saved checkpointed file") (_path);
+    CreateDirectoryStructure(_path);
+    JTRACE("Copying saved checkpointed file to original location")
+      (savedFilePath) (_path);
+    CopyFile(savedFilePath, _path);
+    tempfd = openFile();
   }
-
-  if (!skip_open) {
-    int tempfd = openFile();
-    Util::dupFds(tempfd, _fds);
-  }
-
-  errno = 0;
-  if (jalib::Filesystem::FileExists(_path) &&
-      stat(_path.c_str() ,&buf) == 0 && S_ISREG(buf.st_mode)) {
-    if (_offset <= buf.st_size && _offset <= _stat.st_size) {
-      JASSERT(lseek(_fds[0], _offset, SEEK_SET) == _offset)
-        (_path) (_offset) (JASSERT_ERRNO);
-      //JTRACE("lseek(_fds[0], _offset, SEEK_SET)") (_fds[0]) (_offset);
-    } else if (_offset > buf.st_size || _offset > _stat.st_size) {
-      JWARNING(false) (_path) (_offset) (_stat.st_size) (buf.st_size)
-        .Text("No lseek done:  offset is larger than min of old and new size.");
-    }
-  }
-  refreshPath();
+  Util::dupFds(tempfd, _fds);
 }
 
 static void CreateDirectoryStructure(const dmtcp::string& path)
@@ -1491,93 +1434,21 @@ static void CopyFile(const dmtcp::string& src, const dmtcp::string& dest)
   JASSERT(_real_system(command.c_str()) != -1);
 }
 
-static void CatFile(const dmtcp::string& src, const dmtcp::string& dest)
-{
-  dmtcp::string command = "cat " + src + " > " + dest;
-  JASSERT(_real_system(command.c_str()) != -1);
-}
-
 int dmtcp::FileConnection::openFile()
 {
-  int fd;
-  JASSERT(WorkerState::currentState() == WorkerState::RESTARTING);
+  JASSERT(jalib::Filesystem::FileExists(_path)) (_path)
+    .Text("File not present");
 
-  /*
-   * This file was not checkpointed by this process so it won't be restored by
-   * this process. Thus, we wait while some other process restores this file
-   */
-  int count = 1;
-  while (!_checkpointed && !jalib::Filesystem::FileExists(_path)) {
-    struct timespec sleepTime = {0, 10*1000*1000};
-    nanosleep(&sleepTime, NULL);
-    count++;
-    if (count % 200 == 0) {
-      // Print this message every second
-      JTRACE("Waiting for the file to be created/restored by some other "
-             "process")
-        (_path);
-    }
-    if (count % 1000 == 0) {
-      JWARNING(false) (_path)
-        .Text("Still waiting for the file to be created/restored by some other "
-              "process");
-    }
-  }
+  int fd = _real_open(_path.c_str(), _fcntlFlags);
+  JASSERT(fd != -1) (_path) (JASSERT_ERRNO) .Text("open() failed");
 
-  fd = _real_open(_path.c_str(), _fcntlFlags);
-  JTRACE("open(_path.c_str(), _fcntlFlags)")
-   (fd) (_path.c_str()) (_fcntlFlags);
-
-  JASSERT(fd != -1) (_path) (JASSERT_ERRNO)
-    .Text("open() failed");
+  JTRACE("open(_path.c_str(), _fcntlFlags)") (fd) (_path.c_str()) (_fcntlFlags);
   return fd;
-}
-
-void dmtcp::FileConnection::restoreFile(dmtcp::string newpath, bool check_exist)
-{
-  JASSERT(WorkerState::currentState() == WorkerState::RESTARTING);
-  JASSERT(_checkpointed);
-
-  JTRACE("Start") (newpath) (_checkpointed) (jalib::Filesystem::FileExists(_path));
-
-  if (newpath == "")
-    newpath = _path;
-  if (_checkpointed && !(check_exist && jalib::Filesystem::FileExists(_path))) {
-
-    JNOTE("File not present, copying from saved checkpointed file") (_path);
-
-    dmtcp::string savedFilePath = getSavedFilePath(_path);
-
-    JASSERT(jalib::Filesystem::FileExists(savedFilePath))
-      (savedFilePath) (_path) .Text("Unable to Find checkpointed copy of File");
-
-    if (_type == FILE_RESMGR) {
-      JTRACE("Copying saved Resource Manager file to NEW location")
-        (savedFilePath) (_path);
-      CatFile(savedFilePath, newpath);
-    } else {
-      CreateDirectoryStructure(_path);
-      JTRACE("Copying saved checkpointed file to original location")
-        (savedFilePath) (_path);
-      CopyFile(savedFilePath, newpath);
-    }
-    //HACK: This was deleting our checkpoint files on RHEL5.2,
-    //      perhaps we are leaking file descriptors in the restart process.
-    //      Deleting files is scary... maybe we want to make a stricter test.
-    //
-    // // Unlink the File if the File was unlinked at the time of checkpoint
-    // if (_type == FILE_DELETED) {
-    //   JASSERT(unlink(_path.c_str()) != -1)
-    //     .Text("Unlinking of pre-checkpoint-deleted file failed");
-    // }
-
-  }
 }
 
 void dmtcp::FileConnection::saveFile(int fd)
 {
   _checkpointed = true;
-  _restoreInSecondIteration = false;
 
   dmtcp::string savedFilePath = getSavedFilePath(_path);
   CreateDirectoryStructure(savedFilePath);
@@ -1632,7 +1503,7 @@ void dmtcp::FileConnection::serializeSubClass(jalib::JBinarySerializer& o)
   o & _path & _rel_path & _ckptFilesDir;
   o & _offset & _stat & _checkpointed & _rmtype;
   JTRACE("Serializing FileConn.") (_path) (_rel_path) (_ckptFilesDir)
-   (_checkpointed) (_fcntlFlags) (_restoreInSecondIteration);
+   (_checkpointed) (_fcntlFlags);
 }
 
 /*****************************************************************************
@@ -1668,7 +1539,7 @@ void dmtcp::FifoConnection::preCheckpoint(KernelBufferDrainer& drain)
   JTRACE("Checkpointing fifo:  end.") (_fds[0]) (_in_data.size());
 }
 
-void dmtcp::FifoConnection::postRefill(bool isRestart)
+void dmtcp::FifoConnection::refill(bool isRestart)
 {
   int new_flags =(_fcntlFlags &(~(O_RDONLY|O_WRONLY))) | O_RDWR | O_NONBLOCK;
   ckptfd = _real_open(_path.c_str(),new_flags);
@@ -1758,7 +1629,7 @@ void dmtcp::StdioConnection::preCheckpoint(KernelBufferDrainer& drain)
   //JTRACE("Checkpointing stdio") (_fds[0]) (id());
 }
 
-void dmtcp::StdioConnection::postRefill(bool isRestart)
+void dmtcp::StdioConnection::refill(bool isRestart)
 {
   restoreOptions();
 }
@@ -1808,7 +1679,7 @@ void dmtcp::EpollConnection::preCheckpoint(KernelBufferDrainer& drain)
   JASSERT(_fds.size() > 0);
 }
 
-void dmtcp::EpollConnection::postRefill(bool isRestart)
+void dmtcp::EpollConnection::refill(bool isRestart)
 {
   JASSERT(_fds.size() > 0);
   if (isRestart) {
@@ -1908,9 +1779,9 @@ void dmtcp::EventFdConnection::preCheckpoint(KernelBufferDrainer& drain)
   JTRACE("Checkpointing eventfd:  end.") (_fds[0]) (_initval);
 }
 
-void dmtcp::EventFdConnection::postRefill(bool isRestart)
+void dmtcp::EventFdConnection::refill(bool isRestart)
 {
-  JTRACE("Begin postRefill eventfd.") (_fds[0]);
+  JTRACE("Begin refill eventfd.") (_fds[0]);
   JASSERT(_fds.size() > 0);
   evtfd = _fds[0];
   if (!isRestart) {
@@ -1918,10 +1789,10 @@ void dmtcp::EventFdConnection::postRefill(bool isRestart)
     JTRACE("Writing") (u);
     JWARNING(write(evtfd, &u, sizeof(uint64_t)) == sizeof(uint64_t))
       (evtfd) (errno) (strerror(errno))
-      .Text("Write to eventfd failed during postRefill");
+      .Text("Write to eventfd failed during refill");
   }
   restoreOptions();
-  JTRACE("End postRefill eventfd.") (_fds[0]);
+  JTRACE("End refill eventfd.") (_fds[0]);
 }
 
 void dmtcp::EventFdConnection::restore(ConnectionRewirer*)
@@ -1973,15 +1844,15 @@ void dmtcp::SignalFdConnection::preCheckpoint(KernelBufferDrainer& drain)
   JTRACE("Checkpointing signlfd:  end.") (_fds[0]) ;
 }
 
-void dmtcp::SignalFdConnection::postRefill(bool isRestart)
+void dmtcp::SignalFdConnection::refill(bool isRestart)
 {
-  JTRACE("Begin postRefill signalfd.") (_fds[0]);
+  JTRACE("Begin refill signalfd.") (_fds[0]);
   JASSERT(_fds.size() > 0);
   //raise the signals
   JTRACE("Raising the signal...") (_fdsi.ssi_signo);
   raise(_fdsi.ssi_signo);
   restoreOptions();
-  JTRACE("End postRefill signalfd.") (_fds[0]);
+  JTRACE("End refill signalfd.") (_fds[0]);
 }
 
 void dmtcp::SignalFdConnection::restore(ConnectionRewirer*)
@@ -2011,7 +1882,7 @@ void dmtcp::InotifyConnection::preCheckpoint(KernelBufferDrainer& drain)
   JASSERT(_fds.size() > 0);
 }
 
-void dmtcp::InotifyConnection::postRefill(bool isRestart)
+void dmtcp::InotifyConnection::refill(bool isRestart)
 {
   JASSERT(_fds.size() > 0);
   if (isRestart) {
@@ -2160,7 +2031,7 @@ void dmtcp::PosixMQConnection::preCheckpoint(KernelBufferDrainer& drain)
   _real_mq_close(fd);
 }
 
-void dmtcp::PosixMQConnection::postRefill(bool isRestart)
+void dmtcp::PosixMQConnection::refill(bool isRestart)
 {
   for (long i = 0; i < _qnum; i++) {
     JASSERT(_real_mq_timedsend(_fds[0], _msgInQueue[i].buffer(),
