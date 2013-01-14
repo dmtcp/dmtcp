@@ -23,7 +23,7 @@ endif
 
 default: build
 
-build: pidvirt ptrace
+build: pidvirt ptrace torque
 
 all: default
 
@@ -35,6 +35,9 @@ endif
 pidvirt:
 	cd pidvirt && $(MAKE)
 
+torque:
+	cd torque && $(MAKE)
+
 tidy:
 	rm -rf dmtcp-autotest-* ckpt_*_files
 	rm -f ckpt_*.dmtcp dmtcp_restart_script* \
@@ -44,10 +47,12 @@ tidy:
 clean: tidy
 	- cd pidvirt && $(MAKE) clean
 	- cd ptrace && $(MAKE) clean
+	- cd torque && $(MAKE) clean
 
 distclean: clean
 	- cd pidvirt  && $(MAKE) distclean
 	- cd ptrace  && $(MAKE) distclean
+	- cd torque  && $(MAKE) distclean
 	rm -f Makefile
 
 install: all
@@ -59,6 +64,7 @@ install: all
 	test -e $(DESTDIR)$(libdir) || $(MKDIR_P) $(DESTDIR)$(libdir)
 	test -e $(DESTDIR)$(includedir) || $(MKDIR_P) $(DESTDIR)$(includedir)
 	cd pidvirt && make DESTDIR=$(DESTDIR) install
+	cd torque && make DESTDIR=$(DESTDIR) install
 ifeq ($(PTRACE_SUPPORT),yes)
 	cd ptrace && make DESTDIR=$(DESTDIR) install
 endif
@@ -66,5 +72,6 @@ endif
 uninstall:
 	cd pidvirt && make DESTDIR=$(DESTDIR) uninstall
 	cd ptrace && make DESTDIR=$(DESTDIR) uninstall
+	cd torque && make DESTDIR=$(DESTDIR) uninstall
 
-.PHONY: default all build pidvirt ptrace tidy clean distclean install uninstall
+.PHONY: default all build pidvirt ptrace torque tidy clean distclean install uninstall

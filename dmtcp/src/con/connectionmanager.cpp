@@ -37,7 +37,6 @@
 #include "shareddata.h"
 #include "kernelbufferdrainer.h"
 #include "connectionrewirer.h"
-#include "resource_manager.h"
 #include "coordinatorapi.h"
 #include  "../jalib/jfilesystem.h"
 #include  "../jalib/jconvert.h"
@@ -358,9 +357,9 @@ void dmtcp::ConnectionList::processFileConnection(int fd, const char *path,
   } else if (dmtcp::Util::strStartsWith(path, "/dev/pts/")) {
     // POSIX Slave PTY
     c = new PtyConnection(fd, path, flags, mode, PtyConnection::PTY_SLAVE);
-  } else if (isResMgrFile(path)) {
+  } else if (dmtcp_is_bq_file && dmtcp_is_bq_file(path)) {
     // Resource manager related
-    c = new FileConnection(path, flags, mode, FileConnection::FILE_RESMGR);
+    c = new FileConnection(path, flags, mode, FileConnection::FILE_BATCH_QUEUE);
   } else if (S_ISREG(statbuf.st_mode) || S_ISCHR(statbuf.st_mode) ||
              S_ISDIR(statbuf.st_mode) || S_ISBLK(statbuf.st_mode)) {
     // Regular File
@@ -389,7 +388,7 @@ void dmtcp::ConnectionList::preLockSaveOptions()
   list();
   // Save Options for each Fd(We need to do it here instead of
   // preCheckpointFdLeaderElection because we want to restore the correct owner
-  // in postRefill).
+  // in refill).
   for (iterator i = begin(); i != end(); ++i) {
     Connection *con = i->second;
     con->saveOptions();
@@ -465,15 +464,26 @@ void dmtcp::ConnectionList::refill(bool isRestart)
   _theDrainer->refillAllSockets();
   delete _theDrainer;
   _theDrainer = NULL;
+  for (iterator i = begin(); i != end(); ++i) {
+    Connection *con = i->second;
+    if (con->hasLock()) {
+      con->refill(isRestart);
+      con->restoreOptions();
+    }
+  }
   if (isRestart) {
     JTRACE("Waiting for Missing Cons");
     sendReceiveMissingFds();
     JTRACE("Done waiting for Missing Cons");
   }
+}
+
+void dmtcp::ConnectionList::resume(bool isRestart)
+{
   for (iterator i = begin(); i != end(); ++i) {
     Connection *con = i->second;
     if (con->hasLock()) {
-      con->postRefill(isRestart);
+      con->resume(isRestart);
     }
   }
 }
@@ -483,12 +493,6 @@ void dmtcp::ConnectionList::postRestart()
   SharedData::restoreNextVirtualPtyId(_nextVirtualPtyId );
   doReconnect();
 
-  for (iterator i = begin(); i != end(); ++i) {
-    Connection *con = i->second;
-    if (con->hasLock()) {
-      con->restoreOptions();
-    }
-  }
   registerMissingCons();
 }
 
@@ -523,19 +527,9 @@ void dmtcp::ConnectionList::doReconnect()
 //        }
 //      }
 //    }
-    if (con->restoreInSecondIteration() == false) {
-      con->restore(&_rewirer);
-    }
+    con->restore(&_rewirer);
   }
 
-  // Part 2: Restore all Pseudo-terminal slaves and file _connections that were
-  //         not checkpointed.
-  for (iterator i = begin(); i != end(); ++i) {
-    Connection *con = i->second;
-    if (con->hasLock() && con->restoreInSecondIteration() == true) {
-      con->restore(&_rewirer);
-    }
-  }
   _rewirer.doReconnect();
 }
 

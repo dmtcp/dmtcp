@@ -110,6 +110,7 @@ EXTERNC int  dmtcp_get_generation();
 EXTERNC int  dmtcp_is_running_state();
 EXTERNC int  dmtcp_is_initializing_wrappers();
 EXTERNC int  dmtcp_is_protected_fd(int fd);
+EXTERNC int dmtcp_no_coordinator();
 
 EXTERNC int dmtcp_get_ptrace_fd();
 EXTERNC int dmtcp_get_readlog_fd();
@@ -121,7 +122,13 @@ EXTERNC void *dmtcp_get_libc_dlsym_addr();
 EXTERNC pid_t dmtcp_real_to_virtual_pid(pid_t realPid) __attribute((weak));
 EXTERNC pid_t dmtcp_virtual_to_real_pid(pid_t virtualPid) __attribute((weak));
 
-EXTERNC int dmtcp_no_coordinator();
+EXTERNC int dmtcp_is_bq_file(const char *path)
+  __attribute((weak));
+EXTERNC int dmtcp_bq_should_ckpt_file(const char *path, int *type)
+  __attribute((weak));
+EXTERNC int dmtcp_bq_restore_file(const char *path, const char *savedFilePath,
+                                  int fcntlFlags, int type)
+  __attribute((weak));
 
 #define DMTCP_PLUGIN_DISABLE_CKPT DMTCP_DISABLE_CKPT
 #define DMTCP_PLUGIN_ENABLE_CKPT  DMTCP_ENABLE_CKPT

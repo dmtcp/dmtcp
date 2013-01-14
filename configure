@@ -4369,7 +4369,7 @@ ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
 ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
 ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
-ac_config_files="$ac_config_files Makefile plugin/Makefile plugin/pidvirt/Makefile plugin/ptrace/Makefile test/Makefile test/testconfig.py"
+ac_config_files="$ac_config_files Makefile plugin/Makefile plugin/pidvirt/Makefile plugin/ptrace/Makefile plugin/torque/Makefile test/Makefile test/testconfig.py"
 
 
 
@@ -7223,6 +7223,7 @@ do
     "plugin/Makefile") CONFIG_FILES="$CONFIG_FILES plugin/Makefile" ;;
     "plugin/pidvirt/Makefile") CONFIG_FILES="$CONFIG_FILES plugin/pidvirt/Makefile" ;;
     "plugin/ptrace/Makefile") CONFIG_FILES="$CONFIG_FILES plugin/ptrace/Makefile" ;;
+    "plugin/torque/Makefile") CONFIG_FILES="$CONFIG_FILES plugin/torque/Makefile" ;;
     "test/Makefile") CONFIG_FILES="$CONFIG_FILES test/Makefile" ;;
     "test/testconfig.py") CONFIG_FILES="$CONFIG_FILES test/testconfig.py" ;;
 

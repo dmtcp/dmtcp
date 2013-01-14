@@ -28,12 +28,9 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include "resource_manager.h"
-#include "syscallwrappers.h"
 #include "dmtcpalloc.h"
-#include  "../jalib/jconvert.h"
-#include  "../jalib/jassert.h"
-#include  "../jalib/jfilesystem.h"
 #include "util.h"
+#include  "../jalib/jassert.h"
 
 
 // ----------------- global data ------------------------//
@@ -114,18 +111,6 @@ bool runUnderRMgr()
   return ( rmgr_type == None ) ? false : true;
 }
 
-bool isResMgrFile(dmtcp::string &path)
-{
-  if( isTorqueIOFile(path) || isTorqueFile("",path) )
-    return true;
-  return false;
-}
-
-bool isResMgrFile(const char *path)
-{
-  dmtcp::string p = path;
-  return isResMgrFile(p);
-}
 //---------------------------- Torque Resource Manager ---------------------//
 
 

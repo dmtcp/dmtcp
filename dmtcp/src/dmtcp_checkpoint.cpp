@@ -100,6 +100,8 @@ static const char* theUsage =
   "      Checkpoint open files and restore old working dir. (Default: do neither)\n"
   "  --mtcp-checkpoint-signal:\n"
   "      Signal number used internally by MTCP for checkpointing (default: 12)\n"
+  "  --torque:\n"
+  "      Enable support for Torque PBS. (Default: disabled)\n"
   "  --with-plugin (environment variable DMTCP_PLUGIN):\n"
   "      Colon-separated list of DMTCP plugins to be preloaded with DMTCP.\n"
   "      (Absolute pathnames are required.)\n"
@@ -130,6 +132,7 @@ static dmtcp::string _stderrProcPath()
 static bool isSSHSlave=false;
 static bool autoStartCoordinator=true;
 static bool checkpointOpenFiles=false;
+static bool enableTorque=false;
 static dmtcp::CoordinatorAPI::CoordinatorMode allowedModes = dmtcp::CoordinatorAPI::COORD_ANY;
 
 //shift args
@@ -222,6 +225,9 @@ static void processArgs(int *orig_argc, char ***orig_argv)
       shift; shift;
     } else if (s == "--checkpoint-open-files") {
       checkpointOpenFiles = true;
+      shift;
+    } else if (s == "--torque") {
+      enableTorque = true;
       shift;
     } else if (s == "--with-plugin") {
       setenv(ENV_VAR_PLUGIN, argv[1], 1);
@@ -449,6 +455,11 @@ int main ( int argc, char** argv )
 #endif
 
   preloadLibs += jalib::Filesystem::FindHelperUtility ( "dmtcphijack.so" );
+
+  if (enableTorque) {
+    preloadLibs += ":";
+    preloadLibs += jalib::Filesystem::FindHelperUtility("dmtcptorque.so");
+  }
 
 #ifdef PID_VIRTUALIZATION
   preloadLibs += ":";

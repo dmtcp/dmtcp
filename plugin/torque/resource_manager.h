@@ -26,14 +26,25 @@
 #define RESOURCE_MANAGER_H
 
 #include "dmtcpalloc.h"
+#include "dmtcpplugin.h"
+
+#define _real_fork NEXT_FNC(fork)
+#define _real_execvp NEXT_FNC(execvp)
+#define _real_open NEXT_FNC(open)
+#define _real_close NEXT_FNC(close)
+#define _real_dup NEXT_FNC(dup)
+#define _real_dup2 NEXT_FNC(dup2)
+#define _real_pthread_mutex_lock NEXT_FNC(pthread_mutex_lock)
+#define _real_pthread_mutex_unlock NEXT_FNC(pthread_mutex_unlock)
+#define _real_dlopen NEXT_FNC(dlopen)
+#define _real_dlsym NEXT_FNC(dlsym)
+#define _real_system NEXT_FNC(system)
 
 // General
 bool runUnderRMgr();
 
 // Torque API
 
-bool isResMgrFile(dmtcp::string &path);
-bool isResMgrFile(const char *path);
 int findLibTorque(dmtcp::string &libpath);
 bool isTorqueFile(dmtcp::string relpath, dmtcp::string &path);
 bool isTorqueIOFile(dmtcp::string &path);

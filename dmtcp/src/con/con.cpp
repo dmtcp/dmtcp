@@ -34,9 +34,6 @@
 #include "dmtcpworker.h"
 #include "dmtcpplugin.h"
 #include "util.h"
-#include "coordinatorapi.h"
-#include "resource_manager.h"
-#include  "../jalib/jsocket.h"
 #include <sys/ioctl.h>
 #include <sys/select.h>
 #include <sys/un.h>
@@ -117,6 +114,10 @@ void dmtcp_Connection_ProcessEvent(DmtcpEvent_t event, DmtcpEventData_t *data)
 
     case DMTCP_EVENT_REFILL:
       ConnectionList::instance().refill(data->refillInfo.isRestart);
+      break;
+
+    case DMTCP_EVENT_RESUME:
+      ConnectionList::instance().resume(data->resumeInfo.isRestart);
       break;
 
     default:
