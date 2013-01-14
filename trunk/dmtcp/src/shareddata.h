@@ -31,9 +31,9 @@
 #include <sys/un.h>
 
 #include "constants.h"
+#include "uniquepid.h"
 #include "protectedfds.h"
 #include "dmtcpalloc.h"
-#include "connectionidentifier.h"
 #include "dmtcpplugin.h"
 
 #define MAX_IPC_ID_MAPS 256
@@ -41,6 +41,8 @@
 #define MAX_PTRACE_ID_MAPS 256
 #define MAX_PROCESS_TREE_ROOTS 256
 #define MAX_MISSING_CONNECTIONS 10240
+#define CON_ID_LEN \
+  (sizeof(DmtcpUniqueProcessId) + sizeof(long))
 
 namespace dmtcp {
   namespace SharedData {
@@ -55,7 +57,7 @@ namespace dmtcp {
     };
 
     struct MissingConMap {
-      ConnectionIdentifier id;
+      char                 id[CON_ID_LEN];
       struct sockaddr_un   addr;
       socklen_t            len;
     };
@@ -116,7 +118,7 @@ namespace dmtcp {
     unsigned getNextVirtualPtyId();
     void restoreNextVirtualPtyId(unsigned n);
 
-    void registerMissingCons(vector<ConnectionIdentifier>& ids,
+    void registerMissingCons(vector<const char*>& ids,
                              struct sockaddr_un receiverAddr,
                              socklen_t len);
     void getMissingConMaps(struct MissingConMap **map, size_t *nmaps);

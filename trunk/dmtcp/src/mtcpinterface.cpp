@@ -79,10 +79,6 @@ void callbackPreResumeUserThread(int isRestart);
 
 extern "C" int dmtcp_is_ptracing() __attribute__ ((weak));
 
-#ifdef EXTERNAL_SOCKET_HANDLING
-static bool delayedCheckpoint = false;
-#endif
-
 static void initializeDmtcpInfoInMtcp()
 {
   int jassertlog_fd = debugEnabled ? PROTECTED_JASSERTLOG_FD : -1;
@@ -184,15 +180,7 @@ static void callbackPreCheckpoint( char ** ckptFilename )
 
   //now user threads are stopped
   dmtcp::userHookTrampoline_preCkpt();
-#ifdef EXTERNAL_SOCKET_HANDLING
-  if (dmtcp::DmtcpWorker::instance().waitForStage2Checkpoint() == false) {
-    char *nullDevice = (char *) "/dev/null";
-    *ckptFilename = nullDevice;
-    delayedCheckpoint = true;
-  } else
-#else
   dmtcp::DmtcpWorker::instance().waitForStage2Checkpoint();
-#endif
   *ckptFilename = const_cast<char *>(dmtcp::UniquePid::getCkptFilename());
   JTRACE ( "MTCP is about to write checkpoint image." )(*ckptFilename);
 }

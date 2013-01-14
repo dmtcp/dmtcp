@@ -56,12 +56,6 @@ using namespace dmtcp;
 
 LIB_PRIVATE int dmtcp_wrappers_initializing = 0;
 
-#ifdef EXTERNAL_SOCKET_HANDLING
-static dmtcp::vector <dmtcp::TcpConnectionInfo> theTcpConnections;
-LIB_PRIVATE dmtcp::vector <dmtcp::ConnectionIdentifier> externalTcpConnections;
-static bool _waitingForExternalSocketsToClose = false;
-#endif
-
 LIB_PRIVATE void pthread_atfork_prepare();
 LIB_PRIVATE void pthread_atfork_parent();
 LIB_PRIVATE void pthread_atfork_child();
@@ -621,23 +615,6 @@ void dmtcp::DmtcpWorker::waitForStage1Suspend()
     ThreadSync::setCheckpointThreadInitialized();
   }
 
-#ifdef EXTERNAL_SOCKET_HANDLING
-  JASSERT(_waitingForExternalSocketsToClose == true ||
-             externalTcpConnections.empty() == true);
-
-  while (externalTcpConnections.empty() == false) {
-    JTRACE("Waiting for externalSockets toClose")
-          (_waitingForExternalSocketsToClose);
-    sleep (1);
-  }
-  if (_waitingForExternalSocketsToClose == true) {
-    DmtcpMessage msg (DMT_EXTERNAL_SOCKETS_CLOSED);
-    CoordinatorAPI::instance().sendMsgToCoordinator(msg);
-    _waitingForExternalSocketsToClose = false;
-    JTRACE("externalSocketsClosed") (_waitingForExternalSocketsToClose);
-  }
-#endif
-
   waitForCoordinatorMsg ("SUSPEND", DMT_DO_SUSPEND);
   UniquePid::updateCkptDir();
 
@@ -647,11 +624,7 @@ void dmtcp::DmtcpWorker::waitForStage1Suspend()
   JTRACE("Starting checkpoint, suspending...");
 }
 
-#ifdef EXTERNAL_SOCKET_HANDLING
-bool dmtcp::DmtcpWorker::waitForStage2Checkpoint()
-#else
 void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
-#endif
 {
   WorkerState::setCurrentState (WorkerState::SUSPENDED);
   JTRACE("suspended");
@@ -675,13 +648,7 @@ void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
 
   WorkerState::setCurrentState (WorkerState::FD_LEADER_ELECTION);
 
-#ifdef EXTERNAL_SOCKET_HANDLING
-  if (waitForStage2bCheckpoint() == false) {
-    return false;
-  }
-#else
   waitForCoordinatorMsg ("DRAIN", DMT_DO_DRAIN);
-#endif
 
   WorkerState::setCurrentState (WorkerState::DRAINED);
 
@@ -691,104 +658,7 @@ void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
   JTRACE("got checkpoint message");
 
   processEvent(DMTCP_EVENT_PRE_CKPT, NULL);
-
-#ifdef EXTERNAL_SOCKET_HANDLING
-  return true;
-#endif
 }
-
-#ifdef EXTERNAL_SOCKET_HANDLING
-bool dmtcp::DmtcpWorker::waitForStage2bCheckpoint()
-{
-  waitForCoordinatorMsg ("PEER_LOOKUP", DMT_DO_PEER_LOOKUP);
-  JTRACE("Looking up Socket Peers...");
-  theTcpConnections.clear();
-  theCheckpointState->preCheckpointPeerLookup(theTcpConnections);
-  sendPeerLookupRequest(theTcpConnections);
-  JTRACE("Done Socket Peer Lookup");
-
-
-  WorkerState::setCurrentState (WorkerState::PEER_LOOKUP_COMPLETE);
-
-  {
-    dmtcp::DmtcpMessage msg;
-
-    msg.type = DMT_OK;
-    msg.state = WorkerState::currentState();
-    sendMsgToCoordinator(msg);
-
-    JTRACE("waiting for DRAIN/RESUME message");
-
-    do {
-      msg.poison();
-      CoordinatorAPI::instance().recvMsgFromCoordinator(msg);
-      msg.assertValid();
-
-      if (msg.type == DMT_KILL_PEER) {
-        JTRACE("Received KILL message from coordinator, exiting");
-        _exit (0);
-      }
-      JTRACE("received message") (msg.type);
-      if (msg.type != DMT_UNKNOWN_PEER)
-        break;
-
-      JTRACE("received DMT_UNKNOWN_PEER message") (msg.conId);
-
-      TcpConnection* con =
-        (TcpConnection*) &(ConnectionList::instance() [msg.conId]);
-      con->markExternal();
-      externalTcpConnections.push_back(msg.conId);
-      _waitingForExternalSocketsToClose = true;
-
-    } while (msg.type == DMT_UNKNOWN_PEER);
-
-    JASSERT(msg.type == DMT_DO_DRAIN || msg.type == DMT_DO_RESUME)
-            (msg.type);
-
-    ConnectionList& connections = ConnectionList::instance();
-
-    // Tcp Accept and Connect connection with PeerType UNKNOWN should be marked as INTERNAL
-    for (ConnectionList::iterator i = connections.begin()
-        ; i!= connections.end()
-        ; ++i)
-    {
-      Connection* con =  i->second;
-      if (con->conType() == Connection::TCP) {
-        TcpConnection* tcpCon = (TcpConnection *) con;
-        if ((tcpCon->tcpType() == TcpConnection::TCP_ACCEPT ||
-             tcpCon->tcpType() == TcpConnection::TCP_CONNECT) &&
-             tcpCon->peerType() == TcpConnection::PEER_UNKNOWN)
-          tcpCon->markInternal();
-      }
-    }
-    if (msg.type == DMT_DO_RESUME) {
-      JTRACE("Peer Lookup not complete, skipping checkpointing \n\n\n\n\n");
-      return false;
-    }
-
-    JASSERT(msg.type == DMT_DO_DRAIN);
-  }
-}
-
-void dmtcp::DmtcpWorker::sendPeerLookupRequest (dmtcp::vector<TcpConnectionInfo>& conInfoTable)
-{
-  for (int i = 0; i < conInfoTable.size(); ++i) {
-    DmtcpMessage msg;
-    msg.type = DMT_PEER_LOOKUP;
-    msg.localAddr    = conInfoTable[i].localAddr();
-    msg.remoteAddr   = conInfoTable[i].remoteAddr();
-    msg.localAddrlen = conInfoTable[i].addrlen();
-    msg.conId        = conInfoTable[i].conId();
-
-    sendMsgToCoordinator(msg);
-  }
-}
-
-bool dmtcp::DmtcpWorker::waitingForExternalSocketsToClose() {
-  return _waitingForExternalSocketsToClose;
-}
-#endif
-
 
 void dmtcp::DmtcpWorker::postRestart()
 {
@@ -799,7 +669,9 @@ void dmtcp::DmtcpWorker::postRestart()
   UniquePid compGroup = UniquePid::ComputationId();
   size_t numPeers = ProcessInfo::instance().numPeers();
   CoordinatorAPI::instance().sendCoordinatorHandshake(procname, compGroup,
-                                                      numPeers);
+                                                      numPeers,
+                                                      DMT_HELLO_COORDINATOR,
+                                                      false);
   CoordinatorAPI::instance().recvCoordinatorHandshake();
 }
 

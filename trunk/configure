@@ -768,7 +768,6 @@ enable_openmp
 enable_debug
 enable_quiet
 enable_timing
-enable_condor_support
 enable_unique_checkpoint_filenames
 enable_ptrace_support
 enable_forked_checkpointing
@@ -778,7 +777,6 @@ enable_experts_only_space1
 enable_experts_only
 enable_experts_only_after
 enable_pid_virtualization
-enable_external_socket_handling
 enable_allocator
 with_record_replay
 with_mpich
@@ -1425,7 +1423,6 @@ Optional Features:
   --enable-timing         record checkpoint/restart timing information to
                           jtimings.csv, in working directory of
                           dmtcp_coordinator, and to stderr.
-  --enable-condor-support set configure options to support Condor.
   --enable-unique-checkpoint-filenames
                           By default, successive checkpoints are written to
                           the same filename. Enable if each successive
@@ -1451,8 +1448,6 @@ Optional Features:
                           _required_ for checkpointing shells and for many
                           programs using fork(). Disable it only for
                           performance reasons or for diagnosis of bugs.
-  --enable-external-socket-handling
-                          wait for connection to external peer to close.
   --enable-allocator      cause DMTCP to use a custom allocator based on mmap
                           and avoid calling malloc and free (EXPERIMENTAL)
   --enable-m32            Compile in 32 bit mode on 64 bit linux. (Works on
@@ -4409,14 +4404,6 @@ else
 fi
 
 
-# Check whether --enable-condor_support was given.
-if test "${enable_condor_support+set}" = set; then :
-  enableval=$enable_condor_support; use_condor_support=$enableval
-else
-  use_condor_support=no
-fi
-
-
 # Check whether --enable-unique_checkpoint_filenames was given.
 if test "${enable_unique_checkpoint_filenames+set}" = set; then :
   enableval=$enable_unique_checkpoint_filenames; use_unique_checkpoint_filenames=$enableval
@@ -4513,14 +4500,6 @@ else
   PID_VIRTUALIZATION=no
 
 fi
-
-# Check whether --enable-external_socket_handling was given.
-if test "${enable_external_socket_handling+set}" = set; then :
-  enableval=$enable_external_socket_handling; use_external_socket_handling=$enableval
-else
-  use_external_socket_handling=no
-fi
-
 
 # Check whether --enable-allocator was given.
 if test "${enable_allocator+set}" = set; then :

@@ -30,6 +30,7 @@
  * Created on July 11, 2012, 6:02 PM
 ******************************************************************/
 
+#pragma once
 #ifndef UTIL_DESCRIPTOR_H
 #define	UTIL_DESCRIPTOR_H
 

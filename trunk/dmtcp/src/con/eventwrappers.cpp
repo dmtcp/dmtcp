@@ -27,14 +27,9 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #include <unistd.h>
-//#include <string>
-//#include <iostream>
-//#include "eventwrappers.h"
-#include "uniquepid.h"
-#include "dmtcpworker.h"
-#include "connectionmanager.h"
+#include "connectionlist.h"
 #include "syscallwrappers.h"
-#include  "../jalib/jassert.h"
+#include "../jalib/jassert.h"
 
 using namespace dmtcp;
 /* 'man 7 signal' says the following are not restarted after ckpt signal
@@ -71,10 +66,10 @@ extern "C" int poll(struct pollfd *fds, nfds_t nfds, int timeout)
 {
   int rc;
   while (1) {
-    int orig_generation = dmtcp::UniquePid::ComputationId().generation();
+    int orig_generation = dmtcp_get_generation();
     rc = _real_poll(fds, nfds, timeout);
     if (rc == -1 && errno == EINTR &&
-         dmtcp::UniquePid::ComputationId().generation() > orig_generation) {
+         dmtcp_get_generation() > orig_generation) {
       continue;  // This was a restart or resume after checkpoint.
     } else {
       break;  // The signal interrupting us was not our checkpoint signal.
@@ -110,7 +105,7 @@ static int in_dmtcp_on_helper_fnc = 0;
     _dmtcp_unlock();                                                        \
     errno =saved_errno;                                                     \
     /* If the wrapper-execution lock was acquired earlier, release it now*/ \
-    WRAPPER_EXECUTION_ENABLE_CKPT()                                         \
+    DMTCP_ENABLE_CKPT();                                                    \
     return ret;                                                             \
   }
 
@@ -258,14 +253,14 @@ EXTERNC int dmtcp_on_inotify_rm_watch(int ret, int fd, int wd)
 
 extern "C" int signalfd(int fd, const sigset_t *mask, int flags)
 {
-  WRAPPER_EXECUTION_DISABLE_CKPT();
+  DMTCP_DISABLE_CKPT();
   JTRACE("Creating signalfd");
   PASSTHROUGH_DMTCP_HELPER(signalfd, fd, mask, flags);
 }
 
 extern "C" int eventfd(int initval, int flags)
 {
-  WRAPPER_EXECUTION_DISABLE_CKPT();
+  DMTCP_DISABLE_CKPT();
   JTRACE("Creating eventfd");
   PASSTHROUGH_DMTCP_HELPER(eventfd, initval, flags);
 }
@@ -275,7 +270,7 @@ extern "C" int epoll_create(int size)
 {
   //static int epfd = -1;
   //JWARNING(false) .Text("epoll is currently not supported by DMTCP.");
-  WRAPPER_EXECUTION_DISABLE_CKPT(); // The lock is released inside the macro.
+  DMTCP_DISABLE_CKPT(); // The lock is released inside the macro.
   JTRACE("Starting to create epoll fd.");
   //errno = EPERM;
   PASSTHROUGH_DMTCP_HELPER(epoll_create, size);
@@ -286,7 +281,7 @@ extern "C" int epoll_create(int size)
 extern "C" int epoll_create1(int flags)
 {
   //JWARNING(false) .Text("epoll is currently not supported by DMTCP.");
-  WRAPPER_EXECUTION_DISABLE_CKPT(); // The lock is released inside the macro.
+  DMTCP_DISABLE_CKPT(); // The lock is released inside the macro.
   JTRACE("Starting to create1 epoll fd.");
   //errno = EPERM;
   PASSTHROUGH_DMTCP_HELPER(epoll_create1, flags);
@@ -294,7 +289,7 @@ extern "C" int epoll_create1(int flags)
 
 extern "C" int epoll_ctl(int epfd, int op, int fd, struct epoll_event *event)
 {
-  WRAPPER_EXECUTION_DISABLE_CKPT();
+  DMTCP_DISABLE_CKPT();
   JTRACE("Starting to do stuff with epoll fd");
   PASSTHROUGH_DMTCP_HELPER(epoll_ctl, epfd, op, fd, event);
 }
@@ -307,9 +302,9 @@ extern "C" int epoll_wait(int epfd, struct epoll_event *events, int maxevents,
   int mytime = 1000; // wait time quanta: 1000 ms
   while (1)
   {
-    WRAPPER_EXECUTION_DISABLE_CKPT();
+    DMTCP_DISABLE_CKPT();
     readyFds = _real_epoll_wait(epfd, events, maxevents, mytime);
-    WRAPPER_EXECUTION_ENABLE_CKPT();
+    DMTCP_ENABLE_CKPT();
     if (timeLeft > 0)
         timeLeft -= mytime;
 
@@ -352,7 +347,7 @@ EXTERNC int inotify_init1(int flags)
 EXTERNC int inotify_init()
 {
   int fd;
-  WRAPPER_EXECUTION_DISABLE_CKPT(); // The lock is released inside the macro.
+  DMTCP_DISABLE_CKPT(); // The lock is released inside the macro.
   JTRACE("Starting to create an inotify fd.");
   fd = _real_inotify_init();
   if (fd > 0) {
@@ -360,7 +355,7 @@ EXTERNC int inotify_init()
     fd = dmtcp_on_inotify_init(fd);
     _dmtcp_unlock();
   }
-  WRAPPER_EXECUTION_ENABLE_CKPT();
+  DMTCP_ENABLE_CKPT();
   return fd;
 }
 
@@ -374,7 +369,7 @@ EXTERNC int inotify_init()
  ******************************************************************/
 EXTERNC int inotify_init1(int flags)
 {
-  WRAPPER_EXECUTION_DISABLE_CKPT();
+  DMTCP_DISABLE_CKPT();
   JTRACE("Starting to create an inotify fd.");
   PASSTHROUGH_DMTCP_HELPER(inotify_init1, flags);
 }
@@ -391,7 +386,7 @@ EXTERNC int inotify_init1(int flags)
  ******************************************************************/
 EXTERNC int inotify_add_watch(int fd, const char *pathname, uint32_t mask)
 {
-  WRAPPER_EXECUTION_DISABLE_CKPT();
+  DMTCP_DISABLE_CKPT();
   JTRACE("Starting to create a watch descriptor.");
   PASSTHROUGH_DMTCP_HELPER (inotify_add_watch, fd, pathname, mask);
 }
@@ -408,7 +403,7 @@ EXTERNC int inotify_add_watch(int fd, const char *pathname, uint32_t mask)
  ******************************************************************/
 EXTERNC int inotify_rm_watch(int fd, int wd)
 {
-  WRAPPER_EXECUTION_DISABLE_CKPT(); // The lock is released inside the macro.
+  DMTCP_DISABLE_CKPT(); // The lock is released inside the macro.
   JTRACE("Starting to create1 inotify fd.");
   PASSTHROUGH_DMTCP_HELPER (inotify_rm_watch, fd, wd);
 }

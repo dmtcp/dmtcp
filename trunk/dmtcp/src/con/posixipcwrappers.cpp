@@ -22,10 +22,10 @@
 #include <time.h>
 #include "constants.h"
 #include "util.h"
+#include "dmtcpplugin.h"
 #include "syscallwrappers.h"
 #include "connection.h"
-#include "connectionmanager.h"
-#include "dmtcpplugin.h"
+#include "connectionlist.h"
 
 extern "C"
 mqd_t mq_open(const char *name, int oflag, ...)

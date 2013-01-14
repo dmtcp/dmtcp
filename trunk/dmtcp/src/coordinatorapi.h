@@ -68,8 +68,8 @@ namespace dmtcp
       void recvMsgFromCoordinator(DmtcpMessage *msg, void **str = NULL);
 
       jalib::JSocket& coordinatorSocket() { return _coordinatorSocket; }
-      const UniquePid& coordinatorId() const { return _coordinatorId; }
-      const void setCoordinatorId(UniquePid id) { _coordinatorId = id; }
+      const DmtcpUniqueProcessId& coordinatorId() const { return _coordinatorId; }
+      const void setCoordinatorId(DmtcpUniqueProcessId id) { _coordinatorId = id; }
       time_t coordTimeStamp() const { return _coordTimeStamp; }
 
       bool isValid() { return _coordinatorSocket.isValid(); }
@@ -125,7 +125,7 @@ namespace dmtcp
       jalib::JSocket createNewConnectionToCoordinator(bool dieOnError = true);
 
     protected:
-      UniquePid      _coordinatorId;
+      DmtcpUniqueProcessId      _coordinatorId;
       jalib::JSocket _coordinatorSocket;
       time_t         _coordTimeStamp;
       pid_t          _virtualPid;

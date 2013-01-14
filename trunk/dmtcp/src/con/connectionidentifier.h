@@ -19,13 +19,18 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#ifndef DMTCPCONNECTIONIDENTIFIER_H
-#define DMTCPCONNECTIONIDENTIFIER_H
+#pragma once
+#ifndef CONNECTIONIDENTIFIER_H
+#define CONNECTIONIDENTIFIER_H
 
+#include <stdint.h>
 #include "constants.h"
 #include "dmtcpalloc.h"
-#include "uniquepid.h"
+#include "dmtcpplugin.h"
 #include "../jalib/jalloc.h"
+#include "../jalib/jserialize.h"
+
+#define HANDSHAKE_SIGNATURE_MSG "DMTCP_SOCK_HANDSHAKE_V0\n"
 
 namespace dmtcp
 {
@@ -43,32 +48,78 @@ namespace dmtcp
 
       static void serialize ( jalib::JBinarySerializer& o );
 
-      int conId() const;
-      const UniquePid& pid() const;
+      long   hostid() const { return _upid._hostid; }
+      pid_t  pid() const { return _upid._pid; }
+      time_t time() const { return _upid._time; }
+      long   conId() const { return _id; }
+      //int conId() const;
+      //const UniquePid& pid() const;
 
-      ConnectionIdentifier ( const UniquePid& pid = UniquePid(), int id = -1 );
+      ConnectionIdentifier (int id = -1);
+      ConnectionIdentifier(DmtcpUniqueProcessId id) {
+        _upid = id;
+        _id = -1;
+      }
 
       bool isNull() const { return _id < 0; }
+
+      bool operator==(const ConnectionIdentifier& that) const;
+      bool operator< (const ConnectionIdentifier& that) const;
+      bool operator!=(const ConnectionIdentifier& that) const
+      { return !(*this == that); }
+
     private:
-      UniquePid _pid;
-      long _id;
+      DmtcpUniqueProcessId _upid;
+      long   _id;
   };
 
+  class ConnMsg {
+    public:
+    enum MsgType {
+      INVALID = -1,
+      HANDSHAKE = 0,
+      DRAIN,
+      REFILL
+    };
 
-  bool operator<(const ConnectionIdentifier& a, const ConnectionIdentifier& b);
-  bool operator==(const ConnectionIdentifier& a, const ConnectionIdentifier& b);
-  inline bool operator!=(const ConnectionIdentifier& a,
-                         const ConnectionIdentifier& b)
-    { return ! ( a == b ); }
+    ConnMsg(enum MsgType t = INVALID) {
+      strcpy(sign, HANDSHAKE_SIGNATURE_MSG);
+      type = t;
+      size = sizeof(ConnMsg);
+      extraBytes = 0;
+    }
 
+    void poison() {
+      sign[0] = '\0';
+      type = INVALID;
+    }
+
+    void assertValid(enum MsgType t) {
+      JASSERT(strcmp(sign, HANDSHAKE_SIGNATURE_MSG) == 0) (sign)
+        .Text("read invalid message, signature mismatch. (External socket?)");
+      JASSERT(size == sizeof(ConnMsg)) (size) (sizeof(ConnMsg))
+        .Text("read invalid message, size mismatch.");
+      JASSERT(type == t) (t) (type) .Text("Wrong Msg Type.");
+    }
+
+    char sign[32];
+    int type;
+    int size;
+    int extraBytes;
+    ConnectionIdentifier from;
+    ConnectionIdentifier coordId;
+  };
 }
 
 namespace std
 {
   inline dmtcp::ostream& operator<<(dmtcp::ostream& o,
-                                    const dmtcp::ConnectionIdentifier& i)
+                                    const dmtcp::ConnectionIdentifier& id)
   {
-    o << i.pid() << '(' << i.conId() << ')';
+    o << std::hex << id.hostid()
+      << '-' << std::dec << id.pid()
+      << '-' << std::hex << id.time()
+      << std::dec << '(' << id.conId() << ')';
     return o;
   }
 }

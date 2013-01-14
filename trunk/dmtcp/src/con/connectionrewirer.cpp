@@ -19,11 +19,12 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include "coordinatorapi.h"
 #include "connectionrewirer.h"
 #include "dmtcpplugin.h"
 #include "syscallwrappers.h"
+#include "protectedfds.h"
 #include "util.h"
+#include "../jalib/jsocket.h"
 
 void dmtcp::ConnectionRewirer::checkForPendingIncoming()
 {

@@ -37,7 +37,7 @@
 #include "util.h"
 #include "util_descriptor.h"
 #include "../jalib/jalloc.h"
-#include  "../jalib/jassert.h"
+#include "../jalib/jassert.h"
 
 /******************************************************************
  * Class Variables: is_initialized, descriptor_counter,

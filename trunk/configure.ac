@@ -51,12 +51,6 @@ AC_ARG_ENABLE([timing],
             [use_jtiming=$enableval],
             [use_jtiming=no])
 
-AC_ARG_ENABLE([condor_support],
-            [AS_HELP_STRING([--enable-condor-support],
-                            [set configure options to support Condor.])],
-            [use_condor_support=$enableval],
-            [use_condor_support=no])
-
 AC_ARG_ENABLE([unique_checkpoint_filenames],
             [AS_HELP_STRING([--enable-unique-checkpoint-filenames],
                             [By default, successive checkpoints are written
@@ -137,12 +131,6 @@ if test "$use_pid_virt" = "yes"; then
 else
   AC_SUBST([PID_VIRTUALIZATION], [no])
 fi
-
-AC_ARG_ENABLE([external_socket_handling],
-            [AS_HELP_STRING([--enable-external-socket-handling],
-                            [wait for connection to external peer to close.])],
-            [use_external_socket_handling=$enableval],
-            [use_external_socket_handling=no])
 
 AC_ARG_ENABLE([allocator],
             [AS_HELP_STRING([--enable-allocator],

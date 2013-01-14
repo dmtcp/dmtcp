@@ -21,31 +21,29 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#pragma once
 #ifndef DMTCPCONNECTION_H
 #define DMTCPCONNECTION_H
 
 // THESE INCLUDES ARE IN RANDOM ORDER.  LET'S CLEAN IT UP AFTER RELEASE. - Gene
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <unistd.h>
+#include <mqueue.h>
+#include <stdint.h>
+#include <signal.h>
 #include "constants.h"
 #include "dmtcpalloc.h"
 #include "connectionidentifier.h"
 #include "syscallwrappers.h"
-#include <vector>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <signal.h>
-#include <map>
 #include "../jalib/jbuffer.h"
 #include "../jalib/jserialize.h"
 #include "../jalib/jassert.h"
 #include "../jalib/jconvert.h"
 #include "../jalib/jalloc.h"
 #include "../jalib/jfilesystem.h"
-#include  "../jalib/jsocket.h"
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <unistd.h>
-#include <mqueue.h>
-#include <stdint.h>
 
 #ifdef HAVE_SYS_INOTIFY_H
 #include <sys/inotify.h>
@@ -89,7 +87,6 @@ namespace dmtcp
 #ifdef DMTCP_USE_INOTIFY
   class InotifyConnection;
 #endif
-
 
   class Connection
   {
@@ -140,8 +137,8 @@ namespace dmtcp
       virtual void saveOptions();
       virtual void restoreOptions();
 
-      virtual void doSendHandshakes(const dmtcp::UniquePid& coordinator) {};
-      virtual void doRecvHandshakes(const dmtcp::UniquePid& coordinator) {};
+      virtual void doSendHandshakes(const ConnectionIdentifier& coordId) {};
+      virtual void doRecvHandshakes(const ConnectionIdentifier& coordId) {};
 
       //convert with type checking
       virtual TcpConnection& asTcp();
@@ -175,7 +172,6 @@ namespace dmtcp
       {
         PEER_UNKNOWN,
         PEER_INTERNAL,
-        PEER_EXTERNAL,
         PEER_SOCKETPAIR
       };
 
@@ -239,11 +235,11 @@ namespace dmtcp
       virtual void restore(ConnectionRewirer *rewirer = NULL);
       virtual void restoreOptions();
 
-      virtual void doSendHandshakes(const dmtcp::UniquePid& coordinator);
-      virtual void doRecvHandshakes(const dmtcp::UniquePid& coordinator);
+      virtual void doSendHandshakes(const ConnectionIdentifier& coordId);
+      virtual void doRecvHandshakes(const ConnectionIdentifier& coordId);
 
-      void sendHandshake(int remotefd, const UniquePid& coordinator);
-      void recvHandshake(int remotefd, const UniquePid& coordinator);
+      void sendHandshake(int remotefd, const ConnectionIdentifier& coordId);
+      void recvHandshake(int remotefd, const ConnectionIdentifier& coordId);
 
       void setSocketpairPeer(ConnectionIdentifier id) {
         _peerType = PEER_SOCKETPAIR;

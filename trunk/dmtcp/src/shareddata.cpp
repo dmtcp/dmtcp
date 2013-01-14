@@ -356,14 +356,14 @@ void dmtcp::SharedData::insertPtyNameMap(const char* virt, const char* real)
   Util::unlockFile(PROTECTED_SHM_FD);
 }
 
-void dmtcp::SharedData::registerMissingCons(vector<ConnectionIdentifier>& ids,
+void dmtcp::SharedData::registerMissingCons(vector<const char*>& ids,
                                             struct sockaddr_un receiverAddr,
                                             socklen_t len)
 {
   Util::lockFile(PROTECTED_SHM_FD);
   for (size_t i = 0; i < ids.size(); i++) {
     size_t n = sharedDataHeader->numMissingConMaps++;
-    sharedDataHeader->missingConMap[n].id = ids[i];
+    memcpy(sharedDataHeader->missingConMap[n].id, ids[i], CON_ID_LEN);
     memcpy(&sharedDataHeader->missingConMap[n].addr, &receiverAddr, len);
     sharedDataHeader->missingConMap[n].len = len;
   }

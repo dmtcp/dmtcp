@@ -19,29 +19,24 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <fcntl.h>
-#include <sys/types.h>
 #include <unistd.h>
 #include <errno.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-
 #include "constants.h"
-#include "syscallwrappers.h"
-#include "connectionmanager.h"
-#include "protectedfds.h"
 #include "util.h"
 #include "dmtcpplugin.h"
 #include "shareddata.h"
+#include "syscallwrappers.h"
+#include "connectionlist.h"
 #include "kernelbufferdrainer.h"
 #include "connectionrewirer.h"
-#include "coordinatorapi.h"
-#include  "../jalib/jfilesystem.h"
-#include  "../jalib/jconvert.h"
-#include  "../jalib/jassert.h"
-#include  "../jalib/jsocket.h"
+#include "../jalib/jfilesystem.h"
+#include "../jalib/jconvert.h"
+#include "../jalib/jassert.h"
+#include "../jalib/jsocket.h"
 
 using namespace dmtcp;
 
@@ -441,13 +436,13 @@ void dmtcp::ConnectionList::preCheckpointDrain()
 
 void dmtcp::ConnectionList::preCheckpointHandshakes()
 {
-  const UniquePid coordinator = CoordinatorAPI::instance().coordinatorId();
+  DmtcpUniqueProcessId coordId = dmtcp_get_coord_id();
   //must send first to avoid deadlock
   //we are relying on OS buffers holding our message without blocking
   for (iterator i = begin(); i != end(); ++i) {
     Connection *con = i->second;
     if (con->hasLock()) {
-      con->doSendHandshakes(coordinator);
+      con->doSendHandshakes(coordId);
     }
   }
 
@@ -455,7 +450,7 @@ void dmtcp::ConnectionList::preCheckpointHandshakes()
   for (iterator i = begin(); i != end(); ++i) {
     Connection *con = i->second;
     if (con->hasLock()) {
-      con->doRecvHandshakes(coordinator);
+      con->doRecvHandshakes(coordId);
     }
   }
 }
@@ -565,13 +560,13 @@ void dmtcp::ConnectionList::registerMissingCons()
                       (struct sockaddr *)&fdReceiveAddr,
                       &fdReceiveAddrLen) == 0);
 
-  vector<ConnectionIdentifier> missingCons;
+  vector<const char *> missingCons;
   ostringstream in, out;
   for (iterator i = begin(); i != end(); ++i) {
     Connection *con = i->second;
     if (!con->hasLock() && con->subType() != PtyConnection::PTY_CTTY &&
         con->conType() != Connection::STDIO) {
-      missingCons.push_back(i->first);
+      missingCons.push_back((const char*)&i->first);
       in << "\n\t" << con->str() << i->first;
     } else {
       out << "\n\t" << con->str() << i->first;
@@ -594,7 +589,8 @@ void dmtcp::ConnectionList::sendReceiveMissingFds()
   size_t nmaps;
   SharedData::getMissingConMaps(&maps, &nmaps);
   for (i = 0; i < nmaps; i++) {
-    Connection *con = ConnectionList::instance().getConnection(maps[i].id);
+    ConnectionIdentifier *id = (ConnectionIdentifier*) maps[i].id;
+    Connection *con = ConnectionList::instance().getConnection(*id);
     if (con != NULL && con->hasLock()) {
       outgoingCons.push_back(i);
     }
@@ -619,10 +615,10 @@ void dmtcp::ConnectionList::sendReceiveMissingFds()
 
     if (i < outgoingCons.size() && FD_ISSET(PROTECTED_FDREWIRER_FD, &wfds)) {
       size_t idx = outgoingCons[i];
-      ConnectionIdentifier& id = maps[idx].id;
-      Connection *con = getConnection(id);
-      JTRACE("Sending Missing Con") (id);
-      sendFd(con->getFds()[0], id, maps[idx].addr, maps[idx].len);
+      ConnectionIdentifier *id = (ConnectionIdentifier*) maps[idx].id;
+      Connection *con = getConnection(*id);
+      JTRACE("Sending Missing Con") (*id);
+      sendFd(con->getFds()[0], *id, maps[idx].addr, maps[idx].len);
       i++;
     }
 

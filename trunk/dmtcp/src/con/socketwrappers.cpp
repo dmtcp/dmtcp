@@ -35,9 +35,8 @@
 #include <errno.h>
 #include "syscallwrappers.h"
 #include "constants.h"
-#include "dmtcpworker.h"
 #include "connection.h"
-#include "connectionmanager.h"
+#include "connectionlist.h"
 #include "../jalib/jassert.h"
 #include "../jalib/jfilesystem.h"
 
@@ -45,7 +44,7 @@ using namespace dmtcp;
 
 extern "C" int socket(int domain, int type, int protocol)
 {
-  WRAPPER_EXECUTION_DISABLE_CKPT();
+  DMTCP_DISABLE_CKPT();
   int ret = _real_socket(domain, type, protocol);
   if (ret != -1) {
     Connection *con;
@@ -59,14 +58,14 @@ extern "C" int socket(int domain, int type, int protocol)
     }
     ConnectionList::instance().add(ret, con);
   }
-  WRAPPER_EXECUTION_ENABLE_CKPT();
+  DMTCP_ENABLE_CKPT();
   return ret;
 }
 
 extern "C" int connect(int sockfd, const struct sockaddr *serv_addr,
                        socklen_t addrlen)
 {
-  WRAPPER_EXECUTION_DISABLE_CKPT(); // The lock is released inside the macro.
+  DMTCP_DISABLE_CKPT(); // The lock is released inside the macro.
   int ret = _real_connect(sockfd,serv_addr,addrlen);
 
   //no blocking connect... need to hang around until it is writable
@@ -111,14 +110,14 @@ extern "C" int connect(int sockfd, const struct sockaddr *serv_addr,
     JTRACE("connected") (sockfd) (con.id());
 #endif
   }
-  WRAPPER_EXECUTION_ENABLE_CKPT();
+  DMTCP_ENABLE_CKPT();
   return ret;
 }
 
 extern "C" int bind(int sockfd, const struct sockaddr *my_addr,
                      socklen_t addrlen)
 {
-  WRAPPER_EXECUTION_DISABLE_CKPT(); // The lock is released inside the macro.
+  DMTCP_DISABLE_CKPT(); // The lock is released inside the macro.
   int ret = _real_bind(sockfd, my_addr, addrlen);
   if (ret != -1) {
     TcpConnection& con =
@@ -126,13 +125,13 @@ extern "C" int bind(int sockfd, const struct sockaddr *my_addr,
     con.onBind(sockfd, (struct sockaddr*) my_addr, addrlen);
     JTRACE("bind") (sockfd) (con.id());
   }
-  WRAPPER_EXECUTION_ENABLE_CKPT();
+  DMTCP_ENABLE_CKPT();
   return ret;
 }
 
 extern "C" int listen(int sockfd, int backlog)
 {
-  WRAPPER_EXECUTION_DISABLE_CKPT(); // The lock is released inside the macro.
+  DMTCP_DISABLE_CKPT(); // The lock is released inside the macro.
   int ret = _real_listen(sockfd, backlog);
   if (ret != -1) {
     TcpConnection& con =
@@ -140,7 +139,7 @@ extern "C" int listen(int sockfd, int backlog)
     con.onListen(backlog);
     JTRACE("listen") (sockfd) (con.id()) (backlog);
   }
-  WRAPPER_EXECUTION_ENABLE_CKPT();
+  DMTCP_ENABLE_CKPT();
   return ret;
 }
 
@@ -237,7 +236,7 @@ extern "C" int getsockopt(int sockfd, int level, int optname,
 
 extern "C" int socketpair(int d, int type, int protocol, int sv[2])
 {
-  WRAPPER_EXECUTION_DISABLE_CKPT();
+  DMTCP_DISABLE_CKPT();
 
   JASSERT(sv != NULL);
   int rv = _real_socketpair(d,type,protocol,sv);
@@ -256,7 +255,7 @@ extern "C" int socketpair(int d, int type, int protocol, int sv[2])
     dmtcp::ConnectionList::instance().add(sv[1] , b);
   }
 
-  WRAPPER_EXECUTION_ENABLE_CKPT();
+  DMTCP_ENABLE_CKPT();
 
   return rv;
 }
