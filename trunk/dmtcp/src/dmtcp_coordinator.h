@@ -38,33 +38,35 @@ namespace dmtcp
         int numPeers;
       } CoordinatorStatus;
 
-      virtual void onData ( jalib::JReaderInterface* sock );
-      virtual void onConnect ( const jalib::JSocket& sock, const struct sockaddr* remoteAddr,socklen_t remoteLen );
-      virtual void onDisconnect ( jalib::JReaderInterface* sock );
+      virtual void onData(jalib::JReaderInterface* sock);
+      virtual void onConnect(const jalib::JSocket& sock,
+                             const struct sockaddr* remoteAddr,
+                             socklen_t remoteLen);
+      virtual void onDisconnect(jalib::JReaderInterface* sock);
       virtual void onTimeoutInterval();
 
       void updateMinimumState(dmtcp::WorkerState oldState);
       void initializeComputation();
-#ifdef EXTERNAL_SOCKET_HANDLING
-      void sendUnidentifiedPeerNotifications();
-#endif
-      void broadcastMessage( DmtcpMessageType type, dmtcp::UniquePid, int );
-      void broadcastMessage ( const DmtcpMessage& msg );
+      void broadcastMessage(DmtcpMessageType type, dmtcp::UniquePid, int);
+      void broadcastMessage(const DmtcpMessage& msg);
       bool startCheckpoint();
 
       void handleUserCommand(char cmd, DmtcpMessage* reply = NULL);
 
-      void processDmtUserCmd ( DmtcpMessage& hello_remote, jalib::JSocket& remote );
-      bool validateDmtRestartProcess ( DmtcpMessage& hello_remote,
-                                       jalib::JSocket& remote );
-      bool validateNewWorkerProcess ( DmtcpMessage& hello_remote,
-                                      jalib::JSocket& remote,
-                                      jalib::JChunkReader *jcr);
-      bool validateRestartingWorkerProcess ( DmtcpMessage& hello_remote,
-                                             jalib::JSocket& remote );
+      void processDmtUserCmd(DmtcpMessage& hello_remote,
+                             jalib::JSocket& remote);
+      bool validateDmtRestartProcess(DmtcpMessage& hello_remote,
+                                     jalib::JSocket& remote);
+      bool validateNewWorkerProcess(DmtcpMessage& hello_remote,
+                                    jalib::JSocket& remote,
+                                    jalib::JChunkReader *jcr);
+      bool validateRestartingWorkerProcess(DmtcpMessage& hello_remote,
+                                           jalib::JSocket& remote);
 
       CoordinatorStatus getStatus() const;
-      dmtcp::WorkerState minimumState() const { return getStatus().minimumState; }
+      dmtcp::WorkerState minimumState() const {
+        return getStatus().minimumState;
+      }
 
       pid_t getNewVirtualPid();
 
@@ -72,19 +74,11 @@ namespace dmtcp
       void writeRestartScript();
     private:
       typedef dmtcp::vector<jalib::JReaderInterface*>::iterator iterator;
-      typedef dmtcp::vector<jalib::JReaderInterface*>::const_iterator const_iterator;
-      dmtcp::vector< DmtcpMessage > _restoreWaitingMessages;
-
-#ifdef EXTERNAL_SOCKET_HANDLING
-      dmtcp::vector< DmtcpMessage > _socketPeerLookupMessages;
-      typedef dmtcp::vector< DmtcpMessage >::iterator _socketPeerLookupMessagesIterator;
-
-      dmtcp::map< ConnectionIdentifier, int > _workerSocketTable;
-      typedef dmtcp::map< ConnectionIdentifier, int >::iterator _workerSocketTableIterator;
-#endif
+      typedef
+        dmtcp::vector<jalib::JReaderInterface*>::const_iterator const_iterator;
 
       //map from hostname to checkpoint files
-      dmtcp::map< dmtcp::string, dmtcp::vector<dmtcp::string> > _restartFilenames;
+      map< dmtcp::string, dmtcp::vector<dmtcp::string> > _restartFilenames;
       dmtcp::map< pid_t, jalib::JChunkReader* > _virtualPidToChunkReaderMap;
   };
 

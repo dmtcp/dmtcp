@@ -51,7 +51,7 @@ namespace dmtcp
       bool isNull() const { return _id < 0; }
     private:
       UniquePid _pid;
-      int _id;
+      long _id;
   };
 
 

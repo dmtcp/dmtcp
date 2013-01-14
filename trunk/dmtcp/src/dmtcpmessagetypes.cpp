@@ -45,9 +45,6 @@ dmtcp::DmtcpMessage::DmtcpMessage ( DmtcpMessageType t /*= DMT_NULL*/ )
     ,state ( WorkerState::currentState() )
     ,compGroup ( UniquePid::ComputationId() )
     ,virtualPid ( -1 )
-    ,restorePid ( ConnectionIdentifier::Null() )
-    ,restoreAddrlen ( 0 )
-    ,restorePort ( -1 )
     ,keyLen ( 0 )
     ,valLen ( 0 )
     ,theCheckpointInterval ( DMTCPMESSAGE_SAME_CKPT_INTERVAL )
@@ -61,7 +58,6 @@ dmtcp::DmtcpMessage::DmtcpMessage ( DmtcpMessageType t /*= DMT_NULL*/ )
 //     struct sockaddr_storage _addr;
 //         socklen_t _addrlen;
   strncpy ( _magicBits,DMTCP_MAGIC_STRING,sizeof ( _magicBits ) );
-  memset ( &restoreAddr,0,sizeof ( restoreAddr ) );
 }
 
 void dmtcp::DmtcpMessage::assertValid() const
@@ -191,8 +187,8 @@ dmtcp::ostream& dmtcp::operator << ( dmtcp::ostream& o, const dmtcp::DmtcpMessag
       OSHIFTPRINTF ( DMT_NAME_SERVICE_QUERY_RESPONSE )
 //#endif
 
-      OSHIFTPRINTF ( DMT_RESTORE_RECONNECTED )
-      OSHIFTPRINTF ( DMT_RESTORE_WAITING )
+//      OSHIFTPRINTF ( DMT_RESTORE_RECONNECTED )
+//      OSHIFTPRINTF ( DMT_RESTORE_WAITING )
 
       OSHIFTPRINTF ( DMT_PEER_ECHO )
       OSHIFTPRINTF ( DMT_OK )

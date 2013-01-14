@@ -571,8 +571,7 @@ void dmtcp::DmtcpWorker::waitForCoordinatorMsg(dmtcp::string msgStr,
   } while((type == DMT_DO_REFILL
            || type == DMT_DO_REGISTER_NAME_SERVICE_DATA
            || type == DMT_DO_SEND_QUERIES)
-          && (msg.type == DMT_RESTORE_WAITING ||
-              msg.type == DMT_FORCE_RESTART));
+          && msg.type == DMT_FORCE_RESTART);
 
   JASSERT(msg.type == type) (msg.type) (type);
 
@@ -806,6 +805,7 @@ void dmtcp::DmtcpWorker::postRestart()
 
 void dmtcp::DmtcpWorker::waitForStage3Refill(bool isRestart)
 {
+  DmtcpEventData_t edata;
   JTRACE("checkpointed");
 
   WorkerState::setCurrentState (WorkerState::CHECKPOINTED);
@@ -813,12 +813,13 @@ void dmtcp::DmtcpWorker::waitForStage3Refill(bool isRestart)
 #ifdef COORD_NAMESERVICE
   waitForCoordinatorMsg("REGISTER_NAME_SERVICE_DATA",
                           DMT_DO_REGISTER_NAME_SERVICE_DATA);
-  processEvent(DMTCP_EVENT_REGISTER_NAME_SERVICE_DATA, NULL);
+  edata.nameserviceInfo.isRestart = isRestart;
+  processEvent(DMTCP_EVENT_REGISTER_NAME_SERVICE_DATA, &edata);
   JTRACE("Key Value Pairs registered with the coordinator");
   WorkerState::setCurrentState(WorkerState::NAME_SERVICE_DATA_REGISTERED);
 
   waitForCoordinatorMsg("SEND_QUERIES", DMT_DO_SEND_QUERIES);
-  processEvent(DMTCP_EVENT_SEND_QUERIES, NULL);
+  processEvent(DMTCP_EVENT_SEND_QUERIES, &edata);
   JTRACE("Queries sent to the coordinator");
   WorkerState::setCurrentState(WorkerState::DONE_QUERYING);
 #endif
@@ -827,7 +828,6 @@ void dmtcp::DmtcpWorker::waitForStage3Refill(bool isRestart)
 
   SyslogCheckpointer::restoreService();
 
-  DmtcpEventData_t edata;
   edata.refillInfo.isRestart = isRestart;
   dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_REFILL, &edata);
 }

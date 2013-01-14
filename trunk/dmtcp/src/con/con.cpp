@@ -120,6 +120,18 @@ void dmtcp_Connection_ProcessEvent(DmtcpEvent_t event, DmtcpEventData_t *data)
       ConnectionList::instance().resume(data->resumeInfo.isRestart);
       break;
 
+    case DMTCP_EVENT_REGISTER_NAME_SERVICE_DATA:
+      if (data->nameserviceInfo.isRestart) {
+        ConnectionList::instance().registerNSData();
+      }
+      break;
+
+    case DMTCP_EVENT_SEND_QUERIES:
+      if (data->nameserviceInfo.isRestart) {
+        ConnectionList::instance().sendQueries();
+      }
+      break;
+
     default:
       break;
   }

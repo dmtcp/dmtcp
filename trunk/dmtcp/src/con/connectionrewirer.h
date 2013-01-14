@@ -23,7 +23,6 @@
 #define DMTCPCONNECTIONREWIRER_H
 
 #include "dmtcpalloc.h"
-#include  "../jalib/jsocket.h"
 #include "connectionidentifier.h"
 #include "connection.h"
 #include <map>
@@ -33,43 +32,40 @@
 namespace dmtcp
 {
 
-  class ConnectionRewirer : public jalib::JMultiSocketProgram
+  class ConnectionRewirer
   {
     public:
-      ConnectionRewirer() : _coordFd(-1), _restorePort(-1) {}
+      struct RemoteAddr {
+        struct sockaddr_storage addr;
+        socklen_t len;
+        Connection *con;
+      };
 
       void openRestoreSocket();
-      void doReconnect();
       void registerIncoming(const ConnectionIdentifier& local,
                             Connection *con);
       void registerOutgoing(const ConnectionIdentifier& remote,
                             Connection *con);
-
-
-    protected:
-
-      virtual void onData(jalib::JReaderInterface* sock);
-      virtual void onConnect(const jalib::JSocket& sock,
-                             const struct sockaddr* /*remoteAddr*/,
-                             socklen_t /*remoteLen*/);
-      virtual void onDisconnect(jalib::JReaderInterface* sock);
-
-      void finishup();
-
-      size_t pendingCount() const
-      { return _pendingIncoming.size() + _pendingOutgoing.size(); }
+      void registerNSData();
+      void sendQueries();
+      void doReconnect();
+      void checkForPendingIncoming();
 
       void debugPrint() const;
 
     private:
-      int _coordFd;
-      int _restorePort;
+      struct sockaddr_storage _restoreAddr;
+      socklen_t               _restoreAddrlen;
 
       typedef map<ConnectionIdentifier, Connection*> ConnectionListT;
       typedef ConnectionListT::iterator iterator;
       typedef ConnectionListT::const_iterator const_iterator;
+      typedef map<ConnectionIdentifier, struct RemoteAddr> RemoteInfoT;
+      typedef RemoteInfoT::iterator remoteInfoIter;
+
       ConnectionListT _pendingIncoming;
       ConnectionListT _pendingOutgoing;
+      RemoteInfoT     _remoteInfo;
   };
 
 }

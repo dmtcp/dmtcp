@@ -701,10 +701,6 @@ void dmtcp::DmtcpCoordinator::updateMinimumState(dmtcp::WorkerState oldState)
   if ( oldState == WorkerState::RESTARTING
        && newState == WorkerState::CHECKPOINTED )
   {
-    JTRACE ( "resetting _restoreWaitingMessages" )
-      ( _restoreWaitingMessages.size() );
-    _restoreWaitingMessages.clear();
-
     JTIMER_STOP ( restart );
 
     lookupService.reset();
@@ -734,10 +730,6 @@ void dmtcp::DmtcpCoordinator::updateMinimumState(dmtcp::WorkerState oldState)
   if ( oldState == WorkerState::RESTARTING
        && newState == WorkerState::CHECKPOINTED )
   {
-    JTRACE ( "resetting _restoreWaitingMessages" )
-      ( _restoreWaitingMessages.size() );
-    _restoreWaitingMessages.clear();
-
     JTIMER_STOP ( restart );
 
     JNOTE ( "refilling all nodes (after checkpoint)" );
@@ -811,25 +803,6 @@ void dmtcp::DmtcpCoordinator::onData ( jalib::JReaderInterface* sock )
           ( msg.from )( msg.state )( oldState )( newState );
 
         updateMinimumState(oldState);
-        break;
-      }
-      case DMT_RESTORE_WAITING:
-      {
-        DmtcpMessage restMsg = msg;
-        restMsg.type = DMT_RESTORE_WAITING;
-        memcpy ( &restMsg.restoreAddr,client->addr(),client->addrlen() );
-        restMsg.restoreAddrlen = client->addrlen();
-        restMsg.restorePort = msg.restorePort;
-        JASSERT ( restMsg.restorePort > 0 )
-          ( restMsg.restorePort ) ( client->identity() );
-        JASSERT ( restMsg.restoreAddrlen > 0 )
-          ( restMsg.restoreAddrlen ) ( client->identity() );
-        JASSERT ( restMsg.restorePid != ConnectionIdentifier::Null() )
-          ( client->identity() );
-        JTRACE ( "broadcasting RESTORE_WAITING" )
-          (restMsg.restorePid) (restMsg.restoreAddrlen) (restMsg.restorePort);
-        _restoreWaitingMessages.push_back ( restMsg );
-        broadcastMessage ( restMsg );
         break;
       }
       case DMT_CKPT_FILENAME:
@@ -1001,10 +974,6 @@ void dmtcp::DmtcpCoordinator::initializeComputation()
   UniquePid::ComputationId() = dmtcp::UniquePid(0,0,0);
   curTimeStamp = 0; // Drop timestamp to 0
   numPeers = -1; // Drop number of peers to unknown
-
-  JTRACE ( "resetting _restoreWaitingMessages" )
-    ( _restoreWaitingMessages.size() );
-  _restoreWaitingMessages.clear();
 }
 
 void dmtcp::DmtcpCoordinator::onConnect ( const jalib::JSocket& sock,
@@ -1101,22 +1070,6 @@ void dmtcp::DmtcpCoordinator::onConnect ( const jalib::JSocket& sock,
   //add this client as a chunk reader
   // in this case a 'chunk' is sizeof(DmtcpMessage)
   addDataSocket ( ds );
-
-  if ( hello_remote.state == WorkerState::RESTARTING
-          &&  _restoreWaitingMessages.size() > 0 )
-  {
-    JTRACE ( "updating missing broadcasts for new connection" )
-    ( hello_remote.from.pid() )
-    ( _restoreWaitingMessages.size() );
-    for ( size_t i=0; i<_restoreWaitingMessages.size(); ++i )
-    {
-      addWrite (
-          new jalib::JChunkWriter ( sock
-                                    , ( char* ) &_restoreWaitingMessages[i]
-                                    , sizeof ( DmtcpMessage ) )
-      );
-    }
-  }
 
   JTRACE( "END" )
   ( _dataSockets.size() ) ( _dataSockets[0]->socket().sockfd() == STDIN_FD );
