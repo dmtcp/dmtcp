@@ -81,8 +81,8 @@ namespace dmtcp
     DMT_NAME_SERVICE_QUERY_RESPONSE,
 //#endif
 
-    DMT_RESTORE_RECONNECTED, // sent to peer on reconnect
-    DMT_RESTORE_WAITING,     // announce the existence of a restoring server on network
+//    DMT_RESTORE_RECONNECTED, // sent to peer on reconnect
+//    DMT_RESTORE_WAITING,     // announce the existence of a restoring server on network
 //  DMT_RESTORE_SEARCHING,   // slave waiting wanting to know where to connect to
 
     DMT_PEER_ECHO,           // used to get a peer to echo back a buffer at you param[0] is len

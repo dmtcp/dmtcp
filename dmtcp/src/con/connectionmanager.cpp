@@ -47,6 +47,7 @@ using namespace dmtcp;
 
 static unsigned _nextVirtualPtyId;
 static dmtcp::KernelBufferDrainer *_theDrainer = NULL;
+static dmtcp::ConnectionRewirer *_rewirer = NULL;
 static size_t _numMissingCons = 0;
 static pthread_mutex_t conTblLock = PTHREAD_MUTEX_INITIALIZER;
 
@@ -498,8 +499,9 @@ void dmtcp::ConnectionList::postRestart()
 
 void dmtcp::ConnectionList::doReconnect()
 {
-  ConnectionRewirer _rewirer;
-  _rewirer.openRestoreSocket();
+  JASSERT(_rewirer == NULL);
+  _rewirer = new ConnectionRewirer();
+  _rewirer->openRestoreSocket();
 
   // Here we modify the restore algorithm by splitting it in two parts. In the
   // first part we restore all the connection except the PTY_SLAVE types and in
@@ -527,10 +529,21 @@ void dmtcp::ConnectionList::doReconnect()
 //        }
 //      }
 //    }
-    con->restore(&_rewirer);
+    con->restore(_rewirer);
   }
+}
 
-  _rewirer.doReconnect();
+void dmtcp::ConnectionList::registerNSData()
+{
+  _rewirer->registerNSData();
+}
+
+void dmtcp::ConnectionList::sendQueries()
+{
+  _rewirer->sendQueries();
+  _rewirer->doReconnect();
+  delete _rewirer;
+  _rewirer = NULL;
 }
 
 void dmtcp::ConnectionList::registerMissingCons()

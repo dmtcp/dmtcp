@@ -83,7 +83,7 @@ typedef union _DmtcpEventData_t {
 
   struct {
     int isRestart;
-  } resumeUserThreadInfo, refillInfo, resumeInfo;
+  } resumeUserThreadInfo, refillInfo, resumeInfo, nameserviceInfo;
 } DmtcpEventData_t;
 
 EXTERNC int dmtcp_plugin_disable_ckpt(void);

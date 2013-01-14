@@ -123,7 +123,7 @@ dmtcp::UniquePid::UniquePid(const char *filename)
   _pid = strtol(pid_str, NULL, 10);
   _time = strtol(time_str, NULL, 16);
   _generation = 0;
-  _prefix[0] = '\0';
+  memset(_prefix, 0, sizeof _prefix);
 }
 
 // _generation field of return value may later have to be modified.

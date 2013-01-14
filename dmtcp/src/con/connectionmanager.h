@@ -73,6 +73,8 @@ namespace dmtcp
       void resume(bool isRestart);
       void postRestart();
       void doReconnect();
+      void registerNSData();
+      void sendQueries();
 
       void registerMissingCons();
       void sendReceiveMissingFds();
