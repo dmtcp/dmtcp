@@ -914,6 +914,7 @@ static size_t writefiledescrs (int fd, int fdCkptFileOnDisk)
   /* Write end-of-fd-list marker to checkpoint file */
 
   area.fdinfo.fdnum = -1;
+  linkbuf[0] = '\0';
   num_written += mtcp_writefile(fd, &area, sizeof area);
   return num_written;
 }
