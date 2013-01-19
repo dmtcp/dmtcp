@@ -304,7 +304,7 @@ static void readfiledescrs (void)
 
 {
   char *linkbuf;
-  int fdnum, flags, linklen, tempfd;
+  int fdnum, flags, tempfd;
   off_t offset;
   struct stat statbuf;
   Area area;
@@ -398,7 +398,6 @@ static void readfiledescrs (void)
 static void readmemoryareas (int should_mmap_ckpt_image)
 {
   Area area;
-  char cstype;
   int flags, imagefd;
   void *mmappedat;
 

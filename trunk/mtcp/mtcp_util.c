@@ -514,8 +514,6 @@ void mtcp_get_memory_region_of_this_library(VA *startaddr, VA *endaddr)
   Area area;
   VA thislib_fnc = (void*) &mtcp_get_memory_region_of_this_library;
   VA thislib_static_var = (VA) &dummy_uninitialized_static_var;
-  VA lib_start_addr = NULL;
-  VA lib_end_addr = NULL;
   char filename[PATH_MAX] = {0};
   text.start_addr = guard.start_addr = rodata.start_addr = NULL;
   rwdata.start_addr = bssdata.start_addr = bssdata.end_addr = NULL;

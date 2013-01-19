@@ -63,7 +63,9 @@ static void prctlGetProcessName();
 static void prctlRestoreProcessName();
 
 static char *_mtcpRestoreArgvStartAddr = NULL;
+#ifdef RESTORE_ARGV_AFTER_RESTART
 static void restoreArgvAfterRestart(char* mtcpRestoreArgvStartAddr);
+#endif
 static void unmapRestoreArgv();
 
 static void callbackSleepBetweenCheckpoint(int sec);
@@ -341,6 +343,7 @@ void prctlRestoreProcessName()
 #endif
 }
 
+#ifdef RESTORE_ARGV_AFTER_RESTART
 static void restoreArgvAfterRestart(char* mtcpRestoreArgvStartAddr)
 {
   /*
@@ -400,6 +403,7 @@ static void restoreArgvAfterRestart(char* mtcpRestoreArgvStartAddr)
   }
   return;
 }
+#endif
 
 static void unmapRestoreArgv()
 {

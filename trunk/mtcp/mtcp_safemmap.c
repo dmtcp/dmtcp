@@ -38,6 +38,7 @@
 #include <sys/types.h>
 
 #include "mtcp_internal.h"
+#include "mtcp_util.h"
 
 /* This goes with mtcp_sys.h.  We allocate it here in mtcp_safemmap.c,
  * because any object using mtcp_sys.h should also be
@@ -51,7 +52,6 @@ void * mtcp_safemmap (void *start, size_t length, int prot, int flags, int fd,
 {
   int mapsfd;
   Area area;
-  VA endaddr, startaddr;
 
   /* If mapping to a fixed address, make sure there's nothing there now */
   if (flags & MAP_FIXED) {

@@ -87,8 +87,6 @@ static void (*finish_restore_fptr)(); /* will be bound to fnc, mtcp_restore_star
 
 void mtcp_writeckpt_init(VA restore_start_fn, VA finishrestore_fn)
 {
-  static size_t restore_size;
-  static VA restore_end;
   /* Need to get the addresses for the library only once */
   static int initialized = 0;
   if (initialized) {
@@ -275,7 +273,7 @@ void mtcp_checkpointeverything(const char *temp_ckpt_filename,
 {
   DPRINTF("thread:%d performing checkpoint.\n", mtcp_sys_kernel_gettid ());
 
-  int forked_ckpt_status = test_and_prepare_for_forked_ckpt(-1);
+  int forked_ckpt_status = test_and_prepare_for_forked_ckpt();
   if (forked_ckpt_status == FORKED_CKPT_PARENT) {
     DPRINTF("*** Using forked checkpointing.\n");
     return;
@@ -441,7 +439,7 @@ static int perform_open_ckpt_image_fd(const char *temp_ckpt_filename,
   return fd;
 }
 
-int test_and_prepare_for_forked_ckpt()
+static int test_and_prepare_for_forked_ckpt()
 {
 #ifdef TEST_FORKED_CHECKPOINTING
   return 1;
@@ -551,7 +549,6 @@ static void write_ckpt_to_file(int fd, int fdCkptFileOnDisk)
   Area area;
   DeviceInfo dev_info;
   int stack_was_seen = 0;
-  static void *const frpointer = mtcp_finishrestore;
   VA restore_begin = mtcp_shareable_begin;
   VA restore_end = mtcp_shareable_end;
 

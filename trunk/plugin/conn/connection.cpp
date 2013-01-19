@@ -1050,7 +1050,6 @@ void dmtcp::PtyConnection::restore(ConnectionRewirer*)
   }
 
   int tempfd;
-  char buf[PTS_PATH_MAX];
 
   switch (ptyType()) {
     case PTY_INVALID:
@@ -2016,8 +2015,7 @@ void dmtcp::PosixMQConnection::preCheckpoint(KernelBufferDrainer& drain)
   char *buf =(char*) JALLOC_HELPER_MALLOC(attr.mq_msgsize);
   for (long i = 0; i < _qnum; i++) {
     unsigned prio;
-    ssize_t numBytes = _real_mq_timedreceive(_fds[0], buf, attr.mq_msgsize,
-                                             &prio, NULL);
+    ssize_t numBytes = _real_mq_receive(_fds[0], buf, attr.mq_msgsize, &prio);
     JASSERT(numBytes != -1) (JASSERT_ERRNO);
     _msgInQueue.push_back(jalib::JBuffer((const char*)buf, numBytes));
     _msgInQueuePrio.push_back(prio);
@@ -2029,9 +2027,8 @@ void dmtcp::PosixMQConnection::preCheckpoint(KernelBufferDrainer& drain)
 void dmtcp::PosixMQConnection::refill(bool isRestart)
 {
   for (long i = 0; i < _qnum; i++) {
-    JASSERT(_real_mq_timedsend(_fds[0], _msgInQueue[i].buffer(),
-                               _msgInQueue[i].size(), _msgInQueuePrio[i],
-                               NULL) != -1);
+    JASSERT(_real_mq_send(_fds[0], _msgInQueue[i].buffer(),
+                          _msgInQueue[i].size(), _msgInQueuePrio[i]) != -1);
   }
   _msgInQueue.clear();
   _msgInQueuePrio.clear();

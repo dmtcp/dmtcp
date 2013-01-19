@@ -70,6 +70,8 @@
 #define _real_closelog NEXT_FNC(closelog)
 #define _real_mq_open NEXT_FNC(mq_open)
 #define _real_mq_close NEXT_FNC(mq_close)
+#define _real_mq_send NEXT_FNC(mq_send)
+#define _real_mq_receive NEXT_FNC(mq_receive)
 #define _real_mq_timedsend NEXT_FNC(mq_timedsend)
 #define _real_mq_timedreceive NEXT_FNC(mq_timedreceive)
 #define _real_mq_notify NEXT_FNC(mq_notify)
