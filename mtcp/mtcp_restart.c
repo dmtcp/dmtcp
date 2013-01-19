@@ -579,3 +579,15 @@ void __gcc_personality_v0(void)
   MTCP_PRINTF("MTCP Internal Error: %s Not Implemented.\n", __FUNCTION__);
   mtcp_abort();
 }
+
+void __intel_security_cookie(void)
+{
+  MTCP_PRINTF("MTCP Internal Error: %s Not Implemented.\n", __FUNCTION__);
+  mtcp_abort();
+}
+
+void __intel_security_check_cookie(void)
+{
+  MTCP_PRINTF("MTCP Internal Error: %s Not Implemented.\n", __FUNCTION__);
+  mtcp_abort();
+}
