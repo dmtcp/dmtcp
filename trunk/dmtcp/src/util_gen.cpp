@@ -46,8 +46,9 @@ void dmtcp::Util::lockFile(int fd)
 
   int result = -1;
   errno = 0;
-  while (result == -1 || errno == EINTR)
-    result = fcntl(fd, F_SETLKW, &fl);  /* F_GETLK, F_SETLK, F_SETLKW */
+  do {
+    result = _real_fcntl(fd, F_SETLKW, &fl);  /* F_GETLK, F_SETLK, F_SETLKW */
+  } while (result == -1 && errno == EINTR);
 
   JASSERT (result != -1) (JASSERT_ERRNO)
     .Text("Unable to lock the PID MAP file");
@@ -62,7 +63,7 @@ void dmtcp::Util::unlockFile(int fd)
   fl.l_start  = 0;        // Offset from l_whence
   fl.l_len    = 0;        // length, 0 = to EOF
 
-  result = fcntl(fd, F_SETLK, &fl); /* set the region to unlocked */
+  result = _real_fcntl(fd, F_SETLK, &fl); /* set the region to unlocked */
 
   JASSERT (result != -1 || errno == ENOLCK) (JASSERT_ERRNO)
     .Text("Unlock Failed");
