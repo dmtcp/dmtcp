@@ -107,10 +107,7 @@ typedef unsigned char byte;
 #  define _MTCP_MEMMOVE_
 // From glibc-2.5/string/memmove.c
 static void *
-mtcp_sys_memmove (a1, a2, len)
-     void *a1;
-     const void *a2;
-     size_t len;
+mtcp_sys_memmove (void *a1, const void *a2, size_t len)
 {
   unsigned long int dstp = (long int) a1 /* dest */;
   unsigned long int srcp = (long int) a2 /* src */;
@@ -146,10 +143,7 @@ mtcp_sys_memmove (a1, a2, len)
 /* Copy exactly NBYTES bytes from SRC_BP to DST_BP,
    without any assumptions about alignment of the pointers.  */
 static void *
-mtcp_sys_memcpy (dstpp, srcpp, len)
-     void *dstpp;
-     const void *srcpp;
-     size_t len;
+mtcp_sys_memcpy (void *dstpp, const void *srcpp, size_t len)
 {
   unsigned long int dstp = (long int) dstpp;
   unsigned long int srcp = (long int) srcpp;

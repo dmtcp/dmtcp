@@ -403,25 +403,19 @@ namespace
                          ,dmtcp::DmtcpMessage &hello_remote)
           : jalib::JChunkReader ( sock, sizeof ( dmtcp::DmtcpMessage ) )
           , _clientNumber ( theNextClientNumber++ )
-          , _addrlen ( len )
       {
         _identity = hello_remote.from;
         _state = hello_remote.state;
-        memset ( &_addr, 0, sizeof _addr );
-        memcpy ( &_addr, remote, len );
       }
       const dmtcp::UniquePid& identity() const { return _identity;}
       void identity(dmtcp::UniquePid upid) { _identity = upid;}
       int clientNumber() const { return _clientNumber; }
       dmtcp::WorkerState state() const { return _state; }
-      const struct sockaddr_storage* addr() const { return &_addr; }
-      socklen_t addrlen() const { return _addrlen; }
       void setState ( dmtcp::WorkerState value ) { _state = value; }
       void progname(dmtcp::string pname){ _progname = pname; }
       dmtcp::string progname(void) const { return _progname; }
       void hostname(dmtcp::string hname){ _hostname = hname; }
       dmtcp::string hostname(void) const { return _hostname; }
-      void prefixDir(dmtcp::string dirname){ _prefixDir = dirname; }
       dmtcp::string prefixDir(void) const { return _prefixDir; }
       pid_t virtualPid(void) const { return _virtualPid; }
       void virtualPid(pid_t pid) { _virtualPid = pid; }
@@ -443,8 +437,6 @@ namespace
       dmtcp::UniquePid _identity;
       int _clientNumber;
       dmtcp::WorkerState _state;
-      struct sockaddr_storage _addr;
-      socklen_t               _addrlen;
       dmtcp::string _hostname;
       dmtcp::string _progname;
       dmtcp::string _prefixDir;

@@ -69,7 +69,7 @@ namespace dmtcp
 
       jalib::JSocket& coordinatorSocket() { return _coordinatorSocket; }
       const DmtcpUniqueProcessId& coordinatorId() const { return _coordinatorId; }
-      const void setCoordinatorId(DmtcpUniqueProcessId id) { _coordinatorId = id; }
+      void setCoordinatorId(DmtcpUniqueProcessId id) { _coordinatorId = id; }
       time_t coordTimeStamp() const { return _coordTimeStamp; }
 
       bool isValid() { return _coordinatorSocket.isValid(); }
