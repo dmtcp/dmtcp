@@ -40,29 +40,6 @@
 static struct dmtcp::SharedData::Header *sharedDataHeader = NULL;
 static void *prevSharedDataHeaderAddr = NULL;
 
-void dmtcp::SharedData::processEvent(DmtcpEvent_t event, DmtcpEventData_t *data)
-{
-  switch (event) {
-    case DMTCP_EVENT_INIT:
-    case DMTCP_EVENT_POST_RESTART:
-    case DMTCP_EVENT_POST_CKPT:
-      initialize();
-      break;
-
-    case DMTCP_EVENT_PRE_CKPT:
-      sharedDataHeader->numMissingConMaps = 0;
-      preCkpt();
-      break;
-
-    case DMTCP_EVENT_RESUME:
-      sharedDataHeader->numMissingConMaps = 0;
-      break;
-
-    default:
-      break;
-  }
-}
-
 void dmtcp::SharedData::initializeHeader()
 {
   off_t size = CEIL(SHM_MAX_SIZE , Util::pageSize());
@@ -77,9 +54,9 @@ void dmtcp::SharedData::initializeHeader()
   sharedDataHeader->ckptInterval = -1;
   sharedDataHeader->numIPCIdMaps = 0;
   sharedDataHeader->numPtraceIdMaps = 0;
-  sharedDataHeader->numProcessTreeRoots = 0;
   sharedDataHeader->numPtyNameMaps = 0;
   sharedDataHeader->initialized = true;
+  sharedDataHeader->numProcessTreeRoots = 0;
   sharedDataHeader->numMissingConMaps = 0;
 }
 
@@ -144,20 +121,25 @@ void dmtcp::SharedData::initialize()
 
 void dmtcp::SharedData::preCkpt()
 {
-  size_t size = CEIL(SHM_MAX_SIZE , Util::pageSize());
-  JASSERT(_real_munmap(sharedDataHeader, size) == 0) (JASSERT_ERRNO);
-  sharedDataHeader = NULL;
+  if (sharedDataHeader != NULL) {
+    // Need to reset these counter before next post-restart/post-ckpt routines
+    sharedDataHeader->numProcessTreeRoots = 0;
+    sharedDataHeader->numMissingConMaps = 0;
+    size_t size = CEIL(SHM_MAX_SIZE , Util::pageSize());
+    JASSERT(_real_munmap(sharedDataHeader, size) == 0) (JASSERT_ERRNO);
+    sharedDataHeader = NULL;
+  }
 }
 
 dmtcp::string dmtcp::SharedData::getCoordHost()
 {
-  JASSERT(sharedDataHeader != NULL);
+  if (sharedDataHeader == NULL) initialize();
   return sharedDataHeader->coordHost;
 }
 
 void dmtcp::SharedData::setCoordHost(const char *host)
 {
-  JASSERT(sharedDataHeader != NULL);
+  if (sharedDataHeader == NULL) initialize();
   JASSERT(strlen(host) < sizeof(sharedDataHeader->coordHost));
   Util::lockFile(PROTECTED_SHM_FD);
   strcpy(sharedDataHeader->coordHost, host);
@@ -166,13 +148,13 @@ void dmtcp::SharedData::setCoordHost(const char *host)
 
 int dmtcp::SharedData::getCoordPort()
 {
-  JASSERT(sharedDataHeader != NULL);
+  if (sharedDataHeader == NULL) initialize();
   return sharedDataHeader->coordPort;
 }
 
 void dmtcp::SharedData::setCoordPort(int port)
 {
-  JASSERT(sharedDataHeader != NULL);
+  if (sharedDataHeader == NULL) initialize();
   Util::lockFile(PROTECTED_SHM_FD);
   sharedDataHeader->coordPort = port;
   Util::unlockFile(PROTECTED_SHM_FD);
@@ -180,13 +162,13 @@ void dmtcp::SharedData::setCoordPort(int port)
 
 int dmtcp::SharedData::getCkptInterval()
 {
-  JASSERT(sharedDataHeader != NULL);
+  if (sharedDataHeader == NULL) initialize();
   return sharedDataHeader->ckptInterval;
 }
 
 void dmtcp::SharedData::setCkptInterval(int interval)
 {
-  JASSERT(sharedDataHeader != NULL);
+  if (sharedDataHeader == NULL) initialize();
   Util::lockFile(PROTECTED_SHM_FD);
   sharedDataHeader->ckptInterval = interval;
   Util::unlockFile(PROTECTED_SHM_FD);
@@ -195,7 +177,7 @@ void dmtcp::SharedData::setCkptInterval(int interval)
 int dmtcp::SharedData::getRealIPCId(int virt)
 {
   int res = -1;
-  JASSERT(sharedDataHeader != NULL);
+  if (sharedDataHeader == NULL) initialize();
   Util::lockFile(PROTECTED_SHM_FD);
   for (size_t i = 0; i < sharedDataHeader->numIPCIdMaps; i++) {
     if (sharedDataHeader->ipcIdMap[i].virt == virt) {
@@ -209,7 +191,7 @@ int dmtcp::SharedData::getRealIPCId(int virt)
 void dmtcp::SharedData::setIPCIdMap(int virt, int real)
 {
   size_t i;
-  JASSERT(sharedDataHeader != NULL);
+  if (sharedDataHeader == NULL) initialize();
   Util::lockFile(PROTECTED_SHM_FD);
   for (i = 0; i < sharedDataHeader->numIPCIdMaps; i++) {
     if (sharedDataHeader->ipcIdMap[i].virt == virt) {
@@ -229,9 +211,7 @@ void dmtcp::SharedData::setIPCIdMap(int virt, int real)
 pid_t dmtcp::SharedData::getPtraceVirtualId(pid_t tracerId)
 {
   pid_t childId = -1;
-  if (sharedDataHeader == NULL) {
-    return -1;
-  }
+  if (sharedDataHeader == NULL) initialize();
   Util::lockFile(PROTECTED_SHM_FD);
   for (size_t i = 0; i < sharedDataHeader->numPtraceIdMaps; i++) {
     if (sharedDataHeader->ptraceIdMap[i].tracerId == tracerId) {
@@ -248,7 +228,7 @@ pid_t dmtcp::SharedData::getPtraceVirtualId(pid_t tracerId)
 void dmtcp::SharedData::setPtraceVirtualId(pid_t tracerId, pid_t childId)
 {
   size_t i;
-  JASSERT(sharedDataHeader != NULL);
+  if (sharedDataHeader == NULL) initialize();
   Util::lockFile(PROTECTED_SHM_FD);
   for (i = 0; i < sharedDataHeader->numPtraceIdMaps; i++) {
     JASSERT(sharedDataHeader->ptraceIdMap[i].tracerId != tracerId)
@@ -268,6 +248,7 @@ void dmtcp::SharedData::setPtraceVirtualId(pid_t tracerId, pid_t childId)
 
 void dmtcp::SharedData::setProcessTreeRoot()
 {
+  if (sharedDataHeader == NULL) initialize();
   Util::lockFile(PROTECTED_SHM_FD);
   JASSERT(sharedDataHeader->numProcessTreeRoots < MAX_PROCESS_TREE_ROOTS);
   size_t i = sharedDataHeader->numProcessTreeRoots;
@@ -279,6 +260,7 @@ void dmtcp::SharedData::setProcessTreeRoot()
 void dmtcp::SharedData::getProcessTreeRoots(dmtcp::UniquePid **roots,
                                             size_t *numRoots)
 {
+  if (sharedDataHeader == NULL) initialize();
   Util::lockFile(PROTECTED_SHM_FD);
   *roots = sharedDataHeader->processTreeRoots;
   *numRoots = sharedDataHeader->numProcessTreeRoots;
@@ -290,16 +272,22 @@ void dmtcp::SharedData::getProcessTreeRoots(dmtcp::UniquePid **roots,
 // zero. In that case we should have some more sophisticated code which checks
 // to see if the value pointed by counter is in use or not.
 static unsigned nextVirtualPtyId = 0;
-unsigned dmtcp::SharedData::getNextVirtualPtyId() {
+unsigned dmtcp::SharedData::getNextVirtualPtyId()
+{
+  if (sharedDataHeader == NULL) initialize();
   return nextVirtualPtyId;
 }
-void dmtcp::SharedData::restoreNextVirtualPtyId(unsigned n) {
+
+void dmtcp::SharedData::restoreNextVirtualPtyId(unsigned n)
+{
+  if (sharedDataHeader == NULL) initialize();
   nextVirtualPtyId = n;
 }
 
 void dmtcp::SharedData::createVirtualPtyName(const char* real, char *out,
                                              size_t len)
 {
+  if (sharedDataHeader == NULL) initialize();
   JASSERT(nextVirtualPtyId != (unsigned) -1);
 
   Util::lockFile(PROTECTED_SHM_FD);
@@ -319,6 +307,7 @@ void dmtcp::SharedData::createVirtualPtyName(const char* real, char *out,
 
 void dmtcp::SharedData::getRealPtyName(const char* virt, char *out, size_t len)
 {
+  if (sharedDataHeader == NULL) initialize();
   *out = '\0';
   Util::lockFile(PROTECTED_SHM_FD);
   for (size_t i = 0; i < sharedDataHeader->numPtyNameMaps; i++) {
@@ -333,6 +322,7 @@ void dmtcp::SharedData::getRealPtyName(const char* virt, char *out, size_t len)
 
 void dmtcp::SharedData::getVirtPtyName(const char* real, char *out, size_t len)
 {
+  if (sharedDataHeader == NULL) initialize();
   *out = '\0';
   Util::lockFile(PROTECTED_SHM_FD);
   for (size_t i = 0; i < sharedDataHeader->numPtyNameMaps; i++) {
@@ -347,6 +337,7 @@ void dmtcp::SharedData::getVirtPtyName(const char* real, char *out, size_t len)
 
 void dmtcp::SharedData::insertPtyNameMap(const char* virt, const char* real)
 {
+  if (sharedDataHeader == NULL) initialize();
   Util::lockFile(PROTECTED_SHM_FD);
   size_t n = sharedDataHeader->numPtyNameMaps++;
   JASSERT(strlen(virt) < PTS_PATH_MAX);
@@ -360,6 +351,7 @@ void dmtcp::SharedData::registerMissingCons(vector<const char*>& ids,
                                             struct sockaddr_un receiverAddr,
                                             socklen_t len)
 {
+  if (sharedDataHeader == NULL) initialize();
   Util::lockFile(PROTECTED_SHM_FD);
   for (size_t i = 0; i < ids.size(); i++) {
     size_t n = sharedDataHeader->numMissingConMaps++;
@@ -373,6 +365,7 @@ void dmtcp::SharedData::registerMissingCons(vector<const char*>& ids,
 void dmtcp::SharedData::getMissingConMaps(struct SharedData::MissingConMap **map,
                                           size_t *nmaps)
 {
+  if (sharedDataHeader == NULL) initialize();
   *map = sharedDataHeader->missingConMap;
   *nmaps = sharedDataHeader->numMissingConMaps;
 }

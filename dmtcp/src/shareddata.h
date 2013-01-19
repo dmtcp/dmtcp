@@ -88,7 +88,6 @@ namespace dmtcp {
       size_t               numMissingConMaps;
     };
 
-    void processEvent(DmtcpEvent_t event, DmtcpEventData_t *data);
     void initialize();
     void initializeHeader();
     void preCkpt();

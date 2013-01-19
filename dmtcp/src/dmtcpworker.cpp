@@ -658,6 +658,7 @@ void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
   JTRACE("got checkpoint message");
 
   processEvent(DMTCP_EVENT_PRE_CKPT, NULL);
+  SharedData::preCkpt();
 }
 
 void dmtcp::DmtcpWorker::postRestart()
@@ -721,7 +722,6 @@ void dmtcp_ProcessInfo_ProcessEvent(DmtcpEvent_t event, DmtcpEventData_t *data);
 void dmtcp::DmtcpWorker::processEvent(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   dmtcp_process_event(event, data);
-  SharedData::processEvent(event, data);
   dmtcp_ProcessInfo_ProcessEvent(event, data);
   dmtcp_Connection_ProcessEvent(event, data);
   dmtcp_SysVIPC_ProcessEvent(event, data);
