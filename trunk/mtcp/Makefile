@@ -357,12 +357,9 @@ libmtcp.so: ${LIBRARY_OBJS}
 	       'MTCP symbols polluting user namespace' 1>&2 || true
 endif
 
+# To generate mtcp.o with listing, use "-Wa,-adhl=mtcp.lis"
 mtcp.o: mtcp.c mtcp.h mtcp_internal.h mtcp_sys.h
-ifdef DEBUG
-	${CC} $(MTCP_CFLAGS) -Wa,-adhl=mtcp.lis -c -o mtcp.o mtcp.c
-else
 	${CC} $(MTCP_CFLAGS) -c -o mtcp.o mtcp.c
-endif
 
 mtcp_writeckpt.o: mtcp_writeckpt.c mtcp.h mtcp_internal.h mtcp_sys.h mtcp_util.h
 	${CC} $(MTCP_CFLAGS) -c -o mtcp_writeckpt.o mtcp_writeckpt.c
@@ -372,11 +369,9 @@ mtcp_restart_nolibc.o: mtcp_restart_nolibc.c mtcp.h mtcp_internal.h
 	${CC} $(MTCP_CFLAGS) -c -o mtcp_restart_nolibc.o \
 	  mtcp_restart_nolibc.c
 
-ifdef DEBUG
 # mtcp.lis is needed only for debugging.
-mtcp.lis: mtcp.c mtcp.h mtcp_internal.h mtcp_sys.h
-	${CC} $(MTCP_CFLAGS) -c -o /dev/null -Wa,-ahls=mtcp.lis mtcp.c
-endif
+#mtcp.lis: mtcp.c mtcp.h mtcp_internal.h mtcp_sys.h
+#	${CC} $(MTCP_CFLAGS) -c -o /dev/null -Wa,-ahls=mtcp.lis mtcp.c
 
 # The resultant mtcp_restart_nolibc.o module should not have undefined symbols
 # ... if it did, they would get linked to /lib/libc.so at runtime and

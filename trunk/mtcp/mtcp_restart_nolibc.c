@@ -50,6 +50,7 @@
 
 #include "mtcp_internal.h"
 #include "mtcp_util.h"
+#include "mtcp_sys.h"
 
 __attribute__ ((visibility ("hidden")))
   int mtcp_restore_cpfd = -1; // '-1' puts it in regular data instead of common
@@ -306,18 +307,19 @@ static void readfiledescrs (void)
   char *linkbuf;
   int fdnum, flags, tempfd;
   off_t offset;
-  struct stat statbuf;
+  const struct stat *statbuf;
   Area area;
 
   while (1) {
     /* Read parameters of next file to restore */
     mtcp_readfile(mtcp_restore_cpfd, &area, sizeof area);
     fdnum = area.fdinfo.fdnum;
-    statbuf = area.fdinfo.statbuf;
+    statbuf = &area.fdinfo.statbuf;
     offset = area.fdinfo.offset;
     linkbuf = area.name;
 
     if (fdnum < 0) break;
+    DPRINTF("restoring -> %s\n", linkbuf);
     DPRINTF("restoring %d -> %s\n", fdnum, linkbuf);
 
     /* Maybe it restores to same fd as we're using for checkpoint file. */
@@ -337,8 +339,8 @@ static void readfiledescrs (void)
     /* Open the file on a temp fd */
 
     flags = O_RDWR;
-    if (!(statbuf.st_mode & S_IWUSR)) flags = O_RDONLY;
-    else if (!(statbuf.st_mode & S_IRUSR)) flags = O_WRONLY;
+    if (!(statbuf->st_mode & S_IWUSR)) flags = O_RDONLY;
+    else if (!(statbuf->st_mode & S_IRUSR)) flags = O_WRONLY;
     tempfd = mtcp_sys_open (linkbuf, flags, 0);
     if (tempfd < 0) {
       MTCP_PRINTF("error %d re-opening %s flags %o\n",
@@ -359,7 +361,7 @@ static void readfiledescrs (void)
 
     /* Position the file to its same spot it was at when checkpointed */
 
-    if (S_ISREG (statbuf.st_mode) &&
+    if (S_ISREG (statbuf->st_mode) &&
         (mtcp_sys_lseek (fdnum, offset, SEEK_SET) != offset)) {
       MTCP_PRINTF("error %d positioning %s to %ld\n",
                   mtcp_sys_errno, linkbuf, (long)offset);
