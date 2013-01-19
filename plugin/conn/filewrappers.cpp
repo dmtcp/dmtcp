@@ -38,15 +38,15 @@
 #include <sys/socket.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
+#include <dirent.h>
 #include <sys/syscall.h>
 #include <linux/version.h>
 #include <limits.h>
-#include "constants.h"
 #include "dmtcpplugin.h"
-#include "syscallwrappers.h"
 #include "shareddata.h"
 #include "util.h"
 #include "connectionlist.h"
+#include "connwrappers.h"
 #include "../jalib/jassert.h"
 #include "../jalib/jconvert.h"
 
@@ -56,7 +56,7 @@ extern "C" int ptsname_r(int fd, char * buf, size_t buflen);
 
 extern "C" int close(int fd)
 {
-  if (dmtcp::ProtectedFDs::isProtected(fd)) {
+  if (dmtcp_is_protected_fd(fd)) {
     JTRACE("blocked attempt to close protected fd") (fd);
     errno = EBADF;
     return -1;
@@ -74,7 +74,7 @@ extern "C" int close(int fd)
 extern "C" int fclose(FILE *fp)
 {
   int fd = fileno(fp);
-  if (dmtcp::ProtectedFDs::isProtected(fd)) {
+  if (dmtcp_is_protected_fd(fd)) {
     JTRACE("blocked attempt to fclose protected fd") (fd);
     errno = EBADF;
     return -1;
@@ -93,7 +93,7 @@ extern "C" int fclose(FILE *fp)
 extern "C" int closedir(DIR *dir)
 {
   int fd = dirfd(dir);
-  if (dmtcp::ProtectedFDs::isProtected(fd)) {
+  if (dmtcp_is_protected_fd(fd)) {
     JTRACE("blocked attempt to closedir protected fd") (fd);
     errno = EBADF;
     return -1;

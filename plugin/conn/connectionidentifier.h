@@ -24,13 +24,11 @@
 #define CONNECTIONIDENTIFIER_H
 
 #include <stdint.h>
-#include "constants.h"
 #include "dmtcpalloc.h"
 #include "dmtcpplugin.h"
+#include "conn.h"
 #include "../jalib/jalloc.h"
 #include "../jalib/jserialize.h"
-
-#define HANDSHAKE_SIGNATURE_MSG "DMTCP_SOCK_HANDSHAKE_V0\n"
 
 namespace dmtcp
 {

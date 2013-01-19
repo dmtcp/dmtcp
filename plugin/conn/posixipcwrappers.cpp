@@ -20,10 +20,10 @@
 
 #include <mqueue.h>
 #include <time.h>
-#include "constants.h"
+#include <stdarg.h>
 #include "util.h"
 #include "dmtcpplugin.h"
-#include "syscallwrappers.h"
+#include "connwrappers.h"
 #include "connection.h"
 #include "connectionlist.h"
 

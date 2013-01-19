@@ -33,10 +33,10 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <errno.h>
-#include "syscallwrappers.h"
-#include "constants.h"
+#include "conn.h"
 #include "connection.h"
 #include "connectionlist.h"
+#include "connwrappers.h"
 #include "../jalib/jassert.h"
 #include "../jalib/jfilesystem.h"
 

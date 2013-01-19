@@ -19,7 +19,6 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include "constants.h"
 #include "connectionlist.h"
 #include "dmtcpplugin.h"
 #include "../jalib/jassert.h"
@@ -29,7 +28,8 @@ using namespace dmtcp;
 // This is the first program after dmtcp_checkpoint
 static bool freshProcess = true;
 
-void dmtcp_Connection_ProcessEvent(DmtcpEvent_t event, DmtcpEventData_t *data)
+extern "C"
+void dmtcp_process_event(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   switch (event) {
     case DMTCP_EVENT_INIT:
@@ -113,5 +113,8 @@ void dmtcp_Connection_ProcessEvent(DmtcpEvent_t event, DmtcpEventData_t *data)
     default:
       break;
   }
+
+  NEXT_DMTCP_PROCESS_EVENT(event, data);
+  return;
 }
 

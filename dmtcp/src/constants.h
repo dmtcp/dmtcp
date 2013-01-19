@@ -64,13 +64,11 @@
 
 #define DMTCP_PRGNAME_PREFIX "DMTCP:"
 
-#define X11_LISTENER_PORT_START 6000
+// Not used
+//#define X11_LISTENER_PORT_START 6000
 
 #define DEFAULT_HOST "127.0.0.1"
 #define DEFAULT_PORT 7779
-
-#define RESTORE_PORT_START 9777
-#define RESTORE_PORT_STOP 9977
 
 #define SHM_VERSION_STR "DMTCP_GLOBAL_AREA_V0.99"
 
@@ -146,10 +144,6 @@
     ENV_VAR_VIRTUAL_PID, \
     ENV_DELTACOMPRESSION
 
-#define DRAINER_CHECK_FREQ 0.1
-
-#define DRAINER_WARNING_FREQ 10
-
 #define DMTCP_CHECKPOINT_CMD "dmtcp_checkpoint"
 
 #define DMTCP_RESTART_CMD "dmtcp_restart"
@@ -162,8 +156,6 @@
 #define PROTECTED_FD_START 820
 #define PROTECTED_FD_COUNT 15
 
-#define CONNECTION_ID_START 99000
-
 // Fix dlclose segfault bug
 //#define MAX_DLCLOSE_MTCP_CALLS 10
 #define MAX_DLCLOSE_MTCP_CALLS 1
@@ -172,10 +164,6 @@
 
 // #define MIN_SIGNAL 1
 // #define MAX_SIGNAL 30
-
-//at least one of these must be enabled:
-#define HANDSHAKE_ON_CONNECT    0
-#define HANDSHAKE_ON_CHECKPOINT 1
 
 #if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,9)
 #define user_desc modify_ldt_ldt_s

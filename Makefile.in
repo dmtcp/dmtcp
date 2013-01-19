@@ -245,10 +245,13 @@ lib/dmtcp/% : plugin/ptrace/%
 lib/dmtcp/% : plugin/pidvirt/%
 	cd lib/dmtcp && $(LN_S) ../../$< $*
 
+lib/dmtcp/% : plugin/conn/%
+	cd lib/dmtcp && $(LN_S) ../../$< $*
+
 lib/dmtcp/% : plugin/torque/%
 	cd lib/dmtcp && $(LN_S) ../../$< $*
 
-PLUGINS = lib/dmtcp/pidvirt.so lib/dmtcp/dmtcptorque.so
+PLUGINS = lib/dmtcp/pidvirt.so lib/dmtcp/dmtcptorque.so lib/dmtcp/dmtcpconn.so
 ifeq ($(PTRACE_SUPPORT),yes)
   PLUGINS += lib/dmtcp/ptracehijack.so
 endif

@@ -21,8 +21,8 @@
 
 #include "connectionrewirer.h"
 #include "dmtcpplugin.h"
-#include "syscallwrappers.h"
 #include "protectedfds.h"
+#include "connwrappers.h"
 #include "util.h"
 #include "../jalib/jsocket.h"
 

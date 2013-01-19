@@ -34,10 +34,9 @@
 #include <mqueue.h>
 #include <stdint.h>
 #include <signal.h>
-#include "constants.h"
+#include "config.h"
 #include "dmtcpalloc.h"
 #include "connectionidentifier.h"
-#include "syscallwrappers.h"
 #include "../jalib/jbuffer.h"
 #include "../jalib/jserialize.h"
 #include "../jalib/jassert.h"
@@ -49,10 +48,7 @@
 #include <sys/inotify.h>
 #endif
 
-#ifdef HAVE_CONFIG_H
-# include "config.h"
-#endif
-#ifdef HAVE_EPOLL_H
+#ifdef HAVE_SYS_EPOLL_H
 # include <sys/epoll.h>
 #else
 /* KEEP THIS IN SYNC WITH syscallwrappers.h */
@@ -65,12 +61,12 @@ struct epoll_event {int dummy;};
 #  define EPOLL_CTL_MOD 3 /* Change file decriptor epoll_event structure.  */
 # endif
 #endif
-#ifdef HAVE_EVENTFD_H
+#ifdef HAVE_SYS_EVENTFD_H
 # include <sys/eventfd.h>
 #else
 enum { EFD_SEMAPHORE = 1 };
 #endif
-#ifdef HAVE_SIGNALFD_H
+#ifdef HAVE_SYS_SIGNALFD_H
 # include <sys/signalfd.h>
 #else
 # include <stdint.h>

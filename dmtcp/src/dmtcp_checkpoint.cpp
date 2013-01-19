@@ -454,12 +454,15 @@ int main ( int argc, char** argv )
   preloadLibs += ":";
 #endif
 
-  preloadLibs += jalib::Filesystem::FindHelperUtility ( "dmtcphijack.so" );
+  preloadLibs += jalib::Filesystem::FindHelperUtility ( "dmtcpconn.so" );
+  preloadLibs += ":";
 
   if (enableTorque) {
-    preloadLibs += ":";
     preloadLibs += jalib::Filesystem::FindHelperUtility("dmtcptorque.so");
+    preloadLibs += ":";
   }
+
+  preloadLibs += jalib::Filesystem::FindHelperUtility ( "dmtcphijack.so" );
 
 #ifdef PID_VIRTUALIZATION
   preloadLibs += ":";

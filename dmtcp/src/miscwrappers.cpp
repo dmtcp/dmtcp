@@ -57,6 +57,47 @@ extern "C" void exit ( int status )
   for (;;); // Without this, gcc emits warning:  `noreturn' fnc does return
 }
 
+extern "C" int close(int fd)
+{
+  if (dmtcp::ProtectedFDs::isProtected(fd)) {
+    JTRACE("blocked attempt to close protected fd") (fd);
+    errno = EBADF;
+    return -1;
+  }
+  return _real_close(fd);
+}
+
+extern "C" int fclose(FILE *fp)
+{
+  int fd = fileno(fp);
+  if (dmtcp::ProtectedFDs::isProtected(fd)) {
+    JTRACE("blocked attempt to fclose protected fd") (fd);
+    errno = EBADF;
+    return -1;
+  }
+  return _real_fclose(fp);
+}
+
+extern "C" int closedir(DIR *dir)
+{
+  int fd = dirfd(dir);
+  if (dmtcp::ProtectedFDs::isProtected(fd)) {
+    JTRACE("blocked attempt to closedir protected fd") (fd);
+    errno = EBADF;
+    return -1;
+  }
+  return _real_closedir(dir);
+}
+
+/*
+ * FIXME: Add wrapper for dup2 and dup3 to detect if the newfd is a protected fd.
+extern "C" int dup2(int oldfd, int newfd)
+{
+  if (dmtcp::ProtectedFDs::isProtected(newfd)) {
+  }
+  return _real_dup2(oldfd, newfd);
+}
+*/
 
 extern "C" int pipe ( int fds[2] )
 {
