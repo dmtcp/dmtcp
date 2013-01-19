@@ -34,8 +34,6 @@
 #include "dmtcpplugin.h"
 #include "shareddata.h"
 
-#define INITIAL_VIRTUAL_TID 1
-#define MAX_VIRTUAL_TID 999
 static int _numTids = 1;
 
 dmtcp::VirtualPidTable::VirtualPidTable()
