@@ -54,12 +54,13 @@
 
 #define BINARY_NAME "mtcp_restart"
 
-static char first_char(char *filename);
 static int open_ckpt_to_read(char *filename, int should_mmap_ckpt_image,
                              char *envp[]);
 static int read_header_and_restore_image(int fd, char *restorename,
                                          VA *restore_start);
+#ifdef LIBC_STATIC_AVAILABLE
 static void prompt_load_symbol_file(mtcp_ckpt_image_hdr_t *hdr);
+#endif
 
 static pid_t decomp_child_pid = -1;
 
@@ -261,7 +262,6 @@ int main (int argc, char *argv[], char *envp[])
 static int read_header_and_restore_image(int fd, char *restorename,
                                           VA *restore_start)
 {
-  char magic[MAGIC_LEN];
   char tmpBuf[MTCP_PAGE_SIZE];
   mtcp_ckpt_image_hdr_t *ckpt_hdr;
   void *restore_mmap;
@@ -323,6 +323,7 @@ static int read_header_and_restore_image(int fd, char *restorename,
   return 0;
 }
 
+#ifdef LIBC_STATIC_AVAILABLE
 static void prompt_load_symbol_file(mtcp_ckpt_image_hdr_t *hdr)
 {
 /********************************************************************
@@ -368,6 +369,8 @@ static void prompt_load_symbol_file(mtcp_ckpt_image_hdr_t *hdr)
   mtcp_maybebpt ();
 # endif
 }
+#endif
+
 int __libc_start_main (int (*main) (int, char **, char **),
                        int argc, char **argv,
                        void (*init) (void), void (*fini) (void),

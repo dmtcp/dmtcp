@@ -27,13 +27,11 @@
 // #define __USE_UNIX98
 
 #include <pthread.h>
-#include "syscallwrappers.h"
 // We should not need dlopen/dlsym
 // #include <dlfcn.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "constants.h"
 #include <sys/select.h>
 #include <sys/time.h>
 #include <sys/types.h>
@@ -44,18 +42,8 @@
 #include <unistd.h>
 #include <ctype.h>
 #include <syslog.h>
-
-#ifdef HAVE_SYS_EPOLL_H
-# include <sys/epoll.h>
-#endif
-
-#ifdef HAVE_SYS_EVENTFD_H
-# include <sys/eventfd.h>
-#endif
-
-#ifdef HAVE_SYS_SIGNALFD_H
-# include <sys/signalfd.h>
-#endif
+#include "constants.h"
+#include "syscallwrappers.h"
 
 // See syscallsreal.c for original model.  In dmtcphijack.so, system calls
 //   for XXX() in jalib call a wrapper which modifies it and calls
@@ -466,139 +454,6 @@ int _real_poll(struct pollfd *fds, nfds_t nfds, int timeout) {
   REAL_FUNC_PASSTHROUGH (poll) (fds, nfds, timeout);
 }
 
-LIB_PRIVATE
-int _real_epoll_create(int size) {
-#ifdef HAVE_SYS_EPOLL_H
-  REAL_FUNC_PASSTHROUGH (epoll_create) (size);
-#else
-  SYMBOL_NOT_FOUND_ERROR(epoll_create);
-#endif
-}
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,27) && __GLIBC_PREREQ(2,9)
-LIB_PRIVATE
-int _real_epoll_create1(int flags) {
-#ifdef HAVE_SYS_EPOLL_H
-  REAL_FUNC_PASSTHROUGH (epoll_create1) (flags);
-#else
-  SYMBOL_NOT_FOUND_ERROR(epoll_create1);
-#endif
-}
-#endif
-
-LIB_PRIVATE
-int _real_epoll_ctl(int epfd, int op, int fd, struct epoll_event *event) {
-#ifdef HAVE_SYS_EPOLL_H
-  REAL_FUNC_PASSTHROUGH (epoll_ctl) (epfd, op, fd, event);
-#else
-  SYMBOL_NOT_FOUND_ERROR(epoll_ctl);
-#endif
-}
-
-LIB_PRIVATE
-int _real_epoll_wait(int epfd, struct epoll_event *events,
-                     int maxevents, int timeout) {
-#ifdef HAVE_SYS_EPOLL_H
-  REAL_FUNC_PASSTHROUGH (epoll_wait) (epfd, events, maxevents, timeout);
-#else
-  SYMBOL_NOT_FOUND_ERROR(epoll_wait);
-#endif
-}
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,19) && __GLIBC_PREREQ(2,6)
-LIB_PRIVATE
-int _real_epoll_pwait(int epfd, struct epoll_event *events,
-                      int maxevents, int timeout, const sigset_t *sigmask) {
-#ifdef HAVE_SYS_EPOLL_H
-  REAL_FUNC_PASSTHROUGH (epoll_pwait) (epfd, events, maxevents, timeout, sigmask);
-#else
-  SYMBOL_NOT_FOUND_ERROR(epoll_pwait);
-#endif
-}
-#endif
-
-LIB_PRIVATE
-int _real_eventfd (int initval, int flags) {
-#ifdef HAVE_SYS_EVENTFD_H
-  REAL_FUNC_PASSTHROUGH (eventfd) (initval, flags);
-#else
-  while(1);
-  SYMBOL_NOT_FOUND_ERROR(eventfd);
-#endif
-}
-
-LIB_PRIVATE
-int _real_signalfd(int fd, const sigset_t *mask, int flags) {
-#ifdef HAVE_SYS_SIGNALFD_H
-  REAL_FUNC_PASSTHROUGH (signalfd) (fd, mask, flags);
-#else
-  SYMBOL_NOT_FOUND_ERROR(signalfd);
-#endif
-}
-
-/*===============================
-  Inotify wrapper functions
-  ===============================*/
-LIB_PRIVATE
-int _real_inotify_init(void) {
-  REAL_FUNC_PASSTHROUGH (inotify_init) ( );
-}
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,27) && __GLIBC_PREREQ(2,4)
-LIB_PRIVATE
-int _real_inotify_init1(int flags) {
-  REAL_FUNC_PASSTHROUGH (inotify_init1) (flags);
-}
-#endif
-
-LIB_PRIVATE
-int _real_inotify_add_watch(int fd, const char *pathname, uint32_t mask) {
-  REAL_FUNC_PASSTHROUGH (inotify_add_watch) (fd, pathname, mask);
-}
-
-LIB_PRIVATE
-int _real_inotify_rm_watch(int fd, int wd) {
-  REAL_FUNC_PASSTHROUGH (inotify_rm_watch) (fd, wd);
-}
-
-mqd_t _real_mq_open(const char *name, int oflag, mode_t mode,
-                      struct mq_attr *attr) {
-  REAL_FUNC_PASSTHROUGH_TYPED (mqd_t, mq_open) (name, oflag, mode, attr);
-}
-
-mqd_t _real_mq_close(mqd_t mqdes) {
-  REAL_FUNC_PASSTHROUGH (mq_close) (mqdes);
-}
-
-int _real_mq_notify(mqd_t mqdes, const struct sigevent *sevp) {
-  REAL_FUNC_PASSTHROUGH (mq_notify) (mqdes, sevp);
-}
-
-ssize_t _real_mq_receive(mqd_t mqdes, char *msg_ptr, size_t msg_len,
-                           unsigned int *msg_prio) {
-  REAL_FUNC_PASSTHROUGH_TYPED (ssize_t, mq_receive) (mqdes, msg_ptr, msg_len,
-                                                     msg_prio);
-}
-
-int _real_mq_send(mqd_t mqdes, const char *msg_ptr, size_t msg_len,
-                    unsigned int msg_prio) {
-  REAL_FUNC_PASSTHROUGH (mq_send) (mqdes, msg_ptr, msg_len, msg_prio);
-}
-
-ssize_t _real_mq_timedreceive(mqd_t mqdes, char *msg_ptr, size_t msg_len,
-                                unsigned int *msg_prio,
-                                const struct timespec *abs_timeout) {
-  REAL_FUNC_PASSTHROUGH_TYPED (ssize_t, mq_timedreceive) (mqdes, msg_ptr,
-                                                          msg_len, msg_prio,
-                                                          abs_timeout);
-}
-
-int _real_mq_timedsend(mqd_t mqdes, const char *msg_ptr, size_t msg_len,
-                         unsigned int msg_prio,
-                         const struct timespec *abs_timeout) {
-  REAL_FUNC_PASSTHROUGH (mq_timedsend) (mqdes, msg_ptr, msg_len, msg_prio,
-                                        abs_timeout);
-}
 ssize_t _real_readlink(const char *path, char *buf, size_t bufsiz) {
   REAL_FUNC_PASSTHROUGH_TYPED (ssize_t, readlink) (path, buf, bufsiz);
 }
