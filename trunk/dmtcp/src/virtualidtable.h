@@ -36,8 +36,8 @@
 #include "constants.h"
 #include "util.h"
 
-#define INITIAL_VIRTUAL_TID 1
-#define MAX_VIRTUAL_TID 999
+#define INITIAL_VIRTUAL_ID 1
+#define MAX_VIRTUAL_ID 999
 
 namespace dmtcp
 {
@@ -64,7 +64,7 @@ namespace dmtcp
           tblLock = lock;
           _do_lock_tbl();
           _idMapTable.clear();
-          _nextVirtualId = INITIAL_VIRTUAL_TID;
+          _nextVirtualId = INITIAL_VIRTUAL_ID;
           _do_unlock_tbl();
           _typeStr = typeStr;
         }
@@ -79,40 +79,40 @@ namespace dmtcp
         void clear() {
           _do_lock_tbl();
           _idMapTable.clear();
-          _nextVirtualId = INITIAL_VIRTUAL_TID;
+          _nextVirtualId = INITIAL_VIRTUAL_ID;
           _do_unlock_tbl();
         }
 
         void postRestart() {
           _do_lock_tbl();
           _idMapTable.clear();
-          _nextVirtualId = INITIAL_VIRTUAL_TID;
+          _nextVirtualId = INITIAL_VIRTUAL_ID;
           _do_unlock_tbl();
         }
 
         void resetOnFork() {
           pthread_mutex_t newlock = PTHREAD_MUTEX_INITIALIZER;
           tblLock = newlock;
-          _nextVirtualId = INITIAL_VIRTUAL_TID;
+          _nextVirtualId = INITIAL_VIRTUAL_ID;
         }
 
         pid_t getNewVirtualId() {
           pid_t tid = -1;
 
           _do_lock_tbl();
-          if (_idMapTable.size() < MAX_VIRTUAL_TID) {
+          if (_idMapTable.size() < MAX_VIRTUAL_ID) {
 
             int count = 0;
             while (1) {
               tid = getpid() + _nextVirtualId++;
-              if (_nextVirtualId >= MAX_VIRTUAL_TID) {
-                _nextVirtualId = INITIAL_VIRTUAL_TID;
+              if (_nextVirtualId >= MAX_VIRTUAL_ID) {
+                _nextVirtualId = INITIAL_VIRTUAL_ID;
               }
               id_iterator i = _idMapTable.find(tid);
               if (i == _idMapTable.end()) {
                 break;
               }
-              if (++count == MAX_VIRTUAL_TID) {
+              if (++count == MAX_VIRTUAL_ID) {
                 break;
               }
             }
@@ -122,7 +122,7 @@ namespace dmtcp
         }
 
         bool isIdCreatedByCurrentProcess(IdType id) {
-          return id > getpid() && id <= getpid() + MAX_VIRTUAL_TID;
+          return id > getpid() && id <= getpid() + MAX_VIRTUAL_ID;
         }
 
         bool virtualIdExists(IdType id) {
