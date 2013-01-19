@@ -19,7 +19,6 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include "constants.h"
 #include "connectionidentifier.h"
 #include "dmtcpplugin.h"
 #include "../jalib/jassert.h"

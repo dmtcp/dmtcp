@@ -25,12 +25,11 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-#include "constants.h"
 #include "util.h"
 #include "dmtcpplugin.h"
 #include "shareddata.h"
-#include "syscallwrappers.h"
 #include "connectionlist.h"
+#include "connwrappers.h"
 #include "kernelbufferdrainer.h"
 #include "connectionrewirer.h"
 #include "../jalib/jfilesystem.h"

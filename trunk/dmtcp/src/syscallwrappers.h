@@ -247,6 +247,7 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   MACRO(inotify_init1)                      \
   MACRO(inotify_add_watch)                  \
   MACRO(inotify_rm_watch)                   \
+                                            \
   MACRO(pthread_create)                     \
   MACRO(pthread_exit)                       \
   MACRO(pthread_tryjoin_np)                 \

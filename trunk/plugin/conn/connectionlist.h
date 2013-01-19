@@ -23,12 +23,10 @@
 #ifndef CONNECTIONLIST_H
 #define CONNECTIONLIST_H
 
-#include "constants.h"
 #include "dmtcpalloc.h"
 #include "connection.h"
 #include "../jalib/jserialize.h"
 #include "../jalib/jalloc.h"
-
 
 namespace dmtcp
 {

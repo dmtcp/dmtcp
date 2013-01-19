@@ -17,26 +17,20 @@ includedir=@includedir@
 mandir=@mandir@
 infodir=@mandir@
 
+plugins = pidvirt conn torque
+
 ifeq ($(PTRACE_SUPPORT),yes)
-  MTCP_MAKE_FLAGS += PTRACE_SUPPORT=1
+  plugins += ptrace
 endif
 
 default: build
 
-build: pidvirt ptrace torque
+build: $(plugins)
 
 all: default
 
-ptrace:
-ifeq ($(PTRACE_SUPPORT),yes)
-	cd ptrace && $(MAKE)
-endif
-
-pidvirt:
-	cd pidvirt && $(MAKE)
-
-torque:
-	cd torque && $(MAKE)
+$(plugins):
+	cd $@ && $(MAKE)
 
 tidy:
 	rm -rf dmtcp-autotest-* ckpt_*_files
@@ -45,14 +39,10 @@ tidy:
 	rm -rf ckpt_*
 
 clean: tidy
-	- cd pidvirt && $(MAKE) clean
-	- cd ptrace && $(MAKE) clean
-	- cd torque && $(MAKE) clean
+	for p in $(plugins); do (cd $$p && $(MAKE) clean); done
 
 distclean: clean
-	- cd pidvirt  && $(MAKE) distclean
-	- cd ptrace  && $(MAKE) distclean
-	- cd torque  && $(MAKE) distclean
+	for p in $(plugins); do (cd $$p && $(MAKE) distclean); done
 	rm -f Makefile
 
 install: all
@@ -63,15 +53,9 @@ install: all
 	test -e $(DESTDIR)$(bindir) || $(MKDIR_P) $(DESTDIR)$(bindir)
 	test -e $(DESTDIR)$(libdir) || $(MKDIR_P) $(DESTDIR)$(libdir)
 	test -e $(DESTDIR)$(includedir) || $(MKDIR_P) $(DESTDIR)$(includedir)
-	cd pidvirt && make DESTDIR=$(DESTDIR) install
-	cd torque && make DESTDIR=$(DESTDIR) install
-ifeq ($(PTRACE_SUPPORT),yes)
-	cd ptrace && make DESTDIR=$(DESTDIR) install
-endif
+	for p in $(plugins); do (cd $$p && $(MAKE) install); done
 
 uninstall:
-	cd pidvirt && make DESTDIR=$(DESTDIR) uninstall
-	cd ptrace && make DESTDIR=$(DESTDIR) uninstall
-	cd torque && make DESTDIR=$(DESTDIR) uninstall
+	for p in $(plugins); do (cd $$p && $(MAKE) uninstall); done
 
-.PHONY: default all build pidvirt ptrace torque tidy clean distclean install uninstall
+.PHONY: default all build pidvirt ptrace conn torque tidy clean distclean install uninstall

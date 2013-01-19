@@ -32,12 +32,11 @@
 #include <linux/limits.h>
 #include <arpa/inet.h>
 
-#include "constants.h"
-#include "syscallwrappers.h"
 #include "connection.h"
 #include "connectionlist.h"
 #include "kernelbufferdrainer.h"
 #include "connectionrewirer.h"
+#include "connwrappers.h"
 #include "dmtcpplugin.h"
 #include "shareddata.h"
 #include "util.h"

@@ -717,12 +717,10 @@ void dmtcp::DmtcpWorker::waitForStage4Resume(bool isRestart)
 }
 
 void dmtcp_SysVIPC_ProcessEvent (DmtcpEvent_t event, DmtcpEventData_t *data);
-void dmtcp_Connection_ProcessEvent(DmtcpEvent_t event, DmtcpEventData_t *data);
 void dmtcp_ProcessInfo_ProcessEvent(DmtcpEvent_t event, DmtcpEventData_t *data);
 void dmtcp::DmtcpWorker::processEvent(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   dmtcp_process_event(event, data);
   dmtcp_ProcessInfo_ProcessEvent(event, data);
-  dmtcp_Connection_ProcessEvent(event, data);
   dmtcp_SysVIPC_ProcessEvent(event, data);
 }

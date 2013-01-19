@@ -19,12 +19,10 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-
-#include "constants.h"
 #include "kernelbufferdrainer.h"
+#include "conn.h"
+#include "connwrappers.h"
 #include "connectionlist.h"
-#include "syscallwrappers.h"
-#include "dmtcpmessagetypes.h"
 #include "../jalib/jassert.h"
 #include "../jalib/jbuffer.h"
 
