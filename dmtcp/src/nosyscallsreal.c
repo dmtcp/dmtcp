@@ -454,8 +454,8 @@ int _real_poll(struct pollfd *fds, nfds_t nfds, int timeout) {
   REAL_FUNC_PASSTHROUGH (poll) (fds, nfds, timeout);
 }
 
-ssize_t _real_readlink(const char *path, char *buf, size_t bufsiz) {
-  REAL_FUNC_PASSTHROUGH_TYPED (ssize_t, readlink) (path, buf, bufsiz);
+READLINK_RET_TYPE _real_readlink(const char *path, char *buf, size_t bufsiz) {
+  REAL_FUNC_PASSTHROUGH_TYPED (READLINK_RET_TYPE, readlink) (path, buf, bufsiz);
 }
 
 // Used for wrappers for mmap, sbrk

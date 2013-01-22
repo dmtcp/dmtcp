@@ -407,7 +407,7 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   int _real_xstat64(int vers, const char *path, struct stat64 *buf);
   int _real_lxstat(int vers, const char *path, struct stat *buf);
   int _real_lxstat64(int vers, const char *path, struct stat64 *buf);
-  ssize_t _real_readlink(const char *path, char *buf, size_t bufsiz);
+  READLINK_RET_TYPE _real_readlink(const char *path, char *buf, size_t bufsiz);
   void * _real_dlsym (void *handle, const char *symbol);
 
   void *_real_dlopen(const char *filename, int flag);

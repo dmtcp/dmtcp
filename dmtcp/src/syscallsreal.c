@@ -873,8 +873,8 @@ int _real_lxstat64(int vers, const char *path, struct stat64 *buf) {
 }
 
 LIB_PRIVATE
-ssize_t _real_readlink(const char *path, char *buf, size_t bufsiz) {
-  REAL_FUNC_PASSTHROUGH_TYPED (ssize_t, readlink) (path, buf, bufsiz);
+READLINK_RET_TYPE _real_readlink(const char *path, char *buf, size_t bufsiz) {
+  REAL_FUNC_PASSTHROUGH_TYPED (READLINK_RET_TYPE, readlink) (path, buf, bufsiz);
 }
 
 LIB_PRIVATE
