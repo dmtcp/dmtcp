@@ -88,12 +88,13 @@ static inline void patchPOSIXUserMaskWork(int how, const sigset_t *set,
   }
 
   if (set != NULL) {
-    if (how == SIG_BLOCK && sigismember(set, bannedSignalNumber())) {
+    int bannedSignaIsMember = sigismember(set, bannedSignalNumber());
+    if (how == SIG_BLOCK && bannedSignaIsMember) {
       checkpointSignalBlocked = true;
-    } else if (how == SIG_UNBLOCK && sigismember(set,bannedSignalNumber())) {
+    } else if (how == SIG_UNBLOCK && bannedSignaIsMember) {
       checkpointSignalBlocked = false;
     } else if (how == SIG_SETMASK) {
-      checkpointSignalBlocked = sigismember(set, bannedSignalNumber());
+      checkpointSignalBlocked = bannedSignaIsMember;
     }
   }
 }
