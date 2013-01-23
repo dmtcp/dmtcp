@@ -340,7 +340,6 @@ static const char* theRestartScriptMultiHostProcessing =
 static bool exitOnLast = false;
 static bool blockUntilDone = false;
 static int blockUntilDoneRemote = -1;
-static dmtcp::DmtcpMessage blockUntilDoneReply;
 
 static dmtcp::DmtcpCoordinator prog;
 
@@ -679,6 +678,7 @@ void dmtcp::DmtcpCoordinator::updateMinimumState(dmtcp::WorkerState oldState)
     setTimeoutInterval( theCheckpointInterval );
 
     if (blockUntilDone) {
+      DmtcpMessageType blockUntilDoneReply(DMT_USER_CMD_RESULT);
       JNOTE ( "replying to dmtcp_command:  we're done" );
       // These were set in dmtcp::DmtcpCoordinator::onConnect in this file
       jalib::JSocket remote ( blockUntilDoneRemote );
@@ -966,7 +966,6 @@ void dmtcp::DmtcpCoordinator::processDmtUserCmd( DmtcpMessage& hello_remote,
       hello_remote.coordCmd == 'c') {
     // Reply will be done in dmtcp::DmtcpCoordinator::onData in this file.
     blockUntilDoneRemote = remote.sockfd();
-    blockUntilDoneReply = reply;
     handleUserCommand( hello_remote.coordCmd, &reply );
   } else if ( (hello_remote.coordCmd == 'i')
                && hello_remote.theCheckpointInterval >= 0 ) {
