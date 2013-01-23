@@ -63,7 +63,7 @@ POST_UNINSTALL = :
 bin_PROGRAMS = dmtcp_checkpoint$(EXEEXT) dmtcp_command$(EXEEXT) \
 	dmtcp_coordinator$(EXEEXT) dmtcp_restart$(EXEEXT) \
 	dmtcp_nocheckpoint$(EXEEXT)
-pkglibexec_PROGRAMS = dmtcphijack.so$(EXEEXT) \
+dmtcplib_PROGRAMS = dmtcphijack.so$(EXEEXT) \
 	libdmtcpaware.so.1.0.0$(EXEEXT)
 subdir = src
 DIST_COMMON = $(include_HEADERS) $(nobase_noinst_HEADERS) \
@@ -106,7 +106,7 @@ am__uninstall_files_from_dir = { \
          $(am__cd) "$$dir" && rm -f $$files; }; \
   }
 am__installdirs = "$(DESTDIR)$(libdir)" "$(DESTDIR)$(bindir)" \
-	"$(DESTDIR)$(pkglibexecdir)" "$(DESTDIR)$(includedir)"
+	"$(DESTDIR)$(dmtcplibdir)" "$(DESTDIR)$(includedir)"
 LIBRARIES = $(lib_LIBRARIES) $(noinst_LIBRARIES)
 AR = ar
 ARFLAGS = cru
@@ -142,7 +142,7 @@ libsysvipc_a_AR = $(AR) $(ARFLAGS)
 libsysvipc_a_LIBADD =
 am_libsysvipc_a_OBJECTS = sysvipc.$(OBJEXT) sysvipcwrappers.$(OBJEXT)
 libsysvipc_a_OBJECTS = $(am_libsysvipc_a_OBJECTS)
-PROGRAMS = $(bin_PROGRAMS) $(pkglibexec_PROGRAMS)
+PROGRAMS = $(bin_PROGRAMS) $(dmtcplib_PROGRAMS)
 am_dmtcp_checkpoint_OBJECTS = dmtcp_checkpoint.$(OBJEXT)
 dmtcp_checkpoint_OBJECTS = $(am_dmtcp_checkpoint_OBJECTS)
 dmtcp_checkpoint_DEPENDENCIES = libdmtcpinternal.a libjalib.a \
@@ -318,7 +318,7 @@ AUTOMAKE_OPTIONS = foreign
 #HEADERS
 #set the include path found by configure
 INCLUDES = $(all_includes)
-
+dmtcplibdir = $(pkglibdir)
 # targets:
 noinst_LIBRARIES = libdmtcpinternal.a libsyscallsreal.a libnohijack.a \
 		   libsysvipc.a libjalib.a
@@ -554,12 +554,12 @@ uninstall-binPROGRAMS:
 
 clean-binPROGRAMS:
 	-test -z "$(bin_PROGRAMS)" || rm -f $(bin_PROGRAMS)
-install-pkglibexecPROGRAMS: $(pkglibexec_PROGRAMS)
+install-dmtcplibPROGRAMS: $(dmtcplib_PROGRAMS)
 	@$(NORMAL_INSTALL)
-	@list='$(pkglibexec_PROGRAMS)'; test -n "$(pkglibexecdir)" || list=; \
+	@list='$(dmtcplib_PROGRAMS)'; test -n "$(dmtcplibdir)" || list=; \
 	if test -n "$$list"; then \
-	  echo " $(MKDIR_P) '$(DESTDIR)$(pkglibexecdir)'"; \
-	  $(MKDIR_P) "$(DESTDIR)$(pkglibexecdir)" || exit 1; \
+	  echo " $(MKDIR_P) '$(DESTDIR)$(dmtcplibdir)'"; \
+	  $(MKDIR_P) "$(DESTDIR)$(dmtcplibdir)" || exit 1; \
 	fi; \
 	for p in $$list; do echo "$$p $$p"; done | \
 	sed 's/$(EXEEXT)$$//' | \
@@ -577,23 +577,23 @@ install-pkglibexecPROGRAMS: $(pkglibexec_PROGRAMS)
 	while read type dir files; do \
 	    if test "$$dir" = .; then dir=; else dir=/$$dir; fi; \
 	    test -z "$$files" || { \
-	      echo " $(INSTALL_PROGRAM_ENV) $(INSTALL_PROGRAM) $$files '$(DESTDIR)$(pkglibexecdir)$$dir'"; \
-	      $(INSTALL_PROGRAM_ENV) $(INSTALL_PROGRAM) $$files "$(DESTDIR)$(pkglibexecdir)$$dir" || exit $$?; \
+	      echo " $(INSTALL_PROGRAM_ENV) $(INSTALL_PROGRAM) $$files '$(DESTDIR)$(dmtcplibdir)$$dir'"; \
+	      $(INSTALL_PROGRAM_ENV) $(INSTALL_PROGRAM) $$files "$(DESTDIR)$(dmtcplibdir)$$dir" || exit $$?; \
 	    } \
 	; done
 
-uninstall-pkglibexecPROGRAMS:
+uninstall-dmtcplibPROGRAMS:
 	@$(NORMAL_UNINSTALL)
-	@list='$(pkglibexec_PROGRAMS)'; test -n "$(pkglibexecdir)" || list=; \
+	@list='$(dmtcplib_PROGRAMS)'; test -n "$(dmtcplibdir)" || list=; \
 	files=`for p in $$list; do echo "$$p"; done | \
 	  sed -e 'h;s,^.*/,,;s/$(EXEEXT)$$//;$(transform)' \
 	      -e 's/$$/$(EXEEXT)/' `; \
 	test -n "$$list" || exit 0; \
-	echo " ( cd '$(DESTDIR)$(pkglibexecdir)' && rm -f" $$files ")"; \
-	cd "$(DESTDIR)$(pkglibexecdir)" && rm -f $$files
+	echo " ( cd '$(DESTDIR)$(dmtcplibdir)' && rm -f" $$files ")"; \
+	cd "$(DESTDIR)$(dmtcplibdir)" && rm -f $$files
 
-clean-pkglibexecPROGRAMS:
-	-test -z "$(pkglibexec_PROGRAMS)" || rm -f $(pkglibexec_PROGRAMS)
+clean-dmtcplibPROGRAMS:
+	-test -z "$(dmtcplib_PROGRAMS)" || rm -f $(dmtcplib_PROGRAMS)
 dmtcp_checkpoint$(EXEEXT): $(dmtcp_checkpoint_OBJECTS) $(dmtcp_checkpoint_DEPENDENCIES) $(EXTRA_dmtcp_checkpoint_DEPENDENCIES) 
 	@rm -f dmtcp_checkpoint$(EXEEXT)
 	$(CXXLINK) $(dmtcp_checkpoint_OBJECTS) $(dmtcp_checkpoint_LDADD) $(LIBS)
@@ -957,7 +957,7 @@ check-am: all-am
 check: check-am
 all-am: Makefile $(LIBRARIES) $(PROGRAMS) $(HEADERS) config.h
 installdirs:
-	for dir in "$(DESTDIR)$(libdir)" "$(DESTDIR)$(bindir)" "$(DESTDIR)$(pkglibexecdir)" "$(DESTDIR)$(includedir)"; do \
+	for dir in "$(DESTDIR)$(libdir)" "$(DESTDIR)$(bindir)" "$(DESTDIR)$(dmtcplibdir)" "$(DESTDIR)$(includedir)"; do \
 	  test -z "$$dir" || $(MKDIR_P) "$$dir"; \
 	done
 install: install-am
@@ -992,8 +992,8 @@ maintainer-clean-generic:
 	@echo "it deletes files that may require special tools to rebuild."
 clean: clean-am
 
-clean-am: clean-binPROGRAMS clean-generic clean-libLIBRARIES \
-	clean-noinstLIBRARIES clean-pkglibexecPROGRAMS mostlyclean-am
+clean-am: clean-binPROGRAMS clean-dmtcplibPROGRAMS clean-generic \
+	clean-libLIBRARIES clean-noinstLIBRARIES mostlyclean-am
 
 distclean: distclean-am
 	-rm -rf ./$(DEPDIR)
@@ -1013,14 +1013,13 @@ info: info-am
 
 info-am:
 
-install-data-am: install-includeHEADERS
+install-data-am: install-dmtcplibPROGRAMS install-includeHEADERS
 
 install-dvi: install-dvi-am
 
 install-dvi-am:
 
-install-exec-am: install-binPROGRAMS install-libLIBRARIES \
-	install-pkglibexecPROGRAMS
+install-exec-am: install-binPROGRAMS install-libLIBRARIES
 
 install-html: install-html-am
 
@@ -1059,28 +1058,27 @@ ps: ps-am
 
 ps-am:
 
-uninstall-am: uninstall-binPROGRAMS uninstall-includeHEADERS \
-	uninstall-libLIBRARIES uninstall-pkglibexecPROGRAMS
+uninstall-am: uninstall-binPROGRAMS uninstall-dmtcplibPROGRAMS \
+	uninstall-includeHEADERS uninstall-libLIBRARIES
 
 .MAKE: all install-am install-strip
 
 .PHONY: CTAGS GTAGS all all-am check check-am clean clean-binPROGRAMS \
-	clean-generic clean-libLIBRARIES clean-noinstLIBRARIES \
-	clean-pkglibexecPROGRAMS cscopelist ctags distclean \
+	clean-dmtcplibPROGRAMS clean-generic clean-libLIBRARIES \
+	clean-noinstLIBRARIES cscopelist ctags distclean \
 	distclean-compile distclean-generic distclean-hdr \
 	distclean-tags distdir dvi dvi-am html html-am info info-am \
 	install install-am install-binPROGRAMS install-data \
-	install-data-am install-dvi install-dvi-am install-exec \
-	install-exec-am install-html install-html-am \
-	install-includeHEADERS install-info install-info-am \
-	install-libLIBRARIES install-man install-pdf install-pdf-am \
-	install-pkglibexecPROGRAMS install-ps install-ps-am \
-	install-strip installcheck installcheck-am installdirs \
-	maintainer-clean maintainer-clean-generic mostlyclean \
-	mostlyclean-compile mostlyclean-generic pdf pdf-am ps ps-am \
-	tags uninstall uninstall-am uninstall-binPROGRAMS \
-	uninstall-includeHEADERS uninstall-libLIBRARIES \
-	uninstall-pkglibexecPROGRAMS
+	install-data-am install-dmtcplibPROGRAMS install-dvi \
+	install-dvi-am install-exec install-exec-am install-html \
+	install-html-am install-includeHEADERS install-info \
+	install-info-am install-libLIBRARIES install-man install-pdf \
+	install-pdf-am install-ps install-ps-am install-strip \
+	installcheck installcheck-am installdirs maintainer-clean \
+	maintainer-clean-generic mostlyclean mostlyclean-compile \
+	mostlyclean-generic pdf pdf-am ps ps-am tags uninstall \
+	uninstall-am uninstall-binPROGRAMS uninstall-dmtcplibPROGRAMS \
+	uninstall-includeHEADERS uninstall-libLIBRARIES
 
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.

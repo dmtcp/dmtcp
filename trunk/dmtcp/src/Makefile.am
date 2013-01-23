@@ -16,12 +16,13 @@ AUTOMAKE_OPTIONS = foreign
 #set the include path found by configure
 INCLUDES= $(all_includes)
 
+dmtcplibdir = $(pkglibdir)
 # targets:
 noinst_LIBRARIES = libdmtcpinternal.a libsyscallsreal.a libnohijack.a \
 		   libsysvipc.a libjalib.a
 bin_PROGRAMS = dmtcp_checkpoint dmtcp_command dmtcp_coordinator \
 	       dmtcp_restart dmtcp_nocheckpoint
-pkglibexec_PROGRAMS = dmtcphijack.so libdmtcpaware.so.1.0.0
+dmtcplib_PROGRAMS = dmtcphijack.so libdmtcpaware.so.1.0.0
 include_HEADERS = dmtcpaware.h
 lib_LIBRARIES = libdmtcpaware.a
 
