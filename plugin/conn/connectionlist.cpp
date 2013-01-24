@@ -241,7 +241,9 @@ void dmtcp::ConnectionList::scanForPreExisting()
       Connection *con = new PtyConnection(fd, (const char*) device.c_str(),
                                           -1, -1, PtyConnection::PTY_CTTY);
       add(fd, con);
-    } else if (fd <= 2) {
+    } else if(dmtcp_is_bq_file && dmtcp_is_bq_file(device.c_str())) {
+      processFileConnection(fd, device.c_str(), -1, -1);
+    } else if( fd <= 2 ){
       add(fd, new StdioConnection(fd));
     } else if (Util::strStartsWith(device, "/")) {
       processFileConnection(fd, device.c_str(), -1, -1);
@@ -327,6 +329,24 @@ void dmtcp::ConnectionList::processDup(int oldfd, int newfd)
   _unlock_tbl();
 }
 
+Connection *dmtcp::ConnectionList::findDuplication(int fd, const char *path)
+{
+  string npath(path);
+  for (iterator i = begin(); i != end(); ++i) {
+    Connection *con = i->second;
+    
+    if( con->conType() != Connection::FILE )
+      continue;
+      
+    FileConnection *fcon = (FileConnection*)con;
+    // check for duplication
+    if( fcon->filePath() == npath && fcon->checkDup(fd) ){
+      return con;
+    }
+  }
+  return NULL;
+}
+
 void dmtcp::ConnectionList::processFileConnection(int fd, const char *path,
                                                   int flags, mode_t mode)
 {
@@ -352,13 +372,19 @@ void dmtcp::ConnectionList::processFileConnection(int fd, const char *path,
   } else if (dmtcp::Util::strStartsWith(path, "/dev/pts/")) {
     // POSIX Slave PTY
     c = new PtyConnection(fd, path, flags, mode, PtyConnection::PTY_SLAVE);
-  } else if (dmtcp_is_bq_file && dmtcp_is_bq_file(path)) {
-    // Resource manager related
-    c = new FileConnection(path, flags, mode, FileConnection::FILE_BATCH_QUEUE);
   } else if (S_ISREG(statbuf.st_mode) || S_ISCHR(statbuf.st_mode) ||
              S_ISDIR(statbuf.st_mode) || S_ISBLK(statbuf.st_mode)) {
-    // Regular File
-    c = new FileConnection(path, flags, mode);
+   
+    c = findDuplication(fd,path);
+    if( c == NULL ){
+      if (dmtcp_is_bq_file && dmtcp_is_bq_file(path)) {
+        // Resource manager related
+        c = new FileConnection(path, flags, mode, FileConnection::FILE_BATCH_QUEUE);
+      }else{
+        // Regular File
+  	    c = new FileConnection(path, flags, mode);
+  	  }
+  	}
   } else if (S_ISFIFO(statbuf.st_mode)) {
     // FIFO
     c = new FifoConnection(path, flags, mode);

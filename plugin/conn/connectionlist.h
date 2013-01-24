@@ -53,6 +53,7 @@ namespace dmtcp
       dmtcp::vector<int>& getFds(const ConnectionIdentifier& c);
       void processClose(int fd);
       void processDup(int oldfd, int newfd);
+      Connection *findDuplication(int fd, const char *path);
       void processFileConnection(int fd, const char *path, int flags,
                                  mode_t mode);
       void list();
