@@ -376,6 +376,7 @@ namespace dmtcp
          _type = type;
       }
 
+      
       virtual void doLocking();
       virtual void preCheckpoint(KernelBufferDrainer& drain);
       virtual void refill(bool isRestart);
@@ -391,6 +392,7 @@ namespace dmtcp
 
       int fileType() { return _type; }
 
+      bool checkDup(int fd);
     private:
       void saveFile(int fd);
       int  openFile();
