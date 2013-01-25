@@ -1130,8 +1130,6 @@ static void setupthread (Thread *thread)
   thread -> tid = mtcp_sys_kernel_gettid ();
   if (dmtcp_info_pid_virtualization_enabled == 1) {
     thread -> virtual_tid = GETTID ();
-  } else {
-    thread -> virtual_tid = (pid_t)-1;
   }
 
   DPRINTF("thread %p -> tid %d\n", thread, thread->tid);
@@ -1657,6 +1655,23 @@ static void restore_term_settings() {
  *
  *************************************************************************/
 
+// We will use the region beyond the end of stack for our temporary stack.
+// glibc sigsetjmp will mangle pointers;  We need the unmangled pointer.
+// So, we can't rely on parsing the jmpbuf for the saved sp.
+void save_sp(Thread *thread) {
+#if defined(__i386__) || defined(__x86_64__)
+  asm volatile (CLEAN_FOR_64_BIT(mov %%esp,%0)
+		: "=g" (thread->saved_sp)
+                : : "memory");
+#elif defined(__arm__)
+  asm volatile ("mov %0,sp"
+		: "=r" (thread->saved_sp)
+                : : "memory");
+#else
+# error "assembly instruction not translated"
+#endif
+}
+
 static void *checkpointhread (void *dummy)
 {
   int needrescan;
@@ -1692,11 +1707,13 @@ static void *checkpointhread (void *dummy)
 #ifdef SETJMP
   /* After we restart, we return here. */
   if (sigsetjmp (ckpthread -> jmpbuf, 1) < 0) mtcp_abort ();
+  save_sp(ckpthread);
   DPRINTF("after sigsetjmp. current_tid %d, virtual_tid:%d\n",
           mtcp_sys_kernel_gettid(), ckpthread->virtual_tid);
 #else
   /* After we restart, we return here. */
   if (getcontext (&(ckpthread -> savctx)) < 0) mtcp_abort ();
+  save_sp(ckpthread);
   DPRINTF("after getcontext. current_tid %d, virtual_tid:%d\n",
           mtcp_sys_kernel_gettid(), ckpthread->virtual_tid);
 #endif
@@ -2184,6 +2201,7 @@ static void stopthisthread (int signum)
     ///JA: new code ported from v54b
 #ifdef SETJMP
     rc = sigsetjmp (thread -> jmpbuf, 1);
+    save_sp(thread);
     if (rc < 0) {
       MTCP_PRINTF("sigsetjmp rc %d errno %d\n", rc, strerror(mtcp_sys_errno));
       mtcp_abort ();
@@ -2191,6 +2209,7 @@ static void stopthisthread (int signum)
     DPRINTF("after sigsetjmp\n");
 #else
     rc = getcontext (&(thread -> savctx));
+    save_sp(thread);
     if (rc < 0) {
       MTCP_PRINTF("getcontext rc %d errno %d\n", rc, strerror(mtcp_sys_errno));
       mtcp_abort ();
@@ -2864,14 +2883,24 @@ void mtcp_finishrestore (void)
   // so restarthread will have a big stack
 #if defined(__i386__) || defined(__x86_64__)
   asm volatile (CLEAN_FOR_64_BIT(mov %0,%%esp)
+# if 1
+		: : "g" (motherofall->saved_sp - 128) //-128 for red zone
+# else
+// remove this and code associated with JMPBUF_SP when other version is robust.
 		: : "g" (motherofall->JMPBUF_SP - 128) //-128 for red zone
+# endif
                 : "memory");
 #elif defined(__arm__)
   asm volatile ("mov sp,%0"
+# if 1
+		: : "r" (thread->saved_sp - 128) //-128 for red zone
+# else
+// remove this and code associated with JMPBUF_SP when other version is robust.
 		: : "r" (motherofall->JMPBUF_SP - 128) //-128 for red zone
+# endif
                 : "memory");
 #else
-# error "assembly instruction not translated"
+#  error "assembly instruction not translated"
 #endif
   restarthread (motherofall);
 }
@@ -2947,7 +2976,12 @@ static int restarthread (void *threadv)
     /* Create the thread so it can finish restoring itself. */
     pid_t tid = (*clone_entry)(restarthread,
                                // -128 for red zone
+#if 1
+                               (void*)(child -> saved_sp - 128), // -128 for red zone
+#else
+// remove this and code associated with JMPBUF_SP when other version is robust.
                                (void*)(child -> JMPBUF_SP - 128), // -128 for red zone
+#endif
                                /* Don't do CLONE_SETTLS (it'll puke).  We do it
                                 * later via restore_tls_state. */
                                ((child -> clone_flags & ~CLONE_SETTLS) |
