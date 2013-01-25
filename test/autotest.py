@@ -635,7 +635,7 @@ runTest("posix-mq2",      2, ["./test/posix-mq2"])
 # runTest("pty",   2, ["./test/pty"])
 
 old_ld_library_path = os.getenv("LD_LIBRARY_PATH")
-os.environ['LD_LIBRARY_PATH'] = os.getenv("PWD")+"/test:"+os.getenv("PWD")
+os.environ['LD_LIBRARY_PATH'] += os.getenv("PWD")+"/test:"+os.getenv("PWD")
 runTest("dlopen",        1, ["./test/dlopen"])
 if old_ld_library_path:
   os.environ['LD_LIBRARY_PATH'] = old_ld_library_path
