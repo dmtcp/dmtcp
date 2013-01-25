@@ -250,6 +250,8 @@ struct Thread { Thread *next;         // next thread in 'threads' list
                 ucontext_t savctx;     // context saved on suspend
 #endif
 
+		void *saved_sp;	       // at restart, we use a temporary stack
+				       //  just beyond original stack (red zone)
                 mtcp_segreg_t fs, gs;  // thread local storage pointers
                 struct user_desc gdtentrytls[1];
               };
