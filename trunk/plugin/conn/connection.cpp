@@ -1174,9 +1174,9 @@ void dmtcp::FileConnection::doLocking()
 void dmtcp::FileConnection::updatePath()
 {
   dmtcp::string link = "/proc/self/fd/" + jalib::XToString(_fds[0]);
-    
+
   JTRACE("Update path from /proc fs:")(link);
-  
+
   if (jalib::Filesystem::FileExists(link)) {
     _path = jalib::Filesystem::ResolveSymlink(link);
     JTRACE("Resolve symlink fs:")(link)(_path);
@@ -1186,13 +1186,13 @@ void dmtcp::FileConnection::updatePath()
 
 void dmtcp::FileConnection::handleUnlinkedFile()
 {
-  if (!jalib::Filesystem::FileExists(_path)) {
+  if (!jalib::Filesystem::FileExists(_path) && !_isBlacklistedFile(_path)) {
     /* File not present in Filesystem.
      * /proc/self/fd lists filename of unlink()ed files as:
      *   "<original_file_name>(deleted)"
      */
     updatePath();
-    
+
     if (Util::strEndsWith(_path, DELETED_FILE_SUFFIX)) {
       _path.erase(_path.length() - strlen(DELETED_FILE_SUFFIX));
       _type = FILE_DELETED;
@@ -1421,7 +1421,7 @@ void dmtcp::FileConnection::restore(ConnectionRewirer*)
 bool dmtcp::FileConnection::checkDup(int fd)
 {
   bool retVal = false;
-  
+
   int myfd = _fds[0];
   if ( lseek(myfd, 0, SEEK_CUR) == lseek(fd, 0, SEEK_CUR) ) {
     off_t newOffset = lseek (myfd, 1, SEEK_CUR);
