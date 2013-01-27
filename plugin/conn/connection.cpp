@@ -1171,6 +1171,19 @@ void dmtcp::FileConnection::doLocking()
   _checkpointed = false;
 }
 
+void dmtcp::FileConnection::updatePath()
+{
+  dmtcp::string link = "/proc/self/fd/" + jalib::XToString(_fds[0]);
+    
+  JTRACE("Update path from /proc fs:")(link);
+  
+  if (jalib::Filesystem::FileExists(link)) {
+    _path = jalib::Filesystem::ResolveSymlink(link);
+    JTRACE("Resolve symlink fs:")(link)(_path);
+  }
+}
+
+
 void dmtcp::FileConnection::handleUnlinkedFile()
 {
   if (!jalib::Filesystem::FileExists(_path)) {
@@ -1178,7 +1191,8 @@ void dmtcp::FileConnection::handleUnlinkedFile()
      * /proc/self/fd lists filename of unlink()ed files as:
      *   "<original_file_name>(deleted)"
      */
-
+    updatePath();
+    
     if (Util::strEndsWith(_path, DELETED_FILE_SUFFIX)) {
       _path.erase(_path.length() - strlen(DELETED_FILE_SUFFIX));
       _type = FILE_DELETED;
@@ -1206,6 +1220,7 @@ void dmtcp::FileConnection::calculateRelativePath()
     _rel_path = "*";
   }
 }
+
 #if 0
 void dmtcp::FileConnection::preCheckpointResMgrFile()
 {
@@ -1246,6 +1261,9 @@ void dmtcp::FileConnection::preCheckpoint(KernelBufferDrainer& drain)
   if (_type == FILE_BATCH_QUEUE &&
       dmtcp_bq_should_ckpt_file &&
       dmtcp_bq_should_ckpt_file(_path.c_str(), &_rmtype)) {
+      JTRACE("Pre-checkpoint Torque files") (_fds.size());
+      for (unsigned int i=0; i< _fds.size(); i++)
+        JTRACE("_fds[i]=") (i) (_fds[i]);
     saveFile(_fds[0]);
     return;
   }
@@ -1338,7 +1356,7 @@ void dmtcp::FileConnection::refreshPath()
     // get new file name
     dmtcp::string procpath = "/proc/self/fd/" + jalib::XToString(_fds[0]);
     dmtcp::string newpath = jalib::Filesystem::ResolveSymlink(procpath);
-    JTRACE("This is Resource Manager file!") (newpath) (_path) (this);
+    JTRACE("This is Resource Manager file!") (_fds[0]) (newpath) (_path) (this);
     if (newpath != _path) {
       JTRACE("File Manager connection _path is changed => _path = newpath!")
         (_path) (newpath);

@@ -387,6 +387,7 @@ namespace dmtcp
 
       virtual string str() { return _path; }
       dmtcp::string filePath() { return _path; }
+      void updatePath();
       bool checkpointed() { return _checkpointed; }
       void doNotRestoreCkptCopy() { _checkpointed = false; }
 

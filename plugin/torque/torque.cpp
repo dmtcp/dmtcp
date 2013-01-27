@@ -132,25 +132,29 @@ extern "C" int tm_spawn(int argc, char **argv, char **envp, tm_node_id where,
   dmtcp::vector<dmtcp::string> dmtcp_args;
   dmtcp::Util::getDmtcpArgs(dmtcp_args);
   unsigned int dsize = dmtcp_args.size();
-  const char *new_argv[ argc + dsize + 1];
+  const char *new_argv[ argc + (dsize + 1)]; // (dsize+1) is DMTCP part including dmtcpCkptPath
   dmtcp::string cmdline;
   size_t i;
+
+  for(i=0;i<argc;i++){
+      JNOTE("arg[i]:")(i)(argv[i]);
+  }
 
   new_argv[0] = dmtcpCkptPath;
   for (i = 0; i < dsize; i++) {
     new_argv[1 + i] = dmtcp_args[i].c_str();
   }
   for (int j = 0; j < argc; j++) {
-    new_argv[1 + dsize + j] = argv[j];
+    new_argv[(1 + dsize) + j] = argv[j];
   }
-  for (i = 0; i< dsize + argc; i++ ) {
+  for (i = 0; i< dsize + argc + 1; i++ ) {
     cmdline +=  dmtcp::string() + new_argv[i] + " ";
   }
 
   JNOTE ( "call Torque PBS tm_spawn API to run command on remote host" )
         ( argv[0] ) (where);
   JNOTE("CMD:")(cmdline);
-  ret = tm_spawn_ptr(argc + dsize,(char **)new_argv,envp,where,tid,event);
+  ret = tm_spawn_ptr(argc + dsize + 1,(char **)new_argv,envp,where,tid,event);
 
   return ret;
 }
