@@ -198,8 +198,9 @@ extern "C" int dmtcp_bq_restore_file(const char *path,
       strcpy(newpath_tmpl,"/tmp/dmtcp_torque_nodefile");
     }
     newpath = newpath_tmpl;
-    tempfd = _real_open(newpath.c_str(), fcntlFlags);
-    JASSERT(tempfd != -1) (path) (JASSERT_ERRNO) .Text("open() failed");
+    tempfd = _real_open(newpath.c_str(), O_CREAT | O_WRONLY, 
+            (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP) );
+    JASSERT(tempfd != -1) (path)(newpath)(JASSERT_ERRNO) .Text("open() failed");
   } else if (type == TORQUE_IO) {
     dmtcp::string str(path);
     JTRACE("Restore Torque IO file");
@@ -224,5 +225,13 @@ extern "C" int dmtcp_bq_restore_file(const char *path,
   dmtcp::string command = "cat ";
   command.append(savedFilePath).append(" > ").append(newpath);
   JASSERT(_real_system(command.c_str()) != -1);
+  
+  // Reopen with initial flags
+  if( type == TORQUE_NODE) {
+    _real_close(tempfd);
+    tempfd = _real_open(newpath.c_str(), fcntlFlags);
+    JASSERT(tempfd != -1) (path)(newpath)(JASSERT_ERRNO) .Text("open() failed");
+  }        
+  
   return tempfd;
 }
