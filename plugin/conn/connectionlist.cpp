@@ -118,14 +118,15 @@ void dmtcp::ConnectionList::deleteStaleConnections()
 #ifdef DEBUG
   if (staleFds.size() > 0) {
     dmtcp::ostringstream out;
-    out << "\tDevice \t\t->\t ConnectionId \n";
+    out << "\tDevice \t\t->\t File Descriptor -> ConnectionId\n";
     out << "==================================================\n";
     for (size_t i = 0; i < staleFds.size(); ++i) {
       Connection *c = getConnection(staleFds[i]);
 
       out << "\t[" << jalib::XToString(staleFds[i]) << "]"
           << c->str()
-          << "\t->\t" << staleFds[i] << "\n";
+          << "\t->\t" << staleFds[i] 
+          << "\t->\t" << c->id() << "\n";
     }
     out << "==================================================\n";
     JTRACE("Deleting Stale Connections") (out.str());
@@ -260,8 +261,17 @@ void dmtcp::ConnectionList::scanForPreExisting()
 void dmtcp::ConnectionList::list()
 {
   ostringstream o;
+  o << "\n";
   for (iterator i = begin(); i != end(); i++) {
-    o << i->first << "\n";
+    Connection *c = i->second;
+    vector<int> fds = c->getFds();
+    for(int j = 0; j<fds.size(); j++){
+      o << fds[j];
+      if( j < fds.size() - 1 )
+        o << "," ;
+    }
+    o << "\t" << i->first << "\t" << c->str();
+    o << "\n";
   }
   JTRACE("ConnectionList") (UniquePid::ThisProcess()) (o.str());
 }
