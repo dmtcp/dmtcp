@@ -296,16 +296,24 @@ void dmtcp::ConnectionList::add(int fd, Connection* c)
   _lock_tbl();
   JWARNING(_connections.find(c->id()) == _connections.end()) (c->id())
     .Text("duplicate connection");
+  if (_fdToCon.find(fd) != _fdToCon.end()) {
+    /* In ordinary situations, we never exercise this path since we already
+     * capture close() and remove the connection. However, there is one
+     * particular case where this assumption fails -- when gblic opens a socket
+     * using socket() but closes it using the internal close_not_cancel() thus
+     * bypassing our close wrapper. This behavior is observed when dealing with
+     * getaddrinfo().
+     */
+    processCloseWork(fd);
+  }
   _connections[c->id()] = c;
   c->addFd(fd);
   _fdToCon[fd] = c;
   _unlock_tbl();
 }
 
-void dmtcp::ConnectionList::processClose(int fd)
+void dmtcp::ConnectionList::processCloseWork(int fd)
 {
-  JASSERT(_fdToCon.find(fd) != _fdToCon.end());
-  _lock_tbl();
   Connection *con = _fdToCon[fd];
   _fdToCon.erase(fd);
   con->removeFd(fd);
@@ -313,6 +321,13 @@ void dmtcp::ConnectionList::processClose(int fd)
     _connections.erase(con->id());
     delete con;
   }
+}
+
+void dmtcp::ConnectionList::processClose(int fd)
+{
+  JASSERT(_fdToCon.find(fd) != _fdToCon.end());
+  _lock_tbl();
+  processCloseWork(fd);
   _unlock_tbl();
 }
 
@@ -334,10 +349,10 @@ Connection *dmtcp::ConnectionList::findDuplication(int fd, const char *path)
   string npath(path);
   for (iterator i = begin(); i != end(); ++i) {
     Connection *con = i->second;
-    
+
     if( con->conType() != Connection::FILE )
       continue;
-      
+
     FileConnection *fcon = (FileConnection*)con;
     // check for duplication
     if( fcon->filePath() == npath && fcon->checkDup(fd) ){
@@ -374,7 +389,7 @@ void dmtcp::ConnectionList::processFileConnection(int fd, const char *path,
     c = new PtyConnection(fd, path, flags, mode, PtyConnection::PTY_SLAVE);
   } else if (S_ISREG(statbuf.st_mode) || S_ISCHR(statbuf.st_mode) ||
              S_ISDIR(statbuf.st_mode) || S_ISBLK(statbuf.st_mode)) {
-   
+
     c = findDuplication(fd,path);
     if( c == NULL ){
       if (dmtcp_is_bq_file && dmtcp_is_bq_file(path)) {

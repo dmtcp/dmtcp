@@ -79,6 +79,8 @@ namespace dmtcp
       void sendReceiveMissingFds();
 
     private:
+      void processCloseWork(int fd);
+
       typedef map<ConnectionIdentifier, Connection*> ConnectionMapT;
       ConnectionMapT _connections;
 
