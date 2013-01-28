@@ -38,6 +38,7 @@ int jalib::jalib_funcptrs_initialized = 0;
 int jalib::stderrFd = -1;
 int jalib::logFd = -1;
 int jalib::dmtcp_fail_rc = -1;
+extern "C" void initializeJalib();
 
 extern "C" void jalib_init(jalib::JalibFuncPtrs jalibFuncPtrs,
                       int stderrFd, int jassertLogFd, int dmtcp_fail_rc)
@@ -51,33 +52,9 @@ extern "C" void jalib_init(jalib::JalibFuncPtrs jalibFuncPtrs,
 
 #define REAL_FUNC_PASSTHROUGH(type,name) \
   if (!jalib_funcptrs_initialized) { \
-    jalibFuncPtrs.name = ::name; \
+    initializeJalib();\
   } \
   return (*jalibFuncPtrs.name)
-
-static const char *dmtcp_get_tmpdir() {
-  fprintf(stderr, "DMTCP: Internal Error: Not Implemented\n");
-  abort();
-  return "/tmp";
-}
-
-static const char *dmtcp_get_uniquepid_str() {
-  fprintf(stderr, "DMTCP: Internal Error: Not Implemented\n");
-  abort();
-  return "DUMMY_UNIQUE_PID";
-}
-
-static ssize_t writeAll(int fd, const void *buf, size_t count) {
-  fprintf(stderr, "DMTCP: Internal Error: Not Implemented\n");
-  abort();
-  return write(fd, buf, count);
-}
-static ssize_t readAll(int fd, void *buf, size_t count) {
-  fprintf(stderr, "DMTCP: Internal Error: Not Implemented\n");
-  abort();
-  return read(fd, buf, count);
-}
-
 
 namespace jalib {
 
