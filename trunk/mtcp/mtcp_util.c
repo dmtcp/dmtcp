@@ -537,8 +537,8 @@ void mtcp_get_memory_region_of_this_library(VA *startaddr, VA *endaddr)
       if (area.prot == 0) {
         /* The guard pages are unreadable due to the "---p" protection. Even if
          * the protection is changed to "r--p", a read will result in a SIGSEGV
-         * as the pages are not backed by the kernel. A better way to handle this
-         * is to remap these pages with anonymous memory.
+         * as the pages are not backed by the kernel. A better way to handle
+         * this is to remap these pages with anonymous memory.
          */
         MTCP_ASSERT(mtcp_sys_mmap(start_addr, area.size, PROT_READ,
                                   MAP_ANONYMOUS|MAP_PRIVATE|MAP_FIXED,
@@ -554,7 +554,10 @@ void mtcp_get_memory_region_of_this_library(VA *startaddr, VA *endaddr)
     if (guard.start_addr != NULL && rodata.start_addr == NULL &&
         mtcp_strcmp(filename, area.name) == 0) {
       MTCP_ASSERT(area.addr == guard.end_addr);
-      if (area.prot == PROT_READ) {
+      if (area.prot == PROT_READ ||
+          // On some systems, all sections of the library have exec
+          // permissions.
+          area.prot == (PROT_READ|PROT_EXEC)) {
         rodata.start_addr = start_addr; rodata.end_addr = end_addr;
         continue;
       } else {
@@ -566,7 +569,10 @@ void mtcp_get_memory_region_of_this_library(VA *startaddr, VA *endaddr)
     if (rodata.start_addr != NULL && rwdata.start_addr == NULL &&
         mtcp_strcmp(filename, area.name) == 0) {
       MTCP_ASSERT(area.addr == rodata.end_addr);
-      MTCP_ASSERT(area.prot == (PROT_READ|PROT_WRITE));
+      MTCP_ASSERT(area.prot == (PROT_READ|PROT_WRITE) ||
+                  // On some systems, all sections of the library have exec
+                  // permissions.
+                  area.prot == (PROT_READ|PROT_WRITE|PROT_EXEC));
       rwdata.start_addr = start_addr; rwdata.end_addr = end_addr;
       continue;
     }
@@ -579,8 +585,12 @@ void mtcp_get_memory_region_of_this_library(VA *startaddr, VA *endaddr)
        * So, find the meory region for static memory variables and add it.
        */
       MTCP_ASSERT(area.addr == rwdata.end_addr);
-      MTCP_ASSERT(area.prot == (PROT_READ|PROT_WRITE));
-      MTCP_ASSERT(thislib_static_var >= start_addr && thislib_static_var < end_addr);
+      MTCP_ASSERT(area.prot == (PROT_READ|PROT_WRITE) ||
+                  // On some systems, all sections of the library have exec
+                  // permissions.
+                  area.prot == (PROT_READ|PROT_WRITE|PROT_EXEC));
+      MTCP_ASSERT(thislib_static_var >= start_addr &&
+                  thislib_static_var < end_addr);
       bssdata.start_addr = start_addr; bssdata.end_addr = end_addr;
       break;
     }
