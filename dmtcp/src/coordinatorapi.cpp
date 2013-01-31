@@ -691,3 +691,10 @@ int dmtcp::CoordinatorAPI::sendQueryToCoordinator(const void *key, size_t key_le
   JALLOC_HELPER_FREE(extraData);
   return 1;
 }
+
+int dmtcp::CoordinatorAPI::getCoordSockname(struct sockaddr_storage *addr)
+{
+  socklen_t addrlen = sizeof(*addr);
+  JASSERT(0 == getsockname(_coordinatorSocket.sockfd(), (struct sockaddr*)addr, &addrlen));
+  return 0;
+}
