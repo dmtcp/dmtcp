@@ -25,6 +25,9 @@
 #include "connwrappers.h"
 #include "util.h"
 #include "../jalib/jsocket.h"
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
 void dmtcp::ConnectionRewirer::checkForPendingIncoming()
 {
@@ -86,11 +89,27 @@ void dmtcp::ConnectionRewirer::openRestoreSocket()
   JASSERT(restoreSocket.isValid());
   restoreSocket.changeFd(PROTECTED_RESTORE_SOCK_FD);
 
+
+  // Setup restore socket for name service
+  struct sockaddr_storage listenSock;
   memset(&_restoreAddr, 0, sizeof(_restoreAddr));
   _restoreAddrlen = sizeof(_restoreAddr);
+  dmtcp_get_coordinator_sockname(&_restoreAddr);
+  memset(&listenSock, 0, sizeof(_restoreAddr));
   JASSERT(getsockname(PROTECTED_RESTORE_SOCK_FD,
-                      (struct sockaddr *)&_restoreAddr,
+                      (struct sockaddr *)&listenSock,
                       &_restoreAddrlen) == 0);
+  struct sockaddr_in* rsock = (struct sockaddr_in*)&_restoreAddr;
+  struct sockaddr_in* lsock = (struct sockaddr_in*)&listenSock;
+  rsock->sin_port = lsock->sin_port;
+  {
+    sockaddr_in *sn = (sockaddr_in*) &_restoreAddr;
+    unsigned short port = htons(sn->sin_port);
+    char *ip = inet_ntoa(sn->sin_addr);
+    JTRACE("_restoreAddr for others is:")(sn->sin_family)(port)(ip);
+  }
+  
+  // Setup socket
   JTRACE("opened listen socket") (restoreSocket.sockfd());
 
   int flags = _real_fcntl(PROTECTED_RESTORE_SOCK_FD, F_GETFL, NULL);
@@ -124,6 +143,12 @@ void dmtcp::ConnectionRewirer::registerNSData()
                                            sizeof(id),
                                            &_restoreAddr,
                                            _restoreAddrlen);
+    /*
+    sockaddr_in *sn = (sockaddr_in*) &_restoreAddr;
+    unsigned short port = htons(sn->sin_port);
+    char *ip = inet_ntoa(sn->sin_addr);
+    JTRACE("Send NS information:")(id)(sn->sin_family)(port)(ip);
+    */
   }
   debugPrint();
 }
@@ -137,6 +162,12 @@ void dmtcp::ConnectionRewirer::sendQueries()
     remote.len = sizeof(remote.addr);
     dmtcp_send_query_to_coordinator((const void *)&id, sizeof(id),
                                     &remote.addr, (size_t*) &remote.len);
+    /*
+    sockaddr_in *sn = (sockaddr_in*) &remote.addr;
+    unsigned short port = htons(sn->sin_port);
+    char *ip = inet_ntoa(sn->sin_addr);
+    JTRACE("Send Queries. Get remote from coordinator:")(id)(sn->sin_family)(port)(ip);
+    */
     _remoteInfo[id] = remote;
   }
 }
