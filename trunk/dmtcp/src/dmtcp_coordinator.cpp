@@ -678,7 +678,7 @@ void dmtcp::DmtcpCoordinator::updateMinimumState(dmtcp::WorkerState oldState)
     setTimeoutInterval( theCheckpointInterval );
 
     if (blockUntilDone) {
-      DmtcpMessageType blockUntilDoneReply(DMT_USER_CMD_RESULT);
+      DmtcpMessage blockUntilDoneReply(DMT_USER_CMD_RESULT);
       JNOTE ( "replying to dmtcp_command:  we're done" );
       // These were set in dmtcp::DmtcpCoordinator::onConnect in this file
       jalib::JSocket remote ( blockUntilDoneRemote );
