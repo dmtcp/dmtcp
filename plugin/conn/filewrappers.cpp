@@ -267,6 +267,51 @@ extern "C" int posix_openpt(int flags)
   return fd;
 }
 
+extern "C" FILE *tmpfile()
+{
+  FILE *fp = _real_tmpfile();
+  if (fp  != NULL && dmtcp_is_running_state()) {
+    ConnectionList::instance().processFileConnection(fileno(fp), NULL, O_RDWR, 0600);
+  }
+  return fp;
+}
+
+extern "C" int mkstemp(char *ttemplate)
+{
+  int fd = _real_mkstemp(ttemplate);
+  if (fd >= 0) {
+    ConnectionList::instance().processFileConnection(fd, NULL, O_RDWR, 0600);
+  }
+  return fd;
+}
+
+extern "C" int mkostemp(char *ttemplate, int flags)
+{
+  int fd = _real_mkostemp(ttemplate, flags);
+  if (fd >= 0) {
+    ConnectionList::instance().processFileConnection(fd, NULL, flags, 0600);
+  }
+  return fd;
+}
+
+extern "C" int mkstemps(char *ttemplate, int suffixlen)
+{
+  int fd = _real_mkstemps(ttemplate, suffixlen);
+  if (fd >= 0) {
+    ConnectionList::instance().processFileConnection(fd, NULL, O_RDWR, 0600);
+  }
+  return fd;
+}
+
+extern "C" int mkostemps(char *ttemplate, int suffixlen, int flags)
+{
+  int fd = _real_mkostemps(ttemplate, suffixlen, flags);
+  if (fd >= 0) {
+    ConnectionList::instance().processFileConnection(fd, NULL, flags, 0600);
+  }
+  return fd;
+}
+
 static int _open_open64_work(int(*fn) (const char *path, int flags, ...),
                              const char *path, int flags, mode_t mode)
 {
