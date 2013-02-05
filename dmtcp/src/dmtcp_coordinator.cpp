@@ -985,6 +985,7 @@ void dmtcp::DmtcpCoordinator::processDmtUserCmd( DmtcpMessage& hello_remote,
 bool dmtcp::DmtcpCoordinator::validateDmtRestartProcess
 	 ( DmtcpMessage& hello_remote, jalib::JSocket& remote )
 {
+  struct timeval tv;
   // This is dmtcp_restart process, connecting to get timestamp
   // and set current compGroup.
 
@@ -998,7 +999,9 @@ bool dmtcp::DmtcpCoordinator::validateDmtRestartProcess
     // Coordinator is free at this moment - set up all the things
     UniquePid::ComputationId() = hello_remote.compGroup;
     numPeers = hello_remote.numPeers;
-    curTimeStamp = time(NULL);
+    JASSERT(gettimeofday(&tv, NULL) == 0);
+    // Get the resolution down to 100 mili seconds.
+    curTimeStamp = (tv.tv_sec << 4) | (tv.tv_usec / (100*1000));
     JNOTE ( "FIRST dmtcp_restart connection.  Set numPeers. Generate timestamp" )
       ( numPeers ) ( curTimeStamp ) ( UniquePid::ComputationId() );
     JTIMER_START(restart);
@@ -1037,6 +1040,7 @@ bool dmtcp::DmtcpCoordinator::validateDmtRestartProcess
 bool dmtcp::DmtcpCoordinator::validateRestartingWorkerProcess
 	 ( DmtcpMessage& hello_remote, jalib::JSocket& remote )
 {
+  struct timeval tv;
   dmtcp::DmtcpMessage hello_local ( dmtcp::DMT_HELLO_WORKER );
 
   JASSERT(hello_remote.state == WorkerState::RESTARTING) (hello_remote.state);
@@ -1047,7 +1051,9 @@ bool dmtcp::DmtcpCoordinator::validateRestartingWorkerProcess
     // Coordinator is free at this moment - set up all the things
     UniquePid::ComputationId() = hello_remote.compGroup;
     numPeers = hello_remote.numPeers;
-    curTimeStamp = time(NULL);
+    JASSERT(gettimeofday(&tv, NULL) == 0);
+    // Get the resolution down to 100 mili seconds.
+    curTimeStamp = (tv.tv_sec << 4) | (tv.tv_usec / (100*1000));
     JNOTE ( "FIRST dmtcp_restart connection.  Set numPeers. Generate timestamp" )
       ( numPeers ) ( curTimeStamp ) ( UniquePid::ComputationId() );
     JTIMER_START(restart);
@@ -1153,6 +1159,7 @@ bool dmtcp::DmtcpCoordinator::validateNewWorkerProcess
   } else {
     // If first process, create the new computation group
     if (UniquePid::ComputationId() == UniquePid(0,0,0)) {
+      struct timeval tv;
       // Connection of new computation.
       UniquePid::ComputationId() = hello_remote.from;
       localPrefix.clear();
@@ -1162,7 +1169,9 @@ bool dmtcp::DmtcpCoordinator::validateNewWorkerProcess
         localPrefix = ds->prefixDir();
         localHostName = ds->hostname();
       }
-      curTimeStamp = time(NULL);
+      JASSERT(gettimeofday(&tv, NULL) == 0);
+      // Get the resolution down to 100 mili seconds.
+      curTimeStamp = (tv.tv_sec << 4) | (tv.tv_usec / (100*1000));
       numPeers = -1;
       JTRACE("First process connected.  Creating new computation group")
         (UniquePid::ComputationId());

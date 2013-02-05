@@ -2358,6 +2358,9 @@ static void wait_for_all_restored (Thread *thisthread)
         DPRINTF("after callback_post_ckpt(1=restarting)\n");
     }
 
+    // Restore terminal settings.
+    restore_term_settings();
+
     // NOTE:  This is last safe moment for hook.  All previous threads
     //   have executed the "else" and are waiting on the futex.
     //   This last thread has not yet unlocked the threads: unlk_threads()
@@ -2930,8 +2933,6 @@ static int restarthread (void *threadv)
 
     set_tid_address (&(thread -> child_tid));
     /* Do it once only, in motherofall thread. */
-
-    restore_term_settings();
 
     if (dmtcp_info_restore_working_directory
         && chdir(mtcp_saved_working_directory) == -1) {

@@ -62,6 +62,12 @@ void dmtcp::SharedData::initializeHeader()
 
 void dmtcp::SharedData::initialize()
 {
+  /* FIXME: If the coordinator timestamp resolution is 1 second, during
+   * subsequent restart, the coordinator timestamp may have the same value
+   * causing conflict with SharedData file. In future, a better fix would be to
+   * delete the file associated with SharedData in preCkpt phase and recreate
+   * it in postCkpt/postRestart phase.
+   */
   bool needToInitialize = false;
   if (!Util::isValidFd(PROTECTED_SHM_FD)) {
     dmtcp::ostringstream o;
@@ -129,6 +135,11 @@ void dmtcp::SharedData::preCkpt()
     JASSERT(_real_munmap(sharedDataHeader, size) == 0) (JASSERT_ERRNO);
     sharedDataHeader = NULL;
   }
+}
+
+void dmtcp::SharedData::refill()
+{
+  if (sharedDataHeader == NULL) initialize();
 }
 
 dmtcp::string dmtcp::SharedData::getCoordHost()

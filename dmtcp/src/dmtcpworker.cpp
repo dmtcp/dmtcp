@@ -682,6 +682,7 @@ void dmtcp::DmtcpWorker::waitForStage3Refill(bool isRestart)
   JTRACE("checkpointed");
 
   WorkerState::setCurrentState (WorkerState::CHECKPOINTED);
+  dmtcp::SharedData::refill();
 
 #ifdef COORD_NAMESERVICE
   waitForCoordinatorMsg("REGISTER_NAME_SERVICE_DATA",
