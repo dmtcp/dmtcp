@@ -83,6 +83,7 @@ namespace dmtcp {
       struct PtyNameMap    ptyNameMap[MAX_PTY_NAME_MAPS];
       size_t               numPtyNameMaps;
       size_t               nextPtyName;
+      size_t               nextVirtualPtyId;
 
       struct MissingConMap missingConMap[MAX_MISSING_CONNECTIONS];
       size_t               numMissingConMaps;
