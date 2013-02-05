@@ -125,7 +125,7 @@ void dmtcp::ConnectionList::deleteStaleConnections()
 
       out << "\t[" << jalib::XToString(staleFds[i]) << "]"
           << c->str()
-          << "\t->\t" << staleFds[i] 
+          << "\t->\t" << staleFds[i]
           << "\t->\t" << c->id() << "\n";
     }
     out << "==================================================\n";
@@ -265,9 +265,9 @@ void dmtcp::ConnectionList::list()
   for (iterator i = begin(); i != end(); i++) {
     Connection *c = i->second;
     vector<int> fds = c->getFds();
-    for(int j = 0; j<fds.size(); j++){
+    for (size_t j = 0; j<fds.size(); j++) {
       o << fds[j];
-      if( j < fds.size() - 1 )
+      if (j < fds.size() - 1)
         o << "," ;
     }
     o << "\t" << i->first << "\t" << c->str();
@@ -379,6 +379,11 @@ void dmtcp::ConnectionList::processFileConnection(int fd, const char *path,
   struct stat statbuf;
   JASSERT(fstat(fd, &statbuf) == 0);
 
+  dmtcp::string device;
+  if (path == NULL) {
+    device = _resolveSymlink(_procFDPath(fd));
+    path = device.c_str();
+  }
   if (strcmp(path, "/dev/tty") == 0) {
     // Controlling terminal
     c = new PtyConnection(fd, path, flags, mode, PtyConnection::PTY_DEV_TTY);
