@@ -91,6 +91,7 @@ namespace dmtcp {
     void initialize();
     void initializeHeader();
     void preCkpt();
+    void refill();
 
     string getCoordHost();
     void setCoordHost(const char *host);
