@@ -30,6 +30,7 @@
 */
 
 
+#include <stdlib.h>
 #include <linux/limits.h>
 #include <pthread.h>
 #include <vector>
@@ -193,8 +194,7 @@ extern "C" int dmtcp_bq_restore_file(const char *path,
   if (type == TORQUE_NODE) {
     JTRACE("Restore Torque Node file");
     char newpath_tmpl[] = "/tmp/dmtcp_torque_nodefile.XXXXXX";
-    mktemp(newpath_tmpl);
-    if (newpath_tmpl[0] == '\0') {
+    if (mkstemp(newpath_tmpl) == -1) {
       strcpy(newpath_tmpl,"/tmp/dmtcp_torque_nodefile");
     }
     newpath = newpath_tmpl;
