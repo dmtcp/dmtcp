@@ -39,6 +39,7 @@
 
 static struct dmtcp::SharedData::Header *sharedDataHeader = NULL;
 static void *prevSharedDataHeaderAddr = NULL;
+static unsigned nextVirtualPtyId = -1;
 
 void dmtcp::SharedData::initializeHeader()
 {
@@ -58,6 +59,15 @@ void dmtcp::SharedData::initializeHeader()
   sharedDataHeader->initialized = true;
   sharedDataHeader->numProcessTreeRoots = 0;
   sharedDataHeader->numMissingConMaps = 0;
+  // The current implementation simply increments the last count and returns it.
+  // Although highly unlikely, this can cause a problem if the counter resets to
+  // zero. In that case we should have some more sophisticated code which checks
+  // to see if the value pointed by counter is in use or not.
+  if (nextVirtualPtyId != -1) {
+    sharedDataHeader->nextVirtualPtyId = nextVirtualPtyId;
+  } else {
+    sharedDataHeader->nextVirtualPtyId = 0;
+  }
 }
 
 void dmtcp::SharedData::initialize()
@@ -128,6 +138,7 @@ void dmtcp::SharedData::initialize()
 void dmtcp::SharedData::preCkpt()
 {
   if (sharedDataHeader != NULL) {
+    nextVirtualPtyId = sharedDataHeader->nextVirtualPtyId;
     // Need to reset these counter before next post-restart/post-ckpt routines
     sharedDataHeader->numProcessTreeRoots = 0;
     sharedDataHeader->numMissingConMaps = 0;
@@ -278,32 +289,27 @@ void dmtcp::SharedData::getProcessTreeRoots(dmtcp::UniquePid **roots,
   Util::unlockFile(PROTECTED_SHM_FD);
 }
 
-// The current implementation simply increments the last count and returns it.
-// Although highly unlikely, this can cause a problem if the counter resets to
-// zero. In that case we should have some more sophisticated code which checks
-// to see if the value pointed by counter is in use or not.
-static unsigned nextVirtualPtyId = 0;
 unsigned dmtcp::SharedData::getNextVirtualPtyId()
 {
   if (sharedDataHeader == NULL) initialize();
-  return nextVirtualPtyId;
+  return sharedDataHeader->nextVirtualPtyId;
 }
 
 void dmtcp::SharedData::restoreNextVirtualPtyId(unsigned n)
 {
   if (sharedDataHeader == NULL) initialize();
-  nextVirtualPtyId = n;
+  sharedDataHeader->nextVirtualPtyId = n;
 }
 
 void dmtcp::SharedData::createVirtualPtyName(const char* real, char *out,
                                              size_t len)
 {
   if (sharedDataHeader == NULL) initialize();
-  JASSERT(nextVirtualPtyId != (unsigned) -1);
+  JASSERT(sharedDataHeader->nextVirtualPtyId != (unsigned) -1);
 
   Util::lockFile(PROTECTED_SHM_FD);
   dmtcp::string virt = VIRT_PTS_PREFIX_STR +
-                       jalib::XToString(nextVirtualPtyId++);
+                       jalib::XToString(sharedDataHeader->nextVirtualPtyId++);
   // FIXME: We should be removing ptys once they are gone.
   JASSERT(sharedDataHeader->numPtyNameMaps < MAX_PTY_NAME_MAPS);
   size_t n = sharedDataHeader->numPtyNameMaps++;
