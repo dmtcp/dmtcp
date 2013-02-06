@@ -124,12 +124,17 @@ pid_t _real_getppid(void){
 }
 
 LIB_PRIVATE
+pid_t _real_tcgetsid(int fd){
+  REAL_FUNC_PASSTHROUGH ( tcgetsid ) ( fd );
+}
+
+LIB_PRIVATE
 int _real_tcsetpgrp(int fd, pid_t pgrp){
   REAL_FUNC_PASSTHROUGH ( tcsetpgrp ) ( fd, pgrp );
 }
 
 LIB_PRIVATE
-int _real_tcgetpgrp(int fd) {
+pid_t _real_tcgetpgrp(int fd) {
   REAL_FUNC_PASSTHROUGH ( tcgetpgrp ) ( fd );
 }
 

@@ -105,6 +105,7 @@ extern "C"
   MACRO(msgctl)             \
   MACRO(mq_notify)          \
   MACRO(getppid)            \
+  MACRO(tcgetsid)           \
   MACRO(tcgetpgrp)          \
   MACRO(tcsetpgrp)          \
   MACRO(getpgrp)            \
@@ -165,6 +166,7 @@ extern "C"
   pid_t _real_getpid(void);
   pid_t _real_getppid(void);
 
+  pid_t _real_tcgetsid(int fd);
   pid_t _real_tcgetpgrp(int fd);
   int   _real_tcsetpgrp(int fd, pid_t pgrp);
 

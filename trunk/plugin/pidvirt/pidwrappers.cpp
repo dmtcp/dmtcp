@@ -147,6 +147,18 @@ extern "C" pid_t tcgetpgrp(int fd)
   return retval;
 }
 
+extern "C" pid_t tcgetsid(int fd)
+{
+  DMTCP_PLUGIN_DISABLE_CKPT();
+
+  pid_t retval = REAL_TO_VIRTUAL_PID(_real_tcgetsid(fd));
+
+  JTRACE("tcgetsid return value") (fd) (retval);
+  DMTCP_PLUGIN_ENABLE_CKPT();
+
+  return retval;
+}
+
 extern "C" pid_t getpgrp(void)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
