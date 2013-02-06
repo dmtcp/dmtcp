@@ -624,15 +624,17 @@ if sys.version_info[0] == 2 and sys.version_info[0:2] >= (2,7) and \
     subprocess.check_output(['uname', '-p'])[0:3] == 'arm':
   print "On ARM, there is a known issue with the sysv-shm test. Not running it."
 else:
-  runTest("sv-shm1",       2, ["./test/sv-shm1"])
-  runTest("sv-shm2",       2, ["./test/sv-shm2"])
+  runTest("sysv-shm1",     2, ["./test/sysv-shm1"])
+  runTest("sysv-shm2",     2, ["./test/sysv-shm2"])
   runTest("sysv-sem",      2, ["./test/sysv-sem"])
   runTest("sysv-msg",      2, ["./test/sysv-msg"])
 
 runTest("posix-mq1",      2, ["./test/posix-mq1"])
 runTest("posix-mq2",      2, ["./test/posix-mq2"])
 #Invoke this test when we drain/restore data in pty at checkpoint time.
-# runTest("pty",   2, ["./test/pty"])
+# runTest("pty1",   2, ["./test/pty1"])
+#Invoke this test when debugged.
+# runTest("pty2",   2, ["./test/pty2"])
 
 old_ld_library_path = os.getenv("LD_LIBRARY_PATH")
 if old_ld_library_path:
