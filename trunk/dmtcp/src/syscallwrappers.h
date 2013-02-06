@@ -503,8 +503,6 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
                          unsigned int msg_prio,
                          const struct timespec *abs_timeout);
 
-  pid_t _real_getpid();
-
 #ifdef __cplusplus
 }
 #endif

@@ -566,7 +566,7 @@ void dmtcp::ShmSegment::preCkptDrain()
   _dmtcpMappedAddr = false;
   _isCkptLeader = false;
 
-  if (info.shm_lpid == _real_getpid()) {
+  if (info.shm_lpid == getpid()) {
     _isCkptLeader = true;
     if (_shmaddrToFlag.size() == 0) {
       void *addr = _real_shmat(_realId, NULL, 0);

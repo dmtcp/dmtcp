@@ -261,10 +261,6 @@ static int callbackShouldCkptFD ( int /*fd*/ )
 
 static void callbackWriteCkptPrefix ( int fd )
 {
-  // Not USED
-  //DmtcpEventData_t edata;
-  //edata.serializerInfo.fd = fd;
-  //dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_WRITE_CKPT_PREFIX, &edata);
 }
 
 void callbackHoldsAnyLocks(int *retval)
