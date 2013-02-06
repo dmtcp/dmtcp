@@ -289,18 +289,6 @@ void dmtcp::SharedData::getProcessTreeRoots(dmtcp::UniquePid **roots,
   Util::unlockFile(PROTECTED_SHM_FD);
 }
 
-unsigned dmtcp::SharedData::getNextVirtualPtyId()
-{
-  if (sharedDataHeader == NULL) initialize();
-  return sharedDataHeader->nextVirtualPtyId;
-}
-
-void dmtcp::SharedData::restoreNextVirtualPtyId(unsigned n)
-{
-  if (sharedDataHeader == NULL) initialize();
-  sharedDataHeader->nextVirtualPtyId = n;
-}
-
 void dmtcp::SharedData::createVirtualPtyName(const char* real, char *out,
                                              size_t len)
 {
