@@ -378,7 +378,7 @@ JTIMER ( checkpoint );
 JTIMER ( restart );
 
 static int numPeers = -1;
-static int curTimeStamp = -1;
+static time_t curTimeStamp = -1;
 
 static dmtcp::LookupService lookupService;
 static dmtcp::string localHostName;
