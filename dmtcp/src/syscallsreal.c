@@ -1035,11 +1035,6 @@ int _real_mq_timedsend(mqd_t mqdes, const char *msg_ptr, size_t msg_len,
 
 
 LIB_PRIVATE
-pid_t _real_getpid() {
-  REAL_FUNC_PASSTHROUGH_TYPED(pid_t, getpid) ();
-}
-
-LIB_PRIVATE
 void * _real_calloc(size_t nmemb, size_t size) {
   REAL_FUNC_PASSTHROUGH_TYPED(void*, calloc) (nmemb, size);
 }

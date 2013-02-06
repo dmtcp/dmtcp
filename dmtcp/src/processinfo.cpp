@@ -79,13 +79,6 @@ void dmtcp_ProcessInfo_ProcessEvent(DmtcpEvent_t event, DmtcpEventData_t *data)
       dmtcp::ProcessInfo::instance().refreshProcessTreeRoots();
       break;
 
-    case DMTCP_EVENT_WRITE_CKPT_PREFIX:
-      {
-       jalib::JBinarySerializeWriterRaw wr("", data->serializerInfo.fd);
-        dmtcp::ProcessInfo::instance().serialize(wr);
-      }
-      break;
-
     case DMTCP_EVENT_POST_RESTART:
       dmtcp::ProcessInfo::instance().postRestart();
       break;
