@@ -116,8 +116,6 @@ namespace dmtcp {
     void getVirtPtyName(const char* real, char *out, size_t len);
     void createVirtualPtyName(const char* real, char *out, size_t len);
     void insertPtyNameMap(const char* virt, const char* real);
-    unsigned getNextVirtualPtyId();
-    void restoreNextVirtualPtyId(unsigned n);
 
     void registerMissingCons(vector<const char*>& ids,
                              struct sockaddr_un receiverAddr,

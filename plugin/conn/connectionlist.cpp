@@ -39,7 +39,6 @@
 
 using namespace dmtcp;
 
-static unsigned _nextVirtualPtyId;
 static dmtcp::KernelBufferDrainer *_theDrainer = NULL;
 static dmtcp::ConnectionRewirer *_rewirer = NULL;
 static size_t _numMissingCons = 0;
@@ -448,7 +447,6 @@ void dmtcp::ConnectionList::preLockSaveOptions()
 
 void dmtcp::ConnectionList::preCheckpointFdLeaderElection()
 {
-  _nextVirtualPtyId = SharedData::getNextVirtualPtyId();
   deleteStaleConnections();
   for (iterator i = begin(); i != end(); ++i) {
     Connection *con = i->second;
@@ -541,9 +539,7 @@ void dmtcp::ConnectionList::resume(bool isRestart)
 
 void dmtcp::ConnectionList::postRestart()
 {
-  SharedData::restoreNextVirtualPtyId(_nextVirtualPtyId );
   doReconnect();
-
   registerMissingCons();
 }
 
