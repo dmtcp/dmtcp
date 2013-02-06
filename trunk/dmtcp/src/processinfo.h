@@ -46,7 +46,11 @@ namespace dmtcp
 #endif
       ProcessInfo();
       static ProcessInfo& instance();
-
+      void postExec();
+      void resetOnFork();
+      void leaderElection();
+      void postRestart();
+      void postRestartRefill();
       void restoreProcessGroupInfo();
 
       void  insertTid(pid_t tid);
@@ -55,10 +59,6 @@ namespace dmtcp
 
       void insertChild (pid_t virtualPid, dmtcp::UniquePid uniquePid);
       void eraseChild (pid_t virtualPid);
-      void  postExec();
-
-      void resetOnFork();
-      void postRestart();
 
       bool beginPthreadJoin(pthread_t thread);
       void endPthreadJoin(pthread_t thread);
@@ -68,30 +68,9 @@ namespace dmtcp
       void refreshChildTable();
       void refreshTidVector();
       void refreshProcessTreeRoots();
+      void setRootOfProcessTree() { _isRootOfProcessTree = true; }
 
       void serialize ( jalib::JBinarySerializer& o );
-
-      void setRootOfProcessTree() { _isRootOfProcessTree = true; }
-      bool isRootOfProcessTree() const { return _isRootOfProcessTree; }
-
-      dmtcp::vector< pid_t > getChildPidVector();
-      dmtcp::vector< pid_t > getTidVector();
-      dmtcp::vector< pid_t > getInferiorVector();
-
-      typedef dmtcp::map< pid_t , dmtcp::UniquePid >::iterator iterator;
-      iterator begin() { return _childTable.begin(); }
-      iterator end() { return _childTable.end(); }
-
-      pid_t pid() const { return _pid; }
-      pid_t ppid() const { return _ppid; }
-      pid_t sid() const { return _sid; }
-      pid_t gid() const { return _gid; }
-      pid_t fgid() const { return _fgid; }
-
-      void setppid(pid_t ppid) { _ppid = ppid; }
-      void setsid(pid_t sid) { _sid = sid; }
-      void setgid(pid_t gid) { _gid = gid; }
-      void setfgid(pid_t fgid) { _fgid = fgid; }
 
       UniquePid compGroup() { return _compGroup; }
       void compGroup(UniquePid cg) { _compGroup = cg; }
@@ -112,12 +91,12 @@ namespace dmtcp
       const UniquePid& uppid() const { return _uppid; }
 
     private:
-      dmtcp::map< pid_t , dmtcp::UniquePid > _childTable;
-      dmtcp::vector< pid_t > _tidVector;
+      dmtcp::map<pid_t, UniquePid> _childTable;
+      dmtcp::vector<pid_t> _tidVector;
       dmtcp::map<pthread_t, pthread_t> _pthreadJoinId;
-      dmtcp::vector< UniquePid > _processTreeRoots;
-
-
+      dmtcp::vector<UniquePid> _processTreeRoots;
+      dmtcp::map<pid_t, pid_t> _sessionIds;
+      typedef dmtcp::map<pid_t, UniquePid>::iterator iterator;
 
       bool  _isRootOfProcessTree;
       pid_t _pid;

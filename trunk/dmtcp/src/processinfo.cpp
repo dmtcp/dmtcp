@@ -24,6 +24,7 @@
 #include <string>
 #include <sstream>
 #include <fcntl.h>
+#include <unistd.h>
 #include <sys/syscall.h>
 #include "constants.h"
 #include "util.h"
@@ -69,19 +70,23 @@ void dmtcp_ProcessInfo_ProcessEvent(DmtcpEvent_t event, DmtcpEventData_t *data)
       break;
 
     case DMTCP_EVENT_LEADER_ELECTION:
-      if (getppid() == 1 ||
-          dmtcp::ProcessInfo::instance().isRootOfProcessTree()) {
-        dmtcp::SharedData::setProcessTreeRoot();
-      }
+      dmtcp::ProcessInfo::instance().leaderElection();
       break;
 
     case DMTCP_EVENT_DRAIN:
-      dmtcp::ProcessInfo::instance().refreshProcessTreeRoots();
+      dmtcp::ProcessInfo::instance().refresh();
       break;
 
     case DMTCP_EVENT_POST_RESTART:
       dmtcp::ProcessInfo::instance().postRestart();
       break;
+
+    case DMTCP_EVENT_REFILL:
+      if (data->refillInfo.isRestart) {
+        dmtcp::ProcessInfo::instance().restoreProcessGroupInfo();
+      }
+      break;
+
 
     default:
       break;
@@ -114,6 +119,14 @@ dmtcp::ProcessInfo& dmtcp::ProcessInfo::instance()
   return *pInfo;
 }
 
+void dmtcp::ProcessInfo::leaderElection()
+{
+  if (getppid() == 1 || _isRootOfProcessTree) {
+    dmtcp::SharedData::setProcessTreeRoot();
+  }
+}
+
+
 static void recreateProcess(bool isChild, dmtcp::string filename,
                             dmtcp::vector<dmtcp::string>& remainingFiles)
 {
@@ -141,8 +154,10 @@ static void recreateProcess(bool isChild, dmtcp::string filename,
 void dmtcp::ProcessInfo::postRestart()
 {
   dmtcp::vector<dmtcp::string> ckptFiles;
-  vector<string> childCkptFiles;
-  vector<string> processTreeRootCkptFiles;
+  vector<string> preSetsidChildCkptFiles;
+  vector<string> postSetsidChildCkptFiles;
+  vector<string> preSetsidProcessTreeRootCkptFiles;
+  vector<string> postSetsidProcessTreeRootCkptFiles;
   vector<string> remainingCkptFiles;
   Util::lockFile(PROTECTED_CKPT_FILES_FD);
   lseek(PROTECTED_CKPT_FILES_FD, 0, SEEK_SET);
@@ -152,12 +167,20 @@ void dmtcp::ProcessInfo::postRestart()
   for (size_t i = 0; i < ckptFiles.size(); i++) {
     UniquePid upid(ckptFiles[i].c_str());
     if (_childTable.find(upid.pid()) != _childTable.end()) {
-      childCkptFiles.push_back(ckptFiles[i]);
+      if (_sessionIds[upid.pid()] != _pid) {
+        preSetsidChildCkptFiles.push_back(ckptFiles[i]);
+      } else {
+        postSetsidChildCkptFiles.push_back(ckptFiles[i]);
+      }
     } else if (upid != UniquePid::ThisProcess()) {
       size_t j;
       for (j = 0; j < _processTreeRoots.size(); j++) {
         if (upid == _processTreeRoots[j]) {
-          processTreeRootCkptFiles.push_back(ckptFiles[i]);
+          if (_sessionIds[upid.pid()] != _pid) {
+            preSetsidProcessTreeRootCkptFiles.push_back(ckptFiles[i]);
+          } else {
+            postSetsidProcessTreeRootCkptFiles.push_back(ckptFiles[i]);
+          }
           break;
         }
       }
@@ -166,41 +189,61 @@ void dmtcp::ProcessInfo::postRestart()
       }
     }
   }
-  for (size_t i = 0; i < childCkptFiles.size(); i++) {
-      // This is a child process, we need to trigger restart for it.
-      JTRACE("Recreating child process") (ckptFiles[i]);
-      recreateProcess(true, childCkptFiles[i], remainingCkptFiles);
+
+  // Recreate child processes and process-tree-roots whose sid != _pid
+  for (size_t i = 0; i < preSetsidChildCkptFiles.size(); i++) {
+    // This is a child process, we need to trigger restart for it.
+    JTRACE("Recreating child process") (preSetsidChildCkptFiles[i]);
+    recreateProcess(true, preSetsidChildCkptFiles[i], remainingCkptFiles);
   }
-  for (size_t i = 0; i < processTreeRootCkptFiles.size(); i++) {
+  for (size_t i = 0; i < preSetsidProcessTreeRootCkptFiles.size(); i++) {
+    // This is a child process, we need to trigger restart for it.
+    JTRACE("Recreating  process tree root")
+      (preSetsidProcessTreeRootCkptFiles[i]);
+    recreateProcess(false, preSetsidProcessTreeRootCkptFiles[i],
+                    remainingCkptFiles);
+  }
+
+  // If we were the session leader, become one now.
+  if (_sid == _pid) {
+    if (getsid(0) != _pid) {
+      JASSERT(setsid() != -1) (JASSERT_ERRNO);
+    }
+
+    // Now recreate processes with sid == _pid
+    for (size_t i = 0; i < postSetsidChildCkptFiles.size(); i++) {
       // This is a child process, we need to trigger restart for it.
-      JTRACE("Recreating  process tree root") (ckptFiles[i]);
-      recreateProcess(false, processTreeRootCkptFiles[i], remainingCkptFiles);
+      JTRACE("Recreating child process") (postSetsidChildCkptFiles[i]);
+      recreateProcess(true, postSetsidChildCkptFiles[i], remainingCkptFiles);
+    }
+    for (size_t i = 0; i < postSetsidProcessTreeRootCkptFiles.size(); i++) {
+      // This is a child process, we need to trigger restart for it.
+      JTRACE("Recreating  process tree root")
+        (postSetsidProcessTreeRootCkptFiles[i]);
+      recreateProcess(false, postSetsidProcessTreeRootCkptFiles[i],
+                      remainingCkptFiles);
+    }
   }
   _real_close(PROTECTED_CKPT_FILES_FD);
 }
 
 void dmtcp::ProcessInfo::restoreProcessGroupInfo()
 {
-  // FIXME: This needs to be fixed
-#if 0
-#ifdef PID_VIRTUALIZATION
   // Restore group assignment
-  if( VirtualPidTable::instance().pidExists(_gid) ){
+  if (dmtcp_virtual_to_real_pid && dmtcp_virtual_to_real_pid(_gid) != _gid) {
     pid_t cgid = getpgid(0);
     // Group ID is known inside checkpointed processes
-    if( _gid != cgid && _pid != _gid ){
+    if (_gid != cgid) {
       JTRACE("Restore Group Assignment")
-        ( _gid ) ( _fgid ) ( cgid ) ( _pid ) ( _ppid ) ( getppid() );
-      JWARNING( setpgid(0,_gid) == 0 ) (_gid) (JASSERT_ERRNO)
+        (_gid) (_fgid) (cgid) (_pid) (_ppid) (getppid());
+      JWARNING(setpgid(0, _gid) == 0) (_gid) (JASSERT_ERRNO)
         .Text("Cannot change group information");
-    }else{
-      JTRACE("Group is already assigned")(_gid)(cgid);
+    } else {
+      JTRACE("Group is already assigned") (_gid) (cgid);
     }
-  }else{
+  } else {
     JTRACE("SKIP Group information, GID unknown");
   }
-#endif
-#endif
 }
 
 void dmtcp::ProcessInfo::resetOnFork()
@@ -235,19 +278,6 @@ void dmtcp::ProcessInfo::eraseChild( pid_t virtualPid )
   if ( i != _childTable.end() )
     _childTable.erase( virtualPid );
   _do_unlock_tbl();
-}
-
-dmtcp::vector< pid_t > dmtcp::ProcessInfo::getChildPidVector( )
-{
-  dmtcp::vector< pid_t > childPidVec;
-  for ( iterator i = _childTable.begin(); i != _childTable.end(); ++i )
-    childPidVec.push_back ( i->first );
-  return childPidVec;
-}
-
-dmtcp::vector< pid_t > dmtcp::ProcessInfo::getTidVector( )
-{
-  return _tidVector;
 }
 
 void dmtcp::ProcessInfo::insertTid( pid_t tid )
@@ -328,13 +358,11 @@ void dmtcp::ProcessInfo::refresh()
   _sid = getsid(0);
 
   _fgid = -1;
-  dmtcp::string controllingTerm = jalib::Filesystem::GetControllingTerm();
-  if (!controllingTerm.empty()) {
-    int tfd = _real_open(controllingTerm.c_str(), O_RDONLY, 0);
-    if (tfd >= 0) {
-      _fgid = tcgetpgrp(tfd);
-      _real_close(tfd);
-    }
+  // Try to open the controlling terminal
+  int tfd = _real_open("/dev/tty", O_RDWR);
+  if (tfd != -1) {
+    _fgid = tcgetpgrp(tfd);
+    _real_close(tfd);
   }
 
   if (_ppid == 1) {
@@ -347,6 +375,8 @@ void dmtcp::ProcessInfo::refresh()
   _uppid = UniquePid::ParentProcess();
   _noCoordinator = dmtcp_no_coordinator();
 
+  _sessionIds.clear();
+  refreshProcessTreeRoots();
   refreshChildTable();
   refreshTidVector();
 
@@ -361,6 +391,9 @@ void dmtcp::ProcessInfo::refreshProcessTreeRoots()
   _processTreeRoots.clear();
   if (n > 0) {
     _processTreeRoots.assign(pids, pids + n);
+    for (size_t i = 0; i < n; i++) {
+      _sessionIds[pids[i].pid()] = getsid(pids[i].pid());
+    }
   }
 }
 
@@ -380,13 +413,15 @@ void dmtcp::ProcessInfo::refreshTidVector()
 
 void dmtcp::ProcessInfo::refreshChildTable()
 {
-  dmtcp::vector< pid_t > childPidVec = getChildPidVector();
-  for (size_t i = 0; i < childPidVec.size(); i++) {
-    pid_t pid = childPidVec[i];
-    int retVal = kill(pid, 0);
+  iterator i = _childTable.begin();
+  while (i != _childTable.end()) {
+    pid_t pid = i->first;
+    iterator j = i++;
     /* Check to see if the child process is alive*/
-    if (retVal == -1 && errno == ESRCH) {
-      _childTable.erase(pid);
+    if (kill(pid, 0) == -1 && errno == ESRCH) {
+      _childTable.erase(j);
+    } else {
+      _sessionIds[pid] = getsid(pid);
     }
   }
 }
