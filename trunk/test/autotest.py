@@ -631,10 +631,13 @@ else:
 
 runTest("posix-mq1",      2, ["./test/posix-mq1"])
 runTest("posix-mq2",      2, ["./test/posix-mq2"])
+
 #Invoke this test when we drain/restore data in pty at checkpoint time.
 # runTest("pty1",   2, ["./test/pty1"])
-#Invoke this test when debugged.
 runTest("pty2",   2, ["./test/pty2"])
+
+#Invoke this test when support for timers is added to DMTCP.
+# runTest("timer",   2, ["./test/timer"])
 
 old_ld_library_path = os.getenv("LD_LIBRARY_PATH")
 if old_ld_library_path:

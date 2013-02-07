@@ -1,3 +1,5 @@
+// Compile with -DDEBUG for debugging failure modes.
+
 #define _XOPEN_SOURCE
 // Using _XOPEN_SOURCE to ensure ptsname returns 'char *' (recommended by Open Group)
 #define _BSD_SOURCE
@@ -18,7 +20,7 @@
 #ifdef DEBUG
 // printing to stdout won't work, when it goes to /dev/pts/XX
 # define PERROR(str) fprintf(fdopen(orig_stdout, "w"), \
-			     #str ": %s\n", sys_errlist[errno]);
+			     #str ": %s\n", sys_errlist[errno])
 # else
 # define PERROR(str)
 #endif
