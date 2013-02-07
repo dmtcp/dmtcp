@@ -56,6 +56,9 @@ else
 	#$@: required libraries missing, skipping test
 endif
 
+timer: timer.c
+	$(CC) -o $@ $< $(CFLAGS) -lrt
+
 # Assume OpenMP exists only if OPENMP_CFLAGS is set.
 openmp-%: openmp-%.c
 ifneq (${OPENMP_CFLAGS},)
