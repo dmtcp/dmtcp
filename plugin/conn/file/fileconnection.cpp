@@ -337,7 +337,7 @@ void dmtcp::PtyConnection::refill(bool isRestart)
   restoreOptions();
 }
 
-void dmtcp::PtyConnection::restore()
+void dmtcp::PtyConnection::postRestart()
 {
   JASSERT(_fds.size() > 0);
   if (ptyType() == PTY_SLAVE || ptyType() == PTY_BSD_SLAVE) {
@@ -679,7 +679,7 @@ void dmtcp::FileConnection::refreshPath()
   }
 }
 
-void dmtcp::FileConnection::restore()
+void dmtcp::FileConnection::postRestart()
 {
   int tempfd;
 
@@ -912,7 +912,7 @@ void dmtcp::FifoConnection::refreshPath()
   }
 }
 
-void dmtcp::FifoConnection::restore()
+void dmtcp::FifoConnection::postRestart()
 {
   JASSERT(_fds.size() > 0);
   JTRACE("Restoring Fifo Connection") (id()) (_path);
@@ -959,7 +959,7 @@ void dmtcp::StdioConnection::refill(bool isRestart)
   restoreOptions();
 }
 
-void dmtcp::StdioConnection::restore()
+void dmtcp::StdioConnection::postRestart()
 {
   for (size_t i=0; i<_fds.size(); ++i) {
     int fd = _fds[i];
@@ -1058,7 +1058,7 @@ void dmtcp::PosixMQConnection::refill(bool isRestart)
   _msgInQueuePrio.clear();
 }
 
-void dmtcp::PosixMQConnection::restore()
+void dmtcp::PosixMQConnection::postRestart()
 {
   JASSERT(_fds.size() > 0);
 

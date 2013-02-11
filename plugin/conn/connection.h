@@ -82,7 +82,7 @@ namespace dmtcp
       virtual void preCheckpoint() = 0;
       virtual void refill(bool isRestart) = 0;
       virtual void resume(bool isRestart) {};
-      virtual void restore() = 0;
+      virtual void postRestart() = 0;
 
       virtual void doLocking();
       virtual void saveOptions();

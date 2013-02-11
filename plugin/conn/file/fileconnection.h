@@ -66,7 +66,7 @@ namespace dmtcp
 
       virtual void preCheckpoint();
       virtual void refill(bool isRestart);
-      virtual void restore();
+      virtual void postRestart();
       virtual void serializeSubClass(jalib::JBinarySerializer& o);
       virtual string str() { return _masterName + ":" + _ptsName; }
     private:
@@ -102,7 +102,7 @@ namespace dmtcp
 
       virtual void preCheckpoint();
       virtual void refill(bool isRestart);
-      virtual void restore();
+      virtual void postRestart();
 
       virtual string str() { return "<STDIO>"; };
       virtual void serializeSubClass(jalib::JBinarySerializer& o);
@@ -135,7 +135,7 @@ namespace dmtcp
       virtual void doLocking();
       virtual void preCheckpoint();
       virtual void refill(bool isRestart);
-      virtual void restore();
+      virtual void postRestart();
       virtual void resume(bool isRestart);
 
       virtual void serializeSubClass(jalib::JBinarySerializer& o);
@@ -193,7 +193,7 @@ namespace dmtcp
 
       virtual void preCheckpoint();
       virtual void refill(bool isRestart);
-      virtual void restore();
+      virtual void postRestart();
 
       virtual string str() { return _path; };
       virtual void serializeSubClass(jalib::JBinarySerializer& o);
@@ -231,7 +231,7 @@ namespace dmtcp
 
       virtual void preCheckpoint();
       virtual void refill(bool isRestart);
-      virtual void restore();
+      virtual void postRestart();
 
       virtual void serializeSubClass(jalib::JBinarySerializer& o);
 

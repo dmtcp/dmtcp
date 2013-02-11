@@ -73,7 +73,7 @@ void dmtcp::EpollConnection::refill(bool isRestart)
   }
 }
 
-void dmtcp::EpollConnection::restore()
+void dmtcp::EpollConnection::postRestart()
 {
   JASSERT(_fds.size()>0);
   JTRACE("Recreating epoll connection") (_fds[0]) (id());
@@ -169,7 +169,7 @@ void dmtcp::EventFdConnection::refill(bool isRestart)
   JTRACE("End refill eventfd.") (_fds[0]);
 }
 
-void dmtcp::EventFdConnection::restore()
+void dmtcp::EventFdConnection::postRestart()
 {
   JASSERT(_fds.size() > 0);
 
@@ -229,7 +229,7 @@ void dmtcp::SignalFdConnection::refill(bool isRestart)
   JTRACE("End refill signalfd.") (_fds[0]);
 }
 
-void dmtcp::SignalFdConnection::restore()
+void dmtcp::SignalFdConnection::postRestart()
 {
   JASSERT(_fds.size() > 0);
 
@@ -290,7 +290,7 @@ void dmtcp::InotifyConnection::refill(bool isRestart)
   }
 }
 
-void dmtcp::InotifyConnection::restore()
+void dmtcp::InotifyConnection::postRestart()
 {
   //create a new inotify instance and clone it as the old one
   int tempfd =  _real_inotify_init1(_flags);

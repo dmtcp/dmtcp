@@ -538,7 +538,7 @@ void dmtcp::ConnectionList::doReconnect()
 //        }
 //      }
 //    }
-    con->restore();
+    con->postRestart();
   }
 }
 
