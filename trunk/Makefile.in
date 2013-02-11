@@ -4,7 +4,6 @@ MKDIR_P=@MKDIR_P@
 CC=@CC@
 M32=@M32@
 DEBUG=@DEBUG@
-PTRACE_SUPPORT=@PTRACE_SUPPORT@
 FAST_RESTART=@FAST_RESTART@
 HBICT_DELTACOMP=@HBICT_DELTACOMP@
 HAS_JAVA=@HAS_JAVA@
@@ -54,7 +53,7 @@ endif
 
 default: display-build-env build
 
-build: mtcp dmtcp plugin
+build: mtcp dmtcp plugin contrib
 	$(MKDIR_P) bin
 	$(MKDIR_P) lib/dmtcp
 	$(MKDIR_P) include
@@ -111,6 +110,9 @@ dmtcp: check-m32-compat mtcp
 
 plugin: dmtcp check-m32-compat
 	cd plugin && $(MAKE)
+
+contrib: dmtcp
+	cd contrib && $(MAKE)
 
 tests: build
 	cd test && $(MAKE)
@@ -239,24 +241,28 @@ lib/% : dmtcp/src/%
 lib/dmtcp/% : dmtcp/src/%
 	cd lib/dmtcp && $(LN_S) ../../$< $*
 
-lib/dmtcp/% : plugin/ptrace/%
+#lib/dmtcp/% : plugin/ptrace/%
+#	cd lib/dmtcp && $(LN_S) ../../$< $*
+#
+#lib/dmtcp/% : plugin/pid/%
+#	cd lib/dmtcp && $(LN_S) ../../$< $*
+#
+#lib/dmtcp/% : plugin/conn/%
+#	cd lib/dmtcp && $(LN_S) ../../$< $*
+#
+#lib/dmtcp/% : contrib/torque/%
+	#cd lib/dmtcp && $(LN_S) ../../$< $*
+
+lib/dmtcp/libdmtcp_%.so : plugin/%/libdmtcp_%.so
 	cd lib/dmtcp && $(LN_S) ../../$< $*
 
-lib/dmtcp/% : plugin/pidvirt/%
+lib/dmtcp/libdmtcp_%.so : contrib/%/libdmtcp_%.so
 	cd lib/dmtcp && $(LN_S) ../../$< $*
 
-lib/dmtcp/% : plugin/conn/%
-	cd lib/dmtcp && $(LN_S) ../../$< $*
+PLUGINS = lib/dmtcp/libdmtcp_pid.so lib/dmtcp/libdmtcp_conn.so \
+	  lib/dmtcp/libdmtcp_ptrace.so lib/dmtcp/libdmtcp_torque.so
 
-lib/dmtcp/% : plugin/torque/%
-	cd lib/dmtcp && $(LN_S) ../../$< $*
-
-PLUGINS = lib/dmtcp/pidvirt.so lib/dmtcp/dmtcptorque.so lib/dmtcp/dmtcpconn.so
-ifeq ($(PTRACE_SUPPORT),yes)
-  PLUGINS += lib/dmtcp/ptracehijack.so
-endif
-
-lib: 	lib/dmtcp/dmtcphijack.so $(PLUGINS) \
+lib: 	lib/dmtcp/libdmtcp.so $(PLUGINS) \
 	lib/libdmtcpaware.a lib/libdmtcpaware.so \
 	lib/libmtcp.so.1.0.0 lib/libmtcp.so.1 lib/libmtcp.so
 
@@ -279,6 +285,7 @@ install: all
 	test -e $(DESTDIR)$(libdir)/dmtcp || $(MKDIR_P) $(DESTDIR)$(libdir)/dmtcp
 	cd dmtcp && make DESTDIR=$(DESTDIR) install
 	cd plugin && make DESTDIR=$(DESTDIR) install
+	cd contrib && make DESTDIR=$(DESTDIR) install
 	cd mtcp && make DESTDIR=$(DESTDIR) bindir=$(bindir) libdir=$(libdir) \
 	  includedir=$(includedir) install
 	#chmod -f 755 $(DESTDIR)$(libdir)/dmtcp/lib*
@@ -297,6 +304,7 @@ install: all
 uninstall:
 	cd dmtcp && make uninstall
 	cd plugin && make uninstall
+	cd contrib && make uninstall
 	cd mtcp && make DESTDIR=$(DESTDIR) bindir=$(bindir) libdir=$(libdir) \
 	  includedir=$(includedir) uninstall
 	rm -f "$(DESTDIR)$(libdir)"/libdmtcpaware.so*
@@ -308,5 +316,5 @@ uninstall:
 
 .PHONY: default all check-m32-compat tests \
 	display-build-env display-release display-config build \
-	mtcp dmtcp plugin \
+	mtcp dmtcp plugin contrib \
 	clean distclean bin dmtcpaware examples dmtcp_noexamples

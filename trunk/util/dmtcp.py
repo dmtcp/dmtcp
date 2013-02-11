@@ -17,16 +17,16 @@ class LocalStatus (Structure):
                  ('uniquePidStr',       c_char_p)]
     #FIXME: Add other fields such as: ComputationID
 
-libdmtcphijack = CDLL(None)
+libdmtcp = CDLL(None)
 try:
-    isEnabled         = libdmtcphijack.dmtcpIsEnabled();
-    checkpoint        = libdmtcphijack.dmtcpCheckpoint;
-    localStatus       = libdmtcphijack.dmtcpGetLocalStatus;
-    coordinatorStatus = libdmtcphijack.dmtcpGetCoordinatorStatus;
-    delayCkptLock     = libdmtcphijack.dmtcpDelayCheckpointsLock;
-    delayCkptUnlock   = libdmtcphijack.dmtcpDelayCheckpointsUnlock;
-    installHooks      = libdmtcphijack.dmtcpInstallHooks;
-    runCommand        = libdmtcphijack.dmtcpRunCommand;
+    isEnabled         = libdmtcp.dmtcpIsEnabled();
+    checkpoint        = libdmtcp.dmtcpCheckpoint;
+    localStatus       = libdmtcp.dmtcpGetLocalStatus;
+    coordinatorStatus = libdmtcp.dmtcpGetCoordinatorStatus;
+    delayCkptLock     = libdmtcp.dmtcpDelayCheckpointsLock;
+    delayCkptUnlock   = libdmtcp.dmtcpDelayCheckpointsUnlock;
+    installHooks      = libdmtcp.dmtcpInstallHooks;
+    runCommand        = libdmtcp.dmtcpRunCommand;
 
     coordinatorStatus.restype = POINTER(CoordinatorStatus)
     localStatus.restype = POINTER(LocalStatus)
@@ -47,7 +47,7 @@ def isRunning():
 def numCheckpoints():
     if isEnabled:
         return localStatus().contents.numCheckpoints
-    return -1 
+    return -1
 
 def numRestarts():
     if isEnabled:

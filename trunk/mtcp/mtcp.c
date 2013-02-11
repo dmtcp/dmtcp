@@ -322,7 +322,7 @@ Area mtcp_libc_area;               // some area of that libc.so
 
 /* DMTCP Info Variables */
 
-/* These are reset by dmtcphijack.so at initialization. */
+/* These are reset by libdmtcp.so at initialization. */
 int dmtcp_exists = 0; /* Are we running under DMTCP? */
 int dmtcp_info_pid_virtualization_enabled = 0;
 /* The following two DMTCP Info variables are defined in mtcp_printf.c */

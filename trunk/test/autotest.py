@@ -528,7 +528,7 @@ def saveResultsNMI():
       target = "./dmtcp-" + pwd.getpwuid(os.getuid()).pw_name + \
                "@" + socket.gethostname()
       cmd = "mkdir results; cp -pr " + tmpdir + "/" + target + \
-	       " ./dmtcp/src/dmtcphijack.so" + \
+	       " ./dmtcp/src/libdmtcp.so" + \
 	       " ./dmtcp/src/dmtcp_coordinator" + \
                " ./mtcp/libmtcp.so" + \
                " results/"
@@ -762,7 +762,7 @@ if testconfig.PTRACE_SUPPORT == "yes" and sys.version_info[0:2] >= (2,6):
 
     # These tests currently fail sometimes (if the computation is checkpointed
     # while a thread is being created). Re-enable them when this issue has been
-    # fixed in the ptrace module.
+    # fixed in the ptrace plugin.
     #runTest("gdb-pthread1", 2, ["gdb -n -batch -x dmtcp-gdbinit.tmp test/pthread1"])
     #runTest("gdb-pthread2",2, ["gdb -n -batch -x dmtcp-gdbinit.tmp test/pthread2"])
 

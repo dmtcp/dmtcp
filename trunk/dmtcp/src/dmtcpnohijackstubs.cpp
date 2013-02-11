@@ -10,12 +10,12 @@
 // libdmtcpinternal.a contains code needed by dmtcpworker and the utilities
 //    alike.
 // libnohijack.a contains stub functions (mostly empty definitions
-//   corresponding to definitions in dmtcphijack.so.  It includes
+//   corresponding to definitions in libdmtcp.so.  It includes
 //   nosyscallsreal.c and this file (dmtcpworkerstubs.cpp).
-// dmtcphijack.so and libsyscallsreal.a contain the wrappers and other code
+// libdmtcp.so and libsyscallsreal.a contain the wrappers and other code
 //   that executes within the end user process
 
-// dmtcphijack.so defines this differently
+// libdmtcp.so defines this differently
 void _dmtcp_setup_trampolines() {}
 
 void dmtcp_process_event(DmtcpEvent_t id, void* data)

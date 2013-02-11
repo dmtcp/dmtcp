@@ -103,7 +103,7 @@ void _dmtcp_remutex_on_fork() {
  *     calculated it's offset, in libc, from a known base-function (toupper, a
  *     function not wrapped by DMTCP) in libc, i.e. we do:
  *       open_offset = &open - &toupper;
- *     The offsets were passed along to dmtcphijack.so in an environment
+ *     The offsets were passed along to libdmtcp.so in an environment
  *     variable. To calculate the address of libc function now becomes very
  *     easy -- calculate the address of base-function, and add to it the offset
  *     of the required function i.e.
@@ -336,7 +336,7 @@ void *_dmtcp_get_libc_dlsym_addr()
 
     /* On Debian 5.0 (gcc-4.3.2 libc-2.7, ld-2.18.0), the call
      * by dmtcp_checkpoint to execvp fails without this call to unsetenv.
-     * Possibly, execvp is calling dlsym even before dmtcphijack.so gets
+     * Possibly, execvp is calling dlsym even before libdmtcp.so gets
      * loaded.
      */
     unsetenv (ENV_VAR_DLSYM_OFFSET);
@@ -360,7 +360,7 @@ void *_real_dlsym (void *handle, const char *symbol) {
   return res;
 }
 
-/* In dmtcphijack.so code always use this function instead of unsetenv.
+/* In libdmtcp.so code always use this function instead of unsetenv.
  * Bash has its own implementation of getenv/setenv/unsetenv and keeps its own
  * environment equivalent to its shell variables. If DMTCP uses the bash
  * unsetenv, bash will unset its internal environment variable but won't remove

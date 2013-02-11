@@ -189,7 +189,7 @@ SHORT NOTES:
 	      b.  dmtcp_checkpoint a.out &
 	      c.  gdb a.out `pgrep -n a.out`  [During the 15 second pause.]
 	      d.  The usual gdb commands should be available to debug
-			a.out/libmtcp.so/dmtcphijack.so
+			a.out/libmtcp.so/libdmtcp.so
     5. It often works to migrate processes by moving the checkpoint files to
        another host and editing dmtcp_checkpoint_restart.sh prior to
        restarting.  Whether it works is affected by how different are the

@@ -36,7 +36,7 @@ check: ${LIBNAME}.so ${DMTCP_ROOT}/test/dmtcp1
 	  --with-plugin $$PWD/${LIBNAME}.so ${DMTCP_ROOT}/test/dmtcp1 &
 	sleep 20; ${DMTCP_ROOT}/bin/dmtcp_command --port ${DEMO_PORT} --quit
 
-# We link the library using C++ for compatibility with the main dmtcphijack.so
+# We link the library using C++ for compatibility with the main libdmtcp.so
 ${LIBNAME}.so: ${LIBOBJS}
 	${CXX} -shared -fPIC -o $@ $^
 

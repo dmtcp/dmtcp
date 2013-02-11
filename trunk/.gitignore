@@ -27,9 +27,9 @@ dmtcp/src/dmtcp_inspector
 dmtcp/src/dmtcp_nocheckpoint
 dmtcp/src/dmtcp_restart
 dmtcp/src/dmtcp_discover_rm
-dmtcp/src/dmtcphijack.so
+dmtcp/src/libdmtcp.so
 dmtcp/src/libdmtcpaware.so.1.0.0
-plugin/torque/dmtcp_discover_rm
+dmtcp_discover_rm
 
 mtcp/libmtcp.so*
 mtcp/mtcp.lis

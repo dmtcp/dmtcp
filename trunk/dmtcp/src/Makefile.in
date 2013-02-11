@@ -63,7 +63,7 @@ POST_UNINSTALL = :
 bin_PROGRAMS = dmtcp_checkpoint$(EXEEXT) dmtcp_command$(EXEEXT) \
 	dmtcp_coordinator$(EXEEXT) dmtcp_restart$(EXEEXT) \
 	dmtcp_nocheckpoint$(EXEEXT)
-dmtcplib_PROGRAMS = dmtcphijack.so$(EXEEXT) \
+dmtcplib_PROGRAMS = libdmtcp.so$(EXEEXT) \
 	libdmtcpaware.so.1.0.0$(EXEEXT)
 subdir = src
 DIST_COMMON = $(include_HEADERS) $(nobase_noinst_HEADERS) \
@@ -163,19 +163,19 @@ am_dmtcp_restart_OBJECTS = dmtcp_restart.$(OBJEXT) util_exec.$(OBJEXT)
 dmtcp_restart_OBJECTS = $(am_dmtcp_restart_OBJECTS)
 dmtcp_restart_DEPENDENCIES = libdmtcpinternal.a libjalib.a \
 	libnohijack.a
-am_dmtcphijack_so_OBJECTS = dmtcpawareapi.$(OBJEXT) \
-	dmtcpworker.$(OBJEXT) threadsync.$(OBJEXT) \
-	coordinatorapi.$(OBJEXT) execwrappers.$(OBJEXT) \
-	mtcpinterface.$(OBJEXT) signalwrappers.$(OBJEXT) \
-	workerhijack.$(OBJEXT) threadwrappers.$(OBJEXT) \
-	miscwrappers.$(OBJEXT) glibcsystem.$(OBJEXT) \
-	mallocwrappers.$(OBJEXT) dmtcpplugin.$(OBJEXT) popen.$(OBJEXT) \
-	syslogwrappers.$(OBJEXT) sysvipcwrappers.$(OBJEXT)
-dmtcphijack_so_OBJECTS = $(am_dmtcphijack_so_OBJECTS)
-dmtcphijack_so_DEPENDENCIES = libdmtcpinternal.a libsysvipc.a \
-	libjalib.a libsyscallsreal.a ../../mtcp/libmtcp.so
-dmtcphijack_so_LINK = $(CXXLD) $(AM_CXXFLAGS) $(CXXFLAGS) \
-	$(dmtcphijack_so_LDFLAGS) $(LDFLAGS) -o $@
+am_libdmtcp_so_OBJECTS = dmtcpawareapi.$(OBJEXT) dmtcpworker.$(OBJEXT) \
+	threadsync.$(OBJEXT) coordinatorapi.$(OBJEXT) \
+	execwrappers.$(OBJEXT) mtcpinterface.$(OBJEXT) \
+	signalwrappers.$(OBJEXT) workerhijack.$(OBJEXT) \
+	threadwrappers.$(OBJEXT) miscwrappers.$(OBJEXT) \
+	glibcsystem.$(OBJEXT) mallocwrappers.$(OBJEXT) \
+	dmtcpplugin.$(OBJEXT) popen.$(OBJEXT) syslogwrappers.$(OBJEXT) \
+	sysvipcwrappers.$(OBJEXT)
+libdmtcp_so_OBJECTS = $(am_libdmtcp_so_OBJECTS)
+libdmtcp_so_DEPENDENCIES = libdmtcpinternal.a libsysvipc.a libjalib.a \
+	libsyscallsreal.a ../../mtcp/libmtcp.so
+libdmtcp_so_LINK = $(CXXLD) $(AM_CXXFLAGS) $(CXXFLAGS) \
+	$(libdmtcp_so_LDFLAGS) $(LDFLAGS) -o $@
 am_libdmtcpaware_so_1_0_0_OBJECTS = dmtcpaware.$(OBJEXT)
 libdmtcpaware_so_1_0_0_OBJECTS = $(am_libdmtcpaware_so_1_0_0_OBJECTS)
 libdmtcpaware_so_1_0_0_LDADD = $(LDADD)
@@ -199,7 +199,7 @@ SOURCES = $(libdmtcpaware_a_SOURCES) $(libdmtcpinternal_a_SOURCES) \
 	$(libsyscallsreal_a_SOURCES) $(libsysvipc_a_SOURCES) \
 	$(dmtcp_checkpoint_SOURCES) $(dmtcp_command_SOURCES) \
 	$(dmtcp_coordinator_SOURCES) $(dmtcp_nocheckpoint_SOURCES) \
-	$(dmtcp_restart_SOURCES) $(dmtcphijack_so_SOURCES) \
+	$(dmtcp_restart_SOURCES) $(libdmtcp_so_SOURCES) \
 	$(libdmtcpaware_so_1_0_0_SOURCES)
 DIST_SOURCES = $(libdmtcpaware_a_SOURCES) \
 	$(libdmtcpinternal_a_SOURCES) $(libjalib_a_SOURCES) \
@@ -207,7 +207,7 @@ DIST_SOURCES = $(libdmtcpaware_a_SOURCES) \
 	$(libsysvipc_a_SOURCES) $(dmtcp_checkpoint_SOURCES) \
 	$(dmtcp_command_SOURCES) $(dmtcp_coordinator_SOURCES) \
 	$(dmtcp_nocheckpoint_SOURCES) $(dmtcp_restart_SOURCES) \
-	$(dmtcphijack_so_SOURCES) $(libdmtcpaware_so_1_0_0_SOURCES)
+	$(libdmtcp_so_SOURCES) $(libdmtcpaware_so_1_0_0_SOURCES)
 am__can_run_installinfo = \
   case $$AM_UPDATE_INFO_DIR in \
     n|no|NO) false;; \
@@ -365,22 +365,22 @@ dmtcp_checkpoint_SOURCES = dmtcp_checkpoint.cpp
 dmtcp_nocheckpoint_SOURCES = dmtcp_nocheckpoint.c
 dmtcp_restart_SOURCES = dmtcp_restart.cpp util_exec.cpp
 dmtcp_command_SOURCES = dmtcp_command.cpp
-dmtcphijack_so_SOURCES = dmtcpawareapi.cpp dmtcpworker.cpp threadsync.cpp \
-			 coordinatorapi.cpp execwrappers.cpp \
-		         mtcpinterface.cpp signalwrappers.cpp \
-			 workerhijack.cpp threadwrappers.cpp \
-			 miscwrappers.cpp \
-			 glibcsystem.cpp mallocwrappers.cpp \
-			 dmtcpplugin.cpp popen.cpp syslogwrappers.cpp \
-			 sysvipc/sysvipcwrappers.cpp
+libdmtcp_so_SOURCES = dmtcpawareapi.cpp dmtcpworker.cpp threadsync.cpp \
+		      coordinatorapi.cpp execwrappers.cpp \
+		      mtcpinterface.cpp signalwrappers.cpp \
+		      workerhijack.cpp threadwrappers.cpp \
+		      miscwrappers.cpp \
+		      glibcsystem.cpp mallocwrappers.cpp \
+		      dmtcpplugin.cpp popen.cpp syslogwrappers.cpp \
+		      sysvipc/sysvipcwrappers.cpp
 
-dmtcphijack_so_LDFLAGS = -shared
+libdmtcp_so_LDFLAGS = -shared
 
 #dmtcp_nocheckpoint_LDFLAGS = -static
 
 # Note that an ELF object uses libsyscallsreal.a or libnohijack.a
 #  but not both.  libnohijack.a has stub definitions for same symbols.
-dmtcphijack_so_LDADD = libdmtcpinternal.a libsysvipc.a \
+libdmtcp_so_LDADD = libdmtcpinternal.a libsysvipc.a \
 			  libjalib.a libsyscallsreal.a  -ldl -lpthread -lrt \
 			  ../../mtcp/libmtcp.so
 
@@ -609,9 +609,9 @@ dmtcp_nocheckpoint$(EXEEXT): $(dmtcp_nocheckpoint_OBJECTS) $(dmtcp_nocheckpoint_
 dmtcp_restart$(EXEEXT): $(dmtcp_restart_OBJECTS) $(dmtcp_restart_DEPENDENCIES) $(EXTRA_dmtcp_restart_DEPENDENCIES) 
 	@rm -f dmtcp_restart$(EXEEXT)
 	$(CXXLINK) $(dmtcp_restart_OBJECTS) $(dmtcp_restart_LDADD) $(LIBS)
-dmtcphijack.so$(EXEEXT): $(dmtcphijack_so_OBJECTS) $(dmtcphijack_so_DEPENDENCIES) $(EXTRA_dmtcphijack_so_DEPENDENCIES) 
-	@rm -f dmtcphijack.so$(EXEEXT)
-	$(dmtcphijack_so_LINK) $(dmtcphijack_so_OBJECTS) $(dmtcphijack_so_LDADD) $(LIBS)
+libdmtcp.so$(EXEEXT): $(libdmtcp_so_OBJECTS) $(libdmtcp_so_DEPENDENCIES) $(EXTRA_libdmtcp_so_DEPENDENCIES) 
+	@rm -f libdmtcp.so$(EXEEXT)
+	$(libdmtcp_so_LINK) $(libdmtcp_so_OBJECTS) $(libdmtcp_so_LDADD) $(LIBS)
 libdmtcpaware.so.1.0.0$(EXEEXT): $(libdmtcpaware_so_1_0_0_OBJECTS) $(libdmtcpaware_so_1_0_0_DEPENDENCIES) $(EXTRA_libdmtcpaware_so_1_0_0_DEPENDENCIES) 
 	@rm -f libdmtcpaware.so.1.0.0$(EXEEXT)
 	$(libdmtcpaware_so_1_0_0_LINK) $(libdmtcpaware_so_1_0_0_OBJECTS) $(libdmtcpaware_so_1_0_0_LDADD) $(LIBS)

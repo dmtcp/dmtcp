@@ -40,7 +40,7 @@ could be dangers of a race in that scheme.
 
 So, when an application calls pthread_create(), libc will then
 call clone() or __clone().  The file mtcpinterface.cpp intercepts this
-through its clone() wrapper (in dmtcphijack.so, which was preloaded).
+through its clone() wrapper (in libdmtcp.so, which was preloaded).
 
 If this is a new thread, __clone() will call mtcpFuncPtrs.clone(),
 which is the MTCP definition of clone().  (If DMTCP is restarting,

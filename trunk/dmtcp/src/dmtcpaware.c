@@ -58,13 +58,13 @@ extern const DmtcpLocalStatus* __dyn_dmtcpGetLocalStatus() WEAK;
 
 // __attribute__ ((visibility ("hidden"))) is needed below for following reason:
 //   If user links their executable with -rdynamic or --export-symbols
-//   then dmtcphijack.so will see this dynamic symbol being exported and
-//   dmtcphijack.so will call it in preference to the dmtcpIsEnabled()
-//   defined in dmtcphijack.so, resulting in an infinite loop.
+//   then libdmtcp.so will see this dynamic symbol being exported and
+//   libdmtcp.so will call it in preference to the dmtcpIsEnabled()
+//   defined in libdmtcp.so, resulting in an infinite loop.
 //   The "hidden" attribute prevents it from being exported.
 //
 //   NOTE: The definitions of __dyn_XXX functions have been changed in
-//   dmtcphijack.so. Instead of calling the corresponding function (without the
+//   libdmtcp.so. Instead of calling the corresponding function (without the
 //   __dyn_), they now call the _real_XXX function. The _real_XXX version
 //   actually does the real work.
 
