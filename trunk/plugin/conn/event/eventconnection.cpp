@@ -42,12 +42,7 @@
 #include "eventconnection.h"
 #include "eventwrappers.h"
 #include "util_descriptor.h"
-
-void EventConn_process_event(DmtcpEvent_t event, DmtcpEventData_t *data,
-                             bool pre)
-{
-}
-
+using namespace dmtcp;
 /*****************************************************************************
  * Epoll Connection
  *****************************************************************************/

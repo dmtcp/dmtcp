@@ -25,6 +25,7 @@
 
 #include <pthread.h>
 #include "dmtcpalloc.h"
+#include "protectedfds.h"
 #include "connection.h"
 #include "jserialize.h"
 #include "jalloc.h"
@@ -39,46 +40,46 @@ namespace dmtcp
       static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
       static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
 #endif
-      ConnectionList() { JASSERT(pthread_mutex_init(&_lock, NULL) == 0);}
-
       typedef dmtcp::map<ConnectionIdentifier, Connection*>::iterator iterator;
-      iterator begin() { return _connections.begin(); }
-      iterator end() { return _connections.end(); }
-      static ConnectionList& instance();
+
+      ConnectionList() {
+        numMissingCons = 0;
+        JASSERT(pthread_mutex_init(&_lock, NULL) == 0);}
+
       void resetOnFork();
       void deleteStaleConnections();
+
+      void add(int fd, Connection* c);
       void erase(iterator i);
       void erase(ConnectionIdentifier& key);
-      Connection& operator[](const ConnectionIdentifier& id);
       Connection *getConnection(const ConnectionIdentifier &id);
       Connection *getConnection(int fd);
-      dmtcp::vector<int>& getFds(const ConnectionIdentifier& c);
       void processClose(int fd);
       void processDup(int oldfd, int newfd);
-      Connection *findDuplication(int fd, const char *path);
-      void processFileConnection(int fd, const char *path, int flags,
-                                 mode_t mode);
       void list();
       void serialize(jalib::JBinarySerializer& o);
 
-      //examine /proc/self/fd for unknown connections
-      void scanForPreExisting();
-      void add(int fd, Connection* c);
-
-      // Moved from ConnectionState
-      void preLockSaveOptions();
-      void preCheckpointFdLeaderElection();
-      void preCheckpointDrain();
-      void preCheckpointHandshakes();
-      void refill(bool isRestart);
-      void resume(bool isRestart);
-      void postRestart();
-      void doReconnect();
-      void registerNSData();
-      void sendQueries();
+      void processEvent(DmtcpEvent_t event, DmtcpEventData_t *data);
+      virtual void scanForPreExisting() {}
+      virtual void preLockSaveOptions();
+      virtual void preCheckpointFdLeaderElection();
+      virtual void preCheckpointDrain();
+      virtual void preCheckpointHandshakes();
+      virtual void postRestart();
+      virtual void registerNSData(bool isRestart) {}
+      virtual void sendQueries(bool isRestart) {}
+      virtual void refill(bool isRestart);
+      virtual void resume(bool isRestart);
 
       void registerMissingCons();
+      void determineOutgoingCons();
       void sendReceiveMissingFds();
+      virtual int protectedFd() = 0;
+
+    protected:
+      virtual Connection *createDummyConnection(int type) = 0;
+      iterator begin() { return _connections.begin(); }
+      iterator end() { return _connections.end(); }
 
     private:
       void processCloseWork(int fd);
@@ -95,6 +96,8 @@ namespace dmtcp
 
       typedef map<int, Connection*> FdToConMapT;
       FdToConMapT _fdToCon;
+
+      size_t numMissingCons;
   };
 }
 #endif

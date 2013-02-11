@@ -33,9 +33,8 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <errno.h>
-#include "conn.h"
 #include "socketconnection.h"
-#include "connectionlist.h"
+#include "socketconnlist.h"
 #include "socketwrappers.h"
 #include "../jalib/jassert.h"
 #include "../jalib/jfilesystem.h"
@@ -56,7 +55,7 @@ extern "C" int socket(int domain, int type, int protocol)
     } else {
       con = new TcpConnection(domain, type, protocol);
     }
-    ConnectionList::instance().add(ret, con);
+    SocketConnList::instance().add(ret, con);
   }
   DMTCP_ENABLE_CKPT();
   return ret;
@@ -99,7 +98,7 @@ extern "C" int connect(int sockfd, const struct sockaddr *serv_addr,
 
   if (ret != -1) {
     TcpConnection *con =
-      (TcpConnection*) ConnectionList::instance().getConnection(sockfd);
+      (TcpConnection*) SocketConnList::instance().getConnection(sockfd);
     con->onConnect(sockfd, serv_addr, addrlen);
 
 #if HANDSHAKE_ON_CONNECT == 1
@@ -121,7 +120,7 @@ extern "C" int bind(int sockfd, const struct sockaddr *my_addr,
   int ret = _real_bind(sockfd, my_addr, addrlen);
   if (ret != -1) {
     TcpConnection *con =
-      (TcpConnection*) ConnectionList::instance().getConnection(sockfd);
+      (TcpConnection*) SocketConnList::instance().getConnection(sockfd);
     con->onBind(sockfd, (struct sockaddr*) my_addr, addrlen);
     JTRACE("bind") (sockfd) (con->id());
   }
@@ -135,7 +134,7 @@ extern "C" int listen(int sockfd, int backlog)
   int ret = _real_listen(sockfd, backlog);
   if (ret != -1) {
     TcpConnection *con =
-      (TcpConnection*) ConnectionList::instance().getConnection(sockfd);
+      (TcpConnection*) SocketConnList::instance().getConnection(sockfd);
     con->onListen(backlog);
     JTRACE("listen") (sockfd) (con->id()) (backlog);
   }
@@ -148,9 +147,9 @@ static void process_accept(int ret, int sockfd, struct sockaddr *addr,
 {
   JASSERT(ret != -1);
   TcpConnection *parent =
-    (TcpConnection*) ConnectionList::instance().getConnection(sockfd);
+    (TcpConnection*) SocketConnList::instance().getConnection(sockfd);
   TcpConnection* con = new TcpConnection(*parent, ConnectionIdentifier::Null());
-  ConnectionList::instance().add(ret, con);
+  SocketConnList::instance().add(ret, con);
 
 #if HANDSHAKE_ON_CONNECT == 1
   JTRACE("accepted, waiting for 1-way handshake") (sockfd) (con->id());
@@ -212,7 +211,7 @@ extern "C" int setsockopt(int sockfd, int level, int optname,
   if (ret != -1) {
     JTRACE("setsockopt") (ret) (sockfd) (optname);
     TcpConnection *con =
-      (TcpConnection*) ConnectionList::instance().getConnection(sockfd);
+      (TcpConnection*) SocketConnList::instance().getConnection(sockfd);
     con->addSetsockopt(level, optname,(char*) optval, optlen);
   }
   return ret;
@@ -251,8 +250,8 @@ extern "C" int socketpair(int d, int type, int protocol, int sv[2])
     a->setSocketpairPeer(b->id());
     b->setSocketpairPeer(a->id());
 
-    dmtcp::ConnectionList::instance().add(sv[0] , a);
-    dmtcp::ConnectionList::instance().add(sv[1] , b);
+    dmtcp::SocketConnList::instance().add(sv[0] , a);
+    dmtcp::SocketConnList::instance().add(sv[1] , b);
   }
 
   DMTCP_ENABLE_CKPT();

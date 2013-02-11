@@ -33,6 +33,7 @@
 #include <stdint.h>
 #include <signal.h>
 #include "connection.h"
+#include "connectionlist.h"
 
 #ifdef HAVE_SYS_INOTIFY_H
 #include <sys/inotify.h>

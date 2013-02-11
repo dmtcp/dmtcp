@@ -207,7 +207,7 @@ void dmtcp::ProcessInfo::postRestart()
   // If we were the session leader, become one now.
   if (_sid == _pid) {
     if (getsid(0) != _pid) {
-      JASSERT(setsid() != -1) (JASSERT_ERRNO);
+      JASSERT(setsid() != -1) (getsid(0)) (JASSERT_ERRNO);
     }
 
     // Now recreate processes with sid == _pid

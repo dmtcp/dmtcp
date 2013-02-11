@@ -241,23 +241,11 @@ lib/% : dmtcp/src/%
 lib/dmtcp/% : dmtcp/src/%
 	cd lib/dmtcp && $(LN_S) ../../$< $*
 
-#lib/dmtcp/% : plugin/ptrace/%
-#	cd lib/dmtcp && $(LN_S) ../../$< $*
-#
-#lib/dmtcp/% : plugin/pid/%
-#	cd lib/dmtcp && $(LN_S) ../../$< $*
-#
-#lib/dmtcp/% : plugin/conn/%
-#	cd lib/dmtcp && $(LN_S) ../../$< $*
-#
-#lib/dmtcp/% : contrib/torque/%
-	#cd lib/dmtcp && $(LN_S) ../../$< $*
+lib/dmtcp/libdmtcp_%.so : plugin/%
+	cd lib/dmtcp && $(LN_S) ../../$</$(@F) .
 
-lib/dmtcp/libdmtcp_%.so : plugin/%/libdmtcp_%.so
-	cd lib/dmtcp && $(LN_S) ../../$< $*
-
-lib/dmtcp/libdmtcp_%.so : contrib/%/libdmtcp_%.so
-	cd lib/dmtcp && $(LN_S) ../../$< $*
+lib/dmtcp/libdmtcp_%.so : contrib/%
+	cd lib/dmtcp && $(LN_S) ../../$</$(@F) .
 
 PLUGINS = lib/dmtcp/libdmtcp_pid.so lib/dmtcp/libdmtcp_conn.so \
 	  lib/dmtcp/libdmtcp_ptrace.so lib/dmtcp/libdmtcp_torque.so

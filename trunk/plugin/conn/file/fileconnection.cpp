@@ -55,11 +55,6 @@ static bool really_verbose = true;
 static bool really_verbose = false;
 #endif
 
-void FileConn_process_event(DmtcpEvent_t event, DmtcpEventData_t *data,
-                            bool pre)
-{
-}
-
 static bool _isVimApp()
 {
   static int isVimApp = -1;
@@ -255,7 +250,7 @@ dmtcp::PtyConnection::PtyConnection(int fd, const char *path,
         SharedData::createVirtualPtyName(path, buf, sizeof(buf));
       }
       _virtPtsName = buf;
-      JTRACE("creating ptmx connection") (_ptsName) (_virtPtsName);
+      JTRACE("creating CTTY connection") (_ptsName) (_virtPtsName);
 
       break;
 
@@ -367,12 +362,28 @@ void dmtcp::PtyConnection::postRestart()
     case PTY_CTTY:
       {
         dmtcp::string controllingTty = jalib::Filesystem::GetControllingTerm();
-        JASSERT(controllingTty.length() > 0) (STDIN_FILENO)
-          . Text("Unable to restore terminal attached with the process");
+        dmtcp::string stdinDeviceName =
+          (jalib::Filesystem::GetDeviceName(STDIN_FILENO));
+        if (controllingTty.length() == 0) {
+          JTRACE("Unable to restore terminal attached with the process.\n"
+                 "Replacing it with current STDIN")
+            (stdinDeviceName);
+          JWARNING(Util::strStartsWith(stdinDeviceName, "/dev/pts/") ||
+                   stdinDeviceName == "/dev/tty")
+            .Text("Controlling terminal not bound to a terminal device.");
+        }
 
-        tempfd = _real_open(controllingTty.c_str(), _fcntlFlags);
-        JASSERT(tempfd >= 0) (tempfd) (controllingTty) (JASSERT_ERRNO)
-          .Text("Error Opening the terminal attached with the process");
+        if (Util::isValidFd(STDIN_FILENO)) {
+          tempfd = STDIN_FILENO;
+        } else if (Util::isValidFd(STDOUT_FILENO)) {
+          tempfd = STDOUT_FILENO;
+        } else if (controllingTty.length() > 0) {
+          tempfd = _real_open(controllingTty.c_str(), _fcntlFlags);
+          JASSERT(tempfd >= 0) (tempfd) (controllingTty) (JASSERT_ERRNO)
+            .Text("Error Opening the terminal attached with the process");
+        } else {
+          JASSERT("Controlling terminal and STDIN/OUT not found.");
+        }
 
         JTRACE("Restoring CTTY for the process") (controllingTty) (_fds[0]);
 

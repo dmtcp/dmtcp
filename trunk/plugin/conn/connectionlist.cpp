@@ -34,43 +34,99 @@
 #include "jassert.h"
 #include "jsocket.h"
 
-#include "conn.h"
 #include "connection.h"
-#include "socket/socketconnection.h"
-#include "file/fileconnection.h"
-#include "event/eventconnection.h"
+//#include "socket/socketconnection.h"
+//#include "file/fileconnection.h"
+//#include "event/eventconnection.h"
 #include "connectionlist.h"
 
 using namespace dmtcp;
 
+// This is the first program after dmtcp_checkpoint
+static bool freshProcess = true;
 static size_t _numMissingCons = 0;
 
-static void sendFd(int fd, ConnectionIdentifier& id,
+static void sendFd(int restoreFd, int fd, ConnectionIdentifier& id,
                    struct sockaddr_un& addr, socklen_t len);
-static int receiveFd(ConnectionIdentifier *id);
+static int receiveFd(int restoreFd, ConnectionIdentifier *id);
 
-static dmtcp::string _procFDPath(int fd)
+void dmtcp::ConnectionList::processEvent(DmtcpEvent_t event,
+                                         DmtcpEventData_t *data)
 {
-  return "/proc/self/fd/" + jalib::XToString(fd);
-}
+  switch (event) {
+    case DMTCP_EVENT_INIT:
+      if (freshProcess) {
+        scanForPreExisting();
+      }
+      break;
 
-static dmtcp::string _resolveSymlink(dmtcp::string path)
-{
-  dmtcp::string device = jalib::Filesystem::ResolveSymlink(path);
-  if (dmtcp_real_to_virtual_pid && path.length() > 0 &&
-      dmtcp::Util::strStartsWith(device, "/proc/")) {
-    int index = 6;
-    char *rest;
-    char newpath[128];
-    JASSERT(device.length() < sizeof newpath);
-    pid_t realPid = strtol(&path[index], &rest, 0);
-    if (realPid > 0 && *rest == '/') {
-      pid_t virtualPid = dmtcp_real_to_virtual_pid(realPid);
-      sprintf(newpath, "/proc/%d%s", virtualPid, rest);
-      device = newpath;
-    }
+    case DMTCP_EVENT_PRE_EXEC:
+      {
+        jalib::JBinarySerializeWriterRaw wr("", data->serializerInfo.fd);
+        serialize(wr);
+      }
+      break;
+
+    case DMTCP_EVENT_POST_EXEC:
+      {
+        freshProcess = false;
+        jalib::JBinarySerializeReaderRaw rd("", data->serializerInfo.fd);
+        serialize(rd);
+        deleteStaleConnections();
+      }
+      break;
+
+    case DMTCP_EVENT_POST_RESTART:
+      postRestart();
+
+      break;
+
+    case DMTCP_EVENT_SUSPENDED:
+      preLockSaveOptions();
+      break;
+
+    case DMTCP_EVENT_LEADER_ELECTION:
+      JTRACE("locking...");
+      preCheckpointFdLeaderElection();
+      JTRACE("locked");
+      break;
+
+    case DMTCP_EVENT_DRAIN:
+      JTRACE("draining...");
+      preCheckpointDrain();
+      JTRACE("drained");
+      break;
+
+    case DMTCP_EVENT_PRE_CKPT:
+#if HANDSHAKE_ON_CHECKPOINT == 1
+      //handshake is done after one barrier after drain
+      JTRACE("beginning handshakes");
+      preCheckpointHandshakes();
+      JTRACE("handshaking done");
+#endif
+      break;
+
+    case DMTCP_EVENT_REFILL:
+      refill(data->refillInfo.isRestart);
+      break;
+
+    case DMTCP_EVENT_RESUME:
+      resume(data->resumeInfo.isRestart);
+      break;
+
+    case DMTCP_EVENT_REGISTER_NAME_SERVICE_DATA:
+      registerNSData(data->nameserviceInfo.isRestart);
+      break;
+
+    case DMTCP_EVENT_SEND_QUERIES:
+      sendQueries(data->nameserviceInfo.isRestart);
+      break;
+
+    default:
+      break;
   }
-  return device;
+
+  return;
 }
 
 static bool _isBadFd(int fd)
@@ -79,14 +135,14 @@ static bool _isBadFd(int fd)
   return _real_fcntl(fd, F_GETFL, 0) == -1 && errno == EBADF;
 }
 
-static ConnectionList *connectionList = NULL;
-dmtcp::ConnectionList& dmtcp::ConnectionList::instance()
-{
-  if (connectionList == NULL) {
-    connectionList = new ConnectionList();
-  }
-  return *connectionList;
-}
+//static ConnectionList *connectionList = NULL;
+//dmtcp::ConnectionList& dmtcp::ConnectionList::instance()
+//{
+//  if (connectionList == NULL) {
+//    connectionList = new ConnectionList();
+//  }
+//  return *connectionList;
+//}
 
 void dmtcp::ConnectionList::resetOnFork()
 {
@@ -160,47 +216,7 @@ void dmtcp::ConnectionList::serialize(jalib::JBinarySerializer& o)
 
       JSERIALIZE_ASSERT_POINT("[StartConnection]");
       o & key & type;
-
-      switch (type) {
-        case Connection::TCP:
-          con = new TcpConnection();
-          break;
-        case Connection::RAW:
-          con = new RawSocketConnection();
-          break;
-        case Connection::FILE:
-          con = new FileConnection();
-          break;
-        case Connection::FIFO:
-          con = new FifoConnection();
-          break;
-        case Connection::PTY:
-          con = new PtyConnection();
-          break;
-        case Connection::STDIO:
-          con = new StdioConnection();
-          break;
-        case Connection::EPOLL:
-          con = new EpollConnection(5); //dummy val
-          break;
-        case Connection::EVENTFD:
-          con = new EventFdConnection(0, 0); //dummy val
-          break;
-        case Connection::SIGNALFD:
-          con = new SignalFdConnection(0, NULL, 0); //dummy val
-          break;
-#ifdef DMTCP_USE_INOTIFY
-        case Connection::INOTIFY:
-          con = new InotifyConnection(0);
-          break;
-#endif
-        case Connection::POSIXMQ:
-          con = new PosixMQConnection("", 0, 0, NULL); //dummy val
-          break;
-        default:
-          JASSERT(false) (key) (o.filename()) .Text("unknown connection type");
-      }
-
+      con = createDummyConnection(type);
       JASSERT(con != NULL) (key);
       con->serialize(o);
       _connections[key] = con;
@@ -212,40 +228,6 @@ void dmtcp::ConnectionList::serialize(jalib::JBinarySerializer& o)
     }
   }
   JSERIALIZE_ASSERT_POINT("EOF");
-}
-
-//examine /proc/self/fd for unknown connections
-void dmtcp::ConnectionList::scanForPreExisting()
-{
-  // FIXME: Detect stdin/out/err fds to detect duplicates.
-  dmtcp::vector<int> fds = jalib::Filesystem::ListOpenFds();
-  for (size_t i = 0; i < fds.size(); ++i) {
-    int fd = fds[i];
-    if (_isBadFd(fd)) continue;
-    if (dmtcp_is_protected_fd(fd)) continue;
-
-    dmtcp::string device = _resolveSymlink(_procFDPath(fd));
-
-    JTRACE("scanning pre-existing device") (fd) (device);
-    if (device == jalib::Filesystem::GetControllingTerm()) {
-      // FIXME: Merge this code with the code in processFileConnection
-      Connection *con = new PtyConnection(fd, (const char*) device.c_str(),
-                                          -1, -1, PtyConnection::PTY_CTTY);
-      add(fd, con);
-    } else if(dmtcp_is_bq_file && dmtcp_is_bq_file(device.c_str())) {
-      processFileConnection(fd, device.c_str(), -1, -1);
-    } else if( fd <= 2 ){
-      add(fd, new StdioConnection(fd));
-    } else if (Util::strStartsWith(device, "/")) {
-      processFileConnection(fd, device.c_str(), -1, -1);
-    } else {
-      JNOTE("found pre-existing socket... will not be restored")
-        (fd) (device);
-      TcpConnection* con = new TcpConnection(0, 0, 0);
-      con->markPreExisting();
-      add(fd, con);
-    }
-  }
 }
 
 void dmtcp::ConnectionList::list()
@@ -264,14 +246,6 @@ void dmtcp::ConnectionList::list()
     o << "\n";
   }
   JTRACE("ConnectionList") (UniquePid::ThisProcess()) (o.str());
-}
-
-dmtcp::Connection&
-dmtcp::ConnectionList::operator[](const ConnectionIdentifier& id)
-{
-  JASSERT(_connections.find(id) != _connections.end()) (id)
-    .Text("Unknown connection");
-  return *_connections[id];
 }
 
 dmtcp::Connection*
@@ -325,10 +299,11 @@ void dmtcp::ConnectionList::processCloseWork(int fd)
 
 void dmtcp::ConnectionList::processClose(int fd)
 {
-  JASSERT(_fdToCon.find(fd) != _fdToCon.end());
-  _lock_tbl();
-  processCloseWork(fd);
-  _unlock_tbl();
+  if (_fdToCon.find(fd) != _fdToCon.end()) {
+    _lock_tbl();
+    processCloseWork(fd);
+    _unlock_tbl();
+  }
 }
 
 void dmtcp::ConnectionList::processDup(int oldfd, int newfd)
@@ -337,82 +312,15 @@ void dmtcp::ConnectionList::processDup(int oldfd, int newfd)
   if (_fdToCon.find(newfd) != _fdToCon.end()) {
     processClose(newfd);
   }
-  _lock_tbl();
-  Connection *con = _fdToCon[oldfd];
-  _fdToCon[newfd] = con;
-  con->addFd(newfd);
-  _unlock_tbl();
-}
 
-Connection *dmtcp::ConnectionList::findDuplication(int fd, const char *path)
-{
-  string npath(path);
-  for (iterator i = begin(); i != end(); ++i) {
-    Connection *con = i->second;
-
-    if( con->conType() != Connection::FILE )
-      continue;
-
-    FileConnection *fcon = (FileConnection*)con;
-    // check for duplication
-    if( fcon->filePath() == npath && fcon->checkDup(fd) ){
-      return con;
-    }
+  // Add only if the oldfd was already in the _fdToCon table.
+  if (_fdToCon.find(oldfd) != _fdToCon.end()) {
+    _lock_tbl();
+    Connection *con = _fdToCon[oldfd];
+    _fdToCon[newfd] = con;
+    con->addFd(newfd);
+    _unlock_tbl();
   }
-  return NULL;
-}
-
-void dmtcp::ConnectionList::processFileConnection(int fd, const char *path,
-                                                  int flags, mode_t mode)
-{
-  Connection *c;
-  struct stat statbuf;
-  JASSERT(fstat(fd, &statbuf) == 0);
-
-  dmtcp::string device;
-  if (path == NULL) {
-    device = _resolveSymlink(_procFDPath(fd));
-    path = device.c_str();
-  }
-  if (strcmp(path, "/dev/tty") == 0) {
-    // Controlling terminal
-    c = new PtyConnection(fd, path, flags, mode, PtyConnection::PTY_DEV_TTY);
-  } else if (strcmp(path, "/dev/pty") == 0) {
-    JASSERT(false) .Text("Not Implemented");
-  } else if (dmtcp::Util::strStartsWith(path, "/dev/pty")) {
-    // BSD Master
-    c = new PtyConnection(fd, path, flags, mode, PtyConnection::PTY_BSD_MASTER);
-  } else if (dmtcp::Util::strStartsWith(path, "/dev/tty")) {
-    // BSD Slave
-    c = new PtyConnection(fd, path, flags, mode, PtyConnection::PTY_BSD_SLAVE);
-  } else if (strcmp(path, "/dev/ptmx") == 0 ||
-             strcmp(path, "/dev/pts/ptmx") == 0) {
-    // POSIX Master PTY
-    c = new PtyConnection(fd, path, flags, mode, PtyConnection::PTY_MASTER);
-  } else if (dmtcp::Util::strStartsWith(path, "/dev/pts/")) {
-    // POSIX Slave PTY
-    c = new PtyConnection(fd, path, flags, mode, PtyConnection::PTY_SLAVE);
-  } else if (S_ISREG(statbuf.st_mode) || S_ISCHR(statbuf.st_mode) ||
-             S_ISDIR(statbuf.st_mode) || S_ISBLK(statbuf.st_mode)) {
-
-    c = findDuplication(fd,path);
-    if( c == NULL ){
-      if (dmtcp_is_bq_file && dmtcp_is_bq_file(path)) {
-        // Resource manager related
-        c = new FileConnection(path, flags, mode, FileConnection::FILE_BATCH_QUEUE);
-      }else{
-        // Regular File
-  	    c = new FileConnection(path, flags, mode);
-  	  }
-  	}
-  } else if (S_ISFIFO(statbuf.st_mode)) {
-    // FIFO
-    c = new FifoConnection(path, flags, mode);
-  } else {
-    JASSERT(false) (path) .Text("Unimplemented file type.");
-  }
-
-  add(fd, c);
 }
 
 /*****************************************************/
@@ -538,39 +446,34 @@ void dmtcp::ConnectionList::postRestart()
   registerMissingCons();
 }
 
-void dmtcp::ConnectionList::registerNSData()
-{
-}
-
-void dmtcp::ConnectionList::sendQueries()
-{
-}
 
 void dmtcp::ConnectionList::registerMissingCons()
 {
+  int protected_fd = protectedFd();
   // Add receive-fd data socket.
-  struct sockaddr_un fdReceiveAddr;
-  socklen_t         fdReceiveAddrLen;
+  static struct sockaddr_un fdReceiveAddr;
+  static socklen_t         fdReceiveAddrLen;
+
   memset(&fdReceiveAddr, 0, sizeof(fdReceiveAddr));
   jalib::JSocket sock(_real_socket(AF_UNIX, SOCK_DGRAM, 0));
   JASSERT(sock.isValid());
-  sock.changeFd(PROTECTED_FDREWIRER_FD);
+  sock.changeFd(protected_fd);
   fdReceiveAddr.sun_family = AF_UNIX;
-  JASSERT(_real_bind(PROTECTED_FDREWIRER_FD,
+  JASSERT(_real_bind(protected_fd,
                      (struct sockaddr*) &fdReceiveAddr,
                      sizeof(fdReceiveAddr.sun_family)) == 0) (JASSERT_ERRNO);
 
   fdReceiveAddrLen = sizeof(fdReceiveAddr);
-  JASSERT(getsockname(PROTECTED_FDREWIRER_FD,
+  JASSERT(getsockname(protected_fd,
                       (struct sockaddr *)&fdReceiveAddr,
                       &fdReceiveAddrLen) == 0);
+
 
   vector<const char *> missingCons;
   ostringstream in, out;
   for (iterator i = begin(); i != end(); ++i) {
     Connection *con = i->second;
-    if (!con->hasLock() && con->subType() != PtyConnection::PTY_CTTY &&
-        con->conType() != Connection::STDIO) {
+    if (!con->hasLock() && !con->isStdio()) {
       missingCons.push_back((const char*)&i->first);
       in << "\n\t" << con->str() << i->first;
     } else {
@@ -578,12 +481,11 @@ void dmtcp::ConnectionList::registerMissingCons()
     }
   }
   JTRACE("Missing/Outgoing Cons") (in.str()) (out.str());
-  _numMissingCons = missingCons.size();
-  if (_numMissingCons > 0) {
+  numMissingCons = missingCons.size();
+  if (numMissingCons > 0) {
     SharedData::registerMissingCons(missingCons, fdReceiveAddr,
                                     fdReceiveAddrLen);
   }
-
 }
 
 void dmtcp::ConnectionList::sendReceiveMissingFds()
@@ -595,7 +497,7 @@ void dmtcp::ConnectionList::sendReceiveMissingFds()
   SharedData::getMissingConMaps(&maps, &nmaps);
   for (i = 0; i < nmaps; i++) {
     ConnectionIdentifier *id = (ConnectionIdentifier*) maps[i].id;
-    Connection *con = ConnectionList::instance().getConnection(*id);
+    Connection *con = getConnection(*id);
     if (con != NULL && con->hasLock()) {
       outgoingCons.push_back(i);
     }
@@ -603,44 +505,45 @@ void dmtcp::ConnectionList::sendReceiveMissingFds()
 
   fd_set rfds;
   fd_set wfds;
-  int fd = PROTECTED_FDREWIRER_FD;
-  i = 0;
-  while (i < outgoingCons.size() || _numMissingCons > 0) {
+  int restoreFd = protectedFd();
+  size_t numOutgoingCons = outgoingCons.size();
+  while (numOutgoingCons > 0 || numMissingCons > 0) {
     FD_ZERO(&wfds);
     if (outgoingCons.size() > 0) {
-      FD_SET(fd, &wfds);
+      FD_SET(restoreFd, &wfds);
     }
     FD_ZERO(&rfds);
-    if (_numMissingCons > 0) {
-      FD_SET(fd, &rfds);
+    if (numMissingCons > 0) {
+      FD_SET(restoreFd, &rfds);
     }
 
-    int ret = _real_select(PROTECTED_FDREWIRER_FD+1, &rfds, &wfds, NULL, NULL);
+    int ret = _real_select(restoreFd+1, &rfds, &wfds, NULL, NULL);
     JASSERT(ret != -1) (JASSERT_ERRNO);
 
-    if (i < outgoingCons.size() && FD_ISSET(PROTECTED_FDREWIRER_FD, &wfds)) {
-      size_t idx = outgoingCons[i];
+    if (numOutgoingCons > 0 && FD_ISSET(restoreFd, &wfds)) {
+      size_t idx = outgoingCons.back();
+      outgoingCons.pop_back();
       ConnectionIdentifier *id = (ConnectionIdentifier*) maps[idx].id;
       Connection *con = getConnection(*id);
       JTRACE("Sending Missing Con") (*id);
-      sendFd(con->getFds()[0], *id, maps[idx].addr, maps[idx].len);
-      i++;
+      sendFd(restoreFd, con->getFds()[0], *id, maps[idx].addr, maps[idx].len);
+      numOutgoingCons--;
     }
 
-    if (_numMissingCons > 0 && FD_ISSET(PROTECTED_FDREWIRER_FD, &rfds)) {
+    if (numMissingCons > 0 && FD_ISSET(restoreFd, &rfds)) {
       ConnectionIdentifier id;
-      int fd = receiveFd(&id);
+      int fd = receiveFd(restoreFd, &id);
       Connection *con = getConnection(id);
       JTRACE("Received Missing Con") (id);
       JASSERT(con != NULL);
       Util::dupFds(fd, con->getFds());
-      _numMissingCons--;
+      numMissingCons--;
     }
   }
-  _real_close(PROTECTED_FDREWIRER_FD);
+  _real_close(restoreFd);
 }
 
-static void sendFd(int fd, ConnectionIdentifier& id,
+static void sendFd(int restoreFd, int fd, ConnectionIdentifier& id,
                    struct sockaddr_un& addr, socklen_t len)
 {
   struct iovec iov;
@@ -665,11 +568,11 @@ static void sendFd(int fd, ConnectionIdentifier& id,
   cmsg->cmsg_type = SCM_RIGHTS;
   *(int*)CMSG_DATA(cmsg) = fd;
 
-  JASSERT (sendmsg(PROTECTED_FDREWIRER_FD, &hdr, 0) == (ssize_t) iov.iov_len)
+  JASSERT (sendmsg(restoreFd, &hdr, 0) == (ssize_t) iov.iov_len)
     (JASSERT_ERRNO);
 }
 
-static int receiveFd(ConnectionIdentifier *id)
+static int receiveFd(int restoreFd, ConnectionIdentifier *id)
 {
   int fd;
   struct iovec iov;
@@ -689,8 +592,8 @@ static int receiveFd(ConnectionIdentifier *id)
   hdr.msg_control = (caddr_t)cms;
   hdr.msg_controllen = sizeof cms;
 
-  JASSERT(recvmsg(PROTECTED_FDREWIRER_FD, &hdr, 0) != -1)
-    (JASSERT_ERRNO);
+  JASSERT(recvmsg(restoreFd, &hdr, 0) != -1)
+    (restoreFd) (JASSERT_ERRNO);
 
   cmsg = CMSG_FIRSTHDR(&hdr);
   JASSERT(cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type  == SCM_RIGHTS)

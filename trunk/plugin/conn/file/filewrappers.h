@@ -35,6 +35,7 @@
 #define _real_open64 NEXT_FNC(open64)
 #define _real_fopen NEXT_FNC(fopen)
 #define _real_fopen64 NEXT_FNC(fopen64)
+#define _real_freopen NEXT_FNC(freopen)
 #define _real_openat NEXT_FNC(openat)
 #define _real_openat64 NEXT_FNC(openat64)
 #define _real_opendir NEXT_FNC(opendir)

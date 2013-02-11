@@ -20,7 +20,6 @@
  ****************************************************************************/
 
 #include <fcntl.h>
-#include "conn.h"
 #include "connection.h"
 #include "../jalib/jassert.h"
 #include "../jalib/jserialize.h"
