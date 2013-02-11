@@ -98,8 +98,8 @@ namespace jalib {
     REAL_FUNC_PASSTHROUGH(int, dup2) (oldfd, newfd);
   }
 
-  ssize_t readlink(const char *path, char *buf, size_t bufsiz) {
-    REAL_FUNC_PASSTHROUGH(ssize_t, readlink) (path, buf,bufsiz);
+  READLINK_RET_TYPE readlink(const char *path, char *buf, size_t bufsiz) {
+    REAL_FUNC_PASSTHROUGH(READLINK_RET_TYPE, readlink) (path, buf,bufsiz);
   }
 
   SYSCALL_ARG_RET_TYPE syscall(SYSCALL_ARG_RET_TYPE sys_num, ...) {
