@@ -20,9 +20,12 @@
  ****************************************************************************/
 
 #pragma once
-#ifndef CONNECTION_PLUGIN
-#define CONNECTION_PLUGIN
+#ifndef DMTCP_IPC_H
+#define DMTCP_IPC_H
 
+#include <dirent.h>
+#include <sys/types.h>
+#include <linux/version.h>
 #include "dmtcpplugin.h"
 
 #define HANDSHAKE_SIGNATURE_MSG "DMTCP_SOCK_HANDSHAKE_V0\n"
@@ -38,6 +41,13 @@
 #define _real_socket NEXT_FNC(socket)
 #define _real_bind NEXT_FNC(bind)
 #define _real_close NEXT_FNC(close)
+#define _real_fclose NEXT_FNC(fclose)
+#define _real_closedir NEXT_FNC(closedir)
+#define _real_dup NEXT_FNC(dup)
+#define _real_dup2 NEXT_FNC(dup2)
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,27)) && __GLIBC_PREREQ(2,9)
+#define _real_dup3 NEXT_FNC(dup3)
+#endif
 
 #define _real_fcntl NEXT_FNC(fcntl)
 #define _real_select NEXT_FNC(select)

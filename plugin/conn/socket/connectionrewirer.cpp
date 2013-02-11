@@ -28,10 +28,20 @@
 #include "util.h"
 #include "jsocket.h"
 
-#include "conn.h"
 #include "connectionrewirer.h"
 #include "socketconnection.h"
 #include "socketwrappers.h"
+
+using namespace dmtcp;
+
+static dmtcp::ConnectionRewirer *theRewirer = NULL;
+dmtcp::ConnectionRewirer& dmtcp::ConnectionRewirer::instance()
+{
+  if (theRewirer == NULL) {
+    theRewirer = new ConnectionRewirer();
+  }
+  return *theRewirer;
+}
 
 void dmtcp::ConnectionRewirer::checkForPendingIncoming()
 {
@@ -85,6 +95,10 @@ void dmtcp::ConnectionRewirer::doReconnect()
   }
   JTRACE("Closing restore socket");
   _real_close(PROTECTED_RESTORE_SOCK_FD);
+
+  // Free up the object.
+  delete theRewirer;
+  theRewirer = NULL;
 }
 
 void dmtcp::ConnectionRewirer::openRestoreSocket()
@@ -141,6 +155,7 @@ dmtcp::ConnectionRewirer::registerOutgoing(const ConnectionIdentifier& remote,
 void dmtcp::ConnectionRewirer::registerNSData()
 {
   iterator i;
+  JASSERT(theRewirer != NULL);
   for (i = _pendingIncoming.begin(); i != _pendingIncoming.end(); ++i) {
     const ConnectionIdentifier& id = i->first;
     dmtcp_send_key_val_pair_to_coordinator((const void *)&id,

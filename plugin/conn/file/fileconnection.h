@@ -251,6 +251,7 @@ namespace dmtcp
       dmtcp::vector<jalib::JBuffer> _msgInQueue;
       dmtcp::vector<unsigned> _msgInQueuePrio;
   };
+
 }
 
 #endif

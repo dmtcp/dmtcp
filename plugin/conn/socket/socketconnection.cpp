@@ -38,7 +38,7 @@
 #include "socketwrappers.h"
 #include "kernelbufferdrainer.h"
 #include "connectionrewirer.h"
-#include "connectionlist.h"
+#include "socketconnlist.h"
 
 #ifdef REALLY_VERBOSE_CONNECTION_CPP
 static bool really_verbose = true;
@@ -47,81 +47,6 @@ static bool really_verbose = false;
 #endif
 
 using namespace dmtcp;
-
-static KernelBufferDrainer *theDrainer = NULL;
-static ConnectionRewirer *theRewirer = NULL;
-
-void SocketConn_process_event(DmtcpEvent_t event, DmtcpEventData_t *data,
-                              bool pre)
-{
-  if (pre) {
-    switch (event) {
-      case DMTCP_EVENT_DRAIN:
-        //initialize the drainer
-        JASSERT(theDrainer == NULL);
-        theDrainer = new KernelBufferDrainer();
-        break;
-
-      case DMTCP_EVENT_POST_RESTART:
-        JASSERT(theRewirer == NULL);
-        theRewirer = new ConnectionRewirer();
-        theRewirer->openRestoreSocket();
-        break;
-
-      case DMTCP_EVENT_REGISTER_NAME_SERVICE_DATA:
-        if (data->nameserviceInfo.isRestart) {
-          JASSERT(theRewirer != NULL);
-          theRewirer->registerNSData();
-        }
-        break;
-
-      case DMTCP_EVENT_SEND_QUERIES:
-        if (data->nameserviceInfo.isRestart) {
-          theRewirer->sendQueries();
-          theRewirer->doReconnect();
-          delete theRewirer;
-          theRewirer = NULL;
-        }
-        break;
-
-      case DMTCP_EVENT_REFILL:
-        theDrainer->refillAllSockets();
-        delete theDrainer;
-        theDrainer = NULL;
-        break;
-
-      default:
-        break;
-    }
-  } else {
-    switch (event) {
-      case DMTCP_EVENT_DRAIN:
-        {
-          //this will block until draining is complete
-          theDrainer->monitorSockets(DRAINER_CHECK_FREQ);
-          //handle disconnected sockets
-          const vector<ConnectionIdentifier>& discn =
-            theDrainer->getDisconnectedSockets();
-          for (size_t i = 0; i < discn.size(); ++i) {
-            const ConnectionIdentifier& id = discn[i];
-            TcpConnection *con =
-              (TcpConnection*) ConnectionList::instance().getConnection(id);
-            JTRACE("recreating disconnected socket") (id);
-
-            //reading from the socket, and taking the error, resulted in an
-            //implicit close().
-            //we will create a new, broken socket that is not closed
-            con->onError();
-            break;
-          }
-        }
-        break;
-
-      default:
-        break;
-    }
-  }
-}
 
 //this function creates a socket that is in an error state
 static int _makeDeadSocket()
@@ -404,10 +329,10 @@ void dmtcp::TcpConnection::preCheckpoint()
     case TCP_CONNECT:
     case TCP_ACCEPT:
       JTRACE("Will drain socket") (_hasLock) (_fds[0]) (_id) (_remotePeerId);
-      theDrainer->beginDrainOf(_fds[0], _id);
+      KernelBufferDrainer::instance().beginDrainOf(_fds[0], _id);
       break;
     case TCP_LISTEN:
-      theDrainer->addListenSocket(_fds[0]);
+      KernelBufferDrainer::instance().addListenSocket(_fds[0]);
       break;
     case TCP_BIND:
       JWARNING(tcpType() != TCP_BIND) (_fds[0])
@@ -592,11 +517,11 @@ void dmtcp::TcpConnection::postRestart()
         .Text("Can't restore a TCP_ACCEPT socket with null acceptRemoteId.\n"
               "  Perhaps handshake went wrong?");
       JTRACE("registerOutgoing") (id()) (_remotePeerId) (_fds[0]);
-      theRewirer->registerOutgoing(_remotePeerId, this);
+      ConnectionRewirer::instance().registerOutgoing(_remotePeerId, this);
       break;
     case TCP_CONNECT:
       JTRACE("registerIncoming") (id()) (_remotePeerId) (_fds[0]);
-      theRewirer->registerIncoming(id(), this);
+      ConnectionRewirer::instance().registerIncoming(id(), this);
       break;
       //    case TCP_EXTERNAL_CONNECT:
       //      int sockFd = _real_socket(_sockDomain, _sockType, _sockProtocol);

@@ -28,10 +28,9 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include "dmtcpalloc.h"
-#include "conn.h"
-#include "connectionlist.h"
 #include "eventwrappers.h"
 #include "eventconnection.h"
+#include "eventconnlist.h"
 #include "jassert.h"
 
 using namespace dmtcp;
@@ -91,7 +90,7 @@ extern "C" int signalfd(int fd, const sigset_t *mask, int flags)
   int ret = _real_signalfd(fd, mask, flags);
   if (ret != -1) {
     JTRACE("signalfd created") (fd) (flags);
-    ConnectionList::instance().add(ret, new SignalFdConnection(fd, mask, flags));
+    EventConnList::instance().add(ret, new SignalFdConnection(fd, mask, flags));
   }
   DMTCP_ENABLE_CKPT();
   return ret;
@@ -103,7 +102,7 @@ extern "C" int eventfd(int initval, int flags)
   int ret = _real_eventfd(initval, flags);
   if (ret != -1) {
     JTRACE("eventfd created") (ret) (initval) (flags);
-    ConnectionList::instance().add(ret, new EventFdConnection(initval, flags));
+    EventConnList::instance().add(ret, new EventFdConnection(initval, flags));
   }
   DMTCP_ENABLE_CKPT();
   return ret;
@@ -115,7 +114,7 @@ extern "C" int epoll_create(int size)
   int ret = _real_epoll_create(size);
   if (ret != -1) {
     JTRACE("epoll fd created") (ret) (size);
-    dmtcp::ConnectionList::instance().add(ret, new dmtcp::EpollConnection(size));
+    dmtcp::EventConnList::instance().add(ret, new dmtcp::EpollConnection(size));
   }
   DMTCP_ENABLE_CKPT();
   return ret;
@@ -127,7 +126,7 @@ extern "C" int epoll_create1(int flags)
   int ret = _real_epoll_create1(flags);
   if (ret != -1) {
     JTRACE("epoll fd created1") (ret) (flags);
-    dmtcp::ConnectionList::instance().add(ret, new dmtcp::EpollConnection(flags));
+    dmtcp::EventConnList::instance().add(ret, new dmtcp::EpollConnection(flags));
   }
   DMTCP_ENABLE_CKPT();
   return ret;
@@ -140,7 +139,7 @@ extern "C" int epoll_ctl(int epfd, int op, int fd, struct epoll_event *event)
   if (ret != -1) {
     JTRACE("epoll fd CTL") (ret) (epfd) (fd) (op);
     EpollConnection *con =
-      (EpollConnection*) ConnectionList::instance().getConnection(epfd);
+      (EpollConnection*) EventConnList::instance().getConnection(epfd);
     con->onCTL(op, fd, event);
   }
   DMTCP_ENABLE_CKPT();
@@ -207,7 +206,7 @@ EXTERNC int inotify_init()
     JTRACE ( "inotify fd created" ) ( ret );
     //create the inotify object
     dmtcp::Connection *con = new dmtcp::InotifyConnection(0);
-    dmtcp::ConnectionList::instance().add(ret, con);
+    dmtcp::EventConnList::instance().add(ret, con);
   }
   DMTCP_ENABLE_CKPT();
   return fd;
@@ -228,7 +227,7 @@ EXTERNC int inotify_init1(int flags)
   if (ret != -1) {
     JTRACE("inotify1 fd created") (ret) (flags);
     dmtcp::Connection *con = new dmtcp::InotifyConnection(flags);
-    dmtcp::ConnectionList::instance().add(ret, flags);
+    dmtcp::EventConnList::instance().add(ret, flags);
   }
   DMTCP_ENABLE_CKPT();
   return ret;
@@ -251,7 +250,7 @@ EXTERNC int inotify_add_watch(int fd, const char *pathname, uint32_t mask)
   if (ret != -1) {
     JTRACE("calling inotify class methods");
     InotifyConnection& inotify_con =
-      (InotifyConnection*) ConnectionList::instance().getConnection(fd);
+      (InotifyConnection*) EventConnList::instance().getConnection(fd);
 
     inotify_con->add_watch_descriptors(ret, fd, pathname, mask);
     /*temp_pathname = pathname;
@@ -280,7 +279,7 @@ EXTERNC int inotify_rm_watch(int fd, int wd)
   if (ret != -1) {
     JTRACE("remove inotify mapping from dmtcp") (ret) (fd) (wd);
     InotifyConnection& inotify_con =
-      (InotifyConnection*) ConnectionList::instance().getConnection(fd);
+      (InotifyConnection*) EventConnList::instance().getConnection(fd);
     //inotify_con.remove_mappings(fd, wd);
     inotify_con->remove_watch_descriptors(wd);
   }

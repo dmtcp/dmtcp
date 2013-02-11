@@ -20,7 +20,6 @@
  ****************************************************************************/
 
 #include "kernelbufferdrainer.h"
-#include "conn.h"
 #include "connectionlist.h"
 #include "../jalib/jassert.h"
 #include "../jalib/jbuffer.h"
@@ -36,6 +35,16 @@ namespace
     //todo resize buffers to avoid blocking
   }
 
+}
+using namespace dmtcp;
+
+static dmtcp::KernelBufferDrainer *theDrainer = NULL;
+dmtcp::KernelBufferDrainer& dmtcp::KernelBufferDrainer::instance()
+{
+  if (theDrainer == NULL) {
+    theDrainer = new KernelBufferDrainer();
+  }
+  return *theDrainer;
 }
 
 void dmtcp::KernelBufferDrainer::onConnect(const jalib::JSocket& sock, const
@@ -189,4 +198,8 @@ void dmtcp::KernelBufferDrainer::refillAllSockets()
   JTRACE("buffers refilled");
 
   scaleSendBuffers(0.5);
+
+  // Free up the object
+  delete theDrainer;
+  theDrainer = NULL;
 }

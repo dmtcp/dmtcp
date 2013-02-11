@@ -1,6 +1,6 @@
 /****************************************************************************
- *   Copyright (C) 2006-2008 by Jason Ansel, Kapil Arya, and Gene Cooperman *
- *   jansel@csail.mit.edu, kapil@ccs.neu.edu, gene@ccs.neu.edu              *
+ *   Copyright (C) 2006-2013 by Jason Ansel, Kapil Arya, and Gene Cooperman *
+ *   jansel@csail.mit.edu, kapil@ccs.neu.edu, and gene@ccs.neu.edu          *
  *                                                                          *
  *   This file is part of the dmtcp/src module of DMTCP (DMTCP:dmtcp/src).  *
  *                                                                          *
@@ -20,42 +20,36 @@
  ****************************************************************************/
 
 #pragma once
-#ifndef KERNELBUFFERDRAINER_H
-#define KERNELBUFFERDRAINER_H
+#ifndef FILECONNLIST_H
+#define FILECONNLIST_H
 
-#include <map>
-#include <vector>
-
-#include "dmtcpalloc.h"
-#include "connectionidentifier.h"
-#include "../jalib/jsocket.h"
+// THESE INCLUDES ARE IN RANDOM ORDER.  LET'S CLEAN IT UP AFTER RELEASE. - Gene
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <unistd.h>
+#include <mqueue.h>
+#include <stdint.h>
+#include <signal.h>
+#include "jfilesystem.h"
+#include "jbuffer.h"
+#include "jconvert.h"
+#include "connectionlist.h"
+#include "fileconnection.h"
 
 namespace dmtcp
 {
-
-  class KernelBufferDrainer : public jalib::JMultiSocketProgram
+  class FileConnList : public ConnectionList
   {
     public:
-      KernelBufferDrainer() : _timeoutCount(0) {}
-      static KernelBufferDrainer& instance();
-
-//     void drainAllSockets();
-      void beginDrainOf(int fd , const ConnectionIdentifier& id);
-      void refillAllSockets();
-      virtual void onData(jalib::JReaderInterface* sock);
-      virtual void onConnect(const jalib::JSocket& sock, const struct sockaddr* remoteAddr,socklen_t remoteLen);
-      virtual void onTimeoutInterval();
-      virtual void onDisconnect(jalib::JReaderInterface* sock);
-
-      const dmtcp::vector<ConnectionIdentifier>& getDisconnectedSockets() const { return _disconnectedSockets; }
-
-    private:
-      dmtcp::map<int , dmtcp::vector<char> >    _drainedData;
-      dmtcp::map<int , ConnectionIdentifier > _reverseLookup;
-      dmtcp::vector<ConnectionIdentifier>     _disconnectedSockets;
-      int _timeoutCount;
+      virtual int protectedFd() { return PROTECTED_FILE_FDREWIRER_FD; }
+      //examine /proc/self/fd for unknown connections
+      static FileConnList& instance();
+      virtual void scanForPreExisting();
+      Connection *findDuplication(int fd, const char *path);
+      void processFileConnection(int fd, const char *path, int flags, mode_t mode);
+      virtual Connection *createDummyConnection(int type);
   };
-
 }
-
 #endif

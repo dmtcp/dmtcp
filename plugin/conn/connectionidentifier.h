@@ -28,7 +28,7 @@
 #include "dmtcpplugin.h"
 #include "jalloc.h"
 #include "jserialize.h"
-#include "conn.h"
+#include "ipc.h"
 
 namespace dmtcp
 {

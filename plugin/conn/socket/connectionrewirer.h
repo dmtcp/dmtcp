@@ -40,6 +40,8 @@ namespace dmtcp
         Connection *con;
       };
 
+      static ConnectionRewirer& instance();
+
       void openRestoreSocket();
       void registerIncoming(const ConnectionIdentifier& local,
                             Connection *con);
