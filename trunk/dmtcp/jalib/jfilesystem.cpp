@@ -171,6 +171,11 @@ jalib::string jalib::Filesystem::ResolveSymlink ( const jalib::string& path )
   return buf;
 }
 
+jalib::string jalib::Filesystem::GetDeviceName ( int fd )
+{
+  return ResolveSymlink("/proc/self/fd/" + jalib::XToString(fd));
+}
+
 bool jalib::Filesystem::FileExists ( const jalib::string& str )
 {
   struct stat st;
