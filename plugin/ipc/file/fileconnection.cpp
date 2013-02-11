@@ -43,11 +43,14 @@
 #include "fileconnection.h"
 #include "filewrappers.h"
 
+using namespace dmtcp;
+
 static bool ptmxTestPacketMode(int masterFd);
 static ssize_t ptmxReadAll(int fd, const void *origBuf, size_t maxCount);
 static ssize_t ptmxWriteAll(int fd, const void *buf, bool isPacketMode);
-static void CopyFile(const dmtcp::string& src, const dmtcp::string& dest);
 static void CreateDirectoryStructure(const dmtcp::string& path);
+static void writeFileFromFd(int fd, int destFd);
+static bool areFilesEqual(int fd, int destFd, size_t size);
 
 #ifdef REALLY_VERBOSE_CONNECTION_CPP
 static bool really_verbose = true;
@@ -538,12 +541,12 @@ void dmtcp::FileConnection::preCheckpointResMgrFile()
     _rmtype = TORQUE_IO;
     // Save the content of stdio or node file
     // to restore it later in new IO file or in temporal Torque nodefile
-    saveFile(_fds[0]);
+    saveFile();
   } else if (isTorqueNodeFile(_path) || _rmtype == TORQUE_NODE) {
     _rmtype = TORQUE_NODE;
     // Save the content of stdio or node file
     // to restore it later in new IO file or in temporal Torque nodefile
-    saveFile(_fds[0]);
+    saveFile();
   }
 }
 #endif
@@ -562,6 +565,10 @@ void dmtcp::FileConnection::preCheckpoint()
   _offset = lseek(_fds[0], 0, SEEK_CUR);
   fstat(_fds[0], &_stat);
 
+  if (_type == FILE_PROCFS) {
+    return;
+  }
+
   // If this file is related to supported Resource Management system
   // handle it specially
   if (_type == FILE_BATCH_QUEUE &&
@@ -570,7 +577,7 @@ void dmtcp::FileConnection::preCheckpoint()
       JTRACE("Pre-checkpoint Torque files") (_fds.size());
       for (unsigned int i=0; i< _fds.size(); i++)
         JTRACE("_fds[i]=") (i) (_fds[i]);
-    saveFile(_fds[0]);
+    saveFile();
     return;
   }
 
@@ -579,23 +586,23 @@ void dmtcp::FileConnection::preCheckpoint()
   }
   if (getenv(ENV_VAR_CKPT_OPEN_FILES) != NULL &&
       _stat.st_uid == getuid()) {
-    saveFile(_fds[0]);
+    saveFile();
   } else if (_type == FILE_DELETED) {
-    saveFile(_fds[0]);
+    saveFile();
 //   FIXME: Disable the following heuristic until we can comeup with a better
 //   one
 // } else if ((_fcntlFlags &(O_WRONLY|O_RDWR)) != 0 &&
 //             _offset < _stat.st_size &&
 //             _stat.st_size < MAX_FILESIZE_TO_AUTOCKPT &&
 //             _stat.st_uid == getuid()) {
-//    saveFile(_fds[0]);
+//    saveFile();
   } else if (_isVimApp() &&
              (Util::strEndsWith(_path, ".swp") == 0 ||
               Util::strEndsWith(_path, ".swo") == 0)) {
-    saveFile(_fds[0]);
+    saveFile();
   } else if (Util::strStartsWith(jalib::Filesystem::GetProgramName(),
                                  "emacs")) {
-    saveFile(_fds[0]);
+    saveFile();
   } else {
   }
 }
@@ -603,6 +610,19 @@ void dmtcp::FileConnection::preCheckpoint()
 void dmtcp::FileConnection::refill(bool isRestart)
 {
   struct stat buf;
+  if (_checkpointed && _fileAlreadyExists) {
+    dmtcp::string savedFilePath = getSavedFilePath(_path);
+    int savedFd = _real_open(savedFilePath.c_str(), O_RDONLY, 0);
+    JASSERT(savedFd != -1) (JASSERT_ERRNO) (savedFilePath);
+
+    JASSERT(areFilesEqual(_fds[0], savedFd, _stat.st_size))
+      (_path) (savedFilePath)
+      .Text("\n**** File already exist! Checkpointed copy can't be restored.\n"
+            "       The Contents of checkpointed copy differ from the "
+            "       contents of the existing copy.\n"
+            "****Delete the existing file and try again!");
+  }
+
   if (!_checkpointed) {
     JASSERT(jalib::Filesystem::FileExists(_path)) (_path)
       .Text("File not found.");
@@ -696,6 +716,7 @@ void dmtcp::FileConnection::postRestart()
 
   JASSERT(_fds.size() > 0);
   if (!_checkpointed) return;
+  _fileAlreadyExists = false;
 
   JTRACE("Restoring File Connection") (id()) (_path);
   dmtcp::string savedFilePath = getSavedFilePath(_path);
@@ -709,16 +730,31 @@ void dmtcp::FileConnection::postRestart()
     JTRACE("Restore Resource Manager File") (_path);
   } else {
     refreshPath();
-    JASSERT(jalib::Filesystem::FileExists(_path) == false) (_path)
-      .Text("\n**** File already exists! Checkpointed copy can't be "
-            "restored.\n"
-            "****Delete the existing file and try again!");
-
-    JNOTE("File not present, copying from saved checkpointed file") (_path);
     CreateDirectoryStructure(_path);
-    JTRACE("Copying saved checkpointed file to original location")
-      (savedFilePath) (_path);
-    CopyFile(savedFilePath, _path);
+    /* Now try to create the file with O_EXCL. If we fail with EEXIST, there
+     * are two possible scenarios:
+     * - The file was created by a different restarting process with data from
+     *   checkpointed copy. It is possible that the data is in flight, so we
+     *   should wait until the next barrier to compare the data from our copy.
+     * - The file existed before restart. After the next barrier, abort if the
+     *   contents differ from our checkpointed copy.
+     */
+    int fd = _real_open(_path.c_str(), O_CREAT | O_EXCL | O_RDWR,
+                        S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+    JASSERT(fd != -1 || errno == EEXIST);
+
+    if (fd == -1) {
+      _fileAlreadyExists = true;
+    } else {
+      int srcFd = _real_open(savedFilePath.c_str(), O_RDONLY, 0);
+      JASSERT(srcFd != -1) (_path) (savedFilePath) (JASSERT_ERRNO)
+        .Text("Failed to open checkpointed copy of the file.");
+      JTRACE("Copying saved checkpointed file to original location")
+        (savedFilePath) (_path);
+      writeFileFromFd(srcFd, fd);
+      _real_close(srcFd);
+      _real_close(fd);
+    }
     tempfd = openFile();
   }
   Util::dupFds(tempfd, _fds);
@@ -764,12 +800,6 @@ static void CreateDirectoryStructure(const dmtcp::string& path)
   }
 }
 
-static void CopyFile(const dmtcp::string& src, const dmtcp::string& dest)
-{
-  dmtcp::string command = "cp -f " + src + " " + dest;
-  JASSERT(_real_system(command.c_str()) != -1);
-}
-
 int dmtcp::FileConnection::openFile()
 {
   JASSERT(jalib::Filesystem::FileExists(_path)) (_path)
@@ -782,46 +812,76 @@ int dmtcp::FileConnection::openFile()
   return fd;
 }
 
-void dmtcp::FileConnection::saveFile(int fd)
+static bool areFilesEqual(int fd, int savedFd, size_t size)
 {
+  long page_size = sysconf(_SC_PAGESIZE);
+  const size_t bufSize = 1024 * page_size;
+  char *buf1 =(char*)JALLOC_HELPER_MALLOC(bufSize);
+  char *buf2 =(char*)JALLOC_HELPER_MALLOC(bufSize);
+
+  off_t offset1 = _real_lseek(fd, 0, SEEK_CUR);
+  off_t offset2 = _real_lseek(savedFd, 0, SEEK_CUR);
+  JASSERT(_real_lseek(fd, 0, SEEK_SET) == 0) (fd) (JASSERT_ERRNO);
+  JASSERT(_real_lseek(savedFd, 0, SEEK_SET) == 0) (savedFd) (JASSERT_ERRNO);
+
+  int readBytes, writtenBytes;
+  while (size > 0) {
+    readBytes = Util::readAll(savedFd, buf1, MIN(bufSize, size));
+    JASSERT(readBytes != -1) (JASSERT_ERRNO) .Text("Read Failed");
+    if (readBytes == 0) break;
+    JASSERT(Util::readAll(fd, buf2, readBytes) == readBytes);
+    if (memcmp(buf1, buf2, readBytes) != 0) {
+      JNOTE("Files not equal") (readBytes) (*(int*)buf1) (*(int*)buf2);
+      break;
+    }
+    size -= readBytes;
+  }
+  JALLOC_HELPER_FREE(buf1);
+  JALLOC_HELPER_FREE(buf2);
+  JASSERT(_real_lseek(fd, offset1, SEEK_SET) != -1);
+  JASSERT(_real_lseek(savedFd, offset2, SEEK_SET) != -1);
+  return size == 0;
+}
+
+static void writeFileFromFd(int fd, int destFd)
+{
+  long page_size = sysconf(_SC_PAGESIZE);
+  const size_t bufSize = 1024 * page_size;
+  char *buf =(char*)JALLOC_HELPER_MALLOC(bufSize);
+
+  off_t offset = _real_lseek(fd, 0, SEEK_CUR);
+  JASSERT(_real_lseek(fd, 0, SEEK_SET) == 0) (fd) (JASSERT_ERRNO);
+  JASSERT(_real_lseek(destFd, 0, SEEK_SET) == 0) (destFd) (JASSERT_ERRNO);
+
+  int readBytes, writtenBytes;
+  while (1) {
+    readBytes = Util::readAll(fd, buf, bufSize);
+    JASSERT(readBytes != -1) (JASSERT_ERRNO) .Text("Read Failed");
+    if (readBytes == 0) break;
+    writtenBytes = Util::writeAll(destFd, buf, readBytes);
+    JASSERT(writtenBytes != -1) (JASSERT_ERRNO) .Text("Write failed.");
+  }
+  JALLOC_HELPER_FREE(buf);
+  JASSERT(_real_lseek(fd, offset, SEEK_SET) != -1);
+}
+
+void dmtcp::FileConnection::saveFile()
+{
+  JASSERT(_type != FILE_PROCFS && _type != FILE_INVALID);
   _checkpointed = true;
 
   dmtcp::string savedFilePath = getSavedFilePath(_path);
   CreateDirectoryStructure(savedFilePath);
+
+  int destFd = _real_open(savedFilePath.c_str(), O_CREAT | O_WRONLY | O_TRUNC,
+                          S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+  JASSERT(destFd != -1) (JASSERT_ERRNO) (_path) (savedFilePath);
+
   JTRACE("Saving checkpointed copy of the file") (_path) (savedFilePath);
 
-  if (_type == FILE_REGULAR ||
-      jalib::Filesystem::FileExists(_path)) {
-    CopyFile(_path, savedFilePath);
-    return;
-  } else if (_type == FileConnection::FILE_DELETED) {
-    long page_size = sysconf(_SC_PAGESIZE);
-    const size_t bufSize = 2 * page_size;
-    char *buf =(char*)JALLOC_HELPER_MALLOC(bufSize);
+  writeFileFromFd(_fds[0], destFd);
 
-    int destFd = _real_open(savedFilePath.c_str(), O_CREAT | O_WRONLY | O_TRUNC,
-                      S_IRWXU | S_IRWXG | S_IROTH |
-                      S_IXOTH);
-    JASSERT(destFd != -1) (_path) (savedFilePath) .Text("Read Failed");
-
-    lseek(fd, 0, SEEK_SET);
-
-    int readBytes, writtenBytes;
-    while (1) {
-      readBytes = Util::readAll(fd, buf, bufSize);
-      JASSERT(readBytes != -1)
-        (_path) (JASSERT_ERRNO) .Text("Read Failed");
-      if (readBytes == 0) break;
-      writtenBytes = Util::writeAll(destFd, buf, readBytes);
-      JASSERT(writtenBytes != -1)
-        (savedFilePath) (JASSERT_ERRNO) .Text("Write failed.");
-    }
-
-    close(destFd);
-    JALLOC_HELPER_FREE(buf);
-  }
-
-  JASSERT(lseek(fd, _offset, SEEK_SET) != -1) (_path);
+  _real_close(destFd);
 }
 
 dmtcp::string dmtcp::FileConnection::getSavedFilePath(const dmtcp::string& path)

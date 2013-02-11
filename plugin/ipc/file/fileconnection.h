@@ -127,6 +127,7 @@ namespace dmtcp
         , _path(path)
         , _flags(flags)
         , _mode(mode)
+        , _fileAlreadyExists(false)
       {
          _type = type;
       }
@@ -150,7 +151,7 @@ namespace dmtcp
 
       bool checkDup(int fd);
     private:
-      void saveFile(int fd);
+      void saveFile();
       int  openFile();
       void refreshPath();
       void handleUnlinkedFile();
@@ -161,6 +162,7 @@ namespace dmtcp
       dmtcp::string _rel_path;
       dmtcp::string _ckptFilesDir;
       bool          _checkpointed;
+      bool          _fileAlreadyExists;
       int           _flags;
       mode_t        _mode;
       off_t         _offset;
