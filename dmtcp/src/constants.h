@@ -26,6 +26,8 @@
 # include "config.h"
 #endif
 #include "linux/version.h"
+#include <features.h>
+
 
 // IBV is for the Infiniband plugin.  The overhead in DMTCP is essentially zero.
 // Undefine this if for some reason it should interfere.
@@ -182,5 +184,11 @@
 #define DMTCP_BANNER                                                            \
   DMTCP_VERSION_AND_COPYRIGHT_INFO                                              \
   "(Use flag \"-q\" to hide this message.)\n\n"
+
+#if __GLIBC_PREREQ(2,5)
+# define READLINK_RET_TYPE ssize_t
+#else
+# define READLINK_RET_TYPE int
+#endif
 
 #endif
