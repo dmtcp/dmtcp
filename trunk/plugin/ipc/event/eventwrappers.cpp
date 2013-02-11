@@ -64,7 +64,7 @@ using namespace dmtcp;
  */
 
 /* Poll wrapper forces poll to restart after ckpt/resume or ckpt/restart */
-extern "C" int poll(struct pollfd *fds, nfds_t nfds, int timeout)
+extern "C" int poll(struct pollfd *fds, nfds_t nfds, POLL_TIMEOUT_TYPE timeout)
 {
   int rc;
   while (1) {
@@ -96,7 +96,7 @@ extern "C" int signalfd(int fd, const sigset_t *mask, int flags)
   return ret;
 }
 
-extern "C" int eventfd(int initval, int flags)
+extern "C" int eventfd(EVENTFD_VAL_TYPE initval, int flags)
 {
   DMTCP_DISABLE_CKPT();
   int ret = _real_eventfd(initval, flags);

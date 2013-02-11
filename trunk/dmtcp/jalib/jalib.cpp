@@ -102,7 +102,7 @@ namespace jalib {
     REAL_FUNC_PASSTHROUGH(ssize_t, readlink) (path, buf,bufsiz);
   }
 
-  long int syscall(long int sys_num, ...) {
+  SYSCALL_ARG_RET_TYPE syscall(SYSCALL_ARG_RET_TYPE sys_num, ...) {
     int i;
     void * arg[7];
     va_list ap;
@@ -114,7 +114,8 @@ namespace jalib {
 
     // /usr/include/unistd.h says syscall returns long int (contrary to man
     // page)
-    REAL_FUNC_PASSTHROUGH(long int, syscall) (sys_num, arg[0], arg[1], arg[2],
+    REAL_FUNC_PASSTHROUGH(SYSCALL_ARG_RET_TYPE, syscall) (
+                                              sys_num, arg[0], arg[1], arg[2],
                                               arg[3], arg[4], arg[5], arg[6]);
   }
 

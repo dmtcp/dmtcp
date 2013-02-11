@@ -301,9 +301,9 @@ extern "C" int __clone (int (*fn) (void *arg), void *child_stack, int flags, voi
  * XXX: DO NOT USE JTRACE/JNOTE/JASSERT in this function; even better, do not
  *      use any STL here.  (--Kapil)
  */
-extern "C" long int syscall(long int sys_num, ...)
+extern "C" SYSCALL_ARG_RET_TYPE syscall(SYSCALL_ARG_RET_TYPE sys_num, ...)
 {
-  long int ret;
+  SYSCALL_ARG_RET_TYPE ret;
   va_list ap;
 
   va_start(ap, sys_num);
