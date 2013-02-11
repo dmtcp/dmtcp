@@ -23,10 +23,11 @@
 #ifndef CONNECTIONLIST_H
 #define CONNECTIONLIST_H
 
+#include <pthread.h>
 #include "dmtcpalloc.h"
 #include "connection.h"
-#include "../jalib/jserialize.h"
-#include "../jalib/jalloc.h"
+#include "jserialize.h"
+#include "jalloc.h"
 
 namespace dmtcp
 {
@@ -38,7 +39,8 @@ namespace dmtcp
       static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
       static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
 #endif
-      ConnectionList() {}
+      ConnectionList() { JASSERT(pthread_mutex_init(&_lock, NULL) == 0);}
+
       typedef dmtcp::map<ConnectionIdentifier, Connection*>::iterator iterator;
       iterator begin() { return _connections.begin(); }
       iterator end() { return _connections.end(); }
@@ -80,7 +82,14 @@ namespace dmtcp
 
     private:
       void processCloseWork(int fd);
+      void _lock_tbl() {
+        JASSERT(_real_pthread_mutex_lock(&_lock) == 0) (JASSERT_ERRNO);
+      }
+      void _unlock_tbl() {
+        JASSERT(_real_pthread_mutex_unlock(&_lock) == 0) (JASSERT_ERRNO);
+      }
 
+      pthread_mutex_t _lock;
       typedef map<ConnectionIdentifier, Connection*> ConnectionMapT;
       ConnectionMapT _connections;
 
