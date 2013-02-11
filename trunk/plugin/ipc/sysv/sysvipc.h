@@ -22,8 +22,6 @@
 #ifndef SYSVIPC_H
 #define SYSVIPC_H
 
-#include "dmtcpalloc.h"
-#include "dmtcpworker.h"
 #include <vector>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -36,6 +34,7 @@
 #include <sys/sem.h>
 #include <sys/msg.h>
 
+#include "dmtcpalloc.h"
 #include "jbuffer.h"
 #include "jserialize.h"
 #include "jassert.h"
@@ -50,6 +49,14 @@
   dmtcp::SysVIPC::instance().realToVirtualId(id)
 #define VIRTUAL_TO_REAL_IPC_ID(id) \
   dmtcp::SysVIPC::instance().virtualToRealId(id)
+
+union semun {
+  int              val;    /* Value for SETVAL */
+  struct semid_ds *buf;    /* Buffer for IPC_STAT, IPC_SET */
+  unsigned short  *array;  /* Array for GETALL, SETALL */
+  struct seminfo  *__buf;  /* Buffer for IPC_INFO (Linux-specific) */
+};
+
 namespace dmtcp
 {
   class ShmSegment;
