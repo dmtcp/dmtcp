@@ -47,6 +47,7 @@ HEADERS = ipc.h connection.h connectionidentifier.h connectionlist.h \
 	  file/filewrappers.h file/fileconnection.h file/fileconnlist.h \
 	  event/eventwrappers.h event/eventconnection.h \
 	  event/eventconnlist.h event/util_descriptor.h \
+	  sysv/sysvipc.h sysv/sysvipcwrappers.h \
 	  $(DMTCP_SRC_PATH)/util.h $(DMTCP_SRC_PATH)/dmtcpplugin.h \
 	  $(DMTCP_SRC_PATH)/shareddata.h $(DMTCP_SRC_PATH)/protectedfds.h \
 	  $(DMTCP_SRC_PATH)/dmtcpalloc.h $(DMTCP_SRC_PATH)/config.h \
@@ -54,14 +55,13 @@ HEADERS = ipc.h connection.h connectionidentifier.h connectionlist.h \
 	  $(JALIB_PATH)/jalib.h $(JALIB_PATH)/jbuffer.h \
 	  $(JALIB_PATH)/jconvert.h $(JALIB_PATH)/jfilesystem.h \
 	  $(JALIB_PATH)/jserialize.h $(JALIB_PATH)/jsocket.h
-	  #sysv/sysvipc.h sysv/sysvipcwrappers.h \
 
 OBJS = ipc.o connection.o connectionidentifier.o connectionlist.o \
        connectionrewirer.o kernelbufferdrainer.o \
        socketwrappers.o socketconnection.o socketconnlist.o \
        util_descriptor.o eventwrappers.o eventconnection.o eventconnlist.o\
-       filewrappers.o fileconnection.o fileconnlist.o posixipcwrappers.o
-       #sysvipc.o sysvipcwrappers.o
+       filewrappers.o fileconnection.o fileconnlist.o posixipcwrappers.o \
+       sysvipc.o sysvipcwrappers.o
 
 LIB_LDFLAGS = -shared -Wl,--unresolved-symbols=ignore-all
 
@@ -112,7 +112,7 @@ ${LIBNAME}: $(OBJS) ${HEADERS}
 %.o: event/%.cpp ${HEADERS}
 	$(CXXCOMPILE)  $<
 
-#%.o: sysv/%.cpp ${HEADERS}
-	#$(CXXCOMPILE)  $<
+%.o: sysv/%.cpp ${HEADERS}
+	$(CXXCOMPILE)  $<
 
 .PHONY: default all build tidy clean distclean install uninstall

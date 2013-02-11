@@ -36,14 +36,15 @@
 #include <sys/sem.h>
 #include <sys/msg.h>
 
-#include "../jalib/jbuffer.h"
-#include "../jalib/jserialize.h"
-#include "../jalib/jassert.h"
-#include "../jalib/jconvert.h"
-#include "../jalib/jalloc.h"
+#include "jbuffer.h"
+#include "jserialize.h"
+#include "jassert.h"
+#include "jconvert.h"
+#include "jalloc.h"
 #include "virtualidtable.h"
-#include "syscallwrappers.h"
 #include "shareddata.h"
+
+#include "sysvipcwrappers.h"
 
 #define REAL_TO_VIRTUAL_IPC_ID(id) \
   dmtcp::SysVIPC::instance().realToVirtualId(id)

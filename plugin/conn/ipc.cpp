@@ -42,8 +42,7 @@ void dmtcp_process_event(DmtcpEvent_t event, DmtcpEventData_t *data)
   dmtcp_FileConnList_ProcessEvent(event, data);
   dmtcp_SocketConnList_ProcessEvent(event, data);
   dmtcp_EventConnList_ProcessEvent(event, data);
-  // Add back when adding SysV subplugin.
-  //dmtcp_SysVIPC_ProcessEvent(event, data);
+  dmtcp_SysVIPC_ProcessEvent(event, data);
 
   NEXT_DMTCP_PROCESS_EVENT(event, data);
   return;

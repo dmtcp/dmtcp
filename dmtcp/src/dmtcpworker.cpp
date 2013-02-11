@@ -719,11 +719,9 @@ void dmtcp::DmtcpWorker::waitForStage4Resume(bool isRestart)
 }
 
 void dmtcp_ProcessInfo_ProcessEvent(DmtcpEvent_t event, DmtcpEventData_t *data);
-void dmtcp_SysVIPC_ProcessEvent (DmtcpEvent_t event, DmtcpEventData_t *data);
 void dmtcp::DmtcpWorker::processEvent(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   static jalib::JBuffer buf(0); // To force linkage of jbuffer.cpp
   dmtcp_ProcessInfo_ProcessEvent(event, data);
   dmtcp_process_event(event, data);
-  dmtcp_SysVIPC_ProcessEvent(event, data);
 }

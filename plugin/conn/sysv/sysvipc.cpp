@@ -19,26 +19,24 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-
 #include <sys/ioctl.h>
 #include <unistd.h>
-#include <fcntl.h>
 #include <sys/file.h>
 #include <sys/mman.h>
 #include <iostream>
 #include <ios>
 #include <fstream>
-#include  "../../jalib/jassert.h"
-#include  "../../jalib/jfilesystem.h"
-#include  "../../jalib/jconvert.h"
-#include  "../../jalib/jserialize.h"
-#include "../syscallwrappers.h"
-#include "../dmtcpmessagetypes.h"
-#include "../dmtcpworker.h"
-#include "../protectedfds.h"
-#include "../util.h"
-#include "../shareddata.h"
+
+#include "protectedfds.h"
+#include "util.h"
+#include "shareddata.h"
+#include "jassert.h"
+#include "jfilesystem.h"
+#include "jconvert.h"
+#include "jserialize.h"
+
 #include "sysvipc.h"
+#include "sysvipcwrappers.h"
 
 // FIXME: Check and verify the correctness of SEM_UNDO logic for Semaphores.
 
