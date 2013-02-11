@@ -22,8 +22,8 @@
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #include "sysvipc.h"
-#include "threadsync.h"
-#include "../../jalib/jassert.h"
+#include "sysvipcwrappers.h"
+#include "jassert.h"
 
 static struct timespec ts_100ms = {0, 100 * 1000 * 1000};
 /******************************************************************************

@@ -138,10 +138,6 @@ libsyscallsreal_a_LIBADD =
 am_libsyscallsreal_a_OBJECTS = syscallsreal.$(OBJEXT) \
 	trampolines.$(OBJEXT)
 libsyscallsreal_a_OBJECTS = $(am_libsyscallsreal_a_OBJECTS)
-libsysvipc_a_AR = $(AR) $(ARFLAGS)
-libsysvipc_a_LIBADD =
-am_libsysvipc_a_OBJECTS = sysvipc.$(OBJEXT) sysvipcwrappers.$(OBJEXT)
-libsysvipc_a_OBJECTS = $(am_libsysvipc_a_OBJECTS)
 PROGRAMS = $(bin_PROGRAMS) $(dmtcplib_PROGRAMS)
 am_dmtcp_checkpoint_OBJECTS = dmtcp_checkpoint.$(OBJEXT)
 dmtcp_checkpoint_OBJECTS = $(am_dmtcp_checkpoint_OBJECTS)
@@ -169,10 +165,9 @@ am_libdmtcp_so_OBJECTS = dmtcpawareapi.$(OBJEXT) dmtcpworker.$(OBJEXT) \
 	signalwrappers.$(OBJEXT) workerhijack.$(OBJEXT) \
 	threadwrappers.$(OBJEXT) miscwrappers.$(OBJEXT) \
 	glibcsystem.$(OBJEXT) mallocwrappers.$(OBJEXT) \
-	dmtcpplugin.$(OBJEXT) popen.$(OBJEXT) syslogwrappers.$(OBJEXT) \
-	sysvipcwrappers.$(OBJEXT)
+	dmtcpplugin.$(OBJEXT) popen.$(OBJEXT) syslogwrappers.$(OBJEXT)
 libdmtcp_so_OBJECTS = $(am_libdmtcp_so_OBJECTS)
-libdmtcp_so_DEPENDENCIES = libdmtcpinternal.a libsysvipc.a libjalib.a \
+libdmtcp_so_DEPENDENCIES = libdmtcpinternal.a libjalib.a \
 	libsyscallsreal.a ../../mtcp/libmtcp.so
 libdmtcp_so_LINK = $(CXXLD) $(AM_CXXFLAGS) $(CXXFLAGS) \
 	$(libdmtcp_so_LDFLAGS) $(LDFLAGS) -o $@
@@ -196,18 +191,17 @@ CXXLINK = $(CXXLD) $(AM_CXXFLAGS) $(CXXFLAGS) $(AM_LDFLAGS) $(LDFLAGS) \
 	-o $@
 SOURCES = $(libdmtcpaware_a_SOURCES) $(libdmtcpinternal_a_SOURCES) \
 	$(libjalib_a_SOURCES) $(libnohijack_a_SOURCES) \
-	$(libsyscallsreal_a_SOURCES) $(libsysvipc_a_SOURCES) \
+	$(libsyscallsreal_a_SOURCES) $(dmtcp_checkpoint_SOURCES) \
+	$(dmtcp_command_SOURCES) $(dmtcp_coordinator_SOURCES) \
+	$(dmtcp_nocheckpoint_SOURCES) $(dmtcp_restart_SOURCES) \
+	$(libdmtcp_so_SOURCES) $(libdmtcpaware_so_1_0_0_SOURCES)
+DIST_SOURCES = $(libdmtcpaware_a_SOURCES) \
+	$(libdmtcpinternal_a_SOURCES) $(libjalib_a_SOURCES) \
+	$(libnohijack_a_SOURCES) $(libsyscallsreal_a_SOURCES) \
 	$(dmtcp_checkpoint_SOURCES) $(dmtcp_command_SOURCES) \
 	$(dmtcp_coordinator_SOURCES) $(dmtcp_nocheckpoint_SOURCES) \
 	$(dmtcp_restart_SOURCES) $(libdmtcp_so_SOURCES) \
 	$(libdmtcpaware_so_1_0_0_SOURCES)
-DIST_SOURCES = $(libdmtcpaware_a_SOURCES) \
-	$(libdmtcpinternal_a_SOURCES) $(libjalib_a_SOURCES) \
-	$(libnohijack_a_SOURCES) $(libsyscallsreal_a_SOURCES) \
-	$(libsysvipc_a_SOURCES) $(dmtcp_checkpoint_SOURCES) \
-	$(dmtcp_command_SOURCES) $(dmtcp_coordinator_SOURCES) \
-	$(dmtcp_nocheckpoint_SOURCES) $(dmtcp_restart_SOURCES) \
-	$(libdmtcp_so_SOURCES) $(libdmtcpaware_so_1_0_0_SOURCES)
 am__can_run_installinfo = \
   case $$AM_UPDATE_INFO_DIR in \
     n|no|NO) false;; \
@@ -320,9 +314,7 @@ AUTOMAKE_OPTIONS = foreign
 INCLUDES = $(all_includes)
 dmtcplibdir = $(pkglibdir)
 # targets:
-noinst_LIBRARIES = libdmtcpinternal.a libsyscallsreal.a libnohijack.a \
-		   libsysvipc.a libjalib.a
-
+noinst_LIBRARIES = libdmtcpinternal.a libsyscallsreal.a libnohijack.a libjalib.a
 include_HEADERS = dmtcpaware.h
 lib_LIBRARIES = libdmtcpaware.a
 
@@ -331,7 +323,6 @@ nobase_noinst_HEADERS = constants.h \
 	../jalib/jassert.h ../jalib/jalloc.h ../jalib/jalib.h \
 	../jalib/jbuffer.h ../jalib/jconvert.h ../jalib/jfilesystem.h \
 	../jalib/jserialize.h ../jalib/jsocket.h ../jalib/jtimer.h \
-	sysvipc/sysvipc.h \
 	dmtcp_coordinator.h dmtcpmessagetypes.h \
 	dmtcpworker.h threadsync.h coordinatorapi.h \
 	mtcpinterface.h  protectedfds.h \
@@ -349,7 +340,6 @@ libdmtcpinternal_a_SOURCES = dmtcpmessagetypes.cpp protectedfds.cpp \
 			     util_exec.cpp util_gen.cpp util_init.cpp \
 			     jalibinterface.cpp processinfo.cpp
 
-libsysvipc_a_SOURCES = sysvipc/sysvipc.cpp sysvipc/sysvipcwrappers.cpp
 libjalib_a_SOURCES = ../jalib/jalib.cpp ../jalib/jassert.cpp \
 		     ../jalib/jbuffer.cpp ../jalib/jfilesystem.cpp \
 		     ../jalib/jserialize.cpp ../jalib/jsocket.cpp \
@@ -371,8 +361,7 @@ libdmtcp_so_SOURCES = dmtcpawareapi.cpp dmtcpworker.cpp threadsync.cpp \
 		      workerhijack.cpp threadwrappers.cpp \
 		      miscwrappers.cpp \
 		      glibcsystem.cpp mallocwrappers.cpp \
-		      dmtcpplugin.cpp popen.cpp syslogwrappers.cpp \
-		      sysvipc/sysvipcwrappers.cpp
+		      dmtcpplugin.cpp popen.cpp syslogwrappers.cpp
 
 libdmtcp_so_LDFLAGS = -shared
 
@@ -380,9 +369,8 @@ libdmtcp_so_LDFLAGS = -shared
 
 # Note that an ELF object uses libsyscallsreal.a or libnohijack.a
 #  but not both.  libnohijack.a has stub definitions for same symbols.
-libdmtcp_so_LDADD = libdmtcpinternal.a libsysvipc.a \
-			  libjalib.a libsyscallsreal.a  -ldl -lpthread -lrt \
-			  ../../mtcp/libmtcp.so
+libdmtcp_so_LDADD = libdmtcpinternal.a libjalib.a libsyscallsreal.a \
+			  -ldl -lpthread -lrt ../../mtcp/libmtcp.so
 
 dmtcp_coordinator_LDADD = libdmtcpinternal.a libjalib.a \
 			  libnohijack.a -lpthread -lrt
@@ -510,10 +498,6 @@ libsyscallsreal.a: $(libsyscallsreal_a_OBJECTS) $(libsyscallsreal_a_DEPENDENCIES
 	-rm -f libsyscallsreal.a
 	$(libsyscallsreal_a_AR) libsyscallsreal.a $(libsyscallsreal_a_OBJECTS) $(libsyscallsreal_a_LIBADD)
 	$(RANLIB) libsyscallsreal.a
-libsysvipc.a: $(libsysvipc_a_OBJECTS) $(libsysvipc_a_DEPENDENCIES) $(EXTRA_libsysvipc_a_DEPENDENCIES) 
-	-rm -f libsysvipc.a
-	$(libsysvipc_a_AR) libsysvipc.a $(libsysvipc_a_OBJECTS) $(libsysvipc_a_LIBADD)
-	$(RANLIB) libsysvipc.a
 install-binPROGRAMS: $(bin_PROGRAMS)
 	@$(NORMAL_INSTALL)
 	@list='$(bin_PROGRAMS)'; test -n "$(bindir)" || list=; \
@@ -657,8 +641,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/signalwrappers.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/syscallsreal.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/syslogwrappers.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sysvipc.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sysvipcwrappers.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/threadsync.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/threadwrappers.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/trampolines.Po@am__quote@
@@ -807,34 +789,6 @@ jalloc.obj: ../jalib/jalloc.cpp
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='../jalib/jalloc.cpp' object='jalloc.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o jalloc.obj `if test -f '../jalib/jalloc.cpp'; then $(CYGPATH_W) '../jalib/jalloc.cpp'; else $(CYGPATH_W) '$(srcdir)/../jalib/jalloc.cpp'; fi`
-
-sysvipc.o: sysvipc/sysvipc.cpp
-@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT sysvipc.o -MD -MP -MF $(DEPDIR)/sysvipc.Tpo -c -o sysvipc.o `test -f 'sysvipc/sysvipc.cpp' || echo '$(srcdir)/'`sysvipc/sysvipc.cpp
-@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/sysvipc.Tpo $(DEPDIR)/sysvipc.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='sysvipc/sysvipc.cpp' object='sysvipc.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o sysvipc.o `test -f 'sysvipc/sysvipc.cpp' || echo '$(srcdir)/'`sysvipc/sysvipc.cpp
-
-sysvipc.obj: sysvipc/sysvipc.cpp
-@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT sysvipc.obj -MD -MP -MF $(DEPDIR)/sysvipc.Tpo -c -o sysvipc.obj `if test -f 'sysvipc/sysvipc.cpp'; then $(CYGPATH_W) 'sysvipc/sysvipc.cpp'; else $(CYGPATH_W) '$(srcdir)/sysvipc/sysvipc.cpp'; fi`
-@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/sysvipc.Tpo $(DEPDIR)/sysvipc.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='sysvipc/sysvipc.cpp' object='sysvipc.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o sysvipc.obj `if test -f 'sysvipc/sysvipc.cpp'; then $(CYGPATH_W) 'sysvipc/sysvipc.cpp'; else $(CYGPATH_W) '$(srcdir)/sysvipc/sysvipc.cpp'; fi`
-
-sysvipcwrappers.o: sysvipc/sysvipcwrappers.cpp
-@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT sysvipcwrappers.o -MD -MP -MF $(DEPDIR)/sysvipcwrappers.Tpo -c -o sysvipcwrappers.o `test -f 'sysvipc/sysvipcwrappers.cpp' || echo '$(srcdir)/'`sysvipc/sysvipcwrappers.cpp
-@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/sysvipcwrappers.Tpo $(DEPDIR)/sysvipcwrappers.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='sysvipc/sysvipcwrappers.cpp' object='sysvipcwrappers.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o sysvipcwrappers.o `test -f 'sysvipc/sysvipcwrappers.cpp' || echo '$(srcdir)/'`sysvipc/sysvipcwrappers.cpp
-
-sysvipcwrappers.obj: sysvipc/sysvipcwrappers.cpp
-@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT sysvipcwrappers.obj -MD -MP -MF $(DEPDIR)/sysvipcwrappers.Tpo -c -o sysvipcwrappers.obj `if test -f 'sysvipc/sysvipcwrappers.cpp'; then $(CYGPATH_W) 'sysvipc/sysvipcwrappers.cpp'; else $(CYGPATH_W) '$(srcdir)/sysvipc/sysvipcwrappers.cpp'; fi`
-@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/sysvipcwrappers.Tpo $(DEPDIR)/sysvipcwrappers.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='sysvipc/sysvipcwrappers.cpp' object='sysvipcwrappers.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o sysvipcwrappers.obj `if test -f 'sysvipc/sysvipcwrappers.cpp'; then $(CYGPATH_W) 'sysvipc/sysvipcwrappers.cpp'; else $(CYGPATH_W) '$(srcdir)/sysvipc/sysvipcwrappers.cpp'; fi`
 install-includeHEADERS: $(include_HEADERS)
 	@$(NORMAL_INSTALL)
 	@list='$(include_HEADERS)'; test -n "$(includedir)" || list=; \
