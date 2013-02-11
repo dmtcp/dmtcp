@@ -247,7 +247,7 @@ lib/dmtcp/libdmtcp_%.so : plugin/%
 lib/dmtcp/libdmtcp_%.so : contrib/%
 	cd lib/dmtcp && $(LN_S) ../../$</$(@F) .
 
-PLUGINS = lib/dmtcp/libdmtcp_pid.so lib/dmtcp/libdmtcp_conn.so \
+PLUGINS = lib/dmtcp/libdmtcp_pid.so lib/dmtcp/libdmtcp_ipc.so \
 	  lib/dmtcp/libdmtcp_ptrace.so lib/dmtcp/libdmtcp_torque.so
 
 lib: 	lib/dmtcp/libdmtcp.so $(PLUGINS) \

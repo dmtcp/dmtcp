@@ -469,7 +469,7 @@ int main ( int argc, char** argv )
     preloadLibs += ":";
   }
 
-  preloadLibs += jalib::Filesystem::FindHelperUtility("libdmtcp_conn.so");
+  preloadLibs += jalib::Filesystem::FindHelperUtility("libdmtcp_ipc.so");
   preloadLibs += ":";
 
   preloadLibs += jalib::Filesystem::FindHelperUtility("libdmtcp.so");

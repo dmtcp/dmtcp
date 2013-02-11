@@ -1,4 +1,4 @@
-PLUGIN=conn
+PLUGIN=ipc
 LIBNAME=libdmtcp_${PLUGIN}.so
 CC = @CC@
 M32=@M32@
@@ -41,20 +41,25 @@ endif
 CXXCOMPILE = $(CXX) $(INCLUDES) $(CPPFLAGS) $(CXXFLAGS) -c -o $@
 CXXLINK = $(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@
 
-HEADERS = ipc.h connection.h connectionidentifier.h connectionlist.h \
-	  socket/connectionrewirer.h socket/kernelbufferdrainer.h \
-	  socket/socketwrappers.h socket/socketconnection.h socket/socketconnlist.h \
-	  file/filewrappers.h file/fileconnection.h file/fileconnlist.h \
-	  event/eventwrappers.h event/eventconnection.h \
-	  event/eventconnlist.h event/util_descriptor.h \
-	  sysv/sysvipc.h sysv/sysvipcwrappers.h \
-	  $(DMTCP_SRC_PATH)/util.h $(DMTCP_SRC_PATH)/dmtcpplugin.h \
-	  $(DMTCP_SRC_PATH)/shareddata.h $(DMTCP_SRC_PATH)/protectedfds.h \
-	  $(DMTCP_SRC_PATH)/dmtcpalloc.h $(DMTCP_SRC_PATH)/config.h \
-	  $(JALIB_PATH)/jassert.h $(JALIB_PATH)/jalloc.h \
-	  $(JALIB_PATH)/jalib.h $(JALIB_PATH)/jbuffer.h \
-	  $(JALIB_PATH)/jconvert.h $(JALIB_PATH)/jfilesystem.h \
-	  $(JALIB_PATH)/jserialize.h $(JALIB_PATH)/jsocket.h
+COMMON_HEADERS = ipc.h \
+		 $(DMTCP_SRC_PATH)/util.h $(DMTCP_SRC_PATH)/dmtcpplugin.h \
+		 $(DMTCP_SRC_PATH)/shareddata.h $(DMTCP_SRC_PATH)/dmtcpalloc.h \
+		 $(DMTCP_SRC_PATH)/config.h $(DMTCP_SRC_PATH)/protectedfds.h \
+		 $(JALIB_PATH)/jassert.h $(JALIB_PATH)/jalloc.h \
+		 $(JALIB_PATH)/jalib.h $(JALIB_PATH)/jbuffer.h \
+		 $(JALIB_PATH)/jconvert.h $(JALIB_PATH)/jfilesystem.h \
+		 $(JALIB_PATH)/jserialize.h $(JALIB_PATH)/jsocket.h
+
+CONNECTION_HEADERS = connection.h connectionidentifier.h connectionlist.h
+SOCKET_HEADERS = socket/connectionrewirer.h socket/kernelbufferdrainer.h \
+		 socket/socketwrappers.h socket/socketconnection.h \
+		 socket/socketconnlist.h
+FILE_HEADERS = file/filewrappers.h file/fileconnection.h file/fileconnlist.h
+EVENT_HEADERS = event/eventwrappers.h event/eventconnection.h \
+		event/eventconnlist.h event/util_descriptor.h
+
+SYSV_HEADERS = sysv/sysvipc.h sysv/sysvipcwrappers.h
+
 
 OBJS = ipc.o connection.o connectionidentifier.o connectionlist.o \
        connectionrewirer.o kernelbufferdrainer.o \
@@ -100,19 +105,19 @@ ${LIBNAME}: $(OBJS) ${HEADERS}
 	@rm -f ${LIBNAME}
 	$(CXXLINK) $(OBJS) $(LIB_LDFLAGS) $(LDADD)
 
-%.o: %.cpp ${HEADERS}
+%.o: %.cpp ${COMMON_HEADERS} ${CONNECTION_HEADERS}
 	$(CXXCOMPILE)  $<
 
-%.o: socket/%.cpp ${HEADERS}
+%.o: socket/%.cpp ${COMMON_HEADERS} ${CONNECTION_HEADERS} ${SOCKET_HEADERS}
 	$(CXXCOMPILE)  $<
 
-%.o: file/%.cpp ${HEADERS}
+%.o: file/%.cpp ${COMMON_HEADERS} ${CONNECTION_HEADERS} ${FILE_HEADERS}
 	$(CXXCOMPILE)  $<
 
-%.o: event/%.cpp ${HEADERS}
+%.o: event/%.cpp ${COMMON_HEADERS} ${CONNECTION_HEADERS} ${EVENT_HEADERS}
 	$(CXXCOMPILE)  $<
 
-%.o: sysv/%.cpp ${HEADERS}
+%.o: sysv/%.cpp ${COMMON_HEADERS} ${SYSV_HEADERS}
 	$(CXXCOMPILE)  $<
 
 .PHONY: default all build tidy clean distclean install uninstall
