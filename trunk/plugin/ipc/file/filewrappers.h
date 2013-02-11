@@ -23,12 +23,7 @@
 #ifndef FILE_WRAPPERS_H
 #define FILE_WRAPPERS_H
 
-#if __GLIBC_PREREQ(2,5)
-# define READLINK_RET_TYPE ssize_t
-#else
-# define READLINK_RET_TYPE int
-#endif
-
+#include "constants.h"
 #include "dmtcpplugin.h"
 
 #define _real_open NEXT_FNC(open)

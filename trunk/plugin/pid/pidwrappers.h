@@ -61,12 +61,7 @@ struct user_desc {int dummy;}; /* <asm/ldt.h> is missing in Ubuntu 11.10 */
 #include <grp.h>
 #include <netdb.h>
 #include <mqueue.h>
-
-#if __GLIBC_PREREQ(2,5)
-# define READLINK_RET_TYPE ssize_t
-#else
-# define READLINK_RET_TYPE int
-#endif
+#include "constants.h"
 
 #ifdef __cplusplus
 extern "C"

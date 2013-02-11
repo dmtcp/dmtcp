@@ -77,12 +77,6 @@ extern "C"
 {
 #endif
 
-#if __GLIBC_PREREQ(2,5)
-# define READLINK_RET_TYPE ssize_t
-#else
-# define READLINK_RET_TYPE int
-#endif
-
 LIB_PRIVATE pid_t gettid();
 LIB_PRIVATE int tkill(int tid, int sig);
 LIB_PRIVATE int tgkill(int tgid, int tid, int sig);
