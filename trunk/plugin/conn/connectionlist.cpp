@@ -44,21 +44,10 @@
 using namespace dmtcp;
 
 static size_t _numMissingCons = 0;
-static pthread_mutex_t conTblLock = PTHREAD_MUTEX_INITIALIZER;
 
 static void sendFd(int fd, ConnectionIdentifier& id,
                    struct sockaddr_un& addr, socklen_t len);
 static int receiveFd(ConnectionIdentifier *id);
-
-static void _lock_tbl()
-{
-  JASSERT(_real_pthread_mutex_lock(&conTblLock) == 0) (JASSERT_ERRNO);
-}
-
-static void _unlock_tbl()
-{
-  JASSERT(_real_pthread_mutex_unlock(&conTblLock) == 0) (JASSERT_ERRNO);
-}
 
 static dmtcp::string _procFDPath(int fd)
 {
@@ -101,8 +90,8 @@ dmtcp::ConnectionList& dmtcp::ConnectionList::instance()
 
 void dmtcp::ConnectionList::resetOnFork()
 {
-  pthread_mutex_t newlock = PTHREAD_MUTEX_INITIALIZER;
-  conTblLock = newlock;
+  JASSERT(pthread_mutex_destroy(&_lock) == 0) (JASSERT_ERRNO);
+  JASSERT(pthread_mutex_init(&_lock, NULL) == 0) (JASSERT_ERRNO);
 }
 
 
