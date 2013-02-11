@@ -23,6 +23,7 @@
 #include <sys/select.h>
 #include <sys/un.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <linux/limits.h>
 #include <arpa/inet.h>
 

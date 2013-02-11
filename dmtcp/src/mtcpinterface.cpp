@@ -18,27 +18,16 @@
  *  License along with DMTCP:dmtcp/src.  If not, see                        *
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
-
-#include <dlfcn.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdarg.h>
-#include <unistd.h>
-#include <sys/syscall.h>
-#include <sys/mman.h>
 #include <sys/prctl.h>
 
 #include "constants.h"
 #include "mtcpinterface.h"
 #include "syscallwrappers.h"
-#include "uniquepid.h"
 #include "dmtcpworker.h"
 #include "processinfo.h"
-#include "protectedfds.h"
-#include "dmtcpplugin.h"
 #include "coordinatorapi.h"
 #include "util.h"
+#include "threadsync.h"
 
 #include "../jalib/jfilesystem.h"
 #include "../jalib/jconvert.h"

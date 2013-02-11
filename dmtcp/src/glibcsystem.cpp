@@ -25,11 +25,7 @@
  * in glibc.  If you really want an unwrapped version of glibc's system(),
  * then call execwrappers.cpp:_real_system().
  */
-
 #include <errno.h>
-#include <signal.h>
-#include <stddef.h>
-#include <stdlib.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>

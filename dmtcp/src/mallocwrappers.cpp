@@ -22,27 +22,9 @@
 #ifndef _GNU_SOURCE
 # define _GNU_SOURCE /* for sake of mremap */
 #endif
-#include <stdarg.h>
-#include <stdlib.h>
-#include <vector>
-#include <list>
-#include <string>
-#include <fcntl.h>
-#include <signal.h>
-#include <sys/ipc.h>
-#include <sys/shm.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <unistd.h>
-#include <sys/syscall.h>
-#include <linux/version.h>
-#include <limits.h>
-#include "uniquepid.h"
-#include "dmtcpworker.h"
-#include "dmtcpmessagetypes.h"
-#include "protectedfds.h"
 #include "constants.h"
 #include "syscallwrappers.h"
+#include "threadsync.h"
 #include "util.h"
 #include  "../jalib/jassert.h"
 #include  "../jalib/jconvert.h"

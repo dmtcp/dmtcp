@@ -22,11 +22,6 @@
 #ifndef THREADSYNC_H
 #define THREADSYNC_H
 
-#include "dmtcpalloc.h"
-#include "uniquepid.h"
-#include "constants.h"
-#include "syscallwrappers.h"
-#include "../jalib/jalloc.h"
 
 #define WRAPPER_EXECUTION_DISABLE_CKPT()                \
   /*JTRACE("Acquiring wrapperExecutionLock");*/         \

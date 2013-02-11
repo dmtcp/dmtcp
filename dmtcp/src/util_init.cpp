@@ -19,18 +19,13 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include <stdlib.h>
 #include <string.h>
-#include <string>
-#include <sstream>
-#include <errno.h>
-#include <dlfcn.h>
 #include "constants.h"
-#include  "util.h"
-#include  "uniquepid.h"
-#include  "../jalib/jassert.h"
-#include  "../jalib/jfilesystem.h"
+#include "util.h"
 #include "protectedfds.h"
+#include "uniquepid.h"
+#include "../jalib/jassert.h"
+#include "../jalib/jfilesystem.h"
 
 void dmtcp::Util::initializeLogFile(dmtcp::string procname, dmtcp::string prevLogPath)
 {

@@ -19,16 +19,8 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include <unistd.h>
-#include <stdlib.h>
-#include <string>
 #include <stdio.h>
-#include <ctype.h>
-#include <sys/types.h>
 #include <sys/stat.h>
-#include <fcntl.h>
-#include <errno.h>
-#include <vector>
 
 #include "constants.h"
 #include "coordinatorapi.h"

@@ -19,23 +19,8 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include <unistd.h>
-#include <stdlib.h>
-#include <string>
-#include <stdio.h>
-#include <ctype.h>
-#include <errno.h>
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/ioctl.h>
-#include <sys/time.h>
-#include <sys/resource.h>
-#include <sys/personality.h>
-#include <linux/version.h>
-#include <string.h>
 #include <semaphore.h>
+#include <sys/syscall.h>
 
 #include "jassert.h"
 #include "jfilesystem.h"

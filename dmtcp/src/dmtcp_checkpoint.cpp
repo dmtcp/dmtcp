@@ -19,11 +19,6 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include <unistd.h>
-#include <stdlib.h>
-#include <string>
-#include <stdio.h>
-#include <ctype.h>
 #include  "../jalib/jassert.h"
 #include  "../jalib/jfilesystem.h"
 #include  "../jalib/jconvert.h"
@@ -32,16 +27,6 @@
 #include "syscallwrappers.h"
 #include "coordinatorapi.h"
 #include "util.h"
-#include <errno.h>
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <sys/time.h>
-#include <sys/resource.h>
-#include <sys/personality.h>
-#include <string.h>
 
 #define BINARY_NAME "dmtcp_checkpoint"
 

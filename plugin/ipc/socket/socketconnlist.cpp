@@ -1,5 +1,9 @@
 
+#include <unistd.h>
+#include <sys/syscall.h>
+
 #include "util.h"
+#include "protectedfds.h"
 #include "jfilesystem.h"
 #include "socketconnection.h"
 #include "socketconnlist.h"

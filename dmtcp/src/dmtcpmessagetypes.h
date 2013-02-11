@@ -27,9 +27,6 @@
 #include "../jalib/jassert.h"
 #include "../jalib/jalloc.h"
 #include "constants.h"
-#include <string.h>
-#include <sys/types.h>
-#include <sys/socket.h>
 
 namespace dmtcp
 {

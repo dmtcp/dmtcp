@@ -19,16 +19,6 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include <dlfcn.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdarg.h>
-#include <unistd.h>
-#include <sys/syscall.h>
-#include <sys/mman.h>
-#include <sys/prctl.h>
-
 #include "dmtcpplugin.h"
 #include "protectedfds.h"
 #include "util.h"

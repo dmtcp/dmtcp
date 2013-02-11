@@ -19,32 +19,15 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include <stdarg.h>
-#include <stdlib.h>
-#include <vector>
-#include <list>
-#include <string>
-#include <fcntl.h>
-#include <signal.h>
-#include <sys/ipc.h>
-#include <sys/shm.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <unistd.h>
-#include <sys/syscall.h>
-#include <sys/epoll.h>
-#include <linux/version.h>
-#include <limits.h>
-#include "uniquepid.h"
 #include "dmtcpworker.h"
 #include "threadsync.h"
-#include "dmtcpmessagetypes.h"
 #include "protectedfds.h"
 #include "constants.h"
 #include "syscallwrappers.h"
-#include "util.h"
 #include  "../jalib/jassert.h"
 #include  "../jalib/jconvert.h"
+#include "processinfo.h"
+#include <sys/syscall.h>
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,13) && __GLIBC_PREREQ(2,4)
 #include <sys/inotify.h>

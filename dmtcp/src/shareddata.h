@@ -21,20 +21,12 @@
 #ifndef SHARED_DATA_H
 #define SHARED_DATA_H
 
-#include <pthread.h>
-#include <fcntl.h>
-#include <netdb.h>
 #include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/ipc.h>
-#include <sys/shm.h>
 #include <sys/un.h>
+#include <netdb.h>
 
 #include "constants.h"
 #include "uniquepid.h"
-#include "protectedfds.h"
-#include "dmtcpalloc.h"
-#include "dmtcpplugin.h"
 
 #define MAX_IPC_ID_MAPS 256
 #define MAX_PTY_NAME_MAPS 256

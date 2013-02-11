@@ -24,14 +24,12 @@
 #include "../jalib/jalloc.h"
 #include <memory>
 #include <limits>
-#include <stdlib.h>
 #include <vector>
 #include <string>
 #include <map>
 #include <list>
 #include <set>
 #include <iostream>
-#include <sstream>
 #include <fstream>
 #include <cstddef>
 

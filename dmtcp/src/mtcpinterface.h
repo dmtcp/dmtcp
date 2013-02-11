@@ -23,8 +23,6 @@
 #define DMTCPMTCPINTERFACE_H
 
 #include <sys/types.h>
-#include <pthread.h>
-#include "constants.h"
 
 namespace dmtcp
 {

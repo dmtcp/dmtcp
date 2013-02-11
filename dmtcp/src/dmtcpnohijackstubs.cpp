@@ -1,9 +1,5 @@
-#include "syscallwrappers.h"
-#include "dmtcpworker.h"
 #include "uniquepid.h"
-#include "dmtcpplugin.h"
-#include "dmtcpmessagetypes.h"
-#include "dmtcpalloc.h"
+#include "../jalib/jassert.h"
 
 // dmtcp_checkpoint, and dmtcp_coordinator, and dmtcp_command do not
 //   need to load dmtcpworker.cpp

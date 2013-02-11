@@ -19,28 +19,20 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include <stdarg.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <vector>
-#include <list>
-#include <string>
+#include <sys/syscall.h>
 #include "constants.h"
 #include "uniquepid.h"
 #include "dmtcpworker.h"
 #include "processinfo.h"
 #include "syscallwrappers.h"
 #include "syslogwrappers.h"
-#include "dmtcpplugin.h"
 #include "util.h"
 #include "coordinatorapi.h"
 #include "shareddata.h"
+#include "threadsync.h"
 #include  "../jalib/jconvert.h"
 #include  "../jalib/jassert.h"
 #include  "../jalib/jfilesystem.h"
-#include <sys/time.h>
-#include <sys/resource.h>
-#include <sys/personality.h>
 
 #define INITIAL_ARGV_MAX 32
 

@@ -20,15 +20,6 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-
-#include <signal.h>
-#include <unistd.h>
-#include <stdlib.h>
-#include <fcntl.h>
-#include <sys/types.h>
-#include <sys/wait.h>
-#include "constants.h"
-#include "dmtcpalloc.h"
 #include "syscallwrappers.h"
 #include "threadsync.h"
 #include "../jalib/jassert.h"
