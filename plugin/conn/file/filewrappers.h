@@ -20,8 +20,8 @@
  ****************************************************************************/
 
 #pragma once
-#ifndef CONN_WRAPPERS_H
-#define CONN_WRAPPERS_H
+#ifndef FILE_WRAPPERS_H
+#define FILE_WRAPPERS_H
 
 #if __GLIBC_PREREQ(2,5)
 # define READLINK_RET_TYPE ssize_t
@@ -30,16 +30,6 @@
 #endif
 
 #include "dmtcpplugin.h"
-
-#define _real_socket NEXT_FNC(socket)
-#define _real_connect NEXT_FNC(connect)
-#define _real_bind NEXT_FNC(bind)
-#define _real_listen NEXT_FNC(listen)
-#define _real_accept NEXT_FNC(accept)
-#define _real_accept4 NEXT_FNC(accept4)
-#define _real_setsockopt NEXT_FNC(setsockopt)
-#define _real_getsockopt NEXT_FNC(getsockopt)
-#define _real_socketpair NEXT_FNC(socketpair)
 
 #define _real_open NEXT_FNC(open)
 #define _real_open64 NEXT_FNC(open64)
@@ -80,23 +70,8 @@
 #define _real_mq_timedsend NEXT_FNC(mq_timedsend)
 #define _real_mq_timedreceive NEXT_FNC(mq_timedreceive)
 #define _real_mq_notify NEXT_FNC(mq_notify)
-
-#define _real_epoll_create NEXT_FNC(epoll_create)
-#define _real_epoll_create1 NEXT_FNC(epoll_create1)
-#define _real_epoll_ctl NEXT_FNC(epoll_ctl)
-#define _real_epoll_wait NEXT_FNC(epoll_wait)
-#define _real_epoll_pwait NEXT_FNC(epoll_pwait)
-#define _real_eventfd NEXT_FNC(eventfd)
-#define _real_signalfd NEXT_FNC(signalfd)
-#define _real_inotify_init NEXT_FNC(inotify_init)
-#define _real_inotify_init1 NEXT_FNC(inotify_init1)
-#define _real_inotify_add_watch NEXT_FNC(inotify_add_watch)
-#define _real_inotify_rm_watch NEXT_FNC(inotify_rm_watch)
-
 #define _real_fcntl NEXT_FNC(fcntl)
-#define _real_select NEXT_FNC(select)
-#define _real_poll NEXT_FNC(poll)
+
 #define _real_system NEXT_FNC(system)
-#define _real_pthread_mutex_lock NEXT_FNC(pthread_mutex_lock)
-#define _real_pthread_mutex_unlock NEXT_FNC(pthread_mutex_unlock)
-#endif // CONN_WRAPPERS_H
+
+#endif // FILE_WRAPPERS_H

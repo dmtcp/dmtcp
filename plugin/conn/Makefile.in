@@ -29,7 +29,7 @@ DMTCP_ROOT=../..
 DMTCP_SRC_PATH = $(DMTCP_ROOT)/dmtcp/src
 JALIB_PATH = $(DMTCP_ROOT)/dmtcp/jalib
 
-INCLUDES = -I$(JALIB_PATH) -I$(DMTCP_SRC_PATH)
+INCLUDES = -I. -I$(JALIB_PATH) -I$(DMTCP_SRC_PATH)
 CFLAGS += -DHAVE_CONFIG_H -fPIC -g
 CXXFLAGS += -DHAVE_CONFIG_H -fPIC -g
 ifeq ($(M32),1)
@@ -42,7 +42,11 @@ CXXCOMPILE = $(CXX) $(INCLUDES) $(CPPFLAGS) $(CXXFLAGS) -c -o $@
 CXXLINK = $(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@
 
 HEADERS = conn.h connection.h connectionidentifier.h connectionlist.h \
-	  connectionrewirer.h kernelbufferdrainer.h util_descriptor.h \
+	  socket/connectionrewirer.h socket/kernelbufferdrainer.h \
+	  socket/socketwrappers.h socket/socketconnection.h \
+	  file/filewrappers.h file/fileconnection.h \
+	  event/eventwrappers.h event/eventconnection.h \
+	  event/util_descriptor.h \
 	  $(DMTCP_SRC_PATH)/util.h $(DMTCP_SRC_PATH)/dmtcpplugin.h \
 	  $(DMTCP_SRC_PATH)/shareddata.h $(DMTCP_SRC_PATH)/protectedfds.h \
 	  $(DMTCP_SRC_PATH)/dmtcpalloc.h $(DMTCP_SRC_PATH)/config.h \
@@ -52,8 +56,10 @@ HEADERS = conn.h connection.h connectionidentifier.h connectionlist.h \
 	  $(JALIB_PATH)/jserialize.h $(JALIB_PATH)/jsocket.h
 
 OBJS = conn.o connection.o connectionidentifier.o connectionlist.o \
-       connectionrewirer.o kernelbufferdrainer.o util_descriptor.o \
-       eventwrappers.o filewrappers.o socketwrappers.o posixipcwrappers.o
+       connectionrewirer.o kernelbufferdrainer.o \
+       socketwrappers.o socketconnection.o \
+       util_descriptor.o eventwrappers.o eventconnection.o \
+       filewrappers.o fileconnection.o posixipcwrappers.o
 
 LIB_LDFLAGS = -shared -Wl,--unresolved-symbols=ignore-all
 
@@ -93,6 +99,15 @@ ${LIBNAME}: $(OBJS) ${HEADERS}
 	$(CXXLINK) $(OBJS) $(LIB_LDFLAGS) $(LDADD)
 
 %.o: %.cpp ${HEADERS}
+	$(CXXCOMPILE)  $<
+
+%.o: socket/%.cpp ${HEADERS}
+	$(CXXCOMPILE)  $<
+
+%.o: file/%.cpp ${HEADERS}
+	$(CXXCOMPILE)  $<
+
+%.o: event/%.cpp ${HEADERS}
 	$(CXXCOMPILE)  $<
 
 .PHONY: default all build tidy clean distclean install uninstall

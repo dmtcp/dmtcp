@@ -27,9 +27,12 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include "dmtcpalloc.h"
+#include "conn.h"
 #include "connectionlist.h"
-#include "connwrappers.h"
-#include "../jalib/jassert.h"
+#include "eventwrappers.h"
+#include "eventconnection.h"
+#include "jassert.h"
 
 using namespace dmtcp;
 /* 'man 7 signal' says the following are not restarted after ckpt signal
@@ -136,9 +139,9 @@ extern "C" int epoll_ctl(int epfd, int op, int fd, struct epoll_event *event)
   int ret = _real_epoll_ctl(epfd, op, fd, event);
   if (ret != -1) {
     JTRACE("epoll fd CTL") (ret) (epfd) (fd) (op);
-    dmtcp::EpollConnection& con =
-      dmtcp::ConnectionList::instance().getConnection(epfd)->asEpoll();
-    con.onCTL(op, fd, event);
+    EpollConnection *con =
+      (EpollConnection*) ConnectionList::instance().getConnection(epfd);
+    con->onCTL(op, fd, event);
   }
   DMTCP_ENABLE_CKPT();
   return ret;
@@ -247,10 +250,10 @@ EXTERNC int inotify_add_watch(int fd, const char *pathname, uint32_t mask)
   int ret = _real_inotify_add_watch(fd, pathname, mask);
   if (ret != -1) {
     JTRACE("calling inotify class methods");
-    dmtcp::InotifyConnection& inotify_con =
-      dmtcp::ConnectionList::instance().getConnection(fd)->asInotify();
+    InotifyConnection& inotify_con =
+      (InotifyConnection*) ConnectionList::instance().getConnection(fd);
 
-    inotify_con.add_watch_descriptors(ret, fd, pathname, mask);
+    inotify_con->add_watch_descriptors(ret, fd, pathname, mask);
     /*temp_pathname = pathname;
       inotify_con.map_inotify_fd_to_wd ( fd, ret);
       inotify_con.map_wd_to_pathname(ret, temp_pathname);
@@ -276,10 +279,10 @@ EXTERNC int inotify_rm_watch(int fd, int wd)
   int ret = _real_inotify_rm_watch(fd, wd);
   if (ret != -1) {
     JTRACE("remove inotify mapping from dmtcp") (ret) (fd) (wd);
-    dmtcp::InotifyConnection& inotify_con =
-      dmtcp::ConnectionList::instance().getConnection(fd)->asInotify();
+    InotifyConnection& inotify_con =
+      (InotifyConnection*) ConnectionList::instance().getConnection(fd);
     //inotify_con.remove_mappings(fd, wd);
-    inotify_con.remove_watch_descriptors(wd);
+    inotify_con->remove_watch_descriptors(wd);
   }
   DMTCP_ENABLE_CKPT();
   return ret;

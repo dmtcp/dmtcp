@@ -23,6 +23,7 @@
 #ifndef CONNECTIONREWIRER_H
 #define CONNECTIONREWIRER_H
 
+#include <sys/socket.h>
 #include "dmtcpalloc.h"
 #include "connectionidentifier.h"
 #include "connection.h"
