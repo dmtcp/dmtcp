@@ -26,7 +26,7 @@
 #include "util.h"
 #include "syscallwrappers.h"
 
-#define BINARY_NAME "dmtcp_checkpoint"
+#define BINARY_NAME "dmtcp_command"
 
 using namespace dmtcp;
 
