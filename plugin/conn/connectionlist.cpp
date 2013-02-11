@@ -506,12 +506,6 @@ void dmtcp::ConnectionList::resume(bool isRestart)
 
 void dmtcp::ConnectionList::postRestart()
 {
-  doReconnect();
-  registerMissingCons();
-}
-
-void dmtcp::ConnectionList::doReconnect()
-{
   // Here we modify the restore algorithm by splitting it in two parts. In the
   // first part we restore all the connection except the PTY_SLAVE types and in
   // the second part we restore only PTY_SLAVE _connections. This is done to
@@ -540,6 +534,8 @@ void dmtcp::ConnectionList::doReconnect()
 //    }
     con->postRestart();
   }
+
+  registerMissingCons();
 }
 
 void dmtcp::ConnectionList::registerNSData()
