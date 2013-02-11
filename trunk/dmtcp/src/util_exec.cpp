@@ -19,17 +19,8 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include <stdlib.h>
 #include <string.h>
-#include <string>
-#include <sstream>
 #include <fcntl.h>
-#include <errno.h>
-#include <sys/syscall.h>
-#include <sys/resource.h>
-#include <linux/limits.h>
-#include <dlfcn.h>
-#include "constants.h"
 #include  "util.h"
 #include  "syscallwrappers.h"
 #include  "uniquepid.h"

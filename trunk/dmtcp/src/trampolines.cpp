@@ -19,11 +19,6 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include <string.h>
-#include <sys/syscall.h>
-#include <sys/mman.h>
-#include <dlfcn.h>
-#include "constants.h"
 #include "trampolines.h"
 #include "syscallwrappers.h"
 #include "../jalib/jassert.h"

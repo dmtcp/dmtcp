@@ -19,6 +19,9 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/socket.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>

@@ -25,9 +25,7 @@
 #include <map>
 #include <string.h>
 #include "dmtcpmessagetypes.h"
-#include "uniquepid.h"
 #include "../jalib/jsocket.h"
-#include "../jalib/jalloc.h"
 
 namespace dmtcp
 {

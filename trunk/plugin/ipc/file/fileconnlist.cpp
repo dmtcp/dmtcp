@@ -24,6 +24,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/syscall.h>
 #include <unistd.h>
 #include <mqueue.h>
 #include <stdint.h>

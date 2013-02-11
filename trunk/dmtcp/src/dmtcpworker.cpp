@@ -19,30 +19,10 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include <unistd.h>
-#include <map>
-#include <stdlib.h>
-#include <signal.h>
-#include <pthread.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <linux/limits.h>
-#include <fcntl.h>
-#include <sys/wait.h>
-#include <sys/time.h>
-#include <sys/resource.h>
-#include <sys/personality.h>
-#include <netdb.h>
-
 #include "dmtcpworker.h"
 #include "threadsync.h"
-#include "constants.h"
-#include "dmtcpmessagetypes.h"
-#include "dmtcpplugin.h"
-#include "mtcpinterface.h"
 #include "processinfo.h"
 #include "syscallwrappers.h"
-#include "protectedfds.h"
 #include "util.h"
 #include "syslogwrappers.h"
 #include "coordinatorapi.h"
@@ -50,7 +30,6 @@
 #include  "../jalib/jsocket.h"
 #include  "../jalib/jfilesystem.h"
 #include  "../jalib/jconvert.h"
-#include  "../jalib/jalloc.h"
 #include  "../jalib/jbuffer.h"
 
 using namespace dmtcp;

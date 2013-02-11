@@ -26,6 +26,7 @@
 # define _GNU_SOURCE
 #endif
 
+#include <pthread.h>
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -40,10 +41,6 @@
 #else
 struct user_desc {int dummy;}; /* <asm/ldt.h> is missing in Ubuntu 11.10 */
 #endif
-#include <thread_db.h>
-#include <sys/procfs.h>
-#include <syslog.h>
-#include <sys/ipc.h>
 #include <sys/shm.h>
 #include <sys/sem.h>
 #include <sys/msg.h>
@@ -51,9 +48,6 @@ struct user_desc {int dummy;}; /* <asm/ldt.h> is missing in Ubuntu 11.10 */
 #include <sys/mman.h>
 #include <dirent.h>
 #include <unistd.h>
-#include <pwd.h>
-#include <grp.h>
-#include <netdb.h>
 #include <mqueue.h>
 #ifdef HAVE_SYS_INOTIFY_H
 # include <sys/inotify.h>

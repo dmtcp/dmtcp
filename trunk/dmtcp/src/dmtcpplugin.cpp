@@ -1,10 +1,8 @@
-#include <dlfcn.h>
-#include "constants.h"
 #include "dmtcpplugin.h"
-#include "protectedfds.h"
 #include "dmtcpworker.h"
-#include "dmtcpmessagetypes.h"
 #include "coordinatorapi.h"
+#include "syscallwrappers.h"
+#include "processinfo.h"
 
 using namespace dmtcp;
 

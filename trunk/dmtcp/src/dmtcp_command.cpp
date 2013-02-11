@@ -19,12 +19,10 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include <stdlib.h>
 #include <stdio.h>
 
 #include "coordinatorapi.h"
 #include "util.h"
-#include "syscallwrappers.h"
 
 #define BINARY_NAME "dmtcp_command"
 

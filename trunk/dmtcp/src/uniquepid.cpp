@@ -19,16 +19,9 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include "util.h"
-#include "uniquepid.h"
-#include <stdlib.h>
-#include <string.h>
-#include <string>
-#include <pwd.h>
-#include <sstream>
 #include <iomanip>
-#include <fcntl.h>
-#include <sys/stat.h>
+#include <pwd.h>
+#include "uniquepid.h"
 #include "constants.h"
 #include "../jalib/jconvert.h"
 #include "../jalib/jfilesystem.h"

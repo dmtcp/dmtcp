@@ -22,12 +22,6 @@
 #ifndef UTIL_H
 #define UTIL_H
 
-#include <stdlib.h>
-#include <string.h>
-#include <string>
-#include <sstream>
-#include <fcntl.h>
-#include <sys/syscall.h>
 #include "constants.h"
 #include "dmtcpalloc.h"
 

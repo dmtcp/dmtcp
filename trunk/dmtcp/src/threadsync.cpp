@@ -21,21 +21,12 @@
 
 #include <stdlib.h>
 #include <unistd.h>
-#include <map>
-#include <signal.h>
 #include <pthread.h>
 #include <sys/types.h>
-#include <sys/stat.h>
-#include <linux/limits.h>
 
-#include "constants.h"
 #include "threadsync.h"
-#include "util.h"
 #include "dmtcpworker.h"
-#include "dmtcpmessagetypes.h"
-#include "../jalib/jconvert.h"
-#include "../jalib/jalloc.h"
-#include "../jalib/jfilesystem.h"
+#include "syscallwrappers.h"
 
 /*
  * WrapperProtectionLock is used to make the checkpoint safe by making sure

@@ -35,9 +35,6 @@
 #include "jsocket.h"
 
 #include "connection.h"
-//#include "socket/socketconnection.h"
-//#include "file/fileconnection.h"
-//#include "event/eventconnection.h"
 #include "connectionlist.h"
 
 using namespace dmtcp;

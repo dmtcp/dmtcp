@@ -22,14 +22,11 @@
 // CAN REMOVE BOOL enableCheckpointing ARG OF DmtcpWorker WHEN WE'RE DONE.
 // DmtcpWorker CAN INHERIT THIS CLASS, CoordinatorAPI
 
+#include <netdb.h>
 #include "coordinatorapi.h"
-#include "protectedfds.h"
 #include "syscallwrappers.h"
-#include  "../jalib/jsocket.h"
 #include  "../jalib/jconvert.h"
 #include  "../jalib/jfilesystem.h"
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <fcntl.h>
 
 using namespace dmtcp;

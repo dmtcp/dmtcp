@@ -23,16 +23,7 @@
 #define PROCESS_INFO_H
 
 #include <sys/types.h>
-#include <unistd.h>
-#include <sys/time.h>
-#include <time.h>
-#include <iostream>
-#include <map>
-#include "dmtcpalloc.h"
-#include "../jalib/jserialize.h"
 #include "../jalib/jalloc.h"
-#include "uniquepid.h"
-#include "constants.h"
 
 namespace dmtcp
 {

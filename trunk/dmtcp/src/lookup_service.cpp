@@ -1,4 +1,3 @@
-#include <map>
 #include "lookup_service.h"
 #include "../jalib/jassert.h"
 #include "../jalib/jsocket.h"

@@ -22,18 +22,7 @@
 #ifndef DMTCPDMTCPWORKER_H
 #define DMTCPDMTCPWORKER_H
 
-#include "dmtcpalloc.h"
-#include  "../jalib/jsocket.h"
-#include "../jalib/jalloc.h"
-#include "uniquepid.h"
-#include "constants.h"
 #include "dmtcpmessagetypes.h"
-#include "syscallwrappers.h"
-#include "threadsync.h"
-#include "processinfo.h"
-#include "dmtcpplugin.h"
-
-LIB_PRIVATE extern int dmtcp_wrappers_initializing;
 
 void restoreUserLDPRELOAD();
 

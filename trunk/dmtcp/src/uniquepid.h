@@ -24,12 +24,6 @@
 #define UNIQUEPID_H
 
 #include <sys/types.h>
-#include <unistd.h>
-#include <sys/time.h>
-#include <time.h>
-#include <iostream>
-#include "constants.h"
-#include "dmtcpalloc.h"
 #include "dmtcpplugin.h"
 #include "../jalib/jserialize.h"
 

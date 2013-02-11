@@ -23,12 +23,15 @@
 #include <unistd.h>
 #include <sys/file.h>
 #include <sys/mman.h>
+#include <sys/sem.h>
+#include <iostream>
 #include <iostream>
 #include <ios>
 #include <fstream>
 
 #include "protectedfds.h"
 #include "util.h"
+#include "dmtcpplugin.h"
 #include "shareddata.h"
 #include "jassert.h"
 #include "jfilesystem.h"

@@ -23,17 +23,11 @@
 #define VIRTUAL_ID_TABLE_H
 
 #include <sys/types.h>
-#include <unistd.h>
-#include <sys/time.h>
-#include <time.h>
-#include <iostream>
-#include <map>
 #include "../jalib/jserialize.h"
 #include "../jalib/jfilesystem.h"
 #include "../jalib/jalloc.h"
 #include "uniquepid.h"
 #include "dmtcpalloc.h"
-#include "constants.h"
 #include "util.h"
 
 #define INITIAL_VIRTUAL_ID 1

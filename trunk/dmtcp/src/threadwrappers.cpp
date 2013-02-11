@@ -30,6 +30,8 @@
 #include "../../mtcp/mtcp.h"
 #include "../jalib/jassert.h"
 #include "../jalib/jalloc.h"
+#include "threadsync.h"
+#include "processinfo.h"
 
 struct ThreadArg {
   union {

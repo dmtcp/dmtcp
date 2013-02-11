@@ -21,15 +21,10 @@
 
 #include "dmtcpaware.h"
 #include "coordinatorapi.h"
-#include "dmtcpworker.h"
 #include "threadsync.h"
 #include "dmtcpmessagetypes.h"
-#include "dmtcp_coordinator.h"
 #include "syscallwrappers.h"
 #include "mtcpinterface.h"
-#include "dmtcpalloc.h"
-#include <string>
-#include <unistd.h>
 #include <time.h>
 
 #ifndef EXTERNC

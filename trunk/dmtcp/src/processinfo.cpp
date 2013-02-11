@@ -19,20 +19,13 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include <stdlib.h>
-#include <string.h>
-#include <string>
-#include <sstream>
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/syscall.h>
-#include "constants.h"
 #include "util.h"
 #include "syscallwrappers.h"
-#include "protectedfds.h"
 #include "uniquepid.h"
 #include "processinfo.h"
-#include "dmtcpplugin.h"
 #include "shareddata.h"
 #include "util.h"
 #include "coordinatorapi.h"
