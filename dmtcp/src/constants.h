@@ -191,4 +191,8 @@
 # define READLINK_RET_TYPE int
 #endif
 
+#define SYSCALL_ARG_RET_TYPE long int
+#define POLL_TIMEOUT_TYPE int
+#define EVENTFD_VAL_TYPE int
+
 #endif

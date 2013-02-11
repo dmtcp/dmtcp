@@ -361,7 +361,7 @@ int _real_munmap(void *addr, size_t length) {
 
 
 // Needed for _real_gettid, etc.
-long int _real_syscall(long int sys_num, ...) {
+SYSCALL_ARG_RET_TYPE _real_syscall(SYSCALL_ARG_RET_TYPE sys_num, ...) {
   int i;
   void * arg[7];
   va_list ap;
@@ -372,7 +372,10 @@ long int _real_syscall(long int sys_num, ...) {
   va_end(ap);
 
   // /usr/include/unistd.h says syscall returns long int (contrary to man page)
-  REAL_FUNC_PASSTHROUGH_TYPED (long int, syscall) (sys_num, arg[0], arg[1], arg[2], arg[3], arg[4], arg[5], arg[6]);
+  REAL_FUNC_PASSTHROUGH_TYPED (SYSCALL_ARG_RET_TYPE, syscall) (sys_num, arg[0],
+                                                               arg[1], arg[2],
+                                                               arg[3], arg[4],
+                                                               arg[5], arg[6]);
 }
 
 LIB_PRIVATE pid_t gettid() {
@@ -450,7 +453,7 @@ int _real_shmctl (int shmid, int cmd, struct shmid_ds *buf) {
 }
 
 LIB_PRIVATE
-int _real_poll(struct pollfd *fds, nfds_t nfds, int timeout) {
+int _real_poll(struct pollfd *fds, nfds_t nfds, POLL_TIMEOUT_TYPE timeout) {
   REAL_FUNC_PASSTHROUGH (poll) (fds, nfds, timeout);
 }
 

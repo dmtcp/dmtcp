@@ -382,7 +382,7 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   int   _real_tkill(int tid, int sig);
   int   _real_tgkill(int tgid, int tid, int sig);
 
-  long int _real_syscall(long int sys_num, ...);
+  SYSCALL_ARG_RET_TYPE _real_syscall(SYSCALL_ARG_RET_TYPE sys_num, ...);
 
   int _real_pthread_create(pthread_t *thread, const pthread_attr_t *attr,
       void *(*start_routine)(void*), void *arg);
@@ -443,7 +443,7 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
                                    const struct timespec *abstime);
   int _real_pthread_cond_wait(pthread_cond_t *cond, pthread_mutex_t *mutex);
 
-  int _real_poll(struct pollfd *fds, nfds_t nfds, int timeout);
+  int _real_poll(struct pollfd *fds, nfds_t nfds, POLL_TIMEOUT_TYPE timeout);
 
   int _real_epoll_create(int size);
   int _real_epoll_create1(int flags);
@@ -452,7 +452,7 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
                        int maxevents, int timeout);
   int _real_epoll_pwait(int epfd, struct epoll_event *events,
                         int maxevents, int timeout, const sigset_t *sigmask);
-  int _real_eventfd(int initval, int flags);
+  int _real_eventfd(EVENTFD_VAL_TYPE initval, int flags);
   int _real_signalfd (int fd, const sigset_t *mask, int flags);
   int _real_inotify_init(void);
   int _real_inotify_init1(int flags);

@@ -37,7 +37,7 @@ static void *sbrk_wrapper(intptr_t increment)
   /* Initialize curbrk. */
   if (curbrk == NULL) {
     /* The man page says syscall returns int, but unistd.h says long int. */
-    long int retval = syscall(SYS_brk, NULL);
+    SYSCALL_ARG_RET_TYPE retval = syscall(SYS_brk, NULL);
     curbrk = (void *)retval;
   }
   oldbrk = curbrk;

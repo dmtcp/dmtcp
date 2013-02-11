@@ -29,6 +29,7 @@
 #include <fcntl.h>
 
 #include <fstream>
+#include "constants.h"
 
 namespace jalib {
   typedef struct JalibFuncPtrs {
@@ -43,7 +44,7 @@ namespace jalib {
     int   (*dup2)(int oldfd, int newfd);
     ssize_t (*readlink)(const char *path, char *buf, size_t bufsiz);
 
-    long int (*syscall)(long int sys_num, ...);
+    SYSCALL_ARG_RET_TYPE (*syscall)(SYSCALL_ARG_RET_TYPE sys_num, ...);
     void*    (*mmap)(void *addr, size_t length, int prot, int flags, int fd,
                      off_t offset);
     int      (*munmap)(void *addr, size_t length);
@@ -85,7 +86,7 @@ namespace jalib {
   int dup2(int oldfd, int newfd);
   ssize_t readlink(const char *path, char *buf, size_t bufsiz);
 
-  long int syscall(long int sys_num, ...);
+  SYSCALL_ARG_RET_TYPE syscall(SYSCALL_ARG_RET_TYPE sys_num, ...);
   void *mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset);
   int   munmap(void *addr, size_t length);
 

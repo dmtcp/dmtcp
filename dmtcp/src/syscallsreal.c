@@ -843,7 +843,7 @@ int _real_closedir(DIR *dir) {
 
 /* See comments for syscall wrapper */
 LIB_PRIVATE
-long int _real_syscall(long int sys_num, ...) {
+SYSCALL_ARG_RET_TYPE _real_syscall(SYSCALL_ARG_RET_TYPE sys_num, ...) {
   int i;
   void * arg[7];
   va_list ap;
@@ -854,7 +854,8 @@ long int _real_syscall(long int sys_num, ...) {
   va_end(ap);
 
   // /usr/include/unistd.h says syscall returns long int (contrary to man page)
-  REAL_FUNC_PASSTHROUGH_TYPED (long int, syscall) (sys_num, arg[0], arg[1],
+  REAL_FUNC_PASSTHROUGH_TYPED (SYSCALL_ARG_RET_TYPE, syscall) (
+                                                      sys_num, arg[0], arg[1],
                                                       arg[2], arg[3], arg[4],
                                                       arg[5], arg[6]);
 }
@@ -1102,7 +1103,7 @@ int _real_munmap(void *addr, size_t length) {
 }
 
 LIB_PRIVATE
-int _real_poll(struct pollfd *fds, nfds_t nfds, int timeout) {
+int _real_poll(struct pollfd *fds, nfds_t nfds, POLL_TIMEOUT_TYPE timeout) {
   REAL_FUNC_PASSTHROUGH (poll) (fds, nfds, timeout);
 }
 
@@ -1136,7 +1137,7 @@ int _real_epoll_pwait(int epfd, struct epoll_event *events,
 }
 
 LIB_PRIVATE
-int _real_eventfd (int initval, int flags) {
+int _real_eventfd (EVENTFD_VAL_TYPE initval, int flags) {
   REAL_FUNC_PASSTHROUGH (eventfd) (initval, flags);
 }
 
