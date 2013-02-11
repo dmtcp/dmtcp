@@ -25,22 +25,24 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+
 #include "util.h"
 #include "dmtcpplugin.h"
 #include "shareddata.h"
+#include "jfilesystem.h"
+#include "jconvert.h"
+#include "jassert.h"
+#include "jsocket.h"
+
+#include "conn.h"
+#include "connection.h"
+#include "socket/socketconnection.h"
+#include "file/fileconnection.h"
+#include "event/eventconnection.h"
 #include "connectionlist.h"
-#include "connwrappers.h"
-#include "kernelbufferdrainer.h"
-#include "connectionrewirer.h"
-#include "../jalib/jfilesystem.h"
-#include "../jalib/jconvert.h"
-#include "../jalib/jassert.h"
-#include "../jalib/jsocket.h"
 
 using namespace dmtcp;
 
-static dmtcp::KernelBufferDrainer *_theDrainer = NULL;
-static dmtcp::ConnectionRewirer *_rewirer = NULL;
 static size_t _numMissingCons = 0;
 static pthread_mutex_t conTblLock = PTHREAD_MUTEX_INITIALIZER;
 
@@ -457,33 +459,12 @@ void dmtcp::ConnectionList::preCheckpointFdLeaderElection()
 
 void dmtcp::ConnectionList::preCheckpointDrain()
 {
-  //initialize the drainer
-  JASSERT(_theDrainer == NULL);
-  _theDrainer = new KernelBufferDrainer();
   for (iterator i = begin(); i != end(); ++i) {
     Connection* con =  i->second;
     con->checkLock();
     if (con->hasLock()) {
-      con->preCheckpoint(*_theDrainer);
+      con->preCheckpoint();
     }
-  }
-
-  //this will block until draining is complete
-  _theDrainer->monitorSockets(DRAINER_CHECK_FREQ);
-
-  //handle disconnected sockets
-  const vector<ConnectionIdentifier>& discn =
-    _theDrainer->getDisconnectedSockets();
-  for (size_t i = 0; i < discn.size(); ++i) {
-    const ConnectionIdentifier& id = discn[i];
-    TcpConnection& con = _connections[id]->asTcp();
-    JTRACE("recreating disconnected socket") (id);
-
-    //reading from the socket, and taking the error, resulted in an implicit
-    //close().
-    //we will create a new, broken socket that is not closed
-    con.onError();
-    con.restore(); //restoring a TCP_ERROR connection makes a dead socket
   }
 }
 
@@ -510,9 +491,6 @@ void dmtcp::ConnectionList::preCheckpointHandshakes()
 
 void dmtcp::ConnectionList::refill(bool isRestart)
 {
-  _theDrainer->refillAllSockets();
-  delete _theDrainer;
-  _theDrainer = NULL;
   for (iterator i = begin(); i != end(); ++i) {
     Connection *con = i->second;
     if (con->hasLock()) {
@@ -545,10 +523,6 @@ void dmtcp::ConnectionList::postRestart()
 
 void dmtcp::ConnectionList::doReconnect()
 {
-  JASSERT(_rewirer == NULL);
-  _rewirer = new ConnectionRewirer();
-  _rewirer->openRestoreSocket();
-
   // Here we modify the restore algorithm by splitting it in two parts. In the
   // first part we restore all the connection except the PTY_SLAVE types and in
   // the second part we restore only PTY_SLAVE _connections. This is done to
@@ -575,21 +549,16 @@ void dmtcp::ConnectionList::doReconnect()
 //        }
 //      }
 //    }
-    con->restore(_rewirer);
+    con->restore();
   }
 }
 
 void dmtcp::ConnectionList::registerNSData()
 {
-  _rewirer->registerNSData();
 }
 
 void dmtcp::ConnectionList::sendQueries()
 {
-  _rewirer->sendQueries();
-  _rewirer->doReconnect();
-  delete _rewirer;
-  _rewirer = NULL;
 }
 
 void dmtcp::ConnectionList::registerMissingCons()

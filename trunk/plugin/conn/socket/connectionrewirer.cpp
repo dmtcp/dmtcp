@@ -19,15 +19,19 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include "connectionrewirer.h"
-#include "dmtcpplugin.h"
-#include "protectedfds.h"
-#include "connwrappers.h"
-#include "util.h"
-#include "../jalib/jsocket.h"
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+
+#include "dmtcpplugin.h"
+#include "protectedfds.h"
+#include "util.h"
+#include "jsocket.h"
+
+#include "conn.h"
+#include "connectionrewirer.h"
+#include "socketconnection.h"
+#include "socketwrappers.h"
 
 void dmtcp::ConnectionRewirer::checkForPendingIncoming()
 {
@@ -108,7 +112,7 @@ void dmtcp::ConnectionRewirer::openRestoreSocket()
     char *ip = inet_ntoa(sn->sin_addr);
     JTRACE("_restoreAddr for others is:")(sn->sin_family)(port)(ip);
   }
-  
+
   // Setup socket
   JTRACE("opened listen socket") (restoreSocket.sockfd());
 

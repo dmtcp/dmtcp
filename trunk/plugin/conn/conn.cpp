@@ -21,24 +21,32 @@
 
 #include "connectionlist.h"
 #include "dmtcpplugin.h"
-#include "../jalib/jassert.h"
-#include "../jalib/jserialize.h"
+#include "jassert.h"
+#include "jserialize.h"
 
 using namespace dmtcp;
 // This is the first program after dmtcp_checkpoint
 static bool freshProcess = true;
 
+void SocketConn_process_event(DmtcpEvent_t event, DmtcpEventData_t *data,
+                              bool pre);
+void FileConn_process_event(DmtcpEvent_t event, DmtcpEventData_t *data,
+                            bool pre);
+void EventConn_process_event(DmtcpEvent_t event, DmtcpEventData_t *data,
+                             bool pre);
+
 extern "C"
 void dmtcp_process_event(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
+  SocketConn_process_event(event, data, true);
+  FileConn_process_event(event, data, true);
+  EventConn_process_event(event, data, true);
+
   switch (event) {
     case DMTCP_EVENT_INIT:
       if (freshProcess) {
         ConnectionList::instance().scanForPreExisting();
       }
-      break;
-
-    case DMTCP_EVENT_WAIT_FOR_SUSPEND_MSG:
       break;
 
     case DMTCP_EVENT_PRE_EXEC:
@@ -60,9 +68,6 @@ void dmtcp_process_event(DmtcpEvent_t event, DmtcpEventData_t *data)
     case DMTCP_EVENT_POST_RESTART:
       ConnectionList::instance().postRestart();
 
-      break;
-
-    case DMTCP_EVENT_PRE_FORK:
       break;
 
     case DMTCP_EVENT_SUSPENDED:
@@ -98,21 +103,25 @@ void dmtcp_process_event(DmtcpEvent_t event, DmtcpEventData_t *data)
       ConnectionList::instance().resume(data->resumeInfo.isRestart);
       break;
 
-    case DMTCP_EVENT_REGISTER_NAME_SERVICE_DATA:
-      if (data->nameserviceInfo.isRestart) {
-        ConnectionList::instance().registerNSData();
-      }
-      break;
-
-    case DMTCP_EVENT_SEND_QUERIES:
-      if (data->nameserviceInfo.isRestart) {
-        ConnectionList::instance().sendQueries();
-      }
-      break;
+//    case DMTCP_EVENT_REGISTER_NAME_SERVICE_DATA:
+//      if (data->nameserviceInfo.isRestart) {
+//        ConnectionList::instance().registerNSData();
+//      }
+//      break;
+//
+//    case DMTCP_EVENT_SEND_QUERIES:
+//      if (data->nameserviceInfo.isRestart) {
+//        ConnectionList::instance().sendQueries();
+//      }
+//      break;
 
     default:
       break;
   }
+
+  SocketConn_process_event(event, data, false);
+  FileConn_process_event(event, data, false);
+  EventConn_process_event(event, data, false);
 
   NEXT_DMTCP_PROCESS_EVENT(event, data);
   return;

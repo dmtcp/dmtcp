@@ -1,5 +1,5 @@
 /****************************************************************************
- *   Copyright (C) 2006-2013 by Jason Ansel, Kapil Arya, and Gene Cooperman *
+ *   Copyright (C) 2006-2010 by Jason Ansel, Kapil Arya, and Gene Cooperman *
  *   jansel@csail.mit.edu, kapil@ccs.neu.edu, gene@ccs.neu.edu              *
  *                                                                          *
  *   This file is part of the dmtcp/src module of DMTCP (DMTCP:dmtcp/src).  *
@@ -20,28 +20,22 @@
  ****************************************************************************/
 
 #pragma once
-#ifndef CONNECTION_PLUGIN
-#define CONNECTION_PLUGIN
+#ifndef EVENT_WRAPPERS_H
+#define EVENT_WRAPPERS_H
 
 #include "dmtcpplugin.h"
 
-#define HANDSHAKE_SIGNATURE_MSG "DMTCP_SOCK_HANDSHAKE_V0\n"
-#define CONNECTION_ID_START 99000
+#define _real_poll NEXT_FNC(poll)
+#define _real_epoll_create NEXT_FNC(epoll_create)
+#define _real_epoll_create1 NEXT_FNC(epoll_create1)
+#define _real_epoll_ctl NEXT_FNC(epoll_ctl)
+#define _real_epoll_wait NEXT_FNC(epoll_wait)
+#define _real_epoll_pwait NEXT_FNC(epoll_pwait)
+#define _real_eventfd NEXT_FNC(eventfd)
+#define _real_signalfd NEXT_FNC(signalfd)
+#define _real_inotify_init NEXT_FNC(inotify_init)
+#define _real_inotify_init1 NEXT_FNC(inotify_init1)
+#define _real_inotify_add_watch NEXT_FNC(inotify_add_watch)
+#define _real_inotify_rm_watch NEXT_FNC(inotify_rm_watch)
 
-#define DRAINER_CHECK_FREQ 0.1
-#define DRAINER_WARNING_FREQ 10
-
-//at least one of these must be enabled:
-#define HANDSHAKE_ON_CONNECT    0
-#define HANDSHAKE_ON_CHECKPOINT 1
-
-#define _real_socket NEXT_FNC(socket)
-#define _real_bind NEXT_FNC(bind)
-#define _real_close NEXT_FNC(close)
-
-#define _real_fcntl NEXT_FNC(fcntl)
-#define _real_select NEXT_FNC(select)
-#define _real_pthread_mutex_lock NEXT_FNC(pthread_mutex_lock)
-#define _real_pthread_mutex_unlock NEXT_FNC(pthread_mutex_unlock)
-
-#endif
+#endif // EVENT_WRAPPERS_H

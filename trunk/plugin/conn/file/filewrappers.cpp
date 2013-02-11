@@ -42,13 +42,17 @@
 #include <sys/syscall.h>
 #include <linux/version.h>
 #include <limits.h>
+
 #include "dmtcpplugin.h"
 #include "shareddata.h"
 #include "util.h"
+#include "jassert.h"
+#include "jconvert.h"
+#include "jfilesystem.h"
+
 #include "connectionlist.h"
-#include "connwrappers.h"
-#include "../jalib/jassert.h"
-#include "../jalib/jconvert.h"
+#include "fileconnection.h"
+#include "filewrappers.h"
 
 using namespace dmtcp;
 #undef ptsname_r

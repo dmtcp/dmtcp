@@ -23,9 +23,12 @@
 #include <stdarg.h>
 #include "util.h"
 #include "dmtcpplugin.h"
-#include "connwrappers.h"
-#include "connection.h"
+
+#include "fileconnection.h"
+#include "filewrappers.h"
 #include "connectionlist.h"
+
+using namespace dmtcp;
 
 extern "C"
 mqd_t mq_open(const char *name, int oflag, ...)

@@ -34,9 +34,9 @@
 #include <unistd.h>
 #include <errno.h>
 #include "conn.h"
-#include "connection.h"
+#include "socketconnection.h"
 #include "connectionlist.h"
-#include "connwrappers.h"
+#include "socketwrappers.h"
 #include "../jalib/jassert.h"
 #include "../jalib/jfilesystem.h"
 
@@ -98,16 +98,16 @@ extern "C" int connect(int sockfd, const struct sockaddr *serv_addr,
   }
 
   if (ret != -1) {
-    TcpConnection& con =
-      ConnectionList::instance().getConnection(sockfd)->asTcp();
-    con.onConnect(sockfd, serv_addr, addrlen);
+    TcpConnection *con =
+      (TcpConnection*) ConnectionList::instance().getConnection(sockfd);
+    con->onConnect(sockfd, serv_addr, addrlen);
 
 #if HANDSHAKE_ON_CONNECT == 1
-    JTRACE("connected, sending 1-way handshake") (sockfd) (con.id());
-    con.sendHandshake(sockfd, DmtcpWorker::instance().coordinatorId());
+    JTRACE("connected, sending 1-way handshake") (sockfd) (con->id());
+    con->sendHandshake(sockfd, DmtcpWorker::instance().coordinatorId());
     JTRACE("1-way handshake sent");
 #else
-    JTRACE("connected") (sockfd) (con.id());
+    JTRACE("connected") (sockfd) (con->id());
 #endif
   }
   DMTCP_ENABLE_CKPT();
@@ -120,10 +120,10 @@ extern "C" int bind(int sockfd, const struct sockaddr *my_addr,
   DMTCP_DISABLE_CKPT(); // The lock is released inside the macro.
   int ret = _real_bind(sockfd, my_addr, addrlen);
   if (ret != -1) {
-    TcpConnection& con =
-      ConnectionList::instance().getConnection(sockfd)->asTcp();
-    con.onBind(sockfd, (struct sockaddr*) my_addr, addrlen);
-    JTRACE("bind") (sockfd) (con.id());
+    TcpConnection *con =
+      (TcpConnection*) ConnectionList::instance().getConnection(sockfd);
+    con->onBind(sockfd, (struct sockaddr*) my_addr, addrlen);
+    JTRACE("bind") (sockfd) (con->id());
   }
   DMTCP_ENABLE_CKPT();
   return ret;
@@ -134,10 +134,10 @@ extern "C" int listen(int sockfd, int backlog)
   DMTCP_DISABLE_CKPT(); // The lock is released inside the macro.
   int ret = _real_listen(sockfd, backlog);
   if (ret != -1) {
-    TcpConnection& con =
-      ConnectionList::instance().getConnection(sockfd)->asTcp();
-    con.onListen(backlog);
-    JTRACE("listen") (sockfd) (con.id()) (backlog);
+    TcpConnection *con =
+      (TcpConnection*) ConnectionList::instance().getConnection(sockfd);
+    con->onListen(backlog);
+    JTRACE("listen") (sockfd) (con->id()) (backlog);
   }
   DMTCP_ENABLE_CKPT();
   return ret;
@@ -147,9 +147,9 @@ static void process_accept(int ret, int sockfd, struct sockaddr *addr,
                            socklen_t *addrlen)
 {
   JASSERT(ret != -1);
-  TcpConnection& parent =
-    ConnectionList::instance().getConnection(sockfd)->asTcp();
-  TcpConnection* con = new TcpConnection(parent, ConnectionIdentifier::Null());
+  TcpConnection *parent =
+    (TcpConnection*) ConnectionList::instance().getConnection(sockfd);
+  TcpConnection* con = new TcpConnection(*parent, ConnectionIdentifier::Null());
   ConnectionList::instance().add(ret, con);
 
 #if HANDSHAKE_ON_CONNECT == 1
@@ -211,9 +211,9 @@ extern "C" int setsockopt(int sockfd, int level, int optname,
   int ret = _real_setsockopt(sockfd, level, optname, optval, optlen);
   if (ret != -1) {
     JTRACE("setsockopt") (ret) (sockfd) (optname);
-    TcpConnection& con =
-      ConnectionList::instance().getConnection(sockfd)->asTcp();
-    con.addSetsockopt(level, optname,(char*) optval, optlen);
+    TcpConnection *con =
+      (TcpConnection*) ConnectionList::instance().getConnection(sockfd);
+    con->addSetsockopt(level, optname,(char*) optval, optlen);
   }
   return ret;
 }
