@@ -88,11 +88,13 @@ static void openOriginalToCurrentMappingFiles()
              << std::hex << dmtcp_get_coordinator_timestamp();
   // Open and create pidMapFile if it doesn't exist.
   JTRACE("Open dmtcpPidMapFile")(pidMapFile.str());
-  fd = openSharedFile(pidMapFile.str(), O_RDWR);
-  JASSERT (fd != -1);
-  JASSERT (dup2 (fd, PROTECTED_PIDMAP_FD) == PROTECTED_PIDMAP_FD)
-         (pidMapFile.str());
-  close (fd);
+  if (!dmtcp::Util::isValidFd(PROTECTED_PIDMAP_FD)) {
+    fd = openSharedFile(pidMapFile.str(), O_RDWR);
+    JASSERT (fd != -1);
+    JASSERT (dup2 (fd, PROTECTED_PIDMAP_FD) == PROTECTED_PIDMAP_FD)
+      (pidMapFile.str());
+    close (fd);
+  }
 }
 
 void pidVirt_PostRestart(DmtcpEventData_t *data)
