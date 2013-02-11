@@ -21,6 +21,8 @@
 
 #include <sys/ipc.h>
 #include <sys/shm.h>
+#include <stdarg.h>
+#include "dmtcpplugin.h"
 #include "sysvipc.h"
 #include "sysvipcwrappers.h"
 #include "jassert.h"
