@@ -35,7 +35,7 @@ The command {\tt dmtcp\_checkpoint a.out} is roughly equivalent to:
 
 \begin{algorithmic}[1]
 \STATE {\tt dmtcp\_coordinator --background}  (if not already running)
-\STATE {\tt LD\_PRELOAD=dmtcphijack.so a.out}
+\STATE {\tt LD\_PRELOAD=libdmtcp.so a.out}
 \end{algorithmic}
 
 The {\tt dmtcp\_checkpoint} command will cause a coordinator process
@@ -64,16 +64,16 @@ LD\_PRELOAD is a special environment variable known to the loader.
 When the loader tries to load a binary (a.out, in this case), the loader
 will first check if LD\_PRELOAD is set (see `man ld.so').  If it is
 set, the loader will load the binary (a.out) and then the preload library
-(dmtcphijack.so) before running the `main()' routine in a.out.
+(libdmtcp.so) before running the `main()' routine in a.out.
 (In fact, dmtcp\_checkpoint may also preload some plugin libraries,
  such as pidvirt.so (starting with DMTCP-1.3.0) and set some
  environment variables such as DMTCP\_DLSYM\_OFFSET.)
 
-When the library dmtcphijack.so is loaded, any top-level variables
+When the library libdmtcp.so is loaded, any top-level variables
 are initialized, before calling the user main().  If the top-level variable
 is a C++ object, then the C++ constructor is called before the
 user main.  In DMTCP, the first code to execute is the code
-below, inside dmtcphijack.so:
+below, inside libdmtcp.so:
 
 {\tt
 dmtcp::DmtcpWorker dmtcp::DmtcpWorker::theInstance ( true );
@@ -206,22 +206,22 @@ functions around libc.so functions.
 Wrapper functions
 are typically created using dlopen/dlsym.  For example, to define
 a wrapper around libc:fork(), one defines a function fork()
-in dmtcphijack.so (see {\tt extern "C" pid\_t fork()} in execwrappers.cpp).
+in libdmtcp.so (see {\tt extern "C" pid\_t fork()} in execwrappers.cpp).
 
 Continuing this example, if the user code calls fork(), then we see
 the following progression.
 
-a.out:call to fork() $\longrightarrow$ dmtcphijack.so:fork() $\longrightarrow$ libc.so:fork()
+a.out:call to fork() $\longrightarrow$ libdmtcp.so:fork() $\longrightarrow$ libc.so:fork()
 
-The symbol dmtcphijack.so:fork appears before libc.so:fork in the
-library search order because dmtcphijack.so was loaded before libc.so
+The symbol libdmtcp.so:fork appears before libc.so:fork in the
+library search order because libdmtcp.so was loaded before libc.so
 (due to LD\_PRELOAD).
 
 Next, the wrapper around {\tt pthread\_create} remembers the thread id
 of the new thread created.  The wrapper around {\tt fork} ensures
-that the environment variable LD\_PRELOAD is still set to dmtcphijack.so.
-If LD\_PRELOAD does not currently include dmtcphijack.so, then it is
-reset to include dmtcphijack.so before the call to fork(), and then
+that the environment variable LD\_PRELOAD is still set to libdmtcp.so.
+If LD\_PRELOAD does not currently include libdmtcp.so, then it is
+reset to include libdmtcp.so before the call to fork(), and then
 LD\_PRELOAD is reset to the original user value after fork().
 
 The wrapper around {\tt system} (in the case of creating remote processes)
@@ -262,7 +262,7 @@ Examples of important events are
 from a checkpoint image.  As of this writing, there is no central
 list of all DMTCP events, and names of events are still subject to change.
 
-Module libraries are preloaded after dmtcphijack.so.  As with all
+Module libraries are preloaded after libdmtcp.so.  As with all
 preloaded libraries, they can initialize themselves before the user's
 ``main'' function, and at run-time, plugin wrapper functions will
 be found in standard Linux library search order prior to ordinary

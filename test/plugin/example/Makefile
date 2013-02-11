@@ -28,7 +28,7 @@ check: ${LIBNAME}.so ${DMTCP_ROOT}/test/dmtcp1
 	${DMTCP_ROOT}/bin/dmtcp_checkpoint --port ${DEMO_PORT} -i 5 \
 	  --with-plugin $$PWD/${LIBNAME}.so ${DMTCP_ROOT}/test/dmtcp1
 
-# We link the library using C++ for compatibility with the main dmtcphijack.so
+# We link the library using C++ for compatibility with the main libdmtcp.so
 ${LIBNAME}.so: ${LIBOBJS}
 	${CXX} -shared -fPIC -o $@ $^
 

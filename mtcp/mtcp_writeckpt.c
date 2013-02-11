@@ -238,7 +238,7 @@ open_ckpt_to_write(int fd, int pipe_fds[2], char **extcomp_args)
       mtcp_sys_close(fd);
     }
 
-    // Don't load dmtcphijack.so, etc. in exec.
+    // Don't load libdmtcp.so, etc. in exec.
     unsetenv("LD_PRELOAD"); // If in bash, this is bash env. var. version
     char *ld_preload_str = (char*) getenv("LD_PRELOAD");
     if (ld_preload_str != NULL) {

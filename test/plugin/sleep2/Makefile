@@ -33,7 +33,7 @@ check: ${LIBNAME}.so ../sleep1/dmtcp_sleep1hijack.so ${DMTCP_ROOT}/test/dmtcp1
 		$$PWD/../sleep1/dmtcp_sleep1hijack.so:$$PWD/${LIBNAME}.so \
 	  ${DMTCP_ROOT}/test/dmtcp1
 
-# We link the library using C++ for compatibility with the main dmtcphijack.so
+# We link the library using C++ for compatibility with the main libdmtcp.so
 ${LIBNAME}.so: ${LIBOBJS}
 	${CXX} -shared -fPIC -o $@ $^
 

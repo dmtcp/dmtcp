@@ -8,36 +8,36 @@ import subprocess
 host = subprocess.Popen("hostname", shell=True, stdout=subprocess.PIPE)
 host = host.stdout.read().rstrip()
 dmtcpTmpDir = "/tmp/dmtcp-" + os.environ['USER'] + '@' + host + '/'
-(dmtcphijack, tmpBacktrace, tmpProcMaps) = \
-  ('dmtcphijack.so', dmtcpTmpDir+'backtrace', dmtcpTmpDir+'proc-maps')
+(libdmtcp, tmpBacktrace, tmpProcMaps) = \
+  ('libdmtcp.so', dmtcpTmpDir+'backtrace', dmtcpTmpDir+'proc-maps')
 
 if len(sys.argv) > 1 and (sys.argv[1] == '--help' or sys.argv[1] == '-h'):
   print "USAGE:  dmtcp_backtrace.py [filename [backtrace [proc-maps]]]\n" \
-  + "  Default:  filename = dmtcphijack.so\n" \
+  + "  Default:  filename = libdmtcp.so\n" \
   + "            backtrace = " + tmpBacktrace + "\n" \
   + "            proc-maps = " + tmpProcMaps + "\n"
   sys.exit(1)
 
 # Override defaults
 if len(sys.argv) > 1:
-  dmtcphijack = sys.argv[1]
+  libdmtcp = sys.argv[1]
 if len(sys.argv) > 2:
   tmpBacktrace = sys.argv[2]
 if len(sys.argv) > 3:
   tmpProcMaps = sys.argv[3]
 
-# Expand dmtcphijack.so or other filename to fully qualified pathname
-pathname = "CAN'T FIND FILE " + dmtcphijack
-if dmtcphijack.find('/') == -1:
+# Expand libdmtcp.so or other filename to fully qualified pathname
+pathname = "CAN'T FIND FILE " + libdmtcp
+if libdmtcp.find('/') == -1:
   for segment in open(tmpProcMaps).read().splitlines():
-    if segment.split()[-1].find('/' + dmtcphijack) != -1:
+    if segment.split()[-1].find('/' + libdmtcp) != -1:
       pathname = segment.split()[-1]
 else:
-  pathname = dmtcphijack
+  pathname = libdmtcp
 if pathname.find("CAN'T FIND FILE") != -1:
   print pathname
   print "Please check " + tmpProcMaps + " to see if the process that crashed"
-  print "  was really using:  " + dmtcphijack
+  print "  was really using:  " + libdmtcp
   sys.exit(1)
 print "Examing stack for call frames from:\n  " + pathname + "\n" \
       + "FORMAT:  FNC: ..., followed by file:line_number (most recent first).\n"
@@ -63,7 +63,7 @@ def getOrigOffset(pathname,procMaps):
   fileOffset = subprocess.Popen("objdump -h " + pathname + " | grep '\.text'",
                               shell=True, stdout=subprocess.PIPE)
   # file offset col. of objdump outp
-  fileOffset = fileOffset.stdout.read().split()[5] 
+  fileOffset = fileOffset.stdout.read().split()[5]
   return int(textOffset,16) + int(fileOffset,16)
 
 # Now call addr2line on each call frame:
@@ -77,7 +77,7 @@ for callFrame in backtrace:
     offset = callFrame[callFrame.rfind('[')+1:callFrame.find(']',callFrame.rfind('['))]
     hexOffset = hex( int(offset,16) - origOffset ) # returns hex str
     if hexOffset[0] == '-':
-      # This happens because backtrace() can ascribe to dmtcphijack
+      # This happens because backtrace() can ascribe to libdmtcp
       #  what came from /lib/ld-2.10.1.so
       print callFrame
     else: # This subprocess prints to stdout

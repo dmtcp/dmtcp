@@ -22,7 +22,7 @@ noinst_LIBRARIES = libdmtcpinternal.a libsyscallsreal.a libnohijack.a \
 		   libsysvipc.a libjalib.a
 bin_PROGRAMS = dmtcp_checkpoint dmtcp_command dmtcp_coordinator \
 	       dmtcp_restart dmtcp_nocheckpoint
-dmtcplib_PROGRAMS = dmtcphijack.so libdmtcpaware.so.1.0.0
+dmtcplib_PROGRAMS = libdmtcp.so libdmtcpaware.so.1.0.0
 include_HEADERS = dmtcpaware.h
 lib_LIBRARIES = libdmtcpaware.a
 
@@ -70,22 +70,22 @@ dmtcp_restart_SOURCES = dmtcp_restart.cpp util_exec.cpp
 
 dmtcp_command_SOURCES = dmtcp_command.cpp
 
-dmtcphijack_so_SOURCES = dmtcpawareapi.cpp dmtcpworker.cpp threadsync.cpp \
-			 coordinatorapi.cpp execwrappers.cpp \
-		         mtcpinterface.cpp signalwrappers.cpp \
-			 workerhijack.cpp threadwrappers.cpp \
-			 miscwrappers.cpp \
-			 glibcsystem.cpp mallocwrappers.cpp \
-			 dmtcpplugin.cpp popen.cpp syslogwrappers.cpp \
-			 sysvipc/sysvipcwrappers.cpp
+libdmtcp_so_SOURCES = dmtcpawareapi.cpp dmtcpworker.cpp threadsync.cpp \
+		      coordinatorapi.cpp execwrappers.cpp \
+		      mtcpinterface.cpp signalwrappers.cpp \
+		      workerhijack.cpp threadwrappers.cpp \
+		      miscwrappers.cpp \
+		      glibcsystem.cpp mallocwrappers.cpp \
+		      dmtcpplugin.cpp popen.cpp syslogwrappers.cpp \
+		      sysvipc/sysvipcwrappers.cpp
 
-dmtcphijack_so_LDFLAGS = -shared
+libdmtcp_so_LDFLAGS = -shared
 
 #dmtcp_nocheckpoint_LDFLAGS = -static
 
 # Note that an ELF object uses libsyscallsreal.a or libnohijack.a
 #  but not both.  libnohijack.a has stub definitions for same symbols.
-dmtcphijack_so_LDADD    = libdmtcpinternal.a libsysvipc.a \
+libdmtcp_so_LDADD	= libdmtcpinternal.a libsysvipc.a \
 			  libjalib.a libsyscallsreal.a  -ldl -lpthread -lrt \
 			  ../../mtcp/libmtcp.so
 dmtcp_coordinator_LDADD = libdmtcpinternal.a libjalib.a \

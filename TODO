@@ -22,7 +22,7 @@
 	gdb disables randomization of the target process by default starting
 	in GDB 7.x.
 
-- When environ is not yet initialized, currently dmtcphijack.so simply returns.
+- When environ is not yet initialized, currently libdmtcp.so simply returns.
   (This occurs when executing libc.so.6 .)
   We should spend more effort to find environ at top of stack.
   Note that bash also plays tricks with environ, but bash still gives

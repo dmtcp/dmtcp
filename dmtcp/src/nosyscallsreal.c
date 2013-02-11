@@ -45,7 +45,7 @@
 #include "constants.h"
 #include "syscallwrappers.h"
 
-// See syscallsreal.c for original model.  In dmtcphijack.so, system calls
+// See syscallsreal.c for original model.  In libdmtcp.so, system calls
 //   for XXX() in jalib call a wrapper which modifies it and calls
 //   syscallsreal.c:_real_XXX(), to directly calls kernel.
 // For other functions (dmtcp_checkpoint, dmtcp_restart, etc.),
@@ -61,7 +61,7 @@
 // NOTE:  An alternative to this strategy would be to put this in a file,
 //   nosyscallwrappers.h and #define away the real_XXX() calls.
 //   But some files like uniquepid.cpp and connection.cpp could be
-//   linked either to dmtcphijack.so or to dmtcp_restart.
+//   linked either to libdmtcp.so or to dmtcp_restart.
 
 /// FIXME:  dmtcpworker.cpp is linked into some ordinary executables.
 ///         It should be modified to avoid this, so we don't need gratuitous

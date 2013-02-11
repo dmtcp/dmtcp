@@ -400,7 +400,7 @@ dmtcp::DmtcpWorker::DmtcpWorker (bool enableCheckpointing)
     prepareLogAndProcessdDataFromSerialFile();
   }
 
-  JTRACE("dmtcphijack.so:  Running ")
+  JTRACE("libdmtcp.so:  Running ")
     (jalib::Filesystem::GetProgramName()) (getenv ("LD_PRELOAD"));
 
   if (getenv(ENV_VAR_UTILITY_DIR) == NULL) {
@@ -433,7 +433,7 @@ dmtcp::DmtcpWorker::DmtcpWorker (bool enableCheckpointing)
 
   CoordinatorAPI::instance().connectToCoordinatorWithHandshake();
 
-  // define "Weak Symbols for each library plugin in dmtcphijack.so
+  // define "Weak Symbols for each library plugin in libdmtcp.so
   processEvent(DMTCP_EVENT_INIT, NULL);
 
   WorkerState::setCurrentState (WorkerState::RUNNING);

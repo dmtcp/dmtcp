@@ -102,6 +102,9 @@ static const char* theUsage =
   "      Signal number used internally by MTCP for checkpointing (default: 12)\n"
   "  --torque:\n"
   "      Enable support for Torque PBS. (Default: disabled)\n"
+  "  --ptrace:\n"
+  "      Enable support for PTRACE system call for gdb/strace etc.\n"
+  "        (default: disabled)\n"
   "  --with-plugin (environment variable DMTCP_PLUGIN):\n"
   "      Colon-separated list of DMTCP plugins to be preloaded with DMTCP.\n"
   "      (Absolute pathnames are required.)\n"
@@ -133,6 +136,7 @@ static bool isSSHSlave=false;
 static bool autoStartCoordinator=true;
 static bool checkpointOpenFiles=false;
 static bool enableTorque=false;
+static bool enablePtrace=false;
 static dmtcp::CoordinatorAPI::CoordinatorMode allowedModes = dmtcp::CoordinatorAPI::COORD_ANY;
 
 //shift args
@@ -225,6 +229,9 @@ static void processArgs(int *orig_argc, char ***orig_argv)
       shift; shift;
     } else if (s == "--checkpoint-open-files") {
       checkpointOpenFiles = true;
+      shift;
+    } else if (s == "--ptrace") {
+      enablePtrace = true;
       shift;
     } else if (s == "--torque") {
       enableTorque = true;
@@ -320,19 +327,19 @@ int main ( int argc, char** argv )
   testMatlab(argv[0]);
   testJava(argv);  // Warn that -Xmx flag needed to limit virtual memory size
 
-  // If dmtcphijack.so is in standard search path and _also_ has setgid access,
+  // If libdmtcp.so is in standard search path and _also_ has setgid access,
   //   then LD_PRELOAD will work.
   // Otherwise, it will only work if the application does not use setuid and
   //   setgid access.  So, we test //   if the application does not use
   //   setuid/setgid.  (See 'man ld.so')
   // FIXME:  ALSO DO THIS FOR execwrappers.cpp:dmtcpPrepareForExec()
-  //   Should pass dmtcphijack.so path, and let testSetuid determine
+  //   Should pass libdmtcp.so path, and let testSetuid determine
   //     if setgid is set for it.  If so, no problem:  continue.
   //   If not, call testScreen() and adapt 'screen' to run using
   //     Util::patchArgvIfSetuid(argv[0], argv, &newArgv) (which shouldn't
   //     will just modify argv[0] to point to /tmp/dmtcp-USER@HOST/screen
   //     and other modifications:  doesn't need newArgv).
-  //   If it's not 'screen' and if no setgid for dmtcphijack.so, then testSetuid
+  //   If it's not 'screen' and if no setgid for libdmtcp.so, then testSetuid
   //    should issue the warning, unset our LD_PRELOAD, and hope for the best.
   //    A program like /usr/libexec/utempter/utempter (Fedora path)
   //    is short-lived and can be safely run.  Ideally, we should
@@ -436,7 +443,7 @@ int main ( int argc, char** argv )
   }
 
   // preloadLibs are to set LD_PRELOAD:
-  //   LD_PRELOAD=PLUGIN_LIBS:UTILITY_DIR/dmtcphijack.so:R_LIBSR_UTILITY_DIR/
+  //   LD_PRELOAD=PLUGIN_LIBS:UTILITY_DIR/libdmtcp.so:R_LIBSR_UTILITY_DIR/
   dmtcp::string preloadLibs = "";
   // FIXME:  If the colon-separated elements of ENV_VAR_PLUGIN are not
   //     absolute pathnames, then they must be expanded to absolute pathnames.
@@ -450,23 +457,26 @@ int main ( int argc, char** argv )
   setenv ( ENV_VAR_UTILITY_DIR, searchDir.c_str(), 0 );
 
 #ifdef PTRACE
-  preloadLibs += jalib::Filesystem::FindHelperUtility ( "ptracehijack.so" );
-  preloadLibs += ":";
+  enablePtrace = true;
 #endif
-
-  preloadLibs += jalib::Filesystem::FindHelperUtility ( "dmtcpconn.so" );
-  preloadLibs += ":";
-
-  if (enableTorque) {
-    preloadLibs += jalib::Filesystem::FindHelperUtility("dmtcptorque.so");
+  if (enablePtrace) {
+    preloadLibs += jalib::Filesystem::FindHelperUtility("libdmtcp_ptrace.so");
     preloadLibs += ":";
   }
 
-  preloadLibs += jalib::Filesystem::FindHelperUtility ( "dmtcphijack.so" );
+  if (enableTorque) {
+    preloadLibs += jalib::Filesystem::FindHelperUtility("libdmtcp_torque.so");
+    preloadLibs += ":";
+  }
+
+  preloadLibs += jalib::Filesystem::FindHelperUtility("libdmtcp_conn.so");
+  preloadLibs += ":";
+
+  preloadLibs += jalib::Filesystem::FindHelperUtility("libdmtcp.so");
 
 #ifdef PID_VIRTUALIZATION
   preloadLibs += ":";
-  preloadLibs += jalib::Filesystem::FindHelperUtility ( "pidvirt.so" );
+  preloadLibs += jalib::Filesystem::FindHelperUtility("libdmtcp_pid.so");
 #endif
 
   const char *ldLibPath = getenv("LD_LIBRARY_PATH");

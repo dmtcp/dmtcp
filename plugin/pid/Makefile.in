@@ -1,4 +1,5 @@
-LIBNAME=dmtcptorque
+PLUGIN=pid
+LIBNAME=libdmtcp_${PLUGIN}.so
 CC = @CC@
 M32=@M32@
 CFLAGS = @CFLAGS@
@@ -7,7 +8,6 @@ CXX = @CXX@
 CXXFLAGS = @CXXFLAGS@
 LDFLAGS = @LDFLAGS@
 MKDIR_P = @MKDIR_P@
-#PTRACE_SUPPORT=@PTRACE_SUPPORT@
 PACKAGE = @PACKAGE@
 PACKAGE_BUGREPORT = @PACKAGE_BUGREPORT@
 PACKAGE_NAME = @PACKAGE_NAME@
@@ -44,13 +44,18 @@ CXXCOMPILE = $(CXX) $(INCLUDES) $(CPPFLAGS) $(CXXFLAGS) -c -o $@
 CXXLINK = $(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@
 
 HEADERS = $(DMTCP_SRC_PATH)/util.h $(DMTCP_SRC_PATH)/dmtcpplugin.h \
+	  $(DMTCP_SRC_PATH)/virtualidtable.h $(DMTCP_SRC_PATH)/protectedfds.h \
+	  pidvirt.h pidwrappers.h virtualpidtable.h \
 	  $(JALIB_PATH)/jassert.h $(JALIB_PATH)/jalloc.h \
+	  $(JALIB_PATH)/jalib.h $(JALIB_PATH)/jbuffer.h \
 	  $(JALIB_PATH)/jconvert.h $(JALIB_PATH)/jfilesystem.h \
-	  $(JALIB_PATH)/jalib.h resource_manager.h
+	  $(JALIB_PATH)/jserialize.h $(JALIB_PATH)/jsocket.h
 
-OBJS = resource_manager.o torque.o
+OBJS = pidvirt.o pidvirt_filewrappers.o pidvirt_miscwrappers.o \
+       pidvirt_syscallsreal.o pidwrappers.o virtualpidtable.o
 
-SOURCES = resource_manager.cpp torque.cpp
+SOURCES = pidvirt.cpp pidvirt_filewrappers.cpp pidvirt_miscwrappers.cpp \
+	  pidvirt_syscallsreal.c pidwrappers.cpp virtualpidtable.cpp
 
 LIB_LDFLAGS = -shared -Wl,--unresolved-symbols=ignore-all
 
@@ -60,7 +65,7 @@ all: default
 
 default: build
 
-build: ${LIBNAME}.so dmtcp_discover_rm
+build: ${LIBNAME}
 
 tidy:
 	rm -rf dmtcp-autotest-* ckpt_*_files
@@ -79,18 +84,15 @@ install: all
 	  exit 1; \
 	fi
 	test -e $(DESTDIR)$(libdir) || $(MKDIR_P) $(DESTDIR)$(libdir)
-	cp ${LIBNAME}.so $(DESTDIR)$(pkglibdir)
+	cp ${LIBNAME} $(DESTDIR)$(pkglibdir)
 
 uninstall:
 	echo " ( cd '$(DESTDIR)$(pkglibdir)' && rm -f $$files ) "; \
-	cd "$(DESTDIR)$(pkglibdir)" && rm -f $(LIBNAME).so
+	cd "$(DESTDIR)$(pkglibdir)" && rm -f $(LIBNAME)
 
-${LIBNAME}.so: $(OBJS) ${HEADERS}
-	@rm -f ${LIBNAME}.so
+${LIBNAME}: $(OBJS) ${HEADERS}
+	@rm -f ${LIBNAME}
 	$(CXXLINK) $(OBJS) $(LIB_LDFLAGS) $(LDADD)
-
-dmtcp_discover_rm: dmtcp_discover_rm.cpp $(HEADERS)
-	$(CXXLINK) -o dmtcp_discover_rm dmtcp_discover_rm.cpp
 
 %.o: %.c ${HEADERS}
 	$(COMPILE)  $<

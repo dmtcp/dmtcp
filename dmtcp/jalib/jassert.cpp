@@ -165,7 +165,7 @@ void jassert_internal::jassert_init ( const jalib::string& f )
 
 static const jalib::string writeJbacktraceMsg() {
   dmtcp::ostringstream o;
-  jalib::string thisProgram = "dmtcphijack.so";
+  jalib::string thisProgram = "libdmtcp.so";
   if (jalib::Filesystem::GetProgramName() == "dmtcp_coordinator")
     thisProgram = "dmtcp_coordinator";
   if (jalib::Filesystem::GetProgramName() == "dmtcp_checkpint")
