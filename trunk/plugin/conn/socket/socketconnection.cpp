@@ -112,7 +112,7 @@ void SocketConn_process_event(DmtcpEvent_t event, DmtcpEventData_t *data,
             //implicit close().
             //we will create a new, broken socket that is not closed
             con->onError();
-            con->restore(); //restoring a TCP_ERROR connection makes a dead socket
+            break;
           }
         }
         break;
@@ -379,6 +379,8 @@ void dmtcp::TcpConnection::onError()
 {
   JTRACE("Error.") (id());
   _type = TCP_ERROR;
+  JTRACE("Creating dead socket.") (_fds[0]) (_fds.size());
+  Util::dupFds(_makeDeadSocket(), _fds);
 }
 
 void dmtcp::TcpConnection::preCheckpoint()
@@ -486,7 +488,7 @@ void dmtcp::TcpConnection::restoreSocketPair(dmtcp::TcpConnection *peer)
   JTRACE("Restored Socketpair") (id()) (peer->id()) (_fds[0]) (peer->_fds[0]);
 }
 
-void dmtcp::TcpConnection::restore()
+void dmtcp::TcpConnection::postRestart()
 {
   JASSERT(_fds.size() > 0);
   switch (tcpType()) {
@@ -699,7 +701,7 @@ void dmtcp::RawSocketConnection::refill(bool isRestart)
   }
 }
 
-void dmtcp::RawSocketConnection::restore()
+void dmtcp::RawSocketConnection::postRestart()
 {
   JASSERT(_fds.size() > 0);
   if (really_verbose) {

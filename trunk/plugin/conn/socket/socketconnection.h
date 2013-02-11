@@ -105,7 +105,7 @@ namespace dmtcp
       //basic checkpointing commands
       virtual void preCheckpoint();
       virtual void refill(bool isRestart);
-      virtual void restore();
+      virtual void postRestart();
       virtual void restoreOptions();
 
       virtual void doSendHandshakes(const ConnectionIdentifier& coordId);
@@ -154,7 +154,7 @@ namespace dmtcp
       //basic checkpointing commands
       virtual void preCheckpoint();
       virtual void refill(bool isRestart);
-      virtual void restore();
+      virtual void postRestart();
       virtual void restoreOptions();
 
       virtual void serializeSubClass(jalib::JBinarySerializer& o);

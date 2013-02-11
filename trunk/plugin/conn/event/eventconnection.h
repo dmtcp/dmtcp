@@ -88,7 +88,7 @@ namespace dmtcp
 
       virtual void preCheckpoint();
       virtual void refill(bool isRestart);
-      virtual void restore();
+      virtual void postRestart();
       virtual void serializeSubClass(jalib::JBinarySerializer& o);
 
       virtual string str() { return "EPOLL-FD: <Not-a-File>"; };
@@ -116,7 +116,7 @@ namespace dmtcp
 
       virtual void preCheckpoint();
       virtual void refill(bool isRestart);
-      virtual void restore();
+      virtual void postRestart();
       virtual void serializeSubClass(jalib::JBinarySerializer& o);
 
       virtual string str() { return "EVENT-FD: <Not-a-File>"; };
@@ -145,7 +145,7 @@ namespace dmtcp
 
       virtual void preCheckpoint();
       virtual void refill(bool isRestart);
-      virtual void restore();
+      virtual void postRestart();
       virtual void serializeSubClass(jalib::JBinarySerializer& o);
 
       virtual string str() { return "SIGNAL-FD: <Not-a-File>"; };
@@ -180,7 +180,7 @@ namespace dmtcp
 
       virtual void preCheckpoint();
       virtual void refill(bool isRestart);
-      virtual void restore();
+      virtual void postRestart();
       virtual void serializeSubClass(jalib::JBinarySerializer& o);
 
       virtual string str() { return "INOTIFY-FD: <Not-a-File>"; };
