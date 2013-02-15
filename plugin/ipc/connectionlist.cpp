@@ -359,6 +359,16 @@ void dmtcp::ConnectionList::drain()
   }
 }
 
+void dmtcp::ConnectionList::preCkpt()
+{
+  for (iterator i = begin(); i != end(); ++i) {
+    Connection* con =  i->second;
+    if (con->hasLock()) {
+      con->preCkpt();
+    }
+  }
+}
+
 void dmtcp::ConnectionList::refill(bool isRestart)
 {
   for (iterator i = begin(); i != end(); ++i) {

@@ -134,6 +134,7 @@ namespace dmtcp
 
       virtual void doLocking();
       virtual void drain();
+      virtual void preCkpt();
       virtual void refill(bool isRestart);
       virtual void postRestart();
       virtual void resume(bool isRestart);
@@ -147,10 +148,11 @@ namespace dmtcp
       void doNotRestoreCkptCopy() { _checkpointed = false; }
 
       int fileType() { return _type; }
+      dev_t devnum() const { return _stat.st_dev; }
+      ino_t inode() const { return _stat.st_ino; }
 
       bool checkDup(int fd);
     private:
-      void saveFile();
       int  openFile();
       void refreshPath();
       void handleUnlinkedFile();

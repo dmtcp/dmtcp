@@ -30,6 +30,7 @@
 #include <stdint.h>
 #include <signal.h>
 #include "util.h"
+#include "shareddata.h"
 #include "jfilesystem.h"
 #include "jbuffer.h"
 #include "jconvert.h"
@@ -85,6 +86,29 @@ dmtcp::FileConnList& dmtcp::FileConnList::instance()
     fileConnList = new FileConnList();
   }
   return *fileConnList;
+}
+
+void dmtcp::FileConnList::drain()
+{
+  ConnectionList::drain();
+
+  vector<SharedData::InodeConnIdMap> inodeConnIdMaps;
+  for (iterator i = begin(); i != end(); ++i) {
+    Connection* con =  i->second;
+    if (con->hasLock() && con->conType() == Connection::FILE) {
+      FileConnection *fileCon = (FileConnection*) con;
+      if (fileCon->checkpointed() == true) {
+        SharedData::InodeConnIdMap map;
+        map.devnum = fileCon->devnum();
+        map.inode = fileCon->inode();
+        memcpy(map.id, &i->first, sizeof (i->first));
+        inodeConnIdMaps.push_back(map);
+      }
+    }
+  }
+  if (inodeConnIdMaps.size() > 0) {
+    SharedData::insertInodeConnIdMaps(inodeConnIdMaps);
+  }
 }
 
 //examine /proc/self/fd for unknown connections
