@@ -62,7 +62,7 @@ void pidVirt_PostExec(DmtcpEventData_t *data)
   dmtcp::VirtualPidTable::instance().refresh();
 }
 
-int openSharedFile(dmtcp::string name, int flags)
+static int openSharedFile(dmtcp::string name, int flags)
 {
   int fd;
   // try to create, truncate & open file
@@ -70,7 +70,8 @@ int openSharedFile(dmtcp::string name, int flags)
     return fd;
   }
   if (fd < 0 && errno == EEXIST) {
-    if ((fd = _real_open(name.c_str(), flags, 0600)) > 0) {
+    errno = 0;
+    if ((fd = _real_open(name.c_str(), flags, 0600)) >= 0) {
       return fd;
     }
   }
