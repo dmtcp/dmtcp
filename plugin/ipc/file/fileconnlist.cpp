@@ -25,6 +25,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/syscall.h>
+#include <sys/mman.h>
 #include <unistd.h>
 #include <mqueue.h>
 #include <stdint.h>
@@ -36,6 +37,7 @@
 #include "jconvert.h"
 #include "fileconnection.h"
 #include "fileconnlist.h"
+#include "filewrappers.h"
 
 using namespace dmtcp;
 
@@ -43,6 +45,9 @@ void dmtcp_FileConnList_ProcessEvent(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   dmtcp::FileConnList::instance().processEvent(event, data);
 }
+
+static dmtcp::vector<Util::ProcMapsArea> shmAreas;
+static dmtcp::vector<dmtcp::FileConnection*> shmAreaConn;
 
 void dmtcp_FileConn_ProcessFdEvent(int event, int arg1, int arg2)
 {
@@ -88,6 +93,14 @@ dmtcp::FileConnList& dmtcp::FileConnList::instance()
   return *fileConnList;
 }
 
+void dmtcp::FileConnList::preLockSaveOptions()
+{
+  // Now create a list of all shared-memory areas.
+  prepareShmList();
+
+  ConnectionList::preLockSaveOptions();
+}
+
 void dmtcp::FileConnList::drain()
 {
   ConnectionList::drain();
@@ -109,6 +122,81 @@ void dmtcp::FileConnList::drain()
   if (inodeConnIdMaps.size() > 0) {
     SharedData::insertInodeConnIdMaps(inodeConnIdMaps);
   }
+}
+
+void dmtcp::FileConnList::refill(bool isRestart)
+{
+  ConnectionList::refill(isRestart);
+  remapShmMaps();
+}
+
+void dmtcp::FileConnList::prepareShmList()
+{
+  Util::ProcMapsArea area;
+  int mapsfd = _real_open("/proc/self/maps", O_RDONLY, 0);
+  JASSERT(mapsfd != -1) (JASSERT_ERRNO);
+
+  shmAreas.clear();
+  shmAreaConn.clear();
+  while (Util::readProcMapsLine(mapsfd, &area)) {
+    if ((area.flags & MAP_SHARED) && area.prot != 0) {
+      if (strstr(area.name, "ptraceSharedInfo") != NULL ||
+          strstr(area.name, "dmtcpPidMap") != NULL ||
+          strstr(area.name, "dmtcpSharedArea") != NULL ||
+          strstr(area.name, "dmtcpSharedArea") != NULL ||
+          strstr(area.name, "synchronization-log") != NULL ||
+          strstr(area.name, "synchronization-read-log") != NULL) {
+        continue;
+      }
+      if (jalib::Filesystem::FileExists(area.name)) {
+        if (_real_access(area.name, W_OK) == 0) {
+          JTRACE("Will checkpoint shared memory area") (area.name);
+          int flags = Util::memProtToOpenFlags(area.prot);
+          int fd = _real_open(area.name, flags, 0);
+          JASSERT(fd != -1) (JASSERT_ERRNO) (area.name);
+          FileConnection *fileConn = new FileConnection(area.name, flags, 0);
+          add(fd, fileConn);
+          shmAreas.push_back(area);
+          shmAreaConn.push_back(fileConn);
+          JASSERT(_real_munmap(area.addr, area.size) == 0);
+        } else {
+          JTRACE("Will not checkpoint shared memory area") (area.name);
+        }
+      } else {
+        // TODO: Shared memory areas with unlinked backing files.
+#if 0
+        JASSERT(Util::strEndsWith(area.name, DELETED_FILE_SUFFIX)) (area.name);
+        if (Util::strStartsWith(area.name, DEV_ZERO_DELETED_STR) ||
+            Util::strStartsWith(area.name, DEV_NULL_DELETED_STR)) {
+          JWARNING(false) (area.name)
+            .Text("Ckpt/Restart of Anon Shared memory not supported.");
+        } else {
+          JTRACE("Will recreate shm file on restart.") (area.name);
+          //shmAreas[area] = NULL;
+        }
+#endif
+      }
+    }
+  }
+  _real_close(mapsfd);
+}
+
+void dmtcp::FileConnList::remapShmMaps()
+{
+  for (size_t i = 0; i < shmAreas.size(); i++) {
+    Util::ProcMapsArea *area = &shmAreas[i];
+    FileConnection *fileCon = shmAreaConn[i];
+    int fd = fileCon->getFds()[0];
+    JTRACE("Restoring shared memory area") (area->name) (area->addr);
+    void *addr = _real_mmap(area->addr, area->size, area->prot,
+                            MAP_FIXED | area->flags,
+                            fd, area->offset);
+    JASSERT(addr != MAP_FAILED) (area->flags) (area->prot) (JASSERT_ERRNO) .Text("mmap failed");
+    _real_close(fd);
+    processClose(fd);
+  }
+  shmAreas.clear();
+  shmAreaConn.clear();
 }
 
 //examine /proc/self/fd for unknown connections
