@@ -62,9 +62,9 @@ namespace dmtcp
       void processEvent(DmtcpEvent_t event, DmtcpEventData_t *data);
       virtual void scanForPreExisting() {}
       virtual void preLockSaveOptions();
-      virtual void preCheckpointFdLeaderElection();
-      virtual void preCheckpointDrain();
-      virtual void preCheckpointHandshakes();
+      virtual void preCkptFdLeaderElection();
+      virtual void drain();
+      virtual void preCkpt() {}
       virtual void postRestart();
       virtual void registerNSData(bool isRestart) {}
       virtual void sendQueries(bool isRestart) {}

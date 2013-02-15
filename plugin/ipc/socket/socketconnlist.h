@@ -19,7 +19,8 @@ namespace dmtcp
   class SocketConnList : public ConnectionList
   {
     public:
-      virtual void preCheckpointDrain();
+      virtual void drain();
+      virtual void preCkpt();
       virtual void postRestart();
       virtual void registerNSData(bool isRestart);
       virtual void sendQueries(bool isRestart);

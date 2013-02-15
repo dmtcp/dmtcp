@@ -37,10 +37,10 @@ dmtcp::SocketConnList& dmtcp::SocketConnList::instance()
   return *socketConnList;
 }
 
-void dmtcp::SocketConnList::preCheckpointDrain()
+void dmtcp::SocketConnList::drain()
 {
   // First, let all the Connection prepare for drain
-  ConnectionList::preCheckpointDrain();
+  ConnectionList::drain();
 
   //this will block until draining is complete
   KernelBufferDrainer::instance().monitorSockets(DRAINER_CHECK_FREQ);
@@ -59,6 +59,32 @@ void dmtcp::SocketConnList::preCheckpointDrain()
     con->onError();
     break;
   }
+}
+
+void dmtcp::SocketConnList::preCkpt()
+{
+#if HANDSHAKE_ON_CHECKPOINT == 1
+  //handshake is done after one barrier after drain
+  JTRACE("beginning handshakes");
+  DmtcpUniqueProcessId coordId = dmtcp_get_coord_id();
+  //must send first to avoid deadlock
+  //we are relying on OS buffers holding our message without blocking
+  for (iterator i = begin(); i != end(); ++i) {
+    Connection *con = i->second;
+    if (con->hasLock() && con->conType() == Connection::TCP) {
+      ((TcpConnection*)con)->doSendHandshakes(coordId);
+    }
+  }
+
+  //now receive
+  for (iterator i = begin(); i != end(); ++i) {
+    Connection *con = i->second;
+    if (con->hasLock() && con->conType() == Connection::TCP) {
+      ((TcpConnection*)con)->doRecvHandshakes(coordId);
+    }
+  }
+  JTRACE("handshaking done");
+#endif
 }
 
 void dmtcp::SocketConnList::postRestart()

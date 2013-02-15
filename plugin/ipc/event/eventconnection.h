@@ -87,7 +87,7 @@ namespace dmtcp
 
       int epollType() const { return _type; }
 
-      virtual void preCheckpoint();
+      virtual void drain();
       virtual void refill(bool isRestart);
       virtual void postRestart();
       virtual void serializeSubClass(jalib::JBinarySerializer& o);
@@ -115,7 +115,7 @@ namespace dmtcp
       JTRACE("new eventfd connection created");
     }
 
-      virtual void preCheckpoint();
+      virtual void drain();
       virtual void refill(bool isRestart);
       virtual void postRestart();
       virtual void serializeSubClass(jalib::JBinarySerializer& o);
@@ -144,7 +144,7 @@ namespace dmtcp
       JTRACE("new signalfd  connection created");
     }
 
-      virtual void preCheckpoint();
+      virtual void drain();
       virtual void refill(bool isRestart);
       virtual void postRestart();
       virtual void serializeSubClass(jalib::JBinarySerializer& o);
@@ -179,7 +179,7 @@ namespace dmtcp
       int inotifyState() const { return _state; }
       InotifyConnection& asInotify();
 
-      virtual void preCheckpoint();
+      virtual void drain();
       virtual void refill(bool isRestart);
       virtual void postRestart();
       virtual void serializeSubClass(jalib::JBinarySerializer& o);

@@ -298,7 +298,7 @@ dmtcp::PtyConnection::PtyConnection(int fd, const char *path,
   }
 }
 
-void dmtcp::PtyConnection::preCheckpoint()
+void dmtcp::PtyConnection::drain()
 {
   if (ptyType() == PTY_MASTER) {
     const int maxCount = 10000;
@@ -551,7 +551,7 @@ void dmtcp::FileConnection::preCheckpointResMgrFile()
 }
 #endif
 
-void dmtcp::FileConnection::preCheckpoint()
+void dmtcp::FileConnection::drain()
 {
   JASSERT(_fds.size() > 0);
 
@@ -906,7 +906,7 @@ void dmtcp::FileConnection::serializeSubClass(jalib::JBinarySerializer& o)
  * FIFO Connection
  *****************************************************************************/
 
-void dmtcp::FifoConnection::preCheckpoint()
+void dmtcp::FifoConnection::drain()
 {
   JASSERT(_fds.size() > 0);
 
@@ -1020,7 +1020,7 @@ void dmtcp::FifoConnection::serializeSubClass(jalib::JBinarySerializer& o)
  * Stdio Connection
  *****************************************************************************/
 
-void dmtcp::StdioConnection::preCheckpoint()
+void dmtcp::StdioConnection::drain()
 {
   //JTRACE("Checkpointing stdio") (_fds[0]) (id());
 }
@@ -1084,7 +1084,7 @@ void dmtcp::PosixMQConnection::on_mq_notify(const struct sigevent *sevp)
   }
 }
 
-void dmtcp::PosixMQConnection::preCheckpoint()
+void dmtcp::PosixMQConnection::drain()
 {
   JASSERT(_fds.size() > 0);
 
