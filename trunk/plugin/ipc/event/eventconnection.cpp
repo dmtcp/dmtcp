@@ -47,7 +47,7 @@ using namespace dmtcp;
  * Epoll Connection
  *****************************************************************************/
 
-void dmtcp::EpollConnection::preCheckpoint()
+void dmtcp::EpollConnection::drain()
 {
   JASSERT(_fds.size() > 0);
 }
@@ -109,7 +109,7 @@ void dmtcp::EpollConnection::onCTL(int op, int fd, struct epoll_event *event)
 /*****************************************************************************
  * Eventfd Connection
  *****************************************************************************/
-void dmtcp::EventFdConnection::preCheckpoint()
+void dmtcp::EventFdConnection::drain()
 {
   JASSERT(_fds.size() > 0);
   JTRACE("Checkpoint eventfd.") (_fds[0]);
@@ -185,7 +185,7 @@ void dmtcp::EventFdConnection::serializeSubClass(jalib::JBinarySerializer& o)
 /*****************************************************************************
  * Signalfd Connection
  *****************************************************************************/
-void dmtcp::SignalFdConnection::preCheckpoint()
+void dmtcp::SignalFdConnection::drain()
 {
   JASSERT(_fds.size() > 0);
 
@@ -246,7 +246,7 @@ void dmtcp::SignalFdConnection::serializeSubClass(jalib::JBinarySerializer& o)
 /*****************************************************************************
  * Inotify Connection
  *****************************************************************************/
-void dmtcp::InotifyConnection::preCheckpoint()
+void dmtcp::InotifyConnection::drain()
 {
   JASSERT(_fds.size() > 0);
 }

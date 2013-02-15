@@ -84,23 +84,20 @@ void dmtcp::ConnectionList::processEvent(DmtcpEvent_t event,
 
     case DMTCP_EVENT_LEADER_ELECTION:
       JTRACE("locking...");
-      preCheckpointFdLeaderElection();
+      preCkptFdLeaderElection();
       JTRACE("locked");
       break;
 
     case DMTCP_EVENT_DRAIN:
       JTRACE("draining...");
-      preCheckpointDrain();
+      drain();
       JTRACE("drained");
       break;
 
     case DMTCP_EVENT_PRE_CKPT:
-#if HANDSHAKE_ON_CHECKPOINT == 1
-      //handshake is done after one barrier after drain
-      JTRACE("beginning handshakes");
-      preCheckpointHandshakes();
-      JTRACE("handshaking done");
-#endif
+      JTRACE("preCKpt...");
+      preCkpt();
+      JTRACE("done preCkpt");
       break;
 
     case DMTCP_EVENT_REFILL:
@@ -333,7 +330,7 @@ void dmtcp::ConnectionList::preLockSaveOptions()
   deleteStaleConnections();
   list();
   // Save Options for each Fd(We need to do it here instead of
-  // preCheckpointFdLeaderElection because we want to restore the correct owner
+  // preCkptFdLeaderElection because we want to restore the correct owner
   // in refill).
   for (iterator i = begin(); i != end(); ++i) {
     Connection *con = i->second;
@@ -341,7 +338,7 @@ void dmtcp::ConnectionList::preLockSaveOptions()
   }
 }
 
-void dmtcp::ConnectionList::preCheckpointFdLeaderElection()
+void dmtcp::ConnectionList::preCkptFdLeaderElection()
 {
   deleteStaleConnections();
   for (iterator i = begin(); i != end(); ++i) {
@@ -351,34 +348,13 @@ void dmtcp::ConnectionList::preCheckpointFdLeaderElection()
   }
 }
 
-void dmtcp::ConnectionList::preCheckpointDrain()
+void dmtcp::ConnectionList::drain()
 {
   for (iterator i = begin(); i != end(); ++i) {
     Connection* con =  i->second;
     con->checkLock();
     if (con->hasLock()) {
-      con->preCheckpoint();
-    }
-  }
-}
-
-void dmtcp::ConnectionList::preCheckpointHandshakes()
-{
-  DmtcpUniqueProcessId coordId = dmtcp_get_coord_id();
-  //must send first to avoid deadlock
-  //we are relying on OS buffers holding our message without blocking
-  for (iterator i = begin(); i != end(); ++i) {
-    Connection *con = i->second;
-    if (con->hasLock()) {
-      con->doSendHandshakes(coordId);
-    }
-  }
-
-  //now receive
-  for (iterator i = begin(); i != end(); ++i) {
-    Connection *con = i->second;
-    if (con->hasLock()) {
-      con->doRecvHandshakes(coordId);
+      con->drain();
     }
   }
 }

@@ -64,7 +64,7 @@ namespace dmtcp
       dmtcp::string ptsName() { return _ptsName;; }
       dmtcp::string virtPtsName() { return _virtPtsName;; }
 
-      virtual void preCheckpoint();
+      virtual void drain();
       virtual void refill(bool isRestart);
       virtual void postRestart();
       virtual void serializeSubClass(jalib::JBinarySerializer& o);
@@ -100,7 +100,7 @@ namespace dmtcp
 
       StdioConnection() {}
 
-      virtual void preCheckpoint();
+      virtual void drain();
       virtual void refill(bool isRestart);
       virtual void postRestart();
 
@@ -134,7 +134,7 @@ namespace dmtcp
 
 
       virtual void doLocking();
-      virtual void preCheckpoint();
+      virtual void drain();
       virtual void refill(bool isRestart);
       virtual void postRestart();
       virtual void resume(bool isRestart);
@@ -193,7 +193,7 @@ namespace dmtcp
       _in_data.clear();
     }
 
-      virtual void preCheckpoint();
+      virtual void drain();
       virtual void refill(bool isRestart);
       virtual void postRestart();
 
@@ -231,7 +231,7 @@ namespace dmtcp
       }
     }
 
-      virtual void preCheckpoint();
+      virtual void drain();
       virtual void refill(bool isRestart);
       virtual void postRestart();
 

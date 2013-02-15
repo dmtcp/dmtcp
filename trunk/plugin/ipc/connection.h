@@ -80,17 +80,15 @@ namespace dmtcp
       void  checkLock();
       const ConnectionIdentifier& id() const { return _id; }
 
-      virtual void preCheckpoint() = 0;
+      virtual void saveOptions();
+      virtual void doLocking();
+      virtual void drain() = 0;
+      virtual void preCkpt() {}
       virtual void refill(bool isRestart) = 0;
       virtual void resume(bool isRestart) {};
       virtual void postRestart() = 0;
 
-      virtual void doLocking();
-      virtual void saveOptions();
       virtual void restoreOptions();
-
-      virtual void doSendHandshakes(const ConnectionIdentifier& coordId) {};
-      virtual void doRecvHandshakes(const ConnectionIdentifier& coordId) {};
 
       virtual string str() = 0;
 

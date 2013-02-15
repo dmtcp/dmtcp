@@ -309,7 +309,7 @@ void dmtcp::TcpConnection::onError()
   Util::dupFds(_makeDeadSocket(), _fds);
 }
 
-void dmtcp::TcpConnection::preCheckpoint()
+void dmtcp::TcpConnection::drain()
 {
   JASSERT(_fds.size() > 0) (id());
 
@@ -595,7 +595,7 @@ dmtcp::RawSocketConnection::RawSocketConnection(int domain, int type,
   JTRACE("Creating Raw socket.") (id()) (domain) (type) (protocol);
 }
 
-void dmtcp::RawSocketConnection::preCheckpoint()
+void dmtcp::RawSocketConnection::drain()
 {
   JASSERT(_fds.size() > 0) (id());
 

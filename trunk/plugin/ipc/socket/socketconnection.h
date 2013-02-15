@@ -103,13 +103,13 @@ namespace dmtcp
       void markPreExisting() { _type = TCP_PREEXISTING; }
 
       //basic checkpointing commands
-      virtual void preCheckpoint();
+      virtual void drain();
       virtual void refill(bool isRestart);
       virtual void postRestart();
       virtual void restoreOptions();
 
-      virtual void doSendHandshakes(const ConnectionIdentifier& coordId);
-      virtual void doRecvHandshakes(const ConnectionIdentifier& coordId);
+      void doSendHandshakes(const ConnectionIdentifier& coordId);
+      void doRecvHandshakes(const ConnectionIdentifier& coordId);
 
       void sendHandshake(int remotefd, const ConnectionIdentifier& coordId);
       void recvHandshake(int remotefd, const ConnectionIdentifier& coordId);
@@ -152,7 +152,7 @@ namespace dmtcp
       RawSocketConnection(int domain, int type, int protocol);
 
       //basic checkpointing commands
-      virtual void preCheckpoint();
+      virtual void drain();
       virtual void refill(bool isRestart);
       virtual void postRestart();
       virtual void restoreOptions();
