@@ -249,7 +249,8 @@ int dmtcp::Util::readProcMapsLine(int mapsfd, dmtcp::Util::ProcMapsArea *area)
 {
   char c, rflag, sflag, wflag, xflag;
   int i;
-  unsigned int long devmajor, devminor, inodenum;
+  unsigned int long devmajor, devminor;
+  ino_t inodenum;
   VA startaddr, endaddr;
 
   c = readHex (mapsfd, &startaddr);
@@ -308,11 +309,22 @@ int dmtcp::Util::readProcMapsLine(int mapsfd, dmtcp::Util::ProcMapsArea *area)
   if (sflag == 'p') area -> flags |= MAP_PRIVATE;
   if (area -> name[0] == '\0') area -> flags |= MAP_ANONYMOUS;
 
+  area->devnum = makedev(devmajor, devminor);
+  area->inodenum = inodenum;
+
   return (1);
 
 skipeol:
   JASSERT(false) .Text("Not Reached");
   return (0);  /* NOTREACHED : stop compiler warning */
+}
+
+int dmtcp::Util::memProtToOpenFlags(int prot)
+{
+  if (prot & (PROT_READ | PROT_WRITE)) return O_RDWR;
+  if (prot & PROT_READ) return O_RDONLY;
+  if (prot & PROT_WRITE) return O_WRONLY;
+  return 0;
 }
 
 #define TRACER_PID_STR "TracerPid:"
