@@ -43,6 +43,7 @@ namespace dmtcp
   class FileConnList : public ConnectionList
   {
     public:
+      virtual void drain();
       virtual int protectedFd() { return PROTECTED_FILE_FDREWIRER_FD; }
       //examine /proc/self/fd for unknown connections
       static FileConnList& instance();

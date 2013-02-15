@@ -64,7 +64,7 @@ namespace dmtcp
       virtual void preLockSaveOptions();
       virtual void preCkptFdLeaderElection();
       virtual void drain();
-      virtual void preCkpt() {}
+      virtual void preCkpt();
       virtual void postRestart();
       virtual void registerNSData(bool isRestart) {}
       virtual void sendQueries(bool isRestart) {}

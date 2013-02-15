@@ -537,6 +537,7 @@ void dmtcp::FileConnection::drain()
 
   calculateRelativePath();
 
+  _checkpointed = false;
   _ckptFilesDir = UniquePid::getCkptFilesSubDir();
 
   // Read the current file descriptor offset
@@ -552,10 +553,10 @@ void dmtcp::FileConnection::drain()
   if (_type == FILE_BATCH_QUEUE &&
       dmtcp_bq_should_ckpt_file &&
       dmtcp_bq_should_ckpt_file(_path.c_str(), &_rmtype)) {
-      JTRACE("Pre-checkpoint Torque files") (_fds.size());
-      for (unsigned int i=0; i< _fds.size(); i++)
-        JTRACE("_fds[i]=") (i) (_fds[i]);
-    saveFile();
+    JTRACE("Pre-checkpoint Torque files") (_fds.size());
+    for (unsigned int i=0; i< _fds.size(); i++)
+      JTRACE("_fds[i]=") (i) (_fds[i]);
+    _checkpointed = true;
     return;
   }
 
@@ -564,24 +565,51 @@ void dmtcp::FileConnection::drain()
   }
   if (getenv(ENV_VAR_CKPT_OPEN_FILES) != NULL &&
       _stat.st_uid == getuid()) {
-    saveFile();
+    _checkpointed = true;
   } else if (_type == FILE_DELETED) {
-    saveFile();
-//   FIXME: Disable the following heuristic until we can comeup with a better
-//   one
-// } else if ((_fcntlFlags &(O_WRONLY|O_RDWR)) != 0 &&
-//             _offset < _stat.st_size &&
-//             _stat.st_size < MAX_FILESIZE_TO_AUTOCKPT &&
-//             _stat.st_uid == getuid()) {
-//    saveFile();
+    _checkpointed = true;
   } else if (_isVimApp() &&
              (Util::strEndsWith(_path, ".swp") == 0 ||
               Util::strEndsWith(_path, ".swo") == 0)) {
-    saveFile();
+    _checkpointed = true;
   } else if (Util::strStartsWith(jalib::Filesystem::GetProgramName(),
                                  "emacs")) {
-    saveFile();
+    _checkpointed = true;
+#if 0
+  } else if ((_fcntlFlags &(O_WRONLY|O_RDWR)) != 0 &&
+             _offset < _stat.st_size &&
+             _stat.st_size < MAX_FILESIZE_TO_AUTOCKPT &&
+             _stat.st_uid == getuid()) {
+    // FIXME: Disable the following heuristic until we can comeup with a better
+    // one
+    _checkpointed = true;
+#endif
   } else {
+    _checkpointed = false;
+  }
+}
+
+void dmtcp::FileConnection::preCkpt()
+{
+  if (_checkpointed) {
+    ConnectionIdentifier id;
+    JASSERT(_type != FILE_PROCFS && _type != FILE_INVALID);
+    JASSERT(SharedData::getCkptLeaderForFile(_stat.st_dev, _stat.st_ino, &id));
+    if (id == _id) {
+      dmtcp::string savedFilePath = getSavedFilePath(_path);
+      CreateDirectoryStructure(savedFilePath);
+
+      int destFd = _real_open(savedFilePath.c_str(), O_CREAT | O_WRONLY | O_TRUNC,
+                              S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+      JASSERT(destFd != -1) (JASSERT_ERRNO) (_path) (savedFilePath);
+
+      JTRACE("Saving checkpointed copy of the file") (_path) (savedFilePath);
+      writeFileFromFd(_fds[0], destFd);
+      _real_close(destFd);
+    } else {
+      JTRACE("Not checkpointing this file") (_path);
+      _checkpointed = false;
+    }
   }
 }
 
@@ -840,25 +868,6 @@ static void writeFileFromFd(int fd, int destFd)
   }
   JALLOC_HELPER_FREE(buf);
   JASSERT(_real_lseek(fd, offset, SEEK_SET) != -1);
-}
-
-void dmtcp::FileConnection::saveFile()
-{
-  JASSERT(_type != FILE_PROCFS && _type != FILE_INVALID);
-  _checkpointed = true;
-
-  dmtcp::string savedFilePath = getSavedFilePath(_path);
-  CreateDirectoryStructure(savedFilePath);
-
-  int destFd = _real_open(savedFilePath.c_str(), O_CREAT | O_WRONLY | O_TRUNC,
-                          S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
-  JASSERT(destFd != -1) (JASSERT_ERRNO) (_path) (savedFilePath);
-
-  JTRACE("Saving checkpointed copy of the file") (_path) (savedFilePath);
-
-  writeFileFromFd(_fds[0], destFd);
-
-  _real_close(destFd);
 }
 
 dmtcp::string dmtcp::FileConnection::getSavedFilePath(const dmtcp::string& path)
