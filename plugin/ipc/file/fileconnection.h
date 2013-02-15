@@ -91,21 +91,20 @@ namespace dmtcp
         STDIO_INVALID
       };
 
-      StdioConnection(int fd): Connection(STDIO + fd)
-    {
-      JTRACE("creating stdio connection") (fd) (id());
-      JASSERT(jalib::Between(0, fd, 2)) (fd)
-        .Text("invalid fd for StdioConnection");
-    }
+      StdioConnection(int fd): Connection(STDIO + fd) {
+        JTRACE("creating stdio connection") (fd) (id());
+        JASSERT(jalib::Between(0, fd, 2)) (fd)
+          .Text("invalid fd for StdioConnection");
+      }
 
       StdioConnection() {}
 
-      virtual void drain();
-      virtual void refill(bool isRestart);
+      virtual void drain() {}
+      virtual void refill(bool isRestart) {}
       virtual void postRestart();
+      virtual void serializeSubClass(jalib::JBinarySerializer& o) {}
 
       virtual string str() { return "<STDIO>"; };
-      virtual void serializeSubClass(jalib::JBinarySerializer& o);
   };
 
   class FileConnection : public Connection
