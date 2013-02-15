@@ -229,7 +229,7 @@ void dmtcp::TcpConnection::onBind(int sockfd, const struct sockaddr* addr,
     JTRACE("Binding.") (id()) (len);
   }
 
-  JASSERT(tcpType() == TCP_CREATED) (tcpType()) (id())
+  JASSERT(_type == TCP_CREATED) (_type) (id())
     .Text("Binding a socket in use????");
   JASSERT(len <= sizeof _bindAddr) (len) (sizeof _bindAddr)
     .Text("That is one huge sockaddr buddy.");
@@ -253,7 +253,7 @@ void dmtcp::TcpConnection::onListen(int backlog)
   if (really_verbose) {
     JTRACE("Listening.") (id()) (backlog);
   }
-  JASSERT(tcpType() == TCP_BIND) (tcpType()) (id())
+  JASSERT(_type == TCP_BIND) (_type) (id())
     .Text("Listening on a non-bind()ed socket????");
   // A -1 backlog is not an error.
   //JASSERT(backlog > 0) (backlog)
@@ -270,7 +270,7 @@ void dmtcp::TcpConnection::onConnect(int sockfd,
   if (really_verbose) {
     JTRACE("Connecting.") (id());
   }
-  JASSERT(tcpType() == TCP_CREATED || tcpType() == TCP_BIND) (tcpType()) (id())
+  JASSERT(_type == TCP_CREATED || _type == TCP_BIND) (_type) (id())
     .Text("Connecting with an in-use socket????");
 
   /* socketpair wrapper calls onConnect with sockfd == -1 and addr == NULL */
@@ -296,7 +296,7 @@ dmtcp::TcpConnection::TcpConnection(const TcpConnection& parent,
     JTRACE("Accepting.") (id()) (parent.id()) (remote);
   }
 
-  //     JASSERT(parent.tcpType() == TCP_LISTEN) (parent.tcpType()) (parent.id())
+  //     JASSERT(parent._type == TCP_LISTEN) (parent._type) (parent.id())
   //             .Text("Accepting from a non listening socket????");
   memset(&_bindAddr, 0, sizeof _bindAddr);
 }
@@ -326,7 +326,7 @@ void dmtcp::TcpConnection::drain()
     markExternalConnect();
   }
 
-  switch (tcpType()) {
+  switch (_type) {
     case TCP_CONNECT:
     case TCP_ACCEPT:
       JTRACE("Will drain socket") (_hasLock) (_fds[0]) (_id) (_remotePeerId);
@@ -336,7 +336,7 @@ void dmtcp::TcpConnection::drain()
       KernelBufferDrainer::instance().addListenSocket(_fds[0]);
       break;
     case TCP_BIND:
-      JWARNING(tcpType() != TCP_BIND) (_fds[0])
+      JWARNING(_type != TCP_BIND) (_fds[0])
         .Text("If there are pending connections on this socket,\n"
               " they won't be checkpointed because"
               " it is not yet in a listen state.");
@@ -349,7 +349,7 @@ void dmtcp::TcpConnection::drain()
 
 void dmtcp::TcpConnection::doSendHandshakes(const ConnectionIdentifier& coordId)
 {
-  switch (tcpType()) {
+  switch (_type) {
     case TCP_CONNECT:
     case TCP_ACCEPT:
       JTRACE("Sending handshake ...") (id()) (_fds[0]);
@@ -363,7 +363,7 @@ void dmtcp::TcpConnection::doSendHandshakes(const ConnectionIdentifier& coordId)
 
 void dmtcp::TcpConnection::doRecvHandshakes(const ConnectionIdentifier& coordId)
 {
-  switch (tcpType()) {
+  switch (_type) {
     case TCP_CONNECT:
     case TCP_ACCEPT:
       recvHandshake(_fds[0], coordId);
@@ -379,18 +379,11 @@ void dmtcp::TcpConnection::refill(bool isRestart)
 {
   if ((_fcntlFlags & O_ASYNC) != 0) {
     JTRACE("Re-adding O_ASYNC flag.") (_fds[0]) (id());
-    SocketConnection::restoreSocketOptions(_fds);
-  }
-}
-
-void dmtcp::TcpConnection::restoreOptions()
-{
-  if (_sockDomain != AF_INET6 && tcpType() != TCP_EXTERNAL_CONNECT) {
+    restoreSocketOptions(_fds);
+  } else if (isRestart && _sockDomain != AF_INET6 &&
+             _type != TCP_EXTERNAL_CONNECT) {
     restoreSocketOptions(_fds);
   }
-
-  //call base version(F_GETFL etc)
-  Connection::restoreOptions();
 }
 
 void dmtcp::TcpConnection::restoreSocketPair(dmtcp::TcpConnection *peer)
@@ -417,7 +410,7 @@ void dmtcp::TcpConnection::restoreSocketPair(dmtcp::TcpConnection *peer)
 void dmtcp::TcpConnection::postRestart()
 {
   JASSERT(_fds.size() > 0);
-  switch (tcpType()) {
+  switch (_type) {
     case TCP_PREEXISTING:
     case TCP_ERROR: //not a valid socket
     case TCP_INVALID:
@@ -445,7 +438,7 @@ void dmtcp::TcpConnection::postRestart()
 
         Util::dupFds(_fds[0], _fds);
 
-        if (tcpType() == TCP_CREATED) break;
+        if (_type == TCP_CREATED) break;
 
         if (_sockDomain == AF_UNIX) {
           const char* un_path =((sockaddr_un*) &_bindAddr)->sun_path;
@@ -500,7 +493,7 @@ void dmtcp::TcpConnection::postRestart()
         JWARNING(sock.bind((sockaddr*) &_bindAddr,_bindAddrlen))
           (JASSERT_ERRNO) (id())
           .Text("Bind failed.");
-        if (tcpType() == TCP_BIND) break;
+        if (_type == TCP_BIND) break;
 
         if (really_verbose) {
           JTRACE("Listening socket.") (id());
@@ -509,7 +502,7 @@ void dmtcp::TcpConnection::postRestart()
         JWARNING(sock.listen(_listenBacklog))
           (JASSERT_ERRNO) (id()) (_listenBacklog)
           .Text("Bind failed.");
-        if (tcpType() == TCP_LISTEN) break;
+        if (_type == TCP_LISTEN) break;
 
       }
       break;
@@ -609,21 +602,13 @@ void dmtcp::RawSocketConnection::drain()
   }
 }
 
-void dmtcp::RawSocketConnection::restoreOptions()
-{
-  if (_sockDomain != AF_INET6) {
-    restoreSocketOptions(_fds);
-  }
-
-  //call base version(F_GETFL etc)
-  Connection::restoreOptions();
-}
-
 void dmtcp::RawSocketConnection::refill(bool isRestart)
 {
   if ((_fcntlFlags & O_ASYNC) != 0) {
     JTRACE("Re-adding O_ASYNC flag.") (_fds[0]) (id());
-    SocketConnection::restoreSocketOptions(_fds);
+    restoreSocketOptions(_fds);
+  } else if (isRestart) {
+    restoreSocketOptions(_fds);
   }
 }
 

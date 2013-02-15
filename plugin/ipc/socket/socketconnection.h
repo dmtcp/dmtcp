@@ -82,7 +82,6 @@ namespace dmtcp
       };
 
       TcpConnection() {}
-      int tcpType() const { return _type; }
 
       // This accessor is needed because _type is protected.
       void markExternalConnect() { _type = TCP_EXTERNAL_CONNECT; }
@@ -106,7 +105,6 @@ namespace dmtcp
       virtual void drain();
       virtual void refill(bool isRestart);
       virtual void postRestart();
-      virtual void restoreOptions();
 
       void doSendHandshakes(const ConnectionIdentifier& coordId);
       void doRecvHandshakes(const ConnectionIdentifier& coordId);
@@ -155,7 +153,6 @@ namespace dmtcp
       virtual void drain();
       virtual void refill(bool isRestart);
       virtual void postRestart();
-      virtual void restoreOptions();
 
       virtual void serializeSubClass(jalib::JBinarySerializer& o);
       virtual string str() { return "<TCP Socket>"; }
