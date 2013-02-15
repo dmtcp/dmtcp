@@ -43,14 +43,21 @@ namespace dmtcp
   class FileConnList : public ConnectionList
   {
     public:
+      static FileConnList& instance();
+
+      virtual void preLockSaveOptions();
       virtual void drain();
+      virtual void refill(bool isRestart);
       virtual int protectedFd() { return PROTECTED_FILE_FDREWIRER_FD; }
       //examine /proc/self/fd for unknown connections
-      static FileConnList& instance();
       virtual void scanForPreExisting();
+      virtual Connection *createDummyConnection(int type);
+
       Connection *findDuplication(int fd, const char *path);
       void processFileConnection(int fd, const char *path, int flags, mode_t mode);
-      virtual Connection *createDummyConnection(int type);
+
+      void prepareShmList();
+      void remapShmMaps();
   };
 }
 #endif

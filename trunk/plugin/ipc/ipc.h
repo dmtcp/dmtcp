@@ -31,6 +31,9 @@
 #define HANDSHAKE_SIGNATURE_MSG "DMTCP_SOCK_HANDSHAKE_V0\n"
 #define CONNECTION_ID_START 99000
 
+#define DEV_ZERO_DELETED_STR "/dev/zero (deleted)"
+#define DEV_NULL_DELETED_STR "/dev/null (deleted)"
+
 #define DRAINER_CHECK_FREQ 0.1
 #define DRAINER_WARNING_FREQ 10
 
