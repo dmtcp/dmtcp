@@ -620,6 +620,7 @@ void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
 
   SyslogCheckpointer::stopService();
 
+  SharedData::suspended();
   processEvent(DMTCP_EVENT_SUSPENDED, NULL);
 
   waitForCoordinatorMsg ("FD_LEADER_ELECTION", DMT_DO_FD_LEADER_ELECTION);

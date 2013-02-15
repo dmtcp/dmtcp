@@ -36,6 +36,7 @@
 
 #define SHM_MAX_SIZE (sizeof(dmtcp::SharedData::Header))
 
+using namespace dmtcp;
 static struct dmtcp::SharedData::Header *sharedDataHeader = NULL;
 static void *prevSharedDataHeaderAddr = NULL;
 static unsigned nextVirtualPtyId = -1;
@@ -132,6 +133,12 @@ void dmtcp::SharedData::initialize()
     Util::unlockFile(PROTECTED_SHM_FD);
   }
   JTRACE("Shared area mapped") (sharedDataHeader);
+}
+
+void dmtcp::SharedData::suspended()
+{
+  if (sharedDataHeader == NULL) initialize();
+  sharedDataHeader->numInodeConnIdMaps = 0;
 }
 
 void dmtcp::SharedData::preCkpt()
@@ -372,4 +379,33 @@ void dmtcp::SharedData::getMissingConMaps(struct SharedData::MissingConMap **map
   if (sharedDataHeader == NULL) initialize();
   *map = sharedDataHeader->missingConMap;
   *nmaps = sharedDataHeader->numMissingConMaps;
+}
+
+void SharedData::insertInodeConnIdMaps(vector<SharedData::InodeConnIdMap>& maps)
+{
+  if (sharedDataHeader == NULL) initialize();
+  Util::lockFile(PROTECTED_SHM_FD);
+  size_t startIdx = sharedDataHeader->numInodeConnIdMaps;
+  sharedDataHeader->numInodeConnIdMaps += maps.size();
+  Util::unlockFile(PROTECTED_SHM_FD);
+
+  for (size_t i = 0; i < maps.size(); i++) {
+    sharedDataHeader->inodeConnIdMap[startIdx + i] = maps[i];
+  }
+}
+
+bool SharedData::getCkptLeaderForFile(dev_t devnum, ino_t inode, void *id)
+{
+  if (sharedDataHeader == NULL) initialize();
+  JASSERT(id != NULL);
+  if (sharedDataHeader->numInodeConnIdMaps > 0) {
+    for (size_t i = sharedDataHeader->numInodeConnIdMaps - 1; i >= 0; i--) {
+      InodeConnIdMap& map = sharedDataHeader->inodeConnIdMap[i];
+      if (map.devnum == devnum && map.inode== inode) {
+        memcpy(id, map.id, sizeof(map.id));
+        return true;
+      }
+    }
+  }
+  return false;
 }
