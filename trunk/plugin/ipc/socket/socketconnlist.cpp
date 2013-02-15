@@ -107,6 +107,7 @@ void dmtcp::SocketConnList::sendQueries(bool isRestart)
     ConnectionRewirer::instance().sendQueries();
     // Also frees the object when done.
     ConnectionRewirer::instance().doReconnect();
+    ConnectionRewirer::destroy();
   }
   ConnectionList::sendQueries(isRestart);
 }

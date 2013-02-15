@@ -113,6 +113,12 @@ EXTERNC int  dmtcp_is_protected_fd(int fd)
   return dmtcp::ProtectedFDs::isProtected(fd);
 }
 
+EXTERNC void dmtcp_close_protected_fd(int fd)
+{
+  JASSERT(dmtcp::ProtectedFDs::isProtected(fd));
+  _real_close(fd);
+}
+
 EXTERNC int dmtcp_get_readlog_fd()
 {
   return PROTECTED_READLOG_FD;

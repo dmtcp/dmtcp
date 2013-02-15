@@ -523,7 +523,7 @@ void dmtcp::ConnectionList::sendReceiveMissingFds()
       numMissingCons--;
     }
   }
-  _real_close(restoreFd);
+  dmtcp_close_protected_fd(restoreFd);
 }
 
 static void sendFd(int restoreFd, int fd, ConnectionIdentifier& id,
