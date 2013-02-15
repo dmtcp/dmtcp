@@ -332,7 +332,6 @@ void dmtcp::PtyConnection::refill(bool isRestart)
     JTRACE("Restoring PTS real") (_ptsName) (_virtPtsName) (_fds[0]);
     Util::dupFds(tempfd, _fds);
   }
-  restoreOptions();
 }
 
 void dmtcp::PtyConnection::postRestart()
@@ -654,7 +653,6 @@ void dmtcp::FileConnection::refill(bool isRestart)
     }
   }
   refreshPath();
-  restoreOptions();
 }
 
 void dmtcp::FileConnection::resume(bool isRestart)
@@ -966,7 +964,6 @@ void dmtcp::FifoConnection::refill(bool isRestart)
   // unlock fifo
   flock(_fds[0],LOCK_UN);
   JTRACE("End checkpointing fifo.") (_fds[0]);
-  restoreOptions();
 }
 
 void dmtcp::FifoConnection::refreshPath()
@@ -1027,7 +1024,6 @@ void dmtcp::StdioConnection::drain()
 
 void dmtcp::StdioConnection::refill(bool isRestart)
 {
-  restoreOptions();
 }
 
 void dmtcp::StdioConnection::postRestart()

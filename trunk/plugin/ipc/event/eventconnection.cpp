@@ -160,7 +160,6 @@ void dmtcp::EventFdConnection::refill(bool isRestart)
       (evtfd) (errno) (strerror(errno))
       .Text("Write to eventfd failed during refill");
   }
-  restoreOptions();
   JTRACE("End refill eventfd.") (_fds[0]);
 }
 
@@ -220,7 +219,6 @@ void dmtcp::SignalFdConnection::refill(bool isRestart)
   //raise the signals
   JTRACE("Raising the signal...") (_fdsi.ssi_signo);
   raise(_fdsi.ssi_signo);
-  restoreOptions();
   JTRACE("End refill signalfd.") (_fds[0]);
 }
 
