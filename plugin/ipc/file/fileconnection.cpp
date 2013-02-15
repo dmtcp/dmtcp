@@ -367,25 +367,25 @@ void dmtcp::PtyConnection::postRestart()
         dmtcp::string controllingTty = jalib::Filesystem::GetControllingTerm();
         dmtcp::string stdinDeviceName =
           (jalib::Filesystem::GetDeviceName(STDIN_FILENO));
-        if (controllingTty.length() == 0) {
+        if (controllingTty.length() > 0) {
+          tempfd = _real_open(controllingTty.c_str(), _fcntlFlags);
+          JASSERT(tempfd >= 0) (tempfd) (controllingTty) (JASSERT_ERRNO)
+            .Text("Error Opening the terminal attached with the process");
+        } else {
           JTRACE("Unable to restore terminal attached with the process.\n"
                  "Replacing it with current STDIN")
             (stdinDeviceName);
           JWARNING(Util::strStartsWith(stdinDeviceName, "/dev/pts/") ||
                    stdinDeviceName == "/dev/tty")
             .Text("Controlling terminal not bound to a terminal device.");
-        }
 
-        if (Util::isValidFd(STDIN_FILENO)) {
-          tempfd = STDIN_FILENO;
-        } else if (Util::isValidFd(STDOUT_FILENO)) {
-          tempfd = STDOUT_FILENO;
-        } else if (controllingTty.length() > 0) {
-          tempfd = _real_open(controllingTty.c_str(), _fcntlFlags);
-          JASSERT(tempfd >= 0) (tempfd) (controllingTty) (JASSERT_ERRNO)
-            .Text("Error Opening the terminal attached with the process");
-        } else {
-          JASSERT("Controlling terminal and STDIN/OUT not found.");
+          if (Util::isValidFd(STDIN_FILENO)) {
+            tempfd = _real_dup(STDIN_FILENO);
+          } else if (Util::isValidFd(STDOUT_FILENO)) {
+            tempfd = _real_dup(STDOUT_FILENO);
+          } else {
+            JASSERT("Controlling terminal and STDIN/OUT not found.");
+          }
         }
 
         JTRACE("Restoring CTTY for the process") (controllingTty) (_fds[0]);
