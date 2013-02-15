@@ -33,6 +33,7 @@
 #define MAX_PTRACE_ID_MAPS 256
 #define MAX_PROCESS_TREE_ROOTS 256
 #define MAX_MISSING_CONNECTIONS 10240
+#define MAX_INODE_PID_MAPS 10240
 #define CON_ID_LEN \
   (sizeof(DmtcpUniqueProcessId) + sizeof(long))
 
@@ -59,6 +60,12 @@ namespace dmtcp {
       pid_t childId;
     };
 
+    typedef struct InodeConnIdMap {
+      dev_t devnum;
+      ino_t inode;
+      char  id[CON_ID_LEN];
+    } InodeConnIdMap;
+
     struct Header {
       bool                 initialized;
       char                 versionStr[32];
@@ -79,10 +86,14 @@ namespace dmtcp {
 
       struct MissingConMap missingConMap[MAX_MISSING_CONNECTIONS];
       size_t               numMissingConMaps;
+
+      InodeConnIdMap       inodeConnIdMap[MAX_INODE_PID_MAPS];
+      size_t               numInodeConnIdMaps;
     };
 
     void initialize();
     void initializeHeader();
+    void suspended();
     void preCkpt();
     void refill();
 
@@ -113,6 +124,9 @@ namespace dmtcp {
                              struct sockaddr_un receiverAddr,
                              socklen_t len);
     void getMissingConMaps(struct MissingConMap **map, size_t *nmaps);
+
+    void insertInodeConnIdMaps(vector<SharedData::InodeConnIdMap>& maps);
+    bool getCkptLeaderForFile(dev_t devnum, ino_t inode, void *id);
   }
 }
 #endif
