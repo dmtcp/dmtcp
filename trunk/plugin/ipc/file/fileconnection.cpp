@@ -529,27 +529,6 @@ void dmtcp::FileConnection::calculateRelativePath()
   }
 }
 
-#if 0
-void dmtcp::FileConnection::preCheckpointResMgrFile()
-{
-  JTRACE("Pre-checkpoint Torque files") (_fds.size());
-  for (unsigned int i=0; i< _fds.size(); i++)
-    JTRACE("_fds[i]=") (i) (_fds[i]);
-
-  if (isTorqueIOFile(_path)) {
-    _rmtype = TORQUE_IO;
-    // Save the content of stdio or node file
-    // to restore it later in new IO file or in temporal Torque nodefile
-    saveFile();
-  } else if (isTorqueNodeFile(_path) || _rmtype == TORQUE_NODE) {
-    _rmtype = TORQUE_NODE;
-    // Save the content of stdio or node file
-    // to restore it later in new IO file or in temporal Torque nodefile
-    saveFile();
-  }
-}
-#endif
-
 void dmtcp::FileConnection::drain()
 {
   JASSERT(_fds.size() > 0);
@@ -1017,15 +996,6 @@ void dmtcp::FifoConnection::serializeSubClass(jalib::JBinarySerializer& o)
  * Stdio Connection
  *****************************************************************************/
 
-void dmtcp::StdioConnection::drain()
-{
-  //JTRACE("Checkpointing stdio") (_fds[0]) (id());
-}
-
-void dmtcp::StdioConnection::refill(bool isRestart)
-{
-}
-
 void dmtcp::StdioConnection::postRestart()
 {
   for (size_t i=0; i<_fds.size(); ++i) {
@@ -1054,12 +1024,6 @@ void dmtcp::StdioConnection::postRestart()
     errno = 0;
     JWARNING(_real_dup2(oldFd, fd) == fd) (oldFd) (fd) (JASSERT_ERRNO);
   }
-}
-
-void dmtcp::StdioConnection::serializeSubClass(jalib::JBinarySerializer& o)
-{
-  JSERIALIZE_ASSERT_POINT("dmtcp::StdioConnection");
-  //JTRACE("Serializing STDIO") (id());
 }
 
 /*****************************************************************************
