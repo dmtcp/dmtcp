@@ -119,6 +119,7 @@ void pidVirt_PostRestart(DmtcpEventData_t *data)
 void pidVirt_PostRestartRefill(DmtcpEventData_t *data)
 {
   dmtcp::VirtualPidTable::instance().readMapsFromFile(PROTECTED_PIDMAP_FD);
+  dmtcp_close_protected_fd(PROTECTED_PIDMAP_FD);
 }
 
 void pidVirt_ThreadExit(DmtcpEventData_t *data)

@@ -130,6 +130,7 @@ EXTERNC void dmtcp_block_ckpt_signal();
 EXTERNC void dmtcp_unblock_ckpt_signal();
 
 EXTERNC void *dmtcp_get_libc_dlsym_addr();
+EXTERNC void dmtcp_close_protected_fd(int fd);
 
 EXTERNC pid_t dmtcp_real_to_virtual_pid(pid_t realPid) __attribute((weak));
 EXTERNC pid_t dmtcp_virtual_to_real_pid(pid_t virtualPid) __attribute((weak));

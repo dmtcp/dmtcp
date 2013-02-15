@@ -46,6 +46,15 @@ dmtcp::ConnectionRewirer& dmtcp::ConnectionRewirer::instance()
   return *theRewirer;
 }
 
+void dmtcp::ConnectionRewirer::destroy()
+{
+  dmtcp_close_protected_fd(PROTECTED_RESTORE_SOCK_FD);
+
+  // Free up the object.
+  delete theRewirer;
+  theRewirer = NULL;
+}
+
 void dmtcp::ConnectionRewirer::checkForPendingIncoming()
 {
   while (_pendingIncoming.size() > 0) {
@@ -98,10 +107,6 @@ void dmtcp::ConnectionRewirer::doReconnect()
   }
   JTRACE("Closing restore socket");
   _real_close(PROTECTED_RESTORE_SOCK_FD);
-
-  // Free up the object.
-  delete theRewirer;
-  theRewirer = NULL;
 }
 
 void dmtcp::ConnectionRewirer::openRestoreSocket()
