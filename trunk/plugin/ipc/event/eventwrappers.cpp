@@ -84,6 +84,7 @@ extern "C" int poll(struct pollfd *fds, nfds_t nfds, POLL_TIMEOUT_TYPE timeout)
 /****************************************************************************
  ****************************************************************************/
 
+#ifdef HAVE_SYS_SIGNALFD_H
 extern "C" int signalfd(int fd, const sigset_t *mask, int flags)
 {
   DMTCP_DISABLE_CKPT();
@@ -95,7 +96,9 @@ extern "C" int signalfd(int fd, const sigset_t *mask, int flags)
   DMTCP_ENABLE_CKPT();
   return ret;
 }
+#endif
 
+#ifdef HAVE_SYS_EVENTFD_H
 extern "C" int eventfd(EVENTFD_VAL_TYPE initval, int flags)
 {
   DMTCP_DISABLE_CKPT();
@@ -107,7 +110,9 @@ extern "C" int eventfd(EVENTFD_VAL_TYPE initval, int flags)
   DMTCP_ENABLE_CKPT();
   return ret;
 }
+#endif
 
+#ifdef HAVE_SYS_EPOLL_H
 extern "C" int epoll_create(int size)
 {
   DMTCP_DISABLE_CKPT();
@@ -171,8 +176,10 @@ extern "C" int epoll_wait(int epfd, struct epoll_event *events, int maxevents,
     }
   }
 }
+#endif
 
 
+#ifdef HAVE_SYS_INOTIFY_H
 #ifndef DMTCP_USE_INOTIFY
 EXTERNC int inotify_init()
 {
@@ -286,4 +293,5 @@ EXTERNC int inotify_rm_watch(int fd, int wd)
   DMTCP_ENABLE_CKPT();
   return ret;
 }
+#endif
 #endif

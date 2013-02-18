@@ -222,10 +222,10 @@ int _real_dup2 (int oldfd, int newfd)
   REAL_FUNC_PASSTHROUGH (dup2) (oldfd, newfd);
 }
 
-int _real_dup3 (int oldfd, int newfd, int flags)
-{
-  REAL_FUNC_PASSTHROUGH (dup3) (oldfd, newfd, flags);
-}
+//int _real_dup3 (int oldfd, int newfd, int flags)
+//{
+//  REAL_FUNC_PASSTHROUGH (dup3) (oldfd, newfd, flags);
+//}
 
 void _real_exit (int status)
 {

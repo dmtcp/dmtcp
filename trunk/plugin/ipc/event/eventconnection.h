@@ -66,6 +66,7 @@ struct signalfd_siginfo {uint32_t ssi_signo; int dummy;};
 
 namespace dmtcp
 {
+#ifdef HAVE_SYS_EPOLL_H
   class EpollConnection: public Connection
   {
     public:
@@ -103,7 +104,9 @@ namespace dmtcp
       int         _size; // flags
       dmtcp::map<int, struct epoll_event > _fdToEvent;
   };
+#endif
 
+#ifdef HAVE_SYS_EVENTFD_H
   class EventFdConnection: public Connection
   {
     public:
@@ -127,7 +130,9 @@ namespace dmtcp
       int         _flags; // flags
       int evtfd;
   };
+#endif
 
+#ifdef HAVE_SYS_SIGNALFD_H
   class SignalFdConnection: public Connection
   {
     public:
@@ -157,7 +162,9 @@ namespace dmtcp
       sigset_t _mask; // mask for signals
       struct signalfd_siginfo _fdsi;
   };
+#endif
 
+#ifdef HAVE_SYS_INOTIFY_H
 #ifdef DMTCP_USE_INOTIFY
   class InotifyConnection: public Connection
   {
@@ -195,6 +202,7 @@ namespace dmtcp
       int         _state; // current state of INOTIFY
       struct stat _stat; // not sure if stat makes sense in case  of epfd
   };
+#endif
 #endif
 }
 

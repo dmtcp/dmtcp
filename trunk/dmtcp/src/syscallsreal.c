@@ -1107,7 +1107,7 @@ int _real_poll(struct pollfd *fds, nfds_t nfds, POLL_TIMEOUT_TYPE timeout) {
   REAL_FUNC_PASSTHROUGH (poll) (fds, nfds, timeout);
 }
 
-
+#if 0
 LIB_PRIVATE
 int _real_epoll_create(int size) {
   REAL_FUNC_PASSTHROUGH (epoll_create) (size);
@@ -1170,3 +1170,4 @@ LIB_PRIVATE
 int _real_inotify_rm_watch(int fd, int wd) {
   REAL_FUNC_PASSTHROUGH (inotify_rm_watch) (fd, wd);
 }
+#endif
