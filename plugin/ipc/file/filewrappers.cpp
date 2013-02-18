@@ -608,7 +608,11 @@ extern "C" int fcntl(int fd, int cmd, ...)
 
   int res = _real_fcntl(fd, cmd, arg);
   if (res != -1 &&
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
       (cmd == F_DUPFD || cmd == F_DUPFD_CLOEXEC) &&
+#else
+      (cmd == F_DUPFD) &&
+#endif
       dmtcp_is_running_state()) {
     dmtcp::FileConnList::instance().processDup(fd, res);
   }

@@ -47,6 +47,7 @@ using namespace dmtcp;
  * Epoll Connection
  *****************************************************************************/
 
+#ifdef HAVE_SYS_EPOLL_H
 void dmtcp::EpollConnection::drain()
 {
   JASSERT(_fds.size() > 0);
@@ -105,10 +106,12 @@ void dmtcp::EpollConnection::onCTL(int op, int fd, struct epoll_event *event)
   memcpy(&myEvent, event, sizeof myEvent);
   _fdToEvent[fd] = myEvent;
 }
+#endif
 
 /*****************************************************************************
  * Eventfd Connection
  *****************************************************************************/
+#ifdef HAVE_SYS_EVENTFD_H
 void dmtcp::EventFdConnection::drain()
 {
   JASSERT(_fds.size() > 0);
@@ -180,10 +183,12 @@ void dmtcp::EventFdConnection::serializeSubClass(jalib::JBinarySerializer& o)
   o & _initval & _flags;
   JTRACE("Serializing EvenFdConn.") ;
 }
+#endif
 
 /*****************************************************************************
  * Signalfd Connection
  *****************************************************************************/
+#ifdef HAVE_SYS_SIGNALFD_H
 void dmtcp::SignalFdConnection::drain()
 {
   JASSERT(_fds.size() > 0);
@@ -239,6 +244,7 @@ void dmtcp::SignalFdConnection::serializeSubClass(jalib::JBinarySerializer& o)
   o &  _flags & _mask & _fdsi;
   JTRACE("Serializing SignalFdConn.") ;
 }
+#endif
 
 #ifdef DMTCP_USE_INOTIFY
 /*****************************************************************************

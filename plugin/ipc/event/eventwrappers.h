@@ -24,18 +24,31 @@
 #define EVENT_WRAPPERS_H
 
 #include "dmtcpplugin.h"
+#include "eventconnection.h"
 
 #define _real_poll NEXT_FNC(poll)
+
+#ifdef HAVE_SYS_EPOLL_H
 #define _real_epoll_create NEXT_FNC(epoll_create)
 #define _real_epoll_create1 NEXT_FNC(epoll_create1)
 #define _real_epoll_ctl NEXT_FNC(epoll_ctl)
 #define _real_epoll_wait NEXT_FNC(epoll_wait)
 #define _real_epoll_pwait NEXT_FNC(epoll_pwait)
+#endif
+
+#ifdef HAVE_SYS_EVENTFD_H
 #define _real_eventfd NEXT_FNC(eventfd)
+#endif
+
+#ifdef HAVE_SYS_SIGNALFD_H
 #define _real_signalfd NEXT_FNC(signalfd)
+#endif
+
+#ifdef HAVE_SYS_INOTIFY_H
 #define _real_inotify_init NEXT_FNC(inotify_init)
 #define _real_inotify_init1 NEXT_FNC(inotify_init1)
 #define _real_inotify_add_watch NEXT_FNC(inotify_add_watch)
 #define _real_inotify_rm_watch NEXT_FNC(inotify_rm_watch)
+#endif
 
 #endif // EVENT_WRAPPERS_H

@@ -33,19 +33,30 @@ dmtcp::EventConnList& dmtcp::EventConnList::instance()
 Connection *dmtcp::EventConnList::createDummyConnection(int type)
 {
   switch (type) {
+#ifdef HAVE_SYS_EPOLL_H
     case Connection::EPOLL:
       return new EpollConnection(5); //dummy val
       break;
+#endif
+
+#ifdef HAVE_SYS_EVENTFD_H
     case Connection::EVENTFD:
       return new EventFdConnection(0, 0); //dummy val
       break;
+#endif
+
+#ifdef HAVE_SYS_SIGNALFD_H
     case Connection::SIGNALFD:
       return new SignalFdConnection(0, NULL, 0); //dummy val
       break;
+#endif
+
+#ifdef HAVE_SYS_INOTIFY_H
 #ifdef DMTCP_USE_INOTIFY
     case Connection::INOTIFY:
       return new InotifyConnection(0);
       break;
+#endif
 #endif
   }
   return NULL;
