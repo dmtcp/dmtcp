@@ -239,7 +239,7 @@ void dmtcp::ConnectionList::list()
     o << "\t" << i->first << "\t" << c->str();
     o << "\n";
   }
-  JTRACE("ConnectionList") (UniquePid::ThisProcess()) (o.str());
+  JTRACE("ConnectionList") (dmtcp_get_uniquepid_str()) (o.str());
 }
 
 dmtcp::Connection*

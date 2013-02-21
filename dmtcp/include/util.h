@@ -22,7 +22,6 @@
 #ifndef UTIL_H
 #define UTIL_H
 
-#include "constants.h"
 #include "dmtcpalloc.h"
 
 typedef char * VA;

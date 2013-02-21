@@ -13,10 +13,10 @@ LIBOBJS = ${NAME}.o
 ifndef DMTCP_ROOT
   DMTCP_ROOT=../../..
 endif
-DMTCP_SRC=${DMTCP_ROOT}/dmtcp/src
+DMTCP_INCLUDE=${DMTCP_ROOT}/dmtcp/include
 
-CFLAGS += -I${DMTCP_SRC} -DDMTCP -fPIC -c --std=gnu99 -g
-CXXFLAGS += -I${DMTCP_SRC} -DDMTCP -fPIC -c -g
+CFLAGS += -I${DMTCP_INCLUDE} -DDMTCP -fPIC -c --std=gnu99 -g
+CXXFLAGS += -I${DMTCP_INCLUDE} -DDMTCP -fPIC -c -g
 
 DEMO_PORT=7781
 

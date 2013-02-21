@@ -26,10 +26,10 @@ libdir = @libdir@
 pkglibdir = $(libdir)/@PACKAGE@
 
 DMTCP_ROOT=../..
-DMTCP_SRC_PATH = $(DMTCP_ROOT)/dmtcp/src
+DMTCP_INCLUDE_PATH = $(DMTCP_ROOT)/dmtcp/include
 JALIB_PATH = $(DMTCP_ROOT)/dmtcp/jalib
 
-INCLUDES = -I$(JALIB_PATH) -I$(DMTCP_SRC_PATH)
+INCLUDES = -I$(JALIB_PATH) -I$(DMTCP_INCLUDE_PATH)
 # NOTE: setting CFLAGS/CXXFLAGS here means setting external values as in
 #  env CFLAGS="-g -O0" make
 # will be ignored.
@@ -46,7 +46,7 @@ LINK = $(CC) $(CFLAGS) $(LDFLAGS) -o $@
 CXXCOMPILE = $(CXX) $(INCLUDES) $(CPPFLAGS) $(CXXFLAGS) -c -o $@
 CXXLINK = $(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@
 
-HEADERS = $(DMTCP_SRC_PATH)/util.h $(DMTCP_SRC_PATH)/dmtcpplugin.h \
+HEADERS = $(DMTCP_INCLUDE_PATH)/util.h $(DMTCP_INCLUDE_PATH)/dmtcpplugin.h \
 	  ptrace.h ptraceinfo.h \
 	  $(JALIB_PATH)/jassert.h $(JALIB_PATH)/jalloc.h \
 	  $(JALIB_PATH)/jalib.h $(JALIB_PATH)/jbuffer.h \

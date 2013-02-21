@@ -26,10 +26,10 @@ libdir = @libdir@
 pkglibdir = $(libdir)/@PACKAGE@
 
 DMTCP_ROOT=../..
-DMTCP_SRC_PATH = $(DMTCP_ROOT)/dmtcp/src
+DMTCP_INCLUDE_PATH = $(DMTCP_ROOT)/dmtcp/include
 JALIB_PATH = $(DMTCP_ROOT)/dmtcp/jalib
 
-INCLUDES = -I. -I$(JALIB_PATH) -I$(DMTCP_SRC_PATH)
+INCLUDES = -I. -I$(JALIB_PATH) -I$(DMTCP_INCLUDE_PATH)
 CFLAGS += -DHAVE_CONFIG_H -fPIC -g
 CXXFLAGS += -DHAVE_CONFIG_H -fPIC -g
 ifeq ($(M32),1)
@@ -42,9 +42,9 @@ CXXCOMPILE = $(CXX) $(INCLUDES) $(CPPFLAGS) $(CXXFLAGS) -c -o $@
 CXXLINK = $(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@
 
 COMMON_HEADERS = ipc.h \
-		 $(DMTCP_SRC_PATH)/util.h $(DMTCP_SRC_PATH)/dmtcpplugin.h \
-		 $(DMTCP_SRC_PATH)/shareddata.h $(DMTCP_SRC_PATH)/dmtcpalloc.h \
-		 $(DMTCP_SRC_PATH)/config.h $(DMTCP_SRC_PATH)/protectedfds.h \
+		 $(DMTCP_INCLUDE_PATH)/util.h $(DMTCP_INCLUDE_PATH)/dmtcpplugin.h \
+		 $(DMTCP_INCLUDE_PATH)/shareddata.h $(DMTCP_INCLUDE_PATH)/dmtcpalloc.h \
+		 $(DMTCP_INCLUDE_PATH)/config.h $(DMTCP_INCLUDE_PATH)/protectedfds.h \
 		 $(JALIB_PATH)/jassert.h $(JALIB_PATH)/jalloc.h \
 		 $(JALIB_PATH)/jalib.h $(JALIB_PATH)/jbuffer.h \
 		 $(JALIB_PATH)/jconvert.h $(JALIB_PATH)/jfilesystem.h \

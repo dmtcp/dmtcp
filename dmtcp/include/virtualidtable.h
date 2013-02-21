@@ -26,6 +26,8 @@
 #include "../jalib/jserialize.h"
 #include "../jalib/jfilesystem.h"
 #include "../jalib/jalloc.h"
+#include "../jalib/jconvert.h"
+#include "../jalib/jassert.h"
 #include "dmtcpalloc.h"
 #include "util.h"
 

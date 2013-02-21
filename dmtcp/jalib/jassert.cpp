@@ -37,10 +37,6 @@
 #undef JASSERT_CONT_A
 #undef JASSERT_CONT_B
 
-// This macro is also defined in ../src/constants.h and should always be kept
-// in sync with that.
-#define LIBC_FILENAME "libc.so.6"
-
 using namespace jalib;
 int jassert_quiet = 0;
 

@@ -55,10 +55,6 @@
 #define CKPT_FILE_SUFFIX ".dmtcp"
 #define CKPT_FILES_SUBDIR_PREFIX "ckpt_"
 #define CKPT_FILES_SUBDIR_SUFFIX "_files"
-#define DELETED_FILE_SUFFIX " (deleted)"
-#define NULL_FILE_SUFFIX "/null"
-#define DMTCP_PTS_PREFIX_STR  "dmtcp_"
-#define VIRT_PTS_PREFIX_STR "/dev/pts/v"
 /* dmtcp_checkpoint, dmtcp_restart return a unique rc (default: 99) */
 #define DMTCP_FAIL_RC \
         (getenv("DMTCP_FAIL_RC") && atoi(getenv("DMTCP_FAIL_RC")) ? \
@@ -71,8 +67,6 @@
 
 #define DEFAULT_HOST "127.0.0.1"
 #define DEFAULT_PORT 7779
-
-#define SHM_VERSION_STR "DMTCP_GLOBAL_AREA_V0.99"
 
 // Matchup this definition with the one in plugins/ptrace/ptracewrappers.h
 #define DMTCP_FAKE_SYSCALL 1023
@@ -99,6 +93,7 @@
 #define ENV_VAR_PREFIX_ID "DMTCP_PREFIX_ID"
 #define ENV_VAR_PREFIX_PATH "DMTCP_PREFIX_PATH"
 #define ENV_VAR_DMTCP_DUMMY "DMTCP_DUMMY"
+// Keep in sync with plugin/pid/pidwrappers.h
 #define ENV_VAR_VIRTUAL_PID "DMTCP_VIRTUAL_PID"
 
 
@@ -155,14 +150,9 @@
 
 #define DMTCP_FILE_HEADER "DMTCP_CHECKPOINT_IMAGE_v1.10\n"
 
-#define PROTECTED_FD_START 820
-#define PROTECTED_FD_COUNT 16
-
 // Fix dlclose segfault bug
 //#define MAX_DLCLOSE_MTCP_CALLS 10
 #define MAX_DLCLOSE_MTCP_CALLS 1
-
-#define PTS_PATH_MAX 32
 
 // #define MIN_SIGNAL 1
 // #define MAX_SIGNAL 30
@@ -170,8 +160,6 @@
 #if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,9)
 #define user_desc modify_ldt_ldt_s
 #endif
-
-#define LIB_PRIVATE __attribute__ ((visibility ("hidden")))
 
 #define DMTCP_VERSION_AND_COPYRIGHT_INFO                                        \
   BINARY_NAME " (DMTCP + MTCP) " PACKAGE_VERSION "\n"                           \
@@ -184,15 +172,5 @@
 #define DMTCP_BANNER                                                            \
   DMTCP_VERSION_AND_COPYRIGHT_INFO                                              \
   "(Use flag \"-q\" to hide this message.)\n\n"
-
-#if __GLIBC_PREREQ(2,5)
-# define READLINK_RET_TYPE ssize_t
-#else
-# define READLINK_RET_TYPE int
-#endif
-
-#define SYSCALL_ARG_RET_TYPE long int
-#define POLL_TIMEOUT_TYPE int
-#define EVENTFD_VAL_TYPE int
 
 #endif

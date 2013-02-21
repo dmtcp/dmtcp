@@ -30,9 +30,8 @@
 #include <map>
 #include "../jalib/jserialize.h"
 #include "../jalib/jalloc.h"
-#include "uniquepid.h"
 #include "dmtcpalloc.h"
-#include "constants.h"
+#include "dmtcpplugin.h"
 #include "virtualidtable.h"
 
 #define REAL_TO_VIRTUAL_PID(pid) \

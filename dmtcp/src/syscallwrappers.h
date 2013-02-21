@@ -34,7 +34,6 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <poll.h>
-#include "constants.h"
 #include <stdarg.h>
 #ifndef __arm__
 # include <asm/ldt.h> // Needed for 'struct user_desc' (arg 6 of __clone)
@@ -53,6 +52,8 @@ struct user_desc {int dummy;}; /* <asm/ldt.h> is missing in Ubuntu 11.10 */
 # include <sys/inotify.h>
 #endif
 
+#include "constants.h"
+#include "dmtcpplugin.h"
 #ifdef HAVE_CONFIG_H
 # include "config.h"
 #endif

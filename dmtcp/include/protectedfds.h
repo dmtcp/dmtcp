@@ -23,7 +23,6 @@
 #define DMTCPPROTECTEDFDS_H
 
 
-#include "constants.h"
 #include "../jalib/jalloc.h"
 
 #define PROTECTEDFDS (dmtcp::ProtectedFDs::instance())
@@ -44,6 +43,9 @@
 #define PROTECTED_SOCKET_FDREWIRER_FD     PFD(13)
 #define PROTECTED_EVENT_FDREWIRER_FD     PFD(14)
 #define PROTECTED_READLOG_FD       PFD(15)
+
+#define PROTECTED_FD_START 820
+#define PROTECTED_FD_COUNT 16
 
 #define DMTCP_IS_PROTECTED_FD(fd) \
   (fd >= PFD(0) && fd < PFD(PROTECTED_FD_COUNT))

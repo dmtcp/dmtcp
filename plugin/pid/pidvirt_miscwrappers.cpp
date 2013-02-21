@@ -21,6 +21,7 @@
 
 #include <semaphore.h>
 #include <sys/syscall.h>
+#include <linux/version.h>
 
 #include "jassert.h"
 #include "jfilesystem.h"

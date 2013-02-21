@@ -23,7 +23,6 @@
 #ifndef FILE_WRAPPERS_H
 #define FILE_WRAPPERS_H
 
-#include "constants.h"
 #include "dmtcpplugin.h"
 
 #define _real_open NEXT_FNC(open)

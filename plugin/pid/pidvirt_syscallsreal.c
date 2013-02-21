@@ -30,7 +30,6 @@
 #include <stdlib.h>
 #include <sys/syscall.h>
 #include <unistd.h>
-#include "constants.h"
 #include "pidwrappers.h"
 
 typedef int ( *funcptr_t ) ();

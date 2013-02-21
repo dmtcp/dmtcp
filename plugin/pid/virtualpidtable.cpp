@@ -25,7 +25,6 @@
 #include <sstream>
 #include <fcntl.h>
 #include <sys/syscall.h>
-#include "constants.h"
 #include "util.h"
 #include "pidwrappers.h"
 #include "../jalib/jconvert.h"

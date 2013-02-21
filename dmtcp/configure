@@ -2588,7 +2588,7 @@ fi
   MAINT=$MAINTAINER_MODE_TRUE
 
 
-ac_config_headers="$ac_config_headers src/config.h"
+ac_config_headers="$ac_config_headers include/config.h"
 
 #AM_PROG_LIBTOOL
 
@@ -5549,7 +5549,7 @@ cat >>$CONFIG_STATUS <<\_ACEOF || ac_write_fail=1
 for ac_config_target in $ac_config_targets
 do
   case $ac_config_target in
-    "src/config.h") CONFIG_HEADERS="$CONFIG_HEADERS src/config.h" ;;
+    "include/config.h") CONFIG_HEADERS="$CONFIG_HEADERS include/config.h" ;;
     "depfiles") CONFIG_COMMANDS="$CONFIG_COMMANDS depfiles" ;;
     "Makefile") CONFIG_FILES="$CONFIG_FILES Makefile" ;;
     "src/Makefile") CONFIG_FILES="$CONFIG_FILES src/Makefile" ;;
