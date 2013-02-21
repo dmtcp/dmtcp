@@ -280,12 +280,12 @@ void dmtcp::SharedData::setProcessTreeRoot()
   Util::lockFile(PROTECTED_SHM_FD);
   JASSERT(sharedDataHeader->numProcessTreeRoots < MAX_PROCESS_TREE_ROOTS);
   size_t i = sharedDataHeader->numProcessTreeRoots;
-  sharedDataHeader->processTreeRoots[i] = UniquePid::ThisProcess();
+  sharedDataHeader->processTreeRoots[i] = UniquePid::ThisProcess().upid();
   sharedDataHeader->numProcessTreeRoots++;
   Util::unlockFile(PROTECTED_SHM_FD);
 }
 
-void dmtcp::SharedData::getProcessTreeRoots(dmtcp::UniquePid **roots,
+void dmtcp::SharedData::getProcessTreeRoots(DmtcpUniqueProcessId **roots,
                                             size_t *numRoots)
 {
   if (sharedDataHeader == NULL) initialize();

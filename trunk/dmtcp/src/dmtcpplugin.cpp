@@ -34,10 +34,9 @@ EXTERNC void dmtcp_set_tmpdir(const char* dir)
 
 EXTERNC const char* dmtcp_get_ckpt_dir()
 {
-  static dmtcp::string *tmpdir = NULL;
-  if (tmpdir == NULL)
-    tmpdir = new dmtcp::string(dmtcp::UniquePid::getCkptDir());
-  return tmpdir->c_str();
+  static dmtcp::string tmpdir;
+  tmpdir = dmtcp::UniquePid::getCkptDir();
+  return tmpdir.c_str();
 }
 
 EXTERNC void dmtcp_set_ckpt_dir(const char* dir)
@@ -45,6 +44,18 @@ EXTERNC void dmtcp_set_ckpt_dir(const char* dir)
   if (dir != NULL) {
     dmtcp::UniquePid::setCkptDir(dir);
   }
+}
+
+EXTERNC const char* dmtcp_get_ckpt_files_subdir()
+{
+  static dmtcp::string tmpdir;
+  tmpdir = dmtcp::UniquePid::getCkptFilesSubDir();
+  return tmpdir.c_str();
+}
+
+EXTERNC int dmtcp_should_ckpt_open_files()
+{
+  return getenv(ENV_VAR_CKPT_OPEN_FILES) != NULL;
 }
 
 EXTERNC const char* dmtcp_get_executable_path()

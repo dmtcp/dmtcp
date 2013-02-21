@@ -538,7 +538,7 @@ void dmtcp::FileConnection::drain()
   calculateRelativePath();
 
   _checkpointed = false;
-  _ckptFilesDir = UniquePid::getCkptFilesSubDir();
+  _ckptFilesDir = dmtcp_get_ckpt_files_subdir();
 
   // Read the current file descriptor offset
   _offset = lseek(_fds[0], 0, SEEK_CUR);
@@ -563,8 +563,7 @@ void dmtcp::FileConnection::drain()
   if (_isBlacklistedFile(_path)) {
     return;
   }
-  if (getenv(ENV_VAR_CKPT_OPEN_FILES) != NULL &&
-      _stat.st_uid == getuid()) {
+  if (dmtcp_should_ckpt_open_files() && _stat.st_uid == getuid()) {
     _checkpointed = true;
   } else if (_type == FILE_DELETED) {
     _checkpointed = true;

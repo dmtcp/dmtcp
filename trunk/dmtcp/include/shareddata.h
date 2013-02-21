@@ -24,10 +24,10 @@
 #include <sys/types.h>
 #include <sys/un.h>
 #include <netdb.h>
+#include "dmtcpplugin.h"
+#include "dmtcpalloc.h"
 
-#include "constants.h"
-#include "uniquepid.h"
-
+#define PTS_PATH_MAX 32
 #define MAX_IPC_ID_MAPS 256
 #define MAX_PTY_NAME_MAPS 256
 #define MAX_PTRACE_ID_MAPS 256
@@ -36,6 +36,9 @@
 #define MAX_INODE_PID_MAPS 10240
 #define CON_ID_LEN \
   (sizeof(DmtcpUniqueProcessId) + sizeof(long))
+
+#define SHM_VERSION_STR "DMTCP_GLOBAL_AREA_V0.99"
+#define VIRT_PTS_PREFIX_STR "/dev/pts/v"
 
 namespace dmtcp {
   namespace SharedData {
@@ -76,7 +79,7 @@ namespace dmtcp {
       size_t               numIPCIdMaps;
       struct PtraceIdMaps  ptraceIdMap[MAX_PTRACE_ID_MAPS];
       size_t               numPtraceIdMaps;
-      dmtcp::UniquePid     processTreeRoots[MAX_PROCESS_TREE_ROOTS];
+      DmtcpUniqueProcessId processTreeRoots[MAX_PROCESS_TREE_ROOTS];
       size_t               numProcessTreeRoots;
 
       struct PtyNameMap    ptyNameMap[MAX_PTY_NAME_MAPS];
@@ -113,7 +116,7 @@ namespace dmtcp {
     void setPtraceVirtualId(pid_t tracerId, pid_t childId);
 
     void setProcessTreeRoot();
-    void getProcessTreeRoots(UniquePid **roots, size_t *numRoots);
+    void getProcessTreeRoots(DmtcpUniqueProcessId **roots, size_t *numRoots);
 
     void getRealPtyName(const char* virt, char* out, size_t len);
     void getVirtPtyName(const char* real, char *out, size_t len);

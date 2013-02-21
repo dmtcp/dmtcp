@@ -378,14 +378,15 @@ void dmtcp::ProcessInfo::refresh()
 
 void dmtcp::ProcessInfo::refreshProcessTreeRoots()
 {
-  UniquePid *pids;
+  DmtcpUniqueProcessId *pids;
   size_t n = 0;
   SharedData::getProcessTreeRoots(&pids, &n);
   _processTreeRoots.clear();
   if (n > 0) {
-    _processTreeRoots.assign(pids, pids + n);
     for (size_t i = 0; i < n; i++) {
-      _sessionIds[pids[i].pid()] = getsid(pids[i].pid());
+      UniquePid upid (pids[i]);
+      _processTreeRoots.push_back(upid);
+      _sessionIds[upid.pid()] = getsid(upid.pid());
     }
   }
 }

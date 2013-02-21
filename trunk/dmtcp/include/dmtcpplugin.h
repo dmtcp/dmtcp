@@ -39,6 +39,19 @@
 # endif
 #endif
 
+#if __GLIBC_PREREQ(2,5)
+# define READLINK_RET_TYPE ssize_t
+#else
+# define READLINK_RET_TYPE int
+#endif
+
+#define SYSCALL_ARG_RET_TYPE long int
+#define POLL_TIMEOUT_TYPE int
+#define EVENTFD_VAL_TYPE int
+
+#define DELETED_FILE_SUFFIX " (deleted)"
+#define LIB_PRIVATE __attribute__ ((visibility ("hidden")))
+
 typedef enum eDmtcpEvent {
   //DMTCP_EVENT_WRAPPER_INIT, // Future Work :-).
   DMTCP_EVENT_INIT,
@@ -111,6 +124,8 @@ EXTERNC void dmtcp_set_tmpdir(const char *);
 
 EXTERNC const char* dmtcp_get_ckpt_dir();
 EXTERNC void dmtcp_set_ckpt_dir(const char *);
+EXTERNC const char* dmtcp_get_ckpt_files_subdir();
+EXTERNC int dmtcp_should_ckpt_open_files();
 
 EXTERNC int  dmtcp_get_ckpt_signal();
 EXTERNC const char* dmtcp_get_uniquepid_str();

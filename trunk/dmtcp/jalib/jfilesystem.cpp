@@ -31,7 +31,7 @@
 #include "jfilesystem.h"
 #include "jconvert.h"
 #include "jalib.h"
-#include "../src/constants.h"
+#include "dmtcpplugin.h"
 
 namespace
 {

@@ -26,10 +26,10 @@ libdir = @libdir@
 pkglibdir = $(libdir)/@PACKAGE@
 
 DMTCP_ROOT=../..
-DMTCP_SRC_PATH = $(DMTCP_ROOT)/dmtcp/src
+DMTCP_INCLUDE_PATH = $(DMTCP_ROOT)/dmtcp/include
 JALIB_PATH = $(DMTCP_ROOT)/dmtcp/jalib
 
-INCLUDES = -I$(JALIB_PATH) -I$(DMTCP_SRC_PATH)
+INCLUDES = -I$(JALIB_PATH) -I$(DMTCP_INCLUDE_PATH)
 CFLAGS += -DHAVE_CONFIG_H -fPIC -g
 CXXFLAGS += -DHAVE_CONFIG_H -fPIC -g
 ifeq ($(M32),1)
@@ -43,7 +43,7 @@ LINK = $(CC) $(CFLAGS) $(LDFLAGS) -o $@
 CXXCOMPILE = $(CXX) $(INCLUDES) $(CPPFLAGS) $(CXXFLAGS) -c -o $@
 CXXLINK = $(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@
 
-HEADERS = $(DMTCP_SRC_PATH)/util.h $(DMTCP_SRC_PATH)/dmtcpplugin.h \
+HEADERS = $(DMTCP_INCLUDE_PATH)/util.h $(DMTCP_INCLUDE_PATH)/dmtcpplugin.h \
 	  $(JALIB_PATH)/jassert.h $(JALIB_PATH)/jalloc.h \
 	  $(JALIB_PATH)/jconvert.h $(JALIB_PATH)/jfilesystem.h \
 	  $(JALIB_PATH)/jalib.h resource_manager.h

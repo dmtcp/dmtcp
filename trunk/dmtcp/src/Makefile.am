@@ -14,7 +14,7 @@ AUTOMAKE_OPTIONS = foreign
 
 #HEADERS
 #set the include path found by configure
-INCLUDES= $(all_includes)
+INCLUDES= $(all_includes) -I../jalib/
 
 dmtcplibdir = $(pkglibdir)
 # targets:
@@ -30,12 +30,10 @@ nobase_noinst_HEADERS = constants.h \
 	../jalib/jassert.h ../jalib/jalloc.h ../jalib/jalib.h \
 	../jalib/jbuffer.h ../jalib/jconvert.h ../jalib/jfilesystem.h \
 	../jalib/jserialize.h ../jalib/jsocket.h ../jalib/jtimer.h \
-	dmtcp_coordinator.h dmtcpmessagetypes.h \
+	dmtcp_coordinator.h dmtcpmessagetypes.h lookup_service.h \
 	dmtcpworker.h threadsync.h coordinatorapi.h \
-	mtcpinterface.h  protectedfds.h \
-	syscallwrappers.h syslogwrappers.h \
-	uniquepid.h processinfo.h util.h virtualidtable.h \
-	dmtcpplugin.h lookup_service.h trampolines.h shareddata.h
+	mtcpinterface.h syscallwrappers.h syslogwrappers.h \
+	uniquepid.h processinfo.h
 
 # Note that libdmtcpinternal.a does not include wrappers.
 # dmtcp_checkpoint, dmtcp_command, dmtcp_coordinator, etc.

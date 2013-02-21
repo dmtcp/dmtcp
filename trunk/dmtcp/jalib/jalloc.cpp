@@ -19,12 +19,11 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include "jalloc.h"
 #include <pthread.h>
 #include <stdio.h>
 #include <unistd.h>
-#include "constants.h"
 #include "jalib.h"
+#include "jalloc.h"
 
 #ifdef HAVE_CONFIG_H
 # include "config.h"

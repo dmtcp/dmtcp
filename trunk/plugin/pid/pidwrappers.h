@@ -32,7 +32,6 @@
 #include <signal.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-#include "constants.h"
 #include <sys/ptrace.h>
 // This was needed for 64-bit SUSE LINUX Enterprise Server 9 (Linux 2.6.5):
 #ifndef PTRACE_GETEVENTMSG
@@ -61,7 +60,11 @@ struct user_desc {int dummy;}; /* <asm/ldt.h> is missing in Ubuntu 11.10 */
 #include <grp.h>
 #include <netdb.h>
 #include <mqueue.h>
-#include "constants.h"
+
+#include "dmtcpplugin.h"
+
+// Keep in sync with dmtcp/src/constants.h
+#define ENV_VAR_VIRTUAL_PID "DMTCP_VIRTUAL_PID"
 
 #ifdef __cplusplus
 extern "C"
