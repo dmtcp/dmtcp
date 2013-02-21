@@ -637,7 +637,8 @@ runTest("posix-mq2",      2, ["./test/posix-mq2"])
 runTest("pty2",   2, ["./test/pty2"])
 
 #Invoke this test when support for timers is added to DMTCP.
-# runTest("timer",   2, ["./test/timer"])
+runTest("timer",   1, ["./test/timer"])
+runTest("clock",   1, ["./test/clock"])
 
 old_ld_library_path = os.getenv("LD_LIBRARY_PATH")
 if old_ld_library_path:
@@ -740,6 +741,8 @@ if testconfig.HAS_SCRIPT == "yes" and testconfig.PID_VIRTUALIZATION == "yes":
   S=DEFAULT_S
 
 # SHOULD HAVE screen RUN SOMETHING LIKE:  bash -c ./test/dmtcp1
+# FIXME: Currently fails on dekaksi due to DMTCP not honoring
+#        "Async-signal-safe functions" in signal handlers (see man 7 signal)
 if testconfig.HAS_SCREEN == "yes" and testconfig.PID_VIRTUALIZATION == "yes":
   S=1
   if sys.version_info[0:2] >= (2,6):

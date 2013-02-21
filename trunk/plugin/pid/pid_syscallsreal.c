@@ -311,6 +311,10 @@ int _real_mq_notify(mqd_t mqdes, const struct sigevent *sevp) {
   REAL_FUNC_PASSTHROUGH (mq_notify) (mqdes, sevp);
 }
 
+LIB_PRIVATE
+int _real_clock_getcpuclockid(pid_t pid, clockid_t *clock_id) {
+  REAL_FUNC_PASSTHROUGH (clock_getcpuclockid) (pid, clock_id);
+}
 
 LIB_PRIVATE
 void _real_pthread_exit (void *retval) {

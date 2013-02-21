@@ -59,6 +59,9 @@ endif
 timer: timer.c
 	$(CC) -o $@ $< $(CFLAGS) -lrt
 
+clock: clock.c
+	$(CC) -o $@ $< $(CFLAGS) -lrt
+
 # Assume OpenMP exists only if OPENMP_CFLAGS is set.
 openmp-%: openmp-%.c
 ifneq (${OPENMP_CFLAGS},)

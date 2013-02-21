@@ -45,6 +45,8 @@ COMMON_HEADERS = ipc.h \
 		 $(DMTCP_INCLUDE_PATH)/util.h $(DMTCP_INCLUDE_PATH)/dmtcpplugin.h \
 		 $(DMTCP_INCLUDE_PATH)/shareddata.h $(DMTCP_INCLUDE_PATH)/dmtcpalloc.h \
 		 $(DMTCP_INCLUDE_PATH)/config.h $(DMTCP_INCLUDE_PATH)/protectedfds.h \
+		 $(DMTCP_INCLUDE_PATH)/virtualidtable.h \
+		 $(DMTCP_INCLUDE_PATH)/protectedfds.h \
 		 $(JALIB_PATH)/jassert.h $(JALIB_PATH)/jalloc.h \
 		 $(JALIB_PATH)/jalib.h $(JALIB_PATH)/jbuffer.h \
 		 $(JALIB_PATH)/jconvert.h $(JALIB_PATH)/jfilesystem.h \
@@ -60,17 +62,20 @@ EVENT_HEADERS = event/eventwrappers.h event/eventconnection.h \
 
 SYSV_HEADERS = sysv/sysvipc.h sysv/sysvipcwrappers.h
 
+TIMER_HEADERS = timer/timerwrappers.h timer/timerlist.h
+
 
 OBJS = ipc.o connection.o connectionidentifier.o connectionlist.o \
        connectionrewirer.o kernelbufferdrainer.o \
        socketwrappers.o socketconnection.o socketconnlist.o \
        util_descriptor.o eventwrappers.o eventconnection.o eventconnlist.o\
        filewrappers.o fileconnection.o fileconnlist.o posixipcwrappers.o \
-       sysvipc.o sysvipcwrappers.o
+       sysvipc.o sysvipcwrappers.o \
+       timerlist.o timerwrappers.o
 
 LIB_LDFLAGS = -shared -Wl,--unresolved-symbols=ignore-all
 
-LDADD = -ldl -lpthread
+LDADD = -ldl -lpthread -lrt
 
 all: default
 
@@ -118,6 +123,9 @@ ${LIBNAME}: $(OBJS) ${HEADERS}
 	$(CXXCOMPILE)  $<
 
 %.o: sysv/%.cpp ${COMMON_HEADERS} ${SYSV_HEADERS}
+	$(CXXCOMPILE)  $<
+
+%.o: timer/%.cpp ${COMMON_HEADERS} ${TIMER_HEADERS}
 	$(CXXCOMPILE)  $<
 
 .PHONY: default all build tidy clean distclean install uninstall
