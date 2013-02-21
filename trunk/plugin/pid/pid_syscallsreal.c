@@ -37,27 +37,27 @@ typedef pid_t ( *funcptr_pid_t ) ();
 typedef funcptr_t ( *signal_funcptr_t ) ();
 typedef void* (*dlsym_fnptr_t) (void *handle, const char *symbol);
 
-static void *pidvirt_real_func_addr[numPidVirtWrappers];
-static int pidvirt_wrappers_initialized = 0;
+static void *pid_real_func_addr[numPidVirtWrappers];
+static int pid_wrappers_initialized = 0;
 
 #define GET_FUNC_ADDR(name) \
-  pidvirt_real_func_addr[PIDVIRT_ENUM(name)] = _real_dlsym(RTLD_NEXT, #name);
+  pid_real_func_addr[PIDVIRT_ENUM(name)] = _real_dlsym(RTLD_NEXT, #name);
 
 LIB_PRIVATE
-void pidvirt_initialize_wrappers()
+void pid_initialize_wrappers()
 {
-  if (!pidvirt_wrappers_initialized) {
+  if (!pid_wrappers_initialized) {
     FOREACH_PIDVIRT_WRAPPER(GET_FUNC_ADDR);
-    pidvirt_wrappers_initialized = 1;
+    pid_wrappers_initialized = 1;
   }
 }
 
 
 #define REAL_FUNC_PASSTHROUGH_WORK(name) \
   if (fn == NULL) { \
-    if (pidvirt_real_func_addr[PIDVIRT_ENUM(name)] == NULL) \
-      pidvirt_initialize_wrappers(); \
-    fn = pidvirt_real_func_addr[PIDVIRT_ENUM(name)]; \
+    if (pid_real_func_addr[PIDVIRT_ENUM(name)] == NULL) \
+      pid_initialize_wrappers(); \
+    fn = pid_real_func_addr[PIDVIRT_ENUM(name)]; \
     if (fn == NULL) { \
       fprintf(stderr, "*** DMTCP: Error: lookup failed for %s.\n" \
                       "           The symbol wasn't found in current library" \
