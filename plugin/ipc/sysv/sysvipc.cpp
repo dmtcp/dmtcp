@@ -173,7 +173,7 @@ static void huge_memcpy(char *dest, char *src, size_t size)
 }
 
 dmtcp::SysVIPC::SysVIPC()
-  : _ipcVirtIdTable("SysVIPC")
+  : _ipcVirtIdTable("SysVIPC", getpid())
 {
   _do_lock_tbl();
   _shm.clear();
@@ -192,9 +192,8 @@ dmtcp::SysVIPC& dmtcp::SysVIPC::instance()
 
 int dmtcp::SysVIPC::getNewVirtualId()
 {
-  int id = _ipcVirtIdTable.getNewVirtualId();
-
-  JASSERT(id != -1) (_ipcVirtIdTable.size())
+  int id;
+  JASSERT(_ipcVirtIdTable.getNewVirtualId(&id)) (_ipcVirtIdTable.size())
     .Text("Exceeded maximum number of Sys V objects allowed");
 
   return id;

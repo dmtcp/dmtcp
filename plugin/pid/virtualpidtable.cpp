@@ -36,7 +36,7 @@
 static int _numTids = 1;
 
 dmtcp::VirtualPidTable::VirtualPidTable()
-  : VirtualIdTable<pid_t> ("Pid")
+  : VirtualIdTable<pid_t> ("Pid", getpid())
 {
   //_do_lock_tbl();
   //_idMapTable[getpid()] = _real_getpid();
@@ -83,16 +83,13 @@ void dmtcp::VirtualPidTable::refresh()
 
 pid_t dmtcp::VirtualPidTable::getNewVirtualTid()
 {
-  pid_t tid = VirtualIdTable<pid_t>::getNewVirtualId();
-
-  if (tid == -1) {
+  pid_t tid;
+  if (VirtualIdTable<pid_t>::getNewVirtualId(&tid) == false) {
     refresh();
   }
 
-  tid = VirtualIdTable<pid_t>::getNewVirtualId();
-
-  JASSERT(tid != -1) (_idMapTable.size())
-    .Text("Exceeded maximum number of threads allowed");
+  JASSERT(VirtualIdTable<pid_t>::getNewVirtualId(&tid))
+    (_idMapTable.size()) .Text("Exceeded maximum number of threads allowed");
 
   return tid;
 }
@@ -117,6 +114,7 @@ void dmtcp::VirtualPidTable::updateMapping(pid_t virtualId, pid_t realId)
 
 //to allow linking without ptrace plugin
 extern "C" int dmtcp_is_ptracing() __attribute__ ((weak));
+
 pid_t dmtcp::VirtualPidTable::realToVirtual(pid_t realPid)
 {
   if (realIdExists(realPid)) {
@@ -137,6 +135,17 @@ pid_t dmtcp::VirtualPidTable::realToVirtual(pid_t realPid)
     //.Text("No virtual pid/tid found for the given real pid");
   _do_unlock_tbl();
   return realPid;
+}
+
+pid_t dmtcp::VirtualPidTable::virtualToReal(pid_t virtualId)
+{
+  if (virtualId == -1) {
+    return virtualId;
+  }
+  pid_t id = (virtualId < -1 ? abs(virtualId) : virtualId);
+  pid_t retVal = VirtualIdTable<pid_t>::virtualToReal(id);
+  retVal = virtualId < -1 ? -retVal : retVal;
+  return retVal;
 }
 
 void dmtcp::VirtualPidTable::writeVirtualTidToFileForPtrace(pid_t pid)

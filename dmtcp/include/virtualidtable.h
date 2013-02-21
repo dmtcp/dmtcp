@@ -31,7 +31,6 @@
 #include "dmtcpalloc.h"
 #include "util.h"
 
-#define INITIAL_VIRTUAL_ID 1
 #define MAX_VIRTUAL_ID 999
 
 namespace dmtcp
@@ -54,14 +53,30 @@ namespace dmtcp
         static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
         static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
 #endif
-        VirtualIdTable(dmtcp::string typeStr) {
+        VirtualIdTable(dmtcp::string typeStr, IdType base,
+                       size_t max = MAX_VIRTUAL_ID) {
           pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
           tblLock = lock;
           _do_lock_tbl();
           _idMapTable.clear();
-          _nextVirtualId = INITIAL_VIRTUAL_ID;
           _do_unlock_tbl();
           _typeStr = typeStr;
+          _base = base;
+          _max = max;
+          resetNextVirtualId();
+        }
+
+        void resetNextVirtualId() {
+          _nextVirtualId = (IdType) ((unsigned long)_base + 1);
+        }
+
+        IdType addOneToNextVirtualId() {
+          IdType ret = _nextVirtualId;
+          _nextVirtualId = (IdType) ((unsigned long)_nextVirtualId + 1);
+          if ((unsigned long)_nextVirtualId >= (unsigned long)_base + _max) {
+            resetNextVirtualId();
+          }
+          return ret;
         }
 
         size_t size() {
@@ -74,50 +89,48 @@ namespace dmtcp
         void clear() {
           _do_lock_tbl();
           _idMapTable.clear();
-          _nextVirtualId = INITIAL_VIRTUAL_ID;
+          resetNextVirtualId();
           _do_unlock_tbl();
         }
 
         void postRestart() {
           _do_lock_tbl();
           _idMapTable.clear();
-          _nextVirtualId = INITIAL_VIRTUAL_ID;
+          resetNextVirtualId();
           _do_unlock_tbl();
         }
 
         void resetOnFork() {
           pthread_mutex_t newlock = PTHREAD_MUTEX_INITIALIZER;
           tblLock = newlock;
-          _nextVirtualId = INITIAL_VIRTUAL_ID;
+          resetNextVirtualId();
         }
 
-        pid_t getNewVirtualId() {
-          pid_t tid = -1;
-
+        bool getNewVirtualId(IdType *id) {
+          bool res = false;
           _do_lock_tbl();
-          if (_idMapTable.size() < MAX_VIRTUAL_ID) {
+          if (_idMapTable.size() < _max) {
 
             int count = 0;
             while (1) {
-              tid = getpid() + _nextVirtualId++;
-              if (_nextVirtualId >= MAX_VIRTUAL_ID) {
-                _nextVirtualId = INITIAL_VIRTUAL_ID;
-              }
-              id_iterator i = _idMapTable.find(tid);
+              IdType newId = addOneToNextVirtualId();
+              id_iterator i = _idMapTable.find(newId);
               if (i == _idMapTable.end()) {
+                *id = newId;
+                res = true;
                 break;
               }
-              if (++count == MAX_VIRTUAL_ID) {
+              if (++count == _max) {
                 break;
               }
             }
           }
           _do_unlock_tbl();
-          return tid;
+          return res;
         }
 
         bool isIdCreatedByCurrentProcess(IdType id) {
-          return id > getpid() && id <= getpid() + MAX_VIRTUAL_ID;
+          return id > getpid() && id <= getpid() + _max;
         }
 
         bool virtualIdExists(IdType id) {
@@ -178,33 +191,24 @@ namespace dmtcp
         }
 
 
-        IdType virtualToReal(IdType virtualId) {
+        virtual IdType virtualToReal(IdType virtualId) {
           IdType retVal = 0;
-
-          if (virtualId == -1) {
-            return virtualId;
-          }
 
           /* This code is called from MTCP while the checkpoint thread is holding
              the JASSERT log lock. Therefore, don't call JTRACE/JASSERT/JINFO/etc. in
              this function. */
           _do_lock_tbl();
-          id_iterator i = _idMapTable.find(virtualId < -1 ? abs(virtualId)
-                                           : virtualId);
+          id_iterator i = _idMapTable.find(virtualId);
           if (i == _idMapTable.end()) {
-            _do_unlock_tbl();
-            return virtualId;
+            retVal = virtualId;
+          } else {
+            retVal = i->second;
           }
-
-          retVal = virtualId < -1 ? (-i->second) : i->second;
           _do_unlock_tbl();
           return retVal;
         }
 
-        IdType realToVirtual(IdType realId) {
-          if (realId == -1) {
-            return realId;
-          }
+        virtual IdType realToVirtual(IdType realId) {
 
           /* This code is called from MTCP while the checkpoint thread is holding
              the JASSERT log lock. Therefore, don't call JTRACE/JASSERT/JINFO/etc. in
@@ -275,12 +279,14 @@ namespace dmtcp
         }
 
       private:
-        IdType _nextVirtualId;
         dmtcp::string _typeStr;
         pthread_mutex_t tblLock;
       protected:
         typedef typename dmtcp::map<IdType, IdType>::iterator id_iterator;
         dmtcp::map<IdType, IdType> _idMapTable;
+        IdType _base;
+        size_t _max;
+        IdType _nextVirtualId;
     };
 }
 
