@@ -134,7 +134,7 @@ extern "C"
   MACRO(__lxstat64)         \
   MACRO(readlink)
 
-# define PIDVIRT_ENUM(x) pidvirt_enum_ ## x
+# define PIDVIRT_ENUM(x) pid_enum_ ## x
 # define PIDVIRT_GEN_ENUM(x) PIDVIRT_ENUM(x),
   typedef enum {
     FOREACH_PIDVIRT_WRAPPER(PIDVIRT_GEN_ENUM)

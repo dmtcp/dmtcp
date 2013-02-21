@@ -30,7 +30,7 @@
 #include "virtualpidtable.h"
 #include "dmtcpplugin.h"
 #include "util.h"
-#include "pidvirt.h"
+#include "pid.h"
 
 LIB_PRIVATE pid_t getPidFromEnvVar();
 

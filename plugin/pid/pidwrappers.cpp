@@ -34,7 +34,7 @@
 #include "pidwrappers.h"
 #include "virtualpidtable.h"
 #include "dmtcpplugin.h"
-#include "pidvirt.h"
+#include "pid.h"
 #include "util.h"
 
 static __thread pid_t _dmtcp_thread_tid = -1;
