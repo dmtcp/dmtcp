@@ -229,6 +229,16 @@ int msgctl(int msqid, int cmd, struct msqid_ds *buf)
   return ret;
 }
 
+extern "C"
+int clock_getcpuclockid(pid_t pid, clockid_t *clock_id)
+{
+  DMTCP_DISABLE_CKPT();
+  pid_t realPid = VIRTUAL_TO_REAL_PID(pid);
+  int ret = _real_clock_getcpuclockid(realPid, clock_id);
+  DMTCP_ENABLE_CKPT();
+  return ret;
+}
+
 #if 0
 extern "C"
 int mq_notify(mqd_t mqdes, const struct sigevent *sevp)

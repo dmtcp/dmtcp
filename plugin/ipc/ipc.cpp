@@ -31,6 +31,7 @@ void dmtcp_FileConnList_ProcessEvent(DmtcpEvent_t event, DmtcpEventData_t *data)
 void dmtcp_SocketConnList_ProcessEvent(DmtcpEvent_t event, DmtcpEventData_t *data);
 void dmtcp_EventConnList_ProcessEvent(DmtcpEvent_t event, DmtcpEventData_t *data);
 void dmtcp_SysVIPC_ProcessEvent(DmtcpEvent_t event, DmtcpEventData_t *data);
+void dmtcp_Timer_ProcessEvent(DmtcpEvent_t event, DmtcpEventData_t *data);
 
 void dmtcp_FileConn_ProcessFdEvent(int event, int arg1, int arg2);
 void dmtcp_SocketConn_ProcessFdEvent(int event, int arg1, int arg2);
@@ -43,6 +44,7 @@ void dmtcp_process_event(DmtcpEvent_t event, DmtcpEventData_t *data)
   dmtcp_SocketConnList_ProcessEvent(event, data);
   dmtcp_EventConnList_ProcessEvent(event, data);
   dmtcp_SysVIPC_ProcessEvent(event, data);
+  dmtcp_Timer_ProcessEvent(event, data);
 
   NEXT_DMTCP_PROCESS_EVENT(event, data);
   return;
