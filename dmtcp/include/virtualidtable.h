@@ -111,7 +111,7 @@ namespace dmtcp
           _do_lock_tbl();
           if (_idMapTable.size() < _max) {
 
-            int count = 0;
+            size_t count = 0;
             while (1) {
               IdType newId = addOneToNextVirtualId();
               id_iterator i = _idMapTable.find(newId);
@@ -130,7 +130,7 @@ namespace dmtcp
         }
 
         bool isIdCreatedByCurrentProcess(IdType id) {
-          return id > getpid() && id <= getpid() + _max;
+          return (size_t)id > (size_t)getpid() && (size_t)id <= (size_t)getpid() + _max;
         }
 
         bool virtualIdExists(IdType id) {

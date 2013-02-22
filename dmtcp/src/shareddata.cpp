@@ -39,7 +39,7 @@
 using namespace dmtcp;
 static struct dmtcp::SharedData::Header *sharedDataHeader = NULL;
 static void *prevSharedDataHeaderAddr = NULL;
-static unsigned nextVirtualPtyId = -1;
+static size_t nextVirtualPtyId = (size_t)-1;
 
 void dmtcp::SharedData::initializeHeader()
 {
@@ -63,7 +63,7 @@ void dmtcp::SharedData::initializeHeader()
   // Although highly unlikely, this can cause a problem if the counter resets to
   // zero. In that case we should have some more sophisticated code which checks
   // to see if the value pointed by counter is in use or not.
-  if (nextVirtualPtyId != -1) {
+  if (nextVirtualPtyId != (size_t)-1) {
     sharedDataHeader->nextVirtualPtyId = nextVirtualPtyId;
   } else {
     sharedDataHeader->nextVirtualPtyId = 0;

@@ -124,9 +124,9 @@ namespace dmtcp
                      int type = FILE_REGULAR)
         : Connection(FILE)
         , _path(path)
+        , _fileAlreadyExists(false)
         , _flags(flags)
         , _mode(mode)
-        , _fileAlreadyExists(false)
       {
          _type = type;
       }
