@@ -46,7 +46,7 @@ extern "C" int timer_delete(timer_t timerid)
 {
   DMTCP_DISABLE_CKPT();
   timer_t realId = VIRTUAL_TO_REAL_TIMER_ID(timerid);
-  int ret = _real_timer_delete(timerid);
+  int ret = _real_timer_delete(realId);
   if (ret != -1) {
     TimerList::instance().on_timer_delete(timerid);
     JTRACE ("Deleted timer") (timerid);
