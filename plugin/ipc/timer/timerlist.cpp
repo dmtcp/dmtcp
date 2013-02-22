@@ -203,7 +203,7 @@ timer_t TimerList::on_timer_create(timer_t realId, clockid_t clockid,
   TimerInfo tinfo;
   timer_t virtId;
   _do_lock_tbl();
-  JASSERT(!_timerVirtIdTable.virtualIdExists(virtId)) (realId);
+  JASSERT(!_timerVirtIdTable.realIdExists(realId)) (realId);
 
   JASSERT(_timerVirtIdTable.getNewVirtualId(&virtId));
   _timerVirtIdTable.updateMapping(virtId, realId);

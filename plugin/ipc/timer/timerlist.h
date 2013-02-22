@@ -36,8 +36,11 @@
 #define VIRTUAL_TO_REAL_TIMER_ID(id) \
   dmtcp::TimerList::instance().virtualToRealTimerId(id)
 
-//#define REAL_TO_VIRTUAL_CLOCK_ID(id) \
+/*
+#define REAL_TO_VIRTUAL_CLOCK_ID(id) \
   dmtcp::TimerList::instance().realToVirtualClockId(id)
+*/
+
 #define VIRTUAL_TO_REAL_CLOCK_ID(id) \
   dmtcp::TimerList::instance().virtualToRealClockId(id)
 
