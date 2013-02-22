@@ -41,7 +41,6 @@ using namespace dmtcp;
 
 // This is the first program after dmtcp_checkpoint
 static bool freshProcess = true;
-static size_t _numMissingCons = 0;
 
 static void sendFd(int restoreFd, int fd, ConnectionIdentifier& id,
                    struct sockaddr_un& addr, socklen_t len);

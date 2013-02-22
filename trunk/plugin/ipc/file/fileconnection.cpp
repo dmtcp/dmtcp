@@ -52,12 +52,6 @@ static void CreateDirectoryStructure(const dmtcp::string& path);
 static void writeFileFromFd(int fd, int destFd);
 static bool areFilesEqual(int fd, int destFd, size_t size);
 
-#ifdef REALLY_VERBOSE_CONNECTION_CPP
-static bool really_verbose = true;
-#else
-static bool really_verbose = false;
-#endif
-
 static bool _isVimApp()
 {
   static int isVimApp = -1;
@@ -828,7 +822,7 @@ static bool areFilesEqual(int fd, int savedFd, size_t size)
   JASSERT(_real_lseek(fd, 0, SEEK_SET) == 0) (fd) (JASSERT_ERRNO);
   JASSERT(_real_lseek(savedFd, 0, SEEK_SET) == 0) (savedFd) (JASSERT_ERRNO);
 
-  int readBytes, writtenBytes;
+  int readBytes;
   while (size > 0) {
     readBytes = Util::readAll(savedFd, buf1, MIN(bufSize, size));
     JASSERT(readBytes != -1) (JASSERT_ERRNO) .Text("Read Failed");
