@@ -127,11 +127,12 @@ namespace dmtcp
       jalib::JSocket createNewConnectionToCoordinator(bool dieOnError = true);
 
     protected:
-      DmtcpUniqueProcessId      _coordinatorId;
-      jalib::JSocket _coordinatorSocket;
-      time_t         _coordTimeStamp;
-      pid_t          _virtualPid;
-    private:
+      DmtcpUniqueProcessId    _coordinatorId;
+      jalib::JSocket          _coordinatorSocket;
+      struct sockaddr_storage _coordAddr;
+      socklen_t               _coordAddrLen;
+      time_t                  _coordTimeStamp;
+      pid_t                   _virtualPid;
   };
 
 }
