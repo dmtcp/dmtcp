@@ -23,6 +23,7 @@
 // DmtcpWorker CAN INHERIT THIS CLASS, CoordinatorAPI
 
 #include <netdb.h>
+#include <arpa/inet.h>
 #include "coordinatorapi.h"
 #include "syscallwrappers.h"
 #include  "../jalib/jconvert.h"
@@ -34,6 +35,8 @@ using namespace dmtcp;
 dmtcp::CoordinatorAPI::CoordinatorAPI (int sockfd)
   : _coordinatorSocket(sockfd)
 {
+  memset(&_coordAddr, 0, sizeof(_coordAddr));
+  _coordAddrLen = 0;
   return;
 }
 
@@ -177,6 +180,7 @@ void dmtcp::CoordinatorAPI::connectAndSendUserCommand(char c,
     *coordErrorCode = ERROR_COORDINATOR_NOT_FOUND;
     return;
   }
+
   sendUserCommand(c, coordErrorCode, numPeers, running);
   _coordinatorSocket.close();
 }
@@ -232,6 +236,10 @@ bool dmtcp::CoordinatorAPI::connectToCoordinator(bool dieOnError /*= true*/)
       (oldFd.sockfd()) (_coordinatorSocket.sockfd());
 
     _coordinatorSocket.changeFd (oldFd.sockfd());
+    JASSERT(getpeername(_coordinatorSocket.sockfd(),
+                        (struct sockaddr*)&_coordAddr, &_coordAddrLen) == 0)
+      (JASSERT_ERRNO);
+
   }
   return true;
 }
@@ -243,6 +251,10 @@ void dmtcp::CoordinatorAPI::createNewConnectionBeforeFork(dmtcp::string& progNam
     (progName) (UniquePid::ThisProcess());
   _coordinatorSocket = createNewConnectionToCoordinator();
   JASSERT(_coordinatorSocket.isValid());
+
+  JASSERT(getpeername(_coordinatorSocket.sockfd(),
+                      (struct sockaddr*)&_coordAddr, &_coordAddrLen) == 0)
+    (JASSERT_ERRNO);
 
   sendCoordinatorHandshake(progName, UniquePid(), -1, DMT_HELLO_COORDINATOR,
                            true);
@@ -589,9 +601,10 @@ void dmtcp::CoordinatorAPI::sendCkptFilename()
 void dmtcp::CoordinatorAPI::updateHostAndPortEnv()
 {
   if (noCoordinator()) return;
-  struct sockaddr addr;
-  socklen_t addrLen = sizeof addr;
-  JASSERT(0 == getpeername(_coordinatorSocket.sockfd(), &addr, &addrLen))
+  struct sockaddr_storage currAddr;
+  socklen_t currAddrLen = sizeof currAddr;
+  JASSERT(0 == getpeername(_coordinatorSocket.sockfd(),
+                           (struct sockaddr*)&currAddr, &currAddrLen))
     (JASSERT_ERRNO);
 
   /* If the current coordinator is running on a HOST/PORT other than the
@@ -599,32 +612,31 @@ void dmtcp::CoordinatorAPI::updateHostAndPortEnv()
    * pointing to the coordinator HOST/PORT. This is needed if the new
    * coordinator has been moved around.
    */
+  if (_coordAddrLen != currAddrLen ||
+      memcmp(&_coordAddr, &currAddr, currAddrLen) != 0) {
+    char ipstr[INET6_ADDRSTRLEN];
+    int port;
+    dmtcp::string portStr;
 
-  const char * origCoordAddr = getenv (ENV_VAR_NAME_HOST);
-  const char * origCoordPortStr = getenv (ENV_VAR_NAME_PORT);
-  if (origCoordAddr == NULL) origCoordAddr = DEFAULT_HOST;
-  int origCoordPort = origCoordPortStr==NULL ? DEFAULT_PORT : jalib::StringToInt (origCoordPortStr);
+    memcpy(&_coordAddr, &currAddr, currAddrLen);
+    _coordAddrLen = currAddrLen;
 
-  jalib::JSockAddr originalCoordinatorAddr(origCoordAddr, origCoordPort);
-  if (addrLen != originalCoordinatorAddr.addrlen() ||
-      memcmp(originalCoordinatorAddr.addr(), &addr, addrLen) != 0) {
+    // deal with both IPv4 and IPv6:
+    if (currAddr.ss_family == AF_INET) {
+      struct sockaddr_in *s = (struct sockaddr_in *)&currAddr;
+      port = ntohs(s->sin_port);
+      inet_ntop(AF_INET, &s->sin_addr, ipstr, sizeof ipstr);
+    } else { // AF_INET6
+      JASSERT (currAddr.ss_family == AF_INET6);
+      struct sockaddr_in6 *s = (struct sockaddr_in6 *)&currAddr;
+      port = ntohs(s->sin6_port);
+      inet_ntop(AF_INET6, &s->sin6_addr, ipstr, sizeof ipstr);
 
-    JASSERT(addr.sa_family == AF_INET) (addr.sa_family)
-      .Text("Coordinator socket always uses IPV4 sockets");
+    }
 
-    char currHost[1024];
-    char currPort[16];
-
-    int res = getnameinfo(&addr, addrLen, currHost, sizeof currHost,
-                          currPort, sizeof currPort, NI_NUMERICSERV);
-    JASSERT(res == 0) (currHost) (currPort) (gai_strerror(res))
-      .Text("getnameinfo(... currHost, ..., currPort,...) failed");
-
-    JTRACE("Coordinator running at a different location")
-      (origCoordAddr) (origCoordPort) (currHost) (currPort);
-
-    JASSERT(0 == setenv (ENV_VAR_NAME_HOST, currHost, 1)) (JASSERT_ERRNO);
-    JASSERT(0 == setenv (ENV_VAR_NAME_PORT, currPort, 1)) (JASSERT_ERRNO);
+    portStr = jalib::XToString(port);
+    JASSERT(0 == setenv(ENV_VAR_NAME_HOST, ipstr, 1)) (JASSERT_ERRNO);
+    JASSERT(0 == setenv(ENV_VAR_NAME_PORT, portStr.c_str(), 1)) (JASSERT_ERRNO);
   }
 }
 
