@@ -41,11 +41,20 @@
 
 using namespace dmtcp;
 
+/* getaddrinfo() (and possibly getnameinfo()) open socket to external services
+ * (DNS etc.) to resolve hostname/address etc. In doing so, the call to
+ * socket() is captured by our wrappers, however, the call to close() is
+ * internal and thus not captured by the close wrapper. This results in a stale
+ * connection. To avoid this problem, we disable socket processing for the
+ * thread calling getaddrinfo().
+ */
+static __thread bool _doNotProcessSockets = false;
+
 extern "C" int socket(int domain, int type, int protocol)
 {
   DMTCP_DISABLE_CKPT();
   int ret = _real_socket(domain, type, protocol);
-  if (ret != -1) {
+  if (ret != -1 && !_doNotProcessSockets) {
     Connection *con;
     JTRACE("socket created") (ret) (domain) (type) (protocol);
     if ((type & 0xff) == SOCK_RAW) {
@@ -96,7 +105,7 @@ extern "C" int connect(int sockfd, const struct sockaddr *serv_addr,
       JTRACE("No data within five seconds.");
   }
 
-  if (ret != -1) {
+  if (ret != -1 && !_doNotProcessSockets) {
     TcpConnection *con =
       (TcpConnection*) SocketConnList::instance().getConnection(sockfd);
     con->onConnect(sockfd, serv_addr, addrlen);
@@ -118,7 +127,7 @@ extern "C" int bind(int sockfd, const struct sockaddr *my_addr,
 {
   DMTCP_DISABLE_CKPT(); // The lock is released inside the macro.
   int ret = _real_bind(sockfd, my_addr, addrlen);
-  if (ret != -1) {
+  if (ret != -1 && !_doNotProcessSockets) {
     TcpConnection *con =
       (TcpConnection*) SocketConnList::instance().getConnection(sockfd);
     con->onBind(sockfd, (struct sockaddr*) my_addr, addrlen);
@@ -132,7 +141,7 @@ extern "C" int listen(int sockfd, int backlog)
 {
   DMTCP_DISABLE_CKPT(); // The lock is released inside the macro.
   int ret = _real_listen(sockfd, backlog);
-  if (ret != -1) {
+  if (ret != -1 && !_doNotProcessSockets) {
     TcpConnection *con =
       (TcpConnection*) SocketConnList::instance().getConnection(sockfd);
     con->onListen(backlog);
@@ -180,7 +189,7 @@ extern "C" int accept(int sockfd, struct sockaddr *addr,
     addrlen = &tmp_len;
   }
   int ret = _real_accept(sockfd, addr, addrlen);
-  if (ret != -1) {
+  if (ret != -1 && !_doNotProcessSockets) {
     process_accept(ret, sockfd, addr, addrlen);
   }
   return ret;
@@ -198,7 +207,7 @@ extern "C" int accept4(int sockfd, struct sockaddr *addr,
     addrlen = &tmp_len;
   }
   int ret = _real_accept4(sockfd, addr, addrlen, flags);
-  if (ret != -1) {
+  if (ret != -1 && !_doNotProcessSockets) {
     process_accept(ret, sockfd, addr, addrlen);
   }
   return ret;
@@ -208,7 +217,7 @@ extern "C" int setsockopt(int sockfd, int level, int optname,
                           const void *optval, socklen_t optlen)
 {
   int ret = _real_setsockopt(sockfd, level, optname, optval, optlen);
-  if (ret != -1) {
+  if (ret != -1 && !_doNotProcessSockets) {
     JTRACE("setsockopt") (ret) (sockfd) (optname);
     TcpConnection *con =
       (TcpConnection*) SocketConnList::instance().getConnection(sockfd);
@@ -239,7 +248,7 @@ extern "C" int socketpair(int d, int type, int protocol, int sv[2])
 
   JASSERT(sv != NULL);
   int rv = _real_socketpair(d,type,protocol,sv);
-  if (rv != -1) {
+  if (rv != -1 && !_doNotProcessSockets) {
     JTRACE("socketpair()") (sv[0]) (sv[1]);
 
     dmtcp::TcpConnection *a, *b;
@@ -259,3 +268,27 @@ extern "C" int socketpair(int d, int type, int protocol, int sv[2])
   return rv;
 }
 
+extern "C" int getaddrinfo(const char *node, const char *service,
+                           const struct addrinfo *hints,
+                           struct addrinfo **res)
+{
+  DMTCP_DISABLE_CKPT();
+  // See comment near definition of _doNotProcessSockets;
+  _doNotProcessSockets = true;
+  int ret = _real_getaddrinfo(node, service, hints, res);
+  _doNotProcessSockets = false;
+  DMTCP_ENABLE_CKPT();
+  return ret;
+}
+
+extern "C" int getnameinfo(const struct sockaddr *sa, socklen_t salen,
+                           char *host, size_t hostlen,
+                           char *serv, size_t servlen, int flags)
+{
+  DMTCP_DISABLE_CKPT();
+  _doNotProcessSockets = true;
+  int ret = _real_getnameinfo(sa, salen, host, hostlen, serv, servlen, flags);
+  _doNotProcessSockets = false;
+  DMTCP_ENABLE_CKPT();
+  return ret;
+}
