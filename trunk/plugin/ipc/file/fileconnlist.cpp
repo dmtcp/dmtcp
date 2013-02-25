@@ -168,7 +168,8 @@ void dmtcp::FileConnList::prepareShmList()
           int flags = Util::memProtToOpenFlags(area.prot);
           int fd = _real_open(area.name, flags, 0);
           JASSERT(fd != -1) (JASSERT_ERRNO) (area.name);
-          FileConnection *fileConn = new FileConnection(area.name, flags, 0);
+          FileConnection *fileConn =
+            new FileConnection(area.name, flags, 0, FileConnection::FILE_SHM);
           add(fd, fileConn);
           shmAreas.push_back(area);
           shmAreaConn.push_back(fileConn);

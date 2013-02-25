@@ -573,7 +573,7 @@ void dmtcp::FileConnection::drain()
   }
   if (dmtcp_should_ckpt_open_files() && _stat.st_uid == getuid()) {
     _checkpointed = true;
-  } else if (_type == FILE_DELETED) {
+  } else if (_type == FILE_DELETED || _type == FILE_SHM) {
     _checkpointed = true;
   } else if (_isVimApp() &&
              (Util::strEndsWith(_path, ".swp") == 0 ||
@@ -628,12 +628,24 @@ void dmtcp::FileConnection::refill(bool isRestart)
     int savedFd = _real_open(savedFilePath.c_str(), O_RDONLY, 0);
     JASSERT(savedFd != -1) (JASSERT_ERRNO) (savedFilePath);
 
-    JASSERT(areFilesEqual(_fds[0], savedFd, _stat.st_size))
-      (_path) (savedFilePath)
-      .Text("\n**** File already exist! Checkpointed copy can't be restored.\n"
-            "       The Contents of checkpointed copy differ from the "
-            "       contents of the existing copy.\n"
-            "****Delete the existing file and try again!");
+    if (!areFilesEqual(_fds[0], savedFd, _stat.st_size)) {
+      if (_type == FILE_SHM) {
+        JWARNING(false) (_path) (savedFilePath)
+          .Text("\n"
+                "***Mapping current version of file into memory;\n"
+                "   _not_ file as it existed at time of checkpoint.\n"
+                "   Change this function and re-compile, if you want "
+                "different behavior.");
+      } else {
+        const char *errMsg =
+          "\n**** File already exist! Checkpointed copy can't be restored.\n"
+          "       The Contents of checkpointed copy differ from the "
+          "contents of the existing copy.\n"
+          "****Delete the existing file and try again!";
+        JASSERT(false) (_path) (savedFilePath) (errMsg);
+      }
+    }
+    _real_close(savedFd);
   }
 
   if (!_checkpointed) {
@@ -842,7 +854,6 @@ static bool areFilesEqual(int fd, int savedFd, size_t size)
     if (readBytes == 0) break;
     JASSERT(Util::readAll(fd, buf2, readBytes) == readBytes);
     if (memcmp(buf1, buf2, readBytes) != 0) {
-      JNOTE("Files not equal") (readBytes) (*(int*)buf1) (*(int*)buf2);
       break;
     }
     size -= readBytes;
