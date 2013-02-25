@@ -470,7 +470,7 @@ int main ( int argc, char** argv )
     libPath = ldLibPath;
   }
   libPath += ":" + jalib::Filesystem::DirName(
-               jalib::Filesystem::FindHelperUtility("libmtcp.so.1"));
+               jalib::Filesystem::FindHelperUtility(MTCP_FILENAME));
   JASSERT(!libPath.empty());
   setenv("LD_LIBRARY_PATH", libPath.c_str(), 1);
 
