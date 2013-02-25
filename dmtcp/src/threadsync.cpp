@@ -378,11 +378,11 @@ bool dmtcp::ThreadSync::wrapperExecutionLockLockExcl()
       }
       // retVal should always be 0 (success) here.
       lockAcquired = retVal == 0 ? true : false;
+      if (!lockAcquired) {
+        decrementWrapperExecutionLockLockCount();
+      }
     }
     break;
-  }
-  if (!lockAcquired) {
-    decrementWrapperExecutionLockLockCount();
   }
   errno = saved_errno;
   return lockAcquired;
