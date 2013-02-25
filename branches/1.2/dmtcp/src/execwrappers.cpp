@@ -52,6 +52,19 @@ static bool pthread_atfork_enabled = false;
 static time_t child_time;
 static dmtcp::DmtcpCoordinatorAPI coordinatorAPI(-1);
 
+// Allow plugins to call fork/exec/system to perform specific tasks during
+// preCKpt/postCkpt/PostRestart etc. event.
+static bool isPerformingCkptRestart()
+{
+  if (dmtcp::WorkerState::currentState() != dmtcp::WorkerState::UNKNOWN &&
+      dmtcp::WorkerState::currentState() != dmtcp::WorkerState::RUNNING &&
+      dmtcp::WorkerState::currentState() != dmtcp::WorkerState::PRE_FORK &&
+      dmtcp::WorkerState::currentState() != dmtcp::WorkerState::PRE_EXEC) {
+    return true;
+  }
+  return false;
+}
+
 LIB_PRIVATE void pthread_atfork_prepare()
 {
   /* FIXME: The user process might register a fork prepare handler with
@@ -120,6 +133,10 @@ LIB_PRIVATE void pthread_atfork_child()
 
 extern "C" pid_t fork()
 {
+  if (isPerformingCkptRestart()) {
+    return _real_syscall(SYS_fork);
+  }
+
   /* Acquire the wrapperExeution lock to prevent checkpoint to happen while
    * processing this system call.
    */
@@ -438,7 +455,10 @@ static dmtcp::vector<const char*> patchUserEnv (dmtcp::vector<dmtcp::string>
 extern "C" int execve ( const char *filename, char *const argv[],
                         char *const envp[] )
 {
-  JTRACE ( "execve() wrapper" ) ( filename );
+  if (isPerformingCkptRestart()) {
+    return _real_execve(filename, argv, envp);
+  }
+  JTRACE("execve() wrapper") (filename);
 
   /* Acquire the wrapperExeution lock to prevent checkpoint to happen while
    * processing this system call.
@@ -470,7 +490,10 @@ extern "C" int execv ( const char *path, char *const argv[] )
 
 extern "C" int execvp ( const char *filename, char *const argv[] )
 {
-  JTRACE ( "execvp() wrapper" ) ( filename );
+  if (isPerformingCkptRestart()) {
+    return _real_execvp(filename, argv);
+  }
+  JTRACE("execvp() wrapper") (filename);
   /* Acquire the wrapperExeution lock to prevent checkpoint to happen while
    * processing this system call.
    */
@@ -494,7 +517,10 @@ extern "C" int execvp ( const char *filename, char *const argv[] )
 extern "C" int execvpe ( const char *filename, char *const argv[],
                          char *const envp[] )
 {
-  JTRACE ( "execvpe() wrapper" ) ( filename );
+  if (isPerformingCkptRestart()) {
+    return _real_execvpe(filename, argv, envp);
+  }
+  JTRACE("execvpe() wrapper") (filename);
   /* Acquire the wrapperExeution lock to prevent checkpoint to happen while
    * processing this system call.
    */
