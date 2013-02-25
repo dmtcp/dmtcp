@@ -285,7 +285,7 @@ extern "C" FILE *tmpfile()
 extern "C" int mkstemp(char *ttemplate)
 {
   int fd = _real_mkstemp(ttemplate);
-  if (fd >= 0) {
+  if (fd >= 0 && dmtcp_is_running_state()) {
     FileConnList::instance().processFileConnection(fd, NULL, O_RDWR, 0600);
   }
   return fd;
@@ -294,7 +294,7 @@ extern "C" int mkstemp(char *ttemplate)
 extern "C" int mkostemp(char *ttemplate, int flags)
 {
   int fd = _real_mkostemp(ttemplate, flags);
-  if (fd >= 0) {
+  if (fd >= 0 && dmtcp_is_running_state()) {
     FileConnList::instance().processFileConnection(fd, NULL, flags, 0600);
   }
   return fd;
@@ -303,7 +303,7 @@ extern "C" int mkostemp(char *ttemplate, int flags)
 extern "C" int mkstemps(char *ttemplate, int suffixlen)
 {
   int fd = _real_mkstemps(ttemplate, suffixlen);
-  if (fd >= 0) {
+  if (fd >= 0 && dmtcp_is_running_state()) {
     FileConnList::instance().processFileConnection(fd, NULL, O_RDWR, 0600);
   }
   return fd;
@@ -312,7 +312,7 @@ extern "C" int mkstemps(char *ttemplate, int suffixlen)
 extern "C" int mkostemps(char *ttemplate, int suffixlen, int flags)
 {
   int fd = _real_mkostemps(ttemplate, suffixlen, flags);
-  if (fd >= 0) {
+  if (fd >= 0 && dmtcp_is_running_state()) {
     FileConnList::instance().processFileConnection(fd, NULL, flags, 0600);
   }
   return fd;
@@ -497,7 +497,7 @@ extern "C" DIR *opendir(const char *name)
 {
   DMTCP_DISABLE_CKPT();
   DIR *dir = _real_opendir(name);
-  if (dir != NULL) {
+  if (dir != NULL && dmtcp_is_running_state()) {
     FileConnList::instance().processFileConnection(dirfd(dir), name, -1, -1);
   }
   DMTCP_ENABLE_CKPT();
