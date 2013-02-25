@@ -43,11 +43,23 @@ static int pid_wrappers_initialized = 0;
 #define GET_FUNC_ADDR(name) \
   pid_real_func_addr[PIDVIRT_ENUM(name)] = _real_dlsym(RTLD_NEXT, #name);
 
+#ifdef __i386__
+// On 32-bit Linuxes, glibc provides two versions (GLIBC_2.0 and GLIBC_2.2) for
+// semctl, msgctl and shmctl. dlsym(RTLD_NEXT, ...) returns the address of the
+// GLIBC_2.0 version, whereas we need the GLIBC_2.2 version. In 64-bit glibc,
+// there is only one version.
+# define GET_SYSVIPC_CTL_FUNC_ADDR(name) \
+  pid_real_func_addr[PIDVIRT_ENUM(name)] = dlvsym(RTLD_NEXT, #name, "GLIBC_2.2");
+#else
+# define GET_SYSVIPC_CTL_FUNC_ADDR(name) GET_FUNC_ADDR(name)
+#endif
+
 LIB_PRIVATE
 void pid_initialize_wrappers()
 {
   if (!pid_wrappers_initialized) {
     FOREACH_PIDVIRT_WRAPPER(GET_FUNC_ADDR);
+    FOREACH_SYSVIPC_CTL_WRAPPER(GET_SYSVIPC_CTL_FUNC_ADDR);
     pid_wrappers_initialized = 1;
   }
 }
