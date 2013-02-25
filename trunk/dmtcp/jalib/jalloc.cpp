@@ -139,6 +139,7 @@ public:
 
   //deallocate a chunk of size N
   void deallocate(void* ptr) {
+    if (ptr == NULL) return;
     FreeItem* item = static_cast<FreeItem*>(ptr);
     item->next = _root;
     _root = item;
