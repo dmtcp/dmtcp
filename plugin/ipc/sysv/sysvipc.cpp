@@ -323,10 +323,11 @@ void dmtcp::SysVIPC::on_shmat(int shmid, const void *shmaddr, int shmflg,
   if (!_ipcVirtIdTable.virtualIdExists(shmid)) {
     int realId = dmtcp::SharedData::getRealIPCId(shmid);
     updateMapping(shmid, realId);
+  }
+  if (_shm.find(shmid) == _shm.end()) {
+    int realId = VIRTUAL_TO_REAL_IPC_ID(shmid);
     _shm[shmid] = new ShmSegment(shmid, realId, -1, -1, -1);
   }
-  JASSERT(_ipcVirtIdTable.virtualIdExists(shmid)) (shmid);
-  JASSERT(_shm.find(shmid) != _shm.end()) (shmid);
 
   JASSERT(shmaddr == NULL || shmaddr == newaddr);
   _shm[shmid]->on_shmat(newaddr, shmflg);
@@ -430,6 +431,9 @@ void dmtcp::SysVIPC::on_semop(int semid, struct sembuf *sops, unsigned nsops)
   if (!_ipcVirtIdTable.virtualIdExists(semid)) {
     int realId = dmtcp::SharedData::getRealIPCId(semid);
     updateMapping(semid, realId);
+  }
+  if (_sem.find(semid) == _sem.end()) {
+    int realId = VIRTUAL_TO_REAL_IPC_ID(semid);
     _sem[semid] = new Semaphore(semid, realId, -1, -1, -1);
   }
   _sem[semid]->on_semop(sops, nsops);
@@ -469,6 +473,9 @@ void dmtcp::SysVIPC::on_msgsnd(int msqid, const void *msgp, size_t msgsz,
   if (!_ipcVirtIdTable.virtualIdExists(msqid)) {
     int realId = dmtcp::SharedData::getRealIPCId(msqid);
     updateMapping(msqid, realId);
+  }
+  if (_msq.find(msqid) == _msq.end()) {
+    int realId = VIRTUAL_TO_REAL_IPC_ID(msqid);
     _msq[msqid] = new MsgQueue(msqid, realId, -1, -1);
   }
   _do_unlock_tbl();
@@ -481,6 +488,9 @@ void dmtcp::SysVIPC::on_msgrcv(int msqid, const void *msgp, size_t msgsz,
   if (!_ipcVirtIdTable.virtualIdExists(msqid)) {
     int realId = dmtcp::SharedData::getRealIPCId(msqid);
     updateMapping(msqid, realId);
+  }
+  if (_msq.find(msqid) == _msq.end()) {
+    int realId = VIRTUAL_TO_REAL_IPC_ID(msqid);
     _msq[msqid] = new MsgQueue(msqid, realId, -1, -1);
   }
   _do_unlock_tbl();
@@ -775,7 +785,7 @@ dmtcp::MsgQueue::MsgQueue(int msqid, int realMsqid, key_t key, int msgflg)
 {
   if (key == -1) {
     struct msqid_ds buf;
-    JASSERT(_real_msgctl(_realId, IPC_STAT, &buf) == 0) (_id) (JASSERT_ERRNO);
+    JASSERT(_real_msgctl(realMsqid, IPC_STAT, &buf) == 0) (_id) (JASSERT_ERRNO);
     _key = buf.msg_perm.__key;
     _flags = buf.msg_perm.mode;
   }
