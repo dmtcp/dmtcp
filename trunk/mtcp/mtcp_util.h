@@ -48,7 +48,7 @@ const void *mtcp_strstr(const char *string, const char *substring);
 void mtcp_strncpy(char *targ, const char* source, size_t len);
 void mtcp_strcpy(char *dest, const char *src);
 void mtcp_strncat(char *dest, const char *src, size_t n);
-int mtcp_memcmp(char *targ, const char* source, size_t len);
+int mtcp_memcmp(const char *s1, const char* s2, size_t len);
 void mtcp_memset(char *targ, int c, size_t n);
 int mtcp_strncmp (const char *s1, const char *s2, size_t n);
 int mtcp_strcmp (const char *s1, const char *s2);
