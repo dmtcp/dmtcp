@@ -236,6 +236,10 @@ void dmtcp::FileConnList::scanForPreExisting()
     int fd = fds[i];
     if (!Util::isValidFd(fd)) continue;
     if (dmtcp_is_protected_fd(fd)) continue;
+    struct stat statbuf;
+    JASSERT(fstat(fd, &statbuf) == 0);
+    bool isRegularFile = (S_ISREG(statbuf.st_mode) || S_ISCHR(statbuf.st_mode) ||
+                          S_ISDIR(statbuf.st_mode) || S_ISBLK(statbuf.st_mode));
 
     dmtcp::string device = _resolveSymlink(_procFDPath(fd));
 
@@ -258,10 +262,24 @@ void dmtcp::FileConnList::scanForPreExisting()
         add(fd, con);
       }
     } else if(dmtcp_is_bq_file && dmtcp_is_bq_file(device.c_str())) {
+      if (isRegularFile) {
+        Connection *c = findDuplication(fd, device.c_str());
+        if (c != NULL) {
+          c->addFd(fd);
+          continue;
+        }
+      }
       processFileConnection(fd, device.c_str(), -1, -1);
     } else if( fd <= 2 ){
       add(fd, new StdioConnection(fd));
     } else if (Util::strStartsWith(device, "/")) {
+      if (isRegularFile) {
+        Connection *c = findDuplication(fd, device.c_str());
+        if (c != NULL) {
+          c->addFd(fd);
+          continue;
+        }
+      }
       processFileConnection(fd, device.c_str(), -1, -1);
     }
   }
@@ -317,17 +335,12 @@ void dmtcp::FileConnList::processFileConnection(int fd, const char *path,
     c = new PtyConnection(fd, path, flags, mode, PtyConnection::PTY_SLAVE);
   } else if (S_ISREG(statbuf.st_mode) || S_ISCHR(statbuf.st_mode) ||
              S_ISDIR(statbuf.st_mode) || S_ISBLK(statbuf.st_mode)) {
-
-    c = findDuplication(fd,path);
-    if( c == NULL ){
-      if (dmtcp_is_bq_file && dmtcp_is_bq_file(path)) {
-        // Resource manager related
-        c = new FileConnection(path, flags, mode, FileConnection::FILE_BATCH_QUEUE);
-      }else{
-        // Regular File
-        c = new FileConnection(path, flags, mode);
-      }
+    int type = FileConnection::FILE_REGULAR;
+    if (dmtcp_is_bq_file && dmtcp_is_bq_file(path)) {
+      // Resource manager related
+      type = FileConnection::FILE_BATCH_QUEUE;
     }
+    c = new FileConnection(path, flags, mode, type);
   } else if (S_ISFIFO(statbuf.st_mode)) {
     // FIFO
     c = new FifoConnection(path, flags, mode);
