@@ -57,7 +57,6 @@ void dmtcp::SocketConnList::drain()
     //implicit close().
     //we will create a new, broken socket that is not closed
     con->onError();
-    break;
   }
 }
 
