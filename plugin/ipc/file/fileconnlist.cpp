@@ -124,9 +124,9 @@ void dmtcp::FileConnList::drain()
   }
 }
 
-void dmtcp::FileConnList::refill(bool isRestart)
+void dmtcp::FileConnList::resume(bool isRestart)
 {
-  ConnectionList::refill(isRestart);
+  ConnectionList::resume(isRestart);
   remapShmMaps();
 }
 
