@@ -124,6 +124,20 @@ void dmtcp::FileConnList::drain()
   }
 }
 
+void dmtcp::FileConnList::refill(bool isRestart)
+{
+  // Check comments in PtyConnection::preRefill()/refill()
+  for (iterator i = begin(); i != end(); ++i) {
+    Connection* con =  i->second;
+    if (con->hasLock() && con->conType() == Connection::PTY) {
+      PtyConnection *pcon = (PtyConnection*) con;
+      pcon->preRefill(isRestart);
+    }
+  }
+
+  ConnectionList::refill(isRestart);
+}
+
 void dmtcp::FileConnList::resume(bool isRestart)
 {
   ConnectionList::resume(isRestart);
