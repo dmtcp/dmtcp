@@ -45,8 +45,9 @@ void dmtcp::Util::lockFile(int fd)
 
   int result = -1;
   errno = 0;
-  while (result == -1 || errno == EINTR)
+  do {
     result = fcntl(fd, F_SETLKW, &fl);  /* F_GETLK, F_SETLK, F_SETLKW */
+  } while (result == -1 && errno == EINTR);
 
   JASSERT (result != -1) (JASSERT_ERRNO)
     .Text("Unable to lock the PID MAP file");
