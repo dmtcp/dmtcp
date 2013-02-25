@@ -277,13 +277,19 @@ void initialize_libpthread_wrappers()
 
 typedef void* (*dlsym_fnptr_t) (void *handle, const char *symbol);
 
+/* dmtcp_dlsym_offset needs to be defined as a global variable. If defined as
+ * static or as a local variable inside _dmtcp_get_libc_dlsym_addr() function,
+ * it triggers a buggy situation with intel compiler. The intel compiler
+ * optimizes this variable that causes wrong address calculation for the real
+ * dlsym symbol address.
+ */
+LIB_PRIVATE long dmtcp_dlsym_offset = -1;
+
 LIB_PRIVATE
 void *_dmtcp_get_libc_dlsym_addr()
 {
   static dlsym_fnptr_t _libc_dlsym_fnptr = NULL;
-
   if (_libc_dlsym_fnptr == NULL) {
-    long dlsym_offset = 0;
     if (getenv(ENV_VAR_DLSYM_OFFSET) == NULL) {
       fprintf(stderr,
               "%s:%d DMTCP Internal Error: Env var DMTCP_DLSYM_OFFSET not set.\n"
@@ -292,8 +298,9 @@ void *_dmtcp_get_libc_dlsym_addr()
       abort();
     }
 
-    dlsym_offset = (long) strtol(getenv(ENV_VAR_DLSYM_OFFSET), NULL, 10);
-    _libc_dlsym_fnptr = (dlsym_fnptr_t)((char *)&LIBDL_BASE_FUNC + dlsym_offset);
+    dmtcp_dlsym_offset = (long) strtol(getenv(ENV_VAR_DLSYM_OFFSET), NULL, 10);
+    _libc_dlsym_fnptr = (dlsym_fnptr_t)((char *)&LIBDL_BASE_FUNC +
+                                        dmtcp_dlsym_offset);
 
 #ifndef PTRACE
     /* On Debian 5.0 (gcc-4.3.2 libc-2.7, ld-2.18.0), the call
