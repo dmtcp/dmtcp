@@ -473,42 +473,30 @@ void dmtcp::FileConnection::doLocking()
   _checkpointed = false;
 }
 
-void dmtcp::FileConnection::updatePath()
-{
-  dmtcp::string link = "/proc/self/fd/" + jalib::XToString(_fds[0]);
-
-  JTRACE("Update path from /proc fs:")(link);
-
-  if (jalib::Filesystem::FileExists(link)) {
-    _path = jalib::Filesystem::ResolveSymlink(link);
-    JTRACE("Resolve symlink fs:")(link)(_path);
-  }
-}
-
-
 void dmtcp::FileConnection::handleUnlinkedFile()
 {
-  if (!jalib::Filesystem::FileExists(_path) && !_isBlacklistedFile(_path)) {
+  if ((!jalib::Filesystem::FileExists(_path) && !_isBlacklistedFile(_path)) ||
+      _type == FILE_DELETED ||
+      Util::strStartsWith(jalib::Filesystem::BaseName(_path), ".nfs")) {
     /* File not present in Filesystem.
      * /proc/self/fd lists filename of unlink()ed files as:
      *   "<original_file_name>(deleted)"
      */
-    updatePath();
+    string currPath = jalib::Filesystem::GetDeviceName(_fds[0]);
 
-    if (Util::strEndsWith(_path, DELETED_FILE_SUFFIX)) {
-      _path.erase(_path.length() - strlen(DELETED_FILE_SUFFIX));
+    if (Util::strEndsWith(currPath, DELETED_FILE_SUFFIX)) {
+      JTRACE("Deleted file") (_path);
       _type = FILE_DELETED;
+    } else if (Util::strStartsWith(jalib::Filesystem::BaseName(currPath),
+                                   ".nfs")) {
+      JTRACE("Deleted NFS file.") (_path) (currPath);
+      _type = FILE_DELETED;
+      _path = currPath;
     } else {
-      JASSERT(_type == FILE_DELETED) (_path)
+      JASSERT(_type == FILE_DELETED) (_path) (currPath)
         .Text("File not found on disk and yet the filename doesn't "
               "contain the suffix '(deleted)'");
     }
-  } else if (Util::strStartsWith(jalib::Filesystem::BaseName(_path), ".nfs")) {
-    JWARNING(access(_path.c_str(), W_OK) == 0) (JASSERT_ERRNO);
-    JTRACE(".nfsXXXX: files that are unlink()'d, "
-           "but still in use by some process(es)")
-      (_path);
-    _type = FILE_DELETED;
   }
 }
 
@@ -678,8 +666,7 @@ void dmtcp::FileConnection::refreshPath()
 
   if (_type == FILE_BATCH_QUEUE) {
     // get new file name
-    dmtcp::string procpath = "/proc/self/fd/" + jalib::XToString(_fds[0]);
-    dmtcp::string newpath = jalib::Filesystem::ResolveSymlink(procpath);
+    dmtcp::string newpath = jalib::Filesystem::GetDeviceName(_fds[0]);
     JTRACE("This is Resource Manager file!") (_fds[0]) (newpath) (_path) (this);
     if (newpath != _path) {
       JTRACE("File Manager connection _path is changed => _path = newpath!")
