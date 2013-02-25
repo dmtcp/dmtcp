@@ -309,23 +309,52 @@ void dmtcp::PtyConnection::drain()
 
 void dmtcp::PtyConnection::refill(bool isRestart)
 {
-  if (ptyType() == PTY_SLAVE || ptyType() == PTY_BSD_SLAVE) {
-    JASSERT(_ptsName.compare("?") != 0);
-    JTRACE("Restoring PTY slave") (_fds[0]) (_ptsName) (_virtPtsName);
-    if (ptyType() == PTY_SLAVE) {
-      char buf[32];
-      SharedData::getRealPtyName(_virtPtsName.c_str(), buf, sizeof(buf));
-      JASSERT(strlen(buf) > 0) (_virtPtsName) (_ptsName);
-      _ptsName = buf;
-    }
+  int tempfd;
+  switch (ptyType()) {
+    case PTY_SLAVE:
+    case PTY_BSD_SLAVE:
 
-    int tempfd = _real_open(_ptsName.c_str(), O_RDWR);
-    JASSERT(tempfd >= 0) (_virtPtsName) (_ptsName) (JASSERT_ERRNO)
-      .Text("Error Opening PTS");
+      JASSERT(_ptsName.compare("?") != 0);
+      JTRACE("Restoring PTY slave") (_fds[0]) (_ptsName) (_virtPtsName);
+      if (ptyType() == PTY_SLAVE) {
+        char buf[32];
+        SharedData::getRealPtyName(_virtPtsName.c_str(), buf, sizeof(buf));
+        JASSERT(strlen(buf) > 0) (_virtPtsName) (_ptsName);
+        _ptsName = buf;
+      }
 
-    JTRACE("Restoring PTS real") (_ptsName) (_virtPtsName) (_fds[0]);
-    Util::dupFds(tempfd, _fds);
+      tempfd = _real_open(_ptsName.c_str(), O_RDWR);
+      JASSERT(tempfd >= 0) (_virtPtsName) (_ptsName) (JASSERT_ERRNO)
+        .Text("Error Opening PTS");
+
+      JTRACE("Restoring PTS real") (_ptsName) (_virtPtsName) (_fds[0]);
+      Util::dupFds(tempfd, _fds);
+      break;
+
+    case PTY_DEV_TTY:
+      /* If a process has called setsid(), it is possible that there is no
+       * controlling terminal while in the postRestart phase as processes are
+       * still creating the pseudo-tty master-slave pairs. By the time we get
+       * into the refill mode, we should have all the pseudo-ttys present.
+       * FIXME: There is a potential bug here. For a process that has called
+       * setsid() (and thus has no controlling terminal), if it also has
+       * multiple pseudo-tty slaves, the first slave device to be open()'d
+       * becomes the controlling terminal. To address this issue, we must open
+       * the pty-devices other than the controlling terminal with O_NOCTTY
+       * flag.
+       */
+      tempfd = _real_open("/dev/tty", O_RDWR, 0);
+      JASSERT(tempfd >= 0) (tempfd) (JASSERT_ERRNO)
+        .Text("Error opening controlling terminal /dev/tty");
+
+      JTRACE("Restoring /dev/tty for the process") (_fds[0]);
+      _ptsName = _virtPtsName = "/dev/tty";
+      break;
+
+    default:
+      break;
   }
+
 }
 
 void dmtcp::PtyConnection::postRestart()
@@ -345,14 +374,6 @@ void dmtcp::PtyConnection::postRestart()
 
     case PTY_DEV_TTY:
       {
-        dmtcp::string tty = "/dev/tty";
-        tempfd = _real_open(tty.c_str(), _fcntlFlags);
-        JASSERT(tempfd >= 0) (tempfd) (tty) (JASSERT_ERRNO)
-          .Text("Error Opening the terminal device");
-
-        JTRACE("Restoring /dev/tty for the process") (tty) (_fds[0]);
-        _ptsName = _virtPtsName = tty;
-        break;
       }
 
     case PTY_CTTY:
