@@ -981,8 +981,6 @@ void dmtcp::DmtcpCoordinator::onConnect ( const jalib::JSocket& sock,
       JTRACE ( "resetting _restoreWaitingMessages" )
         ( _restoreWaitingMessages.size() );
       _restoreWaitingMessages.clear();
-
-      JTIMER_START ( restart );
   }
 
   dmtcp::DmtcpMessage hello_remote;
@@ -1121,6 +1119,7 @@ bool dmtcp::DmtcpCoordinator::validateDmtRestartProcess
     hello_local.params[1] = 1;
     JNOTE ( "FIRST dmtcp_restart connection.  Set numPeers. Generate timestamp" )
       ( numPeers ) ( curTimeStamp ) ( UniquePid::ComputationId() );
+    JTIMER_START(restart);
   } else if ( UniquePid::ComputationId() != hello_remote.compGroup ) {
     // Coordinator already serving some other computation group - reject this process.
     JNOTE ("Reject incoming dmtcp_restart connection"
