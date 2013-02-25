@@ -138,7 +138,7 @@ extern "C" int tm_spawn(int argc, char **argv, char **envp, tm_node_id where,
   dmtcp::string cmdline;
   size_t i;
 
-  for(i=0;i<argc;i++){
+  for(i = 0; i < (unsigned) argc; i++){
       JNOTE("arg[i]:")(i)(argv[i]);
   }
 

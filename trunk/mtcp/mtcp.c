@@ -420,6 +420,7 @@ static int restarthread (void *threadv);
 static void restore_tls_state (Thread *thisthread);
 static void setup_sig_handler (sighandler_t handler);
 static void sync_shared_mem(void);
+static void save_sp(Thread *thread);
 
 static Thread *mtcp_get_thread_from_freelist();
 static void mtcp_put_thread_on_freelist(Thread *thread);
@@ -1658,7 +1659,7 @@ static void restore_term_settings() {
 // We will use the region beyond the end of stack for our temporary stack.
 // glibc sigsetjmp will mangle pointers;  We need the unmangled pointer.
 // So, we can't rely on parsing the jmpbuf for the saved sp.
-void save_sp(Thread *thread) {
+static void save_sp(Thread *thread) {
 #if defined(__i386__) || defined(__x86_64__)
   asm volatile (CLEAN_FOR_64_BIT(mov %%esp,%0)
 		: "=g" (thread->saved_sp)
