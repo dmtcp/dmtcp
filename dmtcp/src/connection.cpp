@@ -1049,7 +1049,8 @@ void dmtcp::FileConnection::preCheckpoint ( const dmtcp::vector<int>& fds
     return;
   }
   if (hasLock(fds)) {
-    if (getenv(ENV_VAR_CKPT_OPEN_FILES) != NULL) {
+    if (getenv(ENV_VAR_CKPT_OPEN_FILES) != NULL &&
+        _stat.st_uid == getuid()) {
       saveFile(fds[0]);
     } else if (_type == FILE_DELETED) {
       saveFile(fds[0]);
