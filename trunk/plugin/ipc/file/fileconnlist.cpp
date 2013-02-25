@@ -172,7 +172,20 @@ void dmtcp::FileConnList::prepareShmList()
           add(fd, fileConn);
           shmAreas.push_back(area);
           shmAreaConn.push_back(fileConn);
-          JASSERT(_real_munmap(area.addr, area.size) == 0);
+          /* Instead of unmapping the shared memory area, we make it
+           * non-readable. This way mtcp will skip the region while at the same
+           * time, we prevent JALLOC arena to grow over it.
+           *
+           * By munmapping the area, a bug was observed on CCIS linux with
+           * 'make check-java'. Once the region was unmapped, the JALLOC arena
+           * grew over it. During restart, the JALLOC'd area was reclaimed for
+           * remapping the shm file without informing JALLOC. Finally, during
+           * the second checkpoint cycle, the area was again unmapped and later
+           * JALLOC tried to access it, causing a SIGSEGV.
+           */
+          JASSERT(_real_mmap(area.addr, area.size, PROT_NONE,
+                             MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED,
+                             -1, 0) != MAP_FAILED) (JASSERT_ERRNO);
         } else {
           JTRACE("Will not checkpoint shared memory area") (area.name);
         }
