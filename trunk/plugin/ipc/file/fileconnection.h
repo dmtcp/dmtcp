@@ -53,16 +53,15 @@ namespace dmtcp
         PTY_SLAVE,
         PTY_BSD_MASTER,
         PTY_BSD_SLAVE
-
-          //        TYPEMASK = PTY_CTTY | PTY_Master | PTY_Slave
       };
 
       PtyConnection() {}
       PtyConnection(int fd, const char *path, int flags, mode_t mode, int type);
 
-      int  ptyType() { return _type;}// & TYPEMASK);
       dmtcp::string ptsName() { return _ptsName;; }
       dmtcp::string virtPtsName() { return _virtPtsName;; }
+
+      void preRefill(bool isRestart);
 
       virtual void drain();
       virtual void refill(bool isRestart);
@@ -70,14 +69,13 @@ namespace dmtcp
       virtual void serializeSubClass(jalib::JBinarySerializer& o);
       virtual string str() { return _masterName + ":" + _ptsName; }
     private:
-      //PtyType   _type;
       dmtcp::string _masterName;
       dmtcp::string _ptsName;
       dmtcp::string _virtPtsName;
       int           _flags;
       mode_t        _mode;
       bool          _ptmxIsPacketMode;
-
+      bool          _isControllingTTY;
   };
 
   class StdioConnection : public Connection
@@ -146,7 +144,6 @@ namespace dmtcp
       bool checkpointed() { return _checkpointed; }
       void doNotRestoreCkptCopy() { _checkpointed = false; }
 
-      int fileType() { return _type; }
       dev_t devnum() const { return _stat.st_dev; }
       ino_t inode() const { return _stat.st_ino; }
 

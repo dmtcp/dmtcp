@@ -47,6 +47,7 @@ namespace dmtcp
 
       virtual void preLockSaveOptions();
       virtual void drain();
+      virtual void refill(bool isRestart);
       virtual void resume(bool isRestart);
       virtual int protectedFd() { return PROTECTED_FILE_FDREWIRER_FD; }
       //examine /proc/self/fd for unknown connections
