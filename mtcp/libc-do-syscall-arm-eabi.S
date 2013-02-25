@@ -52,7 +52,7 @@ __libc_do_syscall:
 /* END (__libc_do_syscall) */
 
 /* BUG FIX:  To avoid linker complaints about this symbol.
- *   Based on comments on the WEb, as of February, 2012, this appears to be
+ *   Based on comments on the web, as of February, 2012, this appears to be
  *   a bug in the EABI ARM tool chain.
  */
 __aeabi_unwind_cpp_pr0:
