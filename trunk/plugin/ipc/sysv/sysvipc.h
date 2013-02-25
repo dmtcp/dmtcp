@@ -94,6 +94,7 @@ namespace dmtcp
           return _ipcVirtIdTable.virtualToReal(virtId);
         } else {
           int realId = SharedData::getRealIPCId(virtId);
+          _ipcVirtIdTable.updateMapping(virtId, realId);
           return realId;
         }
       }
