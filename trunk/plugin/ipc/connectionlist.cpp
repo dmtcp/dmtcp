@@ -51,6 +51,8 @@ void dmtcp::ConnectionList::processEvent(DmtcpEvent_t event,
 {
   switch (event) {
     case DMTCP_EVENT_INIT:
+      // Delete Stale Connections if any.
+      deleteStaleConnections();
       if (freshProcess) {
         scanForPreExisting();
       }

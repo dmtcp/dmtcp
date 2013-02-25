@@ -35,5 +35,7 @@
 #define _real_getsockopt NEXT_FNC(getsockopt)
 #define _real_socketpair NEXT_FNC(socketpair)
 #define _real_close NEXT_FNC(close)
+#define _real_getaddrinfo NEXT_FNC(getaddrinfo)
+#define _real_getnameinfo NEXT_FNC(getnameinfo)
 
 #endif // SOCKET_WRAPPERS_H
