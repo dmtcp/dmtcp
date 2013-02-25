@@ -93,7 +93,8 @@ gofish:
       /* Signed decimal integer */
 
       case 'd': {
-        char buff[16];
+        // On 64-bit machines the largest unsigned is 20 digits.
+        char buff[20];
         int i, n, neg;
 
         i = sizeof buff;
@@ -112,7 +113,8 @@ gofish:
       /* Unsigned octal number */
 
       case 'o': {
-        char buff[16];
+        // On 64-bit machines the largest unsigned is 22 digits.
+        char buff[24];
         int i;
         unsigned int n;
 
@@ -129,7 +131,8 @@ gofish:
       /* Address in hexadecimal */
 
       case 'p': {
-        char buff[16];
+        // On 64-bit machines the largest unsigned is 16 digits.
+        char buff[18];
         int i;
         unsigned long int n;
 
@@ -156,7 +159,8 @@ gofish:
       /* Unsigned decimal integer */
 
       case 'u': {
-        char buff[16];
+        // On 64-bit machines the largest unsigned is 20 digits.
+        char buff[18];
         int i;
         unsigned int n;
 
@@ -174,7 +178,8 @@ gofish:
 
       case 'X':
       case 'x': {
-        char buff[16];
+        // On 64-bit machines the largest unsigned is 16 digits.
+        char buff[18];
         int i;
         unsigned int n;
 

@@ -352,8 +352,9 @@ libmtcp.so: mtcp.t ${LIBRARY_OBJS}
 	  echo '*** WARNING: libmtcp.so.$(LIBMTCP_SOVERSION_INFO): ' \
 	       'MTCP symbols polluting user namespace' 1>&2 || true
 
+# To generate mtcp.o with listing, use "-Wa,-adhl=mtcp.lis"
 mtcp.o: mtcp.c mtcp.h mtcp_internal.h mtcp_sys.h
-	${CC} $(MTCP_CFLAGS) -Wa,-adhl=mtcp.lis -c -o mtcp.o mtcp.c
+	${CC} $(MTCP_CFLAGS) -c -o mtcp.o mtcp.c
 
 # Use uname instead of ${UNAME} below to determine if this is really 64-bit.
 mtcp_restart_nolibc.o: mtcp_restart_nolibc.c mtcp.h mtcp_internal.h
@@ -361,8 +362,8 @@ mtcp_restart_nolibc.o: mtcp_restart_nolibc.c mtcp.h mtcp_internal.h
 	  mtcp_restart_nolibc.c
 
 # mtcp.lis is needed only for debugging.
-mtcp.lis: mtcp.c mtcp.h mtcp_internal.h mtcp_sys.h
-	${CC} $(MTCP_CFLAGS) -c -o /dev/null -Wa,-ahls=mtcp.lis mtcp.c
+#mtcp.lis: mtcp.c mtcp.h mtcp_internal.h mtcp_sys.h
+#	${CC} $(MTCP_CFLAGS) -c -o /dev/null -Wa,-ahls=mtcp.lis mtcp.c
 
 # The resultant mtcp_restart_nolibc.o module should not have undefined symbols
 # ... if it did, they would get linked to /lib/libc.so at runtime and
