@@ -830,6 +830,7 @@ void dmtcp::MsgQueue::preCkptDrain()
 void dmtcp::MsgQueue::preCheckpoint()
 {
   struct msqid_ds buf;
+  memset(&buf, 0, sizeof buf);
   JASSERT(_real_msgctl(_realId, IPC_STAT, &buf) == 0) (_id) (JASSERT_ERRNO);
 
   if (buf.msg_lspid == getpid()) {

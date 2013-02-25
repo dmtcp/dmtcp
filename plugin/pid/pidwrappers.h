@@ -98,9 +98,6 @@ extern "C"
   MACRO(shmget)             \
   MACRO(shmat)              \
   MACRO(shmdt)              \
-  MACRO(shmctl)             \
-  MACRO(semctl)             \
-  MACRO(msgctl)             \
   MACRO(mq_notify)          \
   MACRO(clock_getcpuclockid)\
   MACRO(getppid)            \
@@ -135,10 +132,16 @@ extern "C"
   MACRO(__lxstat64)         \
   MACRO(readlink)
 
+#define FOREACH_SYSVIPC_CTL_WRAPPER(MACRO)\
+  MACRO(shmctl)             \
+  MACRO(semctl)             \
+  MACRO(msgctl)
+
 # define PIDVIRT_ENUM(x) pid_enum_ ## x
 # define PIDVIRT_GEN_ENUM(x) PIDVIRT_ENUM(x),
   typedef enum {
     FOREACH_PIDVIRT_WRAPPER(PIDVIRT_GEN_ENUM)
+    FOREACH_SYSVIPC_CTL_WRAPPER(PIDVIRT_GEN_ENUM)
     numPidVirtWrappers
   } PidVirtWrapperOffset;
 
