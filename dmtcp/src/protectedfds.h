@@ -42,6 +42,9 @@
 #define PROTECTED_SHMIDMAP_FD      PFD(13)
 #define PROTECTED_READLOG_FD       PFD(14)
 
+#define DMTCP_IS_PROTECTED_FD(fd) \
+  (fd >= PFD(0) && fd < PFD(PROTECTED_FD_COUNT))
+
 namespace dmtcp
 {
 
