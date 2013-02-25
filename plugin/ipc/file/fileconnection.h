@@ -112,6 +112,7 @@ namespace dmtcp
       {
         FILE_INVALID = FILE,
         FILE_REGULAR,
+        FILE_SHM,
         FILE_PROCFS,
         FILE_DELETED,
         FILE_BATCH_QUEUE
