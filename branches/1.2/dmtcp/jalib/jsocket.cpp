@@ -157,12 +157,10 @@ bool jalib::JSocket::connect ( const JSockAddr& addr, int port )
   if (addr._addr->sin_port == (unsigned short)-2)
     return false;
   for(unsigned int i=0; i< addr._count; i++){
-    if( ret = JSocket::connect( (sockaddr*)(addr._addr + i),
-                                sizeof(addr._addr[0]), port ) ){
+    ret = JSocket::connect((sockaddr*)(addr._addr + i),
+                           sizeof(addr._addr[0]), port);
+    if (ret || errno != ECONNREFUSED) {
       break;
-    }else{
-      if( errno != ECONNREFUSED)
-        break;
     }
   }
   return ret;
