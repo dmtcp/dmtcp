@@ -987,6 +987,8 @@ void dmtcp::FileConnection::doLocking(const dmtcp::vector<int>& fds)
       if (proc_pid != getpid()) {
         return;
       }
+      _path = "/proc/self";
+      _path += rest;
     }
   }
   Connection::doLocking(fds);
@@ -1107,7 +1109,7 @@ void dmtcp::FileConnection::refreshPath()
     char buf[64];
     pid_t proc_pid = strtol(&_path[index], &rest, 0);
     if (proc_pid > 0 && *rest == '/') {
-      sprintf(buf, "/proc/%d/%s", _real_getpid(), rest);
+      sprintf(buf, "/proc/self/%s", rest);
       _path = buf;
     }
   }

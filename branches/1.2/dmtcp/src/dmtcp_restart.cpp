@@ -460,11 +460,9 @@ namespace dmtcp
         dmtcp::Connection *con = it->second;
         if (con->subType() == FileConnection::FILE_PROCFS) {
           dmtcp::FileConnection *filecon = (dmtcp::FileConnection*) con;
-          char buf[32];
           dmtcp::vector<int> fds;
           fds.push_back(slidingFd.getFdFor(con->id()));
-          sprintf(buf, "/proc/%d/", vt.pid());
-          if (dmtcp::Util::strStartsWith(filecon->filePath(), buf)) {
+          if (dmtcp::Util::strStartsWith(filecon->filePath(), "/proc/self/")) {
             filecon->restore(fds);
           }
         }
