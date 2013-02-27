@@ -82,7 +82,7 @@ extern "C" int dmtcp_on_bind(int ret, int sockfd, const struct sockaddr *my_addr
                              socklen_t my_addrlen)
 {
   struct sockaddr_storage addr;
-  socklen_t               addrlen;
+  socklen_t               addrlen = sizeof addr;
 
   // Do not rely on the address passed on to bind as it may contain port 0
   // which allows the OS to give any unused port. Thus we look ourselves up
