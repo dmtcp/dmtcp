@@ -27,14 +27,11 @@
 // #define __USE_UNIX98
 
 #include <pthread.h>
-#include "syscallwrappers.h"
 // We should not need dlopen/dlsym
 // #include <dlfcn.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "constants.h"
-#include "sockettable.h"
 #include <sys/select.h>
 #include <sys/time.h>
 #include <sys/types.h>
@@ -46,6 +43,8 @@
 #include <ctype.h>
 #include <syslog.h>
 
+#include "constants.h"
+#include "syscallwrappers.h"
 
 // See syscallsreal.c for original model.  In dmtcphijack.so, system calls
 //   for XXX() in jalib call a wrapper which modifies it and calls

@@ -49,7 +49,6 @@ __attribute__ ((visibility ("hidden")))
 void * mtcp_safemmap (void *start, size_t length, int prot, int flags, int fd,
                       off_t offset)
 {
-  char c;
   int mapsfd;
   VA endaddr, startaddr;
 

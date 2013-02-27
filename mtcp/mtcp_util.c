@@ -524,7 +524,6 @@ int mtcp_selfmap_open() {
 __attribute__ ((visibility ("hidden")))
 int mtcp_selfmap_readline(int selfmapfd, VA *startaddr, VA *endaddr,
 	                  off_t *file_offset) {
-  int rc = 0;
   char c;
   if (file_offset != NULL)
     *file_offset = (off_t)-1;

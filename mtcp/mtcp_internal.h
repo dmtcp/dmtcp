@@ -456,4 +456,12 @@ int mtcp_setjmp (Jmpbuf *jmpbuf);
 void mtcp_longjmp (Jmpbuf *jmpbuf, int retval);
 int mtcp_safe_open(char const *filename, int flags, mode_t mode);
 
+__attribute__ ((visibility ("hidden")))
+int mtcp_selfmap_open();
+__attribute__ ((visibility ("hidden")))
+int mtcp_selfmap_readline(int selfmapfd, VA *startaddr, VA *endaddr,
+	                  off_t *file_offset);
+__attribute__ ((visibility ("hidden")))
+int mtcp_selfmap_close(int selfmapfd);
+
 #endif
