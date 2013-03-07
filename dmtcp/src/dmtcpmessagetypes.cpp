@@ -121,7 +121,7 @@ dmtcp::ostream& dmtcp::operator << ( dmtcp::ostream& o, const dmtcp::WorkerState
       OSHIFTPRINTF ( REFILLED )
     default:
       JASSERT ( false ) .Text ( "Invalid WorkerState" );
-      o << s.value();
+      o << (int)s.value();
   }
   return o;
 }

@@ -97,7 +97,7 @@ namespace dmtcp
         .Text("read invalid message, signature mismatch. (External socket?)");
       JASSERT(size == sizeof(ConnMsg)) (size) (sizeof(ConnMsg))
         .Text("read invalid message, size mismatch.");
-      JASSERT(type == t) (t) (type) .Text("Wrong Msg Type.");
+      JASSERT(type == t) ((int)t) ((int)type) .Text("Wrong Msg Type.");
     }
 
     char sign[32];
