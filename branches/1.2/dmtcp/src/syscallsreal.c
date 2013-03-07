@@ -182,8 +182,10 @@ void _dmtcp_remutex_on_fork() {
  * which does this, but it may occur in the future.
  */
 
+#if TRACK_DLOPEN_DLSYM_FOR_LOCKS
 LIB_PRIVATE void dmtcp_setThreadPerformingDlopenDlsym();
 LIB_PRIVATE void dmtcp_unsetThreadPerformingDlopenDlsym();
+#endif
 extern void prepareDmtcpWrappers();
 extern int dmtcp_wrappers_initializing;
 static void *_real_func_addr[numLibcWrappers];
@@ -328,11 +330,17 @@ void *_real_dlsym ( void *handle, const char *symbol ) {
     _libc_dlsym_fnptr = _dmtcp_get_libc_dlsym_addr();
   }
 
+#if TRACK_DLOPEN_DLSYM_FOR_LOCKS
   // Avoid calling WRAPPER_EXECUTION_DISABLE_CKPT() in calloc() wrapper. See
   // comment in miscwrappers for more details.
+  // EDIT: Now that we are using pthread_getspecific trick, calloc will not be
+  // called and so we do not need to disable locking for calloc.
   dmtcp_setThreadPerformingDlopenDlsym();
-  void *res = (*_libc_dlsym_fnptr) ( handle, symbol );
+#endif
+  void *res = (*_libc_dlsym_fnptr) (handle, symbol);
+#if TRACK_DLOPEN_DLSYM_FOR_LOCKS
   dmtcp_unsetThreadPerformingDlopenDlsym();
+#endif
   return res;
 }
 

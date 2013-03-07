@@ -75,6 +75,9 @@ static bool _threadCreationLockAcquiredByCkptThread = false;
 static pthread_mutex_t destroyDmtcpWorkerLock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t theCkptCanStart = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
 
+static pthread_mutex_t libdlLock = PTHREAD_MUTEX_INITIALIZER;
+static pid_t libdlLockOwner = 0;
+
 static pthread_mutex_t uninitializedThreadCountLock = PTHREAD_MUTEX_INITIALIZER;
 static int _uninitializedThreadCount = 0;
 static bool _checkpointThreadInitialized = false;
@@ -85,7 +88,9 @@ static pthread_mutex_t preResumeThreadCountLock = PTHREAD_MUTEX_INITIALIZER;
 
 static __thread int _wrapperExecutionLockLockCount = 0;
 static __thread int _threadCreationLockLockCount = 0;
+#if TRACK_DLOPEN_DLSYM_FOR_LOCKS
 static __thread bool _threadPerformingDlopenDlsym = false;
+#endif
 static __thread bool _sendCkptSignalOnFinalUnlock = false;
 static __thread bool _isOkToGrabWrapperExecutionLock = true;
 
@@ -93,6 +98,9 @@ static __thread bool _isOkToGrabWrapperExecutionLock = true;
 void dmtcp::ThreadSync::acquireLocks()
 {
   JASSERT(WorkerState::currentState() == WorkerState::RUNNING);
+  /* TODO: We should introduce the notion of lock ranks/priorities for all
+   * these locks to prevent future deadlocks due to rank violation.
+   */
 
   JTRACE("waiting for dmtcp_lock():"
          " to get synchronized with _runCoordinatorCmd if we use DMTCP API");
@@ -100,6 +108,9 @@ void dmtcp::ThreadSync::acquireLocks()
 
   JTRACE("Waiting for lock(&theCkptCanStart)");
   JASSERT(_real_pthread_mutex_lock(&theCkptCanStart) == 0)(JASSERT_ERRNO);
+
+  JTRACE("Waiting for libdlLock");
+  JASSERT(_real_pthread_mutex_lock(&libdlLock) == 0) (JASSERT_ERRNO);
 
   JTRACE("Waiting for threads creation lock");
   JASSERT(_real_pthread_rwlock_wrlock(&_threadCreationLock) == 0)
@@ -130,8 +141,8 @@ void dmtcp::ThreadSync::releaseLocks()
   JASSERT(_real_pthread_rwlock_unlock(&_threadCreationLock) == 0)
     (JASSERT_ERRNO);
   _threadCreationLockAcquiredByCkptThread = false;
-  JASSERT(_real_pthread_mutex_unlock(&theCkptCanStart) == 0)
-    (JASSERT_ERRNO);
+  JASSERT(_real_pthread_mutex_unlock(&libdlLock) == 0) (JASSERT_ERRNO);
+  JASSERT(_real_pthread_mutex_unlock(&theCkptCanStart) == 0) (JASSERT_ERRNO);
 
   _dmtcp_unlock();
   setOkToGrabLock();
@@ -145,7 +156,9 @@ void dmtcp::ThreadSync::resetLocks()
 
   _wrapperExecutionLockLockCount = 0;
   _threadCreationLockLockCount = 0;
+#if TRACK_DLOPEN_DLSYM_FOR_LOCKS
   _threadPerformingDlopenDlsym = false;
+#endif
   _sendCkptSignalOnFinalUnlock = false;
   _isOkToGrabWrapperExecutionLock = true;
 
@@ -156,6 +169,10 @@ void dmtcp::ThreadSync::resetLocks()
 
   pthread_mutex_t newDestroyDmtcpWorker = PTHREAD_MUTEX_INITIALIZER;
   destroyDmtcpWorkerLock = newDestroyDmtcpWorker;
+
+  pthread_mutex_t newLibdlLock = PTHREAD_MUTEX_INITIALIZER;
+  libdlLock = newLibdlLock;
+  libdlLockOwner = 0;
 
   _checkpointThreadInitialized = false;
   _wrapperExecutionLockAcquiredByCkptThread = false;
@@ -204,6 +221,7 @@ void dmtcp::ThreadSync::sendCkptSignalOnFinalUnlock()
   }
 }
 
+#if TRACK_DLOPEN_DLSYM_FOR_LOCKS
 extern "C" LIB_PRIVATE
 void dmtcp_setThreadPerformingDlopenDlsym()
 {
@@ -230,6 +248,7 @@ void dmtcp::ThreadSync::unsetThreadPerformingDlopenDlsym()
 {
   _threadPerformingDlopenDlsym = false;
 }
+#endif
 
 bool dmtcp::ThreadSync::isCheckpointThreadInitialized()
 {
@@ -294,6 +313,31 @@ static void decrementThreadCreationLockLockCount()
   dmtcp::ThreadSync::sendCkptSignalOnFinalUnlock();
 }
 
+bool dmtcp::ThreadSync::libdlLockLock()
+{
+  int saved_errno = errno;
+  bool lockAcquired = false;
+  if (WorkerState::currentState() == WorkerState::RUNNING &&
+      libdlLockOwner !=  gettid()) {
+    JASSERT(_real_pthread_mutex_lock(&libdlLock) == 0);
+    libdlLockOwner = gettid();
+    lockAcquired = true;
+  }
+  errno = saved_errno;
+  return lockAcquired;
+}
+
+void dmtcp::ThreadSync::libdlLockUnlock()
+{
+  int saved_errno = errno;
+  JASSERT(libdlLockOwner == 0 || libdlLockOwner == gettid())
+    (libdlLockOwner) (gettid());
+  JASSERT (WorkerState::currentState() == WorkerState::RUNNING);
+  libdlLockOwner = 0;
+  JASSERT(_real_pthread_mutex_unlock(&libdlLock) == 0);
+  errno = saved_errno;
+}
+
 // XXX: Handle deadlock error code
 // NOTE: Don't do any fancy stuff in this wrapper which can cause the process
 //       to go into DEADLOCK
@@ -303,7 +347,9 @@ bool dmtcp::ThreadSync::wrapperExecutionLockLock()
   bool lockAcquired = false;
   while (1) {
     if (WorkerState::currentState() == WorkerState::RUNNING &&
+#if TRACK_DLOPEN_DLSYM_FOR_LOCKS
         isThreadPerformingDlopenDlsym() == false &&
+#endif
         isCheckpointThreadInitialized() == true  &&
         isOkToGrabLock() == true) {
       incrementWrapperExecutionLockLockCount();

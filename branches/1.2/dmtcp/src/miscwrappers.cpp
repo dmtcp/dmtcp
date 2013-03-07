@@ -118,35 +118,39 @@ extern "C" int pipe2 ( int fds[2], int flags )
  *
  * We set this variable to true, once we are inside the dlopen/dlsym/dlerror
  * wrapper, so that the calling thread won't try to acquire the lock later on.
+ *
+ * EDIT: Instead of acquiring wrapperExecutionLock, we acquire libdlLock.
+ * libdlLock is a higher priority lock than wrapperExectionLock i.e. during
+ * checkpointing this lock is acquired before wrapperExecutionLock by the
+ * ckpt-thread.
+ * Rationale behind not using wrapperExecutionLock and creating an extra lock:
+ *   When loading a shared library, dlopen will initialize the static objects
+ *   in the shared library by calling their corresponding constructors.
+ *   Further, the constructor might call fork/exec to create new
+ *   process/program. Finally, fork/exec require the wrapperExecutionLock in
+ *   exclusive mode (writer lock). However, if dlopen wrapper acquires the
+ *   wrapperExecutionLock, the fork wrapper will deadlock when trying to get
+ *   writer lock.
  */
 
-// TODO: Integrate NEXT_FNC() with remaining wrappers in future.
-#include <dlfcn.h>
-#define NEXT_FNC(symbol) \
-  (next_fnc ? *next_fnc : \
-   *(next_fnc = (__typeof__(next_fnc))dlsym(RTLD_NEXT, #symbol)))
 extern "C"
 void *dlopen(const char *filename, int flag)
 {
-  void *ret;
-  WRAPPER_EXECUTION_DISABLE_CKPT();
-  dmtcp::ThreadSync::setThreadPerformingDlopenDlsym();
-  ret = _real_dlopen(filename, flag);
-  //ret = NEXT_FNC(dlopen)(filename, flag);
-  dmtcp::ThreadSync::unsetThreadPerformingDlopenDlsym();
-  WRAPPER_EXECUTION_ENABLE_CKPT();
+  bool lockAcquired = dmtcp::ThreadSync::libdlLockLock();
+  void *ret = _real_dlopen(filename, flag);
+  if (lockAcquired) {
+    dmtcp::ThreadSync::libdlLockUnlock();
+  }
   return ret;
 }
 extern "C"
 int dlclose(void *handle)
 {
-  int ret;
-  WRAPPER_EXECUTION_DISABLE_CKPT();
-  dmtcp::ThreadSync::setThreadPerformingDlopenDlsym();
-  ret = _real_dlclose(handle);
-  //ret = NEXT_FNC(dlclose)(handle);
-  dmtcp::ThreadSync::unsetThreadPerformingDlopenDlsym();
-  WRAPPER_EXECUTION_ENABLE_CKPT();
+  bool lockAcquired = dmtcp::ThreadSync::libdlLockLock();
+  int ret = _real_dlclose(handle);
+  if (lockAcquired) {
+    dmtcp::ThreadSync::libdlLockUnlock();
+  }
   return ret;
 }
 
