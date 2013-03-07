@@ -43,8 +43,6 @@ int main(int argc, char* argv[])
       *(void **) (&fnc) = dlsym(handle, "fnc");
     }
 
-    lib = 2 - lib; /* switch libraries to load */
-
     assert(lib == 1 || lib == 2);
     for (i = 0; i < 5; i++) {
       answer = fnc(result);
@@ -60,6 +58,7 @@ int main(int argc, char* argv[])
       if (cnt2 % 50 == 0)
         printf("\n%d: ", cnt2 / 50); fflush(stdout);
     }
+    lib = 3 - lib; /* switch libraries to load */
   }
   return 0;
 }
