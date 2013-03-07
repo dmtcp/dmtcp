@@ -27,12 +27,12 @@
   /*JTRACE("Acquiring wrapperExecutionLock");*/         \
   bool __wrapperExecutionLockAcquired =                 \
     dmtcp::ThreadSync::wrapperExecutionLockLock();      \
-  if (__wrapperExecutionLockAcquired) {               \
+  if (__wrapperExecutionLockAcquired) {                 \
     /*JTRACE("Acquired wrapperExecutionLock"); */       \
   }
 
 #define WRAPPER_EXECUTION_ENABLE_CKPT()                 \
-  if (__wrapperExecutionLockAcquired) {               \
+  if (__wrapperExecutionLockAcquired) {                 \
     /*JTRACE("Releasing wrapperExecutionLock"); */      \
     dmtcp::ThreadSync::wrapperExecutionLockUnlock();    \
   }
@@ -43,7 +43,6 @@
 #define WRAPPER_EXECUTION_GET_EXCL_LOCK()               \
   bool __wrapperExecutionLockAcquired                   \
     = dmtcp::ThreadSync::wrapperExecutionLockLockExcl();\
-  JASSERT(__wrapperExecutionLockAcquired);              \
   dmtcp::ThreadSync::unsetOkToGrabLock();
 
 #define WRAPPER_EXECUTION_RELEASE_EXCL_LOCK()           \
@@ -74,6 +73,8 @@ namespace dmtcp
     bool threadCreationLockLock();
     void threadCreationLockUnlock();
 
+    bool libdlLockLock();
+    void libdlLockUnlock();
     void waitForThreadsToFinishInitialization();
     void incrementUninitializedThreadCount();
     void decrementUninitializedThreadCount();
@@ -95,9 +96,11 @@ namespace dmtcp
     void sendCkptSignalOnFinalUnlock();
     void setSendCkptSignalOnFinalUnlock();
 
+#if TRACK_DLOPEN_DLSYM_FOR_LOCKS
     bool isThreadPerformingDlopenDlsym();
     void setThreadPerformingDlopenDlsym();
     void unsetThreadPerformingDlopenDlsym();
+#endif
 
     void incrNumUserThreads();
     void processPreResumeCB();
