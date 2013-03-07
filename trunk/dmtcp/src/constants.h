@@ -51,6 +51,7 @@
 #define LIBPTHREAD_FILENAME "libpthread.so.0"
 
 #define MTCP_FILENAME "libmtcp.so.1"
+#define LIBDL_FILENAME "libdl.so.2"
 #define CKPT_FILE_PREFIX "ckpt_"
 #define CKPT_FILE_SUFFIX ".dmtcp"
 #define CKPT_FILES_SUBDIR_PREFIX "ckpt_"
