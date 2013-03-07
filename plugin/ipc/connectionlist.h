@@ -45,6 +45,7 @@ namespace dmtcp
       ConnectionList() {
         numMissingCons = 0;
         JASSERT(pthread_mutex_init(&_lock, NULL) == 0);}
+      virtual ~ConnectionList();
 
       void resetOnFork();
       void deleteStaleConnections();

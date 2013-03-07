@@ -46,6 +46,10 @@ static void sendFd(int restoreFd, int fd, ConnectionIdentifier& id,
                    struct sockaddr_un& addr, socklen_t len);
 static int receiveFd(int restoreFd, ConnectionIdentifier *id);
 
+dmtcp::ConnectionList::~ConnectionList()
+{
+}
+
 void dmtcp::ConnectionList::processEvent(DmtcpEvent_t event,
                                          DmtcpEventData_t *data)
 {
