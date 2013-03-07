@@ -96,6 +96,7 @@ namespace jassert_internal
       ///
       /// print a value of any type
       template < typename T > JAssert& Print ( const T& t );
+      JAssert& Print ( const char *t );
       template < typename T > JAssert& Print ( const dmtcp::vector<T>& t );
       ///
       /// print out a string in format "Message: msg"
@@ -142,6 +143,18 @@ namespace jassert_internal
 #else
     ss << t;
 #endif
+    return *this;
+  }
+
+  inline JAssert& JAssert::Print ( const char*t )
+  {
+    if (t != NULL) {
+#ifdef JASSERT_FAST
+      jassert_output_stream() << *t;
+#else
+      ss << t;
+#endif
+    }
     return *this;
   }
 
