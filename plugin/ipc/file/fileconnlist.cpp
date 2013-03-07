@@ -306,7 +306,7 @@ Connection *dmtcp::FileConnList::findDuplication(int fd, const char *path)
 void dmtcp::FileConnList::processFileConnection(int fd, const char *path,
                                                 int flags, mode_t mode)
 {
-  Connection *c;
+  Connection *c = NULL;
   struct stat statbuf;
   JASSERT(fstat(fd, &statbuf) == 0);
 
