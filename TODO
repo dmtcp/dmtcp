@@ -65,6 +65,8 @@
 
 - dmtcp_checkpoint a.out > a.txt ; restart fails if a.txt not found.
 
+- Add support for epoll_pwait() and ppoll().
+
 PID-VIRTUALIZATION:
 1. wait status of zombie processes
      Store status of those processes which were zombie at checkpoint time. If

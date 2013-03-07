@@ -154,27 +154,36 @@ extern "C" int epoll_ctl(int epfd, int op, int fd, struct epoll_event *event)
 extern "C" int epoll_wait(int epfd, struct epoll_event *events, int maxevents,
                           int timeout)
 {
-  int readyFds, timeLeft = timeout;
+  int readyFds = 0;
+  int timeLeft = timeout;
+  int mytime;
   JTRACE("Starting to do wait on epoll fd");
-  int mytime = 1000; // wait time quanta: 1000 ms
-  while (1)
-  {
+
+  if (timeout >= 0 && timeout < 1000) {
+    // Short time intervals
+    DMTCP_DISABLE_CKPT();
+    readyFds = _real_epoll_wait(epfd, events, maxevents, timeout);
+    DMTCP_ENABLE_CKPT();
+    return readyFds;
+  } else if (timeout >= 1000) {
+    mytime = 1000; // wait time quanta: 1000 ms
+  } else {
+    // In case of indefinite timeout, start with 0 and increment by 1ms.
+    mytime = 0;
+  }
+
+  do {
     DMTCP_DISABLE_CKPT();
     readyFds = _real_epoll_wait(epfd, events, maxevents, mytime);
     DMTCP_ENABLE_CKPT();
-    if (timeLeft > 0)
-        timeLeft -= mytime;
-
-    if ((timeout < 0 || timeLeft > 0) &&(0 == readyFds))
-    {
-      // More time left; didn't get any notification continue to wait...
-      continue;
+    if (timeout < 0 && mytime <= 100) {
+      // Increase timeout if we are going to wait forever.
+      mytime += 1;
+    } else {
+      timeLeft -= mytime;
     }
-    else
-    {
-      return readyFds;
-    }
-  }
+  } while ((timeLeft > 0 || timeout < 0) && readyFds == 0);
+  return readyFds;
 }
 #endif
 
