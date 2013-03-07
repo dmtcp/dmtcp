@@ -103,7 +103,7 @@ extern "C" int open (const char *path, int flags, ... )
 // FIXME: Add the 'fn64' wrapper test cases to dmtcp test suite.
 extern "C" int open64 (const char *path, int flags, ... )
 {
-  mode_t mode;
+  mode_t mode = 0;
   // Handling the variable number of arguments
   if (flags & O_CREAT) {
     va_list arg;

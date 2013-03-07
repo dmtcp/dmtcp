@@ -372,7 +372,7 @@ void dmtcp::PtyConnection::postRestart()
     return;
   }
 
-  int tempfd;
+  int tempfd = -1;
   int extraFlags = _isControllingTTY ? 0 : O_NOCTTY;
 
   switch (_type) {
