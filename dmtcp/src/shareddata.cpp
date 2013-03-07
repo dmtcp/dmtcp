@@ -399,7 +399,7 @@ bool SharedData::getCkptLeaderForFile(dev_t devnum, ino_t inode, void *id)
   if (sharedDataHeader == NULL) initialize();
   JASSERT(id != NULL);
   if (sharedDataHeader->numInodeConnIdMaps > 0) {
-    for (size_t i = sharedDataHeader->numInodeConnIdMaps - 1; i >= 0; i--) {
+    for (int i = sharedDataHeader->numInodeConnIdMaps - 1; i >= 0; i--) {
       InodeConnIdMap& map = sharedDataHeader->inodeConnIdMap[i];
       if (map.devnum == devnum && map.inode== inode) {
         memcpy(id, map.id, sizeof(map.id));
