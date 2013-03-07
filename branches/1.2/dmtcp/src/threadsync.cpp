@@ -433,11 +433,14 @@ bool dmtcp::ThreadSync::threadCreationLockLock()
       }
       // retVal should always be 0 (success) here.
       lockAcquired = retVal == 0 ? true : false;
+
+      // If for some reason, the lock was not acquired, decrement the count
+      // that we incremented at the start of this block.
+      if (!lockAcquired) {
+        decrementThreadCreationLockLockCount();
+      }
     }
     break;
-  }
-  if (!lockAcquired) {
-    decrementThreadCreationLockLockCount();
   }
   errno = saved_errno;
   return lockAcquired;
