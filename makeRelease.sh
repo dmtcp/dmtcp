@@ -1,7 +1,7 @@
 #!/bin/sh
 
 VERSION=`cat VERSION`
-VCS_SVN=https://dmtcp.svn.sourceforge.net/svnroot/dmtcp
+VCS_SVN=svn://svn.code.sf.net/p/dmtcp/code
 
 #run a command with error checking
 e() {
