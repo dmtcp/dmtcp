@@ -375,7 +375,7 @@ mtcp_restart_nolibc.o: mtcp_restart_nolibc.c mtcp.h mtcp_internal.h
 
 # -fstack-protector for hardening-check for debian-unstable (May 2012).
 mtcp_maybebpt.o: mtcp_maybebpt.c mtcp_internal.h
-	${CC} $(MTCP_CFLAGS) $(FSTACK_PROTECTOR) -c -o mtcp_maybebpt.o mtcp_maybebpt.c
+	${CC} $(MTCP_CFLAGS) -c -o mtcp_maybebpt.o mtcp_maybebpt.c
 
 mtcp_safe_open.o: mtcp_safe_open.c mtcp_internal.h
 	${CC} $(MTCP_CFLAGS) -c -o mtcp_safe_open.o mtcp_safe_open.c
