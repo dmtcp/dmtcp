@@ -1,7 +1,7 @@
 #!/bin/sh
 
 VERSION=`cat VERSION`
-VCS_SVN=svn://svn.code.sf.net/p/dmtcp/code
+VCS_SVN=svn://svn.code.sf.net/p/dmtcp/code/branches/1.2
 
 #run a command with error checking
 e() {
@@ -39,7 +39,7 @@ else
   NAME=dmtcp-$VERSION+svn$REV
 fi
 
-e svn export -r $REV $VCS_SVN/branches/1.2 $NAME
+e svn export -r $REV $VCS_SVN $NAME
 e rm -rf $NAME/{makeRelease.sh}
 
 #REV=`getRev dmtcp_staging`
