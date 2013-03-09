@@ -281,6 +281,7 @@ install: all
 	cd $(DESTDIR)$(libdir) && $(LN_S) libdmtcpaware.so.1 libdmtcpaware.so
 	echo "${docdir}" | grep -q /dmtcp || false
 	$(MKDIR_P) $(DESTDIR)$(docdir)/examples
+	cp QUICK-START COPYING $(DESTDIR)$(docdir)/
 	cp test/dmtcpaware*.c $(DESTDIR)$(docdir)/examples
 	$(MKDIR_P) $(DESTDIR)$(mandir)/man1
 	cp manpages/dmtcp.1 $(DESTDIR)$(mandir)/man1
