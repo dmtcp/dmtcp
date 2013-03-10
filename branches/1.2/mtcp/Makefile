@@ -253,12 +253,16 @@ threadtest: threadtest.c
 # mtcp_restart on libc by rewriting some glibc function calls and
 # replacing the glibc-syscall wrappers with the respective mtcp_sys_XXX()
 # version.
+#
+# NOTE: We should not compile mtcp_restart with -fPIC. Doing so causes it to
+# fail with strange memory errors (e.g. mmap() failing with EINVAL). This was
+# observed on 32-bit Fedora-19.
 
 mtcp_restart: mtcp_restart.c mtcp_internal.h mtcp_sys.h \
 	mtcp_printf.o mtcp_util.o mtcp_maybebpt.o \
 	mtcp_safemmap.o mtcp_state.o mtcp_safe_open.o \
 	mtcp_check_vdso.o mtcp_fastckpt.o ${ARM_EXTRAS}
-	${CC} $(MTCP_CFLAGS) ${ARM_BUG_FIX} -static -nodefaultlibs \
+	${CC} $(MTCP_CFLAGS) ${ARM_BUG_FIX} -fno-PIC -UPIC -static -nodefaultlibs \
 	 -o mtcp_restart mtcp_restart.c mtcp_maybebpt.o \
 	 mtcp_printf.o mtcp_util.o mtcp_safemmap.o \
 	 mtcp_state.o mtcp_safe_open.o \
