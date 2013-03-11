@@ -5,9 +5,7 @@ Summary:	Checkpoint/Restart functionality for Linux processes
 Group:		Applications/System
 License:	LGPLv3+
 URL:		http://dmtcp.sourceforge.net
-# The source for this package was pulled from upstream's downloads page using:
-# http://sourceforge.net/projects/dmtcp/files/dmtcp/1.2.5/dmtcp-1.2.5.tar.gz
-Source0:	%{name}-%{version}.tar.gz
+Source0:	http://downloads.sourceforge.net/%{name}/%{name}-%{version}.tar.gz
 BuildRoot:	%{_tmppath}/%{name}-%{version}-%{release}-root
 Requires:	libmtcp = %{version}
 BuildRequires:	gcc-c++
@@ -138,7 +136,8 @@ rm -rf %{buildroot}
 %{_bindir}/dmtcp_*
 %{_bindir}/mtcp_restart
 %{_libdir}/%{name}
-%doc QUICK-START COPYING
+%{_docdir}/%{name}-%{version}/QUICK-START
+%{_docdir}/%{name}-%{version}/COPYING
 %{_mandir}/man1/dmtcp.1.gz
 %{_mandir}/man1/dmtcp_*.1.gz
 %{_mandir}/man1/mtcp.1.gz
@@ -171,9 +170,9 @@ rm -rf %{buildroot}
 %{_libdir}/libdmtcpaware.a
 
 %changelog
-* Fri Mar 08 2013 kapil@ccs.neu.edu
+* Mon Mar 11 2013 Kapil Arya <kapil@ccs.neu.edu> - 1.2.7-1
 - Preparing for upstream release 1.2.7.
-
+- Use %%{_docdir} instead of %%doc for QUICK-START and COPYING.
 * Tue Oct 09 2012 Orion Poplawski <orion@cora.nwra.com> - 1.2.6-1
 - Update to 1.2.6
 - Use URL for Source0
