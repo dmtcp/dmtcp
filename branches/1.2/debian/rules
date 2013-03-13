@@ -74,7 +74,7 @@ install: build
 	# Add here commands to install the package into debian/dmtcp.
 	$(MAKE) DESTDIR=$(DESTDIR) install
 
-	dh_install -Xshare/man -Xexamples -Xdmtcp_inspector --fail-missing --sourcedir=$(BUILDDIR)
+	dh_install -Xshare/man -Xexamples -XQUICK-START -XCOPYING -Xdmtcp_inspector --fail-missing --sourcedir=$(BUILDDIR)
 
 
 # Build architecture-independent files here.
