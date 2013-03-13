@@ -25,12 +25,9 @@ include/
 dmtcp/src/dmtcp_checkpoint
 dmtcp/src/dmtcp_command
 dmtcp/src/dmtcp_coordinator
-dmtcp/src/dmtcp_inspector
 dmtcp/src/dmtcp_nocheckpoint
 dmtcp/src/dmtcp_restart
-dmtcp/src/dmtcp_discover_rm
-dmtcp/src/libdmtcp.so
-dmtcp/src/libdmtcpaware.so.1.0.0
+dmtcp/src/libdmtcpaware.so*
 dmtcp_discover_rm
 
 mtcp/libmtcp.so*
@@ -43,8 +40,6 @@ mtcp/testmtcp6
 test/testconfig.py
 
 *.deps*
-dmtcp/src/config.h
-dmtcp/src/stamp-h1
 
 ckpt_*.dmtcp
 dmtcp_restart_script*
