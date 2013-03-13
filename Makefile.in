@@ -61,7 +61,7 @@ build: mtcp dmtcp plugin contrib
 	$(MAKE) lib
 	$(MAKE) include
 
-all: default tests
+all: default
 
 display-build-env: display-config display-release
 	@- uname -a
