@@ -72,14 +72,21 @@ libdmtcp_so_SOURCES = dmtcpawareapi.cpp dmtcpworker.cpp threadsync.cpp \
 		      glibcsystem.cpp mallocwrappers.cpp \
 		      dmtcpplugin.cpp popen.cpp syslogwrappers.cpp
 
-libdmtcp_so_LDFLAGS = -shared
+# Add the following three paths to rpath:
+# 1. ../                : Useful when installed with 'make DESTDIR=xxx install'
+# 2. $ORIGIN/../../mtcp : Useful when running from build directory
+# 3. $(libdir)          : Useful when installed with 'make install'
+libdmtcp_so_LDFLAGS = -shared -L../../mtcp \
+		      -Xlinker -rpath -Xlinker ../ \
+		      -Xlinker -rpath -Xlinker '$$ORIGIN/../../mtcp' \
+		      -Xlinker -rpath -Xlinker $(libdir)
 
 #dmtcp_nocheckpoint_LDFLAGS = -static
 
 # Note that an ELF object uses libsyscallsreal.a or libnohijack.a
 #  but not both.  libnohijack.a has stub definitions for same symbols.
 libdmtcp_so_LDADD	= libdmtcpinternal.a libjalib.a libsyscallsreal.a \
-			  -ldl -lpthread -lrt ../../mtcp/libmtcp.so
+			  -ldl -lpthread -lrt -lmtcp
 dmtcp_coordinator_LDADD = libdmtcpinternal.a libjalib.a \
 			  libnohijack.a -lpthread -lrt
 dmtcp_checkpoint_LDADD  = libdmtcpinternal.a libjalib.a \

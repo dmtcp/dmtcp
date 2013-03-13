@@ -464,6 +464,8 @@ int main ( int argc, char** argv )
   preloadLibs += jalib::Filesystem::FindHelperUtility("libdmtcp_pid.so");
 #endif
 
+#if 0
+  // After updating rpath, we shouldn't need to set LD_LIBRARY_PATH explicitely.
   const char *ldLibPath = getenv("LD_LIBRARY_PATH");
   dmtcp::string libPath;
   if (ldLibPath != NULL) {
@@ -473,6 +475,7 @@ int main ( int argc, char** argv )
                jalib::Filesystem::FindHelperUtility(MTCP_FILENAME));
   JASSERT(!libPath.empty());
   setenv("LD_LIBRARY_PATH", libPath.c_str(), 1);
+#endif
 
   setenv(ENV_VAR_HIJACK_LIBS, preloadLibs.c_str(), 1);
 
