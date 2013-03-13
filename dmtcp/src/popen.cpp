@@ -20,6 +20,15 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+
+#include <signal.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <fcntl.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include "constants.h"
+#include "dmtcpalloc.h"
 #include "syscallwrappers.h"
 #include "threadsync.h"
 #include "../jalib/jassert.h"
@@ -98,10 +107,10 @@ FILE *popen(const char *command, const char *mode)
   child_pid = fork();
   if (child_pid == 0) {
     int child_std_fd = do_read ? STDOUT_FILENO : STDIN_FILENO;
-    close(parent_fd);
+    _real_close(parent_fd);
     if (child_fd != child_std_fd) {
-      dup2(child_fd, child_std_fd);
-      close(child_fd);
+      _real_dup2(child_fd, child_std_fd);
+      _real_close(child_fd);
     }
     /* POSIX.2:  "popen() shall ensure that any streams from previous
        popen() calls that remain open in the parent process are closed
@@ -122,9 +131,9 @@ FILE *popen(const char *command, const char *mode)
     execl("/bin/sh", "sh", "-c", command, (char *) 0);
     exit(127);
   }
-  close(child_fd);
+  _real_close(child_fd);
   if (child_pid < 0) {
-    close(parent_fd);
+    _real_close(parent_fd);
     return NULL;
   }
 

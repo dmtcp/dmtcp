@@ -19,18 +19,21 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#pragma once
+#include <sys/types.h>
+#include <unistd.h>
+#include <sys/time.h>
+#include <time.h>
+#include <iostream>
+#include "constants.h"
+#include "dmtcpalloc.h"
+#include "../jalib/jserialize.h"
+
 #ifndef UNIQUEPID_H
 #define UNIQUEPID_H
 
-#include <sys/types.h>
-#include "dmtcpplugin.h"
-#include "../jalib/jserialize.h"
-
-
 namespace dmtcp
 {
-  struct UniquePid : private DmtcpUniqueProcessId
+  struct UniquePid
   {
   public:
     static dmtcp::UniquePid& ParentProcess();
@@ -39,34 +42,15 @@ namespace dmtcp
     UniquePid();
 
     UniquePid ( const long& host, const pid_t& pd, const time_t& tm,
-                const int& gen = 0 ) {
-      _hostid = host;
-      _pid = pd;
-      _time = tm;
-      _generation = gen;
-    }
+                const int& gen = 0 )
+        : _pid ( pd ), _hostid ( host ), _time ( tm ), _generation ( gen )
+    {setPrefix();}
 
-    UniquePid(DmtcpUniqueProcessId id) {
-      _hostid = id._hostid;
-      _pid = id._pid;
-      _time = id._time;
-      _generation = id._generation;
-    }
-
-    UniquePid(const char *str);
-    long hostid() const { return _hostid; }
-    pid_t pid() const { return _pid; }
-    time_t time() const { return _time; }
-    int generation() const { return _generation; }
-    DmtcpUniqueProcessId upid() const {
-      DmtcpUniqueProcessId up;
-      up._hostid = _hostid;
-      up._pid = _pid;
-      up._time = _time;
-      up._generation = _generation;
-      return up;
-    }
-
+    long hostid() const;
+    pid_t pid() const;
+    time_t time() const;
+    int generation() const;
+    const char* prefix() const;
     void incrementGeneration();
     static const char* getCkptFilename();
     static dmtcp::string getCkptFilesSubDir();
@@ -77,7 +61,9 @@ namespace dmtcp
     static dmtcp::string getTmpDir();
 
     static dmtcp::string dmtcpTableFilename();
+#ifdef PID_VIRTUALIZATION
     static dmtcp::string pidTableFilename();
+#endif
 
     static void serialize( jalib::JBinarySerializer& o );
 
@@ -90,8 +76,21 @@ namespace dmtcp
     dmtcp::string toString() const;
 
     bool isNull() const;
-  };
 
+  private:
+    void setPrefix();
+
+    pid_t _pid; //getpid()
+    long  _hostid; //gethostid()
+    time_t _time; //time()
+    int _generation; //generation()
+    char _prefix[32];
+  };
+}
+
+//to make older versions of gcc work
+namespace dmtcp
+{
   dmtcp::ostream& operator << ( dmtcp::ostream& o,const dmtcp::UniquePid& id );
 }
 

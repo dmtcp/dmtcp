@@ -20,6 +20,12 @@ else
 CROSS= --build $(DEB_BUILD_GNU_TYPE)
 endif
 
+DPKG_BUILD_VERSION= $(shell dpkg-buildflags --version | sed -ne '1s,.*version *,,gp')
+ifeq ($(shell dpkg --compare-versions 1.16.1 lt $(DPKG_BUILD_VERSION) && echo TRUE), TRUE)
+DPKG_BUILDFLAGS= $(shell dpkg-buildflags --export=configure)
+else
+DPKG_BUILDFLAGS= CFLAGS="$(CFLAGS)" LDFLAGS="-Wl,-z,defs"
+endif
 
 BUILDDIR = debian/tmp
 DESTDIR = $(CURDIR)/$(BUILDDIR)
@@ -28,7 +34,7 @@ DESTDIR = $(CURDIR)/$(BUILDDIR)
 configure: configure-stamp
 configure-stamp:
 	dh_testdir
-	./configure $(CROSS) --prefix=/usr --mandir=\$${prefix}/share/man --infodir=\$${prefix}/share/info CFLAGS="$(CFLAGS)" LDFLAGS="-Wl,-z,defs"
+	./configure $(CROSS) --prefix=/usr --mandir=\$${prefix}/share/man --infodir=\$${prefix}/share/info $(DPKG_BUILDFLAGS)
 
 	touch configure-stamp
 
@@ -42,7 +48,9 @@ build-stamp: configure-stamp
 	$(MAKE)
 	#docbook-to-man debian/dmtcp.sgml > dmtcp.1
 ifeq (,$(findstring nocheck,$(DEB_BUILD_OPTIONS)))
+ifneq ($(shell dpkg-architecture -qDEB_BUILD_ARCH_CPU),arm)
 	$(MAKE) check
+endif
 endif
 
 	touch $@
@@ -66,7 +74,7 @@ install: build
 	# Add here commands to install the package into debian/dmtcp.
 	$(MAKE) DESTDIR=$(DESTDIR) install
 
-	dh_install -Xshare/man -Xexamples -Xdmtcp_inspector --fail-missing --sourcedir=$(BUILDDIR)
+	dh_install -Xshare/man -Xexamples -XQUICK-START -XCOPYING -Xdmtcp_inspector --fail-missing --sourcedir=$(BUILDDIR)
 
 
 # Build architecture-independent files here.

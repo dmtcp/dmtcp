@@ -1,12 +1,13 @@
+#include <dlfcn.h>
+#include "constants.h"
 #include "dmtcpplugin.h"
+#include "protectedfds.h"
 #include "dmtcpworker.h"
-#include "coordinatorapi.h"
-#include "syscallwrappers.h"
-#include "processinfo.h"
+#include "dmtcpmessagetypes.h"
 
 using namespace dmtcp;
 
-EXTERNC void dmtcp_process_event(DmtcpEvent_t id, DmtcpEventData_t *data)
+EXTERNC void dmtcp_process_event(DmtcpEvent_t id, void* data)
 {
   NEXT_DMTCP_PROCESS_EVENT(id, data);
 }
@@ -34,9 +35,10 @@ EXTERNC void dmtcp_set_tmpdir(const char* dir)
 
 EXTERNC const char* dmtcp_get_ckpt_dir()
 {
-  static dmtcp::string tmpdir;
-  tmpdir = dmtcp::UniquePid::getCkptDir();
-  return tmpdir.c_str();
+  static dmtcp::string *tmpdir = NULL;
+  if (tmpdir == NULL)
+    tmpdir = new dmtcp::string(dmtcp::UniquePid::getCkptDir());
+  return tmpdir->c_str();
 }
 
 EXTERNC void dmtcp_set_ckpt_dir(const char* dir)
@@ -44,23 +46,6 @@ EXTERNC void dmtcp_set_ckpt_dir(const char* dir)
   if (dir != NULL) {
     dmtcp::UniquePid::setCkptDir(dir);
   }
-}
-
-EXTERNC const char* dmtcp_get_ckpt_files_subdir()
-{
-  static dmtcp::string tmpdir;
-  tmpdir = dmtcp::UniquePid::getCkptFilesSubDir();
-  return tmpdir.c_str();
-}
-
-EXTERNC int dmtcp_should_ckpt_open_files()
-{
-  return getenv(ENV_VAR_CKPT_OPEN_FILES) != NULL;
-}
-
-EXTERNC const char* dmtcp_get_executable_path()
-{
-  return dmtcp::ProcessInfo::instance().procSelfExe().c_str();
 }
 
 EXTERNC const char* dmtcp_get_uniquepid_str()
@@ -71,11 +56,6 @@ EXTERNC const char* dmtcp_get_uniquepid_str()
   return uniquepid_str->c_str();
 }
 
-EXTERNC DmtcpUniqueProcessId dmtcp_get_uniquepid()
-{
-  return dmtcp::UniquePid::ThisProcess().upid();
-}
-
 EXTERNC const char* dmtcp_get_computation_id_str()
 {
   static dmtcp::string *compid_str = NULL;
@@ -83,25 +63,6 @@ EXTERNC const char* dmtcp_get_computation_id_str()
     compid_str =
       new dmtcp::string(dmtcp::UniquePid::ComputationId().toString());
   return compid_str->c_str();
-}
-
-EXTERNC DmtcpUniqueProcessId dmtcp_get_coord_id()
-{
-  return CoordinatorAPI::instance().coordinatorId();
-}
-
-EXTERNC int dmtcp_unique_pids_equal(DmtcpUniqueProcessId a,
-                                    DmtcpUniqueProcessId b)
-{
-  return a._hostid == b._hostid &&
-         a._pid == b._pid &&
-         a._time == b._time &&
-         a._generation == b._generation;
-}
-
-EXTERNC time_t dmtcp_get_coordinator_timestamp()
-{
-  return CoordinatorAPI::instance().coordTimeStamp();
 }
 
 EXTERNC int  dmtcp_get_generation()
@@ -124,20 +85,9 @@ EXTERNC int  dmtcp_is_protected_fd(int fd)
   return dmtcp::ProtectedFDs::isProtected(fd);
 }
 
-EXTERNC void dmtcp_close_protected_fd(int fd)
-{
-  JASSERT(dmtcp::ProtectedFDs::isProtected(fd));
-  _real_close(fd);
-}
-
 EXTERNC int dmtcp_get_readlog_fd()
 {
   return PROTECTED_READLOG_FD;
-}
-
-EXTERNC int dmtcp_get_ptrace_fd()
-{
-  return PROTECTED_PTRACE_FD;
 }
 
 EXTERNC void *dmtcp_get_libc_dlsym_addr()
@@ -176,8 +126,20 @@ EXTERNC int dmtcp_send_key_val_pair_to_coordinator(const void *key,
                                                    const void *val,
                                                    size_t val_len)
 {
-  return CoordinatorAPI::instance().sendKeyValPairToCoordinator(key, key_len,
-                                                                val, val_len);
+  char *extraData = new char[key_len + val_len];
+  memcpy(extraData, key, key_len);
+  memcpy(extraData + key_len, val, val_len);
+
+  DmtcpMessage msg (DMT_REGISTER_NAME_SERVICE_DATA);
+  msg.keyLen = key_len;
+  msg.valLen = val_len;
+  msg.extraBytes = key_len + val_len;
+
+  DmtcpWorker::instance().coordinatorSocket() << msg;
+  DmtcpWorker::instance().coordinatorSocket().writeAll(extraData,
+                                                       msg.extraBytes);
+  delete [] extraData;
+  return 1;
 }
 
 // On input, val points to a buffer in user memory and *val_len is the maximum
@@ -187,16 +149,44 @@ EXTERNC int dmtcp_send_key_val_pair_to_coordinator(const void *key,
 EXTERNC int dmtcp_send_query_to_coordinator(const void *key, size_t key_len,
                                             void *val, size_t *val_len)
 {
-  return CoordinatorAPI::instance().sendQueryToCoordinator(key, key_len,
-                                                           val, val_len);
-}
+  /* THE USER JUST GAVE US A BUFFER, val.  WHY ARE WE ALLOCATING
+   * EXTRA MEMORY HERE?  ALLOCATING MEMORY IS DANGEROUS.  WE ARE A GUEST
+   * IN THE USER'S PROCESS.  IF WE NEED TO, CREATE A message CONSTRUCTOR
+   * AROUND THE USER'S 'key' INPUT.
+   *   ALSO, SINCE THE USER GAVE US *val_len * CHARS OF MEMORY, SHOULDN'T
+   * WE BE SETTING msg.extraBytes TO *val_len AND NOT key_len?
+   * ANYWAY, WHY DO WE USE THE SAME msg OBJECT FOR THE "send key"
+   * AND FOR THE "return val"?  IT'S NOT TO SAVE MEMORY.  :-)
+   * THANKS, - Gene
+   */
+  char *extraData = new char[key_len];
+  memcpy(extraData, key, key_len);
 
-EXTERNC int dmtcp_get_coordinator_sockname(struct sockaddr_storage *addr)
-{
-  return CoordinatorAPI::instance().getCoordSockname(addr);
-}
+  DmtcpMessage msg (DMT_NAME_SERVICE_QUERY);
+  msg.keyLen = key_len;
+  msg.valLen = 0;
+  msg.extraBytes = key_len;
 
-EXTERNC int dmtcp_no_coordinator()
-{
-  return CoordinatorAPI::noCoordinator();
+  DmtcpWorker::instance().coordinatorSocket() << msg;
+  DmtcpWorker::instance().coordinatorSocket().writeAll(extraData,
+                                                       msg.extraBytes);
+  delete [] extraData;
+
+  msg.poison();
+
+  DmtcpWorker::instance().coordinatorSocket() >> msg;
+  msg.assertValid();
+
+  JASSERT(msg.type == DMT_NAME_SERVICE_QUERY_RESPONSE &&
+          msg.extraBytes > 0 && (msg.valLen + msg.keyLen) == msg.extraBytes);
+
+  extraData = new char[msg.extraBytes];
+  DmtcpWorker::instance().coordinatorSocket().readAll(extraData,
+                                                      msg.extraBytes);
+  //TODO: FIXME --> enforce the JASSERT
+  JASSERT(msg.extraBytes <= *val_len + key_len);
+  memcpy(val, extraData + key_len, msg.extraBytes-key_len);
+  *val_len = msg.valLen;
+  delete [] extraData;
+  return 1;
 }

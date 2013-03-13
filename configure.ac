@@ -1,4 +1,4 @@
-AC_INIT([DMTCP],[2.0],[],[dmtcp],[http://dmtcp.sourceforge.net])
+AC_INIT([DMTCP],[1.2.7],[],[dmtcp],[http://dmtcp.sourceforge.net])
 AC_PREREQ([2.60])
 AM_INIT_AUTOMAKE([foreign])
 AM_MAINTAINER_MODE
@@ -13,7 +13,7 @@ dnl This sets OPENMP_CXXFLAGS
 AC_LANG_PUSH([C++])
 AC_OPENMP
 AC_LANG_POP([C++])
-AC_CONFIG_FILES([Makefile plugin/Makefile plugin/pid/Makefile plugin/ptrace/Makefile plugin/ipc/Makefile contrib/Makefile contrib/torque/Makefile test/Makefile test/testconfig.py])
+AC_CONFIG_FILES([Makefile plugin/Makefile plugin/ptrace/Makefile test/Makefile test/testconfig.py])
 AC_CONFIG_SUBDIRS([dmtcp])
 
 dnl Autoconf manual says option checking is set to warn ("yes") by
@@ -36,6 +36,12 @@ AC_ARG_ENABLE([debug],
             [use_jassert=$enableval],
             [use_jassert=no])
 
+if test "$use_jassert" = "yes"; then
+  AC_SUBST([DEBUG], [yes])
+else
+  AC_SUBST([DEBUG], [no])
+fi
+
 AC_ARG_ENABLE([quiet],
             [AS_HELP_STRING([--enable-quiet],
                             [disable NOTE and WARNING (default is
@@ -50,6 +56,12 @@ AC_ARG_ENABLE([timing],
                             dmtcp_coordinator, and to stderr.])],
             [use_jtiming=$enableval],
             [use_jtiming=no])
+
+AC_ARG_ENABLE([condor_support],
+            [AS_HELP_STRING([--enable-condor-support],
+                            [set configure options to support Condor.])],
+            [use_condor_support=$enableval],
+            [use_condor_support=no])
 
 AC_ARG_ENABLE([unique_checkpoint_filenames],
             [AS_HELP_STRING([--enable-unique-checkpoint-filenames],
@@ -80,18 +92,16 @@ AC_ARG_ENABLE([forked_checkpointing],
             [use_forked_ckpt=$enableval],
             [use_forked_ckpt=no])
 
-AC_ARG_ENABLE([fast_restart],
-            [AS_HELP_STRING([--enable-fast-restart],
-                            [uses tricks to mmap from checkpoint image file;
-                             disables all kinds of compression
+AC_ARG_ENABLE([fast_ckpt_restart],
+            [AS_HELP_STRING([--enable-fast-ckpt-restart],
+                            [uses tricks to mmap from checkpoint image file
 			    (EXPERIMENTAL)])],
-            [use_fast_restart=$enableval],
-            [use_fast_restart=default])
-if test "$use_fast_restart" = "yes"; then
-  AC_SUBST([FAST_RESTART], [yes])
-  AC_SUBST([HBICT_DELTACOMP], [no])
+            [use_fast_ckpt_restart=$enableval],
+            [use_fast_ckpt_restart=default])
+if test "$use_fast_ckpt_restart" = "yes"; then
+  AC_SUBST([FAST_CKPT_RESTART], [yes])
 else
-  AC_SUBST([FAST_RESTART], [no])
+  AC_SUBST([FAST_CKPT_RESTART], [no])
 fi
 
 AC_ARG_ENABLE([delta_compression],
@@ -117,6 +127,18 @@ AC_ARG_ENABLE([experts_only],
 	    [], [])
 AC_ARG_ENABLE([experts_only_after], [AS_HELP_STRING([ ], [])], [], [])
 
+AC_ARG_ENABLE([mtcp_proc_maps],
+            [AS_HELP_STRING([--enable-mtcp-proc-maps],
+                            [avoids use of linker script in Fedora packaging
+                             (but ckpt/restart becomes slower)])],
+            [mtcp_use_proc_maps=$enableval],
+            [mtcp_use_proc_maps=default])
+if test "$mtcp_use_proc_maps" = "yes"; then
+  AC_SUBST([MTCP_USE_PROC_MAPS], [yes])
+else
+  AC_SUBST([MTCP_USE_PROC_MAPS], [no])
+fi
+
 AC_ARG_ENABLE([pid_virtualization],
             [AS_HELP_STRING([--disable-pid-virtualization],
                             [disable pid virtualization.  Pid virtualization
@@ -131,6 +153,22 @@ if test "$use_pid_virt" = "yes"; then
 else
   AC_SUBST([PID_VIRTUALIZATION], [no])
 fi
+
+AC_ARG_ENABLE([external_socket_handling],
+            [AS_HELP_STRING([--enable-external-socket-handling],
+                            [wait for connection to external peer to close;
+			     expensive if stale-socket-handling
+			     also enabled.])],
+            [use_external_socket_handling=$enableval],
+            [use_external_socket_handling=no])
+AC_ARG_ENABLE([stale_socket_handling],
+            [AS_HELP_STRING([--disable-stale-socket-handling],
+			    [disable stale socket handling; unknown peer
+                             assumed to be external; follow policy of
+                             external-socket-handling configure option.
+			     (OBSOLETE: Do not use)])],
+            [use_stale_socket_handling=$enableval],
+            [use_stale_socket_handling=yes])
 
 AC_ARG_ENABLE([allocator],
             [AS_HELP_STRING([--enable-allocator],
@@ -250,7 +288,7 @@ AC_CHECK_PROG(HAS_GZIP, [gzip], [yes], [no], [/usr/bin:/bin])
 # REPLACE BY FOLLOWING WHEN READY TO SUPPORT THIS EXTERNALLY:
 #            [AS_HELP_STRING([--with-record-replay],
 #                            [support record replay (EXPERIMENTAL)
-#			      forces fast_restart unless --disable-fast-restart specified])],
+#			      forces fast_ckpt_restart unless --disable-fast-ckpt-restart specified])],
 AC_ARG_WITH([record-replay],
             [AS_HELP_STRING([--experts-only-flag], [for experts only])],
             [record_replay=$withval],
@@ -260,18 +298,18 @@ if test "$record_replay" != "no"; then
   AC_DEFINE([RECORD_REPLAY],[],[Record to log and then replay.])
   AC_DEFINE([PTRACE],[],[Use support for ptrace system call.])
   AC_SUBST([PTRACE_SUPPORT], [yes])
-  dnl *** THIS CODE WOULD --enable-fast-restart IF --with-record-replay
+  dnl *** THIS CODE WOULD --enable-fast-ckpt-restart IF --with-record-replay
   dnl *** THIS WORKED WHEN FReD LOOKED ONLY AT libc.so IN /proc/*/mmap
   dnl *** FReD NOW WANTS TO SEE test_list IN /proc/*/mmap
   dnl *** IN FUTURE, FReD WILL GET THOSE ADDRSSES AT CKPT TIME (NOT RESTART),
   dnl ***    AND WE CAN THEN RE-ENABLE THIS SECTION.
   dnl if test "$use_fast_ckpt_restart" != "no"; then
-  dnl   dnl FAST_RESTART is based on mmap
-  dnl   AC_SUBST([FAST_RESTART], [yes])
+  dnl   dnl FAST_CKPT_RESTART is based on mmap
+  dnl   AC_SUBST([FAST_CKPT_RESTART], [yes])
   dnl else
-  dnl   AC_SUBST([FAST_RESTART], [no])
+  dnl   AC_SUBST([FAST_CKPT_RESTART], [no])
   dnl fi
-  dnl AC_DEFINE([OVERRIDE_GLOBAL_ALLOCATOR],[],[Use a custom allocator based on mmap])
+  AC_DEFINE([OVERRIDE_GLOBAL_ALLOCATOR],[],[Use a custom allocator based on mmap])
 else
   AC_SUBST([RECORD_REPLAY], [no])
 fi

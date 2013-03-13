@@ -19,12 +19,14 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#include <stdlib.h>
 #include <stdio.h>
 
-#include "coordinatorapi.h"
+#include "dmtcpcoordinatorapi.h"
 #include "util.h"
+#include "syscallwrappers.h"
 
-#define BINARY_NAME "dmtcp_command"
+#define BINARY_NAME "dmtcp_checkpoint"
 
 using namespace dmtcp;
 
@@ -139,10 +141,8 @@ int main ( int argc, char** argv )
            "under certain conditions; see COPYING file for details.\n"
            "(Use flag \"--quiet\" to hide this message.)\n\n");
 
-  int coordErrorCode = CoordinatorAPI::NOERROR;
-  int numPeers;
-  int isRunning;
-  CoordinatorAPI coordinatorAPI;
+  int result[DMTCPMESSAGE_NUM_PARAMS];
+  DmtcpCoordinatorAPI coordinatorAPI;
   char *cmd = (char *)request.c_str();
   switch (*cmd) {
   case 'h':
@@ -150,41 +150,40 @@ int main ( int argc, char** argv )
     return 1;
   case 'i':
     setenv(ENV_VAR_CKPT_INTR, interval.c_str(), 1);
-    coordinatorAPI.connectAndSendUserCommand(*cmd, &coordErrorCode);
+    coordinatorAPI.connectAndSendUserCommand(*cmd, result);
     printf("Interval changed to %s\n", interval.c_str());
     break;
   case 'b':
     // blocking prefix
-    coordinatorAPI.connectAndSendUserCommand(*cmd, &coordErrorCode);
+    coordinatorAPI.connectAndSendUserCommand(*cmd, result);
     // actual command
-    coordinatorAPI.connectAndSendUserCommand(*(cmd+1), &coordErrorCode);
+    coordinatorAPI.connectAndSendUserCommand(*(cmd+1), result);
     break;
   case 's':
-    coordinatorAPI.connectAndSendUserCommand(*cmd, &coordErrorCode,
-                                             &numPeers, &isRunning);
   case 'c':
   case 'f':
   case 'k':
   case 'q':
-    coordinatorAPI.connectAndSendUserCommand(*cmd, &coordErrorCode);
+    coordinatorAPI.connectAndSendUserCommand(*cmd, result);
     break;
   }
 
   //check for error
-  if (coordErrorCode != CoordinatorAPI::NOERROR) {
-    switch(coordErrorCode){
-    case CoordinatorAPI::ERROR_COORDINATOR_NOT_FOUND:
+  if(result[0]<0){
+    switch(result[0]){
+    case DmtcpCoordinatorAPI::ERROR_COORDINATOR_NOT_FOUND:
       if (getenv("DMTCP_PORT"))
-        fprintf(stderr, "Coordinator not found. Please check port and host.\n");
+        fprintf(stderr,
+	        "Coordinator not found.  Please check port and host.\n");
       else
         fprintf(stderr,
-	      "Coordinator not found. Try specifying port with \'--port\'.\n");
+	      "Coordinator not found.  Try specifying port with \'--port\'.\n");
       break;
-    case CoordinatorAPI::ERROR_INVALID_COMMAND:
+    case DmtcpCoordinatorAPI::ERROR_INVALID_COMMAND:
       fprintf(stderr,
 	      "Unknown command: %c, try 'dmtcp_command --help'\n", *cmd);
       break;
-    case CoordinatorAPI::ERROR_NOT_RUNNING_STATE:
+    case DmtcpCoordinatorAPI::ERROR_NOT_RUNNING_STATE:
       fprintf(stderr, "Error, computation not in running state."
 	      "  Either a checkpoint is\n"
 	      " currently happening or there are no connected processes.\n");
@@ -201,8 +200,8 @@ int main ( int argc, char** argv )
       printf("  Host: %s\n", getenv(ENV_VAR_NAME_HOST));
     printf("  Port: %s\n", getenv(ENV_VAR_NAME_PORT));
     printf("Status...\n");
-    printf("NUM_PEERS=%d\n", numPeers);
-    printf("RUNNING=%s\n", (isRunning?"yes":"no"));
+    printf("NUM_PEERS=%d\n", result[0]);
+    printf("RUNNING=%s\n", (result[1]?"yes":"no"));
   }
 
   return 0;

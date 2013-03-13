@@ -36,19 +36,19 @@ unsigned int real_sleep(unsigned int seconds) {
   return (*real_fnc)(seconds);
 }
 
-void dmtcp_process_event(DmtcpEvent_t event, DmtcpEventData_t *data)
+void dmtcp_process_event(DmtcpEvent_t event, void* data)
 {
   static void (*next_fnc)() = NULL;/* Same type signature as this fnc */
 
   /* NOTE:  See warning in plugin/README about calls to printf here. */
   switch (event) {
-  case DMTCP_EVENT_PRE_CKPT:
+  case DMTCP_EVENT_PRE_CHECKPOINT:
     printf("*** The plugin %s is being called before checkpointing. ***\n",
 	   __FILE__);
     real_sleep(1);
     printf("*** Finished calling real_sleep() for 1 second. ***\n");
     break;
-  case DMTCP_EVENT_POST_CKPT:
+  case DMTCP_EVENT_POST_CHECKPOINT:
     printf("*** The plugin %s has now been checkpointed. ***\n", __FILE__);
     break;
   default:

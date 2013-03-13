@@ -19,11 +19,17 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#include <stdlib.h>
 #include <string.h>
+#include <string>
+#include <sstream>
 #include <fcntl.h>
+#include <errno.h>
+#include <sys/syscall.h>
+#include <linux/limits.h>
+#include "constants.h"
 #include  "util.h"
 #include  "syscallwrappers.h"
-#include  "dmtcpplugin.h"
 #include  "../jalib/jassert.h"
 #include  "../jalib/jfilesystem.h"
 
@@ -40,7 +46,7 @@ void dmtcp::Util::lockFile(int fd)
   int result = -1;
   errno = 0;
   do {
-    result = _real_fcntl(fd, F_SETLKW, &fl);  /* F_GETLK, F_SETLK, F_SETLKW */
+    result = fcntl(fd, F_SETLKW, &fl);  /* F_GETLK, F_SETLK, F_SETLKW */
   } while (result == -1 && errno == EINTR);
 
   JASSERT (result != -1) (JASSERT_ERRNO)
@@ -56,7 +62,7 @@ void dmtcp::Util::unlockFile(int fd)
   fl.l_start  = 0;        // Offset from l_whence
   fl.l_len    = 0;        // length, 0 = to EOF
 
-  result = _real_fcntl(fd, F_SETLK, &fl); /* set the region to unlocked */
+  result = fcntl(fd, F_SETLK, &fl); /* set the region to unlocked */
 
   JASSERT (result != -1 || errno == ENOLCK) (JASSERT_ERRNO)
     .Text("Unlock Failed");
@@ -143,35 +149,6 @@ ssize_t dmtcp::Util::readAll(int fd, void *buf, size_t count)
   return num_read;
 }
 
-ssize_t dmtcp::Util::skipBytes(int fd, size_t count)
-{
-  char buf[1024];
-  ssize_t rc;
-  ssize_t totalSkipped = 0;
-  while (count > 0) {
-    rc = dmtcp::Util::readAll(fd, buf, MIN(count, sizeof(buf)));
-
-    if (rc == -1) {
-      break;
-    }
-    count -= rc;
-    totalSkipped += rc;
-  }
-  return totalSkipped;
-}
-
-void dmtcp::Util::dupFds(int oldfd, const dmtcp::vector<int>& newfds)
-{
-  JASSERT(_real_dup2(oldfd, newfds[0]) == newfds[0]);
-  if (oldfd != newfds[0]) {
-    _real_close(oldfd);
-  }
-  for (size_t i = 1; i < newfds.size(); i++) {
-    JASSERT(_real_dup2(newfds[0], newfds[i]) == newfds[i]);
-  }
-}
-
-
 /* Begin miscellaneous/helper functions. */
 // Reads from fd until count bytes are read, or newline encountered.
 // Returns NULL at EOF.
@@ -249,8 +226,7 @@ int dmtcp::Util::readProcMapsLine(int mapsfd, dmtcp::Util::ProcMapsArea *area)
 {
   char c, rflag, sflag, wflag, xflag;
   int i;
-  unsigned int long devmajor, devminor;
-  ino_t inodenum;
+  unsigned int long devmajor, devminor, inodenum;
   VA startaddr, endaddr;
 
   c = readHex (mapsfd, &startaddr);
@@ -294,6 +270,36 @@ int dmtcp::Util::readProcMapsLine(int mapsfd, dmtcp::Util::ProcMapsArea *area)
     } while (c != '\n');
     area -> name[i] = '\0';
   }
+#if 0
+  int rc;
+  struct stat statbuf;
+  unsigned int long devnum;
+
+  if (mtcp_strstartswith(area -> name, nscd_mmap_str1)  ||
+      mtcp_strstartswith(area -> name, nscd_mmap_str2) ||
+      mtcp_strstartswith(area -> name, nscd_mmap_str3)) {
+    /* if nscd is active */
+  } else if ( mtcp_strstartswith(area -> name, sys_v_shmem_file) ) {
+    /* System V Shared-Memory segments are handled by DMTCP. */
+  } else if ( mtcp_strendswith(area -> name, DELETED_FILE_SUFFIX) ) {
+    /* Deleted File */
+  } else if (area -> name[0] == '/') {  /* if an absolute pathname */
+    rc = stat (area -> name, &statbuf);
+    if (rc < 0) {
+      MTCP_PRINTF("ERROR: error %d statting %s\n", -rc, area -> name);
+      return (1); /* 0 would mean last line of maps; could do mtcp_abort() */
+    }
+    devnum = makedev (devmajor, devminor);
+    if ((devnum != statbuf.st_dev) || (inodenum != statbuf.st_ino)) {
+      MTCP_PRINTF("ERROR: image %s dev:inode %X:%u not eq maps %X:%u\n",
+                   area -> name, statbuf.st_dev, statbuf.st_ino,
+		   devnum, inodenum);
+      return (1); /* 0 would mean last line of maps; could do mtcp_abort() */
+    }
+  } else {
+    /* Special area like [heap] or anonymous area. */
+  }
+#endif
 
   if (c != '\n') goto skipeol;
 
@@ -309,91 +315,9 @@ int dmtcp::Util::readProcMapsLine(int mapsfd, dmtcp::Util::ProcMapsArea *area)
   if (sflag == 'p') area -> flags |= MAP_PRIVATE;
   if (area -> name[0] == '\0') area -> flags |= MAP_ANONYMOUS;
 
-  area->devnum = makedev(devmajor, devminor);
-  area->inodenum = inodenum;
-
   return (1);
 
 skipeol:
   JASSERT(false) .Text("Not Reached");
   return (0);  /* NOTREACHED : stop compiler warning */
-}
-
-int dmtcp::Util::memProtToOpenFlags(int prot)
-{
-  if (prot & (PROT_READ | PROT_WRITE)) return O_RDWR;
-  if (prot & PROT_READ) return O_RDONLY;
-  if (prot & PROT_WRITE) return O_WRONLY;
-  return 0;
-}
-
-#define TRACER_PID_STR "TracerPid:"
-pid_t dmtcp::Util::getTracerPid(pid_t tid)
-{
-  if (!dmtcp_real_to_virtual_pid) {
-    return 0;
-  }
-
-  char buf[512];
-  char *str;
-  static int tracerStrLen = strlen(TRACER_PID_STR);
-  int fd;
-
-  if (tid == -1) {
-    tid = gettid();
-  }
-  sprintf(buf, "/proc/%d/status", tid);
-  fd = _real_open(buf, O_RDONLY, 0);
-  JASSERT(fd != -1) (buf) (JASSERT_ERRNO);
-  readAll(fd, buf, sizeof buf);
-  _real_close(fd);
-  str = strstr(buf, TRACER_PID_STR);
-  JASSERT(str != NULL);
-  str += tracerStrLen;
-
-  while (*str == ' ' || *str == '\t') {
-    str++;
-  }
-
-  pid_t tracerPid = (pid_t) strtol(str, NULL, 10);
-  return tracerPid == 0 ? tracerPid : dmtcp_real_to_virtual_pid(tracerPid);
-}
-
-bool dmtcp::Util::isPtraced()
-{
-  return getTracerPid() != 0;
-}
-
-bool dmtcp::Util::isValidFd(int fd)
-{
-  return _real_fcntl(fd, F_GETFL, 0) != -1;
-}
-
-size_t dmtcp::Util::pageSize()
-{
-  static size_t page_size = sysconf(_SC_PAGESIZE);
-  return page_size;
-}
-
-size_t dmtcp::Util::pageMask()
-{
-  static size_t page_mask = ~(pageSize() - 1);
-  return page_mask;
-}
-
-bool dmtcp::Util::areZeroPages(void *addr, size_t numPages)
-{
-  static size_t page_size = pageSize();
-  long long *buf = (long long*) addr;
-  size_t i;
-  size_t end = numPages * page_size / sizeof (*buf);
-  long long res = 0;
-  for (i = 0; i + 7 < end; i += 8) {
-    res = buf[i+0] | buf[i+1] | buf[i+2] | buf[i+3] |
-          buf[i+4] | buf[i+5] | buf[i+6] | buf[i+7];
-    if (res != 0) {
-      break;
-    }
-  }
-  return res == 0;
 }

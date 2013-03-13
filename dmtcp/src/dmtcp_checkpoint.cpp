@@ -19,14 +19,29 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#include <unistd.h>
+#include <stdlib.h>
+#include <string>
+#include <stdio.h>
+#include <ctype.h>
 #include  "../jalib/jassert.h"
 #include  "../jalib/jfilesystem.h"
 #include  "../jalib/jconvert.h"
 #include "constants.h"
 #include "dmtcpmessagetypes.h"
 #include "syscallwrappers.h"
-#include "coordinatorapi.h"
+#include "dmtcpcoordinatorapi.h"
 #include "util.h"
+#include <errno.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <sys/time.h>
+#include <sys/resource.h>
+#include <sys/personality.h>
+#include <string.h>
 
 #define BINARY_NAME "dmtcp_checkpoint"
 
@@ -70,9 +85,6 @@ static const char* theUsage =
   "  --batch, -b:\n"
   "      Enable batch mode i.e. start the coordinator on the same node on\n"
   "        a randomly assigned port (if no port is specified by --port)\n"
-  "  --no-coordinator:\n"
-  "      Execute the process in stand-alone coordinator-less mode.\n"
-  "        Use dmtcp_command or --interval to request checkpoints.\n"
   "  --interval, -i, (environment variable DMTCP_CHECKPOINT_INTERVAL):\n"
   "      Time in seconds between automatic checkpoints.\n"
   "      0 implies never (manual ckpt only); if not set and no env var,\n"
@@ -85,11 +97,6 @@ static const char* theUsage =
   "      Checkpoint open files and restore old working dir. (Default: do neither)\n"
   "  --mtcp-checkpoint-signal:\n"
   "      Signal number used internally by MTCP for checkpointing (default: 12)\n"
-  "  --torque:\n"
-  "      Enable support for Torque PBS. (Default: disabled)\n"
-  "  --ptrace:\n"
-  "      Enable support for PTRACE system call for gdb/strace etc.\n"
-  "        (default: disabled)\n"
   "  --with-plugin (environment variable DMTCP_PLUGIN):\n"
   "      Colon-separated list of DMTCP plugins to be preloaded with DMTCP.\n"
   "      (Absolute pathnames are required.)\n"
@@ -120,9 +127,7 @@ static dmtcp::string _stderrProcPath()
 static bool isSSHSlave=false;
 static bool autoStartCoordinator=true;
 static bool checkpointOpenFiles=false;
-static bool enableTorque=false;
-static bool enablePtrace=false;
-static dmtcp::CoordinatorAPI::CoordinatorMode allowedModes = dmtcp::CoordinatorAPI::COORD_ANY;
+static int allowedModes = dmtcp::DmtcpCoordinatorAPI::COORD_ANY;
 
 //shift args
 #define shift argc--,argv++
@@ -154,7 +159,7 @@ static void processArgs(int *orig_argc, char ***orig_argv)
       autoStartCoordinator = false;
       shift;
     } else if (s == "-j" || s == "--join") {
-      allowedModes = dmtcp::CoordinatorAPI::COORD_JOIN;
+      allowedModes = dmtcp::DmtcpCoordinatorAPI::COORD_JOIN;
       shift;
     } else if (s == "--gzip") {
       setenv(ENV_VAR_COMPRESSION, "1", 1);
@@ -173,16 +178,13 @@ static void processArgs(int *orig_argc, char ***orig_argv)
     }
 #endif
     else if (s == "-n" || s == "--new") {
-      allowedModes = dmtcp::CoordinatorAPI::COORD_NEW;
+      allowedModes = dmtcp::DmtcpCoordinatorAPI::COORD_NEW;
       shift;
     } else if (s == "--new-coordinator") {
-      allowedModes = dmtcp::CoordinatorAPI::COORD_FORCE_NEW;
+      allowedModes = dmtcp::DmtcpCoordinatorAPI::COORD_FORCE_NEW;
       shift;
     } else if (s == "-b" || s == "--batch") {
-      allowedModes = dmtcp::CoordinatorAPI::COORD_BATCH;
-      shift;
-    } else if (s == "--no-coordinator") {
-      allowedModes = dmtcp::CoordinatorAPI::COORD_NONE;
+      allowedModes = dmtcp::DmtcpCoordinatorAPI::COORD_BATCH;
       shift;
     } else if (s == "-i" || s == "--interval" ||
              (s.c_str()[0] == '-' && s.c_str()[1] == 'i' &&
@@ -214,12 +216,6 @@ static void processArgs(int *orig_argc, char ***orig_argv)
       shift; shift;
     } else if (s == "--checkpoint-open-files") {
       checkpointOpenFiles = true;
-      shift;
-    } else if (s == "--ptrace") {
-      enablePtrace = true;
-      shift;
-    } else if (s == "--torque") {
-      enableTorque = true;
       shift;
     } else if (s == "--with-plugin") {
       setenv(ENV_VAR_PLUGIN, argv[1], 1);
@@ -312,19 +308,19 @@ int main ( int argc, char** argv )
   testMatlab(argv[0]);
   testJava(argv);  // Warn that -Xmx flag needed to limit virtual memory size
 
-  // If libdmtcp.so is in standard search path and _also_ has setgid access,
+  // If dmtcphijack.so is in standard search path and _also_ has setgid access,
   //   then LD_PRELOAD will work.
   // Otherwise, it will only work if the application does not use setuid and
   //   setgid access.  So, we test //   if the application does not use
   //   setuid/setgid.  (See 'man ld.so')
   // FIXME:  ALSO DO THIS FOR execwrappers.cpp:dmtcpPrepareForExec()
-  //   Should pass libdmtcp.so path, and let testSetuid determine
+  //   Should pass dmtcphijack.so path, and let testSetuid determine
   //     if setgid is set for it.  If so, no problem:  continue.
   //   If not, call testScreen() and adapt 'screen' to run using
   //     Util::patchArgvIfSetuid(argv[0], argv, &newArgv) (which shouldn't
   //     will just modify argv[0] to point to /tmp/dmtcp-USER@HOST/screen
   //     and other modifications:  doesn't need newArgv).
-  //   If it's not 'screen' and if no setgid for libdmtcp.so, then testSetuid
+  //   If it's not 'screen' and if no setgid for dmtcphijack.so, then testSetuid
   //    should issue the warning, unset our LD_PRELOAD, and hope for the best.
   //    A program like /usr/libexec/utempter/utempter (Fedora path)
   //    is short-lived and can be safely run.  Ideally, we should
@@ -417,18 +413,11 @@ int main ( int argc, char** argv )
   // FIXME: This call should be moved closer to call to execvp().
   dmtcp::Util::prepareDlsymWrapper();
 
-  if (autoStartCoordinator) {
-     dmtcp::CoordinatorAPI::startCoordinatorIfNeeded(allowedModes);
-  }
-  dmtcp::CoordinatorAPI coordinatorAPI;
-  pid_t virtualPid = coordinatorAPI.getVirtualPidFromCoordinator();
-  if (virtualPid != -1) {
-    JTRACE("Got virtual pid from coordinator") (virtualPid);
-    dmtcp::Util::setVirtualPidEnvVar(virtualPid, getppid());
-  }
+  if (autoStartCoordinator)
+     dmtcp::DmtcpCoordinatorAPI::startCoordinatorIfNeeded(allowedModes);
 
   // preloadLibs are to set LD_PRELOAD:
-  //   LD_PRELOAD=PLUGIN_LIBS:UTILITY_DIR/libdmtcp.so:R_LIBSR_UTILITY_DIR/
+  //   LD_PRELOAD=PLUGIN_LIBS:UTILITY_DIR/dmtcphijack.so:R_LIBSR_UTILITY_DIR/
   dmtcp::string preloadLibs = "";
   // FIXME:  If the colon-separated elements of ENV_VAR_PLUGIN are not
   //     absolute pathnames, then they must be expanded to absolute pathnames.
@@ -442,50 +431,18 @@ int main ( int argc, char** argv )
   setenv ( ENV_VAR_UTILITY_DIR, searchDir.c_str(), 0 );
 
 #ifdef PTRACE
-  enablePtrace = true;
-#endif
-  if (enablePtrace) {
-    preloadLibs += jalib::Filesystem::FindHelperUtility("libdmtcp_ptrace.so");
-    preloadLibs += ":";
-  }
-
-  if (enableTorque) {
-    preloadLibs += jalib::Filesystem::FindHelperUtility("libdmtcp_torque.so");
-    preloadLibs += ":";
-  }
-
-  preloadLibs += jalib::Filesystem::FindHelperUtility("libdmtcp_ipc.so");
+  preloadLibs += jalib::Filesystem::FindHelperUtility ( "ptracehijack.so" );
   preloadLibs += ":";
-
-  preloadLibs += jalib::Filesystem::FindHelperUtility("libdmtcp.so");
-
-#ifdef PID_VIRTUALIZATION
-  preloadLibs += ":";
-  preloadLibs += jalib::Filesystem::FindHelperUtility("libdmtcp_pid.so");
 #endif
 
-#if 0
-  // After updating rpath, we shouldn't need to set LD_LIBRARY_PATH explicitely.
-  const char *ldLibPath = getenv("LD_LIBRARY_PATH");
-  dmtcp::string libPath;
-  if (ldLibPath != NULL) {
-    libPath = ldLibPath;
-  }
-  libPath += ":" + jalib::Filesystem::DirName(
-               jalib::Filesystem::FindHelperUtility(MTCP_FILENAME));
-  JASSERT(!libPath.empty());
-  setenv("LD_LIBRARY_PATH", libPath.c_str(), 1);
-#endif
-
-  setenv(ENV_VAR_HIJACK_LIBS, preloadLibs.c_str(), 1);
-
+  preloadLibs += jalib::Filesystem::FindHelperUtility ( "dmtcphijack.so" );
   // If dmtcp_checkpoint was called with user LD_PRELOAD, and if
   //   if dmtcp_checkpoint survived the experience, then pass it back to user.
   if (getenv("LD_PRELOAD"))
     preloadLibs = preloadLibs + ":" + getenv("LD_PRELOAD");
-
   setenv ( "LD_PRELOAD", preloadLibs.c_str(), 1 );
   JTRACE("getting value of LD_PRELOAD")(getenv("LD_PRELOAD"));
+  setenv ( ENV_VAR_HIJACK_LIB, preloadLibs.c_str(), 0 );
 
   //run the user program
   char **newArgv = NULL;

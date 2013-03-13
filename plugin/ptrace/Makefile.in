@@ -1,13 +1,12 @@
-PLUGIN=ptrace
-LIBNAME=libdmtcp_${PLUGIN}.so
+LIBNAME=ptracehijack
 CC = @CC@
-M32=@M32@
 CFLAGS = @CFLAGS@
 CPPFLAGS = @CPPFLAGS@
 CXX = @CXX@
 CXXFLAGS = @CXXFLAGS@
 LDFLAGS = @LDFLAGS@
 MKDIR_P = @MKDIR_P@
+PTRACE_SUPPORT=@PTRACE_SUPPORT@
 PACKAGE = @PACKAGE@
 PACKAGE_BUGREPORT = @PACKAGE_BUGREPORT@
 PACKAGE_NAME = @PACKAGE_NAME@
@@ -26,36 +25,28 @@ libdir = @libdir@
 pkglibdir = $(libdir)/@PACKAGE@
 
 DMTCP_ROOT=../..
-DMTCP_INCLUDE_PATH = $(DMTCP_ROOT)/dmtcp/include
+DMTCP_SRC_PATH = $(DMTCP_ROOT)/dmtcp/src
 JALIB_PATH = $(DMTCP_ROOT)/dmtcp/jalib
 
-INCLUDES = -I$(JALIB_PATH) -I$(DMTCP_INCLUDE_PATH)
-# NOTE: setting CFLAGS/CXXFLAGS here means setting external values as in
-#  env CFLAGS="-g -O0" make
-# will be ignored.
+INCLUDES = -I$(JALIB_PATH) -I$(DMTCP_SRC_PATH)
 CFLAGS += -DHAVE_CONFIG_H -fPIC -g
 CXXFLAGS += -DHAVE_CONFIG_H -fPIC -g
-ifeq ($(M32),1)
-CFLAGS += -m32 -Wa,--32
-CXXFLAGS += -m32 -Wa,--32
-LDFLAGS += -m32 -Wl,-m32 -Wl,-melf_i386 -Wa,--32
-endif
 
 COMPILE = $(CC) $(INCLUDES) $(CPPFLAGS) $(CFLAGS) -c -o $@
 LINK = $(CC) $(CFLAGS) $(LDFLAGS) -o $@
 CXXCOMPILE = $(CXX) $(INCLUDES) $(CPPFLAGS) $(CXXFLAGS) -c -o $@
 CXXLINK = $(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@
 
-HEADERS = $(DMTCP_INCLUDE_PATH)/util.h $(DMTCP_INCLUDE_PATH)/dmtcpplugin.h \
-	  ptrace.h ptraceinfo.h \
+HEADERS = $(DMTCP_SRC_PATH)/util.h $(DMTCP_SRC_PATH)/dmtcpplugin.h \
+	  mtcp_ptrace.h ptrace.h ptracewrappers.h \
 	  $(JALIB_PATH)/jassert.h $(JALIB_PATH)/jalloc.h \
 	  $(JALIB_PATH)/jalib.h $(JALIB_PATH)/jbuffer.h \
 	  $(JALIB_PATH)/jconvert.h $(JALIB_PATH)/jfilesystem.h \
 	  $(JALIB_PATH)/jserialize.h $(JALIB_PATH)/jsocket.h
 
-OBJS = ptrace.o ptracewrappers.o ptraceinfo.o
+OBJS = mtcp_ptrace.o ptrace.o ptracewrappers.o ptrace_syscallsreal.o
 
-SOURCES = ptrace.cpp ptracewrappers.cpp ptraceinfo.cpp
+SOURCES = mtcp_ptrace.c ptrace.cpp ptracewrappers.cpp ptrace_syscallsreal.c
 
 LIB_LDFLAGS = -shared -Wl,--unresolved-symbols=ignore-all
 
@@ -65,7 +56,7 @@ all: default
 
 default: build
 
-build: ${LIBNAME}
+build: ${LIBNAME}.so
 
 tidy:
 	rm -rf dmtcp-autotest-* ckpt_*_files
@@ -84,14 +75,14 @@ install: all
 	  exit 1; \
 	fi
 	test -e $(DESTDIR)$(libdir) || $(MKDIR_P) $(DESTDIR)$(libdir)
-	cp ${LIBNAME} $(DESTDIR)$(pkglibdir)
+	cp ${LIBNAME}.so $(DESTDIR)$(pkglibdir)
 
 uninstall:
 	echo " ( cd '$(DESTDIR)$(pkglibdir)' && rm -f $$files ) "; \
-	cd "$(DESTDIR)$(pkglibdir)" && rm -f $(LIBNAME)
+	cd "$(DESTDIR)$(pkglibdir)" && rm -f $(LIBNAME).so
 
-${LIBNAME}: $(OBJS) ${HEADERS}
-	@rm -f ${LIBNAME}
+${LIBNAME}.so: $(OBJS) ${HEADERS}
+	@rm -f ${LIBNAME}.so
 	$(CXXLINK) $(OBJS) $(LIB_LDFLAGS) $(LDADD)
 
 %.o: %.c ${HEADERS}

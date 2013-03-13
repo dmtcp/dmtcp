@@ -14,40 +14,53 @@ AUTOMAKE_OPTIONS = foreign
 
 #HEADERS
 #set the include path found by configure
-INCLUDES= $(all_includes) -I../jalib/
+INCLUDES= $(all_includes)
 
-dmtcplibdir = $(pkglibdir)
 # targets:
-noinst_LIBRARIES = libdmtcpinternal.a libsyscallsreal.a libnohijack.a libjalib.a
+noinst_LIBRARIES = libdmtcpinternal.a libsyscallsreal.a libnohijack.a \
+		   libjalib.a
 bin_PROGRAMS = dmtcp_checkpoint dmtcp_command dmtcp_coordinator \
-	       dmtcp_restart dmtcp_nocheckpoint
-dmtcplib_PROGRAMS = libdmtcp.so libdmtcpaware.so.1.0.0
+	       dmtcp_restart dmtcp_inspector dmtcp_nocheckpoint
+pkglib_PROGRAMS = dmtcphijack.so libdmtcpaware.so.1.0.0
 include_HEADERS = dmtcpaware.h
 lib_LIBRARIES = libdmtcpaware.a
 
 # headers:
-nobase_noinst_HEADERS = constants.h \
+nobase_noinst_HEADERS = connectionstate.h connection.h connectionidentifier.h \
+	connectionmanager.h connectionrewirer.h constants.h \
+	dmtcp_coordinator.h dmtcpmessagetypes.h \
+	dmtcpworker.h threadsync.h dmtcpcoordinatorapi.h \
 	../jalib/jassert.h ../jalib/jalloc.h ../jalib/jalib.h \
 	../jalib/jbuffer.h ../jalib/jconvert.h ../jalib/jfilesystem.h \
 	../jalib/jserialize.h ../jalib/jsocket.h ../jalib/jtimer.h \
-	dmtcp_coordinator.h dmtcpmessagetypes.h lookup_service.h \
-	dmtcpworker.h threadsync.h coordinatorapi.h \
-	mtcpinterface.h syscallwrappers.h syslogwrappers.h \
-	uniquepid.h processinfo.h
+	kernelbufferdrainer.h mtcpinterface.h nodetable.h protectedfds.h \
+	sockettable.h syscallwrappers.h syslogwrappers.h \
+	uniquepid.h virtualpidtable.h util.h sysvipc.h \
+	dmtcpplugin.h lookup_service.h trampolines.h
 
 # Note that libdmtcpinternal.a does not include wrappers.
 # dmtcp_checkpoint, dmtcp_command, dmtcp_coordinator, etc.
 #   should not need wrappers.
-libdmtcpinternal_a_SOURCES = dmtcpmessagetypes.cpp protectedfds.cpp \
-			     uniquepid.cpp shareddata.cpp \
-			     coordinatorapi.cpp \
+# FIXME:  Move syscallsreal.c from here to dmtcphijack.so
+#          and also add it explicitly to dmtcp_restart_SOURCES.
+#  Move/split connection.cpp (1.0 MB binary) and kernelbufferdrainer.cpp (.5 MB)
+#   and others(?) to dmtcphijack.so or dmtcp_restart.  Stop the replication.
+#  Also eventually modify dmtcpworker.cpp so it apears _only_ in dmtcphijack.so
+libdmtcpinternal_a_SOURCES = connectionstate.cpp connection.cpp \
+			     connectionidentifier.cpp connectionmanager.cpp \
+			     connectionrewirer.cpp dmtcpmessagetypes.cpp \
+			     kernelbufferdrainer.cpp nodetable.cpp \
+			     protectedfds.cpp sockettable.cpp \
+			     syslogwrappers.cpp uniquepid.cpp sysvipc.cpp \
+			     dmtcpcoordinatorapi.cpp virtualpidtable.cpp \
 			     util_exec.cpp util_gen.cpp util_init.cpp \
-			     jalibinterface.cpp processinfo.cpp
+			     jalibinterface.cpp
 
 libjalib_a_SOURCES = ../jalib/jalib.cpp ../jalib/jassert.cpp \
 		     ../jalib/jbuffer.cpp ../jalib/jfilesystem.cpp \
 		     ../jalib/jserialize.cpp ../jalib/jsocket.cpp \
 		     ../jalib/jtimer.cpp ../jalib/jalloc.cpp
+
 
 # FIXME:  Rename libsyscallsreal.a to libhijack.a
 # An executable should use either libsyscallsreal.a or libnohijack.a -- not both
@@ -60,41 +73,38 @@ dmtcp_checkpoint_SOURCES = dmtcp_checkpoint.cpp
 
 dmtcp_nocheckpoint_SOURCES = dmtcp_nocheckpoint.c
 
-dmtcp_restart_SOURCES = dmtcp_restart.cpp util_exec.cpp
+dmtcp_restart_SOURCES = dmtcp_restart.cpp
 
 dmtcp_command_SOURCES = dmtcp_command.cpp
 
-libdmtcp_so_SOURCES = dmtcpawareapi.cpp dmtcpworker.cpp threadsync.cpp \
-		      coordinatorapi.cpp execwrappers.cpp \
-		      mtcpinterface.cpp signalwrappers.cpp \
-		      workerhijack.cpp threadwrappers.cpp \
-		      miscwrappers.cpp \
-		      glibcsystem.cpp mallocwrappers.cpp \
-		      dmtcpplugin.cpp popen.cpp syslogwrappers.cpp
+dmtcphijack_so_SOURCES = dmtcpawareapi.cpp dmtcpworker.cpp threadsync.cpp \
+			 dmtcpcoordinatorapi.cpp execwrappers.cpp \
+			 mtcpinterface.cpp signalwrappers.cpp \
+			 socketwrappers.cpp workerhijack.cpp \
+			 eventwrappers.cpp  sysvipc.cpp threadwrappers.cpp \
+			 pidwrappers.cpp miscwrappers.cpp glibcsystem.cpp \
+			 filewrappers.cpp mallocwrappers.cpp \
+			 dmtcpplugin.cpp popen.cpp
 
-# Add the following three paths to rpath:
-# 1. ../                : Useful when installed with 'make DESTDIR=xxx install'
-# 2. $ORIGIN/../../mtcp : Useful when running from build directory
-# 3. $(libdir)          : Useful when installed with 'make install'
-libdmtcp_so_LDFLAGS = -shared -L../../mtcp \
-		      -Xlinker -rpath -Xlinker ../ \
-		      -Xlinker -rpath -Xlinker '$$ORIGIN/../../mtcp' \
-		      -Xlinker -rpath -Xlinker $(libdir)
+dmtcp_inspector_SOURCES = dmtcp_inspector.cpp
+
+dmtcphijack_so_LDFLAGS = -shared
 
 #dmtcp_nocheckpoint_LDFLAGS = -static
 
+# pthreadwrappers.cpp and synchronizationlogging.cpp are EXTRA files.
+# To compile the EXTRA files conditionally, replace them
+#  by @dmtcp_module@ (or other name), and define dmtcp_module in configure.ac
 # Note that an ELF object uses libsyscallsreal.a or libnohijack.a
 #  but not both.  libnohijack.a has stub definitions for same symbols.
-libdmtcp_so_LDADD	= libdmtcpinternal.a libjalib.a libsyscallsreal.a \
-			  -ldl -lpthread -lrt -lmtcp
-dmtcp_coordinator_LDADD = libdmtcpinternal.a libjalib.a \
-			  libnohijack.a -lpthread -lrt
-dmtcp_checkpoint_LDADD  = libdmtcpinternal.a libjalib.a \
-			  libnohijack.a -ldl -lpthread -lrt
-dmtcp_restart_LDADD     = libdmtcpinternal.a libjalib.a \
-			  libnohijack.a -lpthread -lrt -ldl
-dmtcp_command_LDADD     = libdmtcpinternal.a libjalib.a \
-			  libnohijack.a -lpthread -lrt
+dmtcphijack_so_LDADD    = libdmtcpinternal.a libjalib.a libsyscallsreal.a \
+			  -ldl -lpthread -lrt
+dmtcp_coordinator_LDADD = libdmtcpinternal.a libjalib.a libnohijack.a -lpthread
+dmtcp_checkpoint_LDADD  = libdmtcpinternal.a libjalib.a libnohijack.a \
+			  -ldl -lpthread
+dmtcp_restart_LDADD     = libdmtcpinternal.a libjalib.a libnohijack.a -lpthread
+dmtcp_command_LDADD     = libdmtcpinternal.a libjalib.a libnohijack.a -lpthread
+dmtcp_inspector_LDADD   = libdmtcpinternal.a libjalib.a libnohijack.a -lpthread
 
 libdmtcpaware_a_SOURCES = dmtcpaware.c
 
@@ -111,3 +121,4 @@ AM_CFLAGS = $(PICFLAGS)
 AM_CXXFLAGS = $(PICFLAGS)
 AM_LDFLAGS = $(PICFLAGS)
 endif
+

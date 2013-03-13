@@ -33,39 +33,30 @@ void dmtcp::WorkerState::setCurrentState ( const dmtcp::WorkerState& theValue )
   theState = theValue;
 }
 
-static DmtcpUniqueProcessId theDefaultCoordinator;
+static dmtcp::UniquePid theDefaultCoordinator;
 
-void dmtcp::DmtcpMessage::setDefaultCoordinator(const DmtcpUniqueProcessId& id)
-{
-  theDefaultCoordinator = id;
-}
-
-void dmtcp::DmtcpMessage::setDefaultCoordinator(const dmtcp::UniquePid& id)
-{
-  theDefaultCoordinator = id.upid();
-}
+void dmtcp::DmtcpMessage::setDefaultCoordinator ( const UniquePid& id ) {theDefaultCoordinator = id;}
 
 dmtcp::DmtcpMessage::DmtcpMessage ( DmtcpMessageType t /*= DMT_NULL*/ )
     :_msgSize ( sizeof ( DmtcpMessage ) )
     ,type ( t )
-    ,from ( UniquePid::ThisProcess() )
+    ,from ( ConnectionIdentifier::Self() )
     ,coordinator ( theDefaultCoordinator )
     ,state ( WorkerState::currentState() )
     ,compGroup ( UniquePid::ComputationId() )
-    ,virtualPid ( -1 )
+    ,restorePid ( ConnectionIdentifier::Null() )
+    ,restoreAddrlen ( 0 )
+    ,restorePort ( -1 )
     ,keyLen ( 0 )
     ,valLen ( 0 )
     ,theCheckpointInterval ( DMTCPMESSAGE_SAME_CKPT_INTERVAL )
-    ,coordCmd('\0')
-    ,coordTimeStamp(0)
-    ,numPeers(0)
-    ,isRunning(0)
-    ,coordErrorCode(0)
     ,extraBytes ( 0 )
 {
 //     struct sockaddr_storage _addr;
 //         socklen_t _addrlen;
   strncpy ( _magicBits,DMTCP_MAGIC_STRING,sizeof ( _magicBits ) );
+  memset ( &params,0,sizeof ( params ) );
+  memset ( &restoreAddr,0,sizeof ( restoreAddr ) );
 }
 
 void dmtcp::DmtcpMessage::assertValid() const
@@ -111,6 +102,9 @@ dmtcp::ostream& dmtcp::operator << ( dmtcp::ostream& o, const dmtcp::WorkerState
       OSHIFTPRINTF ( RUNNING )
       OSHIFTPRINTF ( SUSPENDED )
       OSHIFTPRINTF ( FD_LEADER_ELECTION )
+#ifdef EXTERNAL_SOCKET_HANDLING
+      OSHIFTPRINTF ( PEER_LOOKUP_COMPLETE )
+#endif
 #ifdef COORD_NAMESERVICE
       OSHIFTPRINTF ( NAME_SERVICE_DATA_REGISTERED)
       OSHIFTPRINTF ( DONE_QUERYING)
@@ -121,7 +115,7 @@ dmtcp::ostream& dmtcp::operator << ( dmtcp::ostream& o, const dmtcp::WorkerState
       OSHIFTPRINTF ( REFILLED )
     default:
       JASSERT ( false ) .Text ( "Invalid WorkerState" );
-      o << (int)s.value();
+      o << s.value();
   }
   return o;
 }
@@ -132,6 +126,9 @@ const char* dmtcp::WorkerState::toString() const{
   case RUNNING:      return "RUNNING";
   case SUSPENDED:    return "SUSPENDED";
   case FD_LEADER_ELECTION:  return "FD_LEADER_ELECTION";
+#ifdef EXTERNAL_SOCKET_HANDLING
+  case PEER_LOOKUP_COMPLETE:  return "PEER_LOOKUP_COMPLETE";
+#endif
 #ifdef COORD_NAMESERVICE
   case NAME_SERVICE_DATA_REGISTERED: return "NAME_SERVICE_DATA_REGISTERED";
   case DONE_QUERYING: return "DONE_QUERYING";
@@ -153,11 +150,10 @@ dmtcp::ostream& dmtcp::operator << ( dmtcp::ostream& o, const dmtcp::DmtcpMessag
 #define OSHIFTPRINTF(name) case name: o << #name; break;
 
       OSHIFTPRINTF ( DMT_NULL )
+      OSHIFTPRINTF ( DMT_HELLO_PEER )
       OSHIFTPRINTF ( DMT_HELLO_COORDINATOR )
       OSHIFTPRINTF ( DMT_HELLO_WORKER )
-      OSHIFTPRINTF ( DMT_UPDATE_PROCESS_INFO_AFTER_FORK )
-      OSHIFTPRINTF ( DMT_GET_VIRTUAL_PID )
-      OSHIFTPRINTF ( DMT_GET_VIRTUAL_PID_RESULT )
+      OSHIFTPRINTF ( DMT_UPDATE_PROCESS_INFO_AFTER_FORK)
 
       OSHIFTPRINTF ( DMT_USER_CMD )
       OSHIFTPRINTF ( DMT_USER_CMD_RESULT )
@@ -168,18 +164,28 @@ dmtcp::ostream& dmtcp::operator << ( dmtcp::ostream& o, const dmtcp::DmtcpMessag
       OSHIFTPRINTF ( DMT_DO_SUSPEND )
       OSHIFTPRINTF ( DMT_DO_RESUME )
       OSHIFTPRINTF ( DMT_DO_FD_LEADER_ELECTION )
+#ifdef EXTERNAL_SOCKET_HANDLING
+      OSHIFTPRINTF ( DMT_DO_PEER_LOOKUP )
+#endif
       OSHIFTPRINTF ( DMT_DO_DRAIN )
       OSHIFTPRINTF ( DMT_DO_CHECKPOINT )
       OSHIFTPRINTF ( DMT_DO_REFILL )
 
+#ifdef EXTERNAL_SOCKET_HANDLING
+      OSHIFTPRINTF ( DMT_PEER_LOOKUP )
+      OSHIFTPRINTF ( DMT_UNKNOWN_PEER )
+      OSHIFTPRINTF ( DMT_EXTERNAL_SOCKETS_CLOSED )
+#endif
 //#ifdef COORD_NAMESERVICE
-      OSHIFTPRINTF ( DMT_DO_REGISTER_NAME_SERVICE_DATA )
-      OSHIFTPRINTF ( DMT_DO_SEND_QUERIES )
       OSHIFTPRINTF ( DMT_REGISTER_NAME_SERVICE_DATA )
       OSHIFTPRINTF ( DMT_NAME_SERVICE_QUERY )
       OSHIFTPRINTF ( DMT_NAME_SERVICE_QUERY_RESPONSE )
 //#endif
 
+      OSHIFTPRINTF ( DMT_RESTORE_RECONNECTED )
+      OSHIFTPRINTF ( DMT_RESTORE_WAITING )
+
+      OSHIFTPRINTF ( DMT_PEER_ECHO )
       OSHIFTPRINTF ( DMT_OK )
       OSHIFTPRINTF ( DMT_CKPT_FILENAME )
       OSHIFTPRINTF ( DMT_FORCE_RESTART )

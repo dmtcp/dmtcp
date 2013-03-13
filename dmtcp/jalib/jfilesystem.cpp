@@ -31,7 +31,7 @@
 #include "jfilesystem.h"
 #include "jconvert.h"
 #include "jalib.h"
-#include "dmtcpplugin.h"
+#include "../src/constants.h"
 
 namespace
 {
@@ -169,11 +169,6 @@ jalib::string jalib::Filesystem::ResolveSymlink ( const jalib::string& path )
   if ( len <= 0 )
     return "";
   return buf;
-}
-
-jalib::string jalib::Filesystem::GetDeviceName ( int fd )
-{
-  return ResolveSymlink("/proc/self/fd/" + jalib::XToString(fd));
 }
 
 bool jalib::Filesystem::FileExists ( const jalib::string& str )

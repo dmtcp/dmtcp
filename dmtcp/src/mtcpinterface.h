@@ -23,6 +23,8 @@
 #define DMTCPMTCPINTERFACE_H
 
 #include <sys/types.h>
+#include <pthread.h>
+#include "constants.h"
 
 namespace dmtcp
 {
@@ -36,14 +38,59 @@ namespace dmtcp
   void userHookTrampoline_postCkpt(bool isRestart);
 }
 
-extern "C" {
-  // Funtion declaration for functions defined in libmtcp.so.
-  void *mtcp_prepare_for_clone(int (*fn) (void *arg), void *child_stack,
-                               int *flags, void *arg, int *parent_tidptr,
-                               struct user_desc *newtls, int **child_tidptr);
-  void mtcp_thread_start(void *threadv);
-  void mtcp_threadiszombie (void);
-  void mtcp_kill_ckpthread (void);
+extern "C"
+{
+  typedef void (*mtcp_set_callbacks_t)
+    (void (*sleep_between_ckpt)(int sec),
+     void (*pre_ckpt)(char ** ckptFilename),
+     void (*post_ckpt)(int isRestarting,
+                       char* mtcpRestoreArgvStartAddr),
+     int  (*should_ckpt_fd ) ( int fd ),
+     void (*write_ckpt_prefix ) ( int fd ));
+
+  typedef void (*mtcp_set_dmtcp_callbacks_t)
+    (void (*restore_virtual_pid_table) (),
+     void (*holds_any_locks)(int *retval),
+     void (*pre_suspend_user_thread)(),
+     void (*pre_resume_user_thread)(int is_ckpt, int is_restart),
+     void (*send_stop_signal)(pid_t tid, int *retry_signalling, int *retval),
+     void (*ckpt_thread_start)());
+
+  typedef int  (*mtcp_init_dmtcp_info_t)(int pid_virtualization_enabled,
+                                         int stderr_fd,
+                                         int jassertlog_fd,
+                                         int restore_working_directory,
+                                         void *clone_fnptr,
+                                         void *sigaction_fnptr,
+                                         void *malloc_fnptr,
+                                         void *free_fnptr);
+
+  typedef int  (*mtcp_init_t) (char const *checkpointFilename,
+                               int interval,
+                               int clonenabledefault);
+  typedef int  (*mtcp_ok_t)(void);
+  typedef void (*mtcp_threadiszombie)(void);
+  typedef void (*mtcp_kill_ckpthread_t)(void);
+  typedef void (*mtcp_fill_in_pthread_id_t)(pid_t tid, pthread_t pthread_id);
+  typedef int  (*mtcp_clone_t)(int (*)(void*), void*, int, void*, int*,
+                               struct user_desc*, int*);
+  typedef void (*mtcp_process_pthread_join_t)(pthread_t);
+
+  typedef struct MtcpFuncPtrs {
+    mtcp_set_callbacks_t        set_callbacks;
+    mtcp_set_dmtcp_callbacks_t  set_dmtcp_callbacks;
+    mtcp_init_dmtcp_info_t      init_dmtcp_info;
+    mtcp_init_t                 init;
+    mtcp_ok_t                   ok;
+    mtcp_threadiszombie         threadiszombie;
+    mtcp_clone_t                clone;
+    mtcp_kill_ckpthread_t       kill_ckpthread;
+    mtcp_fill_in_pthread_id_t   fill_in_pthread_id;
+    mtcp_process_pthread_join_t process_pthread_join;
+  } MtcpFuncPtrs_t;
+
+  LIB_PRIVATE extern MtcpFuncPtrs_t mtcpFuncPtrs;
 }
+LIB_PRIVATE void* get_mtcp_symbol ( const char* name );
 
 #endif
