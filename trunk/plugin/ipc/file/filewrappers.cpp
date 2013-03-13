@@ -19,11 +19,21 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-/* ptsname_r is declared with "always_inline" attribute. GCC 4.7+ disallows us
- * to define the ptsname_r wrapper if compiled with -O0. Thus we are disabling
- * that "always_inline" definition here.
+/* ptsname_r is defined with "always_inline" attribute. GCC>=4.7 disallows us
+ * to define the ptsname_r wrapper if compiled with -O0. Here we are renaming
+ * ptsname_r so that later code does not see the declaration of ptsname_r as
+ * inline. Normal user code from other files will continue to invoke ptsname_r
+ * as inline as an inline function calling __ptsname_r_chk. Later in this file
+ * we define __ptsname_r_chk to call the original ptsname_r symbol.
+ * Similarly, for ttyname_r, etc.
 */
 #define ptsname_r ptsname_r_always_inline
+#define ttyname_r ttyname_r_always_inline
+#define open open_always_inline
+#define open64 open64_always_inline
+#define openat openat_always_inline
+#define openat64 openat64_always_inline
+#define readlink readlink_always_inline
 
 #include <stdarg.h>
 #include <stdlib.h>
@@ -54,10 +64,15 @@
 #include "fileconnection.h"
 #include "filewrappers.h"
 
-using namespace dmtcp;
 #undef ptsname_r
-extern "C" int ptsname_r(int fd, char * buf, size_t buflen);
+#undef ttyname_r
+#undef open
+#undef open64
+#undef openat
+#undef openat64
+#undef readlink
 
+using namespace dmtcp;
 #if 0
 extern "C" int close(int fd)
 {
@@ -175,6 +190,17 @@ static int ptsname_r_work(int fd, char * buf, size_t buflen)
   return 0;
 }
 
+extern "C" int ptsname_r(int fd, char * buf, size_t buflen)
+{
+  DMTCP_DISABLE_CKPT();
+
+  int retVal = ptsname_r_work(fd, buf, buflen);
+
+  DMTCP_ENABLE_CKPT();
+
+  return retVal;
+}
+
 extern "C" char *ptsname(int fd)
 {
   /* No need to acquire Wrapper Protection lock since it will be done in ptsname_r */
@@ -189,17 +215,6 @@ extern "C" char *ptsname(int fd)
   return tmpbuf;
 }
 
-extern "C" int ptsname_r(int fd, char * buf, size_t buflen)
-{
-  DMTCP_DISABLE_CKPT();
-
-  int retVal = ptsname_r_work(fd, buf, buflen);
-
-  DMTCP_ENABLE_CKPT();
-
-  return retVal;
-}
-
 extern "C" int __ptsname_r_chk(int fd, char * buf, size_t buflen, size_t nreal)
 {
   DMTCP_DISABLE_CKPT();
@@ -211,16 +226,6 @@ extern "C" int __ptsname_r_chk(int fd, char * buf, size_t buflen, size_t nreal)
   DMTCP_ENABLE_CKPT();
 
   return retVal;
-}
-
-extern "C" char *ttyname(int fd)
-{
-  static char tmpbuf[64];
-
-  if (ttyname_r(fd, tmpbuf, sizeof(tmpbuf)) != 0) {
-    return NULL;
-  }
-  return tmpbuf;
 }
 
 extern "C" int ttyname_r(int fd, char *buf, size_t buflen)
@@ -247,6 +252,21 @@ extern "C" int ttyname_r(int fd, char *buf, size_t buflen)
   DMTCP_ENABLE_CKPT();
 
   return ret;
+}
+
+extern "C" char *ttyname(int fd)
+{
+  static char tmpbuf[64];
+
+  if (ttyname_r(fd, tmpbuf, sizeof(tmpbuf)) != 0) {
+    return NULL;
+  }
+  return tmpbuf;
+}
+
+extern "C" int __ttyname_r_chk(int fd, char *buf, size_t buflen, size_t nreal)
+{
+  return ttyname_r(fd, buf, buflen);
 }
 
 extern "C" int getpt()
@@ -471,6 +491,11 @@ extern "C" int openat_2(int dirfd, const char *path, int flags)
   return openat(dirfd, path, flags, 0);
 }
 
+extern "C" int __openat_2(int dirfd, const char *path, int flags)
+{
+  return openat(dirfd, path, flags, 0);
+}
+
 extern "C" int openat64(int dirfd, const char *path, int flags, ...)
 {
   va_list arg;
@@ -493,6 +518,12 @@ extern "C" int openat64_2(int dirfd, const char *path, int flags)
 {
   return openat64(dirfd, path, flags, 0);
 }
+
+extern "C" int __openat64_2(int dirfd, const char *path, int flags)
+{
+  return openat64(dirfd, path, flags, 0);
+}
+
 extern "C" DIR *opendir(const char *name)
 {
   DMTCP_DISABLE_CKPT();
@@ -594,6 +625,12 @@ extern "C" READLINK_RET_TYPE readlink(const char *path, char *buf,
   }
   DMTCP_ENABLE_CKPT();
   return retval;
+}
+
+extern "C" READLINK_RET_TYPE __readlink_chk(const char *path, char *buf,
+                                            size_t bufsiz, size_t buflen)
+{
+  return readlink(path, buf, bufsiz);
 }
 
 extern "C" int fcntl(int fd, int cmd, ...)
