@@ -2897,7 +2897,7 @@ void mtcp_finishrestore (void)
 #elif defined(__arm__)
   asm volatile ("mov sp,%0"
 # if 1
-		: : "r" (thread->saved_sp - 128) //-128 for red zone
+		: : "r" (motherofall->saved_sp - 128) //-128 for red zone
 # else
 // remove this and code associated with JMPBUF_SP when other version is robust.
 		: : "r" (motherofall->JMPBUF_SP - 128) //-128 for red zone
