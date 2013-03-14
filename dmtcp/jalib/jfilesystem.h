@@ -65,7 +65,7 @@ namespace jalib
 
     IntVector ListOpenFds();
 
-    jalib::string GetControllingTerm();
+    jalib::string GetControllingTerm(pid_t pid = -1);
 
     jalib::string GetCurrentHostname();
 
