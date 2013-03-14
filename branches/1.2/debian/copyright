@@ -20,6 +20,11 @@ Files: debian/*
 Copyright: 2011, Kapil Arya <kapil@ccs.neu.edu>
 License: GPL-3
 
+Files: opensuse/dmtcp.spec
+Copyright: 2012, SUSE LINUX Products GmbH, Nuernberg, Germany.
+           2012, Kapil Arya <kapil@ccs.neu.edu>
+License: LGPL-3
+
 Files: dmtcp/jalib/*
 Copyright: 2005-2011, Jason Ansel <jansel@csail.mit.edu>
 License: LGPL-3

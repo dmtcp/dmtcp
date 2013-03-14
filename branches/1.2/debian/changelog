@@ -1,10 +1,10 @@
-dmtcp (1.2.7-1) unstable; urgency=low
+dmtcp (1.2.7-1) experimental; urgency=low
 
   * Preparing for upstream Release 1.2.7.
   * Vcs-svn and Vcs-browser URLs updated.
   * Upload sponsored by Yaroslav Halchenko <debian@onerussian.com>
 
- -- Kapil Arya <kapil@ccs.neu.edu>  Wed, 13 Mar 2013 07:27:40 -0400
+ -- Kapil Arya <kapil@ccs.neu.edu>  Thu, 14 Mar 2013 07:10:34 -0400
 
 dmtcp (1.2.5-1) unstable; urgency=low
 
