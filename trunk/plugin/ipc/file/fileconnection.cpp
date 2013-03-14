@@ -240,6 +240,7 @@ dmtcp::PtyConnection::PtyConnection(int fd, const char *path,
       _ptsName = path;
       break;
 
+    case PTY_PARENT_CTTY:
     case PTY_CTTY:
       _ptsName = path;
       SharedData::getVirtPtyName(path, buf, sizeof(buf));
@@ -305,7 +306,7 @@ void dmtcp::PtyConnection::drain()
     numWritten = ptmxWriteAll(_fds[0], buf, _ptmxIsPacketMode);
     JASSERT(numRead == numWritten) (numRead) (numWritten);
   }
-  JASSERT(_type == PTY_CTTY || _flags != -1);
+  JASSERT((_type == PTY_CTTY || _type == PTY_PARENT_CTTY) || _flags != -1);
   if (tcgetpgrp(_fds[0]) != -1) {
     _isControllingTTY = true;
   } else {
@@ -382,20 +383,34 @@ void dmtcp::PtyConnection::postRestart()
       return;
 
     case PTY_CTTY:
+    case PTY_PARENT_CTTY:
       {
-        dmtcp::string controllingTty = jalib::Filesystem::GetControllingTerm();
-        dmtcp::string stdinDeviceName =
-          (jalib::Filesystem::GetDeviceName(STDIN_FILENO));
+        dmtcp::string controllingTty;
+        dmtcp::string stdinDeviceName;
+        if (_type == PTY_CTTY) {
+          controllingTty = jalib::Filesystem::GetControllingTerm();
+        } else {
+          controllingTty = jalib::Filesystem::GetControllingTerm(getppid());
+        }
+        stdinDeviceName = (jalib::Filesystem::GetDeviceName(STDIN_FILENO));
         if (controllingTty.length() > 0) {
           tempfd = _real_open(controllingTty.c_str(), _fcntlFlags);
           JASSERT(tempfd >= 0) (tempfd) (controllingTty) (JASSERT_ERRNO)
             .Text("Error Opening the terminal attached with the process");
         } else {
-          JTRACE("Unable to restore terminal attached with the process.\n"
-                 "Replacing it with current STDIN")
-            (stdinDeviceName);
+          if (_type == PTY_CTTY) {
+            JTRACE("Unable to restore controlling terminal attached with the "
+                   "parent process.\n"
+                   "Replacing it with current STDIN")
+              (stdinDeviceName);
+          } else {
+            JWARNING(false) (stdinDeviceName)
+              .Text("Unable to restore controlling terminal attached with the "
+                    "parent process.\n"
+                    "Replacing it with current STDIN");
+          }
           JWARNING(Util::strStartsWith(stdinDeviceName, "/dev/pts/") ||
-                   stdinDeviceName == "/dev/tty")
+                   stdinDeviceName == "/dev/tty") (stdinDeviceName)
             .Text("Controlling terminal not bound to a terminal device.");
 
           if (Util::isValidFd(STDIN_FILENO)) {
@@ -407,7 +422,8 @@ void dmtcp::PtyConnection::postRestart()
           }
         }
 
-        JTRACE("Restoring CTTY for the process") (controllingTty) (_fds[0]);
+        JTRACE("Restoring parent CTTY for the process")
+          (controllingTty) (_fds[0]);
 
         _ptsName = controllingTty;
         SharedData::insertPtyNameMap(_virtPtsName.c_str(), _ptsName.c_str());
