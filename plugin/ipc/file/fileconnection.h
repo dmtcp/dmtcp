@@ -49,6 +49,7 @@ namespace dmtcp
         PTY_INVALID = Connection::PTY,
         PTY_DEV_TTY,
         PTY_CTTY,
+        PTY_PARENT_CTTY,
         PTY_MASTER,
         PTY_SLAVE,
         PTY_BSD_MASTER,

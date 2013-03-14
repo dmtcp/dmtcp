@@ -232,6 +232,8 @@ void dmtcp::FileConnList::scanForPreExisting()
 {
   // FIXME: Detect stdin/out/err fds to detect duplicates.
   dmtcp::vector<int> fds = jalib::Filesystem::ListOpenFds();
+  dmtcp::string ctty = jalib::Filesystem::GetControllingTerm();
+  dmtcp::string parentCtty = jalib::Filesystem::GetControllingTerm(getppid());
   for (size_t i = 0; i < fds.size(); ++i) {
     int fd = fds[i];
     if (!Util::isValidFd(fd)) continue;
@@ -244,12 +246,14 @@ void dmtcp::FileConnList::scanForPreExisting()
     dmtcp::string device = _resolveSymlink(_procFDPath(fd));
 
     JTRACE("scanning pre-existing device") (fd) (device);
-    if (device == jalib::Filesystem::GetControllingTerm()) {
+    if (device == ctty || device == parentCtty) {
       // Search if this is duplicate connection
       iterator conit;
+      int cttyType = (device == ctty) ? PtyConnection::PTY_CTTY
+                                      : PtyConnection::PTY_PARENT_CTTY;
       for (conit = begin(); conit != end(); conit++) {
         Connection *c = conit->second;
-        if (c->subType() == PtyConnection::PTY_CTTY &&
+        if (c->subType() == cttyType &&
             ((PtyConnection*)c)->ptsName() == device) {
           processDup(c->getFds()[0], fd);
           break;
@@ -258,7 +262,7 @@ void dmtcp::FileConnList::scanForPreExisting()
       if (conit == end()) {
         // FIXME: Merge this code with the code in processFileConnection
         Connection *con = new PtyConnection(fd, (const char*) device.c_str(),
-                                            -1, -1, PtyConnection::PTY_CTTY);
+                                            -1, -1, cttyType);
         add(fd, con);
       }
     } else if(dmtcp_is_bq_file && dmtcp_is_bq_file(device.c_str())) {
