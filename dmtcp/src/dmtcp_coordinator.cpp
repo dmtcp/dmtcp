@@ -1594,8 +1594,7 @@ int main ( int argc, char** argv )
     JASSERT(open("/dev/null", O_WRONLY)==1);
     fflush(stderr);
     JASSERT (close(2) == 0 && dup2(1,2) == 2) .Text( "Can't print to stderr");
-    close(JASSERT_STDERR_FD);
-    dup2(2, JASSERT_STDERR_FD);
+    JASSERT_CLOSE_STDERR();
     if(fork()>0){
       JTRACE ( "Parent Exiting after fork()" );
       exit(0);
@@ -1606,13 +1605,12 @@ int main ( int argc, char** argv )
     close(0);
     close(1);
     close(2);
-    close(JASSERT_STDERR_FD);
+    JASSERT_CLOSE_STDERR();
 
     JASSERT(open("/dev/null", O_WRONLY)==0);
 
     JASSERT(dup2(0, 1) == 1);
     JASSERT(dup2(0, 2) == 2);
-    JASSERT(dup2(0, JASSERT_STDERR_FD) == JASSERT_STDERR_FD);
 
   } else {
     JASSERT_STDERR  <<

@@ -49,13 +49,6 @@ static int jwrite(int fd, const char *str)
   return strlen(str);
 }
 
-int jassert_internal::jassert_console_fd()
-{
-  //make sure stream is open
-  jassert_safe_print ( "" );
-  return jalib::stderrFd;
-}
-
 void jassert_internal::jassert_set_console_fd(int fd)
 {
   errConsoleFd = fd;
@@ -157,6 +150,11 @@ void jassert_internal::jassert_init ( const jalib::string& f )
   JASSERT_SET_LOGFILE(f);
 #endif
   jassert_safe_print("");
+}
+
+void jassert_internal::close_stderr()
+{
+  jalib::close(errConsoleFd);
 }
 
 static const jalib::string writeJbacktraceMsg() {
