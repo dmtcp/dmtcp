@@ -69,6 +69,7 @@ void callbackPreSuspendUserThread();
 void callbackPreResumeUserThread(int isRestart);
 
 extern "C" int dmtcp_is_ptracing() __attribute__ ((weak));
+extern "C" int dmtcp_update_ppid() __attribute__ ((weak));
 
 static void initializeDmtcpInfoInMtcp()
 {
@@ -193,6 +194,9 @@ static void callbackPostCheckpoint(int isRestart,
     }
 
     dmtcp::DmtcpWorker::instance().postRestart();
+    if (dmtcp_update_ppid) {
+      dmtcp_update_ppid();
+    }
     dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_POST_RESTART, NULL);
   } else {
     dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_POST_CKPT, NULL);

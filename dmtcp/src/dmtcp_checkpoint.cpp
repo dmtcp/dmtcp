@@ -362,10 +362,6 @@ int main ( int argc, char** argv )
   else
     unsetenv( ENV_VAR_CKPT_OPEN_FILES);
 
-#ifdef PID_VIRTUALIZATION
-  setenv( ENV_VAR_ROOT_PROCESS, "1", 1 );
-#endif
-
   bool isElf, is32bitElf;
   if  (dmtcp::Util::elfType(argv[0], &isElf, &is32bitElf) == -1) {
     // Couldn't read argv_buf
@@ -402,12 +398,16 @@ int main ( int argc, char** argv )
   if (autoStartCoordinator) {
      dmtcp::CoordinatorAPI::startCoordinatorIfNeeded(allowedModes);
   }
+
+#ifdef PID_VIRTUALIZATION
   dmtcp::CoordinatorAPI coordinatorAPI;
   pid_t virtualPid = coordinatorAPI.getVirtualPidFromCoordinator();
   if (virtualPid != -1) {
     JTRACE("Got virtual pid from coordinator") (virtualPid);
     dmtcp::Util::setVirtualPidEnvVar(virtualPid, getppid());
   }
+  setenv( ENV_VAR_ROOT_PROCESS, "1", 1 );
+#endif
 
   // preloadLibs are to set LD_PRELOAD:
   //   LD_PRELOAD=PLUGIN_LIBS:UTILITY_DIR/libdmtcp.so:R_LIBSR_UTILITY_DIR/

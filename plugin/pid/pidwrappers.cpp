@@ -87,6 +87,19 @@ void dmtcpResetTid(pid_t tid)
   _dmtcp_thread_tid = tid;
 }
 
+/* FIXME: Once we have implemented the plugin calling mechanism in which the
+ * plugins are called in the reverse order during restart/resume phase, we can
+ * call this function while processing POST_RESTART event.
+ */
+extern "C"
+void dmtcp_update_ppid()
+{
+  if (_dmtcp_ppid != 1) {
+    dmtcp::VirtualPidTable::instance().updateMapping(_dmtcp_ppid,
+                                                     _real_getppid());
+  }
+}
+
 extern "C" pid_t gettid()
 {
   /* mtcpinterface.cpp:thread_start calls gettid() before calling
