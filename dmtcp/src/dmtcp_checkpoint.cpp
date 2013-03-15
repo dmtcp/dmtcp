@@ -19,6 +19,7 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#include <sys/resource.h>
 #include  "../jalib/jassert.h"
 #include  "../jalib/jfilesystem.h"
 #include  "../jalib/jconvert.h"
