@@ -130,7 +130,7 @@ namespace jassert_internal
 
   const char* jassert_basename ( const char* str );
   dmtcp::ostream& jassert_output_stream();
-  void jassert_safe_print ( const char* );
+  void jassert_safe_print ( const char*, bool noConsoleOutput = false );
   void jassert_init ( const jalib::string& f );
   void close_stderr();
   bool lockLog();
@@ -170,9 +170,6 @@ namespace jassert_internal
 
   void set_log_file ( const jalib::string& path );
   void reset_on_fork ( );
-
-  void jassert_set_console_fd(int fd);
-
 }//jassert_internal
 
 #define JASSERT_INIT(p) (jassert_internal::jassert_init(p));
@@ -184,9 +181,6 @@ namespace jassert_internal
 #define JASSERT_CKPT_UNLOCK() (jassert_internal::unlockLog());
 
 #define JASSERT_ERRNO (strerror(errno))
-
-#define JASSERT_SET_CONSOLE_FD(fd) \
-  jassert_internal::jassert_set_console_fd(fd)
 
 #define JASSERT_PRINT(str) jassert_internal::JAssert(false).Print(str)
 #define JASSERT_STDERR      jassert_internal::JAssert(false)
@@ -202,6 +196,12 @@ namespace jassert_internal
 #define JASSERT_LINE JASSERT_STRINGIFY(__LINE__)
 #define JASSERT_FILE jassert_internal::jassert_basename(__FILE__)
 #define JASSERT_CONTEXT(type,reason) Print('[').Print(getpid()).Print("] " type " at ").Print(JASSERT_FILE).Print(":" JASSERT_LINE " in ").Print(JASSERT_FUNC).Print("; REASON='" reason "'\n")
+
+#ifdef DEBUG
+#define JLOG(str) jassert_internal::jassert_safe_print(str, true)
+#else
+#define JLOG(str) do { } while(0)
+#endif
 
 #ifdef DEBUG
 #define JTRACE(msg) jassert_internal::JAssert(false).JASSERT_CONTEXT("TRACE",msg).JASSERT_CONT_A
