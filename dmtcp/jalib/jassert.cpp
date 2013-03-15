@@ -147,7 +147,7 @@ static jalib::string& theLogFilePath() {static jalib::string s;return s;};
 void jassert_internal::jassert_init ( const jalib::string& f )
 {
 #ifdef DEBUG
-  JASSERT_SET_LOGFILE(f);
+  set_log_file(f);
 #endif
   jassert_safe_print("");
 }
@@ -261,8 +261,9 @@ static int _initJassertOutputDevices()
 
 #ifdef DEBUG
   if ( errpath != NULL && theLogFileFd == -1 ) {
-    JASSERT_SET_LOGFILE ( jalib::XToString(getenv("DMTCP_TMPDIR"))
-                          + "/jassertlog." + jalib::XToString ( getpid() ) );
+    jassert_internal::set_log_file(jalib::XToString(getenv("DMTCP_TMPDIR"))
+                                   + "/jassertlog."
+                                   + jalib::XToString(getpid()));
   }
 #endif
 
@@ -292,7 +293,7 @@ void jassert_internal::jassert_safe_print ( const char* str )
       if ( useErrorConsole ) {
         jwrite ( errConsoleFd, "JASSERT: write failed, reopening log file.\n" );
       }
-      JASSERT_SET_LOGFILE ( theLogFilePath() );
+      set_log_file(theLogFilePath());
       if ( theLogFileFd != -1 ) {
         jwrite ( theLogFileFd, "JASSERT: write failed, reopened log file:\n");
         jwrite ( theLogFileFd, str );

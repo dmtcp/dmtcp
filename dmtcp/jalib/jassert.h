@@ -178,7 +178,6 @@ namespace jassert_internal
 #define JASSERT_INIT(p) (jassert_internal::jassert_init(p));
 #define JASSERT_CLOSE_STDERR() (jassert_internal::close_stderr());
 
-#define JASSERT_SET_LOGFILE(p) (jassert_internal::set_log_file(p));
 #define JASSERT_RESET_ON_FORK() (jassert_internal::reset_on_fork());
 
 #define JASSERT_CKPT_LOCK() (jassert_internal::lockLog());
