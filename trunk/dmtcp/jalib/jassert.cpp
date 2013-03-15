@@ -141,10 +141,43 @@ static jalib::string& theLogFilePath() {static jalib::string s;return s;};
 
 void jassert_internal::jassert_init ( const jalib::string& f )
 {
+  pthread_mutex_t newLock = PTHREAD_MUTEX_INITIALIZER;
+  logLock = newLock;
+
 #ifdef DEBUG
   set_log_file(f);
 #endif
-  jassert_safe_print("");
+
+  // Check if we already have a valid stderrFd
+  if (jalib::dup2(jalib::stderrFd, jalib::stderrFd) != jalib::stderrFd) {
+    const char* errpath = getenv("JALIB_STDERR_PATH");
+
+    if (errpath != NULL) {
+      errConsoleFd = _open_log_safe(errpath, jalib::stderrFd);
+    } else {
+      /* TODO:
+       * If stderr is a pseudo terminal for IPC between parent/child processes,
+       * this logic fails and JASSERT may write data to FD 2 (stderr).  This
+       * will cause problems in programs that use FD 2 (stderr) for non stderr
+       * purposes.
+       */
+      jalib::string stderrProcPath, stderrDevice;
+      stderrProcPath = "/proc/self/fd/" + jalib::XToString(fileno(stderr));
+      stderrDevice = jalib::Filesystem::ResolveSymlink(stderrProcPath);
+
+      if (stderrDevice.length() > 0
+          && jalib::Filesystem::FileExists(stderrDevice)) {
+        errConsoleFd = jalib::dup2(fileno(stderr), jalib::stderrFd);
+      } else {
+        errConsoleFd = _open_log_safe("/dev/null", jalib::stderrFd);
+      }
+    }
+
+    if (errConsoleFd == -1) {
+      jwrite(fileno(stderr),
+             "dmtcp: cannot open output channel for error logging\n");
+    }
+  }
 }
 
 void jassert_internal::close_stderr()
@@ -247,51 +280,22 @@ void jassert_internal::set_log_file ( const jalib::string& path )
   }
 }
 
-static int _initJassertOutputDevices()
-{
-  pthread_mutex_t newLock = PTHREAD_MUTEX_INITIALIZER;
-  logLock = newLock;
-
-  const char* errpath = getenv ( "JALIB_STDERR_PATH" );
-
-#ifdef DEBUG
-  if ( errpath != NULL && theLogFileFd == -1 ) {
-    jassert_internal::set_log_file(jalib::XToString(getenv("DMTCP_TMPDIR"))
-                                   + "/jassertlog."
-                                   + jalib::XToString(getpid()));
-  }
-#endif
-
-  if ( errpath != NULL )
-    errConsoleFd = _open_log_safe ( errpath, jalib::stderrFd );
-  else
-    errConsoleFd = jalib::dup2 ( fileno ( stderr ), jalib::stderrFd );
-
-  if( errConsoleFd == -1 ) {
-    jwrite ( fileno (stderr ), "dmtcp: cannot open output channel for error logging\n");
-    return false;
-  }
-  return true;
-}
-
 void jassert_internal::jassert_safe_print(const char* str, bool noConsoleOutput)
 {
-  static bool useErrorConsole = _initJassertOutputDevices();
-
-  if (useErrorConsole && !noConsoleOutput)
+  if (errConsoleFd != -1 && !noConsoleOutput)
     jwrite(errConsoleFd, str);
 
-  if ( theLogFileFd != -1 ) {
-    int rv = jwrite ( theLogFileFd, str );
+  if (theLogFileFd != -1) {
+    int rv = jwrite(theLogFileFd, str);
 
-    if ( rv < 0 ) {
-      if ( useErrorConsole ) {
-        jwrite ( errConsoleFd, "JASSERT: write failed, reopening log file.\n" );
+    if (rv < 0) {
+      if (errConsoleFd != -1) {
+        jwrite(errConsoleFd, "JASSERT: write failed, reopening log file.\n");
       }
       set_log_file(theLogFilePath());
-      if ( theLogFileFd != -1 ) {
-        jwrite ( theLogFileFd, "JASSERT: write failed, reopened log file:\n");
-        jwrite ( theLogFileFd, str );
+      if (theLogFileFd != -1) {
+        jwrite(theLogFileFd, "JASSERT: write failed, reopened log file:\n");
+        jwrite(theLogFileFd, str);
       }
     }
   }

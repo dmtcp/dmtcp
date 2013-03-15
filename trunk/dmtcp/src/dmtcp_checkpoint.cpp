@@ -112,12 +112,6 @@ static const char* theUsage =
 //   "See `dmtcp_checkpoint --help` for usage.\n"
 // ;
 
-static dmtcp::string _stderrProcPath()
-{
-  return "/proc/" + jalib::XToString(getpid()) + "/fd/"
-         + jalib::XToString(fileno(stderr));
-}
-
 static bool isSSHSlave=false;
 static bool autoStartCoordinator=true;
 static bool checkpointOpenFiles=false;
@@ -357,19 +351,6 @@ int main ( int argc, char** argv )
     setenv ( ENV_VAR_CHECKPOINT_DIR, ckptDir, 0 );
     JTRACE("setting " ENV_VAR_CHECKPOINT_DIR)(ckptDir);
   }
-
-  dmtcp::string stderrDevice = jalib::Filesystem::ResolveSymlink ( _stderrProcPath() );
-
-  //TODO:
-  // When stderr is a pseudo terminal for IPC between parent/child processes,
-  //  this logic fails and JASSERT may write data to FD 2 (stderr).
-  // This will cause problems in programs that use FD 2 (stderr) for
-  //  algorithmic things ...
-  if ( stderrDevice.length() > 0
-          && jalib::Filesystem::FileExists ( stderrDevice ) )
-    setenv ( ENV_VAR_STDERR_PATH,stderrDevice.c_str(), 0 );
-  else// if( isSSHSlave )
-    setenv ( ENV_VAR_STDERR_PATH, "/dev/null", 0 );
 
   if ( getenv(ENV_VAR_SIGCKPT) != NULL )
     setenv ( "MTCP_SIGCKPT", getenv(ENV_VAR_SIGCKPT), 1);
