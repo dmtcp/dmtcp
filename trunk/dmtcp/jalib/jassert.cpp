@@ -49,11 +49,6 @@ static int jwrite(int fd, const char *str)
   return strlen(str);
 }
 
-void jassert_internal::jassert_set_console_fd(int fd)
-{
-  errConsoleFd = fd;
-}
-
 jassert_internal::JAssert& jassert_internal::JAssert::Text ( const char* msg )
 {
   Print ( "Message: " );
@@ -279,12 +274,12 @@ static int _initJassertOutputDevices()
   return true;
 }
 
-void jassert_internal::jassert_safe_print ( const char* str )
+void jassert_internal::jassert_safe_print(const char* str, bool noConsoleOutput)
 {
   static bool useErrorConsole = _initJassertOutputDevices();
 
-  if ( useErrorConsole )
-    jwrite ( errConsoleFd, str );
+  if (useErrorConsole && !noConsoleOutput)
+    jwrite(errConsoleFd, str);
 
   if ( theLogFileFd != -1 ) {
     int rv = jwrite ( theLogFileFd, str );

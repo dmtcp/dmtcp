@@ -46,6 +46,8 @@ void dmtcp::Util::initializeLogFile(dmtcp::string procname, dmtcp::string prevLo
 
   dmtcp::ostringstream a;
   a << "\n========================================";
+  a << "\nProcess Information";
+  a << "\n========================================";
   a << "\nThis Process: " << dmtcp::UniquePid::ThisProcess()
     << "\nParent Process: " << dmtcp::UniquePid::ParentProcess();
 
@@ -66,9 +68,7 @@ void dmtcp::Util::initializeLogFile(dmtcp::string procname, dmtcp::string prevLo
   }
   a << "\n========================================\n";
 
-  JASSERT_SET_CONSOLE_FD(-1);
-  JTRACE("Process Information") (a.str());
-  JASSERT_SET_CONSOLE_FD(PROTECTED_STDERR_FD);
+  JLOG(a.str().c_str());
 #else
   JASSERT_INIT("");
 #endif
@@ -77,4 +77,5 @@ void dmtcp::Util::initializeLogFile(dmtcp::string procname, dmtcp::string prevLo
   } else {
     jassert_quiet = 0;
   }
+  unsetenv(ENV_VAR_STDERR_PATH);
 }
