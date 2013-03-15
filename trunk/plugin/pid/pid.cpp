@@ -10,6 +10,7 @@
 
 using namespace dmtcp;
 
+extern "C" pid_t dmtcp_update_ppid();
 extern "C"
 pid_t dmtcp_real_to_virtual_pid(pid_t realPid)
 {
@@ -112,6 +113,7 @@ void pidVirt_PostRestart(DmtcpEventData_t *data)
   // We can't just send two SIGWINCH's now, since window size has not
   // changed yet, and 'screen' will assume that there's nothing to do.
 
+  dmtcp_update_ppid();
   openOriginalToCurrentMappingFiles();
   dmtcp::VirtualPidTable::instance().writeMapsToFile(PROTECTED_PIDMAP_FD);
 }
