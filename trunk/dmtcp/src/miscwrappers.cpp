@@ -32,6 +32,10 @@
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,13) && __GLIBC_PREREQ(2,4)
 #include <sys/inotify.h>
 #endif
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22) && __GLIBC_PREREQ(2,8)
+#include <sys/eventfd.h>
+#include <sys/signalfd.h>
+#endif
 
 extern "C" void exit ( int status )
 {
@@ -501,6 +505,38 @@ extern "C" SYSCALL_ARG_RET_TYPE syscall(SYSCALL_ARG_RET_TYPE sys_num, ... )
     case SYS_inotify_init:
     {
       ret = inotify_init();
+      break;
+    }
+#endif
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22) && __GLIBC_PREREQ(2,8)
+    case SYS_signalfd:
+    {
+      SYSCALL_GET_ARGS_3(int,fd,sigset_t *,mask,int,flags);
+      ret = signalfd(fd, mask, flags);
+      break;
+    }
+#endif
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,27) && __GLIBC_PREREQ(2,8)
+    case SYS_signalfd4:
+    {
+      SYSCALL_GET_ARGS_3(int,fd,sigset_t *,mask,int,flags);
+      ret = signalfd(fd, mask, flags);
+      break;
+    }
+#endif
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22) && __GLIBC_PREREQ(2,8)
+    case SYS_eventfd:
+    {
+      SYSCALL_GET_ARGS_2(unsigned int,initval,int,flags);
+      ret = eventfd(initval, flags);
+      break;
+    }
+#endif
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,27) && __GLIBC_PREREQ(2,8)
+    case SYS_eventfd2:
+    {
+      SYSCALL_GET_ARGS_2(unsigned int,initval,int,flags);
+      ret = eventfd(initval, flags);
       break;
     }
 #endif
