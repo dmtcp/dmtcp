@@ -131,7 +131,7 @@ namespace jassert_internal
   const char* jassert_basename ( const char* str );
   dmtcp::ostream& jassert_output_stream();
   void jassert_safe_print ( const char*, bool noConsoleOutput = false );
-  void jassert_init ( const jalib::string& f );
+  void jassert_init();
   void close_stderr();
   bool lockLog();
   void unlockLog();
@@ -172,7 +172,9 @@ namespace jassert_internal
   void reset_on_fork ( );
 }//jassert_internal
 
-#define JASSERT_INIT(p) (jassert_internal::jassert_init(p));
+#define JASSERT_INIT(p) (jassert_internal::jassert_init());
+#define JASSERT_SET_LOG(p) (jassert_internal::set_log_file(p));
+
 #define JASSERT_CLOSE_STDERR() (jassert_internal::close_stderr());
 
 #define JASSERT_RESET_ON_FORK() (jassert_internal::reset_on_fork());

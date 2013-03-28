@@ -42,7 +42,7 @@ void dmtcp::Util::initializeLogFile(dmtcp::string procname, dmtcp::string prevLo
     o << procname;
   }
 
-  JASSERT_INIT(o.str());
+  JASSERT_SET_LOG(o.str());
 
   dmtcp::ostringstream a;
   a << "\n========================================";
@@ -69,8 +69,6 @@ void dmtcp::Util::initializeLogFile(dmtcp::string procname, dmtcp::string prevLo
   a << "\n========================================\n";
 
   JLOG(a.str().c_str());
-#else
-  JASSERT_INIT("");
 #endif
   if (getenv(ENV_VAR_QUIET)) {
     jassert_quiet = *getenv(ENV_VAR_QUIET) - '0';
