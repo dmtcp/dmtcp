@@ -11,7 +11,7 @@
 % TODO:  --with-icc
 % TODO:  --vnc  (for dmtcp_checkpoint)
 % TODO:  test suite from Joshua Louie (dlopen prior to main; epoll taking too long)
-% 
+%
 % UPDATE 'svn co' on dmtcp.sf.net;  Add latest DMTCP papers to dmtcp.sf.net
 % ADD documents (design of DMTCP, design of plugins)
 
@@ -423,7 +423,7 @@ The complete list of plugin events is always contained in
 {\tt DMTCP\_ROOT/dmtcp/include/dmtcp/plugin.h}~.
 
 DMTCP guarantees to call the dmtcp\_process\_event function of the plugin
-when the specified event occurs.  
+when the specified event occurs.
 If an event is thread-specific ({\bf
 GIVE EXAMPLES}), DMTCP guarantees to call dmtcp\_process\_event within
 the same thread.
@@ -431,8 +431,8 @@ the same thread.
 {\bf DO I HAVE ALL THE THREAD-SPECIFIC EVENTS?}
 
 Plugins that pass significant data through the data parameter
-are marked with an asterisk: {}$^*$.  
-Most plugin events do not pass data through the data parameter.  
+are marked with an asterisk: {}$^*$.
+Most plugin events do not pass data through the data parameter.
 Currently, the plugins
 that use the data parameter {\bf use it to test if this is restart or resume??.
 In this case, why don't we have a single function that every plugin can call
@@ -440,7 +440,7 @@ to test if this is during a restart or resume?}
 
 Note that the events \\
    RESTART / RESUME / REFILL / REGISTER\_NAME\_SERVICE\_DATA / SEND\_QUERIES \\
-should all be processed after the call to NEXT\_DMTCP\_PROCESS\_EVENT() in 
+should all be processed after the call to NEXT\_DMTCP\_PROCESS\_EVENT() in
 order to guarantee that the internal DMTCP plugins have restored full
 functionality.
 
@@ -511,12 +511,11 @@ coordinated checkpoint
 \item
   DMTCP\_EVENT\_THREADS\_SUSPEND --- Invoked within checkpoint thread
 	when all user threads have been suspended
-	(was DMTCP\_EVENT\_SUSPENDED)
 \item
   DMTCP\_EVENT\_THREADS\_RESUME --- Invoked within checkpoint thread before
-	any user threads are resumed.  (was DMTCP\_EVENT\_RESUME) \\
+	any user threads are resumed. \\
 	For debugging, consider calling the following code for this
-        event:  {\tt static int x = 1; while(x);}  
+        event:  {\tt static int x = 1; while(x);}
 \item
   {\bf should we have separate DMTCP\_EVENT\_THREADS\_RESUME?  --- I vote yes.}
 \item

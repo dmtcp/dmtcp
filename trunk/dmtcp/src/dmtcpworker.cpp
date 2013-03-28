@@ -619,7 +619,7 @@ void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
   SyslogCheckpointer::stopService();
 
   SharedData::suspended();
-  processEvent(DMTCP_EVENT_SUSPENDED, NULL);
+  processEvent(DMTCP_EVENT_THREADS_SUSPEND, NULL);
 
   waitForCoordinatorMsg ("FD_LEADER_ELECTION", DMT_DO_FD_LEADER_ELECTION);
 
@@ -692,7 +692,7 @@ void dmtcp::DmtcpWorker::waitForStage4Resume(bool isRestart)
   JTRACE("got resume message");
   DmtcpEventData_t edata;
   edata.resumeInfo.isRestart = isRestart;
-  dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_RESUME, &edata);
+  dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_THREADS_RESUME, &edata);
 }
 
 void dmtcp_ProcessInfo_ProcessEvent(DmtcpEvent_t event, DmtcpEventData_t *data);

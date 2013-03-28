@@ -83,7 +83,7 @@ void dmtcp::ConnectionList::processEvent(DmtcpEvent_t event,
 
       break;
 
-    case DMTCP_EVENT_SUSPENDED:
+    case DMTCP_EVENT_THREADS_SUSPEND:
       preLockSaveOptions();
       break;
 
@@ -109,7 +109,7 @@ void dmtcp::ConnectionList::processEvent(DmtcpEvent_t event,
       refill(data->refillInfo.isRestart);
       break;
 
-    case DMTCP_EVENT_RESUME:
+    case DMTCP_EVENT_THREADS_RESUME:
       resume(data->resumeInfo.isRestart);
       break;
 

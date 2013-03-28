@@ -21,7 +21,7 @@ void dmtcp_process_event(DmtcpEvent_t event, DmtcpEventData_t *data)
   case DMTCP_EVENT_POST_CKPT:
     printf("*** The plugin has now been checkpointed. ***\n");
     break;
-  case DMTCP_EVENT_RESUME:
+  case DMTCP_EVENT_THREADS_RESUME:
     if (data->resumeInfo.isRestart) {
       printf("The plugin is now resuming or restarting from checkpointing.\n");
     } else {
@@ -36,7 +36,7 @@ void dmtcp_process_event(DmtcpEvent_t event, DmtcpEventData_t *data)
    */
   case DMTCP_EVENT_POST_RESTART:
   case DMTCP_EVENT_RESET_ON_FORK:
-  case DMTCP_EVENT_SUSPENDED:
+  case DMTCP_EVENT_THREADS_SUSPEND:
   case DMTCP_EVENT_LEADER_ELECTION:
   case DMTCP_EVENT_DRAIN:
   default:
