@@ -93,6 +93,7 @@ jassert_internal::JAssert::~JAssert()
     Print ( "): Terminating...\n" );
     jassert_safe_print ( ss.str().c_str() );
     ss.str("");
+    //while(1) sleep(1);
 #ifdef DEBUG
     jbacktrace();
 #endif
@@ -139,14 +140,10 @@ static int _open_log_safe ( const jalib::string& s, int protectedFd )
 
 static jalib::string& theLogFilePath() {static jalib::string s;return s;};
 
-void jassert_internal::jassert_init ( const jalib::string& f )
+void jassert_internal::jassert_init()
 {
   pthread_mutex_t newLock = PTHREAD_MUTEX_INITIALIZER;
   logLock = newLock;
-
-#ifdef DEBUG
-  set_log_file(f);
-#endif
 
   // Check if we already have a valid stderrFd
   if (jalib::dup2(jalib::stderrFd, jalib::stderrFd) != jalib::stderrFd) {
@@ -177,6 +174,8 @@ void jassert_internal::jassert_init ( const jalib::string& f )
       jwrite(fileno(stderr),
              "dmtcp: cannot open output channel for error logging\n");
     }
+  } else {
+    errConsoleFd = jalib::stderrFd;
   }
 }
 

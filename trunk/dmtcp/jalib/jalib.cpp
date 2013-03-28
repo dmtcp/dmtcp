@@ -32,6 +32,7 @@
 
 #include <fstream>
 #include "jalib.h"
+#include "jassert.h"
 
 jalib::JalibFuncPtrs jalib::jalibFuncPtrs;
 int jalib::jalib_funcptrs_initialized = 0;
@@ -48,6 +49,7 @@ extern "C" void jalib_init(jalib::JalibFuncPtrs jalibFuncPtrs,
   jalib::logFd = jassertLogFd;
   jalib::jalib_funcptrs_initialized = 1;
   jalib::dmtcp_fail_rc = dmtcp_fail_rc;
+  JASSERT_INIT();
 }
 
 #define REAL_FUNC_PASSTHROUGH(type,name) \
