@@ -95,7 +95,7 @@ void dmtcp_SysVIPC_ProcessEvent(DmtcpEvent_t event, DmtcpEventData_t *data)
     case DMTCP_EVENT_RESET_ON_FORK:
       dmtcp::SysVIPC::instance().resetOnFork();
       break;
-    case DMTCP_EVENT_PRE_CKPT:
+    case DMTCP_EVENT_WRITE_CKPT:
       dmtcp::SysVIPC::instance().preCheckpoint();
       break;
 
@@ -129,7 +129,7 @@ void dmtcp_SysVIPC_ProcessEvent(DmtcpEvent_t event, DmtcpEventData_t *data)
       }
       break;
 
-    case DMTCP_EVENT_POST_RESTART:
+    case DMTCP_EVENT_RESTART:
       dmtcp::SysVIPC::instance().postRestart();
       break;
 

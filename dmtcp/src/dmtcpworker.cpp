@@ -470,7 +470,7 @@ dmtcp::DmtcpWorker::~DmtcpWorker()
      * As obvious, once the user threads have been suspended the ckpt-thread
      *  releases the destroyDmtcpWorker() mutex and continues normal execution.
      */
-    processEvent(DMTCP_EVENT_PRE_EXIT, NULL);
+    processEvent(DMTCP_EVENT_EXIT, NULL);
     JTRACE("exit() in progress, disconnecting from dmtcp coordinator");
     CoordinatorAPI::instance().closeConnection();
     interruptCkpthread();
@@ -636,7 +636,7 @@ void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
   waitForCoordinatorMsg ("CHECKPOINT", DMT_DO_CHECKPOINT);
   JTRACE("got checkpoint message");
 
-  processEvent(DMTCP_EVENT_PRE_CKPT, NULL);
+  processEvent(DMTCP_EVENT_WRITE_CKPT, NULL);
 }
 
 void dmtcp::DmtcpWorker::postRestart()

@@ -150,7 +150,7 @@ extern "C" void dmtcp_process_event(DmtcpEvent_t event, DmtcpEventData_t *data)
       pidVirt_PostExec(data);
       break;
 
-    case DMTCP_EVENT_POST_RESTART:
+    case DMTCP_EVENT_RESTART:
       pidVirt_PostRestart(data);
       break;
 
