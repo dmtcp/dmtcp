@@ -74,6 +74,8 @@
 
 #define ENABLE_MALLOC_WRAPPER
 
+#define DMTCP_CKPT_SIGN "DMTCP_CHECKPOINT_IMAGE_v2.0\n"
+
 //this next string can be at most 16 chars long
 #define DMTCP_MAGIC_STRING "DMTCP_CKPT_V0\n"
 

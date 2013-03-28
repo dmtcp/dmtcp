@@ -33,7 +33,7 @@ nobase_noinst_HEADERS = constants.h \
 	dmtcp_coordinator.h dmtcpmessagetypes.h lookup_service.h \
 	dmtcpworker.h threadsync.h coordinatorapi.h \
 	mtcpinterface.h syscallwrappers.h syslogwrappers.h \
-	uniquepid.h processinfo.h
+	uniquepid.h processinfo.h ckptserializer.h
 
 # Note that libdmtcpinternal.a does not include wrappers.
 # dmtcp_checkpoint, dmtcp_command, dmtcp_coordinator, etc.
@@ -60,7 +60,7 @@ dmtcp_checkpoint_SOURCES = dmtcp_checkpoint.cpp
 
 dmtcp_nocheckpoint_SOURCES = dmtcp_nocheckpoint.c
 
-dmtcp_restart_SOURCES = dmtcp_restart.cpp util_exec.cpp
+dmtcp_restart_SOURCES = dmtcp_restart.cpp util_exec.cpp ckptserializer.cpp
 
 dmtcp_command_SOURCES = dmtcp_command.cpp
 
@@ -68,7 +68,7 @@ libdmtcp_so_SOURCES = dmtcpawareapi.cpp dmtcpworker.cpp threadsync.cpp \
 		      coordinatorapi.cpp execwrappers.cpp \
 		      mtcpinterface.cpp signalwrappers.cpp \
 		      workerhijack.cpp threadwrappers.cpp \
-		      miscwrappers.cpp \
+		      miscwrappers.cpp ckptserializer.cpp \
 		      glibcsystem.cpp mallocwrappers.cpp \
 		      dmtcpplugin.cpp popen.cpp syslogwrappers.cpp
 

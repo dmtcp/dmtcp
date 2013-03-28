@@ -112,8 +112,8 @@ namespace dmtcp
 
     void prepareDlsymWrapper();
     void adjustRlimitStack();
-    void writeCkptFilenamesToTmpfile(vector<string>& args);
-    void runMtcpRestore(const char* path);
+    void runMtcpRestore(const char* path, int fd, pid_t gzipChildPid,
+                        size_t argvSize, size_t envSize);
 
     char readDec (int fd, VA *value);
     char readHex (int fd, VA *value);

@@ -19,55 +19,28 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#ifndef DMTCPPROTECTEDFDS_H
-#define DMTCPPROTECTEDFDS_H
+#ifndef CKPT_SERIZLIZER_H
+#define CKPT_SERIZLIZER_H
 
-
+#include "constants.h"
+#include "dmtcpalloc.h"
+#include "processinfo.h"
+#include "util.h"
+#include "../jalib/jserialize.h"
+#include "../jalib/jfilesystem.h"
 #include "../jalib/jalloc.h"
 
-#define PROTECTEDFDS (dmtcp::ProtectedFDs::instance())
-#define PFD(i) (PROTECTED_FD_START + (i))
-//#define PROTECTEDFD(i) PFD(i)
-#define PROTECTED_COORD_FD         PFD(1)
-#define PROTECTED_VIRT_COORD_FD    PFD(2)
-#define PROTECTED_RESTORE_SOCK_FD  PFD(3)
-#define PROTECTED_COORD_ALT_FD     PFD(4)
-#define PROTECTED_STDERR_FD        PFD(5)
-#define PROTECTED_JASSERTLOG_FD    PFD(6)
-#define PROTECTED_SHM_FD           PFD(8)
-#define PROTECTED_PIDMAP_FD        PFD(9)
-#define PROTECTED_PTRACE_FD        PFD(10)
-#define PROTECTED_TMPDIR_FD        PFD(11)
-#define PROTECTED_FILE_FDREWIRER_FD     PFD(12)
-#define PROTECTED_SOCKET_FDREWIRER_FD     PFD(13)
-#define PROTECTED_EVENT_FDREWIRER_FD     PFD(14)
-#define PROTECTED_READLOG_FD       PFD(15)
-
-#define PROTECTED_FD_START 820
-#define PROTECTED_FD_COUNT 16
-
-#define DMTCP_IS_PROTECTED_FD(fd) \
-  (fd >= PFD(0) && fd < PFD(PROTECTED_FD_COUNT))
 
 namespace dmtcp
 {
-
-  class ProtectedFDs
+  namespace CkptSerializer
   {
-    public:
-#ifdef JALIB_ALLOCATOR
-      static void* operator new(size_t nbytes, void* p) { return p; }
-      static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
-      static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
-#endif
-      static ProtectedFDs& instance();
-      static bool isProtected ( int fd );
-    protected:
-      ProtectedFDs();
-    private:
-//     bool _usageTable[PROTECTED_FD_COUNT];
+    int openDmtcpCheckpointFile(const dmtcp::string& path, pid_t *extDecompPid);
+    void closeDmtcpCheckpointFile(int fd, pid_t extDecompPid);
+    void writeCkptHeader(int fd);
+    int readCkptHeader(const dmtcp::string& path, pid_t *extDecompPid,
+                       dmtcp::ProcessInfo *pInfo);
   };
-
 }
 
 #endif

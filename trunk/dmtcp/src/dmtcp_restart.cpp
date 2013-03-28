@@ -25,7 +25,11 @@
 #include "constants.h"
 #include "coordinatorapi.h"
 #include "util.h"
+#include "uniquepid.h"
+#include "processinfo.h"
+#include "ckptserializer.h"
 #include  "../jalib/jassert.h"
+#include  "../jalib/jfilesystem.h"
 
 #define BINARY_NAME "dmtcp_restart"
 
@@ -73,10 +77,140 @@ static const char* theUsage =
   "See " PACKAGE_URL " for more information.\n"
 ;
 
+class RestoreTarget;
+
+typedef dmtcp::map<dmtcp::UniquePid, RestoreTarget*> RestoreTargetMap;
+RestoreTargetMap targets;
+RestoreTargetMap independentProcessTreeRoots;
+
+static int openCkptFile(const char *path) {
+  return -1;
+}
+
+class RestoreTarget
+{
+  public:
+    RestoreTarget(const dmtcp::string& path)
+      : _path(path)
+    {
+      JASSERT(jalib::Filesystem::FileExists(_path)) (_path)
+        .Text ( "checkpoint file missing" );
+
+      _fd = dmtcp::CkptSerializer::readCkptHeader(_path, &_extDecompPid,
+                                                  &_pInfo);
+      JTRACE("restore target") (_path) (_pInfo.numPeers()) (_pInfo.compGroup());
+    }
+
+    const int fd() const { return _fd; }
+    const UniquePid& upid() const { return _pInfo.upid(); }
+    const pid_t pid() const { return _pInfo.pid(); }
+    const pid_t sid() const { return _pInfo.sid(); }
+    const bool isRootOfProcessTree() const {
+      return _pInfo.isRootOfProcessTree();
+    }
+
+    void restoreGroup()
+    {
+      if (_pInfo.isGroupLeader()) {
+        // create new Group where this process becomes a leader
+        JTRACE("Create new Group.");
+        setpgid(0, 0);
+      }
+    }
+
+    void createDependentProcess(bool isChild)
+    {
+      pid_t pid = fork();
+      JASSERT(pid != -1);
+      if (pid != 0) {
+        return;
+      }
+      if (!isChild) {
+        pid_t gchild = fork();
+        JASSERT(gchild != -1);
+        if (gchild != 0) {
+          exit(0);
+        }
+      }
+      createProcess();
+    }
+
+    void createProcess(bool createIndependentRootProcesses = false)
+    {
+      //change UniquePid
+      UniquePid::resetOnFork(upid());
+      dmtcp::Util::initializeLogFile(_pInfo.procname());
+
+      JTRACE("Creating process during restart") (upid()) (_pInfo.procname());
+
+      RestoreTargetMap::iterator it;
+      for (it = targets.begin(); it != targets.end(); it++) {
+        RestoreTarget *t = it->second;
+        if (_pInfo.upid() == t->_pInfo.upid()) {
+          continue;
+        } else if (_pInfo.isChild(t->upid()) &&
+                   t->_pInfo.sid() != _pInfo.pid()) {
+          t->createDependentProcess(true);
+        }
+      }
+
+      if (createIndependentRootProcesses) {
+        RestoreTargetMap::iterator it;
+        for (it = independentProcessTreeRoots.begin();
+             it != independentProcessTreeRoots.end();
+             it++) {
+          RestoreTarget *t = it->second;
+          if (t != this) {
+            t->createDependentProcess(false);
+          }
+        }
+      }
+
+      // If we were the session leader, become one now.
+      if (_pInfo.sid() == _pInfo.pid()) {
+        if (getsid(0) != _pInfo.pid()) {
+          JWARNING(setsid() != -1) (getsid(0)) (JASSERT_ERRNO)
+            .Text("Failed to restore this process as session leader.");
+        }
+      }
+
+      // Now recreate processes with sid == _pid
+      for (it = targets.begin(); it != targets.end(); it++) {
+        RestoreTarget *t = it->second;
+        if (_pInfo.upid() == t->_pInfo.upid()) {
+          continue;
+        } else if (t->_pInfo.sid() == _pInfo.pid()) {
+          t->createDependentProcess(_pInfo.isChild(t->upid()));
+        }
+      }
+
+      // Now close all open fds except _fd;
+      for (it = targets.begin(); it != targets.end(); it++) {
+        RestoreTarget *t = it->second;
+        if (t != this) {
+          close(t->fd());
+        }
+      }
+
+      dmtcp::CoordinatorAPI coordinatorAPI;
+      coordinatorAPI.connectToCoordinator();
+      dmtcp::Util::runMtcpRestore(_path.c_str(), _fd, _extDecompPid,
+                                  _pInfo.argvSize(), _pInfo.envSize());
+
+      JASSERT ( false ).Text ( "unreachable" );
+    }
+
+  private:
+    dmtcp::string _path;
+    dmtcp::ProcessInfo _pInfo;
+    int _fd;
+    pid_t _extDecompPid;
+};
+
+
+
 //shift args
 #define shift argc--,argv++
-
-dmtcp::vector<dmtcp::string> ckptFiles;
 
 int main(int argc, char** argv)
 {
@@ -206,34 +340,41 @@ int main(int argc, char** argv)
       exit(DMTCP_FAIL_RC);
     }
 
-    JTRACE("Will restart ckpt image _argv[0]_") (argv[0]);
-    ckptFiles.push_back(argv[0]);
-    dmtcp::UniquePid upid(argv[0]);
-    if (minPid == -1) {
-      minPid = upid.pid();
-      minFile = argv[0];
-    }
-    JASSERT(upid.hostid() == currHostid || currHostid == 0);
-    if (minPid > upid.pid()) {
-      minPid = upid.pid();
-      minFile = argv[0];
+    JTRACE("Will restart ckpt image") (argv[0]);
+    RestoreTarget *t = new RestoreTarget(argv[0]);
+    targets[t->upid()] = t;
+  }
+
+  // Prepare list of independent process tree roots
+  RestoreTargetMap::iterator i;
+  for (i = targets.begin(); i != targets.end(); i++) {
+    RestoreTarget *t1 = i->second;
+    if (t1->isRootOfProcessTree()) {
+      RestoreTargetMap::iterator j;
+      for (j = targets.begin(); j != targets.end(); j++) {
+        RestoreTarget *t2 = j->second;
+        if (t1 == t2) continue;
+        if (t1->sid() == t2->pid()) {
+          break;
+        }
+      }
+      if (j == targets.end()) {
+        independentProcessTreeRoots[t1->upid()] = t1;
+      }
     }
   }
+  JASSERT(independentProcessTreeRoots.size() > 0)
+    .Text("There must atleast one process tree which doesn't have a different "
+          "process as session leader.");
 
   if (autoStartCoordinator) {
     dmtcp::CoordinatorAPI::startCoordinatorIfNeeded(allowedModes,
                                                     isRestart);
   }
 
-  if (ckptFiles.size() > 0) {
-    dmtcp::Util::writeCkptFilenamesToTmpfile(ckptFiles);
-  }
-
-  CoordinatorAPI coordinatorAPI;
-  coordinatorAPI.connectToCoordinator();
-
-  JASSERT(minFile != NULL);
-  dmtcp::Util::runMtcpRestore(minFile);
+  RestoreTarget *t = independentProcessTreeRoots.begin()->second;
+  JASSERT(t->pid() != 0);
+  t->createProcess(true);
   JASSERT(false).Text("unreachable");
   return -1;
 }
