@@ -87,6 +87,7 @@ namespace dmtcp
       virtual void refill(bool isRestart) = 0;
       virtual void resume(bool isRestart) {};
       virtual void postRestart() = 0;
+      virtual bool isPreExistingCTTY() const { return false; }
 
       virtual void restoreOptions();
 

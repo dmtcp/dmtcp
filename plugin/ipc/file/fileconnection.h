@@ -61,6 +61,7 @@ namespace dmtcp
 
       dmtcp::string ptsName() { return _ptsName;; }
       dmtcp::string virtPtsName() { return _virtPtsName;; }
+      void markPreExistingCTTY() { _preExistingCTTY = true; }
 
       void preRefill(bool isRestart);
 
@@ -68,6 +69,7 @@ namespace dmtcp
       virtual void refill(bool isRestart);
       virtual void postRestart();
       virtual void serializeSubClass(jalib::JBinarySerializer& o);
+      virtual bool isPreExistingCTTY() const { return _preExistingCTTY; }
       virtual string str() { return _masterName + ":" + _ptsName; }
     private:
       dmtcp::string _masterName;
@@ -77,6 +79,7 @@ namespace dmtcp
       mode_t        _mode;
       bool          _ptmxIsPacketMode;
       bool          _isControllingTTY;
+      bool          _preExistingCTTY;
   };
 
   class StdioConnection : public Connection

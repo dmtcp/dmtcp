@@ -461,7 +461,9 @@ void dmtcp::ConnectionList::registerMissingCons()
   ostringstream in, out;
   for (iterator i = begin(); i != end(); ++i) {
     Connection *con = i->second;
-    if (!con->hasLock() && !con->isStdio()) {
+    // Check comments in FileConnList::postRestart() for the explanation
+    // about isPreExistingCTTY.
+    if (!con->hasLock() && !con->isStdio() && !con->isPreExistingCTTY()) {
       missingCons.push_back((const char*)&i->first);
       in << "\n\t" << con->str() << i->first;
     } else {

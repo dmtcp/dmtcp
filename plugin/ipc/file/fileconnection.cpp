@@ -231,6 +231,7 @@ dmtcp::PtyConnection::PtyConnection(int fd, const char *path,
   : Connection (PTY)
   , _flags(flags)
   , _mode(mode)
+  , _preExistingCTTY(false)
 {
   char buf[PTS_PATH_MAX];
   _type = type;
@@ -486,7 +487,8 @@ void dmtcp::PtyConnection::postRestart()
 void dmtcp::PtyConnection::serializeSubClass(jalib::JBinarySerializer& o)
 {
   JSERIALIZE_ASSERT_POINT("dmtcp::PtyConnection");
-  o & _ptsName & _virtPtsName & _masterName & _type & _ptmxIsPacketMode;
+  o & _ptsName & _virtPtsName & _masterName & _type;
+  o & _flags & _mode & _preExistingCTTY;
   JTRACE("Serializing PtyConn.") (_ptsName) (_virtPtsName);
 }
 
