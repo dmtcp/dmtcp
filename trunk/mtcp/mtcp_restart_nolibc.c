@@ -728,9 +728,9 @@ static void read_shared_memory_area_from_file(Area* area, int flags)
     }
 
     // set file permissions as per memory area protection.
-    int fileprot = 0;
-    if (area->prot & PROT_READ)  fileprot |= S_IRUSR;
-    if (area->prot & PROT_WRITE) fileprot |= S_IWUSR;
+    // UPDATE: Always assign 0600 permission. Some other process might have
+    // mapped the file with RW access.
+    int fileprot = S_IRUSR | S_IWUSR;
     if (area->prot & PROT_EXEC)  fileprot |= S_IXUSR;
     mtcp_sys_fchmod(imagefd, fileprot);
 
