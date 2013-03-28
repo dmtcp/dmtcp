@@ -570,6 +570,9 @@ resource.setrlimit(resource.RLIMIT_STACK, [newCurrLimit, oldLimit[1]])
 runTest("dmtcp5",        2, ["./test/dmtcp5"])
 resource.setrlimit(resource.RLIMIT_STACK, oldLimit)
 
+# Test for files opened with WRONLY mode and later unlinked.
+runTest("file1",         1, ["./test/file1"])
+
 runTest("dmtcpaware1",   1, ["./test/dmtcpaware1"])
 
 PWD=os.getcwd()
