@@ -21,6 +21,7 @@
 
 #include <stdio.h>
 #include <sys/stat.h>
+#include <sys/fcntl.h>
 
 #include "constants.h"
 #include "coordinatorapi.h"
@@ -192,6 +193,17 @@ class RestoreTarget
         }
       }
 
+      // Create the ckpt-dir fd so that the restarted process can know about
+      // the abs-path of ckpt-image.
+      dmtcp::string deviceName = jalib::Filesystem::GetDeviceName(_fd);
+      dmtcp::string dirName = jalib::Filesystem::DirName(deviceName);
+      int dirfd = open(dirName.c_str(), O_RDONLY);
+      JASSERT(dirfd != -1) (JASSERT_ERRNO);
+      if (dirfd != PROTECTED_CKPT_DIR_FD) {
+        JASSERT(dup2(dirfd, PROTECTED_CKPT_DIR_FD) == PROTECTED_CKPT_DIR_FD);
+        close(dirfd);
+      }
+
       dmtcp::CoordinatorAPI coordinatorAPI;
       coordinatorAPI.connectToCoordinator();
       dmtcp::Util::runMtcpRestore(_path.c_str(), _fd, _extDecompPid,
@@ -206,7 +218,6 @@ class RestoreTarget
     int _fd;
     pid_t _extDecompPid;
 };
-
 
 
 //shift args
@@ -314,8 +325,7 @@ int main(int argc, char** argv)
     dmtcp::string restorename(argv[0]);
     struct stat buf;
     int rc = stat(restorename.c_str(), &buf);
-    if (Util::strStartsWith(restorename, "ckpt_") &&
-        Util::strEndsWith(restorename, "_files")) {
+    if (Util::strEndsWith(restorename, "_files")) {
       continue;
     } else if (!Util::strEndsWith(restorename, ".dmtcp")) {
       JNOTE("File doesn't have .dmtcp extension. Check Usage.")

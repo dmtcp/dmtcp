@@ -65,6 +65,10 @@ void dmtcp_ProcessInfo_ProcessEvent(DmtcpEvent_t event, DmtcpEventData_t *data)
       dmtcp::ProcessInfo::instance().refresh();
       break;
 
+    case DMTCP_EVENT_RESTART:
+      dmtcp::ProcessInfo::instance().restart();
+      break;
+
     case DMTCP_EVENT_REFILL:
       if (data->refillInfo.isRestart) {
         dmtcp::ProcessInfo::instance().restoreProcessGroupInfo();
@@ -145,6 +149,14 @@ void dmtcp::ProcessInfo::insertChild(pid_t pid, dmtcp::UniquePid uniquePid)
   _do_unlock_tbl();
 
   JTRACE("Creating new virtualPid -> realPid mapping.") (pid) (uniquePid);
+}
+
+void dmtcp::ProcessInfo::restart()
+{
+  string ckptDir = jalib::Filesystem::GetDeviceName(PROTECTED_CKPT_DIR_FD);
+  JASSERT(ckptDir.length() > 0);
+  _real_close(PROTECTED_CKPT_DIR_FD);
+  UniquePid::setCkptDir(ckptDir.c_str());
 }
 
 void dmtcp::ProcessInfo::eraseChild( pid_t virtualPid )

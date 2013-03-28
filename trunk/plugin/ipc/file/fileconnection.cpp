@@ -564,7 +564,6 @@ void dmtcp::FileConnection::drain()
   calculateRelativePath();
 
   _checkpointed = false;
-  _ckptFilesDir = dmtcp_get_ckpt_files_subdir();
 
   // Read the current file descriptor offset
   _offset = lseek(_fds[0], 0, SEEK_CUR);
@@ -908,7 +907,7 @@ static void writeFileFromFd(int fd, int destFd)
 dmtcp::string dmtcp::FileConnection::getSavedFilePath(const dmtcp::string& path)
 {
   dmtcp::ostringstream os;
-  os << _ckptFilesDir
+  os << dmtcp_get_ckpt_files_subdir()
     << "/" << jalib::Filesystem::BaseName(_path) << "_" << _id.conId();
 
   return os.str();
@@ -917,10 +916,10 @@ dmtcp::string dmtcp::FileConnection::getSavedFilePath(const dmtcp::string& path)
 void dmtcp::FileConnection::serializeSubClass(jalib::JBinarySerializer& o)
 {
   JSERIALIZE_ASSERT_POINT("dmtcp::FileConnection");
-  o & _path & _rel_path & _ckptFilesDir;
+  o & _path & _rel_path;
   o & _offset & _stat & _checkpointed & _rmtype;
-  JTRACE("Serializing FileConn.") (_path) (_rel_path) (_ckptFilesDir)
-   (_checkpointed) (_fcntlFlags);
+  JTRACE("Serializing FileConn.") (_path) (_rel_path)
+    (dmtcp_get_ckpt_files_subdir()) (_checkpointed) (_fcntlFlags);
 }
 
 /*****************************************************************************
