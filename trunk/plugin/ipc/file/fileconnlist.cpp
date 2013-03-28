@@ -124,6 +124,31 @@ void dmtcp::FileConnList::drain()
   }
 }
 
+void dmtcp::FileConnList::postRestart()
+{
+  /* It is possible to have two different connection-ids for a pre-existing
+   * CTTY in two or more different process trees. In this case, only one of the
+   * several process trees would be able to acquire a lock on the underlying
+   * fd.  The send-receive fd logic fails in this case due to different
+   * connection-ids.  Therefore, we let every process do a postRestart to
+   * reopen the CTTY.
+   *
+   * TODO: A better fix would be to have a unique connection-id for each
+   * pre-existing CTTY that is then used by all process trees.  It can be
+   * implemented by using the SharedData area.
+   */
+  for (iterator i = begin(); i != end(); ++i) {
+    Connection* con =  i->second;
+    if (!con->hasLock() && con->conType() == Connection::PTY &&
+        con->isPreExistingCTTY()) {
+      PtyConnection *pcon = (PtyConnection*) con;
+      pcon->postRestart();
+    }
+  }
+
+  ConnectionList::postRestart();
+}
+
 void dmtcp::FileConnList::refill(bool isRestart)
 {
   // Check comments in PtyConnection::preRefill()/refill()
@@ -261,9 +286,12 @@ void dmtcp::FileConnList::scanForPreExisting()
       }
       if (conit == end()) {
         // FIXME: Merge this code with the code in processFileConnection
-        Connection *con = new PtyConnection(fd, (const char*) device.c_str(),
-                                            -1, -1, cttyType);
-        add(fd, con);
+        PtyConnection *con = new PtyConnection(fd, (const char*) device.c_str(),
+                                               -1, -1, cttyType);
+        // Check comments in FileConnList::postRestart() for the explanation
+        // about isPreExistingCTTY.
+        con->markPreExistingCTTY();
+        add(fd, (Connection*)con);
       }
     } else if(dmtcp_is_bq_file && dmtcp_is_bq_file(device.c_str())) {
       if (isRegularFile) {
