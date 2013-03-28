@@ -78,6 +78,7 @@ extern int mtcp_verify_count;  // number of checkpoints to go
 extern int mtcp_verify_total;  // value given by envar
 extern VA mtcp_saved_heap_start;
 extern int  (*mtcp_callback_ckpt_fd)(int fd);
+extern void (*mtcp_callback_write_ckpt_header)(int fd);
 
 
 static pid_t mtcp_ckpt_extcomp_child_pid = -1;
@@ -295,6 +296,11 @@ void mtcp_checkpointeverything(const char *temp_ckpt_filename,
                                     &fdCkptFileOnDisk);
     MTCP_ASSERT( fdCkptFileOnDisk >= 0 );
     MTCP_ASSERT( use_compression || fd == fdCkptFileOnDisk );
+  }
+
+  // Let DMTCP write the header.
+  if (mtcp_callback_write_ckpt_header != NULL) {
+    (*mtcp_callback_write_ckpt_header)(fd);
   }
 
   write_ckpt_to_file(fd, fdCkptFileOnDisk);
