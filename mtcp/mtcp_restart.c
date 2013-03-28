@@ -114,7 +114,9 @@ int main (int argc, char *argv[], char *envp[])
 
   shift;
   while (1) {
-    if (argc == 0 || (mtcp_strcmp(argv[0], "--help") == 0 && argc == 1)) {
+    if (argc == 0 && fd != -1) {
+      break;
+    } else if (argc == 0 || (mtcp_strcmp(argv[0], "--help") == 0 && argc == 1)) {
       mtcp_printf("%s", theUsage);
       return (-1);
     } else if (mtcp_strcmp (argv[0], "--version") == 0 && argc == 1) {
