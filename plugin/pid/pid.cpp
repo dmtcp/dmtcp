@@ -138,7 +138,7 @@ void pidVirt_ThreadExit(DmtcpEventData_t *data)
 extern "C" void dmtcp_process_event(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   switch (event) {
-    case DMTCP_EVENT_RESET_ON_FORK:
+    case DMTCP_EVENT_ATFORK_CHILD:
       pidVirt_ResetOnFork(data);
       break;
 

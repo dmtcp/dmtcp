@@ -71,7 +71,7 @@ extern "C" void dmtcp_process_event(DmtcpEvent_t event, DmtcpEventData_t *data)
       ptraceProcessResumeUserThread(data);
       break;
 
-    case DMTCP_EVENT_RESET_ON_FORK:
+    case DMTCP_EVENT_ATFORK_CHILD:
       originalStartup = 1;
       break;
 

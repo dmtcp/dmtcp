@@ -35,7 +35,7 @@ void dmtcp_process_event(DmtcpEvent_t event, DmtcpEventData_t *data)
    * complete list.
    */
   case DMTCP_EVENT_RESTART:
-  case DMTCP_EVENT_RESET_ON_FORK:
+  case DMTCP_EVENT_ATFORK_CHILD:
   case DMTCP_EVENT_THREADS_SUSPEND:
   case DMTCP_EVENT_LEADER_ELECTION:
   case DMTCP_EVENT_DRAIN:

@@ -478,14 +478,12 @@ and any new program called via exec)
   DMTCP\_EVENT\_POST\_EXEC --- Invoked before DMTCP\_EVENT\_INIT in new program
 \item
   DMTCP\_EVENT\_ATFORK\_PREPARE --- Invoked before fork (see POSIX pthread\_atfork)
-(was DMTCP\_EVENT\_PRE\_FORK)
 \item
   DMTCP\_EVENT\_ATFORK\_PARENT --- Invoked after fork by parent (see POSIX
     pthread\_atfork)
 \item
   DMTCP\_EVENT\_ATFORK\_CHILD --- Invoked after fork by child (see POSIX
     pthread\_atfork) \\
-   (was DMTCP\_EVENT\_RESET\_ON\_FORK)
 \end{list}
 
 \subsubsection*{Barriers (finer-grainded control during checkpoint-restart)}
