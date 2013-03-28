@@ -40,6 +40,7 @@ namespace dmtcp
       static ProcessInfo& instance();
       void postExec();
       void resetOnFork();
+      void restart();
       void postRestartRefill();
       void restoreProcessGroupInfo();
 
@@ -113,6 +114,8 @@ namespace dmtcp
       dmtcp::string _hostname;
       UniquePid     _upid;
       UniquePid     _uppid;
+
+      dmtcp::string _ckptDir;
   };
 
 }
