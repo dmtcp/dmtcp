@@ -45,7 +45,7 @@ void dmtcp_Timer_ProcessEvent(DmtcpEvent_t event, DmtcpEventData_t *data)
   }
 
   switch (event) {
-    case DMTCP_EVENT_RESET_ON_FORK:
+    case DMTCP_EVENT_ATFORK_CHILD:
       dmtcp::TimerList::instance().resetOnFork();
       break;
 

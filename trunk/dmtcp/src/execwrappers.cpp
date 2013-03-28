@@ -127,7 +127,7 @@ extern "C" pid_t fork()
    * processing this system call.
    */
   WRAPPER_EXECUTION_GET_EXCL_LOCK();
-  dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_PRE_FORK, NULL);
+  dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_ATFORK_PREPARE, NULL);
 
   /* Little bit cheating here: child_time should be same for both parent and
    * child, thus we compute it before forking the child. */
@@ -169,6 +169,7 @@ extern "C" pid_t fork()
   if (childPid != 0) {
     dmtcp::Util::setVirtualPidEnvVar(getpid(), getppid());
     coordinatorAPI.closeConnection();
+    dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_ATFORK_PARENT, NULL);
     WRAPPER_EXECUTION_RELEASE_EXCL_LOCK();
   }
   return childPid;

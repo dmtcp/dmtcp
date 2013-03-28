@@ -31,7 +31,7 @@ dmtcp::DmtcpWorker dmtcp::DmtcpWorker::theInstance ( true );
 
 void dmtcp::DmtcpWorker::resetOnFork()
 {
-  dmtcp_process_event(DMTCP_EVENT_RESET_ON_FORK, NULL);
+  dmtcp_process_event(DMTCP_EVENT_ATFORK_CHILD, NULL);
 
   theInstance.cleanupWorker();
   shutdownMtcpEngineOnFork();
