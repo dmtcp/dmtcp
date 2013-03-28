@@ -28,6 +28,8 @@
 #include "coordinatorapi.h"
 #include "util.h"
 #include "threadsync.h"
+#include "ckptserializer.h"
+#include "shareddata.h"
 
 #include "../jalib/jfilesystem.h"
 #include "../jalib/jconvert.h"
@@ -254,6 +256,9 @@ static int callbackShouldCkptFD ( int /*fd*/ )
 
 static void callbackWriteCkptPrefix ( int fd )
 {
+  // We must write data in multiple of PAGE_SIZE.
+  dmtcp::CkptSerializer::writeCkptHeader(fd);
+  dmtcp::SharedData::preCkpt();
 }
 
 void callbackHoldsAnyLocks(int *retval)

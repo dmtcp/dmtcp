@@ -154,7 +154,8 @@ dmtcp_coordinator_DEPENDENCIES = libdmtcpinternal.a libjalib.a \
 am_dmtcp_nocheckpoint_OBJECTS = dmtcp_nocheckpoint.$(OBJEXT)
 dmtcp_nocheckpoint_OBJECTS = $(am_dmtcp_nocheckpoint_OBJECTS)
 dmtcp_nocheckpoint_LDADD = $(LDADD)
-am_dmtcp_restart_OBJECTS = dmtcp_restart.$(OBJEXT) util_exec.$(OBJEXT)
+am_dmtcp_restart_OBJECTS = dmtcp_restart.$(OBJEXT) util_exec.$(OBJEXT) \
+	ckptserializer.$(OBJEXT)
 dmtcp_restart_OBJECTS = $(am_dmtcp_restart_OBJECTS)
 dmtcp_restart_DEPENDENCIES = libdmtcpinternal.a libjalib.a \
 	libnohijack.a
@@ -163,8 +164,9 @@ am_libdmtcp_so_OBJECTS = dmtcpawareapi.$(OBJEXT) dmtcpworker.$(OBJEXT) \
 	execwrappers.$(OBJEXT) mtcpinterface.$(OBJEXT) \
 	signalwrappers.$(OBJEXT) workerhijack.$(OBJEXT) \
 	threadwrappers.$(OBJEXT) miscwrappers.$(OBJEXT) \
-	glibcsystem.$(OBJEXT) mallocwrappers.$(OBJEXT) \
-	dmtcpplugin.$(OBJEXT) popen.$(OBJEXT) syslogwrappers.$(OBJEXT)
+	ckptserializer.$(OBJEXT) glibcsystem.$(OBJEXT) \
+	mallocwrappers.$(OBJEXT) dmtcpplugin.$(OBJEXT) popen.$(OBJEXT) \
+	syslogwrappers.$(OBJEXT)
 libdmtcp_so_OBJECTS = $(am_libdmtcp_so_OBJECTS)
 libdmtcp_so_DEPENDENCIES = libdmtcpinternal.a libjalib.a \
 	libsyscallsreal.a
@@ -325,7 +327,7 @@ nobase_noinst_HEADERS = constants.h \
 	dmtcp_coordinator.h dmtcpmessagetypes.h lookup_service.h \
 	dmtcpworker.h threadsync.h coordinatorapi.h \
 	mtcpinterface.h syscallwrappers.h syslogwrappers.h \
-	uniquepid.h processinfo.h
+	uniquepid.h processinfo.h ckptserializer.h
 
 
 # Note that libdmtcpinternal.a does not include wrappers.
@@ -350,13 +352,13 @@ libnohijack_a_SOURCES = nosyscallsreal.c dmtcpnohijackstubs.cpp
 dmtcp_coordinator_SOURCES = dmtcp_coordinator.cpp lookup_service.cpp
 dmtcp_checkpoint_SOURCES = dmtcp_checkpoint.cpp
 dmtcp_nocheckpoint_SOURCES = dmtcp_nocheckpoint.c
-dmtcp_restart_SOURCES = dmtcp_restart.cpp util_exec.cpp
+dmtcp_restart_SOURCES = dmtcp_restart.cpp util_exec.cpp ckptserializer.cpp
 dmtcp_command_SOURCES = dmtcp_command.cpp
 libdmtcp_so_SOURCES = dmtcpawareapi.cpp dmtcpworker.cpp threadsync.cpp \
 		      coordinatorapi.cpp execwrappers.cpp \
 		      mtcpinterface.cpp signalwrappers.cpp \
 		      workerhijack.cpp threadwrappers.cpp \
-		      miscwrappers.cpp \
+		      miscwrappers.cpp ckptserializer.cpp \
 		      glibcsystem.cpp mallocwrappers.cpp \
 		      dmtcpplugin.cpp popen.cpp syslogwrappers.cpp
 
@@ -596,6 +598,7 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ckptserializer.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/coordinatorapi.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcp_checkpoint.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcp_command.Po@am__quote@

@@ -57,7 +57,6 @@ void dmtcp::SharedData::initializeHeader()
   sharedDataHeader->numPtraceIdMaps = 0;
   sharedDataHeader->numPtyNameMaps = 0;
   sharedDataHeader->initialized = true;
-  sharedDataHeader->numProcessTreeRoots = 0;
   sharedDataHeader->numMissingConMaps = 0;
   // The current implementation simply increments the last count and returns it.
   // Although highly unlikely, this can cause a problem if the counter resets to
@@ -146,7 +145,6 @@ void dmtcp::SharedData::preCkpt()
   if (sharedDataHeader != NULL) {
     nextVirtualPtyId = sharedDataHeader->nextVirtualPtyId;
     // Need to reset these counter before next post-restart/post-ckpt routines
-    sharedDataHeader->numProcessTreeRoots = 0;
     sharedDataHeader->numMissingConMaps = 0;
     size_t size = CEIL(SHM_MAX_SIZE , Util::pageSize());
     JASSERT(_real_munmap(sharedDataHeader, size) == 0) (JASSERT_ERRNO);
@@ -271,27 +269,6 @@ void dmtcp::SharedData::setPtraceVirtualId(pid_t tracerId, pid_t childId)
   sharedDataHeader->ptraceIdMap[i].tracerId = tracerId;
   sharedDataHeader->ptraceIdMap[i].childId = childId;
   sharedDataHeader->numPtraceIdMaps++;
-  Util::unlockFile(PROTECTED_SHM_FD);
-}
-
-void dmtcp::SharedData::setProcessTreeRoot()
-{
-  if (sharedDataHeader == NULL) initialize();
-  Util::lockFile(PROTECTED_SHM_FD);
-  JASSERT(sharedDataHeader->numProcessTreeRoots < MAX_PROCESS_TREE_ROOTS);
-  size_t i = sharedDataHeader->numProcessTreeRoots;
-  sharedDataHeader->processTreeRoots[i] = UniquePid::ThisProcess().upid();
-  sharedDataHeader->numProcessTreeRoots++;
-  Util::unlockFile(PROTECTED_SHM_FD);
-}
-
-void dmtcp::SharedData::getProcessTreeRoots(DmtcpUniqueProcessId **roots,
-                                            size_t *numRoots)
-{
-  if (sharedDataHeader == NULL) initialize();
-  Util::lockFile(PROTECTED_SHM_FD);
-  *roots = sharedDataHeader->processTreeRoots;
-  *numRoots = sharedDataHeader->numProcessTreeRoots;
   Util::unlockFile(PROTECTED_SHM_FD);
 }
 

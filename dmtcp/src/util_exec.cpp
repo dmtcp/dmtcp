@@ -376,17 +376,8 @@ void dmtcp::Util::prepareDlsymWrapper()
   dlclose(handle);
 }
 
-void dmtcp::Util::writeCkptFilenamesToTmpfile(dmtcp::vector<dmtcp::string>& files)
-{
-  FILE *tmp = tmpfile();
-  JASSERT(tmp != NULL);
-  JASSERT(dup2(fileno(tmp), PROTECTED_CKPT_FILES_FD) == PROTECTED_CKPT_FILES_FD);
-  close(fileno(tmp));
-  jalib::JBinarySerializeWriterRaw wr("", PROTECTED_CKPT_FILES_FD);
-  wr.serializeVector(files);
-}
-
-void dmtcp::Util::runMtcpRestore(const char* path)
+void dmtcp::Util::runMtcpRestore(const char* path, int fd, pid_t gzipChildPid,
+                                 size_t argvSize, size_t envSize)
 {
   static dmtcp::string mtcprestart =
     jalib::Filesystem::FindHelperUtility ("mtcp_restart");
@@ -397,17 +388,65 @@ void dmtcp::Util::runMtcpRestore(const char* path)
   char protected_stderr_fd_str[16];
   sprintf(protected_stderr_fd_str, "%d", PROTECTED_STDERR_FD);
 
+  char buf[64];
+  char buf2[64];
+
+  sprintf(buf, "%d", fd);
+  // gzip_child_pid set by openMtcpCheckpointFile() above.
+  sprintf(buf2, "%d", gzipChildPid);
   char* newArgs[] = {
     (char*) mtcprestart.c_str(),
     (char*) "--stderr-fd",
     protected_stderr_fd_str,
-    (char*) path,
+    (char*) "--fd",
+    buf,
+    (char*) "--gzip-child-pid",
+    buf2,
     NULL
   };
-  JTRACE ("launching mtcp_restart") (path);
-  _real_execv(newArgs[0], newArgs);
-  JASSERT(false) (newArgs[0]) (newArgs[1]) (JASSERT_ERRNO)
-    .Text ("exec() failed");
+  if (gzipChildPid == -1) { // If no gzip compression
+    newArgs[5] = NULL;
+  }
+  JTRACE ("launching mtcp_restart --fd")(fd)(path);
+
+  // Create the placeholder for "MTCP_OLDPERS" environment.
+  // setenv("MTCP_OLDPERS_DUMMY", "XXXXXXXXXXXXXXXX", 1);
+  // FIXME: Put an explanation of the logic below.   -- Kapil
+#define ENV_PTR(x) ((char*) (getenv(x) - strlen(x) - 1))
+  char* dummyEnviron = NULL;
+  const int dummyEnvironIndex = 0; // index in newEnv[]
+  const int pathIndex = 1; // index in newEnv[]
+  // Eventually, newEnv = {ENV_PTR("MTCP_OLDPERS"), ENV_PTR("PATH"), NULL}
+  char* newEnv[3] = {NULL, NULL, NULL};
+  // Will put ENV_PTR("MTCP_OLDPERS") here.
+  newEnv[dummyEnvironIndex] = (char*) dummyEnviron;
+  newEnv[pathIndex] = (getenv("PATH") ? ENV_PTR("PATH") : NULL);
+
+  size_t newArgsSize = 0;
+  for (int i = 0; newArgs[i] != 0; i++) {
+    newArgsSize += strlen(newArgs[i]) + 1;
+  }
+  size_t newEnvSize = 0;
+  for (int i = 0; newEnv[i] != 0; i++) {
+    newEnvSize += strlen(newEnv[i]) + 1;
+  }
+  size_t originalArgvEnvSize = argvSize + envSize;
+  size_t newArgvEnvSize = newArgsSize + newEnvSize + strlen(newArgs[0]);
+  size_t argvSizeDiff = originalArgvEnvSize - newArgvEnvSize;
+  dummyEnviron = (char*) malloc(argvSizeDiff);
+  memset(dummyEnviron, '0', (argvSizeDiff >= 1 ? argvSizeDiff - 1 : 0));
+  strncpy(dummyEnviron,
+          ENV_VAR_DMTCP_DUMMY "=0",
+          strlen(ENV_VAR_DMTCP_DUMMY "="));
+  dummyEnviron[argvSizeDiff - 1] = '\0';
+
+  newEnv[dummyEnvironIndex] = dummyEnviron;
+  JTRACE("Args/Env Sizes")
+    (newArgsSize) (newEnvSize) (argvSize) (envSize) (argvSizeDiff);
+
+  execve (newArgs[0], newArgs, newEnv);
+  JASSERT (false) (newArgs[0]) (newArgs[1]) (JASSERT_ERRNO)
+          .Text ("exec() failed");
 }
 
 void dmtcp::Util::adjustRlimitStack()

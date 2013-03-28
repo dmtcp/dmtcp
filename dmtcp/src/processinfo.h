@@ -23,6 +23,7 @@
 #define PROCESS_INFO_H
 
 #include <sys/types.h>
+#include "uniquepid.h"
 #include "../jalib/jalloc.h"
 
 namespace dmtcp
@@ -39,8 +40,6 @@ namespace dmtcp
       static ProcessInfo& instance();
       void postExec();
       void resetOnFork();
-      void leaderElection();
-      void postRestart();
       void postRestartRefill();
       void restoreProcessGroupInfo();
 
@@ -58,8 +57,8 @@ namespace dmtcp
       void refresh();
       void refreshChildTable();
       void refreshTidVector();
-      void refreshProcessTreeRoots();
       void setRootOfProcessTree() { _isRootOfProcessTree = true; }
+      bool isRootOfProcessTree() const { return _isRootOfProcessTree; }
 
       void serialize ( jalib::JBinarySerializer& o );
 
@@ -69,6 +68,8 @@ namespace dmtcp
       void numPeers(int np) { _numPeers = np; }
       bool noCoordinator() { return _noCoordinator; }
       void noCoordinator(bool nc) { _noCoordinator = nc; }
+      pid_t pid() const { return _pid; }
+      pid_t sid() const { return _sid; }
 
       size_t argvSize() { return _argvSize; }
       void argvSize(int size) { _argvSize = size; }
@@ -81,11 +82,16 @@ namespace dmtcp
       const UniquePid& upid() const { return _upid; }
       const UniquePid& uppid() const { return _uppid; }
 
+      bool isOrphan() const { return _ppid == 1; }
+      bool isSessionLeader() const { return _pid == _sid; }
+      bool isGroupLeader() const { return _pid == _gid; }
+      bool isForegroundProcess() const { return _gid == _fgid; }
+      bool isChild(const UniquePid& upid);
+
     private:
       dmtcp::map<pid_t, UniquePid> _childTable;
       dmtcp::vector<pid_t> _tidVector;
       dmtcp::map<pthread_t, pthread_t> _pthreadJoinId;
-      dmtcp::vector<UniquePid> _processTreeRoots;
       dmtcp::map<pid_t, pid_t> _sessionIds;
       typedef dmtcp::map<pid_t, UniquePid>::iterator iterator;
 

@@ -31,7 +31,6 @@
 #define MAX_IPC_ID_MAPS 256
 #define MAX_PTY_NAME_MAPS 256
 #define MAX_PTRACE_ID_MAPS 256
-#define MAX_PROCESS_TREE_ROOTS 256
 #define MAX_MISSING_CONNECTIONS 10240
 #define MAX_INODE_PID_MAPS 10240
 #define CON_ID_LEN \
@@ -79,8 +78,6 @@ namespace dmtcp {
       size_t               numIPCIdMaps;
       struct PtraceIdMaps  ptraceIdMap[MAX_PTRACE_ID_MAPS];
       size_t               numPtraceIdMaps;
-      DmtcpUniqueProcessId processTreeRoots[MAX_PROCESS_TREE_ROOTS];
-      size_t               numProcessTreeRoots;
 
       struct PtyNameMap    ptyNameMap[MAX_PTY_NAME_MAPS];
       size_t               numPtyNameMaps;
@@ -114,9 +111,6 @@ namespace dmtcp {
 
     pid_t getPtraceVirtualId(pid_t tracerId);
     void setPtraceVirtualId(pid_t tracerId, pid_t childId);
-
-    void setProcessTreeRoot();
-    void getProcessTreeRoots(DmtcpUniqueProcessId **roots, size_t *numRoots);
 
     void getRealPtyName(const char* virt, char* out, size_t len);
     void getVirtPtyName(const char* real, char *out, size_t len);
