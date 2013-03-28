@@ -153,13 +153,13 @@ See Appendix~A for further details.
 void dmtcp_process_event(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   switch (event) {
-  case DMTCP_EVENT_PRE_CKPT:
+  case DMTCP_EVENT_WRITE_CKPT:
     printf("\n*** The plugin is being called before checkpointing. ***\n");
     break;
-  case DMTCP_EVENT_POST_CKPT:
+  case DMTCP_EVENT_RESUME:
     printf("*** The plugin has now been checkpointed. ***\n");
     break;
-  case DMTCP_EVENT_RESUME:
+  case DMTCP_EVENT_THREADS_RESUME:
     if (data->resumeInfo.isRestart) {
       printf("The plugin is now resuming or restarting from checkpointing.\n");
     } else {
@@ -449,13 +449,10 @@ functionality.
 \begin{list}{}{\leftmargin=3em \itemindent=-2em}
 \item
   DMTCP\_EVENT\_WRITE\_CKPT --- Invoked at final barrier before writing checkpoint
-(was DMTCP\_EVENT\_PRE\_CKPT)
 \item
   DMTCP\_EVENT\_RESTART --- Invoked at first barrier during restart of new process
-(was DMTCP\_EVENT\_POST\_RESTART)
 \item
   DMTCP\_EVENT\_RESUME --- Invoked at first barrier during resume following checkpoint
-(was DMTCP\_EVENT\_POST\_CHECKPOINT)
 \end{list}
 
 \subsubsection*{Coordination of Multiple or Distributed Processes during Restart
@@ -474,7 +471,7 @@ functionality.
   DMTCP\_EVENT\_INIT --- Invoked before main (in both the original program
 and any new program called via exec)
 \item
-  DMTCP\_EVENT\_EXIT --- Invoked on call to eeit/\_exit/\_Exit {\bf return from main?} ; {was DMTCP\_EVENT\_PRE\_EXIT}
+  DMTCP\_EVENT\_EXIT --- Invoked on call to exit/\_exit/\_Exit {\bf return from main?};
 \item
   DMTCP\_EVENT\_PRE\_EXEC --- Invoked prior to call to exec
 \item

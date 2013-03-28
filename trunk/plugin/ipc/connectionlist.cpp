@@ -78,7 +78,7 @@ void dmtcp::ConnectionList::processEvent(DmtcpEvent_t event,
       }
       break;
 
-    case DMTCP_EVENT_POST_RESTART:
+    case DMTCP_EVENT_RESTART:
       postRestart();
 
       break;
@@ -99,7 +99,7 @@ void dmtcp::ConnectionList::processEvent(DmtcpEvent_t event,
       JTRACE("drained");
       break;
 
-    case DMTCP_EVENT_PRE_CKPT:
+    case DMTCP_EVENT_WRITE_CKPT:
       JTRACE("preCKpt...");
       preCkpt();
       JTRACE("done preCkpt");

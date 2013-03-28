@@ -28,11 +28,11 @@ void dmtcp_process_event(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   /* NOTE:  See warning in plugin/README about calls to printf here. */
   switch (event) {
-  case DMTCP_EVENT_PRE_CKPT:
+  case DMTCP_EVENT_WRITE_CKPT:
     printf("\n*** The plugin %s is being called before checkpointing. ***\n",
 	   __FILE__);
     break;
-  case DMTCP_EVENT_POST_CKPT:
+  case DMTCP_EVENT_RESUME:
     printf("*** The plugin %s has now been checkpointed. ***\n", __FILE__);
     break;
   default:

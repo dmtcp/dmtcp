@@ -49,11 +49,11 @@ void dmtcp_Timer_ProcessEvent(DmtcpEvent_t event, DmtcpEventData_t *data)
       dmtcp::TimerList::instance().resetOnFork();
       break;
 
-    case DMTCP_EVENT_PRE_CKPT:
+    case DMTCP_EVENT_WRITE_CKPT:
       dmtcp::TimerList::instance().preCheckpoint();
       break;
 
-    case DMTCP_EVENT_POST_RESTART:
+    case DMTCP_EVENT_RESTART:
       dmtcp::TimerList::instance().postRestart();
       break;
 

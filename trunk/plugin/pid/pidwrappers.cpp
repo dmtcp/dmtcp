@@ -89,7 +89,7 @@ void dmtcpResetTid(pid_t tid)
 
 /* FIXME: Once we have implemented the plugin calling mechanism in which the
  * plugins are called in the reverse order during restart/resume phase, we can
- * call this function while processing POST_RESTART event.
+ * call this function while processing RESTART event.
  */
 extern "C"
 void dmtcp_update_ppid()

@@ -199,9 +199,9 @@ static void callbackPostCheckpoint(int isRestart,
     if (dmtcp_update_ppid) {
       dmtcp_update_ppid();
     }
-    dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_POST_RESTART, NULL);
+    dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_RESTART, NULL);
   } else {
-    dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_POST_CKPT, NULL);
+    dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_RESUME, NULL);
   }
 
   /* FIXME: There is no need to call sendCkptFilenameToCoordinator() but if

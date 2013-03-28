@@ -15,10 +15,10 @@ void dmtcp_process_event(DmtcpEvent_t event, DmtcpEventData_t *data)
   case DMTCP_EVENT_INIT:
     printf("The plugin containing %s has been initialized.\n", __FILE__);
     break;
-  case DMTCP_EVENT_PRE_CKPT:
+  case DMTCP_EVENT_WRITE_CKPT:
     printf("\n*** The plugin is being called before checkpointing. ***\n");
     break;
-  case DMTCP_EVENT_POST_CKPT:
+  case DMTCP_EVENT_RESUME:
     printf("*** The plugin has now been checkpointed. ***\n");
     break;
   case DMTCP_EVENT_THREADS_RESUME:
@@ -28,13 +28,13 @@ void dmtcp_process_event(DmtcpEvent_t event, DmtcpEventData_t *data)
       printf("The process is now resuming after checkpoint.\n");
     }
     break;
-  case DMTCP_EVENT_PRE_EXIT:
+  case DMTCP_EVENT_EXIT:
     printf("The plugin is being called before exiting.\n");
     break;
   /* These events are unused and could be omitted.  See dmtcpplugin.h for
    * complete list.
    */
-  case DMTCP_EVENT_POST_RESTART:
+  case DMTCP_EVENT_RESTART:
   case DMTCP_EVENT_RESET_ON_FORK:
   case DMTCP_EVENT_THREADS_SUSPEND:
   case DMTCP_EVENT_LEADER_ELECTION:
