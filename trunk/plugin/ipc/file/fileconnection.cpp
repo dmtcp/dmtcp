@@ -585,6 +585,9 @@ void dmtcp::FileConnection::drain()
     return;
   }
 
+  if (_type == FILE_DELETED && (_flags & O_WRONLY)) {
+    return;
+  }
   if (_isBlacklistedFile(_path)) {
     return;
   }
@@ -640,6 +643,8 @@ void dmtcp::FileConnection::preCkpt()
 void dmtcp::FileConnection::refill(bool isRestart)
 {
   struct stat buf;
+  if (!isRestart) return;
+
   if (_checkpointed && _fileAlreadyExists) {
     dmtcp::string savedFilePath = getSavedFilePath(_path);
     int savedFd = _real_open(savedFilePath.c_str(), O_RDONLY, 0);
@@ -666,20 +671,29 @@ void dmtcp::FileConnection::refill(bool isRestart)
   }
 
   if (!_checkpointed) {
-    JASSERT(jalib::Filesystem::FileExists(_path)) (_path)
-      .Text("File not found.");
+    int tempfd;
+    if (_type == FILE_DELETED && (_flags & O_WRONLY)) {
+      tempfd = _real_open(_path.c_str(), _fcntlFlags | O_CREAT, 0600);
+      JASSERT(tempfd != -1) (_path) (JASSERT_ERRNO) .Text("open() failed");
+      JASSERT(truncate(_path.c_str(), _stat.st_size) ==  0)
+        (_path.c_str()) (_stat.st_size) (JASSERT_ERRNO);
+    } else {
 
-    if (stat(_path.c_str() ,&buf) == 0 && S_ISREG(buf.st_mode)) {
-      if (buf.st_size > _stat.st_size &&
-          (_fcntlFlags &(O_WRONLY|O_RDWR)) != 0) {
-        errno = 0;
-        JASSERT(truncate(_path.c_str(), _stat.st_size) ==  0)
-          (_path.c_str()) (_stat.st_size) (JASSERT_ERRNO);
-      } else if (buf.st_size < _stat.st_size) {
-        JWARNING(false) .Text("Size of file smaller than what we expected");
+      JASSERT(jalib::Filesystem::FileExists(_path)) (_path)
+        .Text("File not found.");
+
+      if (stat(_path.c_str() ,&buf) == 0 && S_ISREG(buf.st_mode)) {
+        if (buf.st_size > _stat.st_size &&
+            ((_fcntlFlags & O_WRONLY) || (_fcntlFlags & O_RDWR))) {
+          errno = 0;
+          JASSERT(truncate(_path.c_str(), _stat.st_size) ==  0)
+            (_path.c_str()) (_stat.st_size) (JASSERT_ERRNO);
+        } else if (buf.st_size < _stat.st_size) {
+          JWARNING(false) .Text("Size of file smaller than what we expected");
+        }
       }
+      tempfd = openFile();
     }
-    int tempfd = openFile();
     Util::dupFds(tempfd, _fds);
   }
 
