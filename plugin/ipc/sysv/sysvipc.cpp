@@ -111,7 +111,7 @@ void dmtcp_SysVIPC_ProcessEvent(DmtcpEvent_t event, DmtcpEventData_t *data)
       dmtcp::SysVIPC::instance().refill(data->refillInfo.isRestart);
       break;
 
-    case DMTCP_EVENT_RESUME:
+    case DMTCP_EVENT_THREADS_RESUME:
       dmtcp::SysVIPC::instance().preResume();
       break;
 
