@@ -119,6 +119,9 @@ jalib::string jalib::Filesystem::DirName ( const jalib::string& str )
   if (lastSlash == string::npos)
     return ".";
 
+  if (lastSlash == 0)
+    return "/";
+
   return str.substr(0, lastSlash);
 }
 
