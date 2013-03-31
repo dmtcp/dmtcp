@@ -173,6 +173,9 @@ static const char* theRestartScriptUsage =
   "      Provide a hostfile (One host per line, \"#\" indicates comments)\n"
   "  --restartdir, -d, (environment variable DMTCP_RESTART_DIR):\n"
   "      Directory to read checkpoint images from\n"
+  "  --tmpdir, -t, (environment variable DMTCP_TMPDIR):\n"
+  "      Directory to store temporary files \n"
+  "        (default: $TMDPIR/dmtcp-$USER@$HOST or /tmp/dmtcp-$USER@$HOST)\n"
   "  --batch, -b:\n"
   "      Enable batch mode for dmtcp_restart\n"
   "  --disable-batch, -b:\n"
@@ -212,6 +215,8 @@ static const char* theRestartScriptCmdlineArgHandler =
   "          fi;;\n"
   "        --restartdir|-d)\n"
   "          DMTCP_RESTART_DIR=$2;;\n"
+  "        --tmpdir|-t)\n"
+  "          DMTCP_TMPDIR=$2;;\n"
   "        --interval|-i)\n"
   "          checkpoint_interval=$2;;\n"
   "        *)\n"
@@ -249,8 +254,13 @@ static const char* theRestartScriptSingleHostProcessing =
   "  coordinator_info=\"--host $coord_host --port $coord_port\"\n"
   "fi\n\n"
 
+  "tmpdir=\n"
+  "if [ ! -z \"$DMTCP_TMPDIR\" ]; then\n"
+  "  tmpdir=\"--tmpdir $DMTCP_TMPDIR\"\n"
+  "fi\n\n"
+
   "exec $dmt_rstr_cmd $coordinator_info\\\n"
-  "  $maybebatch $maybejoin --interval \"$checkpoint_interval\"\\\n"
+  "  $maybebatch $maybejoin --interval \"$checkpoint_interval\" $tmpdir \\\n"
   "  $ckpt_files\n"
 ;
 
@@ -308,6 +318,11 @@ static const char* theRestartScriptMultiHostProcessing =
   "      new_ckpt_files_group=\"$new_ckpt_files_group $tmp\"\n"
   "  done\n\n"
 
+  "tmpdir=\n"
+  "if [ ! -z \"$DMTCP_TMPDIR\" ]; then\n"
+  "  tmpdir=\"--tmpdir $DMTCP_TMPDIR\"\n"
+  "fi\n\n"
+
   "  check_local $worker_host\n"
   "  if [ \"$is_local_node\" -eq 1 -o \"$num_worker_hosts\" == \"1\" ]; then\n"
   "    localhost_ckpt_files_group=\"$new_ckpt_files_group\"\n"
@@ -317,20 +332,20 @@ static const char* theRestartScriptMultiHostProcessing =
   "  if [ -z $maybebg ]; then\n"
   "    $maybexterm /usr/bin/ssh -t \"$worker_host\" \\\n"
   "      $remote_dmt_rstr_cmd --host \"$coord_host\" --port \"$coord_port\"\\\n"
-  "      $maybebatch --join --interval \"$checkpoint_interval\"\\\n"
+  "      $maybebatch --join --interval \"$checkpoint_interval\" $tmpdir \\\n"
   "      $new_ckpt_files_group\n"
   "  else\n"
   "    $maybexterm /usr/bin/ssh \"$worker_host\" \\\n"
   // In OpenMPI 1.4, without this (sh -c ...), orterun hangs at the
   // end of the computation until user presses enter key.
   "      \"/bin/sh -c \'$remote_dmt_rstr_cmd --host $coord_host --port $coord_port\\\n"
-  "      $maybebatch --join --interval \"$checkpoint_interval\"\\\n"
+  "      $maybebatch --join --interval \"$checkpoint_interval\" $tmpdir \\\n"
   "      $new_ckpt_files_group\'\" &\n"
   "  fi\n\n"
   "done\n\n"
   "if [ -n \"$localhost_ckpt_files_group\" ]; then\n"
   "exec $dmt_rstr_cmd --host \"$coord_host\" --port \"$coord_port\" $maybebatch\\\n"
-  "  $maybejoin --interval \"$checkpoint_interval\" $localhost_ckpt_files_group\n"
+  "  $maybejoin --interval \"$checkpoint_interval\" $tmpdir $localhost_ckpt_files_group\n"
   "fi\n\n"
 
   "#wait for them all to finish\n"
