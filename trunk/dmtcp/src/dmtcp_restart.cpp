@@ -84,10 +84,6 @@ typedef dmtcp::map<dmtcp::UniquePid, RestoreTarget*> RestoreTargetMap;
 RestoreTargetMap targets;
 RestoreTargetMap independentProcessTreeRoots;
 
-static int openCkptFile(const char *path) {
-  return -1;
-}
-
 class RestoreTarget
 {
   public:
@@ -318,9 +314,6 @@ int main(int argc, char** argv)
   JTRACE("New dmtcp_restart process; _argc_ ckpt images") (argc);
 
   bool doAbort = false;
-  char *minFile = NULL;
-  int minPid = -1;
-  long currHostid = 0;
   for (; argc > 0; shift) {
     dmtcp::string restorename(argv[0]);
     struct stat buf;
