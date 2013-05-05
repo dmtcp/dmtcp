@@ -198,16 +198,16 @@ void dmtcp::CkptSerializer::closeDmtcpCheckpointFile(int fd, pid_t extDecompPid)
 
 void dmtcp::CkptSerializer::writeCkptHeader(int fd)
 {
-  const size_t len = strlen(DMTCP_FILE_HEADER);
+  const ssize_t len = strlen(DMTCP_FILE_HEADER);
   JASSERT(write(fd, DMTCP_FILE_HEADER, len) == len);
 
   jalib::JBinarySerializeWriterRaw wr("", fd);
   dmtcp::ProcessInfo::instance().serialize(wr);
-  size_t written = len + wr.bytes();
+  ssize_t written = len + wr.bytes();
 
   // We must write in multiple of PAGE_SIZE
-  const size_t pagesize = Util::pageSize();
-  size_t remaining = pagesize - (written % pagesize);
+  const ssize_t pagesize = Util::pageSize();
+  ssize_t remaining = pagesize - (written % pagesize);
   char buf[remaining];
   JASSERT(Util::writeAll(fd, buf, remaining) == remaining);
 }
@@ -224,8 +224,8 @@ int dmtcp::CkptSerializer::readCkptHeader(const dmtcp::string& path,
   size_t numRead = len + rdr.bytes();
 
   // We must read in multiple of PAGE_SIZE
-  const size_t pagesize = Util::pageSize();
-  size_t remaining = pagesize - (numRead % pagesize);
+  const ssize_t pagesize = Util::pageSize();
+  ssize_t remaining = pagesize - (numRead % pagesize);
   char buf[remaining];
   JASSERT(Util::readAll(fd, buf, remaining) == remaining);
   return fd;
