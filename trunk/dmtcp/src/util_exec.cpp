@@ -515,6 +515,8 @@ void dmtcp::Util::getDmtcpArgs(dmtcp::vector<dmtcp::string> &dmtcp_args)
   const char * ckptOpenFiles        = getenv (ENV_VAR_CKPT_OPEN_FILES);
   const char * ckptDir              = getenv (ENV_VAR_CHECKPOINT_DIR);
   const char * tmpDir               = getenv (ENV_VAR_TMPDIR);
+  const char * plugins              = getenv (ENV_VAR_PLUGIN);
+
   if (getenv(ENV_VAR_QUIET)) {
     jassert_quiet                   = *getenv (ENV_VAR_QUIET) - '0';
   } else {
@@ -555,6 +557,11 @@ void dmtcp::Util::getDmtcpArgs(dmtcp::vector<dmtcp::string> &dmtcp_args)
 
   if (ckptOpenFiles != NULL) {
     dmtcp_args.push_back("--checkpoint-open-files");
+  }
+
+  if (plugins != NULL) {
+    dmtcp_args.push_back("--with-plugin");
+    dmtcp_args.push_back(plugins);
   }
 
   if (compression != NULL) {
