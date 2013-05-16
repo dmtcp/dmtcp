@@ -121,7 +121,6 @@ void mtcp_writeckpt_init(VA restore_start_fn, VA finishrestore_fn)
 static int test_use_compression(char *compressor, char *command, char *path,
                                 int def)
 {
-  return 0;
   char *default_val;
   char env_var1[256] = "MTCP_";
   char env_var2[256] = "DMTCP_";
