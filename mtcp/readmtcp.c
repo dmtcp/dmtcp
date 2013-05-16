@@ -31,6 +31,7 @@ int main(int argc, char **argv)
   int fd = -1;
   char magicbuf[MAGIC_LEN], *restorename;
   char *version = PACKAGE_VERSION;
+  Area area;
 
   restorename = argv[1];
   if (argc == 1 || (strcmp(argv[1], "--help") == 0 && argc == 2)) {
@@ -85,35 +86,13 @@ int main(int argc, char **argv)
   printf("restore_start routine: %p\n", ckpt_hdr->restore_start_fptr);
   printf("finishrestore routine: %p\n", ckpt_hdr->finish_restore_fptr);
 
-#if 0
-  char linkbuf[FILENAMESIZE];
-  int fdnum, linklen ;
-  struct stat statbuf;
-  off_t offset;
-
-  printf("*** file descriptors\n");
-  readcs (fd, CS_FILEDESCRS);
-  while (1) {
-
-    /* Read parameters of next file to restore */
-
-    readall(fd, &fdnum, sizeof fdnum);
-    if (fdnum < 0) break;
-    readall(fd, &statbuf, sizeof statbuf);
-    readall(fd, &offset, sizeof offset);
-    readall(fd, &linklen, sizeof linklen);
-    if (linklen >= sizeof linkbuf) {
-      printf ("filename too long %d\n", linklen);
-      exit(1);
-    }
-    readall(fd, linkbuf, linklen);
-    linkbuf[linklen] = '\0';
-  }
-#endif
+  // Skip over file descriptors.
+  do {
+    mtcp_readfile(fd, &area, sizeof area);
+  } while (area.fdinfo.fdnum >= 0);
 
   printf("*** memory sections\n");
   while(1) {
-    Area area;
     mtcp_readfile(fd, &area, sizeof area);
     if (area.size == -1) break;
     if ((area.prot & MTCP_PROT_ZERO_PAGE) == 0) {
