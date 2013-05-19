@@ -1089,6 +1089,9 @@ static void writememoryarea (int fd, Area *area, int stack_was_seen,
   else if (0 == mtcp_strcmp(area -> name, "[vsyscall]") && !stack_was_seen)
     DPRINTF("skipping over [vsyscall] section"
     	    " %p at %p\n", area -> size, area -> addr);
+  else if (0 == mtcp_strcmp(area -> name, "[vectors]") && !stack_was_seen)
+    DPRINTF("skipping over [vectors] section"
+    	    " %p at %p\n", area -> size, area -> addr);
   else if (0 == mtcp_strcmp(area -> name, "[stack]") &&
 	   orig_stack != area -> addr + area -> size)
     /* Kernel won't let us munmap this.  But we don't need to restore it. */
@@ -1118,6 +1121,7 @@ static void writememoryarea (int fd, Area *area, int stack_was_seen,
      */
     mtcp_write_non_rwx_and_anonymous_pages(fd, area);
   } else if (0 != mtcp_strcmp(area -> name, "[vsyscall]")
+             && 0 != mtcp_strcmp(area -> name, "[vectors]")
              && ((0 != mtcp_strcmp(area -> name, "[vdso]")
                   || vsyscall_exists /* which implies vdso can be overwritten */
                   || !stack_was_seen))) /* If vdso appeared before stack, it can be
