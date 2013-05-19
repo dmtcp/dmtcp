@@ -128,7 +128,8 @@ ifeq ($(BUILDTYPE),x86_64)
 endif
 
 ifeq ($(BUILDTYPE),arm)
-  MTCP_CFLAGS += -fPIC -DPIC -march=armv7
+# When armv6 is the default, add  -march=armv7;  (usually not needed anymore)
+  MTCP_CFLAGS += -fPIC -DPIC
   MTCP_LDFLAGS += -fPIC
   ARM_EXTRAS = libc-do-syscall-arm-eabi.o
 # As of February, 2012, crt1.o has an undefined symbol, abort.
