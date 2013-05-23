@@ -257,18 +257,17 @@ void dmtcp::SharedData::setPtraceVirtualId(pid_t tracerId, pid_t childId)
   if (sharedDataHeader == NULL) initialize();
   Util::lockFile(PROTECTED_SHM_FD);
   for (i = 0; i < sharedDataHeader->numPtraceIdMaps; i++) {
-    JASSERT(sharedDataHeader->ptraceIdMap[i].tracerId != tracerId)
-      (tracerId)
-      (sharedDataHeader->ptraceIdMap[i].tracerId)
-      (sharedDataHeader->ptraceIdMap[i].childId)
-      .Text ("Duplicate Entry");
+    if (sharedDataHeader->ptraceIdMap[i].tracerId == tracerId) {
+      break;
+    }
   }
 
-  JASSERT(sharedDataHeader->numPtraceIdMaps < MAX_PTRACE_ID_MAPS);
-  i = sharedDataHeader->numPtraceIdMaps;
+  if (i == sharedDataHeader->numPtraceIdMaps) {
+    JASSERT(sharedDataHeader->numPtraceIdMaps < MAX_PTRACE_ID_MAPS);
+    sharedDataHeader->numPtraceIdMaps++;
+  }
   sharedDataHeader->ptraceIdMap[i].tracerId = tracerId;
   sharedDataHeader->ptraceIdMap[i].childId = childId;
-  sharedDataHeader->numPtraceIdMaps++;
   Util::unlockFile(PROTECTED_SHM_FD);
 }
 
