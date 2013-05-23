@@ -52,6 +52,7 @@ static const char* theUsage =
   "    s, -s, --status : Print status message\n"
   "    c, -c, --checkpoint : Checkpoint all nodes\n"
   "    bc, -bc, --bcheckpoint : Checkpoint all nodes, blocking until done\n"
+  //"    xc, -xc, --xcheckpoint : Checkpoint all nodes, kill all nodes when done\n"
   "    i, -i, --interval <val> : Update ckpt interval to <val> seconds"
 						   		" (0=never)\n"
   "    f, -f, --force : Force restart even with missing nodes (for debugging)\n"
@@ -103,12 +104,12 @@ int main ( int argc, char** argv )
       while(*cmd == '-') cmd++;
       s = cmd;
 
-      if(*cmd == 'b' && *(cmd+1) != 'c'){
+      if((*cmd == 'b' || *cmd == 'x') && *(cmd+1) != 'c'){
         // If blocking ckpt, next letter must be 'c'; else print the usage
         fprintf(stderr, theUsage, "");
         return 1;
-      } else if (*cmd == 's' || *cmd == 'i' || *cmd == 'c' || *cmd == 'b'
-		 || *cmd == 'f' || *cmd == 'k' || *cmd == 'q') {
+      } else if (*cmd == 's' || *cmd == 'i' || *cmd == 'c' || *cmd == 'b' ||
+                 *cmd == 'x' || *cmd == 'f' || *cmd == 'k' || *cmd == 'q') {
         request = s;
         if (*cmd == 'i') {
 	  if (isdigit(cmd[1])) { // if -i5, for example
@@ -154,6 +155,7 @@ int main ( int argc, char** argv )
     printf("Interval changed to %s\n", interval.c_str());
     break;
   case 'b':
+  case 'x':
     // blocking prefix
     coordinatorAPI.connectAndSendUserCommand(*cmd, &coordErrorCode);
     // actual command

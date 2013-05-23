@@ -354,6 +354,7 @@ static const char* theRestartScriptMultiHostProcessing =
 
 static bool exitOnLast = false;
 static bool blockUntilDone = false;
+static bool exitAfterCkpt = false;
 static int blockUntilDoneRemote = -1;
 
 static dmtcp::DmtcpCoordinator prog;
@@ -487,6 +488,10 @@ void dmtcp::DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*
     JTRACE ( "blocking checkpoint beginning..." );
     blockUntilDone = true;
     break;
+  case 'x': case 'X':  // prefix exit command, prior to checkpoint command
+    JTRACE ( "Will exit after creating the checkpoint..." );
+    exitAfterCkpt = true;
+    break;
   case 'c': case 'C':
     JTRACE ( "checkpointing..." );
     if(startCheckpoint()){
@@ -521,7 +526,8 @@ void dmtcp::DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*
       {
         const NamedChunkReader& cli = *((NamedChunkReader*)(*i));
         JASSERT_STDERR << cli.clientNumber()
-                       << ", " << cli.progname() << "["  << cli.identity().pid() << "]@"  << cli.hostname()
+                       << ", " << cli.progname()
+                       << "[" << cli.identity().pid() << "]@" << cli.hostname()
                        << ", " << cli.identity()
                        << ", " << cli.state().toString()
                        << '\n';
@@ -639,9 +645,15 @@ void dmtcp::DmtcpCoordinator::updateMinimumState(dmtcp::WorkerState oldState)
        && newState == WorkerState::CHECKPOINTED )
   {
     writeRestartScript();
-    JNOTE ( "building name service database" );
-    lookupService.reset();
-    broadcastMessage ( DMT_DO_REGISTER_NAME_SERVICE_DATA );
+    if (exitAfterCkpt) {
+      JNOTE("Checkpoint Done. Killing all peers.");
+      broadcastMessage(DMT_KILL_PEER);
+      exitAfterCkpt = false;
+    } else {
+      JNOTE ( "building name service database" );
+      lookupService.reset();
+      broadcastMessage ( DMT_DO_REGISTER_NAME_SERVICE_DATA );
+    }
   }
   if ( oldState == WorkerState::RESTARTING
        && newState == WorkerState::CHECKPOINTED )
@@ -668,9 +680,15 @@ void dmtcp::DmtcpCoordinator::updateMinimumState(dmtcp::WorkerState oldState)
     if ( oldState == WorkerState::DRAINED
          && newState == WorkerState::CHECKPOINTED )
     {
-      JNOTE ( "refilling all nodes" );
-      broadcastMessage ( DMT_DO_REFILL );
       writeRestartScript();
+      if (exitAfterCkpt) {
+        JNOTE("Checkpoint Done. Killing all peers.");
+        broadcastMessage(DMT_KILL_PEER);
+        exitAfterCkpt = false;
+      } else {
+        JNOTE ( "refilling all nodes" );
+        broadcastMessage ( DMT_DO_REFILL );
+      }
     }
   if ( oldState == WorkerState::RESTARTING
        && newState == WorkerState::CHECKPOINTED )
@@ -868,6 +886,8 @@ void dmtcp::DmtcpCoordinator::initializeComputation()
   UniquePid::ComputationId() = dmtcp::UniquePid(0,0,0);
   curTimeStamp = 0; // Drop timestamp to 0
   numPeers = -1; // Drop number of peers to unknown
+  blockUntilDone = false;
+  exitAfterCkpt = false;
 }
 
 void dmtcp::DmtcpCoordinator::onConnect ( const jalib::JSocket& sock,
