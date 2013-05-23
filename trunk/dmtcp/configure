@@ -630,9 +630,6 @@ CONFIG_M32_FALSE
 CONFIG_M32_TRUE
 HAS_I486_FALSE
 HAS_I486_TRUE
-RECORD_REPLAY_FALSE
-RECORD_REPLAY_TRUE
-RECORD_REPLAY
 RANLIB
 am__fastdepCXX_FALSE
 am__fastdepCXX_TRUE
@@ -738,7 +735,6 @@ enable_experts_only
 enable_experts_only_after
 enable_pid_virtualization
 enable_allocator
-with_record_replay
 enable_m32
 '
       ac_precious_vars='build_alias
@@ -1407,11 +1403,6 @@ Optional Features:
   --enable-allocator      cause DMTCP to use a custom allocator based on mmap
                           and avoid calling malloc and free. (EXPERIMENTAL)
   --enable-m32            Compile in 32 bit mode on 64 bit linux.
-
-Optional Packages:
-  --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
-  --without-PACKAGE       do not use PACKAGE (same as --with-PACKAGE=no)
-  --experts-only-flag     for experts only
 
 Some influential environment variables:
   CC          C compiler command
@@ -4311,39 +4302,6 @@ $as_echo "#define OVERRIDE_GLOBAL_ALLOCATOR /**/" >>confdefs.h
 
 fi
 
-#check for record-replay capability
-# REPLACE BY FOLLOWING WHEN READY TO SUPPORT THIS EXTERNALLY:
-#            [AS_HELP_STRING([--with-record-replay],
-#                            [support record replay (experimental)])],
-
-# Check whether --with-record-replay was given.
-if test "${with_record_replay+set}" = set; then :
-  withval=$with_record_replay; record_replay=$withval
-else
-  record_replay=no
-fi
-
-
-if test "$record_replay" != "no"; then
-
-$as_echo "#define RECORD_REPLAY /**/" >>confdefs.h
-
-
-$as_echo "#define PTRACE /**/" >>confdefs.h
-
-  #AC_DEFINE([OVERRIDE_GLOBAL_ALLOCATOR],[],[Use a custom allocator based on mmap])
-else
-  RECORD_REPLAY=no
-
-fi
- if test "$record_replay" = "yes"; then
-  RECORD_REPLAY_TRUE=
-  RECORD_REPLAY_FALSE='#'
-else
-  RECORD_REPLAY_TRUE='#'
-  RECORD_REPLAY_FALSE=
-fi
-
  if test `uname -m` == i686 -o  `uname -m` == i586 -o `uname -m` == i486; then
   HAS_I486_TRUE=
   HAS_I486_FALSE='#'
@@ -4942,10 +4900,6 @@ Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${am__fastdepCXX_TRUE}" && test -z "${am__fastdepCXX_FALSE}"; then
   as_fn_error $? "conditional \"am__fastdepCXX\" was never defined.
-Usually this means the macro was only invoked conditionally." "$LINENO" 5
-fi
-if test -z "${RECORD_REPLAY_TRUE}" && test -z "${RECORD_REPLAY_FALSE}"; then
-  as_fn_error $? "conditional \"RECORD_REPLAY\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${HAS_I486_TRUE}" && test -z "${HAS_I486_FALSE}"; then

@@ -246,37 +246,6 @@ AC_CHECK_HEADERS([linux/version.h], [], [AC_MSG_ERROR(
 #check for gzip utility
 AC_CHECK_PROG(HAS_GZIP, [gzip], [yes], [no], [/usr/bin:/bin])
 
-#check for record-replay capability
-# REPLACE BY FOLLOWING WHEN READY TO SUPPORT THIS EXTERNALLY:
-#            [AS_HELP_STRING([--with-record-replay],
-#                            [support record replay (EXPERIMENTAL)
-#			      forces fast_restart unless --disable-fast-restart specified])],
-AC_ARG_WITH([record-replay],
-            [AS_HELP_STRING([--experts-only-flag], [for experts only])],
-            [record_replay=$withval],
-            [record_replay=no])
-
-if test "$record_replay" != "no"; then
-  AC_DEFINE([RECORD_REPLAY],[],[Record to log and then replay.])
-  AC_DEFINE([PTRACE],[],[Use support for ptrace system call.])
-  AC_SUBST([PTRACE_SUPPORT], [yes])
-  dnl *** THIS CODE WOULD --enable-fast-restart IF --with-record-replay
-  dnl *** THIS WORKED WHEN FReD LOOKED ONLY AT libc.so IN /proc/*/mmap
-  dnl *** FReD NOW WANTS TO SEE test_list IN /proc/*/mmap
-  dnl *** IN FUTURE, FReD WILL GET THOSE ADDRSSES AT CKPT TIME (NOT RESTART),
-  dnl ***    AND WE CAN THEN RE-ENABLE THIS SECTION.
-  dnl if test "$use_fast_ckpt_restart" != "no"; then
-  dnl   dnl FAST_RESTART is based on mmap
-  dnl   AC_SUBST([FAST_RESTART], [yes])
-  dnl else
-  dnl   AC_SUBST([FAST_RESTART], [no])
-  dnl fi
-  dnl AC_DEFINE([OVERRIDE_GLOBAL_ALLOCATOR],[],[Use a custom allocator based on mmap])
-else
-  AC_SUBST([RECORD_REPLAY], [no])
-fi
-echo "use_fast_ckpt_restart": $use_fast_ckpt_restart
-
 #check for mpich2
 AC_ARG_WITH([mpich],
             [AS_HELP_STRING([--with-mpich=path],
