@@ -423,6 +423,10 @@ int main ( int argc, char** argv )
   dmtcp::string searchDir = jalib::Filesystem::GetProgramDir();
   setenv ( ENV_VAR_UTILITY_DIR, searchDir.c_str(), 0 );
 
+  if (preloadLibs.find("fredhijack.so") != dmtcp::string::npos) {
+    enablePtrace = true;
+  }
+
 #ifdef PTRACE
   enablePtrace = true;
 #endif
