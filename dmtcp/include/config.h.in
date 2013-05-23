@@ -1,4 +1,4 @@
-/* src/config.h.in.  Generated from configure.ac by autoheader.  */
+/* include/config.h.in.  Generated from configure.ac by autoheader.  */
 
 /* Compiling in 32 bit mode on 64 bit linux. */
 #undef CONFIG_M32
@@ -35,6 +35,9 @@
 
 /* Define to 1 if you have the <sys/eventfd.h> header file. */
 #undef HAVE_SYS_EVENTFD_H
+
+/* Define to 1 if you have the <sys/inotify.h> header file. */
+#undef HAVE_SYS_INOTIFY_H
 
 /* Define to 1 if you have the <sys/signalfd.h> header file. */
 #undef HAVE_SYS_SIGNALFD_H
@@ -86,9 +89,6 @@
 
 /* No output, not even NOTE and WARNING */
 #undef QUIET
-
-/* Record to log and then replay. */
-#undef RECORD_REPLAY
 
 /* Define to 1 if you have the ANSI C header files. */
 #undef STDC_HEADERS
