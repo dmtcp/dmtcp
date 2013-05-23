@@ -41,6 +41,7 @@
 #include <sys/stat.h>
 #include <sys/resource.h>
 #include <fcntl.h>
+#include <thread_db.h>
 
 #include "ptrace.h"
 #include "ptraceinfo.h"
@@ -470,4 +471,50 @@ extern "C" long ptrace (enum __ptrace_request request, ...)
 
   DMTCP_PLUGIN_ENABLE_CKPT();
   return ptrace_ret;
+}
+
+/*****************************************************************************
+ ****************************************************************************/
+typedef td_err_e (*td_thr_get_info_funcptr_t)(const td_thrhandle_t *,
+                                              td_thrinfo_t *);
+static td_thr_get_info_funcptr_t td_thr_get_info_funcptr = NULL;
+
+static td_err_e dmtcp_td_thr_get_info (const td_thrhandle_t *th_p,
+                                       td_thrinfo_t *ti_p)
+{
+  td_err_e td_err;
+
+  td_err = (*td_thr_get_info_funcptr)(th_p, ti_p);
+
+  if (th_p->th_unique != 0 || (int) ti_p->ti_lid < 40000) {
+    JASSERT(dmtcp_real_to_virtual_pid != NULL);
+    pid_t virtPid =  dmtcp_real_to_virtual_pid((int)ti_p->ti_lid);
+    JASSERT(virtPid != (int) ti_p->ti_lid) (virtPid);
+    ti_p->ti_lid  =  (lwpid_t) virtPid;
+  }
+
+  //ti_p->ti_lid  =  (lwpid_t) REAL_TO_VIRTUAL_PID ((int) ti_p->ti_lid);
+  //ti_p->ti_tid =  (thread_t) REAL_TO_VIRTUAL_PID ((int) ti_p->ti_tid);
+  return td_err;
+}
+
+/* gdb calls dlsym on td_thr_get_info.  We need to wrap td_thr_get_info for
+   tid virtualization. It should be safe to comment this out if you don't
+   need to checkpoint gdb.
+*/
+extern "C" void *dlsym (void *handle, const char *symbol)
+{
+  static __typeof__(&dlsym) libc_dlsym_fnptr = NULL;
+  if (libc_dlsym_fnptr == NULL) {
+    libc_dlsym_fnptr = (__typeof__(&dlsym)) dmtcp_get_libc_dlsym_addr();
+  }
+
+  void *fptr = libc_dlsym_fnptr(handle, symbol);
+
+  if (strcmp (symbol, "td_thr_get_info") == 0 && fptr != NULL) {
+    td_thr_get_info_funcptr = (td_thr_get_info_funcptr_t) fptr;
+    return (void *) &dmtcp_td_thr_get_info;
+  }
+
+  return fptr;
 }
