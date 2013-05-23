@@ -26,7 +26,6 @@
 #include <fcntl.h>
 #include <sys/ioctl.h>
 #include <sys/syscall.h>
-#include <thread_db.h>
 #include <sys/procfs.h>
 
 #include "jassert.h"
@@ -357,47 +356,6 @@ int tgkill(int tgid, int tid, int sig)
 
 
 //long sys_tgkill (int tgid, int pid, int sig)
-
-#ifdef PTRACE
-typedef td_err_e (*td_thr_get_info_funcptr_t)(const td_thrhandle_t *,
-                                              td_thrinfo_t *);
-static td_thr_get_info_funcptr_t _td_thr_get_info_funcptr = NULL;
-static td_err_e  _dmtcp_td_thr_get_info (const td_thrhandle_t  *th_p,
-                                         td_thrinfo_t *ti_p)
-{
-  td_err_e td_err;
-
-  td_err = (*_td_thr_get_info_funcptr)(th_p, ti_p);
-
-  if (th_p->th_unique != 0 || (int) ti_p->ti_lid < 40000) {
-    pid_t virtPid =  REAL_TO_VIRTUAL_PID((int)ti_p->ti_lid);
-    ti_p->ti_lid  =  (lwpid_t) virtPid;
-  }
-
-  //ti_p->ti_lid  =  (lwpid_t) REAL_TO_VIRTUAL_PID ((int) ti_p->ti_lid);
-  //ti_p->ti_tid =  (thread_t) REAL_TO_VIRTUAL_PID ((int) ti_p->ti_tid);
-  return td_err;
-}
-
-/* gdb calls dlsym on td_thr_get_info.  We need to wrap td_thr_get_info for
-   tid virtualization. It should be safe to comment this out if you don't
-   need to checkpoint gdb.
-*/
-extern "C" void *dlsym (void *handle, const char *symbol)
-{
-  if (strcmp (symbol, "td_thr_get_info") == 0) {
-    _td_thr_get_info_funcptr = (td_thr_get_info_funcptr_t) _real_dlsym(handle,
-                                                                       symbol);
-    if (_td_thr_get_info_funcptr != NULL) {
-      return (void *) &_dmtcp_td_thr_get_info;
-    } else {
-      return NULL;
-    }
-  }
-  else
-    return _real_dlsym (handle, symbol);
-}
-#endif
 
 /*
  * TODO: Add the wrapper protection for wait() family of system calls.
