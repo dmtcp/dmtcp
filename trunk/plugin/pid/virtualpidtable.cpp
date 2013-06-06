@@ -144,6 +144,12 @@ pid_t dmtcp::VirtualPidTable::virtualToReal(pid_t virtualId)
   }
   pid_t id = (virtualId < -1 ? abs(virtualId) : virtualId);
   pid_t retVal = VirtualIdTable<pid_t>::virtualToReal(id);
+  if (retVal == id) {
+    retVal = dmtcp::SharedData::getRealPid(id);
+    if (retVal == -1) {
+      retVal = id;
+    }
+  }
   retVal = virtualId < -1 ? -retVal : retVal;
   return retVal;
 }

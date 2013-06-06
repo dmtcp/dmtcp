@@ -29,6 +29,7 @@
 #include "pidwrappers.h"
 #include "virtualpidtable.h"
 #include "dmtcpplugin.h"
+#include "shareddata.h"
 #include "util.h"
 #include "pid.h"
 
@@ -65,6 +66,7 @@ extern "C" pid_t fork()
   if (realPid > 0) { /* Parent Process */
     retval = virtualPid;
     dmtcp::VirtualPidTable::instance().updateMapping(virtualPid, realPid);
+    dmtcp::SharedData::setPidMap(virtualPid, realPid);
   } else {
     retval = realPid;
     dmtcp::VirtualPidTable::instance().readVirtualTidFromFileForPtrace();

@@ -200,6 +200,40 @@ void dmtcp::SharedData::setCkptInterval(int interval)
   Util::unlockFile(PROTECTED_SHM_FD);
 }
 
+pid_t dmtcp::SharedData::getRealPid(int virt)
+{
+  int res = -1;
+  if (sharedDataHeader == NULL) initialize();
+  Util::lockFile(PROTECTED_SHM_FD);
+  for (size_t i = 0; i < sharedDataHeader->numPidMaps; i++) {
+    if (sharedDataHeader->pidMap[i].virt == virt) {
+      res = sharedDataHeader->pidMap[i].real;
+    }
+  }
+  Util::unlockFile(PROTECTED_SHM_FD);
+  return res;
+}
+
+void dmtcp::SharedData::setPidMap(pid_t virt, pid_t real)
+{
+  size_t i;
+  if (sharedDataHeader == NULL) initialize();
+  Util::lockFile(PROTECTED_SHM_FD);
+  for (i = 0; i < sharedDataHeader->numPidMaps; i++) {
+    if (sharedDataHeader->pidMap[i].virt == virt) {
+      sharedDataHeader->pidMap[i].real = real;
+      break;
+    }
+  }
+  if (i == sharedDataHeader->numPidMaps) {
+    JASSERT(sharedDataHeader->numPidMaps < MAX_PID_MAPS);
+    sharedDataHeader->pidMap[i].virt = virt;
+    sharedDataHeader->pidMap[i].real = real;
+    sharedDataHeader->numPidMaps++;
+  }
+  Util::unlockFile(PROTECTED_SHM_FD);
+}
+
 int dmtcp::SharedData::getRealIPCId(int virt)
 {
   int res = -1;
