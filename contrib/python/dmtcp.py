@@ -3,8 +3,12 @@
 # The contents of this file are inspired from the python script dmtcp_ctypes.py
 # originally supplied by Neal Becker.
 
+import os
+import glob
 from ctypes import *
 
+ckptRetVal = 0
+sessionList = []
 class CoordinatorStatus (Structure):
     _fields_ =  [('numProcesses', c_int),
                  ('isRunning',    c_int)]
@@ -68,6 +72,63 @@ def uniquePidStr():
     if isEnabled:
         return localStatus().contents.uniquePidStr
     return ""
+
+def checkpoint():
+    global ckptRetVal
+    if isEnabled:
+        ckptRetVal = libdmtcp.dmtcpCheckpoint()
+    # sessionId = libdmtcp.dmtcpCheckpoint()
+
+def isResume():
+    global ckptRetVal
+    return ckptRetVal == 1
+
+def isRestart():
+    global ckptRetVal
+    return ckptRetVal == 2
+
+def restore(sessionId = 0):
+    if sessionId == 0:
+        if len(sessionList) == 0:
+            createSessionList()
+        if len(sessionList) == 0:
+            print 'No checkpoint session found'
+            return
+        print 'Restoring the latest session'
+    else:
+        if len(sessionList) == 0:
+            print 'Please do a listSession to see the list of available sessions'
+            return
+        if sessionId < 1 or sessionId > len(sessionList):
+            return 'Invalid session id'
+
+    session = sessionList[sessionId - 1]
+    os.execlp('dmtcp_nocheckpoint', 'sh', session[1])
+
+
+def createSessionList():
+    global sessionList
+    restartScripts = glob.glob('dmtcp_restart_script_*.sh')
+    for script in restartScripts:
+        for line in open(script):
+            if 'ckpt_timestamp' in line:
+                tstamp = line.split('=')[1][:-1]
+                sessionList = [(tstamp, script)] + sessionList
+                break;
+    sessionList.sort()
+
+def listSessions():
+    global sessionList
+    if len(sessionList) == 0:
+        createSessionList()
+    count = 1;
+    for session in sessionList:
+        print '[%d]' %(count),
+        count += 1
+        print session
+
+    if len(sessionList) == 0:
+        print 'No checkpoint sessions found'
 
 
 if __name__ == '__main__':
