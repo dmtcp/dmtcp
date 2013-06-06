@@ -395,6 +395,7 @@ JTIMER ( restart );
 
 static int numPeers = -1;
 static time_t curTimeStamp = -1;
+static time_t ckptTimeStamp = -1;
 
 static dmtcp::LookupService lookupService;
 static dmtcp::string localHostName;
@@ -1251,6 +1252,7 @@ bool dmtcp::DmtcpCoordinator::startCheckpoint()
   if ( s.minimumState == WorkerState::RUNNING && s.minimumStateUnanimous
        && !workersRunningAndSuspendMsgSent )
   {
+    time(&ckptTimeStamp);
     JTIMER_START ( checkpoint );
     _restartFilenames.clear();
     JNOTE ( "starting checkpoint, suspending all nodes" )( s.numPeers );
@@ -1383,6 +1385,8 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
   fprintf ( fp, "%s", theRestartScriptHeader );
   fprintf ( fp, "%s", theRestartScriptCheckLocal );
   fprintf ( fp, "%s", theRestartScriptUsage );
+
+  fprintf ( fp, "ckpt_timestamp=\"%s\"\n\n", ctime(&ckptTimeStamp) );
 
   fprintf ( fp, "coord_host=$"ENV_VAR_NAME_HOST"\n"
                 "if test -z \"$" ENV_VAR_NAME_HOST "\"; then\n"
