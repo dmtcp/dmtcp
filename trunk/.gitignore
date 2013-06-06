@@ -21,7 +21,6 @@ bin/
 lib/
 include/
 !dmtcp/include/*h
-!dmtcp/include/config.h
 dmtcp/src/dmtcp_checkpoint
 dmtcp/src/dmtcp_command
 dmtcp/src/dmtcp_coordinator
