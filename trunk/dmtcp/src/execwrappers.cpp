@@ -36,6 +36,8 @@
 
 #define INITIAL_ARGV_MAX 32
 
+using namespace dmtcp;
+
 #ifdef DEBUG
   const static bool dbg = true;
 #else
@@ -54,6 +56,40 @@ static bool isPerformingCkptRestart()
       dmtcp::WorkerState::currentState() != dmtcp::WorkerState::RUNNING &&
       dmtcp::WorkerState::currentState() != dmtcp::WorkerState::PRE_FORK &&
       dmtcp::WorkerState::currentState() != dmtcp::WorkerState::PRE_EXEC) {
+    return true;
+  }
+  return false;
+}
+
+static bool isBlacklistedProgram(const char *path)
+{
+  dmtcp::string programName = jalib::Filesystem::BaseName(path);
+
+  JASSERT(programName != "dmtcp_coordinator" &&
+          programName != "dmtcp_checkpoint"  &&
+          programName != "dmtcp_restart"     &&
+          programName != "mtcp_restart")
+    (programName) .Text("This program should not be run under ckpt control");
+
+  /*
+   * When running gdb or any shell which does a waitpid() on the child
+   * processes, executing dmtcp_command from within gdb session / shell results
+   * in process getting hung up because:
+   *   gdb shell dmtcp_command -c => hangs because gdb forks off a new process
+   *   and it does a waitpid  (in which we block signals) ...
+   */
+  if (programName == "dmtcp_command") {
+    //make sure coordinator connection is closed
+    _real_close (PROTECTED_COORD_FD);
+
+    pid_t cpid = _real_fork();
+    JASSERT(cpid != -1);
+    if (cpid != 0) {
+      _real_exit(0);
+    }
+  }
+
+  if (programName == "dmtcp_nocheckpoint" || programName == "dmtcp_command") {
     return true;
   }
   return false;
@@ -428,7 +464,7 @@ static dmtcp::vector<const char*> patchUserEnv (dmtcp::vector<dmtcp::string>
 extern "C" int execve (const char *filename, char *const argv[],
                         char *const envp[])
 {
-  if (isPerformingCkptRestart()) {
+  if (isPerformingCkptRestart() || isBlacklistedProgram(filename)) {
     return _real_execve(filename, argv, envp);
   }
   JTRACE("execve() wrapper") (filename);
@@ -463,7 +499,7 @@ extern "C" int execv (const char *path, char *const argv[])
 
 extern "C" int execvp (const char *filename, char *const argv[])
 {
-  if (isPerformingCkptRestart()) {
+  if (isPerformingCkptRestart() || isBlacklistedProgram(filename)) {
     return _real_execvp(filename, argv);
   }
   JTRACE("execvp() wrapper") (filename);
@@ -490,7 +526,7 @@ extern "C" int execvp (const char *filename, char *const argv[])
 extern "C" int execvpe (const char *filename, char *const argv[],
                          char *const envp[])
 {
-  if (isPerformingCkptRestart()) {
+  if (isPerformingCkptRestart() || isBlacklistedProgram(filename)) {
     return _real_execvpe(filename, argv, envp);
   }
   JTRACE("execvpe() wrapper") (filename);
