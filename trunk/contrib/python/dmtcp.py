@@ -5,10 +5,14 @@
 
 import os
 import glob
+import subprocess
 from ctypes import *
+import subprocess
 
 ckptRetVal = 0
 sessionList = []
+vncserver_addr = -1
+
 class CoordinatorStatus (Structure):
     _fields_ =  [('numProcesses', c_int),
                  ('isRunning',    c_int)]
@@ -129,6 +133,61 @@ def listSessions():
 
     if len(sessionList) == 0:
         print 'No checkpoint sessions found'
+
+########################################################################
+# VNC handling
+########################################################################
+
+def startGraphics():
+    global vncserver_addr
+
+    if vncserver_addr != -1:
+        print 'VNC server already running at: ' + vncserver_addr
+        return
+
+    addr = 0
+    while True:
+        try:
+            addr += 1
+            out = subprocess.check_output(['vncserver', ':' + str(addr)],
+                                          stderr=subprocess.STDOUT)
+            os.environ['DISPLAY'] = ':' + str(addr)
+            break
+        except subprocess.CalledProcessError:
+            pass
+    vncserver_addr = addr
+
+def showGraphics():
+    global vncserver_addr
+
+    if vncserver_addr == -1:
+        print "VNC server not running."
+        return
+    fnull = open(os.devnull, "w")
+    saved_display = os.environ['DISPLAY']
+    os.environ['DISPLAY'] = os.environ['ORIG_DISPLAY']
+    out = subprocess.Popen(['dmtcp_nocheckpoint',
+                            'vncviewer',
+                            '-passwd', os.environ['HOME'] + '/.vnc/passwd',
+                            ':' + str(vncserver_addr)],
+                          stdout=fnull, stderr=fnull)
+    os.environ['DISPLAY'] = saved_display
+
+def stopGraphics():
+    global vncserver_addr
+
+    if vncserver_addr == -1:
+        print "VNC server not running."
+        return
+
+    try:
+        out = subprocess.check_output(['vncserver', '-kill',
+                                       ':' + str(vncserver_addr)],
+                                      stderr=subprocess.STDOUT)
+        del os.environ['DISPLAY']
+    except subprocess.CalledProcessError:
+        print 'Error killing vncserver: ' + out
+
 
 
 if __name__ == '__main__':
