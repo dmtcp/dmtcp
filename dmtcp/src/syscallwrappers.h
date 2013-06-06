@@ -78,6 +78,10 @@ extern "C"
 {
 #endif
 
+#ifdef __arm__
+# define DISABLE_PTHREAD_GETSPECIFIC_TRICK
+#endif
+
 LIB_PRIVATE pid_t gettid();
 LIB_PRIVATE int tkill(int tid, int sig);
 LIB_PRIVATE int tgkill(int tgid, int tid, int sig);
