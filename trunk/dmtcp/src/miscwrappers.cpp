@@ -46,7 +46,7 @@ extern "C" void exit ( int status )
 
 extern "C" int close(int fd)
 {
-  if (dmtcp::ProtectedFDs::isProtected(fd)) {
+  if (DMTCP_IS_PROTECTED_FD(fd)) {
     JTRACE("blocked attempt to close protected fd") (fd);
     errno = EBADF;
     return -1;
@@ -57,7 +57,7 @@ extern "C" int close(int fd)
 extern "C" int fclose(FILE *fp)
 {
   int fd = fileno(fp);
-  if (dmtcp::ProtectedFDs::isProtected(fd)) {
+  if (DMTCP_IS_PROTECTED_FD(fd)) {
     JTRACE("blocked attempt to fclose protected fd") (fd);
     errno = EBADF;
     return -1;
@@ -68,7 +68,7 @@ extern "C" int fclose(FILE *fp)
 extern "C" int closedir(DIR *dir)
 {
   int fd = dirfd(dir);
-  if (dmtcp::ProtectedFDs::isProtected(fd)) {
+  if (DMTCP_IS_PROTECTED_FD(fd)) {
     JTRACE("blocked attempt to closedir protected fd") (fd);
     errno = EBADF;
     return -1;
@@ -80,7 +80,7 @@ extern "C" int closedir(DIR *dir)
  * FIXME: Add wrapper for dup2 and dup3 to detect if the newfd is a protected fd.
 extern "C" int dup2(int oldfd, int newfd)
 {
-  if (dmtcp::ProtectedFDs::isProtected(newfd)) {
+  if (DMTCP_IS_PROTECTED_FD(newfd)) {
   }
   return _real_dup2(oldfd, newfd);
 }

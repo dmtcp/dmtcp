@@ -38,9 +38,8 @@ nobase_noinst_HEADERS = constants.h \
 # Note that libdmtcpinternal.a does not include wrappers.
 # dmtcp_checkpoint, dmtcp_command, dmtcp_coordinator, etc.
 #   should not need wrappers.
-libdmtcpinternal_a_SOURCES = dmtcpmessagetypes.cpp protectedfds.cpp \
+libdmtcpinternal_a_SOURCES = dmtcpmessagetypes.cpp  coordinatorapi.cpp \
 			     uniquepid.cpp shareddata.cpp \
-			     coordinatorapi.cpp \
 			     util_exec.cpp util_gen.cpp util_init.cpp \
 			     jalibinterface.cpp processinfo.cpp
 
