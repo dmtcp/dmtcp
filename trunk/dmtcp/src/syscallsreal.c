@@ -254,23 +254,42 @@ void initialize_libc_wrappers()
     _real_func_addr[ENUM(pthread_create)] = dlvsym(RTLD_NEXT, "pthread_create",
                                                    "GLIBC_2.1");
 #endif
+
+    /* On some arm machines, the newest pthread_create has version GLIBC_2.4 */
+    void *addr = dlvsym(RTLD_NEXT, "pthread_create", "GLIBC_2.4");
+    if (addr != NULL) {
+      _real_func_addr[ENUM(pthread_create)] = addr;
+    }
+
     _libc_wrappers_initialized = 1;
   }
 }
 
-#define GET_LIBPTHREAD_FUNC_ADDR(name) \
-  _real_func_addr[ENUM(name)] = dlvsym(RTLD_NEXT, #name, "GLIBC_2.3.2");
-
+# define GET_LIBPTHREAD_FUNC_ADDR(name) \
+  _real_func_addr[ENUM(name)] = dlvsym(RTLD_NEXT, #name, pthread_sym_ver);
 /*
  * WARNING: By using this method to initialize libpthread wrappers (direct
  * dlopen()/dlsym()) we are are overriding any user wrappers for these
  * functions. If this is a problem in the future we need to think of a new way
  * to do this.
+ * EDIT: On some ARM machines, the symbol version is 2.4. Try that first and
+ *       fallback to 2.3.4 on failure.
  */
 LIB_PRIVATE
 void initialize_libpthread_wrappers()
 {
   if (!_libpthread_wrappers_initialized) {
+    const char *ver_2_4 = "GLIBC_2.4";
+    const char *ver_2_3_2 = "GLIBC_2.3.2";
+    const char *pthread_sym_ver = NULL;
+
+    void *addr = dlvsym(RTLD_NEXT, "pthread_cond_signal", ver_2_4);
+    if (addr != NULL) {
+      pthread_sym_ver = ver_2_4;
+    } else {
+      pthread_sym_ver = ver_2_3_2;
+    }
+
     FOREACH_LIBPTHREAD_WRAPPERS(GET_LIBPTHREAD_FUNC_ADDR);
     _libpthread_wrappers_initialized = 1;
   }
