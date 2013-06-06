@@ -244,6 +244,10 @@ static void processArgs(int *orig_argc, char ***orig_argv)
 
 int main ( int argc, char** argv )
 {
+  for (size_t i = 1; i < PROTECTED_FD_COUNT; i++) {
+    close(PFD(i));
+  }
+
   initializeJalib();
 
   if (! getenv(ENV_VAR_QUIET))
