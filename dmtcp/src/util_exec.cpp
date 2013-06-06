@@ -167,19 +167,39 @@ int dmtcp::Util::elfType(const char *pathname, bool *isElf, bool *is32bitElf)
   return 0;
 }
 
+static dmtcp::string ld_linux_so_path(int version, bool is32bitElf = false)
+{
+  char buf[80];
+#if defined(__x86_64__) && !defined(CONFIG_M32)
+  if (is32bitElf) {
+    sprintf(buf, "/lib/ld-linux.so.%d", version);
+  } else {
+    sprintf(buf, "/lib64/ld-linux-x86-64.so.%d", version);
+  }
+#else
+  sprintf(buf, "/lib/ld-linux.so.%d", version);
+#endif
+
+  dmtcp::string cmd = buf;
+  return cmd;
+}
+
 bool dmtcp::Util::isStaticallyLinked(const char *filename)
 {
   bool isElf, is32bitElf;
   char pathname[PATH_MAX];
   expandPathname(filename, pathname, sizeof(pathname));
   elfType(pathname, &isElf, &is32bitElf);
-#if defined(__x86_64__) && !defined(CONFIG_M32)
-  dmtcp::string cmd = is32bitElf ? "/lib/ld-linux.so.2 --verify "
-			         : "/lib64/ld-linux-x86-64.so.2 --verify " ;
-#else
-  dmtcp::string cmd = "/lib/ld-linux.so.2 --verify " ;
-#endif
-  cmd = cmd + pathname + " > /dev/null";
+
+  int version = 2;
+  dmtcp::string cmd;
+  do {
+    cmd = ld_linux_so_path(version);
+    version++;
+  } while (!jalib::Filesystem::FileExists(cmd) && version < 10);
+
+  cmd = cmd + " --verify " + pathname + " > /dev/null";
+
   // FIXME:  When tested on dmtcp/test/pty.c, 'ld.so -verify' returns
   // nonzero status.  Why is this?  It's dynamically linked.
   if (isElf && safeSystem(cmd.c_str())) {
