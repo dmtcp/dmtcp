@@ -114,18 +114,21 @@ endif
 ifdef USE_PROC_MAPS
   MTCP_CFLAGS += -fPIC -DPIC
   MTCP_LDFLAGS += -fPIC
-endif
+else
+  # But for testmtcp, don't use MTCP_CFLAGS if don't want position-independent code
+  ifeq ($(BUILDTYPE),x86_64)
+    MTCP_CFLAGS += -fPIC -DPIC
+    MTCP_LDFLAGS += -fPIC
+  endif
 
-# But for testmtcp, don't use MTCP_CFLAGS if don't want position-independent code
-ifeq ($(BUILDTYPE),x86_64)
-  MTCP_CFLAGS += -fPIC -DPIC
-  MTCP_LDFLAGS += -fPIC
+  ifeq ($(BUILDTYPE),arm)
+  # When armv6 is the default, add  -march=armv7;  (usually not needed anymore)
+    MTCP_CFLAGS += -fPIC -DPIC
+    MTCP_LDFLAGS += -fPIC
+  endif
 endif
 
 ifeq ($(BUILDTYPE),arm)
-# When armv6 is the default, add  -march=armv7;  (usually not needed anymore)
-  MTCP_CFLAGS += -fPIC -DPIC
-  MTCP_LDFLAGS += -fPIC
   ARM_EXTRAS = libc-do-syscall-arm-eabi.o
 # As of February, 2012, crt1.o has an undefined symbol, abort.
 # This prevents us from compiling mtcp_restart with -nodefaultlibs
