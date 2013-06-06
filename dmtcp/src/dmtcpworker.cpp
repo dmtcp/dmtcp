@@ -42,9 +42,6 @@ LIB_PRIVATE void pthread_atfork_child();
 
 bool dmtcp::DmtcpWorker::_exitInProgress = false;
 
-static void processDmtcpCommands(dmtcp::string programName,
-                                 dmtcp::vector<dmtcp::string>& args);
-
 void restoreUserLDPRELOAD()
 {
   // We have now successfully used LD_PRELOAD to execute prior to main()
@@ -195,52 +192,6 @@ static void writeCurrentLogFileNameToPrevLogFile(dmtcp::string& path)
   }
   _real_close(fd);
 #endif
-}
-
-static void processDmtcpCommands(dmtcp::string programName,
-                                 dmtcp::vector<dmtcp::string>& args)
-{
-  JASSERT(programName == "dmtcp_coordinator" ||
-           programName == "dmtcp_checkpoint"  ||
-           programName == "dmtcp_restart"     ||
-           programName == "dmtcp_command"     ||
-           programName == "mtcp_restart");
-
-  //make sure coordinator connection is closed
-  _real_close (PROTECTED_COORD_FD);
-
-  /*
-   * When running gdb or any shell which does a waitpid() on the child
-   * processes, executing dmtcp_command from within gdb session / shell results
-   * in process getting hung up because:
-   *   gdb shell dmtcp_command -c => hangs because gdb forks off a new process
-   *   and it does a waitpid  (in which we block signals) ...
-   */
-  if (programName == "dmtcp_command") {
-    pid_t cpid = _real_fork();
-    JASSERT(cpid != -1);
-    if (cpid != 0) {
-      _real_exit(0);
-    }
-  }
-
-  //now repack args
-  char** argv = new char*[args.size() + 1];
-  memset (argv, 0, sizeof (char*) * (args.size() + 1));
-
-  for (size_t i=0; i< args.size(); ++i) {
-    argv[i] = (char*) args[i].c_str();
-  }
-
-  JNOTE("re-running without checkpointing") (programName);
-
-  //now re-call the command
-  restoreUserLDPRELOAD();
-  _real_execvp (jalib::Filesystem::GetProgramPath().c_str(), argv);
-
-  //should be unreachable
-  JASSERT(false) (jalib::Filesystem::GetProgramPath()) (argv[0])
-    (JASSERT_ERRNO) .Text("exec() failed");
 }
 
 static void processSshCommand(dmtcp::string programName,
@@ -399,11 +350,15 @@ dmtcp::DmtcpWorker::DmtcpWorker (bool enableCheckpointing)
   dmtcp::string programName = jalib::Filesystem::GetProgramName();
   dmtcp::vector<dmtcp::string> args = jalib::Filesystem::GetProgramArgs();
 
-  if (programName == "dmtcp_coordinator" || programName == "dmtcp_command" ||
-      programName == "dmtcp_checkpoint"  || programName == "dmtcp_restart" ||
-      programName == "mtcp_restart") {
-    processDmtcpCommands(programName, args);
-  } else if (programName == "ssh") {
+  JASSERT(programName != "dmtcp_coordinator"  &&
+          programName != "dmtcp_checkpoint"   &&
+          programName != "dmtcp_nocheckpoint" &&
+          programName != "dmtcp_comand"       &&
+          programName != "dmtcp_restart"      &&
+          programName != "mtcp_restart")
+    (programName) .Text("This program should not be run under ckpt control");
+
+  if (programName == "ssh") {
     processSshCommand(programName, args);
   }
   calculateArgvAndEnvSize();
