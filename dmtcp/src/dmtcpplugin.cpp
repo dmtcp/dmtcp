@@ -121,12 +121,12 @@ EXTERNC int  dmtcp_is_initializing_wrappers()
 
 EXTERNC int  dmtcp_is_protected_fd(int fd)
 {
-  return dmtcp::ProtectedFDs::isProtected(fd);
+  return DMTCP_IS_PROTECTED_FD(fd);
 }
 
 EXTERNC void dmtcp_close_protected_fd(int fd)
 {
-  JASSERT(dmtcp::ProtectedFDs::isProtected(fd));
+  JASSERT(DMTCP_IS_PROTECTED_FD(fd));
   _real_close(fd);
 }
 

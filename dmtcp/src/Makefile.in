@@ -116,10 +116,10 @@ libdmtcpaware_a_OBJECTS = $(am_libdmtcpaware_a_OBJECTS)
 libdmtcpinternal_a_AR = $(AR) $(ARFLAGS)
 libdmtcpinternal_a_LIBADD =
 am_libdmtcpinternal_a_OBJECTS = dmtcpmessagetypes.$(OBJEXT) \
-	protectedfds.$(OBJEXT) uniquepid.$(OBJEXT) \
-	shareddata.$(OBJEXT) coordinatorapi.$(OBJEXT) \
-	util_exec.$(OBJEXT) util_gen.$(OBJEXT) util_init.$(OBJEXT) \
-	jalibinterface.$(OBJEXT) processinfo.$(OBJEXT)
+	coordinatorapi.$(OBJEXT) uniquepid.$(OBJEXT) \
+	shareddata.$(OBJEXT) util_exec.$(OBJEXT) util_gen.$(OBJEXT) \
+	util_init.$(OBJEXT) jalibinterface.$(OBJEXT) \
+	processinfo.$(OBJEXT)
 libdmtcpinternal_a_OBJECTS = $(am_libdmtcpinternal_a_OBJECTS)
 libjalib_a_AR = $(AR) $(ARFLAGS)
 libjalib_a_LIBADD =
@@ -332,9 +332,8 @@ nobase_noinst_HEADERS = constants.h \
 # Note that libdmtcpinternal.a does not include wrappers.
 # dmtcp_checkpoint, dmtcp_command, dmtcp_coordinator, etc.
 #   should not need wrappers.
-libdmtcpinternal_a_SOURCES = dmtcpmessagetypes.cpp protectedfds.cpp \
+libdmtcpinternal_a_SOURCES = dmtcpmessagetypes.cpp  coordinatorapi.cpp \
 			     uniquepid.cpp shareddata.cpp \
-			     coordinatorapi.cpp \
 			     util_exec.cpp util_gen.cpp util_init.cpp \
 			     jalibinterface.cpp processinfo.cpp
 
@@ -628,7 +627,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/nosyscallsreal.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/popen.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/processinfo.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/protectedfds.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/shareddata.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/signalwrappers.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/syscallsreal.Po@am__quote@
