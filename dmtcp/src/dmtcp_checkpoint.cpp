@@ -388,8 +388,11 @@ int main ( int argc, char** argv )
     testStaticallyLinked(argv[0]);
   }
 
-  // UNSET DISPLAY environment variable.
-  unsetenv("DISPLAY");
+  if (getenv("DISPLAY") != NULL) {
+    setenv("ORIG_DISPLAY", getenv("DISPLAY"), 1);
+    // UNSET DISPLAY environment variable.
+    unsetenv("DISPLAY");
+  }
 
 // FIXME:  Unify this code with code prior to execvp in execwrappers.cpp
 //   Can use argument to dmtcpPrepareForExec() or getenv("DMTCP_...")
