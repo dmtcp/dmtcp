@@ -434,8 +434,8 @@ void dmtcp::Util::runMtcpRestore(const char* path, int fd, pid_t gzipChildPid,
   // FIXME: Put an explanation of the logic below.   -- Kapil
 #define ENV_PTR(x) ((char*) (getenv(x) - strlen(x) - 1))
   char* dummyEnviron = NULL;
-  const int dummyEnvironIndex = 0; // index in newEnv[]
-  const int pathIndex = 1; // index in newEnv[]
+  const int pathIndex = 0; // index in newEnv[]
+  const int dummyEnvironIndex = 1; // index in newEnv[]
   // Eventually, newEnv = {ENV_PTR("MTCP_OLDPERS"), ENV_PTR("PATH"), NULL}
   char* newEnv[3] = {NULL, NULL, NULL};
   // Will put ENV_PTR("MTCP_OLDPERS") here.
@@ -453,14 +453,16 @@ void dmtcp::Util::runMtcpRestore(const char* path, int fd, pid_t gzipChildPid,
   size_t originalArgvEnvSize = argvSize + envSize;
   size_t newArgvEnvSize = newArgsSize + newEnvSize + strlen(newArgs[0]);
   size_t argvSizeDiff = originalArgvEnvSize - newArgvEnvSize;
-  dummyEnviron = (char*) malloc(argvSizeDiff);
-  memset(dummyEnviron, '0', (argvSizeDiff >= 1 ? argvSizeDiff - 1 : 0));
-  strncpy(dummyEnviron,
-          ENV_VAR_DMTCP_DUMMY "=",
-          strlen(ENV_VAR_DMTCP_DUMMY "="));
-  dummyEnviron[argvSizeDiff - 1] = '\0';
+  if (argvSizeDiff > 0) {
+    dummyEnviron = (char*) malloc(argvSizeDiff);
+    memset(dummyEnviron, '0', argvSizeDiff - 1 );
+    strncpy(dummyEnviron,
+            ENV_VAR_DMTCP_DUMMY "=",
+            strlen(ENV_VAR_DMTCP_DUMMY "="));
+    dummyEnviron[argvSizeDiff - 1] = '\0';
+    newEnv[dummyEnvironIndex] = dummyEnviron;
+  }
 
-  newEnv[dummyEnvironIndex] = dummyEnviron;
   JTRACE("Args/Env Sizes")
     (newArgsSize) (newEnvSize) (argvSize) (envSize) (argvSizeDiff);
 
