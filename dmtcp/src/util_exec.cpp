@@ -456,7 +456,7 @@ void dmtcp::Util::runMtcpRestore(const char* path, int fd, pid_t gzipChildPid,
   dummyEnviron = (char*) malloc(argvSizeDiff);
   memset(dummyEnviron, '0', (argvSizeDiff >= 1 ? argvSizeDiff - 1 : 0));
   strncpy(dummyEnviron,
-          ENV_VAR_DMTCP_DUMMY "=0",
+          ENV_VAR_DMTCP_DUMMY "=",
           strlen(ENV_VAR_DMTCP_DUMMY "="));
   dummyEnviron[argvSizeDiff - 1] = '\0';
 
