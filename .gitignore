@@ -9,6 +9,7 @@
 *.log
 *.status
 *.so
+*.pyc
 Makefile
 core
 cscope.*
