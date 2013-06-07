@@ -413,7 +413,6 @@ int main ( int argc, char** argv )
     JTRACE("Got virtual pid from coordinator") (virtualPid);
     dmtcp::Util::setVirtualPidEnvVar(virtualPid, getppid());
   }
-  setenv( ENV_VAR_ROOT_PROCESS, "1", 1 );
 #endif
 
   // preloadLibs are to set LD_PRELOAD:

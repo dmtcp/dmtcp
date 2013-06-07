@@ -283,11 +283,8 @@ static void prepareLogAndProcessdDataFromSerialFile()
     // Initialize the log file
     Util::initializeLogFile();
 
-    if (getenv(ENV_VAR_ROOT_PROCESS) != NULL) {
-      JTRACE("Root of processes tree");
-      ProcessInfo::instance().setRootOfProcessTree();
-      _dmtcp_unsetenv(ENV_VAR_ROOT_PROCESS);
-    }
+    JTRACE("Root of processes tree");
+    ProcessInfo::instance().setRootOfProcessTree();
   }
 }
 
