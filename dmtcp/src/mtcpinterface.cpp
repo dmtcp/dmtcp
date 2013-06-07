@@ -43,12 +43,6 @@ static int debugEnabled = 1;
 static int debugEnabled = 0;
 #endif
 
-#ifdef PID_VIRTUALIZATION
-static int pidVirtualizationEnabled = 1;
-#else
-static int pidVirtualizationEnabled = 0;
-#endif
-
 static char prctlPrgName[22] = {0};
 static void prctlGetProcessName();
 static void prctlRestoreProcessName();
@@ -91,8 +85,7 @@ static void initializeDmtcpInfoInMtcp()
   JASSERT(malloc_fptr != NULL);
   JASSERT(free_fptr != NULL);
 
-
-  mtcp_init_dmtcp_info(pidVirtualizationEnabled,
+  mtcp_init_dmtcp_info(dmtcp_virtual_to_real_pid != NULL, //Pid plugin check
                        PROTECTED_STDERR_FD,
                        jassertlog_fd,
                        restore_working_directory,
