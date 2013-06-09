@@ -119,8 +119,10 @@ tests: build
 
 # Prevent mtcp_restart from flying out of control
 # (but Java/IcedTea6-1.9.x/RHEL-6.1 uses lots of memory,
-#  and modifies most of the zero-mapped pages)
-LIMIT=ulimit -v 16777216
+#  and modifies most of the zero-mapped pages -- using 16 MB)
+# JDK Runtime Environment (Java/IcedTea6 1.12.4 (OpenJDK, Java 1.6.0_27)
+#   now needs at least 32 MB  (June, 2013)
+LIMIT=ulimit -v 33554432
 
 check: tests
 	@+ if python -c 'print "Python exits."' > /dev/null; then \

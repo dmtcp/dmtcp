@@ -24,7 +24,16 @@ if sys.version_info[0] != 2 or sys.version_info[0:2] < (2,4):
 #get testconfig
 # This assumes Makefile.in in main dir, but only Makefile in test dir.
 os.system("test -f Makefile || ./configure")
-import testconfig
+try:
+  import testconfig
+except ImportError as e:
+  if e.args == ("USE_TEST_SUITE",):
+    print "\n*** DMTCP test suite is disabled." + \
+                                         "  To re-enable the test suite,\n" + \
+          "***  re-configure _without_ './configure --disable-test-suite'\n"
+  else:
+    print "\n*** Error in testconfig.py\n"
+  sys.exit()
 
 #number of checkpoint/restart cycles
 CYCLES=2
@@ -820,9 +829,32 @@ if testconfig.HAS_MPICH == "yes":
 
   #os.system(testconfig.MPICH_MPDCLEANUP)
 
+
+if testconfig.HAS_OPENMPI == "yes":
+  # Compute:  USES_OPENMPI_ORTED
+  if 0 == os.system(testconfig.OPENMPI_MPICC +
+                    " -o ./test_openmpi test/hellompi.c 2>/dev/null 1>&2"):
+    os.system("rm -f ./uses_openmpi_orted")
+    # The 'sleep 1' below may not fix the race, creating a runaway test_openmpi.
+    os.system('/bin/sh -c "$OPENMPI_MPIRUN -np 2 ./test_openmpi' +
+              '   2>/dev/null 1>&2 &'
+              ' sleep 1 &&'
+              ' ps auxw | grep $USER | grep -v grep | grep -q orted &&'
+              ' touch ./uses_openmpi_orted" 2>/dev/null')
+    os.system("/bin/kill -9 `ps -eo pid,args | grep test_openmpi |" +
+              " sed -e 's%\([0-9]\) .*$%\1%'` 2>/dev/null")
+    if os.path.exists('./uses_openmpi_orted'):
+      os.system('rm -f ./uses_openmpi_orted')
+      USES_OPENMPI_ORTED = "yes"
+    else:
+      USES_OPENMPI_ORTED = "no"
+  else:
+    testconfig.HAS_OPENMPI == "no"
+  os.system('rm -f ./test_openmpi')
+
 # Temporarily disabling OpenMPI test as it fails on some distros (OpenSUSE 11.4)
 if testconfig.HAS_OPENMPI == "yes":
-  numProcesses = 5 + int(testconfig.USES_OPENMPI_ORTED == "yes")
+  numProcesses = 5 + int(USES_OPENMPI_ORTED == "yes")
   # FIXME: Replace "[5,6]" by numProcesses when bug in configure is fixed.
   # /usr/bin/openmpi does not work if /usr/bin is not also in user's PATH
   oldPath = ""
