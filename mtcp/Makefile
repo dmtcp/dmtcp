@@ -100,15 +100,12 @@ ASFLAGS =
 MTCP_DIR := $(shell pwd)
 
 # There might be a 32-bit built system running on top of 32/64 bit capable
-# kernel. In that case `uname -m` returns 'x86_64' which is not correct.
-# Instead, we should deduce the build-type from the build toochain itself.
-# NOTE:  'ld -shared -verbose|grep OUTPUT_ARCH'
-#        returns OUTPUT_ARCH(i386:x86-64) on x86-64 machines.
-ifeq (${shell ${LD_RAW} -shared -verbose|grep OUTPUT_FORMAT|cut -d '"' -f2},elf64-x86-64)
-  BUILDTYPE=x86_64
-else
-  BUILDTYPE=${shell ${LD_RAW} -shared -verbose|grep OUTPUT_ARCH| \
-		sed -s 's^OUTPUT_ARCH(^^'|sed -s 's^)^^'}
+# kernel.  Or, we might be cross-compiling (e.g., Debian binary packages).
+# In those cases `uname -m` returns 'x86_64' which is not correct.
+# Instead, we should deduce the build-type from the build toolchain itself.
+ifndef BUILDING_UTIL_ARCH
+  BUILDTYPE=${shell make BUILDING_UTIL_ARCH=1 util-arch > /dev/null; \
+                    ./util-arch}
 endif
 
 ifdef USE_PROC_MAPS
@@ -177,6 +174,9 @@ uninstall:
 	rm -f "$(DESTDIR)$(bindir)/mtcp_restart"
 	rm -f "$(DESTDIR)$(includedir)/mtcp.h"
 	rm -f "$(DESTDIR)$(libdir)"/libmtcp.so*
+
+util-arch: util-arch.c
+	${CC} -o $@ $<
 
 readmtcp: readmtcp.c mtcp_internal.h mtcp_util.o \
 	mtcp_printf.o mtcp_state.o mtcp_safemmap.o
@@ -452,7 +452,7 @@ check: libmtcp.so mtcp_restart testmtcp
 
 distclean: clean
 	rm -f *~ mtcp.kdevses mtcp.kdevelop.* testmtcp{,1,2,3,4}.mtcp \
-	      *.lis a.out mtcp.t.orig mtcp.lis readmtcp
+	      *.lis a.out mtcp.t.orig mtcp.lis util-arch readmtcp
 
 clean:
 	rm -f *.o *.map mtcp_restart_noblibc.lis mtcp_sharetemp.c \
