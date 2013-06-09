@@ -109,6 +109,18 @@ else
   AC_SUBST([HBICT_DELTACOMP], [no])
 fi
 
+AC_ARG_ENABLE([test_suite],
+            [AS_HELP_STRING([--disable-test-suite],
+                            [disables "make check"; target apps for testing
+                             (e.g. java) will not be invoked])],
+            [use_test_suite=$enableval],
+            [use_test_suite=yes])
+if test "$use_test_suite" = "yes"; then
+  AC_SUBST([USE_TEST_SUITE], [yes])
+else
+  AC_SUBST([USE_TEST_SUITE], [no])
+fi
+
 AC_ARG_ENABLE([experts_only_space1], [], [], [])
 AC_ARG_ENABLE([experts_only],
             [AS_HELP_STRING(
@@ -139,7 +151,7 @@ AC_ARG_ENABLE([allocator],
             [use_allocator=$enableval],
             [use_allocator=no])
 
-#checkfor -lreadline -lhistory v5, does not require curses
+#check for -lreadline -lhistory v5; does not require curses
 AC_CHECK_LIB([readline], [readline], [linksReadline=yes], [linksReadline=no], [-lhistory -lcurses])
 AC_CHECK_HEADERS([readline/readline.h readline/history.h], [includeReadline=no],)
 if test "$linksReadline" = "yes" -a "$includeReadline" != "no"; then
@@ -197,18 +209,7 @@ AC_CHECK_PROG(HAS_JAVA, [java], [yes], [no], [/usr/local/bin:/usr/bin])
 #check for javac
 AC_CHECK_PROG(HAS_JAVAC, [javac], [yes], [no], [/usr/local/bin:/usr/bin])
 
-#check if java dialect is Sun/Oracle/OpenJDK
-if test "$HAS_JAVA" = "yes"; then
-  AC_CACHE_CHECK([for java -Xmx flag (Sun/Oracle/OpenJDK compatible)],
-                 [ac_cv_sun_java],
-            [AC_PATH_PROGS_FEATURE_CHECK([HAS_SUN_ORACLE_JAVA], [java],
-              [[ac_cv_sun_java=no ;
-                java -X 2>&1 | grep -- -Xmx > /dev/null && ac_cv_sun_java=yes]],
-              [])])
-  AC_SUBST([HAS_SUN_ORACLE_JAVA], [$ac_cv_sun_java])
-else
-  AC_SUBST([HAS_SUN_ORACLE_JAVA], [no])
-fi
+#checking later if java dialect is Sun/Oracle/OpenJDK, in test/testconfig.py.in
 
 #check for cilk
 AC_CHECK_PROG(HAS_CILK, [cilkc], [yes], [no], [$PATH:/usr/local/bin:/usr/bin])
@@ -284,33 +285,7 @@ AC_PATH_PROGS([OPENMPI_MPIRUN],  [mpirun.openmpi mpirun], [no], [$MPI_PATH])
 if test "$OPENMPI_MPICC" = "no" -o "$OPENMPI_MPIRUN" = "no"; then
   AC_SUBST(HAS_OPENMPI, [no])
 else
-  AC_MSG_CHECKING([whether mpicc works for OpenMPI])
-  if $OPENMPI_MPICC -o ./test_openmpi test/hellompi.c 2>/dev/null 1>&2; then
-    AC_SUBST(HAS_OPENMPI, [yes])
-    AC_MSG_RESULT([yes])
-    AC_MSG_CHECKING([whether mpirun invokes orted for OpenMPI])
-    rm -f ./uses_openmpi_orted
-    # The 'sleep 1' below may not fix the race, creating a runaway test_openmpi.
-    /bin/sh -c "$OPENMPI_MPIRUN -np 2 ./test_openmpi 2>/dev/null 1>&2 & \
-      sleep 1 && \
-      ps auxw | grep $USER | grep -v grep | grep -q orted && \
-      touch ./uses_openmpi_orted" 2>/dev/null
-    dnl Extra [...] needed to protect inner [...] from m4
-    /bin/kill -9 [`ps -eo pid,args | grep test_openmpi | \
-      sed -e 's%\([0-9]\) .*$%\1%'`]
-    if test -r ./uses_openmpi_orted; then
-      rm -f ./uses_openmpi_orted
-      AC_SUBST(USES_OPENMPI_ORTED, [yes])
-      AC_MSG_RESULT([yes])
-    else
-      AC_SUBST(USES_OPENMPI_ORTED, [no])
-      AC_MSG_RESULT([no])
-    fi
-  else
-    AC_SUBST(HAS_OPENMPI, [no])
-    AC_MSG_RESULT([no])
-  fi
-  rm -f ./test_openmpi
+  AC_SUBST(HAS_OPENMPI, [yes])
 fi
 
 AC_ARG_ENABLE([m32],
