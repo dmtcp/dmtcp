@@ -771,20 +771,26 @@ if testconfig.PTRACE_SUPPORT == "yes" and sys.version_info[0:2] >= (2,6):
     S=DEFAULT_S
 
   if testconfig.HAS_GDB == "yes":
-    os.system("echo 'run' > dmtcp-gdbinit.tmp")
-    S=3
-    runTest("gdb",          2, ["gdb -n -batch -x dmtcp-gdbinit.tmp test/dmtcp1"])
-
-    runTest("gdb-pthread0", 2, ["gdb -n -batch -x dmtcp-gdbinit.tmp test/dmtcp3"])
-
-    # These tests currently fail sometimes (if the computation is checkpointed
-    # while a thread is being created). Re-enable them when this issue has been
-    # fixed in the ptrace plugin.
-    #runTest("gdb-pthread1", 2, ["gdb -n -batch -x dmtcp-gdbinit.tmp test/pthread1"])
-    #runTest("gdb-pthread2",2, ["gdb -n -batch -x dmtcp-gdbinit.tmp test/pthread2"])
-
-    S=DEFAULT_S
-    os.system("rm -f dmtcp-gdbinit.tmp")
+    if subprocess.check_output(['uname', '-p'])[0:3] == 'arm':
+      print "On ARM, there is a known issue with DMTCP for gdb-* test." + \
+            "  Not running it."
+    else:
+      os.system("echo 'run' > dmtcp-gdbinit.tmp")
+      S=3
+      runTest("gdb",          2,
+              ["gdb -n -batch -x dmtcp-gdbinit.tmp test/dmtcp1"])
+  
+      runTest("gdb-pthread0", 2,
+              ["gdb -n -batch -x dmtcp-gdbinit.tmp test/dmtcp3"])
+  
+      # These tests currently fail sometimes (if the computation is checkpointed
+      # while a thread is being created). Re-enable them when this issue has
+      # been fixed in the ptrace plugin.
+      #runTest("gdb-pthread1", 2, ["gdb -n -batch -x dmtcp-gdbinit.tmp test/pthread1"])
+      #runTest("gdb-pthread2",2, ["gdb -n -batch -x dmtcp-gdbinit.tmp test/pthread2"])
+  
+      S=DEFAULT_S
+      os.system("rm -f dmtcp-gdbinit.tmp")
 
 if testconfig.HAS_JAVAC == "yes" and testconfig.HAS_JAVA == "yes":
   S=3
