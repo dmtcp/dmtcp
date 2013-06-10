@@ -20,6 +20,14 @@
  *  <http://www.gnu.org/licenses/>.                                          *
  *****************************************************************************/
 
+/************************************************************************
+ * For ARM, ptrace support, and especially PTRACE_SINGLESTEP was added
+ * only recently (3/2013):
+ *     https://bugs.eclipse.org/bugs/show_bug.cgi?id=403422
+ *     https://bugs.eclipse.org/bugs/show_bug.cgi?id=404253
+ *     http://stackoverflow.com/questions/16806276/how-ptrace-implemented-in-arm
+ ************************************************************************/
+
 #ifndef _GNU_SOURCE
 # define _GNU_SOURCE /* Needed for syscall declaration */
 #endif
@@ -187,7 +195,11 @@ static void ptrace_attach_threads(int isRestart)
 
 static void ptrace_wait_for_inferior_to_reach_syscall(pid_t inferior, int sysno)
 {
+#if defined(__i386__) || defined(__x86_64__)
   struct user_regs_struct regs;
+#elif defined(__arm__)
+  struct user_regs regs;
+#endif
   int syscall_number;
   int status;
   int count = 0;
@@ -201,7 +213,11 @@ static void ptrace_wait_for_inferior_to_reach_syscall(pid_t inferior, int sysno)
     JASSERT(_real_ptrace(PTRACE_GETREGS, inferior, 0, &regs) == 0)
       (inferior) (JASSERT_ERRNO);
 
+#if defined(__i386__) || defined(__x86_64__)
     syscall_number = regs.ORIG_AX_REG;
+#elif(__arm__)
+    syscall_number = regs.ARM_ORIG_r0;
+#endif
     if (syscall_number == sysno) {
       JASSERT(_real_ptrace(PTRACE_SYSCALL, inferior, 0, (void*) 0) == 0)
         (inferior) (JASSERT_ERRNO);
@@ -216,7 +232,11 @@ static void ptrace_wait_for_inferior_to_reach_syscall(pid_t inferior, int sysno)
 static void ptrace_single_step_thread(dmtcp::Inferior *inferiorInfo,
                                       int isRestart)
 {
+#if defined(__i386__) || defined(__x86_64__)
   struct user_regs_struct regs;
+#elif defined(__arm__)
+  struct user_regs regs;
+#endif
   long peekdata;
   unsigned long addr;
   unsigned long int eflags;
@@ -242,18 +262,27 @@ static void ptrace_single_step_thread(dmtcp::Inferior *inferiorInfo,
 
     JASSERT(_real_ptrace(PTRACE_GETREGS, inferior, 0, &regs) != -1)
       (superior) (inferior) (JASSERT_ERRNO);
-    peekdata = _real_ptrace(PTRACE_PEEKDATA, inferior, (void*) regs.IP_REG, 0);
-    long inst = peekdata & 0xffff;
 #ifdef __x86_64__
     /* For 64 bit architectures. */
+    peekdata = _real_ptrace(PTRACE_PEEKDATA, inferior, (void*) regs.IP_REG, 0);
+    long inst = peekdata & 0xffff;
     if (inst == SIGRETURN_INST_16 && regs.AX_REG == 0xf) {
-#else /* For 32 bit architectures.*/
+#elif __i386__
+    /* For 32 bit architectures.*/
+    peekdata = _real_ptrace(PTRACE_PEEKDATA, inferior, (void*) regs.IP_REG, 0);
+    long inst = peekdata & 0xffff;
     if (inst == SIGRETURN_INST_16 && (regs.AX_REG == DMTCP_SYS_sigreturn ||
                                       regs.AX_REG == DMTCP_SYS_rt_sigreturn)) {
+#elif __arm__
+    /* For ARM architectures. */
+    peekdata = _real_ptrace(PTRACE_PEEKDATA, inferior, (void*) regs.ARM_pc, 0);
+    long inst = peekdata & 0xffff;
+    if (inst == SIGRETURN_INST_16 && regs.ARM_r0 == 0xf) {
 #endif
       if (isRestart) { /* Restart time. */
         // FIXME: TODO:
         if (last_command == PTRACE_SINGLESTEP) {
+#if defined(__i386__) || defined(__x86_64__)
           if (regs.AX_REG != DMTCP_SYS_rt_sigreturn) {
             addr = regs.SP_REG;
           } else {
@@ -261,6 +290,15 @@ static void ptrace_single_step_thread(dmtcp::Inferior *inferiorInfo,
             addr = _real_ptrace(PTRACE_PEEKDATA, inferior, (void*) addr, 0);
             addr += 20;
           }
+#elif defined(__arm__)
+          if (regs.ARM_r0 != DMTCP_SYS_rt_sigreturn) {
+            addr = regs.ARM_sp;
+          } else {
+            addr = regs.ARM_sp + 8;
+            addr = _real_ptrace(PTRACE_PEEKDATA, inferior, (void*) addr, 0);
+            addr += 20;
+          }
+#endif
           addr += EFLAGS_OFFSET;
           errno = 0;
           JASSERT ((int) (eflags = _real_ptrace(PTRACE_PEEKDATA, inferior,
