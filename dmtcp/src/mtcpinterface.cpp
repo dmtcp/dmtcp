@@ -261,6 +261,18 @@ static void callbackPostCheckpoint ( int isRestart,
     restoreArgvAfterRestart(mtcpRestoreArgvStartAddr);
     prctlRestoreProcessName();
 
+#ifndef RECORD_REPLAY
+  /* This calls setenv() which calls malloc. Since this is only executed on
+     restart, that means it there is an extra malloc on replay. Commenting this
+     until we have time to fix it. */
+    dmtcp::string ckptDir =
+      jalib::Filesystem::FdToPath(PROTECTED_NEW_CKPT_DIR_FD);
+    if (ckptDir.length() > 0) {
+      setenv(ENV_VAR_CHECKPOINT_DIR, ckptDir.c_str(), 1);
+      _real_close(PROTECTED_NEW_CKPT_DIR_FD);
+    }
+#endif
+
     dmtcp::DmtcpWorker::instance().postRestart();
     /* FIXME: There is not need to call sendCkptFilenameToCoordinator() but if
      *        we do not call it, it exposes a bug in dmtcp_coordinator.

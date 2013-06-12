@@ -659,6 +659,9 @@ static const char* theUsage =
   "      Hostname where dmtcp_coordinator is run (default: localhost)\n"
   "  --port, -p, (environment variable DMTCP_PORT):\n"
   "      Port where dmtcp_coordinator is run (default: 7779)\n"
+  "  --ckptdir, -c, (environment variable DMTCP_CHECKPOINT_DIR):\n"
+  "      Directory to store checkpoint images\n"
+  "      (default: use the same directory used in previous checkpoint)\n"
   "  --tmpdir, -t, (environment variable DMTCP_TMPDIR):\n"
   "      Directory to store temporary files \n"
   "        (default: $TMDPIR/dmtcp-$USER@$HOST or /tmp/dmtcp-$USER@$HOST)\n"
@@ -727,6 +730,28 @@ static void restoreSockets(dmtcp::DmtcpCoordinatorAPI& coordinatorAPI,
   JTRACE ("sockets restored!");
 }
 
+static void setNewCkptDir(char *path)
+{
+  struct stat st;
+  if (stat(path, &st) == -1) {
+    JASSERT(mkdir(path, S_IRWXU) == 0 || errno == EEXIST)
+      (JASSERT_ERRNO) (path)
+      .Text("Error creating checkpoint directory");
+    JASSERT(0 == access(path, X_OK|W_OK)) (path)
+      .Text("ERROR: Missing execute- or write-access to checkpoint dir");
+  } else {
+    JASSERT(S_ISDIR(st.st_mode)) (path) .Text("ckptdir not a directory");
+  }
+
+  int fd = open(path, O_RDONLY);
+  JASSERT(fd != -1) (path);
+  JASSERT(dup2(fd, PROTECTED_NEW_CKPT_DIR_FD) == PROTECTED_NEW_CKPT_DIR_FD)
+    (fd) (path);
+  if (fd != PROTECTED_NEW_CKPT_DIR_FD) {
+    close(fd);
+  }
+}
+
 int main ( int argc, char** argv )
 {
   bool autoStartCoordinator=true;
@@ -784,6 +809,9 @@ int main ( int argc, char** argv )
       shift; shift;
     }else if(argc>1 && (s == "-p" || s == "--port")){
       setenv(ENV_VAR_NAME_PORT, argv[1], 1);
+      shift; shift;
+    }else if(argc>1 && (s == "-c" || s == "--ckptdir")){
+      setNewCkptDir(argv[1]);
       shift; shift;
     }else if(argc>1 && (s == "-t" || s == "--tmpdir")){
       setenv(ENV_VAR_TMPDIR, argv[1], 1);
