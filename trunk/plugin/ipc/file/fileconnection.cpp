@@ -775,7 +775,7 @@ void dmtcp::FileConnection::postRestart()
   JTRACE("Restoring File Connection") (id()) (_path);
   dmtcp::string savedFilePath = getSavedFilePath(_path);
   JASSERT(jalib::Filesystem::FileExists(savedFilePath))
-    (savedFilePath) (_path) .Text("Unable to Find checkpointed copy of File");
+    (savedFilePath) (_path) .Text("Unable to find checkpointed copy of file");
 
   if (_type == FILE_BATCH_QUEUE) {
     JASSERT(dmtcp_bq_restore_file);

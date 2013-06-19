@@ -2081,6 +2081,8 @@ static int growstackrlimit(size_t kbStack) {
     return 1;
   } else {
     mtcp_printf("MTCP:  Warning: couldn't extend stack limit for growstack.\n");
+    mtcp_printf("MTCP:  RLIMIT_STACK: rlim.rlim_max: %d, rlim.rlim_curr: %d\n",
+                rlim.rlim_max, rlim.rlim_cur);
   }
   return 0;
 }

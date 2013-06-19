@@ -164,8 +164,8 @@
 #endif
 
 #define DMTCP_VERSION_AND_COPYRIGHT_INFO                                        \
-  BINARY_NAME " (DMTCP + MTCP) " PACKAGE_VERSION "\n"                           \
-  "Copyright (C) 2006-2011  Jason Ansel, Michael Rieker, Kapil Arya, and\n"     \
+  BINARY_NAME " (DMTCP + MTCP) version " PACKAGE_VERSION "\n"                   \
+  "Copyright (C) 2006-2013  Jason Ansel, Michael Rieker, Kapil Arya, and\n"     \
   "                                                       Gene Cooperman\n"     \
   "This program comes with ABSOLUTELY NO WARRANTY.\n"                           \
   "This is free software, and you are welcome to redistribute it\n"             \
