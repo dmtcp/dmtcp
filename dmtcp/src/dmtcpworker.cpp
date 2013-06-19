@@ -530,15 +530,15 @@ void dmtcp::DmtcpWorker::waitForStage1Suspend()
 
   /*
    * Its only use is to inform the user thread (waiting in DmtcpWorker
-   * constructor) that the checkpoint thread has finished initialization. This
-   * is to serialize DmtcpWorker-Constructor(), mtcp_init(), checkpoint-thread
-   * initialization and user main(). As obvious, this is only effective when
-   * the process is being initialized.
+   * constructor) that the checkpoint thread has finished initialization.
+   * This is to serialize the DmtcpWorker constructor, mtcp_init(),
+   * checkpoint-thread initialization and user main(). As is obvious,
+   * this is only effective when the process is being initialized.
    */
   if (!ThreadSync::isCheckpointThreadInitialized()) {
     /*
      * We should not call this function any higher in the logic because it
-     * calls setenv() and if it is running under bash, then it getenv() will
+     * calls setenv() and if it is running under bash, then getenv() will
      * not work between the call to setenv() and bash main().
      */
     restoreUserLDPRELOAD();
@@ -548,7 +548,7 @@ void dmtcp::DmtcpWorker::waitForStage1Suspend()
   waitForCoordinatorMsg ("SUSPEND", DMT_DO_SUSPEND);
   UniquePid::updateCkptDir();
 
-  JTRACE("got SUSPEND message, preparing to acquire all Thread-sync locks");
+  JTRACE("got SUSPEND message, preparing to acquire all ThreadSync locks");
   ThreadSync::acquireLocks();
 
   JTRACE("Starting checkpoint, suspending...");
