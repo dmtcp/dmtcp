@@ -169,8 +169,8 @@ typedef unsigned int mtcp_segreg_t;
                            : : : "eax", "ebx", "ecx", "edx", "memory")
 # endif
 #elif defined(__arm__)
-# define RMB asm volatile ("dmb" : : : "memory")
-# define WMB asm volatile ("dsb" : : : "memory")
+# define RMB asm volatile ("dsb ; dmb" : : : "memory")
+# define WMB asm volatile ("dsb ; dmb" : : : "memory")
 #else
 # error "instruction architecture not implemented"
 #endif
