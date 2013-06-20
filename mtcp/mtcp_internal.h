@@ -267,15 +267,18 @@ struct Thread { Thread *next;         // next thread in 'threads' list
                            : : : "eax", "ecx", "edx", "memory")
 #  define WMB asm volatile ("sfence" \
                            : : : "eax", "ecx", "edx", "memory")
+#  define IMB
 # else
 #  define RMB asm volatile ("xorl %%eax,%%eax ; cpuid" \
                            : : : "eax", "ebx", "ecx", "edx", "memory")
 #  define WMB asm volatile ("xorl %%eax,%%eax ; cpuid" \
                            : : : "eax", "ebx", "ecx", "edx", "memory")
+#  define IMB
 # endif
 #elif defined(__arm__)
 # define RMB asm volatile ("dsb ; dmb" : : : "memory")
 # define WMB asm volatile ("dsb ; dmb" : : : "memory")
+# define IMB asm volatile ("isb" : : : "memory")
 #else
 # error "instruction architecture not implemented"
 #endif
@@ -362,7 +365,7 @@ typedef struct mtcp_ckpt_image_hdr {
   VA libmtcp_begin;
   size_t libmtcp_size;
   VA restore_start_fptr; /* will be bound to fnc, mtcp_restore_start */
-  VA finish_restore_fptr; /* will be bound to fnc, finishrestore */
+  VA restore_finish_fptr; /* will be bound to fnc, mtcp_restore_finish */
   struct rlimit stack_rlimit;
 } mtcp_ckpt_image_hdr_t;
 
@@ -377,7 +380,7 @@ typedef struct mtcp_ckpt_image_hdr {
 #define CS_RESTORESIZE 2     // size (in bytes) of restore shareable image
 #define CS_RESTORESTART 3    // start address of restore routine
 #define CS_RESTOREIMAGE 4    // the actual restore image
-#define CS_FINISHRESTORE 5   // mtcp.c's finishrestore routine entrypoint
+#define CS_RESTOREFINISH 5   // mtcp.c's finishrestore routine entrypoint
 #define CS_AREADESCRIP 6     // memory area descriptor (Area struct)
 #define CS_AREACONTENTS 7    // memory area contents for an area
 #define CS_AREAFILEMAP 8     // memory area file mapping info
@@ -495,7 +498,7 @@ __attribute__ ((visibility ("hidden")))
    int mtcp_state_value(MtcpState * state);
 
 __attribute__ ((visibility ("hidden")))
-void mtcp_restoreverything (int should_mmap_ckpt_image, VA finishrestore_fptr);
+void mtcp_restoreverything (int should_mmap_ckpt_image, VA restore_finish_fptr);
 __attribute__ ((visibility ("hidden")))
 void mtcp_printf (char const *format, ...);
 void mtcp_maybebpt (void);
@@ -519,7 +522,7 @@ int mtcp_selfmap_close(int selfmapfd);
 
 void mtcp_checkpointeverything(const char *temp_ckpt_filename,
                                const char *perm_ckpt_filename);
-void mtcp_finishrestore(void);
+void mtcp_restore_finish(void);
 void mtcp_restore_start(int fd, int verify, int should_mmap_ckpt_image,
                         pid_t gzip_child_pid,
                         char *ckpt_newname, char *cmd_file,

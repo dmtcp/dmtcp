@@ -56,8 +56,7 @@
 
 static int open_ckpt_to_read(char *filename, int should_mmap_ckpt_image,
                              char *envp[]);
-static int read_header_and_restore_image(int fd, char *restorename,
-                                         VA *restore_start);
+static int read_header_and_restore_image(int fd, VA *restore_start);
 #ifdef LIBC_STATIC_AVAILABLE
 static void prompt_load_symbol_file(mtcp_ckpt_image_hdr_t *hdr);
 #endif
@@ -230,7 +229,7 @@ int main (int argc, char *argv[], char *envp[])
       mtcp_abort();
     }
   }
-  if (read_header_and_restore_image(fd, restorename, (VA*)&restore_start) != 0) {
+  if (read_header_and_restore_image(fd, (VA*)&restore_start) != 0) {
     MTCP_PRINTF("restarting due to address conflict...\n");
     mtcp_sys_close (fd);
     mtcp_sys_execve (argv[0], argv, envp);
@@ -261,8 +260,7 @@ int main (int argc, char *argv[], char *envp[])
   return (0);
 }
 
-static int read_header_and_restore_image(int fd, char *restorename,
-                                          VA *restore_start)
+static int read_header_and_restore_image(int fd, VA *restore_start)
 {
   char tmpBuf[MTCP_PAGE_SIZE];
   mtcp_ckpt_image_hdr_t *ckpt_hdr;

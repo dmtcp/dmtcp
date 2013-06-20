@@ -642,7 +642,7 @@ void mtcp_init (char const *checkpointfilename,
   /* Set up signal handler so we can interrupt the thread for checkpointing */
   setup_sig_handler(&stopthisthread);
 
-  mtcp_writeckpt_init((VA)mtcp_restore_start, (VA) mtcp_finishrestore);
+  mtcp_writeckpt_init((VA)mtcp_restore_start, (VA) mtcp_restore_finish);
 
   /* Set up caller as one of our threads so we can work on it */
 
@@ -2221,9 +2221,16 @@ static void stopthisthread (int signum)
 #endif
     if (mtcp_state_value(&restoreinprog) == 0) {
       is_restart = 0;
-      /* We are the original process and all context is saved
+      /* We are a user thread and all context is saved.
        * restoreinprog is 0 ; wait for ckpt thread to write ckpt, and resume.
        */
+
+      /* This sets a static variable in dmtcp.  It must be passed
+       * from this user thread to ckpt thread before writing ckpt image
+       */
+      if (callback_pre_suspend_user_thread != NULL) {
+        callback_pre_suspend_user_thread();
+      }
 
       WMB; // matched by RMB in checkpointhread
 
@@ -2235,15 +2242,11 @@ static void stopthisthread (int signum)
       // wake checkpoint thread if it's waiting for me
       mtcp_state_futex (&(thread -> state), FUTEX_WAKE, 1, NULL);
 
-      if (callback_pre_suspend_user_thread != NULL) {
-        callback_pre_suspend_user_thread();
-      }
-
       /* Then we wait for the checkpoint thread to write the checkpoint file
        * then wake us up
        */
 
-      DPRINTF("thread %d suspending\n", thread -> tid);
+      DPRINTF("user thread %d suspending\n", thread -> tid);
       while (mtcp_state_value(&thread -> state) == ST_SUSPENDED) {
         mtcp_state_futex (&(thread -> state), FUTEX_WAIT, ST_SUSPENDED, NULL);
       }
@@ -2811,7 +2814,7 @@ void mtcp_restore_start (int fd, int verify, int mmap_ckpt_image,
    */
 
   /* This should never return */
-  mtcp_restoreverything(should_mmap_ckpt_image, (void*)mtcp_finishrestore);
+  mtcp_restoreverything(should_mmap_ckpt_image, (void*)mtcp_restore_finish);
   mtcp_abort();
 }
 
@@ -2853,7 +2856,7 @@ static void restore_heap()
  *
  *****************************************************************************/
 
-void mtcp_finishrestore (void)
+void mtcp_restore_finish (void)
 {
   struct timeval stopped;
 
@@ -2871,7 +2874,7 @@ void mtcp_finishrestore (void)
   mtcp_sys_gettimeofday (&stopped, NULL);
   stopped.tv_usec += (stopped.tv_sec - restorestarted.tv_sec) * 1000000
                          - restorestarted.tv_usec;
-  TPRINTF (("mtcp mtcp_finishrestore*: time %u uS\n", stopped.tv_usec));
+  TPRINTF (("mtcp mtcp_restore_finish*: time %u uS\n", stopped.tv_usec));
 
   /* Now we can access all our files and memory that existed at the time of the
    * checkpoint.
