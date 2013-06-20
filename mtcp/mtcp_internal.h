@@ -162,15 +162,18 @@ typedef unsigned int mtcp_segreg_t;
                            : : : "eax", "ecx", "edx", "memory")
 #  define WMB asm volatile ("sfence" \
                            : : : "eax", "ecx", "edx", "memory")
+#  define IMB
 # else
 #  define RMB asm volatile ("xorl %%eax,%%eax ; cpuid" \
                            : : : "eax", "ebx", "ecx", "edx", "memory")
 #  define WMB asm volatile ("xorl %%eax,%%eax ; cpuid" \
                            : : : "eax", "ebx", "ecx", "edx", "memory")
+#  define IMB
 # endif
 #elif defined(__arm__)
 # define RMB asm volatile ("dsb ; dmb" : : : "memory")
 # define WMB asm volatile ("dsb ; dmb" : : : "memory")
+# define IMB asm volatile ("isb" : : : "memory")
 #else
 # error "instruction architecture not implemented"
 #endif

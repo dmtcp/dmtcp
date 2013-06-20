@@ -297,6 +297,7 @@ __attribute__ ((visibility ("hidden"))) void mtcp_restoreverything (void)
     mtcp_restore_gzip_child_pid = -1;
   }
 
+  IMB; // flush instruction cache, since mtcp_restart.c code is now gone.
   DPRINTF("restore complete, resuming...\n");
 
   /* Jump to finishrestore in original program's libmtcp.so image */
