@@ -437,7 +437,11 @@ void dmtcp::Util::runMtcpRestore(const char* path, int fd, pid_t gzipChildPid,
   const int pathIndex = 0; // index in newEnv[]
   const int dummyEnvironIndex = 1; // index in newEnv[]
   // Eventually, newEnv = {ENV_PTR("MTCP_OLDPERS"), ENV_PTR("PATH"), NULL}
-  char* newEnv[3] = {NULL, NULL, NULL};
+  // newEnv[2] = NULL; newEnv[3] and newEnv[4] are available so that
+  //    they can easily be used to modify envp inside mtcp_restart.c:main().
+  //    for debugging in GDB.
+  char* newEnv[5] = {NULL, NULL, NULL,
+                     "MTCP_INIT_PAUSE=1", "MTCP_RESTART_PAUSE=1"};
   // Will put ENV_PTR("MTCP_OLDPERS") here.
   newEnv[dummyEnvironIndex] = (char*) dummyEnviron;
   newEnv[pathIndex] = (getenv("PATH") ? ENV_PTR("PATH") : NULL);

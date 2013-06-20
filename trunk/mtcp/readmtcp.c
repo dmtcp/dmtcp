@@ -84,7 +84,7 @@ int main(int argc, char **argv)
         ckpt_hdr->libmtcp_begin + ckpt_hdr->libmtcp_size,
         ckpt_hdr->libmtcp_begin);
   printf("restore_start routine: %p\n", ckpt_hdr->restore_start_fptr);
-  printf("finishrestore routine: %p\n", ckpt_hdr->finish_restore_fptr);
+  printf("restore_finish routine: %p\n", ckpt_hdr->restore_finish_fptr);
 
   // Skip over file descriptors.
   do {

@@ -84,9 +84,9 @@ extern void (*mtcp_callback_write_ckpt_header)(int fd);
 static pid_t mtcp_ckpt_extcomp_child_pid = -1;
 static struct sigaction saved_sigchld_action;
 static void (*restore_start_fptr)(); /* will be bound to fnc, mtcp_restore_start */
-static void (*finish_restore_fptr)(); /* will be bound to fnc, mtcp_restore_start */
+static void (*restore_finish_fptr)(); /* will be bound to fnc, mtcp_restore_finish */
 
-void mtcp_writeckpt_init(VA restore_start_fn, VA finishrestore_fn)
+void mtcp_writeckpt_init(VA restore_start_fn, VA restore_finish_fn)
 {
   /* Need to get the addresses for the library only once */
   static int initialized = 0;
@@ -108,7 +108,7 @@ void mtcp_writeckpt_init(VA restore_start_fn, VA finishrestore_fn)
                                          &mtcp_shareable_end);
 #endif
   restore_start_fptr = (void*)restore_start_fn;
-  finish_restore_fptr = (void*)finishrestore_fn;
+  restore_finish_fptr = (void*)restore_finish_fn;
   initialized = 1;
 }
 
@@ -526,7 +526,7 @@ static void write_header_and_restore_image(int fd, int fdCkptFileOnDisk)
   ckpt_hdr->libmtcp_begin = mtcp_shareable_begin;
   ckpt_hdr->libmtcp_size = mtcp_shareable_end - mtcp_shareable_begin;
   ckpt_hdr->restore_start_fptr = (VA) restore_start_fptr;
-  ckpt_hdr->finish_restore_fptr = (VA) finish_restore_fptr;
+  ckpt_hdr->restore_finish_fptr = (VA) restore_finish_fptr;
 
   DPRINTF("saved stack resource limit: soft_lim:%p, hard_lim:%p\n",
           ckpt_hdr->stack_rlimit.rlim_cur, ckpt_hdr->stack_rlimit.rlim_max);
@@ -1177,7 +1177,7 @@ static void preprocess_special_segments(int *vsyscall_exists)
        */
       *vsyscall_exists = 1;
     } else if (!mtcp_saved_heap_start && mtcp_strcmp(area.name, "[heap]") == 0) {
-      // Record start of heap which will later be used in mtcp_finishrestore()
+      // Record start of heap which will later be used in mtcp_restore_finish()
       mtcp_saved_heap_start = area.addr;
     } else if (mtcp_strcmp(area.name, "[stack]") == 0) {
       /*

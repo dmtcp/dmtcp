@@ -195,7 +195,7 @@ static const jalib::string writeJbacktraceMsg() {
     thisProgram = "dmtcp_restart";
   jalib::string msg = jalib::string("")
     + "\n   *** Stack trace is available ***\n" \
-    "   Try using:  utils/dmtcp_backtrace.py  (found in DMTCP_ROOT)\n" \
+    "   Try using:  util/dmtcp_backtrace.py  (found in DMTCP_ROOT)\n" \
     "   Try the following command line:\n" \
     "     ";
   o << msg << "utils/dmtcp_backtrace.py" << " "

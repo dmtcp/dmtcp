@@ -74,8 +74,6 @@
 
 #define ENABLE_MALLOC_WRAPPER
 
-#define DMTCP_CKPT_SIGN "DMTCP_CHECKPOINT_IMAGE_v2.0\n"
-
 //this next string can be at most 16 chars long
 #define DMTCP_MAGIC_STRING "DMTCP_CKPT_V0\n"
 
@@ -150,7 +148,7 @@
 #define RESTART_SCRIPT_BASENAME "dmtcp_restart_script"
 #define RESTART_SCRIPT_EXT ".sh"
 
-#define DMTCP_FILE_HEADER "DMTCP_CHECKPOINT_IMAGE_v1.10\n"
+#define DMTCP_FILE_HEADER "DMTCP_CHECKPOINT_IMAGE_v2.0\n"
 
 // Fix dlclose segfault bug
 //#define MAX_DLCLOSE_MTCP_CALLS 10
