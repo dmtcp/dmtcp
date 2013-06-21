@@ -336,7 +336,7 @@ static void prompt_load_symbol_file(mtcp_ckpt_image_hdr_t *hdr)
  * restore_start(), you should read the code below and manually calculate
  * by hand what this used to automatically calculate.  For a semi-automated
  * substitute, when you reach restore_start(), call it with (gdb) si
- * Then try:  (gdb) shell ../utils/gdb-add-libmtcp-symbol-file.py
+ * Then try:  (gdb) shell ../util/gdb-add-libmtcp-symbol-file.py
  * where ADDR will be restore_start or an arb. address in restore_start()
  ********************************************************************/
 # ifdef KDEBUG

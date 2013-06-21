@@ -212,7 +212,7 @@ SHORT NOTES:
     9. dmtcpaware exists for programs that wish to directly talk to the
        dmtcp_coordinator, without the intervention of a human being.
        See the test subdirectory for several example dmtcpaware programs.
-    10. utils/gdb-add-symbol-file may be a useful debugging tool.  It computes
+    10. util/gdb-add-symbol-file may be a useful debugging tool.  It computes
 	the arguments for the add-symbol-file command of gdb, to import
 	symbol information about a dynamic library.  It is most useful in
 	combination with *-dbg Linux packages and prefix to dmtcp_checkpoint:
