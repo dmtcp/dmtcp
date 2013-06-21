@@ -198,7 +198,7 @@ static const jalib::string writeJbacktraceMsg() {
     "   Try using:  util/dmtcp_backtrace.py  (found in DMTCP_ROOT)\n" \
     "   Try the following command line:\n" \
     "     ";
-  o << msg << "utils/dmtcp_backtrace.py" << " "
+  o << msg << "util/dmtcp_backtrace.py" << " "
     << thisProgram << " "
     << jalib::dmtcp_get_tmpdir() << "/backtrace."
     << jalib::dmtcp_get_uniquepid_str() << " ";
@@ -206,7 +206,7 @@ static const jalib::string writeJbacktraceMsg() {
   // then the second call to dmtcp_get_uniquepid_str() returns just 831.
   o << jalib::dmtcp_get_tmpdir() << "/proc-maps."
     << jalib::dmtcp_get_uniquepid_str()
-    << "\n   (For further help, try:  utils/dmtcp_backtrace.py --help)\n";
+    << "\n   (For further help, try:  util/dmtcp_backtrace.py --help)\n";
   return o.str();
 }
 
