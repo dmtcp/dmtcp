@@ -67,14 +67,15 @@ void *shmat(int shmid, const void *shmaddr, int shmflg)
   //       when shmaddr % 0x4000 != 0 (when shmaddr not multiple of SMLBA)
   // Workaround for bug in Linux kernel for ARM follows.
   // WHEN KERNEL FIX IS AVAILABLE, DO THIS ONLY FOR BUGGY KERNEL VERSIONS.
-  if ((long)ret % 0x4000 != 0) { // if ret % SHMLBA != 0 { ... }
+  if (((long)ret % 0x4000 != 0) && (ret != (void *)-1)) { // if ret%SHMLBA != 0
     void *ret_addr[20];
     int i;
     for (i = 0; i < sizeof(ret_addr) / sizeof(ret_addr[0]) ; i++) {
       ret_addr[i] = ret; // Save bad address for detaching later
       ret = _real_shmat(realShmid, shmaddr, shmflg); // Try again
-      if ((long)ret % 0x4000 == 0) // if ret % SHMLBA == 0 { ... }
-        break; // Success
+      // if ret % SHMLBA == 0 { ... }
+      if (((long)ret % 0x4000 == 0) || (ret == (void *)-1))
+        break; // Good address (or error return)
     }
     // Detach all the bad addresses athat are not SHMLBA-aligned.
     if (i < sizeof(ret_addr) / sizeof(ret_addr[0]))
