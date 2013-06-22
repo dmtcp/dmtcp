@@ -487,9 +487,12 @@ void dmtcp::ShmSegment::remapFirstAddrForOwnerOnRestart()
   munmap(i->first, _size);
 
   if (!_dmtcpMappedAddr) {
-    JASSERT (_real_shmat(_currentShmid, i->first, i->second) != (void *) -1);
+    JASSERT (_real_shmat(_currentShmid, i->first, i->second) != (void *) -1)
+      (JASSERT_ERRNO) (_currentShmid) (_originalShmid) (_isCkptLeader)
+      (i->first) (i->second) (getpid()) (_creatorPid)
+      .Text ("Error remapping shared memory segment on restart");
   }
-  JTRACE("Remapping shared memory segment")(_currentShmid);
+  JTRACE("Remapping shared memory segment to original address")(_currentShmid);
 }
 
 void dmtcp::ShmSegment::remapAll()

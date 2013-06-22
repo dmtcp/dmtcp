@@ -251,7 +251,7 @@ int main (int argc, char *argv[], char *envp[])
    *  and MAP_ANONYMOUS, since the data could have changed.
    */
 
-  DPRINTF("restoring anonymous area %p at %p\n", restore_size, restore_begin);
+  DPRINTF("restoring libmtcp.so area %p at %p\n", restore_size, restore_begin);
 
   if (mtcp_sys_munmap(restore_begin, restore_size) < 0) {
     MTCP_PRINTF("failed to unmap region at %p\n", restore_begin);
