@@ -58,6 +58,34 @@ void *shmat(int shmid, const void *shmaddr, int shmflg)
   int realShmid = VIRTUAL_TO_REAL_IPC_ID(shmid);
   JASSERT(realShmid != -1) .Text("Not Implemented");
   void *ret = _real_shmat(realShmid, shmaddr, shmflg);
+#ifdef __arm__
+  // This is arguably a bug in Linux kernel 2.6.28, 2.6.29, 3.0 - 3.2 and others
+  // See:  https://bugs.kde.org/show_bug.cgi?id=222545
+  //     On ARM, SHMLBA == 4*PAGE_SIZE instead of PAGESIZE
+  //     So, this fails:
+  //    shmaddr = shmat(shmid, NULL, 0); smdt(shmaddr); shmat(shmid, shaddr, 0);
+  //       when shmaddr % 0x4000 != 0 (when shmaddr not multiple of SMLBA)
+  // Workaround for bug in Linux kernel for ARM follows.
+  // WHEN KERNEL FIX IS AVAILABLE, DO THIS ONLY FOR BUGGY KERNEL VERSIONS.
+  if ((long)ret % 0x4000 != 0) { // if ret % SHMLBA != 0 { ... }
+    void *ret_addr[20];
+    int i;
+    for (i = 0; i < sizeof(ret_addr) / sizeof(ret_addr[0]) ; i++) {
+      ret_addr[i] = ret; // Save bad address for detaching later
+      ret = _real_shmat(realShmid, shmaddr, shmflg); // Try again
+      if ((long)ret % 0x4000 == 0) // if ret % SHMLBA == 0 { ... }
+        break; // Success
+    }
+    // Detach all the bad addresses athat are not SHMLBA-aligned.
+    if (i < sizeof(ret_addr) / sizeof(ret_addr[0]))
+      for (int j = 0; j < i+1; j++)
+        _real_shmdt( ret_addr[j] );
+    JASSERT((long)ret % 0x4000 == 0)
+      (shmaddr) (shmflg) (getpid())
+      .Text ("Failed to get SHMLBA-aligned address after 20 tries");
+  }
+#endif
+
   if (ret != (void *) -1) {
     dmtcp::SysVIPC::instance().on_shmat(shmid, shmaddr, shmflg, ret);
     JTRACE ("Mapping Shared memory segment") (shmid) (realShmid) (shmflg) (ret);

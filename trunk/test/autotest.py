@@ -632,15 +632,16 @@ os.environ['DMTCP_GZIP'] = "0"
 
 runTest("shared-memory", 2, ["./test/shared-memory"])
 
-# This is arguably a bug in the Linux kernel 3.2 for ARM.
+runTest("sysv-shm1",     2, ["./test/sysv-shm1"])
+runTest("sysv-shm2",     2, ["./test/sysv-shm2"])
+runTest("sysv-sem",      2, ["./test/sysv-sem"])
+runTest("sysv-msg",      2, ["./test/sysv-msg"])
+
+# ARM glibc 2.16 with Linux kernel 3.0 doesn't support mq_send, etc.
 if sys.version_info[0] == 2 and sys.version_info[0:2] >= (2,7) and \
     subprocess.check_output(['uname', '-p'])[0:3] == 'arm':
-  print "On ARM, there is a known issue with the sysv-shm test. Not running it."
+  print "Skipping posix-mq1/mq2 tests; ARM/libc/Linux does not support mq_send"
 else:
-  runTest("sysv-shm1",     2, ["./test/sysv-shm1"])
-  runTest("sysv-shm2",     2, ["./test/sysv-shm2"])
-  runTest("sysv-sem",      2, ["./test/sysv-sem"])
-  runTest("sysv-msg",      2, ["./test/sysv-msg"])
   runTest("posix-mq1",     2, ["./test/posix-mq1"])
   runTest("posix-mq2",     2, ["./test/posix-mq2"])
 

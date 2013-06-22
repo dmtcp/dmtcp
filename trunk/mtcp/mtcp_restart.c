@@ -286,7 +286,7 @@ static int read_header_and_restore_image(int fd, VA *restore_start)
    *  and MAP_ANONYMOUS, since the data could have changed.
    */
 
-  DPRINTF("restoring anonymous area %p at %p\n",
+  DPRINTF("restoring libmtcp.so area %p at %p\n",
           ckpt_hdr->libmtcp_size, ckpt_hdr->libmtcp_begin);
 
   if (mtcp_sys_munmap(ckpt_hdr->libmtcp_begin,
