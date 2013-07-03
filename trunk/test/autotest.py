@@ -307,19 +307,29 @@ def WAITFOR(test, msg):
 def getStatus():
   coordinatorCmd('s')
 
-  if coordinator.poll() >= 0:
+  returncode = coordinator.poll()
+  if returncode:
+    if returncode < 0:
+      print "Coordinator terminated by signal ", str(-returncode)
     CHECK(False, "coordinator died unexpectedly")
     return (-1, False)
 
   while True:
     try:
-      line=coordinator.stdout.readline().strip()
+      line=coordinator.stdout.readline()
+      if not line:  # Immediate empty string on stdout means EOF
+        CHECK(False, "coordinator died unexpectedly")
+        return (-1, False)
+      line=line.strip()
       if line=="Status...":
         break;
       if VERBOSE:
         print "Ignoring line from coordinator: ", line
+        sleep(1)
     except IOError, (errno, strerror):
-      if coordinator.poll() >= 0:
+      if coordinator.poll():
+        if coordinator.poll() < 0:
+          print "Coordinator terminated by signal ", str(-returncode)
         CHECK(False, "coordinator died unexpectedly")
         return (-1, False)
       if errno==4: #Interrupted system call

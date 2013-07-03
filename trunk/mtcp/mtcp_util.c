@@ -258,6 +258,16 @@ void mtcp_readfile(int fd, void *buf, size_t size)
   size_t ar = 0;
   int tries = 0;
 
+#if __arm__
+  /* ARM requires DMB instruction to ensure that any store to memory
+   * by a prior kernel mmap call has completed.
+   * SEE ARM Information Center article:
+   *   "In what siutations might I need to insert memory barrier instructions?"
+   *   (and especially section on "Memory Remapping"
+   */
+  WMB;
+#endif
+
   while(ar != size) {
     rc = mtcp_sys_read(fd, buf + ar, size - ar);
     if (rc < 0 && rc > -4096) { /* kernel could return large unsigned int */
@@ -274,6 +284,16 @@ void mtcp_readfile(int fd, void *buf, size_t size)
     }
     ar += rc;
   }
+#if __arm__
+  /* ARM requires DSB and ISB instructions to ensure that prior read
+   * instructions complete, and prevent instructions being fetched prior to this.
+   * SEE ARM Information Center article:
+   *   "In what siutations might I need to insert memory barrier instructions?"
+   *   (and especially section on "Memory Remapping"
+   */
+  WMB;
+  IMB;
+#endif
 }
 
 __attribute__ ((visibility ("hidden")))
