@@ -103,6 +103,10 @@ void dmtcp::SharedData::initialize()
   JASSERT(addr != MAP_FAILED) (JASSERT_ERRNO)
     .Text("Unable to find shared area.");
 
+#if __arm__
+  WMB;  // Ensure store to memory by kernel mmap call has completed
+#endif
+
   sharedDataHeader = (struct Header*) addr;
   prevSharedDataHeaderAddr = addr;
 
@@ -144,9 +148,10 @@ void dmtcp::SharedData::preCkpt()
 {
   if (sharedDataHeader != NULL) {
     nextVirtualPtyId = sharedDataHeader->nextVirtualPtyId;
-    // Need to reset these counter before next post-restart/post-ckpt routines
+    // Need to reset these counters before next post-restart/post-ckpt routines
     sharedDataHeader->numMissingConMaps = 0;
-    size_t size = CEIL(SHM_MAX_SIZE , Util::pageSize());
+WMB;
+    size_t size = CEIL(SHM_MAX_SIZE, Util::pageSize());
     JASSERT(_real_munmap(sharedDataHeader, size) == 0) (JASSERT_ERRNO);
     sharedDataHeader = NULL;
   }

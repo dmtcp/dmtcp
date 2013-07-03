@@ -594,6 +594,13 @@ static void readmemoryareas (int should_mmap_ckpt_image)
       }
     }
   }
+#if __arm__
+  /* On ARM, with gzip enabled, we sometimes see SEGFAULT without this.
+   * The SEGFAULT occurs within the initial thread, before any user threads
+   * are unblocked.  WHY DOES THIS HAPPEN?
+   */
+  WMB;
+#endif
 }
 
 static void adjust_for_smaller_file_size(Area *area, int fd)
