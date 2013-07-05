@@ -432,6 +432,21 @@ pid_t dmtcp::CoordinatorAPI::getVirtualPidFromCoordinator()
   return reply.virtualPid;
 }
 
+void dmtcp::CoordinatorAPI::updateCoordTimeStamp()
+{
+  DmtcpMessage msg(DMT_GET_COORD_TSTAMP);
+  _coordinatorSocket << msg;
+
+  DmtcpMessage reply;
+  reply.poison();
+  _coordinatorSocket >> reply;
+  reply.assertValid();
+  JASSERT(reply.type == DMT_COORD_TSTAMP) (reply.type);
+  JASSERT(reply.coordTimeStamp != 0);
+
+  _coordTimeStamp = reply.coordTimeStamp;
+}
+
 void dmtcp::CoordinatorAPI::startCoordinatorIfNeeded(dmtcp::CoordinatorAPI::CoordinatorMode mode,
                                                      int isRestart)
 {

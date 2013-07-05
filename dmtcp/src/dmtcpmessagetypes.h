@@ -41,6 +41,9 @@ namespace dmtcp
     DMT_GET_VIRTUAL_PID,
     DMT_GET_VIRTUAL_PID_RESULT,
 
+    DMT_GET_COORD_TSTAMP,
+    DMT_COORD_TSTAMP,
+
     DMT_USER_CMD,            // on connect established dmtcp_command -> coordinator
     DMT_USER_CMD_RESULT,     // on reply coordinator -> dmtcp_command
 
