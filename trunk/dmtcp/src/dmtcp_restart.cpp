@@ -191,8 +191,7 @@ class RestoreTarget
 
       // Create the ckpt-dir fd so that the restarted process can know about
       // the abs-path of ckpt-image.
-      dmtcp::string deviceName = jalib::Filesystem::GetDeviceName(_fd);
-      dmtcp::string dirName = jalib::Filesystem::DirName(deviceName);
+      dmtcp::string dirName = jalib::Filesystem::DirName(_path);
       int dirfd = open(dirName.c_str(), O_RDONLY);
       JASSERT(dirfd != -1) (JASSERT_ERRNO);
       if (dirfd != PROTECTED_CKPT_DIR_FD) {
