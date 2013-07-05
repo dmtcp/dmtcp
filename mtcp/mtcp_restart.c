@@ -265,9 +265,9 @@ int main (int argc, char *argv[], char *envp[])
                                 PROT_READ | PROT_WRITE | PROT_EXEC,
                                 MAP_ANONYMOUS | MAP_FIXED | MAP_PRIVATE, -1, 0);
   if (restore_mmap == MAP_FAILED) {
-#ifndef _XOPEN_UNIX
+# ifndef _XOPEN_UNIX
     MTCP_PRINTF("Does mmap here support MAP_FIXED?\n");
-#endif
+# endif
     if (mtcp_sys_errno != EBUSY) {
       MTCP_PRINTF("Error %d creating %p byte restore region at %p.\n",
                   mtcp_sys_errno, restore_size, restore_begin);
@@ -285,6 +285,27 @@ int main (int argc, char *argv[], char *envp[])
   }
   mtcp_readcs (fd, CS_RESTOREIMAGE);
   mtcp_readfile (fd, restore_begin, restore_size);
+
+# if __arm__
+  /* THIS IS A HACK!  Reading the newly written libmtcp.so segment seens to be
+   * necessary for __arm__.  "WMB;IMB;" was already called in mtcp_readfile().
+   * Actively reading the new segment here seems to also be required in
+   * Linux kernel 3.0, glibc 2.16.  WHY?
+   */
+#  if 1
+  {char x = 0;
+   int i;
+   char *begin = restore_begin;
+   for (i = 0; i < restore_size; i++)
+     x = x ^ begin[i];
+   // MTCP_PRINTF("********** DEBUG: CHECKSUM: %c; restore_begin: %p\n",
+   //   x, ckpt_hdr->libmtcp_begin);
+  }
+#  else
+  WMB;
+  IMB;
+#  endif
+# endif
 #endif
 
 #ifndef __x86_64__
