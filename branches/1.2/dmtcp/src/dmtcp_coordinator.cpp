@@ -1043,7 +1043,7 @@ void dmtcp::DmtcpCoordinator::onConnect ( const jalib::JSocket& sock,
     if ( validateNewWorkerProcess ( hello_remote, remote, ds ) == false )
       return;
   } else {
-    JASSERT ( false )
+    JASSERT ( false ) (hello_remote.type)
       .Text ( "Connect request from Unknown Remote Process Type" );
   }
 
