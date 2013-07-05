@@ -966,12 +966,8 @@ void dmtcp::DmtcpCoordinator::onConnect ( const jalib::JSocket& sock,
     ds->readProcessInfo(hello_remote);
   }
 
-  if ( hello_remote.type == DMT_RESTART_PROCESS ) {
-    if ( validateDmtRestartProcess ( hello_remote, remote ) == false )
-      return;
-    isRestarting = true;
-  } else if ( hello_remote.type == DMT_HELLO_COORDINATOR &&
-              hello_remote.state == WorkerState::RESTARTING) {
+  if ( hello_remote.type == DMT_HELLO_COORDINATOR &&
+       hello_remote.state == WorkerState::RESTARTING) {
     if ( validateRestartingWorkerProcess ( hello_remote, remote ) == false )
       return;
     //JASSERT(hello_remote.virtualPid != -1);
@@ -1033,61 +1029,6 @@ void dmtcp::DmtcpCoordinator::processDmtUserCmd( DmtcpMessage& hello_remote,
     remote.close();
   }
   return;
-}
-
-bool dmtcp::DmtcpCoordinator::validateDmtRestartProcess
-	 ( DmtcpMessage& hello_remote, jalib::JSocket& remote )
-{
-  struct timeval tv;
-  // This is dmtcp_restart process, connecting to get timestamp
-  // and set current compGroup.
-
-  JASSERT ( hello_remote.numPeers > 0 );
-
-  dmtcp::DmtcpMessage hello_local ( dmtcp::DMT_RESTART_PROCESS_REPLY );
-
-  if( UniquePid::ComputationId() == dmtcp::UniquePid(0,0,0) ){
-    JASSERT ( minimumState() == WorkerState::UNKNOWN )
-      .Text ( "Coordinator should be idle at this moment" );
-    // Coordinator is free at this moment - set up all the things
-    UniquePid::ComputationId() = hello_remote.compGroup;
-    numPeers = hello_remote.numPeers;
-    JASSERT(gettimeofday(&tv, NULL) == 0);
-    // Get the resolution down to 100 mili seconds.
-    curTimeStamp = (tv.tv_sec << 4) | (tv.tv_usec / (100*1000));
-    JNOTE ( "FIRST dmtcp_restart connection.  Set numPeers. Generate timestamp" )
-      ( numPeers ) ( curTimeStamp ) ( UniquePid::ComputationId() );
-    JTIMER_START(restart);
-  } else if ( UniquePid::ComputationId() != hello_remote.compGroup ) {
-    // Coordinator already serving some other computation group - reject this process.
-    JNOTE ("Reject incoming dmtcp_restart connection"
-           " since it is not from current computation")
-      ( UniquePid::ComputationId() ) ( hello_remote.compGroup );
-    hello_local.type = dmtcp::DMT_REJECT;
-    remote << hello_local;
-    remote.close();
-    return false;
-  } else if ( numPeers != hello_remote.numPeers ) {
-    // Sanity check
-    JNOTE  ( "Invalid numPeers reported by dmtcp_restart process, Rejecting" )
-      ( numPeers ) ( hello_remote.numPeers );
-
-    hello_local.type = dmtcp::DMT_REJECT;
-    remote << hello_local;
-    remote.close();
-    return false;
-  } else {
-    // This is a second or higher dmtcp_restart process connecting to the coordinator.
-    // FIXME: Should the following be a JASSERT instead?      -- Kapil
-    JWARNING ( minimumState() == WorkerState::RESTARTING );
-  }
-
-  // Sent generated timestamp in local massage for dmtcp_restart process.
-  hello_local.coordTimeStamp = curTimeStamp;
-
-  remote << hello_local;
-
-  return true;
 }
 
 bool dmtcp::DmtcpCoordinator::validateRestartingWorkerProcess
