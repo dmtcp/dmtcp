@@ -319,6 +319,27 @@ static int read_header_and_restore_image(int fd, VA *restore_start)
   }
   mtcp_readfile (fd, ckpt_hdr->libmtcp_begin, ckpt_hdr->libmtcp_size);
 
+#if __arm__
+  /* THIS IS A HACK!  Reading the newly written libmtcp.so segment seens to be
+   * necessary for __arm__.  "WMB;IMB;" was already called in mtcp_readfile().
+   * Actively reading the new segment here seems to also be required in
+   * Linux kernel 3.0, glibc 2.16.  WHY?
+   */
+# if 1
+  {char x = 0;
+   int i;
+   char *begin = ckpt_hdr->libmtcp_begin;
+   for (i = 0; i < ckpt_hdr->libmtcp_size; i++)
+     x = x ^ begin[i];
+   // MTCP_PRINTF("********** DEBUG: CHECKSUM: %c; ckpt_hdr->libmtcp_begin: %p\n",
+   //    x, ckpt_hdr->libmtcp_begin);
+  }
+# else
+  WMB;
+  IMB;
+# endif
+#endif
+
   *restore_start = ckpt_hdr->restore_start_fptr;
   return 0;
 }
