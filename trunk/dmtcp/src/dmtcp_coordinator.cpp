@@ -838,6 +838,15 @@ void dmtcp::DmtcpCoordinator::onData ( jalib::JReaderInterface* sock )
           client->identity(msg.from);
       }
           break;
+
+      case DMT_GET_COORD_TSTAMP:
+      {
+        DmtcpMessage reply(DMT_COORD_TSTAMP);
+        reply.coordTimeStamp = curTimeStamp;
+        sock->socket() << reply;
+      }
+        break;
+
       default:
         JASSERT ( false ) ( msg.from ) ( msg.type )
 		.Text ( "unexpected message from worker" );
