@@ -26,6 +26,7 @@
 #include "dmtcpworker.h"
 #include "processinfo.h"
 #include "coordinatorapi.h"
+#include "dmtcpmessagetypes.h"
 #include "util.h"
 #include "threadsync.h"
 #include "ckptserializer.h"
@@ -36,6 +37,8 @@
 #include "../jalib/jassert.h"
 #include "../jalib/jalloc.h"
 #include "../../mtcp/mtcp.h"
+
+using namespace dmtcp;
 
 #ifdef DEBUG
 static int debugEnabled = 1;
@@ -185,10 +188,13 @@ static void callbackPostCheckpoint(int isRestart,
       /* This calls setenv() which calls malloc. Since this is only executed on
          restart, that means it there is an extra malloc on replay. Commenting this
          until we have time to fix it. */
-      dmtcp::CoordinatorAPI::instance().updateHostAndPortEnv();
+      CoordinatorAPI::instance().updateHostAndPortEnv();
     }
 
-    dmtcp::DmtcpWorker::instance().postRestart();
+    JTRACE("begin postRestart()");
+    WorkerState::setCurrentState(WorkerState::RESTARTING);
+    CoordinatorAPI::instance().updateCoordTimeStamp();
+
     if (dmtcp_update_ppid) {
       dmtcp_update_ppid();
     }

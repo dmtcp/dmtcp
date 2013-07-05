@@ -28,6 +28,7 @@
 #include "util.h"
 #include "uniquepid.h"
 #include "processinfo.h"
+#include "shareddata.h"
 #include "ckptserializer.h"
 #include  "../jalib/jassert.h"
 #include  "../jalib/jfilesystem.h"
@@ -199,8 +200,23 @@ class RestoreTarget
         close(dirfd);
       }
 
-      dmtcp::CoordinatorAPI coordinatorAPI;
-      coordinatorAPI.connectToCoordinator();
+      WorkerState::setCurrentState(WorkerState::RESTARTING);
+      CoordinatorAPI::instance().connectToCoordinator();
+      CoordinatorAPI::instance().sendCoordinatorHandshake(_pInfo.procname(),
+                                                          _pInfo.compGroup(),
+                                                          _pInfo.numPeers(),
+                                                          DMT_HELLO_COORDINATOR,
+                                                          false);
+      CoordinatorAPI::instance().recvCoordinatorHandshake();
+      UniquePid::ComputationId() = _pInfo.compGroup();
+
+      /* We need to initialize SharedData here to make sure that it is
+       * initialized with the correct coordinator timestamp.  The coordinator
+       * timestamp is updated only during postCkpt callback. However, the
+       * SharedData area may be initialized earlier (for example, while
+       * recreating threads), causing it to use *older* timestamp.
+       */
+      dmtcp::SharedData::initialize();
       dmtcp::Util::runMtcpRestore(_path.c_str(), _fd, _extDecompPid,
                                   _pInfo.argvSize(), _pInfo.envSize());
 
