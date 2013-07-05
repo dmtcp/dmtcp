@@ -73,6 +73,8 @@
 
 #define BINARY_NAME "dmtcp_coordinator"
 
+using namespace dmtcp;
+
 static int thePort = -1;
 
 static const char* theHelpMessage =
@@ -402,6 +404,8 @@ static dmtcp::string localHostName;
 static dmtcp::string localPrefix;
 static dmtcp::string remotePrefix;
 
+static void removeStaleSharedAreaFile();
+
 #define INITIAL_VIRTUAL_PID 40000
 #define MAX_VIRTUAL_PID   4000000
 static pid_t _nextVirtualPid = INITIAL_VIRTUAL_PID;
@@ -572,6 +576,7 @@ void dmtcp::DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*
     {
       i->close();
     }
+    removeStaleSharedAreaFile();
     JTRACE ("Exiting ...");
     exit ( 0 );
     break;
@@ -842,6 +847,16 @@ void dmtcp::DmtcpCoordinator::onData ( jalib::JReaderInterface* sock )
   }
 }
 
+static void removeStaleSharedAreaFile()
+{
+  ostringstream o;
+  o << UniquePid::getTmpDir() << "/dmtcpSharedArea."
+    << UniquePid::ComputationId() << "."
+    << std::hex << curTimeStamp;
+  JTRACE("Removing sharedArea file.") (o.str());
+  unlink(o.str().c_str());
+}
+
 void dmtcp::DmtcpCoordinator::onDisconnect ( jalib::JReaderInterface* sock )
 {
   if ( sock->socket().sockfd() == STDIN_FD ) {
@@ -856,6 +871,8 @@ void dmtcp::DmtcpCoordinator::onDisconnect ( jalib::JReaderInterface* sock )
       if (exitOnLast) {
         JNOTE ("last client exited, shutting down..");
         handleUserCommand('q');
+      } else {
+        removeStaleSharedAreaFile();
       }
       // If a kill in is progress, the coordinator refuses any new connections,
       // thus we need to reset it to false once all the processes in the
