@@ -407,7 +407,7 @@ static dmtcp::string remotePrefix;
 static void removeStaleSharedAreaFile();
 
 #define INITIAL_VIRTUAL_PID 40000
-#define MAX_VIRTUAL_PID   4000000
+#define MAX_VIRTUAL_PID  40000000
 static pid_t _nextVirtualPid = INITIAL_VIRTUAL_PID;
 
 namespace
@@ -467,7 +467,7 @@ namespace
 pid_t dmtcp::DmtcpCoordinator::getNewVirtualPid()
 {
   pid_t pid = -1;
-  JASSERT(_virtualPidToChunkReaderMap.size() < MAX_VIRTUAL_PID/100)
+  JASSERT(_virtualPidToChunkReaderMap.size() < MAX_VIRTUAL_PID/1000)
     .Text("Exceeded maximum number of processes allowed");
   while (1) {
     pid = _nextVirtualPid;
