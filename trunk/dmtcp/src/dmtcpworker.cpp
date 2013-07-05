@@ -591,21 +591,6 @@ void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
   processEvent(DMTCP_EVENT_WRITE_CKPT, NULL);
 }
 
-void dmtcp::DmtcpWorker::postRestart()
-{
-  JTRACE("begin postRestart()");
-
-  WorkerState::setCurrentState(WorkerState::RESTARTING);
-  string procname = ProcessInfo::instance().procname();
-  UniquePid compGroup = UniquePid::ComputationId();
-  size_t numPeers = ProcessInfo::instance().numPeers();
-  CoordinatorAPI::instance().sendCoordinatorHandshake(procname, compGroup,
-                                                      numPeers,
-                                                      DMT_HELLO_COORDINATOR,
-                                                      false);
-  CoordinatorAPI::instance().recvCoordinatorHandshake();
-}
-
 void dmtcp::DmtcpWorker::waitForStage3Refill(bool isRestart)
 {
   DmtcpEventData_t edata;
