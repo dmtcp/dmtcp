@@ -345,6 +345,10 @@ static void dmtcpProcessFailedExec(const char *path, char *newArgv[])
 
   JTRACE("Processed failed Exec Attempt") (path) (getenv("LD_PRELOAD"));
   errno = saved_errno;
+
+  const char* serialFile = getenv(ENV_VAR_SERIALFILE_INITIAL);
+  _dmtcp_unsetenv(ENV_VAR_SERIALFILE_INITIAL);
+  JASSERT(unlink(serialFile) == 0) (JASSERT_ERRNO);
 }
 
 static dmtcp::string getUpdatedLdPreload(const char* currLdPreload = NULL)
