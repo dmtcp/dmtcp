@@ -990,7 +990,7 @@ void dmtcp::DmtcpCoordinator::onConnect ( const jalib::JSocket& sock,
       return;
     _virtualPidToChunkReaderMap[ds->virtualPid()] = ds;
   } else {
-    JASSERT ( false )
+    JASSERT ( false ) (hello_remote.type)
       .Text ( "Connect request from Unknown Remote Process Type" );
   }
 
