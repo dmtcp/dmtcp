@@ -358,9 +358,7 @@ void dmtcp::CoordinatorAPI::recvCoordinatorHandshake()
     _exit (0);
   }
 
-  JASSERT(hello_remote.type == DMT_HELLO_WORKER ||
-          hello_remote.type == DMT_RESTART_PROCESS_REPLY)
-    (hello_remote.type);
+  JASSERT(hello_remote.type == DMT_HELLO_WORKER) (hello_remote.type);
 
   _coordinatorId = hello_remote.coordinator;
   DmtcpMessage::setDefaultCoordinator(_coordinatorId);

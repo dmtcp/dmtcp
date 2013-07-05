@@ -44,8 +44,8 @@ namespace dmtcp
     DMT_USER_CMD,            // on connect established dmtcp_command -> coordinator
     DMT_USER_CMD_RESULT,     // on reply coordinator -> dmtcp_command
 
-    DMT_RESTART_PROCESS,     // on connect established dmtcp_restart -> coordinator
-    DMT_RESTART_PROCESS_REPLY,  // on reply coordinator -> dmtcp_restart
+    //DMT_RESTART_PROCESS,     // on connect established dmtcp_restart -> coordinator
+    //DMT_RESTART_PROCESS_REPLY,  // on reply coordinator -> dmtcp_restart
 
     DMT_DO_SUSPEND,          // when coordinator wants slave to suspend        8
     DMT_DO_RESUME,           // when coordinator wants slave to resume (after checkpoint)
