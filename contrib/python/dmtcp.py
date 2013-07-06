@@ -116,7 +116,7 @@ def createSessionList():
     for script in restartScripts:
         for line in open(script):
             if 'ckpt_timestamp' in line:
-                tstamp = line.split('=')[1][:-1]
+                tstamp = line.split('"')[1]
                 sessionList = [(tstamp, script)] + sessionList
                 break;
     sessionList.sort()
@@ -134,6 +134,8 @@ def listSessions():
     if len(sessionList) == 0:
         print 'No checkpoint sessions found'
 
+def removeSession(sessionId = 0):
+    print "TODO"
 ########################################################################
 # VNC handling
 ########################################################################

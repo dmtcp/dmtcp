@@ -1341,6 +1341,7 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
   dmtcp::vector<dmtcp::string>::const_iterator file;
 
   char hostname[80];
+  char timestamp[80];
   gethostname ( hostname, 80 );
 
   JTRACE ( "writing restart script" ) ( uniqueFilename );
@@ -1353,7 +1354,10 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
   fprintf ( fp, "%s", theRestartScriptCheckLocal );
   fprintf ( fp, "%s", theRestartScriptUsage );
 
-  fprintf ( fp, "ckpt_timestamp=\"%s\"\n\n", ctime(&ckptTimeStamp) );
+  ctime_r(&ckptTimeStamp, timestamp);
+  // Remove the trailing '\n'
+  timestamp[strlen(timestamp - 1)] = '\0';
+  fprintf ( fp, "ckpt_timestamp=\"%s\"\n\n", timestamp );
 
   fprintf ( fp, "coord_host=$"ENV_VAR_NAME_HOST"\n"
                 "if test -z \"$" ENV_VAR_NAME_HOST "\"; then\n"
