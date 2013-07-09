@@ -471,7 +471,6 @@ void mtcp_dump_tls (char const *file, int line);
 // mtcp_restore_XXX are globals for arguments to mtcp_restore_start();
 extern __attribute__ ((visibility ("hidden"))) int mtcp_restore_cpfd;
 extern __attribute__ ((visibility ("hidden"))) int mtcp_restore_verify;
-extern __attribute__ ((visibility ("hidden"))) pid_t mtcp_restore_gzip_child_pid;
 extern __attribute__ ((visibility ("hidden"))) char mtcp_ckpt_newname[];
 extern __attribute__ ((visibility ("hidden"))) char *mtcp_restore_cmd_file;
 extern __attribute__ ((visibility ("hidden"))) char *mtcp_restore_argv[];
@@ -524,7 +523,6 @@ void mtcp_checkpointeverything(const char *temp_ckpt_filename,
                                const char *perm_ckpt_filename);
 void mtcp_restore_finish(void);
 void mtcp_restore_start(int fd, int verify, int should_mmap_ckpt_image,
-                        pid_t gzip_child_pid,
                         char *ckpt_newname, char *cmd_file,
                         char *argv[], char *envp[]);
 void mtcp_writeckpt_init(VA restore_start_fptr, VA finishrestore_fptr);

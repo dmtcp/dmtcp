@@ -35,11 +35,9 @@ namespace dmtcp
 {
   namespace CkptSerializer
   {
-    int openDmtcpCheckpointFile(const dmtcp::string& path, pid_t *extDecompPid);
-    void closeDmtcpCheckpointFile(int fd, pid_t extDecompPid);
+    int openDmtcpCheckpointFile(const dmtcp::string& path);
     void writeCkptHeader(int fd);
-    int readCkptHeader(const dmtcp::string& path, pid_t *extDecompPid,
-                       dmtcp::ProcessInfo *pInfo);
+    int readCkptHeader(const dmtcp::string& path, dmtcp::ProcessInfo *pInfo);
   };
 }
 
