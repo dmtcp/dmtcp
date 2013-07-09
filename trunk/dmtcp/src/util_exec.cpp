@@ -396,7 +396,7 @@ void dmtcp::Util::prepareDlsymWrapper()
   dlclose(handle);
 }
 
-void dmtcp::Util::runMtcpRestore(const char* path, int fd, pid_t gzipChildPid,
+void dmtcp::Util::runMtcpRestore(const char* path, int fd,
                                  size_t argvSize, size_t envSize)
 {
   static dmtcp::string mtcprestart =
@@ -409,24 +409,16 @@ void dmtcp::Util::runMtcpRestore(const char* path, int fd, pid_t gzipChildPid,
   sprintf(protected_stderr_fd_str, "%d", PROTECTED_STDERR_FD);
 
   char buf[64];
-  char buf2[64];
-
   sprintf(buf, "%d", fd);
-  // gzip_child_pid set by openMtcpCheckpointFile() above.
-  sprintf(buf2, "%d", gzipChildPid);
+
   char* newArgs[] = {
     (char*) mtcprestart.c_str(),
     (char*) "--stderr-fd",
     protected_stderr_fd_str,
     (char*) "--fd",
     buf,
-    (char*) "--gzip-child-pid",
-    buf2,
     NULL
   };
-  if (gzipChildPid == -1) { // If no gzip compression
-    newArgs[5] = NULL;
-  }
   JTRACE ("launching mtcp_restart --fd")(fd)(path);
 
   // Create the placeholder for "MTCP_OLDPERS" environment.

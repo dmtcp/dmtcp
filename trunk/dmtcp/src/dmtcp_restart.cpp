@@ -94,8 +94,7 @@ class RestoreTarget
       JASSERT(jalib::Filesystem::FileExists(_path)) (_path)
         .Text ( "checkpoint file missing" );
 
-      _fd = dmtcp::CkptSerializer::readCkptHeader(_path, &_extDecompPid,
-                                                  &_pInfo);
+      _fd = dmtcp::CkptSerializer::readCkptHeader(_path, &_pInfo);
       JTRACE("restore target") (_path) (_pInfo.numPeers()) (_pInfo.compGroup());
     }
 
@@ -217,7 +216,7 @@ class RestoreTarget
        * recreating threads), causing it to use *older* timestamp.
        */
       dmtcp::SharedData::initialize();
-      dmtcp::Util::runMtcpRestore(_path.c_str(), _fd, _extDecompPid,
+      dmtcp::Util::runMtcpRestore(_path.c_str(), _fd,
                                   _pInfo.argvSize(), _pInfo.envSize());
 
       JASSERT ( false ).Text ( "unreachable" );
@@ -227,7 +226,6 @@ class RestoreTarget
     dmtcp::string _path;
     dmtcp::ProcessInfo _pInfo;
     int _fd;
-    pid_t _extDecompPid;
 };
 
 

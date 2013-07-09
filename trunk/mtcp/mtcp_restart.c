@@ -61,8 +61,6 @@ static int read_header_and_restore_image(int fd, VA *restore_start);
 static void prompt_load_symbol_file(mtcp_ckpt_image_hdr_t *hdr);
 #endif
 
-static pid_t decomp_child_pid = -1;
-
 extern int dmtcp_info_stderr_fd;
 
 //shift args
@@ -73,7 +71,7 @@ static const char* theUsage =
   "mtcp_restart [--verify] <ckeckpointfile>\n\n"
   "mtcp_restart [--offset <offset-in-bytes>] [--stderr-fd <fd>] [--]"
       " <ckeckpointfile>\n\n"
-  "mtcp_restart [--fd <ckpt-fd>] [--gzip-child-pid <pid>]"
+  "mtcp_restart [--fd <ckpt-fd>]"
       " [--rename-ckpt <newname>] [--stderr-fd <fd>]\n\n"
   "  --help:      Print this message and exit.\n"
   "  --version:   Print version information and exit.\n"
@@ -88,7 +86,6 @@ int main (int argc, char *argv[], char *envp[])
   int should_mmap_ckpt_image = 0;
   size_t offset=0;
   void (*restore_start) (int fd, int verify, int should_mmap_ckpt_image,
-                         pid_t decomp_child_pid,
                          char *ckpt_newname, char *cmd_file,
                          char *argv[], char *envp[]);
   char cmd_file[PATH_MAX+1];
@@ -108,7 +105,7 @@ int main (int argc, char *argv[], char *envp[])
   // Turn off randomize_va (by re-exec'ing) or warn user if vdso_enabled is on.
   mtcp_check_vdso_enabled();
 
-  fd = decomp_child_pid = -1;
+  fd = -1;
   verify = 0;
 
   shift;
@@ -130,9 +127,6 @@ int main (int argc, char *argv[], char *envp[])
       shift; shift;
     } else if (mtcp_strcmp (argv[0], "--fd") == 0 && argc >= 2) {
       fd = mtcp_atoi(argv[1]);
-      shift; shift;
-    } else if (mtcp_strcmp (argv[0], "--gzip-child-pid") == 0 && argc >= 2) {
-      decomp_child_pid = mtcp_atoi(argv[1]);
       shift; shift;
     } else if (mtcp_strcmp (argv[0], "--rename-ckpt") == 0 && argc >= 2) {
       mtcp_strncpy(ckpt_newname, argv[1], PATH_MAX);
@@ -170,10 +164,9 @@ int main (int argc, char *argv[], char *envp[])
    *                                                                   --Kapil
    */
 
-  if (fd != -1 && decomp_child_pid != -1) {
+  if (fd != -1) {
     restorename = NULL;
-  } else if ((fd == -1 && decomp_child_pid != -1) ||
-             (offset != 0 && fd != -1)) {
+  } else if (fd == -1 || (offset != 0 && fd != -1)) {
     mtcp_printf("%s", theUsage);
     return (-1);
   }
@@ -253,7 +246,7 @@ int main (int argc, char *argv[], char *envp[])
 #endif
 
   /* Now call it - it shouldn't return */
-  (*restore_start) (fd, verify, should_mmap_ckpt_image, decomp_child_pid,
+  (*restore_start) (fd, verify, should_mmap_ckpt_image,
                     ckpt_newname, cmd_file, argv, envp);
   MTCP_PRINTF("restore routine returned (it should never do this!)\n");
   mtcp_abort ();
@@ -498,12 +491,23 @@ static int open_ckpt_to_read(char *filename, int should_mmap_ckpt_image,
       mtcp_abort();
     }
     else if(cpid > 0) /* parent process */ {
-      decomp_child_pid = cpid;
+      // Wait for child process
+      MTCP_ASSERT(mtcp_sys_wait4(cpid , NULL, 0, NULL ) != -1);
       mtcp_sys_close(fd);
       mtcp_sys_close(fds[1]);
       return fds[0];
     }
     else /* child process */ {
+      /* Fork a grandchild process and kill the parent. This way the grandchild
+       * process never becomes a zombie.
+       */
+      cpid = mtcp_sys_fork();
+      MTCP_ASSERT(cpid != -1);
+      if (cpid > 0) {
+        mtcp_sys_exit(0);
+      }
+
+      // Grandchild process
       fd = mtcp_sys_dup(mtcp_sys_dup(mtcp_sys_dup(fd)));
       if (fd == -1) {
         MTCP_PRINTF("ERROR: dup() failed!  No restoration will be performed!"

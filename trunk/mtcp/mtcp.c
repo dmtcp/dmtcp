@@ -2722,7 +2722,6 @@ static int is_thread_locked (void)
 static char UNUSED_IN_64_BIT STRINGS[STRINGS_LEN];
 static int should_mmap_ckpt_image = 0;
 void mtcp_restore_start (int fd, int verify, int mmap_ckpt_image,
-                         pid_t gzip_child_pid,
                          char *ckpt_newname, char *cmd_file,
                          char *argv[], char *envp[] )
 {
@@ -2752,7 +2751,6 @@ void mtcp_restore_start (int fd, int verify, int mmap_ckpt_image,
 
   mtcp_restore_cpfd   = fd;
   mtcp_restore_verify = verify;
-  mtcp_restore_gzip_child_pid = gzip_child_pid;
   // Copy newname to save it too
   {
     int i;

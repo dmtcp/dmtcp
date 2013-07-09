@@ -135,7 +135,7 @@ namespace dmtcp
 
     void prepareDlsymWrapper();
     void adjustRlimitStack();
-    void runMtcpRestore(const char* path, int fd, pid_t gzipChildPid,
+    void runMtcpRestore(const char* path, int fd,
                         size_t argvSize, size_t envSize);
 
     char readDec (int fd, VA *value);
