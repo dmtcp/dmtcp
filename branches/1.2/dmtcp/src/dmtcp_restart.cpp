@@ -1407,23 +1407,16 @@ static void runMtcpRestore ( const char* path, int offset,
 #ifdef USE_MTCP_FD_CALLING
   int fd = ConnectionToFds::openMtcpCheckpointFile(path);
   char buf[64];
-  char buf2[64];
-
   sprintf(buf, "%d", fd);
-  // gzip_child_pid set by openMtcpCheckpointFile() above.
-  sprintf(buf2, "%d", dmtcp::ConnectionToFds::gzip_child_pid);
+
   char* newArgs[] = {
     ( char* ) mtcprestart.c_str(),
     ( char* ) "--stderr-fd",
     protected_stderr_fd_str,
     ( char* ) "--fd",
     buf,
-    ( char* ) "--gzip-child-pid",
-    buf2,
     NULL
   };
-  if (dmtcp::ConnectionToFds::gzip_child_pid == -1) // If no gzip compression
-    newArgs[3] = NULL;
   JTRACE ( "launching mtcp_restart --fd" )(fd)(path);
 #else
   char buf[64];
