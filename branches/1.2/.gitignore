@@ -37,6 +37,7 @@ mtcp/mtcp_restart
 mtcp/readmtcp
 mtcp/mtcp.t.orig
 mtcp/testmtcp6
+mtcp/util-arch
 test/testconfig.py
 stamp-h1
 config.h
