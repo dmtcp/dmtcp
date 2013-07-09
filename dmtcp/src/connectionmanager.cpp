@@ -982,45 +982,6 @@ bool dmtcp::PtsToSymlink::exists( dmtcp::string device )
 }
 */
 
-pid_t dmtcp::ConnectionToFds::ext_decomp_pid = -1;
-static void close_ckpt_to_read(const int fd)
-{
-    int status;
-    int rc;
-    int pid = dmtcp::ConnectionToFds::ext_decomp_pid;
-    if( pid != -1 ) {
-      // First close fd to let decompressor know that we want to close it
-      while (-1 == (rc = close(fd)) && errno == EINTR) ;
-      JASSERT (rc != -1) ("close:") (JASSERT_ERRNO);
-
-      // Kill the decompressor process
-      // 1. Send SIGTERM to give the decompressor a chance to clean up
-      JASSERT (kill(pid, SIGTERM) != -1)("kill:") (JASSERT_ERRNO);
-      // 2. Wait 3 seconds for decompressor termination
-      rc = 0;
-      for(int i = 0; (i < 3000 && rc != pid); i++){
-        struct timespec sleepTime = {0, 1*1000*1000};
-        nanosleep(&sleepTime, NULL);
-        rc = waitpid(pid, &status, WNOHANG);
-      }
-      // 3. If the decompressor process still exists
-      if( rc != pid ){
-        if( (rc = kill(pid, SIGKILL)) == -1 && errno != ESRCH ){
-          // process exists but we failed to kill it
-          JASSERT (rc != -1)("kill:") (JASSERT_ERRNO);
-        }else{
-          // process exists and it was SIGKILL'ed. Endless wait for exit.
-          while(0 == (rc = waitpid(pid,&status, WNOHANG))){
-            struct timespec sleepTime = {0, 1*1000*1000};
-            nanosleep(&sleepTime, NULL);
-          }
-        }
-        JASSERT (rc == pid) ("waitpid:") (JASSERT_ERRNO);
-      }
-      dmtcp::ConnectionToFds::ext_decomp_pid = -1;
-    }
-}
-
 // Define DMTCP_OLD_PCLOSE to get back the old buggy version.
 // Remove the old version when satisfied this is better.
 #ifndef DMTCP_OLD_PCLOSE
@@ -1053,7 +1014,7 @@ static char first_char(const char *filename)
 // MTCP code in:  mtcp/mtcp_restart.c:open_ckpt_to_read()
 // A previous version tried to replace this with popen, causing a regression:
 //   (no call to pclose, and possibility of using a wrong fd).
-// Returns fd; sets dmtcp::ext_decomp_pid::ConnectionToFds, if checkpoint was compressed.
+// Returns fd;
 static int open_ckpt_to_read(const char *filename)
 {
     int fd;
@@ -1098,15 +1059,33 @@ static int open_ckpt_to_read(const char *filename)
         JASSERT(cpid != -1).Text("ERROR: Cannot fork to execute gunzip to decompress checkpoint file!");
         if(cpid > 0) /* parent process */
         {
-           JTRACE ( "created child process to uncompress checkpoint file")(cpid);
-            dmtcp::ConnectionToFds::ext_decomp_pid = cpid;
-            close(fd);
-            close(fds[1]);
-            return fds[0];
+          JTRACE ( "created child process to uncompress checkpoint file")(cpid);
+          // Wait for the child process.
+          JASSERT(waitpid(cpid, NULL, 0) == cpid);
+          close(fd);
+          close(fds[1]);
+          return fds[0];
         }
         else /* child process */
         {
-           JTRACE ( "child process, will exec into external de-compressor");
+          /* Fork a grandchild process and kill the parent. This way the grandchild
+           * process never becomes a zombie.
+           *
+           * Sometimes dmtcp_restart is called with multiple ckpt images. In that
+           * situation, the dmtcp_restart process creates gzip processes and only
+           * later forks mtcp_restart processes. The gzip processes can not be
+           * wait()'d upon by the corresponding mtcp_restart processes because
+           * their parent is the original dmtcp_restart process and thus they
+           * become zombie.
+           */
+          cpid = _real_fork();
+          JASSERT(cpid != -1);
+          if (cpid > 0) {
+            _real_exit(0);
+          }
+
+          // Grandchild process
+           JTRACE ( "grandchild process, will exec into external de-compressor");
             fd = dup(dup(dup(fd)));
             fds[1] = dup(fds[1]);
             close(fds[0]);
@@ -1129,7 +1108,6 @@ static int open_ckpt_to_read(const char *filename)
 
 // See comments above for open_ckpt_to_read()
 int dmtcp::ConnectionToFds::openDmtcpCheckpointFile(const dmtcp::string& path){
-  // Function also sets dmtcp::ext_decomp_pid::ConnectionToFds
   int fd = open_ckpt_to_read( path.c_str() );
   // The rest of this function is for compatibility with original definition.
   JASSERT(fd>=0)(path).Text("Failed to open file.");
@@ -1139,7 +1117,7 @@ int dmtcp::ConnectionToFds::openDmtcpCheckpointFile(const dmtcp::string& path){
   if(strncmp(buf, DMTCP_FILE_HEADER, len)==0){
     JTRACE("opened checkpoint file [uncompressed]")(path);
   }else{
-    close_ckpt_to_read(fd);
+    _real_close(fd);
     fd = open_ckpt_to_read( path.c_str() ); /* Re-open from beginning */
   }
   return fd;
@@ -1191,6 +1169,6 @@ int dmtcp::ConnectionToFds::loadFromFile(const dmtcp::string& path,
 #ifdef PID_VIRTUALIZATION
   info->virtualPidTable.serialize(rdr);
 #endif
-  close_ckpt_to_read(fd);
+  _real_close(fd);
   return rdr.bytes() + strlen(DMTCP_FILE_HEADER);
 }

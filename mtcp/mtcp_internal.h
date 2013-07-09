@@ -375,7 +375,6 @@ int mtcp_sigaction(int sig, const struct sigaction *act,
 // mtcp_restore_XXX are globals for arguments to mtcp_restore_start();
 extern __attribute__ ((visibility ("hidden"))) int mtcp_restore_cpfd;
 extern __attribute__ ((visibility ("hidden"))) int mtcp_restore_verify;
-extern __attribute__ ((visibility ("hidden"))) pid_t mtcp_restore_gzip_child_pid;
 extern __attribute__ ((visibility ("hidden"))) char mtcp_ckpt_newname[];
 extern __attribute__ ((visibility ("hidden"))) char *mtcp_restore_cmd_file;
 extern __attribute__ ((visibility ("hidden"))) char *mtcp_restore_argv[];

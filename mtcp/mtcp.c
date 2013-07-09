@@ -492,7 +492,7 @@ static size_t restore_size;
 static VA restore_begin, restore_end;
 VA mtcp_restore_begin, mtcp_restore_end;
 static void (*restore_start)(); /* will be bound to fnc, mtcp_restore_start */
-static void mtcp_restore_start(int fd, int verify, pid_t gzip_child_pid,
+static void mtcp_restore_start(int fd, int verify,
                                char *ckpt_newname, char *cmd_file,
                                char *argv[], char *envp[]);
 static void *saved_sysinfo;
@@ -4096,9 +4096,9 @@ skipeol:
 
 #define STRINGS_LEN 10000
 static char UNUSED_IN_64_BIT STRINGS[STRINGS_LEN];
-static void mtcp_restore_start (int fd, int verify, pid_t gzip_child_pid,
-                         char *ckpt_newname, char *cmd_file,
-                         char *argv[], char *envp[] )
+static void mtcp_restore_start (int fd, int verify,
+                                char *ckpt_newname, char *cmd_file,
+                                char *argv[], char *envp[] )
 {
 #ifndef __x86_64__
   int i;
@@ -4125,7 +4125,6 @@ static void mtcp_restore_start (int fd, int verify, pid_t gzip_child_pid,
 
   mtcp_restore_cpfd   = fd;
   mtcp_restore_verify = verify;
-  mtcp_restore_gzip_child_pid = gzip_child_pid;
   // Copy newname to save it too
   {
     int i;
