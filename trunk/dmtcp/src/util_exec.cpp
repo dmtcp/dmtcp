@@ -431,7 +431,7 @@ void dmtcp::Util::runMtcpRestore(const char* path, int fd,
   // Eventually, newEnv = {ENV_PTR("MTCP_OLDPERS"), ENV_PTR("PATH"), NULL}
   // newEnv[2] = NULL; newEnv[3] and newEnv[4] are available so that
   //    they can easily be used to modify envp inside mtcp_restart.c:main().
-  //    for debugging in GDB.
+  //    for debugging in GDB.  These appear _after_ final NULL  of newEnv[].
   char* newEnv[5] = {NULL, NULL, NULL,
                      const_cast<char *> ("MTCP_INIT_PAUSE=1"),
                      const_cast<char *> ("MTCP_RESTART_PAUSE=1")};

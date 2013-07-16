@@ -307,12 +307,12 @@ void mtcp_checkpointeverything(const char *temp_ckpt_filename,
   if (mtcpHookWriteCkptData == NULL) {
     if (use_compression) {
       /* IF OUT OF DISK SPACE, REPORT IT HERE. */
-      /* In perform_open_ckpt_image_fd(), we set SIGCHLD to SIG_DFL.
-       * This is done to avoid calling the user SIGCHLD handler (if the user
-       * SIG_DFL is needed for mtcp_sys_wait4() to work cleanly.
+      /* In perform_open_ckpt_image_fd(), we set SIGCHLD to our own handler.
+       * This is done to avoid calling the user SIGCHLD handler when gzip
+       * or another compression utility exits.
        * NOTE: We must wait in case user did rapid ckpt-kill in succession.
-       *  Otherwise, kernel could have optimization allowing us to close fd
-       *  and rename tmp ckpt file to permanent even while gzip is still writing.
+       *  Otherwise, kernel could have optimization allowing us to close fd and
+       *  rename tmp ckpt file to permanent even while gzip is still writing.
        */
       if ( mtcp_sys_wait4(mtcp_ckpt_extcomp_child_pid, NULL, 0, NULL ) == -1 ) {
         DPRINTF("(compression): waitpid: %s\n", strerror(mtcp_sys_errno));
