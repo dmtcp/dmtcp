@@ -34,6 +34,7 @@
  *
  *****************************************************************************/
 
+#define POSIX_SOURCE
 
 // For i386 and x86_64, SETJMP currently has bugs.  Don't turn this
 //   on for them until they are debugged.
@@ -93,6 +94,11 @@
 #define MTCP_SYS_STRLEN
 #define MTCP_SYS_GET_SET_THREAD_AREA
 #include "mtcp_internal.h"
+
+/* We handle SIGCHLD while checkpointing. */
+void default_sigchld_handler(int sig) {
+  MTCP_ASSERT(sig == SIGCHLD);
+}
 
 // static int WAIT=1;
 // static int WAIT=0;
@@ -2393,8 +2399,20 @@ static void checkpointeverything (void)
      *  Otherwise, kernel could have optimization allowing us to close fd
      *  and rename tmp ckpt file to permanent even while gzip is still writing.
      */
+    /* All signals, incl. SIGCHLD, were blocked in mtcp.c:save_sig_state()
+     * when beginning the ckpt.  A SIGCHLD handler was declared before
+     * the gzip child process was forked.  The child may have already
+     * terminated and returned, creating a blocked SIGCHLD.
+     *   So, we use sigsuspend so that we can clean up the child zombie
+     * with wait4 whether it already terminated or not yet.
+     */
+    sigset_t suspend_sigset;
+    sigfillset(&suspend_sigset);
+    sigdelset(&suspend_sigset, SIGCHLD);
+    sigsuspend(&suspend_sigset);
     if ( mtcp_sys_wait4(mtcp_ckpt_extcomp_child_pid, NULL, 0, NULL ) == -1 ) {
-      DPRINTF("(compression): waitpid: %s\n", strerror(mtcp_sys_errno));
+      DPRINTF("(compression): waitpid: %s, child_pid: %d\n",
+              strerror(mtcp_sys_errno), mtcp_ckpt_extcomp_child_pid);
     }
     mtcp_ckpt_extcomp_child_pid = -1;
     sigaction(SIGCHLD, &sigactions[SIGCHLD], NULL);
@@ -2511,14 +2529,17 @@ int perform_open_ckpt_image_fd(int *use_compression, int *fdCkptFileOnDisk)
   *       when using forked checkpointing.
   */
 
-  if (use_deltacompression || use_gzip_compression) { /* fork a hbict process */
-    /* 3a. Set SIGCHLD to ignore; user handling is restored after gzip finishes.
+  if (use_deltacompression || use_gzip_compression) { /* fork compr. process */
+    /* 3a. Set SIGCHLD to our own handler;
+     *     User handling is restored after gzip finishes.
+     * SEE: sigaction(2), NOTES: only portable method of avoiding zombies
+     *      is to catch SIGCHLD signal and perform a wait(2) or similar.
      *
      * NOTE: Although the default action for SIGCHLD is supposedly SIG_IGN,
      * for historical reasons there are differences between SIG_DFL and SIG_IGN
      * for SIGCHLD.  See sigaction(2), NOTES section for more details. */
     struct sigaction default_sigchld_action;
-    default_sigchld_action.sa_handler = SIG_IGN;
+    default_sigchld_action.sa_handler = default_sigchld_handler;
     sigaction(SIGCHLD, &default_sigchld_action, NULL);
 
     /* 3b. Open pipe */
