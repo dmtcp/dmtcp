@@ -34,6 +34,7 @@ else:
 libmtcp = "mtcp/libmtcp.so"
 
 file = open("/proc/"+str(pid)+"/maps")
+gdbCmd = ""
 for line in file:
   fields = line.split()[0:2]
   fields = map(lambda(x):int(x,16), fields[0].split("-")) + [fields[1]]
@@ -49,6 +50,8 @@ for line in file:
     gdbCmd = "add-symbol-file "+libmtcp+" "+hex(fields[0]+int(textOffset,16))
     print gdbCmd
     break
+if not gdbCmd:
+  print "Couldn't find libmtcp.so in", "/proc/"+str(pid)+"/maps"
 file.close()
 sys.exit(0)
 

@@ -69,6 +69,7 @@ tidy:
 clean: tidy
 	-rm -f *.o
 	-rm -f *.so
+	-rm -f dmtcp_discover_rm
 
 distclean: clean
 	rm -f Makefile
