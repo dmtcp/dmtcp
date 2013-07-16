@@ -49,7 +49,7 @@ tidy:
 	rm -f *~ .*.swp dmtcp_restart_script*.sh ckpt_*.dmtcp
 
 clean:
-	rm -f ${LIBOBJS}
+	rm -f ${LIBOBJS} ${LIBNAME}.so
 
 distclean: clean
 	rm -f ${LIBNAME}.so *~ .*.swp dmtcp_restart_script*.sh ckpt_*.dmtcp
