@@ -21,6 +21,7 @@
  *  <http://www.gnu.org/licenses/>.                                          *
  *****************************************************************************/
 
+#define POSIX_SOURCE
 
 #include <dirent.h>
 #include <errno.h>
@@ -85,6 +86,11 @@ static pid_t mtcp_ckpt_extcomp_child_pid = -1;
 static struct sigaction saved_sigchld_action;
 static void (*restore_start_fptr)(); /* will be bound to fnc, mtcp_restore_start */
 static void (*restore_finish_fptr)(); /* will be bound to fnc, mtcp_restore_finish */
+
+/* We handle SIGCHLD while checkpointing. */
+void default_sigchld_handler(int sig) {
+  MTCP_ASSERT(sig == SIGCHLD);
+}
 
 void mtcp_writeckpt_init(VA restore_start_fn, VA restore_finish_fn)
 {
@@ -314,8 +320,20 @@ void mtcp_checkpointeverything(const char *temp_ckpt_filename,
        *  Otherwise, kernel could have optimization allowing us to close fd and
        *  rename tmp ckpt file to permanent even while gzip is still writing.
        */
+      /* All signals, incl. SIGCHLD, were blocked in mtcp.c:save_sig_state()
+       * when beginning the ckpt.  A SIGCHLD handler was declared before
+       * the gzip child process was forked.  The child may have already
+       * terminated and returned, creating a blocked SIGCHLD.
+       *   So, we use sigsuspend so that we can clean up the child zombie
+       * with wait4 whether it already terminated or not yet.
+       */
+      sigset_t suspend_sigset;
+      sigfillset(&suspend_sigset);
+      sigdelset(&suspend_sigset, SIGCHLD);
+      sigsuspend(&suspend_sigset);
       if ( mtcp_sys_wait4(mtcp_ckpt_extcomp_child_pid, NULL, 0, NULL ) == -1 ) {
-        DPRINTF("(compression): waitpid: %s\n", strerror(mtcp_sys_errno));
+        DPRINTF("(compression): waitpid: %s, child_pid: %d\n",
+                strerror(mtcp_sys_errno), mtcp_ckpt_extcomp_child_pid);
       }
       mtcp_ckpt_extcomp_child_pid = -1;
       sigaction(SIGCHLD, &saved_sigchld_action, NULL);
@@ -396,15 +414,18 @@ static int perform_open_ckpt_image_fd(const char *temp_ckpt_filename,
   *       when using forked checkpointing.
   */
 
-  if (use_deltacompression || use_gzip_compression) { /* fork a hbict process */
-    /* 3a. Set SIGCHLD to ignore; user handling is restored after gzip finishes.
+  if (use_deltacompression || use_gzip_compression) { /* fork compr. process */
+    /* 3a. Set SIGCHLD to our own handler;
+     *     User handling is restored after gzip finishes.
+     * SEE: sigaction(2), NOTES: only portable method of avoiding zombies
+     *      is to catch SIGCHLD signal and perform a wait(2) or similar.
      *
      * NOTE: Although the default action for SIGCHLD is supposedly SIG_IGN,
      * for historical reasons there are differences between SIG_DFL and SIG_IGN
      * for SIGCHLD.  See sigaction(2), NOTES section for more details. */
     struct sigaction default_sigchld_action;
     memset(&default_sigchld_action, 0, sizeof (default_sigchld_action));
-    default_sigchld_action.sa_handler = SIG_IGN;
+    default_sigchld_action.sa_handler = default_sigchld_handler;
     sigaction(SIGCHLD, &default_sigchld_action, &saved_sigchld_action);
 
     /* 3b. Open pipe */

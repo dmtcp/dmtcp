@@ -2480,6 +2480,12 @@ static void restore_sig_state (Thread *thisthread)
         sigismember(&(thisthread -> sigblockmask), i) == 1 &&
         sigismember(&(sigpending_global), i) == 0 &&
         i != STOPSIGNAL) {
+      if (i == SIGCHLD) {
+        MTCP_PRINTF("*** WARNING:  SIGCHLD was delivered prior to ckpt.\n"
+                    "*** Will raise it on restart.  If not desired, change\n"
+                    "*** the line raising SIGCHLD at mtcp/" __FILE__ ":%d\n",
+                    __LINE__);
+      }
       raise(i);
     }
   }
