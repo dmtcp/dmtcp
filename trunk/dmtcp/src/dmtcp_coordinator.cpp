@@ -1359,13 +1359,13 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
   timestamp[strlen(timestamp - 1)] = '\0';
   fprintf ( fp, "ckpt_timestamp=\"%s\"\n\n", timestamp );
 
-  fprintf ( fp, "coord_host=$"ENV_VAR_NAME_HOST"\n"
+  fprintf ( fp, "coord_host=$" ENV_VAR_NAME_HOST "\n"
                 "if test -z \"$" ENV_VAR_NAME_HOST "\"; then\n"
                 "  coord_host=%s\nfi\n\n"
-                "coord_port=$"ENV_VAR_NAME_PORT"\n"
+                "coord_port=$" ENV_VAR_NAME_PORT "\n"
                 "if test -z \"$" ENV_VAR_NAME_PORT "\"; then\n"
                 "  coord_port=%d\nfi\n\n"
-                "checkpoint_interval=$"ENV_VAR_CKPT_INTR"\n"
+                "checkpoint_interval=$" ENV_VAR_CKPT_INTR "\n"
                 "if test -z \"$" ENV_VAR_CKPT_INTR "\"; then\n"
                 "  checkpoint_interval=%d\nfi\n\n",
                 hostname, thePort, theCheckpointInterval );

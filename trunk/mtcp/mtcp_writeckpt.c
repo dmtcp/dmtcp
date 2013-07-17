@@ -88,7 +88,7 @@ static void (*restore_start_fptr)(); /* will be bound to fnc, mtcp_restore_start
 static void (*restore_finish_fptr)(); /* will be bound to fnc, mtcp_restore_finish */
 
 /* We handle SIGCHLD while checkpointing. */
-void default_sigchld_handler(int sig) {
+static void default_sigchld_handler(int sig) {
   MTCP_ASSERT(sig == SIGCHLD);
 }
 
