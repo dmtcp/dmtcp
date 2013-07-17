@@ -96,7 +96,7 @@
 #include "mtcp_internal.h"
 
 /* We handle SIGCHLD while checkpointing. */
-void default_sigchld_handler(int sig) {
+static void default_sigchld_handler(int sig) {
   MTCP_ASSERT(sig == SIGCHLD);
 }
 
@@ -4546,9 +4546,9 @@ static void setup_sig_handler (void)
       (old_act.sa_handler != stopthisthread)) {
     MTCP_PRINTF("signal handler %d already in use (%p).\n"
                 "  You may employ a different signal by setting the\n"
-                "  environment variable MTCP_SIGCKPT (or DMTCP_SIGCKPT)"
-		"  to the number\n of the signal MTCP should "
-                "  use for checkpointing.\n", STOPSIGNAL, old_act.sa_handler);
+                "  environment variable MTCP_SIGCKPT (or DMTCP_SIGCKPT) "
+                "to the number\n  of the signal MTCP should "
+                "use for checkpointing.\n", STOPSIGNAL, old_act.sa_handler);
     mtcp_abort ();
   }
 }

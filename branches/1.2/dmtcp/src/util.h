@@ -87,8 +87,8 @@ namespace dmtcp
   namespace Util
   {
     typedef struct ProcMapsArea {
-      char *addr;   // args required for mmap to restore memory area
-      char *endAddr;   // args required for mmap to restore memory area
+      void *addr;    // args required for mmap to restore memory area
+      void *endAddr; // args required for mmap to restore memory area
       size_t size;
       off_t filesize;
       int prot;
