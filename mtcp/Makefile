@@ -183,8 +183,9 @@ readmtcp: readmtcp.c mtcp_internal.h mtcp_util.o \
 	${CC} ${MTCP_CFLAGS} -o readmtcp readmtcp.c mtcp_util.o \
 	  mtcp_printf.o mtcp_state.o mtcp_safemmap.o
 
-build: libmtcp.so mtcp_restart testmtcp6
+build: libmtcp.so mtcp_restart
 # Don't do bigtestmtcp by default; Good for stress testing, but slow.
+# Don't do testmtcp6 by default: Would pull in readline.
 tests: build testmtcp testmtcp2 testmtcp3 testmtcp4 testmtcp5 threadtest
 
 # Test programs
