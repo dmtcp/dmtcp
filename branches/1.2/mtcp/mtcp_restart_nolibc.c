@@ -1165,7 +1165,7 @@ static void lock_file(int fd, char* name, short l_type)
 
   int result = -1;
   mtcp_sys_errno = 0;
-  while (result == -1 || mtcp_sys_errno == EINTR ) {
+  while (result == -1 && mtcp_sys_errno == EINTR ) {
     /* F_GETLK, F_SETLK, F_SETLKW */
     result = mtcp_sys_fcntl3(fd, F_SETLKW, &fl);
   }
