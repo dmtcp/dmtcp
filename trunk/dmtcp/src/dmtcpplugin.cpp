@@ -191,9 +191,9 @@ EXTERNC int dmtcp_send_query_to_coordinator(const void *key, size_t key_len,
                                                            val, val_len);
 }
 
-EXTERNC int dmtcp_get_coordinator_sockname(struct sockaddr_storage *addr)
+EXTERNC int dmtcp_get_host_ipv4(struct in_addr *in)
 {
-  return CoordinatorAPI::instance().getCoordSockname(addr);
+  return CoordinatorAPI::instance().getHostIPv4(in);
 }
 
 EXTERNC int dmtcp_no_coordinator()
