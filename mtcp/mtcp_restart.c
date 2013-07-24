@@ -69,7 +69,7 @@ extern int dmtcp_info_stderr_fd;
 static const char* theUsage =
   "USAGE:\n"
   "mtcp_restart [--verify] <ckeckpointfile>\n\n"
-  "mtcp_restart [--offset <offset-in-bytes>] [--stderr-fd <fd>] [--]"
+  "mtcp_restart [--stderr-fd <fd>] [--]"
       " <ckeckpointfile>\n\n"
   "mtcp_restart [--fd <ckpt-fd>]"
       " [--rename-ckpt <newname>] [--stderr-fd <fd>]\n\n"
@@ -84,7 +84,6 @@ int main (int argc, char *argv[], char *envp[])
   char *restorename;
   int fd, verify;
   int should_mmap_ckpt_image = 0;
-  size_t offset=0;
   void (*restore_start) (int fd, int verify, int should_mmap_ckpt_image,
                          char *ckpt_newname, char *cmd_file,
                          char *argv[], char *envp[]);
@@ -122,9 +121,6 @@ int main (int argc, char *argv[], char *envp[])
       verify = 1;
       restorename = argv[1];
       break;
-    } else if (mtcp_strcmp (argv[0], "--offset") == 0 && argc >= 3) {
-      offset = mtcp_atoi(argv[1]);
-      shift; shift;
     } else if (mtcp_strcmp (argv[0], "--fd") == 0 && argc >= 2) {
       fd = mtcp_atoi(argv[1]);
       shift; shift;
@@ -166,7 +162,7 @@ int main (int argc, char *argv[], char *envp[])
 
   if (fd != -1) {
     restorename = NULL;
-  } else if (fd == -1 || (offset != 0 && fd != -1)) {
+  } else if (restorename == NULL) {
     mtcp_printf("%s", theUsage);
     return (-1);
   }
@@ -201,26 +197,12 @@ int main (int argc, char *argv[], char *envp[])
 #endif
   }
 
-  if (mtcp_strlen(ckpt_newname) == 0 && restorename != NULL && offset != 0) {
+  if (mtcp_strlen(ckpt_newname) == 0 && restorename != NULL) {
     mtcp_strncpy(ckpt_newname, restorename, PATH_MAX);
   }
 
   if (restorename != NULL) {
     fd = open_ckpt_to_read(restorename, should_mmap_ckpt_image, envp);
-  }
-  if (offset > 0) {
-    //skip into the file a bit
-    VA addr = (VA) mtcp_sys_mmap(0, offset, PROT_READ | PROT_WRITE,
-                                 MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-    if (addr == MAP_FAILED) {
-      MTCP_PRINTF("mmap failed with error %d\n", mtcp_sys_errno);
-      mtcp_abort();
-    }
-    mtcp_readfile(fd, addr, offset);
-    if (mtcp_sys_munmap(addr, offset) == -1) {
-      MTCP_PRINTF("munmap failed with error %d\n", mtcp_sys_errno);
-      mtcp_abort();
-    }
   }
   if (read_header_and_restore_image(fd, (VA*)&restore_start) != 0) {
     MTCP_PRINTF("restarting due to address conflict...\n");
