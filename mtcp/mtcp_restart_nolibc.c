@@ -1163,12 +1163,11 @@ static void lock_file(int fd, char* name, short l_type)
   fl.l_start  = 0;        /* Offset from l_whence         */
   fl.l_len    = 0;        /* length, 0 = to EOF           */
 
-  int result = -1;
-  mtcp_sys_errno = 0;
-  while (result == -1 && mtcp_sys_errno == EINTR ) {
+  int result;
+  do {
     /* F_GETLK, F_SETLK, F_SETLKW */
     result = mtcp_sys_fcntl3(fd, F_SETLKW, &fl);
-  }
+  } while (result == -1 && mtcp_sys_errno == EINTR);
 
   /* Coverity static analyser stated the following code as DEAD. It is not
    * DEADCODE because it is possible that mtcp_sys_fcntl3() fails with some
