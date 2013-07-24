@@ -150,7 +150,7 @@ namespace dmtcp
     size_t pageMask();
     bool areZeroPages(void *addr, size_t numPages);
 
-    string ckptCmdPath();
+    string getPath(dmtcp::string cmd);
     void getDmtcpArgs(dmtcp::vector<dmtcp::string> &dmtcp_args);
   }
 }

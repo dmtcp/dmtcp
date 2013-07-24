@@ -503,17 +503,16 @@ void dmtcp::Util::adjustRlimitStack()
 #endif
 }
 
-dmtcp::string dmtcp::Util::ckptCmdPath()
+dmtcp::string dmtcp::Util::getPath(dmtcp::string cmd)
 {
   dmtcp::string out;
   const char *prefixPath = getenv (ENV_VAR_PREFIX_PATH);
   if (prefixPath != NULL) {
     out.append(prefixPath).append("/bin/");
   }
-  out.append(DMTCP_CHECKPOINT_CMD);
+  out += cmd;
   return out;
 }
-
 
 void dmtcp::Util::getDmtcpArgs(dmtcp::vector<dmtcp::string> &dmtcp_args)
 {
