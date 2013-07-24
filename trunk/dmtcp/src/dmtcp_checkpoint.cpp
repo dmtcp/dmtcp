@@ -31,11 +31,13 @@
 
 #define BINARY_NAME "dmtcp_checkpoint"
 
-int testMatlab(const char *filename);
-int testJava(char **argv);
-bool testSetuid(const char *filename);
-void testStaticallyLinked(const char *filename);
-bool testScreen(char **argv, char ***newArgv);
+static void processArgs(int *orig_argc, char ***orig_argv);
+static int testMatlab(const char *filename);
+static int testJava(char **argv);
+static bool testSetuid(const char *filename);
+static void testStaticallyLinked(const char *filename);
+static bool testScreen(char **argv, char ***newArgv);
+static void setLDPreloadLibs();
 
 // gcc-4.3.4 -Wformat=2 issues false positives for warnings unless the format
 // string has at least one format specifier with corresponding format argument.
@@ -248,13 +250,12 @@ int main ( int argc, char** argv )
     close(PFD(i));
   }
 
-  initializeJalib();
-
   if (! getenv(ENV_VAR_QUIET))
     setenv(ENV_VAR_QUIET, "0", 0);
 
   processArgs(&argc, &argv);
 
+  initializeJalib();
   // If --ssh-slave and --prefix both are present, verify that the prefix-dir
   // of this binary (dmtcp_checkpoint) is same as the one provided with
   // --prefix
@@ -415,6 +416,142 @@ int main ( int argc, char** argv )
   }
 #endif
 
+  setLDPreloadLibs();
+
+
+  //run the user program
+  char **newArgv = NULL;
+  if (testScreen(argv, &newArgv))
+    execvp ( newArgv[0], newArgv );
+  else
+    execvp ( argv[0], argv );
+
+  //should be unreachable
+  JASSERT_STDERR <<
+    "ERROR: Failed to exec(\"" << argv[0] << "\"): " << JASSERT_ERRNO << "\n"
+    << "Perhaps it is not in your $PATH?\n"
+    << "See `dmtcp_checkpoint --help` for usage.\n";
+  //fprintf(stderr, theExecFailedMsg, argv[0], JASSERT_ERRNO);
+
+  return -1;
+}
+
+static int testMatlab(const char *filename)
+{
+#ifdef __GNUC__
+# if __GNUC__ == 4 && __GNUC_MINOR__ > 1
+  static const char* theMatlabWarning =
+    "\n**** WARNING:  Earlier Matlab releases (e.g. release 7.4) use an\n"
+    "****  older glibc.  Later releases (e.g. release 7.9) have no problem.\n"
+    "****  \n"
+    "****  If you are using an _earlier_ Matlab, please re-compile DMTCP/MTCP\n"
+    "****  with gcc-4.1 and g++-4.1\n"
+    "**** env CC=gcc-4.1 CXX=g++-4.1 ./configure\n"
+    "**** [ Also modify mtcp/Makefile to:  CC=gcc-4.1 ]\n"
+    "**** [ Next, you may need an alternative Java JVM (see QUICK-START) ]\n"
+    "**** [ Finally, run as:   dmtcp_checkpoint matlab -nodisplay ]\n"
+    "**** [   (DMTCP does not yet checkpoint X-Windows applications.) ]\n"
+    "**** [ You may see \"Not checkpointing libc-2.7.so\".  This is normal. ]\n"
+    "****   (Assuming you have done the above, Will now continue"
+	    " executing.)\n\n" ;
+
+  // FIXME:  should expand filename and "matlab" before checking
+  if ( strcmp(filename, "matlab") == 0 && getenv(ENV_VAR_QUIET) == NULL) {
+    JASSERT_STDERR << theMatlabWarning;
+    return -1;
+  }
+# endif
+#endif
+  return 0;
+}
+
+// FIXME:  Remove this when DMTCP supports zero-mapped pages
+static int testJava(char **argv)
+{
+  static const char* theJavaWarning =
+    "\n**** WARNING:  Sun/Oracle Java claims a large amount of memory\n"
+    "****  for its heap on startup.  As of DMTCP version 1.2.4, DMTCP _does_\n"
+    "****  handle zero-mapped virtual memory, but it may take up to a\n"
+    "****  minute.  This will be fixed to be much faster in a future\n"
+    "****  version of DMTCP.  In the meantime, if your Java supports it,\n"
+    "****  use the -Xmx flag for a smaller heap:  e.g.  java -Xmx64M javaApp\n"
+    "****  (Invoke dmtcp_checkpoint with --quiet to avoid this msg.)\n\n" ;
+
+  if (getenv(ENV_VAR_QUIET) != NULL
+      && strcmp(getenv(ENV_VAR_QUIET), "0") != 0)
+    return 0;
+  if ( strcmp(argv[0], "java") == 0 ) {
+    while (*(++argv) != NULL)
+      if (strncmp(*argv, "-Xmx", sizeof("-Xmx")-1) == 0)
+        return 0; // The user called java with -Xmx.  No need for warning.
+  }
+
+  // If user has more than 4 GB of RAM, warn them that -Xmx is faster.
+  int fd;
+  char buf[100];
+  static const char *meminfoPrefix = "MemTotal:       ";
+  if ( (fd = open("/proc/meminfo", O_RDONLY)) != -1 &&
+    read(fd, buf, sizeof(meminfoPrefix) + 16) == sizeof(meminfoPrefix) + 16 &&
+    strncmp(buf, meminfoPrefix, sizeof(meminfoPrefix)+1) == 0 &&
+    atol(buf + sizeof(meminfoPrefix)) > 17000000) /* units of kB : mem > 4 GB */
+      JASSERT_STDERR << theJavaWarning;
+  if (fd != -1)
+    close(fd);
+  return -1;
+}
+
+static bool testSetuid(const char *filename)
+{
+  if (dmtcp::Util::isSetuid(filename) &&
+      strcmp(filename, "screen") != 0 && strstr(filename, "/screen") == NULL) {
+
+    static const char* theSetuidWarning =
+      "\n**** WARNING:  This process has the setuid or setgid bit set.  This is\n"
+      "***  incompatible with the use by DMTCP of LD_PRELOAD.  The process\n"
+      "***  will not be checkpointed by DMTCP.  Continuing and hoping\n"
+      "***  for the best.  For some programs, you may wish to\n"
+      "***  compile your own private copy, without using setuid permission.\n\n" ;
+
+    JASSERT_STDERR << theSetuidWarning;
+    sleep(3);
+    return true;
+  }
+  return false;
+}
+
+void testStaticallyLinked(const char *pathname)
+{
+  if (dmtcp::Util::isStaticallyLinked(pathname)) {
+    JASSERT_STDERR <<
+      "*** WARNING:  /lib/ld-linux.so --verify " << pathname << " returns\n"
+      << "***  nonzero status.  (Some distros"
+         " use /lib64/ld-linux-x86-64.so .)\n"
+      << "*** This often means that " << pathname << " is\n"
+      << "*** a statically linked target.  If so, you can confirm this with\n"
+      << "*** the 'file' command.\n"
+      << "***  The standard DMTCP only supports dynamically"
+      << " linked executables.\n"
+      << "*** If you cannot recompile dynamically, please talk to the"
+      << " developers about a\n"
+      << "*** custom DMTCP version for statically linked executables.\n"
+      << "*** Proceeding for now, and hoping for the best.\n\n";
+  }
+  return;
+}
+
+// Test for 'screen' program, argvPtr is an in- and out- parameter
+static bool testScreen(char **argv, char ***newArgv)
+{
+  if (dmtcp::Util::isScreen(argv[0])) {
+    dmtcp::Util::setScreenDir();
+    dmtcp::Util::patchArgvIfSetuid(argv[0], argv, newArgv);
+    return true;
+  }
+  return false;
+}
+
+static void setLDPreloadLibs()
+{
   // preloadLibs are to set LD_PRELOAD:
   //   LD_PRELOAD=PLUGIN_LIBS:UTILITY_DIR/libdmtcp.so:R_LIBSR_UTILITY_DIR/
   dmtcp::string preloadLibs = "";
@@ -478,131 +615,4 @@ int main ( int argc, char** argv )
 
   setenv ( "LD_PRELOAD", preloadLibs.c_str(), 1 );
   JTRACE("getting value of LD_PRELOAD")(getenv("LD_PRELOAD"));
-
-  //run the user program
-  char **newArgv = NULL;
-  if (testScreen(argv, &newArgv))
-    execvp ( newArgv[0], newArgv );
-  else
-    execvp ( argv[0], argv );
-
-  //should be unreachable
-  JASSERT_STDERR <<
-    "ERROR: Failed to exec(\"" << argv[0] << "\"): " << JASSERT_ERRNO << "\n"
-    << "Perhaps it is not in your $PATH?\n"
-    << "See `dmtcp_checkpoint --help` for usage.\n";
-  //fprintf(stderr, theExecFailedMsg, argv[0], JASSERT_ERRNO);
-
-  return -1;
-}
-
-int testMatlab(const char *filename) {
-#ifdef __GNUC__
-# if __GNUC__ == 4 && __GNUC_MINOR__ > 1
-  static const char* theMatlabWarning =
-    "\n**** WARNING:  Earlier Matlab releases (e.g. release 7.4) use an\n"
-    "****  older glibc.  Later releases (e.g. release 7.9) have no problem.\n"
-    "****  \n"
-    "****  If you are using an _earlier_ Matlab, please re-compile DMTCP/MTCP\n"
-    "****  with gcc-4.1 and g++-4.1\n"
-    "**** env CC=gcc-4.1 CXX=g++-4.1 ./configure\n"
-    "**** [ Also modify mtcp/Makefile to:  CC=gcc-4.1 ]\n"
-    "**** [ Next, you may need an alternative Java JVM (see QUICK-START) ]\n"
-    "**** [ Finally, run as:   dmtcp_checkpoint matlab -nodisplay ]\n"
-    "**** [   (DMTCP does not yet checkpoint X-Windows applications.) ]\n"
-    "**** [ You may see \"Not checkpointing libc-2.7.so\".  This is normal. ]\n"
-    "****   (Assuming you have done the above, Will now continue"
-	    " executing.)\n\n" ;
-
-  // FIXME:  should expand filename and "matlab" before checking
-  if ( strcmp(filename, "matlab") == 0 && getenv(ENV_VAR_QUIET) == NULL) {
-    JASSERT_STDERR << theMatlabWarning;
-    return -1;
-  }
-# endif
-#endif
-  return 0;
-}
-
-// FIXME:  Remove this when DMTCP supports zero-mapped pages
-int testJava(char **argv) {
-  static const char* theJavaWarning =
-    "\n**** WARNING:  Sun/Oracle Java claims a large amount of memory\n"
-    "****  for its heap on startup.  As of DMTCP version 1.2.4, DMTCP _does_\n"
-    "****  handle zero-mapped virtual memory, but it may take up to a\n"
-    "****  minute.  This will be fixed to be much faster in a future\n"
-    "****  version of DMTCP.  In the meantime, if your Java supports it,\n"
-    "****  use the -Xmx flag for a smaller heap:  e.g.  java -Xmx64M javaApp\n"
-    "****  (Invoke dmtcp_checkpoint with --quiet to avoid this msg.)\n\n" ;
-
-  if (getenv(ENV_VAR_QUIET) != NULL
-      && strcmp(getenv(ENV_VAR_QUIET), "0") != 0)
-    return 0;
-  if ( strcmp(argv[0], "java") == 0 ) {
-    while (*(++argv) != NULL)
-      if (strncmp(*argv, "-Xmx", sizeof("-Xmx")-1) == 0)
-        return 0; // The user called java with -Xmx.  No need for warning.
-  }
-
-  // If user has more than 4 GB of RAM, warn them that -Xmx is faster.
-  int fd;
-  char buf[100];
-  static const char *meminfoPrefix = "MemTotal:       ";
-  if ( (fd = open("/proc/meminfo", O_RDONLY)) != -1 &&
-    read(fd, buf, sizeof(meminfoPrefix) + 16) == sizeof(meminfoPrefix) + 16 &&
-    strncmp(buf, meminfoPrefix, sizeof(meminfoPrefix)+1) == 0 &&
-    atol(buf + sizeof(meminfoPrefix)) > 17000000) /* units of kB : mem > 4 GB */
-      JASSERT_STDERR << theJavaWarning;
-  if (fd != -1)
-    close(fd);
-  return -1;
-}
-
-bool testSetuid(const char *filename)
-{
-  if (dmtcp::Util::isSetuid(filename) &&
-      strcmp(filename, "screen") != 0 && strstr(filename, "/screen") == NULL) {
-
-    static const char* theSetuidWarning =
-      "\n**** WARNING:  This process has the setuid or setgid bit set.  This is\n"
-      "***  incompatible with the use by DMTCP of LD_PRELOAD.  The process\n"
-      "***  will not be checkpointed by DMTCP.  Continuing and hoping\n"
-      "***  for the best.  For some programs, you may wish to\n"
-      "***  compile your own private copy, without using setuid permission.\n\n" ;
-
-    JASSERT_STDERR << theSetuidWarning;
-    sleep(3);
-    return true;
-  }
-  return false;
-}
-
-void testStaticallyLinked(const char *pathname) {
-  if (dmtcp::Util::isStaticallyLinked(pathname)) {
-    JASSERT_STDERR <<
-      "*** WARNING:  /lib/ld-linux.so --verify " << pathname << " returns\n"
-      << "***  nonzero status.  (Some distros"
-         " use /lib64/ld-linux-x86-64.so .)\n"
-      << "*** This often means that " << pathname << " is\n"
-      << "*** a statically linked target.  If so, you can confirm this with\n"
-      << "*** the 'file' command.\n"
-      << "***  The standard DMTCP only supports dynamically"
-      << " linked executables.\n"
-      << "*** If you cannot recompile dynamically, please talk to the"
-      << " developers about a\n"
-      << "*** custom DMTCP version for statically linked executables.\n"
-      << "*** Proceeding for now, and hoping for the best.\n\n";
-  }
-  return;
-}
-
-// Test for 'screen' program, argvPtr is an in- and out- parameter
-bool testScreen(char **argv, char ***newArgv)
-{
-  if (dmtcp::Util::isScreen(argv[0])) {
-    dmtcp::Util::setScreenDir();
-    dmtcp::Util::patchArgvIfSetuid(argv[0], argv, newArgv);
-    return true;
-  }
-  return false;
 }
