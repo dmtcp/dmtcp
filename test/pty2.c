@@ -1,6 +1,7 @@
 // Compile with -DDEBUG for debugging failure modes.
 
-#define _XOPEN_SOURCE
+// posix_openpt() needs _XOPEN_SOURCE set to 600
+#define _XOPEN_SOURCE 600
 // Using _XOPEN_SOURCE to ensure ptsname returns 'char *' (recommended by Open Group)
 #define _BSD_SOURCE
 // _BSD_SOURCE used to expose sys_errlist[]
@@ -12,6 +13,9 @@
 #include <sys/ioctl.h>
 #include <errno.h>
 #include <termios.h>
+#include <sys/wait.h>
+#include <sys/types.h>
+#include <signal.h>
 
 // Define DEBUG when running manually, to see what part of terminal
 // was not restored properly:
