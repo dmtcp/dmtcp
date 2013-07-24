@@ -28,6 +28,7 @@ dmtcp/src/dmtcp_coordinator
 dmtcp/src/dmtcp_nocheckpoint
 dmtcp/src/dmtcp_restart
 dmtcp/src/libdmtcpaware.so*
+plugin/ipc/dmtcp_ssh*
 dmtcp_discover_rm
 
 mtcp/libmtcp.so*
