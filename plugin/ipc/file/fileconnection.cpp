@@ -631,7 +631,16 @@ void dmtcp::FileConnection::preCkpt()
       JASSERT(destFd != -1) (JASSERT_ERRNO) (_path) (savedFilePath);
 
       JTRACE("Saving checkpointed copy of the file") (_path) (savedFilePath);
-      writeFileFromFd(_fds[0], destFd);
+      if (_flags & O_WRONLY) {
+        // If the file is opened() in write-only mode. Open it in readonly mode
+        // to create the ckpt copy.
+        int tmpfd = _real_open(_path.c_str(), O_RDONLY, 0);
+        JASSERT(tmpfd != -1);
+        writeFileFromFd(tmpfd, destFd);
+        _real_close(tmpfd);
+      } else {
+        writeFileFromFd(_fds[0], destFd);
+      }
       _real_close(destFd);
     } else {
       JTRACE("Not checkpointing this file") (_path);
