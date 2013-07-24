@@ -34,6 +34,7 @@
 #include "jassert.h"
 #include "jsocket.h"
 
+#include "util_ipc.h"
 #include "connection.h"
 #include "connectionlist.h"
 
@@ -41,10 +42,6 @@ using namespace dmtcp;
 
 // This is the first program after dmtcp_checkpoint
 static bool freshProcess = true;
-
-static void sendFd(int restoreFd, int fd, ConnectionIdentifier& id,
-                   struct sockaddr_un& addr, socklen_t len);
-static int receiveFd(int restoreFd, ConnectionIdentifier *id);
 
 dmtcp::ConnectionList::~ConnectionList()
 {
@@ -516,13 +513,15 @@ void dmtcp::ConnectionList::sendReceiveMissingFds()
       ConnectionIdentifier *id = (ConnectionIdentifier*) maps[idx].id;
       Connection *con = getConnection(*id);
       JTRACE("Sending Missing Con") (*id);
-      sendFd(restoreFd, con->getFds()[0], *id, maps[idx].addr, maps[idx].len);
+      JASSERT(sendFd(restoreFd, con->getFds()[0], id, sizeof(*id),
+                     maps[idx].addr, maps[idx].len) != -1);
       numOutgoingCons--;
     }
 
     if (numMissingCons > 0 && FD_ISSET(restoreFd, &rfds)) {
       ConnectionIdentifier id;
-      int fd = receiveFd(restoreFd, &id);
+      int fd = receiveFd(restoreFd, &id, sizeof(id));
+      JASSERT(fd != -1);
       Connection *con = getConnection(id);
       JTRACE("Received Missing Con") (id);
       JASSERT(con != NULL);
@@ -531,64 +530,4 @@ void dmtcp::ConnectionList::sendReceiveMissingFds()
     }
   }
   dmtcp_close_protected_fd(restoreFd);
-}
-
-static void sendFd(int restoreFd, int fd, ConnectionIdentifier& id,
-                   struct sockaddr_un& addr, socklen_t len)
-{
-  struct iovec iov;
-  struct msghdr hdr;
-  struct cmsghdr *cmsg;
-  char cms[CMSG_SPACE(sizeof(int))];
-
-  iov.iov_base = &id;
-  iov.iov_len = sizeof(id);
-
-  memset(&hdr, 0, sizeof hdr);
-  hdr.msg_name = &addr;
-  hdr.msg_namelen = len;
-  hdr.msg_iov = &iov;
-  hdr.msg_iovlen = 1;
-  hdr.msg_control = (caddr_t)cms;
-  hdr.msg_controllen = CMSG_LEN(sizeof(int));
-
-  cmsg = CMSG_FIRSTHDR(&hdr);
-  cmsg->cmsg_len = CMSG_LEN(sizeof(int));
-  cmsg->cmsg_level = SOL_SOCKET;
-  cmsg->cmsg_type = SCM_RIGHTS;
-  *(int*)CMSG_DATA(cmsg) = fd;
-
-  JASSERT (sendmsg(restoreFd, &hdr, 0) == (ssize_t) iov.iov_len)
-    (JASSERT_ERRNO);
-}
-
-static int receiveFd(int restoreFd, ConnectionIdentifier *id)
-{
-  int fd;
-  struct iovec iov;
-  struct msghdr hdr;
-  struct cmsghdr *cmsg;
-  char cms[CMSG_SPACE(sizeof(int))];
-
-  iov.iov_base = id;
-  iov.iov_len = sizeof(*id);
-
-  memset(&hdr, 0, sizeof hdr);
-  hdr.msg_name = 0;
-  hdr.msg_namelen = 0;
-  hdr.msg_iov = &iov;
-  hdr.msg_iovlen = 1;
-
-  hdr.msg_control = (caddr_t)cms;
-  hdr.msg_controllen = sizeof cms;
-
-  JASSERT(recvmsg(restoreFd, &hdr, 0) != -1)
-    (restoreFd) (JASSERT_ERRNO);
-
-  cmsg = CMSG_FIRSTHDR(&hdr);
-  JASSERT(cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type  == SCM_RIGHTS)
-    (cmsg->cmsg_level) (cmsg->cmsg_type);
-  fd = *(int *) CMSG_DATA(cmsg);
-
-  return fd;
 }

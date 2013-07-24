@@ -41,7 +41,7 @@ endif
 CXXCOMPILE = $(CXX) $(INCLUDES) $(CPPFLAGS) $(CXXFLAGS) -c -o $@
 CXXLINK = $(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@
 
-COMMON_HEADERS = ipc.h \
+COMMON_HEADERS = ipc.h util_ipc.h \
 		 $(DMTCP_INCLUDE_PATH)/util.h $(DMTCP_INCLUDE_PATH)/dmtcpplugin.h \
 		 $(DMTCP_INCLUDE_PATH)/shareddata.h $(DMTCP_INCLUDE_PATH)/dmtcpalloc.h \
 		 $(DMTCP_INCLUDE_PATH)/config.h $(DMTCP_INCLUDE_PATH)/protectedfds.h \
@@ -65,7 +65,7 @@ SYSV_HEADERS = sysv/sysvipc.h sysv/sysvipcwrappers.h
 TIMER_HEADERS = timer/timerwrappers.h timer/timerlist.h
 
 
-OBJS = ipc.o connection.o connectionidentifier.o connectionlist.o \
+OBJS = ipc.o util_ipc.o connection.o connectionidentifier.o connectionlist.o \
        connectionrewirer.o kernelbufferdrainer.o \
        socketwrappers.o socketconnection.o socketconnlist.o \
        util_descriptor.o eventwrappers.o eventconnection.o eventconnlist.o\
