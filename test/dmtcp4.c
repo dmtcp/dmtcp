@@ -1,3 +1,8 @@
+// SA_ONSTACK and SA_RESETHAND are _XOPEN_SOURCE according to POSIX OpenGroup
+// But gcc-4.8 -std=c11 seems to require _GNU_SOURCE for these two macros.
+#define _GNU_SOURCE
+// sigaction() needs _XOPEN_SOURCE or _POSIX_SOURCE
+#define _XOPEN_SOURCE
 #include <stdio.h>
 #include <signal.h>
 #include <string.h>

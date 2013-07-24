@@ -449,7 +449,7 @@ static void readmemoryareas (void)
 
 
     if ((area.prot & MTCP_PROT_ZERO_PAGE) != 0) {
-      DPRINTF("restoring non-rwx anonymous area %p at %p\n",
+      DPRINTF("restoring non-rwx anonymous area, %p bytes at %p\n",
               area.size, area.addr);
 
 #ifdef FAST_CKPT_RST_VIA_MMAP
@@ -484,10 +484,11 @@ static void readmemoryareas (void)
        */
 
       if (area.flags & MAP_ANONYMOUS) {
-        DPRINTF("restoring anonymous area %p at %p\n", area.size, area.addr);
+        DPRINTF("restoring anonymous area, %p  bytes at %p\n",
+                area.size, area.addr);
       } else {
-        DPRINTF("restoring to non-anonymous area from anonymous area %p at %p "
-                " from %s + 0x%X\n",
+        DPRINTF("restoring to non-anonymous area from anonymous area,"
+                " %p bytes at %p from %s + 0x%X\n",
                 area.size, area.addr, area.name, area.offset);
       }
 #ifdef FAST_CKPT_RST_VIA_MMAP
@@ -607,7 +608,7 @@ static void readmemoryareas (void)
      */
 
     else {
-      DPRINTF("restoring mapped area %p at %p to %s + 0x%X\n",
+      DPRINTF("restoring mapped area, %p bytes at %p to %s + 0x%X\n",
               area.size, area.addr, area.name, area.offset);
       flags = 0;            // see how to open it based on the access required
       // O_RDONLY = 00
