@@ -122,7 +122,7 @@ namespace dmtcp
       int sendQueryToCoordinator(const void *key, size_t key_len,
                                  void *val, size_t *val_len);
 
-      int getCoordSockname(struct sockaddr_storage *addr);
+      int getHostIPv4(struct in_addr *in);
 
     private:
       jalib::JSocket createNewConnectionToCoordinator(bool dieOnError = true);

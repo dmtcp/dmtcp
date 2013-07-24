@@ -115,28 +115,16 @@ void dmtcp::ConnectionRewirer::openRestoreSocket()
   JASSERT(restoreSocket.isValid());
   restoreSocket.changeFd(PROTECTED_RESTORE_SOCK_FD);
 
-
   // Setup restore socket for name service
-  struct sockaddr_storage listenSock;
-  memset(&_restoreAddr, 0, sizeof(_restoreAddr));
-  _restoreAddrlen = sizeof(_restoreAddr);
-  dmtcp_get_coordinator_sockname(&_restoreAddr);
-  memset(&listenSock, 0, sizeof(_restoreAddr));
-  JASSERT(getsockname(PROTECTED_RESTORE_SOCK_FD,
-                      (struct sockaddr *)&listenSock,
-                      &_restoreAddrlen) == 0);
-  struct sockaddr_in* rsock = (struct sockaddr_in*)&_restoreAddr;
-  struct sockaddr_in* lsock = (struct sockaddr_in*)&listenSock;
-  rsock->sin_port = lsock->sin_port;
-  {
-    sockaddr_in *sn = (sockaddr_in*) &_restoreAddr;
-    unsigned short port = htons(sn->sin_port);
-    char *ip = inet_ntoa(sn->sin_addr);
-    JTRACE("_restoreAddr for others is:")(sn->sin_family)(port)(ip);
-  }
+  struct sockaddr_in addr_in;
+  addr_in.sin_family = AF_INET;
+  dmtcp_get_host_ipv4(&addr_in.sin_addr);
+  addr_in.sin_port = htons(restoreSocket.port());
+  memcpy(&_restoreAddr, &addr_in, sizeof(addr_in));
+  _restoreAddrlen = sizeof(addr_in);
 
-  // Setup socket
-  JTRACE("opened listen socket") (restoreSocket.sockfd());
+  JTRACE("opened listen socket") (restoreSocket.sockfd())
+    (inet_ntoa(addr_in.sin_addr)) (ntohs(addr_in.sin_port));
 
   int flags = _real_fcntl(PROTECTED_RESTORE_SOCK_FD, F_GETFL, NULL);
   JASSERT(flags != -1);
