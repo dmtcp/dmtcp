@@ -1,3 +1,5 @@
+// msgrcv, msgsnd require _XOPEN_SOURCE
+#define _XOPEN_SOURCE
 #include <sys/types.h>
 #include <sys/ipc.h>
 #include <sys/msg.h>

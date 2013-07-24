@@ -89,6 +89,14 @@ for i in sys.argv:
     CYCLES=100000
   if i=="--slow":
     SLOW=5
+  #TODO:  Install SIGSEGV handler with infinite loop, and add to LD_PRELOAD
+  #In test/Makefile, build libcatchsigsegv.so
+  #Add --catchsigsegv  to usage string.
+  # if i=="--catchsigsegv":
+  #   if os.getenv('LD_PRELOAD'):
+  #     os.environ['LD_PRELOAD'] += ':libcatchsigsegv.so'
+  #   else:
+  #     os.environ['LD_PRELOAD'] = 'libcatchsigsegv.so'
   if i=="-h" or i=="--help":
     print ("USAGE "+sys.argv[0]+
       " [-v] [--stress] [--slow] [testname] [testname ...]")
@@ -248,6 +256,24 @@ if not VERBOSE:
   os.environ['JALIB_STDERR_PATH'] = os.devnull
 if VERBOSE:
   print "coordinator port:  " + os.environ['DMTCP_PORT']
+
+# We'll copy ckptdir to DMTCP_TMPDIR in case of error.
+def dmtcp_tmpdir():
+  tmpdir = os.getenv('DMTCP_TMPDIR') or os.getenv('TMPDIR') or '/tmp'
+  return tmpdir + '/dmtcp-' + os.environ['USER'] + '@' + socket.gethostname()
+
+def free_diskspace(dir):
+  s = os.statvfs('.')
+  return s.f_bavail * s.f_frsize
+
+# We'll save core dumps in our default directory (usually dmtcp-autotest-*)
+# We can use the lesser of half the free disk space of filesystem or 100 MB.
+if free_diskspace(ckptDir) > 20*1024*1024:
+  oldLimit = resource.getrlimit(resource.RLIMIT_CORE)
+  newLimit = [min(free_diskspace(ckptDir)/2, 100*1024*1024), oldLimit[1]]
+  if oldLimit[1] != resource.RLIM_INFINITY:  # Keep soft limit below hard limit
+    newLimit[0] = min(newLimit[0], oldLimit[1])
+  resource.setrlimit(resource.RLIMIT_CORE, newLimit)
 
 #verify there is enough free space
 tmpfile=ckptDir + "/freeSpaceTest.tmp"
@@ -495,9 +521,32 @@ def runTestRaw(name, numProcs, cmds):
           break
         except CheckFailed, e:
           if j == RETRIES-1:
+            # Save checkpoint images for later diagnosis.
+            if os.path.isdir(dmtcp_tmpdir()) and os.path.isdir(ckptDir):
+              if subprocess.call( ("cp -pr " + ckptDir + ' '
+                                   + dmtcp_tmpdir()).split() ) == 0:
+                print "\n***** Copied checkpoint images to " + dmtcp_tmpdir() \
+                      + "/" + ckptDir
             raise e
           else:
-            printFixed("FAILED retry:")
+            printFixed("FAILED ")
+            (oldpid, oldstatus) = os.waitpid(procs[-1].pid, os.WNOHANG)
+            if oldpid == procs[-1].pid:
+              if os.WIFEXITED(oldstatus):
+                printFixed("(first process exited: oldstatus "
+                           + str(os.WEXITSTATUS(oldstatus)) + ")")
+              if os.WIFSIGNALED(oldstatus):
+                printFixed("(first process rec'd signal "
+                           + str(os.WTERMSIG(oldstatus)) + ")")
+              if os.WCOREDUMP(oldstatus):
+                coredump = "core." + str(oldpid)
+                if os.path.isdir(dmtcp_tmpdir()) and os.path.isfile(coredump):
+                  if subprocess.call( ("cp -pr " + coredump + ' '
+                                   + dmtcp_tmpdir()).split() ) == 0:
+                    printFixed(" (" + coredump + " copied to DMTCP_TMPDIR)")
+            else:
+              printFixed("(first process didn't die)")
+            printFixed(" retry:")
             testKill()
       if i != CYCLES - 1:
 	printFixed(";")
@@ -581,7 +630,7 @@ runTest("dmtcp4",        1, ["./test/dmtcp4"])
 # in low memory (0x110000) in the statically linked mtcp_restart executable.
 oldLimit = resource.getrlimit(resource.RLIMIT_STACK)
 # oldLimit[1] is old hard limit
-if oldLimit[1] == -1L:
+if oldLimit[1] == resource.RLIM_INFINITY:
   newCurrLimit = 8L*1024*1024
 else:
   newCurrLimit = min(8L*1024*1024, oldLimit[1])
@@ -650,7 +699,7 @@ runTest("sysv-msg",      2, ["./test/sysv-msg"])
 # ARM glibc 2.16 with Linux kernel 3.0 doesn't support mq_send, etc.
 if sys.version_info[0] == 2 and sys.version_info[0:2] >= (2,7) and \
     subprocess.check_output(['uname', '-p'])[0:3] == 'arm':
-  print "Skipping posix-mq1/mq2 tests; ARM/libc/Linux does not support mq_send"
+  print "Skipping posix-mq1/mq2 tests; ARM/glibc/Linux does not support mq_send"
 else:
   runTest("posix-mq1",     2, ["./test/posix-mq1"])
   runTest("posix-mq2",     2, ["./test/posix-mq2"])

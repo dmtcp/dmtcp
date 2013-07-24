@@ -128,11 +128,11 @@ dlopen%: dlopen%.c libdlopen-lib1.so libdlopen-lib2.so
 	${CC} $(CFLAGS) -o $@ $< -ldl
 
 libdlopen-lib3.so: dlopen2.cpp
-	${CXX} -shared -fPIC  -DLIB3 -o libdlopen-lib3.so dlopen2.cpp
+	${CXX} ${CXXFLAGS} -shared -fPIC -DLIB3 -o libdlopen-lib3.so dlopen2.cpp
 libdlopen-lib4.so: dlopen2.cpp
-	${CXX} -shared -fPIC  -DLIB4 -o libdlopen-lib4.so dlopen2.cpp
+	${CXX} ${CXXFLAGS} -shared -fPIC -DLIB4 -o libdlopen-lib4.so dlopen2.cpp
 dlopen%: dlopen%.cpp libdlopen-lib3.so libdlopen-lib4.so
-	${CXX} $(CFLAGS) -o $@ $< -ldl
+	${CXX} ${CXXFLAGS} -o $@ $< -ldl
 
 java%.class: java%.java
 ifeq ($(HAS_JAVAC),yes)

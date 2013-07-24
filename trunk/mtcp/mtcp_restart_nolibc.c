@@ -412,7 +412,7 @@ static void readmemoryareas (int should_mmap_ckpt_image)
     }
 
     if ((area.prot & MTCP_PROT_ZERO_PAGE) != 0) {
-      DPRINTF("restoring non-rwx anonymous area %p at %p\n",
+      DPRINTF("restoring non-rwx anonymous area, %p bytes at %p\n",
               area.size, area.addr);
       mmappedat = mtcp_sys_mmap (area.addr, area.size,
                                  area.prot & ~MTCP_PROT_ZERO_PAGE,
@@ -444,10 +444,11 @@ static void readmemoryareas (int should_mmap_ckpt_image)
        */
 
       if (area.flags & MAP_ANONYMOUS) {
-        DPRINTF("restoring anonymous area %p at %p\n", area.size, area.addr);
+        DPRINTF("restoring anonymous area, %p  bytes at %p\n",
+                area.size, area.addr);
       } else {
-        DPRINTF("restoring to non-anonymous area from anonymous area %p at %p "
-                " from %s + 0x%X\n",
+        DPRINTF("restoring to non-anonymous area from anonymous area,"
+                " %p bytes at %p from %s + 0x%X\n",
                 area.size, area.addr, area.name, area.offset);
       }
       imagefd = -1;
@@ -559,7 +560,7 @@ static void readmemoryareas (int should_mmap_ckpt_image)
      */
 
     else {
-      DPRINTF("restoring mapped area %p at %p to %s + 0x%X\n",
+      DPRINTF("restoring mapped area, %p bytes at %p to %s + 0x%X\n",
               area.size, area.addr, area.name, area.offset);
       flags = 0;            // see how to open it based on the access required
       // O_RDONLY = 00
@@ -689,7 +690,9 @@ static void read_shared_memory_area_from_file(Area* area, int flags)
      * NOTE that we don't need to unlock the file as it will be
      * automatically done when we close it.
      */
+    DPRINTF("Acquiring write lock on shared file :%s\n", area_name);
     lock_file(imagefd, area_name, F_WRLCK);
+    DPRINTF("After Acquiring write lock on shared file :%s\n", area_name);
 
     // Create a temp area in the memory exactly of the size of the
     // shared file.  We read the contents of the shared file from
@@ -756,9 +759,9 @@ static void read_shared_memory_area_from_file(Area* area, int flags)
     /* Acquire read lock on the shared file before doing an mmap. See
      * detailed comments above.
      */
-    DPRINTF("Acquiring lock on shared file :%s\n", area_name);
+    DPRINTF("Acquiring read lock on shared file :%s\n", area_name);
     lock_file(imagefd, area_name, F_RDLCK);
-    DPRINTF("After Acquiring lock on shared file :%s\n", area_name);
+    DPRINTF("After Acquiring read lock on shared file :%s\n", area_name);
   }
 
   mmappedat = mtcp_sys_mmap (area->addr, area->size, area->prot,
@@ -991,9 +994,13 @@ static void lock_file(int fd, char* name, short l_type)
 
   int result = -1;
   mtcp_sys_errno = 0;
+// DEBUGGING
+// BUG?? SHOULDN'T THIS BE '&&' INSTEAD OF '||'?
   while (result == -1 || mtcp_sys_errno == EINTR ) {
     /* F_GETLK, F_SETLK, F_SETLKW */
     result = mtcp_sys_fcntl3(fd, F_SETLKW, &fl);
+// DEBUGGING
+if (result == -1) MTCP_PRINTF("********** DEBUG: errno: %d\n", mtcp_sys_errno);
   }
 
   /* Coverity static analyser stated the following code as DEAD. It is not

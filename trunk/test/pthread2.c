@@ -1,3 +1,5 @@
+// _GNU_SOURCE for syscall
+#define _GNU_SOURCE
 #include <errno.h>
 #include <pthread.h>
 #include <string.h>
