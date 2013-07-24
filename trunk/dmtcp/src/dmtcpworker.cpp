@@ -222,7 +222,7 @@ static void processSshCommand(dmtcp::string programName,
   dmtcp::vector<dmtcp::string> dmtcp_args;
   dmtcp::Util::getDmtcpArgs(dmtcp_args);
 
-  dmtcp::string prefix = dmtcp::Util::ckptCmdPath() + " --ssh-slave ";
+  dmtcp::string prefix = dmtcp::Util::getPath("dmtcp_checkpoint") + " --ssh-slave ";
   for(size_t i = 0; i < dmtcp_args.size(); i++){
     prefix += dmtcp::string() +  dmtcp_args[i] + " ";
   }

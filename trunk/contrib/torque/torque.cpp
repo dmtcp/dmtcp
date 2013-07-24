@@ -126,7 +126,8 @@ extern "C" int tm_spawn(int argc, char **argv, char **envp, tm_node_id where,
     return TM_BADINIT;
 
   char dmtcpCkptPath[PATH_MAX] = "";
-  ret = dmtcp::Util::expandPathname(dmtcp::Util::ckptCmdPath().c_str(),
+  dmtcp::string ckptCmdPath = dmtcp::Util::getPath("dmtcp_checkpoint");
+  ret = dmtcp::Util::expandPathname(ckptCmdPath.c_str(),
                                     dmtcpCkptPath, sizeof(dmtcpCkptPath));
 
   JTRACE("Expand dmtcp_checkpoint path")(dmtcpCkptPath);
