@@ -987,6 +987,22 @@ static void lock_file(int fd, char* name, short l_type)
 {
   struct flock fl;
 
+  /* If a file is in /var or /usr, we shouldn't try to restore
+   * the old version.  More generally, we should not try to restore a file
+   * which is mapped MAP_SHARED and for which we don't have write permission.
+   * But /var and /usr/ should cover almost all of those cases.
+   *     Locking of files in /var and /usr will fail if a daemon has a write
+   * lock on them.  This occurs for * /var/lib/sss/mc/passwd and sssd daemon,
+   * as seen with openmpi's mpirun.  At ckpt time, no one had tried to save the
+   * old contents, since we didn't have write permission.  But at restart time,
+   * each process blocks on a read lock anyway, in case some DMTCP clients has
+   * a write lock and is restoring the old contents.  If the daemon has a
+   * write lock, we will hang unless we return here, without the read lock.
+   */
+  if (mtcp_strstartswith(name, "/usr/") ||
+      mtcp_strstartswith(name, "/var/"))
+    return;
+
   fl.l_type   = l_type;   /* F_RDLCK, F_WRLCK, F_UNLCK    */
   fl.l_whence = SEEK_SET; /* SEEK_SET, SEEK_CUR, SEEK_END */
   fl.l_start  = 0;        /* Offset from l_whence         */
