@@ -1,4 +1,5 @@
-#define _POSIX_C_SOURCE 200112
+//Setting _POSIX_C_SOURCE to 200112 changes the semantics of this program.  Why?
+//#define _POSIX_C_SOURCE 200112
 #include <stdio.h>
 #include <stdlib.h>
 #include <signal.h>
