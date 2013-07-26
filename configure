@@ -666,6 +666,7 @@ USE_TEST_SUITE
 HBICT_DELTACOMP
 FAST_RESTART
 PTRACE_SUPPORT
+DEBUG
 subdirs
 OPENMP_CXXFLAGS
 OPENMP_CFLAGS
@@ -4373,6 +4374,14 @@ else
   use_jassert=no
 fi
 
+
+if test "$use_jassert" = "yes"; then
+  DEBUG=yes
+
+else
+  DEBUG=no
+
+fi
 
 # Check whether --enable-quiet was given.
 if test "${enable_quiet+set}" = set; then :
