@@ -1378,9 +1378,12 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
 
   fprintf ( fp, "%s", theRestartScriptCmdlineArgHandler );
 
-  fprintf ( fp, "dmt_rstr_cmd=" DMTCP_RESTART_CMD "\n"
-                "which " DMTCP_RESTART_CMD " > /dev/null \\\n"
-                " || dmt_rstr_cmd=%s/" DMTCP_RESTART_CMD "\n\n",
+  fprintf ( fp, "dmt_rstr_cmd=%s/" DMTCP_RESTART_CMD "\n"
+                "which $dmt_rstr_cmd > /dev/null 2>&1"
+                " || dmt_rstr_cmd=" DMTCP_RESTART_CMD "\n"
+                "which $dmt_rstr_cmd > /dev/null 2>&1"
+                " || echo \"$0: $dmt_rstr_cmd not found\"\n"
+                "which $dmt_rstr_cmd > /dev/null 2>&1 || exit 1\n\n",
                 jalib::Filesystem::GetProgramDir().c_str());
 
   fprintf ( fp, "local_prefix=%s\n", localPrefix.c_str() );
