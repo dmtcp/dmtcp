@@ -47,8 +47,6 @@ if sys.version_info[0] == 2 and sys.version_info[0:2] >= (2,7) and \
     subprocess.check_output(['uname', '-p'])[0:3] == 'arm':
   DEFAULT_S *= 2
 
-if testconfig.MTCP_USE_PROC_MAPS == "yes":
-  DEFAULT_S = 2*DEFAULT_S
 S=DEFAULT_S
 #Appears as S*SLOW in code.  If --slow, then SLOW=5
 SLOW=1
@@ -915,7 +913,7 @@ if testconfig.HAS_OPENMPI == "yes":
     else:
       USES_OPENMPI_ORTED = "no"
   else:
-    testconfig.HAS_OPENMPI == "no"
+    testconfig.HAS_OPENMPI = "no"
   os.system('rm -f ./test_openmpi')
 
 # Temporarily disabling OpenMPI test as it fails on some distros (OpenSUSE 11.4)
