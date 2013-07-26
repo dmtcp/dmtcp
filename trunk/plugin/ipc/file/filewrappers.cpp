@@ -609,6 +609,9 @@ extern "C" int __lxstat64(int vers, const char *path, struct stat64 *buf)
 }
 
 //FIXME: Add wrapper for readlinkat
+// NOTE:  If you see a compiler error: "declaration of C function ... conflicts
+//   with ... unistd.h", then consider changing READLINK_RET_TYPE
+//   in dmtcpplugin.h.  A user has reported this was needed for Linux SLES10.
 extern "C" READLINK_RET_TYPE readlink(const char *path, char *buf,
                                       size_t bufsiz)
 {
