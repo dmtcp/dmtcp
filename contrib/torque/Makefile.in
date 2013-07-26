@@ -81,10 +81,13 @@ install: all
 	fi
 	test -e $(DESTDIR)$(libdir) || $(MKDIR_P) $(DESTDIR)$(libdir)
 	cp ${LIBNAME} $(DESTDIR)$(pkglibdir)
+	cp dmtcp_discover_rm $(DESTDIR)$(bindir)
 
 uninstall:
 	echo " ( cd '$(DESTDIR)$(pkglibdir)' && rm -f $$files ) "; \
-	cd "$(DESTDIR)$(pkglibdir)" && rm -f $(LIBNAME)
+	cd "$(DESTDIR)$(pkglibdir)" && rm -f $(LIBNAME); \
+	rm -f $(DESTDIR)$(bindir)/dmtcp_discover_rm 
+
 
 ${LIBNAME}: $(OBJS) ${HEADERS}
 	@rm -f ${LIBNAME}
