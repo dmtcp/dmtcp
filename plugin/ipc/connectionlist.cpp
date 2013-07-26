@@ -282,6 +282,27 @@ void dmtcp::ConnectionList::add(int fd, Connection* c)
   _unlock_tbl();
 }
 
+void dmtcp::ConnectionList::addDup(int fd, Connection* c)
+{
+  _lock_tbl();
+  JWARNING(_connections.find(c->id()) != _connections.end()) (c->id())
+    .Text("New connection");
+  if (_fdToCon.find(fd) != _fdToCon.end()) {
+    /* In ordinary situations, we never exercise this path since we already
+     * capture close() and remove the connection. However, there is one
+     * particular case where this assumption fails -- when gblic opens a socket
+     * using socket() but closes it using the internal close_not_cancel() thus
+     * bypassing our close wrapper. This behavior is observed when dealing with
+     * getaddrinfo().
+     */
+    processCloseWork(fd);
+  }
+  c->addFd(fd);
+  _fdToCon[fd] = c;
+  _unlock_tbl();
+}
+
+
 void dmtcp::ConnectionList::processCloseWork(int fd)
 {
   Connection *con = _fdToCon[fd];

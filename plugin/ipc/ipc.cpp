@@ -117,6 +117,7 @@ extern "C" int dup(int oldfd)
   DMTCP_DISABLE_CKPT();
   int newfd = _real_dup(oldfd);
   if (newfd != -1 && dmtcp_is_running_state()) {
+    process_fd_event(SYS_close, newfd);
     process_fd_event(SYS_dup, oldfd, newfd);
   }
   DMTCP_ENABLE_CKPT();
