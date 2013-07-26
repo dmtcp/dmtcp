@@ -87,7 +87,7 @@ static int libtorque_init()
       goto unlock;
     }
     // initialize tm_spawn_ptr
-    JNOTE("Initialize libtorque dlopen handler")(libpath);
+    JTRACE("Initialize libtorque dlopen handler")(libpath);
     char *error = NULL;
     _libtorque_handle = _real_dlopen(libpath.c_str(),RTLD_LAZY);
     if( !_libtorque_handle ){
@@ -121,7 +121,7 @@ extern "C" int tm_spawn(int argc, char **argv, char **envp, tm_node_id where,
                         tm_task_id *tid, tm_event_t *event)
 {
   int ret;
-  JNOTE("In tm_spawn wrapper");
+  JTRACE("In tm_spawn wrapper");
   if( libtorque_init() )
     return TM_BADINIT;
 
@@ -140,7 +140,7 @@ extern "C" int tm_spawn(int argc, char **argv, char **envp, tm_node_id where,
   size_t i;
 
   for(i = 0; i < (unsigned) argc; i++){
-      JNOTE("arg[i]:")(i)(argv[i]);
+      JTRACE("arg[i]:")(i)(argv[i]);
   }
 
   new_argv[0] = dmtcpCkptPath;
@@ -154,9 +154,9 @@ extern "C" int tm_spawn(int argc, char **argv, char **envp, tm_node_id where,
     cmdline +=  dmtcp::string() + new_argv[i] + " ";
   }
 
-  JNOTE ( "call Torque PBS tm_spawn API to run command on remote host" )
+  JTRACE( "call Torque PBS tm_spawn API to run command on remote host" )
         ( argv[0] ) (where);
-  JNOTE("CMD:")(cmdline);
+  JTRACE("CMD:")(cmdline);
   ret = tm_spawn_ptr(argc + dsize + 1,(char **)new_argv,envp,where,tid,event);
 
   return ret;

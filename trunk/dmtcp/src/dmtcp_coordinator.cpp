@@ -155,7 +155,7 @@ static const char* theRestartScriptCheckLocal =
   "  if [ -z \"$ifconfig_path\" ]; then\n"
   "    ifconfig_path=\"/sbin/ifconfig\"\n"
   "  fi\n"
-  "  output=`$ifconfig_path -a | grep \"inet addr:.*${worker_ip}.*Bcast\"`\n"
+  "  output=`$ifconfig_path -a | grep \"inet addr:.*${worker_ip} .*Bcast\"`\n"
   "  if [ -n \"$output\" ]; then\n"
   "    is_local_node=1\n"
   "  else\n"

@@ -330,9 +330,9 @@ int findLibTorque_maps(dmtcp::string &libpath)
 
   while( dmtcp::Util::readProcMapsLine(fd, &area) ){
     libpath = area.name;
-    JNOTE("Inspect new /proc/seft/maps line")(libpath);
+    JTRACE("Inspect new /proc/seft/maps line")(libpath);
     if( libpath.size() == 0 ){
-      JNOTE("anonymous region, skip");
+      JTRACE("anonymous region, skip");
       continue;
     }
 
@@ -342,7 +342,7 @@ int findLibTorque_maps(dmtcp::string &libpath)
       ret = 0;
       break;
     }else{
-      JNOTE("Not a libtorque region")(libpath);
+      JTRACE("Not a libtorque region")(libpath);
     }
   }
 
