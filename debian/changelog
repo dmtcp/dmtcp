@@ -1,3 +1,10 @@
+dmtcp (1.2.8-1) UNRELEASED; urgency=low
+
+  * Preparing for upstream release 1.2.8.
+  * Upload sponsored by Yaroslav Halchenko <debian@onerussian.com>
+
+ -- Kapil Arya <kapil@ccs.neu.edu>  Fri, 26 Jul 2013 13:08:34 -0400
+
 dmtcp (1.2.7-1) experimental; urgency=low
 
   * Preparing for upstream Release 1.2.7.
