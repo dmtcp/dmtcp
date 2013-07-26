@@ -34,6 +34,7 @@
 #include <sstream>
 #include <fstream>
 #include <cstddef>
+#include <utility>
 
 #define DMTCPSTRING    dmtcp::string
 #define DMTCPVECTOR(T) dmtcp::vector<T>
@@ -56,6 +57,9 @@ public:
     typedef T&        reference;
     typedef const T&  const_reference;
     typedef T         value_type;
+#if __cplusplus >= 201103L
+    typedef std::true_type propagate_on_container_move_assignment;
+#endif
 
 public:
 
@@ -93,6 +97,21 @@ public:
         return std::numeric_limits<size_t>::max() / sizeof(T);
     }
 
+#if __cplusplus >= 201103L
+    // In-place construction
+    template<typename X, typename... Args>
+      void construct(X* p, Args&&... args)
+      {
+	::new((void *)p) X(std::forward<Args>(args)...);
+      }
+
+    // In-place destruction
+    template<typename X>
+      void destroy(X* p) 
+      { 
+	p->~X(); 
+      }
+#else
     // In-place construction
     void construct( pointer p, const_reference c )
     {
@@ -115,7 +134,7 @@ public:
         (p)->~T();
     }
 
-#if __GNUC__ == 4 && __GNUC_MINOR__ == 0
+# if __GNUC__ == 4 && __GNUC_MINOR__ == 0
     // In-place destruction
     //   This is a workaround for a bug in gcc-4.0.
     template<typename X>
@@ -124,6 +143,7 @@ public:
         // call destructor directly
         (p)->~X();
     }
+# endif
 #endif
 
     // Rebind to allocators of other types
