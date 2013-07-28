@@ -297,7 +297,7 @@ void dmtcp::FileConnList::scanForPreExisting()
       if (isRegularFile) {
         Connection *c = findDuplication(fd, device.c_str());
         if (c != NULL) {
-          addDup(fd,c);
+          add(fd,c);
           continue;
         }
       }
@@ -308,7 +308,7 @@ void dmtcp::FileConnList::scanForPreExisting()
       if (isRegularFile) {
         Connection *c = findDuplication(fd, device.c_str());
         if (c != NULL) {
-          addDup(fd,c);
+          add(fd,c);
           continue;
         }
       }

@@ -51,7 +51,6 @@ namespace dmtcp
       void deleteStaleConnections();
 
       void add(int fd, Connection* c);
-      void addDup(int fd, Connection* c);
       void erase(iterator i);
       void erase(ConnectionIdentifier& key);
       Connection *getConnection(const ConnectionIdentifier &id);
