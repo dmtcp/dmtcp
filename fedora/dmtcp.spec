@@ -1,5 +1,5 @@
 Name:		dmtcp
-Version:	1.2.7
+Version:	1.2.8
 Release:	1%{?dist}
 Summary:	Checkpoint/Restart functionality for Linux processes
 Group:		Applications/System
@@ -159,6 +159,9 @@ make install DESTDIR=%{buildroot}
 %{_libdir}/libdmtcpaware.a
 
 %changelog
+* Tue Jul 30 2013 Kapil Arya <kapil@ccs.neu.edu> - 1.2.8-1
+- Preparing for upstream release 1.2.7.
+
 * Mon Mar 11 2013 Kapil Arya <kapil@ccs.neu.edu> - 1.2.7-1
 - Preparing for upstream release 1.2.7.
 - Use %%{_docdir} instead of %%doc for QUICK-START and COPYING.
