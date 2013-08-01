@@ -31,7 +31,7 @@
 #include <linux/version.h>
 // This was needed for:  SUSE LINUX 10.0 (i586) OSS
 #ifndef PTRACE_SETOPTIONS
-# include <linux/ptrace.h>
+# include <sys/ptrace.h>
 #endif
 #include <linux/unistd.h>
 #include <linux/limits.h>

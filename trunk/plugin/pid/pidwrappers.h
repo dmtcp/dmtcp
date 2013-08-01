@@ -35,7 +35,7 @@
 #include <sys/ptrace.h>
 // This was needed for 64-bit SUSE LINUX Enterprise Server 9 (Linux 2.6.5):
 #ifndef PTRACE_GETEVENTMSG
-# include <linux/ptrace.h>
+# include <sys/ptrace.h>
 #endif
 #include <stdarg.h>
 #ifndef __arm__
