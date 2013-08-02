@@ -1,4 +1,4 @@
-dmtcp (1.2.8-1) UNRELEASED; urgency=low
+dmtcp (1.2.8-1) unstable; urgency=low
 
   * Preparing for upstream release 1.2.8.
   * Upload sponsored by Yaroslav Halchenko <debian@onerussian.com>
