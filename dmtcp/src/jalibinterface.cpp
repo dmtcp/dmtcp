@@ -19,6 +19,16 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#include <dlfcn.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdarg.h>
+#include <unistd.h>
+#include <sys/syscall.h>
+#include <sys/mman.h>
+#include <sys/prctl.h>
+
 #include "dmtcpplugin.h"
 #include "protectedfds.h"
 #include "util.h"
@@ -40,9 +50,6 @@ extern "C" void initializeJalib()
   INIT_JALIB_FPTR(fopen);
   INIT_JALIB_FPTR(close);
   INIT_JALIB_FPTR(fclose);
-  INIT_JALIB_FPTR(dup);
-  INIT_JALIB_FPTR(dup2);
-  INIT_JALIB_FPTR(readlink);
 
   INIT_JALIB_FPTR(syscall);
   INIT_JALIB_FPTR(mmap);
@@ -57,7 +64,6 @@ extern "C" void initializeJalib()
   INIT_JALIB_FPTR(bind);
   INIT_JALIB_FPTR(listen);
   INIT_JALIB_FPTR(accept);
-  INIT_JALIB_FPTR(setsockopt);
 
   INIT_JALIB_FPTR(pthread_mutex_lock);
   INIT_JALIB_FPTR(pthread_mutex_trylock);

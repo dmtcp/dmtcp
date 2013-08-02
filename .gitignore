@@ -21,14 +21,13 @@ autom4te.cache
 bin/
 lib/
 include/
-!dmtcp/include/*h
 dmtcp/src/dmtcp_checkpoint
 dmtcp/src/dmtcp_command
 dmtcp/src/dmtcp_coordinator
 dmtcp/src/dmtcp_nocheckpoint
 dmtcp/src/dmtcp_restart
+dmtcp/src/dmtcp_inspector
 dmtcp/src/libdmtcpaware.so*
-plugin/ipc/dmtcp_ssh*
 dmtcp_discover_rm
 
 mtcp/libmtcp.so*
@@ -40,6 +39,8 @@ mtcp/mtcp.t.orig
 mtcp/testmtcp6
 mtcp/util-arch
 test/testconfig.py
+stamp-h1
+config.h
 
 *.deps*
 

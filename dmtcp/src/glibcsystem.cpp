@@ -25,7 +25,11 @@
  * in glibc.  If you really want an unwrapped version of glibc's system(),
  * then call execwrappers.cpp:_real_system().
  */
+
 #include <errno.h>
+#include <signal.h>
+#include <stddef.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -47,10 +51,12 @@ int do_system (const char *line)
   sa.sa_flags = 0;
   sigemptyset (&sa.sa_mask);
 
-  if (sigaction (SIGINT, &sa, &intr) < 0) {
+  if (sigaction (SIGINT, &sa, &intr) < 0)
+  {
     goto out;
   }
-  if (sigaction (SIGQUIT, &sa, &quit) < 0) {
+  if (sigaction (SIGQUIT, &sa, &quit) < 0)
+  {
     save = errno;
     goto out_restore_sigint;
   }
@@ -58,23 +64,21 @@ int do_system (const char *line)
   /* We reuse the bitmap in the 'sa' structure.  */
   sigaddset (&sa.sa_mask, SIGCHLD);
   save = errno;
-  if (sigprocmask (SIG_BLOCK, &sa.sa_mask, &omask) < 0) {
-    if (errno == ENOSYS) {
-      errno = save;
-    } else {
-      save = errno;
-      (void) sigaction (SIGQUIT, &quit, (struct sigaction *) NULL);
+  if (sigprocmask (SIG_BLOCK, &sa.sa_mask, &omask) < 0)
+  {
+    save = errno;
+    (void) sigaction (SIGQUIT, &quit, (struct sigaction *) NULL);
 out_restore_sigint:
-      (void) sigaction (SIGINT, &intr, (struct sigaction *) NULL);
-      errno = save;
-      //set_errno (save);
+    (void) sigaction (SIGINT, &intr, (struct sigaction *) NULL);
+    errno = save;
+    //set_errno (save);
 out:
-      return -1;
-    }
+    return -1;
   }
 
   pid = fork ();
-  if (pid == (pid_t) 0) {
+  if (pid == (pid_t) 0)
+  {
     /* Child side.  */
     const char *new_argv[4];
     new_argv[0] = SHELL_NAME;
@@ -90,11 +94,13 @@ out:
     /* Exec the shell.  */
     (void) execve (SHELL_PATH, (char *const *) new_argv, __environ);
     _exit (127);
-  } else if (pid < (pid_t) 0) {
+  }
+  else if (pid < (pid_t) 0)
     /* The fork failed.  */
     status = -1;
-  } else {
+  else
     /* Parent side.  */
+  {
     /* Note the system() is a cancellation point.  But since we call
        waitpid() which itself is a cancellation point we do not
        have to do anything here.  */
@@ -108,14 +114,10 @@ out:
   save = errno;
   if (((sigaction (SIGINT, &intr, (struct sigaction *) NULL)
         | sigaction (SIGQUIT, &quit, (struct sigaction *) NULL)) != 0)
-      || sigprocmask (SIG_SETMASK, &omask, (sigset_t *) NULL) != 0) {
-    /* glibc cannot be used on systems without waitpid.  */
-    if (errno == ENOSYS)
-      errno = save;
-    else
-      status = -1;
+      || sigprocmask (SIG_SETMASK, &omask, (sigset_t *) NULL) != 0)
+  {
+    status = -1;
   }
 
   return status;
 }
-

@@ -96,7 +96,6 @@ namespace jassert_internal
       ///
       /// print a value of any type
       template < typename T > JAssert& Print ( const T& t );
-      JAssert& Print ( const char *t );
       template < typename T > JAssert& Print ( const dmtcp::vector<T>& t );
       ///
       /// print out a string in format "Message: msg"
@@ -130,9 +129,8 @@ namespace jassert_internal
 
   const char* jassert_basename ( const char* str );
   dmtcp::ostream& jassert_output_stream();
-  void jassert_safe_print ( const char*, bool noConsoleOutput = false );
-  void jassert_init();
-  void close_stderr();
+  void jassert_safe_print ( const char* );
+  void jassert_init ( const jalib::string& f );
   bool lockLog();
   void unlockLog();
 
@@ -147,18 +145,6 @@ namespace jassert_internal
     return *this;
   }
 
-  inline JAssert& JAssert::Print ( const char*t )
-  {
-    if (t != NULL) {
-#ifdef JASSERT_FAST
-      jassert_output_stream() << *t;
-#else
-      ss << t;
-#endif
-    }
-    return *this;
-  }
-
   template < typename T >
   inline JAssert& JAssert::Print ( const dmtcp::vector<T>& t )
   {
@@ -170,19 +156,24 @@ namespace jassert_internal
 
   void set_log_file ( const jalib::string& path );
   void reset_on_fork ( );
+
+  int jassert_console_fd();
+  void jassert_set_console_fd(int fd);
+
 }//jassert_internal
 
-#define JASSERT_INIT(p) (jassert_internal::jassert_init());
-#define JASSERT_SET_LOG(p) (jassert_internal::set_log_file(p));
+#define JASSERT_INIT(p) (jassert_internal::jassert_init(p));
 
-#define JASSERT_CLOSE_STDERR() (jassert_internal::close_stderr());
-
+#define JASSERT_SET_LOGFILE(p) (jassert_internal::set_log_file(p));
 #define JASSERT_RESET_ON_FORK() (jassert_internal::reset_on_fork());
 
 #define JASSERT_CKPT_LOCK() (jassert_internal::lockLog());
 #define JASSERT_CKPT_UNLOCK() (jassert_internal::unlockLog());
 
 #define JASSERT_ERRNO (strerror(errno))
+
+#define JASSERT_SET_CONSOLE_FD(fd) \
+  jassert_internal::jassert_set_console_fd(fd)
 
 #define JASSERT_PRINT(str) jassert_internal::JAssert(false).Print(str)
 #define JASSERT_STDERR      jassert_internal::JAssert(false)
@@ -198,12 +189,6 @@ namespace jassert_internal
 #define JASSERT_LINE JASSERT_STRINGIFY(__LINE__)
 #define JASSERT_FILE jassert_internal::jassert_basename(__FILE__)
 #define JASSERT_CONTEXT(type,reason) Print('[').Print(getpid()).Print("] " type " at ").Print(JASSERT_FILE).Print(":" JASSERT_LINE " in ").Print(JASSERT_FUNC).Print("; REASON='" reason "'\n")
-
-#ifdef DEBUG
-#define JLOG(str) jassert_internal::jassert_safe_print(str, true)
-#else
-#define JLOG(str) do { } while(0)
-#endif
 
 #ifdef DEBUG
 #define JTRACE(msg) jassert_internal::JAssert(false).JASSERT_CONTEXT("TRACE",msg).JASSERT_CONT_A

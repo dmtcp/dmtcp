@@ -32,10 +32,8 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
-#include <sys/sysmacros.h>
 
 #include "mtcp_internal.h"
-#include "mtcp_util.h"
 
 /* Read decimal number, return value and terminating character */
 
@@ -111,14 +109,6 @@ void mtcp_strncpy(char *dest, const char *src, size_t n)
   }
 
   //return dest;
-}
-
-__attribute__ ((visibility ("hidden")))
-void mtcp_strcpy(char *dest, const char *src)
-{
-  while (*src != '\0') {
-    *dest++ = *src++;
-  }
 }
 
 __attribute__ ((visibility ("hidden")))
@@ -199,19 +189,9 @@ int mtcp_strendswith (const char *s1, const char *s2)
 }
 
 __attribute__ ((visibility ("hidden")))
-int mtcp_memcmp(const char *s1, const char *s2, size_t n)
+int mtcp_memcmp(char *dest, const char *src, size_t n)
 {
-  unsigned char c1 = '\0';
-  unsigned char c2 = '\0';
-
-  while (n > 0) {
-    c1 = (unsigned char) *s1++;
-    c2 = (unsigned char) *s2++;
-    if (c1 != c2)
-      return c1 - c2;
-    n--;
-  }
-  return c1 - c2;
+  return mtcp_strncmp(dest, src, n);
 }
 
 __attribute__ ((visibility ("hidden")))
@@ -237,18 +217,59 @@ int mtcp_atoi(const char *nptr)
   return v;
 }
 
-void mtcpHookWriteCkptData(const void *buf, size_t size) __attribute__ ((weak));
-
 /* Write something to checkpoint file */
 __attribute__ ((visibility ("hidden")))
-size_t mtcp_writefile (int fd, void const *buff, size_t size)
+void mtcp_writefile (int fd, void const *buff, size_t size)
 {
-  if (mtcpHookWriteCkptData == NULL) {
-    MTCP_ASSERT(mtcp_write_all(fd, buff, size) == size);
-  } else {
-    mtcpHookWriteCkptData(buff, size);
+  char const *bf;
+  ssize_t rc;
+  size_t sz, wt;
+  static char zeroes[MTCP_PAGE_SIZE] = { 0 };
+
+  //checkpointsize += size;
+
+  bf = buff;
+  sz = size;
+  while (sz > 0) {
+    for (wt = sz; wt > 0; wt /= 2) {
+      rc = mtcp_sys_write (fd, bf, wt);
+      if ((rc >= 0) || (mtcp_sys_errno != EFAULT)) break;
+    }
+
+    /* Sometimes image page alignment will leave a hole in the middle of an
+     * image ... but the idiot proc/self/maps will include it anyway
+     */
+
+    if (wt == 0) {
+      rc = (sz > sizeof zeroes ? sizeof zeroes : sz);
+      //checkpointsize -= rc; /* Correct now, since mtcp_writefile will add rc
+      //                           back */
+      mtcp_writefile (fd, zeroes, rc);
+    }
+
+    /* Otherwise, check for real error */
+
+    else {
+      if (rc == 0) mtcp_sys_errno = EPIPE;
+      if (rc <= 0) {
+        MTCP_PRINTF("Error %d writing from %p to checkpoint file.\n",
+	             mtcp_sys_errno, bf);
+        mtcp_abort ();
+      }
+    }
+
+    /* It's ok, we're on to next part */
+
+    sz -= rc;
+    bf += rc;
   }
-  return size;
+}
+
+/* Write checkpoint section number to checkpoint file */
+__attribute__ ((visibility ("hidden")))
+void mtcp_writecs (int fd, char cs)
+{
+  mtcp_writefile (fd, &cs, sizeof cs);
 }
 
 __attribute__ ((visibility ("hidden")))
@@ -297,21 +318,16 @@ void mtcp_readfile(int fd, void *buf, size_t size)
 }
 
 __attribute__ ((visibility ("hidden")))
-void mtcp_skipfile(int fd, size_t size)
+void mtcp_readcs(int fd, char cs)
 {
-  VA tmp_addr = mtcp_sys_mmap(0, size, PROT_WRITE | PROT_READ,
-                              MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-  if (tmp_addr == MAP_FAILED) {
-    MTCP_PRINTF("mtcp_sys_mmap() failed with error: %d", mtcp_sys_errno);
-    mtcp_abort();
-  }
-  mtcp_readfile(fd, tmp_addr, size);
-  if (mtcp_sys_munmap(tmp_addr, size) == -1) {
-    MTCP_PRINTF("mtcp_sys_munmap() failed with error: %d", mtcp_sys_errno);
-    mtcp_abort();
+  char xcs;
+
+  mtcp_readfile (fd, &xcs, sizeof xcs);
+  if (xcs != cs) {
+    MTCP_PRINTF("checkpoint section %d next, expected %d\n", xcs, cs);
+    mtcp_abort ();
   }
 }
-
 
 // NOTE: This functions is called by mtcp_printf() so do not invoke
 // mtcp_printf() from within this function.
@@ -375,7 +391,7 @@ int mtcp_is_executable(const char *exec_path)
 
 /* Caller must allocate exec_path of size at least MTCP_MAX_PATH */
 char *mtcp_find_executable(char *executable, const char* path_env,
-                           char exec_path[PATH_MAX])
+    char exec_path[PATH_MAX])
 {
   char *path;
   const char *tmp_env;
@@ -410,116 +426,52 @@ char *mtcp_find_executable(char *executable, const char* path_env,
   }
 }
 
-void mtcp_rename_ckptfile(const char *tempckpt, const char *permckpt)
-{
-  if (mtcp_sys_rename(tempckpt, permckpt) < 0) {
-    MTCP_PRINTF("error %d renaming %s to %s\n",
-                mtcp_sys_errno, tempckpt, permckpt);
-    mtcp_abort ();
-  }
-}
-
 /*****************************************************************************
  *
- *  Read /proc/self/maps line, converting it to an Area descriptor struct
- *    Input:
- *	mapsfd = /proc/self/maps file, positioned to beginning of a line
- *    Output:
- *	mtcp_readmapsline = 0 : was at end-of-file, nothing read
- *	*area = filled in
- *    Note:
- *	Line from /procs/self/maps is in form:
- *	<startaddr>-<endaddrexclusive> rwxs <fileoffset> <devmaj>:<devmin>
- *	    <inode>    <filename>\n
- *	all numbers in hexadecimal except inode is in decimal
- *	anonymous will be shown with offset=devmaj=devmin=inode=0 and
- *	    no '     filename'
+ *  Discover the memory occupied by this library (libmtcp.so)
+ *  PROVIDES:  mtcp_selfmap_open / mtcp_selfmap_readline / mtcp_selfmap_close
  *
  *****************************************************************************/
 
-int mtcp_readmapsline (int mapsfd, Area *area, DeviceInfo *dev_info)
-{
-  char c, rflag, sflag, wflag, xflag;
-  int i;
-  unsigned int long devmajor, devminor, inodenum;
-  VA startaddr, endaddr;
+/*
+ * USAGE:
+ * VA startaddr, endaddr;
+ * int selfmapfd = mtcp_selfmap_open();
+ * while (mtcp_selfmap_readline(selfmapfd, &startaddr, &endaddr, NULL)) {
+ *  ... startaddr ... endaddr
+ * }
+ * mtcp_selfmap_close(selfmapfd);
+ *
+ * SPECIAL CASE:
+ * off_t offset;
+ * while (mtcp_selfmap_readline(selfmapfd, &startaddr, &endaddr, &offset)) {
+ *  if (startaddr <= interestingAddr && interestingAddr <= endaddr)
+ *    interestingFileOffset = offset;
+ * }
+ * mtcp_sys_lseek(selfmapfd, interestingFileOffset, SEEK_SET);
+ */
 
-  c = mtcp_readhex (mapsfd, &startaddr);
-  if (c != '-') {
-    if ((c == 0) && (startaddr == 0)) return (0);
-    goto skipeol;
-  }
-  c = mtcp_readhex (mapsfd, &endaddr);
-  if (c != ' ') goto skipeol;
-  if (endaddr < startaddr) goto skipeol;
-
-  rflag = c = mtcp_readchar (mapsfd);
-  if ((c != 'r') && (c != '-')) goto skipeol;
-  wflag = c = mtcp_readchar (mapsfd);
-  if ((c != 'w') && (c != '-')) goto skipeol;
-  xflag = c = mtcp_readchar (mapsfd);
-  if ((c != 'x') && (c != '-')) goto skipeol;
-  sflag = c = mtcp_readchar (mapsfd);
-  if ((c != 's') && (c != 'p')) goto skipeol;
-
-  c = mtcp_readchar (mapsfd);
-  if (c != ' ') goto skipeol;
-
-  c = mtcp_readhex (mapsfd, (VA *)&devmajor);
-  if (c != ' ') goto skipeol;
-  area -> offset = (off_t)devmajor;
-
-  c = mtcp_readhex (mapsfd, (VA *)&devmajor);
-  if (c != ':') goto skipeol;
-  c = mtcp_readhex (mapsfd, (VA *)&devminor);
-  if (c != ' ') goto skipeol;
-  c = mtcp_readdec (mapsfd, (VA *)&inodenum);
-  area -> name[0] = '\0';
-  while (c == ' ') c = mtcp_readchar (mapsfd);
-  if (c == '/' || c == '[') { /* absolute pathname, or [stack], [vdso], etc. */
-    i = 0;
-    do {
-      area -> name[i++] = c;
-      if (i == sizeof area -> name) goto skipeol;
-      c = mtcp_readchar (mapsfd);
-    } while (c != '\n');
-    area -> name[i] = '\0';
-  }
-
-  if (c != '\n') goto skipeol;
-
-  area -> addr = startaddr;
-  area -> size = endaddr - startaddr;
-  area -> prot = 0;
-  if (rflag == 'r') area -> prot |= PROT_READ;
-  if (wflag == 'w') area -> prot |= PROT_WRITE;
-  if (xflag == 'x') area -> prot |= PROT_EXEC;
-  area -> flags = MAP_FIXED;
-  if (sflag == 's') area -> flags |= MAP_SHARED;
-  if (sflag == 'p') area -> flags |= MAP_PRIVATE;
-  if (area -> name[0] == '\0') area -> flags |= MAP_ANONYMOUS;
-
-  if (dev_info != NULL) {
-    dev_info->devmajor = devmajor;
-    dev_info->devminor = devminor;
-    dev_info->inodenum = inodenum;
-  }
-  return (1);
-
-skipeol:
-  DPRINTF("ERROR:  mtcp readmapsline*: bad maps line <%c", c);
-  while ((c != '\n') && (c != '\0')) {
-    c = mtcp_readchar (mapsfd);
-    mtcp_printf ("%c", c);
-  }
-  mtcp_printf (">\n");
-  mtcp_abort ();
-  return (0);  /* NOTREACHED : stop compiler warning */
+/* Return 1 if both offsets point to the same
+ *   filename (delimited by whitespace)
+ * Else return 0
+ */
+static int compareoffset(int selfmapfd1, off_t offset1,
+                         int selfmapfd2, off_t offset2) {
+  off_t old_offset1 = mtcp_sys_lseek(selfmapfd1, 0,  SEEK_CUR);
+  off_t old_offset2 = mtcp_sys_lseek(selfmapfd2, 0,  SEEK_CUR);
+  char c1, c2;
+  mtcp_sys_lseek(selfmapfd1, offset1, SEEK_SET);
+  mtcp_sys_lseek(selfmapfd2, offset2, SEEK_SET);
+  do {
+    c1 = mtcp_readchar(selfmapfd1);
+    c2 = mtcp_readchar(selfmapfd2);
+  } while ((c1 == c2) && (c1 != '\n') && (c1 != '\t') && (c1 != '\0'));
+  mtcp_sys_lseek(selfmapfd1, old_offset1, SEEK_SET);
+  mtcp_sys_lseek(selfmapfd2, old_offset2, SEEK_SET);
+  return (c1 == c2) && ((c1 == '\n') || (c1 == '\t') || (c1 == '\0'));
 }
 
-/*****************************************************************************
- *  Discover the memory occupied by this library (libmtcp.so)
- *
+/*
  * This is used to find:  mtcp_shareable_begin mtcp_shareable_end
  * The standard way is to modifiy the linker script (mtcp.t in Makefile).
  * The method here works by looking at /proc/PID/maps
@@ -532,102 +484,84 @@ skipeol:
  * We optionally call this only because Fedora uses eu-strip in rpmlint,
  *   and eu-strip modifies libmtcp.so in a way that libmtcp.so no longer works.
  * This is arguably a bug in eu-strip.
- *****************************************************************************/
-static int dummy_uninitialized_static_var;
-void mtcp_get_memory_region_of_this_library(VA *startaddr, VA *endaddr)
-{
-  struct {
-    VA start_addr;
-    VA end_addr;
-  } text, guard, rodata, rwdata, bssdata;
-
-  Area area;
-  VA thislib_fnc = (void*) &mtcp_get_memory_region_of_this_library;
-  VA thislib_static_var = (VA) &dummy_uninitialized_static_var;
-  char filename[PATH_MAX] = {0};
-  text.start_addr = guard.start_addr = rodata.start_addr = NULL;
-  rwdata.start_addr = bssdata.start_addr = bssdata.end_addr = NULL;
-  int mapsfd = mtcp_sys_open("/proc/self/maps", O_RDONLY, 0);
-  MTCP_ASSERT(mapsfd != -1);
-
-  while (mtcp_readmapsline (mapsfd, &area, NULL)) {
-    VA start_addr = area.addr;
-    VA end_addr = area.addr + area.size;
-
-    if (thislib_fnc >= start_addr && thislib_fnc < end_addr) {
-      MTCP_ASSERT(text.start_addr == NULL);
-      text.start_addr = start_addr; text.end_addr = end_addr;
-      mtcp_strcpy(filename, area.name);
-      continue;
-    }
-
-    if (text.start_addr != NULL && guard.start_addr == NULL &&
-        mtcp_strcmp(filename, area.name) == 0) {
-      MTCP_ASSERT(area.addr == text.end_addr);
-      if (area.prot == 0) {
-        /* The guard pages are unreadable due to the "---p" protection. Even if
-         * the protection is changed to "r--p", a read will result in a SIGSEGV
-         * as the pages are not backed by the kernel. A better way to handle
-         * this is to remap these pages with anonymous memory.
-         */
-        MTCP_ASSERT(mtcp_sys_mmap(start_addr, area.size, PROT_READ,
-                                  MAP_ANONYMOUS|MAP_PRIVATE|MAP_FIXED,
-                                  -1, 0) == start_addr);
-        guard.start_addr = start_addr; guard.end_addr = end_addr;
-        continue;
-      } else {
-        // No guard pages found. This is probably the ROData section.
-        guard.start_addr = start_addr; guard.end_addr = start_addr;
-      }
-    }
-
-    if (guard.start_addr != NULL && rodata.start_addr == NULL &&
-        mtcp_strcmp(filename, area.name) == 0) {
-      MTCP_ASSERT(area.addr == guard.end_addr);
-      if (area.prot == PROT_READ ||
-          // On some systems, all sections of the library have exec
-          // permissions.
-          area.prot == (PROT_READ|PROT_EXEC)) {
-        rodata.start_addr = start_addr; rodata.end_addr = end_addr;
-        continue;
-      } else {
-        // No ROData section. This is probably the RWData section.
-        rodata.start_addr = start_addr; rodata.end_addr = start_addr;
-      }
-    }
-
-    if (rodata.start_addr != NULL && rwdata.start_addr == NULL &&
-        mtcp_strcmp(filename, area.name) == 0) {
-      MTCP_ASSERT(area.addr == rodata.end_addr);
-      MTCP_ASSERT(area.prot == (PROT_READ|PROT_WRITE) ||
-                  // On some systems, all sections of the library have exec
-                  // permissions.
-                  area.prot == (PROT_READ|PROT_WRITE|PROT_EXEC));
-      rwdata.start_addr = start_addr; rwdata.end_addr = end_addr;
-      continue;
-    }
-
-    if (rwdata.start_addr != NULL && bssdata.start_addr == NULL &&
-        area.name[0] == '\0') {
-      /* /proc/PID/maps does not label the filename for memory region holding
-       * static variables in a library.  But that is also part of this
-       * library (libmtcp.so).
-       * So, find the meory region for static memory variables and add it.
-       */
-      MTCP_ASSERT(area.addr == rwdata.end_addr);
-      MTCP_ASSERT(area.prot == (PROT_READ|PROT_WRITE) ||
-                  // On some systems, all sections of the library have exec
-                  // permissions.
-                  area.prot == (PROT_READ|PROT_WRITE|PROT_EXEC));
-      MTCP_ASSERT(thislib_static_var >= start_addr &&
-                  thislib_static_var < end_addr);
-      bssdata.start_addr = start_addr; bssdata.end_addr = end_addr;
+ */
+void mtcp_get_memory_region_of_this_library(VA *startaddr, VA *endaddr);
+static int dummy;
+static void * dummy_fnc = &mtcp_get_memory_region_of_this_library;
+__attribute__ ((visibility ("hidden")))
+void mtcp_get_memory_region_of_this_library(VA *startaddr, VA *endaddr) {
+  *startaddr = NULL;
+  *endaddr = NULL;
+  VA thislib_fnc = dummy_fnc;
+  VA tmpstartaddr, tmpendaddr;
+  off_t offset1, offset2;
+  int selfmapfd, selfmapfd2;
+  selfmapfd = mtcp_selfmap_open();
+  while (mtcp_selfmap_readline(selfmapfd, &tmpstartaddr, &tmpendaddr,
+                               &offset1)) {
+    if (tmpstartaddr <= thislib_fnc && thislib_fnc <= tmpendaddr) {
       break;
     }
   }
-  mtcp_sys_close(mapsfd);
-  MTCP_ASSERT(text.start_addr != NULL);
-  MTCP_ASSERT(bssdata.end_addr != NULL);
-  *startaddr = text.start_addr;
-  *endaddr   = bssdata.end_addr;
+  /* Compute entire memory region corresponding to this file. */
+  selfmapfd2 = mtcp_selfmap_open();
+  while (mtcp_selfmap_readline(selfmapfd2, &tmpstartaddr, &tmpendaddr,
+                               &offset2)) {
+    if (offset2 != -1 &&
+        compareoffset(selfmapfd, offset1, selfmapfd2, offset2)) {
+      if (*startaddr == NULL)
+        *startaddr = tmpstartaddr;
+      *endaddr = tmpendaddr;
+    }
+  }
+  mtcp_selfmap_close(selfmapfd2);
+  mtcp_selfmap_close(selfmapfd);
+
+  /* /proc/PID/maps does not label the filename for memory region holding
+   * static variables in a library.  But that is also part of this
+   * library (libmtcp.so).
+   * So, find the meory region for static memory variables and add it.
+   */
+  VA thislib_staticvar = (VA)&dummy;
+  selfmapfd = mtcp_selfmap_open();
+  while (mtcp_selfmap_readline(selfmapfd, &tmpstartaddr, &tmpendaddr,
+                               &offset1)) {
+    if (tmpstartaddr <= thislib_staticvar && thislib_staticvar <= tmpendaddr) {
+      break;
+    }
+  }
+  mtcp_selfmap_close(selfmapfd);
+  if (*endaddr == tmpstartaddr)
+    *endaddr = tmpendaddr;
+  DPRINTF("libmtcp.so: startaddr: %x; endaddr: %x\n", *startaddr, *endaddr);
+}
+
+__attribute__ ((visibility ("hidden")))
+int mtcp_selfmap_open() {
+  return mtcp_sys_open ("/proc/self/maps", O_RDONLY, 0);
+}
+/* Return 1 if a line was successfully read (was not at EOF) */
+__attribute__ ((visibility ("hidden")))
+int mtcp_selfmap_readline(int selfmapfd, VA *startaddr, VA *endaddr,
+	                  off_t *file_offset) {
+  char c;
+  if (file_offset != NULL)
+    *file_offset = (off_t)-1;
+  c = mtcp_readhex (selfmapfd, startaddr);
+  if (c == '\0') return 0; /* c == '\0' implies that reached end-of-file */
+  if (c != '-') goto skipeol;
+  c = mtcp_readhex (selfmapfd, endaddr);
+  if (c != ' ') goto skipeol;
+skipeol:
+  while ((c != '\0') && (c != '\n')) {
+    if ( (file_offset != NULL) && (*file_offset == (off_t)-1) &&
+         ((c == '/') || (c == '[')) )
+      *file_offset = mtcp_sys_lseek(selfmapfd, 0,  SEEK_CUR) - 1;
+    c = mtcp_readchar (selfmapfd);
+  }
+  return 1; /* 1 means successfully read a line */
+}
+__attribute__ ((visibility ("hidden")))
+int mtcp_selfmap_close(int selfmapfd) {
+  return mtcp_sys_close (selfmapfd);
 }

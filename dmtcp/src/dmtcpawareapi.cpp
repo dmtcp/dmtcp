@@ -20,11 +20,16 @@
  ****************************************************************************/
 
 #include "dmtcpaware.h"
-#include "coordinatorapi.h"
+#include "dmtcpcoordinatorapi.h"
+#include "dmtcpworker.h"
 #include "threadsync.h"
 #include "dmtcpmessagetypes.h"
+#include "dmtcp_coordinator.h"
 #include "syscallwrappers.h"
 #include "mtcpinterface.h"
+#include "dmtcpalloc.h"
+#include <string>
+#include <unistd.h>
 #include <time.h>
 
 #ifndef EXTERNC
@@ -52,18 +57,14 @@ static inline void memfence(){  asm volatile ("dmb" ::: "memory"); }
 //needed for sizeof()
 static const dmtcp::DmtcpMessage * const exampleMessage = NULL;
 
-static inline void _runCoordinatorCmd(char c,
-                                      int *coordErrorCode = NULL,
-                                      int *numPeers = NULL,
-                                      int *isRunning = NULL){
+static inline void _runCoordinatorCmd(char c, int* result){
   _dmtcp_lock();
   {
-    dmtcp::CoordinatorAPI coordinatorAPI;
+    dmtcp::DmtcpCoordinatorAPI coordinatorAPI;
     coordinatorAPI.useAlternateCoordinatorFd();
 
     dmtcp::ThreadSync::delayCheckpointsLock();
-    coordinatorAPI.connectAndSendUserCommand(c, coordErrorCode, numPeers,
-                                             isRunning);
+    coordinatorAPI.connectAndSendUserCommand(c, result);
     dmtcp::ThreadSync::delayCheckpointsUnlock();
   }
   _dmtcp_unlock();
@@ -111,15 +112,15 @@ int __real_dmtcpCheckpoint(){
 }
 
 int __real_dmtcpRunCommand(char command){
-  int coordErrorCode;
+  int result[DMTCPMESSAGE_NUM_PARAMS];
   int i = 0;
   while (i < 100) {
-    _runCoordinatorCmd(command, &coordErrorCode);
+    _runCoordinatorCmd(command, result);
   // if we got error result - check it
 	// There is possibility that checkpoint thread
 	// did not send state=RUNNING yet or Coordinator did not receive it
 	// -- Artem
-    if (coordErrorCode == dmtcp::CoordinatorAPI::ERROR_NOT_RUNNING_STATE) {
+    if (result[0] == dmtcp::DmtcpCoordinatorAPI::ERROR_NOT_RUNNING_STATE) {
       struct timespec t;
       t.tv_sec = 0;
       t.tv_nsec = 1000000;
@@ -131,20 +132,18 @@ int __real_dmtcpRunCommand(char command){
     }
     i++;
   }
-  return coordErrorCode == dmtcp::CoordinatorAPI::NOERROR;
+  return result[0]>=0;
 }
 
 const DmtcpCoordinatorStatus* __real_dmtcpGetCoordinatorStatus(){
-  int coordErrorCode;
-  int numPeers;
-  int isRunning;
-  _runCoordinatorCmd('s', &coordErrorCode, &numPeers, &isRunning);
+  int result[DMTCPMESSAGE_NUM_PARAMS];
+  _runCoordinatorCmd('s',result);
 
   //must be static so memory is not deleted.
   static DmtcpCoordinatorStatus status;
 
-  status.numProcesses = numPeers;
-  status.isRunning = isRunning;
+  status.numProcesses = result[0];
+  status.isRunning = result[1];
   return &status;
 }
 

@@ -29,7 +29,7 @@
 ##									##
 ##########################################################################
 
-MTCP_VERSION = 81
+MTCP_VERSION = 80
 LIBMTCP_SOVERSION_MAJOR=1
 LIBMTCP_SOVERSION_INFO=$(LIBMTCP_SOVERSION_MAJOR).0.0
 
@@ -59,11 +59,6 @@ MTCP_LDFLAGS +=  ${LDFLAGS} -shared
 AS = as --32
 endif
 
-USE_PROC_MAPS = 1
-ifdef USE_PROC_MAPS
-  MTCP_CFLAGS += -DUSE_PROC_MAPS
-endif
-
 #Currently sometimes can't link libmtcp.so without MTCP_CFLAGS=-O0
 MTCP_CFLAGS += ${CFLAGS} ${CPPFLAGS} -O0 -g
 
@@ -84,10 +79,15 @@ ifdef HBICT_DELTACOMP
   MTCP_CFLAGS += -DHBICT_DELTACOMP
 endif
 
-# If ./configure --enable-fast-restart defined, DMTCP 'make' will set this.
+# If ./configure --enable-fast-ckpt-restart defined, DMTCP 'make' will set this.
 # If building MTCP standalone, change the line below to invoke this option.
-ifdef FAST_RESTART
-  MTCP_CFLAGS += -DFAST_RST_VIA_MMAP
+ifdef FAST_CKPT_RESTART
+  MTCP_CFLAGS += -DFAST_CKPT_RST_VIA_MMAP
+endif
+# If ./configure --mtcp-use_proc_maps defined, DMTCP 'make' will set this.
+# If building MTCP standalone, change the line below to invoke this option.
+ifdef USE_PROC_MAPS
+  MTCP_CFLAGS += -DUSE_PROC_MAPS
 endif
 
 ifdef DMTCP_VERSION
@@ -100,32 +100,37 @@ ASFLAGS =
 MTCP_DIR := $(shell pwd)
 
 # There might be a 32-bit built system running on top of 32/64 bit capable
-# kernel.  Or, we might be cross-compiling (e.g., Debian binary packages).
-# In those cases `uname -m` returns 'x86_64' which is not correct.
-# Instead, we should deduce the build-type from the build toolchain itself.
-ifndef BUILDING_UTIL_ARCH
-  BUILDTYPE=${shell make BUILDING_UTIL_ARCH=1 util-arch > /dev/null; \
-                    ./util-arch}
+# kernel. In that case `uname -m` returns 'x86_64' which is not correct.
+# Instead, we should deduce the build-type from the build toochain itself.
+# NOTE:  'ld -shared -verbose|grep OUTPUT_ARCH'
+#        returns OUTPUT_ARCH(i386:x86-64) on x86-64 machines.
+ifeq (${shell ${LD_RAW} -shared -verbose|grep OUTPUT_FORMAT|cut -d '"' -f2},elf64-x86-64)
+  BUILDTYPE=x86_64
+else
+  BUILDTYPE=${shell ${LD_RAW} -shared -verbose|grep OUTPUT_ARCH| \
+		sed -s 's^OUTPUT_ARCH(^^'|sed -s 's^)^^'}
 endif
 
+# After DMTCP-1.2.5 release, remove this and just add PIC for all architectures
 ifdef USE_PROC_MAPS
+ifneq ($(BUILDTYPE),x86_64)
+ifneq ($(BUILDTYPE),arm)
   MTCP_CFLAGS += -fPIC -DPIC
   MTCP_LDFLAGS += -fPIC
-else
-  # But for testmtcp, don't use MTCP_CFLAGS if don't want position-independent code
-  ifeq ($(BUILDTYPE),x86_64)
-    MTCP_CFLAGS += -fPIC -DPIC
-    MTCP_LDFLAGS += -fPIC
-  endif
+endif
+endif
+endif
 
-  ifeq ($(BUILDTYPE),arm)
-  # When armv6 is the default, add  -march=armv7;  (usually not needed anymore)
-    MTCP_CFLAGS += -fPIC -DPIC
-    MTCP_LDFLAGS += -fPIC
-  endif
+# But for testmtcp, don't use MTCP_CFLAGS if don't want position-independent code
+ifeq ($(BUILDTYPE),x86_64)
+  MTCP_CFLAGS += -fPIC -DPIC
+  MTCP_LDFLAGS += -fPIC
 endif
 
 ifeq ($(BUILDTYPE),arm)
+# When armv6 is the default, add  -march=armv7;  (usually not needed anymore)
+  MTCP_CFLAGS += -fPIC -DPIC
+  MTCP_LDFLAGS += -fPIC
   ARM_EXTRAS = libc-do-syscall-arm-eabi.o
 # As of February, 2012, crt1.o has an undefined symbol, abort.
 # This prevents us from compiling mtcp_restart with -nodefaultlibs
@@ -175,17 +180,18 @@ uninstall:
 	rm -f "$(DESTDIR)$(includedir)/mtcp.h"
 	rm -f "$(DESTDIR)$(libdir)"/libmtcp.so*
 
-util-arch: util-arch.c
-	${CC} -o $@ $<
-
-readmtcp: readmtcp.c mtcp_internal.h mtcp_util.o \
-	mtcp_printf.o mtcp_state.o mtcp_safemmap.o
-	${CC} ${MTCP_CFLAGS} -o readmtcp readmtcp.c mtcp_util.o \
-	  mtcp_printf.o mtcp_state.o mtcp_safemmap.o
+ifdef FAST_CKPT_RESTART
+readmtcp: readmtcp.c mtcp_internal.h libmtcp.so mtcp_util.o \
+	mtcp_printf.o mtcp_state.o mtcp_fastckpt.o mtcp_safemmap.o
+	${CC} ${MTCP_CFLAGS} -o readmtcp readmtcp.c $$PWD/libmtcp.so mtcp_util.o \
+	  mtcp_printf.o mtcp_state.o mtcp_fastckpt.o mtcp_safemmap.o
+else
+readmtcp: readmtcp.c mtcp_internal.h
+	${CC} ${MTCP_CFLAGS} -o readmtcp readmtcp.c
+endif
 
 build: libmtcp.so mtcp_restart
 # Don't do bigtestmtcp by default; Good for stress testing, but slow.
-# Don't do testmtcp6 by default: Would pull in readline.
 tests: build testmtcp testmtcp2 testmtcp3 testmtcp4 testmtcp5 threadtest
 
 # Test programs
@@ -234,7 +240,7 @@ testmtcp5: testmtcp5.c libmtcp.so
 # Makefile should not fail on testmtcp6 if -lreadline or -lhistory is missing.
 testmtcp6: testmtcp6.c libmtcp.so
 	- ${CC} $(MTCP_CFLAGS) -Wl,--export-dynamic -o testmtcp6 testmtcp6.c libmtcp.so \
-	  -lreadline -lhistory
+	  -lreadline -lhistory -lcurses
 
 threadtest: threadtest.c
 	${CC} $(MTCP_CFLAGS) -o threadtest threadtest.c
@@ -248,16 +254,21 @@ threadtest: threadtest.c
 # mtcp_restart on libc by rewriting some glibc function calls and
 # replacing the glibc-syscall wrappers with the respective mtcp_sys_XXX()
 # version.
+#
+# NOTE: We should not compile mtcp_restart with -fPIC. Doing so causes it to
+# fail with strange memory errors (e.g. mmap() failing with EINVAL). This was
+# observed on 32-bit Fedora-19.
 
 mtcp_restart: mtcp_restart.c mtcp_internal.h mtcp_sys.h \
 	mtcp_printf.o mtcp_util.o mtcp_maybebpt.o \
 	mtcp_safemmap.o mtcp_state.o mtcp_safe_open.o \
-	mtcp_check_vdso.o ${ARM_EXTRAS}
-	${CC} $(MTCP_CFLAGS) ${ARM_BUG_FIX} -static -nodefaultlibs \
+	mtcp_check_vdso.o mtcp_fastckpt.o ${ARM_EXTRAS}
+	${CC} $(MTCP_CFLAGS) ${ARM_BUG_FIX} -fno-PIC -UPIC -static -nodefaultlibs \
 	 -o mtcp_restart mtcp_restart.c mtcp_maybebpt.o \
 	 mtcp_printf.o mtcp_util.o mtcp_safemmap.o \
 	 mtcp_state.o mtcp_safe_open.o \
-	 mtcp_check_vdso.o ${ARM_EXTRAS}
+	 mtcp_check_vdso.o mtcp_fastckpt.o ${ARM_EXTRAS}
+	 # NOT USED: -lpthread
 
 ifeq ($(BUILDTYPE),arm)
 libc-do-syscall-arm-eabi.o: libc-do-syscall-arm-eabi.S
@@ -274,17 +285,6 @@ endif
 # 	 mtcp_printf.o mtcp_util.o mtcp_safemmap.o mtcp_state.o \
 # 	 mtcp_safe_open.o
 
-LIBRARY_OBJS = mtcp.o mtcp_writeckpt.o mtcp_restart_nolibc.o \
-	mtcp_maybebpt.o mtcp_printf.o mtcp_util.o \
-	mtcp_safemmap.o mtcp_safe_open.o \
-	mtcp_state.o mtcp_check_vdso.o mtcp_sigaction.o \
-	${ARM_EXTRAS}
-
-# for libtools -- not used
-%.lo : %.c
-	libtool --mode=compile gcc -c $(MTCP_CFLAGS) $<
-
-ifndef USE_PROC_MAPS
 # This is the shareable that a user links with the application
 
 # mtcp.t originally generated as below via:  ld -shared --verbose.
@@ -311,6 +311,16 @@ mtcp.t: mtcp.t.patch-i386 mtcp.t.patch-x86_64
 	  fi \
 	fi
 
+LIBRARY_OBJS = mtcp.o mtcp_restart_nolibc.o \
+	mtcp_maybebpt.o mtcp_printf.o mtcp_util.o \
+	mtcp_safemmap.o mtcp_safe_open.o \
+	mtcp_state.o mtcp_check_vdso.o mtcp_sigaction.o \
+	mtcp_fastckpt.o ${ARM_EXTRAS}
+
+# for libtools -- not used
+%.lo : %.c
+	libtool --mode=compile gcc -c $(MTCP_CFLAGS) $<
+
 libmtcp.so: mtcp.t ${LIBRARY_OBJS}
 	##ld -shared -Map mtcp.map -o libmtcp.so mtcp.lo mtcp_restart_nolibc.lo --verbose
 	#   this gets a default .t file so it can be chopped up.
@@ -322,10 +332,9 @@ libmtcp.so: mtcp.t ${LIBRARY_OBJS}
 	${LD} ${MTCP_LDFLAGS} -T mtcp.t -Wl,-Map,mtcp.map \
 	  -Wl,--no-gc-sections -Wl,--no-strip-discarded \
 	  -o libmtcp.so.$(LIBMTCP_SOVERSION_INFO) ${LIBRARY_OBJS} \
-	  -ldl -lpthread -lm -z defs
-	ln -sf libmtcp.so.$(LIBMTCP_SOVERSION_INFO) \
-	  libmtcp.so.$(LIBMTCP_SOVERSION_MAJOR)
-	ln -sf libmtcp.so.$(LIBMTCP_SOVERSION_MAJOR) libmtcp.so
+	  -ldl -lpthread -lm
+	ln -sf libmtcp.so.1.0.0 libmtcp.so.1
+	ln -sf libmtcp.so.1 libmtcp.so
 	# We need to set ALLOC, or 'eu-strip --remove-comment' will strip our
 	# section on Red Hat-based machines w/ debuginfo repository.
 	# Redirect stderr to suppress warning that section is not in a segment.
@@ -344,32 +353,13 @@ libmtcp.so: mtcp.t ${LIBRARY_OBJS}
 	rm -f ./libtmp.so
 	@nm -D libmtcp.so.$(LIBMTCP_SOVERSION_INFO) | grep ' [BTD] ' | \
 	  grep -v ' d\?mtcp_' | \
-	  grep -v '__bss_start\|_edata\|_end' | \
 	  grep -v clone | grep -v '_fini\|init' | grep ' [BTD] ' 1>&2 && \
 	  echo '*** WARNING: libmtcp.so.$(LIBMTCP_SOVERSION_INFO): ' \
 	       'MTCP symbols polluting user namespace' 1>&2 || true
-else
-libmtcp.so: ${LIBRARY_OBJS}
-	${LD} ${MTCP_LDFLAGS} \
-	  -o libmtcp.so.$(LIBMTCP_SOVERSION_INFO) ${LIBRARY_OBJS} \
-	  -ldl -lpthread -lm
-	ln -sf libmtcp.so.$(LIBMTCP_SOVERSION_INFO) \
-	  libmtcp.so.$(LIBMTCP_SOVERSION_MAJOR)
-	ln -sf libmtcp.so.$(LIBMTCP_SOVERSION_MAJOR) libmtcp.so
-	@nm -D libmtcp.so.$(LIBMTCP_SOVERSION_INFO) | grep ' [BTD] ' | \
-	  grep -v ' d\?mtcp_' | \
-	  grep -v '__bss_start\|_edata\|_end' | \
-	  grep -v clone | grep -v '_fini\|init' | grep ' [BTD] ' 1>&2 && \
-	  echo '*** WARNING: libmtcp.so.$(LIBMTCP_SOVERSION_INFO): ' \
-	       'MTCP symbols polluting user namespace' 1>&2 || true
-endif
 
 # To generate mtcp.o with listing, use "-Wa,-adhl=mtcp.lis"
 mtcp.o: mtcp.c mtcp.h mtcp_internal.h mtcp_sys.h
 	${CC} $(MTCP_CFLAGS) -c -o mtcp.o mtcp.c
-
-mtcp_writeckpt.o: mtcp_writeckpt.c mtcp.h mtcp_internal.h mtcp_sys.h mtcp_util.h
-	${CC} $(MTCP_CFLAGS) -c -o mtcp_writeckpt.o mtcp_writeckpt.c
 
 # Use uname instead of ${UNAME} below to determine if this is really 64-bit.
 mtcp_restart_nolibc.o: mtcp_restart_nolibc.c mtcp.h mtcp_internal.h
@@ -390,7 +380,7 @@ mtcp_restart_nolibc.o: mtcp_restart_nolibc.c mtcp.h mtcp_internal.h
 
 # -fstack-protector for hardening-check for debian-unstable (May 2012).
 mtcp_maybebpt.o: mtcp_maybebpt.c mtcp_internal.h
-	${CC} $(MTCP_CFLAGS) $(FSTACK_PROTECTOR) -c -o mtcp_maybebpt.o mtcp_maybebpt.c
+	${CC} $(MTCP_CFLAGS) -c -o mtcp_maybebpt.o mtcp_maybebpt.c
 
 mtcp_safe_open.o: mtcp_safe_open.c mtcp_internal.h
 	${CC} $(MTCP_CFLAGS) -c -o mtcp_safe_open.o mtcp_safe_open.c
@@ -398,7 +388,7 @@ mtcp_safe_open.o: mtcp_safe_open.c mtcp_internal.h
 mtcp_printf.o: mtcp_printf.c mtcp_internal.h
 	${CC} $(MTCP_CFLAGS) -c -o mtcp_printf.o mtcp_printf.c
 
-mtcp_util.o: mtcp_util.c mtcp_internal.h mtcp_util.h
+mtcp_util.o: mtcp_util.c mtcp_internal.h
 	${CC} $(MTCP_CFLAGS) -c -o mtcp_util.o mtcp_util.c
 
 mtcp_safemmap.o: mtcp_safemmap.c mtcp_internal.h
@@ -418,6 +408,9 @@ extractobjectmodule: extractobjectmodule.c
 
 mtcp_sigaction.o: mtcp_sigaction.c mtcp_sys.h
 	${CC} $(MTCP_CFLAGS) -c -o mtcp_sigaction.o mtcp_sigaction.c
+
+mtcp_fastckpt.o: mtcp_fastckpt.c mtcp_internal.h
+	${CC} $(MTCP_CFLAGS) -c -o mtcp_fastckpt.o mtcp_fastckpt.c
 
 dist: distclean
 	rm -f /tmp/mtcpv${MTCP_VERSION}
@@ -453,7 +446,7 @@ check: libmtcp.so mtcp_restart testmtcp
 
 distclean: clean
 	rm -f *~ mtcp.kdevses mtcp.kdevelop.* testmtcp{,1,2,3,4}.mtcp \
-	      *.lis a.out mtcp.t.orig mtcp.lis util-arch readmtcp
+	      *.lis a.out mtcp.t.orig mtcp.lis readmtcp
 
 clean:
 	rm -f *.o *.map mtcp_restart_noblibc.lis mtcp_sharetemp.c \

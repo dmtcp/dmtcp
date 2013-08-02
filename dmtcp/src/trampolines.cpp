@@ -19,6 +19,11 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#include <string.h>
+#include <sys/syscall.h>
+#include <sys/mman.h>
+#include <dlfcn.h>
+#include "constants.h"
 #include "trampolines.h"
 #include "syscallwrappers.h"
 #include "../jalib/jassert.h"
@@ -37,7 +42,7 @@ static void *sbrk_wrapper(intptr_t increment)
   /* Initialize curbrk. */
   if (curbrk == NULL) {
     /* The man page says syscall returns int, but unistd.h says long int. */
-    SYSCALL_ARG_RET_TYPE retval = syscall(SYS_brk, NULL);
+    long int retval = syscall(SYS_brk, NULL);
     curbrk = (void *)retval;
   }
   oldbrk = curbrk;

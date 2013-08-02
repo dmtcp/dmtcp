@@ -21,12 +21,21 @@
 
 #include <stdlib.h>
 #include <unistd.h>
+#include <map>
+#include <signal.h>
 #include <pthread.h>
 #include <sys/types.h>
+#include <sys/stat.h>
+#include <linux/limits.h>
 
+#include "constants.h"
 #include "threadsync.h"
+#include "util.h"
 #include "dmtcpworker.h"
-#include "syscallwrappers.h"
+#include "dmtcpmessagetypes.h"
+#include "../jalib/jconvert.h"
+#include "../jalib/jalloc.h"
+#include "../jalib/jfilesystem.h"
 
 /*
  * WrapperProtectionLock is used to make the checkpoint safe by making sure
@@ -84,32 +93,7 @@ static __thread bool _threadPerformingDlopenDlsym = false;
 #endif
 static __thread bool _sendCkptSignalOnFinalUnlock = false;
 static __thread bool _isOkToGrabWrapperExecutionLock = true;
-static __thread bool _hasThreadFinishedInitialization = false;
 
-
-void dmtcp::ThreadSync::initThread()
-{
-  // If we don't initialize these thread local variables here. If not done
-  // here, there can be a race between checkpoint processing and this
-  // thread trying to initialize some thread-local variable. Here is a possible
-  // calltrace:
-  // pthread_start -> threadFinishedInitialization -> stopthisthread ->
-  // callbackHoldsAnyLocks -> JASSERT().
-  _wrapperExecutionLockLockCount = 0;
-  _threadCreationLockLockCount = 0;
-#if TRACK_DLOPEN_DLSYM_FOR_LOCKS
-  _threadPerformingDlopenDlsym = false;
-#endif
-  _sendCkptSignalOnFinalUnlock = false;
-  _isOkToGrabWrapperExecutionLock = true;
-  _hasThreadFinishedInitialization = false;
-}
-
-void dmtcp::ThreadSync::initMotherOfAll()
-{
-  initThread();
-  _hasThreadFinishedInitialization = true;
-}
 
 void dmtcp::ThreadSync::acquireLocks()
 {
@@ -177,7 +161,6 @@ void dmtcp::ThreadSync::resetLocks()
 #endif
   _sendCkptSignalOnFinalUnlock = false;
   _isOkToGrabWrapperExecutionLock = true;
-  _hasThreadFinishedInitialization = true;
 
   pthread_mutex_t newCountLock = PTHREAD_MUTEX_INITIALIZER;
   uninitializedThreadCountLock = newCountLock;
@@ -202,9 +185,6 @@ bool dmtcp::ThreadSync::isThisThreadHoldingAnyLocks()
   // certainly not holding it :). It's possible for the count to be still '1',
   // as it may happen that the thread got suspended after releasing the lock
   // and before decrementing the lock-count.
-  if (_hasThreadFinishedInitialization == false) {
-    return true;
-  }
   return (_wrapperExecutionLockAcquiredByCkptThread == false ||
           _threadCreationLockAcquiredByCkptThread == false) &&
          (_threadCreationLockLockCount > 0 ||
@@ -303,7 +283,7 @@ void dmtcp::ThreadSync::delayCheckpointsLock()
   JASSERT(_real_pthread_mutex_lock(&theCkptCanStart)==0)(JASSERT_ERRNO);
 }
 
-void dmtcp::ThreadSync::delayCheckpointsUnlock() {
+void dmtcp::ThreadSync::delayCheckpointsUnlock(){
   JASSERT(_real_pthread_mutex_unlock(&theCkptCanStart)==0)(JASSERT_ERRNO);
 }
 
@@ -371,8 +351,7 @@ bool dmtcp::ThreadSync::wrapperExecutionLockLock()
         isThreadPerformingDlopenDlsym() == false &&
 #endif
         isCheckpointThreadInitialized() == true  &&
-        isOkToGrabLock() == true &&
-        _wrapperExecutionLockLockCount == 0) {
+        isOkToGrabLock() == true) {
       incrementWrapperExecutionLockLockCount();
       int retVal = _real_pthread_rwlock_tryrdlock(&_wrapperExecutionLock);
       if (retVal != 0 && retVal == EBUSY) {
@@ -588,16 +567,6 @@ void dmtcp::ThreadSync::decrementUninitializedThreadCount()
       (JASSERT_ERRNO);
   }
   errno = saved_errno;
-}
-
-void dmtcp::ThreadSync::threadFinishedInitialization()
-{
-  // The following line is to make sure the thread-local data is initialized
-  // before any wrapper call is made.
-  _hasThreadFinishedInitialization = false;
-  decrementUninitializedThreadCount();
-  _hasThreadFinishedInitialization = true;
-  dmtcp::ThreadSync::sendCkptSignalOnFinalUnlock();
 }
 
 void dmtcp::ThreadSync::incrNumUserThreads()

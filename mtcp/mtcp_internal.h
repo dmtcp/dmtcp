@@ -57,19 +57,6 @@
 # define FUTEX_WAKE 1
 #endif
 
-// For i386 and x86_64, SETJMP currently has bugs.  Don't turn this
-//   on for them until they are debugged.
-// Default is to use  setcontext/getcontext.
-#if defined(__arm__)
-# define SETJMP /* setcontext/getcontext not defined for ARM glibc */
-#endif
-
-#ifdef SETJMP
-# include <setjmp.h>
-#else
-# include <ucontext.h>
-#endif
-
 extern pid_t mtcp_saved_pid;
 //extern int STOPSIGNAL;     // signal to use to signal other threads to stop for
 
@@ -165,101 +152,9 @@ typedef unsigned int mtcp_segreg_t;
 typedef unsigned int mtcp_segreg_t;
 #endif
 
-#ifdef SETJMP
-/* Retrieve saved stack pointer saved by sigsetjmp () at jmpbuf[SAVEDSP] */
-# ifdef __i386__
-// In eglibc-2.13/sysdeps/i386/jmpbuf-offsets.h, JB_SP = 4
-#  define SAVEDSP 4
-# elif __x86_64__
-// In eglibc-2.13/sysdeps/x86_64/jmpbuf-offsets.h, JB_RSP = 6
-#  define SAVEDSP 6
-# elif __arm__
-// #define SAVEDSP uc_mcontext.arm_sp
-// In glibc-ports-2.14/sysdeps/arm/eabi/jmpbuf-offsets.h, __JMP_BUF_SP = 8
-#  define SAVEDSP 8
-# else
-#  error "register for stack pointer not defined"
-# endif
-#else /* else:  use getcontext */
-/* Retrieve saved stack pointer saved by setcontext () at jmpbuf[SAVEDSP] */
-# ifdef __i386__
-#  define SAVEDSP 7 /* ESP */
-# elif __x86_64__
-#  define SAVEDSP 15 /* RSP */
-# elif __arm__
-// NOT YET IMPLEMENTED /* SP */
-# else
-#  error "register for stack pointer not defined"
-# endif
-#endif
-
-#ifdef SETJMP
-// In field of 'struct Thread':
-# define JMPBUF_SP jmpbuf[0].__jmpbuf[SAVEDSP]
-#else
-// In field of 'struct Thread':
-# define JMPBUF_SP savctx.uc_mcontext.gregs[SAVEDSP]
-#endif
-
-
-typedef struct MtcpState MtcpState;
-#if USE_FUTEX
-struct MtcpState { int volatile value; };
-# define MTCP_STATE_INITIALIZER {0}
-#else
-struct MtcpState { int volatile value;
-                   pthread_cond_t cond;
-                   pthread_mutex_t mutex;};
-# define MTCP_STATE_INITIALIZER \
-  {0, PTHREAD_COND_INITIALIZER, PTHREAD_MUTEX_INITIALIZER }
-#endif
-
-typedef struct Thread Thread;
-
-struct Thread { Thread *next;         // next thread in 'threads' list
-                Thread *prev;        // prev thread in 'threads' list
-                int tid;              // this thread's id as returned by
-                                      //   mtcp_sys_kernel_gettid ()
-                int virtual_tid;      // this is the thread's "virtual" tid
-                MtcpState state;      // see ST_... below
-                Thread *parent;       // parent thread (or NULL if top-level
-                                      //   thread)
-                Thread *children;     // one of this thread's child threads
-                Thread *siblings;     // one of this thread's sibling threads
-
-                int clone_flags;      // parameters to __clone that created this
-                                      //   thread
-                int *parent_tidptr;
-                int *given_tidptr;    // (this is what __clone caller passed in)
-                int *actual_tidptr;   // (this is what we passed to the system
-                                      //   call, either given_tidptr or
-                                      //   &child_tid)
-                int child_tid; // this is used for child_tidptr if the
-                               //   original call did not ... have both
-                               //   CLONE_CHILD_SETTID and CLONE_CHILD_CLEARTID
-                int (*fn) (void *arg); // thread's initial function entrypoint
-                void *arg;             //   and argument
-
-                sigset_t sigblockmask; // blocked signals
-                sigset_t sigpending;   // pending signals
-
-                ///JA: new code ported from v54b
-#ifdef SETJMP
-                sigjmp_buf jmpbuf;     // sigjmp_buf saved by sigsetjmp on ckpt
-#else
-                ucontext_t savctx;     // context saved on suspend
-#endif
-
-		void *saved_sp;	       // at restart, we use a temporary stack
-				       //  just beyond original stack (red zone)
-                mtcp_segreg_t fs, gs;  // thread local storage pointers
-                struct user_desc gdtentrytls[1];
-              };
-
 // MTCP_PAGE_SIZE must be page-aligned:  multiple of sysconf(_SC_PAGESIZE).
 #define MTCP_PAGE_SIZE 4096
 #define MTCP_PAGE_MASK (~(MTCP_PAGE_SIZE-1))
-#define MTCP_PAGE_OFFSET_MASK (MTCP_PAGE_SIZE-1)
 #if defined(__i386__) || defined(__x86_64__)
 # if defined(__i386__) && defined(__PIC__)
 // FIXME:  After DMTCP-1.2.5, this can be made only case for i386/x86_64
@@ -314,15 +209,6 @@ struct Thread { Thread *next;         // next thread in 'threads' list
   #define HBICT_FIRST 'H'
 #endif
 
-#define NSCD_MMAP_STR1 "/var/run/nscd/"   /* OpenSUSE*/
-#define NSCD_MMAP_STR2 "/var/cache/nscd"  /* Debian / Ubuntu*/
-#define NSCD_MMAP_STR3 "/var/db/nscd"     /* RedHat / Fedora*/
-#define DEV_ZERO_DELETED_STR "/dev/zero (deleted)"
-#define DEV_NULL_DELETED_STR "/dev/null (deleted)"
-#define SYS_V_SHMEM_FILE "/SYSV"
-#ifdef IBV
-# define INFINIBAND_SHMEM_FILE "/dev/infiniband/uverbs"
-#endif
 #define DELETED_FILE_SUFFIX " (deleted)"
 
 /* Let MTCP_PROT_ZERO_PAGE be a unique bit mask
@@ -333,41 +219,58 @@ struct Thread { Thread *next;         // next thread in 'threads' list
 #define STACKSIZE 1024      // size of temporary stack (in quadwords)
 //#define MTCP_MAX_PATH 256   // maximum path length for mtcp_find_executable
 
+typedef struct Area Area;
 typedef struct Jmpbuf Jmpbuf;
 
-typedef union Area {
-  struct {
-  int type; // Content type (CS_XXX
-  char *addr;   // args required for mmap to restore memory area
-  size_t size;
-  off_t filesize;
-  int prot;
-  int flags;
-  off_t offset;
-  struct {
-    int fdnum;
-    off_t offset;
-    struct stat statbuf;
-  } fdinfo;
-  char name[FILENAMESIZE];
-  };
-  char _padding[4096];
-} Area;
+struct Area { char *addr;   // args required for mmap to restore memory area
+              size_t size;
+              off_t filesize;
+              int prot;
+              int flags;
+              off_t offset;
+              char name[FILENAMESIZE];
+#ifdef FAST_CKPT_RST_VIA_MMAP
+              size_t mem_region_offset;
+#endif
+            };
 
-typedef struct DeviceInfo {
-  unsigned int long devmajor;
-  unsigned int long devminor;
-  unsigned int long inodenum;
-} DeviceInfo;
+#ifdef FAST_CKPT_RST_VIA_MMAP
+# define MTCP_CKPT_IMAGE_VERSION 1.3
+typedef struct mtcp_ckpt_image_header {
+  float ckpt_image_version;
 
-typedef struct mtcp_ckpt_image_hdr {
-  int version;
-  VA libmtcp_begin;
-  size_t libmtcp_size;
-  VA restore_start_fptr; /* will be bound to fnc, mtcp_restore_start */
-  VA restore_finish_fptr; /* will be bound to fnc, mtcp_restore_finish */
+  VA start_addr;
+  size_t hdr_offset_in_file;
+  size_t total_size;
+  size_t maps_offset;
+  size_t num_memory_regions;
+  size_t VmSize;
+
+  size_t restore_size;
+  VA restore_begin;
+  VA restore_start_fncptr; /* will be bound to fnc, mtcp_restore_start */
+  VA finish_retore_fncptr; /* will be bound to fnc, finishrestore */
+
   struct rlimit stack_rlimit;
-} mtcp_ckpt_image_hdr_t;
+} mtcp_ckpt_image_header_t;
+
+VA fastckpt_mmap_addr();
+void fastckpt_write_mem_region(int fd, Area *area);
+void fastckpt_get_mem_region_info(size_t *vmsize, size_t *num_mem_regions);
+void fastckpt_prepare_for_ckpt(int ckptfd, VA restore_start, VA finishrestore);
+void fastckpt_save_restore_image(int fd, VA restore_begin, size_t restore_size);
+void fastckpt_finish_ckpt(int ckptfd);
+void fastckpt_read_header(int fd, struct rlimit *stack_rlimit, Area *area,
+                          VA *restore_start);
+void fastckpt_load_restore_image(int fd, Area *area);
+void fastckpt_prepare_for_restore(int fd);
+VA fastckpt_get_finishrestore();
+void fastckpt_finish_restore();
+int fastckpt_get_next_area_dscr(Area *area);
+void fastckpt_restore_mem_region(int fd, const Area *area);
+void fastckpt_populate_shared_file_from_ckpt_image(int ckptfd, int imagefd,
+                                                   Area* area);
+#endif
 
 // order must match that in mtcp_jmpbuf.s
 // struct Jmpbuf { uLong ebx, esi, edi, ebp, esp;
@@ -380,7 +283,7 @@ typedef struct mtcp_ckpt_image_hdr {
 #define CS_RESTORESIZE 2     // size (in bytes) of restore shareable image
 #define CS_RESTORESTART 3    // start address of restore routine
 #define CS_RESTOREIMAGE 4    // the actual restore image
-#define CS_RESTOREFINISH 5   // mtcp.c's finishrestore routine entrypoint
+#define CS_FINISHRESTORE 5   // mtcp.c's finishrestore routine entrypoint
 #define CS_AREADESCRIP 6     // memory area descriptor (Area struct)
 #define CS_AREACONTENTS 7    // memory area contents for an area
 #define CS_AREAFILEMAP 8     // memory area file mapping info
@@ -454,17 +357,18 @@ static inline int atomic_setif_ptr(void *volatile *loc, void *newval,
   return (rc);
 }
 
-extern VA mtcp_shareable_begin;
-extern VA mtcp_shareable_end;
+#ifndef USE_PROC_MAPS
+extern char mtcp_shareable_begin[];
+extern char mtcp_shareable_end[];
+#else
+extern VA mtcp_restore_begin;
+extern VA mtcp_restore_end;
+#endif
 
 extern __attribute__ ((visibility ("hidden")))
 int mtcp_sigaction(int sig, const struct sigaction *act,
 		   struct sigaction *oact);
 
-int  mtcp_have_thread_sysinfo_offset();
-void *mtcp_get_thread_sysinfo(void);
-void mtcp_set_thread_sysinfo(void *);
-void mtcp_dump_tls (char const *file, int line);
 //#ifndef MAXPATHLEN
 //# define MAXPATHLEN 512
 //#endif
@@ -484,6 +388,18 @@ extern void *mtcp_old_dl_sysinfo_0;
 
 void *mtcp_get_libc_symbol (char const *name);
 
+typedef struct MtcpState MtcpState;
+#if USE_FUTEX
+struct MtcpState { int volatile value; };
+# define MTCP_STATE_INITIALIZER {0}
+#else
+struct MtcpState { int volatile value;
+                   pthread_cond_t cond;
+                   pthread_mutex_t mutex;};
+# define MTCP_STATE_INITIALIZER \
+  {0, PTHREAD_COND_INITIALIZER, PTHREAD_MUTEX_INITIALIZER }
+#endif
+
 __attribute__ ((visibility ("hidden")))
    void mtcp_state_init(MtcpState * state, int value);
 __attribute__ ((visibility ("hidden")))
@@ -496,8 +412,42 @@ __attribute__ ((visibility ("hidden")))
 __attribute__ ((visibility ("hidden")))
    int mtcp_state_value(MtcpState * state);
 
+
+void mtcp_readcs (int fd, char cs);
+void mtcp_readfile(int fd, void *buf, size_t size);
+void mtcp_writecs (int fd, char cs);
+void mtcp_writefile (int fd, void const *buff, size_t size);
+void mtcp_check_vdso_enabled(void);
+int mtcp_have_thread_sysinfo_offset();
+void *mtcp_get_thread_sysinfo(void);
+void mtcp_set_thread_sysinfo(void *);
+void mtcp_dump_tls (char const *file, int line);
+int mtcp_is_executable(const char *exec_path);
+char *mtcp_find_executable(char *filename, const char* path_env,
+                           char exec_path[PATH_MAX]);
+char mtcp_readchar (int fd);
+char mtcp_readdec (int fd, VA *value);
+char mtcp_readhex (int fd, VA *value);
+ssize_t mtcp_read_all(int fd, void *buf, size_t count);
+ssize_t mtcp_write_all(int fd, const void *buf, size_t count);
+size_t mtcp_strlen (const char *s1);
+const void *mtcp_strstr(const char *string, const char *substring);
+void mtcp_strncpy(char *targ, const char* source, size_t len);
+void mtcp_strncat(char *dest, const char *src, size_t n);
+int mtcp_memcmp(char *targ, const char* source, size_t len);
+void mtcp_memset(char *targ, int c, size_t n);
+void mtcp_check_vdso_enabled();
+int mtcp_strncmp (const char *s1, const char *s2, size_t n);
+int mtcp_strcmp (const char *s1, const char *s2);
+int mtcp_strstartswith (const char *s1, const char *s2);
+int mtcp_strendswith (const char *s1, const char *s2);
+int mtcp_atoi(const char *nptr);
+int mtcp_get_controlling_term(char* ttyName, size_t len);
+const char* mtcp_getenv(const char* name);
+
+int mtcp_readmapsline (int mapsfd, Area *area);
 __attribute__ ((visibility ("hidden")))
-void mtcp_restoreverything (int should_mmap_ckpt_image, VA restore_finish_fptr);
+void mtcp_restoreverything (void);
 __attribute__ ((visibility ("hidden")))
 void mtcp_printf (char const *format, ...);
 void mtcp_maybebpt (void);
@@ -509,21 +459,11 @@ void mtcp_longjmp (Jmpbuf *jmpbuf, int retval);
 int mtcp_safe_open(char const *filename, int flags, mode_t mode);
 
 __attribute__ ((visibility ("hidden")))
-void mtcp_get_memory_region_of_this_library(VA *startaddr, VA *endaddr);
+int mtcp_selfmap_open();
 __attribute__ ((visibility ("hidden")))
 int mtcp_selfmap_readline(int selfmapfd, VA *startaddr, VA *endaddr,
 	                  off_t *file_offset);
 __attribute__ ((visibility ("hidden")))
-int mtcp_selfmap_open();
-__attribute__ ((visibility ("hidden")))
 int mtcp_selfmap_close(int selfmapfd);
 
-
-void mtcp_checkpointeverything(const char *temp_ckpt_filename,
-                               const char *perm_ckpt_filename);
-void mtcp_restore_finish(void);
-void mtcp_restore_start(int fd, int verify, int should_mmap_ckpt_image,
-                        char *ckpt_newname, char *cmd_file,
-                        char *argv[], char *envp[]);
-void mtcp_writeckpt_init(VA restore_start_fptr, VA finishrestore_fptr);
 #endif

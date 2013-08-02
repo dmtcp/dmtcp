@@ -24,16 +24,7 @@ if sys.version_info[0] != 2 or sys.version_info[0:2] < (2,4):
 #get testconfig
 # This assumes Makefile.in in main dir, but only Makefile in test dir.
 os.system("test -f Makefile || ./configure")
-try:
-  import testconfig
-except ImportError as e:
-  if e.args == ("USE_TEST_SUITE",):
-    print "\n*** DMTCP test suite is disabled." + \
-                                         "  To re-enable the test suite,\n" + \
-          "***  re-configure _without_ './configure --disable-test-suite'\n"
-  else:
-    print "\n*** Error in testconfig.py\n"
-  sys.exit()
+import testconfig
 
 #number of checkpoint/restart cycles
 CYCLES=2
@@ -47,9 +38,20 @@ if sys.version_info[0] == 2 and sys.version_info[0:2] >= (2,7) and \
     subprocess.check_output(['uname', '-p'])[0:3] == 'arm':
   DEFAULT_S *= 2
 
+if testconfig.MTCP_USE_PROC_MAPS == "yes":
+  DEFAULT_S = 2*DEFAULT_S
 S=DEFAULT_S
 #Appears as S*SLOW in code.  If --slow, then SLOW=5
 SLOW=1
+#In the case of gdb, even if both gdb and the inferior are running after
+#ckpt or restart, this does not guarantee that the ptrace-related work
+#(that is needed at resume or restart) is over. The ptrace related work happens
+#in the signal handler. Proceeding while still being inside the signal handler,
+#can lead to bad consquences. To play it on the safe side, PTRACE_SLEEP was
+#set at 2 seconds.  (Until this is fixed, --enable-ptrace-support will
+#remain experimental.)
+#if testconfig.PTRACE_SUPPORT == "yes":
+#  PTRACE_SLEEP=2
 
 #Max time to wait for ckpt/restart to finish (sec)
 TIMEOUT=10
@@ -289,6 +291,16 @@ os.system("rm -f "+tmpfile)
 
 os.environ['DMTCP_GZIP'] = GZIP
 
+# Temporary hack until DMTCP cleans up when using --enable-ptrace-support
+def deletePtraceFiles():
+  tmpdir = os.getenv("TMPDIR", "/tmp")  # if "TMPDIR" not set, return "/tmp"
+  tmpdir += "/dmtcp-" + pwd.getpwuid(os.getuid()).pw_name + \
+            "@" + socket.gethostname()
+  os.system("cd "+tmpdir+"; "+
+	    "rm -f ptrace_shared.txt ptrace_setoptions.txt \
+	     ptrace_ckpthreads.txt ptrace_shared.txt ptrace_setoptions.txt \
+	     ptrace_ckpthreads.txt new_ptrace_shared.txt ckpt_leader_file.txt")
+
 #launch the coordinator
 coordinator = launch(BIN+"dmtcp_coordinator")
 
@@ -509,6 +521,8 @@ def runTestRaw(name, numProcs, cmds):
       #  of this function:  testRestart
       testCheckpoint()
       printFixed("PASSED ")
+      #if testconfig.PTRACE_SUPPORT == "yes":
+      #  sleep(PTRACE_SLEEP)
       testKill()
 
       printFixed("rstr:")
@@ -516,6 +530,8 @@ def runTestRaw(name, numProcs, cmds):
         try:
           testRestart()
           printFixed("PASSED")
+          #if testconfig.PTRACE_SUPPORT == "yes":
+          #  sleep(PTRACE_SLEEP)
           break
         except CheckFailed, e:
           if j == RETRIES-1:
@@ -594,7 +610,7 @@ def saveResultsNMI():
       target = "./dmtcp-" + pwd.getpwuid(os.getuid()).pw_name + \
                "@" + socket.gethostname()
       cmd = "mkdir results; cp -pr " + tmpdir + "/" + target + \
-	       " ./dmtcp/src/libdmtcp.so" + \
+	       " ./dmtcp/src/dmtcphijack.so" + \
 	       " ./dmtcp/src/dmtcp_coordinator" + \
                " ./mtcp/libmtcp.so" + \
                " results/"
@@ -619,7 +635,13 @@ runTest("dmtcp1",        1, ["./test/dmtcp1"])
 
 runTest("dmtcp2",        1, ["./test/dmtcp2"])
 
+# dmtcp3 creates 10 threads; Keep checkpoint image small by using gzip
+# Also, it needs some extra time to startup
+S=2
+os.environ['DMTCP_GZIP'] = "1"
 runTest("dmtcp3",        1, ["./test/dmtcp3"])
+os.environ['DMTCP_GZIP'] = GZIP
+S=DEFAULT_S
 
 runTest("dmtcp4",        1, ["./test/dmtcp4"])
 
@@ -635,9 +657,6 @@ else:
 resource.setrlimit(resource.RLIMIT_STACK, [newCurrLimit, oldLimit[1]])
 runTest("dmtcp5",        2, ["./test/dmtcp5"])
 resource.setrlimit(resource.RLIMIT_STACK, oldLimit)
-
-# Test for files opened with WRONLY mode and later unlinked.
-runTest("file1",         1, ["./test/file1"])
 
 runTest("dmtcpaware1",   1, ["./test/dmtcpaware1"])
 
@@ -668,8 +687,7 @@ runTest("stale-fd",      2, ["./test/stale-fd"])
 # Disable procfd1 until we fix readlink
 #runTest("procfd1",       2, ["./test/procfd1"])
 
-# popen1 can have more than one processes
-#runTest("popen1",          1, ["./test/popen1"])
+runTest("popen1",          1, ["./test/popen1"])
 
 runTest("poll",          1, ["./test/poll"])
 
@@ -689,26 +707,10 @@ os.environ['DMTCP_GZIP'] = "0"
 
 runTest("shared-memory", 2, ["./test/shared-memory"])
 
-runTest("sysv-shm1",     2, ["./test/sysv-shm1"])
-runTest("sysv-shm2",     2, ["./test/sysv-shm2"])
-runTest("sysv-sem",      2, ["./test/sysv-sem"])
-runTest("sysv-msg",      2, ["./test/sysv-msg"])
-
-# ARM glibc 2.16 with Linux kernel 3.0 doesn't support mq_send, etc.
-if sys.version_info[0] == 2 and sys.version_info[0:2] >= (2,7) and \
-    subprocess.check_output(['uname', '-p'])[0:3] == 'arm':
-  print "Skipping posix-mq1/mq2 tests; ARM/glibc/Linux does not support mq_send"
-else:
-  runTest("posix-mq1",     2, ["./test/posix-mq1"])
-  runTest("posix-mq2",     2, ["./test/posix-mq2"])
+runTest("sysv-shm",      2, ["./test/sysv-shm"])
 
 #Invoke this test when we drain/restore data in pty at checkpoint time.
-# runTest("pty1",   2, ["./test/pty1"])
-runTest("pty2",   2, ["./test/pty2"])
-
-#Invoke this test when support for timers is added to DMTCP.
-runTest("timer",   1, ["./test/timer"])
-runTest("clock",   1, ["./test/clock"])
+# runTest("pty",   2, ["./test/pty"])
 
 old_ld_library_path = os.getenv("LD_LIBRARY_PATH")
 if old_ld_library_path:
@@ -813,8 +815,6 @@ if testconfig.HAS_SCRIPT == "yes" and testconfig.PID_VIRTUALIZATION == "yes":
   S=DEFAULT_S
 
 # SHOULD HAVE screen RUN SOMETHING LIKE:  bash -c ./test/dmtcp1
-# FIXME: Currently fails on dekaksi due to DMTCP not honoring
-#        "Async-signal-safe functions" in signal handlers (see man 7 signal)
 if testconfig.HAS_SCREEN == "yes" and testconfig.PID_VIRTUALIZATION == "yes":
   S=1
   if sys.version_info[0:2] >= (2,6):
@@ -822,33 +822,34 @@ if testconfig.HAS_SCREEN == "yes" and testconfig.PID_VIRTUALIZATION == "yes":
                                 " -c /dev/null -s /bin/sh"])
   S=DEFAULT_S
 
-if testconfig.PTRACE_SUPPORT == "yes" and sys.version_info[0:2] >= (2,6):
-  if testconfig.HAS_STRACE == "yes":
-    S=3
-    runTest("strace",    2,  ["strace test/dmtcp2"])
+if testconfig.PTRACE_SUPPORT == "yes" and \
+   (testconfig.HAS_STRACE == "yes" or testconfig.HAS_GDB == "yes"):
+  print "  Deleting files in /tmp/dmtcp-USER@HOST before ptrace tests.  (Until"
+  print "  this is fixed, --enable-ptrace-support will remain experimental.)"
+  deletePtraceFiles()
+  if testconfig.HAS_STRACE == "yes" and testconfig.PTRACE_SUPPORT == "yes":
+    S=1
+    if sys.version_info[0:2] >= (2,6):
+      runTest("strace",    2,  ["strace test/dmtcp2"])
     S=DEFAULT_S
 
-  if testconfig.HAS_GDB == "yes":
-    if subprocess.check_output(['uname', '-p'])[0:3] == 'arm':
-      print "On ARM, there is a known issue with DMTCP for gdb-* test." + \
-            "  Not running it."
-    else:
-      os.system("echo 'run' > dmtcp-gdbinit.tmp")
-      S=3
-      runTest("gdb",          2,
-              ["gdb -n -batch -x dmtcp-gdbinit.tmp test/dmtcp1"])
-  
-      runTest("gdb-pthread0", 2,
-              ["gdb -n -batch -x dmtcp-gdbinit.tmp test/dmtcp3"])
-  
-      # These tests currently fail sometimes (if the computation is checkpointed
-      # while a thread is being created). Re-enable them when this issue has
-      # been fixed in the ptrace plugin.
-      #runTest("gdb-pthread1", 2, ["gdb -n -batch -x dmtcp-gdbinit.tmp test/pthread1"])
-      #runTest("gdb-pthread2",2, ["gdb -n -batch -x dmtcp-gdbinit.tmp test/pthread2"])
-  
-      S=DEFAULT_S
-      os.system("rm -f dmtcp-gdbinit.tmp")
+  deletePtraceFiles()
+  if testconfig.HAS_GDB == "yes" and testconfig.PTRACE_SUPPORT == "yes":
+    os.system("echo 'run' > dmtcp-gdbinit.tmp")
+    S=2
+    if sys.version_info[0:2] >= (2,6):
+      runTest("gdb",       2,  ["gdb -n -batch -x dmtcp-gdbinit.tmp test/dmtcp1"])
+    S=DEFAULT_S
+    os.system("rm -f dmtcp-gdbinit.tmp")
+
+  deletePtraceFiles()
+  if testconfig.HAS_GDB == "yes" and testconfig.PTRACE_SUPPORT == "yes":
+    os.system("echo 'run' > dmtcp-gdbinit.tmp")
+    S=2
+    if sys.version_info[0:2] >= (2,6):
+      runTest("gdb-pthread",2,  ["gdb -n -batch -x dmtcp-gdbinit.tmp test/dmtcp3"])
+    S=DEFAULT_S
+    os.system("rm -f dmtcp-gdbinit.tmp")
 
 if testconfig.HAS_JAVAC == "yes" and testconfig.HAS_JAVA == "yes":
   S=3
@@ -893,32 +894,9 @@ if testconfig.HAS_MPICH == "yes":
 
   #os.system(testconfig.MPICH_MPDCLEANUP)
 
-
-if testconfig.HAS_OPENMPI == "yes":
-  # Compute:  USES_OPENMPI_ORTED
-  if 0 == os.system(testconfig.OPENMPI_MPICC +
-                    " -o ./test_openmpi test/hellompi.c 2>/dev/null 1>&2"):
-    os.system("rm -f ./uses_openmpi_orted")
-    # The 'sleep 1' below may not fix the race, creating a runaway test_openmpi.
-    os.system('/bin/sh -c "$OPENMPI_MPIRUN -np 2 ./test_openmpi' +
-              '   2>/dev/null 1>&2 &'
-              ' sleep 1 &&'
-              ' ps auxw | grep $USER | grep -v grep | grep -q orted &&'
-              ' touch ./uses_openmpi_orted" 2>/dev/null')
-    os.system("/bin/kill -9 `ps -eo pid,args | grep test_openmpi |" +
-              " sed -e 's%\([0-9]\) .*$%\1%'` 2>/dev/null")
-    if os.path.exists('./uses_openmpi_orted'):
-      os.system('rm -f ./uses_openmpi_orted')
-      USES_OPENMPI_ORTED = "yes"
-    else:
-      USES_OPENMPI_ORTED = "no"
-  else:
-    testconfig.HAS_OPENMPI = "no"
-  os.system('rm -f ./test_openmpi')
-
 # Temporarily disabling OpenMPI test as it fails on some distros (OpenSUSE 11.4)
 if testconfig.HAS_OPENMPI == "yes":
-  numProcesses = 5 + int(USES_OPENMPI_ORTED == "yes")
+  numProcesses = 5 + int(testconfig.USES_OPENMPI_ORTED == "yes")
   # FIXME: Replace "[5,6]" by numProcesses when bug in configure is fixed.
   # /usr/bin/openmpi does not work if /usr/bin is not also in user's PATH
   oldPath = ""

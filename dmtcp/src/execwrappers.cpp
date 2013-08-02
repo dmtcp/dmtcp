@@ -19,24 +19,28 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include <sys/syscall.h>
+#include <stdarg.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <vector>
+#include <list>
+#include <string>
 #include "constants.h"
+#include "connectionmanager.h"
 #include "uniquepid.h"
 #include "dmtcpworker.h"
-#include "processinfo.h"
+#include "virtualpidtable.h"
+#include "sysvipc.h"
 #include "syscallwrappers.h"
 #include "syslogwrappers.h"
 #include "util.h"
-#include "coordinatorapi.h"
-#include "shareddata.h"
-#include "threadsync.h"
 #include  "../jalib/jconvert.h"
 #include  "../jalib/jassert.h"
-#include  "../jalib/jfilesystem.h"
+#include <sys/time.h>
+#include <sys/resource.h>
+#include <sys/personality.h>
 
 #define INITIAL_ARGV_MAX 32
-
-using namespace dmtcp;
 
 #ifdef DEBUG
   const static bool dbg = true;
@@ -46,7 +50,7 @@ using namespace dmtcp;
 
 static bool pthread_atfork_enabled = false;
 static time_t child_time;
-static dmtcp::CoordinatorAPI coordinatorAPI(-1);
+static dmtcp::DmtcpCoordinatorAPI coordinatorAPI(-1);
 
 // Allow plugins to call fork/exec/system to perform specific tasks during
 // preCKpt/postCkpt/PostRestart etc. event.
@@ -56,40 +60,6 @@ static bool isPerformingCkptRestart()
       dmtcp::WorkerState::currentState() != dmtcp::WorkerState::RUNNING &&
       dmtcp::WorkerState::currentState() != dmtcp::WorkerState::PRE_FORK &&
       dmtcp::WorkerState::currentState() != dmtcp::WorkerState::PRE_EXEC) {
-    return true;
-  }
-  return false;
-}
-
-static bool isBlacklistedProgram(const char *path)
-{
-  dmtcp::string programName = jalib::Filesystem::BaseName(path);
-
-  JASSERT(programName != "dmtcp_coordinator" &&
-          programName != "dmtcp_checkpoint"  &&
-          programName != "dmtcp_restart"     &&
-          programName != "mtcp_restart")
-    (programName) .Text("This program should not be run under ckpt control");
-
-  /*
-   * When running gdb or any shell which does a waitpid() on the child
-   * processes, executing dmtcp_command from within gdb session / shell results
-   * in process getting hung up because:
-   *   gdb shell dmtcp_command -c => hangs because gdb forks off a new process
-   *   and it does a waitpid  (in which we block signals) ...
-   */
-  if (programName == "dmtcp_command") {
-    //make sure coordinator connection is closed
-    _real_close (PROTECTED_COORD_FD);
-
-    pid_t cpid = _real_fork();
-    JASSERT(cpid != -1);
-    if (cpid != 0) {
-      _real_exit(0);
-    }
-  }
-
-  if (programName == "dmtcp_nocheckpoint" || programName == "dmtcp_command") {
     return true;
   }
   return false;
@@ -133,24 +103,32 @@ LIB_PRIVATE void pthread_atfork_child()
     return;
   }
   pthread_atfork_enabled = false;
-
   long host = dmtcp::UniquePid::ThisProcess().hostid();
   dmtcp::UniquePid parent = dmtcp::UniquePid::ThisProcess();
-  dmtcp::UniquePid child = dmtcp::UniquePid(host, getpid(), child_time);
+  dmtcp::UniquePid child = dmtcp::UniquePid(host, -1, child_time);
   dmtcp::string child_name = jalib::Filesystem::GetProgramName() + "_(forked)";
+  // Reset __thread_tid on fork. This should be the first thing to do in
+  // the child process.
+  dmtcp_reset_gettid();
   JALIB_RESET_ON_FORK();
   _dmtcp_remutex_on_fork();
   dmtcp::SyslogCheckpointer::resetOnFork();
   dmtcp::ThreadSync::resetLocks();
 
+  child = dmtcp::UniquePid(host, _real_getpid(), child_time);
   dmtcp::UniquePid::resetOnFork(child);
   dmtcp::Util::initializeLogFile(child_name);
 
-  dmtcp::ProcessInfo::instance().resetOnFork();
+#ifdef PID_VIRTUALIZATION
+  if (dmtcp::VirtualPidTable::isConflictingPid(_real_getpid())) {
+    _exit(DMTCP_FAIL_RC);
+  }
+  dmtcp::VirtualPidTable::instance().resetOnFork();
+#endif
 
   JTRACE("fork()ed [CHILD]") (child) (parent);
-  dmtcp::CoordinatorAPI::resetOnFork(coordinatorAPI);
-  dmtcp::DmtcpWorker::resetOnFork();
+  dmtcp::DmtcpWorker::resetOnFork(coordinatorAPI.coordinatorSocket());
+
 }
 
 extern "C" pid_t fork()
@@ -163,57 +141,65 @@ extern "C" pid_t fork()
    * processing this system call.
    */
   WRAPPER_EXECUTION_GET_EXCL_LOCK();
-  dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_ATFORK_PREPARE, NULL);
+  dmtcp::KernelDeviceToConnection::instance().prepareForFork();
 
   /* Little bit cheating here: child_time should be same for both parent and
    * child, thus we compute it before forking the child. */
   child_time = time(NULL);
   long host = dmtcp::UniquePid::ThisProcess().hostid();
   dmtcp::UniquePid parent = dmtcp::UniquePid::ThisProcess();
+  dmtcp::UniquePid child = dmtcp::UniquePid(host, -1, child_time);
   dmtcp::string child_name = jalib::Filesystem::GetProgramName() + "_(forked)";
+  pid_t child_pid;
 
   coordinatorAPI.createNewConnectionBeforeFork(child_name);
-  dmtcp::Util::setVirtualPidEnvVar(coordinatorAPI.virtualPid(), getpid());
 
   //Enable the pthread_atfork child call
   pthread_atfork_enabled = true;
-  pid_t childPid = _real_fork();
+  while (1) {
+    child_pid = _real_fork();
+    if (child_pid == -1) { // fork() failed
+      break;
+    }
 
-  if (childPid == -1) {
-  } else if (childPid == 0) { /* child process */
-    /* NOTE: Any work that needs to be done for the newly created child
-     * should be put into pthread_atfork_child() function. That function is
-     * hooked to the libc:fork() and will be called right after the new
-     * process is created and before the fork() returns.
-     *
-     * pthread_atfork_child is registered by calling pthread_atfork() from
-     * within the DmtcpWorker constructor to make sure that this is the first
-     * registered handle.
-     */
-    dmtcp::UniquePid child = dmtcp::UniquePid(host, getpid(), child_time);
-    JTRACE("fork() done [CHILD]") (child) (parent);
+    if (child_pid == 0) { /* child process */
+      /* NOTE: Any work that needs to be done for the newly created child
+       * should be put into pthread_atfork_child() function. That function is
+       * hooked to the libc:fork() and will be called right after the new
+       * process is created and before the fork() returns.
+       *
+       * pthread_atfork_child is registered by calling pthread_atfork() from
+       * within the DmtcpWorker constructor to make sure that this is the first
+       * registered handle.
+       */
+      JTRACE("fork() done [CHILD]") (child) (parent);
+    } else { /* Parent Process */
+      coordinatorAPI.closeConnection();
+      child = dmtcp::UniquePid(host, child_pid, child_time);
+#ifdef PID_VIRTUALIZATION
+      if (dmtcp::VirtualPidTable::isConflictingPid(child_pid)) {
+        JTRACE("PID Conflict, creating new child") (child_pid);
+        _real_waitpid(child_pid, NULL, 0);
+        continue;
+      }
+      dmtcp::VirtualPidTable::instance().insert(child_pid, child);
+#endif
 
-    dmtcp::initializeMtcpEngine();
-  } else if (childPid > 0) { /* Parent Process */
-    dmtcp::UniquePid child = dmtcp::UniquePid(host, childPid, child_time);
-    dmtcp::ProcessInfo::instance().insertChild(childPid, child);
-    JTRACE("fork()ed [PARENT] done") (child);;
+      JTRACE("fork()ed [PARENT] done") (child);;
+    }
+    break;
   }
-
   pthread_atfork_enabled = false;
 
-  if (childPid != 0) {
-    dmtcp::Util::setVirtualPidEnvVar(getpid(), getppid());
-    coordinatorAPI.closeConnection();
-    dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_ATFORK_PARENT, NULL);
+  if (child_pid != 0) {
     WRAPPER_EXECUTION_RELEASE_EXCL_LOCK();
   }
-  return childPid;
+  return child_pid;
 }
 
 extern "C" pid_t vfork()
 {
-  JTRACE("vfork wrapper calling fork");
+  JTRACE ( "vfork wrapper calling fork" );
   // This might not preserve the full semantics of vfork.
   // Used for checkpointing gdb.
   return fork();
@@ -238,7 +224,7 @@ static void execShortLivedProcessAndExit(const char *path, char *const argv[])
       command = command + " " + argv[i];
     output = _real_popen(command.c_str(), "r");
   }
-  int numRead = fread(buf, 1, bufSize - 1, output);
+  int numRead = fread(buf, 1, bufSize, output);
   numRead++, numRead--; // suppress unused-var warning
 
   pclose(output); // /lib/libXXX process is now done; can checkpoint now
@@ -280,15 +266,13 @@ static void dmtcpPrepareForExec(const char *path, char *const argv[],
     // ptys, the slave name points to a virtual slave name, thus we need to
     // replace it with the real one.
     for (size_t i = 0; argv[i] != NULL; i++) {
-      if (dmtcp::Util::strStartsWith(argv[i], VIRT_PTS_PREFIX_STR)) {
-        // FIXME: Potential memory leak if exec() fails.
-        char *realPtsNameStr = (char*)JALLOC_HELPER_MALLOC(PTS_PATH_MAX);
+      if (dmtcp::Util::strStartsWith(argv[i], UNIQUE_PTS_PREFIX_STR)) {
         oldStr = argv[i];
         oldIdx = i;
-        dmtcp::SharedData::getRealPtyName(argv[i], realPtsNameStr,
-                                          PTS_PATH_MAX);
+        realPtsNameStr = dmtcp::UniquePtsNameToPtmxConId::instance().
+                           retrieveCurrentPtsDeviceName(argv[i]);
         // Override const restriction
-        *(const char**)&argv[i] = realPtsNameStr;
+        *(const char**)&argv[i] = realPtsNameStr.c_str();
       }
     }
     execShortLivedProcessAndExit(path, argv);
@@ -314,21 +298,22 @@ static void dmtcpPrepareForExec(const char *path, char *const argv[],
   }
 
   dmtcp::string serialFile = dmtcp::UniquePid::dmtcpTableFilename();
-  jalib::JBinarySerializeWriter wr (serialFile);
-  dmtcp::UniquePid::serialize (wr);
-  DmtcpEventData_t edata;
-  edata.serializerInfo.fd = wr.fd();
-  dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_PRE_EXEC, &edata);
+  jalib::JBinarySerializeWriter wr ( serialFile );
+  dmtcp::UniquePid::serialize ( wr );
+  dmtcp::KernelDeviceToConnection::instance().serialize ( wr );
+#ifdef PID_VIRTUALIZATION
+  dmtcp::VirtualPidTable::instance().serialize ( wr );
+  dmtcp::SysVIPC::instance().serialize ( wr );
+#endif
 
-  setenv (ENV_VAR_SERIALFILE_INITIAL, serialFile.c_str(), 1);
-  JTRACE("Will exec filename instead of path") (path) (*filename);
+  setenv ( ENV_VAR_SERIALFILE_INITIAL, serialFile.c_str(), 1 );
+  JTRACE ( "Will exec filename instead of path" ) ( path ) (*filename);
 
   dmtcp::Util::adjustRlimitStack();
 
   dmtcp::Util::prepareDlsymWrapper();
-  dmtcp::Util::setVirtualPidEnvVar(getpid(), getppid());
 
-  JTRACE("Prepared for Exec") (getenv("LD_PRELOAD"));
+  JTRACE ( "Prepared for Exec" ) ( getenv( "LD_PRELOAD" ) );
 }
 
 static void dmtcpProcessFailedExec(const char *path, char *newArgv[])
@@ -339,21 +324,23 @@ static void dmtcpProcessFailedExec(const char *path, char *newArgv[])
     dmtcp::Util::freePatchedArgv(newArgv);
   }
 
-  restoreUserLDPRELOAD();
+  const char *preload = getenv("LD_PRELOAD");
+  if (preload != NULL &&
+      dmtcp::Util::strStartsWith(preload, dmtcp::DmtcpWorker::ld_preload_c)) {
+    setenv("LD_PRELOAD",
+           preload + strlen(dmtcp::DmtcpWorker::ld_preload_c) + 1,
+           1);
+  }
 
   unsetenv(ENV_VAR_DLSYM_OFFSET);
 
-  JTRACE("Processed failed Exec Attempt") (path) (getenv("LD_PRELOAD"));
+  JTRACE ( "Processed failed Exec Attempt" ) (path) ( getenv( "LD_PRELOAD" ) );
   errno = saved_errno;
-
-  const char* serialFile = getenv(ENV_VAR_SERIALFILE_INITIAL);
-  _dmtcp_unsetenv(ENV_VAR_SERIALFILE_INITIAL);
-  JASSERT(unlink(serialFile) == 0) (JASSERT_ERRNO);
 }
 
 static dmtcp::string getUpdatedLdPreload(const char* currLdPreload = NULL)
 {
-  dmtcp::string preload = getenv(ENV_VAR_HIJACK_LIBS);
+  dmtcp::string preload (dmtcp::DmtcpWorker::ld_preload_c);
   if (currLdPreload != NULL) {
     preload = preload + ":" + currLdPreload;
   } else if (getenv("LD_PRELOAD") != NULL) {
@@ -368,25 +355,25 @@ static const char* ourImportantEnvs[] =
 };
 #define ourImportantEnvsCnt ((sizeof(ourImportantEnvs))/(sizeof(const char*)))
 
-static bool isImportantEnv (dmtcp::string str)
+static bool isImportantEnv ( dmtcp::string str )
 {
   str = str.substr(0, str.find("="));
 
-  for (size_t i=0; i<ourImportantEnvsCnt; ++i) {
-    if (str == ourImportantEnvs[i])
+  for ( size_t i=0; i<ourImportantEnvsCnt; ++i ) {
+    if ( str == ourImportantEnvs[i] )
       return true;
   }
   return false;
 }
 
-static dmtcp::vector<dmtcp::string> copyUserEnv (char *const envp[])
+static dmtcp::vector<dmtcp::string> copyUserEnv ( char *const envp[] )
 {
   dmtcp::vector<dmtcp::string> strStorage;
 
   dmtcp::ostringstream out;
   out << "non-DMTCP env vars:\n";
-  for (; *envp != NULL; ++envp) {
-    if (isImportantEnv (*envp)) {
+  for ( ; *envp != NULL; ++envp ) {
+    if ( isImportantEnv ( *envp ) ) {
       if (dbg) {
         out << "     skipping: " << *envp << '\n';
       }
@@ -394,11 +381,11 @@ static dmtcp::vector<dmtcp::string> copyUserEnv (char *const envp[])
     }
     dmtcp::string e(*envp);
     strStorage.push_back (e);
-    if (dbg) {
+    if(dbg) {
       out << "     addenv[user]:" << strStorage.back() << '\n';
     }
   }
-  JTRACE("Creating a copy of (non-DMTCP) user env vars...") (out.str());
+  JTRACE ( "Creating a copy of (non-DMTCP) user env vars..." ) (out.str());
 
   return strStorage;
 }
@@ -414,8 +401,8 @@ static dmtcp::vector<const char*> patchUserEnv (dmtcp::vector<dmtcp::string>
   dmtcp::ostringstream out;
   out << "non-DMTCP env vars:\n";
 
-  for (size_t i = 0; i < envp.size(); i++) {
-    if (isImportantEnv (envp[i].c_str())) {
+  for ( size_t i = 0; i < envp.size(); i++) {
+    if ( isImportantEnv ( envp[i].c_str() ) ) {
       if (dbg) {
         out << "     skipping: " << envp[i] << '\n';
       }
@@ -427,22 +414,22 @@ static dmtcp::vector<const char*> patchUserEnv (dmtcp::vector<dmtcp::string>
     }
 
     envVect.push_back (envp[i].c_str());
-    if (dbg) {
+    if(dbg) {
       out << "     addenv[user]:" << envVect.back() << '\n';
     }
   }
-  JTRACE("Creating a copy of (non-DMTCP) user env vars...") (out.str());
+  JTRACE ( "Creating a copy of (non-DMTCP) user env vars..." ) (out.str());
 
   //pack up our ENV into the new ENV
   out.str("DMTCP env vars:\n");
-  for (size_t i=0; i<ourImportantEnvsCnt; ++i) {
-    const char* v = getenv (ourImportantEnvs[i]);
-    if (v != NULL) {
-      envp.push_back (dmtcp::string (ourImportantEnvs[i]) + '=' + v);
+  for ( size_t i=0; i<ourImportantEnvsCnt; ++i ) {
+    const char* v = getenv ( ourImportantEnvs[i] );
+    if ( v != NULL ) {
+      envp.push_back ( dmtcp::string ( ourImportantEnvs[i] ) + '=' + v );
       const char *ptr = envp.back().c_str();
       JASSERT(ptr != NULL);
       envVect.push_back(ptr);
-      if (dbg) {
+      if(dbg) {
         out << "     addenv[dmtcp]:" << envVect.back() << '\n';
       }
     }
@@ -453,22 +440,22 @@ static dmtcp::vector<const char*> patchUserEnv (dmtcp::vector<dmtcp::string>
 
   envp.push_back(ldPreloadStr);
   envVect.push_back(envp.back().c_str());
-  if (dbg) {
+  if(dbg) {
     out << "     addenv[dmtcp]:" << envVect.back() << '\n';
   }
 
-  JTRACE("patching user envp...")  (out.str());
+  JTRACE ( "patching user envp..." )  (out.str());
 
-  envVect.push_back (NULL);
+  envVect.push_back ( NULL );
 
-  JTRACE("Done patching environ");
+  JTRACE ( "Done patching environ" );
   return envVect;
 }
 
-extern "C" int execve (const char *filename, char *const argv[],
-                        char *const envp[])
+extern "C" int execve ( const char *filename, char *const argv[],
+                        char *const envp[] )
 {
-  if (isPerformingCkptRestart() || isBlacklistedProgram(filename)) {
+  if (isPerformingCkptRestart()) {
     return _real_execve(filename, argv, envp);
   }
   JTRACE("execve() wrapper") (filename);
@@ -478,7 +465,7 @@ extern "C" int execve (const char *filename, char *const argv[],
    */
   WRAPPER_EXECUTION_GET_EXCL_LOCK();
 
-  dmtcp::vector<dmtcp::string> origUserEnv = copyUserEnv(envp);
+  dmtcp::vector<dmtcp::string> origUserEnv = copyUserEnv( envp );
 
   char *newFilename;
   char **newArgv;
@@ -486,7 +473,7 @@ extern "C" int execve (const char *filename, char *const argv[],
 
   dmtcp::vector<const char*> envVect = patchUserEnv(origUserEnv);
 
-  int retVal = _real_execve (newFilename, newArgv, (char* const*)&envVect[0]);
+  int retVal = _real_execve ( newFilename, newArgv, (char* const*)&envVect[0]);
 
   dmtcpProcessFailedExec(filename, newArgv);
 
@@ -495,15 +482,15 @@ extern "C" int execve (const char *filename, char *const argv[],
   return retVal;
 }
 
-extern "C" int execv (const char *path, char *const argv[])
+extern "C" int execv ( const char *path, char *const argv[] )
 {
-  JTRACE("execv() wrapper, calling execve with environ") (path);
+  JTRACE ( "execv() wrapper, calling execve with environ" ) ( path );
   return execve(path, argv, environ);
 }
 
-extern "C" int execvp (const char *filename, char *const argv[])
+extern "C" int execvp ( const char *filename, char *const argv[] )
 {
-  if (isPerformingCkptRestart() || isBlacklistedProgram(filename)) {
+  if (isPerformingCkptRestart()) {
     return _real_execvp(filename, argv);
   }
   JTRACE("execvp() wrapper") (filename);
@@ -517,7 +504,7 @@ extern "C" int execvp (const char *filename, char *const argv[])
   dmtcpPrepareForExec(filename, argv, &newFilename, &newArgv);
   setenv("LD_PRELOAD", getUpdatedLdPreload().c_str(), 1);
 
-  int retVal = _real_execvp (newFilename, newArgv);
+  int retVal = _real_execvp ( newFilename, newArgv );
 
   dmtcpProcessFailedExec(filename, newArgv);
 
@@ -527,10 +514,10 @@ extern "C" int execvp (const char *filename, char *const argv[])
 }
 
 // This function first appeared in glibc 2.11
-extern "C" int execvpe (const char *filename, char *const argv[],
-                         char *const envp[])
+extern "C" int execvpe ( const char *filename, char *const argv[],
+                         char *const envp[] )
 {
-  if (isPerformingCkptRestart() || isBlacklistedProgram(filename)) {
+  if (isPerformingCkptRestart()) {
     return _real_execvpe(filename, argv, envp);
   }
   JTRACE("execvpe() wrapper") (filename);
@@ -539,7 +526,7 @@ extern "C" int execvpe (const char *filename, char *const argv[],
    */
   WRAPPER_EXECUTION_GET_EXCL_LOCK();
 
-  dmtcp::vector<dmtcp::string> origUserEnv = copyUserEnv(envp);
+  dmtcp::vector<dmtcp::string> origUserEnv = copyUserEnv( envp );
 
   char *newFilename;
   char **newArgv;
@@ -556,19 +543,19 @@ extern "C" int execvpe (const char *filename, char *const argv[],
   return retVal;
 }
 
-extern "C" int fexecve (int fd, char *const argv[], char *const envp[])
+extern "C" int fexecve ( int fd, char *const argv[], char *const envp[] )
 {
   char buf[sizeof "/proc/self/fd/" + sizeof (int) * 3];
   snprintf (buf, sizeof (buf), "/proc/self/fd/%d", fd);
 
-  JTRACE("fexecve() wrapper calling execve()") (fd) (buf);
+  JTRACE ("fexecve() wrapper calling execve()") (fd) (buf);
   return execve(buf, argv, envp);
 }
 
 
-extern "C" int execl (const char *path, const char *arg, ...)
+extern "C" int execl ( const char *path, const char *arg, ... )
 {
-  JTRACE("execl() wrapper") (path);
+  JTRACE ( "execl() wrapper" ) ( path );
 
   size_t argv_max = INITIAL_ARGV_MAX;
   const char *initial_argv[INITIAL_ARGV_MAX];
@@ -611,9 +598,9 @@ extern "C" int execl (const char *path, const char *arg, ...)
 }
 
 
-extern "C" int execlp (const char *file, const char *arg, ...)
+extern "C" int execlp ( const char *file, const char *arg, ... )
 {
-  JTRACE("execlp() wrapper") (file);
+  JTRACE ( "execlp() wrapper" ) ( file );
 
   size_t argv_max = INITIAL_ARGV_MAX;
   const char *initial_argv[INITIAL_ARGV_MAX];
@@ -658,7 +645,7 @@ extern "C" int execlp (const char *file, const char *arg, ...)
 
 extern "C" int execle(const char *path, const char *arg, ...)
 {
-  JTRACE("execle() wrapper") (path);
+  JTRACE ( "execle() wrapper" ) ( path );
 
   size_t argv_max = INITIAL_ARGV_MAX;
   const char *initial_argv[INITIAL_ARGV_MAX];
@@ -706,8 +693,8 @@ extern int do_system (const char *line);
 
 extern "C" int system (const char *line)
 {
-  JTRACE("before system(), checkpointing may not work")
-    (line) (getenv (ENV_VAR_HIJACK_LIBS)) (getenv ("LD_PRELOAD"));
+  JTRACE ( "before system(), checkpointing may not work" )
+    ( line ) ( getenv ( ENV_VAR_HIJACK_LIB ) ) ( getenv ( "LD_PRELOAD" ) );
 
   if (line == NULL)
     /* Check that we have a command processor available.  It might
@@ -716,7 +703,7 @@ extern "C" int system (const char *line)
 
   int result = do_system (line);
 
-  JTRACE("after system()");
+  JTRACE ( "after system()" );
 
   return result;
 }

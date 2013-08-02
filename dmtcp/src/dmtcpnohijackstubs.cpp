@@ -1,17 +1,21 @@
+#include "syscallwrappers.h"
+#include "dmtcpworker.h"
 #include "uniquepid.h"
-#include "../jalib/jassert.h"
+#include "dmtcpplugin.h"
+#include "dmtcpmessagetypes.h"
+#include "dmtcpalloc.h"
 
 // dmtcp_checkpoint, and dmtcp_coordinator, and dmtcp_command do not
 //   need to load dmtcpworker.cpp
 // libdmtcpinternal.a contains code needed by dmtcpworker and the utilities
 //    alike.
 // libnohijack.a contains stub functions (mostly empty definitions
-//   corresponding to definitions in libdmtcp.so.  It includes
+//   corresponding to definitions in dmtcphijack.so.  It includes
 //   nosyscallsreal.c and this file (dmtcpworkerstubs.cpp).
-// libdmtcp.so and libsyscallsreal.a contain the wrappers and other code
+// dmtcphijack.so and libsyscallsreal.a contain the wrappers and other code
 //   that executes within the end user process
 
-// libdmtcp.so defines this differently
+// dmtcphijack.so defines this differently
 void _dmtcp_setup_trampolines() {}
 
 void dmtcp_process_event(DmtcpEvent_t id, void* data)
@@ -39,26 +43,8 @@ const char* dmtcp_get_uniquepid_str()
   return uniquepid_str.c_str();
 }
 
-DmtcpUniqueProcessId dmtcp_get_uniquepid()
-{
-  return  dmtcp::UniquePid::ThisProcess(true).upid();
-}
-
 int  dmtcp_is_running_state()
 {
-  JASSERT(false);
-  return 0;
-  //return dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING;
+  return dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING;
 }
 
-int  dmtcp_is_protected_fd(int fd)
-{
-  JASSERT(false);
-  return 0;
-}
-
-int  dmtcp_no_coordinator()
-{
-  JASSERT(false);
-  return 0;
-}

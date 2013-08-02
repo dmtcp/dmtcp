@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <unistd.h>
-#include <stdlib.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -9,10 +8,8 @@
 
 int main() {
   int pipefd[2];
-  if (pipe(pipefd) == -1) {
-    perror("pipe");
-    exit(1);
-  }
+  if (pipe(pipefd) != 0)
+    return 1;
   int fd = open("/dev/null", O_RDONLY);
   struct pollfd pfd[1];
   pfd[0].fd = pipefd[0];

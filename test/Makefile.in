@@ -56,12 +56,6 @@ else
 	#$@: required libraries missing, skipping test
 endif
 
-timer: timer.c
-	$(CC) -o $@ $< $(CFLAGS) -lrt
-
-clock: clock.c
-	$(CC) -o $@ $< $(CFLAGS) -lrt
-
 # Assume OpenMP exists only if OPENMP_CFLAGS is set.
 openmp-%: openmp-%.c
 ifneq (${OPENMP_CFLAGS},)
@@ -111,12 +105,6 @@ dmtcp5: dmtcp5.c
 	-$(CC) -o $@ $< $(CFLAGS) -lpthread
 
 pthread%: pthread%.c
-	-$(CC) -o $@ $< $(CFLAGS) -lpthread
-
-posix-mq%: posix-mq%.c
-	-$(CC) -o $@ $< $(CFLAGS) -lrt
-
-inotify%: inotify%.c
 	-$(CC) -o $@ $< $(CFLAGS) -lpthread
 
 # dlopen will dlopen/dlclose libdlopen-lib[12].so

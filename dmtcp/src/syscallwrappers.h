@@ -26,7 +26,6 @@
 # define _GNU_SOURCE
 #endif
 
-#include <pthread.h>
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -34,26 +33,31 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <poll.h>
+#include "constants.h"
+#include <sys/ptrace.h>
+// This was needed for 64-bit SUSE LINUX Enterprise Server 9 (Linux 2.6.5):
+#ifndef PTRACE_GETEVENTMSG
+# include <sys/ptrace.h>
+#endif
 #include <stdarg.h>
 #ifndef __arm__
 # include <asm/ldt.h> // Needed for 'struct user_desc' (arg 6 of __clone)
 #else
 struct user_desc {int dummy;}; /* <asm/ldt.h> is missing in Ubuntu 11.10 */
 #endif
+#include <thread_db.h>
+#include <sys/procfs.h>
+#include <syslog.h>
+#include <sys/ipc.h>
 #include <sys/shm.h>
-#include <sys/sem.h>
-#include <sys/msg.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
 #include <dirent.h>
 #include <unistd.h>
-#include <mqueue.h>
-#ifdef HAVE_SYS_INOTIFY_H
-# include <sys/inotify.h>
-#endif
+#include <pwd.h>
+#include <grp.h>
+#include <netdb.h>
 
-#include "constants.h"
-#include "dmtcpplugin.h"
 #ifdef HAVE_CONFIG_H
 # include "config.h"
 #endif
@@ -64,7 +68,7 @@ struct user_desc {int dummy;}; /* <asm/ldt.h> is missing in Ubuntu 11.10 */
 # ifndef _SYS_EPOLL_H
 #  define _SYS_EPOLL_H    1
    struct epoll_event {int dummy;};
-   /* Valid opcodes ("op" parameter) to issue to epoll_ctl().  */
+   /* Valid opcodes ( "op" parameter ) to issue to epoll_ctl().  */
 #  define EPOLL_CTL_ADD 1 /* Add a file decriptor to the interface.  */
 #  define EPOLL_CTL_DEL 2 /* Remove a file decriptor from the interface.  */
 #  define EPOLL_CTL_MOD 3 /* Change file decriptor epoll_event structure.  */
@@ -78,13 +82,17 @@ extern "C"
 {
 #endif
 
-#ifdef __arm__
-# define DISABLE_PTHREAD_GETSPECIFIC_TRICK
+#if __GLIBC_PREREQ(2,5)
+# define READLINK_RET_TYPE ssize_t
+#else
+# define READLINK_RET_TYPE int
 #endif
 
-LIB_PRIVATE pid_t gettid();
-LIB_PRIVATE int tkill(int tid, int sig);
-LIB_PRIVATE int tgkill(int tgid, int tid, int sig);
+/* The following function are defined in pidwrappers.cpp */
+pid_t gettid();
+int tkill(int tid, int sig);
+int tgkill(int tgid, int tid, int sig);
+
 
 
 extern int dmtcp_wrappers_initializing;
@@ -127,7 +135,7 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   MACRO(wait3)                              \
   MACRO(wait4)                              \
   MACRO(ioctl)                              \
-  MACRO(fcntl)                              \
+  MACRO(ptrace)                             \
                                             \
   MACRO(socket)                             \
   MACRO(connect)                            \
@@ -178,15 +186,8 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   MACRO(open64)                             \
   MACRO(fopen)                              \
   MACRO(fopen64)                            \
-  MACRO(openat)                             \
-  MACRO(openat64)                           \
-  MACRO(opendir)                            \
   MACRO(close)                              \
   MACRO(fclose)                             \
-  MACRO(closedir)                           \
-  MACRO(dup)                                \
-  MACRO(dup2)                               \
-  MACRO(dup3)                               \
   MACRO(__xstat)                            \
   MACRO(__xstat64)                          \
   MACRO(__lxstat)                           \
@@ -196,7 +197,6 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   MACRO(syscall)                            \
   MACRO(unsetenv)                           \
   MACRO(ptsname_r)                          \
-  MACRO(ttyname_r)                          \
   MACRO(getpt)                              \
   MACRO(posix_openpt)                       \
   MACRO(openlog)                            \
@@ -206,22 +206,6 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   MACRO(shmat)                              \
   MACRO(shmdt)                              \
   MACRO(shmctl)                             \
-                                            \
-  MACRO(semget)                             \
-  MACRO(semctl)                             \
-  MACRO(semop)                              \
-  MACRO(semtimedop)                         \
-                                            \
-  MACRO(msgget)                             \
-  MACRO(msgctl)                             \
-  MACRO(msgsnd)                             \
-  MACRO(msgrcv)                             \
-                                            \
-  MACRO(mq_open)                            \
-  MACRO(mq_close)                           \
-  MACRO(mq_timedsend)                       \
-  MACRO(mq_timedreceive)                    \
-  MACRO(mq_notify)                          \
                                             \
   MACRO(read)                               \
   MACRO(write)                              \
@@ -236,13 +220,13 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   MACRO(epoll_pwait)                        \
   MACRO(eventfd)                            \
   MACRO(signalfd)                           \
-  MACRO(inotify_init)                       \
-  MACRO(inotify_init1)                      \
-  MACRO(inotify_add_watch)                  \
-  MACRO(inotify_rm_watch)                   \
-                                            \
+//  MACRO(creat)
+//  MACRO(openat)
+
+#define FOREACH_LIBPTHREAD_WRAPPERS(MACRO)  \
   MACRO(pthread_create)                     \
   MACRO(pthread_exit)                       \
+  MACRO(pthread_join)                       \
   MACRO(pthread_tryjoin_np)                 \
   MACRO(pthread_timedjoin_np)               \
   MACRO(pthread_sigmask)                    \
@@ -253,9 +237,7 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   MACRO(pthread_rwlock_rdlock)              \
   MACRO(pthread_rwlock_tryrdlock)           \
   MACRO(pthread_rwlock_wrlock)              \
-  MACRO(pthread_rwlock_trywrlock)
-
-#define FOREACH_LIBPTHREAD_WRAPPERS(MACRO)  \
+  MACRO(pthread_rwlock_trywrlock)           \
   MACRO(pthread_cond_broadcast)             \
   MACRO(pthread_cond_destroy)               \
   MACRO(pthread_cond_init)                  \
@@ -275,80 +257,66 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
     numLibcWrappers
   } LibcWrapperOffset;
 
-  union semun {
-    int              val;    /* Value for SETVAL */
-    struct semid_ds *buf;    /* Buffer for IPC_STAT, IPC_SET */
-    unsigned short  *array;  /* Array for GETALL, SETALL */
-    struct seminfo  *__buf;  /* Buffer for IPC_INFO (Linux-specific) */
-  };
-
   void _dmtcp_lock();
   void _dmtcp_unlock();
 
   void _dmtcp_remutex_on_fork();
-  LIB_PRIVATE void dmtcpResetTid(pid_t tid);
-  LIB_PRIVATE void dmtcpResetPidPpid();
 
   LIB_PRIVATE void *_dmtcp_get_libc_dlsym_addr();
 
   int _dmtcp_unsetenv(const char *name);
   void initialize_libc_wrappers();
   void initialize_libpthread_wrappers();
+  void initializeJalib();
 
-  int _real_socket (int domain, int type, int protocol);
-  int _real_connect (int sockfd,  const  struct sockaddr *serv_addr,
-                      socklen_t addrlen);
-  int _real_bind (int sockfd,  const struct  sockaddr  *my_addr,
-                   socklen_t addrlen);
-  int _real_listen (int sockfd, int backlog);
-  int _real_accept (int sockfd, struct sockaddr *addr, socklen_t *addrlen);
-  int _real_accept4 (int sockfd, struct sockaddr *addr, socklen_t *addrlen,
-                      int flags);
-  int _real_setsockopt (int s, int level, int optname, const void *optval,
-                         socklen_t optlen);
-  int _real_getsockopt (int s, int level, int optname, void *optval,
-                         socklen_t *optlen);
+  int _real_socket ( int domain, int type, int protocol );
+  int _real_connect ( int sockfd,  const  struct sockaddr *serv_addr,
+                      socklen_t addrlen );
+  int _real_bind ( int sockfd,  const struct  sockaddr  *my_addr,
+                   socklen_t addrlen );
+  int _real_listen ( int sockfd, int backlog );
+  int _real_accept ( int sockfd, struct sockaddr *addr, socklen_t *addrlen );
+  int _real_accept4 ( int sockfd, struct sockaddr *addr, socklen_t *addrlen,
+                      int flags );
+  int _real_setsockopt ( int s, int level, int optname, const void *optval,
+                         socklen_t optlen );
+  int _real_getsockopt ( int s, int level, int optname, void *optval,
+                         socklen_t *optlen );
 
-  int _real_fexecve (int fd, char *const argv[], char *const envp[]);
-  int _real_execve (const char *filename, char *const argv[], char *const envp[]);
-  int _real_execv (const char *path, char *const argv[]);
-  int _real_execvp (const char *file, char *const argv[]);
+  int _real_fexecve ( int fd, char *const argv[], char *const envp[] );
+  int _real_execve ( const char *filename, char *const argv[], char *const envp[] );
+  int _real_execv ( const char *path, char *const argv[] );
+  int _real_execvp ( const char *file, char *const argv[] );
   int _real_execvpe(const char *file, char *const argv[], char *const envp[]);
 // int _real_execl(const char *path, const char *arg, ...);
 // int _real_execlp(const char *file, const char *arg, ...);
 // int _real_execle(const char *path, const char *arg, ..., char * const envp[]);
-  int _real_system (const char * cmd);
+  int _real_system ( const char * cmd );
   FILE *_real_popen(const char *command, const char *mode);
   int _real_pclose(FILE *fp);
 
   pid_t _real_fork();
-  int _real_clone (int (*fn) (void *arg), void *child_stack, int flags, void *arg, int *parent_tidptr, struct user_desc *newtls, int *child_tidptr);
+  int _real_clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags, void *arg, int *parent_tidptr, struct user_desc *newtls, int *child_tidptr );
 
   int _real_open(const char *pathname, int flags, ...);
   int _real_open64(const char *pathname, int flags, ...);
   FILE* _real_fopen(const char *path, const char *mode);
   FILE* _real_fopen64(const char *path, const char *mode);
-  int _real_openat(int dirfd, const char *pathname, int flags, mode_t mode);
-  int _real_openat64(int dirfd, const char *pathname, int flags, mode_t mode);
-  DIR* _real_opendir(const char *name);
-  int _real_close (int fd);
-  int _real_fclose (FILE *fp);
-  int _real_closedir (DIR *dir);
-  void _real_exit (int status);
-  int _real_dup (int oldfd);
-  int _real_dup2 (int oldfd, int newfd);
-  int _real_dup3 (int oldfd, int newfd, int flags);
-  int _real_fcntl(int fd, int cmd, void *arg);
+  int _real_close ( int fd );
+  int _real_fclose ( FILE *fp );
+  void _real_exit ( int status );
 
-  int _real_ttyname_r (int fd, char *buf, size_t buflen);
-  int _real_ptsname_r (int fd, char * buf, size_t buflen);
-  int _real_getpt (void);
-  int _real_posix_openpt (int flags);
+#define _real_dup  dup
+#define _real_dup2 dup2
 
-  int _real_socketpair (int d, int type, int protocol, int sv[2]);
+  int _real_ptsname_r ( int fd, char * buf, size_t buflen );
+  int _real_getpt ( void );
+  int _real_posix_openpt ( int flags );
 
-  void _real_openlog (const char *ident, int option, int facility);
-  void _real_closelog (void);
+  int _real_socketpair ( int d, int type, int protocol, int sv[2] );
+
+  void _real_openlog ( const char *ident, int option, int facility );
+  void _real_closelog ( void );
 
   // Despite what 'man signal' says, signal.h already defines sighandler_t
   // typedef void (*sighandler_t)(int);
@@ -387,11 +355,18 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   int   _real_tkill(int tid, int sig);
   int   _real_tgkill(int tgid, int tid, int sig);
 
-  SYSCALL_ARG_RET_TYPE _real_syscall(SYSCALL_ARG_RET_TYPE sys_num, ...);
+  long int _real_syscall(long int sys_num, ... );
+
+  /* System V shared memory */
+  int _real_shmget(key_t key, size_t size, int shmflg);
+  void* _real_shmat(int shmid, const void *shmaddr, int shmflg);
+  int _real_shmdt(const void *shmaddr);
+  int _real_shmctl(int shmid, int cmd, struct shmid_ds *buf);
 
   int _real_pthread_create(pthread_t *thread, const pthread_attr_t *attr,
       void *(*start_routine)(void*), void *arg);
   void _real_pthread_exit(void *retval) __attribute__ ((__noreturn__));
+  int _real_pthread_join(pthread_t thread, void **retval);
   int _real_pthread_tryjoin_np(pthread_t thread, void **retval);
   int _real_pthread_timedjoin_np(pthread_t thread, void **retval,
                                  const struct timespec *abstime);
@@ -400,8 +375,8 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   int _real_xstat64(int vers, const char *path, struct stat64 *buf);
   int _real_lxstat(int vers, const char *path, struct stat *buf);
   int _real_lxstat64(int vers, const char *path, struct stat64 *buf);
-  READLINK_RET_TYPE _real_readlink(const char *path, char *buf, size_t bufsiz);
-  void * _real_dlsym (void *handle, const char *symbol);
+  ssize_t _real_readlink(const char *path, char *buf, size_t bufsiz);
+  void * _real_dlsym ( void *handle, const char *symbol );
 
   void *_real_dlopen(const char *filename, int flag);
   int _real_dlclose(void *handle);
@@ -417,7 +392,7 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
       int fd, off64_t offset);
 #if __GLIBC_PREREQ (2,4)
   void *_real_mremap(void *old_address, size_t old_size, size_t new_size,
-      int flags, ... /* void *new_address */);
+      int flags, ... /* void *new_address */ );
 #else
   void *_real_mremap(void *old_address, size_t old_size, size_t new_size,
       int flags);
@@ -428,6 +403,9 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   ssize_t _real_write(int fd, const void *buf, size_t count);
   int _real_select(int nfds, fd_set *readfds, fd_set *writefds,
                    fd_set *exceptfds, struct timeval *timeout);
+  int _real_dup(int oldfd);
+  int _real_dup2(int oldfd, int newfd);
+  int _real_dup3(int oldfd, int newfd, int flags);
   off_t _real_lseek(int fd, off_t offset, int whence);
   int _real_unlink(const char *pathname);
 
@@ -448,7 +426,7 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
                                    const struct timespec *abstime);
   int _real_pthread_cond_wait(pthread_cond_t *cond, pthread_mutex_t *mutex);
 
-  int _real_poll(struct pollfd *fds, nfds_t nfds, POLL_TIMEOUT_TYPE timeout);
+  int _real_poll(struct pollfd *fds, nfds_t nfds, int timeout);
 
   int _real_epoll_create(int size);
   int _real_epoll_create1(int flags);
@@ -457,44 +435,43 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
                        int maxevents, int timeout);
   int _real_epoll_pwait(int epfd, struct epoll_event *events,
                         int maxevents, int timeout, const sigset_t *sigmask);
-  int _real_eventfd(EVENTFD_VAL_TYPE initval, int flags);
+  int _real_eventfd(int initval, int flags);
   int _real_signalfd (int fd, const sigset_t *mask, int flags);
-  int _real_inotify_init(void);
-  int _real_inotify_init1(int flags);
-  int _real_inotify_add_watch(int fd, const char *pathname, uint32_t mask);
-  int _real_inotify_rm_watch(int fd, int wd);
 
+#ifdef PID_VIRTUALIZATION
+  pid_t _real_getpid(void);
+  pid_t _real_getppid(void);
+
+  pid_t _real_tcgetpgrp(int fd);
+  int   _real_tcsetpgrp(int fd, pid_t pgrp);
+
+  pid_t _real_getpgrp(void);
+  pid_t _real_setpgrp(void);
+
+  pid_t _real_getpgid(pid_t pid);
+  int   _real_setpgid(pid_t pid, pid_t pgid);
+
+  pid_t _real_getsid(pid_t pid);
+  pid_t _real_setsid(void);
+
+  int   _real_kill(pid_t pid, int sig);
+
+  pid_t _real_wait(__WAIT_STATUS stat_loc);
+  pid_t _real_waitpid(pid_t pid, int *stat_loc, int options);
   int   _real_waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options);
+
+  pid_t _real_wait3(__WAIT_STATUS status, int options, struct rusage *rusage);
   pid_t _real_wait4(pid_t pid, __WAIT_STATUS status, int options,
                     struct rusage *rusage);
+  LIB_PRIVATE extern int send_sigwinch;
+  int _real_ioctl(int d,  unsigned long int request, ...) __THROW;
 
-  int _real_shmget (int key, size_t size, int shmflg);
-  void* _real_shmat (int shmid, const void *shmaddr, int shmflg);
-  int _real_shmdt (const void *shmaddr);
-  int _real_shmctl (int shmid, int cmd, struct shmid_ds *buf);
-  int _real_semget(key_t key, int nsems, int semflg);
-  int _real_semop(int semid, struct sembuf *sops, size_t nsops);
-  int _real_semtimedop(int semid, struct sembuf *sops, size_t nsops,
-                       const struct timespec *timeout);
-  int _real_semctl(int semid, int semnum, int cmd, ...);
+  int _real_setgid(gid_t gid);
+  int _real_setuid(uid_t uid);
 
-  int _real_msgget(key_t key, int msgflg);
-  int _real_msgsnd(int msqid, const void *msgp, size_t msgsz, int msgflg);
-  ssize_t _real_msgrcv(int msqid, void *msgp, size_t msgsz, long msgtyp,
-                       int msgflg);
-  int _real_msgctl(int msqid, int cmd, struct msqid_ds *buf);
-
-
-  mqd_t _real_mq_open(const char *name, int oflag, mode_t mode,
-                      struct mq_attr *attr);
-  int _real_mq_close(mqd_t mqdes);
-  int _real_mq_notify(mqd_t mqdes, const struct sigevent *sevp);
-  ssize_t _real_mq_timedreceive(mqd_t mqdes, char *msg_ptr, size_t msg_len,
-                                unsigned int *msg_prio,
-                                const struct timespec *abs_timeout);
-  int _real_mq_timedsend(mqd_t mqdes, const char *msg_ptr, size_t msg_len,
-                         unsigned int msg_prio,
-                         const struct timespec *abs_timeout);
+  long _real_ptrace ( enum __ptrace_request request, pid_t pid, void *addr,
+                    void *data);
+#endif /* PID_VIRTUALIZATION */
 
 #ifdef __cplusplus
 }

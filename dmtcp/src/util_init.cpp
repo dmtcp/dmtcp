@@ -19,13 +19,18 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#include <stdlib.h>
 #include <string.h>
+#include <string>
+#include <sstream>
+#include <errno.h>
+#include <dlfcn.h>
 #include "constants.h"
-#include "util.h"
+#include  "util.h"
+#include  "uniquepid.h"
+#include  "../jalib/jassert.h"
+#include  "../jalib/jfilesystem.h"
 #include "protectedfds.h"
-#include "uniquepid.h"
-#include "../jalib/jassert.h"
-#include "../jalib/jfilesystem.h"
 
 void dmtcp::Util::initializeLogFile(dmtcp::string procname, dmtcp::string prevLogPath)
 {
@@ -42,11 +47,9 @@ void dmtcp::Util::initializeLogFile(dmtcp::string procname, dmtcp::string prevLo
     o << procname;
   }
 
-  JASSERT_SET_LOG(o.str());
+  JASSERT_INIT(o.str());
 
   dmtcp::ostringstream a;
-  a << "\n========================================";
-  a << "\nProcess Information";
   a << "\n========================================";
   a << "\nThis Process: " << dmtcp::UniquePid::ThisProcess()
     << "\nParent Process: " << dmtcp::UniquePid::ParentProcess();
@@ -57,7 +60,7 @@ void dmtcp::Util::initializeLogFile(dmtcp::string procname, dmtcp::string prevLo
 
   a << "\nArgv: ";
   dmtcp::vector<dmtcp::string> args = jalib::Filesystem::GetProgramArgs();
-  size_t i;
+  int i;
   for (i = 0; i < args.size(); i++) {
     a << " " << args[i];
   }
@@ -68,12 +71,15 @@ void dmtcp::Util::initializeLogFile(dmtcp::string procname, dmtcp::string prevLo
   }
   a << "\n========================================\n";
 
-  JLOG(a.str().c_str());
+  JASSERT_SET_CONSOLE_FD(-1);
+  JTRACE("Process Information") (a.str());
+  JASSERT_SET_CONSOLE_FD(PROTECTED_STDERR_FD);
+#else
+  JASSERT_INIT("");
 #endif
   if (getenv(ENV_VAR_QUIET)) {
     jassert_quiet = *getenv(ENV_VAR_QUIET) - '0';
   } else {
     jassert_quiet = 0;
   }
-  unsetenv(ENV_VAR_STDERR_PATH);
 }

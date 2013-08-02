@@ -29,7 +29,6 @@
 #include <fcntl.h>
 
 #include <fstream>
-#include "dmtcpplugin.h"
 
 namespace jalib {
   typedef struct JalibFuncPtrs {
@@ -40,11 +39,8 @@ namespace jalib {
     FILE* (*fopen)(const char *path, const char *mode);
     int   (*close)(int fd);
     int   (*fclose)(FILE *fp);
-    int   (*dup)(int oldfd);
-    int   (*dup2)(int oldfd, int newfd);
-    READLINK_RET_TYPE (*readlink)(const char *path, char *buf, size_t bufsiz);
 
-    SYSCALL_ARG_RET_TYPE (*syscall)(SYSCALL_ARG_RET_TYPE sys_num, ...);
+    long int (*syscall)(long int sys_num, ...);
     void*    (*mmap)(void *addr, size_t length, int prot, int flags, int fd,
                      off_t offset);
     int      (*munmap)(void *addr, size_t length);
@@ -59,8 +55,6 @@ namespace jalib {
     int   (*bind)(int sockfd, const struct sockaddr *my_addr, socklen_t addrlen);
     int   (*listen)(int sockfd, int backlog);
     int   (*accept)(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
-    int   (*setsockopt)(int s, int level, int optname, const void *optval,
-                        socklen_t optlen);
     int   (*pthread_mutex_lock)(pthread_mutex_t *mutex);
     int   (*pthread_mutex_trylock)(pthread_mutex_t *mutex);
     int   (*pthread_mutex_unlock)(pthread_mutex_t *mutex);
@@ -82,11 +76,8 @@ namespace jalib {
   FILE* fopen(const char *path, const char *mode);
   int close(int fd);
   int fclose(FILE *fp);
-  int dup(int oldfd);
-  int dup2(int oldfd, int newfd);
-  READLINK_RET_TYPE readlink(const char *path, char *buf, size_t bufsiz);
 
-  SYSCALL_ARG_RET_TYPE syscall(SYSCALL_ARG_RET_TYPE sys_num, ...);
+  long int syscall(long int sys_num, ...);
   void *mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset);
   int   munmap(void *addr, size_t length);
 
@@ -100,8 +91,6 @@ namespace jalib {
   int bind(int sockfd, const struct sockaddr *my_addr, socklen_t addrlen);
   int listen(int sockfd, int backlog);
   int accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
-  int setsockopt(int s, int level, int optname, const void *optval,
-                 socklen_t optlen);
   int pthread_mutex_lock(pthread_mutex_t *mutex);
   int pthread_mutex_trylock(pthread_mutex_t *mutex);
   int pthread_mutex_unlock(pthread_mutex_t *mutex);

@@ -32,7 +32,6 @@
 
 #include <fstream>
 #include "jalib.h"
-#include "jassert.h"
 
 jalib::JalibFuncPtrs jalib::jalibFuncPtrs;
 int jalib::jalib_funcptrs_initialized = 0;
@@ -49,7 +48,6 @@ extern "C" void jalib_init(jalib::JalibFuncPtrs jalibFuncPtrs,
   jalib::logFd = jassertLogFd;
   jalib::jalib_funcptrs_initialized = 1;
   jalib::dmtcp_fail_rc = dmtcp_fail_rc;
-  JASSERT_INIT();
 }
 
 #define REAL_FUNC_PASSTHROUGH(type,name) \
@@ -92,19 +90,7 @@ namespace jalib {
     REAL_FUNC_PASSTHROUGH(int, fclose) (fp);
   }
 
-  int dup(int oldfd) {
-    REAL_FUNC_PASSTHROUGH(int, dup) (oldfd);
-  }
-
-  int dup2(int oldfd, int newfd) {
-    REAL_FUNC_PASSTHROUGH(int, dup2) (oldfd, newfd);
-  }
-
-  READLINK_RET_TYPE readlink(const char *path, char *buf, size_t bufsiz) {
-    REAL_FUNC_PASSTHROUGH(READLINK_RET_TYPE, readlink) (path, buf,bufsiz);
-  }
-
-  SYSCALL_ARG_RET_TYPE syscall(SYSCALL_ARG_RET_TYPE sys_num, ...) {
+  long int syscall(long int sys_num, ...) {
     int i;
     void * arg[7];
     va_list ap;
@@ -116,8 +102,7 @@ namespace jalib {
 
     // /usr/include/unistd.h says syscall returns long int (contrary to man
     // page)
-    REAL_FUNC_PASSTHROUGH(SYSCALL_ARG_RET_TYPE, syscall) (
-                                              sys_num, arg[0], arg[1], arg[2],
+    REAL_FUNC_PASSTHROUGH(long int, syscall) (sys_num, arg[0], arg[1], arg[2],
                                               arg[3], arg[4], arg[5], arg[6]);
   }
 
@@ -161,11 +146,6 @@ namespace jalib {
 
   int accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen) {
     REAL_FUNC_PASSTHROUGH(int, accept) (sockfd, addr, addrlen);
-  }
-
-  int setsockopt(int s, int level, int optname, const void *optval,
-                        socklen_t optlen) {
-    REAL_FUNC_PASSTHROUGH(int, setsockopt) (s, level, optname, optval, optlen);
   }
 
   int pthread_mutex_lock(pthread_mutex_t *mutex) {

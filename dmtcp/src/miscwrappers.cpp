@@ -19,22 +19,37 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#include <stdarg.h>
+#include <stdlib.h>
+#include <vector>
+#include <list>
+#include <string>
+#include <fcntl.h>
+#include <signal.h>
+#include <sys/ipc.h>
+#include <sys/shm.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <unistd.h>
+#include <sys/syscall.h>
+#include <sys/epoll.h>
+#include <linux/version.h>
+#include <limits.h>
+#include "uniquepid.h"
 #include "dmtcpworker.h"
 #include "threadsync.h"
+#include "dmtcpmessagetypes.h"
 #include "protectedfds.h"
 #include "constants.h"
+#include "connectionmanager.h"
 #include "syscallwrappers.h"
+#include "sysvipc.h"
+#include "util.h"
 #include  "../jalib/jassert.h"
 #include  "../jalib/jconvert.h"
-#include "processinfo.h"
-#include <sys/syscall.h>
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,13) && __GLIBC_PREREQ(2,4)
 #include <sys/inotify.h>
-#endif
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22) && __GLIBC_PREREQ(2,8)
-#include <sys/eventfd.h>
-#include <sys/signalfd.h>
 #endif
 
 extern "C" void exit ( int status )
@@ -44,47 +59,30 @@ extern "C" void exit ( int status )
   for (;;); // Without this, gcc emits warning:  `noreturn' fnc does return
 }
 
-extern "C" int close(int fd)
-{
-  if (DMTCP_IS_PROTECTED_FD(fd)) {
-    JTRACE("blocked attempt to close protected fd") (fd);
-    errno = EBADF;
-    return -1;
-  }
-  return _real_close(fd);
-}
 
-extern "C" int fclose(FILE *fp)
+extern "C" int socketpair ( int d, int type, int protocol, int sv[2] )
 {
-  int fd = fileno(fp);
-  if (DMTCP_IS_PROTECTED_FD(fd)) {
-    JTRACE("blocked attempt to fclose protected fd") (fd);
-    errno = EBADF;
-    return -1;
-  }
-  return _real_fclose(fp);
-}
+  WRAPPER_EXECUTION_DISABLE_CKPT();
 
-extern "C" int closedir(DIR *dir)
-{
-  int fd = dirfd(dir);
-  if (DMTCP_IS_PROTECTED_FD(fd)) {
-    JTRACE("blocked attempt to closedir protected fd") (fd);
-    errno = EBADF;
-    return -1;
-  }
-  return _real_closedir(dir);
-}
+  JASSERT ( sv != NULL );
+  int rv = _real_socketpair ( d,type,protocol,sv );
+  JTRACE ( "socketpair()" ) ( sv[0] ) ( sv[1] );
 
-/*
- * FIXME: Add wrapper for dup2 and dup3 to detect if the newfd is a protected fd.
-extern "C" int dup2(int oldfd, int newfd)
-{
-  if (DMTCP_IS_PROTECTED_FD(newfd)) {
-  }
-  return _real_dup2(oldfd, newfd);
+  dmtcp::TcpConnection *a, *b;
+
+  a = new dmtcp::TcpConnection ( d, type, protocol );
+  a->onConnect();
+  b = new dmtcp::TcpConnection ( *a, a->id() );
+  a->setSocketpairPeer(b->id());
+  b->setSocketpairPeer(a->id());
+
+  dmtcp::KernelDeviceToConnection::instance().create ( sv[0] , a );
+  dmtcp::KernelDeviceToConnection::instance().create ( sv[1] , b );
+
+  WRAPPER_EXECUTION_ENABLE_CKPT();
+
+  return rv;
 }
-*/
 
 extern "C" int pipe ( int fds[2] )
 {
@@ -105,88 +103,6 @@ extern "C" int pipe2 ( int fds[2], int flags )
   return socketpair ( AF_UNIX, SOCK_STREAM | newFlags, 0, fds );
 }
 #endif
-
-
-// extern "C" pid_t getpid()
-// {
-//   return dmtcp::ProcessInfo::instance().pid();
-// }
-
-// extern "C" pid_t getppid()
-// {
-//   pid_t ppid = _real_getppid();
-//   if (ppid == 1 ) {
-//     dmtcp::ProcessInfo::instance().setppid( 1 );
-//   }
-//
-//   return origPpid;
-// }
-
-// extern "C" pid_t setsid(void)
-// {
-//   pid_t pid = _real_setsid();
-//   dmtcp::ProcessInfo::instance().setsid(origPid);
-//   return origPid;
-// }
-
-#if 1
-extern "C" pid_t wait (__WAIT_STATUS stat_loc)
-{
-  return waitpid(-1, (int*)stat_loc, 0);
-}
-
-extern "C" pid_t waitpid(pid_t pid, int *stat_loc, int options)
-{
-  return wait4(pid, stat_loc, options, NULL);
-}
-
-extern "C" pid_t wait3(__WAIT_STATUS status, int options, struct rusage *rusage)
-{
-  return wait4(-1, status, options, rusage);
-}
-
-extern "C"
-pid_t wait4(pid_t pid, __WAIT_STATUS status, int options, struct rusage *rusage)
-{
-  int stat;
-  int saved_errno = errno;
-  pid_t retval = 0;
-
-  if (status == NULL) {
-    status = (__WAIT_STATUS) &stat;
-  }
-
-  retval = _real_wait4(pid, status, options, rusage);
-  saved_errno = errno;
-
-  if (retval > 0 &&
-      (WIFEXITED(*(int*)status) || WIFSIGNALED(*(int*)status))) {
-    dmtcp::ProcessInfo::instance().eraseChild(retval);
-  }
-  errno = saved_errno;
-  return retval;
-}
-
-extern "C" int waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options)
-{
-  siginfo_t siginfop;
-  memset(&siginfop, 0, sizeof(siginfop));
-
-  int retval = _real_waitid (idtype, id, &siginfop, options);
-
-  if (retval != -1) {
-    if ( siginfop.si_code == CLD_EXITED || siginfop.si_code == CLD_KILLED )
-      dmtcp::ProcessInfo::instance().eraseChild ( siginfop.si_pid );
-  }
-
-  if (retval == 0 && infop != NULL) {
-    *infop = siginfop;
-  }
-
-  return retval;
-}
-#endif
-
 
 /* Reason for using thread_performing_dlopen_dlsym:
  *
@@ -237,6 +153,102 @@ int dlclose(void *handle)
   }
   return ret;
 }
+
+#ifdef PID_VIRTUALIZATION
+extern "C"
+int shmget(key_t key, size_t size, int shmflg)
+{
+  int ret;
+  WRAPPER_EXECUTION_DISABLE_CKPT();
+  while (true) {
+    ret = _real_shmget(key, size, shmflg);
+    if (ret != -1 &&
+        dmtcp::SysVIPC::instance().isConflictingShmid(ret) == false) {
+      dmtcp::SysVIPC::instance().on_shmget(key, size, shmflg, ret);
+      break;
+    }
+    JASSERT(_real_shmctl(ret, IPC_RMID, NULL) != -1);
+  };
+  JTRACE ("Creating new Shared memory segment" ) (key) (size) (shmflg) (ret);
+  WRAPPER_EXECUTION_ENABLE_CKPT();
+  return ret;
+}
+
+extern "C"
+void *shmat(int shmid, const void *shmaddr, int shmflg)
+{
+  WRAPPER_EXECUTION_DISABLE_CKPT();
+  int currentShmid = dmtcp::SysVIPC::instance().originalToCurrentShmid(shmid);
+  JASSERT(currentShmid != -1);
+  void *ret = _real_shmat(currentShmid, shmaddr, shmflg);
+#ifdef __arm__
+  // This is arguably a bug in Linux kernel 2.6.28, 2.6.29, 3.0 - 3.2 and others
+  // See:  https://bugs.kde.org/show_bug.cgi?id=222545
+  //     On ARM, SHMLBA == 4*PAGE_SIZE instead of PAGESIZE
+  //     So, this fails:
+  //    shmaddr = shmat(shmid, NULL, 0); smdt(shmaddr); shmat(shmid, shaddr, 0);
+  //       when shmaddr % 0x4000 != 0 (when shmaddr not multiple of SMLBA)
+  // Workaround for bug in Linux kernel for ARM follows.
+  // WHEN KERNEL FIX IS AVAILABLE, DO THIS ONLY FOR BUGGY KERNEL VERSIONS.
+  if (((long)ret % 0x4000 != 0) && (ret != (void *)-1)) { // if ret%SHMLBA != 0
+    void *ret_addr[20];
+    int i;
+    for (i = 0; i < sizeof(ret_addr) / sizeof(ret_addr[0]) ; i++) {
+      ret_addr[i] = ret; // Save bad address for detaching later
+      ret = _real_shmat(currentShmid, shmaddr, shmflg); // Try again
+      // if ret % SHMLBA == 0 { ... }
+      if (((long)ret % 0x4000 == 0) || (ret == (void *)-1))
+        break; // Good address (or error return)
+    }
+    // Detach all the bad addresses athat are not SHMLBA-aligned.
+    if (i < sizeof(ret_addr) / sizeof(ret_addr[0]))
+      for (int j = 0; j < i+1; j++)
+        _real_shmdt( ret_addr[j] );
+    JASSERT((long)ret % 0x4000 == 0)
+      (shmaddr) (shmflg) (getpid())
+      .Text ("Failed to get SHMLBA-aligned address after 20 tries");
+  }
+#endif
+
+  if (ret != (void *) -1) {
+    dmtcp::SysVIPC::instance().on_shmat(shmid, shmaddr, shmflg, ret);
+    JTRACE ("Mapping Shared memory segment" ) (shmid) (shmflg) (ret);
+  }
+  WRAPPER_EXECUTION_ENABLE_CKPT();
+  return ret;
+}
+
+extern "C"
+int shmdt(const void *shmaddr)
+{
+  WRAPPER_EXECUTION_DISABLE_CKPT();
+  int ret = _real_shmdt(shmaddr);
+  if (ret != -1) {
+    dmtcp::SysVIPC::instance().on_shmdt(shmaddr);
+    JTRACE ("Unmapping Shared memory segment" ) (shmaddr);
+  }
+  WRAPPER_EXECUTION_ENABLE_CKPT();
+  return ret;
+}
+
+extern "C"
+int shmctl(int shmid, int cmd, struct shmid_ds *buf)
+{
+  WRAPPER_EXECUTION_DISABLE_CKPT();
+  int currentShmid = dmtcp::SysVIPC::instance().originalToCurrentShmid(shmid);
+  JASSERT(currentShmid != -1);
+  int ret = _real_shmctl(currentShmid, cmd, buf);
+  // Change the creator-pid of the shm object to the original so that if
+  // calling thread wants to use it, pid-virtualization layer can take care of
+  // the original to current conversion.
+  // TODO: Need to update uid/gid fields to support uid/gid virtualization.
+  if (buf != NULL) {
+    buf->shm_cpid = dmtcp::VirtualPidTable::instance().currentToOriginalPid(buf->shm_cpid);
+  }
+  WRAPPER_EXECUTION_ENABLE_CKPT();
+  return ret;
+}
+#endif // PID_VIRTUALIZATION
 
 extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags, void *arg, int *parent_tidptr, struct user_desc *newtls, int *child_tidptr );
 
@@ -292,7 +304,7 @@ extern "C" int __clone ( int ( *fn ) ( void *arg ), void *child_stack, int flags
  * XXX: DO NOT USE JTRACE/JNOTE/JASSERT in this function; even better, do not
  *      use any STL here.  (--Kapil)
  */
-extern "C" SYSCALL_ARG_RET_TYPE syscall(SYSCALL_ARG_RET_TYPE sys_num, ... )
+extern "C" long int syscall(long int sys_num, ... )
 {
   long int ret;
   va_list ap;
@@ -300,6 +312,25 @@ extern "C" SYSCALL_ARG_RET_TYPE syscall(SYSCALL_ARG_RET_TYPE sys_num, ... )
   va_start(ap, sys_num);
 
   switch ( sys_num ) {
+#ifdef PID_VIRTUALIZATION
+    case SYS_gettid:
+    {
+      ret = gettid();
+      break;
+    }
+    case SYS_tkill:
+    {
+      SYSCALL_GET_ARGS_2(int, tid, int, sig);
+      ret = tkill(tid, sig);
+      break;
+    }
+    case SYS_tgkill:
+    {
+      SYSCALL_GET_ARGS_3(int, tgid, int, tid, int, sig);
+      ret = tgkill(tgid, tid, sig);
+      break;
+    }
+#endif
 
     case SYS_clone:
     {
@@ -454,11 +485,94 @@ extern "C" SYSCALL_ARG_RET_TYPE syscall(SYSCALL_ARG_RET_TYPE sys_num, ... )
     }
 #endif
 
+#ifdef PID_VIRTUALIZATION
+    case SYS_getpid:
+    {
+      ret = getpid();
+      break;
+    }
+    case SYS_getppid:
+    {
+      ret = getppid();
+      break;
+    }
+
+    case SYS_getpgrp:
+    {
+      ret = getpgrp();
+      break;
+    }
+
+    case SYS_getpgid:
+    {
+      SYSCALL_GET_ARG(pid_t,pid);
+      ret = getpgid(pid);
+      break;
+    }
+    case SYS_setpgid:
+    {
+      SYSCALL_GET_ARGS_2(pid_t,pid,pid_t,pgid);
+      ret = setpgid(pid, pgid);
+      break;
+    }
+
+    case SYS_getsid:
+    {
+      SYSCALL_GET_ARG(pid_t,pid);
+      ret = getsid(pid);
+      break;
+    }
     case SYS_setsid:
     {
       ret = setsid();
       break;
     }
+
+    case SYS_kill:
+    {
+      SYSCALL_GET_ARGS_2(pid_t,pid,int,sig);
+      ret = kill(pid, sig);
+      break;
+    }
+
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,9))
+    case SYS_waitid:
+    {
+      //SYSCALL_GET_ARGS_4(idtype_t,idtype,id_t,id,siginfo_t*,infop,int,options);
+      SYSCALL_GET_ARGS_4(int,idtype,id_t,id,siginfo_t*,infop,int,options);
+      ret = waitid((idtype_t)idtype, id, infop, options);
+      break;
+    }
+#endif
+    case SYS_wait4:
+    {
+      SYSCALL_GET_ARGS_4(pid_t,pid,__WAIT_STATUS,status,int,options,
+                         struct rusage*,rusage);
+      ret = wait4(pid, status, options, rusage);
+      break;
+    }
+#ifdef __i386__
+    case SYS_waitpid:
+    {
+      SYSCALL_GET_ARGS_3(pid_t,pid,int*,status,int,options);
+      ret = waitpid(pid, status, options);
+      break;
+    }
+#endif
+
+    case SYS_setgid:
+    {
+      SYSCALL_GET_ARG(gid_t,gid);
+      ret = setgid(gid);
+      break;
+    }
+    case SYS_setuid:
+    {
+      SYSCALL_GET_ARG(uid_t,uid);
+      ret = setuid(uid);
+      break;
+    }
+#endif /* PID_VIRTUALIZATION */
 
 #ifndef DISABLE_SYS_V_IPC
 # ifdef __x86_64__
@@ -505,38 +619,6 @@ extern "C" SYSCALL_ARG_RET_TYPE syscall(SYSCALL_ARG_RET_TYPE sys_num, ... )
     case SYS_inotify_init:
     {
       ret = inotify_init();
-      break;
-    }
-#endif
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22) && __GLIBC_PREREQ(2,8)
-    case SYS_signalfd:
-    {
-      SYSCALL_GET_ARGS_3(int,fd,sigset_t *,mask,int,flags);
-      ret = signalfd(fd, mask, flags);
-      break;
-    }
-#endif
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,27) && __GLIBC_PREREQ(2,8)
-    case SYS_signalfd4:
-    {
-      SYSCALL_GET_ARGS_3(int,fd,sigset_t *,mask,int,flags);
-      ret = signalfd(fd, mask, flags);
-      break;
-    }
-#endif
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22) && __GLIBC_PREREQ(2,8)
-    case SYS_eventfd:
-    {
-      SYSCALL_GET_ARGS_2(unsigned int,initval,int,flags);
-      ret = eventfd(initval, flags);
-      break;
-    }
-#endif
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,27) && __GLIBC_PREREQ(2,8)
-    case SYS_eventfd2:
-    {
-      SYSCALL_GET_ARGS_2(unsigned int,initval,int,flags);
-      ret = eventfd(initval, flags);
       break;
     }
 #endif

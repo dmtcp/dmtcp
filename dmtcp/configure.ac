@@ -1,8 +1,8 @@
-AC_INIT([DMTCP],[2.0],[],[dmtcp],[http://dmtcp.sourceforge.net])
+AC_INIT([DMTCP],[1.2.8],[],[dmtcp],[http://dmtcp.sourceforge.net])
 AC_PREREQ([2.60])
 AM_INIT_AUTOMAKE([foreign])
 AM_MAINTAINER_MODE
-AM_CONFIG_HEADER([include/config.h])
+AM_CONFIG_HEADER([src/config.h])
 #AM_PROG_LIBTOOL
 
 AC_LANG_CPLUSPLUS
@@ -47,6 +47,12 @@ AC_ARG_ENABLE([timing],
 if test "$use_jtiming" = "yes"; then
   AC_DEFINE([TIMING],[],[Record timing information to stderr and jtimings.csv])
 fi
+
+AC_ARG_ENABLE([condor_support],
+            [AS_HELP_STRING([--enable-condor-support],
+                            [set configure options to support Condor.])],
+            [use_condor_support=$enableval],
+            [use_condor_support=no])
 
 AC_ARG_ENABLE([unique_checkpoint_filenames],
             [AS_HELP_STRING([--enable-unique-checkpoint-filenames],
@@ -113,6 +119,33 @@ AC_ARG_ENABLE([pid_virtualization],
             [use_pid_virt=$enableval],
             [use_pid_virt=yes])
 
+AC_ARG_ENABLE([external_socket_handling],
+            [AS_HELP_STRING([--enable-external-socket-handling],
+                            [wait for connection to external peer to close;
+			     expensive if stale-socket-handling
+			     also enabled.])],
+            [use_external_socket_handling=$enableval],
+            [use_external_socket_handling=no])
+AC_ARG_ENABLE([stale_socket_handling],
+            [AS_HELP_STRING([--disable-stale-socket-handling],
+                            [disable stale socket handling; unknown peer
+			     assumed to be external; follow policy of
+			     external-socket-handling configure option.])],
+            [use_stale_socket_handling=$enableval],
+            [use_stale_socket_handling=yes])
+
+if test "$use_external_socket_handling" = "yes"; then
+  AC_DEFINE([EXTERNAL_SOCKET_HANDLING],[],[Socket with no peer is external; wait until communication finished])
+fi
+if test "$use_stale_socket_handling" = "yes"; then
+  AC_DEFINE([STALE_SOCKET_HANDLING],[],[Socket with no peer is stale (no peer exists); ignore socket])
+fi
+#Force other config options for Condor
+if test "$use_condor_support" = "yes"; then
+  AC_DEFINE([EXTERNAL_SOCKET_HANDLING],[yes])
+  AC_DEFINE([STALE_SOCKET_HANDLING],[no])
+fi
+
 if test "$use_pid_virt" = "yes"; then
   AC_DEFINE([PID_VIRTUALIZATION],[],[Use virtual pids for pid-related system calls.])
 fi
@@ -129,6 +162,23 @@ if test "$use_allocator" = "yes"; then
   AC_DEFINE([OVERRIDE_GLOBAL_ALLOCATOR],[],[Use a custom allocator based on mmap])
 fi
 
+#check for record-replay capability
+# REPLACE BY FOLLOWING WHEN READY TO SUPPORT THIS EXTERNALLY:
+#            [AS_HELP_STRING([--with-record-replay],
+#                            [support record replay (experimental)])],
+AC_ARG_WITH([record-replay],
+            [AS_HELP_STRING([--experts-only-flag], [for experts only])],
+            [record_replay=$withval],
+            [record_replay=no])
+
+if test "$record_replay" != "no"; then
+  AC_DEFINE([RECORD_REPLAY],[],[Record to log and then replay.])
+  AC_DEFINE([PTRACE],[],[Use support for ptrace system call.])
+  AC_DEFINE([OVERRIDE_GLOBAL_ALLOCATOR],[],[Use a custom allocator based on mmap])
+else
+  AC_SUBST([RECORD_REPLAY], [no])
+fi
+AM_CONDITIONAL(RECORD_REPLAY, [test "$record_replay" = "yes"])
 AM_CONDITIONAL(HAS_I486,
   [test `uname -m` == i686 -o  `uname -m` == i586 -o `uname -m` == i486])
 
@@ -143,7 +193,7 @@ if test "$use_m32" = "yes"; then
   AC_DEFINE([CONFIG_M32],[],[Compiling in 32 bit mode on 64 bit linux.])
 fi
 
-AC_CHECK_HEADERS_ONCE([sys/epoll.h sys/eventfd.h sys/signalfd.h sys/inotify.h])
+AC_CHECK_HEADERS_ONCE([sys/epoll.h sys/eventfd.h sys/signalfd.h])
 
 
 AC_DEFINE([DMTCP],[],[Always enable this.])

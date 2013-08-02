@@ -22,9 +22,29 @@
 #ifndef _GNU_SOURCE
 # define _GNU_SOURCE /* for sake of mremap */
 #endif
+#include <stdarg.h>
+#include <stdlib.h>
+#include <vector>
+#include <list>
+#include <string>
+#include <fcntl.h>
+#include <signal.h>
+#include <sys/ipc.h>
+#include <sys/shm.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <unistd.h>
+#include <sys/syscall.h>
+#include <linux/version.h>
+#include <limits.h>
+#include "uniquepid.h"
+#include "dmtcpworker.h"
+#include "dmtcpmessagetypes.h"
+#include "protectedfds.h"
 #include "constants.h"
+#include "connectionmanager.h"
 #include "syscallwrappers.h"
-#include "threadsync.h"
+#include "sysvipc.h"
 #include "util.h"
 #include  "../jalib/jassert.h"
 #include  "../jalib/jconvert.h"
@@ -35,18 +55,16 @@
 # endif
 #endif
 
-#ifdef DISABLE_PTHREAD_GETSPECIFIC_TRICK
+
 /* This buffer (wrapper_init_buf) is used to pass on to dlsym() while it is
  * initializing the dmtcp wrappers. See comments in syscallsreal.c for more
  * details.
  */
 static char wrapper_init_buf[1024];
 static bool mem_allocated_for_initializing_wrappers = false;
-#endif
 
 extern "C" void *calloc(size_t nmemb, size_t size)
 {
-#ifdef DISABLE_PTHREAD_GETSPECIFIC_TRICK
   if (dmtcp_wrappers_initializing) {
     JASSERT(!mem_allocated_for_initializing_wrappers);
     memset(wrapper_init_buf, 0, sizeof (wrapper_init_buf));
@@ -54,7 +72,6 @@ extern "C" void *calloc(size_t nmemb, size_t size)
     mem_allocated_for_initializing_wrappers = true;
     return (void*) wrapper_init_buf;
   }
-#endif
   WRAPPER_EXECUTION_DISABLE_CKPT();
   void *retval = _real_calloc ( nmemb, size );
   WRAPPER_EXECUTION_ENABLE_CKPT();
@@ -63,6 +80,9 @@ extern "C" void *calloc(size_t nmemb, size_t size)
 
 extern "C" void *malloc(size_t size)
 {
+  if (dmtcp_wrappers_initializing) {
+    return calloc(1, size);
+  }
   WRAPPER_EXECUTION_DISABLE_CKPT();
   void *retval = _real_malloc ( size );
   WRAPPER_EXECUTION_ENABLE_CKPT();
@@ -87,6 +107,12 @@ extern "C" void *valloc(size_t size)
 
 extern "C" void free(void *ptr)
 {
+  if (dmtcp_wrappers_initializing) {
+    JASSERT(mem_allocated_for_initializing_wrappers);
+    JASSERT(ptr == wrapper_init_buf);
+    return;
+  }
+
   WRAPPER_EXECUTION_DISABLE_CKPT();
   _real_free ( ptr );
   WRAPPER_EXECUTION_ENABLE_CKPT();
@@ -94,6 +120,9 @@ extern "C" void free(void *ptr)
 
 extern "C" void *realloc(void *ptr, size_t size)
 {
+  JASSERT (!dmtcp_wrappers_initializing)
+    .Text ("This is a rather unusual path. Please inform DMTCP developers");
+
   WRAPPER_EXECUTION_DISABLE_CKPT();
   void *retval = _real_realloc ( ptr, size );
   WRAPPER_EXECUTION_ENABLE_CKPT();

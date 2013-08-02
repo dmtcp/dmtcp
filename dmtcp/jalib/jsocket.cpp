@@ -154,12 +154,11 @@ bool jalib::JSocket::connect ( const JSockAddr& addr, int port )
 {
   bool ret = false;
   // jalib::JSockAddr::JSockAddr used -2 to poison port (invalid host)
-  if (addr._addr->sin_port == (unsigned short) -2)
+  if (addr._addr->sin_port == (unsigned short)-2)
     return false;
-  for (unsigned int i=0; i< addr._count; i++) {
+  for(unsigned int i=0; i< addr._count; i++){
     ret = JSocket::connect((sockaddr*)(addr._addr + i),
-                           sizeof(addr._addr[0]),
-                           port);
+                           sizeof(addr._addr[0]), port);
     if (ret || errno != ECONNREFUSED) {
       break;
     }
@@ -216,12 +215,12 @@ void jalib::JSocket::enablePortReuse()
   int one = 1;
   //These options will hopefully reduce address already in use errors
 #ifdef SO_REUSEADDR
-  if (jalib::setsockopt(_sockfd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one)) < 0){
+  if (setsockopt(_sockfd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one)) < 0){
     JWARNING(false)(JASSERT_ERRNO).Text("setsockopt(SO_REUSEADDR) failed");
   }
 #endif
 #ifdef SO_REUSEPORT
-  if (jalib::setsockopt(_sockfd, SOL_SOCKET, SO_REUSEPORT, &one, sizeof(one)) < 0){
+  if (setsockopt(_sockfd, SOL_SOCKET, SO_REUSEPORT, &one, sizeof(one)) < 0){
     JWARNING(false)(JASSERT_ERRNO).Text("setsockopt(SO_REUSEPORT) failed");
   }
 #endif
@@ -500,7 +499,7 @@ jalib::JChunkReader& jalib::JChunkReader::operator= ( const JChunkReader& that )
 void jalib::JSocket::changeFd ( int newFd )
 {
   if ( _sockfd == newFd ) return;
-  JASSERT ( newFd == jalib::dup2 ( _sockfd, newFd ) )
+  JASSERT ( newFd == dup2 ( _sockfd, newFd ) )
       ( _sockfd ) ( newFd ).Text ( "dup2 failed" );
   close();
   _sockfd = newFd;
@@ -607,19 +606,19 @@ void jalib::JMultiSocketProgram::monitorSockets ( double dblTimeout )
       }
       else
       {
-        JReaderInterface* dsock = _dataSockets[i];
-        closedFds.insert(dsock->socket().sockfd());
+        closedFds.insert(_dataSockets[i]->socket().sockfd());
         //socket is dead... remove it
         //JTRACE ( "disconnect" ) ( i ) ( _dataSockets[i]->socket().sockfd() );
+        onDisconnect ( _dataSockets[i] );
+        _dataSockets[i]->socket().close();
 
+        delete _dataSockets[i];
         _dataSockets[i] = 0;
         //swap with last
         _dataSockets[i] = _dataSockets[_dataSockets.size()-1];
         _dataSockets.pop_back();
         i--;
-        onDisconnect(dsock);
-        dsock->socket().close();
-        delete dsock;
+        processPostDisconnect();
       }
     }
 

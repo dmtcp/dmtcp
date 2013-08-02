@@ -13,10 +13,10 @@ LIBOBJS = ${NAME}.o
 ifndef DMTCP_ROOT
   DMTCP_ROOT=../../..
 endif
-DMTCP_INCLUDE=${DMTCP_ROOT}/dmtcp/include
+DMTCP_SRC=${DMTCP_ROOT}/dmtcp/src
 
-CFLAGS += -I${DMTCP_INCLUDE} -DDMTCP -fPIC -c --std=gnu99 -g
-CXXFLAGS += -I${DMTCP_INCLUDE} -DDMTCP -fPIC -c -g
+CFLAGS += -I${DMTCP_SRC} -DDMTCP -fPIC -c --std=gnu99 -g
+CXXFLAGS += -I${DMTCP_SRC} -DDMTCP -fPIC -c -g
 
 DEMO_PORT=7781
 
@@ -28,7 +28,7 @@ check: ${LIBNAME}.so ${DMTCP_ROOT}/test/dmtcp1
 	${DMTCP_ROOT}/bin/dmtcp_checkpoint --port ${DEMO_PORT} -i 5 \
 	  --with-plugin $$PWD/${LIBNAME}.so ${DMTCP_ROOT}/test/dmtcp1
 
-# We link the library using C++ for compatibility with the main libdmtcp.so
+# We link the library using C++ for compatibility with the main dmtcphijack.so
 ${LIBNAME}.so: ${LIBOBJS}
 	${CXX} -shared -fPIC -o $@ $^
 

@@ -56,8 +56,8 @@ namespace jalib
     jalib::string GetProgramName();
     jalib::string GetProgramPath();
 
-    jalib::string GetDeviceName ( int fd );
     jalib::string ResolveSymlink ( const jalib::string& file );
+    jalib::string FdToPath(int fd);
     jalib::string DirName ( const jalib::string& str );
     jalib::string BaseName ( const jalib::string& str );
 
@@ -65,7 +65,7 @@ namespace jalib
 
     IntVector ListOpenFds();
 
-    jalib::string GetControllingTerm(pid_t pid = -1);
+    jalib::string GetControllingTerm();
 
     jalib::string GetCurrentHostname();
 

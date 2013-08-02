@@ -19,9 +19,16 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include <iomanip>
-#include <pwd.h>
+#include "util.h"
 #include "uniquepid.h"
+#include <stdlib.h>
+#include <string.h>
+#include <string>
+#include <pwd.h>
+#include <sstream>
+#include <iomanip>
+#include <fcntl.h>
+#include <sys/stat.h>
 #include "constants.h"
 #include "../jalib/jconvert.h"
 #include "../jalib/jfilesystem.h"
@@ -65,15 +72,6 @@ inline static long theUniqueHostId()
 #endif
 }
 
-static char _prefix[32];
-static void setPrefix()
-{
-  memset(_prefix, 0, sizeof(_prefix));
-  if (getenv(ENV_VAR_PREFIX_ID) != NULL) {
-    strncpy(_prefix, getenv(ENV_VAR_PREFIX_ID), sizeof(_prefix) - 1);
-  }
-}
-
 
 static dmtcp::UniquePid& nullProcess()
 {
@@ -105,29 +103,6 @@ static dmtcp::UniquePid& computationId()
   return *t;
 }
 
-dmtcp::UniquePid::UniquePid(const char *filename)
-{
-  char *str = strdup(filename);
-  dmtcp::vector<char *> tokens;
-  char *token = strtok(str, "_");
-  while (token != NULL) {
-    tokens.push_back(token);
-    token = strtok(NULL, "_");
-  } while (token != NULL);
-  JASSERT(tokens.size() >= 3);
-
-  char *uidstr = tokens.back();
-  char *hostid_str = strtok(uidstr, "-");
-  char *pid_str = strtok(NULL, "-");
-  char *time_str = strtok(NULL, ".");
-
-  _hostid = strtol(hostid_str, NULL, 16);
-  _pid = strtol(pid_str, NULL, 10);
-  _time = strtol(time_str, NULL, 16);
-  _generation = 0;
-  memset(_prefix, 0, sizeof _prefix);
-}
-
 // _generation field of return value may later have to be modified.
 // So, it can't return a const dmtcp::UniquePid
 dmtcp::UniquePid& dmtcp::UniquePid::ThisProcess(bool disableJTrace /*=false*/)
@@ -135,12 +110,11 @@ dmtcp::UniquePid& dmtcp::UniquePid::ThisProcess(bool disableJTrace /*=false*/)
   if ( theProcess() == nullProcess() )
   {
     theProcess() = dmtcp::UniquePid ( theUniqueHostId() ,
-                                      ::getpid(),
+                                      ::_real_getpid(),
                                       ::time(NULL) );
     if (disableJTrace == false) {
       JTRACE ( "recalculated process UniquePid..." ) ( theProcess() );
     }
-    setPrefix();
   }
 
   return theProcess();
@@ -172,10 +146,44 @@ dmtcp::UniquePid& dmtcp::UniquePid::ComputationId()
     \fn dmtcp::UniquePid::UniquePid()
  */
 dmtcp::UniquePid::UniquePid()
+    :_pid ( 0 )
+    ,_hostid ( 0 )
 {
-  _pid = 0;
-  _hostid = 0;
-  memset(&_time, 0, sizeof(_time));
+  memset ( &_time,0,sizeof ( _time ) );
+  setPrefix();
+}
+
+long  dmtcp::UniquePid::hostid() const
+{
+  return _hostid;
+}
+
+pid_t  dmtcp::UniquePid::pid() const
+{
+  return _pid;
+}
+
+time_t  dmtcp::UniquePid::time() const
+{
+  return _time;
+}
+
+int  dmtcp::UniquePid::generation() const
+{
+  return _generation;
+}
+
+const char* dmtcp::UniquePid::prefix() const
+{
+  return _prefix;
+}
+
+void dmtcp::UniquePid::setPrefix()
+{
+  memset(_prefix, 0, sizeof(_prefix));
+  if (getenv(ENV_VAR_PREFIX_ID) != NULL) {
+    strncpy(_prefix, getenv(ENV_VAR_PREFIX_ID), sizeof(_prefix) - 1);
+  }
 }
 
 void  dmtcp::UniquePid::incrementGeneration()
@@ -190,7 +198,7 @@ const char* dmtcp::UniquePid::getCkptFilename()
     o << getCkptDir() << "/"
       << CKPT_FILE_PREFIX
       << jalib::Filesystem::GetProgramName()
-      << '_' << _prefix << ThisProcess()
+      << '_' << ThisProcess()
       << CKPT_FILE_SUFFIX;
 
     _ckptFileName() = o.str();
@@ -205,7 +213,7 @@ dmtcp::string dmtcp::UniquePid::getCkptFilesSubDir()
     o << getCkptDir() << "/"
       << CKPT_FILE_PREFIX
       << jalib::Filesystem::GetProgramName()
-      << '_' << _prefix << ThisProcess()
+      << '_' << ThisProcess()
       << CKPT_FILES_SUBDIR_SUFFIX;
 
     _ckptFilesSubDir() = o.str();
@@ -249,7 +257,7 @@ void dmtcp::UniquePid::updateCkptDir()
   JASSERT(computationId() != UniquePid(0,0,0));
   JASSERT(computationId().generation() != -1);
 
-  o << "/ckpt_" << _prefix << computationId() << "_"
+  o << "/ckpt_" << computationId() << "_"
     << std::setw(5) << std::setfill('0') << computationId().generation();
 #endif
   setCkptDir(o.str().c_str());
@@ -260,20 +268,22 @@ dmtcp::string dmtcp::UniquePid::dmtcpTableFilename()
   static int count = 0;
   dmtcp::ostringstream os;
 
-  os << getTmpDir() << "/dmtcpConTable." << _prefix << ThisProcess()
+  os << getTmpDir() << "/dmtcpConTable." << ThisProcess()
      << '_' << jalib::XToString ( count++ );
   return os.str();
 }
 
+#ifdef PID_VIRTUALIZATION
 dmtcp::string dmtcp::UniquePid::pidTableFilename()
 {
   static int count = 0;
   dmtcp::ostringstream os;
 
-  os << getTmpDir() << "/dmtcpPidTable." << _prefix << ThisProcess()
+  os << getTmpDir() << "/dmtcpPidTable." << ThisProcess()
      << '_' << jalib::XToString ( count++ );
   return os.str();
 }
+#endif
 
 dmtcp::string dmtcp::UniquePid::getTmpDir()
 {
@@ -340,7 +350,7 @@ void dmtcp::UniquePid::setTmpDir(const char* envVarTmpDir) {
 
   int tmpFd = open ( o.str().c_str(), O_RDONLY  );
   JASSERT(tmpFd != -1);
-  JASSERT(_real_dup2(tmpFd, PROTECTED_TMPDIR_FD)==PROTECTED_TMPDIR_FD);
+  JASSERT(dup2(tmpFd, PROTECTED_TMPDIR_FD)==PROTECTED_TMPDIR_FD);
   close ( tmpFd );
 }
 
@@ -360,13 +370,15 @@ bool dmtcp::UniquePid::operator== ( const UniquePid& that ) const
 {
   return _hostid==that.hostid()
          && _pid==that.pid()
-         && _time==that.time();
-         // FIXME: Reinstate prefix check
-         //&& strncmp(_prefix, that.prefix(), sizeof(_prefix)) == 0;
+         && _time==that.time()
+         && strncmp(_prefix, that.prefix(), sizeof(_prefix)) == 0;
 }
 
 dmtcp::ostream& dmtcp::operator<< ( dmtcp::ostream& o,const dmtcp::UniquePid& id )
 {
+  if (strlen(id.prefix()) != 0) {
+    o << id.prefix() << "-";
+  }
   o << std::hex << id.hostid() << '-' << std::dec << id.pid() << '-' << std::hex << id.time() << std::dec;
   return o;
 }
@@ -376,6 +388,7 @@ dmtcp::string dmtcp::UniquePid::toString() const{
   o << *this;
   return o.str();
 }
+
 
 void dmtcp::UniquePid::resetOnFork ( const dmtcp::UniquePid& newId )
 {

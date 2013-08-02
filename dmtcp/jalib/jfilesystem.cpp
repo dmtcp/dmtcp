@@ -31,7 +31,7 @@
 #include "jfilesystem.h"
 #include "jconvert.h"
 #include "jalib.h"
-#include "dmtcpplugin.h"
+#include "../src/constants.h"
 
 namespace
 {
@@ -119,9 +119,6 @@ jalib::string jalib::Filesystem::DirName ( const jalib::string& str )
   if (lastSlash == string::npos)
     return ".";
 
-  if (lastSlash == 0)
-    return "/";
-
   return str.substr(0, lastSlash);
 }
 
@@ -174,9 +171,10 @@ jalib::string jalib::Filesystem::ResolveSymlink ( const jalib::string& path )
   return buf;
 }
 
-jalib::string jalib::Filesystem::GetDeviceName ( int fd )
+jalib::string jalib::Filesystem::FdToPath(int fd)
 {
-  return ResolveSymlink("/proc/self/fd/" + jalib::XToString(fd));
+  jalib::string path = "/proc/self/fd/" + jalib::XToString(fd);
+  return ResolveSymlink(path);
 }
 
 bool jalib::Filesystem::FileExists ( const jalib::string& str )
@@ -344,11 +342,10 @@ jalib::string jalib::Filesystem::GetCurrentHostname()
   return name;
 }
 
-jalib::string jalib::Filesystem::GetControllingTerm(pid_t pid/* = -1*/)
+jalib::string jalib::Filesystem::GetControllingTerm()
 {
   char sbuf[1024];
   char ttyName[64];
-  char procPath[64];
   char *tmp;
   char *S;
   char state;
@@ -356,13 +353,7 @@ jalib::string jalib::Filesystem::GetControllingTerm(pid_t pid/* = -1*/)
 
   int fd, num_read;
 
-  if (pid == -1) {
-    strcpy(procPath, "/proc/self/stat");
-  } else {
-    sprintf(procPath, "/proc/%d/stat", pid);
-  }
-  fd = jalib::open(procPath, O_RDONLY, 0);
-
+  fd = jalib::open("/proc/self/stat", O_RDONLY, 0);
   JASSERT( fd >= 0 ) (strerror(errno))
     .Text ("Unable to open /proc/self/stat\n");
 

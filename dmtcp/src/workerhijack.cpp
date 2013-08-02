@@ -29,9 +29,11 @@
 // This gets executed before main().
 dmtcp::DmtcpWorker dmtcp::DmtcpWorker::theInstance ( true );
 
-void dmtcp::DmtcpWorker::resetOnFork()
+void dmtcp::DmtcpWorker::resetOnFork(jalib::JSocket& coordSock)
 {
-  dmtcp_process_event(DMTCP_EVENT_ATFORK_CHILD, NULL);
+  dmtcp_process_event(DMTCP_EVENT_RESET_ON_FORK, NULL);
+
+  UniquePid coordinatorId = theInstance._coordinatorId;
 
   theInstance.cleanupWorker();
   shutdownMtcpEngineOnFork();
@@ -51,7 +53,20 @@ void dmtcp::DmtcpWorker::resetOnFork()
   dmtcp::DmtcpWorker::_exitInProgress = false;
 
   WorkerState::setCurrentState ( WorkerState::RUNNING );
+  instance()._coordinatorId = coordinatorId;
+  instance().informCoordinatorOfNewProcessOnFork(coordSock);
 
+  //WRAPPER_EXECUTION_GET_EXCL_LOCK();
+  initializeMtcpEngine();
+  //WRAPPER_EXECUTION_RELEASE_EXCL_LOCK();
+
+  /* Now wait for Checkpoint Thread to finish initialization
+   * NOTE: This should be the last thing in this function
+   */
+  while (!ThreadSync::isCheckpointThreadInitialized()) {
+    struct timespec sleepTime = {0, 10*1000*1000};
+    nanosleep(&sleepTime, NULL);
+  }
 }
 
 //to allow linking without mtcpinterface

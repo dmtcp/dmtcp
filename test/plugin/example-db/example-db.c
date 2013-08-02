@@ -15,7 +15,7 @@ struct keyPid {
   pid_t pid;
 } mystruct, mystruct_other;
 
-void dmtcp_process_event(DmtcpEvent_t event, DmtcpEventData_t *data)
+void dmtcp_process_event(DmtcpEvent_t event, void* data)
 {
   size_t sizeofPid;
 
@@ -34,7 +34,7 @@ void dmtcp_process_event(DmtcpEvent_t event, DmtcpEventData_t *data)
       mystruct_other.pid = -1; /* -1 means unkonwn */
     }
     break;
-  case DMTCP_EVENT_WRITE_CKPT:
+  case DMTCP_EVENT_PRE_CHECKPOINT:
     printf("\nThe plugin is being called before checkpointing.\n");
     break;
   case DMTCP_EVENT_REGISTER_NAME_SERVICE_DATA:

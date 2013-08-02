@@ -368,7 +368,6 @@ struct linux_dirent {
 #define mtcp_sys_close(args...)  mtcp_inline_syscall(close,1,args)
 #define mtcp_sys_access(args...)  mtcp_inline_syscall(access,2,args)
 #define mtcp_sys_fchmod(args...)  mtcp_inline_syscall(fchmod,2,args)
-#define mtcp_sys_rename(args...)  mtcp_inline_syscall(rename,2,args)
 #define mtcp_sys_exit(args...)  mtcp_inline_syscall(exit,1,args)
 #define mtcp_sys_pipe(args...)  mtcp_inline_syscall(pipe,1,args)
 #define mtcp_sys_dup(args...)  mtcp_inline_syscall(dup,1,args)
@@ -459,7 +458,6 @@ struct linux_dirent {
 #  define user_desc modify_ldt_ldt_s
 # endif
 
-/* Defined only in mtcp.c to avoid compiler "defined not used" warmings */
 # ifdef MTCP_SYS_GET_SET_THREAD_AREA
 /* This allocation hack will work only if calls to mtcp_sys_get_thread_area
  * and mtcp_sys_get_thread_area are both inside the same file (mtcp.c).
@@ -482,7 +480,6 @@ static unsigned long int myinfo_gs;
 #endif /* end __x86_64__ */
 
 #ifdef __arm__
-/* Defined only in mtcp.c to avoid compiler "defined not used" warmings */
 # ifdef MTCP_SYS_GET_SET_THREAD_AREA
 /* This allocation hack will work only if calls to mtcp_sys_get_thread_area
  * and mtcp_sys_get_thread_area are both inside the same file (mtcp.c).
