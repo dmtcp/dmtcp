@@ -1,0 +1,8 @@
+Prints time before and after sleep() with approximately millisecond accuracy.
+Displays seconds and microseconds, both before and after sleep().
+This demonstrates wrappers around wrappers.  The plugin ../sleep1 wraps
+  this plugin sleep2, which wraps sleep() in libc.so
+
+To demonstrate, do:  make check    [Checkpoints every 5 seconds]
+After killing it, try:  ./dmtcp_restart_script.sh
+... and 'pkill -9 dmtcp' to later kill it.
