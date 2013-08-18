@@ -1,7 +1,7 @@
 #
 # spec file for package dmtcp
 #
-# Copyright (c) 2012 SUSE LINUX Products GmbH, Nuernberg, Germany.
+# Copyright (c) 2013 SUSE LINUX Products GmbH, Nuernberg, Germany.
 # Copyright (c) 2012 Kapil Arya
 #
 # All modifications and additions to the file contributed by third parties
@@ -17,9 +17,8 @@
 #
 
 
-
 Name:           dmtcp
-Version:        1.2.5
+Version:        1.2.8
 Release:        0
 Summary:        Checkpoint/Restart functionality for Linux processes
 License:        LGPL-3.0+
