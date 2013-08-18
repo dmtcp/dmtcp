@@ -1,4 +1,24 @@
 -------------------------------------------------------------------
+Tue Aug 13 04:49:06 UTC 2013 - kapil@ccs.neu.edu
+
+- New upstream release 1.2.8.
+- Removed dmtcp-includes.patch as it has been included in the new tarball.
+  * Release Notes:
+- Bug fixes for newer ARM CPUs --- especially addressing cache coherency issues
+  of multi-core ARM, and the more aggressive out-of-order execution for newer
+  ARM CPUs.
+- On restart, gzip zombie processes associated with compressed checkpoint
+  images were not always reaped properly. This is now handled correctly.
+- Peliminary support for using C++11 compilers to compile DMTCP (but not yet
+  intensively tested).
+- Minor bug fixes.
+
+-------------------------------------------------------------------
+Wed Jul 18 10:15:09 UTC 2012 - aj@suse.de
+
+- Add missing include for <sys/resource.h> (glibc 2.16)
+
+-------------------------------------------------------------------
 Thu Jun 28 15:13:02 UTC 2012 - kapil@ccs.neu.edu
 
 - Updating to upstream release 1.2.5
