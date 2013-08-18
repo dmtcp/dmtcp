@@ -1,6 +1,7 @@
 dmtcp (1.2.8-1) unstable; urgency=low
 
   * New upstream release.
+  * Updated debian standards version to 3.9.4.
   * Upload sponsored by Yaroslav Halchenko <debian@onerussian.com>
 
  -- Kapil Arya <kapil@ccs.neu.edu>  Fri, 26 Jul 2013 13:08:34 -0400

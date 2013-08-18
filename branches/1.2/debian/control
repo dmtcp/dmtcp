@@ -4,7 +4,7 @@ Priority: optional
 Maintainer: Kapil Arya <kapil@ccs.neu.edu>
 Uploaders: Yaroslav Halchenko <debian@onerussian.com>
 Build-Depends: debhelper (>= 7), python
-Standards-Version: 3.9.3
+Standards-Version: 3.9.4
 Vcs-svn: svn://svn.code.sf.net/p/dmtcp/code/trunk
 Vcs-browser: https://sourceforge.net/p/dmtcp/code
 Homepage: http://dmtcp.sourceforge.net
