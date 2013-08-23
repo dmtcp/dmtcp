@@ -1,4 +1,4 @@
-PLUGIN=torque
+PLUGIN=rm
 LIBNAME=libdmtcp_${PLUGIN}.so
 CC = @CC@
 M32=@M32@
