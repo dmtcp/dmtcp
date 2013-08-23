@@ -88,8 +88,8 @@ static const char* theUsage =
   "      Checkpoint open files and restore old working dir. (Default: do neither)\n"
   "  --mtcp-checkpoint-signal:\n"
   "      Signal number used internally by MTCP for checkpointing (default: 12)\n"
-  "  --torque:\n"
-  "      Enable support for Torque PBS. (Default: disabled)\n"
+  "  --rm:\n"
+  "      Enable support for resource managers (Torque PBS and SLURM). (Default: disabled)\n"
   "  --ptrace:\n"
   "      Enable support for PTRACE system call for gdb/strace etc.\n"
   "        (default: disabled)\n"
@@ -117,7 +117,7 @@ static const char* theUsage =
 static bool isSSHSlave=false;
 static bool autoStartCoordinator=true;
 static bool checkpointOpenFiles=false;
-static bool enableTorque=false;
+static bool enableRM=false;
 static bool enablePtrace=false;
 static dmtcp::CoordinatorAPI::CoordinatorMode allowedModes = dmtcp::CoordinatorAPI::COORD_ANY;
 
@@ -215,8 +215,8 @@ static void processArgs(int *orig_argc, char ***orig_argv)
     } else if (s == "--ptrace") {
       enablePtrace = true;
       shift;
-    } else if (s == "--torque") {
-      enableTorque = true;
+    } else if (s == "--rm") {
+      enableRM = true;
       shift;
     } else if (s == "--with-plugin") {
       setenv(ENV_VAR_PLUGIN, argv[1], 1);
@@ -578,8 +578,8 @@ static void setLDPreloadLibs()
     preloadLibs += ":";
   }
 
-  if (enableTorque) {
-    preloadLibs += jalib::Filesystem::FindHelperUtility("libdmtcp_torque.so");
+  if (enableRM) {
+    preloadLibs += jalib::Filesystem::FindHelperUtility("libdmtcp_rm.so");
     preloadLibs += ":";
   }
 

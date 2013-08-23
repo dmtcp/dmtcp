@@ -16,7 +16,7 @@ includedir=@includedir@
 mandir=@mandir@
 infodir=@mandir@
 
-plugins = torque
+plugins = rm
 
 default: build
 
@@ -53,4 +53,4 @@ install: all
 uninstall:
 	for p in $(plugins); do (cd $$p && $(MAKE) uninstall); done
 
-.PHONY: default all build torque tidy clean distclean install uninstall
+.PHONY: default all build rm tidy clean distclean install uninstall
