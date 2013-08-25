@@ -62,7 +62,7 @@ addr_hex2human()
    for n in $ip_split; do
        tmp=`echo "ibase=16; $n" | bc`
        if [ "$flag" = 1 ]; then 
-          ip_hum="$ip_hum.$tmp"
+          ip_hum="$tmp.$ip_hum"
        else
           ip_hum="$ip_hum$tmp"
           flag=1
