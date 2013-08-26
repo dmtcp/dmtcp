@@ -25,7 +25,9 @@
 #include "dmtcpplugin.h"
 
 #define _real_fork NEXT_FNC(fork)
+#define _real_execve NEXT_FNC(execve)
 #define _real_execvp NEXT_FNC(execvp)
+#define _real_execvpe NEXT_FNC(execvpe)
 #define _real_open NEXT_FNC(open)
 #define _real_close NEXT_FNC(close)
 #define _real_dup NEXT_FNC(dup)
