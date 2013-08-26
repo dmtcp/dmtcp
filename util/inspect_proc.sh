@@ -1,6 +1,18 @@
 #!/bin/bash
 
 pid=$1
+lsof_cache=""
+lsof_L_cache=""
+
+
+prepare_lsof_cache()
+{
+    echo "-->Cache LSOF output for future use"
+    lsof_cache=`mktemp lsof.XXXXXXXXXX`
+    lsof_L_cache=`mktemp lsof_L.XXXXXXXXXX`
+    lsof > $lsof_cache
+    lsof -L > $lsof_L_cache
+}
 
 search_proc()
 {
@@ -28,7 +40,7 @@ parse_pipe()
 	uid=`get_uid "$con" "pipe"`
 	output="pipe[$uid], rd:"
 	
-	for l in `lsof -L | grep $uid | awk '{ print ( $1":"$2":"$3":"$4 ); }'`; do
+	for l in `cat $lsof_L_cache | grep $uid | awk '{ print ( $1":"$2":"$3":"$4 ); }'`; do
 		tmp=`echo $l | awk -F":" '{ print $4; }' | grep r`
 		cmdline=`echo $l | awk -F":" '{ print $1; }' | awk '{ print $1 }'`
 		pid1=`echo $l | awk -F":" '{ print $2; }'`
@@ -37,7 +49,7 @@ parse_pipe()
 		fi
 	done
 	output="$output, wr:"
-        for l in `lsof | grep $uid | awk '{ print ( $1":"$2":"$3":"$4 ); }'`; do
+        for l in `cat $lsof_cache | grep $uid | awk '{ print ( $1":"$2":"$3":"$4 ); }'`; do
                 tmp=`echo $l | awk -F":" '{ print $4; }' | grep "w"`
                 cmdline=`echo $l | awk -F":" '{ print $1; }' | awk '{ print $1 }'`
                 pid1=`echo $l | awk -F":" '{ print $2; }'`
@@ -183,7 +195,9 @@ if [ -z "$1" ]; then
 	echo "Usage: $0 <PID>"
 	exit 0
 fi
-	
+
+cwdir=`pwd`
+prepare_lsof_cache
 
 cat /proc/$pid/cmdline
 echo 
@@ -196,3 +210,6 @@ for l in $fds; do
 	echo -n "$l: "
 	parse_con "$con" "$l"
 done
+
+cd $cwdir
+rm $lsof_cache $lsof_L_cache
