@@ -1,7 +1,4 @@
-// This file has been replaced by libc-do-syscall-arm.S
-// Delete this file, if there are no related bug reports.  - Gene
-
-/* Copyright (C) 2010 Free Software Foundation, Inc.
+/* Copyright (C) 2010-2012 Free Software Foundation, Inc.
    This file is part of the GNU C Library.
 
    The GNU C Library is free software; you can redistribute it and/or
@@ -15,14 +12,12 @@
    Lesser General Public License for more details.
 
    You should have received a copy of the GNU Lesser General Public
-   License along with the GNU C Library; if not, write to the Free
-   Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-   02111-1307 USA.  */
+   License along with the GNU C Library.  If not, see
+   <http://www.gnu.org/licenses/>.  */
 
-// COPIED from:  /tmp/glibc-ports-2.14/sysdeps/unix/sysv/linux/arm/eabi/libc-do-syscall.S
+// COPIED from:  /tmp/glibc-ports-2.16/sysdeps/unix/sysv/linux/arm/libc-do-syscall.S
 
-// MODIFIED from:  <sysdep.h>
-// #include "sysdep-arm.h"
+/* #include <sysdep.h> */
 
 /* Out-of-line syscall stub.  We expect the system call number in ip
    and return the raw result in r0.  No registers are clobbered.
@@ -31,6 +26,7 @@
    ARM unwind tables for register to register moves, the actual opcodes
    are not defined.  */
 
+#if defined(__thumb__)
 	.thumb
 	.syntax unified
 	.hidden __libc_do_syscall
@@ -55,7 +51,9 @@ __libc_do_syscall:
 /* END (__libc_do_syscall) */
 
 /* BUG FIX:  To avoid linker complaints about this symbol.
- *   Based on comments on the WEb, as of February, 2012, this appears to be
+ *   Based on comments on the web, as of February, 2012, this appears to be
  *   a bug in the EABI ARM tool chain.
  */
 __aeabi_unwind_cpp_pr0:
+
+#endif /* __thumb__ */

@@ -131,7 +131,7 @@ ifeq ($(BUILDTYPE),arm)
 # When armv6 is the default, add  -march=armv7;  (usually not needed anymore)
   MTCP_CFLAGS += -fPIC -DPIC
   MTCP_LDFLAGS += -fPIC
-  ARM_EXTRAS = libc-do-syscall-arm-eabi.o
+  ARM_EXTRAS = ${LIBC_DO_SYSCALL_ARM_O}
 # As of February, 2012, crt1.o has an undefined symbol, abort.
 # This prevents us from compiling mtcp_restart with -nodefaultlibs
   ARM_BUG_FIX = -Wl,-defsym=abort=0x0
@@ -271,7 +271,8 @@ mtcp_restart: mtcp_restart.c mtcp_internal.h mtcp_sys.h \
 	 # NOT USED: -lpthread
 
 ifeq ($(BUILDTYPE),arm)
-libc-do-syscall-arm-eabi.o: libc-do-syscall-arm-eabi.S
+LIBC_DO_SYSCALL_ARM_O = libc-do-syscall-arm.o
+${LIBC_DO_SYSCALL_ARM_O}: libc-do-syscall-arm.S
 	${CC} ${MTCP_CFLAGS} -c -o $@ $<
 endif
 
