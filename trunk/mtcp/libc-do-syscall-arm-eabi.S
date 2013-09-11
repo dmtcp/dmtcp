@@ -1,3 +1,6 @@
+// This file has been replaced by libc-do-syscall-arm.S
+// Delete this file, if there are no related bug reports.  - Gene
+
 /* Copyright (C) 2010 Free Software Foundation, Inc.
    This file is part of the GNU C Library.
 

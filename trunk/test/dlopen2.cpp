@@ -72,7 +72,7 @@ extern "C" int fnc(int result[2]) {
 }
 
 extern "C" int print_constructor() {
-  system("echo '    In LIB3::print_constructor'");
+  int dummy = system("echo '    In LIB3::print_constructor'");
   sleep(1);
   return 0;
 }
@@ -84,7 +84,7 @@ extern "C" int fnc(int result[2]) {
 }
 
 extern "C" int print_constructor() {
-  system("echo '    In LIB4::print_constructor'");
+  int dummy = system("echo '    In LIB4::print_constructor'");
   sleep(1);
   return 0;
 }
