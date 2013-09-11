@@ -16,16 +16,21 @@ includedir=@includedir@
 mandir=@mandir@
 infodir=@mandir@
 
-plugins = pid ipc ptrace
+plugins = pid ipc
 
 default: build
 
-build: $(plugins)
+build: $(plugins) ptrace
 
 all: default
 
 $(plugins):
 	cd $@ && $(MAKE)
+
+ptrace:
+ifeq ($(PTRACE_SUPPORT),yes)
+	cd ptrace && $(MAKE)
+endif
 
 tidy:
 	rm -rf dmtcp-autotest-* ckpt_*_files

@@ -126,7 +126,7 @@ else
 endif
 
 ifeq ($(BUILDTYPE),arm)
-  ARM_EXTRAS = libc-do-syscall-arm-eabi.o
+  ARM_EXTRAS = ${LIBC_DO_SYSCALL_ARM_O}
 # As of February, 2012, crt1.o has an undefined symbol, abort.
 # This prevents us from compiling mtcp_restart with -nodefaultlibs
   ARM_BUG_FIX = -Wl,-defsym=abort=0x0
@@ -179,9 +179,9 @@ util-arch: util-arch.c
 	${CC} -o $@ $<
 
 readmtcp: readmtcp.c mtcp_internal.h mtcp_util.o \
-	mtcp_printf.o mtcp_state.o mtcp_safemmap.o
+	mtcp_printf.o mtcp_state.o mtcp_safemmap.o ${LIBC_DO_SYSCALL_ARM_O}
 	${CC} ${MTCP_CFLAGS} -o readmtcp readmtcp.c mtcp_util.o \
-	  mtcp_printf.o mtcp_state.o mtcp_safemmap.o
+	  mtcp_printf.o mtcp_state.o mtcp_safemmap.o ${LIBC_DO_SYSCALL_ARM_O}
 
 build: libmtcp.so mtcp_restart
 # Don't do bigtestmtcp by default; Good for stress testing, but slow.
@@ -260,7 +260,8 @@ mtcp_restart: mtcp_restart.c mtcp_internal.h mtcp_sys.h \
 	 mtcp_check_vdso.o ${ARM_EXTRAS}
 
 ifeq ($(BUILDTYPE),arm)
-libc-do-syscall-arm-eabi.o: libc-do-syscall-arm-eabi.S
+LIBC_DO_SYSCALL_ARM_O = libc-do-syscall-arm.o
+${LIBC_DO_SYSCALL_ARM_O}: libc-do-syscall-arm.S
 	${CC} ${MTCP_CFLAGS} -c -o $@ $<
 endif
 
