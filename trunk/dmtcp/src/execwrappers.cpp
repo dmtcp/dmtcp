@@ -89,7 +89,8 @@ static bool isBlacklistedProgram(const char *path)
     }
   }
 
-  if (programName == "dmtcp_nocheckpoint" || programName == "dmtcp_command") {
+  if (programName == "dmtcp_nocheckpoint" || programName == "dmtcp_command" ||
+      programName == "ssh") {
     return true;
   }
   return false;

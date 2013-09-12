@@ -1,7 +1,7 @@
 
 #include "util_ipc.h"
 
-LIB_PRIVATE
+extern "C" LIB_PRIVATE
 int sendFd(int restoreFd, int fd, void *data, size_t len,
             struct sockaddr_un& addr, socklen_t addrLen)
 {
@@ -30,7 +30,7 @@ int sendFd(int restoreFd, int fd, void *data, size_t len,
   return sendmsg(restoreFd, &hdr, 0);
 }
 
-LIB_PRIVATE
+extern "C" LIB_PRIVATE
 int receiveFd(int restoreFd, void *data, size_t len)
 {
   int fd;

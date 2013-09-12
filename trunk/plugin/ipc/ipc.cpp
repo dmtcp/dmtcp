@@ -27,6 +27,7 @@
 #include "jassert.h"
 #include "ipc.h"
 
+void dmtcp_SSH_ProcessEvent(DmtcpEvent_t event, DmtcpEventData_t *data);
 void dmtcp_FileConnList_ProcessEvent(DmtcpEvent_t event, DmtcpEventData_t *data);
 void dmtcp_SocketConnList_ProcessEvent(DmtcpEvent_t event, DmtcpEventData_t *data);
 void dmtcp_EventConnList_ProcessEvent(DmtcpEvent_t event, DmtcpEventData_t *data);
@@ -40,6 +41,7 @@ void dmtcp_EventConn_ProcessFdEvent(int event, int arg1, int arg2);
 extern "C"
 void dmtcp_process_event(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
+  dmtcp_SSH_ProcessEvent(event, data);
   dmtcp_FileConnList_ProcessEvent(event, data);
   dmtcp_SocketConnList_ProcessEvent(event, data);
   dmtcp_EventConnList_ProcessEvent(event, data);
@@ -50,7 +52,7 @@ void dmtcp_process_event(DmtcpEvent_t event, DmtcpEventData_t *data)
   return;
 }
 
-static void process_fd_event(int event, int arg1, int arg2 = -1)
+LIB_PRIVATE void process_fd_event(int event, int arg1, int arg2 = -1)
 {
   dmtcp_FileConn_ProcessFdEvent(event, arg1, arg2);
   dmtcp_SocketConn_ProcessFdEvent(event, arg1, arg2);

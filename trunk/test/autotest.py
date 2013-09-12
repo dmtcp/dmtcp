@@ -675,6 +675,9 @@ runTest("poll",          1, ["./test/poll"])
 
 runTest("forkexec",      2, ["./test/forkexec"])
 
+if testconfig.HAS_SSH == "yes":
+  runTest("sshtest",     4, ["./test/sshtest"])
+
 if testconfig.PID_VIRTUALIZATION == "yes":
   runTest("waitpid",      2, ["./test/waitpid"])
 
@@ -837,16 +840,16 @@ if testconfig.PTRACE_SUPPORT == "yes" and sys.version_info[0:2] >= (2,6):
       S=3
       runTest("gdb",          2,
               ["gdb -n -batch -x dmtcp-gdbinit.tmp test/dmtcp1"])
-  
+
       runTest("gdb-pthread0", 2,
               ["gdb -n -batch -x dmtcp-gdbinit.tmp test/dmtcp3"])
-  
+
       # These tests currently fail sometimes (if the computation is checkpointed
       # while a thread is being created). Re-enable them when this issue has
       # been fixed in the ptrace plugin.
       #runTest("gdb-pthread1", 2, ["gdb -n -batch -x dmtcp-gdbinit.tmp test/pthread1"])
       #runTest("gdb-pthread2",2, ["gdb -n -batch -x dmtcp-gdbinit.tmp test/pthread2"])
-  
+
       S=DEFAULT_S
       os.system("rm -f dmtcp-gdbinit.tmp")
 

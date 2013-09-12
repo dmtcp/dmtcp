@@ -253,6 +253,12 @@ AC_CHECK_HEADERS([linux/version.h], [], [AC_MSG_ERROR(
 #check for gzip utility
 AC_CHECK_PROG(HAS_GZIP, [gzip], [yes], [no], [/usr/bin:/bin])
 
+if test `ssh -o BatchMode=yes localhost echo test 2>/dev/null`; then
+  AC_SUBST([HAS_SSH], [yes])
+else
+  AC_SUBST([HAS_SSH], [no])
+fi
+
 #check for mpich2
 AC_ARG_WITH([mpich],
             [AS_HELP_STRING([--with-mpich=path],

@@ -7,6 +7,7 @@ DEBUG=@DEBUG@
 FAST_RESTART=@FAST_RESTART@
 HBICT_DELTACOMP=@HBICT_DELTACOMP@
 HAS_JAVA=@HAS_JAVA@
+HAS_SSH=@HAS_SSH@
 PACKAGE=@PACKAGE_TARNAME@
 PACKAGE_TARNAME=@PACKAGE_TARNAME@-@PACKAGE_VERSION@
 VERSION=@PACKAGE_VERSION@
@@ -228,11 +229,15 @@ bin/% : dmtcp/src/%
 bin/% : mtcp/%
 	cd bin && $(LN_S) ../$< $*
 
+bin/% : plugin/ipc/%
+	cd bin && $(LN_S) ../$< $*
+
 bin/readdmtcp : mtcp/readmtcp
 	cd bin && $(LN_S) ../$< readdmtcp
 
 bin: 	bin/dmtcp_coordinator bin/dmtcp_checkpoint bin/dmtcp_restart \
-	bin/dmtcp_command bin/dmtcp_nocheckpoint bin/mtcp_restart bin/readdmtcp
+	bin/dmtcp_command bin/dmtcp_nocheckpoint bin/mtcp_restart bin/readdmtcp \
+	bin/dmtcp_ssh bin/dmtcp_sshd
 
 lib/% : mtcp/%
 	cd lib && $(LN_S) ../$< $*
