@@ -30,6 +30,7 @@ if HAS_JAVA == "yes" and \
   HAS_SUN_ORACLE_JAVA="yes"
 else:
   HAS_SUN_ORACLE_JAVA="no"
+HAS_SSH="@HAS_SSH@"
 HAS_CILK="@HAS_CILK@"
 HAS_GCL="@HAS_GCL@"
 GCL="@GCL@"

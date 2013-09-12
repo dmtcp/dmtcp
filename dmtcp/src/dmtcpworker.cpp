@@ -194,70 +194,6 @@ static void writeCurrentLogFileNameToPrevLogFile(dmtcp::string& path)
 #endif
 }
 
-static void processSshCommand(dmtcp::string programName,
-                              dmtcp::vector<dmtcp::string>& args)
-{
-  JTRACE("processSshCommand");
-
-  JASSERT ( jalib::Filesystem::GetProgramName() == "ssh" );
-  //make sure coordinator connection is closed
-  _real_close ( PROTECTED_COORD_FD );
-
-  JASSERT ( args.size() >= 3 ) ( args.size() )
-    .Text ( "ssh must have at least 3 args to be wrapped (ie: ssh host cmd)" );
-
-  //find command part
-  size_t commandStart = 2;
-  for (size_t i = 1; i < args.size(); ++i) {
-    if (args[i][0] != '-') {
-      commandStart = i + 1;
-      break;
-    }
-  }
-  JASSERT ( commandStart < args.size() && args[commandStart][0] != '-' )
-    ( commandStart ) ( args.size() ) ( args[commandStart] )
-    .Text ( "failed to parse ssh command line" );
-
-  dmtcp::string& cmd = args[commandStart];
-  dmtcp::vector<dmtcp::string> dmtcp_args;
-  dmtcp::Util::getDmtcpArgs(dmtcp_args);
-
-  dmtcp::string prefix = dmtcp::Util::getPath("dmtcp_checkpoint") + " --ssh-slave ";
-  for(size_t i = 0; i < dmtcp_args.size(); i++){
-    prefix += dmtcp::string() +  dmtcp_args[i] + " ";
-  }
-  JTRACE("Prefix")(prefix);
-
-  // process command
-  size_t semipos, pos;
-  size_t actpos = dmtcp::string::npos;
-  for(semipos = 0; (pos = cmd.find(';',semipos+1)) != dmtcp::string::npos;
-      semipos = pos, actpos = pos);
-
-  if( actpos > 0 && actpos != dmtcp::string::npos ){
-    cmd = cmd.substr(0,actpos+1) + prefix + cmd.substr(actpos+1);
-  } else {
-    cmd = prefix + cmd;
-  }
-
-  //now repack args
-  dmtcp::string newCommand = "";
-  char** argv = new char*[args.size() +2];
-  memset(argv, 0, sizeof(char*) * (args.size() + 2));
-  for (size_t i=0; i< args.size(); ++i) {
-    argv[i] = ( char* ) args[i].c_str();
-    newCommand += args[i] + ' ';
-  }
-
-  JNOTE("re-running SSH with checkpointing") (newCommand);
-  restoreUserLDPRELOAD();
-  //now re-call ssh
-  _real_execvp(argv[0], argv);
-
-  //should be unreachable
-  JASSERT(false) (cmd) (JASSERT_ERRNO) .Text("exec() failed");
-}
-
 static void prepareLogAndProcessdDataFromSerialFile()
 {
   const char* serialFile = getenv(ENV_VAR_SERIALFILE_INITIAL);
@@ -352,14 +288,11 @@ dmtcp::DmtcpWorker::DmtcpWorker (bool enableCheckpointing)
           programName != "dmtcp_nocheckpoint" &&
           programName != "dmtcp_comand"       &&
           programName != "dmtcp_restart"      &&
-          programName != "mtcp_restart")
+          programName != "mtcp_restart"       &&
+          programName != "ssh")
     (programName) .Text("This program should not be run under ckpt control");
 
-  if (programName == "ssh") {
-    processSshCommand(programName, args);
-  }
   calculateArgvAndEnvSize();
-
 
   CoordinatorAPI::instance().connectToCoordinatorWithHandshake();
 

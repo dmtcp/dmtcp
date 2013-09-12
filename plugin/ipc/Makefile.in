@@ -64,6 +64,7 @@ SYSV_HEADERS = sysv/sysvipc.h sysv/sysvipcwrappers.h
 
 TIMER_HEADERS = timer/timerwrappers.h timer/timerlist.h
 
+SSH_HEADERS = ssh/ssh.h ssh/sshdrainer.h
 
 OBJS = ipc.o util_ipc.o connection.o connectionidentifier.o connectionlist.o \
        connectionrewirer.o kernelbufferdrainer.o \
@@ -71,6 +72,7 @@ OBJS = ipc.o util_ipc.o connection.o connectionidentifier.o connectionlist.o \
        util_descriptor.o eventwrappers.o eventconnection.o eventconnlist.o\
        filewrappers.o fileconnection.o fileconnlist.o posixipcwrappers.o \
        sysvipc.o sysvipcwrappers.o \
+       ssh.o util_ssh.o sshdrainer.o\
        timerlist.o timerwrappers.o
 
 LIB_LDFLAGS = -shared -Wl,--unresolved-symbols=ignore-all
@@ -81,7 +83,7 @@ all: default
 
 default: build
 
-build: ${LIBNAME}
+build: ${LIBNAME} dmtcp_ssh dmtcp_sshd
 
 tidy:
 	rm -rf dmtcp-autotest-* ckpt_*_files
@@ -90,6 +92,7 @@ tidy:
 clean: tidy
 	-rm -f *.o
 	-rm -f *.so
+	-rm -f dmtcp_ssh*
 
 distclean: clean
 	rm -f Makefile
@@ -101,16 +104,25 @@ install: all
 	fi
 	test -e $(DESTDIR)$(libdir) || $(MKDIR_P) $(DESTDIR)$(libdir)
 	cp ${LIBNAME} $(DESTDIR)$(pkglibdir)
+	cp dmtcp_ssh dmtcp_sshd $(DESTDIR)$(bindir)
 
 uninstall:
 	echo " ( cd '$(DESTDIR)$(pkglibdir)' && rm -f $$files ) "; \
-	cd "$(DESTDIR)$(pkglibdir)" && rm -f $(LIBNAME)
+	(cd "$(DESTDIR)$(pkglibdir)" && rm -f $(LIBNAME))
+	(cd "$(DESTDIR)$(bindir)" && rm -f dmtcp_ssh dmtcp_sshd
 
-${LIBNAME}: $(OBJS) ${HEADERS}
+
+%: ssh/%.cpp ${COMMON_HEADERS} util_ssh.o
+	$(CXX) $(INCLUDES) $(CPPFLAGS) $(CXXFLAGS) util_ssh.o util_ipc.o -o $@ $<
+
+${LIBNAME}: $(OBJS)
 	@rm -f ${LIBNAME}
 	$(CXXLINK) $(OBJS) $(LIB_LDFLAGS) $(LDADD)
 
 %.o: %.cpp ${COMMON_HEADERS} ${CONNECTION_HEADERS}
+	$(CXXCOMPILE)  $<
+
+%.o: ssh/%.cpp ${COMMON_HEADERS}
 	$(CXXCOMPILE)  $<
 
 %.o: socket/%.cpp ${COMMON_HEADERS} ${CONNECTION_HEADERS} ${SOCKET_HEADERS}
