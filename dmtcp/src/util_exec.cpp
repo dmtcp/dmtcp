@@ -154,9 +154,9 @@ bool dmtcp::Util::isStaticallyLinked(const char *filename)
   elfType(pathname, &isElf, &is32bitElf);
 #if defined(__x86_64__) && !defined(CONFIG_M32)
   dmtcp::string cmd = is32bitElf ? "/lib/ld-linux.so.2 --verify "
-			         : "/lib64/ld-linux-x86-64.so.2 --verify " ;
+			         : ELF_INTERPRETER " --verify " ;
 #else
-  dmtcp::string cmd = "/lib/ld-linux.so.2 --verify " ;
+  dmtcp::string cmd = ELF_INTERPRETER " --verify " ;
 #endif
   cmd = cmd + pathname + " > /dev/null";
   // FIXME:  When tested on dmtcp/test/pty.c, 'ld.so -verify' returns
@@ -288,9 +288,9 @@ void dmtcp::Util::patchArgvIfSetuid(const char* filename, char *const origArgv[]
   if (is32bitElf)
     ldStrPtr = (char *)"/lib/ld-linux.so.2";
   else
-    ldStrPtr = (char *)"/lib64/ld-linux-x86-64.so.2";
+    ldStrPtr = (char *)ELF_INTERPRETER;
 # else
-  ldStrPtr = (char *)"/lib/ld-linux.so.2";
+  ldStrPtr = (char *)ELF_INTERPRETER;
 # endif
 
   JASSERT (newArgv0Len > strlen(origPath) + 1)
