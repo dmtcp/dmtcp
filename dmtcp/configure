@@ -4155,7 +4155,7 @@ fi
 
 if test "$use_jassert" = "yes"; then
 
-$as_echo "#define DEBUG /**/" >>confdefs.h
+$as_echo "#define DEBUG 1" >>confdefs.h
 
   CFLAGS="-g -O0 -Wall"
   CXXFLAGS="-g -O0 -Wall"
@@ -4171,7 +4171,7 @@ fi
 
 if test "$use_quiet" = "yes"; then
 
-$as_echo "#define QUIET /**/" >>confdefs.h
+$as_echo "#define QUIET 1" >>confdefs.h
 
 fi
 
@@ -4185,7 +4185,7 @@ fi
 
 if test "$use_jtiming" = "yes"; then
 
-$as_echo "#define TIMING /**/" >>confdefs.h
+$as_echo "#define TIMING 1" >>confdefs.h
 
 fi
 
@@ -4199,7 +4199,7 @@ fi
 
 if test "$use_unique_checkpoint_filenames" = "yes"; then
 
-$as_echo "#define UNIQUE_CHECKPOINT_FILENAMES /**/" >>confdefs.h
+$as_echo "#define UNIQUE_CHECKPOINT_FILENAMES 1" >>confdefs.h
 
 fi
 
@@ -4213,7 +4213,7 @@ fi
 
 if test "$use_ptrace_support" = "yes"; then
 
-$as_echo "#define PTRACE /**/" >>confdefs.h
+$as_echo "#define PTRACE 1" >>confdefs.h
 
 fi
 
@@ -4227,7 +4227,7 @@ fi
 
 if test "$use_forked_ckpt" = "yes"; then
 
-$as_echo "#define FORKED_CHECKPOINTING /**/" >>confdefs.h
+$as_echo "#define FORKED_CHECKPOINTING 1" >>confdefs.h
 
 fi
 
@@ -4241,7 +4241,7 @@ fi
 
 if test "$use_deltacomp" = "yes"; then
 
-$as_echo "#define HBICT_DELTACOMP /**/" >>confdefs.h
+$as_echo "#define HBICT_DELTACOMP 1" >>confdefs.h
 
 fi
 
@@ -4271,7 +4271,7 @@ fi
 
 if test "$use_pid_virt" = "yes"; then
 
-$as_echo "#define PID_VIRTUALIZATION /**/" >>confdefs.h
+$as_echo "#define PID_VIRTUALIZATION 1" >>confdefs.h
 
 fi
 
@@ -4285,9 +4285,24 @@ fi
 
 if test "$use_allocator" = "yes"; then
 
-$as_echo "#define OVERRIDE_GLOBAL_ALLOCATOR /**/" >>confdefs.h
+$as_echo "#define OVERRIDE_GLOBAL_ALLOCATOR 1" >>confdefs.h
 
 fi
+
+if test -e /usr/bin/readelf; then
+  interp=`/usr/bin/readelf -aW /usr/bin/readelf | grep interpreter | \
+          sed -e 's^.* interpreter: \(.*\)]^\1^'`
+elif test `uname -m` == x86_64; then
+  interp=/lib64/ld-linux-x86-64.so.2
+else
+  # FIXME: ARM (and others?) can use different interpreter.
+  interp=/lib/ld-linux.so.2
+fi
+
+cat >>confdefs.h <<_ACEOF
+#define ELF_INTERPRETER "$interp"
+_ACEOF
+
 
  if test `uname -m` == i686 -o  `uname -m` == i586 -o `uname -m` == i486; then
   HAS_I486_TRUE=
@@ -4316,7 +4331,7 @@ fi
 
 if test "$use_m32" = "yes"; then
 
-$as_echo "#define CONFIG_M32 /**/" >>confdefs.h
+$as_echo "#define CONFIG_M32 1" >>confdefs.h
 
 fi
 
@@ -4743,7 +4758,7 @@ done
 
 
 
-$as_echo "#define DMTCP /**/" >>confdefs.h
+$as_echo "#define DMTCP 1" >>confdefs.h
 
 
 ac_config_files="$ac_config_files Makefile src/Makefile"

@@ -32,6 +32,8 @@
 #include "jconvert.h"
 #include "jalib.h"
 #include "dmtcpplugin.h"
+// DMTCP config constants like ELF_INTERPRETER
+#include "config.h"
 
 namespace
 {
@@ -140,8 +142,7 @@ jalib::string jalib::Filesystem::GetProgramName()
     value = BaseName ( GetProgramPath() ); // uses /proc/self/exe
     // We may rewrite "a.out" to "/lib/ld-linux.so.2 a.out".  If so, find cmd.
     if (!value.empty()
-        && ( value == ResolveSymlink("/lib/ld-linux.so.2")
-            || value == ResolveSymlink("/lib64/ld-linux-x86-64.so.2") )
+        && value == ResolveSymlink(ELF_INTERPRETER) // e.g. /lib/ld-linux.so.2
 	&& (len = _GetProgramCmdline(cmdline, sizeof(cmdline))) > 0
 	&& len > strlen(cmdline) + 1 // more than one word in cmdline
 	&& *(cmdline + strlen(cmdline) + 1) != '-') // second word not a flag
