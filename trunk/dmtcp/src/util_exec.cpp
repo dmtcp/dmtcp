@@ -174,10 +174,10 @@ static dmtcp::string ld_linux_so_path(int version, bool is32bitElf = false)
   if (is32bitElf) {
     sprintf(buf, "/lib/ld-linux.so.%d", version);
   } else {
-    sprintf(buf, "/lib64/ld-linux-x86-64.so.%d", version);
+    sprintf(buf, ELF_INTERPRETER);
   }
 #else
-  sprintf(buf, "/lib/ld-linux.so.%d", version);
+  sprintf(buf, ELF_INTERPRETER);
 #endif
 
   dmtcp::string cmd = buf;
@@ -329,9 +329,9 @@ void dmtcp::Util::patchArgvIfSetuid(const char* filename, char *const origArgv[]
   if (is32bitElf)
     ldStrPtr = (char *)"/lib/ld-linux.so.2";
   else
-    ldStrPtr = (char *)"/lib64/ld-linux-x86-64.so.2";
+    ldStrPtr = (char *)ELF_INTERPRETER;
 # else
-  ldStrPtr = (char *)"/lib/ld-linux.so.2";
+  ldStrPtr = (char *)ELF_INTERPRETER;
 # endif
 
   JASSERT(newArgv0Len > strlen(origPath) + 1)
