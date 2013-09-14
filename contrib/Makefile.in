@@ -16,7 +16,15 @@ includedir=@includedir@
 mandir=@mandir@
 infodir=@mandir@
 
-plugins = rm
+ifeq ($(M32),1)
+CFLAGS += -m32 -Wa,--32
+CXXFLAGS += -m32 -Wa,--32
+LDFLAGS += -m32 -Wl,-m32 -Wl,-melf_i386 -Wa,--32
+RECURSIVE_MAKE_FLAGS = \
+  CFLAGS="${CFLAGS}" CXXFLAGS="${CXXFLAGS}" LDFLAGS="${LDFLAGS}"
+endif
+
+plugins = rm kvm
 
 default: build
 
@@ -25,7 +33,7 @@ build: $(plugins)
 all: default
 
 $(plugins):
-	cd $@ && $(MAKE)
+	cd $@ && $(MAKE) ${RECURSIVE_MAKE_FLAGS}
 
 tidy:
 	rm -rf dmtcp-autotest-* ckpt_*_files

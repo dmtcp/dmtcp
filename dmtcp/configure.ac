@@ -129,7 +129,7 @@ if test "$use_allocator" = "yes"; then
   AC_DEFINE([OVERRIDE_GLOBAL_ALLOCATOR],[1],[Use a custom allocator based on mmap])
 fi
 
-if test -e /usr/bin/readelf; then
+if test -x /usr/bin/readelf -a -r /usr/bin/readelf; then
   interp=`/usr/bin/readelf -aW /usr/bin/readelf | grep interpreter | \
           sed -e 's^.* interpreter: \(.*\)]^\1^'`
 elif test `uname -m` == x86_64; then

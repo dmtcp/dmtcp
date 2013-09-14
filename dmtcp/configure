@@ -4289,7 +4289,7 @@ $as_echo "#define OVERRIDE_GLOBAL_ALLOCATOR 1" >>confdefs.h
 
 fi
 
-if test -e /usr/bin/readelf; then
+if test -x /usr/bin/readelf -a -r /usr/bin/readelf; then
   interp=`/usr/bin/readelf -aW /usr/bin/readelf | grep interpreter | \
           sed -e 's^.* interpreter: \(.*\)]^\1^'`
 elif test `uname -m` == x86_64; then
