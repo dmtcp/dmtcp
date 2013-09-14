@@ -21,6 +21,8 @@
 
 #include <string.h>
 #include <fcntl.h>
+#include <sys/time.h>
+#include <sys/resource.h>
 #include  "util.h"
 #include  "syscallwrappers.h"
 #include  "uniquepid.h"

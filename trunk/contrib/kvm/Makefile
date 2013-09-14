@@ -11,7 +11,7 @@ LIBOBJS = ${NAME}.o
 
 # Modify if your DMTCP_ROOT is located elsewhere.
 ifndef DMTCP_ROOT
-  DMTCP_ROOT=../../..
+  DMTCP_ROOT=../..
 endif
 DMTCP_SRC=${DMTCP_ROOT}/dmtcp/src
 DMTCP_INCLUDE=${DMTCP_ROOT}/dmtcp/include

@@ -19,6 +19,8 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#include <sys/time.h>
+#include <sys/resource.h>
 #include "dmtcpworker.h"
 #include "threadsync.h"
 #include "processinfo.h"
