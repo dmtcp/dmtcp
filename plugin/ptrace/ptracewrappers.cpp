@@ -280,19 +280,20 @@ static void ptrace_single_step_thread(dmtcp::Inferior *inferiorInfo,
     /* For 64 bit architectures. */
     peekdata = _real_ptrace(PTRACE_PEEKDATA, inferior, (void*) regs.IP_REG, 0);
     long inst = peekdata & 0xffff;
-    if (inst == SIGRETURN_INST_16 && regs.AX_REG == 0xf) {
+    if (inst == SIGRETURN_INST_16 && regs.AX_REG == 0xf)
 #elif __i386__
     /* For 32 bit architectures.*/
     peekdata = _real_ptrace(PTRACE_PEEKDATA, inferior, (void*) regs.IP_REG, 0);
     long inst = peekdata & 0xffff;
     if (inst == SIGRETURN_INST_16 && (regs.AX_REG == DMTCP_SYS_sigreturn ||
-                                      regs.AX_REG == DMTCP_SYS_rt_sigreturn)) {
+                                      regs.AX_REG == DMTCP_SYS_rt_sigreturn))
 #elif __arm__
     /* For ARM architectures. */
     peekdata = _real_ptrace(PTRACE_PEEKDATA, inferior, (void*) regs.ARM_pc, 0);
     long inst = peekdata & 0xffff;
-    if (inst == SIGRETURN_INST_16 && regs.ARM_r0 == 0xf) {
+    if (inst == SIGRETURN_INST_16 && regs.ARM_r0 == 0xf)
 #endif
+    {
       if (isRestart) { /* Restart time. */
         // FIXME: TODO:
         if (last_command == PTRACE_SINGLESTEP) {

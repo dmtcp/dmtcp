@@ -4289,21 +4289,6 @@ $as_echo "#define OVERRIDE_GLOBAL_ALLOCATOR 1" >>confdefs.h
 
 fi
 
-if test -x /usr/bin/readelf -a -r /usr/bin/readelf; then
-  interp=`/usr/bin/readelf -aW /usr/bin/readelf | grep interpreter | \
-          sed -e 's^.* interpreter: \(.*\)]^\1^'`
-elif test `uname -m` == x86_64; then
-  interp=/lib64/ld-linux-x86-64.so.2
-else
-  # FIXME: ARM (and others?) can use different interpreter.
-  interp=/lib/ld-linux.so.2
-fi
-
-cat >>confdefs.h <<_ACEOF
-#define ELF_INTERPRETER "$interp"
-_ACEOF
-
-
  if test `uname -m` == i686 -o  `uname -m` == i586 -o `uname -m` == i486; then
   HAS_I486_TRUE=
   HAS_I486_FALSE='#'
@@ -4334,6 +4319,23 @@ if test "$use_m32" = "yes"; then
 $as_echo "#define CONFIG_M32 1" >>confdefs.h
 
 fi
+
+if test "$use_m32" = "yes"; then
+  interp=/lib/ld-linux.so.2
+elif test -x /usr/bin/readelf -a -r /usr/bin/readelf; then
+  interp=`/usr/bin/readelf -aW /usr/bin/readelf | grep interpreter | \
+          sed -e 's^.* interpreter: \(.*\)]^\1^'`
+elif test `uname -m` == x86_64; then
+  interp=/lib64/ld-linux-x86-64.so.2
+else
+  # FIXME: ARM (and others?) can use different interpreter.
+  interp=/lib/ld-linux.so.2
+fi
+
+cat >>confdefs.h <<_ACEOF
+#define ELF_INTERPRETER "$interp"
+_ACEOF
+
 
 
 ac_ext=cpp
