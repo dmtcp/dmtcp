@@ -1,17 +1,25 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 int main()
 {
     int count = 0;
+    int fd;
     FILE *fp;
+    char filename[] = "/tmp/ff_jdl_XXXXXX";
+
+    fd = mkostemp(filename, O_WRONLY);
+    if (fd == -1)
+      abort();
     // Problematic only when in “w” mode or “a”. All + modes and “r” are fine.
-    fp = fopen("/tmp/ff_jdl", "w");
+    fp = fdopen(fd, "w");
+    //fp = fopen("/tmp/ff_jdl", "w");
 
     fprintf(stdout, "Opened ff_jdl\n");
     fprintf(stdout, "Deleting ff_jdl\n");
-    unlink("/tmp/ff_jdl");
+    unlink(filename);
 
     while (1) {
       printf("%d ", count);
