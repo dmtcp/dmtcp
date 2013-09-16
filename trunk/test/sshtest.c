@@ -1,5 +1,6 @@
 #include<stdio.h>
 #include<unistd.h>
+#include<errno.h>
 #include<sys/types.h>
 #include<sys/wait.h>
 
@@ -48,13 +49,20 @@ int main(int argc, char *argv[])
     close(out[1]);
     close(err[1]);
     char buf[4096];
+    ssize_t wrt;
     ssize_t rt = read(out[0], buf, 4096);
     if (rt > 0) {
-      write(STDOUT_FILENO, buf, rt);
+      wrt = write(STDOUT_FILENO, buf, rt);
+      if (wrt == -1 && errno != EINTR) {
+        perror("write failed.");
+      }
     }
     rt = read(err[0], buf, 4096);
     if (rt > 0) {
-      write(STDERR_FILENO, buf, rt);
+      wrt = write(STDERR_FILENO, buf, rt);
+      if (wrt == -1 && errno != EINTR) {
+        perror("write failed.");
+      }
     }
   }
   wait(NULL);

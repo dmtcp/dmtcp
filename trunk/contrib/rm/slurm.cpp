@@ -49,7 +49,7 @@ static void print_args(char *const argv[])
 static int patch_srun_cmdline(char * const argv_old[], char ***_argv_new)
 {
   // Calculate initial argc
-  int argc_old;
+  size_t argc_old;
   for(argc_old=0; argv_old[argc_old] != NULL; argc_old++);
   argc_old++;
 

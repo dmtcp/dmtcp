@@ -73,6 +73,9 @@ extern "C" int fnc(int result[2]) {
 
 extern "C" int print_constructor() {
   int dummy = system("echo '    In LIB3::print_constructor'");
+  if (dummy == -1) {
+    perror("system failed.");
+  }
   sleep(1);
   return 0;
 }
@@ -85,6 +88,9 @@ extern "C" int fnc(int result[2]) {
 
 extern "C" int print_constructor() {
   int dummy = system("echo '    In LIB4::print_constructor'");
+  if (dummy == -1) {
+    perror("system failed.");
+  }
   sleep(1);
   return 0;
 }
