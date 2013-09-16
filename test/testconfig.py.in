@@ -1,4 +1,6 @@
 #testconfig.py is generated using testconfig.py.in by ./configure
+ 
+USE_M32="@M32@" and "@M32@" != "0"
 
 HAS_READLINE="@HAS_READLINE@"
 # We may be running a user's python, but we should only test with canonical one
@@ -22,6 +24,14 @@ HAS_GCL="@HAS_GCL@"
 GCL="@GCL@"
 HAS_MATLAB="@HAS_MATLAB@"
 MATLAB="@MATLAB@"
+ 
+if USE_M32:
+  HAS_READLINE="no"
+  HAS_MPICH="no"
+  HAS_OPENMPI="no"
+  HAS_JAVA="no"
+  HAS_JAVAC="no"
+  HAS_CILK="no"
 
 DEBUG="@DEBUG@"
 
@@ -47,5 +57,3 @@ MPICH_MPDCLEANUP="@MPICH_MPDCLEANUP@"
 HAS_OPENMPI="@HAS_OPENMPI@"
 OPENMPI_MPIRUN="@OPENMPI_MPIRUN@"
 USES_OPENMPI_ORTED="@USES_OPENMPI_ORTED@"
-
-USE_M32="@M32@"
