@@ -94,7 +94,8 @@ display-config: check-m32-compat
 
 check-m32-compat:
 ifeq ($(M32),1)
-	@ ls /usr/lib/gcc/x86_64-*/*/32/libstdc++.so > /dev/null || \
+	@ (ls /usr/lib64/gcc/x86_64-*/*/32/libstdc++.so > /dev/null || \
+	   ls /usr/lib/gcc/x86_64-*/*/32/libstdc++.so > /dev/null) || \
 	(echo && \
 	 echo DMTCP configured for 32-bit mode on 64-bit machine requested. && \
 	 echo Cannot find libstdc++.so file. \ Will not build. && \
