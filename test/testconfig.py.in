@@ -7,7 +7,7 @@ USE_TEST_SUITE="@USE_TEST_SUITE@"
 if USE_TEST_SUITE == "no":
   raise ImportError("USE_TEST_SUITE")
 
-USE_M32="@M32@" and "@M32@" != "0"
+USE_M32="@M32@" != "0" and "@M32@"
 
 HAS_READLINE="@HAS_READLINE@"
 # We may be running a user's python, but we should only test with canonical one

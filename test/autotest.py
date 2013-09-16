@@ -46,6 +46,10 @@ DEFAULT_S=0.3
 if sys.version_info[0] == 2 and sys.version_info[0:2] >= (2,7) and \
     subprocess.check_output(['uname', '-p'])[0:3] == 'arm':
   DEFAULT_S *= 2
+#Allow extra time for slower CPUs
+if subprocess.check_output(['uname', '-m']) in \
+   ["i386", "i486", "i586", "i686", "armv7", "armv71"]:
+  DEFAULT_S *= 4
 
 S=DEFAULT_S
 #Appears as S*SLOW in code.  If --slow, then SLOW=5
@@ -731,7 +735,7 @@ else:
 
 runTest("pthread1",      1, ["./test/pthread1"])
 runTest("pthread2",      1, ["./test/pthread2"])
-S=3
+S=10*DEFAULT_S
 runTest("pthread3",      1, ["./test/pthread2 80"])
 S=DEFAULT_S
 runTest("pthread4",      1, ["./test/pthread4"])
@@ -767,14 +771,14 @@ if testconfig.HAS_TCSH == "yes":
 
 if testconfig.HAS_ZSH == "yes":
   os.environ['DMTCP_GZIP'] = "0"
-  S=1
+  S=3*DEFAULT_S
   runTest("zsh",         2, ["/bin/zsh -f -c 'ls; sleep 30; ls'"])
   S=DEFAULT_S
   os.environ['DMTCP_GZIP'] = GZIP
 
 if testconfig.HAS_VIM == "yes" and testconfig.PID_VIRTUALIZATION == "yes":
   # Wait to checkpoint until vim finishes reading its initialization files
-  S=3
+  S=10*DEFAULT_S
   if sys.version_info[0:2] >= (2,6):
     # Delete previous vim processes.  Vim behaves poorly with stale processes.
     vimCommand = testconfig.VIM + " /etc/passwd +3" # +3 makes cmd line unique
@@ -794,7 +798,7 @@ if testconfig.HAS_VIM == "yes" and testconfig.PID_VIRTUALIZATION == "yes":
 
 if testconfig.HAS_EMACS == "yes" and testconfig.PID_VIRTUALIZATION == "yes":
   # Wait to checkpoint until emacs finishes reading its initialization files
-  S=4
+  S=15*DEFAULT_S
   if sys.version_info[0:2] >= (2,6):
     # Under emacs23, it opens /dev/tty directly in a new fd.
     # To avoid this, consider using emacs --batch -l EMACS-LISTP-CODE ...
@@ -804,7 +808,7 @@ if testconfig.HAS_EMACS == "yes" and testconfig.PID_VIRTUALIZATION == "yes":
   S=DEFAULT_S
 
 if testconfig.HAS_SCRIPT == "yes" and testconfig.PID_VIRTUALIZATION == "yes":
-  S=2
+  S=7*DEFAULT_S
   if sys.version_info[0:2] >= (2,6):
     # NOTE: If 'script' fails, try raising value of S, above, to larger number.
     #  Arguably, there is a bug in glibc, in that locale-archive can be 100 MB.
@@ -822,7 +826,7 @@ if testconfig.HAS_SCRIPT == "yes" and testconfig.PID_VIRTUALIZATION == "yes":
 # FIXME: Currently fails on dekaksi due to DMTCP not honoring
 #        "Async-signal-safe functions" in signal handlers (see man 7 signal)
 if testconfig.HAS_SCREEN == "yes" and testconfig.PID_VIRTUALIZATION == "yes":
-  S=1
+  S=3*DEFAULT_S
   if sys.version_info[0:2] >= (2,6):
     runTest("screen",    3,  ["env TERM=vt100 " + testconfig.SCREEN +
                                 " -c /dev/null -s /bin/sh"])
@@ -830,7 +834,7 @@ if testconfig.HAS_SCREEN == "yes" and testconfig.PID_VIRTUALIZATION == "yes":
 
 if testconfig.PTRACE_SUPPORT == "yes" and sys.version_info[0:2] >= (2,6):
   if testconfig.HAS_STRACE == "yes":
-    S=3
+    S=10*DEFAULT_S
     runTest("strace",    2,  ["strace test/dmtcp2"])
     S=DEFAULT_S
 
@@ -840,7 +844,7 @@ if testconfig.PTRACE_SUPPORT == "yes" and sys.version_info[0:2] >= (2,6):
             "  Not running it."
     else:
       os.system("echo 'run' > dmtcp-gdbinit.tmp")
-      S=3
+      S=10*DEFAULT_S
       runTest("gdb",          2,
               ["gdb -n -batch -x dmtcp-gdbinit.tmp test/dmtcp1"])
 
@@ -857,7 +861,7 @@ if testconfig.PTRACE_SUPPORT == "yes" and sys.version_info[0:2] >= (2,6):
       os.system("rm -f dmtcp-gdbinit.tmp")
 
 if testconfig.HAS_JAVAC == "yes" and testconfig.HAS_JAVA == "yes":
-  S=3
+  S=10*DEFAULT_S
   os.environ['CLASSPATH'] = './test'
   if testconfig.HAS_SUN_ORACLE_JAVA == "yes":
     runTest("java1",         1,  ["java -Xmx512M java1"])
@@ -871,7 +875,7 @@ if testconfig.HAS_CILK == "yes":
 
 # SHOULD HAVE gcl RUN LARGE FACTORIAL OR SOMETHING.
 if testconfig.HAS_GCL == "yes":
-  S=1
+  S=3*DEFAULT_S
   runTest("gcl",         1,  [testconfig.GCL])
   S=DEFAULT_S
 
@@ -881,7 +885,7 @@ if testconfig.HAS_OPENMP == "yes":
 
 # SHOULD HAVE matlab RUN LARGE FACTORIAL OR SOMETHING.
 if testconfig.HAS_MATLAB == "yes":
-  S=3
+  S=10*DEFAULT_S
   if sys.version_info[0:2] >= (2,6):
     runTest("matlab-nodisplay", 1,  [testconfig.MATLAB+" -nodisplay -nojvm"])
   S=DEFAULT_S
@@ -935,7 +939,7 @@ if testconfig.HAS_OPENMPI == "yes":
                      os.environ['PATH'])):
     oldPath = os.environ['PATH']
     os.environ['PATH'] += ":" + os.path.dirname(testconfig.OPENMPI_MPIRUN)
-  S=1
+  S=3*DEFAULT_S
   runTest("openmpi", [5,6], [testconfig.OPENMPI_MPIRUN + " -np 4" +
 			     " ./test/openmpi"])
   S=DEFAULT_S
