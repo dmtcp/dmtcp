@@ -7,6 +7,8 @@ USE_TEST_SUITE="@USE_TEST_SUITE@"
 if USE_TEST_SUITE == "no":
   raise ImportError("USE_TEST_SUITE")
 
+USE_M32="@M32@" and "@M32@" != "0"
+
 HAS_READLINE="@HAS_READLINE@"
 # We may be running a user's python, but we should only test with canonical one
 HAS_PYTHON="@HAS_PYTHON@"
@@ -37,6 +39,14 @@ GCL="@GCL@"
 HAS_MATLAB="@HAS_MATLAB@"
 MATLAB="@MATLAB@"
 
+if USE_M32:
+  HAS_READLINE="no"
+  HAS_MPICH="no"
+  HAS_OPENMPI="no"
+  HAS_JAVA="no"
+  HAS_JAVAC="no"
+  HAS_CILK="no"
+
 DEBUG="@DEBUG@"
 
 PTRACE_SUPPORT="@PTRACE_SUPPORT@"
@@ -61,5 +71,3 @@ HAS_OPENMPI="@HAS_OPENMPI@"
 OPENMPI_MPICC="@OPENMPI_MPICC@"
 OPENMPI_MPIRUN="@OPENMPI_MPIRUN@"
 # USES_OPENMPI_ORTED="@USES_OPENMPI_ORTED@"
-
-USE_M32="@M32@"

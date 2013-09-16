@@ -675,10 +675,12 @@ runTest("poll",          1, ["./test/poll"])
 
 runTest("forkexec",      2, ["./test/forkexec"])
 
-if testconfig.HAS_SSH == "yes":
+# if USE_M32, DMTCP mixed mode of 32-bit waitpid and 64-bit /usr/bin/ssh fails.
+if testconfig.HAS_SSH == "yes" and not testconfig.USE_M32:
   runTest("sshtest",     4, ["./test/sshtest"])
 
-if testconfig.PID_VIRTUALIZATION == "yes":
+# if USE_M32, DMTCP mixed mode of 32-bit waitpid and 64-bit /bin/sleep fails.
+if testconfig.PID_VIRTUALIZATION == "yes" and not testconfig.USE_M32:
   runTest("waitpid",      2, ["./test/waitpid"])
 
 runTest("client-server", 2, ["./test/client-server"])
@@ -718,9 +720,10 @@ if old_ld_library_path:
     os.environ['LD_LIBRARY_PATH'] += ':' + os.getenv("PWD")+"/test:"+os.getenv("PWD")
 else:
     os.environ['LD_LIBRARY_PATH'] = os.getenv("PWD")+"/test:"+os.getenv("PWD")
-runTest("dlopen1",        1, ["./test/dlopen1"])
-# Test disabled for now as it's failing
-#runTest("dlopen2",        1, ["./test/dlopen2"])
+if not testconfig.USE_M32:
+  runTest("dlopen1",        1, ["./test/dlopen1"])
+if not testconfig.USE_M32:
+  runTest("dlopen2",        1, ["./test/dlopen2"])
 if old_ld_library_path:
   os.environ['LD_LIBRARY_PATH'] = old_ld_library_path
 else:
