@@ -16,6 +16,8 @@ includedir=@includedir@
 mandir=@mandir@
 infodir=@mandir@
 
+CFLAGS += -DHAVE_CONFIG_H -fPIC -g
+CXXFLAGS += -DHAVE_CONFIG_H -fPIC -g
 ifeq ($(M32),1)
 CFLAGS += -m32 -Wa,--32
 CXXFLAGS += -m32 -Wa,--32
