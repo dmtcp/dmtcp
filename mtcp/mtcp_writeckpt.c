@@ -1063,8 +1063,12 @@ static void mtcp_write_non_rwx_and_anonymous_pages(int fd, Area *orig_area)
     size_t size;
     int is_zero;
     Area a = area;
-
+#ifdef IBV
+    size = area.size;
+    is_zero = 0;
+#else
     mtcp_get_next_page_range(&a, &size, &is_zero);
+#endif
 
     a.prot |= is_zero ? MTCP_PROT_ZERO_PAGE : 0;
     a.size = size;
