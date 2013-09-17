@@ -658,17 +658,14 @@ int dmtcp::CoordinatorAPI::sendKeyValPairToCoordinator(const void *key,
                                                        const void *val,
                                                        size_t val_len)
 {
-  void *extraData = JALLOC_HELPER_MALLOC(key_len + val_len);
-  memcpy(extraData, key, key_len);
-  memcpy((char*)extraData + key_len, val, val_len);
-
   DmtcpMessage msg (DMT_REGISTER_NAME_SERVICE_DATA);
   msg.keyLen = key_len;
   msg.valLen = val_len;
   msg.extraBytes = key_len + val_len;
 
-  sendMsgToCoordinator(msg, extraData, msg.extraBytes);
-  JALLOC_HELPER_FREE(extraData);
+  _coordinatorSocket << msg;
+  _coordinatorSocket.writeAll((const char *)key, key_len);
+  _coordinatorSocket.writeAll((const char *)val, val_len);
   return 1;
 }
 
@@ -679,39 +676,41 @@ int dmtcp::CoordinatorAPI::sendKeyValPairToCoordinator(const void *key,
 int dmtcp::CoordinatorAPI::sendQueryToCoordinator(const void *key, size_t key_len,
                                                   void *val, size_t *val_len)
 {
-  /* THE USER JUST GAVE US A BUFFER, val.  WHY ARE WE ALLOCATING
-   * EXTRA MEMORY HERE?  ALLOCATING MEMORY IS DANGEROUS.  WE ARE A GUEST
-   * IN THE USER'S PROCESS.  IF WE NEED TO, CREATE A message CONSTRUCTOR
-   * AROUND THE USER'S 'key' INPUT.
-   *   ALSO, SINCE THE USER GAVE US *val_len * CHARS OF MEMORY, SHOULDN'T
-   * WE BE SETTING msg.extraBytes TO *val_len AND NOT key_len?
-   * ANYWAY, WHY DO WE USE THE SAME msg OBJECT FOR THE "send key"
-   * AND FOR THE "return val"?  IT'S NOT TO SAVE MEMORY.  :-)
-   * THANKS, - Gene
-   */
-  void *extraData;
-
   DmtcpMessage msg (DMT_NAME_SERVICE_QUERY);
   msg.keyLen = key_len;
   msg.valLen = 0;
   msg.extraBytes = key_len;
+  jalib::JSocket sock = _coordinatorSocket;
 
-  sendMsgToCoordinator(msg, key, key_len);
+  if (key == NULL || key_len == 0 || val == NULL || val_len == 0) {
+    return 0;
+  }
+
+  if (dmtcp_is_running_state()) {
+    sock = createNewConnectionToCoordinator(true);
+    JASSERT(sock.isValid());
+  }
+
+  sock << msg;
+  sock.writeAll((const char *)key, key_len);
 
   msg.poison();
-
-  recvMsgFromCoordinator(&msg, &extraData);
-
+  sock >> msg;
+  msg.assertValid();
   JASSERT(msg.type == DMT_NAME_SERVICE_QUERY_RESPONSE &&
-          msg.extraBytes > 0 && (msg.valLen + msg.keyLen) == msg.extraBytes);
+          msg.extraBytes == msg.valLen);
 
-  //TODO: FIXME --> enforce the JASSERT
-  JASSERT(*val_len >= msg.extraBytes - key_len) (*val_len) (msg.extraBytes) (key_len);
-  JASSERT(memcmp(key, extraData, key_len) == 0);
-  memcpy(val, (char*)extraData + key_len, msg.extraBytes-key_len);
+  JASSERT (*val_len >= msg.valLen);
   *val_len = msg.valLen;
-  JALLOC_HELPER_FREE(extraData);
-  return 1;
+  if (*val_len > 0) {
+    sock.readAll((char*)val, *val_len);
+  }
+
+  if (dmtcp_is_running_state()) {
+    sock.close();
+  }
+
+  return *val_len;
 }
 
 int dmtcp::CoordinatorAPI::getHostIPv4(struct in_addr *in)
