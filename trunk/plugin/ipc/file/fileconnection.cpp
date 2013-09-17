@@ -653,6 +653,8 @@ void dmtcp::FileConnection::refill(bool isRestart)
 {
   struct stat buf;
   if (!isRestart) return;
+  if (strstr(_path.c_str(), "infiniband/uverbs") ||
+      strstr(_path.c_str(), "uverbs-event")) return;
 
   if (_checkpointed && _fileAlreadyExists) {
     dmtcp::string savedFilePath = getSavedFilePath(_path);
