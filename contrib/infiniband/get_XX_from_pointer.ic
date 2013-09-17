@@ -1,0 +1,16 @@
+
+struct internal_ibv_XX * get_XX_from_pointer(struct ibv_XX * ptr)
+{
+  struct list_elem * e;
+  for (e = list_begin(&XX_list); e != list_end(&XX_list); e = list_next(e))
+  {
+    struct internal_ibv_XX * internal = list_entry(e, struct internal_ibv_XX, elem);
+
+    if (internal->real_XX == ptr)
+    {
+      return internal;
+    }
+  }
+
+  return NULL;
+}

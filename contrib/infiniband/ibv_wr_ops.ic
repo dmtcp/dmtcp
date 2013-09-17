@@ -1,0 +1,50 @@
+void update_lkey_SENDRECV(struct ibv_SENDRECV_wr * wr)
+{
+  if (wr == NULL) {
+    return;
+  }
+
+  sge_update_lkey(wr->sg_list, wr->num_sge);
+
+  update_lkey_SENDRECV(wr->next);
+}
+
+struct ibv_SENDRECV_wr * copy_SENDRECV_wr(struct ibv_SENDRECV_wr *  wr)
+{
+  if (wr == NULL) {
+    return NULL;
+  }
+
+  struct ibv_SENDRECV_wr * wr_copy = malloc(sizeof(struct ibv_SENDRECV_wr));
+
+  if (!wr_copy) {
+    fprintf(stderr, "Error: Couldn't allocate memory for work request.\n");
+    exit(1);
+  }
+
+  memcpy(wr_copy, wr, sizeof(struct ibv_SENDRECV_wr));
+
+  wr_copy->sg_list = malloc(sizeof(struct ibv_sge) * wr->num_sge);
+
+  if (!wr_copy->sg_list) {
+    fprintf(stderr, "Error: couldn't allocate memory for sg_list\n");
+    exit(1);
+  }
+
+  memcpy(wr_copy->sg_list, wr->sg_list, sizeof(struct ibv_sge) * wr->num_sge);
+
+  wr_copy->next = copy_SENDRECV_wr(wr->next);
+
+  return wr_copy;
+}
+
+void delete_SENDRECV_wr(struct ibv_SENDRECV_wr * wr)
+{
+  if (wr == NULL) {
+    return;
+  }
+
+  free(wr->sg_list);
+  delete_SENDRECV_wr(wr->next);
+  free(wr);
+}
