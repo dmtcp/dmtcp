@@ -184,6 +184,7 @@ void dmtcp::FileConnList::prepareShmList()
           strstr(area.name, "dmtcpSharedArea") != NULL ||
           strstr(area.name, "dmtcpSharedArea") != NULL ||
           strstr(area.name, "synchronization-log") != NULL ||
+          strstr(area.name, "infiniband") != NULL ||
           strstr(area.name, "synchronization-read-log") != NULL) {
         continue;
       }
