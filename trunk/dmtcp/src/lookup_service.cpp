@@ -28,29 +28,28 @@ void dmtcp::LookupService::addKeyValue(const void *key, size_t keyLen,
   _keyValueMap[k] = v;
 }
 
-const void* dmtcp::LookupService::query(const void *key, size_t keyLen,
-                                        void **val, size_t *valLen)
+void dmtcp::LookupService::query(const void *key, size_t keyLen,
+                                 void **val, size_t *valLen)
 {
   KeyValue k(key, keyLen);
   if (_keyValueMap.find(k) == _keyValueMap.end()) {
     JTRACE("Lookup Failed, Key not found.");
-    return NULL;
+    *val = NULL;
+    *valLen = 0;
   }
 
   KeyValue *v = _keyValueMap[k];
-  *val = v->data();
   *valLen = v->len();
-
-  return *val;
+  *val = new char[v->len()];
+  memcpy(*val, v->data(), *valLen);
 }
 
-void dmtcp::LookupService::registerData(const dmtcp::UniquePid& upid,
-                                        const DmtcpMessage& msg,
-                                        const char *data)
+void dmtcp::LookupService::registerData(const DmtcpMessage& msg,
+                                        const void *data)
 {
   JASSERT (msg.keyLen > 0 && msg.valLen > 0 &&
            msg.keyLen + msg.valLen == msg.extraBytes)
-    (msg.keyLen) (msg.valLen) (msg.extraBytes) (upid);
+    (msg.keyLen) (msg.valLen) (msg.extraBytes);
   const void *key = data;
   const void *val = (char *)key + msg.keyLen;
   size_t keyLen = msg.keyLen;
@@ -58,31 +57,25 @@ void dmtcp::LookupService::registerData(const dmtcp::UniquePid& upid,
   addKeyValue(key, keyLen, val, valLen);
 }
 
-void dmtcp::LookupService::respondToQuery(const dmtcp::UniquePid& upid,
-                                          jalib::JSocket& remote,
+void dmtcp::LookupService::respondToQuery(jalib::JSocket& remote,
                                           const DmtcpMessage& msg,
-                                          const char *data)
+                                          const void *key)
 {
   JASSERT (msg.keyLen > 0 && msg.keyLen == msg.extraBytes)
-    (msg.keyLen) (msg.extraBytes) (upid);
-  const void *key = data;
-  size_t keyLen = msg.keyLen;
+    (msg.keyLen) (msg.extraBytes);
   void *val = NULL;
   size_t valLen = 0;
-  JASSERT(query(key, msg.keyLen, &val, &valLen) != NULL)(key)(msg.keyLen);
 
-  char *extraData = NULL;
-  extraData = new char[msg.keyLen + valLen];
-  memcpy(extraData, key, keyLen);
-  memcpy(extraData + keyLen, val, valLen);
+  query(key, msg.keyLen, &val, &valLen);
 
   DmtcpMessage reply (DMT_NAME_SERVICE_QUERY_RESPONSE);
-  reply.keyLen = msg.keyLen;
+  reply.keyLen = 0;
   reply.valLen = valLen;
-  reply.extraBytes = reply.keyLen + reply.valLen;
+  reply.extraBytes = reply.valLen;
 
   remote << reply;
-  remote.writeAll(extraData, reply.extraBytes);
-
-  delete [] extraData;
+  if (valLen > 0) {
+    remote.writeAll((char*)val, valLen);
+    delete [] (char*)val;
+  }
 }

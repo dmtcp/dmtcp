@@ -69,18 +69,16 @@ namespace dmtcp
       LookupService(){}
       ~LookupService() { reset(); }
       void reset();
+      void registerData(const DmtcpMessage& msg, const void *data);
+      void respondToQuery(jalib::JSocket& remote,
+                          const DmtcpMessage& msg, const void *data);
 
+    private:
       typedef map<KeyValue, KeyValue*>::iterator keyValueMapIterator;
-
-      void registerData(const UniquePid& upid, const DmtcpMessage& msg,
-                        const char *data);
-      void respondToQuery(const UniquePid& upid, jalib::JSocket& remote,
-                          const DmtcpMessage& msg, const char *data);
-
       void addKeyValue(const void *key, size_t keyLen,
                        const void *val, size_t valLen);
-      const void *query(const void *key, size_t keyLen,
-                        void **val, size_t *valLen);
+      void query(const void *key, size_t keyLen,
+                 void **val, size_t *valLen);
 
     private:
       map<KeyValue, KeyValue*> _keyValueMap;

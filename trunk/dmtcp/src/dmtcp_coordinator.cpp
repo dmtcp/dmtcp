@@ -818,15 +818,14 @@ void dmtcp::DmtcpCoordinator::onData ( jalib::JReaderInterface* sock )
       case DMT_REGISTER_NAME_SERVICE_DATA:
       {
         JTRACE ("received REGISTER_NAME_SERVICE_DATA msg") (client->identity());
-        lookupService.registerData(client->identity(), msg,
-                                   (const char*) extraData);
+        lookupService.registerData(msg, (const void*) extraData);
       }
       break;
       case DMT_NAME_SERVICE_QUERY:
       {
         JTRACE ("received NAME_SERVICE_QUERY msg") (client->identity());
-        lookupService.respondToQuery(client->identity(), sock->socket(), msg,
-                                     (const char*) extraData);
+        lookupService.respondToQuery(sock->socket(), msg,
+                                     (const void*) extraData);
       }
       break;
 #endif
@@ -941,6 +940,19 @@ void dmtcp::DmtcpCoordinator::onConnect ( const jalib::JSocket& sock,
     remote.close();
     return;
   }
+
+#ifdef COORD_NAMESERVICE
+  if (hello_remote.type == DMT_NAME_SERVICE_QUERY) {
+    JASSERT(hello_remote.extraBytes > 0) (hello_remote.extraBytes);
+    char *extraData = new char[hello_remote.extraBytes];
+    remote.readAll(extraData, hello_remote.extraBytes);
+
+    JTRACE ("received NAME_SERVICE_QUERY msg on running") (hello_remote.from);
+    lookupService.respondToQuery(remote, hello_remote, extraData);
+    delete [] extraData;
+    return;
+  }
+#endif
 
   if (hello_remote.type == DMT_GET_VIRTUAL_PID) {
     dmtcp::DmtcpMessage reply(DMT_GET_VIRTUAL_PID_RESULT);
