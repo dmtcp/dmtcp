@@ -82,7 +82,7 @@ static int patch_srun_cmdline(char * const argv_old[], char ***_argv_new)
   int old_pos = i;
   int new_pos = i;
   
-  // Copy dmtcp part so final command looks like: srun -opt1 -opt2 arg2 dmtcp_checkpoint <dmtcp_options> orted <orted_options>
+  // Copy dmtcp part so final command looks like: srun <opts> dmtcp_checkpoint <dmtcp_options> orted <orted_options>
   argv_new[new_pos] = strdup(dmtcpCkptPath);
   new_pos++;
   for (i = 0; i < dsize; i++, new_pos++) {
@@ -104,6 +104,24 @@ static int patch_srun_cmdline(char * const argv_old[], char ***_argv_new)
   return ret;
 }
 
+void close_all_fds()
+{
+  jalib::IntVector fds =  jalib::Filesystem::ListOpenFds();
+  for(int i = 0 ; i < fds.size(); i++){
+    JTRACE("fds")(i)(fds[i]);
+    if( fds[i] > 2 ){ 
+      JTRACE("Close")(i)(fds[i]);
+      jalib::close(fds[i]);
+    }
+  }
+  fds =  jalib::Filesystem::ListOpenFds();
+  JTRACE("After close:");
+  for(int i = 0 ; i < fds.size(); i++){
+    JTRACE("fds")(i)(fds[i]);
+  }
+  
+}
+
 extern "C" int execve (const char *filename, char *const argv[],
                        char *const envp[])
 {
@@ -121,6 +139,13 @@ extern "C" int execve (const char *filename, char *const argv[],
   }
   JTRACE( "How command looks from exec*:" );
   JTRACE("CMD:")(cmdline);
+  JTRACE("envp:");
+  for(int i = 0; envp[i] != NULL; i++){
+    JTRACE("envp[i]")(i)(envp[i]);
+  }
+  
+  close_all_fds();
+  
   return _real_execve(filename, argv_new, envp);
 }
 
@@ -142,6 +167,9 @@ extern "C" int execvp (const char *filename, char *const argv[])
 
   JTRACE( "How command looks from exec*:" );
   JTRACE("CMD:")(cmdline);
+
+  close_all_fds();
+
   return _real_execvp(filename, argv_new);
 }
 
@@ -164,5 +192,8 @@ extern "C" int execvpe (const char *filename, char *const argv[],
   }
   JTRACE( "How command looks from exec*:" );
   JTRACE("CMD:")(cmdline);
-  return _real_execve(filename, argv_new, envp);
+
+  close_all_fds();
+
+  return _real_execvpe(filename, argv_new, envp);
 }
