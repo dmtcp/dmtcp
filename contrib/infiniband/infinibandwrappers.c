@@ -1,6 +1,3 @@
-#include "constants.h"
-
-#ifdef IBV
 #include <dlfcn.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -351,6 +348,3 @@ void ibv_ack_cq_events(struct ibv_cq * cq, unsigned int nevents)
 
   dmtcp_plugin_enable_ckpt();
 }
-
-#endif
-

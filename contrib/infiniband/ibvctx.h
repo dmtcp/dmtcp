@@ -21,10 +21,6 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <infiniband/verbs.h>
-#include "constants.h"
-
-#ifdef IBV
-
 
 void pre_checkpoint(void);
 struct ibv_device ** _get_device_list(int * num_devices);
@@ -66,4 +62,3 @@ int _destroy_qp(struct ibv_qp * qp);
 int _dereg_mr(struct ibv_mr * mr);
 int _dealloc_pd(struct ibv_pd * pd);
 void _ack_cq_events(struct ibv_cq * cq, unsigned int nevents);
-#endif
