@@ -1,6 +1,4 @@
-#include "constants.h"
 #include "debug.h"
-#ifdef IBV
 #include <string.h>
 #include <assert.h>
 #include <sys/syscall.h>
@@ -255,4 +253,3 @@ void _install_post_send_trampoline(void)
 {
   INSTALL_IBV_TRAMPOLINE(ibv_post_send);
 }
-#endif

@@ -7,9 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "constants.h"
 
-#ifdef IBV
 #include <sys/select.h>
 #include <sys/time.h>
 #include <sys/types.h>
@@ -17,14 +15,6 @@
 #include <unistd.h>
 #include <ctype.h>
 #include <assert.h>
-#ifdef RECORD_REPLAY
-#include <sys/mman.h>
-#include <dirent.h>
-#include <time.h>
-#define open _libc_open
-#include <fcntl.h>
-#undef open
-#endif
 
 typedef int ( *funcptr ) ();
 typedef pid_t ( *funcptr_pid_t ) ();
@@ -258,5 +248,3 @@ void _real_ibv_free_device_list(struct ibv_device **list)
         (list);
 
 }
-
-#endif

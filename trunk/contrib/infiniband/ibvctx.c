@@ -27,7 +27,6 @@
 #include <assert.h>
 #include "infinibandreals.h"
 #include "ibv_internal.h"
-#include "constants.h"
 #include <stdlib.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -37,8 +36,6 @@
 #include "dmtcpplugin.h"
 #include <pthread.h>
 #include <errno.h>
-
-#ifdef IBV
 
 //! This flag can be used for debugging
 static bool is_restart = false;
@@ -1705,5 +1702,3 @@ void _ack_cq_events(struct ibv_cq * cq, unsigned int nevents)
 
   return _real_ibv_ack_cq_events(internal_cq->real_cq, nevents);
 }
-
-#endif
