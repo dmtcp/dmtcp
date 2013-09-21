@@ -160,7 +160,7 @@ static void send_rkey_info(void)
   struct list_elem *e;
   char hostname[128];
   gethostname(hostname,128);
-  for (e = list_begin(&rkey_list); e != list_end(&qp_list); e = list_next(e)) {
+  for (e = list_begin(&rkey_list); e != list_end(&rkey_list); e = list_next(e)) {
     struct ibv_rkey_pair * pair = list_entry(e, struct ibv_rkey_pair, elem);
     if (pair->new_rkey != 0) {
       PDEBUG("Sending over original_rkey: %d and new_rkey: %d from %s\n", pair->orig_rkey, pair->new_rkey, hostname);
