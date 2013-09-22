@@ -1040,10 +1040,15 @@ void dmtcp::FifoConnection::postRestart()
 int dmtcp::FifoConnection::openFile()
 {
   int fd;
+  struct stat buf;
 
   if (!jalib::Filesystem::FileExists(_path)) {
     JTRACE("Fifo file not present, creating new one") (_path);
+    jalib::string dir = jalib::Filesystem::DirName(_path);
+    JTRACE("fifo dir:")(dir);
+    jalib::Filesystem::mkdir_r(dir, 0755);
     mkfifo(_path.c_str(),_stat.st_mode);
+    JTRACE("mkfifo") (_path.c_str()) (errno);
   }
 
   fd = _real_open(_path.c_str(), O_RDWR | O_NONBLOCK);

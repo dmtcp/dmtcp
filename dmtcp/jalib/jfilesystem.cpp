@@ -127,6 +127,29 @@ jalib::string jalib::Filesystem::DirName ( const jalib::string& str )
   return str.substr(0, lastSlash);
 }
 
+
+int jalib::Filesystem::mkdir_r( const jalib::string& dir, mode_t mode)
+{
+  struct stat buf;
+  int ret = stat(dir.c_str(), &buf);
+  JTRACE("Create dir")(dir);
+  
+  if( ret && errno != ENOENT){
+    JTRACE("Cannot create directory path")(dir)(errno)(strerror(errno));
+    return ret;
+  }
+  
+  if(  ret && errno == ENOENT ){
+    jalib::string pdir = DirName(dir);
+    JTRACE("Create parent dir")(pdir);
+    mkdir_r(pdir, mode);
+    return mkdir(dir.c_str(), mode);
+  }
+
+  JTRACE("Directory already exist")(dir);
+  return 0;
+}
+
 jalib::string jalib::Filesystem::GetProgramDir()
 {
   static jalib::string value = DirName ( GetProgramPath() );
