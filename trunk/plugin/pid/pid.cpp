@@ -67,9 +67,17 @@ static int openSharedFile(dmtcp::string name, int flags)
 {
   int fd;
   // try to create, truncate & open file
+
+  jalib::string dir = jalib::Filesystem::DirName(name);
+  JTRACE("shared file dir:")(dir);
+  jalib::Filesystem::mkdir_r(dir, 0755);
+  
   if ((fd = _real_open(name.c_str(), O_EXCL|O_CREAT|O_TRUNC | flags, 0600)) >= 0) {
     return fd;
   }
+  
+  JTRACE("_real_open: ")(strerror(errno))(fd);
+  
   if (fd < 0 && errno == EEXIST) {
     errno = 0;
     if ((fd = _real_open(name.c_str(), flags, 0600)) >= 0) {
@@ -84,7 +92,8 @@ static int openSharedFile(dmtcp::string name, int flags)
 static void openOriginalToCurrentMappingFiles()
 {
   int fd;
-  dmtcp::ostringstream pidMapFile;
+  dmtcp::ostringstream 
+  pidMapFile;
   pidMapFile << dmtcp_get_tmpdir() << "/dmtcpPidMap."
              << dmtcp_get_computation_id_str() << "."
              << std::hex << dmtcp_get_coordinator_timestamp();

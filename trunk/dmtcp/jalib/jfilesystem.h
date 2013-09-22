@@ -60,6 +60,7 @@ namespace jalib
     jalib::string ResolveSymlink ( const jalib::string& file );
     jalib::string DirName ( const jalib::string& str );
     jalib::string BaseName ( const jalib::string& str );
+    int mkdir_r( const jalib::string& dir, mode_t mode);
 
     StringVector GetProgramArgs();
 
