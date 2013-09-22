@@ -28,12 +28,27 @@
 #include <list>
 #include <string>
 #include <util.h>
-#include "resource_manager.h"
 #include <jalib.h>
 #include <jassert.h>
 #include <jconvert.h>
 #include <jfilesystem.h>
 #include <dmtcpplugin.h>
+#include "resource_manager.h"
+#include "slurm.h"
+
+
+void probeSlurm()
+{
+  JTRACE("Start");
+  if( (getenv("SLURM_JOBID") != NULL) && (NULL != getenv("SLURM_NODELIST")) ){
+    JTRACE("We run under SLURM!");
+    // TODO: Do we need locking here?
+    //JASSERT(_real_pthread_mutex_lock(&global_mutex) == 0);
+    _set_rmgr_type(slurm);
+  }
+}
+
+
 
 static void print_args(char *const argv[])
 {
@@ -49,7 +64,7 @@ static void print_args(char *const argv[])
 static int patch_srun_cmdline(char * const argv_old[], char ***_argv_new)
 {
   // Calculate initial argc
-  size_t argc_old;
+  int argc_old;
   for(argc_old=0; argv_old[argc_old] != NULL; argc_old++);
   argc_old++;
 
