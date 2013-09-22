@@ -1442,14 +1442,28 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
     fprintf ( fp, "%s", "\n\'\n\n" );
 
     fprintf( fp,  "# Check for resource manager\n"
-                  "discover_rm_path=$(which dmtcp_discover_rm)\n"
+                  "discover_rm_path=$((which dmtcp_discover_rm))\n"
                   "if [ -n \"$discover_rm_path\" ]; then\n"
-                  "  eval $(dmtcp_discover_rm \"$worker_ckpts\")\n"
-                  "  if [ -n \"$new_worker_ckpts\" ]; then\n"
-                  "    worker_ckpts=\"$new_worker_ckpts\"\n"
+                  "  eval $((dmtcp_discover_rm -t))\n"
+                  "  srun_path=$((which srun))\n"
+                  "  if [ $RES_MANAGER = \"SLURM\" ] && [ -n \"$srun_path\" ]; then\n"
+                  "    eval $((dmtcp_discover_rm -n \"$worker_ckpts\"))\n"
+                  "    export DMTCP_REMLAUNCH_IDS=$DMTCP_REMLAUNCH_IDS\n"
+                  "    bound=$(($DMTCP_REMLAUNCH_IDS - 1))\n"
+                  "    for i in $((seq 0 $bound)); do\n"
+                  "      eval \"val=\${DMTCP_REMLAUNCH_$i}\"\n"
+                  "      export DMTCP_REMLAUNCH_$i="$val"\n"
+                  "    done\n"
+                  "    $srun_path dmtcp_rm_loclaunch.sh\n"
+                  "    exit 0\n"
+                  "  elif [ $RES_MANAGER = \"TORQUE\" ]; then\n"
+                  "    eval $((dmtcp_discover_rm \"$worker_ckpts\"))\n"
+                  "    if [ -n \"$new_worker_ckpts\" ]; then\n"
+                  "      worker_ckpts=\"$new_worker_ckpts\"\n"
+                  "    fi\n"
                   "  fi\n"
-                  "fi\n\n"
-                  "\n\n\n");
+                  "fi\n"
+                  "\n\n");
 
     fprintf ( fp, "%s", theRestartScriptMultiHostProcessing );
   }

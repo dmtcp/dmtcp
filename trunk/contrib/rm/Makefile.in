@@ -84,11 +84,13 @@ install: all
 	test -e $(DESTDIR)$(libdir) || $(MKDIR_P) $(DESTDIR)$(libdir)
 	cp ${LIBNAME} $(DESTDIR)$(pkglibdir)
 	cp dmtcp_discover_rm $(DESTDIR)$(bindir)
+	cp dmtcp_rm_loclaunch.sh $(DESTDIR)$(bindir)
 
 uninstall:
 	echo " ( cd '$(DESTDIR)$(pkglibdir)' && rm -f $$files ) "; \
 	cd "$(DESTDIR)$(pkglibdir)" && rm -f $(LIBNAME); \
 	rm -f $(DESTDIR)$(bindir)/dmtcp_discover_rm 
+	rm -f $(DESTDIR)$(bindir)/dmtcp_rm_loclaunch.sh
 
 
 ${LIBNAME}: $(OBJS) ${HEADERS}
