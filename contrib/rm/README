@@ -1,0 +1,54 @@
+General purpose support Support for cluster resource managers (RM).
+Currently TORQUE and SLURM RMs are supported. SGE and LSF support is planned for near future.
+
+This module is tested against Open MPI MPI2 implementation.
+
+EXAMPLES: 
+To enable DMTCP RM module you need to put --rm option in dmtcp_checkpoint. Sample scripts for 
+SLURM can be found below. TORQUE scripts can be constructed in similar fashion.
+During debug it is better to start dmtcp_coordinator on interactive terminal on frontend. In
+batch script you should remove coordinator startup line and put appropriate hostname in dmtcp_checkpoint 
+'-h' option.
+
+* Sample SLURM batch script for initial program run:
+
+--------------------------------- SNIP -------------------------------------------------------------
+
+#!/bin/sh
+#SBATCH --ntasks=XXXX
+#SBATCH ...
+  
+hostname
+
+# If you install DMTCP in your user directory (not cluster-wide) you need to extend PATH variable:
+export PATH="<path-to-dmtcp-installation>:$PATH
+
+# Start dmtcp_coordinator (Fix if debugging or using coordinator on frontend)
+dmtcp_coordinator &
+
+# DMTCP coordinator needs to be started on localhost. Or put other host in -h option
+dmtcp_checkpoint --rm -h `hostname` <other-dmtcp-options> mpirun <mpi-options> ./mpi
+
+--------------------------------- SNIP -------------------------------------------------------------
+
+* Sample SLURM batch script for program restart:
+
+--------------------------------- SNIP -------------------------------------------------------------
+
+#!/bin/sh
+#SBATCH --ntasks=XXXX
+#SBATCH ...
+  
+hostname
+
+# If you install DMTCP in your user directory (not cluster-wide) you need to extend PATH variable:
+export PATH="<path-to-dmtcp-installation>:$PATH
+
+# Start dmtcp_coordinator (Fix if debugging or using coordinator on frontend)
+dmtcp_coordinator &
+export DMTCP_HOST=`hostname`
+
+./dmtcp_restart_script.sh
+
+--------------------------------- SNIP -------------------------------------------------------------
+
