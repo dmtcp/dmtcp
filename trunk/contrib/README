@@ -49,11 +49,8 @@ python:  Supprt for a Python module, dmtcp.py.  This integrates DMTCP
 	Please report bugs to dmtcp-forum@ccs.neu.edu as well as to
 	kapil using his account at ccs.neu.edu.
 
-torque and rm:  Support for using DMTCP with the Torque batch queue system,
-	and _incomplete_ support for using DMTCP with other batch
-	queue systems.  The rm directory is for general resource managers.
-	At this time, SLURM is the first supported targeted in what will
-	grow into general support for most resource managers.  It is the
-	work of Artem Polyakov.
+rm (Resource Manager):  Support for using DMTCP with batch queue systems.
+	Currently TORQUE and SLURM are supported. Support for SGE and LSF is planned
+	in near future. It is the work of Artem Polyakov.
 	Please report bugs to dmtcp-forum@ccs.neu.edu as well as to
 	artem84 using his gmail account
