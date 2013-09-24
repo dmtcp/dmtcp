@@ -5957,7 +5957,7 @@ fi
 
 
 
-if test `ssh -o BatchMode=yes localhost echo test 2>/dev/null`; then
+if test `ssh -o BatchMode=yes localhost which dmtcp_checkpoint 2>/dev/null`; then
   HAS_SSH=yes
 
 else
