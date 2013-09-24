@@ -295,7 +295,7 @@ static void prepareForExec(char *const argv[], char ***newArgv)
   for (size_t i = 0; i < commandStart; ++i) {
     new_argv[idx++] = ( char* ) argv[i];
     if (argv[i] != NULL) {
-      newCommand += new_argv[i+2];
+      newCommand += argv[i];
       newCommand += ' ';
     }
   }
@@ -304,12 +304,12 @@ static void prepareForExec(char *const argv[], char ***newArgv)
   new_argv[idx++] = (char*) dmtcp_sshd_path.c_str();
   new_argv[idx++] = (char*) cmd.c_str();
 
-  newCommand += pcmd + prefix + dmtcp_sshd_path + cmd;
+  newCommand += pcmd + prefix + dmtcp_sshd_path + " " + cmd + " ";
 
   for (size_t i = commandStart + 1; i < nargs; ++i) {
     new_argv[idx++] = (char*) argv[i];
     if (argv[i] != NULL) {
-      newCommand += new_argv[i+2];
+      newCommand += argv[i];
       newCommand += ' ';
     }
   }
