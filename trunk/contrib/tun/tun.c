@@ -332,7 +332,7 @@ int ioctl(int fd, unsigned long int request, ...)
  *  - Replay the sequence of ioctl's
  *  - Write the saved data, if any, back to the tun fd
  */
-void dmtcp_process_event(DmtcpEvent_t event, DmtcpEventData_t *data)
+void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   int i, request, idx, ret, flags, count; 
   char *request_name;
@@ -446,5 +446,5 @@ void dmtcp_process_event(DmtcpEvent_t event, DmtcpEventData_t *data)
   default:
     break;
   }
-  NEXT_DMTCP_PROCESS_EVENT(event, data);
+  DMTCP_NEXT_EVENT_HOOK(event, data);
 }

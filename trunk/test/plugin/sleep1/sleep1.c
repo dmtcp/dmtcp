@@ -24,7 +24,7 @@ unsigned int sleep(unsigned int seconds) {
   return result;
 }
 
-void dmtcp_process_event(DmtcpEvent_t event, DmtcpEventData_t *data)
+void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   /* NOTE:  See warning in plugin/README about calls to printf here. */
   switch (event) {
@@ -40,5 +40,5 @@ void dmtcp_process_event(DmtcpEvent_t event, DmtcpEventData_t *data)
   }
 
   /* Call this next line in order to pass DMTCP events to later plugins. */
-  NEXT_DMTCP_PROCESS_EVENT(event, data);
+  DMTCP_NEXT_EVENT_HOOK(event, data);
 }
