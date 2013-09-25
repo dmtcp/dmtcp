@@ -1,6 +1,7 @@
 % dmtcp_event_hook -> dmtcp_event_hook
 % DMTCP_NEXT_EVENT_HOOK -> DMTCP_NEXT_EVENT_HOOK
 
+
 % =======================================
 
 % DMTCP-Internal plugins:  make sure restart/resum operates after event:
@@ -123,7 +124,7 @@ or else to define LD\_LIBRARY\_PATH to include your own plugin directory.
 \subsection{The plugin mechanisms}
 
 The mechanisms of plugins are most easily described through examples.
-This tutorial will rely on the examples ins in {\tt DMTCP\_ROOT/test/plugin}.
+This tutorial will rely on the examples in {\tt DMTCP\_ROOT/test/plugin}.
 To get a feeling for the plugins, one can ``cd'' into each of the
 subdirectories and execute: ``{\tt make check}''.
 
@@ -304,6 +305,49 @@ to a plugin, see the plugin in plugin/ipc/timer.
 %
 % This use of conflicting locks is a bug in DMTCP as of DMTCP-2.0.  It will
 % be fixed in the future version of DMTCP.
+
+
+\section{Application-Initiated Checkpoints}
+
+Application-initiated checkpoints are even simpler than full-featured
+plugins.  In the simplest form, the following code can be executed both
+with {\tt dmtcp\_checkpoint} and without.:
+
+{\tt
+\begin{verbatim}
+#include <stdio.h>
+#include "dmtcpplugin.h"
+int main() {
+  if (dmtcpCheckpoint() == DMTCP_NOT_PRESENT) {
+    printf("dmtcpcheckpoint:  DMTCP not present.  No checkpoint is taken.\n");
+  }
+  return 0;
+}
+\end{verbatim}
+}
+
+The most useful functions are:
+\begin{list}{}{\leftmargin=3em \itemindent=-2em}
+\item
+  {\tt int dmtcpIsEnabled()} --- returns 1 when running with DMTCP; 0 otherwise.
+\item
+  {\tt int dmtcpCheckpoint()} --- returns DMTCP\_AFTER\_CHECKPOINT,
+                                 DMTCP\_AFTER\_RESTART, or DMTCP\_NOT\_PRESENT.
+\item
+  {\tt int dmtcpDelayCheckpointsLock()} --- DMTCP will block any
+				 checkpoint requests.
+\item
+  {\tt int dmtcpDelayCheckpointsUnlock()} --- DMTCP will execute any blocked
+                checkpoint requests, and will permit new checkpoint requests.
+\end{list}
+
+The last two functions follow the common pattern of return 0 on success
+and {\tt DMTCP\_NOT\_PRESENT} if DMTCP is not present.
+See the subdirectories
+{\tt DMTCP\_ROOT/test/plugin/applic-initiated-ckpt}
+and
+{\tt DMTCP\_ROOT/test/plugin/applic-delayed-ckpt}, where one can execute
+{\tt make check} for a live demonstration.
 
 \appendix
 \section{Appendix:  Plugin Manual}

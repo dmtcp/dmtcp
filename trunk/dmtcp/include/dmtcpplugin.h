@@ -15,6 +15,7 @@
 #ifndef DMTCPPLUGIN_H
 #define DMTCPPLUGIN_H
 
+#include <stdio.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/ip.h>
@@ -187,3 +188,32 @@ EXTERNC int dmtcp_bq_restore_file(const char *path, const char *savedFilePath,
   } while (0)
 
 #endif
+
+//===================================================================
+// DMTCP utilities
+
+#ifndef DMTCP_AFTER_CHECKPOINT
+  // Return value of dmtcpCheckpoint
+# define DMTCP_AFTER_CHECKPOINT 1
+  // Return value of dmtcpCheckpoint
+# define DMTCP_AFTER_RESTART    2
+#endif
+#ifndef DMTCP_NOT_PRESENT
+# define DMTCP_NOT_PRESENT 3
+#endif
+
+int __attribute__ ((weak)) dmtcpIsEnabled(void);
+#define dmtcpIsEnabled() (dmtcpIsEnabled ? dmtcpIsEnabled() : 0)
+
+int __attribute__ ((weak)) dmtcpCheckpoint(void);
+#define dmtcpCheckpoint() \
+  (dmtcpCheckpoint ? dmtcpCheckpoint() : DMTCP_NOT_PRESENT)
+
+int __attribute__ ((weak)) dmtcpDelayCheckpointsLock(void);
+#define dmtcpDelayCheckpointsLock() \
+ (dmtcpDelayCheckpointsLock ? dmtcpDelayCheckpointsLock() : DMTCP_NOT_PRESENT)
+
+int __attribute__ ((weak)) dmtcpDelayCheckpointsUnlock(void);
+#define dmtcpDelayCheckpointsUnlock() \
+  (dmtcpDelayCheckpointsUnlock ? dmtcpDelayCheckpointsUnlock() : \
+   DMTCP_NOT_PRESENT)

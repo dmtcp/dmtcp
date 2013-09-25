@@ -28,23 +28,27 @@
 int main() {
     if ( ! dmtcpIsEnabled() ) {
       printf("\n *** dmtcpIsEnabled: executable seems to not be running"
-             " under dmtcp_checkpoint.\n\n");
+             " under dmtcp_checkpoint.\n");
     }
 
-    int retval = (dmtcpCheckpoint ? dmtcpCheckpoint() : DMTCP_NOT_PRESENT);
-    if (retval == DMTCP_AFTER_CHECKPOINT) {
-      printf("*** dmtcpCheckpoint: This process has now been checkpointed.\n"
-             "*** It will resume its execution next.\n");
-    } else if (retval == DMTCP_AFTER_RESTART) {
-      printf("*** dmtcpCheckpoint: This process is now restarting.\n");
-    } else if (retval == DMTCP_NOT_PRESENT) {
-      printf(" *** dmtcpCheckpoint: DMTCP is not running."
-             "  Skipping checkpoint.\n");
+    int retval = dmtcpDelayCheckpointsLock();
+    if (retval == DMTCP_NOT_PRESENT) {
+      printf("\n *** dmtcpDelayCheckpointsLock: DMTCP_NOT_PRESENT."
+             "  Will exit.\n");
+      exit(1);
     }
+    printf("*** dmtcpDelayCheckpointsLock: Checkpoints are blocked.\n");
+    //dmtcpCheckpoint();
+    printf("*** dmtcpCheckpoint: A checkpoint was requested asynchronously\n"
+           " using dmtcp_command.\n");
+    printf("*** sleep: sleeping 3 seconds.\n\n");
+    sleep(3);
+    printf("*** dmtcpDelayCheckpointsUnlock: Will now unblock checkpoints.\n");
+    printf("*** Execute ./dmtcp_restart_script.sh to restart from here.\n");
+    dmtcpDelayCheckpointsUnlock();
+    sleep(2);
+    printf("*** Waiting to create ./dmtcp_restart_script.sh before exit.\n");
 
     printf("\n*** Process done executing.  Successfully exiting.\n");
-    if (retval == DMTCP_AFTER_CHECKPOINT) {
-        printf("*** Execute ./dmtcp_restart_script.sh to restart.\n");
-    }
     return 0;
 }

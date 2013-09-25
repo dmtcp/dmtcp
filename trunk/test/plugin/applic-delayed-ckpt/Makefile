@@ -36,10 +36,10 @@ check: ${LIBNAME}.so applic
 	@ echo ""
 	@ sleep 5
 	@ echo "============ TESTING ./applic WITH DMTCP ================="
-	${DMTCP_ROOT}/bin/dmtcp_checkpoint --quiet --port ${DEMO_PORT} \
-	  --with-plugin $$PWD/${LIBNAME}.so ./applic
+	${DMTCP_ROOT}/bin/dmtcp_checkpoint --quiet --port ${DEMO_PORT} -i 2 \
+	  --with-plugin $$PWD/${LIBNAME}.so ./applic &
+	@ sleep 7
 	@ echo ""
-	@ sleep 5
 	@ echo "===== RESTARTING USING ./dmtcp_restart_script.sh ============="
 	./dmtcp_restart_script.sh
 	@ echo ""
