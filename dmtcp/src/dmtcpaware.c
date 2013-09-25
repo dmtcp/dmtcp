@@ -15,8 +15,8 @@
 #include <string.h>
 
 //
-// This file contains stub functions an redirect to the real implementations
-// in dmtcpapi.cpp when dmtcp is enabled.
+// This file contains stub functions and redirects to the real implementations
+// in dmtcpawareapi.cpp when dmtcp is enabled.
 //
 
 #ifdef DEBUG
