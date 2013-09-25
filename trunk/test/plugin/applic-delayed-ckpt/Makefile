@@ -36,7 +36,7 @@ check: ${LIBNAME}.so applic
 	@ echo ""
 	@ sleep 5
 	@ echo "============ TESTING ./applic WITH DMTCP ================="
-	${DMTCP_ROOT}/bin/dmtcp_checkpoint --quiet --port ${DEMO_PORT} -i 2 \
+	${DMTCP_ROOT}/bin/dmtcp_launch --quiet --port ${DEMO_PORT} -i 2 \
 	  --with-plugin $$PWD/${LIBNAME}.so ./applic &
 	@ sleep 7
 	@ echo ""
