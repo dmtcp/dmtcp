@@ -9,6 +9,11 @@ int main()
     int fd;
     FILE *fp;
     char filename[] = "/tmp/ff_jdl_XXXXXX";
+    FILE *fp2;
+
+    fp2 = fopen("/proc/self/exe", "r");
+    if (fp2 == NULL)
+      abort();
 
     fd = mkostemp(filename, O_WRONLY);
     if (fd == -1)

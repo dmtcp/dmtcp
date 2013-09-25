@@ -60,30 +60,6 @@ void dmtcp_FileConn_ProcessFdEvent(int event, int arg1, int arg2)
   }
 }
 
-static dmtcp::string _procFDPath(int fd)
-{
-  return "/proc/self/fd/" + jalib::XToString(fd);
-}
-
-static dmtcp::string _resolveSymlink(dmtcp::string path)
-{
-  dmtcp::string device = jalib::Filesystem::ResolveSymlink(path);
-  if (dmtcp_real_to_virtual_pid && path.length() > 0 &&
-      dmtcp::Util::strStartsWith(device, "/proc/")) {
-    int index = 6;
-    char *rest;
-    char newpath[128];
-    JASSERT(device.length() < sizeof newpath);
-    pid_t realPid = strtol(&path[index], &rest, 0);
-    if (realPid > 0 && *rest == '/') {
-      pid_t virtualPid = dmtcp_real_to_virtual_pid(realPid);
-      sprintf(newpath, "/proc/%d%s", virtualPid, rest);
-      device = newpath;
-    }
-  }
-  return device;
-}
-
 static FileConnList *fileConnList = NULL;
 dmtcp::FileConnList& dmtcp::FileConnList::instance()
 {
@@ -269,7 +245,7 @@ void dmtcp::FileConnList::scanForPreExisting()
     bool isRegularFile = (S_ISREG(statbuf.st_mode) || S_ISCHR(statbuf.st_mode) ||
                           S_ISDIR(statbuf.st_mode) || S_ISBLK(statbuf.st_mode));
 
-    dmtcp::string device = _resolveSymlink(_procFDPath(fd));
+    dmtcp::string device = jalib::Filesystem::GetDeviceName(fd);
 
     JTRACE("scanning pre-existing device") (fd) (device);
     if (device == ctty || device == parentCtty) {
@@ -345,9 +321,11 @@ void dmtcp::FileConnList::processFileConnection(int fd, const char *path,
 
   dmtcp::string device;
   if (path == NULL) {
-    device = _resolveSymlink(_procFDPath(fd));
-    path = device.c_str();
+    device = jalib::Filesystem::GetDeviceName(fd);
+  } else {
+    device = jalib::Filesystem::ResolveSymlink(path);
   }
+  path = device.c_str();
   if (strcmp(path, "/dev/tty") == 0) {
     // Controlling terminal
     c = new PtyConnection(fd, path, flags, mode, PtyConnection::PTY_DEV_TTY);
