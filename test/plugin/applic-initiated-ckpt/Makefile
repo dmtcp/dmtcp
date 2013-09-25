@@ -29,7 +29,7 @@ applic: applic.c
 	${CC} -I${DMTCP_ROOT}/include -o $@ $< -ldl
 
 check: ${LIBNAME}.so applic
-	${DMTCP_ROOT}/bin/dmtcp_checkpoint --port ${DEMO_PORT} -i 5 \
+	${DMTCP_ROOT}/bin/dmtcp_launch --port ${DEMO_PORT} -i 5 \
 	  --with-plugin $$PWD/${LIBNAME}.so applic
 
 # We link the library using C++ for compatibility with the main libdmtcp.so

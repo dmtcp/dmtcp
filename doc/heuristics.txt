@@ -30,7 +30,7 @@ code can also be added by end users through the use of plugins.)
 3.  If a file, /proc/PID/xxx is open at checkpoint time, then at restart
     time, the open file descriptor must point to the new PID.
 
-4.  dmtcp_checkpoint unsets the DISPLAY environment variable, since DMTCP
+4.  dmtcp_launch unsets the DISPLAY environment variable, since DMTCP
     does not directly support graphics.  for this reason, some editors
     (vim, emacs) and other programs may lose the use of the mouse.
 
@@ -38,7 +38,7 @@ code can also be added by end users through the use of plugins.)
     it may be necessary to run with  java -Xmx<size>.
 
 6.  GNU screen:  this is a setuid process.  The user does not have setuid
-    privileges on restart.  So, dmtcp_checkpoint makes a private copy
+    privileges on restart.  So, dmtcp_launch makes a private copy
     in $DMTCP_TMPDIR.  The private copy has no setuid privilege.  DMTCP
     runs the private copy with the environment variable
     SCREENDIR=$DMTCP_TMPIDR/uscreens

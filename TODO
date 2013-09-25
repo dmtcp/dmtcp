@@ -15,7 +15,7 @@
 	This will aid process migration between different Linux kernels,
 	by stopping a loader using address space randomization from
 	placing vdso, etc., in the wrong place.
-  7. dmtcp_checkpoint --disable-randomization   should be implemented,
+  7. dmtcp_launch --disable-randomization   should be implemented,
         which would also disable randomization on restart.
         This can be useful for internal testing and further development,
 	but also useful for users with specialized needs.  Note that
@@ -63,7 +63,7 @@
 - --enable-debug  when combined with enable-pid-virtualization exposes some
   problems which are visible in OpenMPI and some other programs.
 
-- dmtcp_checkpoint a.out > a.txt ; restart fails if a.txt not found.
+- dmtcp_launch a.out > a.txt ; restart fails if a.txt not found.
 
 - Add support for epoll_pwait() and ppoll().
 

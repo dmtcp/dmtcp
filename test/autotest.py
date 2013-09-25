@@ -193,7 +193,7 @@ def launch(cmd):
   if VERBOSE:
     print "Launching... ", cmd
   cmd = splitWithQuotes(cmd);
-  # Example cmd:  dmtcp_checkpoint screen ...
+  # Example cmd:  dmtcp_launch screen ...
   ptyMode = False
   for str in cmd:
     # Checkpoint image can be emacs23_x, or whatever emacs is a link to.
@@ -498,7 +498,7 @@ def runTestRaw(name, numProcs, cmds):
 
     #start user programs
     for cmd in cmds:
-      procs.append(launch(BIN+"dmtcp_checkpoint "+cmd))
+      procs.append(launch(BIN+"dmtcp_launch "+cmd))
       sleep(S*SLOW)
 
     WAITFOR(lambda: doesStatusSatisfy(getStatus(), status),

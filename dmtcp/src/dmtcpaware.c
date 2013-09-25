@@ -20,7 +20,7 @@
 //
 
 #ifdef DEBUG
-# define WARN_NO_DMTCP_MSG "%s: ERROR, program is not running under dmtcp_checkpoint.\n"
+# define WARN_NO_DMTCP_MSG "%s: ERROR, program is not running under dmtcp_launch.\n"
 # define WARN_NO_DMTCP fprintf(stderr, WARN_NO_DMTCP_MSG,  __FUNCTION__)
 #else
 # define WARN_NO_DMTCP_MSG ""

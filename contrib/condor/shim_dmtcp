@@ -176,7 +176,7 @@ die_bad_manifest ()
 # This function asserts that all of the files we need for DMTCP are present.
 assert_dmtcp_manifest ()
 {
-	files="dmtcp_checkpoint
+	files="dmtcp_launch
 dmtcp_coordinator
 dmtcp_command
 dmtcp_restart
@@ -381,7 +381,7 @@ if [ $restart -eq 0 ]; then
 	# Don't run this with runcmd, since I want the stdout/err of the process to
 	# flow through this shell.
 	# XXX if there are literal spaces in the arguments, this screws up!
-	${dmtcp_checkpoint} --port $port -j "$@" <$STDIN 1>$STDOUT 2>$STDERR &
+	${dmtcp_launch} --port $port -j "$@" <$STDIN 1>$STDOUT 2>$STDERR &
 	wait %1
 	ret=$?
 

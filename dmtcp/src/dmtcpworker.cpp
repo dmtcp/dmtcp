@@ -60,7 +60,7 @@ void restoreUserLDPRELOAD()
   //   within the exec wrapper.
   // NOTE:  If the user called exec("ssh ..."), we currently catch this in
   //   DmtcpWorker() due to LD_PRELOAD, unset LD_PRELOAD, and edit this into
-  //   exec("dmtcp_checkpoint --ssh-slave ... ssh ..."), and re-execute.
+  //   exec("dmtcp_launch --ssh-slave ... ssh ..."), and re-execute.
   //   This way, we will unset LD_PRELOAD here and now, instead of at that time.
   char *preload =  getenv("LD_PRELOAD");
   char *hijackLibs = getenv(ENV_VAR_HIJACK_LIBS);
@@ -286,7 +286,7 @@ dmtcp::DmtcpWorker::DmtcpWorker (bool enableCheckpointing)
   dmtcp::vector<dmtcp::string> args = jalib::Filesystem::GetProgramArgs();
 
   JASSERT(programName != "dmtcp_coordinator"  &&
-          programName != "dmtcp_checkpoint"   &&
+          programName != "dmtcp_launch"   &&
           programName != "dmtcp_nocheckpoint" &&
           programName != "dmtcp_comand"       &&
           programName != "dmtcp_restart"      &&

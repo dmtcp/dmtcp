@@ -2,7 +2,7 @@ The subdirectories within contrib are typically plugins that can be used
 with DMTCP.  They are written either by DMTCP deelopers or by third
 parties, but they are intended to be optional components.  They will
 not be loaded into DMTCP by default, but will typically require
-the --with-plugins flag of dmtcp_checkpoint.
+the --with-plugins flag of dmtcp_launch.
 
 The documentation within each subdirectory has the details of how to use
 it.  Unless stated otherwise, many of the plugins are still experimental.

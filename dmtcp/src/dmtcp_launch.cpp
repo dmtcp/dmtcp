@@ -29,7 +29,7 @@
 #include "coordinatorapi.h"
 #include "util.h"
 
-#define BINARY_NAME "dmtcp_checkpoint"
+#define BINARY_NAME "dmtcp_launch"
 
 static void processArgs(int *orig_argc, char ***orig_argv);
 static int testMatlab(const char *filename);
@@ -44,7 +44,7 @@ static void setLDPreloadLibs();
 // Ubuntu 9.01 uses -Wformat=2 by default.
 static const char* theUsage =
   "USAGE: \n"
-  "  dmtcp_checkpoint [OPTIONS] <command> [args...]\n\n"
+  "  dmtcp_launch [OPTIONS] <command> [args...]\n\n"
   "OPTIONS:\n"
   "  --host, -h, (environment variable DMTCP_HOST):\n"
   "      Hostname where dmtcp_coordinator is run (default: localhost)\n"
@@ -107,11 +107,11 @@ static const char* theUsage =
 ;
 
 // FIXME:  The warnings below should be collected into a single function,
-//          and also called after a user exec(), not just in dmtcp_checkpoint.
+//          and also called after a user exec(), not just in dmtcp_launch.
 // static const char* theExecFailedMsg =
 //   "ERROR: Failed to exec(\"%s\"): %s\n"
 //   "Perhaps it is not in your $PATH?\n"
-//   "See `dmtcp_checkpoint --help` for usage.\n"
+//   "See `dmtcp_launch --help` for usage.\n"
 // ;
 
 static bool isSSHSlave=false;
@@ -257,7 +257,7 @@ int main ( int argc, char** argv )
 
   initializeJalib();
   // If --ssh-slave and --prefix both are present, verify that the prefix-dir
-  // of this binary (dmtcp_checkpoint) is same as the one provided with
+  // of this binary (dmtcp_launch) is same as the one provided with
   // --prefix
   if (isSSHSlave && getenv(ENV_VAR_PREFIX_PATH) != NULL) {
     const char *str = getenv(ENV_VAR_PREFIX_PATH);
@@ -340,7 +340,7 @@ int main ( int argc, char** argv )
   };
 
   if (argc > 0) {
-    JTRACE("dmtcp_checkpoint starting new program:")(argv[0]);
+    JTRACE("dmtcp_launch starting new program:")(argv[0]);
   }
 
   //set up CHECKPOINT_DIR
@@ -430,7 +430,7 @@ int main ( int argc, char** argv )
   JASSERT_STDERR <<
     "ERROR: Failed to exec(\"" << argv[0] << "\"): " << JASSERT_ERRNO << "\n"
     << "Perhaps it is not in your $PATH?\n"
-    << "See `dmtcp_checkpoint --help` for usage.\n";
+    << "See `dmtcp_launch --help` for usage.\n";
   //fprintf(stderr, theExecFailedMsg, argv[0], JASSERT_ERRNO);
 
   return -1;
@@ -449,7 +449,7 @@ static int testMatlab(const char *filename)
     "**** env CC=gcc-4.1 CXX=g++-4.1 ./configure\n"
     "**** [ Also modify mtcp/Makefile to:  CC=gcc-4.1 ]\n"
     "**** [ Next, you may need an alternative Java JVM (see QUICK-START) ]\n"
-    "**** [ Finally, run as:   dmtcp_checkpoint matlab -nodisplay ]\n"
+    "**** [ Finally, run as:   dmtcp_launch matlab -nodisplay ]\n"
     "**** [   (DMTCP does not yet checkpoint X-Windows applications.) ]\n"
     "**** [ You may see \"Not checkpointing libc-2.7.so\".  This is normal. ]\n"
     "****   (Assuming you have done the above, Will now continue"
@@ -475,7 +475,7 @@ static int testJava(char **argv)
     "****  minute.  This will be fixed to be much faster in a future\n"
     "****  version of DMTCP.  In the meantime, if your Java supports it,\n"
     "****  use the -Xmx flag for a smaller heap:  e.g.  java -Xmx64M javaApp\n"
-    "****  (Invoke dmtcp_checkpoint with --quiet to avoid this msg.)\n\n" ;
+    "****  (Invoke dmtcp_launch with --quiet to avoid this msg.)\n\n" ;
 
   if (getenv(ENV_VAR_QUIET) != NULL
       && strcmp(getenv(ENV_VAR_QUIET), "0") != 0)
@@ -607,8 +607,8 @@ static void setLDPreloadLibs()
 
   setenv(ENV_VAR_HIJACK_LIBS, preloadLibs.c_str(), 1);
 
-  // If dmtcp_checkpoint was called with user LD_PRELOAD, and if
-  //   if dmtcp_checkpoint survived the experience, then pass it back to user.
+  // If dmtcp_launch was called with user LD_PRELOAD, and if
+  //   if dmtcp_launch survived the experience, then pass it back to user.
   if (getenv("LD_PRELOAD"))
     preloadLibs = preloadLibs + ":" + getenv("LD_PRELOAD");
 

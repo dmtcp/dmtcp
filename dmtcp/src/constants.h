@@ -56,7 +56,7 @@
 #define CKPT_FILE_SUFFIX ".dmtcp"
 #define CKPT_FILES_SUBDIR_PREFIX "ckpt_"
 #define CKPT_FILES_SUBDIR_SUFFIX "_files"
-/* dmtcp_checkpoint, dmtcp_restart return a unique rc (default: 99) */
+/* dmtcp_launch, dmtcp_restart return a unique rc (default: 99) */
 #define DMTCP_FAIL_RC \
         (getenv("DMTCP_FAIL_RC") && atoi(getenv("DMTCP_FAIL_RC")) ? \
 	 atoi(getenv("DMTCP_FAIL_RC")) : 99)
@@ -140,8 +140,6 @@
     ENV_VAR_DLSYM_OFFSET, \
     ENV_VAR_VIRTUAL_PID, \
     ENV_DELTACOMPRESSION
-
-#define DMTCP_CHECKPOINT_CMD "dmtcp_checkpoint"
 
 #define DMTCP_RESTART_CMD "dmtcp_restart"
 

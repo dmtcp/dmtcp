@@ -382,7 +382,7 @@ static bool workersRunningAndSuspendMsgSent = false;
 
 static bool killInProgress = false;
 
-/* If dmtcp_checkpoint/dmtcp_restart specifies '-i', theCheckpointInterval
+/* If dmtcp_launch/dmtcp_restart specifies '-i', theCheckpointInterval
  * will be reset accordingly (valid for current computation).  If dmtcp_command
  * specifies '-i' (or if user interactively invokes 'i' in coordinator),
  * then both theCheckpointInterval and theDefaultCheckpointInterval are set.

@@ -526,11 +526,11 @@ extern "C" int tm_spawn(int argc, char **argv, char **envp, tm_node_id where,
     return TM_BADINIT;
 
   char dmtcpCkptPath[PATH_MAX] = "";
-  dmtcp::string ckptCmdPath = dmtcp::Util::getPath("dmtcp_checkpoint");
+  dmtcp::string ckptCmdPath = dmtcp::Util::getPath("dmtcp_launch");
   ret = dmtcp::Util::expandPathname(ckptCmdPath.c_str(),
                                     dmtcpCkptPath, sizeof(dmtcpCkptPath));
 
-  JTRACE("Expand dmtcp_checkpoint path")(dmtcpCkptPath);
+  JTRACE("Expand dmtcp_launch path")(dmtcpCkptPath);
 
   dmtcp::vector<dmtcp::string> dmtcp_args;
   dmtcp::Util::getDmtcpArgs(dmtcp_args);

@@ -1206,7 +1206,7 @@ static void preprocess_special_segments(int *vsyscall_exists)
       mtcp_saved_heap_start = area.addr;
     } else if (mtcp_strcmp(area.name, "[stack]") == 0) {
       /*
-       * When using Matlab with dmtcp_checkpoint, sometimes the bottom most
+       * When using Matlab with dmtcp_launch, sometimes the bottom most
        * page of stack (the page with highest address) which contains the
        * environment strings and the argv[] was not shown in /proc/self/maps.
        * This is arguably a bug in the Linux kernel as of version 2.6.32, etc.

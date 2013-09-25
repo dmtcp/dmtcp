@@ -7,7 +7,7 @@
 
 set -m
 
-MPD="dmtcp_checkpoint $HOME/mpich2/bin/mpd "
+MPD="dmtcp_launch $HOME/mpich2/bin/mpd "
 HOST="teracluster"
 PORT="7778"
 

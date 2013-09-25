@@ -218,7 +218,7 @@ jalib::string jalib::Filesystem::FindHelperUtility(const jalib::string& file,
                                                    bool dieOnError /*= true*/)
 {
   const char* d = NULL;
-  // search relative to dir of dmtcp_checkpoint
+  // search relative to dir of dmtcp_launch
   // (intended for private install by end user)
   const char *p1[] = {
     "/",
@@ -228,7 +228,7 @@ jalib::string jalib::Filesystem::FindHelperUtility(const jalib::string& file,
     "/../lib/",
     "/../lib/dmtcp/",
 
-    // The following are used if dmtcp_checkpoint is run from trunk/dmtcp/src
+    // The following are used if dmtcp_launch is run from trunk/dmtcp/src
     "/../../bin/",
     "/../../lib/",
     "/../../lib/dmtcp/"
@@ -258,7 +258,7 @@ jalib::string jalib::Filesystem::FindHelperUtility(const jalib::string& file,
   size_t i = 0;
   // 1. Search relative to JALIB_UTILITY_DIR (using p1).
   //    Note that this is needed, since program dir may refer to target app's
-  //    program dir instead of dir of dmtcp_checkpoint.
+  //    program dir instead of dir of dmtcp_launch.
   if ( ( d=getenv ( "JALIB_UTILITY_DIR" ) ) != NULL ) {
     JTRACE("JALIB_UTILITY_DIR was set:  using it");
     udir = d;
@@ -270,7 +270,7 @@ jalib::string jalib::Filesystem::FindHelperUtility(const jalib::string& file,
     }
   }
 
-  // 2. Search relative to dir of this command (dmtcp_checkpoint), (using p1).
+  // 2. Search relative to dir of this command (dmtcp_launch), (using p1).
   udir = GetProgramDir();
   for (i = 0; i < sizeof(p1) / sizeof(char*); i++) {
     pth = udir + p1[i] + file;

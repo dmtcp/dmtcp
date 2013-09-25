@@ -1,7 +1,7 @@
 #include "uniquepid.h"
 #include "../jalib/jassert.h"
 
-// dmtcp_checkpoint, and dmtcp_coordinator, and dmtcp_command do not
+// dmtcp_launch, and dmtcp_coordinator, and dmtcp_command do not
 //   need to load dmtcpworker.cpp
 // libdmtcpinternal.a contains code needed by dmtcpworker and the utilities
 //    alike.
