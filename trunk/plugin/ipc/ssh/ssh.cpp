@@ -271,7 +271,7 @@ static void prepareForExec(char *const argv[], char ***newArgv)
   vector<string> dmtcp_args;
   Util::getDmtcpArgs(dmtcp_args);
 
-  prefix = Util::getPath("dmtcp_checkpoint") + " --ssh-slave ";
+  prefix = Util::getPath("dmtcp_launch") + " --ssh-slave ";
 
   for(size_t i = 0; i < dmtcp_args.size(); i++){
     prefix += string() +  dmtcp_args[i] + " ";

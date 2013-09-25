@@ -90,7 +90,7 @@ static bool _isBlacklistedTcp(int sockfd,
       }
     }
   }
-  // FIXME:  Consider adding configure or dmtcp_checkpoint option to disable
+  // FIXME:  Consider adding configure or dmtcp_launch option to disable
   //   all remote connections.  Handy as quick test for special cases.
   return false;
 }

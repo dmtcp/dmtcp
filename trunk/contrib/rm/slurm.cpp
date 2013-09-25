@@ -69,13 +69,13 @@ static int patch_srun_cmdline(char * const argv_old[], char ***_argv_new)
   argc_old++;
 
   // Prepare DMTCP part of exec* string
-  char dmtcpCkptPath[PATH_MAX] = "dmtcp_checkpoint";
+  char dmtcpCkptPath[PATH_MAX] = "dmtcp_launch";
   int ret = 0;
-//  dmtcp::string ckptCmdPath = dmtcp::Util::getPath("dmtcp_checkpoint");
+//  dmtcp::string ckptCmdPath = dmtcp::Util::getPath("dmtcp_launch");
 //  int ret = dmtcp::Util::expandPathname(ckptCmdPath.c_str(),
 //                                    dmtcpCkptPath, sizeof(dmtcpCkptPath));
 
-  JTRACE("Expand dmtcp_checkpoint path")(dmtcpCkptPath);
+  JTRACE("Expand dmtcp_launch path")(dmtcpCkptPath);
 
   dmtcp::vector<dmtcp::string> dmtcp_args;
   dmtcp::Util::getDmtcpArgs(dmtcp_args);
@@ -97,7 +97,7 @@ static int patch_srun_cmdline(char * const argv_old[], char ***_argv_new)
   int old_pos = i;
   int new_pos = i;
   
-  // Copy dmtcp part so final command looks like: srun <opts> dmtcp_checkpoint <dmtcp_options> orted <orted_options>
+  // Copy dmtcp part so final command looks like: srun <opts> dmtcp_launch <dmtcp_options> orted <orted_options>
   argv_new[new_pos] = strdup(dmtcpCkptPath);
   new_pos++;
   for (i = 0; i < dsize; i++, new_pos++) {

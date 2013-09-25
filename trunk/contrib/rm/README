@@ -4,10 +4,10 @@ Currently TORQUE and SLURM RMs are supported. SGE and LSF support is planned for
 This module is tested against Open MPI MPI2 implementation.
 
 EXAMPLES: 
-To enable DMTCP RM module you need to put --rm option in dmtcp_checkpoint. Sample scripts for 
+To enable DMTCP RM module you need to put --rm option in dmtcp_launch. Sample scripts for 
 SLURM can be found below. TORQUE scripts can be constructed in similar fashion.
 During debug it is better to start dmtcp_coordinator on interactive terminal on frontend. In
-batch script you should remove coordinator startup line and put appropriate hostname in dmtcp_checkpoint 
+batch script you should remove coordinator startup line and put appropriate hostname in dmtcp_launch 
 '-h' option.
 
 * Sample SLURM batch script for initial program run:
@@ -27,7 +27,7 @@ export PATH="<path-to-dmtcp-installation>:$PATH
 dmtcp_coordinator &
 
 # DMTCP coordinator needs to be started on localhost. Or put other host in -h option
-dmtcp_checkpoint --rm -h `hostname` <other-dmtcp-options> mpirun <mpi-options> ./mpi
+dmtcp_launch --rm -h `hostname` <other-dmtcp-options> mpirun <mpi-options> ./mpi
 
 --------------------------------- SNIP -------------------------------------------------------------
 

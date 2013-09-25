@@ -22,7 +22,7 @@ dmtcp \- Distributed MultiThreaded Checkpointing
 .RI [port]
 .br 
 
-.B dmtcp_checkpoint 
+.B dmtcp_launch 
 .RI command
 .RI [args...]
 .br 
@@ -55,14 +55,14 @@ dmtcp_coordinator only)
 
 .IP  DMTCP_HOST=string
 Hostname where the cluster\-wide coordinator is running. (default: localhost;
-dmtcp_checkpoint, dmtcp_restart only)
+dmtcp_launch, dmtcp_restart only)
 
 .IP  DMTCP_PORT=integer
 The port the cluster\-wide coordinator listens on. (default: 7779)
 
 .IP  DMTCP_GZIP=(1|0)
 Set to "0" to disable compression of checkpoint images.
-(default: 1, compression enabled; dmtcp_checkpoint only)
+(default: 1, compression enabled; dmtcp_launch only)
 WARNING:  gzip adds seconds.  Without gzip, ckpt/restart is often less than 1 s
 
 .IP  DMTCP_CHECKPOINT_DIR=path
@@ -71,15 +71,15 @@ Directory to store checkpoint images in. (default: ./)
 .IP  DMTCP_SIGCKPT=integer
 Internal signal number to use for checkpointing.  Must not be used by the
 user program.
-(default: SIGUSR2; dmtcp_checkpoint only)
+(default: SIGUSR2; dmtcp_launch only)
 .SH "DMTCP_COORDINATOR"
 Each computation to be checkpointed must include a DMTCP coordinator
 process.
 One can explicitly start a coordinator through dmtcp_coordinator,
-or allow one to be started implicitly in background by either dmtcp_checkpoint
+or allow one to be started implicitly in background by either dmtcp_launch
 or dmtcp_restart to operate.
 The address of the unique coordinator should be specified by
-dmtcp_checkpoint, dmtcp_restart, and dmtcp_command either through
+dmtcp_launch, dmtcp_restart, and dmtcp_command either through
 the \-\-host and \-\-port command-line flags or through the
 the DMTCP_HOST and DMTCP_PORT environment variables.  If neither is
 given, the host-port pair defaults to localhost-7779.
@@ -127,15 +127,15 @@ Coordinator commands can also be issued remotely using \fBdmtcp_command\fR.
  dmtcp_coordinator
 
 .TP 
-2. In separate terminal(s), replace each command(s) with "dmtcp_checkpoint
+2. In separate terminal(s), replace each command(s) with "dmtcp_launch
 [command]".  The checkpointed program will connect to the coordinator
 specified by DMTCP_HOST and DMTCP_PORT.  New threads will be
 checkpointed as part of the process.  Child processes will
 automatically be checkpointed.  Remote processes started via \fIssh\fR
 will automatically checkpointed. (Internally, DMTCP modifies the
-\fIssh\fR command line to call dmtcp_checkpoint on the remote host.)
+\fIssh\fR command line to call dmtcp_launch on the remote host.)
 
- dmtcp_checkpoint ./myprogram
+ dmtcp_launch ./myprogram
 
 .TP 
 3. To manually initiate a checkpoint, either run the command below
@@ -189,7 +189,7 @@ of the events available with the dmtcpaware interface.)
 One or more plugins are invoked via a list of colon-separated
 absolute pathnames.
 
-  dmtcp_checkpoint \-\-with\-plugin PLUGIN1[:PLUGIN2]...
+  dmtcp_launch \-\-with\-plugin PLUGIN1[:PLUGIN2]...
 
 .SH "RETURN CODE"
 A target program under DMTCP control normally returns the same return code

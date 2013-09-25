@@ -48,7 +48,7 @@
 // See syscallsreal.c for original model.  In libdmtcp.so, system calls
 //   for XXX() in jalib call a wrapper which modifies it and calls
 //   syscallsreal.c:_real_XXX(), to directly calls kernel.
-// For other functions (dmtcp_checkpoint, dmtcp_restart, etc.),
+// For other functions (dmtcp_launch, dmtcp_restart, etc.),
 //   we want their invocations of jalib to directly call glibc with no wrappers.
 // Jalib has some calls to real_XXX() to avoid going through the wrapper.
 //   Those are defined in syscallsreal.cpp, but this is a simpler interface
@@ -69,7 +69,7 @@
 
 //////////////////////////
 //// DEFINE REAL VERSIONS OF NEEDED FUNCTIONS (based on syscallsreal.cpp)
-//// (Define only functions needed for dmtcp_checkpoint, dmtcp_restart, etc.
+//// (Define only functions needed for dmtcp_launch, dmtcp_restart, etc.
 
 static pthread_mutex_t theMutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
 

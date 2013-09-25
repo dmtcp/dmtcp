@@ -30,7 +30,7 @@ The file dmtcp/dmtcp/INSTALL also exists.  A brief overview follows.
     cd dmtcp
 The general methodology is:
   ./dmtcp_coordinator [in one window: type h to the coordinator to see commands]
-  ./dmtcp_checkpoint a.out <args,...>
+  ./dmtcp_launch a.out <args,...>
 
 Note that files /tmp/jassertlog.* are created with debugging information.
 See dmtcp/dmtcp/README for how to compile with debugging information

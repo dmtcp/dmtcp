@@ -58,9 +58,9 @@ check: examples/orig
 	- pkill -9 dmtcp_coord
 	${DMTCP_BIN}/dmtcp_coordinator -p ${DMTCP_PORT} --background
 	export dir=$$PWD && ssh ${HOST1} "cd $$dir && \
-	  ${DMTCP_BIN}/dmtcp_checkpoint -h ${HOST0} -p ${DMTCP_PORT} --with-plugin $$dir/libinfiniband.so ./examples/orig" &
+	  ${DMTCP_BIN}/dmtcp_launch -h ${HOST0} -p ${DMTCP_PORT} --with-plugin $$dir/libinfiniband.so ./examples/orig" &
 	export dir=$$PWD && ssh ${HOST2} "cd $$dir && \
-	  ${DMTCP_BIN}/dmtcp_checkpoint -h ${HOST0} -p ${DMTCP_PORT} --with-plugin $$dir/libinfiniband.so ./examples/orig ${HOST1}" &
+	  ${DMTCP_BIN}/dmtcp_launch -h ${HOST0} -p ${DMTCP_PORT} --with-plugin $$dir/libinfiniband.so ./examples/orig ${HOST1}" &
 	@ sleep 15 && ${DMTCP_BIN}/dmtcp_command -p ${DMTCP_PORT} --checkpoint
 	sleep 20 ; ${DMTCP_BIN}/dmtcp_command -p ${DMTCP_PORT} --quit
 

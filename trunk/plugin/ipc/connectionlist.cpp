@@ -40,7 +40,7 @@
 
 using namespace dmtcp;
 
-// This is the first program after dmtcp_checkpoint
+// This is the first program after dmtcp_launch
 static bool freshProcess = true;
 
 dmtcp::ConnectionList::~ConnectionList()

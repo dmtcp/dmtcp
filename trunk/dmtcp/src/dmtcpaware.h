@@ -64,7 +64,7 @@ int dmtcp_userSynchronizedEvent();
 int dmtcp_userSynchronizedEventBegin();
 int dmtcp_userSynchronizedEventEnd();
 /**
- * Returns 1 if executing under dmtcp_checkpoint, 0 otherwise
+ * Returns 1 if executing under dmtcp_launch, 0 otherwise
  */
 int dmtcpIsEnabled();
 

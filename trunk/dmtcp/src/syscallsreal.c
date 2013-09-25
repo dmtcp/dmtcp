@@ -99,7 +99,7 @@ void _dmtcp_remutex_on_fork() {
  *     wrappers, DMTCP was modified to not use dlopen/dlsym. Instead, a new
  *     mechanism was implemented.
  *
- *     While executing dmtcp_checkpoint, for each function wrapped by DMTCP, we
+ *     While executing dmtcp_launch, for each function wrapped by DMTCP, we
  *     calculated it's offset, in libc, from a known base-function (toupper, a
  *     function not wrapped by DMTCP) in libc, i.e. we do:
  *       open_offset = &open - &toupper;
@@ -356,7 +356,7 @@ void *_dmtcp_get_libc_dlsym_addr()
                                         dmtcp_dlsym_offset);
 
     /* On Debian 5.0 (gcc-4.3.2 libc-2.7, ld-2.18.0), the call
-     * by dmtcp_checkpoint to execvp fails without this call to unsetenv.
+     * by dmtcp_launch to execvp fails without this call to unsetenv.
      * Possibly, execvp is calling dlsym even before libdmtcp.so gets
      * loaded.
      */

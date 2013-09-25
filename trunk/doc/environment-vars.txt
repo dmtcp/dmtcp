@@ -46,7 +46,7 @@ libdmtcp.so before the user's main() routine.  That code will remove
 libdmtcp.so from LD_PRELOAD so as to hide the modified LD_PRELOAD from
 the user code.  See dmtcpworker.cpp:restoreUserLDPRELOAD() for that code.
 The restoreUserLDPRELAD code is also invoked for a newly loaded program
-invoked via dmtcp_checkpoint.
+invoked via dmtcp_launch.
 
 The execve wrapper should also be doing this.  In fact, this code
 should be absorbed into execwrappers.cpp:prepareForExec().  IS THIS DONE?

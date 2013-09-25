@@ -302,7 +302,7 @@ dmtcp::string dmtcp::UniquePid::getTmpDir()
  * connect to some DNS server to find out hostname and username. The socket is
  * closed only at next exec() and thus it leaves a dangling socket in the
  * worker process. To resolve this issue, we make sure to call setTmpDir() only
- * from dmtcp_checkpoint and dmtcp_restart process and once the user process
+ * from dmtcp_launch and dmtcp_restart process and once the user process
  * has been exec()ed, we use getTmpDir() only.
  */
 void dmtcp::UniquePid::setTmpDir(const char* envVarTmpDir) {

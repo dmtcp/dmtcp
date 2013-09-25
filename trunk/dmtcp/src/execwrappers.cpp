@@ -66,7 +66,7 @@ static bool isBlacklistedProgram(const char *path)
   dmtcp::string programName = jalib::Filesystem::BaseName(path);
 
   JASSERT(programName != "dmtcp_coordinator" &&
-          programName != "dmtcp_checkpoint"  &&
+          programName != "dmtcp_launch"  &&
           programName != "dmtcp_restart"     &&
           programName != "mtcp_restart")
     (programName) .Text("This program should not be run under ckpt control");
@@ -253,7 +253,7 @@ static void execShortLivedProcessAndExit(const char *path, char *const argv[])
   exit(0);
 }
 
-// FIXME:  Unify this code with code prior to execvp in dmtcp_checkpoint.cpp
+// FIXME:  Unify this code with code prior to execvp in dmtcp_launch.cpp
 //   Can use argument to dmtcpPrepareForExec() or getenv("DMTCP_...")
 //   from DmtcpWorker constructor, to distinguish the two cases.
 static void dmtcpPrepareForExec(const char *path, char *const argv[],
@@ -299,7 +299,7 @@ static void dmtcpPrepareForExec(const char *path, char *const argv[],
     }
   }
 
-  // FIXME:  SEE COMMENTS IN dmtcp_checkpoint.cpp, rev. 1087; AND CHANGE THIS.
+  // FIXME:  SEE COMMENTS IN dmtcp_launch.cpp, rev. 1087; AND CHANGE THIS.
   if (dmtcp::Util::isSetuid(path)) {
     if (dmtcp::Util::isScreen(path)) {
       dmtcp::Util::setScreenDir();

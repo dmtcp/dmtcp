@@ -28,7 +28,7 @@ ${DMTCP_ROOT}/test/dmtcp1: ${DMTCP_ROOT}/test
 ../sleep1/dmtcp_sleep1hijack.so: ../sleep1
 	cd ../sleep1; make dmtcp_sleep1hijack.so
 check: ${LIBNAME}.so ../sleep1/dmtcp_sleep1hijack.so ${DMTCP_ROOT}/test/dmtcp1
-	${DMTCP_ROOT}/bin/dmtcp_checkpoint --port ${DEMO_PORT} -i 5 \
+	${DMTCP_ROOT}/bin/dmtcp_launch --port ${DEMO_PORT} -i 5 \
 	  --with-plugin \
 		$$PWD/../sleep1/dmtcp_sleep1hijack.so:$$PWD/${LIBNAME}.so \
 	  ${DMTCP_ROOT}/test/dmtcp1
