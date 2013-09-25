@@ -23,6 +23,7 @@ lib/
 include/
 !dmtcp/include/*h
 dmtcp/src/dmtcp_checkpoint
+dmtcp/src/dmtcp_launch
 dmtcp/src/dmtcp_command
 dmtcp/src/dmtcp_coordinator
 dmtcp/src/dmtcp_nocheckpoint

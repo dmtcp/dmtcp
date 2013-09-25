@@ -23,9 +23,9 @@ docdir=@docdir@
 includedir=@includedir@
 mandir=@mandir@
 infodir=@mandir@
-MANPAGES=dmtcp_coordinator.1.gz dmtcp_checkpoint.1.gz dmtcp_nocheckpoint.1.gz \
-	dmtcp_restart.1.gz dmtcp_command.1.gz dmtcp_inspector.1.gz \
-	mtcp.1.gz mtcp_restart.1.gz
+MANPAGES=dmtcp_coordinator.1.gz dmtcp_command.1.gz dmtcp_inspector.1.gz \
+	 dmtcp_launch.1.gz dmtcp_checkpoint.1.gz dmtcp_nocheckpoint.1.gz \
+	 dmtcp_restart.1.gz mtcp.1.gz mtcp_restart.1.gz
 
 MTCP_MAKE_FLAGS = DMTCP_VERSION=$(VERSION) CFLAGS="$(CFLAGS)"\
 		  CPPFLAGS="$(CPPFLAGS)" LDFLAGS="$(LDFLAGS)"
@@ -157,7 +157,7 @@ icheck-%: tests
 	@ read -p "> " dummy
 	@ rm -f ckpt_$*_* && sleep 3 && \
 		echo "" && echo "*** Starting Program" && echo "" && \
-		${XTERM_E} $$PWD/bin/dmtcp_checkpoint --join test/$* && \
+		${XTERM_E} $$PWD/bin/dmtcp_launch --join test/$* && \
 		echo "" && echo "*** Restarting Program from Checkpoint" \
 		  "(press q<return> to quit)" && echo "" && \
 		until ls ckpt_$*_*.dmtcp > /dev/null 2>&1; do true; done; \
@@ -224,6 +224,9 @@ dist: distclean dist_exclude.txt
 	    ./`basename $$dir`
 	ls -l ../dmtcp.tgz
 
+bin/dmtcp_checkpoint:
+	cd bin && $(LN_S) dmtcp_launch dmtcp_checkpoint
+
 bin/% : dmtcp/src/%
 	cd bin && $(LN_S) ../$< $*
 
@@ -236,8 +239,9 @@ bin/% : plugin/ipc/%
 bin/readdmtcp : mtcp/readmtcp
 	cd bin && $(LN_S) ../$< readdmtcp
 
-bin: 	bin/dmtcp_coordinator bin/dmtcp_checkpoint bin/dmtcp_restart \
-	bin/dmtcp_command bin/dmtcp_nocheckpoint bin/mtcp_restart bin/readdmtcp \
+bin: 	bin/dmtcp_coordinator bin/dmtcp_command \
+	bin/dmtcp_launch bin/dmtcp_checkpoint bin/dmtcp_nocheckpoint \
+	bin/dmtcp_restart bin/mtcp_restart bin/readdmtcp \
 	bin/dmtcp_ssh bin/dmtcp_sshd
 
 lib/% : mtcp/%
@@ -289,11 +293,6 @@ install: all
 	cd contrib && make DESTDIR=$(DESTDIR) install
 	cd mtcp && make DESTDIR=$(DESTDIR) bindir=$(bindir) libdir=$(libdir) \
 	  includedir=$(includedir) install
-	#chmod -f 755 $(DESTDIR)$(libdir)/dmtcp/lib*
-	cd $(DESTDIR)$(libdir) && mv dmtcp/libdmtcpaware.so.1.0.0 .
-	cd $(DESTDIR)$(libdir) && \
-	  $(LN_S) libdmtcpaware.so.1.0.0 libdmtcpaware.so.1
-	cd $(DESTDIR)$(libdir) && $(LN_S) libdmtcpaware.so.1 libdmtcpaware.so
 	echo "${docdir}" | grep -q /dmtcp || false
 	$(MKDIR_P) $(DESTDIR)$(docdir)/examples
 	cp test/dmtcpaware*.c $(DESTDIR)$(docdir)/examples
@@ -308,8 +307,6 @@ uninstall:
 	cd contrib && make uninstall
 	cd mtcp && make DESTDIR=$(DESTDIR) bindir=$(bindir) libdir=$(libdir) \
 	  includedir=$(includedir) uninstall
-	rm -f "$(DESTDIR)$(libdir)"/libdmtcpaware.so*
-	rm -Rf "$(DESTDIR)$(libdir)/dmtcp"
 	echo "${docdir}" | grep -q /dmtcp || false
 	rm -Rf "$(DESTDIR)$(docdir)"
 	cd $(DESTDIR)$(mandir)/man1 && \
