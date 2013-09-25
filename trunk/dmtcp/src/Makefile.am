@@ -19,7 +19,7 @@ INCLUDES= $(all_includes) -I../jalib/
 dmtcplibdir = $(pkglibdir)
 # targets:
 noinst_LIBRARIES = libdmtcpinternal.a libsyscallsreal.a libnohijack.a libjalib.a
-bin_PROGRAMS = dmtcp_checkpoint dmtcp_command dmtcp_coordinator \
+bin_PROGRAMS = dmtcp_launch dmtcp_command dmtcp_coordinator \
 	       dmtcp_restart dmtcp_nocheckpoint
 dmtcplib_PROGRAMS = libdmtcp.so libdmtcpaware.so.1.0.0
 include_HEADERS = dmtcpaware.h
@@ -36,7 +36,7 @@ nobase_noinst_HEADERS = constants.h \
 	uniquepid.h processinfo.h ckptserializer.h
 
 # Note that libdmtcpinternal.a does not include wrappers.
-# dmtcp_checkpoint, dmtcp_command, dmtcp_coordinator, etc.
+# dmtcp_launch, dmtcp_command, dmtcp_coordinator, etc.
 #   should not need wrappers.
 libdmtcpinternal_a_SOURCES = dmtcpmessagetypes.cpp  coordinatorapi.cpp \
 			     uniquepid.cpp shareddata.cpp \
@@ -55,7 +55,7 @@ libnohijack_a_SOURCES = nosyscallsreal.c dmtcpnohijackstubs.cpp
 
 dmtcp_coordinator_SOURCES = dmtcp_coordinator.cpp lookup_service.cpp
 
-dmtcp_checkpoint_SOURCES = dmtcp_checkpoint.cpp
+dmtcp_launch_SOURCES = dmtcp_launch.cpp
 
 dmtcp_nocheckpoint_SOURCES = dmtcp_nocheckpoint.c
 
@@ -88,7 +88,7 @@ libdmtcp_so_LDADD	= libdmtcpinternal.a libjalib.a libsyscallsreal.a \
 			  -ldl -lpthread -lrt -lmtcp
 dmtcp_coordinator_LDADD = libdmtcpinternal.a libjalib.a \
 			  libnohijack.a -lpthread -lrt
-dmtcp_checkpoint_LDADD  = libdmtcpinternal.a libjalib.a \
+dmtcp_launch_LDADD  = libdmtcpinternal.a libjalib.a \
 			  libnohijack.a -ldl -lpthread -lrt
 dmtcp_restart_LDADD     = libdmtcpinternal.a libjalib.a \
 			  libnohijack.a -lpthread -lrt -ldl
@@ -110,3 +110,16 @@ AM_CFLAGS = $(PICFLAGS)
 AM_CXXFLAGS = $(PICFLAGS)
 AM_LDFLAGS = $(PICFLAGS)
 endif
+
+install-exec-hook:
+	cd $(DESTDIR)$(bindir) && $(LN_S) dmtcp_launch dmtcp_checkpoint
+
+install-data-hook:
+	cd $(DESTDIR)$(libdir) && mv dmtcp/libdmtcpaware.so.1.0.0 .
+	cd $(DESTDIR)$(libdir) && \
+	  $(LN_S) libdmtcpaware.so.1.0.0 libdmtcpaware.so.1
+	cd $(DESTDIR)$(libdir) && $(LN_S) libdmtcpaware.so.1 libdmtcpaware.so
+
+uninstall-hook:
+	rm -f $(DESTDIR)$(bindir)/dmtcp_checkpoint
+	rm -f $(DESTDIR)$(libdir)/libdmtcpaware.so*
