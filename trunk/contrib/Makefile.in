@@ -26,7 +26,7 @@ RECURSIVE_MAKE_FLAGS = \
   M32=1 CFLAGS="${CFLAGS}" CXXFLAGS="${CXXFLAGS}" LDFLAGS="${LDFLAGS}"
 endif
 
-plugins = rm kvm
+plugins = rm
 
 default: build
 
