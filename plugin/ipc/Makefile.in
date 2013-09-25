@@ -108,8 +108,8 @@ install: all
 
 uninstall:
 	echo " ( cd '$(DESTDIR)$(pkglibdir)' && rm -f $$files ) "; \
-	(cd "$(DESTDIR)$(pkglibdir)" && rm -f $(LIBNAME))
-	(cd "$(DESTDIR)$(bindir)" && rm -f dmtcp_ssh dmtcp_sshd
+	(cd "$(DESTDIR)$(pkglibdir)" && rm -f ${LIBNAME})
+	(cd "$(DESTDIR)$(bindir)" && rm -f dmtcp_ssh dmtcp_sshd)
 
 
 %: ssh/%.cpp ${COMMON_HEADERS} util_ssh.o
