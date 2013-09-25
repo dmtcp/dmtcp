@@ -17,7 +17,7 @@ Shorter descriptions are possible.
 
 \subsection*{1. Usage:}
 \begin{algorithmic}[1]
-\STATE {\tt dmtcp\_checkpoint a.out}
+\STATE {\tt dmtcp\_launch a.out}
 \STATE {\tt dmtcp\_command --checkpoint} \newline
 \hbox{\ \ \ \ } $\hookrightarrow$ ckpt\_a.out.*.dmtcp
 \STATE {\tt dmtcp\_restart ckpt\_a.out.*.dmtcp}
@@ -27,18 +27,18 @@ Shorter descriptions are possible.
 \noindent
 DMTCP offers a {\tt --help} command line option along with additional options
 both for {\tt configure} and for the individual DMTCP commands.
-To use DMTCP, just prefix your command line with {\tt dmtcp\_checkpoint}.
+To use DMTCP, just prefix your command line with {\tt dmtcp\_launch}.
 
-\subsection*{2. dmtcp\_checkpoint a.out}
+\subsection*{2. dmtcp\_launch a.out}
 
-The command {\tt dmtcp\_checkpoint a.out} is roughly equivalent to:
+The command {\tt dmtcp\_launch a.out} is roughly equivalent to:
 
 \begin{algorithmic}[1]
 \STATE {\tt dmtcp\_coordinator --background}  (if not already running)
 \STATE {\tt LD\_PRELOAD=libdmtcp.so a.out}
 \end{algorithmic}
 
-The {\tt dmtcp\_checkpoint} command will cause a coordinator process
+The {\tt dmtcp\_launch} command will cause a coordinator process
 to be launched on the local host with the default DMTCP port (if one is
 not already available).
 
@@ -65,7 +65,7 @@ When the loader tries to load a binary (a.out, in this case), the loader
 will first check if LD\_PRELOAD is set (see `man ld.so').  If it is
 set, the loader will load the binary (a.out) and then the preload library
 (libdmtcp.so) before running the `main()' routine in a.out.
-(In fact, dmtcp\_checkpoint may also preload some plugin libraries,
+(In fact, dmtcp\_launch may also preload some plugin libraries,
  such as pidvirt.so (starting with DMTCP-2.0) and set some
  environment variables such as DMTCP\_DLSYM\_OFFSET.)
 
@@ -228,8 +228,8 @@ The wrapper around {\tt system} (in the case of creating remote processes)
 is perhaps the most interesting one.  See {\tt `man system'} for a description
 of the call {\tt system}.  It looks at an argument, for example
 {\tt "ssh REMOTE\_HOST a.out"}, and then edits the argument to
-{\tt "ssh REMOTE\_HOST dmtcp\_checkpoint a.out"} before calling {\tt system}.
-Of course, this works only if dmtcp\_checkpoint is in the user's path
+{\tt "ssh REMOTE\_HOST dmtcp\_launch a.out"} before calling {\tt system}.
+Of course, this works only if dmtcp\_launch is in the user's path
 on {\tt REMOTE\_HOST}.  This is the responsibility of the user or the
 system administrator.
 
@@ -271,7 +271,7 @@ library functions in libc.so and elsewhere.
 For example, the sleep2 plugin example uses two plugins.  After building
 the plugins, it might be called as follows: \newline
 {\tt
-\hbox{\ \ }  dmtcp\_checkpoint --with-plugin $\backslash$ \newline
+\hbox{\ \ }  dmtcp\_launch --with-plugin $\backslash$ \newline
 \hbox{\ \ \ \ }
  PATH/sleep1/dmtcp\_sleep1hijack.so:PATH/sleep2/dmtcp\_sleep2hijack.so a.out}
  \newline
@@ -304,7 +304,7 @@ For examples of dmtcpaware programs, see
 dmtcpaware3.c.  These programs are compiled by linking with\hfil\break
 {\tt DMTCP\_ROOT/dmtcpaware/libdmtcpaware.a}~.
 They are invoked in the usual way.  For example, \newline
-{\tt dmtcp\_checkpoint dmtcpaware1}~.
+{\tt dmtcp\_launch dmtcpaware1}~.
 
 
 \paragraph{MTCP.}
