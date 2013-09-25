@@ -23,3 +23,5 @@ sleep2:  second wrapper around sleep() in program ../../test/dmtcp1
 example-db:  uses the database service of DMTCP.  At checkpoint or
 	 restart time, each process can install a key-value pair, and then
 	 optionally query a value for a given key.
+applic-initiated-ckpt:  demonstrates how an application can initiate
+         a checkpoint of itself.

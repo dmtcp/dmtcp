@@ -1,0 +1,5 @@
+This plugin causes the application applic.c to invoke DMTCP
+to checkpoint itself.  In this example, the plugin could be omitted.
+
+This example is sufficient for most application, but more advanced
+hooks to DMTCP are also listed in applic.c .
