@@ -1,5 +1,5 @@
 /*****************************************************************************
- *   Copyright (C) 2008-2012 by Ana-Maria Visan, Kapil Arya, and             *
+ *   Copyright (C) 2008-2013 by Ana-Maria Visan, Kapil Arya, and             *
  *                                                            Gene Cooperman *
  *   amvisan@cs.neu.edu, kapil@cs.neu.edu, and gene@ccs.neu.edu              *
  *                                                                           *
