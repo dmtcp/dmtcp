@@ -8,7 +8,11 @@ ANY WARRANTY; without even the implied warranty of  MERCHANTABILITY or
 FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License
 for more details.
 
-The files dmtcp/src/dmtcpaware.c and dmtcp/src/dmtcpaware.h are released
+A copy of the GPL license and the LGPL license are contained in the files,
+COPYING.GPL and COPYING.LESSER, respectively.
+
+The files dmtcp/src/dmtcpaware.c, dmtcp/src/dmtcpaware.h,
+dmtcp/include/dmtcpaware.h, and dmtcp/include/dmtcpplugin.h are released
 under MIT/BSD dual license. The user is allowed to use these files under
 either license.
 
@@ -22,17 +26,20 @@ Gene Cooperman and Rohan Garg.
 Files found in the directory dmtcp/jalib are Copyright (C) 2005-2008 by
 Jason Ansel.
 
-Files found in the directory mtcp are Copyright (C) 2006-2012 by Michael
+Files found in the directory mtcp are Copyright (C) 2006-2013 by Michael
 Rieker, Jason Ansel, Kapil Arya, and Gene Cooperman.
 
 The contents of files mtcp/mtcp_sigaction_*, mtcp/sysdep-*,
 mtcp/NOTES-x86_64/*.[hS] and dmtcp/src/glibcsystem.cpp are taken from glibc and
 is Copyright (C) 1991-2000,2002,2003,2005,2007 Free Software Foundation, Inc.
 
-Files found in the directory dmtcp/plugin are Copyright (C) 2005-2012 by
+Files found in the directory dmtcp/plugin are Copyright (C) 2005-2013 by
 Jason Ansel, Kapil Arya, and Gene Cooperman, except that
-files found in the directory dmtcp/plugin/ptrace are Copyright (C) 2005-2012 by
+files found in the directory dmtcp/plugin/ptrace are Copyright (C) 2005-2013 by
 Ana-Maria Visan, Kapil Arya, and Gene Cooperman.
 
-Any remaining files (for building/testing) are Copyright (C) 2006-2008 Jason
-Ansel, Kapil Arya, and Gene Cooperman.
+Files found in a subdirectory of the contrib directory are
+Copyright (C) 2013 by the author of that subdirectory.
+
+Any remaining files (for building and testing) are Copyright (C) 2006-2008,
+2012-2013 Jason Ansel, Kapil Arya, and Gene Cooperman.
