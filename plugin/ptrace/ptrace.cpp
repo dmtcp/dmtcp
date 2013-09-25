@@ -52,7 +52,7 @@ void ptraceProcessResumeUserThread(DmtcpEventData_t *data)
   ptrace_process_resume_user_thread(data->resumeUserThreadInfo.isRestart);
 }
 
-extern "C" void dmtcp_process_event(DmtcpEvent_t event, DmtcpEventData_t *data)
+extern "C" void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   switch (event) {
     case DMTCP_EVENT_INIT:
@@ -79,6 +79,6 @@ extern "C" void dmtcp_process_event(DmtcpEvent_t event, DmtcpEventData_t *data)
       break;
   }
 
-  NEXT_DMTCP_PROCESS_EVENT(event, data);
+  DMTCP_NEXT_EVENT_HOOK(event, data);
   return;
 }

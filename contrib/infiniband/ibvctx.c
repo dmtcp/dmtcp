@@ -81,7 +81,7 @@ static void post_restart2(void);
 #include "get_cq_from_pointer.ic"
 #include "get_srq_from_pointer.ic"
 
-void dmtcp_process_event(DmtcpEvent_t event, DmtcpEventData_t* data)
+void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t* data)
 {
   bool isRestart = (bool) data;
   switch (event) {
@@ -113,7 +113,7 @@ void dmtcp_process_event(DmtcpEvent_t event, DmtcpEventData_t* data)
     break;
   }
   
-  NEXT_DMTCP_PROCESS_EVENT(event, data);
+  DMTCP_NEXT_EVENT_HOOK(event, data);
   //return;
 }
 

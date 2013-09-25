@@ -112,7 +112,7 @@ memory and we can just go ahead and update the statuses of the inferiors.
 4. Modifications in existing code.
 
 All the ptrace code resides in the ptrace plugin:  ~/dmtcp/plugin/ptrace.
-DMTCP communicates with the ptrace plugin via events (see dmtcp_process_event).
+DMTCP communicates with the ptrace plugin via events (see dmtcp_event_hook).
 
 5. Status as of this writing.
 

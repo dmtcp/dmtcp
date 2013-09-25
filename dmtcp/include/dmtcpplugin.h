@@ -105,7 +105,7 @@ EXTERNC int dmtcp_unique_pids_equal(DmtcpUniqueProcessId a,
                                     DmtcpUniqueProcessId b);
 EXTERNC int dmtcp_plugin_disable_ckpt(void);
 EXTERNC void dmtcp_plugin_enable_ckpt(void);
-EXTERNC void dmtcp_process_event(DmtcpEvent_t event, DmtcpEventData_t *data);
+EXTERNC void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data);
 EXTERNC int dmtcp_send_key_val_pair_to_coordinator(const void *key,
                                                    size_t key_len,
                                                    const void *val,
@@ -174,14 +174,12 @@ EXTERNC int dmtcp_bq_restore_file(const char *path, const char *savedFilePath,
      }                                                                      \
    _real_##func;})
 
-#define NEXT_DMTCP_PROCESS_EVENT DMTCP_CALL_NEXT_PROCESS_DMTCP_EVENT
-
-#define DMTCP_CALL_NEXT_PROCESS_DMTCP_EVENT(event, data)                    \
+#define DMTCP_NEXT_EVENT_HOOK(event, data)                                  \
   do {                                                                      \
-    static __typeof__(&dmtcp_process_event) fn                              \
-      = (__typeof__(&dmtcp_process_event)) -1;                              \
+    static __typeof__(&dmtcp_event_hook) fn                                 \
+      = (__typeof__(&dmtcp_event_hook)) -1;                                 \
     if ((void*) fn == (void*) -1) {                                         \
-      fn = NEXT_FNC(dmtcp_process_event);                                   \
+      fn = NEXT_FNC(dmtcp_event_hook);                                      \
     }                                                                       \
     if (fn != NULL) {                                                       \
       (*fn) (event, data);                                                  \

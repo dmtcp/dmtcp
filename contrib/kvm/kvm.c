@@ -711,7 +711,7 @@ int ioctl(int fd, unsigned long int request, ...)
 /*=========================== END WRAPPER FUNCTIONS ==========================*/
 /*============================================================================*/
 
-void dmtcp_process_event(DmtcpEvent_t event, DmtcpEventData_t *data)
+void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   char *blob;
   int blob_size = 0;
@@ -919,5 +919,5 @@ void dmtcp_process_event(DmtcpEvent_t event, DmtcpEventData_t *data)
     default:
       break;
   }
-  NEXT_DMTCP_PROCESS_EVENT(event, data);
+  DMTCP_NEXT_EVENT_HOOK(event, data);
 }

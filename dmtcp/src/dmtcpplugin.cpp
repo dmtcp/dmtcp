@@ -27,9 +27,9 @@
 
 using namespace dmtcp;
 
-EXTERNC void dmtcp_process_event(DmtcpEvent_t id, DmtcpEventData_t *data)
+EXTERNC void dmtcp_event_hook(DmtcpEvent_t id, DmtcpEventData_t *data)
 {
-  NEXT_DMTCP_PROCESS_EVENT(id, data);
+  DMTCP_NEXT_EVENT_HOOK(id, data);
 }
 
 EXTERNC int  dmtcp_get_ckpt_signal()

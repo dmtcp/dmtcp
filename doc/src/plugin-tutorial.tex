@@ -1,5 +1,5 @@
-% dmtcp_process_event -> dmtcp_event_hook
-% NEXT_DMTCP_PROCESS_EVENT -> DMTCP_NEXT_EVENT_HOOK
+% dmtcp_event_hook -> dmtcp_event_hook
+% DMTCP_NEXT_EVENT_HOOK -> DMTCP_NEXT_EVENT_HOOK
 
 % =======================================
 
@@ -131,15 +131,15 @@ subdirectories and execute: ``{\tt make check}''.
 
 For context, please scan the code of {\tt DMTCP\_ROOT/plugin/example/example.c}.
 Executing ``{\tt make check}'' will demonstrate the intended behavior.
-Plugin events are handled by including the function {\tt dmtcp\_process\_event}.
+Plugin events are handled by including the function {\tt dmtcp\_event\_hook}.
 When a DMTCP plugin event occurs, DMTCP will call the
-function {\tt dmtcp\_process\_event} for each plugin.
+function {\tt dmtcp\_event\_hook} for each plugin.
 This function is required only if the plugin will handle plugin events.
 See Appendix~A for further details.
 
 {\tt
 \begin{verbatim}
-void dmtcp_process_event(DmtcpEvent_t event, DmtcpEventData_t *data)
+void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   switch (event) {
   case DMTCP_EVENT_WRITE_CKPT:
@@ -155,14 +155,14 @@ void dmtcp_process_event(DmtcpEvent_t event, DmtcpEventData_t *data)
   default:
     break;
   }
-  NEXT_DMTCP_PROCESS_EVENT(event, data);
+  DMTCP_NEXT_EVENT_HOOK(event, data);
 }
 \end{verbatim}
 }
 
 
 % Plugin events:
-% 
+%
 % *** The model for events:  When a DMTCP event occurs, DMTCP calls ROUTINE
 % in each plugin, in the order that the plugins were loaded, offering each plugin
 % a chance to handle the event.  If ROUTINE is not defined in a plugin, DMTCP
@@ -174,7 +174,7 @@ void dmtcp_process_event(DmtcpEvent_t event, DmtcpEventData_t *data)
 % A.  optionally carry out any pre-processing steps
 % B.  optionally ask DMTCP to invoke the next event handler
 % C.  optionall carry out any post-processing steps
-% 
+%
 % If all three steps are invoked, this effectively creates a wrapper function around
 % any later plugins that handle the same event.  If step B is omitted,
 % no further plugins will be offered the opportunity to handle the event.
@@ -264,18 +264,18 @@ to a plugin, see the plugin in plugin/ipc/timer.
 
 
 % \section{Caveats}
-% 
+%
 % CAVEATS:
 % Does your plugin break normal DMTCP?  to test this, modify DMTCP, and copy your
 % plugin into {\tt DMTCP\_ROOT/lib}, and then run 'make check' for DMTCP as usual.
-% 
+%
 % SHARED MEMORY REGIONS:
 % If two or more processes share a memory region, then the plugin writer must
 % be clear on whether DMTCP or the plugin has responsibility for restoring
 % the shared memory region.  Currently, EXPLAIN ....
-% 
+%
 % Virtualizing long-lived objects:  HOWTO
-% 
+%
 % INTERACTION OF MULTIPLE PLUGINS:
 %     For simple plugins, this issue can be ignored.  But if your plugin has
 % talbes with long-lived data, other wrappers may create additional instantiattions.
@@ -293,15 +293,15 @@ to a plugin, see the plugin in plugin/ipc/timer.
 %     This small effort will provide a well-defined protocol that limits the
 % interaction between distinct plugins.  Your effort helps others to debug their
 % plugins, and a similar effort on their part will help you to debug your own plugin.
-% 
+%
 % Putting a printf inside a plugin at the time of checkpoint is dangerous.  This
 % is because printf indirectly invokes a lock to prevent two threads from
 % printing simultaneously.  This causes the checkpoint thread to call a printf.
 % {\bf See README in test/plugin.}
-% 
+%
 % At checkpoint time, the DMTCP user thread will stop on that same lock.  This
 % causes the two threads to deadliock.
-% 
+%
 % This use of conflicting locks is a bug in DMTCP as of DMTCP-2.0.  It will
 % be fixed in the future version of DMTCP.
 
@@ -310,63 +310,63 @@ to a plugin, see the plugin in plugin/ipc/timer.
 \subsection{Plugin events}
 % \addcontentsline{toc}{chapter}{Appendix A:  Plugin Events}
 
-\subsubsection{dmtcp\_process\_event}
+\subsubsection{dmtcp\_event\_hook}
 
 In order to handle DMTCP plugin events, a plugin must
-define {\tt dmtcp\_process\_event}.
+define {\tt dmtcp\_event\_hook}.
 
 \begin{verbatim}
 NAME
-       dmtcp_process_event - Handle plugin events for this plugin
+       dmtcp_event_hook - Handle plugin events for this plugin
 
 SYNOPSIS
        #include "dmtcp/plugin.h"
 
-       void dmtcp_process_event(DmtcpEvent_t event, DmtcpEventData_t *data)
+       void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 
 DESCRIPTION
-       When a plugin event occurs, DMTCP will look for the symbol dmtcp_process_event
+       When a plugin event occurs, DMTCP will look for the symbol dmtcp_event_hook
        in each plugin library.  If the symbol is found, that function will be called
        for the given plugin library.  DMTCP guarantees only to invoke the first such
        plugin library found in library search order.  Occurences of
-       dmtcp_process_event in later plugin libraries will be called only if
-       each previous function had invoked NEXT_DMTCP_PROCESS_EVENT.
+       dmtcp_event_hook in later plugin libraries will be called only if
+       each previous function had invoked DMTCP_NEXT_EVENT_HOOK.
        The argument, <event>, will be bound to the event being declared by
        DMTCP.  The argument, <data>, is required only for certain events.
        See the following section, ``Plugin Events'' for a list of all
        events.
 
 SEE ALSO
-       NEXT_DMTCP_PROCESS_EVENT
+       DMTCP_NEXT_EVENT_HOOK
 \end{verbatim}
 
-\subsubsection{NEXT\_DMTCP\_PROCESS\_EVENT}
+\subsubsection{DMTCP\_NEXT\_EVENT\_HOOK}
 
-A typical definition of {\tt dmtcp\_process\_event} will invoke
-{\tt NEXT\_DMTCP\_PROCESS\_EVENT}.
+A typical definition of {\tt dmtcp\_event\_hook} will invoke
+{\tt DMTCP\_NEXT\_EVENT\_HOOK}.
 
 \begin{verbatim}
 NAME
-       NEXT_DMTCP_PROCESS_EVENT - call dmtcp_process_event in next plugin library
+       DMTCP_NEXT_EVENT_HOOK - call dmtcp_event_hook in next plugin library
 
 SYNOPSIS
        #include "dmtcp/plugin.h"
 
-       void NEXT_DMTCP_PROCESS_EVENT(event, data)
+       void DMTCP_NEXT_EVENT_HOOK(event, data)
 
 DESCRIPTION
        This function must be invoked from within a plugin function library
-       called dmtcp_process_event.  The arguments <event> and <data> should
-       normally be the same arguments passed to dmtcp_process_event.
+       called dmtcp_event_hook.  The arguments <event> and <data> should
+       normally be the same arguments passed to dmtcp_event_hook.
 
-       NEXT_DMTCP_PROCESS_EVENT may be called zero or one times.  If invoked zero
+       DMTCP_NEXT_EVENT_HOOK may be called zero or one times.  If invoked zero
        times, no further plugin libraries will be called to handle events.
-       The behavior is undefined  if NEXT_DMTCP_PROCESS_EVENT is invoked more than
+       The behavior is undefined  if DMTCP_NEXT_EVENT_HOOK is invoked more than
        once.  The typical usage of this function is to create a wrapper around
        the handling of the same event by later plugins.
 
 SEE ALSO
-       dmtcp_process_event
+       dmtcp_event_hook
 \end{verbatim}
 
 There are examples of compiling a plugin in the examples in {\tt
@@ -378,10 +378,10 @@ The rest of this section defines plugin events.
 The complete list of plugin events is always contained in
 {\tt DMTCP\_ROOT/dmtcp/include/dmtcp/plugin.h}~.
 
-DMTCP guarantees to call the dmtcp\_process\_event function of the plugin
+DMTCP guarantees to call the dmtcp\_event\_hook function of the plugin
 when the specified event occurs.
 % If an event is thread-specific, DMTCP guarantees to call
-% dmtcp\_process\_event within the same thread.
+% dmtcp\_event\_hook within the same thread.
 
 Plugins that pass significant data through the data parameter
 are marked with an asterisk: {}$^*$.
@@ -389,7 +389,7 @@ Most plugin events do not pass data through the data parameter.
 
 Note that the events \\
    RESTART / RESUME / REFILL / REGISTER\_NAME\_SERVICE\_DATA / SEND\_QUERIES \\
-should all be processed after the call to NEXT\_DMTCP\_PROCESS\_EVENT() in
+should all be processed after the call to DMTCP\_NEXT\_EVENT\_HOOK() in
 order to guarantee that the internal DMTCP plugins have first restored full
 functionality.
 
@@ -513,7 +513,7 @@ Section~\ref{sec:wrappers}.
 \subsection{Miscellaneous utility functions}
 
 Numerous DMTCP utility functions are provided that can be called from within
-dmtcp\_process\_event().  For a complete list, see
+dmtcp\_event\_hook().  For a complete list, see
 {\tt DMTCP\_ROOT/dmtcp/include/dmtcp/plugin.h}~.
 The utility functions are still under active development, and may change
 in small ways.

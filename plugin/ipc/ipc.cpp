@@ -39,7 +39,7 @@ void dmtcp_SocketConn_ProcessFdEvent(int event, int arg1, int arg2);
 void dmtcp_EventConn_ProcessFdEvent(int event, int arg1, int arg2);
 
 extern "C"
-void dmtcp_process_event(DmtcpEvent_t event, DmtcpEventData_t *data)
+void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   dmtcp_SSH_ProcessEvent(event, data);
   dmtcp_FileConnList_ProcessEvent(event, data);
@@ -48,7 +48,7 @@ void dmtcp_process_event(DmtcpEvent_t event, DmtcpEventData_t *data)
   dmtcp_SysVIPC_ProcessEvent(event, data);
   dmtcp_Timer_ProcessEvent(event, data);
 
-  NEXT_DMTCP_PROCESS_EVENT(event, data);
+  DMTCP_NEXT_EVENT_HOOK(event, data);
   return;
 }
 

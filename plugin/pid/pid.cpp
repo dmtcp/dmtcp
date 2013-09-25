@@ -165,7 +165,7 @@ void pidVirt_ThreadExit(DmtcpEventData_t *data)
   dmtcp::VirtualPidTable::instance().erase(tid);
 }
 
-extern "C" void dmtcp_process_event(DmtcpEvent_t event, DmtcpEventData_t *data)
+extern "C" void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   switch (event) {
     case DMTCP_EVENT_ATFORK_CHILD:
@@ -199,6 +199,6 @@ extern "C" void dmtcp_process_event(DmtcpEvent_t event, DmtcpEventData_t *data)
       break;
   }
 
-  NEXT_DMTCP_PROCESS_EVENT(event, data);
+  DMTCP_NEXT_EVENT_HOOK(event, data);
   return;
 }
