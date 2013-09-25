@@ -1,9 +1,8 @@
 /****************************************************************************
- *   Copyright (C) 2012 by Kapil Arya (kapil@ccs.neu.edu)                   *
+ *   Copyright (C) 2006-2013 by Jason Ansel, Kapil Arya, and Gene Cooperman *
+ *   jansel@csail.mit.edu, kapil@ccs.neu.edu, gene@ccs.neu.edu              *
  *                                                                          *
  *   This file is part of the dmtcp/src module of DMTCP (DMTCP:dmtcp/src).  *
- *   The contents of this file are inspired by the file libio/iopopen.c     *
- *    from glibc sources                                                    *
  *                                                                          *
  *  DMTCP:dmtcp/src is free software: you can redistribute it and/or        *
  *  modify it under the terms of the GNU Lesser General Public License as   *

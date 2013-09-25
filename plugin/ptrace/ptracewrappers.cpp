@@ -68,12 +68,16 @@
 # define ORIG_AX_REG orig_rax
 # define SP_REG rsp
 # define IP_REG rip
+// SIGRETURN_INST_16 is the machine code for the assembly statement syscall.
+// The specific syscall to be detected is sigreturn.
 # define SIGRETURN_INST_16 0x050f
 #elif __i386__
 # define AX_REG eax
 # define ORIG_AX_REG orig_eax
 # define SP_REG esp
 # define IP_REG eip
+// SIGRETURN_INST_16 is the machine code for the assembly statement syscall.
+// The specific syscall to be detected is sigreturn.
 # define SIGRETURN_INST_16 0x80cd
 #elif __arm__
 // Found in /usr/include/asm/ptrace.h, called from /usr/include/linux/ptrace.h
@@ -83,8 +87,8 @@
 # define ARM_lr      uregs[14]
 # define ARM_pc      uregs[15]
 # define ARM_cpsr    uregs[16]
-// FIXME:  Disassemble ARM sigreturn, and define this instruction.
-//         This placeholder is here so it will compile.  But it will not run.
+// FIXME:  ARM also uses sigreturn.  however, more debugging is needed before
+//         ptrace works for ARM.
 # define SIGRETURN_INST_16 -1
 #else
 # error Unknown architecture
