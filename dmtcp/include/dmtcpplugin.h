@@ -187,8 +187,8 @@ EXTERNC int dmtcp_bq_restore_file(const char *path, const char *savedFilePath,
     }                                                                       \
   } while (0)
 
-#endif
-
+// dmtcpaware.h and this part of dmtcpplugin.h are mutually exclusive
+#ifndef DMTCPAWARE_H
 //===================================================================
 // DMTCP utilities
 
@@ -202,18 +202,28 @@ EXTERNC int dmtcp_bq_restore_file(const char *path, const char *savedFilePath,
 # define DMTCP_NOT_PRESENT 3
 #endif
 
-int __attribute__ ((weak)) dmtcpIsEnabled(void);
+// C++ takes null arg, while C takes void arg.
+#ifdef __cplusplus
+# define VOID
+#else
+# define VOID void
+#endif
+
+int __attribute__ ((weak)) dmtcpIsEnabled(VOID);
 #define dmtcpIsEnabled() (dmtcpIsEnabled ? dmtcpIsEnabled() : 0)
 
-int __attribute__ ((weak)) dmtcpCheckpoint(void);
+int __attribute__ ((weak)) dmtcpCheckpoint(VOID);
 #define dmtcpCheckpoint() \
   (dmtcpCheckpoint ? dmtcpCheckpoint() : DMTCP_NOT_PRESENT)
 
-int __attribute__ ((weak)) dmtcpDelayCheckpointsLock(void);
+int __attribute__ ((weak)) dmtcpDelayCheckpointsLock(VOID);
 #define dmtcpDelayCheckpointsLock() \
  (dmtcpDelayCheckpointsLock ? dmtcpDelayCheckpointsLock() : DMTCP_NOT_PRESENT)
 
-int __attribute__ ((weak)) dmtcpDelayCheckpointsUnlock(void);
+int __attribute__ ((weak)) dmtcpDelayCheckpointsUnlock(VOID);
 #define dmtcpDelayCheckpointsUnlock() \
   (dmtcpDelayCheckpointsUnlock ? dmtcpDelayCheckpointsUnlock() : \
    DMTCP_NOT_PRESENT)
+
+#endif
+#endif
