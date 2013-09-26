@@ -25,7 +25,9 @@
 
 #define DEBUG_SIGNATURE "DEBUG [TUN Plugin]: "
 
-#define TUN_PLUGIN_DEBUG
+/* Enable this for debugging
+ * #define TUN_PLUGIN_DEBUG
+ */
 
 #ifdef TUN_PLUGIN_DEBUG
 #define DPRINTF(fmt, ...) \
