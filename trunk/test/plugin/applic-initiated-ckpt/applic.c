@@ -21,7 +21,6 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <dlfcn.h>
 
 #include "dmtcpplugin.h"
 ;
@@ -33,10 +32,10 @@ int main() {
 
     int retval = (dmtcpCheckpoint ? dmtcpCheckpoint() : DMTCP_NOT_PRESENT);
     if (retval == DMTCP_AFTER_CHECKPOINT) {
-      printf("*** dmtcpCheckpoint: This process has now been checkpointed.\n"
-             "*** It will resume its execution next.\n");
+      printf("*** dmtcpCheckpoint: This program has now invoked a checkpoint.\n"
+             "      It will resume its execution next.\n");
     } else if (retval == DMTCP_AFTER_RESTART) {
-      printf("*** dmtcpCheckpoint: This process is now restarting.\n");
+      printf("*** dmtcpCheckpoint: This program is now restarting.\n");
     } else if (retval == DMTCP_NOT_PRESENT) {
       printf(" *** dmtcpCheckpoint: DMTCP is not running."
              "  Skipping checkpoint.\n");

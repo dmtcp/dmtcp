@@ -4,10 +4,10 @@
 NAME=${shell basename $$PWD}
 
 # By default, your resulting library will have this name.
-LIBNAME=dmtcp_${NAME}hijack
+LIBNAME=dmtcp_plugin-to-announce-events
 
 # As you add new files to your hijack library, add the object file names here.
-LIBOBJS = ${NAME}.o
+LIBOBJS = plugin-to-announce-events.o
 
 # Modify if your DMTCP_ROOT is located elsewhere.
 ifndef DMTCP_ROOT
@@ -34,8 +34,9 @@ check: ${LIBNAME}.so applic
 	- ./applic
 	@ echo '(Application has exited.)'
 	@ echo ""
-	@ sleep 5
+	@ sleep 3
 	@ echo "============ TESTING ./applic WITH DMTCP ================="
+	# -i 2 flag will write checkpoint every two seconds.
 	${DMTCP_ROOT}/bin/dmtcp_launch --quiet --port ${DEMO_PORT} -i 2 \
 	  --with-plugin $$PWD/${LIBNAME}.so ./applic &
 	@ sleep 7
