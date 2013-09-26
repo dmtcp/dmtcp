@@ -222,8 +222,7 @@ dmtcp::TcpConnection& dmtcp::TcpConnection::asTcp()
   return *this;
 }
 
-void dmtcp::TcpConnection::onBind(int sockfd, const struct sockaddr* addr,
-                                  socklen_t len)
+void dmtcp::TcpConnection::onBind(const struct sockaddr* addr, socklen_t len)
 {
   if (really_verbose) {
     JTRACE("Binding.") (id()) (len);
@@ -231,10 +230,10 @@ void dmtcp::TcpConnection::onBind(int sockfd, const struct sockaddr* addr,
 
   JASSERT(_type == TCP_CREATED) (_type) (id())
     .Text("Binding a socket in use????");
-  JASSERT(len <= sizeof _bindAddr) (len) (sizeof _bindAddr)
-    .Text("That is one huge sockaddr buddy.");
 
-  if (_sockDomain == AF_UNIX) {
+  if (_sockDomain == AF_UNIX && addr != NULL) {
+    JASSERT(len <= sizeof _bindAddr) (len) (sizeof _bindAddr)
+      .Text("That is one huge sockaddr buddy.");
     _bindAddrlen = len;
     memcpy(&_bindAddr, addr, len);
   } else {
@@ -242,7 +241,7 @@ void dmtcp::TcpConnection::onBind(int sockfd, const struct sockaddr* addr,
     // Do not rely on the address passed on to bind as it may contain port 0
     // which allows the OS to give any unused port. Thus we look ourselves up
     // using getsockname.
-    JASSERT(getsockname(sockfd, (struct sockaddr *)&_bindAddr, &_bindAddrlen) == 0)
+    JASSERT(getsockname(_fds[0], (struct sockaddr *)&_bindAddr, &_bindAddrlen) == 0)
       (JASSERT_ERRNO);
   }
   _type = TCP_BIND;
@@ -250,6 +249,15 @@ void dmtcp::TcpConnection::onBind(int sockfd, const struct sockaddr* addr,
 
 void dmtcp::TcpConnection::onListen(int backlog)
 {
+  /* The application didn't issue a bind() call; the kernel will assign
+   * a random address in this case. Call the regular onBind() post-
+   * processing function which will save the address returned by the kernel
+   * and change the state of the socket connection to TCP_BIND.
+   */
+  if (_type == TCP_CREATED) {
+    onBind(NULL, 0);
+  }
+
   if (really_verbose) {
     JTRACE("Listening.") (id()) (backlog);
   }
@@ -263,9 +271,7 @@ void dmtcp::TcpConnection::onListen(int backlog)
   _listenBacklog = backlog;
 }
 
-void dmtcp::TcpConnection::onConnect(int sockfd,
-                                     const struct sockaddr *addr,
-                                     socklen_t len)
+void dmtcp::TcpConnection::onConnect(const struct sockaddr *addr, socklen_t len)
 {
   if (really_verbose) {
     JTRACE("Connecting.") (id());
@@ -274,7 +280,7 @@ void dmtcp::TcpConnection::onConnect(int sockfd,
     .Text("Connecting with an in-use socket????");
 
   /* socketpair wrapper calls onConnect with sockfd == -1 and addr == NULL */
-  if (addr != NULL && _isBlacklistedTcp(sockfd, addr, len)) {
+  if (addr != NULL && _isBlacklistedTcp(_fds[0], addr, len)) {
     _type = TCP_EXTERNAL_CONNECT;
     _connectAddrlen = len;
     memcpy(&_connectAddr, addr, len);

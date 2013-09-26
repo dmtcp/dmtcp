@@ -108,7 +108,7 @@ extern "C" int connect(int sockfd, const struct sockaddr *serv_addr,
   if (ret != -1 && !_doNotProcessSockets) {
     TcpConnection *con =
       (TcpConnection*) SocketConnList::instance().getConnection(sockfd);
-    con->onConnect(sockfd, serv_addr, addrlen);
+    con->onConnect(serv_addr, addrlen);
 
 #if HANDSHAKE_ON_CONNECT == 1
     JTRACE("connected, sending 1-way handshake") (sockfd) (con->id());
@@ -130,7 +130,7 @@ extern "C" int bind(int sockfd, const struct sockaddr *my_addr,
   if (ret != -1 && !_doNotProcessSockets) {
     TcpConnection *con =
       (TcpConnection*) SocketConnList::instance().getConnection(sockfd);
-    con->onBind(sockfd, (struct sockaddr*) my_addr, addrlen);
+    con->onBind((struct sockaddr*) my_addr, addrlen);
     JTRACE("bind") (sockfd) (con->id());
   }
   DMTCP_ENABLE_CKPT();
