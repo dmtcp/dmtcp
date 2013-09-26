@@ -21,7 +21,6 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <dlfcn.h>
 
 #include "dmtcpplugin.h"
 ;
@@ -40,14 +39,14 @@ int main() {
     printf("*** dmtcpDelayCheckpointsLock: Checkpoints are blocked.\n");
     //dmtcpCheckpoint();
     printf("*** dmtcpCheckpoint: A checkpoint was requested asynchronously\n"
-           " using dmtcp_command.\n");
+           "      using 'dmtcp_command'.\n");
     printf("*** sleep: sleeping 3 seconds.\n\n");
     sleep(3);
-    printf("*** dmtcpDelayCheckpointsUnlock: Will now unblock checkpoints.\n");
+    printf("*** dmtcpDelayCheckpointsUnlock: Will now unblock checkpointing\n"
+           "      and write ./dmtcp_restart_script.sh.\n");
     printf("*** Execute ./dmtcp_restart_script.sh to restart from here.\n");
     dmtcpDelayCheckpointsUnlock();
-    sleep(2);
-    printf("*** Waiting to create ./dmtcp_restart_script.sh before exit.\n");
+    sleep(2); // Wait long enough for checkpoint to be written.
 
     printf("\n*** Process done executing.  Successfully exiting.\n");
     return 0;
