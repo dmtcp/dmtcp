@@ -154,7 +154,7 @@ static const char* theRestartScriptCheckLocal =
   "    worker_ip=$(nslookup $worker_host | grep -A1 'Name:' | grep 'Address:' | sed -e 's/Address://' -e 's/ //' -e 's/	//')\n"
   "  fi\n"
   "  if [ -z \"$worker_ip\" ]; then\n"
-  "    worker_ip=$(getent ahosts $worker_host |grep \"^[0-9]\+\.[0-9]\+\.[0-9]\+\.[0-9]\+ *STREAM\" | cut -d' ' -f1)\n"
+  "    worker_ip=$(getent ahosts $worker_host |grep \"^[0-9]\\+\\.[0-9]\\+\\.[0-9]\\+\\.[0-9]\\+ *STREAM\" | cut -d' ' -f1)\n"
   "  fi\n"
   "  if [ -z \"$worker_ip\" ]; then\n"
   "    echo Couldn't find ip-address for $worker_host. Exiting...\n"
