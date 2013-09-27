@@ -22,6 +22,7 @@
 #include <stdio.h>
 #include <sys/stat.h>
 #include <sys/fcntl.h>
+#include <sys/wait.h>
 
 #include "constants.h"
 #include "coordinatorapi.h"
@@ -115,21 +116,30 @@ class RestoreTarget
       }
     }
 
-    void createDependentProcess(bool isChild)
+    void createDependentChildProcess()
     {
       pid_t pid = fork();
       JASSERT(pid != -1);
       if (pid != 0) {
         return;
       }
-      if (!isChild) {
+      createProcess();
+    }
+
+    void createDependentNonChildProcess()
+    {
+      pid_t pid = fork();
+      JASSERT(pid != -1);
+      if (pid == 0) {
         pid_t gchild = fork();
         JASSERT(gchild != -1);
         if (gchild != 0) {
           exit(0);
         }
+        createProcess();
+      } else {
+        JASSERT(waitpid(pid, NULL, 0) == pid);
       }
-      createProcess();
     }
 
     void createProcess(bool createIndependentRootProcesses = false)
@@ -147,7 +157,7 @@ class RestoreTarget
           continue;
         } else if (_pInfo.isChild(t->upid()) &&
                    t->_pInfo.sid() != _pInfo.pid()) {
-          t->createDependentProcess(true);
+          t->createDependentChildProcess();
         }
       }
 
@@ -158,7 +168,7 @@ class RestoreTarget
              it++) {
           RestoreTarget *t = it->second;
           if (t != this) {
-            t->createDependentProcess(false);
+            t->createDependentNonChildProcess();
           }
         }
       }
@@ -177,7 +187,11 @@ class RestoreTarget
         if (_pInfo.upid() == t->_pInfo.upid()) {
           continue;
         } else if (t->_pInfo.sid() == _pInfo.pid()) {
-          t->createDependentProcess(_pInfo.isChild(t->upid()));
+          if (_pInfo.isChild(t->upid())) {
+            t->createDependentChildProcess();
+          } else if (t->isRootOfProcessTree()) {
+            t->createDependentNonChildProcess();
+          }
         }
       }
 
