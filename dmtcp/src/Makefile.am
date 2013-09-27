@@ -112,13 +112,13 @@ AM_LDFLAGS = $(PICFLAGS)
 endif
 
 install-exec-hook:
-	cd $(DESTDIR)$(bindir) && $(LN_S) dmtcp_launch dmtcp_checkpoint
+	cd $(DESTDIR)$(bindir) && $(LN_S) -f dmtcp_launch dmtcp_checkpoint
 
 install-data-hook:
 	cd $(DESTDIR)$(libdir) && mv dmtcp/libdmtcpaware.so.1.0.0 .
 	cd $(DESTDIR)$(libdir) && \
-	  $(LN_S) libdmtcpaware.so.1.0.0 libdmtcpaware.so.1
-	cd $(DESTDIR)$(libdir) && $(LN_S) libdmtcpaware.so.1 libdmtcpaware.so
+	  $(LN_S) -f libdmtcpaware.so.1.0.0 libdmtcpaware.so.1
+	cd $(DESTDIR)$(libdir) && $(LN_S) -f libdmtcpaware.so.1 libdmtcpaware.so
 
 uninstall-hook:
 	rm -f $(DESTDIR)$(bindir)/dmtcp_checkpoint
