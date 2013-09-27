@@ -847,95 +847,96 @@ static size_t writefiledescrs (int fd, int fdCkptFileOnDisk)
   struct linux_dirent *dent;
   struct stat lstatbuf, statbuf;
 
-  /* Open /proc/self/fd directory - it contains a list of files I have open */
+  if (mtcp_callback_ckpt_fd == NULL) {
+    /* Open /proc/self/fd directory - it contains a list of files I have open */
+    fddir = mtcp_sys_open ("/proc/self/fd", O_RDONLY, 0);
+    if (fddir < 0) {
+      MTCP_PRINTF("error opening directory /proc/self/fd: %s\n",
+          strerror(mtcp_sys_errno));
+      mtcp_abort ();
+    }
 
-  fddir = mtcp_sys_open ("/proc/self/fd", O_RDONLY, 0);
-  if (fddir < 0) {
-    MTCP_PRINTF("error opening directory /proc/self/fd: %s\n",
-                strerror(mtcp_sys_errno));
-    mtcp_abort ();
-  }
+    /* Check each entry */
 
-  /* Check each entry */
+    while (1) {
+      dsiz = -1;
+      if (sizeof dent -> d_ino == 4)
+        dsiz = mtcp_sys_getdents (fddir, dbuf, sizeof dbuf);
+      if (sizeof dent -> d_ino == 8)
+        dsiz = mtcp_sys_getdents64 (fddir, dbuf, sizeof dbuf);
+      if (dsiz <= 0) break;
 
-  while (1) {
-    dsiz = -1;
-    if (sizeof dent -> d_ino == 4)
-      dsiz = mtcp_sys_getdents (fddir, dbuf, sizeof dbuf);
-    if (sizeof dent -> d_ino == 8)
-      dsiz = mtcp_sys_getdents64 (fddir, dbuf, sizeof dbuf);
-    if (dsiz <= 0) break;
+      for (doff = 0; doff < dsiz; doff += dent -> d_reclen) {
+        dent = (struct linux_dirent *) (dbuf + doff);
 
-    for (doff = 0; doff < dsiz; doff += dent -> d_reclen) {
-      dent = (struct linux_dirent *) (dbuf + doff);
+        /* The filename should just be a decimal number = the fd it represents.
+         * Also, skip the entry for the checkpoint and directory files
+         * as we don't want the restore to know about them.
+         */
 
-      /* The filename should just be a decimal number = the fd it represents.
-       * Also, skip the entry for the checkpoint and directory files
-       * as we don't want the restore to know about them.
-       */
+        fdnum = strtol (dent -> d_name, &p, 10);
+        if ((*p == '\0') && (fdnum >= 0)
+            && (fdnum != fd) && (fdnum != fdCkptFileOnDisk) && (fdnum != fddir)
+            && (should_ckpt_fd (fdnum) > 0)) {
 
-      fdnum = strtol (dent -> d_name, &p, 10);
-      if ((*p == '\0') && (fdnum >= 0)
-          && (fdnum != fd) && (fdnum != fdCkptFileOnDisk) && (fdnum != fddir)
-          && (should_ckpt_fd (fdnum) > 0)) {
+          // Read the symbolic link so we get the filename that's open on the fd
+          sprintf (procfdname, "/proc/self/fd/%d", fdnum);
+          linklen = readlink (procfdname, linkbuf, sizeof linkbuf - 1);
+          if ((linklen >= 0) || (errno != ENOENT)) {
+            // probably was the proc/self/fd directory itself
+            if (linklen < 0) {
+              MTCP_PRINTF("error reading %s: %s\n", procfdname, strerror(errno));
+              mtcp_abort ();
+            }
+            linkbuf[linklen] = '\0';
 
-        // Read the symbolic link so we get the filename that's open on the fd
-        sprintf (procfdname, "/proc/self/fd/%d", fdnum);
-        linklen = readlink (procfdname, linkbuf, sizeof linkbuf - 1);
-        if ((linklen >= 0) || (errno != ENOENT)) {
-          // probably was the proc/self/fd directory itself
-          if (linklen < 0) {
-            MTCP_PRINTF("error reading %s: %s\n", procfdname, strerror(errno));
-            mtcp_abort ();
-          }
-          linkbuf[linklen] = '\0';
+            DPRINTF("checkpointing fd %d -> %s\n", fdnum, linkbuf);
 
-          DPRINTF("checkpointing fd %d -> %s\n", fdnum, linkbuf);
+            /* Read about the link itself so we know read/write open flags */
 
-          /* Read about the link itself so we know read/write open flags */
+            rc = lstat (procfdname, &lstatbuf);
+            if (rc < 0) {
+              MTCP_PRINTF("error statting %s -> %s: %s\n",
+                  procfdname, linkbuf, strerror(-rc));
+              mtcp_abort ();
+            }
 
-          rc = lstat (procfdname, &lstatbuf);
-          if (rc < 0) {
-            MTCP_PRINTF("error statting %s -> %s: %s\n",
-                        procfdname, linkbuf, strerror(-rc));
-            mtcp_abort ();
-          }
+            /* Read about the actual file open on the fd */
 
-          /* Read about the actual file open on the fd */
+            rc = stat (linkbuf, &statbuf);
+            if (rc < 0) {
+              DPRINTF("error statting %s -> %s: %s\n",
+                  procfdname, linkbuf, strerror(-rc));
+            }
 
-          rc = stat (linkbuf, &statbuf);
-          if (rc < 0) {
-            DPRINTF("error statting %s -> %s: %s\n",
-                    procfdname, linkbuf, strerror(-rc));
-          }
+            /* Write state information to checkpoint file.
+             * Replace file's permissions with current access flags
+             * so restore will know how to open it.
+             */
 
-          /* Write state information to checkpoint file.
-           * Replace file's permissions with current access flags
-           * so restore will know how to open it.
-           */
-
-          else {
-            offset = 0;
-            if (S_ISREG (statbuf.st_mode))
-              offset = mtcp_sys_lseek (fdnum, 0, SEEK_CUR);
-            statbuf.st_mode = (statbuf.st_mode & ~0777)
-              | (lstatbuf.st_mode & 0777);
-            area.fdinfo.fdnum = fdnum;
-            area.fdinfo.statbuf = statbuf;
-            area.fdinfo.offset = offset;
-            strcpy(area.name, linkbuf);
-            num_written += mtcp_writefile(fd, &area, sizeof area);
+            else {
+              offset = 0;
+              if (S_ISREG (statbuf.st_mode))
+                offset = mtcp_sys_lseek (fdnum, 0, SEEK_CUR);
+              statbuf.st_mode = (statbuf.st_mode & ~0777)
+                | (lstatbuf.st_mode & 0777);
+              area.fdinfo.fdnum = fdnum;
+              area.fdinfo.statbuf = statbuf;
+              area.fdinfo.offset = offset;
+              strcpy(area.name, linkbuf);
+              num_written += mtcp_writefile(fd, &area, sizeof area);
+            }
           }
         }
       }
     }
-  }
-  if (dsiz < 0) {
-    MTCP_PRINTF("error reading /proc/self/fd: %s\n", strerror(mtcp_sys_errno));
-    mtcp_abort ();
-  }
+    if (dsiz < 0) {
+      MTCP_PRINTF("error reading /proc/self/fd: %s\n", strerror(mtcp_sys_errno));
+      mtcp_abort ();
+    }
 
-  mtcp_sys_close (fddir);
+    mtcp_sys_close (fddir);
+  }
 
   /* Write end-of-fd-list marker to checkpoint file */
 
