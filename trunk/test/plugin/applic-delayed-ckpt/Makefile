@@ -1,16 +1,13 @@
-@SET_MAKE@
-CC=@CC@
-CXX=@CXX@
 # To demonstrate, do:  make check    [Checkpoints every 5 seconds]
 
 # The name will be the same as the current directory name.
 NAME=${shell basename $$PWD}
 
 # By default, your resulting library will have this name.
-LIBNAME=dmtcp_${NAME}hijack
+LIBNAME=dmtcp_plugin-to-announce-events
 
 # As you add new files to your hijack library, add the object file names here.
-LIBOBJS = ${NAME}.o
+LIBOBJS = plugin-to-announce-events.o
 
 # Modify if your DMTCP_ROOT is located elsewhere.
 ifndef DMTCP_ROOT
@@ -25,12 +22,26 @@ DEMO_PORT=7781
 
 default: ${LIBNAME}.so
 
-${DMTCP_ROOT}/test/dmtcp1: ${DMTCP_ROOT}/test
-	cd ${DMTCP_ROOT}/test; make dmtcp1
-check: ${LIBNAME}.so ${DMTCP_ROOT}/test/dmtcp1
-	# Note that full path of plugin (using $$PWD in this case) is required.
-	${DMTCP_ROOT}/bin/dmtcp_launch --port ${DEMO_PORT} -i 5 \
-	  --with-plugin $$PWD/${LIBNAME}.so ${DMTCP_ROOT}/test/dmtcp1
+applic: applic.c
+	${CC} -fPIC -I${DMTCP_INCLUDE} -o $@ $< -ldl
+
+check: ${LIBNAME}.so applic
+	@ echo ""
+	@ echo "============ TESTING ./applic _WITHOUT_ DMTCP ================"
+	- ./applic
+	@ echo '(Application has exited.)'
+	@ echo ""
+	@ sleep 3
+	@ echo "============ TESTING ./applic WITH DMTCP ================="
+	# -i 2 flag will write checkpoint every two seconds.
+	${DMTCP_ROOT}/bin/dmtcp_launch --quiet --port ${DEMO_PORT} -i 2 \
+	  --with-plugin $$PWD/${LIBNAME}.so ./applic &
+	@ sleep 7
+	@ echo ""
+	@ echo "===== RESTARTING USING ./dmtcp_restart_script.sh ============="
+	./dmtcp_restart_script.sh
+	@ echo ""
+	@ echo "ALL TESTS SUCCEEDED"
 
 # We link the library using C++ for compatibility with the main libdmtcp.so
 ${LIBNAME}.so: ${LIBOBJS}
@@ -44,8 +55,8 @@ ${LIBNAME}.so: ${LIBOBJS}
 tidy:
 	rm -f *~ .*.swp dmtcp_restart_script*.sh ckpt_*.dmtcp
 
-clean:
-	rm -f ${LIBOBJS} ${LIBNAME}.so
+clean: tidy
+	rm -f ${LIBOBJS} ${LIBNAME}.so applic
 
 distclean: clean
 	rm -f ${LIBNAME}.so *~ .*.swp dmtcp_restart_script*.sh ckpt_*.dmtcp

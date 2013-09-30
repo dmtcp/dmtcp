@@ -1,6 +1,3 @@
-@SET_MAKE@
-CC=@CC@
-CXX=@CXX@
 # To demonstrate, do:  make check    [Checkpoints every 5 seconds]
 
 # The name will be the same as the current directory name.

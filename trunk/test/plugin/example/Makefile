@@ -1,6 +1,3 @@
-@SET_MAKE@
-CC=@CC@
-CXX=@CXX@
 # To demonstrate, do:  make check    [Checkpoints every 5 seconds]
 
 # The name will be the same as the current directory name.
@@ -25,19 +22,12 @@ DEMO_PORT=7781
 
 default: ${LIBNAME}.so
 
-# We run two processes, dmtcp1, with keys set to 1 for one, and 2 for the other
 ${DMTCP_ROOT}/test/dmtcp1: ${DMTCP_ROOT}/test
 	cd ${DMTCP_ROOT}/test; make dmtcp1
 check: ${LIBNAME}.so ${DMTCP_ROOT}/test/dmtcp1
-	${DMTCP_ROOT}/bin/dmtcp_coordinator --port ${DEMO_PORT} \
-	  --background --exit-on-last -i 5
-	EXAMPLE_DB_KEY=1 EXAMPLE_DB_KEY_OTHER=2 \
-	  ${DMTCP_ROOT}/bin/dmtcp_launch --port ${DEMO_PORT} --join -i 5 \
-	  --with-plugin $$PWD/${LIBNAME}.so ${DMTCP_ROOT}/test/dmtcp1 &
-	EXAMPLE_DB_KEY=2 EXAMPLE_DB_KEY_OTHER=1 \
-	  ${DMTCP_ROOT}/bin/dmtcp_launch --port ${DEMO_PORT} --join -i 5 \
-	  --with-plugin $$PWD/${LIBNAME}.so ${DMTCP_ROOT}/test/dmtcp1 &
-	sleep 20; ${DMTCP_ROOT}/bin/dmtcp_command --port ${DEMO_PORT} --quit
+	# Note that full path of plugin (using $$PWD in this case) is required.
+	${DMTCP_ROOT}/bin/dmtcp_launch --port ${DEMO_PORT} -i 5 \
+	  --with-plugin $$PWD/${LIBNAME}.so ${DMTCP_ROOT}/test/dmtcp1
 
 # We link the library using C++ for compatibility with the main libdmtcp.so
 ${LIBNAME}.so: ${LIBOBJS}
