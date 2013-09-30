@@ -155,6 +155,9 @@ EXTERNC int dmtcp_bq_restore_file(const char *path, const char *savedFilePath,
                                   int fcntlFlags, int type)
   __attribute((weak));
 
+#define dmtcp_process_event(e,d) \
+    __REPLACE_dmtcp_process_event_WITH_dmtcp_event_hook()__
+
 #define DMTCP_PLUGIN_DISABLE_CKPT DMTCP_DISABLE_CKPT
 #define DMTCP_PLUGIN_ENABLE_CKPT  DMTCP_ENABLE_CKPT
 
