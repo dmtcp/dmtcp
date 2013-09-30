@@ -1,0 +1,25 @@
+CC=@CC@
+CXX=@CXX@
+
+MAKE_FLAGS=CC=${CC} CXX=${CXX}
+default:
+	for file in */; do \
+	  ( cd $$file && ${MAKE} ${MAKE_FLAGS} ); \
+	done
+
+tidy:
+	for file in */; do \
+	  ( cd $$file && ${MAKE} ${MAKE_FLAGS} tidy ); \
+	done
+
+clean:
+	for file in */; do \
+	  ( cd $$file && ${MAKE} ${MAKE_FLAGS} clean ); \
+	done
+
+distclean:
+	for file in */; do \
+	  ( cd $$file && ${MAKE} ${MAKE_FLAGS} distclean ); \
+	done
+
+.PHONY: default clean distclean

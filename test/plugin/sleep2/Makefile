@@ -1,6 +1,4 @@
-@SET_MAKE@
-CC=@CC@
-CXX=@CXX@
+# MOST Makefile's IN ../plugin/* ARE IDENTICAL.  THIS ONE IS SLIGHTLY ALTERED.
 # To demonstrate, do:  make check    [Checkpoints every 5 seconds]
 
 # The name will be the same as the current directory name.
@@ -27,9 +25,13 @@ default: ${LIBNAME}.so
 
 ${DMTCP_ROOT}/test/dmtcp1: ${DMTCP_ROOT}/test
 	cd ${DMTCP_ROOT}/test; make dmtcp1
-check: ${LIBNAME}.so ${DMTCP_ROOT}/test/dmtcp1
+../sleep1/dmtcp_sleep1hijack.so: ../sleep1
+	cd ../sleep1; make dmtcp_sleep1hijack.so
+check: ${LIBNAME}.so ../sleep1/dmtcp_sleep1hijack.so ${DMTCP_ROOT}/test/dmtcp1
 	${DMTCP_ROOT}/bin/dmtcp_launch --port ${DEMO_PORT} -i 5 \
-	  --with-plugin $$PWD/${LIBNAME}.so ${DMTCP_ROOT}/test/dmtcp1
+	  --with-plugin \
+		$$PWD/../sleep1/dmtcp_sleep1hijack.so:$$PWD/${LIBNAME}.so \
+	  ${DMTCP_ROOT}/test/dmtcp1
 
 # We link the library using C++ for compatibility with the main libdmtcp.so
 ${LIBNAME}.so: ${LIBOBJS}

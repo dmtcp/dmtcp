@@ -17,11 +17,8 @@ AC_CONFIG_FILES([Makefile plugin/Makefile plugin/pid/Makefile \
                  plugin/ptrace/Makefile plugin/ipc/Makefile \
                  contrib/Makefile contrib/rm/Makefile \
                  test/Makefile test/testconfig.py\
-                 test/credentials/Makefile \
-                 test/plugin/applic-delayed-ckpt/Makefile \
-                 test/plugin/applic-initiated-ckpt/Makefile \
-                 test/plugin/example/Makefile test/plugin/example-db/Makefile \
-                 test/plugin/sleep1/Makefile test/plugin/sleep2/Makefile])
+                 test/plugin/Makefile test/credentials/Makefile])
+
 AC_CONFIG_SUBDIRS([dmtcp])
 
 dnl Autoconf manual says option checking is set to warn ("yes") by
