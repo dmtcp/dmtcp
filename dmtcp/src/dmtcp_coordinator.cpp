@@ -67,6 +67,7 @@
 #include <sys/wait.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <arpa/inet.h>
 #include <fcntl.h>
 #undef min
 #undef max
@@ -436,10 +437,14 @@ namespace
       {
         _identity = hello_remote.from;
         _state = hello_remote.state;
+        struct sockaddr_in *in = (struct sockaddr_in*) remote;
+        _ip = inet_ntoa(in->sin_addr);
+
       }
       const dmtcp::UniquePid& identity() const { return _identity;}
       void identity(dmtcp::UniquePid upid) { _identity = upid;}
       int clientNumber() const { return _clientNumber; }
+      dmtcp::string ip() const { return _ip; }
       dmtcp::WorkerState state() const { return _state; }
       void setState ( dmtcp::WorkerState value ) { _state = value; }
       void progname(dmtcp::string pname){ _progname = pname; }
@@ -470,6 +475,7 @@ namespace
       dmtcp::string _hostname;
       dmtcp::string _progname;
       dmtcp::string _prefixDir;
+      dmtcp::string _ip;
       pid_t         _virtualPid;
   };
 }
@@ -543,6 +549,9 @@ void dmtcp::DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*
         JASSERT_STDERR << cli.clientNumber()
                        << ", " << cli.progname()
                        << "[" << cli.identity().pid() << "]@" << cli.hostname()
+#ifdef PRINT_REMOTE_IP
+                       << "(" << cli.ip() << ")"
+#endif
                        << ", " << cli.identity()
                        << ", " << cli.state().toString()
                        << '\n';
