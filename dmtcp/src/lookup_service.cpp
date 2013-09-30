@@ -57,6 +57,7 @@ void dmtcp::LookupService::query(const void *key, size_t keyLen,
     JTRACE("Lookup Failed, Key not found.");
     *val = NULL;
     *valLen = 0;
+    return;
   }
 
   KeyValue *v = _keyValueMap[k];
