@@ -30,7 +30,7 @@ int main() {
              " under dmtcp_checkpoint.\n\n");
     }
 
-    int retval = (dmtcpCheckpoint ? dmtcpCheckpoint() : DMTCP_NOT_PRESENT);
+    int retval = dmtcpCheckpoint();
     if (retval == DMTCP_AFTER_CHECKPOINT) {
       printf("*** dmtcpCheckpoint: This program has now invoked a checkpoint.\n"
              "      It will resume its execution next.\n");

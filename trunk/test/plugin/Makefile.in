@@ -1,25 +1,25 @@
 CC=@CC@
 CXX=@CXX@
+EXTRAMAKEFLAGS=CC=${CC} CXX=${CXX}
 
-MAKE_FLAGS=CC=${CC} CXX=${CXX}
 default:
 	for file in */; do \
-	  ( cd $$file && ${MAKE} ${MAKE_FLAGS} ); \
+	  ( cd $$file && ${MAKE} ${EXTRAMAKEFLAGS} ); \
 	done
 
 tidy:
 	for file in */; do \
-	  ( cd $$file && ${MAKE} ${MAKE_FLAGS} tidy ); \
+	  ( cd $$file && ${MAKE} ${EXTRAMAKEFLAGS} tidy ); \
 	done
 
 clean:
 	for file in */; do \
-	  ( cd $$file && ${MAKE} ${MAKE_FLAGS} clean ); \
+	  ( cd $$file && ${MAKE} ${EXTRAMAKEFLAGS} clean ); \
 	done
 
 distclean:
 	for file in */; do \
-	  ( cd $$file && ${MAKE} ${MAKE_FLAGS} distclean ); \
+	  ( cd $$file && ${MAKE} ${EXTRAMAKEFLAGS} distclean ); \
 	done
 
 .PHONY: default clean distclean
