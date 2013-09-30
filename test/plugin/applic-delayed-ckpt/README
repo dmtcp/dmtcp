@@ -3,5 +3,9 @@ every 2 seconds.  This plugin causes the application applic.c to delay
 the checkpoint that is requested by the coordinator In this example,
 the plugin could be omitted.
 
+Note the need to compile with -fPIC the target file that
+uses dmtcpDelayCheckpointsLock().
+This is needed so that the same binary can used both with and without DMTCP.
+
 This example is sufficient for most application, but more advanced
 hooks to DMTCP are also listed in applic.c .

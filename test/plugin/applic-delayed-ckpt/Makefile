@@ -20,7 +20,7 @@ CXXFLAGS += -I${DMTCP_INCLUDE} -DDMTCP -fPIC -c -g
 
 DEMO_PORT=7781
 
-default: ${LIBNAME}.so
+default: ${LIBNAME}.so applic
 
 applic: applic.c
 	${CC} -fPIC -I${DMTCP_INCLUDE} -o $@ $< -ldl
