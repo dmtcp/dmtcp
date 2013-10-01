@@ -90,6 +90,11 @@ ifdef FAST_RESTART
   MTCP_CFLAGS += -DFAST_RST_VIA_MMAP
 endif
 
+# If ./configure --enable-ptrace-support defined.
+ifdef PTRACE
+  MTCP_CFLAGS += -DPTRACE
+endif
+
 ifdef DMTCP_VERSION
   MTCP_CFLAGS += -DDMTCP_VERSION=\"$(DMTCP_VERSION)\"
 endif
