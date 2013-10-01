@@ -21,6 +21,13 @@ if sys.version_info[0] != 2 or sys.version_info[0:2] < (2,4):
   print "Change the beginning of test/autotest.py if you believe you can run."
   sys.exit(1)
 
+if sys.version_info[0] == 2 and sys.version_info[1] >= 7:
+  uname_m = subprocess.check_output(['uname', '-m'])
+  uname_p = subprocess.check_output(['uname', '-p'])
+else:
+  uname_m = subprocess.Popen(['uname', '-m'], stdout=subprocess.PIPE).communicate()[0]
+  uname_p = subprocess.Popen(['uname', '-p'], stdout=subprocess.PIPE).communicate()[0]
+
 #get testconfig
 # This assumes Makefile.in in main dir, but only Makefile in test dir.
 os.system("test -f Makefile || ./configure")
@@ -43,12 +50,10 @@ RETRIES=2
 
 #Sleep after each program startup (sec)
 DEFAULT_S=0.3
-if sys.version_info[0] == 2 and sys.version_info[0:2] >= (2,7) and \
-    subprocess.check_output(['uname', '-p'])[0:3] == 'arm':
+if uname_p[0:3] == 'arm':
   DEFAULT_S *= 2
 #Allow extra time for slower CPUs
-if subprocess.check_output(['uname', '-m']) in \
-   ["i386", "i486", "i586", "i686", "armv7", "armv71"]:
+if uname_m in ["i386", "i486", "i586", "i686", "armv7", "armv71"]:
   DEFAULT_S *= 4
 
 S=DEFAULT_S
@@ -704,8 +709,7 @@ runTest("sysv-sem",      2, ["./test/sysv-sem"])
 runTest("sysv-msg",      2, ["./test/sysv-msg"])
 
 # ARM glibc 2.16 with Linux kernel 3.0 doesn't support mq_send, etc.
-if sys.version_info[0] == 2 and sys.version_info[0:2] >= (2,7) and \
-    subprocess.check_output(['uname', '-p'])[0:3] == 'arm':
+if uname_p[0:3] == 'arm':
   print "Skipping posix-mq1/mq2 tests; ARM/glibc/Linux does not support mq_send"
 else:
   runTest("posix-mq1",     2, ["./test/posix-mq1"])
@@ -839,7 +843,7 @@ if testconfig.PTRACE_SUPPORT == "yes" and sys.version_info[0:2] >= (2,6):
     S=DEFAULT_S
 
   if testconfig.HAS_GDB == "yes":
-    if subprocess.check_output(['uname', '-p'])[0:3] == 'arm':
+    if uname_p[0:3] == 'arm':
       print "On ARM, there is a known issue with DMTCP for gdb-* test." + \
             "  Not running it."
     else:
