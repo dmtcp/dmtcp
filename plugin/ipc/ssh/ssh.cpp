@@ -327,7 +327,7 @@ extern "C" int execve (const char *filename, char *const argv[],
 
   char **newArgv = NULL;
   prepareForExec(argv, &newArgv);
-  int ret = _real_execvpe (newArgv[0], newArgv, envp);
+  int ret = _real_execve (newArgv[0], newArgv, envp);
   JALLOC_HELPER_FREE(newArgv);
   return ret;
 }
