@@ -537,6 +537,11 @@ void dmtcp::FileConnection::handleUnlinkedFile()
       _type = FILE_DELETED;
       _path = currPath;
     } else {
+      string currPath = jalib::Filesystem::GetDeviceName(_fds[0]);
+      if (jalib::Filesystem::FileExists(currPath)) {
+        _path = currPath;
+        return;
+      }
       JASSERT(_type == FILE_DELETED) (_path) (currPath)
         .Text("File not found on disk and yet the filename doesn't "
               "contain the suffix '(deleted)'");
