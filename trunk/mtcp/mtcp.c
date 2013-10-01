@@ -2225,12 +2225,14 @@ static void stopthisthread (int signum)
        * restoreinprog is 0 ; wait for ckpt thread to write ckpt, and resume.
        */
 
+#ifndef PTRACE
       /* This sets a static variable in dmtcp.  It must be passed
        * from this user thread to ckpt thread before writing ckpt image
        */
       if (callback_pre_suspend_user_thread != NULL) {
         callback_pre_suspend_user_thread();
       }
+#endif
 
       WMB; // matched by RMB in checkpointhread
 
@@ -2241,6 +2243,15 @@ static void stopthisthread (int signum)
 
       // wake checkpoint thread if it's waiting for me
       mtcp_state_futex (&(thread -> state), FUTEX_WAKE, 1, NULL);
+
+#ifdef PTRACE
+      /* This sets a static variable in dmtcp.  It must be passed
+       * from this user thread to ckpt thread before writing ckpt image
+       */
+      if (callback_pre_suspend_user_thread != NULL) {
+        callback_pre_suspend_user_thread();
+      }
+#endif
 
       /* Then we wait for the checkpoint thread to write the checkpoint file
        * then wake us up
