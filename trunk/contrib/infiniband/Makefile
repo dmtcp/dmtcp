@@ -23,9 +23,18 @@ endif
 CFLAGS += -I${DMTCP_SRC} -DDMTCP -fPIC -c --std=gnu99 -g
 CPPFLAGS += -I${DMTCP_SRC} -DDMTCP -fPIC -c -g
 
-default: libinfiniband.so
+check-compat:
+	@ grep "INFINIBAND_SUPPORT='yes'" ${DMTCP_ROOT}/config.log || \
+	  (echo && \
+	  echo DMTCP not configured with --enable-infiniband-support. && \
+	  echo Infiniband plugin cannot work. Execute the following && \
+	  echo to reconfigure DMTCP before proceeding: && \
+	  echo ./configure --enable-infiniband-support; make clean; make && \
+	  false)
 
-trace: libibtrace.so
+default: check-compat libinfiniband.so
+
+trace: check-compat libibtrace.so
 
 libibtrace.so: ${TRACEOBJS}
 	${CC} -shared -fPIC -o $@ $^

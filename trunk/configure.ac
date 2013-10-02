@@ -83,6 +83,19 @@ else
   AC_SUBST([PTRACE_SUPPORT], [no])
 fi
 
+AC_ARG_ENABLE([infiniband_support],
+            [AS_HELP_STRING([--enable-infiniband-support],
+                            [Turn on flags needed to support Infiniband.
+			    (EXPERIMENTAL)])],
+            [use_infiniband_support=$enableval],
+            [use_infiniband_support=no])
+
+if test "$use_infiniband_support" = "yes"; then
+  AC_SUBST([INFINIBAND_SUPPORT], [yes])
+else
+  AC_SUBST([INFINIBAND_SUPPORT], [no])
+fi
+
 AC_ARG_ENABLE([forked_checkpointing],
             [AS_HELP_STRING([--enable-forked-checkpointing],
                             [fork a child process to do checkpointing, so that

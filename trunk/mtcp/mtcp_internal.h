@@ -24,7 +24,7 @@
 #ifndef _MTCP_INTERNAL_H
 #define _MTCP_INTERNAL_H
 
-#define IBV
+//#define IBV
 
 #if defined(__x86_64__) || defined(__arm__)
 // The alternative to using futex is to load in the pthread library,

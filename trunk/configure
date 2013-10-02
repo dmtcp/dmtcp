@@ -666,6 +666,7 @@ PID_VIRTUALIZATION
 USE_TEST_SUITE
 HBICT_DELTACOMP
 FAST_RESTART
+INFINIBAND_SUPPORT
 PTRACE_SUPPORT
 DEBUG
 subdirs
@@ -770,6 +771,7 @@ enable_quiet
 enable_timing
 enable_unique_checkpoint_filenames
 enable_ptrace_support
+enable_infiniband_support
 enable_forked_checkpointing
 enable_fast_restart
 enable_delta_compression
@@ -1428,6 +1430,9 @@ Optional Features:
                           the same filename. Enable if each successive
                           checkpoint should be a unique filename.
   --enable-ptrace-support enable ptrace support for gdb, valgrind, etc.
+                          (EXPERIMENTAL)
+  --enable-infiniband-support
+                          Turn on flags needed to support Infiniband.
                           (EXPERIMENTAL)
   --enable-forked-checkpointing
                           fork a child process to do checkpointing, so that
@@ -4435,6 +4440,22 @@ if test "$use_ptrace_support" = "yes"; then
 
 else
   PTRACE_SUPPORT=no
+
+fi
+
+# Check whether --enable-infiniband_support was given.
+if test "${enable_infiniband_support+set}" = set; then :
+  enableval=$enable_infiniband_support; use_infiniband_support=$enableval
+else
+  use_infiniband_support=no
+fi
+
+
+if test "$use_infiniband_support" = "yes"; then
+  INFINIBAND_SUPPORT=yes
+
+else
+  INFINIBAND_SUPPORT=no
 
 fi
 
