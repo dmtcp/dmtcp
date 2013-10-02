@@ -196,6 +196,8 @@ static void processArgs(int *orig_argc, char ***orig_argv)
       shift; shift;
     } else if (argc>1 && (s == "-p" || s == "--port")) {
       setenv(ENV_VAR_NAME_PORT, argv[1], 1);
+      if (strcmp(argv[1], "0") == 0)
+        allowedModes = dmtcp::CoordinatorAPI::COORD_BATCH;
       shift; shift;
     } else if (argc>1 && (s == "--prefix")) {
       setenv(ENV_VAR_PREFIX_PATH, argv[1], 1);
