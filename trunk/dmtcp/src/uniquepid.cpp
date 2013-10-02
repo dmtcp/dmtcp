@@ -239,20 +239,23 @@ void dmtcp::UniquePid::setCkptDir(const char *dir)
 
 void dmtcp::UniquePid::updateCkptDir()
 {
-  dmtcp::ostringstream o;
-  const char* dir = getenv(ENV_VAR_CHECKPOINT_DIR);
-  if (dir == NULL) {
-    dir = ".";
+  if (_ckptDir().empty()) {
+    const char *dir = getenv(ENV_VAR_CHECKPOINT_DIR);
+    if (dir == NULL) {
+      dir = ".";
+    }
+    setCkptDir(dir);
   }
-  o << dir;
 #ifdef UNIQUE_CHECKPOINT_FILENAMES
+  dmtcp::ostringstream o;
+  o << _ckptDir();
   JASSERT(computationId() != UniquePid(0,0,0));
   JASSERT(computationId().generation() != -1);
 
   o << "/ckpt_" << _prefix << computationId() << "_"
     << std::setw(5) << std::setfill('0') << computationId().generation();
-#endif
   setCkptDir(o.str().c_str());
+#endif
 }
 
 dmtcp::string dmtcp::UniquePid::dmtcpTableFilename()
