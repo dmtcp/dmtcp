@@ -14,6 +14,7 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <string.h>
+#include <linux/version.h>
 
 #include <linux/if_tun.h>
 #include <net/if.h>
@@ -52,10 +53,13 @@
 static int g_tun_fd = -1; /* Stores the fd to the last opened tap/tun fd */
 static struct ifreq g_ifreq;
 static struct tun_filter g_tun_filter;
-static struct sock_fprog g_sock_fprog;
 static int g_sndbuf;
 static int g_vnet_hdr_sz;
 static struct ifreq g_queue;
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,0,0)
+static struct sock_fprog g_sock_fprog;
+#endif
 
 /* Stores a request type and the corresponding argument */
 struct ioctl_request {
@@ -124,12 +128,14 @@ static int get_request_name_idx(int request)
       idx = 8; break;
     case TUNSETSNDBUF:
       idx = 9; break;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,0,0)
     case TUNATTACHFILTER:
       idx = 10; break;
     case TUNSETVNETHDRSZ:
       idx = 11; break;
     case TUNSETQUEUE:
       idx = 12; break;
+#endif
     default:
       break;
   }
@@ -172,12 +178,14 @@ static int is_fatal(int request)
       fatal = 0; break;
     case TUNSETSNDBUF:
       fatal = 0; break;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,0,0)
     case TUNATTACHFILTER:
       fatal = 0; break;
     case TUNSETVNETHDRSZ:
       fatal = 0; break;
     case TUNSETQUEUE:
       fatal = 0; break;
+#endif
     default:
       break;
   }
@@ -211,6 +219,7 @@ static void* get_arg(int request, void* arg)
     case TUNSETSNDBUF:
       p_arg = memcpy(&g_sndbuf, arg, sizeof(g_sndbuf));
       break;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,0,0)
     case TUNATTACHFILTER:
       p_arg = memcpy(&g_sock_fprog, arg, sizeof(struct sock_fprog)); /* type: struct sock_fprog */
       break;
@@ -220,6 +229,7 @@ static void* get_arg(int request, void* arg)
     case TUNSETQUEUE:
       p_arg = memcpy(&g_queue, arg, sizeof(struct ifreq)); /* type: struct ifreq */
       break;
+#endif
     default:
       break;
   }
