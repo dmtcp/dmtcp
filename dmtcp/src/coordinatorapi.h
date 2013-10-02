@@ -110,6 +110,7 @@ namespace dmtcp
       void recvCoordinatorHandshake();
       void sendCkptFilename();
       void updateHostAndPortEnv();
+      void getLocalIPAddr(struct in_addr *in);
 
       static void setupVirtualCoordinator();
       static void waitForCheckpointCommand();
@@ -133,6 +134,7 @@ namespace dmtcp
       struct sockaddr_storage _coordAddr;
       socklen_t               _coordAddrLen;
       time_t                  _coordTimeStamp;
+      struct in_addr          _localIPAddr;
       pid_t                   _virtualPid;
   };
 

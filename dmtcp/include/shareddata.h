@@ -80,6 +80,8 @@ namespace dmtcp {
       char                 coordHost[NI_MAXHOST];
       int                  coordPort;
       int                  ckptInterval;
+      struct in_addr       localIPAddr;
+
       struct PidMap        pidMap[MAX_PID_MAPS];
       size_t               numPidMaps;
       struct IPCIdMap      ipcIdMap[MAX_IPC_ID_MAPS];
@@ -113,6 +115,9 @@ namespace dmtcp {
 
     int  getCkptInterval();
     void setCkptInterval(int interval);
+
+    void updateLocalIPAddr();
+    void getLocalIPAddr(struct in_addr *in);
 
     int  getRealIPCId(int virt);
     void setIPCIdMap(int virt, int real);

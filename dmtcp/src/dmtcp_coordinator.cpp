@@ -67,6 +67,7 @@
 #include <sys/wait.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <netdb.h>
 #include <arpa/inet.h>
 #include <fcntl.h>
 #undef min
@@ -414,6 +415,9 @@ static dmtcp::LookupService lookupService;
 static dmtcp::string localHostName;
 static dmtcp::string localPrefix;
 static dmtcp::string remotePrefix;
+
+static dmtcp::string coordHostname;
+static struct in_addr localhostIPAddr;
 
 static void removeStaleSharedAreaFile();
 
@@ -1008,7 +1012,8 @@ void dmtcp::DmtcpCoordinator::onConnect ( const jalib::JSocket& sock,
 
   if ( hello_remote.type == DMT_HELLO_COORDINATOR &&
        hello_remote.state == WorkerState::RESTARTING) {
-    if ( validateRestartingWorkerProcess ( hello_remote, remote ) == false )
+    if (validateRestartingWorkerProcess(hello_remote, remote,
+                                        remoteAddr, remoteLen) == false)
       return;
     //JASSERT(hello_remote.virtualPid != -1);
     ds->virtualPid(hello_remote.virtualPid);
@@ -1017,7 +1022,8 @@ void dmtcp::DmtcpCoordinator::onConnect ( const jalib::JSocket& sock,
   } else if ( hello_remote.type == DMT_HELLO_COORDINATOR &&
               (hello_remote.state == WorkerState::RUNNING ||
                hello_remote.state == WorkerState::UNKNOWN)) {
-    if ( validateNewWorkerProcess ( hello_remote, remote, ds ) == false )
+    if (validateNewWorkerProcess(hello_remote, remote, ds,
+                                  remoteAddr, remoteLen) == false)
       return;
     _virtualPidToChunkReaderMap[ds->virtualPid()] = ds;
   } else {
@@ -1072,9 +1078,12 @@ void dmtcp::DmtcpCoordinator::processDmtUserCmd( DmtcpMessage& hello_remote,
 }
 
 bool dmtcp::DmtcpCoordinator::validateRestartingWorkerProcess
-	 ( DmtcpMessage& hello_remote, jalib::JSocket& remote )
+	 (DmtcpMessage& hello_remote, jalib::JSocket& remote,
+          const struct sockaddr* remoteAddr, socklen_t remoteLen)
 {
   struct timeval tv;
+  const struct sockaddr_in *sin = (const struct sockaddr_in*) remoteAddr;
+  dmtcp::string remoteIP = inet_ntoa(sin->sin_addr);
   dmtcp::DmtcpMessage hello_local ( dmtcp::DMT_HELLO_WORKER );
 
   JASSERT(hello_remote.state == WorkerState::RESTARTING) (hello_remote.state);
@@ -1117,6 +1126,11 @@ bool dmtcp::DmtcpCoordinator::validateRestartingWorkerProcess
     ( UniquePid::ComputationId() ) ( hello_remote.compGroup ) ( minimumState() );
 
   hello_local.coordTimeStamp = curTimeStamp;
+  if (Util::strStartsWith(remoteIP, "127.")) {
+    memcpy(&hello_local.ipAddr, &localhostIPAddr, sizeof localhostIPAddr);
+  } else {
+    memcpy(&hello_local.ipAddr, &sin->sin_addr, sizeof localhostIPAddr);
+  }
   remote << hello_local;
 
   // NOTE: Sending the same message twice. We want to make sure that the
@@ -1139,8 +1153,11 @@ bool dmtcp::DmtcpCoordinator::validateRestartingWorkerProcess
 }
 
 bool dmtcp::DmtcpCoordinator::validateNewWorkerProcess
-  (DmtcpMessage& hello_remote, jalib::JSocket& remote, jalib::JChunkReader *jcr)
+  (DmtcpMessage& hello_remote, jalib::JSocket& remote, jalib::JChunkReader *jcr,
+   const struct sockaddr* remoteAddr, socklen_t remoteLen)
 {
+  const struct sockaddr_in *sin = (const struct sockaddr_in*) remoteAddr;
+  dmtcp::string remoteIP = inet_ntoa(sin->sin_addr);
   NamedChunkReader *ds = (NamedChunkReader*) jcr;
   dmtcp::DmtcpMessage hello_local(dmtcp::DMT_HELLO_WORKER);
   hello_local.virtualPid = ds->virtualPid();
@@ -1232,6 +1249,11 @@ bool dmtcp::DmtcpCoordinator::validateNewWorkerProcess
     }
     hello_local.compGroup = UniquePid::ComputationId();
     hello_local.coordTimeStamp = curTimeStamp;
+    if (Util::strStartsWith(remoteIP, "127.")) {
+      memcpy(&hello_local.ipAddr, &localhostIPAddr, sizeof localhostIPAddr);
+    } else {
+      memcpy(&hello_local.ipAddr, &sin->sin_addr, sizeof localhostIPAddr);
+    }
     remote << hello_local;
   }
   return true;
@@ -1515,6 +1537,56 @@ static void setupSIGINTHandler()
   sigaction ( SIGINT, &action, NULL );
 }
 
+static void calcLocalAddr()
+{
+  FILE *fp;
+  dmtcp::string cmd;
+  char hostname[HOST_NAME_MAX];
+  JASSERT(gethostname(hostname, sizeof hostname) == 0) (JASSERT_ERRNO);
+  struct addrinfo *result;
+  struct addrinfo *res;
+  int error;
+  struct addrinfo hints;
+
+  memset(&localhostIPAddr, 0, sizeof localhostIPAddr);
+  memset(&hints, 0, sizeof(struct addrinfo));
+  hints.ai_family = AF_INET;
+  hints.ai_socktype = SOCK_STREAM;
+  hints.ai_flags = AI_PASSIVE;
+  hints.ai_protocol = 0;
+  hints.ai_canonname = NULL;
+  hints.ai_addr = NULL;
+  hints.ai_next = NULL;
+
+  /* resolve the domain name into a list of addresses */
+  error = getaddrinfo(hostname, NULL, &hints, &result);
+  if (error == 0) {
+    /* loop over all returned results and do inverse lookup */
+    for (res = result; res != NULL; res = res->ai_next) {
+      char name[NI_MAXHOST] = "";
+      struct sockaddr_in *s = (struct sockaddr_in*) res->ai_addr;
+
+      error = getnameinfo(res->ai_addr, res->ai_addrlen, name, NI_MAXHOST, NULL, 0, 0);
+      if (error != 0) {
+        JTRACE("getnameinfo() failed.") (gai_strerror(error));
+        continue;
+      }
+      if (Util::strStartsWith(name, hostname)) {
+        JASSERT(sizeof localhostIPAddr == sizeof s->sin_addr);
+        memcpy(&localhostIPAddr, &s->sin_addr, sizeof s->sin_addr);
+      }
+    }
+  } else {
+    if (error == EAI_SYSTEM) {
+      perror("getaddrinfo");
+    } else {
+      JTRACE("Error in getaddrinfo") (gai_strerror(error));
+    }
+    inet_aton("127.0.0.1", &localhostIPAddr);
+  }
+  coordHostname = hostname;
+}
+
 #define shift argc--; argv++
 
 int main ( int argc, char** argv )
@@ -1592,6 +1664,8 @@ int main ( int argc, char** argv )
     return 1;
   }
 
+  calcLocalAddr();
+
   jalib::JServerSocket* sock;
   /*Test if the listener socket is already open*/
   if ( fcntl(PROTECTED_COORD_FD, F_GETFD) != -1 ) {
@@ -1634,9 +1708,12 @@ int main ( int argc, char** argv )
   JASSERT_STDERR  <<
     "\n    Exit on last client: " << exitOnLast << "\n";
 #else
-    fprintf(stderr, "dmtcp_coordinator starting..."
-    "\n    Port: %d"
-    "\n    Checkpoint Interval: ", thePort);
+
+  fprintf(stderr, "dmtcp_coordinator starting..."
+          "\n    Host: %s (%s)"
+          "\n    Port: %d"
+          "\n    Checkpoint Interval: ",
+          coordHostname.c_str(), inet_ntoa(localhostIPAddr), thePort);
   if(theCheckpointInterval==0)
     fprintf(stderr, "disabled (checkpoint manually instead)");
   else
