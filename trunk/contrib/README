@@ -1,5 +1,5 @@
 The subdirectories within contrib are typically plugins that can be used
-with DMTCP.  They are written either by DMTCP deelopers or by third
+with DMTCP.  They are written either by DMTCP developers or by third
 parties, but they are intended to be optional components.  They will
 not be loaded into DMTCP by default, but will typically require
 the --with-plugins flag of dmtcp_launch.
@@ -25,6 +25,8 @@ infiniband:  Support for checkpointing applications over InfiniBand.
 	This is the work of Jiajun Cao et al.
 	Please report bugs to dmtcp@ccs.neu.edu as well as to
 	jiajun using his account at ccs.neu.edu.
+	  [ If running on a cluster, you may also want to use this with
+ 	    the 'rm' plugin below. ]
 
 kvm:  Support for checkpointing Qemu virtual machine under KVM.  Note
 	that DMTCP can already checkpoint user-space Qemu without the
@@ -33,16 +35,10 @@ kvm:  Support for checkpointing Qemu virtual machine under KVM.  Note
 	at IEEE Cluster-2013, by Rohan Garg et al.
 	Please report bugs to dmtcp@ccs.neu.edu as well as to
 	rohgarg using his account at ccs.neu.edu.
+	  [ If running with a network of virtual machines, you may also want
+            to use this with the 'tun' plugin below. ]
 
-tun:  Suport for the Tun network (part of Tun/Tap in the Linux kernel).
-	Currently, this is primarily useful for checkpointing a network
-	of KVM-based virtual machines.  It may be useful in other
-	Tun-based applications.  Details are reported on in the same
-	article as for the kvm plugin.
-	Please report bugs to dmtcp@ccs.neu.edu as well as to
-	rohgarg using his account at ccs.neu.edu.
-
-python:  Supprt for a Python module, dmtcp.py.  This integrates DMTCP
+python:  Support for a Python module, dmtcp.py.  This integrates DMTCP
 	into Python (and IPython) so that DMTCP may be invoked directly
 	from Python.  This work was reported on at SciPy-2013 in
 	"DMTCP: Bringing Checkpoint-Restart to Python" by Kapil Arya et al.
@@ -52,7 +48,19 @@ python:  Supprt for a Python module, dmtcp.py.  This integrates DMTCP
 	kapil using his account at ccs.neu.edu.
 
 rm (Resource Manager):  Support for using DMTCP with batch queue systems.
-	Currently TORQUE and SLURM are supported. Support for SGE and LSF is planned
-	in near future. It is the work of Artem Polyakov.
+	Currently TORQUE and SLURM are supported. Support for SGE and LSF
+        is planned in the near future.  This is the work of Artem Polyakov.
 	Please report bugs to dmtcp@ccs.neu.edu as well as to
-	artem84 using his gmail account
+	artem84 using his gmail account.
+	  [ This can be useful with the infiniband plugin for parallel
+            computations on an InfiniBand cluster using a batch queue. ]
+
+tun:  Support for the Tun network (part of Tun/Tap in the Linux kernel).
+	Currently, this is primarily useful for checkpointing a network
+	of KVM-based virtual machines.  It may be useful in other
+	Tun-based applications.  Details are reported on in the same
+	article as for the kvm plugin.
+	Please report bugs to dmtcp@ccs.neu.edu as well as to
+	rohgarg using his account at ccs.neu.edu.
+	  [ This can be useful with the kvm plugin for a network of
+            virtual machines. ]

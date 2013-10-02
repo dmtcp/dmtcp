@@ -7,7 +7,7 @@ dmtcp@ccs.neu.edu as well as to jiajun using his account at ccs.neu.edu.
 To use InfiniBand, you must have first configured DMTCP to use it:
 To do so:
   cd <DMTCP_ROOT>  # replace with wherever your DMTCP_ROOT is.
-  ./conrigure --enable-infiniband-support
+  ./configure --enable-infiniband-support
   make clean
   make
   # Replace next line with absolute path to your contrib/infiniband directory.
