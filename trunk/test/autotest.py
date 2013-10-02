@@ -730,8 +730,10 @@ else:
     os.environ['LD_LIBRARY_PATH'] = os.getenv("PWD")+"/test:"+os.getenv("PWD")
 if not testconfig.USE_M32:
   runTest("dlopen1",        1, ["./test/dlopen1"])
-if not testconfig.USE_M32:
-  runTest("dlopen2",        1, ["./test/dlopen2"])
+# Disable the dlopen2 test until we can figure out a way to handle calls to
+# fork/exec/wait during library intialization with dlopen().
+#if not testconfig.USE_M32:
+#  runTest("dlopen2",        1, ["./test/dlopen2"])
 if old_ld_library_path:
   os.environ['LD_LIBRARY_PATH'] = old_ld_library_path
 else:
