@@ -297,6 +297,7 @@ dmtcp::DmtcpWorker::DmtcpWorker (bool enableCheckpointing)
   calculateArgvAndEnvSize();
 
   CoordinatorAPI::instance().connectToCoordinatorWithHandshake();
+  SharedData::updateLocalIPAddr();
 
   // define "Weak Symbols for each library plugin in libdmtcp.so
   processEvent(DMTCP_EVENT_INIT, NULL);

@@ -36,6 +36,7 @@ dmtcp::CoordinatorAPI::CoordinatorAPI (int sockfd)
   : _coordinatorSocket(sockfd)
 {
   memset(&_coordAddr, 0, sizeof(_coordAddr));
+  memset(&_localIPAddr, 0, sizeof(_localIPAddr));
   _coordAddrLen = 0;
   return;
 }
@@ -367,6 +368,7 @@ void dmtcp::CoordinatorAPI::recvCoordinatorHandshake()
     UniquePid::ComputationId() = hello_remote.compGroup;
   }
   _coordTimeStamp = hello_remote.coordTimeStamp;
+  memcpy(&_localIPAddr, &hello_remote.ipAddr, sizeof _localIPAddr);
   _virtualPid = hello_remote.virtualPid;
   JTRACE("Coordinator handshake RECEIVED!!!!!");
 }
@@ -606,6 +608,12 @@ void dmtcp::CoordinatorAPI::sendCkptFilename()
   _coordinatorSocket << msg;
   _coordinatorSocket.writeAll (ckptFilename.c_str(), ckptFilename.length() +1);
   _coordinatorSocket.writeAll (hostname.c_str(),     hostname.length() +1);
+}
+
+void dmtcp::CoordinatorAPI::getLocalIPAddr(struct in_addr *in)
+{
+  JASSERT(in != NULL);
+  memcpy(in, &_localIPAddr, sizeof _localIPAddr);
 }
 
 // At restart, the HOST/PORT used by dmtcp_coordinator could be different then

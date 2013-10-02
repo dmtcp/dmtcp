@@ -57,9 +57,13 @@ namespace dmtcp
                              jalib::JSocket& remote);
       bool validateNewWorkerProcess(DmtcpMessage& hello_remote,
                                     jalib::JSocket& remote,
-                                    jalib::JChunkReader *jcr);
+                                    jalib::JChunkReader *jcr,
+                                    const struct sockaddr* remoteAddr,
+                                    socklen_t remoteLen);
       bool validateRestartingWorkerProcess(DmtcpMessage& hello_remote,
-                                           jalib::JSocket& remote);
+                                           jalib::JSocket& remote,
+                                           const struct sockaddr* remoteAddr,
+                                           socklen_t remoteLen);
 
       CoordinatorStatus getStatus() const;
       dmtcp::WorkerState minimumState() const {

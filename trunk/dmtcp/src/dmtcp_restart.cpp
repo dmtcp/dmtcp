@@ -230,6 +230,8 @@ class RestoreTarget
        * recreating threads), causing it to use *older* timestamp.
        */
       dmtcp::SharedData::initialize();
+      dmtcp::SharedData::updateLocalIPAddr();
+
       dmtcp::Util::runMtcpRestore(_path.c_str(), _fd,
                                   _pInfo.argvSize(), _pInfo.envSize());
 

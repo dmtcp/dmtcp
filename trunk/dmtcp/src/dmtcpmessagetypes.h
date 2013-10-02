@@ -151,6 +151,8 @@ namespace dmtcp
     UniquePid   compGroup;
     pid_t       virtualPid;
 
+    struct in_addr ipAddr;
+
 //#ifdef COORD_NAMESERVICE
     size_t                  keyLen;
     size_t                  valLen;

@@ -68,6 +68,9 @@ void dmtcp::SharedData::initializeHeader()
   } else {
     sharedDataHeader->nextVirtualPtyId = 0;
   }
+
+  memset(&sharedDataHeader->localIPAddr, 0,
+         sizeof sharedDataHeader->localIPAddr);
 }
 
 void dmtcp::SharedData::initialize()
@@ -204,6 +207,19 @@ void dmtcp::SharedData::setCkptInterval(int interval)
   Util::lockFile(PROTECTED_SHM_FD);
   sharedDataHeader->ckptInterval = interval;
   Util::unlockFile(PROTECTED_SHM_FD);
+}
+
+void dmtcp::SharedData::updateLocalIPAddr()
+{
+  if (sharedDataHeader == NULL) initialize();
+  CoordinatorAPI::instance().getLocalIPAddr(&sharedDataHeader->localIPAddr);
+}
+
+void dmtcp::SharedData::getLocalIPAddr(struct in_addr *in)
+{
+  if (sharedDataHeader == NULL) initialize();
+  JASSERT(in != NULL);
+  memcpy(in, &sharedDataHeader->localIPAddr, sizeof *in);
 }
 
 pid_t dmtcp::SharedData::getRealPid(int virt)

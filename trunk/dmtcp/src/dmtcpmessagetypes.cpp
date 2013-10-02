@@ -65,6 +65,7 @@ dmtcp::DmtcpMessage::DmtcpMessage ( DmtcpMessageType t /*= DMT_NULL*/ )
 {
 //     struct sockaddr_storage _addr;
 //         socklen_t _addrlen;
+  memset(&ipAddr, 0, sizeof ipAddr);
   strncpy ( _magicBits,DMTCP_MAGIC_STRING,sizeof ( _magicBits ) );
 }
 
