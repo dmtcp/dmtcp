@@ -77,8 +77,6 @@
 
 using namespace dmtcp;
 
-static int thePort = -1;
-
 static const char* theHelpMessage =
   "COMMANDS:\n"
   "  l : List connected nodes\n"
@@ -99,6 +97,9 @@ static const char* theUsage =
   "OPTIONS:\n"
   "  --port, -p, (environment variable DMTCP_PORT):\n"
   "      Port to listen on (default: 7779)\n"
+  "  --port-file\n"
+  "      File to write listener port number.\n"
+  "      (Useful with '--port 0', that is used to assign a random port)\n"
   "  --ckptdir, -c, (environment variable DMTCP_CHECKPOINT_DIR):\n"
   "      Directory to store dmtcp_restart_script.sh (default: ./)\n"
   "  --tmpdir, -t, (environment variable DMTCP_TMPDIR):\n"
@@ -366,6 +367,9 @@ static const char* theRestartScriptMultiHostProcessing =
   "wait\n"
 ;
 
+static int thePort = -1;
+static dmtcp::string thePortFile;
+
 static bool exitOnLast = false;
 static bool blockUntilDone = false;
 static bool exitAfterCkpt = false;
@@ -420,6 +424,7 @@ static dmtcp::string coordHostname;
 static struct in_addr localhostIPAddr;
 
 static void removeStaleSharedAreaFile();
+static void preExitCleanup();
 
 #define INITIAL_VIRTUAL_PID 40000
 #define MAX_VIRTUAL_PID  40000000
@@ -599,7 +604,7 @@ void dmtcp::DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*
     {
       i->close();
     }
-    removeStaleSharedAreaFile();
+    preExitCleanup();
     JTRACE ("Exiting ...");
     exit ( 0 );
     break;
@@ -886,6 +891,13 @@ static void removeStaleSharedAreaFile()
     << std::hex << curTimeStamp;
   JTRACE("Removing sharedArea file.") (o.str());
   unlink(o.str().c_str());
+}
+
+static void preExitCleanup()
+{
+  removeStaleSharedAreaFile();
+  JTRACE("Removing port-file") (thePortFile);
+  unlink(thePortFile.c_str());
 }
 
 void dmtcp::DmtcpCoordinator::onDisconnect ( jalib::JReaderInterface* sock )
@@ -1625,6 +1637,9 @@ int main ( int argc, char** argv )
     }else if(argc>1 && (s == "-p" || s == "--port")){
       thePort = jalib::StringToInt( argv[1] );
       shift; shift;
+    }else if(argc>1 && s == "--port-file"){
+      thePortFile = argv[1];
+      shift; shift;
     }else if(argc>1 && (s == "-c" || s == "--ckptdir")){
       setenv(ENV_VAR_CHECKPOINT_DIR, argv[1], 1);
       shift; shift;
@@ -1685,6 +1700,13 @@ int main ( int argc, char** argv )
   }
 
   thePort = sock->port();
+  // Now write the port number to portfile.
+  if (!thePortFile.empty()) {
+    FILE *fp = fopen(thePortFile.c_str(), "w");
+    JWARNING(fp != NULL) (thePortFile) .Text("Failed to open port file.");
+    fprintf(fp, "%d", thePort);
+    fclose(fp);
+  }
 
   if ( batchMode && getenv ( ENV_VAR_CKPT_INTR ) == NULL ) {
     setenv(ENV_VAR_CKPT_INTR, "3600", 1);
