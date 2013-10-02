@@ -50,6 +50,9 @@ static const char* theUsage =
   "      Hostname where dmtcp_coordinator is run (default: localhost)\n"
   "  --port, -p, (environment variable DMTCP_PORT):\n"
   "      Port where dmtcp_coordinator is run (default: 7779)\n"
+  "  --ckptdir, -c, (environment variable DMTCP_CHECKPOINT_DIR):\n"
+  "      Directory to store checkpoint images\n"
+  "      (default: use the same directory used in previous checkpoint)\n"
   "  --tmpdir, -t, (environment variable DMTCP_TMPDIR):\n"
   "      Directory to store temporary files \n"
   "        (default: $TMDPIR/dmtcp-$USER@$HOST or /tmp/dmtcp-$USER@$HOST)\n"
@@ -203,14 +206,17 @@ class RestoreTarget
         }
       }
 
-      // Create the ckpt-dir fd so that the restarted process can know about
-      // the abs-path of ckpt-image.
-      dmtcp::string dirName = jalib::Filesystem::DirName(_path);
-      int dirfd = open(dirName.c_str(), O_RDONLY);
-      JASSERT(dirfd != -1) (JASSERT_ERRNO);
-      if (dirfd != PROTECTED_CKPT_DIR_FD) {
-        JASSERT(dup2(dirfd, PROTECTED_CKPT_DIR_FD) == PROTECTED_CKPT_DIR_FD);
-        close(dirfd);
+      string ckptDir = jalib::Filesystem::GetDeviceName(PROTECTED_CKPT_DIR_FD);
+      if (ckptDir.length() == 0) {
+        // Create the ckpt-dir fd so that the restarted process can know about
+        // the abs-path of ckpt-image.
+        dmtcp::string dirName = jalib::Filesystem::DirName(_path);
+        int dirfd = open(dirName.c_str(), O_RDONLY);
+        JASSERT(dirfd != -1) (JASSERT_ERRNO);
+        if (dirfd != PROTECTED_CKPT_DIR_FD) {
+          JASSERT(dup2(dirfd, PROTECTED_CKPT_DIR_FD) == PROTECTED_CKPT_DIR_FD);
+          close(dirfd);
+        }
       }
 
       WorkerState::setCurrentState(WorkerState::RESTARTING);
@@ -244,6 +250,27 @@ class RestoreTarget
     int _fd;
 };
 
+static void setNewCkptDir(char *path)
+{
+  struct stat st;
+  if (stat(path, &st) == -1) {
+    JASSERT(mkdir(path, S_IRWXU) == 0 || errno == EEXIST)
+      (JASSERT_ERRNO) (path)
+      .Text("Error creating checkpoint directory");
+    JASSERT(0 == access(path, X_OK|W_OK)) (path)
+      .Text("ERROR: Missing execute- or write-access to checkpoint dir");
+  } else {
+    JASSERT(S_ISDIR(st.st_mode)) (path) .Text("ckptdir not a directory");
+  }
+
+  int fd = open(path, O_RDONLY);
+  JASSERT(fd != -1) (path);
+  JASSERT(dup2(fd, PROTECTED_CKPT_DIR_FD) == PROTECTED_CKPT_DIR_FD)
+    (fd) (path);
+  if (fd != PROTECTED_CKPT_DIR_FD) {
+    close(fd);
+  }
+}
 
 //shift args
 #define shift argc--,argv++
@@ -307,6 +334,9 @@ int main(int argc, char** argv)
       shift; shift;
     } else if (argc > 1 && (s == "-p" || s == "--port")) {
       setenv(ENV_VAR_NAME_PORT, argv[1], 1);
+      shift; shift;
+    } else if (argc > 1 && (s == "-c" || s == "--ckptdir")) {
+      setNewCkptDir(argv[1]);
       shift; shift;
     } else if (argc > 1 && (s == "-t" || s == "--tmpdir")) {
       setenv(ENV_VAR_TMPDIR, argv[1], 1);
