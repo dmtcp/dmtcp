@@ -28,11 +28,6 @@
 #include "linux/version.h"
 #include <features.h>
 
-
-// IBV is for the Infiniband plugin.  The overhead in DMTCP is essentially zero.
-// Undefine this if for some reason it should interfere.
-#define IBV
-
 // Turn on coordinator NameService by default. In future, we will replace the
 // logic in dmtcp_coordinator.cpp and dmtcp_worker.cpp to allow the coordinator
 // to automatically detect when a worker wants to use NameService. If it does,

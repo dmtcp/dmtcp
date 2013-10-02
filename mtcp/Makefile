@@ -95,6 +95,11 @@ ifdef PTRACE
   MTCP_CFLAGS += -DPTRACE
 endif
 
+# If ./configure --enable-infiniband-support defined.
+ifdef INFINIBAND
+  MTCP_CFLAGS += -DIBV
+endif
+
 ifdef DMTCP_VERSION
   MTCP_CFLAGS += -DDMTCP_VERSION=\"$(DMTCP_VERSION)\"
 endif
