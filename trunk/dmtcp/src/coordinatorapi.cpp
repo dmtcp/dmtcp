@@ -720,18 +720,3 @@ int dmtcp::CoordinatorAPI::sendQueryToCoordinator(const void *key, size_t key_le
 
   return *val_len;
 }
-
-int dmtcp::CoordinatorAPI::getHostIPv4(struct in_addr *in)
-{
-  struct sockaddr_storage addr;
-  socklen_t addrlen = sizeof(addr);
-  JASSERT(in != NULL);
-  JASSERT(0 == getsockname(_coordinatorSocket.sockfd(), (struct sockaddr*)&addr,
-                           &addrlen));
-  JASSERT(addr.ss_family == AF_INET) (addr.ss_family)
-    .Text("Only IPv4 supported for coordinator sockets.");
-
-  struct sockaddr_in *sin = (struct sockaddr_in*) &addr;
-  memcpy(in, &sin->sin_addr, sizeof(*in));
-  return 0;
-}

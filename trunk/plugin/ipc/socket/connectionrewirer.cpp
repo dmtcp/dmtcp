@@ -118,7 +118,7 @@ void dmtcp::ConnectionRewirer::openRestoreSocket()
   // Setup restore socket for name service
   struct sockaddr_in addr_in;
   addr_in.sin_family = AF_INET;
-  dmtcp_get_host_ipv4(&addr_in.sin_addr);
+  dmtcp_get_local_ip_addr(&addr_in.sin_addr);
   addr_in.sin_port = htons(restoreSocket.port());
   memcpy(&_restoreAddr, &addr_in, sizeof(addr_in));
   _restoreAddrlen = sizeof(addr_in);

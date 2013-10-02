@@ -24,6 +24,7 @@
 #include "coordinatorapi.h"
 #include "syscallwrappers.h"
 #include "processinfo.h"
+#include "shareddata.h"
 
 using namespace dmtcp;
 
@@ -212,9 +213,9 @@ EXTERNC int dmtcp_send_query_to_coordinator(const void *key, size_t key_len,
                                                            val, val_len);
 }
 
-EXTERNC int dmtcp_get_host_ipv4(struct in_addr *in)
+EXTERNC void dmtcp_get_local_ip_addr(struct in_addr *in)
 {
-  return CoordinatorAPI::instance().getHostIPv4(in);
+  SharedData::getLocalIPAddr(in);
 }
 
 EXTERNC int dmtcp_no_coordinator()

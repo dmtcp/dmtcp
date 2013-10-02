@@ -16,7 +16,7 @@
 
 static int listenSock = -1;
 
-extern "C" int dmtcp_get_host_ipv4(struct in_addr *addr) __attribute((weak));
+extern "C" void dmtcp_get_local_ip_addr(struct in_addr *addr) __attribute((weak));
 
 static int getport(int fd)
 {
@@ -140,11 +140,11 @@ int main(int argc, char *argv[], char *envp[])
 
     // Replace dmtcp_sshd replace with "dmtcp_sshd --host <host> --port <port>"
     struct in_addr saddr;
-    if (dmtcp_get_host_ipv4 == NULL) {
-      printf("ERROR: Unable to find dmtcp_get_host_ipv4.\n");
+    if (dmtcp_get_local_ip_addr == NULL) {
+      printf("ERROR: Unable to find dmtcp_get_local_ip_addr.\n");
       abort();
     }
-    dmtcp_get_host_ipv4(&saddr);
+    dmtcp_get_local_ip_addr(&saddr);
     char *hostip = inet_ntoa(saddr);
     strcpy(hostname, hostip);
 
