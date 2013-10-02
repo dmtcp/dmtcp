@@ -23,7 +23,7 @@ infiniband:  Support for checkpointing applications over InfiniBand.
         In order to use this plugin, one must configure dmtcp with
         --enable-infiniband-support flag.
 	It is the work of Jiajun Cao et al.
-	Please report bugs to dmtcp-forum@ccs.neu.edu as well as to
+	Please report bugs to dmtcp@ccs.neu.edu as well as to
 	jiajun using his account at ccs.neu.edu.
 
 kvm:  Support for checkpointing Qemu virtual machine under KVM.  Note
@@ -31,7 +31,7 @@ kvm:  Support for checkpointing Qemu virtual machine under KVM.  Note
 	use of any additional plugins.  This work is reported on in
 	"Checkpoint-Restart for a Network of Virtual Machines"
 	at IEEE Cluster-2013, by Rohan Garg et al.
-	Please report bugs to dmtcp-forum@ccs.neu.edu as well as to
+	Please report bugs to dmtcp@ccs.neu.edu as well as to
 	rohgarg using his account at ccs.neu.edu.
 
 tun:  Suport for the Tun network (part of Tun/Tap in the Linux kernel).
@@ -39,7 +39,7 @@ tun:  Suport for the Tun network (part of Tun/Tap in the Linux kernel).
 	of KVM-based virtual machines.  It may be useful in other
 	Tun-based applications.  Details are reported on in the same
 	article as for the kvm plugin.
-	Please report bugs to dmtcp-forum@ccs.neu.edu as well as to
+	Please report bugs to dmtcp@ccs.neu.edu as well as to
 	rohgarg using his account at ccs.neu.edu.
 
 python:  Supprt for a Python module, dmtcp.py.  This integrates DMTCP
@@ -48,11 +48,11 @@ python:  Supprt for a Python module, dmtcp.py.  This integrates DMTCP
 	"DMTCP: Bringing Checkpoint-Restart to Python" by Kapil Arya et al.
 	The abstract and video are at:
         http://conference.scipy.org/scipy2013/presentation_detail.php?id=201
-	Please report bugs to dmtcp-forum@ccs.neu.edu as well as to
+	Please report bugs to dmtcp@ccs.neu.edu as well as to
 	kapil using his account at ccs.neu.edu.
 
 rm (Resource Manager):  Support for using DMTCP with batch queue systems.
 	Currently TORQUE and SLURM are supported. Support for SGE and LSF is planned
 	in near future. It is the work of Artem Polyakov.
-	Please report bugs to dmtcp-forum@ccs.neu.edu as well as to
+	Please report bugs to dmtcp@ccs.neu.edu as well as to
 	artem84 using his gmail account
