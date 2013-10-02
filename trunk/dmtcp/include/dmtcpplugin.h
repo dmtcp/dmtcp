@@ -212,6 +212,14 @@ EXTERNC int dmtcp_bq_restore_file(const char *path, const char *savedFilePath,
 # define VOID void
 #endif
 
+//FIXME:
+// If a plugin is not compiled with defined(__PIC__) and we can verify
+// that we're using DMTCP (environment variables), and dmtcpIsEnabled
+// or dmtcpCheckpoint expands to 0, then we should print a warning
+// at run-time.
+
+// These utility functions require compiling the target app with -fPIC
+
 int __attribute__ ((weak)) dmtcpIsEnabled(VOID);
 #define dmtcpIsEnabled() (dmtcpIsEnabled ? dmtcpIsEnabled() : 0)
 
