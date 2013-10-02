@@ -113,7 +113,7 @@ EXTERNC int dmtcp_send_key_val_pair_to_coordinator(const void *key,
                                                    size_t val_len);
 EXTERNC int dmtcp_send_query_to_coordinator(const void *key, size_t key_len,
                                             void *val, size_t *val_len);
-EXTERNC int dmtcp_get_host_ipv4(struct in_addr *in);
+EXTERNC void dmtcp_get_local_ip_addr(struct in_addr *in);
 
 EXTERNC const char* dmtcp_get_tmpdir();
 EXTERNC void dmtcp_set_tmpdir(const char *);
