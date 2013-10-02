@@ -22,7 +22,7 @@ infiniband:  Support for checkpointing applications over InfiniBand.
 	networks).  This plugin extends that support to InfiniBand.
         In order to use this plugin, one must configure dmtcp with
         --enable-infiniband-support flag.
-	It is the work of Jiajun Cao et al.
+	This is the work of Jiajun Cao et al.
 	Please report bugs to dmtcp@ccs.neu.edu as well as to
 	jiajun using his account at ccs.neu.edu.
 
