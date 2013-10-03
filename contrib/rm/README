@@ -26,6 +26,17 @@ USAGE EXAMPLES:
   you should also remove the coordinator startup line and also specify
   the appropriate hostname using the '-h' option of 'dmtcp_launch'.
 
+NOTE:  It is also possible to start dmtcp_coordinator with a randomly assigned
+port to avoid conflicts.  This is done by starting dmtcp_coordinator
+with port '0' as shown below:
+  dmtcp_coordinator --port 0 --port-file coordinator-port.txt
+In this case, DMTCP coordinator writes its listening port to the file
+specified by the --port-file option.
+
+NOTE:  The option
+  dmtcp_coordinator --daemon
+exists for running the coordinator in daemon mode (no I/O, no parent process).
+
 
 -------------------------------------------------------------------------------
 
@@ -85,11 +96,3 @@ export DMTCP_HOST=`hostname`
 ./dmtcp_restart_script.sh --interval 3600
 
 -------------------------------------------------------------------------------
-
-It is also possible to start dmtcp_coordinator with a randomly assigned port to
-avoid conflicts.  This is done by starting dmtcp_coordinator with port '0' as
-shown below:
-  dmtcp_coordinator --port 0 --port-file coordinator-port.txt
-
-DMTCP coordinator writes its listening port to the file specified by
---port-file option.
