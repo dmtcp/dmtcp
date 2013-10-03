@@ -44,10 +44,8 @@ namespace dmtcp
         COORD_INVALID   = 0x0000,
         COORD_JOIN      = 0x0001,
         COORD_NEW       = 0x0002,
-        COORD_FORCE_NEW = 0x0004,
-        COORD_BATCH     = 0x0008,
-        COORD_NONE      = 0x0010,
-        COORD_ANY       = COORD_JOIN | COORD_NEW
+        COORD_NONE      = 0x0004,
+        COORD_ANY       = 0x0010
       };
 
 #ifdef JALIB_ALLOCATOR
@@ -115,8 +113,8 @@ namespace dmtcp
       static void setupVirtualCoordinator();
       static void waitForCheckpointCommand();
       static bool noCoordinator();
-      static void startCoordinatorIfNeeded(CoordinatorMode modes, int isRestart = 0);
-      static void startNewCoordinator(CoordinatorMode modes, int isRestart = 0);
+      static void startCoordinatorIfNeeded(CoordinatorMode mode, int isRestart = 0);
+      static void startNewCoordinator(CoordinatorMode mode);
 
       int sendKeyValPairToCoordinator(const void *key, size_t key_len,
                                       const void *val, size_t val_len);

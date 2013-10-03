@@ -106,11 +106,8 @@ static const char* theUsage =
   "      Directory to store temporary files (default: env var TMDPIR or /tmp)\n"
   "  --exit-on-last\n"
   "      Exit automatically when last client disconnects\n"
-  "  --background\n"
-  "      Run silently in the background (mutually exclusive with --batch)\n"
-  "  --batch\n"
-  "      Run in batch mode (mutually exclusive with --background)\n"
-  "      The checkpoint interval is set to 3600 seconds (1 hr) by default\n"
+  "  --daemon\n"
+  "      Run silently in the background after detaching from the parent process.\n"
   "  --interval, -i, (environment variable DMTCP_CHECKPOINT_INTERVAL):\n"
   "      Time in seconds between automatic checkpoints\n"
   "      (default: 0, disabled)\n"
@@ -194,10 +191,6 @@ static const char* theRestartScriptUsage =
   "  --tmpdir, -t, (environment variable DMTCP_TMPDIR):\n"
   "      Directory to store temporary files \n"
   "        (default: $TMDPIR/dmtcp-$USER@$HOST or /tmp/dmtcp-$USER@$HOST)\n"
-  "  --batch, -b:\n"
-  "      Enable batch mode for dmtcp_restart\n"
-  "  --disable-batch, -b:\n"
-  "      Disable batch mode for dmtcp_restart (if previously enabled)\n"
   "  --interval, -i, (environment variable DMTCP_CHECKPOINT_INTERVAL):\n"
   "      Time in seconds between automatic checkpoints\n"
   "      (Default: Use pre-checkpoint value)\n"
@@ -213,12 +206,6 @@ static const char* theRestartScriptCmdlineArgHandler =
   "    if [ $1 = \"--help\" ]; then\n"
   "      echo \"$usage_str\"\n"
   "      exit\n"
-  "    elif [ $1 = \"--batch\" -o $1 = \"-b\" ]; then\n"
-  "      maybebatch='--batch'\n"
-  "      shift\n"
-  "    elif [ $1 = \"--disable-batch\" ]; then\n"
-  "      maybebatch=\n"
-  "      shift\n"
   "    elif [ $# -ge 2 ]; then\n"
   "      case \"$1\" in \n"
   "        --host|-h)\n"
@@ -269,10 +256,7 @@ static const char* theRestartScriptSingleHostProcessing =
   "  ckpt_files=$given_ckpt_files\n"
   "fi\n\n"
 
-  "coordinator_info=\n"
-  "if [ -z \"$maybebatch\" ]; then\n"
-  "  coordinator_info=\"--host $coord_host --port $coord_port\"\n"
-  "fi\n\n"
+  "coordinator_info=\"--host $coord_host --port $coord_port\"\n"
 
   "tmpdir=\n"
   "if [ ! -z \"$DMTCP_TMPDIR\" ]; then\n"
@@ -285,7 +269,7 @@ static const char* theRestartScriptSingleHostProcessing =
   "fi\n\n"
 
   "exec $dmt_rstr_cmd $coordinator_info $ckpt_dir \\\n"
-  "  $maybebatch $maybejoin --interval \"$checkpoint_interval\" $tmpdir \\\n"
+  "  $maybejoin --interval \"$checkpoint_interval\" $tmpdir \\\n"
   "  $ckpt_files\n"
 ;
 
@@ -357,19 +341,19 @@ static const char* theRestartScriptMultiHostProcessing =
   "  if [ -z $maybebg ]; then\n"
   "    $maybexterm /usr/bin/ssh -t \"$worker_host\" \\\n"
   "      $remote_dmt_rstr_cmd --host \"$coord_host\" --port \"$coord_port\"\\\n"
-  "      $ckpt_dir $maybebatch --join --interval \"$checkpoint_interval\" $tmpdir \\\n"
+  "      $ckpt_dir --join --interval \"$checkpoint_interval\" $tmpdir \\\n"
   "      $new_ckpt_files_group\n"
   "  else\n"
   "    $maybexterm /usr/bin/ssh \"$worker_host\" \\\n"
   // In OpenMPI 1.4, without this (sh -c ...), orterun hangs at the
   // end of the computation until user presses enter key.
   "      \"/bin/sh -c \'$remote_dmt_rstr_cmd --host $coord_host --port $coord_port\\\n"
-  "      $ckpt_dir $maybebatch --join --interval \"$checkpoint_interval\" $tmpdir \\\n"
+  "      $ckpt_dir --join --interval \"$checkpoint_interval\" $tmpdir \\\n"
   "      $new_ckpt_files_group\'\" &\n"
   "  fi\n\n"
   "done\n\n"
   "if [ -n \"$localhost_ckpt_files_group\" ]; then\n"
-  "exec $dmt_rstr_cmd --host \"$coord_host\" --port \"$coord_port\" $maybebatch\\\n"
+  "exec $dmt_rstr_cmd --host \"$coord_host\" --port \"$coord_port\" \\\n"
   "  $ckpt_dir $maybejoin --interval \"$checkpoint_interval\" $tmpdir $localhost_ckpt_files_group\n"
   "fi\n\n"
 
@@ -413,7 +397,6 @@ static bool killInProgress = false;
  */
 static int theCheckpointInterval = 0; /* Current checkpoint interval */
 static int theDefaultCheckpointInterval = 0; /* Reset to this on new comp. */
-static bool batchMode = false;
 static bool isRestarting = false;
 
 const int STDIN_FD = fileno ( stdin );
@@ -1445,11 +1428,6 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
                 "  checkpoint_interval=%d\nfi\n\n",
                 hostname, thePort, theCheckpointInterval );
 
-  if ( batchMode )
-    fprintf ( fp, "maybebatch='--batch'\n\n" );
-  else
-    fprintf ( fp, "maybebatch=\n\n" );
-
   fprintf ( fp, "%s", theRestartScriptCmdlineArgHandler );
 
   fprintf ( fp, "dmt_rstr_cmd=%s/" DMTCP_RESTART_CMD "\n"
@@ -1621,7 +1599,7 @@ int main ( int argc, char** argv )
   const char* portStr = getenv ( ENV_VAR_NAME_PORT );
   if ( portStr != NULL ) thePort = jalib::StringToInt ( portStr );
 
-  bool background = false;
+  bool daemon = false;
 
   shift;
   while(argc > 0){
@@ -1635,11 +1613,8 @@ int main ( int argc, char** argv )
     }else if(s=="--exit-on-last"){
       exitOnLast = true;
       shift;
-    }else if(s=="--background"){
-      background = true;
-      shift;
-    }else if(s=="--batch"){
-      batchMode = true;
+    }else if(s=="--daemon"){
+      daemon = true;
       shift;
     }else if(argc>1 && (s == "-i" || s == "--interval")){
       setenv(ENV_VAR_CKPT_INTR, argv[1], 1);
@@ -1672,9 +1647,6 @@ int main ( int argc, char** argv )
       return 1;
     }
   }
-
-  JASSERT ( ! (background && batchMode) )
-    .Text ( "--background and --batch can't be specified together");
 
   dmtcp::UniquePid::setTmpDir(getenv(ENV_VAR_TMPDIR));
 
@@ -1718,9 +1690,6 @@ int main ( int argc, char** argv )
     fclose(fp);
   }
 
-  if ( batchMode && getenv ( ENV_VAR_CKPT_INTR ) == NULL ) {
-    setenv(ENV_VAR_CKPT_INTR, "3600", 1);
-  }
   //parse checkpoint interval
   const char* interval = getenv ( ENV_VAR_CKPT_INTR );
   if ( interval != NULL ) {
@@ -1753,32 +1722,22 @@ int main ( int argc, char** argv )
   fprintf(stderr, "\n    Exit on last client: %d\n", exitOnLast);
 #endif
 
-  if(background){
+  if (daemon) {
     JASSERT_STDERR  << "Backgrounding...\n";
-    JASSERT(dup2(open("/dev/null",O_RDWR), 0)==0);
-    fflush(stdout);
-    JASSERT(close(1)==0);
-    JASSERT(open("/dev/null", O_WRONLY)==1);
-    fflush(stderr);
-    JASSERT (close(2) == 0 && dup2(1,2) == 2) .Text( "Can't print to stderr");
+    int fd = open("/dev/null", O_RDWR);
+    JASSERT(dup2(fd, STDIN_FILENO) == STDIN_FILENO);
+    JASSERT(dup2(fd, STDOUT_FILENO) == STDOUT_FILENO);
+    JASSERT(dup2(fd, STDERR_FILENO) == STDERR_FILENO);
     JASSERT_CLOSE_STDERR();
-    if(fork()>0){
+    if (fd > STDERR_FILENO) {
+      close(fd);
+    }
+
+    if (fork() > 0) {
       JTRACE ( "Parent Exiting after fork()" );
       exit(0);
     }
     //pid_t sid = setsid();
-  } else if ( batchMode ) {
-    JASSERT_STDERR  << "Going into Batch Mode...\n";
-    close(0);
-    close(1);
-    close(2);
-    JASSERT_CLOSE_STDERR();
-
-    JASSERT(open("/dev/null", O_WRONLY)==0);
-
-    JASSERT(dup2(0, 1) == 1);
-    JASSERT(dup2(0, 2) == 2);
-
   } else {
     JASSERT_STDERR  <<
       "Type '?' for help." <<
@@ -1790,7 +1749,7 @@ int main ( int argc, char** argv )
    */
   setupSIGINTHandler();
   prog.addListenSocket ( *sock );
-  if(!background && !batchMode)
+  if(!daemon)
     prog.addDataSocket ( new jalib::JChunkReader ( STDIN_FD , 1 ) );
 
   prog.monitorSockets ( theCheckpointInterval );
