@@ -85,3 +85,11 @@ export DMTCP_HOST=`hostname`
 ./dmtcp_restart_script.sh --interval 3600
 
 -------------------------------------------------------------------------------
+
+It is also possible to start dmtcp_coordinator with a randomly assigned port to
+avoid conflicts.  This is done by starting dmtcp_coordinator with port '0' as
+shown below:
+  dmtcp_coordinator --port 0 --port-file coordinator-port.txt
+
+DMTCP coordinator writes its listening port to the file specified by
+--port-file option.

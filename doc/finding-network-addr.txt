@@ -1,0 +1,14 @@
+For multi-homed computers, including gateway machines on a cluster, the network
+address of the machine is not unique.  The coordinator will determine its
+default hostname using 'hostname()', which will normally have been configured
+to specify the hostname within a cluster.  The hostname is then used to
+determine the ip address using getaddrinfo(). Any compute nodes will ask the
+coordinator what address the coordinator sees when talking with the compute
+node.  This will be taken as the address of the compute node within the DMTCP
+computation.
+
+In some rare cases, it is possible the getaddrinfo returns the loopback address
+(127.0.0.1) instead of the real-ip address.  In such cases, one could use one
+of host/dig/gethostent to guess the correct address.  This scheme is not yet
+implemented in DMTCP.
+
