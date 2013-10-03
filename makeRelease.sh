@@ -1,29 +1,13 @@
 #!/bin/sh
 
 VERSION=`cat VERSION`
-VCS_SVN=https://dmtcp.svn.sourceforge.net/svnroot/dmtcp
+VCS_SVN=svn://svn.code.sf.net/p/dmtcp/code
 
 #run a command with error checking
 e() {
   echo "$@" >&2
   $@ || (echo "ERROR '$@' failed!">&2; exit 1)
 }
-
-#get svn revision number
-#getRev() {
-#  if [[ -z "$1" ]]
-#  then
-#    getRev .
-#  else
-#    (cd $1 && e svn info) | grep '^Revision: [0-9]*' | cut -d ' ' -f 2  
-#  fi
-#}
-
-#list a dirs named ".svn"
-#removeSvnDirs() {
-#  find $@ -type d | grep '[.]svn$' | xargs rm -rf
-#}
-
 
 OLDDIR=`pwd`
 
@@ -40,21 +24,7 @@ else
 fi
 
 e svn export -r $REV $VCS_SVN/trunk $NAME
-e rm -rf $NAME/{makeRelease.sh}
-
-#REV=`getRev dmtcp_staging`
-#e svn co https://dmtcp.svn.sourceforge.net/svnroot/dmtcp/trunk dmtcp_staging
-
-
-#e mv dmtcp_staging $NAME
 #e rm -rf $NAME/{makeRelease.sh}
-#e removeSvnDirs
-
-# FIXME: Not sure if we need it anymore, removing it for now. Re-insert if feel
-#        the need.              -- Kapil
-#archName=`dpkg-architecture | grep DEB_HOST_ARCH_CPU | \
-#          sed -e's%DEB_HOST_ARCH_CPU=%%'`
-#sed -i -e "s%Architecture: any%Architecture: $archName%" $NAME/debian/control
 
 e fakeroot tar cf $NAME.tar $NAME
 e gzip -9 $NAME.tar
