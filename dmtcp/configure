@@ -4169,7 +4169,6 @@ else
 $as_echo "no, using $LN_S" >&6; }
 fi
 
-AC_PROG_RMDIR
 
 # Check whether --enable-debug was given.
 if test "${enable_debug+set}" = set; then :
