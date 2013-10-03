@@ -1,0 +1,16 @@
+
+struct internal_ibv_srq * get_srq_from_pointer(struct ibv_srq * ptr)
+{
+  struct list_elem * e;
+  for (e = list_begin(&srq_list); e != list_end(&srq_list); e = list_next(e))
+  {
+    struct internal_ibv_srq * internal = list_entry(e, struct internal_ibv_srq, elem);
+
+    if (internal->real_srq == ptr)
+    {
+      return internal;
+    }
+  }
+
+  return NULL;
+}

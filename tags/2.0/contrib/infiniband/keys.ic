@@ -1,0 +1,109 @@
+uint32_t retrieve_lkey_mapping(uint32_t orig_key)
+{
+  struct list_elem * e;
+  for (e = list_begin(&mr_list); e != list_end(&mr_list); e = list_next(e))
+  {
+    struct internal_ibv_mr * mr = list_entry(e, struct internal_ibv_mr, elem);
+
+    if (mr->user_mr.lkey == orig_key) {
+      return mr->real_mr->lkey;
+    }
+  }
+
+  fprintf(stderr, "Lkey not found... %u\n", orig_key);
+//  exit(1);
+}
+
+void sge_update_lkey(struct ibv_sge * list, int len)
+{
+  for (int i = 0; i < len; i++)
+  {
+    list[i].lkey = retrieve_lkey_mapping(list[i].lkey);
+  }
+}
+
+void update_list_rkey(uint32_t rkey)
+{
+  struct list_elem * e; 
+  for (e = list_begin(&rkey_list); e != list_end(&rkey_list); e = list_next(e)){
+    struct ibv_rkey_pair * pair = list_entry(e, struct ibv_rkey_pair, elem);
+    if (pair->orig_rkey == rkey){
+      break;
+    }
+  }
+  if (e == list_end(&rkey_list)){
+    struct ibv_rkey_pair * new_pair = malloc(sizeof(struct ibv_rkey_pair));
+    if (!new_pair){
+      fprintf(stderr, "Could not allocate memory for new_pair.\n");
+      exit(1);
+    }
+    new_pair->orig_rkey = rkey;
+    new_pair->new_rkey = 0;
+    list_push_back(&rkey_list, &new_pair->elem);
+  }
+}
+
+uint32_t update_rkey_restart(uint32_t rkey)
+{
+  struct list_elem * e; 
+  uint32_t new_rkey;
+  size_t size = sizeof(new_rkey);
+  for (e = list_begin(&rkey_list); e != list_end(&rkey_list); e = list_next(e)){
+    struct ibv_rkey_pair * pair = list_entry(e, struct ibv_rkey_pair, elem);
+    if (pair->orig_rkey == rkey){
+      return pair->new_rkey;
+    }
+  }
+  if (dmtcp_send_query_to_coordinator(&rkey, sizeof(rkey), &new_rkey, &size)) {
+    assert(size == sizeof(uint32_t));
+    struct ibv_rkey_pair * new_pair = malloc(sizeof(struct ibv_rkey_pair));
+    if (!new_pair){
+      fprintf(stderr, "Could not allocate memory for new_pair.\n");
+      exit(1);
+    }
+    new_pair->orig_rkey = rkey;
+    new_pair->new_rkey = new_rkey;
+    list_push_back(&rkey_list, &new_pair->elem);
+    return new_rkey;
+  }
+  else {
+    struct ibv_rkey_pair * new_pair = malloc(sizeof(struct ibv_rkey_pair));
+    if (!new_pair){
+      fprintf(stderr, "Could not allocate memory for new_pair.\n");
+      exit(1);
+    }
+    new_pair->orig_rkey = rkey;
+    new_pair->new_rkey = 0;
+    list_push_back(&rkey_list, &new_pair->elem);
+    return rkey;
+  }
+}
+
+void update_rkey_send(struct ibv_send_wr * wr)
+{
+  if (wr == NULL) {
+    return;
+  }
+  if (wr->opcode & IBV_WR_RDMA_WRITE || 
+      wr->opcode & IBV_WR_RDMA_WRITE_WITH_IMM || 
+      wr->opcode & IBV_WR_RDMA_READ) {
+    if (!is_restart){
+      update_list_rkey(wr->wr.rdma.rkey);
+    }
+    else{
+      wr->wr.rdma.rkey = update_rkey_restart(wr->wr.rdma.rkey);
+    }
+  }
+  
+  if (wr->opcode & IBV_WR_ATOMIC_CMP_AND_SWP ||
+      wr->opcode & IBV_WR_ATOMIC_FETCH_AND_ADD) {
+    if (!is_restart){
+      update_list_rkey(wr->wr.atomic.rkey);
+    }
+    else{
+      wr->wr.rdma.rkey = update_rkey_restart(wr->wr.rdma.rkey);
+    }
+  }
+  update_rkey_send(wr->next);
+}
+

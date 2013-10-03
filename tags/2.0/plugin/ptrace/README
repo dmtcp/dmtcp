@@ -1,0 +1,128 @@
+1. General design of ptrace.
+
+Here is the sequence of steps:
+
+a) The coordinator sends a CKPT message.
+
+b) The CT (checkpoint thread) receives and processes the CKPT message by
+sending a SIGUSR2 to all the UTs (user threads).
+
+   In the case of ptrace:  the superior CT receives the message and processes
+it, then go to c).  However, the inferior CT being traced (stopped), can't
+process the message yet.  There's a small catch here:  even if an inferior
+thread is being traced, but the user issues a continue in that process, then
+that thread will be in running state (not stopped), as well as the other
+threads of that process.  So, if a continue occurs, the inferior CT will be
+able to process the CKPT message.
+
+c) The UTs end up inside the signal handler:  stopthisthread.
+
+   In the case of ptrace:  the superior has already reached stopthisthread.
+There are two possible scenarios:
+
+c1) The inferior CT is traced and can't process the CKPT message.
+
+The superior needs to detach from the inferior CT, via ptrace(DETACH, ...).
+The inferior CT will now be able to process the message from the coordinator
+and send SIGUSR2 to the inferiors.  Given the fact that the inferior UTs are
+being traced (stopped), the delivery of SIGUSR2 won't affect their status (next
+time the superior does a waitpid, it can detect that a signal has been
+delivered and decide whether to forward it to the inferior or not).  We need to
+make sure the inferior CT sends SIGUSR2 to inferior UTS after we detach from
+the inferior UTs.
+
+c2) The inferior CT is not stopped (a continue has been issued).
+
+The inferior CT can process the CKPT message and send SIGUSR2 to the inferior
+UTs.  We need to make sure that the inferior CT sends SIGUSR2 signals after the
+superior detaches from the inferiors.  Otherwise the signal will be delivered
+to the superior and the superior will decide whether to forward the signal
+to the inferior or not when it does a waitpid. 
+
+d) Once all UTs are inside the signal handler, the checkpoint image file is
+written for that process.  We don't want the inferior to be traced while
+writing the checkpoint image file.  Too many things can go wrong.
+
+e) Resume.  At resume time, the superior needs to attach to all inferiors,
+including the CT threads.  Otherwise, gdb will complain about missing threads.
+Also, the inferior UTs need to be in the same state as they were at the time of
+checkpoint.  As in, if a UT was running (was issued a continue), it needs to be
+in running state.  Observation:  once the superior attaches to the inferior
+threads, they become traced (stopped).  The inferior threads are still in
+stopthisthread.  Thus the superior thread needs to singlestep the inferiors out
+of stopthisthread and once they're about to exit stopthisthread, it needs to
+make sure the status of inferiors is the same as at checkpoint time.
+
+f) Restart.  At restart time, the superior needs to attach to all inferiors,
+including CT threads.  Also, the inferior UTs need to be in the same state as
+they were at checkpoint.  An important issue that appears at restart is
+different tids.  Thus the pids & tids virtualization code.  Another important
+issue is the eflags register and its trap flag which needs to be set on
+restart.  Same as for resume with regards to singlestepping the inferior out of
+the signal handler.
+
+2. The ptrace wrapper.
+
+There are two possibilities through which a process can become traced:  either
+the superior calls PTRACE_ATTACH on that tid or the process which wants to be
+traced calls PTRACE_TRACEME.  In the case of PTRACE_TRACEME, the call goes
+through the code of the inferior.  Thus the superior has no way of knowing that
+it's tracing that particular inferior.  The superior needs to know which
+threads it's tracing before checkpoint (detach time) and after
+checkpoint (attach time). Thus we need to log the ptrace
+pairs (superior, inferior) to a file known by all processes.  This file will
+be read into memory at checkpoint time and deleted once all processes have
+read the file.  More about this later.  We don't want any files to live across
+a checkpoint/restart.
+
+The ptrace wrapper can be found in ptracewrapper.cpp.
+
+3. Processing of ptrace related information.
+
+The current code uses a list to store the ptrace pairs.  The list lives inside
+ptracewrapper.cpp and ptracewrapper.h.  It makes sense to have the pairs stored
+inside DMTCP, given the fact that the ptrace wrapper is in DMTCP.  Also, having
+a list gets rid of the limitation that statically allocated arrays have.
+
+Since, we're using a list to store the ptrace pairs, we need to be aware of a
+couple of things.  We're reading the ptrace files at checkpoint time.  After
+sleep_between_ckpt, we can no longer acquire locks.  To append a pair to the
+list of pairs, an allocator is called, which internally tries to acquire a
+lock.  But acquiring locks is prohibited at this point! Also, only the
+checkpoint thread can remove the restriction that we can't acquire locks.
+Thus, once all UTs are inside stopthisthread, we can inform the
+checkpointhread to remove the restriction.  Then the checkpointhread will
+notify all UTs that it's safe to acquire locks.  Once this happens,
+motherofall (pid == tid) can read in the ptrace files.  The ptrace information
+is global per process.  All other UTs which are not motherofall will wait for
+motherofall to finish reading the file.
+
+Another thing to be aware of is the fact that before the CT thread sends a
+SIGUSR2 signal to UTs it needs to record the statuses of the UTs.  This happens
+before all UTs have reached their signal handler, aka before we have all
+the ptrace pairs into memory.  Thus we'll write the statuses of the UTs to a
+separate file, (superior, inferior, status of inferior) and this is the file
+we'll copy to memory once all threads are in their stopthisthread signal
+handler.
+
+A special case is when we're checkpointing for the second time in a row and
+there are no new traced threads.  In this case we have all the information in
+memory and we can just go ahead and update the statuses of the inferiors.
+
+4. Modifications in existing code.
+
+All the ptrace code resides in the ptrace plugin:  ~/dmtcp/plugin/ptrace.
+DMTCP communicates with the ptrace plugin via events (see dmtcp_event_hook).
+
+5. Status as of this writing.
+
+The number of threads can change between two consecutive checkpoints.  This
+case is supported.
+
+We may deadlock in the case of an inferior traced by GDB, if one or more of the
+UT's of the inferior process are holding theWrapperExecutionLock.  Fix is in
+progress.
+
+Another known problem:  if we checkpoint too frequently and the post-checkpoint
+work isn't finished, then we'll hang.  Solution:  less frequent checkpoints,
+for now.

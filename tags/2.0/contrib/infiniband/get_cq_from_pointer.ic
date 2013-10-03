@@ -1,0 +1,16 @@
+
+struct internal_ibv_cq * get_cq_from_pointer(struct ibv_cq * ptr)
+{
+  struct list_elem * e;
+  for (e = list_begin(&cq_list); e != list_end(&cq_list); e = list_next(e))
+  {
+    struct internal_ibv_cq * internal = list_entry(e, struct internal_ibv_cq, elem);
+
+    if (internal->real_cq == ptr)
+    {
+      return internal;
+    }
+  }
+
+  return NULL;
+}

@@ -1,0 +1,108 @@
+DMTCP supports ssh by virtualizing the underlying ssh protocol. Here is a
+schematic diagram of DMTCP controlled processes communicating over ssh:
+
+A. Without DMTCP
+                                                
+      Local Node        |        Remote Node   
+                        |                      
+      +-----+           |         +-----+      
+      |a.out|           |         |b.out|      
+      +-----+           |         +-----+      
+         ^              |            ^         
+         | pipes/socks  |            |
+         v              |            v
+      +-----+   socket  |         +-----+
+      | ssh |<==========|========>|sshd |
+      +-----+           |         +-----+
+
+                        
+B. With DMTCP (Checkpoint)
+                        
+    Local Node          |        Remote Node
+                        |
+  .............................................
+  .   +-----+           |         +-----+     .
+  .   |a.out|           |         |b.out|     .
+  .   +-----+           |         +-----+     .
+  .      ^              |            ^        .
+  .      | pipes/socks  |            |        .
+  .      v              |            v        .
+  . +---------+ socket  |       +----------+  .
+  . |dmtcp_ssh|<--------|------>|dmtcp_sshd|  .
+  . +---------+         |       +----------+  .
+  .      ^              |            ^        .
+  .......|...........................|.........
+         |              |            |
+         | pipes        |            |
+         v              |            v
+      +-----+   socket  |         +-----+
+      | ssh |<==========|========>|sshd |
+      +-----+           |         +-----+
+     
+
+The dmtcp_ssh process relays data between ssh process and a.out.  Similarly,
+dmtcp_sshd process relays data between sshd process and b.out.  Processes
+a.out, b.out, dmtcp_ssh, and dmtcp_sshd are checkpointed along with the socket
+connection between dmtcp_ssh and dmtcp_sshd.  The ssh and sshd process are
+never checkpointed. Also, the pipes between ssh and dmtcp_ssh, and between
+sshd and dmtcp_sshd are not checkpointed.
+
+
+C. Restart:
+
+During restart, all four checkpointed processes are restored along with the
+socket connection between dmtcp_ssh and dmtcp_sshd.  The picture looks like the
+following:
+
+    Local Node          |        Remote Node
+                        |
+  .............................................
+  .   +-----+           |         +-----+     .
+  .   |a.out|           |         |b.out|     .
+  .   +-----+           |         +-----+     .
+  .      ^              |            ^        .
+  .      | pipes/socks  |            |        .
+  .      v              |            v        .
+  . +---------+ socket  |       +----------+  .
+  . |dmtcp_ssh|<--------|------>|dmtcp_sshd|  .
+  . +---------+         |       +----------+  .
+  .                     |                     .
+  .............................................
+                        |
+                        |
+     
+
+Notice that there is no underlying ssh connection yet. At this point, the
+dmtcp_ssh process determines the _current_ network address of the dmtcp_sshd
+process (by using getpeername()).  Next, the dmtcp_ssh process launches a
+"dummy" dmtcp_sshd process on the remote node using ssh. This "dummy" process
+is then used to setup the pipes between the original dmtcp_sshd process and the
+sshd process.  This allows dmtcp_ssh and dmtcp_sshd to communicate over the new
+ssh connection.  It should also be noted that the dummy dmtcp_sshd process is
+never checkpointed.
+
+                        
+    Local Node          |        Remote Node
+                        |
+                        |
+      +-----+           |         +-----+    
+      |a.out|           |         |b.out|    
+      +-----+           |         +-----+    
+         ^              |            ^       
+         | pipes/socks  |            |       
+         v              |            v       
+    +---------+ socket  |       +----------+ 
+    |dmtcp_ssh|<--------|------>|dmtcp_sshd|<..
+    +---------+         |       +----------+  .
+         ^              |                     .
+         |              |       +----------+  .
+         |              |       | dummy    |  .
+         |              |       |dmtcp_sshd|  .
+         |              |       +----------+  .
+         |              |            ^        .
+         | pipes        |            |        .
+         v              |            v        .
+      +-----+   socket  |         +-----+     .
+      | ssh |<==========|========>|sshd |<.....
+      +-----+           |         +-----+
+     
