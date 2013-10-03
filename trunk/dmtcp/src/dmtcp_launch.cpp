@@ -31,6 +31,8 @@
 
 #define BINARY_NAME "dmtcp_launch"
 
+using namespace dmtcp;
+
 static void processArgs(int *orig_argc, char ***orig_argv);
 static int testMatlab(const char *filename);
 static int testJava(char **argv);
@@ -66,13 +68,11 @@ static const char* theUsage =
   "        (default: $TMDPIR/dmtcp-$USER@$HOST or /tmp/dmtcp-$USER@$HOST)\n"
   "  --join, -j:\n"
   "      Join an existing coordinator, raise error if one doesn't already exist\n"
-  "  --new, -n:\n"
-  "      Create a new coordinator, raise error if one already exists\n"
   "  --new-coordinator:\n"
-  "      Create a new coordinator even if one already exists\n"
-  "  --batch, -b:\n"
-  "      Enable batch mode i.e. start the coordinator on the same node on\n"
-  "        a randomly assigned port (if no port is specified by --port)\n"
+  "      Create a new coordinator at the given port. Fail if one already exists\n"
+  "        on the given port. The port can be specified with --port, or with\n"
+  "        environment variable DMTCP_PORT.  If no port is specified, start\n"
+  "        coordinator at a random port (same as specifying port '0').\n"
   "  --no-coordinator:\n"
   "      Execute the process in stand-alone coordinator-less mode.\n"
   "        Use dmtcp_command or --interval to request checkpoints.\n"
@@ -81,7 +81,6 @@ static const char* theUsage =
   "      0 implies never (manual ckpt only); if not set and no env var,\n"
   "        use default value set in dmtcp_coordinator or dmtcp_command.\n"
   "      Not allowed if --join is specified\n"
-  "      --batch implies -i 3600, unless otherwise specified.\n"
   "  --no-check:\n"
   "      Skip check for valid coordinator and never start one automatically\n"
   "  --checkpoint-open-files:\n"
@@ -119,7 +118,7 @@ static bool autoStartCoordinator=true;
 static bool checkpointOpenFiles=false;
 static bool enableRM=false;
 static bool enablePtrace=false;
-static dmtcp::CoordinatorAPI::CoordinatorMode allowedModes = dmtcp::CoordinatorAPI::COORD_ANY;
+static CoordinatorAPI::CoordinatorMode allowedModes = CoordinatorAPI::COORD_ANY;
 
 //shift args
 #define shift argc--,argv++
@@ -169,14 +168,8 @@ static void processArgs(int *orig_argc, char ***orig_argv)
       shift;
     }
 #endif
-    else if (s == "-n" || s == "--new") {
+    else if (s == "--new-coordinator") {
       allowedModes = dmtcp::CoordinatorAPI::COORD_NEW;
-      shift;
-    } else if (s == "--new-coordinator") {
-      allowedModes = dmtcp::CoordinatorAPI::COORD_FORCE_NEW;
-      shift;
-    } else if (s == "-b" || s == "--batch") {
-      allowedModes = dmtcp::CoordinatorAPI::COORD_BATCH;
       shift;
     } else if (s == "--no-coordinator") {
       allowedModes = dmtcp::CoordinatorAPI::COORD_NONE;
@@ -196,8 +189,6 @@ static void processArgs(int *orig_argc, char ***orig_argv)
       shift; shift;
     } else if (argc>1 && (s == "-p" || s == "--port")) {
       setenv(ENV_VAR_NAME_PORT, argv[1], 1);
-      if (strcmp(argv[1], "0") == 0)
-        allowedModes = dmtcp::CoordinatorAPI::COORD_BATCH;
       shift; shift;
     } else if (argc>1 && (s == "--prefix")) {
       setenv(ENV_VAR_PREFIX_PATH, argv[1], 1);
@@ -221,9 +212,6 @@ static void processArgs(int *orig_argc, char ***orig_argv)
       enableRM = true;
       shift;
     } else if (s == "--with-plugin") {
-      setenv(ENV_VAR_PLUGIN, argv[1], 1);
-      shift; shift;
-    } else if (s == "--with-module") { /* TEMPORARILY SUPPORT BACKWARD COMPAT.*/
       setenv(ENV_VAR_PLUGIN, argv[1], 1);
       shift; shift;
     } else if (s == "-q" || s == "--quiet") {

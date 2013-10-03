@@ -449,35 +449,35 @@ void dmtcp::CoordinatorAPI::updateCoordTimeStamp()
   _coordTimeStamp = reply.coordTimeStamp;
 }
 
-void dmtcp::CoordinatorAPI::startCoordinatorIfNeeded(dmtcp::CoordinatorAPI::CoordinatorMode mode,
+void dmtcp::CoordinatorAPI::startCoordinatorIfNeeded(CoordinatorAPI::CoordinatorMode mode,
                                                      int isRestart)
 {
   const static int CS_OK = DMTCP_FAIL_RC+1;
   const static int CS_NO = DMTCP_FAIL_RC+2;
-  int coordinatorStatus = -1;
+  int status = -1;
 
   if (mode & COORD_NONE) {
     setupVirtualCoordinator();
     return;
   }
-  if (mode & COORD_BATCH) {
-    startNewCoordinator (mode, isRestart);
-    return;
-  }
+
   //fork a child process to probe the coordinator
-  if (fork()==0) {
+  if (fork() == 0) {
+    // If port '0' is given, assume no coordinator is running.
+    char *portStr = getenv(ENV_VAR_NAME_PORT);
+    if (portStr == NULL && (mode & COORD_NEW) ||
+        (portStr != NULL && strcmp(portStr, "0") == 0))
+      _real_exit(DMTCP_FAIL_RC);
+
     //fork so if we hit an error parent won't die
-    _real_dup2(2,1);                          //copy stderr to stdout
-    _real_dup2(open("/dev/null",O_RDWR), 2);  //close stderr
+    _real_dup2(2, 1);                          //copy stderr to stdout
+    _real_dup2(open("/dev/null", O_RDWR), 2);  //close stderr
     int numPeers;
     int isRunning;
     int coordErrorCode;
     CoordinatorAPI coordinatorAPI;
-    {
-      if (coordinatorAPI.tryConnectToCoordinator() == false) {
-        JTRACE("Coordinator not found.  Will try to start a new one.");
-        _real_exit(DMTCP_FAIL_RC);
-      }
+    if (coordinatorAPI.tryConnectToCoordinator() == false) {
+      _real_exit(DMTCP_FAIL_RC);
     }
 
     coordinatorAPI.sendUserCommand('s', &coordErrorCode, &numPeers, &isRunning);
@@ -485,57 +485,53 @@ void dmtcp::CoordinatorAPI::startCoordinatorIfNeeded(dmtcp::CoordinatorAPI::Coor
 
     if (numPeers == 0 || (isRunning ^ isRestart)) {
       if (numPeers != 0) {
-        JTRACE("Joining existing computation.") (numPeers);
+        JTRACE("Coordinator present with existing computation.") (numPeers);
       }
       _real_exit(CS_OK);
-    }else{
-      JTRACE("Existing computation not in a running state," \
-	     " perhaps checkpoint in progress?");
+    } else {
       _real_exit(CS_NO);
     }
   }
   errno = 0;
   // FIXME:  wait() could return -1 if a signal happened before child exits
-  JASSERT(::wait(&coordinatorStatus)>0)(JASSERT_ERRNO);
-  JASSERT(WIFEXITED(coordinatorStatus));
+  JASSERT(::wait(&status)>0)(JASSERT_ERRNO);
+  JASSERT(WIFEXITED(status));
 
-  //is coordinator running?
-  if (WEXITSTATUS(coordinatorStatus) != CS_OK) {
-    //is coordinator in funny state?
-    if (WEXITSTATUS(coordinatorStatus) == CS_NO) {
-      JASSERT(false) (isRestart)
-	 .Text("Coordinator in a funny state.  Peers exist, not restarting," \
-		"\n but not in a running state.  Often this means you are" \
-		" connecting to\n a stale coordinator from a previous" \
-		" computation.\n Try killing the other coordinator," \
-		" or using a different port for the new comp.");
-    }else if (WEXITSTATUS(coordinatorStatus) == DMTCP_FAIL_RC) {
-      JTRACE("Coordinator not found.  Starting a new one.");
-    }else{
-      JTRACE("Bad result found for coordinator.  Will try start a new one.");
+  int coordStatus = WEXITSTATUS(status);
+
+  JASSERT(coordStatus != CS_NO)
+    .Text("Existing computation not in running state, perhaps a checkpoint in "
+          "progress.");
+
+  if (mode & COORD_JOIN) {
+    JASSERT(coordStatus != DMTCP_FAIL_RC)
+      .Text("Coordinator not found, but --join was specified. Exiting.");
+  } else if (mode & COORD_NEW) {
+    JASSERT(coordStatus == DMTCP_FAIL_RC)
+      .Text("Coordinator already running at given address. Exiting.");
+    startNewCoordinator (mode);
+  } else if (mode & COORD_ANY) {
+    if (coordStatus == DMTCP_FAIL_RC) {
+      startNewCoordinator(mode);
     }
-
-    startNewCoordinator (mode, isRestart);
-
-  }else{
-    if (mode & COORD_FORCE_NEW) {
-      JTRACE("Forcing new coordinator.  --new-coordinator flag given.");
-      startNewCoordinator (mode, isRestart);
-      return;
-    }
-    JASSERT(mode & COORD_JOIN)
-      .Text("Coordinator already running, but '--new' flag was given.");
   }
 }
 
-void dmtcp::CoordinatorAPI::startNewCoordinator(dmtcp::CoordinatorAPI::CoordinatorMode mode,
-                                                int isRestart)
+void dmtcp::CoordinatorAPI::startNewCoordinator(CoordinatorAPI::CoordinatorMode mode)
 {
-  int coordinatorStatus = -1;
+  int status = -1;
   //get location of coordinator
   const char *coordinatorAddr = getenv (ENV_VAR_NAME_HOST);
   if (coordinatorAddr == NULL) coordinatorAddr = DEFAULT_HOST;
   const char *coordinatorPortStr = getenv (ENV_VAR_NAME_PORT);
+  int coordinatorPort;
+
+  JASSERT(mode & COORD_NEW || mode & COORD_ANY);
+  if (coordinatorPortStr != NULL) {
+    coordinatorPort = jalib::StringToInt(coordinatorPortStr);
+  } else {
+    coordinatorPort = (mode & COORD_ANY) ? DEFAULT_PORT : 0;
+  }
 
   dmtcp::string s = coordinatorAddr;
   if (s != "localhost" && s != "127.0.0.1" &&
@@ -546,29 +542,25 @@ void dmtcp::CoordinatorAPI::startNewCoordinator(dmtcp::CoordinatorAPI::Coordinat
     _real_exit(DMTCP_FAIL_RC);
   }
 
-  if (mode & COORD_BATCH || mode & COORD_FORCE_NEW) {
-    // Create a socket and bind it to an unused port.
-    jalib::JServerSocket coordinatorListenerSocket (jalib::JSockAddr::ANY, 0);
-    errno = 0;
-    JASSERT(coordinatorListenerSocket.isValid())
-      (coordinatorListenerSocket.port()) (JASSERT_ERRNO)
-      .Text("Failed to create listen socket."
+  // Create a socket and bind it to an unused port.
+  jalib::JServerSocket coordinatorListenerSocket (jalib::JSockAddr::ANY,
+                                                  coordinatorPort);
+  errno = 0;
+  JASSERT(coordinatorListenerSocket.isValid())
+    (coordinatorListenerSocket.port()) (JASSERT_ERRNO)
+    .Text("Failed to create listen socket."
           "\nIf msg is \"Address already in use\", this may be an old coordinator."
           "\nKill other coordinators and try again in a minute or so.");
-    // Now dup the sockfd to
-    coordinatorListenerSocket.changeFd(PROTECTED_COORD_FD);
-    dmtcp::string coordPort= jalib::XToString(coordinatorListenerSocket.port());
-    setenv (ENV_VAR_NAME_PORT, coordPort.c_str(), 1);
-  }
+  // Now dup the sockfd to
+  coordinatorListenerSocket.changeFd(PROTECTED_COORD_FD);
+  dmtcp::string coordPort= jalib::XToString(coordinatorListenerSocket.port());
+  setenv (ENV_VAR_NAME_PORT, coordPort.c_str(), 1);
 
-  JTRACE("Starting a new coordinator automatically.") (coordinatorPortStr);
+  JTRACE("Starting a new coordinator automatically.") (coordPort);
 
   if (fork()==0) {
     dmtcp::string coordinator = jalib::Filesystem::FindHelperUtility("dmtcp_coordinator");
-    char *modeStr = (char *)"--background";
-    if (mode & COORD_BATCH) {
-      modeStr = (char *)"--batch";
-    }
+    char *modeStr = (char *)"--daemon";
     char * args[] = {
       (char*)coordinator.c_str(),
       (char*)"--exit-on-last",
@@ -583,16 +575,11 @@ void dmtcp::CoordinatorAPI::startNewCoordinator(dmtcp::CoordinatorAPI::Coordinat
 
   errno = 0;
 
-  if (mode & COORD_BATCH) {
-    // FIXME: If running in batch Mode, we sleep here for 5 seconds to let
-    // the coordinator get started up.  We need to fix this in future.
-    sleep(5);
-  } else {
-    JASSERT(wait(&coordinatorStatus)>0)(JASSERT_ERRNO);
+  JASSERT(wait(&status)>0)(JASSERT_ERRNO);
 
-    JASSERT(WEXITSTATUS(coordinatorStatus) == 0)
-      .Text("Failed to start coordinator, port already in use.  You may use a different port by running with \'-p 12345\'\n");
-  }
+  JASSERT(WEXITSTATUS(status) == 0)
+    .Text("Failed to start coordinator, port already in use. "
+          "You may use a different port by running with \'-p 12345\'\n");
 }
 
 void dmtcp::CoordinatorAPI::sendCkptFilename()

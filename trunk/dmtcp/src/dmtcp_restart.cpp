@@ -58,19 +58,16 @@ static const char* theUsage =
   "        (default: $TMDPIR/dmtcp-$USER@$HOST or /tmp/dmtcp-$USER@$HOST)\n"
   "  --join, -j:\n"
   "      Join an existing coordinator, raise error if one doesn't already exist\n"
-  "  --new, -n:\n"
-  "      Create a new coordinator, raise error if one already exists\n"
   "  --new-coordinator:\n"
-  "      Create a new coordinator even if one already exists\n"
-  "  --batch, -b:\n"
-  "      Enable batch mode i.e. start the coordinator on the same node on\n"
-  "        a randomly assigned port (if no port is specified by --port)\n"
+  "      Create a new coordinator at the given port. Fail if one already exists\n"
+  "        on the given port. The port can be specified with --port, or with\n"
+  "        environment variable DMTCP_PORT.  If no port is specified, start\n"
+  "        coordinator at a random port (same as specifying port '0').\n"
   "  --interval, -i, (environment variable DMTCP_CHECKPOINT_INTERVAL):\n"
   "      Time in seconds between automatic checkpoints.\n"
   "      0 implies never (manual ckpt only); if not set and no env var,\n"
   "        use default value set in dmtcp_coordinator or dmtcp_command.\n"
   "      Not allowed if --join is specified\n"
-  "      --batch implies -i 3600, unless otherwise specified.\n"
   "  --no-check:\n"
   "      Skip check for valid coordinator and never start one automatically\n"
   "  --quiet, -q, (or set environment variable DMTCP_QUIET = 0, 1, or 2):\n"
@@ -310,14 +307,8 @@ int main(int argc, char** argv)
     } else if (s == "-j" || s == "--join") {
       allowedModes = dmtcp::CoordinatorAPI::COORD_JOIN;
       shift;
-    } else if (s == "-n" || s == "--new") {
-      allowedModes = dmtcp::CoordinatorAPI::COORD_NEW;
-      shift;
     } else if (s == "--new-coordinator") {
-      allowedModes = dmtcp::CoordinatorAPI::COORD_FORCE_NEW;
-      shift;
-    } else if (s == "-b" || s == "--batch") {
-      allowedModes = dmtcp::CoordinatorAPI::COORD_BATCH;
+      allowedModes = dmtcp::CoordinatorAPI::COORD_NEW;
       shift;
     } else if (s == "-i" || s == "--interval" ||
                (s.c_str()[0] == '-' && s.c_str()[1] == 'i' &&
