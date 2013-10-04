@@ -266,6 +266,36 @@ static int set_flags(int fd, int flags)
 /* This is the wrapper for open()
  *  Used for capturing the fd to a tap/tun interface
  */
+
+int open64(const char *pathname, int flags, ...)
+{
+  va_list argp;
+  static int (*next_fnc)() = NULL; /* Same type signature as open */
+  mode_t mode = 0;                                                                 
+  int result;
+
+  if (flags & O_CREAT) {                                                           
+    va_list arg;                                                                   
+    va_start(arg, flags);                                                          
+    mode = va_arg(arg, int);                                                       
+    va_end(arg);                                                                   
+  }                                                                                
+
+  result = NEXT_FNC(open)(pathname, flags, mode);
+
+  /* Check if the process is opening a connection to the tun driver */
+  if (!strncmp(pathname, "/dev/net/tun", 13)) {
+    /* Save the file descriptor if it is the tun driver
+     * NOTE: This will overwrite the last saved fd (if any).
+     */
+    g_tun_fd = result;
+    DPRINTF("[%s:%d]: PARAMS: pathname: %s, flags:%d; Result: %d\n",
+           __FUNCTION__, __LINE__, pathname, flags, g_tun_fd);
+  }
+  return result;
+}
+
+/* TODO: Fix this duplicate */
 int open(const char *pathname, int flags, ...)
 {
   va_list argp;
@@ -288,8 +318,8 @@ int open(const char *pathname, int flags, ...)
      * NOTE: This will overwrite the last saved fd (if any).
      */
     g_tun_fd = result;
-    DPRINTF("[%s:%d]: DEBUG PARAMS: pathname: %s, flags:%d\n",
-           __FUNCTION__, __LINE__, pathname, flags);
+    DPRINTF("[%s:%d]: PARAMS: pathname: %s, flags:%d; Result: %d\n",
+           __FUNCTION__, __LINE__, pathname, flags, g_tun_fd);
   }
   return result;
 }
@@ -319,8 +349,8 @@ int ioctl(int fd, unsigned long int request, ...)
     idx = get_request_name_idx(request);
     request_name = (idx != -1) ? request_names[idx]: "UNKNOWN";
     /* Capture arguments of ioctl() */
-    DPRINTF("[%s:%d]: DEBUG PARAMS: fd: %d, request:%s, arg:%p\n",
-           __FUNCTION__, __LINE__, fd, request_name, arg);
+    DPRINTF("[%s:%d]: PARAMS: fd: %d, request:%s, arg:%p; Result: %d\n",
+           __FUNCTION__, __LINE__, fd, request_name, arg, result);
     inc_last_req_idx();
     g_request_table[g_last_req_idx].request = request;
     g_request_table[g_last_req_idx].arg = get_arg(request, arg);
