@@ -73,5 +73,6 @@
 #define _real_munmap NEXT_FNC(munmap)
 #define _real_access NEXT_FNC(access)
 #define _real_access NEXT_FNC(access)
+#define _real_realpath NEXT_FNC(realpath)
 
 #endif // FILE_WRAPPERS_H
