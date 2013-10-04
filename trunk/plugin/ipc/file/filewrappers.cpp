@@ -34,6 +34,7 @@
 #define openat openat_always_inline
 #define openat64 openat64_always_inline
 #define readlink readlink_always_inline
+#define realpath realpath_always_inline
 
 #include <stdarg.h>
 #include <stdlib.h>
@@ -71,6 +72,7 @@
 #undef openat
 #undef openat64
 #undef readlink
+#undef realpath
 
 using namespace dmtcp;
 #if 0
@@ -673,44 +675,20 @@ extern "C" char *realpath(const char *path, char *resolved_path)
     }
     strcpy(ret, path);
   } else {
-    ret = NEXT_FNC(realpath) (path, resolved_path);
+    ret = _real_realpath(path, resolved_path);
   }
   return ret;
 }
 
 extern "C" char *__realpath(const char *path, char *resolved_path)
 {
-  char *ret;
-  if (Util::strStartsWith(path, "/dev/pts")) {
-    JASSERT(strlen(path) < PATH_MAX);
-    if (resolved_path == NULL) {
-      ret = (char*) malloc(strlen(path) + 1);
-    } else {
-      ret = resolved_path;
-    }
-    strcpy(ret, path);
-  } else {
-    ret = NEXT_FNC(__realpath) (path, resolved_path);
-  }
-  return ret;
+  return realpath(path, resolved_path);
 }
 
 extern "C" char *__realpath_chk(const char *path, char *resolved_path,
                                 size_t resolved_len)
 {
-  char *ret;
-  if (Util::strStartsWith(path, "/dev/pts")) {
-    JASSERT(strlen(path) < PATH_MAX);
-    if (resolved_path == NULL) {
-      ret = (char*) malloc(strlen(path) + 1);
-    } else {
-      ret = resolved_path;
-    }
-    strcpy(ret, path);
-  } else {
-    ret = NEXT_FNC(__realpath_chk) (path, resolved_path, resolved_len);
-  }
-  return ret;
+  return realpath(path, resolved_path);
 }
 
 extern "C" char *canonicalize_file_name(const char *path)
@@ -718,20 +696,20 @@ extern "C" char *canonicalize_file_name(const char *path)
   return realpath(path, NULL);
 }
 
-#if 0
 extern "C" int access(const char *path, int mode)
 {
   if (Util::strStartsWith(path, "/dev/pts")) {
     char currPtsDevName[32];
     DMTCP_DISABLE_CKPT();
     SharedData::getRealPtyName(path, currPtsDevName, sizeof(currPtsDevName));
-    int ret = NEXT_FNC(access) ((const char*)currPtsDevName, mode);
+    int ret = _real_access(currPtsDevName, mode);
     DMTCP_ENABLE_CKPT();
     return ret;
   }
-  return NEXT_FNC(access) (path, mode);
+  return _real_access(path, mode);
 }
 
+#if 0
 // TODO:  ioctl must use virtualized pids for request = TIOCGPGRP / TIOCSPGRP
 // These are synonyms for POSIX standard tcgetpgrp / tcsetpgrp
 extern "C" {

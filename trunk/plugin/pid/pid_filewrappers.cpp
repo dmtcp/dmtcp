@@ -195,18 +195,6 @@ extern "C" READLINK_RET_TYPE readlink(const char *path, char *buf,
 #endif
 }
 
-extern "C" char *realpath(const char *path, char *resolved_path)
-{
-  char newpath [ PATH_MAX ] = {0} ;
-  updateProcPathVirtualToReal(path, newpath);
-  char *retval = NEXT_FNC(realpath) (newpath, resolved_path);
-  if (retval != NULL) {
-    updateProcPathRealToVirtual(retval, newpath);
-    strcpy(retval, newpath);
-  }
-  return retval;
-}
-
 extern "C" char *__realpath(const char *path, char *resolved_path)
 {
   char newpath [ PATH_MAX ] = {0} ;
@@ -219,32 +207,23 @@ extern "C" char *__realpath(const char *path, char *resolved_path)
   return retval;
 }
 
+extern "C" char *realpath(const char *path, char *resolved_path)
+{
+  return __realpath(path, resolved_path);
+}
+
 extern "C" char *__realpath_chk(const char *path, char *resolved_path,
                                 size_t resolved_len)
 {
-  char newpath [ PATH_MAX ] = {0} ;
-  updateProcPathVirtualToReal(path, newpath);
-  char *retval = NEXT_FNC(__realpath_chk) (newpath, resolved_path, resolved_len);
-  if (retval != NULL) {
-    updateProcPathRealToVirtual(retval, newpath);
-    JASSERT(strlen(newpath) < resolved_len);
-    strcpy(resolved_path, newpath);
-  }
-  return retval;
+  return __realpath(path, resolved_path);
 }
 
 extern "C" char *canonicalize_file_name(const char *path)
 {
-  char newpath [ PATH_MAX ] = {0} ;
-  updateProcPathVirtualToReal(path, newpath);
-  char *retval = NEXT_FNC(canonicalize_file_name) (newpath);
-  if (retval != NULL) {
-    updateProcPathRealToVirtual(retval, newpath);
-    strcpy(retval, newpath);
-  }
-  return retval;
+  return __realpath(path, NULL);
 }
 
+#include <unistd.h>
 extern "C" int access(const char *path, int mode)
 {
   char newpath [ PATH_MAX ] = {0} ;
