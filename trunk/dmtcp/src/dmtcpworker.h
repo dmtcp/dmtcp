@@ -66,7 +66,7 @@ namespace dmtcp
 
       void writeCheckpointPrefix(int fd);
 
-      static void processEvent(DmtcpEvent_t id, DmtcpEventData_t *data);
+      static void eventHook(DmtcpEvent_t id, DmtcpEventData_t *data);
 
     protected:
       void sendUserCommand(char c, int* result = NULL);

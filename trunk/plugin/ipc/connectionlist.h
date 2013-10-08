@@ -60,7 +60,7 @@ namespace dmtcp
       void list();
       void serialize(jalib::JBinarySerializer& o);
 
-      void processEvent(DmtcpEvent_t event, DmtcpEventData_t *data);
+      void eventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
       virtual void scanForPreExisting() {}
       virtual void preLockSaveOptions();
       virtual void preCkptFdLeaderElection();

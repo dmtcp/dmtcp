@@ -38,7 +38,7 @@ static void _do_unlock_tbl()
   JASSERT(_real_pthread_mutex_unlock(&timerLock) == 0) (JASSERT_ERRNO);
 }
 
-void dmtcp_Timer_ProcessEvent(DmtcpEvent_t event, DmtcpEventData_t *data)
+void dmtcp_Timer_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   if (_timerlist == NULL) {
     return;

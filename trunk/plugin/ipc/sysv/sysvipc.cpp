@@ -89,7 +89,7 @@
 
 static pthread_mutex_t tblLock = PTHREAD_MUTEX_INITIALIZER;
 
-void dmtcp_SysVIPC_ProcessEvent(DmtcpEvent_t event, DmtcpEventData_t *data)
+void dmtcp_SysVIPC_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   switch (event) {
     case DMTCP_EVENT_ATFORK_CHILD:
