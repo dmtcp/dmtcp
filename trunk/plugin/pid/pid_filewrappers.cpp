@@ -195,11 +195,11 @@ extern "C" READLINK_RET_TYPE readlink(const char *path, char *buf,
 #endif
 }
 
-extern "C" char *__realpath(const char *path, char *resolved_path)
+extern "C" char *realpath(const char *path, char *resolved_path)
 {
   char newpath [ PATH_MAX ] = {0} ;
   updateProcPathVirtualToReal(path, newpath);
-  char *retval = NEXT_FNC(__realpath) (newpath, resolved_path);
+  char *retval = NEXT_FNC(realpath) (newpath, resolved_path);
   if (retval != NULL) {
     updateProcPathRealToVirtual(retval, newpath);
     strcpy(retval, newpath);
@@ -207,20 +207,20 @@ extern "C" char *__realpath(const char *path, char *resolved_path)
   return retval;
 }
 
-extern "C" char *realpath(const char *path, char *resolved_path)
+extern "C" char *__realpath(const char *path, char *resolved_path)
 {
-  return __realpath(path, resolved_path);
+  return realpath(path, resolved_path);
 }
 
 extern "C" char *__realpath_chk(const char *path, char *resolved_path,
                                 size_t resolved_len)
 {
-  return __realpath(path, resolved_path);
+  return realpath(path, resolved_path);
 }
 
 extern "C" char *canonicalize_file_name(const char *path)
 {
-  return __realpath(path, NULL);
+  return realpath(path, NULL);
 }
 
 #include <unistd.h>
