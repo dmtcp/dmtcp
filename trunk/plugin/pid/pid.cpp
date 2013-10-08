@@ -44,6 +44,24 @@ pid_t dmtcp_virtual_to_real_pid(pid_t virtualPid)
   return VIRTUAL_TO_REAL_PID(virtualPid);
 }
 
+extern "C"
+pid_t dmtcp_get_real_pid()
+{
+  return _real_getpid();
+}
+
+extern "C"
+pid_t dmtcp_get_real_tid()
+{
+  return _real_gettid();
+}
+
+extern "C"
+int dmtcp_real_tgkill(pid_t tgid, pid_t tid, int sig)
+{
+  return _real_tgkill(tgid, tid, sig);
+}
+
 //static void pidVirt_pthread_atfork_parent()
 //{
 //  dmtcp::VirtualPidTable::instance().insert(child_pid, child);
