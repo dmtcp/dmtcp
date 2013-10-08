@@ -25,12 +25,74 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 #include "coordinatorapi.h"
+#include "dmtcpplugin.h"
 #include "syscallwrappers.h"
 #include  "../jalib/jconvert.h"
 #include  "../jalib/jfilesystem.h"
 #include <fcntl.h>
 
 using namespace dmtcp;
+
+extern "C" int fred_record_replay_enabled() __attribute__ ((weak));
+
+void dmtcp_CoordinatorAPI_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
+{
+  switch (event) {
+    case DMTCP_EVENT_INIT:
+      CoordinatorAPI::instance().connectToCoordinatorWithHandshake();
+      break;
+
+    case DMTCP_EVENT_THREADS_SUSPEND:
+      JASSERT(CoordinatorAPI::instance().isValid());
+      break;
+
+    case DMTCP_EVENT_RESTART:
+      CoordinatorAPI::instance().updateCoordTimeStamp();
+      if (fred_record_replay_enabled == 0 || !fred_record_replay_enabled()) {
+        /* This calls setenv() which calls malloc. Since this is only executed on
+           restart, that means it there is an extra malloc on replay. Commenting this
+           until we have time to fix it. */
+        CoordinatorAPI::instance().updateHostAndPortEnv();
+      }
+    case DMTCP_EVENT_RESUME:
+      /* THIS BLOCK IS EXECUTED DURING RESUME and RESTART.
+       *
+       * FIXME: There is no need to call sendCkptFilenameToCoordinator() but if
+       *        we do not call it, it exposes a bug in dmtcp_coordinator.
+       * BUG: The restarting process reconnects to the coordinator and the old
+       *      connection is discarded. However, the coordinator doesn't discard
+       *      the old connection right away (since it can't detect if the other
+       *      end of the socket is closed). It is only discarded after the next
+       *      read phase (coordinator trying to read from all the connected
+       *      workers) in monitorSockets() is complete.  In this read phase, an
+       *      error is recorded on the closed socket and in the next iteration
+       *      of verifying the _dataSockets, this socket is closed and the
+       *      corresponding entry in _dataSockets is freed.
+       *
+       *      The problem occurs when some other worker sends a status messages
+       *      which should take the computation to the next barrier, but since
+       *      the _to_be_disconnected socket is present, the minimum state is
+       *      not reached unanimously and hence the coordinator doesn't raise
+       *      the barrier.
+       *
+       *      The bug was observed by Kapil in gettimeofday test program. It
+       *      can be seen in 1 out of 3 restart attempts.
+       *
+       *      The current solution is to send a dummy message to coordinator
+       *      here before sending a proper request.
+       */
+      dmtcp::CoordinatorAPI::instance().sendCkptFilename();
+      break;
+
+    case DMTCP_EVENT_EXIT:
+      JTRACE("exit() in progress, disconnecting from dmtcp coordinator");
+      CoordinatorAPI::instance().closeConnection();
+      break;
+
+    default:
+      break;
+  }
+}
 
 dmtcp::CoordinatorAPI::CoordinatorAPI (int sockfd)
   : _coordinatorSocket(sockfd)

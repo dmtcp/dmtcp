@@ -25,11 +25,11 @@
 #include "syscallwrappers.h"
 #include "dmtcpworker.h"
 #include "processinfo.h"
-#include "coordinatorapi.h"
 #include "dmtcpmessagetypes.h"
 #include "util.h"
 #include "threadsync.h"
 #include "ckptserializer.h"
+#include "protectedfds.h"
 #include "shareddata.h"
 
 #include "../jalib/jfilesystem.h"
@@ -175,8 +175,6 @@ static void callbackPreCheckpoint( char ** ckptFilename )
   JTRACE ( "MTCP is about to write checkpoint image." )(*ckptFilename);
 }
 
-
-extern "C" int fred_record_replay_enabled() __attribute__ ((weak));
 static void callbackPostCheckpoint(int isRestart,
                                    char* mtcpRestoreArgvStartAddr)
 {
@@ -184,17 +182,8 @@ static void callbackPostCheckpoint(int isRestart,
     //restoreArgvAfterRestart(mtcpRestoreArgvStartAddr);
     prctlRestoreProcessName();
 
-    if (fred_record_replay_enabled == 0 || !fred_record_replay_enabled()) {
-      /* This calls setenv() which calls malloc. Since this is only executed on
-         restart, that means it there is an extra malloc on replay. Commenting this
-         until we have time to fix it. */
-      CoordinatorAPI::instance().updateHostAndPortEnv();
-    }
-
     JTRACE("begin postRestart()");
     WorkerState::setCurrentState(WorkerState::RESTARTING);
-    CoordinatorAPI::instance().updateCoordTimeStamp();
-
     if (dmtcp_update_ppid) {
       dmtcp_update_ppid();
     }
@@ -202,32 +191,6 @@ static void callbackPostCheckpoint(int isRestart,
   } else {
     dmtcp::DmtcpWorker::eventHook(DMTCP_EVENT_RESUME, NULL);
   }
-
-  /* FIXME: There is no need to call sendCkptFilenameToCoordinator() but if
-   *        we do not call it, it exposes a bug in dmtcp_coordinator.
-   * BUG: The restarting process reconnects to the coordinator and the old
-   *      connection is discarded. However, the coordinator doesn't discard
-   *      the old connection right away (since it can't detect if the other
-   *      end of the socket is closed). It is only discarded after the next
-   *      read phase (coordinator trying to read from all the connected
-   *      workers) in monitorSockets() is complete.  In this read phase, an
-   *      error is recorded on the closed socket and in the next iteration of
-   *      verifying the _dataSockets, this socket is closed and the
-   *      corresponding entry in _dataSockets is freed.
-   *
-   *      The problem occurs when some other worker sends a status messages
-   *      which should take the computation to the next barrier, but since
-   *      the _to_be_disconnected socket is present, the minimum state is not
-   *      reached unanimously and hence the coordinator doesn't raise the
-   *      barrier.
-   *
-   *      The bug was observed by Kapil in gettimeofday test program. It can
-   *      be seen in 1 out of 3 restart attempts.
-   *
-   *      The current solution is to send a dummy message to coordinator here
-   *      before sending a proper request.
-   */
-  dmtcp::CoordinatorAPI::instance().sendCkptFilename();
 
   dmtcp::DmtcpWorker::instance().waitForStage3Refill(isRestart);
 
