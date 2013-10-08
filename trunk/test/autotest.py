@@ -918,7 +918,7 @@ if testconfig.HAS_OPENMPI == "yes":
     # The 'sleep 1' below may not fix the race, creating a runaway test_openmpi.
     os.system('/bin/sh -c "$OPENMPI_MPIRUN -np 2 ./test_openmpi' +
               '   2>/dev/null 1>&2 &'
-              ' sleep 1 &&'
+              ' sleep 0 &&'
               ' ps auxw | grep $USER | grep -v grep | grep -q orted &&'
               ' touch ./uses_openmpi_orted" 2>/dev/null')
     os.system("/bin/kill -9 `ps -eo pid,args | grep test_openmpi |" +
