@@ -1539,7 +1539,6 @@ static void setupSIGINTHandler()
 
 static void calcLocalAddr()
 {
-  FILE *fp;
   dmtcp::string cmd;
   char hostname[HOST_NAME_MAX];
   JASSERT(gethostname(hostname, sizeof hostname) == 0) (JASSERT_ERRNO);

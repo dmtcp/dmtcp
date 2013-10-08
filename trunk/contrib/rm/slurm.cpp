@@ -64,7 +64,7 @@ static void print_args(char *const argv[])
 static int patch_srun_cmdline(char * const argv_old[], char ***_argv_new)
 {
   // Calculate initial argc
-  int argc_old;
+  size_t argc_old;
   for(argc_old=0; argv_old[argc_old] != NULL; argc_old++);
   argc_old++;
 
@@ -94,9 +94,9 @@ static int patch_srun_cmdline(char * const argv_old[], char ***_argv_new)
   for(i=1; i < argc_old && argv_old[i][0] == '-'; i++){
     argv_new[i] = argv_old[i];
   }
-  int old_pos = i;
-  int new_pos = i;
-  
+  size_t old_pos = i;
+  size_t new_pos = i;
+
   // Copy dmtcp part so final command looks like: srun <opts> dmtcp_launch <dmtcp_options> orted <orted_options>
   argv_new[new_pos] = strdup(dmtcpCkptPath);
   new_pos++;
@@ -109,7 +109,7 @@ static int patch_srun_cmdline(char * const argv_old[], char ***_argv_new)
   }
   
   dmtcp::string cmdline;
-  for (int i = 0; argv_new[i] != NULL; i++ ) {
+  for (i = 0; argv_new[i] != NULL; i++ ) {
     cmdline +=  dmtcp::string() + argv_new[i] + " ";
   }
 
@@ -122,7 +122,7 @@ static int patch_srun_cmdline(char * const argv_old[], char ***_argv_new)
 void close_all_fds()
 {
   jalib::IntVector fds =  jalib::Filesystem::ListOpenFds();
-  for(int i = 0 ; i < fds.size(); i++){
+  for(size_t i = 0 ; i < fds.size(); i++){
     JTRACE("fds")(i)(fds[i]);
     if( fds[i] > 2 ){ 
       JTRACE("Close")(i)(fds[i]);
@@ -131,7 +131,7 @@ void close_all_fds()
   }
   fds =  jalib::Filesystem::ListOpenFds();
   JTRACE("After close:");
-  for(int i = 0 ; i < fds.size(); i++){
+  for(size_t i = 0 ; i < fds.size(); i++){
     JTRACE("fds")(i)(fds[i]);
   }
   
