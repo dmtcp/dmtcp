@@ -42,6 +42,26 @@ static struct dmtcp::SharedData::Header *sharedDataHeader = NULL;
 static void *prevSharedDataHeaderAddr = NULL;
 static size_t nextVirtualPtyId = (size_t)-1;
 
+void dmtcp_SharedData_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
+{
+  switch (event) {
+    case DMTCP_EVENT_INIT:
+      SharedData::updateLocalIPAddr();
+      break;
+
+    case DMTCP_EVENT_THREADS_SUSPEND:
+      SharedData::suspended();
+      break;
+
+    case DMTCP_EVENT_REGISTER_NAME_SERVICE_DATA:
+    case DMTCP_EVENT_REFILL:
+      dmtcp::SharedData::refill();
+
+    default:
+      break;
+  }
+}
+
 void dmtcp::SharedData::initializeHeader()
 {
   off_t size = CEIL(SHM_MAX_SIZE , Util::pageSize());

@@ -296,9 +296,6 @@ dmtcp::DmtcpWorker::DmtcpWorker (bool enableCheckpointing)
 
   calculateArgvAndEnvSize();
 
-  CoordinatorAPI::instance().connectToCoordinatorWithHandshake();
-  SharedData::updateLocalIPAddr();
-
   // define "Weak Symbols for each library plugin in libdmtcp.so
   eventHook(DMTCP_EVENT_INIT, NULL);
 
@@ -359,8 +356,6 @@ dmtcp::DmtcpWorker::~DmtcpWorker()
      *  releases the destroyDmtcpWorker() mutex and continues normal execution.
      */
     eventHook(DMTCP_EVENT_EXIT, NULL);
-    JTRACE("exit() in progress, disconnecting from dmtcp coordinator");
-    CoordinatorAPI::instance().closeConnection();
     interruptCkpthread();
   }
   cleanupWorker();
@@ -501,12 +496,10 @@ void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
   }
   ThreadSync::destroyDmtcpWorkerLockUnlock();
 
-  JASSERT(CoordinatorAPI::instance().isValid());
   ThreadSync::releaseLocks();
 
   SyslogCheckpointer::stopService();
 
-  SharedData::suspended();
   eventHook(DMTCP_EVENT_THREADS_SUSPEND, NULL);
 
   waitForCoordinatorMsg ("FD_LEADER_ELECTION", DMT_DO_FD_LEADER_ELECTION);
@@ -533,7 +526,6 @@ void dmtcp::DmtcpWorker::waitForStage3Refill(bool isRestart)
   JTRACE("checkpointed");
 
   WorkerState::setCurrentState (WorkerState::CHECKPOINTED);
-  dmtcp::SharedData::refill();
 
 #ifdef COORD_NAMESERVICE
   waitForCoordinatorMsg("REGISTER_NAME_SERVICE_DATA",
@@ -568,10 +560,15 @@ void dmtcp::DmtcpWorker::waitForStage4Resume(bool isRestart)
   dmtcp::DmtcpWorker::eventHook(DMTCP_EVENT_THREADS_RESUME, &edata);
 }
 
+void dmtcp_CoordinatorAPI_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
+void dmtcp_SharedData_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
 void dmtcp_ProcessInfo_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
+
 void dmtcp::DmtcpWorker::eventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   static jalib::JBuffer buf(0); // To force linkage of jbuffer.cpp
+  dmtcp_CoordinatorAPI_EventHook(event, data);
+  dmtcp_SharedData_EventHook(event, data);
   dmtcp_ProcessInfo_EventHook(event, data);
   dmtcp_event_hook(event, data);
 }
