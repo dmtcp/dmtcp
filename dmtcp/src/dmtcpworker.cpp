@@ -122,7 +122,7 @@ extern "C" LIB_PRIVATE void prepareDmtcpWrappers()
     JALLOC_HELPER_DISABLE_LOCKS();
     dmtcp_wrappers_initializing = 1;
     initialize_libc_wrappers();
-    //dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_INIT_WRAPPERS, NULL);
+    //dmtcp::DmtcpWorker::eventHook(DMTCP_EVENT_INIT_WRAPPERS, NULL);
     dmtcp_wrappers_initializing = 0;
     initialize_libpthread_wrappers();
     JALLOC_HELPER_ENABLE_LOCKS();
@@ -213,7 +213,7 @@ static void prepareLogAndProcessdDataFromSerialFile()
 
     DmtcpEventData_t edata;
     edata.serializerInfo.fd = rd.fd();
-    dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_POST_EXEC, &edata);
+    dmtcp::DmtcpWorker::eventHook(DMTCP_EVENT_POST_EXEC, &edata);
     _dmtcp_unsetenv(ENV_VAR_SERIALFILE_INITIAL);
     JASSERT(unlink(serialFile) == 0) (JASSERT_ERRNO);
   } else {
@@ -300,7 +300,7 @@ dmtcp::DmtcpWorker::DmtcpWorker (bool enableCheckpointing)
   SharedData::updateLocalIPAddr();
 
   // define "Weak Symbols for each library plugin in libdmtcp.so
-  processEvent(DMTCP_EVENT_INIT, NULL);
+  eventHook(DMTCP_EVENT_INIT, NULL);
 
   WorkerState::setCurrentState (WorkerState::RUNNING);
   /* Acquire the lock here, so that the checkpoint-thread won't be able to
@@ -358,7 +358,7 @@ dmtcp::DmtcpWorker::~DmtcpWorker()
      * As obvious, once the user threads have been suspended the ckpt-thread
      *  releases the destroyDmtcpWorker() mutex and continues normal execution.
      */
-    processEvent(DMTCP_EVENT_EXIT, NULL);
+    eventHook(DMTCP_EVENT_EXIT, NULL);
     JTRACE("exit() in progress, disconnecting from dmtcp coordinator");
     CoordinatorAPI::instance().closeConnection();
     interruptCkpthread();
@@ -507,11 +507,11 @@ void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
   SyslogCheckpointer::stopService();
 
   SharedData::suspended();
-  processEvent(DMTCP_EVENT_THREADS_SUSPEND, NULL);
+  eventHook(DMTCP_EVENT_THREADS_SUSPEND, NULL);
 
   waitForCoordinatorMsg ("FD_LEADER_ELECTION", DMT_DO_FD_LEADER_ELECTION);
 
-  processEvent(DMTCP_EVENT_LEADER_ELECTION, NULL);
+  eventHook(DMTCP_EVENT_LEADER_ELECTION, NULL);
 
   WorkerState::setCurrentState (WorkerState::FD_LEADER_ELECTION);
 
@@ -519,12 +519,12 @@ void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
 
   WorkerState::setCurrentState (WorkerState::DRAINED);
 
-  processEvent(DMTCP_EVENT_DRAIN, NULL);
+  eventHook(DMTCP_EVENT_DRAIN, NULL);
 
   waitForCoordinatorMsg ("CHECKPOINT", DMT_DO_CHECKPOINT);
   JTRACE("got checkpoint message");
 
-  processEvent(DMTCP_EVENT_WRITE_CKPT, NULL);
+  eventHook(DMTCP_EVENT_WRITE_CKPT, NULL);
 }
 
 void dmtcp::DmtcpWorker::waitForStage3Refill(bool isRestart)
@@ -539,12 +539,12 @@ void dmtcp::DmtcpWorker::waitForStage3Refill(bool isRestart)
   waitForCoordinatorMsg("REGISTER_NAME_SERVICE_DATA",
                           DMT_DO_REGISTER_NAME_SERVICE_DATA);
   edata.nameserviceInfo.isRestart = isRestart;
-  processEvent(DMTCP_EVENT_REGISTER_NAME_SERVICE_DATA, &edata);
+  eventHook(DMTCP_EVENT_REGISTER_NAME_SERVICE_DATA, &edata);
   JTRACE("Key Value Pairs registered with the coordinator");
   WorkerState::setCurrentState(WorkerState::NAME_SERVICE_DATA_REGISTERED);
 
   waitForCoordinatorMsg("SEND_QUERIES", DMT_DO_SEND_QUERIES);
-  processEvent(DMTCP_EVENT_SEND_QUERIES, &edata);
+  eventHook(DMTCP_EVENT_SEND_QUERIES, &edata);
   JTRACE("Queries sent to the coordinator");
   WorkerState::setCurrentState(WorkerState::DONE_QUERYING);
 #endif
@@ -554,7 +554,7 @@ void dmtcp::DmtcpWorker::waitForStage3Refill(bool isRestart)
   SyslogCheckpointer::restoreService();
 
   edata.refillInfo.isRestart = isRestart;
-  dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_REFILL, &edata);
+  dmtcp::DmtcpWorker::eventHook(DMTCP_EVENT_REFILL, &edata);
 }
 
 void dmtcp::DmtcpWorker::waitForStage4Resume(bool isRestart)
@@ -565,13 +565,13 @@ void dmtcp::DmtcpWorker::waitForStage4Resume(bool isRestart)
   JTRACE("got resume message");
   DmtcpEventData_t edata;
   edata.resumeInfo.isRestart = isRestart;
-  dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_THREADS_RESUME, &edata);
+  dmtcp::DmtcpWorker::eventHook(DMTCP_EVENT_THREADS_RESUME, &edata);
 }
 
-void dmtcp_ProcessInfo_ProcessEvent(DmtcpEvent_t event, DmtcpEventData_t *data);
-void dmtcp::DmtcpWorker::processEvent(DmtcpEvent_t event, DmtcpEventData_t *data)
+void dmtcp_ProcessInfo_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
+void dmtcp::DmtcpWorker::eventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   static jalib::JBuffer buf(0); // To force linkage of jbuffer.cpp
-  dmtcp_ProcessInfo_ProcessEvent(event, data);
+  dmtcp_ProcessInfo_EventHook(event, data);
   dmtcp_event_hook(event, data);
 }

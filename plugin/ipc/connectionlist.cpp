@@ -47,7 +47,7 @@ dmtcp::ConnectionList::~ConnectionList()
 {
 }
 
-void dmtcp::ConnectionList::processEvent(DmtcpEvent_t event,
+void dmtcp::ConnectionList::eventHook(DmtcpEvent_t event,
                                          DmtcpEventData_t *data)
 {
   switch (event) {

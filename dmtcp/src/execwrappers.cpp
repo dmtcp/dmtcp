@@ -164,7 +164,7 @@ extern "C" pid_t fork()
    * processing this system call.
    */
   WRAPPER_EXECUTION_GET_EXCL_LOCK();
-  dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_ATFORK_PREPARE, NULL);
+  dmtcp::DmtcpWorker::eventHook(DMTCP_EVENT_ATFORK_PREPARE, NULL);
 
   /* Little bit cheating here: child_time should be same for both parent and
    * child, thus we compute it before forking the child. */
@@ -206,7 +206,7 @@ extern "C" pid_t fork()
   if (childPid != 0) {
     dmtcp::Util::setVirtualPidEnvVar(getpid(), getppid());
     coordinatorAPI.closeConnection();
-    dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_ATFORK_PARENT, NULL);
+    dmtcp::DmtcpWorker::eventHook(DMTCP_EVENT_ATFORK_PARENT, NULL);
     WRAPPER_EXECUTION_RELEASE_EXCL_LOCK();
   }
   return childPid;
@@ -319,7 +319,7 @@ static void dmtcpPrepareForExec(const char *path, char *const argv[],
   dmtcp::UniquePid::serialize (wr);
   DmtcpEventData_t edata;
   edata.serializerInfo.fd = wr.fd();
-  dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_PRE_EXEC, &edata);
+  dmtcp::DmtcpWorker::eventHook(DMTCP_EVENT_PRE_EXEC, &edata);
 
   setenv (ENV_VAR_SERIALFILE_INITIAL, serialFile.c_str(), 1);
   JTRACE("Will exec filename instead of path") (path) (*filename);

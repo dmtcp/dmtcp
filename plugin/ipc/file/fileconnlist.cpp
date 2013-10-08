@@ -41,9 +41,9 @@
 
 using namespace dmtcp;
 
-void dmtcp_FileConnList_ProcessEvent(DmtcpEvent_t event, DmtcpEventData_t *data)
+void dmtcp_FileConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
-  dmtcp::FileConnList::instance().processEvent(event, data);
+  dmtcp::FileConnList::instance().eventHook(event, data);
 }
 
 static dmtcp::vector<Util::ProcMapsArea> shmAreas;

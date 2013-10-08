@@ -4,9 +4,9 @@
 #include "eventconnlist.h"
 
 using namespace dmtcp;
-void dmtcp_EventConnList_ProcessEvent(DmtcpEvent_t event, DmtcpEventData_t *data)
+void dmtcp_EventConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
-  dmtcp::EventConnList::instance().processEvent(event, data);
+  dmtcp::EventConnList::instance().eventHook(event, data);
 }
 
 void dmtcp_EventConn_ProcessFdEvent(int event, int arg1, int arg2)

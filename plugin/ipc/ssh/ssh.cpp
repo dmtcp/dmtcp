@@ -38,7 +38,7 @@ static void refill(bool isRestart);
 static void sshdReceiveFds();
 static void createNewDmtcpSshdProcess();
 
-void dmtcp_SSH_ProcessEvent(DmtcpEvent_t event, DmtcpEventData_t *data)
+void dmtcp_SSH_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   if (!sshPluginEnabled) return;
   switch (event) {

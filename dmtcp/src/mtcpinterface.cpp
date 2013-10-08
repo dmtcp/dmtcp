@@ -142,7 +142,7 @@ void dmtcp::killCkpthread()
 static void callbackSleepBetweenCheckpoint ( int sec )
 {
   dmtcp::ThreadSync::waitForUserThreadsToFinishPreResumeCB();
-  dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_WAIT_FOR_SUSPEND_MSG, NULL);
+  dmtcp::DmtcpWorker::eventHook(DMTCP_EVENT_WAIT_FOR_SUSPEND_MSG, NULL);
   if (dmtcp_is_ptracing && dmtcp_is_ptracing()) {
     // FIXME: Add a test to make check that can insert a delay of a couple of
     // seconds in here. This helps testing the initialization routines of various
@@ -198,9 +198,9 @@ static void callbackPostCheckpoint(int isRestart,
     if (dmtcp_update_ppid) {
       dmtcp_update_ppid();
     }
-    dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_RESTART, NULL);
+    dmtcp::DmtcpWorker::eventHook(DMTCP_EVENT_RESTART, NULL);
   } else {
-    dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_RESUME, NULL);
+    dmtcp::DmtcpWorker::eventHook(DMTCP_EVENT_RESUME, NULL);
   }
 
   /* FIXME: There is no need to call sendCkptFilenameToCoordinator() but if
@@ -285,14 +285,14 @@ void callbackHoldsAnyLocks(int *retval)
 void callbackPreSuspendUserThread()
 {
   dmtcp::ThreadSync::incrNumUserThreads();
-  dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_PRE_SUSPEND_USER_THREAD, NULL);
+  dmtcp::DmtcpWorker::eventHook(DMTCP_EVENT_PRE_SUSPEND_USER_THREAD, NULL);
 }
 
 void callbackPreResumeUserThread(int isRestart)
 {
   DmtcpEventData_t edata;
   edata.resumeUserThreadInfo.isRestart = isRestart;
-  dmtcp::DmtcpWorker::processEvent(DMTCP_EVENT_RESUME_USER_THREAD, &edata);
+  dmtcp::DmtcpWorker::eventHook(DMTCP_EVENT_RESUME_USER_THREAD, &edata);
   dmtcp::ThreadSync::setOkToGrabLock();
   // This should be the last significant work before returning from this
   // function.

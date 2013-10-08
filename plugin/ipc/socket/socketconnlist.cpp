@@ -12,9 +12,9 @@
 
 using namespace dmtcp;
 
-void dmtcp_SocketConnList_ProcessEvent(DmtcpEvent_t event, DmtcpEventData_t *data)
+void dmtcp_SocketConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
-  dmtcp::SocketConnList::instance().processEvent(event, data);
+  dmtcp::SocketConnList::instance().eventHook(event, data);
 }
 
 void dmtcp_SocketConn_ProcessFdEvent(int event, int arg1, int arg2)
