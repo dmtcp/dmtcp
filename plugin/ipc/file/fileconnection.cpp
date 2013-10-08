@@ -1045,7 +1045,6 @@ void dmtcp::FifoConnection::postRestart()
 int dmtcp::FifoConnection::openFile()
 {
   int fd;
-  struct stat buf;
 
   if (!jalib::Filesystem::FileExists(_path)) {
     JTRACE("Fifo file not present, creating new one") (_path);

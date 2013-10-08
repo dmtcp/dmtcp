@@ -465,7 +465,7 @@ void dmtcp::CoordinatorAPI::startCoordinatorIfNeeded(CoordinatorAPI::Coordinator
   if (fork() == 0) {
     // If port '0' is given, assume no coordinator is running.
     char *portStr = getenv(ENV_VAR_NAME_PORT);
-    if (portStr == NULL && (mode & COORD_NEW) ||
+    if ((portStr == NULL && (mode & COORD_NEW)) ||
         (portStr != NULL && strcmp(portStr, "0") == 0))
       _real_exit(DMTCP_FAIL_RC);
 

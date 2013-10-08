@@ -158,8 +158,6 @@ public:
 
 int resources_slurm::discover()
 {
-  char buf[MAX_LINE_LEN];
-  streamsize max_len = MAX_LINE_LEN;
   ulong node_id = 0;
   bool is_launch = true;
 
