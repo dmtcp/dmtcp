@@ -150,7 +150,7 @@ static int ibv_post_send_passthru(struct ibv_qp *qp,
 static int ibv_post_send_trampoline(struct ibv_qp *qp,
                                     struct ibv_send_wr *wr, struct ibv_send_wr **bad_wr)
 {
- // PDEBUG("WRAPPER for ibv_post_send.\n");
+//  PDEBUG("WRAPPER for ibv_post_send.\n");
   dmtcp_plugin_disable_ckpt();
 //  WRAPPER_EXECUTION_DISABLE_CKPT();
   /* Unpatch ibv_func. */

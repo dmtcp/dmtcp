@@ -1,5 +1,6 @@
 #include <infiniband/verbs.h>
 
+int _real_ibv_fork_init(void);
 // store the resulting ibv_device struct and the value of *num_devices
 // Do we even need to checkpoint this
 struct ibv_device **_real_ibv_get_device_list(int *num_devices);
