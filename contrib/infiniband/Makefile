@@ -47,11 +47,13 @@ get_qp_from_pointer.ic: get_XX_from_pointer.ic
 	sed -e 's%XX%qp%g' get_XX_from_pointer.ic > get_qp_from_pointer.ic
 get_cq_from_pointer.ic: get_XX_from_pointer.ic
 	sed -e 's%XX%cq%g' get_XX_from_pointer.ic > get_cq_from_pointer.ic
+get_srq_from_pointer.ic: get_XX_from_pointer.ic
+	sed -e 's%XX%srq%g' get_XX_from_pointer.ic > get_srq_from_pointer.ic
 ibv_wr_ops_send.ic: ibv_wr_ops.ic
 	sed -e 's%SENDRECV%send%g' ibv_wr_ops.ic > ibv_wr_ops_send.ic
 ibv_wr_ops_recv.ic: ibv_wr_ops.ic
 	sed -e 's%SENDRECV%recv%g' ibv_wr_ops.ic > ibv_wr_ops_recv.ic
-ibvctx.c: ibv_wr_ops_send.ic ibv_wr_ops_recv.ic get_qp_from_pointer.ic get_cq_from_pointer.ic
+ibvctx.c: ibv_wr_ops_send.ic ibv_wr_ops_recv.ic get_qp_from_pointer.ic get_cq_from_pointer.ic get_srq_from_pointer.ic
 
 .c.o:
 	${CC} ${CFLAGS} -o $@ $<
