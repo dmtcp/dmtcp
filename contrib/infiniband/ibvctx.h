@@ -23,6 +23,7 @@
 #include <infiniband/verbs.h>
 
 void pre_checkpoint(void);
+int _fork_init(void);
 struct ibv_device ** _get_device_list(int * num_devices);
 const char * _get_device_name(struct ibv_device * device);
 void _free_device_list(struct ibv_device ** list);

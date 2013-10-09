@@ -79,7 +79,7 @@ tidy:
 clean:
 	rm -f ${LIBOBJS} libinfiniband.so
 	rm -f ${TRACEOBJS} libibtrace.so
-	rm -f ibv_wr_ops_send.ic ibv_wr_ops_recv.ic get_qp_from_pointer.ic get_cq_from_pointer.ic
+	rm -f ibv_wr_ops_send.ic ibv_wr_ops_recv.ic get_srq_from_pointer.ic get_qp_from_pointer.ic get_cq_from_pointer.ic
 distclean: clean
 
 dist: distclean

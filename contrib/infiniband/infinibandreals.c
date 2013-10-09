@@ -50,6 +50,12 @@ static funcptr get_libibverbs_symbol( const char* name )
     return (*fn)
 
 
+int _real_ibv_fork_init()
+{
+  LIBIBVERBS_REAL_FUNC_PASSTHROUGH_TYPED (int, ibv_fork_init)
+        ();
+}
+
 struct ibv_device **_real_ibv_get_device_list(int *num_devices)
 {
   LIBIBVERBS_REAL_FUNC_PASSTHROUGH_TYPED (struct ibv_device **, ibv_get_device_list)

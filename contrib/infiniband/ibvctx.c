@@ -37,8 +37,10 @@
 #include <pthread.h>
 #include <errno.h>
 
-//! This flag can be used for debugging
 static bool is_restart = false;
+
+//! This flag is used to trace whether ibv_fork_init is called
+static bool is_fork = false;
 
 //! This is a list of devices open with ibv_open_device
 static struct ibv_device ** _dev_list;
@@ -86,16 +88,11 @@ void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t* data)
   bool isRestart = (bool) data;
   switch (event) {
   case DMTCP_EVENT_WRITE_CKPT:
-    sleep(1);
     pre_checkpoint();
     break;
   case DMTCP_EVENT_RESTART:
     post_restart();
     break;
-//  case DMTCP_EVENT_RESUME:
-//    sleep(1);
-//    pre_checkpoint();
-//    break;
   case DMTCP_EVENT_REGISTER_NAME_SERVICE_DATA:
     if (data->nameserviceInfo.isRestart) {
       send_qp_info();
@@ -131,7 +128,7 @@ static void send_qp_info(void)
   for (e = list_begin(&qp_list); e != list_end(&qp_list); e = list_next(e)) {
     struct internal_ibv_qp * internal_qp = list_entry(e, struct internal_ibv_qp, elem);
     if (internal_qp->user_qp.state != IBV_QPS_INIT) {
-      PDEBUG("Sending over original_id: %d  %d %d and current_id: %d %d %d from %s\n", internal_qp->original_id.qpn, internal_qp->original_id.lid, internal_qp->original_id.psn, internal_qp->current_id.qpn, internal_qp->current_id.lid, internal_qp->current_id.psn, hostname);
+//      PDEBUG("Sending over original_id: 0x%06x 0x%04x 0x%06x and current_id: 0x%06x 0x%04x 0x%06x from %s\n", internal_qp->original_id.qpn, internal_qp->original_id.lid, internal_qp->original_id.psn, internal_qp->current_id.qpn, internal_qp->current_id.lid, internal_qp->current_id.psn, hostname);
       dmtcp_send_key_val_pair_to_coordinator(&internal_qp->original_id, sizeof(internal_qp->original_id),
                                              &internal_qp->current_id, sizeof(internal_qp->current_id));
     }
@@ -147,7 +144,7 @@ static void query_qp_info(void)
   for (e = list_begin(&qp_list); e != list_end(&qp_list); e = list_next(e)) {
     struct internal_ibv_qp * internal_qp = list_entry(e, struct internal_ibv_qp, elem);
     size_t size = sizeof(internal_qp->current_remote);
-    PDEBUG("Querying for remote_id: %d %d %d from %s\n", internal_qp->remote_id.qpn, internal_qp->remote_id.lid, internal_qp->remote_id.psn, hostname);
+//    PDEBUG("Querying for remote_id: 0x%06x 0x%04x 0x%06x from %s\n", internal_qp->remote_id.qpn, internal_qp->remote_id.lid, internal_qp->remote_id.psn, hostname);
     dmtcp_send_query_to_coordinator(&internal_qp->remote_id, sizeof(internal_qp->remote_id),
                                     &internal_qp->current_remote, &size);
     assert(size == sizeof(struct ibv_qp_id));
@@ -160,13 +157,11 @@ static void send_rkey_info(void)
   struct list_elem *e;
   char hostname[128];
   gethostname(hostname,128);
-  for (e = list_begin(&rkey_list); e != list_end(&rkey_list); e = list_next(e)) {
-    struct ibv_rkey_pair * pair = list_entry(e, struct ibv_rkey_pair, elem);
-    if (pair->new_rkey != 0) {
-      PDEBUG("Sending over original_rkey: %d and new_rkey: %d from %s\n", pair->orig_rkey, pair->new_rkey, hostname);
-      dmtcp_send_key_val_pair_to_coordinator(&pair->orig_rkey, sizeof(pair->orig_rkey),
-                                             &pair->new_rkey, sizeof(pair->new_rkey));
-    }
+  for (e = list_begin(&mr_list); e != list_end(&mr_list); e = list_next(e)) {
+      struct internal_ibv_mr * internal_mr = list_entry(e, struct internal_ibv_mr, elem);
+//      PDEBUG("Sending over original_rkey: 0x%06x and new_rkey: 0x%06x from %s\n", internal_mr->user_mr.rkey, internal_mr->real_mr->rkey, hostname);
+      dmtcp_send_key_val_pair_to_coordinator(&internal_mr->user_mr.rkey, sizeof(internal_mr->user_mr.rkey),
+                                             &internal_mr->real_mr->rkey, sizeof(internal_mr->real_mr->rkey));
   }
 }
 
@@ -178,13 +173,11 @@ static void query_rkey_info(void)
   struct list_elem *e;
   for (e = list_begin(&rkey_list); e != list_end(&rkey_list); e = list_next(e)) {
     struct ibv_rkey_pair * pair = list_entry(e, struct ibv_rkey_pair, elem);
-    if (pair->new_rkey == 0) {
-      size_t size = sizeof(pair->new_rkey);
-      PDEBUG("Querying for new_rkey: %d from %s\n", pair->orig_rkey, hostname);
-      dmtcp_send_query_to_coordinator(&pair->orig_rkey, sizeof(pair->orig_rkey),
-                                      &pair->new_rkey, &size);
-      assert(size == sizeof(uint32_t));
-    }
+    size_t size = sizeof(pair->new_rkey);
+//    PDEBUG("Querying for new_rkey: 0x%06x from %s\n", pair->orig_rkey, hostname);
+    dmtcp_send_query_to_coordinator(&pair->orig_rkey, sizeof(pair->orig_rkey),
+                                    &pair->new_rkey, &size);
+    assert(size == sizeof(uint32_t));
   }
 }
 /*! This will drain the given completion queue
@@ -199,7 +192,7 @@ static void drain_completion_queue(struct internal_ibv_cq * internal_cq)
     ne = ibv_poll_cq(internal_cq->real_cq, 1, &wc->wc);
 
     if (ne > 0) {
-      PDEBUG("Found a completion on the queue.\n");
+//      PDEBUG("Found a completion on the queue.\n");
       list_push_back(&internal_cq->wc_queue, &wc->elem);
       struct internal_ibv_qp * internal_qp = qp_num_to_qp(&qp_list, wc->wc.qp_num);
       enum ibv_wc_opcode opcode = wc->wc.opcode;
@@ -245,7 +238,7 @@ void pre_checkpoint(void)
 {
   char host[128];
   gethostname(host, 128);
-  PDEBUG("I made it into pre_checkpoint.\n");
+//  PDEBUG("I made it into pre_checkpoint.\n");
 
   struct list_elem * e;
   for (e = list_begin(&cq_list); e != list_end(&cq_list); e = list_next(e)) {
@@ -253,14 +246,19 @@ void pre_checkpoint(void)
     drain_completion_queue(internal_cq);
   }  
 
-  PDEBUG("Made it out of pre_checkpoint\n");
+//  PDEBUG("Made it out of pre_checkpoint\n");
 }
 
 // TODO: Must handle case of modifying after checkpoint
 void post_restart(void)
 {
-  PDEBUG("in post_restart\n");
   is_restart = true; 
+  if (is_fork) {
+    if (_real_ibv_fork_init()) {
+      fprintf(stderr, "ibv_fork_init fails.\n");
+      exit(1);
+    }
+  }
   /* code to re-open device */
   int num;
   _dev_list = _real_ibv_get_device_list(&num);
@@ -346,21 +344,13 @@ void post_restart(void)
       fprintf(stderr, "Error: Could not re-reg the mr.\n");
       exit(1);
     }
-    struct list_elem * w;
-    for (w = list_begin(&rkey_list); w != list_end(&rkey_list); w = list_next(w)) {
-      struct ibv_rkey_pair * pair = list_entry(w, struct ibv_rkey_pair, elem);
-      if (pair->orig_rkey == internal_mr->user_mr.rkey) {
-        assert(pair->new_rkey == 0);
-        pair->new_rkey = internal_mr->real_mr->rkey;
-      }
-    }
   }
   /* end code to register the memory region */
 
   /* code to register the completion channel */
   for (e = list_begin(&comp_list); e != list_end(&comp_list); e = list_next(e))
   {
-    PDEBUG("About to deal with completion channels\n");
+//    PDEBUG("About to deal with completion channels\n");
     struct internal_ibv_comp_channel * internal_comp = list_entry(e, struct internal_ibv_comp_channel, elem);
 
     struct internal_ibv_ctx * internal_ctx = ibv_ctx_to_internal(internal_comp->user_channel.context);
@@ -489,55 +479,8 @@ void post_restart(void)
 
 }
 
-//TODO: This is just debug code
-void print_attr_mask(int attr_mask)
-{
-  if (attr_mask & IBV_QP_STATE)
-    PDEBUG("IBV_QP_STATE\n");
-  if (attr_mask & IBV_QP_CUR_STATE)
-    PDEBUG("IBV_QP_CUR_STATE\n");
-  if (attr_mask & IBV_QP_EN_SQD_ASYNC_NOTIFY)
-    PDEBUG("IBV_QP_EN_SQD_ASYNC_NOTIFY\n");
-  if (attr_mask & IBV_QP_ACCESS_FLAGS)
-    PDEBUG("IBV_QP_ACCESS_FLAGS\n");
-  if (attr_mask & IBV_QP_PKEY_INDEX)
-    PDEBUG("IBV_QP_PKEY_INDEX\n");
-  if (attr_mask & IBV_QP_PORT)
-    PDEBUG("IBV_QP_PORT\n");
-  if (attr_mask & IBV_QP_QKEY)
-    PDEBUG("IBV_QP_QKEY\n");
-  if (attr_mask & IBV_QP_AV)
-    PDEBUG("IBV_QP_AV\n");
-  if (attr_mask & IBV_QP_PATH_MTU)
-    PDEBUG("IBV_QP_PATH_MTU\n");
-  if (attr_mask & IBV_QP_TIMEOUT)
-    PDEBUG("IBV_QP_TIMEOUT\n");
-  if (attr_mask & IBV_QP_RETRY_CNT)
-    PDEBUG("IBV_QP_RETRY_CNT\n");
-  if (attr_mask & IBV_QP_RNR_RETRY)
-    PDEBUG("IBV_QP_RNR_RETRY\n");
-  if (attr_mask & IBV_QP_RQ_PSN)
-    printf("IBV_QP_RQ_PSN\n");
-  if (attr_mask & IBV_QP_SQ_PSN)
-    printf("IBV_QP_SQ_PSN\n");
-  if (attr_mask & IBV_QP_DEST_QPN)
-    printf("IBV_DEST_QPN\n");
-  if (attr_mask & IBV_QP_MAX_QP_RD_ATOMIC)
-    printf("IBV_QP_MAX_QP_RD_ATOMIC\n");
-  if (attr_mask & IBV_QP_ALT_PATH)
-    printf("IBV_QP_ALT_PATH\n");
-  if (attr_mask & IBV_QP_MIN_RNR_TIMER)
-    printf("IBV_QP_MIN_RNR_TIMER\n");
-  if (attr_mask & IBV_QP_MAX_DEST_RD_ATOMIC)
-    printf("IBV_QP_MAX_DEST_RD_ATOMIC\n");
-  if (attr_mask & IBV_QP_PATH_MIG_STATE)
-    printf("IBV_QP_PATH_MIG_STATE\n");
-  if (attr_mask & IBV_QP_CAP)
-    printf("IBV_QP_CAP\n");
-}
 void post_restart2(void)
 {
-  PDEBUG("in post_restart2\n");
   struct list_elem * e;
   for (e = list_begin(&srq_list); e != list_end(&srq_list); e = list_next(e))
   {
@@ -551,7 +494,6 @@ void post_restart2(void)
       free(log);
     }
    
-    PDEBUG("About to repost recv for srq.\n");
     for (w = list_begin(&internal_srq->post_srq_recv_log);
          w != list_end(&internal_srq->post_srq_recv_log);
          w = list_next(w))
@@ -619,9 +561,7 @@ void post_restart2(void)
         attr.ah_attr.dlid = internal_qp->current_remote.lid;
       }
 
-//      print_attr_mask(mod->attr_mask);
 
-      PDEBUG("About to set X to true.\n");
       if (_real_ibv_modify_qp(internal_qp->real_qp, &attr, mod->attr_mask))
       {
 	fprintf(stderr, "%d %d %d %d\n", attr.qp_state, attr.qp_access_flags, attr.pkey_index, attr.port_num);
@@ -638,7 +578,6 @@ void post_restart2(void)
     }
   }
 
-  PDEBUG("before repost\n");
   for (e = list_begin(&qp_list); e != list_end(&qp_list); e = list_next(e))
   {
     _uninstall_post_recv_trampoline();
@@ -670,7 +609,7 @@ void post_restart2(void)
          w = list_next(w))
     {
       struct ibv_post_send_log * log = list_entry(w, struct ibv_post_send_log, elem);
-      PDEBUG("log->magic : %x\n", log->magic);
+//      PDEBUG("log->magic : %x\n", log->magic);
       assert(log->magic == SEND_MAGIC);
       assert(&log->wr != NULL);
       struct ibv_send_wr * copy_wr = copy_send_wr(&log->wr);
@@ -678,14 +617,13 @@ void post_restart2(void)
       update_rkey_send(copy_wr);
 
       struct ibv_send_wr * bad_wr;
-      PDEBUG("About to repost send.\n");
+//      PDEBUG("About to repost send.\n");
       int rslt = ibv_post_send(internal_qp->real_qp, copy_wr, &bad_wr);
 
       delete_send_wr(copy_wr);
     }
     _install_post_send_trampoline();
   }
-  PDEBUG("after repost\n");
 }
 
 //! This performs the work of the _get_device_list_wrapper
@@ -693,6 +631,11 @@ void post_restart2(void)
   This function will open the real device list, store into _dev_list
   and then copy the list, returning an image of the copy to the user
   */
+int _fork_init() {
+  is_fork = true;
+  return _real_ibv_fork_init();
+}
+
 struct ibv_device ** _get_device_list(int * num_devices) {
   _dev_list = _real_ibv_get_device_list(&_dmtcp_num_devices);
   struct ibv_device ** user_list =  0;
@@ -1039,7 +982,6 @@ struct ibv_mr * _reg_mr(struct ibv_pd * pd, void * addr, size_t length, int flag
     internal_mr->real_mr = _real_ibv_reg_mr(internal_pd->real_pd, addr, length, flag);
     if (!internal_mr->real_mr) {
       fprintf(stderr, "Error: Could not register mr.\n");
-      fprintf(stderr, "errno is %d.\n", errno);
       exit(1);
     }
     
@@ -1064,15 +1006,6 @@ struct ibv_mr * _reg_mr(struct ibv_pd * pd, void * addr, size_t length, int flag
 //  internal_mr->user_mr.context = ibv_ctx_to_internal(internal_mr->user_mr.context)->real_ctx;
   internal_mr->user_mr.context = internal_pd->user_pd.context;
   internal_mr->user_mr.pd = &internal_pd->user_pd;
-
-  struct ibv_rkey_pair * pair = malloc(sizeof(struct ibv_rkey_pair));
-  if (!pair){
-    fprintf(stderr, "Error: Could not allocate memory for ibv_rkey_pair.\n");
-    exit(1);
-  }
-  pair->orig_rkey = internal_mr->real_mr->rkey;
-  pair->new_rkey = 0;
-  list_push_back(&rkey_list, &pair->elem);
   list_push_back(&mr_list, &internal_mr->elem);
 
   return &internal_mr->user_mr;
@@ -1626,7 +1559,7 @@ int _poll_cq(struct ibv_cq * cq, int num_entries, struct ibv_wc * wc)
   if (size > 0) {
     struct list_elem * e = list_front(&internal_cq->wc_queue);
     for (int i = 0; (i < size) && (i < num_entries); i++) {
-      PDEBUG("Polling completion from internal buffer\n");
+//      PDEBUG("Polling completion from internal buffer\n");
       struct list_elem * w = e;
       wc[i] = list_entry(e, struct ibv_wc_wrapper, elem)->wc;
       e = list_next(e);

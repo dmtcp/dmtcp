@@ -38,7 +38,7 @@ void update_list_rkey(uint32_t rkey)
       exit(1);
     }
     new_pair->orig_rkey = rkey;
-    new_pair->new_rkey = 0;
+    new_pair->new_rkey = rkey;
     list_push_back(&rkey_list, &new_pair->elem);
   }
 }
@@ -66,14 +66,15 @@ uint32_t update_rkey_restart(uint32_t rkey)
     list_push_back(&rkey_list, &new_pair->elem);
     return new_rkey;
   }
-  else {
+  else 
+  {
     struct ibv_rkey_pair * new_pair = malloc(sizeof(struct ibv_rkey_pair));
     if (!new_pair){
       fprintf(stderr, "Could not allocate memory for new_pair.\n");
       exit(1);
     }
     new_pair->orig_rkey = rkey;
-    new_pair->new_rkey = 0;
+    new_pair->new_rkey = rkey;
     list_push_back(&rkey_list, &new_pair->elem);
     return rkey;
   }
@@ -84,9 +85,9 @@ void update_rkey_send(struct ibv_send_wr * wr)
   if (wr == NULL) {
     return;
   }
-  if (wr->opcode & IBV_WR_RDMA_WRITE || 
-      wr->opcode & IBV_WR_RDMA_WRITE_WITH_IMM || 
-      wr->opcode & IBV_WR_RDMA_READ) {
+  if (wr->opcode == IBV_WR_RDMA_WRITE || 
+      wr->opcode == IBV_WR_RDMA_WRITE_WITH_IMM || 
+      wr->opcode == IBV_WR_RDMA_READ) {
     if (!is_restart){
       update_list_rkey(wr->wr.rdma.rkey);
     }
@@ -95,13 +96,13 @@ void update_rkey_send(struct ibv_send_wr * wr)
     }
   }
   
-  if (wr->opcode & IBV_WR_ATOMIC_CMP_AND_SWP ||
-      wr->opcode & IBV_WR_ATOMIC_FETCH_AND_ADD) {
+  if (wr->opcode == IBV_WR_ATOMIC_CMP_AND_SWP ||
+      wr->opcode == IBV_WR_ATOMIC_FETCH_AND_ADD) {
     if (!is_restart){
       update_list_rkey(wr->wr.atomic.rkey);
     }
     else{
-      wr->wr.rdma.rkey = update_rkey_restart(wr->wr.rdma.rkey);
+      wr->wr.atomic.rkey = update_rkey_restart(wr->wr.atomic.rkey);
     }
   }
   update_rkey_send(wr->next);

@@ -16,6 +16,15 @@
 #include "debug.h"
 #include <infiniband/verbs.h>
 
+int ibv_fork_init(void)
+{
+  dmtcp_plugin_disable_ckpt();
+  PDEBUG("****** WRAPPER for ibv_fork_init ******\n");
+  int rslt = _fork_init();
+  dmtcp_plugin_enable_ckpt();
+  return rslt;
+}
+
 struct ibv_device **ibv_get_device_list(int *num_devices)
 {
   dmtcp_plugin_disable_ckpt();
