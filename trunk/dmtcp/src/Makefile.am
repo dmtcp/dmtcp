@@ -22,7 +22,7 @@ noinst_LIBRARIES = libdmtcpinternal.a libsyscallsreal.a libnohijack.a libjalib.a
 bin_PROGRAMS = dmtcp_launch dmtcp_command dmtcp_coordinator \
 	       dmtcp_restart dmtcp_nocheckpoint
 dmtcplib_PROGRAMS = libdmtcp.so libdmtcpaware.so.1.0.0
-include_HEADERS = dmtcpaware.h
+include_HEADERS = dmtcpaware.h ../include/dmtcpplugin.h
 lib_LIBRARIES = libdmtcpaware.a
 
 # headers:
