@@ -21,5 +21,6 @@ distclean:
 	for file in */; do \
 	  ( cd $$file && ${MAKE} ${EXTRAMAKEFLAGS} distclean ); \
 	done
+	rm -f Makefile
 
 .PHONY: default clean distclean
