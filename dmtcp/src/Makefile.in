@@ -316,7 +316,7 @@ INCLUDES = $(all_includes) -I../jalib/
 dmtcplibdir = $(pkglibdir)
 # targets:
 noinst_LIBRARIES = libdmtcpinternal.a libsyscallsreal.a libnohijack.a libjalib.a
-include_HEADERS = dmtcpaware.h
+include_HEADERS = dmtcpaware.h ../include/dmtcpplugin.h
 lib_LIBRARIES = libdmtcpaware.a
 
 # headers:
