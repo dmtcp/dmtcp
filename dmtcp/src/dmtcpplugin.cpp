@@ -28,11 +28,6 @@
 
 using namespace dmtcp;
 
-EXTERNC void dmtcp_event_hook(DmtcpEvent_t id, DmtcpEventData_t *data)
-{
-  DMTCP_NEXT_EVENT_HOOK(id, data);
-}
-
 EXTERNC int  dmtcp_get_ckpt_signal()
 {
   const int ckpt_signal = dmtcp::DmtcpWorker::determineMtcpSignal();

@@ -59,7 +59,7 @@ int clone_start(void *arg)
   // Free memory previously allocated through JALLOC_HELPER_MALLOC in __clone
   JALLOC_HELPER_FREE(threadArg);
 
-  dmtcp_event_hook(DMTCP_EVENT_THREAD_START, NULL);
+  dmtcp::DmtcpWorker::eventHook(DMTCP_EVENT_THREAD_START, NULL);
 
   /* Thread finished initialization.  It's now safe for this thread to
    * participate in checkpoint.  Decrement the uninitializedThreadCount in
@@ -99,7 +99,7 @@ extern "C" int __clone(int (*fn) (void *arg), void *child_stack, int flags,
     JTRACE("Clone call failed")(JASSERT_ERRNO);
     dmtcp::ThreadSync::decrementUninitializedThreadCount();
   } else {
-    dmtcp_event_hook(DMTCP_EVENT_THREAD_CREATED, NULL);
+    dmtcp::DmtcpWorker::eventHook(DMTCP_EVENT_THREAD_CREATED, NULL);
   }
 
   WRAPPER_EXECUTION_ENABLE_CKPT();
@@ -129,7 +129,7 @@ static void *pthread_start(void *arg)
    *  thread actually exits?
    */
   dmtcp::ProcessInfo::instance().eraseTid(virtualTid);
-  dmtcp_event_hook(DMTCP_EVENT_PTHREAD_RETURN, NULL);
+  dmtcp::DmtcpWorker::eventHook(DMTCP_EVENT_PTHREAD_RETURN, NULL);
   WRAPPER_EXECUTION_ENABLE_CKPT();
   dmtcp::ThreadSync::unsetOkToGrabLock();
   return result;
@@ -193,7 +193,7 @@ extern "C" void pthread_exit(void * retval)
   WRAPPER_EXECUTION_DISABLE_CKPT();
   mtcp_threadiszombie();
   dmtcp::ProcessInfo::instance().eraseTid(gettid());
-  dmtcp_event_hook(DMTCP_EVENT_PTHREAD_EXIT, NULL);
+  dmtcp::DmtcpWorker::eventHook(DMTCP_EVENT_PTHREAD_EXIT, NULL);
   WRAPPER_EXECUTION_ENABLE_CKPT();
   dmtcp::ThreadSync::unsetOkToGrabLock();
   _real_pthread_exit(retval);

@@ -14,11 +14,6 @@
 // libdmtcp.so defines this differently
 void _dmtcp_setup_trampolines() {}
 
-void dmtcp_event_hook(DmtcpEvent_t id, void* data)
-{
-  return;
-}
-
 int  dmtcp_get_ckpt_signal()
 {
   JASSERT(false) .Text ("NOT REACHED");
