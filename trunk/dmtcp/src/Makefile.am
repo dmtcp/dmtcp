@@ -76,6 +76,7 @@ libdmtcp_so_SOURCES = dmtcpawareapi.cpp dmtcpworker.cpp threadsync.cpp \
 # 2. $ORIGIN/../../mtcp : Useful when running from build directory
 # 3. $(libdir)          : Useful when installed with 'make install'
 libdmtcp_so_LDFLAGS = -shared -L../../mtcp \
+		      -Wl,-Bsymbolic-functions \
 		      -Xlinker -rpath -Xlinker ../ \
 		      -Xlinker -rpath -Xlinker '$$ORIGIN/../../mtcp' \
 		      -Xlinker -rpath -Xlinker $(libdir)
