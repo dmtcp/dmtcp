@@ -297,6 +297,10 @@ Many of the tests below may fail due to insufficient space.
 os.system("rm -f "+tmpfile)
 
 os.environ['DMTCP_GZIP'] = GZIP
+if os.getenv('LD_LIBRARY_PATH'):
+    os.environ['LD_LIBRARY_PATH'] += ':' + os.getenv("PWD")+"/lib"
+else:
+    os.environ['LD_LIBRARY_PATH'] = os.getenv("PWD")+"/lib"
 
 #launch the coordinator
 coordinator = launch(BIN+"dmtcp_coordinator")
