@@ -19,19 +19,16 @@ infodir=@mandir@
 
 plugins = pid ipc
 
-default: build
+ifeq ($(PTRACE_SUPPORT),yes)
+	plugins += ptrace
+endif
 
-build: $(plugins) ptrace
+default: $(plugins)
 
 all: default
 
 $(plugins):
 	cd $@ && $(MAKE)
-
-ptrace:
-ifeq ($(PTRACE_SUPPORT),yes)
-	cd ptrace && $(MAKE)
-endif
 
 tidy:
 	rm -rf dmtcp-autotest-* ckpt_*_files
@@ -59,4 +56,4 @@ install: all
 uninstall:
 	for p in $(plugins); do (cd $$p && $(MAKE) uninstall); done
 
-.PHONY: default all build pid ptrace ipc tidy clean distclean install uninstall
+.PHONY: default all pid ptrace ipc tidy clean distclean install uninstall

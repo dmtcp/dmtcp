@@ -4370,7 +4370,7 @@ ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
 ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
 ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
-ac_config_files="$ac_config_files Makefile plugin/Makefile plugin/pid/Makefile plugin/ptrace/Makefile plugin/ipc/Makefile contrib/Makefile contrib/rm/Makefile test/Makefile test/testconfig.py test/plugin/Makefile test/credentials/Makefile"
+ac_config_files="$ac_config_files Makefile plugin/Makefile plugin/pid/Makefile plugin/ipc/Makefile contrib/Makefile contrib/rm/Makefile test/Makefile test/testconfig.py test/plugin/Makefile test/credentials/Makefile"
 
 
 
@@ -4437,6 +4437,8 @@ fi
 
 if test "$use_ptrace_support" = "yes"; then
   PTRACE_SUPPORT=yes
+
+  ac_config_files="$ac_config_files plugin/ptrace/Makefile"
 
 else
   PTRACE_SUPPORT=no
@@ -7151,7 +7153,6 @@ do
     "Makefile") CONFIG_FILES="$CONFIG_FILES Makefile" ;;
     "plugin/Makefile") CONFIG_FILES="$CONFIG_FILES plugin/Makefile" ;;
     "plugin/pid/Makefile") CONFIG_FILES="$CONFIG_FILES plugin/pid/Makefile" ;;
-    "plugin/ptrace/Makefile") CONFIG_FILES="$CONFIG_FILES plugin/ptrace/Makefile" ;;
     "plugin/ipc/Makefile") CONFIG_FILES="$CONFIG_FILES plugin/ipc/Makefile" ;;
     "contrib/Makefile") CONFIG_FILES="$CONFIG_FILES contrib/Makefile" ;;
     "contrib/rm/Makefile") CONFIG_FILES="$CONFIG_FILES contrib/rm/Makefile" ;;
@@ -7159,6 +7160,7 @@ do
     "test/testconfig.py") CONFIG_FILES="$CONFIG_FILES test/testconfig.py" ;;
     "test/plugin/Makefile") CONFIG_FILES="$CONFIG_FILES test/plugin/Makefile" ;;
     "test/credentials/Makefile") CONFIG_FILES="$CONFIG_FILES test/credentials/Makefile" ;;
+    "plugin/ptrace/Makefile") CONFIG_FILES="$CONFIG_FILES plugin/ptrace/Makefile" ;;
 
   *) as_fn_error $? "invalid argument: \`$ac_config_target'" "$LINENO" 5;;
   esac
