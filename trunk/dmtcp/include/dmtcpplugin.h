@@ -106,7 +106,8 @@ EXTERNC int dmtcp_unique_pids_equal(DmtcpUniqueProcessId a,
                                     DmtcpUniqueProcessId b);
 EXTERNC int dmtcp_plugin_disable_ckpt(void);
 EXTERNC void dmtcp_plugin_enable_ckpt(void);
-EXTERNC void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data);
+EXTERNC void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
+  __attribute((weak));
 EXTERNC int dmtcp_send_key_val_pair_to_coordinator(const void *key,
                                                    size_t key_len,
                                                    const void *val,
