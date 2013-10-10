@@ -276,6 +276,10 @@ lib/dmtcp/libdmtcp_%.so : contrib/%
 PLUGINS = lib/dmtcp/libdmtcp_pid.so lib/dmtcp/libdmtcp_ipc.so \
 	  lib/dmtcp/libdmtcp_ptrace.so lib/dmtcp/libdmtcp_rm.so
 
+ifeq ($(PTRACE_SUPPORT),yes)
+  PLUGINS += lib/dmtcp/libdmtcp_ptrace.so
+endif
+
 lib: 	lib/dmtcp/libdmtcp.so $(PLUGINS) \
 	lib/libdmtcpaware.a lib/libdmtcpaware.so \
 	lib/libmtcp.so.1.0.0 lib/libmtcp.so.1 lib/libmtcp.so

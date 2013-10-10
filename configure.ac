@@ -14,7 +14,7 @@ AC_LANG_PUSH([C++])
 AC_OPENMP
 AC_LANG_POP([C++])
 AC_CONFIG_FILES([Makefile plugin/Makefile plugin/pid/Makefile \
-                 plugin/ptrace/Makefile plugin/ipc/Makefile \
+                 plugin/ipc/Makefile \
                  contrib/Makefile contrib/rm/Makefile \
                  test/Makefile test/testconfig.py\
                  test/plugin/Makefile test/credentials/Makefile])
@@ -79,6 +79,7 @@ AC_ARG_ENABLE([ptrace_support],
 
 if test "$use_ptrace_support" = "yes"; then
   AC_SUBST([PTRACE_SUPPORT], [yes])
+  AC_CONFIG_FILES([plugin/ptrace/Makefile])
 else
   AC_SUBST([PTRACE_SUPPORT], [no])
 fi
