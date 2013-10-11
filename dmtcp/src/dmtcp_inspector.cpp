@@ -42,7 +42,7 @@
 #include "mtcpinterface.h"
 #include  "../jalib/jtimer.h"
 
-#define BINARY_NAME "dmtcp_checkpoint"
+#define BINARY_NAME "dmtcp_inspector"
 
 enum output_t {
   TEXT, DOT

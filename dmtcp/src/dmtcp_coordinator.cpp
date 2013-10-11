@@ -71,7 +71,7 @@
 #undef min
 #undef max
 
-#define BINARY_NAME "dmtcp_checkpoint"
+#define BINARY_NAME "dmtcp_coordinator"
 
 static int thePort = -1;
 

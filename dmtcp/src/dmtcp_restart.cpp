@@ -42,7 +42,7 @@
 #include <errno.h>
 #include <vector>
 
-#define BINARY_NAME "dmtcp_checkpoint"
+#define BINARY_NAME "dmtcp_restart"
 
 // Some global definitions
 static dmtcp::UniquePid compGroup;
