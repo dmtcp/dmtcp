@@ -33,7 +33,7 @@ static char asm_jump[] = {
 // Make sure that trampolines are only set up once
 // otherwise original function address may be lost
 #define TRAMP_NUM 5
-static int first_time[TRAMP_NUM] = {1};
+static int first_time[TRAMP_NUM] = {1,1,1,1,1};
 
 #define ASM_JUMP_LEN sizeof(asm_jump)
 #define INSTALL_IBV_TRAMPOLINE(name) \
