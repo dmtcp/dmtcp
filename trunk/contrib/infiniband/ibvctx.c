@@ -1091,11 +1091,7 @@ int _resize_cq(struct ibv_cq * cq, int cqe)
 {
   struct internal_ibv_cq * internal_cq = ibv_cq_to_internal(cq);
 
-  int rslt = _real_ibv_resize_cq(cq, cqe);
-
-  if (!rslt) {
-    cq->cqe = cqe;
-  }
+  int rslt = _real_ibv_resize_cq(internal_cq->real_cq, cqe);
 
   return rslt;
 }
