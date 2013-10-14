@@ -30,6 +30,11 @@ static char asm_jump[] = {
 # define ADDR_OFFSET 1
 #endif
 
+// Make sure that trampolines are only set up once
+// otherwise original function address may be lost
+#define TRAMP_NUM 5
+static int first_time[TRAMP_NUM] = {1};
+
 #define ASM_JUMP_LEN sizeof(asm_jump)
 #define INSTALL_IBV_TRAMPOLINE(name) \
   memcpy(name##_addr, name##_trampoline_jump, ASM_JUMP_LEN)
@@ -69,7 +74,7 @@ static char asm_jump[] = {
 #define DECLARE_IBV_TRAMPOLINE(func)                                     \
 static char func##_trampoline_jump[ASM_JUMP_LEN];                     \
 static char func##_displaced_instructions[ASM_JUMP_LEN];              \
-static void * func##_addr = NULL;                                     \
+static void * func##_addr = NULL                                     
 
 DECLARE_IBV_TRAMPOLINE(ibv_post_recv);
 DECLARE_IBV_TRAMPOLINE(ibv_post_srq_recv);
@@ -199,11 +204,26 @@ void _dmtcp_setup_ibv_trampolines(int (*post_recv_ptr)(struct ibv_qp *,
                                   int (*req_notify_ptr)(struct ibv_cq *, int))
 
 {
-  SETUP_IBV_TRAMPOLINE(ibv_post_recv, (void *) post_recv_ptr);
-  SETUP_IBV_TRAMPOLINE(ibv_post_srq_recv, (void *) post_srq_recv_ptr);
-  SETUP_IBV_TRAMPOLINE(ibv_post_send, (void *) post_send_ptr);
-  SETUP_IBV_TRAMPOLINE(ibv_poll_cq, (void *) poll_cq_ptr);
-  SETUP_IBV_TRAMPOLINE(ibv_req_notify_cq, (void *) req_notify_ptr);
+  if (first_time[0]) {
+    first_time[0] = 0;
+    SETUP_IBV_TRAMPOLINE(ibv_post_recv, (void *) post_recv_ptr);
+  }
+  if (first_time[1]) {
+    first_time[1] = 0;
+    SETUP_IBV_TRAMPOLINE(ibv_post_srq_recv, (void *) post_srq_recv_ptr);
+  }
+  if (first_time[2]) {
+    first_time[2] = 0;
+    SETUP_IBV_TRAMPOLINE(ibv_post_send, (void *) post_send_ptr);
+  }
+  if (first_time[3]) {
+    first_time[3] = 0;
+    SETUP_IBV_TRAMPOLINE(ibv_poll_cq, (void *) poll_cq_ptr);
+  }
+  if (first_time[4]) {
+    first_time[4] = 0;
+    SETUP_IBV_TRAMPOLINE(ibv_req_notify_cq, (void *) req_notify_ptr);
+  }
 }
 
 void _uninstall_req_notify_cq_trampoline(void)
