@@ -77,7 +77,7 @@ check: examples/orig
 	sleep 20 ; ${DMTCP_BIN}/dmtcp_command -p ${DMTCP_PORT} --quit
 
 tidy:
-	rm -rf ckpt_*.dmtcp core.* dmtcp_restart_script_*
+	rm -rf ckpt_*.dmtcp core.* dmtcp_restart_script*
 clean:
 	rm -f ${LIBOBJS} libinfiniband.so
 	rm -f ${TRACEOBJS} libibtrace.so
