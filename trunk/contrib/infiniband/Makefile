@@ -1,4 +1,4 @@
-LIBOBJS = infinibandreals.o infinibandwrappers.o ibvctx.o lib/list.o ibv_trampolines.o
+LIBOBJS = infinibandreals.o infinibandwrappers.o ibvctx.o lib/list.o
 TRACEOBJS =  infinibandtrace.o infinibandreals.o
 DMTCP_PORT=7783
 
@@ -68,7 +68,7 @@ rdma:
 
 check: examples/orig
 	- pkill -9 dmtcp_coord
-	${DMTCP_BIN}/dmtcp_coordinator -p ${DMTCP_PORT} --background
+	${DMTCP_BIN}/dmtcp_coordinator -p ${DMTCP_PORT} --daemon
 	export dir=$$PWD && ssh ${HOST1} "cd $$dir && \
 	  ${DMTCP_BIN}/dmtcp_launch -h ${HOST0} -p ${DMTCP_PORT} --with-plugin $$dir/libinfiniband.so ./examples/orig" &
 	export dir=$$PWD && ssh ${HOST2} "cd $$dir && \

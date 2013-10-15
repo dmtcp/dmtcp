@@ -38,8 +38,6 @@ int _real_ibv_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
                                      int attr_mask);
 int _real_ibv_query_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
                             int attr_mask, struct ibv_qp_init_attr *init_attr);
-int _real_ibv_post_recv(struct ibv_qp *qp, struct ibv_recv_wr *wr,
-                            struct ibv_recv_wr **bad_wr);
 void _real_ibv_ack_cq_events(struct ibv_cq *cq, unsigned int nevents);
 int _real_ibv_destroy_cq(struct ibv_cq *cq);
 int _real_ibv_destroy_qp(struct ibv_qp *qp);
@@ -49,3 +47,6 @@ int _real_ibv_dealloc_pd(struct ibv_pd *pd);
 int _real_ibv_close_device(struct ibv_context *context);
 void _real_ibv_free_device_list(struct ibv_device **list);
 struct ibv_ah * _real_ibv_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr);
+
+//int _real_ibv_post_recv(struct ibv_qp *qp, struct ibv_recv_wr *wr,
+//                            struct ibv_recv_wr **bad_wr);
