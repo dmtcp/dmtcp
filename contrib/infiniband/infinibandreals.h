@@ -48,3 +48,4 @@ int _real_ibv_dereg_mr(struct ibv_mr *mr);
 int _real_ibv_dealloc_pd(struct ibv_pd *pd);
 int _real_ibv_close_device(struct ibv_context *context);
 void _real_ibv_free_device_list(struct ibv_device **list);
+struct ibv_ah * _real_ibv_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr);

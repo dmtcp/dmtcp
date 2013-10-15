@@ -254,3 +254,7 @@ void _real_ibv_free_device_list(struct ibv_device **list)
         (list);
 
 }
+struct ibv_ah * _real_ibv_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr){
+    LIBIBVERBS_REAL_FUNC_PASSTHROUGH_TYPED (struct ibv_ah *, ibv_create_ah)
+        (pd, attr);
+}

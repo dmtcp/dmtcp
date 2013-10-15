@@ -249,6 +249,7 @@ void pre_checkpoint(void)
 //  PDEBUG("Made it out of pre_checkpoint\n");
 }
 
+
 // TODO: Must handle case of modifying after checkpoint
 void post_restart(void)
 {
@@ -312,7 +313,6 @@ void post_restart(void)
   /* end code to re-open device */
 
   /* code to alloc the protection domain */
-//  sleep(60);
   for (e = list_begin(&pd_list); e != list_end(&pd_list); e = list_next(e))
   {
     struct internal_ibv_pd * internal_pd = list_entry(e, struct internal_ibv_pd, elem);
@@ -404,8 +404,6 @@ void post_restart(void)
       }
       _install_req_notify_cq_trampoline();
     }
-//    PDEBUG("Size of post_recv_log is %d\n", list_size(&internal_cq->post_recv_log));
-//    PDEBUG("Size of post_send_log is %d\n", list_size(&internal_cq->post_send_log));
   }
 
   /* end code to register completion queue */
@@ -475,7 +473,6 @@ void post_restart(void)
     /* end code to populate the ID */
   }
   /* end code to re-create the queue pairs */
-//  sleep(60);
 
 }
 
@@ -558,7 +555,8 @@ void post_restart2(void)
 
       if (mod->attr_mask & IBV_QP_AV)
       {
-        attr.ah_attr.dlid = internal_qp->current_remote.lid;
+        // must handle LMC
+        attr.ah_attr.dlid = internal_qp->current_remote.lid | mod->attr.ah_attr.src_path_bits;
       }
 
 
@@ -593,7 +591,7 @@ void post_restart2(void)
       assert(copy_wr->next == NULL);
 
       struct ibv_recv_wr * bad_wr;
-    //  PDEBUG("About to repost recv.\n");
+//      PDEBUG("About to repost recv.\n");
       int rslt = ibv_post_recv(internal_qp->real_qp, copy_wr, &bad_wr);
       delete_recv_wr(copy_wr);
     }
@@ -617,7 +615,7 @@ void post_restart2(void)
       update_rkey_send(copy_wr);
 
       struct ibv_send_wr * bad_wr;
-//      PDEBUG("About to repost send.\n");
+      //PDEBUG("About to repost send.\n");
       int rslt = ibv_post_send(internal_qp->real_qp, copy_wr, &bad_wr);
 
       delete_send_wr(copy_wr);
@@ -1092,6 +1090,9 @@ int _resize_cq(struct ibv_cq * cq, int cqe)
   struct internal_ibv_cq * internal_cq = ibv_cq_to_internal(cq);
 
   int rslt = _real_ibv_resize_cq(internal_cq->real_cq, cqe);
+  if (!rslt) {
+    internal_cq->user_cq.cqe = internal_cq->real_cq->cqe;
+  }
 
   return rslt;
 }
@@ -1292,7 +1293,8 @@ int _modify_qp(struct ibv_qp * qp, struct ibv_qp_attr * attr, int attr_mask)
   }
 
   if (attr_mask & IBV_QP_AV) {
-    internal_qp->remote_id.lid = attr->ah_attr.dlid;
+    // must OR src_path_bits to support LMC
+    internal_qp->remote_id.lid = attr->ah_attr.dlid - attr->ah_attr.src_path_bits;
   }
   
   if (attr_mask & IBV_QP_PORT) {
@@ -1630,4 +1632,9 @@ void _ack_cq_events(struct ibv_cq * cq, unsigned int nevents)
   struct internal_ibv_cq * internal_cq = ibv_cq_to_internal(cq);
 
   return _real_ibv_ack_cq_events(internal_cq->real_cq, nevents);
+}
+
+struct ibv_ah * _create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr){
+  struct internal_ibv_pd * internal_pd = ibv_pd_to_internal(pd);
+  return _real_ibv_create_ah(internal_pd->real_pd, attr);
 }
