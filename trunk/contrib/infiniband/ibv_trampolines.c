@@ -133,7 +133,6 @@ static int ibv_post_srq_recv_trampoline(struct ibv_srq *srq,
 
 static int ibv_req_notify_cq_trampoline(struct ibv_cq * cq, int solicited_only)
 {
-  PDEBUG("WRAPPER for ibv_req_nofity_cq.\n");
   dmtcp_plugin_disable_ckpt();
   UNINSTALL_IBV_TRAMPOLINE(ibv_req_notify_cq);
   int rslt = _req_notify_cq(cq, solicited_only);
