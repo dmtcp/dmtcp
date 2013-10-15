@@ -32,7 +32,6 @@
 #include <stdio.h>
 #include <string.h>
 #include "lib/list.h"
-#include "ibv_trampolines.h"
 #include "dmtcpplugin.h"
 #include <pthread.h>
 #include <errno.h>
@@ -75,6 +74,30 @@ static void query_rkey_info(void);
 static void post_restart(void);
 static void post_restart2(void);
 
+int _ibv_post_send(struct ibv_qp * qp, struct ibv_send_wr * wr, struct
+                   ibv_send_wr ** bad_wr);
+int _ibv_poll_cq(struct ibv_cq * cq, int num_entries, struct ibv_wc * wc);
+int _ibv_post_srq_recv(struct ibv_srq * srq, struct ibv_recv_wr * wr, struct
+                       ibv_recv_wr ** bad_wr);
+int _ibv_post_recv(struct ibv_qp * qp, struct ibv_recv_wr * wr, struct
+                   ibv_recv_wr ** bad_wr);
+int _ibv_req_notify_cq(struct ibv_cq * cq, int solicited_only);
+
+#define DECL_FPTR(func) \
+    static __typeof__(&ibv_##func) _real_ibv_##func = (__typeof__(&ibv_##func)) NULL
+
+#define UPDATE_FUNC_ADDR(func, addr) \
+  do {                               \
+    _real_ibv_##func = addr;         \
+    addr = _ibv_##func;              \
+  } while (0)
+
+DECL_FPTR(post_recv);
+DECL_FPTR(post_srq_recv);
+DECL_FPTR(post_send);
+DECL_FPTR(poll_cq);
+DECL_FPTR(req_notify_cq);
+
 /* These files are processed by sed at compile time */
 #include "keys.ic"
 #include "ibv_wr_ops_send.ic"
@@ -109,7 +132,7 @@ void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t* data)
   default:
     break;
   }
-  
+
   DMTCP_NEXT_EVENT_HOOK(event, data);
   //return;
 }
@@ -184,12 +207,11 @@ static void query_rkey_info(void)
  */
 static void drain_completion_queue(struct internal_ibv_cq * internal_cq)
 {
-  _uninstall_poll_cq_trampoline();
   int ne;
   /* This loop will drain the completion queue and buffer the entries */
   do {
     struct ibv_wc_wrapper * wc = malloc(sizeof(struct ibv_wc_wrapper));
-    ne = ibv_poll_cq(internal_cq->real_cq, 1, &wc->wc);
+    ne = _real_ibv_poll_cq(internal_cq->real_cq, 1, &wc->wc);
 
     if (ne > 0) {
 //      PDEBUG("Found a completion on the queue.\n");
@@ -227,7 +249,6 @@ static void drain_completion_queue(struct internal_ibv_cq * internal_cq)
       free(wc);
     }
   } while (ne > 0);
-  _install_poll_cq_trampoline();
 }
 
 /*! This will first check the completion queue for any
@@ -244,7 +265,7 @@ void pre_checkpoint(void)
   for (e = list_begin(&cq_list); e != list_end(&cq_list); e = list_next(e)) {
     struct internal_ibv_cq * internal_cq = list_entry(e, struct internal_ibv_cq, elem);
     drain_completion_queue(internal_cq);
-  }  
+  }
 
 //  PDEBUG("Made it out of pre_checkpoint\n");
 }
@@ -253,7 +274,7 @@ void pre_checkpoint(void)
 // TODO: Must handle case of modifying after checkpoint
 void post_restart(void)
 {
-  is_restart = true; 
+  is_restart = true;
   if (is_fork) {
     if (_real_ibv_fork_init()) {
       fprintf(stderr, "ibv_fork_init fails.\n");
@@ -286,14 +307,14 @@ void post_restart(void)
             fprintf(stderr, "Error: Could not re-open the context.\n");
             exit(1);
           }
-          // here we need to make sure that recreated 
+          // here we need to make sure that recreated
           // contexts and old ones have
           // the same cmd_fd and async_fd
 	  if (internal_ctx->real_ctx->cmd_fd != internal_ctx->user_ctx.cmd_fd) {
             if (dup2(internal_ctx->real_ctx->cmd_fd, internal_ctx->user_ctx.cmd_fd) != internal_ctx->user_ctx.cmd_fd) {
               fprintf(stderr, "Error: Could not duplicate cmd_fd.\n");
 	      exit(1);
-            } 
+            }
 	    close(internal_ctx->real_ctx->cmd_fd);
 	    internal_ctx->real_ctx->cmd_fd = internal_ctx->user_ctx.cmd_fd;
 	  }
@@ -301,7 +322,7 @@ void post_restart(void)
             if (dup2(internal_ctx->real_ctx->async_fd, internal_ctx->user_ctx.async_fd) != internal_ctx->user_ctx.async_fd) {
               fprintf(stderr, "Error: Could not duplicate async_fd.\n");
 	      exit(1);
-            } 
+            }
 	    close(internal_ctx->real_ctx->async_fd);
 	    internal_ctx->real_ctx->async_fd = internal_ctx->user_ctx.async_fd;
 	  }
@@ -396,13 +417,11 @@ void post_restart(void)
     for (w = list_begin(&internal_cq->req_notify_log); w != list_end(&internal_cq->req_notify_log); w = list_next(w))
     {
       struct ibv_req_notify_cq_log * log = list_entry(w, struct ibv_req_notify_cq_log, elem);
-      _uninstall_req_notify_cq_trampoline();
-      if (ibv_req_notify_cq(internal_cq->real_cq, log->solicited_only))
+      if (_real_ibv_req_notify_cq(internal_cq->real_cq, log->solicited_only))
       {
         fprintf(stderr, "Error: Could not repost req_notify_cq\n");
         exit(1);
       }
-      _install_req_notify_cq_trampoline();
     }
   }
 
@@ -452,7 +471,7 @@ void post_restart(void)
       fprintf(stderr, "Call to ibv_query_qp failed.\n");
       exit(1);
     }
-    
+
     // TODO: SETTING PORT NUM TO 1 IN THIS CALL IS POTENTIALLY UNSAFE
     // THIS CAN BE FIXED IN THE CALL TO IBV_MODIFY_QP
     /* get the LID */
@@ -481,7 +500,6 @@ void post_restart2(void)
   struct list_elem * e;
   for (e = list_begin(&srq_list); e != list_end(&srq_list); e = list_next(e))
   {
-    _uninstall_post_srq_recv_trampoline();
     struct internal_ibv_srq * internal_srq = list_entry(e, struct internal_ibv_srq, elem);
     struct list_elem * w;
     uint32_t i;
@@ -490,7 +508,7 @@ void post_restart2(void)
       struct ibv_post_srq_recv_log * log = list_entry(w, struct ibv_post_srq_recv_log, elem);
       free(log);
     }
-   
+
     for (w = list_begin(&internal_srq->post_srq_recv_log);
          w != list_end(&internal_srq->post_srq_recv_log);
          w = list_next(w))
@@ -500,7 +518,7 @@ void post_restart2(void)
       update_lkey_recv(copy_wr);
 
       struct ibv_recv_wr * bad_wr;
-      int rslt = ibv_post_srq_recv(internal_srq->real_srq, copy_wr, &bad_wr);
+      int rslt = _real_ibv_post_srq_recv(internal_srq->real_srq, copy_wr, &bad_wr);
       if (rslt) {
         fprintf(stderr, "Call to ibv_post_srq_recv failed.\n");
         fprintf(stderr, "error number is %d\n", errno);
@@ -508,14 +526,13 @@ void post_restart2(void)
       }
       delete_recv_wr(copy_wr);
     }
-    _install_post_srq_recv_trampoline();
     for (w = list_rbegin(&internal_srq->modify_srq_log);
 	 w != list_rend(&internal_srq->modify_srq_log);
 	 w = list_prev(w))
     {
       struct ibv_modify_srq_log * mod = list_entry(w, struct ibv_modify_srq_log, elem);
       struct ibv_srq_attr attr = mod->attr;
-      
+
       if (mod->attr_mask & IBV_SRQ_MAX_WR){
 	if(_real_ibv_modify_srq(internal_srq->real_srq, &attr, IBV_SRQ_MAX_WR)){
 	  fprintf(stderr, "Error: Cound not modify srq properly.\n");
@@ -578,7 +595,6 @@ void post_restart2(void)
 
   for (e = list_begin(&qp_list); e != list_end(&qp_list); e = list_next(e))
   {
-    _uninstall_post_recv_trampoline();
     struct internal_ibv_qp * internal_qp = list_entry(e, struct internal_ibv_qp, elem);
     struct list_elem * w;
     for (w = list_begin(&internal_qp->post_recv_log);
@@ -591,15 +607,13 @@ void post_restart2(void)
       assert(copy_wr->next == NULL);
 
       struct ibv_recv_wr * bad_wr;
-//      PDEBUG("About to repost recv.\n");
-      int rslt = ibv_post_recv(internal_qp->real_qp, copy_wr, &bad_wr);
+    //  PDEBUG("About to repost recv.\n");
+      int rslt = _real_ibv_post_recv(internal_qp->real_qp, copy_wr, &bad_wr);
       delete_recv_wr(copy_wr);
     }
-    _install_post_recv_trampoline();
   }
   for (e = list_begin(&qp_list); e != list_end(&qp_list); e = list_next(e))
   {
-    _uninstall_post_send_trampoline();
     struct internal_ibv_qp * internal_qp = list_entry(e, struct internal_ibv_qp, elem);
     struct list_elem * w;
     for (w = list_begin(&internal_qp->post_send_log);
@@ -615,12 +629,11 @@ void post_restart2(void)
       update_rkey_send(copy_wr);
 
       struct ibv_send_wr * bad_wr;
-      //PDEBUG("About to repost send.\n");
-      int rslt = ibv_post_send(internal_qp->real_qp, copy_wr, &bad_wr);
+//      PDEBUG("About to repost send.\n");
+      int rslt = _real_ibv_post_send(internal_qp->real_qp, copy_wr, &bad_wr);
 
       delete_send_wr(copy_wr);
     }
-    _install_post_send_trampoline();
   }
 }
 
@@ -872,18 +885,19 @@ struct ibv_context * _open_device(struct ibv_device * device) {
     exit(1);
   }
 
+  /* setup the trampolines */
+  UPDATE_FUNC_ADDR(post_recv, ctx->real_ctx->ops.post_recv);
+  UPDATE_FUNC_ADDR(post_srq_recv, ctx->real_ctx->ops.post_srq_recv);
+  UPDATE_FUNC_ADDR(post_send, ctx->real_ctx->ops.post_send);
+  UPDATE_FUNC_ADDR(poll_cq, ctx->real_ctx->ops.poll_cq);
+  UPDATE_FUNC_ADDR(req_notify_cq, ctx->real_ctx->ops.req_notify_cq);
+
   memcpy(&ctx->user_ctx, ctx->real_ctx, sizeof(struct ibv_context));
 
   ctx->user_ctx.device = device;
 
   list_push_back(&ctx_list, &ctx->elem);
 
-  /* setup the trampolines */
-  _dmtcp_setup_ibv_trampolines(ctx->real_ctx->ops.post_recv,
-			       ctx->real_ctx->ops.post_srq_recv,
-                               ctx->real_ctx->ops.post_send,
-                               ctx->real_ctx->ops.poll_cq,
-                               ctx->real_ctx->ops.req_notify_cq);
   return &ctx->user_ctx;
 }
 
@@ -970,10 +984,10 @@ struct ibv_mr * _reg_mr(struct ibv_pd * pd, void * addr, size_t length, int flag
     exit(1);
   }
 
-  /*  
+  /*
   *  We need to make sure that memery regions created
   *  before checkpointing and after restarting will not
-  *  have the same lkey or rkey. Same trick for qps. 
+  *  have the same lkey or rkey. Same trick for qps.
   */
   bool dup_flag = false;
   while(1){
@@ -982,7 +996,7 @@ struct ibv_mr * _reg_mr(struct ibv_pd * pd, void * addr, size_t length, int flag
       fprintf(stderr, "Error: Could not register mr.\n");
       exit(1);
     }
-    
+
     struct list_elem * e;
     for (e = list_begin(&mr_list); e != list_end(&mr_list); e = list_next(e))
     {
@@ -997,7 +1011,7 @@ struct ibv_mr * _reg_mr(struct ibv_pd * pd, void * addr, size_t length, int flag
       break;
     }
   }
-  
+
   internal_mr->flags = flag;
 
   memcpy(&internal_mr->user_mr, internal_mr->real_mr, sizeof(struct ibv_mr));
@@ -1029,7 +1043,7 @@ int _dereg_mr(struct ibv_mr * mr)
   return rslt;
 }
 
-int _req_notify_cq(struct ibv_cq * cq, int solicited_only)
+int _ibv_req_notify_cq(struct ibv_cq * cq, int solicited_only)
 {
   struct internal_ibv_cq * internal_cq = ibv_cq_to_internal(cq);
 
@@ -1114,7 +1128,7 @@ int _destroy_cq(struct ibv_cq * cq)
     list_remove(w);
     free(wc);
   }
-  
+
   e = list_begin(&internal_cq->req_notify_log);
   while (e != list_end(&internal_cq->req_notify_log)){
     struct list_elem * w = e;
@@ -1296,7 +1310,7 @@ int _modify_qp(struct ibv_qp * qp, struct ibv_qp_attr * attr, int attr_mask)
     // must OR src_path_bits to support LMC
     internal_qp->remote_id.lid = attr->ah_attr.dlid - attr->ah_attr.src_path_bits;
   }
-  
+
   if (attr_mask & IBV_QP_PORT) {
     struct ibv_port_attr attr2;
     int rslt2;
@@ -1425,24 +1439,16 @@ int _query_srq(struct ibv_srq * srq, struct ibv_srq_attr * srq_attr)
   return _real_ibv_query_srq(ibv_srq_to_internal(srq)->real_srq, srq_attr);
 }
 
-int _post_recv(struct ibv_qp * qp, struct ibv_recv_wr * wr, struct ibv_recv_wr ** bad_wr)
+int _ibv_post_recv(struct ibv_qp * qp, struct ibv_recv_wr * wr, struct
+                   ibv_recv_wr ** bad_wr)
 {
-  /* this makes sure the code didn't "double trampoline" */
-  static volatile int z = 0;
-  assert(z == 0);
-
   struct internal_ibv_qp * internal_qp = ibv_qp_to_internal(qp);
 
   //TODO: Technically this does multiple loops, but, the code is cleaner
   struct ibv_recv_wr * copy_wr = copy_recv_wr(wr);
   update_lkey_recv(copy_wr);
 
-  _uninstall_post_recv_trampoline();
-  z = 1;
-  int rslt = ibv_post_recv(internal_qp->real_qp, copy_wr, bad_wr);
-  z = 0;
-  _install_post_recv_trampoline();
-
+  int rslt = _real_ibv_post_recv(internal_qp->real_qp, copy_wr, bad_wr);
 
   delete_recv_wr(copy_wr);
 
@@ -1453,7 +1459,7 @@ int _post_recv(struct ibv_qp * qp, struct ibv_recv_wr * wr, struct ibv_recv_wr *
     if (!log) {
       fprintf(stderr, "Error: could not allocate memory for log.\n");
       exit(1);
-    }    
+    }
     log->wr = *copy_wr1;
     log->wr.next = NULL;
 
@@ -1464,28 +1470,20 @@ int _post_recv(struct ibv_qp * qp, struct ibv_recv_wr * wr, struct ibv_recv_wr *
   return rslt;
 }
 
-int _post_srq_recv(struct ibv_srq * srq, struct ibv_recv_wr * wr, struct ibv_recv_wr ** bad_wr)
+int _ibv_post_srq_recv(struct ibv_srq * srq, struct ibv_recv_wr * wr, struct ibv_recv_wr ** bad_wr)
 {
-  /* this makes sure the code didn't "double trampoline" */
-  static volatile int z = 0;
-  assert(z == 0);
-
   struct internal_ibv_srq * internal_srq = ibv_srq_to_internal(srq);
 
   //TODO: Technically this does multiple loops, but, the code is cleaner
   struct ibv_recv_wr * copy_wr = copy_recv_wr(wr);
-  
+
   update_lkey_recv(copy_wr);
 
-  _uninstall_post_srq_recv_trampoline();
-  z = 1;
-  int rslt = ibv_post_srq_recv(internal_srq->real_srq, copy_wr, bad_wr);
+  int rslt = _real_ibv_post_srq_recv(internal_srq->real_srq, copy_wr, bad_wr);
   if (rslt) {
     fprintf(stderr, "Error: srq_post_recv failed!\n");
     exit(1);
   }
-  z = 0;
-  _install_post_srq_recv_trampoline();
 
   delete_recv_wr(copy_wr);
 
@@ -1496,7 +1494,7 @@ int _post_srq_recv(struct ibv_srq * srq, struct ibv_recv_wr * wr, struct ibv_rec
     if (!log) {
       fprintf(stderr, "Error: could not allocate memory for log.\n");
       exit(1);
-    }    
+    }
     log->wr = *copy_wr1;
     log->wr.next = NULL;
 
@@ -1507,21 +1505,15 @@ int _post_srq_recv(struct ibv_srq * srq, struct ibv_recv_wr * wr, struct ibv_rec
   return rslt;
 }
 
-int _post_send(struct ibv_qp * qp, struct ibv_send_wr * wr, struct ibv_send_wr ** bad_wr)
+int _ibv_post_send(struct ibv_qp * qp, struct ibv_send_wr * wr, struct
+                   ibv_send_wr ** bad_wr)
 {
-  /* this makes sure the code didn't "double trampoline" */
-  static volatile int z = 0;
-  assert(z == 0);
   struct internal_ibv_qp * internal_qp = ibv_qp_to_internal(qp);
   struct ibv_send_wr * copy_wr = copy_send_wr(wr);
   update_lkey_send(copy_wr);
   update_rkey_send(copy_wr);
 
-  _uninstall_post_send_trampoline();
-  z = 1;
-  int rslt = ibv_post_send(internal_qp->real_qp, copy_wr, bad_wr);
-  z = 0;
-  _install_post_send_trampoline();
+  int rslt = _real_ibv_post_send(internal_qp->real_qp, copy_wr, bad_wr);
 
   delete_send_wr(copy_wr);
 
@@ -1544,10 +1536,8 @@ int _post_send(struct ibv_qp * qp, struct ibv_send_wr * wr, struct ibv_send_wr *
   return rslt;
 }
 
-int _poll_cq(struct ibv_cq * cq, int num_entries, struct ibv_wc * wc)
+int _ibv_poll_cq(struct ibv_cq * cq, int num_entries, struct ibv_wc * wc)
 {
-  static volatile int z = 0;
-  assert(z == 0);
   int rslt = 0;
 
   struct internal_ibv_cq * internal_cq = ibv_cq_to_internal(cq);
@@ -1566,28 +1556,20 @@ int _poll_cq(struct ibv_cq * cq, int num_entries, struct ibv_wc * wc)
     }
 
     if (size < num_entries) {
-      z = 1;
-      _uninstall_poll_cq_trampoline();
-      int ne = ibv_poll_cq(internal_cq->real_cq, num_entries - size, wc + size);
+      int ne = _real_ibv_poll_cq(internal_cq->real_cq, num_entries - size, wc + size);
       if (ne < 0) {
 	fprintf(stderr, "poll_cq() error!\n");
 	exit(1);
       }
-      z = 0;
-      _install_poll_cq_trampoline();
       rslt += ne;
     }
   }
   else {
-    z = 1;
-    _uninstall_poll_cq_trampoline();
-    rslt = ibv_poll_cq(internal_cq->real_cq, num_entries, wc);
+    rslt = _real_ibv_poll_cq(internal_cq->real_cq, num_entries, wc);
       if (rslt < 0) {
 	fprintf(stderr, "poll_cq() error!\n");
 	exit(1);
       }
-    _install_poll_cq_trampoline();
-    z = 0;
   }
 
   for (int i = 0; i < rslt; i++) {
