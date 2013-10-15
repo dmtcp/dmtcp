@@ -30,7 +30,7 @@
  * SOFTWARE.
  */
 
-#if HAVE_CONFIG_H
+#ifdef HAVE_CONFIG_H
 #  include <config.h>
 #endif /* HAVE_CONFIG_H */
 
@@ -186,7 +186,7 @@ static struct pingpong_dest *pp_client_exch_dest(const char *servername, int por
       if (!rem_dest)
             goto out;
 
-      sscanf(msg, "%x:%x:%x", &rem_dest->lid, &rem_dest->qpn, &rem_dest->psn);
+      sscanf(msg, "%x:%x:%x", (unsigned int*) &rem_dest->lid, (unsigned int*) &rem_dest->qpn, (unsigned int*) &rem_dest->psn);
 
 out:
       close(sockfd);
@@ -259,7 +259,7 @@ static struct pingpong_dest *pp_server_exch_dest(struct pingpong_context *ctx,
       if (!rem_dest)
             goto out;
 
-      sscanf(msg, "%x:%x:%x", &rem_dest->lid, &rem_dest->qpn, &rem_dest->psn);
+      sscanf(msg, "%x:%x:%x", (unsigned int*) &rem_dest->lid, (unsigned int*) &rem_dest->qpn, (unsigned int*) &rem_dest->psn);
 
       if (pp_connect_ctx(ctx, ib_port, my_dest->psn, mtu, rem_dest)) {
             fprintf(stderr, "Couldn't connect to remote QP\n");
