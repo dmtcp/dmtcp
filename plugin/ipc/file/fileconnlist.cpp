@@ -324,7 +324,11 @@ void dmtcp::FileConnList::processFileConnection(int fd, const char *path,
     device = jalib::Filesystem::GetDeviceName(fd);
   } else {
     device = jalib::Filesystem::ResolveSymlink(path);
+    if (device == "") {
+      device = path;
+    }
   }
+
   path = device.c_str();
   if (strcmp(path, "/dev/tty") == 0) {
     // Controlling terminal
