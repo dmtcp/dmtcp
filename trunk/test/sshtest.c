@@ -6,7 +6,13 @@
 
 int main(int argc, char *argv[])
 {
+  char *hostname = "localhost";
+
   int in[2], out[2], err[2];
+
+  if (argc > 1) {
+    hostname = argv[1];
+  }
 
   if (pipe(in) == -1) {
     perror("pipe(in) failed");
@@ -41,7 +47,7 @@ int main(int argc, char *argv[])
     close(out[1]);
     close(err[1]);
 
-    char *argv[] = {"/usr/bin/ssh", "localhost", "sleep", "100", NULL};
+    char *argv[] = {"/usr/bin/ssh", hostname, "sleep", "100", NULL};
     execv(argv[0], argv);
     perror("execv failed");
   } else {
