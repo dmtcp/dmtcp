@@ -108,11 +108,13 @@ EXTERNC int dmtcp_plugin_disable_ckpt(void);
 EXTERNC void dmtcp_plugin_enable_ckpt(void);
 EXTERNC void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
   __attribute((weak));
-EXTERNC int dmtcp_send_key_val_pair_to_coordinator(const void *key,
+EXTERNC int dmtcp_send_key_val_pair_to_coordinator(const char *id,
+                                                   const void *key,
                                                    size_t key_len,
                                                    const void *val,
                                                    size_t val_len);
-EXTERNC int dmtcp_send_query_to_coordinator(const void *key, size_t key_len,
+EXTERNC int dmtcp_send_query_to_coordinator(const char *id,
+                                            const void *key, size_t key_len,
                                             void *val, size_t *val_len);
 EXTERNC void dmtcp_get_local_ip_addr(struct in_addr *in);
 

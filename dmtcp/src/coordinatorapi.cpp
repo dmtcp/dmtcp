@@ -710,12 +710,15 @@ void dmtcp::CoordinatorAPI::updateHostAndPortEnv()
   }
 }
 
-int dmtcp::CoordinatorAPI::sendKeyValPairToCoordinator(const void *key,
+int dmtcp::CoordinatorAPI::sendKeyValPairToCoordinator(const char *id,
+                                                       const void *key,
                                                        size_t key_len,
                                                        const void *val,
                                                        size_t val_len)
 {
   DmtcpMessage msg (DMT_REGISTER_NAME_SERVICE_DATA);
+  JWARNING(strlen(id) < sizeof(msg.nsid));
+  strncpy(msg.nsid, id, 8);
   msg.keyLen = key_len;
   msg.valLen = val_len;
   msg.extraBytes = key_len + val_len;
@@ -730,10 +733,13 @@ int dmtcp::CoordinatorAPI::sendKeyValPairToCoordinator(const void *key,
 //   size of that buffer (the memory allocated by user).
 // On output, we copy data to val, and set *val_len to the actual buffer size
 //   (to the size of the data that we copied to the user buffer).
-int dmtcp::CoordinatorAPI::sendQueryToCoordinator(const void *key, size_t key_len,
+int dmtcp::CoordinatorAPI::sendQueryToCoordinator(const char *id,
+                                                  const void *key, size_t key_len,
                                                   void *val, size_t *val_len)
 {
   DmtcpMessage msg (DMT_NAME_SERVICE_QUERY);
+  JWARNING(strlen(id) < sizeof(msg.nsid));
+  strncpy(msg.nsid, id, 8);
   msg.keyLen = key_len;
   msg.valLen = 0;
   msg.extraBytes = key_len;
