@@ -74,14 +74,15 @@ namespace dmtcp
                           const DmtcpMessage& msg, const void *data);
 
     private:
-      typedef map<KeyValue, KeyValue*>::iterator keyValueMapIterator;
-      void addKeyValue(const void *key, size_t keyLen,
+      typedef map<KeyValue, KeyValue*> KeyValueMap;
+      typedef map<string, KeyValueMap>::iterator MapIterator;
+      void addKeyValue(string id, const void *key, size_t keyLen,
                        const void *val, size_t valLen);
-      void query(const void *key, size_t keyLen,
+      void query(string id, const void *key, size_t keyLen,
                  void **val, size_t *valLen);
 
     private:
-      map<KeyValue, KeyValue*> _keyValueMap;
+      map<string, KeyValueMap> _maps;
   };
 }
 #endif

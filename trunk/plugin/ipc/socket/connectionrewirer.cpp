@@ -154,7 +154,8 @@ void dmtcp::ConnectionRewirer::registerNSData()
   JASSERT(theRewirer != NULL);
   for (i = _pendingIncoming.begin(); i != _pendingIncoming.end(); ++i) {
     const ConnectionIdentifier& id = i->first;
-    dmtcp_send_key_val_pair_to_coordinator((const void *)&id,
+    dmtcp_send_key_val_pair_to_coordinator("Socket",
+                                           (const void *)&id,
                                            sizeof(id),
                                            &_restoreAddr,
                                            _restoreAddrlen);
@@ -175,7 +176,7 @@ void dmtcp::ConnectionRewirer::sendQueries()
     const ConnectionIdentifier& id = i->first;
     struct RemoteAddr remote;
     remote.len = sizeof(remote.addr);
-    dmtcp_send_query_to_coordinator((const void *)&id, sizeof(id),
+    dmtcp_send_query_to_coordinator("Socket", (const void *)&id, sizeof(id),
                                     &remote.addr, (size_t*) &remote.len);
     /*
     sockaddr_in *sn = (sockaddr_in*) &remote.addr;

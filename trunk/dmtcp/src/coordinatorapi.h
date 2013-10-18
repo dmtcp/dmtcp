@@ -116,9 +116,11 @@ namespace dmtcp
       static void startCoordinatorIfNeeded(CoordinatorMode mode, int isRestart = 0);
       static void startNewCoordinator(CoordinatorMode mode);
 
-      int sendKeyValPairToCoordinator(const void *key, size_t key_len,
+      int sendKeyValPairToCoordinator(const char *id,
+                                      const void *key, size_t key_len,
                                       const void *val, size_t val_len);
-      int sendQueryToCoordinator(const void *key, size_t key_len,
+      int sendQueryToCoordinator(const char *id,
+                                 const void *key, size_t key_len,
                                  void *val, size_t *val_len);
 
     private:

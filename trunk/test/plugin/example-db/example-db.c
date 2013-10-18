@@ -41,7 +41,8 @@ void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     /* Although one process resumes late, they will still all synchronize. */
     if (mystruct.key == 1) sleep(1);
     printf("The plugin is now resuming or restarting from checkpointing.\n");
-    dmtcp_send_key_val_pair_to_coordinator(&(mystruct.key),
+    dmtcp_send_key_val_pair_to_coordinator("ex-db",
+                                           &(mystruct.key),
                                            sizeof(mystruct.key),
                                            &(mystruct.pid),
                                            sizeof(mystruct.pid));
@@ -63,7 +64,8 @@ void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
      *  EXAMPLE_DB_KEY_OTHER, whose value was used to set mystruct_other.key.
      */
     sizeofPid = sizeof(mystruct_other.pid);
-    dmtcp_send_query_to_coordinator(&(mystruct_other.key),
+    dmtcp_send_query_to_coordinator("ex-db",
+                                    &(mystruct_other.key),
                                     sizeof(mystruct_other.key),
                                     &(mystruct_other.pid),
                                     &sizeofPid);

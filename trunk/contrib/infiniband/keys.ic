@@ -54,7 +54,7 @@ uint32_t update_rkey_restart(uint32_t rkey)
       return pair->new_rkey;
     }
   }
-  if (dmtcp_send_query_to_coordinator(&rkey, sizeof(rkey), &new_rkey, &size)) {
+  if (dmtcp_send_query_to_coordinator("IBV", &rkey, sizeof(rkey), &new_rkey, &size)) {
     assert(size == sizeof(uint32_t));
     struct ibv_rkey_pair * new_pair = malloc(sizeof(struct ibv_rkey_pair));
     if (!new_pair){

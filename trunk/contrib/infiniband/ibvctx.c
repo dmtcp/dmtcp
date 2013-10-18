@@ -152,7 +152,7 @@ static void send_qp_info(void)
     struct internal_ibv_qp * internal_qp = list_entry(e, struct internal_ibv_qp, elem);
     if (internal_qp->user_qp.state != IBV_QPS_INIT) {
 //      PDEBUG("Sending over original_id: 0x%06x 0x%04x 0x%06x and current_id: 0x%06x 0x%04x 0x%06x from %s\n", internal_qp->original_id.qpn, internal_qp->original_id.lid, internal_qp->original_id.psn, internal_qp->current_id.qpn, internal_qp->current_id.lid, internal_qp->current_id.psn, hostname);
-      dmtcp_send_key_val_pair_to_coordinator(&internal_qp->original_id, sizeof(internal_qp->original_id),
+      dmtcp_send_key_val_pair_to_coordinator("IBV", &internal_qp->original_id, sizeof(internal_qp->original_id),
                                              &internal_qp->current_id, sizeof(internal_qp->current_id));
     }
   }
@@ -168,7 +168,7 @@ static void query_qp_info(void)
     struct internal_ibv_qp * internal_qp = list_entry(e, struct internal_ibv_qp, elem);
     size_t size = sizeof(internal_qp->current_remote);
 //    PDEBUG("Querying for remote_id: 0x%06x 0x%04x 0x%06x from %s\n", internal_qp->remote_id.qpn, internal_qp->remote_id.lid, internal_qp->remote_id.psn, hostname);
-    dmtcp_send_query_to_coordinator(&internal_qp->remote_id, sizeof(internal_qp->remote_id),
+    dmtcp_send_query_to_coordinator("IBV", &internal_qp->remote_id, sizeof(internal_qp->remote_id),
                                     &internal_qp->current_remote, &size);
     assert(size == sizeof(struct ibv_qp_id));
   }
@@ -183,7 +183,7 @@ static void send_rkey_info(void)
   for (e = list_begin(&mr_list); e != list_end(&mr_list); e = list_next(e)) {
       struct internal_ibv_mr * internal_mr = list_entry(e, struct internal_ibv_mr, elem);
 //      PDEBUG("Sending over original_rkey: 0x%06x and new_rkey: 0x%06x from %s\n", internal_mr->user_mr.rkey, internal_mr->real_mr->rkey, hostname);
-      dmtcp_send_key_val_pair_to_coordinator(&internal_mr->user_mr.rkey, sizeof(internal_mr->user_mr.rkey),
+      dmtcp_send_key_val_pair_to_coordinator("IBV", &internal_mr->user_mr.rkey, sizeof(internal_mr->user_mr.rkey),
                                              &internal_mr->real_mr->rkey, sizeof(internal_mr->real_mr->rkey));
   }
 }
@@ -198,7 +198,7 @@ static void query_rkey_info(void)
     struct ibv_rkey_pair * pair = list_entry(e, struct ibv_rkey_pair, elem);
     size_t size = sizeof(pair->new_rkey);
 //    PDEBUG("Querying for new_rkey: 0x%06x from %s\n", pair->orig_rkey, hostname);
-    dmtcp_send_query_to_coordinator(&pair->orig_rkey, sizeof(pair->orig_rkey),
+    dmtcp_send_query_to_coordinator("IBV", &pair->orig_rkey, sizeof(pair->orig_rkey),
                                     &pair->new_rkey, &size);
     assert(size == sizeof(uint32_t));
   }
