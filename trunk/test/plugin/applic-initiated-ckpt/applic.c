@@ -23,7 +23,7 @@
 #include <stdlib.h>
 
 #include "dmtcpplugin.h"
-;
+
 int main() {
     if ( ! dmtcpIsEnabled() ) {
       printf("\n *** dmtcpIsEnabled: executable seems to not be running"
