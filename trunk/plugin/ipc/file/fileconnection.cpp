@@ -590,6 +590,10 @@ void dmtcp::FileConnection::drain()
     return;
   }
 
+  if (dmtcp_should_ckpt_file && dmtcp_should_ckpt_file(_path.c_str())) {
+    _checkpointed = true;
+  }
+
   if (_type == FILE_DELETED && (_flags & O_WRONLY)) {
     return;
   }
@@ -796,7 +800,7 @@ void dmtcp::FileConnection::postRestart()
   if (_type == FILE_BATCH_QUEUE) {
     JASSERT(dmtcp_bq_restore_file);
     tempfd = dmtcp_bq_restore_file(_path.c_str(), savedFilePath.c_str(),
-                               _fcntlFlags, _rmtype);
+                                   _fcntlFlags, _rmtype);
     JTRACE("Restore Resource Manager File") (_path);
   } else {
     refreshPath();
