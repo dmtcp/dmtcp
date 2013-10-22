@@ -40,6 +40,8 @@ namespace dmtcp
       static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
       static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
 #endif
+      DmtcpWorker ( bool shouldEnableCheckpointing );
+      ~DmtcpWorker();
       static DmtcpWorker& instance();
 
       void waitForCoordinatorMsg(dmtcp::string signalStr,
@@ -54,9 +56,6 @@ namespace dmtcp
 
       static void resetOnFork();
       void cleanupWorker();
-
-      DmtcpWorker ( bool shouldEnableCheckpointing );
-      ~DmtcpWorker();
 
       static int determineMtcpSignal();
 

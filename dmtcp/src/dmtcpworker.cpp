@@ -22,6 +22,7 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 #include "dmtcpworker.h"
+#include "mtcpinterface.h"
 #include "threadsync.h"
 #include "processinfo.h"
 #include "syscallwrappers.h"
@@ -252,6 +253,9 @@ static void processRlimit()
 #endif
 }
 
+dmtcp::DmtcpWorker dmtcp::DmtcpWorker::theInstance ( true );
+dmtcp::DmtcpWorker& dmtcp::DmtcpWorker::instance() { return theInstance; }
+
 //called before user main()
 //workerhijack.cpp initializes a static variable theInstance to DmtcpWorker obj
 dmtcp::DmtcpWorker::DmtcpWorker (bool enableCheckpointing)
@@ -312,6 +316,31 @@ dmtcp::DmtcpWorker::DmtcpWorker (bool enableCheckpointing)
   }
 
   informCoordinatorOfRUNNINGState();
+}
+
+void dmtcp::DmtcpWorker::resetOnFork()
+{
+  eventHook(DMTCP_EVENT_ATFORK_CHILD, NULL);
+
+  theInstance.cleanupWorker();
+  shutdownMtcpEngineOnFork();
+
+  /* If parent process had file connections and it fork()'d a child
+   * process, the child process would consider the file connections as
+   * pre-existing and hence wouldn't restore them. This is fixed by making sure
+   * that when a child process is forked, it shouldn't be looking for
+   * pre-existing connections because the parent has already done that.
+   *
+   * So, here while creating the instance, we do not want to execute everything
+   * in the constructor since it's not relevant. All we need to call is
+   * connectToCoordinatorWithHandshake() and initializeMtcpEngine().
+   */
+  new ( &theInstance ) DmtcpWorker ( false );
+
+  dmtcp::DmtcpWorker::_exitInProgress = false;
+
+  WorkerState::setCurrentState ( WorkerState::RUNNING );
+
 }
 
 void dmtcp::DmtcpWorker::cleanupWorker()
