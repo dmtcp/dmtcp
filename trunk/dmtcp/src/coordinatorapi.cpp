@@ -388,14 +388,19 @@ void dmtcp::CoordinatorAPI::sendCoordinatorHandshake(
      * prefix-path-env to the coordinator and the coordinator will note this as
      * the remote-prefix.
      */
-    dmtcp::string utilDirPrefix =
-      jalib::Filesystem::DirName(getenv(ENV_VAR_UTILITY_DIR));
+    const char *utilDirPath = getenv(ENV_VAR_UTILITY_DIR);
+    dmtcp::string utilDirPrefix = "";
+    if (utilDirPath != NULL) {
+      utilDirPrefix = jalib::Filesystem::DirName(utilDirPath);
+    }
     if (utilDirPrefix == jalib::Filesystem::ResolveSymlink(prefixPathEnv)) {
       prefixDir = prefixPathEnv;
     } else {
       prefixDir = utilDirPrefix;
     }
-    hello_local.extraBytes += prefixDir.length() + 1;
+    if (!prefixDir.empty()) {
+      hello_local.extraBytes += prefixDir.length() + 1;
+    }
   }
 
   _coordinatorSocket << hello_local;

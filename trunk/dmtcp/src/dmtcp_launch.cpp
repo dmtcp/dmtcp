@@ -250,12 +250,13 @@ int main ( int argc, char** argv )
   // of this binary (dmtcp_launch) is same as the one provided with
   // --prefix
   if (isSSHSlave && getenv(ENV_VAR_PREFIX_PATH) != NULL) {
-    const char *str = getenv(ENV_VAR_PREFIX_PATH);
-    dmtcp::string prefixDir = jalib::Filesystem::ResolveSymlink(str);
-    dmtcp::string programPrefixDir =
-      jalib::Filesystem::DirName(jalib::Filesystem::GetProgramDir());
-    JASSERT(prefixDir == programPrefixDir)
-      (prefixDir) (programPrefixDir);
+    char buf[PATH_MAX];
+    string prefixPath = getenv(ENV_VAR_PREFIX_PATH);
+    prefixPath += "/bin/dmtcp_launch";
+    JASSERT(realpath(prefixPath.c_str(), buf) != NULL) (prefixPath);
+    prefixPath = buf;
+    string programPath = jalib::Filesystem::GetProgramPath();
+    JASSERT(prefixPath == programPath) (prefixPath) (programPath);
   }
 
   dmtcp::UniquePid::setTmpDir(getenv(ENV_VAR_TMPDIR));
