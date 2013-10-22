@@ -49,6 +49,7 @@ void dmtcp_ProcessInfo_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
     case DMTCP_EVENT_PRE_EXEC:
       {
         jalib::JBinarySerializeWriterRaw wr("", data->serializerInfo.fd);
+        dmtcp::ProcessInfo::instance().refresh();
         dmtcp::ProcessInfo::instance().serialize(wr);
       }
       break;
@@ -318,10 +319,6 @@ void dmtcp::ProcessInfo::refreshChildTable()
 void dmtcp::ProcessInfo::serialize ( jalib::JBinarySerializer& o )
 {
   JSERIALIZE_ASSERT_POINT ( "dmtcp::ProcessInfo:" );
-
-  if (o.isWriter()) {
-    refresh();
-  }
 
   o & _isRootOfProcessTree & _pid & _sid & _ppid & _gid & _fgid;
   o & _procname & _hostname & _upid & _uppid;
