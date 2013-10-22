@@ -66,7 +66,7 @@ dmtcp_command_SOURCES = dmtcp_command.cpp
 libdmtcp_so_SOURCES = dmtcpawareapi.cpp dmtcpworker.cpp threadsync.cpp \
 		      coordinatorapi.cpp execwrappers.cpp \
 		      mtcpinterface.cpp signalwrappers.cpp \
-		      workerhijack.cpp threadwrappers.cpp \
+		      threadwrappers.cpp \
 		      miscwrappers.cpp ckptserializer.cpp \
 		      glibcsystem.cpp mallocwrappers.cpp \
 		      dmtcpplugin.cpp popen.cpp syslogwrappers.cpp

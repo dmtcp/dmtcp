@@ -162,11 +162,10 @@ dmtcp_restart_DEPENDENCIES = libdmtcpinternal.a libjalib.a \
 am_libdmtcp_so_OBJECTS = dmtcpawareapi.$(OBJEXT) dmtcpworker.$(OBJEXT) \
 	threadsync.$(OBJEXT) coordinatorapi.$(OBJEXT) \
 	execwrappers.$(OBJEXT) mtcpinterface.$(OBJEXT) \
-	signalwrappers.$(OBJEXT) workerhijack.$(OBJEXT) \
-	threadwrappers.$(OBJEXT) miscwrappers.$(OBJEXT) \
-	ckptserializer.$(OBJEXT) glibcsystem.$(OBJEXT) \
-	mallocwrappers.$(OBJEXT) dmtcpplugin.$(OBJEXT) popen.$(OBJEXT) \
-	syslogwrappers.$(OBJEXT)
+	signalwrappers.$(OBJEXT) threadwrappers.$(OBJEXT) \
+	miscwrappers.$(OBJEXT) ckptserializer.$(OBJEXT) \
+	glibcsystem.$(OBJEXT) mallocwrappers.$(OBJEXT) \
+	dmtcpplugin.$(OBJEXT) popen.$(OBJEXT) syslogwrappers.$(OBJEXT)
 libdmtcp_so_OBJECTS = $(am_libdmtcp_so_OBJECTS)
 libdmtcp_so_DEPENDENCIES = libdmtcpinternal.a libjalib.a \
 	libsyscallsreal.a
@@ -356,7 +355,7 @@ dmtcp_command_SOURCES = dmtcp_command.cpp
 libdmtcp_so_SOURCES = dmtcpawareapi.cpp dmtcpworker.cpp threadsync.cpp \
 		      coordinatorapi.cpp execwrappers.cpp \
 		      mtcpinterface.cpp signalwrappers.cpp \
-		      workerhijack.cpp threadwrappers.cpp \
+		      threadwrappers.cpp \
 		      miscwrappers.cpp ckptserializer.cpp \
 		      glibcsystem.cpp mallocwrappers.cpp \
 		      dmtcpplugin.cpp popen.cpp syslogwrappers.cpp
@@ -639,7 +638,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/util_exec.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/util_gen.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/util_init.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/workerhijack.Po@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
