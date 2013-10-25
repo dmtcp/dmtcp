@@ -26,6 +26,9 @@
  * as inline as an inline function calling __ptsname_r_chk. Later in this file
  * we define __ptsname_r_chk to call the original ptsname_r symbol.
  * Similarly, for ttyname_r, etc.
+ *
+ * Also, on some machines (e.g. SLES 10), readlink has conflicting return types
+ * (ssize_t and int).
 */
 #define ptsname_r ptsname_r_always_inline
 #define ttyname_r ttyname_r_always_inline
@@ -34,6 +37,7 @@
 #define openat openat_always_inline
 #define openat64 openat64_always_inline
 #define readlink readlink_always_inline
+#define __readlink_chk _ret__readlink_chk
 #define realpath realpath_always_inline
 
 #include <stdarg.h>
@@ -72,6 +76,7 @@
 #undef openat
 #undef openat64
 #undef readlink
+#undef __readlink_chk
 #undef realpath
 
 using namespace dmtcp;
@@ -612,14 +617,13 @@ extern "C" int __lxstat64(int vers, const char *path, struct stat64 *buf)
 
 //FIXME: Add wrapper for readlinkat
 // NOTE:  If you see a compiler error: "declaration of C function ... conflicts
-//   with ... unistd.h", then consider changing READLINK_RET_TYPE
-//   in dmtcpplugin.h.  A user has reported this was needed for Linux SLES10.
-extern "C" READLINK_RET_TYPE readlink(const char *path, char *buf,
-                                      size_t bufsiz)
+//   with ... unistd.h", then consider changing ssize_t to int
+//   A user has reported this was needed for Linux SLES10.
+extern "C" ssize_t readlink(const char *path, char *buf, size_t bufsiz)
 {
   char newpath [ PATH_MAX ] = {0} ;
   DMTCP_DISABLE_CKPT();
-  READLINK_RET_TYPE retval;
+  ssize_t retval;
   if (strcmp(path, "/proc/self/exe") == 0) {
     const char *procSelfExe = dmtcp_get_executable_path();
     strncpy(buf, procSelfExe, bufsiz);
@@ -632,8 +636,8 @@ extern "C" READLINK_RET_TYPE readlink(const char *path, char *buf,
   return retval;
 }
 
-extern "C" READLINK_RET_TYPE __readlink_chk(const char *path, char *buf,
-                                            size_t bufsiz, size_t buflen)
+extern "C" ssize_t __readlink_chk(const char *path, char *buf,
+                                  size_t bufsiz, size_t buflen)
 {
   return readlink(path, buf, bufsiz);
 }

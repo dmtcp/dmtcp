@@ -211,7 +211,7 @@ extern "C"
   int _real_xstat64(int vers, const char *path, struct stat64 *buf);
   int _real_lxstat(int vers, const char *path, struct stat *buf);
   int _real_lxstat64(int vers, const char *path, struct stat64 *buf);
-  READLINK_RET_TYPE _real_readlink(const char *path, char *buf, size_t bufsiz);
+  ssize_t _real_readlink(const char *path, char *buf, size_t bufsiz);
 
 #ifdef __cplusplus
 }
