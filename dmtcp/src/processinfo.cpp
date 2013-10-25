@@ -84,6 +84,7 @@ void dmtcp_ProcessInfo_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 
 dmtcp::ProcessInfo::ProcessInfo()
 {
+  char buf[PATH_MAX];
   _do_lock_tbl();
   _pid = -1;
   _ppid = -1;
@@ -96,6 +97,8 @@ dmtcp::ProcessInfo::ProcessInfo()
   _pthreadJoinId.clear();
   _procSelfExe = jalib::Filesystem::ResolveSymlink("/proc/self/exe");
   _uppid = UniquePid();
+  JASSERT(getcwd(buf, sizeof buf) != NULL);
+  _launchCWD = buf;
   _do_unlock_tbl();
 }
 
@@ -154,6 +157,49 @@ void dmtcp::ProcessInfo::insertChild(pid_t pid, dmtcp::UniquePid uniquePid)
 
 void dmtcp::ProcessInfo::restart()
 {
+  // Try to set the ckptCWD as CWD.
+  if (chdir(_ckptCWD.c_str()) != 0) {
+    size_t i;
+    size_t clen = _ckptCWD.length();
+    size_t llen = _launchCWD.length();
+    string rpath;
+    // If failed, chdir relative to restartCWD.
+    if (_launchCWD == _ckptCWD) {
+      // _launchCWD = "/A/B"; _ckptCWD = "/A/B" -> rpath = ""
+      rpath = "";
+    } else if (Util::strStartsWith(_ckptCWD.c_str(), _launchCWD.c_str()) &&
+               _ckptCWD[clen] == '/') {
+      // _launchCWD = "/A/B"; _ckptCWD = "/A/B/C" -> rpath = "./c"
+      rpath = _ckptCWD.substr(clen + 1);
+    } else if (Util::strStartsWith(_launchCWD.c_str(), _ckptCWD.c_str()) &&
+               _launchCWD[llen] == '/') {
+      // _launchCWD = "/A/B"; _ckptCWD = "/A" -> rpath = "../"
+      for (i = clen; _launchCWD[i] != '\0'; i++) {
+        if (_launchCWD[i] == '/') {
+          rpath += "../";
+        }
+      }
+    } else {
+      // _launchCWD = "/A/B"; _ckptCWD = "/A/C" -> rpath = "../C"
+      size_t lastSlash = 0;
+      // find the common prefix
+      for (i = 0; _launchCWD[i] == _ckptCWD[i]; i++) {
+        if (_launchCWD[i] == '/') {
+          lastSlash = i;
+        }
+      }
+      rpath = _ckptCWD.substr(lastSlash + 1);
+      for (i = lastSlash + 1; _launchCWD[i] != '\0'; i++) {
+        if (_launchCWD[i] == '/') {
+          rpath = "../" + rpath;
+        }
+      }
+    }
+    char cwd[PATH_MAX];
+    JASSERT(getcwd(cwd, sizeof cwd) != NULL);
+    JWARNING(chdir(rpath.c_str()) == 0) (_ckptCWD) (_launchCWD) (cwd) (rpath);
+  }
+
   string ckptDir = jalib::Filesystem::GetDeviceName(PROTECTED_CKPT_DIR_FD);
   JASSERT(ckptDir.length() > 0);
   _real_close(PROTECTED_CKPT_DIR_FD);
@@ -280,6 +326,10 @@ void dmtcp::ProcessInfo::refresh()
   _upid = UniquePid::ThisProcess();
   _noCoordinator = dmtcp_no_coordinator();
 
+  char buf[PATH_MAX];
+  JASSERT(getcwd(buf, sizeof buf) != NULL);
+  _ckptCWD = buf;
+
   _sessionIds.clear();
   refreshChildTable();
   refreshTidVector();
@@ -321,12 +371,12 @@ void dmtcp::ProcessInfo::serialize ( jalib::JBinarySerializer& o )
   JSERIALIZE_ASSERT_POINT ( "dmtcp::ProcessInfo:" );
 
   o & _isRootOfProcessTree & _pid & _sid & _ppid & _gid & _fgid;
-  o & _procname & _hostname & _upid & _uppid;
+  o & _procname & _hostname & _launchCWD & _ckptCWD & _upid & _uppid;
   o & _compGroup & _numPeers & _noCoordinator & _argvSize & _envSize;
 
   JTRACE("Serialized process information")
     (_sid) (_ppid) (_gid) (_fgid)
-    (_procname) (_hostname) (_upid) (_uppid)
+    (_procname) (_hostname) (_launchCWD) (_ckptCWD) (_upid) (_uppid)
     (_compGroup) (_numPeers) (_noCoordinator) (_argvSize) (_envSize);
 
   JASSERT(!_noCoordinator || _numPeers == 1) (_noCoordinator) (_numPeers);
