@@ -19,6 +19,9 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+// msgrcv has confliciting return types on some systems (e.g. SLES 10)
+#define msgrcv msgrcv_glibc
+
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #include <stdarg.h>
@@ -26,6 +29,8 @@
 #include "sysvipc.h"
 #include "sysvipcwrappers.h"
 #include "jassert.h"
+
+#undef msgrcv
 
 static struct timespec ts_100ms = {0, 100 * 1000 * 1000};
 /******************************************************************************

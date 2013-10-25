@@ -176,8 +176,7 @@ extern "C" int __lxstat64(int vers, const char *path, struct stat64 *buf)
   return retval;
 }
 
-extern "C" READLINK_RET_TYPE readlink(const char *path, char *buf,
-                                      size_t bufsiz)
+extern "C" ssize_t readlink(const char *path, char *buf, size_t bufsiz)
 {
   char newpath [ PATH_MAX ] = {0} ;
   //FIXME:  Suppose the real path is longer than PATH_MAX.  Do we check?

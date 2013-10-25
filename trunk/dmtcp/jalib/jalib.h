@@ -42,7 +42,7 @@ namespace jalib {
     int   (*fclose)(FILE *fp);
     int   (*dup)(int oldfd);
     int   (*dup2)(int oldfd, int newfd);
-    READLINK_RET_TYPE (*readlink)(const char *path, char *buf, size_t bufsiz);
+    ssize_t (*readlink)(const char *path, char *buf, size_t bufsiz);
 
     SYSCALL_ARG_RET_TYPE (*syscall)(SYSCALL_ARG_RET_TYPE sys_num, ...);
     void*    (*mmap)(void *addr, size_t length, int prot, int flags, int fd,
@@ -84,7 +84,7 @@ namespace jalib {
   int fclose(FILE *fp);
   int dup(int oldfd);
   int dup2(int oldfd, int newfd);
-  READLINK_RET_TYPE readlink(const char *path, char *buf, size_t bufsiz);
+  ssize_t readlink(const char *path, char *buf, size_t bufsiz);
 
   SYSCALL_ARG_RET_TYPE syscall(SYSCALL_ARG_RET_TYPE sys_num, ...);
   void *mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset);

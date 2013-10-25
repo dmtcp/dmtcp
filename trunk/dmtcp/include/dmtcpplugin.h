@@ -34,12 +34,6 @@
 # endif
 #endif
 
-#if __GLIBC_PREREQ(2,5)
-# define READLINK_RET_TYPE ssize_t
-#else
-# define READLINK_RET_TYPE int
-#endif
-
 #define SYSCALL_ARG_RET_TYPE long int
 #define POLL_TIMEOUT_TYPE int
 #define EVENTFD_VAL_TYPE int
