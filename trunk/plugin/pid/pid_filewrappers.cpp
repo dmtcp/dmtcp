@@ -19,6 +19,22 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+/* realpath is defined with "always_inline" attribute. GCC>=4.7 disallows us
+ * to define the realpath wrapper if compiled with -O0. Here we are renaming
+ * realpath so that later code does not see the declaration of realpath as
+ * inline. Normal user code from other files will continue to invoke realpath
+ * as inline as an inline function calling __ptsname_r_chk. Later in this file
+ * we define __ptsname_r_chk to call the original realpath symbol.
+ * Similarly, for ttyname_r, etc.
+ *
+ * Also, on some machines (e.g. SLES 10), readlink has conflicting return types
+ * (ssize_t and int).
+ */
+#define open open_always_inline
+#define open64 open64_always_inline
+#define readlink readlink_always_inline
+#define realpath realpath_always_inline
+
 #include <stdio.h>
 #include <stdarg.h>
 #include <sys/ioctl.h>
@@ -32,6 +48,11 @@
 #include "virtualpidtable.h"
 #include "dmtcpplugin.h"
 #include "pid.h"
+
+#undef open
+#undef open64
+#undef readlink
+#undef realpath
 
 // FIXME:  This function needs third argument newpathsize, or assume PATH_MAX
 // FIXME:  This does a lot of copying even if "/proc" doesn't appear.
