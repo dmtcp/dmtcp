@@ -62,7 +62,7 @@ static const char* theUsage =
   "  --prefix <arg>:\n"
   "      Prefix where DMTCP is installed on remote nodes.\n"
   "  --ckptdir, -c, (environment variable DMTCP_CHECKPOINT_DIR):\n"
-  "      Directory to store checkpoint images (default: ./)\n"
+  "      Directory to store checkpoint images (default: curr dir at launch)\n"
   "  --tmpdir, -t, (environment variable DMTCP_TMPDIR):\n"
   "      Directory to store temporary files \n"
   "        (default: $TMDPIR/dmtcp-$USER@$HOST or /tmp/dmtcp-$USER@$HOST)\n"
