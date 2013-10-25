@@ -112,6 +112,8 @@ namespace dmtcp
       dmtcp::string _procname;
       dmtcp::string _procSelfExe;
       dmtcp::string _hostname;
+      dmtcp::string _launchCWD;
+      dmtcp::string _ckptCWD;
       UniquePid     _upid;
       UniquePid     _uppid;
 
