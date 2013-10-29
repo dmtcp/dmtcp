@@ -560,6 +560,24 @@ Numerous DMTCP utility functions are provided that can be called from within
 dmtcp\_event\_hook().  For a complete list, see
 {\tt DMTCP\_ROOT/dmtcp/include/dmtcp/plugin.h}~.
 The utility functions are still under active development, and may change
-in small ways.
+in small ways.  Some of the more commonly used utility functions follow.
+Functions that return ``char *'' will not allocate memory, but instead will
+return a pointer to a canonical string, which should not be changed.
+{\tt
+\begin{verbatim}
+void dmtcp_get_local_ip_addr(struct in_addr *in);
+const char* dmtcp_get_tmpdir(); /* given by --tmpdir, or DMTCP_TMPDIR, or TMPDIR */
+const char* dmtcp_get_ckpt_dir();
+   /* given by --ckptdir, or DMTCP_CHECKPOINT_DIR, or curr dir at ckpt time */
+const char* dmtcp_get_ckpt_files_subdir();
+int  dmtcp_get_ckpt_signal(); /* given by --mtcp-checkpoint-signal */
+const char* dmtcp_get_uniquepid_str();
+const char* dmtcp_get_computation_id_str();
+time_t dmtcp_get_coordinator_timestamp();
+int  dmtcp_get_generation(); /* number of ckpt/restart sequences encountered */
+const char* dmtcp_get_executable_path();
+\end{verbatim}
+}
+
 
 \end{document}
