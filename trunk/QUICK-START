@@ -240,7 +240,7 @@ SHORT NOTES:
     13. How to checkpoint OpenMPI with DMTCP
         Verify that mpirun works.
         Verify dmtcp_{checkpoint,restart} commands are in your path:
-          ssh <REMOTE-HOST> dmtcp_launch --help
+          ssh <REMOTE-HOST> which dmtcp_launch
 	If they are not in your path, adjust your shell initialization file
            to extend your path.
         Verify "ssh <REMOTE-HOST>" works without password otherwise
