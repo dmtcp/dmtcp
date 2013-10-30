@@ -1,0 +1,135 @@
+Description: Fix for distclean target.
+ Some Makefile were not removed by distclean. This patch fixes this problem.
+
+--- a/Makefile.in
++++ b/Makefile.in
+@@ -276,6 +276,10 @@
+ PLUGINS = lib/dmtcp/libdmtcp_pid.so lib/dmtcp/libdmtcp_ipc.so \
+ 	  lib/dmtcp/libdmtcp_ptrace.so lib/dmtcp/libdmtcp_rm.so
+ 
++ifeq ($(PTRACE_SUPPORT),yes)
++  PLUGINS += lib/dmtcp/libdmtcp_ptrace.so
++endif
++
+ lib: 	lib/dmtcp/libdmtcp.so $(PLUGINS) \
+ 	lib/libdmtcpaware.a lib/libdmtcpaware.so \
+ 	lib/libmtcp.so.1.0.0 lib/libmtcp.so.1 lib/libmtcp.so
+--- a/configure
++++ b/configure
+@@ -4370,7 +4370,7 @@
+ ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ ac_compiler_gnu=$ac_cv_c_compiler_gnu
+ 
+-ac_config_files="$ac_config_files Makefile plugin/Makefile plugin/pid/Makefile plugin/ptrace/Makefile plugin/ipc/Makefile contrib/Makefile contrib/rm/Makefile test/Makefile test/testconfig.py test/plugin/Makefile test/credentials/Makefile"
++ac_config_files="$ac_config_files Makefile plugin/Makefile plugin/pid/Makefile plugin/ipc/Makefile contrib/Makefile contrib/rm/Makefile test/Makefile test/testconfig.py test/plugin/Makefile test/credentials/Makefile"
+ 
+ 
+ 
+@@ -4438,6 +4438,8 @@
+ if test "$use_ptrace_support" = "yes"; then
+   PTRACE_SUPPORT=yes
+ 
++  ac_config_files="$ac_config_files plugin/ptrace/Makefile"
++
+ else
+   PTRACE_SUPPORT=no
+ 
+@@ -7151,7 +7153,6 @@
+     "Makefile") CONFIG_FILES="$CONFIG_FILES Makefile" ;;
+     "plugin/Makefile") CONFIG_FILES="$CONFIG_FILES plugin/Makefile" ;;
+     "plugin/pid/Makefile") CONFIG_FILES="$CONFIG_FILES plugin/pid/Makefile" ;;
+-    "plugin/ptrace/Makefile") CONFIG_FILES="$CONFIG_FILES plugin/ptrace/Makefile" ;;
+     "plugin/ipc/Makefile") CONFIG_FILES="$CONFIG_FILES plugin/ipc/Makefile" ;;
+     "contrib/Makefile") CONFIG_FILES="$CONFIG_FILES contrib/Makefile" ;;
+     "contrib/rm/Makefile") CONFIG_FILES="$CONFIG_FILES contrib/rm/Makefile" ;;
+@@ -7159,6 +7160,7 @@
+     "test/testconfig.py") CONFIG_FILES="$CONFIG_FILES test/testconfig.py" ;;
+     "test/plugin/Makefile") CONFIG_FILES="$CONFIG_FILES test/plugin/Makefile" ;;
+     "test/credentials/Makefile") CONFIG_FILES="$CONFIG_FILES test/credentials/Makefile" ;;
++    "plugin/ptrace/Makefile") CONFIG_FILES="$CONFIG_FILES plugin/ptrace/Makefile" ;;
+ 
+   *) as_fn_error $? "invalid argument: \`$ac_config_target'" "$LINENO" 5;;
+   esac
+--- a/configure.ac
++++ b/configure.ac
+@@ -14,7 +14,7 @@
+ AC_OPENMP
+ AC_LANG_POP([C++])
+ AC_CONFIG_FILES([Makefile plugin/Makefile plugin/pid/Makefile \
+-                 plugin/ptrace/Makefile plugin/ipc/Makefile \
++                 plugin/ipc/Makefile \
+                  contrib/Makefile contrib/rm/Makefile \
+                  test/Makefile test/testconfig.py\
+                  test/plugin/Makefile test/credentials/Makefile])
+@@ -79,6 +79,7 @@
+ 
+ if test "$use_ptrace_support" = "yes"; then
+   AC_SUBST([PTRACE_SUPPORT], [yes])
++  AC_CONFIG_FILES([plugin/ptrace/Makefile])
+ else
+   AC_SUBST([PTRACE_SUPPORT], [no])
+ fi
+--- a/plugin/Makefile.in
++++ b/plugin/Makefile.in
+@@ -19,20 +19,17 @@
+ 
+ plugins = pid ipc
+ 
+-default: build
++ifeq ($(PTRACE_SUPPORT),yes)
++	plugins += ptrace
++endif
+ 
+-build: $(plugins) ptrace
++default: $(plugins)
+ 
+ all: default
+ 
+ $(plugins):
+ 	cd $@ && $(MAKE)
+ 
+-ptrace:
+-ifeq ($(PTRACE_SUPPORT),yes)
+-	cd ptrace && $(MAKE)
+-endif
+-
+ tidy:
+ 	rm -rf dmtcp-autotest-* ckpt_*_files
+ 	rm -f ckpt_*.dmtcp dmtcp_restart_script* \
+@@ -59,4 +56,4 @@
+ uninstall:
+ 	for p in $(plugins); do (cd $$p && $(MAKE) uninstall); done
+ 
+-.PHONY: default all build pid ptrace ipc tidy clean distclean install uninstall
++.PHONY: default all pid ptrace ipc tidy clean distclean install uninstall
+--- a/test/Makefile.in
++++ b/test/Makefile.in
+@@ -47,6 +47,7 @@
+ 
+ distclean: clean
+ 	cd plugin && $(MAKE) distclean
++	${MAKE} -C credentials distclean
+ 
+ readline: readline.c
+ ifeq ($(HAS_READLINE),yes)
+--- a/test/credentials/Makefile.in
++++ b/test/credentials/Makefile.in
+@@ -10,6 +10,9 @@
+ 	rm -f ckpt_* dmtcp_* p[1234567890]*
+ 	rm -f $(TARGETS)
+ 
++distclean: clean
++	rm -f Makefile
++
+ 
+ conf3: conf3.c
+ 	-$(CC) -o $@ $< $(CFLAGS)
+--- a/test/plugin/Makefile.in
++++ b/test/plugin/Makefile.in
+@@ -21,5 +21,6 @@
+ 	for file in */; do \
+ 	  ( cd $$file && ${MAKE} ${EXTRAMAKEFLAGS} distclean ); \
+ 	done
++	rm -f Makefile
+ 
+ .PHONY: default clean distclean

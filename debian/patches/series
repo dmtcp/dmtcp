@@ -1,1 +1,8 @@
 
+install-dmtcpplugin.h.patch
+compilation-fix-for-realpath.patch
+fix-for-Bsymbolic-functions.patch
+fix-distclean-target.patch
+remove-rpath.patch
+rename-rm-script.patch
+fix-for-dmtcp_ssh.patch
