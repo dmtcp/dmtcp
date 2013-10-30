@@ -3,15 +3,15 @@ Section: utils
 Priority: optional
 Maintainer: Kapil Arya <kapil@ccs.neu.edu>
 Uploaders: Yaroslav Halchenko <debian@onerussian.com>
-Build-Depends: debhelper (>= 9), python
-Standards-Version: 3.9.2
-Vcs-svn: https://dmtcp.svn.sourceforge.net/svnroot/dmtcp
-Vcs-browser: http://dmtcp.svn.sourceforge.net/viewvc/dmtcp/trunk
+Build-Depends: debhelper (>= 7), python
+Standards-Version: 3.9.4
+Vcs-svn: svn://svn.code.sf.net/p/dmtcp/code/trunk
+Vcs-browser: https://sourceforge.net/p/dmtcp/code
 Homepage: http://dmtcp.sourceforge.net
 
 Package: dmtcp
-Architecture: i386 amd64
-Depends: mtcp, libmtcp1, ${shlibs:Depends}, ${misc:Depends}
+Architecture: i386 amd64 armel
+Depends: libmtcp1, ${shlibs:Depends}, ${misc:Depends}
 Description: Checkpoint/Restart functionality for Linux processes
  DMTCP (Distributed MultiThreaded Checkpointing) is a tool to transparently
  checkpointing the state of an arbitrary group of programs including
@@ -27,7 +27,7 @@ Description: Checkpoint/Restart functionality for Linux processes
  This package contains DMTCP binaries.
 
 Package: dmtcp-dbg
-Architecture: i386 amd64
+Architecture: i386 amd64 armel
 Section: debug
 Priority: extra
 Depends: dmtcp, ${misc:Depends}
@@ -45,28 +45,8 @@ Description: Debug package for dmtcp
  .
  This package contains debugging symbols for DMTCP.
 
-Package: mtcp
-Architecture: i386 amd64
-Section: libs
-Depends: libmtcp1, ${misc:Depends}
-Suggests: dmtcp
-Description: Binary needed by DMTCP to restart checkpointed images
- DMTCP (Distributed MultiThreaded Checkpointing) is a tool to transparently
- checkpointing the state of an arbitrary group of programs including
- multi-threaded and distributed computations.  It operates directly on the user
- binary executable, with no Linux kernel modules or other kernel mods.
- .
- Among the applications supported by DMTCP are OpenMPI, MATLAB, Python, Perl,
- and many programming languages and shell scripting languages.  DMTCP also
- supports GNU screen sessions, including vim/cscope and emacs. With the use of
- TightVNC, it can also checkpoint and restart X-Window applications, as long
- as they do not use extensions (e.g.: no OpenGL, no video).
- .
- This package provides mtcp_restart binary, needed by DMTCP to restart the
- checkpointed image.
-
 Package: libmtcp1
-Architecture: i386 amd64
+Architecture: i386 amd64 armel
 Section: libs
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: DMTCP library needed for checkpointing a standalone process
@@ -85,7 +65,7 @@ Description: DMTCP library needed for checkpointing a standalone process
  standalone process.
 
 Package: libmtcp-dev
-Architecture: i386 amd64
+Architecture: i386 amd64 armel
 Section: libdevel
 Depends: libmtcp1 (= ${binary:Version}), ${misc:Depends}
 Description: Developer package for libmtcp
@@ -103,7 +83,7 @@ Description: Developer package for libmtcp
  This package provides header files needed for building programs with libmtcp.
 
 Package: libdmtcpaware1
-Architecture: i386 amd64
+Architecture: i386 amd64 armel
 Section: libs
 Depends: dmtcp, ${shlibs:Depends}, ${misc:Depends}
 Description: DMTCP programming interface
@@ -122,7 +102,7 @@ Description: DMTCP programming interface
  applications to interact with dmtcp.
 
 Package: libdmtcpaware-dev
-Architecture: i386 amd64
+Architecture: i386 amd64 armel
 Section: libdevel
 Depends: libdmtcpaware1 (= ${binary:Version}), ${misc:Depends}
 Description: DMTCP programming interface -- developer package

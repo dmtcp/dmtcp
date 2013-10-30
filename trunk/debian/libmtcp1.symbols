@@ -9,9 +9,11 @@ libmtcp.so.1 libmtcp1 #MINVER#
  mtcpHookPostCheckpoint@Base 1.2.3+svn1442
  mtcpHookPreCheckpoint@Base 1.2.3+svn1442
  mtcpHookRestart@Base 1.2.3+svn1442
+ mtcp_callback_ckpt_fd@Base 2.0
+ mtcp_callback_write_ckpt_header@Base 2.0
  mtcp_check_vdso_enabled@Base 1.2.3+svn1442
+ mtcp_checkpointeverything@Base 2.0
  mtcp_dump_tls@Base 1.2.3+svn1442
- mtcp_fill_in_pthread_id@Base 1.2.3+svn1442
  mtcp_find_executable@Base 1.2.3+svn1442
  mtcp_get_libc_symbol@Base 1.2.3+svn1442
  mtcp_get_thread_sysinfo@Base 1.2.3+svn1442
@@ -25,13 +27,18 @@ libmtcp.so.1 libmtcp1 #MINVER#
  mtcp_maybebpt@Base 1.2.3+svn1442
  mtcp_no@Base 1.2.3+svn1442
  mtcp_ok@Base 1.2.3+svn1442
- mtcp_process_pthread_join@Base 1.2.3+svn1442
+ mtcp_prepare_for_clone@Base 2.0
  mtcp_readchar@Base 1.2.3+svn1442
  mtcp_readdec@Base 1.2.3+svn1442
  mtcp_readhex@Base 1.2.3+svn1442
  mtcp_readmapsline@Base 1.2.3+svn1442
+ mtcp_rename_ckptfile@Base 2.0
+ mtcp_reset_on_fork@Base 2.0
  mtcp_restore_argv_start_addr@Base 1.2.3+svn1442
+ mtcp_restore_finish@Base 2.0
+ mtcp_restore_start@Base 2.0
  mtcp_safe_open@Base 1.2.3+svn1442
+ mtcp_saved_heap_start@Base 2.0
  mtcp_saved_pid@Base 1.2.3+svn1442
  mtcp_set_callbacks@Base 1.2.3+svn1442
  mtcp_set_dmtcp_callbacks@Base 1.2.3+svn1442
@@ -40,4 +47,9 @@ libmtcp.so.1 libmtcp1 #MINVER#
  mtcp_shareable_end@Base 1.2.3+svn1442
  mtcp_sigaction_entry@Base 1.2.3+svn1442
  mtcp_sys_errno@Base 1.2.3+svn1442
+ mtcp_thread_return@Base 2.0
+ mtcp_thread_start@Base 2.0
  mtcp_threadiszombie@Base 1.2.3+svn1442
+ mtcp_verify_count@Base 2.0
+ mtcp_verify_total@Base 2.0
+ mtcp_writeckpt_init@Base 2.0

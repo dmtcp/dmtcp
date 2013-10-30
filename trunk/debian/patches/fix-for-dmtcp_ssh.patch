@@ -1,0 +1,11 @@
+--- a/plugin/ipc/Makefile.in
++++ b/plugin/ipc/Makefile.in
+@@ -113,7 +113,7 @@
+ 
+ 
+ %: ssh/%.cpp ${COMMON_HEADERS} util_ssh.o
+-	$(CXX) $(INCLUDES) $(CPPFLAGS) $(CXXFLAGS) util_ssh.o util_ipc.o -o $@ $<
++	$(CXXLINK) $(INCLUDES) $(CPPFLAGS) util_ssh.o util_ipc.o $<
+ 
+ ${LIBNAME}: $(OBJS)
+ 	@rm -f ${LIBNAME}
