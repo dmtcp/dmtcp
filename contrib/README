@@ -38,6 +38,12 @@ kvm:  Support for checkpointing Qemu virtual machine under KVM.  Note
 	  [ If running with a network of virtual machines, you may also want
             to use this with the 'tun' plugin below. ]
 
+modify-environ:  Modify the environment variables on restart.  This
+	reads from a local file in the same directory, dmtcp_env.txt,
+	to determine what environment variables should be modified
+	in the restarted process.
+          [ This is still an early version, and may be updated later. ]
+
 python:  Support for a Python module, dmtcp.py.  This integrates DMTCP
 	into Python (and IPython) so that DMTCP may be invoked directly
 	from Python.  This work was reported on at SciPy-2013 in
