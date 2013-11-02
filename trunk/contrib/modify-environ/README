@@ -1,0 +1,10 @@
+On restart, read dmtcp_env.txt and modify the process's environment accordingly.
+The file, dmtcp_env.txt, must be in the same checkpoint directory as
+  the checkpoint image files, ckpt_*.dmtcp .
+To demonstrate, do:  make check
+After killing it, try:
+  ./dmtcp_restart_script.sh
+  # suspend
+  # Currently, /proc/*/environ is empty for mtcp_restart;
+  #   We will fix this in DMTCP in a future version, and then:
+  cat /proc/`pgrep -n mtcp_restart`/environ | tr '\0' '\n'
