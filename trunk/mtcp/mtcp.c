@@ -2735,7 +2735,10 @@ static int is_thread_locked (void)
 # define UNUSED_IN_64_BIT
 #endif
 
-#define STRINGS_LEN 10000
+// On some systems, the environment and arguments may not fit in this buffer.
+// We should think about creating a temp file to hold all the information
+// instead.
+#define STRINGS_LEN (8 * 4096)
 static char UNUSED_IN_64_BIT STRINGS[STRINGS_LEN];
 static int should_mmap_ckpt_image = 0;
 void mtcp_restore_start (int fd, int verify, int mmap_ckpt_image,
