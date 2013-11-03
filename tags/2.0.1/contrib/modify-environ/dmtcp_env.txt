@@ -1,0 +1,7 @@
+# Note, this uses putenv().  'man putenv' says that if an environment
+#  variable name is entered with no '=', then the environment variable
+#  is removed from the environment.
+HOME=me      # This is the new value of HOME.
+HOST=newhost
+EDITOR       # Unset any environment variable EDITOR.
+FOO="a b c"  # value of var (in quotes) will include spaces
