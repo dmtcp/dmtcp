@@ -20,13 +20,8 @@ if [ -n "$SLURM_JOBID" ] || [ -n "$SLURM_JOB_ID" ]; then
   fi
   
   eval "LOCAL_FILES=\${DMTCP_REMLAUNCH_$ID}"
-  
-  set >> `hostname`.set
   if [ $SLURM_LOCALID = 0 ]; then
-    echo "dmtcp_restart --join --host $DMTCP_HOST $LOCAL_FILES" > `hostname`.out
-    which dmtcp_restart >> `hostname`.out
     dmtcp_restart --join --host $DMTCP_HOST $LOCAL_FILES > `hostname`.dmtcp
-    echo "after dmtcp_restart" >> `hostname`.out
     if [ -d ./LOGS ]; then
       cp -R /tmp/* ./LOGS/
     fi
@@ -46,7 +41,7 @@ elif [ "$PBS_ENVIRONMENT" = PBS_BATCH ] && [ -n "$PBS_JOBID" ]; then
     exit 0
   fi  
   eval "$1"
-  set
+
   # Determine total number of nodes
   IDS=$DMTCP_REMLAUNCH_IDS
   if [ -z "$IDS" ] || [ "$ID" -ge "$IDS" ]; then
@@ -57,14 +52,7 @@ elif [ "$PBS_ENVIRONMENT" = PBS_BATCH ] && [ -n "$PBS_JOBID" ]; then
   fi
   
   eval "LOCAL_FILES=\${DMTCP_REMLAUNCH_$ID}"
-  echo "LOCALFILES=$LOCAL_FILES" > `hostname`.out
-
-  set >> `hostname`.set
-  echo "dmtcp_restart --join --host $DMTCP_HOST $LOCAL_FILES" >> `hostname`.out
-  which dmtcp_restart >> `hostname`.out
   dmtcp_restart --join --host $DMTCP_HOST $LOCAL_FILES > `hostname`.dmtcp
-  echo "after dmtcp_restart" >> `hostname`.out
-
   if [ -d ./LOGS ]; then
     cp -R /tmp/dmtcp* ./LOGS/
   fi
