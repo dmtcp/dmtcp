@@ -229,14 +229,14 @@ void resources_input::writeout_new(string env_var, resources &r)
   cout << env_var + "_IDS=\'" << r.ssize() << "\'" << endl;
 
   for (size_t i = 0; i < r.ssize(); i++) {
-    cout << env_var + "_" << r[i].id << "=\'";
+    cout << env_var + "_" << r[i].id << "=\' ";
     if (map[i].size()) {
       for (size_t j = 0; j < map[i].size(); j++) {
         int k = map[i][j];
         string name = sorted_v[k]->name;
         cout << node_ckpt_map[name] << " ";
       }
-      cout << "\'" << endl;
     }
+    cout << "\'" << endl;
   }
 }
