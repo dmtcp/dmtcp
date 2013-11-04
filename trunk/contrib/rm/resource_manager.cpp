@@ -103,6 +103,10 @@ bool runUnderRMgr()
 extern "C" int dmtcp_is_bq_file(const char *path)
 {
   dmtcp::string str(path);
+  
+  if( !runUnderRMgr() )
+    return false;
+  
   if( _get_rmgr_type() == torque )
     return isTorqueIOFile(str) || isTorqueFile("", str);
   else
@@ -111,6 +115,10 @@ extern "C" int dmtcp_is_bq_file(const char *path)
 
 extern "C" int dmtcp_bq_should_ckpt_file(const char *path, int *type)
 {
+
+  if( !runUnderRMgr() )
+    return false;
+
   if( _get_rmgr_type() == torque ){
     return torqueShouldCkptFile(path,type);
   }
@@ -122,7 +130,7 @@ extern "C" int dmtcp_bq_restore_file(const char *path,
                                      int fcntlFlags, int type)
 {
   dmtcp::string newpath;
-  
+
   int tempfd = -1;
   if( _get_rmgr_type() == torque ){
     tempfd = torqueRestoreFile(path, savedFilePath,fcntlFlags, type);

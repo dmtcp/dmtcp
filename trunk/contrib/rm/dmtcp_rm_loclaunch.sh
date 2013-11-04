@@ -27,9 +27,46 @@ if [ -n "$SLURM_JOBID" ] || [ -n "$SLURM_JOB_ID" ]; then
     which dmtcp_restart >> `hostname`.out
     dmtcp_restart --join --host $DMTCP_HOST $LOCAL_FILES > `hostname`.dmtcp
     echo "after dmtcp_restart" >> `hostname`.out
-    cp -R /tmp/* ./LOGS/
+    if [ -d ./LOGS ]; then
+      cp -R /tmp/* ./LOGS/
+    fi
+  fi
+elif [ "$PBS_ENVIRONMENT" = PBS_BATCH ] && [ -n "$PBS_JOBID" ]; then
+  cd $PBS_O_WORKDIR
+  ID=$PBS_NODENUM
+  if [ -z "$ID" ]; then
+    # something goes wrong. Shouldn't happen
+    echo "Cannot determine TORQUE_NODENUM. Exit."
+    set
+    exit 0
   fi
 
+  if [ -z "$1" ]; then
+    echo "$0: Not enough parameters: $@. Exit."
+    exit 0
+  fi  
+  eval "$1"
+  set
+  # Determine total number of nodes
+  IDS=$DMTCP_REMLAUNCH_IDS
+  if [ -z "$IDS" ] || [ "$ID" -ge "$IDS" ]; then
+    # something goes wrong. Shouldn't happen
+    echo "No DMTCP environment or bad ID values: ID=$ID, IDS=$IDS. Exit."
+    set
+    exit 0
+  fi
   
+  eval "LOCAL_FILES=\${DMTCP_REMLAUNCH_$ID}"
+  echo "LOCALFILES=$LOCAL_FILES" > `hostname`.out
+
+  set >> `hostname`.set
+  echo "dmtcp_restart --join --host $DMTCP_HOST $LOCAL_FILES" >> `hostname`.out
+  which dmtcp_restart >> `hostname`.out
+  dmtcp_restart --join --host $DMTCP_HOST $LOCAL_FILES > `hostname`.dmtcp
+  echo "after dmtcp_restart" >> `hostname`.out
+
+  if [ -d ./LOGS ]; then
+    cp -R /tmp/dmtcp* ./LOGS/
+  fi
 
 fi
