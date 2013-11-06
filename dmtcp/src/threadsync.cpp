@@ -419,37 +419,37 @@ bool dmtcp::ThreadSync::wrapperExecutionLockLock()
  *
  * NOTE:
  * 1. Currently, we do not have WRAPPER_EXECUTION_LOCK/UNLOCK for socket()
- * family of wrapper. That would be fixed in a later commit.
+ *    family of wrapper. That would be fixed in a later commit.
  * 2. We need to comeup with a strategy for certain blocking system calls that
- * can change the state of the process (e.g. accept).
+ *    can change the state of the process (e.g. accept).
+ * 3. Using trywrlock() can result in starvation if multiple other threads are
+ *    rapidly acquiring releasing the lock. For example thread A acquires the
+ *    rdlock for 100 ms. Thread B executes and trywrlock and fails. Thread B
+ *    sleeps goes to sleep for some time. While thread B is sleeping, thread A
+ *    releases the rdlock and reacquires it or some other thread acquires the
+ *    rdlock. This would cause the thread B to starve. This scenario can be
+ *    easily observed if thread A calls
+ *      epoll_wait(fd, events, max_events, -1).
+ *    It is wrapped by the epoll_wait wraper in IPC plugin which then makes
+ *    repeated calls to _real_epoll_wait with smaller timeout.
  */
 bool dmtcp::ThreadSync::wrapperExecutionLockLockExcl()
 {
   int saved_errno = errno;
   bool lockAcquired = false;
-  while (1) {
-    if (WorkerState::currentState() == WorkerState::RUNNING &&
-        isCheckpointThreadInitialized() == true) {
-      incrementWrapperExecutionLockLockCount();
-      int retVal = _real_pthread_rwlock_trywrlock(&_wrapperExecutionLock);
-      if (retVal != 0 && retVal == EBUSY) {
-        decrementWrapperExecutionLockLockCount();
-        struct timespec sleepTime = {0, 100*1000*1000};
-        nanosleep(&sleepTime, NULL);
-        continue;
-      }
-      if (retVal != 0 && retVal != EDEADLK) {
-        fprintf(stderr, "ERROR %s:%d %s: Failed to acquire lock\n",
-                __FILE__, __LINE__, __PRETTY_FUNCTION__);
-        _exit(1);
-      }
-      // retVal should always be 0 (success) here.
-      lockAcquired = retVal == 0 ? true : false;
-      if (!lockAcquired) {
-        decrementWrapperExecutionLockLockCount();
-      }
+  if (WorkerState::currentState() == WorkerState::RUNNING &&
+      isCheckpointThreadInitialized() == true) {
+    incrementWrapperExecutionLockLockCount();
+    int retVal = _real_pthread_rwlock_wrlock(&_wrapperExecutionLock);
+    if (retVal != 0 && retVal != EDEADLK) {
+      fprintf(stderr, "ERROR %s:%d %s: Failed to acquire lock\n",
+              __FILE__, __LINE__, __PRETTY_FUNCTION__);
+      _exit(1);
     }
-    break;
+    lockAcquired = retVal == 0 ? true : false;
+    if (!lockAcquired) {
+      decrementWrapperExecutionLockLockCount();
+    }
   }
   errno = saved_errno;
   return lockAcquired;
