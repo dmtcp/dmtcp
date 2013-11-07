@@ -835,7 +835,7 @@ static void read_shared_memory_area_from_file(Area* area, int flags)
           MTCP_PRINTF("mapping current version of %s into memory;\n"
                       "  _not_ file as it existed at time of checkpoint.\n"
                       "  Change %s:%d and re-compile, if you want different "
-                      "behavior. %d: %d\n",
+                      "behavior.\n",
                       area->name, __FILE__, __LINE__);
         }
       }
