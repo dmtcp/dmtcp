@@ -212,6 +212,10 @@ void dmtcp::SocketConnection::serialize(jalib::JBinarySerializer& o)
   , _remotePeerId(ConnectionIdentifier::Null())
 {
   if (domain != -1) {
+    // Sometimes _sockType contains SOCK_CLOEXEC/SOCK_NONBLOCK flags.
+    JWARNING((domain == AF_INET || domain == AF_UNIX || domain == AF_INET6)
+             && (type & 077) == SOCK_STREAM)
+      (domain) (type) (protocol);
     JTRACE("Creating TcpConnection.") (id()) (domain) (type) (protocol);
   }
   memset(&_bindAddr, 0, sizeof _bindAddr);
@@ -428,8 +432,9 @@ void dmtcp::TcpConnection::postRestart()
     case TCP_BIND:
     case TCP_LISTEN:
       {
+        // Sometimes _sockType contains SOCK_CLOEXEC/SOCK_NONBLOCK flags.
         JWARNING((_sockDomain == AF_INET || _sockDomain == AF_UNIX ||
-                  _sockDomain == AF_INET6) && _sockType == SOCK_STREAM)
+                  _sockDomain == AF_INET6) && (_sockType & 077) == SOCK_STREAM)
           (id()) (_sockDomain) (_sockType) (_sockProtocol)
           .Text("Socket type not yet [fully] supported.");
 
