@@ -21,7 +21,7 @@ if [ -n "$SLURM_JOBID" ] || [ -n "$SLURM_JOB_ID" ]; then
   
   eval "LOCAL_FILES=\${DMTCP_REMLAUNCH_$ID}"
   if [ $SLURM_LOCALID = 0 ]; then
-    dmtcp_restart --join --host $DMTCP_HOST $LOCAL_FILES > `hostname`.dmtcp
+    dmtcp_restart --join --host $DMTCP_HOST $LOCAL_FILES
     if [ -d ./LOGS ]; then
       cp -R /tmp/* ./LOGS/
     fi
@@ -52,7 +52,7 @@ elif [ "$PBS_ENVIRONMENT" = PBS_BATCH ] && [ -n "$PBS_JOBID" ]; then
   fi
   
   eval "LOCAL_FILES=\${DMTCP_REMLAUNCH_$ID}"
-  dmtcp_restart --join --host $DMTCP_HOST $LOCAL_FILES > `hostname`.dmtcp
+  dmtcp_restart --join --host $DMTCP_HOST $LOCAL_FILES
   if [ -d ./LOGS ]; then
     cp -R /tmp/dmtcp* ./LOGS/
   fi
