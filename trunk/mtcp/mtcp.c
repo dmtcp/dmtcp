@@ -3175,6 +3175,9 @@ static void sync_shared_mem(void)
 
     if (mtcp_strendswith(area.name, DELETED_FILE_SUFFIX)) continue;
 
+    /* Don't sync the DRI shared memory region for OpenGL */
+    if (mtcp_strstartswith(area.name, DEV_DRI_SHMEM)) continue;
+
 #ifdef IBV
     // TODO: Don't checkpoint infiniband shared area for now.
    if (mtcp_strstartswith(area.name, INFINIBAND_SHMEM_FILE)) {
