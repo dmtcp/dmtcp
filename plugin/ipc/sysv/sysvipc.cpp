@@ -29,7 +29,6 @@
 #include <ios>
 #include <fstream>
 
-#include "protectedfds.h"
 #include "util.h"
 #include "dmtcpplugin.h"
 #include "shareddata.h"
@@ -512,7 +511,7 @@ dmtcp::ShmSegment::ShmSegment(int shmid, int realShmid, key_t key, size_t size,
   : SysVObj(shmid, realShmid, key, shmflg)
 {
   _size = size;
-  if (key == -1) {
+  if (key == -1 || size == 0) {
     struct shmid_ds shminfo;
     JASSERT(_real_shmctl(_realId, IPC_STAT, &shminfo) != -1);
     _key = shminfo.shm_perm.__key;
