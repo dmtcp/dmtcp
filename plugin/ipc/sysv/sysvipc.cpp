@@ -627,6 +627,14 @@ void dmtcp::ShmSegment::postRestart()
   JTRACE("Remapping shared memory segment to original address") (_id) (_realId);
 }
 
+void dmtcp::ShmSegment::refill(bool isRestart)
+{
+  if (!isRestart || _isCkptLeader) return;
+
+  // Update _realId;
+  _realId = VIRTUAL_TO_REAL_IPC_ID(_id);
+}
+
 void dmtcp::ShmSegment::preResume()
 {
   // Re-map all remaining addresses
