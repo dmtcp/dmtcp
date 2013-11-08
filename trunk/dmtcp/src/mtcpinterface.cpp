@@ -114,7 +114,7 @@ void dmtcp::initializeMtcpEngine()
                            &callbackPreResumeUserThread);
 
   JTRACE ("Calling mtcp_init");
-  mtcp_init(UniquePid::getCkptFilename(), 0xBadF00d, 1);
+  mtcp_init(NULL, 0xBadF00d, 1);
   mtcp_ok();
 
   JTRACE ( "mtcp_init complete" ) ( UniquePid::getCkptFilename() );

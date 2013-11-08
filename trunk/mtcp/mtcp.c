@@ -555,7 +555,9 @@ void mtcp_init (char const *checkpointfilename,
 
   intervalsecs = interval;
 
-  update_checkpoint_filename(checkpointfilename);
+  if (checkpointfilename != NULL) {
+    update_checkpoint_filename(checkpointfilename);
+  }
 
   DPRINTF("main tid %d\n", mtcp_sys_kernel_gettid ());
   /* If MTCP_INIT_PAUSE set, sleep 15 seconds and allow for gdb attach. */
