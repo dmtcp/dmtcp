@@ -690,7 +690,9 @@ runTest("forkexec",      2, ["./test/forkexec"])
 
 # if USE_M32, DMTCP mixed mode of 32-bit waitpid and 64-bit /usr/bin/ssh fails.
 if testconfig.HAS_SSH == "yes" and not testconfig.USE_M32:
+  S=3*DEFAULT_S
   runTest("sshtest",     4, ["./test/sshtest"])
+  S=DEFAULT_S
 
 # if USE_M32, DMTCP mixed mode of 32-bit waitpid and 64-bit /bin/sleep fails.
 if testconfig.PID_VIRTUALIZATION == "yes" and not testconfig.USE_M32:
