@@ -199,11 +199,6 @@ void dmtcp::ProcessInfo::restart()
     JASSERT(getcwd(cwd, sizeof cwd) != NULL);
     JWARNING(chdir(rpath.c_str()) == 0) (_ckptCWD) (_launchCWD) (cwd) (rpath);
   }
-
-  string ckptDir = jalib::Filesystem::GetDeviceName(PROTECTED_CKPT_DIR_FD);
-  JASSERT(ckptDir.length() > 0);
-  _real_close(PROTECTED_CKPT_DIR_FD);
-  UniquePid::setCkptDir(ckptDir.c_str());
 }
 
 void dmtcp::ProcessInfo::eraseChild( pid_t virtualPid )
