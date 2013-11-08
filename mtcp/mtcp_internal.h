@@ -323,6 +323,10 @@ struct Thread { Thread *next;         // next thread in 'threads' list
 #ifdef IBV
 # define INFINIBAND_SHMEM_FILE "/dev/infiniband/uverbs"
 #endif
+
+/* Shared memory regions for Direct Rendering Infrastructure */
+#define DEV_DRI_SHMEM "/dev/dri/card"
+
 #define DELETED_FILE_SUFFIX " (deleted)"
 
 /* Let MTCP_PROT_ZERO_PAGE be a unique bit mask

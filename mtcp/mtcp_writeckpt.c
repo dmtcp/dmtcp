@@ -705,6 +705,10 @@ static void write_ckpt_to_file(int fd, int fdCkptFileOnDisk)
       continue;
     }
 #endif
+    /* Don't checkpoint the DRI shared memory region for OpenGL */
+    else if (mtcp_strstartswith(area.name, DEV_DRI_SHMEM)) {
+      continue;
+    }
     else if (mtcp_strendswith(area.name, DELETED_FILE_SUFFIX)) {
       /* Deleted File */
     } else if (area.name[0] == '/' && mtcp_strstr(&area.name[1], "/") != NULL) {
