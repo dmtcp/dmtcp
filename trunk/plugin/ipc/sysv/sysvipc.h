@@ -195,7 +195,7 @@ namespace dmtcp
       virtual void preCkptDrain();
       virtual void preCheckpoint();
       virtual void postRestart();
-      virtual void refill(bool isRestart) {}
+      virtual void refill(bool isRestart);
       virtual void preResume();
 
       bool isValidShmaddr(const void* shmaddr);
