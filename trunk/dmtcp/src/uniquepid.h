@@ -73,6 +73,7 @@ namespace dmtcp
     static dmtcp::string getCkptDir();
     static void setCkptDir(const char*);
     static void updateCkptDir();
+    static void createCkptDir();
     static void setTmpDir(const char * envVarTmpDir);
     static dmtcp::string getTmpDir();
 

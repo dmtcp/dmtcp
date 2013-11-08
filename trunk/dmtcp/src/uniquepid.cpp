@@ -35,7 +35,7 @@ void dmtcp_UniquePid_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   switch (event) {
     case DMTCP_EVENT_THREADS_SUSPEND:
-      UniquePid::updateCkptDir();
+      UniquePid::createCkptDir();
       break;
 
     case DMTCP_EVENT_RESTART:
@@ -231,6 +231,17 @@ dmtcp::string dmtcp::UniquePid::getCkptFilesSubDir()
   return _ckptFilesSubDir();
 }
 
+void dmtcp::UniquePid::createCkptDir()
+{
+  updateCkptDir();
+  JASSERT(mkdir(_ckptDir().c_str(), S_IRWXU) == 0 || errno == EEXIST)
+    (JASSERT_ERRNO) (_ckptDir())
+    .Text("Error creating checkpoint directory");
+
+  JASSERT(0 == access(_ckptDir().c_str(), X_OK|W_OK)) (_ckptDir())
+    .Text("ERROR: Missing execute- or write-access to checkpoint dir");
+}
+
 dmtcp::string dmtcp::UniquePid::getCkptDir()
 {
   if (_ckptDir().empty()) {
@@ -247,16 +258,14 @@ void dmtcp::UniquePid::setCkptDir(const char *dir)
   _ckptFileName().clear();
   _ckptFilesSubDir().clear();
 
-  JASSERT(mkdir(_ckptDir().c_str(), S_IRWXU) == 0 || errno == EEXIST)
-    (JASSERT_ERRNO) (_ckptDir())
-    .Text("Error creating checkpoint directory");
-
-  JASSERT(0 == access(_ckptDir().c_str(), X_OK|W_OK)) (_ckptDir())
-    .Text("ERROR: Missing execute- or write-access to checkpoint dir");
+  JASSERT(access(_ckptDir().c_str(), X_OK|W_OK) == 0) (_ckptDir())
+    .Text("Missing execute- or write-access to checkpoint dir.");
 }
 
 void dmtcp::UniquePid::updateCkptDir()
 {
+  _ckptFileName().clear();
+  _ckptFilesSubDir().clear();
   if (_ckptDir().empty()) {
     const char *dir = getenv(ENV_VAR_CHECKPOINT_DIR);
     if (dir == NULL) {
