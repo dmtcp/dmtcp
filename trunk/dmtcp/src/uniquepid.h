@@ -85,6 +85,7 @@ namespace dmtcp
     bool operator== ( const UniquePid& that ) const;
     bool operator!= ( const UniquePid& that ) const { return ! operator== ( that ); }
 
+    static void restart();
     static void resetOnFork ( const dmtcp::UniquePid& newId );
 
     dmtcp::string toString() const;

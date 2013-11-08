@@ -506,7 +506,6 @@ void dmtcp::DmtcpWorker::waitForStage1Suspend()
   }
 
   waitForCoordinatorMsg ("SUSPEND", DMT_DO_SUSPEND);
-  UniquePid::updateCkptDir();
 
   JTRACE("got SUSPEND message, preparing to acquire all ThreadSync locks");
   ThreadSync::acquireLocks();
@@ -592,10 +591,12 @@ void dmtcp::DmtcpWorker::waitForStage4Resume(bool isRestart)
 void dmtcp_CoordinatorAPI_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
 void dmtcp_SharedData_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
 void dmtcp_ProcessInfo_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
+void dmtcp_UniquePid_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
 
 void dmtcp::DmtcpWorker::eventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   static jalib::JBuffer buf(0); // To force linkage of jbuffer.cpp
+  dmtcp_UniquePid_EventHook(event, data);
   dmtcp_CoordinatorAPI_EventHook(event, data);
   dmtcp_SharedData_EventHook(event, data);
   dmtcp_ProcessInfo_EventHook(event, data);

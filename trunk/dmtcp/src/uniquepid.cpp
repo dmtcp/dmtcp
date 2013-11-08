@@ -29,6 +29,24 @@
 #include "syscallwrappers.h"
 #include "protectedfds.h"
 
+using namespace dmtcp;
+
+void dmtcp_UniquePid_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
+{
+  switch (event) {
+    case DMTCP_EVENT_THREADS_SUSPEND:
+      UniquePid::updateCkptDir();
+      break;
+
+    case DMTCP_EVENT_RESTART:
+      dmtcp::UniquePid::restart();
+      break;
+
+    default:
+      break;
+  }
+}
+
 static dmtcp::string& _ckptDir()
 {
   static dmtcp::string str;
@@ -345,6 +363,14 @@ void dmtcp::UniquePid::setTmpDir(const char* envVarTmpDir) {
   JASSERT(tmpFd != -1);
   JASSERT(_real_dup2(tmpFd, PROTECTED_TMPDIR_FD)==PROTECTED_TMPDIR_FD);
   close ( tmpFd );
+}
+
+void dmtcp::UniquePid::restart()
+{
+  string ckptDir = jalib::Filesystem::GetDeviceName(PROTECTED_CKPT_DIR_FD);
+  JASSERT(ckptDir.length() > 0);
+  _real_close(PROTECTED_CKPT_DIR_FD);
+  setCkptDir(ckptDir.c_str());
 }
 
 /*!
