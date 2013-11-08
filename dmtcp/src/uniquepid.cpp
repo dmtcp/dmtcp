@@ -53,6 +53,12 @@ static dmtcp::string& _ckptDir()
   return str;
 }
 
+static dmtcp::string& _uniqueDir()
+{
+  static dmtcp::string str;
+  return str;
+}
+
 static dmtcp::string& _ckptFileName()
 {
   static dmtcp::string str;
@@ -234,11 +240,12 @@ dmtcp::string dmtcp::UniquePid::getCkptFilesSubDir()
 void dmtcp::UniquePid::createCkptDir()
 {
   updateCkptDir();
-  JASSERT(mkdir(_ckptDir().c_str(), S_IRWXU) == 0 || errno == EEXIST)
-    (JASSERT_ERRNO) (_ckptDir())
+  dmtcp::string dirname = _ckptDir() + _uniqueDir();
+  JASSERT(mkdir(dirname.c_str(), S_IRWXU) == 0 || errno == EEXIST)
+    (JASSERT_ERRNO) (dirname)
     .Text("Error creating checkpoint directory");
 
-  JASSERT(0 == access(_ckptDir().c_str(), X_OK|W_OK)) (_ckptDir())
+  JASSERT(0 == access(dirname.c_str(), X_OK|W_OK)) (dirname)
     .Text("ERROR: Missing execute- or write-access to checkpoint dir");
 }
 
@@ -248,7 +255,7 @@ dmtcp::string dmtcp::UniquePid::getCkptDir()
     updateCkptDir();
   }
   JASSERT(!_ckptDir().empty());
-  return _ckptDir();
+  return _ckptDir() + _uniqueDir();
 }
 
 void dmtcp::UniquePid::setCkptDir(const char *dir)
@@ -273,15 +280,15 @@ void dmtcp::UniquePid::updateCkptDir()
     }
     setCkptDir(dir);
   }
+
 #ifdef UNIQUE_CHECKPOINT_FILENAMES
-  dmtcp::ostringstream o;
-  o << _ckptDir();
   JASSERT(computationId() != UniquePid(0,0,0));
   JASSERT(computationId().generation() != -1);
 
+  dmtcp::ostringstream o;
   o << "/ckpt_" << _prefix << computationId() << "_"
     << std::setw(5) << std::setfill('0') << computationId().generation();
-  setCkptDir(o.str().c_str());
+  _uniqueDir() = o.str();
 #endif
 }
 
