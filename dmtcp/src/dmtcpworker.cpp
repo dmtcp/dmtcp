@@ -300,10 +300,10 @@ dmtcp::DmtcpWorker::DmtcpWorker (bool enableCheckpointing)
 
   calculateArgvAndEnvSize();
 
+  WorkerState::setCurrentState (WorkerState::RUNNING);
   // define "Weak Symbols for each library plugin in libdmtcp.so
   eventHook(DMTCP_EVENT_INIT, NULL);
 
-  WorkerState::setCurrentState (WorkerState::RUNNING);
   /* Acquire the lock here, so that the checkpoint-thread won't be able to
    * process CHECKPOINT request until we are done with initializeMtcpEngine()
    */
