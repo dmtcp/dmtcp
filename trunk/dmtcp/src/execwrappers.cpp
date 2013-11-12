@@ -53,9 +53,7 @@ static dmtcp::CoordinatorAPI coordinatorAPI(-1);
 static bool isPerformingCkptRestart()
 {
   if (dmtcp::WorkerState::currentState() != dmtcp::WorkerState::UNKNOWN &&
-      dmtcp::WorkerState::currentState() != dmtcp::WorkerState::RUNNING &&
-      dmtcp::WorkerState::currentState() != dmtcp::WorkerState::PRE_FORK &&
-      dmtcp::WorkerState::currentState() != dmtcp::WorkerState::PRE_EXEC) {
+      dmtcp::WorkerState::currentState() != dmtcp::WorkerState::RUNNING) {
     return true;
   }
   return false;
