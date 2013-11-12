@@ -63,6 +63,10 @@ static const char* theUsage =
   "        on the given port. The port can be specified with --port, or with\n"
   "        environment variable DMTCP_PORT.  If no port is specified, start\n"
   "        coordinator at a random port (same as specifying port '0').\n"
+  "  --no-strict-uid-checking:\n"
+  "      Disable uid checking for the checkpoint image.  This allows the\n"
+  "        checkpoint image to be restarted by a different user than the one\n"
+  "        that create it. (environment variable DMTCP_DISABLE_UID_CHECKING)\n"
   "  --interval, -i, (environment variable DMTCP_CHECKPOINT_INTERVAL):\n"
   "      Time in seconds between automatic checkpoints.\n"
   "      0 implies never (manual ckpt only); if not set and no env var,\n"
@@ -276,6 +280,7 @@ int main(int argc, char** argv)
 {
   bool autoStartCoordinator=true;
   bool isRestart = true;
+  bool noStrictUIDChecking = false;
   dmtcp::CoordinatorAPI::CoordinatorMode allowedModes =
     dmtcp::CoordinatorAPI::COORD_ANY;
 
@@ -309,6 +314,9 @@ int main(int argc, char** argv)
       shift;
     } else if (s == "--new-coordinator") {
       allowedModes = dmtcp::CoordinatorAPI::COORD_NEW;
+      shift;
+    } else if (s == "--no-strict-uid-checking") {
+      noStrictUIDChecking = true;
       shift;
     } else if (s == "-i" || s == "--interval" ||
                (s.c_str()[0] == '-' && s.c_str()[1] == 'i' &&
@@ -380,7 +388,8 @@ int main(int argc, char** argv)
       sprintf(error_msg, "\ndmtcp_restart: ckpt image %s", restorename.c_str());
       perror(error_msg);
       doAbort = true;
-    } else if (buf.st_uid != getuid()) { /*Could also run if geteuid() matches*/
+    } else if (buf.st_uid != getuid() && !noStrictUIDChecking) {
+      /*Could also run if geteuid() matches*/
       printf("\nProcess uid (%d) doesn't match uid (%d) of\n" \
              "checkpoint image (%s).\n" \
 	     "This is dangerous.  Aborting for security reasons.\n" \
