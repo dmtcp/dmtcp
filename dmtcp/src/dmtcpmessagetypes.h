@@ -95,8 +95,6 @@ namespace dmtcp
       enum eWorkerState
       {
         UNKNOWN,
-        PRE_FORK,
-        PRE_EXEC,
         RUNNING,
         SUSPENDED,
         FD_LEADER_ELECTION,
