@@ -544,9 +544,6 @@ extern "C" DIR *opendir(const char *name)
 
 static void updateStatPath(const char *path, char *newpath)
 {
-//  if (dmtcp::WorkerState::currentState() == dmtcp::WorkerState::UNKNOWN) {
-//    strncpy(newpath, path, PATH_MAX);
-//  } else
     if (dmtcp::Util::strStartsWith(path, VIRT_PTS_PREFIX_STR)) {
     char currPtsDevName[32];
     dmtcp::SharedData::getRealPtyName(path, currPtsDevName,
