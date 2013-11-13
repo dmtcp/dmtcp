@@ -42,7 +42,7 @@ mtcp/testmtcp6
 mtcp/util-arch
 
 test/*
-!test/*.*
+!*.{c,h,cpp,java,py,in}
 test/testconfig.py
 
 *.deps*
