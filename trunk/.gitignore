@@ -40,6 +40,9 @@ mtcp/readmtcp
 mtcp/mtcp.t.orig
 mtcp/testmtcp6
 mtcp/util-arch
+
+test/*
+!test/*.*
 test/testconfig.py
 
 *.deps*
