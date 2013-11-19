@@ -93,13 +93,16 @@ int main (int argc, char *argv[], char *envp[])
   int orig_argc = argc;
   environ = envp;
 
+#ifndef RUN_AS_ROOT
   if (mtcp_sys_getuid() == 0 || mtcp_sys_geteuid() == 0) {
     mtcp_printf("Running mtcp_restart as root is dangerous.  Aborting.\n" \
-	   "If you still want to do this (at your own risk)," \
-	   "  then modify mtcp/%s:%d and re-compile.\n",
+	   "If you still want to do this (at your own risk), then use\n" \
+	   "    ./configure --enable-run-as-root\n" \
+	   "  or else modify mtcp/%s:%d and re-compile.\n",
 	   __FILE__, __LINE__ - 4);
     mtcp_abort();
   }
+#endif
 
   // Turn off randomize_va (by re-exec'ing) or warn user if vdso_enabled is on.
   mtcp_check_vdso_enabled();
