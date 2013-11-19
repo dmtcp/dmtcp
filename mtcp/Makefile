@@ -79,25 +79,30 @@ ifdef CFLAGS_WALL
   MTCP_CFLAGS += -Wall
 endif
 
-# If calling 'make' from mtcp subdir, you may want to unconditionally set this.
-ifdef HBICT_DELTACOMP
-  MTCP_CFLAGS += -DHBICT_DELTACOMP
-endif
-
 # If ./configure --enable-fast-restart defined, DMTCP 'make' will set this.
 # If building MTCP standalone, change the line below to invoke this option.
 ifdef FAST_RESTART
   MTCP_CFLAGS += -DFAST_RST_VIA_MMAP
 endif
 
-# If ./configure --enable-ptrace-support defined.
-ifdef PTRACE
-  MTCP_CFLAGS += -DPTRACE
+# If calling 'make' from mtcp subdir, you may want to unconditionally set this.
+ifdef HBICT_DELTACOMP
+  MTCP_CFLAGS += -DHBICT_DELTACOMP
 endif
 
 # If ./configure --enable-infiniband-support defined.
 ifdef INFINIBAND
   MTCP_CFLAGS += -DIBV
+endif
+
+# If ./configure --enable-ptrace-support defined.
+ifdef RUN_AS_ROOT
+  MTCP_CFLAGS += -DRUN_AS_ROOT
+endif
+
+# If ./configure --enable-ptrace-support defined.
+ifdef PTRACE
+  MTCP_CFLAGS += -DPTRACE
 endif
 
 ifdef DMTCP_VERSION

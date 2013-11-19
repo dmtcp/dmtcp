@@ -154,6 +154,18 @@ AC_ARG_ENABLE([experts_only],
 	    [], [])
 AC_ARG_ENABLE([experts_only_after], [AS_HELP_STRING([ ], [])], [], [])
 
+AC_ARG_ENABLE([run-as-root],
+            [AS_HELP_STRING([--enable-run-as-root],
+                            [allow DMTCP to run as root (normally forbidden)])],
+            [use_run_as_root=$enableval],
+            [use_run_as_root=no])
+
+if test "$use_run_as_root" = "yes"; then
+  AC_SUBST([RUN_AS_ROOT], [yes])
+else
+  AC_SUBST([RUN_AS_ROOT], [no])
+fi
+
 AC_ARG_ENABLE([pid_virtualization],
             [AS_HELP_STRING([--disable-pid-virtualization],
                             [disable pid virtualization.  Pid virtualization
