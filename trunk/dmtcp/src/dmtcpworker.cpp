@@ -116,7 +116,7 @@ int dmtcp::DmtcpWorker::determineMtcpSignal()
  * details.
  */
 static bool dmtcpWrappersInitialized = false;
-extern "C" LIB_PRIVATE void prepareDmtcpWrappers()
+extern "C" void dmtcp_prepare_wrappers(void)
 {
   if (!dmtcpWrappersInitialized) {
     // FIXME: Remove JALLOC_HELPER_... after the release.
@@ -127,6 +127,7 @@ extern "C" LIB_PRIVATE void prepareDmtcpWrappers()
     dmtcp_wrappers_initializing = 0;
     initialize_libpthread_wrappers();
     JALLOC_HELPER_ENABLE_LOCKS();
+    dmtcpWrappersInitialized = true;
 
     /* Register pthread_atfork_child() as the first post-fork handler for the
      * child process. This needs to be the first function that is called by
@@ -141,7 +142,6 @@ extern "C" LIB_PRIVATE void prepareDmtcpWrappers()
     JASSERT(pthread_atfork(pthread_atfork_prepare,
                            pthread_atfork_parent,
                            pthread_atfork_child) == 0);
-    dmtcpWrappersInitialized = true;
   }
 }
 
@@ -264,7 +264,7 @@ dmtcp::DmtcpWorker::DmtcpWorker (bool enableCheckpointing)
   else {
     WorkerState::setCurrentState(WorkerState::UNKNOWN);
     initializeJalib();
-    prepareDmtcpWrappers();
+    dmtcp_prepare_wrappers();
     prepareLogAndProcessdDataFromSerialFile();
   }
 

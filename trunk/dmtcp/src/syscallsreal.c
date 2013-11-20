@@ -28,8 +28,6 @@
 
 #include <malloc.h>
 #include <pthread.h>
-#include "syscallwrappers.h"
-#include "trampolines.h"
 #include <dlfcn.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -45,6 +43,9 @@
 #include <unistd.h>
 #include <ctype.h>
 #include <assert.h>
+#include "syscallwrappers.h"
+#include "trampolines.h"
+
 typedef int (*funcptr_t) ();
 typedef pid_t (*funcptr_pid_t) ();
 typedef funcptr_t (*signal_funcptr_t) ();
@@ -196,7 +197,8 @@ void _dmtcp_remutex_on_fork() {
 LIB_PRIVATE void dmtcp_setThreadPerformingDlopenDlsym();
 LIB_PRIVATE void dmtcp_unsetThreadPerformingDlopenDlsym();
 #endif
-extern void prepareDmtcpWrappers();
+void dmtcp_prepare_wrappers();
+
 extern int dmtcp_wrappers_initializing;
 static void *_real_func_addr[numLibcWrappers];
 static int _libc_wrappers_initialized = 0;
@@ -302,7 +304,7 @@ void initialize_libpthread_wrappers()
 
 #define REAL_FUNC_PASSTHROUGH_WORK(name) \
   if (fn == NULL) { \
-    if (_real_func_addr[ENUM(name)] == NULL) prepareDmtcpWrappers(); \
+    if (_real_func_addr[ENUM(name)] == NULL) dmtcp_prepare_wrappers(); \
     fn = _real_func_addr[ENUM(name)]; \
     if (fn == NULL) { \
       fprintf(stderr, "*** DMTCP: Error: lookup failed for %s.\n" \
