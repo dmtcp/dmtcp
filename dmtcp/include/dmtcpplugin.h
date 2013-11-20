@@ -156,6 +156,8 @@ EXTERNC int dmtcp_should_ckpt_file(const char *path)
   __attribute((weak));
 
 
+EXTERNC void dmtcp_prepare_wrappers(void) __attribute((weak));
+
 #define dmtcp_process_event(e,d) \
     __REPLACE_dmtcp_process_event_WITH_dmtcp_event_hook()__
 
@@ -174,6 +176,7 @@ EXTERNC int dmtcp_should_ckpt_file(const char *path)
      static __typeof__(&func) _real_##func = (__typeof__(&func)) -1;        \
      if ((void*) _real_##func == (void*) -1) {                              \
        __typeof__(&dlsym) dlsym_fnptr;                                      \
+       if (dmtcp_prepare_wrappers) dmtcp_prepare_wrappers();                \
        dlsym_fnptr = (__typeof__(&dlsym)) dmtcp_get_libc_dlsym_addr();      \
        _real_##func = (__typeof__(&func)) (*dlsym_fnptr) (RTLD_NEXT, #func);\
      }                                                                      \
