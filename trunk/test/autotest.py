@@ -875,10 +875,7 @@ if testconfig.PTRACE_SUPPORT == "yes" and sys.version_info[0:2] >= (2,6):
 if testconfig.HAS_JAVAC == "yes" and testconfig.HAS_JAVA == "yes":
   S=10*DEFAULT_S
   os.environ['CLASSPATH'] = './test'
-  if testconfig.HAS_SUN_ORACLE_JAVA == "yes":
-    runTest("java1",         1,  ["java -Xmx512M java1"])
-  else:
-    runTest("java1",         1,  ["java java1"])
+  runTest("java1",         1,  ["java -Xmx5M java1"])
   del os.environ['CLASSPATH']
   S=DEFAULT_S
 
