@@ -36,12 +36,15 @@
 
 static bool checkpointSignalBlockedForProcess = false;
 static __thread bool checkpointSignalBlockedForThread = false;
+static int stopSignal = -1;
 
 
 static int bannedSignalNumber()
 {
-  const int cache = dmtcp::DmtcpWorker::determineMtcpSignal();
-  return cache;
+  if (stopSignal == -1) {
+    stopSignal = dmtcp::DmtcpWorker::determineMtcpSignal();
+  }
+  return stopSignal;
 }
 
 static int patchBSDMask(int mask)
@@ -124,7 +127,12 @@ EXTERNC sighandler_t signal(int signum, sighandler_t handler)
 EXTERNC int sigaction(int signum, const struct sigaction *act,
                       struct sigaction *oldact)
 {
-  if(signum == bannedSignalNumber()) {
+  if(signum == bannedSignalNumber() && act != NULL) {
+    JWARNING("Application trying to use DMTCP's signal for it's own use.\n"
+             "  You should employ a different signal by setting the\n"
+             "  environment variable DMTCP_SIGCKPT to the number\n"
+             "  of the signal that DMTCP should use for checkpointing.")
+      (stopSignal);
     act = NULL;
   }
   return _real_sigaction( signum, act, oldact);
