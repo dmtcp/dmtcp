@@ -25,13 +25,6 @@ HAS_STRACE="@HAS_STRACE@"
 HAS_GDB="@HAS_GDB@"
 HAS_JAVA="@HAS_JAVA@"
 HAS_JAVAC="@HAS_JAVAC@"
-# HAS_SUN_ORACLE_JAVA="@HAS_SUN_ORACLE_JAVA@"
-if HAS_JAVA == "yes" and \
-  [line for line in os.popen("java -X 2>&1").readlines()
-        if line.strip().startswith("-Xmx")]:
-  HAS_SUN_ORACLE_JAVA="yes"
-else:
-  HAS_SUN_ORACLE_JAVA="no"
 HAS_SSH="@HAS_SSH@"
 HAS_CILK="@HAS_CILK@"
 HAS_GCL="@HAS_GCL@"
