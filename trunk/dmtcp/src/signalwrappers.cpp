@@ -43,6 +43,14 @@ static int bannedSignalNumber()
 {
   if (stopSignal == -1) {
     stopSignal = dmtcp::DmtcpWorker::determineMtcpSignal();
+
+    // On some systems, the ckpt-signal may be blocked by default. Unblock it
+    // now.
+    sigset_t set;
+    sigemptyset(&set);
+    sigaddset(&set, stopSignal);
+    JASSERT(_real_pthread_sigmask(SIG_UNBLOCK, &set, NULL) == 0)
+      (JASSERT_ERRNO) (stopSignal);
   }
   return stopSignal;
 }
