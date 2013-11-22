@@ -1518,7 +1518,7 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
                   "      eval \"val=\\${DMTCP_REMLAUNCH_$i}\"\n"
                   "      arguments=$arguments\" DMTCP_REMLAUNCH_$i=\\\"$val\\\"\"\n"
                   "    done\n"
-                  "    pbsdsh `which dmtcp_rm_loclaunch` \"$arguments\"\n"
+                  "    pbsdsh -u `which dmtcp_rm_loclaunch` \"$arguments\"\n"
                   "    exit 0\n"
                   "  fi\n"
                   "fi\n"
