@@ -1648,7 +1648,16 @@ static void restore_term_settings() {
       DPRINTF("WARNING:skip restore terminal step -- we are in BACKGROUND\n");
     }
   }
+#ifndef RUN_AS_ROOT
+  /* Apache uses SIGWINCH as a signal to gracefully exit, so we avoid
+   * it here. This is a temporary fix. A proper fix might consist of:
+   * using a configure flag for Apache; or, using a dedicated Apache plugin;
+   * or, detecting the application type during runtime (for example: by
+   * detecting that the application is registering a signal handler for
+   * SIGWINCH).
+   */
   if (kill(getpid(), SIGWINCH) == -1) {}  /* No remedy if error */
+#endif
 }
 
 /*************************************************************************

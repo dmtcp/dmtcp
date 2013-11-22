@@ -321,8 +321,18 @@ dmtcp::string dmtcp::UniquePid::getTmpDir()
     setTmpDir(getenv(ENV_VAR_TMPDIR));
     device = jalib::Filesystem::ResolveSymlink ( "/proc/self/fd/"
                + jalib::XToString ( PROTECTED_TMPDIR_FD ) );
+#ifndef RUN_AS_ROOT
     JASSERT ( !device.empty() )
       .Text ( "Still unable to determine DMTCP_TMPDIR" );
+#else
+    /* For an application that gives up its privileges after
+     * starting as root (using setuid() for example), the checkpoint
+     * thread will not be able to open up /proc/self/fd/. This is a
+     * temporary fix for this problem.
+     */
+    JASSERT (PROTECTED_TMPDIR_FD)
+      .Text ( "Still unable to determine DMTCP_TMPDIR" );
+#endif
   }
   return device;
 }
