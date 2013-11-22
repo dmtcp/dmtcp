@@ -3146,6 +3146,18 @@ static void setup_sig_handler (sighandler_t handler)
                 "use for checkpointing.\n", STOPSIGNAL, old_act.sa_handler);
     mtcp_abort ();
   }
+  // Now unblock the STOPSIGNAL
+  // On some machines, the ckpt-signal may be blocked by default. This was
+  // noticed with the machines at LIGO.
+  // Note: If running under DMTCP, this call will be trapped by DMTCP. DMTCP
+  // would then independently unblock the ckpt-signal if not done already.
+  sigset_t set;
+  sigemptyset(&set);
+  sigaddset(&set, STOPSIGNAL);
+  if (pthread_sigmask(SIG_UNBLOCK, &set, NULL) < 0) {
+    MTCP_PRINTF("error unblocking ckpt-signal: %s\n", strerror(errno));
+    mtcp_abort ();
+  }
 }
 
 /*****************************************************************************
