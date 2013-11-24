@@ -117,6 +117,7 @@ EXTERNC void dmtcp_set_tmpdir(const char *);
 
 EXTERNC const char* dmtcp_get_ckpt_dir();
 EXTERNC void dmtcp_set_ckpt_dir(const char *);
+EXTERNC void dmtcp_set_coord_ckpt_dir(const char* dir);
 EXTERNC const char* dmtcp_get_ckpt_files_subdir();
 EXTERNC int dmtcp_should_ckpt_open_files();
 

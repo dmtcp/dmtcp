@@ -492,6 +492,16 @@ void dmtcp::CoordinatorAPI::updateCoordTimeStamp()
   _coordTimeStamp = reply.coordTimeStamp;
 }
 
+void dmtcp::CoordinatorAPI::updateCoordCkptDir(const char *dir)
+{
+  if (noCoordinator()) return;
+  JASSERT(dir != NULL);
+  DmtcpMessage msg(DMT_UPDATE_CKPT_DIR);
+  msg.extraBytes = strlen(dir) + 1;
+  _coordinatorSocket << msg;
+  _coordinatorSocket.writeAll(dir, strlen(dir) + 1);
+}
+
 void dmtcp::CoordinatorAPI::startCoordinatorIfNeeded(CoordinatorAPI::CoordinatorMode mode,
                                                      int isRestart)
 {
