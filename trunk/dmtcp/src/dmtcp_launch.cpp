@@ -88,10 +88,13 @@ static const char* theUsage =
   "  --mtcp-checkpoint-signal:\n"
   "      Signal number used internally by MTCP for checkpointing (default: 12)\n"
   "  --rm:\n"
-  "      Enable support for resource managers (Torque PBS and SLURM). (Default: disabled)\n"
+  "      Enable support for resource managers (Torque PBS and SLURM).\n"
+  "        (Default: disabled)\n"
   "  --ptrace:\n"
   "      Enable support for PTRACE system call for gdb/strace etc.\n"
   "        (default: disabled)\n"
+  "  --disable-alloc-plugin: (environment variable DMTCP_ALLOC_PLUGIN=[01])\n"
+  "      Disable alloc plugin (default: enabled).\n"
   "  --with-plugin (environment variable DMTCP_PLUGIN):\n"
   "      Colon-separated list of DMTCP plugins to be preloaded with DMTCP.\n"
   "      (Absolute pathnames are required.)\n"
@@ -118,6 +121,7 @@ static bool autoStartCoordinator=true;
 static bool checkpointOpenFiles=false;
 static bool enableRM=false;
 static bool enablePtrace=false;
+static bool enableAllocPlugin=true;
 static CoordinatorAPI::CoordinatorMode allowedModes = CoordinatorAPI::COORD_ANY;
 
 //shift args
@@ -207,6 +211,9 @@ static void processArgs(int *orig_argc, char ***orig_argv)
       shift;
     } else if (s == "--ptrace") {
       enablePtrace = true;
+      shift;
+    } else if (s == "--disable-alloc-plugin") {
+      setenv(ENV_VAR_ALLOC_PLUGIN, "0", 1);
       shift;
     } else if (s == "--rm") {
       enableRM = true;
@@ -565,6 +572,23 @@ static void setLDPreloadLibs()
 #endif
   if (enablePtrace) {
     preloadLibs += jalib::Filesystem::FindHelperUtility("libdmtcp_ptrace.so");
+    preloadLibs += ":";
+  }
+
+  //set up Alloc plugin
+  if (getenv(ENV_VAR_ALLOC_PLUGIN) != NULL){
+    const char *ptr = getenv(ENV_VAR_ALLOC_PLUGIN);
+    if (strcmp(ptr, "1") == 0) {
+      enableAllocPlugin = true;
+    } else if (strcmp(ptr, "0") == 0) {
+      enableAllocPlugin = false;
+    } else {
+      JASSERT(false) (getenv(ENV_VAR_ALLOC_PLUGIN))
+        .Text("Invalid value for the environment variable.");
+    }
+  }
+  if (enableAllocPlugin) {
+    preloadLibs += jalib::Filesystem::FindHelperUtility("libdmtcp_alloc.so");
     preloadLibs += ":";
   }
 

@@ -68,7 +68,7 @@ libdmtcp_so_SOURCES = dmtcpawareapi.cpp dmtcpworker.cpp threadsync.cpp \
 		      mtcpinterface.cpp signalwrappers.cpp \
 		      threadwrappers.cpp \
 		      miscwrappers.cpp ckptserializer.cpp \
-		      glibcsystem.cpp mallocwrappers.cpp \
+		      glibcsystem.cpp \
 		      dmtcpplugin.cpp popen.cpp syslogwrappers.cpp
 
 # Add the following three paths to rpath:
