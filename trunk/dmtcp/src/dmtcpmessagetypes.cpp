@@ -162,6 +162,7 @@ dmtcp::ostream& dmtcp::operator << ( dmtcp::ostream& o, const dmtcp::DmtcpMessag
       OSHIFTPRINTF ( DMT_GET_VIRTUAL_PID_RESULT )
       OSHIFTPRINTF ( DMT_GET_COORD_TSTAMP )
       OSHIFTPRINTF ( DMT_COORD_TSTAMP )
+      OSHIFTPRINTF ( DMT_UPDATE_CKPT_DIR )
 
       OSHIFTPRINTF ( DMT_USER_CMD )
       OSHIFTPRINTF ( DMT_USER_CMD_RESULT )

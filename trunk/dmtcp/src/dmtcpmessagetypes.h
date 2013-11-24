@@ -44,6 +44,8 @@ namespace dmtcp
     DMT_GET_COORD_TSTAMP,
     DMT_COORD_TSTAMP,
 
+    DMT_UPDATE_CKPT_DIR,
+
     DMT_USER_CMD,            // on connect established dmtcp_command -> coordinator
     DMT_USER_CMD_RESULT,     // on reply coordinator -> dmtcp_command
 

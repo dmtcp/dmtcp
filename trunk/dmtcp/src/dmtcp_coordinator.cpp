@@ -428,6 +428,8 @@ static dmtcp::string remotePrefix;
 static dmtcp::string coordHostname;
 static struct in_addr localhostIPAddr;
 
+static dmtcp::string ckptDir;
+
 static void removeStaleSharedAreaFile();
 static void preExitCleanup();
 
@@ -819,6 +821,17 @@ void dmtcp::DmtcpCoordinator::onData ( jalib::JReaderInterface* sock )
 
         JTRACE ( "recording restart info" ) ( ckptFilename ) ( hostname );
         _restartFilenames[hostname].push_back ( ckptFilename );
+      }
+      break;
+      case DMT_UPDATE_CKPT_DIR:
+      {
+        JASSERT(extraData != 0)
+          .Text("extra data expected with DMT_UPDATE_CKPT_DIR message");
+        if (strcmp(ckptDir.c_str(), extraData) != 0) {
+          ckptDir = extraData;
+          JNOTE("Updated ckptDir") (ckptDir);
+        }
+          JNOTE("Updated ckptDir") (ckptDir);
       }
       break;
       case DMT_USER_CMD:  // dmtcpaware API being used
@@ -1387,16 +1400,14 @@ dmtcp::DmtcpCoordinator::CoordinatorStatus dmtcp::DmtcpCoordinator::getStatus() 
 
 void dmtcp::DmtcpCoordinator::writeRestartScript()
 {
-  const char* dir = getenv ( ENV_VAR_CHECKPOINT_DIR );
-  if(dir==NULL) dir = ".";
   dmtcp::ostringstream o1, o2;
   dmtcp::string filename, uniqueFilename;
 
-  o1 << dmtcp::string(dir) << "/"
+  o1 << dmtcp::string(ckptDir) << "/"
      << RESTART_SCRIPT_BASENAME << RESTART_SCRIPT_EXT;
   filename = o1.str();
 
-  o2 << dmtcp::string(dir) << "/"
+  o2 << dmtcp::string(ckptDir) << "/"
      << RESTART_SCRIPT_BASENAME << "_" << UniquePid::ComputationId()
 #ifdef UNIQUE_CHECKPOINT_FILENAMES
      << "_"
@@ -1684,12 +1695,18 @@ int main ( int argc, char** argv )
 
   calcLocalAddr();
 
+  if (getenv(ENV_VAR_CHECKPOINT_DIR) != NULL) {
+    ckptDir = getenv(ENV_VAR_CHECKPOINT_DIR);
+  } else {
+    ckptDir = ".";
+  }
+
   jalib::JServerSocket* sock;
   /*Test if the listener socket is already open*/
   if ( fcntl(PROTECTED_COORD_FD, F_GETFD) != -1 ) {
     sock = new jalib::JServerSocket ( PROTECTED_COORD_FD );
     JASSERT ( sock->port() != -1 ) .Text ( "Invalid listener socket" );
-    JTRACE ( "Using already created listener socker" ) ( sock->port() );
+    JNOTE ( "Using already created listener socker" ) ( sock->port() );
   } else {
 
     errno = 0;
