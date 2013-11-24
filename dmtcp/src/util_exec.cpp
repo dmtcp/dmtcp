@@ -529,6 +529,7 @@ void dmtcp::Util::getDmtcpArgs(dmtcp::vector<dmtcp::string> &dmtcp_args)
   const char * coordinatorPortStr   = getenv (ENV_VAR_NAME_PORT);
   const char * sigckpt              = getenv (ENV_VAR_SIGCKPT);
   const char * compression          = getenv (ENV_VAR_COMPRESSION);
+  const char * allocPlugin          = getenv (ENV_VAR_ALLOC_PLUGIN);
 #ifdef HBICT_DELTACOMP
   const char * deltacompression     = getenv (ENV_VAR_DELTACOMPRESSION);
 #endif
@@ -585,10 +586,14 @@ void dmtcp::Util::getDmtcpArgs(dmtcp::vector<dmtcp::string> &dmtcp_args)
   }
 
   if (compression != NULL) {
-    if (strcmp (compression, "0") == 0)
+    if (strcmp (compression, "1") == 0)
       dmtcp_args.push_back("--no-gzip");
     else
       dmtcp_args.push_back("--gzip");
+  }
+
+  if (allocPlugin != NULL && strcmp(allocPlugin, "0") == 0) {
+    dmtcp_args.push_back("--disable-alloc-plugin");
   }
 
 #ifdef HBICT_DELTACOMP

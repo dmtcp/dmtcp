@@ -17,7 +17,7 @@ includedir=@includedir@
 mandir=@mandir@
 infodir=@mandir@
 
-plugins = pid ipc
+plugins = pid ipc alloc
 
 ifeq ($(PTRACE_SUPPORT),yes)
 	plugins += ptrace
@@ -56,4 +56,4 @@ install: all
 uninstall:
 	for p in $(plugins); do (cd $$p && $(MAKE) uninstall); done
 
-.PHONY: default all pid ptrace ipc tidy clean distclean install uninstall
+.PHONY: default all pid ptrace ipc alloc tidy clean distclean install uninstall
