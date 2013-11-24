@@ -280,7 +280,7 @@ void dmtcp::TcpConnection::onConnect(const struct sockaddr *addr, socklen_t len)
   if (really_verbose) {
     JTRACE("Connecting.") (id());
   }
-  JASSERT(_type == TCP_CREATED || _type == TCP_BIND) (_type) (id())
+  JWARNING(_type == TCP_CREATED || _type == TCP_BIND) (_type) (id())
     .Text("Connecting with an in-use socket????");
 
   /* socketpair wrapper calls onConnect with sockfd == -1 and addr == NULL */
