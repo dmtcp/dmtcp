@@ -246,6 +246,7 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   MACRO(pthread_tryjoin_np)                 \
   MACRO(pthread_timedjoin_np)               \
   MACRO(pthread_sigmask)                    \
+  MACRO(pthread_getspecific)                \
   MACRO(pthread_mutex_lock)                 \
   MACRO(pthread_mutex_trylock)              \
   MACRO(pthread_mutex_unlock)               \
@@ -369,6 +370,7 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   int _real_rt_sigprocmask(int how, const sigset_t *set, sigset_t *oldset);
   int _real_pthread_sigmask(int how, const sigset_t *newmask,
                             sigset_t *oldmask);
+  void *_real_pthread_getspecific(pthread_key_t key);
 
   int _real_sigsuspend(const sigset_t *mask);
   int _real_sighold(int sig);

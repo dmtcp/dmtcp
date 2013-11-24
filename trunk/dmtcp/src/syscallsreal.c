@@ -32,6 +32,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <pthread.h>
 #include <poll.h>
 #include <fcntl.h>
 #include "constants.h"
@@ -191,12 +192,27 @@ void _dmtcp_remutex_on_fork() {
  * these functions, then using dlopen()/dlsym() explicitly on libpthread will
  * cause the user wrappers to be skipped. We have not yet run into a program
  * which does this, but it may occur in the future.
+ *
+ * ***************************************************************************
+ * ***************************************************************************
+ *
+ * Update: Using the pthread_getspecific wrapper
+ *   dlsym() uses pthread_getspecific to find a thread local buffer. On the
+ *   very first call pthread_getspecific() return NULL. The dlsym function then
+ *   calls calloc to allocate a buffer, followed by a call to
+ *   pthread_setspecific. Any subsequent pthread_getspecific calls would return
+ *   the buffer allocated earlier.
+ *
+ *   We put a wrapper around pthread_getspecific and return a static buffer to
+ *   dlsym() on the very first call. This allows us to proceed further without
+ *   having to worry about the calloc wrapper.
  */
 
 #if TRACK_DLOPEN_DLSYM_FOR_LOCKS
 LIB_PRIVATE void dmtcp_setThreadPerformingDlopenDlsym();
 LIB_PRIVATE void dmtcp_unsetThreadPerformingDlopenDlsym();
 #endif
+
 void dmtcp_prepare_wrappers();
 
 extern int dmtcp_wrappers_initializing;
@@ -204,25 +220,28 @@ static void *_real_func_addr[numLibcWrappers];
 static int _libc_wrappers_initialized = 0;
 static int _libpthread_wrappers_initialized = 0;
 
-#ifndef DISABLE_PTHREAD_GETSPECIFIC_TRICK
+#if 1
 static char wrapper_init_buf[1024];
-static trampoline_info_t pthread_getspecific_trampoline_info;
-void *_dmtcp_pthread_getspecific(pthread_key_t key)
+static pthread_key_t dlsym_key = -1;
+void *__pthread_getspecific(pthread_key_t key)
 {
-  if (!dmtcp_wrappers_initializing) {
-    fprintf(stderr, "DMTCP INTERNAL ERROR\n\n");
-    abort();
+  if (dmtcp_wrappers_initializing) {
+    if (dlsym_key == -1) {
+      dlsym_key = key;
+    }
+    if (dlsym_key != key) {
+      fprintf(stderr, "DMTCP INTERNAL ERROR: Unable to initialize wrappers.\n");
+      abort();
+    }
+    pthread_setspecific(key, wrapper_init_buf);
+    memset(wrapper_init_buf, 0, sizeof wrapper_init_buf);
+    return (void*) wrapper_init_buf;
   }
-  pthread_setspecific(key, wrapper_init_buf);
-  UNINSTALL_TRAMPOLINE(pthread_getspecific_trampoline_info);
-  return pthread_getspecific(key);
+  return _real_pthread_getspecific(key);
 }
-
-static void _dmtcp_PreparePthreadGetSpecific()
+void *pthread_getspecific(pthread_key_t key)
 {
-  dmtcp_setup_trampoline_by_addr(&pthread_getspecific,
-                                 (void*) &_dmtcp_pthread_getspecific,
-                                 &pthread_getspecific_trampoline_info);
+  return __pthread_getspecific(key);
 }
 #endif
 
@@ -244,9 +263,6 @@ void initialize_libc_wrappers()
   }
 
   if (!_libc_wrappers_initialized) {
-#ifndef DISABLE_PTHREAD_GETSPECIFIC_TRICK
-    _dmtcp_PreparePthreadGetSpecific();
-#endif
     FOREACH_DMTCP_WRAPPER(GET_FUNC_ADDR);
 #ifdef __i386__
     /* On i386 systems, there are two pthread_create symbols. We want the one
@@ -735,6 +751,12 @@ int _real_pthread_sigmask(int how, const sigset_t *a, sigset_t *b) {
 }
 
 LIB_PRIVATE
+void *_real_pthread_getspecific(pthread_key_t key)
+{
+  REAL_FUNC_PASSTHROUGH_TYPED(void*, pthread_getspecific)(key);
+}
+
+LIB_PRIVATE
 int _real_sigsuspend(const sigset_t *mask) {
   REAL_FUNC_PASSTHROUGH (sigsuspend) (mask);
 }
@@ -1063,32 +1085,6 @@ int _real_mq_timedsend(mqd_t mqdes, const char *msg_ptr, size_t msg_len,
                                         abs_timeout);
 }
 
-
-LIB_PRIVATE
-void * _real_calloc(size_t nmemb, size_t size) {
-  REAL_FUNC_PASSTHROUGH_TYPED(void*, calloc) (nmemb, size);
-}
-
-LIB_PRIVATE
-void * _real_malloc(size_t size) {
-  REAL_FUNC_PASSTHROUGH_TYPED (void*, malloc) (size);
-}
-
-LIB_PRIVATE
-void * _real_realloc(void *ptr, size_t size) {
-  REAL_FUNC_PASSTHROUGH_TYPED (void*, realloc) (ptr, size);
-}
-
-LIB_PRIVATE
-void * _real_libc_memalign(size_t boundary, size_t size) {
-  REAL_FUNC_PASSTHROUGH_TYPED (void*, __libc_memalign) (boundary, size);
-}
-
-LIB_PRIVATE
-void _real_free(void *ptr) {
-  REAL_FUNC_PASSTHROUGH_VOID (free) (ptr);
-}
-
 LIB_PRIVATE
 void *_real_mmap(void *addr, size_t length, int prot, int flags,
     int fd, off_t offset) {
@@ -1135,68 +1131,3 @@ LIB_PRIVATE
 int _real_poll(struct pollfd *fds, nfds_t nfds, POLL_TIMEOUT_TYPE timeout) {
   REAL_FUNC_PASSTHROUGH (poll) (fds, nfds, timeout);
 }
-
-#if 0
-LIB_PRIVATE
-int _real_epoll_create(int size) {
-  REAL_FUNC_PASSTHROUGH (epoll_create) (size);
-}
-
-LIB_PRIVATE
-int _real_epoll_create1(int flags) {
-  REAL_FUNC_PASSTHROUGH (epoll_create1) (flags);
-}
-
-LIB_PRIVATE
-int _real_epoll_ctl(int epfd, int op, int fd, struct epoll_event *event) {
-  REAL_FUNC_PASSTHROUGH (epoll_ctl) (epfd, op, fd, event);
-}
-
-LIB_PRIVATE
-int _real_epoll_wait(int epfd, struct epoll_event *events,
-                     int maxevents, int timeout) {
-  REAL_FUNC_PASSTHROUGH (epoll_wait) (epfd, events, maxevents, timeout);
-}
-
-LIB_PRIVATE
-int _real_epoll_pwait(int epfd, struct epoll_event *events,
-                      int maxevents, int timeout, const sigset_t *sigmask) {
-  REAL_FUNC_PASSTHROUGH (epoll_pwait) (epfd, events,
-                                       maxevents, timeout, sigmask);
-}
-
-LIB_PRIVATE
-int _real_eventfd (EVENTFD_VAL_TYPE initval, int flags) {
-  REAL_FUNC_PASSTHROUGH (eventfd) (initval, flags);
-}
-
-LIB_PRIVATE
-int _real_signalfd (int fd, const sigset_t *mask, int flags) {
-  REAL_FUNC_PASSTHROUGH (signalfd) (fd, mask, flags);
-}
-
-/*===============================
-   real inotify function calls
-  ===============================*/
-LIB_PRIVATE
-int _real_inotify_init(void) {
-  REAL_FUNC_PASSTHROUGH (inotify_init) ( );
-}
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,27) && __GLIBC_PREREQ(2,4)
-LIB_PRIVATE
-int _real_inotify_init1(int flags) {
-  REAL_FUNC_PASSTHROUGH (inotify_init1) (flags);
-}
-#endif
-
-LIB_PRIVATE
-int _real_inotify_add_watch(int fd, const char *pathname, uint32_t mask) {
-  REAL_FUNC_PASSTHROUGH (inotify_add_watch) (fd, pathname, mask);
-}
-
-LIB_PRIVATE
-int _real_inotify_rm_watch(int fd, int wd) {
-  REAL_FUNC_PASSTHROUGH (inotify_rm_watch) (fd, wd);
-}
-#endif
