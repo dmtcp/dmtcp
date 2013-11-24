@@ -174,7 +174,7 @@ EXTERNC void dmtcp_prepare_wrappers(void) __attribute((weak));
 #define NEXT_FNC(func)                                                      \
   ({                                                                        \
      static __typeof__(&func) _real_##func = (__typeof__(&func)) -1;        \
-     if ((void*) _real_##func == (void*) -1) {                              \
+     if (_real_##func == (__typeof__(&func)) -1) {                          \
        __typeof__(&dlsym) dlsym_fnptr;                                      \
        if (dmtcp_prepare_wrappers) dmtcp_prepare_wrappers();                \
        dlsym_fnptr = (__typeof__(&dlsym)) dmtcp_get_libc_dlsym_addr();      \
