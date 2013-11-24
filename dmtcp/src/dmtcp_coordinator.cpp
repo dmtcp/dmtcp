@@ -831,7 +831,6 @@ void dmtcp::DmtcpCoordinator::onData ( jalib::JReaderInterface* sock )
           ckptDir = extraData;
           JNOTE("Updated ckptDir") (ckptDir);
         }
-          JNOTE("Updated ckptDir") (ckptDir);
       }
       break;
       case DMT_USER_CMD:  // dmtcpaware API being used
