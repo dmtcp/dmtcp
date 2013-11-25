@@ -25,8 +25,6 @@ CPPFLAGS += -I${DMTCP_SRC} -DDMTCP -fPIC -c -g
 
 default: check-compat libinfiniband.so
 
-trace: check-compat libibtrace.so
-
 check-compat:
 	@ grep "INFINIBAND_SUPPORT='yes'" ${DMTCP_ROOT}/config.log > /dev/null \
 	  || \

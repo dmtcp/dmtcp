@@ -10,7 +10,7 @@ uint32_t retrieve_lkey_mapping(uint32_t orig_key)
     }
   }
 
-  fprintf(stderr, "Lkey not found... %u\n", orig_key);
+//  fprintf(stderr, "Lkey not found... %u\n", orig_key);
 //  exit(1);
 }
 
@@ -22,89 +22,55 @@ void sge_update_lkey(struct ibv_sge * list, int len)
   }
 }
 
-void update_list_rkey(uint32_t rkey)
+uint32_t update_rkey_restart(uint32_t rkey, int pd_id)
 {
-  struct list_elem * e; 
-  for (e = list_begin(&rkey_list); e != list_end(&rkey_list); e = list_next(e)){
-    struct ibv_rkey_pair * pair = list_entry(e, struct ibv_rkey_pair, elem);
-    if (pair->orig_rkey == rkey){
-      break;
-    }
-  }
-  if (e == list_end(&rkey_list)){
-    struct ibv_rkey_pair * new_pair = malloc(sizeof(struct ibv_rkey_pair));
-    if (!new_pair){
-      fprintf(stderr, "Could not allocate memory for new_pair.\n");
-      exit(1);
-    }
-    new_pair->orig_rkey = rkey;
-    new_pair->new_rkey = rkey;
-    list_push_back(&rkey_list, &new_pair->elem);
-  }
-}
-
-uint32_t update_rkey_restart(uint32_t rkey)
-{
-  struct list_elem * e; 
+  struct list_elem * e;
+  struct ibv_rkey_pair *pair;
   uint32_t new_rkey;
   size_t size = sizeof(new_rkey);
   for (e = list_begin(&rkey_list); e != list_end(&rkey_list); e = list_next(e)){
-    struct ibv_rkey_pair * pair = list_entry(e, struct ibv_rkey_pair, elem);
-    if (pair->orig_rkey == rkey){
+    pair = list_entry(e, struct ibv_rkey_pair, elem);
+    if (pair->orig_rkey.rkey == rkey && pair->orig_rkey.pd_id == pd_id){
       return pair->new_rkey;
     }
   }
-  if (dmtcp_send_query_to_coordinator("IBV", &rkey, sizeof(rkey), &new_rkey, &size)) {
+  if (!(pair = malloc(sizeof(struct ibv_rkey_pair)))) {
+    fprintf(stderr, "Could not allocate memory for pair.\n");
+    exit(1);
+  }
+  pair->orig_rkey.pd_id = pd_id;
+  pair->orig_rkey.rkey = rkey;
+  pair->new_rkey = 0;
+  if (dmtcp_send_query_to_coordinator("mr_info", &pair->orig_rkey, sizeof(pair->orig_rkey), &new_rkey, &size)) {
     assert(size == sizeof(uint32_t));
-    struct ibv_rkey_pair * new_pair = malloc(sizeof(struct ibv_rkey_pair));
-    if (!new_pair){
-      fprintf(stderr, "Could not allocate memory for new_pair.\n");
-      exit(1);
-    }
-    new_pair->orig_rkey = rkey;
-    new_pair->new_rkey = new_rkey;
-    list_push_back(&rkey_list, &new_pair->elem);
+    pair->new_rkey = new_rkey;
+    list_push_back(&rkey_list, &pair->elem);
     return new_rkey;
   }
   else 
   {
-    struct ibv_rkey_pair * new_pair = malloc(sizeof(struct ibv_rkey_pair));
-    if (!new_pair){
-      fprintf(stderr, "Could not allocate memory for new_pair.\n");
-      exit(1);
-    }
-    new_pair->orig_rkey = rkey;
-    new_pair->new_rkey = rkey;
-    list_push_back(&rkey_list, &new_pair->elem);
+    pair->new_rkey = rkey;
+    list_push_back(&rkey_list, &pair->elem);
     return rkey;
   }
 }
 
-void update_rkey_send(struct ibv_send_wr * wr)
+void update_rkey_send(struct ibv_send_wr * wr, int pd_id)
 {
-  if (wr == NULL) {
-    return;
+  if (is_restart) {
+    if (wr == NULL) {
+      return;
+    }
+    if (wr->opcode == IBV_WR_RDMA_WRITE || 
+        wr->opcode == IBV_WR_RDMA_WRITE_WITH_IMM || 
+        wr->opcode == IBV_WR_RDMA_READ) {
+      wr->wr.rdma.rkey = update_rkey_restart(wr->wr.rdma.rkey, pd_id);
+    }
+    
+    if (wr->opcode == IBV_WR_ATOMIC_CMP_AND_SWP ||
+        wr->opcode == IBV_WR_ATOMIC_FETCH_AND_ADD) {
+      wr->wr.atomic.rkey = update_rkey_restart(wr->wr.atomic.rkey, pd_id);
+    }
+    update_rkey_send(wr->next, pd_id);
   }
-  if (wr->opcode == IBV_WR_RDMA_WRITE || 
-      wr->opcode == IBV_WR_RDMA_WRITE_WITH_IMM || 
-      wr->opcode == IBV_WR_RDMA_READ) {
-    if (!is_restart){
-      update_list_rkey(wr->wr.rdma.rkey);
-    }
-    else{
-      wr->wr.rdma.rkey = update_rkey_restart(wr->wr.rdma.rkey);
-    }
-  }
-  
-  if (wr->opcode == IBV_WR_ATOMIC_CMP_AND_SWP ||
-      wr->opcode == IBV_WR_ATOMIC_FETCH_AND_ADD) {
-    if (!is_restart){
-      update_list_rkey(wr->wr.atomic.rkey);
-    }
-    else{
-      wr->wr.atomic.rkey = update_rkey_restart(wr->wr.atomic.rkey);
-    }
-  }
-  update_rkey_send(wr->next);
 }
-
