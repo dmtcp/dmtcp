@@ -308,7 +308,7 @@ int ibv_destroy_qp(struct ibv_qp *qp)
 int ibv_dereg_mr(struct ibv_mr *mr)
 {
   dmtcp_plugin_disable_ckpt();
-  //PDEBUG("****** WRAPPER for ibv_dereg_mr\n");
+//  PDEBUG("****** WRAPPER for ibv_dereg_mr\n");
 
   int rslt = _dereg_mr(mr);
 

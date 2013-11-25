@@ -30,6 +30,8 @@ struct internal_ibv_pd {
   struct ibv_pd   user_pd;
   struct ibv_pd * real_pd;
   struct list_elem elem;
+  // an id defined in the plugin, for use of rdma identification
+  int pd_id;
 };
 
 //! A wrapper around a memory region
@@ -66,6 +68,9 @@ struct internal_ibv_qp {
   struct ibv_qp_id remote_id;
   struct ibv_qp_id current_remote;
   struct ibv_qp_id current_id;
+  struct ibv_qp_pd_id local_qp_pd_id;
+  struct ibv_qp_pd_id remote_qp_pd_id;
+  int remote_pd_id;
   struct list modify_qp_log;
   uint8_t port_num; // port_num is used to get the correct lid
   struct list post_recv_log; /*!< This list contains log entries that track what recv work
@@ -128,7 +133,7 @@ struct ibv_req_notify_cq_log {
 };
 
 struct ibv_rkey_pair {
-  uint32_t orig_rkey;
+  struct ibv_rkey_id orig_rkey;
   uint32_t new_rkey;
   struct list_elem elem;
 };

@@ -65,12 +65,15 @@ static struct list srq_list = LIST_INITIALIZER(srq_list);
 //! This is the list of completion channels
 static struct list comp_list = LIST_INITIALIZER(comp_list);
 //! This is the list of rkey pairs
-static struct list rkey_list = LIST_INITIALIZER(rkey_list);
+static struct list rkey_list;
+
+static int pd_id_count = 0;
 
 static void send_qp_info(void);
 static void query_qp_info(void);
+static void send_qp_pd_info(void);
+static void query_qp_pd_info(void);
 static void send_rkey_info(void);
-static void query_rkey_info(void);
 static void post_restart(void);
 static void post_restart2(void);
 
@@ -114,18 +117,20 @@ void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t* data)
     pre_checkpoint();
     break;
   case DMTCP_EVENT_RESTART:
+    list_init(&rkey_list);
     post_restart();
     break;
   case DMTCP_EVENT_REGISTER_NAME_SERVICE_DATA:
     if (data->nameserviceInfo.isRestart) {
       send_qp_info();
+      send_qp_pd_info();
       send_rkey_info();
     }
     break;
   case DMTCP_EVENT_SEND_QUERIES:
     if (data->nameserviceInfo.isRestart) {
       query_qp_info();
-      query_rkey_info();
+      query_qp_pd_info();
       post_restart2();
     }
     break;
@@ -134,7 +139,6 @@ void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t* data)
   }
 
   DMTCP_NEXT_EVENT_HOOK(event, data);
-  //return;
 }
 
 
@@ -152,8 +156,11 @@ static void send_qp_info(void)
     struct internal_ibv_qp * internal_qp = list_entry(e, struct internal_ibv_qp, elem);
     if (internal_qp->user_qp.state != IBV_QPS_INIT) {
 //      PDEBUG("Sending over original_id: 0x%06x 0x%04x 0x%06x and current_id: 0x%06x 0x%04x 0x%06x from %s\n", internal_qp->original_id.qpn, internal_qp->original_id.lid, internal_qp->original_id.psn, internal_qp->current_id.qpn, internal_qp->current_id.lid, internal_qp->current_id.psn, hostname);
-      dmtcp_send_key_val_pair_to_coordinator("IBV", &internal_qp->original_id, sizeof(internal_qp->original_id),
-                                             &internal_qp->current_id, sizeof(internal_qp->current_id));
+      dmtcp_send_key_val_pair_to_coordinator("qp_info", 
+                                             &internal_qp->original_id, 
+					     sizeof(internal_qp->original_id),
+                                             &internal_qp->current_id, 
+					     sizeof(internal_qp->current_id));
     }
   }
 }
@@ -168,41 +175,63 @@ static void query_qp_info(void)
     struct internal_ibv_qp * internal_qp = list_entry(e, struct internal_ibv_qp, elem);
     size_t size = sizeof(internal_qp->current_remote);
 //    PDEBUG("Querying for remote_id: 0x%06x 0x%04x 0x%06x from %s\n", internal_qp->remote_id.qpn, internal_qp->remote_id.lid, internal_qp->remote_id.psn, hostname);
-    dmtcp_send_query_to_coordinator("IBV", &internal_qp->remote_id, sizeof(internal_qp->remote_id),
-                                    &internal_qp->current_remote, &size);
+    dmtcp_send_query_to_coordinator("qp_info", 
+                                    &internal_qp->remote_id, 
+                                    sizeof(internal_qp->remote_id),
+                                    &internal_qp->current_remote, 
+				    &size);
+
     assert(size == sizeof(struct ibv_qp_id));
   }
 }
 
+static void send_qp_pd_info(void) {
+  struct list_elem *e;
+  size_t size;
+  for (e = list_begin(&qp_list); e != list_end(&qp_list); e = list_next(e)) {
+    struct internal_ibv_qp * internal_qp = list_entry(e, struct internal_ibv_qp, elem);
+    struct internal_ibv_pd * internal_pd = ibv_pd_to_internal(internal_qp->user_qp.pd);
+    size = sizeof(internal_pd->pd_id);
+    dmtcp_send_key_val_pair_to_coordinator("pd_info", 
+                                           &internal_qp->local_qp_pd_id, 
+                                           sizeof(struct ibv_qp_pd_id),
+                                           &internal_pd->pd_id, 
+					   size);
+  }
+}
+
+static void query_qp_pd_info(void) {
+  struct list_elem *e;
+  size_t size;
+  int ret;
+  for (e = list_begin(&qp_list); e != list_end(&qp_list); e = list_next(e)) {
+    struct internal_ibv_qp * internal_qp = list_entry(e, struct internal_ibv_qp, elem);
+    size = sizeof(internal_qp->remote_pd_id);
+    ret = dmtcp_send_query_to_coordinator("pd_info", 
+                                          &internal_qp->remote_qp_pd_id, 
+                                          sizeof(struct ibv_qp_pd_id),
+                                          &internal_qp->remote_pd_id,
+				          &size);
+    assert(size == sizeof(int));
+    assert(ret != 0);
+  }
+}
 /*! This will populate the coordinator with information about the new rkeys */
 static void send_rkey_info(void)
 {
   struct list_elem *e;
-  char hostname[128];
-  gethostname(hostname,128);
   for (e = list_begin(&mr_list); e != list_end(&mr_list); e = list_next(e)) {
       struct internal_ibv_mr * internal_mr = list_entry(e, struct internal_ibv_mr, elem);
-//      PDEBUG("Sending over original_rkey: 0x%06x and new_rkey: 0x%06x from %s\n", internal_mr->user_mr.rkey, internal_mr->real_mr->rkey, hostname);
-      dmtcp_send_key_val_pair_to_coordinator("IBV", &internal_mr->user_mr.rkey, sizeof(internal_mr->user_mr.rkey),
+      struct internal_ibv_pd * internal_pd = ibv_pd_to_internal(internal_mr->user_mr.pd);
+      struct ibv_rkey_id rkey_id = {
+        .pd_id = internal_pd->pd_id,
+	.rkey = internal_mr->user_mr.rkey
+      };
+      dmtcp_send_key_val_pair_to_coordinator("mr_info", &rkey_id, sizeof(rkey_id),
                                              &internal_mr->real_mr->rkey, sizeof(internal_mr->real_mr->rkey));
   }
 }
 
-/*! This will query the coordinator for information about the new rkeys */
-static void query_rkey_info(void)
-{
-  char hostname[128];
-  gethostname(hostname, 128);
-  struct list_elem *e;
-  for (e = list_begin(&rkey_list); e != list_end(&rkey_list); e = list_next(e)) {
-    struct ibv_rkey_pair * pair = list_entry(e, struct ibv_rkey_pair, elem);
-    size_t size = sizeof(pair->new_rkey);
-//    PDEBUG("Querying for new_rkey: 0x%06x from %s\n", pair->orig_rkey, hostname);
-    dmtcp_send_query_to_coordinator("IBV", &pair->orig_rkey, sizeof(pair->orig_rkey),
-                                    &pair->new_rkey, &size);
-    assert(size == sizeof(uint32_t));
-  }
-}
 /*! This will drain the given completion queue
  */
 static void drain_completion_queue(struct internal_ibv_cq * internal_cq)
@@ -217,6 +246,7 @@ static void drain_completion_queue(struct internal_ibv_cq * internal_cq)
 //      PDEBUG("Found a completion on the queue.\n");
       list_push_back(&internal_cq->wc_queue, &wc->elem);
       struct internal_ibv_qp * internal_qp = qp_num_to_qp(&qp_list, wc->wc.qp_num);
+      wc->wc.qp_num = internal_qp->user_qp.qp_num;
       enum ibv_wc_opcode opcode = wc->wc.opcode;
       if (opcode & IBV_WC_RECV ||
           opcode == IBV_WC_RECV_RDMA_WITH_IMM) {
@@ -462,17 +492,7 @@ void post_restart(void)
       exit(1);
     }
 
-    /* code to populate the ID */
-    /* get the port num */
-    struct ibv_qp_attr attr;
-    struct ibv_qp_init_attr init_attr;
-    if (_real_ibv_query_qp(internal_qp->real_qp, &attr, IBV_QP_PORT, &init_attr))
-    {
-      fprintf(stderr, "Call to ibv_query_qp failed.\n");
-      exit(1);
-    }
-
-    // TODO: SETTING PORT NUM TO 1 IN THIS CALL IS POTENTIALLY UNSAFE
+    // SETTING PORT NUM TO 1 IN THIS CALL IS POTENTIALLY UNSAFE
     // THIS CAN BE FIXED IN THE CALL TO IBV_MODIFY_QP
     /* get the LID */
     struct ibv_port_attr attr2;
@@ -488,6 +508,21 @@ void post_restart(void)
 
     internal_qp->current_id.qpn = internal_qp->real_qp->qp_num;
     internal_qp->current_id.lid = attr2.lid;
+    /* must handle LMC*/
+    struct list_elem * w;
+    for (w = list_begin(&internal_qp->modify_qp_log);
+         w != list_end(&internal_qp->modify_qp_log);
+         w = list_next(w))
+    {
+      struct ibv_modify_qp_log * mod = list_entry(w, struct ibv_modify_qp_log, elem);
+
+      struct ibv_qp_attr attr = mod->attr;
+
+      if (mod->attr_mask & IBV_QP_AV)
+      {
+        internal_qp->current_id.lid |= mod->attr.ah_attr.src_path_bits;
+      }
+    }
     internal_qp->current_id.psn = psn;
     /* end code to populate the ID */
   }
@@ -508,6 +543,7 @@ void post_restart2(void)
       struct ibv_post_srq_recv_log * log = list_entry(w, struct ibv_post_srq_recv_log, elem);
       free(log);
     }
+    internal_srq->recv_count = 0;
 
     for (w = list_begin(&internal_srq->post_srq_recv_log);
          w != list_end(&internal_srq->post_srq_recv_log);
@@ -572,8 +608,7 @@ void post_restart2(void)
 
       if (mod->attr_mask & IBV_QP_AV)
       {
-        // must handle LMC
-        attr.ah_attr.dlid = internal_qp->current_remote.lid | mod->attr.ah_attr.src_path_bits;
+        attr.ah_attr.dlid = internal_qp->current_remote.lid;
       }
 
 
@@ -626,7 +661,7 @@ void post_restart2(void)
       assert(&log->wr != NULL);
       struct ibv_send_wr * copy_wr = copy_send_wr(&log->wr);
       update_lkey_send(copy_wr);
-      update_rkey_send(copy_wr);
+      update_rkey_send(copy_wr, internal_qp->remote_pd_id);
 
       struct ibv_send_wr * bad_wr;
 //      PDEBUG("About to repost send.\n");
@@ -959,6 +994,8 @@ struct ibv_pd * _alloc_pd(struct ibv_context * context) {
 
   memcpy(&pd->user_pd, pd->real_pd, sizeof(struct ibv_pd));
   pd->user_pd.context = context;
+  pd->pd_id = (int)((dmtcp_get_uniquepid())._pid) + pd_id_count;
+  pd_id_count++;
 
   list_push_back(&pd_list, &pd->elem);
 
@@ -984,40 +1021,36 @@ struct ibv_mr * _reg_mr(struct ibv_pd * pd, void * addr, size_t length, int flag
     exit(1);
   }
 
-  /*
-  *  We need to make sure that memery regions created
-  *  before checkpointing and after restarting will not
-  *  have the same lkey or rkey. Same trick for qps.
-  */
-  bool dup_flag = false;
-  while(1){
-    internal_mr->real_mr = _real_ibv_reg_mr(internal_pd->real_pd, addr, length, flag);
-    if (!internal_mr->real_mr) {
-      fprintf(stderr, "Error: Could not register mr.\n");
-      exit(1);
-    }
-
-    struct list_elem * e;
-    for (e = list_begin(&mr_list); e != list_end(&mr_list); e = list_next(e))
-    {
-      struct internal_ibv_mr * mr = list_entry(e, struct internal_ibv_mr, elem);
-      if ((mr->user_mr.lkey == internal_mr->real_mr->lkey) || (mr->user_mr.rkey == internal_mr->real_mr->rkey)) {
-	dup_flag = true;
-        fprintf(stderr, "Warning: duplicate lkey/rkey is genereated, will create a new mr.\n");
-        _real_ibv_dereg_mr(internal_mr->real_mr);
-      }
-    }
-    if (!dup_flag){
-      break;
-    }
+  internal_mr->real_mr = _real_ibv_reg_mr(internal_pd->real_pd, addr, length, flag);
+  if (!internal_mr->real_mr) {
+    fprintf(stderr, "Error: Could not register mr.\n");
+    free(internal_mr);
+    return NULL;
   }
 
   internal_mr->flags = flag;
 
   memcpy(&internal_mr->user_mr, internal_mr->real_mr, sizeof(struct ibv_mr));
-//  internal_mr->user_mr.context = ibv_ctx_to_internal(internal_mr->user_mr.context)->real_ctx;
   internal_mr->user_mr.context = internal_pd->user_pd.context;
   internal_mr->user_mr.pd = &internal_pd->user_pd;
+
+  /*
+  *  We need to check that memery regions created
+  *  before checkpointing and after restarting will not
+  *  have the same lkey. 
+  */
+  if (is_restart) {
+    struct list_elem * e;
+    for (e = list_begin(&mr_list); e != list_end(&mr_list); e = list_next(e))
+    {
+      struct internal_ibv_mr * mr = list_entry(e, struct internal_ibv_mr, elem);
+      if (mr->user_mr.lkey == internal_mr->user_mr.lkey) {
+        PDEBUG("Error: duplicate lkey/rkey is genereated, will exit.\n");
+        exit(1);
+      }
+    }
+  }
+
   list_push_back(&mr_list, &internal_mr->elem);
 
   return &internal_mr->user_mr;
@@ -1029,7 +1062,7 @@ int _dereg_mr(struct ibv_mr * mr)
   struct list_elem *e;
   for (e = list_begin(&rkey_list); e != list_end(&rkey_list); e = list_next(e)) {
     struct ibv_rkey_pair * pair = list_entry(e, struct ibv_rkey_pair, elem);
-    if (pair->orig_rkey == internal_mr->user_mr.rkey) {
+    if (pair->orig_rkey.rkey == internal_mr->user_mr.rkey) {
       list_remove(&pair->elem);
       free(pair);
       break;
@@ -1045,6 +1078,7 @@ int _dereg_mr(struct ibv_mr * mr)
 
 int _ibv_req_notify_cq(struct ibv_cq * cq, int solicited_only)
 {
+  dmtcp_plugin_disable_ckpt();
   struct internal_ibv_cq * internal_cq = ibv_cq_to_internal(cq);
 
   int rslt = ibv_req_notify_cq(internal_cq->real_cq, solicited_only);
@@ -1061,6 +1095,7 @@ int _ibv_req_notify_cq(struct ibv_cq * cq, int solicited_only)
     list_push_back(&internal_cq->req_notify_log, &log->elem);
   }
 
+  dmtcp_plugin_enable_ckpt();
   return rslt;
 }
 
@@ -1153,38 +1188,36 @@ struct ibv_qp * _create_qp(struct ibv_pd * pd, struct ibv_qp_init_attr * qp_init
     fprintf(stderr, "Error: I cannot allocate memory for _create_qp\n");
     exit(1);
   }
+  memset(internal_qp, 0, sizeof(struct internal_ibv_qp));
 
   /* fix up the qp_init_attr here */
   struct ibv_qp_init_attr attr = *qp_init_attr;
   attr.recv_cq = ibv_cq_to_internal(qp_init_attr->recv_cq)->real_cq;
   attr.send_cq = ibv_cq_to_internal(qp_init_attr->send_cq)->real_cq;
-  if ( attr.srq )
+  if (attr.srq)
     attr.srq = ibv_srq_to_internal(qp_init_attr->srq)->real_srq;
 
-  bool dup_flag = false;
-  while(1){
-    internal_qp->real_qp = _real_ibv_create_qp(internal_pd->real_pd, &attr);
-    if( internal_qp->real_qp == NULL ) {
-      PDEBUG("Error: _real_ibv_create_qp fail\n");
-      free( internal_qp);
-      return NULL;
-    }
-    struct list_elem * e;
-    for (e = list_begin(&qp_list); e != list_end(&qp_list); e = list_next(e))
-    {
-      struct internal_ibv_qp * qp = list_entry(e, struct internal_ibv_qp, elem);
-      if ((qp->user_qp.qp_num == internal_qp->real_qp->qp_num)) {
-	dup_flag = true;
-        fprintf(stderr, "Warning: duplicate qp_num 0x%06x is genereated, will create a new qp.\n", internal_qp->real_qp->qp_num);
-	_real_ibv_destroy_qp(internal_qp->real_qp);
-      }
-    }
-    if (!dup_flag){
-      break;
-    }
+  internal_qp->real_qp = _real_ibv_create_qp(internal_pd->real_pd, &attr);
+  if( internal_qp->real_qp == NULL ) {
+    PDEBUG("Error: _real_ibv_create_qp fail\n");
+    free(internal_qp);
+    return NULL;
   }
 
   memcpy(&internal_qp->user_qp, internal_qp->real_qp, sizeof(struct ibv_qp));
+
+  bool dup_flag = false;
+  if (is_restart) {
+    struct list_elem *w;
+    for (w = list_begin(&qp_list); w != list_end(&qp_list); w = list_next(w)) {
+      struct internal_ibv_qp *qp1 = list_entry(w, struct internal_ibv_qp, elem); 
+      if (qp1->user_qp.qp_num == internal_qp->user_qp.qp_num) {
+        PDEBUG("Error: duplicate qp_num is genereated, will exit.\n");
+	exit(1);
+      }
+    }
+  }
+
   /* fix up the user_qp*/
   /* loop to find the right context the "dumb way" */
   /* This should probably just take the contxt from pd */
@@ -1213,14 +1246,7 @@ struct ibv_qp * _create_qp(struct ibv_pd * pd, struct ibv_qp_init_attr * qp_init
   internal_qp->user_qp.send_cq = qp_init_attr->send_cq;
   internal_qp->user_qp.srq = qp_init_attr->srq;
   internal_qp->init_attr = *qp_init_attr;
-  /* code to populate the ID */
-  /* get the port num */
-  struct ibv_qp_attr attr3;
-  struct ibv_qp_init_attr init_atty;
-  if (_real_ibv_query_qp(internal_qp->real_qp, &attr3, IBV_QP_PORT, &init_atty)) {
-    fprintf(stderr, "Call to ibv_query_qp failed.\n");
-    exit(1);
-  }
+
   /* get the LID */
   struct ibv_port_attr attr2;
   int rslt2;
@@ -1229,7 +1255,9 @@ struct ibv_qp * _create_qp(struct ibv_pd * pd, struct ibv_qp_init_attr * qp_init
     exit(1);
   }
   internal_qp->original_id.lid = attr2.lid;
+  internal_qp->local_qp_pd_id.lid = attr2.lid;
   internal_qp->original_id.qpn = internal_qp->real_qp->qp_num;
+  internal_qp->local_qp_pd_id.qpn = internal_qp->real_qp->qp_num;
   internal_qp->port_num = 1;
 
   list_push_back(&qp_list, &internal_qp->elem);
@@ -1296,6 +1324,17 @@ int _modify_qp(struct ibv_qp * qp, struct ibv_qp_attr * attr, int attr_mask)
 
   if (attr_mask & IBV_QP_DEST_QPN) {
     internal_qp->remote_id.qpn = attr->dest_qp_num;
+    internal_qp->remote_qp_pd_id.qpn = attr->dest_qp_num;
+    if (is_restart) {
+      struct ibv_qp_pd_id id = {
+        .qpn = attr->dest_qp_num,
+	.lid = attr->ah_attr.dlid
+      };
+      size_t size = sizeof(internal_qp->remote_pd_id);
+      int ret = dmtcp_send_query_to_coordinator("pd_info", &id, sizeof(id), &internal_qp->remote_pd_id, &size);
+      assert(size == sizeof(int));
+      assert(ret != 0);
+    }
   }
 
   if (attr_mask & IBV_QP_SQ_PSN) {
@@ -1307,8 +1346,11 @@ int _modify_qp(struct ibv_qp * qp, struct ibv_qp_attr * attr, int attr_mask)
   }
 
   if (attr_mask & IBV_QP_AV) {
+    internal_qp->remote_id.lid = attr->ah_attr.dlid;
+    internal_qp->remote_qp_pd_id.lid = attr->ah_attr.dlid;
     // must OR src_path_bits to support LMC
-    internal_qp->remote_id.lid = attr->ah_attr.dlid - attr->ah_attr.src_path_bits;
+    internal_qp->original_id.lid |= attr->ah_attr.src_path_bits;
+    internal_qp->local_qp_pd_id.lid |= attr->ah_attr.src_path_bits;
   }
 
   if (attr_mask & IBV_QP_PORT) {
@@ -1319,6 +1361,7 @@ int _modify_qp(struct ibv_qp * qp, struct ibv_qp_attr * attr, int attr_mask)
       exit(1);
     }
     internal_qp->original_id.lid = attr2.lid;
+    internal_qp->local_qp_pd_id.lid = attr2.lid;
     internal_qp->port_num = attr->port_num;
   }
 
@@ -1331,6 +1374,10 @@ int _query_qp(struct ibv_qp * qp, struct ibv_qp_attr * attr, int attr_mask,
   struct internal_ibv_qp * internal_qp = ibv_qp_to_internal(qp);
 
   int rslt = _real_ibv_query_qp(internal_qp->real_qp, attr, attr_mask, init_attr);
+  init_attr->recv_cq = &ibv_cq_to_internal(init_attr->recv_cq)->user_cq;
+  init_attr->send_cq = &ibv_cq_to_internal(init_attr->send_cq)->user_cq;
+  if (init_attr->srq)
+    init_attr->srq = &ibv_srq_to_internal(init_attr->srq)->user_srq;
 
   return rslt;
 }
@@ -1442,6 +1489,7 @@ int _query_srq(struct ibv_srq * srq, struct ibv_srq_attr * srq_attr)
 int _ibv_post_recv(struct ibv_qp * qp, struct ibv_recv_wr * wr, struct
                    ibv_recv_wr ** bad_wr)
 {
+  dmtcp_plugin_disable_ckpt();
   struct internal_ibv_qp * internal_qp = ibv_qp_to_internal(qp);
 
   //TODO: Technically this does multiple loops, but, the code is cleaner
@@ -1467,11 +1515,13 @@ int _ibv_post_recv(struct ibv_qp * qp, struct ibv_recv_wr * wr, struct
     copy_wr1 = copy_wr1->next;
   }
 
+  dmtcp_plugin_enable_ckpt();
   return rslt;
 }
 
 int _ibv_post_srq_recv(struct ibv_srq * srq, struct ibv_recv_wr * wr, struct ibv_recv_wr ** bad_wr)
 {
+  dmtcp_plugin_disable_ckpt();
   struct internal_ibv_srq * internal_srq = ibv_srq_to_internal(srq);
 
   //TODO: Technically this does multiple loops, but, the code is cleaner
@@ -1502,16 +1552,18 @@ int _ibv_post_srq_recv(struct ibv_srq * srq, struct ibv_recv_wr * wr, struct ibv
     copy_wr1 = copy_wr1->next;
   }
 
+  dmtcp_plugin_enable_ckpt();
   return rslt;
 }
 
 int _ibv_post_send(struct ibv_qp * qp, struct ibv_send_wr * wr, struct
                    ibv_send_wr ** bad_wr)
 {
+  dmtcp_plugin_disable_ckpt();
   struct internal_ibv_qp * internal_qp = ibv_qp_to_internal(qp);
   struct ibv_send_wr * copy_wr = copy_send_wr(wr);
   update_lkey_send(copy_wr);
-  update_rkey_send(copy_wr);
+  update_rkey_send(copy_wr, internal_qp->remote_pd_id);
 
   int rslt = _real_ibv_post_send(internal_qp->real_qp, copy_wr, bad_wr);
 
@@ -1533,11 +1585,13 @@ int _ibv_post_send(struct ibv_qp * qp, struct ibv_send_wr * wr, struct
     copy_wr1 = copy_wr1->next;
   }
 
+  dmtcp_plugin_enable_ckpt();
   return rslt;
 }
 
 int _ibv_poll_cq(struct ibv_cq * cq, int num_entries, struct ibv_wc * wc)
 {
+  dmtcp_plugin_disable_ckpt();
   int rslt = 0;
 
   struct internal_ibv_cq * internal_cq = ibv_cq_to_internal(cq);
@@ -1576,6 +1630,7 @@ int _ibv_poll_cq(struct ibv_cq * cq, int num_entries, struct ibv_wc * wc)
     struct internal_ibv_qp * internal_qp = qp_num_to_qp(&qp_list, wc[i].qp_num);
     if (i >= size) {
       enum ibv_wc_opcode opcode = wc[i].opcode;
+      wc[i].qp_num = internal_qp->user_qp.qp_num;
       if (opcode & IBV_WC_RECV ||
           opcode == IBV_WC_RECV_RDMA_WITH_IMM) {
 	if (internal_qp->user_qp.srq) {
@@ -1606,6 +1661,7 @@ int _ibv_poll_cq(struct ibv_cq * cq, int num_entries, struct ibv_wc * wc)
     }
   }
 
+  dmtcp_plugin_enable_ckpt();
   return rslt;
 }
 
