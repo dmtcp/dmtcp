@@ -16,6 +16,7 @@ AC_LANG_POP([C++])
 AC_CONFIG_FILES([Makefile plugin/Makefile plugin/pid/Makefile \
                  plugin/ipc/Makefile plugin/alloc/Makefile \
                  contrib/Makefile contrib/rm/Makefile \
+                 contrib/ckptfile/Makefile \
                  test/Makefile test/testconfig.py\
                  test/plugin/Makefile test/credentials/Makefile])
 

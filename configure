@@ -4373,7 +4373,7 @@ ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
 ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
 ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
-ac_config_files="$ac_config_files Makefile plugin/Makefile plugin/pid/Makefile plugin/ipc/Makefile plugin/alloc/Makefile contrib/Makefile contrib/rm/Makefile test/Makefile test/testconfig.py test/plugin/Makefile test/credentials/Makefile"
+ac_config_files="$ac_config_files Makefile plugin/Makefile plugin/pid/Makefile plugin/ipc/Makefile plugin/alloc/Makefile contrib/Makefile contrib/rm/Makefile contrib/ckptfile/Makefile test/Makefile test/testconfig.py test/plugin/Makefile test/credentials/Makefile"
 
 
 
@@ -7176,6 +7176,7 @@ do
     "plugin/alloc/Makefile") CONFIG_FILES="$CONFIG_FILES plugin/alloc/Makefile" ;;
     "contrib/Makefile") CONFIG_FILES="$CONFIG_FILES contrib/Makefile" ;;
     "contrib/rm/Makefile") CONFIG_FILES="$CONFIG_FILES contrib/rm/Makefile" ;;
+    "contrib/ckptfile/Makefile") CONFIG_FILES="$CONFIG_FILES contrib/ckptfile/Makefile" ;;
     "test/Makefile") CONFIG_FILES="$CONFIG_FILES test/Makefile" ;;
     "test/testconfig.py") CONFIG_FILES="$CONFIG_FILES test/testconfig.py" ;;
     "test/plugin/Makefile") CONFIG_FILES="$CONFIG_FILES test/plugin/Makefile" ;;
