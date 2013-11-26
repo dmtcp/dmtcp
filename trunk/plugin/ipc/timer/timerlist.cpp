@@ -116,6 +116,7 @@ void TimerList::resetOnFork()
   _timerVirtIdTable.clear();
   pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
   timerLock = lock;
+  _clockVirtIdTable.resetOnFork((clockid_t) (unsigned) getpid());
 }
 
 void TimerList::preCheckpoint()

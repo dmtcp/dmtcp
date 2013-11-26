@@ -200,6 +200,7 @@ int dmtcp::SysVIPC::getNewVirtualId()
 
 void dmtcp::SysVIPC::resetOnFork()
 {
+  _ipcVirtIdTable.resetOnFork(getpid());
   for (ShmIterator i = _shm.begin(); i != _shm.end(); ++i) {
     i->second->resetOnFork();
   }
