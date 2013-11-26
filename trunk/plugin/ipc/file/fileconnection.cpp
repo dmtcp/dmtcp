@@ -590,8 +590,9 @@ void dmtcp::FileConnection::drain()
     return;
   }
 
-  if (dmtcp_should_ckpt_file && dmtcp_should_ckpt_file(_path.c_str())) {
+  if (dmtcp_must_ckpt_file && dmtcp_must_ckpt_file(_path.c_str())) {
     _checkpointed = true;
+    return;
   }
 
   if (_type == FILE_DELETED && (_flags & O_WRONLY)) {
@@ -762,7 +763,21 @@ void dmtcp::FileConnection::refreshPath()
         (_path) (newpath);
       _path = newpath;
     }
-  } else if (_rel_path != "*" && !jalib::Filesystem::FileExists(_path)) {
+    return;
+  }
+
+  if (dmtcp_get_new_file_path) {
+    char newpath[PATH_MAX];
+    newpath[0] = '\0';
+    dmtcp_get_new_file_path(_path.c_str(), cwd.c_str(), newpath);
+    if (newpath[0] != '\0') {
+      JASSERT(jalib::Filesystem::FileExists(newpath)) (_path) (newpath)
+        .Text("Path returned by plugin does not exist.");
+      _path = newpath;
+      return;
+    }
+  }
+  if (_rel_path != "*" && !jalib::Filesystem::FileExists(_path)) {
     // If file at absolute path doesn't exist and file path is relative to
     // executable current dir
     string oldPath = _path;
