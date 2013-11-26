@@ -1399,21 +1399,17 @@ dmtcp::DmtcpCoordinator::CoordinatorStatus dmtcp::DmtcpCoordinator::getStatus() 
 
 void dmtcp::DmtcpCoordinator::writeRestartScript()
 {
-  dmtcp::ostringstream o1, o2;
-  dmtcp::string filename, uniqueFilename;
+  dmtcp::ostringstream o;
+  dmtcp::string uniqueFilename;
 
-  o1 << dmtcp::string(ckptDir) << "/"
-     << RESTART_SCRIPT_BASENAME << RESTART_SCRIPT_EXT;
-  filename = o1.str();
-
-  o2 << dmtcp::string(ckptDir) << "/"
-     << RESTART_SCRIPT_BASENAME << "_" << UniquePid::ComputationId()
+  o << dmtcp::string(ckptDir) << "/"
+    << RESTART_SCRIPT_BASENAME << "_" << UniquePid::ComputationId()
 #ifdef UNIQUE_CHECKPOINT_FILENAMES
-     << "_"
-     << std::setw(5) << std::setfill('0') << UniquePid::ComputationId().generation()
+    << "_"
+    << std::setw(5) << std::setfill('0') << UniquePid::ComputationId().generation()
 #endif
-     << RESTART_SCRIPT_EXT;
-  uniqueFilename = o2.str();
+    << "." << RESTART_SCRIPT_EXT;
+  uniqueFilename = o.str();
 
   const bool isSingleHost = (_restartFilenames.size() == 1);
 
@@ -1540,17 +1536,23 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
 
   fclose ( fp );
   {
+    dmtcp::string filename = RESTART_SCRIPT_BASENAME "." RESTART_SCRIPT_EXT;
+    dmtcp::string dirname = jalib::Filesystem::DirName(uniqueFilename);
+    int dirfd = open(dirname.c_str(), O_DIRECTORY | O_RDONLY);
+    JASSERT(dirfd != -1) (dirname) (JASSERT_ERRNO);
+
     /* Set execute permission for user. */
     struct stat buf;
-    stat ( uniqueFilename.c_str(), &buf );
-    chmod ( uniqueFilename.c_str(), buf.st_mode | S_IXUSR );
+    JASSERT(stat(uniqueFilename.c_str(), &buf) == 0);
+    JASSERT(chmod(uniqueFilename.c_str(), buf.st_mode | S_IXUSR) == 0);
     // Create a symlink from
     //   dmtcp_restart_script.sh -> dmtcp_restart_script_<curCompId>.sh
-    unlink ( filename.c_str() );
+    unlink(filename.c_str());
     JTRACE("linking \"dmtcp_restart_script.sh\" filename to uniqueFilename")
-	  (filename)(uniqueFilename);
+      (filename) (dirname) (uniqueFilename);
     // FIXME:  Handle error case of symlink()
-    JWARNING( 0 == symlink ( uniqueFilename.c_str(), filename.c_str() ) );
+    JWARNING(symlinkat(uniqueFilename.c_str(), dirfd, filename.c_str()) == 0);
+    JASSERT(close(dirfd) == 0);
   }
   _restartFilenames.clear();
 }
