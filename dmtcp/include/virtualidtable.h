@@ -100,7 +100,8 @@ namespace dmtcp
           _do_unlock_tbl();
         }
 
-        void resetOnFork() {
+        void resetOnFork(IdType newBase) {
+          _base = newBase;
           pthread_mutex_t newlock = PTHREAD_MUTEX_INITIALIZER;
           tblLock = newlock;
           resetNextVirtualId();

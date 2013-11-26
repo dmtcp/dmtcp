@@ -96,7 +96,7 @@ pid_t dmtcp::VirtualPidTable::getNewVirtualTid()
 
 void dmtcp::VirtualPidTable::resetOnFork()
 {
-  VirtualIdTable<pid_t>::resetOnFork();
+  VirtualIdTable<pid_t>::resetOnFork(getpid());
   _numTids = 1;
   _idMapTable[getpid()] = _real_getpid();
   refresh();
