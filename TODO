@@ -1,21 +1,19 @@
 - PLANNED FOR AFTER DMTCP-1.2.4 (as time and resources permit):
-  1.  Separate real from virtual pid/tid:  user code always uses virtual
-	pid/tid, while wrappers always translate into real pid/tid.
-  2. Create MTCP ckpt module making it easy to choose the preferred
+  1. Create MTCP ckpt module making it easy to choose the preferred
 	compression routine on fly, remote checkpoints, etc.
-  3. Modify ckpt image format to note zero-mapped pages and use /proc/*/pagemap.
+  2. Modify ckpt image format to note zero-mapped pages and use /proc/*/pagemap.
 	(An intermediate solution to replace runs of zeros
 	 by a region of zero-mapped pages at checkpoint time has already
 	 been implemented as of DMTCP-1.2.4.)
-  4. Replace temporary files of $DMTCP_TMPDIR (created on restart)
+  3. Replace temporary files of $DMTCP_TMPDIR (created on restart)
 	by shared memory objects.
-  5. Faster checkpoint/restart:  Don't remap libs
-  6. ELF honors a segment of type PT_LOAD.  This can be used in the future
+  4. Faster checkpoint/restart:  Don't remap libs
+  5. ELF honors a segment of type PT_LOAD.  This can be used in the future
 	to reserve address ranges to prevent conflicts with vdso, etc.
 	This will aid process migration between different Linux kernels,
 	by stopping a loader using address space randomization from
 	placing vdso, etc., in the wrong place.
-  7. dmtcp_launch --disable-randomization   should be implemented,
+  6. dmtcp_launch --disable-randomization   should be implemented,
         which would also disable randomization on restart.
         This can be useful for internal testing and further development,
 	but also useful for users with specialized needs.  Note that
@@ -45,23 +43,10 @@
           
 - Many more exotic fcntl()/ioctl() flags are not checkpointed
 
-- Should refuse to call DMTCP recursively, perhaps by maintaining
-  environment variable $DMTCPLVL (similar to $SHLVL), and refusing
-  to recurse if it's already 1.  (Maybe in the future, we might
-  support this.)
-
 - dmtcp_coordinator should refuse to allow other users to connect to it.
   (Are there security issues with respect to spoofing, also?)
 
 - Tab completion fails on tcsh. (?)
-
-- Wrapper protection lock for vfprintf (called by all functions of printf
-  family) and iofputs(used for )
-
-- Analyze why the return from maskstderr() and unmaskstderr() solves the problem.
-
-- --enable-debug  when combined with enable-pid-virtualization exposes some
-  problems which are visible in OpenMPI and some other programs.
 
 - dmtcp_launch a.out > a.txt ; restart fails if a.txt not found.
 
