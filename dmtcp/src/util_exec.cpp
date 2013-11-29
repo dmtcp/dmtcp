@@ -510,9 +510,10 @@ dmtcp::string dmtcp::Util::getPath(dmtcp::string cmd)
   dmtcp::string out;
   const char *prefixPath = getenv (ENV_VAR_PREFIX_PATH);
   if (prefixPath != NULL) {
-    out.append(prefixPath).append("/bin/");
+    out.append(prefixPath).append("/bin/").append(cmd);
+  } else {
+    out = jalib::Filesystem::FindHelperUtility(cmd);
   }
-  out += cmd;
   return out;
 }
 
