@@ -283,7 +283,14 @@ static void prepareForExec(char *const argv[], char ***newArgv)
     precmd = "";
     postcmd = tempcmd;
   }
-  cmd = precmd + prefix + postcmd;
+
+  cmd = precmd;
+  // convert "exec cmd" to "exec <dmtcp-prefix> cmd"
+  if (Util::strStartsWith(postcmd, "exec")) {
+    cmd += "exec " + prefix + postcmd.substr(strlen("exec"));
+  } else {
+    cmd += prefix + postcmd;
+  }
 
   //now repack args
   char** new_argv = new char*[nargs + 10];
