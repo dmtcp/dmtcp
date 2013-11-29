@@ -17,7 +17,6 @@ using namespace dmtcp;
 #define SSHD_PIPE_FD -1
 
 static string cmd;
-static string pcmd;
 static string prefix;
 static string dmtcp_ssh_path;
 static string dmtcp_sshd_path;
@@ -238,6 +237,7 @@ extern "C" void dmtcp_ssh_register_fds(int isSshd, int in, int out, int err, int
 static void prepareForExec(char *const argv[], char ***newArgv)
 {
   size_t nargs = 0;
+  dmtcp::string precmd, postcmd, tempcmd;
   while (argv[nargs++] != NULL);
 
   if (nargs < 3) {
@@ -258,28 +258,32 @@ static void prepareForExec(char *const argv[], char ***newArgv)
     (commandStart) (nargs) (argv[commandStart])
     .Text("failed to parse ssh command line");
 
-  // process command
-  cmd = argv[commandStart];
-  size_t semipos, pos;
-  size_t actpos = string::npos;
-  for(semipos = 0; (pos = cmd.find(';',semipos+1)) != string::npos;
-      semipos = pos, actpos = pos);
-
-  if( actpos > 0 && actpos != string::npos ){
-    pcmd = cmd.substr(0,actpos+1);
-  } else {
-    pcmd = "";
-  }
-
   vector<string> dmtcp_args;
   Util::getDmtcpArgs(dmtcp_args);
 
   prefix = Util::getPath("dmtcp_launch") + " --ssh-slave ";
-
   for(size_t i = 0; i < dmtcp_args.size(); i++){
-    prefix += string() +  dmtcp_args[i] + " ";
+    prefix += dmtcp_args[i] + " ";
   }
+  prefix += dmtcp_sshd_path + " ";
   JTRACE("Prefix")(prefix);
+
+  // process command
+  size_t semipos, pos;
+  size_t actpos = string::npos;
+  tempcmd = argv[commandStart];
+  for(semipos = 0; (pos = tempcmd.find(';',semipos+1)) != string::npos;
+      semipos = pos, actpos = pos);
+
+  if (actpos > 0 && actpos != string::npos) {
+    precmd = tempcmd.substr(0, actpos + 1);
+    postcmd = tempcmd.substr(actpos + 1);
+    postcmd = postcmd.substr(postcmd.find_first_not_of(" "));
+  } else {
+    precmd = "";
+    postcmd = tempcmd;
+  }
+  cmd = precmd + prefix + postcmd;
 
   //now repack args
   char** new_argv = new char*[nargs + 10];
@@ -292,9 +296,7 @@ static void prepareForExec(char *const argv[], char ***newArgv)
   new_argv[idx++] = (char*) dmtcp_ssh_path.c_str();
   new_argv[idx++] = (char*) dmtcp_nocheckpoint_path.c_str();
 
-  string newCommand = string(new_argv[0]) + " ";
-  newCommand += string(new_argv[1]) + " ";
-
+  string newCommand = string(new_argv[0]) + " " + string(new_argv[1]) + " ";
   for (size_t i = 0; i < commandStart; ++i) {
     new_argv[idx++] = ( char* ) argv[i];
     if (argv[i] != NULL) {
@@ -302,12 +304,8 @@ static void prepareForExec(char *const argv[], char ***newArgv)
       newCommand += ' ';
     }
   }
-  new_argv[idx++] = (char*) pcmd.c_str();
-  new_argv[idx++] = (char*) prefix.c_str();
-  new_argv[idx++] = (char*) dmtcp_sshd_path.c_str();
   new_argv[idx++] = (char*) cmd.c_str();
-
-  newCommand += pcmd + prefix + dmtcp_sshd_path + " " + cmd + " ";
+  newCommand += cmd + " ";
 
   for (size_t i = commandStart + 1; i < nargs; ++i) {
     new_argv[idx++] = (char*) argv[i];
