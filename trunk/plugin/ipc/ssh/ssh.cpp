@@ -240,8 +240,11 @@ static void prepareForExec(char *const argv[], char ***newArgv)
   size_t nargs = 0;
   while (argv[nargs++] != NULL);
 
-  JASSERT(nargs > 3) (nargs)
-    .Text("ssh must have at least 3 args to be wrapped (ie: ssh host cmd)");
+  if (nargs < 3) {
+    JNOTE("ssh with less than 3 args") (argv[0]) (argv[1]);
+    *newArgv = (char**) argv;
+    return;
+  }
 
   //find command part
   size_t commandStart = 2;
