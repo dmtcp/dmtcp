@@ -290,6 +290,11 @@ int main(int argc, char** argv)
     setenv(ENV_VAR_QUIET, "0", 0);
   }
 
+  if (getenv(ENV_VAR_DISABLE_UID_CHECKING)) {
+    noStrictUIDChecking = true;
+  }
+
+
   if (argc == 1) {
     JASSERT_STDERR << DMTCP_VERSION_AND_COPYRIGHT_INFO;
     JASSERT_STDERR << "(For help:  " << argv[0] << " --help)\n\n";
