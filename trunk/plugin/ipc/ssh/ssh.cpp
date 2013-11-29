@@ -282,9 +282,6 @@ static void prepareForExec(char *const argv[], char ***newArgv)
   char** new_argv = new char*[nargs + 10];
   memset(new_argv, 0, sizeof(char*) * (nargs + 10));
   dmtcp_ssh_path = Util::getPath("dmtcp_ssh");
-  if (strstr(dmtcp_ssh_path.c_str(), "/") == NULL) {
-    dmtcp_ssh_path = jalib::Filesystem::FindHelperUtility("dmtcp_ssh");
-  }
   dmtcp_sshd_path = Util::getPath("dmtcp_sshd");
   dmtcp_nocheckpoint_path = Util::getPath("dmtcp_nocheckpoint");
 
