@@ -1,0 +1,68 @@
+#!/bin/bash -v
+#SBATCH --partition=general-compute
+#SBATCH --time=00:15:00
+#SBATCH --nodes=2
+#SBATCH --ntasks-per-node=4
+#SBATCH --mem=24000
+#SBATCH --job-name="hello_test"
+#SBATCH --output=test-srun.out
+#SBATCH --mail-user=artempol@buffalo.edu
+#SBATCH --mail-type=ALL
+
+
+start_coordinator()
+{
+    fname=_dmtcp_command-$SLURM_JOBID.sh
+    output=dmtcp_coordinator.$SLURM_JOBID
+    h=`hostname`
+    dmtcp_coordinator --exit-on-last -p 0 --port-file $fname 1>$output 2>&1 &
+    
+    while true; do 
+        if [ -f "$fname" ]; then
+            p=`cat $fname`
+            if [ -n "$p" ]; then
+                # try to communicate ? dmtcp_command -p $p l
+                break
+            fi
+        fi
+    done
+    
+    # Create dmtcp_command wrapper for easy communication with coordinator
+    p=`cat $fname`
+    chmod +x $fname
+    echo "#!/bin/bash" > $fname
+    echo >> $fname
+    echo "export PATH=$PATH" >> $fname
+    echo "export DMTCP_HOST=$h" >> $fname
+    echo "export DMTCP_PORT=$p" >> $fname
+    echo "dmtcp_command \$@" >> $fname
+
+    # Setup local environment for DMTCP
+    export DMTCP_HOST=$h
+    export DMTCP_PORT=$p
+
+}
+
+echo "SLURM_JOBID="$SLURM_JOBID
+echo "SLURM_JOB_NODELIST"=$SLURM_JOB_NODELIST
+echo "SLURM_NNODES"=$SLURM_NNODES
+echo "SLURMTMPDIR="$SLURMTMPDIR
+
+cd $SLURM_SUBMIT_DIR
+echo "working directory = "$SLURM_SUBMIT_DIR
+
+module load openmpi/gcc-4.5.2/1.4.3
+module list
+
+ulimit -s unlimited
+export PATH=/ifs/user/artempol/sandbox/bin/:$PATH
+export LD_LIBRARY_PATH=/ifs/user/artempol/sandbox/lib/:$LD_LIBRARY_PATH
+
+touch file.test
+
+
+start_coordinator
+
+dmtcp_checkpoint --rm mpirun --mca btl self,tcp ./matmat2
+
+srun ./copy.sh
