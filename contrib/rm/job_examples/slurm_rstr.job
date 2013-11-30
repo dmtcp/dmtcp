@@ -1,20 +1,24 @@
-#!/bin/sh
-#SBATCH --partition=general-compute
-#SBATCH --time=00:15:00
-#SBATCH --nodes=2
-#SBATCH --ntasks-per-node=4
-#SBATCH --mem=24000
-#SBATCH --job-name="hello_test"
-#SBATCH --output=test-srun.out
-#SBATCH --mail-user=artempol@buffalo.edu
-#SBATCH --mail-type=ALL
+#!/bin/bash
+# Put your SLURM options here
+#SBATCH --partition=debug         # change to proper partition name or remove
+#SBATCH --time=00:15:00           # put proper time of reservation here
+#SBATCH --nodes=2                 # number of nodes
+#SBATCH --ntasks-per-node=4       # processes per node
+#SBATCH --mem=24000               # memory resource
+#SBATCH --job-name="dmtcp_job"    # change to your job name
+#SBATCH --output=dmtcp.out        # change to proper file name or remove for defaults
+# ? Any other batch options ?
 
+# Start dmtcp coordinator on launching node. Free TCP port is automatically allocated.
+# this function creates dmtcp_command.$JOBID script that serves like a wrapper around
+# dmtcp_command that tunes it on exact dmtcp_coordinator (it's hostname and port)
+# instead of typing "dmtcp_command -h <coordinator hostname> -p <coordinator port> <command>"
+# you just type "dmtcp_command.$JOBID <command>" and talk to coordinator of JOBID job
 start_coordinator()
 {
-    fname=dmtcp_command-$SLURM_JOBID.sh
-    output=dmtcp_coordinator.$SLURM_JOBID
+    fname=dmtcp_command.$SLURM_JOBID
     h=`hostname`
-    dmtcp_coordinator --exit-on-last -p 0 --port-file $fname 1>$output 2>&1 &
+    dmtcp_coordinator --daemon --exit-on-last -p 0 --port-file $fname $@ 1>/dev/null 2>&1
     
     while true; do 
         if [ -f "$fname" ]; then
@@ -43,26 +47,26 @@ start_coordinator()
 }
 
 
+# Print out SLURM job information. Remove it if you don't need it
 echo "SLURM_JOBID="$SLURM_JOBID
 echo "SLURM_JOB_NODELIST"=$SLURM_JOB_NODELIST
 echo "SLURM_NNODES"=$SLURM_NNODES
 echo "SLURMTMPDIR="$SLURMTMPDIR
-
-cd $SLURM_SUBMIT_DIR
 echo "working directory = "$SLURM_SUBMIT_DIR
 
-module load  openmpi/gcc-4.4.6/1.6
-module list
+# changedir to workdir
+cd $SLURM_SUBMIT_DIR
 
-ulimit -s unlimited
-ulimit -c unlimited
+# Some initial setup like 
+# 1. Loading MPI or any other modules if you use modules.
+#module load openmpi/gcc-4.5.2/1.4.3
+#module list
+# 2. Make sure that DMTCP install prefix is in PATH & LD_LIBRARY_PATH. Remove if you sure about that.
+#export PATH=<DMTCP install path>/bin:$PATH
+#export LD_LIBRARY_PATH=<DMTCP install path>/lib:$LD_LIBRARY_PATH
+# 3. Other settings
+#ulimit -s unlimited
 
-export PATH=/ifs/user/artempol/sandbox/bin/:$PATH
-export LD_LIBRARY_PATH=/ifs/user/artempol/sandbox/lib/:$LD_LIBRARY_PATH
+start_coordinator # -i 120 ... <put dmtcp coordinator options here>
 
-touch file.test
-
-start_coordinator
-#export DMTCP_HOST=f07n05
-
-./dmtcp_restart_script.sh
+/bin/bash ./dmtcp_restart_script.sh
