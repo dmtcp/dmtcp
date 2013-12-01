@@ -1060,12 +1060,14 @@ int _dereg_mr(struct ibv_mr * mr)
 {
   struct internal_ibv_mr * internal_mr = ibv_mr_to_internal(mr);
   struct list_elem *e;
-  for (e = list_begin(&rkey_list); e != list_end(&rkey_list); e = list_next(e)) {
-    struct ibv_rkey_pair * pair = list_entry(e, struct ibv_rkey_pair, elem);
-    if (pair->orig_rkey.rkey == internal_mr->user_mr.rkey) {
-      list_remove(&pair->elem);
-      free(pair);
-      break;
+  if (is_restart) {
+    for (e = list_begin(&rkey_list); e != list_end(&rkey_list); e = list_next(e)) {
+      struct ibv_rkey_pair * pair = list_entry(e, struct ibv_rkey_pair, elem);
+      if (pair->orig_rkey.rkey == internal_mr->user_mr.rkey) {
+        list_remove(&pair->elem);
+        free(pair);
+        break;
+      }
     }
   }
   int rslt = _real_ibv_dereg_mr(internal_mr->real_mr);
