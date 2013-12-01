@@ -19,6 +19,9 @@
  ****************************************************************************/
 
 #include <sstream>
+#include <iomanip>
+#include <iostream>
+
 #include "discover_slurm.h"
 
 using namespace std;
@@ -28,6 +31,7 @@ class slurm_nodes
 private:
   string	str, prefix, num;
   size_t pos;
+  int range_cur, range_end, range_num_len;
   bool is_end;
   bool with_prefix;
 public:
@@ -38,6 +42,7 @@ public:
     is_end = false;
     with_prefix = false;
     prefix = "";
+    range_cur = range_end = range_num_len = -1;
   }
 
   string next()
@@ -45,6 +50,19 @@ public:
     if( is_end )
       return "";
 
+    if( range_cur >=0 ){
+      if( range_cur <= range_end ){
+          stringstream ss;
+          ss << setfill('0');
+          ss << setw(range_num_len) << range_cur;
+          range_cur++;
+          return prefix + ss.str();
+      }else{
+        range_cur = range_end = range_num_len = -1;
+        with_prefix=false;
+      }
+    }
+    
     while(1){ 
       size_t next = str.find_first_of(",[]",pos);
       if( next == string::npos ){
@@ -75,9 +93,25 @@ public:
 
       if( str[next] == ']' ){
         num = str.substr(pos,next-pos);
-        with_prefix = false;
-        pos = next + 1;
-        return prefix + num;
+        size_t dash = num.find_first_of("-",0);
+        if( dash == string::npos ){
+          with_prefix = false;
+          pos = next + 1;
+          return prefix + num;
+        }else{
+          with_prefix=true;
+          string start = num.substr(0,dash);
+          string end = num.substr(dash+1);
+          range_num_len = start.size();
+          range_cur = atoi(start.c_str());
+          range_end = atoi(end.c_str());
+          stringstream ss;
+          ss << setfill('0');
+          ss << setw(range_num_len) << range_cur;
+          range_cur++;
+          pos = next+1;
+          return prefix + ss.str();
+        }
       }
     }
   }
