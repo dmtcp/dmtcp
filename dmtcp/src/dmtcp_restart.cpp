@@ -39,6 +39,8 @@
 
 using namespace dmtcp;
 
+static void setEnvironFd();
+
 dmtcp::string dmtcpTmpDir = "/DMTCP/Uninitialized/Tmp/Dir";
 
 // gcc-4.3.4 -Wformat=2 issues false positives for warnings unless the format
@@ -269,9 +271,10 @@ static void setEnvironFd()
 
   char **env = environ;
   while (*env != NULL) {
-    Util::writeAll(fd, *env, strlen(*env) + 1);
+    Util::writeAll(fd, *env, strlen(*env) + 1); // Also write null character
     env++;
   }
+  Util::writeAll(fd, *env, 1); // Write final null character
 }
 
 static void setNewCkptDir(char *path)
