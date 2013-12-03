@@ -28,13 +28,13 @@
 
 using namespace dmtcp;
 
-EXTERNC int  dmtcp_get_ckpt_signal()
+EXTERNC int dmtcp_get_ckpt_signal(void)
 {
   const int ckpt_signal = dmtcp::DmtcpWorker::determineMtcpSignal();
   return ckpt_signal;
 }
 
-EXTERNC const char* dmtcp_get_tmpdir()
+EXTERNC const char* dmtcp_get_tmpdir(void)
 {
   static dmtcp::string *tmpdir = NULL;
   if (tmpdir == NULL)
@@ -70,24 +70,24 @@ EXTERNC void dmtcp_set_coord_ckpt_dir(const char* dir)
   }
 }
 
-EXTERNC const char* dmtcp_get_ckpt_files_subdir()
+EXTERNC const char* dmtcp_get_ckpt_files_subdir(void)
 {
   static dmtcp::string tmpdir;
   tmpdir = dmtcp::UniquePid::getCkptFilesSubDir();
   return tmpdir.c_str();
 }
 
-EXTERNC int dmtcp_should_ckpt_open_files()
+EXTERNC int dmtcp_should_ckpt_open_files(void)
 {
   return getenv(ENV_VAR_CKPT_OPEN_FILES) != NULL;
 }
 
-EXTERNC const char* dmtcp_get_executable_path()
+EXTERNC const char* dmtcp_get_executable_path(void)
 {
   return dmtcp::ProcessInfo::instance().procSelfExe().c_str();
 }
 
-EXTERNC const char* dmtcp_get_uniquepid_str()
+EXTERNC const char* dmtcp_get_uniquepid_str(void)
 {
   static dmtcp::string *uniquepid_str = NULL;
   uniquepid_str =
@@ -95,12 +95,12 @@ EXTERNC const char* dmtcp_get_uniquepid_str()
   return uniquepid_str->c_str();
 }
 
-EXTERNC DmtcpUniqueProcessId dmtcp_get_uniquepid()
+EXTERNC DmtcpUniqueProcessId dmtcp_get_uniquepid(void)
 {
   return dmtcp::UniquePid::ThisProcess().upid();
 }
 
-EXTERNC const char* dmtcp_get_computation_id_str()
+EXTERNC const char* dmtcp_get_computation_id_str(void)
 {
   static dmtcp::string *compid_str = NULL;
   if (compid_str == NULL)
@@ -109,7 +109,7 @@ EXTERNC const char* dmtcp_get_computation_id_str()
   return compid_str->c_str();
 }
 
-EXTERNC DmtcpUniqueProcessId dmtcp_get_coord_id()
+EXTERNC DmtcpUniqueProcessId dmtcp_get_coord_id(void)
 {
   return CoordinatorAPI::instance().coordinatorId();
 }
@@ -123,29 +123,34 @@ EXTERNC int dmtcp_unique_pids_equal(DmtcpUniqueProcessId a,
          a._generation == b._generation;
 }
 
-EXTERNC time_t dmtcp_get_coordinator_timestamp()
+EXTERNC time_t dmtcp_get_coordinator_timestamp(void)
 {
   return CoordinatorAPI::instance().coordTimeStamp();
 }
 
-EXTERNC int  dmtcp_get_generation()
+EXTERNC int dmtcp_get_generation(void)
 {
   return dmtcp::UniquePid::ComputationId().generation();
 }
 
-EXTERNC int  dmtcp_is_running_state()
+EXTERNC int dmtcp_is_running_state(void)
 {
   return dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING;
 }
 
-EXTERNC int  dmtcp_is_initializing_wrappers()
+EXTERNC int dmtcp_is_initializing_wrappers(void)
 {
   return dmtcp_wrappers_initializing;
 }
 
-EXTERNC int  dmtcp_is_protected_fd(int fd)
+EXTERNC int dmtcp_is_protected_fd(int fd)
 {
   return DMTCP_IS_PROTECTED_FD(fd);
+}
+
+EXTERNC int dmtcp_protected_environ_fd(void)
+{
+  return PROTECTED_ENVIRON_FD;
 }
 
 EXTERNC void dmtcp_close_protected_fd(int fd)
@@ -154,22 +159,22 @@ EXTERNC void dmtcp_close_protected_fd(int fd)
   _real_close(fd);
 }
 
-EXTERNC int dmtcp_get_readlog_fd()
+EXTERNC int dmtcp_get_readlog_fd(void)
 {
   return PROTECTED_READLOG_FD;
 }
 
-EXTERNC int dmtcp_get_ptrace_fd()
+EXTERNC int dmtcp_get_ptrace_fd(void)
 {
   return PROTECTED_PTRACE_FD;
 }
 
-EXTERNC void *dmtcp_get_libc_dlsym_addr()
+EXTERNC void *dmtcp_get_libc_dlsym_addr(void)
 {
   return _dmtcp_get_libc_dlsym_addr();
 }
 
-EXTERNC void dmtcp_block_ckpt_signal()
+EXTERNC void dmtcp_block_ckpt_signal(void)
 {
   static sigset_t signals_set;
   static bool initialized = false;
@@ -182,7 +187,7 @@ EXTERNC void dmtcp_block_ckpt_signal()
   JASSERT(_real_pthread_sigmask (SIG_BLOCK, &signals_set, NULL) == 0);
 }
 
-EXTERNC void dmtcp_unblock_ckpt_signal()
+EXTERNC void dmtcp_unblock_ckpt_signal(void)
 {
   static sigset_t signals_set;
   static bool initialized = false;
@@ -222,7 +227,7 @@ EXTERNC void dmtcp_get_local_ip_addr(struct in_addr *in)
   SharedData::getLocalIPAddr(in);
 }
 
-EXTERNC int dmtcp_no_coordinator()
+EXTERNC int dmtcp_no_coordinator(void)
 {
   return CoordinatorAPI::noCoordinator();
 }

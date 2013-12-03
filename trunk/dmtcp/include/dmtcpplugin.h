@@ -112,35 +112,37 @@ EXTERNC int dmtcp_send_query_to_coordinator(const char *id,
                                             void *val, size_t *val_len);
 EXTERNC void dmtcp_get_local_ip_addr(struct in_addr *in);
 
-EXTERNC const char* dmtcp_get_tmpdir();
+EXTERNC const char* dmtcp_get_tmpdir(void);
 EXTERNC void dmtcp_set_tmpdir(const char *);
 
-EXTERNC const char* dmtcp_get_ckpt_dir();
+EXTERNC const char* dmtcp_get_ckpt_dir(void);
 EXTERNC void dmtcp_set_ckpt_dir(const char *);
 EXTERNC void dmtcp_set_coord_ckpt_dir(const char* dir);
-EXTERNC const char* dmtcp_get_ckpt_files_subdir();
-EXTERNC int dmtcp_should_ckpt_open_files();
+EXTERNC const char* dmtcp_get_ckpt_files_subdir(void);
+EXTERNC int dmtcp_should_ckpt_open_files(void);
 
-EXTERNC int  dmtcp_get_ckpt_signal();
-EXTERNC const char* dmtcp_get_uniquepid_str();
-EXTERNC const char* dmtcp_get_computation_id_str();
-EXTERNC time_t dmtcp_get_coordinator_timestamp();
-EXTERNC int  dmtcp_get_generation();
-EXTERNC int  dmtcp_is_running_state();
-EXTERNC int  dmtcp_is_initializing_wrappers();
-EXTERNC int  dmtcp_is_protected_fd(int fd);
-EXTERNC int dmtcp_no_coordinator();
+EXTERNC int dmtcp_get_ckpt_signal(void);
+EXTERNC const char* dmtcp_get_uniquepid_str(void);
+EXTERNC const char* dmtcp_get_computation_id_str(void);
+EXTERNC time_t dmtcp_get_coordinator_timestamp(void);
+EXTERNC int dmtcp_get_generation(void);
+EXTERNC int dmtcp_is_running_state(void);
+EXTERNC int dmtcp_is_initializing_wrappers(void);
+EXTERNC int dmtcp_is_protected_fd(int fd);
+EXTERNC int dmtcp_protected_environ_fd();
+EXTERNC int dmtcp_no_coordinator(void);
 EXTERNC DmtcpUniqueProcessId dmtcp_get_uniquepid();
 EXTERNC DmtcpUniqueProcessId dmtcp_get_coord_id();
 EXTERNC const char* dmtcp_get_executable_path();
 
-EXTERNC int dmtcp_get_ptrace_fd();
-EXTERNC int dmtcp_get_readlog_fd();
-EXTERNC void dmtcp_block_ckpt_signal();
-EXTERNC void dmtcp_unblock_ckpt_signal();
+EXTERNC int dmtcp_get_ptrace_fd(void);
+EXTERNC int dmtcp_get_readlog_fd(void);
+EXTERNC void dmtcp_block_ckpt_signal(void);
+EXTERNC void dmtcp_unblock_ckpt_signal(void);
 
-EXTERNC void *dmtcp_get_libc_dlsym_addr();
+EXTERNC void *dmtcp_get_libc_dlsym_addr(void);
 EXTERNC void dmtcp_close_protected_fd(int fd);
+EXTERNC int dmtcp_protected_environ_fd(void);
 
 EXTERNC pid_t dmtcp_real_to_virtual_pid(pid_t realPid) __attribute((weak));
 EXTERNC pid_t dmtcp_virtual_to_real_pid(pid_t virtualPid) __attribute((weak));
