@@ -23,6 +23,7 @@
 #include <sys/stat.h>
 #include <sys/fcntl.h>
 #include <sys/wait.h>
+#include <limits.h>
 
 #include "constants.h"
 #include "coordinatorapi.h"
@@ -238,6 +239,7 @@ class RestoreTarget
        */
       dmtcp::SharedData::initialize();
       dmtcp::SharedData::updateLocalIPAddr();
+      setEnvironFd();
 
       dmtcp::Util::runMtcpRestore(_path.c_str(), _fd,
                                   _pInfo.argvSize(), _pInfo.envSize());
@@ -250,6 +252,26 @@ class RestoreTarget
     dmtcp::ProcessInfo _pInfo;
     int _fd;
 };
+
+static void setEnvironFd()
+{
+  char envFile[PATH_MAX];
+  sprintf(envFile, "%s/envFile.XXXXXX", dmtcpTmpDir.c_str());
+  int fd = mkstemp(envFile);
+  JASSERT(fd != -1) (envFile) (JASSERT_ERRNO);
+  JASSERT(unlink(envFile) == 0) (envFile) (JASSERT_ERRNO);
+  JASSERT(dup2(fd, PROTECTED_ENVIRON_FD) == PROTECTED_ENVIRON_FD)
+    (JASSERT_ERRNO);
+  fd = PROTECTED_ENVIRON_FD;
+
+  char **env = environ;
+  while (*env != NULL) {
+    Util::writeAll(fd, *env, strlen(*env));
+    Util::writeAll(fd, "\n", 1);
+    env++;
+  }
+}
+
 
 static void setNewCkptDir(char *path)
 {
