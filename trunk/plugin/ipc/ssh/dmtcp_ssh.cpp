@@ -18,6 +18,18 @@ static int listenSock = -1;
 
 extern "C" void dmtcp_get_local_ip_addr(struct in_addr *addr) __attribute((weak));
 
+static bool strEndsWith(const char *str, const char *pattern)
+{
+  assert(str != NULL && pattern != NULL);
+  int len1 = strlen(str);
+  int len2 = strlen(pattern);
+  if (len1 >= len2) {
+    size_t idx = len1 - len2;
+    return strncmp(str+idx, pattern, len2) == 0;
+  }
+  return false;
+}
+
 static int getport(int fd)
 {
   struct sockaddr_in addr;
@@ -150,14 +162,17 @@ int main(int argc, char *argv[], char *envp[])
 
     size_t i = 0;
     while (argv[i] != NULL) {
-      int len1 = strlen(argv[i]);
-      int len2 = strlen(SSHD_BINARY);
-      if (len1 >= len2) {
-        size_t idx = len1 - len2;
-        if (strncmp(&argv[i][idx], SSHD_BINARY, len2) == 0) {
-          sprintf(buf, "%s --host %s --port %d", argv[i], hostip, port);
-          argv[i] = buf;
+      // "dmtcp_sshd" may be embedded deep inside the command line.
+      char *ptr = strstr(argv[i], SSHD_BINARY);
+      if (ptr != NULL) {
+        ptr += strlen(SSHD_BINARY);
+        if (*ptr != '\0') {
+          *ptr = '\0';
+          ptr++;
         }
+        sprintf(buf, "%s --host %s --port %d %s",
+                argv[i], hostip, port, ptr);
+        argv[i] = buf;
       }
       i++;
     }

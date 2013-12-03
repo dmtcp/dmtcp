@@ -18,6 +18,7 @@ using namespace dmtcp;
 
 static string cmd;
 static string prefix;
+static string dmtcp_launch_path;
 static string dmtcp_ssh_path;
 static string dmtcp_sshd_path;
 static string dmtcp_nocheckpoint_path;
@@ -261,7 +262,12 @@ static void prepareForExec(char *const argv[], char ***newArgv)
   vector<string> dmtcp_args;
   Util::getDmtcpArgs(dmtcp_args);
 
-  prefix = Util::getPath("dmtcp_launch") + " --ssh-slave ";
+  dmtcp_launch_path = Util::getPath("dmtcp_launch");
+  dmtcp_ssh_path = Util::getPath("dmtcp_ssh");
+  dmtcp_sshd_path = Util::getPath("dmtcp_sshd");
+  dmtcp_nocheckpoint_path = Util::getPath("dmtcp_nocheckpoint");
+
+  prefix = dmtcp_launch_path + " --ssh-slave ";
   for(size_t i = 0; i < dmtcp_args.size(); i++){
     prefix += dmtcp_args[i] + " ";
   }
@@ -295,9 +301,6 @@ static void prepareForExec(char *const argv[], char ***newArgv)
   //now repack args
   char** new_argv = new char*[nargs + 10];
   memset(new_argv, 0, sizeof(char*) * (nargs + 10));
-  dmtcp_ssh_path = Util::getPath("dmtcp_ssh");
-  dmtcp_sshd_path = Util::getPath("dmtcp_sshd");
-  dmtcp_nocheckpoint_path = Util::getPath("dmtcp_nocheckpoint");
 
   size_t idx = 0;
   new_argv[idx++] = (char*) dmtcp_ssh_path.c_str();
