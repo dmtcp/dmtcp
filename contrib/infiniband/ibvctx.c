@@ -340,14 +340,6 @@ void post_restart(void)
           // here we need to make sure that recreated
           // contexts and old ones have
           // the same cmd_fd and async_fd
-	  if (internal_ctx->real_ctx->cmd_fd != internal_ctx->user_ctx.cmd_fd) {
-            if (dup2(internal_ctx->real_ctx->cmd_fd, internal_ctx->user_ctx.cmd_fd) != internal_ctx->user_ctx.cmd_fd) {
-              fprintf(stderr, "Error: Could not duplicate cmd_fd.\n");
-	      exit(1);
-            }
-	    close(internal_ctx->real_ctx->cmd_fd);
-	    internal_ctx->real_ctx->cmd_fd = internal_ctx->user_ctx.cmd_fd;
-	  }
 	  if (internal_ctx->real_ctx->async_fd != internal_ctx->user_ctx.async_fd) {
             if (dup2(internal_ctx->real_ctx->async_fd, internal_ctx->user_ctx.async_fd) != internal_ctx->user_ctx.async_fd) {
               fprintf(stderr, "Error: Could not duplicate async_fd.\n");
@@ -355,6 +347,14 @@ void post_restart(void)
             }
 	    close(internal_ctx->real_ctx->async_fd);
 	    internal_ctx->real_ctx->async_fd = internal_ctx->user_ctx.async_fd;
+	  }
+	  if (internal_ctx->real_ctx->cmd_fd != internal_ctx->user_ctx.cmd_fd) {
+            if (dup2(internal_ctx->real_ctx->cmd_fd, internal_ctx->user_ctx.cmd_fd) != internal_ctx->user_ctx.cmd_fd) {
+              fprintf(stderr, "Error: Could not duplicate cmd_fd.\n");
+	      exit(1);
+            }
+	    close(internal_ctx->real_ctx->cmd_fd);
+	    internal_ctx->real_ctx->cmd_fd = internal_ctx->user_ctx.cmd_fd;
 	  }
 
           break;
@@ -375,6 +375,7 @@ void post_restart(void)
     if (!internal_pd->real_pd)
     {
       fprintf(stderr, "Error: Could not re-alloc the pd.\n");
+      fprintf(stderr, "Error number is %d.\n", errno);
       exit(1);
     }
   }
