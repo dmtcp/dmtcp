@@ -319,7 +319,7 @@ int ibv_dereg_mr(struct ibv_mr *mr)
 int ibv_dealloc_pd(struct ibv_pd *pd)
 {
   dmtcp_plugin_disable_ckpt();
- // PDEBUG("****** WRAPPER for ibv_dealloc_pd\n");
+//  PDEBUG("****** WRAPPER for ibv_dealloc_pd\n");
 
   int rslt = _dealloc_pd(pd);
 
