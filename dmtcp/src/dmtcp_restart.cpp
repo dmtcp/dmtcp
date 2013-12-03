@@ -262,6 +262,7 @@ static void setEnvironFd()
   JASSERT(unlink(envFile) == 0) (envFile) (JASSERT_ERRNO);
   JASSERT(dup2(fd, PROTECTED_ENVIRON_FD) == PROTECTED_ENVIRON_FD)
     (JASSERT_ERRNO);
+  JASSERT(close(fd) == 0);
   fd = PROTECTED_ENVIRON_FD;
 
   char **env = environ;
