@@ -1,5 +1,6 @@
 #include<stdio.h>
 #include<unistd.h>
+#include<stdlib.h>
 #include<errno.h>
 #include<sys/types.h>
 #include<sys/wait.h>
@@ -47,7 +48,11 @@ int main(int argc, char *argv[])
     close(out[1]);
     close(err[1]);
 
+#ifdef USE_DMTCP1
+    char *argv[] = {"/usr/bin/ssh", hostname, "~/dmtcp/test/dmtcp1", NULL};
+#else
     char *argv[] = {"/usr/bin/ssh", hostname, "sleep", "100", NULL};
+#endif
     execv(argv[0], argv);
     perror("execv failed");
   } else {
@@ -55,20 +60,25 @@ int main(int argc, char *argv[])
     close(out[1]);
     close(err[1]);
     char buf[4096];
-    ssize_t wrt;
-    ssize_t rt = read(out[0], buf, 4096);
-    if (rt > 0) {
-      wrt = write(STDOUT_FILENO, buf, rt);
-      if (wrt == -1 && errno != EINTR) {
-        perror("write failed.");
+    while (1) {
+      ssize_t rt = read(out[0], buf, 4096);
+      ssize_t wrt;
+      if (rt > 0) {
+        wrt = write(STDOUT_FILENO, buf, rt);
+        if (wrt == -1 && errno != EINTR) {
+          perror("write failed.");
+          exit(0);
+        }
       }
-    }
-    rt = read(err[0], buf, 4096);
-    if (rt > 0) {
-      wrt = write(STDERR_FILENO, buf, rt);
-      if (wrt == -1 && errno != EINTR) {
-        perror("write failed.");
+#ifndef USE_DMTCP1
+      rt = read(err[0], buf, 4096);
+      if (rt > 0) {
+        wrt = write(STDERR_FILENO, buf, rt);
+        if (wrt == -1 && errno != EINTR) {
+          perror("write failed.");
+        }
       }
+#endif
     }
   }
   wait(NULL);
