@@ -91,6 +91,8 @@ typedef dmtcp::map<dmtcp::UniquePid, RestoreTarget*> RestoreTargetMap;
 RestoreTargetMap targets;
 RestoreTargetMap independentProcessTreeRoots;
 
+static void setEnvironFd();
+
 class RestoreTarget
 {
   public:
@@ -267,12 +269,10 @@ static void setEnvironFd()
 
   char **env = environ;
   while (*env != NULL) {
-    Util::writeAll(fd, *env, strlen(*env));
-    Util::writeAll(fd, "\n", 1);
+    Util::writeAll(fd, *env, strlen(*env) + 1);
     env++;
   }
 }
-
 
 static void setNewCkptDir(char *path)
 {
