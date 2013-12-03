@@ -76,6 +76,12 @@ void dmtcp_ProcessInfo_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
       }
       break;
 
+    case DMTCP_EVENT_THREADS_RESUME:
+      if (data->refillInfo.isRestart) {
+        _real_close(PROTECTED_ENVIRON_FD);
+      }
+      break;
+
 
     default:
       break;
