@@ -312,6 +312,13 @@ dmtcp::string dmtcp::UniquePid::pidTableFilename()
   return os.str();
 }
 
+#ifdef RUN_AS_ROOT
+/* Global variable stores the name of the tmp directory when setTmpDir() is
+ * called.
+ */
+string g_tmpDirName = "";
+#endif
+
 dmtcp::string dmtcp::UniquePid::getTmpDir()
 {
   dmtcp::string device = jalib::Filesystem::ResolveSymlink ( "/proc/self/fd/"
@@ -331,11 +338,16 @@ dmtcp::string dmtcp::UniquePid::getTmpDir()
      * temporary fix for this problem.
      */
     JASSERT (PROTECTED_TMPDIR_FD)
-      .Text ( "Still unable to determine DMTCP_TMPDIR" );
+      .Text ( "Unable to determine DMTCP_TMPDIR. Setting it to default value." );
+    /* We return a sane value now. This is in addition to the previous fix
+     * (r2242).
+     */
+    device =  g_tmpDirName;
 #endif
   }
   return device;
 }
+
 
 /*
  * setTmpDir() computes the TmpDir to be used by DMTCP. It does so by using
@@ -388,6 +400,16 @@ void dmtcp::UniquePid::setTmpDir(const char* envVarTmpDir) {
   int tmpFd = open ( o.str().c_str(), O_RDONLY  );
   JASSERT(tmpFd != -1);
   JASSERT(_real_dup2(tmpFd, PROTECTED_TMPDIR_FD)==PROTECTED_TMPDIR_FD);
+
+#ifdef RUN_AS_ROOT
+  /* This is a temporary fix for the double-restart (ckpt->rst->ckpt->rst)
+   * problem with Apache. We save the path of the tmp directory here in
+   * a global variable that is referred to later when getTmpDir() is called
+   * on restart.
+   */
+  g_tmpDirName = o.str();
+#endif
+
   close ( tmpFd );
 }
 
