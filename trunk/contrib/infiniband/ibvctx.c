@@ -264,10 +264,27 @@ static void drain_completion_queue(struct internal_ibv_cq * internal_cq)
                  opcode == IBV_WC_RDMA_READ ||
                  opcode == IBV_WC_COMP_SWAP ||
                  opcode == IBV_WC_FETCH_ADD) {
-        struct list_elem * e = list_pop_front(&internal_qp->post_send_log);
-        struct ibv_post_send_log * log = list_entry(e, struct ibv_post_send_log, elem);
-        assert(log->magic == SEND_MAGIC);
-        free(log);
+	if (internal_qp->init_attr.sq_sig_all) {
+          struct list_elem * e = list_pop_front(&internal_qp->post_send_log);
+          struct ibv_post_send_log * log = list_entry(e, struct ibv_post_send_log, elem);
+          assert(log->magic == SEND_MAGIC);
+          free(log);
+	}
+	else {
+	  while(1) {
+            struct list_elem * e = list_pop_front(&internal_qp->post_send_log);
+            struct ibv_post_send_log * log = list_entry(e, struct ibv_post_send_log, elem);
+	    if (log->wr.send_flags & IBV_SEND_SIGNALED) {
+              assert(log->magic == SEND_MAGIC);
+              free(log);
+	      break;
+	    }
+	    else {
+              assert(log->magic == SEND_MAGIC);
+              free(log);
+	    }
+	  }
+	}
       } else if (opcode == IBV_WC_BIND_MW) {
         fprintf(stderr, "Error: opcode %d specifies unsupported operation.\n", opcode);
         exit(1);
@@ -1683,10 +1700,27 @@ int _ibv_poll_cq(struct ibv_cq * cq, int num_entries, struct ibv_wc * wc)
                  opcode == IBV_WC_RDMA_READ ||
                  opcode == IBV_WC_COMP_SWAP ||
                  opcode == IBV_WC_FETCH_ADD) {
-        struct list_elem * e = list_pop_front(&internal_qp->post_send_log);
-        struct ibv_post_send_log * log = list_entry(e, struct ibv_post_send_log, elem);
-        assert(log->magic == SEND_MAGIC);
-        free(log);
+	if (internal_qp->init_attr.sq_sig_all) {
+          struct list_elem * e = list_pop_front(&internal_qp->post_send_log);
+          struct ibv_post_send_log * log = list_entry(e, struct ibv_post_send_log, elem);
+          assert(log->magic == SEND_MAGIC);
+          free(log);
+	}
+	else {
+	  while(1) {
+            struct list_elem * e = list_pop_front(&internal_qp->post_send_log);
+            struct ibv_post_send_log * log = list_entry(e, struct ibv_post_send_log, elem);
+	    if (log->wr.send_flags & IBV_SEND_SIGNALED) {
+              assert(log->magic == SEND_MAGIC);
+              free(log);
+	      break;
+	    }
+	    else {
+              assert(log->magic == SEND_MAGIC);
+              free(log);
+	    }
+	  }
+	}
       } else if (opcode == IBV_WC_BIND_MW) {
         fprintf(stderr, "Error: opcode %d specifies unsupported operation.\n", opcode);
         exit(1);
