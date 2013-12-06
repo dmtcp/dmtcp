@@ -10,6 +10,12 @@ struct internal_ibv_dev {
   struct ibv_device * real_dev;
 };
 
+struct address_pair {
+  void *user;
+  void *real;
+  struct list_elem elem;
+};
+
 //! A wrapper around a context
 struct internal_ibv_ctx {
   struct ibv_context user_ctx;

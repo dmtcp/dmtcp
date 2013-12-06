@@ -720,8 +720,9 @@ struct ibv_device ** _get_device_list(int * num_devices) {
 
   for (int i = 0; i < _dmtcp_num_devices; i++) {
     struct internal_ibv_dev * dev = (struct internal_ibv_dev *) malloc(sizeof(struct internal_ibv_dev));
+    struct address_pair *pair = (struct address_pair *)malloc(sizeof(struct address_pair));
 
-    if (!dev) {
+    if (!dev || !pair) {
       fprintf(stderr, "Error: Could not allocate memory for _get_device_list.\n");
       exit(1);
     }
@@ -729,6 +730,9 @@ struct ibv_device ** _get_device_list(int * num_devices) {
     memcpy(&dev->user_dev, _dev_list[i], sizeof(struct ibv_device));
     dev->real_dev = _dev_list[i];
     user_list[i] = &dev->user_dev;
+    pair->user = user_list[i];
+    pair->real = _dev_list[i];
+    list_push_back(&dev_list, &pair->elem);
   }
 
   return user_list;
@@ -736,7 +740,16 @@ struct ibv_device ** _get_device_list(int * num_devices) {
 
 const char * _get_device_name(struct ibv_device * device)
 {
-  return _real_ibv_get_device_name(ibv_device_to_internal(device)->real_dev);
+  struct list_elem *e;
+  for (e = list_begin(&dev_list); e != list_end(&dev_list); e = list_next(e)) {
+    struct address_pair *pair = list_entry(e, struct address_pair, elem);
+    if (pair->user == device) {
+      return _real_ibv_get_device_name(ibv_device_to_internal(device)->real_dev);
+    }
+    else if (pair->real == device) {
+      return _real_ibv_get_device_name(device);
+    }
+  }
 }
 
 //TODO: I think the GUID could change and need to be translated

@@ -38,12 +38,12 @@ struct ibv_device **ibv_get_device_list(int *num_devices)
 
 const char *ibv_get_device_name(struct ibv_device * dev)
 {
-  dmtcp_plugin_disable_ckpt();
+//  dmtcp_plugin_disable_ckpt();
 //  PDEBUG("****** WRAPPER for ibv_get_device_name\n");
 
   const char * rslt = _get_device_name(dev);
 
-  dmtcp_plugin_enable_ckpt();
+//  dmtcp_plugin_enable_ckpt();
   return rslt;
 }
 
