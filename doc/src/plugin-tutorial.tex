@@ -257,11 +257,22 @@ int dmtcp\_send\_query\_to\_coordinator(const void *key, size\_t key\_len,
 
 Often an id or name will change between checkpoint and restart.
 For example, on restart, the real pid of a process will change
-from its pid prior to checkpoint.  The DMTCP internal plugin
-maintains a translation table in order to distinguish
+from its pid prior to checkpoint.  Some DMTCP internal plugins
+maintain a translation table in order to translate
 between a virtualized id passed to the user code and a real id
-maintained inside the kernel.  For an example of adding virtualization
-to a plugin, see the plugin in plugin/ipc/timer.
+maintained inside the kernel.  The utility to maintain this
+translation table can also be used within third-party plugins.
+For an example of adding virtualization to a plugin, see the plugin
+in plugin/ipc/timer.
+
+In some less common cases, it can happen that a virtualized id is passed
+to a library function by the target application.  Yet, that same library
+function may be passed a real id by a second function from within the
+same library.  In these cases, it is the responsibility of the
+plugin implementor to choose a scheme that allows the first library
+function to distinguish whether its argument is a virtual id (passed
+from the target application) or a real id (passed from within the same
+library).
 
 
 % \section{Caveats}
