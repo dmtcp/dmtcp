@@ -330,7 +330,7 @@ int ibv_dealloc_pd(struct ibv_pd *pd)
 int ibv_close_device(struct ibv_context *context)
 {
   dmtcp_plugin_disable_ckpt();
-  //PDEBUG("***** WRAPPER for ibv_close_device\n");
+//  PDEBUG("***** WRAPPER for ibv_close_device\n");
 
   int rslt = _close_device(context);
 
