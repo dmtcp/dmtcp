@@ -78,7 +78,9 @@ namespace jalib
 #endif
       ///
       /// Create new socket
-  protected: JSocket(); public:
+  protected:
+      JSocket();
+  public:
       //so we don't leak FDs
       inline static JSocket Create() { return JSocket(); }
       ///
@@ -86,7 +88,8 @@ namespace jalib
       JSocket ( int fd ) : _sockfd ( fd ) {}
 
       bool connect ( const JSockAddr& addr, int port );
-      bool connect ( const  struct  sockaddr  *addr,  socklen_t addrlen, int port );
+      bool connect ( const  struct  sockaddr  *addr,  socklen_t addrlen,
+                     int port = -1);
       bool bind ( const JSockAddr& addr, int port );
       bool bind ( const  struct  sockaddr  *addr,  socklen_t addrlen );
       bool listen ( int backlog = 32 );
@@ -124,6 +127,12 @@ namespace jalib
   class JClientSocket : public JSocket
   {
     public:
+      JClientSocket(const struct sockaddr *addr, socklen_t addrlen,
+                    int port = -1)
+      {
+        if ( !connect ( addr, addrlen, port ) )
+          close();
+      }
       JClientSocket ( const JSockAddr& addr, int port )
       {
         if ( !connect ( addr, port ) )
