@@ -125,6 +125,7 @@ static bool enableRM=false;
 static bool enablePtrace=false;
 static bool enableAllocPlugin=true;
 static bool enableIB=false;
+static bool enableIB2Tcp=false;
 static CoordinatorAPI::CoordinatorMode allowedModes = CoordinatorAPI::COORD_ANY;
 
 //shift args
@@ -217,6 +218,9 @@ static void processArgs(int *orig_argc, char ***orig_argv)
       shift;
     } else if (s == "--ib") {
       enableIB = true;
+      shift;
+    } else if (s == "--ib2tcp") {
+      enableIB2Tcp = true;
       shift;
     } else if (s == "--disable-alloc-plugin") {
       setenv(ENV_VAR_ALLOC_PLUGIN, "0", 1);
@@ -579,6 +583,12 @@ static void setLDPreloadLibs()
   if (enablePtrace) {
     preloadLibs += jalib::Filesystem::FindHelperUtility("libdmtcp_ptrace.so");
     preloadLibs += ":";
+  }
+
+  if (enableIB2Tcp) {
+    preloadLibs += jalib::Filesystem::FindHelperUtility("libdmtcp_ib2tcp.so");
+    preloadLibs += ":";
+    enableIB = true;
   }
 
   if (enableIB) {
