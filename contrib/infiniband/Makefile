@@ -23,7 +23,8 @@ endif
 CFLAGS += -I${DMTCP_SRC} -DDMTCP -fPIC -c --std=gnu99 -g
 CPPFLAGS += -I${DMTCP_SRC} -DDMTCP -fPIC -c -g
 
-default: check-compat libinfiniband.so
+default: check-compat libdmtcp_infiniband.so
+	ln -sf libdmtcp_infiniband.so libinfiniband.so
 
 check-compat:
 	@ grep "INFINIBAND_SUPPORT='yes'" ${DMTCP_ROOT}/config.log > /dev/null \
@@ -38,7 +39,7 @@ check-compat:
 libibtrace.so: ${TRACEOBJS}
 	${CC} -shared -fPIC -o $@ $^
 
-libinfiniband.so: ${LIBOBJS}
+libdmtcp_infiniband.so: ${LIBOBJS}
 	${CXX} -shared -fPIC -o $@ $^
 
 get_qp_from_pointer.ic: get_XX_from_pointer.ic
@@ -68,16 +69,16 @@ check: examples/orig
 	- pkill -9 dmtcp_coord
 	${DMTCP_BIN}/dmtcp_coordinator -p ${DMTCP_PORT} --daemon
 	export dir=$$PWD && ssh ${HOST1} "cd $$dir && \
-	  ${DMTCP_BIN}/dmtcp_launch -h ${HOST0} -p ${DMTCP_PORT} --with-plugin $$dir/libinfiniband.so ./examples/orig" &
+	  ${DMTCP_BIN}/dmtcp_launch -h ${HOST0} -p ${DMTCP_PORT} --with-plugin $$dir/libdmtcp_infiniband.so ./examples/orig" &
 	export dir=$$PWD && ssh ${HOST2} "cd $$dir && \
-	  ${DMTCP_BIN}/dmtcp_launch -h ${HOST0} -p ${DMTCP_PORT} --with-plugin $$dir/libinfiniband.so ./examples/orig ${HOST1}" &
+	  ${DMTCP_BIN}/dmtcp_launch -h ${HOST0} -p ${DMTCP_PORT} --with-plugin $$dir/libdmtcp_infiniband.so ./examples/orig ${HOST1}" &
 	@ sleep 15 && ${DMTCP_BIN}/dmtcp_command -p ${DMTCP_PORT} --checkpoint
 	sleep 20 ; ${DMTCP_BIN}/dmtcp_command -p ${DMTCP_PORT} --quit
 
 tidy:
 	rm -rf ckpt_*.dmtcp core.* dmtcp_restart_script*
 clean:
-	rm -f ${LIBOBJS} libinfiniband.so
+	rm -f ${LIBOBJS} libdmtcp_infiniband.so libinfiniband.so
 	rm -f ${TRACEOBJS} libibtrace.so
 	rm -f ibv_wr_ops_send.ic ibv_wr_ops_recv.ic get_srq_from_pointer.ic get_qp_from_pointer.ic get_cq_from_pointer.ic
 distclean: clean
