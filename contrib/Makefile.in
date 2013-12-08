@@ -3,6 +3,7 @@ LN_S=@LN_S@ -f
 MKDIR_P=@MKDIR_P@
 CC=@CC@
 M32=@M32@
+INFINIBAND_SUPPORT=@INFINIBAND_SUPPORT@
 PACKAGE=@PACKAGE_TARNAME@
 PACKAGE_TARNAME=@PACKAGE_TARNAME@-@PACKAGE_VERSION@
 VERSION=@PACKAGE_VERSION@
@@ -27,6 +28,10 @@ RECURSIVE_MAKE_FLAGS = \
 endif
 
 plugins = rm
+
+ifeq ($(INFINIBAND_SUPPORT),yes)
+  plugins += infiniband  # ib2tcp
+endif
 
 default: build
 
@@ -63,4 +68,4 @@ install: all
 uninstall:
 	for p in $(plugins); do (cd $$p && $(MAKE) uninstall); done
 
-.PHONY: default all build rm tidy clean distclean install uninstall
+.PHONY: default all build rm infiniband tidy clean distclean install uninstall

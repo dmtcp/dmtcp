@@ -279,11 +279,14 @@ lib/dmtcp/libdmtcp_%.so : contrib/%
 	cd lib/dmtcp && $(LN_S) ../../$</$(@F) .
 
 PLUGINS = lib/dmtcp/libdmtcp_pid.so lib/dmtcp/libdmtcp_ipc.so \
-	  lib/dmtcp/libdmtcp_ptrace.so lib/dmtcp/libdmtcp_rm.so \
-	  lib/dmtcp/libdmtcp_alloc.so
+	  lib/dmtcp/libdmtcp_alloc.so lib/dmtcp/libdmtcp_rm.so
 
 ifeq ($(PTRACE_SUPPORT),yes)
   PLUGINS += lib/dmtcp/libdmtcp_ptrace.so
+endif
+
+ifeq ($(INFINIBAND_SUPPORT),yes)
+  PLUGINS += lib/dmtcp/libdmtcp_infiniband.so
 endif
 
 lib: 	lib/dmtcp/libdmtcp.so $(PLUGINS) \
