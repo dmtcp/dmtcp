@@ -177,7 +177,9 @@ bool jalib::JSocket::connect ( const  struct  sockaddr  *addr,
   memcpy ( &addrbuf,addr,addrlen );
   JWARNING ( addrlen == sizeof ( sockaddr_in ) ) ( addrlen )
           ( sizeof ( sockaddr_in ) ).Text ( "may not be correct socket type" );
-  ( (sockaddr_in*)&addrbuf )->sin_port = htons ( port );
+  if (port != -1) {
+    ( (sockaddr_in*)&addrbuf )->sin_port = htons ( port );
+  }
   return jalib::connect( _sockfd, (sockaddr*)&addrbuf, addrlen ) == 0;
 }
 
