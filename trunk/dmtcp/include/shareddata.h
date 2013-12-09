@@ -48,8 +48,8 @@ namespace dmtcp {
     };
 
     struct IPCIdMap {
-      int virt;
-      int real;
+      int32_t virt;
+      int32_t real;
     };
 
     struct PtyNameMap {
@@ -75,30 +75,30 @@ namespace dmtcp {
     } InodeConnIdMap;
 
     struct Header {
-      bool                 initialized;
+      uint32_t             initialized;
       char                 versionStr[32];
       char                 coordHost[NI_MAXHOST];
-      int                  coordPort;
-      int                  ckptInterval;
+      uint32_t             coordPort;
+      uint32_t             ckptInterval;
       struct in_addr       localIPAddr;
 
       struct PidMap        pidMap[MAX_PID_MAPS];
-      size_t               numPidMaps;
+      uint32_t             numPidMaps;
       struct IPCIdMap      ipcIdMap[MAX_IPC_ID_MAPS];
-      size_t               numIPCIdMaps;
+      uint32_t             numIPCIdMaps;
       struct PtraceIdMaps  ptraceIdMap[MAX_PTRACE_ID_MAPS];
-      size_t               numPtraceIdMaps;
+      uint32_t             numPtraceIdMaps;
 
       struct PtyNameMap    ptyNameMap[MAX_PTY_NAME_MAPS];
-      size_t               numPtyNameMaps;
-      size_t               nextPtyName;
-      size_t               nextVirtualPtyId;
+      uint32_t             numPtyNameMaps;
+      uint32_t             nextPtyName;
+      uint32_t             nextVirtualPtyId;
 
       struct MissingConMap missingConMap[MAX_MISSING_CONNECTIONS];
-      size_t               numMissingConMaps;
+      uint32_t             numMissingConMaps;
 
       InodeConnIdMap       inodeConnIdMap[MAX_INODE_PID_MAPS];
-      size_t               numInodeConnIdMaps;
+      uint32_t             numInodeConnIdMaps;
     };
 
     void initialize();
@@ -110,33 +110,33 @@ namespace dmtcp {
     string getCoordHost();
     void setCoordHost(const char *host);
 
-    int  getCoordPort();
-    void setCoordPort(int port);
+    uint32_t  getCoordPort();
+    void setCoordPort(uint32_t port);
 
-    int  getCkptInterval();
-    void setCkptInterval(int interval);
+    uint32_t  getCkptInterval();
+    void setCkptInterval(uint32_t interval);
 
     void updateLocalIPAddr();
     void getLocalIPAddr(struct in_addr *in);
 
-    int  getRealIPCId(int virt);
-    void setIPCIdMap(int virt, int real);
+    int32_t  getRealIPCId(int32_t virt);
+    void setIPCIdMap(int32_t virt, int32_t real);
 
-    int  getRealPid(pid_t virt);
+    pid_t  getRealPid(pid_t virt);
     void setPidMap(pid_t virt, pid_t real);
 
     pid_t getPtraceVirtualId(pid_t tracerId);
     void setPtraceVirtualId(pid_t tracerId, pid_t childId);
 
-    void getRealPtyName(const char* virt, char* out, size_t len);
-    void getVirtPtyName(const char* real, char *out, size_t len);
-    void createVirtualPtyName(const char* real, char *out, size_t len);
+    void getRealPtyName(const char* virt, char* out, uint32_t len);
+    void getVirtPtyName(const char* real, char *out, uint32_t len);
+    void createVirtualPtyName(const char* real, char *out, uint32_t len);
     void insertPtyNameMap(const char* virt, const char* real);
 
     void registerMissingCons(vector<const char*>& ids,
                              struct sockaddr_un receiverAddr,
                              socklen_t len);
-    void getMissingConMaps(struct MissingConMap **map, size_t *nmaps);
+    void getMissingConMaps(struct MissingConMap **map, uint32_t *nmaps);
 
     void insertInodeConnIdMaps(vector<SharedData::InodeConnIdMap>& maps);
     bool getCkptLeaderForFile(dev_t devnum, ino_t inode, void *id);
