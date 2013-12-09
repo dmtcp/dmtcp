@@ -627,7 +627,7 @@ void dmtcp::DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*
     break;
   case 's': case 'S':
     {
-      CoordinatorStatus s = getStatus();
+      ComputationStatus s = getStatus();
       bool running = s.minimumStateUnanimous &&
 		     s.minimumState==WorkerState::RUNNING;
       if (reply == NULL){
@@ -790,7 +790,7 @@ void dmtcp::DmtcpCoordinator::onData ( jalib::JReaderInterface* sock )
       {
         WorkerState oldState = client->state();
         client->setState ( msg.state );
-        CoordinatorStatus s = getStatus();
+        ComputationStatus s = getStatus();
         WorkerState newState = s.minimumState;
         /* It is possible for minimumState to be RUNNING while one or more
          * processes are still in REFILLED state.
@@ -926,7 +926,7 @@ void dmtcp::DmtcpCoordinator::onDisconnect ( jalib::JReaderInterface* sock )
     JNOTE ( "client disconnected" ) ( client.identity() );
     _virtualPidToChunkReaderMap.erase(client.virtualPid());
 
-    CoordinatorStatus s = getStatus();
+    ComputationStatus s = getStatus();
     if (s.numPeers < 1) {
       if (exitOnLast) {
         JNOTE ("last client exited, shutting down..");
@@ -1190,7 +1190,7 @@ bool dmtcp::DmtcpCoordinator::validateNewWorkerProcess
   NamedChunkReader *ds = (NamedChunkReader*) jcr;
   dmtcp::DmtcpMessage hello_local(dmtcp::DMT_HELLO_WORKER);
   hello_local.virtualPid = ds->virtualPid();
-  CoordinatorStatus s = getStatus();
+  ComputationStatus s = getStatus();
 
   JASSERT(hello_remote.state == WorkerState::RUNNING ||
           hello_remote.state == WorkerState::UNKNOWN) (hello_remote.state);
@@ -1297,7 +1297,7 @@ void dmtcp::DmtcpCoordinator::onTimeoutInterval()
 
 bool dmtcp::DmtcpCoordinator::startCheckpoint()
 {
-  CoordinatorStatus s = getStatus();
+  ComputationStatus s = getStatus();
   if ( s.minimumState == WorkerState::RUNNING && s.minimumStateUnanimous
        && !workersRunningAndSuspendMsgSent )
   {
@@ -1358,9 +1358,9 @@ void dmtcp::DmtcpCoordinator::broadcastMessage ( const DmtcpMessage& msg )
   }
 }
 
-dmtcp::DmtcpCoordinator::CoordinatorStatus dmtcp::DmtcpCoordinator::getStatus() const
+dmtcp::DmtcpCoordinator::ComputationStatus dmtcp::DmtcpCoordinator::getStatus() const
 {
-  CoordinatorStatus status;
+  ComputationStatus status;
   const static int INITIAL_MIN = WorkerState::_MAX;
   const static int INITIAL_MAX = WorkerState::UNKNOWN;
   int min = INITIAL_MIN;
