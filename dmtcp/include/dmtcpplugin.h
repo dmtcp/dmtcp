@@ -93,7 +93,7 @@ typedef struct DmtcpUniqueProcessId {
   uint64_t  _hostid; //gethostid()
   uint64_t _time; //time()
   pid_t _pid; //getpid()
-  int _generation; //generation()
+  uint32_t _generation; //generation()
 } DmtcpUniqueProcessId;
 
 EXTERNC int dmtcp_unique_pids_equal(DmtcpUniqueProcessId a,
@@ -125,7 +125,7 @@ EXTERNC int dmtcp_get_ckpt_signal(void);
 EXTERNC const char* dmtcp_get_uniquepid_str(void);
 EXTERNC const char* dmtcp_get_computation_id_str(void);
 EXTERNC uint64_t dmtcp_get_coordinator_timestamp(void);
-EXTERNC int dmtcp_get_generation(void);
+EXTERNC uint32_t dmtcp_get_generation(void);
 EXTERNC int dmtcp_is_running_state(void);
 EXTERNC int dmtcp_is_initializing_wrappers(void);
 EXTERNC int dmtcp_is_protected_fd(int fd);

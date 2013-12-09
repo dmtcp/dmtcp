@@ -128,7 +128,7 @@ EXTERNC uint64_t dmtcp_get_coordinator_timestamp(void)
   return CoordinatorAPI::instance().coordTimeStamp();
 }
 
-EXTERNC int dmtcp_get_generation(void)
+EXTERNC uint32_t dmtcp_get_generation(void)
 {
   return dmtcp::UniquePid::ComputationId().generation();
 }

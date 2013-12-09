@@ -68,7 +68,7 @@ extern "C" int poll(struct pollfd *fds, nfds_t nfds, POLL_TIMEOUT_TYPE timeout)
 {
   int rc;
   while (1) {
-    int orig_generation = dmtcp_get_generation();
+    uint32_t orig_generation = dmtcp_get_generation();
     rc = _real_poll(fds, nfds, timeout);
     if (rc == -1 && errno == EINTR &&
          dmtcp_get_generation() > orig_generation) {
