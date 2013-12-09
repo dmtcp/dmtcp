@@ -1625,7 +1625,6 @@ static void calcLocalAddr()
 int main ( int argc, char** argv )
 {
   initializeJalib();
-  dmtcp::DmtcpMessage::setDefaultCoordinator ( dmtcp::UniquePid::ThisProcess() );
 
   //parse port
   thePort = DEFAULT_PORT;

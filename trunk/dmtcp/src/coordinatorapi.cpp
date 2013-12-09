@@ -404,8 +404,7 @@ void dmtcp::CoordinatorAPI::recvCoordinatorHandshake()
 
   JASSERT(hello_remote.type == DMT_HELLO_WORKER) (hello_remote.type);
 
-  _coordinatorId = hello_remote.coordinator;
-  DmtcpMessage::setDefaultCoordinator(_coordinatorId);
+  _coordinatorId = hello_remote.from.upid();
   if (UniquePid::ComputationId() == UniquePid(0,0,0) &&
       hello_remote.compGroup != UniquePid(0,0,0)) {
     UniquePid::ComputationId() = hello_remote.compGroup;
