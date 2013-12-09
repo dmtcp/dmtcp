@@ -36,7 +36,7 @@ namespace dmtcp
         dmtcp::WorkerState maximumState;
         bool minimumStateUnanimous;
         int numPeers;
-      } CoordinatorStatus;
+      } ComputationStatus;
 
       virtual void onData(jalib::JReaderInterface* sock);
       virtual void onConnect(const jalib::JSocket& sock,
@@ -65,7 +65,7 @@ namespace dmtcp
                                            const struct sockaddr* remoteAddr,
                                            socklen_t remoteLen);
 
-      CoordinatorStatus getStatus() const;
+      ComputationStatus getStatus() const;
       dmtcp::WorkerState minimumState() const {
         return getStatus().minimumState;
       }
