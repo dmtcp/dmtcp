@@ -33,13 +33,6 @@ namespace dmtcp
   class CoordinatorAPI
   {
     public:
-      enum  ErrorCodes {
-        NOERROR                 =  0,
-        ERROR_INVALID_COMMAND   = -1,
-        ERROR_NOT_RUNNING_STATE = -2,
-        ERROR_COORDINATOR_NOT_FOUND = -3
-      };
-
       enum CoordinatorMode {
         COORD_INVALID   = 0x0000,
         COORD_JOIN      = 0x0001,
@@ -73,7 +66,7 @@ namespace dmtcp
       bool isValid() { return _coordinatorSocket.isValid(); }
 
       void connectAndSendUserCommand(char c,
-                                     int *coordErrorCode = NULL,
+                                     int *coordCmdStatus = NULL,
                                      int *numPeers = NULL,
                                      int *isRunning = NULL);
 
@@ -84,7 +77,7 @@ namespace dmtcp
       void connectToCoordinatorWithHandshake();
       void connectToCoordinatorWithoutHandshake();
       void sendUserCommand(char c,
-                           int *coordErrorCode = NULL,
+                           int *coordCmdStatus = NULL,
                            int *numPeers = NULL,
                            int *isRunning = NULL);
 

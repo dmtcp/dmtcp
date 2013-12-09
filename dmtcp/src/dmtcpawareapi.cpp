@@ -53,7 +53,7 @@ static inline void memfence(){  asm volatile ("dmb" ::: "memory"); }
 static const dmtcp::DmtcpMessage * const exampleMessage = NULL;
 
 static inline void _runCoordinatorCmd(char c,
-                                      int *coordErrorCode = NULL,
+                                      int *coordCmdStatus = NULL,
                                       int *numPeers = NULL,
                                       int *isRunning = NULL){
   _dmtcp_lock();
@@ -62,7 +62,7 @@ static inline void _runCoordinatorCmd(char c,
     coordinatorAPI.useAlternateCoordinatorFd();
 
     dmtcp::ThreadSync::delayCheckpointsLock();
-    coordinatorAPI.connectAndSendUserCommand(c, coordErrorCode, numPeers,
+    coordinatorAPI.connectAndSendUserCommand(c, coordCmdStatus, numPeers,
                                              isRunning);
     dmtcp::ThreadSync::delayCheckpointsUnlock();
   }
@@ -111,15 +111,15 @@ int __real_dmtcpCheckpoint(){
 }
 
 int __real_dmtcpRunCommand(char command){
-  int coordErrorCode;
+  int coordCmdStatus;
   int i = 0;
   while (i < 100) {
-    _runCoordinatorCmd(command, &coordErrorCode);
+    _runCoordinatorCmd(command, &coordCmdStatus);
   // if we got error result - check it
 	// There is possibility that checkpoint thread
 	// did not send state=RUNNING yet or Coordinator did not receive it
 	// -- Artem
-    if (coordErrorCode == dmtcp::CoordinatorAPI::ERROR_NOT_RUNNING_STATE) {
+    if (coordCmdStatus == dmtcp::CoordCmdStatus::ERROR_NOT_RUNNING_STATE) {
       struct timespec t;
       t.tv_sec = 0;
       t.tv_nsec = 1000000;
@@ -131,14 +131,14 @@ int __real_dmtcpRunCommand(char command){
     }
     i++;
   }
-  return coordErrorCode == dmtcp::CoordinatorAPI::NOERROR;
+  return coordCmdStatus == dmtcp::CoordCmdStatus::NOERROR;
 }
 
 const DmtcpCoordinatorStatus* __real_dmtcpGetCoordinatorStatus(){
-  int coordErrorCode;
+  int coordCmdStatus;
   int numPeers;
   int isRunning;
-  _runCoordinatorCmd('s', &coordErrorCode, &numPeers, &isRunning);
+  _runCoordinatorCmd('s', &coordCmdStatus, &numPeers, &isRunning);
 
   //must be static so memory is not deleted.
   static DmtcpCoordinatorStatus status;

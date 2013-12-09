@@ -80,9 +80,16 @@ namespace dmtcp
     DMT_KILL_PEER,           // send kill message to peer
     DMT_REJECT               // coordinator discards incoming connection
                              //because it is not from current computation group
-
-
   };
+
+  namespace CoordCmdStatus {
+    enum  ErrorCodes {
+      NOERROR                 =  0,
+      ERROR_INVALID_COMMAND   = -1,
+      ERROR_NOT_RUNNING_STATE = -2,
+      ERROR_COORDINATOR_NOT_FOUND = -3
+    };
+  }
 
   dmtcp::ostream& operator << ( dmtcp::ostream& o, const DmtcpMessageType& s );
 
@@ -152,7 +159,7 @@ namespace dmtcp
     char coordCmd;
     int numPeers;
     int isRunning;
-    int coordErrorCode;
+    int32_t coordCmdStatus;
 
     //extraBytes are used for passing checkpoint filename to coordinator it
     //must be zero in all messages except for in DMT_CKPT_FILENAME

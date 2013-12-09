@@ -52,7 +52,6 @@
 #include "constants.h"
 #include "protectedfds.h"
 #include "dmtcpmessagetypes.h"
-#include "coordinatorapi.h"
 #include "lookup_service.h"
 #include "syscallwrappers.h"
 #include "util.h"
@@ -518,7 +517,7 @@ pid_t dmtcp::DmtcpCoordinator::getNewVirtualPid()
 
 void dmtcp::DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*= NULL*/)
 {
-  if (reply != NULL) reply->coordErrorCode = CoordinatorAPI::NOERROR;
+  if (reply != NULL) reply->coordCmdStatus = CoordCmdStatus::NOERROR;
 
   switch ( cmd ){
   case 'b': case 'B':  // prefix blocking command, prior to checkpoint command
@@ -534,7 +533,7 @@ void dmtcp::DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*
     if(startCheckpoint()){
       if (reply != NULL) reply->numPeers = getStatus().numPeers;
     }else{
-      if (reply != NULL) reply->coordErrorCode = CoordinatorAPI::ERROR_NOT_RUNNING_STATE;
+      if (reply != NULL) reply->coordCmdStatus = CoordCmdStatus::ERROR_NOT_RUNNING_STATE;
     }
     break;
   case 'i': case 'I':
@@ -650,7 +649,7 @@ void dmtcp::DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*
   default:
     JTRACE("unhandled user command")(cmd);
     if (reply != NULL){
-      reply->coordErrorCode = CoordinatorAPI::ERROR_INVALID_COMMAND;
+      reply->coordCmdStatus = CoordCmdStatus::ERROR_INVALID_COMMAND;
     }
   }
   return;

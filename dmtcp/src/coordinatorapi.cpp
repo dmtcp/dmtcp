@@ -135,7 +135,7 @@ void dmtcp::CoordinatorAPI::waitForCheckpointCommand()
   JASSERT(msg.type == DMT_USER_CMD) (msg.type)
     .Text("Unexpected connection.");
 
-  reply.coordErrorCode = CoordinatorAPI::NOERROR;
+  reply.coordCmdStatus = CoordCmdStatus::NOERROR;
 
   switch (msg.coordCmd) {
 //    case 'b': case 'B':  // prefix blocking command, prior to checkpoint command
@@ -152,7 +152,7 @@ void dmtcp::CoordinatorAPI::waitForCheckpointCommand()
       break;
     default:
       JTRACE("unhandled user command") (msg.coordCmd);
-      reply.coordErrorCode = CoordinatorAPI::ERROR_INVALID_COMMAND;
+      reply.coordCmdStatus = CoordCmdStatus::ERROR_INVALID_COMMAND;
   }
   cmdSock << reply;
   cmdSock.close();
@@ -211,16 +211,16 @@ void dmtcp::CoordinatorAPI::recvMsgFromCoordinator(dmtcp::DmtcpMessage *msg,
 }
 
 void dmtcp::CoordinatorAPI::connectAndSendUserCommand(char c,
-                                                      int *coordErrorCode,
+                                                      int *coordCmdStatus,
                                                       int *numPeers,
                                                       int *running)
 {
   if (tryConnectToCoordinator() == false) {
-    *coordErrorCode = ERROR_COORDINATOR_NOT_FOUND;
+    *coordCmdStatus = CoordCmdStatus::ERROR_COORDINATOR_NOT_FOUND;
     return;
   }
 
-  sendUserCommand(c, coordErrorCode, numPeers, running);
+  sendUserCommand(c, coordCmdStatus, numPeers, running);
   _coordinatorSocket.close();
 }
 
@@ -416,7 +416,7 @@ void dmtcp::CoordinatorAPI::recvCoordinatorHandshake()
 }
 
 //tell the coordinator to run given user command
-void dmtcp::CoordinatorAPI::sendUserCommand(char c, int* coordErrorCode /*= NULL*/,
+void dmtcp::CoordinatorAPI::sendUserCommand(char c, int* coordCmdStatus /*= NULL*/,
                                             int *numPeers, int *isRunning)
 {
   DmtcpMessage msg, reply;
@@ -435,7 +435,7 @@ void dmtcp::CoordinatorAPI::sendUserCommand(char c, int* coordErrorCode /*= NULL
 
   //the coordinator will violently close our socket...
   if (c=='q' || c=='Q') {
-    *coordErrorCode = CoordinatorAPI::NOERROR;
+    *coordCmdStatus = CoordCmdStatus::NOERROR;
     return;
   }
 
@@ -445,8 +445,8 @@ void dmtcp::CoordinatorAPI::sendUserCommand(char c, int* coordErrorCode /*= NULL
   reply.assertValid();
   JASSERT(reply.type == DMT_USER_CMD_RESULT);
 
-  if (coordErrorCode != NULL) {
-    *coordErrorCode =  reply.coordErrorCode;
+  if (coordCmdStatus != NULL) {
+    *coordCmdStatus =  reply.coordCmdStatus;
   }
   if (numPeers != NULL) {
     *numPeers =  reply.numPeers;
@@ -526,13 +526,13 @@ void dmtcp::CoordinatorAPI::startCoordinatorIfNeeded(CoordinatorAPI::Coordinator
     _real_dup2(open("/dev/null", O_RDWR), 2);  //close stderr
     int numPeers;
     int isRunning;
-    int coordErrorCode;
+    int coordCmdStatus;
     CoordinatorAPI coordinatorAPI;
     if (coordinatorAPI.tryConnectToCoordinator() == false) {
       _real_exit(DMTCP_FAIL_RC);
     }
 
-    coordinatorAPI.sendUserCommand('s', &coordErrorCode, &numPeers, &isRunning);
+    coordinatorAPI.sendUserCommand('s', &coordCmdStatus, &numPeers, &isRunning);
     coordinatorAPI._coordinatorSocket.close();
 
     if (numPeers == 0 || (isRunning ^ isRestart)) {
