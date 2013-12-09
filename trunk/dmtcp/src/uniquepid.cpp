@@ -145,7 +145,7 @@ dmtcp::UniquePid::UniquePid(const char *filename)
   char *pid_str = strtok(NULL, "-");
   char *time_str = strtok(NULL, ".");
 
-  _hostid = strtol(hostid_str, NULL, 16);
+  _hostid = strtoll(hostid_str, NULL, 16);
   _pid = strtol(pid_str, NULL, 10);
   _time = strtol(time_str, NULL, 16);
   _generation = 0;

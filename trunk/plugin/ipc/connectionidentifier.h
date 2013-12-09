@@ -46,7 +46,7 @@ namespace dmtcp
 
       static void serialize ( jalib::JBinarySerializer& o );
 
-      long   hostid() const { return _upid._hostid; }
+      uint64_t   hostid() const { return _upid._hostid; }
       pid_t  pid() const { return _upid._pid; }
       uint64_t time() const { return _upid._time; }
       long   conId() const { return _id; }

@@ -133,7 +133,7 @@ LIB_PRIVATE void pthread_atfork_child()
   }
   pthread_atfork_enabled = false;
 
-  long host = dmtcp::UniquePid::ThisProcess().hostid();
+  uint64_t host = dmtcp::UniquePid::ThisProcess().hostid();
   dmtcp::UniquePid parent = dmtcp::UniquePid::ThisProcess();
   dmtcp::UniquePid child = dmtcp::UniquePid(host, getpid(), child_time);
   dmtcp::string child_name = jalib::Filesystem::GetProgramName() + "_(forked)";
@@ -167,7 +167,7 @@ extern "C" pid_t fork()
   /* Little bit cheating here: child_time should be same for both parent and
    * child, thus we compute it before forking the child. */
   child_time = time(NULL);
-  long host = dmtcp::UniquePid::ThisProcess().hostid();
+  uint64_t host = dmtcp::UniquePid::ThisProcess().hostid();
   dmtcp::UniquePid parent = dmtcp::UniquePid::ThisProcess();
   dmtcp::string child_name = jalib::Filesystem::GetProgramName() + "_(forked)";
 
