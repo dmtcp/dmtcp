@@ -90,7 +90,7 @@ typedef union _DmtcpEventData_t {
 } DmtcpEventData_t;
 
 typedef struct DmtcpUniqueProcessId {
-  long  _hostid; //gethostid()
+  uint64_t  _hostid; //gethostid()
   uint64_t _time; //time()
   pid_t _pid; //getpid()
   int _generation; //generation()
