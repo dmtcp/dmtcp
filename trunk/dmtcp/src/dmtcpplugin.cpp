@@ -123,7 +123,7 @@ EXTERNC int dmtcp_unique_pids_equal(DmtcpUniqueProcessId a,
          a._generation == b._generation;
 }
 
-EXTERNC time_t dmtcp_get_coordinator_timestamp(void)
+EXTERNC uint64_t dmtcp_get_coordinator_timestamp(void)
 {
   return CoordinatorAPI::instance().coordTimeStamp();
 }

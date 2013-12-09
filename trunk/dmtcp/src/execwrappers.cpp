@@ -45,7 +45,7 @@ using namespace dmtcp;
 #endif
 
 static bool pthread_atfork_enabled = false;
-static time_t child_time;
+static uint64_t child_time;
 static dmtcp::CoordinatorAPI coordinatorAPI(-1);
 
 // Allow plugins to call fork/exec/system to perform specific tasks during

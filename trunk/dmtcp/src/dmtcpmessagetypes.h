@@ -148,8 +148,8 @@ namespace dmtcp
 //#endif
 
     int theCheckpointInterval;
+    uint64_t coordTimeStamp;
     char coordCmd;
-    time_t coordTimeStamp;
     int numPeers;
     int isRunning;
     int coordErrorCode;

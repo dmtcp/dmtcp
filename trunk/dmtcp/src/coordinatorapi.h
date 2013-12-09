@@ -68,7 +68,7 @@ namespace dmtcp
       jalib::JSocket& coordinatorSocket() { return _coordinatorSocket; }
       const DmtcpUniqueProcessId& coordinatorId() const { return _coordinatorId; }
       void setCoordinatorId(DmtcpUniqueProcessId id) { _coordinatorId = id; }
-      time_t coordTimeStamp() const { return _coordTimeStamp; }
+      uint64_t coordTimeStamp() const { return _coordTimeStamp; }
 
       bool isValid() { return _coordinatorSocket.isValid(); }
 
@@ -132,7 +132,7 @@ namespace dmtcp
       jalib::JSocket          _coordinatorSocket;
       struct sockaddr_storage _coordAddr;
       socklen_t               _coordAddrLen;
-      time_t                  _coordTimeStamp;
+      uint64_t                _coordTimeStamp;
       struct in_addr          _localIPAddr;
       pid_t                   _virtualPid;
   };
