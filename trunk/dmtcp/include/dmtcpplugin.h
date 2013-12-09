@@ -104,12 +104,12 @@ EXTERNC void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
   __attribute((weak));
 EXTERNC int dmtcp_send_key_val_pair_to_coordinator(const char *id,
                                                    const void *key,
-                                                   size_t key_len,
+                                                   uint32_t key_len,
                                                    const void *val,
-                                                   size_t val_len);
+                                                   uint32_t val_len);
 EXTERNC int dmtcp_send_query_to_coordinator(const char *id,
-                                            const void *key, size_t key_len,
-                                            void *val, size_t *val_len);
+                                            const void *key, uint32_t key_len,
+                                            void *val, uint32_t *val_len);
 EXTERNC void dmtcp_get_local_ip_addr(struct in_addr *in);
 
 EXTERNC const char* dmtcp_get_tmpdir(void);

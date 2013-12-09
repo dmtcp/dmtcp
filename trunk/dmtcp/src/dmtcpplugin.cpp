@@ -202,9 +202,9 @@ EXTERNC void dmtcp_unblock_ckpt_signal(void)
 
 EXTERNC int dmtcp_send_key_val_pair_to_coordinator(const char *id,
                                                    const void *key,
-                                                   size_t key_len,
+                                                   uint32_t key_len,
                                                    const void *val,
-                                                   size_t val_len)
+                                                   uint32_t val_len)
 {
   return CoordinatorAPI::instance().sendKeyValPairToCoordinator(id, key, key_len,
                                                                 val, val_len);
@@ -215,8 +215,8 @@ EXTERNC int dmtcp_send_key_val_pair_to_coordinator(const char *id,
 // On output, we copy data to val, and set *val_len to the actual buffer size
 //   (to the size of the data that we copied to the user buffer).
 EXTERNC int dmtcp_send_query_to_coordinator(const char *id,
-                                            const void *key, size_t key_len,
-                                            void *val, size_t *val_len)
+                                            const void *key, uint32_t key_len,
+                                            void *val, uint32_t *val_len)
 {
   return CoordinatorAPI::instance().sendQueryToCoordinator(id, key, key_len,
                                                            val, val_len);
