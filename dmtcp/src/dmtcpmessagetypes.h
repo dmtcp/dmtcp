@@ -135,17 +135,21 @@ namespace dmtcp
 #define DMTCPMESSAGE_NUM_PARAMS 2
 #define DMTCPMESSAGE_SAME_CKPT_INTERVAL (-1) /* default value */
 
+  // Make sure the struct is of same size on 32-bit and 64-bit systems.
   struct DmtcpMessage
   {
     char _magicBits[16];
+
     uint32_t  _msgSize;
+    uint32_t extraBytes;
+
     DmtcpMessageType type;
-    UniquePid from;
-
     WorkerState state;
-    UniquePid   compGroup;
-    pid_t       virtualPid;
 
+    UniquePid   from;
+    UniquePid   compGroup;
+
+    pid_t       virtualPid;
     struct in_addr ipAddr;
 
 //#ifdef COORD_NAMESERVICE
@@ -154,16 +158,15 @@ namespace dmtcp
     uint32_t    valLen;
 //#endif
 
-    uint32_t theCheckpointInterval;
-    uint64_t coordTimeStamp;
-    char coordCmd;
     uint32_t numPeers;
     uint32_t isRunning;
+    uint32_t coordCmd;
     int32_t coordCmdStatus;
 
-    //extraBytes are used for passing checkpoint filename to coordinator it
-    //must be zero in all messages except for in DMT_CKPT_FILENAME
-    uint32_t extraBytes;
+    uint64_t coordTimeStamp;
+
+    uint32_t theCheckpointInterval;
+    char __padding[4];
 
     static void setDefaultCoordinator ( const DmtcpUniqueProcessId& id );
     static void setDefaultCoordinator ( const UniquePid& id );
