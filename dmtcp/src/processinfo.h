@@ -96,7 +96,7 @@ namespace dmtcp
       dmtcp::map<pid_t, pid_t> _sessionIds;
       typedef dmtcp::map<pid_t, UniquePid>::iterator iterator;
 
-      bool  _isRootOfProcessTree;
+      uint32_t  _isRootOfProcessTree;
       pid_t _pid;
       pid_t _ppid;
       pid_t _sid;
@@ -105,9 +105,9 @@ namespace dmtcp
 
       UniquePid _compGroup;
       int       _numPeers;
-      bool      _noCoordinator;
-      size_t    _argvSize;
-      size_t    _envSize;
+      uint32_t  _noCoordinator;
+      uint32_t  _argvSize;
+      uint32_t  _envSize;
 
       dmtcp::string _procname;
       dmtcp::string _procSelfExe;
