@@ -49,7 +49,7 @@ namespace dmtcp
       uint64_t   hostid() const { return _upid._hostid; }
       pid_t  pid() const { return _upid._pid; }
       uint64_t time() const { return _upid._time; }
-      long   conId() const { return _id; }
+      int64_t   conId() const { return _id; }
       //int conId() const;
       //const UniquePid& pid() const;
 
@@ -68,7 +68,7 @@ namespace dmtcp
 
     private:
       DmtcpUniqueProcessId _upid;
-      long   _id;
+      int64_t   _id;
   };
 
   class ConnMsg {
@@ -100,12 +100,14 @@ namespace dmtcp
       JASSERT(type == t) ((int)t) ((int)type) .Text("Wrong Msg Type.");
     }
 
-    char sign[32];
-    int type;
-    int size;
-    int extraBytes;
     ConnectionIdentifier from;
     ConnectionIdentifier coordId;
+
+    char sign[32];
+    int32_t type;
+    int32_t size;
+    int32_t extraBytes;
+    char    padding[4];
   };
 }
 
