@@ -33,23 +33,10 @@ void dmtcp::WorkerState::setCurrentState ( const dmtcp::WorkerState& theValue )
   theState = theValue;
 }
 
-static DmtcpUniqueProcessId theDefaultCoordinator;
-
-void dmtcp::DmtcpMessage::setDefaultCoordinator(const DmtcpUniqueProcessId& id)
-{
-  theDefaultCoordinator = id;
-}
-
-void dmtcp::DmtcpMessage::setDefaultCoordinator(const dmtcp::UniquePid& id)
-{
-  theDefaultCoordinator = id.upid();
-}
-
 dmtcp::DmtcpMessage::DmtcpMessage ( DmtcpMessageType t /*= DMT_NULL*/ )
     :_msgSize ( sizeof ( DmtcpMessage ) )
     ,type ( t )
     ,from ( UniquePid::ThisProcess() )
-    ,coordinator ( theDefaultCoordinator )
     ,state ( WorkerState::currentState() )
     ,compGroup ( UniquePid::ComputationId() )
     ,virtualPid ( -1 )

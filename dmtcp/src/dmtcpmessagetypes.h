@@ -125,17 +125,6 @@ namespace dmtcp
       eWorkerState _state;
   };
 
-  struct UniquePidConId
-  {
-    UniquePid id;
-    int       conId;
-    UniquePidConId() : conId ( -1 ) {}
-    bool operator== ( const UniquePidConId& that ) const
-    {
-      return id==that.id && conId==that.conId;
-    }
-  };
-
 #define DMTCPMESSAGE_NUM_PARAMS 2
 #define DMTCPMESSAGE_SAME_CKPT_INTERVAL (-1) /* default value */
 
@@ -146,7 +135,6 @@ namespace dmtcp
     DmtcpMessageType type;
     UniquePid from;
 
-    DmtcpUniqueProcessId   coordinator;
     WorkerState state;
     UniquePid   compGroup;
     pid_t       virtualPid;
