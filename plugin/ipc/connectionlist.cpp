@@ -275,7 +275,7 @@ void dmtcp::ConnectionList::add(int fd, Connection* c)
      */
     processCloseWork(fd);
   }
-  
+
   if( _connections.find(c->id()) == _connections.end() )
     _connections[c->id()] = c;
   c->addFd(fd);
@@ -481,7 +481,7 @@ void dmtcp::ConnectionList::sendReceiveMissingFds()
   size_t i;
   vector<int> outgoingCons;
   SharedData::MissingConMap *maps;
-  size_t nmaps;
+  uint32_t nmaps;
   SharedData::getMissingConMaps(&maps, &nmaps);
   for (i = 0; i < nmaps; i++) {
     ConnectionIdentifier *id = (ConnectionIdentifier*) maps[i].id;
