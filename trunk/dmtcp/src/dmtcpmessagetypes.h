@@ -129,7 +129,7 @@ namespace dmtcp
 
       const char* toString() const;
     private:
-      eWorkerState _state;
+      int32_t _state;
   };
 
 #define DMTCPMESSAGE_NUM_PARAMS 2
@@ -138,7 +138,7 @@ namespace dmtcp
   struct DmtcpMessage
   {
     char _magicBits[16];
-    int  _msgSize;
+    uint32_t  _msgSize;
     DmtcpMessageType type;
     UniquePid from;
 
@@ -154,16 +154,16 @@ namespace dmtcp
     uint32_t    valLen;
 //#endif
 
-    int theCheckpointInterval;
+    uint32_t theCheckpointInterval;
     uint64_t coordTimeStamp;
     char coordCmd;
-    int numPeers;
-    int isRunning;
+    uint32_t numPeers;
+    uint32_t isRunning;
     int32_t coordCmdStatus;
 
     //extraBytes are used for passing checkpoint filename to coordinator it
     //must be zero in all messages except for in DMT_CKPT_FILENAME
-    size_t extraBytes;
+    uint32_t extraBytes;
 
     static void setDefaultCoordinator ( const DmtcpUniqueProcessId& id );
     static void setDefaultCoordinator ( const UniquePid& id );

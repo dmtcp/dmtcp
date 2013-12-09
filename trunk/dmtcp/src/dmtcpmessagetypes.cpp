@@ -86,7 +86,8 @@ void dmtcp::DmtcpMessage::poison() { memset ( _magicBits,0,sizeof ( _magicBits )
 
 dmtcp::WorkerState::eWorkerState dmtcp::WorkerState::value() const
 {
-  return _state;
+  JASSERT(_state < _MAX) (_state);
+  return (eWorkerState) _state;
 }
 
 dmtcp::ostream& dmtcp::operator << ( dmtcp::ostream& o, const dmtcp::WorkerState& s )
