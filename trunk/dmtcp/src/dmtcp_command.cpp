@@ -140,7 +140,7 @@ int main ( int argc, char** argv )
            "under certain conditions; see COPYING file for details.\n"
            "(Use flag \"--quiet\" to hide this message.)\n\n");
 
-  int coordErrorCode = CoordinatorAPI::NOERROR;
+  int coordCmdStatus = CoordCmdStatus::NOERROR;
   int numPeers;
   int isRunning;
   CoordinatorAPI coordinatorAPI;
@@ -151,42 +151,42 @@ int main ( int argc, char** argv )
     return 1;
   case 'i':
     setenv(ENV_VAR_CKPT_INTR, interval.c_str(), 1);
-    coordinatorAPI.connectAndSendUserCommand(*cmd, &coordErrorCode);
+    coordinatorAPI.connectAndSendUserCommand(*cmd, &coordCmdStatus);
     printf("Interval changed to %s\n", interval.c_str());
     break;
   case 'b':
   case 'x':
     // blocking prefix
-    coordinatorAPI.connectAndSendUserCommand(*cmd, &coordErrorCode);
+    coordinatorAPI.connectAndSendUserCommand(*cmd, &coordCmdStatus);
     // actual command
-    coordinatorAPI.connectAndSendUserCommand(*(cmd+1), &coordErrorCode);
+    coordinatorAPI.connectAndSendUserCommand(*(cmd+1), &coordCmdStatus);
     break;
   case 's':
-    coordinatorAPI.connectAndSendUserCommand(*cmd, &coordErrorCode,
+    coordinatorAPI.connectAndSendUserCommand(*cmd, &coordCmdStatus,
                                              &numPeers, &isRunning);
   case 'c':
   case 'f':
   case 'k':
   case 'q':
-    coordinatorAPI.connectAndSendUserCommand(*cmd, &coordErrorCode);
+    coordinatorAPI.connectAndSendUserCommand(*cmd, &coordCmdStatus);
     break;
   }
 
   //check for error
-  if (coordErrorCode != CoordinatorAPI::NOERROR) {
-    switch(coordErrorCode){
-    case CoordinatorAPI::ERROR_COORDINATOR_NOT_FOUND:
+  if (coordCmdStatus != CoordCmdStatus::NOERROR) {
+    switch(coordCmdStatus){
+    case CoordCmdStatus::ERROR_COORDINATOR_NOT_FOUND:
       if (getenv("DMTCP_PORT"))
         fprintf(stderr, "Coordinator not found. Please check port and host.\n");
       else
         fprintf(stderr,
 	      "Coordinator not found. Try specifying port with \'--port\'.\n");
       break;
-    case CoordinatorAPI::ERROR_INVALID_COMMAND:
+    case CoordCmdStatus::ERROR_INVALID_COMMAND:
       fprintf(stderr,
 	      "Unknown command: %c, try 'dmtcp_command --help'\n", *cmd);
       break;
-    case CoordinatorAPI::ERROR_NOT_RUNNING_STATE:
+    case CoordCmdStatus::ERROR_NOT_RUNNING_STATE:
       fprintf(stderr, "Error, computation not in running state."
 	      "  Either a checkpoint is\n"
 	      " currently happening or there are no connected processes.\n");

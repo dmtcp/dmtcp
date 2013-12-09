@@ -47,7 +47,7 @@ dmtcp::DmtcpMessage::DmtcpMessage ( DmtcpMessageType t /*= DMT_NULL*/ )
     ,coordTimeStamp(0)
     ,numPeers(0)
     ,isRunning(0)
-    ,coordErrorCode(0)
+    ,coordCmdStatus(CoordCmdStatus::NOERROR)
     ,extraBytes ( 0 )
 {
 //     struct sockaddr_storage _addr;
