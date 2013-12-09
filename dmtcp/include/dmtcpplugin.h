@@ -91,8 +91,8 @@ typedef union _DmtcpEventData_t {
 
 typedef struct DmtcpUniqueProcessId {
   long  _hostid; //gethostid()
+  uint64_t _time; //time()
   pid_t _pid; //getpid()
-  time_t _time; //time()
   int _generation; //generation()
 } DmtcpUniqueProcessId;
 
@@ -124,7 +124,7 @@ EXTERNC int dmtcp_should_ckpt_open_files(void);
 EXTERNC int dmtcp_get_ckpt_signal(void);
 EXTERNC const char* dmtcp_get_uniquepid_str(void);
 EXTERNC const char* dmtcp_get_computation_id_str(void);
-EXTERNC time_t dmtcp_get_coordinator_timestamp(void);
+EXTERNC uint64_t dmtcp_get_coordinator_timestamp(void);
 EXTERNC int dmtcp_get_generation(void);
 EXTERNC int dmtcp_is_running_state(void);
 EXTERNC int dmtcp_is_initializing_wrappers(void);

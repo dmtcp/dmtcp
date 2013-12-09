@@ -48,7 +48,7 @@ namespace dmtcp
 
       long   hostid() const { return _upid._hostid; }
       pid_t  pid() const { return _upid._pid; }
-      time_t time() const { return _upid._time; }
+      uint64_t time() const { return _upid._time; }
       long   conId() const { return _id; }
       //int conId() const;
       //const UniquePid& pid() const;
