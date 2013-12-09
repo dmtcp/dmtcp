@@ -111,11 +111,11 @@ namespace dmtcp
       static void startNewCoordinator(CoordinatorMode mode);
 
       int sendKeyValPairToCoordinator(const char *id,
-                                      const void *key, size_t key_len,
-                                      const void *val, size_t val_len);
+                                      const void *key, uint32_t key_len,
+                                      const void *val, uint32_t val_len);
       int sendQueryToCoordinator(const char *id,
-                                 const void *key, size_t key_len,
-                                 void *val, size_t *val_len);
+                                 const void *key, uint32_t key_len,
+                                 void *val, uint32_t *val_len);
 
     private:
       jalib::JSocket createNewConnectionToCoordinator(bool dieOnError = true);
@@ -129,7 +129,6 @@ namespace dmtcp
       struct in_addr          _localIPAddr;
       pid_t                   _virtualPid;
   };
-
 }
 
 #endif

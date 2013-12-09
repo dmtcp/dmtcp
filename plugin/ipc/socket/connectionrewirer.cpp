@@ -177,7 +177,7 @@ void dmtcp::ConnectionRewirer::sendQueries()
     struct RemoteAddr remote;
     remote.len = sizeof(remote.addr);
     dmtcp_send_query_to_coordinator("Socket", (const void *)&id, sizeof(id),
-                                    &remote.addr, (size_t*) &remote.len);
+                                    &remote.addr, (uint32_t*) &remote.len);
     /*
     sockaddr_in *sn = (sockaddr_in*) &remote.addr;
     unsigned short port = htons(sn->sin_port);

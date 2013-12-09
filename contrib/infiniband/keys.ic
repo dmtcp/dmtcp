@@ -27,7 +27,7 @@ uint32_t update_rkey_restart(uint32_t rkey, int pd_id)
   struct list_elem * e;
   struct ibv_rkey_pair *pair;
   uint32_t new_rkey;
-  size_t size = sizeof(new_rkey);
+  uint32_t size = sizeof(new_rkey);
   for (e = list_begin(&rkey_list); e != list_end(&rkey_list); e = list_next(e)){
     pair = list_entry(e, struct ibv_rkey_pair, elem);
     if (pair->orig_rkey.rkey == rkey && pair->orig_rkey.pd_id == pd_id){

@@ -149,9 +149,9 @@ namespace dmtcp
     struct in_addr ipAddr;
 
 //#ifdef COORD_NAMESERVICE
-    char                    nsid[8];
-    size_t                  keyLen;
-    size_t                  valLen;
+    char        nsid[8];
+    uint32_t    keyLen;
+    uint32_t    valLen;
 //#endif
 
     int theCheckpointInterval;

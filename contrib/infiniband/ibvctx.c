@@ -156,10 +156,10 @@ static void send_qp_info(void)
     struct internal_ibv_qp * internal_qp = list_entry(e, struct internal_ibv_qp, elem);
     if (internal_qp->user_qp.state != IBV_QPS_INIT) {
 //      PDEBUG("Sending over original_id: 0x%06x 0x%04x 0x%06x and current_id: 0x%06x 0x%04x 0x%06x from %s\n", internal_qp->original_id.qpn, internal_qp->original_id.lid, internal_qp->original_id.psn, internal_qp->current_id.qpn, internal_qp->current_id.lid, internal_qp->current_id.psn, hostname);
-      dmtcp_send_key_val_pair_to_coordinator("qp_info", 
-                                             &internal_qp->original_id, 
+      dmtcp_send_key_val_pair_to_coordinator("qp_info",
+                                             &internal_qp->original_id,
 					     sizeof(internal_qp->original_id),
-                                             &internal_qp->current_id, 
+                                             &internal_qp->current_id,
 					     sizeof(internal_qp->current_id));
     }
   }
@@ -173,12 +173,12 @@ static void query_qp_info(void)
   struct list_elem *e;
   for (e = list_begin(&qp_list); e != list_end(&qp_list); e = list_next(e)) {
     struct internal_ibv_qp * internal_qp = list_entry(e, struct internal_ibv_qp, elem);
-    size_t size = sizeof(internal_qp->current_remote);
+    uint32_t size = sizeof(internal_qp->current_remote);
 //    PDEBUG("Querying for remote_id: 0x%06x 0x%04x 0x%06x from %s\n", internal_qp->remote_id.qpn, internal_qp->remote_id.lid, internal_qp->remote_id.psn, hostname);
-    dmtcp_send_query_to_coordinator("qp_info", 
-                                    &internal_qp->remote_id, 
+    dmtcp_send_query_to_coordinator("qp_info",
+                                    &internal_qp->remote_id,
                                     sizeof(internal_qp->remote_id),
-                                    &internal_qp->current_remote, 
+                                    &internal_qp->current_remote,
 				    &size);
 
     assert(size == sizeof(struct ibv_qp_id));
@@ -192,23 +192,23 @@ static void send_qp_pd_info(void) {
     struct internal_ibv_qp * internal_qp = list_entry(e, struct internal_ibv_qp, elem);
     struct internal_ibv_pd * internal_pd = ibv_pd_to_internal(internal_qp->user_qp.pd);
     size = sizeof(internal_pd->pd_id);
-    dmtcp_send_key_val_pair_to_coordinator("pd_info", 
-                                           &internal_qp->local_qp_pd_id, 
+    dmtcp_send_key_val_pair_to_coordinator("pd_info",
+                                           &internal_qp->local_qp_pd_id,
                                            sizeof(struct ibv_qp_pd_id),
-                                           &internal_pd->pd_id, 
+                                           &internal_pd->pd_id,
 					   size);
   }
 }
 
 static void query_qp_pd_info(void) {
   struct list_elem *e;
-  size_t size;
+  uint32_t size;
   int ret;
   for (e = list_begin(&qp_list); e != list_end(&qp_list); e = list_next(e)) {
     struct internal_ibv_qp * internal_qp = list_entry(e, struct internal_ibv_qp, elem);
     size = sizeof(internal_qp->remote_pd_id);
-    ret = dmtcp_send_query_to_coordinator("pd_info", 
-                                          &internal_qp->remote_qp_pd_id, 
+    ret = dmtcp_send_query_to_coordinator("pd_info",
+                                          &internal_qp->remote_qp_pd_id,
                                           sizeof(struct ibv_qp_pd_id),
                                           &internal_qp->remote_pd_id,
 				          &size);
@@ -1383,7 +1383,7 @@ int _modify_qp(struct ibv_qp * qp, struct ibv_qp_attr * attr, int attr_mask)
         .qpn = attr->dest_qp_num,
 	.lid = attr->ah_attr.dlid
       };
-      size_t size = sizeof(internal_qp->remote_pd_id);
+      uint32_t size = sizeof(internal_qp->remote_pd_id);
       int ret = dmtcp_send_query_to_coordinator("pd_info", &id, sizeof(id), &internal_qp->remote_pd_id, &size);
       assert(size == sizeof(int));
       assert(ret != 0);

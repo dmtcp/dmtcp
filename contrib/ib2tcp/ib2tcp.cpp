@@ -206,12 +206,13 @@ void IB2TCP::sendQueries()
   for (it = queuePairs.begin(); it != queuePairs.end(); it++) {
     IB_QP *ibqp = it->second;
     if (ibqp->localId > ibqp->remoteId) {
-      ibqp->remoteAddrLen = sizeof(ibqp->remoteAddr);
+      uint32_t size = sizeof(ibqp->remoteAddr);
       dmtcp_send_query_to_coordinator("IB2TCP",
                                       &ibqp->remoteId.lid,
                                       sizeof(ibqp->remoteId.lid),
                                       &ibqp->remoteAddr,
-                                      &ibqp->remoteAddrLen);
+                                      &size);
+      ibqp->remoteAddrLen = size;
     } else {
       ibqp->remoteAddrLen = -1;
     }
