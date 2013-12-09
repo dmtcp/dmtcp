@@ -585,7 +585,7 @@ int  dmtcp_get_ckpt_signal(); /* given by --mtcp-checkpoint-signal */
 const char* dmtcp_get_uniquepid_str();
 const char* dmtcp_get_computation_id_str();
 uint64_t dmtcp_get_coordinator_timestamp();
-int  dmtcp_get_generation(); /* number of ckpt/restart sequences encountered */
+uint32_t dmtcp_get_generation(); /* number of ckpt/restart sequences encountered */
 const char* dmtcp_get_executable_path();
 \end{verbatim}
 }
