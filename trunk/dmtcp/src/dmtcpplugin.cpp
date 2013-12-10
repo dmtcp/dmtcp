@@ -159,6 +159,94 @@ EXTERNC void dmtcp_close_protected_fd(int fd)
   _real_close(fd);
 }
 
+// EXTERNC int dmtcp_get_restart_env(char *key, char *value, int maxvaluelen);
+// USAGE:
+//   char value[MAXSIZE];
+//   dmtcp_get_restart_env(key, value, MAXSIZE);
+//  Returns 0 on success, -1 if key not found; -2 if value > MAXSIZE
+// NOTE: This implementation assumes that a "key=value" string will be
+//   no more than 2000 bytes.
+
+EXTERNC int dmtcp_get_restart_env(char *key, char *value, int maxvaluelen) {
+  int env_fd = dup(dmtcp_protected_environ_fd());
+  int keylen = strlen(key);
+  *value = '\0'; // Default is null string
+#define SUCCESS 0
+#define NOTFOUND -1
+#define TOOLONG -2
+#define DMTCP_BUF_TOO_SMALL -3
+#define INTERNAL_ERROR -4
+  int rc = NOTFOUND; // Default is -1: key not found
+
+  char env_buf[2000]; // All "key=val" strings must be shorter than this.
+  char *env_ptr_v[sizeof(env_buf)/4];
+  char *key_ptr = env_buf;
+  char *env_end_ptr = env_buf;
+
+  while (rc == NOTFOUND && env_end_ptr != NULL) {
+    // if key_ptr is in second half of env_buf, move everything back to start
+    if (key_ptr > env_buf) {
+      memmove(env_buf, key_ptr, env_end_ptr - key_ptr);
+      env_end_ptr -= (key_ptr - env_buf);
+      key_ptr = env_buf;
+    }
+    // if we haven't finished reading environment from env_fd,
+    //    then read until it's full or there is no more
+    while (env_end_ptr != NULL && env_end_ptr - env_buf < sizeof(env_buf)) {
+      JASSERT(env_end_ptr - env_buf < sizeof(env_buf));
+      int count = read(env_fd,
+                       env_end_ptr, sizeof(env_buf) - (env_end_ptr - env_buf));
+      if (count == 0) {
+        break;
+      } else if (count == -1 && errno != EAGAIN && errno != EINTR) {
+        rc = INTERNAL_ERROR;
+        JASSERT (false) (count) (JASSERT_ERRNO) .Text("internal error");
+      } else {
+        env_end_ptr += count;
+      }
+    }
+    // Set up env_ptr_v[]
+    int env_ptr_v_idx = 0;
+    env_ptr_v[env_ptr_v_idx++] = key_ptr;
+    int end_of_buf = 0;
+    while ( ! end_of_buf ) {
+      char *last_key_ptr = key_ptr;
+      while (key_ptr < env_end_ptr && *key_ptr != '\0') {
+        key_ptr++;
+      }
+      if (key_ptr < env_end_ptr) {
+        JASSERT(*key_ptr == '\0');
+        key_ptr++;
+        env_ptr_v[env_ptr_v_idx++] = key_ptr; // Add key-value pair
+      } else {
+        JASSERT(key_ptr == env_end_ptr); // Reached end of what was read in
+        end_of_buf = 1;
+        key_ptr = last_key_ptr;
+        env_ptr_v[env_ptr_v_idx - 1] = NULL; // Last key-value was incomplete
+        if (key_ptr == env_buf) {
+          rc = DMTCP_BUF_TOO_SMALL;
+        }
+      }
+    }
+    // Now search for key among strings of env_ptr_v[] that were read.
+    int i;
+    for (i = 0; env_ptr_v[i] != NULL; i++) {
+      if (strncmp(env_ptr_v[i], key, keylen) == 0 &&
+          *(env_ptr_v[i] + keylen) == '=') {
+        strncpy(value, env_ptr_v[i] + keylen + 1, maxvaluelen);
+        rc = SUCCESS;
+        if (keylen + 1 > maxvaluelen)
+          rc = TOOLONG; // value does not fit in user string
+      }
+    }
+  }
+
+  close(env_fd);
+  JWARNING (rc == DMTCP_BUF_TOO_SMALL)
+    (key) (sizeof(env_buf)) .Text("Resize env_buf[]");
+  return rc;
+}
+
 EXTERNC int dmtcp_get_readlog_fd(void)
 {
   return PROTECTED_READLOG_FD;
