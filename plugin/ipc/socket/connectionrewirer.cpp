@@ -156,9 +156,9 @@ void dmtcp::ConnectionRewirer::registerNSData()
     const ConnectionIdentifier& id = i->first;
     dmtcp_send_key_val_pair_to_coordinator("Socket",
                                            (const void *)&id,
-                                           sizeof(id),
+                                           (uint32_t) sizeof(id),
                                            &_restoreAddr,
-                                           _restoreAddrlen);
+                                           (uint32_t) _restoreAddrlen);
     /*
     sockaddr_in *sn = (sockaddr_in*) &_restoreAddr;
     unsigned short port = htons(sn->sin_port);
@@ -175,9 +175,11 @@ void dmtcp::ConnectionRewirer::sendQueries()
   for (i = _pendingOutgoing.begin(); i != _pendingOutgoing.end(); ++i) {
     const ConnectionIdentifier& id = i->first;
     struct RemoteAddr remote;
-    remote.len = sizeof(remote.addr);
-    dmtcp_send_query_to_coordinator("Socket", (const void *)&id, sizeof(id),
-                                    &remote.addr, (uint32_t*) &remote.len);
+    uint32_t len = sizeof(remote.addr);
+    dmtcp_send_query_to_coordinator("Socket",
+                                    (const void *)&id, (uint32_t) sizeof(id),
+                                    &remote.addr, &len);
+    remote.len = len;
     /*
     sockaddr_in *sn = (sockaddr_in*) &remote.addr;
     unsigned short port = htons(sn->sin_port);
