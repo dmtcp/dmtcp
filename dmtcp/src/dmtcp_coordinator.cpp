@@ -1518,7 +1518,7 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
                   "    #  worker_ckpts=\"$new_worker_ckpts\"\n"
                   "    #fi\n"
                   "    eval $(dmtcp_discover_rm -n \"$worker_ckpts\")\n"
-                  "    arguments=\"PATH=$PATH DMTCP_HOST=$DMTCP_HOST DMTCP_REMLAUNCH_IDS=$DMTCP_REMLAUNCH_IDS \"\n"
+                  "    arguments=\"PATH=$PATH DMTCP_HOST=$DMTCP_HOST DMTCP_PORT=$DMTCP_PORT DMTCP_REMLAUNCH_IDS=$DMTCP_REMLAUNCH_IDS \"\n"
                   "    bound=$(($DMTCP_REMLAUNCH_IDS - 1))\n"
                   "    for i in $(seq 0 $bound); do\n"
                   "      eval \"val=\\${DMTCP_REMLAUNCH_$i}\"\n"
