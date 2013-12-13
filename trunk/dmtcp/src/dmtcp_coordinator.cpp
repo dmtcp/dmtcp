@@ -1589,7 +1589,10 @@ void dmtcp::DmtcpCoordinator::eventLoop(bool daemon)
     (JASSERT_ERRNO);
 
   if (!daemon) {
-    ev.events = EPOLLIN | EPOLLRDHUP;
+    ev.events = EPOLLIN;
+#ifdef EPOLLRDHUP
+    ev.events |= EPOLLRDHUP;
+#endif
     ev.data.ptr = (void*) STDIN_FILENO;
     JASSERT(epoll_ctl(epollFd, EPOLL_CTL_ADD, STDIN_FILENO, &ev) != -1)
       (JASSERT_ERRNO);
@@ -1607,8 +1610,10 @@ void dmtcp::DmtcpCoordinator::eventLoop(bool daemon)
 
     for (int n = 0; n < nfds; ++n) {
       void *ptr = events[n].data.ptr;
-      if ((events[n].events & EPOLLRDHUP) ||
-          (events[n].events & EPOLLHUP) ||
+      if ((events[n].events & EPOLLHUP) ||
+#ifdef EPOLLRDHUP
+          (events[n].events & EPOLLRDHUP) ||
+#endif
           (events[n].events & EPOLLERR)) {
         JASSERT(ptr != listenSock);
         if (ptr == (void*) STDIN_FILENO) {
