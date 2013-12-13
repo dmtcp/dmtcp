@@ -114,13 +114,13 @@ static void *recvThread(void *arg)
   fd_set fds;
   int maxFd;
   size_t i;
-  struct timeval timeout = {1, 0};
 
   while (isVirtIB == 0) {
     sleep(1);
   }
 
   while (1) {
+    struct timeval timeout = {1, 0};
     maxFd = -1;
     FD_ZERO ( &fds );
 
@@ -129,7 +129,8 @@ static void *recvThread(void *arg)
       maxFd = std::max(maxFd, socks[i]);
     }
 
-    if (maxFd <= 0) {
+    if (maxFd < 0) {
+      sleep(1);
       continue;
     }
 
