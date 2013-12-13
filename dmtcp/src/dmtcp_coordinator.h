@@ -28,7 +28,44 @@
 
 namespace dmtcp
 {
-  class DmtcpCoordinator : public jalib::JMultiSocketProgram
+  class CoordClient
+  {
+    public:
+      CoordClient(const jalib::JSocket& sock,
+                  const struct sockaddr_storage *addr,
+                  socklen_t len,
+                  dmtcp::DmtcpMessage &hello_remote);
+
+      jalib::JSocket &sock() { return _sock; }
+      const dmtcp::UniquePid& identity() const { return _identity;}
+      void identity(dmtcp::UniquePid upid) { _identity = upid;}
+      int clientNumber() const { return _clientNumber; }
+      dmtcp::string ip() const { return _ip; }
+      dmtcp::WorkerState state() const { return _state; }
+      void setState ( dmtcp::WorkerState value ) { _state = value; }
+      void progname(dmtcp::string pname){ _progname = pname; }
+      dmtcp::string progname(void) const { return _progname; }
+      void hostname(dmtcp::string hname){ _hostname = hname; }
+      dmtcp::string hostname(void) const { return _hostname; }
+      dmtcp::string prefixDir(void) const { return _prefixDir; }
+      pid_t virtualPid(void) const { return _virtualPid; }
+      void virtualPid(pid_t pid) { _virtualPid = pid; }
+
+      void readProcessInfo(dmtcp::DmtcpMessage& msg);
+
+    private:
+      dmtcp::UniquePid _identity;
+      int _clientNumber;
+      jalib::JSocket _sock;
+      dmtcp::WorkerState _state;
+      dmtcp::string _hostname;
+      dmtcp::string _progname;
+      dmtcp::string _prefixDir;
+      dmtcp::string _ip;
+      pid_t         _virtualPid;
+  };
+
+  class DmtcpCoordinator
   {
     public:
       typedef struct {
@@ -38,13 +75,14 @@ namespace dmtcp
         int numPeers;
       } ComputationStatus;
 
-      virtual void onData(jalib::JReaderInterface* sock);
-      virtual void onConnect(const jalib::JSocket& sock,
-                             const struct sockaddr* remoteAddr,
-                             socklen_t remoteLen);
-      virtual void onDisconnect(jalib::JReaderInterface* sock);
-      virtual void onTimeoutInterval();
+      void onTimeoutInterval();
+      void onData(CoordClient *client);
+      void onConnect();
+      void onDisconnect(CoordClient *client);
+      void eventLoop(bool daemon);
 
+      void addDataSocket(CoordClient *client);
+      void updateCheckpointInterval(int timeout);
       void updateMinimumState(dmtcp::WorkerState oldState);
       void initializeComputation();
       void broadcastMessage(DmtcpMessageType type, dmtcp::UniquePid, int);
@@ -57,13 +95,13 @@ namespace dmtcp
                              jalib::JSocket& remote);
       bool validateNewWorkerProcess(DmtcpMessage& hello_remote,
                                     jalib::JSocket& remote,
-                                    jalib::JChunkReader *jcr,
-                                    const struct sockaddr* remoteAddr,
-                                    socklen_t remoteLen);
+                                    CoordClient *client,
+                                    const struct sockaddr_storage* addr,
+                                    socklen_t len);
       bool validateRestartingWorkerProcess(DmtcpMessage& hello_remote,
                                            jalib::JSocket& remote,
-                                           const struct sockaddr* remoteAddr,
-                                           socklen_t remoteLen);
+                                           const struct sockaddr_storage* addr,
+                                           socklen_t len);
 
       ComputationStatus getStatus() const;
       dmtcp::WorkerState minimumState() const {
@@ -75,13 +113,9 @@ namespace dmtcp
     protected:
       void writeRestartScript();
     private:
-      typedef dmtcp::vector<jalib::JReaderInterface*>::iterator iterator;
-      typedef
-        dmtcp::vector<jalib::JReaderInterface*>::const_iterator const_iterator;
-
       //map from hostname to checkpoint files
       map< dmtcp::string, dmtcp::vector<dmtcp::string> > _restartFilenames;
-      dmtcp::map< pid_t, jalib::JChunkReader* > _virtualPidToChunkReaderMap;
+      dmtcp::map< pid_t, CoordClient* > _virtualPidToClientMap;
   };
 
 }
