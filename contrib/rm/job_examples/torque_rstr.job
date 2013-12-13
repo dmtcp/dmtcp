@@ -11,7 +11,7 @@
 # you just type "dmtcp_command.$JOBID <command>" and talk to coordinator of JOBID job
 start_coordinator()
 {
-    fname=dmtcp_command.$PBS_JOBID
+    fname=dmtcp_command.${PBS_JOBID%%\.*}
     h=`hostname`
     dmtcp_coordinator --daemon --exit-on-last -p 0 --port-file $fname $@ 1>/dev/null 2>&1
     
