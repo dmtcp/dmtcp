@@ -177,12 +177,12 @@ void IB2TCP::init()
     JASSERT(pthread_create(&sendTh, NULL, sendThread, NULL) == 0);
     JASSERT(pthread_create(&recvTh, NULL, recvThread, NULL) == 0);
   }
+  sem_init(&sem_queue, 0, 0);
 }
 
 void IB2TCP::postRestart()
 {
   openListenSocket();
-  sem_init(&sem_queue, 0, 0);
 }
 
 void IB2TCP::registerNSData()
