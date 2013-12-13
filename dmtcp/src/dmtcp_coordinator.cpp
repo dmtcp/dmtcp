@@ -66,7 +66,6 @@
 #include <sys/wait.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <sys/timerfd.h>
 #include <netdb.h>
 #include <arpa/inet.h>
 #include <fcntl.h>
@@ -409,6 +408,7 @@ static bool killInProgress = false;
  */
 static int theCheckpointInterval = 0; /* Current checkpoint interval */
 static int theDefaultCheckpointInterval = 0; /* Reset to this on new comp. */
+static struct timespec startTime;
 static bool isRestarting = false;
 
 const int STDIN_FD = fileno ( stdin );
@@ -433,7 +433,6 @@ static dmtcp::string ckptDir;
 #define MAX_EVENTS 10000
 struct epoll_event events[MAX_EVENTS];
 int epollFd;
-static int timerFd;
 static jalib::JSocket *listenSock = NULL;
 
 static void removeStaleSharedAreaFile();
@@ -1233,16 +1232,6 @@ bool dmtcp::DmtcpCoordinator::validateNewWorkerProcess
   return true;
 }
 
-void dmtcp::DmtcpCoordinator::onTimeoutInterval()
-{
-  uint64_t data;
-  Util::readAll(timerFd, &data, sizeof(data));
-  if (theCheckpointInterval > 0) {
-    startCheckpoint();
-  }
-}
-
-
 bool dmtcp::DmtcpCoordinator::startCheckpoint()
 {
   ComputationStatus s = getStatus();
@@ -1557,32 +1546,35 @@ static void calcLocalAddr()
   coordHostname = hostname;
 }
 
+void dmtcp::DmtcpCoordinator::onTimeoutInterval()
+{
+  if (theCheckpointInterval > 0) {
+    startCheckpoint();
+    updateCheckpointInterval(theCheckpointInterval);
+  }
+}
+
 void dmtcp::DmtcpCoordinator::updateCheckpointInterval(int interval)
 {
-  static bool timerEnabled = false;
-  struct epoll_event ev;
-  if (interval == 0) {
-    JASSERT(!timerEnabled ||
-            epoll_ctl(epollFd, EPOLL_CTL_DEL, timerFd, &ev) != -1)
-      (JASSERT_ERRNO);
-    timerEnabled = false;
-    return;
+  if (interval > 0) {
+    JASSERT(clock_gettime(CLOCK_MONOTONIC, &startTime) == 0) (JASSERT_ERRNO);
   }
-  struct itimerspec ts;
-  ts.it_interval.tv_sec = interval;
-  ts.it_interval.tv_nsec = 0;
-  ts.it_value.tv_sec = interval;
-  ts.it_value.tv_nsec = 0;
+  theCheckpointInterval = interval;
+}
 
-  JASSERT(timerfd_settime(timerFd, 0, &ts, NULL) != -1) (JASSERT_ERRNO);
-
-  if (!timerEnabled) {
-    ev.events = EPOLLIN | EPOLLET;
-    ev.data.ptr = (void*) (unsigned long) timerFd;
-    JASSERT(epoll_ctl(epollFd, EPOLL_CTL_ADD, timerFd, &ev) != -1)
-      (JASSERT_ERRNO);
-    timerEnabled = true;
+int dmtcp::DmtcpCoordinator::getRemainingTimeoutMS()
+{
+  int timeout = -1;
+  if (theCheckpointInterval > 0) {
+    struct timespec curTime;
+    JASSERT(clock_gettime(CLOCK_MONOTONIC, &curTime) == 0) (JASSERT_ERRNO);
+    timeout = startTime.tv_sec + theCheckpointInterval - curTime.tv_sec;
+    timeout *= 1000;
+    if (timeout < 0) {
+      timeout = 0;
+    }
   }
+  return timeout;
 }
 
 void dmtcp::DmtcpCoordinator::eventLoop(bool daemon)
@@ -1603,13 +1595,15 @@ void dmtcp::DmtcpCoordinator::eventLoop(bool daemon)
       (JASSERT_ERRNO);
   }
 
-  timerFd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
-  JASSERT(timerFd != -1) (JASSERT_ERRNO);
-
   while (true) {
-    int nfds = epoll_wait(epollFd, events, MAX_EVENTS, -1);
+    int timeout = getRemainingTimeoutMS();
+    int nfds = epoll_wait(epollFd, events, MAX_EVENTS, timeout);
     if (nfds == -1 && errno == EINTR) continue;
     JASSERT(nfds != -1) (JASSERT_ERRNO);
+
+    if (nfds == 0 && theCheckpointInterval > 0) {
+      onTimeoutInterval();
+    }
 
     for (int n = 0; n < nfds; ++n) {
       void *ptr = events[n].data.ptr;
@@ -1639,8 +1633,6 @@ void dmtcp::DmtcpCoordinator::eventLoop(bool daemon)
               (JASSERT_ERRNO);
             close(STDIN_FD);
           }
-        } else if (ptr == (void*) (unsigned long) timerFd) {
-          onTimeoutInterval();
         } else {
           onData((CoordClient*)ptr);
         }
