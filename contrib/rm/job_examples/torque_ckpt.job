@@ -63,6 +63,4 @@ cd $PBS_O_WORKDIR
 
 start_coordinator # -i 120 ... <put dmtcp coordinator options here>
 
-dmtcp_checkpoint --rm mpirun --mca btl self,tcp ./matmat2
-
-
+dmtcp_checkpoint --rm mpirun --mca btl self,tcp ./<your binary>
