@@ -83,6 +83,7 @@ namespace dmtcp
 
       void addDataSocket(CoordClient *client);
       void updateCheckpointInterval(int timeout);
+      int  getRemainingTimeoutMS();
       void updateMinimumState(dmtcp::WorkerState oldState);
       void initializeComputation();
       void broadcastMessage(DmtcpMessageType type, dmtcp::UniquePid, int);
