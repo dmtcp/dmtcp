@@ -398,8 +398,12 @@ static int ib2t_post_srq_recv(struct ibv_srq * srq, struct ibv_recv_wr * wr,
 static int ib2t_poll_cq(struct ibv_cq * cq, int num_entries,
                         struct ibv_wc * wc)
 {
-  int ret = IB2TCP::pollCq(cq, num_entries, wc);
-  if (ret < num_entries) {
+  // FIXME: Drain completion queue on ckpt.
+  int ret = 0;
+  if (isVirtIB) {
+    ret = IB2TCP::pollCq(cq, num_entries, wc);
+  } else {
+  //if (ret < num_entries) {
     int r = _real_ibv_poll_cq(cq, num_entries, &wc[ret]);
     IB2TCP::postPollCq(cq, r, &wc[ret]);
     ret += r;
