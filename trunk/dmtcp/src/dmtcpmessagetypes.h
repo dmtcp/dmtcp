@@ -133,7 +133,7 @@ namespace dmtcp
   };
 
 #define DMTCPMESSAGE_NUM_PARAMS 2
-#define DMTCPMESSAGE_SAME_CKPT_INTERVAL (-1) /* default value */
+#define DMTCPMESSAGE_SAME_CKPT_INTERVAL (~0u) /* default value */
 
   // Make sure the struct is of same size on 32-bit and 64-bit systems.
   struct DmtcpMessage
