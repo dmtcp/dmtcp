@@ -1630,7 +1630,7 @@ void dmtcp::DmtcpCoordinator::eventLoop(bool daemon)
         } else if (ptr == (void*) STDIN_FILENO) {
           char buf[1];
           int ret = Util::readAll(STDIN_FD, buf, sizeof(buf));
-          JASSERT(ret != 0) (JASSERT_ERRNO);
+          JASSERT(ret != -1) (JASSERT_ERRNO);
           if (ret > 0) {
             handleUserCommand(buf[0]);
           } else {
