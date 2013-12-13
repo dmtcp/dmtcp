@@ -63,6 +63,4 @@ cd $PBS_O_WORKDIR
 
 start_coordinator # -i 120 ... <put dmtcp coordinator options here>
 
-./dmtcp_restart_script.sh
-
-
+./dmtcp_restart_script.sh -h $DMTCP_HOST -p $DMTCP_PORT
