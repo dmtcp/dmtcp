@@ -192,8 +192,8 @@ EXTERNC int dmtcp_get_restart_env(char *key, char *value, int maxvaluelen) {
     }
     // if we haven't finished reading environment from env_fd,
     //    then read until it's full or there is no more
-    while (env_end_ptr != NULL && env_end_ptr - env_buf < sizeof(env_buf)) {
-      JASSERT(env_end_ptr - env_buf < sizeof(env_buf));
+    while (env_end_ptr != NULL &&
+           env_end_ptr - env_buf < (int) sizeof(env_buf)) {
       int count = read(env_fd,
                        env_end_ptr, sizeof(env_buf) - (env_end_ptr - env_buf));
       if (count == 0) {
