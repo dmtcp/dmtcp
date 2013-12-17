@@ -63,6 +63,13 @@ EXTERNC void dmtcp_set_ckpt_dir(const char* dir)
   }
 }
 
+EXTERNC const char* dmtcp_get_coord_ckpt_dir(void)
+{
+  static dmtcp::string dir;
+  dir = CoordinatorAPI::instance().getCoordCkptDir();
+  return dir.c_str();
+}
+
 EXTERNC void dmtcp_set_coord_ckpt_dir(const char* dir)
 {
   if (dir != NULL) {

@@ -85,6 +85,7 @@ namespace dmtcp
       pid_t getVirtualPidFromCoordinator();
       void updateCoordTimeStamp();
       void updateCoordCkptDir(const char *dir);
+      dmtcp::string getCoordCkptDir(void);
       void createNewConnectionBeforeFork(dmtcp::string& progName);
 
       // np > -1  means it is restarting a process that have np processes in its

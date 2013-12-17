@@ -760,6 +760,14 @@ void dmtcp::DmtcpCoordinator::onData(CoordClient *client)
       _restartFilenames[hostname].push_back ( ckptFilename );
     }
     break;
+    case DMT_GET_CKPT_DIR:
+    {
+      DmtcpMessage reply(DMT_GET_CKPT_DIR_RESULT);
+      reply.extraBytes = ckptDir.length() + 1;
+      client->sock() << reply;
+      client->sock().writeAll(ckptDir.c_str(), reply.extraBytes);
+    }
+    break;
     case DMT_UPDATE_CKPT_DIR:
     {
       JASSERT(extraData != 0)

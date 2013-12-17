@@ -491,6 +491,17 @@ void dmtcp::CoordinatorAPI::updateCoordTimeStamp()
   _coordTimeStamp = reply.coordTimeStamp;
 }
 
+dmtcp::string dmtcp::CoordinatorAPI::getCoordCkptDir(void)
+{
+  char buf[PATH_MAX];
+  if (noCoordinator()) return "";
+  DmtcpMessage msg(DMT_GET_CKPT_DIR);
+  _coordinatorSocket >> msg;
+  JASSERT(msg.extraBytes > 0);
+  _coordinatorSocket.readAll(buf, msg.extraBytes);
+  return buf;
+}
+
 void dmtcp::CoordinatorAPI::updateCoordCkptDir(const char *dir)
 {
   if (noCoordinator()) return;
