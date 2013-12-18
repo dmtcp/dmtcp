@@ -260,7 +260,8 @@ namespace dmtcp
           JASSERT(mapFile.length() > 0) (mapFile);
           JTRACE("Read Maps from file") (mapFile);
 
-          Util::lockFile(fd);
+          // No need to lock the file as we are the only process using this fd.
+          //Util::lockFile(fd);
           _do_lock_tbl();
 
           jalib::JBinarySerializeReaderRaw maprd(mapFile, fd);
@@ -271,12 +272,9 @@ namespace dmtcp
           }
 
           _do_unlock_tbl();
-          Util::unlockFile(fd);
+          //Util::unlockFile(fd);
 
           printMaps();
-          close(fd);
-          // FIXME:
-          unlink(mapFile.c_str());
         }
 
       private:
