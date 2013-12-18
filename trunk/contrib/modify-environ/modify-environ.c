@@ -1,6 +1,8 @@
-// For standalone testing, define STANDALONE, which reads dmtcp_env.txt
-//  from the local directory.
-// #define STANDALONE
+/* For standalone testing, try:
+ *   gcc -DSTANDALONE modify-environ.c
+ *   ./a.out
+ * (Reads dmtcp_env.txt from local directory.)
+ */
 
 #include <ctype.h>
 #include <string.h>
@@ -15,6 +17,9 @@
 #include <sys/mman.h>
 #ifndef STANDALONE
 # include "dmtcpplugin.h"
+#else
+# define dmtcp_setenv setenv
+# define dmtcp_unsetenv unsetenv
 #endif
 
 /* Example of dmtcp_env.txt:  spaces not allowed in VAR=VAL unless in quotes
@@ -28,6 +33,14 @@
 char * read_dmtcp_env_file(char *file, int size);
 int readAndSetEnv(char *buf, int size);
 int readall(int fd, char *buf, int maxCount);
+
+#ifdef STANDALONE
+int dmtcp_get_restart_env(char *envName, char *dest, size_t size) {
+  if (getenv(envName))
+    strncpy(dest, getenv(envName), size);
+  return ( getenv(envName) ? 0 : -1 );
+}
+#endif
 
 #ifndef STANDALONE
 void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
@@ -48,7 +61,7 @@ void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 }
 #endif
 
-const char readEOF = -1;
+#define readEOF ((char)-1)
 
 char * read_dmtcp_env_file(char *file, int size) {
   // We avoid using malloc.
@@ -87,60 +100,76 @@ char * read_dmtcp_env_file(char *file, int size) {
 
 
 int readAndSetEnv(char *buf, int size) {
-  // We call read() on env.txt in dir of getCkptDir() unti readEOF==(char)-1
+  // We call read() on env.txt in dir of getCkptDir() until readEOF==(char)-1
   char *c = buf;
-  int interval = 0;
-  while (*c != readEOF) {
-    char *newString = buf - interval;
-    int isStringMode = 0; // isStringMode is true if in middle of string: "..."
-    // Advance c to end of env variable-value pair
-    while (*c != '\n' && *c != readEOF &&
-           (isStringMode || (*c != '#' && *c != ' ' && *c != '\t'))) {
-      if (c > buf && *(c-1) == '\\') {  // if we had escaped the current *c
-        interval++; c++; // then let c back up and replace escape char by char being escaped
-      } else if (*c == '"') {
-        isStringMode = 1 - isStringMode;
-        interval++; c++;
-        continue;  // Change parity of string mode
-      }
-
-      if (c-buf >= size) {
-        fprintf(stderr, "Environment is longer than buffer size (%d)\n", size);
-        return -1; // return error
-      } else {
-        *(c-interval) = *c; // get next char of envVar=envVal
+  char nameBuf[1000] = {'\0'};
+  char valueBuf[1000];
+  char *dest = nameBuf;
+  int isStringMode = 0; // isStringMode is true if in middle of string: "..."
+  while (1) {
+    switch (*c) {
+      case readEOF:
+        return 0;
+      case '\n':
+        if (isStringMode) {
+          *dest++ = *c++;
+          break;
+        }
+        if (nameBuf[0] == '\0') { // if comment line or blank line
+          c++;
+          break;
+        }
+        *dest++ = '\0';
+        *c++;
+        if (dest > nameBuf && dest < nameBuf + sizeof(nameBuf))
+          dmtcp_unsetenv(nameBuf);  // No valueBuf means to unset that name
+        else
+          dmtcp_setenv(nameBuf, valueBuf, 1); // 1 = overwrite
+        isStringMode = 0;
+        dest = nameBuf;
+        break;
+      case ' ':
+      case '\t':
+      case '#':
+        if (isStringMode) {
+          *dest++ = *c++;
+          break;
+        }
+        // Else set c to end of this line
+        while (*c != '\n' && *c != readEOF)
+          c++;
+        break;
+      case '=':
+        *dest = '\0';
+        dest = valueBuf;
         c++;
-      }
-  }
-  if (isStringMode) {
-    fprintf(stderr, "Unterminated string in environment\n");
-    return -1;
-  }
-  assert(isspace(*c) || *c == '#' || *c == readEOF);
-  int endOfLine = (*c == '\n' || *c == readEOF);
-  if (c>buf) {
-    // Add string to environment.
-    if (*c == readEOF) *(c+1) = readEOF; // don't lose the end of file.
-    *(c-interval) = '\0';
-    c++;
-    // malloc is not reentrant.
-    // putenv mostly avoids using malloc.  (If a different thread is stopped
-    //  inside malloc, it would be bad for this thread to use malloc.)
-    // But 'man putenv' says:  If putenv() has  to  allocate  a new  array
-    //  environ,  and  the  previous  array  was  also allocated by
-    //  putenv(), then it will be freed.  In no case will the old storage
-    //  associated to the environment variable itself be freed.
-    // Note that putenv need not be reentrant, but was so starting w/ glibc-2.1
-    putenv(newString);
-  }
-  size = size - (c-buf);
-  buf = c;
-  if (! endOfLine) {
-    while (*c != '\0' && *c != '\n' && *c != readEOF) c++; // eat rest of line
-    if (*c == '\n') c++; // eat newline at end of line
-  }
-  interval += c-buf;
-  buf = c;
+        break;
+      case '\\':
+        c++;
+        *dest++ = *c++; // consume char that was escaped
+        break;
+      case '"': // Change parity of string mode
+        isStringMode = 1 - isStringMode;
+        c++;
+        break;
+      case '$': // Expand variable in current environment
+        // Env name after '$' may consist only of alphanumeric char's and '_'
+        { char envName[1000];
+          char *d = envName;
+          c++;
+          while (isalnum(*c) || *c == '_')
+            *d++ = *c++;
+          *d = '\0';
+          int rc = dmtcp_get_restart_env(envName, dest,
+                                         sizeof(valueBuf) - (dest - valueBuf));
+          if (rc == 0)
+            dest += strlen(dest);
+        }
+        break;
+      default:
+        *dest++ = *c++;
+        break;
+    }
   }
 }
 
@@ -181,8 +210,14 @@ int main() {
   }
   *(buf+count) = readEOF;
 */
+  printf("HOME: %s, DISPLAY: %s, FOO: %s, HOST: %s, EDITOR: %s, USER: %s\n",
+         getenv("HOME"), getenv("DISPLAY"), getenv("FOO"), getenv("HOST"),
+         getenv("EDITOR"), getenv("USER"));
   char *buf = read_dmtcp_env_file("dmtcp_env.txt", size);
   readAndSetEnv(buf, size);
+  printf("HOME: %s, DISPLAY: %s, FOO: %s, HOST: %s, EDITOR: %s, USER: %s\n",
+         getenv("HOME"), getenv("DISPLAY"), getenv("FOO"), getenv("HOST"),
+         getenv("EDITOR"), getenv("USER"));
   return 0;
 }
 #endif

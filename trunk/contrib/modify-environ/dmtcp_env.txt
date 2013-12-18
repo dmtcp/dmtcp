@@ -5,3 +5,4 @@ HOME=me      # This is the new value of HOME.
 HOST=newhost
 EDITOR       # Unset any environment variable EDITOR.
 FOO="a b c"  # value of var (in quotes) will include spaces
+USER="new-$HOME"-$USER  # $HOME will be expanded

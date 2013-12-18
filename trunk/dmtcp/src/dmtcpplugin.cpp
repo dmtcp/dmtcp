@@ -183,12 +183,16 @@ EXTERNC int dmtcp_get_restart_env(char *key, char *value, int maxvaluelen) {
 #define TOOLONG -2
 #define DMTCP_BUF_TOO_SMALL -3
 #define INTERNAL_ERROR -4
+#define NULL_PTR -5
   int rc = NOTFOUND; // Default is -1: key not found
 
   char env_buf[2000]; // All "key=val" strings must be shorter than this.
   char *env_ptr_v[sizeof(env_buf)/4];
   char *key_ptr = env_buf;
   char *env_end_ptr = env_buf;
+
+  if (key == NULL || value == NULL)
+    return NULL_PTR;
 
   while (rc == NOTFOUND && env_end_ptr != NULL) {
     // if key_ptr is in second half of env_buf, move everything back to start
