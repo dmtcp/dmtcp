@@ -451,6 +451,7 @@ dmtcp::CoordClient::CoordClient(const jalib::JSocket& sock,
                                 dmtcp::DmtcpMessage &hello_remote)
   : _sock(sock)
 {
+  _realPid = hello_remote.realPid;
   _clientNumber = theNextClientNumber++;
   _identity = hello_remote.from;
   _state = hello_remote.state;
@@ -529,11 +530,12 @@ void dmtcp::DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*
   case 'l': case 'L':
   case 't': case 'T':
     JASSERT_STDERR << "Client List:\n";
-    JASSERT_STDERR << "#, PROG[PID]@HOST, DMTCP-UNIQUEPID, STATE\n";
+    JASSERT_STDERR << "#, PROG[virtPID:realPID]@HOST, DMTCP-UNIQUEPID, STATE\n";
     for (size_t i = 0; i < clients.size(); i++) {
       JASSERT_STDERR << clients[i]->clientNumber()
         << ", " << clients[i]->progname()
-        << "[" << clients[i]->identity().pid() << "]@" << clients[i]->hostname()
+        << "[" << clients[i]->identity().pid() << ":" << clients[i]->realPid()
+        << "]@" << clients[i]->hostname()
 #ifdef PRINT_REMOTE_IP
         << "(" << clients[i]->ip() << ")"
 #endif
@@ -825,6 +827,7 @@ void dmtcp::DmtcpCoordinator::onData(CoordClient *client)
         client->progname(progname);
         client->hostname(hostname);
         client->identity(msg.from);
+        client->realPid(msg.realPid);
     }
         break;
 
