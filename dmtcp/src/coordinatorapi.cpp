@@ -339,6 +339,12 @@ void dmtcp::CoordinatorAPI::sendCoordinatorHandshake(
     hello_local.virtualPid = (pid_t) atoi(getenv(ENV_VAR_VIRTUAL_PID));
   }
 
+  if (dmtcp_virtual_to_real_pid) {
+    hello_local.realPid = dmtcp_virtual_to_real_pid(getpid());
+  } else {
+    hello_local.realPid = getpid();
+  }
+
   const char* interval = getenv (ENV_VAR_CKPT_INTR);
   /* DmtcpMessage constructor default:
    *   hello_local.theCheckpointInterval: DMTCPMESSAGE_SAME_CKPT_INTERVAL

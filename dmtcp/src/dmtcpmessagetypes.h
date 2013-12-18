@@ -152,7 +152,7 @@ namespace dmtcp
     UniquePid   compGroup;
 
     pid_t       virtualPid;
-    struct in_addr ipAddr;
+    pid_t       realPid;
 
 //#ifdef COORD_NAMESERVICE
     char        nsid[8];
@@ -168,7 +168,7 @@ namespace dmtcp
     uint64_t coordTimeStamp;
 
     uint32_t theCheckpointInterval;
-    char __padding[4];
+    struct in_addr ipAddr;
 
     static void setDefaultCoordinator ( const DmtcpUniqueProcessId& id );
     static void setDefaultCoordinator ( const UniquePid& id );
