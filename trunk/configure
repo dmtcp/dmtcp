@@ -659,15 +659,15 @@ HAS_TCSH
 HAS_DASH
 HAS_PYTHON
 HAS_READLINE
-EGREP
-GREP
-CPP
 PID_VIRTUALIZATION
 RUN_AS_ROOT
 USE_TEST_SUITE
 HBICT_DELTACOMP
 FAST_RESTART
 INFINIBAND_SUPPORT
+EGREP
+GREP
+CPP
 PTRACE_SUPPORT
 DEBUG
 subdirs
@@ -4457,169 +4457,7 @@ fi
 
 
 if test "$use_infiniband_support" = "yes"; then
-  INFINIBAND_SUPPORT=yes
-
-else
-  INFINIBAND_SUPPORT=no
-
-fi
-
-# Check whether --enable-forked_checkpointing was given.
-if test "${enable_forked_checkpointing+set}" = set; then :
-  enableval=$enable_forked_checkpointing; use_forked_ckpt=$enableval
-else
-  use_forked_ckpt=no
-fi
-
-
-# Check whether --enable-fast_restart was given.
-if test "${enable_fast_restart+set}" = set; then :
-  enableval=$enable_fast_restart; use_fast_restart=$enableval
-else
-  use_fast_restart=default
-fi
-
-if test "$use_fast_restart" = "yes"; then
-  FAST_RESTART=yes
-
-  HBICT_DELTACOMP=no
-
-else
-  FAST_RESTART=no
-
-fi
-
-# Check whether --enable-delta_compression was given.
-if test "${enable_delta_compression+set}" = set; then :
-  enableval=$enable_delta_compression; use_deltacomp=$enableval
-else
-  use_deltacomp=no
-fi
-
-
-if test "$use_deltacomp" = "yes"; then
-  HBICT_DELTACOMP=yes
-
-else
-  HBICT_DELTACOMP=no
-
-fi
-
-# Check whether --enable-test_suite was given.
-if test "${enable_test_suite+set}" = set; then :
-  enableval=$enable_test_suite; use_test_suite=$enableval
-else
-  use_test_suite=yes
-fi
-
-if test "$use_test_suite" = "yes"; then
-  USE_TEST_SUITE=yes
-
-else
-  USE_TEST_SUITE=no
-
-fi
-
-# Check whether --enable-experts_only_space1 was given.
-if test "${enable_experts_only_space1+set}" = set; then :
-  enableval=$enable_experts_only_space1;
-fi
-
-# Check whether --enable-experts_only was given.
-if test "${enable_experts_only+set}" = set; then :
-  enableval=$enable_experts_only;
-fi
-
-# Check whether --enable-experts_only_after was given.
-if test "${enable_experts_only_after+set}" = set; then :
-  enableval=$enable_experts_only_after;
-fi
-
-
-# Check whether --enable-run-as-root was given.
-if test "${enable_run_as_root+set}" = set; then :
-  enableval=$enable_run_as_root; use_run_as_root=$enableval
-else
-  use_run_as_root=no
-fi
-
-
-if test "$use_run_as_root" = "yes"; then
-  RUN_AS_ROOT=yes
-
-else
-  RUN_AS_ROOT=no
-
-fi
-
-# Check whether --enable-pid_virtualization was given.
-if test "${enable_pid_virtualization+set}" = set; then :
-  enableval=$enable_pid_virtualization; use_pid_virt=$enableval
-else
-  use_pid_virt=yes
-fi
-
-
-if test "$use_pid_virt" = "yes"; then
-  PID_VIRTUALIZATION=yes
-
-else
-  PID_VIRTUALIZATION=no
-
-fi
-
-# Check whether --enable-allocator was given.
-if test "${enable_allocator+set}" = set; then :
-  enableval=$enable_allocator; use_allocator=$enableval
-else
-  use_allocator=no
-fi
-
-
-#check for -lreadline -lhistory v5; does not require curses
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for readline in -lreadline" >&5
-$as_echo_n "checking for readline in -lreadline... " >&6; }
-if ${ac_cv_lib_readline_readline+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  ac_check_lib_save_LIBS=$LIBS
-LIBS="-lreadline -lhistory -lcurses $LIBS"
-cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-/* Override any GCC internal prototype to avoid an error.
-   Use char because int might match the return type of a GCC
-   builtin and then its argument prototype would still apply.  */
-#ifdef __cplusplus
-extern "C"
-#endif
-char readline ();
-int
-main ()
-{
-return readline ();
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_link "$LINENO"; then :
-  ac_cv_lib_readline_readline=yes
-else
-  ac_cv_lib_readline_readline=no
-fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS
-fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_readline_readline" >&5
-$as_echo "$ac_cv_lib_readline_readline" >&6; }
-if test "x$ac_cv_lib_readline_readline" = xyes; then :
-  linksReadline=yes
-else
-  linksReadline=no
-fi
-
-ac_ext=c
+  ac_ext=c
 ac_cpp='$CPP $CPPFLAGS'
 ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
 ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
@@ -5015,6 +4853,185 @@ fi
 
 done
 
+
+for ac_header in infiniband/verbs.h
+do :
+  ac_fn_c_check_header_mongrel "$LINENO" "infiniband/verbs.h" "ac_cv_header_infiniband_verbs_h" "$ac_includes_default"
+if test "x$ac_cv_header_infiniband_verbs_h" = xyes; then :
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_INFINIBAND_VERBS_H 1
+_ACEOF
+
+else
+  as_fn_error $? "#include: <infiniband/verbs.h> not found: consider adding devel package for libibverbs
+    " "$LINENO" 5
+fi
+
+done
+
+  INFINIBAND_SUPPORT=yes
+
+  ac_config_files="$ac_config_files contrib/infiniband/Makefile"
+
+else
+  INFINIBAND_SUPPORT=no
+
+fi
+
+# Check whether --enable-forked_checkpointing was given.
+if test "${enable_forked_checkpointing+set}" = set; then :
+  enableval=$enable_forked_checkpointing; use_forked_ckpt=$enableval
+else
+  use_forked_ckpt=no
+fi
+
+
+# Check whether --enable-fast_restart was given.
+if test "${enable_fast_restart+set}" = set; then :
+  enableval=$enable_fast_restart; use_fast_restart=$enableval
+else
+  use_fast_restart=default
+fi
+
+if test "$use_fast_restart" = "yes"; then
+  FAST_RESTART=yes
+
+  HBICT_DELTACOMP=no
+
+else
+  FAST_RESTART=no
+
+fi
+
+# Check whether --enable-delta_compression was given.
+if test "${enable_delta_compression+set}" = set; then :
+  enableval=$enable_delta_compression; use_deltacomp=$enableval
+else
+  use_deltacomp=no
+fi
+
+
+if test "$use_deltacomp" = "yes"; then
+  HBICT_DELTACOMP=yes
+
+else
+  HBICT_DELTACOMP=no
+
+fi
+
+# Check whether --enable-test_suite was given.
+if test "${enable_test_suite+set}" = set; then :
+  enableval=$enable_test_suite; use_test_suite=$enableval
+else
+  use_test_suite=yes
+fi
+
+if test "$use_test_suite" = "yes"; then
+  USE_TEST_SUITE=yes
+
+else
+  USE_TEST_SUITE=no
+
+fi
+
+# Check whether --enable-experts_only_space1 was given.
+if test "${enable_experts_only_space1+set}" = set; then :
+  enableval=$enable_experts_only_space1;
+fi
+
+# Check whether --enable-experts_only was given.
+if test "${enable_experts_only+set}" = set; then :
+  enableval=$enable_experts_only;
+fi
+
+# Check whether --enable-experts_only_after was given.
+if test "${enable_experts_only_after+set}" = set; then :
+  enableval=$enable_experts_only_after;
+fi
+
+
+# Check whether --enable-run-as-root was given.
+if test "${enable_run_as_root+set}" = set; then :
+  enableval=$enable_run_as_root; use_run_as_root=$enableval
+else
+  use_run_as_root=no
+fi
+
+
+if test "$use_run_as_root" = "yes"; then
+  RUN_AS_ROOT=yes
+
+else
+  RUN_AS_ROOT=no
+
+fi
+
+# Check whether --enable-pid_virtualization was given.
+if test "${enable_pid_virtualization+set}" = set; then :
+  enableval=$enable_pid_virtualization; use_pid_virt=$enableval
+else
+  use_pid_virt=yes
+fi
+
+
+if test "$use_pid_virt" = "yes"; then
+  PID_VIRTUALIZATION=yes
+
+else
+  PID_VIRTUALIZATION=no
+
+fi
+
+# Check whether --enable-allocator was given.
+if test "${enable_allocator+set}" = set; then :
+  enableval=$enable_allocator; use_allocator=$enableval
+else
+  use_allocator=no
+fi
+
+
+#check for -lreadline -lhistory v5; does not require curses
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for readline in -lreadline" >&5
+$as_echo_n "checking for readline in -lreadline... " >&6; }
+if ${ac_cv_lib_readline_readline+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lreadline -lhistory -lcurses $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char readline ();
+int
+main ()
+{
+return readline ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_lib_readline_readline=yes
+else
+  ac_cv_lib_readline_readline=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_readline_readline" >&5
+$as_echo "$ac_cv_lib_readline_readline" >&6; }
+if test "x$ac_cv_lib_readline_readline" = xyes; then :
+  linksReadline=yes
+else
+  linksReadline=no
+fi
 
 for ac_header in readline/readline.h readline/history.h
 do :
@@ -7182,6 +7199,7 @@ do
     "test/plugin/Makefile") CONFIG_FILES="$CONFIG_FILES test/plugin/Makefile" ;;
     "test/credentials/Makefile") CONFIG_FILES="$CONFIG_FILES test/credentials/Makefile" ;;
     "plugin/ptrace/Makefile") CONFIG_FILES="$CONFIG_FILES plugin/ptrace/Makefile" ;;
+    "contrib/infiniband/Makefile") CONFIG_FILES="$CONFIG_FILES contrib/infiniband/Makefile" ;;
 
   *) as_fn_error $? "invalid argument: \`$ac_config_target'" "$LINENO" 5;;
   esac
