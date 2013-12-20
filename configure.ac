@@ -93,7 +93,11 @@ AC_ARG_ENABLE([infiniband_support],
             [use_infiniband_support=no])
 
 if test "$use_infiniband_support" = "yes"; then
+  AC_CHECK_HEADERS([infiniband/verbs.h], [],
+                   [AC_MSG_ERROR([#include: <infiniband/verbs.h> not found: consider adding devel package for libibverbs]
+    )])
   AC_SUBST([INFINIBAND_SUPPORT], [yes])
+  AC_CONFIG_FILES([contrib/infiniband/Makefile])
 else
   AC_SUBST([INFINIBAND_SUPPORT], [no])
 fi
