@@ -65,8 +65,8 @@ namespace dmtcp
 
       UniquePid compGroup() { return _compGroup; }
       void compGroup(UniquePid cg) { _compGroup = cg; }
-      int numPeers() { return _numPeers; }
-      void numPeers(int np) { _numPeers = np; }
+      uint32_t numPeers() { return _numPeers; }
+      void numPeers(uint32_t np) { _numPeers = np; }
       bool noCoordinator() { return _noCoordinator; }
       void noCoordinator(bool nc) { _noCoordinator = nc; }
       pid_t pid() const { return _pid; }
@@ -103,8 +103,7 @@ namespace dmtcp
       pid_t _gid;
       pid_t _fgid;
 
-      UniquePid _compGroup;
-      int       _numPeers;
+      uint32_t  _numPeers;
       uint32_t  _noCoordinator;
       uint32_t  _argvSize;
       uint32_t  _envSize;
@@ -114,10 +113,11 @@ namespace dmtcp
       dmtcp::string _hostname;
       dmtcp::string _launchCWD;
       dmtcp::string _ckptCWD;
+      dmtcp::string _ckptDir;
+
       UniquePid     _upid;
       UniquePid     _uppid;
-
-      dmtcp::string _ckptDir;
+      UniquePid     _compGroup;
   };
 
 }
