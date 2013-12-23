@@ -17,9 +17,6 @@
 #include <sys/mman.h>
 #ifndef STANDALONE
 # include "dmtcpplugin.h"
-#else
-# define dmtcp_setenv setenv
-# define dmtcp_unsetenv unsetenv
 #endif
 
 /* Example of dmtcp_env.txt:  spaces not allowed in VAR=VAL unless in quotes
@@ -51,7 +48,6 @@ void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
   { int size = 4096;
     char *buf = read_dmtcp_env_file("dmtcp_env.txt", size);
     readAndSetEnv(buf, size);
-    printf("HOME: %s\n", getenv("HOME"));
     break;
   }
   default:
@@ -104,8 +100,11 @@ int readAndSetEnv(char *buf, int size) {
   char *c = buf;
   char nameBuf[1000] = {'\0'};
   char valueBuf[1000];
+  char nameChanged[10000];
   char *dest = nameBuf;
   int isStringMode = 0; // isStringMode is true if in middle of string: "..."
+  char *nameChanged_end = nameChanged;
+  nameChanged[0] = nameChanged[1] = '\0';
   while (1) {
     switch (*c) {
       case readEOF:
@@ -121,10 +120,19 @@ int readAndSetEnv(char *buf, int size) {
         }
         *dest++ = '\0';
         *c++;
+        // Put nameBuf and value into environment
         if (dest > nameBuf && dest < nameBuf + sizeof(nameBuf))
-          dmtcp_unsetenv(nameBuf);  // No valueBuf means to unset that name
+          unsetenv(nameBuf);  // No valueBuf means to unset that name
         else
-          dmtcp_setenv(nameBuf, valueBuf, 1); // 1 = overwrite
+          setenv(nameBuf, valueBuf, 1); // 1 = overwrite
+        // Record that this name changed, in case user does $expansion on it
+        if (nameChanged + sizeof(nameChanged) - nameChanged_end) {
+          strcpy(nameChanged_end, nameBuf);
+          nameChanged_end += strlen(nameBuf) + 1;
+        } else {
+          fprintf(stderr, "modify-environ.c: Too many '$' name expansions\n");
+        }
+        // Get ready for next name-value pair
         isStringMode = 0;
         dest = nameBuf;
         break;
@@ -160,10 +168,24 @@ int readAndSetEnv(char *buf, int size) {
           while (isalnum(*c) || *c == '_')
             *d++ = *c++;
           *d = '\0';
-          int rc = dmtcp_get_restart_env(envName, dest,
+          // If we modified envName, this takes precedence over current value
+          int isNameChanged = 0;
+          char *n;
+          for (n = nameChanged; n < nameChanged_end; n += strlen(n) + 1) {
+            if (strcmp(envName, n) == 0) {
+              isNameChanged = 1;
+            }
+          }
+          // Copy expansion of envName into dest
+          int rc;
+          if (isNameChanged && getenv(envName)) {
+            strcpy(dest, getenv(envName));
+          } else {
+            rc = dmtcp_get_restart_env(envName, dest,
                                          sizeof(valueBuf) - (dest - valueBuf));
+          }
           if (rc == 0)
-            dest += strlen(dest);
+            dest += strlen(dest);  // Move dest ptr to end of expanded string
         }
         break;
       default:
@@ -190,26 +212,6 @@ int readall(int fd, char *buf, int maxCount) {
 #ifdef STANDALONE
 int main() {
   int size = 4096;
-/*
-  // We avoid using malloc.
-  char *buf = mmap(NULL, size, PROT_READ | PROT_WRITE,
-                   MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
-  if (buf == MAP_FAILED) {
-    perror("mmap");
-    return 1;
-  }
-  int fd = open("dmtcp_env.txt", O_RDONLY);
-  if (fd < 0) {
-    perror("open: \"dmtcp_env.txt\"");
-    return 1;
-  }
-  int count = readall(fd, buf, size);
-  if (count < 0) {
-    perror("read: \"dmtcp_env.txt\"");
-    return 1; // Error in reading
-  }
-  *(buf+count) = readEOF;
-*/
   printf("HOME: %s, DISPLAY: %s, FOO: %s, HOST: %s, EDITOR: %s, USER: %s\n",
          getenv("HOME"), getenv("DISPLAY"), getenv("FOO"), getenv("HOST"),
          getenv("EDITOR"), getenv("USER"));
