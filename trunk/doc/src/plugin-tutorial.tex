@@ -587,6 +587,11 @@ const char* dmtcp_get_computation_id_str();
 uint64_t dmtcp_get_coordinator_timestamp();
 uint32_t dmtcp_get_generation(); /* number of ckpt/restart sequences encountered */
 const char* dmtcp_get_executable_path();
+int dmtcp_get_restart_env(char *name, char *value, int maxvaluelen);
+  /* For 'name' in environment, copy its value into 'value' param, but with
+   * at most length 'maxvaluelen'.
+   * Return 0 for success, and return code for various errors */
+   */
 \end{verbatim}
 }
 
