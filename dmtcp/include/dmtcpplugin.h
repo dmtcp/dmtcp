@@ -130,7 +130,7 @@ EXTERNC uint32_t dmtcp_get_generation(void);
 EXTERNC int dmtcp_is_running_state(void);
 EXTERNC int dmtcp_is_initializing_wrappers(void);
 EXTERNC int dmtcp_is_protected_fd(int fd);
-EXTERNC int dmtcp_get_restart_env(char *key, char *value, int maxvaluelen);
+EXTERNC int dmtcp_get_restart_env(char *name, char *value, int maxvaluelen);
 EXTERNC int dmtcp_no_coordinator(void);
 EXTERNC DmtcpUniqueProcessId dmtcp_get_uniquepid();
 EXTERNC DmtcpUniqueProcessId dmtcp_get_coord_id();
