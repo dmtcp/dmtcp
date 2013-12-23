@@ -27,7 +27,7 @@
 int main() {
     if ( ! dmtcpIsEnabled() ) {
       printf("\n *** dmtcpIsEnabled: executable seems to not be running"
-             " under dmtcp_checkpoint.\n");
+             " under dmtcp_launch.\n");
     }
 
     int retval = dmtcpDelayCheckpointsLock();

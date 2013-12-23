@@ -1,4 +1,4 @@
-In this example, 'dmtcp_checkpoint -i 2' was invoked to checkpoint
+In this example, 'dmtcp_launch -i 2' was invoked to checkpoint
 every 2 seconds.  This plugin causes the application applic.c to delay
 the checkpoint that is requested by the coordinator In this example,
 the plugin could be omitted.
