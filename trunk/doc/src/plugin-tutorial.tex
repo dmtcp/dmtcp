@@ -4,7 +4,7 @@
 
 % =======================================
 
-% DMTCP-Internal plugins:  make sure restart/resum operates after event:
+% DMTCP-Internal plugins:  make sure restart/resume operates after event:
 %   RESTART/RESUME/REFILL/REGISTER\_NAME\_SERVICE\_DATA/SEND\_QUERIES
 % DMTCP hierarchy:  DMTCP\_ROOT/include/dmtcp/plugin.h  (etc.) ; not dmtpplugin.h
 % Do we install distro packages to use /usr/include/dmtcp/plugin.h for compatibility?
@@ -75,8 +75,8 @@ only and not all-inclusive.)
 
 \section{Anatomy of a plugin}
 
-There are three primary mechanisms by which a plugin can modify the
-behavior of either DMTCP or a target application.
+A plugin modifies the behavior of either DMTCP or a target application,
+through three primary mechanisms, plus virtualization of ids.
 \begin{description}
 \item[Wrapper functions:]  One declares a wrapper function with the same
 	name as an existing library function (including system calls in
@@ -110,11 +110,19 @@ behavior of either DMTCP or a target application.
 
 \subsection{Invoking a plugin}
 
-Plugins are just dynamic run-time libraries (.so files).  They are
-invoked at the beginning of a DMTCP computation as command-line options:
+Plugins are just dynamic run-time libraries (.so files).
 \hfill\break
 \medskip\noindent
-  \hspace{0.3truein} {\tt dmtcp\_launch --with-plugin PLUGIN1.so:PLUGIN2.so myapp}
+  \hspace{0.3truein} {\tt gcc -shared -fPIC -IDMTCP\_ROOT/dmtcp/include
+                         -o PLUGIN1.so PLUGIN1.c}
+\medskip
+
+They are invoked at the beginning of a DMTCP computation
+as command-line options:
+\hfill\break
+\medskip\noindent
+  \hspace{0.3truein} {\tt dmtcp\_launch --with-plugin PLUGIN1.so:PLUGIN2.so
+			  myapp}
 \medskip
 
 Note that one can invoke multiple plugins as a colon-separated list.
@@ -215,13 +223,19 @@ To see a related example, try:
 \medskip
 
 \noindent
-Wrapper functions from distinct plugins can also be nested.  To see a nesting
+Wrapper functions from distinct plugins can be nested.  For a nesting
 of plugin sleep2 around sleep1, do:
 \hfill\break
 \medskip\noindent
   \hspace{0.3truein} {\tt cd DMTCP\_ROOT/test/plugin; make; cd sleep2; make check}
 \medskip
 
+If one adds a wrapper around a function from a library other than libc.so
+(e.g., libglx.so), it is best to dynamically link to that additional library:
+\hfill\break
+\medskip\noindent
+  \hspace{0.3truein} {\tt gcc ...  -o PLUGIN1.so PLUGIN1.c -lglx.so}
+\medskip
 
 \subsubsection{Plugin coordination among multiple or distributed processes}
 \label{sec:publishSubscribe}
@@ -290,21 +304,23 @@ library).
 %
 % INTERACTION OF MULTIPLE PLUGINS:
 %     For simple plugins, this issue can be ignored.  But if your plugin has
-% talbes with long-lived data, other wrappers may create additional instantiattions.
-% It is reasonable for them to do this for temporary data structures at
-% the time of checkpoint or at the time of restart.  But normally, such an
-% object, created when the checkpoint event occurs, should be destroyed before
-% creating the actual checkpoint image.  Similarly, at restart time, if new
-% instances are created, they should be destroyed before returning control
-% to the user threads.
-%     It is polite for a plugin to check the above restrictions.  If it is violated,
-% the plugin should print a warning about this.  This will help others, who
-% accidentally create long-lived objects at checkpoint- or restart-time,
-% without intending to.  If the other plugin intends this unusual behavior, one
-% can add a whitelist faeature for other plugings to declare such intentions.
+% tables with long-lived data, other wrappers may create additional
+% instantiations.  % It is reasonable for them to do this for temporary data
+% structures at % the time of checkpoint or at the time of restart.  But
+% normally, such an % object, created when the checkpoint event occurs, should
+% be destroyed before % creating the actual checkpoint image.  Similarly, at
+% restart time, if new % instances are created, they should be destroyed before
+% returning control to the user threads.
+%     It is polite for a plugin to check the above restrictions.  If it is
+% violated, the plugin should print a warning about this.  This will help
+% others, who % accidentally create long-lived objects at checkpoint- or
+% restart-time, without intending to.  If the other plugin intends this unusual
+% behavior, one can add a whitelist feature for other plugings to declare such
+% intentions.
 %     This small effort will provide a well-defined protocol that limits the
 % interaction between distinct plugins.  Your effort helps others to debug their
-% plugins, and a similar effort on their part will help you to debug your own plugin.
+% plugins, and a similar effort on their part will help you to debug your own
+% plugin.
 %
 % Putting a printf inside a plugin at the time of checkpoint is dangerous.  This
 % is because printf indirectly invokes a lock to prevent two threads from
@@ -312,7 +328,7 @@ library).
 % {\bf See README in test/plugin.}
 %
 % At checkpoint time, the DMTCP user thread will stop on that same lock.  This
-% causes the two threads to deadliock.
+% causes the two threads to deadlock.
 %
 % This use of conflicting locks is a bug in DMTCP as of DMTCP-2.0.  It will
 % be fixed in the future version of DMTCP.
@@ -337,6 +353,13 @@ int main() {
 \end{verbatim}
 }
 
+For this program to be aware of DMTCP, it must be compiled with -fPIC and -ldl~:
+\hfill\break
+\medskip\noindent
+  \hspace{0.3truein} {\tt gcc -fPIC -IDMTCP\_ROOT/dmtcp/include -o myapp
+                      myapp.c -ldl}
+\medskip
+
 The most useful functions are:
 \begin{list}{}{\leftmargin=3em \itemindent=-2em}
 \item
@@ -352,7 +375,7 @@ The most useful functions are:
                 checkpoint requests, and will permit new checkpoint requests.
 \end{list}
 
-The last two functions follow the common pattern of return 0 on success
+The last two functions follow the common pattern of returning 0 on success
 and {\tt DMTCP\_NOT\_PRESENT} if DMTCP is not present.
 See the subdirectories
 {\tt DMTCP\_ROOT/test/plugin/applic-initiated-ckpt}
@@ -380,16 +403,16 @@ SYNOPSIS
        void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 
 DESCRIPTION
-       When a plugin event occurs, DMTCP will look for the symbol dmtcp_event_hook
-       in each plugin library.  If the symbol is found, that function will be called
-       for the given plugin library.  DMTCP guarantees only to invoke the first such
-       plugin library found in library search order.  Occurences of
-       dmtcp_event_hook in later plugin libraries will be called only if
-       each previous function had invoked DMTCP_NEXT_EVENT_HOOK.
-       The argument, <event>, will be bound to the event being declared by
-       DMTCP.  The argument, <data>, is required only for certain events.
-       See the following section, ``Plugin Events'' for a list of all
-       events.
+       When a plugin event occurs, DMTCP will look for the symbol
+       dmtcp_event_hook in each plugin library.  If the symbol is found,
+       that function will be called for the given plugin library.  DMTCP
+       guarantees only to invoke the first such plugin library found in
+       library search order.  Occurrences of dmtcp_event_hook in later
+       plugin libraries will be called only if each previous function
+       had invoked DMTCP_NEXT_EVENT_HOOK.  The argument, <event>, will be
+       bound to the event being declared by DMTCP.  The argument, <data>,
+       is required only for certain events.  See the following section,
+       ``Plugin Events'' for a list of all events.
 
 SEE ALSO
        DMTCP_NEXT_EVENT_HOOK
@@ -490,7 +513,7 @@ and any new program called via exec)
     pthread\_atfork) \\
 \end{list}
 
-\subsubsection*{Barriers (finer-grainded control during checkpoint-restart)}
+\subsubsection*{Barriers (finer-grained control during checkpoint-restart)}
 \begin{list}{}{\leftmargin=3em \itemindent=-2em}
 \item
   DMTCP\_EVENT\_WAIT\_FOR\_SUSPEND\_MSG --- Invoked at barrier during
@@ -590,7 +613,8 @@ const char* dmtcp_get_executable_path();
 int dmtcp_get_restart_env(char *name, char *value, int maxvaluelen);
   /* For 'name' in environment, copy its value into 'value' param, but with
    * at most length 'maxvaluelen'.
-   * Return 0 for success, and return code for various errors */
+   * Return 0 for success, and return code for various errors
+   * See contrib/modify-environ for an example of its use.
    */
 \end{verbatim}
 }

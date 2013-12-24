@@ -49,7 +49,6 @@ modify-environ:  Modify the environment variables on restart.  This
 	reads from a local file in the same directory, dmtcp_env.txt,
 	to determine what environment variables should be modified
 	in the restarted process.
-          [ This is still an early version, and may be updated later. ]
 
 python:  Support for a Python module, dmtcp.py.  This integrates DMTCP
 	into Python (and IPython) so that DMTCP may be invoked directly
