@@ -436,11 +436,13 @@ top_srcdir = @top_srcdir@
 # not a GNU package. You can remove this line, if
 # have all needed files, that a GNU package needs
 AUTOMAKE_OPTIONS = foreign
+jalibdir = $(srcdir)/../jalib/
+dmtcplibdir = $(pkglibdir)
 
 #HEADERS
 #set the include path found by configure
-INCLUDES = $(all_includes) -I../jalib/
-dmtcplibdir = $(pkglibdir)
+AM_CPPFLAGS = $(all_includes) -I$(jalibdir)
+
 # targets:
 noinst_LIBRARIES = libdmtcpinternal.a libsyscallsreal.a libnohijack.a libjalib.a
 include_HEADERS = dmtcpaware.h ../include/dmtcpplugin.h
@@ -448,9 +450,9 @@ lib_LIBRARIES = libdmtcpaware.a
 
 # headers:
 nobase_noinst_HEADERS = constants.h \
-	../jalib/jassert.h ../jalib/jalloc.h ../jalib/jalib.h \
-	../jalib/jbuffer.h ../jalib/jconvert.h ../jalib/jfilesystem.h \
-	../jalib/jserialize.h ../jalib/jsocket.h ../jalib/jtimer.h \
+	$(jalibdir)/jassert.h $(jalibdir)/jalloc.h $(jalibdir)/jalib.h \
+	$(jalibdir)/jbuffer.h $(jalibdir)/jconvert.h $(jalibdir)/jfilesystem.h \
+	$(jalibdir)/jserialize.h $(jalibdir)/jsocket.h $(jalibdir)/jtimer.h \
 	dmtcp_coordinator.h dmtcpmessagetypes.h lookup_service.h \
 	dmtcpworker.h threadsync.h coordinatorapi.h \
 	mtcpinterface.h syscallwrappers.h syslogwrappers.h \
@@ -465,10 +467,10 @@ libdmtcpinternal_a_SOURCES = dmtcpmessagetypes.cpp  coordinatorapi.cpp \
 			     util_exec.cpp util_gen.cpp util_init.cpp \
 			     jalibinterface.cpp processinfo.cpp
 
-libjalib_a_SOURCES = ../jalib/jalib.cpp ../jalib/jassert.cpp \
-		     ../jalib/jbuffer.cpp ../jalib/jfilesystem.cpp \
-		     ../jalib/jserialize.cpp ../jalib/jsocket.cpp \
-		     ../jalib/jtimer.cpp ../jalib/jalloc.cpp
+libjalib_a_SOURCES = $(jalibdir)/jalib.cpp $(jalibdir)/jassert.cpp \
+		     $(jalibdir)/jbuffer.cpp $(jalibdir)/jfilesystem.cpp \
+		     $(jalibdir)/jserialize.cpp $(jalibdir)/jsocket.cpp \
+		     $(jalibdir)/jtimer.cpp $(jalibdir)/jalloc.cpp
 
 
 # FIXME:  Rename libsyscallsreal.a to libhijack.a
@@ -810,117 +812,117 @@ distclean-compile:
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXXCOMPILE) -c -o $@ `$(CYGPATH_W) '$<'`
 
-jalib.o: ../jalib/jalib.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT jalib.o -MD -MP -MF $(DEPDIR)/jalib.Tpo -c -o jalib.o `test -f '../jalib/jalib.cpp' || echo '$(srcdir)/'`../jalib/jalib.cpp
+jalib.o: $(jalibdir)/jalib.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT jalib.o -MD -MP -MF $(DEPDIR)/jalib.Tpo -c -o jalib.o `test -f '$(jalibdir)/jalib.cpp' || echo '$(srcdir)/'`$(jalibdir)/jalib.cpp
 @am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/jalib.Tpo $(DEPDIR)/jalib.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='../jalib/jalib.cpp' object='jalib.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='$(jalibdir)/jalib.cpp' object='jalib.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o jalib.o `test -f '../jalib/jalib.cpp' || echo '$(srcdir)/'`../jalib/jalib.cpp
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o jalib.o `test -f '$(jalibdir)/jalib.cpp' || echo '$(srcdir)/'`$(jalibdir)/jalib.cpp
 
-jalib.obj: ../jalib/jalib.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT jalib.obj -MD -MP -MF $(DEPDIR)/jalib.Tpo -c -o jalib.obj `if test -f '../jalib/jalib.cpp'; then $(CYGPATH_W) '../jalib/jalib.cpp'; else $(CYGPATH_W) '$(srcdir)/../jalib/jalib.cpp'; fi`
+jalib.obj: $(jalibdir)/jalib.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT jalib.obj -MD -MP -MF $(DEPDIR)/jalib.Tpo -c -o jalib.obj `if test -f '$(jalibdir)/jalib.cpp'; then $(CYGPATH_W) '$(jalibdir)/jalib.cpp'; else $(CYGPATH_W) '$(srcdir)/$(jalibdir)/jalib.cpp'; fi`
 @am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/jalib.Tpo $(DEPDIR)/jalib.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='../jalib/jalib.cpp' object='jalib.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='$(jalibdir)/jalib.cpp' object='jalib.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o jalib.obj `if test -f '../jalib/jalib.cpp'; then $(CYGPATH_W) '../jalib/jalib.cpp'; else $(CYGPATH_W) '$(srcdir)/../jalib/jalib.cpp'; fi`
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o jalib.obj `if test -f '$(jalibdir)/jalib.cpp'; then $(CYGPATH_W) '$(jalibdir)/jalib.cpp'; else $(CYGPATH_W) '$(srcdir)/$(jalibdir)/jalib.cpp'; fi`
 
-jassert.o: ../jalib/jassert.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT jassert.o -MD -MP -MF $(DEPDIR)/jassert.Tpo -c -o jassert.o `test -f '../jalib/jassert.cpp' || echo '$(srcdir)/'`../jalib/jassert.cpp
+jassert.o: $(jalibdir)/jassert.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT jassert.o -MD -MP -MF $(DEPDIR)/jassert.Tpo -c -o jassert.o `test -f '$(jalibdir)/jassert.cpp' || echo '$(srcdir)/'`$(jalibdir)/jassert.cpp
 @am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/jassert.Tpo $(DEPDIR)/jassert.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='../jalib/jassert.cpp' object='jassert.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='$(jalibdir)/jassert.cpp' object='jassert.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o jassert.o `test -f '../jalib/jassert.cpp' || echo '$(srcdir)/'`../jalib/jassert.cpp
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o jassert.o `test -f '$(jalibdir)/jassert.cpp' || echo '$(srcdir)/'`$(jalibdir)/jassert.cpp
 
-jassert.obj: ../jalib/jassert.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT jassert.obj -MD -MP -MF $(DEPDIR)/jassert.Tpo -c -o jassert.obj `if test -f '../jalib/jassert.cpp'; then $(CYGPATH_W) '../jalib/jassert.cpp'; else $(CYGPATH_W) '$(srcdir)/../jalib/jassert.cpp'; fi`
+jassert.obj: $(jalibdir)/jassert.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT jassert.obj -MD -MP -MF $(DEPDIR)/jassert.Tpo -c -o jassert.obj `if test -f '$(jalibdir)/jassert.cpp'; then $(CYGPATH_W) '$(jalibdir)/jassert.cpp'; else $(CYGPATH_W) '$(srcdir)/$(jalibdir)/jassert.cpp'; fi`
 @am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/jassert.Tpo $(DEPDIR)/jassert.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='../jalib/jassert.cpp' object='jassert.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='$(jalibdir)/jassert.cpp' object='jassert.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o jassert.obj `if test -f '../jalib/jassert.cpp'; then $(CYGPATH_W) '../jalib/jassert.cpp'; else $(CYGPATH_W) '$(srcdir)/../jalib/jassert.cpp'; fi`
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o jassert.obj `if test -f '$(jalibdir)/jassert.cpp'; then $(CYGPATH_W) '$(jalibdir)/jassert.cpp'; else $(CYGPATH_W) '$(srcdir)/$(jalibdir)/jassert.cpp'; fi`
 
-jbuffer.o: ../jalib/jbuffer.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT jbuffer.o -MD -MP -MF $(DEPDIR)/jbuffer.Tpo -c -o jbuffer.o `test -f '../jalib/jbuffer.cpp' || echo '$(srcdir)/'`../jalib/jbuffer.cpp
+jbuffer.o: $(jalibdir)/jbuffer.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT jbuffer.o -MD -MP -MF $(DEPDIR)/jbuffer.Tpo -c -o jbuffer.o `test -f '$(jalibdir)/jbuffer.cpp' || echo '$(srcdir)/'`$(jalibdir)/jbuffer.cpp
 @am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/jbuffer.Tpo $(DEPDIR)/jbuffer.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='../jalib/jbuffer.cpp' object='jbuffer.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='$(jalibdir)/jbuffer.cpp' object='jbuffer.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o jbuffer.o `test -f '../jalib/jbuffer.cpp' || echo '$(srcdir)/'`../jalib/jbuffer.cpp
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o jbuffer.o `test -f '$(jalibdir)/jbuffer.cpp' || echo '$(srcdir)/'`$(jalibdir)/jbuffer.cpp
 
-jbuffer.obj: ../jalib/jbuffer.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT jbuffer.obj -MD -MP -MF $(DEPDIR)/jbuffer.Tpo -c -o jbuffer.obj `if test -f '../jalib/jbuffer.cpp'; then $(CYGPATH_W) '../jalib/jbuffer.cpp'; else $(CYGPATH_W) '$(srcdir)/../jalib/jbuffer.cpp'; fi`
+jbuffer.obj: $(jalibdir)/jbuffer.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT jbuffer.obj -MD -MP -MF $(DEPDIR)/jbuffer.Tpo -c -o jbuffer.obj `if test -f '$(jalibdir)/jbuffer.cpp'; then $(CYGPATH_W) '$(jalibdir)/jbuffer.cpp'; else $(CYGPATH_W) '$(srcdir)/$(jalibdir)/jbuffer.cpp'; fi`
 @am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/jbuffer.Tpo $(DEPDIR)/jbuffer.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='../jalib/jbuffer.cpp' object='jbuffer.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='$(jalibdir)/jbuffer.cpp' object='jbuffer.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o jbuffer.obj `if test -f '../jalib/jbuffer.cpp'; then $(CYGPATH_W) '../jalib/jbuffer.cpp'; else $(CYGPATH_W) '$(srcdir)/../jalib/jbuffer.cpp'; fi`
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o jbuffer.obj `if test -f '$(jalibdir)/jbuffer.cpp'; then $(CYGPATH_W) '$(jalibdir)/jbuffer.cpp'; else $(CYGPATH_W) '$(srcdir)/$(jalibdir)/jbuffer.cpp'; fi`
 
-jfilesystem.o: ../jalib/jfilesystem.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT jfilesystem.o -MD -MP -MF $(DEPDIR)/jfilesystem.Tpo -c -o jfilesystem.o `test -f '../jalib/jfilesystem.cpp' || echo '$(srcdir)/'`../jalib/jfilesystem.cpp
+jfilesystem.o: $(jalibdir)/jfilesystem.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT jfilesystem.o -MD -MP -MF $(DEPDIR)/jfilesystem.Tpo -c -o jfilesystem.o `test -f '$(jalibdir)/jfilesystem.cpp' || echo '$(srcdir)/'`$(jalibdir)/jfilesystem.cpp
 @am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/jfilesystem.Tpo $(DEPDIR)/jfilesystem.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='../jalib/jfilesystem.cpp' object='jfilesystem.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='$(jalibdir)/jfilesystem.cpp' object='jfilesystem.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o jfilesystem.o `test -f '../jalib/jfilesystem.cpp' || echo '$(srcdir)/'`../jalib/jfilesystem.cpp
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o jfilesystem.o `test -f '$(jalibdir)/jfilesystem.cpp' || echo '$(srcdir)/'`$(jalibdir)/jfilesystem.cpp
 
-jfilesystem.obj: ../jalib/jfilesystem.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT jfilesystem.obj -MD -MP -MF $(DEPDIR)/jfilesystem.Tpo -c -o jfilesystem.obj `if test -f '../jalib/jfilesystem.cpp'; then $(CYGPATH_W) '../jalib/jfilesystem.cpp'; else $(CYGPATH_W) '$(srcdir)/../jalib/jfilesystem.cpp'; fi`
+jfilesystem.obj: $(jalibdir)/jfilesystem.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT jfilesystem.obj -MD -MP -MF $(DEPDIR)/jfilesystem.Tpo -c -o jfilesystem.obj `if test -f '$(jalibdir)/jfilesystem.cpp'; then $(CYGPATH_W) '$(jalibdir)/jfilesystem.cpp'; else $(CYGPATH_W) '$(srcdir)/$(jalibdir)/jfilesystem.cpp'; fi`
 @am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/jfilesystem.Tpo $(DEPDIR)/jfilesystem.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='../jalib/jfilesystem.cpp' object='jfilesystem.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='$(jalibdir)/jfilesystem.cpp' object='jfilesystem.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o jfilesystem.obj `if test -f '../jalib/jfilesystem.cpp'; then $(CYGPATH_W) '../jalib/jfilesystem.cpp'; else $(CYGPATH_W) '$(srcdir)/../jalib/jfilesystem.cpp'; fi`
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o jfilesystem.obj `if test -f '$(jalibdir)/jfilesystem.cpp'; then $(CYGPATH_W) '$(jalibdir)/jfilesystem.cpp'; else $(CYGPATH_W) '$(srcdir)/$(jalibdir)/jfilesystem.cpp'; fi`
 
-jserialize.o: ../jalib/jserialize.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT jserialize.o -MD -MP -MF $(DEPDIR)/jserialize.Tpo -c -o jserialize.o `test -f '../jalib/jserialize.cpp' || echo '$(srcdir)/'`../jalib/jserialize.cpp
+jserialize.o: $(jalibdir)/jserialize.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT jserialize.o -MD -MP -MF $(DEPDIR)/jserialize.Tpo -c -o jserialize.o `test -f '$(jalibdir)/jserialize.cpp' || echo '$(srcdir)/'`$(jalibdir)/jserialize.cpp
 @am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/jserialize.Tpo $(DEPDIR)/jserialize.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='../jalib/jserialize.cpp' object='jserialize.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='$(jalibdir)/jserialize.cpp' object='jserialize.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o jserialize.o `test -f '../jalib/jserialize.cpp' || echo '$(srcdir)/'`../jalib/jserialize.cpp
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o jserialize.o `test -f '$(jalibdir)/jserialize.cpp' || echo '$(srcdir)/'`$(jalibdir)/jserialize.cpp
 
-jserialize.obj: ../jalib/jserialize.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT jserialize.obj -MD -MP -MF $(DEPDIR)/jserialize.Tpo -c -o jserialize.obj `if test -f '../jalib/jserialize.cpp'; then $(CYGPATH_W) '../jalib/jserialize.cpp'; else $(CYGPATH_W) '$(srcdir)/../jalib/jserialize.cpp'; fi`
+jserialize.obj: $(jalibdir)/jserialize.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT jserialize.obj -MD -MP -MF $(DEPDIR)/jserialize.Tpo -c -o jserialize.obj `if test -f '$(jalibdir)/jserialize.cpp'; then $(CYGPATH_W) '$(jalibdir)/jserialize.cpp'; else $(CYGPATH_W) '$(srcdir)/$(jalibdir)/jserialize.cpp'; fi`
 @am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/jserialize.Tpo $(DEPDIR)/jserialize.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='../jalib/jserialize.cpp' object='jserialize.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='$(jalibdir)/jserialize.cpp' object='jserialize.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o jserialize.obj `if test -f '../jalib/jserialize.cpp'; then $(CYGPATH_W) '../jalib/jserialize.cpp'; else $(CYGPATH_W) '$(srcdir)/../jalib/jserialize.cpp'; fi`
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o jserialize.obj `if test -f '$(jalibdir)/jserialize.cpp'; then $(CYGPATH_W) '$(jalibdir)/jserialize.cpp'; else $(CYGPATH_W) '$(srcdir)/$(jalibdir)/jserialize.cpp'; fi`
 
-jsocket.o: ../jalib/jsocket.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT jsocket.o -MD -MP -MF $(DEPDIR)/jsocket.Tpo -c -o jsocket.o `test -f '../jalib/jsocket.cpp' || echo '$(srcdir)/'`../jalib/jsocket.cpp
+jsocket.o: $(jalibdir)/jsocket.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT jsocket.o -MD -MP -MF $(DEPDIR)/jsocket.Tpo -c -o jsocket.o `test -f '$(jalibdir)/jsocket.cpp' || echo '$(srcdir)/'`$(jalibdir)/jsocket.cpp
 @am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/jsocket.Tpo $(DEPDIR)/jsocket.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='../jalib/jsocket.cpp' object='jsocket.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='$(jalibdir)/jsocket.cpp' object='jsocket.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o jsocket.o `test -f '../jalib/jsocket.cpp' || echo '$(srcdir)/'`../jalib/jsocket.cpp
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o jsocket.o `test -f '$(jalibdir)/jsocket.cpp' || echo '$(srcdir)/'`$(jalibdir)/jsocket.cpp
 
-jsocket.obj: ../jalib/jsocket.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT jsocket.obj -MD -MP -MF $(DEPDIR)/jsocket.Tpo -c -o jsocket.obj `if test -f '../jalib/jsocket.cpp'; then $(CYGPATH_W) '../jalib/jsocket.cpp'; else $(CYGPATH_W) '$(srcdir)/../jalib/jsocket.cpp'; fi`
+jsocket.obj: $(jalibdir)/jsocket.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT jsocket.obj -MD -MP -MF $(DEPDIR)/jsocket.Tpo -c -o jsocket.obj `if test -f '$(jalibdir)/jsocket.cpp'; then $(CYGPATH_W) '$(jalibdir)/jsocket.cpp'; else $(CYGPATH_W) '$(srcdir)/$(jalibdir)/jsocket.cpp'; fi`
 @am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/jsocket.Tpo $(DEPDIR)/jsocket.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='../jalib/jsocket.cpp' object='jsocket.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='$(jalibdir)/jsocket.cpp' object='jsocket.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o jsocket.obj `if test -f '../jalib/jsocket.cpp'; then $(CYGPATH_W) '../jalib/jsocket.cpp'; else $(CYGPATH_W) '$(srcdir)/../jalib/jsocket.cpp'; fi`
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o jsocket.obj `if test -f '$(jalibdir)/jsocket.cpp'; then $(CYGPATH_W) '$(jalibdir)/jsocket.cpp'; else $(CYGPATH_W) '$(srcdir)/$(jalibdir)/jsocket.cpp'; fi`
 
-jtimer.o: ../jalib/jtimer.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT jtimer.o -MD -MP -MF $(DEPDIR)/jtimer.Tpo -c -o jtimer.o `test -f '../jalib/jtimer.cpp' || echo '$(srcdir)/'`../jalib/jtimer.cpp
+jtimer.o: $(jalibdir)/jtimer.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT jtimer.o -MD -MP -MF $(DEPDIR)/jtimer.Tpo -c -o jtimer.o `test -f '$(jalibdir)/jtimer.cpp' || echo '$(srcdir)/'`$(jalibdir)/jtimer.cpp
 @am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/jtimer.Tpo $(DEPDIR)/jtimer.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='../jalib/jtimer.cpp' object='jtimer.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='$(jalibdir)/jtimer.cpp' object='jtimer.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o jtimer.o `test -f '../jalib/jtimer.cpp' || echo '$(srcdir)/'`../jalib/jtimer.cpp
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o jtimer.o `test -f '$(jalibdir)/jtimer.cpp' || echo '$(srcdir)/'`$(jalibdir)/jtimer.cpp
 
-jtimer.obj: ../jalib/jtimer.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT jtimer.obj -MD -MP -MF $(DEPDIR)/jtimer.Tpo -c -o jtimer.obj `if test -f '../jalib/jtimer.cpp'; then $(CYGPATH_W) '../jalib/jtimer.cpp'; else $(CYGPATH_W) '$(srcdir)/../jalib/jtimer.cpp'; fi`
+jtimer.obj: $(jalibdir)/jtimer.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT jtimer.obj -MD -MP -MF $(DEPDIR)/jtimer.Tpo -c -o jtimer.obj `if test -f '$(jalibdir)/jtimer.cpp'; then $(CYGPATH_W) '$(jalibdir)/jtimer.cpp'; else $(CYGPATH_W) '$(srcdir)/$(jalibdir)/jtimer.cpp'; fi`
 @am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/jtimer.Tpo $(DEPDIR)/jtimer.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='../jalib/jtimer.cpp' object='jtimer.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='$(jalibdir)/jtimer.cpp' object='jtimer.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o jtimer.obj `if test -f '../jalib/jtimer.cpp'; then $(CYGPATH_W) '../jalib/jtimer.cpp'; else $(CYGPATH_W) '$(srcdir)/../jalib/jtimer.cpp'; fi`
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o jtimer.obj `if test -f '$(jalibdir)/jtimer.cpp'; then $(CYGPATH_W) '$(jalibdir)/jtimer.cpp'; else $(CYGPATH_W) '$(srcdir)/$(jalibdir)/jtimer.cpp'; fi`
 
-jalloc.o: ../jalib/jalloc.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT jalloc.o -MD -MP -MF $(DEPDIR)/jalloc.Tpo -c -o jalloc.o `test -f '../jalib/jalloc.cpp' || echo '$(srcdir)/'`../jalib/jalloc.cpp
+jalloc.o: $(jalibdir)/jalloc.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT jalloc.o -MD -MP -MF $(DEPDIR)/jalloc.Tpo -c -o jalloc.o `test -f '$(jalibdir)/jalloc.cpp' || echo '$(srcdir)/'`$(jalibdir)/jalloc.cpp
 @am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/jalloc.Tpo $(DEPDIR)/jalloc.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='../jalib/jalloc.cpp' object='jalloc.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='$(jalibdir)/jalloc.cpp' object='jalloc.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o jalloc.o `test -f '../jalib/jalloc.cpp' || echo '$(srcdir)/'`../jalib/jalloc.cpp
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o jalloc.o `test -f '$(jalibdir)/jalloc.cpp' || echo '$(srcdir)/'`$(jalibdir)/jalloc.cpp
 
-jalloc.obj: ../jalib/jalloc.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT jalloc.obj -MD -MP -MF $(DEPDIR)/jalloc.Tpo -c -o jalloc.obj `if test -f '../jalib/jalloc.cpp'; then $(CYGPATH_W) '../jalib/jalloc.cpp'; else $(CYGPATH_W) '$(srcdir)/../jalib/jalloc.cpp'; fi`
+jalloc.obj: $(jalibdir)/jalloc.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT jalloc.obj -MD -MP -MF $(DEPDIR)/jalloc.Tpo -c -o jalloc.obj `if test -f '$(jalibdir)/jalloc.cpp'; then $(CYGPATH_W) '$(jalibdir)/jalloc.cpp'; else $(CYGPATH_W) '$(srcdir)/$(jalibdir)/jalloc.cpp'; fi`
 @am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/jalloc.Tpo $(DEPDIR)/jalloc.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='../jalib/jalloc.cpp' object='jalloc.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='$(jalibdir)/jalloc.cpp' object='jalloc.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o jalloc.obj `if test -f '../jalib/jalloc.cpp'; then $(CYGPATH_W) '../jalib/jalloc.cpp'; else $(CYGPATH_W) '$(srcdir)/../jalib/jalloc.cpp'; fi`
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o jalloc.obj `if test -f '$(jalibdir)/jalloc.cpp'; then $(CYGPATH_W) '$(jalibdir)/jalloc.cpp'; else $(CYGPATH_W) '$(srcdir)/$(jalibdir)/jalloc.cpp'; fi`
 install-includeHEADERS: $(include_HEADERS)
 	@$(NORMAL_INSTALL)
 	@list='$(include_HEADERS)'; test -n "$(includedir)" || list=; \
