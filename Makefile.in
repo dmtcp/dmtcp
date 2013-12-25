@@ -33,7 +33,14 @@ VPATH = @srcdir@
 targetdir = $(top_builddir)
 
 ifeq ($(M32),1)
-  targetdir = $(top_builddir)/lib/$(PACKAGE)/32/
+  targetdir = $(top_builddir)/lib/$(PACKAGE)/32
+  INSTALL_FLAGS = libdir=$(libdir)/$(PACKAGE)/32/lib \
+		  bindir=$(libdir)/$(PACKAGE)/32/bin install-libs
+  UNINSTALL_FLAGS = libdir=$(libdir)/$(PACKAGE)/32/lib \
+		    bindir=$(libdir)/$(PACKAGE)/32/bin uninstall-libs
+else
+  INSTALL_FLAGS = install
+  UNINSTALL_FLAGS = uninstall
 endif
 
 MANPAGES=dmtcp_coordinator.1.gz dmtcp_command.1.gz dmtcp_inspector.1.gz \
@@ -100,7 +107,11 @@ mtcp: mkdirs check-m32-compat
 	cd mtcp && $(MAKE) $(MTCP_MAKE_FLAGS) build readmtcp
 
 dmtcp: check-m32-compat mtcp
+ifeq ($(M32),1)
+	cd dmtcp/src && $(MAKE) libs
+else
 	cd dmtcp/src && $(MAKE)
+endif
 	#cd $(targetdir)/bin && $(LN_S) dmtcp_launch dmtcp_checkpoint
 
 plugin: dmtcp check-m32-compat
@@ -225,25 +236,40 @@ include/% : dmtcp/src/%
 
 include: include/mtcp.h include/dmtcpaware.h
 
-install: all
-	cd dmtcp/src && make DESTDIR=$(DESTDIR) install
-	cd plugin && make DESTDIR=$(DESTDIR) install
-	cd contrib && make DESTDIR=$(DESTDIR) install
-	cd mtcp && make DESTDIR=$(DESTDIR)  install
+create-dirs:
+	test -e $(DESTDIR)$(bindir) || $(MKDIR_P) $(DESTDIR)$(bindir)
+	test -e $(DESTDIR)$(libdir) || $(MKDIR_P) $(DESTDIR)$(libdir)
+	test -e $(DESTDIR)$(includedir) || $(MKDIR_P) $(DESTDIR)$(includedir)
+ifeq ($(M32),1)
+	test -e $(DESTDIR)$(libdir)/$(PACKAGE)/32/bin || \
+	  $(MKDIR_P) $(DESTDIR)$(libdir)/$(PACKAGE)/32/bin
+	test -e $(DESTDIR)$(libdir)/$(PACKAGE)/32/lib/$(PACKAGE) || \
+	  $(MKDIR_P) $(DESTDIR)$(libdir)/$(PACKAGE)/32/lib/$(PACKAGE)
+endif
+
+install: all create-dirs
+	cd dmtcp/src && make DESTDIR=$(DESTDIR) $(INSTALL_FLAGS)
+	cd plugin && make DESTDIR=$(DESTDIR) $(INSTALL_FLAGS)
+	cd contrib && make DESTDIR=$(DESTDIR) $(INSTALL_FLAGS)
+	cd mtcp && make DESTDIR=$(DESTDIR)  $(INSTALL_FLAGS)
+ifeq ($(M32),0)
 	test -e $(DESTDIR)$(docdir)/examples || $(MKDIR_P) $(DESTDIR)$(docdir)/examples
 	install -D $(top_srcdir)/test/dmtcpaware*.c $(DESTDIR)$(docdir)/examples
 	test -e $(DESTDIR)$(mandir)/man1 || $(MKDIR_P) $(DESTDIR)$(mandir)/man1
 	install -D $(top_srcdir)/manpages/dmtcp.1 $(DESTDIR)$(mandir)/man1
 	(cd $(DESTDIR)$(mandir)/man1; \
 	  for file in ${MANPAGES}; do $(LN_S) dmtcp.1 $$file; done)
+endif
 
 uninstall:
-	cd dmtcp/src && make DESTDIR=$(DESTDIR) uninstall
-	cd plugin && make DESTDIR=$(DESTDIR) uninstall
-	cd contrib && make DESTDIR=$(DESTDIR) uninstall
-	cd mtcp && make DESTDIR=$(DESTDIR) uninstall
+	cd dmtcp/src && make DESTDIR=$(DESTDIR) $(UNINSTALL_FLAGS)
+	cd plugin && make DESTDIR=$(DESTDIR) $(UNINSTALL_FLAGS)
+	cd contrib && make DESTDIR=$(DESTDIR) $(UNINSTALL_FLAGS)
+	cd mtcp && make DESTDIR=$(DESTDIR) $(UNINSTALL_FLAGS)
+ifeq ($(M32),0)
 	rm -Rf "$(DESTDIR)$(docdir)"
 	cd $(DESTDIR)$(mandir)/man1 && rm -f dmtcp.1 ${MANPAGES}
+endif
 
 .PHONY: default all check-m32-compat tests \
 	display-build-env display-release display-config build \
