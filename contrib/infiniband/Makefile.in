@@ -24,14 +24,16 @@ includedir = @includedir@
 infodir = @infodir@
 libdir = @libdir@
 pkglibdir = $(libdir)/@PACKAGE@
+top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 srcdir = @srcdir@
+VPATH = @srcdir@
 
-DMTCP_BIN = ${top_srcdir}/bin
+DMTCP_BIN = ${top_builddir}/bin
 DMTCP_INCLUDE_PATH = $(top_srcdir)/dmtcp/include
 JALIB_PATH = $(top_srcdir)/dmtcp/jalib
 
-INCLUDES = -I$(JALIB_PATH) -I$(DMTCP_INCLUDE_PATH)
+INCLUDES = -I$(JALIB_PATH) -I$(DMTCP_INCLUDE_PATH) -I$(top_builddir)/dmtcp/include
 CFLAGS += -DHAVE_CONFIG_H -fPIC -g --std=gnu99
 CXXFLAGS += -DHAVE_CONFIG_H -fPIC -g
 LIB_LDFLAGS = -shared -Wl,--unresolved-symbols=ignore-all

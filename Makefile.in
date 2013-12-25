@@ -26,6 +26,10 @@ docdir=@docdir@
 includedir=@includedir@
 mandir=@mandir@
 infodir=@mandir@
+top_srcdir = @top_srcdir@
+srcdir = @srcdir@
+VPATH = @srcdir@
+
 MANPAGES=dmtcp_coordinator.1.gz dmtcp_command.1.gz dmtcp_inspector.1.gz \
 	 dmtcp_launch.1.gz dmtcp_checkpoint.1.gz dmtcp_nocheckpoint.1.gz \
 	 dmtcp_restart.1.gz mtcp.1.gz mtcp_restart.1.gz
@@ -284,9 +288,9 @@ install: all
 	  includedir=$(includedir) install
 	echo "${docdir}" | grep -q /dmtcp || false
 	$(MKDIR_P) $(DESTDIR)$(docdir)/examples
-	cp test/dmtcpaware*.c $(DESTDIR)$(docdir)/examples
+	cp $(top_srcdir)/test/dmtcpaware*.c $(DESTDIR)$(docdir)/examples
 	$(MKDIR_P) $(DESTDIR)$(mandir)/man1
-	cp manpages/dmtcp.1 $(DESTDIR)$(mandir)/man1
+	cp $(top_srcdir)/manpages/dmtcp.1 $(DESTDIR)$(mandir)/man1
 	cd $(DESTDIR)$(mandir)/man1; \
 	  for file in ${MANPAGES}; do $(LN_S) dmtcp.1 $$file; done
 

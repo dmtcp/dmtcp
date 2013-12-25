@@ -24,13 +24,15 @@ includedir = @includedir@
 infodir = @infodir@
 libdir = @libdir@
 pkglibdir = $(libdir)/@PACKAGE@
+top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 srcdir = @srcdir@
+VPATH = @srcdir@
 
 DMTCP_INCLUDE_PATH = $(top_srcdir)/dmtcp/include
 JALIB_PATH = $(top_srcdir)/dmtcp/jalib
 
-INCLUDES = -I$(JALIB_PATH) -I$(DMTCP_INCLUDE_PATH)
+INCLUDES = -I$(JALIB_PATH) -I$(DMTCP_INCLUDE_PATH) -I$(top_builddir)/dmtcp/include
 CFLAGS += -DHAVE_CONFIG_H -fPIC -g
 CXXFLAGS += -DHAVE_CONFIG_H -fPIC -g
 ifeq ($(M32),1)
@@ -47,7 +49,7 @@ CXXLINK = $(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@
 HEADERS = $(DMTCP_INCLUDE_PATH)/util.h $(DMTCP_INCLUDE_PATH)/dmtcpplugin.h \
 	  $(DMTCP_INCLUDE_PATH)/virtualidtable.h $(DMTCP_INCLUDE_PATH)/protectedfds.h \
 	  $(DMTCP_INCLUDE_PATH)/shareddata.h $(DMTCP_INCLUDE_PATH)/dmtcpalloc.h \
-	  $(DMTCP_INCLUDE_PATH)/config.h \
+	  $(top_builddir)/dmtcp/include/config.h \
 	  pid.h pidwrappers.h virtualpidtable.h \
 	  $(JALIB_PATH)/jassert.h $(JALIB_PATH)/jalloc.h \
 	  $(JALIB_PATH)/jalib.h $(JALIB_PATH)/jbuffer.h \

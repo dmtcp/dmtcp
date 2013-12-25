@@ -24,13 +24,15 @@ includedir = @includedir@
 infodir = @infodir@
 libdir = @libdir@
 pkglibdir = $(libdir)/@PACKAGE@
+top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 srcdir = @srcdir@
+VPATH = @srcdir@
 
 DMTCP_INCLUDE_PATH = $(top_srcdir)/dmtcp/include
 JALIB_PATH = $(top_srcdir)/dmtcp/jalib
 
-INCLUDES = -I$(JALIB_PATH) -I$(DMTCP_INCLUDE_PATH)
+INCLUDES = -I$(JALIB_PATH) -I$(DMTCP_INCLUDE_PATH) -I$(top_builddir)/dmtcp/include
 CFLAGS += -DHAVE_CONFIG_H -fPIC -g
 CXXFLAGS += -DHAVE_CONFIG_H -fPIC -g
 ifeq ($(M32),1)
@@ -52,8 +54,11 @@ HEADERS = $(DMTCP_INCLUDE_PATH)/util.h $(DMTCP_INCLUDE_PATH)/dmtcpplugin.h \
 OBJS = resource_manager.o torque.o slurm.o
 SOURCES = resource_manager.cpp torque.cpp slurm.cpp
 
-DISCOVER_SOURCES = discover_dmtcpinput.cpp discover_resources.cpp discover_slurm.cpp discover_torque.cpp dmtcp_discover_rm.cpp
-DISCOVER_HEADERS = discover_dmtcpinput.h discover_resources.h discover_slurm.h discover_torque.h
+DISCOVER_OBJS = discover_dmtcpinput.o discover_resources.o discover_slurm.o \
+		discover_torque.o
+DISCOVER_HEADERS = discover_dmtcpinput.h discover_resources.h discover_slurm.h \
+		   discover_torque.h
+
 
 LIB_LDFLAGS = -shared -Wl,--unresolved-symbols=ignore-all
 
@@ -85,7 +90,7 @@ install: all
 	test -e $(DESTDIR)$(libdir) || $(MKDIR_P) $(DESTDIR)$(libdir)
 	cp ${LIBNAME} $(DESTDIR)$(pkglibdir)
 	cp dmtcp_discover_rm $(DESTDIR)$(bindir)
-	cp dmtcp_rm_loclaunch.sh $(DESTDIR)$(bindir)/dmtcp_rm_loclaunch
+	cp $(srcdir)/dmtcp_rm_loclaunch.sh $(DESTDIR)$(bindir)/dmtcp_rm_loclaunch
 
 uninstall:
 	echo " ( cd '$(DESTDIR)$(pkglibdir)' && rm -f $$files ) "; \
@@ -98,13 +103,19 @@ ${LIBNAME}: $(OBJS) ${HEADERS}
 	@rm -f ${LIBNAME}
 	$(CXXLINK) $(OBJS) $(LIB_LDFLAGS) $(LDADD)
 
-dmtcp_discover_rm: $(DISCOVER_SOURCES) $(DISCOVER_HEADERS)
-	$(CXXLINK) -o dmtcp_discover_rm $(DISCOVER_SOURCES)
+dmtcp_discover_rm: dmtcp_discover_rm.cpp $(DISCOVER_OBJS) $(DISCOVER_HEADERS)
+	$(CXXLINK) -o dmtcp_discover_rm $(DISCOVER_OBJS) $<
 
 %.o: %.c ${HEADERS}
 	$(COMPILE)  $<
 
 %.o: %.cpp ${HEADERS}
+	$(CXXCOMPILE)  $<
+
+discover_%.o: discover_%.c ${DISCOVER_HEADERS}
+	$(COMPILE)  $<
+
+discover_%.o: discover_%.cpp ${DISCOVER_HEADERS}
 	$(CXXCOMPILE)  $<
 
 .PHONY: default all build tidy clean distclean install uninstall

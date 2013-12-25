@@ -13,18 +13,19 @@
 AUTOMAKE_OPTIONS = foreign
 
 jalibdir=$(srcdir)/../jalib/
+dmtcpincludedir=$(srcdir)/../include
 dmtcplibdir = $(pkglibdir)
 
 #HEADERS
 #set the include path found by configure
-AM_CPPFLAGS= $(all_includes) -I$(jalibdir)
+AM_CPPFLAGS= $(all_includes) -I$(dmtcpincludedir) -I$(jalibdir)
 
 # targets:
 noinst_LIBRARIES = libdmtcpinternal.a libsyscallsreal.a libnohijack.a libjalib.a
 bin_PROGRAMS = dmtcp_launch dmtcp_command dmtcp_coordinator \
 	       dmtcp_restart dmtcp_nocheckpoint
 dmtcplib_PROGRAMS = libdmtcp.so libdmtcpaware.so.1.0.0
-include_HEADERS = dmtcpaware.h ../include/dmtcpplugin.h
+include_HEADERS = dmtcpaware.h $(srcdir)/../include/dmtcpplugin.h
 lib_LIBRARIES = libdmtcpaware.a
 
 # headers:
@@ -32,6 +33,10 @@ nobase_noinst_HEADERS = constants.h \
 	$(jalibdir)/jassert.h $(jalibdir)/jalloc.h $(jalibdir)/jalib.h \
 	$(jalibdir)/jbuffer.h $(jalibdir)/jconvert.h $(jalibdir)/jfilesystem.h \
 	$(jalibdir)/jserialize.h $(jalibdir)/jsocket.h $(jalibdir)/jtimer.h \
+	$(dmtcpincludedir)/dmtcpalloc.h $(dmtcpincludedir)/dmtcpplugin.h \
+	$(dmtcpincludedir)/protectedfds.h $(dmtcpincludedir)/shareddata.h \
+	$(dmtcpincludedir)/trampolines.h $(dmtcpincludedir)/util.h \
+	$(dmtcpincludedir)/virtualidtable.h \
 	dmtcp_coordinator.h dmtcpmessagetypes.h lookup_service.h \
 	dmtcpworker.h threadsync.h coordinatorapi.h \
 	mtcpinterface.h syscallwrappers.h syslogwrappers.h \
