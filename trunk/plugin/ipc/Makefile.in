@@ -113,17 +113,17 @@ clean: tidy
 distclean: clean
 	rm -f Makefile
 
-install: all
+install-libs: all
 	install -D ${LIBNAME} $(DESTDIR)$(pkglibdir)
-ifeq ($(M32),0)
-	install -D $(targetdir)/bin/dmtcp_ssh* $(DESTDIR)$(bindir)
-endif
 
-uninstall:
+uninstall-libs:
 	rm -f $(DESTDIR)$(pkglibdir)/$(LIBNAME)
-ifeq ($(M32),0)
+
+install: install-libs
+	install -D $(targetdir)/bin/dmtcp_ssh* $(DESTDIR)$(bindir)
+
+uninstall: uninstall-libs
 	rm -f $(DESTDIR)$(bindir)/dmtcp_ssh*
-endif
 
 $(targetdir)/bin/%: ssh/%.cpp ${COMMON_HEADERS} util_ssh.o
 	$(CXXLINK) $(INCLUDES) $(CPPFLAGS) util_ssh.o util_ipc.o $<
