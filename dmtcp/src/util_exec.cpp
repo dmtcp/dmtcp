@@ -398,11 +398,15 @@ void dmtcp::Util::prepareDlsymWrapper()
   dlclose(handle);
 }
 
-void dmtcp::Util::runMtcpRestore(const char* path, int fd,
+void dmtcp::Util::runMtcpRestore(int is32bitElf, const char* path, int fd,
                                  size_t argvSize, size_t envSize)
 {
   static dmtcp::string mtcprestart =
     jalib::Filesystem::FindHelperUtility ("mtcp_restart");
+
+  if (is32bitElf) {
+  mtcprestart = jalib::Filesystem::FindHelperUtility ("mtcp_restart-32");
+  }
 
   // Tell mtcp_restart process to write its debugging information to
   // PROTECTED_STDERR_FD. This way we prevent it from spitting out garbage onto

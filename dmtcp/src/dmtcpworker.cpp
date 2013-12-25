@@ -63,21 +63,15 @@ void restoreUserLDPRELOAD()
   //   DmtcpWorker() due to LD_PRELOAD, unset LD_PRELOAD, and edit this into
   //   exec("dmtcp_launch --ssh-slave ... ssh ..."), and re-execute.
   //   This way, we will unset LD_PRELOAD here and now, instead of at that time.
-  char *preload =  getenv("LD_PRELOAD");
-  char *hijackLibs = getenv(ENV_VAR_HIJACK_LIBS);
-  if (preload == NULL
-      || dmtcp::Util::strStartsWith(preload, hijackLibs) == false) {
-    return;
-  }
-  if (strcmp(preload, hijackLibs) == 0) {
+  char *preload = getenv("LD_PRELOAD");
+  char *userPreload =  getenv(ENV_VAR_ORIG_LD_PRELOAD);
+  if (userPreload == NULL) {
     _dmtcp_unsetenv("LD_PRELOAD");
   } else {
-    JASSERT(dmtcp::Util::strStartsWith(preload, hijackLibs))
-      (preload) (hijackLibs);
-    char *userPreload = preload + strlen(hijackLibs) + 1;
     setenv("LD_PRELOAD", userPreload, 1);
   }
-  JTRACE("LD_PRELOAD") (preload) (hijackLibs) (getenv("LD_PRELOAD"));
+  JTRACE("LD_PRELOAD") (preload) (userPreload) (getenv(ENV_VAR_HIJACK_LIBS))
+    (getenv(ENV_VAR_HIJACK_LIBS_M32)) (getenv("LD_PRELOAD"));
 }
 
 // FIXME:  We need a better way to get MTCP_DEFAULT_SIGNAL

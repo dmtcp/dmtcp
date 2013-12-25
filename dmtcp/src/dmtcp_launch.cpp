@@ -39,7 +39,7 @@ static int testJava(char **argv);
 static bool testSetuid(const char *filename);
 static void testStaticallyLinked(const char *filename);
 static bool testScreen(char **argv, char ***newArgv);
-static void setLDPreloadLibs();
+static void setLDPreloadLibs(bool is32bitElf);
 
 // gcc-4.3.4 -Wformat=2 issues false positives for warnings unless the format
 // string has at least one format specifier with corresponding format argument.
@@ -386,14 +386,6 @@ int main ( int argc, char** argv )
       << argv[0] << "\n";
     exit(DMTCP_FAIL_RC);
   } else {
-#if defined(__x86_64__) && !defined(CONFIG_M32)
-    if (is32bitElf)
-      JASSERT_STDERR << "*** ERROR:  You appear to be checkpointing "
-        << "a 32-bit target under 64-bit Linux.\n"
-        << "***  If this fails, then please try re-configuring DMTCP:\n"
-        << "***  configure --enable-m32 ; make clean ; make\n\n";
-#endif
-
     testStaticallyLinked(argv[0]);
   }
 
@@ -424,8 +416,7 @@ int main ( int argc, char** argv )
   }
 #endif
 
-  setLDPreloadLibs();
-
+  setLDPreloadLibs(is32bitElf);
 
   //run the user program
   char **newArgv = NULL;
@@ -557,7 +548,7 @@ static bool testScreen(char **argv, char ***newArgv)
   return false;
 }
 
-static void setLDPreloadLibs()
+static void setLDPreloadLibs(bool is32bitElf)
 {
   // preloadLibs are to set LD_PRELOAD:
   //   LD_PRELOAD=PLUGIN_LIBS:UTILITY_DIR/libdmtcp.so:R_LIBSR_UTILITY_DIR/
@@ -569,6 +560,8 @@ static void setLDPreloadLibs()
     preloadLibs += getenv(ENV_VAR_PLUGIN);
     preloadLibs += ":";
   }
+  dmtcp::string preloadLibs32 = preloadLibs;
+
   // FindHelperUtiltiy requires ENV_VAR_UTILITY_DIR to be set
   dmtcp::string searchDir = jalib::Filesystem::GetProgramDir();
   setenv ( ENV_VAR_UTILITY_DIR, searchDir.c_str(), 0 );
@@ -583,16 +576,32 @@ static void setLDPreloadLibs()
   if (enablePtrace) {
     preloadLibs += jalib::Filesystem::FindHelperUtility("libdmtcp_ptrace.so");
     preloadLibs += ":";
+
+#if defined(__x86_64__)
+    preloadLibs32 += jalib::Filesystem::FindHelperUtility("libdmtcp_ptrace.so",
+                                                          true);
+    preloadLibs32 += ":";
+#endif
   }
 
   if (enableIB2Tcp) {
     preloadLibs += jalib::Filesystem::FindHelperUtility("libdmtcp_ib2tcp.so");
     preloadLibs += ":";
+#if defined(__x86_64__)
+    preloadLibs32 += jalib::Filesystem::FindHelperUtility("libdmtcp_ib2tcp.so",
+                                                          true);
+    preloadLibs32 += ":";
+#endif
     enableIB = true;
   }
 
   if (enableIB) {
     preloadLibs += jalib::Filesystem::FindHelperUtility("libdmtcp_infiniband.so");
+#if defined(__x86_64__)
+    preloadLibs32 += jalib::Filesystem::FindHelperUtility("libdmtcp_infiniband.so",
+                                                          true);
+    preloadLibs32 += ":";
+#endif
     preloadLibs += ":";
   }
 
@@ -611,21 +620,48 @@ static void setLDPreloadLibs()
   if (enableAllocPlugin) {
     preloadLibs += jalib::Filesystem::FindHelperUtility("libdmtcp_alloc.so");
     preloadLibs += ":";
+#if defined(__x86_64__)
+    preloadLibs32 += jalib::Filesystem::FindHelperUtility("libdmtcp_alloc.so",
+                                                          true);
+    preloadLibs32 += ":";
+#endif
   }
 
   if (enableRM) {
     preloadLibs += jalib::Filesystem::FindHelperUtility("libdmtcp_rm.so");
     preloadLibs += ":";
+#if defined(__x86_64__)
+    preloadLibs32 += jalib::Filesystem::FindHelperUtility("libdmtcp_rm.so",
+                                                          true);
+    preloadLibs32 += ":";
+#endif
   }
 
   preloadLibs += jalib::Filesystem::FindHelperUtility("libdmtcp_ipc.so");
   preloadLibs += ":";
+#if defined(__x86_64__)
+    preloadLibs32 += jalib::Filesystem::FindHelperUtility("libdmtcp_ipc.so",
+                                                          true);
+    preloadLibs32 += ":";
+#endif
 
   preloadLibs += jalib::Filesystem::FindHelperUtility("libdmtcp.so");
+  preloadLibs += ":";
+
+#if defined(__x86_64__)
+    preloadLibs32 += jalib::Filesystem::FindHelperUtility("libdmtcp.so",
+                                                          true);
+    preloadLibs32 += ":";
+#endif
 
 #ifdef PID_VIRTUALIZATION
-  preloadLibs += ":";
   preloadLibs += jalib::Filesystem::FindHelperUtility("libdmtcp_pid.so");
+  preloadLibs += ":";
+# if defined(__x86_64__)
+    preloadLibs32 += jalib::Filesystem::FindHelperUtility("libdmtcp_ptrace.so",
+                                                          true);
+    preloadLibs32 += ":";
+# endif
 #endif
 
 #if 0
@@ -642,12 +678,29 @@ static void setLDPreloadLibs()
 #endif
 
   setenv(ENV_VAR_HIJACK_LIBS, preloadLibs.c_str(), 1);
+#if defined(__x86_64__)
+  setenv(ENV_VAR_HIJACK_LIBS_M32, preloadLibs32.c_str(), 1);
+#endif
 
   // If dmtcp_launch was called with user LD_PRELOAD, and if
   //   if dmtcp_launch survived the experience, then pass it back to user.
-  if (getenv("LD_PRELOAD"))
+  if (getenv("LD_PRELOAD")) {
+    setenv(ENV_VAR_ORIG_LD_PRELOAD, getenv("LD_PRELOAD"), 1);
     preloadLibs = preloadLibs + ":" + getenv("LD_PRELOAD");
+#if defined(__x86_64__)
+    preloadLibs32 = preloadLibs32 + ":" + getenv("LD_PRELOAD");
+#endif
+  }
 
-  setenv ( "LD_PRELOAD", preloadLibs.c_str(), 1 );
-  JTRACE("getting value of LD_PRELOAD")(getenv("LD_PRELOAD"));
+  setenv("LD_PRELOAD", preloadLibs.c_str(), 1);
+  if (is32bitElf) {
+    string libdmtcp = jalib::Filesystem::FindHelperUtility("libdmtcp.so", true);
+    JWARNING(libdmtcp != "libdmtcp.so")
+      .Text("You appear to be checkpointing a 32-bit target under 64-bit Linux.\n"
+            "DMTCP was unable to find the 32-bit installation.\n"
+            "Try configure --enable-m32 ; make clean ; make ; make install");
+    setenv("LD_PRELOAD", preloadLibs32.c_str(), 1);
+  }
+  JTRACE("getting value of LD_PRELOAD")
+    (getenv("LD_PRELOAD")) (preloadLibs) (preloadLibs32);
 }

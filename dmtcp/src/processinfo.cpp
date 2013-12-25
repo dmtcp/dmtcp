@@ -105,6 +105,11 @@ dmtcp::ProcessInfo::ProcessInfo()
   _uppid = UniquePid();
   JASSERT(getcwd(buf, sizeof buf) != NULL);
   _launchCWD = buf;
+#if defined(__x86_64__)
+  _elfType = Elf_64;
+#else
+  _elfType = Elf_32;
+#endif
   _do_unlock_tbl();
 }
 

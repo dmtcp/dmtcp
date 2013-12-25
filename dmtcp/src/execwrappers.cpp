@@ -350,12 +350,22 @@ static void dmtcpProcessFailedExec(const char *path, char *newArgv[])
   JASSERT(unlink(serialFile) == 0) (JASSERT_ERRNO);
 }
 
-static dmtcp::string getUpdatedLdPreload(const char* currLdPreload = NULL)
+static dmtcp::string getUpdatedLdPreload(const char* filename,
+                                         const char* currLdPreload = NULL)
 {
   dmtcp::string preload = getenv(ENV_VAR_HIJACK_LIBS);
+  bool isElf, is32bitElf;
+  if  (dmtcp::Util::elfType(filename, &isElf, &is32bitElf) != -1) {
+    if (isElf && is32bitElf && getenv(ENV_VAR_HIJACK_LIBS_M32) != NULL) {
+      preload = getenv(ENV_VAR_HIJACK_LIBS_M32);
+    }
+  }
+
   if (currLdPreload != NULL) {
+    setenv(ENV_VAR_ORIG_LD_PRELOAD, currLdPreload, 1);
     preload = preload + ":" + currLdPreload;
   } else if (getenv("LD_PRELOAD") != NULL) {
+    setenv(ENV_VAR_ORIG_LD_PRELOAD, getenv("LD_PRELOAD"), 1);
     preload = preload + ":" + getenv("LD_PRELOAD");
   }
   return preload;
@@ -402,8 +412,9 @@ static dmtcp::vector<dmtcp::string> copyUserEnv (char *const envp[])
   return strStorage;
 }
 
-static dmtcp::vector<const char*> patchUserEnv (dmtcp::vector<dmtcp::string>
-                                                  &envp)
+static
+dmtcp::vector<const char*> patchUserEnv (dmtcp::vector<dmtcp::string> &envp,
+                                         const char* filename)
 {
   dmtcp::vector<const char*> envVect;
   const char *userPreloadStr = NULL;
@@ -436,8 +447,12 @@ static dmtcp::vector<const char*> patchUserEnv (dmtcp::vector<dmtcp::string>
   out.str("DMTCP env vars:\n");
   for (size_t i=0; i<ourImportantEnvsCnt; ++i) {
     const char* v = getenv (ourImportantEnvs[i]);
-    if (v != NULL) {
-      envp.push_back (dmtcp::string (ourImportantEnvs[i]) + '=' + v);
+    dmtcp::string e = ourImportantEnvs[i];
+    if (strcmp(ourImportantEnvs[i], ENV_VAR_ORIG_LD_PRELOAD) == 0 &&
+        userPreloadStr != NULL && strlen(userPreloadStr) > 0) {
+      envp.push_back(e + "=" + userPreloadStr);
+    } else if (v != NULL) {
+      envp.push_back (e + '=' + v);
       const char *ptr = envp.back().c_str();
       JASSERT(ptr != NULL);
       envVect.push_back(ptr);
@@ -448,7 +463,7 @@ static dmtcp::vector<const char*> patchUserEnv (dmtcp::vector<dmtcp::string>
   }
 
   dmtcp::string ldPreloadStr = "LD_PRELOAD=";
-  ldPreloadStr += getUpdatedLdPreload(userPreloadStr);
+  ldPreloadStr += getUpdatedLdPreload(filename, userPreloadStr);
 
   envp.push_back(ldPreloadStr);
   envVect.push_back(envp.back().c_str());
@@ -464,6 +479,12 @@ static dmtcp::vector<const char*> patchUserEnv (dmtcp::vector<dmtcp::string>
   return envVect;
 }
 
+extern "C" int __execve (const char *filename, char *const argv[],
+                        char *const envp[])
+{
+  JASSERT(false);
+}
+
 extern "C" int execve (const char *filename, char *const argv[],
                         char *const envp[])
 {
@@ -472,7 +493,7 @@ extern "C" int execve (const char *filename, char *const argv[],
     JTRACE("execvp() wrapper (srun) - will call ecexvp directly") (filename);
   }
 
-  if (isPerformingCkptRestart() || isBlacklistedProgram(filename) || (strstr(filename,"srun") != NULL) ) { 
+  if (isPerformingCkptRestart() || isBlacklistedProgram(filename) || (strstr(filename,"srun") != NULL) ) {
     return _real_execve(filename, argv, envp);
   }
   JTRACE("execve() wrapper") (filename);
@@ -488,7 +509,7 @@ extern "C" int execve (const char *filename, char *const argv[],
   char **newArgv;
   dmtcpPrepareForExec(filename, argv, &newFilename, &newArgv);
 
-  dmtcp::vector<const char*> envVect = patchUserEnv(origUserEnv);
+  dmtcp::vector<const char*> envVect = patchUserEnv(origUserEnv, filename);
 
   int retVal = _real_execve (newFilename, newArgv, (char* const*)&envVect[0]);
 
@@ -511,7 +532,7 @@ extern "C" int execvp (const char *filename, char *const argv[])
     JTRACE("execvp() wrapper (srun) - will call ecexvp directly") (filename);
   }
 
-  if (isPerformingCkptRestart() || isBlacklistedProgram(filename) || (strstr(filename,"srun") != NULL) ) { 
+  if (isPerformingCkptRestart() || isBlacklistedProgram(filename) || (strstr(filename,"srun") != NULL) ) {
     return _real_execvp(filename, argv);
   }
   JTRACE("execvp() wrapper") (filename);
@@ -523,7 +544,7 @@ extern "C" int execvp (const char *filename, char *const argv[])
   char *newFilename;
   char **newArgv;
   dmtcpPrepareForExec(filename, argv, &newFilename, &newArgv);
-  setenv("LD_PRELOAD", getUpdatedLdPreload().c_str(), 1);
+  setenv("LD_PRELOAD", getUpdatedLdPreload(filename).c_str(), 1);
 
   int retVal = _real_execvp (newFilename, newArgv);
 
@@ -553,7 +574,7 @@ extern "C" int execvpe (const char *filename, char *const argv[],
   char **newArgv;
   dmtcpPrepareForExec(filename, argv, &newFilename, &newArgv);
 
-  dmtcp::vector<const char*> envVect = patchUserEnv(origUserEnv);
+  dmtcp::vector<const char*> envVect = patchUserEnv(origUserEnv, filename);
 
   int retVal = _real_execvpe(newFilename, newArgv, (char* const*)&envVect[0]);
 
