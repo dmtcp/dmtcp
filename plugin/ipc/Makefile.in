@@ -1,5 +1,4 @@
 PLUGIN=ipc
-LIBNAME=libdmtcp_${PLUGIN}.so
 CC = @CC@
 M32=@M32@
 CFLAGS = @CFLAGS@
@@ -28,6 +27,13 @@ top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 srcdir = @srcdir@
 VPATH = @srcdir@
+targetdir = $(top_builddir)
+
+ifeq ($(M32),1)
+  targetdir = $(top_builddir)/lib/$(PACKAGE)/32
+endif
+
+LIBNAME=$(targetdir)/lib/${PACKAGE}/libdmtcp_${PLUGIN}.so
 
 DMTCP_INCLUDE_PATH = $(top_srcdir)/dmtcp/include
 JALIB_PATH = $(top_srcdir)/dmtcp/jalib
@@ -88,7 +94,12 @@ all: default
 
 default: build
 
-build: ${LIBNAME} dmtcp_ssh dmtcp_sshd
+
+ifeq ($(M32),0)
+  DMTCP_SSH_BINS = $(targetdir)/bin/dmtcp_ssh $(targetdir)/bin/dmtcp_sshd
+endif
+
+build: ${LIBNAME} $(DMTCP_SSH_BINS)
 
 tidy:
 	rm -rf dmtcp-autotest-* ckpt_*_files
@@ -96,28 +107,25 @@ tidy:
 
 clean: tidy
 	-rm -f *.o
-	-rm -f *.so
-	-rm -f dmtcp_ssh*
+	-rm -f $(LIBNAME)
+	-rm -f $(targetdir)/bin/dmtcp_ssh*
 
 distclean: clean
 	rm -f Makefile
 
 install: all
-	if test -z "$(prefix)"; then \
-	  echo ERROR: prefix must be defined; \
-	  exit 1; \
-	fi
-	test -e $(DESTDIR)$(libdir) || $(MKDIR_P) $(DESTDIR)$(libdir)
-	cp ${LIBNAME} $(DESTDIR)$(pkglibdir)
-	cp dmtcp_ssh dmtcp_sshd $(DESTDIR)$(bindir)
+	install -D ${LIBNAME} $(DESTDIR)$(pkglibdir)
+ifeq ($(M32),0)
+	install -D $(targetdir)/bin/dmtcp_ssh* $(DESTDIR)$(bindir)
+endif
 
 uninstall:
-	echo " ( cd '$(DESTDIR)$(pkglibdir)' && rm -f $$files ) "; \
-	(cd "$(DESTDIR)$(pkglibdir)" && rm -f ${LIBNAME})
-	(cd "$(DESTDIR)$(bindir)" && rm -f dmtcp_ssh dmtcp_sshd)
+	rm -f $(DESTDIR)$(pkglibdir)/$(LIBNAME)
+ifeq ($(M32),0)
+	rm -f $(DESTDIR)$(bindir)/dmtcp_ssh*
+endif
 
-
-%: ssh/%.cpp ${COMMON_HEADERS} util_ssh.o
+$(targetdir)/bin/%: ssh/%.cpp ${COMMON_HEADERS} util_ssh.o
 	$(CXXLINK) $(INCLUDES) $(CPPFLAGS) util_ssh.o util_ipc.o $<
 
 ${LIBNAME}: $(OBJS)

@@ -45,9 +45,15 @@ docdir=@docdir@
 includedir=@includedir@
 mandir=@mandir@
 infodir=@mandir@
+top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 srcdir = @srcdir@
 VPATH = @srcdir@
+targetdir = $(top_builddir)
+
+ifeq ($(M32),1)
+  targetdir = $(top_builddir)/lib/$(PACKAGE)/32
+endif
 
 ##########################################################################
 ##									##
@@ -64,6 +70,12 @@ VPATH = @srcdir@
 MTCP_VERSION = 82
 LIBMTCP_SOVERSION_MAJOR=1
 LIBMTCP_SOVERSION_INFO=$(LIBMTCP_SOVERSION_MAJOR).0.0
+
+ifeq ($(M32),1)
+  MTCP_RESTART=mtcp_restart-32
+else
+  MTCP_RESTART=mtcp_restart
+endif
 
 # EXPERIMENTAL FEATURE:  checkpointing 32-bit images on 64-bit machines:
 # Invoke as "make M32=1" to create 32-bit image on 64-bit machine.
@@ -179,33 +191,19 @@ ifeq ($(shell ${CC} -v --help 2>&1 | grep stack-protector|head -1|wc -l), 1)
   FSTACK_PROTECTOR=-fstack-protector
 endif
 
-install-error-msg="\
-Error: PREFIX or bindir/libdir/includedir not defined \n\
- USAGE:\n\
-\tmake [DESTDIR=<destdir>] PREFIX=<path> install\n\
-\tmake [DESTDIR=<destdir>] bindir=<path1> libdir=<path2> includedir=<path3> install\n"
-
 all default: build tests readmtcp
 
 install: build
-	if test -z "$(prefix)"; then \
-	  echo ERROR: prefix must be defined; \
-	  exit 1; \
-	fi
-	test -e $(DESTDIR)$(bindir) || mkdir -p $(DESTDIR)$(bindir)
-	test -e $(DESTDIR)$(libdir) || mkdir -p $(DESTDIR)$(libdir)
-	test -e $(DESTDIR)$(includedir) || mkdir -p $(DESTDIR)$(includedir)
-	cp mtcp_restart $(DESTDIR)$(bindir)
-	cp $(srcdir)/mtcp.h $(DESTDIR)$(includedir)
-	cp libmtcp.so.$(LIBMTCP_SOVERSION_INFO) $(DESTDIR)$(libdir)
-	cd $(DESTDIR)$(libdir) && ln -sf libmtcp.so.$(LIBMTCP_SOVERSION_INFO) \
-	                                 libmtcp.so.$(LIBMTCP_SOVERSION_MAJOR)
-	cd $(DESTDIR)$(libdir) && ln -sf libmtcp.so.$(LIBMTCP_SOVERSION_MAJOR) \
-					 libmtcp.so
-	chmod -f 755 $(DESTDIR)$(libdir)/libmtcp.so*
+	install -D $(targetdir)/bin/$(MTCP_RESTART) $(DESTDIR)$(bindir)
+	install -D $(srcdir)/mtcp.h $(DESTDIR)$(includedir)
+	install -D $(targetdir)/lib/libmtcp.so.$(LIBMTCP_SOVERSION_INFO) \
+	  $(DESTDIR)$(libdir)
+	install -D $(targetdir)/lib/libmtcp.so.$(LIBMTCP_SOVERSION_MAJOR) \
+	  $(DESTDIR)$(libdir)
+	install -D $(targetdir)/lib/libmtcp.so $(DESTDIR)$(libdir)
 
 uninstall:
-	rm -f "$(DESTDIR)$(bindir)/mtcp_restart"
+	rm -f "$(DESTDIR)$(bindir)/$(MTCP_RESTART)"
 	rm -f "$(DESTDIR)$(includedir)/mtcp.h"
 	rm -f "$(DESTDIR)$(libdir)"/libmtcp.so*
 
@@ -217,7 +215,7 @@ readmtcp: readmtcp.c mtcp_internal.h mtcp_util.o \
 	${CC} ${MTCP_CFLAGS} -o readmtcp $< mtcp_util.o \
 	  mtcp_printf.o mtcp_state.o mtcp_safemmap.o ${LIBC_DO_SYSCALL_ARM_O}
 
-build: libmtcp.so mtcp_restart
+build: $(targetdir)/lib/libmtcp.so $(targetdir)/bin/$(MTCP_RESTART)
 # Don't do bigtestmtcp by default; Good for stress testing, but slow.
 # Don't do testmtcp6 by default: Would pull in readline.
 tests: build testmtcp testmtcp2 testmtcp3 testmtcp4 testmtcp5 threadtest
@@ -283,15 +281,14 @@ threadtest: threadtest.c
 # replacing the glibc-syscall wrappers with the respective mtcp_sys_XXX()
 # version.
 
-mtcp_restart: mtcp_restart.c mtcp_internal.h mtcp_sys.h \
+$(targetdir)/bin/$(MTCP_RESTART): mtcp_restart.c mtcp_internal.h mtcp_sys.h \
 	mtcp_printf.o mtcp_util.o mtcp_maybebpt.o \
 	mtcp_safemmap.o mtcp_state.o mtcp_safe_open.o \
 	mtcp_check_vdso.o ${ARM_EXTRAS}
 	${CC} $(MTCP_CFLAGS) ${ARM_BUG_FIX} -static -nodefaultlibs \
-	 -o mtcp_restart $< mtcp_maybebpt.o \
-	 mtcp_printf.o mtcp_util.o mtcp_safemmap.o \
+	 mtcp_maybebpt.o mtcp_printf.o mtcp_util.o mtcp_safemmap.o \
 	 mtcp_state.o mtcp_safe_open.o \
-	 mtcp_check_vdso.o ${ARM_EXTRAS}
+	 mtcp_check_vdso.o ${ARM_EXTRAS} -o $@ $<
 
 ifeq ($(BUILDTYPE),arm)
 LIBC_DO_SYSCALL_ARM_O = libc-do-syscall-arm.o
@@ -384,14 +381,16 @@ libmtcp.so: mtcp.t ${LIBRARY_OBJS}
 	  echo '*** WARNING: libmtcp.so.$(LIBMTCP_SOVERSION_INFO): ' \
 	       'MTCP symbols polluting user namespace' 1>&2 || true
 else
-libmtcp.so: ${LIBRARY_OBJS}
-	${LD} ${MTCP_LDFLAGS} \
-	  -o libmtcp.so.$(LIBMTCP_SOVERSION_INFO) ${LIBRARY_OBJS} \
-	  -ldl -lpthread -lm
-	ln -sf libmtcp.so.$(LIBMTCP_SOVERSION_INFO) \
-	  libmtcp.so.$(LIBMTCP_SOVERSION_MAJOR)
-	ln -sf libmtcp.so.$(LIBMTCP_SOVERSION_MAJOR) libmtcp.so
-	@nm -D libmtcp.so.$(LIBMTCP_SOVERSION_INFO) | grep ' [BTD] ' | \
+$(targetdir)/lib/libmtcp.so: ${LIBRARY_OBJS}
+	${LD} ${MTCP_LDFLAGS}  ${LIBRARY_OBJS} \
+	  -ldl -lpthread -lm \
+	  -o $(targetdir)/lib/libmtcp.so.$(LIBMTCP_SOVERSION_INFO)
+	( cd $(targetdir)/lib && \
+	  ln -sf libmtcp.so.$(LIBMTCP_SOVERSION_INFO) \
+	  libmtcp.so.$(LIBMTCP_SOVERSION_MAJOR) )
+	( cd $(targetdir)/lib && \
+	  ln -sf libmtcp.so.$(LIBMTCP_SOVERSION_MAJOR) libmtcp.so )
+	@nm -D $@ | grep ' [BTD] ' | \
 	  grep -v ' d\?mtcp_' | \
 	  grep -v '__bss_start\|_edata\|_end' | \
 	  grep -v clone | grep -v '_fini\|init' | grep ' [BTD] ' 1>&2 && \
@@ -465,25 +464,25 @@ dist: distclean
 # check: default testmtcp
 # On recent 32-bit kernels, restart fails in "make", but succeeds manually.
 # WHY?
-check: libmtcp.so mtcp_restart testmtcp
+check: build testmtcp
 	@ echo ""
 	@ echo Type into program to verify it operates.  Will be killed in 13 s.
 	@ echo ""
 	(sleep 13; pkill -9 testmtcp) &
-	env LD_LIBRARY_PATH=. ./testmtcp || true
+	env LD_LIBRARY_PATH=$(targetdir)/lib ./testmtcp || true
 	@ echo ""
 	@ echo Successfully killed after checkpoint.  Will now restart.
 	@ echo Continue typing arbitrary text into program to test that
 	@ echo it still works, and that checkpoint of a restart works.
 	sleep 5
-	./mtcp_restart testmtcp.mtcp
+	$(targetdir)/bin/$(MTCP_RESTART) testmtcp.mtcp
 	echo FINISH EARLY FOR NOW
 	exit 1
-	(sleep 13; pkill -9 mtcp_restart) & ./mtcp_restart testmtcp.tmp || true
+	(sleep 13; pkill -9 $(MTCP_RESTART)) & $(targetdir)/bin/$(MTCP_RESTART) testmtcp.tmp || true
 	@ echo Kill this program now after being satisfied it still works.
 	@ echo ""
 	sleep 5
-	./mtcp_restart testmtcp.mtcp
+	$(targetdir)/bin/$(MTCP_RESTART) testmtcp.mtcp
 
 distclean: clean
 	rm -f *~ mtcp.kdevses mtcp.kdevelop.* testmtcp{,1,2,3,4}.mtcp \
@@ -491,6 +490,6 @@ distclean: clean
 
 clean:
 	rm -f *.o *.map mtcp_restart_noblibc.lis \
-	      testmtcp.mtcp libmtcp.so* mtcp.t mtcp.t-fail mtcp_restart.so \
-	      mtcp_restart extractobjectmodule readmtcp \
+	      testmtcp.mtcp $(targetdir)/lib/libmtcp.so* mtcp.t mtcp.t-fail \
+	      $(targetdir)/bin/$(MTCP_RESTART) extractobjectmodule readmtcp \
 	      x.x zz.out testmtcp testmtcp[0-9] threadtest bigtestmtcp

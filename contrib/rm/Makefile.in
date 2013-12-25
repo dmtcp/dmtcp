@@ -1,5 +1,4 @@
 PLUGIN=rm
-LIBNAME=libdmtcp_${PLUGIN}.so
 CC = @CC@
 M32=@M32@
 CFLAGS = @CFLAGS@
@@ -28,6 +27,13 @@ top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 srcdir = @srcdir@
 VPATH = @srcdir@
+targetdir = $(top_builddir)
+
+ifeq ($(M32),1)
+  targetdir = $(top_builddir)/lib/$(PACKAGE)/32
+endif
+
+LIBNAME=$(targetdir)/lib/${PACKAGE}/libdmtcp_${PLUGIN}.so
 
 DMTCP_INCLUDE_PATH = $(top_srcdir)/dmtcp/include
 JALIB_PATH = $(top_srcdir)/dmtcp/jalib
@@ -68,7 +74,12 @@ all: default
 
 default: build
 
-build: ${LIBNAME} dmtcp_discover_rm
+ifeq ($(M32),0)
+  RM_BINS = $(targetdir)/bin/dmtcp_discover_rm \
+	    $(targetdir)/bin/dmtcp_rm_loclaunch
+endif
+
+build: ${LIBNAME} $(RM_BINS)
 
 tidy:
 	rm -rf dmtcp-autotest-* ckpt_*_files
@@ -76,8 +87,8 @@ tidy:
 
 clean: tidy
 	-rm -f *.o
-	-rm -f *.so
-	-rm -f dmtcp_discover_rm
+	-rm -f $(LIBNAME)
+	-rm -f $(targetdir)/bin/dmtcp_discover_rm
 
 distclean: clean
 	rm -f Makefile
@@ -88,13 +99,12 @@ install: all
 	  exit 1; \
 	fi
 	test -e $(DESTDIR)$(libdir) || $(MKDIR_P) $(DESTDIR)$(libdir)
-	cp ${LIBNAME} $(DESTDIR)$(pkglibdir)
-	cp dmtcp_discover_rm $(DESTDIR)$(bindir)
-	cp $(srcdir)/dmtcp_rm_loclaunch.sh $(DESTDIR)$(bindir)/dmtcp_rm_loclaunch
+	install -D ${LIBNAME} $(DESTDIR)$(pkglibdir)
+	install -D $(targetdir)/bin/dmtcp_discover_rm $(DESTDIR)$(bindir)
+	install -D $(targetdir)/bin/dmtcp_rm_loclaunch $(DESTDIR)$(bindir)
 
 uninstall:
-	echo " ( cd '$(DESTDIR)$(pkglibdir)' && rm -f $$files ) "; \
-	cd "$(DESTDIR)$(pkglibdir)" && rm -f $(LIBNAME); \
+	rm -f $(DESTDIR)$(pkglibdir)/$(LIBNAME)
 	rm -f $(DESTDIR)$(bindir)/dmtcp_discover_rm 
 	rm -f $(DESTDIR)$(bindir)/dmtcp_rm_loclaunch
 
@@ -103,8 +113,12 @@ ${LIBNAME}: $(OBJS) ${HEADERS}
 	@rm -f ${LIBNAME}
 	$(CXXLINK) $(OBJS) $(LIB_LDFLAGS) $(LDADD)
 
-dmtcp_discover_rm: dmtcp_discover_rm.cpp $(DISCOVER_OBJS) $(DISCOVER_HEADERS)
-	$(CXXLINK) -o dmtcp_discover_rm $(DISCOVER_OBJS) $<
+$(targetdir)/bin/dmtcp_rm_loclaunch:
+	cp $(srcdir)/dmtcp_rm_loclaunch.sh $(targetdir)/bin/dmtcp_rm_loclaunch
+
+$(targetdir)/bin/dmtcp_discover_rm: dmtcp_discover_rm.cpp $(DISCOVER_OBJS) \
+  $(DISCOVER_HEADERS)
+	$(CXXLINK) $(INCLUDES) $(CPPFLAGS) $(DISCOVER_OBJS) -o $@ $<
 
 %.o: %.c ${HEADERS}
 	$(COMPILE)  $<
