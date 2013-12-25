@@ -93,16 +93,16 @@ bin_PROGRAMS = dmtcp_launch$(EXEEXT) dmtcp_command$(EXEEXT) \
 	dmtcp_nocheckpoint$(EXEEXT)
 dmtcplib_PROGRAMS = libdmtcp.so$(EXEEXT) \
 	libdmtcpaware.so.1.0.0$(EXEEXT)
-subdir = src
+subdir = dmtcp/src
 DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/Makefile.am \
-	$(top_srcdir)/../depcomp $(include_HEADERS) \
+	$(top_srcdir)/depcomp $(include_HEADERS) \
 	$(nobase_noinst_HEADERS) COPYING COPYING.LESSER
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 mkinstalldirs = $(install_sh) -d
-CONFIG_HEADER = $(top_builddir)/include/config.h
+CONFIG_HEADER = $(top_builddir)/dmtcp/include/config.h
 CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
 am__vpath_adj_setup = srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`;
@@ -220,8 +220,8 @@ AM_V_at = $(am__v_at_@AM_V@)
 am__v_at_ = $(am__v_at_@AM_DEFAULT_V@)
 am__v_at_0 = @
 am__v_at_1 = 
-DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)/include
-depcomp = $(SHELL) $(top_srcdir)/../depcomp
+DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)/dmtcp/include
+depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__depfiles_maybe = depfiles
 am__mv = mv -f
 COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
@@ -302,12 +302,14 @@ AWK = @AWK@
 CC = @CC@
 CCDEPMODE = @CCDEPMODE@
 CFLAGS = @CFLAGS@
+CILKC = @CILKC@
+CPP = @CPP@
 CPPFLAGS = @CPPFLAGS@
 CXX = @CXX@
-CXXCPP = @CXXCPP@
 CXXDEPMODE = @CXXDEPMODE@
 CXXFLAGS = @CXXFLAGS@
 CYGPATH_W = @CYGPATH_W@
+DEBUG = @DEBUG@
 DEFS = @DEFS@
 DEPDIR = @DEPDIR@
 ECHO_C = @ECHO_C@
@@ -315,7 +317,33 @@ ECHO_N = @ECHO_N@
 ECHO_T = @ECHO_T@
 EGREP = @EGREP@
 EXEEXT = @EXEEXT@
+FAST_RESTART = @FAST_RESTART@
+GCL = @GCL@
 GREP = @GREP@
+HAS_CILK = @HAS_CILK@
+HAS_CPP = @HAS_CPP@
+HAS_DASH = @HAS_DASH@
+HAS_EMACS = @HAS_EMACS@
+HAS_GCL = @HAS_GCL@
+HAS_GDB = @HAS_GDB@
+HAS_GZIP = @HAS_GZIP@
+HAS_JAVA = @HAS_JAVA@
+HAS_JAVAC = @HAS_JAVAC@
+HAS_MATLAB = @HAS_MATLAB@
+HAS_MPICH = @HAS_MPICH@
+HAS_OPENMPI = @HAS_OPENMPI@
+HAS_PATCH = @HAS_PATCH@
+HAS_PYTHON = @HAS_PYTHON@
+HAS_READLINE = @HAS_READLINE@
+HAS_SCREEN = @HAS_SCREEN@
+HAS_SCRIPT = @HAS_SCRIPT@
+HAS_SSH = @HAS_SSH@
+HAS_STRACE = @HAS_STRACE@
+HAS_TCSH = @HAS_TCSH@
+HAS_VIM = @HAS_VIM@
+HAS_ZSH = @HAS_ZSH@
+HBICT_DELTACOMP = @HBICT_DELTACOMP@
+INFINIBAND_SUPPORT = @INFINIBAND_SUPPORT@
 INSTALL = @INSTALL@
 INSTALL_DATA = @INSTALL_DATA@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
@@ -326,10 +354,22 @@ LIBOBJS = @LIBOBJS@
 LIBS = @LIBS@
 LN_S = @LN_S@
 LTLIBOBJS = @LTLIBOBJS@
+M32 = @M32@
 MAINT = @MAINT@
 MAKEINFO = @MAKEINFO@
+MATLAB = @MATLAB@
 MKDIR_P = @MKDIR_P@
+MPICH_MPD = @MPICH_MPD@
+MPICH_MPDALLEXIT = @MPICH_MPDALLEXIT@
+MPICH_MPDBOOT = @MPICH_MPDBOOT@
+MPICH_MPDCLEANUP = @MPICH_MPDCLEANUP@
+MPICH_MPICC = @MPICH_MPICC@
+MPICH_MPIEXEC = @MPICH_MPIEXEC@
 OBJEXT = @OBJEXT@
+OPENMPI_MPICC = @OPENMPI_MPICC@
+OPENMPI_MPIRUN = @OPENMPI_MPIRUN@
+OPENMP_CFLAGS = @OPENMP_CFLAGS@
+OPENMP_CXXFLAGS = @OPENMP_CXXFLAGS@
 PACKAGE = @PACKAGE@
 PACKAGE_BUGREPORT = @PACKAGE_BUGREPORT@
 PACKAGE_NAME = @PACKAGE_NAME@
@@ -338,12 +378,17 @@ PACKAGE_TARNAME = @PACKAGE_TARNAME@
 PACKAGE_URL = @PACKAGE_URL@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
+PID_VIRTUALIZATION = @PID_VIRTUALIZATION@
+PTRACE_SUPPORT = @PTRACE_SUPPORT@
 RANLIB = @RANLIB@
 RUN_AS_ROOT = @RUN_AS_ROOT@
+SCREEN = @SCREEN@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
 STRIP = @STRIP@
+USE_TEST_SUITE = @USE_TEST_SUITE@
 VERSION = @VERSION@
+VIM = @VIM@
 abs_builddir = @abs_builddir@
 abs_srcdir = @abs_srcdir@
 abs_top_builddir = @abs_top_builddir@
@@ -496,9 +541,9 @@ $(srcdir)/Makefile.in: @MAINTAINER_MODE_TRUE@ $(srcdir)/Makefile.am  $(am__confi
 	      exit 1;; \
 	  esac; \
 	done; \
-	echo ' cd $(top_srcdir) && $(AUTOMAKE) --foreign src/Makefile'; \
+	echo ' cd $(top_srcdir) && $(AUTOMAKE) --foreign dmtcp/src/Makefile'; \
 	$(am__cd) $(top_srcdir) && \
-	  $(AUTOMAKE) --foreign src/Makefile
+	  $(AUTOMAKE) --foreign dmtcp/src/Makefile
 .PRECIOUS: Makefile
 Makefile: $(srcdir)/Makefile.in $(top_builddir)/config.status
 	@case '$?' in \

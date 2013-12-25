@@ -122,7 +122,7 @@ mtcp: check-m32-compat
 	cd mtcp && $(MAKE) $(MTCP_MAKE_FLAGS) build readmtcp
 
 dmtcp: check-m32-compat mtcp
-	cd dmtcp && $(MAKE)
+	cd dmtcp/src && $(MAKE)
 
 plugin: dmtcp check-m32-compat
 	cd plugin && $(MAKE)
@@ -191,7 +191,7 @@ tidy:
 
 clean: tidy
 	- cd mtcp  && $(MAKE) clean
-	- cd dmtcp && $(MAKE) clean
+	- cd dmtcp/src && $(MAKE) clean
 	- cd plugin && $(MAKE) clean
 	- cd contrib && $(MAKE) clean
 	- cd test  && $(MAKE) clean
@@ -207,7 +207,7 @@ clean: tidy
 
 distclean: clean
 	- cd mtcp  && $(MAKE) distclean
-	- cd dmtcp && $(MAKE) distclean
+	- cd dmtcp/src && $(MAKE) distclean
 	- cd plugin && $(MAKE) distclean
 	- cd contrib && $(MAKE) distclean
 	- cd test && $(MAKE) distclean
@@ -310,7 +310,7 @@ install: all
 	test -e $(DESTDIR)$(libdir) || $(MKDIR_P) $(DESTDIR)$(libdir)
 	test -e $(DESTDIR)$(includedir) || $(MKDIR_P) $(DESTDIR)$(includedir)
 	test -e $(DESTDIR)$(libdir)/dmtcp || $(MKDIR_P) $(DESTDIR)$(libdir)/dmtcp
-	cd dmtcp && make DESTDIR=$(DESTDIR) install
+	cd dmtcp/src && make DESTDIR=$(DESTDIR) install
 	cd plugin && make DESTDIR=$(DESTDIR) install
 	cd contrib && make DESTDIR=$(DESTDIR) install
 	cd mtcp && make DESTDIR=$(DESTDIR) bindir=$(bindir) libdir=$(libdir) \
@@ -324,7 +324,7 @@ install: all
 	  for file in ${MANPAGES}; do $(LN_S) dmtcp.1 $$file; done
 
 uninstall:
-	cd dmtcp && make uninstall
+	cd dmtcp/src && make uninstall
 	cd plugin && make uninstall
 	cd contrib && make uninstall
 	cd mtcp && make DESTDIR=$(DESTDIR) bindir=$(bindir) libdir=$(libdir) \
