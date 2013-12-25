@@ -24,11 +24,12 @@ includedir = @includedir@
 infodir = @infodir@
 libdir = @libdir@
 pkglibdir = $(libdir)/@PACKAGE@
+top_srcdir = @top_srcdir@
+srcdir = @srcdir@
 
-DMTCP_ROOT=../..
-DMTCP_BIN = ${DMTCP_ROOT}/bin
-DMTCP_INCLUDE_PATH = $(DMTCP_ROOT)/dmtcp/include
-JALIB_PATH = $(DMTCP_ROOT)/dmtcp/jalib
+DMTCP_BIN = ${top_srcdir}/bin
+DMTCP_INCLUDE_PATH = $(top_srcdir)/dmtcp/include
+JALIB_PATH = $(top_srcdir)/dmtcp/jalib
 
 INCLUDES = -I$(JALIB_PATH) -I$(DMTCP_INCLUDE_PATH)
 CFLAGS += -DHAVE_CONFIG_H -fPIC -g --std=gnu99
@@ -68,7 +69,7 @@ all: default
 default: check-compat ${LIBNAME}
 
 check-compat:
-	@ grep "INFINIBAND_SUPPORT='yes'" ${DMTCP_ROOT}/config.log > /dev/null \
+	@ grep "INFINIBAND_SUPPORT='yes'" ${top_srcdir}/config.log > /dev/null \
 	  || \
 	  (echo && \
 	  echo DMTCP not configured with --enable-infiniband-support. && \

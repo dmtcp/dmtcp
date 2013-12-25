@@ -24,10 +24,11 @@ includedir = @includedir@
 infodir = @infodir@
 libdir = @libdir@
 pkglibdir = $(libdir)/@PACKAGE@
+top_srcdir = @top_srcdir@
+srcdir = @srcdir@
 
-DMTCP_ROOT=../..
-DMTCP_INCLUDE_PATH = $(DMTCP_ROOT)/dmtcp/include
-JALIB_PATH = $(DMTCP_ROOT)/dmtcp/jalib
+DMTCP_INCLUDE_PATH = $(top_srcdir)/dmtcp/include
+JALIB_PATH = $(top_srcdir)/dmtcp/jalib
 
 INCLUDES = -I. -I$(JALIB_PATH) -I$(DMTCP_INCLUDE_PATH)
 CFLAGS += -DHAVE_CONFIG_H -fPIC -g

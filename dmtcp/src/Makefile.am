@@ -12,11 +12,13 @@
 # have all needed files, that a GNU package needs
 AUTOMAKE_OPTIONS = foreign
 
+jalibdir=$(srcdir)/../jalib/
+dmtcplibdir = $(pkglibdir)
+
 #HEADERS
 #set the include path found by configure
-INCLUDES= $(all_includes) -I../jalib/
+AM_CPPFLAGS= $(all_includes) -I$(jalibdir)
 
-dmtcplibdir = $(pkglibdir)
 # targets:
 noinst_LIBRARIES = libdmtcpinternal.a libsyscallsreal.a libnohijack.a libjalib.a
 bin_PROGRAMS = dmtcp_launch dmtcp_command dmtcp_coordinator \
@@ -27,9 +29,9 @@ lib_LIBRARIES = libdmtcpaware.a
 
 # headers:
 nobase_noinst_HEADERS = constants.h \
-	../jalib/jassert.h ../jalib/jalloc.h ../jalib/jalib.h \
-	../jalib/jbuffer.h ../jalib/jconvert.h ../jalib/jfilesystem.h \
-	../jalib/jserialize.h ../jalib/jsocket.h ../jalib/jtimer.h \
+	$(jalibdir)/jassert.h $(jalibdir)/jalloc.h $(jalibdir)/jalib.h \
+	$(jalibdir)/jbuffer.h $(jalibdir)/jconvert.h $(jalibdir)/jfilesystem.h \
+	$(jalibdir)/jserialize.h $(jalibdir)/jsocket.h $(jalibdir)/jtimer.h \
 	dmtcp_coordinator.h dmtcpmessagetypes.h lookup_service.h \
 	dmtcpworker.h threadsync.h coordinatorapi.h \
 	mtcpinterface.h syscallwrappers.h syslogwrappers.h \
@@ -43,10 +45,10 @@ libdmtcpinternal_a_SOURCES = dmtcpmessagetypes.cpp  coordinatorapi.cpp \
 			     util_exec.cpp util_gen.cpp util_init.cpp \
 			     jalibinterface.cpp processinfo.cpp
 
-libjalib_a_SOURCES = ../jalib/jalib.cpp ../jalib/jassert.cpp \
-		     ../jalib/jbuffer.cpp ../jalib/jfilesystem.cpp \
-		     ../jalib/jserialize.cpp ../jalib/jsocket.cpp \
-		     ../jalib/jtimer.cpp ../jalib/jalloc.cpp
+libjalib_a_SOURCES = $(jalibdir)/jalib.cpp $(jalibdir)/jassert.cpp \
+		     $(jalibdir)/jbuffer.cpp $(jalibdir)/jfilesystem.cpp \
+		     $(jalibdir)/jserialize.cpp $(jalibdir)/jsocket.cpp \
+		     $(jalibdir)/jtimer.cpp $(jalibdir)/jalloc.cpp
 
 # FIXME:  Rename libsyscallsreal.a to libhijack.a
 # An executable should use either libsyscallsreal.a or libnohijack.a -- not both
