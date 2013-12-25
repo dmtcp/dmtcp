@@ -16,6 +16,9 @@ it.  Unless stated otherwise, many of the plugins are still experimental.
 Please report bugs back to the author and to dmtcp@ccs.neu.edu .
 An overview is given here:
 
+ckptfile:  A template for a plugin to adjust filepaths between checkpoint
+	and restart.  Modify this plugin according to your specific needs.
+
 condor:  Describes how to integrate DMTCP checkpointing with the Condor
 	system for high throughput computing.  The same information can be
 	found at:
