@@ -45,6 +45,9 @@ docdir=@docdir@
 includedir=@includedir@
 mandir=@mandir@
 infodir=@mandir@
+top_srcdir = @top_srcdir@
+srcdir = @srcdir@
+VPATH = @srcdir@
 
 ##########################################################################
 ##									##
@@ -142,7 +145,7 @@ ASFLAGS =
 # Instead, we should deduce the build-type from the build toolchain itself.
 ifndef BUILDING_UTIL_ARCH
   BUILDTYPE=${shell make BUILDING_UTIL_ARCH=1 util-arch > /dev/null; \
-                    ./util-arch}
+                    util-arch}
 endif
 
 ifdef USE_PROC_MAPS
@@ -193,7 +196,7 @@ install: build
 	test -e $(DESTDIR)$(libdir) || mkdir -p $(DESTDIR)$(libdir)
 	test -e $(DESTDIR)$(includedir) || mkdir -p $(DESTDIR)$(includedir)
 	cp mtcp_restart $(DESTDIR)$(bindir)
-	cp mtcp.h $(DESTDIR)$(includedir)
+	cp $(srcdir)/mtcp.h $(DESTDIR)$(includedir)
 	cp libmtcp.so.$(LIBMTCP_SOVERSION_INFO) $(DESTDIR)$(libdir)
 	cd $(DESTDIR)$(libdir) && ln -sf libmtcp.so.$(LIBMTCP_SOVERSION_INFO) \
 	                                 libmtcp.so.$(LIBMTCP_SOVERSION_MAJOR)
@@ -211,7 +214,7 @@ util-arch: util-arch.c
 
 readmtcp: readmtcp.c mtcp_internal.h mtcp_util.o \
 	mtcp_printf.o mtcp_state.o mtcp_safemmap.o ${LIBC_DO_SYSCALL_ARM_O}
-	${CC} ${MTCP_CFLAGS} -o readmtcp readmtcp.c mtcp_util.o \
+	${CC} ${MTCP_CFLAGS} -o readmtcp $< mtcp_util.o \
 	  mtcp_printf.o mtcp_state.o mtcp_safemmap.o ${LIBC_DO_SYSCALL_ARM_O}
 
 build: libmtcp.so mtcp_restart
@@ -250,25 +253,25 @@ testmtcp.o: testmtcp.c
 	${CC} $(MTCP_CFLAGS) -c -o testmtcp.o testmtcp.c
 
 testmtcp2: testmtcp2.c libmtcp.so $(ARM_EXTRAS)
-	${CC} $(MTCP_CFLAGS) $(CFLAGS_FUTEX_ARM) -o testmtcp2 testmtcp2.c \
+	${CC} $(MTCP_CFLAGS) $(CFLAGS_FUTEX_ARM) -o testmtcp2 $< \
 	  libmtcp.so $(ARM_EXTRAS)
 
 testmtcp3: testmtcp3.c libmtcp.so
-	${CC} $(MTCP_CFLAGS) -o testmtcp3 testmtcp3.c libmtcp.so -lpthread -Xlinker -Map -Xlinker testmtcp3.map
+	${CC} $(MTCP_CFLAGS) -o testmtcp3 $< libmtcp.so -lpthread -Xlinker -Map -Xlinker testmtcp3.map
 
 testmtcp4: testmtcp4.c libmtcp.so
-	${CC} $(MTCP_CFLAGS) -o testmtcp4 testmtcp4.c libmtcp.so -lpthread -Xlinker -Map -Xlinker testmtcp4.map
+	${CC} $(MTCP_CFLAGS) -o testmtcp4 $< libmtcp.so -lpthread -Xlinker -Map -Xlinker testmtcp4.map
 
 testmtcp5: testmtcp5.c libmtcp.so
-	${CC} $(MTCP_CFLAGS) -o testmtcp5 testmtcp5.c libmtcp.so
+	${CC} $(MTCP_CFLAGS) -o testmtcp5 $< libmtcp.so
 
 # Makefile should not fail on testmtcp6 if -lreadline or -lhistory is missing.
 testmtcp6: testmtcp6.c libmtcp.so
-	- ${CC} $(MTCP_CFLAGS) -Wl,--export-dynamic -o testmtcp6 testmtcp6.c libmtcp.so \
+	- ${CC} $(MTCP_CFLAGS) -Wl,--export-dynamic -o testmtcp6 $< libmtcp.so \
 	  -lreadline -lhistory
 
 threadtest: threadtest.c
-	${CC} $(MTCP_CFLAGS) -o threadtest threadtest.c
+	${CC} $(MTCP_CFLAGS) -o threadtest $<
 
 # This is the command-line utility to restore a process
 # NOTE: Compile/build mtcp_restart with -nodefaultlibs. See the following
@@ -285,7 +288,7 @@ mtcp_restart: mtcp_restart.c mtcp_internal.h mtcp_sys.h \
 	mtcp_safemmap.o mtcp_state.o mtcp_safe_open.o \
 	mtcp_check_vdso.o ${ARM_EXTRAS}
 	${CC} $(MTCP_CFLAGS) ${ARM_BUG_FIX} -static -nodefaultlibs \
-	 -o mtcp_restart mtcp_restart.c mtcp_maybebpt.o \
+	 -o mtcp_restart $< mtcp_maybebpt.o \
 	 mtcp_printf.o mtcp_util.o mtcp_safemmap.o \
 	 mtcp_state.o mtcp_safe_open.o \
 	 mtcp_check_vdso.o ${ARM_EXTRAS}
@@ -398,15 +401,14 @@ endif
 
 # To generate mtcp.o with listing, use "-Wa,-adhl=mtcp.lis"
 mtcp.o: mtcp.c mtcp.h mtcp_internal.h mtcp_sys.h
-	${CC} $(MTCP_CFLAGS) -c -o mtcp.o mtcp.c
+	${CC} $(MTCP_CFLAGS) -c -o mtcp.o $<
 
 mtcp_writeckpt.o: mtcp_writeckpt.c mtcp.h mtcp_internal.h mtcp_sys.h mtcp_util.h
-	${CC} $(MTCP_CFLAGS) -c -o mtcp_writeckpt.o mtcp_writeckpt.c
+	${CC} $(MTCP_CFLAGS) -c -o mtcp_writeckpt.o $<
 
 # Use uname instead of ${UNAME} below to determine if this is really 64-bit.
 mtcp_restart_nolibc.o: mtcp_restart_nolibc.c mtcp.h mtcp_internal.h
-	${CC} $(MTCP_CFLAGS) -c -o mtcp_restart_nolibc.o \
-	  mtcp_restart_nolibc.c
+	${CC} $(MTCP_CFLAGS) -c -o mtcp_restart_nolibc.o $<
 
 # mtcp.lis is needed only for debugging.
 #mtcp.lis: mtcp.c mtcp.h mtcp_internal.h mtcp_sys.h
@@ -422,34 +424,34 @@ mtcp_restart_nolibc.o: mtcp_restart_nolibc.c mtcp.h mtcp_internal.h
 
 # -fstack-protector for hardening-check for debian-unstable (May 2012).
 mtcp_maybebpt.o: mtcp_maybebpt.c mtcp_internal.h
-	${CC} $(MTCP_CFLAGS) $(FSTACK_PROTECTOR) -c -o mtcp_maybebpt.o mtcp_maybebpt.c
+	${CC} $(MTCP_CFLAGS) $(FSTACK_PROTECTOR) -c -o mtcp_maybebpt.o $<
 
 mtcp_safe_open.o: mtcp_safe_open.c mtcp_internal.h
-	${CC} $(MTCP_CFLAGS) -c -o mtcp_safe_open.o mtcp_safe_open.c
+	${CC} $(MTCP_CFLAGS) -c -o mtcp_safe_open.o $<
 
 mtcp_printf.o: mtcp_printf.c mtcp_internal.h
-	${CC} $(MTCP_CFLAGS) -c -o mtcp_printf.o mtcp_printf.c
+	${CC} $(MTCP_CFLAGS) -c -o mtcp_printf.o $<
 
 mtcp_util.o: mtcp_util.c mtcp_internal.h mtcp_util.h
-	${CC} $(MTCP_CFLAGS) -c -o mtcp_util.o mtcp_util.c
+	${CC} $(MTCP_CFLAGS) -c -o mtcp_util.o $<
 
 mtcp_safemmap.o: mtcp_safemmap.c mtcp_internal.h
-	${CC} $(MTCP_CFLAGS) -c -o mtcp_safemmap.o mtcp_safemmap.c
+	${CC} $(MTCP_CFLAGS) -c -o mtcp_safemmap.o $<
 
 mtcp_state.o: mtcp_state.c mtcp_internal.h mtcp_futex.h
-	${CC} $(MTCP_CFLAGS) $(CFLAGS_FUTEX_ARM) -c -o mtcp_state.o mtcp_state.c
+	${CC} $(MTCP_CFLAGS) $(CFLAGS_FUTEX_ARM) -c -o mtcp_state.o $<
 
 mtcp_state.lis: mtcp_state.c mtcp_internal.h
-	${CC} $(MTCP_CFLAGS) -c -o /dev/null -Wa,-ahls=mtcp_state.lis mtcp_state.c
+	${CC} $(MTCP_CFLAGS) -c -o /dev/null -Wa,-ahls=mtcp_state.lis $<
 
 mtcp_check_vdso.o: mtcp_check_vdso.c
-	${CC} $(MTCP_CFLAGS) -c -o mtcp_check_vdso.o mtcp_check_vdso.c
+	${CC} $(MTCP_CFLAGS) -c -o mtcp_check_vdso.o $<
 
 extractobjectmodule: extractobjectmodule.c
-	${CC} $(MTCP_CFLAGS) -o extractobjectmodule extractobjectmodule.c
+	${CC} $(MTCP_CFLAGS) -o extractobjectmodule $<
 
 mtcp_sigaction.o: mtcp_sigaction.c mtcp_sys.h
-	${CC} $(MTCP_CFLAGS) -c -o mtcp_sigaction.o mtcp_sigaction.c
+	${CC} $(MTCP_CFLAGS) -c -o mtcp_sigaction.o $<
 
 dist: distclean
 	rm -f /tmp/mtcpv${MTCP_VERSION}
@@ -488,7 +490,7 @@ distclean: clean
 	      *.lis a.out mtcp.t.orig mtcp.lis util-arch readmtcp
 
 clean:
-	rm -f *.o *.map mtcp_restart_noblibc.lis mtcp_sharetemp.c \
+	rm -f *.o *.map mtcp_restart_noblibc.lis \
 	      testmtcp.mtcp libmtcp.so* mtcp.t mtcp.t-fail mtcp_restart.so \
 	      mtcp_restart extractobjectmodule readmtcp \
 	      x.x zz.out testmtcp testmtcp[0-9] threadtest bigtestmtcp
