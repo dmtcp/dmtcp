@@ -133,12 +133,12 @@ int jalib::Filesystem::mkdir_r( const jalib::string& dir, mode_t mode)
   struct stat buf;
   int ret = stat(dir.c_str(), &buf);
   JTRACE("Create dir")(dir);
-  
+
   if( ret && errno != ENOENT){
     JTRACE("Cannot create directory path")(dir)(errno)(strerror(errno));
     return ret;
   }
-  
+
   if(  ret && errno == ENOENT ){
     jalib::string pdir = DirName(dir);
     JTRACE("Create parent dir")(pdir);
@@ -215,23 +215,15 @@ bool jalib::Filesystem::FileExists ( const jalib::string& str )
 }
 
 jalib::string jalib::Filesystem::FindHelperUtility(const jalib::string& file,
-                                                   bool dieOnError /*= true*/)
+                                                   bool is32bit /*= false*/)
 {
   const char* d = NULL;
   // search relative to dir of dmtcp_launch
   // (intended for private install by end user)
   const char *p1[] = {
     "/",
-    "/../bin/",
-    "/../lib64/",
     "/../lib64/dmtcp/",
-    "/../lib/",
     "/../lib/dmtcp/",
-
-    // The following are used if dmtcp_launch is run from trunk/dmtcp/src
-    "/../../bin/",
-    "/../../lib/",
-    "/../../lib/dmtcp/"
   };
   // FIXME: remove /.../lib{,64}/dmtcp/ above, & modify Makefile.in:(un)install
 
@@ -241,18 +233,23 @@ jalib::string jalib::Filesystem::FindHelperUtility(const jalib::string& file,
     "/usr/local/bin/",
     "/usr/bin/",
     "/bin/",
-    "/usr/local/lib64/",
     "/usr/local/lib64/dmtcp/",
-    "/usr/local/lib/",
-    "/usr/local/lib/dmtcp/",
-    "/usr/lib64/",
     "/usr/lib64/dmtcp/",
-    "/usr/lib/",
+    "/lib64/dmtcp",
+    "/usr/local/lib/dmtcp/",
     "/usr/lib/dmtcp/",
-    "/lib64/",
-    "/lib/"
+    "/lib/dmtcp/"
   };
 
+  dmtcp::string suffixFor32Bits = "";
+  if (is32bit) {
+    jalib::string basename = BaseName(file);
+    if (file == "mtcp_restart-32") {
+      suffixFor32Bits = "32/bin/";
+    } else {
+      suffixFor32Bits = "32/lib/dmtcp/";
+    }
+  }
   jalib::string pth;
   jalib::string udir;
   size_t i = 0;
@@ -263,7 +260,7 @@ jalib::string jalib::Filesystem::FindHelperUtility(const jalib::string& file,
     JTRACE("JALIB_UTILITY_DIR was set:  using it");
     udir = d;
     for (i = 0; i < sizeof(p1) / sizeof(char*); i++) {
-      pth = udir + p1[i] + file;
+      pth = udir + p1[i] + suffixFor32Bits + file;
       if (FileExists(pth)) {
         return pth;
       }
@@ -273,7 +270,7 @@ jalib::string jalib::Filesystem::FindHelperUtility(const jalib::string& file,
   // 2. Search relative to dir of this command (dmtcp_launch), (using p1).
   udir = GetProgramDir();
   for (i = 0; i < sizeof(p1) / sizeof(char*); i++) {
-    pth = udir + p1[i] + file;
+    pth = udir + p1[i] + suffixFor32Bits + file;
     if (FileExists(pth)) {
       return pth;
     }
@@ -281,13 +278,15 @@ jalib::string jalib::Filesystem::FindHelperUtility(const jalib::string& file,
 
   // 3. Search in standard libraries for system-wide installed DMTCP (using p2).
   for (i = 0; i < sizeof(p2) / sizeof(char*); i++) {
-    pth = p2[i] + file;
+    pth = p2[i] + suffixFor32Bits + file;
     if (FileExists(pth)) {
       return pth;
     }
   }
-  JASSERT ( !dieOnError ) ( file ) ( GetProgramDir() ) ( d )
-    .Text ( "failed to find needed file" );
+
+  if (is32bit) {
+    return "";
+  }
   return file;
 }
 

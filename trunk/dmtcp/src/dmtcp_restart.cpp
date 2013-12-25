@@ -244,8 +244,12 @@ class RestoreTarget
       dmtcp::SharedData::initialize();
       dmtcp::SharedData::updateLocalIPAddr();
       setEnvironFd();
+      int is32bitElf = 0;
 
-      dmtcp::Util::runMtcpRestore(_path.c_str(), _fd,
+#if defined(__x86_64__)
+      is32bitElf = (_pInfo.elfType() == ProcessInfo::Elf_32);
+#endif
+      dmtcp::Util::runMtcpRestore(is32bitElf, _path.c_str(), _fd,
                                   _pInfo.argvSize(), _pInfo.envSize());
 
       JASSERT ( false ).Text ( "unreachable" );

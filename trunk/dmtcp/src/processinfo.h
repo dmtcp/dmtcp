@@ -31,6 +31,11 @@ namespace dmtcp
   class ProcessInfo
   {
     public:
+      enum ElfType {
+        Elf_32,
+        Elf_64
+      };
+
 #ifdef JALIB_ALLOCATOR
       static void* operator new(size_t nbytes, void* p) { return p; }
       static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
@@ -89,6 +94,8 @@ namespace dmtcp
       bool isForegroundProcess() const { return _gid == _fgid; }
       bool isChild(const UniquePid& upid);
 
+      int elfType() const { return _elfType; }
+
     private:
       dmtcp::map<pid_t, UniquePid> _childTable;
       dmtcp::vector<pid_t> _tidVector;
@@ -107,6 +114,7 @@ namespace dmtcp
       uint32_t  _noCoordinator;
       uint32_t  _argvSize;
       uint32_t  _envSize;
+      uint32_t  _elfType;
 
       dmtcp::string _procname;
       dmtcp::string _procSelfExe;
