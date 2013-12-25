@@ -24,7 +24,7 @@
 #include "../jalib/jassert.h"
 #include "../jalib/jserialize.h"
 
-dmtcp::Connection::Connection(int t)
+dmtcp::Connection::Connection(uint32_t t)
   : _id(ConnectionIdentifier::Create())
   , _type((ConnectionType) t)
   , _fcntlFlags(-1)
@@ -74,11 +74,11 @@ void dmtcp::Connection::restoreOptions()
   JASSERT(_fcntlOwner != -1) (_fcntlOwner);
   JASSERT(_fcntlSignal >= 0) (_fcntlSignal);
   errno = 0;
-  JASSERT(fcntl(_fds[0], F_SETFL, _fcntlFlags) == 0)
+  JASSERT(fcntl(_fds[0], F_SETFL, (int)_fcntlFlags) == 0)
     (_fds[0]) (_fcntlFlags) (JASSERT_ERRNO);
 
   errno = 0;
-  JASSERT(fcntl(_fds[0], F_SETOWN, _fcntlOwner) == 0)
+  JASSERT(fcntl(_fds[0], F_SETOWN, (int)_fcntlOwner) == 0)
    (_fds[0]) (_fcntlOwner) (JASSERT_ERRNO);
 
   // This JASSERT will almost always trigger until we fix the above mentioned
@@ -87,7 +87,7 @@ void dmtcp::Connection::restoreOptions()
   //(fcntl(_fds[0], F_GETOWN)) (_fcntlOwner) (VIRTUAL_TO_REAL_PID(_fcntlOwner));
 
   errno = 0;
-  JASSERT(fcntl(_fds[0], F_SETSIG,_fcntlSignal) == 0)
+  JASSERT(fcntl(_fds[0], F_SETSIG, (int)_fcntlSignal) == 0)
     (_fds[0]) (_fcntlSignal) (JASSERT_ERRNO);
 }
 

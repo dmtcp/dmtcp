@@ -136,7 +136,7 @@ namespace dmtcp
       typedef dmtcp::map<int, Semaphore*>::iterator SemIterator;
       dmtcp::map<int, MsgQueue*> _msq;
       typedef dmtcp::map<int, MsgQueue*>::iterator MsqIterator;
-      VirtualIdTable<int> _ipcVirtIdTable;
+      VirtualIdTable<int32_t> _ipcVirtIdTable;
   };
 
   class SysVObj
