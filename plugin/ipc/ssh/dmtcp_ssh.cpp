@@ -18,17 +18,17 @@ static int listenSock = -1;
 
 extern "C" void dmtcp_get_local_ip_addr(struct in_addr *addr) __attribute((weak));
 
-static bool strEndsWith(const char *str, const char *pattern)
-{
-  assert(str != NULL && pattern != NULL);
-  int len1 = strlen(str);
-  int len2 = strlen(pattern);
-  if (len1 >= len2) {
-    size_t idx = len1 - len2;
-    return strncmp(str+idx, pattern, len2) == 0;
-  }
-  return false;
-}
+//static bool strEndsWith(const char *str, const char *pattern)
+//{
+//  assert(str != NULL && pattern != NULL);
+//  int len1 = strlen(str);
+//  int len2 = strlen(pattern);
+//  if (len1 >= len2) {
+//    size_t idx = len1 - len2;
+//    return strncmp(str+idx, pattern, len2) == 0;
+//  }
+//  return false;
+//}
 
 static int getport(int fd)
 {
