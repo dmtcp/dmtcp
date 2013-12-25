@@ -35,7 +35,7 @@
 #define MAX_MISSING_CONNECTIONS 10240
 #define MAX_INODE_PID_MAPS 10240
 #define CON_ID_LEN \
-  (sizeof(DmtcpUniqueProcessId) + sizeof(long))
+  (sizeof(DmtcpUniqueProcessId) + sizeof(int64_t))
 
 #define SHM_VERSION_STR "DMTCP_GLOBAL_AREA_V0.99"
 #define VIRT_PTS_PREFIX_STR "/dev/pts/v"
