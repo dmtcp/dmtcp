@@ -70,10 +70,10 @@ namespace dmtcp
 
       void addFd(int fd);
       void removeFd(int fd);
-      size_t numFds() const { return _fds.size(); }
-      const vector<int>& getFds() const { return _fds; }
-      int  conType() const { return _type & TYPEMASK; }
-      int  subType() const { return _type; }
+      uint32_t numFds() const { return _fds.size(); }
+      const vector<int32_t>& getFds() const { return _fds; }
+      uint32_t  conType() const { return _type & TYPEMASK; }
+      uint32_t  subType() const { return _type; }
       bool hasLock() { return _hasLock; }
       bool isStdio() { return conType() == STDIO; }
 
@@ -98,15 +98,15 @@ namespace dmtcp
       virtual void serializeSubClass(jalib::JBinarySerializer& o) = 0;
     protected:
       //only child classes can construct us...
-      Connection(int t);
+      Connection(uint32_t t);
     protected:
       ConnectionIdentifier _id;
-      int                  _type;
-      int                  _fcntlFlags;
-      int                  _fcntlOwner;
-      int                  _fcntlSignal;
+      uint32_t             _type;
+      int64_t              _fcntlFlags;
+      int64_t              _fcntlOwner;
+      int64_t              _fcntlSignal;
       bool                 _hasLock;
-      vector<int>          _fds;
+      vector<int32_t>      _fds;
   };
 }
 

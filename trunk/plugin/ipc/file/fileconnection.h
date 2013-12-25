@@ -75,11 +75,11 @@ namespace dmtcp
       dmtcp::string _masterName;
       dmtcp::string _ptsName;
       dmtcp::string _virtPtsName;
-      int           _flags;
-      mode_t        _mode;
-      bool          _ptmxIsPacketMode;
-      bool          _isControllingTTY;
-      bool          _preExistingCTTY;
+      int64_t       _flags;
+      int64_t       _mode;
+      char          _ptmxIsPacketMode;
+      char          _isControllingTTY;
+      char          _preExistingCTTY;
   };
 
   class StdioConnection : public Connection
@@ -163,13 +163,13 @@ namespace dmtcp
       dmtcp::string _path;
       dmtcp::string _rel_path;
       dmtcp::string _ckptFilesDir;
-      bool          _checkpointed;
-      bool          _fileAlreadyExists;
-      int           _flags;
-      mode_t        _mode;
-      off_t         _offset;
+      int32_t       _checkpointed;
+      int32_t       _fileAlreadyExists;
+      int32_t       _rmtype;
+      int64_t       _flags;
+      int64_t       _mode;
+      int64_t       _offset;
       struct stat   _stat;
-      int           _rmtype;
   };
 
   class FifoConnection : public Connection
@@ -209,11 +209,11 @@ namespace dmtcp
       dmtcp::string _path;
       dmtcp::string _rel_path;
       dmtcp::string _savedRelativePath;
-      int           _flags;
-      mode_t        _mode;
+      int64_t       _flags;
+      int64_t       _mode;
       struct stat _stat;
       vector<char> _in_data;
-      int ckptfd;
+      int32_t       ckptfd;
   };
 
   class PosixMQConnection: public Connection
@@ -246,14 +246,14 @@ namespace dmtcp
 
     private:
       dmtcp::string  _name;
-      int            _oflag;
-      mode_t         _mode;
+      int64_t        _oflag;
+      int64_t        _mode;
       struct mq_attr _attr;
-      long           _qnum;
-      bool           _notifyReg;
+      int64_t        _qnum;
+      char           _notifyReg;
       struct sigevent _sevp;
       dmtcp::vector<jalib::JBuffer> _msgInQueue;
-      dmtcp::vector<unsigned> _msgInQueuePrio;
+      dmtcp::vector<uint32_t> _msgInQueuePrio;
   };
 
 }

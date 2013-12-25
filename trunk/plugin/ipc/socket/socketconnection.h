@@ -48,21 +48,21 @@ namespace dmtcp
         PEER_SOCKETPAIR
       };
 
-      enum PeerType peerType() const { return _peerType; }
+      uint32_t peerType() const { return _peerType; }
 
       SocketConnection() {}
       SocketConnection(int domain, int type, int protocol);
       void addSetsockopt(int level, int option, const char* value, int len);
-      void restoreSocketOptions(dmtcp::vector<int>& fds);
+      void restoreSocketOptions(dmtcp::vector<int32_t>& fds);
       void serialize(jalib::JBinarySerializer& o);
 
     protected:
-      int _sockDomain;
-      int _sockType;
-      int _sockProtocol;
-      enum PeerType _peerType;
-      bool          _socketPairRestored;
-      map< int, map<int, jalib::JBuffer> > _sockOptions;
+      int64_t _sockDomain;
+      int64_t _sockType;
+      int64_t _sockProtocol;
+      uint32_t _peerType;
+      int32_t  _socketPairRestored;
+      map< int64_t, map<int64_t, jalib::JBuffer> > _sockOptions;
   };
 
   class TcpConnection : public Connection, public SocketConnection
@@ -128,7 +128,7 @@ namespace dmtcp
     private:
       TcpConnection& asTcp();
     private:
-      int                     _listenBacklog;
+      int32_t                   _listenBacklog;
       union {
         socklen_t               _bindAddrlen;
         socklen_t               _connectAddrlen;
@@ -157,7 +157,7 @@ namespace dmtcp
       virtual void serializeSubClass(jalib::JBinarySerializer& o);
       virtual string str() { return "<TCP Socket>"; }
     private:
-      dmtcp::map< int, dmtcp::map< int, jalib::JBuffer > > _sockOptions;
+      dmtcp::map< int64_t, dmtcp::map< int64_t, jalib::JBuffer > > _sockOptions;
   };
 }
 

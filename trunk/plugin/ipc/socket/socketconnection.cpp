@@ -111,8 +111,8 @@ void dmtcp::SocketConnection::addSetsockopt(int level, int option,
 
 void dmtcp::SocketConnection::restoreSocketOptions(dmtcp::vector<int>& fds)
 {
-  typedef map<int, map< int, jalib::JBuffer> >::iterator levelIterator;
-  typedef map<int, jalib::JBuffer>::iterator optionIterator;
+  typedef map<int64_t, map< int64_t, jalib::JBuffer> >::iterator levelIterator;
+  typedef map<int64_t, jalib::JBuffer>::iterator optionIterator;
 
   for (levelIterator lvl = _sockOptions.begin();
        lvl!=_sockOptions.end(); ++lvl) {
@@ -141,16 +141,16 @@ void dmtcp::SocketConnection::serialize(jalib::JBinarySerializer& o)
   o & numSockOpts;
   if (o.isWriter()) {
     //JTRACE("TCP Serialize ") (_type) (_id.conId());
-    typedef map< int, map< int, jalib::JBuffer > >::iterator levelIterator;
-    typedef map< int, jalib::JBuffer >::iterator optionIterator;
+    typedef map< int64_t, map< int64_t, jalib::JBuffer > >::iterator levelIterator;
+    typedef map< int64_t, jalib::JBuffer >::iterator optionIterator;
 
-    size_t numLvl = _sockOptions.size();
+    uint64_t numLvl = _sockOptions.size();
     o & numLvl;
 
     for (levelIterator lvl = _sockOptions.begin();
          lvl!=_sockOptions.end(); ++lvl) {
-      int lvlVal = lvl->first;
-      size_t numOpts = lvl->second.size();
+      int64_t lvlVal = lvl->first;
+      uint64_t numOpts = lvl->second.size();
 
       JSERIALIZE_ASSERT_POINT("Lvl");
 
@@ -158,9 +158,9 @@ void dmtcp::SocketConnection::serialize(jalib::JBinarySerializer& o)
 
       for (optionIterator opt = lvl->second.begin();
            opt!=lvl->second.end(); ++opt) {
-        int optType = opt->first;
+        int64_t optType = opt->first;
         jalib::JBuffer& buffer = opt->second;
-        int bufLen = buffer.size();
+        int64_t bufLen = buffer.size();
 
         JSERIALIZE_ASSERT_POINT("Opt");
 
@@ -173,16 +173,16 @@ void dmtcp::SocketConnection::serialize(jalib::JBinarySerializer& o)
     o & numLvl;
 
     while (numLvl-- > 0) {
-      int lvlVal = -1;
-      size_t numOpts = 0;
+      int64_t lvlVal = -1;
+      int64_t numOpts = 0;
 
       JSERIALIZE_ASSERT_POINT("Lvl");
 
       o & lvlVal & numOpts;
 
       while (numOpts-- > 0) {
-        int optType = -1;
-        int bufLen = -1;
+        int64_t optType = -1;
+        int64_t bufLen = -1;
 
         JSERIALIZE_ASSERT_POINT("Opt");
 
@@ -471,9 +471,9 @@ void dmtcp::TcpConnection::postRestart()
 
         if (_sockDomain == AF_INET6) {
           JTRACE("Restoring some socket options before binding.");
-          typedef map< int, map< int,
+          typedef map< int64_t, map< int64_t,
                                  jalib::JBuffer > >::iterator levelIterator;
-          typedef map< int, jalib::JBuffer >::iterator optionIterator;
+          typedef map< int64_t, jalib::JBuffer >::iterator optionIterator;
 
           for (levelIterator lvl = _sockOptions.begin();
                lvl!=_sockOptions.end(); ++lvl) {

@@ -99,9 +99,9 @@ namespace dmtcp
 
     private:
       EpollConnection& asEpoll();
-      int         _type; // current state of EPOLL
+      int64_t     _type; // current state of EPOLL
       struct stat _stat; // not sure if stat makes sense in case  of epfd
-      int         _size; // flags
+      int64_t     _size; // flags
       dmtcp::map<int, struct epoll_event > _fdToEvent;
   };
 #endif
@@ -126,9 +126,9 @@ namespace dmtcp
       virtual string str() { return "EVENT-FD: <Not-a-File>"; };
 
     private:
-      unsigned int   _initval; // initial counter value
-      int         _flags; // flags
-      int evtfd;
+      uint64_t _initval; // initial counter value
+      int64_t _flags; // flags
+      int64_t evtfd;
   };
 #endif
 
@@ -157,8 +157,8 @@ namespace dmtcp
       virtual string str() { return "SIGNAL-FD: <Not-a-File>"; };
 
     private:
-      int signlfd;
-      int         _flags; // flags
+      int64_t signlfd;
+      int64_t  _flags; // flags
       sigset_t _mask; // mask for signals
       struct signalfd_siginfo _fdsi;
   };
@@ -183,7 +183,7 @@ namespace dmtcp
         JTRACE ("new inotify connection created");
       }
 
-      int inotifyState() const { return _state; }
+      int inotifyState() const { return (int) _state; }
       InotifyConnection& asInotify();
 
       virtual void drain();
@@ -198,8 +198,8 @@ namespace dmtcp
                                  uint32_t mask);
       void remove_watch_descriptors(int wd);
     private:
-      int         _flags; // flags
-      int         _state; // current state of INOTIFY
+      int64_t  _flags; // flags
+      int64_t  _state; // current state of INOTIFY
       struct stat _stat; // not sure if stat makes sense in case  of epfd
   };
 #endif

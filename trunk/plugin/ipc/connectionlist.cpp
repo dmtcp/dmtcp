@@ -190,14 +190,14 @@ void dmtcp::ConnectionList::serialize(jalib::JBinarySerializer& o)
 
   JSERIALIZE_ASSERT_POINT("dmtcp::ConnectionList:");
 
-  size_t numCons = _connections.size();
+  uint32_t numCons = _connections.size();
   o & numCons;
 
   if (o.isWriter()) {
     for (iterator i=_connections.begin(); i!=_connections.end(); ++i) {
       ConnectionIdentifier key = i->first;
       Connection& con = *i->second;
-      int type = con.conType();
+      uint32_t type = con.conType();
 
       JSERIALIZE_ASSERT_POINT("[StartConnection]");
       o & key & type;
@@ -216,7 +216,7 @@ void dmtcp::ConnectionList::serialize(jalib::JBinarySerializer& o)
       JASSERT(con != NULL) (key);
       con->serialize(o);
       _connections[key] = con;
-      const vector<int>& fds = con->getFds();
+      const vector<int32_t>& fds = con->getFds();
       for (size_t i = 0; i < fds.size(); i++) {
         _fdToCon[fds[i]] = con;
       }
