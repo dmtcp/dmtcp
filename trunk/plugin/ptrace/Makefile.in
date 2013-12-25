@@ -1,5 +1,4 @@
 PLUGIN=ptrace
-LIBNAME=libdmtcp_${PLUGIN}.so
 CC = @CC@
 M32=@M32@
 CFLAGS = @CFLAGS@
@@ -29,6 +28,13 @@ top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 srcdir = @srcdir@
 VPATH = @srcdir@
+targetdir = $(top_builddir)
+
+ifeq ($(M32),1)
+  targetdir = $(top_builddir)/lib/$(PACKAGE)/32
+endif
+
+LIBNAME=$(top_builddir)/lib/${PACKAGE}/libdmtcp_${PLUGIN}.so
 
 DMTCP_INCLUDE_PATH = $(top_srcdir)/dmtcp/include
 JALIB_PATH = $(top_srcdir)/dmtcp/jalib
@@ -77,22 +83,16 @@ tidy:
 
 clean: tidy
 	-rm -f *.o
-	-rm -f *.so
+	-rm -f $(LIBNAME)
 
 distclean: clean
 	rm -f Makefile
 
 install: all
-	if test -z "$(prefix)"; then \
-	  echo ERROR: prefix must be defined; \
-	  exit 1; \
-	fi
-	test -e $(DESTDIR)$(libdir) || $(MKDIR_P) $(DESTDIR)$(libdir)
-	cp ${LIBNAME} $(DESTDIR)$(pkglibdir)
+	install -D ${LIBNAME} $(DESTDIR)$(pkglibdir)
 
 uninstall:
-	echo " ( cd '$(DESTDIR)$(pkglibdir)' && rm -f $$files ) "; \
-	cd "$(DESTDIR)$(pkglibdir)" && rm -f $(LIBNAME)
+	rm -f $(DESTDIR)$(pkglibdir)/$(LIBNAME)
 
 ${LIBNAME}: $(OBJS) ${HEADERS}
 	@rm -f ${LIBNAME}

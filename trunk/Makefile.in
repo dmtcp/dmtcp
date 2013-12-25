@@ -26,9 +26,15 @@ docdir=@docdir@
 includedir=@includedir@
 mandir=@mandir@
 infodir=@mandir@
+top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 srcdir = @srcdir@
 VPATH = @srcdir@
+targetdir = $(top_builddir)
+
+ifeq ($(M32),1)
+  targetdir = $(top_builddir)/lib/$(PACKAGE)/32/
+endif
 
 MANPAGES=dmtcp_coordinator.1.gz dmtcp_command.1.gz dmtcp_inspector.1.gz \
 	 dmtcp_launch.1.gz dmtcp_checkpoint.1.gz dmtcp_nocheckpoint.1.gz \
@@ -39,12 +45,12 @@ MANPAGES=dmtcp_coordinator.1.gz dmtcp_command.1.gz dmtcp_inspector.1.gz \
 
 default: display-build-env build
 
-build: mtcp dmtcp plugin contrib
-	$(MKDIR_P) bin
-	$(MKDIR_P) lib/dmtcp
-	$(MKDIR_P) include
-	$(MAKE) bin
-	$(MAKE) lib
+mkdirs:
+	$(MKDIR_P) $(targetdir)/bin
+	$(MKDIR_P) $(targetdir)/lib/dmtcp
+	$(MKDIR_P) $(targetdir)/include
+
+build: mkdirs mtcp dmtcp plugin contrib
 	$(MAKE) include
 
 all: default
@@ -68,6 +74,7 @@ display-release: check-m32-compat
 	    cat /etc/redhat-release 2> /dev/null || true
 	@ cat /etc/debian-version 2> /dev/null && echo '  (Debian)' || true
 	@ cat /etc/rocks-release 2> /dev/null || true
+
 display-config: check-m32-compat
 	@- echo DMTCP version:\
 	  ${VERSION} \(`grep 'MTCP_VERSION =' mtcp/Makefile`\)
@@ -89,11 +96,12 @@ ifeq ($(M32),1)
 	 false)
 endif
 
-mtcp: check-m32-compat
+mtcp: mkdirs check-m32-compat
 	cd mtcp && $(MAKE) $(MTCP_MAKE_FLAGS) build readmtcp
 
 dmtcp: check-m32-compat mtcp
 	cd dmtcp/src && $(MAKE)
+	#cd $(targetdir)/bin && $(LN_S) dmtcp_launch dmtcp_checkpoint
 
 plugin: dmtcp check-m32-compat
 	cd plugin && $(MAKE)
@@ -113,13 +121,13 @@ LIMIT=ulimit -v 33554432
 
 check: tests
 	@+ if python -c 'print "Python exits."' > /dev/null; then \
-	   bash -c "$(LIMIT) && ./test/autotest.py ${AUTOTEST} $*"; \
+	   bash -c "$(LIMIT) && $(top_srcdir)/test/autotest.py ${AUTOTEST} $*"; \
 	  else echo '*** No python found in your path.'; echo '*** Please add' \
 	   ' python to path or build Python 2.x for x >= 3.'; \
 	  fi
 
 check-%: tests
-	+bash -c "$(LIMIT) && ./test/autotest.py ${AUTOTEST} '$*'"
+	+bash -c "$(LIMIT) && $(top_srcdir)/test/autotest.py ${AUTOTEST} '$*'"
 
 check1: icheck-dmtcp1
 
@@ -141,18 +149,18 @@ icheck-%: tests
 	@ echo "Press <return> when ready to start."
 	@ read -p "> " dummy
 	@ rm -f ckpt_$*_* && sleep 3 && \
-		echo "" && echo "*** Starting Program" && echo "" && \
-		${XTERM_E} $$PWD/bin/dmtcp_launch --join test/$* && \
-		echo "" && echo "*** Restarting Program from Checkpoint" \
-		  "(press q<return> to quit)" && echo "" && \
-		until ls ckpt_$*_*.dmtcp > /dev/null 2>&1; do true; done; \
-		${XTERM_E} $$PWD/bin/dmtcp_restart --join --quiet ckpt_$*_*.dmtcp; \
-		echo "" && echo "*** Again Restarting Program from Checkpoint" \
-		  "(press q<return> to quit)" && echo "" && \
-		until ls ckpt_$*_*.dmtcp > /dev/null 2>&1; do true; done; \
-		${XTERM_E} $$PWD/bin/dmtcp_restart --join --quiet ckpt_$*_*.dmtcp; \
-		&
-	@ bin/dmtcp_coordinator
+	  echo "" && echo "*** Starting Program" && echo "" && \
+	  ${XTERM_E} $(targetdir)/bin/dmtcp_launch --join test/$* && \
+	  echo "" && echo "*** Restarting Program from Checkpoint" \
+	  "(press q<return> to quit)" && echo "" && \
+	  until ls ckpt_$*_*.dmtcp > /dev/null 2>&1; do true; done; \
+	  ${XTERM_E} $(targetdir)/bin/dmtcp_restart --join --quiet ckpt_$*_*.dmtcp; \
+	  echo "" && echo "*** Again Restarting Program from Checkpoint" \
+	  "(press q<return> to quit)" && echo "" && \
+	  until ls ckpt_$*_*.dmtcp > /dev/null 2>&1; do true; done; \
+	  ${XTERM_E} $(targetdir)/bin/dmtcp_restart --join --quiet ckpt_$*_*.dmtcp; \
+	  &
+	@ $(targetdir)/bin/dmtcp_coordinator
 
 tidy:
 	rm -rf dmtcp-autotest-* ckpt_*_files
@@ -174,7 +182,7 @@ clean: tidy
 	   fi; \
 	 fi; \
 	 rm -rf $$DMTCP_TMPDIR
-	rm -rf include lib bin
+	rm -rf $(targetdir)/include $(targetdir)/lib $(targetdir)/bin
 
 distclean: clean
 	- cd mtcp  && $(MAKE) distclean
@@ -209,61 +217,6 @@ dist: distclean dist_exclude.txt
 	    ./`basename $$dir`
 	ls -l ../dmtcp.tgz
 
-bin/dmtcp_checkpoint:
-	cd bin && $(LN_S) dmtcp_launch dmtcp_checkpoint
-
-bin/% : dmtcp/src/%
-	cd bin && $(LN_S) ../$< $*
-
-bin/% : mtcp/%
-	cd bin && $(LN_S) ../$< $*
-
-bin/% : plugin/ipc/%
-	cd bin && $(LN_S) ../$< $*
-
-bin/readdmtcp : mtcp/readmtcp
-	cd bin && $(LN_S) ../$< readdmtcp
-
-bin: 	bin/dmtcp_coordinator bin/dmtcp_command \
-	bin/dmtcp_launch bin/dmtcp_checkpoint bin/dmtcp_nocheckpoint \
-	bin/dmtcp_restart bin/mtcp_restart bin/readdmtcp \
-	bin/dmtcp_ssh bin/dmtcp_sshd
-
-lib/% : mtcp/%
-	cd lib && $(LN_S) ../$< $*
-
-lib/libdmtcpaware.so : dmtcp/src/libdmtcpaware.so.1.0.0
-	cd lib && $(LN_S) ../$< $*
-	cd lib && $(LN_S) libdmtcpaware.so.1.0.0 libdmtcpaware.so.1
-	cd lib && $(LN_S) libdmtcpaware.so.1 libdmtcpaware.so
-
-lib/% : dmtcp/src/%
-	cd lib && $(LN_S) ../$< $*
-
-lib/dmtcp/% : dmtcp/src/%
-	cd lib/dmtcp && $(LN_S) ../../$< $*
-
-lib/dmtcp/libdmtcp_%.so : plugin/%
-	cd lib/dmtcp && $(LN_S) ../../$</$(@F) .
-
-lib/dmtcp/libdmtcp_%.so : contrib/%
-	cd lib/dmtcp && $(LN_S) ../../$</$(@F) .
-
-PLUGINS = lib/dmtcp/libdmtcp_pid.so lib/dmtcp/libdmtcp_ipc.so \
-	  lib/dmtcp/libdmtcp_alloc.so lib/dmtcp/libdmtcp_rm.so
-
-ifeq ($(PTRACE_SUPPORT),yes)
-  PLUGINS += lib/dmtcp/libdmtcp_ptrace.so
-endif
-
-ifeq ($(INFINIBAND_SUPPORT),yes)
-  PLUGINS += lib/dmtcp/libdmtcp_infiniband.so
-endif
-
-lib: 	lib/dmtcp/libdmtcp.so $(PLUGINS) \
-	lib/libdmtcpaware.a lib/libdmtcpaware.so \
-	lib/libmtcp.so.1.0.0 lib/libmtcp.so.1 lib/libmtcp.so
-
 include/% : mtcp/%
 	cd include && $(LN_S) ../$< $*
 
@@ -273,39 +226,25 @@ include/% : dmtcp/src/%
 include: include/mtcp.h include/dmtcpaware.h
 
 install: all
-	if test -z "$(prefix)"; then \
-	  echo ERROR: prefix must be defined; \
-	  exit 1; \
-	fi
-	test -e $(DESTDIR)$(bindir) || $(MKDIR_P) $(DESTDIR)$(bindir)
-	test -e $(DESTDIR)$(libdir) || $(MKDIR_P) $(DESTDIR)$(libdir)
-	test -e $(DESTDIR)$(includedir) || $(MKDIR_P) $(DESTDIR)$(includedir)
-	test -e $(DESTDIR)$(libdir)/dmtcp || $(MKDIR_P) $(DESTDIR)$(libdir)/dmtcp
 	cd dmtcp/src && make DESTDIR=$(DESTDIR) install
 	cd plugin && make DESTDIR=$(DESTDIR) install
 	cd contrib && make DESTDIR=$(DESTDIR) install
-	cd mtcp && make DESTDIR=$(DESTDIR) bindir=$(bindir) libdir=$(libdir) \
-	  includedir=$(includedir) install
-	echo "${docdir}" | grep -q /dmtcp || false
-	$(MKDIR_P) $(DESTDIR)$(docdir)/examples
-	cp $(top_srcdir)/test/dmtcpaware*.c $(DESTDIR)$(docdir)/examples
-	$(MKDIR_P) $(DESTDIR)$(mandir)/man1
-	cp $(top_srcdir)/manpages/dmtcp.1 $(DESTDIR)$(mandir)/man1
-	cd $(DESTDIR)$(mandir)/man1; \
-	  for file in ${MANPAGES}; do $(LN_S) dmtcp.1 $$file; done
+	cd mtcp && make DESTDIR=$(DESTDIR)  install
+	test -e $(DESTDIR)$(docdir)/examples || $(MKDIR_P) $(DESTDIR)$(docdir)/examples
+	install -D $(top_srcdir)/test/dmtcpaware*.c $(DESTDIR)$(docdir)/examples
+	test -e $(DESTDIR)$(mandir)/man1 || $(MKDIR_P) $(DESTDIR)$(mandir)/man1
+	install -D $(top_srcdir)/manpages/dmtcp.1 $(DESTDIR)$(mandir)/man1
+	(cd $(DESTDIR)$(mandir)/man1; \
+	  for file in ${MANPAGES}; do $(LN_S) dmtcp.1 $$file; done)
 
 uninstall:
-	cd dmtcp/src && make uninstall
-	cd plugin && make uninstall
-	cd contrib && make uninstall
-	cd mtcp && make DESTDIR=$(DESTDIR) bindir=$(bindir) libdir=$(libdir) \
-	  includedir=$(includedir) uninstall
-	echo "${docdir}" | grep -q /dmtcp || false
+	cd dmtcp/src && make DESTDIR=$(DESTDIR) uninstall
+	cd plugin && make DESTDIR=$(DESTDIR) uninstall
+	cd contrib && make DESTDIR=$(DESTDIR) uninstall
+	cd mtcp && make DESTDIR=$(DESTDIR) uninstall
 	rm -Rf "$(DESTDIR)$(docdir)"
-	cd $(DESTDIR)$(mandir)/man1 && \
-	  rm -f dmtcp.1 ${MANPAGES}
+	cd $(DESTDIR)$(mandir)/man1 && rm -f dmtcp.1 ${MANPAGES}
 
 .PHONY: default all check-m32-compat tests \
 	display-build-env display-release display-config build \
-	mtcp dmtcp plugin contrib \
-	clean distclean bin dmtcpaware examples dmtcp_noexamples
+	mtcp dmtcp plugin contrib clean distclean

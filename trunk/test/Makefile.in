@@ -3,11 +3,19 @@ LN_S=@LN_S@
 CC=@CC@
 CXX=@CXX@
 M32=@M32@
+PACKAGE=@PACKAGE_TARNAME@
 OPENMP_CFLAGS=@OPENMP_CFLAGS@
 OPENMP_CXXFLAGS=@OPENMP_CXXFLAGS@
+top_builddir = @top_builddir@
+top_srcdir = @top_srcdir@
+srcdir = @srcdir@
+VPATH = @srcdir@
+targetdir = $(top_builddir)
+
 ifeq ($(M32),1)
   CFLAGS =-m32 -Wl,-m32 -Wl,-melf_i386 -Wa,--32 @CFLAGS@
   CXXFLAGS=-m32 -Wl,-m32 -Wl,-melf_i386 -Wa,--32 @CXXFLAGS@
+  targetdir = $(top_builddir)/lib/$(PACKAGE)/32
 else
   CFLAGS=@CFLAGS@
   CXXFLAGS=@CXXFLAGS@
@@ -93,7 +101,7 @@ else
 endif
 
 DMTCPAWARE_EXE=$(patsubst %.c,%,$(wildcard dmtcpaware*.c))
-DMTCPAWARELIB=../lib/libdmtcpaware.a
+DMTCPAWARELIB=$(targetdir)/lib/libdmtcpaware.a
 
 ${DMTCPAWARE_EXE}: dmtcpaware%: dmtcpaware%.c ${DMTCPAWARELIB}
 	-$(CC) -o $@ -I../include $< $(CFLAGS) $(DMTCPAWARELIB)
