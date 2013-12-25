@@ -18,7 +18,7 @@ AM_CONFIG_HEADER([dmtcp/include/config.h])
 AC_CONFIG_FILES([Makefile plugin/Makefile plugin/pid/Makefile \
                  plugin/ipc/Makefile plugin/alloc/Makefile \
                  contrib/Makefile contrib/rm/Makefile \
-                 contrib/ckptfile/Makefile \
+                 contrib/ckptfile/Makefile mtcp/Makefile \
                  test/Makefile test/testconfig.py\
                  test/plugin/Makefile test/credentials/Makefile])
 
