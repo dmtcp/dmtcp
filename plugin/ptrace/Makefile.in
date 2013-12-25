@@ -88,11 +88,15 @@ clean: tidy
 distclean: clean
 	rm -f Makefile
 
-install: all
+install-libs: all
 	install -D ${LIBNAME} $(DESTDIR)$(pkglibdir)
 
-uninstall:
+uninstall-libs:
 	rm -f $(DESTDIR)$(pkglibdir)/$(LIBNAME)
+
+install: install-libs
+
+uninstall: uninstall-libs
 
 ${LIBNAME}: $(OBJS) ${HEADERS}
 	@rm -f ${LIBNAME}

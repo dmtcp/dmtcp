@@ -139,4 +139,10 @@ uninstall-hook:
 
 libs: $(dmtcplib_PROGRAMS) $(lib_LIBRARIES)
 
+install-libs: install-dmtcplibPROGRAMS
+	$(MAKE) $(AM_MAKEFLAGS) install-data-hook
+
+uninstall-libs: uninstall-dmtcplibPROGRAMS
+	$(MAKE) $(AM_MAKEFLAGS) uninstall-hook
+
 .PHONY: libs

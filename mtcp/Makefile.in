@@ -193,19 +193,23 @@ endif
 
 all default: build tests readmtcp
 
-install: build
+install-libs: build
 	install -D $(targetdir)/bin/$(MTCP_RESTART) $(DESTDIR)$(bindir)
-	install -D $(srcdir)/mtcp.h $(DESTDIR)$(includedir)
 	install -D $(targetdir)/lib/libmtcp.so.$(LIBMTCP_SOVERSION_INFO) \
 	  $(DESTDIR)$(libdir)
 	install -D $(targetdir)/lib/libmtcp.so.$(LIBMTCP_SOVERSION_MAJOR) \
 	  $(DESTDIR)$(libdir)
 	install -D $(targetdir)/lib/libmtcp.so $(DESTDIR)$(libdir)
 
-uninstall:
+uninstall-libs:
 	rm -f "$(DESTDIR)$(bindir)/$(MTCP_RESTART)"
-	rm -f "$(DESTDIR)$(includedir)/mtcp.h"
 	rm -f "$(DESTDIR)$(libdir)"/libmtcp.so*
+
+install: build install-libs
+	install -D $(srcdir)/mtcp.h $(DESTDIR)$(includedir)
+
+uninstall: uninstall-libs
+	rm -f "$(DESTDIR)$(includedir)/mtcp.h"
 
 util-arch: util-arch.c
 	${CC} -o $@ $<

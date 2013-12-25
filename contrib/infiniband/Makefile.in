@@ -146,10 +146,14 @@ dist: distclean
 	dir=`basename $$PWD`; cd ..; tar czvf $$dir.tar.gz ./$$dir
 	dir=`basename $$PWD`; ls -l ../$$dir.tar.gz
 
-install: all
+install-libs: all
 	install -D ${LIBNAME} $(DESTDIR)$(pkglibdir)
 
-uninstall:
+uninstall-libs:
 	rm -f $(DESTDIR)$(pkglibdir)/$(LIBNAME)
+
+install: install-libs
+
+uninstall: uninstall-libs
 
 .PHONY: default all build tidy clean distclean install uninstall

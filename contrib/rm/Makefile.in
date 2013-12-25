@@ -93,18 +93,17 @@ clean: tidy
 distclean: clean
 	rm -f Makefile
 
-install: all
-	if test -z "$(prefix)"; then \
-	  echo ERROR: prefix must be defined; \
-	  exit 1; \
-	fi
-	test -e $(DESTDIR)$(libdir) || $(MKDIR_P) $(DESTDIR)$(libdir)
+install-libs: all
 	install -D ${LIBNAME} $(DESTDIR)$(pkglibdir)
+
+uninstall-libs:
+	rm -f $(DESTDIR)$(pkglibdir)/$(LIBNAME)
+
+install: install-libs
 	install -D $(targetdir)/bin/dmtcp_discover_rm $(DESTDIR)$(bindir)
 	install -D $(targetdir)/bin/dmtcp_rm_loclaunch $(DESTDIR)$(bindir)
 
-uninstall:
-	rm -f $(DESTDIR)$(pkglibdir)/$(LIBNAME)
+uninstall: uninstall-libs
 	rm -f $(DESTDIR)$(bindir)/dmtcp_discover_rm 
 	rm -f $(DESTDIR)$(bindir)/dmtcp_rm_loclaunch
 
