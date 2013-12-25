@@ -17,7 +17,7 @@ struct keyPid {
 
 void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
-  size_t sizeofPid;
+  uint32_t sizeofPid;
 
   /* NOTE:  See warning in plugin/README about calls to printf here. */
   switch (event) {
