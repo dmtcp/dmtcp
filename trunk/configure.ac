@@ -2,6 +2,7 @@ AC_INIT([DMTCP],[2.0],[],[dmtcp],[http://dmtcp.sourceforge.net])
 AC_PREREQ([2.60])
 AM_INIT_AUTOMAKE([foreign])
 AM_MAINTAINER_MODE
+AC_PROG_RANLIB
 AC_PROG_MAKE_SET
 AC_PROG_LN_S
 AC_PROG_MKDIR_P
@@ -13,6 +14,7 @@ dnl This sets OPENMP_CXXFLAGS
 AC_LANG_PUSH([C++])
 AC_OPENMP
 AC_LANG_POP([C++])
+AM_CONFIG_HEADER([dmtcp/include/config.h])
 AC_CONFIG_FILES([Makefile plugin/Makefile plugin/pid/Makefile \
                  plugin/ipc/Makefile plugin/alloc/Makefile \
                  contrib/Makefile contrib/rm/Makefile \
@@ -20,7 +22,7 @@ AC_CONFIG_FILES([Makefile plugin/Makefile plugin/pid/Makefile \
                  test/Makefile test/testconfig.py\
                  test/plugin/Makefile test/credentials/Makefile])
 
-AC_CONFIG_SUBDIRS([dmtcp])
+#AC_CONFIG_SUBDIRS([dmtcp])
 
 dnl Autoconf manual says option checking is set to warn ("yes") by
 dnl  by default.  But it's actually set to "no".
@@ -44,6 +46,9 @@ AC_ARG_ENABLE([debug],
 
 if test "$use_jassert" = "yes"; then
   AC_SUBST([DEBUG], [yes])
+  AC_DEFINE([DEBUG],[1],[Verbose debug output and log files in $DMTCP_TMPDIR])
+  CFLAGS="-g -O0 -Wall"
+  CXXFLAGS="-g -O0 -Wall"
 else
   AC_SUBST([DEBUG], [no])
 fi
@@ -55,6 +60,10 @@ AC_ARG_ENABLE([quiet],
             [use_quiet=$enableval],
             [use_quiet=no])
 
+if test "$use_quiet" = "yes"; then
+  AC_DEFINE([QUIET],[1],[No output, not even NOTE and WARNING])
+fi
+
 AC_ARG_ENABLE([timing],
             [AS_HELP_STRING([--enable-timing],
                             [record checkpoint/restart timing information
@@ -63,6 +72,10 @@ AC_ARG_ENABLE([timing],
             [use_jtiming=$enableval],
             [use_jtiming=no])
 
+if test "$use_jtiming" = "yes"; then
+  AC_DEFINE([TIMING],[1],[Record timing information to stderr and jtimings.csv])
+fi
+
 AC_ARG_ENABLE([unique_checkpoint_filenames],
             [AS_HELP_STRING([--enable-unique-checkpoint-filenames],
                             [By default, successive checkpoints are written
@@ -70,6 +83,10 @@ AC_ARG_ENABLE([unique_checkpoint_filenames],
 			    checkpoint should be a unique filename.])],
             [use_unique_checkpoint_filenames=$enableval],
             [use_unique_checkpoint_filenames=no])
+
+if test "$use_unique_checkpoint_filenames" = "yes"; then
+  AC_DEFINE([UNIQUE_CHECKPOINT_FILENAMES],[1],[Use unique filenames for checkpoint images])
+fi
 
 AC_ARG_ENABLE([ptrace_support],
             [AS_HELP_STRING([--enable-ptrace-support],
@@ -80,6 +97,7 @@ AC_ARG_ENABLE([ptrace_support],
 
 if test "$use_ptrace_support" = "yes"; then
   AC_SUBST([PTRACE_SUPPORT], [yes])
+  AC_DEFINE([PTRACE],[1],[Use support for ptrace system call.])
   AC_CONFIG_FILES([plugin/ptrace/Makefile])
 else
   AC_SUBST([PTRACE_SUPPORT], [no])
@@ -110,6 +128,10 @@ AC_ARG_ENABLE([forked_checkpointing],
             [use_forked_ckpt=$enableval],
             [use_forked_ckpt=no])
 
+if test "$use_forked_ckpt" = "yes"; then
+  AC_DEFINE([FORKED_CHECKPOINTING],[1],[Child process does checkpointing])
+fi
+
 AC_ARG_ENABLE([fast_restart],
             [AS_HELP_STRING([--enable-fast-restart],
                             [uses tricks to mmap from checkpoint image file;
@@ -134,6 +156,7 @@ AC_ARG_ENABLE([delta_compression],
             [use_deltacomp=no])
 
 if test "$use_deltacomp" = "yes"; then
+  AC_DEFINE([HBICT_DELTACOMP],[1],[Use delta compression.])
   AC_SUBST([HBICT_DELTACOMP], [yes])
 else
   AC_SUBST([HBICT_DELTACOMP], [no])
@@ -171,16 +194,22 @@ else
   AC_SUBST([RUN_AS_ROOT], [no])
 fi
 
+AM_CONDITIONAL(RUN_AS_ROOT, [test "$use_run_as_root" = "yes"])
+if test "$use_run_as_root" = "yes"; then
+  AC_DEFINE([RUN_AS_ROOT],[1],[Allow DMTCP to run as root])
+fi
+
 AC_ARG_ENABLE([pid_virtualization],
             [AS_HELP_STRING([--disable-pid-virtualization],
                             [disable pid virtualization.  Pid virtualization
-			    is _required_ for checkpointing shells and for many
-			    programs using fork().  Disable it only for
-			    performance reasons or for diagnosis of bugs.])],
+                             is _required_ for checkpointing shells and for many
+                             programs using fork().  Disable it only for
+                             performance reasons or for diagnosis of bugs.])],
             [use_pid_virt=$enableval],
             [use_pid_virt=yes])
 
 if test "$use_pid_virt" = "yes"; then
+  AC_DEFINE([PID_VIRTUALIZATION],[1],[Use virtual pids for pid-related system calls.])
   AC_SUBST([PID_VIRTUALIZATION], [yes])
 else
   AC_SUBST([PID_VIRTUALIZATION], [no])
@@ -192,6 +221,13 @@ AC_ARG_ENABLE([allocator],
                              and avoid calling malloc and free (EXPERIMENTAL)])],
             [use_allocator=$enableval],
             [use_allocator=no])
+
+if test "$use_allocator" = "yes"; then
+  AC_DEFINE([OVERRIDE_GLOBAL_ALLOCATOR],[1],[Use a custom allocator based on mmap])
+fi
+
+AM_CONDITIONAL(HAS_I486,
+  [test `uname -m` == i686 -o  `uname -m` == i586 -o `uname -m` == i486])
 
 #check for -lreadline -lhistory v5; does not require curses
 AC_CHECK_LIB([readline], [readline], [linksReadline=yes], [linksReadline=no], [-lhistory -lcurses])
@@ -289,7 +325,7 @@ AC_CHECK_HEADERS([linux/version.h], [], [AC_MSG_ERROR(
 #check for gzip utility
 AC_CHECK_PROG(HAS_GZIP, [gzip], [yes], [no], [/usr/bin:/bin])
 
-if test `ssh -o BatchMode=yes localhost which dmtcp_launch 2>/dev/null`; then
+if test -s `ssh -o BatchMode=yes localhost which dmtcp_launch 1>&2 2>/dev/null`; then
   AC_SUBST([HAS_SSH], [yes])
 else
   AC_SUBST([HAS_SSH], [no])
@@ -338,16 +374,38 @@ fi
 
 AC_ARG_ENABLE([m32],
             [AS_HELP_STRING([--enable-m32],
-                            [Compile in 32 bit mode on 64 bit linux. (Works on most, but not all programs, due to restrictions of 32-bit mode.)])],
+                            [Compile in 32 bit mode on 64 bit linux. (Works on
+                             most, but not all programs, due to restrictions of
+                             32-bit mode.)])],
             [use_m32=$enableval],
             [use_m32=no])
 
+AM_CONDITIONAL(CONFIG_M32, [test "$use_m32" = "yes"])
 if test "$use_m32" = "yes"; then
   AC_SUBST([M32], [1])
   AC_SUBST([HAS_READLINE], [no])
+  AC_DEFINE([CONFIG_M32],[1],[Compiling in 32 bit mode on 64 bit linux.])
 else
   AC_SUBST([M32], [0])
 fi
 
+if test "$use_m32" = "yes"; then
+  interp=/lib/ld-linux.so.2
+elif test -x /usr/bin/readelf -a -r /usr/bin/readelf; then
+  interp=`/usr/bin/readelf -aW /usr/bin/readelf | grep interpreter | \
+          sed -e 's^.* interpreter: \(.*\)]^\1^'`
+elif test `uname -m` == x86_64; then
+  interp=/lib64/ld-linux-x86-64.so.2
+else
+  # FIXME: ARM (and others?) can use different interpreter.
+  interp=/lib/ld-linux.so.2
+fi
 
-AC_OUTPUT
+AC_DEFINE_UNQUOTED([ELF_INTERPRETER],["$interp"],[Generated by readelf -aW | grep interpreter])
+
+AC_CHECK_HEADERS_ONCE([sys/epoll.h sys/eventfd.h sys/signalfd.h sys/inotify.h])
+
+AC_DEFINE([DMTCP],[1],[Always enable this.])
+
+
+AC_OUTPUT(dmtcp/src/Makefile)
