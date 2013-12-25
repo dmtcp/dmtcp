@@ -1,0 +1,76 @@
+uint32_t retrieve_lkey_mapping(uint32_t orig_key)
+{
+  struct list_elem * e;
+  for (e = list_begin(&mr_list); e != list_end(&mr_list); e = list_next(e))
+  {
+    struct internal_ibv_mr * mr = list_entry(e, struct internal_ibv_mr, elem);
+
+    if (mr->user_mr.lkey == orig_key) {
+      return mr->real_mr->lkey;
+    }
+  }
+
+//  fprintf(stderr, "Lkey not found... %u\n", orig_key);
+//  exit(1);
+}
+
+void sge_update_lkey(struct ibv_sge * list, int len)
+{
+  for (int i = 0; i < len; i++)
+  {
+    list[i].lkey = retrieve_lkey_mapping(list[i].lkey);
+  }
+}
+
+uint32_t update_rkey_restart(uint32_t rkey, int pd_id)
+{
+  struct list_elem * e;
+  struct ibv_rkey_pair *pair;
+  uint32_t new_rkey;
+  uint32_t size = sizeof(new_rkey);
+  for (e = list_begin(&rkey_list); e != list_end(&rkey_list); e = list_next(e)){
+    pair = list_entry(e, struct ibv_rkey_pair, elem);
+    if (pair->orig_rkey.rkey == rkey && pair->orig_rkey.pd_id == pd_id){
+      return pair->new_rkey;
+    }
+  }
+  if (!(pair = malloc(sizeof(struct ibv_rkey_pair)))) {
+    fprintf(stderr, "Could not allocate memory for pair.\n");
+    exit(1);
+  }
+  pair->orig_rkey.pd_id = pd_id;
+  pair->orig_rkey.rkey = rkey;
+  pair->new_rkey = 0;
+  if (dmtcp_send_query_to_coordinator("mr_info", &pair->orig_rkey, sizeof(pair->orig_rkey), &new_rkey, &size)) {
+    assert(size == sizeof(uint32_t));
+    pair->new_rkey = new_rkey;
+    list_push_back(&rkey_list, &pair->elem);
+    return new_rkey;
+  }
+  else 
+  {
+    pair->new_rkey = rkey;
+    list_push_back(&rkey_list, &pair->elem);
+    return rkey;
+  }
+}
+
+void update_rkey_send(struct ibv_send_wr * wr, int pd_id)
+{
+  if (is_restart) {
+    if (wr == NULL) {
+      return;
+    }
+    if (wr->opcode == IBV_WR_RDMA_WRITE || 
+        wr->opcode == IBV_WR_RDMA_WRITE_WITH_IMM || 
+        wr->opcode == IBV_WR_RDMA_READ) {
+      wr->wr.rdma.rkey = update_rkey_restart(wr->wr.rdma.rkey, pd_id);
+    }
+    
+    if (wr->opcode == IBV_WR_ATOMIC_CMP_AND_SWP ||
+        wr->opcode == IBV_WR_ATOMIC_FETCH_AND_ADD) {
+      wr->wr.atomic.rkey = update_rkey_restart(wr->wr.atomic.rkey, pd_id);
+    }
+    update_rkey_send(wr->next, pd_id);
+  }
+}

@@ -1,0 +1,22 @@
+Description: Compilation fix for realpath
+ On some systems, realpath is declared with "inline" attribute causing
+ compilation error.
+
+--- dmtcp-2.0.orig/plugin/ipc/file/filewrappers.cpp
++++ dmtcp-2.0/plugin/ipc/file/filewrappers.cpp
+@@ -34,6 +34,7 @@
+ #define openat openat_always_inline
+ #define openat64 openat64_always_inline
+ #define readlink readlink_always_inline
++#define realpath realpath_always_inline
+ 
+ #include <stdarg.h>
+ #include <stdlib.h>
+@@ -71,6 +72,7 @@
+ #undef openat
+ #undef openat64
+ #undef readlink
++#undef realpath
+ 
+ using namespace dmtcp;
+ #if 0
