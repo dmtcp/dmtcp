@@ -55,10 +55,14 @@ default: display-build-env build
 mkdirs:
 	$(MKDIR_P) $(targetdir)/bin
 	$(MKDIR_P) $(targetdir)/lib/dmtcp
+ifeq ($(M32),0)
 	$(MKDIR_P) $(targetdir)/include
+endif
 
 build: mkdirs mtcp dmtcp plugin contrib
+ifeq ($(M32),0)
 	$(MAKE) include
+endif
 
 all: default
 
@@ -228,13 +232,13 @@ dist: distclean dist_exclude.txt
 	    ./`basename $$dir`
 	ls -l ../dmtcp.tgz
 
-include/% : mtcp/%
-	cd include && $(LN_S) ../$< $*
+$(targetdir)/include/% : mtcp/%
+	cp $(top_srcdir)/$< $@
 
-include/% : dmtcp/src/%
-	cd include && $(LN_S) ../$< $*
+$(targetdir)/include/% : dmtcp/src/%
+	cp $(top_srcdir)/$< $@
 
-include: include/mtcp.h include/dmtcpaware.h
+include: $(targetdir)/include/mtcp.h $(targetdir)/include/dmtcpaware.h
 
 create-dirs:
 	test -e $(DESTDIR)$(bindir) || $(MKDIR_P) $(DESTDIR)$(bindir)
