@@ -1,3 +1,0 @@
-There are examples of dmtcpaware programs in ../test/dmtcpaware*.c
-See ../include/dmtcpaware.h for some functions provided by dmtcpaware.
-  [ also found in ../dmtcp/src/dmtcpaware.h ]

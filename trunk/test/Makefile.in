@@ -1,25 +1,46 @@
 @SET_MAKE@
 LN_S=@LN_S@
-CC=@CC@
-CXX=@CXX@
-M32=@M32@
-PACKAGE=@PACKAGE_TARNAME@
 OPENMP_CFLAGS=@OPENMP_CFLAGS@
 OPENMP_CXXFLAGS=@OPENMP_CXXFLAGS@
+CC = @CC@
+M32=@M32@
+CFLAGS = @CFLAGS@
+CPPFLAGS = @CPPFLAGS@
+CXX = @CXX@
+CXXFLAGS = @CXXFLAGS@
+LDFLAGS = @LDFLAGS@
+MKDIR_P = @MKDIR_P@
+PACKAGE = @PACKAGE@
+PACKAGE_BUGREPORT = @PACKAGE_BUGREPORT@
+PACKAGE_NAME = @PACKAGE_NAME@
+PACKAGE_STRING = @PACKAGE_STRING@
+PACKAGE_TARNAME = @PACKAGE_TARNAME@
+PACKAGE_URL = @PACKAGE_URL@
+PACKAGE_VERSION = @PACKAGE_VERSION@
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+datarootdir=@datarootdir@
+bindir = @bindir@
+docdir = @docdir@
+includedir = @includedir@
+infodir = @infodir@
+libdir = @libdir@
+pkglibdir = $(libdir)/@PACKAGE@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 srcdir = @srcdir@
 VPATH = @srcdir@
 targetdir = $(top_builddir)
 
+DMTCP_INCLUDE=${top_srcdir}/dmtcp/include
+
+CFLAGS += -I${DMTCP_INCLUDE} -DDMTCP -fPIC --std=gnu99 -g
+CXXFLAGS += -I${DMTCP_INCLUDE} -DDMTCP -fPIC -g
+
+
 ifeq ($(M32),1)
-  CFLAGS =-m32 -Wl,-m32 -Wl,-melf_i386 -Wa,--32 @CFLAGS@
-  CXXFLAGS=-m32 -Wl,-m32 -Wl,-melf_i386 -Wa,--32 @CXXFLAGS@
   targetdir = $(top_builddir)/lib/$(PACKAGE)/32
 else
-  CFLAGS=@CFLAGS@
-  CXXFLAGS=@CXXFLAGS@
-  
   HAS_READLINE=@HAS_READLINE@
   READLINE_LIBS=-lreadline -lhistory -lcurses
   HAS_MPICH=@HAS_MPICH@
@@ -101,13 +122,10 @@ else
 endif
 
 DMTCPAWARE_EXE=$(patsubst %.c,%,$(wildcard dmtcpaware*.c))
-DMTCPAWARELIB=$(targetdir)/lib/libdmtcpaware.a
+DMTCPPLUGIN_HEADER=$(top_srcdir)/dmtcp/include/dmtcpplugin.h
 
-${DMTCPAWARE_EXE}: dmtcpaware%: dmtcpaware%.c ${DMTCPAWARELIB}
-	-$(CC) -o $@ -I../include $< $(CFLAGS) $(DMTCPAWARELIB)
-	# One can also do dynamic linking to libdmtcpaware.so as follows:
-	# (cd ../dmtcp/src && ln -s libdmtcpaware.so.1.0.0 libdmtcpaware.so.1)
-	# -$(CC) -o $@ $< $(CFLAGS) -L../lib -ldmtcpaware
+${DMTCPAWARE_EXE}: dmtcpaware%: dmtcpaware%.c $(DMTCPPLUGIN_HEADER)
+	-$(CC) -o $@ -I$(top_srcdir)/dmtcp/include $< $(CFLAGS)
 
 dmtcp3: dmtcp3.c
 	-$(CC) -o $@ $< $(CFLAGS) -lpthread

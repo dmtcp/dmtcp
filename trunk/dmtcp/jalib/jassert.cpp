@@ -200,12 +200,12 @@ static const jalib::string writeJbacktraceMsg() {
     "     ";
   o << msg << "util/dmtcp_backtrace.py" << " "
     << thisProgram << " "
-    << jalib::dmtcp_get_tmpdir() << "/backtrace."
-    << jalib::dmtcp_get_uniquepid_str() << " ";
+    << dmtcp_get_tmpdir() << "/backtrace."
+    << dmtcp_get_uniquepid_str() << " ";
   // Weird bug:  If we don't start a new statement here,
   // then the second call to dmtcp_get_uniquepid_str() returns just 831.
-  o << jalib::dmtcp_get_tmpdir() << "/proc-maps."
-    << jalib::dmtcp_get_uniquepid_str()
+  o << dmtcp_get_tmpdir() << "/proc-maps."
+    << dmtcp_get_uniquepid_str()
     << "\n   (For further help, try:  util/dmtcp_backtrace.py --help)\n";
   return o.str();
 }
@@ -214,8 +214,8 @@ static void writeBacktrace() {
   void *buffer[BT_SIZE];
   int nptrs = backtrace(buffer, BT_SIZE);
   dmtcp::ostringstream o;
-  o << jalib::dmtcp_get_tmpdir() << "/backtrace."
-    << jalib::dmtcp_get_uniquepid_str();
+  o << dmtcp_get_tmpdir() << "/backtrace."
+    << dmtcp_get_uniquepid_str();
   int fd = jalib::open(o.str().c_str(), O_WRONLY|O_CREAT|O_TRUNC,
                        S_IRUSR|S_IWUSR);
   if (fd != -1) {
@@ -236,8 +236,8 @@ static void writeProcMaps() {
   jalib::close(fd);
 
   dmtcp::ostringstream o;
-  o << jalib::dmtcp_get_tmpdir() << "/proc-maps."
-    << jalib::dmtcp_get_uniquepid_str();
+  o << dmtcp_get_tmpdir() << "/proc-maps."
+    << dmtcp_get_uniquepid_str();
   fd = jalib::open(o.str().c_str(), O_WRONLY | O_CREAT | O_TRUNC,
                    S_IRUSR|S_IWUSR);
   if (fd == -1) return;

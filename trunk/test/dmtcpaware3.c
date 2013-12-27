@@ -3,30 +3,31 @@
 #include <unistd.h>
 
 /* Be sure to compile with -I<path>; see Makefile in this directory. */
-#include "dmtcpaware.h"
+#include "dmtcpplugin.h"
 
 // this example tests dmtcpDelayCheckpoins[Un]Lock()
 
 int main(int argc, char* argv[])
 {
   int count = 0;
-  const DmtcpLocalStatus * ls;
+  int numCheckpoints, numRestarts;
   while (1)
   {
-    if(dmtcpIsEnabled()){
-      ls = dmtcpGetLocalStatus();
-      printf("working... %d (status: %d checkpoints / %d restarts)\n", ++count,ls->numCheckpoints, ls->numRestarts);
+    if(dmtcp_is_enabled()){
+      dmtcp_get_local_status(&numCheckpoints, &numRestarts);
+      printf("working... %d (status: %d checkpoints / %d restarts)\n",
+             ++count, numCheckpoints, numRestarts);
     }else{
       printf("working... %d\n", ++count);
     }
 
     sleep(1);
 
-    dmtcpDelayCheckpointsLock();
-    printf("dmtcpDelayCheckpointsLock();\n");
+    dmtcp_disable_ckpt();
+    printf("dmtcp_disable_ckpt();\n");
     sleep(2);
-    printf("dmtcpDelayCheckpointsUnlock();\n");
-    dmtcpDelayCheckpointsUnlock();
+    printf("dmtcp_enable_ckpt();\n");
+    dmtcp_enable_ckpt();
   }
   return 0;
 }

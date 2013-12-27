@@ -235,10 +235,7 @@ dist: distclean dist_exclude.txt
 $(targetdir)/include/% : mtcp/%
 	cp $(top_srcdir)/$< $@
 
-$(targetdir)/include/% : dmtcp/src/%
-	cp $(top_srcdir)/$< $@
-
-include: $(targetdir)/include/mtcp.h $(targetdir)/include/dmtcpaware.h
+include: $(targetdir)/include/mtcp.h
 
 create-dirs:
 	test -e $(DESTDIR)$(bindir) || $(MKDIR_P) $(DESTDIR)$(bindir)

@@ -67,12 +67,12 @@ extern "C" int close(int fd)
     return -1;
   }
 
-  DMTCP_DISABLE_CKPT();
+  DMTCP_PLUGIN_DISABLE_CKPT();
   int rv = _real_close(fd);
   if (rv == 0 && dmtcp_is_running_state()) {
     process_fd_event(SYS_close, fd);
   }
-  DMTCP_ENABLE_CKPT();
+  DMTCP_PLUGIN_ENABLE_CKPT();
   return rv;
 }
 
@@ -85,12 +85,12 @@ extern "C" int fclose(FILE *fp)
     return -1;
   }
 
-  DMTCP_DISABLE_CKPT();
+  DMTCP_PLUGIN_DISABLE_CKPT();
   int rv = _real_fclose(fp);
   if (rv == 0 && dmtcp_is_running_state()) {
     process_fd_event(SYS_close, fd);
   }
-  DMTCP_ENABLE_CKPT();
+  DMTCP_PLUGIN_ENABLE_CKPT();
 
   return rv;
 }
@@ -104,35 +104,35 @@ extern "C" int closedir(DIR *dir)
     return -1;
   }
 
-  DMTCP_DISABLE_CKPT();
+  DMTCP_PLUGIN_DISABLE_CKPT();
   int rv = _real_closedir(dir);
   if (rv == 0 && dmtcp_is_running_state()) {
     process_fd_event(SYS_close, fd);
   }
-  DMTCP_ENABLE_CKPT();
+  DMTCP_PLUGIN_ENABLE_CKPT();
 
   return rv;
 }
 
 extern "C" int dup(int oldfd)
 {
-  DMTCP_DISABLE_CKPT();
+  DMTCP_PLUGIN_DISABLE_CKPT();
   int newfd = _real_dup(oldfd);
   if (newfd != -1 && dmtcp_is_running_state()) {
     process_fd_event(SYS_dup, oldfd, newfd);
   }
-  DMTCP_ENABLE_CKPT();
+  DMTCP_PLUGIN_ENABLE_CKPT();
   return newfd;
 }
 
 extern "C" int dup2(int oldfd, int newfd)
 {
-  DMTCP_DISABLE_CKPT();
+  DMTCP_PLUGIN_DISABLE_CKPT();
   int res = _real_dup2(oldfd, newfd);
   if (res != -1 && newfd != oldfd && dmtcp_is_running_state()) {
     process_fd_event(SYS_dup, oldfd, newfd);
   }
-  DMTCP_ENABLE_CKPT();
+  DMTCP_PLUGIN_ENABLE_CKPT();
   return newfd;
 }
 
@@ -140,12 +140,12 @@ extern "C" int dup2(int oldfd, int newfd)
 // dup3 appeared in Linux 2.6.27
 extern "C" int dup3(int oldfd, int newfd, int flags)
 {
-  DMTCP_DISABLE_CKPT();
+  DMTCP_PLUGIN_DISABLE_CKPT();
   int res = _real_dup3(oldfd, newfd, flags);
   if (res != -1 && newfd != oldfd && dmtcp_is_running_state()) {
     process_fd_event(SYS_dup, oldfd, newfd);
   }
-  DMTCP_ENABLE_CKPT();
+  DMTCP_PLUGIN_ENABLE_CKPT();
   return newfd;
 }
 #endif

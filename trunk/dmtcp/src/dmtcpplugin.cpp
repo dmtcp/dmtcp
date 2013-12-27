@@ -25,8 +25,166 @@
 #include "syscallwrappers.h"
 #include "processinfo.h"
 #include "shareddata.h"
+#include "threadsync.h"
+#include "mtcpinterface.h"
 
 using namespace dmtcp;
+
+#undef dmtcp_is_enabled
+#undef dmtcp_checkpoint
+#undef dmtcp_disable_ckpt
+#undef dmtcp_enable_ckpt
+#undef dmtcp_install_hooks
+#undef dmtcp_get_coordinator_status
+#undef dmtcp_get_local_status
+#undef dmtcp_get_uniquepid_str
+#undef dmtcp_get_ckpt_filename
+
+//global counters
+static int numCheckpoints = 0;
+static int numRestarts    = 0;
+
+//user hook functions
+static dmtcp_fnptr_t userHookPreCheckpoint = NULL;
+static dmtcp_fnptr_t userHookPostCheckpoint = NULL;
+static dmtcp_fnptr_t userHookPostRestart = NULL;
+
+//I wish we could use pthreads for the trickery in this file, but much of our
+//code is executed before the thread we want to wake is restored.  Thus we do
+//it the bad way.
+#if defined(__i386__) || defined(__x86_64__)
+static inline void memfence(){  asm volatile ("mfence" ::: "memory"); }
+#elif defined(__arm__)
+static inline void memfence(){  asm volatile ("dmb" ::: "memory"); }
+#endif
+
+EXTERNC int dmtcp_is_enabled() { return 1; }
+
+static void runCoordinatorCmd(char c,
+                              int *coordCmdStatus = NULL,
+                              int *numPeers = NULL,
+                              int *isRunning = NULL)
+{
+  _dmtcp_lock();
+  {
+    dmtcp::CoordinatorAPI coordinatorAPI;
+    coordinatorAPI.useAlternateCoordinatorFd();
+
+    dmtcp_disable_ckpt();
+    coordinatorAPI.connectAndSendUserCommand(c, coordCmdStatus, numPeers,
+                                             isRunning);
+    dmtcp_enable_ckpt();
+  }
+  _dmtcp_unlock();
+}
+
+static int dmtcpRunCommand(char command)
+{
+  int coordCmdStatus;
+  int i = 0;
+  while (i < 100) {
+    runCoordinatorCmd(command, &coordCmdStatus);
+  // if we got error result - check it
+	// There is possibility that checkpoint thread
+	// did not send state=RUNNING yet or Coordinator did not receive it
+	// -- Artem
+    if (coordCmdStatus == dmtcp::CoordCmdStatus::ERROR_NOT_RUNNING_STATE) {
+      struct timespec t;
+      t.tv_sec = 0;
+      t.tv_nsec = 1000000;
+      nanosleep(&t, NULL);
+      //printf("\nWAIT FOR CHECKPOINT ABLE\n\n");
+    } else {
+//      printf("\nEverything is OK - return\n");
+      break;
+    }
+    i++;
+  }
+  return coordCmdStatus == dmtcp::CoordCmdStatus::NOERROR;
+}
+
+EXTERNC int dmtcp_checkpoint()
+{
+  int rv = 0;
+  int oldNumRestarts    = numRestarts;
+  int oldNumCheckpoints = numCheckpoints;
+  memfence(); //make sure the reads above don't get reordered
+
+  if(dmtcpRunCommand('c')){ //request checkpoint
+    //and wait for the checkpoint
+    while(oldNumRestarts==numRestarts && oldNumCheckpoints==numCheckpoints){
+      //nanosleep should get interrupted by checkpointing with an EINTR error
+      //though there is a race to get to nanosleep() before the checkpoint
+      struct timespec t = {1,0};
+      nanosleep(&t, NULL);
+      memfence();  //make sure the loop condition doesn't get optimized
+    }
+    rv = (oldNumRestarts==numRestarts ? DMTCP_AFTER_CHECKPOINT : DMTCP_AFTER_RESTART);
+  }else{
+  	/// TODO: Maybe we need to process it in some way????
+    /// EXIT????
+    /// -- Artem
+    //	printf("\n\n\nError requesting checkpoint\n\n\n");
+  }
+
+  return rv;
+}
+
+EXTERNC int dmtcp_get_coordinator_status(int *numPeers, int *isRunning)
+{
+  int coordCmdStatus;
+  runCoordinatorCmd('s', &coordCmdStatus, numPeers, isRunning);
+  return 1;
+}
+
+EXTERNC int dmtcp_get_local_status(int *nCheckpoints, int *nRestarts)
+{
+  *nCheckpoints = numCheckpoints;
+  *nRestarts = numRestarts;
+  return 1;
+}
+
+EXTERNC int dmtcp_install_hooks(dmtcp_fnptr_t preCheckpoint,
+                                dmtcp_fnptr_t postCheckpoint,
+                                dmtcp_fnptr_t postRestart)
+{
+  userHookPreCheckpoint  = preCheckpoint;
+  userHookPostCheckpoint = postCheckpoint;
+  userHookPostRestart    = postRestart;
+  return 1;
+}
+
+EXTERNC int dmtcp_disable_ckpt()
+{
+  dmtcp::ThreadSync::delayCheckpointsLock();
+  return 1;
+}
+
+EXTERNC int dmtcp_enable_ckpt()
+{
+  dmtcp::ThreadSync::delayCheckpointsUnlock();
+  return 1;
+}
+
+void dmtcp::userHookTrampoline_preCkpt()
+{
+  if(userHookPreCheckpoint != NULL)
+    (*userHookPreCheckpoint)();
+}
+
+void dmtcp::userHookTrampoline_postCkpt(bool isRestart)
+{
+  //this function runs before other threads are resumed
+  if(isRestart){
+    numRestarts++;
+    if(userHookPostRestart != NULL)
+      (*userHookPostRestart)();
+  }else{
+    numCheckpoints++;
+    if(userHookPostCheckpoint != NULL)
+      (*userHookPostCheckpoint)();
+  }
+}
 
 EXTERNC int dmtcp_get_ckpt_signal(void)
 {
@@ -75,6 +233,13 @@ EXTERNC void dmtcp_set_coord_ckpt_dir(const char* dir)
   if (dir != NULL) {
     CoordinatorAPI::instance().updateCoordCkptDir(dir);
   }
+}
+
+EXTERNC const char* dmtcp_get_ckpt_filename(void)
+{
+  static dmtcp::string filename;
+  filename = dmtcp::UniquePid::getCkptFilename();
+  return filename.c_str();
 }
 
 EXTERNC const char* dmtcp_get_ckpt_files_subdir(void)

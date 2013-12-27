@@ -60,14 +60,6 @@ extern "C" void jalib_init(jalib::JalibFuncPtrs jalibFuncPtrs,
 
 namespace jalib {
 
-  const char* dmtcp_get_tmpdir() {
-    REAL_FUNC_PASSTHROUGH(const char *, dmtcp_get_tmpdir) ();
-  }
-
-  const char* dmtcp_get_uniquepid_str() {
-    REAL_FUNC_PASSTHROUGH(const char *, dmtcp_get_uniquepid_str) ();
-  }
-
   int open(const char *pathname, int flags, ...) {
     mode_t mode = 0;
     // Handling the variable number of arguments

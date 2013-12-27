@@ -33,9 +33,6 @@
 
 namespace jalib {
   typedef struct JalibFuncPtrs {
-    const char* (*dmtcp_get_tmpdir)();
-    const char* (*dmtcp_get_uniquepid_str)();
-
     int   (*open)(const char *pathname, int flags, ...);
     FILE* (*fopen)(const char *path, const char *mode);
     int   (*close)(int fd);
@@ -74,9 +71,6 @@ namespace jalib {
   extern int stderrFd;
   extern int logFd;
   extern int dmtcp_fail_rc;
-
-  const char* dmtcp_get_tmpdir();
-  const char* dmtcp_get_uniquepid_str();
 
   int open(const char *pathname, int flags, ...);
   FILE* fopen(const char *path, const char *mode);

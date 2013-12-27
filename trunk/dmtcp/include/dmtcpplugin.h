@@ -119,11 +119,12 @@ EXTERNC const char* dmtcp_get_ckpt_dir(void);
 EXTERNC void dmtcp_set_ckpt_dir(const char *);
 EXTERNC const char* dmtcp_get_coord_ckpt_dir(void);
 EXTERNC void dmtcp_set_coord_ckpt_dir(const char* dir);
+EXTERNC const char* dmtcp_get_ckpt_filename(void) __attribute__((weak));
 EXTERNC const char* dmtcp_get_ckpt_files_subdir(void);
 EXTERNC int dmtcp_should_ckpt_open_files(void);
 
 EXTERNC int dmtcp_get_ckpt_signal(void);
-EXTERNC const char* dmtcp_get_uniquepid_str(void);
+EXTERNC const char* dmtcp_get_uniquepid_str(void) __attribute__((weak));
 EXTERNC const char* dmtcp_get_computation_id_str(void);
 EXTERNC uint64_t dmtcp_get_coordinator_timestamp(void);
 EXTERNC uint32_t dmtcp_get_generation(void);
@@ -168,13 +169,11 @@ EXTERNC void dmtcp_prepare_wrappers(void) __attribute((weak));
 #define dmtcp_process_event(e,d) \
     __REPLACE_dmtcp_process_event_WITH_dmtcp_event_hook()__
 
-#define DMTCP_PLUGIN_DISABLE_CKPT DMTCP_DISABLE_CKPT
-#define DMTCP_PLUGIN_ENABLE_CKPT  DMTCP_ENABLE_CKPT
-
-#define DMTCP_DISABLE_CKPT() \
+// To be used by plugins
+#define DMTCP_PLUGIN_DISABLE_CKPT() \
   bool __dmtcp_plugin_ckpt_disabled = dmtcp_plugin_disable_ckpt()
 
-#define DMTCP_ENABLE_CKPT() \
+#define DMTCP_PLUGIN_ENABLE_CKPT() \
   if (__dmtcp_plugin_ckpt_disabled) dmtcp_plugin_enable_ckpt()
 
 
@@ -201,8 +200,6 @@ EXTERNC void dmtcp_prepare_wrappers(void) __attribute((weak));
     }                                                                       \
   } while (0)
 
-// dmtcpaware.h and this part of dmtcpplugin.h are mutually exclusive
-#ifndef DMTCPAWARE_H
 //===================================================================
 // DMTCP utilities
 
@@ -223,6 +220,12 @@ EXTERNC void dmtcp_prepare_wrappers(void) __attribute((weak));
 # define VOID void
 #endif
 
+#define dmtcp_get_ckpt_filename() \
+  (dmtcp_get_ckpt_filename ? dmtcp_get_ckpt_filename() : NULL)
+
+#define dmtcp_get_uniquepid_str() \
+  (dmtcp_get_uniquepid_str ? dmtcp_get_uniquepid_str() : NULL)
+
 //FIXME:
 // If a plugin is not compiled with defined(__PIC__) and we can verify
 // that we're using DMTCP (environment variables), and dmtcpIsEnabled
@@ -231,21 +234,89 @@ EXTERNC void dmtcp_prepare_wrappers(void) __attribute((weak));
 
 // These utility functions require compiling the target app with -fPIC
 
-int __attribute__ ((weak)) dmtcpIsEnabled(VOID);
-#define dmtcpIsEnabled() (dmtcpIsEnabled ? dmtcpIsEnabled() : 0)
+/**
+ * Returns 1 if executing under dmtcp_launch, 0 otherwise
+ */
+EXTERNC int dmtcp_is_enabled(VOID) __attribute ((weak));
+#define dmtcp_is_enabled() (dmtcp_is_enabled ? dmtcp_is_enabled() : 0)
 
-int __attribute__ ((weak)) dmtcpCheckpoint(VOID);
-#define dmtcpCheckpoint() \
-  (dmtcpCheckpoint ? dmtcpCheckpoint() : DMTCP_NOT_PRESENT)
+/**
+ * Checkpoint the entire distributed computation, block until checkpoint is
+ * complete.
+ * - returns DMTCP_AFTER_CHECKPOINT if the checkpoint succeeded.
+ * - returns DMTCP_AFTER_RESTART    after a restart.
+ * - returns <=0 on error.
+ */
+EXTERNC int dmtcp_checkpoint(VOID) __attribute__ ((weak));
+#define dmtcp_checkpoint() \
+  (dmtcp_checkpoint ? dmtcp_checkpoint() : DMTCP_NOT_PRESENT)
 
-int __attribute__ ((weak)) dmtcpDelayCheckpointsLock(VOID);
-#define dmtcpDelayCheckpointsLock() \
- (dmtcpDelayCheckpointsLock ? dmtcpDelayCheckpointsLock() : DMTCP_NOT_PRESENT)
+/**
+ * Prevent a checkpoint from starting until dmtcp_enable_checkpoint() is
+ * called.
+ * - Has (recursive) lock semantics, only one thread may acquire it at time.
+ * - Only prevents checkpoints locally, remote processes may be suspended.
+ *   Thus, send or recv to another checkpointed process may create deadlock.
+ * - Returns 1 on success, <=0 on error
+ */
+EXTERNC int dmtcp_disable_ckpt(VOID) __attribute__ ((weak));
+#define dmtcp_disable_ckpt() \
+ (dmtcp_disable_ckpt ? dmtcp_disable_ckpt() : DMTCP_NOT_PRESENT)
 
-int __attribute__ ((weak)) dmtcpDelayCheckpointsUnlock(VOID);
-#define dmtcpDelayCheckpointsUnlock() \
-  (dmtcpDelayCheckpointsUnlock ? dmtcpDelayCheckpointsUnlock() : \
-   DMTCP_NOT_PRESENT)
+/**
+ * Re-allow checkpoints, opposite of dmtcp_disable_checkpoint().
+ * - Returns 1 on success, <=0 on error
+ */
+EXTERNC int dmtcp_enable_ckpt(VOID) __attribute__ ((weak));
+#define dmtcp_enable_ckpt() \
+ (dmtcp_enable_ckpt ? dmtcp_enable_ckpt() : DMTCP_NOT_PRESENT)
 
-#endif
+/// Pointer to a "void foo();" function
+typedef void (*dmtcp_fnptr_t)(void);
+
+/**
+ * Sets the hook functions that DMTCP calls when it checkpoints/restarts.
+ * - These functions are called from the DMTCP thread while all user threads
+ *   are suspended.
+ * - First preCheckpoint() is called, then either postCheckpoint() or
+ *   postRestart() is called.
+ * - Set to NULL to disable.
+ * - Returns 1 on success, <=0 on error
+ */
+EXTERNC int dmtcp_install_hooks(dmtcp_fnptr_t preCheckpoint,
+                                dmtcp_fnptr_t postCheckpoint,
+                                dmtcp_fnptr_t postRestart)
+  __attribute__((weak));
+#define dmtcp_install_hooks(a,b,c) \
+  (dmtcp_install_hooks ? dmtcp_install_hooks(a,b,c) : DMTCP_NOT_PRESENT)
+
+/**
+ * Gets the coordinator-specific status of DMTCP.
+ * - Returns 0 on success and -1 on error.
+ *
+ * Args:
+ *   numPeers: Number of processes connected to dmtcp_coordinator
+ *   isRunning: 1 if all processes connected to dmtcp_coordinator are in a
+ *              running state
+ */
+EXTERNC int dmtcp_get_coordinator_status(int *numPeers, int *isRunning)
+  __attribute__((weak));
+#define dmtcpGetCoordinatorStatus(p,r) \
+  (dmtcp_get_coordinator_status ? dmtcp_get_coordinator_status(p,r) \
+                             : DMTCP_NOT_PRESENT)
+
+/**
+ * Gets the local-node-specific status of DMTCP.
+ * - Returns 0 on success and -1 on error.
+ *
+ * Args:
+ *   numCheckpoints: The number of times this process has been checkpointed
+ *                   (excludes restarts)
+ *   numRestarts: The number of times this process has been restarted
+ */
+EXTERNC int dmtcp_get_local_status(int *numCheckpoints, int *numRestarts)
+  __attribute__((weak));
+#define dmtcp_get_local_status(c,r) \
+  (dmtcp_get_local_status ? dmtcp_get_local_status(c,r) : DMTCP_NOT_PRESENT)
+
 #endif
