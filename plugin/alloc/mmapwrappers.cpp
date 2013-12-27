@@ -29,26 +29,26 @@
 extern "C" void *mmap(void *addr, size_t length, int prot, int flags,
                       int fd, off_t offset)
 {
-  DMTCP_DISABLE_CKPT();
+  DMTCP_PLUGIN_DISABLE_CKPT();
   void *retval = _real_mmap(addr, length, prot, flags, fd, offset);
-  DMTCP_ENABLE_CKPT();
+  DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
 
 extern "C" void *mmap64 (void *addr, size_t length, int prot, int flags,
                          int fd, off64_t offset)
 {
-  DMTCP_DISABLE_CKPT();
+  DMTCP_PLUGIN_DISABLE_CKPT();
   void *retval = _real_mmap64(addr, length, prot, flags, fd, offset);
-  DMTCP_ENABLE_CKPT();
+  DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
 
 extern "C" int munmap(void *addr, size_t length)
 {
-  DMTCP_DISABLE_CKPT();
+  DMTCP_PLUGIN_DISABLE_CKPT();
   int retval = _real_munmap(addr, length);
-  DMTCP_ENABLE_CKPT();
+  DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
 
@@ -57,7 +57,7 @@ extern "C" void *mremap(void *old_address, size_t old_size,
                         size_t new_size, int flags, ...)
 {
   void *retval;
-  DMTCP_DISABLE_CKPT();
+  DMTCP_PLUGIN_DISABLE_CKPT();
   if (flags == MREMAP_FIXED) {
     va_list ap;
     va_start( ap, flags );
@@ -67,16 +67,16 @@ extern "C" void *mremap(void *old_address, size_t old_size,
   } else {
     retval = _real_mremap(old_address, old_size, new_size, flags);
   }
-  DMTCP_ENABLE_CKPT();
+  DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
 # else
 extern "C" void *mremap(void *old_address, size_t old_size,
                         size_t new_size, int flags)
 {
-  DMTCP_DISABLE_CKPT();
+  DMTCP_PLUGIN_DISABLE_CKPT();
   void *retval = _real_mremap(old_address, old_size, new_size, flags);
-  DMTCP_ENABLE_CKPT();
+  DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
 #endif

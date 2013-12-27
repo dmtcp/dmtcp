@@ -89,12 +89,12 @@ extern "C" int close(int fd)
     return -1;
   }
 
-  DMTCP_DISABLE_CKPT();
+  DMTCP_PLUGIN_DISABLE_CKPT();
   int rv = _real_close(fd);
   if (rv == 0 && dmtcp_is_running_state()) {
     FileConnList::instance().processClose(fd);
   }
-  DMTCP_ENABLE_CKPT();
+  DMTCP_PLUGIN_ENABLE_CKPT();
   return rv;
 }
 
@@ -107,12 +107,12 @@ extern "C" int fclose(FILE *fp)
     return -1;
   }
 
-  DMTCP_DISABLE_CKPT();
+  DMTCP_PLUGIN_DISABLE_CKPT();
   int rv = _real_fclose(fp);
   if (rv == 0 && dmtcp_is_running_state()) {
     FileConnList::instance().processClose(fd);
   }
-  DMTCP_ENABLE_CKPT();
+  DMTCP_PLUGIN_ENABLE_CKPT();
 
   return rv;
 }
@@ -126,35 +126,35 @@ extern "C" int closedir(DIR *dir)
     return -1;
   }
 
-  DMTCP_DISABLE_CKPT();
+  DMTCP_PLUGIN_DISABLE_CKPT();
   int rv = _real_closedir(dir);
   if (rv == 0 && dmtcp_is_running_state()) {
     FileConnList::instance().processClose(fd);
   }
-  DMTCP_ENABLE_CKPT();
+  DMTCP_PLUGIN_ENABLE_CKPT();
 
   return rv;
 }
 
 extern "C" int dup(int oldfd)
 {
-  DMTCP_DISABLE_CKPT();
+  DMTCP_PLUGIN_DISABLE_CKPT();
   int newfd = _real_dup(oldfd);
   if (newfd != -1 && dmtcp_is_running_state()) {
     dmtcp::FileConnList::instance().processDup(oldfd, newfd);
   }
-  DMTCP_ENABLE_CKPT();
+  DMTCP_PLUGIN_ENABLE_CKPT();
   return newfd;
 }
 
 extern "C" int dup2(int oldfd, int newfd)
 {
-  DMTCP_DISABLE_CKPT();
+  DMTCP_PLUGIN_DISABLE_CKPT();
   int res = _real_dup2(oldfd, newfd);
   if (res != -1 && newfd != oldfd && dmtcp_is_running_state()) {
     dmtcp::FileConnList::instance().processDup(oldfd, newfd);
   }
-  DMTCP_ENABLE_CKPT();
+  DMTCP_PLUGIN_ENABLE_CKPT();
   return newfd;
 }
 
@@ -162,12 +162,12 @@ extern "C" int dup2(int oldfd, int newfd)
 // dup3 appeared in Linux 2.6.27
 extern "C" int dup3(int oldfd, int newfd, int flags)
 {
-  DMTCP_DISABLE_CKPT();
+  DMTCP_PLUGIN_DISABLE_CKPT();
   int res = _real_dup3(oldfd, newfd, flags);
   if (res != -1 && newfd != oldfd && dmtcp_is_running_state()) {
     dmtcp::FileConnList::instance().processDup(oldfd, newfd);
   }
-  DMTCP_ENABLE_CKPT();
+  DMTCP_PLUGIN_ENABLE_CKPT();
   return newfd;
 }
 #endif
@@ -199,11 +199,11 @@ static int ptsname_r_work(int fd, char * buf, size_t buflen)
 
 extern "C" int ptsname_r(int fd, char * buf, size_t buflen)
 {
-  DMTCP_DISABLE_CKPT();
+  DMTCP_PLUGIN_DISABLE_CKPT();
 
   int retVal = ptsname_r_work(fd, buf, buflen);
 
-  DMTCP_ENABLE_CKPT();
+  DMTCP_PLUGIN_ENABLE_CKPT();
 
   return retVal;
 }
@@ -224,13 +224,13 @@ extern "C" char *ptsname(int fd)
 
 extern "C" int __ptsname_r_chk(int fd, char * buf, size_t buflen, size_t nreal)
 {
-  DMTCP_DISABLE_CKPT();
+  DMTCP_PLUGIN_DISABLE_CKPT();
 
   JASSERT(buflen <= nreal) (buflen) (nreal) .Text("Buffer Overflow detected!");
 
   int retVal = ptsname_r_work(fd, buf, buflen);
 
-  DMTCP_ENABLE_CKPT();
+  DMTCP_PLUGIN_ENABLE_CKPT();
 
   return retVal;
 }
@@ -238,7 +238,7 @@ extern "C" int __ptsname_r_chk(int fd, char * buf, size_t buflen, size_t nreal)
 extern "C" int ttyname_r(int fd, char *buf, size_t buflen)
 {
   char tmpbuf[64];
-  DMTCP_DISABLE_CKPT();
+  DMTCP_PLUGIN_DISABLE_CKPT();
   int ret = _real_ttyname_r(fd, tmpbuf, sizeof(tmpbuf));
 
   if (ret == 0 && strcmp(tmpbuf, "/dev/tty") != 0) {
@@ -256,7 +256,7 @@ extern "C" int ttyname_r(int fd, char *buf, size_t buflen)
       strncpy(buf, virtPtsName.c_str(), buflen);
     }
   }
-  DMTCP_ENABLE_CKPT();
+  DMTCP_PLUGIN_ENABLE_CKPT();
 
   return ret;
 }
@@ -278,25 +278,25 @@ extern "C" int __ttyname_r_chk(int fd, char *buf, size_t buflen, size_t nreal)
 
 extern "C" int getpt()
 {
-  DMTCP_DISABLE_CKPT();
+  DMTCP_PLUGIN_DISABLE_CKPT();
   int fd = _real_getpt();
   if (fd >= 0 && dmtcp_is_running_state()) {
     FileConnList::instance().processFileConnection(fd, "/dev/ptmx",
                                                      O_RDWR | O_NOCTTY, -1);
   }
-  DMTCP_ENABLE_CKPT();
+  DMTCP_PLUGIN_ENABLE_CKPT();
   return fd;
 }
 
 extern "C" int posix_openpt(int flags)
 {
-  DMTCP_DISABLE_CKPT();
+  DMTCP_PLUGIN_DISABLE_CKPT();
   int fd = _real_posix_openpt(flags);
   if (fd >= 0 && dmtcp_is_running_state()) {
     FileConnList::instance().processFileConnection(fd, "/dev/ptmx",
                                                      flags, -1);
   }
-  DMTCP_ENABLE_CKPT();
+  DMTCP_PLUGIN_ENABLE_CKPT();
   return fd;
 }
 
@@ -351,7 +351,7 @@ static int _open_open64_work(int(*fn) (const char *path, int flags, ...),
   char currPtsDevName[32];
   const char *newpath = path;
 
-  DMTCP_DISABLE_CKPT();
+  DMTCP_PLUGIN_DISABLE_CKPT();
 
   if (dmtcp::Util::strStartsWith(path, VIRT_PTS_PREFIX_STR)) {
     dmtcp::SharedData::getRealPtyName(path, currPtsDevName,
@@ -365,7 +365,7 @@ static int _open_open64_work(int(*fn) (const char *path, int flags, ...),
     FileConnList::instance().processFileConnection(fd, newpath, flags, mode);
   }
 
-  DMTCP_ENABLE_CKPT();
+  DMTCP_PLUGIN_ENABLE_CKPT();
 
   return fd;
 }
@@ -422,7 +422,7 @@ static FILE *_fopen_fopen64_work(FILE*(*fn) (const char *path, const char *mode)
   char currPtsDevName[32];
   const char *newpath = path;
 
-  DMTCP_DISABLE_CKPT();
+  DMTCP_PLUGIN_DISABLE_CKPT();
 
   if (dmtcp::Util::strStartsWith(path, VIRT_PTS_PREFIX_STR)) {
     dmtcp::SharedData::getRealPtyName(path, currPtsDevName,
@@ -437,7 +437,7 @@ static FILE *_fopen_fopen64_work(FILE*(*fn) (const char *path, const char *mode)
                                                      -1, -1);
   }
 
-  DMTCP_ENABLE_CKPT();
+  DMTCP_PLUGIN_ENABLE_CKPT();
   return file;
 }
 
@@ -456,7 +456,7 @@ extern "C" FILE *freopen(const char *path, const char *mode, FILE *stream)
   char currPtsDevName[32];
   const char *newpath = path;
 
-  DMTCP_DISABLE_CKPT();
+  DMTCP_PLUGIN_DISABLE_CKPT();
 
   if (dmtcp::Util::strStartsWith(path, VIRT_PTS_PREFIX_STR)) {
     dmtcp::SharedData::getRealPtyName(path, currPtsDevName,
@@ -471,7 +471,7 @@ extern "C" FILE *freopen(const char *path, const char *mode, FILE *stream)
                                                    -1, -1);
   }
 
-  DMTCP_ENABLE_CKPT();
+  DMTCP_PLUGIN_ENABLE_CKPT();
   return file;
 }
 
@@ -481,7 +481,7 @@ extern "C" int openat(int dirfd, const char *path, int flags, ...)
   va_start(arg, flags);
   mode_t mode = va_arg(arg, int);
   va_end(arg);
-  DMTCP_DISABLE_CKPT();
+  DMTCP_PLUGIN_DISABLE_CKPT();
   int fd = _real_openat(dirfd, path, flags, mode);
   if (fd >= 0 && dmtcp_is_running_state()) {
     dmtcp::string procpath = "/proc/self/fd/" + jalib::XToString(fd);
@@ -489,7 +489,7 @@ extern "C" int openat(int dirfd, const char *path, int flags, ...)
     FileConnList::instance().processFileConnection(fd, device.c_str(),
                                                      flags, mode);
   }
-  DMTCP_ENABLE_CKPT();
+  DMTCP_PLUGIN_ENABLE_CKPT();
   return fd;
 }
 
@@ -509,7 +509,7 @@ extern "C" int openat64(int dirfd, const char *path, int flags, ...)
   va_start(arg, flags);
   mode_t mode = va_arg(arg, int);
   va_end(arg);
-  DMTCP_DISABLE_CKPT();
+  DMTCP_PLUGIN_DISABLE_CKPT();
   int fd = _real_openat64(dirfd, path, flags, mode);
   if (fd >= 0 && dmtcp_is_running_state()) {
     dmtcp::string procpath = "/proc/self/fd/" + jalib::XToString(fd);
@@ -517,7 +517,7 @@ extern "C" int openat64(int dirfd, const char *path, int flags, ...)
     FileConnList::instance().processFileConnection(fd, device.c_str(),
                                                      flags, mode);
   }
-  DMTCP_ENABLE_CKPT();
+  DMTCP_PLUGIN_ENABLE_CKPT();
   return fd;
 }
 
@@ -533,12 +533,12 @@ extern "C" int __openat64_2(int dirfd, const char *path, int flags)
 
 extern "C" DIR *opendir(const char *name)
 {
-  DMTCP_DISABLE_CKPT();
+  DMTCP_PLUGIN_DISABLE_CKPT();
   DIR *dir = _real_opendir(name);
   if (dir != NULL && dmtcp_is_running_state()) {
     FileConnList::instance().processFileConnection(dirfd(dir), name, -1, -1);
   }
-  DMTCP_ENABLE_CKPT();
+  DMTCP_PLUGIN_ENABLE_CKPT();
   return dir;
 }
 
@@ -557,37 +557,37 @@ static void updateStatPath(const char *path, char *newpath)
 extern "C" int __xstat(int vers, const char *path, struct stat *buf)
 {
   char newpath [ PATH_MAX ] = {0} ;
-  DMTCP_DISABLE_CKPT();
+  DMTCP_PLUGIN_DISABLE_CKPT();
   updateStatPath(path, newpath);
   int retval = _real_xstat(vers, newpath, buf);
-  DMTCP_ENABLE_CKPT();
+  DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
 
 extern "C" int __xstat64(int vers, const char *path, struct stat64 *buf)
 {
   char newpath [ PATH_MAX ] = {0};
-  DMTCP_DISABLE_CKPT();
+  DMTCP_PLUGIN_DISABLE_CKPT();
   updateStatPath(path, newpath);
   int retval = _real_xstat64(vers, newpath, buf);
-  DMTCP_ENABLE_CKPT();
+  DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
 
 #if 0
 extern "C" int __fxstat(int vers, int fd, struct stat *buf)
 {
-  DMTCP_DISABLE_CKPT();
+  DMTCP_PLUGIN_DISABLE_CKPT();
   int retval = _real_fxstat(vers, fd, buf);
-  DMTCP_ENABLE_CKPT();
+  DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
 
 extern "C" int __fxstat64(int vers, int fd, struct stat64 *buf)
 {
-  DMTCP_DISABLE_CKPT();
+  DMTCP_PLUGIN_DISABLE_CKPT();
   int retval = _real_fxstat64(vers, fd, buf);
-  DMTCP_ENABLE_CKPT();
+  DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
 #endif
@@ -595,20 +595,20 @@ extern "C" int __fxstat64(int vers, int fd, struct stat64 *buf)
 extern "C" int __lxstat(int vers, const char *path, struct stat *buf)
 {
   char newpath [ PATH_MAX ] = {0} ;
-  DMTCP_DISABLE_CKPT();
+  DMTCP_PLUGIN_DISABLE_CKPT();
   updateStatPath(path, newpath);
   int retval = _real_lxstat(vers, newpath, buf);
-  DMTCP_ENABLE_CKPT();
+  DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
 
 extern "C" int __lxstat64(int vers, const char *path, struct stat64 *buf)
 {
   char newpath [ PATH_MAX ] = {0} ;
-  DMTCP_DISABLE_CKPT();
+  DMTCP_PLUGIN_DISABLE_CKPT();
   updateStatPath(path, newpath);
   int retval = _real_lxstat64(vers, newpath, buf);
-  DMTCP_ENABLE_CKPT();
+  DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
 
@@ -619,7 +619,7 @@ extern "C" int __lxstat64(int vers, const char *path, struct stat64 *buf)
 extern "C" ssize_t readlink(const char *path, char *buf, size_t bufsiz)
 {
   char newpath [ PATH_MAX ] = {0} ;
-  DMTCP_DISABLE_CKPT();
+  DMTCP_PLUGIN_DISABLE_CKPT();
   ssize_t retval;
   if (strcmp(path, "/proc/self/exe") == 0) {
     const char *procSelfExe = dmtcp_get_executable_path();
@@ -629,7 +629,7 @@ extern "C" ssize_t readlink(const char *path, char *buf, size_t bufsiz)
     updateStatPath(path, newpath);
     retval = _real_readlink(newpath, buf, bufsiz);
   }
-  DMTCP_ENABLE_CKPT();
+  DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
 
@@ -701,10 +701,10 @@ extern "C" int access(const char *path, int mode)
 {
   if (Util::strStartsWith(path, "/dev/pts")) {
     char currPtsDevName[32];
-    DMTCP_DISABLE_CKPT();
+    DMTCP_PLUGIN_DISABLE_CKPT();
     SharedData::getRealPtyName(path, currPtsDevName, sizeof(currPtsDevName));
     int ret = _real_access(currPtsDevName, mode);
-    DMTCP_ENABLE_CKPT();
+    DMTCP_PLUGIN_ENABLE_CKPT();
     return ret;
   }
   return _real_access(path, mode);

@@ -31,7 +31,7 @@ namespace dmtcp
 
   void shutdownMtcpEngineOnFork();
 
-  //these next two are defined in dmtcpawareapi.cpp
+  //these next two are defined in dmtcpplugin.cpp
   void userHookTrampoline_preCkpt();
   void userHookTrampoline_postCkpt(bool isRestart);
 }

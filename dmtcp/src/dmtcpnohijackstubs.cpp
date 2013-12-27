@@ -1,6 +1,16 @@
 #include "uniquepid.h"
 #include "../jalib/jassert.h"
 
+#undef dmtcpIsEnabled
+#undef dmtcpCheckpoint
+#undef dmtcpDelayCheckpointsLock
+#undef dmtcpDelayCheckpointsUnlock
+#undef dmtcpInstallHooks
+#undef dmtcpGetCoordinatorStatus
+#undef dmtcpGetLocalStatus
+#undef dmtcp_get_uniquepid_str
+#undef dmtcp_get_ckpt_filename
+
 // dmtcp_launch, and dmtcp_coordinator, and dmtcp_command do not
 //   need to load dmtcpworker.cpp
 // libdmtcpinternal.a contains code needed by dmtcpworker and the utilities

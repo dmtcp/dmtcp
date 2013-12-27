@@ -93,8 +93,7 @@ bin_PROGRAMS = $(targetdir)/bin/dmtcp_launch$(EXEEXT) \
 	$(targetdir)/bin/dmtcp_coordinator$(EXEEXT) \
 	$(targetdir)/bin/dmtcp_restart$(EXEEXT) \
 	$(targetdir)/bin/dmtcp_nocheckpoint$(EXEEXT)
-dmtcplib_PROGRAMS = $(targetdir)/lib/dmtcp/libdmtcp.so$(EXEEXT) \
-	$(targetdir)/lib/libdmtcpaware.so.1.0.0$(EXEEXT)
+dmtcplib_PROGRAMS = $(targetdir)/lib/dmtcp/libdmtcp.so$(EXEEXT)
 subdir = dmtcp/src
 DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/Makefile.am \
 	$(top_srcdir)/depcomp $(include_HEADERS) \
@@ -107,48 +106,13 @@ mkinstalldirs = $(install_sh) -d
 CONFIG_HEADER = $(top_builddir)/dmtcp/include/config.h
 CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
-am__vpath_adj_setup = srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`;
-am__vpath_adj = case $$p in \
-    $(srcdir)/*) f=`echo "$$p" | sed "s|^$$srcdirstrip/||"`;; \
-    *) f=$$p;; \
-  esac;
-am__strip_dir = f=`echo $$p | sed -e 's|^.*/||'`;
-am__install_max = 40
-am__nobase_strip_setup = \
-  srcdirstrip=`echo "$(srcdir)" | sed 's/[].[^$$\\*|]/\\\\&/g'`
-am__nobase_strip = \
-  for p in $$list; do echo "$$p"; done | sed -e "s|$$srcdirstrip/||"
-am__nobase_list = $(am__nobase_strip_setup); \
-  for p in $$list; do echo "$$p $$p"; done | \
-  sed "s| $$srcdirstrip/| |;"' / .*\//!s/ .*/ ./; s,\( .*\)/[^/]*$$,\1,' | \
-  $(AWK) 'BEGIN { files["."] = "" } { files[$$2] = files[$$2] " " $$1; \
-    if (++n[$$2] == $(am__install_max)) \
-      { print $$2, files[$$2]; n[$$2] = 0; files[$$2] = "" } } \
-    END { for (dir in files) print dir, files[dir] }'
-am__base_list = \
-  sed '$$!N;$$!N;$$!N;$$!N;$$!N;$$!N;$$!N;s/\n/ /g' | \
-  sed '$$!N;$$!N;$$!N;$$!N;s/\n/ /g'
-am__uninstall_files_from_dir = { \
-  test -z "$$files" \
-    || { test ! -d "$$dir" && test ! -f "$$dir" && test ! -r "$$dir"; } \
-    || { echo " ( cd '$$dir' && rm -f" $$files ")"; \
-         $(am__cd) "$$dir" && rm -f $$files; }; \
-  }
-am__installdirs = "$(DESTDIR)$(libdir)" "$(DESTDIR)$(bindir)" \
-	"$(DESTDIR)$(dmtcplibdir)" "$(DESTDIR)$(includedir)"
-LIBRARIES = $(lib_LIBRARIES) $(noinst_LIBRARIES)
+LIBRARIES = $(noinst_LIBRARIES)
 AR = ar
 ARFLAGS = cru
 AM_V_AR = $(am__v_AR_@AM_V@)
 am__v_AR_ = $(am__v_AR_@AM_DEFAULT_V@)
 am__v_AR_0 = @echo "  AR      " $@;
 am__v_AR_1 = 
-__targetdir__lib_libdmtcpaware_a_AR = $(AR) $(ARFLAGS)
-__targetdir__lib_libdmtcpaware_a_LIBADD =
-am___targetdir__lib_libdmtcpaware_a_OBJECTS = dmtcpaware.$(OBJEXT)
-__targetdir__lib_libdmtcpaware_a_OBJECTS =  \
-	$(am___targetdir__lib_libdmtcpaware_a_OBJECTS)
-am__dirstamp = $(am__leading_dot)dirstamp
 libdmtcpinternal_a_AR = $(AR) $(ARFLAGS)
 libdmtcpinternal_a_LIBADD =
 am_libdmtcpinternal_a_OBJECTS = dmtcpmessagetypes.$(OBJEXT) \
@@ -173,12 +137,15 @@ libsyscallsreal_a_LIBADD =
 am_libsyscallsreal_a_OBJECTS = syscallsreal.$(OBJEXT) \
 	trampolines.$(OBJEXT)
 libsyscallsreal_a_OBJECTS = $(am_libsyscallsreal_a_OBJECTS)
+am__installdirs = "$(DESTDIR)$(bindir)" "$(DESTDIR)$(dmtcplibdir)" \
+	"$(DESTDIR)$(includedir)"
 PROGRAMS = $(bin_PROGRAMS) $(dmtcplib_PROGRAMS)
 am___targetdir__bin_dmtcp_command_OBJECTS = dmtcp_command.$(OBJEXT)
 __targetdir__bin_dmtcp_command_OBJECTS =  \
 	$(am___targetdir__bin_dmtcp_command_OBJECTS)
 __targetdir__bin_dmtcp_command_DEPENDENCIES = libdmtcpinternal.a \
 	libjalib.a libnohijack.a
+am__dirstamp = $(am__leading_dot)dirstamp
 am___targetdir__bin_dmtcp_coordinator_OBJECTS =  \
 	dmtcp_coordinator.$(OBJEXT) lookup_service.$(OBJEXT)
 __targetdir__bin_dmtcp_coordinator_OBJECTS =  \
@@ -201,8 +168,7 @@ __targetdir__bin_dmtcp_restart_OBJECTS =  \
 	$(am___targetdir__bin_dmtcp_restart_OBJECTS)
 __targetdir__bin_dmtcp_restart_DEPENDENCIES = libdmtcpinternal.a \
 	libjalib.a libnohijack.a
-am___targetdir__lib_dmtcp_libdmtcp_so_OBJECTS =  \
-	dmtcpawareapi.$(OBJEXT) dmtcpworker.$(OBJEXT) \
+am___targetdir__lib_dmtcp_libdmtcp_so_OBJECTS = dmtcpworker.$(OBJEXT) \
 	threadsync.$(OBJEXT) coordinatorapi.$(OBJEXT) \
 	execwrappers.$(OBJEXT) mtcpinterface.$(OBJEXT) \
 	signalwrappers.$(OBJEXT) threadwrappers.$(OBJEXT) \
@@ -215,14 +181,6 @@ __targetdir__lib_dmtcp_libdmtcp_so_DEPENDENCIES = libdmtcpinternal.a \
 	libjalib.a libsyscallsreal.a
 __targetdir__lib_dmtcp_libdmtcp_so_LINK = $(CXXLD) $(AM_CXXFLAGS) \
 	$(CXXFLAGS) $(__targetdir__lib_dmtcp_libdmtcp_so_LDFLAGS) \
-	$(LDFLAGS) -o $@
-am___targetdir__lib_libdmtcpaware_so_1_0_0_OBJECTS =  \
-	dmtcpaware.$(OBJEXT)
-__targetdir__lib_libdmtcpaware_so_1_0_0_OBJECTS =  \
-	$(am___targetdir__lib_libdmtcpaware_so_1_0_0_OBJECTS)
-__targetdir__lib_libdmtcpaware_so_1_0_0_LDADD = $(LDADD)
-__targetdir__lib_libdmtcpaware_so_1_0_0_LINK = $(CCLD) $(AM_CFLAGS) \
-	$(CFLAGS) $(__targetdir__lib_libdmtcpaware_so_1_0_0_LDFLAGS) \
 	$(LDFLAGS) -o $@
 AM_V_P = $(am__v_P_@AM_V@)
 am__v_P_ = $(am__v_P_@AM_DEFAULT_V@)
@@ -269,31 +227,54 @@ AM_V_CXXLD = $(am__v_CXXLD_@AM_V@)
 am__v_CXXLD_ = $(am__v_CXXLD_@AM_DEFAULT_V@)
 am__v_CXXLD_0 = @echo "  CXXLD   " $@;
 am__v_CXXLD_1 = 
-SOURCES = $(__targetdir__lib_libdmtcpaware_a_SOURCES) \
-	$(libdmtcpinternal_a_SOURCES) $(libjalib_a_SOURCES) \
+SOURCES = $(libdmtcpinternal_a_SOURCES) $(libjalib_a_SOURCES) \
 	$(libnohijack_a_SOURCES) $(libsyscallsreal_a_SOURCES) \
 	$(__targetdir__bin_dmtcp_command_SOURCES) \
 	$(__targetdir__bin_dmtcp_coordinator_SOURCES) \
 	$(__targetdir__bin_dmtcp_launch_SOURCES) \
 	$(__targetdir__bin_dmtcp_nocheckpoint_SOURCES) \
 	$(__targetdir__bin_dmtcp_restart_SOURCES) \
-	$(__targetdir__lib_dmtcp_libdmtcp_so_SOURCES) \
-	$(__targetdir__lib_libdmtcpaware_so_1_0_0_SOURCES)
-DIST_SOURCES = $(__targetdir__lib_libdmtcpaware_a_SOURCES) \
-	$(libdmtcpinternal_a_SOURCES) $(libjalib_a_SOURCES) \
+	$(__targetdir__lib_dmtcp_libdmtcp_so_SOURCES)
+DIST_SOURCES = $(libdmtcpinternal_a_SOURCES) $(libjalib_a_SOURCES) \
 	$(libnohijack_a_SOURCES) $(libsyscallsreal_a_SOURCES) \
 	$(__targetdir__bin_dmtcp_command_SOURCES) \
 	$(__targetdir__bin_dmtcp_coordinator_SOURCES) \
 	$(__targetdir__bin_dmtcp_launch_SOURCES) \
 	$(__targetdir__bin_dmtcp_nocheckpoint_SOURCES) \
 	$(__targetdir__bin_dmtcp_restart_SOURCES) \
-	$(__targetdir__lib_dmtcp_libdmtcp_so_SOURCES) \
-	$(__targetdir__lib_libdmtcpaware_so_1_0_0_SOURCES)
+	$(__targetdir__lib_dmtcp_libdmtcp_so_SOURCES)
 am__can_run_installinfo = \
   case $$AM_UPDATE_INFO_DIR in \
     n|no|NO) false;; \
     *) (install-info --version) >/dev/null 2>&1;; \
   esac
+am__vpath_adj_setup = srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`;
+am__vpath_adj = case $$p in \
+    $(srcdir)/*) f=`echo "$$p" | sed "s|^$$srcdirstrip/||"`;; \
+    *) f=$$p;; \
+  esac;
+am__strip_dir = f=`echo $$p | sed -e 's|^.*/||'`;
+am__install_max = 40
+am__nobase_strip_setup = \
+  srcdirstrip=`echo "$(srcdir)" | sed 's/[].[^$$\\*|]/\\\\&/g'`
+am__nobase_strip = \
+  for p in $$list; do echo "$$p"; done | sed -e "s|$$srcdirstrip/||"
+am__nobase_list = $(am__nobase_strip_setup); \
+  for p in $$list; do echo "$$p $$p"; done | \
+  sed "s| $$srcdirstrip/| |;"' / .*\//!s/ .*/ ./; s,\( .*\)/[^/]*$$,\1,' | \
+  $(AWK) 'BEGIN { files["."] = "" } { files[$$2] = files[$$2] " " $$1; \
+    if (++n[$$2] == $(am__install_max)) \
+      { print $$2, files[$$2]; n[$$2] = 0; files[$$2] = "" } } \
+    END { for (dir in files) print dir, files[dir] }'
+am__base_list = \
+  sed '$$!N;$$!N;$$!N;$$!N;$$!N;$$!N;$$!N;s/\n/ /g' | \
+  sed '$$!N;$$!N;$$!N;$$!N;s/\n/ /g'
+am__uninstall_files_from_dir = { \
+  test -z "$$files" \
+    || { test ! -d "$$dir" && test ! -f "$$dir" && test ! -r "$$dir"; } \
+    || { echo " ( cd '$$dir' && rm -f" $$files ")"; \
+         $(am__cd) "$$dir" && rm -f $$files; }; \
+  }
 HEADERS = $(include_HEADERS) $(nobase_noinst_HEADERS)
 am__tagged_files = $(HEADERS) $(SOURCES) $(TAGS_FILES) $(LISP)
 # Read a list of newline-separated strings from the standard input,
@@ -478,8 +459,7 @@ AM_CPPFLAGS = $(all_includes) -I$(dmtcpincludedir) -I$(jalibdir)
 
 # targets:
 noinst_LIBRARIES = libdmtcpinternal.a libsyscallsreal.a libnohijack.a libjalib.a
-include_HEADERS = dmtcpaware.h $(srcdir)/../include/dmtcpplugin.h
-lib_LIBRARIES = $(targetdir)/lib/libdmtcpaware.a
+include_HEADERS = $(srcdir)/../include/dmtcpplugin.h
 
 # headers:
 nobase_noinst_HEADERS = constants.h \
@@ -519,7 +499,7 @@ __targetdir__bin_dmtcp_launch_SOURCES = dmtcp_launch.cpp
 __targetdir__bin_dmtcp_nocheckpoint_SOURCES = dmtcp_nocheckpoint.c
 __targetdir__bin_dmtcp_restart_SOURCES = dmtcp_restart.cpp util_exec.cpp ckptserializer.cpp
 __targetdir__bin_dmtcp_command_SOURCES = dmtcp_command.cpp
-__targetdir__lib_dmtcp_libdmtcp_so_SOURCES = dmtcpawareapi.cpp dmtcpworker.cpp threadsync.cpp \
+__targetdir__lib_dmtcp_libdmtcp_so_SOURCES = dmtcpworker.cpp threadsync.cpp \
 		      coordinatorapi.cpp execwrappers.cpp \
 		      mtcpinterface.cpp signalwrappers.cpp \
 		      threadwrappers.cpp \
@@ -557,9 +537,6 @@ __targetdir__bin_dmtcp_restart_LDADD = libdmtcpinternal.a libjalib.a \
 __targetdir__bin_dmtcp_command_LDADD = libdmtcpinternal.a libjalib.a \
 			  libnohijack.a -lpthread -lrt
 
-__targetdir__lib_libdmtcpaware_a_SOURCES = dmtcpaware.c
-__targetdir__lib_libdmtcpaware_so_1_0_0_SOURCES = dmtcpaware.c
-__targetdir__lib_libdmtcpaware_so_1_0_0_LDFLAGS = -shared -Wl,-soname,libdmtcpaware.so.1
 all: all-am
 
 .SUFFIXES:
@@ -594,48 +571,9 @@ $(top_srcdir)/configure: @MAINTAINER_MODE_TRUE@ $(am__configure_deps)
 $(ACLOCAL_M4): @MAINTAINER_MODE_TRUE@ $(am__aclocal_m4_deps)
 	cd $(top_builddir) && $(MAKE) $(AM_MAKEFLAGS) am--refresh
 $(am__aclocal_m4_deps):
-install-libLIBRARIES: $(lib_LIBRARIES)
-	@$(NORMAL_INSTALL)
-	@list='$(lib_LIBRARIES)'; test -n "$(libdir)" || list=; \
-	list2=; for p in $$list; do \
-	  if test -f $$p; then \
-	    list2="$$list2 $$p"; \
-	  else :; fi; \
-	done; \
-	test -z "$$list2" || { \
-	  echo " $(MKDIR_P) '$(DESTDIR)$(libdir)'"; \
-	  $(MKDIR_P) "$(DESTDIR)$(libdir)" || exit 1; \
-	  echo " $(INSTALL_DATA) $$list2 '$(DESTDIR)$(libdir)'"; \
-	  $(INSTALL_DATA) $$list2 "$(DESTDIR)$(libdir)" || exit $$?; }
-	@$(POST_INSTALL)
-	@list='$(lib_LIBRARIES)'; test -n "$(libdir)" || list=; \
-	for p in $$list; do \
-	  if test -f $$p; then \
-	    $(am__strip_dir) \
-	    echo " ( cd '$(DESTDIR)$(libdir)' && $(RANLIB) $$f )"; \
-	    ( cd "$(DESTDIR)$(libdir)" && $(RANLIB) $$f ) || exit $$?; \
-	  else :; fi; \
-	done
-
-uninstall-libLIBRARIES:
-	@$(NORMAL_UNINSTALL)
-	@list='$(lib_LIBRARIES)'; test -n "$(libdir)" || list=; \
-	files=`for p in $$list; do echo $$p; done | sed -e 's|^.*/||'`; \
-	dir='$(DESTDIR)$(libdir)'; $(am__uninstall_files_from_dir)
-
-clean-libLIBRARIES:
-	-test -z "$(lib_LIBRARIES)" || rm -f $(lib_LIBRARIES)
 
 clean-noinstLIBRARIES:
 	-test -z "$(noinst_LIBRARIES)" || rm -f $(noinst_LIBRARIES)
-$(targetdir)/lib/$(am__dirstamp):
-	@$(MKDIR_P) $(targetdir)/lib
-	@: > $(targetdir)/lib/$(am__dirstamp)
-
-$(targetdir)/lib/libdmtcpaware.a: $(__targetdir__lib_libdmtcpaware_a_OBJECTS) $(__targetdir__lib_libdmtcpaware_a_DEPENDENCIES) $(EXTRA___targetdir__lib_libdmtcpaware_a_DEPENDENCIES) $(targetdir)/lib/$(am__dirstamp)
-	$(AM_V_at)-rm -f $(targetdir)/lib/libdmtcpaware.a
-	$(AM_V_AR)$(__targetdir__lib_libdmtcpaware_a_AR) $(targetdir)/lib/libdmtcpaware.a $(__targetdir__lib_libdmtcpaware_a_OBJECTS) $(__targetdir__lib_libdmtcpaware_a_LIBADD)
-	$(AM_V_at)$(RANLIB) $(targetdir)/lib/libdmtcpaware.a
 
 libdmtcpinternal.a: $(libdmtcpinternal_a_OBJECTS) $(libdmtcpinternal_a_DEPENDENCIES) $(EXTRA_libdmtcpinternal_a_DEPENDENCIES) 
 	$(AM_V_at)-rm -f libdmtcpinternal.a
@@ -771,10 +709,6 @@ $(targetdir)/lib/dmtcp/libdmtcp.so$(EXEEXT): $(__targetdir__lib_dmtcp_libdmtcp_s
 	@rm -f $(targetdir)/lib/dmtcp/libdmtcp.so$(EXEEXT)
 	$(AM_V_CXXLD)$(__targetdir__lib_dmtcp_libdmtcp_so_LINK) $(__targetdir__lib_dmtcp_libdmtcp_so_OBJECTS) $(__targetdir__lib_dmtcp_libdmtcp_so_LDADD) $(LIBS)
 
-$(targetdir)/lib/libdmtcpaware.so.1.0.0$(EXEEXT): $(__targetdir__lib_libdmtcpaware_so_1_0_0_OBJECTS) $(__targetdir__lib_libdmtcpaware_so_1_0_0_DEPENDENCIES) $(EXTRA___targetdir__lib_libdmtcpaware_so_1_0_0_DEPENDENCIES) $(targetdir)/lib/$(am__dirstamp)
-	@rm -f $(targetdir)/lib/libdmtcpaware.so.1.0.0$(EXEEXT)
-	$(AM_V_CCLD)$(__targetdir__lib_libdmtcpaware_so_1_0_0_LINK) $(__targetdir__lib_libdmtcpaware_so_1_0_0_OBJECTS) $(__targetdir__lib_libdmtcpaware_so_1_0_0_LDADD) $(LIBS)
-
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
 
@@ -788,8 +722,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcp_launch.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcp_nocheckpoint.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcp_restart.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcpaware.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcpawareapi.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcpmessagetypes.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcpnohijackstubs.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcpplugin.Po@am__quote@
@@ -1070,7 +1002,7 @@ check-am: all-am
 check: check-am
 all-am: Makefile $(LIBRARIES) $(PROGRAMS) $(HEADERS)
 installdirs:
-	for dir in "$(DESTDIR)$(libdir)" "$(DESTDIR)$(bindir)" "$(DESTDIR)$(dmtcplibdir)" "$(DESTDIR)$(includedir)"; do \
+	for dir in "$(DESTDIR)$(bindir)" "$(DESTDIR)$(dmtcplibdir)" "$(DESTDIR)$(includedir)"; do \
 	  test -z "$$dir" || $(MKDIR_P) "$$dir"; \
 	done
 install: install-am
@@ -1100,7 +1032,6 @@ distclean-generic:
 	-test -z "$(CONFIG_CLEAN_FILES)" || rm -f $(CONFIG_CLEAN_FILES)
 	-test . = "$(srcdir)" || test -z "$(CONFIG_CLEAN_VPATH_FILES)" || rm -f $(CONFIG_CLEAN_VPATH_FILES)
 	-test -z "$(targetdir)/bin/$(am__dirstamp)" || rm -f $(targetdir)/bin/$(am__dirstamp)
-	-test -z "$(targetdir)/lib/$(am__dirstamp)" || rm -f $(targetdir)/lib/$(am__dirstamp)
 	-test -z "$(targetdir)/lib/dmtcp/$(am__dirstamp)" || rm -f $(targetdir)/lib/dmtcp/$(am__dirstamp)
 
 maintainer-clean-generic:
@@ -1109,7 +1040,7 @@ maintainer-clean-generic:
 clean: clean-am
 
 clean-am: clean-binPROGRAMS clean-dmtcplibPROGRAMS clean-generic \
-	clean-libLIBRARIES clean-noinstLIBRARIES mostlyclean-am
+	clean-noinstLIBRARIES mostlyclean-am
 
 distclean: distclean-am
 	-rm -rf ./$(DEPDIR)
@@ -1130,13 +1061,12 @@ info: info-am
 info-am:
 
 install-data-am: install-dmtcplibPROGRAMS install-includeHEADERS
-	@$(NORMAL_INSTALL)
-	$(MAKE) $(AM_MAKEFLAGS) install-data-hook
+
 install-dvi: install-dvi-am
 
 install-dvi-am:
 
-install-exec-am: install-binPROGRAMS install-libLIBRARIES
+install-exec-am: install-binPROGRAMS
 	@$(NORMAL_INSTALL)
 	$(MAKE) $(AM_MAKEFLAGS) install-exec-hook
 install-html: install-html-am
@@ -1177,51 +1107,40 @@ ps: ps-am
 ps-am:
 
 uninstall-am: uninstall-binPROGRAMS uninstall-dmtcplibPROGRAMS \
-	uninstall-includeHEADERS uninstall-libLIBRARIES
+	uninstall-includeHEADERS
 	@$(NORMAL_INSTALL)
 	$(MAKE) $(AM_MAKEFLAGS) uninstall-hook
-.MAKE: install-am install-data-am install-exec-am install-strip \
-	uninstall-am
+.MAKE: install-am install-exec-am install-strip uninstall-am
 
 .PHONY: CTAGS GTAGS TAGS all all-am check check-am clean \
 	clean-binPROGRAMS clean-dmtcplibPROGRAMS clean-generic \
-	clean-libLIBRARIES clean-noinstLIBRARIES cscopelist-am ctags \
-	ctags-am distclean distclean-compile distclean-generic \
-	distclean-tags distdir dvi dvi-am html html-am info info-am \
-	install install-am install-binPROGRAMS install-data \
-	install-data-am install-data-hook install-dmtcplibPROGRAMS \
-	install-dvi install-dvi-am install-exec install-exec-am \
-	install-exec-hook install-html install-html-am \
-	install-includeHEADERS install-info install-info-am \
-	install-libLIBRARIES install-man install-pdf install-pdf-am \
+	clean-noinstLIBRARIES cscopelist-am ctags ctags-am distclean \
+	distclean-compile distclean-generic distclean-tags distdir dvi \
+	dvi-am html html-am info info-am install install-am \
+	install-binPROGRAMS install-data install-data-am \
+	install-dmtcplibPROGRAMS install-dvi install-dvi-am \
+	install-exec install-exec-am install-exec-hook install-html \
+	install-html-am install-includeHEADERS install-info \
+	install-info-am install-man install-pdf install-pdf-am \
 	install-ps install-ps-am install-strip installcheck \
 	installcheck-am installdirs maintainer-clean \
 	maintainer-clean-generic mostlyclean mostlyclean-compile \
 	mostlyclean-generic pdf pdf-am ps ps-am tags tags-am uninstall \
 	uninstall-am uninstall-binPROGRAMS uninstall-dmtcplibPROGRAMS \
-	uninstall-hook uninstall-includeHEADERS uninstall-libLIBRARIES
+	uninstall-hook uninstall-includeHEADERS
 
 
 install-exec-hook:
 	cd $(DESTDIR)$(bindir) && $(LN_S) -f dmtcp_launch dmtcp_checkpoint
 
-install-data-hook:
-	cd $(DESTDIR)$(libdir) && mv dmtcp/libdmtcpaware.so.1.0.0 .
-	cd $(DESTDIR)$(libdir) && \
-	  $(LN_S) -f libdmtcpaware.so.1.0.0 libdmtcpaware.so.1
-	cd $(DESTDIR)$(libdir) && $(LN_S) -f libdmtcpaware.so.1 libdmtcpaware.so
-
 uninstall-hook:
 	rm -f $(DESTDIR)$(bindir)/dmtcp_checkpoint
-	rm -f $(DESTDIR)$(libdir)/libdmtcpaware.so*
 
 libs: $(dmtcplib_PROGRAMS) $(lib_LIBRARIES)
 
 install-libs: install-dmtcplibPROGRAMS
-	$(MAKE) $(AM_MAKEFLAGS) install-data-hook
 
 uninstall-libs: uninstall-dmtcplibPROGRAMS
-	$(MAKE) $(AM_MAKEFLAGS) uninstall-hook
 
 .PHONY: libs
 

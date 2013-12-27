@@ -349,7 +349,7 @@ void dmtcp::SysVIPC::on_shmdt(const void *shmaddr)
 
 int dmtcp::SysVIPC::shmaddrToShmid(const void* shmaddr)
 {
-  DMTCP_DISABLE_CKPT();
+  DMTCP_PLUGIN_DISABLE_CKPT();
   int shmid = -1;
   _do_lock_tbl();
   for (ShmIterator i = _shm.begin(); i != _shm.end(); ++i) {
@@ -360,7 +360,7 @@ int dmtcp::SysVIPC::shmaddrToShmid(const void* shmaddr)
     }
   }
   _do_unlock_tbl();
-  DMTCP_ENABLE_CKPT();
+  DMTCP_PLUGIN_ENABLE_CKPT();
   return shmid;
 }
 

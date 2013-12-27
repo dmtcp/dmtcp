@@ -3,7 +3,7 @@
 #include <unistd.h>
 
 /* Be sure to compile with -I<path>; see Makefile in this directory. */
-#include "dmtcpaware.h"
+#include "dmtcpplugin.h"
 
 void pre(){
   printf("HOOK: preCheckpoint\n");
@@ -19,45 +19,46 @@ void restart(){
 
 int main(int argc, char* argv[])
 {
-  if(dmtcpIsEnabled())
-    dmtcpInstallHooks(pre,post,restart);
+  if(dmtcp_is_enabled())
+    dmtcp_install_hooks(pre,post,restart);
 
   int r;
-  const DmtcpCoordinatorStatus* cs;
-  const DmtcpLocalStatus * ls;
+  int isRunning;
+  int numPeers;
+  int numCheckpoints;
+  int numRestarts;
   while (1)
   {
-    printf("dmtcpIsEnabled()=");
+    printf("dmtcp_is_enabled()=");
     fflush(stdout);
-    printf("%d\n", r=dmtcpIsEnabled());
+    printf("%d\n", r=dmtcp_is_enabled());
     assert(r);
 
-    printf("dmcpRunCommand('l')=");
-    fflush(stdout);
-    printf("%d\n",r=dmtcpRunCommand('l'));
-    assert(r);
+    //printf("dmcpRunCommand('l')=");
+    //fflush(stdout);
+    //printf("%d\n",r=dmtcpRunCommand('l'));
+    //assert(r);
 
-    printf("dmtcpGetLocalStatus()=");
+    printf("dmtcp_get_local_status()=");
     fflush(stdout);
-    ls = dmtcpGetLocalStatus();
-    assert(ls!=NULL);
+    assert(dmtcp_get_local_status(&numCheckpoints, &numRestarts) != DMTCP_NOT_PRESENT);
     printf("{\n\t %d,\n\t %d,\n\t %s,\n\t %s}\n",
-        ls->numCheckpoints, ls->numRestarts, ls->checkpointFilename, ls->uniquePidStr);
+           numCheckpoints, numRestarts, dmtcp_get_ckpt_filename(),
+           dmtcp_get_uniquepid_str());
 
-    printf("dmtcpGetCoordinatorStatus()=");
+    printf("dmtcp_get_coordinator_status()=");
     fflush(stdout);
-    cs = dmtcpGetCoordinatorStatus();
-    assert(cs!=NULL);
-    printf("{%d,%d}\n", cs->numProcesses, cs->isRunning);
-    assert(cs->numProcesses>0);
+    assert(dmtcp_get_coordinator_status(&numPeers, &isRunning) != DMTCP_NOT_PRESENT);
+    printf("{%d,%d}\n", numPeers, isRunning);
+    assert(numPeers>0);
 
     //lock should be recursive
-    dmtcpDelayCheckpointsLock();
-    dmtcpDelayCheckpointsLock();
-    dmtcpDelayCheckpointsLock();
-    dmtcpDelayCheckpointsUnlock();
-    dmtcpDelayCheckpointsUnlock();
-    dmtcpDelayCheckpointsUnlock();
+    dmtcp_disable_ckpt();
+    dmtcp_disable_ckpt();
+    dmtcp_disable_ckpt();
+    dmtcp_enable_ckpt();
+    dmtcp_enable_ckpt();
+    dmtcp_enable_ckpt();
 
     sleep(2);
 
