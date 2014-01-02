@@ -25,7 +25,7 @@
 
 #include <signal.h>
 #include <time.h>
-#include "dmtcpplugin.h"
+#include "dmtcp.h"
 
 #define _real_timer_create NEXT_FNC(timer_create)
 #define _real_timer_delete NEXT_FNC(timer_delete)

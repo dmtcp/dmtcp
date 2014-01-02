@@ -8,7 +8,7 @@
 #include <stdlib.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include "dmtcpplugin.h"
+#include "dmtcp.h"
 
 struct keyPid {
   int key;

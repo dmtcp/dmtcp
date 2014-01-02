@@ -24,7 +24,7 @@
 #include <sys/types.h>
 #include <sys/un.h>
 #include <netdb.h>
-#include "dmtcpplugin.h"
+#include "dmtcp.h"
 #include "dmtcpalloc.h"
 
 #define PTS_PATH_MAX 32

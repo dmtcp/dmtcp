@@ -1,9 +1,9 @@
 /* NOTE: This file must be compiled with -fPIC in order to work properly.
  *
  *       The code in this file will work both with and without DMTCP.
- *       Of course, the dmtcpplugin.h file is needed in both cases.
+ *       Of course, the dmtcp.h file is needed in both cases.
  *
- * These functions are in <DMTCP_ROOT>/lib/dmtcp/libdmtcp.so and dmtcpplugin.h
+ * These functions are in <DMTCP_ROOT>/lib/dmtcp/libdmtcp.so and dmtcp.h
  *   int dmtcpIsEnabled() - returns 1 when running with DMTCP; 0 otherwise.
  *   int dmtcpCheckpoint() - returns DMTCP_AFTER_CHECKPOINT,
  *                                   DMTCP_AFTER_RESTART, or DMTCP_NOT_PRESENT.
@@ -22,7 +22,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "dmtcpplugin.h"
+#include "dmtcp.h"
 
 int main() {
     if ( ! dmtcp_is_enabled() ) {

@@ -23,7 +23,7 @@
 #include <sys/syscall.h>
 #include <sys/errno.h>
 #include <linux/version.h>
-#include "dmtcpplugin.h"
+#include "dmtcp.h"
 #include "jassert.h"
 #include "ipc.h"
 

@@ -55,7 +55,7 @@ LINK = $(CC) $(CFLAGS) $(LDFLAGS) -o $@
 CXXCOMPILE = $(CXX) $(INCLUDES) $(CPPFLAGS) $(CXXFLAGS) -c -o $@
 CXXLINK = $(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@
 
-HEADERS = $(DMTCP_INCLUDE_PATH)/dmtcpplugin.h lib/list.h \
+HEADERS = $(DMTCP_INCLUDE_PATH)/dmtcp.h lib/list.h \
 	  ibvctx.h infinibandreals.h ibv_internal.h ibvidentifier.h debug.h 
 
 LIBOBJS = infinibandreals.o infinibandwrappers.o ibvctx.o lib/list.o

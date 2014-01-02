@@ -11,7 +11,7 @@
 #include <unistd.h>
 #include <stdint.h>
 #include <stdarg.h> /* For va_arg(), etc. */
-#include "dmtcpplugin.h"
+#include "dmtcp.h"
 #include <linux/kvm.h> /* For all the kvm data structs */
 #include <sys/ioctl.h> /* For ioctl() */
 #include <sys/mman.h> /* For mmap() */
@@ -908,7 +908,7 @@ void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     case DMTCP_EVENT_EXIT:
       DPRINTF("The plugin is being called before exiting.\n");
       break;
-      /* These events are unused and could be omitted.  See dmtcpplugin.h for
+      /* These events are unused and could be omitted.  See dmtcp.h for
        * complete list.
        */
     case DMTCP_EVENT_RESTART:

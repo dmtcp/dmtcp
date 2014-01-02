@@ -19,7 +19,7 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include "dmtcpplugin.h"
+#include "dmtcp.h"
 #include "dmtcpworker.h"
 #include "coordinatorapi.h"
 #include "syscallwrappers.h"

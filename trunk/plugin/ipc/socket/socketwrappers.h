@@ -23,7 +23,7 @@
 #ifndef SOCKET_WRAPPERS_H
 #define SOCKET_WRAPPERS_H
 
-#include "dmtcpplugin.h"
+#include "dmtcp.h"
 
 #define _real_socket NEXT_FNC(socket)
 #define _real_connect NEXT_FNC(connect)

@@ -52,7 +52,7 @@ LINK = $(CC) $(CFLAGS) $(LDFLAGS) -o $@
 CXXCOMPILE = $(CXX) $(INCLUDES) $(CPPFLAGS) $(CXXFLAGS) -c -o $@
 CXXLINK = $(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@
 
-HEADERS = $(DMTCP_INCLUDE_PATH)/util.h $(DMTCP_INCLUDE_PATH)/dmtcpplugin.h \
+HEADERS = $(DMTCP_INCLUDE_PATH)/util.h $(DMTCP_INCLUDE_PATH)/dmtcp.h \
 	  $(DMTCP_INCLUDE_PATH)/virtualidtable.h $(DMTCP_INCLUDE_PATH)/protectedfds.h \
 	  $(DMTCP_INCLUDE_PATH)/shareddata.h $(DMTCP_INCLUDE_PATH)/dmtcpalloc.h \
 	  $(top_builddir)/dmtcp/include/config.h \

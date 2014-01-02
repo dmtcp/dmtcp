@@ -16,7 +16,7 @@
 #include <sys/stat.h>
 #include <sys/mman.h>
 #ifndef STANDALONE
-# include "dmtcpplugin.h"
+# include "dmtcp.h"
 #endif
 
 /* Example of dmtcp_env.txt:  spaces not allowed in VAR=VAL unless in quotes

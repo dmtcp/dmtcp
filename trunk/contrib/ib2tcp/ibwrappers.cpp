@@ -11,7 +11,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <infiniband/verbs.h>
-#include "dmtcpplugin.h"
+#include "dmtcp.h"
 #include "ib2tcp.h"
 #include "jassert.h"
 #include "ibwrappers.h"

@@ -61,7 +61,7 @@ struct user_desc {int dummy;}; /* <asm/ldt.h> is missing in Ubuntu 11.10 */
 #include <netdb.h>
 #include <mqueue.h>
 
-#include "dmtcpplugin.h"
+#include "dmtcp.h"
 
 // Keep in sync with dmtcp/src/constants.h
 #define ENV_VAR_VIRTUAL_PID "DMTCP_VIRTUAL_PID"

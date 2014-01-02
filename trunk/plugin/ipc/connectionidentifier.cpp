@@ -20,7 +20,7 @@
  ****************************************************************************/
 
 #include "connectionidentifier.h"
-#include "dmtcpplugin.h"
+#include "dmtcp.h"
 #include "../jalib/jassert.h"
 
 static int _nextConId = CONNECTION_ID_START;

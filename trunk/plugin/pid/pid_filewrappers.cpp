@@ -46,7 +46,7 @@
 #include "pidwrappers.h"
 #include "util.h"
 #include "virtualpidtable.h"
-#include "dmtcpplugin.h"
+#include "dmtcp.h"
 #include "pid.h"
 
 #undef open

@@ -58,7 +58,7 @@
 #include <linux/version.h>
 #include <limits.h>
 
-#include "dmtcpplugin.h"
+#include "dmtcp.h"
 #include "shareddata.h"
 #include "util.h"
 #include "jassert.h"

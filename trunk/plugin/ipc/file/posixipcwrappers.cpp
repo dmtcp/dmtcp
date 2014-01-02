@@ -22,7 +22,7 @@
 #include <time.h>
 #include <stdarg.h>
 #include "util.h"
-#include "dmtcpplugin.h"
+#include "dmtcp.h"
 
 #include "fileconnection.h"
 #include "filewrappers.h"

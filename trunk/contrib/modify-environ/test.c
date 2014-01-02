@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "dmtcpplugin.h"
+#include "dmtcp.h"
 
 int main(int argc, char *argv[]) {
   char *user = malloc(strlen(getenv("USER"))+1);

@@ -21,7 +21,7 @@
 
 #include <stdlib.h>
 #include <unistd.h>
-#include "dmtcpplugin.h"
+#include "dmtcp.h"
 #include "alloc.h"
 
 extern "C" void *calloc(size_t nmemb, size_t size)

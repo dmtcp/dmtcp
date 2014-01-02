@@ -52,7 +52,7 @@ LINK = $(CC) $(CFLAGS) $(LDFLAGS) -o $@
 CXXCOMPILE = $(CXX) $(INCLUDES) $(CPPFLAGS) $(CXXFLAGS) -c -o $@
 CXXLINK = $(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@
 
-HEADERS = $(DMTCP_INCLUDE_PATH)/util.h $(DMTCP_INCLUDE_PATH)/dmtcpplugin.h \
+HEADERS = $(DMTCP_INCLUDE_PATH)/util.h $(DMTCP_INCLUDE_PATH)/dmtcp.h \
 	  $(JALIB_PATH)/jassert.h $(JALIB_PATH)/jalloc.h \
 	  $(JALIB_PATH)/jconvert.h $(JALIB_PATH)/jfilesystem.h \
 	  $(JALIB_PATH)/jalib.h resource_manager.h torque.h slurm.h

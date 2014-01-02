@@ -27,7 +27,7 @@
 # include "config.h"
 #endif
 
-#include "dmtcpplugin.h"
+#include "dmtcp.h"
 
 #ifndef EXTERNC
 # ifdef __cplusplus

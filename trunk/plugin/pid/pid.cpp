@@ -26,7 +26,7 @@
 #include "jfilesystem.h"
 #include "pidwrappers.h"
 #include "virtualpidtable.h"
-#include "dmtcpplugin.h"
+#include "dmtcp.h"
 #include "protectedfds.h"
 
 using namespace dmtcp;

@@ -24,7 +24,7 @@
 #include "dmtcpworker.h"
 #include "mtcpinterface.h"
 #include "syscallwrappers.h"
-#include "dmtcpplugin.h"
+#include "dmtcp.h"
 #include "uniquepid.h"
 #include "util.h"
 #include "../../mtcp/mtcp.h"

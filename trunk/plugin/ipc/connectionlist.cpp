@@ -27,7 +27,7 @@
 #include <sys/wait.h>
 
 #include "util.h"
-#include "dmtcpplugin.h"
+#include "dmtcp.h"
 #include "shareddata.h"
 #include "jfilesystem.h"
 #include "jconvert.h"

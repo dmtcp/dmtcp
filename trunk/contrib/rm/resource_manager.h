@@ -22,7 +22,7 @@
 #define RESOURCE_MANAGER_H
 
 #include "dmtcpalloc.h"
-#include "dmtcpplugin.h"
+#include "dmtcp.h"
 
 #define _real_fork NEXT_FNC(fork)
 #define _real_execve NEXT_FNC(execve)

@@ -6,7 +6,7 @@
 
 #include <stdio.h>
 #include <sys/time.h>
-#include "dmtcpplugin.h"
+#include "dmtcp.h"
 
 void print_time() {
   struct timeval val;

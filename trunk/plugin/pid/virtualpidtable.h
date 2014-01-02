@@ -31,7 +31,7 @@
 #include "../jalib/jserialize.h"
 #include "../jalib/jalloc.h"
 #include "dmtcpalloc.h"
-#include "dmtcpplugin.h"
+#include "dmtcp.h"
 #include "virtualidtable.h"
 
 #define REAL_TO_VIRTUAL_PID(pid) \

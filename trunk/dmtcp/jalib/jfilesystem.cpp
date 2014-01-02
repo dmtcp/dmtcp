@@ -31,7 +31,7 @@
 #include "jfilesystem.h"
 #include "jconvert.h"
 #include "jalib.h"
-#include "dmtcpplugin.h"
+#include "dmtcp.h"
 // DMTCP config constants like ELF_INTERPRETER
 #include "config.h"
 

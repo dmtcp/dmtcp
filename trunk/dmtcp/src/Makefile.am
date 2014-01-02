@@ -41,14 +41,14 @@ bin_PROGRAMS = $(targetdir)/bin/dmtcp_launch \
 	       $(targetdir)/bin/dmtcp_restart \
 	       $(targetdir)/bin/dmtcp_nocheckpoint
 dmtcplib_PROGRAMS = $(targetdir)/lib/dmtcp/libdmtcp.so
-include_HEADERS = $(srcdir)/../include/dmtcpplugin.h
+include_HEADERS = $(srcdir)/../include/dmtcp.h
 
 # headers:
 nobase_noinst_HEADERS = constants.h \
 	$(jalibdir)/jassert.h $(jalibdir)/jalloc.h $(jalibdir)/jalib.h \
 	$(jalibdir)/jbuffer.h $(jalibdir)/jconvert.h $(jalibdir)/jfilesystem.h \
 	$(jalibdir)/jserialize.h $(jalibdir)/jsocket.h $(jalibdir)/jtimer.h \
-	$(dmtcpincludedir)/dmtcpalloc.h $(dmtcpincludedir)/dmtcpplugin.h \
+	$(dmtcpincludedir)/dmtcpalloc.h $(dmtcpincludedir)/dmtcp.h \
 	$(dmtcpincludedir)/protectedfds.h $(dmtcpincludedir)/shareddata.h \
 	$(dmtcpincludedir)/trampolines.h $(dmtcpincludedir)/util.h \
 	$(dmtcpincludedir)/virtualidtable.h \
