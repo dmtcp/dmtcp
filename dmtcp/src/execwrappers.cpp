@@ -324,7 +324,12 @@ static void dmtcpPrepareForExec(const char *path, char *const argv[],
 
   dmtcp::Util::adjustRlimitStack();
 
-  dmtcp::Util::prepareDlsymWrapper();
+  char str[21] = {0};
+  sprintf(str, "%d", SharedData::getDlsymOffset());
+  setenv(ENV_VAR_DLSYM_OFFSET, str, 1);
+  sprintf(str, "%d", SharedData::getDlsymOffset_m32());
+  setenv(ENV_VAR_DLSYM_OFFSET_M32, str, 1);
+
   dmtcp::Util::setVirtualPidEnvVar(getpid(), getppid());
 
   JTRACE("Prepared for Exec") (getenv("LD_PRELOAD"));
@@ -341,6 +346,7 @@ static void dmtcpProcessFailedExec(const char *path, char *newArgv[])
   restoreUserLDPRELOAD();
 
   unsetenv(ENV_VAR_DLSYM_OFFSET);
+  unsetenv(ENV_VAR_DLSYM_OFFSET_M32);
 
   JTRACE("Processed failed Exec Attempt") (path) (getenv("LD_PRELOAD"));
   errno = saved_errno;

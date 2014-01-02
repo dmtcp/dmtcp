@@ -436,9 +436,33 @@ EXTERNC int dmtcp_get_ptrace_fd(void)
   return PROTECTED_PTRACE_FD;
 }
 
+LIB_PRIVATE int32_t dmtcp_dlsym_offset = -1;
+typedef void* (*dlsym_fnptr_t) (void *handle, const char *symbol);
 EXTERNC void *dmtcp_get_libc_dlsym_addr(void)
 {
-  return _dmtcp_get_libc_dlsym_addr();
+  static dlsym_fnptr_t _libc_dlsym_fnptr = NULL;
+#ifndef CONFIG_M32
+  const char *evar = ENV_VAR_DLSYM_OFFSET;
+#else
+  const char *evar = ENV_VAR_DLSYM_OFFSET_M32;
+#endif
+
+  if (_libc_dlsym_fnptr == NULL) {
+    if (getenv(evar) == NULL) {
+      fprintf(stderr,
+              "%s:%d DMTCP Internal Error: Env var DMTCP_DLSYM_OFFSET not set.\n"
+              "      Aborting.\n\n",
+              __FILE__, __LINE__);
+      abort();
+    }
+
+    dmtcp_dlsym_offset = (int32_t) strtol(getenv(evar), NULL, 10);
+
+    _libc_dlsym_fnptr = (dlsym_fnptr_t)((char *)&LIBDL_BASE_FUNC +
+                                        dmtcp_dlsym_offset);
+  }
+
+  return (void*) _libc_dlsym_fnptr;
 }
 
 EXTERNC void dmtcp_block_ckpt_signal(void)
