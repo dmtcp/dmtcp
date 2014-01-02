@@ -28,6 +28,7 @@
 
 #include "stlwrapper.h"
 #include <string>
+#include <stdint.h>
 #include <vector>
 
 #define JSERIALIZE_ASSERT_POINT(str) \
@@ -75,7 +76,7 @@ namespace jalib
         JSERIALIZE_ASSERT_POINT ( "std::vector:" );
 
         //establish the size
-        size_t len = t.size();
+        uint32_t len = t.size();
         serialize ( len );
 
         //make sure we have correct size
@@ -110,7 +111,7 @@ namespace jalib
         JSERIALIZE_ASSERT_POINT ( "dmtcp::map:" );
 
         //establish the size
-        size_t len = t.size();
+        uint32_t len = t.size();
         serialize ( len );
 
         //now serialize all the elements
@@ -143,7 +144,7 @@ namespace jalib
   template <>
   inline void JBinarySerializer::serialize<jalib::string> ( jalib::string& t )
   {
-    size_t len = t.length();
+    uint32_t len = t.length();
     serialize ( len );
     t.resize ( len,'?' );
     readOrWrite ( &t[0], len );
@@ -195,11 +196,5 @@ namespace jalib
       JBinarySerializeReader ( const jalib::string& path );
       ~JBinarySerializeReader();
   };
-
-
-
 }
-
-
-
 #endif
