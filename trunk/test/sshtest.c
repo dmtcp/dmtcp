@@ -48,11 +48,19 @@ int main(int argc, char *argv[])
     close(out[1]);
     close(err[1]);
 
+    char *argv[] = {
+                    "/usr/bin/ssh",
+                    hostname,
+                    "-o",
+                    "BatchMode=yes",
+                    "-o",
+                    "StrictHostKeyChecking=no",
 #ifdef USE_DMTCP1
-    char *argv[] = {"/usr/bin/ssh", hostname, "~/dmtcp/test/dmtcp1", NULL};
+                    "~/dmtcp/test/dmtcp1",
 #else
-    char *argv[] = {"/usr/bin/ssh", hostname, "sleep", "100", NULL};
+                    "sleep", "100",
 #endif
+                    NULL};
     execv(argv[0], argv);
     perror("execv failed");
   } else {
