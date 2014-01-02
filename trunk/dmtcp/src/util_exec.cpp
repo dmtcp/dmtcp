@@ -27,8 +27,14 @@
 #include  "syscallwrappers.h"
 #include  "uniquepid.h"
 #include  "protectedfds.h"
+#include  "shareddata.h"
 #include  "../jalib/jassert.h"
 #include  "../jalib/jfilesystem.h"
+
+using namespace dmtcp;
+
+static int32_t getDlsymOffset();
+static int32_t getDlsymOffset_m32();
 
 void dmtcp::Util::setVirtualPidEnvVar(pid_t pid, pid_t ppid)
 {
@@ -196,7 +202,7 @@ bool dmtcp::Util::isStaticallyLinked(const char *filename)
   int version = 2;
   dmtcp::string cmd;
   do {
-    cmd = ld_linux_so_path(version);
+    cmd = ld_linux_so_path(version, is32bitElf);
     version++;
   } while (!jalib::Filesystem::FileExists(cmd) && version < 10);
 
@@ -372,16 +378,23 @@ void dmtcp::Util::prepareDlsymWrapper()
   /* For the sake of dlsym wrapper. We compute the address of _real_dlsym by
    * adding dlsym_offset to the address of dlopen after the exec into the user
    * application. */
+  uint32_t diff = getDlsymOffset();
+  uint32_t diff_m32 = getDlsymOffset_m32();
+  char str[21] = {0};
+  sprintf(str, "%d", diff);
+  setenv(ENV_VAR_DLSYM_OFFSET, str, 1);
+  sprintf(str, "%d", diff_m32);
+  setenv(ENV_VAR_DLSYM_OFFSET_M32, str, 1);
+}
+
+static int32_t getDlsymOffset()
+{
   void* base_addr = NULL;
   void* dlsym_addr = NULL;
-  int diff;
+  int32_t diff;
   void* handle = NULL;
   handle = dlopen(LIBDL_FILENAME, RTLD_NOW);
-  if (handle == NULL) {
-    fprintf(stderr, "dmtcp: get_libc_symbol: ERROR in dlopen: %s \n",
-            dlerror());
-    abort();
-  }
+  JASSERT(handle != NULL) (dlerror());
 
   /* Earlier, we used to compute the offset of "dlsym" from "dlerror" by
    * computing the address of the two symbols using '&' operator. However, in
@@ -391,11 +404,49 @@ void dmtcp::Util::prepareDlsymWrapper()
    */
   base_addr = dlsym(handle, LIBDL_BASE_FUNC_STR);
   dlsym_addr = dlsym(handle, "dlsym");
-  diff = (char *)dlsym_addr - (char *)base_addr;
-  char str[21] = {0};
-  sprintf(str, "%d", diff);
-  setenv(ENV_VAR_DLSYM_OFFSET, str, 1);
   dlclose(handle);
+  diff = (char *)dlsym_addr - (char *)base_addr;
+  return diff;
+}
+
+static int32_t getDlsymOffset_m32()
+{
+  uint64_t base_addr = 0;
+  uint64_t dlsym_addr = 0;
+  int32_t diff;
+  FILE *fp;
+  char buf[PATH_MAX];
+  string cmd1, cmd2, libdl, libdmtcp32;
+
+  libdmtcp32 = jalib::Filesystem::FindHelperUtility("libdmtcp.so", true);
+  if (libdmtcp32.length() == 0) return 0;
+
+  cmd1 = "ldd " + libdmtcp32 + " | grep " + LIBDL_FILENAME
+       + " | tr '\t' ' ' | tr -s ' '| cut -d' ' -f4";
+  fp = popen(cmd1.c_str(), "r");
+  JASSERT(fp != NULL);
+  fscanf(fp, "%s", &buf);
+  fclose(fp);
+  JASSERT(buf[0] == '/');
+
+  libdl = buf;
+
+  cmd2 = "nm -g " + libdl + " | grep 'dlinfo'";
+  fp = popen(cmd2.c_str(), "r");
+  JASSERT(fp != NULL);
+  fscanf(fp, "%x", &base_addr);
+  fclose(fp);
+
+  cmd2 = "nm -g " + libdl + " | grep 'dlsym'";
+  fp = popen(cmd2.c_str(), "r");
+  JASSERT(fp != NULL);
+  fscanf(fp, "%x", &dlsym_addr);
+  fclose(fp);
+
+  JASSERT(base_addr != 0 && dlsym_addr != 0);
+
+  diff = (int32_t) ((char *)dlsym_addr - (char *)base_addr);
+  return diff;
 }
 
 void dmtcp::Util::runMtcpRestore(int is32bitElf, const char* path, int fd,

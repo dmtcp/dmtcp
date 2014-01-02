@@ -347,48 +347,13 @@ void initialize_libpthread_wrappers()
   (*fn)
 
 typedef void* (*dlsym_fnptr_t) (void *handle, const char *symbol);
-
-/* dmtcp_dlsym_offset needs to be defined as a global variable. If defined as
- * static or as a local variable inside _dmtcp_get_libc_dlsym_addr() function,
- * it triggers a buggy situation with intel compiler. The intel compiler
- * optimizes this variable that causes wrong address calculation for the real
- * dlsym symbol address.
- */
-LIB_PRIVATE long dmtcp_dlsym_offset = -1;
-
-LIB_PRIVATE
-void *_dmtcp_get_libc_dlsym_addr()
-{
-  static dlsym_fnptr_t _libc_dlsym_fnptr = NULL;
-  if (_libc_dlsym_fnptr == NULL) {
-    if (getenv(ENV_VAR_DLSYM_OFFSET) == NULL) {
-      fprintf(stderr,
-              "%s:%d DMTCP Internal Error: Env var DMTCP_DLSYM_OFFSET not set.\n"
-              "      Aborting.\n\n",
-              __FILE__, __LINE__);
-      abort();
-    }
-
-    dmtcp_dlsym_offset = (long) strtol(getenv(ENV_VAR_DLSYM_OFFSET), NULL, 10);
-    _libc_dlsym_fnptr = (dlsym_fnptr_t)((char *)&LIBDL_BASE_FUNC +
-                                        dmtcp_dlsym_offset);
-
-    /* On Debian 5.0 (gcc-4.3.2 libc-2.7, ld-2.18.0), the call
-     * by dmtcp_launch to execvp fails without this call to unsetenv.
-     * Possibly, execvp is calling dlsym even before libdmtcp.so gets
-     * loaded.
-     */
-    unsetenv (ENV_VAR_DLSYM_OFFSET);
-  }
-
-  return (void*) _libc_dlsym_fnptr;
-}
+void *dmtcp_get_libc_dlsym_addr(void);
 
 LIB_PRIVATE
 void *_real_dlsym (void *handle, const char *symbol) {
   static dlsym_fnptr_t _libc_dlsym_fnptr = NULL;
   if (_libc_dlsym_fnptr == NULL) {
-    _libc_dlsym_fnptr = _dmtcp_get_libc_dlsym_addr();
+    _libc_dlsym_fnptr = dmtcp_get_libc_dlsym_addr();
   }
 
 #if TRACK_DLOPEN_DLSYM_FOR_LOCKS

@@ -290,8 +290,6 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   LIB_PRIVATE void dmtcpResetTid(pid_t tid);
   LIB_PRIVATE void dmtcpResetPidPpid();
 
-  LIB_PRIVATE void *_dmtcp_get_libc_dlsym_addr();
-
   int _dmtcp_unsetenv(const char *name);
   void initialize_libc_wrappers();
   void initialize_libpthread_wrappers();

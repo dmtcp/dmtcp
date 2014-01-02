@@ -469,6 +469,7 @@ int main(int argc, char** argv)
                                                     isRestart);
   }
 
+  dmtcp::Util::prepareDlsymWrapper();
   RestoreTarget *t = independentProcessTreeRoots.begin()->second;
   JASSERT(t->pid() != 0);
   t->createProcess(true);

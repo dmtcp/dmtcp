@@ -82,6 +82,9 @@ namespace dmtcp {
       uint32_t             ckptInterval;
       struct in_addr       localIPAddr;
 
+      int32_t              dlsymOffset;
+      int32_t              dlsymOffset_m32;
+
       struct PidMap        pidMap[MAX_PID_MAPS];
       uint32_t             numPidMaps;
       struct IPCIdMap      ipcIdMap[MAX_IPC_ID_MAPS];
@@ -118,6 +121,10 @@ namespace dmtcp {
 
     void updateLocalIPAddr();
     void getLocalIPAddr(struct in_addr *in);
+
+    void updateDlsymOffset(int32_t dlsymOffset, int32_t dlsymOffset_m32 = 0);
+    int32_t getDlsymOffset(void);
+    int32_t getDlsymOffset_m32(void);
 
     int32_t  getRealIPCId(int32_t virt);
     void setIPCIdMap(int32_t virt, int32_t real);

@@ -113,6 +113,7 @@
 #define LIBDL_BASE_FUNC dlinfo
 #define LIBDL_BASE_FUNC_STR "dlinfo"
 #define ENV_VAR_DLSYM_OFFSET "DMTCP_DLSYM_OFFSET"
+#define ENV_VAR_DLSYM_OFFSET_M32 "DMTCP_DLSYM_OFFSET_M32"
 
 //this list should be kept up to date with all "protected" environment vars
 #define ENV_VARS_ALL \
@@ -138,6 +139,7 @@
     ENV_VAR_PREFIX_PATH,\
     ENV_VAR_SCREENDIR, \
     ENV_VAR_DLSYM_OFFSET, \
+    ENV_VAR_DLSYM_OFFSET_M32, \
     ENV_VAR_VIRTUAL_PID, \
     ENV_DELTACOMPRESSION
 

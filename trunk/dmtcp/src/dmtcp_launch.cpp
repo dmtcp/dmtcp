@@ -400,9 +400,6 @@ int main ( int argc, char** argv )
 //   from DmtcpWorker constructor, to distinguish the two cases.
   dmtcp::Util::adjustRlimitStack();
 
-  // FIXME: This call should be moved closer to call to execvp().
-  dmtcp::Util::prepareDlsymWrapper();
-
   if (autoStartCoordinator) {
      dmtcp::CoordinatorAPI::startCoordinatorIfNeeded(allowedModes);
   }
@@ -416,6 +413,7 @@ int main ( int argc, char** argv )
   }
 #endif
 
+  dmtcp::Util::prepareDlsymWrapper();
   setLDPreloadLibs(is32bitElf);
 
   //run the user program

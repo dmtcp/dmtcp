@@ -74,6 +74,12 @@ void dmtcp::SharedData::initializeHeader()
   sharedDataHeader->coordHost[0] = '\0';
   sharedDataHeader->coordPort = -1;
   sharedDataHeader->ckptInterval = -1;
+  JASSERT(getenv(ENV_VAR_DLSYM_OFFSET) != NULL);
+  sharedDataHeader->dlsymOffset =
+    (int32_t) strtol(getenv(ENV_VAR_DLSYM_OFFSET), NULL, 10);
+  JASSERT(getenv(ENV_VAR_DLSYM_OFFSET_M32) != NULL);
+  sharedDataHeader->dlsymOffset_m32 =
+    (int32_t) strtol(getenv(ENV_VAR_DLSYM_OFFSET_M32), NULL, 10);
   sharedDataHeader->numIPCIdMaps = 0;
   sharedDataHeader->numPtraceIdMaps = 0;
   sharedDataHeader->numPtyNameMaps = 0;
@@ -240,6 +246,34 @@ void dmtcp::SharedData::getLocalIPAddr(struct in_addr *in)
   if (sharedDataHeader == NULL) initialize();
   JASSERT(in != NULL);
   memcpy(in, &sharedDataHeader->localIPAddr, sizeof *in);
+}
+
+void dmtcp::SharedData::updateDlsymOffset(int32_t dlsymOffset,
+                                          int32_t dlsymOffset_m32)
+{
+  if (sharedDataHeader == NULL) initialize();
+  JASSERT(sharedDataHeader->dlsymOffset == 0 ||
+          sharedDataHeader->dlsymOffset == dlsymOffset)
+    (dlsymOffset) (sharedDataHeader->dlsymOffset);
+
+  JASSERT(sharedDataHeader->dlsymOffset_m32 == 0 ||
+          sharedDataHeader->dlsymOffset_m32 == dlsymOffset_m32)
+    (dlsymOffset_m32) (sharedDataHeader->dlsymOffset_m32);
+  sharedDataHeader->dlsymOffset = dlsymOffset;
+  sharedDataHeader->dlsymOffset_m32 ==  dlsymOffset_m32;
+}
+
+int32_t dmtcp::SharedData::getDlsymOffset(void)
+{
+  if (sharedDataHeader == NULL) initialize();
+  JASSERT(sharedDataHeader->dlsymOffset != 0);
+  return sharedDataHeader->dlsymOffset;
+}
+
+int32_t dmtcp::SharedData::getDlsymOffset_m32(void)
+{
+  if (sharedDataHeader == NULL) initialize();
+  return sharedDataHeader->dlsymOffset_m32;
 }
 
 pid_t dmtcp::SharedData::getRealPid(pid_t virt)
