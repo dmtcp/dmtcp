@@ -25,12 +25,12 @@
 #include "dmtcpplugin.h"
 
 int main() {
-    if ( ! dmtcpIsEnabled() ) {
+    if ( ! dmtcp_is_enabled() ) {
       printf("\n *** dmtcpIsEnabled: executable seems to not be running"
              " under dmtcp_launch.\n\n");
     }
 
-    int retval = dmtcpCheckpoint();
+    int retval = dmtcp_checkpoint();
     if (retval == DMTCP_AFTER_CHECKPOINT) {
       printf("*** dmtcpCheckpoint: This program has now invoked a checkpoint.\n"
              "      It will resume its execution next.\n");
