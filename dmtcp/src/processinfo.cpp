@@ -105,10 +105,10 @@ dmtcp::ProcessInfo::ProcessInfo()
   _uppid = UniquePid();
   JASSERT(getcwd(buf, sizeof buf) != NULL);
   _launchCWD = buf;
-#if defined(__x86_64__)
-  _elfType = Elf_64;
-#else
+#ifdef CONFIG_M32
   _elfType = Elf_32;
+#else
+  _elfType = Elf_64;
 #endif
   _do_unlock_tbl();
 }
@@ -270,6 +270,11 @@ void dmtcp::ProcessInfo::postExec( )
   _procname   = jalib::Filesystem::GetProgramName();
   _upid       = UniquePid::ThisProcess();
   _uppid      = UniquePid::ParentProcess();
+#ifdef CONFIG_M32
+  _elfType = Elf_32;
+#else
+  _elfType = Elf_64;
+#endif
   _do_unlock_tbl();
 }
 
@@ -376,14 +381,15 @@ void dmtcp::ProcessInfo::serialize ( jalib::JBinarySerializer& o )
 {
   JSERIALIZE_ASSERT_POINT ( "dmtcp::ProcessInfo:" );
 
+  o & _elfType;
   o & _isRootOfProcessTree & _pid & _sid & _ppid & _gid & _fgid;
   o & _procname & _hostname & _launchCWD & _ckptCWD & _upid & _uppid;
   o & _compGroup & _numPeers & _noCoordinator & _argvSize & _envSize;
 
-  JTRACE("Serialized process information")
+  JNOTE("Serialized process information")
     (_sid) (_ppid) (_gid) (_fgid)
     (_procname) (_hostname) (_launchCWD) (_ckptCWD) (_upid) (_uppid)
-    (_compGroup) (_numPeers) (_noCoordinator) (_argvSize) (_envSize);
+    (_compGroup) (_numPeers) (_noCoordinator) (_argvSize) (_envSize) (_elfType);
 
   JASSERT(!_noCoordinator || _numPeers == 1) (_noCoordinator) (_numPeers);
 
