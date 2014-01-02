@@ -233,7 +233,7 @@ dist: distclean dist_exclude.txt
 	ls -l ../dmtcp.tgz
 
 $(targetdir)/include/% : mtcp/%
-	cp $(top_srcdir)/$< $@
+	cp $< $@
 
 include: $(targetdir)/include/mtcp.h
 
