@@ -386,7 +386,7 @@ void dmtcp::ProcessInfo::serialize ( jalib::JBinarySerializer& o )
   o & _procname & _hostname & _launchCWD & _ckptCWD & _upid & _uppid;
   o & _compGroup & _numPeers & _noCoordinator & _argvSize & _envSize;
 
-  JNOTE("Serialized process information")
+  JTRACE("Serialized process information")
     (_sid) (_ppid) (_gid) (_fgid)
     (_procname) (_hostname) (_launchCWD) (_ckptCWD) (_upid) (_uppid)
     (_compGroup) (_numPeers) (_noCoordinator) (_argvSize) (_envSize) (_elfType);
