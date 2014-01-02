@@ -28,7 +28,7 @@
 #include "jconvert.h"
 #include "pidwrappers.h"
 #include "virtualpidtable.h"
-#include "dmtcpplugin.h"
+#include "dmtcp.h"
 #include "shareddata.h"
 #include "util.h"
 #include "pid.h"

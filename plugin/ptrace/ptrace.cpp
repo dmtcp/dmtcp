@@ -26,7 +26,7 @@
 #include "jassert.h"
 #include "ptrace.h"
 #include "ptraceinfo.h"
-#include "dmtcpplugin.h"
+#include "dmtcp.h"
 #include "util.h"
 
 static int originalStartup = 1;

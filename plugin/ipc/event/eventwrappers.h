@@ -23,7 +23,7 @@
 #ifndef EVENT_WRAPPERS_H
 #define EVENT_WRAPPERS_H
 
-#include "dmtcpplugin.h"
+#include "dmtcp.h"
 #include "eventconnection.h"
 
 #define _real_poll NEXT_FNC(poll)

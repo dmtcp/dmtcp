@@ -3,7 +3,7 @@
 #include <unistd.h>
 
 /* Be sure to compile with -I<path>; see Makefile in this directory. */
-#include "dmtcpplugin.h"
+#include "dmtcp.h"
 
 void pre(){
   printf("HOOK: preCheckpoint\n");

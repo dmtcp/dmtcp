@@ -30,7 +30,7 @@
 #include <fstream>
 
 #include "util.h"
-#include "dmtcpplugin.h"
+#include "dmtcp.h"
 #include "shareddata.h"
 #include "jassert.h"
 #include "jfilesystem.h"

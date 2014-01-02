@@ -10,7 +10,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <errno.h>
-#include "dmtcpplugin.h"
+#include "dmtcp.h"
 
 #include "ibvctx.h"
 #include "debug.h"

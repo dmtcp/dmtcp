@@ -56,7 +56,7 @@ LINK = $(CC) $(CFLAGS) $(LDFLAGS) -o $@
 CXXCOMPILE = $(CXX) $(INCLUDES) $(CPPFLAGS) $(CXXFLAGS) -c -o $@
 CXXLINK = $(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@
 
-HEADERS = $(DMTCP_INCLUDE_PATH)/util.h $(DMTCP_INCLUDE_PATH)/dmtcpplugin.h \
+HEADERS = $(DMTCP_INCLUDE_PATH)/util.h $(DMTCP_INCLUDE_PATH)/dmtcp.h \
 	  alloc.h $(JALIB_PATH)/jassert.h $(JALIB_PATH)/jalloc.h
 
 OBJS = mallocwrappers.o mmapwrappers.o

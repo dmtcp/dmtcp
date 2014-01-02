@@ -53,7 +53,7 @@ struct user_desc {int dummy;}; /* <asm/ldt.h> is missing in Ubuntu 11.10 */
 #endif
 
 #include "constants.h"
-#include "dmtcpplugin.h"
+#include "dmtcp.h"
 #ifdef HAVE_CONFIG_H
 # include "config.h"
 #endif

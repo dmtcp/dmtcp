@@ -26,7 +26,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-#include "dmtcpplugin.h"
+#include "dmtcp.h"
 #include "protectedfds.h"
 #include "util.h"
 #include "jsocket.h"

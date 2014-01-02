@@ -15,7 +15,7 @@
 #include <arpa/inet.h>
 #include <queue>
 
-#include "dmtcpplugin.h"
+#include "dmtcp.h"
 #include "dmtcpalloc.h"
 #include "util.h"
 #include "jsocket.h"

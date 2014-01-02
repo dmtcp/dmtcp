@@ -24,7 +24,7 @@
 
 #include <stdlib.h>
 #include <sys/mman.h>
-#include "dmtcpplugin.h"
+#include "dmtcp.h"
 
 extern "C" void *__libc_memalign(size_t boundary, size_t size);
 

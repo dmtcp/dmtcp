@@ -19,7 +19,7 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include "dmtcpplugin.h"
+#include "dmtcp.h"
 #include "protectedfds.h"
 #include "util.h"
 #include "syscallwrappers.h"

@@ -26,7 +26,7 @@
 #include <dirent.h>
 #include <sys/types.h>
 #include <linux/version.h>
-#include "dmtcpplugin.h"
+#include "dmtcp.h"
 
 #define HANDSHAKE_SIGNATURE_MSG "DMTCP_SOCK_HANDSHAKE_V0\n"
 #define CONNECTION_ID_START 99000

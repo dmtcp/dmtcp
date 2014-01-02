@@ -32,7 +32,7 @@
 #include <jassert.h>
 #include <jconvert.h>
 #include <jfilesystem.h>
-#include <dmtcpplugin.h>
+#include <dmtcp.h>
 #include "resource_manager.h"
 #include "slurm.h"
 

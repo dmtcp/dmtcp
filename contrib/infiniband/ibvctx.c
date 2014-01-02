@@ -32,7 +32,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "lib/list.h"
-#include "dmtcpplugin.h"
+#include "dmtcp.h"
 #include <pthread.h>
 #include <errno.h>
 

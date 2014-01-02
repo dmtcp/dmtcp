@@ -3,7 +3,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <sys/un.h>
-#include "dmtcpplugin.h"
+#include "dmtcp.h"
 #include "util.h"
 #include "jassert.h"
 #include "jfilesystem.h"

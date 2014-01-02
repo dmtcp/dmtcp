@@ -32,7 +32,7 @@
 #include "jconvert.h"
 #include "pidwrappers.h"
 #include "virtualpidtable.h"
-#include "dmtcpplugin.h"
+#include "dmtcp.h"
 #include "pid.h"
 #include "util.h"
 

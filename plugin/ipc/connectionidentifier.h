@@ -25,7 +25,7 @@
 
 #include <stdint.h>
 #include "dmtcpalloc.h"
-#include "dmtcpplugin.h"
+#include "dmtcp.h"
 #include "jalloc.h"
 #include "jserialize.h"
 #include "ipc.h"

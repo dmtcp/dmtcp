@@ -24,7 +24,7 @@
 #define UNIQUEPID_H
 
 #include <sys/types.h>
-#include "dmtcpplugin.h"
+#include "dmtcp.h"
 #include "../jalib/jserialize.h"
 
 

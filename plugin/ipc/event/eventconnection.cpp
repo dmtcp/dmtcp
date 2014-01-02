@@ -32,7 +32,7 @@
 #include <linux/limits.h>
 #include <arpa/inet.h>
 
-#include "dmtcpplugin.h"
+#include "dmtcp.h"
 #include "shareddata.h"
 #include "util.h"
 #include "jassert.h"

@@ -5,7 +5,7 @@
  */
 
 #include <stdio.h>
-#include "dmtcpplugin.h"
+#include "dmtcp.h"
 
 
 void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
@@ -29,7 +29,7 @@ void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
   case DMTCP_EVENT_EXIT:
     printf("Plugin(%s:%d): exiting.\n", __FILE__, __LINE__);
     break;
-  /* These events are unused and could be omitted.  See dmtcpplugin.h for
+  /* These events are unused and could be omitted.  See dmtcp.h for
    * complete list.
    */
   case DMTCP_EVENT_THREADS_RESUME:

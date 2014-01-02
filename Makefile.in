@@ -232,10 +232,13 @@ dist: distclean dist_exclude.txt
 	    ./`basename $$dir`
 	ls -l ../dmtcp.tgz
 
+$(targetdir)/include/% : dmtcp/include/%
+	cp $< $@
+
 $(targetdir)/include/% : mtcp/%
 	cp $< $@
 
-include: $(targetdir)/include/mtcp.h
+include: $(targetdir)/include/mtcp.h $(targetdir)/include/dmtcp.h
 
 create-dirs:
 	test -e $(DESTDIR)$(bindir) || $(MKDIR_P) $(DESTDIR)$(bindir)

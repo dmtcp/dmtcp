@@ -23,7 +23,7 @@
 #include <fcntl.h>
 #include  "util.h"
 #include  "syscallwrappers.h"
-#include  "dmtcpplugin.h"
+#include  "dmtcp.h"
 #include  "../jalib/jassert.h"
 #include  "../jalib/jfilesystem.h"
 

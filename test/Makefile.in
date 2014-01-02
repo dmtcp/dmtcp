@@ -125,7 +125,7 @@ else
 endif
 
 DMTCPAWARE_EXE=$(patsubst %.c,%,$(wildcard dmtcpaware*.c))
-DMTCPPLUGIN_HEADER=$(top_srcdir)/dmtcp/include/dmtcpplugin.h
+DMTCPPLUGIN_HEADER=$(top_srcdir)/dmtcp/include/dmtcp.h
 
 ${DMTCPAWARE_EXE}: dmtcpaware%: dmtcpaware%.c $(DMTCPPLUGIN_HEADER)
 	-$(CC) -o $@ -I$(top_srcdir)/dmtcp/include $< $(CFLAGS)

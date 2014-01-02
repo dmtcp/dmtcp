@@ -30,7 +30,7 @@
 #include "../jalib/jconvert.h"
 #include "../jalib/jfilesystem.h"
 #include "virtualpidtable.h"
-#include "dmtcpplugin.h"
+#include "dmtcp.h"
 #include "shareddata.h"
 
 static int _numTids = 1;

@@ -4,7 +4,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include "ipc.h"
-#include "dmtcpplugin.h"
+#include "dmtcp.h"
 
 extern "C" LIB_PRIVATE
 int sendFd(int restoreFd, int32_t fd, void *data, size_t len,

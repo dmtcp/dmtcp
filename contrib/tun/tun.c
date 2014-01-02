@@ -22,7 +22,7 @@
 #include <sys/ioctl.h>
 
 #include <fcntl.h>
-#include "dmtcpplugin.h"
+#include "dmtcp.h"
 
 #define DEBUG_SIGNATURE "DEBUG [TUN Plugin]: "
 
@@ -477,7 +477,7 @@ void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
   case DMTCP_EVENT_EXIT:
     DPRINTF("The plugin is being called before exiting.\n");
     break;
-  /* These events are unused and could be omitted.  See dmtcpplugin.h for
+  /* These events are unused and could be omitted.  See dmtcp.h for
    * complete list.
    */
   case DMTCP_EVENT_RESTART:

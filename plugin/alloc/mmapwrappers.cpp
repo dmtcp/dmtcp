@@ -21,7 +21,7 @@
 
 #include <stdarg.h>
 #include <sys/mman.h>
-#include "dmtcpplugin.h"
+#include "dmtcp.h"
 #include "alloc.h"
 
 //#define ENABLE_MMAP_WRAPPERS

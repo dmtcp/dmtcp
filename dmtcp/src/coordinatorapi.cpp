@@ -25,7 +25,7 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 #include "coordinatorapi.h"
-#include "dmtcpplugin.h"
+#include "dmtcp.h"
 #include "syscallwrappers.h"
 #include  "../jalib/jconvert.h"
 #include  "../jalib/jfilesystem.h"

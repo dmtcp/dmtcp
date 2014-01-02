@@ -1,6 +1,6 @@
 #ifndef IBWRAPPERS_H
 #define IBWRAPPERS_H
-#include "dmtcpplugin.h"
+#include "dmtcp.h"
 
 #define _real_ibv_get_device_list NEXT_FNC(ibv_get_device_list)
 #define _real_ibv_open_device NEXT_FNC(ibv_open_device)

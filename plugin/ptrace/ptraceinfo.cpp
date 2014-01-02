@@ -38,7 +38,7 @@
 
 #include "ptrace.h"
 #include "ptraceinfo.h"
-#include "dmtcpplugin.h"
+#include "dmtcp.h"
 #include "util.h"
 #include "jassert.h"
 #include "jfilesystem.h"

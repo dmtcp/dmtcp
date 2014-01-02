@@ -1,7 +1,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include "jassert.h"
-#include "dmtcpplugin.h"
+#include "dmtcp.h"
 
 extern "C" int dmtcp_must_ckpt_file(const char *abspath)
 {

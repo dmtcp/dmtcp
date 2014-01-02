@@ -29,7 +29,7 @@
 #include <fcntl.h>
 
 #include <fstream>
-#include "dmtcpplugin.h"
+#include "dmtcp.h"
 
 namespace jalib {
   typedef struct JalibFuncPtrs {
