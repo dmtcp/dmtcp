@@ -1,2 +1,0 @@
-# libdmtcpaware1 does not make use of character arrays on stack
-libdmtcpaware1 binary: hardening-no-stackprotector *usr/lib/libdmtcpaware.so.1.0.0
