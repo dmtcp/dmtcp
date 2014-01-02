@@ -250,6 +250,10 @@ static void prepareForExec(char *const argv[], char ***newArgv)
   //find command part
   size_t commandStart = 2;
   for (size_t i = 1; i < nargs; ++i) {
+    if (strcmp(argv[i], "-o") == 0) {
+      i++;
+      continue;
+    }
     if (argv[i][0] != '-') {
       commandStart = i + 1;
       break;
