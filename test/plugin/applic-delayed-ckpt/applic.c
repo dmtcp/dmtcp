@@ -25,12 +25,12 @@
 #include "dmtcpplugin.h"
 ;
 int main() {
-    if ( ! dmtcpIsEnabled() ) {
+    if ( ! dmtcp_is_enabled() ) {
       printf("\n *** dmtcpIsEnabled: executable seems to not be running"
              " under dmtcp_launch.\n");
     }
 
-    int retval = dmtcpDelayCheckpointsLock();
+    int retval = dmtcp_disable_ckpt();
     if (retval == DMTCP_NOT_PRESENT) {
       printf("\n *** dmtcpDelayCheckpointsLock: DMTCP_NOT_PRESENT."
              "  Will exit.\n");
@@ -44,7 +44,7 @@ int main() {
     printf("*** dmtcpDelayCheckpointsUnlock: Will now unblock checkpointing\n"
            "      and write ./dmtcp_restart_script.sh.\n");
     printf("*** Execute ./dmtcp_restart_script.sh to restart from here.\n");
-    dmtcpDelayCheckpointsUnlock();
+    dmtcp_enable_ckpt();
     sleep(2); // Wait long enough for checkpoint to be written.
 
     printf("\n*** Process done executing.  Successfully exiting.\n");
