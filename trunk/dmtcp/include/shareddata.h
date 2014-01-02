@@ -69,15 +69,13 @@ namespace dmtcp {
     };
 
     typedef struct InodeConnIdMap {
-      dev_t devnum;
-      ino_t inode;
+      uint64_t devnum;
+      uint64_t inode;
       char  id[CON_ID_LEN];
     } InodeConnIdMap;
 
     struct Header {
       uint32_t             initialized;
-      char                 versionStr[32];
-      char                 coordHost[NI_MAXHOST];
       uint32_t             coordPort;
       uint32_t             ckptInterval;
       struct in_addr       localIPAddr;
@@ -85,23 +83,26 @@ namespace dmtcp {
       int32_t              dlsymOffset;
       int32_t              dlsymOffset_m32;
 
-      struct PidMap        pidMap[MAX_PID_MAPS];
       uint32_t             numPidMaps;
-      struct IPCIdMap      ipcIdMap[MAX_IPC_ID_MAPS];
       uint32_t             numIPCIdMaps;
-      struct PtraceIdMaps  ptraceIdMap[MAX_PTRACE_ID_MAPS];
       uint32_t             numPtraceIdMaps;
 
-      struct PtyNameMap    ptyNameMap[MAX_PTY_NAME_MAPS];
       uint32_t             numPtyNameMaps;
       uint32_t             nextPtyName;
       uint32_t             nextVirtualPtyId;
 
-      struct MissingConMap missingConMap[MAX_MISSING_CONNECTIONS];
       uint32_t             numMissingConMaps;
-
-      InodeConnIdMap       inodeConnIdMap[MAX_INODE_PID_MAPS];
       uint32_t             numInodeConnIdMaps;
+
+      struct PidMap        pidMap[MAX_PID_MAPS];
+      struct IPCIdMap      ipcIdMap[MAX_IPC_ID_MAPS];
+      struct PtraceIdMaps  ptraceIdMap[MAX_PTRACE_ID_MAPS];
+      struct PtyNameMap    ptyNameMap[MAX_PTY_NAME_MAPS];
+      struct MissingConMap missingConMap[MAX_MISSING_CONNECTIONS];
+      InodeConnIdMap       inodeConnIdMap[MAX_INODE_PID_MAPS];
+
+      char                 versionStr[32];
+      char                 coordHost[NI_MAXHOST];
     };
 
     void initialize();
