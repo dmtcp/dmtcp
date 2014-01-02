@@ -456,7 +456,8 @@ void dmtcp::Util::runMtcpRestore(int is32bitElf, const char* path, int fd,
     jalib::Filesystem::FindHelperUtility ("mtcp_restart");
 
   if (is32bitElf) {
-  mtcprestart = jalib::Filesystem::FindHelperUtility ("mtcp_restart-32");
+    mtcprestart = jalib::Filesystem::FindHelperUtility("mtcp_restart-32",
+                                                       is32bitElf);
   }
 
   // Tell mtcp_restart process to write its debugging information to
