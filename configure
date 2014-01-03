@@ -4533,7 +4533,9 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 ac_config_headers="$ac_config_headers dmtcp/include/config.h"
 
-ac_config_files="$ac_config_files Makefile plugin/Makefile plugin/pid/Makefile plugin/ipc/Makefile plugin/alloc/Makefile contrib/Makefile contrib/rm/Makefile contrib/ckptfile/Makefile mtcp/Makefile test/Makefile test/testconfig.py test/plugin/Makefile test/credentials/Makefile"
+ac_config_files="$ac_config_files Makefile plugin/Makefile plugin/pid/Makefile plugin/ipc/Makefile plugin/alloc/Makefile contrib/Makefile contrib/rm/Makefile contrib/ckptfile/Makefile mtcp/Makefile test/Makefile test/plugin/Makefile test/credentials/Makefile"
+
+ac_config_files="$ac_config_files test/autotest.py"
 
 
 #AC_CONFIG_SUBDIRS([dmtcp])
@@ -5855,7 +5857,7 @@ fi
 
 
 
-#checking later if java dialect is Sun/Oracle/OpenJDK, in test/testconfig.py.in
+#checking later if java dialect is Sun/Oracle/OpenJDK, in test/autotest.py.in
 
 #check for cilk
 # Extract the first word of "cilkc", so it can be a program name with args.
@@ -7530,9 +7532,9 @@ do
     "contrib/ckptfile/Makefile") CONFIG_FILES="$CONFIG_FILES contrib/ckptfile/Makefile" ;;
     "mtcp/Makefile") CONFIG_FILES="$CONFIG_FILES mtcp/Makefile" ;;
     "test/Makefile") CONFIG_FILES="$CONFIG_FILES test/Makefile" ;;
-    "test/testconfig.py") CONFIG_FILES="$CONFIG_FILES test/testconfig.py" ;;
     "test/plugin/Makefile") CONFIG_FILES="$CONFIG_FILES test/plugin/Makefile" ;;
     "test/credentials/Makefile") CONFIG_FILES="$CONFIG_FILES test/credentials/Makefile" ;;
+    "test/autotest.py") CONFIG_FILES="$CONFIG_FILES test/autotest.py" ;;
     "plugin/ptrace/Makefile") CONFIG_FILES="$CONFIG_FILES plugin/ptrace/Makefile" ;;
     "contrib/infiniband/Makefile") CONFIG_FILES="$CONFIG_FILES contrib/infiniband/Makefile" ;;
     "dmtcp/src/Makefile") CONFIG_FILES="$CONFIG_FILES dmtcp/src/Makefile" ;;
@@ -8224,6 +8226,7 @@ $as_echo X"$file" |
   done
 }
  ;;
+    "test/autotest.py":F) chmod +x test/autotest.py ;;
 
   esac
 done # for ac_tag

@@ -1,7 +1,62 @@
 #!/usr/bin/env python
+
+USE_TEST_SUITE="@USE_TEST_SUITE@"
+USE_M32=@M32@
+DEBUG="@DEBUG@"
+PTRACE_SUPPORT="@PTRACE_SUPPORT@"
+PID_VIRTUALIZATION="@PID_VIRTUALIZATION@"
+PTRACE_TMP="@PTRACE_SUPPORT@"
+HBICT_DELTACOMP="@HBICT_DELTACOMP@"
+
+# We may be running a user's python, but we should only test with canonical one
+HAS_PYTHON="@HAS_PYTHON@"
+HAS_READLINE="@HAS_READLINE@"
+HAS_DASH="@HAS_DASH@"
+HAS_TCSH="@HAS_TCSH@"
+HAS_ZSH="@HAS_ZSH@"
+HAS_VIM="@HAS_VIM@"
+VIM="@VIM@"
+HAS_EMACS="@HAS_EMACS@"
+HAS_SCRIPT="@HAS_SCRIPT@"
+HAS_SCREEN="@HAS_SCREEN@"
+SCREEN="@SCREEN@"
+HAS_STRACE="@HAS_STRACE@"
+HAS_GDB="@HAS_GDB@"
+HAS_JAVA="@HAS_JAVA@"
+HAS_JAVAC="@HAS_JAVAC@"
+HAS_SSH="@HAS_SSH@"
+HAS_CILK="@HAS_CILK@"
+HAS_GCL="@HAS_GCL@"
+GCL="@GCL@"
+HAS_MATLAB="@HAS_MATLAB@"
+MATLAB="@MATLAB@"
+
+OPENMP_CFLAGS="@OPENMP_CFLAGS@"
+if OPENMP_CFLAGS != "":
+  HAS_OPENMP="yes"
+else:
+  HAS_OPENMP="no"
+
+HAS_MPICH="@HAS_MPICH@"
+MPICH_MPD="@MPICH_MPD@"
+MPICH_MPDBOOT="@MPICH_MPDBOOT@"
+MPICH_MPDALLEXIT="@MPICH_MPDALLEXIT@"
+MPICH_MPIEXEC="@MPICH_MPIEXEC@"
+MPICH_MPDCLEANUP="@MPICH_MPDCLEANUP@"
+
+# USES_OPENMPI_ORTED="@USES_OPENMPI_ORTED@"
+HAS_OPENMPI="@HAS_OPENMPI@"
+OPENMPI_MPICC="@OPENMPI_MPICC@"
+OPENMPI_MPIRUN="@OPENMPI_MPIRUN@"
+
+if USE_M32:
+  HAS_READLINE="no"
+  HAS_MPICH="no"
+  HAS_OPENMPI="no"
+  HAS_CILK="no"
+
 from random import randint
 from time   import sleep
-from os     import listdir
 import subprocess
 import pty
 import socket
@@ -25,21 +80,16 @@ if sys.version_info[0] == 2 and sys.version_info[1] >= 7:
   uname_m = subprocess.check_output(['uname', '-m'])
   uname_p = subprocess.check_output(['uname', '-p'])
 else:
-  uname_m = subprocess.Popen(['uname', '-m'], stdout=subprocess.PIPE).communicate()[0]
-  uname_p = subprocess.Popen(['uname', '-p'], stdout=subprocess.PIPE).communicate()[0]
+  uname_m = subprocess.Popen(['uname', '-m'],
+                             stdout=subprocess.PIPE).communicate()[0]
+  uname_p = subprocess.Popen(['uname', '-p'],
+                             stdout=subprocess.PIPE).communicate()[0]
 
-#get testconfig
 # This assumes Makefile.in in main dir, but only Makefile in test dir.
 os.system("test -f Makefile || ./configure")
-try:
-  import testconfig
-except ImportError as e:
-  if e.args == ("USE_TEST_SUITE",):
-    print "\n*** DMTCP test suite is disabled." + \
-                                         "  To re-enable the test suite,\n" + \
+if USE_TEST_SUITE == "no":
+  print "\n*** DMTCP test suite is disabled. To re-enable the test suite,\n" + \
           "***  re-configure _without_ './configure --disable-test-suite'\n"
-  else:
-    print "\n*** Error in testconfig.py\n"
   sys.exit()
 
 #number of checkpoint/restart cycles
@@ -159,11 +209,10 @@ def shouldRunTest(name):
 #make sure we are in svn root
 if os.system("test -d bin") != 0:
   os.chdir("..")
-if testconfig.USE_M32 == "1":
+if USE_M32:
   assert os.system("test -d bin") == 0, \
   "  bin/dmtcp_launch not found.  Please configure and build the\n" + \
-  "  default 64-bit mode before configuring with --enable-m32 and re-building" \
-  + ""
+  "  default 64-bit mode before configuring with --enable-m32 and re-building"
 else:
   assert os.system("test -d bin") == 0
 
@@ -290,7 +339,8 @@ if free_diskspace(ckptDir) > 20*1024*1024:
 
 #verify there is enough free space
 tmpfile=ckptDir + "/freeSpaceTest.tmp"
-if os.system("dd if=/dev/zero of="+tmpfile+" bs=1MB count="+str(REQUIRE_MB)+" 2>/dev/null") != 0:
+if os.system("dd if=/dev/zero of=" + tmpfile + " bs=1MB count=" + 
+             str(REQUIRE_MB) + " 2>/dev/null") != 0:
   GZIP="1"
   print '''
 
@@ -319,7 +369,8 @@ def coordinatorCmd(cmd):
     coordinator.stdin.write(cmd+"\n")
     coordinator.stdin.flush()
   except:
-    raise CheckFailed("failed to write '%s' to coordinator (pid: %d)" %  (cmd, coordinator.pid))
+    raise CheckFailed("failed to write '%s' to coordinator (pid: %d)" % \
+                      (cmd, coordinator.pid))
 
 #clean up after ourselves
 def SHUTDOWN():
@@ -408,14 +459,15 @@ def clearCkptDir():
         os.rmdir(os.path.join(root, name))
 
 def getNumCkptFiles(dir):
-  return len(filter(lambda f: f.startswith("ckpt_") and f.endswith(".dmtcp"), listdir(dir)))
+  return len(filter(lambda f: f.startswith("ckpt_") and f.endswith(".dmtcp"),\
+                              os.listdir(dir)))
 
 
 # Test a given list of commands to see if they checkpoint
 # runTest() sets up a keyboard interrupt handler, and then calls this function.
 def runTestRaw(name, numProcs, cmds):
   #the expected/correct running status
-#  if testconfig.USE_M32 == "1":
+#  if USE_M32:
 #    def forall(fnc, lst):
 #      return reduce(lambda x, y: x and y, map(fnc, lst))
 #    if not forall(lambda x: x.startswith("./test/"), cmds):
@@ -483,7 +535,7 @@ def runTestRaw(name, numProcs, cmds):
             wfMsg("checkpoint error"))
 
     #make sure the right files are there
-    numFiles=getNumCkptFiles(ckptDir) # len(listdir(ckptDir))
+    numFiles=getNumCkptFiles(ckptDir) # len(os.listdir(ckptDir))
     CHECK(doesStatusSatisfy((numFiles,True),status),
           "unexpected number of checkpoint files, %s procs, %d files"
           % (str(status[0]), numFiles))
@@ -491,14 +543,14 @@ def runTestRaw(name, numProcs, cmds):
   def testRestart():
     #build restart command
     cmd=BIN+"dmtcp_restart --quiet"
-    for i in listdir(ckptDir):
+    for i in os.listdir(ckptDir):
       if i.endswith(".dmtcp"):
         cmd+= " "+ckptDir+"/"+i
     #run restart and test if it worked
     procs.append(launch(cmd))
     WAITFOR(lambda: doesStatusSatisfy(getStatus(), status),
             wfMsg("restart error"))
-    if testconfig.HBICT_DELTACOMP == "no":
+    if HBICT_DELTACOMP == "no":
       clearCkptDir()
 
   try:
@@ -604,7 +656,7 @@ def runTest(name, numProcs, cmds):
         pass
 
 def saveResultsNMI():
-  if testconfig.DEBUG == "yes":
+  if DEBUG == "yes":
     # WARNING:  This can cause a several second delay on some systems.
     host = socket.getfqdn()
     if re.search("^nmi-.*.cs.wisc.edu$", host) or \
@@ -694,12 +746,12 @@ runTest("poll",          1, ["./test/poll"])
 
 runTest("forkexec",      2, ["./test/forkexec"])
 
-if testconfig.HAS_SSH == "yes":
+if HAS_SSH == "yes":
   S=3*DEFAULT_S
   runTest("sshtest",     4, ["./test/sshtest"])
   S=DEFAULT_S
 
-if testconfig.PID_VIRTUALIZATION == "yes":
+if PID_VIRTUALIZATION == "yes":
   runTest("waitpid",      2, ["./test/waitpid"])
 
 runTest("client-server", 2, ["./test/client-server"])
@@ -735,13 +787,14 @@ runTest("clock",   1, ["./test/clock"])
 
 old_ld_library_path = os.getenv("LD_LIBRARY_PATH")
 if old_ld_library_path:
-    os.environ['LD_LIBRARY_PATH'] += ':' + os.getenv("PWD")+"/test:"+os.getenv("PWD")
+  os.environ['LD_LIBRARY_PATH'] += ':' + os.getenv("PWD") + \
+                                   "/test:" + os.getenv("PWD")
 else:
-    os.environ['LD_LIBRARY_PATH'] = os.getenv("PWD")+"/test:"+os.getenv("PWD")
+  os.environ['LD_LIBRARY_PATH'] = os.getenv("PWD") + "/test:" + os.getenv("PWD")
 runTest("dlopen1",        1, ["./test/dlopen1"])
 # Disable the dlopen2 test until we can figure out a way to handle calls to
 # fork/exec/wait during library intialization with dlopen().
-#if not testconfig.USE_M32:
+#if not USE_M32:
 #  runTest("dlopen2",        1, ["./test/dlopen2"])
 if old_ld_library_path:
   os.environ['LD_LIBRARY_PATH'] = old_ld_library_path
@@ -760,48 +813,49 @@ os.environ['DMTCP_GZIP'] = "1"
 runTest("gzip",          1, ["./test/dmtcp1"])
 os.environ['DMTCP_GZIP'] = GZIP
 
-if testconfig.HAS_READLINE == "yes":
+if HAS_READLINE == "yes":
   runTest("readline",    1,  ["./test/readline"])
 
 runTest("perl",          1, ["/usr/bin/perl"])
 
-if testconfig.HAS_PYTHON == "yes":
+if HAS_PYTHON == "yes":
   runTest("python",      1, ["/usr/bin/python"])
 
-if testconfig.PID_VIRTUALIZATION == "yes":
+if PID_VIRTUALIZATION == "yes":
   os.environ['DMTCP_GZIP'] = "0"
   runTest("bash",        2, ["/bin/bash --norc -c 'ls; sleep 30; ls'"])
   os.environ['DMTCP_GZIP'] = GZIP
 
-if testconfig.HAS_DASH == "yes":
+if HAS_DASH == "yes":
   os.environ['DMTCP_GZIP'] = "0"
   os.unsetenv('ENV')  # Delete reference to dash initialization file
   runTest("dash",        2, ["/bin/dash -c 'ls; sleep 30; ls'"])
   os.environ['DMTCP_GZIP'] = GZIP
 
-if testconfig.HAS_TCSH == "yes":
+if HAS_TCSH == "yes":
   os.environ['DMTCP_GZIP'] = "0"
   runTest("tcsh",        2, ["/bin/tcsh -f -c 'ls; sleep 30; ls'"])
   os.environ['DMTCP_GZIP'] = GZIP
 
-if testconfig.HAS_ZSH == "yes":
+if HAS_ZSH == "yes":
   os.environ['DMTCP_GZIP'] = "0"
   S=3*DEFAULT_S
   runTest("zsh",         2, ["/bin/zsh -f -c 'ls; sleep 30; ls'"])
   S=DEFAULT_S
   os.environ['DMTCP_GZIP'] = GZIP
 
-if testconfig.HAS_VIM == "yes" and testconfig.PID_VIRTUALIZATION == "yes":
+if HAS_VIM == "yes" and PID_VIRTUALIZATION == "yes":
   # Wait to checkpoint until vim finishes reading its initialization files
   S=10*DEFAULT_S
   if sys.version_info[0:2] >= (2,6):
     # Delete previous vim processes.  Vim behaves poorly with stale processes.
-    vimCommand = testconfig.VIM + " /etc/passwd +3" # +3 makes cmd line unique
+    vimCommand = VIM + " /etc/passwd +3" # +3 makes cmd line unique
     def killCommand(cmdToKill):
       if os.getenv('USER') == None:
         return
-      ps = subprocess.Popen(['ps', '-u', os.environ['USER'], '-o', 'pid,command'],
-    		            stdout=subprocess.PIPE).communicate()[0]
+      ps = subprocess.Popen(['ps', '-u', os.environ['USER'], '-o',
+                             'pid,command'],
+                            stdout=subprocess.PIPE).communicate()[0]
       for row in ps.split('\n')[1:]:
         cmd = row.split(None, 1) # maxsplit=1
         if cmd and cmd[1] == cmdToKill:
@@ -811,7 +865,7 @@ if testconfig.HAS_VIM == "yes" and testconfig.PID_VIRTUALIZATION == "yes":
     killCommand(vimCommand)
   S=DEFAULT_S
 
-if testconfig.HAS_EMACS == "yes" and testconfig.PID_VIRTUALIZATION == "yes":
+if HAS_EMACS == "yes" and PID_VIRTUALIZATION == "yes":
   # Wait to checkpoint until emacs finishes reading its initialization files
   S=15*DEFAULT_S
   if sys.version_info[0:2] >= (2,6):
@@ -822,7 +876,7 @@ if testconfig.HAS_EMACS == "yes" and testconfig.PID_VIRTUALIZATION == "yes":
                               " --no-init-file /etc/passwd"])
   S=DEFAULT_S
 
-if testconfig.HAS_SCRIPT == "yes" and testconfig.PID_VIRTUALIZATION == "yes":
+if HAS_SCRIPT == "yes" and PID_VIRTUALIZATION == "yes":
   S=7*DEFAULT_S
   if sys.version_info[0:2] >= (2,6):
     # NOTE: If 'script' fails, try raising value of S, above, to larger number.
@@ -840,20 +894,20 @@ if testconfig.HAS_SCRIPT == "yes" and testconfig.PID_VIRTUALIZATION == "yes":
 # SHOULD HAVE screen RUN SOMETHING LIKE:  bash -c ./test/dmtcp1
 # FIXME: Currently fails on dekaksi due to DMTCP not honoring
 #        "Async-signal-safe functions" in signal handlers (see man 7 signal)
-if testconfig.HAS_SCREEN == "yes" and testconfig.PID_VIRTUALIZATION == "yes":
+if HAS_SCREEN == "yes" and PID_VIRTUALIZATION == "yes":
   S=3*DEFAULT_S
   if sys.version_info[0:2] >= (2,6):
-    runTest("screen",    3,  ["env TERM=vt100 " + testconfig.SCREEN +
+    runTest("screen",    3,  ["env TERM=vt100 " + SCREEN +
                                 " -c /dev/null -s /bin/sh"])
   S=DEFAULT_S
 
-if testconfig.PTRACE_SUPPORT == "yes" and sys.version_info[0:2] >= (2,6):
-  if testconfig.HAS_STRACE == "yes":
+if PTRACE_SUPPORT == "yes" and sys.version_info[0:2] >= (2,6):
+  if HAS_STRACE == "yes":
     S=10*DEFAULT_S
     runTest("strace",    2,  ["strace test/dmtcp2"])
     S=DEFAULT_S
 
-  if testconfig.HAS_GDB == "yes":
+  if HAS_GDB == "yes":
     if uname_p[0:3] == 'arm':
       print "On ARM, there is a known issue with DMTCP for gdb-* test." + \
             "  Not running it."
@@ -875,51 +929,50 @@ if testconfig.PTRACE_SUPPORT == "yes" and sys.version_info[0:2] >= (2,6):
       S=DEFAULT_S
       os.system("rm -f dmtcp-gdbinit.tmp")
 
-if testconfig.HAS_JAVAC == "yes" and testconfig.HAS_JAVA == "yes":
+if HAS_JAVAC == "yes" and HAS_JAVA == "yes":
   S=10*DEFAULT_S
   os.environ['CLASSPATH'] = './test'
   runTest("java1",         1,  ["java -Xmx5M java1"])
   del os.environ['CLASSPATH']
   S=DEFAULT_S
 
-if testconfig.HAS_CILK == "yes":
+if HAS_CILK == "yes":
   runTest("cilk1",        1,  ["./test/cilk1 38"])
 
 # SHOULD HAVE gcl RUN LARGE FACTORIAL OR SOMETHING.
-if testconfig.HAS_GCL == "yes":
+if HAS_GCL == "yes":
   S=3*DEFAULT_S
-  runTest("gcl",         1,  [testconfig.GCL])
+  runTest("gcl",         1,  [GCL])
   S=DEFAULT_S
 
-if testconfig.HAS_OPENMP == "yes":
+if HAS_OPENMP == "yes":
   runTest("openmp-1",         1,  ["./test/openmp-1"])
   runTest("openmp-2",         1,  ["./test/openmp-2"])
 
 # SHOULD HAVE matlab RUN LARGE FACTORIAL OR SOMETHING.
-if testconfig.HAS_MATLAB == "yes":
+if HAS_MATLAB == "yes" and sys.version_info[0:2] >= (2,6):
   S=10*DEFAULT_S
-  if sys.version_info[0:2] >= (2,6):
-    runTest("matlab-nodisplay", 1,  [testconfig.MATLAB+" -nodisplay -nojvm"])
+  runTest("matlab-nodisplay", 1,  [MATLAB+" -nodisplay -nojvm"])
   S=DEFAULT_S
 
-if testconfig.HAS_MPICH == "yes":
-  runTest("mpd",         1, [testconfig.MPICH_MPD])
+if HAS_MPICH == "yes":
+  runTest("mpd",         1, [MPICH_MPD])
 
-  runTest("hellompich-n1", 4, [testconfig.MPICH_MPD,
-                           testconfig.MPICH_MPIEXEC+" -n 1 ./test/hellompich"])
+  runTest("hellompich-n1", 4,
+          [MPICH_MPD, MPICH_MPIEXEC + " -n 1 ./test/hellompich"])
 
-  runTest("hellompich-n2", 6, [testconfig.MPICH_MPD,
-                           testconfig.MPICH_MPIEXEC+" -n 2 ./test/hellompich"])
+  runTest("hellompich-n2", 6,
+          [MPICH_MPD, MPICH_MPIEXEC + " -n 2 ./test/hellompich"])
 
-  runTest("mpdboot",     1, [testconfig.MPICH_MPDBOOT+" -n 1"])
+  runTest("mpdboot",     1, [MPICH_MPDBOOT+" -n 1"])
 
-  #os.system(testconfig.MPICH_MPDCLEANUP)
+  #os.system(MPICH_MPDCLEANUP)
 
 
-if testconfig.HAS_OPENMPI == "yes":
+if HAS_OPENMPI == "yes":
   # Compute:  USES_OPENMPI_ORTED
   if os.path.isfile('./test/openmpi') and \
-     0 == os.system(testconfig.OPENMPI_MPICC +
+     0 == os.system(OPENMPI_MPICC +
                     " -o ./test_openmpi test/hellompi.c 2>/dev/null 1>&2"):
     os.system("rm -f ./uses_openmpi_orted")
     # The 'sleep 1' below may not fix the race, creating a runaway test_openmpi.
@@ -936,24 +989,24 @@ if testconfig.HAS_OPENMPI == "yes":
     else:
       USES_OPENMPI_ORTED = "no"
   else:
-    testconfig.HAS_OPENMPI = "no"
+    HAS_OPENMPI = "no"
   os.system('rm -f ./test_openmpi')
 
 # Temporarily disabling OpenMPI test as it fails on some distros (OpenSUSE 11.4)
-if testconfig.HAS_OPENMPI == "yes":
+if HAS_OPENMPI == "yes":
   numProcesses = 5 + int(USES_OPENMPI_ORTED == "yes")
   # FIXME: Replace "[5,6]" by numProcesses when bug in configure is fixed.
   # /usr/bin/openmpi does not work if /usr/bin is not also in user's PATH
   oldPath = ""
   if not os.environ.has_key('PATH'):
     oldPath = None
-    os.environ['PATH'] = os.path.dirname(testconfig.OPENMPI_MPIRUN)
-  elif (not re.search(os.path.dirname(testconfig.OPENMPI_MPIRUN),
+    os.environ['PATH'] = os.path.dirname(OPENMPI_MPIRUN)
+  elif (not re.search(os.path.dirname(OPENMPI_MPIRUN),
                      os.environ['PATH'])):
     oldPath = os.environ['PATH']
-    os.environ['PATH'] += ":" + os.path.dirname(testconfig.OPENMPI_MPIRUN)
+    os.environ['PATH'] += ":" + os.path.dirname(OPENMPI_MPIRUN)
   S=3*DEFAULT_S
-  runTest("openmpi", [5,6], [testconfig.OPENMPI_MPIRUN + " -np 4" +
+  runTest("openmpi", [5,6], [OPENMPI_MPIRUN + " -np 4" +
 			     " ./test/openmpi"])
   S=DEFAULT_S
   if oldPath:
