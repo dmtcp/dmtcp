@@ -18,8 +18,9 @@ AM_CONFIG_HEADER([dmtcp/include/config.h])
 AC_CONFIG_FILES([Makefile plugin/Makefile plugin/pid/Makefile \
                  plugin/ipc/Makefile plugin/alloc/Makefile \
                  contrib/Makefile contrib/rm/Makefile \
+                 contrib/infiniband/Makefile \
                  contrib/ckptfile/Makefile mtcp/Makefile \
-                 test/Makefile test/testconfig.py\
+                 test/Makefile test/testconfig.py \
                  test/plugin/Makefile test/credentials/Makefile])
 
 #AC_CONFIG_SUBDIRS([dmtcp])
@@ -115,7 +116,6 @@ if test "$use_infiniband_support" = "yes"; then
                    [AC_MSG_ERROR([#include: <infiniband/verbs.h> not found: consider adding devel package for libibverbs]
     )])
   AC_SUBST([INFINIBAND_SUPPORT], [yes])
-  AC_CONFIG_FILES([contrib/infiniband/Makefile])
 else
   AC_SUBST([INFINIBAND_SUPPORT], [no])
 fi
