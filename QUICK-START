@@ -1,5 +1,7 @@
     Overview of DMTCP (Distributed MultiThreaded Checkpointing)
 
+[ To install DMTCP, see the INSTALL file. ]
+
 CONCEPTS:
 DMTCP Checkpoint/Restart allows one to transparently checkpoint to disk
 a distributed computation.  It works under Linux, with no modifications
@@ -121,25 +123,28 @@ OPTIONS THROUGH ENVIRONMENT VARIABLES:
     DMTCP_HOST = <hostname where coordinator is running> (default: localhost)
     DMTCP_PORT = <coordinator listener port> (default: 7779)
 
- Application-defined hook functions: called by DMTCP if defined 
-   User code containing these functions and linked with libdmtcpaware.so
-   must be compiled with
-	 -Wl,-export-dynamic under gcc/g++ or they won't be invoked.
-   If linked with dmtcpaware.a, no special compilation flags are needed.
-   For a libdmtcpaware.a example, do: cd test; rm dmtcpaware1; make dmtcpaware1
-   For example source code, see test/dmtcpaware[123].c
+============================================
+ADAPTING DMTCP TO APPLICATION REQUIREMENTS AND TO EXTERNAL ENVIRONMENTS:
 
- Application-defined hook functions are also available at the MTCP level
-    For an example, see mtcp/testmtcp.c, and try:  cd mtcp ; make check
-   void mtcpHookPreCheckpoint(void);
-   void mtcpHookPostCheckpoint(void);
-   void mtcpHookRestart(void);
+ Application control over checkpoints:
+   dmtcp_is_enabled()   [Returns 0 (false) or 1 (true)]
+   dmtcp_checkpoint()   [with return values to distinguish resume and restart]
+   dmtcp_disable_ckpt() [Temporarily delay checkpoint during critical section]
+   dmtcp_enable_ckpt()  [Resume previously delayed checkpoint]
+   [ See test/plugin/applic-*-ckpt/ for small, easily executed examples. ]
 
  User-defined plugin modules may be added to DMTCP.  For examples,
    see the "test/plugin" directory of the source distribution.
+   * Plugins provide user hooks for many common events, including:
+      checkpoint, resume, restart, thread_start, thread_exit, exec program, etc.
+   * Plugins provide for user-defined wrappers around library calls
+      and system calls, to allow users to virtualize the external environment.
+   * Plugins provide a plublish/subscribe service by which multiple
+      processes may exchange information at the time of restart.
+   [ See doc/plugin-tutorial.pdf for further informaiton, and see
+     test/plugin for several small, easily executed examples. ]
 
 ============================================
-
 SHORT NOTES:
 
     1. A restarted process sees the shared libraries and environment variables
@@ -226,18 +231,10 @@ SHORT NOTES:
 	re-execute the g++ compilation from the last line output by make,
 	but do not include "-O2".  Alternatively, when configuring, use:
 	  env CXXFLAGS=-O1 ./configure
-    12. A. Matlab should be invoked without graphics, and to be extra safe,
-	   without the JVM.  The -nodisplay and -nojvm flags for Matlab suffice:
+    12. Matlab should be invoked without graphics, and to be extra safe,
+	without the JVM.  The -nodisplay and -nojvm flags for Matlab suffice:
 		bin/dmtcp_launch matlab -nodisplay -nojvm
-	B.  Older releases of Matlab (e.g. release 7.4) have several issues:
-	    If you see a message about GLIBCXX-3.4 not found, you can either
-	    use root privilege to replace Matlab's older libstdc++  by your
-	    system's newer libstdc++ (back up Matlab's older libstdc++),
-	    or else just re-configure and re-compile DMTCP as follows:
-		env CC=gcc-4.1 CXX=g++-4.1 ./configure
-		[ Also, modify mtcp/Makefile to use: CC=gcc-4.1 ]
-                make clean; make
-    13. How to checkpoint OpenMPI with DMTCP
+    13. How to checkpoint Open MPI with DMTCP
         Verify that mpirun works.
         Verify dmtcp_{checkpoint,restart} commands are in your path:
           ssh <REMOTE-HOST> which dmtcp_launch
@@ -341,10 +338,7 @@ SHORT NOTES:
         Note: if checkpointing doesn't fully complete, make sure you're not out
         of disk space, and that there are no other file system problems.
 
-    15. For Mandriva Linux, and some others, you will need to ensure that the
-	  packages 'patch', and 'linux-userspace-headers'
-	  are installed in order to build DMTCP.
-	For Ubuntu/Debian Linux, ensure that the
+    15. For Ubuntu/Debian Linux, ensure that the
 	  packages 'patch' and 'linux-libc-dev' are installed.
 	For OpenSuse Linux, ensure that the
 	  packages 'patch' and 'linux-kernel-headers'
@@ -354,10 +348,10 @@ SHORT NOTES:
 	successive checkpoint be written to distinct filenames, then use:
 	  ./configure --enable-unique-checkpoint-filenames
 
-    17. DMTCP continues to use the original pid (process id), tid (thread id),
-	etc., even on restart from a checkpoint image.  In this last
-	case, your program will see the _original pid_, and not the
-	current pid.  At this time, a restarted process will appear
+    17. DMTCP uses a new pid (process id), tid (thread id),
+	etc. on restart, while at the same time ensuring that
+	your program sees the _original pid_, and not the
+	new pid.  At this time, a restarted process will appear
 	within the "ps" command under the program name "mtcp_restart".
 
     18. Certain applications, such as some shells, vim, etc., try to
