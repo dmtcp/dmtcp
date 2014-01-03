@@ -159,7 +159,13 @@ def shouldRunTest(name):
 #make sure we are in svn root
 if os.system("test -d bin") != 0:
   os.chdir("..")
-assert os.system("test -d bin") == 0
+if testconfig.USE_M32 == "1":
+  assert os.system("test -d bin") == 0, \
+  "  bin/dmtcp_launch not found.  Need to configure and build\n" + \
+  "  default 64-bit mode before configuring with --enable-m32 and re-building" \
+  + ""
+else:
+  assert os.system("test -d bin") == 0
 
 #make sure dmtcp is built
 if os.system("make -s --no-print-directory tests") != 0:
