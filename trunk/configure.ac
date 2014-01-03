@@ -19,8 +19,8 @@ AC_CONFIG_FILES([Makefile plugin/Makefile plugin/pid/Makefile \
                  plugin/ipc/Makefile plugin/alloc/Makefile \
                  contrib/Makefile contrib/rm/Makefile \
                  contrib/ckptfile/Makefile mtcp/Makefile \
-                 test/Makefile test/testconfig.py \
-                 test/plugin/Makefile test/credentials/Makefile])
+                 test/Makefile test/plugin/Makefile test/credentials/Makefile])
+AC_CONFIG_FILES([test/autotest.py], [chmod +x test/autotest.py])
 
 #AC_CONFIG_SUBDIRS([dmtcp])
 
@@ -287,7 +287,7 @@ AC_CHECK_PROG(HAS_JAVA, [java], [yes], [no], [/usr/local/bin:/usr/bin])
 #check for javac
 AC_CHECK_PROG(HAS_JAVAC, [javac], [yes], [no], [/usr/local/bin:/usr/bin])
 
-#checking later if java dialect is Sun/Oracle/OpenJDK, in test/testconfig.py.in
+#checking later if java dialect is Sun/Oracle/OpenJDK, in test/autotest.py.in
 
 #check for cilk
 AC_CHECK_PROG(HAS_CILK, [cilkc], [yes], [no], [$PATH:/usr/local/bin:/usr/bin])

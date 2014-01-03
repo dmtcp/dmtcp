@@ -8,6 +8,8 @@ CFLAGS = @CFLAGS@
 CPPFLAGS = @CPPFLAGS@
 CXX = @CXX@
 CXXFLAGS = @CXXFLAGS@
+HAS_JAVA= @HAS_JAVA@
+HAS_JAVAC= @HAS_JAVAC@
 LDFLAGS = @LDFLAGS@
 MKDIR_P = @MKDIR_P@
 PACKAGE = @PACKAGE@
@@ -50,8 +52,6 @@ else
   MPICH_MPICC=@MPICH_MPICC@
   HAS_OPENMPI=@HAS_OPENMPI@
   OPENMPI_MPICC=@OPENMPI_MPICC@
-  HAS_JAVA=@HAS_JAVA@
-  HAS_JAVAC=@HAS_JAVAC@
   HAS_CILK=@HAS_CILK@
   CILKC=@CILKC@
 endif
@@ -163,9 +163,9 @@ libdlopen-lib4.so: dlopen2.cpp
 dlopen%: dlopen%.cpp libdlopen-lib4.so libdlopen-lib4.so
 	${CXX} ${CXXFLAGS} -o $@ $< -ldl
 
-java%.class: java%.java
+%.class: %.java
 ifeq ($(HAS_JAVAC),yes)
-	javac $<
+	javac $< -d .
 else
 	#$@: required 'javac' missing, skipping test
 endif
