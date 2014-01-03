@@ -23,9 +23,11 @@ OR:
 2.  Build from source:
   ./configure
   make
+  # Do NOT do 'make clean' here.  You will lose bin/dmtcp_launch, etc.
   ./configure --enable-m32
-  make clean
+  make clean   [ This won't remove the 64-bit binary and library files ]
   make
+  [ Optionally, change 'make' to 'make install'' if desired. ]
 
 When running DMTCP with multilib support, the 64-bit applicationss,
   dmtcp_launch, dmtcp_restart, and dmtcp_command
