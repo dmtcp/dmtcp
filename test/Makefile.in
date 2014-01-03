@@ -150,9 +150,9 @@ inotify%: inotify%.c
 
 # dlopen will dlopen/dlclose libdlopen-lib[12].so
 libdlopen-lib1.so: dlopen1.c
-	${CC} -shared -fPIC  -DLIB1 -o libdlopen-lib1.so $<
+	${CC} ${CFLAGS} -shared -fPIC  -DLIB1 -o libdlopen-lib1.so $<
 libdlopen-lib2.so: dlopen1.c
-	${CC} -shared -fPIC  -DLIB2 -o libdlopen-lib2.so $<
+	${CC} ${CFLAGS} -shared -fPIC  -DLIB2 -o libdlopen-lib2.so $<
 dlopen%: dlopen%.c libdlopen-lib1.so libdlopen-lib2.so
 	${CC} $(CFLAGS) -o $@ $< -ldl
 
@@ -160,7 +160,7 @@ libdlopen-lib3.so: dlopen2.cpp
 	${CXX} ${CXXFLAGS} -shared -fPIC -DLIB3 -o libdlopen-lib3.so $<
 libdlopen-lib4.so: dlopen2.cpp
 	${CXX} ${CXXFLAGS} -shared -fPIC -DLIB4 -o libdlopen-lib4.so $<
-dlopen%: dlopen%.cpp libdlopen-lib3.so libdlopen-lib4.so
+dlopen%: dlopen%.cpp libdlopen-lib4.so libdlopen-lib4.so
 	${CXX} ${CXXFLAGS} -o $@ $< -ldl
 
 java%.class: java%.java
