@@ -157,7 +157,7 @@ ASFLAGS =
 # Instead, we should deduce the build-type from the build toolchain itself.
 ifndef BUILDING_UTIL_ARCH
   BUILDTYPE=${shell make BUILDING_UTIL_ARCH=1 util-arch > /dev/null; \
-                    util-arch}
+                    ./util-arch}
 endif
 
 ifdef USE_PROC_MAPS
@@ -490,10 +490,10 @@ check: build testmtcp
 
 distclean: clean
 	rm -f *~ mtcp.kdevses mtcp.kdevelop.* testmtcp{,1,2,3,4}.mtcp \
-	      *.lis a.out mtcp.t.orig mtcp.lis util-arch readmtcp
+	      *.lis a.out mtcp.t.orig mtcp.lis
 
 clean:
-	rm -f *.o *.map mtcp_restart_noblibc.lis \
+	rm -f *.o *.map mtcp_restart_noblibc.lis util-arch readmtcp \
 	      testmtcp.mtcp $(targetdir)/lib/libmtcp.so* mtcp.t mtcp.t-fail \
 	      $(targetdir)/bin/$(MTCP_RESTART) extractobjectmodule readmtcp \
 	      x.x zz.out testmtcp testmtcp[0-9] threadtest bigtestmtcp

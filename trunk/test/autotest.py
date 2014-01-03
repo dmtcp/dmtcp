@@ -157,9 +157,9 @@ def shouldRunTest(name):
   return name in sys.argv
 
 #make sure we are in svn root
-if os.system("test -d bin") is not 0:
+if os.system("test -d bin") != 0:
   os.chdir("..")
-assert os.system("test -d bin") is 0
+assert os.system("test -d bin") == 0
 
 #make sure dmtcp is built
 if os.system("make -s --no-print-directory tests") != 0:
