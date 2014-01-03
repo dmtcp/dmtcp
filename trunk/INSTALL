@@ -3,16 +3,61 @@ To install, use:
   make
   make check [Optional]
 
+As usual, you may prefer to use make with '-j' for faster, parallel builds.
+
 "make check2", and "make check3" will exercise further examples in the
 test subdirectory:
   check2: readline.c
   check3: shared-memory.c
 
-This software will install in the build directory.
-A Debian package is available that will install system-wide.
+This software runs in the original directory, and
+  make install
+will install to the install directory based on configure.
+There are available Debian, OpenSUSE and Fedora  packages that will
+install system-wide.
 
-To checkpoint only a single process (possibly multi-threaded), you may
-also consider using only the MTCP module.  To use MTCP, do:
+To support multilib (mixed use of 32- and 64-bit applications), 
+there are two possibilities:
+1.  Install both the 32- and 64-bit versions of DMTCP packages for your distro.
+OR:
+2.  Build from source:
+  ./configure
+  make
+  ./configure --enable-m32
+  make clean
+  make
+
+When running DMTCP with multilib support, the 64-bit applicationss,
+  dmtcp_launch, dmtcp_restart, and dmtcp_command
+all inter-operate with both 32- and 64-bit applications.
+
+If your process will create multiple processes, you should use standard DMTCP.
+A brief overview follows.
+The general methodology is:
+  ./dmtcp_coordinator [in one window: type h to the coordinator to see commands]
+  ./dmtcp_launch a.out <args,...>
+
+Note that files /tmp/jassertlog.* are created with debugging information
+if you configured with --enable-debug .
+See README for that and other options.
+
+See the file "QUICK-START" for further information on using DMTCP.
+
+
+====
+RUNNING WITHOUT A SEPARATE COORDINATOR PROCESS:
+
+Usually, the most convenient procedure is to use DMTCP in its
+default mode, which includes a separate DMTCP coordinator process.
+In some rare cases, you may wish to avoid a separate coordinator process.
+For this, there are two options.  The DMTCP-1.2.x series and versions
+through DMTCP-2.1 will support a standalone MTCP.  Starting with
+DMTCP-2.2, a second option will be available.  A DMTCP plugin will
+be provided to run processes without a DMTCP coordinator, and the
+application will directly control checkpointing (see the examples in
+test/plugin/applic-*-ckpt/).
+
+To use MTCP in standalone mode (the first option above), do:
     cd mtcp; make check  [to try it out]
     [ First, modify Makefile to uncomment "CFLAGS=...-DDEBUG" if desired. ]
 The mtcp subdirectory is independent of the rest of DMTCP.  To include it
@@ -24,16 +69,3 @@ are listed in mtcp.c:
   mtcp_no()
 Currently, we checkpoint on a timer, but it would be easy to add a function
 to checkpoint upon request by the application.
-
-If your process will create multiple processes, you should use DMTCP.
-The file dmtcp/dmtcp/INSTALL also exists.  A brief overview follows.
-    cd dmtcp
-The general methodology is:
-  ./dmtcp_coordinator [in one window: type h to the coordinator to see commands]
-  ./dmtcp_launch a.out <args,...>
-
-Note that files /tmp/jassertlog.* are created with debugging information.
-See dmtcp/dmtcp/README for how to compile with debugging information
-and other options.
-
-See the file "QUICK-START" for further information on using DMTCP.
