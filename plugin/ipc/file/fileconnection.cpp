@@ -562,6 +562,7 @@ void dmtcp::FileConnection::calculateRelativePath()
 
 void dmtcp::FileConnection::drain()
 {
+  struct stat statbuf;
   JASSERT(_fds.size() > 0);
 
   handleUnlinkedFile();
@@ -572,7 +573,10 @@ void dmtcp::FileConnection::drain()
 
   // Read the current file descriptor offset
   _offset = lseek(_fds[0], 0, SEEK_CUR);
-  fstat(_fds[0], &_stat);
+  fstat(_fds[0], &statbuf);
+  _st_dev = statbuf.st_dev;
+  _st_ino = statbuf.st_ino;
+  _st_size = statbuf.st_size;
 
   if (_type == FILE_PROCFS) {
     return;
@@ -601,7 +605,7 @@ void dmtcp::FileConnection::drain()
   if (_isBlacklistedFile(_path)) {
     return;
   }
-  if (dmtcp_should_ckpt_open_files() && _stat.st_uid == getuid()) {
+  if (dmtcp_should_ckpt_open_files() && statbuf.st_uid == getuid()) {
     _checkpointed = true;
   } else if (_type == FILE_DELETED || _type == FILE_SHM) {
     _checkpointed = true;
@@ -614,9 +618,9 @@ void dmtcp::FileConnection::drain()
     _checkpointed = true;
 #if 0
   } else if ((_fcntlFlags &(O_WRONLY|O_RDWR)) != 0 &&
-             _offset < _stat.st_size &&
-             _stat.st_size < MAX_FILESIZE_TO_AUTOCKPT &&
-             _stat.st_uid == getuid()) {
+             _offset < _st_size &&
+             _st_size < MAX_FILESIZE_TO_AUTOCKPT &&
+             statbuf.st_uid == getuid()) {
     // FIXME: Disable the following heuristic until we can comeup with a better
     // one
     _checkpointed = true;
@@ -631,7 +635,7 @@ void dmtcp::FileConnection::preCkpt()
   if (_checkpointed) {
     ConnectionIdentifier id;
     JASSERT(_type != FILE_PROCFS && _type != FILE_INVALID);
-    JASSERT(SharedData::getCkptLeaderForFile(_stat.st_dev, _stat.st_ino, &id));
+    JASSERT(SharedData::getCkptLeaderForFile(_st_dev, _st_ino, &id));
     if (id == _id) {
       dmtcp::string savedFilePath = getSavedFilePath(_path);
       CreateDirectoryStructure(savedFilePath);
@@ -661,7 +665,7 @@ void dmtcp::FileConnection::preCkpt()
 
 void dmtcp::FileConnection::refill(bool isRestart)
 {
-  struct stat buf;
+  struct stat statbuf;
   if (!isRestart) return;
   if (strstr(_path.c_str(), "infiniband/uverbs") ||
       strstr(_path.c_str(), "uverbs-event")) return;
@@ -671,7 +675,7 @@ void dmtcp::FileConnection::refill(bool isRestart)
     int savedFd = _real_open(savedFilePath.c_str(), O_RDONLY, 0);
     JASSERT(savedFd != -1) (JASSERT_ERRNO) (savedFilePath);
 
-    if (!areFilesEqual(_fds[0], savedFd, _stat.st_size)) {
+    if (!areFilesEqual(_fds[0], savedFd, _st_size)) {
       if (_type == FILE_SHM) {
         JWARNING(false) (_path) (savedFilePath)
           .Text("\n"
@@ -696,20 +700,20 @@ void dmtcp::FileConnection::refill(bool isRestart)
     if (_type == FILE_DELETED && (_flags & O_WRONLY)) {
       tempfd = _real_open(_path.c_str(), _fcntlFlags | O_CREAT, 0600);
       JASSERT(tempfd != -1) (_path) (JASSERT_ERRNO) .Text("open() failed");
-      JASSERT(truncate(_path.c_str(), _stat.st_size) ==  0)
-        (_path.c_str()) (_stat.st_size) (JASSERT_ERRNO);
+      JASSERT(truncate(_path.c_str(), _st_size) ==  0)
+        (_path.c_str()) (_st_size) (JASSERT_ERRNO);
     } else {
 
       JASSERT(jalib::Filesystem::FileExists(_path)) (_path)
         .Text("File not found.");
 
-      if (stat(_path.c_str() ,&buf) == 0 && S_ISREG(buf.st_mode)) {
-        if (buf.st_size > _stat.st_size &&
+      if (stat(_path.c_str() ,&statbuf) == 0 && S_ISREG(statbuf.st_mode)) {
+        if (statbuf.st_size > _st_size &&
             ((_fcntlFlags & O_WRONLY) || (_fcntlFlags & O_RDWR))) {
           errno = 0;
-          JASSERT(truncate(_path.c_str(), _stat.st_size) ==  0)
-            (_path.c_str()) (_stat.st_size) (JASSERT_ERRNO);
-        } else if (buf.st_size < _stat.st_size) {
+          JASSERT(truncate(_path.c_str(), _st_size) ==  0)
+            (_path.c_str()) (_st_size) (JASSERT_ERRNO);
+        } else if (statbuf.st_size < _st_size) {
           JWARNING(false) .Text("Size of file smaller than what we expected");
         }
       }
@@ -720,13 +724,13 @@ void dmtcp::FileConnection::refill(bool isRestart)
 
   errno = 0;
   if (jalib::Filesystem::FileExists(_path) &&
-      stat(_path.c_str() ,&buf) == 0 && S_ISREG(buf.st_mode)) {
-    if (_offset <= buf.st_size && _offset <= _stat.st_size) {
+      stat(_path.c_str() ,&statbuf) == 0 && S_ISREG(statbuf.st_mode)) {
+    if (_offset <= statbuf.st_size && _offset <= _st_size) {
       JASSERT(lseek(_fds[0], _offset, SEEK_SET) == _offset)
         (_path) (_offset) (JASSERT_ERRNO);
       //JTRACE("lseek(_fds[0], _offset, SEEK_SET)") (_fds[0]) (_offset);
-    } else if (_offset > buf.st_size || _offset > _stat.st_size) {
-      JWARNING(false) (_path) (_offset) (_stat.st_size) (buf.st_size)
+    } else if (_offset > statbuf.st_size || _offset > _st_size) {
+      JWARNING(false) (_path) (_offset) (_st_size) (statbuf.st_size)
         .Text("No lseek done:  offset is larger than min of old and new size.");
     }
   }
@@ -966,7 +970,7 @@ void dmtcp::FileConnection::serializeSubClass(jalib::JBinarySerializer& o)
 {
   JSERIALIZE_ASSERT_POINT("dmtcp::FileConnection");
   o & _path & _rel_path;
-  o & _offset & _stat & _checkpointed & _rmtype;
+  o & _offset & _st_dev & _st_ino & _st_size & _checkpointed & _rmtype;
   JTRACE("Serializing FileConn.") (_path) (_rel_path)
     (dmtcp_get_ckpt_files_subdir()) (_checkpointed) (_fcntlFlags);
 }
@@ -977,10 +981,12 @@ void dmtcp::FileConnection::serializeSubClass(jalib::JBinarySerializer& o)
 
 void dmtcp::FifoConnection::drain()
 {
+  struct stat st;
   JASSERT(_fds.size() > 0);
 
-  stat(_path.c_str(),&_stat);
+  stat(_path.c_str(),&st);
   JTRACE("Checkpoint fifo.") (_fds[0]);
+  _mode = st.st_mode;
 
   int new_flags =(_fcntlFlags &(~(O_RDONLY|O_WRONLY))) | O_RDWR | O_NONBLOCK;
   ckptfd = _real_open(_path.c_str(),new_flags);
@@ -1070,7 +1076,7 @@ int dmtcp::FifoConnection::openFile()
     jalib::string dir = jalib::Filesystem::DirName(_path);
     JTRACE("fifo dir:")(dir);
     jalib::Filesystem::mkdir_r(dir, 0755);
-    mkfifo(_path.c_str(),_stat.st_mode);
+    mkfifo(_path.c_str(), _mode);
     JTRACE("mkfifo") (_path.c_str()) (errno);
   }
 
@@ -1084,7 +1090,7 @@ int dmtcp::FifoConnection::openFile()
 void dmtcp::FifoConnection::serializeSubClass(jalib::JBinarySerializer& o)
 {
   JSERIALIZE_ASSERT_POINT("dmtcp::FifoConnection");
-  o & _path & _rel_path & _savedRelativePath & _stat & _in_data;
+  o & _path & _rel_path & _savedRelativePath & _mode & _in_data;
   JTRACE("Serializing FifoConn.") (_path) (_rel_path) (_savedRelativePath);
 }
 

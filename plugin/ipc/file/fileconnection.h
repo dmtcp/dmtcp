@@ -149,8 +149,8 @@ namespace dmtcp
       bool checkpointed() { return _checkpointed; }
       void doNotRestoreCkptCopy() { _checkpointed = false; }
 
-      dev_t devnum() const { return _stat.st_dev; }
-      ino_t inode() const { return _stat.st_ino; }
+      dev_t devnum() const { return _st_dev; }
+      ino_t inode() const { return _st_ino; }
 
       bool checkDup(int fd);
     private:
@@ -169,7 +169,9 @@ namespace dmtcp
       int64_t       _flags;
       int64_t       _mode;
       int64_t       _offset;
-      struct stat   _stat;
+      uint64_t      _st_dev;
+      uint64_t      _st_ino;
+      uint64_t      _st_size;
   };
 
   class FifoConnection : public Connection
@@ -211,7 +213,6 @@ namespace dmtcp
       dmtcp::string _savedRelativePath;
       int64_t       _flags;
       int64_t       _mode;
-      struct stat _stat;
       vector<char> _in_data;
       int32_t       ckptfd;
   };
