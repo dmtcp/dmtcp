@@ -161,7 +161,7 @@ if os.system("test -d bin") != 0:
   os.chdir("..")
 if testconfig.USE_M32 == "1":
   assert os.system("test -d bin") == 0, \
-  "  bin/dmtcp_launch not found.  Need to configure and build\n" + \
+  "  bin/dmtcp_launch not found.  Please configure and build the\n" + \
   "  default 64-bit mode before configuring with --enable-m32 and re-building" \
   + ""
 else:
