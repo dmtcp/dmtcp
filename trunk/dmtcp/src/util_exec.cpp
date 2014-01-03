@@ -419,7 +419,7 @@ static int32_t getDlsymOffset_m32()
   string cmd1, cmd2, libdl, libdmtcp32;
 
   libdmtcp32 = jalib::Filesystem::FindHelperUtility("libdmtcp.so", true);
-  if (libdmtcp32.length() == 0) return 0;
+  if (libdmtcp32 == "libdmtcp.so") return 0;
 
   cmd1 = "ldd " + libdmtcp32 + " | grep " + LIBDL_FILENAME
        + " | tr '\t' ' ' | tr -s ' '| cut -d' ' -f4";

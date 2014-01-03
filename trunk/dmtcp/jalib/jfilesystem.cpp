@@ -284,9 +284,6 @@ jalib::string jalib::Filesystem::FindHelperUtility(const jalib::string& file,
     }
   }
 
-  if (is32bit) {
-    return "";
-  }
   return file;
 }
 
