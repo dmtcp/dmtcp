@@ -390,6 +390,26 @@ else
 fi
 
 if test "$use_m32" = "yes"; then
+  AC_MSG_CHECKING([whether multilib $CXX compiles using -m32]) 
+  AC_LANG_PUSH([C++])
+  old_CXXFLAGS="$CXXFLAGS"
+  CFLAGS="$CFLAGS -m32"
+  AC_LINK_IFELSE([AC_LANG_PROGRAM([[
+  #include <stdio.h>
+  ]], [[
+  printf("Hello, world!\n");
+  ]])], [cplusplus_m32='yes'], [cplusplus_m32='no'])
+  CXXFLAGS="$old_CXXFLAGS"
+  AC_LANG_POP([C++])
+  AC_MSG_RESULT([$cplusplus_m32]) 
+  if test "$cplusplus_m32" = "no"; then
+    AC_MSG_FAILURE([[Failed to build with -m32
+    Typically, this means that 32-bit libstdc++.so was not found
+    Consider installing g++-multilib or equivalent pkg for your Linux distro]])
+  fi
+fi
+
+if test "$use_m32" = "yes"; then
   interp=/lib/ld-linux.so.2
 elif test -x /usr/bin/readelf -a -r /usr/bin/readelf; then
   interp=`/usr/bin/readelf -aW /usr/bin/readelf | grep interpreter | \
