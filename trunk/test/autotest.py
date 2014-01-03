@@ -415,11 +415,11 @@ def getNumCkptFiles(dir):
 # runTest() sets up a keyboard interrupt handler, and then calls this function.
 def runTestRaw(name, numProcs, cmds):
   #the expected/correct running status
-  if testconfig.USE_M32 == "1":
-    def forall(fnc, lst):
-      return reduce(lambda x, y: x and y, map(fnc, lst))
-    if not forall(lambda x: x.startswith("./test/"), cmds):
-      return
+#  if testconfig.USE_M32 == "1":
+#    def forall(fnc, lst):
+#      return reduce(lambda x, y: x and y, map(fnc, lst))
+#    if not forall(lambda x: x.startswith("./test/"), cmds):
+#      return
   status=(numProcs, True)
   procs=[]
 
@@ -694,14 +694,12 @@ runTest("poll",          1, ["./test/poll"])
 
 runTest("forkexec",      2, ["./test/forkexec"])
 
-# if USE_M32, DMTCP mixed mode of 32-bit waitpid and 64-bit /usr/bin/ssh fails.
-if testconfig.HAS_SSH == "yes" and not testconfig.USE_M32:
+if testconfig.HAS_SSH == "yes":
   S=3*DEFAULT_S
   runTest("sshtest",     4, ["./test/sshtest"])
   S=DEFAULT_S
 
-# if USE_M32, DMTCP mixed mode of 32-bit waitpid and 64-bit /bin/sleep fails.
-if testconfig.PID_VIRTUALIZATION == "yes" and not testconfig.USE_M32:
+if testconfig.PID_VIRTUALIZATION == "yes":
   runTest("waitpid",      2, ["./test/waitpid"])
 
 runTest("client-server", 2, ["./test/client-server"])
@@ -740,8 +738,7 @@ if old_ld_library_path:
     os.environ['LD_LIBRARY_PATH'] += ':' + os.getenv("PWD")+"/test:"+os.getenv("PWD")
 else:
     os.environ['LD_LIBRARY_PATH'] = os.getenv("PWD")+"/test:"+os.getenv("PWD")
-if not testconfig.USE_M32:
-  runTest("dlopen1",        1, ["./test/dlopen1"])
+runTest("dlopen1",        1, ["./test/dlopen1"])
 # Disable the dlopen2 test until we can figure out a way to handle calls to
 # fork/exec/wait during library intialization with dlopen().
 #if not testconfig.USE_M32:
@@ -921,7 +918,8 @@ if testconfig.HAS_MPICH == "yes":
 
 if testconfig.HAS_OPENMPI == "yes":
   # Compute:  USES_OPENMPI_ORTED
-  if 0 == os.system(testconfig.OPENMPI_MPICC +
+  if os.path.isfile('./test/openmpi') and \
+     0 == os.system(testconfig.OPENMPI_MPICC +
                     " -o ./test_openmpi test/hellompi.c 2>/dev/null 1>&2"):
     os.system("rm -f ./uses_openmpi_orted")
     # The 'sleep 1' below may not fix the race, creating a runaway test_openmpi.
