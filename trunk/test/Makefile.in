@@ -64,7 +64,7 @@ TESTS=${notdir ${basename ${shell ls $(srcdir)/*.c $(srcdir)/*.cpp $(srcdir)/*.c
 
 tests: $(TESTS)
 	cd plugin && ${MAKE}
-	${MAKE} -C credentials
+	#${MAKE} -C credentials
 
 tidy:
 	rm -f ckpt_*.dmtcp dmtcp_restart_script* \
@@ -74,12 +74,12 @@ tidy:
 
 clean: tidy
 	rm -f $(TESTS) *.pyc *.so
-	${MAKE} -C credentials clean
+	#${MAKE} -C credentials clean
 	cd plugin && $(MAKE) clean
 
 distclean: clean
 	cd plugin && $(MAKE) distclean
-	${MAKE} -C credentials distclean
+	#${MAKE} -C credentials distclean
 
 readline: readline.c
 ifeq ($(HAS_READLINE),yes)
