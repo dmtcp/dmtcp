@@ -23,12 +23,9 @@ ifeq ($(M32),1)
 CFLAGS += -m32 -Wa,--32
 CXXFLAGS += -m32 -Wa,--32
 LDFLAGS += -m32 -Wl,-m32 -Wl,-melf_i386 -Wa,--32
-RECURSIVE_MAKE_FLAGS = \
-  M32=1 CFLAGS="${CFLAGS}" CXXFLAGS="${CXXFLAGS}" LDFLAGS="${LDFLAGS}"
 endif
 
 plugins = rm
-plugins_distclean = rm infiniband ckptfile
 
 ifeq ($(INFINIBAND_SUPPORT),yes)
   plugins += infiniband  # ib2tcp
@@ -40,8 +37,11 @@ build: $(plugins)
 
 all: default
 
+ckptfile:
+	cd $@ && $(MAKE)
+
 $(plugins):
-	cd $@ && $(MAKE) ${RECURSIVE_MAKE_FLAGS}
+	cd $@ && $(MAKE)
 
 tidy:
 	rm -rf dmtcp-autotest-* ckpt_*_files
@@ -53,7 +53,7 @@ clean: tidy
 	for p in $(plugins); do (cd $$p && $(MAKE) clean); done
 
 distclean: clean
-	for p in $(plugins_distclean); do \
+	for p in $(plugins); do \
 	  (cd $$p && $(MAKE) distclean 2>/dev/null); \
 	done
 	rm -f Makefile
@@ -75,4 +75,4 @@ uninstall:
 uninstall-libs:
 	for p in $(plugins); do (cd $$p && $(MAKE) uninstall-libs); done
 
-.PHONY: default all build rm infiniband tidy clean distclean install uninstall
+.PHONY: default all build rm infiniband ckptfile tidy clean distclean install uninstall
