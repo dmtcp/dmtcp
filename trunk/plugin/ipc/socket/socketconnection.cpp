@@ -137,7 +137,7 @@ void dmtcp::SocketConnection::serialize(jalib::JBinarySerializer& o)
     & _peerType & _socketPairRestored;
 
   JSERIALIZE_ASSERT_POINT("SocketOptions:");
-  size_t numSockOpts = _sockOptions.size();
+  uint64_t numSockOpts = _sockOptions.size();
   o & numSockOpts;
   if (o.isWriter()) {
     //JTRACE("TCP Serialize ") (_type) (_id.conId());
@@ -169,7 +169,7 @@ void dmtcp::SocketConnection::serialize(jalib::JBinarySerializer& o)
       }
     }
   } else {
-    size_t numLvl = 0;
+    uint64_t numLvl = 0;
     o & numLvl;
 
     while (numLvl-- > 0) {
