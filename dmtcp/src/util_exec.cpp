@@ -431,13 +431,13 @@ static int32_t getDlsymOffset_m32()
 
   libdl = buf;
 
-  cmd2 = "nm -g " + libdl + " | grep 'dlinfo'";
+  cmd2 = "nm -D -g " + libdl + " | grep 'dlinfo'";
   fp = popen(cmd2.c_str(), "r");
   JASSERT(fp != NULL);
   fscanf(fp, "%x", &base_addr);
   fclose(fp);
 
-  cmd2 = "nm -g " + libdl + " | grep 'dlsym'";
+  cmd2 = "nm -D -g " + libdl + " | grep 'dlsym'";
   fp = popen(cmd2.c_str(), "r");
   JASSERT(fp != NULL);
   fscanf(fp, "%x", &dlsym_addr);
