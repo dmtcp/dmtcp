@@ -16,6 +16,8 @@ jalibdir=$(srcdir)/../jalib/
 dmtcpincludedir=$(srcdir)/../include
 dmtcplibdir = $(pkglibdir)
 
+SUBDIRS = plugin
+
 PICFLAGS=-fPIC
 if CONFIG_M32
 AM_CFLAGS = -m32 -Wa,--32 $(PICFLAGS)

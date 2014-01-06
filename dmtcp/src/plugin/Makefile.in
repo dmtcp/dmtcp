@@ -6,7 +6,6 @@ M32=@M32@
 PACKAGE=@PACKAGE_TARNAME@
 PACKAGE_TARNAME=@PACKAGE_TARNAME@-@PACKAGE_VERSION@
 VERSION=@PACKAGE_VERSION@
-PTRACE_SUPPORT=@PTRACE_SUPPORT@
 prefix=@prefix@
 exec_prefix=@exec_prefix@
 datarootdir=@datarootdir@
@@ -17,15 +16,13 @@ includedir=@includedir@
 mandir=@mandir@
 infodir=@mandir@
 
-plugins = 
-
-ifeq ($(PTRACE_SUPPORT),yes)
-	plugins += ptrace
-endif
+plugins = pid ipc alloc
 
 default: $(plugins)
 
 all: default
+
+libs: default
 
 $(plugins):
 	cd $@ && $(MAKE)
@@ -59,4 +56,8 @@ uninstall:
 uninstall-libs:
 	for p in $(plugins); do (cd $$p && $(MAKE) uninstall-libs); done
 
-.PHONY: default all pid ptrace ipc alloc tidy clean distclean install uninstall
+install-exec-hook:
+uninstall-hook:
+
+.PHONY: default all pid ipc alloc tidy clean distclean install uninstall \
+	install-exec-hook uninstall-hook
