@@ -192,8 +192,9 @@ distclean: clean
 	- cd plugin && $(MAKE) distclean
 	- cd contrib && $(MAKE) distclean
 	- cd test && $(MAKE) distclean
-	rm -f Makefile test/Makefile test/testconfig.py \
-	  dmtcp/include/config.h config.log config.status config.cache
+	rm -f Makefile test/Makefile test/autotest_config.py \
+	  dmtcp/include/config.h dmtcp/include/stamp-h1 \
+	  config.log config.status config.cache
 	rm -rf autom4te.cache dmtcp/autom4te.cache
 
 distsvn:
