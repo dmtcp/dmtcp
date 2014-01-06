@@ -16,6 +16,7 @@ AC_OPENMP
 AC_LANG_POP([C++])
 AM_CONFIG_HEADER([dmtcp/include/config.h])
 AC_CONFIG_FILES([Makefile plugin/Makefile\
+                 plugin/ptrace/Makefile \
                  dmtcp/src/plugin/Makefile dmtcp/src/plugin/pid/Makefile \
                  dmtcp/src/plugin/ipc/Makefile dmtcp/src/plugin/alloc/Makefile \
                  contrib/Makefile contrib/rm/Makefile \
@@ -87,21 +88,6 @@ AC_ARG_ENABLE([unique_checkpoint_filenames],
 
 if test "$use_unique_checkpoint_filenames" = "yes"; then
   AC_DEFINE([UNIQUE_CHECKPOINT_FILENAMES],[1],[Use unique filenames for checkpoint images])
-fi
-
-AC_ARG_ENABLE([ptrace_support],
-            [AS_HELP_STRING([--enable-ptrace-support],
-                            [enable ptrace support for gdb, valgrind, etc.
-			    (EXPERIMENTAL)])],
-            [use_ptrace_support=$enableval],
-            [use_ptrace_support=no])
-
-if test "$use_ptrace_support" = "yes"; then
-  AC_SUBST([PTRACE_SUPPORT], [yes])
-  AC_DEFINE([PTRACE],[1],[Use support for ptrace system call.])
-  AC_CONFIG_FILES([plugin/ptrace/Makefile])
-else
-  AC_SUBST([PTRACE_SUPPORT], [no])
 fi
 
 AC_ARG_ENABLE([infiniband_support],

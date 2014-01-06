@@ -568,9 +568,6 @@ static void setLDPreloadLibs(bool is32bitElf)
     enablePtrace = true;
   }
 
-#ifdef PTRACE
-  enablePtrace = true;
-#endif
   if (enablePtrace) {
     preloadLibs += jalib::Filesystem::FindHelperUtility("libdmtcp_ptrace.so");
     preloadLibs += ":";

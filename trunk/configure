@@ -674,7 +674,6 @@ INFINIBAND_SUPPORT
 EGREP
 GREP
 CPP
-PTRACE_SUPPORT
 DEBUG
 OPENMP_CXXFLAGS
 OPENMP_CFLAGS
@@ -782,7 +781,6 @@ enable_debug
 enable_quiet
 enable_timing
 enable_unique_checkpoint_filenames
-enable_ptrace_support
 enable_infiniband_support
 enable_forked_checkpointing
 enable_fast_restart
@@ -1444,8 +1442,6 @@ Optional Features:
                           By default, successive checkpoints are written to
                           the same filename. Enable if each successive
                           checkpoint should be a unique filename.
-  --enable-ptrace-support enable ptrace support for gdb, valgrind, etc.
-                          (EXPERIMENTAL)
   --enable-infiniband-support
                           Turn on flags needed to support Infiniband.
                           (EXPERIMENTAL)
@@ -4533,7 +4529,7 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 ac_config_headers="$ac_config_headers dmtcp/include/config.h"
 
-ac_config_files="$ac_config_files Makefile plugin/Makefile dmtcp/src/plugin/Makefile dmtcp/src/plugin/pid/Makefile dmtcp/src/plugin/ipc/Makefile dmtcp/src/plugin/alloc/Makefile contrib/Makefile contrib/rm/Makefile contrib/ckptfile/Makefile mtcp/Makefile test/Makefile test/plugin/Makefile test/credentials/Makefile"
+ac_config_files="$ac_config_files Makefile plugin/Makefile plugin/ptrace/Makefile dmtcp/src/plugin/Makefile dmtcp/src/plugin/pid/Makefile dmtcp/src/plugin/ipc/Makefile dmtcp/src/plugin/alloc/Makefile contrib/Makefile contrib/rm/Makefile contrib/ckptfile/Makefile mtcp/Makefile test/Makefile test/plugin/Makefile test/credentials/Makefile"
 
 ac_config_files="$ac_config_files test/autotest.py"
 
@@ -4609,27 +4605,6 @@ fi
 if test "$use_unique_checkpoint_filenames" = "yes"; then
 
 $as_echo "#define UNIQUE_CHECKPOINT_FILENAMES 1" >>confdefs.h
-
-fi
-
-# Check whether --enable-ptrace_support was given.
-if test "${enable_ptrace_support+set}" = set; then :
-  enableval=$enable_ptrace_support; use_ptrace_support=$enableval
-else
-  use_ptrace_support=no
-fi
-
-
-if test "$use_ptrace_support" = "yes"; then
-  PTRACE_SUPPORT=yes
-
-
-$as_echo "#define PTRACE 1" >>confdefs.h
-
-  ac_config_files="$ac_config_files plugin/ptrace/Makefile"
-
-else
-  PTRACE_SUPPORT=no
 
 fi
 
@@ -7524,6 +7499,7 @@ do
     "dmtcp/include/config.h") CONFIG_HEADERS="$CONFIG_HEADERS dmtcp/include/config.h" ;;
     "Makefile") CONFIG_FILES="$CONFIG_FILES Makefile" ;;
     "plugin/Makefile") CONFIG_FILES="$CONFIG_FILES plugin/Makefile" ;;
+    "plugin/ptrace/Makefile") CONFIG_FILES="$CONFIG_FILES plugin/ptrace/Makefile" ;;
     "dmtcp/src/plugin/Makefile") CONFIG_FILES="$CONFIG_FILES dmtcp/src/plugin/Makefile" ;;
     "dmtcp/src/plugin/pid/Makefile") CONFIG_FILES="$CONFIG_FILES dmtcp/src/plugin/pid/Makefile" ;;
     "dmtcp/src/plugin/ipc/Makefile") CONFIG_FILES="$CONFIG_FILES dmtcp/src/plugin/ipc/Makefile" ;;
@@ -7536,7 +7512,6 @@ do
     "test/plugin/Makefile") CONFIG_FILES="$CONFIG_FILES test/plugin/Makefile" ;;
     "test/credentials/Makefile") CONFIG_FILES="$CONFIG_FILES test/credentials/Makefile" ;;
     "test/autotest.py") CONFIG_FILES="$CONFIG_FILES test/autotest.py" ;;
-    "plugin/ptrace/Makefile") CONFIG_FILES="$CONFIG_FILES plugin/ptrace/Makefile" ;;
     "contrib/infiniband/Makefile") CONFIG_FILES="$CONFIG_FILES contrib/infiniband/Makefile" ;;
     "dmtcp/src/Makefile") CONFIG_FILES="$CONFIG_FILES dmtcp/src/Makefile" ;;
 

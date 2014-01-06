@@ -3,9 +3,7 @@
 USE_TEST_SUITE="@USE_TEST_SUITE@"
 USE_M32=@M32@
 DEBUG="@DEBUG@"
-PTRACE_SUPPORT="@PTRACE_SUPPORT@"
 PID_VIRTUALIZATION="@PID_VIRTUALIZATION@"
-PTRACE_TMP="@PTRACE_SUPPORT@"
 HBICT_DELTACOMP="@HBICT_DELTACOMP@"
 
 # We may be running a user's python, but we should only test with canonical one
@@ -54,6 +52,9 @@ if USE_M32:
   HAS_MPICH="no"
   HAS_OPENMPI="no"
   HAS_CILK="no"
+
+# Disable ptrace tests for now.
+PTRACE_SUPPORT="no"
 
 from random import randint
 from time   import sleep

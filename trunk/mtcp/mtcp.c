@@ -457,6 +457,8 @@ __attribute__ ((weak)) void mtcpHookPostCheckpoint( void ) { }
 
 __attribute__ ((weak)) void mtcpHookRestart( void ) { }
 
+__attribute__ ((weak)) int dmtcp_has_ptrace_plugin(void);
+
 /* Statically allocate this.  Malloc is dangerous here if application is
  *   defining its own (possibly not thread-safe) malloc routine.
  */
@@ -2236,14 +2238,13 @@ static void stopthisthread (int signum)
        * restoreinprog is 0 ; wait for ckpt thread to write ckpt, and resume.
        */
 
-#ifndef PTRACE
       /* This sets a static variable in dmtcp.  It must be passed
        * from this user thread to ckpt thread before writing ckpt image
        */
-      if (callback_pre_suspend_user_thread != NULL) {
+      if (callback_pre_suspend_user_thread != NULL &&
+          dmtcp_has_ptrace_plugin == NULL) {
         callback_pre_suspend_user_thread();
       }
-#endif
 
       WMB; // matched by RMB in checkpointhread
 
@@ -2255,14 +2256,13 @@ static void stopthisthread (int signum)
       // wake checkpoint thread if it's waiting for me
       mtcp_state_futex (&(thread -> state), FUTEX_WAKE, 1, NULL);
 
-#ifdef PTRACE
       /* This sets a static variable in dmtcp.  It must be passed
        * from this user thread to ckpt thread before writing ckpt image
        */
-      if (callback_pre_suspend_user_thread != NULL) {
+      if (callback_pre_suspend_user_thread != NULL &&
+          dmtcp_has_ptrace_plugin != NULL) {
         callback_pre_suspend_user_thread();
       }
-#endif
 
       /* Then we wait for the checkpoint thread to write the checkpoint file
        * then wake us up

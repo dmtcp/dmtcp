@@ -96,9 +96,6 @@
 /* Use virtual pids for pid-related system calls. */
 #undef PID_VIRTUALIZATION
 
-/* Use support for ptrace system call. */
-#undef PTRACE
-
 /* No output, not even NOTE and WARNING */
 #undef QUIET
 
