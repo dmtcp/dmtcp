@@ -16,7 +16,7 @@ includedir=@includedir@
 mandir=@mandir@
 infodir=@mandir@
 
-plugins = ptrace
+plugins = ptrace modify-env
 
 default: $(plugins)
 
