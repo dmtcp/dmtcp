@@ -1,61 +1,5 @@
 #!/usr/bin/env python
 
-USE_TEST_SUITE="@USE_TEST_SUITE@"
-USE_M32=@M32@
-DEBUG="@DEBUG@"
-PID_VIRTUALIZATION="@PID_VIRTUALIZATION@"
-HBICT_DELTACOMP="@HBICT_DELTACOMP@"
-
-# We may be running a user's python, but we should only test with canonical one
-HAS_PYTHON="@HAS_PYTHON@"
-HAS_READLINE="@HAS_READLINE@"
-HAS_DASH="@HAS_DASH@"
-HAS_TCSH="@HAS_TCSH@"
-HAS_ZSH="@HAS_ZSH@"
-HAS_VIM="@HAS_VIM@"
-VIM="@VIM@"
-HAS_EMACS="@HAS_EMACS@"
-HAS_SCRIPT="@HAS_SCRIPT@"
-HAS_SCREEN="@HAS_SCREEN@"
-SCREEN="@SCREEN@"
-HAS_STRACE="@HAS_STRACE@"
-HAS_GDB="@HAS_GDB@"
-HAS_JAVA="@HAS_JAVA@"
-HAS_JAVAC="@HAS_JAVAC@"
-HAS_SSH="@HAS_SSH@"
-HAS_CILK="@HAS_CILK@"
-HAS_GCL="@HAS_GCL@"
-GCL="@GCL@"
-HAS_MATLAB="@HAS_MATLAB@"
-MATLAB="@MATLAB@"
-
-OPENMP_CFLAGS="@OPENMP_CFLAGS@"
-if OPENMP_CFLAGS != "":
-  HAS_OPENMP="yes"
-else:
-  HAS_OPENMP="no"
-
-HAS_MPICH="@HAS_MPICH@"
-MPICH_MPD="@MPICH_MPD@"
-MPICH_MPDBOOT="@MPICH_MPDBOOT@"
-MPICH_MPDALLEXIT="@MPICH_MPDALLEXIT@"
-MPICH_MPIEXEC="@MPICH_MPIEXEC@"
-MPICH_MPDCLEANUP="@MPICH_MPDCLEANUP@"
-
-# USES_OPENMPI_ORTED="@USES_OPENMPI_ORTED@"
-HAS_OPENMPI="@HAS_OPENMPI@"
-OPENMPI_MPICC="@OPENMPI_MPICC@"
-OPENMPI_MPIRUN="@OPENMPI_MPIRUN@"
-
-if USE_M32:
-  HAS_READLINE="no"
-  HAS_MPICH="no"
-  HAS_OPENMPI="no"
-  HAS_CILK="no"
-
-# Disable ptrace tests for now.
-PTRACE_SUPPORT="no"
-
 from random import randint
 from time   import sleep
 import subprocess
@@ -69,6 +13,24 @@ import resource
 import pwd
 import stat
 import re
+
+#get testconfig
+# This assumes Makefile.in in main dir, but only Makefile in test dir.
+try:
+  sys.path += [os.getenv("PWD") + '/test', os.getenv('PWD')]
+  from autotest_config import *
+
+except ImportError as e:
+  print "\n*** Error importing autotest_config.py: " + str(e)
+  sys.exit()
+
+if USE_TEST_SUITE == "no":
+  print "\n*** DMTCP test suite is disabled. To re-enable the test suite,\n" + \
+        "***  re-configure _without_ './configure --disable-test-suite'\n"
+  sys.exit()
+
+# Disable ptrace tests for now.
+PTRACE_SUPPORT="no"
 
 signal.alarm(1800)  # half hour
 
@@ -340,7 +302,7 @@ if free_diskspace(ckptDir) > 20*1024*1024:
 
 #verify there is enough free space
 tmpfile=ckptDir + "/freeSpaceTest.tmp"
-if os.system("dd if=/dev/zero of=" + tmpfile + " bs=1MB count=" + 
+if os.system("dd if=/dev/zero of=" + tmpfile + " bs=1MB count=" +
              str(REQUIRE_MB) + " 2>/dev/null") != 0:
   GZIP="1"
   print '''

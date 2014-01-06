@@ -4529,9 +4529,7 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 ac_config_headers="$ac_config_headers dmtcp/include/config.h"
 
-ac_config_files="$ac_config_files Makefile plugin/Makefile plugin/ptrace/Makefile plugin/modify-env/Makefile plugin/batch-queue/Makefile dmtcp/src/plugin/Makefile dmtcp/src/plugin/pid/Makefile dmtcp/src/plugin/ipc/Makefile dmtcp/src/plugin/alloc/Makefile contrib/Makefile contrib/infiniband/Makefile contrib/ckptfile/Makefile mtcp/Makefile test/Makefile test/plugin/Makefile test/credentials/Makefile"
-
-ac_config_files="$ac_config_files test/autotest.py"
+ac_config_files="$ac_config_files Makefile plugin/Makefile plugin/ptrace/Makefile plugin/modify-env/Makefile plugin/batch-queue/Makefile dmtcp/src/plugin/Makefile dmtcp/src/plugin/pid/Makefile dmtcp/src/plugin/ipc/Makefile dmtcp/src/plugin/alloc/Makefile contrib/Makefile contrib/infiniband/Makefile contrib/ckptfile/Makefile mtcp/Makefile test/autotest_config.py test/Makefile test/plugin/Makefile test/credentials/Makefile"
 
 
 #AC_CONFIG_SUBDIRS([dmtcp])
@@ -7508,10 +7506,10 @@ do
     "contrib/infiniband/Makefile") CONFIG_FILES="$CONFIG_FILES contrib/infiniband/Makefile" ;;
     "contrib/ckptfile/Makefile") CONFIG_FILES="$CONFIG_FILES contrib/ckptfile/Makefile" ;;
     "mtcp/Makefile") CONFIG_FILES="$CONFIG_FILES mtcp/Makefile" ;;
+    "test/autotest_config.py") CONFIG_FILES="$CONFIG_FILES test/autotest_config.py" ;;
     "test/Makefile") CONFIG_FILES="$CONFIG_FILES test/Makefile" ;;
     "test/plugin/Makefile") CONFIG_FILES="$CONFIG_FILES test/plugin/Makefile" ;;
     "test/credentials/Makefile") CONFIG_FILES="$CONFIG_FILES test/credentials/Makefile" ;;
-    "test/autotest.py") CONFIG_FILES="$CONFIG_FILES test/autotest.py" ;;
     "dmtcp/src/Makefile") CONFIG_FILES="$CONFIG_FILES dmtcp/src/Makefile" ;;
 
   *) as_fn_error $? "invalid argument: \`$ac_config_target'" "$LINENO" 5;;
@@ -8201,7 +8199,6 @@ $as_echo X"$file" |
   done
 }
  ;;
-    "test/autotest.py":F) chmod +x test/autotest.py ;;
 
   esac
 done # for ac_tag
