@@ -87,7 +87,7 @@ static const char* theUsage =
   "      Checkpoint open files and restore old working dir. (Default: do neither)\n"
   "  --mtcp-checkpoint-signal:\n"
   "      Signal number used internally by MTCP for checkpointing (default: 12)\n"
-  "  --rm:\n"
+  "  --batch-queue, --rm:\n"
   "      Enable support for resource managers (Torque PBS and SLURM).\n"
   "        (Default: disabled)\n"
   "  --ptrace:\n"
@@ -234,7 +234,7 @@ static void processArgs(int *orig_argc, char ***orig_argv)
     } else if (s == "--disable-alloc-plugin") {
       setenv(ENV_VAR_ALLOC_PLUGIN, "0", 1);
       shift;
-    } else if (s == "--rm") {
+    } else if (s == "--rm" || s == "--batch-queue") {
       enableRM = true;
       shift;
     } else if (s == "--with-plugin") {
@@ -644,11 +644,12 @@ static void setLDPreloadLibs(bool is32bitElf)
   }
 
   if (enableRM) {
-    preloadLibs += jalib::Filesystem::FindHelperUtility("libdmtcp_rm.so");
+    preloadLibs +=
+      jalib::Filesystem::FindHelperUtility("libdmtcp_batch-queue.so");
     preloadLibs += ":";
 #if defined(__x86_64__)
-    preloadLibs32 += jalib::Filesystem::FindHelperUtility("libdmtcp_rm.so",
-                                                          true);
+    preloadLibs32 +=
+      jalib::Filesystem::FindHelperUtility("libdmtcp_batch-queue.so", true);
     preloadLibs32 += ":";
 #endif
   }

@@ -48,11 +48,6 @@ kvm:  Support for checkpointing Qemu virtual machine under KVM.  Note
 	  [ If running with a network of virtual machines, you may also want
             to use this with the 'tun' plugin below. ]
 
-modify-environ:  Modify the environment variables on restart.  This
-	reads from a local file in the same directory, dmtcp_env.txt,
-	to determine what environment variables should be modified
-	in the restarted process.
-
 python:  Support for a Python module, dmtcp.py.  This integrates DMTCP
 	into Python (and IPython) so that DMTCP may be invoked directly
 	from Python.  This work was reported on at SciPy-2013 in
@@ -61,14 +56,6 @@ python:  Support for a Python module, dmtcp.py.  This integrates DMTCP
         http://conference.scipy.org/scipy2013/presentation_detail.php?id=201
 	Please report bugs to dmtcp@ccs.neu.edu as well as to
 	kapil using his account at ccs.neu.edu.
-
-rm (Resource Manager):  Support for using DMTCP with batch queue systems.
-	Currently TORQUE and SLURM are supported. Support for SGE and LSF
-        is planned in the near future.  This is the work of Artem Polyakov.
-	Please report bugs to dmtcp@ccs.neu.edu as well as to
-	artem84 using his gmail account.
-	  [ This can be useful with the infiniband plugin for parallel
-            computations on an InfiniBand cluster using a batch queue. ]
 
 tun:  Support for the Tun network (part of Tun/Tap in the Linux kernel).
 	Currently, this is primarily useful for checkpointing a network

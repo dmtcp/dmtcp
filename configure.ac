@@ -18,9 +18,10 @@ AM_CONFIG_HEADER([dmtcp/include/config.h])
 AC_CONFIG_FILES([Makefile plugin/Makefile\
                  plugin/ptrace/Makefile \
                  plugin/modify-env/Makefile \
+                 plugin/batch-queue/Makefile \
                  dmtcp/src/plugin/Makefile dmtcp/src/plugin/pid/Makefile \
                  dmtcp/src/plugin/ipc/Makefile dmtcp/src/plugin/alloc/Makefile \
-                 contrib/Makefile contrib/rm/Makefile \
+                 contrib/Makefile \
                  contrib/ckptfile/Makefile mtcp/Makefile \
                  test/Makefile test/plugin/Makefile test/credentials/Makefile])
 AC_CONFIG_FILES([test/autotest.py], [chmod +x test/autotest.py])
