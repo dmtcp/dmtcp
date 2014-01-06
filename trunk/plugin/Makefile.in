@@ -16,7 +16,7 @@ includedir=@includedir@
 mandir=@mandir@
 infodir=@mandir@
 
-plugins = ptrace modify-env
+plugins = ptrace modify-env batch-queue
 
 default: $(plugins)
 

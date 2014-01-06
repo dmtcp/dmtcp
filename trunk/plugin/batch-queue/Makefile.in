@@ -1,4 +1,4 @@
-PLUGIN=rm
+PLUGIN=batch-queue
 CC = @CC@
 M32=@M32@
 CFLAGS = @CFLAGS@

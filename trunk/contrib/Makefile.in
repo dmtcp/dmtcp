@@ -25,7 +25,7 @@ CXXFLAGS += -m32 -Wa,--32
 LDFLAGS += -m32 -Wl,-m32 -Wl,-melf_i386 -Wa,--32
 endif
 
-plugins = rm
+plugins = 
 
 ifeq ($(INFINIBAND_SUPPORT),yes)
   plugins += infiniband  # ib2tcp
@@ -75,4 +75,4 @@ uninstall:
 uninstall-libs:
 	for p in $(plugins); do (cd $$p && $(MAKE) uninstall-libs); done
 
-.PHONY: default all build rm infiniband ckptfile tidy clean distclean install uninstall
+.PHONY: default all build infiniband ckptfile tidy clean distclean install uninstall
