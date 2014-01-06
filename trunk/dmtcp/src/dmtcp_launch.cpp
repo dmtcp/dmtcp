@@ -93,6 +93,11 @@ static const char* theUsage =
   "  --ptrace:\n"
   "      Enable support for PTRACE system call for gdb/strace etc.\n"
   "        (default: disabled)\n"
+  "  --modify-env:\n"
+  "      Update environment variables based on the environment on the \n"
+  "      restart host (e.g., DISPLAY=$DISPLAY).\n"
+  "      This can be set in a file dmtcp_env.txt. \n"
+  "        (default: disabled)\n"
   "  --ib:\n"
   "      Enable InfiniBand plugin. (default: disabled)\n"
   "  --disable-alloc-plugin: (environment variable DMTCP_ALLOC_PLUGIN=[01])\n"
@@ -124,6 +129,7 @@ static bool checkpointOpenFiles=false;
 static bool enableRM=false;
 static bool enablePtrace=false;
 static bool enableAllocPlugin=true;
+static bool enableModifyEnvPlugin=false;
 static bool enableIB=false;
 static bool enableIB2Tcp=false;
 static CoordinatorAPI::CoordinatorMode allowedModes = CoordinatorAPI::COORD_ANY;
@@ -215,6 +221,9 @@ static void processArgs(int *orig_argc, char ***orig_argv)
       shift;
     } else if (s == "--ptrace") {
       enablePtrace = true;
+      shift;
+    } else if (s == "--modify-env") {
+      enableModifyEnvPlugin = true;
       shift;
     } else if (s == "--ib") {
       enableIB = true;
@@ -575,6 +584,18 @@ static void setLDPreloadLibs(bool is32bitElf)
 #if defined(__x86_64__)
     preloadLibs32 += jalib::Filesystem::FindHelperUtility("libdmtcp_ptrace.so",
                                                           true);
+    preloadLibs32 += ":";
+#endif
+  }
+
+  if (enableModifyEnvPlugin) {
+    preloadLibs +=
+      jalib::Filesystem::FindHelperUtility("libdmtcp_modify-env.so");
+    preloadLibs += ":";
+
+#if defined(__x86_64__)
+    preloadLibs32 +=
+      jalib::Filesystem::FindHelperUtility("libdmtcp_modify-env.so", true);
     preloadLibs32 += ":";
 #endif
   }
