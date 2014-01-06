@@ -22,6 +22,7 @@ AC_CONFIG_FILES([Makefile plugin/Makefile\
                  dmtcp/src/plugin/Makefile dmtcp/src/plugin/pid/Makefile \
                  dmtcp/src/plugin/ipc/Makefile dmtcp/src/plugin/alloc/Makefile \
                  contrib/Makefile \
+                 contrib/infiniband/Makefile \
                  contrib/ckptfile/Makefile mtcp/Makefile \
                  test/Makefile test/plugin/Makefile test/credentials/Makefile])
 AC_CONFIG_FILES([test/autotest.py], [chmod +x test/autotest.py])
@@ -104,7 +105,6 @@ if test "$use_infiniband_support" = "yes"; then
                    [AC_MSG_ERROR([#include: <infiniband/verbs.h> not found: consider adding devel package for libibverbs]
     )])
   AC_SUBST([INFINIBAND_SUPPORT], [yes])
-  AC_CONFIG_FILES([contrib/infiniband/Makefile])
 else
   AC_SUBST([INFINIBAND_SUPPORT], [no])
 fi
