@@ -15,8 +15,9 @@ AC_LANG_PUSH([C++])
 AC_OPENMP
 AC_LANG_POP([C++])
 AM_CONFIG_HEADER([dmtcp/include/config.h])
-AC_CONFIG_FILES([Makefile plugin/Makefile plugin/pid/Makefile \
-                 plugin/ipc/Makefile plugin/alloc/Makefile \
+AC_CONFIG_FILES([Makefile plugin/Makefile\
+                 dmtcp/src/plugin/Makefile dmtcp/src/plugin/pid/Makefile \
+                 dmtcp/src/plugin/ipc/Makefile dmtcp/src/plugin/alloc/Makefile \
                  contrib/Makefile contrib/rm/Makefile \
                  contrib/ckptfile/Makefile mtcp/Makefile \
                  test/Makefile test/plugin/Makefile test/credentials/Makefile])

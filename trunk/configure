@@ -4533,7 +4533,7 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 ac_config_headers="$ac_config_headers dmtcp/include/config.h"
 
-ac_config_files="$ac_config_files Makefile plugin/Makefile plugin/pid/Makefile plugin/ipc/Makefile plugin/alloc/Makefile contrib/Makefile contrib/rm/Makefile contrib/ckptfile/Makefile mtcp/Makefile test/Makefile test/plugin/Makefile test/credentials/Makefile"
+ac_config_files="$ac_config_files Makefile plugin/Makefile dmtcp/src/plugin/Makefile dmtcp/src/plugin/pid/Makefile dmtcp/src/plugin/ipc/Makefile dmtcp/src/plugin/alloc/Makefile contrib/Makefile contrib/rm/Makefile contrib/ckptfile/Makefile mtcp/Makefile test/Makefile test/plugin/Makefile test/credentials/Makefile"
 
 ac_config_files="$ac_config_files test/autotest.py"
 
@@ -7524,9 +7524,10 @@ do
     "dmtcp/include/config.h") CONFIG_HEADERS="$CONFIG_HEADERS dmtcp/include/config.h" ;;
     "Makefile") CONFIG_FILES="$CONFIG_FILES Makefile" ;;
     "plugin/Makefile") CONFIG_FILES="$CONFIG_FILES plugin/Makefile" ;;
-    "plugin/pid/Makefile") CONFIG_FILES="$CONFIG_FILES plugin/pid/Makefile" ;;
-    "plugin/ipc/Makefile") CONFIG_FILES="$CONFIG_FILES plugin/ipc/Makefile" ;;
-    "plugin/alloc/Makefile") CONFIG_FILES="$CONFIG_FILES plugin/alloc/Makefile" ;;
+    "dmtcp/src/plugin/Makefile") CONFIG_FILES="$CONFIG_FILES dmtcp/src/plugin/Makefile" ;;
+    "dmtcp/src/plugin/pid/Makefile") CONFIG_FILES="$CONFIG_FILES dmtcp/src/plugin/pid/Makefile" ;;
+    "dmtcp/src/plugin/ipc/Makefile") CONFIG_FILES="$CONFIG_FILES dmtcp/src/plugin/ipc/Makefile" ;;
+    "dmtcp/src/plugin/alloc/Makefile") CONFIG_FILES="$CONFIG_FILES dmtcp/src/plugin/alloc/Makefile" ;;
     "contrib/Makefile") CONFIG_FILES="$CONFIG_FILES contrib/Makefile" ;;
     "contrib/rm/Makefile") CONFIG_FILES="$CONFIG_FILES contrib/rm/Makefile" ;;
     "contrib/ckptfile/Makefile") CONFIG_FILES="$CONFIG_FILES contrib/ckptfile/Makefile" ;;
