@@ -80,6 +80,7 @@ clean: tidy
 distclean: clean
 	cd plugin && $(MAKE) distclean
 	#${MAKE} -C credentials distclean
+	rm -f Makefile
 
 readline: readline.c
 ifeq ($(HAS_READLINE),yes)

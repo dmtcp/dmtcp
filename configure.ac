@@ -25,7 +25,8 @@ AC_CONFIG_FILES([Makefile plugin/Makefile\
                  contrib/infiniband/Makefile \
                  contrib/ckptfile/Makefile mtcp/Makefile \
                  test/autotest_config.py \
-                 test/Makefile test/plugin/Makefile test/credentials/Makefile])
+                 test/Makefile test/plugin/Makefile])
+#AC_CONFIG_FILES([test/credentials/Makefile])
 
 #AC_CONFIG_SUBDIRS([dmtcp])
 
