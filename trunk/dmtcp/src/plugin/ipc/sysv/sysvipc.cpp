@@ -40,6 +40,8 @@
 #include "sysvipc.h"
 #include "sysvipcwrappers.h"
 
+using namespace dmtcp;
+
 // FIXME: Check and verify the correctness of SEM_UNDO logic for Semaphores.
 
 /*
@@ -92,44 +94,62 @@ void dmtcp_SysVIPC_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   switch (event) {
     case DMTCP_EVENT_ATFORK_CHILD:
-      dmtcp::SysVIPC::instance().resetOnFork();
+      dmtcp::SysVShm::instance().resetOnFork();
+      dmtcp::SysVSem::instance().resetOnFork();
+      dmtcp::SysVMsq::instance().resetOnFork();
       break;
     case DMTCP_EVENT_WRITE_CKPT:
-      dmtcp::SysVIPC::instance().preCheckpoint();
+      dmtcp::SysVShm::instance().preCheckpoint();
+      dmtcp::SysVSem::instance().preCheckpoint();
+      dmtcp::SysVMsq::instance().preCheckpoint();
       break;
 
     case DMTCP_EVENT_LEADER_ELECTION:
-      dmtcp::SysVIPC::instance().leaderElection();
+      dmtcp::SysVShm::instance().leaderElection();
+      dmtcp::SysVSem::instance().leaderElection();
+      dmtcp::SysVMsq::instance().leaderElection();
       break;
 
     case DMTCP_EVENT_DRAIN:
-      dmtcp::SysVIPC::instance().preCkptDrain();
+      dmtcp::SysVShm::instance().preCkptDrain();
+      dmtcp::SysVSem::instance().preCkptDrain();
+      dmtcp::SysVMsq::instance().preCkptDrain();
       break;
 
     case DMTCP_EVENT_REFILL:
-      dmtcp::SysVIPC::instance().refill(data->refillInfo.isRestart);
+      dmtcp::SysVShm::instance().refill(data->refillInfo.isRestart);
+      dmtcp::SysVSem::instance().refill(data->refillInfo.isRestart);
+      dmtcp::SysVMsq::instance().refill(data->refillInfo.isRestart);
       break;
 
     case DMTCP_EVENT_THREADS_RESUME:
-      dmtcp::SysVIPC::instance().preResume();
+      dmtcp::SysVShm::instance().preResume();
+      dmtcp::SysVSem::instance().preResume();
+      dmtcp::SysVMsq::instance().preResume();
       break;
 
     case DMTCP_EVENT_PRE_EXEC:
       {
         jalib::JBinarySerializeWriterRaw wr("", data->serializerInfo.fd);
-        dmtcp::SysVIPC::instance().serialize(wr);
+        dmtcp::SysVShm::instance().serialize(wr);
+        dmtcp::SysVSem::instance().serialize(wr);
+        dmtcp::SysVMsq::instance().serialize(wr);
       }
       break;
 
     case DMTCP_EVENT_POST_EXEC:
       {
         jalib::JBinarySerializeReaderRaw rd("", data->serializerInfo.fd);
-        dmtcp::SysVIPC::instance().serialize(rd);
+        dmtcp::SysVShm::instance().serialize(rd);
+        dmtcp::SysVSem::instance().serialize(rd);
+        dmtcp::SysVMsq::instance().serialize(rd);
       }
       break;
 
     case DMTCP_EVENT_RESTART:
-      dmtcp::SysVIPC::instance().postRestart();
+      dmtcp::SysVShm::instance().postRestart();
+      dmtcp::SysVSem::instance().postRestart();
+      dmtcp::SysVMsq::instance().postRestart();
       break;
 
     default:
@@ -171,189 +191,224 @@ static void huge_memcpy(char *dest, char *src, size_t size)
   memcpy(dest, src, size);
 }
 
-dmtcp::SysVIPC::SysVIPC()
-  : _ipcVirtIdTable("SysVIPC", getpid())
+static dmtcp::SysVShm *sysvShmInst = NULL;
+static dmtcp::SysVSem *sysvSemInst = NULL;
+static dmtcp::SysVMsq *sysvMsqInst = NULL;
+dmtcp::SysVShm& dmtcp::SysVShm::instance()
+{
+  if (sysvShmInst == NULL) {
+    sysvShmInst = new SysVShm();
+  }
+  return *sysvShmInst;
+}
+
+dmtcp::SysVSem& dmtcp::SysVSem::instance()
+{
+  if (sysvSemInst == NULL) {
+    sysvSemInst = new SysVSem();
+  }
+  return *sysvSemInst;
+}
+
+dmtcp::SysVMsq& dmtcp::SysVMsq::instance()
+{
+  if (sysvMsqInst == NULL) {
+    sysvMsqInst = new SysVMsq();
+  }
+  return *sysvMsqInst;
+}
+
+/******************************************************************************
+ *
+ * SysVIPC Parent Class
+ *
+ *****************************************************************************/
+
+SysVIPC::SysVIPC(const char *str, int32_t id, int type)
+  : _virtIdTable(str, id),
+    _type(type)
+
 {
   _do_lock_tbl();
-  _shm.clear();
+  _map.clear();
   _do_unlock_tbl();
 }
 
-static dmtcp::SysVIPC *sysvIPCInst = NULL;
-dmtcp::SysVIPC& dmtcp::SysVIPC::instance()
+void SysVIPC::removeStaleObjects()
 {
-  //static SysVIPC *inst = new SysVIPC(); return *inst;
-  if (sysvIPCInst == NULL) {
-    sysvIPCInst = new SysVIPC();
+  _do_lock_tbl();
+  dmtcp::vector<int> staleIds;
+  for (Iterator i = _map.begin(); i != _map.end(); ++i) {
+    SysVObj* obj = i->second;
+    if (obj->isStale()) {
+      staleIds.push_back(i->first);
+    }
   }
-  return *sysvIPCInst;
+  for (size_t j = 0; j < staleIds.size(); ++j) {
+    delete _map[staleIds[j]];
+    _map.erase(staleIds[j]);
+    _virtIdTable.erase(staleIds[j]);
+  }
+  _do_unlock_tbl();
 }
 
-int dmtcp::SysVIPC::getNewVirtualId()
+void SysVIPC::resetOnFork()
 {
-  int id;
-  JASSERT(_ipcVirtIdTable.getNewVirtualId(&id)) (_ipcVirtIdTable.size())
+  _virtIdTable.resetOnFork(getpid());
+  for (Iterator i = _map.begin(); i != _map.end(); ++i) {
+    i->second->resetOnFork();
+  }
+}
+
+void SysVIPC::leaderElection()
+{
+  /* Remove all invalid/removed shm segments*/
+  removeStaleObjects();
+
+  for (Iterator i = _map.begin(); i != _map.end(); ++i) {
+    i->second->leaderElection();
+  }
+}
+
+void SysVIPC::preCkptDrain()
+{
+  for (Iterator i = _map.begin(); i != _map.end(); ++i) {
+    i->second->preCkptDrain();
+  }
+}
+
+void SysVIPC::preCheckpoint()
+{
+  for (Iterator i = _map.begin(); i != _map.end(); ++i) {
+    i->second->preCheckpoint();
+  }
+}
+
+void SysVIPC::preResume()
+{
+  for (Iterator i = _map.begin(); i != _map.end(); ++i) {
+    i->second->preResume();
+  }
+}
+
+void SysVIPC::refill(bool isRestart)
+{
+  if (!isRestart) return;
+
+  for (Iterator i = _map.begin(); i != _map.end(); ++i) {
+    i->second->refill(isRestart);
+  }
+}
+
+void SysVIPC::postRestart()
+{
+  _virtIdTable.clear();
+
+  for (Iterator i = _map.begin(); i != _map.end(); ++i) {
+    i->second->postRestart();
+  }
+}
+
+int SysVIPC::virtualToRealId(int virtId)
+{
+  if (_virtIdTable.virtualIdExists(virtId)) {
+    return _virtIdTable.virtualToReal(virtId);
+  } else {
+    int realId = SharedData::getRealIPCId(_type, virtId);
+    _virtIdTable.updateMapping(virtId, realId);
+    return realId;
+  }
+}
+int SysVIPC::realToVirtualId(int realId)
+{
+  if (_virtIdTable.realIdExists(realId)) {
+    return _virtIdTable.realToVirtual(realId);
+  } else {
+    return -1;
+  }
+}
+void SysVIPC::updateMapping(int virtId, int realId)
+{
+  _virtIdTable.updateMapping(virtId, realId);
+  SharedData::setIPCIdMap(_type, virtId, realId);
+}
+
+int SysVIPC::getNewVirtualId()
+{
+  int32_t id;
+  JASSERT(_virtIdTable.getNewVirtualId(&id)) (_virtIdTable.size())
     .Text("Exceeded maximum number of Sys V objects allowed");
 
   return id;
 }
 
-void dmtcp::SysVIPC::resetOnFork()
+void SysVIPC::serialize(jalib::JBinarySerializer& o)
 {
-  _ipcVirtIdTable.resetOnFork(getpid());
-  for (ShmIterator i = _shm.begin(); i != _shm.end(); ++i) {
-    i->second->resetOnFork();
-  }
-  for (SemIterator i = _sem.begin(); i != _sem.end(); ++i) {
-    i->second->resetOnFork();
-  }
-  for (MsqIterator i = _msq.begin(); i != _msq.end(); ++i) {
-    i->second->resetOnFork();
-  }
+  _virtIdTable.serialize(o);
 }
-
-void dmtcp::SysVIPC::leaderElection()
-{
-  /* Remove all invalid/removed shm segments*/
-  removeStaleObjects();
-
-  for (ShmIterator i = _shm.begin(); i != _shm.end(); ++i) {
-    i->second->leaderElection();
-  }
-  for (SemIterator i = _sem.begin(); i != _sem.end(); ++i) {
-    i->second->leaderElection();
-  }
-  for (MsqIterator i = _msq.begin(); i != _msq.end(); ++i) {
-    i->second->leaderElection();
-  }
-}
-
-void dmtcp::SysVIPC::preCkptDrain()
-{
-  for (ShmIterator i = _shm.begin(); i != _shm.end(); ++i) {
-    i->second->preCkptDrain();
-  }
-  for (SemIterator i = _sem.begin(); i != _sem.end(); ++i) {
-    i->second->preCkptDrain();
-  }
-  for (MsqIterator i = _msq.begin(); i != _msq.end(); ++i) {
-    i->second->preCkptDrain();
-  }
-}
-
-void dmtcp::SysVIPC::preCheckpoint()
-{
-  for (ShmIterator i = _shm.begin(); i != _shm.end(); ++i) {
-    i->second->preCheckpoint();
-  }
-  for (SemIterator i = _sem.begin(); i != _sem.end(); ++i) {
-    i->second->preCheckpoint();
-  }
-  for (MsqIterator i = _msq.begin(); i != _msq.end(); ++i) {
-    i->second->preCheckpoint();
-  }
-}
-
-void dmtcp::SysVIPC::preResume()
-{
-  for (ShmIterator i = _shm.begin(); i != _shm.end(); ++i) {
-    i->second->preResume();
-  }
-  for (SemIterator i = _sem.begin(); i != _sem.end(); ++i) {
-    i->second->preResume();
-  }
-  for (MsqIterator i = _msq.begin(); i != _msq.end(); ++i) {
-    i->second->preResume();
-  }
-}
-
-void dmtcp::SysVIPC::refill(bool isRestart)
-{
-  if (!isRestart) return;
-
-  for (ShmIterator i = _shm.begin(); i != _shm.end(); ++i) {
-    i->second->refill(isRestart);
-  }
-  for (SemIterator i = _sem.begin(); i != _sem.end(); ++i) {
-    i->second->refill(isRestart);
-  }
-  for (MsqIterator i = _msq.begin(); i != _msq.end(); ++i) {
-    i->second->refill(isRestart);
-  }
-}
-
-void dmtcp::SysVIPC::postRestart()
-{
-  _ipcVirtIdTable.clear();
-
-  for (ShmIterator i = _shm.begin(); i != _shm.end(); ++i) {
-    i->second->postRestart();
-  }
-  for (SemIterator i = _sem.begin(); i != _sem.end(); ++i) {
-    i->second->postRestart();
-  }
-  for (MsqIterator i = _msq.begin(); i != _msq.end(); ++i) {
-    i->second->postRestart();
-  }
-}
+/******************************************************************************
+ *
+ * SysVIPC Subclasses
+ *
+ *****************************************************************************/
 
 /*
  * Shared Memory
  */
-void dmtcp::SysVIPC::on_shmget(int shmid, key_t key, size_t size, int shmflg)
+void dmtcp::SysVShm::on_shmget(int shmid, key_t key, size_t size, int shmflg)
 {
   _do_lock_tbl();
-  if (!_ipcVirtIdTable.realIdExists(shmid)) {
-    JASSERT(_shm.find(shmid) == _shm.end());
+  if (!_virtIdTable.realIdExists(shmid)) {
+    JASSERT(_map.find(shmid) == _map.end());
     int virtId = getNewVirtualId();
     JTRACE ("Shmid not found in table. Creating new entry")
       (shmid) (virtId);
     updateMapping(virtId, shmid);
-    _shm[virtId] = new ShmSegment(virtId, shmid, key, size, shmflg);
+    _map[virtId] = new ShmSegment(virtId, shmid, key, size, shmflg);
   } else {
-    JASSERT(_shm.find(shmid) != _shm.end());
+    JASSERT(_map.find(shmid) != _map.end());
   }
   _do_unlock_tbl();
 }
 
-void dmtcp::SysVIPC::on_shmat(int shmid, const void *shmaddr, int shmflg,
+void dmtcp::SysVShm::on_shmat(int shmid, const void *shmaddr, int shmflg,
                               void* newaddr)
 {
   _do_lock_tbl();
-  if (!_ipcVirtIdTable.virtualIdExists(shmid)) {
-    int realId = dmtcp::SharedData::getRealIPCId(shmid);
+  if (!_virtIdTable.virtualIdExists(shmid)) {
+    int realId = dmtcp::SharedData::getRealIPCId(_type, shmid);
     updateMapping(shmid, realId);
   }
-  if (_shm.find(shmid) == _shm.end()) {
-    int realId = VIRTUAL_TO_REAL_IPC_ID(shmid);
-    _shm[shmid] = new ShmSegment(shmid, realId, -1, -1, -1);
+  if (_map.find(shmid) == _map.end()) {
+    int realId = VIRTUAL_TO_REAL_SHM_ID(shmid);
+    _map[shmid] = new ShmSegment(shmid, realId, -1, -1, -1);
   }
 
   JASSERT(shmaddr == NULL || shmaddr == newaddr);
-  _shm[shmid]->on_shmat(newaddr, shmflg);
+  ((ShmSegment*)_map[shmid])->on_shmat(newaddr, shmflg);
   _do_unlock_tbl();
 }
 
-void dmtcp::SysVIPC::on_shmdt(const void *shmaddr)
+void dmtcp::SysVShm::on_shmdt(const void *shmaddr)
 {
   int shmid = shmaddrToShmid(shmaddr);
   JASSERT(shmid != -1) (shmaddr)
     .Text("No corresponding shmid found for given shmaddr");
   _do_lock_tbl();
-  _shm[shmid]->on_shmdt(shmaddr);
-  if (_shm[shmid]->isStale()) {
-    _shm.erase(shmid);
+  ((ShmSegment*)_map[shmid])->on_shmdt(shmaddr);
+  if (_map[shmid]->isStale()) {
+    _map.erase(shmid);
   }
   _do_unlock_tbl();
 }
 
-int dmtcp::SysVIPC::shmaddrToShmid(const void* shmaddr)
+int dmtcp::SysVShm::shmaddrToShmid(const void* shmaddr)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
   int shmid = -1;
   _do_lock_tbl();
-  for (ShmIterator i = _shm.begin(); i != _shm.end(); ++i) {
-    ShmSegment* shmObj = i->second;
+  for (Iterator i = _map.begin(); i != _map.end(); ++i) {
+    ShmSegment* shmObj = (ShmSegment*)i->second;
     if (shmObj->isValidShmaddr(shmaddr)) {
       shmid = i->first;
       break;
@@ -364,141 +419,108 @@ int dmtcp::SysVIPC::shmaddrToShmid(const void* shmaddr)
   return shmid;
 }
 
-void dmtcp::SysVIPC::removeStaleObjects()
+/*
+ * Semaphore
+ */
+void dmtcp::SysVSem::on_semget(int semid, key_t key, int nsems, int semflg)
 {
   _do_lock_tbl();
-  dmtcp::vector<int> staleShmids;
-  for (ShmIterator i = _shm.begin(); i != _shm.end(); ++i) {
-    ShmSegment* shmObj = i->second;
-    if (shmObj->isStale()) {
-      staleShmids.push_back(i->first);
-    }
+  if (!_virtIdTable.realIdExists(semid)) {
+    //JASSERT(key == IPC_PRIVATE || (semflg & IPC_CREAT) != 0) (key) (semid);
+    JASSERT(_map.find(semid) == _map.end());
+    JTRACE ("Semid not found in table. Creating new entry") (semid);
+    int virtId = getNewVirtualId();
+    updateMapping(virtId, semid);
+    _map[virtId] = new Semaphore (virtId, semid, key, nsems, semflg);
+  } else {
+    JASSERT(_map.find(semid) != _map.end());
   }
-  for (size_t j = 0; j < staleShmids.size(); ++j) {
-    delete _shm[staleShmids[j]];
-    _shm.erase(staleShmids[j]);
-    _ipcVirtIdTable.erase(staleShmids[j]);
-  }
+  _do_unlock_tbl();
+}
 
-  dmtcp::vector<int> staleSemids;
-  for (SemIterator i = _sem.begin(); i != _sem.end(); ++i) {
-    Semaphore* semObj = i->second;
-    if (semObj->isStale()) {
-      staleSemids.push_back(i->first);
-    }
+void dmtcp::SysVSem::on_semctl(int semid, int semnum, int cmd, union semun arg)
+{
+  _do_lock_tbl();
+  if (cmd == IPC_RMID && _virtIdTable.virtualIdExists(semid)) {
+    JASSERT(_map[semid]->isStale()) (semid);
+    _map.erase(semid);
   }
-  for (size_t j = 0; j < staleSemids.size(); ++j) {
-    delete _sem[staleSemids[j]];
-    _sem.erase(staleSemids[j]);
-    _ipcVirtIdTable.erase(staleSemids[j]);
+  _do_unlock_tbl();
+  return;
+}
+
+void dmtcp::SysVSem::on_semop(int semid, struct sembuf *sops, unsigned nsops)
+{
+  _do_lock_tbl();
+  if (!_virtIdTable.virtualIdExists(semid)) {
+    int realId = dmtcp::SharedData::getRealIPCId(_type, semid);
+    updateMapping(semid, realId);
   }
+  if (_map.find(semid) == _map.end()) {
+    int realId = VIRTUAL_TO_REAL_SEM_ID(semid);
+    _map[semid] = new Semaphore(semid, realId, -1, -1, -1);
+  }
+  ((Semaphore*)_map[semid])->on_semop(sops, nsops);
   _do_unlock_tbl();
 }
 
 /*
- * Semaphore
+ * Message Queue
  */
-void dmtcp::SysVIPC::on_semget(int semid, key_t key, int nsems, int semflg)
+void dmtcp::SysVMsq::on_msgget(int msqid, key_t key, int msgflg)
 {
   _do_lock_tbl();
-  if (!_ipcVirtIdTable.realIdExists(semid)) {
-    //JASSERT(key == IPC_PRIVATE || (semflg & IPC_CREAT) != 0) (key) (semid);
-    JASSERT(_sem.find(semid) == _sem.end());
-    JTRACE ("Semid not found in table. Creating new entry") (semid);
-    int virtId = getNewVirtualId();
-    updateMapping(virtId, semid);
-    _sem[virtId] = new Semaphore (virtId, semid, key, nsems, semflg);
-  } else {
-    JASSERT(_sem.find(semid) != _sem.end());
-  }
-  _do_unlock_tbl();
-}
-
-void dmtcp::SysVIPC::on_semctl(int semid, int semnum, int cmd, union semun arg)
-{
-  _do_lock_tbl();
-  if (cmd == IPC_RMID && _ipcVirtIdTable.virtualIdExists(semid)) {
-    JASSERT(_sem[semid]->isStale()) (semid);
-    _sem.erase(semid);
-  }
-  _do_unlock_tbl();
-  return;
-}
-
-void dmtcp::SysVIPC::on_semop(int semid, struct sembuf *sops, unsigned nsops)
-{
-  _do_lock_tbl();
-  if (!_ipcVirtIdTable.virtualIdExists(semid)) {
-    int realId = dmtcp::SharedData::getRealIPCId(semid);
-    updateMapping(semid, realId);
-  }
-  if (_sem.find(semid) == _sem.end()) {
-    int realId = VIRTUAL_TO_REAL_IPC_ID(semid);
-    _sem[semid] = new Semaphore(semid, realId, -1, -1, -1);
-  }
-  _sem[semid]->on_semop(sops, nsops);
-  _do_unlock_tbl();
-}
-
-void dmtcp::SysVIPC::on_msgget(int msqid, key_t key, int msgflg)
-{
-  _do_lock_tbl();
-  if (!_ipcVirtIdTable.realIdExists(msqid)) {
-    JASSERT(_msq.find(msqid) == _msq.end());
+  if (!_virtIdTable.realIdExists(msqid)) {
+    JASSERT(_map.find(msqid) == _map.end());
     JTRACE ("Msqid not found in table. Creating new entry") (msqid);
     int virtId = getNewVirtualId();
     updateMapping(virtId, msqid);
-    _msq[virtId] = new MsgQueue (virtId, msqid, key, msgflg);
+    _map[virtId] = new MsgQueue (virtId, msqid, key, msgflg);
   } else {
-    JASSERT(_msq.find(msqid) != _msq.end());
+    JASSERT(_map.find(msqid) != _map.end());
   }
   _do_unlock_tbl();
 }
 
-void dmtcp::SysVIPC::on_msgctl(int msqid, int cmd, struct msqid_ds *buf)
+void dmtcp::SysVMsq::on_msgctl(int msqid, int cmd, struct msqid_ds *buf)
 {
   _do_lock_tbl();
-  if (cmd == IPC_RMID && _ipcVirtIdTable.virtualIdExists(msqid)) {
-    JASSERT(_msq[msqid]->isStale()) (msqid);
-    _msq.erase(msqid);
+  if (cmd == IPC_RMID && _virtIdTable.virtualIdExists(msqid)) {
+    JASSERT(_map[msqid]->isStale()) (msqid);
+    _map.erase(msqid);
   }
   _do_unlock_tbl();
   return;
 }
 
-void dmtcp::SysVIPC::on_msgsnd(int msqid, const void *msgp, size_t msgsz,
+void dmtcp::SysVMsq::on_msgsnd(int msqid, const void *msgp, size_t msgsz,
                                int msgflg)
 {
   _do_lock_tbl();
-  if (!_ipcVirtIdTable.virtualIdExists(msqid)) {
-    int realId = dmtcp::SharedData::getRealIPCId(msqid);
+  if (!_virtIdTable.virtualIdExists(msqid)) {
+    int realId = dmtcp::SharedData::getRealIPCId(_type, msqid);
     updateMapping(msqid, realId);
   }
-  if (_msq.find(msqid) == _msq.end()) {
-    int realId = VIRTUAL_TO_REAL_IPC_ID(msqid);
-    _msq[msqid] = new MsgQueue(msqid, realId, -1, -1);
+  if (_map.find(msqid) == _map.end()) {
+    int realId = VIRTUAL_TO_REAL_MSQ_ID(msqid);
+    _map[msqid] = new MsgQueue(msqid, realId, -1, -1);
   }
   _do_unlock_tbl();
 }
 
-void dmtcp::SysVIPC::on_msgrcv(int msqid, const void *msgp, size_t msgsz,
+void dmtcp::SysVMsq::on_msgrcv(int msqid, const void *msgp, size_t msgsz,
                                int msgtyp, int msgflg)
 {
   _do_lock_tbl();
-  if (!_ipcVirtIdTable.virtualIdExists(msqid)) {
-    int realId = dmtcp::SharedData::getRealIPCId(msqid);
+  if (!_virtIdTable.virtualIdExists(msqid)) {
+    int realId = dmtcp::SharedData::getRealIPCId(_type, msqid);
     updateMapping(msqid, realId);
   }
-  if (_msq.find(msqid) == _msq.end()) {
-    int realId = VIRTUAL_TO_REAL_IPC_ID(msqid);
-    _msq[msqid] = new MsgQueue(msqid, realId, -1, -1);
+  if (_map.find(msqid) == _map.end()) {
+    int realId = VIRTUAL_TO_REAL_MSQ_ID(msqid);
+    _map[msqid] = new MsgQueue(msqid, realId, -1, -1);
   }
   _do_unlock_tbl();
-}
-
-void dmtcp::SysVIPC::serialize(jalib::JBinarySerializer& o)
-{
-  _ipcVirtIdTable.serialize(o);
 }
 
 /******************************************************************************
@@ -608,7 +630,7 @@ void dmtcp::ShmSegment::postRestart()
 
   _realId = _real_shmget(_key, _size, _flags);
   JASSERT(_realId != -1);
-  SysVIPC::instance().updateMapping(_id, _realId);
+  SysVShm::instance().updateMapping(_id, _realId);
 
   // Re-map first address for owner on restart
   JASSERT(_isCkptLeader);
@@ -633,7 +655,7 @@ void dmtcp::ShmSegment::refill(bool isRestart)
   if (!isRestart || _isCkptLeader) return;
 
   // Update _realId;
-  _realId = VIRTUAL_TO_REAL_IPC_ID(_id);
+  _realId = VIRTUAL_TO_REAL_SHM_ID(_id);
 }
 
 void dmtcp::ShmSegment::preResume()
@@ -751,7 +773,7 @@ void dmtcp::Semaphore::postRestart()
   if (_isCkptLeader) {
     _realId = _real_semget(_key, _nsems, _flags);
     JASSERT(_realId != -1) (JASSERT_ERRNO);
-    SysVIPC::instance().updateMapping(_id, _realId);
+    SysVSem::instance().updateMapping(_id, _realId);
 
     union semun info;
     info.array = _semval;
@@ -771,7 +793,7 @@ void dmtcp::Semaphore::refill(bool isRestart)
    *        flag2 = semadj-value < 0 ? SEM_UNDO : 0
    */
   struct sembuf sops;
-  _realId = VIRTUAL_TO_REAL_IPC_ID(_id);
+  _realId = VIRTUAL_TO_REAL_SEM_ID(_id);
   JASSERT(_realId != -1);
   for (int i = 0; i < _nsems; i++) {
     if (_semadj[i] == 0) continue;
@@ -868,7 +890,7 @@ void dmtcp::MsgQueue::postRestart()
   if (_isCkptLeader) {
     _realId = _real_msgget(_key, _flags);
     JASSERT(_realId != -1) (JASSERT_ERRNO);
-    SysVIPC::instance().updateMapping(_id, _realId);
+    SysVMsq::instance().updateMapping(_id, _realId);
     JASSERT(_msgInQueue.size() == _qnum) (_msgInQueue.size()) (_qnum);
   }
 }

@@ -80,7 +80,9 @@ void dmtcp::SharedData::initializeHeader()
   JASSERT(getenv(ENV_VAR_DLSYM_OFFSET_M32) != NULL);
   sharedDataHeader->dlsymOffset_m32 =
     (int32_t) strtol(getenv(ENV_VAR_DLSYM_OFFSET_M32), NULL, 10);
-  sharedDataHeader->numIPCIdMaps = 0;
+  sharedDataHeader->numSysVShmIdMaps = 0;
+  sharedDataHeader->numSysVSemIdMaps = 0;
+  sharedDataHeader->numSysVMsqIdMaps = 0;
   sharedDataHeader->numPtraceIdMaps = 0;
   sharedDataHeader->numPtyNameMaps = 0;
   sharedDataHeader->initialized = true;
@@ -310,36 +312,80 @@ void dmtcp::SharedData::setPidMap(pid_t virt, pid_t real)
   Util::unlockFile(PROTECTED_SHM_FD);
 }
 
-int32_t dmtcp::SharedData::getRealIPCId(int32_t virt)
+int32_t dmtcp::SharedData::getRealIPCId(int type, int32_t virt)
 {
   int32_t res = -1;
+  uint32_t nmaps;
+  IPCIdMap *map;
   if (sharedDataHeader == NULL) initialize();
   Util::lockFile(PROTECTED_SHM_FD);
-  for (size_t i = 0; i < sharedDataHeader->numIPCIdMaps; i++) {
-    if (sharedDataHeader->ipcIdMap[i].virt == virt) {
-      res = sharedDataHeader->ipcIdMap[i].real;
+  switch (type) {
+    case SYSV_SHM_ID:
+      nmaps = sharedDataHeader->numSysVShmIdMaps;
+      map = sharedDataHeader->sysvShmIdMap;
+      break;
+
+    case SYSV_SEM_ID:
+      nmaps = sharedDataHeader->numSysVSemIdMaps;
+      map = sharedDataHeader->sysvSemIdMap;
+      break;
+
+    case SYSV_MSQ_ID:
+      nmaps = sharedDataHeader->numSysVMsqIdMaps;
+      map = sharedDataHeader->sysvMsqIdMap;
+      break;
+
+    default:
+      JASSERT(false) (type) .Text("Unknown IPC-Id type.");
+      break;
+  }
+  for (size_t i = 0; i < nmaps; i++) {
+    if (map[i].virt == virt) {
+      res = map[i].real;
     }
   }
   Util::unlockFile(PROTECTED_SHM_FD);
   return res;
 }
 
-void dmtcp::SharedData::setIPCIdMap(int32_t virt, int32_t real)
+void dmtcp::SharedData::setIPCIdMap(int type, int32_t virt, int32_t real)
 {
   size_t i;
+  uint32_t *nmaps;
+  IPCIdMap *map;
   if (sharedDataHeader == NULL) initialize();
   Util::lockFile(PROTECTED_SHM_FD);
-  for (i = 0; i < sharedDataHeader->numIPCIdMaps; i++) {
-    if (sharedDataHeader->ipcIdMap[i].virt == virt) {
-      sharedDataHeader->ipcIdMap[i].real = real;
+  switch (type) {
+    case SYSV_SHM_ID:
+      nmaps = &sharedDataHeader->numSysVShmIdMaps;
+      map = sharedDataHeader->sysvShmIdMap;
+      break;
+
+    case SYSV_SEM_ID:
+      nmaps = &sharedDataHeader->numSysVSemIdMaps;
+      map = sharedDataHeader->sysvSemIdMap;
+      break;
+
+    case SYSV_MSQ_ID:
+      nmaps = &sharedDataHeader->numSysVMsqIdMaps;
+      map = sharedDataHeader->sysvMsqIdMap;
+      break;
+
+    default:
+      JASSERT(false) (type) .Text("Unknown IPC-Id type.");
+      break;
+  }
+  for (i = 0; i < *nmaps; i++) {
+    if (map[i].virt == virt) {
+      map[i].real = real;
       break;
     }
   }
-  if (i == sharedDataHeader->numIPCIdMaps) {
-    JASSERT(sharedDataHeader->numIPCIdMaps < MAX_IPC_ID_MAPS);
-    sharedDataHeader->ipcIdMap[i].virt = virt;
-    sharedDataHeader->ipcIdMap[i].real = real;
-    sharedDataHeader->numIPCIdMaps++;
+  if (i == *nmaps) {
+    JASSERT(*nmaps < MAX_IPC_ID_MAPS);
+    map[i].virt = virt;
+    map[i].real = real;
+    *nmaps += 1;
   }
   Util::unlockFile(PROTECTED_SHM_FD);
 }

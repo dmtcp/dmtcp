@@ -40,6 +40,10 @@
 #define SHM_VERSION_STR "DMTCP_GLOBAL_AREA_V0.99"
 #define VIRT_PTS_PREFIX_STR "/dev/pts/v"
 
+#define SYSV_SHM_ID 1
+#define SYSV_SEM_ID 2
+#define SYSV_MSQ_ID 3
+
 namespace dmtcp {
   namespace SharedData {
     struct PidMap {
@@ -84,8 +88,11 @@ namespace dmtcp {
       int32_t              dlsymOffset_m32;
 
       uint32_t             numPidMaps;
-      uint32_t             numIPCIdMaps;
       uint32_t             numPtraceIdMaps;
+
+      uint32_t             numSysVShmIdMaps;
+      uint32_t             numSysVSemIdMaps;
+      uint32_t             numSysVMsqIdMaps;
 
       uint32_t             numPtyNameMaps;
       uint32_t             nextPtyName;
@@ -95,7 +102,9 @@ namespace dmtcp {
       uint32_t             numInodeConnIdMaps;
 
       struct PidMap        pidMap[MAX_PID_MAPS];
-      struct IPCIdMap      ipcIdMap[MAX_IPC_ID_MAPS];
+      struct IPCIdMap      sysvShmIdMap[MAX_IPC_ID_MAPS];
+      struct IPCIdMap      sysvSemIdMap[MAX_IPC_ID_MAPS];
+      struct IPCIdMap      sysvMsqIdMap[MAX_IPC_ID_MAPS];
       struct PtraceIdMaps  ptraceIdMap[MAX_PTRACE_ID_MAPS];
       struct PtyNameMap    ptyNameMap[MAX_PTY_NAME_MAPS];
       struct MissingConMap missingConMap[MAX_MISSING_CONNECTIONS];
@@ -127,8 +136,8 @@ namespace dmtcp {
     int32_t getDlsymOffset(void);
     int32_t getDlsymOffset_m32(void);
 
-    int32_t  getRealIPCId(int32_t virt);
-    void setIPCIdMap(int32_t virt, int32_t real);
+    int32_t  getRealIPCId(int type, int32_t virt);
+    void setIPCIdMap(int type, int32_t virt, int32_t real);
 
     pid_t  getRealPid(pid_t virt);
     void setPidMap(pid_t virt, pid_t real);
