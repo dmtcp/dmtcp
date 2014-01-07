@@ -21,7 +21,7 @@ ptrace: Support for checkpointing ptrace system call. Ptrace is used by gdb,
         this plugin (dmtcp_launch --ptrace ...) to start gdb/strace under
         checkpoint control.
 
-modify-environ:  Modify the environment variables on restart.  This
+modify-env:  Modify the environment variables on restart.  This
 	reads from a local file in the same directory, dmtcp_env.txt,
 	to determine what environment variables should be modified
 	in the restarted process.

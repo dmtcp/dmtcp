@@ -1,5 +1,5 @@
 /* For standalone testing, try:
- *   gcc -DSTANDALONE modify-environ.c
+ *   gcc -DSTANDALONE modify-env.c
  *   ./a.out
  * (Reads dmtcp_env.txt from local directory.)
  */
@@ -130,7 +130,7 @@ int readAndSetEnv(char *buf, int size) {
           strcpy(nameChanged_end, nameBuf);
           nameChanged_end += strlen(nameBuf) + 1;
         } else {
-          fprintf(stderr, "modify-environ.c: Too many '$' name expansions\n");
+          fprintf(stderr, "modify-env.c: Too many '$' name expansions\n");
         }
         // Get ready for next name-value pair
         isStringMode = 0;
