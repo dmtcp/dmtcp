@@ -45,10 +45,14 @@
 
 #include "sysvipcwrappers.h"
 
-#define REAL_TO_VIRTUAL_IPC_ID(id) \
-  dmtcp::SysVIPC::instance().realToVirtualId(id)
-#define VIRTUAL_TO_REAL_IPC_ID(id) \
-  dmtcp::SysVIPC::instance().virtualToRealId(id)
+#define REAL_TO_VIRTUAL_SHM_ID(id) SysVShm::instance().realToVirtualId(id)
+#define VIRTUAL_TO_REAL_SHM_ID(id) SysVShm::instance().virtualToRealId(id)
+
+#define REAL_TO_VIRTUAL_SEM_ID(id) SysVSem::instance().realToVirtualId(id)
+#define VIRTUAL_TO_REAL_SEM_ID(id) SysVSem::instance().virtualToRealId(id)
+
+#define REAL_TO_VIRTUAL_MSQ_ID(id) SysVMsq::instance().realToVirtualId(id)
+#define VIRTUAL_TO_REAL_MSQ_ID(id) SysVMsq::instance().virtualToRealId(id)
 
 union semun {
   int              val;    /* Value for SETVAL */
@@ -59,17 +63,13 @@ union semun {
 
 namespace dmtcp
 {
+  class SysVObj;
   class ShmSegment;
   class Semaphore;
   class MsgQueue;
 
   class SysVIPC
   {
-    enum SysVIPCType {
-      SHM = 0x10000,
-      TYPEMASK = SHM
-    };
-
     public:
 #ifdef JALIB_ALLOCATOR
       static void* operator new(size_t nbytes, void* p) { return p; }
@@ -77,66 +77,84 @@ namespace dmtcp
       static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
 #endif
 
-      SysVIPC();
-
-      static SysVIPC& instance();
-
+      SysVIPC(const char *str, int32_t id, int type);
+      void removeStaleObjects();
       void resetOnFork();
       void leaderElection();
       void preCkptDrain();
       void preCheckpoint();
+      void preResume();
       void refill(bool isRestart);
       void postRestart();
-      void preResume();
-
-      int  virtualToRealId(int virtId) {
-        if (_ipcVirtIdTable.virtualIdExists(virtId)) {
-          return _ipcVirtIdTable.virtualToReal(virtId);
-        } else {
-          int realId = SharedData::getRealIPCId(virtId);
-          _ipcVirtIdTable.updateMapping(virtId, realId);
-          return realId;
-        }
-      }
-      int  realToVirtualId(int realId) {
-        if (_ipcVirtIdTable.realIdExists(realId)) {
-          return _ipcVirtIdTable.realToVirtual(realId);
-        } else {
-          return -1;
-        }
-      }
-      void updateMapping(int virtId, int realId) {
-        _ipcVirtIdTable.updateMapping(virtId, realId);
-        SharedData::setIPCIdMap(virtId, realId);
-      }
-
-      int  getNewVirtualId();
-      int  shmaddrToShmid(const void* shmaddr);
-      void removeStaleObjects();
-
-      void on_shmget(int shmid, key_t key, size_t size, int shmflg);
-      void on_shmat(int shmid, const void *shmaddr, int shmflg, void* newaddr);
-      void on_shmdt(const void *shmaddr);
-
-      void on_semget(int semid, key_t key, int nsems, int semflg);
-      void on_semctl(int semid, int semnum, int cmd, union semun arg);
-      void on_semop(int semid, struct sembuf *sops, unsigned nsops);
-
-      void on_msgget(int msqid, key_t key, int msgflg);
-      void on_msgctl(int msqid, int cmd, struct msqid_ds *buf);
-      void on_msgsnd(int msqid, const void *msgp, size_t msgsz, int msgflg);
-      void on_msgrcv(int msqid, const void *msgp, size_t msgsz,
-                     int msgtyp, int msgflg);
-
+      int  virtualToRealId(int virtId);
+      int  realToVirtualId(int realId);
+      void updateMapping(int virtId, int realId);
+      int getNewVirtualId();
       void serialize(jalib::JBinarySerializer& o);
-    private:
-      dmtcp::map<int, ShmSegment*> _shm;
-      typedef dmtcp::map<int, ShmSegment*>::iterator ShmIterator;
-      dmtcp::map<int, Semaphore*> _sem;
-      typedef dmtcp::map<int, Semaphore*>::iterator SemIterator;
-      dmtcp::map<int, MsgQueue*> _msq;
-      typedef dmtcp::map<int, MsgQueue*>::iterator MsqIterator;
-      VirtualIdTable<int32_t> _ipcVirtIdTable;
+
+      virtual void on_shmget(int shmid, key_t key, size_t size, int shmflg) {}
+      virtual void on_shmat(int shmid, const void *shmaddr, int shmflg,
+                            void* newaddr) {}
+      virtual void on_shmdt(const void *shmaddr) {}
+
+      virtual void on_semget(int semid, key_t key, int nsems, int semflg) {}
+      virtual void on_semctl(int semid, int semnum, int cmd, union semun arg) {}
+      virtual void on_semop(int semid, struct sembuf *sops, unsigned nsops) {}
+
+      virtual void on_msgget(int msqid, key_t key, int msgflg) {}
+      virtual void on_msgctl(int msqid, int cmd, struct msqid_ds *buf) {}
+      virtual void on_msgsnd(int msqid, const void *msgp, size_t msgsz,
+                             int msgflg) {}
+      virtual void on_msgrcv(int msqid, const void *msgp, size_t msgsz,
+                     int msgtyp, int msgflg) {}
+
+    protected:
+      int _type;
+      dmtcp::map<int, SysVObj*> _map;
+      typedef dmtcp::map<int, SysVObj*>::iterator Iterator;
+      VirtualIdTable<int32_t> _virtIdTable;
+  };
+
+  class SysVShm : public SysVIPC
+  {
+    public:
+      SysVShm()
+        : SysVIPC("SysVShm", getpid(), SYSV_SHM_ID) {}
+
+      static SysVShm& instance();
+
+      int  shmaddrToShmid(const void* shmaddr);
+      virtual void on_shmget(int shmid, key_t key, size_t size, int shmflg);
+      virtual void on_shmat(int shmid, const void *shmaddr, int shmflg,
+                            void* newaddr);
+      virtual void on_shmdt(const void *shmaddr);
+  };
+
+  class SysVSem : public SysVIPC
+  {
+    public:
+      SysVSem()
+        : SysVIPC("SysVSem", getpid(), SYSV_SEM_ID) {}
+
+      static SysVSem& instance();
+      virtual void on_semget(int semid, key_t key, int nsems, int semflg);
+      virtual void on_semctl(int semid, int semnum, int cmd, union semun arg);
+      virtual void on_semop(int semid, struct sembuf *sops, unsigned nsops);
+  };
+
+  class SysVMsq : public SysVIPC
+  {
+    public:
+      SysVMsq()
+        : SysVIPC("SysVMsq", getpid(), SYSV_MSQ_ID) {}
+
+      static SysVMsq& instance();
+      virtual void on_msgget(int msqid, key_t key, int msgflg);
+      virtual void on_msgctl(int msqid, int cmd, struct msqid_ds *buf);
+      virtual void on_msgsnd(int msqid, const void *msgp, size_t msgsz,
+                             int msgflg);
+      virtual void on_msgrcv(int msqid, const void *msgp, size_t msgsz,
+                     int msgtyp, int msgflg);
   };
 
   class SysVObj
