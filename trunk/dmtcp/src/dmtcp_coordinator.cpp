@@ -98,7 +98,7 @@ static const char* theUsage =
   "      Port to listen on (default: 7779)\n"
   "  --port-file\n"
   "      File to write listener port number.\n"
-  "      (Useful with '--port 0', that is used to assign a random port)\n"
+  "      (Useful with '--port 0', which is used to assign a random port)\n"
   "  --ckptdir, -c, (environment variable DMTCP_CHECKPOINT_DIR):\n"
   "      Directory to store dmtcp_restart_script.sh (default: ./)\n"
   "  --tmpdir, -t, (environment variable DMTCP_TMPDIR):\n"
