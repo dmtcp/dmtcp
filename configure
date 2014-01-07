@@ -6589,7 +6589,7 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 /* end confdefs.h.  */
 
   #include <stdio.h>
-  #include <features.h>  # This often causes a problem
+  #include <features.h>  /* This often causes a problem. */
 
 int
 main ()
@@ -6637,12 +6637,12 @@ ac_link='$CXX -o conftest$ac_exeext $CXXFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ex
 ac_compiler_gnu=$ac_cv_cxx_compiler_gnu
 
   old_CXXFLAGS="$CXXFLAGS"
-  CFLAGS="$CFLAGS -m32"
+  CXXFLAGS="$CXXFLAGS -m32"
   cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
   #include <stdio.h>
-  #include <features.h>  # This often causes a problem
+  #include <features.h>  /* This often causes a problem. */
 
 int
 main ()

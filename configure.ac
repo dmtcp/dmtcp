@@ -387,7 +387,7 @@ if test "$use_m32" = "yes"; then
   CFLAGS="$CFLAGS -m32"
   AC_LINK_IFELSE([AC_LANG_PROGRAM([[
   #include <stdio.h>
-  #include <features.h>  # This often causes a problem
+  #include <features.h>  /* This often causes a problem. */
   ]], [[
   printf("Hello, world!\n");
   ]])], [cc_m32='yes'], [cc_m32='no'])
@@ -405,10 +405,10 @@ if test "$use_m32" = "yes"; then
   AC_MSG_CHECKING([whether multilib $CXX compiles using -m32]) 
   AC_LANG_PUSH([C++])
   old_CXXFLAGS="$CXXFLAGS"
-  CFLAGS="$CFLAGS -m32"
+  CXXFLAGS="$CXXFLAGS -m32"
   AC_LINK_IFELSE([AC_LANG_PROGRAM([[
   #include <stdio.h>
-  #include <features.h>  # This often causes a problem
+  #include <features.h>  /* This often causes a problem. */
   ]], [[
   printf("Hello, world!\n");
   ]])], [cplusplus_m32='yes'], [cplusplus_m32='no'])
