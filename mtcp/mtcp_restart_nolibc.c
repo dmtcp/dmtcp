@@ -156,12 +156,13 @@ void mtcp_restoreverything (int should_mmap_ckpt_image, VA finishrestore_fptr)
               new_brk, mtcp_saved_break);
     else {
       if (new_brk == current_brk)
-        MTCP_PRINTF("error: new/current break (%p) != saved break (%p)\n",
+        MTCP_PRINTF("error: new/current break (%p) != saved break (%p)\n"
+                    "Trying to continue anyway\n",
                     current_brk, mtcp_saved_break);
       else
         MTCP_PRINTF("error: new break (%p) != current break (%p)\n",
                     new_brk, current_brk);
-      mtcp_abort ();
+      //mtcp_abort ();
     }
   }
   DPRINTF("current_brk: %p; mtcp_saved_break: %p; new_brk: %p\n",
