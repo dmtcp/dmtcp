@@ -1660,7 +1660,12 @@ void dmtcp::DmtcpCoordinator::eventLoop(bool daemon)
 void dmtcp::DmtcpCoordinator::addDataSocket(CoordClient *client)
 {
   struct epoll_event ev;
+
+#ifdef EPOLLRDHUP
   ev.events = EPOLLIN | EPOLLRDHUP;
+#else
+  ev.events = EPOLLIN;
+#endif
   ev.data.ptr = client;
   JASSERT(epoll_ctl(epollFd, EPOLL_CTL_ADD, client->sock().sockfd(), &ev) != -1)
     (JASSERT_ERRNO);
