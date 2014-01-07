@@ -20,8 +20,8 @@ try:
   sys.path += [os.getenv("PWD") + '/test', os.getenv('PWD')]
   from autotest_config import *
 
-except ImportError as e:
-  print "\n*** Error importing autotest_config.py: " + str(e)
+except ImportError:
+  print "\n*** Error importing autotest_config.py: "
   sys.exit()
 
 if USE_TEST_SUITE == "no":
