@@ -4,6 +4,13 @@ This plugin supports checkpointing of applications over InfiniBand.
 This is the work of Jiajun Cao et al.  Please report bugs to
 dmtcp@ccs.neu.edu as well as to jiajun using his account at ccs.neu.edu.
 
+[
+ * Note that this plugin will be reorganized by the end of January, 2014.
+ * The reorganized plugin will not be available in time for the DMTCP 2.1
+ * release.  If you are using DMTCP 2.1, consider getting the newer plugin from
+ * the DMTCP svn.
+]
+
 To use InfiniBand, you must have first configured DMTCP to use it:
 To do so:
   cd <DMTCP_ROOT>  # replace with wherever your DMTCP_ROOT is.

@@ -32,6 +32,9 @@ infiniband:  Support for checkpointing applications over InfiniBand.
 	networks).  This plugin extends that support to InfiniBand.
         In order to use this plugin, one must configure dmtcp with
         --enable-infiniband-support flag.
+          [Note: If you are using a newer release of OFED, you may wish
+                 to use the rewrite of this plugin,
+                 to be available from the svn in late January, 2014. ]
 	This is the work of Jiajun Cao et al.
 	Please report bugs to dmtcp@ccs.neu.edu as well as to
 	jiajun using his account at ccs.neu.edu.

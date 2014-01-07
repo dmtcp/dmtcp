@@ -1,0 +1,32 @@
+To install DMTCP, see the file:
+  INSTALL
+
+For an overview DMTCP, see the file:
+  QUICK-START
+
+For the licene an overview DMTCP, see the file:
+  COPYING
+
+Directory layout:
+ - subdirectories: dmtcp and mtcp : will eventually be combined into
+   	a future top-level 'src' subdirectory
+ - bin : DMTCP binaries (dmtcp_launch, dmtcp_restart, dmtcp_coordinator, etc.)
+ - lib : DMTCP internal libraries, including internal plugins that are
+        not exposed to the end user.
+ - test : Used by 'make check'
+ - plugin : (top-level directory of optional plugins; they must be
+             invoked by a command line flag of 'dmtcp_launch')
+ - doc : Random documentation on aspects of the DMTCP design
+         Note especially:  doc/plugin-tutorial.pdf
+ - include : Contains dmtcp.h ; useful for third-party plugins
+ - contrib : Contributed plugins and other addons.  The more popular ones
+             will eventually be migrated to the top-level plugin directory
+             as they become mature;  Contrib plugins are not built by default
+ - util : random utilities useful mostly for experts
+
+For more information on DMTCP, see:
+  http://dmtcp.sourceforge.net
+That web page also contains the release notes for each DMTCP release.
+
+For the latest version of DMTCP (both official release and svn), see:
+  http://dmtcp.sourceforge.net/downloads.html
