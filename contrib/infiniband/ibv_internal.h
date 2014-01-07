@@ -1,4 +1,27 @@
-/*! \file ibv_internal.h */
+/****************************************************************************
+ *   Copyright (C) 2011-2013 by Greg Kerr, Jiajun Cao, Kapil Arya, and      *
+ *   Gene Cooperman                                                         *
+ *   kerrgi@gmail.com, jiajun@ccs.neu.edu, kapil@ccs.neu.edu, and           *
+ *   gene@ccs.neu.edu                                                       *
+ *                                                                          *
+ *   This file is part of the infiniband plugin for DMTCP                   *
+ *   (DMTCP:plugin/infiniband).                                             *
+ *                                                                          *
+ *  DMTCP:plugin/infiniband is free software: you can redistribute it and/or*
+ *  modify it under the terms of the GNU Lesser General Public License as   *
+ *  published by the Free Software Foundation, either version 3 of the      *
+ *  License, or (at your option) any later version.                         *
+ *                                                                          *
+ *  DMTCP:plugin/infininband is distributed in the hope that it will be     *
+ *  useful, but WITHOUT ANY WARRANTY; without even the implied warranty of  *
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
+ *  GNU Lesser General Public License for more details.                     *
+ *                                                                          *
+ *  You should have received a copy of the GNU Lesser General Public        *
+ *  License along with DMTCP:plugin/infiniband.  If not, see                *
+ *  <http://www.gnu.org/licenses/>.                                         *
+ ****************************************************************************/
+
 #include <infiniband/verbs.h>
 #include "ibvidentifier.h"
 #include "lib/list.h"
