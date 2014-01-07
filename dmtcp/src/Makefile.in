@@ -549,15 +549,8 @@ __targetdir__lib_dmtcp_libdmtcp_so_SOURCES = dmtcpworker.cpp threadsync.cpp \
 		      glibcsystem.cpp \
 		      dmtcpplugin.cpp popen.cpp syslogwrappers.cpp
 
-
-# Add the following three paths to rpath:
-# 1. ../                : Useful when installed with 'make DESTDIR=xxx install'
-# 2. $ORIGIN/../../lib  : Useful when running from build directory
-# 3. $(libdir)          : Useful when installed with 'make install'
 __targetdir__lib_dmtcp_libdmtcp_so_LDFLAGS = -shared -L$(targetdir)/lib \
-		      -Xlinker -rpath -Xlinker ../ \
-		      -Xlinker -rpath -Xlinker '$$ORIGIN/../' \
-		      -Xlinker -rpath -Xlinker $(libdir)
+		      -Xlinker -rpath -Xlinker '$$ORIGIN/../'
 
 
 #dmtcp_nocheckpoint_LDFLAGS = -static
