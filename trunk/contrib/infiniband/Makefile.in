@@ -147,7 +147,7 @@ dist: distclean
 	dir=`basename $$PWD`; ls -l ../$$dir.tar.gz
 
 install-libs: all
-	install -D ${LIBNAME} $(DESTDIR)$(pkglibdir)
+	install ${LIBNAME} $(DESTDIR)$(pkglibdir)
 
 uninstall-libs:
 	rm -f $(DESTDIR)$(pkglibdir)/$(LIBNAME)

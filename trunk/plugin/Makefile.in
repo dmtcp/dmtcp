@@ -18,7 +18,8 @@ infodir=@mandir@
 
 plugins = ptrace modify-env batch-queue
 
-default: $(plugins)
+default:
+	for p in $(plugins); do (cd $$p && $(MAKE)); done
 
 all: default
 
@@ -54,4 +55,4 @@ uninstall:
 uninstall-libs:
 	for p in $(plugins); do (cd $$p && $(MAKE) uninstall-libs); done
 
-.PHONY: default all ptrace tidy clean distclean install uninstall
+.PHONY: default all ptrace modify-env batch-queue tidy clean distclean install uninstall
