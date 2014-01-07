@@ -114,13 +114,13 @@ distclean: clean
 	rm -f Makefile
 
 install-libs: all
-	install -D ${LIBNAME} $(DESTDIR)$(pkglibdir)
+	install ${LIBNAME} $(DESTDIR)$(pkglibdir)
 
 uninstall-libs:
 	rm -f $(DESTDIR)$(pkglibdir)/$(LIBNAME)
 
 install: install-libs
-	install -D $(targetdir)/bin/dmtcp_ssh* $(DESTDIR)$(bindir)
+	install $(targetdir)/bin/dmtcp_ssh* $(DESTDIR)$(bindir)
 
 uninstall: uninstall-libs
 	rm -f $(DESTDIR)$(bindir)/dmtcp_ssh*

@@ -21,6 +21,7 @@ exec_prefix=@exec_prefix@
 datarootdir=@datarootdir@
 bindir=@bindir@
 libdir=@libdir@
+pkglibdir = @libdir@/@PACKAGE@
 docdir=@docdir@
 includedir=@includedir@
 mandir=@mandir@
@@ -231,6 +232,7 @@ include: $(targetdir)/include/mtcp.h $(targetdir)/include/dmtcp.h
 create-dirs:
 	test -e $(DESTDIR)$(bindir) || $(MKDIR_P) $(DESTDIR)$(bindir)
 	test -e $(DESTDIR)$(libdir) || $(MKDIR_P) $(DESTDIR)$(libdir)
+	test -e $(DESTDIR)$(pkglibdir) || $(MKDIR_P) $(DESTDIR)$(pkglibdir)
 	test -e $(DESTDIR)$(includedir) || $(MKDIR_P) $(DESTDIR)$(includedir)
 ifeq ($(M32),1)
 	test -e $(DESTDIR)$(libdir)/$(PACKAGE)/32/bin || \
@@ -246,9 +248,9 @@ install: all create-dirs
 	cd mtcp && make DESTDIR=$(DESTDIR)  $(INSTALL_FLAGS)
 ifeq ($(M32),0)
 	test -e $(DESTDIR)$(docdir)/examples || $(MKDIR_P) $(DESTDIR)$(docdir)/examples
-	install -D $(top_srcdir)/test/dmtcpaware*.c $(DESTDIR)$(docdir)/examples
+	install $(top_srcdir)/test/dmtcpaware*.c $(DESTDIR)$(docdir)/examples
 	test -e $(DESTDIR)$(mandir)/man1 || $(MKDIR_P) $(DESTDIR)$(mandir)/man1
-	install -D $(top_srcdir)/manpages/dmtcp.1 $(DESTDIR)$(mandir)/man1
+	install $(top_srcdir)/manpages/dmtcp.1 $(DESTDIR)$(mandir)/man1
 	(cd $(DESTDIR)$(mandir)/man1; \
 	  for file in ${MANPAGES}; do $(LN_S) dmtcp.1 $$file; done)
 endif

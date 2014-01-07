@@ -189,19 +189,19 @@ endif
 all default: build tests readmtcp
 
 install-libs: build
-	install -D $(targetdir)/bin/$(MTCP_RESTART) $(DESTDIR)$(bindir)
-	install -D $(targetdir)/lib/libmtcp.so.$(LIBMTCP_SOVERSION_INFO) \
+	install $(targetdir)/bin/$(MTCP_RESTART) $(DESTDIR)$(bindir)
+	install $(targetdir)/lib/libmtcp.so.$(LIBMTCP_SOVERSION_INFO) \
 	  $(DESTDIR)$(libdir)
-	install -D $(targetdir)/lib/libmtcp.so.$(LIBMTCP_SOVERSION_MAJOR) \
+	install $(targetdir)/lib/libmtcp.so.$(LIBMTCP_SOVERSION_MAJOR) \
 	  $(DESTDIR)$(libdir)
-	install -D $(targetdir)/lib/libmtcp.so $(DESTDIR)$(libdir)
+	install $(targetdir)/lib/libmtcp.so $(DESTDIR)$(libdir)
 
 uninstall-libs:
 	rm -f "$(DESTDIR)$(bindir)/$(MTCP_RESTART)"
 	rm -f "$(DESTDIR)$(libdir)"/libmtcp.so*
 
 install: build install-libs
-	install -D $(srcdir)/mtcp.h $(DESTDIR)$(includedir)
+	install $(srcdir)/mtcp.h $(DESTDIR)$(includedir)
 
 uninstall: uninstall-libs
 	rm -f "$(DESTDIR)$(includedir)/mtcp.h"
@@ -373,7 +373,7 @@ libmtcp.so: mtcp.t ${LIBRARY_OBJS}
 	  echo MTCP: Warning: "'${OBJCOPY}'" failed. && \
 	  cp ./libtmp.so ./libmtcp.so.$(LIBMTCP_SOVERSION_INFO)
 	rm -f ./libtmp.so
-	@nm -D libmtcp.so.$(LIBMTCP_SOVERSION_INFO) | grep ' [BTD] ' | \
+	@nm libmtcp.so.$(LIBMTCP_SOVERSION_INFO) | grep ' [BTD] ' | \
 	  grep -v ' d\?mtcp_' | \
 	  grep -v '__bss_start\|_edata\|_end' | \
 	  grep -v clone | grep -v '_fini\|init' | grep ' [BTD] ' 1>&2 && \
@@ -389,7 +389,7 @@ $(targetdir)/lib/libmtcp.so: ${LIBRARY_OBJS}
 	  libmtcp.so.$(LIBMTCP_SOVERSION_MAJOR) )
 	( cd $(targetdir)/lib && \
 	  ln -sf libmtcp.so.$(LIBMTCP_SOVERSION_MAJOR) libmtcp.so )
-	@nm -D $@ | grep ' [BTD] ' | \
+	@nm $@ | grep ' [BTD] ' | \
 	  grep -v ' d\?mtcp_' | \
 	  grep -v '__bss_start\|_edata\|_end' | \
 	  grep -v clone | grep -v '_fini\|init' | grep ' [BTD] ' 1>&2 && \

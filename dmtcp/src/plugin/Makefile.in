@@ -18,7 +18,8 @@ infodir=@mandir@
 
 plugins = pid ipc alloc
 
-default: $(plugins)
+default:
+	for p in $(plugins); do (cd $$p && $(MAKE)); done
 
 all: default
 

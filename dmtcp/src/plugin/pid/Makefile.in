@@ -90,7 +90,7 @@ distclean: clean
 	rm -f Makefile
 
 install-libs: all
-	install -D ${LIBNAME} $(DESTDIR)$(pkglibdir)
+	install ${LIBNAME} $(DESTDIR)$(pkglibdir)
 
 uninstall-libs:
 	rm -f $(DESTDIR)$(pkglibdir)/$(LIBNAME)
