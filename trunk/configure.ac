@@ -7,6 +7,7 @@ AC_PROG_MAKE_SET
 AC_PROG_LN_S
 AC_PROG_MKDIR_P
 AC_PROG_CC
+AC_PROG_CPP
 AC_PROG_CXX
 dnl This sets OPENMP_CFLAGS
 AC_OPENMP
@@ -380,12 +381,34 @@ else
 fi
 
 if test "$use_m32" = "yes"; then
+  AC_MSG_CHECKING([whether multilib $CC compiles using -m32]) 
+  AC_LANG_PUSH([C])
+  old_CFLAGS="$CFLAGS"
+  CFLAGS="$CFLAGS -m32"
+  AC_LINK_IFELSE([AC_LANG_PROGRAM([[
+  #include <stdio.h>
+  #include <features.h>  # This often causes a problem
+  ]], [[
+  printf("Hello, world!\n");
+  ]])], [cc_m32='yes'], [cc_m32='no'])
+  CFLAGS="$old_CFLAGS"
+  AC_LANG_POP([C])
+  AC_MSG_RESULT([$cc_m32]) 
+  if test "$cc_m32" = "no"; then
+    AC_MSG_FAILURE([[Failed to build with -m32
+    Consider installing gcc-multilib (and g++-multilib) or
+      the equivalent packages for your Linux distro.]])
+  fi
+fi
+
+if test "$use_m32" = "yes"; then
   AC_MSG_CHECKING([whether multilib $CXX compiles using -m32]) 
   AC_LANG_PUSH([C++])
   old_CXXFLAGS="$CXXFLAGS"
   CFLAGS="$CFLAGS -m32"
   AC_LINK_IFELSE([AC_LANG_PROGRAM([[
   #include <stdio.h>
+  #include <features.h>  # This often causes a problem
   ]], [[
   printf("Hello, world!\n");
   ]])], [cplusplus_m32='yes'], [cplusplus_m32='no'])
@@ -395,7 +418,7 @@ if test "$use_m32" = "yes"; then
   if test "$cplusplus_m32" = "no"; then
     AC_MSG_FAILURE([[Failed to build with -m32
     Typically, this means that 32-bit libstdc++.so was not found
-    Consider installing g++-multilib or equivalent pkg for your Linux distro]])
+    Consider installing g++-multilib or equivalent pkg for your Linux distro.]])
   fi
 fi
 
