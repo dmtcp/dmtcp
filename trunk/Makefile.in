@@ -248,7 +248,6 @@ install: all create-dirs
 	cd mtcp && make DESTDIR=$(DESTDIR)  $(INSTALL_FLAGS)
 ifeq ($(M32),0)
 	test -e $(DESTDIR)$(docdir)/examples || $(MKDIR_P) $(DESTDIR)$(docdir)/examples
-	install $(top_srcdir)/test/dmtcpaware*.c $(DESTDIR)$(docdir)/examples
 	test -e $(DESTDIR)$(mandir)/man1 || $(MKDIR_P) $(DESTDIR)$(mandir)/man1
 	install $(top_srcdir)/manpages/dmtcp.1 $(DESTDIR)$(mandir)/man1
 	(cd $(DESTDIR)$(mandir)/man1; \
