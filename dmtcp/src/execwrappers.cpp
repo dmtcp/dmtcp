@@ -485,12 +485,6 @@ dmtcp::vector<const char*> patchUserEnv (dmtcp::vector<dmtcp::string> &envp,
   return envVect;
 }
 
-extern "C" int __execve (const char *filename, char *const argv[],
-                        char *const envp[])
-{
-  JASSERT(false);
-}
-
 extern "C" int execve (const char *filename, char *const argv[],
                         char *const envp[])
 {

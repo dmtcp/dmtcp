@@ -1,4 +1,5 @@
 #include <stdio.h>
+#define __USE_GNU
 #include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>

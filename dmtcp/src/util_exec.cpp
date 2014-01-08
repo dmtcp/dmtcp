@@ -425,7 +425,7 @@ static int32_t getDlsymOffset_m32()
        + " | tr '\t' ' ' | tr -s ' '| cut -d' ' -f4";
   fp = popen(cmd1.c_str(), "r");
   JASSERT(fp != NULL);
-  fscanf(fp, "%s", &buf);
+  JASSERT(fscanf(fp, "%s", (char*) &buf) == 1);
   fclose(fp);
   JASSERT(buf[0] == '/');
 
@@ -434,13 +434,13 @@ static int32_t getDlsymOffset_m32()
   cmd2 = "nm -D -g " + libdl + " | grep 'dlinfo'";
   fp = popen(cmd2.c_str(), "r");
   JASSERT(fp != NULL);
-  fscanf(fp, "%x", &base_addr);
+  JASSERT(fscanf(fp, "%lx", &base_addr) == 1);
   fclose(fp);
 
   cmd2 = "nm -D -g " + libdl + " | grep 'dlsym'";
   fp = popen(cmd2.c_str(), "r");
   JASSERT(fp != NULL);
-  fscanf(fp, "%x", &dlsym_addr);
+  JASSERT(fscanf(fp, "%lx", &dlsym_addr) == 1);
   fclose(fp);
 
   JASSERT(base_addr != 0 && dlsym_addr != 0);

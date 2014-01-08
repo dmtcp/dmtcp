@@ -177,7 +177,7 @@ int readAndSetEnv(char *buf, int size) {
             }
           }
           // Copy expansion of envName into dest
-          int rc;
+          int rc = 0;
           if (isNameChanged && getenv(envName)) {
             strcpy(dest, getenv(envName));
           } else {
