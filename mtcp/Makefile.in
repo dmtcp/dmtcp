@@ -132,7 +132,7 @@ ifdef USE_PROC_MAPS
 endif
 
 #Currently sometimes can't link libmtcp.so without MTCP_CFLAGS=-O0
-MTCP_CFLAGS += ${CFLAGS} ${CPPFLAGS} -O0 -g
+MTCP_CFLAGS += ${CFLAGS} ${CPPFLAGS} -O0 -g -U_FORTIFY_SOURCE
 
 # Use this for standalone MTCP debugging to stderr, or DMTCP debugging to
 #   stderr (and to jassertlog.* , if configured with --enable-debug)
