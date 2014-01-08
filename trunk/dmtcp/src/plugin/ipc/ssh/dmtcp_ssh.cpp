@@ -15,6 +15,7 @@
 #include "ssh.h"
 
 static int listenSock = -1;
+static int noStrictHostKeyChecking = 0;
 
 extern "C" void dmtcp_get_local_ip_addr(struct in_addr *addr) __attribute((weak));
 
@@ -130,6 +131,11 @@ int main(int argc, char *argv[], char *envp[])
   int status;
   int ssh_stdinfd, ssh_stdoutfd, ssh_stderrfd;
 
+  if (strcmp(argv[1], "--noStrictHostKeyChecking") == 0) {
+    noStrictHostKeyChecking = 1;
+    argv++;
+  }
+
   createStdioFds(in, out, err);
   listenSock = openListenSocket();
   signal(SIGCHLD, signal_handler);
@@ -192,7 +198,8 @@ int main(int argc, char *argv[], char *envp[])
   ssh_stderrfd = err[0];
 
   assert(dmtcp_ssh_register_fds != NULL);
-  dmtcp_ssh_register_fds(false, ssh_stdinfd, ssh_stdoutfd, ssh_stderrfd, childSock);
+  dmtcp_ssh_register_fds(false, ssh_stdinfd, ssh_stdoutfd, ssh_stderrfd,
+                         childSock, noStrictHostKeyChecking);
 
   client_loop(ssh_stdinfd, ssh_stdoutfd, ssh_stderrfd, childSock);
   wait(&status);

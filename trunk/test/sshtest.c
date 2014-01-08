@@ -51,8 +51,6 @@ int main(int argc, char *argv[])
     char *argv[] = {
                     "/usr/bin/ssh",
                     "-o",
-                    "BatchMode=yes",
-                    "-o",
                     "StrictHostKeyChecking=no",
                     hostname,
 #ifdef USE_DMTCP1

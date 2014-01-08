@@ -13,7 +13,8 @@
 #define SSHD_RECEIVE_FD 100
 
 extern "C" void dmtcp_ssh_register_fds(int isSshd, int in, int out, int err,
-                                       int sock) __attribute((weak));
+                                       int sock, int noStrictHostKeyChecking)
+  __attribute((weak));
 
 void client_loop(int ssh_stdin, int ssh_stdout, int ssh_stderr, int remoteSock);
 
