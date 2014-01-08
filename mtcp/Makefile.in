@@ -192,9 +192,11 @@ install-libs: build
 	install $(targetdir)/bin/$(MTCP_RESTART) $(DESTDIR)$(bindir)
 	install $(targetdir)/lib/libmtcp.so.$(LIBMTCP_SOVERSION_INFO) \
 	  $(DESTDIR)$(libdir)
-	install $(targetdir)/lib/libmtcp.so.$(LIBMTCP_SOVERSION_MAJOR) \
-	  $(DESTDIR)$(libdir)
-	install $(targetdir)/lib/libmtcp.so $(DESTDIR)$(libdir)
+	(cd $(DESTDIR)$(libdir) && \
+	  ${LN_S} libmtcp.so.$(LIBMTCP_SOVERSION_INFO) \
+	  libmtcp.so.$(LIBMTCP_SOVERSION_MAJOR))
+	(cd $(DESTDIR)$(libdir) && \
+	  ${LN_S} libmtcp.so.$(LIBMTCP_SOVERSION_MAJOR) libmtcp.so)
 
 uninstall-libs:
 	rm -f "$(DESTDIR)$(bindir)/$(MTCP_RESTART)"
@@ -354,9 +356,9 @@ libmtcp.so: mtcp.t ${LIBRARY_OBJS}
 	  -Wl,--no-gc-sections -Wl,--no-strip-discarded \
 	  -o libmtcp.so.$(LIBMTCP_SOVERSION_INFO) ${LIBRARY_OBJS} \
 	  -ldl -lpthread -lm -z defs
-	ln -sf libmtcp.so.$(LIBMTCP_SOVERSION_INFO) \
+	${LN_S} libmtcp.so.$(LIBMTCP_SOVERSION_INFO) \
 	  libmtcp.so.$(LIBMTCP_SOVERSION_MAJOR)
-	ln -sf libmtcp.so.$(LIBMTCP_SOVERSION_MAJOR) libmtcp.so
+	${LN_S} libmtcp.so.$(LIBMTCP_SOVERSION_MAJOR) libmtcp.so
 	# We need to set ALLOC, or 'eu-strip --remove-comment' will strip our
 	# section on Red Hat-based machines w/ debuginfo repository.
 	# Redirect stderr to suppress warning that section is not in a segment.
@@ -385,10 +387,10 @@ $(targetdir)/lib/libmtcp.so: ${LIBRARY_OBJS}
 	  -ldl -lpthread -lm \
 	  -o $(targetdir)/lib/libmtcp.so.$(LIBMTCP_SOVERSION_INFO)
 	( cd $(targetdir)/lib && \
-	  ln -sf libmtcp.so.$(LIBMTCP_SOVERSION_INFO) \
+	  ${LN_S} libmtcp.so.$(LIBMTCP_SOVERSION_INFO) \
 	  libmtcp.so.$(LIBMTCP_SOVERSION_MAJOR) )
 	( cd $(targetdir)/lib && \
-	  ln -sf libmtcp.so.$(LIBMTCP_SOVERSION_MAJOR) libmtcp.so )
+	  ${LN_S} libmtcp.so.$(LIBMTCP_SOVERSION_MAJOR) libmtcp.so )
 	@nm $@ | grep ' [BTD] ' | \
 	  grep -v ' d\?mtcp_' | \
 	  grep -v '__bss_start\|_edata\|_end' | \
