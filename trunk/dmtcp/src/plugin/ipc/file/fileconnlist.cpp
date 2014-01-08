@@ -251,7 +251,7 @@ void dmtcp::FileConnList::scanForPreExisting()
     if (device == ctty || device == parentCtty) {
       // Search if this is duplicate connection
       iterator conit;
-      int cttyType = (device == ctty) ? PtyConnection::PTY_CTTY
+      uint32_t cttyType = (device == ctty) ? PtyConnection::PTY_CTTY
                                       : PtyConnection::PTY_PARENT_CTTY;
       for (conit = begin(); conit != end(); conit++) {
         Connection *c = conit->second;

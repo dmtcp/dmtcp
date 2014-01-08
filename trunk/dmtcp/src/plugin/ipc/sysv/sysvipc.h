@@ -109,10 +109,10 @@ namespace dmtcp
                      int msgtyp, int msgflg) {}
 
     protected:
-      int _type;
       dmtcp::map<int, SysVObj*> _map;
       typedef dmtcp::map<int, SysVObj*>::iterator Iterator;
       VirtualIdTable<int32_t> _virtIdTable;
+      int _type;
   };
 
   class SysVShm : public SysVIPC

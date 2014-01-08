@@ -171,7 +171,7 @@ namespace dmtcp
       int64_t       _offset;
       uint64_t      _st_dev;
       uint64_t      _st_ino;
-      uint64_t      _st_size;
+      int64_t       _st_size;
   };
 
   class FifoConnection : public Connection

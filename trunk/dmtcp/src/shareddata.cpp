@@ -315,8 +315,8 @@ void dmtcp::SharedData::setPidMap(pid_t virt, pid_t real)
 int32_t dmtcp::SharedData::getRealIPCId(int type, int32_t virt)
 {
   int32_t res = -1;
-  uint32_t nmaps;
-  IPCIdMap *map;
+  uint32_t nmaps = 0;
+  IPCIdMap *map = NULL;
   if (sharedDataHeader == NULL) initialize();
   Util::lockFile(PROTECTED_SHM_FD);
   switch (type) {
@@ -351,8 +351,8 @@ int32_t dmtcp::SharedData::getRealIPCId(int type, int32_t virt)
 void dmtcp::SharedData::setIPCIdMap(int type, int32_t virt, int32_t real)
 {
   size_t i;
-  uint32_t *nmaps;
-  IPCIdMap *map;
+  uint32_t *nmaps = NULL;
+  IPCIdMap *map = NULL;
   if (sharedDataHeader == NULL) initialize();
   Util::lockFile(PROTECTED_SHM_FD);
   switch (type) {
