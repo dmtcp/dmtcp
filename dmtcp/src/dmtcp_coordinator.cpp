@@ -1369,7 +1369,7 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
 
   ctime_r(&ckptTimeStamp, timestamp);
   // Remove the trailing '\n'
-  timestamp[strlen(timestamp - 1)] = '\0';
+  timestamp[strlen(timestamp) - 1] = '\0';
   fprintf ( fp, "ckpt_timestamp=\"%s\"\n\n", timestamp );
 
   fprintf ( fp, "coord_host=$" ENV_VAR_NAME_HOST "\n"
