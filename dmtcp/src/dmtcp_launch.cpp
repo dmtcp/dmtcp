@@ -720,4 +720,23 @@ static void setLDPreloadLibs(bool is32bitElf)
   }
   JTRACE("getting value of LD_PRELOAD")
     (getenv("LD_PRELOAD")) (preloadLibs) (preloadLibs32);
+
+  /* Remove after libmtcp.so is gone */
+  if (isSSHSlave) {
+    string ldLibPath = "";
+    if (getenv("LD_LIBRARY_PATH") != NULL) {
+      ldLibPath = getenv("LD_LIBRARY_PATH");
+    }
+
+    string libmtcp = jalib::Filesystem::FindHelperUtility("libmtcp.so");
+    libmtcp = jalib::Filesystem::DirName(libmtcp);
+    ldLibPath += libmtcp;
+#if defined(__x86_64__)
+    string libmtcp32 = jalib::Filesystem::FindHelperUtility("libmtcp.so", true);
+    libmtcp32 = jalib::Filesystem::DirName(libmtcp32);
+    ldLibPath += libmtcp32;
+#endif
+
+    setenv("LD_LIBRARY_PATH", ldLibPath.c_str(), 1);
+  }
 }
