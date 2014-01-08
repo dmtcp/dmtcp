@@ -193,17 +193,26 @@ distclean: clean
 	rm -rf autom4te.cache dmtcp/autom4te.cache
 
 distsvn:
-	if test "${DISTNAME}"; then \
-	  dirname=${DISTNAME}; \
-	elif test "`svn info`"; then \
-	  dirname=$(PACKAGE)-$(VERSION)+svn`svnversion`; \
+	if test "`svn info`"; then \
+	  dir=$(PACKAGE_TARNAME)+svn`svnversion`; \
 	else \
 	  echo "svn info failed"; exit 1; \
 	fi; \
-	svn export . $$dirname; \
-	tar czf $$dirname.tar.gz $$dirname; \
-	rm -rf $$dirname 2&>/dev/null; \
-	ls -l $$dirname.tar.gz;
+	svn export . $$dir; \
+	tar czf $$dir.tar.gz $$dir; \
+	rm -rf $$dir 2&>/dev/null; \
+	ls -l $$dir.tar.gz;
+
+distgit:
+	if test "`git svn info|grep '^Revision:'|cut -d' ' -f2`"; then \
+	  svnversion="`git svn info|grep '^Revision:'|cut -d' ' -f2`" \
+	  dir=$(PACKAGE_TARNAME)+svn$$svnversion; \
+	else \
+	  echo "git svn info failed"; exit 1; \
+	fi; \
+	git archive --format=tar.gz --prefix=$$dir/ HEAD > $$dir.tar.gz \
+	rm -rf $$dir 2&>/dev/null; \
+	ls -l $$dir.tar.gz;
 
 dist_exclude.txt:
 	if ! test -r dist_exclude.txt; then touch dist_exclude.txt; fi
