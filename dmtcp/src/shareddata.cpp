@@ -262,7 +262,7 @@ void dmtcp::SharedData::updateDlsymOffset(int32_t dlsymOffset,
           sharedDataHeader->dlsymOffset_m32 == dlsymOffset_m32)
     (dlsymOffset_m32) (sharedDataHeader->dlsymOffset_m32);
   sharedDataHeader->dlsymOffset = dlsymOffset;
-  sharedDataHeader->dlsymOffset_m32 ==  dlsymOffset_m32;
+  sharedDataHeader->dlsymOffset_m32 =  dlsymOffset_m32;
 }
 
 int32_t dmtcp::SharedData::getDlsymOffset(void)
