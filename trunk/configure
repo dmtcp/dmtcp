@@ -6228,10 +6228,13 @@ fi
 
 
 
-if test -s `ssh -o BatchMode=yes localhost which dmtcp_launch 1>&2 2>/dev/null`; then
+echo -n "Checking for password-less 'ssh localhost'... "
+if ssh -o BatchMode=yes localhost true 2>/dev/null; then
+  echo "yes"
   HAS_SSH=yes
 
 else
+  echo "no"
   HAS_SSH=no
 
 fi

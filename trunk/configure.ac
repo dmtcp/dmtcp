@@ -316,9 +316,12 @@ AC_CHECK_HEADERS([linux/version.h], [], [AC_MSG_ERROR(
 #check for gzip utility
 AC_CHECK_PROG(HAS_GZIP, [gzip], [yes], [no], [/usr/bin:/bin])
 
-if test -s `ssh -o BatchMode=yes localhost which dmtcp_launch 1>&2 2>/dev/null`; then
+echo -n "Checking for password-less 'ssh localhost'... "
+if ssh -o BatchMode=yes localhost true 2>/dev/null; then
+  echo "yes"
   AC_SUBST([HAS_SSH], [yes])
 else
+  echo "no"
   AC_SUBST([HAS_SSH], [no])
 fi
 
