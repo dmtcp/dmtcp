@@ -224,6 +224,10 @@ jalib::string jalib::Filesystem::FindHelperUtility(const jalib::string& file,
     "/",
     "/../lib64/dmtcp/",
     "/../lib/dmtcp/",
+
+    /* Remove after libmtcp.so is gone */
+    "/../lib64/",
+    "/../lib/",
   };
   // FIXME: remove /.../lib{,64}/dmtcp/ above, & modify Makefile.in:(un)install
 
@@ -238,7 +242,15 @@ jalib::string jalib::Filesystem::FindHelperUtility(const jalib::string& file,
     "/lib64/dmtcp",
     "/usr/local/lib/dmtcp/",
     "/usr/lib/dmtcp/",
-    "/lib/dmtcp/"
+    "/lib/dmtcp/",
+
+    /* Remove after libmtcp.so is gone */
+    "/usr/local/lib64/",
+    "/usr/lib64/",
+    "/lib64/",
+    "/usr/local/lib/",
+    "/usr/lib/",
+    "/lib/"
   };
 
   dmtcp::string suffixFor32Bits = "";
