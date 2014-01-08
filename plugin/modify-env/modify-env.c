@@ -119,7 +119,7 @@ int readAndSetEnv(char *buf, int size) {
           break;
         }
         *dest++ = '\0';
-        *c++;
+        c++;
         // Put nameBuf and value into environment
         if (dest > nameBuf && dest < nameBuf + sizeof(nameBuf))
           unsetenv(nameBuf);  // No valueBuf means to unset that name
