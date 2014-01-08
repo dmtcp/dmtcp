@@ -55,14 +55,8 @@ default: display-build-env build
 mkdirs:
 	$(MKDIR_P) $(targetdir)/bin
 	$(MKDIR_P) $(targetdir)/lib/dmtcp
-ifeq ($(M32),0)
-	$(MKDIR_P) $(targetdir)/include
-endif
 
 build: mkdirs mtcp dmtcp plugin contrib
-ifeq ($(M32),0)
-	$(MAKE) include
-endif
 
 all: default
 
@@ -185,7 +179,7 @@ clean: tidy
 	   fi; \
 	 fi; \
 	 rm -rf $$DMTCP_TMPDIR
-	rm -rf $(targetdir)/include $(targetdir)/lib $(targetdir)/bin
+	rm -rf $(targetdir)/lib $(targetdir)/bin
 
 distclean: clean
 	- cd mtcp  && $(MAKE) distclean
@@ -221,20 +215,15 @@ dist: distclean dist_exclude.txt
 	    ./`basename $$dir`
 	ls -l ../dmtcp.tgz
 
-$(targetdir)/include/% : dmtcp/include/%
-	cp $< $@
-
-$(targetdir)/include/% : mtcp/%
-	cp $< $@
-
-include: $(targetdir)/include/mtcp.h $(targetdir)/include/dmtcp.h
-
 create-dirs:
 	test -e $(DESTDIR)$(bindir) || $(MKDIR_P) $(DESTDIR)$(bindir)
 	test -e $(DESTDIR)$(libdir) || $(MKDIR_P) $(DESTDIR)$(libdir)
 	test -e $(DESTDIR)$(pkglibdir) || $(MKDIR_P) $(DESTDIR)$(pkglibdir)
+ifeq ($(M32),0)
 	test -e $(DESTDIR)$(includedir) || $(MKDIR_P) $(DESTDIR)$(includedir)
-ifeq ($(M32),1)
+	test -e $(DESTDIR)$(docdir) || $(MKDIR_P) $(DESTDIR)$(docdir)
+	test -e $(DESTDIR)$(mandir)/man1 || $(MKDIR_P) $(DESTDIR)$(mandir)/man1
+else
 	test -e $(DESTDIR)$(libdir)/$(PACKAGE)/32/bin || \
 	  $(MKDIR_P) $(DESTDIR)$(libdir)/$(PACKAGE)/32/bin
 	test -e $(DESTDIR)$(libdir)/$(PACKAGE)/32/lib/$(PACKAGE) || \
@@ -247,8 +236,11 @@ install: all create-dirs
 	cd contrib && make DESTDIR=$(DESTDIR) $(INSTALL_FLAGS)
 	cd mtcp && make DESTDIR=$(DESTDIR)  $(INSTALL_FLAGS)
 ifeq ($(M32),0)
-	test -e $(DESTDIR)$(docdir)/examples || $(MKDIR_P) $(DESTDIR)$(docdir)/examples
-	test -e $(DESTDIR)$(mandir)/man1 || $(MKDIR_P) $(DESTDIR)$(mandir)/man1
+	install mtcp/mtcp.h $(DESTDIR)$(includedir)
+	install dmtcp/include/dmtcp.h $(DESTDIR)$(includedir)
+	install $(top_srcdir)/QUICK-START $(DESTDIR)$(docdir)
+	install $(top_srcdir)/QUICK-START $(DESTDIR)$(docdir)
+	install $(top_srcdir)/COPYING $(DESTDIR)$(docdir)
 	install $(top_srcdir)/manpages/dmtcp.1 $(DESTDIR)$(mandir)/man1
 	(cd $(DESTDIR)$(mandir)/man1; \
 	  for file in ${MANPAGES}; do $(LN_S) dmtcp.1 $$file; done)
