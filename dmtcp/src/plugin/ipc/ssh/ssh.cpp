@@ -29,6 +29,7 @@ static int sshStdout = -1;
 static int sshStderr = -1;
 static int sshSockFd = -1;
 static bool isSshdProcess = false;
+static int noStrictHostKeyChecking = 0;
 
 static bool sshPluginEnabled = false;
 
@@ -171,15 +172,22 @@ static void createNewDmtcpSshdProcess()
   pid_t sshChildPid = fork();
   JASSERT(sshChildPid != -1);
   if (sshChildPid == 0) {
-    char *argv[] = {
-                    (char*) dmtcp_nocheckpoint_path.c_str(),
-                    const_cast<char*>("ssh"),
-                    remoteHost,
-                    (char*) dmtcp_sshd_path.c_str(),
-                    const_cast<char*>("--listenAddr"),
-                    abstractSockName,
-                    NULL
-    };
+    const int max_args = 16;
+    char *argv[16];
+    int idx = 0;
+
+    argv[idx++] = (char*) dmtcp_nocheckpoint_path.c_str();
+    argv[idx++] = const_cast<char*>("ssh");
+    if (noStrictHostKeyChecking) {
+      argv[idx++] = const_cast<char*>("-o");
+      argv[idx++] = const_cast<char*>("StrictHostKeyChecking=no");
+    }
+    argv[idx++] = remoteHost;
+    argv[idx++] = (char*) dmtcp_sshd_path.c_str();
+    argv[idx++] = const_cast<char*>("--listenAddr");
+    argv[idx++] = abstractSockName;
+    argv[idx++] = NULL;
+    JASSERT(idx < max_args) (idx);
 
     process_fd_event(SYS_close, in[1]);
     process_fd_event(SYS_close, out[0]);
@@ -216,7 +224,8 @@ static void createNewDmtcpSshdProcess()
   process_fd_event(SYS_close, sshStderr);
 }
 
-extern "C" void dmtcp_ssh_register_fds(int isSshd, int in, int out, int err, int sock)
+extern "C" void dmtcp_ssh_register_fds(int isSshd, int in, int out, int err,
+                                       int sock, int noStrictChecking)
 {
   if (isSshd) { // dmtcp_sshd
     process_fd_event(SYS_close, STDIN_FILENO);
@@ -233,11 +242,13 @@ extern "C" void dmtcp_ssh_register_fds(int isSshd, int in, int out, int err, int
   sshSockFd = sock;
   isSshdProcess = isSshd;
   sshPluginEnabled = true;
+  noStrictHostKeyChecking = noStrictChecking;
 }
 
 static void prepareForExec(char *const argv[], char ***newArgv)
 {
   size_t nargs = 0;
+  bool noStrictChecking = false;
   dmtcp::string precmd, postcmd, tempcmd;
   while (argv[nargs++] != NULL);
 
@@ -251,6 +262,9 @@ static void prepareForExec(char *const argv[], char ***newArgv)
   size_t commandStart = 2;
   for (size_t i = 1; i < nargs; ++i) {
     if (strcmp(argv[i], "-o") == 0) {
+      if (strcmp(argv[i+1], "StrictHostKeyChecking=no") == 0) {
+        noStrictChecking = true;
+      }
       i++;
       continue;
     }
@@ -308,6 +322,9 @@ static void prepareForExec(char *const argv[], char ***newArgv)
 
   size_t idx = 0;
   new_argv[idx++] = (char*) dmtcp_ssh_path.c_str();
+  if (noStrictChecking) {
+    new_argv[idx++] = const_cast<char*>("--noStrictHostKeyChecking");
+  }
   new_argv[idx++] = (char*) dmtcp_nocheckpoint_path.c_str();
 
   string newCommand = string(new_argv[0]) + " " + string(new_argv[1]) + " ";

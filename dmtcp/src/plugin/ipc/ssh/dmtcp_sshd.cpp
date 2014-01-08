@@ -154,7 +154,7 @@ int main(int argc, char *argv[], char *envp[])
 
   assert(dmtcp_ssh_register_fds);
   dmtcp_ssh_register_fds(true, child_stdinfd, child_stdoutfd, child_stderrfd,
-                         remotePeerSock);
+                         remotePeerSock, 0);
 
   client_loop(child_stdinfd, child_stdoutfd, child_stderrfd, remotePeerSock);
   int status;
