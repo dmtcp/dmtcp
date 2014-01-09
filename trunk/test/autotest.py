@@ -736,7 +736,7 @@ runTest("sysv-msg",      2, ["./test/sysv-msg"])
 # ARM glibc 2.16 with Linux kernel 3.0 doesn't support mq_send, etc.
 if uname_p[0:3] == 'arm':
   print "Skipping posix-mq1/mq2 tests; ARM/glibc/Linux does not support mq_send"
-else:
+elif TEST_POSIX_MQ == "yes":
   runTest("posix-mq1",     2, ["./test/posix-mq1"])
   runTest("posix-mq2",     2, ["./test/posix-mq2"])
 

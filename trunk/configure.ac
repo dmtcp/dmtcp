@@ -161,6 +161,33 @@ AC_ARG_ENABLE([test_suite],
             [use_test_suite=yes])
 if test "$use_test_suite" = "yes"; then
   AC_SUBST([USE_TEST_SUITE], [yes])
+  AC_MSG_CHECKING([whether posix mq_open works]) 
+  AC_LANG_PUSH([C])
+  old_LDFLAGS="$LDFLAGS"
+  LDFLAGS="$LDFLAGS -lrt"
+  AC_TRY_RUN([
+              #include <fcntl.h>           /* For O_* constants */
+              #include <sys/stat.h>        /* For mode constants */
+              #include <mqueue.h>
+              #include <stdlib.h>
+              int main()
+              {
+                char *mqname = "/dmtcp-mq-conf-test";
+                mq_unlink(mqname);
+                if (mq_open(mqname, O_RDWR | O_CREAT, 0666, 0) == -1) {
+                  exit(1);
+                }
+                mq_unlink(mqname);
+                exit(0);
+              }
+              ], [posix_mq='yes'], [posix_mq='no'])
+  LDFLAGS="$old_ldFLAGS"
+  AC_LANG_POP([C])
+  if test "$posix_mq" = "yes"; then
+    AC_SUBST([TEST_POSIX_MQ], [yes])
+  else
+    AC_SUBST([TEST_POSIX_MQ], [no])
+  fi
 else
   AC_SUBST([USE_TEST_SUITE], [no])
 fi

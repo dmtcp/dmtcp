@@ -667,6 +667,7 @@ PID_VIRTUALIZATION
 RUN_AS_ROOT_FALSE
 RUN_AS_ROOT_TRUE
 RUN_AS_ROOT
+TEST_POSIX_MQ
 USE_TEST_SUITE
 HBICT_DELTACOMP
 FAST_RESTART
@@ -5095,6 +5096,64 @@ fi
 if test "$use_test_suite" = "yes"; then
   USE_TEST_SUITE=yes
 
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether posix mq_open works" >&5
+$as_echo_n "checking whether posix mq_open works... " >&6; }
+  ac_ext=c
+ac_cpp='$CPP $CPPFLAGS'
+ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
+  old_LDFLAGS="$LDFLAGS"
+  LDFLAGS="$LDFLAGS -lrt"
+  if test "$cross_compiling" = yes; then :
+  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "cannot run test program while cross compiling
+See \`config.log' for more details" "$LINENO" 5; }
+else
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+              #include <fcntl.h>           /* For O_* constants */
+              #include <sys/stat.h>        /* For mode constants */
+              #include <mqueue.h>
+              #include <stdlib.h>
+              int main()
+              {
+                char *mqname = "/dmtcp-mq-conf-test";
+                mq_unlink(mqname);
+                if (mq_open(mqname, O_RDWR | O_CREAT, 0666, 0) == -1) {
+                  exit(1);
+                }
+                mq_unlink(mqname);
+                exit(0);
+              }
+
+_ACEOF
+if ac_fn_c_try_run "$LINENO"; then :
+  posix_mq='yes'
+else
+  posix_mq='no'
+fi
+rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext \
+  conftest.$ac_objext conftest.beam conftest.$ac_ext
+fi
+
+  LDFLAGS="$old_ldFLAGS"
+  ac_ext=c
+ac_cpp='$CPP $CPPFLAGS'
+ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
+  if test "$posix_mq" = "yes"; then
+    TEST_POSIX_MQ=yes
+
+  else
+    TEST_POSIX_MQ=no
+
+  fi
 else
   USE_TEST_SUITE=no
 
