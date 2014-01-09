@@ -710,6 +710,7 @@ static void setLDPreloadLibs(bool is32bitElf)
   }
 
   setenv("LD_PRELOAD", preloadLibs.c_str(), 1);
+#if defined(__x86_64__)
   if (is32bitElf) {
     string libdmtcp = jalib::Filesystem::FindHelperUtility("libdmtcp.so", true);
     JWARNING(libdmtcp != "libdmtcp.so")
@@ -718,6 +719,7 @@ static void setLDPreloadLibs(bool is32bitElf)
             "Try configure --enable-m32 ; make clean ; make ; make install");
     setenv("LD_PRELOAD", preloadLibs32.c_str(), 1);
   }
+#endif
   JTRACE("getting value of LD_PRELOAD")
     (getenv("LD_PRELOAD")) (preloadLibs) (preloadLibs32);
 }
