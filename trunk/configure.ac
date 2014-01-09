@@ -182,7 +182,7 @@ if test "$use_test_suite" = "yes"; then
                 exit(0);
               }
               ], [posix_mq='yes'], [posix_mq='no'])
-  LDFLAGS="$old_ldFLAGS"
+  LDFLAGS="$old_LDFLAGS"
   AC_LANG_POP([C])
   if test "$posix_mq" = "yes"; then
     AC_SUBST([TEST_POSIX_MQ], [yes])
