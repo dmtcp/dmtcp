@@ -193,8 +193,13 @@ jalib::string jalib::Filesystem::ResolveSymlink ( const jalib::string& path )
   char buf [PATH_MAX]; // This could be passed on via call to readlink()
   memset ( buf, 0, sizeof buf );
   int len = readlink ( path.c_str(), buf, sizeof ( buf )-1 );
-  if ( len <= 0 )
+  if (len <= 0) {
     return "";
+  } else if (len > 0 && buf[0] != '/') {
+    // Handle links of type "file -> dir/file2"
+    string res = DirName(path).append("/").append(buf);
+    return res;
+  }
   return buf;
 }
 
