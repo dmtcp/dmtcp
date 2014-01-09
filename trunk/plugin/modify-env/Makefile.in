@@ -6,6 +6,13 @@ CPPFLAGS = @CPPFLAGS@
 CXX = @CXX@
 CXXFLAGS = @CXXFLAGS@
 LDFLAGS = @LDFLAGS@
+
+# Allow the user to specify the install program.
+INSTALL = @INSTALL@
+INSTALL_PROGRAM = @INSTALL_PROGRAM@
+INSTALL_DATA = @INSTALL_DATA@
+INSTALL_SCRIPT = @INSTALL_SCRIPT@
+
 MKDIR_P = @MKDIR_P@
 PACKAGE = @PACKAGE@
 PACKAGE_BUGREPORT = @PACKAGE_BUGREPORT@
@@ -91,7 +98,7 @@ dist: distclean
 	dir=`basename $$PWD`; ls -l ../$$dir.tar.gz
 
 install-libs: all
-	install ${LIBNAME} $(DESTDIR)$(pkglibdir)
+	${INSTALL_PROGRAM} ${LIBNAME} $(DESTDIR)$(pkglibdir)
 
 uninstall-libs:
 	rm -f $(DESTDIR)$(pkglibdir)/$(LIBNAME)

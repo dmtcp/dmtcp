@@ -2,6 +2,7 @@ AC_INIT([DMTCP],m4_esyscmd([tr -d '\n' < VERSION]),[],[dmtcp],[http://dmtcp.sour
 AC_PREREQ([2.60])
 AM_INIT_AUTOMAKE([foreign])
 AM_MAINTAINER_MODE
+AC_PROG_INSTALL
 AC_PROG_RANLIB
 AC_PROG_MAKE_SET
 AC_PROG_LN_S
