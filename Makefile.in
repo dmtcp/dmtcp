@@ -16,6 +16,13 @@ VERSION=@PACKAGE_VERSION@
 CFLAGS = @CFLAGS@
 CPPFLAGS = @CPPFLAGS@
 LDFLAGS = @LDFLAGS@
+
+# Allow the user to specify the install program.
+INSTALL = @INSTALL@
+INSTALL_PROGRAM = @INSTALL_PROGRAM@
+INSTALL_DATA = @INSTALL_DATA@
+INSTALL_SCRIPT = @INSTALL_SCRIPT@
+
 prefix=@prefix@
 exec_prefix=@exec_prefix@
 datarootdir=@datarootdir@
@@ -245,12 +252,12 @@ install: all create-dirs
 	cd contrib && make DESTDIR=$(DESTDIR) $(INSTALL_FLAGS)
 	cd mtcp && make DESTDIR=$(DESTDIR)  $(INSTALL_FLAGS)
 ifeq ($(M32),0)
-	install $(top_srcdir)/mtcp/mtcp.h $(DESTDIR)$(includedir)
-	install $(top_srcdir)/dmtcp/include/dmtcp.h $(DESTDIR)$(includedir)
-	install $(top_srcdir)/QUICK-START $(DESTDIR)$(docdir)
-	install $(top_srcdir)/QUICK-START $(DESTDIR)$(docdir)
-	install $(top_srcdir)/COPYING $(DESTDIR)$(docdir)
-	install $(top_srcdir)/manpages/dmtcp.1 $(DESTDIR)$(mandir)/man1
+	${INSTALL_DATA} $(top_srcdir)/mtcp/mtcp.h $(DESTDIR)$(includedir)
+	${INSTALL_DATA} $(top_srcdir)/dmtcp/include/dmtcp.h $(DESTDIR)$(includedir)
+	${INSTALL_DATA} $(top_srcdir)/QUICK-START $(DESTDIR)$(docdir)
+	${INSTALL_DATA} $(top_srcdir)/QUICK-START $(DESTDIR)$(docdir)
+	${INSTALL_DATA} $(top_srcdir)/COPYING $(DESTDIR)$(docdir)
+	${INSTALL_DATA} $(top_srcdir)/manpages/dmtcp.1 $(DESTDIR)$(mandir)/man1
 	(cd $(DESTDIR)$(mandir)/man1; \
 	  for file in ${MANPAGES}; do $(LN_S) dmtcp.1 $$file; done)
 endif

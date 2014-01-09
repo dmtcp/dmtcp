@@ -35,6 +35,13 @@ VERSION=@PACKAGE_VERSION@
 CFLAGS = @CFLAGS@
 CPPFLAGS = @CPPFLAGS@
 LDFLAGS = @LDFLAGS@
+
+# Allow the user to specify the install program.
+INSTALL = @INSTALL@
+INSTALL_PROGRAM = @INSTALL_PROGRAM@
+INSTALL_DATA = @INSTALL_DATA@
+INSTALL_SCRIPT = @INSTALL_SCRIPT@
+
 prefix=@prefix@
 exec_prefix=@exec_prefix@
 datarootdir=@datarootdir@
@@ -189,8 +196,8 @@ endif
 all default: build tests readmtcp
 
 install-libs: build
-	install $(targetdir)/bin/$(MTCP_RESTART) $(DESTDIR)$(bindir)
-	install $(targetdir)/lib/libmtcp.so.$(LIBMTCP_SOVERSION_INFO) \
+	${INSTALL_PROGRAM} $(targetdir)/bin/$(MTCP_RESTART) $(DESTDIR)$(bindir)
+	${INSTALL_PROGRAM} $(targetdir)/lib/libmtcp.so.$(LIBMTCP_SOVERSION_INFO) \
 	  $(DESTDIR)$(libdir)
 	(cd $(DESTDIR)$(libdir) && \
 	  ${LN_S} libmtcp.so.$(LIBMTCP_SOVERSION_INFO) \
@@ -203,7 +210,7 @@ uninstall-libs:
 	rm -f "$(DESTDIR)$(libdir)"/libmtcp.so*
 
 install: build install-libs
-	install $(srcdir)/mtcp.h $(DESTDIR)$(includedir)
+	${INSTALL_DATA} $(srcdir)/mtcp.h $(DESTDIR)$(includedir)
 
 uninstall: uninstall-libs
 	rm -f "$(DESTDIR)$(includedir)/mtcp.h"
