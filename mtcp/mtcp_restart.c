@@ -273,7 +273,7 @@ static int read_header_and_restore_image(int fd, VA *restore_start)
     mtcp_abort ();
   }
 
-  restore_mmap = mtcp_safemmap (ckpt_hdr->libmtcp_begin,
+  restore_mmap = mtcp_sys_mmap (ckpt_hdr->libmtcp_begin,
                                 ckpt_hdr->libmtcp_size,
                                 PROT_READ | PROT_WRITE | PROT_EXEC,
                                 MAP_ANONYMOUS | MAP_FIXED | MAP_PRIVATE, -1, 0);
