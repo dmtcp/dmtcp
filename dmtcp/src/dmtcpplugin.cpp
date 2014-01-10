@@ -358,8 +358,10 @@ EXTERNC int dmtcp_get_restart_env(char *name, char *value, int maxvaluelen) {
   char *name_ptr = env_buf;
   char *env_end_ptr = env_buf;
 
-  if (name == NULL || value == NULL)
+  if (name == NULL || value == NULL) {
+    close(env_fd);
     return NULL_PTR;
+  }
 
   while (rc == NOTFOUND && env_end_ptr != NULL) {
     // if name_ptr is in second half of env_buf, move everything back to start
