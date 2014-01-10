@@ -135,10 +135,10 @@ void _dmtcp_remutex_on_fork() {
  * There are three problems with this scheme:
  * a) As with scheme 1 (dlopen/dlsym) -- if there are wrappers around
  *    calloc/free, it goes into an infinite recursion, and
- * b). Even if we don't have wrappers around calloc, there can be a problem if
+ * b) Even if we don't have wrappers around calloc, there can be a problem if
  *     some application uses the malloc_hooks.
  *     (see http://www.gnu.org/s/hello/manual/libc/Hooks-for-Malloc.html).
- *     One notable example is libopen-pal.so (part of OpenMPI) which uses
+ *     One notable example is libopen-pal.so (part of Open MPI) which uses
  *     malloc_hooks and in the malloc hook, it called xstat() which landed in
  *     the DMTCP wrapper for xstat() and hence an infinite recursive loop.
  * c) Certain libpthread symbols are also defined in libc. For example, 'nm

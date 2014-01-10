@@ -748,7 +748,7 @@ static void read_shared_memory_area_from_file(Area* area, int flags)
   } else { /* else file exists */
     /* This prevents us writing to an mmap()ed file whose length is smaller
      * than the region in memory.  This occurred when checkpointing from within
-     * OpenMPI.
+     * Open MPI.
      */
     int file_size = mtcp_sys_lseek(imagefd, 0, SEEK_END);
     if (area->size > file_size) {

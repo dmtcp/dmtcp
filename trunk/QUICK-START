@@ -255,7 +255,7 @@ SHORT NOTES:
 
         ./dmtcp_restart_script.sh
 
-        DMTCP uses SIGUSR2 as default and so do older versions of OpenMPI.
+        DMTCP uses SIGUSR2 as default and so do older versions of Open MPI.
         If you have an older version (e.g < 1.3), try choosing a different
         value of SIGNUM for DMTCP as follows:
         dmtcp_launch --mtcp-checkpoint-signal <SIGNUM> mpirun ./hello_mpi
