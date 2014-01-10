@@ -40,7 +40,7 @@ ifeq ($(M32),1)
   targetdir = $(top_builddir)/lib/$(PACKAGE)/32
 endif
 
-LIBNAME=$(top_builddir)/lib/${PACKAGE}/libdmtcp_${PLUGIN}.so
+LIBNAME=$(targetdir)/lib/${PACKAGE}/libdmtcp_${PLUGIN}.so
 
 DMTCP_INCLUDE_PATH = $(top_srcdir)/dmtcp/include
 JALIB_PATH = $(top_srcdir)/dmtcp/jalib
