@@ -464,7 +464,7 @@ void dmtcp::TcpConnection::postRestart()
          * setsockopt(sd, IPPROTO_IPV6, IPV6_V6ONLY,...)
          * This fix works for now. A better approach would be to restore the
          * socket options in the order in which they are set by the user
-         * program.  This fix solves a bug that caused OpenMPI to fail to
+         * program.  This fix solves a bug that caused Open MPI to fail to
          * restart under DMTCP.
          *                               --Kapil
          */
