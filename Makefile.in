@@ -107,7 +107,7 @@ ifeq ($(M32),1)
 else
 	cd dmtcp/src && $(MAKE)
 endif
-	#cd $(targetdir)/bin && $(LN_S) dmtcp_launch dmtcp_checkpoint
+	cd $(targetdir)/bin && $(LN_S) dmtcp_launch dmtcp_checkpoint
 
 plugin: dmtcp
 	cd plugin && $(MAKE)
