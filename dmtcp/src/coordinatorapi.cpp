@@ -499,10 +499,17 @@ void dmtcp::CoordinatorAPI::updateCoordTimeStamp()
 
 dmtcp::string dmtcp::CoordinatorAPI::getCoordCkptDir(void)
 {
+  // FIXME: Add a test for make-check.
   char buf[PATH_MAX];
   if (noCoordinator()) return "";
   DmtcpMessage msg(DMT_GET_CKPT_DIR);
+  _coordinatorSocket << msg;
+
+  msg.poison();
   _coordinatorSocket >> msg;
+  msg.assertValid();
+  JASSERT(msg.type == DMT_GET_CKPT_DIR_RESULT) (msg.type);
+
   JASSERT(msg.extraBytes > 0);
   _coordinatorSocket.readAll(buf, msg.extraBytes);
   return buf;
