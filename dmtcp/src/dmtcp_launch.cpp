@@ -98,7 +98,7 @@ static const char* theUsage =
   "      restart host (e.g., DISPLAY=$DISPLAY).\n"
   "      This can be set in a file dmtcp_env.txt. \n"
   "        (default: disabled)\n"
-  "  --ib:\n"
+  "  --ib, --infiniband:\n"
   "      Enable InfiniBand plugin. (default: disabled)\n"
   "  --disable-alloc-plugin: (environment variable DMTCP_ALLOC_PLUGIN=[01])\n"
   "      Disable alloc plugin (default: enabled).\n"
@@ -225,7 +225,7 @@ static void processArgs(int *orig_argc, char ***orig_argv)
     } else if (s == "--modify-env") {
       enableModifyEnvPlugin = true;
       shift;
-    } else if (s == "--ib") {
+    } else if (s == "--ib" || s == "--ib") {
       enableIB = true;
       shift;
     } else if (s == "--ib2tcp") {
