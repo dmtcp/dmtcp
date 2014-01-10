@@ -379,6 +379,7 @@ HAS_MATLAB = @HAS_MATLAB@
 HAS_MPICH = @HAS_MPICH@
 HAS_OPENMPI = @HAS_OPENMPI@
 HAS_PATCH = @HAS_PATCH@
+HAS_PS = @HAS_PS@
 HAS_PYTHON = @HAS_PYTHON@
 HAS_READLINE = @HAS_READLINE@
 HAS_SCREEN = @HAS_SCREEN@
@@ -431,6 +432,7 @@ SCREEN = @SCREEN@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
 STRIP = @STRIP@
+TEST_POSIX_MQ = @TEST_POSIX_MQ@
 USE_TEST_SUITE = @USE_TEST_SUITE@
 VERSION = @VERSION@
 VIM = @VIM@
@@ -1247,10 +1249,13 @@ uninstall-hook:
 	rm -f $(DESTDIR)$(bindir)/dmtcp_checkpoint
 
 libs: $(dmtcplib_PROGRAMS) $(lib_LIBRARIES)
+	(cd plugin && ${MAKE} libs)
 
 install-libs: install-dmtcplibPROGRAMS
+	(cd plugin && ${MAKE} install-libs)
 
 uninstall-libs: uninstall-dmtcplibPROGRAMS
+	(cd plugin && ${MAKE} uninstall-libs)
 
 .PHONY: libs
 

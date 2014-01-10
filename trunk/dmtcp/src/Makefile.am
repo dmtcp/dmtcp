@@ -120,9 +120,12 @@ uninstall-hook:
 	rm -f $(DESTDIR)$(bindir)/dmtcp_checkpoint
 
 libs: $(dmtcplib_PROGRAMS) $(lib_LIBRARIES)
+	(cd plugin && ${MAKE} libs)
 
 install-libs: install-dmtcplibPROGRAMS
+	(cd plugin && ${MAKE} install-libs)
 
 uninstall-libs: uninstall-dmtcplibPROGRAMS
+	(cd plugin && ${MAKE} uninstall-libs)
 
 .PHONY: libs
