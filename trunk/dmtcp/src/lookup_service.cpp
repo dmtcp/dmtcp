@@ -108,6 +108,6 @@ void dmtcp::LookupService::respondToQuery(jalib::JSocket& remote,
   remote << reply;
   if (valLen > 0) {
     remote.writeAll((char*)val, valLen);
-    delete [] (char*)val;
   }
+  delete [] (char*)val;
 }
