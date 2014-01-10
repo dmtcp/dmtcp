@@ -168,47 +168,21 @@ void dmtcp::ProcessInfo::insertChild(pid_t pid, dmtcp::UniquePid uniquePid)
 
 void dmtcp::ProcessInfo::restart()
 {
-  // Try to set the ckptCWD as CWD.
-  if (chdir(_ckptCWD.c_str()) != 0) {
-    size_t i;
+  if (_launchCWD != _ckptCWD) {
+    dmtcp::string rpath = "";
     size_t clen = _ckptCWD.length();
     size_t llen = _launchCWD.length();
-    string rpath;
-    // If failed, chdir relative to restartCWD.
-    if (_launchCWD == _ckptCWD) {
-      // _launchCWD = "/A/B"; _ckptCWD = "/A/B" -> rpath = ""
-      rpath = "";
-    } else if (Util::strStartsWith(_ckptCWD.c_str(), _launchCWD.c_str()) &&
-               _ckptCWD[clen] == '/') {
+    if (Util::strStartsWith(_ckptCWD.c_str(), _launchCWD.c_str()) &&
+        _ckptCWD[llen] == '/') {
       // _launchCWD = "/A/B"; _ckptCWD = "/A/B/C" -> rpath = "./c"
-      rpath = _ckptCWD.substr(clen + 1);
-    } else if (Util::strStartsWith(_launchCWD.c_str(), _ckptCWD.c_str()) &&
-               _launchCWD[llen] == '/') {
-      // _launchCWD = "/A/B"; _ckptCWD = "/A" -> rpath = "../"
-      for (i = clen; _launchCWD[i] != '\0'; i++) {
-        if (_launchCWD[i] == '/') {
-          rpath += "../";
-        }
-      }
-    } else {
-      // _launchCWD = "/A/B"; _ckptCWD = "/A/C" -> rpath = "../C"
-      size_t lastSlash = 0;
-      // find the common prefix
-      for (i = 0; _launchCWD[i] == _ckptCWD[i]; i++) {
-        if (_launchCWD[i] == '/') {
-          lastSlash = i;
-        }
-      }
-      rpath = _ckptCWD.substr(lastSlash + 1);
-      for (i = lastSlash + 1; _launchCWD[i] != '\0'; i++) {
-        if (_launchCWD[i] == '/') {
-          rpath = "../" + rpath;
-        }
+      rpath = "./" + _ckptCWD.substr(llen + 1);
+      if (chdir(rpath.c_str()) == 0) {
+        JTRACE("Changed cwd") (_launchCWD) (_ckptCWD) (_launchCWD + rpath);
+      } else {
+        JWARNING(chdir(_ckptCWD.c_str()) == 0) (_ckptCWD) (_launchCWD)
+          (JASSERT_ERRNO) .Text("Failed to change directory to _ckptCWD");
       }
     }
-    char cwd[PATH_MAX];
-    JASSERT(getcwd(cwd, sizeof cwd) != NULL);
-    JWARNING(chdir(rpath.c_str()) == 0) (_ckptCWD) (_launchCWD) (cwd) (rpath);
   }
 }
 
