@@ -91,6 +91,7 @@ char * read_dmtcp_env_file(char *file, int size) {
     exit(1);
   }
   *(buf+count) = readEOF;
+  close(fd);
   return buf;
 }
 
