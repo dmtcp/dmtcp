@@ -798,7 +798,11 @@ static void read_shared_memory_area_from_file(Area* area, int flags)
     }
 #else
     if (area->prot & PROT_WRITE) {
-      MTCP_PRINTF("mapping %s with data from ckpt image\n", area->name);
+      if (mtcp_strstr(area->name, "openmpi-sessions") != NULL) {
+        DPRINTF("mapping %s with data from ckpt image\n", area->name);
+      } else {
+        MTCP_PRINTF("mapping %s with data from ckpt image\n", area->name);
+      }
       mtcp_readfile(mtcp_restore_cpfd, area->addr, area->size);
     }
 #endif
