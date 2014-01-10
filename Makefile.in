@@ -254,9 +254,6 @@ install: all create-dirs
 	cd contrib && make DESTDIR=$(DESTDIR) $(INSTALL_FLAGS)
 	cd mtcp && make DESTDIR=$(DESTDIR)  $(INSTALL_FLAGS)
 ifeq ($(M32),0)
-	${INSTALL_DATA} $(top_srcdir)/mtcp/mtcp.h $(DESTDIR)$(includedir)
-	${INSTALL_DATA} $(top_srcdir)/dmtcp/include/dmtcp.h $(DESTDIR)$(includedir)
-	${INSTALL_DATA} $(top_srcdir)/QUICK-START $(DESTDIR)$(docdir)
 	${INSTALL_DATA} $(top_srcdir)/QUICK-START $(DESTDIR)$(docdir)
 	${INSTALL_DATA} $(top_srcdir)/COPYING $(DESTDIR)$(docdir)
 	${INSTALL_DATA} $(top_srcdir)/manpages/dmtcp.1 $(DESTDIR)$(mandir)/man1
