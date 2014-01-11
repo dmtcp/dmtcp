@@ -1,4 +1,9 @@
-AC_INIT([DMTCP],m4_esyscmd([tr -d '\n' < VERSION]),[],[dmtcp],[http://dmtcp.sourceforge.net])
+AC_INIT([DMTCP],
+        m4_esyscmd([tr -d '\n' < VERSION]),
+        [dmtcp-forum@lists.sourceforge.net],
+        [dmtcp],
+        [http://dmtcp.sourceforge.net])
+
 AC_PREREQ([2.60])
 AM_INIT_AUTOMAKE([foreign])
 AM_MAINTAINER_MODE
