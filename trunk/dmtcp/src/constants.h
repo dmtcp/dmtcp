@@ -162,9 +162,10 @@
 #endif
 
 #define DMTCP_VERSION_AND_COPYRIGHT_INFO                                        \
-  BINARY_NAME " (DMTCP + MTCP) version " PACKAGE_VERSION "\n"                   \
-  "Copyright (C) 2006-2013  Jason Ansel, Michael Rieker, Kapil Arya, and\n"     \
+  BINARY_NAME " (DMTCP + MTCP) " PACKAGE_VERSION "\n\n"                   \
+  "Copyright (C) 2006-2014  Jason Ansel, Michael Rieker, Kapil Arya, and\n"     \
   "                                                       Gene Cooperman\n"     \
+  "License LGPLv3+: GNU LGPL version 3 or later <http://gnu.org/licenses/lgpl.html>.\n"\
   "This program comes with ABSOLUTELY NO WARRANTY.\n"                           \
   "This is free software, and you are welcome to redistribute it\n"             \
   "under certain conditions; see COPYING file for details.\n"
@@ -172,5 +173,9 @@
 #define DMTCP_BANNER                                                            \
   DMTCP_VERSION_AND_COPYRIGHT_INFO                                              \
   "(Use flag \"-q\" to hide this message.)\n\n"
+
+#define HELP_AND_CONTACT_INFO             \
+  "Report bugs to: "PACKAGE_BUGREPORT"\n" \
+  "DMTCP home page: <"PACKAGE_URL">\n"
 
 #endif
