@@ -32,34 +32,33 @@ using namespace dmtcp;
 // string has atleast one format specifier with corresponding format argument.
 // Ubuntu 9.01 uses -Wformat=2 by default.
 static const char* theUsage =
-  "%sPURPOSE:\n"
-  "  Send a command to the dmtcp_coordinator remotely.\n\n"
-  "USAGE:\n"
-  "  dmtcp_command [OPTIONS] COMMAND [COMMAND...]\n\n"
-  "OPTIONS:\n"
-  "  --host, -h, (environment variable DMTCP_HOST):\n"
-  "      Hostname where dmtcp_coordinator is run (default: localhost)\n"
-  "  --port, -p, (environment variable DMTCP_PORT):\n"
-  "      Port where dmtcp_coordinator is run (default: 7779)\n"
-  "  --quiet:\n"
-  "      Skip copyright notice\n"
-  "  --help:\n"
-  "      Print this message and exit.\n"
-  "  --version:\n"
-  "      Print version information and exit.\n"
+  "Usage:  dmtcp_command [OPTIONS] COMMAND [COMMAND...]\n"
+  "Send a command to the dmtcp_coordinator remotely.\n\n"
+  "Options:\n\n"
+  "  -h, --host HOSTNAME (environment variable DMTCP_HOST)\n"
+  "              Hostname where dmtcp_coordinator is run (default: localhost)\n"
+  "  -p, --port PORT_NUM (environment variable DMTCP_PORT)\n"
+  "              Port where dmtcp_coordinator is run (default: 7779)\n"
+  "  --quiet \n"
+  "              Skip copyright notice\n"
+  "  --help \n"
+  "              Print this message and exit.\n"
+  "  --version \n"
+  "              Print version information and exit.\n"
   "\n"
-  "COMMANDS FOR COORDINATOR:\n"
-  "    s, -s, --status : Print status message\n"
-  "    c, -c, --checkpoint : Checkpoint all nodes\n"
-  "    bc, -bc, --bcheckpoint : Checkpoint all nodes, blocking until done\n"
+  "Commands for Coordinator:\n"
+  "    -s, --status:          Print status message\n"
+  "    -c, --checkpoint:      Checkpoint all nodes\n"
+  "    -bc, --bcheckpoint:    Checkpoint all nodes, blocking until done\n"
   //"    xc, -xc, --xcheckpoint : Checkpoint all nodes, kill all nodes when done\n"
-  "    i, -i, --interval <val> : Update ckpt interval to <val> seconds"
-						   		" (0=never)\n"
-  "    f, -f, --force : Force restart even with missing nodes (for debugging)\n"
-  "    k, -k, --kill : Kill all nodes\n"
-  "    q, -q, --quit : Kill all nodes and quit\n"
+  "    -i, --interval <val>   Update ckpt interval to <val> seconds (0=never)\n"
+  "    -f, --force            Force restart even with missing nodes\n"
+  "                              (for debugging)\n"
+  "    -k, --kill             Kill all nodes\n"
+  "    -q, --quit             Kill all nodes and quit\n"
   "\n"
-  "See " PACKAGE_URL " for more information.\n"
+  HELP_AND_CONTACT_INFO
+  "\n"
 ;
 
 
@@ -81,10 +80,10 @@ int main ( int argc, char** argv )
   while(argc>0){
     dmtcp::string s = argv[0];
     if((s=="--help" || s=="-h") && argc==1){
-      fprintf(stderr, theUsage, "");
+      printf("%s", theUsage);
       return 1;
     } else if ((s=="--version") && argc==1){
-      JASSERT_STDERR << DMTCP_VERSION_AND_COPYRIGHT_INFO;
+      printf("%s", DMTCP_VERSION_AND_COPYRIGHT_INFO);
       return 1;
     }else if(argc>1 && (s == "-h" || s == "--host")){
       setenv(ENV_VAR_NAME_HOST, argv[1], 1);

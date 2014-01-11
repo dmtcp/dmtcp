@@ -47,44 +47,56 @@ dmtcp::string dmtcpTmpDir = "/DMTCP/Uninitialized/Tmp/Dir";
 // string has at least one format specifier with corresponding format argument.
 // Ubuntu 9.01 uses -Wformat=2 by default.
 static const char* theUsage =
-  "USAGE:\n dmtcp_restart [OPTIONS] <ckpt1.dmtcp> [ckpt2.dmtcp...]\n\n"
-  "OPTIONS:\n"
-  "  --host, -h, (environment variable DMTCP_HOST):\n"
-  "      Hostname where dmtcp_coordinator is run (default: localhost)\n"
-  "  --port, -p, (environment variable DMTCP_PORT):\n"
-  "      Port where dmtcp_coordinator is run (default: 7779)\n"
-  "  --ckptdir, -c, (environment variable DMTCP_CHECKPOINT_DIR):\n"
-  "      Directory to store checkpoint images\n"
-  "      (default: use the same directory used in previous checkpoint)\n"
-  "  --tmpdir, -t, (environment variable DMTCP_TMPDIR):\n"
-  "      Directory to store temporary files \n"
-  "        (default: $TMDPIR/dmtcp-$USER@$HOST or /tmp/dmtcp-$USER@$HOST)\n"
-  "  --join, -j:\n"
-  "      Join an existing coordinator, raise error if one doesn't already exist\n"
-  "  --new-coordinator:\n"
-  "      Create a new coordinator at the given port. Fail if one already exists\n"
-  "        on the given port. The port can be specified with --port, or with\n"
-  "        environment variable DMTCP_PORT.  If no port is specified, start\n"
-  "        coordinator at a random port (same as specifying port '0').\n"
-  "  --no-strict-uid-checking:\n"
-  "      Disable uid checking for the checkpoint image.  This allows the\n"
-  "        checkpoint image to be restarted by a different user than the one\n"
-  "        that create it. (environment variable DMTCP_DISABLE_UID_CHECKING)\n"
-  "  --interval, -i, (environment variable DMTCP_CHECKPOINT_INTERVAL):\n"
-  "      Time in seconds between automatic checkpoints.\n"
-  "      0 implies never (manual ckpt only); if not set and no env var,\n"
-  "        use default value set in dmtcp_coordinator or dmtcp_command.\n"
-  "      Not allowed if --join is specified\n"
-  "  --no-check:\n"
-  "      Skip check for valid coordinator and never start one automatically\n"
-  "  --quiet, -q, (or set environment variable DMTCP_QUIET = 0, 1, or 2):\n"
-  "      Skip banner and NOTE messages; if given twice, also skip WARNINGs\n"
-  "  --help:\n"
-  "      Print this message and exit.\n"
-  "  --version:\n"
-  "      Print version information and exit.\n"
+  "Usage: dmtcp_restart [OPTIONS] <ckpt1.dmtcp> [ckpt2.dmtcp...]\n\n"
+  "Restart processes from a checkpoint image.\n\n"
+  "Connecting to the DMTCP Coordinator:\n"
+  "  -h, --host HOSTNAME (environment variable DMTCP_HOST)\n"
+  "              Hostname where dmtcp_coordinator is run (default: localhost)\n"
+  "  -p, --port PORT_NUM (environment variable DMTCP_PORT)\n"
+  "              Port where dmtcp_coordinator is run (default: 7779)\n"
+  "  -j, --join\n"
+  "              Join an existing coordinator, raise error if one doesn't\n"
+  "              already exist\n"
+  "  --new-coordinator\n"
+  "              Create a new coordinator at the given port. Fail if one \n"
+  "              already exists on the given port. The port can be specified\n"
+  "              with --port, or with environment variable DMTCP_PORT.  If no\n"
+  "              port is specified, start coordinator at a random port (same\n"
+  "              as specifying port '0').\n"
+#if 0 // FIXME: Add back when support for no-coordinator is added.
+  "  --no-coordinator\n"
+  "              Execute the process in stand-alone coordinator-less mode.\n"
+  "              Use dmtcp_command or --interval to request checkpoints.\n"
+#endif
+  "  -i, -interval SECONDS (environment variable DMTCP_CHECKPOINT_INTERVAL)\n"
+  "              Time in seconds between automatic checkpoints.\n"
+  "              0 implies never (manual ckpt only); if not set and no env var,\n"
+  "              use default value set in dmtcp_coordinator or dmtcp_command.\n"
+  "              Not allowed if --join is specified\n"
+  "  --no-check\n"
+  "              Skip check for valid coordinator and never start one automatically\n"
   "\n"
-  "See " PACKAGE_URL " for more information.\n"
+  "Other options:\n"
+  "  --no-strict-uid-checking\n"
+  "              Disable uid checking for the checkpoint image. This allows\n"
+  "              the checkpoint image to be restarted by a different user\n"
+  "              than the one that created it.\n"
+  "              (environment variable DMTCP_DISABLE_UID_CHECKING)\n"
+  "  --ckptdir (environment variable DMTCP_CHECKPOINT_DIR):\n"
+  "              Directory to store checkpoint images\n"
+  "              (default: use the same directory used in previous checkpoint)\n"
+  "  --tmpdir PATH (environment variable DMTCP_TMPDIR)\n"
+  "              Directory to store temporary files \n"
+  "              (default: $TMDPIR/dmtcp-$USER@$HOST or /tmp/dmtcp-$USER@$HOST)\n"
+  "  -q, --quiet (or set environment variable DMTCP_QUIET = 0, 1, or 2)\n"
+  "              Skip banner and NOTE messages; if given twice, also skip WARNINGs\n"
+  "  --help\n"
+  "              Print this message and exit.\n"
+  "  --version\n"
+  "              Print version information and exit.\n"
+  "\n"
+  HELP_AND_CONTACT_INFO
+  "\n"
 ;
 
 class RestoreTarget;
@@ -336,10 +348,10 @@ int main(int argc, char** argv)
   while (true) {
     dmtcp::string s = argc>0 ? argv[0] : "--help";
     if (s == "--help" && argc == 1) {
-      JASSERT_STDERR << theUsage;
+      printf("%s", theUsage);
       return DMTCP_FAIL_RC;
     } else if ((s == "--version") && argc == 1) {
-      JASSERT_STDERR << DMTCP_VERSION_AND_COPYRIGHT_INFO;
+      printf("%s", DMTCP_VERSION_AND_COPYRIGHT_INFO);
       return DMTCP_FAIL_RC;
     } else if (s == "--no-check") {
       autoStartCoordinator = false;

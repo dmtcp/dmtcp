@@ -91,23 +91,23 @@ static const char* theHelpMessage =
 ;
 
 static const char* theUsage =
-  "USAGE: \n"
-  "   dmtcp_coordinator [OPTIONS] [port]\n\n"
-  "OPTIONS:\n"
-  "  --port, -p, (environment variable DMTCP_PORT):\n"
+  "Usage: dmtcp_coordinator [OPTIONS] [port]\n"
+  "Coordinates checkpoints between multiple processes.\n\n"
+  "Options:\n"
+  "  -p, --port PORT_NUM (environment variable DMTCP_PORT)\n"
   "      Port to listen on (default: 7779)\n"
-  "  --port-file\n"
+  "  --port-file filename\n"
   "      File to write listener port number.\n"
   "      (Useful with '--port 0', which is used to assign a random port)\n"
-  "  --ckptdir, -c, (environment variable DMTCP_CHECKPOINT_DIR):\n"
+  "  --ckptdir (environment variable DMTCP_CHECKPOINT_DIR):\n"
   "      Directory to store dmtcp_restart_script.sh (default: ./)\n"
-  "  --tmpdir, -t, (environment variable DMTCP_TMPDIR):\n"
+  "  --tmpdir (environment variable DMTCP_TMPDIR):\n"
   "      Directory to store temporary files (default: env var TMDPIR or /tmp)\n"
   "  --exit-on-last\n"
   "      Exit automatically when last client disconnects\n"
   "  --daemon\n"
   "      Run silently in the background after detaching from the parent process.\n"
-  "  --interval, -i, (environment variable DMTCP_CHECKPOINT_INTERVAL):\n"
+  "  -i, --interval (environment variable DMTCP_CHECKPOINT_INTERVAL):\n"
   "      Time in seconds between automatic checkpoints\n"
   "      (default: 0, disabled)\n"
   "  --help:\n"
@@ -116,9 +116,10 @@ static const char* theUsage =
   "      Print version information and exit.\n"
   "\n"
   "COMMANDS:\n"
-  "  (type '?<return>' at runtime for list)\n"
+  "      type '?<return>' at runtime for list\n"
   "\n"
-  "See " PACKAGE_URL " for more information.\n"
+  HELP_AND_CONTACT_INFO
+  "\n"
 ;
 
 
@@ -1688,10 +1689,10 @@ int main ( int argc, char** argv )
   while(argc > 0){
     dmtcp::string s = argv[0];
     if(s=="-h" || s=="--help"){
-      fprintf(stderr, theUsage, DEFAULT_PORT);
+      printf("%s", theUsage);
       return 1;
     } else if ((s=="--version") && argc==1){
-      JASSERT_STDERR << DMTCP_VERSION_AND_COPYRIGHT_INFO;
+      printf("%s", DMTCP_VERSION_AND_COPYRIGHT_INFO);
       return 1;
     }else if(s=="--exit-on-last"){
       exitOnLast = true;
