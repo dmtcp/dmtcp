@@ -189,6 +189,7 @@ if test "$use_test_suite" = "yes"; then
               ], [posix_mq='yes'], [posix_mq='no'])
   LDFLAGS="$old_LDFLAGS"
   AC_LANG_POP([C])
+  AC_MSG_RESULT([$posix_mq]) 
   if test "$posix_mq" = "yes"; then
     AC_SUBST([TEST_POSIX_MQ], [yes])
   else
