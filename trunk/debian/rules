@@ -49,7 +49,7 @@ build-stamp: configure-stamp
 	#docbook-to-man debian/dmtcp.sgml > dmtcp.1
 ifeq (,$(findstring nocheck,$(DEB_BUILD_OPTIONS)))
 ifneq ($(shell dpkg-architecture -qDEB_BUILD_ARCH_CPU),arm)
-	$(MAKE) AUTOTEST='--slow' check
+	$(MAKE) AUTOTEST='--retry-once' check
 endif
 endif
 
