@@ -8,7 +8,7 @@ targets = dmtcp_command dmtcp_coordinator dmtcp_launch dmtcp_restart
 default:
 	for i in $(targets); do \
 	  (cat $(hdr) $$i.tex $(ftr) > $(tmp); \
-	  latex2man -t $(macros) $(tmp) $$i.1.gz); \
+	  latex2man -t $(macros) $(tmp) $$i.1); gzip $$i.1; \
 	done
 	rm $(tmp)
 
