@@ -1,17 +1,14 @@
-dmtcp (2.0-1) unstable; urgency=low
+dmtcp (2.1-1) unstable; urgency=low
 
-  * New upstream release.
+  * New upstream release 2.1.
+  * Updated debian standards version to 3.9.5.
+  * Removed libdmtcpaware packages.
+  * Run make check in "slow" mode.
+  * Updated copyright file.
+  * Removed some stale files from install procedure.
   * Upload sponsored by Yaroslav Halchenko <debian@onerussian.com>
 
- -- Kapil Arya <kapil@ccs.neu.edu>  Mon, 07 Oct 2013 23:41:39 -0400
-
-dmtcp (1.2.8-1) unstable; urgency=low
-
-  * New upstream release.
-  * Updated debian standards version to 3.9.4.
-  * Upload sponsored by Yaroslav Halchenko <debian@onerussian.com>
-
- -- Kapil Arya <kapil@ccs.neu.edu>  Fri, 26 Jul 2013 13:08:34 -0400
+ -- Kapil Arya <kapil@ccs.neu.edu>  Sat, 11 Jan 2014 23:47:45 -0500
 
 dmtcp (1.2.7-1) experimental; urgency=low
 
