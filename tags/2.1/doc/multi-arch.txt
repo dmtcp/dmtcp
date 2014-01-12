@@ -1,0 +1,51 @@
+Support for mixed mode applications.
+
+On a 64-bit machine, DMTCP can be used to checkpoint a
+computation consisting of both 64-bit and 32-bit applications.
+
+The DMTCP binaries (dmtcp_launch, dmtcp_coordinator, dmtcp_restart, etc.) are
+compiled and built only for the 64-bit architecture.  These binaries can launch
+processes for 32-bit applications as well. An exception is mtcp_restart, which
+must be compiled and build for each supported architecture.
+
+The libraries (libdmtcp.so, libdmtcp_pid.so, etc.) are built separately for all
+supported architectures.
+
+The installation goes as follows:
+<prefix>/bin: binaries for primary architecture
+<prefix>/lib/dmtcp: libraries for primary architecture
+<prefix>/lib/dmtcp/32/bin: mtcp_restart binary for given secondary arch.
+<prefix>/lib/dmtcp/32/lib/dmtcp: libraries for given secondary arch.
+
+Rest of the data files (headers, docs, manpages, etc) go to their usual
+locations.
+
+A. Compiling DMTCP for multi-arch support:
+=========================================
+
+1. Do the usual 64-bit compilation
+   ./configure
+   make
+   make install
+2. Do the 32-bit compilation (with -m32)
+   ./configure --enable-m32
+   make clean
+   make
+   make install
+
+B. Handling dlsym offset:
+========================
+DMTCP relies on dlsym offset (calculated as the relative offset of dlsym from
+dlinfo in libdl.so) for calling the libdl:dlsym() function. This is to allow
+the plugins to put wrappers around dlsym() function itself.
+
+As can be seen, the dlsym offset may be different for 32-bit and 64-bit
+versions of libdl.so. To handle this, we calculate the offset for both
+architectures before hand (while executing in dmtcp_launch, and dmtcp_restart)
+and set the environment variables DMTCP_DLSYM_OFFSET (and
+DMTCP_DLSYM_OFFSET_M32). These offsets are also stored in SharedData area (see
+shareddata.h).
+
+While exec'ing a new program, the process can not rely on the current value
+of the env vars as the values might be outdated. Thus, in prepareForExec(), the
+env vars are updated from the current values in SharedData.

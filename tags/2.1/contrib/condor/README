@@ -1,0 +1,12 @@
+This provides documentation and a copy of the shim script of the
+Condor team, provided for integration of DMTCP checkpointing
+with DMTCP.  The same information can be found at:
+    http://dmtcp.sourceforge.net/condor.html
+This is the work of Samaneh Kazemi.  Please report bugs to
+dmtcp@ccs.neu.edu as well as to samaneh using her account at ccs.neu.edu.
+
+FOR DEBIAN, PLEASE NOTE:
+In Debian 6.0: Please note that a bug report has been filed for Debian
+6.0. This bug prevents the integration of Condor/DMTCP/Debian. A full
+description, and a workaround is described on this Condor wiki page:
+  https://htcondor-wiki.cs.wisc.edu/index.cgi/tktview?tn=3094

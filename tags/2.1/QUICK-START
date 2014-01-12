@@ -1,0 +1,412 @@
+    Overview of DMTCP (Distributed MultiThreaded Checkpointing)
+
+[ To install DMTCP, see the INSTALL file. ]
+
+CONCEPTS:
+DMTCP Checkpoint/Restart allows one to transparently checkpoint to disk
+a distributed computation.  It works under Linux, with no modifications
+to the Linux kernel nor to the application binaries.  It can be used by
+unprivileged users (no root privilege needed).  One can later restart
+from a checkpoint, or even migrate the processes by moving the checkpoint
+files to another host prior to restarting.
+
+There is one DMTCP coordinator for each computation that you wish
+to checkpoint.  By specifying --host and --port (or the environment
+variables DMTCP_HOST and DMTCP_PORT), you can add a process
+to a coordinator different from the default coordinator.  If you don't
+specify, the default coordinator is always at (localhost, 7779).
+
+A DMTCP coordinator process is started on one host.  Application binaries
+are started under the dmtcp_launch command, causing them to connect
+to the coordinator upon startup.  As threads are spawned, child processes
+are forked, remote processes are spawned via ssh, libraries are dynamically
+loaded, DMTCP transparently and automatically tracks them.
+
+By default, DMTCP uses gzip to compress the checkpoint images.  This can
+be turned off (dmtcp_launch --no-gzip ; or setting an
+environment variable to 0: DMTCP_GZIP=0).  This will be faster, and if
+your memory is dominated by incompressible data, this can be helpful.
+Gzip can add seconds for large checkpoint images.  Typically, checkpoint
+and restart is less than one second without gzip.
+
+A DMTCP checkpoint image includes any libraries (.so files) that it may
+have been using.  This strategy is used for greater portability of
+the checkpoint images --- and in some cases, it even allows migration of
+the checkpoint images (and hence, processes) to hosts with different
+Linux distributions, different Linux kernels, etc.
+
+To run a program with checkpointing:
+  1) Run dmtcp_coordinator in a separate terminal/window
+
+        bin/dmtcp_coordinator
+
+  2) In separate terminal(s), replace each command(s)
+     with "dmtcp_launch [command]"
+
+        bin/dmtcp_launch ./a.out
+
+  3) To checkpoint, type 'c'<return> into dmtcp_coordinator
+
+
+[ In dmtcp_coordinator window:
+    h<return> for help,
+    c<return> for checkpoint,
+    l<return> for list of processes to be checkpointed,
+    k<return> to kill processes to be checkpointed,
+    q<return> to kill processes to be checkpointed and quit the coordinator.]
+
+
+  4) RESTART:
+    Creating a checkpoint causes the dmtcp_coordinator to write
+    a script, dmtcp_restart_script.sh, along with a
+    checkpoint file (file type: .dmtcp) for each client process.
+    The simplest way to restart a previously checkpointed computation is:
+        ./bin/dmtcp_restart_script.sh
+    [ ./dmtcp_restart_script.sh  usually works "as is", but it can be edited ]
+    [ Alternatively, if all processes were on the same processor,
+        and there were no .dmtcp files prior to this checkpoint: ]
+        ./bin/dmtcp_restart ckpt_*.dmtcp
+
+============================================
+CONVENIENCE COMMANDS AND DEBUGGING RESTARTED PROCESSES:
+  # Help exists:
+  bin/dmtcp_coordinator --help ; bin/dmtcp_launch --help ;
+  bin/dmtcp_command --help, etc.
+  # Automatically start a coordinator in background
+  bin/dmtcp_launch ./a.out &
+  # Checkpoint all processes of the default coordinator
+  bin/dmtcp_command --checkpoint
+  # Kill a.out, and optionally kill coordinator process
+  bin/dmtcp_command --kill
+  # Kill a.out, and optionally kill coordinator process
+  bin/dmtcp_command --quit
+  # Restart directly from local checkpoint images (.dmtcp files)
+  ./dmtcp_restart_script.sh
+  # Or else, directly restart from the ckpt images in the current directory. 
+  # (Be sure there are no old ckpt_a.out_*.dmtcp files.
+  #  Ensure that the restarted process is running, and not suspended.)
+  bin/dmtcp_restart ckpt_a.out_*.dmtcp &
+  # Have gdb attach to a restarted process, and debug
+  # NOTE:  You must specify 'mtcp_restart', not 'dmtcp_restart'
+  gdb ./a.out `pgrep -n MTCP`
+  # force a.out to exit any low level libraries and return to a known location
+  # set a breakpoint on a common function and continue:
+  (gdb) break write   
+  (gdb) continue
+
+============================================
+COMMAND-LINE OPTIONS:
+    `dmtcp_launch', `dmtcp_command', and 'dmtcp_restart' print
+their options when run with no command-line arguments.  `dmtcp_coordinator'
+offers help when run (Type 'h<return>' for help.).
+
+============================================
+OPTIONS THROUGH ENVIRONMENT VARIABLES:
+  dmtcp_coordinator:
+    dmtcp_launch=<time in seconds> (default: 0, disabled)
+    DMTCP_PORT=<coordinator listener port> (default: 7779)
+    DMTCP_CHECKPOINT_DIR=<where restart script is written> (default: ./)
+    DMTCP_TMPDIR=<where temporary files are written>
+					 (default: env var TMPDIR or /tmp)
+
+  dmtcp_launch / dmtcp_restart:
+    DMTCP_HOST = <hostname where coordinator is running> (default: localhost)
+    DMTCP_PORT = <coordinator listener port> (default: 7779)
+    DMTCP_GZIP = <0: disable compression of checkpoint image>
+					 (default: 1, compression enabled)
+    DMTCP_CHECKPOINT_DIR = <location to store checkpoints> (default: ./)
+    DMTCP_SIGCKPT = <internal signal number> (default: 12 = SIGUSR2)
+    DMTCP_TMPDIR = <where temporary files are written>
+					 (default: env var TMPDIR or /tmp)
+
+  dmtcp_command:
+    DMTCP_HOST = <hostname where coordinator is running> (default: localhost)
+    DMTCP_PORT = <coordinator listener port> (default: 7779)
+
+============================================
+ADAPTING DMTCP TO APPLICATION REQUIREMENTS AND TO EXTERNAL ENVIRONMENTS:
+
+ Application control over checkpoints:
+   dmtcp_is_enabled()   [Returns 0 (false) or 1 (true)]
+   dmtcp_checkpoint()   [with return values to distinguish resume and restart]
+   dmtcp_disable_ckpt() [Temporarily delay checkpoint during critical section]
+   dmtcp_enable_ckpt()  [Resume previously delayed checkpoint]
+   [ See test/plugin/applic-*-ckpt/ for small, easily executed examples. ]
+
+ User-defined plugin modules may be added to DMTCP.  For examples,
+   see the "test/plugin" directory of the source distribution.
+   * Plugins provide user hooks for many common events, including:
+      checkpoint, resume, restart, thread_start, thread_exit, exec program, etc.
+   * Plugins provide for user-defined wrappers around library calls
+      and system calls, to allow users to virtualize the external environment.
+   * Plugins provide a plublish/subscribe service by which multiple
+      processes may exchange information at the time of restart.
+   [ See doc/plugin-tutorial.pdf for further informaiton, and see
+     test/plugin for several small, easily executed examples. ]
+
+============================================
+SHORT NOTES:
+
+    1. A restarted process sees the shared libraries and environment variables
+       that existed prior to checkpoint.  These are contained in the .dmtcp
+       checkpoint file.
+    2. At restart time, one can choose either to use the original
+       dmtcp_coordinator or else to start a new coordinator.  Each process
+       restarted by the dmtcp_restart command needs to know the host and port
+       used by dmtcp_coordinator.  These default to localhost and port 7779.
+       The coordinator can be specified to use port 0, in which case the
+       coordinator chooses arbitrary port, and prints it to stdout.
+       Setting DMTCP_PORT in the environment seen by the four main commands
+       (dmtcp_coordinator, dmtcp_launch, dmtcp_restart and dmtcp_command)
+       will override the default port.  Similarly, setting DMTCP_HOST for
+       dmtcp_launch and dmtcp_restart is needed if they start on
+       a different host than that of the coordinator.
+    3. If your application has only a single process (single- or
+       multi-threaded), then you can also directly use the software in
+       the mtcp subdirectory (single-process layer) without the upper
+       layer in the dmtcp subdirectory.  This may be convenient for
+       customizing the source code for your own application.
+    4. In order to enable various types of debugging, do:
+         A. To enable debug statements for DMTCP only (related to multi-process
+            communication), configure with: ./configure --enable-debug
+            (or './configure --help', in general)
+            --enable-debug both prints to stderr and writes files. This both
+            prints to stderr and writes files
+		 $DMTCP_TMPDIR/dmtcp-$USER@$HOST/jassertlog.*
+            where $DMTCP_TMPDIR is /tmp by default on most distributions.
+            In reading this, it's useful to know that
+            DMTCP sets up barriers so that all processes proceed to the
+            following states together during checkpoint: RUNNING, SUSPENDED,
+            FD_LEADER_ELECTION, DRAINED, CHECKPOINTED, REFILLED, RUNNING.
+	 B. If debugging MTCP (single-process layer) from within DMTCP, then:
+	      a.  uncomment the line:
+		 CFLAGS += -O0 -g -DDMTCP_DEBUG -DTIMING -Wall
+              b.  Then:  (cd mtcp; make clean); make
+         C. To enable debug statements from MTCP (standalone mode),
+            do: In mtcp/Makefile, uncomment the line:
+            CFLAGS = -O0 -g -DDEBUG -DTIMING -Wall
+            Also, comment out the line: CFLAGS = -O0 -g
+            Then:  (cd mtcp; make clean); make
+	 D. If debugging:  dmtcp_launch a.out
+	    and you wish to attach to a.out when it starts, then
+	      a.  Set the environment variable MTCP_INIT_PAUSE
+			mtcp/mtcp.c:mtcp_init() will pause 15 seconds.
+	      b.  dmtcp_launch a.out &
+	      c.  gdb a.out `pgrep -n a.out`  [During the 15 second pause.]
+	      d.  The usual gdb commands should be available to debug
+			a.out/libmtcp.so/libdmtcp.so
+    5. It often works to migrate processes by moving the checkpoint files to
+       another host and editing dmtcp_restart_script.sh prior to
+       restarting.  Whether it works is affected by how different are the
+       corresponding versions for the kernel and glibc.
+    6. Checkpoint is implemented by sending a signal to each user thread.
+       As with all well-written code, your system calls should be prepared
+       for an error return of EINTR (interrupted, due to a simultaneous
+       checkpoint invocation or other kernel activity), in which case you
+       can call the system call again.
+    7. See comment in code before mtcp/mtcp_restart_nolibc.c:readmemoryareas()
+       for specific handling of mapping of memory objects via mmap:
+         MAP_PRIVATE, MAP_SHARED, MAP_ANONYMOUS
+       Heuristically, if a memory area is mapped to a file for which user has
+       only read permission, then a restarted process uses the most recent
+       file. If a memory area is mapped to a file with write or execute
+       permission, the pre-checkpoint memory contents is copied back into
+       memory area.
+    8. For developers, mtcp/readmtcp is useful for debugging checkpoint
+       images.  Run it without arguments for a usage message.
+    9. dmtcpaware exists for programs that wish to directly talk to the
+       dmtcp_coordinator, without the intervention of a human being.
+       See the test subdirectory for several example dmtcpaware programs.
+    10. util/gdb-add-symbol-file may be a useful debugging tool.  It computes
+	the arguments for the add-symbol-file command of gdb, to import
+	symbol information about a dynamic library.  It is most useful in
+	combination with *-dbg Linux packages and prefix to dmtcp_launch:
+	  env LD_LIBRARY_PATH=/usr/lib/debug dmtcp_launch ...
+	followed by 'attach' in gdb.
+    11. The particular combination of Ubuntu 8.10 (Intrepid) and
+	 g++-4.3 with the default -O2 flag appears to have a bug.
+         (g++-4.3 decides to inline a certain function, and then fails
+	 to compile because it decides that that function cannot be inlined.)  
+	There are two easy workarounds.  First, if make fails, then manually
+	re-execute the g++ compilation from the last line output by make,
+	but do not include "-O2".  Alternatively, when configuring, use:
+	  env CXXFLAGS=-O1 ./configure
+    12. Matlab should be invoked without graphics, and to be extra safe,
+	without the JVM.  The -nodisplay and -nojvm flags for Matlab suffice:
+		bin/dmtcp_launch matlab -nodisplay -nojvm
+    13. How to checkpoint Open MPI with DMTCP
+        Verify that mpirun works.
+        Verify dmtcp_{checkpoint,restart} commands are in your path:
+          ssh <REMOTE-HOST> which dmtcp_launch
+	If they are not in your path, adjust your shell initialization file
+           to extend your path.
+        Verify "ssh <REMOTE-HOST>" works without password otherwise
+        do the following:
+          ssh-keygen -t dsa       [accept default values]
+          ssh-keygen -t rsa       [accept default values]
+          cat ~/.ssh/id*.pub >> ~/.ssh/authorized_keys
+
+        make clean
+        make
+        make check
+
+        dmtcp_launch mpirun ./hello_mpi
+        dmtcp_command --checkpoint
+
+        ./dmtcp_restart_script.sh
+
+        DMTCP uses SIGUSR2 as default and so do older versions of Open MPI.
+        If you have an older version (e.g < 1.3), try choosing a different
+        value of SIGNUM for DMTCP as follows:
+        dmtcp_launch --mtcp-checkpoint-signal <SIGNUM> mpirun ./hello_mpi
+
+    14. Using DMTCP with X-Windows:
+	Note that this method does not work with X extensions like OpenGL.
+	If someone wishes to extend this method to OpenGL, we have some
+	ideas for an approach that we can share.  Also, this method does
+	not currently successfully checkpoint an xterm, for reasons that
+	we do not fully understand.  We will look further into this later
+	when time and resources permit.
+
+	Install TightVNC (either as a package from your Linux distro,
+	or at:  http://www.tightvnc.com/
+	with installation instructions at:
+	  http://www.tightvnc.com/doc/unix/README.txt
+
+        If the server fails to start, you may need to specify the location of
+        fonts on your system. Do this by editing the "vncserver" Perl script
+	(which you put in your path above).  Modify the $fontPath variable
+	to point to your font directories. For example, I listed all of the
+	subdirectories of /usr/share/fonts/ in the fontPath.
+
+        The processes started up automatically by the VNC server are listed in
+        the ~/.vnc/xstartup file. Use the following as your ~/.vnc/xstartup,
+        where we use the blackbox window manager and an x_app application
+	as an example:
+           #!/bin/csh
+           blackbox &
+           x_app
+
+        You should test that you can use the vncserver and vncviewer now.
+        This example uses desktop number 1:
+           vncserver :1
+           vncviewer localhost:1
+           # Kill vncviewer window manually, and then:
+           vncserver -kill :1
+
+        Make sure the executables dmtcp_launch, dmtcp_coordinator,
+        dmtcp_restart, and dmtcp_command are in your path.
+
+        Note that if the VNC server is killed without using the
+        "vncserver -kill", there will be some temporary files left over that
+        prevent the server from restarting.  If this occurs, remove them:
+           rm -rf /tmp/.X1-lock /tmp/.X11-unix/X1
+        where X1 corresponds to starting the server on port 1.
+
+        Now, start the VNC server under checkpointing control:
+           dmtcp_launch vncserver :1
+
+        Use the VNC viewer to view your x_app application in the blackbox
+	window manager:
+           vncviewer localhost:1
+
+        Before checkpointing, close any xterm windows.  Also, close
+	the vncviewer itself.  They can be reopened again after
+        the checkpoint has completed.
+
+        [Optional] To verify that vncserver is running under checkpoint control:
+           dmtcp_command h
+           dmtcp_command s
+
+        To checkpoint the VNC server, x_app, and any other processes running
+	under the VNC server, remove any old checkpoint files, and type:
+           rm -f ckpt_*.dmtcp
+           dmtcp_command --checkpoint
+
+        This creates a file of the form ckpt_*.dmtcp for each process being
+	checkpointed.  To kill the vncviewer and restart,
+	use the restart script:
+           vncserver -kill :1
+           # This script assumes dmtcp_restart is in your path.  If not,
+           #  modify the script to replace dmtcp_restart by a full path to it.
+           ./dmtcp_restart_script.sh
+
+        Alternatively, you may prefer to directly use the dmtcp_restart command:
+           vncserver -kill :1
+           dmtcp_restart ckpt_*.dmtcp
+
+        Note: if checkpointing doesn't fully complete, make sure you're not out
+        of disk space, and that there are no other file system problems.
+
+    15. For Ubuntu/Debian Linux, ensure that the
+	  packages 'patch' and 'linux-libc-dev' are installed.
+	For OpenSuse Linux, ensure that the
+	  packages 'patch' and 'linux-kernel-headers'
+
+    16. By default in DMTCP, successive checkpoints of the same process
+	write to the same checkpoint image filename.  If you prefer that
+	successive checkpoint be written to distinct filenames, then use:
+	  ./configure --enable-unique-checkpoint-filenames
+
+    17. DMTCP uses a new pid (process id), tid (thread id),
+	etc. on restart, while at the same time ensuring that
+	your program sees the _original pid_, and not the
+	new pid.  At this time, a restarted process will appear
+	within the "ps" command under the program name "mtcp_restart".
+
+    18. Certain applications, such as some shells, vim, etc., try to
+	recognize mouse events from the X11 windows system.  While DMTCP
+	successfully checkpoints and restarts these applications, it does so
+        by disabling the connection to X11.  Mouse events are not recognized.
+
+    19. Support for incremental and differential checkpoint using the HBICT
+	package at http://hbict.sourceforge.net/projects/hbict/ .
+	HBICT (Hash Based Incremental Checkpointing Tool) provides DMTCP
+	support for delta-compression (relative to the previous checkpoint)
+	which is then additionally compressed using gzip.  To enable it:
+
+	1) Download and install HBICT somewhere in your PATH.  For example,
+	   to test it in a single user's account:
+	  $ tar zxvf hbict-1.0.tar.gz; cd hbict-1.0; ./configure; make
+	  $ export PATH=$PWD/src:$PATH
+	   To see the options of 'hbict', execute:
+	  $ hbict --help
+	   Note, in particular, the '-r' option to create a new full checkpoint
+	   from the existing delta-compressed checkpoint files.
+	2) In the DMTCP directory, configure and re-make DMTCP for HBICT:
+	  $ ./configure --enable-delta-compression; make clean; make
+	3) The --no-hbict and --no-gzip options of dmtcp_launch
+	   will control what type of compression is used.
+	  a. 'dmtcp_launch <my_prog>' causes successive checkpoints to be
+	   delta-compressed relative to previous checkpoints (HBICT
+	   compression) and then also compressed with gzip.
+	  b. 'dmtcp_launch --no-gzip <my_prog>' causes successive
+	   checkpoints to be delta-compressed relative to previous checkpoints
+	  (using HBICT compression).
+	  c. 'dmtcp_launch --no-hbict <my_prog>' causes gzipped checkpoints
+	   to be created with no delta-compression.
+	  d. 'dmtcp_launch --no-hbict --no-gzip  <my_prog>' disables all
+	   compression.
+
+	If delta-compression is used you'll see the several checkpoint files in
+	your DMTCP_CHECKPOINT_DIR as in the following example using
+	HBICT+gzip compression:
+	$ dmtcp_launch test/dmtcp1
+	$ ls -1 -sh
+	4,0K ckpt_dmtcp1_6cbb52b0-12935-4ddcf7a0.dmtcp
+	1,8M ckpt_dmtcp1_6cbb52b0-12935-4ddcf7a0.hbict.0
+	 56K ckpt_dmtcp1_6cbb52b0-12935-4ddcf7a0.hbict.1
+	 52K ckpt_dmtcp1_6cbb52b0-12935-4ddcf7a0.hbict.2
+	 ...
+
+	In this example, the size of the delta-compressed checkpoints are
+	32 times smaller, since test/dmtcp1 is mostly unchanging text (code),
+	with little data to change.  The actualy delta-compression ratio
+	depends strongly on the particular application.
+
+	4) To restart the application you'll need the file
+	   ckpt_dmtcp1_6cbb52b0-12935-4ddcf7a0.dmtcp, along with all the
+	   *.hbict.N files to be present in the same directory.  Then execute:
+	     $ dmtcp_restart ckpt_dmtcp1_6cbb52b0-12935-4ddcf7a0.dmtcp
+	   and the *.hbict.N files will automaticaly be discovered and used
+	   by the HBICT tool.

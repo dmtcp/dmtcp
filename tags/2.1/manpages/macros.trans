@@ -1,0 +1,10 @@
+$manMacro1a{'myProg'}           = '\fB';
+	$manMacro1b{'myProg'} 	= '\fP';
+
+$manMacro2a{'myCmd'} 		= '\fB';
+	$manMacro2b{'myCmd'} 	= '\fP(';
+	$manMacro2c{'myCmd'} 	= ')';
+
+$manMacro2a{'OptSArg'} 		= '\fB';
+	$manMacro2b{'OptSArg'} 	= '\fP \fI';
+	$manMacro2c{'OptSArg'} 	= '\fP';
