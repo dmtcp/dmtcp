@@ -4,25 +4,25 @@ Upstream-Contact: Kapil Arya <kapil@ccs.neu.edu>
 Source: http://www.dmtcp.sourceforge.net
 
 Files: *
-Copyright: 2006-2011, Jason Ansel <jansel@csail.mit.edu>
-           2006-2011, Kapil Arya <kapil@ccs.neu.edu>
-           2006-2011, Gene Cooperman <gene@ccs.neu.edu>
+Copyright: 2006-2013, Jason Ansel <jansel@csail.mit.edu>
+           2006-2013, Kapil Arya <kapil@ccs.neu.edu>
+           2006-2013, Gene Cooperman <gene@ccs.neu.edu>
 License: LGPL-3
 
 Files: mtcp/*
-Copyright: 2006-2011, Mike Rieker <mrieker@nii.net>
-           2006-2011, Jason Ansel <jansel@csail.mit.edu>
-           2006-2011, Kapil Arya <kapil@ccs.neu.edu>
-           2006-2011, Gene Cooperman <gene@ccs.neu.edu>
+Copyright: 2006-2013, Mike Rieker <mrieker@nii.net>
+           2006-2013, Jason Ansel <jansel@csail.mit.edu>
+           2006-2013, Kapil Arya <kapil@ccs.neu.edu>
+           2006-2013, Gene Cooperman <gene@ccs.neu.edu>
 License: LGPL-3
 
 Files: debian/*
-Copyright: 2011, Kapil Arya <kapil@ccs.neu.edu>
+Copyright: 2011-2014, Kapil Arya <kapil@ccs.neu.edu>
 License: GPL-3
 
 Files: opensuse/dmtcp.spec
 Copyright: 2012, SUSE LINUX Products GmbH, Nuernberg, Germany.
-           2012, Kapil Arya <kapil@ccs.neu.edu>
+           2012-2014, Kapil Arya <kapil@ccs.neu.edu>
 License: LGPL-3
 
 Files: dmtcp/jalib/*
@@ -30,14 +30,18 @@ Copyright: 2005-2011, Jason Ansel <jansel@csail.mit.edu>
 License: LGPL-3
 
 Files: dmtcp/src/trampolines.*
-Copyright: 2011-2012, Kapil Arya <kapil@ccs.neu.edu>
-           2011-2012, Tyler Denniston <tyler@ccs.neu.edu>
+Copyright: 2006-2013, Kapil Arya <kapil@ccs.neu.edu>
+           2006-2013, Tyler Denniston <tyler@ccs.neu.edu>
 License: LGPL-3
 
-Files: dmtcp/src/eventwrappers.cpp
+Files: dmtcp/src/plugin/ipc/event/eventwrappers.cpp
 Copyright: 2012, Kapil Arya <kapil@ccs.neu.edu>
            2012, Gene Cooperman <gene@ccs.neu.edu>
            2012, Rohan Garg <rohgarg@ccs.neu.edu>
+License: LGPL-3
+
+Files: dmtcp/src/plugin/ipc/event/util_descriptor.*
+Copyright: 2012, Onyeka Igabari
 License: LGPL-3
 
 Files: plugin/ptrace/*
@@ -46,15 +50,13 @@ Copyright: 2009-2012, Ana-Maria Visan <amvisan@ccs.neu.edu>
            2009-2012, Gene Cooperman <gene@ccs.neu.edu>
 License: LGPL-3
 
-Files: dmtcp/src/dmtcpaware.*
-Copyright: 2006-2011, Jason Ansel <jansel@csail.mit.edu>
-           2006-2011, Kapil Arya <kapil@ccs.neu.edu>
-           2006-2011, Gene Cooperman <gene@ccs.neu.edu>
-License: Expat or BSD-2-Clause
-
 Files: dmtcp/src/glibcsystem.cpp
 Copyright: 1991-2000,2002,2003,2005,2007 Free Software Foundation, Inc.
 License: LGPL-2.1
+
+Files: dmtcp/include/dmtcpalloc.h
+Copyright: 2002 Pete Isensee <PKIsensee@msn.com>
+License: LGPL-3
 
 Files: mtcp/mtcp_sigaction_*
 Copyright: 1991-2000,2002,2003,2005,2007 Free Software Foundation, Inc.
@@ -68,23 +70,24 @@ Files: mtcp/NOTES-x86_64/*.[hS]
 Copyright: 1991-2000,2002,2003,2005,2007 Free Software Foundation, Inc.
 License: LGPL-2.1
 
-Files: contrib/rm/*
+Files: mtcp/libc-do-*
+Copyright: 2010-2012 Free Software Foundation, Inc.
+License: LGPL-2.1
+
+Files: plugin/batch-queue/*
 Copyright: 2012-2013, Artem Y. Polyakov <artpol84@gmail.com>
 License: LGPL-3
 
 Files: contrib/infiniband/*
-Copyright: 2011 Greg Kerr <kerr.g@neu.edu>
-           2011 Gene Cooperman <gene@ccs.neu.edu>
-           2011 Kapil Arya <kapil@ccs.neu.edu>
+Copyright: 2011-2013 Greg Kerr <kerr.g@neu.edu>
+           2011-2013 Jiajun Cao <jiajun@ccs.neu.edu>
+           2011-2013 Kapil Arya <kapil@ccs.neu.edu>
+           2011-2013 Gene Cooperman <gene@ccs.neu.edu>
 License: GPL-3
 
 Files: contrib/infiniband/examples/*
 Copyright: 2005, Topspin Communications
 License: GPL-2
-
-Files: plugin/ipc/event/util_descriptor.*
-Copyright: 2012, Onyeka Igabari                                   *
-License: LGPL-3
 
 License: LGPL-3
  This package is free software; you can redistribute it and/or
