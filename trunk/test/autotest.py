@@ -170,7 +170,7 @@ def splitWithQuotes(string):
 
 def shouldRunTest(name):
   # FIXME:  This is a hack.  We should have created var, testNaems and use here
-  if len(sys.argv) <= 1+(VERBOSE==True)+(SLOW!=1)+(CYCLES!=2):
+  if len(sys.argv) <= 1+(VERBOSE==True)+(SLOW!=1)+(CYCLES!=2)+(RETRY_ONCE==True):
     return True
   return name in sys.argv
 
