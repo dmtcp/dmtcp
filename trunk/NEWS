@@ -1,0 +1,114 @@
+DMTCP NEWS -- history of user-visible changes.
+
+Please send DMTCP bug reports via <dmtcp-forum@lists.sourceforge.net>
+
+Version 2.1 release notes
+=========================
+
+* DMTCP version 2.1. has now been released.  As before, it runs on most
+  Linux distros, and supports both x86 and x86_64 (Intel/AMD for 32- and
+  64-bits), and 32-bit ARM (ARMv7).  In addition, the older DMTCP version 1.2.x
+  (currently 1.2.8) continues to be maintained, but on a bug-fix basis only.
+
+* CHANGE NEEDED FOR ALL PLUGINS:
+  - If you have plugins that include "dmtcpplugin.h", they will now have to be
+    changed to include "dmtcp.h".  This is to reflect that "dmtcp.h" has more
+    uses than just for plugins.
+
+* This new release includes:
+  - some newly stable plugins - batch-queue, modify-env, ptrace (see below)
+  - full support for 32-/64-bit multilib architecture. (see below)
+  - other enhancements to the core feature set (see below)
+  - adapting DMTCP to application requirements:  removal of the old dmtcpaware
+    interface in favor of the newer interface:  test/plugin/applic-*ckpt/
+    (see below)
+  - attempt to restore current working directory on restart (may be impossible
+    if restart host has different filesystem)
+  - 'dmtcp_coordinator --port-file <FILE>' causes coordinator to write the port
+  - number on which it listens into FILE.  This is useful in
+    conjunction with 'dmtcp_coordinator --port 0', which starts a coordinator
+    at a random unused port.
+  - 'dmtcp_restart --ckptdir <DIR>' and 'dmtcp_restart_script.sh --ckptdir <DIR>'
+    will change to a new directory to hold checkpoint images on restart.
+  - 'dmtcp_restart --no-strict-uid-checking'
+    or 'dmtcp_coordinator --no-strict-uid-checking'
+    [ allows a user with a different uid to restart a checkpoint image;
+    process uid will be changed to that of the new user ]
+  - './configure --enable-run-as-root'  [ self explanatory; normally running
+    as root is bad practice ]
+  - a new internal plugin to handle 'ssh' uniformly; Some corner cases
+    in checkpointing MPI could have been affected by this.
+  - some bug fixes related to the new plugin software architecture initiated
+    with DMTCP 2.0
+
+* SOME NEWLY STABLE PLUGINS:
+  This release continues to emphasize the use of DMTCP plugins.
+  The plugins are now organized into two top-level subdirectories:
+  - plugin - plugin is built by './configure; make', but must be invoked,
+             typically through command-line option of 'dmtcp_launch'
+  - contrib - plugin not built; user must cd to the subdirectory of the plugin,
+              build it, and invoke it with 'dmtcp_launch --with-plugin ...'
+
+  - Plugins in the top-level plugin directory:
+    + ptrace :  'dmtcp_launch --ptrace'
+        a plugin to support checkpointing ptrace-based applications,
+        notably including GDB.
+    + batch-queue :  'dmtcp_launch --batch-queue'
+        a resource manager plugin that supports the Torque/PBS and SLURM
+        batch queue systems.  (This plugin is now mature, and was renamed
+        from 'rm' in DMTCP-2.0 to 'batch-queue' to better reflect its use.)
+        [ improved in DMTCP 2.1 ]
+    + modify-env :  'dmtcp_launch --modify-env'
+        Normally, on dmtcp_restart, a process can see only the original
+        environment variables in effect during dmtcp_launch or set by the
+        process itself.  It is common to wish to update these environment
+        variables based on the environment on the restart host
+        (e.g., DISPLAY=$DISPLAY).  This can be set in a file dmtcp_env.txt .
+        [ new in DMTCP 2.1 ]
+
+  - The contrib plugins include:
+    + condor : support for HTCondor, a framework for high throughput computing
+    + kvm : checkpointing of a KVM virtual machine
+    + tun : support for tun networking (as in Tun/Tap) between a virtual
+        machine and the host machine
+    + python : support for checkpoint/restart within a Python session
+    + infiniband : checkpointing over InfiniBand networks supports OFED
+        InfiniBand API.
+        (Note: If you are using a newer release of OFED, you may wish to use
+         the rewrite of this plugin, to be available from the svn in late
+         January, 2014.)
+      [ improved in DMTCP 2.1 ]
+    + ib2tcp : support for checkpointing computation over InfiniBand and
+        restarting over TCP.
+      [ new in DMTCP 2.1 ]
+    + ckptfile : example/template for a plugin to change the default directory
+        to receive checkpoint images.  This can be important when restarting on
+        a new host.
+      [ new in DMTCP 2.1 ]
+
+* FULL SUPPORT FOR 32-/64-bit MULTILIB ARCHITECTURE:
+
+  The standard binary, dmtcp_launch, now supports both 32- and 64-bit programs.
+  Further, a 64-bit program may invoke a 32-bit program and vice versa, as part
+  of a single computation under DMTCP control.
+
+* OTHER ENHANCEMENTS TO THE CORE FEATURE SET:
+
+  - For extremely malloc-intensive programs, run-time overhead from several
+      per cent to 20% has been observed.  This is due to DMTCP deadlock
+      avoidance.  (The glibc implementation of malloc uses a global lock,
+      that can result in deadlock if a user invokes malloc inside a plugin
+      during checkpoint or restart.)  If a user program is not using malloc
+      in a plugin during checkpoint, then the user can disable this
+      DMTCP deadlock avoidance scheme with a flag:
+        dmtcp_launch --disable-alloc-plugin
+      A future modification to DMTCP may remove this issue entirely.
+
+* ADAPTING DMTCP TO APPLICATION REQUIREMENTS AND TO EXTERNAL ENVIRONMENTS:
+
+  The old 'dmtcpaware' API is being removed in favor of:
+    test/plugin/applic-*ckpt/
+
+  For details on this newer API, please read the QUICK-START file with this
+  same heading:  ADAPTING DMTCP TO ...
+
