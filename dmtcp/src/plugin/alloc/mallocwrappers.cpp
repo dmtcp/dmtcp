@@ -24,6 +24,8 @@
 #include "dmtcp.h"
 #include "alloc.h"
 
+EXTERNC int dmtcp_alloc_enabled() { return 1; }
+
 extern "C" void *calloc(size_t nmemb, size_t size)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();

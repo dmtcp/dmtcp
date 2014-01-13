@@ -31,7 +31,7 @@
 
 static int originalStartup = 1;
 
-EXTERNC int dmtcp_has_ptrace_plugin() { return 1; }
+EXTERNC int dmtcp_ptrace_enabled() { return 1; }
 
 void ptraceInit()
 {

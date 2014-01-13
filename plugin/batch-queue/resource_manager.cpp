@@ -30,6 +30,8 @@
 #include "torque.h"
 #include "slurm.h"
 
+extern "C" int dmtcp_batch_queue_enabled(void) { return 1; }
+
 // ----------------- global data ------------------------//
 static rmgr_type_t rmgr_type = Empty;
 
@@ -103,10 +105,10 @@ bool runUnderRMgr()
 extern "C" int dmtcp_is_bq_file(const char *path)
 {
   dmtcp::string str(path);
-  
+
   if( !runUnderRMgr() )
     return false;
-  
+
   if( _get_rmgr_type() == torque )
     return isTorqueIOFile(str) || isTorqueFile("", str);
   else
