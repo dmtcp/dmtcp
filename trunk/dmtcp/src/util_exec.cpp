@@ -573,11 +573,11 @@ dmtcp::string dmtcp::Util::getPath(dmtcp::string cmd)
   return out;
 }
 
-int dmtcp_infiniband_enabled(void) __attribute__((weak));
-int dmtcp_alloc_enabled(void) __attribute__((weak));
-int dmtcp_batch_queue_enabled(void) __attribute__((weak));
-int dmtcp_modify_env_enabled(void) __attribute__((weak));
-int dmtcp_ptrace_enabled(void) __attribute__((weak));
+EXTERNC int dmtcp_infiniband_enabled(void) __attribute__((weak));
+EXTERNC int dmtcp_alloc_enabled(void) __attribute__((weak));
+EXTERNC int dmtcp_batch_queue_enabled(void) __attribute__((weak));
+EXTERNC int dmtcp_modify_env_enabled(void) __attribute__((weak));
+EXTERNC int dmtcp_ptrace_enabled(void) __attribute__((weak));
 
 void dmtcp::Util::getDmtcpArgs(dmtcp::vector<dmtcp::string> &dmtcp_args)
 {
