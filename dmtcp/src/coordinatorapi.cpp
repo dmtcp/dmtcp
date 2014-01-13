@@ -736,10 +736,18 @@ int dmtcp::CoordinatorAPI::sendKeyValPairToCoordinator(const char *id,
   msg.keyLen = key_len;
   msg.valLen = val_len;
   msg.extraBytes = key_len + val_len;
+  jalib::JSocket sock = _coordinatorSocket;
+  if (dmtcp_is_running_state()) {
+    sock = createNewConnectionToCoordinator(true);
+    JASSERT(sock.isValid());
+  }
 
-  _coordinatorSocket << msg;
-  _coordinatorSocket.writeAll((const char *)key, key_len);
-  _coordinatorSocket.writeAll((const char *)val, val_len);
+  sock << msg;
+  sock.writeAll((const char *)key, key_len);
+  sock.writeAll((const char *)val, val_len);
+  if (dmtcp_is_running_state()) {
+    sock.close();
+  }
   return 1;
 }
 
