@@ -237,7 +237,7 @@ static void processArgs(int *orig_argc, char ***orig_argv)
     } else if (s == "--modify-env") {
       enableModifyEnvPlugin = true;
       shift;
-    } else if (s == "--ib" || s == "--ib") {
+    } else if (s == "--ib" || s == "--infiniband") {
       enableIB = true;
       shift;
     } else if (s == "--ib2tcp") {
