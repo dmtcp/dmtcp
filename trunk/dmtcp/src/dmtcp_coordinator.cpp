@@ -930,6 +930,7 @@ void dmtcp::DmtcpCoordinator::onConnect()
   JTRACE("accepting new connection") (remote.sockfd()) (JASSERT_ERRNO);
 
   if (!remote.isValid()) {
+    remote.close();
     return;
   }
 
@@ -957,6 +958,7 @@ void dmtcp::DmtcpCoordinator::onConnect()
     JTRACE ("received NAME_SERVICE_QUERY msg on running") (hello_remote.from);
     lookupService.respondToQuery(remote, hello_remote, extraData);
     delete [] extraData;
+    remote.close();
     return;
   }
 #endif
@@ -966,6 +968,7 @@ void dmtcp::DmtcpCoordinator::onConnect()
     reply.virtualPid = getNewVirtualPid();
     JASSERT(reply.virtualPid != -1);
     remote << reply;
+    remote.close();
     return;
   }
 
