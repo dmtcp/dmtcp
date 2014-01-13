@@ -457,7 +457,7 @@ __attribute__ ((weak)) void mtcpHookPostCheckpoint( void ) { }
 
 __attribute__ ((weak)) void mtcpHookRestart( void ) { }
 
-__attribute__ ((weak)) int dmtcp_has_ptrace_plugin(void);
+__attribute__ ((weak)) int dmtcp_ptrace_enabled(void);
 
 /* Statically allocate this.  Malloc is dangerous here if application is
  *   defining its own (possibly not thread-safe) malloc routine.
@@ -2242,7 +2242,7 @@ static void stopthisthread (int signum)
        * from this user thread to ckpt thread before writing ckpt image
        */
       if (callback_pre_suspend_user_thread != NULL &&
-          dmtcp_has_ptrace_plugin == NULL) {
+          dmtcp_ptrace_enabled == NULL) {
         callback_pre_suspend_user_thread();
       }
 
@@ -2260,7 +2260,7 @@ static void stopthisthread (int signum)
        * from this user thread to ckpt thread before writing ckpt image
        */
       if (callback_pre_suspend_user_thread != NULL &&
-          dmtcp_has_ptrace_plugin != NULL) {
+          dmtcp_ptrace_enabled != NULL) {
         callback_pre_suspend_user_thread();
       }
 

@@ -31,6 +31,8 @@ char * read_dmtcp_env_file(char *file, int size);
 int readAndSetEnv(char *buf, int size);
 int readall(int fd, char *buf, int maxCount);
 
+EXTERNC int dmtcp_modify_env_enabled() { return 1; }
+
 #ifdef STANDALONE
 int dmtcp_get_restart_env(char *envName, char *dest, size_t size) {
   if (getenv(envName))

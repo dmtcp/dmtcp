@@ -573,6 +573,12 @@ dmtcp::string dmtcp::Util::getPath(dmtcp::string cmd)
   return out;
 }
 
+int dmtcp_infiniband_enabled(void) __attribute__((weak));
+int dmtcp_alloc_enabled(void) __attribute__((weak));
+int dmtcp_batch_queue_enabled(void) __attribute__((weak));
+int dmtcp_modify_env_enabled(void) __attribute__((weak));
+int dmtcp_ptrace_enabled(void) __attribute__((weak));
+
 void dmtcp::Util::getDmtcpArgs(dmtcp::vector<dmtcp::string> &dmtcp_args)
 {
   const char * prefixPath           = getenv (ENV_VAR_PREFIX_PATH);
@@ -651,6 +657,22 @@ void dmtcp::Util::getDmtcpArgs(dmtcp::vector<dmtcp::string> &dmtcp_args)
 
   if (allocPlugin != NULL && strcmp(allocPlugin, "0") == 0) {
     dmtcp_args.push_back("--disable-alloc-plugin");
+  }
+
+  if (dmtcp_ptrace_enabled != NULL && dmtcp_ptrace_enabled()) {
+    dmtcp_args.push_back("--ptrace");
+  }
+
+  if (dmtcp_modify_env_enabled != NULL && dmtcp_modify_env_enabled()) {
+    dmtcp_args.push_back("--modify_env");
+  }
+
+  if (dmtcp_infiniband_enabled != NULL && dmtcp_infiniband_enabled()) {
+    dmtcp_args.push_back("--infiniband");
+  }
+
+  if (dmtcp_batch_queue_enabled != NULL && dmtcp_batch_queue_enabled()) {
+    dmtcp_args.push_back("--batch-queue");
   }
 
 #ifdef HBICT_DELTACOMP

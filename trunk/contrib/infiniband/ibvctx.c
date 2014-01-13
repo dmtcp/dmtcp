@@ -112,6 +112,8 @@ DECL_FPTR(req_notify_cq);
 #include "get_cq_from_pointer.ic"
 #include "get_srq_from_pointer.ic"
 
+void dmtcp_infiniband_enabled(void) { return 1; }
+
 void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t* data)
 {
   bool isRestart = (bool) data;
@@ -1091,7 +1093,7 @@ struct ibv_mr * _reg_mr(struct ibv_pd * pd, void * addr, size_t length, int flag
   /*
   *  We need to check that memery regions created
   *  before checkpointing and after restarting will not
-  *  have the same lkey. 
+  *  have the same lkey.
   */
   if (is_restart) {
     struct list_elem * e;
@@ -1266,7 +1268,7 @@ struct ibv_qp * _create_qp(struct ibv_pd * pd, struct ibv_qp_init_attr * qp_init
   if (is_restart) {
     struct list_elem *w;
     for (w = list_begin(&qp_list); w != list_end(&qp_list); w = list_next(w)) {
-      struct internal_ibv_qp *qp1 = list_entry(w, struct internal_ibv_qp, elem); 
+      struct internal_ibv_qp *qp1 = list_entry(w, struct internal_ibv_qp, elem);
       if (qp1->user_qp.qp_num == internal_qp->user_qp.qp_num) {
         PDEBUG("Error: duplicate qp_num is genereated, will exit.\n");
 	exit(1);
