@@ -12,15 +12,5 @@ struct ibv_qp_id {
   uint32_t psn;
 };
 
-struct ibv_qp_pd_id {
-  uint32_t qpn;
-  uint32_t lid;
-};
-
-struct ibv_rkey_id {
-  int pd_id;
-  uint32_t rkey;
-};
-
 struct ibv_qp_id * create_ibv_id(int qpn, int lid, void * buffer, int size);
 #endif

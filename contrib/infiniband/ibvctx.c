@@ -39,6 +39,17 @@
 #include <pthread.h>
 #include <errno.h>
 
+/* DMTCP uses pid virtulization, next generated virtual pid
+ * is 10000 greater than the current one, we use this gap to 
+ * virtualize mr, ensuring each of them is unique across
+ * the program.
+ */
+#define MAX_MR 10000
+#define BUSY 1
+#define FREE 0
+static int mr_pool[MAX_MR];
+
+static char hostname[128];
 static bool is_restart = false;
 
 //! This flag is used to trace whether ibv_fork_init is called
@@ -68,17 +79,15 @@ static struct list srq_list = LIST_INITIALIZER(srq_list);
 //! This is the list of completion channels
 static struct list comp_list = LIST_INITIALIZER(comp_list);
 //! This is the list of rkey pairs
-static struct list rkey_list;
-
-static int pd_id_count = 0;
+static struct list rkey_list = LIST_INITIALIZER(rkey_list);
 
 static void send_qp_info(void);
 static void query_qp_info(void);
-static void send_qp_pd_info(void);
-static void query_qp_pd_info(void);
 static void send_rkey_info(void);
+static void query_rkey_info(void);
 static void post_restart(void);
 static void post_restart2(void);
+static void refill(void);
 
 int _ibv_post_send(struct ibv_qp * qp, struct ibv_send_wr * wr, struct
                    ibv_send_wr ** bad_wr);
@@ -112,7 +121,7 @@ DECL_FPTR(req_notify_cq);
 #include "get_cq_from_pointer.ic"
 #include "get_srq_from_pointer.ic"
 
-void dmtcp_infiniband_enabled(void) { return 1; }
+int dmtcp_infiniband_enabled(void) { return 1; }
 
 void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t* data)
 {
@@ -122,27 +131,30 @@ void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t* data)
     pre_checkpoint();
     break;
   case DMTCP_EVENT_RESTART:
-    list_init(&rkey_list);
+//    sleep(60);
     post_restart();
     break;
   case DMTCP_EVENT_REGISTER_NAME_SERVICE_DATA:
     if (data->nameserviceInfo.isRestart) {
       send_qp_info();
-      send_qp_pd_info();
       send_rkey_info();
     }
     break;
   case DMTCP_EVENT_SEND_QUERIES:
     if (data->nameserviceInfo.isRestart) {
       query_qp_info();
-      query_qp_pd_info();
+      query_rkey_info();
       post_restart2();
+    }
+    break;
+  case DMTCP_EVENT_REFILL:
+    if (is_restart) {
+      refill();
     }
     break;
   default:
     break;
   }
-
   DMTCP_NEXT_EVENT_HOOK(event, data);
 }
 
@@ -150,12 +162,7 @@ void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t* data)
 /*! This will populate the coordinator with information about the new QPs */
 static void send_qp_info(void)
 {
-  //TODO: Check all possible DMTCP states before sending/querying
-  //TODO: BREAK REPLAYING OF MODIFY_QP LOG INTO TWO STAGES.
-  //GO AHEAD AND MOVE QP INTO INIT STATE BEFORE DOING THIS.
-  // IF A QP WAS NEVER MOVED INTO RTR THEN IT WON'T HAVE A CORRESPONDING QP
   struct list_elem *e;
-  char hostname[128];
   gethostname(hostname,128);
   for (e = list_begin(&qp_list); e != list_end(&qp_list); e = list_next(e)) {
     struct internal_ibv_qp * internal_qp = list_entry(e, struct internal_ibv_qp, elem);
@@ -173,7 +180,6 @@ static void send_qp_info(void)
 /*! This will query the coordinator for information about the new QPs */
 static void query_qp_info(void)
 {
-  char hostname[128];
   gethostname(hostname, 128);
   struct list_elem *e;
   for (e = list_begin(&qp_list); e != list_end(&qp_list); e = list_next(e)) {
@@ -190,50 +196,35 @@ static void query_qp_info(void)
   }
 }
 
-static void send_qp_pd_info(void) {
-  struct list_elem *e;
-  size_t size;
-  for (e = list_begin(&qp_list); e != list_end(&qp_list); e = list_next(e)) {
-    struct internal_ibv_qp * internal_qp = list_entry(e, struct internal_ibv_qp, elem);
-    struct internal_ibv_pd * internal_pd = ibv_pd_to_internal(internal_qp->user_qp.pd);
-    size = sizeof(internal_pd->pd_id);
-    dmtcp_send_key_val_pair_to_coordinator("pd_info",
-                                           &internal_qp->local_qp_pd_id,
-                                           sizeof(struct ibv_qp_pd_id),
-                                           &internal_pd->pd_id,
-					   size);
-  }
-}
-
-static void query_qp_pd_info(void) {
-  struct list_elem *e;
-  uint32_t size;
-  int ret;
-  for (e = list_begin(&qp_list); e != list_end(&qp_list); e = list_next(e)) {
-    struct internal_ibv_qp * internal_qp = list_entry(e, struct internal_ibv_qp, elem);
-    size = sizeof(internal_qp->remote_pd_id);
-    ret = dmtcp_send_query_to_coordinator("pd_info",
-                                          &internal_qp->remote_qp_pd_id,
-                                          sizeof(struct ibv_qp_pd_id),
-                                          &internal_qp->remote_pd_id,
-				          &size);
-    assert(size == sizeof(int));
-    assert(ret != 0);
-  }
-}
 /*! This will populate the coordinator with information about the new rkeys */
 static void send_rkey_info(void)
 {
   struct list_elem *e;
   for (e = list_begin(&mr_list); e != list_end(&mr_list); e = list_next(e)) {
-      struct internal_ibv_mr * internal_mr = list_entry(e, struct internal_ibv_mr, elem);
-      struct internal_ibv_pd * internal_pd = ibv_pd_to_internal(internal_mr->user_mr.pd);
-      struct ibv_rkey_id rkey_id = {
-        .pd_id = internal_pd->pd_id,
-	.rkey = internal_mr->user_mr.rkey
-      };
-      dmtcp_send_key_val_pair_to_coordinator("mr_info", &rkey_id, sizeof(rkey_id),
-                                             &internal_mr->real_mr->rkey, sizeof(internal_mr->real_mr->rkey));
+    struct internal_ibv_mr * internal_mr = list_entry(e, struct internal_ibv_mr, elem);
+    dmtcp_send_key_val_pair_to_coordinator("mr_info", 
+                                           &internal_mr->user_mr.rkey, 
+                                           sizeof(internal_mr->user_mr.rkey),
+                                           &internal_mr->real_mr->rkey, 
+				           sizeof(internal_mr->real_mr->rkey));
+  }
+}
+
+static void query_rkey_info(void) {
+  struct list_elem *e;
+  uint32_t size;
+  struct ibv_rkey_pair *pair;
+  for (e = list_begin(&rkey_list); e != list_end(&rkey_list); e = list_next(e)) {
+    pair = list_entry(e, struct ibv_rkey_pair, elem);
+    if (dmtcp_send_query_to_coordinator("mr_info", 
+                                        &pair->virt_rkey, sizeof(pair->virt_rkey), 
+          			        &pair->real_rkey, &size)) {
+      assert(size == sizeof(uint32_t));
+    }
+    else {
+      fprintf(stderr, "Error: Cannot get the right rkey.\n");
+      exit(1);
+    }
   }
 }
 
@@ -301,6 +292,7 @@ static void drain_completion_queue(struct internal_ibv_cq * internal_cq)
       free(wc);
     }
   } while (ne > 0);
+
 }
 
 /*! This will first check the completion queue for any
@@ -309,14 +301,31 @@ static void drain_completion_queue(struct internal_ibv_cq * internal_cq)
  */
 void pre_checkpoint(void)
 {
-  char host[128];
-  gethostname(host, 128);
 //  PDEBUG("I made it into pre_checkpoint.\n");
 
   struct list_elem * e;
   for (e = list_begin(&cq_list); e != list_end(&cq_list); e = list_next(e)) {
     struct internal_ibv_cq * internal_cq = list_entry(e, struct internal_ibv_cq, elem);
     drain_completion_queue(internal_cq);
+  }
+  struct list_elem * w;
+  for (e = list_begin(&qp_list); e != list_end(&qp_list); e = list_next(e)) {
+    struct internal_ibv_qp * internal_qp = list_entry(e, struct internal_ibv_qp, elem);
+    if (internal_qp->init_attr.sq_sig_all == 0) {
+      if (list_size(&internal_qp->post_send_log) > 0) {
+        w = list_begin(&internal_qp->post_send_log);
+        while (w != list_end(&internal_qp->post_send_log)) {
+          struct list_elem *t = w;
+          struct ibv_post_send_log *log = list_entry(t, struct ibv_post_send_log, elem);
+          if (!(log->wr.send_flags & IBV_SEND_SIGNALED)) {
+	    w = list_next(w);
+	    list_remove(&log->elem);
+	    free(log->wr.sg_list);
+	    free(log);
+	  }
+        }
+      }
+    }
   }
 
 //  PDEBUG("Made it out of pre_checkpoint\n");
@@ -687,9 +696,18 @@ void post_restart2(void)
       struct ibv_recv_wr * bad_wr;
     //  PDEBUG("About to repost recv.\n");
       int rslt = _real_ibv_post_recv(internal_qp->real_qp, copy_wr, &bad_wr);
+      if (rslt) {
+        fprintf(stderr, "repost recv failed.\n");
+	exit(1);
+      }
       delete_recv_wr(copy_wr);
     }
   }
+}
+
+void refill(void)
+{
+  struct list_elem * e;
   for (e = list_begin(&qp_list); e != list_end(&qp_list); e = list_next(e))
   {
     struct internal_ibv_qp * internal_qp = list_entry(e, struct internal_ibv_qp, elem);
@@ -704,12 +722,15 @@ void post_restart2(void)
       assert(&log->wr != NULL);
       struct ibv_send_wr * copy_wr = copy_send_wr(&log->wr);
       update_lkey_send(copy_wr);
-      update_rkey_send(copy_wr, internal_qp->remote_pd_id);
+      update_rkey_send(copy_wr);
 
       struct ibv_send_wr * bad_wr;
-//      PDEBUG("About to repost send.\n");
+      PDEBUG("About to repost send.\n");
       int rslt = _real_ibv_post_send(internal_qp->real_qp, copy_wr, &bad_wr);
-
+      if (rslt) {
+        fprintf(stderr, "repost send failed.\n");
+	exit(1);
+      }
       delete_send_wr(copy_wr);
     }
   }
@@ -952,12 +973,7 @@ void _ack_async_event(struct ibv_async_event * event)
 void _free_device_list(struct ibv_device ** list)
 {
   _real_ibv_free_device_list(_dev_list);
-  int i;
 
-/*  for (i = 0; i < _dmtcp_num_devices; i++) {
-    free(list[i]);
-  }
-*/
   free(list);
 }
 
@@ -1037,7 +1053,6 @@ struct ibv_pd * _alloc_pd(struct ibv_context * context) {
   struct internal_ibv_pd * pd = malloc(sizeof(struct internal_ibv_pd));
 
   if (!pd) {
-    PDEBUG("Error: I could not create a new PD.\n");
     fprintf(stderr, "Error: I cannot allocate memory for _alloc_pd\n");
     exit(1);
   }
@@ -1050,8 +1065,6 @@ struct ibv_pd * _alloc_pd(struct ibv_context * context) {
 
   memcpy(&pd->user_pd, pd->real_pd, sizeof(struct ibv_pd));
   pd->user_pd.context = context;
-  pd->pd_id = (int)((dmtcp_get_uniquepid())._pid) + pd_id_count;
-  pd_id_count++;
 
   list_push_back(&pd_list, &pd->elem);
 
@@ -1089,22 +1102,36 @@ struct ibv_mr * _reg_mr(struct ibv_pd * pd, void * addr, size_t length, int flag
   memcpy(&internal_mr->user_mr, internal_mr->real_mr, sizeof(struct ibv_mr));
   internal_mr->user_mr.context = internal_pd->user_pd.context;
   internal_mr->user_mr.pd = &internal_pd->user_pd;
-
-  /*
-  *  We need to check that memery regions created
-  *  before checkpointing and after restarting will not
-  *  have the same lkey.
-  */
-  if (is_restart) {
-    struct list_elem * e;
-    for (e = list_begin(&mr_list); e != list_end(&mr_list); e = list_next(e))
-    {
-      struct internal_ibv_mr * mr = list_entry(e, struct internal_ibv_mr, elem);
-      if (mr->user_mr.lkey == internal_mr->user_mr.lkey) {
-        PDEBUG("Error: duplicate lkey/rkey is genereated, will exit.\n");
-        exit(1);
-      }
+  
+  // Virtulization of lkey and rkey
+  int i;
+  for (i = 0; i < MAX_MR; i++) {
+    if (mr_pool[i] == FREE) {
+      internal_mr->user_mr.lkey = internal_mr->user_mr.rkey = (uint32_t)((dmtcp_get_uniquepid())._pid) + (uint32_t)i;
+      mr_pool[i] = BUSY;
+      break;
     }
+  }
+
+  if (i == MAX_MR) {
+    fprintf(stderr, "Error: more than %d mrs are registered, DMTCP will not handle that.\n", MAX_MR);
+    exit(1);
+  }
+
+  if ((flag & IBV_ACCESS_REMOTE_WRITE) ||
+      (flag & IBV_ACCESS_REMOTE_READ) ||
+      (flag & IBV_ACCESS_REMOTE_ATOMIC)) {
+    dmtcp_send_key_val_pair_to_coordinator_sync("mr_info", &internal_mr->user_mr.rkey, 
+                                                sizeof(internal_mr->user_mr.rkey),
+                                                &internal_mr->real_mr->rkey, 
+					        sizeof(internal_mr->real_mr->rkey));
+/*    gethostname(hostname, 128);
+    FILE * fp;
+    fp = fopen(hostname, "a+");
+    fprintf(fp, "%s virtual rkey: %lu real rkey: %lu\n", hostname, internal_mr->user_mr.rkey, internal_mr->real_mr->rkey);
+  
+  fclose(fp);
+  */
   }
 
   list_push_back(&mr_list, &internal_mr->elem);
@@ -1116,17 +1143,9 @@ int _dereg_mr(struct ibv_mr * mr)
 {
   struct internal_ibv_mr * internal_mr = ibv_mr_to_internal(mr);
   struct list_elem *e;
-  if (is_restart) {
-    for (e = list_begin(&rkey_list); e != list_end(&rkey_list); e = list_next(e)) {
-      struct ibv_rkey_pair * pair = list_entry(e, struct ibv_rkey_pair, elem);
-      if (pair->orig_rkey.rkey == internal_mr->user_mr.rkey) {
-        list_remove(&pair->elem);
-        free(pair);
-        break;
-      }
-    }
-  }
   int rslt = _real_ibv_dereg_mr(internal_mr->real_mr);
+  int i = (int)(internal_mr->user_mr.rkey - (uint32_t)((dmtcp_get_uniquepid())._pid));
+  mr_pool[i] = FREE;
 
   list_remove(&internal_mr->elem);
   free(internal_mr);
@@ -1187,6 +1206,7 @@ struct ibv_cq * _create_cq(struct ibv_context * context, int cqe, void * cq_cont
 
   internal_cq->user_cq.context = &internal_ctx->user_ctx;
   internal_cq->user_cq.channel = channel;
+  pthread_mutex_init(&internal_cq->mutex, NULL);
 
   list_push_back(&cq_list, &internal_cq->elem);
   return &internal_cq->user_cq;
@@ -1304,6 +1324,7 @@ struct ibv_qp * _create_qp(struct ibv_pd * pd, struct ibv_qp_init_attr * qp_init
   internal_qp->user_qp.send_cq = qp_init_attr->send_cq;
   internal_qp->user_qp.srq = qp_init_attr->srq;
   internal_qp->init_attr = *qp_init_attr;
+  pthread_mutex_init(&internal_qp->mutex, NULL);
 
   /* get the LID */
   struct ibv_port_attr attr2;
@@ -1313,9 +1334,7 @@ struct ibv_qp * _create_qp(struct ibv_pd * pd, struct ibv_qp_init_attr * qp_init
     exit(1);
   }
   internal_qp->original_id.lid = attr2.lid;
-  internal_qp->local_qp_pd_id.lid = attr2.lid;
   internal_qp->original_id.qpn = internal_qp->real_qp->qp_num;
-  internal_qp->local_qp_pd_id.qpn = internal_qp->real_qp->qp_num;
   internal_qp->port_num = 1;
 
   list_push_back(&qp_list, &internal_qp->elem);
@@ -1382,17 +1401,6 @@ int _modify_qp(struct ibv_qp * qp, struct ibv_qp_attr * attr, int attr_mask)
 
   if (attr_mask & IBV_QP_DEST_QPN) {
     internal_qp->remote_id.qpn = attr->dest_qp_num;
-    internal_qp->remote_qp_pd_id.qpn = attr->dest_qp_num;
-    if (is_restart) {
-      struct ibv_qp_pd_id id = {
-        .qpn = attr->dest_qp_num,
-	.lid = attr->ah_attr.dlid
-      };
-      uint32_t size = sizeof(internal_qp->remote_pd_id);
-      int ret = dmtcp_send_query_to_coordinator("pd_info", &id, sizeof(id), &internal_qp->remote_pd_id, &size);
-      assert(size == sizeof(int));
-      assert(ret != 0);
-    }
   }
 
   if (attr_mask & IBV_QP_SQ_PSN) {
@@ -1405,10 +1413,8 @@ int _modify_qp(struct ibv_qp * qp, struct ibv_qp_attr * attr, int attr_mask)
 
   if (attr_mask & IBV_QP_AV) {
     internal_qp->remote_id.lid = attr->ah_attr.dlid;
-    internal_qp->remote_qp_pd_id.lid = attr->ah_attr.dlid;
     // must OR src_path_bits to support LMC
     internal_qp->original_id.lid |= attr->ah_attr.src_path_bits;
-    internal_qp->local_qp_pd_id.lid |= attr->ah_attr.src_path_bits;
   }
 
   if (attr_mask & IBV_QP_PORT) {
@@ -1419,7 +1425,6 @@ int _modify_qp(struct ibv_qp * qp, struct ibv_qp_attr * attr, int attr_mask)
       exit(1);
     }
     internal_qp->original_id.lid = attr2.lid;
-    internal_qp->local_qp_pd_id.lid = attr2.lid;
     internal_qp->port_num = attr->port_num;
   }
 
@@ -1619,9 +1624,10 @@ int _ibv_post_send(struct ibv_qp * qp, struct ibv_send_wr * wr, struct
 {
   dmtcp_plugin_disable_ckpt();
   struct internal_ibv_qp * internal_qp = ibv_qp_to_internal(qp);
+  pthread_mutex_lock(&internal_qp->mutex);
   struct ibv_send_wr * copy_wr = copy_send_wr(wr);
   update_lkey_send(copy_wr);
-  update_rkey_send(copy_wr, internal_qp->remote_pd_id);
+  update_rkey_send(copy_wr);
 
   int rslt = _real_ibv_post_send(internal_qp->real_qp, copy_wr, bad_wr);
 
@@ -1630,7 +1636,6 @@ int _ibv_post_send(struct ibv_qp * qp, struct ibv_send_wr * wr, struct
   struct ibv_send_wr *copy_wr1 = copy_send_wr(wr);
   while (copy_wr1) {
     struct ibv_post_send_log * log = malloc(sizeof(struct ibv_post_send_log));
-
     if (!log) {
       fprintf(stderr, "Error: could not allocate memory for log.\n");
       exit(1);
@@ -1638,11 +1643,19 @@ int _ibv_post_send(struct ibv_qp * qp, struct ibv_send_wr * wr, struct
     log->magic = SEND_MAGIC;
     log->wr = *copy_wr1;
     log->wr.next = NULL;
+    log->wr.sg_list = malloc(sizeof(struct ibv_sge) * copy_wr1->num_sge);
 
+    if (!log->wr.sg_list) {
+      fprintf(stderr, "Error: couldn't allocate memory for sg_list\n");
+      exit(1);
+    }
+
+    memcpy(log->wr.sg_list, copy_wr1->sg_list, sizeof(struct ibv_sge) * copy_wr1->num_sge);
     list_push_back(&internal_qp->post_send_log, &log->elem);
     copy_wr1 = copy_wr1->next;
   }
-
+  delete_send_wr(copy_wr1);
+  pthread_mutex_unlock(&internal_qp->mutex);
   dmtcp_plugin_enable_ckpt();
   return rslt;
 }
@@ -1653,6 +1666,7 @@ int _ibv_poll_cq(struct ibv_cq * cq, int num_entries, struct ibv_wc * wc)
   int rslt = 0;
 
   struct internal_ibv_cq * internal_cq = ibv_cq_to_internal(cq);
+  pthread_mutex_lock(&internal_cq->mutex);
 
   int size = list_size(&internal_cq->wc_queue);
 
@@ -1683,12 +1697,15 @@ int _ibv_poll_cq(struct ibv_cq * cq, int num_entries, struct ibv_wc * wc)
 	exit(1);
       }
   }
-
   for (int i = 0; i < rslt; i++) {
     struct internal_ibv_qp * internal_qp = qp_num_to_qp(&qp_list, wc[i].qp_num);
     if (i >= size) {
       enum ibv_wc_opcode opcode = wc[i].opcode;
       wc[i].qp_num = internal_qp->user_qp.qp_num;
+      if (wc[i].status != IBV_WC_SUCCESS) {
+        fprintf(stderr, "wc error!\n");
+	exit(1);
+      }
       if (opcode & IBV_WC_RECV ||
           opcode == IBV_WC_RECV_RDMA_WITH_IMM) {
 	if (internal_qp->user_qp.srq) {
@@ -1736,6 +1753,7 @@ int _ibv_poll_cq(struct ibv_cq * cq, int num_entries, struct ibv_wc * wc)
     }
   }
 
+  pthread_mutex_unlock(&internal_cq->mutex);
   dmtcp_plugin_enable_ckpt();
   return rslt;
 }
