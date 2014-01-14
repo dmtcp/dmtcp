@@ -47,6 +47,3 @@ int _real_ibv_dealloc_pd(struct ibv_pd *pd);
 int _real_ibv_close_device(struct ibv_context *context);
 void _real_ibv_free_device_list(struct ibv_device **list);
 struct ibv_ah * _real_ibv_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr);
-
-//int _real_ibv_post_recv(struct ibv_qp *qp, struct ibv_recv_wr *wr,
-//                            struct ibv_recv_wr **bad_wr);

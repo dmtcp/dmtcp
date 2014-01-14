@@ -59,8 +59,6 @@ struct internal_ibv_pd {
   struct ibv_pd   user_pd;
   struct ibv_pd * real_pd;
   struct list_elem elem;
-  // an id defined in the plugin, for use of rdma identification
-  int pd_id;
 };
 
 //! A wrapper around a memory region
@@ -86,6 +84,7 @@ struct internal_ibv_cq {
   struct list wc_queue; /*!< This queue buffers remaining completion events at checkpoint time */
   struct list req_notify_log; /*!< This list contains log entries of calls to ibv_req_notify_cq */
   struct list_elem elem;
+  pthread_mutex_t mutex;
 };
 
 //! A wrapper around a queue pair
@@ -97,9 +96,6 @@ struct internal_ibv_qp {
   struct ibv_qp_id remote_id;
   struct ibv_qp_id current_remote;
   struct ibv_qp_id current_id;
-  struct ibv_qp_pd_id local_qp_pd_id;
-  struct ibv_qp_pd_id remote_qp_pd_id;
-  int remote_pd_id;
   struct list modify_qp_log;
   uint8_t port_num; // port_num is used to get the correct lid
   struct list post_recv_log; /*!< This list contains log entries that track what recv work
@@ -109,6 +105,7 @@ struct internal_ibv_qp {
 //                                                         requests were posted. As send work requests are polled from the CQ,
 //                                                         entries in this list are deleted. */
   struct list_elem elem;
+  pthread_mutex_t mutex;
 };
 
 //! A wrapper around a shared receive queue
@@ -143,7 +140,7 @@ struct ibv_post_recv_log {
 };
 
 struct ibv_post_srq_recv_log {
-  struct ibv_recv_wr  wr;
+  struct ibv_recv_wr wr;
   struct list_elem elem;
 };
 
@@ -162,8 +159,8 @@ struct ibv_req_notify_cq_log {
 };
 
 struct ibv_rkey_pair {
-  struct ibv_rkey_id orig_rkey;
-  uint32_t new_rkey;
+  uint32_t virt_rkey;
+  uint32_t real_rkey;
   struct list_elem elem;
 };
 
@@ -172,8 +169,7 @@ struct ibv_rkey_pair {
 //! This function locates an ibv_qp based on qp_num */
 /*!
  \param qp_num The id number of the qp being located
- \return A pointer to the internal_ibv_qp
- */
+ \return A pointer to the internal_ibv_qp */
 static inline struct internal_ibv_qp * qp_num_to_qp(struct list * l, uint32_t qp_num)
 {
   struct list_elem *e;
