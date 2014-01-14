@@ -972,6 +972,20 @@ void dmtcp::DmtcpCoordinator::onConnect()
     remote.close();
     return;
   }
+  if (hello_remote.type == DMT_REGISTER_NAME_SERVICE_DATA_SYNC) {
+    JASSERT(hello_remote.extraBytes > 0) (hello_remote.extraBytes);
+    char *extraData = new char[hello_remote.extraBytes];
+    remote.readAll(extraData, hello_remote.extraBytes);
+
+    JTRACE ("received REGISTER_NAME_SERVICE_DATA msg on running") (hello_remote.from);
+    lookupService.registerData(hello_remote, (const void*) extraData);
+    delete [] extraData;
+    dmtcp::DmtcpMessage response(DMT_REGISTER_NAME_SERVICE_DATA_SYNC_RESPONSE);
+    JTRACE("Reading from incoming connection...");
+    remote << response;
+    remote.close();
+    return;
+  }
 #endif
 
   if (hello_remote.type == DMT_GET_VIRTUAL_PID) {
