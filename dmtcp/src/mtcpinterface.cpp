@@ -152,7 +152,6 @@ static void callbackSleepBetweenCheckpoint ( int sec )
   }
   dmtcp::DmtcpWorker::instance().waitForStage1Suspend();
 
-  prctlGetProcessName();
   unmapRestoreArgv();
 
   // After acquiring this lock, there shouldn't be any
@@ -249,10 +248,14 @@ void callbackPreSuspendUserThread()
 {
   dmtcp::ThreadSync::incrNumUserThreads();
   dmtcp::DmtcpWorker::eventHook(DMTCP_EVENT_PRE_SUSPEND_USER_THREAD, NULL);
+  if (gettid() == getpid()) {
+    prctlGetProcessName();
+  }
 }
 
 void callbackPreResumeUserThread(int isRestart)
 {
+  prctlRestoreProcessName();
   DmtcpEventData_t edata;
   edata.resumeUserThreadInfo.isRestart = isRestart;
   dmtcp::DmtcpWorker::eventHook(DMTCP_EVENT_RESUME_USER_THREAD, &edata);
