@@ -249,6 +249,8 @@ ssize_t jalib::JSocket::write ( const char* buf, size_t len )
 
 ssize_t jalib::JSocket::readAll ( char* buf, size_t len )
 {
+  return jalib::readAll(_sockfd, buf, len);
+#if 0
   int origLen = len;
   while ( len > 0 )
   {
@@ -308,10 +310,13 @@ ssize_t jalib::JSocket::readAll ( char* buf, size_t len )
     }
   }
   return origLen;
+#endif
 }
 
 ssize_t jalib::JSocket::writeAll ( const char* buf, size_t len )
 {
+  return jalib::writeAll(_sockfd, buf, len);
+#if 0
   int origLen = len;
   while (len > 0) {
     fd_set wfds;
@@ -363,6 +368,7 @@ ssize_t jalib::JSocket::writeAll ( const char* buf, size_t len )
     }
   }
   return origLen;
+#endif
 }
 
 bool jalib::JSocket::isValid() const
