@@ -170,7 +170,6 @@ void dmtcp::ProcessInfo::restart()
 {
   if (_launchCWD != _ckptCWD) {
     dmtcp::string rpath = "";
-    size_t clen = _ckptCWD.length();
     size_t llen = _launchCWD.length();
     if (Util::strStartsWith(_ckptCWD.c_str(), _launchCWD.c_str()) &&
         _ckptCWD[llen] == '/') {
