@@ -251,7 +251,7 @@ jalib::JSocket
     return fd;
   }
 
-  JASSERT(fd.isValid()) (coordinatorAddr) (coordinatorPort)
+  JASSERT(fd.isValid()) (coordinatorAddr) (coordinatorPort) (JASSERT_ERRNO)
     .Text("Failed to connect to DMTCP coordinator");
 
   JTRACE("connected to dmtcp coordinator, no handshake")
