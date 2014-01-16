@@ -180,7 +180,19 @@ bool jalib::JSocket::connect ( const  struct  sockaddr  *addr,
   if (port != -1) {
     ( (sockaddr_in*)&addrbuf )->sin_port = htons ( port );
   }
-  return jalib::connect( _sockfd, (sockaddr*)&addrbuf, addrlen ) == 0;
+  int count = 0;
+  int ret;
+  while (count++ < 10) {
+    ret = jalib::connect(_sockfd, (sockaddr*)&addrbuf, addrlen);
+    if (ret == 0 || (ret == -1 && errno != ECONNREFUSED)) {
+      break;
+    }
+    if (ret == -1 && errno == ECONNREFUSED) {
+      struct timespec ts = {0, 100*1000*1000};
+      nanosleep(&ts, NULL);
+    }
+  }
+  return ret == 0;
 }
 
 bool jalib::JSocket::bind ( const JSockAddr& addr, int port )
