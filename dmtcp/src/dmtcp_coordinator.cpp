@@ -1789,7 +1789,7 @@ int main ( int argc, char** argv )
   } else {
 
     errno = 0;
-    listenSock = new jalib::JServerSocket ( jalib::JSockAddr::ANY, thePort );
+    listenSock = new jalib::JServerSocket(jalib::JSockAddr::ANY, thePort, 128);
     JASSERT ( listenSock->isValid() ) ( thePort ) ( JASSERT_ERRNO )
       .Text ( "Failed to create listen socket."
        "\nIf msg is \"Address already in use\", this may be an old coordinator."
