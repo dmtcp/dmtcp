@@ -620,7 +620,7 @@ void dmtcp::CoordinatorAPI::startNewCoordinator(CoordinatorAPI::CoordinatorMode 
 
   // Create a socket and bind it to an unused port.
   jalib::JServerSocket coordinatorListenerSocket (jalib::JSockAddr::ANY,
-                                                  coordinatorPort);
+                                                  coordinatorPort, 128);
   errno = 0;
   JASSERT(coordinatorListenerSocket.isValid())
     (coordinatorListenerSocket.port()) (JASSERT_ERRNO)
