@@ -56,7 +56,9 @@ static int pidVirtualizationEnabled = 1;
 static int pidVirtualizationEnabled = 0;
 #endif
 
-static char prctlPrgName[22] = {0};
+// FIXME: Linux prctl for PR_GET_NAME/PR_SET_NAME is on a per-thread basis.
+//   If we want to be really accurate, we should make this thread-local.
+static char prctlPrgName[16+sizeof(DMTCP_PRGNAME_PREFIX)-1] = {0};
 static void prctlGetProcessName();
 static void prctlRestoreProcessName();
 
@@ -217,7 +219,6 @@ static void callbackSleepBetweenCheckpoint ( int sec )
   dmtcp_process_event(DMTCP_EVENT_WAIT_FOR_SUSPEND_MSG, NULL);
   dmtcp::DmtcpWorker::instance().waitForStage1Suspend();
 
-  prctlGetProcessName();
   unmapRestoreArgv();
 
   dmtcp_process_event(DMTCP_EVENT_GOT_SUSPEND_MSG,
@@ -385,10 +386,14 @@ void callbackPreSuspendUserThread()
 {
   dmtcp::ThreadSync::incrNumUserThreads();
   dmtcp_process_event(DMTCP_EVENT_PRE_SUSPEND_USER_THREAD, NULL);
+  if (gettid() == getpid()) {
+    prctlGetProcessName();
+  }
 }
 
 void callbackPreResumeUserThread(int is_ckpt, int is_restart)
 {
+  prctlRestoreProcessName();
   DmtcpResumeUserThreadInfo info;
   info.is_ckpt = is_ckpt;
   info.is_restart = is_restart;
