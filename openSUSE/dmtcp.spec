@@ -44,7 +44,7 @@ checkpointing the state of an arbitrary group of programs including
 multi-threaded and distributed computations.  It operates directly on the user
 binary executable, with no Linux kernel modules or other kernel mods.
 
-Among the applications supported by DMTCP are OpenMPI, MATLAB, Python, Perl,
+Among the applications supported by DMTCP are Open MPI, MATLAB, Python, Perl,
 and many programming languages and shell scripting languages.  DMTCP also
 supports GNU screen sessions, including vim/cscope and emacs. With the use of
 TightVNC, it can also checkpoint and restart X-Window applications, as long as
@@ -84,7 +84,7 @@ checkpointing the state of an arbitrary group of programs including
 multi-threaded and distributed computations.  It operates directly on the user
 binary executable, with no Linux kernel modules or other kernel mods.
 
-Among the applications supported by DMTCP are OpenMPI, MATLAB, Python, Perl,
+Among the applications supported by DMTCP are Open MPI, MATLAB, Python, Perl,
 and many programming languages and shell scripting languages.  DMTCP also
 supports GNU screen sessions, including vim/cscope and emacs. With the use of
 TightVNC, it can also checkpoint and restart X-Windows applications, as long as
@@ -104,7 +104,7 @@ checkpointing the state of an arbitrary group of programs including
 multi-threaded and distributed computations.  It operates directly on the user
 binary executable, with no Linux kernel modules or other kernel mods.
 
-Among the applications supported by DMTCP are OpenMPI, MATLAB, Python, Perl,
+Among the applications supported by DMTCP are Open MPI, MATLAB, Python, Perl,
 and many programming languages and shell scripting languages.  DMTCP also
 supports GNU screen sessions, including vim/cscope and emacs. With the use of
 TightVNC, it can also checkpoint and restart X-Windows applications, as long as
@@ -124,7 +124,7 @@ checkpointing the state of an arbitrary group of programs including
 multi-threaded and distributed computations.  It operates directly on the user
 binary executable, with no Linux kernel modules or other kernel mods.
 
-Among the applications supported by DMTCP are OpenMPI, MATLAB, Python, Perl,
+Among the applications supported by DMTCP are Open MPI, MATLAB, Python, Perl,
 and many programming languages and shell scripting languages.  DMTCP also
 supports GNU screen sessions, including vim/cscope and emacs. With the use of
 TightVNC, it can also checkpoint and restart X-Windows applications, as long as
@@ -143,7 +143,7 @@ checkpointing the state of an arbitrary group of programs including
 multi-threaded and distributed computations.  It operates directly on the user
 binary executable, with no Linux kernel modules or other kernel mods.
 
-Among the applications supported by DMTCP are OpenMPI, MATLAB, Python, Perl,
+Among the applications supported by DMTCP are Open MPI, MATLAB, Python, Perl,
 and many programming languages and shell scripting languages.  DMTCP also
 supports GNU screen sessions, including vim/cscope and emacs. With the use of
 TightVNC, it can also checkpoint and restart X-Windows applications, as long as
