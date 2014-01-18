@@ -61,7 +61,7 @@
 - Analyze why the return from maskstderr() and unmaskstderr() solves the problem.
 
 - --enable-debug  when combined with enable-pid-virtualization exposes some
-  problems which are visible in OpenMPI and some other programs.
+  problems which are visible in Open MPI and some other programs.
 
 PID-VIRTUALIZATION:
 1. wait status of zombie processes

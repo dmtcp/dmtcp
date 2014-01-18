@@ -900,7 +900,7 @@ if testconfig.HAS_MPICH == "yes":
 
   #os.system(testconfig.MPICH_MPDCLEANUP)
 
-# Temporarily disabling OpenMPI test as it fails on some distros (OpenSUSE 11.4)
+# Temporarily disabling Open MPI test as it fails on some distros (OpenSUSE 11.4)
 if testconfig.HAS_OPENMPI == "yes":
   numProcesses = 5 + int(testconfig.USES_OPENMPI_ORTED == "yes")
   # FIXME: Replace "[5,6]" by numProcesses when bug in configure is fixed.
