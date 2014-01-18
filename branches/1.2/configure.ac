@@ -177,7 +177,7 @@ AC_ARG_ENABLE([allocator],
             [use_allocator=$enableval],
             [use_allocator=no])
 
-#checkfor -lreadline -lhistory v5, does not require curses
+#check for -lreadline -lhistory v5, does not require curses
 AC_CHECK_LIB([readline], [readline], [linksReadline=yes], [linksReadline=no], [-lhistory -lcurses])
 AC_CHECK_HEADERS([readline/readline.h readline/history.h], [includeReadline=no],)
 if test "$linksReadline" = "yes" -a "$includeReadline" != "no"; then
@@ -344,7 +344,7 @@ else
   AC_SUBST(HAS_MPICH,[no])
 fi
 
-#check for OpenMPI
+#check for Open MPI
 #Debian uses /usr/bin/mpicc.openmpi.  Red Hat/SuSe store it elsewhere.
 MPI_PATH=/usr/bin:/opt/openmpi/bin/:/usr/lib64/openmpi/bin:/usr/lib/openmpi/bin
 MPI_PATH=$MPI_PATH:/usr/lib64/mpi/gcc/openmpi/bin:/usr/lib/mpi/gcc/openmpi/bin
@@ -353,11 +353,11 @@ AC_PATH_PROGS([OPENMPI_MPIRUN],  [mpirun.openmpi mpirun], [no], [$MPI_PATH])
 if test "$OPENMPI_MPICC" = "no" -o "$OPENMPI_MPIRUN" = "no"; then
   AC_SUBST(HAS_OPENMPI, [no])
 else
-  AC_MSG_CHECKING([whether mpicc works for OpenMPI])
+  AC_MSG_CHECKING([whether mpicc works for Open MPI])
   if $OPENMPI_MPICC -o ./test_openmpi test/hellompi.c 2>/dev/null 1>&2; then
     AC_SUBST(HAS_OPENMPI, [yes])
     AC_MSG_RESULT([yes])
-    AC_MSG_CHECKING([whether mpirun invokes orted for OpenMPI])
+    AC_MSG_CHECKING([whether mpirun invokes orted for Open MPI])
     rm -f ./uses_openmpi_orted
     # The 'sleep 1' below may not fix the race, creating a runaway test_openmpi.
     /bin/sh -c "$OPENMPI_MPIRUN -np 2 ./test_openmpi 2>/dev/null 1>&2 & \
@@ -395,5 +395,58 @@ else
   AC_SUBST([M32], [0])
 fi
 
+if test "$use_m32" = "yes"; then
+  AC_MSG_CHECKING([whether multilib $CC compiles using -m32]) 
+  AC_LANG_PUSH([C])
+  old_CFLAGS="$CFLAGS"
+  CFLAGS="$CFLAGS -m32"
+  AC_LINK_IFELSE([AC_LANG_PROGRAM([[
+  #include <stdio.h>
+  #include <features.h>  /* This often causes a problem. */
+  ]], [[
+  printf("Hello, world!\n");
+  ]])], [cc_m32='yes'], [cc_m32='no'])
+  CFLAGS="$old_CFLAGS"
+  AC_LANG_POP([C])
+  AC_MSG_RESULT([$cc_m32]) 
+  if test "$cc_m32" = "no"; then
+    AC_MSG_FAILURE([[Failed to build with -m32
+    Consider installing gcc-multilib (and g++-multilib) or
+      the equivalent packages for your Linux distro.]])
+  fi
+fi
+
+if test "$use_m32" = "yes"; then
+  AC_MSG_CHECKING([whether multilib $CXX compiles using -m32]) 
+  AC_LANG_PUSH([C++])
+  old_CXXFLAGS="$CXXFLAGS"
+  CXXFLAGS="$CXXFLAGS -m32"
+  AC_LINK_IFELSE([AC_LANG_PROGRAM([[
+  #include <stdio.h>
+  #include <features.h>  /* This often causes a problem. */
+  ]], [[
+  printf("Hello, world!\n");
+  ]])], [cplusplus_m32='yes'], [cplusplus_m32='no'])
+  CXXFLAGS="$old_CXXFLAGS"
+  AC_LANG_POP([C++])
+  AC_MSG_RESULT([$cplusplus_m32]) 
+  if test "$cplusplus_m32" = "no"; then
+    AC_MSG_FAILURE([[Failed to build with -m32
+    Typically, this means that 32-bit libstdc++.so was not found
+    Consider installing g++-multilib or equivalent pkg for your Linux distro.]])
+  fi
+fi
+
+if test "$use_m32" = "yes"; then
+  interp=/lib/ld-linux.so.2
+elif test -x /usr/bin/readelf -a -r /usr/bin/readelf; then
+  interp=`/usr/bin/readelf -aW /usr/bin/readelf | grep interpreter | \
+          sed -e 's^.* interpreter: \(.*\)]^\1^'`
+elif test `uname -m` == x86_64; then
+  interp=/lib64/ld-linux-x86-64.so.2
+else
+  # FIXME: ARM (and others?) can use different interpreter.
+  interp=/lib/ld-linux.so.2
+fi
 
 AC_OUTPUT
