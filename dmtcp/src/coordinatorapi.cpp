@@ -26,6 +26,7 @@
 #include <arpa/inet.h>
 #include "coordinatorapi.h"
 #include "dmtcp.h"
+#include "util.h"
 #include "syscallwrappers.h"
 #include  "../jalib/jconvert.h"
 #include  "../jalib/jfilesystem.h"
@@ -71,7 +72,8 @@ void dmtcp_CoordinatorAPI_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 }
 
 dmtcp::CoordinatorAPI::CoordinatorAPI (int sockfd)
-  : _coordinatorSocket(sockfd)
+  : _coordinatorSocket(sockfd),
+  _nsSock(-1)
 {
   memset(&_coordAddr, 0, sizeof(_coordAddr));
   memset(&_localIPAddr, 0, sizeof(_localIPAddr));
@@ -105,6 +107,7 @@ void dmtcp::CoordinatorAPI::resetOnFork(dmtcp::CoordinatorAPI& coordAPI)
                                       DMT_UPDATE_PROCESS_INFO_AFTER_FORK);
   // The coordinator won't send any msg in response to DMT_UPDATE... so no need
   // to call recvCoordinatorHandshake().
+  instance()._nsSock.close();
 }
 
 void dmtcp::CoordinatorAPI::setupVirtualCoordinator()
@@ -484,6 +487,7 @@ pid_t dmtcp::CoordinatorAPI::getVirtualPidFromCoordinator()
 
 void dmtcp::CoordinatorAPI::updateCoordTimeStamp()
 {
+  _nsSock.close();
   DmtcpMessage msg(DMT_GET_COORD_TSTAMP);
   _coordinatorSocket << msg;
 
@@ -742,7 +746,14 @@ int dmtcp::CoordinatorAPI::sendKeyValPairToCoordinator(const char *id,
   msg.extraBytes = key_len + val_len;
   jalib::JSocket sock = _coordinatorSocket;
   if (dmtcp_is_running_state()) {
-    sock = createNewConnectionToCoordinator(true);
+    if (_nsSock.sockfd() == -1) {
+      _nsSock = createNewConnectionToCoordinator(true);
+      JASSERT(_nsSock.isValid());
+      _nsSock.changeFd(PROTECTED_NS_FD);
+      DmtcpMessage m(DMT_NAME_SERVICE_WORKER);
+      _nsSock << m;
+    }
+    sock = _nsSock;
     JASSERT(sock.isValid());
   }
 
@@ -752,10 +763,8 @@ int dmtcp::CoordinatorAPI::sendKeyValPairToCoordinator(const char *id,
   if (sync) {
     msg.poison();
     sock >> msg;
-    JASSERT(msg.type == DMT_REGISTER_NAME_SERVICE_DATA_SYNC_RESPONSE);
-  }
-  if (dmtcp_is_running_state()) {
-    sock.close();
+    JASSERT(msg.type == DMT_REGISTER_NAME_SERVICE_DATA_SYNC_RESPONSE)(msg.type);
+
   }
   return 1;
 }
@@ -783,7 +792,14 @@ int dmtcp::CoordinatorAPI::sendQueryToCoordinator(const char *id,
   }
 
   if (dmtcp_is_running_state()) {
-    sock = createNewConnectionToCoordinator(true);
+    if (!_nsSock.isValid()) {
+      _nsSock = createNewConnectionToCoordinator(true);
+      JASSERT(_nsSock.isValid());
+      _nsSock.changeFd(PROTECTED_NS_FD);
+      DmtcpMessage m(DMT_NAME_SERVICE_WORKER);
+      _nsSock << m;
+    }
+    sock = _nsSock;
     JASSERT(sock.isValid());
   }
 
@@ -800,10 +816,6 @@ int dmtcp::CoordinatorAPI::sendQueryToCoordinator(const char *id,
   *val_len = msg.valLen;
   if (*val_len > 0) {
     sock.readAll((char*)val, *val_len);
-  }
-
-  if (dmtcp_is_running_state()) {
-    sock.close();
   }
 
   return *val_len;

@@ -34,7 +34,8 @@ namespace dmtcp
       CoordClient(const jalib::JSocket& sock,
                   const struct sockaddr_storage *addr,
                   socklen_t len,
-                  dmtcp::DmtcpMessage &hello_remote);
+                  dmtcp::DmtcpMessage &hello_remote,
+		  int isNSWorker = 0);
 
       jalib::JSocket &sock() { return _sock; }
       const dmtcp::UniquePid& identity() const { return _identity;}
@@ -52,6 +53,7 @@ namespace dmtcp
       void realPid(pid_t pid) { _realPid = pid; }
       pid_t virtualPid(void) const { return _virtualPid; }
       void virtualPid(pid_t pid) { _virtualPid = pid; }
+      int isNSWorker() {return _isNSWorker;}
 
       void readProcessInfo(dmtcp::DmtcpMessage& msg);
 
@@ -66,6 +68,7 @@ namespace dmtcp
       dmtcp::string _ip;
       pid_t         _realPid;
       pid_t         _virtualPid;
+      int           _isNSWorker;
   };
 
   class DmtcpCoordinator
