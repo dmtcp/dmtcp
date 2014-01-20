@@ -306,7 +306,7 @@ EXTERNC int dmtcp_install_hooks(dmtcp_fnptr_t preCheckpoint,
  */
 EXTERNC int dmtcp_get_coordinator_status(int *numPeers, int *isRunning)
   __attribute__((weak));
-#define dmtcpGetCoordinatorStatus(p,r) \
+#define dmtcp_get_coordinator_status(p,r) \
   (dmtcp_get_coordinator_status ? dmtcp_get_coordinator_status(p,r) \
                              : DMTCP_NOT_PRESENT)
 
