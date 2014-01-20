@@ -13,74 +13,71 @@ ckptRetVal = 0
 sessionList = []
 vncserver_addr = -1
 
-class CoordinatorStatus (Structure):
-    _fields_ =  [('numProcesses', c_int),
-                 ('isRunning',    c_int)]
-    #FIXME: Add other fields such as: ComputationID
-
-class LocalStatus (Structure):
-    _fields_ =  [('numCheckpoints', c_int),
-                 ('numRestarts',    c_int),
-                 ('checkpointFilename', c_char_p),
-                 ('uniquePidStr',       c_char_p)]
-    #FIXME: Add other fields such as: ComputationID
-
 libdmtcp = CDLL(None)
 try:
-    isEnabled         = libdmtcp.dmtcpIsEnabled();
-    checkpoint        = libdmtcp.dmtcpCheckpoint;
-    localStatus       = libdmtcp.dmtcpGetLocalStatus;
-    coordinatorStatus = libdmtcp.dmtcpGetCoordinatorStatus;
-    delayCkptLock     = libdmtcp.dmtcpDelayCheckpointsLock;
-    delayCkptUnlock   = libdmtcp.dmtcpDelayCheckpointsUnlock;
-    installHooks      = libdmtcp.dmtcpInstallHooks;
-    runCommand        = libdmtcp.dmtcpRunCommand;
+    isEnabled         = libdmtcp.dmtcp_is_enabled;
+    checkpoint        = libdmtcp.dmtcp_checkpoint;
+    disableCkpt       = libdmtcp.dmtcp_disable_ckpt;
+    enableCkpt        = libdmtcp.dmtcp_enable_ckpt;
+    installHooks      = libdmtcp.dmtcp_install_hooks;
 
-    coordinatorStatus.restype = POINTER(CoordinatorStatus)
-    localStatus.restype = POINTER(LocalStatus)
+    getCkptFilename   = libdmtcp.dmtcp_get_ckpt_filename
+    getCkptFilename.restype = c_char_p
+
+    getUniquePidStr   = libdmtcp.dmtcp_get_uniquepid_str;
+    getUniquePidStr.restype = c_char_p
 
 except AttributeError:
     isEnabled = False;
 
 def numProcesses():
+    n = c_int(-1)
+    ir = c_int(0)
     if isEnabled:
-        return coordinatorStatus().contents.numProcesses
-    return -1
+        libdmtcp.dmtcp_get_coordinator_status(byref(n), byref(ir))
+    return n.value
 
 def isRunning():
+    n = c_int()
+    ir = c_int(0)
     if isEnabled:
-        return coordinatorStatus().contents.isRunning
-    return False
+        libdmtcp.dmtcp_get_coordinator_status(byref(n), byref(ir))
+    return ir.value == 1
+
 
 def numCheckpoints():
+    numCkpt = c_int()
+    numRst = c_int()
     if isEnabled:
-        return localStatus().contents.numCheckpoints
-    return -1
+        libdmtcp.dmtcp_get_local_status(byref(numCkpt), byref(numRst))
+    return numCkpt.value
 
 def numRestarts():
+    numCkpt = c_int()
+    numRst = c_int()
     if isEnabled:
-        return localStatus().contents.numRestarts
-    return -1
+        libdmtcp.dmtcp_get_local_status(byref(numCkpt), byref(numRst))
+    return numRst.value
 
 def checkpointFilename():
     if isEnabled:
-        return localStatus().contents.checkpointFilename
+        return getCkptFilename()
     return ""
 
 def checkpointFilesDir():
     if isEnabled:
-        return checkpointFilename().replace('.dmtcp', '_files')
+        return getCkptFilename().replace('.dmtcp', '_files')
     return ""
 
 def uniquePidStr():
     if isEnabled:
-        return localStatus().contents.uniquePidStr
+        return getUniquePidStr()
     return ""
 
 def checkpoint():
     global ckptRetVal
     if isEnabled:
-        ckptRetVal = libdmtcp.dmtcpCheckpoint()
+        ckptRetVal = libdmtcp.dmtcp_checkpoint()
     # sessionId = libdmtcp.dmtcpCheckpoint()
 
 def isResume():
