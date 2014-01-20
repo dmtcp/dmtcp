@@ -449,9 +449,11 @@ dmtcp::vector<CoordClient*> clients;
 dmtcp::CoordClient::CoordClient(const jalib::JSocket& sock,
                                 const struct sockaddr_storage *addr,
                                 socklen_t len,
-                                dmtcp::DmtcpMessage &hello_remote)
+                                dmtcp::DmtcpMessage &hello_remote,
+				int isNSWorker)
   : _sock(sock)
 {
+  _isNSWorker = isNSWorker;
   _realPid = hello_remote.realPid;
   _clientNumber = theNextClientNumber++;
   _identity = hello_remote.from;
@@ -811,6 +813,16 @@ void dmtcp::DmtcpCoordinator::onData(CoordClient *client)
       lookupService.registerData(msg, (const void*) extraData);
     }
     break;
+
+    case DMT_REGISTER_NAME_SERVICE_DATA_SYNC:
+    {
+      JTRACE ("received REGISTER_NAME_SERVICE_DATA_SYNC msg") (client->identity());
+      lookupService.registerData(msg, (const void*) extraData);
+      dmtcp::DmtcpMessage response(DMT_REGISTER_NAME_SERVICE_DATA_SYNC_RESPONSE);
+      JTRACE("Sending NS response to the client...");
+      client->sock() << response;
+    }
+    break;
     case DMT_NAME_SERVICE_QUERY:
     {
       JTRACE ("received NAME_SERVICE_QUERY msg") (client->identity());
@@ -871,6 +883,11 @@ static void preExitCleanup()
 
 void dmtcp::DmtcpCoordinator::onDisconnect(CoordClient *client)
 {
+  if (client->isNSWorker()) {
+    client->sock().close();
+    delete client;
+    return;
+  }
   for (size_t i = 0; i < clients.size(); i++) {
     if (clients[i] == client) {
       clients.erase(clients.begin() + i);
@@ -950,6 +967,13 @@ void dmtcp::DmtcpCoordinator::onConnect()
   }
 
 #ifdef COORD_NAMESERVICE
+  if (hello_remote.type == DMT_NAME_SERVICE_WORKER) {
+    CoordClient *client = new CoordClient(remote, &remoteAddr, remoteLen,
+		                          hello_remote);
+
+    addDataSocket(client);
+    return;
+  }
   if (hello_remote.type == DMT_NAME_SERVICE_QUERY) {
     JASSERT(hello_remote.extraBytes > 0) (hello_remote.extraBytes);
     char *extraData = new char[hello_remote.extraBytes];

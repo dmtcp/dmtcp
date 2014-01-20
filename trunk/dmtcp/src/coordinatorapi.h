@@ -125,6 +125,7 @@ namespace dmtcp
     protected:
       DmtcpUniqueProcessId    _coordinatorId;
       jalib::JSocket          _coordinatorSocket;
+      jalib::JSocket          _nsSock;
       struct sockaddr_storage _coordAddr;
       socklen_t               _coordAddrLen;
       uint64_t                _coordTimeStamp;

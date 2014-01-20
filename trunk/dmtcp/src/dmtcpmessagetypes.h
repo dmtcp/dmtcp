@@ -69,6 +69,7 @@ namespace dmtcp
     DMT_DO_REFILL,           // when coordinator wants slave to refill buffers
 
 //#ifdef COORD_NAMESERVICE
+    DMT_NAME_SERVICE_WORKER,
     DMT_REGISTER_NAME_SERVICE_DATA,
     DMT_REGISTER_NAME_SERVICE_DATA_SYNC,
     DMT_REGISTER_NAME_SERVICE_DATA_SYNC_RESPONSE,
