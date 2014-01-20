@@ -1072,7 +1072,8 @@ void dmtcp::DmtcpCoordinator::onConnect()
 
   JNOTE ( "worker connected" ) ( hello_remote.from );
 
-  if ( hello_remote.theCheckpointInterval != DMTCPMESSAGE_SAME_CKPT_INTERVAL ) {
+  if (hello_remote.theCheckpointInterval != DMTCPMESSAGE_SAME_CKPT_INTERVAL &&
+      hello_remote.theCheckpointInterval != theCheckpointInterval) {
     int oldInterval = theCheckpointInterval;
     theCheckpointInterval = hello_remote.theCheckpointInterval;
     updateCheckpointInterval ( theCheckpointInterval );
