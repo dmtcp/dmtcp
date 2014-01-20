@@ -68,7 +68,6 @@ static void runCoordinatorCmd(char c,
   _dmtcp_lock();
   {
     dmtcp::CoordinatorAPI coordinatorAPI;
-    coordinatorAPI.useAlternateCoordinatorFd();
 
     dmtcp_disable_ckpt();
     coordinatorAPI.connectAndSendUserCommand(c, coordCmdStatus, numPeers,
@@ -283,7 +282,7 @@ EXTERNC const char* dmtcp_get_computation_id_str(void)
 
 EXTERNC DmtcpUniqueProcessId dmtcp_get_coord_id(void)
 {
-  return CoordinatorAPI::instance().coordinatorId();
+  return SharedData::getCoordId();
 }
 
 EXTERNC int dmtcp_unique_pids_equal(DmtcpUniqueProcessId a,
@@ -297,7 +296,7 @@ EXTERNC int dmtcp_unique_pids_equal(DmtcpUniqueProcessId a,
 
 EXTERNC uint64_t dmtcp_get_coordinator_timestamp(void)
 {
-  return CoordinatorAPI::instance().coordTimeStamp();
+  return SharedData::getCoordTimeStamp();
 }
 
 EXTERNC uint32_t dmtcp_get_generation(void)

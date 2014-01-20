@@ -34,57 +34,47 @@ namespace dmtcp
   enum DmtcpMessageType
   {
     DMT_NULL,
-    DMT_HELLO_COORDINATOR,   // on connect established worker-coordinator
-    DMT_HELLO_WORKER,        // on connect established coordinator-worker
+    DMT_NEW_WORKER,   // on connect established worker-coordinator
+    DMT_NAME_SERVICE_WORKER,
+    DMT_RESTART_WORKER,   // on connect established worker-coordinator
+    DMT_ACCEPT,        // on connect established coordinator-worker
+    DMT_REJECT_NOT_RESTARTING,
+    DMT_REJECT_WRONG_COMP,
+    DMT_REJECT_NOT_RUNNING,
+    DMT_REJECT_WRONG_PREFIX,
+
     DMT_UPDATE_PROCESS_INFO_AFTER_FORK,
-
-    DMT_GET_VIRTUAL_PID,
-    DMT_GET_VIRTUAL_PID_RESULT,
-
-    DMT_GET_COORD_TSTAMP,
-    DMT_COORD_TSTAMP,
+    DMT_UPDATE_PROCESS_INFO_AFTER_EXEC,
 
     DMT_GET_CKPT_DIR,
     DMT_GET_CKPT_DIR_RESULT,
     DMT_UPDATE_CKPT_DIR,
+    DMT_CKPT_FILENAME,       // a slave sending it's checkpoint filename to coordinator
 
     DMT_USER_CMD,            // on connect established dmtcp_command -> coordinator
     DMT_USER_CMD_RESULT,     // on reply coordinator -> dmtcp_command
 
-    //DMT_RESTART_PROCESS,     // on connect established dmtcp_restart -> coordinator
-    //DMT_RESTART_PROCESS_REPLY,  // on reply coordinator -> dmtcp_restart
-
     DMT_DO_SUSPEND,          // when coordinator wants slave to suspend        8
     DMT_DO_RESUME,           // when coordinator wants slave to resume (after checkpoint)
     DMT_DO_FD_LEADER_ELECTION, // when coordinator wants slaves to do leader election
-
     DMT_DO_DRAIN,            // when coordinator wants slave to flush
     DMT_DO_CHECKPOINT,       // when coordinator wants slave to checkpoint
-
 #ifdef COORD_NAMESERVICE
     DMT_DO_REGISTER_NAME_SERVICE_DATA,
     DMT_DO_SEND_QUERIES,
 #endif
-
     DMT_DO_REFILL,           // when coordinator wants slave to refill buffers
+    DMT_FORCE_RESTART,       // force a restart even if not all sockets are reconnected
+    DMT_KILL_PEER,           // send kill message to peer
 
-//#ifdef COORD_NAMESERVICE
-    DMT_NAME_SERVICE_WORKER,
     DMT_REGISTER_NAME_SERVICE_DATA,
     DMT_REGISTER_NAME_SERVICE_DATA_SYNC,
     DMT_REGISTER_NAME_SERVICE_DATA_SYNC_RESPONSE,
     DMT_NAME_SERVICE_QUERY,
     DMT_NAME_SERVICE_QUERY_RESPONSE,
-//#endif
 
     DMT_OK,                  // slave telling coordinator it is done (response
                              //   to DMT_DO_*)  this means slave reached barrier
-    DMT_CKPT_FILENAME,       // a slave sending it's checkpoint filename to coordinator
-    DMT_FORCE_RESTART,       // force a restart even if not all sockets are reconnected
-
-    DMT_KILL_PEER,           // send kill message to peer
-    DMT_REJECT               // coordinator discards incoming connection
-                             //because it is not from current computation group
   };
 
   namespace CoordCmdStatus {

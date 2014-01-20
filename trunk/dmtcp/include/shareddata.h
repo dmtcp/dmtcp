@@ -24,6 +24,7 @@
 #include <sys/types.h>
 #include <sys/un.h>
 #include <netdb.h>
+#include <arpa/inet.h>
 #include "dmtcp.h"
 #include "dmtcpalloc.h"
 
@@ -45,7 +46,17 @@
 #define SYSV_MSQ_ID 3
 
 namespace dmtcp {
+
+  typedef struct CoordinatorInfo {
+    DmtcpUniqueProcessId     id;
+    uint64_t                 timeStamp;
+    uint32_t                 interval;
+    uint32_t                 addrLen;
+    struct sockaddr_storage  addr;
+  } CoordinatorInfo;
+
   namespace SharedData {
+
     struct PidMap {
       pid_t virt;
       pid_t real;
@@ -80,8 +91,6 @@ namespace dmtcp {
 
     struct Header {
       uint32_t             initialized;
-      uint32_t             coordPort;
-      uint32_t             ckptInterval;
       struct in_addr       localIPAddr;
 
       int32_t              dlsymOffset;
@@ -111,25 +120,31 @@ namespace dmtcp {
       InodeConnIdMap       inodeConnIdMap[MAX_INODE_PID_MAPS];
 
       char                 versionStr[32];
-      char                 coordHost[NI_MAXHOST];
+      CoordinatorInfo      coordInfo;
+      //char                 coordHost[NI_MAXHOST];
     };
 
-    void initialize();
-    void initializeHeader();
+    void initialize(CoordinatorInfo *coordInfo, struct in_addr *localIP);
+    void initializeHeader(CoordinatorInfo *coordInfo, struct in_addr *localIP);
     void suspended();
     void preCkpt();
     void refill();
+    void updateHostAndPortEnv();
 
-    string getCoordHost();
-    void setCoordHost(const char *host);
+#if 0
+    //string getCoordHost();
+    //void setCoordHost(const char *host);
 
     uint32_t  getCoordPort();
     void setCoordPort(uint32_t port);
+#endif
 
     uint32_t  getCkptInterval();
     void setCkptInterval(uint32_t interval);
+    DmtcpUniqueProcessId getCoordId();
+    uint64_t getCoordTimeStamp();
+    void getCoordAddr(struct sockaddr *addr, uint32_t *len);
 
-    void updateLocalIPAddr();
     void getLocalIPAddr(struct in_addr *in);
 
     void updateDlsymOffset(int32_t dlsymOffset, int32_t dlsymOffset_m32 = 0);

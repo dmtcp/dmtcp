@@ -111,7 +111,7 @@ __targetdir__bin_dmtcp_launch_LDADD  = libdmtcpinternal.a libjalib.a \
 __targetdir__bin_dmtcp_restart_LDADD     = libdmtcpinternal.a libjalib.a \
 			  libnohijack.a -lpthread -lrt -ldl
 __targetdir__bin_dmtcp_command_LDADD     = libdmtcpinternal.a libjalib.a \
-			  libnohijack.a -lpthread -lrt
+			  libnohijack.a -lpthread -lrt -ldl
 
 install-exec-hook:
 	cd $(DESTDIR)$(bindir) && $(LN_S) -f dmtcp_launch dmtcp_checkpoint
