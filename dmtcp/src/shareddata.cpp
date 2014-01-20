@@ -30,8 +30,8 @@
 #include "uniquepid.h"
 #include "syscallwrappers.h"
 #include "util.h"
-#include "shareddata.h"
 #include "coordinatorapi.h"
+#include "shareddata.h"
 #include "../jalib/jassert.h"
 #include "../jalib/jconvert.h"
 
@@ -46,7 +46,6 @@ void dmtcp_SharedData_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   switch (event) {
     case DMTCP_EVENT_INIT:
-      SharedData::updateLocalIPAddr();
       break;
 
     case DMTCP_EVENT_THREADS_SUSPEND:
@@ -56,14 +55,23 @@ void dmtcp_SharedData_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
     case DMTCP_EVENT_REGISTER_NAME_SERVICE_DATA:
     case DMTCP_EVENT_REFILL:
       dmtcp::SharedData::refill();
+      if (data->refillInfo.isRestart) {
+        SharedData::updateHostAndPortEnv();
+      }
+      break;
+
+    case DMTCP_EVENT_RESTART:
+      break;
 
     default:
       break;
   }
 }
 
-void dmtcp::SharedData::initializeHeader()
+void dmtcp::SharedData::initializeHeader(CoordinatorInfo *coordInfo,
+                                         struct in_addr *localIPAddr)
 {
+  JASSERT(coordInfo != NULL && localIPAddr != NULL);
   off_t size = CEIL(SHM_MAX_SIZE , Util::pageSize());
   JASSERT(lseek(PROTECTED_SHM_FD, size, SEEK_SET) == size)
     (JASSERT_ERRNO);
@@ -71,9 +79,11 @@ void dmtcp::SharedData::initializeHeader()
   memset(sharedDataHeader, 0, size);
 
   strcpy(sharedDataHeader->versionStr, SHM_VERSION_STR);
+#if 0
   sharedDataHeader->coordHost[0] = '\0';
   sharedDataHeader->coordPort = -1;
   sharedDataHeader->ckptInterval = -1;
+#endif
   JASSERT(getenv(ENV_VAR_DLSYM_OFFSET) != NULL);
   sharedDataHeader->dlsymOffset =
     (int32_t) strtol(getenv(ENV_VAR_DLSYM_OFFSET), NULL, 10);
@@ -87,6 +97,8 @@ void dmtcp::SharedData::initializeHeader()
   sharedDataHeader->numPtyNameMaps = 0;
   sharedDataHeader->initialized = true;
   sharedDataHeader->numMissingConMaps = 0;
+  memcpy(&sharedDataHeader->coordInfo, coordInfo, sizeof (*coordInfo));
+  memcpy(&sharedDataHeader->localIPAddr, localIPAddr, sizeof (*localIPAddr));
   // The current implementation simply increments the last count and returns it.
   // Although highly unlikely, this can cause a problem if the counter resets to
   // zero. In that case we should have some more sophisticated code which checks
@@ -96,12 +108,10 @@ void dmtcp::SharedData::initializeHeader()
   } else {
     sharedDataHeader->nextVirtualPtyId = 0;
   }
-
-  memset(&sharedDataHeader->localIPAddr, 0,
-         sizeof sharedDataHeader->localIPAddr);
 }
 
-void dmtcp::SharedData::initialize()
+void dmtcp::SharedData::initialize(CoordinatorInfo *coordInfo = NULL,
+                                   struct in_addr *localIPAddr = NULL)
 {
   /* FIXME: If the coordinator timestamp resolution is 1 second, during
    * subsequent restart, the coordinator timestamp may have the same value
@@ -110,11 +120,13 @@ void dmtcp::SharedData::initialize()
    * it in postCkpt/postRestart phase.
    */
   bool needToInitialize = false;
+  JASSERT((coordInfo != NULL && localIPAddr != NULL) ||
+          Util::isValidFd(PROTECTED_SHM_FD));
   if (!Util::isValidFd(PROTECTED_SHM_FD)) {
     dmtcp::ostringstream o;
     o << UniquePid::getTmpDir() << "/dmtcpSharedArea."
       << UniquePid::ComputationId() << "."
-      << std::hex << CoordinatorAPI::instance().coordTimeStamp();
+      << std::hex << coordInfo->timeStamp;
 
     int fd = _real_open(o.str().c_str(), O_RDWR | O_CREAT | O_EXCL, 0600);
     if (fd == -1 && errno == EEXIST) {
@@ -144,7 +156,7 @@ void dmtcp::SharedData::initialize()
 
   if (needToInitialize) {
     Util::lockFile(PROTECTED_SHM_FD);
-    initializeHeader();
+    initializeHeader(coordInfo, localIPAddr);
     Util::unlockFile(PROTECTED_SHM_FD);
   } else {
     struct stat statbuf;
@@ -194,6 +206,50 @@ void dmtcp::SharedData::refill()
   if (sharedDataHeader == NULL) initialize();
 }
 
+// At restart, the HOST/PORT used by dmtcp_coordinator could be different then
+// those at checkpoint time. This could cause the child processes created after
+// restart to fail to connect to the coordinator.
+extern "C" int fred_record_replay_enabled() __attribute__ ((weak));
+void dmtcp::SharedData::updateHostAndPortEnv()
+{
+  if (CoordinatorAPI::noCoordinator()) return;
+
+  /* This calls setenv() which calls malloc. Since this is only executed on
+     restart, that means it there is an extra malloc on replay. Commenting this
+     until we have time to fix it. */
+  if (fred_record_replay_enabled != 0) return;
+
+  struct sockaddr_storage *currAddr = &sharedDataHeader->coordInfo.addr;
+  /* If the current coordinator is running on a HOST/PORT other than the
+   * pre-checkpoint HOST/PORT, we need to update the environment variables
+   * pointing to the coordinator HOST/PORT. This is needed if the new
+   * coordinator has been moved around.
+   */
+  char ipstr[INET6_ADDRSTRLEN];
+  int port;
+  dmtcp::string portStr;
+
+  // deal with both IPv4 and IPv6:
+  if (currAddr->ss_family == AF_INET) {
+    struct sockaddr_in *s = (struct sockaddr_in *)currAddr;
+    port = ntohs(s->sin_port);
+    inet_ntop(AF_INET, &s->sin_addr, ipstr, sizeof ipstr);
+  } else { // AF_INET6
+    JASSERT (currAddr->ss_family == AF_INET6) (currAddr->ss_family);
+    struct sockaddr_in6 *s = (struct sockaddr_in6 *)currAddr;
+    port = ntohs(s->sin6_port);
+    inet_ntop(AF_INET6, &s->sin6_addr, ipstr, sizeof ipstr);
+  }
+
+  portStr = jalib::XToString(port);
+  if (strcmp(getenv(ENV_VAR_NAME_HOST), ipstr)) {
+    JASSERT(0 == setenv(ENV_VAR_NAME_HOST, ipstr, 1)) (JASSERT_ERRNO);
+  }
+  if (strcmp(getenv(ENV_VAR_NAME_PORT), portStr.c_str())) {
+    JASSERT(0 == setenv(ENV_VAR_NAME_PORT, portStr.c_str(), 1)) (JASSERT_ERRNO);
+  }
+}
+#if 0
 dmtcp::string dmtcp::SharedData::getCoordHost()
 {
   if (sharedDataHeader == NULL) initialize();
@@ -222,25 +278,40 @@ void dmtcp::SharedData::setCoordPort(uint32_t port)
   sharedDataHeader->coordPort = port;
   Util::unlockFile(PROTECTED_SHM_FD);
 }
+#endif
 
 uint32_t dmtcp::SharedData::getCkptInterval()
 {
   if (sharedDataHeader == NULL) initialize();
-  return sharedDataHeader->ckptInterval;
+  return sharedDataHeader->coordInfo.interval;
 }
 
 void dmtcp::SharedData::setCkptInterval(uint32_t interval)
 {
   if (sharedDataHeader == NULL) initialize();
   Util::lockFile(PROTECTED_SHM_FD);
-  sharedDataHeader->ckptInterval = interval;
+  sharedDataHeader->coordInfo.interval = interval;
   Util::unlockFile(PROTECTED_SHM_FD);
 }
 
-void dmtcp::SharedData::updateLocalIPAddr()
+DmtcpUniqueProcessId dmtcp::SharedData::getCoordId()
 {
   if (sharedDataHeader == NULL) initialize();
-  CoordinatorAPI::instance().getLocalIPAddr(&sharedDataHeader->localIPAddr);
+  return sharedDataHeader->coordInfo.id;
+}
+
+uint64_t dmtcp::SharedData::getCoordTimeStamp()
+{
+  if (sharedDataHeader == NULL) initialize();
+  return sharedDataHeader->coordInfo.timeStamp;
+}
+
+void dmtcp::SharedData::getCoordAddr(struct sockaddr *addr, uint32_t *len)
+{
+  if (sharedDataHeader == NULL) initialize();
+  JASSERT(addr != NULL);
+  *len = sharedDataHeader->coordInfo.addrLen;
+  memcpy(addr, &sharedDataHeader->coordInfo.addr, *len);
 }
 
 void dmtcp::SharedData::getLocalIPAddr(struct in_addr *in)

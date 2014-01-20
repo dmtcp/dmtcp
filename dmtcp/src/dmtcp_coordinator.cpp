@@ -805,7 +805,6 @@ void dmtcp::DmtcpCoordinator::onData(CoordClient *client)
       }
       break;
 
-
 #ifdef COORD_NAMESERVICE
     case DMT_REGISTER_NAME_SERVICE_DATA:
     {
@@ -831,26 +830,24 @@ void dmtcp::DmtcpCoordinator::onData(CoordClient *client)
     }
     break;
 #endif
+
     case DMT_UPDATE_PROCESS_INFO_AFTER_FORK:
     {
-        dmtcp::string hostname = extraData;
-        dmtcp::string progname = extraData + hostname.length() + 1;
         JNOTE("Updating process Information after fork()")
-          (hostname) (progname) (msg.from) (client->identity());
-        client->progname(progname);
-        client->hostname(hostname);
+          (client->hostname()) (client->progname()) (msg.from) (client->identity());
         client->identity(msg.from);
         client->realPid(msg.realPid);
     }
-        break;
-
-    case DMT_GET_COORD_TSTAMP:
+    break;
+    case DMT_UPDATE_PROCESS_INFO_AFTER_EXEC:
     {
-      DmtcpMessage reply(DMT_COORD_TSTAMP);
-      reply.coordTimeStamp = curTimeStamp;
-      client->sock() << reply;
+      dmtcp::string progname = extraData;
+      JNOTE("Updating process Information after exec()")
+        (progname) (msg.from) (client->identity());
+      client->progname(progname);
+      client->identity(msg.from);
     }
-      break;
+    break;
 
     case DMT_NULL:
       JWARNING(false) (msg.type) .Text("unexpected message from worker");
@@ -951,12 +948,6 @@ void dmtcp::DmtcpCoordinator::onConnect()
     return;
   }
 
-  // If no client is connected to Coordinator, then there can be only zero data
-  // sockets OR there can be one data socket and that should be STDIN.
-  if (clients.size() == 0) {
-    initializeComputation();
-  }
-
   dmtcp::DmtcpMessage hello_remote;
   hello_remote.poison();
   JTRACE("Reading from incoming connection...");
@@ -1012,15 +1003,6 @@ void dmtcp::DmtcpCoordinator::onConnect()
   }
 #endif
 
-  if (hello_remote.type == DMT_GET_VIRTUAL_PID) {
-    dmtcp::DmtcpMessage reply(DMT_GET_VIRTUAL_PID_RESULT);
-    reply.virtualPid = getNewVirtualPid();
-    JASSERT(reply.virtualPid != -1);
-    remote << reply;
-    remote.close();
-    return;
-  }
-
   if (hello_remote.type == DMT_USER_CMD) {
     processDmtUserCmd(hello_remote, remote);
     return;
@@ -1036,38 +1018,40 @@ void dmtcp::DmtcpCoordinator::onConnect()
     return;
   }
 
+  // If no client is connected to Coordinator, then there can be only zero data
+  // sockets OR there can be one data socket and that should be STDIN.
+  if (clients.size() == 0) {
+    initializeComputation();
+  }
+
   CoordClient *client = new CoordClient(remote, &remoteAddr, remoteLen,
                                         hello_remote);
-
-  if (hello_remote.virtualPid == -1) {
-    client->virtualPid(getNewVirtualPid());
-  } else {
-    client->virtualPid(hello_remote.virtualPid);
-  }
 
   if( hello_remote.extraBytes > 0 ){
     client->readProcessInfo(hello_remote);
   }
 
-  if ( hello_remote.type == DMT_HELLO_COORDINATOR &&
-       hello_remote.state == WorkerState::RESTARTING) {
-    if (validateRestartingWorkerProcess(hello_remote, remote,
-                                        &remoteAddr, remoteLen) == false)
+  if (hello_remote.type == DMT_RESTART_WORKER) {
+    if (!validateRestartingWorkerProcess(hello_remote, remote,
+                                         &remoteAddr, remoteLen)) {
       return;
-    //JASSERT(hello_remote.virtualPid != -1);
-    client->virtualPid(hello_remote.virtualPid);
+    }
+    client->virtualPid(hello_remote.from.pid());
     _virtualPidToClientMap[client->virtualPid()] = client;
     isRestarting = true;
-  } else if ( hello_remote.type == DMT_HELLO_COORDINATOR &&
-              (hello_remote.state == WorkerState::RUNNING ||
-               hello_remote.state == WorkerState::UNKNOWN)) {
-    if (validateNewWorkerProcess(hello_remote, remote, client,
-                                 &remoteAddr, remoteLen) == false)
+  } else if (hello_remote.type == DMT_NEW_WORKER) {
+    JASSERT(hello_remote.state == WorkerState::RUNNING ||
+            hello_remote.state == WorkerState::UNKNOWN);
+    JASSERT(hello_remote.virtualPid == -1);
+    client->virtualPid(getNewVirtualPid());
+    if (!validateNewWorkerProcess(hello_remote, remote, client,
+                                  &remoteAddr, remoteLen)) {
       return;
+    }
     _virtualPidToClientMap[client->virtualPid()] = client;
   } else {
-    JASSERT ( false ) (hello_remote.type)
-      .Text ( "Connect request from Unknown Remote Process Type" );
+    JASSERT(false) (hello_remote.type)
+      .Text("Connect request from Unknown Remote Process Type");
   }
 
   JNOTE ( "worker connected" ) ( hello_remote.from );
@@ -1122,7 +1106,7 @@ bool dmtcp::DmtcpCoordinator::validateRestartingWorkerProcess
   struct timeval tv;
   const struct sockaddr_in *sin = (const struct sockaddr_in*) remoteAddr;
   dmtcp::string remoteIP = inet_ntoa(sin->sin_addr);
-  dmtcp::DmtcpMessage hello_local ( dmtcp::DMT_HELLO_WORKER );
+  dmtcp::DmtcpMessage hello_local ( dmtcp::DMT_ACCEPT );
 
   JASSERT(hello_remote.state == WorkerState::RESTARTING) (hello_remote.state);
 
@@ -1143,7 +1127,7 @@ bool dmtcp::DmtcpCoordinator::validateRestartingWorkerProcess
     JNOTE ("Computation not in RESTARTING or CHECKPOINTED state."
            "  Reject incoming restarting computation process.")
       (UniquePid::ComputationId()) (hello_remote.compGroup) (minimumState());
-    hello_local.type = dmtcp::DMT_REJECT;
+    hello_local.type = dmtcp::DMT_REJECT_NOT_RESTARTING;
     remote << hello_local;
     remote.close();
     return false;
@@ -1151,7 +1135,7 @@ bool dmtcp::DmtcpCoordinator::validateRestartingWorkerProcess
     JNOTE ("Reject incoming restarting computation process"
            " since it is not from current computation")
       ( UniquePid::ComputationId() ) ( hello_remote.compGroup );
-    hello_local.type = dmtcp::DMT_REJECT;
+    hello_local.type = dmtcp::DMT_REJECT_WRONG_COMP;
     remote << hello_local;
     remote.close();
     return false;
@@ -1196,7 +1180,7 @@ bool dmtcp::DmtcpCoordinator::validateNewWorkerProcess
 {
   const struct sockaddr_in *sin = (const struct sockaddr_in*) remoteAddr;
   dmtcp::string remoteIP = inet_ntoa(sin->sin_addr);
-  dmtcp::DmtcpMessage hello_local(dmtcp::DMT_HELLO_WORKER);
+  dmtcp::DmtcpMessage hello_local(dmtcp::DMT_ACCEPT);
   hello_local.virtualPid = client->virtualPid();
   ComputationStatus s = getStatus();
 
@@ -1228,18 +1212,17 @@ bool dmtcp::DmtcpCoordinator::validateNewWorkerProcess
           "  Refusing to accept new connections.")
       (UniquePid::ComputationId()) (hello_remote.from)
       (s.numPeers) (s.minimumState);
-    hello_local.type = dmtcp::DMT_REJECT;
+    hello_local.type = dmtcp::DMT_REJECT_NOT_RUNNING;
     remote << hello_local;
     remote.close();
     return false;
 
   } else if (hello_remote.compGroup != UniquePid()) {
     // New Process trying to connect to Coordinator but already has compGroup
-    JNOTE  ( "New process, but already has computation group,\n"
-             "OR perhaps a different DMTCP_PREFIX_ID.  Rejecting." )
+    JNOTE ("New process, but already has computation group. Rejecting")
       (hello_remote.compGroup);
 
-    hello_local.type = dmtcp::DMT_REJECT;
+    hello_local.type = dmtcp::DMT_REJECT_WRONG_COMP;
     remote << hello_local;
     remote.close();
     return false;
@@ -1278,7 +1261,7 @@ bool dmtcp::DmtcpCoordinator::validateNewWorkerProcess
           JNOTE("This node has different prefixDir than the rest of the "
                 "remote nodes. Rejecting connection!")
             (remotePrefix) (localPrefix) (client->prefixDir());
-          hello_local.type = dmtcp::DMT_REJECT;
+          hello_local.type = dmtcp::DMT_REJECT_WRONG_PREFIX;
           remote << hello_local;
           remote.close();
           return false;

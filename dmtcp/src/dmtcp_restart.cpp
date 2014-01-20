@@ -104,6 +104,9 @@ class RestoreTarget;
 typedef dmtcp::map<dmtcp::UniquePid, RestoreTarget*> RestoreTargetMap;
 RestoreTargetMap targets;
 RestoreTargetMap independentProcessTreeRoots;
+bool noStrictUIDChecking = false;
+CoordinatorAPI::CoordinatorMode allowedModes = CoordinatorAPI::COORD_ANY;
+
 
 static void setEnvironFd();
 
@@ -127,6 +130,9 @@ class RestoreTarget
     const bool isRootOfProcessTree() const {
       return _pInfo.isRootOfProcessTree();
     }
+    string procname() { return _pInfo.procname(); }
+    UniquePid compGroup() { return _pInfo.compGroup(); }
+    int numPeers() { return _pInfo.numPeers(); }
 
     void restoreGroup()
     {
@@ -168,6 +174,24 @@ class RestoreTarget
       //change UniquePid
       UniquePid::resetOnFork(upid());
       dmtcp::Util::initializeLogFile(_pInfo.procname());
+      if (createIndependentRootProcesses) {
+        CoordinatorInfo coordInfo;
+        struct in_addr localIPAddr;
+        CoordinatorAPI::instance().connectToCoordOnRestart(CoordinatorAPI::COORD_ANY,
+                                                           _pInfo.procname(),
+                                                           _pInfo.compGroup(),
+                                                           _pInfo.numPeers(),
+                                                           &coordInfo,
+                                                           &localIPAddr);
+
+        /* We need to initialize SharedData here to make sure that it is
+         * initialized with the correct coordinator timestamp.  The coordinator
+         * timestamp is updated only during postCkpt callback. However, the
+         * SharedData area may be initialized earlier (for example, while
+         * recreating threads), causing it to use *older* timestamp.
+         */
+        dmtcp::SharedData::initialize(&coordInfo, &localIPAddr);
+      }
 
       JTRACE("Creating process during restart") (upid()) (_pInfo.procname());
 
@@ -237,24 +261,14 @@ class RestoreTarget
         }
       }
 
-      WorkerState::setCurrentState(WorkerState::RESTARTING);
-      CoordinatorAPI::instance().connectToCoordinator();
-      CoordinatorAPI::instance().sendCoordinatorHandshake(_pInfo.procname(),
-                                                          _pInfo.compGroup(),
-                                                          _pInfo.numPeers(),
-                                                          DMT_HELLO_COORDINATOR,
-                                                          false);
-      CoordinatorAPI::instance().recvCoordinatorHandshake();
-      UniquePid::ComputationId() = _pInfo.compGroup();
+      if (!createIndependentRootProcesses) {
+        CoordinatorAPI::instance().connectToCoordOnRestart(CoordinatorAPI::COORD_ANY,
+                                                           _pInfo.procname(),
+                                                           _pInfo.compGroup(),
+                                                           _pInfo.numPeers(),
+                                                           NULL, NULL);
+      }
 
-      /* We need to initialize SharedData here to make sure that it is
-       * initialized with the correct coordinator timestamp.  The coordinator
-       * timestamp is updated only during postCkpt callback. However, the
-       * SharedData area may be initialized earlier (for example, while
-       * recreating threads), causing it to use *older* timestamp.
-       */
-      dmtcp::SharedData::initialize();
-      dmtcp::SharedData::updateLocalIPAddr();
       setEnvironFd();
       int is32bitElf = 0;
 
@@ -320,12 +334,6 @@ static void setNewCkptDir(char *path)
 
 int main(int argc, char** argv)
 {
-  bool autoStartCoordinator=true;
-  bool isRestart = true;
-  bool noStrictUIDChecking = false;
-  dmtcp::CoordinatorAPI::CoordinatorMode allowedModes =
-    dmtcp::CoordinatorAPI::COORD_ANY;
-
   initializeJalib();
 
   if (!getenv(ENV_VAR_QUIET)) {
@@ -353,9 +361,6 @@ int main(int argc, char** argv)
     } else if ((s == "--version") && argc == 1) {
       printf("%s", DMTCP_VERSION_AND_COPYRIGHT_INFO);
       return DMTCP_FAIL_RC;
-    } else if (s == "--no-check") {
-      autoStartCoordinator = false;
-      shift;
     } else if (s == "-j" || s == "--join") {
       allowedModes = dmtcp::CoordinatorAPI::COORD_JOIN;
       shift;
@@ -476,12 +481,10 @@ int main(int argc, char** argv)
     .Text("There must atleast one process tree which doesn't have a different "
           "process as session leader.");
 
-  if (autoStartCoordinator) {
-    dmtcp::CoordinatorAPI::startCoordinatorIfNeeded(allowedModes,
-                                                    isRestart);
-  }
+  WorkerState::setCurrentState(WorkerState::RESTARTING);
 
   dmtcp::Util::prepareDlsymWrapper();
+
   RestoreTarget *t = independentProcessTreeRoots.begin()->second;
   JASSERT(t->pid() != 0);
   t->createProcess(true);

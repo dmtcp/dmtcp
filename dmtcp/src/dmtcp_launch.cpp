@@ -27,6 +27,7 @@
 #include "dmtcpmessagetypes.h"
 #include "syscallwrappers.h"
 #include "coordinatorapi.h"
+#include "shareddata.h"
 #include "util.h"
 
 #define BINARY_NAME "dmtcp_launch"
@@ -69,8 +70,6 @@ static const char* theUsage =
   "              0 implies never (manual ckpt only); if not set and no env var,\n"
   "              use default value set in dmtcp_coordinator or dmtcp_command.\n"
   "              Not allowed if --join is specified\n"
-  "  --no-check\n"
-  "              Skip check for valid coordinator and never start one automatically\n"
   "\n"
   "Checkpoint image generation:\n"
   "  --gzip, --no-gzip, (environment variable DMTCP_GZIP=[01])\n"
@@ -136,7 +135,6 @@ static const char* theUsage =
 // ;
 
 static bool isSSHSlave=false;
-static bool autoStartCoordinator=true;
 static bool checkpointOpenFiles=false;
 static bool enableRM=false;
 static bool enablePtrace=false;
@@ -171,9 +169,6 @@ static void processArgs(int *orig_argc, char ***orig_argv)
       exit(DMTCP_FAIL_RC);
     } else if (s=="--ssh-slave") {
       isSSHSlave = true;
-      shift;
-    } else if (s == "--no-check") {
-      autoStartCoordinator = false;
       shift;
     } else if (s == "-j" || s == "--join") {
       allowedModes = dmtcp::CoordinatorAPI::COORD_JOIN;
@@ -421,20 +416,21 @@ int main ( int argc, char** argv )
 //   from DmtcpWorker constructor, to distinguish the two cases.
   dmtcp::Util::adjustRlimitStack();
 
-  if (autoStartCoordinator) {
-     dmtcp::CoordinatorAPI::startCoordinatorIfNeeded(allowedModes);
-  }
-
-#ifdef PID_VIRTUALIZATION
-  dmtcp::CoordinatorAPI coordinatorAPI;
-  pid_t virtualPid = coordinatorAPI.getVirtualPidFromCoordinator();
-  if (virtualPid != -1) {
-    JTRACE("Got virtual pid from coordinator") (virtualPid);
-    dmtcp::Util::setVirtualPidEnvVar(virtualPid, getppid());
-  }
-#endif
-
+  // Set DLSYM_OFFSET env var(s).
   dmtcp::Util::prepareDlsymWrapper();
+
+  CoordinatorInfo coordInfo;
+  struct in_addr localIPAddr;
+  CoordinatorAPI::instance().connectToCoordOnStartup(allowedModes, argv[0],
+                                                     &coordInfo, &localIPAddr);
+  /* We need to initialize SharedData here to make sure that it is
+   * initialized with the correct coordinator timestamp.  The coordinator
+   * timestamp is updated only during postCkpt callback. However, the
+   * SharedData area may be initialized earlier (for example, while
+   * recreating threads), causing it to use *older* timestamp.
+   */
+  dmtcp::SharedData::initialize(&coordInfo, &localIPAddr);
+
   setLDPreloadLibs(is32bitElf);
 
   //run the user program

@@ -25,6 +25,7 @@
 #include "constants.h"
 #include "protectedfds.h"
 #include "dmtcpmessagetypes.h"
+#include "shareddata.h"
 #include "../jalib/jsocket.h"
 #include "../jalib/jalloc.h"
 
@@ -46,70 +47,48 @@ namespace dmtcp
       static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
       static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
 #endif
-      CoordinatorAPI (int sockfd = PROTECTED_COORD_FD);
+      CoordinatorAPI (void) : _coordinatorSocket(-1), _nsSock(-1) {}
       // Use default destructor
 
       static CoordinatorAPI& instance();
+      static void init();
       static void resetOnFork(CoordinatorAPI& coordAPI);
+      static void setupVirtualCoordinator();
+      static void waitForCheckpointCommand();
+      static bool noCoordinator();
 
+      void connectToCoordOnStartup(CoordinatorMode  mode,
+                                   string           progname,
+                                   CoordinatorInfo *coordInfo,
+                                   struct in_addr  *localIP);
+      void createNewConnectionBeforeFork(string& progname);
+      void connectToCoordOnRestart(CoordinatorMode  mode,
+                                   dmtcp::string progname,
+                                   UniquePid compGroup,
+                                   int np,
+                                   CoordinatorInfo *coordInfo,
+                                   struct in_addr  *localIP);
       void closeConnection() { _coordinatorSocket.close(); }
 
-      void sendMsgToCoordinator(const DmtcpMessage &msg,
-                                const void *ch = NULL, size_t len = 0);
-      void recvMsgFromCoordinator(DmtcpMessage *msg, void **str = NULL);
-
-      jalib::JSocket& coordinatorSocket() { return _coordinatorSocket; }
-      const DmtcpUniqueProcessId& coordinatorId() const { return _coordinatorId; }
-      void setCoordinatorId(DmtcpUniqueProcessId id) { _coordinatorId = id; }
-      uint64_t coordTimeStamp() const { return _coordTimeStamp; }
-
+      //jalib::JSocket& coordinatorSocket() { return _coordinatorSocket; }
       bool isValid() { return _coordinatorSocket.isValid(); }
 
+      void sendMsgToCoordinator(const DmtcpMessage &msg,
+                                const void *extraData = NULL,
+                                size_t len = 0);
+      void recvMsgFromCoordinator(dmtcp::DmtcpMessage *msg,
+                                  void **extraData = NULL);
+      void sendUserCommand(char c, int *coordCmdStatus = NULL,
+                           int *numPeers = NULL, int *isRunning = NULL);
       void connectAndSendUserCommand(char c,
                                      int *coordCmdStatus = NULL,
                                      int *numPeers = NULL,
                                      int *isRunning = NULL);
 
-      void useAlternateCoordinatorFd();
-
-      bool connectToCoordinator(bool dieOnError=true);
-      bool tryConnectToCoordinator();
-      void connectToCoordinatorWithHandshake();
-      void connectToCoordinatorWithoutHandshake();
-      void sendUserCommand(char c,
-                           int *coordCmdStatus = NULL,
-                           int *numPeers = NULL,
-                           int *isRunning = NULL);
-
-      pid_t virtualPid() const { return _virtualPid; }
-      pid_t getVirtualPidFromCoordinator();
-      void updateCoordTimeStamp();
       void updateCoordCkptDir(const char *dir);
       dmtcp::string getCoordCkptDir(void);
-      void createNewConnectionBeforeFork(dmtcp::string& progName);
 
-      // np > -1  means it is restarting a process that have np processes in its
-      //           computation group
-      // np == -1 means it is a new pure process, so coordinator needs to
-      //           generate compGroup ID for it
-      // np == -2 means it is a service connection from dmtcp_restart
-      //           - ignore it
-      void sendCoordinatorHandshake(const dmtcp::string& procName,
-                                    UniquePid compGroup = UniquePid(),
-                                    int np = -1,
-                                    DmtcpMessageType msgType =
-                                      DMT_HELLO_COORDINATOR,
-                                    bool preForkHandshake = false);
-      void recvCoordinatorHandshake();
       void sendCkptFilename();
-      void updateHostAndPortEnv();
-      void getLocalIPAddr(struct in_addr *in);
-
-      static void setupVirtualCoordinator();
-      static void waitForCheckpointCommand();
-      static bool noCoordinator();
-      static void startCoordinatorIfNeeded(CoordinatorMode mode, int isRestart = 0);
-      static void startNewCoordinator(CoordinatorMode mode);
 
       int sendKeyValPairToCoordinator(const char *id,
                                       const void *key, uint32_t key_len,
@@ -120,17 +99,13 @@ namespace dmtcp
                                  void *val, uint32_t *val_len);
 
     private:
-      jalib::JSocket createNewConnectionToCoordinator(bool dieOnError = true);
+      void startNewCoordinator(CoordinatorAPI::CoordinatorMode mode);
+      void createNewConnToCoord(CoordinatorAPI::CoordinatorMode mode);
+      DmtcpMessage sendRecvHandshake(DmtcpMessage msg, string progname);
 
     protected:
-      DmtcpUniqueProcessId    _coordinatorId;
       jalib::JSocket          _coordinatorSocket;
       jalib::JSocket          _nsSock;
-      struct sockaddr_storage _coordAddr;
-      socklen_t               _coordAddrLen;
-      uint64_t                _coordTimeStamp;
-      struct in_addr          _localIPAddr;
-      pid_t                   _virtualPid;
   };
 }
 

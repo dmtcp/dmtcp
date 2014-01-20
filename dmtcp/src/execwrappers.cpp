@@ -46,7 +46,7 @@ using namespace dmtcp;
 
 static bool pthread_atfork_enabled = false;
 static uint64_t child_time;
-static dmtcp::CoordinatorAPI coordinatorAPI(-1);
+static dmtcp::CoordinatorAPI coordinatorAPI;
 
 // Allow plugins to call fork/exec/system to perform specific tasks during
 // preCKpt/postCkpt/PostRestart etc. event.
@@ -172,7 +172,6 @@ extern "C" pid_t fork()
   dmtcp::string child_name = jalib::Filesystem::GetProgramName() + "_(forked)";
 
   coordinatorAPI.createNewConnectionBeforeFork(child_name);
-  dmtcp::Util::setVirtualPidEnvVar(coordinatorAPI.virtualPid(), getpid());
 
   //Enable the pthread_atfork child call
   pthread_atfork_enabled = true;
@@ -202,7 +201,6 @@ extern "C" pid_t fork()
   pthread_atfork_enabled = false;
 
   if (childPid != 0) {
-    dmtcp::Util::setVirtualPidEnvVar(getpid(), getppid());
     coordinatorAPI.closeConnection();
     dmtcp::DmtcpWorker::eventHook(DMTCP_EVENT_ATFORK_PARENT, NULL);
     WRAPPER_EXECUTION_RELEASE_EXCL_LOCK();
@@ -329,8 +327,6 @@ static void dmtcpPrepareForExec(const char *path, char *const argv[],
   setenv(ENV_VAR_DLSYM_OFFSET, str, 1);
   sprintf(str, "%d", SharedData::getDlsymOffset_m32());
   setenv(ENV_VAR_DLSYM_OFFSET_M32, str, 1);
-
-  dmtcp::Util::setVirtualPidEnvVar(getpid(), getppid());
 
   JTRACE("Prepared for Exec") (getenv("LD_PRELOAD"));
 }
