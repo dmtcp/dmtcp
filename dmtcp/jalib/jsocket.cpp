@@ -184,10 +184,10 @@ bool jalib::JSocket::connect ( const  struct  sockaddr  *addr,
   int ret;
   while (count++ < 10) {
     ret = jalib::connect(_sockfd, (sockaddr*)&addrbuf, addrlen);
-    if (ret == 0 || (ret == -1 && errno != ECONNREFUSED)) {
+    if (ret == 0 || (ret == -1 && errno != ECONNREFUSED && errno != ETIMEDOUT)) {
       break;
     }
-    if (ret == -1 && errno == ECONNREFUSED) {
+    if (ret == -1 && (errno == ECONNREFUSED || errno == ETIMEDOUT)) {
       struct timespec ts = {0, 100*1000*1000};
       nanosleep(&ts, NULL);
     }
