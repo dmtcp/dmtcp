@@ -1,5 +1,5 @@
 /*****************************************************************************
- *   Copyright (C) 2006-2010 by Michael Rieker, Jason Ansel, Kapil Arya, and *
+ *   Copyright (C) 2006-2013 by Michael Rieker, Jason Ansel, Kapil Arya, and *
  *                                                            Gene Cooperman *
  *   mrieker@nii.net, jansel@csail.mit.edu, kapil@ccs.neu.edu, and           *
  *                                                          gene@ccs.neu.edu *
@@ -21,21 +21,6 @@
  *  <http://www.gnu.org/licenses/>.                                          *
  *****************************************************************************/
 
-/*****************************************************************************
- *
- *  Static part of restore - This gets linked in the libmtcp.so shareable image
- *  that gets loaded as part of the user's original application. The makefile
- *  appends all the needed system call routines onto the end of this module so
- *  it will link with no undefined symbols.  This allows the restore procedure
- *  to simply read this object image from the restore file, load it to the same
- *  address it was in the user's original application, and jump to it.
- *
- *  If we didn't assemble it all as one module, the idiot loader would make
- *  references to glibc routines go to libc.so even though there are object
- *  modules linked in with those routines defined.
- *
- *****************************************************************************/
-
 #include <errno.h>
 #include <fcntl.h>
 #include <sched.h>
@@ -47,76 +32,148 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <unistd.h>
+#include <sys/types.h>
 
-#include "mtcp_internal.h"
-#include "mtcp_util.h"
 #include "mtcp_sys.h"
+#include "mtcp_util.c"
 
-__attribute__ ((visibility ("hidden")))
-  int mtcp_restore_cpfd = -1; // '-1' puts it in regular data instead of common
-__attribute__ ((visibility ("hidden")))
-  int mtcp_restore_verify = 0; // 0: normal restore; 1: verification restore
-__attribute__ ((visibility ("hidden"))) char mtcp_ckpt_newname[PATH_MAX+1];
-#define MAX_ARGS 50
-__attribute__ ((visibility ("hidden"))) char *mtcp_restore_cmd_file;
+#define BINARY_NAME "mtcp_restart"
+#define BINARY_NAME_M32 "mtcp_restart-32"
 
-__attribute__ ((visibility ("hidden"))) char *mtcp_restore_argv[MAX_ARGS+1];
-__attribute__ ((visibility ("hidden"))) char *mtcp_restore_envp[MAX_ARGS+1];
-__attribute__ ((visibility ("hidden")))
-  VA mtcp_saved_break = NULL;  // saved brk (0) value
-__attribute__ ((visibility ("hidden")))
-  char mtcp_saved_working_directory[PATH_MAX+1];
+// MTCP_PAGE_SIZE must be page-aligned:  multiple of sysconf(_SC_PAGESIZE).
+#define MTCP_PAGE_SIZE 4096
+#define MTCP_PAGE_MASK (~(MTCP_PAGE_SIZE-1))
+#define MTCP_PAGE_OFFSET_MASK (MTCP_PAGE_SIZE-1)
 
-VA mtcp_shareable_begin;
-VA mtcp_shareable_end;
-
-#ifndef USE_PROC_MAPS
-  /* These two are used by the linker script to define the beginning and end of
-   * the image.
-   * The '.long 0' is needed so shareable_begin>0 as the linker is too st00pid
-   * to relocate a zero. */
-
-asm (".section __shareable_begin ; .globl mtcp_shareable_begin \
-                                 ; .long 0 ; mtcp_shareable_begin:");
-asm (".section __shareable_end   ; .globl mtcp_shareable_end \
-                                 ; .long 0  ; mtcp_shareable_end:");
-asm (".text");
+#define NSCD_MMAP_STR1 "/var/run/nscd/"   /* OpenSUSE*/
+#define NSCD_MMAP_STR2 "/var/cache/nscd"  /* Debian / Ubuntu*/
+#define NSCD_MMAP_STR3 "/var/db/nscd"     /* RedHat / Fedora*/
+#define DEV_ZERO_DELETED_STR "/dev/zero (deleted)"
+#define DEV_NULL_DELETED_STR "/dev/null (deleted)"
+#define SYS_V_SHMEM_FILE "/SYSV"
+#ifdef IBV
+# define INFINIBAND_SHMEM_FILE "/dev/infiniband/uverbs"
 #endif
 
-	/* Internal routines */
+/* Shared memory regions for Direct Rendering Infrastructure */
+#define DEV_DRI_SHMEM "/dev/dri/card"
 
-static void readfiledescrs (void);
-static void readmemoryareas (int should_mmap_ckpt_image);
+#define DELETED_FILE_SUFFIX " (deleted)"
+
+/* Let MTCP_PROT_ZERO_PAGE be a unique bit mask
+ * This assumes: PROT_READ == 0x1, PROT_WRITE == 0x2, and PROT_EXEC == 0x4
+ */
+#define MTCP_PROT_ZERO_PAGE (PROT_EXEC << 1)
+
+/* Internal routines */
+static void readmemoryareas(int fd);
 static void mmapfile(int fd, void *buf, size_t size, int prot, int flags);
-static void read_shared_memory_area_from_file(Area* area, int flags);
-static VA highest_userspace_address (VA *vdso_addr, VA *vsyscall_addr,
-                                     VA * stack_end_addr);
+static void read_shared_memory_area_from_file(int fd, Area* area, int flags);
+static void lock_file(int fd, char* name, short l_type);
 static char* fix_filename_if_new_cwd(char* filename);
 static int open_shared_file(char* filename);
-static void lock_file(int fd, char* name, short l_type);
 static void adjust_for_smaller_file_size(Area *area, int fd);
-// These will all go away when we use a linker to reserve space.
-static VA global_vdso_addr = 0;
+static void restorememoryareas();
+static void setupStack(VA base_addr);
+static void restore_brk(VA saved_brk, VA restore_begin, VA restore_end);
+static void restart_fast_path();
+static void restart_slow_path();
+static int doAreasOverlap(VA addr1, size_t size1, VA addr2, size_t size2);
+static int hasOverlappingMapping(VA addr, size_t size);
+static void getMiscAddrs(VA *textAddr, size_t *size, VA *highest_va);
 
-/*****************************************************************************
- *
- *  This routine is called executing on the temporary stack
- *  It performs the actual restore of everything (except the libmtcp.so area)
- *
- *****************************************************************************/
+#define MB 1024*1024
+#define RESTORE_STACK_SIZE 5*MB
+#define RESTORE_MEM_SIZE 5*MB
+#define RESTORE_TOTAL_SIZE (RESTORE_STACK_SIZE+RESTORE_MEM_SIZE)
 
-__attribute__ ((visibility ("hidden")))
-void mtcp_restoreverything (int should_mmap_ckpt_image, VA finishrestore_fptr)
+typedef void (*fnptr_t)();
+#define STACKSIZE 4*1024*1024
+  //static long long tempstack[STACKSIZE];
+typedef struct RestoreInfo {
+  int fd;
+  int stderr_fd;
+  int mtcp_sys_errno;
+  VA text_addr;
+  size_t text_size;
+  VA saved_brk;
+  VA restore_addr;
+  size_t restore_size;
+  VA highest_va;
+  fnptr_t post_restart;
+  fnptr_t restorememoryareas_fptr;
+  //void (*post_restart)();
+  //void (*restorememoryareas_fptr)();
+} RestoreInfo;
+RestoreInfo rinfo;
 
+//const char service_interp[] __attribute__((section(".interp"))) = "/lib64/ld-linux-x86-64.so.2";
+
+
+int __libc_start_main (int (*main) (int, char **, char **),
+                       int argc, char **argv,
+                       void (*init) (void), void (*fini) (void),
+                       void (*rtld_fini) (void), void *stack_end)
 {
-  int rc;
-  VA holebase, highest_va;
-  VA vdso_addr = NULL, vsyscall_addr = NULL, stack_end_addr = NULL;
+  int mtcp_sys_errno;
+  char **envp = argv + argc + 1;
+  int result = main (argc, argv, envp);
+  mtcp_sys_exit(result);
+  while(1);
+}
+void __libc_csu_init (int argc, char **argv, char **envp) { }
+void __libc_csu_fini (void) { }
+void __stack_chk_fail (void) { }
+void abort(void) { mtcp_abort(); }
+
+#define shift argv++; argc--;
+int main(int argc, char *argv[])
+{
+  int orig_argc = argc;
+  char **orig_argv = argv;
+
+  shift;
+  while (argc > 0) {
+    if (argc < 2) {
+      MTCP_PRINTF("MTCP Internal Error\n");
+      return -1;
+    } else if (mtcp_strcmp(argv[0], "--fd") == 0) {
+      rinfo.fd = mtcp_strtol(argv[1]);
+    } else if (mtcp_strcmp(argv[0], "--stderr-fd") == 0) {
+      rinfo.stderr_fd = mtcp_strtol(argv[1]);
+    } else if (mtcp_strcmp(argv[0], "--saved-brk") == 0) {
+      rinfo.saved_brk = (VA) mtcp_strtol(argv[1]);
+    } else if (mtcp_strcmp(argv[0], "--addr") == 0) {
+      rinfo.restore_addr = (VA) mtcp_strtol(argv[1]);
+    } else if (mtcp_strcmp(argv[0], "--size") == 0) {
+      rinfo.restore_size = mtcp_strtol(argv[1]);
+    } else if (mtcp_strcmp(argv[0], "--restore-finish-fn") == 0) {
+      rinfo.post_restart = (fnptr_t) mtcp_strtol(argv[1]);
+    } else {
+      MTCP_PRINTF("MTCP Internal Error\n");
+      return -1;
+    }
+    shift; shift;
+  }
+
+  restore_brk(rinfo.saved_brk, rinfo.restore_addr,
+              rinfo.restore_addr + rinfo.restore_size);
+  getMiscAddrs(&rinfo.text_addr, &rinfo.text_size, &rinfo.highest_va);
+  if (hasOverlappingMapping(rinfo.restore_addr, rinfo.restore_size)) {
+    MTCP_PRINTF("*** Not Implemented.\n\n");
+    mtcp_abort();
+    restart_slow_path();
+  } else {
+    restart_fast_path();
+  }
+}
+
+static void restore_brk(VA saved_brk, VA restore_begin, VA restore_end)
+{
+  int mtcp_sys_errno;
   VA current_brk;
   VA new_brk;
-  void (*finishrestore) (void) = (void*) finishrestore_fptr;
-
-  DPRINTF("Entering mtcp_restart_nolibc.c:mtcp_restoreverything\n");
 
   /* The kernel (2.6.9 anyway) has a variable mm->brk that we should restore.
    * The only access we have is brk() which basically sets mm->brk to the new
@@ -134,39 +191,89 @@ void mtcp_restoreverything (int should_mmap_ckpt_image, VA finishrestore_fptr)
    */
 
   current_brk = mtcp_sys_brk (NULL);
-  if ((current_brk > mtcp_shareable_begin) &&
-      (mtcp_saved_break < mtcp_shareable_end)) {
-    MTCP_PRINTF("current_brk %p, mtcp_saved_break %p, mtcp_shareable_begin %p,"
-                " mtcp_shareable_end %p\n",
-                 current_brk, mtcp_saved_break, mtcp_shareable_begin,
-                 mtcp_shareable_end);
+  if ((current_brk > restore_begin) &&
+      (saved_brk < restore_end)) {
+    MTCP_PRINTF("current_brk %p, saved_brk %p, restore_begin %p,"
+                " restore_end %p\n",
+                 current_brk, saved_brk, restore_begin,
+                 restore_end);
     mtcp_abort ();
   }
 
-  new_brk = mtcp_sys_brk (mtcp_saved_break);
+  new_brk = mtcp_sys_brk (saved_brk);
   if (new_brk == (VA)-1) {
     MTCP_PRINTF("sbrk(%p): errno: %d (bad heap)\n",
-		 mtcp_saved_break, mtcp_sys_errno );
+		 saved_brk, mtcp_sys_errno );
     mtcp_abort();
   }
-  if (new_brk != mtcp_saved_break) {
-    if (new_brk == current_brk && new_brk > mtcp_saved_break)
+  if (new_brk != saved_brk) {
+    if (new_brk == current_brk && new_brk > saved_brk)
       DPRINTF("new_brk == current_brk == %p\n; saved_break, %p,"
               " is strictly smaller;\n  data segment not extended.\n",
-              new_brk, mtcp_saved_break);
+              new_brk, saved_brk);
     else {
       if (new_brk == current_brk)
-        MTCP_PRINTF("error: new/current break (%p) != saved break (%p)\n"
-                    "Trying to continue anyway\n",
-                    current_brk, mtcp_saved_break);
+        MTCP_PRINTF("error: new/current break (%p) != saved break (%p)\n",
+                    current_brk, saved_brk);
       else
         MTCP_PRINTF("error: new break (%p) != current break (%p)\n",
                     new_brk, current_brk);
-      //mtcp_abort ();
+      mtcp_abort ();
     }
   }
-  DPRINTF("current_brk: %p; mtcp_saved_break: %p; new_brk: %p\n",
-          current_brk, mtcp_saved_break, new_brk);
+}
+
+static void restart_fast_path()
+{
+  int mtcp_sys_errno;
+  void *addr = mtcp_sys_mmap(rinfo.restore_addr, rinfo.restore_size,
+                             PROT_READ|PROT_WRITE|PROT_EXEC,
+                             MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
+  if (addr == MAP_FAILED) {
+    MTCP_PRINTF("mmap failed with error: %d\n", mtcp_sys_errno);
+    mtcp_abort();
+  }
+
+  size_t offset = (char*)&restorememoryareas - rinfo.text_addr;
+  rinfo.restorememoryareas_fptr = (fnptr_t)(rinfo.restore_addr + offset);
+
+  mtcp_sys_memcpy(rinfo.restore_addr, rinfo.text_addr, rinfo.text_size);
+  mtcp_sys_memcpy(rinfo.restore_addr + rinfo.text_size, &rinfo, sizeof(rinfo));
+  void *stack_ptr = rinfo.restore_addr + rinfo.restore_size - MB;
+
+#if defined(__i386__) || defined(__x86_64__)
+  asm volatile (CLEAN_FOR_64_BIT(mov %0,%%esp;)
+                /* This next assembly language confuses gdb,
+                   but seems to work fine anyway */
+                CLEAN_FOR_64_BIT(xor %%ebp,%%ebp)
+                : : "g" (stack_ptr) : "memory");
+#elif defined(__arm__)
+  asm volatile ("mov sp,%0\n\t"
+                /* FIXME:  DO WE NEED THIS "xor"? */
+                // CLEAN_FOR_64_BIT(xor %%ebp,%%ebp\n\t)
+                : : "r" (stack_ptr) : "memory");
+#else
+# error "assembly instruction not translated"
+#endif
+
+  rinfo.restorememoryareas_fptr(&rinfo);
+}
+
+static void restart_slow_path()
+{
+  int mtcp_sys_errno;
+  restorememoryareas();
+}
+
+static void restorememoryareas(RestoreInfo *rinfo_ptr)
+{
+  int mtcp_sys_errno;
+  RestoreInfo restore_info;
+  mtcp_sys_memcpy(&restore_info, rinfo_ptr, sizeof (restore_info));
+  VA holebase;
+
+  DPRINTF("Entering mtcp_restart_nolibc.c:mtcp_restoreverything\n");
+
 
   /* Unmap everything except for this image as everything we need
    *   is contained in the libmtcp.so image.
@@ -185,8 +292,7 @@ void mtcp_restoreverything (int should_mmap_ckpt_image, VA finishrestore_fptr)
    *   and just make it beginning of [vsyscall] where that exists.
    */
 
-  holebase  = mtcp_shareable_begin;
-  holebase = (VA)((unsigned long int)holebase & -MTCP_PAGE_SIZE);
+  holebase = restore_info.restore_addr;
   // the unmaps will wipe what it points to anyway
   // Force a hard error if any code tries to use the thread-pointer register.
 #if defined(__i386__) || defined(__x86_64__)
@@ -202,164 +308,44 @@ void mtcp_restoreverything (int should_mmap_ckpt_image, VA finishrestore_fptr)
   //                                : : : CLEAN_FOR_64_BIT(eax));
 
   /* Unmap from address 0 to holebase, except for [vdso] section */
-  vdso_addr = vsyscall_addr = stack_end_addr = 0;
-  highest_va = highest_userspace_address(&vdso_addr, &vsyscall_addr,
-					 &stack_end_addr);
-  if (stack_end_addr == 0) /* 0 means /proc/self/maps doesn't mark "[stack]" */
-    highest_va = HIGHEST_VA;
-  else
-    highest_va = stack_end_addr;
-  DPRINTF("new_brk (end of heap): %p, holebase (libmtcp.so): %p,\n"
-          " stack_end_addr: %p, vdso_addr: %p, highest_va: %p,\n"
-          " vsyscall_addr: %p\n",
-	  new_brk, holebase, stack_end_addr,
-	  vdso_addr, highest_va, vsyscall_addr);
+//  DPRINTF("new_brk (end of heap): %p, holebase (libmtcp.so): %p,\n"
+//          " stack_end_addr: %p, highest_va: %p,\n"
+//          " vsyscall_addr: %p\n",
+//	  new_brk, holebase, stack_end_addr,
+//	  highest_va, vsyscall_addr);
 
-  if (vdso_addr != NULL && vdso_addr < holebase) {
-    DPRINTF("unmapping %p..%p, %p..%p\n",
-            NULL, vdso_addr-1, vdso_addr+MTCP_PAGE_SIZE, holebase - 1);
-    rc = mtcp_sys_munmap (NULL, (size_t)vdso_addr);
-    rc |= mtcp_sys_munmap (vdso_addr + MTCP_PAGE_SIZE,
-			   holebase - vdso_addr - MTCP_PAGE_SIZE);
-  } else {
-    DPRINTF("unmapping 0..%p\n", holebase - 1);
-    rc = mtcp_sys_munmap (NULL, holebase);
-  }
-  if (rc == -1) {
-      MTCP_PRINTF("error %d unmapping from 0 to %p\n",
-                  mtcp_sys_errno, holebase);
-      mtcp_abort ();
+  DPRINTF("unmapping from 0 to %p\n", holebase);
+  if (mtcp_sys_munmap(NULL, holebase) == -1) {
+    MTCP_PRINTF("error %d unmapping from 0 to %p\n", mtcp_sys_errno, holebase);
+    mtcp_abort ();
   }
 
   /* Unmap from address holebase to highest_va, except for [vdso] section */
   /* Value of mtcp_shareable_end (end of data segment) can change from before */
-  holebase  = mtcp_shareable_end;
-  holebase  = (VA)((unsigned long int)(holebase + MTCP_PAGE_SIZE - 1)
-		   & -MTCP_PAGE_SIZE);
-  if (vdso_addr != NULL && vdso_addr + MTCP_PAGE_SIZE <= highest_va) {
-    if (vdso_addr > holebase) {
-      DPRINTF("unmapping %p..%p, %p..%p\n",
-              holebase, vdso_addr-1, vdso_addr + MTCP_PAGE_SIZE,
-              highest_va - 1);
-      rc = mtcp_sys_munmap (holebase, vdso_addr - holebase);
-      rc |= mtcp_sys_munmap (vdso_addr + MTCP_PAGE_SIZE,
-                             highest_va - vdso_addr - MTCP_PAGE_SIZE);
-    } else {
-      DPRINTF("unmapping %p..%p\n", holebase, highest_va - 1);
-      if (highest_va < holebase) {
-        MTCP_PRINTF("error unmapping: highest_va(%p) < holebase(%p)\n",
-                    highest_va, holebase);
-        mtcp_abort ();
-      }
-      rc = mtcp_sys_munmap (holebase, highest_va - holebase);
-    }
+  holebase = restore_info.restore_addr + restore_info.restore_size;
+  DPRINTF("unmapping from %p to %p by %p bytes\n",
+          holebase, restore_info.highest_va,
+          restore_info.highest_va - holebase);
+  if (mtcp_sys_munmap (holebase, restore_info.highest_va - holebase) == -1) {
+    MTCP_PRINTF("error %d unmapping from %p by %p bytes\n",
+                mtcp_sys_errno, holebase, restore_info.highest_va - holebase);
+    mtcp_abort ();
   }
-  if (rc == -1) {
-      MTCP_PRINTF("error %d unmapping from %p by %p bytes\n",
-                  mtcp_sys_errno, holebase, highest_va - holebase);
-      mtcp_abort ();
-  }
-  DPRINTF("\n"); /* end of munmap */
-
-  /* Restore file descriptors */
-  DPRINTF("restoring file descriptors\n");
-  readfiledescrs ();                              // restore files
 
   /* Restore memory areas */
-
-  global_vdso_addr = vdso_addr;/* This global var goes away when linker used. */
   DPRINTF("restoring memory areas\n");
-  readmemoryareas (should_mmap_ckpt_image);
+  readmemoryareas (restore_info.fd);
 
   /* Everything restored, close file and finish up */
 
-  DPRINTF("close cpfd %d\n", mtcp_restore_cpfd);
-  mtcp_sys_close (mtcp_restore_cpfd);
-  mtcp_restore_cpfd = -1;
+  DPRINTF("close cpfd %d\n", restore_info.fd);
+  mtcp_sys_close (restore_info.fd);
 
-  IMB; // flush instruction cache, since mtcp_restart.c code is now gone.
+  //IMB; // flush instruction cache, since mtcp_restart.c code is now gone.
   DPRINTF("restore complete, resuming...\n");
 
   /* Jump to finishrestore in original program's libmtcp.so image */
-  (*finishrestore)();
-}
-
-/*****************************************************************************
- *
- *  Read file descriptor info from checkpoint file and re-open and re-position
- *  files on the same descriptors
- *
- *  Move the checkpoint file to a different fd if needed
- *
- *****************************************************************************/
-
-static void readfiledescrs (void)
-
-{
-  char *linkbuf;
-  int fdnum, flags, tempfd;
-  off_t offset;
-  const struct stat *statbuf;
-  Area area;
-
-  while (1) {
-    /* Read parameters of next file to restore */
-    mtcp_readfile(mtcp_restore_cpfd, &area, sizeof area);
-    fdnum = area.fdinfo.fdnum;
-    statbuf = &area.fdinfo.statbuf;
-    offset = area.fdinfo.offset;
-    linkbuf = area.name;
-
-    if (fdnum < 0) break;
-    DPRINTF("restoring -> %s\n", linkbuf);
-    DPRINTF("restoring %d -> %s\n", fdnum, linkbuf);
-
-    /* Maybe it restores to same fd as we're using for checkpoint file. */
-    /* If so, move the checkpoint file somewhere else.                  */
-
-    if (fdnum == mtcp_restore_cpfd) {
-      flags = mtcp_sys_dup (mtcp_restore_cpfd);
-      if (flags < 0) {
-        MTCP_PRINTF("error %d duping checkpoint file fd %d\n",
-                    mtcp_sys_errno, mtcp_restore_cpfd);
-        mtcp_abort ();
-      }
-      mtcp_restore_cpfd = flags;
-      DPRINTF("cpfd changed to %d\n", mtcp_restore_cpfd);
-    }
-
-    /* Open the file on a temp fd */
-
-    flags = O_RDWR;
-    if (!(statbuf->st_mode & S_IWUSR)) flags = O_RDONLY;
-    else if (!(statbuf->st_mode & S_IRUSR)) flags = O_WRONLY;
-    tempfd = mtcp_sys_open (linkbuf, flags, 0);
-    if (tempfd < 0) {
-      MTCP_PRINTF("error %d re-opening %s flags %o\n",
-                  mtcp_sys_errno, linkbuf, flags);
-      continue;
-    }
-
-    /* Move it to the original fd if it didn't coincidentally open there */
-
-    if (tempfd != fdnum) {
-      if (mtcp_sys_dup2 (tempfd, fdnum) < 0) {
-        MTCP_PRINTF("error %d duping %s from %d to %d\n",
-                    mtcp_sys_errno, linkbuf, tempfd, fdnum);
-        mtcp_abort ();
-      }
-      mtcp_sys_close (tempfd);
-    }
-
-    /* Position the file to its same spot it was at when checkpointed */
-
-    if (S_ISREG (statbuf->st_mode) &&
-        (mtcp_sys_lseek (fdnum, offset, SEEK_SET) != offset)) {
-      MTCP_PRINTF("error %d positioning %s to %ld\n",
-                  mtcp_sys_errno, linkbuf, (long)offset);
-      mtcp_abort ();
-    }
-  }
+  restore_info.post_restart();
 }
 
 /**************************************************************************
@@ -389,15 +375,16 @@ static void readfiledescrs (void)
  *
  **************************************************************************/
 
-static void readmemoryareas (int should_mmap_ckpt_image)
+static void readmemoryareas(int fd)
 {
+  int mtcp_sys_errno;
   Area area;
   int flags, imagefd;
   void *mmappedat;
 
   while (1) {
     int try_skipping_existing_segment = 0;
-    mtcp_readfile(mtcp_restore_cpfd, &area, sizeof area);
+    mtcp_readfile(fd, &area, sizeof area);
     if (area.size == -1) break;
 
     if (area.name && mtcp_strstr(area.name, "[heap]")
@@ -424,11 +411,6 @@ static void readmemoryareas (int should_mmap_ckpt_image)
                 mtcp_sys_errno, area.size, area.addr);
         mtcp_abort ();
       }
-    }
-
-    else if (should_mmap_ckpt_image && (area.flags & MAP_ANONYMOUS)) {
-      mmapfile (mtcp_restore_cpfd, area.addr, area.size, area.prot | PROT_WRITE,
-                area.flags & ~MAP_ANONYMOUS);
     }
 
     /* CASE MAP_ANONYMOUS (usually implies MAP_PRIVATE):
@@ -492,67 +474,21 @@ static void readmemoryareas (int should_mmap_ckpt_image)
       if (!(area.flags & MAP_ANONYMOUS)) mtcp_sys_close (imagefd);
 
       if (try_skipping_existing_segment) {
-#ifdef BUG_64BIT_2_6_9
-# if 0
         // This fails on teracluster.  Presumably extra symbols cause overflow.
-        {
-          char tmpbuf[4];
-          int i;
-          /* slow, but rare case; and only for old Linux 2.6.9 */
-          for ( i = 0; i < area.size / 4; i++ )
-            readfile (tmpbuf, 4);
-        }
-# else
-        // This fails in CERN Linux 2.6.9; can't readfile on top of vsyscall
-        mtcp_readfile(mtcp_restore_cpfd, area.addr, area.size);
-# endif
-#else
-# ifdef __x86_64__
-        // This fails on teracluster.  Presumably extra symbols cause overflow.
-        mtcp_skipfile(mtcp_restore_cpfd, area.size);
-# else
-        // With Red Hat Release 5.2, Red Hat allows vdso to go almost anywhere.
-        // If we were unlucky and it was randomized onto our memory area, re-exec.
-        // In the future, a cleaner fix will be a linker script to reserve
-        //   or even load our own memory section at fixed addresses, so that
-        //   vdso will be placed elsewhere.
-        // This patch is not safe, because there are unnamed sections that
-        //   might be required.  But early 32-bit Linux kernels also don't name
-        //   [vdso] in the /proc filesystem, and it's safe to skipfile() there.
-        // This code is based on what's in mtcp_check_vdso.c .
-        if (area.name[0] == '/' /* If not null string, not [stack] or [vdso] */
-            && global_vdso_addr >= area.addr
-            && global_vdso_addr < area.addr + area.size) {
-          DPRINTF("randomized vdso conflict; retrying\n");
-          mtcp_sys_close (mtcp_restore_cpfd);
-          mtcp_restore_cpfd = -1;
-          if (-1 == mtcp_sys_execve(mtcp_restore_cmd_file,
-                                    mtcp_restore_argv, mtcp_restore_envp))
-            DPRINTF("execve failed.  Restart may fail.\n");
-        } else {
-          mtcp_skipfile(mtcp_restore_cpfd, area.size);
-        }
-# endif
-#endif
+        mtcp_skipfile(fd, area.size);
       } else {
         /* This mmapfile after prev. mmap is okay; use same args again.
          *  Posix says prev. map will be munmapped.
          */
         /* ANALYZE THE CONDITION FOR DOING mmapfile MORE CAREFULLY. */
-        if (should_mmap_ckpt_image
-            && mtcp_strstr(area.name, "[vdso]")
-            && mtcp_strstr(area.name, "[vsyscall]")) {
-          mmapfile (mtcp_restore_cpfd, area.addr, area.size,
-                    area.prot | PROT_WRITE, area.flags);
-        } else {
-          mtcp_readfile(mtcp_restore_cpfd, area.addr, area.size);
-        }
-        if (!(area.prot & PROT_WRITE))
+        mtcp_readfile(fd, area.addr, area.size);
+        if (!(area.prot & PROT_WRITE)) {
           if (mtcp_sys_mprotect (area.addr, area.size, area.prot) < 0) {
             MTCP_PRINTF("error %d write-protecting %p bytes at %p\n",
                         mtcp_sys_errno, area.size, area.addr);
             mtcp_abort ();
           }
+        }
       }
     }
 
@@ -574,7 +510,7 @@ static void readmemoryareas (int should_mmap_ckpt_image)
       }
 
       if (area.prot & MAP_SHARED) {
-        read_shared_memory_area_from_file(&area, flags);
+        read_shared_memory_area_from_file(fd, &area, flags);
       } else { /* not MAP_ANONYMOUS, not MAP_SHARED */
         /* During checkpoint, MAP_ANONYMOUS flag is forced whenever MAP_PRIVATE
          * is set. There is no reason for any mapping to have MAP_PRIVATE and
@@ -597,6 +533,7 @@ static void readmemoryareas (int should_mmap_ckpt_image)
 
 static void adjust_for_smaller_file_size(Area *area, int fd)
 {
+  int mtcp_sys_errno;
   off_t curr_size = mtcp_sys_lseek(fd, 0, SEEK_END);
   if (curr_size == -1) return;
   if (curr_size < area->filesize && (area->offset + area->size > curr_size)) {
@@ -646,8 +583,9 @@ static void adjust_for_smaller_file_size(Area *area, int fd)
  * Other than these, if we can't access the file, we print an error message
  * and quit.
  */
-static void read_shared_memory_area_from_file(Area* area, int flags)
+static void read_shared_memory_area_from_file(int fd, Area* area, int flags)
 {
+  int mtcp_sys_errno;
   void *mmappedat;
   int areaContentsAlreadyRead = 0;
   int imagefd, rc;
@@ -680,7 +618,7 @@ static void read_shared_memory_area_from_file(Area* area, int flags)
      * hopefully, a second process should ignore O_CREAT and just
      *  duplicate the work of the first process, with no ill effect.
      */
-    area_name = fix_filename_if_new_cwd(area_name);
+    //area_name = fix_filename_if_new_cwd(area_name);
     imagefd = open_shared_file(area_name);
 
     /* Acquire write lock on the file before writing anything to it
@@ -711,7 +649,7 @@ static void read_shared_memory_area_from_file(Area* area, int flags)
     }
 
     // Overwrite mmap'ed memory region with contents from original ckpt image.
-    mtcp_readfile(mtcp_restore_cpfd, area->addr, area->size);
+    mtcp_readfile(fd, area->addr, area->size);
 
     areaContentsAlreadyRead = 1;
 
@@ -751,7 +689,7 @@ static void read_shared_memory_area_from_file(Area* area, int flags)
      * Open MPI.
      */
     int file_size = mtcp_sys_lseek(imagefd, 0, SEEK_END);
-    if (area->size > file_size) {
+    if (area->size > (file_size + MTCP_PAGE_SIZE)) {
       DPRINTF("File size (%d) on disk smaller than mmap() size (%d).\n"
               "  Extending it to mmap() size.\n", file_size, area->size);
       mtcp_sys_ftruncate(imagefd, area->size);
@@ -793,7 +731,7 @@ static void read_shared_memory_area_from_file(Area* area, int flags)
         || (0 == mtcp_sys_access(area->name, X_OK)) ) {
 
       MTCP_PRINTF("mapping %s with data from ckpt image\n", area->name);
-      mtcp_readfile(mtcp_restore_cpfd, area->addr, area->size);
+      mtcp_readfile(fd, area->addr, area->size);
       mtcp_sys_close (imagefd); // don't leave dangling fd
     }
 #else
@@ -803,7 +741,7 @@ static void read_shared_memory_area_from_file(Area* area, int flags)
       } else {
         MTCP_PRINTF("mapping %s with data from ckpt image\n", area->name);
       }
-      mtcp_readfile(mtcp_restore_cpfd, area->addr, area->size);
+      mtcp_readfile(fd, area->addr, area->size);
     }
 #endif
     // If we have no write permission on file, then we should use data
@@ -840,156 +778,20 @@ static void read_shared_memory_area_from_file(Area* area, int flags)
           MTCP_PRINTF("mapping current version of %s into memory;\n"
                       "  _not_ file as it existed at time of checkpoint.\n"
                       "  Change %s:%d and re-compile, if you want different "
-                      "behavior.\n",
+                      "behavior. %d: %d\n",
                       area->name, __FILE__, __LINE__);
         }
       }
-      mtcp_skipfile(mtcp_restore_cpfd, area->size);
+      mtcp_skipfile(fd, area->size);
     }
   }
   if (imagefd >= 0)
     mtcp_sys_close (imagefd); // don't leave dangling fd in way of other stuff
 }
 
-static void mmapfile(int fd, void *buf, size_t size, int prot, int flags)
-{
-  void *addr;
-  int rc;
-
-  /* Use mmap for this portion of checkpoint image. */
-  addr = mtcp_sys_mmap(buf, size, prot, flags,
-                       fd, mtcp_sys_lseek(fd, 0, SEEK_CUR));
-  if (addr != buf) {
-    if (addr == MAP_FAILED) {
-      MTCP_PRINTF("error %d reading checkpoint file\n", mtcp_sys_errno);
-    } else {
-      MTCP_PRINTF("Requested address %p, but got address %p\n", buf, addr);
-    }
-    mtcp_abort();
-  }
-  /* Now update fd so as to work the same way as readfile() */
-  rc = mtcp_sys_lseek(fd, size, SEEK_CUR);
-  if (rc == -1) {
-    MTCP_PRINTF("mtcp_sys_lseek failed with errno %d\n", mtcp_sys_errno);
-    mtcp_abort();
-  }
-}
-
-#if 1
-/* Modelled after mtcp_safemmap.  - Gene */
-static VA highest_userspace_address (VA *vdso_addr, VA *vsyscall_addr,
-				     VA *stack_end_addr)
-{
-  char c;
-  int mapsfd, i;
-  VA endaddr, startaddr;
-  VA highaddr = 0; /* high stack address should be highest userspace addr */
-  const char *stackstring = "[stack]";
-  const char *vdsostring = "[vdso]";
-  const char *vsyscallstring = "[vsyscall]";
-  const int bufsize = 1 + sizeof "[vsyscall]"; /* largest of last 3 strings */
-  char buf[bufsize];
-
-  buf[0] = '\0';
-  buf[bufsize - 1] = '\0';
-
-  /* Scan through the mappings of this process */
-
-  mapsfd = mtcp_sys_open ("/proc/self/maps", O_RDONLY, 0);
-  if (mapsfd < 0) {
-    MTCP_PRINTF("couldn't open /proc/self/maps\n");
-    mtcp_abort();
-  }
-
-  *vdso_addr = NULL;
-  while (1) {
-
-    /* Read a line from /proc/self/maps */
-
-    c = mtcp_readhex (mapsfd, &startaddr);
-    if (c == '\0') break;
-    if (c != '-') continue; /* skip to next line */
-    c = mtcp_readhex (mapsfd, &endaddr);
-    if (c == '\0') break;
-    if (c != ' ') continue; /* skip to next line */
-
-    while ((c != '\0') && (c != '\n')) {
-      if (c != ' ') {
-        for (i = 0; (i < bufsize) && (c != ' ')
-		    && (c != 0) && (c != '\n'); i++) {
-          buf[i] = c;
-          c = mtcp_readchar (mapsfd);
-        }
-      } else {
-        c = mtcp_readchar (mapsfd);
-      }
-    }
-
-    if (0 == mtcp_strncmp(buf, stackstring, mtcp_strlen(stackstring))) {
-      *stack_end_addr = endaddr;
-      highaddr = endaddr;  /* We found "[stack]" in /proc/self/maps */
-    }
-
-    if (0 == mtcp_strncmp(buf, vdsostring, mtcp_strlen(vdsostring))) {
-      *vdso_addr = startaddr;
-      highaddr = endaddr;  /* We found "[vdso]" in /proc/self/maps */
-    }
-
-    if (0 == mtcp_strncmp(buf, vsyscallstring, mtcp_strlen(vsyscallstring))) {
-      *vsyscall_addr = startaddr;
-      highaddr = endaddr;  /* We found "[vsyscall]" in /proc/self/maps */
-    }
-  }
-
-  mtcp_sys_close (mapsfd);
-
-  return highaddr;
-}
-
-#else
-/* Added by Gene Cooperman */
-static VA highest_userspace_address (VA *vdso_addr, VA *vsyscall_address,
-				     VA *stack_end_addr)
-{
-  Area area;
-  VA area_end = 0;
-  int mapsfd;
-  char *p;
-
-  mapsfd = open ("/proc/self/maps", O_RDONLY);
-  if (mapsfd < 0) {
-    MTCP_PRINTF("error opening /proc/self/maps: errno: %d\n", errno);
-    mtcp_abort ();
-  }
-
-  *vdso_addr = NULL; /* Default to NULL if not found. */
-  while (mtcp_readmapsline (mapsfd, &area)) {
-    /* Gcc expands strstr() inline, but it's safer to use our own function. */
-    p = mtcp_strstr (area.name, "[stack]");
-    if (p != NULL)
-      area_end = area.addr + area.size;
-    p = mtcp_strstr (area.name, "[vdso]");
-    if (p != NULL)
-      *vdso_addr = area.addr;
-    p = mtcp_strstr (area.name, "[vsyscall]");
-    if (p != NULL)
-      *vsyscall_addr = area.addr;
-    p = mtcp_strstr (area.name, "[stack]");
-    if (p != NULL)
-      *stack_end_addr = area.addr + addr.size;
-    p = mtcp_strstr (area.name, "[vsyscall]");
-    if (p != NULL) /* vsyscall is highest section, when it exists */
-      return area.addr;
-  }
-
-  close (mapsfd);
-  return area_end;
-}
-#endif
-
-#if 1
 static void lock_file(int fd, char* name, short l_type)
 {
+  int mtcp_sys_errno;
   struct flock fl;
 
   /* If a file is in /var or /usr, we shouldn't try to restore
@@ -1029,6 +831,7 @@ static void lock_file(int fd, char* name, short l_type)
   }
 }
 
+#if 0
 /* Adjust for new pwd, and recreate any missing subdirectories. */
 static char* fix_filename_if_new_cwd(char* filename)
 {
@@ -1088,9 +891,11 @@ static char* fix_filename_if_new_cwd(char* filename)
   }
   return filename;
 }
+#endif
 
 static int open_shared_file(char* filename)
 {
+  int mtcp_sys_errno;
   int fd;
   /* Create the file */
   fd = mtcp_sys_open(filename, O_CREAT|O_RDWR, S_IRUSR|S_IWUSR);
@@ -1100,4 +905,85 @@ static int open_shared_file(char* filename)
   }
   return fd;
 }
-#endif
+
+static void mmapfile(int fd, void *buf, size_t size, int prot, int flags)
+{
+  int mtcp_sys_errno;
+  void *addr;
+  int rc;
+
+  /* Use mmap for this portion of checkpoint image. */
+  addr = mtcp_sys_mmap(buf, size, prot, flags,
+                       fd, mtcp_sys_lseek(fd, 0, SEEK_CUR));
+  if (addr != buf) {
+    if (addr == MAP_FAILED) {
+      MTCP_PRINTF("error %d reading checkpoint file\n", mtcp_sys_errno);
+    } else {
+      MTCP_PRINTF("Requested address %p, but got address %p\n", buf, addr);
+    }
+    mtcp_abort();
+  }
+  /* Now update fd so as to work the same way as readfile() */
+  rc = mtcp_sys_lseek(fd, size, SEEK_CUR);
+  if (rc == -1) {
+    MTCP_PRINTF("mtcp_sys_lseek failed with errno %d\n", mtcp_sys_errno);
+    mtcp_abort();
+  }
+}
+
+static int doAreasOverlap(VA addr1, size_t size1, VA addr2, size_t size2)
+{
+  int mtcp_sys_errno;
+  VA end1 = (char*)addr1 + size1;
+  VA end2 = (char*)addr2 + size2;
+  return (addr1 >= addr2 && addr1 < end2) || (addr2 >= addr1 && addr2 < end1);
+}
+
+static int hasOverlappingMapping(VA addr, size_t size)
+{
+  int mtcp_sys_errno;
+  int ret = 0;
+  Area area;
+  int mapsfd = mtcp_sys_open2("/proc/self/maps", O_RDONLY);
+  if (mapsfd < 0) {
+    MTCP_PRINTF("error opening /proc/self/maps: errno: %d\n", mtcp_sys_errno);
+    mtcp_abort ();
+  }
+
+  while (mtcp_readmapsline(mapsfd, &area, NULL)) {
+    if (doAreasOverlap(addr, size, area.addr, area.size)) {
+      ret = 1;
+      break;
+    }
+  }
+  mtcp_sys_close (mapsfd);
+  return ret;
+}
+
+static void getMiscAddrs(VA *text_addr, size_t *size, VA *highest_va)
+{
+  int mtcp_sys_errno;
+  Area area;
+  VA area_end = NULL;
+  int mapsfd = mtcp_sys_open2("/proc/self/maps", O_RDONLY);
+  if (mapsfd < 0) {
+    MTCP_PRINTF("error opening /proc/self/maps: errno: %d\n", mtcp_sys_errno);
+    mtcp_abort ();
+  }
+
+  while (mtcp_readmapsline(mapsfd, &area, NULL)) {
+    if ((mtcp_strendswith(area.name, BINARY_NAME) ||
+         mtcp_strendswith(area.name, BINARY_NAME_M32)) &&
+        (area.prot & PROT_EXEC)) {
+      *text_addr = area.addr;
+      *size = area.size;
+    }
+    if (mtcp_strstr (area.name, "[vsyscall]") != NULL) {
+      /* vsyscall is highest section, when it exists */
+      break;
+    }
+    area_end = area.addr + area.size;
+  }
+  mtcp_sys_close (mapsfd);
+  *highest_va = area_end;
+}

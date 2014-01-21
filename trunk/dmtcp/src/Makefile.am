@@ -24,12 +24,18 @@ AM_CFLAGS = -m32 -Wa,--32 $(PICFLAGS)
 AM_CXXFLAGS = -m32 -Wa,--32 $(PICFLAGS)
 AM_LDFLAGS =  -m32 -Wl,-m32 -Wl,-melf_i386 -Wa,--32 $(PICFLAGS)
 targetdir = $(top_builddir)/lib/$(PACKAGE)/32
+MTCP_RESTART=mtcp_restart-32
 else
 AM_CFLAGS = $(PICFLAGS)
 AM_CXXFLAGS = $(PICFLAGS)
 AM_LDFLAGS = $(PICFLAGS)
 targetdir = $(top_builddir)
+MTCP_RESTART=mtcp_restart
 endif
+
+#ifeq ($(BUILDTYPE),arm)
+#ARM_EXTRAS = libc-do-syscall-arm.S
+#endif
 
 #HEADERS
 #set the include path found by configure
@@ -41,7 +47,8 @@ bin_PROGRAMS = $(targetdir)/bin/dmtcp_launch \
 	       $(targetdir)/bin/dmtcp_command \
 	       $(targetdir)/bin/dmtcp_coordinator \
 	       $(targetdir)/bin/dmtcp_restart \
-	       $(targetdir)/bin/dmtcp_nocheckpoint
+	       $(targetdir)/bin/dmtcp_nocheckpoint \
+	       $(targetdir)/bin/mtcp_restart
 dmtcplib_PROGRAMS = $(targetdir)/lib/dmtcp/libdmtcp.so
 include_HEADERS = $(srcdir)/../include/dmtcp.h
 
@@ -57,7 +64,8 @@ nobase_noinst_HEADERS = constants.h \
 	dmtcp_coordinator.h dmtcpmessagetypes.h lookup_service.h \
 	dmtcpworker.h threadsync.h coordinatorapi.h \
 	mtcpinterface.h syscallwrappers.h syslogwrappers.h \
-	uniquepid.h processinfo.h ckptserializer.h
+	threadlist.h tlsinfo.h siginfo.h \
+	uniquepid.h processinfo.h ckptserializer.h writeckpt.h
 
 # Note that libdmtcpinternal.a does not include wrappers.
 # dmtcp_launch, dmtcp_command, dmtcp_coordinator, etc.
@@ -79,8 +87,6 @@ libnohijack_a_SOURCES = nosyscallsreal.c dmtcpnohijackstubs.cpp
 
 __targetdir__bin_dmtcp_coordinator_SOURCES = dmtcp_coordinator.cpp lookup_service.cpp
 
-__targetdir__bin_dmtcp_launch_SOURCES = dmtcp_launch.cpp
-
 __targetdir__bin_dmtcp_nocheckpoint_SOURCES = dmtcp_nocheckpoint.c
 
 __targetdir__bin_dmtcp_restart_SOURCES = dmtcp_restart.cpp util_exec.cpp ckptserializer.cpp
@@ -91,19 +97,19 @@ __targetdir__lib_dmtcp_libdmtcp_so_SOURCES = dmtcpworker.cpp threadsync.cpp \
 		      coordinatorapi.cpp execwrappers.cpp \
 		      mtcpinterface.cpp signalwrappers.cpp \
 		      threadwrappers.cpp \
-		      miscwrappers.cpp ckptserializer.cpp \
+		      miscwrappers.cpp ckptserializer.cpp writeckpt.cpp \
 		      glibcsystem.cpp \
+		      threadlist.cpp tlsinfo.cpp siginfo.cpp \
 		      dmtcpplugin.cpp popen.cpp syslogwrappers.cpp
 
-__targetdir__lib_dmtcp_libdmtcp_so_LDFLAGS = -shared -L$(targetdir)/lib \
-		      -Xlinker -rpath -Xlinker '$$ORIGIN/../'
+__targetdir__lib_dmtcp_libdmtcp_so_LDFLAGS = -shared -Xlinker -znow
 
 #dmtcp_nocheckpoint_LDFLAGS = -static
 
 # Note that an ELF object uses libsyscallsreal.a or libnohijack.a
 #  but not both.  libnohijack.a has stub definitions for same symbols.
 __targetdir__lib_dmtcp_libdmtcp_so_LDADD	= libdmtcpinternal.a libjalib.a libsyscallsreal.a \
-			  -ldl -lpthread -lrt -lmtcp
+			  -ldl -lpthread -lrt
 __targetdir__bin_dmtcp_coordinator_LDADD = libdmtcpinternal.a libjalib.a \
 			  libnohijack.a -lpthread -lrt
 __targetdir__bin_dmtcp_launch_LDADD  = libdmtcpinternal.a libjalib.a \
@@ -113,19 +119,28 @@ __targetdir__bin_dmtcp_restart_LDADD     = libdmtcpinternal.a libjalib.a \
 __targetdir__bin_dmtcp_command_LDADD     = libdmtcpinternal.a libjalib.a \
 			  libnohijack.a -lpthread -lrt -ldl
 
+__targetdir__bin_dmtcp_launch_SOURCES = dmtcp_launch.cpp
+
+__targetdir__bin_mtcp_restart_SOURCES = mtcp_restart.c
+__targetdir__bin_mtcp_restart_CFLAGS = ${AM_CFLAGS} -fno-stack-protector
+__targetdir__bin_mtcp_restart_LDFLAGS = -nodefaultlibs -fno-stack-protector ${ARM_EXTRAS}
+__targetdir__bin_mtcp_restart_LDADD = ${ARM_EXTRAS}
+
 install-exec-hook:
 	cd $(DESTDIR)$(bindir) && $(LN_S) -f dmtcp_launch dmtcp_checkpoint
 
 uninstall-hook:
 	rm -f $(DESTDIR)$(bindir)/dmtcp_checkpoint
 
-libs: $(dmtcplib_PROGRAMS) $(lib_LIBRARIES)
+libs: $(dmtcplib_PROGRAMS) $(lib_LIBRARIES) $(targetdir)/bin/mtcp_restart
 	(cd plugin && ${MAKE} libs)
 
 install-libs: install-dmtcplibPROGRAMS
+	install $(targetdir)/bin/mtcp_restart $(DESTDIR)$(bindir)
 	(cd plugin && ${MAKE} install-libs)
 
 uninstall-libs: uninstall-dmtcplibPROGRAMS
 	(cd plugin && ${MAKE} uninstall-libs)
+	rm $(DESTDIR)$(bindir)/mtcp_restart
 
-.PHONY: libs
+.PHONY: libs install-libs uninstall-libs

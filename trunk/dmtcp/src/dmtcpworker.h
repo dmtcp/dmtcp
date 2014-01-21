@@ -57,7 +57,7 @@ namespace dmtcp
       static void resetOnFork();
       void cleanupWorker();
 
-      static int determineMtcpSignal();
+      static int determineCkptSignal();
 
       static void setExitInProgress() { _exitInProgress = true; };
       static bool exitInProgress() { return _exitInProgress; };

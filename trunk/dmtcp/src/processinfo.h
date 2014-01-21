@@ -26,6 +26,11 @@
 #include "uniquepid.h"
 #include "../jalib/jalloc.h"
 
+#define MB 1024*1024
+#define RESTORE_STACK_SIZE 5*MB
+#define RESTORE_MEM_SIZE 5*MB
+#define RESTORE_TOTAL_SIZE (RESTORE_STACK_SIZE+RESTORE_MEM_SIZE)
+
 namespace dmtcp
 {
   class ProcessInfo
@@ -43,15 +48,14 @@ namespace dmtcp
 #endif
       ProcessInfo();
       static ProcessInfo& instance();
+      void init();
       void postExec();
       void resetOnFork();
       void restart();
       void postRestartRefill();
       void restoreProcessGroupInfo();
-
-      void  insertTid(pid_t tid);
-      void  eraseTid(pid_t tid);
-      size_t numThreads() { refreshTidVector(); return _tidVector.size(); }
+      void restoreHeap();
+      void growStack();
 
       void insertChild (pid_t virtualPid, dmtcp::UniquePid uniquePid);
       void eraseChild (pid_t virtualPid);
@@ -62,7 +66,6 @@ namespace dmtcp
 
       void refresh();
       void refreshChildTable();
-      void refreshTidVector();
       void setRootOfProcessTree() { _isRootOfProcessTree = true; }
       bool isRootOfProcessTree() const { return _isRootOfProcessTree; }
 
@@ -95,10 +98,15 @@ namespace dmtcp
       bool isChild(const UniquePid& upid);
 
       int elfType() const { return _elfType; }
+      uint64_t savedBrk(void) const { return _savedBrk;}
+      uint64_t restoreBufAddr(void) const { return _restoreBufAddr;}
+      uint32_t restoreBufLen(void) const { return RESTORE_TOTAL_SIZE;}
+      uint64_t restoreFinishFnPtr(void) const { return _restoreFinishFnAddr;}
+      void setRestoreFinishFnPtr(void (*fn)())
+      { _restoreFinishFnAddr = (uint64_t) fn; }
 
     private:
       dmtcp::map<pid_t, UniquePid> _childTable;
-      dmtcp::vector<pid_t> _tidVector;
       dmtcp::map<pthread_t, pthread_t> _pthreadJoinId;
       dmtcp::map<pid_t, pid_t> _sessionIds;
       typedef dmtcp::map<pid_t, UniquePid>::iterator iterator;
@@ -126,8 +134,13 @@ namespace dmtcp
       UniquePid     _upid;
       UniquePid     _uppid;
       UniquePid     _compGroup;
+
+      uint64_t      _restoreBufAddr;
+      uint32_t      _restoreBufLen;
+      uint64_t      _restoreFinishFnAddr;
+      uint64_t      _savedHeapStart;
+      uint64_t      _savedBrk;
   };
 
 }
-
 #endif /* PROCESS_INFO */

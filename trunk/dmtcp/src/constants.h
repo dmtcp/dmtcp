@@ -63,6 +63,7 @@
 
 #define DEFAULT_HOST "127.0.0.1"
 #define DEFAULT_PORT 7779
+#define DMTCP_DEFAULT_SIGNAL SIGUSR2
 
 // Matchup this definition with the one in plugins/ptrace/ptracewrappers.h
 #define DMTCP_FAKE_SYSCALL 1023
@@ -103,7 +104,8 @@
 #else
   #define ENV_DELTACOMPRESSION
 #endif
-#define ENV_VAR_FORKED_CKPT "MTCP_FORKED_CHECKPOINT"
+
+#define ENV_VAR_FORKED_CKPT "DMTCP_FORKED_CHECKPOINT"
 #define ENV_VAR_SIGCKPT "DMTCP_SIGCKPT"
 #define ENV_VAR_SCREENDIR "SCREENDIR"
 #define ENV_VAR_DISABLE_UID_CHECKING "DMTCP_DISABLE_UID_CHECKING"
@@ -150,10 +152,6 @@
 
 #define DMTCP_FILE_HEADER "DMTCP_CHECKPOINT_IMAGE_v2.0\n"
 
-// Fix dlclose segfault bug
-//#define MAX_DLCLOSE_MTCP_CALLS 10
-#define MAX_DLCLOSE_MTCP_CALLS 1
-
 // #define MIN_SIGNAL 1
 // #define MAX_SIGNAL 30
 
@@ -162,7 +160,7 @@
 #endif
 
 #define DMTCP_VERSION_AND_COPYRIGHT_INFO                                        \
-  BINARY_NAME " (DMTCP + MTCP) " PACKAGE_VERSION "\n\n"                   \
+  BINARY_NAME " (DMTCP) " PACKAGE_VERSION "\n\n"                                \
   "Copyright (C) 2006-2014  Jason Ansel, Michael Rieker, Kapil Arya, and\n"     \
   "                                                       Gene Cooperman\n"     \
   "License LGPLv3+: GNU LGPL version 3 or later <http://gnu.org/licenses/lgpl.html>.\n"\

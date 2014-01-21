@@ -23,7 +23,9 @@
 #include <sys/stat.h>
 #include <sys/fcntl.h>
 #include <sys/wait.h>
+#include <sys/mman.h>
 #include <limits.h>
+#include <elf.h>
 
 #include "constants.h"
 #include "coordinatorapi.h"
@@ -36,6 +38,7 @@
 #include  "../jalib/jfilesystem.h"
 
 #define BINARY_NAME "dmtcp_restart"
+#define MTCP_RESTART_BINARY "mtcp_restart"
 
 using namespace dmtcp;
 
@@ -109,6 +112,8 @@ CoordinatorAPI::CoordinatorMode allowedModes = CoordinatorAPI::COORD_ANY;
 
 
 static void setEnvironFd();
+static void setupStack(void *addr, size_t size);
+static void runMtcpRestart(int is32bitElf, int fd, dmtcp::ProcessInfo *pInfo);
 
 class RestoreTarget
 {
@@ -275,8 +280,7 @@ class RestoreTarget
 #if defined(__x86_64__)
       is32bitElf = (_pInfo.elfType() == ProcessInfo::Elf_32);
 #endif
-      dmtcp::Util::runMtcpRestore(is32bitElf, _path.c_str(), _fd,
-                                  _pInfo.argvSize(), _pInfo.envSize());
+      runMtcpRestart(is32bitElf, _fd, &_pInfo);
 
       JASSERT ( false ).Text ( "unreachable" );
     }
@@ -286,6 +290,45 @@ class RestoreTarget
     dmtcp::ProcessInfo _pInfo;
     int _fd;
 };
+
+static void runMtcpRestart(int is32bitElf, int fd, dmtcp::ProcessInfo *pInfo)
+{
+  char fdBuf[8];
+  char stderrFdBuf[8];
+  char savedBrkBuf[32];
+  char addrBuf[32];
+  char sizeBuf[32];
+  char restoreFinishFnPtrBuf[32];
+
+  sprintf(fdBuf, "%d", fd);
+  sprintf(stderrFdBuf, "%d", PROTECTED_STDERR_FD);
+  sprintf(savedBrkBuf, "%p", pInfo->savedBrk());
+  sprintf(addrBuf, "%p", pInfo->restoreBufAddr());
+  sprintf(sizeBuf, "%u", (unsigned) pInfo->restoreBufLen());
+  sprintf(restoreFinishFnPtrBuf, "%p",  pInfo->restoreFinishFnPtr());
+
+  static dmtcp::string mtcprestart =
+    jalib::Filesystem::FindHelperUtility ("mtcp_restart");
+
+  if (is32bitElf) {
+    mtcprestart = jalib::Filesystem::FindHelperUtility ("mtcp_restart-32");
+  }
+
+  char* const newArgs[] = {
+    (char*) mtcprestart.c_str(),
+    const_cast<char*> ("--fd"), fdBuf,
+    const_cast<char*> ("--stderr-fd"), stderrFdBuf,
+    const_cast<char*> ("--saved-brk"), savedBrkBuf,
+    const_cast<char*> ("--addr"), addrBuf,
+    const_cast<char*> ("--size"), sizeBuf,
+    const_cast<char*> ("--restore-finish-fn"), restoreFinishFnPtrBuf,
+    NULL
+  };
+
+  execve (newArgs[0], newArgs, environ);
+  JASSERT (false) (newArgs[0]) (newArgs[1]) (JASSERT_ERRNO)
+    .Text ("exec() failed");
+}
 
 static void setEnvironFd()
 {
@@ -343,7 +386,6 @@ int main(int argc, char** argv)
   if (getenv(ENV_VAR_DISABLE_UID_CHECKING)) {
     noStrictUIDChecking = true;
   }
-
 
   if (argc == 1) {
     JASSERT_STDERR << DMTCP_VERSION_AND_COPYRIGHT_INFO;

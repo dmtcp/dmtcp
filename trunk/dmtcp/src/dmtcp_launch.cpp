@@ -381,11 +381,6 @@ int main ( int argc, char** argv )
     JTRACE("setting " ENV_VAR_CHECKPOINT_DIR)(ckptDir);
   }
 
-  if ( getenv(ENV_VAR_SIGCKPT) != NULL )
-    setenv ( "MTCP_SIGCKPT", getenv(ENV_VAR_SIGCKPT), 1);
-  else
-    unsetenv("MTCP_SIGCKPT");
-
   if ( checkpointOpenFiles )
     setenv( ENV_VAR_CKPT_OPEN_FILES, "1", 0 );
   else
@@ -458,7 +453,7 @@ static int testMatlab(const char *filename)
     "\n**** WARNING:  Earlier Matlab releases (e.g. release 7.4) use an\n"
     "****  older glibc.  Later releases (e.g. release 7.9) have no problem.\n"
     "****  \n"
-    "****  If you are using an _earlier_ Matlab, please re-compile DMTCP/MTCP\n"
+    "****  If you are using an _earlier_ Matlab, please re-compile DMTCP\n"
     "****  with gcc-4.1 and g++-4.1\n"
     "**** env CC=gcc-4.1 CXX=g++-4.1 ./configure\n"
     "**** [ Also modify mtcp/Makefile to:  CC=gcc-4.1 ]\n"

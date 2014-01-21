@@ -19,6 +19,10 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 #include <sys/prctl.h>
+#include <sys/ioctl.h>
+#include <fenv.h>
+#include <termios.h>
+#include <unistd.h>
 
 #include "constants.h"
 #include "mtcpinterface.h"
@@ -31,24 +35,21 @@
 #include "ckptserializer.h"
 #include "protectedfds.h"
 #include "shareddata.h"
+#include "threadlist.h"
 
 #include "../jalib/jfilesystem.h"
 #include "../jalib/jconvert.h"
 #include "../jalib/jassert.h"
 #include "../jalib/jalloc.h"
-#include "../../mtcp/mtcp.h"
 
 using namespace dmtcp;
 
-#ifdef DEBUG
-static int debugEnabled = 1;
-#else
-static int debugEnabled = 0;
-#endif
-
+int rounding_mode = 1;
 static char prctlPrgName[22] = {0};
 static void prctlGetProcessName();
 static void prctlRestoreProcessName();
+static void save_term_settings();
+static void restore_term_settings();
 
 static char *_mtcpRestoreArgvStartAddr = NULL;
 #ifdef RESTORE_ARGV_AFTER_RESTART
@@ -56,90 +57,17 @@ static void restoreArgvAfterRestart(char* mtcpRestoreArgvStartAddr);
 #endif
 static void unmapRestoreArgv();
 
-static void callbackSleepBetweenCheckpoint(int sec);
-static void callbackPreCheckpoint(char **ckptFilename);
-static void callbackPostCheckpoint(int isRestart,
-                                   char* mtcpRestoreArgvStartAddr);
-static int callbackShouldCkptFD(int /*fd*/);
-static void callbackWriteCkptPrefix(int fd);
-
-void callbackHoldsAnyLocks(int *retval);
-void callbackPreSuspendUserThread();
-void callbackPreResumeUserThread(int isRestart);
 
 extern "C" int dmtcp_is_ptracing() __attribute__ ((weak));
 extern "C" int dmtcp_update_ppid() __attribute__ ((weak));
 
-static void initializeDmtcpInfoInMtcp()
-{
-  int jassertlog_fd = debugEnabled ? PROTECTED_JASSERTLOG_FD : -1;
-
-  // DMTCP restores working dir only if --checkpoint-open-files invoked.
-  // Later, we may offer the user a separate command line option for this.
-  int restore_working_directory = getenv(ENV_VAR_CKPT_OPEN_FILES) ? 1 : 0;
-
-  void *clone_fptr = (void*) _real_clone;
-  void *sigaction_fptr = (void*) _real_sigaction;
-  // FIXME: What if jalib::JAllocDispatcher is undefined?
-  void *malloc_fptr = (void*) jalib::JAllocDispatcher::malloc;
-  void *free_fptr = (void*) jalib::JAllocDispatcher::free;
-  JASSERT(clone_fptr != NULL);
-  JASSERT(sigaction_fptr != NULL);
-  JASSERT(malloc_fptr != NULL);
-  JASSERT(free_fptr != NULL);
-
-  mtcp_init_dmtcp_info(dmtcp_virtual_to_real_pid != NULL, //Pid plugin check
-                       PROTECTED_STDERR_FD,
-                       jassertlog_fd,
-                       restore_working_directory,
-                       clone_fptr,
-                       sigaction_fptr,
-                       malloc_fptr,
-                       free_fptr);
-
-}
-
 void dmtcp::initializeMtcpEngine()
 {
-  initializeDmtcpInfoInMtcp();
-
-  mtcp_set_callbacks(&callbackSleepBetweenCheckpoint,
-                     &callbackPreCheckpoint,
-                     &callbackPostCheckpoint,
-                     &callbackShouldCkptFD,
-                     &callbackWriteCkptPrefix);
-
-  mtcp_set_dmtcp_callbacks(&callbackHoldsAnyLocks,
-                           &callbackPreSuspendUserThread,
-                           &callbackPreResumeUserThread);
-
-  JTRACE ("Calling mtcp_init");
-  mtcp_init(NULL, 0xBadF00d, 1);
-  mtcp_ok();
-
-  JTRACE ( "mtcp_init complete" ) ( UniquePid::getCkptFilename() );
-
-  /* Now wait for Checkpoint Thread to finish initialization
-   * NOTE: This should be the last thing in this constructor
-   */
   ThreadSync::initMotherOfAll();
-  while (!ThreadSync::isCheckpointThreadInitialized()) {
-    struct timespec sleepTime = {0, 10*1000*1000};
-    nanosleep(&sleepTime, NULL);
-  }
+  ThreadList::init();
 }
 
-void dmtcp::shutdownMtcpEngineOnFork()
-{
-  mtcp_reset_on_fork();
-}
-
-void dmtcp::killCkpthread()
-{
-  mtcp_kill_ckpthread();
-}
-
-static void callbackSleepBetweenCheckpoint ( int sec )
+void dmtcp::callbackSleepBetweenCheckpoint ( int sec )
 {
   dmtcp::ThreadSync::waitForUserThreadsToFinishPreResumeCB();
   dmtcp::DmtcpWorker::eventHook(DMTCP_EVENT_WAIT_FOR_SUSPEND_MSG, NULL);
@@ -160,7 +88,7 @@ static void callbackSleepBetweenCheckpoint ( int sec )
   JALIB_CKPT_LOCK();
 }
 
-static void callbackPreCheckpoint( char ** ckptFilename )
+void dmtcp::callbackPreCheckpoint()
 {
   // All we want to do is unlock the jassert/jalloc locks, if we reset them, it
   // serves the purpose without having a callback.
@@ -170,11 +98,10 @@ static void callbackPreCheckpoint( char ** ckptFilename )
   //now user threads are stopped
   dmtcp::userHookTrampoline_preCkpt();
   dmtcp::DmtcpWorker::instance().waitForStage2Checkpoint();
-  *ckptFilename = const_cast<char *>(dmtcp::UniquePid::getCkptFilename());
-  JTRACE ( "MTCP is about to write checkpoint image." )(*ckptFilename);
+  dmtcp::prepareForCkpt();
 }
 
-static void callbackPostCheckpoint(int isRestart,
+void dmtcp::callbackPostCheckpoint(int isRestart,
                                    char* mtcpRestoreArgvStartAddr)
 {
   if (isRestart) {
@@ -188,6 +115,9 @@ static void callbackPostCheckpoint(int isRestart,
     }
     dmtcp::DmtcpWorker::eventHook(DMTCP_EVENT_RESTART, NULL);
   } else {
+
+    /* This function is: checkpointhread();  So, only ckpt thread executes */
+    fesetround(rounding_mode);
     dmtcp::DmtcpWorker::eventHook(DMTCP_EVENT_RESUME, NULL);
   }
 
@@ -209,20 +139,7 @@ static void callbackPostCheckpoint(int isRestart,
   // After this, the user threads will be unlocked in mtcp.c and will resume.
 }
 
-static int callbackShouldCkptFD ( int /*fd*/ )
-{
-  //mtcp should never checkpoint file descriptors;  dmtcp will handle it
-  return 0;
-}
-
-static void callbackWriteCkptPrefix ( int fd )
-{
-  // We must write data in multiple of PAGE_SIZE.
-  dmtcp::CkptSerializer::writeCkptHeader(fd);
-  dmtcp::SharedData::preCkpt();
-}
-
-void callbackHoldsAnyLocks(int *retval)
+void dmtcp::callbackHoldsAnyLocks(int *retval)
 {
   /* This callback is useful only for the ptrace plugin currently, but may be
    * used for other stuff as well.
@@ -244,7 +161,7 @@ void callbackHoldsAnyLocks(int *retval)
   }
 }
 
-void callbackPreSuspendUserThread()
+void dmtcp::callbackPreSuspendUserThread()
 {
   dmtcp::ThreadSync::incrNumUserThreads();
   dmtcp::DmtcpWorker::eventHook(DMTCP_EVENT_PRE_SUSPEND_USER_THREAD, NULL);
@@ -253,7 +170,7 @@ void callbackPreSuspendUserThread()
   }
 }
 
-void callbackPreResumeUserThread(int isRestart)
+void dmtcp::callbackPreResumeUserThread(int isRestart)
 {
   prctlRestoreProcessName();
   DmtcpEventData_t edata;
@@ -377,3 +294,81 @@ static void unmapRestoreArgv()
       .Text ("Failed to munmap extra pages that were mapped during restart");
   }
 }
+
+void dmtcp::prepareForCkpt()
+{
+  /* Drain stdin and stdout before checkpoint */
+  tcdrain(STDOUT_FILENO);
+  tcdrain(STDERR_FILENO);
+
+  save_term_settings();
+  rounding_mode = fegetround();
+}
+/*************************************************************************
+ *
+ *  Save and restore terminal settings.
+ *
+ *************************************************************************/
+
+static int saved_termios_exists = 0;
+static struct termios saved_termios;
+static struct winsize win;
+
+static void save_term_settings()
+{
+  saved_termios_exists = ( isatty(STDIN_FILENO)
+  		           && tcgetattr(STDIN_FILENO, &saved_termios) >= 0 );
+  if (saved_termios_exists)
+    ioctl (STDIN_FILENO, TIOCGWINSZ, (char *) &win);
+}
+
+static int safe_tcsetattr(int fd, int optional_actions,
+                          const struct termios *termios_p)
+{
+  struct termios old_termios, new_termios;
+  /* We will compare old and new, and we don't want uninitialized data */
+  memset(&new_termios, 0, sizeof(new_termios));
+  /* tcgetattr returns success as long as at least one of requested
+   * changes was executed.  So, repeat until no more changes.
+   */
+  do {
+    memcpy(&old_termios, &new_termios, sizeof(new_termios));
+    if (tcsetattr(fd, TCSANOW, termios_p) == -1) return -1;
+    if (tcgetattr(fd, &new_termios) == -1) return -1;
+  } while (memcmp(&new_termios, &old_termios, sizeof(new_termios)) != 0);
+  return 0;
+}
+
+// FIXME: Handle Virtual Pids
+static void restore_term_settings()
+{
+  if (saved_termios_exists){
+    /* First check if we are in foreground. If not, skip this and print
+     *   warning.  If we try to call tcsetattr in background, we will hang up.
+     */
+    int foreground = (tcgetpgrp(STDIN_FILENO) == getpgrp());
+    JTRACE("restore terminal attributes, check foreground status first")
+      (foreground);
+    if (foreground) {
+      if ( ( ! isatty(STDIN_FILENO)
+             || safe_tcsetattr(STDIN_FILENO, TCSANOW, &saved_termios) == -1) )
+        JWARNING(false) .Text("failed to restore terminal");
+      else {
+        struct winsize cur_win;
+        JTRACE("restored terminal");
+        ioctl (STDIN_FILENO, TIOCGWINSZ, (char *) &cur_win);
+	/* ws_row/ws_col was probably not 0/0 prior to checkpoint.  We change
+	 * it back to last known row/col prior to checkpoint, and then send a
+	 * SIGWINCH (see below) to notify process that window might have changed
+	 */
+        if (cur_win.ws_row == 0 && cur_win.ws_col == 0)
+          ioctl (STDIN_FILENO, TIOCSWINSZ, (char *) &win);
+      }
+    } else {
+      JWARNING(false)
+        .Text(":skip restore terminal step -- we are in BACKGROUND");
+    }
+  }
+  if (kill(getpid(), SIGWINCH) == -1) {}  /* No remedy if error */
+}
+

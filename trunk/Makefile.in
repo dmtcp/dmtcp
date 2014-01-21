@@ -50,10 +50,9 @@ else
   UNINSTALL_FLAGS = uninstall
 endif
 
-MANPAGES_AUTOGEN=dmtcp_checkpoint.1.gz dmtcp_nocheckpoint.1.gz \
+MANPAGES_AUTOGEN=dmtcp_nocheckpoint.1.gz \
 		 dmtcp_ssh.1.gz dmtcp_sshd.1.gz \
-		 dmtcp_discover_rm.1.gz dmtcp_rm_loclaunch.1.gz \
-		 mtcp.1.gz mtcp_restart.1.gz
+		 dmtcp_discover_rm.1.gz dmtcp_rm_loclaunch.1.gz
 
 MANPAGES=dmtcp.1.gz dmtcp_coordinator.1.gz dmtcp_command.1.gz dmtcp_launch.1.gz \
 	 dmtcp_restart.1.gz
@@ -67,7 +66,7 @@ mkdirs:
 	$(MKDIR_P) $(targetdir)/bin
 	$(MKDIR_P) $(targetdir)/lib/dmtcp
 
-build: mkdirs mtcp dmtcp plugin contrib
+build: mkdirs dmtcp plugin contrib
 
 all: default
 
@@ -92,16 +91,12 @@ display-release:
 	@ cat /etc/rocks-release 2> /dev/null || true
 
 display-config:
-	@- echo DMTCP version:\
-	  ${VERSION} \(`grep 'MTCP_VERSION =' mtcp/Makefile`\)
+	@- echo DMTCP version: ${VERSION}
 	@- echo Date built: \ \  `date`
 	@- if test -r ./config.log ; then \
 	    echo -n 'config.log: ' ; \
 	    grep '\$$ .*configure ' config.log | sed -e 's^\$$^^'; \
 	   fi
-
-mtcp: mkdirs
-	cd mtcp && $(MAKE) $(MTCP_MAKE_FLAGS) build readmtcp
 
 dmtcp:
 ifeq ($(M32),1)
@@ -177,7 +172,6 @@ tidy:
 	rm -rf ckpt_*
 
 clean: tidy
-	- cd mtcp  && $(MAKE) clean
 	- cd dmtcp/src && $(MAKE) clean
 	- cd plugin && $(MAKE) clean
 	- cd contrib && $(MAKE) clean
@@ -193,7 +187,6 @@ clean: tidy
 	rm -rf $(targetdir)/lib $(targetdir)/bin
 
 distclean: clean
-	- cd mtcp  && $(MAKE) distclean
 	- cd dmtcp/src && $(MAKE) distclean
 	- cd plugin && $(MAKE) distclean
 	- cd contrib && $(MAKE) distclean
@@ -254,7 +247,6 @@ install: all create-dirs
 	cd dmtcp/src && make DESTDIR=$(DESTDIR) $(INSTALL_FLAGS)
 	cd plugin && make DESTDIR=$(DESTDIR) $(INSTALL_FLAGS)
 	cd contrib && make DESTDIR=$(DESTDIR) $(INSTALL_FLAGS)
-	cd mtcp && make DESTDIR=$(DESTDIR)  $(INSTALL_FLAGS)
 ifeq ($(M32),0)
 	${INSTALL_DATA} $(top_srcdir)/QUICK-START $(DESTDIR)$(docdir)
 	${INSTALL_DATA} $(top_srcdir)/COPYING $(DESTDIR)$(docdir)
@@ -267,7 +259,6 @@ uninstall:
 	cd dmtcp/src && make DESTDIR=$(DESTDIR) $(UNINSTALL_FLAGS)
 	cd plugin && make DESTDIR=$(DESTDIR) $(UNINSTALL_FLAGS)
 	cd contrib && make DESTDIR=$(DESTDIR) $(UNINSTALL_FLAGS)
-	cd mtcp && make DESTDIR=$(DESTDIR) $(UNINSTALL_FLAGS)
 ifeq ($(M32),0)
 	rm -Rf "$(DESTDIR)$(docdir)"
 	cd $(DESTDIR)$(mandir)/man1 && rm -f ${MANPAGES} ${MANPAGES_AUTOGEN}
@@ -275,4 +266,4 @@ endif
 
 .PHONY: default all \
 	display-build-env display-release display-config build \
-	mtcp dmtcp plugin contrib clean distclean
+	dmtcp plugin contrib clean distclean

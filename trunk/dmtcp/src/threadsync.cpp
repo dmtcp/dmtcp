@@ -236,7 +236,7 @@ void dmtcp::ThreadSync::sendCkptSignalOnFinalUnlock()
 {
   if (_sendCkptSignalOnFinalUnlock && isThisThreadHoldingAnyLocks() == false) {
     _sendCkptSignalOnFinalUnlock = false;
-    JASSERT(raise(DmtcpWorker::determineMtcpSignal()) == 0)
+    JASSERT(raise(DmtcpWorker::determineCkptSignal()) == 0)
       (getpid()) (gettid()) (JASSERT_ERRNO);
   }
 }
@@ -269,17 +269,6 @@ void dmtcp::ThreadSync::unsetThreadPerformingDlopenDlsym()
   _threadPerformingDlopenDlsym = false;
 }
 #endif
-
-bool dmtcp::ThreadSync::isCheckpointThreadInitialized()
-{
-  return _checkpointThreadInitialized;
-}
-
-void dmtcp::ThreadSync::setCheckpointThreadInitialized()
-{
-  JASSERT(_checkpointThreadInitialized == false);
-  _checkpointThreadInitialized = true;
-}
 
 void dmtcp::ThreadSync::destroyDmtcpWorkerLockLock()
 {
@@ -370,7 +359,6 @@ bool dmtcp::ThreadSync::wrapperExecutionLockLock()
 #if TRACK_DLOPEN_DLSYM_FOR_LOCKS
         isThreadPerformingDlopenDlsym() == false &&
 #endif
-        isCheckpointThreadInitialized() == true  &&
         isOkToGrabLock() == true &&
         _wrapperExecutionLockLockCount == 0) {
       incrementWrapperExecutionLockLockCount();
@@ -437,8 +425,7 @@ bool dmtcp::ThreadSync::wrapperExecutionLockLockExcl()
 {
   int saved_errno = errno;
   bool lockAcquired = false;
-  if (WorkerState::currentState() == WorkerState::RUNNING &&
-      isCheckpointThreadInitialized() == true) {
+  if (WorkerState::currentState() == WorkerState::RUNNING) {
     incrementWrapperExecutionLockLockCount();
     int retVal = _real_pthread_rwlock_wrlock(&_wrapperExecutionLock);
     if (retVal != 0 && retVal != EDEADLK) {
