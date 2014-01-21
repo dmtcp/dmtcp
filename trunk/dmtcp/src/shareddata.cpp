@@ -242,10 +242,11 @@ void dmtcp::SharedData::updateHostAndPortEnv()
   }
 
   portStr = jalib::XToString(port);
-  if (strcmp(getenv(ENV_VAR_NAME_HOST), ipstr)) {
+  if (getenv(ENV_VAR_NAME_HOST) && strcmp(getenv(ENV_VAR_NAME_HOST), ipstr)) {
     JASSERT(0 == setenv(ENV_VAR_NAME_HOST, ipstr, 1)) (JASSERT_ERRNO);
   }
-  if (strcmp(getenv(ENV_VAR_NAME_PORT), portStr.c_str())) {
+  if (getenv(ENV_VAR_NAME_HOST) && strcmp(getenv(ENV_VAR_NAME_PORT),
+                                          portStr.c_str())) {
     JASSERT(0 == setenv(ENV_VAR_NAME_PORT, portStr.c_str(), 1)) (JASSERT_ERRNO);
   }
 }
