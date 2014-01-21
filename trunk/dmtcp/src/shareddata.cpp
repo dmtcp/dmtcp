@@ -211,6 +211,7 @@ extern "C" int fred_record_replay_enabled() __attribute__ ((weak));
 void dmtcp::SharedData::updateHostAndPortEnv()
 {
   if (CoordinatorAPI::noCoordinator()) return;
+  if (sharedDataHeader == NULL) initialize();
 
   /* This calls setenv() which calls malloc. Since this is only executed on
      restart, that means it there is an extra malloc on replay. Commenting this
