@@ -123,6 +123,7 @@ __targetdir__bin_dmtcp_launch_SOURCES = dmtcp_launch.cpp
 
 __targetdir__bin_mtcp_restart_SOURCES = mtcp_restart.c
 __targetdir__bin_mtcp_restart_CFLAGS = ${AM_CFLAGS} -fno-stack-protector
+__targetdir__bin_mtcp_restart_CPPFLAGS = ${AM_CPPFLAGS} -DPIC
 __targetdir__bin_mtcp_restart_LDFLAGS = -nodefaultlibs -fno-stack-protector ${ARM_EXTRAS}
 __targetdir__bin_mtcp_restart_LDADD = ${ARM_EXTRAS}
 
