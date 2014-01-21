@@ -594,6 +594,7 @@ __targetdir__bin_dmtcp_command_LDADD = libdmtcpinternal.a libjalib.a \
 __targetdir__bin_dmtcp_launch_SOURCES = dmtcp_launch.cpp
 __targetdir__bin_mtcp_restart_SOURCES = mtcp_restart.c
 __targetdir__bin_mtcp_restart_CFLAGS = ${AM_CFLAGS} -fno-stack-protector
+__targetdir__bin_mtcp_restart_CPPFLAGS = ${AM_CPPFLAGS} -DPIC
 __targetdir__bin_mtcp_restart_LDFLAGS = -nodefaultlibs -fno-stack-protector ${ARM_EXTRAS}
 __targetdir__bin_mtcp_restart_LDADD = ${ARM_EXTRAS}
 all: all-recursive
@@ -838,18 +839,18 @@ distclean-compile:
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(COMPILE) -c `$(CYGPATH_W) '$<'`
 
 __targetdir__bin_mtcp_restart-mtcp_restart.o: mtcp_restart.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(__targetdir__bin_mtcp_restart_CFLAGS) $(CFLAGS) -MT __targetdir__bin_mtcp_restart-mtcp_restart.o -MD -MP -MF $(DEPDIR)/__targetdir__bin_mtcp_restart-mtcp_restart.Tpo -c -o __targetdir__bin_mtcp_restart-mtcp_restart.o `test -f 'mtcp_restart.c' || echo '$(srcdir)/'`mtcp_restart.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__targetdir__bin_mtcp_restart_CPPFLAGS) $(CPPFLAGS) $(__targetdir__bin_mtcp_restart_CFLAGS) $(CFLAGS) -MT __targetdir__bin_mtcp_restart-mtcp_restart.o -MD -MP -MF $(DEPDIR)/__targetdir__bin_mtcp_restart-mtcp_restart.Tpo -c -o __targetdir__bin_mtcp_restart-mtcp_restart.o `test -f 'mtcp_restart.c' || echo '$(srcdir)/'`mtcp_restart.c
 @am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/__targetdir__bin_mtcp_restart-mtcp_restart.Tpo $(DEPDIR)/__targetdir__bin_mtcp_restart-mtcp_restart.Po
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='mtcp_restart.c' object='__targetdir__bin_mtcp_restart-mtcp_restart.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(__targetdir__bin_mtcp_restart_CFLAGS) $(CFLAGS) -c -o __targetdir__bin_mtcp_restart-mtcp_restart.o `test -f 'mtcp_restart.c' || echo '$(srcdir)/'`mtcp_restart.c
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__targetdir__bin_mtcp_restart_CPPFLAGS) $(CPPFLAGS) $(__targetdir__bin_mtcp_restart_CFLAGS) $(CFLAGS) -c -o __targetdir__bin_mtcp_restart-mtcp_restart.o `test -f 'mtcp_restart.c' || echo '$(srcdir)/'`mtcp_restart.c
 
 __targetdir__bin_mtcp_restart-mtcp_restart.obj: mtcp_restart.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(__targetdir__bin_mtcp_restart_CFLAGS) $(CFLAGS) -MT __targetdir__bin_mtcp_restart-mtcp_restart.obj -MD -MP -MF $(DEPDIR)/__targetdir__bin_mtcp_restart-mtcp_restart.Tpo -c -o __targetdir__bin_mtcp_restart-mtcp_restart.obj `if test -f 'mtcp_restart.c'; then $(CYGPATH_W) 'mtcp_restart.c'; else $(CYGPATH_W) '$(srcdir)/mtcp_restart.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__targetdir__bin_mtcp_restart_CPPFLAGS) $(CPPFLAGS) $(__targetdir__bin_mtcp_restart_CFLAGS) $(CFLAGS) -MT __targetdir__bin_mtcp_restart-mtcp_restart.obj -MD -MP -MF $(DEPDIR)/__targetdir__bin_mtcp_restart-mtcp_restart.Tpo -c -o __targetdir__bin_mtcp_restart-mtcp_restart.obj `if test -f 'mtcp_restart.c'; then $(CYGPATH_W) 'mtcp_restart.c'; else $(CYGPATH_W) '$(srcdir)/mtcp_restart.c'; fi`
 @am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/__targetdir__bin_mtcp_restart-mtcp_restart.Tpo $(DEPDIR)/__targetdir__bin_mtcp_restart-mtcp_restart.Po
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='mtcp_restart.c' object='__targetdir__bin_mtcp_restart-mtcp_restart.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(__targetdir__bin_mtcp_restart_CFLAGS) $(CFLAGS) -c -o __targetdir__bin_mtcp_restart-mtcp_restart.obj `if test -f 'mtcp_restart.c'; then $(CYGPATH_W) 'mtcp_restart.c'; else $(CYGPATH_W) '$(srcdir)/mtcp_restart.c'; fi`
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__targetdir__bin_mtcp_restart_CPPFLAGS) $(CPPFLAGS) $(__targetdir__bin_mtcp_restart_CFLAGS) $(CFLAGS) -c -o __targetdir__bin_mtcp_restart-mtcp_restart.obj `if test -f 'mtcp_restart.c'; then $(CYGPATH_W) 'mtcp_restart.c'; else $(CYGPATH_W) '$(srcdir)/mtcp_restart.c'; fi`
 
 .cpp.o:
 @am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXXCOMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
