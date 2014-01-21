@@ -21,18 +21,23 @@ dnl This sets OPENMP_CXXFLAGS
 AC_LANG_PUSH([C++])
 AC_OPENMP
 AC_LANG_POP([C++])
-AM_CONFIG_HEADER([dmtcp/include/config.h])
-AC_CONFIG_FILES([Makefile plugin/Makefile\
-                 plugin/ptrace/Makefile \
-                 plugin/modify-env/Makefile \
-                 plugin/batch-queue/Makefile \
-                 dmtcp/src/plugin/Makefile dmtcp/src/plugin/pid/Makefile \
-                 dmtcp/src/plugin/ipc/Makefile dmtcp/src/plugin/alloc/Makefile \
+AM_CONFIG_HEADER([include/config.h])
+AC_CONFIG_FILES([Makefile \
                  contrib/Makefile \
-                 contrib/infiniband/Makefile \
                  contrib/ckptfile/Makefile \
+                 contrib/infiniband/Makefile \
+                 plugin/Makefile \
+                 plugin/batch-queue/Makefile \
+                 plugin/modify-env/Makefile \
+                 plugin/ptrace/Makefile \
+                 src/Makefile \
+                 src/plugin/Makefile \
+                 src/plugin/alloc/Makefile \
+                 src/plugin/ipc/Makefile \
+                 src/plugin/pid/Makefile \
+                 test/Makefile \
                  test/autotest_config.py \
-                 test/Makefile test/plugin/Makefile])
+                 test/plugin/Makefile])
 #AC_CONFIG_FILES([test/credentials/Makefile])
 
 #AC_CONFIG_SUBDIRS([dmtcp])
@@ -470,4 +475,4 @@ AC_CHECK_HEADERS_ONCE([sys/epoll.h sys/eventfd.h sys/signalfd.h sys/inotify.h])
 AC_DEFINE([DMTCP],[1],[Always enable this.])
 
 
-AC_OUTPUT(dmtcp/src/Makefile)
+AC_OUTPUT

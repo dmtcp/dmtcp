@@ -4675,9 +4675,9 @@ ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
 ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
 ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
-ac_config_headers="$ac_config_headers dmtcp/include/config.h"
+ac_config_headers="$ac_config_headers include/config.h"
 
-ac_config_files="$ac_config_files Makefile plugin/Makefile plugin/ptrace/Makefile plugin/modify-env/Makefile plugin/batch-queue/Makefile dmtcp/src/plugin/Makefile dmtcp/src/plugin/pid/Makefile dmtcp/src/plugin/ipc/Makefile dmtcp/src/plugin/alloc/Makefile contrib/Makefile contrib/infiniband/Makefile contrib/ckptfile/Makefile test/autotest_config.py test/Makefile test/plugin/Makefile"
+ac_config_files="$ac_config_files Makefile contrib/Makefile contrib/ckptfile/Makefile contrib/infiniband/Makefile plugin/Makefile plugin/batch-queue/Makefile plugin/modify-env/Makefile plugin/ptrace/Makefile src/Makefile src/plugin/Makefile src/plugin/alloc/Makefile src/plugin/ipc/Makefile src/plugin/pid/Makefile test/Makefile test/autotest_config.py test/plugin/Makefile"
 
 #AC_CONFIG_FILES([test/credentials/Makefile])
 
@@ -6903,8 +6903,6 @@ $as_echo "#define DMTCP 1" >>confdefs.h
 
 
 
-ac_config_files="$ac_config_files dmtcp/src/Makefile"
-
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
 # tests run on this system so they can be shared between configure
@@ -7651,23 +7649,23 @@ for ac_config_target in $ac_config_targets
 do
   case $ac_config_target in
     "depfiles") CONFIG_COMMANDS="$CONFIG_COMMANDS depfiles" ;;
-    "dmtcp/include/config.h") CONFIG_HEADERS="$CONFIG_HEADERS dmtcp/include/config.h" ;;
+    "include/config.h") CONFIG_HEADERS="$CONFIG_HEADERS include/config.h" ;;
     "Makefile") CONFIG_FILES="$CONFIG_FILES Makefile" ;;
-    "plugin/Makefile") CONFIG_FILES="$CONFIG_FILES plugin/Makefile" ;;
-    "plugin/ptrace/Makefile") CONFIG_FILES="$CONFIG_FILES plugin/ptrace/Makefile" ;;
-    "plugin/modify-env/Makefile") CONFIG_FILES="$CONFIG_FILES plugin/modify-env/Makefile" ;;
-    "plugin/batch-queue/Makefile") CONFIG_FILES="$CONFIG_FILES plugin/batch-queue/Makefile" ;;
-    "dmtcp/src/plugin/Makefile") CONFIG_FILES="$CONFIG_FILES dmtcp/src/plugin/Makefile" ;;
-    "dmtcp/src/plugin/pid/Makefile") CONFIG_FILES="$CONFIG_FILES dmtcp/src/plugin/pid/Makefile" ;;
-    "dmtcp/src/plugin/ipc/Makefile") CONFIG_FILES="$CONFIG_FILES dmtcp/src/plugin/ipc/Makefile" ;;
-    "dmtcp/src/plugin/alloc/Makefile") CONFIG_FILES="$CONFIG_FILES dmtcp/src/plugin/alloc/Makefile" ;;
     "contrib/Makefile") CONFIG_FILES="$CONFIG_FILES contrib/Makefile" ;;
-    "contrib/infiniband/Makefile") CONFIG_FILES="$CONFIG_FILES contrib/infiniband/Makefile" ;;
     "contrib/ckptfile/Makefile") CONFIG_FILES="$CONFIG_FILES contrib/ckptfile/Makefile" ;;
-    "test/autotest_config.py") CONFIG_FILES="$CONFIG_FILES test/autotest_config.py" ;;
+    "contrib/infiniband/Makefile") CONFIG_FILES="$CONFIG_FILES contrib/infiniband/Makefile" ;;
+    "plugin/Makefile") CONFIG_FILES="$CONFIG_FILES plugin/Makefile" ;;
+    "plugin/batch-queue/Makefile") CONFIG_FILES="$CONFIG_FILES plugin/batch-queue/Makefile" ;;
+    "plugin/modify-env/Makefile") CONFIG_FILES="$CONFIG_FILES plugin/modify-env/Makefile" ;;
+    "plugin/ptrace/Makefile") CONFIG_FILES="$CONFIG_FILES plugin/ptrace/Makefile" ;;
+    "src/Makefile") CONFIG_FILES="$CONFIG_FILES src/Makefile" ;;
+    "src/plugin/Makefile") CONFIG_FILES="$CONFIG_FILES src/plugin/Makefile" ;;
+    "src/plugin/alloc/Makefile") CONFIG_FILES="$CONFIG_FILES src/plugin/alloc/Makefile" ;;
+    "src/plugin/ipc/Makefile") CONFIG_FILES="$CONFIG_FILES src/plugin/ipc/Makefile" ;;
+    "src/plugin/pid/Makefile") CONFIG_FILES="$CONFIG_FILES src/plugin/pid/Makefile" ;;
     "test/Makefile") CONFIG_FILES="$CONFIG_FILES test/Makefile" ;;
+    "test/autotest_config.py") CONFIG_FILES="$CONFIG_FILES test/autotest_config.py" ;;
     "test/plugin/Makefile") CONFIG_FILES="$CONFIG_FILES test/plugin/Makefile" ;;
-    "dmtcp/src/Makefile") CONFIG_FILES="$CONFIG_FILES dmtcp/src/Makefile" ;;
 
   *) as_fn_error $? "invalid argument: \`$ac_config_target'" "$LINENO" 5;;
   esac

@@ -1,4 +1,4 @@
-PLUGIN=pid
+PLUGIN=alloc
 CC = @CC@
 M32=@M32@
 CFLAGS = @CFLAGS@
@@ -42,10 +42,13 @@ endif
 
 LIBNAME=$(targetdir)/lib/${PACKAGE}/libdmtcp_${PLUGIN}.so
 
-DMTCP_INCLUDE_PATH = $(top_srcdir)/dmtcp/include
-JALIB_PATH = $(top_srcdir)/dmtcp/jalib
+DMTCP_INCLUDE_PATH = $(top_srcdir)/include
+JALIB_PATH = $(top_srcdir)/jalib
 
-INCLUDES = -I$(JALIB_PATH) -I$(DMTCP_INCLUDE_PATH) -I$(top_builddir)/dmtcp/include
+INCLUDES = -I$(JALIB_PATH) -I$(DMTCP_INCLUDE_PATH) -I$(top_builddir)/include
+# NOTE: setting CFLAGS/CXXFLAGS here means setting external values as in
+#  env CFLAGS="-g -O0" make
+# will be ignored.
 CFLAGS += -DHAVE_CONFIG_H -fPIC -g
 CXXFLAGS += -DHAVE_CONFIG_H -fPIC -g
 ifeq ($(M32),1)
@@ -60,20 +63,9 @@ CXXCOMPILE = $(CXX) $(INCLUDES) $(CPPFLAGS) $(CXXFLAGS) -c -o $@
 CXXLINK = $(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@
 
 HEADERS = $(DMTCP_INCLUDE_PATH)/util.h $(DMTCP_INCLUDE_PATH)/dmtcp.h \
-	  $(DMTCP_INCLUDE_PATH)/virtualidtable.h $(DMTCP_INCLUDE_PATH)/protectedfds.h \
-	  $(DMTCP_INCLUDE_PATH)/shareddata.h $(DMTCP_INCLUDE_PATH)/dmtcpalloc.h \
-	  $(top_builddir)/dmtcp/include/config.h \
-	  pid.h pidwrappers.h virtualpidtable.h \
-	  $(JALIB_PATH)/jassert.h $(JALIB_PATH)/jalloc.h \
-	  $(JALIB_PATH)/jalib.h $(JALIB_PATH)/jbuffer.h \
-	  $(JALIB_PATH)/jconvert.h $(JALIB_PATH)/jfilesystem.h \
-	  $(JALIB_PATH)/jserialize.h $(JALIB_PATH)/jsocket.h
+	  alloc.h $(JALIB_PATH)/jassert.h $(JALIB_PATH)/jalloc.h
 
-OBJS = pid.o pid_filewrappers.o pid_miscwrappers.o \
-       pid_syscallsreal.o pidwrappers.o virtualpidtable.o
-
-SOURCES = pid.cpp pid_filewrappers.cpp pid_miscwrappers.cpp \
-	  pid_syscallsreal.c pidwrappers.cpp virtualpidtable.cpp
+OBJS = mallocwrappers.o mmapwrappers.o
 
 LIB_LDFLAGS = -shared -Wl,--unresolved-symbols=ignore-all
 

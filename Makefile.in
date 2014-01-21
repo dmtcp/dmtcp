@@ -100,9 +100,9 @@ display-config:
 
 dmtcp:
 ifeq ($(M32),1)
-	cd dmtcp/src && $(MAKE) libs
+	cd src && $(MAKE) libs
 else
-	cd dmtcp/src && $(MAKE)
+	cd src && $(MAKE)
 	cd $(targetdir)/bin && $(LN_S) dmtcp_launch dmtcp_checkpoint
 endif
 
@@ -172,7 +172,7 @@ tidy:
 	rm -rf ckpt_*
 
 clean: tidy
-	- cd dmtcp/src && $(MAKE) clean
+	- cd src && $(MAKE) clean
 	- cd plugin && $(MAKE) clean
 	- cd contrib && $(MAKE) clean
 	- cd test  && $(MAKE) clean
@@ -187,7 +187,7 @@ clean: tidy
 	rm -rf $(targetdir)/lib $(targetdir)/bin
 
 distclean: clean
-	- cd dmtcp/src && $(MAKE) distclean
+	- cd src && $(MAKE) distclean
 	- cd plugin && $(MAKE) distclean
 	- cd contrib && $(MAKE) distclean
 	- cd test && $(MAKE) distclean
@@ -244,7 +244,7 @@ else
 endif
 
 install: all create-dirs
-	cd dmtcp/src && make DESTDIR=$(DESTDIR) $(INSTALL_FLAGS)
+	cd src && make DESTDIR=$(DESTDIR) $(INSTALL_FLAGS)
 	cd plugin && make DESTDIR=$(DESTDIR) $(INSTALL_FLAGS)
 	cd contrib && make DESTDIR=$(DESTDIR) $(INSTALL_FLAGS)
 ifeq ($(M32),0)
@@ -256,7 +256,7 @@ ifeq ($(M32),0)
 endif
 
 uninstall:
-	cd dmtcp/src && make DESTDIR=$(DESTDIR) $(UNINSTALL_FLAGS)
+	cd src && make DESTDIR=$(DESTDIR) $(UNINSTALL_FLAGS)
 	cd plugin && make DESTDIR=$(DESTDIR) $(UNINSTALL_FLAGS)
 	cd contrib && make DESTDIR=$(DESTDIR) $(UNINSTALL_FLAGS)
 ifeq ($(M32),0)

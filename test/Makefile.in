@@ -34,7 +34,7 @@ srcdir = @srcdir@
 VPATH = @srcdir@
 targetdir = $(top_builddir)
 
-DMTCP_INCLUDE=${top_srcdir}/dmtcp/include
+DMTCP_INCLUDE=${top_srcdir}/include
 
 CFLAGS += -I${DMTCP_INCLUDE} -DDMTCP -fPIC --std=gnu99 -g
 CXXFLAGS += -I${DMTCP_INCLUDE} -DDMTCP -fPIC -g
@@ -126,10 +126,10 @@ else
 endif
 
 DMTCPAWARE_EXE=$(patsubst %.c,%,$(wildcard dmtcpaware*.c))
-DMTCPPLUGIN_HEADER=$(top_srcdir)/dmtcp/include/dmtcp.h
+DMTCPPLUGIN_HEADER=$(DMTCP_INCLUDE)/dmtcp.h
 
 ${DMTCPAWARE_EXE}: dmtcpaware%: dmtcpaware%.c $(DMTCPPLUGIN_HEADER)
-	-$(CC) -o $@ -I$(top_srcdir)/dmtcp/include $< $(CFLAGS)
+	-$(CC) -o $@ -I$(DMTCP_INCLUDE)/dmtcp/include $< $(CFLAGS)
 
 dmtcp3: dmtcp3.c
 	-$(CC) -o $@ $< $(CFLAGS) -lpthread

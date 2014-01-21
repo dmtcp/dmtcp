@@ -13,7 +13,7 @@ LIBOBJS = plugin-to-announce-events.o
 ifndef DMTCP_ROOT
   DMTCP_ROOT=../../..
 endif
-DMTCP_INCLUDE=${DMTCP_ROOT}/dmtcp/include
+DMTCP_INCLUDE=${DMTCP_ROOT}/include
 
 CFLAGS += -I${DMTCP_INCLUDE} -DDMTCP -fPIC -c --std=gnu99 -g
 CXXFLAGS += -I${DMTCP_INCLUDE} -DDMTCP -fPIC -c -g
