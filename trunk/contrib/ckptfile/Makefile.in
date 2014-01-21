@@ -42,10 +42,10 @@ endif
 
 LIBNAME=$(targetdir)/lib/${PACKAGE}/libdmtcp_${PLUGIN}.so
 
-DMTCP_INCLUDE_PATH = $(top_srcdir)/dmtcp/include
-JALIB_PATH = $(top_srcdir)/dmtcp/jalib
+DMTCP_INCLUDE_PATH = $(top_srcdir)/include
+JALIB_PATH = $(top_srcdir)/jalib
 
-INCLUDES = -I$(JALIB_PATH) -I$(DMTCP_INCLUDE_PATH) -I$(top_builddir)/dmtcp/include
+INCLUDES = -I$(JALIB_PATH) -I$(DMTCP_INCLUDE_PATH) -I$(top_builddir)/include
 # NOTE: setting CFLAGS/CXXFLAGS here means setting external values as in
 #  env CFLAGS="-g -O0" make
 # will be ignored.

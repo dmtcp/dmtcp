@@ -43,10 +43,10 @@ endif
 LIBNAME=$(targetdir)/lib/${PACKAGE}/libdmtcp_${PLUGIN}.so
 
 DMTCP_BIN = ${targetdir}/bin
-DMTCP_INCLUDE_PATH = $(top_srcdir)/dmtcp/include
-JALIB_PATH = $(top_srcdir)/dmtcp/jalib
+DMTCP_INCLUDE_PATH = $(top_srcdir)/include
+JALIB_PATH = $(top_srcdir)/jalib
 
-INCLUDES = -I$(JALIB_PATH) -I$(DMTCP_INCLUDE_PATH) -I$(top_builddir)/dmtcp/include
+INCLUDES = -I$(JALIB_PATH) -I$(DMTCP_INCLUDE_PATH) -I$(top_builddir)/include
 CFLAGS += -DHAVE_CONFIG_H -fPIC -g --std=gnu99
 CXXFLAGS += -DHAVE_CONFIG_H -fPIC -g
 LIB_LDFLAGS = -shared -Wl,--unresolved-symbols=ignore-all

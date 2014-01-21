@@ -42,11 +42,11 @@ endif
 
 LIBNAME=$(targetdir)/lib/${PACKAGE}/libdmtcp_${PLUGIN}.so
 
-DMTCP_INCLUDE_PATH = $(top_srcdir)/dmtcp/include
-JALIB_PATH = $(top_srcdir)/dmtcp/jalib
+DMTCP_INCLUDE_PATH = $(top_srcdir)/include
+JALIB_PATH = $(top_srcdir)/jalib
 
 INCLUDES = -I$(JALIB_PATH) -I$(DMTCP_INCLUDE_PATH) \
-	   -I$(top_builddir)/dmtcp/include -I$(srcdir)
+	   -I$(top_builddir)/include -I$(srcdir)
 CFLAGS += -DHAVE_CONFIG_H -fPIC -g
 CXXFLAGS += -DHAVE_CONFIG_H -fPIC -g
 ifeq ($(M32),1)
@@ -64,7 +64,7 @@ COMMON_HEADERS = ipc.h util_ipc.h \
 		 $(DMTCP_INCLUDE_PATH)/protectedfds.h \
 		 $(DMTCP_INCLUDE_PATH)/virtualidtable.h \
 		 $(DMTCP_INCLUDE_PATH)/protectedfds.h \
-		 $(top_builddir)/dmtcp/include/config.h \
+		 $(top_builddir)/include/config.h \
 		 $(JALIB_PATH)/jassert.h $(JALIB_PATH)/jalloc.h \
 		 $(JALIB_PATH)/jalib.h $(JALIB_PATH)/jbuffer.h \
 		 $(JALIB_PATH)/jconvert.h $(JALIB_PATH)/jfilesystem.h \
