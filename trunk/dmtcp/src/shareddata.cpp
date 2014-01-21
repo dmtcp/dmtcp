@@ -55,12 +55,10 @@ void dmtcp_SharedData_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
     case DMTCP_EVENT_REGISTER_NAME_SERVICE_DATA:
     case DMTCP_EVENT_REFILL:
       dmtcp::SharedData::refill();
-      if (data->refillInfo.isRestart) {
-        SharedData::updateHostAndPortEnv();
-      }
       break;
 
     case DMTCP_EVENT_RESTART:
+      SharedData::updateHostAndPortEnv();
       break;
 
     default:
