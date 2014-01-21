@@ -86,9 +86,6 @@ namespace dmtcp
     bool isThisThreadHoldingAnyLocks();
     bool sendCkptSignalOnUnlock();
 
-    bool isCheckpointThreadInitialized();
-    void setCheckpointThreadInitialized();
-
     bool isOkToGrabLock();
     void setOkToGrabLock();
     void unsetOkToGrabLock();

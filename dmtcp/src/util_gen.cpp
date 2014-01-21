@@ -267,8 +267,8 @@ int dmtcp::Util::readProcMapsLine(int mapsfd, dmtcp::Util::ProcMapsArea *area)
   VA startaddr, endaddr;
 
   c = readHex (mapsfd, &startaddr);
+  if ((c == 0) && (startaddr == 0)) return (0);
   if (c != '-') {
-    if ((c == 0) && (startaddr == 0)) return (0);
     goto skipeol;
   }
   c = readHex (mapsfd, &endaddr);
@@ -394,6 +394,12 @@ size_t dmtcp::Util::pageMask()
   return page_mask;
 }
 
+/* This function detects if the given pages are zero pages or not. There is
+ * scope of improving this function using some optimizations.
+ *
+ * TODO: One can use /proc/self/pagemap to detect if the page is backed by a
+ * shared zero page.
+ */
 bool dmtcp::Util::areZeroPages(void *addr, size_t numPages)
 {
   static size_t page_size = pageSize();
@@ -410,3 +416,42 @@ bool dmtcp::Util::areZeroPages(void *addr, size_t numPages)
   }
   return res == 0;
 }
+
+/* Caller must allocate exec_path of size at least MTCP_MAX_PATH */
+char *dmtcp::Util::findExecutable(char *executable, const char* path_env,
+                                  char *exec_path)
+{
+  char *path;
+  const char *tmp_env;
+  int len;
+
+  JASSERT(exec_path != NULL);
+  if (path_env == NULL) {
+    path_env = ""; // Will try stdpath later in this function
+  }
+  tmp_env = path_env;
+
+  while (*tmp_env != '\0') {
+    path = exec_path;
+    len = 0;
+    while (*tmp_env != ':' && *tmp_env != '\0' && ++len < PATH_MAX - 1)
+      *path++ = *tmp_env++;
+    if (*tmp_env == ':') /* but if *tmp_env == '\0', will exit while loop */
+      tmp_env++;
+    *path++ = '/'; /* '...//... is same as .../... in POSIX */
+    len++;
+    *path++ = '\0';
+    strncat(exec_path, executable, PATH_MAX - len - 1);
+    if (access(exec_path, X_OK) == 0)
+      return exec_path;
+  }
+
+  // In case we're running with PATH environment variable unset:
+  const char * stdpath = "/usr/local/bin:/usr/bin:/bin";
+  if (strcmp(path_env, stdpath) == 0) {
+    return NULL;  // Already tried stdpath
+  } else {
+    return findExecutable(executable, stdpath, exec_path);
+  }
+}
+

@@ -30,6 +30,7 @@
 #include "syslogwrappers.h"
 #include "coordinatorapi.h"
 #include "shareddata.h"
+#include "threadlist.h"
 #include  "../jalib/jsocket.h"
 #include  "../jalib/jfilesystem.h"
 #include  "../jalib/jconvert.h"
@@ -74,10 +75,6 @@ void restoreUserLDPRELOAD()
     (getenv(ENV_VAR_HIJACK_LIBS_M32)) (getenv("LD_PRELOAD"));
 }
 
-// FIXME:  We need a better way to get MTCP_DEFAULT_SIGNAL
-//         See:  pidwrappers.cpp:get_sigckpt()
-#include "../../mtcp/mtcp.h" //for MTCP_DEFAULT_SIGNAL
-
 // This should be visible to library only.  DmtcpWorker will call
 //   this to initialize tmp (ckpt signal) at startup time.  This avoids
 //   any later calls to getenv(), at which time the user app may have
@@ -87,19 +84,17 @@ void restoreUserLDPRELOAD()
 // Used in mtcpinterface.cpp and signalwrappers.cpp.
 // FIXME: DO we still want it to be library visible only?
 //__attribute__ ((visibility ("hidden")))
-int dmtcp::DmtcpWorker::determineMtcpSignal()
+int dmtcp::DmtcpWorker::determineCkptSignal()
 {
-  // this mimics the MTCP logic for determining signal number found in
-  // mtcp_init()
-  int sig = MTCP_DEFAULT_SIGNAL;
+  int sig = DMTCP_DEFAULT_SIGNAL;
   char* endp = NULL;
-  static const char* tmp = getenv("MTCP_SIGCKPT");
+  static const char* tmp = getenv(ENV_VAR_SIGCKPT);
   if (tmp != NULL) {
       sig = strtol(tmp, &endp, 0);
       if ((errno != 0) || (tmp == endp))
-        sig = MTCP_DEFAULT_SIGNAL;
+        sig = DMTCP_DEFAULT_SIGNAL;
       if (sig < 1 || sig > 31)
-        sig = MTCP_DEFAULT_SIGNAL;
+        sig = DMTCP_DEFAULT_SIGNAL;
   }
   return sig;
 }
@@ -276,8 +271,8 @@ dmtcp::DmtcpWorker::DmtcpWorker (bool enableCheckpointing)
   processRlimit();
 
   //This is called for side effect only.  Force this function to call
-  // getenv("MTCP_SIGCKPT") now and cache it to avoid getenv calls later.
-  determineMtcpSignal();
+  // getenv(ENV_VAR_SIGCKPT) now and cache it to avoid getenv calls later.
+  determineCkptSignal();
 
   // Also cache programName and arguments
   dmtcp::string programName = jalib::Filesystem::GetProgramName();
@@ -317,7 +312,6 @@ void dmtcp::DmtcpWorker::resetOnFork()
   eventHook(DMTCP_EVENT_ATFORK_CHILD, NULL);
 
   theInstance.cleanupWorker();
-  shutdownMtcpEngineOnFork();
 
   /* If parent process had file connections and it fork()'d a child
    * process, the child process would consider the file connections as
@@ -330,6 +324,8 @@ void dmtcp::DmtcpWorker::resetOnFork()
    * connectToCoordinatorWithHandshake() and initializeMtcpEngine().
    */
   new ( &theInstance ) DmtcpWorker ( false );
+
+  ThreadList::resetOnFork();
 
   dmtcp::DmtcpWorker::_exitInProgress = false;
 
@@ -347,10 +343,7 @@ void dmtcp::DmtcpWorker::cleanupWorker()
 void dmtcp::DmtcpWorker::interruptCkpthread()
 {
   if (ThreadSync::destroyDmtcpWorkerLockTryLock() == EBUSY) {
-    if (killCkpthread) // if strong symbol defined elsewhere
-      killCkpthread();
-    else // else trying to call weak symbol, which is undefined
-      JASSERT(false) .Text("killCkpthread should not be called");
+    ThreadList::killCkpthread();
     ThreadSync::destroyDmtcpWorkerLockLock();
   }
 }
@@ -478,25 +471,18 @@ void dmtcp::DmtcpWorker::informCoordinatorOfRUNNINGState()
 
 void dmtcp::DmtcpWorker::waitForStage1Suspend()
 {
+  static int initialStartup = 1;
   JTRACE("running");
 
   WorkerState::setCurrentState (WorkerState::RUNNING);
 
-  /*
-   * Its only use is to inform the user thread (waiting in DmtcpWorker
-   * constructor) that the checkpoint thread has finished initialization.
-   * This is to serialize the DmtcpWorker constructor, mtcp_init(),
-   * checkpoint-thread initialization and user main(). As is obvious,
-   * this is only effective when the process is being initialized.
-   */
-  if (!ThreadSync::isCheckpointThreadInitialized()) {
-    /*
-     * We should not call this function any higher in the logic because it
+  if (initialStartup) {
+    /* We should not call this function any higher in the logic because it
      * calls setenv() and if it is running under bash, then getenv() will
      * not work between the call to setenv() and bash main().
      */
     restoreUserLDPRELOAD();
-    ThreadSync::setCheckpointThreadInitialized();
+    initialStartup = 0;
   }
 
   waitForCoordinatorMsg ("SUSPEND", DMT_DO_SUSPEND);
@@ -540,6 +526,9 @@ void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
   JTRACE("got checkpoint message");
 
   eventHook(DMTCP_EVENT_WRITE_CKPT, NULL);
+
+  // Unmap shared area
+  dmtcp::SharedData::preCkpt();
 }
 
 void dmtcp::DmtcpWorker::waitForStage3Refill(bool isRestart)

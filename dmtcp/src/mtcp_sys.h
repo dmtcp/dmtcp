@@ -192,49 +192,6 @@ mtcp_sys_memcmp (s1, s2, len)
 
 #endif /* DEMONSTRATE_BUG */
 
-#ifdef MTCP_SYS_STRCHR
-# ifndef _MTCP_STRCHR_
-#  define _MTCP_STRCHR_
-//   The  strchr() function from earlier C library returns a ptr to the first
-//   occurrence  of  c  (converted  to a  char) in string s, or a
-//   null pointer  if  c  does  not  occur  in  the  string.
-static char *mtcp_sys_strchr(const char *s, int c) {
-  for (; *s != (char)'\0'; s++)
-    if (*s == (char)c)
-      return (char *)s;
-  return NULL;
-}
-# endif
-#endif
-
-#ifdef MTCP_SYS_STRLEN
-# ifndef _MTCP_STRLEN_
-#  define _MTCP_STRLEN_
-//   The  strlen() function from earlier C library calculates  the  length
-//     of  the string s, not including the terminating `\0' character.
-__attribute__ ((unused))  /* Not used in every file where included. */
-static size_t mtcp_sys_strlen(const char *s) {
-  size_t size = 0;
-  for (; *s != (char)'\0'; s++)
-    size++;
-  return size;
-}
-# endif
-#endif
-
-#ifdef MTCP_SYS_STRCPY
-# ifndef _MTCP_STRCPY_
-#  define _MTCP_STRCPY_
-static char * mtcp_sys_strcpy(char *dest, const char *source) {
-  char *d = dest;
-  for (; *source != (char)'\0'; source++)
-    *d++ = *source;
-  *d = '\0';
-  return dest;
-}
-# endif
-#endif
-
 //======================================================================
 
 // Rename it for cosmetic reasons.  We export mtcp_inline_syscall.
@@ -261,7 +218,7 @@ extern int mtcp_sys_errno;
  */
 // THIS CASE fOR i386 NEEDS PATCHING FOR 6 ARGUMENT CASE, SUCH AS MMAP.
 // IT ONLY TRIES TO HANDLE UP TO 5 ARGS.
-# include "sysdep-i386.h"
+# include "sysdep/sysdep-i386.h"
 
 # ifndef __PIC__
 // NOTE:  Some misinformation on web and newer glibc:sysdep-i386.h says 6-arg
@@ -322,12 +279,12 @@ extern int mtcp_sys_errno;
 # endif
 
 #elif __x86_64__
-# include "sysdep-x86_64.h"
+# include "sysdep/sysdep-x86_64.h"
 
 #elif __arm__
 // COPIED FROM:  glibc-ports-2.14/sysdeps/unix/sysv/linux/arm/eabi/sysdep.h
 //   In turn, this calls "sysdep-arm.h" from .../linux/arm/sysdep.h
-# include "sysdep-arm-eabi.h"
+# include "sysdep/sysdep-arm-eabi.h"
 
 #else
 # error "Missing sysdep.h file for this architecture."
@@ -429,91 +386,6 @@ struct linux_dirent {
 #define mtcp_sys_fcntl3(args...) mtcp_inline_syscall(fcntl,3,args)
 #define mtcp_sys_mkdir(args...) mtcp_inline_syscall(mkdir,2,args)
 
-/* These functions are not defined for x86_64. */
-#ifdef __i386__
-# define mtcp_sys_get_thread_area(args...) \
-    mtcp_inline_syscall(get_thread_area,1,args)
-# define mtcp_sys_set_thread_area(args...) \
-    mtcp_inline_syscall(set_thread_area,1,args)
-#endif
-
-#ifdef __x86_64__
-# include <asm/prctl.h>
-# include <sys/prctl.h>
-  /* struct user_desc * uinfo; */
-  /* In Linux 2.6.9 for i386, uinfo->base_addr is
-   *   correctly typed as unsigned long int.
-   * In Linux 2.6.9, uinfo->base_addr is  incorrectly typed as
-   *   unsigned int.  So, we'll just lie about the type.
-   */
-/* SuSE Linux Enterprise Server 9 uses Linux 2.6.5 and requires original
- * struct user_desc from /usr/include/.../ldt.h
- */
-/* RHEL 4 (Update 3) / Rocks 4.1.1-2.0 has <linux/version.h> saying
- *  LINUX_VERSION_CODE is 2.4.20 (and UTS_RELEASE=2.4.20)
- *  while uname -r says 2.6.9-34.ELsmp.  Here, it acts like a version earlier
- *  than the above 2.6.9.  So, we conditionalize on its 2.4.20 version.
- */
-# if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
-   /* struct modify_ldt_ldt_s   was defined instead of   struct user_desc   */
-#  define user_desc modify_ldt_ldt_s
-# endif
-
-/* Defined only in mtcp.c to avoid compiler "defined not used" warmings */
-# ifdef MTCP_SYS_GET_SET_THREAD_AREA
-/* This allocation hack will work only if calls to mtcp_sys_get_thread_area
- * and mtcp_sys_get_thread_area are both inside the same file (mtcp.c).
- * This is all because get_thread_area is not implemented for x86_64.
- */
-static unsigned long int myinfo_gs;
-
-/* ARE THE _GS OPERATIONS NECESSARY? */
-#  define mtcp_sys_get_thread_area(uinfo) \
-    ( mtcp_inline_syscall(arch_prctl,2,ARCH_GET_FS, \
-         (unsigned long int)(&(((struct user_desc *)uinfo)->base_addr))), \
-      mtcp_inline_syscall(arch_prctl,2,ARCH_GET_GS, &myinfo_gs) \
-    )
-#  define mtcp_sys_set_thread_area(uinfo) \
-    ( mtcp_inline_syscall(arch_prctl,2,ARCH_SET_FS, \
-	*(unsigned long int *)&(((struct user_desc *)uinfo)->base_addr)), \
-      mtcp_inline_syscall(arch_prctl,2,ARCH_SET_GS, myinfo_gs) \
-    )
-# endif /* end MTCP_SYS_GET_SET_THREAD_AREA */
-#endif /* end __x86_64__ */
-
-#ifdef __arm__
-/* Defined only in mtcp.c to avoid compiler "defined not used" warmings */
-# ifdef MTCP_SYS_GET_SET_THREAD_AREA
-/* This allocation hack will work only if calls to mtcp_sys_get_thread_area
- * and mtcp_sys_get_thread_area are both inside the same file (mtcp.c).
- * This is all because get_thread_area is not implemented for arm.
- *     For ARM, the thread pointer seems to point to the next slot
- * after the 'struct pthread'.  Why??  So, we subtract that address.
- * After that, tid/pid will be located at  offset 104/108 as expected
- * for glibc-2.13.
- * NOTE:  'struct pthread' defined in glibc/nptl/descr.h
- *     The value below (1216) is current for glibc-2.13.
- *     May have to update 'sizeof(struct pthread)' for new versions of glibc.
- *     We can automate this by searching for negative offset from end
- *     of 'struct pthread' in TLS_TID_OFFSET, TLS_PID_OFFSET in mtcp.c.
- */
-static unsigned int myinfo_gs;
-
-#  define mtcp_sys_get_thread_area(uinfo) \
-  ({ asm volatile ("mrc     p15, 0, %0, c13, c0, 3  @ load_tp_hard\n\t" \
-                   : "=r" (myinfo_gs) ); \
-    myinfo_gs = myinfo_gs - 1216; /* sizeof(struct pthread) = 1216 */ \
-    *(unsigned long int *)&(((struct user_desc *)uinfo)->base_addr) \
-      = myinfo_gs; \
-    myinfo_gs; })
-#  define mtcp_sys_set_thread_area(uinfo) \
-    ( myinfo_gs = \
-        *(unsigned long int *)&(((struct user_desc *)uinfo)->base_addr), \
-      (mtcp_sys_kernel_set_tls(myinfo_gs+1216), 0) \
-      /* 0 return value at end means success */ )
-# endif /* end MTCP_SYS_GET_SET_THREAD_AREA */
-#endif /* end __arm__ */
-
 /*****************************************************************************
  * mtcp_sys_kernel_XXX() indicates it's particular to Linux, or glibc uses
  * a different version than the kernel version of the function.
@@ -603,5 +475,18 @@ static unsigned int myinfo_gs;
  * __NR_ipc, __NR_get_thread_area, __NR_set_thread_area
  */
 #endif
+
+// gcc-3.4 issues a warning that noreturn function returns, if declared noreturn
+static inline void mtcp_abort (void) __attribute__ ((noreturn));
+static inline void mtcp_abort (void)
+{
+  while(1);
+#if defined(__i386__) || defined(__x86_64__)
+  asm volatile (CLEAN_FOR_64_BIT(hlt ; xor %eax,%eax ; mov (%eax),%eax) );
+#elif defined(__arm__)
+  asm volatile ("mov r0, #0 ; str r0, [r0]");
+#endif
+  for (;;);  /* Without this, gcc emits warning:  `noreturn' fnc does return */
+}
 
 #endif

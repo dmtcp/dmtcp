@@ -33,63 +33,40 @@
 #include <string.h>
 #include <errno.h>
 #include <sys/sysmacros.h>
+#include <limits.h>
 
-#include "mtcp_internal.h"
 #include "mtcp_util.h"
 
-/* Read decimal number, return value and terminating character */
-
-char mtcp_readdec (int fd, VA *value)
+unsigned long mtcp_strtol (char *str)
 {
-  char c;
-  unsigned long int v;
-
-  v = 0;
-  while (1) {
-    c = mtcp_readchar (fd);
-    if ((c >= '0') && (c <= '9')) c -= '0';
-    else break;
-    v = v * 10 + c;
+  unsigned long int v = 0;
+  int base = 10;
+  if (str[0] == '0' && (str[1] == 'x' || str[1] == 'X')) {
+    str += 2;
+    base = 16;
+  } else if (str[0] == '0') {
+    str += 1;
+    base = 8;
+  } else {
+    base = 10;
   }
-  *value = (VA)v;
-  return (c);
-}
 
-/* Read decimal number, return value and terminating character */
-
-char mtcp_readhex (int fd, VA *value)
-{
-  char c;
-  unsigned long int v;
-
-  v = 0;
-  while (1) {
-    c = mtcp_readchar (fd);
-      if ((c >= '0') && (c <= '9')) c -= '0';
-    else if ((c >= 'a') && (c <= 'f')) c -= 'a' - 10;
-    else if ((c >= 'A') && (c <= 'F')) c -= 'A' - 10;
-    else break;
-    v = v * 16 + c;
+  while (*str != '\0') {
+    int c;
+    if ((*str >= '0') && (*str <= '9')) c = *str - '0';
+    else if ((*str >= 'a') && (*str <= 'f')) c = *str + 10 - 'a';
+    else if ((*str >= 'A') && (*str <= 'F')) c = *str + 10 - 'A';
+    else {
+      MTCP_PRINTF("Error converting str to int\n");
+      mtcp_abort();
+    }
+    MTCP_ASSERT(c < base);
+    v = v * base + c;
+    str++;
   }
-  *value = (VA)v;
-  return (c);
+  return v;
 }
 
-/* Read non-null character, return null if EOF */
-
-char mtcp_readchar (int fd)
-{
-  char c;
-  int rc;
-
-  do {
-    rc = mtcp_sys_read (fd, &c, 1);
-  } while ( rc == -1 && mtcp_sys_errno == EINTR );
-  if (rc <= 0) return (0);
-  return (c);
-}
-
-__attribute__ ((visibility ("hidden")))
 size_t mtcp_strlen(const char *s)
 {
   size_t len = 0;
@@ -99,7 +76,6 @@ size_t mtcp_strlen(const char *s)
   return len;
 }
 
-__attribute__ ((visibility ("hidden")))
 void mtcp_strncpy(char *dest, const char *src, size_t n)
 {
   size_t i;
@@ -113,7 +89,6 @@ void mtcp_strncpy(char *dest, const char *src, size_t n)
   //return dest;
 }
 
-__attribute__ ((visibility ("hidden")))
 void mtcp_strcpy(char *dest, const char *src)
 {
   while (*src != '\0') {
@@ -121,14 +96,12 @@ void mtcp_strcpy(char *dest, const char *src)
   }
 }
 
-__attribute__ ((visibility ("hidden")))
 void mtcp_strncat(char *dest, const char *src, size_t n)
 {
   mtcp_strncpy(dest + mtcp_strlen(dest), src, n);
   //return dest;
 }
 
-__attribute__ ((visibility ("hidden")))
 int mtcp_strncmp (const char *s1, const char *s2, size_t n)
 {
   unsigned char c1 = '\0';
@@ -144,7 +117,6 @@ int mtcp_strncmp (const char *s1, const char *s2, size_t n)
   return c1 - c2;
 }
 
-__attribute__ ((visibility ("hidden")))
 int mtcp_strcmp (const char *s1, const char *s2)
 {
   size_t n = mtcp_strlen(s2);
@@ -161,7 +133,6 @@ int mtcp_strcmp (const char *s1, const char *s2)
   return c1 - c2;
 }
 
-__attribute__ ((visibility ("hidden")))
 const void *mtcp_strstr(const char *string, const char *substring)
 {
   for ( ; *string != '\0' ; string++) {
@@ -175,7 +146,16 @@ const void *mtcp_strstr(const char *string, const char *substring)
   return NULL;
 }
 
-__attribute__ ((visibility ("hidden")))
+//   The  strchr() function from earlier C library returns a ptr to the first
+//   occurrence  of  c  (converted  to a  char) in string s, or a
+//   null pointer  if  c  does  not  occur  in  the  string.
+char *mtcp_strchr(const char *s, int c) {
+  for (; *s != (char)'\0'; s++)
+    if (*s == (char)c)
+      return (char *)s;
+  return NULL;
+}
+
 int mtcp_strstartswith (const char *s1, const char *s2)
 {
   if (mtcp_strlen(s1) >= mtcp_strlen(s2)) {
@@ -184,7 +164,6 @@ int mtcp_strstartswith (const char *s1, const char *s2)
   return 0;
 }
 
-__attribute__ ((visibility ("hidden")))
 int mtcp_strendswith (const char *s1, const char *s2)
 {
   size_t len1 = mtcp_strlen(s1);
@@ -198,62 +177,19 @@ int mtcp_strendswith (const char *s1, const char *s2)
   return mtcp_strncmp(s1, s2, len2) == 0;
 }
 
-__attribute__ ((visibility ("hidden")))
-int mtcp_memcmp(const char *s1, const char *s2, size_t n)
+void mtcp_sys_memcpy (void *dstpp, const void *srcpp, size_t len)
 {
-  unsigned char c1 = '\0';
-  unsigned char c2 = '\0';
-
-  while (n > 0) {
-    c1 = (unsigned char) *s1++;
-    c2 = (unsigned char) *s2++;
-    if (c1 != c2)
-      return c1 - c2;
-    n--;
+  char *dst = (char*) dstpp;
+  const char *src = (const char*) srcpp;
+  while (len > 0) {
+    *dst++ = *src++;
+    len--;
   }
-  return c1 - c2;
 }
 
-__attribute__ ((visibility ("hidden")))
-void mtcp_memset(char *dest, int c, size_t n)
-{
-  size_t i;
-  for (i = 0; i < n; i++)
-    dest[i] = (char) c;
-}
-
-//void mtcp_check_vdso_enabled() {
-//}
-
-__attribute__ ((visibility ("hidden")))
-int mtcp_atoi(const char *nptr)
-{
-  int v = 0;
-
-  while (*nptr >= '0' && *nptr <= '9') {
-    v = v * 10 + (*nptr - '0');
-    nptr++;
-  }
-  return v;
-}
-
-void mtcpHookWriteCkptData(const void *buf, size_t size) __attribute__ ((weak));
-
-/* Write something to checkpoint file */
-__attribute__ ((visibility ("hidden")))
-size_t mtcp_writefile (int fd, void const *buff, size_t size)
-{
-  if (mtcpHookWriteCkptData == NULL) {
-    MTCP_ASSERT(mtcp_write_all(fd, buff, size) == size);
-  } else {
-    mtcpHookWriteCkptData(buff, size);
-  }
-  return size;
-}
-
-__attribute__ ((visibility ("hidden")))
 void mtcp_readfile(int fd, void *buf, size_t size)
 {
+  int mtcp_sys_errno;
   ssize_t rc;
   size_t ar = 0;
   int tries = 0;
@@ -296,9 +232,9 @@ void mtcp_readfile(int fd, void *buf, size_t size)
 #endif
 }
 
-__attribute__ ((visibility ("hidden")))
 void mtcp_skipfile(int fd, size_t size)
 {
+  int mtcp_sys_errno;
   VA tmp_addr = mtcp_sys_mmap(0, size, PROT_WRITE | PROT_READ,
                               MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
   if (tmp_addr == MAP_FAILED) {
@@ -312,12 +248,11 @@ void mtcp_skipfile(int fd, size_t size)
   }
 }
 
-
 // NOTE: This functions is called by mtcp_printf() so do not invoke
 // mtcp_printf() from within this function.
-__attribute__ ((visibility ("hidden")))
 ssize_t mtcp_write_all(int fd, const void *buf, size_t count)
 {
+  int mtcp_sys_errno;
   const char *ptr = (const char *) buf;
   size_t num_written = 0;
 
@@ -337,86 +272,56 @@ ssize_t mtcp_write_all(int fd, const void *buf, size_t count)
   return num_written;
 }
 
-// Fails, succeeds, or partial read due to EOF (returns num read)
-__attribute__ ((visibility ("hidden")))
-ssize_t mtcp_read_all(int fd, void *buf, size_t count)
+/* Read non-null character, return null if EOF */
+char mtcp_readchar (int fd)
 {
+  int mtcp_sys_errno;
+  char c;
   int rc;
-  char *ptr = (char *) buf;
-  size_t num_read = 0;
-  for (num_read = 0; num_read < count;) {
-    rc = mtcp_sys_read (fd, ptr + num_read, count - num_read);
-    if (rc == -1) {
-      if (mtcp_sys_errno == EINTR || mtcp_sys_errno == EAGAIN)
-        continue;
-      else
-        return -1;
-    }
-    else if (rc == 0)
-      break;
-    else // else rc > 0
-      num_read += rc;
-  }
-  return num_read;
+
+  do {
+    rc = mtcp_sys_read (fd, &c, 1);
+  } while ( rc == -1 && mtcp_sys_errno == EINTR );
+  if (rc <= 0) return (0);
+  return (c);
 }
 
-int mtcp_is_executable(const char *exec_path)
+/* Read decimal number, return value and terminating character */
+char mtcp_readdec (int fd, VA *value)
 {
-#if 1
-  return 0 == mtcp_sys_access(exec_path, X_OK);
-#else
-  struct stat stat_buf;
-  /* Bash says "have to use access(2) to determine access because AFS
-    does not [find] answers for non-AFS files when ruid != euid." ??  */
-  return 0 == mtcp_sys_stat(exec_path, &stat_buf)
-    && S_ISREG(stat_buf.st_mode) && stat_buf.st_mode & S_IXOTH;
-#endif
+  int mtcp_sys_errno;
+  char c;
+  unsigned long int v;
+
+  v = 0;
+  while (1) {
+    c = mtcp_readchar (fd);
+    if ((c >= '0') && (c <= '9')) c -= '0';
+    else break;
+    v = v * 10 + c;
+  }
+  *value = (VA)v;
+  return (c);
 }
 
-/* Caller must allocate exec_path of size at least MTCP_MAX_PATH */
-char *mtcp_find_executable(char *executable, const char* path_env,
-                           char exec_path[PATH_MAX])
+/* Read decimal number, return value and terminating character */
+char mtcp_readhex (int fd, VA *value)
 {
-  char *path;
-  const char *tmp_env;
-  int len;
+  int mtcp_sys_errno;
+  char c;
+  unsigned long int v;
 
-  if (path_env == NULL) {
-    path_env = ""; // Will try stdpath later in this function
+  v = 0;
+  while (1) {
+    c = mtcp_readchar (fd);
+      if ((c >= '0') && (c <= '9')) c -= '0';
+    else if ((c >= 'a') && (c <= 'f')) c -= 'a' - 10;
+    else if ((c >= 'A') && (c <= 'F')) c -= 'A' - 10;
+    else break;
+    v = v * 16 + c;
   }
-  tmp_env = path_env;
-
-  while (*tmp_env != '\0') {
-    path = exec_path;
-    len = 0;
-    while (*tmp_env != ':' && *tmp_env != '\0' && ++len < PATH_MAX - 1)
-      *path++ = *tmp_env++;
-    if (*tmp_env == ':') /* but if *tmp_env == '\0', will exit while loop */
-      tmp_env++;
-    *path++ = '/'; /* '...//... is same as .../... in POSIX */
-    len++;
-    *path++ = '\0';
-    mtcp_strncat(exec_path, executable, PATH_MAX - len - 1);
-    if (mtcp_is_executable(exec_path))
-      return exec_path;
-  }
-
-  // In case we're running with PATH environment variable unset:
-  const char * stdpath = "/usr/local/bin:/usr/bin:/bin";
-  if (mtcp_strcmp(path_env, stdpath) == 0) {
-    return NULL;  // Already tried stdpath
-  } else {
-    return mtcp_find_executable(executable, stdpath, exec_path);
-  }
-}
-
-void mtcp_rename_ckptfile(const char *tempckpt, const char *permckpt)
-{
-  if (mtcp_sys_rename(tempckpt, permckpt) < 0) {
-    MTCP_PRINTF("error %d renaming %s to %s\n",
-                mtcp_sys_errno, tempckpt, permckpt);
-    mtcp_abort ();
-  }
+  *value = (VA)v;
+  return (c);
 }
 
 /*****************************************************************************
@@ -536,6 +441,9 @@ skipeol:
 static int dummy_uninitialized_static_var;
 void mtcp_get_memory_region_of_this_library(VA *startaddr, VA *endaddr)
 {
+  int mtcp_sys_errno;
+  DeviceInfo dinfo;
+  DeviceInfo lib_dinfo;
   struct {
     VA start_addr;
     VA end_addr;
@@ -550,7 +458,7 @@ void mtcp_get_memory_region_of_this_library(VA *startaddr, VA *endaddr)
   int mapsfd = mtcp_sys_open("/proc/self/maps", O_RDONLY, 0);
   MTCP_ASSERT(mapsfd != -1);
 
-  while (mtcp_readmapsline (mapsfd, &area, NULL)) {
+  while (mtcp_readmapsline (mapsfd, &area, &dinfo)) {
     VA start_addr = area.addr;
     VA end_addr = area.addr + area.size;
 
@@ -558,11 +466,13 @@ void mtcp_get_memory_region_of_this_library(VA *startaddr, VA *endaddr)
       MTCP_ASSERT(text.start_addr == NULL);
       text.start_addr = start_addr; text.end_addr = end_addr;
       mtcp_strcpy(filename, area.name);
+      lib_dinfo = dinfo;
       continue;
     }
 
     if (text.start_addr != NULL && guard.start_addr == NULL &&
-        mtcp_strcmp(filename, area.name) == 0) {
+        dinfo.inodenum == lib_dinfo.inodenum) {
+      MTCP_ASSERT(mtcp_strcmp(filename, area.name) == 0);
       MTCP_ASSERT(area.addr == text.end_addr);
       if (area.prot == 0) {
         /* The guard pages are unreadable due to the "---p" protection. Even if
@@ -582,7 +492,8 @@ void mtcp_get_memory_region_of_this_library(VA *startaddr, VA *endaddr)
     }
 
     if (guard.start_addr != NULL && rodata.start_addr == NULL &&
-        mtcp_strcmp(filename, area.name) == 0) {
+        dinfo.inodenum == lib_dinfo.inodenum) {
+      MTCP_ASSERT(mtcp_strcmp(filename, area.name) == 0);
       MTCP_ASSERT(area.addr == guard.end_addr);
       if (area.prot == PROT_READ ||
           // On some systems, all sections of the library have exec
@@ -597,7 +508,8 @@ void mtcp_get_memory_region_of_this_library(VA *startaddr, VA *endaddr)
     }
 
     if (rodata.start_addr != NULL && rwdata.start_addr == NULL &&
-        mtcp_strcmp(filename, area.name) == 0) {
+        dinfo.inodenum == lib_dinfo.inodenum) {
+      MTCP_ASSERT(mtcp_strcmp(filename, area.name) == 0);
       MTCP_ASSERT(area.addr == rodata.end_addr);
       MTCP_ASSERT(area.prot == (PROT_READ|PROT_WRITE) ||
                   // On some systems, all sections of the library have exec
@@ -619,15 +531,192 @@ void mtcp_get_memory_region_of_this_library(VA *startaddr, VA *endaddr)
                   // On some systems, all sections of the library have exec
                   // permissions.
                   area.prot == (PROT_READ|PROT_WRITE|PROT_EXEC));
-      MTCP_ASSERT(thislib_static_var >= start_addr &&
-                  thislib_static_var < end_addr);
+      //MTCP_ASSERT(thislib_static_var >= start_addr &&
+                  //thislib_static_var < end_addr);
       bssdata.start_addr = start_addr; bssdata.end_addr = end_addr;
       break;
     }
   }
   mtcp_sys_close(mapsfd);
+
   MTCP_ASSERT(text.start_addr != NULL);
-  MTCP_ASSERT(bssdata.end_addr != NULL);
   *startaddr = text.start_addr;
-  *endaddr   = bssdata.end_addr;
+
+  if (bssdata.end_addr != NULL) {
+    *endaddr = bssdata.end_addr;
+  } else if (rwdata.end_addr != NULL) {
+    *endaddr = rwdata.end_addr;
+  } else if (rodata.end_addr != NULL) {
+    *endaddr = rodata.end_addr;
+  } else {
+    MTCP_PRINTF("Not implemented.\n");
+    mtcp_abort();
+  }
+}
+
+/*****************************************************************************
+ *  Print on stderr without using any malloc stuff
+ *
+ *  We can't use vsnprintf or anything like that as it calls malloc.
+ *  This routine supports only simple %c, %d, %o, %p, %s, %u, %x (or %X)
+ *****************************************************************************/
+
+static void rwrite (char const *buff, int size) {
+  mtcp_write_all(2, buff, size);
+}
+
+void mtcp_printf (char const *format, ...)
+{
+  char hexdigits[] = "0123456789abcdef";
+  char const *p, *q;
+  va_list ap;
+
+  va_start (ap, format);
+
+  /* Scan along until we find a % */
+
+  for (p = format; (q = mtcp_strchr (p, '%')) != NULL; p = ++ q) {
+
+    /* Print all before the % as is */
+
+    if (q > p) rwrite (p, q - p);
+
+    /* Process based on character following the % */
+
+gofish:
+    switch (*(++ q)) {
+
+      /* Ignore digits (field width) */
+
+      case '0' ... '9': {
+        goto gofish;
+      }
+
+      /* Single character */
+
+      case 'c': {
+        char buff[4];
+
+        buff[0] = va_arg (ap, int); // va_arg (ap, char);
+        rwrite (buff, 1);
+        break;
+      }
+
+      /* Signed decimal integer */
+
+      case 'd': {
+        // On 64-bit machines the largest unsigned is 20 digits.
+        char buff[20];
+        int i, n, neg;
+
+        i = sizeof buff;
+        n = va_arg (ap, int);
+        neg = (n < 0);
+        if (neg) n = - n;
+        do {
+          buff[--i] = (n % 10) + '0';
+          n /= 10;
+        } while (n > 0);
+        if (neg) buff[--i] = '-';
+        rwrite (buff + i, sizeof buff - i);
+        break;
+      }
+
+      /* Unsigned octal number */
+
+      case 'o': {
+        // On 64-bit machines the largest unsigned is 22 digits.
+        char buff[24];
+        int i;
+        unsigned int n;
+
+        i = sizeof buff;
+        n = va_arg (ap, unsigned int);
+        do {
+          buff[--i] = (n & 7) + '0';
+          n /= 8;
+        } while (n > 0);
+        rwrite (buff + i, sizeof buff - i);
+        break;
+      }
+
+      /* Address in hexadecimal */
+
+      case 'p': {
+        // On 64-bit machines the largest unsigned is 16 digits.
+        char buff[18];
+        int i;
+        unsigned long int n;
+
+        i = sizeof buff;
+        n = (unsigned long int) va_arg (ap, void *);
+        do {
+          buff[--i] = hexdigits[n%16];
+          n /= 16;
+        } while (n > 0);
+        buff[--i] = 'x';
+        buff[--i] = '0';
+        rwrite (buff + i, sizeof buff - i);
+        break;
+      }
+
+      /* Null terminated string */
+
+      case 's': {
+        p = va_arg (ap, char *);
+        rwrite (p, mtcp_strlen (p));
+        break;
+      }
+
+      /* Unsigned decimal integer */
+
+      case 'u': {
+        // On 64-bit machines the largest unsigned is 20 digits.
+        char buff[18];
+        int i;
+        unsigned int n;
+
+        i = sizeof buff;
+        n = va_arg (ap, unsigned int);
+        do {
+          buff[--i] = (n % 10) + '0';
+          n /= 10;
+        } while (n > 0);
+        rwrite (buff + i, sizeof buff - i);
+        break;
+      }
+
+      /* Unsigned hexadecimal number */
+
+      case 'X':
+      case 'x': {
+        // On 64-bit machines the largest unsigned is 16 digits.
+        char buff[18];
+        int i;
+        unsigned int n;
+
+        i = sizeof buff;
+        n = va_arg (ap, unsigned int);
+        do {
+          buff[--i] = hexdigits[n%16];
+          n /= 16;
+        } while (n > 0);
+        rwrite (buff + i, sizeof buff - i);
+        break;
+      }
+
+      /* Anything else, print the character as is */
+
+      default: {
+        rwrite (q, 1);
+        break;
+      }
+    }
+  }
+
+  va_end (ap);
+
+  /* Print whatever comes after the last format spec */
+
+  rwrite (p, mtcp_strlen (p));
 }

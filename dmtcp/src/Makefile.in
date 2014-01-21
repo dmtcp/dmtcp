@@ -92,7 +92,8 @@ bin_PROGRAMS = $(targetdir)/bin/dmtcp_launch$(EXEEXT) \
 	$(targetdir)/bin/dmtcp_command$(EXEEXT) \
 	$(targetdir)/bin/dmtcp_coordinator$(EXEEXT) \
 	$(targetdir)/bin/dmtcp_restart$(EXEEXT) \
-	$(targetdir)/bin/dmtcp_nocheckpoint$(EXEEXT)
+	$(targetdir)/bin/dmtcp_nocheckpoint$(EXEEXT) \
+	$(targetdir)/bin/mtcp_restart$(EXEEXT)
 dmtcplib_PROGRAMS = $(targetdir)/lib/dmtcp/libdmtcp.so$(EXEEXT)
 subdir = dmtcp/src
 DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/Makefile.am \
@@ -168,13 +169,22 @@ __targetdir__bin_dmtcp_restart_OBJECTS =  \
 	$(am___targetdir__bin_dmtcp_restart_OBJECTS)
 __targetdir__bin_dmtcp_restart_DEPENDENCIES = libdmtcpinternal.a \
 	libjalib.a libnohijack.a
+am___targetdir__bin_mtcp_restart_OBJECTS =  \
+	__targetdir__bin_mtcp_restart-mtcp_restart.$(OBJEXT)
+__targetdir__bin_mtcp_restart_OBJECTS =  \
+	$(am___targetdir__bin_mtcp_restart_OBJECTS)
+__targetdir__bin_mtcp_restart_DEPENDENCIES =
+__targetdir__bin_mtcp_restart_LINK = $(CCLD) \
+	$(__targetdir__bin_mtcp_restart_CFLAGS) $(CFLAGS) \
+	$(__targetdir__bin_mtcp_restart_LDFLAGS) $(LDFLAGS) -o $@
 am___targetdir__lib_dmtcp_libdmtcp_so_OBJECTS = dmtcpworker.$(OBJEXT) \
 	threadsync.$(OBJEXT) coordinatorapi.$(OBJEXT) \
 	execwrappers.$(OBJEXT) mtcpinterface.$(OBJEXT) \
 	signalwrappers.$(OBJEXT) threadwrappers.$(OBJEXT) \
 	miscwrappers.$(OBJEXT) ckptserializer.$(OBJEXT) \
-	glibcsystem.$(OBJEXT) dmtcpplugin.$(OBJEXT) popen.$(OBJEXT) \
-	syslogwrappers.$(OBJEXT)
+	writeckpt.$(OBJEXT) glibcsystem.$(OBJEXT) threadlist.$(OBJEXT) \
+	tlsinfo.$(OBJEXT) siginfo.$(OBJEXT) dmtcpplugin.$(OBJEXT) \
+	popen.$(OBJEXT) syslogwrappers.$(OBJEXT)
 __targetdir__lib_dmtcp_libdmtcp_so_OBJECTS =  \
 	$(am___targetdir__lib_dmtcp_libdmtcp_so_OBJECTS)
 __targetdir__lib_dmtcp_libdmtcp_so_DEPENDENCIES = libdmtcpinternal.a \
@@ -198,6 +208,10 @@ DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)/dmtcp/include
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__depfiles_maybe = depfiles
 am__mv = mv -f
+AM_V_lt = $(am__v_lt_@AM_V@)
+am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
+am__v_lt_0 = --silent
+am__v_lt_1 = 
 COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
 AM_V_CC = $(am__v_CC_@AM_V@)
@@ -210,10 +224,6 @@ AM_V_CCLD = $(am__v_CCLD_@AM_V@)
 am__v_CCLD_ = $(am__v_CCLD_@AM_DEFAULT_V@)
 am__v_CCLD_0 = @echo "  CCLD    " $@;
 am__v_CCLD_1 = 
-AM_V_lt = $(am__v_lt_@AM_V@)
-am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
-am__v_lt_0 = --silent
-am__v_lt_1 = 
 CXXCOMPILE = $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
 	$(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS)
 AM_V_CXX = $(am__v_CXX_@AM_V@)
@@ -234,6 +244,7 @@ SOURCES = $(libdmtcpinternal_a_SOURCES) $(libjalib_a_SOURCES) \
 	$(__targetdir__bin_dmtcp_launch_SOURCES) \
 	$(__targetdir__bin_dmtcp_nocheckpoint_SOURCES) \
 	$(__targetdir__bin_dmtcp_restart_SOURCES) \
+	$(__targetdir__bin_mtcp_restart_SOURCES) \
 	$(__targetdir__lib_dmtcp_libdmtcp_so_SOURCES)
 DIST_SOURCES = $(libdmtcpinternal_a_SOURCES) $(libjalib_a_SOURCES) \
 	$(libnohijack_a_SOURCES) $(libsyscallsreal_a_SOURCES) \
@@ -242,6 +253,7 @@ DIST_SOURCES = $(libdmtcpinternal_a_SOURCES) $(libjalib_a_SOURCES) \
 	$(__targetdir__bin_dmtcp_launch_SOURCES) \
 	$(__targetdir__bin_dmtcp_nocheckpoint_SOURCES) \
 	$(__targetdir__bin_dmtcp_restart_SOURCES) \
+	$(__targetdir__bin_mtcp_restart_SOURCES) \
 	$(__targetdir__lib_dmtcp_libdmtcp_so_SOURCES)
 RECURSIVE_TARGETS = all-recursive check-recursive cscopelist-recursive \
 	ctags-recursive dvi-recursive html-recursive info-recursive \
@@ -496,6 +508,12 @@ PICFLAGS = -fPIC
 @CONFIG_M32_TRUE@AM_LDFLAGS = -m32 -Wl,-m32 -Wl,-melf_i386 -Wa,--32 $(PICFLAGS)
 @CONFIG_M32_FALSE@targetdir = $(top_builddir)
 @CONFIG_M32_TRUE@targetdir = $(top_builddir)/lib/$(PACKAGE)/32
+@CONFIG_M32_FALSE@MTCP_RESTART = mtcp_restart
+@CONFIG_M32_TRUE@MTCP_RESTART = mtcp_restart-32
+
+#ifeq ($(BUILDTYPE),arm)
+#ARM_EXTRAS = libc-do-syscall-arm.S
+#endif
 
 #HEADERS
 #set the include path found by configure
@@ -517,7 +535,8 @@ nobase_noinst_HEADERS = constants.h \
 	dmtcp_coordinator.h dmtcpmessagetypes.h lookup_service.h \
 	dmtcpworker.h threadsync.h coordinatorapi.h \
 	mtcpinterface.h syscallwrappers.h syslogwrappers.h \
-	uniquepid.h processinfo.h ckptserializer.h
+	threadlist.h tlsinfo.h siginfo.h \
+	uniquepid.h processinfo.h ckptserializer.h writeckpt.h
 
 
 # Note that libdmtcpinternal.a does not include wrappers.
@@ -539,7 +558,6 @@ libjalib_a_SOURCES = $(jalibdir)/jalib.cpp $(jalibdir)/jassert.cpp \
 libsyscallsreal_a_SOURCES = syscallsreal.c trampolines.cpp
 libnohijack_a_SOURCES = nosyscallsreal.c dmtcpnohijackstubs.cpp
 __targetdir__bin_dmtcp_coordinator_SOURCES = dmtcp_coordinator.cpp lookup_service.cpp
-__targetdir__bin_dmtcp_launch_SOURCES = dmtcp_launch.cpp
 __targetdir__bin_dmtcp_nocheckpoint_SOURCES = dmtcp_nocheckpoint.c
 __targetdir__bin_dmtcp_restart_SOURCES = dmtcp_restart.cpp util_exec.cpp ckptserializer.cpp
 __targetdir__bin_dmtcp_command_SOURCES = dmtcp_command.cpp
@@ -547,20 +565,19 @@ __targetdir__lib_dmtcp_libdmtcp_so_SOURCES = dmtcpworker.cpp threadsync.cpp \
 		      coordinatorapi.cpp execwrappers.cpp \
 		      mtcpinterface.cpp signalwrappers.cpp \
 		      threadwrappers.cpp \
-		      miscwrappers.cpp ckptserializer.cpp \
+		      miscwrappers.cpp ckptserializer.cpp writeckpt.cpp \
 		      glibcsystem.cpp \
+		      threadlist.cpp tlsinfo.cpp siginfo.cpp \
 		      dmtcpplugin.cpp popen.cpp syslogwrappers.cpp
 
-__targetdir__lib_dmtcp_libdmtcp_so_LDFLAGS = -shared -L$(targetdir)/lib \
-		      -Xlinker -rpath -Xlinker '$$ORIGIN/../'
-
+__targetdir__lib_dmtcp_libdmtcp_so_LDFLAGS = -shared -Xlinker -znow
 
 #dmtcp_nocheckpoint_LDFLAGS = -static
 
 # Note that an ELF object uses libsyscallsreal.a or libnohijack.a
 #  but not both.  libnohijack.a has stub definitions for same symbols.
 __targetdir__lib_dmtcp_libdmtcp_so_LDADD = libdmtcpinternal.a libjalib.a libsyscallsreal.a \
-			  -ldl -lpthread -lrt -lmtcp
+			  -ldl -lpthread -lrt
 
 __targetdir__bin_dmtcp_coordinator_LDADD = libdmtcpinternal.a libjalib.a \
 			  libnohijack.a -lpthread -lrt
@@ -574,6 +591,11 @@ __targetdir__bin_dmtcp_restart_LDADD = libdmtcpinternal.a libjalib.a \
 __targetdir__bin_dmtcp_command_LDADD = libdmtcpinternal.a libjalib.a \
 			  libnohijack.a -lpthread -lrt -ldl
 
+__targetdir__bin_dmtcp_launch_SOURCES = dmtcp_launch.cpp
+__targetdir__bin_mtcp_restart_SOURCES = mtcp_restart.c
+__targetdir__bin_mtcp_restart_CFLAGS = ${AM_CFLAGS} -fno-stack-protector
+__targetdir__bin_mtcp_restart_LDFLAGS = -nodefaultlibs -fno-stack-protector ${ARM_EXTRAS}
+__targetdir__bin_mtcp_restart_LDADD = ${ARM_EXTRAS}
 all: all-recursive
 
 .SUFFIXES:
@@ -738,6 +760,10 @@ $(targetdir)/bin/dmtcp_nocheckpoint$(EXEEXT): $(__targetdir__bin_dmtcp_nocheckpo
 $(targetdir)/bin/dmtcp_restart$(EXEEXT): $(__targetdir__bin_dmtcp_restart_OBJECTS) $(__targetdir__bin_dmtcp_restart_DEPENDENCIES) $(EXTRA___targetdir__bin_dmtcp_restart_DEPENDENCIES) $(targetdir)/bin/$(am__dirstamp)
 	@rm -f $(targetdir)/bin/dmtcp_restart$(EXEEXT)
 	$(AM_V_CXXLD)$(CXXLINK) $(__targetdir__bin_dmtcp_restart_OBJECTS) $(__targetdir__bin_dmtcp_restart_LDADD) $(LIBS)
+
+$(targetdir)/bin/mtcp_restart$(EXEEXT): $(__targetdir__bin_mtcp_restart_OBJECTS) $(__targetdir__bin_mtcp_restart_DEPENDENCIES) $(EXTRA___targetdir__bin_mtcp_restart_DEPENDENCIES) $(targetdir)/bin/$(am__dirstamp)
+	@rm -f $(targetdir)/bin/mtcp_restart$(EXEEXT)
+	$(AM_V_CCLD)$(__targetdir__bin_mtcp_restart_LINK) $(__targetdir__bin_mtcp_restart_OBJECTS) $(__targetdir__bin_mtcp_restart_LDADD) $(LIBS)
 $(targetdir)/lib/dmtcp/$(am__dirstamp):
 	@$(MKDIR_P) $(targetdir)/lib/dmtcp
 	@: > $(targetdir)/lib/dmtcp/$(am__dirstamp)
@@ -752,6 +778,7 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/__targetdir__bin_mtcp_restart-mtcp_restart.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ckptserializer.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/coordinatorapi.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcp_command.Po@am__quote@
@@ -781,16 +808,20 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/popen.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/processinfo.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/shareddata.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/siginfo.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/signalwrappers.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/syscallsreal.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/syslogwrappers.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/threadlist.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/threadsync.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/threadwrappers.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tlsinfo.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/trampolines.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/uniquepid.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/util_exec.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/util_gen.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/util_init.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/writeckpt.Po@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
@@ -805,6 +836,20 @@ distclean-compile:
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(COMPILE) -c `$(CYGPATH_W) '$<'`
+
+__targetdir__bin_mtcp_restart-mtcp_restart.o: mtcp_restart.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(__targetdir__bin_mtcp_restart_CFLAGS) $(CFLAGS) -MT __targetdir__bin_mtcp_restart-mtcp_restart.o -MD -MP -MF $(DEPDIR)/__targetdir__bin_mtcp_restart-mtcp_restart.Tpo -c -o __targetdir__bin_mtcp_restart-mtcp_restart.o `test -f 'mtcp_restart.c' || echo '$(srcdir)/'`mtcp_restart.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/__targetdir__bin_mtcp_restart-mtcp_restart.Tpo $(DEPDIR)/__targetdir__bin_mtcp_restart-mtcp_restart.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='mtcp_restart.c' object='__targetdir__bin_mtcp_restart-mtcp_restart.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(__targetdir__bin_mtcp_restart_CFLAGS) $(CFLAGS) -c -o __targetdir__bin_mtcp_restart-mtcp_restart.o `test -f 'mtcp_restart.c' || echo '$(srcdir)/'`mtcp_restart.c
+
+__targetdir__bin_mtcp_restart-mtcp_restart.obj: mtcp_restart.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(__targetdir__bin_mtcp_restart_CFLAGS) $(CFLAGS) -MT __targetdir__bin_mtcp_restart-mtcp_restart.obj -MD -MP -MF $(DEPDIR)/__targetdir__bin_mtcp_restart-mtcp_restart.Tpo -c -o __targetdir__bin_mtcp_restart-mtcp_restart.obj `if test -f 'mtcp_restart.c'; then $(CYGPATH_W) 'mtcp_restart.c'; else $(CYGPATH_W) '$(srcdir)/mtcp_restart.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/__targetdir__bin_mtcp_restart-mtcp_restart.Tpo $(DEPDIR)/__targetdir__bin_mtcp_restart-mtcp_restart.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='mtcp_restart.c' object='__targetdir__bin_mtcp_restart-mtcp_restart.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(__targetdir__bin_mtcp_restart_CFLAGS) $(CFLAGS) -c -o __targetdir__bin_mtcp_restart-mtcp_restart.obj `if test -f 'mtcp_restart.c'; then $(CYGPATH_W) 'mtcp_restart.c'; else $(CYGPATH_W) '$(srcdir)/mtcp_restart.c'; fi`
 
 .cpp.o:
 @am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXXCOMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
@@ -1248,16 +1293,18 @@ install-exec-hook:
 uninstall-hook:
 	rm -f $(DESTDIR)$(bindir)/dmtcp_checkpoint
 
-libs: $(dmtcplib_PROGRAMS) $(lib_LIBRARIES)
+libs: $(dmtcplib_PROGRAMS) $(lib_LIBRARIES) $(targetdir)/bin/mtcp_restart
 	(cd plugin && ${MAKE} libs)
 
 install-libs: install-dmtcplibPROGRAMS
+	install $(targetdir)/bin/mtcp_restart $(DESTDIR)$(bindir)
 	(cd plugin && ${MAKE} install-libs)
 
 uninstall-libs: uninstall-dmtcplibPROGRAMS
 	(cd plugin && ${MAKE} uninstall-libs)
+	rm $(DESTDIR)$(bindir)/mtcp_restart
 
-.PHONY: libs
+.PHONY: libs install-libs uninstall-libs
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

@@ -1,5 +1,5 @@
 /****************************************************************************
- *   Copyright (C) 2006-2008 by Jason Ansel, Kapil Arya, and Gene Cooperman *
+ *   Copyright (C) 2006-2012 by Jason Ansel, Kapil Arya, and Gene Cooperman *
  *   jansel@csail.mit.edu, kapil@ccs.neu.edu, gene@ccs.neu.edu              *
  *                                                                          *
  *   This file is part of the dmtcp/src module of DMTCP (DMTCP:dmtcp/src).  *
@@ -19,23 +19,22 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#ifndef CKPT_SERIZLIZER_H
-#define CKPT_SERIZLIZER_H
+#ifndef TLSINFO_H
+#define TLSINFO_H
 
-#include "dmtcpalloc.h"
-#include "processinfo.h"
-
+#include "threadlist.h"
 
 namespace dmtcp
 {
-  namespace CkptSerializer
-  {
-    int openCkptFileToRead(const dmtcp::string& path);
-    int openCkptFileToWrite(const dmtcp::string& path);
-    void writeCkptImage();
-    void writeCkptHeader(int fd);
-    int readCkptHeader(const dmtcp::string& path, dmtcp::ProcessInfo *pInfo);
+  namespace TLSInfo {
+    void verifyPidTid(pid_t pid, pid_t tid);
+    void updatePid();
+    void saveTLSState (Thread *thread);
+    void restoreTLSState(Thread *thread);
+    void set_thread_sysinfo(void *sysinfo);
+    void *get_thread_sysinfo();
+    int have_thread_sysinfo_offset();
   };
-}
+};
 
 #endif

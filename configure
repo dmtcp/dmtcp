@@ -4677,7 +4677,7 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 ac_config_headers="$ac_config_headers dmtcp/include/config.h"
 
-ac_config_files="$ac_config_files Makefile plugin/Makefile plugin/ptrace/Makefile plugin/modify-env/Makefile plugin/batch-queue/Makefile dmtcp/src/plugin/Makefile dmtcp/src/plugin/pid/Makefile dmtcp/src/plugin/ipc/Makefile dmtcp/src/plugin/alloc/Makefile contrib/Makefile contrib/infiniband/Makefile contrib/ckptfile/Makefile mtcp/Makefile test/autotest_config.py test/Makefile test/plugin/Makefile"
+ac_config_files="$ac_config_files Makefile plugin/Makefile plugin/ptrace/Makefile plugin/modify-env/Makefile plugin/batch-queue/Makefile dmtcp/src/plugin/Makefile dmtcp/src/plugin/pid/Makefile dmtcp/src/plugin/ipc/Makefile dmtcp/src/plugin/alloc/Makefile contrib/Makefile contrib/infiniband/Makefile contrib/ckptfile/Makefile test/autotest_config.py test/Makefile test/plugin/Makefile"
 
 #AC_CONFIG_FILES([test/credentials/Makefile])
 
@@ -5322,17 +5322,6 @@ else
   HAS_READLINE=no
 
 fi
-
-# Check if static compilation works.  (Needed for:  gcc -static mtcp_restart.c)
-# Consider using AC_COMPILE_IFELSE with CFLAGS=[-static]
-#  and AC_MSG_FAILURE in future version.
-#AC_MSG_CHECKING([if 'gcc -static' works])
-#AC_LANG_CONFTEST( [AC_LANG_PROGRAM()] )
-#$CC -static -o conftest$ac_exeext conftest.$ac_ext
-#AC_CHECK_FILE([conftest$ac_exeext], [], [static_gcc=no])
-#if test x"$static_gcc" = xno; then
-#  AC_MSG_ERROR(['gcc -static hello.c' failed.
-#fi
 
 #check for ps
 # Extract the first word of "ps", so it can be a program name with args.
@@ -7675,7 +7664,6 @@ do
     "contrib/Makefile") CONFIG_FILES="$CONFIG_FILES contrib/Makefile" ;;
     "contrib/infiniband/Makefile") CONFIG_FILES="$CONFIG_FILES contrib/infiniband/Makefile" ;;
     "contrib/ckptfile/Makefile") CONFIG_FILES="$CONFIG_FILES contrib/ckptfile/Makefile" ;;
-    "mtcp/Makefile") CONFIG_FILES="$CONFIG_FILES mtcp/Makefile" ;;
     "test/autotest_config.py") CONFIG_FILES="$CONFIG_FILES test/autotest_config.py" ;;
     "test/Makefile") CONFIG_FILES="$CONFIG_FILES test/Makefile" ;;
     "test/plugin/Makefile") CONFIG_FILES="$CONFIG_FILES test/plugin/Makefile" ;;

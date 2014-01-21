@@ -150,6 +150,8 @@ namespace dmtcp
     size_t pageMask();
     bool areZeroPages(void *addr, size_t numPages);
 
+    char *findExecutable(char *executable, const char* path_env,
+                         char *exec_path);
     string getPath(dmtcp::string cmd);
     void getDmtcpArgs(dmtcp::vector<dmtcp::string> &dmtcp_args);
   }

@@ -29,21 +29,16 @@ namespace dmtcp
   void __attribute__ ((weak)) initializeMtcpEngine();
   void killCkpthread();
 
-  void shutdownMtcpEngineOnFork();
-
   //these next two are defined in dmtcpplugin.cpp
   void userHookTrampoline_preCkpt();
   void userHookTrampoline_postCkpt(bool isRestart);
-}
 
-extern "C" {
-  // Funtion declaration for functions defined in libmtcp.so.
-  void *mtcp_prepare_for_clone(int (*fn) (void *arg), void *child_stack,
-                               int *flags, void *arg, int *parent_tidptr,
-                               struct user_desc *newtls, int **child_tidptr);
-  void mtcp_thread_start(void *threadv);
-  void mtcp_threadiszombie (void);
-  void mtcp_kill_ckpthread (void);
+  void callbackSleepBetweenCheckpoint(int sec);
+  void callbackPreCheckpoint();
+  void callbackPostCheckpoint(int isRestart, char* mtcpRestoreArgvStartAddr);
+  void callbackPreSuspendUserThread();
+  void callbackPreResumeUserThread(int isRestart);
+  void callbackHoldsAnyLocks(int *retval);
+  void prepareForCkpt();
 }
-
 #endif

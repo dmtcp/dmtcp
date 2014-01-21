@@ -24,40 +24,67 @@
 #ifndef _MTCP_UTIL_H
 #define _MTCP_UTIL_H
 
-#include "mtcp_internal.h"
+typedef char * VA; /* VA = virtual address */
 
-#define MIN(x,y) ((x) < (y) ? (x) : (y))
-#define MAX(x,y) ((x) > (y) ? (x) : (y))
+#define FILENAMESIZE 1024
+typedef union Area {
+  struct {
+  int type; // Content type (CS_XXX
+  char *addr;   // args required for mmap to restore memory area
+  size_t size;
+  off_t filesize;
+  int prot;
+  int flags;
+  off_t offset;
+  char name[FILENAMESIZE];
+  };
+  char _padding[4096];
+} Area;
 
-void mtcp_readcs (int fd, char cs);
+typedef struct DeviceInfo {
+  unsigned int long devmajor;
+  unsigned int long devminor;
+  unsigned int long inodenum;
+} DeviceInfo;
+
+#define MTCP_PRINTF(args...) \
+  do { \
+    int mtcp_sys_errno; \
+    mtcp_printf("[%d] %s:%d %s:\n  ", \
+                mtcp_sys_getpid(), __FILE__, __LINE__, __FUNCTION__); \
+    mtcp_printf(args); \
+  } while (0)
+
+#define MTCP_ASSERT(condition) \
+  if (! (condition)) { \
+    MTCP_PRINTF("Assertion failed: %s\n", #condition); \
+    mtcp_abort(); \
+  }
+
+#ifdef DEBUG
+# define DPRINTF MTCP_PRINTF
+#else
+# define DPRINTF(args...) // debug printing
+#endif
+
+void mtcp_printf (char const *format, ...);
 void mtcp_readfile(int fd, void *buf, size_t size);
 void mtcp_skipfile(int fd, size_t size);
-void mtcp_writecs (int fd, char cs);
-size_t mtcp_writefile (int fd, void const *buff, size_t size);
-void mtcp_check_vdso_enabled(void);
-int  mtcp_is_executable(const char *exec_path);
-char *mtcp_find_executable(char *filename, const char* path_env,
-                           char exec_path[PATH_MAX]);
+unsigned long mtcp_strtol (char *str);
 char mtcp_readchar (int fd);
 char mtcp_readdec (int fd, VA *value);
 char mtcp_readhex (int fd, VA *value);
-ssize_t mtcp_read_all(int fd, void *buf, size_t count);
 ssize_t mtcp_write_all(int fd, const void *buf, size_t count);
 size_t mtcp_strlen (const char *s1);
 const void *mtcp_strstr(const char *string, const char *substring);
 void mtcp_strncpy(char *targ, const char* source, size_t len);
 void mtcp_strcpy(char *dest, const char *src);
 void mtcp_strncat(char *dest, const char *src, size_t n);
-int mtcp_memcmp(const char *s1, const char* s2, size_t len);
-void mtcp_memset(char *targ, int c, size_t n);
 int mtcp_strncmp (const char *s1, const char *s2, size_t n);
 int mtcp_strcmp (const char *s1, const char *s2);
+char *mtcp_strchr(const char *s, int c);
 int mtcp_strstartswith (const char *s1, const char *s2);
 int mtcp_strendswith (const char *s1, const char *s2);
-int mtcp_atoi(const char *nptr);
-int mtcp_get_controlling_term(char* ttyName, size_t len);
-const char* mtcp_getenv(const char* name);
-void mtcp_rename_ckptfile(const char *tempckpt, const char *permckpt);
 int mtcp_readmapsline (int mapsfd, Area *area, DeviceInfo *dev_info);
-void mtcp_get_memory_region_of_this_library(VA *startaddr, VA *endaddr);
+void mtcp_sys_memcpy (void *dstpp, const void *srcpp, size_t len);
 #endif

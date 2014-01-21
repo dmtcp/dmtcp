@@ -30,7 +30,7 @@ AC_CONFIG_FILES([Makefile plugin/Makefile\
                  dmtcp/src/plugin/ipc/Makefile dmtcp/src/plugin/alloc/Makefile \
                  contrib/Makefile \
                  contrib/infiniband/Makefile \
-                 contrib/ckptfile/Makefile mtcp/Makefile \
+                 contrib/ckptfile/Makefile \
                  test/autotest_config.py \
                  test/Makefile test/plugin/Makefile])
 #AC_CONFIG_FILES([test/credentials/Makefile])
@@ -262,17 +262,6 @@ if test "$linksReadline" = "yes" -a "$includeReadline" != "no"; then
 else
   AC_SUBST([HAS_READLINE], [no])
 fi
-
-# Check if static compilation works.  (Needed for:  gcc -static mtcp_restart.c)
-# Consider using AC_COMPILE_IFELSE with CFLAGS=[-static]
-#  and AC_MSG_FAILURE in future version.
-#AC_MSG_CHECKING([if 'gcc -static' works])
-#AC_LANG_CONFTEST( [AC_LANG_PROGRAM()] )
-#$CC -static -o conftest$ac_exeext conftest.$ac_ext
-#AC_CHECK_FILE([conftest$ac_exeext], [], [static_gcc=no])
-#if test x"$static_gcc" = xno; then
-#  AC_MSG_ERROR(['gcc -static hello.c' failed.
-#fi
 
 #check for ps
 AC_CHECK_PROG(HAS_PS, [ps], [yes], [no], [/usr/bin:/bin])

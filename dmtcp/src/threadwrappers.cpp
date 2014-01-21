@@ -27,11 +27,13 @@
 #include "dmtcp.h"
 #include "uniquepid.h"
 #include "util.h"
-#include "../../mtcp/mtcp.h"
 #include "../jalib/jassert.h"
 #include "../jalib/jalloc.h"
 #include "threadsync.h"
 #include "processinfo.h"
+#include "threadlist.h"
+
+using namespace dmtcp;
 
 struct ThreadArg {
   union {
@@ -47,17 +49,11 @@ struct ThreadArg {
 LIB_PRIVATE
 int clone_start(void *arg)
 {
-  struct ThreadArg *threadArg = (struct ThreadArg*) arg;
-  int (*fn) (void *) = threadArg->fn;
-  void *thread_arg = threadArg->arg;
-  void *mtcpArg = threadArg->mtcpArg;
+  dmtcp::Thread *thread = (dmtcp::Thread*) arg;
 
   dmtcp::ThreadSync::initThread();
 
-  mtcp_thread_start(mtcpArg);
-
-  // Free memory previously allocated through JALLOC_HELPER_MALLOC in __clone
-  JALLOC_HELPER_FREE(threadArg);
+  thread->updateTid();
 
   dmtcp::DmtcpWorker::eventHook(DMTCP_EVENT_THREAD_START, NULL);
 
@@ -68,36 +64,56 @@ int clone_start(void *arg)
   dmtcp::ThreadSync::decrementUninitializedThreadCount();
 
   JTRACE("Calling user function") (gettid());
-  int ret = (*fn) (thread_arg);
+  int ret = thread->fn(thread->arg);
 
-  mtcp_threadiszombie();
+  ThreadList::threadExit();
   return ret;
 }
 
+/*****************************************************************************
+ *
+ *  This is our clone system call wrapper
+ *
+ *    Note:
+ *
+ *      pthread_create eventually calls __clone to create threads
+ *      It uses flags = 0x3D0F00:
+ *	      CLONE_VM = VM shared between processes
+ *	      CLONE_FS = fs info shared between processes (root, cwd, umask)
+ *	   CLONE_FILES = open files shared between processes (fd table)
+ *	 CLONE_SIGHAND = signal handlers and blocked signals shared
+ *	 			 (sigaction common to parent and child)
+ *	  CLONE_THREAD = add to same thread group
+ *	 CLONE_SYSVSEM = share system V SEM_UNDO semantics
+ *	  CLONE_SETTLS = create a new TLS for the child from newtls parameter
+ *	 CLONE_PARENT_SETTID = set the TID in the parent (before MM copy)
+ *	CLONE_CHILD_CLEARTID = clear the TID in the child and do
+ *				 futex wake at that address
+ *	      CLONE_DETACHED = create clone detached
+ *
+ *****************************************************************************/
 //need to forward user clone
 extern "C" int __clone(int (*fn) (void *arg), void *child_stack, int flags,
-                       void *arg, int *parent_tidptr,
-                       struct user_desc *newtls, int *child_tidptr)
+                       void *arg, int *ptid,
+                       struct user_desc *tls, int *ctid)
 {
   WRAPPER_EXECUTION_DISABLE_CKPT();
   dmtcp::ThreadSync::incrementUninitializedThreadCount();
 
-  void *mtcpArg = mtcp_prepare_for_clone(fn, child_stack, &flags, arg,
-                                         parent_tidptr, newtls,
-                                         &child_tidptr);
+  Thread *thread = ThreadList::getNewThread();
+  thread->init(fn, arg, flags, ptid, ctid);
+//  if (ckpthread == NULL) {
+//    ckptthread = thread;
+//    thread->stateInit(ST_CKPNTHREAD);
+//  }
 
-  struct ThreadArg *threadArg =
-    (struct ThreadArg *) JALLOC_HELPER_MALLOC (sizeof (struct ThreadArg));
-  threadArg->fn = fn;
-  threadArg->arg = arg;
-  threadArg->mtcpArg = mtcpArg;
-
-  pid_t tid = _real_clone(clone_start, child_stack, flags, threadArg,
-                          parent_tidptr, newtls, child_tidptr);
+  pid_t tid = _real_clone(clone_start, child_stack, flags, thread,
+                          ptid, tls, ctid);
 
   if (tid == -1) {
     JTRACE("Clone call failed")(JASSERT_ERRNO);
     dmtcp::ThreadSync::decrementUninitializedThreadCount();
+    delete thread;
   } else {
     dmtcp::DmtcpWorker::eventHook(DMTCP_EVENT_THREAD_CREATED, NULL);
   }
@@ -105,6 +121,16 @@ extern "C" int __clone(int (*fn) (void *arg), void *child_stack, int flags,
   WRAPPER_EXECUTION_ENABLE_CKPT();
   return tid;
 }
+#if 0
+#if defined(__i386__) || defined(__x86_64__)
+asm (".global clone ; .type clone,@function ; clone = __clone");
+#elif defined(__arm__)
+// In arm, '@' is a comment character;  Arm uses '%' in type directive
+asm (".global clone ; .type clone,%function ; clone = __clone");
+#else
+# error Not implemented on this achitecture
+#endif
+#endif
 
 // Invoked via pthread_create as start_routine
 // On return, it calls mtcp_threadiszombie()
@@ -121,14 +147,13 @@ static void *pthread_start(void *arg)
   void *result = (*pthread_fn)(thread_arg);
   JTRACE("Thread returned") (virtualTid);
   WRAPPER_EXECUTION_DISABLE_CKPT();
-  mtcp_threadiszombie();
+  ThreadList::threadExit();
   /*
    * This thread has finished its execution, do some cleanup on our part.
    *  erasing the virtualTid entry from virtualpidtable
    *  FIXME: What if the process gets checkpointed after erase() but before the
    *  thread actually exits?
    */
-  dmtcp::ProcessInfo::instance().eraseTid(virtualTid);
   dmtcp::DmtcpWorker::eventHook(DMTCP_EVENT_PTHREAD_RETURN, NULL);
   WRAPPER_EXECUTION_ENABLE_CKPT();
   dmtcp::ThreadSync::unsetOkToGrabLock();
@@ -191,8 +216,7 @@ extern "C" int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
 extern "C" void pthread_exit(void * retval)
 {
   WRAPPER_EXECUTION_DISABLE_CKPT();
-  mtcp_threadiszombie();
-  dmtcp::ProcessInfo::instance().eraseTid(gettid());
+  ThreadList::threadExit();
   dmtcp::DmtcpWorker::eventHook(DMTCP_EVENT_PTHREAD_EXIT, NULL);
   WRAPPER_EXECUTION_ENABLE_CKPT();
   dmtcp::ThreadSync::unsetOkToGrabLock();

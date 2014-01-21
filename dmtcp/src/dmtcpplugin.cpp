@@ -187,7 +187,7 @@ void dmtcp::userHookTrampoline_postCkpt(bool isRestart)
 
 EXTERNC int dmtcp_get_ckpt_signal(void)
 {
-  const int ckpt_signal = dmtcp::DmtcpWorker::determineMtcpSignal();
+  const int ckpt_signal = dmtcp::DmtcpWorker::determineCkptSignal();
   return ckpt_signal;
 }
 

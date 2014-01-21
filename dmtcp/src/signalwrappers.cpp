@@ -42,7 +42,7 @@ static int stopSignal = -1;
 static int bannedSignalNumber()
 {
   if (stopSignal == -1) {
-    stopSignal = dmtcp::DmtcpWorker::determineMtcpSignal();
+    stopSignal = dmtcp::DmtcpWorker::determineCkptSignal();
 
     // On some systems, the ckpt-signal may be blocked by default. Unblock it
     // now.
@@ -326,15 +326,15 @@ EXTERNC int sigwait(const sigset_t *set, int *sig)
 
 /*
  * In sigwaitinfo and sigtimedwait, it is not possible to differentiate between
- * a MTCP_SIGCKPT and any other signal (that is outside the given signal set)
+ * a DMTCP_SIGCKPT and any other signal (that is outside the given signal set)
  * that might have occurred while executing the system call. These system call
  * will return -1 with errno set to EINTR.
- * To deal with the situation, we do not remove the MTCP_SIGCKPT from the
+ * To deal with the situation, we do not remove the DMTCP_SIGCKPT from the
  * signal set (if it is present); instead, we check the return value and if it
- * turns out to be MTCP_SIGCKPT, we raise the signal once again for this
+ * turns out to be DMTCP_SIGCKPT, we raise the signal once again for this
  * thread.
- * Also note that once sigwaitinfo/sigtimedwait returns MTCP_SIGCKPT, we won't
- * be receiving another MTCP_SIGCKPT until we have called _real_tkill due to
+ * Also note that once sigwaitinfo/sigtimedwait returns DMTCP_SIGCKPT, we won't
+ * be receiving another DMTCP_SIGCKPT until we have called _real_tkill due to
  * obvious reasons so I believe it is safe to call _real_gettid() here.
  *                                                              -- Kapil
  *
