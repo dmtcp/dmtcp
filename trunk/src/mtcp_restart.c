@@ -128,6 +128,7 @@ void __stack_chk_fail (void) { }
 void abort(void) { mtcp_abort(); }
 
 #define shift argv++; argc--;
+__attribute__((optimize(0)))
 int main(int argc, char *argv[])
 {
   int orig_argc = argc;
@@ -169,6 +170,7 @@ int main(int argc, char *argv[])
   }
 }
 
+__attribute__((optimize(0)))
 static void restore_brk(VA saved_brk, VA restore_begin, VA restore_end)
 {
   int mtcp_sys_errno;
@@ -223,6 +225,7 @@ static void restore_brk(VA saved_brk, VA restore_begin, VA restore_end)
   }
 }
 
+__attribute__((optimize(0)))
 static void restart_fast_path()
 {
   int mtcp_sys_errno;
@@ -259,12 +262,14 @@ static void restart_fast_path()
   rinfo.restorememoryareas_fptr(&rinfo);
 }
 
+__attribute__((optimize(0)))
 static void restart_slow_path()
 {
   int mtcp_sys_errno;
   restorememoryareas();
 }
 
+__attribute__((optimize(0)))
 static void restorememoryareas(RestoreInfo *rinfo_ptr)
 {
   int mtcp_sys_errno;
@@ -375,6 +380,7 @@ static void restorememoryareas(RestoreInfo *rinfo_ptr)
  *
  **************************************************************************/
 
+__attribute__((optimize(0)))
 static void readmemoryareas(int fd)
 {
   int mtcp_sys_errno;
@@ -531,6 +537,7 @@ static void readmemoryareas(int fd)
 #endif
 }
 
+__attribute__((optimize(0)))
 static void adjust_for_smaller_file_size(Area *area, int fd)
 {
   int mtcp_sys_errno;
@@ -583,6 +590,7 @@ static void adjust_for_smaller_file_size(Area *area, int fd)
  * Other than these, if we can't access the file, we print an error message
  * and quit.
  */
+__attribute__((optimize(0)))
 static void read_shared_memory_area_from_file(int fd, Area* area, int flags)
 {
   int mtcp_sys_errno;
@@ -789,6 +797,7 @@ static void read_shared_memory_area_from_file(int fd, Area* area, int flags)
     mtcp_sys_close (imagefd); // don't leave dangling fd in way of other stuff
 }
 
+__attribute__((optimize(0)))
 static void lock_file(int fd, char* name, short l_type)
 {
   int mtcp_sys_errno;
@@ -893,6 +902,7 @@ static char* fix_filename_if_new_cwd(char* filename)
 }
 #endif
 
+__attribute__((optimize(0)))
 static int open_shared_file(char* filename)
 {
   int mtcp_sys_errno;
@@ -906,6 +916,7 @@ static int open_shared_file(char* filename)
   return fd;
 }
 
+__attribute__((optimize(0)))
 static void mmapfile(int fd, void *buf, size_t size, int prot, int flags)
 {
   int mtcp_sys_errno;
@@ -931,6 +942,7 @@ static void mmapfile(int fd, void *buf, size_t size, int prot, int flags)
   }
 }
 
+__attribute__((optimize(0)))
 static int doAreasOverlap(VA addr1, size_t size1, VA addr2, size_t size2)
 {
   int mtcp_sys_errno;
@@ -939,6 +951,7 @@ static int doAreasOverlap(VA addr1, size_t size1, VA addr2, size_t size2)
   return (addr1 >= addr2 && addr1 < end2) || (addr2 >= addr1 && addr2 < end1);
 }
 
+__attribute__((optimize(0)))
 static int hasOverlappingMapping(VA addr, size_t size)
 {
   int mtcp_sys_errno;
@@ -960,6 +973,7 @@ static int hasOverlappingMapping(VA addr, size_t size)
   return ret;
 }
 
+__attribute__((optimize(0)))
 static void getMiscAddrs(VA *text_addr, size_t *size, VA *highest_va)
 {
   int mtcp_sys_errno;
