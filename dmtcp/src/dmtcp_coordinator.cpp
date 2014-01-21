@@ -1812,6 +1812,7 @@ int main ( int argc, char** argv )
     FILE *fp = fopen(thePortFile.c_str(), "w");
     JWARNING(fp != NULL) (thePortFile) .Text("Failed to open port file.");
     fprintf(fp, "%d", thePort);
+    fflush(fp);
     fclose(fp);
   }
 
