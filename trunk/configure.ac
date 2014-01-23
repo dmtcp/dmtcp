@@ -257,8 +257,11 @@ if test "$use_allocator" = "yes"; then
   AC_DEFINE([OVERRIDE_GLOBAL_ALLOCATOR],[1],[Use a custom allocator based on mmap])
 fi
 
-AM_CONDITIONAL(HAS_I486,
-  [test `uname -m` == i686 -o  `uname -m` == i586 -o `uname -m` == i486])
+case "$host_cpu" in
+  arm*) is_arm_host=yes ;;
+  i?86) is_i486_host=yes ;;
+esac
+AM_CONDITIONAL(ARM_HOST, [test "$is_arm_host" == "yes"])
 
 #check for -lreadline -lhistory v5; does not require curses
 AC_CHECK_LIB([readline], [readline], [linksReadline=yes], [linksReadline=no], [-lhistory -lcurses])

@@ -665,8 +665,8 @@ HAS_DASH
 HAS_PYTHON
 HAS_PS
 HAS_READLINE
-HAS_I486_FALSE
-HAS_I486_TRUE
+ARM_HOST_FALSE
+ARM_HOST_TRUE
 PID_VIRTUALIZATION
 RUN_AS_ROOT_FALSE
 RUN_AS_ROOT_TRUE
@@ -5333,12 +5333,16 @@ $as_echo "#define OVERRIDE_GLOBAL_ALLOCATOR 1" >>confdefs.h
 
 fi
 
- if test `uname -m` == i686 -o  `uname -m` == i586 -o `uname -m` == i486; then
-  HAS_I486_TRUE=
-  HAS_I486_FALSE='#'
+case "$host_cpu" in
+  arm*) is_arm_host=yes ;;
+  i?86) is_i486_host=yes ;;
+esac
+ if test "$is_arm_host" == "yes"; then
+  ARM_HOST_TRUE=
+  ARM_HOST_FALSE='#'
 else
-  HAS_I486_TRUE='#'
-  HAS_I486_FALSE=
+  ARM_HOST_TRUE='#'
+  ARM_HOST_FALSE=
 fi
 
 
@@ -7130,8 +7134,8 @@ if test -z "${RUN_AS_ROOT_TRUE}" && test -z "${RUN_AS_ROOT_FALSE}"; then
   as_fn_error $? "conditional \"RUN_AS_ROOT\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
-if test -z "${HAS_I486_TRUE}" && test -z "${HAS_I486_FALSE}"; then
-  as_fn_error $? "conditional \"HAS_I486\" was never defined.
+if test -z "${ARM_HOST_TRUE}" && test -z "${ARM_HOST_FALSE}"; then
+  as_fn_error $? "conditional \"ARM_HOST\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${CONFIG_M32_TRUE}" && test -z "${CONFIG_M32_FALSE}"; then
