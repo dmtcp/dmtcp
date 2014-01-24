@@ -49,11 +49,11 @@ struct ThreadArg {
 LIB_PRIVATE
 int clone_start(void *arg)
 {
-  dmtcp::Thread *thread = (dmtcp::Thread*) arg;
+  Thread *thread = (Thread*) arg;
 
   dmtcp::ThreadSync::initThread();
 
-  thread->updateTid();
+  ThreadList::updateTid(thread);
 
   dmtcp::DmtcpWorker::eventHook(DMTCP_EVENT_THREAD_START, NULL);
 
@@ -101,7 +101,7 @@ extern "C" int __clone(int (*fn) (void *arg), void *child_stack, int flags,
   dmtcp::ThreadSync::incrementUninitializedThreadCount();
 
   Thread *thread = ThreadList::getNewThread();
-  thread->init(fn, arg, flags, ptid, ctid);
+  ThreadList::initThread(thread, fn, arg, flags, ptid, ctid);
 //  if (ckpthread == NULL) {
 //    ckptthread = thread;
 //    thread->stateInit(ST_CKPNTHREAD);

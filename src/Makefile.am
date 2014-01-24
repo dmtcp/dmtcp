@@ -64,7 +64,7 @@ nobase_noinst_HEADERS = constants.h \
 	dmtcp_coordinator.h dmtcpmessagetypes.h lookup_service.h \
 	dmtcpworker.h threadsync.h coordinatorapi.h \
 	mtcpinterface.h syscallwrappers.h syslogwrappers.h \
-	threadlist.h tlsinfo.h siginfo.h \
+	threadlist.h threadinfo.h tlsinfo.h siginfo.h \
 	uniquepid.h processinfo.h ckptserializer.h writeckpt.h
 
 # Note that libdmtcpinternal.a does not include wrappers.
@@ -99,7 +99,7 @@ __targetdir__lib_dmtcp_libdmtcp_so_SOURCES = dmtcpworker.cpp threadsync.cpp \
 		      threadwrappers.cpp \
 		      miscwrappers.cpp ckptserializer.cpp writeckpt.cpp \
 		      glibcsystem.cpp \
-		      threadlist.cpp tlsinfo.cpp siginfo.cpp \
+		      threadlist.cpp threadinfo.c tlsinfo.c siginfo.cpp \
 		      dmtcpplugin.cpp popen.cpp syslogwrappers.cpp
 
 __targetdir__lib_dmtcp_libdmtcp_so_LDFLAGS = -shared -Xlinker -znow

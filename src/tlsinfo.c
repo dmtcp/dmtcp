@@ -1,56 +1,16 @@
+#include <elf.h>
 #include <stdlib.h>
-#include <gnu/libc-version.h>
-#include <linux/unistd.h>
-#include <linux/version.h>
+#include <string.h>
+#include <errno.h>
 #include <sys/syscall.h>
 #include <sys/resource.h>
 #include <sys/personality.h>
-#include <asm/ldt.h>
-#include <elf.h>
-#include "tlsinfo.h"
-#include "threadlist.h"
-#include "syscallwrappers.h"
-#include "jassert.h"
+#include <linux/version.h>
+#include <gnu/libc-version.h>
+#include "threadinfo.h"
+#include "mtcp_sys.h"
 
-using namespace dmtcp;
-
-// ARM is missing asm/ldt.h in Ubuntu 11.10 (Linux 3.0, glibc-2.13)
-#if defined(__arm__)
-/* Structure passed to `modify_ldt', 'set_thread_area', and 'clone' calls.
-   This seems to have been stable since the beginning of Linux 2.6  */
-struct user_desc
-{
-  unsigned int entry_number;
-  unsigned long int base_addr;
-  unsigned int limit;
-  unsigned int seg_32bit:1;
-  unsigned int contents:2;
-  unsigned int read_exec_only:1;
-  unsigned int limit_in_pages:1;
-  unsigned int seg_not_present:1;
-  unsigned int useable:1;
-  unsigned int empty:25;  /* Some variations leave this out. */
-};
-#else
-# ifndef _LINUX_LDT_H
-   // Define struct user_desc
-#  include <asm/ldt.h>
-# endif
-  // WARNING: /usr/include/linux/version.h often has out-of-date version.
-/* SuSE Linux Enterprise Server 9 uses Linux 2.6.5 and requires original
- * struct user_desc from /usr/include/.../ldt.h
- * Perhaps kernel was patched by backport.  Let's not re-define user_desc.
- */
-/* RHEL 4 (Update 3) / Rocks 4.1.1-2.0 has <linux/version.h> saying
- *  LINUX_VERSION_CODE is 2.4.20 (and UTS_RELEASE=2.4.20)
- *  while uname -r says 2.6.9-34.ELsmp.  Here, it acts like a version earlier
- *  than the above 2.6.9.  So, we conditionalize on its 2.4.20 version.
- */
-# if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
-   /* struct modify_ldt_ldt_s   was defined instead of   struct user_desc   */
-#  define user_desc modify_ldt_ldt_s
-# endif
-#endif
+int mtcp_sys_errno;
 
 #ifdef __x86_64__
 # define ELF_AUXV_T Elf64_auxv_t
@@ -63,49 +23,25 @@ struct user_desc
 /* These functions are not defined for x86_64. */
 #ifdef __i386__
 # define tlsinfo_get_thread_area(args...) \
-    _real_syscall(SYS_get_thread_area,args)
+    mtcp_inline_syscall(get_thread_area,1,args)
 # define tlsinfo_set_thread_area(args...) \
-    _real_syscall(SYS_set_thread_area,args)
+    mtcp_inline_syscall(set_thread_area,1,args)
 #endif
 
 #ifdef __x86_64__
 # include <asm/prctl.h>
 # include <sys/prctl.h>
-  /* struct user_desc * uinfo; */
-  /* In Linux 2.6.9 for i386, uinfo->base_addr is
-   *   correctly typed as unsigned long int.
-   * In Linux 2.6.9, uinfo->base_addr is  incorrectly typed as
-   *   unsigned int.  So, we'll just lie about the type.
-   */
-/* SuSE Linux Enterprise Server 9 uses Linux 2.6.5 and requires original
- * struct user_desc from /usr/include/.../ldt.h
- */
-/* RHEL 4 (Update 3) / Rocks 4.1.1-2.0 has <linux/version.h> saying
- *  LINUX_VERSION_CODE is 2.4.20 (and UTS_RELEASE=2.4.20)
- *  while uname -r says 2.6.9-34.ELsmp.  Here, it acts like a version earlier
- *  than the above 2.6.9.  So, we conditionalize on its 2.4.20 version.
- */
-# if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
-   /* struct modify_ldt_ldt_s   was defined instead of   struct user_desc   */
-#  define user_desc modify_ldt_ldt_s
-# endif
-
-/* This allocation hack will work only if calls to mtcp_sys_get_thread_area
- * and mtcp_sys_get_thread_area are both inside the same file (mtcp.c).
- * This is all because get_thread_area is not implemented for x86_64.
- */
 static unsigned long int myinfo_gs;
-
 /* ARE THE _GS OPERATIONS NECESSARY? */
 #  define tlsinfo_get_thread_area(uinfo) \
-    ( _real_syscall(SYS_arch_prctl,ARCH_GET_FS, \
+    ( mtcp_inline_syscall(arch_prctl,2,ARCH_GET_FS, \
          (unsigned long int)(&(((struct user_desc *)uinfo)->base_addr))), \
-      _real_syscall(SYS_arch_prctl,ARCH_GET_GS, &myinfo_gs) \
+      mtcp_inline_syscall(arch_prctl,2,ARCH_GET_GS, &myinfo_gs) \
     )
 #  define tlsinfo_set_thread_area(uinfo) \
-    ( _real_syscall(SYS_arch_prctl,ARCH_SET_FS, \
+    ( mtcp_inline_syscall(arch_prctl,2,ARCH_SET_FS, \
 	*(unsigned long int *)&(((struct user_desc *)uinfo)->base_addr)), \
-      _real_syscall(SYS_arch_prctl,ARCH_SET_GS, myinfo_gs) \
+      mtcp_inline_syscall(arch_prctl,2,ARCH_SET_GS, myinfo_gs) \
     )
 #endif /* end __x86_64__ */
 
@@ -205,8 +141,7 @@ static int STATIC_TLS_TID_OFFSET()
   char *ptr;
   long major = strtol(gnu_get_libc_version(), &ptr, 10);
   long minor = strtol(ptr+1, NULL, 10);
-  JASSERT (major == 2) (gnu_get_libc_version())
-    .Text("Incompatible glibc version.");
+  ASSERT (major == 2);
 
   if (minor >= 11) {
 #ifdef __x86_64__
@@ -268,8 +203,8 @@ static int tls_tid_offset(void)
      * Try to find at what offset that bit patttern occurs in struct pthread.
      */
     char * tmp;
-    tid_pid.tid = ThreadList::_real_tid();
-    tid_pid.pid = ThreadList::_real_pid();
+    tid_pid.tid = THREAD_REAL_PID();
+    tid_pid.pid = THREAD_REAL_PID();
     /* Get entry number of current thread descriptor from its segment register:
      * Segment register / 8 is the entry_number for the "thread area", which
      * is of type 'struct user_desc'.   The base_addr field of that struct
@@ -288,28 +223,26 @@ static int tls_tid_offset(void)
      */
     tmp = memsubarray((char *)pthread_desc, (char *)&tid_pid, sizeof(tid_pid));
     if (tmp == NULL) {
-      JWARNING(false)
-        .Text("Couldn't find offsets of tid/pid in thread_area.\n"
-              "  Now relying on the value determined using the\n"
-              "  glibc version with which DMTCP was compiled.");
+      PRINTF("WARNING: Couldn't find offsets of tid/pid in thread_area.\n"
+             "  Now relying on the value determined using the\n"
+             "  glibc version with which DMTCP was compiled.");
       return STATIC_TLS_TID_OFFSET();
       //mtcp_abort();
     }
 
     tid_offset = tmp - (char *)pthread_desc;
     if (tid_offset != STATIC_TLS_TID_OFFSET()) {
-      JWARNING(false) (tid_offset)
-        .Text("tid_offset different from expected.\n"
-              "  It is possible that DMTCP was compiled with a different\n"
-              "  glibc version than the one it's dynamically linking to.\n"
-              "  Continuing anyway.  If this fails, please try again.");
+      PRINTF("WARNING: tid_offset (%d) different from expected.\n"
+             "  It is possible that DMTCP was compiled with a different\n"
+             "  glibc version than the one it's dynamically linking to.\n"
+             "  Continuing anyway.  If this fails, please try again.",
+             tid_offset);
     }
-    JTRACE("tid_offset") (tid_offset);
+    DPRINTF("tid_offset: %d\n", tid_offset);
     if (tid_offset % sizeof(int) != 0) {
-      JWARNING(false)
-        .Text("tid_offset is not divisible by sizeof(int).\n"
-              "  Now relying on the value determined using the\n"
-              "  glibc version with which DMTCP was compiled.");
+      PRINTF("WARNING: tid_offset is not divisible by sizeof(int).\n"
+             "  Now relying on the value determined using the\n"
+             "  glibc version with which DMTCP was compiled.");
       return STATIC_TLS_TID_OFFSET();
       //mtcp_abort();
     }
@@ -328,7 +261,7 @@ static int tls_pid_offset(void)
   if (pid_offset == -1) {
     int tid_offset = tls_tid_offset();
     pid_offset = tid_offset + (char *)&(tid_pid.pid) - (char *)&tid_pid;
-    JTRACE("pid_offset") (pid_offset);
+    DPRINTF("pid_offset: %d\n", pid_offset);
   }
   return pid_offset;
 }
@@ -339,7 +272,7 @@ static char *memsubarray (char *array, char *subarray, size_t len)
    size_t j;
    int word1 = *(int *)subarray;
    // Assume subarray length is at least sizeof(int) and < 2048.
-   JASSERT (len >= sizeof(int));
+   ASSERT (len >= sizeof(int));
    for (i_ptr = array; i_ptr < array+2048; i_ptr++) {
      if (*(int *)i_ptr == word1) {
        for (j = 0; j < len; j++)
@@ -372,8 +305,10 @@ static void* get_tls_base_addr()
   struct user_desc gdtentrytls;
 
   gdtentrytls.entry_number = get_tls_segreg() / 8;
-  JASSERT(tlsinfo_get_thread_area(&gdtentrytls) != -1) (JASSERT_ERRNO)
-    .Text("error getting GDT TLS entry");
+  if (tlsinfo_get_thread_area(&gdtentrytls) == -1) {
+    PRINTF("Error getting GDT TLS entry: %d\n", errno);
+    _exit(0);
+  }
   return (void *)(*(unsigned long *)&(gdtentrytls.base_addr));
 }
 
@@ -382,7 +317,8 @@ static void* get_tls_base_addr()
 // Best if we call this early, before the user makes problems
 // by moving environment variables, putting in a weird stack, etc.
 extern char **environ;
-static void * get_at_sysinfo() {
+static void * get_at_sysinfo()
+{
   void **stack;
   int i;
   ELF_AUXV_T *auxv;
@@ -417,16 +353,21 @@ static void * get_at_sysinfo() {
   stack = &stack[i];
 #else
   stack = (void **)&my_environ[-1];
-  JASSERT (*stack == NULL) (stack)
-    .Text("This should be argv[argc] == NULL and it's not. NO &argv[argc]");
+
+  if (*stack != NULL) {
+    PRINTF("Error: This should be argv[argc] == NULL and it's not. NO &argv[argc]");
+    _exit(0);
+  }
 #endif
   // stack[-1] should be argv[argc-1]
   if ( (void **)stack[-1] < stack || (void **)stack[-1] > stack + 100000 ) {
-    JASSERT(false) .Text("candidate argv[argc-1] failed consistency check");
+    PRINTF("Error: candidate argv[argc-1] failed consistency check");
+    _exit(0);
   }
   for (i = 1; stack[i] != NULL; i++)
     if ( (void **)stack[i] < stack || (void **)stack[i] > stack + 10000 ) {
-      JASSERT(false) (i) ("candidate argv[i] failed consistency check");
+      PRINTF("Error: candidate argv[i] failed consistency check");
+      _exit(0);
     }
   stack = &stack[i+1];
   // Now stack is beginning of auxiliary vector (auxv)
@@ -434,7 +375,7 @@ static void * get_at_sysinfo() {
   for (auxv = (ELF_AUXV_T *)stack; auxv->a_type != AT_NULL; auxv++) {
     // mtcp_printf("0x%x 0x%x\n", auxv->a_type, auxv->a_un.a_val);
     if ( auxv->a_type == (UINT_T)AT_SYSINFO ) {
-      JNOTE("AT_SYSINFO") (&auxv->a_un.a_val) (auxv->a_un.a_val);
+      //JNOTE("AT_SYSINFO") (&auxv->a_un.a_val) (auxv->a_un.a_val);
       return (void *)auxv->a_un.a_val;
     }
   }
@@ -450,7 +391,8 @@ static void * get_at_sysinfo() {
 // Some reports say it was 0x18 in past.  Should we also check that?
 #define DEFAULT_SYSINFO_OFFSET "0x10"
 
-int TLSInfo::have_thread_sysinfo_offset() {
+int TLSInfo_HaveThreadSysinfoOffset()
+{
 #ifdef RESET_THREAD_SYSINFO
   static int result = -1; // Reset to 0 or 1 on first call.
 #else
@@ -475,7 +417,8 @@ int TLSInfo::have_thread_sysinfo_offset() {
 // AT_SYSINFO is what kernel calls sysenter address in vdso segment.
 // Kernel saves it for each thread in %gs:SYSINFO_OFFSET ??
 //  as part of kernel TCB (thread control block) at beginning of TLS ??
-void *TLSInfo::get_thread_sysinfo() {
+void *TLSInfo_GetThreadSysinfo()
+{
   void *sysinfo;
 #if defined(__i386__) || defined(__x86_64__)
   asm volatile (CLEAN_FOR_64_BIT(mov %%gs:) DEFAULT_SYSINFO_OFFSET ", %0\n\t"
@@ -489,7 +432,7 @@ void *TLSInfo::get_thread_sysinfo() {
   return sysinfo;
 }
 
-void TLSInfo::set_thread_sysinfo(void *sysinfo) {
+void TLSInfo_SetThreadSysinfo(void *sysinfo) {
 #if defined(__i386__) || defined(__x86_64__)
   asm volatile (CLEAN_FOR_64_BIT(mov %0, %%gs:) DEFAULT_SYSINFO_OFFSET "\n\t"
                 : : "r" (sysinfo) );
@@ -504,22 +447,24 @@ void TLSInfo::set_thread_sysinfo(void *sysinfo) {
  *
  *
  *****************************************************************************/
-void TLSInfo::verifyPidTid(pid_t pid, pid_t tid)
+void TLSInfo_VerifyPidTid(pid_t pid, pid_t tid)
 {
   pid_t tls_pid, tls_tid;
   char *addr = (char*)get_tls_base_addr();
   tls_pid = *(pid_t *) (addr + tls_pid_offset());
   tls_tid = *(pid_t *) (addr + tls_tid_offset());
 
-  JASSERT ((tls_pid == pid) && (tls_tid == tid))
-    (tls_pid) (tls_tid) (pid) (tid)
-    .Text("getpid(), tls pid, and tls tid must all match");
+  if ((tls_pid != pid) || (tls_tid != tid)) {
+    PRINTF("ERROR: getpid(%d), tls pid(%d), and tls tid(%d) must all match\n",
+           THREAD_REAL_PID(), tls_pid, tls_tid);
+    _exit(0);
+  }
 }
 
-void TLSInfo::updatePid()
+void TLSInfo_UpdatePid()
 {
   pid_t  *tls_pid = (pid_t *) ((char*)get_tls_base_addr() + tls_pid_offset());
-  *tls_pid = ThreadList::_real_pid();
+  *tls_pid = THREAD_REAL_PID();
 }
 
 /*****************************************************************************
@@ -528,7 +473,7 @@ void TLSInfo::updatePid()
  *  Linux saves stuff in the GDT, switching it on a per-thread basis
  *
  *****************************************************************************/
-void TLSInfo::saveTLSState (Thread *thread)
+void TLSInfo_SaveTLSState (Thread *thread)
 {
   int i;
 
@@ -550,8 +495,10 @@ void TLSInfo::saveTLSState (Thread *thread)
  */
   i = thread->TLSSEGREG / 8;
   thread->gdtentrytls[0].entry_number = i;
-  JASSERT(tlsinfo_get_thread_area (&(thread->gdtentrytls[0])) != -1)
-    (JASSERT_ERRNO) .Text("error saving GDT TLS entry");
+  if (tlsinfo_get_thread_area (&(thread->gdtentrytls[0])) == -1) {
+    PRINTF("Error saving GDT TLS entry: %d\n", errno);
+    _exit(0);
+  }
 }
 
 /*****************************************************************************
@@ -564,25 +511,27 @@ void TLSInfo::saveTLSState (Thread *thread)
  *  saved outside user addressable memory that must be manually saved.
  *
  *****************************************************************************/
-void TLSInfo::restoreTLSState(Thread *thread)
+void TLSInfo_RestoreTLSState(Thread *thread)
 {
   /* The assumption that this points to the pid was checked by that tls_pid crap
    * near the beginning
    */
   *(pid_t *)(*(unsigned long *)&(thread->gdtentrytls[0].base_addr)
-             + tls_pid_offset()) = ThreadList::_real_pid();
+             + tls_pid_offset()) = THREAD_REAL_PID();
 
   /* Likewise, we must jam the new pid into the mother thread's tid slot
    * (checked by tls_tid carpola)
    */
-  if (thread->tid == ThreadList::_real_pid()) {
+  if (thread->tid == THREAD_REAL_PID()) {
     *(pid_t *)(*(unsigned long *)&(thread->gdtentrytls[0].base_addr)
-               + tls_tid_offset()) = ThreadList::_real_pid();
+               + tls_tid_offset()) = THREAD_REAL_PID();
   }
 
   /* Restore all three areas */
-  JASSERT(tlsinfo_set_thread_area (&(thread->gdtentrytls[0])) == 0)
-    (JASSERT_ERRNO) .Text("error restoring GDT TLS entry");
+  if (tlsinfo_set_thread_area (&(thread->gdtentrytls[0])) != 0) {
+    PRINTF("Error restoring GDT TLS entry: %d\n", errno);
+    _exit(0);
+  }
 
   /* Restore the rest of the stuff */
 

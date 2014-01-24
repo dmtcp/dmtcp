@@ -22,19 +22,22 @@
 #ifndef TLSINFO_H
 #define TLSINFO_H
 
-#include "threadlist.h"
+#include "threadinfo.h"
 
-namespace dmtcp
-{
-  namespace TLSInfo {
-    void verifyPidTid(pid_t pid, pid_t tid);
-    void updatePid();
-    void saveTLSState (Thread *thread);
-    void restoreTLSState(Thread *thread);
-    void set_thread_sysinfo(void *sysinfo);
-    void *get_thread_sysinfo();
-    int have_thread_sysinfo_offset();
-  };
-};
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+void TLSInfo_VerifyPidTid(pid_t pid, pid_t tid);
+void TLSInfo_UpdatePid();
+void TLSInfo_SaveTLSState (Thread *thread);
+void TLSInfo_RestoreTLSState(Thread *thread);
+void TLSInfo_SetThreadSysinfo(void *sysinfo);
+void *TLSInfo_GetThreadSysinfo();
+int  TLSInfo_HaveThreadSysinfoOffset();
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
