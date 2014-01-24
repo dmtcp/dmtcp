@@ -35,11 +35,6 @@
 #include <sys/wait.h>
 #include <poll.h>
 #include <stdarg.h>
-#ifndef __arm__
-# include <asm/ldt.h> // Needed for 'struct user_desc' (arg 6 of __clone)
-#else
-struct user_desc {int dummy;}; /* <asm/ldt.h> is missing in Ubuntu 11.10 */
-#endif
 #include <sys/shm.h>
 #include <sys/sem.h>
 #include <sys/msg.h>
