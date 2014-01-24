@@ -163,7 +163,7 @@ void dmtcp::ProcessInfo::growStack()
     }
   }
   _real_close(fd);
-  JNOTE("Original stack area") ((void*)area.addr) (area.size);
+  JTRACE("Original stack area") ((void*)area.addr) (area.size);
   JASSERT(flag && area.addr != NULL);
 
   // Grow the stack
@@ -185,7 +185,7 @@ void dmtcp::ProcessInfo::growStack()
       }
     }
     _real_close(fd);
-    JNOTE("New stack size") ((void*)area.addr) (area.size);
+    JTRACE("New stack size") ((void*)area.addr) (area.size);
   }
 #endif
 }
