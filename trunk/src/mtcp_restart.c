@@ -127,6 +127,21 @@ void __libc_csu_init (int argc, char **argv, char **envp) { }
 void __libc_csu_fini (void) { }
 void __stack_chk_fail (void) { }
 void abort(void) { mtcp_abort(); }
+/* Implement memcpy() and memset() inside mtcp_restart. Although we are not
+ * calling memset, the compiler may generate a call to memset() when trying to
+ * initialize a large array etc.
+ */
+void *memset(void *s, int c, size_t n) {
+  char *p = s;
+  while (n-- > 0) {
+    *p++ = (char)c;
+  }
+  return s;
+}
+void *memcpy(void *dest, const void *src, size_t n) {
+  mtcp_sys_memcpy(dest, src, n);
+  return dest;
+}
 
 #define shift argv++; argc--;
 __attribute__((optimize(0)))
