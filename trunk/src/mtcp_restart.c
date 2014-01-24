@@ -995,6 +995,7 @@ static void getMiscAddrs(VA *text_addr, size_t *size, VA *highest_va)
   int mtcp_sys_errno;
   Area area;
   VA area_end = NULL;
+  VA this_fn = (VA) &getMiscAddrs;
   int mapsfd = mtcp_sys_open2("/proc/self/maps", O_RDONLY);
   if (mapsfd < 0) {
     MTCP_PRINTF("error opening /proc/self/maps: errno: %d\n", mtcp_sys_errno);
@@ -1004,7 +1005,16 @@ static void getMiscAddrs(VA *text_addr, size_t *size, VA *highest_va)
   while (mtcp_readmapsline(mapsfd, &area, NULL)) {
     if ((mtcp_strendswith(area.name, BINARY_NAME) ||
          mtcp_strendswith(area.name, BINARY_NAME_M32)) &&
-        (area.prot & PROT_EXEC)) {
+        (area.prot & PROT_EXEC) &&
+        /* On ARM/Ubuntu 14.04, mtcp_restart is mapped twice with RWX
+         * permissions. Not sure why? Here is an example:
+         *
+         * 00008000-00010000 r-xp 00000000 b3:02 144874     .../bin/mtcp_restart
+         * 00017000-00019000 rwxp 00007000 b3:02 144874     .../bin/mtcp_restart
+         * befdf000-bf000000 rwxp 00000000 00:00 0          [stack]
+         * ffff0000-ffff1000 r-xp 00000000 00:00 0          [vectors]
+         */
+        (area.addr < this_fn && (area.addr + area.size) > this_fn)) {
       *text_addr = area.addr;
       *size = area.size;
     }
