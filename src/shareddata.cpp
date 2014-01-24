@@ -30,6 +30,7 @@
 #include "uniquepid.h"
 #include "syscallwrappers.h"
 #include "util.h"
+#include  "membarrier.h"
 #include "coordinatorapi.h"
 #include "shareddata.h"
 #include "../jalib/jassert.h"
