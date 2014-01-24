@@ -485,7 +485,7 @@ void stopthisthread (int signum)
     } else {
       /* Else restoreinprog >= 1;  This stuff executes to do a restart */
       ThreadList::waitForAllRestored(curThread);
-      PRINTF("thread (%d) restored\n", curThread->tid);
+      DPRINTF("thread (%d) restored\n", curThread->tid);
     }
 
     ASSERT(Thread_UpdateState(curThread, ST_RUNNING, ST_SUSPENDED));
@@ -511,7 +511,7 @@ void ThreadList::waitForAllRestored(Thread *thread)
       sem_wait(&semNotifyCkptThread);
     }
 
-    JNOTE("before callback_post_ckpt(1=restarting)");
+    JTRACE("before callback_post_ckpt(1=restarting)");
     callbackPostCheckpoint(1, NULL); //mtcp_restoreargv_start_addr);
     JTRACE("after callback_post_ckpt(1=restarting)");
 
