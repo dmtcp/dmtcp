@@ -108,8 +108,10 @@ __targetdir__lib_dmtcp_libdmtcp_so_LDFLAGS = -shared -Xlinker -znow
 
 # Note that an ELF object uses libsyscallsreal.a or libnohijack.a
 #  but not both.  libnohijack.a has stub definitions for same symbols.
-__targetdir__lib_dmtcp_libdmtcp_so_LDADD	= libdmtcpinternal.a libjalib.a libsyscallsreal.a \
-			  -ldl -lpthread -lrt
+__targetdir__lib_dmtcp_libdmtcp_so_LDADD = libdmtcpinternal.a libjalib.a \
+					   libsyscallsreal.a ${ARM_EXTRAS} \
+					   -ldl -lpthread -lrt
+
 __targetdir__bin_dmtcp_coordinator_LDADD = libdmtcpinternal.a libjalib.a \
 			  libnohijack.a -lpthread -lrt
 __targetdir__bin_dmtcp_launch_LDADD  = libdmtcpinternal.a libjalib.a \
