@@ -36,7 +36,7 @@
 #include <sys/types.h>
 
 #include "mtcp_sys.h"
-#include "mtcp_util.c"
+#include "mtcp_util.ic"
 #include "membarrier.h"
 
 #define BINARY_NAME "mtcp_restart"
