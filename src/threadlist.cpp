@@ -371,7 +371,7 @@ static void suspendThreads()
           break;
 
         case ST_SUSPINPROG:
-          needrescan = 1;
+          numUserThreads++;
           break;
 
         case ST_SUSPENDED:
@@ -389,8 +389,17 @@ static void suspendThreads()
   } while (needrescan);
   unlk_threads();
 
+  // All we want to do is unlock the jassert/jalloc locks, if we reset them, it
+  // serves the purpose without having a callback.
+  // TODO: Check for correctness.
+  JALIB_CKPT_UNLOCK();
+
+  for (int i = 0; i < numUserThreads; i++) {
+    sem_wait(&semNotifyCkptThread);
+  }
+
   JASSERT(activeThreads != NULL);
-  JTRACE("everything suspended");
+  JTRACE("everything suspended") (numUserThreads);
 }
 
 static void resumeThreads()
@@ -436,7 +445,8 @@ void stopthisthread (int signum)
     if (retval) return;
   }
 
-  JTRACE("Thread return address") (curThread->tid) (__builtin_return_address(0));
+  DPRINTF("Thread (%d) return address: %p\n",
+          curThread->tid, __builtin_return_address(0));
 
   // make sure we don't get called twice for same thread
   if (Thread_UpdateState(curThread, ST_SUSPINPROG, ST_SIGNALED)) {
@@ -446,13 +456,13 @@ void stopthisthread (int signum)
 
     /* Set up our restart point, ie, we get jumped to here after a restore */
 #ifdef SETJMP
-  JASSERT(sigsetjmp(curThread->jmpbuf, 1) >= 0) (JASSERT_ERRNO);
+  ASSERT(sigsetjmp(curThread->jmpbuf, 1) >= 0);
 #else
-  JASSERT(getcontext(&curThread->savctx) == 0) (JASSERT_ERRNO);
+  ASSERT(getcontext(&curThread->savctx) == 0);
 #endif
   save_sp(&curThread->saved_sp);
-  JTRACE("after sigsetjmp/getcontext")
-    (curThread->tid) (curThread->virtual_tid) (curThread->saved_sp);
+  DPRINTF("after sigsetjmp/getcontext. tid: %d, vtid: %d, saved_sp: %p\n",
+          curThread->tid, curThread->virtual_tid, curThread->saved_sp);
 
     if (!restoreInProgress) {
       /* We are a user thread and all context is saved.
@@ -465,23 +475,23 @@ void stopthisthread (int signum)
       callbackPreSuspendUserThread();
 
       /* Tell the checkpoint thread that we're all saved away */
-      JASSERT(Thread_UpdateState(curThread, ST_SUSPENDED, ST_SUSPINPROG));
+      ASSERT(Thread_UpdateState(curThread, ST_SUSPENDED, ST_SUSPINPROG));
+      sem_post(&semNotifyCkptThread);
 
       /* Then wait for the ckpt thread to write the ckpt file then wake us up */
-      JTRACE("User thread suspended") (curThread->tid);
+      DPRINTF("User thread (%d) suspended\n", curThread->tid);
       sem_wait(&semWaitForCkptThreadSignal);
-      JTRACE("User thread resuming") (curThread->tid);
+      DPRINTF("User thread (%d) resuming\n", curThread->tid);
     } else {
       /* Else restoreinprog >= 1;  This stuff executes to do a restart */
       ThreadList::waitForAllRestored(curThread);
-      JTRACE("thread restored") (curThread->tid);
+      PRINTF("thread (%d) restored\n", curThread->tid);
     }
 
-    JASSERT(Thread_UpdateState(curThread, ST_RUNNING, ST_SUSPENDED))
-      .Text("checkpoint was written when thread in SUSPENDED state");
+    ASSERT(Thread_UpdateState(curThread, ST_RUNNING, ST_SUSPENDED));
 
-    JTRACE("thread returning to user code.")
-      (curThread->tid) (__builtin_return_address (0));
+    DPRINTF("Thread (%d) returning to user code: %p\n",
+            curThread->tid, __builtin_return_address(0));
 
     callbackPreResumeUserThread(restoreInProgress);
   }
@@ -607,7 +617,7 @@ void ThreadList::addToActiveList()
 void ThreadList::threadIsDead (Thread *thread)
 {
   JASSERT(thread != NULL);
-  JTRACE("Putting thread on freelist") (thread->tid);
+  DPRINTF("Putting thread (%d) on freelist\n", thread->tid);
 
   /* Remove thread block from 'threads' list */
   if (thread->prev != NULL) {
@@ -636,7 +646,7 @@ Thread *ThreadList::getNewThread()
   lock_threads();
   if (threads_freelist == NULL) {
     thread = (Thread*) JALLOC_HELPER_MALLOC(sizeof(Thread));
-    JASSERT(thread != NULL) .Text("Error allocating thread struct");
+    ASSERT(thread != NULL);
   } else {
     thread = threads_freelist;
     threads_freelist = threads_freelist->next;
