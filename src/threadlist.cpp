@@ -503,77 +503,6 @@ void ThreadList::resumeThreads()
  *  Signal handler for user threads.
  *
  *************************************************************************/
-static int growstackrlimit(size_t kbStack) {
-  size_t size = kbStack * 1024;  /* kbStack was in units of kilobytes */
-  struct rlimit rlim;
-  getrlimit(RLIMIT_STACK, &rlim);
-  if (rlim.rlim_cur == RLIM_INFINITY)
-    return 1;
-  if (rlim.rlim_max == RLIM_INFINITY || rlim.rlim_max - rlim.rlim_cur > size) {
-    rlim.rlim_cur += size;
-    // Increase it by further 1MB to ensure any other local variables can fit
-    // easily.
-    rlim.rlim_cur += (1024 * 1024);
-    setrlimit(RLIMIT_STACK, &rlim);
-    return 1;
-  } else {
-    JWARNING(false) (rlim.rlim_max) (rlim.rlim_cur)
-      .Text("Couldn't extend stack limit for growstack.");
-  }
-  return 0;
-}
-
-static volatile unsigned int growstackValue = 0;
-#if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ > 3)
-static void __attribute__ ((optimize(0))) growstack (int kbStack)
-#else
-static void growstack (int kbStack) /* opimize attribute not implemented */
-#endif
-{
-  /* With the split stack option (-fsplit-stack in gcc-4.6.0 and later),
-   * we can only hope for 64 KB of free stack.  (Also, some users will use:
-   * ld --stack XXX.)  We'll use half of the 64 KB here.
-   */
-  const int kbIncrement = 1024; /* half the size of kbStack */
-  char array[kbIncrement * 1024] __attribute__ ((unused));
-  /* Again, try to prevent compiler optimization */
-  volatile int dummy_value __attribute__ ((unused)) = 1;
-  if (kbStack > 0)
-    growstack(kbStack - kbIncrement);
-  else
-    growstackValue++;
-}
-
-static void grow_stack_for_motherofall()
-{
-  static int is_first_checkpoint = 1;
-  /* Grow stack only on first ckpt.  Kernel agrees this is main stack and
-   * will mmap it.  On second ckpt and later, we would segfault if we tried
-   * to grow the former stack beyond the portion that is already mmap'ed.
-   */
-  JASSERT(curThread == motherofall);
-  static char *orig_stack_ptr;
-  /* FIXME:
-   * Some apps will use "ld --stack XXX" with a small stack.  This
-   * trend will become more common with the introduction of split stacks.
-   * BUT NOTE PROBLEM PREV. COMMENT ON KERNEL NOT GROWING STACK ON RESTART
-   * Grow the stack by kbStack*1024 so that large stack is allocated oni
-   * restart.  The kernel won't do it automatically for us any more,
-   * since it thinks the stack is in a different place after restart.
-   */
-  int kbStack = 2048; /* double the size of kbIncrement in growstack */
-  if (is_first_checkpoint) {
-    orig_stack_ptr = (char *)&kbStack;
-    is_first_checkpoint = 0;
-    JTRACE("temp. grow main stack by %d kilobytes") (kbStack);
-    growstackrlimit(kbStack);
-    growstack(kbStack);
-  } else if (orig_stack_ptr - (char *)&kbStack > 3 * kbStack*1024 / 4) {
-    JWARNING(false) (kbStack)
-      .Text("Stack within %d bytes of end; Consider increasing 'kbStack'");
-  }
-}
-
 void ThreadList::stopthisthread (int signum)
 {
   // If this is checkpoint thread - exit immidiately
@@ -611,10 +540,6 @@ void ThreadList::stopthisthread (int signum)
 
     curThread->saveSigState(); // save sig state (and block sig delivery)
     TLSInfo::saveTLSState(curThread); // save thread local storage state
-
-    if (curThread == motherofall) {
-      grow_stack_for_motherofall();
-    }
 
     /* Set up our restart point, ie, we get jumped to here after a restore */
 #ifdef SETJMP
