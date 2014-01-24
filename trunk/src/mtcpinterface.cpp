@@ -171,7 +171,9 @@ void dmtcp::callbackPreSuspendUserThread()
 
 void dmtcp::callbackPreResumeUserThread(int isRestart)
 {
-  prctlRestoreProcessName();
+  if (isRestart) {
+    prctlRestoreProcessName();
+  }
   DmtcpEventData_t edata;
   edata.resumeUserThreadInfo.isRestart = isRestart;
   dmtcp::DmtcpWorker::eventHook(DMTCP_EVENT_RESUME_USER_THREAD, &edata);
