@@ -44,12 +44,21 @@ static void pidVirt_pthread_atfork_child()
   dmtcp::VirtualPidTable::instance().resetOnFork();
 }
 
+
+/* This is defined by newer gcc version unique for each module.  */
+extern void *__dso_handle __attribute__ ((__weak__,
+					  __visibility__ ("hidden")));
 extern "C" int __register_atfork(void (*prepare)(void), void (*parent)(void),
                                  void (*child)(void), void *dso_handle)
 {
   if (!pthread_atfork_initialized) {
     pthread_atfork_initialized = true;
-    NEXT_FNC(pthread_atfork) (NULL, NULL, pidVirt_pthread_atfork_child);
+    /* If we use pthread_atfork here, it fails for Ubuntu 14.04 on ARM.
+     * To fix it, we use __register_atfork and use the __dso_handle provided by
+     * the gcc compiler.
+     */
+    NEXT_FNC(__register_atfork) (NULL, NULL, pidVirt_pthread_atfork_child,
+                                 __dso_handle);
   }
   return NEXT_FNC(__register_atfork)(prepare, parent, child, dso_handle);
 }
