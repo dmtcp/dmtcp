@@ -16,6 +16,7 @@ static int STOPSIGNAL;
 static struct sigaction sigactions[NSIG];
 
 int SigInfo::ckptSignal() { return STOPSIGNAL; }
+extern "C" int SigInfo_ckptSignal() { return STOPSIGNAL; }
 
 /*****************************************************************************
  *

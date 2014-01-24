@@ -28,8 +28,6 @@
 #include "syscallwrappers.h"
 #include "uniquepid.h"
 #include "processinfo.h"
-#include "util.h"
-#include "threadlist.h"
 #include "coordinatorapi.h"
 #include  "../jalib/jconvert.h"
 #include  "../jalib/jfilesystem.h"
