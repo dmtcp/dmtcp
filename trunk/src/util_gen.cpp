@@ -22,6 +22,7 @@
 #include <string.h>
 #include <fcntl.h>
 #include  "util.h"
+#include  "membarrier.h"
 #include  "syscallwrappers.h"
 #include  "dmtcp.h"
 #include  "../jalib/jassert.h"
