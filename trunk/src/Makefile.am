@@ -124,10 +124,17 @@ __targetdir__bin_dmtcp_command_LDADD     = libdmtcpinternal.a libjalib.a \
 __targetdir__bin_dmtcp_launch_SOURCES = dmtcp_launch.cpp
 
 __targetdir__bin_mtcp_restart_SOURCES = mtcp_restart.c
-__targetdir__bin_mtcp_restart_CFLAGS = ${AM_CFLAGS} -fno-stack-protector
-__targetdir__bin_mtcp_restart_CPPFLAGS = ${AM_CPPFLAGS} -DPIC
-__targetdir__bin_mtcp_restart_LDFLAGS = -nodefaultlibs -fno-stack-protector
+__targetdir__bin_mtcp_restart_LDFLAGS = -nodefaultlibs
 __targetdir__bin_mtcp_restart_LDADD = ${ARM_EXTRAS}
+
+# We need to compile threadinfo.c, tlsinfo.c and mtcp_restart.c with
+# "-fno-stack-protector" to avoid runtime stack smashing detection.
+# We also need to build mtcp_restart without optimization (-O0), otherwise it
+# may fail to restart. Since these three objects are fairly low leve, we avoid
+# any surprises by compiling them without any optimization.
+threadinfo.o tlsinfo.o mtcp_restart.o:
+	$(COMPILE) -DPIC -fno-stack-protector -g -O0 -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $(srcdir)/$*.c
+	$(am__mv) $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
 
 install-exec-hook:
 	cd $(DESTDIR)$(bindir) && $(LN_S) -f dmtcp_launch dmtcp_checkpoint
