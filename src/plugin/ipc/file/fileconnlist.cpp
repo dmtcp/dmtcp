@@ -46,7 +46,7 @@ void dmtcp_FileConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
   dmtcp::FileConnList::instance().eventHook(event, data);
 }
 
-static dmtcp::vector<Util::ProcMapsArea> shmAreas;
+static dmtcp::vector<ProcMapsArea> shmAreas;
 static dmtcp::vector<dmtcp::FileConnection*> shmAreaConn;
 
 void dmtcp_FileConn_ProcessFdEvent(int event, int arg1, int arg2)
@@ -147,7 +147,7 @@ void dmtcp::FileConnList::resume(bool isRestart)
 
 void dmtcp::FileConnList::prepareShmList()
 {
-  Util::ProcMapsArea area;
+  ProcMapsArea area;
   int mapsfd = _real_open("/proc/self/maps", O_RDONLY, 0);
   JASSERT(mapsfd != -1) (JASSERT_ERRNO);
 
@@ -214,7 +214,7 @@ void dmtcp::FileConnList::prepareShmList()
 void dmtcp::FileConnList::remapShmMaps()
 {
   for (size_t i = 0; i < shmAreas.size(); i++) {
-    Util::ProcMapsArea *area = &shmAreas[i];
+    ProcMapsArea *area = &shmAreas[i];
     FileConnection *fileCon = shmAreaConn[i];
     int fd = fileCon->getFds()[0];
     JTRACE("Restoring shared memory area") (area->name) (area->addr);

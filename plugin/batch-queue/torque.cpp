@@ -41,6 +41,7 @@
 #include <string>
 #include "util.h"
 #include "resource_manager.h"
+#include "procmapsarea.h"
 #include "jalib.h"
 #include "jassert.h"
 #include "jconvert.h"
@@ -223,7 +224,7 @@ int findLibTorque_maps(dmtcp::string &libpath)
 {
   // /proc/self/maps looks like: "<start addr>-<end addr> <mode> <offset> <device> <inode> <libpath>
   // we need to extract libpath
-  dmtcp::Util::ProcMapsArea area;
+  ProcMapsArea area;
   int ret = -1;
 
   // we will search for first libpath and first libname
@@ -565,7 +566,7 @@ extern "C" int tm_spawn(int argc, char **argv, char **envp, tm_node_id where,
 int torqueShouldCkptFile(const char *path, int *type)
 {
   dmtcp::string str(path);
-  
+
   if (isTorqueIOFile(str)) {
     *type = TORQUE_IO;
     return 1;

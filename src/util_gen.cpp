@@ -259,12 +259,12 @@ char dmtcp::Util::readChar (int fd)
 }
 
 
-int dmtcp::Util::readProcMapsLine(int mapsfd, dmtcp::Util::ProcMapsArea *area)
+int dmtcp::Util::readProcMapsLine(int mapsfd, ProcMapsArea *area)
 {
   char c, rflag, sflag, wflag, xflag;
   int i;
-  unsigned int long devmajor, devminor;
-  ino_t inodenum;
+  off_t offset;
+  unsigned int long devmajor, devminor, inodenum;
   VA startaddr, endaddr;
 
   c = readHex (mapsfd, &startaddr);
@@ -288,9 +288,9 @@ int dmtcp::Util::readProcMapsLine(int mapsfd, dmtcp::Util::ProcMapsArea *area)
   c = readChar (mapsfd);
   if (c != ' ') goto skipeol;
 
-  c = readHex (mapsfd, (VA *)&devmajor);
+  c = readHex (mapsfd, (VA *)&offset);
   if (c != ' ') goto skipeol;
-  area -> offset = (off_t)devmajor;
+  area -> offset = offset;
 
   c = readHex (mapsfd, (VA *)&devmajor);
   if (c != ':') goto skipeol;
@@ -323,9 +323,9 @@ int dmtcp::Util::readProcMapsLine(int mapsfd, dmtcp::Util::ProcMapsArea *area)
   if (sflag == 'p') area -> flags |= MAP_PRIVATE;
   if (area -> name[0] == '\0') area -> flags |= MAP_ANONYMOUS;
 
-  area->devnum = makedev(devmajor, devminor);
+  area->devmajor = devmajor;
+  area->devminor = devminor;
   area->inodenum = inodenum;
-
   return (1);
 
 skipeol:

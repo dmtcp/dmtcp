@@ -24,28 +24,9 @@
 #ifndef _MTCP_UTIL_H
 #define _MTCP_UTIL_H
 
+#include "procmapsarea.h"
+
 typedef char * VA; /* VA = virtual address */
-
-#define FILENAMESIZE 1024
-typedef union Area {
-  struct {
-  int type; // Content type (CS_XXX
-  char *addr;   // args required for mmap to restore memory area
-  size_t size;
-  off_t filesize;
-  int prot;
-  int flags;
-  off_t offset;
-  char name[FILENAMESIZE];
-  };
-  char _padding[4096];
-} Area;
-
-typedef struct DeviceInfo {
-  unsigned int long devmajor;
-  unsigned int long devminor;
-  unsigned int long inodenum;
-} DeviceInfo;
 
 #define MTCP_PRINTF(args...) \
   do { \
@@ -206,6 +187,6 @@ int mtcp_strcmp (const char *s1, const char *s2);
 char *mtcp_strchr(const char *s, int c);
 int mtcp_strstartswith (const char *s1, const char *s2);
 int mtcp_strendswith (const char *s1, const char *s2);
-int mtcp_readmapsline (int mapsfd, Area *area, DeviceInfo *dev_info);
+int mtcp_readmapsline (int mapsfd, Area *area);
 void mtcp_sys_memcpy (void *dstpp, const void *srcpp, size_t len);
 #endif

@@ -32,7 +32,6 @@
 #include <sys/resource.h>
 #include <sys/stat.h>
 #include <sys/fcntl.h>
-#include "writeckpt.h"
 #include "dmtcp.h"
 #include "processinfo.h"
 #include "jassert.h"
@@ -60,22 +59,6 @@ static void remap_nscd_areas(Area remap_nscd_areas_array[],
  *  It assumes all the threads are suspended.
  *
  *****************************************************************************/
-
-int mtcp_readmapsline (int fd, Area *a)
-{
-  dmtcp::Util::ProcMapsArea area;
-  int ret = Util::readProcMapsLine(fd, &area);
-  if (ret != 0) {
-    a->addr = (char*) area.addr;
-    a->size = area.size;
-    a->filesize = area.filesize;
-    a->prot = area.prot;
-    a->flags = area.flags;
-    a->offset = area.offset;
-    strcpy(a->name, area.name);
-  }
-  return ret;
-}
 
 void mtcp_writememoryareas(int fd)
 {
@@ -107,7 +90,7 @@ void mtcp_writememoryareas(int fd)
 
   /* Finally comes the memory contents */
   int mapsfd = _real_open("/proc/self/maps", O_RDONLY);
-  while (mtcp_readmapsline (mapsfd, &area)) {
+  while (Util::readProcMapsLine(mapsfd, &area)) {
     VA area_begin = area.addr;
     VA area_end   = area_begin + area.size;
 
@@ -484,7 +467,7 @@ static void preprocess_special_segments(int *vsyscall_exists)
   int mapsfd = _real_open("/proc/self/maps", O_RDONLY);
   JASSERT(mapsfd != -1) (JASSERT_ERRNO) .Text("Error opening /proc/self/maps");
 
-  while (mtcp_readmapsline (mapsfd, &area)) {
+  while (Util::readProcMapsLine(mapsfd, &area)) {
     if (0 == strcmp(area.name, "[vsyscall]")) {
       /* Determine if [vsyscall] exists.  If [vdso] and [vsyscall] exist,
        * [vdso] will be saved and restored.

@@ -145,7 +145,7 @@ void dmtcp::ProcessInfo::growStack()
   }
 
   // Find the current stack area and heap
-  Util::ProcMapsArea area;
+  ProcMapsArea area;
   bool flag = false;
   size_t allocSize;
   void *tmpbuf;
@@ -156,7 +156,7 @@ void dmtcp::ProcessInfo::growStack()
       // Record start of heap which will later be used to restore heap
       _savedHeapStart = (unsigned long) area.addr;
     }
-    if (&area >= area.addr && &area < area.endAddr) {
+    if ((VA) &area >= area.addr && (VA) &area < area.endAddr) {
       // Stack found
       flag = true;
       break;
