@@ -844,15 +844,26 @@ if HAS_VIM == "yes" and PID_VIRTUALIZATION == "yes":
     killCommand(vimCommand)
   S=DEFAULT_S
 
-if HAS_EMACS == "yes" and PID_VIRTUALIZATION == "yes":
-  # Wait to checkpoint until emacs finishes reading its initialization files
+if PID_VIRTUALIZATION == "yes" and sys.version_info[0:2] >= (2,6):
+  #On some systems, "emacs -nw" launches dbus-daemon processes in
+  #background throwing off the number of processes in the computation. The
+  #test thus fails. The fix is to launch emacs-nox, if found. emacs-nox
+  #doesn't launch any background processes.
   S=15*DEFAULT_S
-  if sys.version_info[0:2] >= (2,6):
+  if HAS_EMACS_NOX == "yes":
+    # Wait to checkpoint until emacs finishes reading its initialization files
+    # Under emacs23, it opens /dev/tty directly in a new fd.
+    # To avoid this, consider using emacs --batch -l EMACS-LISTP-CODE ...
+    # ... or else a better pty wrapper to capture emacs output to /dev/tty.
+    runTest("emacs",     1,  ["env TERM=vt100 /usr/bin/emacs-nox" +
+                              " --no-init-file /etc/passwd"])
+  elif HAS_EMACS == "yes":
+    # Wait to checkpoint until emacs finishes reading its initialization files
     # Under emacs23, it opens /dev/tty directly in a new fd.
     # To avoid this, consider using emacs --batch -l EMACS-LISTP-CODE ...
     # ... or else a better pty wrapper to capture emacs output to /dev/tty.
     runTest("emacs",     1,  ["env TERM=vt100 /usr/bin/emacs -nw" +
-                              " --no-init-file /etc/passwd"])
+                                " --no-init-file /etc/passwd"])
   S=DEFAULT_S
 
 if HAS_SCRIPT == "yes" and PID_VIRTUALIZATION == "yes":

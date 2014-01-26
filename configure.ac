@@ -293,6 +293,7 @@ AC_PATH_PROG([VIM],    [vim],        [no], [/usr/bin:/bin])
 
 #check for emacs
 AC_CHECK_PROG(HAS_EMACS, [emacs], [yes], [no], [/usr/bin])
+AC_CHECK_PROG(HAS_EMACS_NOX, [emacs-nox], [yes], [no], [/usr/bin])
 
 #check for script
 AC_CHECK_PROG(HAS_SCRIPT, [script], [yes], [no], [/usr/bin])
