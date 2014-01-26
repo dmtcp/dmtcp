@@ -23,6 +23,7 @@
 #define UTIL_H
 
 #include "dmtcpalloc.h"
+#include "procmapsarea.h"
 
 typedef char * VA;
 #define UTIL_MAX_PATH_LEN 256
@@ -62,19 +63,6 @@ namespace dmtcp
 {
   namespace Util
   {
-    typedef struct ProcMapsArea {
-      void *addr;    // args required for mmap to restore memory area
-      void *endAddr; // args required for mmap to restore memory area
-      size_t size;
-      off_t filesize;
-      int prot;
-      int flags;
-      off_t offset;
-      dev_t devnum;
-      ino_t inodenum;
-      char name[UTIL_MAX_PATH_LEN];
-    } ProcMapsArea;
-
     void lockFile(int fd);
     void unlockFile(int fd);
     void dupFds(int oldfd, const dmtcp::vector<int>& newfds);
@@ -118,7 +106,7 @@ namespace dmtcp
     char readDec (int fd, VA *value);
     char readHex (int fd, VA *value);
     char readChar (int fd);
-    int readProcMapsLine(int mapsfd, dmtcp::Util::ProcMapsArea *area);
+    int readProcMapsLine(int mapsfd, ProcMapsArea *area);
     int memProtToOpenFlags(int prot);
     pid_t getTracerPid(pid_t tid = -1);
     bool isPtraced();

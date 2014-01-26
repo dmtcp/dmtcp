@@ -38,34 +38,10 @@
 #include "mtcp_sys.h"
 #include "mtcp_util.ic"
 #include "membarrier.h"
+#include "procmapsarea.h"
 
 #define BINARY_NAME "mtcp_restart"
 #define BINARY_NAME_M32 "mtcp_restart-32"
-
-// MTCP_PAGE_SIZE must be page-aligned:  multiple of sysconf(_SC_PAGESIZE).
-#define MTCP_PAGE_SIZE 4096
-#define MTCP_PAGE_MASK (~(MTCP_PAGE_SIZE-1))
-#define MTCP_PAGE_OFFSET_MASK (MTCP_PAGE_SIZE-1)
-
-#define NSCD_MMAP_STR1 "/var/run/nscd/"   /* OpenSUSE*/
-#define NSCD_MMAP_STR2 "/var/cache/nscd"  /* Debian / Ubuntu*/
-#define NSCD_MMAP_STR3 "/var/db/nscd"     /* RedHat / Fedora*/
-#define DEV_ZERO_DELETED_STR "/dev/zero (deleted)"
-#define DEV_NULL_DELETED_STR "/dev/null (deleted)"
-#define SYS_V_SHMEM_FILE "/SYSV"
-#ifdef IBV
-# define INFINIBAND_SHMEM_FILE "/dev/infiniband/uverbs"
-#endif
-
-/* Shared memory regions for Direct Rendering Infrastructure */
-#define DEV_DRI_SHMEM "/dev/dri/card"
-
-#define DELETED_FILE_SUFFIX " (deleted)"
-
-/* Let MTCP_PROT_ZERO_PAGE be a unique bit mask
- * This assumes: PROT_READ == 0x1, PROT_WRITE == 0x2, and PROT_EXEC == 0x4
- */
-#define MTCP_PROT_ZERO_PAGE (PROT_EXEC << 1)
 
 /* Internal routines */
 static void readmemoryareas(int fd);
@@ -979,7 +955,7 @@ static int hasOverlappingMapping(VA addr, size_t size)
     mtcp_abort ();
   }
 
-  while (mtcp_readmapsline(mapsfd, &area, NULL)) {
+  while (mtcp_readmapsline(mapsfd, &area)) {
     if (doAreasOverlap(addr, size, area.addr, area.size)) {
       ret = 1;
       break;
@@ -1002,7 +978,7 @@ static void getMiscAddrs(VA *text_addr, size_t *size, VA *highest_va)
     mtcp_abort ();
   }
 
-  while (mtcp_readmapsline(mapsfd, &area, NULL)) {
+  while (mtcp_readmapsline(mapsfd, &area)) {
     if ((mtcp_strendswith(area.name, BINARY_NAME) ||
          mtcp_strendswith(area.name, BINARY_NAME_M32)) &&
         (area.prot & PROT_EXEC) &&
