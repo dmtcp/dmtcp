@@ -176,9 +176,11 @@ class RestoreTarget
 
     void createProcess(bool createIndependentRootProcesses = false)
     {
-      //change UniquePid
-      UniquePid::resetOnFork(upid());
+      UniquePid::ThisProcess() = _pInfo.upid();
+      UniquePid::ParentProcess() = _pInfo.uppid();
+      UniquePid::ComputationId() = _pInfo.compGroup();
       dmtcp::Util::initializeLogFile(_pInfo.procname());
+
       if (createIndependentRootProcesses) {
         CoordinatorInfo coordInfo;
         struct in_addr localIPAddr;
