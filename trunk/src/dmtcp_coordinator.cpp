@@ -1325,7 +1325,7 @@ void dmtcp::DmtcpCoordinator::broadcastMessage ( DmtcpMessageType type,
 
 void dmtcp::DmtcpCoordinator::broadcastMessage ( const DmtcpMessage& msg )
 {
-  if (msg.type == DMT_KILL_PEER) {
+  if (msg.type == DMT_KILL_PEER && clients.size() > 0) {
     killInProgress = true;
   } else if (msg.type == DMT_DO_FD_LEADER_ELECTION) {
     // All the workers are in SUSPENDED state, now it is safe to reset
