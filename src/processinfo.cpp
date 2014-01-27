@@ -132,7 +132,7 @@ void dmtcp::ProcessInfo::growStack()
   /* Grow the stack to the stack limit */
   struct rlimit rlim;
   size_t stackSize;
-  const int eightMB = 8 * MB;
+  const rlim_t eightMB = 8 * MB;
   JASSERT(getrlimit(RLIMIT_STACK, &rlim) == 0) (JASSERT_ERRNO);
   if (rlim.rlim_cur == RLIM_INFINITY) {
     if (rlim.rlim_max == RLIM_INFINITY) {
@@ -179,7 +179,7 @@ void dmtcp::ProcessInfo::growStack()
     int fd = _real_open("/proc/self/maps", O_RDONLY);
     JASSERT(fd != -1) (JASSERT_ERRNO);
     while (Util::readProcMapsLine(fd, &area)) {
-      if (&area >= area.addr && &area < area.endAddr) { // Stack found
+      if ((VA)&area >= area.addr && (VA)&area < area.endAddr) { // Stack found
         area = area;
         break;
       }

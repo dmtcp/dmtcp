@@ -26,8 +26,6 @@
 
 #include "procmapsarea.h"
 
-typedef char * VA; /* VA = virtual address */
-
 #define MTCP_PRINTF(args...) \
   do { \
     int mtcp_sys_errno; \
