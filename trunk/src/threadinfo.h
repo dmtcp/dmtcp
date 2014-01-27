@@ -113,7 +113,7 @@ typedef enum ThreadState {
 
 typedef struct Thread Thread;
 
-typedef struct Thread {
+struct Thread {
   pid_t tid;
   Thread *next;
   Thread *prev;
@@ -141,7 +141,7 @@ typedef struct Thread {
   ucontext_t savctx;     // context saved on suspend
 #endif
 
-} Thread;
+};
 
 void Thread_Init();
 void Thread_PostRestart();
