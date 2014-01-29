@@ -61,3 +61,8 @@ PID-VIRTUALIZATION:
 3. better error handling for missing processes.
 
 REPLACE all temporary files present in $DMTCP_TMP_DIR with some sort of shared-memory files.
+
+SOCKETS:
+1. A process calls socket(), then forks a child process. The child then calls
+   connect(). If the parent process were to save/restore socket, the parent
+   will just create the socket and not do the connect() on restart.
