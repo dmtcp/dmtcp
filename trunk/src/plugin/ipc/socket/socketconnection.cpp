@@ -232,8 +232,9 @@ void dmtcp::TcpConnection::onBind(const struct sockaddr* addr, socklen_t len)
     JTRACE("Binding.") (id()) (len);
   }
 
-  JASSERT(_type == TCP_CREATED) (_type) (id())
-    .Text("Binding a socket in use????");
+  // If the bind succeeded, we do not need any additional assert.
+  //JASSERT(_type == TCP_CREATED) (_type) (id())
+  //  .Text("Binding a socket in use????");
 
   if (_sockDomain == AF_UNIX && addr != NULL) {
     JASSERT(len <= sizeof _bindAddr) (len) (sizeof _bindAddr)
