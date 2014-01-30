@@ -850,7 +850,8 @@ void dmtcp::DmtcpCoordinator::onData(CoordClient *client)
     break;
 
     case DMT_NULL:
-      JWARNING(false) (msg.type) .Text("unexpected message from worker");
+      JWARNING(false) (msg.type) .Text("unexpected message from worker. Closing connection");
+      onDisconnect(client);
       break;
     default:
       JASSERT ( false ) ( msg.from ) ( msg.type )
