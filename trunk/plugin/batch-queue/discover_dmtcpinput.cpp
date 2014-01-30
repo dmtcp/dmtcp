@@ -195,8 +195,10 @@ void resources_input::writeout_old(string env_var, resources &r)
 {
   mapping_t map;
   string warning = "";
-  if (!map_to(r, map, warning))
+  if (!map_to(r, map, warning)){
+    cout << "DMTCP_DISCOVER_RM_ERROR=\'Cannot map initial resources into the restart allocation\'" << endl;
     return;
+  }
   if( warning != "" ){
     cout << "DMTCP_DISCOVER_RM_WARNING=\'" << warning << "\'" << endl;
   }
@@ -220,8 +222,10 @@ void resources_input::writeout_new(string env_var, resources &r)
 {
   mapping_t map;
   string warning = "";
-  if (!map_to(r, map, warning))
+  if (!map_to(r, map, warning)){
+    cout << "DMTCP_DISCOVER_RM_ERROR=\'Cannot map initial resources into the restart allocation\'" << endl;
     return;
+  }
   if( warning != "" ){
     cout << "DMTCP_DISCOVER_RM_WARNING=\'" << warning << "\'" << endl;
   }

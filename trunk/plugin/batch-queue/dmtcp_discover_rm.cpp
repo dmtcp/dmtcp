@@ -122,7 +122,6 @@ int main(int argc, char **argv)
     }
     resources_input inp(input_arg);
     inp.output("input_config");
-    resources::mapping_t map;
     if( !new_out )
       inp.writeout_old("new_worker_ckpts", *rm);
     else
