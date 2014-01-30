@@ -88,7 +88,7 @@ namespace dmtcp
       void eventLoop(bool daemon);
 
       void addDataSocket(CoordClient *client);
-      void updateCheckpointInterval(int timeout);
+      void updateCheckpointInterval(uint32_t timeout);
       int  getRemainingTimeoutMS();
       void updateMinimumState(dmtcp::WorkerState oldState);
       void initializeComputation();

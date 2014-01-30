@@ -407,8 +407,8 @@ static bool killInProgress = false;
  * then both theCheckpointInterval and theDefaultCheckpointInterval are set.
  * A value of '0' means:  never checkpoint (manual checkpoint only).
  */
-static int theCheckpointInterval = 0; /* Current checkpoint interval */
-static int theDefaultCheckpointInterval = 0; /* Reset to this on new comp. */
+static uint32_t theCheckpointInterval = 0; /* Current checkpoint interval */
+static uint32_t theDefaultCheckpointInterval = 0; /* Reset to this on new comp. */
 static struct timespec startTime;
 static bool isRestarting = false;
 
@@ -888,7 +888,7 @@ void dmtcp::DmtcpCoordinator::onDisconnect(CoordClient *client)
     // computations have disconnected.
     killInProgress = false;
     if (theCheckpointInterval != theDefaultCheckpointInterval) {
-      theCheckpointInterval = theDefaultCheckpointInterval;
+      updateCheckpointInterval(theDefaultCheckpointInterval);
       JNOTE ( "CheckpointInterval reset on end of current computation" )
         ( theCheckpointInterval );
     }
@@ -904,9 +904,8 @@ void dmtcp::DmtcpCoordinator::initializeComputation()
   killInProgress = false;
   //_nextVirtualPid = INITIAL_VIRTUAL_PID;
 
-  theCheckpointInterval = theDefaultCheckpointInterval;
-  updateCheckpointInterval( theCheckpointInterval );
   // theCheckpointInterval can be overridden later by msg from this client.
+  updateCheckpointInterval( theDefaultCheckpointInterval );
 
   // drop current computation group to 0
   UniquePid::ComputationId() = dmtcp::UniquePid(0,0,0);
@@ -983,6 +982,8 @@ void dmtcp::DmtcpCoordinator::onConnect()
   }
 #endif
 
+  updateCheckpointInterval(hello_remote.theCheckpointInterval);
+
   if (hello_remote.type == DMT_USER_CMD) {
     processDmtUserCmd(hello_remote, remote);
     return;
@@ -1036,15 +1037,6 @@ void dmtcp::DmtcpCoordinator::onConnect()
 
   JNOTE ( "worker connected" ) ( hello_remote.from );
 
-  if (hello_remote.theCheckpointInterval != DMTCPMESSAGE_SAME_CKPT_INTERVAL &&
-      hello_remote.theCheckpointInterval != theCheckpointInterval) {
-    int oldInterval = theCheckpointInterval;
-    theCheckpointInterval = hello_remote.theCheckpointInterval;
-    updateCheckpointInterval ( theCheckpointInterval );
-    JNOTE ( "CheckpointInterval updated (for this computation only)" )
-	  ( oldInterval ) ( theCheckpointInterval );
-  }
-
   clients.push_back(client);
   addDataSocket(client);
 
@@ -1066,8 +1058,8 @@ void dmtcp::DmtcpCoordinator::processDmtUserCmd( DmtcpMessage& hello_remote,
     handleUserCommand( hello_remote.coordCmd, &reply );
   } else if ( (hello_remote.coordCmd == 'i')
                && hello_remote.theCheckpointInterval >= 0 ) {
-    theDefaultCheckpointInterval = hello_remote.theCheckpointInterval;
-    theCheckpointInterval = theDefaultCheckpointInterval;
+//    theDefaultCheckpointInterval = hello_remote.theCheckpointInterval;
+//    theCheckpointInterval = theDefaultCheckpointInterval;
     handleUserCommand( hello_remote.coordCmd, &reply );
     remote << reply;
     remote.close();
@@ -1590,12 +1582,18 @@ void dmtcp::DmtcpCoordinator::onTimeoutInterval()
   }
 }
 
-void dmtcp::DmtcpCoordinator::updateCheckpointInterval(int interval)
+void dmtcp::DmtcpCoordinator::updateCheckpointInterval(uint32_t interval)
 {
-  if (interval > 0) {
-    JASSERT(clock_gettime(CLOCK_MONOTONIC, &startTime) == 0) (JASSERT_ERRNO);
+  if ( interval != DMTCPMESSAGE_SAME_CKPT_INTERVAL &&
+      interval != theCheckpointInterval) {
+    int oldInterval = theCheckpointInterval;
+    theCheckpointInterval = interval;
+    if (interval > 0) {
+      JASSERT(clock_gettime(CLOCK_MONOTONIC, &startTime) == 0) (JASSERT_ERRNO);
+    }
+    JNOTE ( "CheckpointInterval updated (for this computation only)" )
+      ( oldInterval ) ( theCheckpointInterval );
   }
-  theCheckpointInterval = interval;
 }
 
 int dmtcp::DmtcpCoordinator::getRemainingTimeoutMS()

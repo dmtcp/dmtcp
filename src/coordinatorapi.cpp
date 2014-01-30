@@ -84,7 +84,7 @@ static void getHostAndPort(CoordinatorAPI::CoordinatorMode mode,
 
 static uint32_t getCkptInterval()
 {
-  uint32_t ret = 0;
+  uint32_t ret = DMTCPMESSAGE_SAME_CKPT_INTERVAL;
   const char* interval = getenv (ENV_VAR_CKPT_INTR);
   /* DmtcpMessage constructor default:
    *   hello_local.theCheckpointInterval: DMTCPMESSAGE_SAME_CKPT_INTERVAL
@@ -282,8 +282,9 @@ void dmtcp::CoordinatorAPI::connectAndSendUserCommand(char c,
 
   if (c == 'i') {
     const char* interval = getenv (ENV_VAR_CKPT_INTR);
-    if (interval != NULL)
+    if (interval != NULL){
       msg.theCheckpointInterval = jalib::StringToInt (interval);
+    }
   }
 
   _coordinatorSocket << msg;
