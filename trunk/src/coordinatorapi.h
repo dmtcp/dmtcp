@@ -78,8 +78,6 @@ namespace dmtcp
                                 size_t len = 0);
       void recvMsgFromCoordinator(dmtcp::DmtcpMessage *msg,
                                   void **extraData = NULL);
-      void sendUserCommand(char c, int *coordCmdStatus = NULL,
-                           int *numPeers = NULL, int *isRunning = NULL);
       void connectAndSendUserCommand(char c,
                                      int *coordCmdStatus = NULL,
                                      int *numPeers = NULL,
