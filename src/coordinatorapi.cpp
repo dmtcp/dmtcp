@@ -265,7 +265,7 @@ bool dmtcp::CoordinatorAPI::noCoordinator()
 void dmtcp::CoordinatorAPI::connectAndSendUserCommand(char c,
                                                       int *coordCmdStatus,
                                                       int *numPeers,
-                                                      int *running)
+                                                      int *isRunning)
 {
   _coordinatorSocket = createNewSocketToCoordinator(COORD_ANY);
   if (!_coordinatorSocket.isValid()) {
@@ -273,14 +273,7 @@ void dmtcp::CoordinatorAPI::connectAndSendUserCommand(char c,
     return;
   }
 
-  sendUserCommand(c, coordCmdStatus, numPeers, running);
-  _coordinatorSocket.close();
-}
-
-//tell the coordinator to run given user command
-void dmtcp::CoordinatorAPI::sendUserCommand(char c, int* coordCmdStatus /*= NULL*/,
-                                            int *numPeers, int *isRunning)
-{
+  //tell the coordinator to run given user command
   DmtcpMessage msg, reply;
 
   //send
@@ -316,6 +309,8 @@ void dmtcp::CoordinatorAPI::sendUserCommand(char c, int* coordCmdStatus /*= NULL
   if (isRunning != NULL) {
     *isRunning = reply.isRunning;
   }
+
+  _coordinatorSocket.close();
 }
 
 dmtcp::string dmtcp::CoordinatorAPI::getCoordCkptDir(void)

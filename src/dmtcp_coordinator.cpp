@@ -783,27 +783,6 @@ void dmtcp::DmtcpCoordinator::onData(CoordClient *client)
       }
     }
     break;
-    case DMT_USER_CMD:  // dmtcpaware API being used
-      {
-        JTRACE("got user command from client")
-          (msg.coordCmd)(client->identity());
-        // Checkpointing commands should always block, to prevent
-        //   dmtcpaware checkpoint call from returning prior to checkpoint.
-        if (msg.coordCmd == 'c')
-          handleUserCommand( 'b', NULL );
-        DmtcpMessage reply;
-        reply.type = DMT_USER_CMD_RESULT;
-        if (msg.coordCmd == 'i' &&  msg.theCheckpointInterval > 0 ) {
-          theCheckpointInterval = msg.theCheckpointInterval;
-          // For dmtcpaware API, we don't change theDefaultCheckpointInterval
-        }
-        handleUserCommand( msg.coordCmd, &reply );
-        client->sock() << reply;
-        //alternately, we could do the write without blocking:
-        //addWrite(new jalib::JChunkWriter(sock->socket(), (char*)&msg,
-        //                                 sizeof(DmtcpMessage)));
-      }
-      break;
 
 #ifdef COORD_NAMESERVICE
     case DMT_REGISTER_NAME_SERVICE_DATA:
