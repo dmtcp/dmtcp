@@ -1393,7 +1393,8 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
                 "  coord_port=%d\nfi\n\n"
                 "checkpoint_interval=$" ENV_VAR_CKPT_INTR "\n"
                 "if test -z \"$" ENV_VAR_CKPT_INTR "\"; then\n"
-                "  checkpoint_interval=%d\nfi\n\n",
+                "  checkpoint_interval=%d\nfi\n"
+                "export DMTCP_CHECKPOINT_INTERVAL=${checkpoint_interval}\n\n",
                 hostname, thePort, theCheckpointInterval );
 
   fprintf ( fp, "%s", theRestartScriptCmdlineArgHandler );
@@ -1477,7 +1478,10 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
                   "        echo \"Restart error: $DMTCP_DISCOVER_RM_ERROR\"\n"
                   "        exit 0\n"
                   "    fi\n"
-                  "    arguments=\"PATH=$PATH DMTCP_HOST=$DMTCP_HOST DMTCP_PORT=$DMTCP_PORT DMTCP_REMLAUNCH_IDS=$DMTCP_REMLAUNCH_IDS \"\n"
+                  "    arguments=\"PATH=$PATH DMTCP_HOST=$DMTCP_HOST DMTCP_PORT=$DMTCP_PORT\"\n"
+                  "    arguments=$arguments\" DMTCP_CHECKPOINT_INTERVAL=$DMTCP_CHECKPOINT_INTERVAL\"\n"
+                  "    arguments=$arguments\" DMTCP_TMPDIR=$DMTCP_TMPDIR\"\n"
+                  "    arguments=$arguments\" DMTCP_REMLAUNCH_IDS=$DMTCP_REMLAUNCH_IDS \"\n"
                   "    bound=$(($DMTCP_REMLAUNCH_IDS - 1))\n"
                   "    for i in $(seq 0 $bound); do\n"
                   "      eval \"val=\\${DMTCP_REMLAUNCH_$i}\"\n"
