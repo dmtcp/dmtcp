@@ -982,9 +982,10 @@ void dmtcp::DmtcpCoordinator::onConnect()
   }
 #endif
 
-  updateCheckpointInterval(hello_remote.theCheckpointInterval);
+
 
   if (hello_remote.type == DMT_USER_CMD) {
+    updateCheckpointInterval(hello_remote.theCheckpointInterval);
     processDmtUserCmd(hello_remote, remote);
     return;
   }
@@ -1035,6 +1036,7 @@ void dmtcp::DmtcpCoordinator::onConnect()
       .Text("Connect request from Unknown Remote Process Type");
   }
 
+  updateCheckpointInterval(hello_remote.theCheckpointInterval);
   JNOTE ( "worker connected" ) ( hello_remote.from );
 
   clients.push_back(client);
