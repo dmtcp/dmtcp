@@ -914,7 +914,7 @@ void dmtcp::DmtcpCoordinator::initializeComputation()
   curTimeStamp = 0; // Drop timestamp to 0
   numPeers = -1; // Drop number of peers to unknown
   blockUntilDone = false;
-  exitAfterCkpt = false;
+  //exitAfterCkpt = false;
 }
 
 void dmtcp::DmtcpCoordinator::onConnect()
