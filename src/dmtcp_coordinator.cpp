@@ -105,6 +105,8 @@ static const char* theUsage =
   "      Directory to store temporary files (default: env var TMDPIR or /tmp)\n"
   "  --exit-on-last\n"
   "      Exit automatically when last client disconnects\n"
+  "  --exit-after-ckpt\n"
+  "      Exit automatically after checkpoint is created\n"
   "  --daemon\n"
   "      Run silently in the background after detaching from the parent process.\n"
   "  -i, --interval (environment variable DMTCP_CHECKPOINT_INTERVAL):\n"
@@ -1720,6 +1722,9 @@ int main ( int argc, char** argv )
       return 1;
     }else if(s=="--exit-on-last"){
       exitOnLast = true;
+      shift;
+    }else if(s=="--exit-after-ckpt"){
+      exitAfterCkpt = true;
       shift;
     }else if(s=="--daemon"){
       daemon = true;
