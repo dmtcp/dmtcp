@@ -1592,11 +1592,11 @@ void dmtcp::DmtcpCoordinator::updateCheckpointInterval(uint32_t interval)
       interval != theCheckpointInterval) {
     int oldInterval = theCheckpointInterval;
     theCheckpointInterval = interval;
-    if (interval > 0) {
-      JASSERT(clock_gettime(CLOCK_MONOTONIC, &startTime) == 0) (JASSERT_ERRNO);
-    }
     JNOTE ( "CheckpointInterval updated (for this computation only)" )
       ( oldInterval ) ( theCheckpointInterval );
+  }
+  if (interval > 0) {
+    JASSERT(clock_gettime(CLOCK_MONOTONIC, &startTime) == 0) (JASSERT_ERRNO);
   }
 }
 
