@@ -330,11 +330,11 @@ static void runMtcpRestart(int is32bitElf, int fd, dmtcp::ProcessInfo *pInfo)
 
   sprintf(fdBuf, "%d", fd);
   sprintf(stderrFdBuf, "%d", PROTECTED_STDERR_FD);
-  // FIXME:  These methods should probably return'void *', not 'long unsigned'
-  sprintf(savedBrkBuf, "%lud", pInfo->savedBrk());
-  sprintf(addrBuf, "%lud", pInfo->restoreBufAddr());
+  // FIXME:  These methods should return'void *', and not 'long unsigned'
+  sprintf(savedBrkBuf, "%p", pInfo->savedBrk());
+  sprintf(addrBuf, "%p", pInfo->restoreBufAddr());
   sprintf(sizeBuf, "%u", (unsigned) pInfo->restoreBufLen());
-  sprintf(restoreFinishFnPtrBuf, "%lud",  pInfo->restoreFinishFnPtr());
+  sprintf(restoreFinishFnPtrBuf, "%p",  pInfo->restoreFinishFnPtr());
 
   static dmtcp::string mtcprestart =
     jalib::Filesystem::FindHelperUtility ("mtcp_restart");
