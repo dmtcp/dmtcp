@@ -53,7 +53,7 @@ static inline int mtcp_futex (int *uaddr, int op, int val,
   // Maybe could restrict to non-thumb mode here, and gcc might not complain.
   asm volatile ("mov r7, %1\n\t swi 0x0"
                 : "=r" (rc)
-		: "I" __NR_futex,
+		: "I" (__NR_futex),
                   "r" (r0), "r" (r1), "r" (r2), "r" (r3)
                 : "memory", "cc", "r7");
   return (rc);
