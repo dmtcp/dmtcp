@@ -323,18 +323,8 @@ static void runMtcpRestart(int is32bitElf, int fd, dmtcp::ProcessInfo *pInfo)
 {
   char fdBuf[8];
   char stderrFdBuf[8];
-  char savedBrkBuf[32];
-  char addrBuf[32];
-  char sizeBuf[32];
-  char restoreFinishFnPtrBuf[32];
-
   sprintf(fdBuf, "%d", fd);
   sprintf(stderrFdBuf, "%d", PROTECTED_STDERR_FD);
-  // FIXME:  These methods should return'void *', and not 'long unsigned'
-  sprintf(savedBrkBuf, "%p", pInfo->savedBrk());
-  sprintf(addrBuf, "%p", pInfo->restoreBufAddr());
-  sprintf(sizeBuf, "%u", (unsigned) pInfo->restoreBufLen());
-  sprintf(restoreFinishFnPtrBuf, "%p",  pInfo->restoreFinishFnPtr());
 
   static dmtcp::string mtcprestart =
     jalib::Filesystem::FindHelperUtility ("mtcp_restart");
@@ -347,10 +337,6 @@ static void runMtcpRestart(int is32bitElf, int fd, dmtcp::ProcessInfo *pInfo)
     (char*) mtcprestart.c_str(),
     const_cast<char*> ("--fd"), fdBuf,
     const_cast<char*> ("--stderr-fd"), stderrFdBuf,
-    const_cast<char*> ("--saved-brk"), savedBrkBuf,
-    const_cast<char*> ("--addr"), addrBuf,
-    const_cast<char*> ("--size"), sizeBuf,
-    const_cast<char*> ("--restore-finish-fn"), restoreFinishFnPtrBuf,
     NULL
   };
 
