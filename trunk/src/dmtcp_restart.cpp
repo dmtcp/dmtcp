@@ -141,7 +141,7 @@ class RestoreTarget
             Util::readAll(_fd, addr, area.size);
             JASSERT(munmap(addr, area.size) != -1) (JASSERT_ERRNO);
           }
-          printf("%p-%p %c%c%c%c %08x %02d:%02d %-8d          %s\n",
+          printf("%p-%p %c%c%c%c %08lx %02lud:%02lud %-8lud          %s\n",
                  area.addr, area.addr + area.size,
                  ( area.prot & PROT_READ  ? 'r' : '-' ),
                  ( area.prot & PROT_WRITE ? 'w' : '-' ),
@@ -330,10 +330,11 @@ static void runMtcpRestart(int is32bitElf, int fd, dmtcp::ProcessInfo *pInfo)
 
   sprintf(fdBuf, "%d", fd);
   sprintf(stderrFdBuf, "%d", PROTECTED_STDERR_FD);
-  sprintf(savedBrkBuf, "%p", pInfo->savedBrk());
-  sprintf(addrBuf, "%p", pInfo->restoreBufAddr());
+  // FIXME:  These methods should probably return'void *', not 'long unsigned'
+  sprintf(savedBrkBuf, "%lud", pInfo->savedBrk());
+  sprintf(addrBuf, "%lud", pInfo->restoreBufAddr());
   sprintf(sizeBuf, "%u", (unsigned) pInfo->restoreBufLen());
-  sprintf(restoreFinishFnPtrBuf, "%p",  pInfo->restoreFinishFnPtr());
+  sprintf(restoreFinishFnPtrBuf, "%lud",  pInfo->restoreFinishFnPtr());
 
   static dmtcp::string mtcprestart =
     jalib::Filesystem::FindHelperUtility ("mtcp_restart");
