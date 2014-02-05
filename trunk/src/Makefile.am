@@ -16,7 +16,7 @@ jalibdir=$(srcdir)/../jalib/
 dmtcpincludedir=$(srcdir)/../include
 dmtcplibdir = $(pkglibdir)
 
-SUBDIRS = plugin
+SUBDIRS = mtcp plugin
 
 PICFLAGS=-fPIC
 if CONFIG_M32
@@ -33,22 +33,19 @@ targetdir = $(top_builddir)
 MTCP_RESTART=mtcp_restart
 endif
 
-if ARM_HOST
-ARM_EXTRAS = libc-do-syscall-arm.S
-endif
-
 #HEADERS
 #set the include path found by configure
 AM_CPPFLAGS= $(all_includes) -I$(dmtcpincludedir) -I$(jalibdir)
 
 # targets:
+# ${targetdir}/bin/mtcp_restart is also a target, but it's built in
+#   a different directory.
 noinst_LIBRARIES = libdmtcpinternal.a libsyscallsreal.a libnohijack.a libjalib.a
 bin_PROGRAMS = $(targetdir)/bin/dmtcp_launch \
 	       $(targetdir)/bin/dmtcp_command \
 	       $(targetdir)/bin/dmtcp_coordinator \
 	       $(targetdir)/bin/dmtcp_restart \
-	       $(targetdir)/bin/dmtcp_nocheckpoint \
-	       $(targetdir)/bin/mtcp_restart
+	       $(targetdir)/bin/dmtcp_nocheckpoint
 dmtcplib_PROGRAMS = $(targetdir)/lib/dmtcp/libdmtcp.so
 include_HEADERS = $(srcdir)/../include/dmtcp.h
 
@@ -109,7 +106,7 @@ __targetdir__lib_dmtcp_libdmtcp_so_LDFLAGS = -shared -Xlinker -znow
 # Note that an ELF object uses libsyscallsreal.a or libnohijack.a
 #  but not both.  libnohijack.a has stub definitions for same symbols.
 __targetdir__lib_dmtcp_libdmtcp_so_LDADD = libdmtcpinternal.a libjalib.a \
-					   libsyscallsreal.a ${ARM_EXTRAS} \
+					   libsyscallsreal.a \
 					   -ldl -lpthread -lrt
 
 __targetdir__bin_dmtcp_coordinator_LDADD = libdmtcpinternal.a libjalib.a \
@@ -123,18 +120,17 @@ __targetdir__bin_dmtcp_command_LDADD     = libdmtcpinternal.a libjalib.a \
 
 __targetdir__bin_dmtcp_launch_SOURCES = dmtcp_launch.cpp
 
-__targetdir__bin_mtcp_restart_SOURCES = mtcp_restart.c
-__targetdir__bin_mtcp_restart_LDFLAGS = -nodefaultlibs
-__targetdir__bin_mtcp_restart_LDADD = ${ARM_EXTRAS}
-
 # We need to compile threadinfo.c, tlsinfo.c and mtcp_restart.c with
 # "-fno-stack-protector" to avoid runtime stack smashing detection.
 # We also need to build mtcp_restart without optimization (-O0), otherwise it
-# may fail to restart. Since these three objects are fairly low leve, we avoid
+# may fail to restart. Since these three objects are fairly low level, we avoid
 # any surprises by compiling them without any optimization.
-threadinfo.o tlsinfo.o mtcp_restart.o:
+threadinfo.o tlsinfo.o:
 	$(COMPILE) -DPIC -fno-stack-protector -g -O0 -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $(srcdir)/$*.c
 	$(am__mv) $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
+
+$(targetdir)/bin/mtcp_restart: mtcp/mtcp_restart.o
+	cd mtcp && ${MAKE} CC=${CC} mtcp_restart.o
 
 install-exec-hook:
 	cd $(DESTDIR)$(bindir) && $(LN_S) -f dmtcp_launch dmtcp_checkpoint
