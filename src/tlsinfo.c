@@ -23,9 +23,9 @@ int mtcp_sys_errno;
 /* These functions are not defined for x86_64. */
 #ifdef __i386__
 # define tlsinfo_get_thread_area(args...) \
-    mtcp_inline_syscall(get_thread_area,1,args)
+    syscall(SYS_get_thread_area, args)
 # define tlsinfo_set_thread_area(args...) \
-    mtcp_inline_syscall(set_thread_area,1,args)
+    syscall(SYS_set_thread_area, args)
 #endif
 
 #ifdef __x86_64__
