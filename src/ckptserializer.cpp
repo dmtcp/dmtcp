@@ -31,6 +31,7 @@
 #include "dmtcp.h"
 #include "protectedfds.h"
 #include "ckptserializer.h"
+#include "mtcp/mtcp_header.h"
 
 #define _real_pipe(a) _real_syscall(SYS_pipe, a)
 #define _real_waitpid(a,b,c) _real_syscall(SYS_wait4,a,b,c,NULL)
@@ -498,7 +499,10 @@ void dmtcp::CkptSerializer::writeCkptImage()
   JASSERT(use_compression || fd == fdCkptFileOnDisk);
 
   // The rest of this function is for compatibility with original definition.
-  writeCkptHeader(fd);
+  writeDmtcpHeader(fd);
+
+  // Write header for mtcp_restart.
+  writeMtcpHeader(fd);
 
   JTRACE ( "MTCP is about to write checkpoint image." )(*ckptFilename);
   mtcp_writememoryareas(fd);
@@ -545,7 +549,24 @@ void dmtcp::CkptSerializer::writeCkptImage()
   JTRACE("checkpoint complete");
 }
 
-void dmtcp::CkptSerializer::writeCkptHeader(int fd)
+extern "C" void Thread_PostRestart() __attribute__((weak));
+void dmtcp::CkptSerializer::writeMtcpHeader(int fd)
+{
+  MtcpHeader mtcpHdr;
+  memset(&mtcpHdr, 0, sizeof mtcpHdr);
+  strncpy(mtcpHdr.signature, MTCP_SIGNATURE, strlen(MTCP_SIGNATURE) + 1);
+  mtcpHdr.saved_brk = sbrk(0);
+  // TODO: Now that we have a separate mtcp dir, the code dealing with
+  // restoreBuf should go in there.
+  mtcpHdr.restore_addr = (void*) ProcessInfo::instance().restoreBufAddr();
+  mtcpHdr.restore_size = ProcessInfo::instance().restoreBufLen();
+  JASSERT(Thread_PostRestart != NULL);
+  mtcpHdr.post_restart = &Thread_PostRestart;
+
+  JASSERT(Util::writeAll(fd, &mtcpHdr, sizeof mtcpHdr) == sizeof mtcpHdr);
+}
+
+void dmtcp::CkptSerializer::writeDmtcpHeader(int fd)
 {
   const ssize_t len = strlen(DMTCP_FILE_HEADER);
   JASSERT(write(fd, DMTCP_FILE_HEADER, len) == len);

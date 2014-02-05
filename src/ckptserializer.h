@@ -33,7 +33,8 @@ namespace dmtcp
     int openCkptFileToRead(const dmtcp::string& path);
     int openCkptFileToWrite(const dmtcp::string& path);
     void writeCkptImage();
-    void writeCkptHeader(int fd);
+    void writeMtcpHeader(int fd);
+    void writeDmtcpHeader(int fd);
     int readCkptHeader(const dmtcp::string& path, dmtcp::ProcessInfo *pInfo);
   };
 }

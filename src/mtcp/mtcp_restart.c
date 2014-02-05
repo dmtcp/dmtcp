@@ -39,6 +39,7 @@
 #include "mtcp_util.ic"
 #include "membarrier.h"
 #include "procmapsarea.h"
+#include "mtcp_header.h"
 
 #define BINARY_NAME "mtcp_restart"
 #define BINARY_NAME_M32 "mtcp_restart-32"
@@ -125,30 +126,52 @@ int main(int argc, char *argv[])
 {
   int orig_argc = argc;
   char **orig_argv = argv;
+  char *ckptImage = NULL;
+  MtcpHeader mtcpHdr;
+  int mtcp_sys_errno;
 
+  rinfo.fd = -1;
   shift;
   while (argc > 0) {
-    if (argc < 2) {
-      MTCP_PRINTF("MTCP Internal Error\n");
-      return -1;
+    if (argc == 1) {
+      MTCP_PRINTF("Considering '%s' as a ckpt image.\n", argv[0]);
+      ckptImage = argv[0];
+      break;
     } else if (mtcp_strcmp(argv[0], "--fd") == 0) {
       rinfo.fd = mtcp_strtol(argv[1]);
     } else if (mtcp_strcmp(argv[0], "--stderr-fd") == 0) {
       rinfo.stderr_fd = mtcp_strtol(argv[1]);
-    } else if (mtcp_strcmp(argv[0], "--saved-brk") == 0) {
-      rinfo.saved_brk = (VA) mtcp_strtol(argv[1]);
-    } else if (mtcp_strcmp(argv[0], "--addr") == 0) {
-      rinfo.restore_addr = (VA) mtcp_strtol(argv[1]);
-    } else if (mtcp_strcmp(argv[0], "--size") == 0) {
-      rinfo.restore_size = mtcp_strtol(argv[1]);
-    } else if (mtcp_strcmp(argv[0], "--restore-finish-fn") == 0) {
-      rinfo.post_restart = (fnptr_t) mtcp_strtol(argv[1]);
     } else {
       MTCP_PRINTF("MTCP Internal Error\n");
       return -1;
     }
     shift; shift;
   }
+
+  if ((rinfo.fd != -1) ^ (ckptImage == NULL)) {
+    MTCP_PRINTF("***MTCP Internal Error\n");
+    mtcp_abort();
+  }
+
+  if (rinfo.fd != -1) {
+    mtcp_readfile(rinfo.fd, &mtcpHdr, sizeof mtcpHdr);
+  } else {
+    rinfo.fd = mtcp_sys_open2(ckptImage, O_RDONLY);
+    if (rinfo.fd == -1) {
+      MTCP_PRINTF("***ERROR opening ckpt image (%s): %d\n",
+                  ckptImage, mtcp_sys_errno);
+      mtcp_abort();
+    }
+    // This assumes that the MTCP header signature is unique.
+    do {
+      mtcp_readfile(rinfo.fd, &mtcpHdr, sizeof mtcpHdr);
+    } while (mtcp_strcmp(mtcpHdr.signature, MTCP_SIGNATURE) != 0);
+  }
+
+  rinfo.saved_brk = mtcpHdr.saved_brk;
+  rinfo.restore_addr = mtcpHdr.restore_addr;
+  rinfo.restore_size = mtcpHdr.restore_size;
+  rinfo.post_restart = mtcpHdr.post_restart;
 
   restore_brk(rinfo.saved_brk, rinfo.restore_addr,
               rinfo.restore_addr + rinfo.restore_size);
@@ -339,7 +362,8 @@ static void restorememoryareas(RestoreInfo *rinfo_ptr)
   mtcp_sys_close (restore_info.fd);
 
   //IMB; // flush instruction cache, since mtcp_restart.c code is now gone.
-  DPRINTF("restore complete, resuming...\n");
+  DPRINTF("restore complete, resuming by jumping to %p...\n",
+          restore_info.post_restart);
 
   /* Jump to finishrestore in original program's libmtcp.so image */
   restore_info.post_restart();
