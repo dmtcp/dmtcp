@@ -8,7 +8,7 @@
 #include <linux/version.h>
 #include <gnu/libc-version.h>
 #include "threadinfo.h"
-#include "mtcp_sys.h"
+#include "mtcp_sys_for_dmtcp.h"
 
 int mtcp_sys_errno;
 
@@ -31,6 +31,9 @@ int mtcp_sys_errno;
 #ifdef __x86_64__
 # include <asm/prctl.h>
 # include <sys/prctl.h>
+#if 0
+// I don't see why you would want a direct kernel call inside DMTCP.
+// Removing this will remove the dependency on mtcp_sys.h.  - Gene
 static unsigned long int myinfo_gs;
 /* ARE THE _GS OPERATIONS NECESSARY? */
 #  define tlsinfo_get_thread_area(uinfo) \
@@ -43,6 +46,20 @@ static unsigned long int myinfo_gs;
 	*(unsigned long int *)&(((struct user_desc *)uinfo)->base_addr)), \
       mtcp_inline_syscall(arch_prctl,2,ARCH_SET_GS, myinfo_gs) \
     )
+# else
+static unsigned long int myinfo_gs;
+/* ARE THE _GS OPERATIONS NECESSARY? */
+#  define tlsinfo_get_thread_area(uinfo) \
+     ( arch_prctl(ARCH_GET_FS, \
+         (unsigned long int)(&(((struct user_desc *)uinfo)->base_addr))), \
+       arch_prctl(ARCH_GET_GS, &myinfo_gs) \
+     )
+#  define tlsinfo_set_thread_area(uinfo) \
+    ( arch_prctl(ARCH_SET_FS, \
+	*(unsigned long int *)&(((struct user_desc *)uinfo)->base_addr)), \
+      arch_prctl(ARCH_SET_GS, myinfo_gs) \
+    )
+# endif
 #endif /* end __x86_64__ */
 
 #ifdef __arm__

@@ -254,6 +254,7 @@ static void *checkpointhread (void *dummy)
     sigdelset(&set, SIGSETXID);
     sigdelset(&set, SIGCANCEL);
 
+    // FIXME: Compiler issuing warning here; Why do we mix ASSERT and JASSERT?
     ASSERT(pthread_sigmask(SIG_SETMASK, &set, NULL) == 0);
   }
 
