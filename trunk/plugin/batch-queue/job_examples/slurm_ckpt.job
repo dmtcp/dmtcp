@@ -18,6 +18,13 @@ start_coordinator()
 {
     fname=dmtcp_command.$SLURM_JOBID
     h=`hostname`
+
+    check_coordinator=`which dmtcp_coordinator`
+    if [ -z "$check_coordinator" ]; then
+        echo "No dmtcp_coordinator found. Check your DMTCP installation and PATH settings"
+        exit 0
+    fi
+
     dmtcp_coordinator --daemon --exit-on-last -p 0 --port-file $fname $@ 1>/dev/null 2>&1
     
     while true; do 
