@@ -228,7 +228,7 @@ int resources_slurm::discover()
       }
     }
     node_map[node].id = node_id++;
-    node_map[node].slots = slotnum;
+    node_map[node].app_slots = slotnum;
     node_map[node].name = node;
     // first node in the list launches all application
     node_map[node].is_launch = is_launch;

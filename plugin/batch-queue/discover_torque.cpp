@@ -50,11 +50,11 @@ int resources_tm::discover()
       return -1;
     } else {
       if (node_map.find(buf) != node_map.end()) {
-        node_map[buf].slots++;
+        node_map[buf].app_slots++;
       } else {
         node_map[buf].id = node_id;
         node_id++;
-        node_map[buf].slots = 1;
+        node_map[buf].app_slots = 1;
         node_map[buf].name = buf;
         // first node in the list considered as node
         // that launches all application
