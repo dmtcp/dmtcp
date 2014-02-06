@@ -1492,7 +1492,7 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
                   "    arguments=\"PATH=$PATH DMTCP_HOST=$DMTCP_HOST DMTCP_PORT=$DMTCP_PORT\"\n"
                   "    arguments=$arguments\" DMTCP_CHECKPOINT_INTERVAL=$DMTCP_CHECKPOINT_INTERVAL\"\n"
                   "    arguments=$arguments\" DMTCP_TMPDIR=$DMTCP_TMPDIR\"\n"
-                  "    arguments=$arguments\" DMTCP_REMLAUNCH_NODES=$DMTCP_REMLAUNCH_NODES\n"
+                  "    arguments=$arguments\" DMTCP_REMLAUNCH_NODES=$DMTCP_REMLAUNCH_NODES\"\n"
                   "    bound=$(($DMTCP_REMLAUNCH_NODES - 1))\n"
                   "    for i in $(seq 0 $bound); do\n"
                   "      eval \"val=\\${DMTCP_REMLAUNCH_${i}_SLOTS}\"\n"
