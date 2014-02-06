@@ -16,3 +16,9 @@ all: ../../bin/mtcp_restart
 
 clean:
 	rm -f *.o
+
+install:
+
+uninstall:
+
+distclean:
