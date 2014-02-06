@@ -133,20 +133,20 @@ $(targetdir)/bin/mtcp_restart: mtcp/mtcp_restart.o
 	cd mtcp && ${MAKE} CC=${CC} mtcp_restart.o
 
 install-exec-hook:
+	install $(targetdir)/bin/mtcp_restart $(DESTDIR)$(bindir)
 	cd $(DESTDIR)$(bindir) && $(LN_S) -f dmtcp_launch dmtcp_checkpoint
 
 uninstall-hook:
 	rm -f $(DESTDIR)$(bindir)/dmtcp_checkpoint
+	rm $(DESTDIR)$(bindir)/mtcp_restart
 
 libs: $(dmtcplib_PROGRAMS) $(lib_LIBRARIES) $(targetdir)/bin/mtcp_restart
 	(cd plugin && ${MAKE} libs)
 
 install-libs: install-dmtcplibPROGRAMS
-	install $(targetdir)/bin/mtcp_restart $(DESTDIR)$(bindir)
 	(cd plugin && ${MAKE} install-libs)
 
 uninstall-libs: uninstall-dmtcplibPROGRAMS
 	(cd plugin && ${MAKE} uninstall-libs)
-	rm $(DESTDIR)$(bindir)/mtcp_restart
 
 .PHONY: libs install-libs uninstall-libs
