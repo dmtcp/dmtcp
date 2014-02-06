@@ -1469,8 +1469,8 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
                   "      for j in $(seq 0 $bound2); do\n"
                   "        eval \"ckpts=\\${DMTCP_REMLAUNCH_${i}_${j}}\"\n"
                   "        export DMTCP_REMLAUNCH_${i}_${j}=\"$ckpts\"\n"
-                  "      done
-                  "    done
+                  "      done\n"
+                  "    done\n"
                   "    export DMTCP_REMLAUNCH_IDS=$DMTCP_REMLAUNCH_IDS\n"
                   "    bound=$(($DMTCP_REMLAUNCH_IDS - 1))\n"
                   "    for i in $(seq 0 $bound); do\n"
@@ -1501,7 +1501,7 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
                   "      for j in $(seq 0 $bound2); do\n"
                   "        eval \"ckpts=\\${DMTCP_REMLAUNCH_${i}_${j}}\"\n"
                   "        arguments=$arguments\" DMTCP_REMLAUNCH_${i}_${j}=\\\"$ckpts\\\"\"\n"
-                  "      done
+                  "      done\n"
                   "    done\n"
                   "    pbsdsh -u \"$llaunch\" \"$arguments\"\n"
                   "    exit 0\n"
