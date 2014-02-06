@@ -281,6 +281,7 @@ __attribute__((optimize(0)))
 static void restart_slow_path()
 {
   int mtcp_sys_errno;
+  // FIXME: Does it take arg or not? Args not declared, used both ways! - Gene
   restorememoryareas();
 }
 
