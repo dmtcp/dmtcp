@@ -244,7 +244,7 @@ void resources_input::writeout_new(string env_var, resources &r)
     cout << "DMTCP_DISCOVER_RM_WARNING=\'" << warning << "\'" << endl;
   }
   
-  cout << env_var + "_NODES=\'" << r.ssize() << "\'" << endl;
+  cout << env_var + "_NODES=" << r.ssize() << endl;
 
   bool has_srv_slots = false;
   for (size_t i = 0; i < r.ssize(); i++) {
@@ -257,7 +257,8 @@ void resources_input::writeout_new(string env_var, resources &r)
         slots_cnt += v.size();
         has_srv_slots = has_srv_slots || node_map[name].srv_slots > 0;
       }
-      if( has_srv_slots ){
+
+      if( !has_srv_slots ){
         std::cout << env_var + "_" << r[i].id << "_SLOTS=" << slots_cnt << std::endl;
 
         slot_num = 0;
@@ -286,7 +287,7 @@ void resources_input::writeout_new(string env_var, resources &r)
               std::cout  << (*it) << " " << endl;
             }
           }
-          std::cout << "\'";
+          std::cout << "\'" << std::endl;
       }
     }else{
         cout << env_var + "_" << r[i].id << "_SLOTS=0";
