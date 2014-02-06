@@ -27,8 +27,7 @@ if [ -n "$SLURM_JOBID" ] || [ -n "$SLURM_JOB_ID" ]; then
   fi
 
   if [ "$SLURM_LOCALID" -ge $LOCAL_SLOTS ]; then
-    echo "`hostname`: Bad local ID: SLURM_LOCALID=$SLURM_LOCALID, LOCAL_SLOTS=$LOCAL_SLOTS"
-    set
+    echo "`hostname`: Will not use SLURM_LOCALID=$SLURM_LOCALID for launch, max is $LOCAL_SLOTS"
     exit 0
   fi
 
