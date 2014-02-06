@@ -266,6 +266,7 @@ void resources_input::writeout_new(string env_var, resources &r)
         for(; it != v.end(); it++){
           std::cout << env_var + "_" << r[i].id << "_" << slot_num;
           std::cout  << "=\'" << (*it) << "\'" << endl;
+          slot_num++;
         }
       }
     }else{
