@@ -16,7 +16,7 @@ int main()
     if (fp2 == NULL)
       abort();
 
-    fd = mkostemp(filename, O_WRONLY);
+    fd = open(mktemp(filename), O_WRONLY|O_CREAT, S_IWUSR|S_IWUSR);
     if (fd == -1)
       abort();
     // Problematic only when in "w" mode or "a". All + modes and "r" are fine.
