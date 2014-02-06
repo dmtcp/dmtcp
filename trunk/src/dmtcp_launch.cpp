@@ -685,7 +685,7 @@ static void setLDPreloadLibs(bool is32bitElf)
 #endif
 
 #if 0
-  // After updating rpath, we shouldn't need to set LD_LIBRARY_PATH explicitely.
+  // After updating rpath, we shouldn't need to set LD_LIBRARY_PATH explicitly.
   const char *ldLibPath = getenv("LD_LIBRARY_PATH");
   dmtcp::string libPath;
   if (ldLibPath != NULL) {

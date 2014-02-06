@@ -45,7 +45,9 @@
 using namespace dmtcp;
 
 int rounding_mode = 1;
-static char prctlPrgName[22] = {0};
+// FIXME: Linux prctl for PR_GET_NAME/PR_SET_NAME is on a per-thread basis.
+//   If we want to be really accurate, we should make this thread-local.
+static char prctlPrgName[16+sizeof(DMTCP_PRGNAME_PREFIX)-1] = {0};
 static void prctlGetProcessName();
 static void prctlRestoreProcessName();
 static void save_term_settings();
