@@ -40,14 +40,16 @@
 class resources_input : public resources {
 private:
   bool _valid;
-  std::map<std::string, std::string> node_ckpt_map;
+  typedef std::vector<std::string> slots_v;
+  std::map< std::string, slots_v> node_ckpt_map;
 
   void trim(std::string &str, std::string delim);
   bool get_checkpoint_filename(std::string &str, std::string &ckptname);
   bool is_serv_slot(std::string &str);
   bool is_launch_process(std::string &str);
-  void count_slots(std::string &str, uint &slots, uint &srv_slots, bool &is_launch);
   bool add_host(std::string &str, uint &node_id);
+  void split2slots(std::string &str, std::vector<std::string> &app_slots,
+                   std::vector<std::string> &srv_slots, bool &is_launch);
 
 public:
   resources_input(std::string str);

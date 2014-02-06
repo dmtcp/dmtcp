@@ -49,7 +49,7 @@ public:
   class node_t {
   public:
     std::string name;
-    uint slots;
+    uint app_slots;
     uint srv_slots;
     uint id;
     std::string mode;
@@ -58,7 +58,7 @@ public:
     node_t()
     {
       name = "";
-      slots = srv_slots = 0;
+      app_slots = srv_slots = 0;
       id = 0;
       mode = "";
       is_launch = false;
@@ -80,7 +80,7 @@ protected:
       return true;
     if( r->is_launch )
       return false;
-    if (l->slots > r->slots)
+    if (l->app_slots > r->app_slots)
       return true;
     return false;
   }
