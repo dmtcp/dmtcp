@@ -98,7 +98,7 @@ make install DESTDIR=%{buildroot}
 * Fri Jan 10 2014 Kapil Arya <kapil@ccs.neu.edu> - 2.1-1
 - Preparing for upstream release 2.1.
 
-* Thu Dec 12 2013 Ville Skyttä <ville.skytta@iki.fi> - 1.2.8-2
+* Thu Dec 12 2013 Ville Skytta <ville.skytta@iki.fi> - 1.2.8-2
 - Install docs to %%{_pkgdocdir} where available (#993726).
 - Own package level doc dir.
 

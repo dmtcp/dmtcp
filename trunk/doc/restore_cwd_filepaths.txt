@@ -4,10 +4,10 @@ Restoring CWD and files on restart:
 ==================================
 
 Key:
-InitWD – Work directory process started in
-CkptWD – Work directory process was in when checkpoint occurred
-FilePath – Absolute path to a file
-RestoreWD – Work directory process is restored in
+InitWD - Work directory process started in
+CkptWD - Work directory process was in when checkpoint occurred
+FilePath - Absolute path to a file
+RestoreWD - Work directory process is restored in
 
 Example:
 InitWD - /tmp/init_wd

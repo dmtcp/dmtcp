@@ -43,8 +43,8 @@ using namespace dmtcp;
  * + Socket interfaces, when a timeout has been  set  on  the  socket
  *   using   setsockopt(2):   accept(2),  recv(2),  recvfrom(2),  and
  *   recvmsg(2), if a receive timeout (SO_RCVTIMEO)  has  been  set;
- *   connect(2),  send(2), sendto(2), and sendmsg(2), if a send time‐
- *   out(SO_SNDTIMEO) has been set.
+ *   connect(2),  send(2), sendto(2), and sendmsg(2), if a send timeout
+ *   (SO_SNDTIMEO) has been set.
  *
  * + Interfaces used to wait for  signals:  pause(2),  sigsuspend(2),
  *   sigtimedwait(2), and sigwaitinfo(2).
@@ -55,8 +55,7 @@ using namespace dmtcp;
  * + System V IPC interfaces:  msgrcv(2),  msgsnd(2),  semop(2),  and
  *   semtimedop(2).
  *
- * + Sleep    interfaces:   clock_nanosleep(2),   nanosleep(2),   and
- *   usleep(3).
+ * + Sleep interfaces:  clock_nanosleep(2), nanosleep(2), and usleep(3).
  *
  * + read(2) from an inotify(7) file descriptor.
  *
