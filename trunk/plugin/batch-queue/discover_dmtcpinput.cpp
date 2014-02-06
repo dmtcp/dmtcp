@@ -74,10 +74,10 @@ void resources_input::trim(string &str, string delim)
     return false;
   }
 
-  void resources_input::count_slots(string &str, uint &slots, uint &srv_slots, bool &is_launch)
+  void resources_input::split2slots(std::string &str, std::vector<std::string> &app_slots,
+                                    std::vector<std::string> &srv_slots, bool &is_launch)
   {
     string delim = " ";
-    slots = srv_slots = 0;
     size_t start_pos = 0, match_pos;
     str += ' ';
     if ((start_pos = str.find_first_not_of(delim, start_pos)) == string::npos)
@@ -91,9 +91,10 @@ void resources_input::trim(string &str, string delim)
         if (get_checkpoint_filename(sub, ckptname)) {
           if (is_serv_slot(ckptname)) {
             is_launch = is_launch_process(ckptname);
-            srv_slots++;
-          } else
-            slots++;
+            srv_slots.push_back(sub);
+           } else{
+            app_slots.push_back(sub);
+          }
         }
       }
       start_pos = match_pos;
@@ -137,25 +138,34 @@ void resources_input::trim(string &str, string delim)
     size_t sublen = str.length() - start_pos;
     string ckpts(str.substr(start_pos, sublen));
     trim(ckpts, "\n");
-    uint slots, srv_slots;
-    count_slots(ckpts, slots, srv_slots, is_launch);
+    slots_v app_slots, srv_slots;
+    split2slots(ckpts, app_slots, srv_slots, is_launch);
 
     if (node_map.find(hostname) != node_map.end()) {
-      node_map[hostname].slots += slots;
-      node_map[hostname].srv_slots += srv_slots;
+      node_map[hostname].app_slots += app_slots.size();
+      node_map[hostname].srv_slots += srv_slots.size();
       node_map[hostname].is_launch = node_map[hostname].is_launch || is_launch;
-      node_ckpt_map[hostname] += ' ' + ckpts;
+      slots_v &v = node_ckpt_map[hostname];
+      v.insert(v.end(),app_slots.begin(),app_slots.end());
+      slots_v::iterator it = srv_slots.begin();
+      for(; it != srv_slots.end(); it++){
+          v[0] += " " + (*it);
+      }
     } else {
       node_map[hostname].id = node_id;
       node_id++;
-      node_map[hostname].slots = slots;
-      node_map[hostname].srv_slots = srv_slots;
+      node_map[hostname].app_slots = app_slots.size();
+      node_map[hostname].srv_slots = srv_slots.size();
       node_map[hostname].name = hostname;
       node_map[hostname].mode = mode;
       node_map[hostname].is_launch = is_launch;
-      node_ckpt_map[hostname] = ckpts;
+      slots_v &v = node_ckpt_map[hostname];
+      v.insert(v.end(),app_slots.begin(),app_slots.end());
+      slots_v::iterator it = srv_slots.begin();
+      for(; it != srv_slots.end(); it++){
+          v[0] += " " + (*it);
+      }
     }
-
     return true;
   }
 
@@ -210,7 +220,11 @@ void resources_input::writeout_old(string env_var, resources &r)
       for (size_t j = 0; j < map[i].size(); j++) {
         int k = map[i][j];
         string name = sorted_v[k]->name;
-        cout << node_ckpt_map[name];
+        slots_v &v = node_ckpt_map[name];
+        slots_v::iterator it = v.begin();
+        for(; it != v.end(); it++){
+            cout << (*it) + " ";
+        }
       }
       cout << endl;
     }
@@ -230,17 +244,32 @@ void resources_input::writeout_new(string env_var, resources &r)
     cout << "DMTCP_DISCOVER_RM_WARNING=\'" << warning << "\'" << endl;
   }
   
-  cout << env_var + "_IDS=\'" << r.ssize() << "\'" << endl;
+  cout << env_var + "_NODES=\'" << r.ssize() << "\'" << endl;
 
   for (size_t i = 0; i < r.ssize(); i++) {
-    cout << env_var + "_" << r[i].id << "=\' ";
     if (map[i].size()) {
+      int slots_cnt = 0, slot_num;
       for (size_t j = 0; j < map[i].size(); j++) {
         int k = map[i][j];
         string name = sorted_v[k]->name;
-        cout << node_ckpt_map[name] << " ";
+        slots_v &v = node_ckpt_map[name];
+        slots_cnt += v.size();
       }
+      std::cout << env_var + "_" << r[i].id << "_SLOTS=" << slots_cnt << std::endl;
+
+      slot_num = 0;
+      for (size_t j = 0; j < map[i].size(); j++) {
+        int k = map[i][j];
+        string name = sorted_v[k]->name;
+        slots_v &v = node_ckpt_map[name];
+        slots_v::iterator it = v.begin();
+        for(; it != v.end(); it++){
+          std::cout << env_var + "_" << r[i].id << "_" << slot_num;
+          std::cout  << "=\'" << (*it) << "\'" << endl;
+        }
+      }
+    }else{
+        cout << env_var + "_" << r[i].id << "_SLOTS=0";
     }
-    cout << "\'" << endl;
   }
 }

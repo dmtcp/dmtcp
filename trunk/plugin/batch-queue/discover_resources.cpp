@@ -30,7 +30,7 @@ void resources::update_sorted()
 
     for (; it != node_map.end(); it++) {
       sorted_v.push_back(&(it->second));
-      slots_cnt += it->second.slots;
+      slots_cnt += it->second.app_slots;
     }
 
     sort(sorted_v.begin(), sorted_v.end(), compare);
@@ -45,7 +45,7 @@ void resources::output(string env_name)
     for (; it != node_map.end(); it++) {
       if( it->second.is_launch )
         printf("*");
-      printf("%s:%u ", it->second.name.c_str(), it->second.slots);
+      printf("%s:%u ", it->second.name.c_str(), it->second.app_slots);
     }
     printf("\"\n");
 }
@@ -57,7 +57,7 @@ void resources::output_sorted(string env_name)
   for (; it != sorted_v.end(); it++) {
     if( (*it)->is_launch )
       printf("*");
-    printf("%s:%u ", (*it)->name.c_str(), (*it)->slots);
+    printf("%s:%u ", (*it)->name.c_str(), (*it)->app_slots);
   }
   printf("\"\n");
 }
@@ -93,13 +93,13 @@ bool resources::map_to(resources &newres, mapping_t &map, string warning)
       }
     }
 
-    if (newres[new_launch].slots < sorted_v[old_launch]->slots) {
+    if (newres[new_launch].app_slots < sorted_v[old_launch]->app_slots) {
       warning += "WARINIG: amount of MPI-worker slots on new node is less than amount on old one\n";
       // put only launch process on launch node ?
     }
 
     map[new_launch].push_back(old_launch);
-    map_used[new_launch] += sorted_v[old_launch]->slots;
+    map_used[new_launch] += sorted_v[old_launch]->app_slots;
 
     // map other nodes
     for (size_t i = 0; i < sorted_v.size(); i++) {
@@ -108,10 +108,10 @@ bool resources::map_to(resources &newres, mapping_t &map, string warning)
         continue;
 
       // continue with any other node
-      uint search_res = operator[](i).slots;
+      uint search_res = operator[](i).app_slots;
       bool found = false;
       for (size_t j = 0; j < size && !found; j++) {
-        uint free = newres[j].slots - map_used[j];
+        uint free = newres[j].app_slots - map_used[j];
         if (free >= search_res) {
           map_used[j] += search_res;
           map[j].push_back(i);
