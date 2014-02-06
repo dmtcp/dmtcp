@@ -246,6 +246,7 @@ void resources_input::writeout_new(string env_var, resources &r)
   
   cout << env_var + "_NODES=\'" << r.ssize() << "\'" << endl;
 
+  bool has_srv_slots = false;
   for (size_t i = 0; i < r.ssize(); i++) {
     if (map[i].size()) {
       int slots_cnt = 0, slot_num;
@@ -254,20 +255,38 @@ void resources_input::writeout_new(string env_var, resources &r)
         string name = sorted_v[k]->name;
         slots_v &v = node_ckpt_map[name];
         slots_cnt += v.size();
+        has_srv_slots = has_srv_slots || node_map[name].srv_slots > 0;
       }
-      std::cout << env_var + "_" << r[i].id << "_SLOTS=" << slots_cnt << std::endl;
+      if( has_srv_slots ){
+        std::cout << env_var + "_" << r[i].id << "_SLOTS=" << slots_cnt << std::endl;
 
-      slot_num = 0;
-      for (size_t j = 0; j < map[i].size(); j++) {
-        int k = map[i][j];
-        string name = sorted_v[k]->name;
-        slots_v &v = node_ckpt_map[name];
-        slots_v::iterator it = v.begin();
-        for(; it != v.end(); it++){
-          std::cout << env_var + "_" << r[i].id << "_" << slot_num;
-          std::cout  << "=\'" << (*it) << "\'" << endl;
-          slot_num++;
+        slot_num = 0;
+        for (size_t j = 0; j < map[i].size(); j++) {
+          int k = map[i][j];
+          string name = sorted_v[k]->name;
+          slots_v &v = node_ckpt_map[name];
+          slots_v::iterator it = v.begin();
+          for(; it != v.end(); it++){
+            std::cout << env_var + "_" << r[i].id << "_" << slot_num;
+            std::cout  << "=\'" << (*it) << "\'" << endl;
+            slot_num++;
+          }
         }
+      }else{
+          slots_cnt = 1;
+          std::cout << env_var + "_" << r[i].id << "_SLOTS=" << slots_cnt << std::endl;
+          slot_num = 0;
+          std::cout << env_var + "_" << r[i].id << "_" << slot_num << "=\'";
+          for (size_t j = 0; j < map[i].size(); j++) {
+            int k = map[i][j];
+            string name = sorted_v[k]->name;
+            slots_v &v = node_ckpt_map[name];
+            slots_v::iterator it = v.begin();
+            for(; it != v.end(); it++){
+              std::cout  << (*it) << " " << endl;
+            }
+          }
+          std::cout << "\'";
       }
     }else{
         cout << env_var + "_" << r[i].id << "_SLOTS=0";
