@@ -19,7 +19,7 @@ int main()
     fd = mkostemp(filename, O_WRONLY);
     if (fd == -1)
       abort();
-    // Problematic only when in “w” mode or “a”. All + modes and “r” are fine.
+    // Problematic only when in "w" mode or "a". All + modes and "r" are fine.
     fp = fdopen(fd, "w");
     //fp = fopen("/tmp/ff_jdl", "w");
 
