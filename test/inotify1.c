@@ -62,8 +62,20 @@ int main(int argc, char** argv)
    arguments thread_args_2 = {0};
    pthread_t monitor_thread_1;
    pthread_t monitor_thread_2;
-   char directory_1[] = "/tmp/dmtcp_inotify1/";
-   char directory_2[] = "/tmp/dmtcp_inotify2/";
+
+   char directory_1[100];
+   char directory_2[100];
+   char *dir = getenv("DMTCP_TMPDIR");
+   if (!dir) dir = getenv("TMPDIR");
+   if (!dir) dir = "/tmp";
+   if (sizeof(directory_1) < strlen(dir) + sizeof("/dmtcp_inotify1/")) {
+     printf("Directory string too large.\n");
+     return 1;
+   }
+   strcpy(directory_1, dir);
+   strcat(directory_1, "/dmtcp_inotify1/");
+   strcpy(directory_2, dir);
+   strcat(directory_2, "/dmtcp_inotify2/");
 
    
    //create the directory in /tmp which will host the files
@@ -158,8 +170,16 @@ int main(int argc, char** argv)
     *=========================================================*/
    for(i = 0; i < NUM_OF_FILES; i++)
    {
-      char name_path_1[20] = {0};
-      char name_path_2[20] = {0};
+      char name_path_1[100] = {0};
+      char name_path_2[100] = {0};
+      if (sizeof(name_path_1) <
+            strlen(directory_1) + sizeof(file_names_1[i]) ||
+          sizeof(name_path_2) <
+            strlen(directory_2) + sizeof(file_names_2[i])
+         ) {
+        printf("name_path string too large.\n");
+        return 1;
+      }
       strcat(name_path_1, directory_1);
       strcat(name_path_1, file_names_1[i]);
       strcat(name_path_2, directory_2);
@@ -183,11 +203,19 @@ int main(int argc, char** argv)
    {
       for(i = 0; i < NUM_OF_FILES; i++)
       {
-         char name_path_1[20] = {0};
-         char name_path_2[20] = {0};
-         strcat(name_path_1, directory_1);
+         char name_path_1[100] = {0};
+         char name_path_2[100] = {0};
+         if (sizeof(name_path_1) <
+               strlen(directory_1) + sizeof(file_names_1[i]) ||
+             sizeof(name_path_2) <
+               strlen(directory_2) + sizeof(file_names_2[i])
+            ) {
+           printf("name_path string too large.\n");
+           return 1;
+         }
+         strcpy(name_path_1, directory_1);
          strcat(name_path_1, file_names_1[i]);
-         strcat(name_path_2, directory_2);
+         strcpy(name_path_2, directory_2);
          strcat(name_path_2, file_names_2[i]); 
       
          //write to file in directory 1
