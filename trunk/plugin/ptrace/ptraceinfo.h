@@ -28,7 +28,7 @@
 #include <linux/version.h>
 // This was needed for:  SUSE LINUX 10.0 (i586) OSS
 #ifndef PTRACE_SETOPTIONS
-# include <sys/ptrace.h>
+# include <linux/ptrace.h>
 #endif
 #include <stdarg.h>
 #include <linux/unistd.h>
