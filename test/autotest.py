@@ -580,7 +580,8 @@ def runTestRaw(name, numProcs, cmds):
                 if os.path.isdir(dmtcp_tmpdir()) and os.path.isfile(coredump):
                   if subprocess.call( ("cp -pr " + coredump + ' '
                                    + dmtcp_tmpdir()).split() ) == 0:
-                    printFixed(" (" + coredump + " copied to DMTCP_TMPDIR)")
+                    printFixed(" (" + coredump + " copied to DMTCP_TMPDIR:" +
+                               dmtcp_tmpdir() + "/)")
             else:
               printFixed("(first process didn't die)")
             printFixed(" retry:")
