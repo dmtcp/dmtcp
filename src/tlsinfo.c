@@ -31,6 +31,11 @@ int mtcp_sys_errno;
 #ifdef __x86_64__
 # include <asm/prctl.h>
 # include <sys/prctl.h>
+/* man arch_prctl has both signatures, and prctl.h above has no declaration.
+ *  int arch_prctl(int code, unsigned long addr);
+ *  int arch_prctl(int code, unsigned long addr);
+ */
+int arch_prctl();
 #if 0
 // I don't see why you would want a direct kernel call inside DMTCP.
 // Removing this will remove the dependency on mtcp_sys.h.  - Gene
