@@ -5,20 +5,32 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <string.h>
 
 int main()
 {
     int count = 0;
     int fd;
     FILE *fp;
-    char filename[] = "/tmp/ff_jdl_XXXXXX";
+    char filename[100];  /* "/tmp/ff_jdl_XXXXXX" for current TMPDIR */
     FILE *fp2;
+
+    char *dir = getenv("DMTCP_TMPDIR");
+    if (!dir) dir = getenv("TMPDIR");
+    if (!dir) dir = "/tmp";
+    if (sizeof(filename) < strlen(dir) + sizeof("/ff_jdl_XXXXXX")) {
+      printf("Directory string too large.\n");
+      return 1;
+    }
+    strcpy(filename, dir);
+    strcat(filename, "/ff_jdl_XXXXXX");
 
     fp2 = fopen("/proc/self/exe", "r");
     if (fp2 == NULL)
       abort();
 
-    fd = open(mkstemp(filename), O_WRONLY|O_CREAT, S_IWUSR|S_IWUSR);
+    close(mkstemp(filename));
+    fd = open(filename, O_WRONLY|O_CREAT, S_IWUSR|S_IWUSR);
     if (fd == -1)
       abort();
     // Problematic only when in "w" mode or "a". All + modes and "r" are fine.
