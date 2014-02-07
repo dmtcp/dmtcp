@@ -1,5 +1,6 @@
+#define _GNU_SOURCE
 #include <pthread.h>
-#include <linux/sched.h>
+#include <sched.h>  /* for CLONE_SETTLS, needs _GNU_SOURCE */
 #include "threadinfo.h"
 #include "dmtcp.h"
 #include "tlsinfo.h"

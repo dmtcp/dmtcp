@@ -6,7 +6,6 @@
 #include <semaphore.h>
 #include <sys/resource.h>
 #include <linux/version.h>
-#include <linux/limits.h>
 #include "threadlist.h"
 #include "tlsinfo.h"
 #include "siginfo.h"
