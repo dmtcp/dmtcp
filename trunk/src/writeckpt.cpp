@@ -92,7 +92,7 @@ void mtcp_writememoryareas(int fd)
   int mapsfd = _real_open("/proc/self/maps", O_RDONLY);
   while (Util::readProcMapsLine(mapsfd, &area)) {
     VA area_begin = area.addr;
-    VA area_end   = area_begin + area.size;
+    /* VA area_end   = area_begin + area.size; */
 
     if ((uint64_t)area.addr == ProcessInfo::instance().restoreBufAddr()) {
       JASSERT(area.size == ProcessInfo::instance().restoreBufLen())
@@ -324,7 +324,7 @@ static void mtcp_get_next_page_range(Area *area, size_t *size, int *is_zero)
   for (pg = area->addr + one_MB;
        pg < area->addr + area->size;
        pg += one_MB) {
-    size_t minsize = MIN(one_MB, area->addr + area->size - pg);
+    size_t minsize = MIN(one_MB, (size_t)(area->addr + area->size - pg));
     if (*is_zero != Util::areZeroPages(pg, minsize / MTCP_PAGE_SIZE)) {
       break;
     }
