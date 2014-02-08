@@ -40,6 +40,7 @@
 
 unsigned long mtcp_strtol (char *str)
 {
+  int mtcp_sys_errno=0;
   unsigned long int v = 0;
   int base = 10;
   if (str[0] == '0' && (str[1] == 'x' || str[1] == 'X')) {
@@ -345,6 +346,7 @@ char mtcp_readhex (int fd, VA *value)
 
 int mtcp_readmapsline (int mapsfd, Area *area)
 {
+  int mtcp_sys_errno = 0;
   char c, rflag, sflag, wflag, xflag;
   int i;
   off_t offset;

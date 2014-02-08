@@ -28,7 +28,6 @@
 
 #define MTCP_PRINTF(args...) \
   do { \
-    int mtcp_sys_errno; \
     mtcp_printf("[%d] %s:%d %s:\n  ", \
                 mtcp_sys_getpid(), __FILE__, __LINE__, __FUNCTION__); \
     mtcp_printf(args); \
