@@ -1058,7 +1058,7 @@ void *_real_mmap(void *addr, size_t length, int prot, int flags,
 
 LIB_PRIVATE
 void *_real_mmap64(void *addr, size_t length, int prot, int flags,
-    int fd, off64_t offset) {
+    int fd, __off64_t offset) {
   REAL_FUNC_PASSTHROUGH_TYPED (void*,mmap64) (addr,length,prot,flags,fd,offset);
 }
 

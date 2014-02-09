@@ -8,6 +8,7 @@
 #include <sys/types.h>
 #include <sys/syscall.h>
 #include <linux/version.h>
+#include "syscallwrappers.h"  /* for _real_syscall */
 #include "protectedfds.h"
 #include "ldt.h"
 
