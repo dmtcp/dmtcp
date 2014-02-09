@@ -22,10 +22,6 @@
 #ifndef SYSCALLWRAPPERS_H
 #define SYSCALLWRAPPERS_H
 
-#ifndef _GNU_SOURCE
-# define _GNU_SOURCE
-#endif
-
 #include <pthread.h>
 #include <stdio.h>
 #include <sys/types.h>
@@ -346,7 +342,8 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   void _real_closelog (void);
 
   // Despite what 'man signal' says, signal.h already defines sighandler_t
-  // typedef void (*sighandler_t)(int);
+  // But signal.h defines this only because we define GNU_SOURCE (or __USE_GNU_
+  typedef void (*sighandler_t)(int);  /* POSIX has user define this type */
 
   //set the handler
   sighandler_t _real_signal(int signum, sighandler_t handler);
@@ -410,7 +407,7 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   void *_real_mmap(void *addr, size_t length, int prot, int flags,
       int fd, off_t offset);
   void *_real_mmap64(void *addr, size_t length, int prot, int flags,
-      int fd, off64_t offset);
+      int fd, __off64_t offset);
 #if __GLIBC_PREREQ (2,4)
   void *_real_mremap(void *old_address, size_t old_size, size_t new_size,
       int flags, ... /* void *new_address */);
