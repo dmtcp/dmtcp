@@ -48,6 +48,8 @@
 static void readmemoryareas(int fd);
 static void mmapfile(int fd, void *buf, size_t size, int prot, int flags);
 static void read_shared_memory_area_from_file(int fd, Area* area, int flags);
+static VA highest_userspace_address (VA *vdso_addr, VA *vsyscall_addr,
+                                     VA * stack_end_addr);
 static void lock_file(int fd, char* name, short l_type);
 static char* fix_filename_if_new_cwd(char* filename);
 static int open_shared_file(char* filename);
@@ -292,6 +294,8 @@ static void restorememoryareas(RestoreInfo *rinfo_ptr)
   RestoreInfo restore_info;
   mtcp_sys_memcpy(&restore_info, rinfo_ptr, sizeof (restore_info));
   VA holebase;
+  VA highest_va;
+  VA vdso_addr = NULL, vsyscall_addr = NULL, stack_end_addr = NULL;
 
   DPRINTF("Entering mtcp_restart_nolibc.c:mtcp_restoreverything\n");
 
@@ -329,11 +333,19 @@ static void restorememoryareas(RestoreInfo *rinfo_ptr)
   //                                : : : CLEAN_FOR_64_BIT(eax));
 
   /* Unmap from address 0 to holebase, except for [vdso] section */
-//  DPRINTF("new_brk (end of heap): %p, holebase (libmtcp.so): %p,\n"
-//          " stack_end_addr: %p, highest_va: %p,\n"
-//          " vsyscall_addr: %p\n",
-//	  new_brk, holebase, stack_end_addr,
-//	  highest_va, vsyscall_addr);
+  vdso_addr = vsyscall_addr = stack_end_addr = 0;
+  highest_va = highest_userspace_address(&vdso_addr, &vsyscall_addr,
+                                         &stack_end_addr);
+  if (stack_end_addr == 0) /* 0 means /proc/self/maps doesn't mark "[stack]" */
+    highest_va = HIGHEST_VA;
+  else
+    highest_va = stack_end_addr;
+  // DPRINTF("new_brk (end of heap): %\n", new_brk);
+  DPRINTF("holebase (libmtcp.so): %p,\n"
+          " stack_end_addr: %p, vdso_addr: %p, highest_va: %p,\n"
+          " vsyscall_addr: %p\n",
+          holebase, stack_end_addr,
+          vdso_addr, highest_va, vsyscall_addr);
 
   DPRINTF("unmapping from 0 to %p\n", holebase);
   if (mtcp_sys_munmap(NULL, holebase) == -1) {
@@ -812,6 +824,77 @@ static void read_shared_memory_area_from_file(int fd, Area* area, int flags)
   }
   if (imagefd >= 0)
     mtcp_sys_close (imagefd); // don't leave dangling fd in way of other stuff
+}
+
+/* Modelled after mtcp_safemmap.  - Gene */
+static VA highest_userspace_address (VA *vdso_addr, VA *vsyscall_addr,
+				     VA *stack_end_addr)
+{
+  int mtcp_sys_errno;
+  char c;
+  int mapsfd, i;
+  VA endaddr, startaddr;
+  VA highaddr = 0; /* high stack address should be highest userspace addr */
+  const char *stackstring = "[stack]";
+  const char *vdsostring = "[vdso]";
+  const char *vsyscallstring = "[vsyscall]";
+  const int bufsize = 1 + sizeof "[vsyscall]"; /* largest of last 3 strings */
+  char buf[bufsize];
+
+  buf[0] = '\0';
+  buf[bufsize - 1] = '\0';
+
+  /* Scan through the mappings of this process */
+
+  mapsfd = mtcp_sys_open ("/proc/self/maps", O_RDONLY, 0);
+  if (mapsfd < 0) {
+      MTCP_PRINTF("couldn't open /proc/self/maps\n");
+      mtcp_abort();
+  }
+
+  *vdso_addr = NULL;
+  while (1) {
+
+      /* Read a line from /proc/self/maps */
+
+      c = mtcp_readhex (mapsfd, &startaddr);
+      if (c == '\0') break;
+      if (c != '-') continue; /* skip to next line */
+      c = mtcp_readhex (mapsfd, &endaddr);
+      if (c == '\0') break;
+      if (c != ' ') continue; /* skip to next line */
+
+      while ((c != '\0') && (c != '\n')) {
+          if (c != ' ') {
+      	for (i = 0; (i < bufsize) && (c != ' ')
+      		 && (c != 0) && (c != '\n'); i++) {
+      	    buf[i] = c;
+      	    c = mtcp_readchar (mapsfd);
+      	}
+          } else {
+      	c = mtcp_readchar (mapsfd);
+          }
+      }
+
+      if (0 == mtcp_strncmp(buf, stackstring, mtcp_strlen(stackstring))) {
+          *stack_end_addr = endaddr;
+          highaddr = endaddr;  /* We found "[stack]" in /proc/self/maps */
+      }
+
+      if (0 == mtcp_strncmp(buf, vdsostring, mtcp_strlen(vdsostring))) {
+          *vdso_addr = startaddr;
+          highaddr = endaddr;  /* We found "[vdso]" in /proc/self/maps */
+      }
+
+      if (0 == mtcp_strncmp(buf, vsyscallstring, mtcp_strlen(vsyscallstring))) {
+          *vsyscall_addr = startaddr;
+          highaddr = endaddr;  /* We found "[vsyscall]" in /proc/self/maps */
+      }
+  }
+
+  mtcp_sys_close (mapsfd);
+
+  return highaddr;
 }
 
 __attribute__((optimize(0)))
