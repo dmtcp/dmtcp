@@ -1,0 +1,111 @@
+PLUGIN=dl
+CC = @CC@
+M32=@M32@
+CFLAGS = @CFLAGS@
+CPPFLAGS = @CPPFLAGS@
+CXX = @CXX@
+CXXFLAGS = @CXXFLAGS@
+LDFLAGS = @LDFLAGS@
+
+# Allow the user to specify the install program.
+INSTALL = @INSTALL@
+INSTALL_PROGRAM = @INSTALL_PROGRAM@
+INSTALL_DATA = @INSTALL_DATA@
+INSTALL_SCRIPT = @INSTALL_SCRIPT@
+
+MKDIR_P = @MKDIR_P@
+PACKAGE = @PACKAGE@
+PACKAGE_BUGREPORT = @PACKAGE_BUGREPORT@
+PACKAGE_NAME = @PACKAGE_NAME@
+PACKAGE_STRING = @PACKAGE_STRING@
+PACKAGE_TARNAME = @PACKAGE_TARNAME@
+PACKAGE_URL = @PACKAGE_URL@
+PACKAGE_VERSION = @PACKAGE_VERSION@
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+datarootdir=@datarootdir@
+bindir = @bindir@
+docdir = @docdir@
+includedir = @includedir@
+infodir = @infodir@
+libdir = @libdir@
+pkglibdir = $(libdir)/@PACKAGE@
+top_builddir = @top_builddir@
+top_srcdir = @top_srcdir@
+srcdir = @srcdir@
+VPATH = @srcdir@
+targetdir = $(top_builddir)
+
+ifeq ($(M32),1)
+  targetdir = $(top_builddir)/lib/$(PACKAGE)/32
+endif
+
+LIBNAME=$(targetdir)/lib/${PACKAGE}/libdmtcp_${PLUGIN}.so
+
+DMTCP_INCLUDE_PATH = $(top_srcdir)/include
+JALIB_PATH = $(top_srcdir)/jalib
+
+INCLUDES = -I$(JALIB_PATH) -I$(DMTCP_INCLUDE_PATH) -I$(top_builddir)/include
+# NOTE: setting CFLAGS/CXXFLAGS here means setting external values as in
+#  env CFLAGS="-g -O0" make
+# will be ignored.
+CFLAGS += -DHAVE_CONFIG_H -fPIC -g
+CXXFLAGS += -DHAVE_CONFIG_H -fPIC -g
+ifeq ($(M32),1)
+CFLAGS += -m32 -Wa,--32
+CXXFLAGS += -m32 -Wa,--32
+LDFLAGS += -m32 -Wl,-m32 -Wl,-melf_i386 -Wa,--32
+endif
+
+COMPILE = $(CC) $(INCLUDES) $(CPPFLAGS) $(CFLAGS) -c -o $@
+LINK = $(CC) $(CFLAGS) $(LDFLAGS) -o $@
+CXXCOMPILE = $(CXX) $(INCLUDES) $(CPPFLAGS) $(CXXFLAGS) -c -o $@
+CXXLINK = $(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@
+
+HEADERS = $(DMTCP_INCLUDE_PATH)/util.h $(DMTCP_INCLUDE_PATH)/dmtcp.h \
+	  $(JALIB_PATH)/jassert.h $(JALIB_PATH)/jalloc.h
+
+OBJS = dlwrappers.o
+
+LIB_LDFLAGS = -shared -Wl,--unresolved-symbols=ignore-all
+
+LDADD = -ldl
+
+all: default
+
+default: build
+
+build: ${LIBNAME}
+
+tidy:
+	rm -rf dmtcp-autotest-* ckpt_*_files
+	rm -f ckpt_*.dmtcp dmtcp_restart_script* core*
+
+clean: tidy
+	-rm -f *.o
+	-rm -f $(LIBNAME)
+
+distclean: clean
+	rm -f Makefile
+
+install-libs: all
+	${INSTALL_PROGRAM} ${LIBNAME} $(DESTDIR)$(pkglibdir)
+
+uninstall-libs:
+	rm -f $(DESTDIR)$(pkglibdir)/$(LIBNAME)
+
+install: install-libs
+
+uninstall: uninstall-libs
+
+${LIBNAME}: $(OBJS) ${HEADERS}
+	@rm -f ${LIBNAME}
+	$(CXXLINK) $(OBJS) $(LIB_LDFLAGS) $(LDADD)
+
+%.o: %.c ${HEADERS}
+	$(COMPILE)  $<
+
+%.o: %.cpp ${HEADERS}
+	$(CXXCOMPILE)  $<
+
+.PHONY: default all build tidy clean distclean install uninstall

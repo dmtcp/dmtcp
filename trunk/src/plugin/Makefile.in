@@ -16,7 +16,7 @@ includedir=@includedir@
 mandir=@mandir@
 infodir=@mandir@
 
-plugins = pid ipc alloc
+plugins = pid ipc alloc dl
 
 default:
 	for p in $(plugins); do (cd $$p && $(MAKE)); done
@@ -60,5 +60,5 @@ uninstall-libs:
 install-exec-hook:
 uninstall-hook:
 
-.PHONY: default all pid ipc alloc tidy clean distclean install uninstall \
+.PHONY: default all pid ipc alloc dl tidy clean distclean install uninstall \
 	install-exec-hook uninstall-hook

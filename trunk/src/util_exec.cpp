@@ -577,6 +577,7 @@ dmtcp::string dmtcp::Util::getPath(dmtcp::string cmd)
 
 EXTERNC int dmtcp_infiniband_enabled(void) __attribute__((weak));
 EXTERNC int dmtcp_alloc_enabled(void) __attribute__((weak));
+EXTERNC int dmtcp_dl_enabled(void) __attribute__((weak));
 EXTERNC int dmtcp_batch_queue_enabled(void) __attribute__((weak));
 EXTERNC int dmtcp_modify_env_enabled(void) __attribute__((weak));
 EXTERNC int dmtcp_ptrace_enabled(void) __attribute__((weak));
@@ -595,6 +596,7 @@ void dmtcp::Util::getDmtcpArgs(dmtcp::vector<dmtcp::string> &dmtcp_args)
   const char * sigckpt              = getenv (ENV_VAR_SIGCKPT);
   const char * compression          = getenv (ENV_VAR_COMPRESSION);
   const char * allocPlugin          = getenv (ENV_VAR_ALLOC_PLUGIN);
+  const char * dlPlugin             = getenv (ENV_VAR_DL_PLUGIN);
 #ifdef HBICT_DELTACOMP
   const char * deltacompression     = getenv (ENV_VAR_DELTACOMPRESSION);
 #endif
@@ -659,6 +661,10 @@ void dmtcp::Util::getDmtcpArgs(dmtcp::vector<dmtcp::string> &dmtcp_args)
 
   if (allocPlugin != NULL && strcmp(allocPlugin, "0") == 0) {
     dmtcp_args.push_back("--disable-alloc-plugin");
+  }
+
+  if (dlPlugin != NULL && strcmp(dlPlugin, "0") == 0) {
+    dmtcp_args.push_back("--disable-dl-plugin");
   }
 
   if (dmtcp_ptrace_enabled != NULL && dmtcp_ptrace_enabled()) {

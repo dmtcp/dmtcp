@@ -87,6 +87,17 @@ static __thread bool _isOkToGrabWrapperExecutionLock = true;
 static __thread bool _hasThreadFinishedInitialization = false;
 
 
+/* The following two functions dmtcp_libdlLock{Lock,Unlock} are used by dlopen
+ * plugin.
+ */
+extern "C" int dmtcp_libdlLockLock() {
+  return dmtcp::ThreadSync::libdlLockLock();
+}
+
+extern "C" void dmtcp_libdlLockUnlock() {
+  dmtcp::ThreadSync::libdlLockUnlock();
+}
+
 void dmtcp::ThreadSync::initThread()
 {
   // If we don't initialize these thread local variables here. If not done
