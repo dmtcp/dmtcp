@@ -108,6 +108,8 @@ static const char* theUsage =
   "              Enable InfiniBand plugin. (default: disabled)\n"
   "  --disable-alloc-plugin: (environment variable DMTCP_ALLOC_PLUGIN=[01])\n"
   "              Disable alloc plugin (default: enabled).\n"
+  "  --disable-dl-plugin: (environment variable DMTCP_DL_PLUGIN=[01])\n"
+  "              Disable dl plugin (default: enabled).\n"
   "\n"
   "Other options:\n"
   "  --prefix PATH\n"
@@ -139,6 +141,7 @@ static bool checkpointOpenFiles=false;
 static bool enableRM=false;
 static bool enablePtrace=false;
 static bool enableAllocPlugin=true;
+static bool enableDlPlugin=true;
 static bool enableModifyEnvPlugin=false;
 static bool enableIB=false;
 static bool enableIB2Tcp=false;
@@ -240,6 +243,9 @@ static void processArgs(int *orig_argc, char ***orig_argv)
       shift;
     } else if (s == "--disable-alloc-plugin") {
       setenv(ENV_VAR_ALLOC_PLUGIN, "0", 1);
+      shift;
+    } else if (s == "--disable-dl-plugin") {
+      setenv(ENV_VAR_DL_PLUGIN, "0", 1);
       shift;
     } else if (s == "--rm" || s == "--batch-queue") {
       enableRM = true;
@@ -641,6 +647,28 @@ static void setLDPreloadLibs(bool is32bitElf)
     preloadLibs += ":";
 #if defined(__x86_64__)
     preloadLibs32 += jalib::Filesystem::FindHelperUtility("libdmtcp_alloc.so",
+                                                          true);
+    preloadLibs32 += ":";
+#endif
+  }
+
+  // Setup Dl plugin
+  if (getenv(ENV_VAR_DL_PLUGIN) != NULL){
+    const char *ptr = getenv(ENV_VAR_DL_PLUGIN);
+    if (strcmp(ptr, "1") == 0) {
+      enableDlPlugin = true;
+    } else if (strcmp(ptr, "0") == 0) {
+      enableDlPlugin = false;
+    } else {
+      JASSERT(false) (getenv(ENV_VAR_DL_PLUGIN))
+        .Text("Invalid value for the environment variable.");
+    }
+  }
+  if (enableDlPlugin) {
+    preloadLibs += jalib::Filesystem::FindHelperUtility("libdmtcp_dl.so");
+    preloadLibs += ":";
+#if defined(__x86_64__)
+    preloadLibs32 += jalib::Filesystem::FindHelperUtility("libdmtcp_dl.so",
                                                           true);
     preloadLibs32 += ":";
 #endif

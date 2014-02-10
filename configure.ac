@@ -34,6 +34,7 @@ AC_CONFIG_FILES([Makefile \
                  src/Makefile \
                  src/plugin/Makefile \
                  src/plugin/alloc/Makefile \
+                 src/plugin/dl/Makefile \
                  src/plugin/ipc/Makefile \
                  src/plugin/pid/Makefile \
                  test/Makefile \
