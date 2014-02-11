@@ -35,7 +35,6 @@
 #include <unistd.h>
 #include <sys/types.h>
 
-#define DEBUG
 #include "mtcp_sys.h"
 #include "mtcp_util.ic"
 #include "membarrier.h"
@@ -56,7 +55,6 @@ static char* fix_filename_if_new_cwd(char* filename);
 static int open_shared_file(char* filename);
 static void adjust_for_smaller_file_size(Area *area, int fd);
 static void restorememoryareas();
-static void setupStack(VA base_addr);
 static void restore_brk(VA saved_brk, VA restore_begin, VA restore_end);
 static void restart_fast_path();
 static void restart_slow_path();
