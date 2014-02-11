@@ -92,7 +92,9 @@ static int test_use_compression(char *compressor, char *command, char *path,
   else
     default_val = const_cast<char*> ("0");
 
-  strncat(evar, compressor, sizeof evar);
+  JASSERT( strlen(strncat(evar, compressor, sizeof(evar) - strlen(evar) - 1))
+           < sizeof(evar) - 1 )
+         (compressor) .Text("compressor is too long.");
   do_we_compress = getenv(evar);
   // env var is unset, let's default to enabled
   // to disable compression, run with MTCP_GZIP=0
@@ -488,9 +490,8 @@ void dmtcp::CkptSerializer::writeCkptImage()
   int fdCkptFileOnDisk = -1;
   int fd = -1;
 #ifdef DEBUG
+  // For easy inspection inside gdb:
   int jassertlog_fd = PROTECTED_JASSERTLOG_FD;
-#else
-  int jassertlog_fd = -1;
 #endif
 
   fd = perform_open_ckpt_image_fd(tempCkptFilename.c_str(), &use_compression,
