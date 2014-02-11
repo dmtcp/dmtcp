@@ -34,6 +34,7 @@
 #include <sys/fcntl.h>
 #include "dmtcp.h"
 #include "processinfo.h"
+#include "procmapsarea.h"
 #include "jassert.h"
 #include "util.h"
 
@@ -41,6 +42,8 @@
 #define _real_close NEXT_FNC(close)
 
 using namespace dmtcp;
+
+EXTERNC int dmtcp_infiniband_enabled(void) __attribute__((weak));
 
 static const int END_OF_NSCD_AREAS = -1;
 
@@ -193,13 +196,10 @@ void mtcp_writememoryareas(int fd)
       Util::writeAll(fd, &area, sizeof(area));
       continue;
     }
-
-#ifdef IBV
     else if (Util::strStartsWith(area.name, INFINIBAND_SHMEM_FILE)) {
       // TODO: Don't checkpoint infiniband shared area for now.
       continue;
     }
-#endif
     else if (Util::strEndsWith(area.name, DELETED_FILE_SUFFIX)) {
       /* Deleted File */
     } else if (area.name[0] == '/' && strstr(&area.name[1], "/") != NULL) {
@@ -367,12 +367,12 @@ static void mtcp_write_non_rwx_and_anonymous_pages(int fd, Area *orig_area)
     size_t size;
     int is_zero;
     Area a = area;
-#ifdef IBV
-    size = area.size;
-    is_zero = 0;
-#else
-    mtcp_get_next_page_range(&a, &size, &is_zero);
-#endif
+    if (dmtcp_infiniband_enabled && dmtcp_infiniband_enabled()) {
+      size = area.size;
+      is_zero = 0;
+    } else {
+      mtcp_get_next_page_range(&a, &size, &is_zero);
+    }
 
     a.prot |= is_zero ? MTCP_PROT_ZERO_PAGE : 0;
     a.size = size;

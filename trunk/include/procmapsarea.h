@@ -30,9 +30,7 @@
 #define DEV_ZERO_DELETED_STR "/dev/zero (deleted)"
 #define DEV_NULL_DELETED_STR "/dev/null (deleted)"
 #define SYS_V_SHMEM_FILE "/SYSV"
-#ifdef IBV
-# define INFINIBAND_SHMEM_FILE "/dev/infiniband/uverbs"
-#endif
+#define INFINIBAND_SHMEM_FILE "/dev/infiniband/uverbs"
 
 /* Shared memory regions for Direct Rendering Infrastructure */
 #define DEV_DRI_SHMEM "/dev/dri/card"
