@@ -19,6 +19,7 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#include <stdlib.h>
 #include "dmtcp.h"
 #include "dmtcpworker.h"
 #include "coordinatorapi.h"

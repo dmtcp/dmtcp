@@ -19,6 +19,7 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#include <stdlib.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <sys/syscall.h>
