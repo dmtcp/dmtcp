@@ -23,16 +23,11 @@
 #include <stdarg.h>
 #include <fcntl.h>
 #include <sys/types.h>
-#include <sys/ptrace.h>
 #include <sys/syscall.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
 
 #include <linux/version.h>
-// This was needed for:  SUSE LINUX 10.0 (i586) OSS
-#ifndef PTRACE_SETOPTIONS
-# include <sys/ptrace.h>
-#endif
 #include <linux/unistd.h>
 #include <linux/limits.h>
 
