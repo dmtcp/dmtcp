@@ -114,7 +114,6 @@ CoordinatorAPI::CoordinatorMode allowedModes = CoordinatorAPI::COORD_ANY;
 
 
 static void setEnvironFd();
-static void setupStack(void *addr, size_t size);
 static void runMtcpRestart(int is32bitElf, int fd, dmtcp::ProcessInfo *pInfo);
 
 class RestoreTarget
@@ -133,7 +132,7 @@ class RestoreTarget
         while(1) {
           ProcMapsArea area;
           Util::readAll(_fd, &area, sizeof area);
-          if (area.size == -1) break;
+          if (area.size == (size_t)-1) break;
           if ((area.prot & MTCP_PROT_ZERO_PAGE) == 0) {
             void *addr = mmap(0, area.size, PROT_WRITE | PROT_READ,
                               MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
