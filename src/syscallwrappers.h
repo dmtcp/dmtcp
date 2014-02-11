@@ -34,7 +34,19 @@
 #include <sys/shm.h>
 #include <sys/sem.h>
 #include <sys/msg.h>
-#include <sys/stat.h>
+#ifdef __cplusplus
+# include <sys/stat.h>
+#else
+# ifndef __USE_LARGEFILE64
+#  define __USE_LARGEFILE64_not_defined
+#  define __USE_LARGEFILE64
+#  include <sys/stat.h>
+#  ifdef __USE_LARGEFILE64_not_defined
+#   undef __USE_LARGEFILE64_not_defined
+#   undef __USE_LARGEFILE64
+#  endif
+# endif
+#endif
 #include <sys/mman.h>
 #include <dirent.h>
 #include <unistd.h>
