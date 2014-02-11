@@ -27,7 +27,8 @@
 #include <sys/ptrace.h>
 #include <linux/version.h>
 // This was needed for:  SUSE LINUX 10.0 (i586) OSS
-#ifndef PTRACE_SETOPTIONS
+// On newer systems, PT_SETOPTIONS is defined in <sys/ptrace.h>
+#ifndef PT_SETOPTIONS
 # include <linux/ptrace.h>
 #endif
 #include <stdarg.h>
