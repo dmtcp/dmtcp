@@ -35,6 +35,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 
+#define DEBUG
 #include "mtcp_sys.h"
 #include "mtcp_util.ic"
 #include "membarrier.h"
