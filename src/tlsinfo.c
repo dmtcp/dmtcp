@@ -16,6 +16,7 @@ int mtcp_sys_errno;
 # define ELF_AUXV_T Elf64_auxv_t
 # define UINT_T uint64_t
 #else
+  // else __i386__ and __arm__
 # define ELF_AUXV_T Elf32_auxv_t
 # define UINT_T uint32_t
 #endif
