@@ -89,9 +89,6 @@ static const char* theUsage =
   "  --tmpdir PATH (environment variable DMTCP_TMPDIR)\n"
   "              Directory to store temporary files \n"
   "              (default: $TMDPIR/dmtcp-$USER@$HOST or /tmp/dmtcp-$USER@$HOST)\n"
-  "  --simulate\n"
-  "              Simulate the steps involved in performing the restart.\n"
-  "              This is equivalent of the previous readdmtcp command.\n"
   "  -q, --quiet (or set environment variable DMTCP_QUIET = 0, 1, or 2)\n"
   "              Skip banner and NOTE messages; if given twice, also skip WARNINGs\n"
   "  --help\n"
@@ -109,7 +106,6 @@ typedef dmtcp::map<dmtcp::UniquePid, RestoreTarget*> RestoreTargetMap;
 RestoreTargetMap targets;
 RestoreTargetMap independentProcessTreeRoots;
 bool noStrictUIDChecking = false;
-bool simulate = false;
 CoordinatorAPI::CoordinatorMode allowedModes = CoordinatorAPI::COORD_ANY;
 
 
@@ -127,30 +123,6 @@ class RestoreTarget
 
       _fd = dmtcp::CkptSerializer::readCkptHeader(_path, &_pInfo);
       JTRACE("restore target") (_path) (_pInfo.numPeers()) (_pInfo.compGroup());
-      if (simulate) {
-        JNOTE("Listing ckpt image area:");
-        while(1) {
-          ProcMapsArea area;
-          Util::readAll(_fd, &area, sizeof area);
-          if (area.size == (size_t)-1) break;
-          if ((area.prot & MTCP_PROT_ZERO_PAGE) == 0) {
-            void *addr = mmap(0, area.size, PROT_WRITE | PROT_READ,
-                              MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-            JASSERT(addr != MAP_FAILED) (JASSERT_ERRNO);
-            Util::readAll(_fd, addr, area.size);
-            JASSERT(munmap(addr, area.size) != -1) (JASSERT_ERRNO);
-          }
-          printf("%p-%p %c%c%c%c %08lx %02lud:%02lud %-8lud          %s\n",
-                 area.addr, area.addr + area.size,
-                 ( area.prot & PROT_READ  ? 'r' : '-' ),
-                 ( area.prot & PROT_WRITE ? 'w' : '-' ),
-                 ( area.prot & PROT_EXEC  ? 'x' : '-' ),
-                 ( area.flags & MAP_SHARED ? 's'
-                   : ( area.flags & MAP_ANONYMOUS ? 'p' : '-' ) ),
-                 area.offset, area.devmajor, area.devminor, area.inodenum,
-                 area.name);
-        }
-      }
     }
 
     const int fd() const { return _fd; }
@@ -448,9 +420,6 @@ int main(int argc, char** argv)
     } else if (argc > 1 && (s == "-t" || s == "--tmpdir")) {
       setenv(ENV_VAR_TMPDIR, argv[1], 1);
       shift; shift;
-    } else if (s == "-s" || s == "--simulate") {
-      simulate = true;
-      shift;
     } else if (s == "-q" || s == "--quiet") {
       *getenv(ENV_VAR_QUIET) = *getenv(ENV_VAR_QUIET) + 1;
       // Just in case a non-standard version of setenv is being used:
@@ -516,9 +485,6 @@ int main(int argc, char** argv)
     JTRACE("Will restart ckpt image") (argv[0]);
     RestoreTarget *t = new RestoreTarget(argv[0]);
     targets[t->upid()] = t;
-  }
-  if (simulate) {
-    return 0;
   }
 
   // Prepare list of independent process tree roots

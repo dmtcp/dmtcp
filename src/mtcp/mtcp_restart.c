@@ -61,6 +61,7 @@ static void restart_slow_path();
 static int doAreasOverlap(VA addr1, size_t size1, VA addr2, size_t size2);
 static int hasOverlappingMapping(VA addr, size_t size);
 static void getMiscAddrs(VA *textAddr, size_t *size, VA *highest_va);
+static void mtcp_simulateread(int fd);
 
 #define MB 1024*1024
 #define RESTORE_STACK_SIZE 5*MB
@@ -130,6 +131,7 @@ int main(int argc, char *argv[])
   char *ckptImage = NULL;
   MtcpHeader mtcpHdr;
   int mtcp_sys_errno;
+  int simulate = 0;
 
   rinfo.fd = -1;
   shift;
@@ -140,13 +142,17 @@ int main(int argc, char *argv[])
       break;
     } else if (mtcp_strcmp(argv[0], "--fd") == 0) {
       rinfo.fd = mtcp_strtol(argv[1]);
+      shift; shift;
     } else if (mtcp_strcmp(argv[0], "--stderr-fd") == 0) {
       rinfo.stderr_fd = mtcp_strtol(argv[1]);
+      shift; shift;
+    } else if (mtcp_strcmp(argv[0], "--simulate") == 0) {
+      simulate = 1;
+      shift;
     } else {
       MTCP_PRINTF("MTCP Internal Error\n");
       return -1;
     }
-    shift; shift;
   }
 
   if ((rinfo.fd != -1) ^ (ckptImage == NULL)) {
@@ -167,6 +173,11 @@ int main(int argc, char *argv[])
     do {
       mtcp_readfile(rinfo.fd, &mtcpHdr, sizeof mtcpHdr);
     } while (mtcp_strcmp(mtcpHdr.signature, MTCP_SIGNATURE) != 0);
+  }
+
+  if (simulate) {
+    mtcp_simulateread(rinfo.fd);
+    return 0;
   }
 
   rinfo.saved_brk = mtcpHdr.saved_brk;
@@ -284,6 +295,42 @@ static void restart_slow_path()
   int mtcp_sys_errno;
   // FIXME: Does it take arg or not? Args not declared, used both ways! - Gene
   restorememoryareas();
+}
+
+static void mtcp_simulateread(int fd)
+{
+  int mtcp_sys_errno;
+  Area area;
+  MTCP_PRINTF("Listing ckpt image area:\n");
+  while(1) {
+    mtcp_readfile(fd, &area, sizeof area);
+    if (area.size == -1) break;
+    if ((area.prot & MTCP_PROT_ZERO_PAGE) == 0) {
+      void *addr = mtcp_sys_mmap(0, area.size, PROT_WRITE | PROT_READ,
+                                 MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+      if (addr == MAP_FAILED) {
+        MTCP_PRINTF("***Error: mmap failed: %d\n", mtcp_sys_errno);
+        mtcp_abort();
+      }
+      mtcp_readfile(fd, addr, area.size);
+      if (mtcp_sys_munmap(addr, area.size) == -1) {
+        MTCP_PRINTF("***Error: munmap failed: %d\n", mtcp_sys_errno);
+        mtcp_abort();
+      }
+    }
+
+    mtcp_printf("%p-%p %c%c%c%c "
+               // "%x %u:%u %u"
+                "          %s\n",
+                area.addr, area.addr + area.size,
+                ( area.prot & PROT_READ  ? 'r' : '-' ),
+                ( area.prot & PROT_WRITE ? 'w' : '-' ),
+                ( area.prot & PROT_EXEC  ? 'x' : '-' ),
+                ( area.flags & MAP_SHARED ? 's'
+                  : ( area.flags & MAP_ANONYMOUS ? 'p' : '-' ) ),
+                //area.offset, area.devmajor, area.devminor, area.inodenum,
+                area.name);
+  }
 }
 
 __attribute__((optimize(0)))
