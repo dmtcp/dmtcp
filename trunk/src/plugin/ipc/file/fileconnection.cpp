@@ -394,7 +394,8 @@ void dmtcp::PtyConnection::postRestart()
           controllingTty = jalib::Filesystem::GetControllingTerm(getppid());
         }
         stdinDeviceName = (jalib::Filesystem::GetDeviceName(STDIN_FILENO));
-        if (controllingTty.length() > 0) {
+        if (controllingTty.length() > 0 &&
+            _real_access(controllingTty.c_str(), R_OK | W_OK) == 0) {
           tempfd = _real_open(controllingTty.c_str(), _fcntlFlags);
           JASSERT(tempfd >= 0) (tempfd) (controllingTty) (JASSERT_ERRNO)
             .Text("Error Opening the terminal attached with the process");
