@@ -246,7 +246,7 @@ void dmtcp::SharedData::updateHostAndPortEnv()
   if (getenv(ENV_VAR_NAME_HOST) && strcmp(getenv(ENV_VAR_NAME_HOST), ipstr)) {
     JASSERT(0 == setenv(ENV_VAR_NAME_HOST, ipstr, 1)) (JASSERT_ERRNO);
   }
-  if (getenv(ENV_VAR_NAME_HOST) && strcmp(getenv(ENV_VAR_NAME_PORT),
+  if (getenv(ENV_VAR_NAME_PORT) && strcmp(getenv(ENV_VAR_NAME_PORT),
                                           portStr.c_str())) {
     JASSERT(0 == setenv(ENV_VAR_NAME_PORT, portStr.c_str(), 1)) (JASSERT_ERRNO);
   }
