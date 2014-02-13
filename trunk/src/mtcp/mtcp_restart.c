@@ -86,6 +86,7 @@ typedef struct RestoreInfo {
   //void (*post_restart)();
   //void (*restorememoryareas_fptr)();
   int use_gdb;
+  int text_offset;
 } RestoreInfo;
 RestoreInfo rinfo;
 
@@ -136,15 +137,21 @@ int main(int argc, char *argv[])
 
   rinfo.fd = -1;
   rinfo.use_gdb = 0;
+  rinfo.text_offset = -1;
   shift;
   while (argc > 0) {
+    // Flags for standalone debugging
     if (argc == 1) {
       MTCP_PRINTF("Considering '%s' as a ckpt image.\n", argv[0]);
       ckptImage = argv[0];
       break;
     } else if (mtcp_strcmp(argv[0], "--use-gdb") == 0) {
-        rinfo.use_gdb = 1;
-        shift;
+      rinfo.use_gdb = 1;
+      shift;
+    } else if (mtcp_strcmp(argv[0], "--text-offset") == 0) {
+      rinfo.text_offset = mtcp_strtol(argv[1]);
+      shift; shift;
+    // Flags for call by dmtcp_restart follow here:
     } else if (mtcp_strcmp(argv[0], "--fd") == 0) {
       rinfo.fd = mtcp_strtol(argv[1]);
       shift; shift;
@@ -350,7 +357,22 @@ static void restorememoryareas(RestoreInfo *rinfo_ptr)
   DPRINTF("Entering copy of restorememoryareas().  We will now unmap old memory"
           "\n    and restore memory sections from the checkpoint image.\n");
   if (rinfo_ptr->use_gdb) {
-    DPRINTF("Called with --use-gdb.\n");
+    DPRINTF("Called with --use-gdb.  A useful command is:\n"
+            "    (gdb) info proc mapping");
+    if (rinfo_ptr->text_offset != -1) {
+      DPRINTF("Called with --text-offset 0x%x.  A useful command is:\n"
+              "(gdb) add-symbol-file ../../bin/mtcp_restart %p\n",
+              rinfo_ptr->text_offset,
+              rinfo_ptr->restore_addr + rinfo_ptr->text_offset);
+      DPRINTF("IN GDB: interrupt (^C); add-symbol-file ...; (gdb) print x=0\n");
+      { int x = 1; while (x); } // Stop execution for user to type command.
+#if defined(__i386__) || defined(__x86_64__)
+      asm volatile ("int3"); // Do breakpoint; send SIGTRAP, caught by gdb
+#else
+      DPRINTF("In gdb: interrupt (^C); add-symbol-file ...; (gdb) print x=0\n");
+      { int x = 1; while (x); } // Stop execution for user to type command.
+#endif
+    }
   }
 
   int rc;
