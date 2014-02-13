@@ -364,12 +364,10 @@ static void restorememoryareas(RestoreInfo *rinfo_ptr)
               "(gdb) add-symbol-file ../../bin/mtcp_restart %p\n",
               rinfo_ptr->text_offset,
               rinfo_ptr->restore_addr + rinfo_ptr->text_offset);
-      DPRINTF("IN GDB: interrupt (^C); add-symbol-file ...; (gdb) print x=0\n");
-      { int x = 1; while (x); } // Stop execution for user to type command.
 #if defined(__i386__) || defined(__x86_64__)
       asm volatile ("int3"); // Do breakpoint; send SIGTRAP, caught by gdb
 #else
-      DPRINTF("In gdb: interrupt (^C); add-symbol-file ...; (gdb) print x=0\n");
+      DPRINTF("IN GDB: interrupt (^C); add-symbol-file ...; (gdb) print x=0\n");
       { int x = 1; while (x); } // Stop execution for user to type command.
 #endif
     }
