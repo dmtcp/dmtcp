@@ -1,27 +1,4 @@
-/****************************************************************************
- *   Copyright (C) 2011-2013 by Greg Kerr, Jiajun Cao, Kapil Arya, and      *
- *   Gene Cooperman                                                         *
- *   kerrgi@gmail.com, jiajun@ccs.neu.edu, kapil@ccs.neu.edu, and           *
- *   gene@ccs.neu.edu                                                       *
- *                                                                          *
- *   This file is part of the infiniband plugin for DMTCP                   *
- *   (DMTCP:plugin/infiniband).                                             *
- *                                                                          *
- *  DMTCP:plugin/infiniband is free software: you can redistribute it and/or*
- *  modify it under the terms of the GNU Lesser General Public License as   *
- *  published by the Free Software Foundation, either version 3 of the      *
- *  License, or (at your option) any later version.                         *
- *                                                                          *
- *  DMTCP:plugin/infininband is distributed in the hope that it will be     *
- *  useful, but WITHOUT ANY WARRANTY; without even the implied warranty of  *
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
- *  GNU Lesser General Public License for more details.                     *
- *                                                                          *
- *  You should have received a copy of the GNU Lesser General Public        *
- *  License along with DMTCP:plugin/infiniband.  If not, see                *
- *  <http://www.gnu.org/licenses/>.                                         *
- ****************************************************************************/
-
+/*! \file ibv_internal.h */
 #include <infiniband/verbs.h>
 #include "ibvidentifier.h"
 #include "lib/list.h"
@@ -59,6 +36,8 @@ struct internal_ibv_pd {
   struct ibv_pd   user_pd;
   struct ibv_pd * real_pd;
   struct list_elem elem;
+  // an id defined in the plugin, for use of rdma identification
+  int pd_id;
 };
 
 //! A wrapper around a memory region
@@ -84,7 +63,6 @@ struct internal_ibv_cq {
   struct list wc_queue; /*!< This queue buffers remaining completion events at checkpoint time */
   struct list req_notify_log; /*!< This list contains log entries of calls to ibv_req_notify_cq */
   struct list_elem elem;
-  pthread_mutex_t mutex;
 };
 
 //! A wrapper around a queue pair
@@ -96,6 +74,9 @@ struct internal_ibv_qp {
   struct ibv_qp_id remote_id;
   struct ibv_qp_id current_remote;
   struct ibv_qp_id current_id;
+  struct ibv_qp_pd_id local_qp_pd_id;
+  struct ibv_qp_pd_id remote_qp_pd_id;
+  int remote_pd_id;
   struct list modify_qp_log;
   uint8_t port_num; // port_num is used to get the correct lid
   struct list post_recv_log; /*!< This list contains log entries that track what recv work
@@ -105,7 +86,6 @@ struct internal_ibv_qp {
 //                                                         requests were posted. As send work requests are polled from the CQ,
 //                                                         entries in this list are deleted. */
   struct list_elem elem;
-  pthread_mutex_t mutex;
 };
 
 //! A wrapper around a shared receive queue
@@ -140,7 +120,7 @@ struct ibv_post_recv_log {
 };
 
 struct ibv_post_srq_recv_log {
-  struct ibv_recv_wr wr;
+  struct ibv_recv_wr  wr;
   struct list_elem elem;
 };
 
@@ -159,8 +139,8 @@ struct ibv_req_notify_cq_log {
 };
 
 struct ibv_rkey_pair {
-  uint32_t virt_rkey;
-  uint32_t real_rkey;
+  struct ibv_rkey_id orig_rkey;
+  uint32_t new_rkey;
   struct list_elem elem;
 };
 
@@ -169,7 +149,8 @@ struct ibv_rkey_pair {
 //! This function locates an ibv_qp based on qp_num */
 /*!
  \param qp_num The id number of the qp being located
- \return A pointer to the internal_ibv_qp */
+ \return A pointer to the internal_ibv_qp
+ */
 static inline struct internal_ibv_qp * qp_num_to_qp(struct list * l, uint32_t qp_num)
 {
   struct list_elem *e;
