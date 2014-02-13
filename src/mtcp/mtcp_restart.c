@@ -339,6 +339,8 @@ static void restorememoryareas(RestoreInfo *rinfo_ptr)
   int mtcp_sys_errno;
   RestoreInfo restore_info;
   mtcp_sys_memcpy(&restore_info, rinfo_ptr, sizeof (restore_info));
+
+  int rc;
   VA holebase;
   VA highest_va;
   VA vdso_addr = NULL, vsyscall_addr = NULL, stack_end_addr = NULL;
@@ -364,7 +366,9 @@ static void restorememoryareas(RestoreInfo *rinfo_ptr)
    */
 
   holebase = restore_info.restore_addr;
-  // the unmaps will wipe what it points to anyway
+  // WAS: holebase  = mtcp_shareable_begin;
+  // WAS: holebase = (VA)((unsigned long int)holebase & -MTCP_PAGE_SIZE);
+  // The unmaps will wipe what it points to anyway.
   // Force a hard error if any code tries to use the thread-pointer register.
 #if defined(__i386__) || defined(__x86_64__)
   asm volatile (CLEAN_FOR_64_BIT(xor %%eax,%%eax ; movw %%ax,%%fs)
@@ -382,7 +386,7 @@ static void restorememoryareas(RestoreInfo *rinfo_ptr)
   vdso_addr = vsyscall_addr = stack_end_addr = 0;
   highest_va = highest_userspace_address(&vdso_addr, &vsyscall_addr,
                                          &stack_end_addr);
-  if (stack_end_addr == 0) /* 0 means /proc/self/maps doesn't mark "[stack]"*/
+  if (stack_end_addr == 0) /* 0 means /proc/self/maps doesn't mark "[stack]" */
     highest_va = HIGHEST_VA;
   else
     highest_va = stack_end_addr;
@@ -393,31 +397,53 @@ static void restorememoryareas(RestoreInfo *rinfo_ptr)
           holebase, stack_end_addr,
           vdso_addr, highest_va, vsyscall_addr);
 
-  DPRINTF("unmapping from 0 to %p\n", holebase);
-  if (mtcp_sys_munmap(NULL, holebase) == -1) {
-    MTCP_PRINTF("error %d unmapping from 0 to %p\n", mtcp_sys_errno, holebase);
-    mtcp_abort ();
+  if (vdso_addr != NULL && vdso_addr < holebase) {
+    DPRINTF("unmapping %p..%p, %p..%p\n",
+            NULL, vdso_addr-1, vdso_addr+MTCP_PAGE_SIZE, holebase - 1);
+    rc = mtcp_sys_munmap (NULL, (size_t)vdso_addr);
+    rc |= mtcp_sys_munmap (vdso_addr + MTCP_PAGE_SIZE,
+			   holebase - vdso_addr - MTCP_PAGE_SIZE);
+  } else {
+    DPRINTF("unmapping 0..%p\n", holebase - 1);
+    rc = mtcp_sys_munmap (NULL, holebase);
+  }
+  if (rc == -1) {
+      MTCP_PRINTF("error %d unmapping from 0 to %p\n",
+                  mtcp_sys_errno, holebase);
+      mtcp_abort ();
   }
 
   /* Unmap from address holebase to highest_va, except for [vdso] section */
   /* Value of mtcp_shareable_end (end of data segment) can change from before */
   holebase = restore_info.restore_addr + restore_info.restore_size;
   /* restore_info.highest_va had bugs for ARM, for older Linuxes
-   * (incl. 2.6.18, and maybe 2.6.31 under Ubuntu 9.04).  Use direct comp.
-   * Also, restore_info.highest_va seems to use getMiscAddrs(), which seems
-   * to be a rather naive view of how the different Linux kernels, and
-   * eventually non-Linux kernels (including Android), can lay out memory.
-   * So, we're reverting to highest_userspace_address(), with years of
-   * expereince behind it.
+   * (incl. 2.6.18, and maybe 2.6.31 under Ubuntu 9.04).  So, we're reverting to
+   * highest_userspace_address(), with years of experience on various distros.
    */
-  DPRINTF("unmapping from %p to %p by %p bytes\n",
-          holebase, highest_va,
-          highest_va - holebase);
-  if (mtcp_sys_munmap (holebase, highest_va - holebase) == -1) {
-    MTCP_PRINTF("error %d unmapping from %p by %p bytes\n",
-                mtcp_sys_errno, holebase, highest_va - holebase);
-    mtcp_abort ();
+  if (vdso_addr != NULL && vdso_addr + MTCP_PAGE_SIZE <= highest_va) {
+    if (vdso_addr > holebase) {
+      DPRINTF("unmapping %p..%p, %p..%p\n",
+              holebase, vdso_addr-1, vdso_addr + MTCP_PAGE_SIZE,
+              highest_va - 1);
+      rc = mtcp_sys_munmap (holebase, vdso_addr - holebase);
+      rc |= mtcp_sys_munmap (vdso_addr + MTCP_PAGE_SIZE,
+                             highest_va - vdso_addr - MTCP_PAGE_SIZE);
+    } else {
+      DPRINTF("unmapping %p..%p\n", holebase, highest_va - 1);
+      if (highest_va < holebase) {
+        MTCP_PRINTF("error unmapping: highest_va(%p) < holebase(%p)\n",
+                    highest_va, holebase);
+        mtcp_abort ();
+      }
+      rc = mtcp_sys_munmap (holebase, highest_va - holebase);
+    }
   }
+  if (rc == -1) {
+      MTCP_PRINTF("error %d unmapping from %p by %p bytes\n",
+                  mtcp_sys_errno, holebase, highest_va - holebase);
+      mtcp_abort ();
+  }
+  DPRINTF("\n"); /* end of munmap */
 
   /* Restore memory areas */
   DPRINTF("restoring memory areas\n");
