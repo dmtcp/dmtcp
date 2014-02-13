@@ -85,6 +85,7 @@ typedef struct RestoreInfo {
   fnptr_t restorememoryareas_fptr;
   //void (*post_restart)();
   //void (*restorememoryareas_fptr)();
+  int use_gdb;
 } RestoreInfo;
 RestoreInfo rinfo;
 
@@ -134,12 +135,16 @@ int main(int argc, char *argv[])
   int simulate = 0;
 
   rinfo.fd = -1;
+  rinfo.use_gdb = 0;
   shift;
   while (argc > 0) {
     if (argc == 1) {
       MTCP_PRINTF("Considering '%s' as a ckpt image.\n", argv[0]);
       ckptImage = argv[0];
       break;
+    } else if (mtcp_strcmp(argv[0], "--use-gdb") == 0) {
+        rinfo.use_gdb = 1;
+        shift;
     } else if (mtcp_strcmp(argv[0], "--fd") == 0) {
       rinfo.fd = mtcp_strtol(argv[1]);
       shift; shift;
@@ -187,6 +192,7 @@ int main(int argc, char *argv[])
 
   restore_brk(rinfo.saved_brk, rinfo.restore_addr,
               rinfo.restore_addr + rinfo.restore_size);
+  // We will not use rinfo.highest_va.  It fails on several distros/CPUs.
   getMiscAddrs(&rinfo.text_addr, &rinfo.text_size, &rinfo.highest_va);
   if (hasOverlappingMapping(rinfo.restore_addr, rinfo.restore_size)) {
     MTCP_PRINTF("*** Not Implemented.\n\n");
@@ -271,6 +277,9 @@ static void restart_fast_path()
   mtcp_sys_memcpy(rinfo.restore_addr + rinfo.text_size, &rinfo, sizeof(rinfo));
   void *stack_ptr = rinfo.restore_addr + rinfo.restore_size - MB;
 
+  DPRINTF("We have copied mtcp_restart to higher address.  We will now\n"
+          "    jump into a copy of restorememoryareas().\n");
+
 #if defined(__i386__) || defined(__x86_64__)
   asm volatile (CLEAN_FOR_64_BIT(mov %0,%%esp;)
                 /* This next assembly language confuses gdb,
@@ -337,15 +346,19 @@ __attribute__((optimize(0)))
 static void restorememoryareas(RestoreInfo *rinfo_ptr)
 {
   int mtcp_sys_errno;
-  RestoreInfo restore_info;
-  mtcp_sys_memcpy(&restore_info, rinfo_ptr, sizeof (restore_info));
+
+  DPRINTF("Entering copy of restorememoryareas().  We will now unmap old memory"
+          "\n    and restore memory sections from the checkpoint image.\n");
+  if (rinfo_ptr->use_gdb) {
+    DPRINTF("Called with --use-gdb.\n");
+  }
 
   int rc;
   VA holebase;
   VA highest_va;
   VA vdso_addr = NULL, vsyscall_addr = NULL, stack_end_addr = NULL;
-
-  DPRINTF("Entering mtcp_restart_nolibc.c:mtcp_restoreverything\n");
+  RestoreInfo restore_info;
+  mtcp_sys_memcpy(&restore_info, rinfo_ptr, sizeof (restore_info));
 
 
   /* Unmap everything except for this image as everything we need
