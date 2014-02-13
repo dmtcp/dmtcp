@@ -157,10 +157,10 @@ def splitWithQuotes(string):
     if string[i] == "'" or string[i] == '"':
       # This triggers twice in:  '"..."'  (on first ' and second ")
       if xor(inSingleQuotes, inDoubleQuotes) and not isOuter: # if beg. of quote
-	isOuter = string[i]
+        isOuter = string[i]
         string = replaceChar(string, i, '#')
       elif isOuter == string[i]:  # if end of quote
-	isOuter = False
+        isOuter = False
         string = replaceChar(string, i, '#')
     if not inSingleQuotes and not inDoubleQuotes and string[i] == ' ':
       # FIXME (Is there any destructive way to do this?)
@@ -192,7 +192,9 @@ if os.system("make -s --no-print-directory tests") != 0:
 #pad a string and print/flush it
 def printFixed(str, w=1):
   # The comma at end of print prevents a "newline", but still adds space.
-  print str.ljust(w),
+  if sys.version_info[0] == 2:
+    # Replace "print str.ljust(w),"  by version compatible w/ python3:
+    os.write(sys.stdout.fileno(), str.ljust(w).encode("ascii"))
   sys.stdout.flush()
 
 #exception on failed check
@@ -267,8 +269,8 @@ def launch(cmd):
       childStderr = subprocess.STDOUT # Mix stderr into stdout file object
     # NOTE:  This might be replaced by shell=True in call to subprocess.Popen
     proc = subprocess.Popen(cmd, bufsize=BUFFER_SIZE,
-		 stdin=subprocess.PIPE, stdout=childStdout,
-		 stderr=childStderr, close_fds=True)
+                 stdin=subprocess.PIPE, stdout=childStdout,
+                 stderr=childStderr, close_fds=True)
   return proc
 
 #randomize port and dir, so multiple processes works
@@ -421,8 +423,8 @@ def clearCkptDir():
           #   os.remove(os.path.join(root, name))
           os.remove(os.path.join(root, name))
         except OSError, e:
-	  if e.errno != errno.ENOENT:  # Maybe ckpt_*_dmtcp.temp was renamed.
-	    raise e
+          if e.errno != errno.ENOENT:  # Maybe ckpt_*_dmtcp.temp was renamed.
+            raise e
       for name in dirs:
         os.rmdir(os.path.join(root, name))
 
@@ -462,7 +464,7 @@ def runTestRaw(name, numProcs, cmds):
     coordinatorCmd('k')
     try:
       WAITFOR(lambda: getStatus()==(0, False),
-	      lambda:"coordinator kill command failed")
+              lambda:"coordinator kill command failed")
     except CheckFailed:
       global coordinator
       coordinatorCmd('q')
@@ -489,8 +491,8 @@ def runTestRaw(name, numProcs, cmds):
       try:
         os.waitpid(x.pid, os.WNOHANG)
       except OSError, e:
-	if e.errno != errno.ECHILD:
-	  raise e
+        if e.errno != errno.ECHILD:
+          raise e
       procs.remove(x)
 
   def testCheckpoint():
@@ -587,7 +589,7 @@ def runTestRaw(name, numProcs, cmds):
             printFixed(" retry:")
             testKill()
       if i != CYCLES - 1:
-	printFixed(";")
+        printFixed(";")
 
     testKill()
     print #newline
@@ -645,15 +647,15 @@ def saveResultsNMI():
       target = "./dmtcp-" + pwd.getpwuid(os.getuid()).pw_name + \
                "@" + socket.gethostname()
       cmd = "mkdir results; cp -pr " + tmpdir + "/" + target + \
-	       " ./dmtcp/src/libdmtcp.so" + \
-	       " ./dmtcp/src/dmtcp_coordinator" + \
+               " ./dmtcp/src/libdmtcp.so" + \
+               " ./dmtcp/src/dmtcp_coordinator" + \
                " ./mtcp/libmtcp.so" + \
                " results/"
       os.system(cmd)
       cmd = "tar zcf ../results.tar.gz ./results; rm -rf results"
       os.system(cmd)
       print "\n*** results.tar.gz ("+tmpdir+"/"+target+ \
-					      ") written to DMTCP_ROOT/.. ***"
+                                              ") written to DMTCP_ROOT/.. ***"
 
 print "== Tests =="
 
@@ -694,18 +696,18 @@ runTest("dmtcpaware1",   1, ["./test/dmtcpaware1"])
 
 PWD=os.getcwd()
 runTest("plugin-sleep2", 1, ["--with-plugin "+
-			     PWD+"/test/plugin/sleep1/dmtcp_sleep1hijack.so:"+
-			     PWD+"/test/plugin/sleep2/dmtcp_sleep2hijack.so "+
-			     "./test/dmtcp1"])
+                             PWD+"/test/plugin/sleep1/dmtcp_sleep1hijack.so:"+
+                             PWD+"/test/plugin/sleep2/dmtcp_sleep2hijack.so "+
+                             "./test/dmtcp1"])
 
 runTest("plugin-example-db", 2, ["--with-plugin "+
-			    PWD+"/test/plugin/example-db/dmtcp_example-dbhijack.so "+
-			     "env EXAMPLE_DB_KEY=1 EXAMPLE_DB_KEY_OTHER=2 "+
-			     "./test/dmtcp1",
-			         "--with-plugin "+
-			    PWD+"/test/plugin/example-db/dmtcp_example-dbhijack.so "+
-			     "env EXAMPLE_DB_KEY=2 EXAMPLE_DB_KEY_OTHER=1 "+
-			     "./test/dmtcp1"])
+                            PWD+"/test/plugin/example-db/dmtcp_example-dbhijack.so "+
+                             "env EXAMPLE_DB_KEY=1 EXAMPLE_DB_KEY_OTHER=2 "+
+                             "./test/dmtcp1",
+                                 "--with-plugin "+
+                            PWD+"/test/plugin/example-db/dmtcp_example-dbhijack.so "+
+                             "env EXAMPLE_DB_KEY=2 EXAMPLE_DB_KEY_OTHER=1 "+
+                             "./test/dmtcp1"])
 
 # Test special case:  gettimeofday can be handled within VDSO segment.
 runTest("gettimeofday",  1, ["./test/gettimeofday"])
@@ -727,12 +729,14 @@ runTest("poll",          1, ["./test/poll"])
 runTest("forkexec",      2, ["./test/forkexec"])
 
 if HAS_SSH == "yes":
-  S=3*DEFAULT_S
+  S=5*DEFAULT_S
   runTest("sshtest",     4, ["./test/sshtest"])
   S=DEFAULT_S
 
 if PID_VIRTUALIZATION == "yes":
+  S=2*DEFAULT_S
   runTest("waitpid",      2, ["./test/waitpid"])
+  S=DEFAULT_S
 
 runTest("client-server", 2, ["./test/client-server"])
 
@@ -877,8 +881,8 @@ if HAS_SCRIPT == "yes" and PID_VIRTUALIZATION == "yes":
     #  only 8KB of content in ASCII.  The 100 MB of locale-archive condenses
     #  to 25 MB _per process_ under gzip, but this can be slow at ckpt time.
     runTest("script",    4,  ["/usr/bin/script -f" +
-    			      " -c 'bash -c \"ls; sleep 30\"'" +
-    			      " dmtcp-test-typescript.tmp"])
+                              " -c 'bash -c \"ls; sleep 30\"'" +
+                              " dmtcp-test-typescript.tmp"])
   os.system("rm -f dmtcp-test-typescript.tmp")
   S=DEFAULT_S
 
@@ -998,7 +1002,7 @@ if HAS_OPENMPI == "yes":
     os.environ['PATH'] += ":" + os.path.dirname(OPENMPI_MPIRUN)
   S=3*DEFAULT_S
   runTest("openmpi", [5,6], [OPENMPI_MPIRUN + " -np 4" +
-			     " ./test/openmpi"])
+                             " ./test/openmpi"])
   S=DEFAULT_S
   if oldPath:
     os.environ['PATH'] = oldPath
