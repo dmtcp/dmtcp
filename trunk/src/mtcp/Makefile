@@ -19,11 +19,10 @@ build_mtcp_restart_debug:
 	rm -f mtcp_restart.o
 	make MTCP_CFLAGS=-DDEBUG mtcp_restart.o
 gdb_run: ../../bin/mtcp_restart ckpt_dmtcp1_test.dmtcp
-	offset=0x`readelf -S ../../bin/mtcp_restart | grep '\.text' | \
-	  sed -e 's^.* 0*^^'` ; \
+	offset=`./text_offset.sh ../../bin/mtcp_restart` ; \
 	  gdb --args ../../bin/mtcp_restart \
 	    --use-gdb --text-offset $$offset ckpt_dmtcp1_test.dmtcp
-ckpt_dmtcp1_test.dmtcp:
+ckpt_dmtcp1_test.dmtcp: ../../test/dmtcp1
 	../../bin/dmtcp_launch -i3 ../../test/dmtcp1 &
 	sleep 5 && ../../bin/dmtcp_command --quit
 	rm -f `ls -t dmtcp_restart_script*.sh`
