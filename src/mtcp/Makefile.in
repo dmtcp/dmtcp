@@ -70,8 +70,13 @@ $(targetdir)/bin/$(MTCP_RESTART): mtcp_restart.o
 # We also need to build mtcp_restart without optimization (-O0), otherwise it
 # may fail to restart. Since these three objects are fairly low level, we avoid
 # any surprises by compiling them without any optimization.
+# FIXME:  Wasn't this an issue only for DMTCP-2.1 or earlier?
+#    The -fno-stack-protector concerned returning from the interrupt handler.
+#    That now happens in a different function.
+# IMPORTANT:  Compile with -O2 or higher.  On some 32-bit CPUs
+#   (e.g. ARM/gcc-4.8), the inlining of -O2 avoids bugs when fnc's are copied.
 mtcp_restart.o: mtcp_restart.c $(HEADERS)
-	$(COMPILE) -DPIC -fPIC -fno-stack-protector -g -O0 $<
+	$(COMPILE) -DPIC -fPIC -fno-stack-protector -g -O2 $<
 
 build: $(targetdir)/bin/$(MTCP_RESTART)
 default: build
