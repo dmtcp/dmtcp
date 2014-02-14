@@ -32,6 +32,7 @@ AC_CONFIG_FILES([Makefile \
                  plugin/modify-env/Makefile \
                  plugin/ptrace/Makefile \
                  src/Makefile \
+                 src/mtcp/Makefile \
                  src/plugin/Makefile \
                  src/plugin/alloc/Makefile \
                  src/plugin/dl/Makefile \

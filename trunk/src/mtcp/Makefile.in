@@ -1,0 +1,124 @@
+CC = @CC@
+M32=@M32@
+CFLAGS = @CFLAGS@
+CPPFLAGS = @CPPFLAGS@
+CXX = @CXX@
+CXXFLAGS = @CXXFLAGS@
+LDFLAGS = @LDFLAGS@
+
+# Allow the user to specify the install program.
+INSTALL = @INSTALL@
+INSTALL_PROGRAM = @INSTALL_PROGRAM@
+INSTALL_DATA = @INSTALL_DATA@
+INSTALL_SCRIPT = @INSTALL_SCRIPT@
+
+MKDIR_P = @MKDIR_P@
+PACKAGE = @PACKAGE@
+PACKAGE_BUGREPORT = @PACKAGE_BUGREPORT@
+PACKAGE_NAME = @PACKAGE_NAME@
+PACKAGE_STRING = @PACKAGE_STRING@
+PACKAGE_TARNAME = @PACKAGE_TARNAME@
+PACKAGE_URL = @PACKAGE_URL@
+PACKAGE_VERSION = @PACKAGE_VERSION@
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+datarootdir=@datarootdir@
+bindir = @bindir@
+docdir = @docdir@
+includedir = @includedir@
+infodir = @infodir@
+libdir = @libdir@
+pkglibdir = $(libdir)/@PACKAGE@
+top_builddir = @top_builddir@
+top_srcdir = @top_srcdir@
+srcdir = @srcdir@
+VPATH = @srcdir@
+targetdir = $(top_builddir)
+
+ifeq ($(M32),1)
+  targetdir = $(top_builddir)/lib/$(PACKAGE)/32
+  MTCP_RESTART=mtcp_restart-32
+else
+  MTCP_RESTART=mtcp_restart
+endif
+
+DMTCP_INCLUDE_PATH = $(top_srcdir)/include
+JALIB_PATH = $(top_srcdir)/jalib
+
+INCLUDES = -I$(JALIB_PATH) -I$(DMTCP_INCLUDE_PATH) \
+	   -I$(top_builddir)/include -I$(srcdir) -I$(srcdir)/..
+CFLAGS += -DHAVE_CONFIG_H -fPIC -g
+CXXFLAGS += -DHAVE_CONFIG_H -fPIC -g
+ifeq ($(M32),1)
+CFLAGS += -m32 -Wa,--32
+CXXFLAGS += -m32 -Wa,--32
+LDFLAGS += -m32 -Wl,-m32 -Wl,-melf_i386 -Wa,--32
+endif
+
+COMPILE = $(CC) $(INCLUDES) $(CPPFLAGS) $(CFLAGS) -c -o $@
+LINK = $(CC) $(CFLAGS) $(LDFLAGS) -o $@
+
+ARM_EXTRAS = $(srcdir)/libc-do-syscall-arm.S
+HEADERS = mtcp_util.ic mtcp_sys.h mtcp_util.h \
+	  $(srcdir)/../membarrier.h $(DMTCP_INCLUDE_PATH)/procmapsarea.h
+
+$(targetdir)/bin/$(MTCP_RESTART): mtcp_restart.o
+	${LINK} -fPIC -g -O2 -nodefaultlibs ${ARM_EXTRAS} $<
+
+# We need to compile mtcp_restart.c with "-fno-stack-protector" to avoid
+# runtime stack smashing detection.
+# We also need to build mtcp_restart without optimization (-O0), otherwise it
+# may fail to restart. Since these three objects are fairly low level, we avoid
+# any surprises by compiling them without any optimization.
+mtcp_restart.o: mtcp_restart.c $(HEADERS)
+	$(COMPILE) -DPIC -fPIC -fno-stack-protector -g -O0 $<
+
+build: $(targetdir)/bin/$(MTCP_RESTART)
+default: build
+libs: build
+all: default
+
+gdb: build_mtcp_restart_debug gdb_run
+
+build_mtcp_restart_debug:
+	rm -f mtcp_restart.o
+	make MTCP_CFLAGS=-DDEBUG mtcp_restart.o
+
+gdb_run: $(targetdir)/bin/$(MTCP_RESTART) ckpt_dmtcp1_test.dmtcp
+	offset=`./text_offset.sh $(targetdir)/bin/$(MTCP_RESTART)` ; \
+	       gdb --args $(targetdir)/bin/$(MTCP_RESTART) \
+	       --use-gdb --text-offset $$offset ckpt_dmtcp1_test.dmtcp
+
+ckpt_dmtcp1_test.dmtcp: $(targetdir)/test/dmtcp1
+	$(targetdir)/bin/dmtcp_launch -i3 $(targetdir)/test/dmtcp1 &
+	sleep 5 && $(targetdir)/bin/dmtcp_command --quit
+	rm -f `ls -t dmtcp_restart_script*.sh`
+	mv `ls -t ckpt_dmtcp1_*.dmtcp | head -1` ckpt_dmtcp1_test.dmtcp.gz
+	gunzip ckpt_dmtcp1_test.dmtcp.gz
+
+install: all
+	${INSTALL_PROGRAM} $(targetdir)/bin/$(MTCP_RESTART) $(DESTDIR)$(bindir)
+
+uninstall:
+	rm -f $(DESTDIR)$(bindir)/$(MTCP_RESTART)
+
+# The install-libs target is there to install plugin libraries when building
+# multi-arch builds. This prevents the installation of 32-bit binaries.
+# However, mtcp_restart is an exception -- we need to keep one copy for each
+# arch.
+install-libs: install
+
+uninstall-libs: uninstall
+
+tidy:
+	rm -rf ckpt_*_files
+	rm -f ckpt_*.dmtcp dmtcp_restart_script* core*
+
+clean: tidy
+	-rm -f *.o
+	-rm -f $(targetdir)/bin/$(MTCP_RESTART)
+
+distclean: clean
+	rm -f Makefile
+
+.PHONY: default all build tidy clean distclean install uninstall gdb build_mtcp_restart_debug gdb_run ckpt_dmtcp1_test.dmtcp 

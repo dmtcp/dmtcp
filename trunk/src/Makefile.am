@@ -24,13 +24,11 @@ AM_CFLAGS = -m32 -Wa,--32 $(PICFLAGS)
 AM_CXXFLAGS = -m32 -Wa,--32 $(PICFLAGS)
 AM_LDFLAGS =  -m32 -Wl,-m32 -Wl,-melf_i386 -Wa,--32 $(PICFLAGS)
 targetdir = $(top_builddir)/lib/$(PACKAGE)/32
-MTCP_RESTART=mtcp_restart-32
 else
 AM_CFLAGS = $(PICFLAGS)
 AM_CXXFLAGS = $(PICFLAGS)
 AM_LDFLAGS = $(PICFLAGS)
 targetdir = $(top_builddir)
-MTCP_RESTART=mtcp_restart
 endif
 
 #HEADERS
@@ -38,8 +36,6 @@ endif
 AM_CPPFLAGS= $(all_includes) -I$(dmtcpincludedir) -I$(jalibdir)
 
 # targets:
-# ${targetdir}/bin/mtcp_restart is also a target, but it's built in
-#   a different directory.
 noinst_LIBRARIES = libdmtcpinternal.a libsyscallsreal.a libnohijack.a libjalib.a
 bin_PROGRAMS = $(targetdir)/bin/dmtcp_launch \
 	       $(targetdir)/bin/dmtcp_command \
@@ -129,24 +125,22 @@ threadinfo.o tlsinfo.o:
 	$(COMPILE) -DPIC -fno-stack-protector -g -O0 -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $(srcdir)/$*.c
 	$(am__mv) $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
 
-$(targetdir)/bin/mtcp_restart: mtcp/mtcp_restart.o
-	cd mtcp && ${MAKE} CC=${CC} mtcp_restart.o
-
 install-exec-hook:
-	install $(targetdir)/bin/mtcp_restart $(DESTDIR)$(bindir)
 	cd $(DESTDIR)$(bindir) && $(LN_S) -f dmtcp_launch dmtcp_checkpoint
 
 uninstall-hook:
 	rm -f $(DESTDIR)$(bindir)/dmtcp_checkpoint
-	rm $(DESTDIR)$(bindir)/mtcp_restart
 
-libs: $(dmtcplib_PROGRAMS) $(lib_LIBRARIES) $(targetdir)/bin/mtcp_restart
+libs: $(dmtcplib_PROGRAMS)
+	(cd mtcp && ${MAKE} libs)
 	(cd plugin && ${MAKE} libs)
 
 install-libs: install-dmtcplibPROGRAMS
+	(cd mtcp && ${MAKE} install-libs)
 	(cd plugin && ${MAKE} install-libs)
 
 uninstall-libs: uninstall-dmtcplibPROGRAMS
+	(cd mtcp && ${MAKE} uninstall-libs)
 	(cd plugin && ${MAKE} uninstall-libs)
 
 .PHONY: libs install-libs uninstall-libs
