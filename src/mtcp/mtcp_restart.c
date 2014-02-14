@@ -21,6 +21,27 @@
  *  <http://www.gnu.org/licenses/>.                                          *
  *****************************************************************************/
 
+/* Algorithm:
+ *    When DMTCP originally launched, it mmap'ed a region of memory sufficient
+ *  to hold the mtcp_restart executable.  This mtcp_restart was compiled
+ *  as position-independent code (-fPIC).  So, we can copy the code into
+ *  the memory (holebase) that was reserved for us during DMTCP launch.
+ *    When we move to high memory, we will also use a temporary stack
+ *  within the reserved memory (holebase).  Changing from the original
+ *  mtcp_restart stack to a new stack must be done with care.  All information
+ *  to be passed will be stored in the variable rinfo, a global struct.
+ *  When we enter the copy of restorememoryareas() in the reserved memory,
+ *  we will copy the data of rinfo from the global rinfo data to our
+ *  new call frame.
+ *    It is then safe to munmap the old text, data, and stack segments. 
+ *  Once we have done the munmap, we have almost finished bootstrapping
+ *  ourselves.  We only need to copy the memory sections from the checkpoint
+ *  image to the original addresses in memory.  Finally, we will then jump
+ *  back using the old program counter of the checkpoint thread.
+ *    Now, the copy of mtcp_restart is "dead code", and we will not use
+ *  this memory region again until we restart from the next checkpoint.
+ */
+
 #include <errno.h>
 #include <fcntl.h>
 #include <sched.h>
@@ -44,37 +65,19 @@
 #define BINARY_NAME "mtcp_restart"
 #define BINARY_NAME_M32 "mtcp_restart-32"
 
-/* Internal routines */
-static void readmemoryareas(int fd);
-static void mmapfile(int fd, void *buf, size_t size, int prot, int flags);
-static void read_shared_memory_area_from_file(int fd, Area* area, int flags);
-static VA highest_userspace_address (VA *vdso_addr, VA *vsyscall_addr,
-                                     VA * stack_end_addr);
-static void lock_file(int fd, char* name, short l_type);
-static char* fix_filename_if_new_cwd(char* filename);
-static int open_shared_file(char* filename);
-static void adjust_for_smaller_file_size(Area *area, int fd);
-static void restorememoryareas();
-static void restore_brk(VA saved_brk, VA restore_begin, VA restore_end);
-static void restart_fast_path();
-static void restart_slow_path();
-static int doAreasOverlap(VA addr1, size_t size1, VA addr2, size_t size2);
-static int hasOverlappingMapping(VA addr, size_t size);
-static void getMiscAddrs(VA *textAddr, size_t *size, VA *highest_va);
-static void mtcp_simulateread(int fd);
-
-#define MB 1024*1024
-#define RESTORE_STACK_SIZE 5*MB
-#define RESTORE_MEM_SIZE 5*MB
-#define RESTORE_TOTAL_SIZE (RESTORE_STACK_SIZE+RESTORE_MEM_SIZE)
-
+/* struct RestoreInfo to pass all parameters from one function to next.
+ * This must be global (not on stack) at the time that we jump from
+ * original stack to copy of restorememoryareas() on new stack.
+ * This is becasue we will wait until we are in the new call frame and then
+ * copy the global data into the new call frame.
+ */
 typedef void (*fnptr_t)();
 #define STACKSIZE 4*1024*1024
   //static long long tempstack[STACKSIZE];
 typedef struct RestoreInfo {
   int fd;
-  int stderr_fd;
-  int mtcp_sys_errno;
+  int stderr_fd;  /* FIXME:  This is never used. */
+  // int mtcp_sys_errno;
   VA text_addr;
   size_t text_size;
   VA saved_brk;
@@ -88,7 +91,31 @@ typedef struct RestoreInfo {
   int use_gdb;
   int text_offset;
 } RestoreInfo;
-RestoreInfo rinfo;
+static RestoreInfo rinfo;
+
+/* Internal routines */
+static void readmemoryareas(int fd);
+static void mmapfile(int fd, void *buf, size_t size, int prot, int flags);
+static void read_shared_memory_area_from_file(int fd, Area* area, int flags);
+static VA highest_userspace_address (VA *vdso_addr, VA *vsyscall_addr,
+                                     VA * stack_end_addr);
+static void lock_file(int fd, char* name, short l_type);
+// static char* fix_filename_if_new_cwd(char* filename);
+static int open_shared_file(char* filename);
+static void adjust_for_smaller_file_size(Area *area, int fd);
+static void restorememoryareas(RestoreInfo *rinfo_ptr);
+static void restore_brk(VA saved_brk, VA restore_begin, VA restore_end);
+static void restart_fast_path(void);
+static void restart_slow_path(void);
+static int doAreasOverlap(VA addr1, size_t size1, VA addr2, size_t size2);
+static int hasOverlappingMapping(VA addr, size_t size);
+static void getMiscAddrs(VA *textAddr, size_t *size, VA *highest_va);
+static void mtcp_simulateread(int fd);
+
+#define MB 1024*1024
+#define RESTORE_STACK_SIZE 5*MB
+#define RESTORE_MEM_SIZE 5*MB
+#define RESTORE_TOTAL_SIZE (RESTORE_STACK_SIZE+RESTORE_MEM_SIZE)
 
 //const char service_interp[] __attribute__((section(".interp"))) = "/lib64/ld-linux-x86-64.so.2";
 
@@ -100,7 +127,7 @@ int __libc_start_main (int (*main) (int, char **, char **),
 {
   int mtcp_sys_errno;
   char **envp = argv + argc + 1;
-  int result = main (argc, argv, envp);
+  int result = main(argc, argv, envp);
   mtcp_sys_exit(result);
   while(1);
 }
@@ -186,6 +213,10 @@ int main(int argc, char *argv[])
       mtcp_readfile(rinfo.fd, &mtcpHdr, sizeof mtcpHdr);
     } while (mtcp_strcmp(mtcpHdr.signature, MTCP_SIGNATURE) != 0);
   }
+
+  DPRINTF("For debugging:\n"
+          "    (gdb) add-symbol-file ../../bin/mtcp_restart %p\n",
+          mtcpHdr.restore_addr + rinfo.text_offset);
 
   if (simulate) {
     mtcp_simulateread(rinfo.fd);
@@ -309,8 +340,7 @@ __attribute__((optimize(0)))
 static void restart_slow_path()
 {
   int mtcp_sys_errno;
-  // FIXME: Does it take arg or not? Args not declared, used both ways! - Gene
-  restorememoryareas();
+  restorememoryareas(&rinfo);
 }
 
 static void mtcp_simulateread(int fd)
@@ -961,7 +991,8 @@ static VA highest_userspace_address (VA *vdso_addr, VA *vsyscall_addr,
 
     mapsfd = mtcp_sys_open ("/proc/self/maps", O_RDONLY, 0);
     if (mapsfd < 0) {
-	MTCP_PRINTF("couldn't open /proc/self/maps\n");
+	MTCP_PRINTF("couldn't open /proc/self/maps; error %d\n",
+                    mtcp_sys_errno);
 	mtcp_abort();
     }
 
@@ -1129,6 +1160,8 @@ static int open_shared_file(char* filename)
   return fd;
 }
 
+#if 0
+// Not currently used
 __attribute__((optimize(0)))
 static void mmapfile(int fd, void *buf, size_t size, int prot, int flags)
 {
@@ -1154,6 +1187,7 @@ static void mmapfile(int fd, void *buf, size_t size, int prot, int flags)
     mtcp_abort();
   }
 }
+#endif
 
 __attribute__((optimize(0)))
 static int doAreasOverlap(VA addr1, size_t size1, VA addr2, size_t size2)

@@ -506,7 +506,8 @@ static void preprocess_special_segments(int *vsyscall_exists)
        * page with RWX permission to make the page visible again. This call
        * will fail if no stack page was invisible to begin with.
        */
-      // FIXME : If the area following the stack is not empty, dont exercise this path
+      // FIXME : If the area following the stack is not empty, don't
+      //         exercise this path.
       int ret = mprotect(area.addr + area.size, 0x1000,
                          PROT_READ | PROT_WRITE | PROT_EXEC);
       if (ret == 0) {
