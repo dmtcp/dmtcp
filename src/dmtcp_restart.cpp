@@ -301,7 +301,8 @@ static void runMtcpRestart(int is32bitElf, int fd, dmtcp::ProcessInfo *pInfo)
     jalib::Filesystem::FindHelperUtility ("mtcp_restart");
 
   if (is32bitElf) {
-    mtcprestart = jalib::Filesystem::FindHelperUtility ("mtcp_restart-32");
+    mtcprestart = jalib::Filesystem::FindHelperUtility("mtcp_restart-32",
+                                                       is32bitElf);
   }
 
   char* const newArgs[] = {
