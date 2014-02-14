@@ -589,7 +589,7 @@ def runTestRaw(name, numProcs, cmds):
             printFixed(" retry:")
             testKill()
       if i != CYCLES - 1:
-        printFixed(";")
+        printFixed("; ")
 
     testKill()
     print #newline
