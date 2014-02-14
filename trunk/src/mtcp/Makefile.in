@@ -78,17 +78,20 @@ default: build
 libs: build
 all: default
 
-gdb: build_mtcp_restart_debug gdb_run
+# Try 'make gdb' before 'make check' if you want debugging information
+#   available in the case of 'make check' dumping core.
+check: ../../bin/mtcp_restart ckpt_dmtcp1_test.dmtcp
+	../../bin/mtcp_restart --text-offset `./text_offset.sh \
+	  ../../bin/mtcp_restart` ckpt_dmtcp1_test.dmtcp
 
+gdb: build_mtcp_restart_debug gdb_run
 build_mtcp_restart_debug:
 	rm -f mtcp_restart.o
 	make MTCP_CFLAGS=-DDEBUG mtcp_restart.o
-
 gdb_run: $(targetdir)/bin/$(MTCP_RESTART) ckpt_dmtcp1_test.dmtcp
 	offset=`./text_offset.sh $(targetdir)/bin/$(MTCP_RESTART)` ; \
 	       gdb --args $(targetdir)/bin/$(MTCP_RESTART) \
 	       --use-gdb --text-offset $$offset ckpt_dmtcp1_test.dmtcp
-
 ckpt_dmtcp1_test.dmtcp: $(targetdir)/test/dmtcp1
 	$(targetdir)/bin/dmtcp_launch -i3 $(targetdir)/test/dmtcp1 &
 	sleep 5 && $(targetdir)/bin/dmtcp_command --quit
