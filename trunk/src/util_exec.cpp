@@ -434,7 +434,8 @@ static int32_t getDlsymOffset_m32()
   cmd2 = "nm -D -g " + libdl + " | grep 'dlinfo'";
   fp = popen(cmd2.c_str(), "r");
   JASSERT(fp != NULL);
-  JASSERT(fread(buf, sizeof(buf), 1, fp) > 0);
+  // fread returns the total number of bytes read only when 'size' is 1.
+  JASSERT(fread(buf, 1, sizeof(buf), fp) > 0);
   base_addr = strtoull(buf, NULL, 16);
   JASSERT(base_addr != 0);
   fclose(fp);
@@ -442,7 +443,7 @@ static int32_t getDlsymOffset_m32()
   cmd2 = "nm -D -g " + libdl + " | grep 'dlsym'";
   fp = popen(cmd2.c_str(), "r");
   JASSERT(fp != NULL);
-  JASSERT(fread(buf, sizeof(buf), 1, fp) > 0);
+  JASSERT(fread(buf, 1, sizeof(buf), fp) > 0);
   dlsym_addr = strtoull(buf, NULL, 16);
   JASSERT(base_addr != 0);
   fclose(fp);
