@@ -40,7 +40,7 @@
 /* Let MTCP_PROT_ZERO_PAGE be a unique bit mask
  * This assumes: PROT_READ == 0x1, PROT_WRITE == 0x2, and PROT_EXEC == 0x4
  */
-#define MTCP_PROT_ZERO_PAGE (PROT_EXEC << 1)
+#define MTCP_PROT_ZERO_PAGE (PROT_EXEC << 2)
 
 #define FILENAMESIZE 1024
 
