@@ -110,6 +110,8 @@ static const char* theUsage =
   "              Disable alloc plugin (default: enabled).\n"
   "  --disable-dl-plugin: (environment variable DMTCP_DL_PLUGIN=[01])\n"
   "              Disable dl plugin (default: enabled).\n"
+  "  --disable-all-plugins (EXPERTS ONLY, FOR DEBUGGING)\n"
+  "              Disable all plugins.\n"
   "\n"
   "Other options:\n"
   "  --prefix PATH\n"
@@ -136,6 +138,7 @@ static const char* theUsage =
 //   "See `dmtcp_launch --help` for usage.\n"
 // ;
 
+static bool disableAllPlugins=false;
 static bool isSSHSlave=false;
 static bool checkpointOpenFiles=false;
 static bool enableRM=false;
@@ -246,6 +249,9 @@ static void processArgs(int *orig_argc, char ***orig_argv)
       shift;
     } else if (s == "--disable-dl-plugin") {
       setenv(ENV_VAR_DL_PLUGIN, "0", 1);
+      shift;
+    } else if (s == "--no-plugins" || s == "--disable-all-plugins") {
+      disableAllPlugins = true;
       shift;
     } else if (s == "--rm" || s == "--batch-queue") {
       enableRM = true;
@@ -724,6 +730,13 @@ static void setLDPreloadLibs(bool is32bitElf)
   JASSERT(!libPath.empty());
   setenv("LD_LIBRARY_PATH", libPath.c_str(), 1);
 #endif
+
+  if (disableAllPlugins) {
+    preloadLibs = jalib::Filesystem::FindHelperUtility("libdmtcp.so");
+#if defined(__x86_64__)
+    preloadLibs32 = jalib::Filesystem::FindHelperUtility("libdmtcp.so", true);
+#endif
+  }
 
   setenv(ENV_VAR_HIJACK_LIBS, preloadLibs.c_str(), 1);
 #if defined(__x86_64__)
