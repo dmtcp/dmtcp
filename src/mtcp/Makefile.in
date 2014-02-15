@@ -129,4 +129,4 @@ clean: tidy
 distclean: clean
 	rm -f Makefile
 
-.PHONY: default all build tidy clean distclean install uninstall gdb build_mtcp_restart_debug gdb_run ckpt_dmtcp1_test.dmtcp 
+.PHONY: default all build tidy clean distclean install uninstall gdb build_mtcp_restart_debug gdb_run
