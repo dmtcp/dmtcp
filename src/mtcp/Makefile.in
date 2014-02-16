@@ -5,6 +5,7 @@ CPPFLAGS = @CPPFLAGS@
 CXX = @CXX@
 CXXFLAGS = @CXXFLAGS@
 LDFLAGS = @LDFLAGS@
+ARM_HOST = @ARM_HOST@
 
 # Allow the user to specify the install program.
 INSTALL = @INSTALL@
@@ -58,7 +59,10 @@ endif
 COMPILE = $(CC) $(INCLUDES) $(CPPFLAGS) $(CFLAGS) -c -o $@
 LINK = $(CC) $(CFLAGS) $(LDFLAGS) -o $@
 
-ARM_EXTRAS = $(srcdir)/libc-do-syscall-arm.S
+ifeq (${ARM_HOST},yes)
+  ARM_EXTRAS = $(srcdir)/libc-do-syscall-arm.S
+endif
+
 HEADERS = mtcp_util.ic mtcp_sys.h mtcp_util.h \
 	  $(srcdir)/../membarrier.h $(DMTCP_INCLUDE_PATH)/procmapsarea.h
 
