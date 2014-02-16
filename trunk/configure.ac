@@ -264,6 +264,11 @@ case "$host_cpu" in
   i?86) is_i486_host=yes ;;
 esac
 AM_CONDITIONAL(ARM_HOST, [test "$is_arm_host" == "yes"])
+if test "$is_arm_host" == "yes"; then
+  AC_SUBST([ARM_HOST], [yes])
+else
+  AC_SUBST([ARM_HOST], [no])
+fi
 
 #check for -lreadline -lhistory v5; does not require curses
 AC_CHECK_LIB([readline], [readline], [linksReadline=yes], [linksReadline=no], [-lhistory -lcurses])
