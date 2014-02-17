@@ -7,8 +7,8 @@
 #include <sys/personality.h>
 #include <linux/version.h>
 #include <gnu/libc-version.h>
-#include "threadinfo.h"
-#include "mtcp_sys_for_dmtcp.h"
+#include "mtcp/mtcp_sys.h"
+#include "tlsinfo.h"
 
 int mtcp_sys_errno;
 
@@ -26,7 +26,7 @@ int mtcp_sys_errno;
 # define tlsinfo_get_thread_area(args...) \
     syscall(SYS_get_thread_area, args)
 # define tlsinfo_set_thread_area(args...) \
-    syscall(SYS_set_thread_area, args)
+    mtcp_sys_set_thread_area(args)
 #endif
 
 #ifdef __x86_64__
@@ -97,18 +97,6 @@ static unsigned int myinfo_gs;
       (mtcp_sys_kernel_set_tls(myinfo_gs+1216), 0) \
       /* 0 return value at end means success */ )
 #endif /* end __arm__ */
-
-/* TLS segment registers used differently in i386 and x86_64. - Gene */
-#ifdef __i386__
-# define TLSSEGREG gs
-#elif __x86_64__
-# define TLSSEGREG fs
-#elif __arm__
-/* FIXME: fs IS NOT AN arm REGISTER.  BUT THIS IS USED ONLY AS A FIELD NAME.
- *   ARM uses a register in coprocessor 15 as the thread-pointer (TLS Register)
- */
-# define TLSSEGREG fs
-#endif
 
 /* Offset computed (&x.pid - &x) for
  *   struct pthread x;
@@ -226,8 +214,8 @@ static int tls_tid_offset(void)
      * Try to find at what offset that bit patttern occurs in struct pthread.
      */
     char * tmp;
-    tid_pid.tid = THREAD_REAL_PID();
-    tid_pid.pid = THREAD_REAL_PID();
+    tid_pid.tid = mtcp_sys_getpid();
+    tid_pid.pid = mtcp_sys_getpid();
     /* Get entry number of current thread descriptor from its segment register:
      * Segment register / 8 is the entry_number for the "thread area", which
      * is of type 'struct user_desc'.   The base_addr field of that struct
@@ -479,7 +467,7 @@ void TLSInfo_VerifyPidTid(pid_t pid, pid_t tid)
 
   if ((tls_pid != pid) || (tls_tid != tid)) {
     PRINTF("ERROR: getpid(%d), tls pid(%d), and tls tid(%d) must all match\n",
-           THREAD_REAL_PID(), tls_pid, tls_tid);
+           mtcp_sys_getpid(), tls_pid, tls_tid);
     _exit(0);
   }
 }
@@ -487,7 +475,7 @@ void TLSInfo_VerifyPidTid(pid_t pid, pid_t tid)
 void TLSInfo_UpdatePid()
 {
   pid_t  *tls_pid = (pid_t *) ((char*)get_tls_base_addr() + tls_pid_offset());
-  *tls_pid = THREAD_REAL_PID();
+  *tls_pid = mtcp_sys_getpid();
 }
 
 /*****************************************************************************
@@ -496,32 +484,33 @@ void TLSInfo_UpdatePid()
  *  Linux saves stuff in the GDT, switching it on a per-thread basis
  *
  *****************************************************************************/
-void TLSInfo_SaveTLSState (Thread *thread)
+void TLSInfo_SaveTLSState (ThreadTLSInfo *tlsInfo)
 {
   int i;
 
 #ifdef __i386__
-  asm volatile ("movw %%fs,%0" : "=m" (thread->fs));
-  asm volatile ("movw %%gs,%0" : "=m" (thread->gs));
+  asm volatile ("movw %%fs,%0" : "=m" (tlsInfo->fs));
+  asm volatile ("movw %%gs,%0" : "=m" (tlsInfo->gs));
 #elif __x86_64__
-  //asm volatile ("movl %%fs,%0" : "=m" (thread->fs));
-  //asm volatile ("movl %%gs,%0" : "=m" (thread->gs));
+  //asm volatile ("movl %%fs,%0" : "=m" (tlsInfo->fs));
+  //asm volatile ("movl %%gs,%0" : "=m" (tlsInfo->gs));
 #elif __arm__
   // Follow x86_64 for arm.
 #endif
 
-  memset (thread->gdtentrytls, 0, sizeof thread->gdtentrytls);
+  memset (tlsInfo->gdtentrytls, 0, sizeof tlsInfo->gdtentrytls);
 
-/* FIXME:  IF %fs IS NOT READ into thread->fs AT BEGINNING OF THIS
- *   FUNCTION, HOW CAN WE REFER TO IT AS  thread->TLSSEGREG?
+/* FIXME:  IF %fs IS NOT READ into tlsInfo->fs AT BEGINNING OF THIS
+ *   FUNCTION, HOW CAN WE REFER TO IT AS  tlsInfo->TLSSEGREG?
  *   WHAT IS THIS CODE DOING?
  */
-  i = thread->TLSSEGREG / 8;
-  thread->gdtentrytls[0].entry_number = i;
-  if (tlsinfo_get_thread_area (&(thread->gdtentrytls[0])) == -1) {
+  i = tlsInfo->TLSSEGREG / 8;
+  tlsInfo->gdtentrytls[0].entry_number = i;
+  if (tlsinfo_get_thread_area (&(tlsInfo->gdtentrytls[0])) == -1) {
     PRINTF("Error saving GDT TLS entry: %d\n", errno);
     _exit(0);
   }
+  //PRINTF("TLSINFO base_addr: %p \n\n", tlsInfo->gdtentrytls[0].base_addr);
 }
 
 /*****************************************************************************
@@ -534,39 +523,39 @@ void TLSInfo_SaveTLSState (Thread *thread)
  *  saved outside user addressable memory that must be manually saved.
  *
  *****************************************************************************/
-void TLSInfo_RestoreTLSState(Thread *thread)
+void TLSInfo_RestoreTLSState(ThreadTLSInfo *tlsInfo)
 {
   /* The assumption that this points to the pid was checked by that tls_pid crap
    * near the beginning
    */
-  *(pid_t *)(*(unsigned long *)&(thread->gdtentrytls[0].base_addr)
-             + tls_pid_offset()) = THREAD_REAL_PID();
+  *(pid_t *)(*(unsigned long *)&(tlsInfo->gdtentrytls[0].base_addr)
+             + tls_pid_offset()) = mtcp_sys_getpid();
 
   /* Likewise, we must jam the new pid into the mother thread's tid slot
    * (checked by tls_tid carpola)
    */
-  if (thread->tid == THREAD_REAL_PID()) {
-    *(pid_t *)(*(unsigned long *)&(thread->gdtentrytls[0].base_addr)
-               + tls_tid_offset()) = THREAD_REAL_PID();
+  if (mtcp_sys_kernel_gettid() == mtcp_sys_getpid()) {
+    *(pid_t *)(*(unsigned long *)&(tlsInfo->gdtentrytls[0].base_addr)
+               + tls_tid_offset()) = mtcp_sys_getpid();
   }
 
   /* Restore all three areas */
-  if (tlsinfo_set_thread_area (&(thread->gdtentrytls[0])) != 0) {
+  if (tlsinfo_set_thread_area (&(tlsInfo->gdtentrytls[0])) != 0) {
     PRINTF("Error restoring GDT TLS entry: %d\n", errno);
-    _exit(0);
+    mtcp_abort();
   }
 
   /* Restore the rest of the stuff */
 
 #ifdef __i386__
-  asm volatile ("movw %0,%%fs" : : "m" (thread->fs));
-  asm volatile ("movw %0,%%gs" : : "m" (thread->gs));
+  asm volatile ("movw %0,%%fs" : : "m" (tlsInfo->fs));
+  asm volatile ("movw %0,%%gs" : : "m" (tlsInfo->gs));
 #elif __x86_64__
 /* Don't directly set fs.  It would only set 32 bits, and we just
  *  set the full 64-bit base of fs, using sys_set_thread_area,
  *  which called arch_prctl.
- *asm volatile ("movl %0,%%fs" : : "m" (thread->fs));
- *asm volatile ("movl %0,%%gs" : : "m" (thread->gs));
+ *asm volatile ("movl %0,%%fs" : : "m" (tlsInfo->fs));
+ *asm volatile ("movl %0,%%gs" : : "m" (tlsInfo->gs));
  */
 #elif __arm__
 /* ARM treats this same as x86_64 above. */

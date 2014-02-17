@@ -10,6 +10,7 @@
 #include <linux/version.h>
 #include "syscallwrappers.h"  /* for _real_syscall */
 #include "protectedfds.h"
+#include "tlsinfo.h"
 #include "ldt.h"
 
 // For i386 and x86_64, SETJMP currently has bugs.  Don't turn this
@@ -29,60 +30,6 @@
 extern "C"
 {
 #endif
-
-#ifdef __i386__
-typedef unsigned short segreg_t;
-#elif __x86_64__
-typedef unsigned int segreg_t;
-#elif __arm__
-typedef unsigned int segreg_t;
-#endif
-
-#ifdef __x86_64__
-# define eax rax
-# define ebx rbx
-# define ecx rcx
-# define edx rax
-# define ebp rbp
-# define esi rsi
-# define edi rdi
-# define esp rsp
-# define CLEAN_FOR_64_BIT(args...) CLEAN_FOR_64_BIT_HELPER(args)
-# define CLEAN_FOR_64_BIT_HELPER(args...) #args
-#elif __i386__
-# define CLEAN_FOR_64_BIT(args...) #args
-#else
-# define CLEAN_FOR_64_BIT(args...) "CLEAN_FOR_64_BIT_undefined"
-#endif
-
-#define PRINTF(fmt, ...) \
-  do { \
-    char buf[4096]; \
-    int c = sprintf(buf, "[%d] %s:%d in %s; REASON= " fmt, \
-                    getpid(), __FILE__, __LINE__, __FUNCTION__, ##__VA_ARGS__); \
-    int dummy = write(PROTECTED_STDERR_FD, buf, c + 1); \
-  } while (0);
-
-#ifdef DEBUG
-# define DPRINTF PRINTF
-#else
-# define DPRINTF(args...) // debug printing
-#endif
-
-#define ASSERT(condition) \
-  do { \
-    if (! (condition)) { \
-      PRINTF("Assertion failed: %s\n", #condition); \
-      _exit(0); \
-    } \
-  } while (0);
-
-#define ASSERT_NOT_REACHED() \
-  do { \
-    PRINTF("NOT_REACHED Assertion failed.\n"); \
-    _exit(0); \
-  } while (0);
-
 
 #define GETTID() _real_syscall(SYS_gettid)
 #define TGKILL(pid,tid,sig) _real_syscall(SYS_tgkill, pid, tid, sig)
@@ -131,9 +78,9 @@ struct Thread {
   sigset_t sigpending;   // pending signals
 
   void *saved_sp; // at restart, we use a temporary stack just
-  //   beyond original stack (red zone)
-  segreg_t fs, gs;  // thread local storage pointers
-  struct user_desc gdtentrytls[1];
+                  //   beyond original stack (red zone)
+
+  ThreadTLSInfo tlsInfo;
 
   ///JA: new code ported from v54b
 #ifdef SETJMP

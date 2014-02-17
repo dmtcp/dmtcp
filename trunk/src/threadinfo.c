@@ -3,7 +3,6 @@
 #include <sched.h>  /* for CLONE_SETTLS, needs _GNU_SOURCE */
 #include "threadinfo.h"
 #include "dmtcp.h"
-#include "tlsinfo.h"
 
 static void restoreAllThreads(void);
 static int restarthread (void *threadv);
@@ -147,10 +146,10 @@ static void restoreAllThreads(void)
   Thread *thread;
   sigset_t tmp;
 
+  TLSInfo_RestoreTLSState(&motherofall->tlsInfo);
   /* Fill in the new mother process id */
   motherpid = THREAD_REAL_TID();
   motherofall->tid = motherpid;
-  TLSInfo_RestoreTLSState(motherofall);
 
   restoreInProgress = 1;
 
@@ -197,7 +196,7 @@ static int restarthread (void *threadv)
 {
   Thread *thread = (Thread*) threadv;
   thread->tid = THREAD_REAL_TID();
-  TLSInfo_RestoreTLSState(thread);
+  TLSInfo_RestoreTLSState(&thread->tlsInfo);
 
   if (TLSInfo_HaveThreadSysinfoOffset())
     TLSInfo_SetThreadSysinfo(saved_sysinfo);
