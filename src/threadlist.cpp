@@ -258,7 +258,7 @@ static void *checkpointhread (void *dummy)
   }
 
   Thread_SaveSigState(ckptThread);
-  TLSInfo_SaveTLSState(ckptThread);
+  TLSInfo_SaveTLSState(&ckptThread->tlsInfo);
   /* Release user thread after we've initialized. */
   sem_post(&sem_start);
 
@@ -452,7 +452,7 @@ void stopthisthread (int signum)
   if (Thread_UpdateState(curThread, ST_SUSPINPROG, ST_SIGNALED)) {
 
     Thread_SaveSigState(curThread); // save sig state (and block sig delivery)
-    TLSInfo_SaveTLSState(curThread); // save thread local storage state
+    TLSInfo_SaveTLSState(&curThread->tlsInfo); // save thread local storage state
 
     /* Set up our restart point, ie, we get jumped to here after a restore */
 #ifdef SETJMP
