@@ -842,7 +842,7 @@ if HAS_VIM == "yes" and PID_VIRTUALIZATION == "yes":
                             stdout=subprocess.PIPE).communicate()[0]
       for row in ps.split('\n')[1:]:
         cmd = row.split(None, 1) # maxsplit=1
-        if cmd and cmd[1] == cmdToKill:
+        if len(cmd) > 1 and cmd[1] == cmdToKill:
           os.kill(int(cmd[0]), signal.SIGKILL)
     killCommand(vimCommand)
     runTest("vim",       1,  ["env TERM=vt100 " + vimCommand])
