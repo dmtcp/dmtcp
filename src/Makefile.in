@@ -176,12 +176,12 @@ am___targetdir__lib_dmtcp_libdmtcp_so_OBJECTS = dmtcpworker.$(OBJEXT) \
 	signalwrappers.$(OBJEXT) threadwrappers.$(OBJEXT) \
 	miscwrappers.$(OBJEXT) ckptserializer.$(OBJEXT) \
 	writeckpt.$(OBJEXT) glibcsystem.$(OBJEXT) threadlist.$(OBJEXT) \
-	threadinfo.$(OBJEXT) tlsinfo.$(OBJEXT) siginfo.$(OBJEXT) \
-	dmtcpplugin.$(OBJEXT) popen.$(OBJEXT) syslogwrappers.$(OBJEXT)
+	threadinfo.$(OBJEXT) siginfo.$(OBJEXT) dmtcpplugin.$(OBJEXT) \
+	popen.$(OBJEXT) syslogwrappers.$(OBJEXT)
 __targetdir__lib_dmtcp_libdmtcp_so_OBJECTS =  \
 	$(am___targetdir__lib_dmtcp_libdmtcp_so_OBJECTS)
 __targetdir__lib_dmtcp_libdmtcp_so_DEPENDENCIES = libdmtcpinternal.a \
-	libjalib.a libsyscallsreal.a
+	libjalib.a libsyscallsreal.a tlsinfo.o
 __targetdir__lib_dmtcp_libdmtcp_so_LINK = $(CXXLD) $(AM_CXXFLAGS) \
 	$(CXXFLAGS) $(__targetdir__lib_dmtcp_libdmtcp_so_LDFLAGS) \
 	$(LDFLAGS) -o $@
@@ -344,6 +344,7 @@ am__relativize = \
 ACLOCAL = @ACLOCAL@
 AMTAR = @AMTAR@
 AM_DEFAULT_VERBOSITY = @AM_DEFAULT_VERBOSITY@
+ARM_HOST = @ARM_HOST@
 AUTOCONF = @AUTOCONF@
 AUTOHEADER = @AUTOHEADER@
 AUTOMAKE = @AUTOMAKE@
@@ -529,7 +530,8 @@ nobase_noinst_HEADERS = constants.h \
 	dmtcp_coordinator.h dmtcpmessagetypes.h lookup_service.h \
 	dmtcpworker.h threadsync.h coordinatorapi.h \
 	mtcpinterface.h syscallwrappers.h syslogwrappers.h \
-	threadlist.h threadinfo.h tlsinfo.h siginfo.h ldt.h \
+	threadlist.h threadinfo.h siginfo.h ldt.h \
+	mtcp/tlsinfo.h \
 	uniquepid.h processinfo.h ckptserializer.h
 
 
@@ -561,7 +563,7 @@ __targetdir__lib_dmtcp_libdmtcp_so_SOURCES = dmtcpworker.cpp threadsync.cpp \
 		      threadwrappers.cpp \
 		      miscwrappers.cpp ckptserializer.cpp writeckpt.cpp \
 		      glibcsystem.cpp \
-		      threadlist.cpp threadinfo.c tlsinfo.c siginfo.cpp \
+		      threadlist.cpp threadinfo.c siginfo.cpp \
 		      dmtcpplugin.cpp popen.cpp syslogwrappers.cpp
 
 __targetdir__lib_dmtcp_libdmtcp_so_LDFLAGS = -shared -Xlinker -znow
@@ -571,7 +573,7 @@ __targetdir__lib_dmtcp_libdmtcp_so_LDFLAGS = -shared -Xlinker -znow
 # Note that an ELF object uses libsyscallsreal.a or libnohijack.a
 #  but not both.  libnohijack.a has stub definitions for same symbols.
 __targetdir__lib_dmtcp_libdmtcp_so_LDADD = libdmtcpinternal.a libjalib.a \
-					   libsyscallsreal.a \
+					   libsyscallsreal.a tlsinfo.o \
 					   -ldl -lpthread -lrt
 
 __targetdir__bin_dmtcp_coordinator_LDADD = libdmtcpinternal.a libjalib.a \
@@ -802,7 +804,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/threadlist.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/threadsync.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/threadwrappers.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tlsinfo.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/trampolines.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/uniquepid.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/util_exec.Po@am__quote@
@@ -1265,9 +1266,13 @@ uninstall-am: uninstall-binPROGRAMS uninstall-dmtcplibPROGRAMS \
 # We also need to build mtcp_restart without optimization (-O0), otherwise it
 # may fail to restart. Since these three objects are fairly low level, we avoid
 # any surprises by compiling them without any optimization.
-threadinfo.o tlsinfo.o:
+threadinfo.o:
 	$(COMPILE) -DPIC -fno-stack-protector -g -O0 -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $(srcdir)/$*.c
 	$(am__mv) $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
+
+tlsinfo.o:
+	(cd mtcp && ${MAKE})
+	$(LN_S) -f mtcp/tlsinfo.o tlsinfo.o
 
 install-exec-hook:
 	cd $(DESTDIR)$(bindir) && $(LN_S) -f dmtcp_launch dmtcp_checkpoint
