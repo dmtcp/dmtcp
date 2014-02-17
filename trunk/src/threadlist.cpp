@@ -7,7 +7,6 @@
 #include <sys/resource.h>
 #include <linux/version.h>
 #include "threadlist.h"
-#include "tlsinfo.h"
 #include "siginfo.h"
 #include "dmtcpalloc.h"
 #include "syscallwrappers.h"

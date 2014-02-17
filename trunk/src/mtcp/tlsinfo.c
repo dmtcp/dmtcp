@@ -7,7 +7,7 @@
 #include <sys/personality.h>
 #include <linux/version.h>
 #include <gnu/libc-version.h>
-#include "mtcp/mtcp_sys.h"
+#include "mtcp_sys.h"
 #include "tlsinfo.h"
 
 int mtcp_sys_errno;
