@@ -9,6 +9,8 @@ ifeq ($(HOST_IS_ARM),arm)
 ARM_EXTRAS = libc-do-syscall-arm.S
 endif
 
+all: ../../bin/mtcp_restart libmtcp.a
+
 ../../bin/mtcp_restart: mtcp_restart.o
 	${CC} -fPIC -g -O2 -nodefaultlibs ${ARM_EXTRAS} -o $@ $<
 
@@ -19,11 +21,6 @@ mtcp_restart.o: mtcp_restart.c mtcp_util.ic \
 	        ../membarrier.h ../../include/procmapsarea.h
 	${CC} ${MTCP_CFLAGS} -I. -I.. -I../../include \
 	    -DPIC -fPIC -g -O2 -fno-stack-protector -c $<
-
-# 'automake' would call "make" withtarget 'all'.
-# This file is not intended for 'automake', but add this target just in case.
-all: ../../bin/mtcp_restart
-	echo "'automake' just called 'all' in mtcp subdirectory"
 
 # Try 'make gdb' before 'make check' if you want debugging information
 #   available in the case of 'make check' dumping core.
@@ -48,6 +45,19 @@ ckpt_dmtcp1_test.dmtcp: ../../test/dmtcp1 tlsinfo.o
 	gunzip ckpt_dmtcp1_test.dmtcp.gz
 tlsinfo.o: tlsinfo.c
 	cd ../..; make
+
+libmtcp.a: tlsinfo.o ${ARM_EXTRAS}
+	ar cru $@ $^
+# FIXME:  This is a low-level file.  Yet it draws from three directories.
+#    Part of the problem is that tlsinfo.h copies DPRINTF from mtcp_util.h
+#    and uses protectedfds.h, which is in ../../include
+#    Do we really need protectedfds.h for low-level, where there is no JASSERT?
+#    Similarly, we need -I.. for ldt.h.  Shouldn't that low-level file be here?
+tlsinfo.o: tlsinfo.c
+	$(CC) -DPIC -fPIC -fno-stack-protector -g -O0 \
+	  -I. -I.. -I../../include -c $<
+libc-do-syscall-arm.o: libc-do-syscall-arm.S
+	${CC} -c $<
 
 tidy:
 	rm -rf ckpt_*_files

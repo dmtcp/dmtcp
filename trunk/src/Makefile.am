@@ -103,7 +103,7 @@ __targetdir__lib_dmtcp_libdmtcp_so_LDFLAGS = -shared -Xlinker -znow
 # Note that an ELF object uses libsyscallsreal.a or libnohijack.a
 #  but not both.  libnohijack.a has stub definitions for same symbols.
 __targetdir__lib_dmtcp_libdmtcp_so_LDADD = libdmtcpinternal.a libjalib.a \
-					   libsyscallsreal.a tlsinfo.o \
+					   libsyscallsreal.a libmtcp.a \
 					   -ldl -lpthread -lrt
 
 __targetdir__bin_dmtcp_coordinator_LDADD = libdmtcpinternal.a libjalib.a \
@@ -119,6 +119,7 @@ __targetdir__bin_dmtcp_launch_SOURCES = dmtcp_launch.cpp
 
 # We need to compile threadinfo.c, tlsinfo.c and mtcp_restart.c with
 # "-fno-stack-protector" to avoid runtime stack smashing detection.
+# [ tlsinfo.c and mtcp_restart.c have been moved to mtcp. ]
 # We also need to build mtcp_restart without optimization (-O0), otherwise it
 # may fail to restart. Since these three objects are fairly low level, we avoid
 # any surprises by compiling them without any optimization.
@@ -126,9 +127,9 @@ threadinfo.o:
 	$(COMPILE) -DPIC -fno-stack-protector -g -O0 -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $(srcdir)/$*.c
 	$(am__mv) $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
 
-tlsinfo.o:
-	(cd mtcp && ${MAKE})
-	$(LN_S) -f mtcp/tlsinfo.o tlsinfo.o
+libmtcp.a: mtcp/tlsinfo.o
+	cd mtcp && ${MAKE} libmtcp.a
+	$(LN_S) -f mtcp/libmtcp.a $@
 
 install-exec-hook:
 	cd $(DESTDIR)$(bindir) && $(LN_S) -f dmtcp_launch dmtcp_checkpoint
