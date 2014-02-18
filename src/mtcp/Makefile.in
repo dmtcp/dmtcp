@@ -130,7 +130,7 @@ tidy:
 	rm -f ckpt_*.dmtcp dmtcp_restart_script* core*
 
 clean: tidy
-	-rm -f *.o
+	-rm -f *.o *.a
 	-rm -f $(targetdir)/bin/$(MTCP_RESTART)
 
 distclean: clean
