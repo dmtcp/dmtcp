@@ -599,5 +599,6 @@ void TLSInfo_PostRestart()
 
 static void restoreLibcFunctionality()
 {
+  TLSInfo_RestoreTLSState(motherofall_tlsInfo);
   Thread_RestoreAllThreads();
 }
