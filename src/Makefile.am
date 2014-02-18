@@ -103,7 +103,7 @@ __targetdir__lib_dmtcp_libdmtcp_so_LDFLAGS = -shared -Xlinker -znow
 # Note that an ELF object uses libsyscallsreal.a or libnohijack.a
 #  but not both.  libnohijack.a has stub definitions for same symbols.
 __targetdir__lib_dmtcp_libdmtcp_so_LDADD = libdmtcpinternal.a libjalib.a \
-					   libsyscallsreal.a libmtcp.a \
+					   libsyscallsreal.a mtcp/libmtcp.a \
 					   -ldl -lpthread -lrt
 
 __targetdir__bin_dmtcp_coordinator_LDADD = libdmtcpinternal.a libjalib.a \
@@ -127,9 +127,8 @@ threadinfo.o:
 	$(COMPILE) -DPIC -fno-stack-protector -g -O0 -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $(srcdir)/$*.c
 	$(am__mv) $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
 
-libmtcp.a: mtcp/tlsinfo.o
+mtcp/libmtcp.a:
 	cd mtcp && ${MAKE} libmtcp.a
-	$(LN_S) -f mtcp/libmtcp.a $@
 
 install-exec-hook:
 	cd $(DESTDIR)$(bindir) && $(LN_S) -f dmtcp_launch dmtcp_checkpoint
