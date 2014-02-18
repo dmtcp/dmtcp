@@ -304,7 +304,6 @@ static void *checkpointhread (void *dummy)
     // Remove stale threads from activeThreads list.
     ThreadList::emptyFreeList();
 
-    ProcessInfo::instance().setRestoreFinishFnPtr(&Thread_PostRestart);
     CkptSerializer::writeCkptImage();
 
     JTRACE("before callbackPostCheckpoint(0, NULL)");
