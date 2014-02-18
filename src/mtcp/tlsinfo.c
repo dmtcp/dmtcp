@@ -1,5 +1,6 @@
 #include <elf.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <string.h>
 #include <errno.h>
 #include <sys/syscall.h>
@@ -198,7 +199,6 @@ static int STATIC_TLS_TID_OFFSET()
  * SEE: "struct pthread" in glibc-2.XX/nptl/descr.h for 'struct pthread'.
  */
 static int tls_tid_offset(void);
-static void restoreLibcFunctionality();
 
 /* Can remove the unused attribute when this __GLIBC_PREREQ is the only one. */
 static char *memsubarray (char *array, char *subarray, size_t len)
@@ -528,28 +528,32 @@ void TLSInfo_SaveTLSState (ThreadTLSInfo *tlsInfo)
  *****************************************************************************/
 void TLSInfo_RestoreTLSState(ThreadTLSInfo *tlsInfo)
 {
-  /* The assumption that this points to the pid was checked by that tls_pid crap
-   * near the beginning
+  /* Every architecture needs a register to point to the current
+   * TLS (thread-local storage).  This is where we set it up.
+   */
+
+  /* Patch 'struct user_desc' (gdtentrytls) of glibc to contain the
+   * the new pid and tid.
    */
   *(pid_t *)(*(unsigned long *)&(tlsInfo->gdtentrytls[0].base_addr)
              + tls_pid_offset()) = mtcp_sys_getpid();
-
-  /* Likewise, we must jam the new pid into the mother thread's tid slot
-   * (checked by tls_tid carpola)
-   */
   if (mtcp_sys_kernel_gettid() == mtcp_sys_getpid()) {
     *(pid_t *)(*(unsigned long *)&(tlsInfo->gdtentrytls[0].base_addr)
                + tls_tid_offset()) = mtcp_sys_getpid();
   }
 
-  /* Restore all three areas */
+  /* Now pass this to the kernel, so it can adjust the segment descriptor.
+   * This will make different kernel calls according to the CPU architecture. */
   if (tlsinfo_set_thread_area (&(tlsInfo->gdtentrytls[0])) != 0) {
     PRINTF("Error restoring GDT TLS entry: %d\n", errno);
     mtcp_abort();
   }
 
-  /* Restore the rest of the stuff */
-
+  /* Finally, if this is i386, we need to set %gs to refer to the segment
+   * descriptor that we're using above.  We restore the original pointer.
+   * For the other architectures (not i386), the kernel call above
+   * already did the equivalent work of setting up thread registers.
+   */
 #ifdef __i386__
   asm volatile ("movw %0,%%fs" : : "m" (tlsInfo->fs));
   asm volatile ("movw %0,%%gs" : : "m" (tlsInfo->gs));
@@ -572,33 +576,37 @@ void TLSInfo_RestoreTLSState(ThreadTLSInfo *tlsInfo)
  *****************************************************************************/
 void TLSInfo_PostRestart()
 {
-  /* Now we can access all our files and memory that existed at the time of the
-   * checkpoint.
-   * We are still on the temporary stack, though.
+
+  /* Now we can access all of the memory from the time of the checkpoint.
+   * We will continue to use the temporary stack from mtcp_restart.c, for now.
+   * When we return from the signal handler, this primary thread will
+   *   return to its original stack.
    */
 
-  /* Call another routine because our internal stack is whacked and we can't
-   * have local vars.
+  /* However, we can only make direct kernel calls, and not libc calls.
+   * TLSInfo_RestoreTLSState will do the following:
+   * Step 1:  Patch 'struct user_desc' (gdtentrytls) of glibc to have
+   *     the new pid and tid.
+   * Step 2:  Make kernel call to set up the corresponding
+   *     segment descriptor and/or set any TLS per-thread register.
+   * Step 3 (for Intel only):  Restore %fs and %gs to refer to the the
+   *     segment descriptor for this primary thread (only %gs needed for i386).
    */
-
-  ///JA: v54b port
-  // so restarthread will have a big stack
-#if defined(__i386__) || defined(__x86_64__)
-  asm volatile (CLEAN_FOR_64_BIT(mov %0,%%esp)
-		: : "g" ((char*) (*motherofall_saved_sp) - 128) //-128 for red zone
-                : "memory");
-#elif defined(__arm__)
-  asm volatile ("mov sp,%0"
-		: : "r" ((char*) (*motherofall_saved_sp) - 128) //-128 for red zone
-                : "memory");
-#else
-#  error "assembly instruction not translated"
-#endif
-  restoreLibcFunctionality();
-}
-
-static void restoreLibcFunctionality()
-{
   TLSInfo_RestoreTLSState(motherofall_tlsInfo);
+
+#if 0
+  /* FOR DEBUGGING:  Now test if we can make a kernel call through libc. */
+  mtcp_sys_write(1, "shell ../../util/gdb-add-libdmtcp-symbol-file.py PID PC\n",
+           sizeof("shell ../../util/gdb-add-libdmtcp-symbol-file.py PID PC\n"));
+#if defined(__i386__) || defined(__x86_64__)
+      asm volatile ("int3"); // Do breakpoint; send SIGTRAP, caught by gdb
+#else
+      DPRINTF("IN GDB: interrupt (^C); add-symbol-file ...; (gdb) print x=0\n");
+      { int x = 1; while (x); } // Stop execution for user to type command.
+#endif
+  int rc = nice(0);
+#endif
+
+  // We have now verified that libc functionality is restored.
   Thread_RestoreAllThreads();
 }
