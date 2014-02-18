@@ -67,7 +67,7 @@ HEADERS = mtcp_util.ic mtcp_sys.h mtcp_util.h \
 	  $(srcdir)/../membarrier.h $(srcdir)/../ldt.h \
 	  $(DMTCP_INCLUDE_PATH)/procmapsarea.h
 
-build: $(targetdir)/bin/$(MTCP_RESTART) tlsinfo.o
+build: $(targetdir)/bin/$(MTCP_RESTART) libmtcp.a
 default: build
 libs: build
 all: default
@@ -88,8 +88,19 @@ $(targetdir)/bin/$(MTCP_RESTART): mtcp_restart.o
 mtcp_restart.o: mtcp_restart.c $(HEADERS)
 	$(COMPILE) -DPIC -fPIC -fno-stack-protector -g -O2 $<
 
+libmtcp.a: tlsinfo.o ${ARM_EXTRAS}
+	ar cru $@ $^
+# FIXME:  This is a low-level file.  Yet it draws from three directories.
+#    Part of the problem is that tlsinfo.h copies DPRINTF from mtcp_util.h
+#    and uses protectedfds.h, which is in ../../include
+#    Do we really need protectedfds.h for low-level, where there is no JASSERT?
+#    Similarly, we need -I.. for ldt.h.  Shouldn't that low-level file be here? 
+#    Because of all the abstractions, there is no way to know about this bloat
+#      and false dependencies, except by using 'make' as a black box
 tlsinfo.o: tlsinfo.c $(HEADERS) $(DMTCP_INCLUDE_PATH)/protectedfds.h
 	$(COMPILE) -DPIC -fPIC -fno-stack-protector -g -O0 $<
+libc-do-syscall-arm.o: libc-do-syscall-arm.S
+	${CC} -c $<
 
 # Try 'make gdb' before 'make check' if you want debugging information
 #   available in the case of 'make check' dumping core.
