@@ -198,12 +198,15 @@ static int STATIC_TLS_TID_OFFSET()
  * SEE: "struct pthread" in glibc-2.XX/nptl/descr.h for 'struct pthread'.
  */
 static int tls_tid_offset(void);
+static void restoreLibcFunctionality();
 
 /* Can remove the unused attribute when this __GLIBC_PREREQ is the only one. */
 static char *memsubarray (char *array, char *subarray, size_t len)
 					 __attribute__ ((unused));
 static int get_tls_segreg(void);
 static void *get_tls_base_addr(void);
+extern void **motherofall_saved_sp;
+extern ThreadTLSInfo *motherofall_tlsInfo;
 
 static int tls_tid_offset(void)
 {
@@ -562,3 +565,39 @@ void TLSInfo_RestoreTLSState(ThreadTLSInfo *tlsInfo)
 #endif
 }
 
+/*****************************************************************************
+ *
+ *  The original program's memory and files have been restored
+ *
+ *****************************************************************************/
+void TLSInfo_PostRestart()
+{
+  /* Now we can access all our files and memory that existed at the time of the
+   * checkpoint.
+   * We are still on the temporary stack, though.
+   */
+
+  /* Call another routine because our internal stack is whacked and we can't
+   * have local vars.
+   */
+
+  ///JA: v54b port
+  // so restarthread will have a big stack
+#if defined(__i386__) || defined(__x86_64__)
+  asm volatile (CLEAN_FOR_64_BIT(mov %0,%%esp)
+		: : "g" ((char*) (*motherofall_saved_sp) - 128) //-128 for red zone
+                : "memory");
+#elif defined(__arm__)
+  asm volatile ("mov sp,%0"
+		: : "r" ((char*) (*motherofall_saved_sp) - 128) //-128 for red zone
+                : "memory");
+#else
+#  error "assembly instruction not translated"
+#endif
+  restoreLibcFunctionality();
+}
+
+static void restoreLibcFunctionality()
+{
+  Thread_RestoreAllThreads();
+}

@@ -109,39 +109,7 @@ void Thread_RestoreSigState (Thread *th)
   }
 }
 
-/*****************************************************************************
- *
- *  The original program's memory and files have been restored
- *
- *****************************************************************************/
-void Thread_PostRestart()
-{
-  /* Now we can access all our files and memory that existed at the time of the
-   * checkpoint.
-   * We are still on the temporary stack, though.
-   */
-
-  /* Call another routine because our internal stack is whacked and we can't
-   * have local vars.
-   */
-
-  ///JA: v54b port
-  // so restarthread will have a big stack
-#if defined(__i386__) || defined(__x86_64__)
-  asm volatile (CLEAN_FOR_64_BIT(mov %0,%%esp)
-		: : "g" ((char*)motherofall->saved_sp - 128) //-128 for red zone
-                : "memory");
-#elif defined(__arm__)
-  asm volatile ("mov sp,%0"
-		: : "r" (motherofall->saved_sp - 128) //-128 for red zone
-                : "memory");
-#else
-#  error "assembly instruction not translated"
-#endif
-  restoreAllThreads();
-}
-
-static void restoreAllThreads(void)
+void Thread_RestoreAllThreads(void)
 {
   Thread *thread;
   sigset_t tmp;
