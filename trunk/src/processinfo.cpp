@@ -427,8 +427,7 @@ void dmtcp::ProcessInfo::serialize(jalib::JBinarySerializer& o)
   o & _isRootOfProcessTree & _pid & _sid & _ppid & _gid & _fgid;
   o & _procname & _hostname & _launchCWD & _ckptCWD & _upid & _uppid;
   o & _compGroup & _numPeers & _noCoordinator & _argvSize & _envSize;
-  o & _restoreBufAddr & _restoreFinishFnAddr;
-  o & _savedHeapStart & _savedBrk;
+  o & _restoreBufAddr & _savedHeapStart & _savedBrk;
 
   JTRACE("Serialized process information")
     (_sid) (_ppid) (_gid) (_fgid)
