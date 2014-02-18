@@ -551,7 +551,7 @@ void dmtcp::CkptSerializer::writeCkptImage()
   JTRACE("checkpoint complete");
 }
 
-extern "C" void Thread_PostRestart() __attribute__((weak));
+extern "C" void TLSInfo_PostRestart() __attribute__((weak));
 void dmtcp::CkptSerializer::writeMtcpHeader(int fd)
 {
   MtcpHeader mtcpHdr;
@@ -562,8 +562,8 @@ void dmtcp::CkptSerializer::writeMtcpHeader(int fd)
   // restoreBuf should go in there.
   mtcpHdr.restore_addr = (void*) ProcessInfo::instance().restoreBufAddr();
   mtcpHdr.restore_size = ProcessInfo::instance().restoreBufLen();
-  JASSERT(Thread_PostRestart != NULL);
-  mtcpHdr.post_restart = &Thread_PostRestart;
+  JASSERT(TLSInfo_PostRestart != NULL);
+  mtcpHdr.post_restart = &TLSInfo_PostRestart;
 
   JASSERT(Util::writeAll(fd, &mtcpHdr, sizeof mtcpHdr) == sizeof mtcpHdr);
 }

@@ -36,6 +36,8 @@ using namespace dmtcp;
 //Globals
 volatile int restoreInProgress = 0;
 Thread *motherofall = NULL;
+void **motherofall_saved_sp = NULL;
+ThreadTLSInfo *motherofall_tlsInfo = NULL;
 pid_t motherpid = 0;
 sigset_t sigpending_global;
 Thread *activeThreads = NULL;
@@ -133,6 +135,8 @@ void ThreadList::init()
 
   /* Set up caller as one of our threads so we can work on it */
   motherofall = ThreadList::getNewThread();
+  motherofall_saved_sp = &motherofall->saved_sp;
+  motherofall_tlsInfo = &motherofall->tlsInfo;
   updateTid(motherofall);
 
   sem_init(&sem_start, 0, 0);

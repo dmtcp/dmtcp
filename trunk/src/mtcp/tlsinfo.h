@@ -100,6 +100,7 @@ typedef struct _ThreadTLSInfo {
   struct user_desc gdtentrytls[1];
 } ThreadTLSInfo;
 
+void TLSInfo_PostRestart();
 void TLSInfo_VerifyPidTid(pid_t pid, pid_t tid);
 void TLSInfo_UpdatePid();
 void TLSInfo_SaveTLSState (ThreadTLSInfo *tlsInfo);
@@ -107,6 +108,8 @@ void TLSInfo_RestoreTLSState(ThreadTLSInfo *tlsInfo);
 void TLSInfo_SetThreadSysinfo(void *sysinfo);
 void *TLSInfo_GetThreadSysinfo();
 int  TLSInfo_HaveThreadSysinfoOffset();
+
+void Thread_RestoreAllThreads(void);
 
 #ifdef __cplusplus
 }
