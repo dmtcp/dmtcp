@@ -114,7 +114,6 @@ void Thread_RestoreAllThreads(void)
   Thread *thread;
   sigset_t tmp;
 
-  TLSInfo_RestoreTLSState(&motherofall->tlsInfo);
   /* Fill in the new mother process id */
   motherpid = THREAD_REAL_TID();
   motherofall->tid = motherpid;
