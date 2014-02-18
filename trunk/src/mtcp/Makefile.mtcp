@@ -40,12 +40,14 @@ gdb_run: ../../bin/mtcp_restart ckpt_dmtcp1_test.dmtcp
 	offset=`./text_offset.sh ../../bin/mtcp_restart` ; \
 	  gdb --args ../../bin/mtcp_restart \
 	    --use-gdb --text-offset $$offset ckpt_dmtcp1_test.dmtcp
-ckpt_dmtcp1_test.dmtcp: ../../test/dmtcp1
+ckpt_dmtcp1_test.dmtcp: ../../test/dmtcp1 tlsinfo.o
 	../../bin/dmtcp_launch -i3 ../../test/dmtcp1 &
 	sleep 5 && ../../bin/dmtcp_command --quit
 	rm -f `ls -t dmtcp_restart_script*.sh`
 	mv `ls -t ckpt_dmtcp1_*.dmtcp | head -1` ckpt_dmtcp1_test.dmtcp.gz
 	gunzip ckpt_dmtcp1_test.dmtcp.gz
+tlsinfo.o: tlsinfo.c
+	cd ../..; make
 
 tidy:
 	rm -rf ckpt_*_files
