@@ -63,9 +63,8 @@ ifeq (${ARM_HOST},yes)
   ARM_EXTRAS = $(srcdir)/libc-do-syscall-arm.S
 endif
 
-HEADERS = mtcp_util.ic mtcp_sys.h mtcp_util.h \
-	  $(srcdir)/../membarrier.h $(srcdir)/../ldt.h \
-	  $(DMTCP_INCLUDE_PATH)/procmapsarea.h
+HEADERS = mtcp_util.ic mtcp_sys.h mtcp_util.h ldt.h \
+	  $(srcdir)/../membarrier.h $(DMTCP_INCLUDE_PATH)/procmapsarea.h
 
 build: $(targetdir)/bin/$(MTCP_RESTART) libmtcp.a
 default: build

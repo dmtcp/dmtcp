@@ -57,9 +57,9 @@ nobase_noinst_HEADERS = constants.h \
 	dmtcp_coordinator.h dmtcpmessagetypes.h lookup_service.h \
 	dmtcpworker.h threadsync.h coordinatorapi.h \
 	mtcpinterface.h syscallwrappers.h syslogwrappers.h \
-	threadlist.h threadinfo.h siginfo.h ldt.h \
-	mtcp/tlsinfo.h \
-	uniquepid.h processinfo.h ckptserializer.h
+	threadlist.h threadinfo.h siginfo.h \
+	uniquepid.h processinfo.h ckptserializer.h \
+	mtcp/ldt.h mtcp/tlsinfo.h
 
 # Note that libdmtcpinternal.a does not include wrappers.
 # dmtcp_launch, dmtcp_command, dmtcp_coordinator, etc.

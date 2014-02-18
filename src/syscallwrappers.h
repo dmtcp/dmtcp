@@ -57,7 +57,7 @@
 
 #include "constants.h"
 #include "dmtcp.h"
-#include "ldt.h"
+#include "mtcp/ldt.h"
 #ifdef HAVE_CONFIG_H
 # include "config.h"
 #endif
