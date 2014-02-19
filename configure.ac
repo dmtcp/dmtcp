@@ -215,22 +215,6 @@ AC_ARG_ENABLE([experts_only],
 	    [], [])
 AC_ARG_ENABLE([experts_only_after], [AS_HELP_STRING([ ], [])], [], [])
 
-AC_ARG_ENABLE([pid_virtualization],
-            [AS_HELP_STRING([--disable-pid-virtualization],
-                            [disable pid virtualization.  Pid virtualization
-                             is _required_ for checkpointing shells and for many
-                             programs using fork().  Disable it only for
-                             performance reasons or for diagnosis of bugs.])],
-            [use_pid_virt=$enableval],
-            [use_pid_virt=yes])
-
-if test "$use_pid_virt" = "yes"; then
-  AC_DEFINE([PID_VIRTUALIZATION],[1],[Use virtual pids for pid-related system calls.])
-  AC_SUBST([PID_VIRTUALIZATION], [yes])
-else
-  AC_SUBST([PID_VIRTUALIZATION], [no])
-fi
-
 AC_ARG_ENABLE([allocator],
             [AS_HELP_STRING([--enable-allocator],
                             [cause DMTCP to use a custom allocator based on mmap

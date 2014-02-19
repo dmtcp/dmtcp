@@ -766,9 +766,7 @@ int _real_sigtimedwait(const sigset_t *set, siginfo_t *info,
   REAL_FUNC_PASSTHROUGH (sigtimedwait) (set, info, timeout);
 }
 
-
 // gettid / tkill / tgkill are not defined in libc.
-// So, this is needed even if there is no PID_VIRTUALIZATION
 LIB_PRIVATE
 pid_t _real_gettid(void) {
   // No glibc wrapper for gettid, although even if it had one, we would have

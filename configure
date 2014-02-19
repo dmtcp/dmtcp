@@ -669,7 +669,6 @@ HAS_READLINE
 ARM_HOST
 ARM_HOST_FALSE
 ARM_HOST_TRUE
-PID_VIRTUALIZATION
 TEST_POSIX_MQ
 USE_TEST_SUITE
 HBICT_DELTACOMP
@@ -801,7 +800,6 @@ enable_test_suite
 enable_experts_only_space1
 enable_experts_only
 enable_experts_only_after
-enable_pid_virtualization
 enable_allocator
 with_mpich
 enable_m32
@@ -1476,11 +1474,6 @@ Optional Features:
                  === **** NOTE:  EXPERTS ONLY BELOW HERE **** ===
                           (Use at your own risk!!)
 
-  --disable-pid-virtualization
-                          disable pid virtualization. Pid virtualization is
-                          _required_ for checkpointing shells and for many
-                          programs using fork(). Disable it only for
-                          performance reasons or for diagnosis of bugs.
   --enable-allocator      cause DMTCP to use a custom allocator based on mmap
                           and avoid calling malloc and free (EXPERIMENTAL)
   --enable-m32            Compile in 32 bit mode on 64 bit linux. (Works on
@@ -5266,25 +5259,6 @@ if test "${enable_experts_only_after+set}" = set; then :
   enableval=$enable_experts_only_after;
 fi
 
-
-# Check whether --enable-pid_virtualization was given.
-if test "${enable_pid_virtualization+set}" = set; then :
-  enableval=$enable_pid_virtualization; use_pid_virt=$enableval
-else
-  use_pid_virt=yes
-fi
-
-
-if test "$use_pid_virt" = "yes"; then
-
-$as_echo "#define PID_VIRTUALIZATION 1" >>confdefs.h
-
-  PID_VIRTUALIZATION=yes
-
-else
-  PID_VIRTUALIZATION=no
-
-fi
 
 # Check whether --enable-allocator was given.
 if test "${enable_allocator+set}" = set; then :

@@ -230,7 +230,6 @@ long _real_ptrace(enum __ptrace_request request, pid_t pid, void *addr,
 }
 
 // gettid / tkill / tgkill are not defined in libc.
-// So, this is needed even if there is no PID_VIRTUALIZATION
 LIB_PRIVATE
 pid_t _real_gettid(void){
   // No glibc wrapper for gettid, although even if it had one, we would have
