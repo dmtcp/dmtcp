@@ -708,14 +708,12 @@ static void setLDPreloadLibs(bool is32bitElf)
     preloadLibs32 += ":";
 #endif
 
-#ifdef PID_VIRTUALIZATION
   preloadLibs += jalib::Filesystem::FindHelperUtility("libdmtcp_pid.so");
   preloadLibs += ":";
-# if defined(__x86_64__)
+#if defined(__x86_64__)
     preloadLibs32 += jalib::Filesystem::FindHelperUtility("libdmtcp_pid.so",
                                                           true);
     preloadLibs32 += ":";
-# endif
 #endif
 
 #if 0

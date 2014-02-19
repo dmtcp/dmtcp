@@ -93,9 +93,6 @@
 /* Define to the version of this package. */
 #undef PACKAGE_VERSION
 
-/* Use virtual pids for pid-related system calls. */
-#undef PID_VIRTUALIZATION
-
 /* No output, not even NOTE and WARNING */
 #undef QUIET
 

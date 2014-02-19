@@ -266,7 +266,6 @@ off_t _real_lseek(int fd, off_t offset, int whence) {
   REAL_FUNC_PASSTHROUGH_TYPED (off_t,lseek) (fd,offset,whence);
 }
 
-#ifdef PID_VIRTUALIZATION
 pid_t _real_getpid(void) {
   REAL_FUNC_PASSTHROUGH_PID_T (getpid) ();
 }
@@ -346,8 +345,6 @@ int _real_ioctl(int d, unsigned long int request, ...) {
   REAL_FUNC_PASSTHROUGH_TYPED (int, ioctl) (d, request, arg);
 }
 
-#endif
-
 LIB_PRIVATE
 void *_real_mmap(void *addr, size_t length, int prot, int flags,
     int fd, off_t offset) {
@@ -389,14 +386,8 @@ LIB_PRIVATE int tgkill(int tgid, int tid, int sig) {
 }
 
 // gettid / tkill / tgkill are not defined in libc.
-// So, this is needed even if there is no PID_VIRTUALIZATION.
 pid_t _real_gettid(void) {
-#ifdef PID_VIRTUALIZATION
-// IS THIS LIKE ORIGINAL?
-  REAL_FUNC_PASSTHROUGH_PID_T (_real_syscall(SYS_gettid));
-#else
   REAL_FUNC_PASSTHROUGH_PID_T (syscall(SYS_gettid));
-#endif
 }
 
 LIB_PRIVATE
