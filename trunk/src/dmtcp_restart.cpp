@@ -78,6 +78,9 @@ static const char* theUsage =
   "              Not allowed if --join is specified\n"
   "\n"
   "Other options:\n"
+  "  --run-as-root\n"
+  "              Allow root to run dmtcp_restart and disable uid checking.\n"
+  "              (default: disabled)\n"
   "  --no-strict-uid-checking\n"
   "              Disable uid checking for the checkpoint image. This allows\n"
   "              the checkpoint image to be restarted by a different user\n"
@@ -106,6 +109,7 @@ typedef dmtcp::map<dmtcp::UniquePid, RestoreTarget*> RestoreTargetMap;
 RestoreTargetMap targets;
 RestoreTargetMap independentProcessTreeRoots;
 bool noStrictUIDChecking = false;
+bool runAsRoot = false;
 CoordinatorAPI::CoordinatorMode allowedModes = CoordinatorAPI::COORD_ANY;
 
 
@@ -396,6 +400,9 @@ int main(int argc, char** argv)
     } else if (s == "--new-coordinator") {
       allowedModes = dmtcp::CoordinatorAPI::COORD_NEW;
       shift;
+    } else if (s == "--run-as-root") {
+      runAsRoot = true;
+      shift;
     } else if (s == "--no-strict-uid-checking") {
       noStrictUIDChecking = true;
       shift;
@@ -450,6 +457,14 @@ int main(int argc, char** argv)
   if (jassert_quiet == 0)
     JASSERT_STDERR << DMTCP_BANNER;
 
+  if (!runAsRoot && (getuid() == 0 || geteuid() == 0)) {
+    JASSERT_STDERR <<
+      "Running dmtcp_restart as root is dangerous.  Aborting.\n"
+      "If you still want to do this (at your own risk), then use\n" \
+      "    dmtcp_restart --run-as-root\n";
+    exit(0);
+  }
+
   JTRACE("New dmtcp_restart process; _argc_ ckpt images") (argc);
 
   bool doAbort = false;
@@ -469,7 +484,7 @@ int main(int argc, char** argv)
       sprintf(error_msg, "\ndmtcp_restart: ckpt image %s", restorename.c_str());
       perror(error_msg);
       doAbort = true;
-    } else if (buf.st_uid != getuid() && !noStrictUIDChecking) {
+    } else if (buf.st_uid != getuid() && !noStrictUIDChecking && !runAsRoot) {
       /*Could also run if geteuid() matches*/
       printf("\nProcess uid (%d) doesn't match uid (%d) of\n" \
              "checkpoint image (%s).\n" \
