@@ -99,9 +99,6 @@
 /* No output, not even NOTE and WARNING */
 #undef QUIET
 
-/* Allow DMTCP to run as root */
-#undef RUN_AS_ROOT
-
 /* Define to 1 if you have the ANSI C header files. */
 #undef STDC_HEADERS
 
