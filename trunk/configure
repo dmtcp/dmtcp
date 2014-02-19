@@ -670,9 +670,6 @@ ARM_HOST
 ARM_HOST_FALSE
 ARM_HOST_TRUE
 PID_VIRTUALIZATION
-RUN_AS_ROOT_FALSE
-RUN_AS_ROOT_TRUE
-RUN_AS_ROOT
 TEST_POSIX_MQ
 USE_TEST_SUITE
 HBICT_DELTACOMP
@@ -804,7 +801,6 @@ enable_test_suite
 enable_experts_only_space1
 enable_experts_only
 enable_experts_only_after
-enable_run_as_root
 enable_pid_virtualization
 enable_allocator
 with_mpich
@@ -1480,7 +1476,6 @@ Optional Features:
                  === **** NOTE:  EXPERTS ONLY BELOW HERE **** ===
                           (Use at your own risk!!)
 
-  --enable-run-as-root    allow DMTCP to run as root (normally forbidden)
   --disable-pid-virtualization
                           disable pid virtualization. Pid virtualization is
                           _required_ for checkpointing shells and for many
@@ -5272,36 +5267,6 @@ if test "${enable_experts_only_after+set}" = set; then :
 fi
 
 
-# Check whether --enable-run-as-root was given.
-if test "${enable_run_as_root+set}" = set; then :
-  enableval=$enable_run_as_root; use_run_as_root=$enableval
-else
-  use_run_as_root=no
-fi
-
-
-if test "$use_run_as_root" = "yes"; then
-  RUN_AS_ROOT=yes
-
-else
-  RUN_AS_ROOT=no
-
-fi
-
- if test "$use_run_as_root" = "yes"; then
-  RUN_AS_ROOT_TRUE=
-  RUN_AS_ROOT_FALSE='#'
-else
-  RUN_AS_ROOT_TRUE='#'
-  RUN_AS_ROOT_FALSE=
-fi
-
-if test "$use_run_as_root" = "yes"; then
-
-$as_echo "#define RUN_AS_ROOT 1" >>confdefs.h
-
-fi
-
 # Check whether --enable-pid_virtualization was given.
 if test "${enable_pid_virtualization+set}" = set; then :
   enableval=$enable_pid_virtualization; use_pid_virt=$enableval
@@ -7175,10 +7140,6 @@ Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${am__fastdepCXX_TRUE}" && test -z "${am__fastdepCXX_FALSE}"; then
   as_fn_error $? "conditional \"am__fastdepCXX\" was never defined.
-Usually this means the macro was only invoked conditionally." "$LINENO" 5
-fi
-if test -z "${RUN_AS_ROOT_TRUE}" && test -z "${RUN_AS_ROOT_FALSE}"; then
-  as_fn_error $? "conditional \"RUN_AS_ROOT\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${ARM_HOST_TRUE}" && test -z "${ARM_HOST_FALSE}"; then
