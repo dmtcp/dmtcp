@@ -61,6 +61,7 @@ LINK = $(CC) $(CFLAGS) $(LDFLAGS) -o $@
 
 ifeq (${ARM_HOST},yes)
   ARM_EXTRAS = $(srcdir)/libc-do-syscall-arm.S
+  ARM_BINARIES = $(srcdir)/libc-do-syscall-arm.o
 endif
 
 HEADERS = mtcp_util.ic mtcp_sys.h mtcp_util.h ldt.h \
@@ -93,9 +94,9 @@ mtcp_check_vdso.o: mtcp_check_vdso.c mtcp_sys.h mtcp_util.h \
 	${CC} ${MTCP_CFLAGS} -I. -I../../include -DPIC -fPIC -g -O0 \
 	  -fno-stack-protector -c $<
 
-libmtcp.a: tlsinfo.o ${ARM_EXTRAS}
+libmtcp.a: tlsinfo.o ${ARM_BINARIES}
 	ar cru $@ $^
-# FIXME:  This is a low-level file.  Yet it draws from three directories.
+# FIXME:  This is a low-level file.  Yet it draws from two directories.
 #    Part of the problem is that tlsinfo.h copies DPRINTF from mtcp_util.h
 #    and uses protectedfds.h, which is in ../../include
 #    Do we really need protectedfds.h for low-level, where there is no JASSERT?
