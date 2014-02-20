@@ -470,7 +470,7 @@ void TLSInfo_VerifyPidTid(pid_t pid, pid_t tid)
 
   if ((tls_pid != pid) || (tls_tid != tid)) {
     PRINTF("ERROR: getpid(%d), tls pid(%d), and tls tid(%d) must all match\n",
-           mtcp_sys_getpid(), tls_pid, tls_tid);
+           (long)mtcp_sys_getpid(), tls_pid, tls_tid);
     _exit(0);
   }
 }
