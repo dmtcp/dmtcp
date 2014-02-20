@@ -177,6 +177,7 @@ void *mtcp_get_thread_sysinfo() {
 }
 
 void mtcp_set_thread_sysinfo(void *sysinfo) {
+  int mtcp_sys_errno = 0;
 #if defined(__i386__) || defined(__x86_64__)
   asm volatile (CLEAN_FOR_64_BIT(mov %0, %%gs:) DEFAULT_SYSINFO_OFFSET "\n\t"
                 : : "r" (sysinfo) );
