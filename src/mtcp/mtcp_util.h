@@ -167,6 +167,7 @@ mtcp_sys_memcmp (s1, s2, len)
 #endif
 
 void mtcp_printf (char const *format, ...);
+ssize_t mtcp_read_all(int fd, void *buf, size_t count);
 void mtcp_readfile(int fd, void *buf, size_t size);
 void mtcp_skipfile(int fd, size_t size);
 unsigned long mtcp_strtol (char *str);

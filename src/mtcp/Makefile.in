@@ -72,7 +72,7 @@ libs: build
 all: default
 
 $(targetdir)/bin/$(MTCP_RESTART): mtcp_restart.o
-	${LINK} -fPIC -g -O2 -nodefaultlibs ${ARM_EXTRAS} $<
+	${LINK} -fPIC -g -O0 -nodefaultlibs ${ARM_EXTRAS} $^
 
 # We need to compile mtcp_restart.c with "-fno-stack-protector" to avoid
 # runtime stack smashing detection.
@@ -84,8 +84,14 @@ $(targetdir)/bin/$(MTCP_RESTART): mtcp_restart.o
 #    That now happens in a different function.
 # IMPORTANT:  Compile with -O2 or higher.  On some 32-bit CPUs
 #   (e.g. ARM/gcc-4.8), the inlining of -O2 avoids bugs when fnc's are copied.
-mtcp_restart.o: mtcp_restart.c $(HEADERS)
-	$(COMPILE) -DPIC -fPIC -fno-stack-protector -g -O2 $<
+mtcp_restart.o: mtcp_restart.c $(HEADERS) mtcp_check_vdso.c
+	$(COMPILE) -DPIC -fPIC -fno-stack-protector -g -O0 $<
+
+# procmapssrea.h taken from mtcp_util.h ; Is this necessary?
+mtcp_check_vdso.o: mtcp_check_vdso.c mtcp_sys.h mtcp_util.h \
+	../../include/procmapsarea.h
+	${CC} ${MTCP_CFLAGS} -I. -I../../include -DPIC -fPIC -g -O0 \
+	  -fno-stack-protector -c $<
 
 libmtcp.a: tlsinfo.o ${ARM_EXTRAS}
 	ar cru $@ $^

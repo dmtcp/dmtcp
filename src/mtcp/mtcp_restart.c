@@ -58,9 +58,12 @@
 
 #include "mtcp_sys.h"
 #include "mtcp_util.ic"
+#include "mtcp_check_vdso.c"
 #include "membarrier.h"
 #include "procmapsarea.h"
 #include "mtcp_header.h"
+
+void mtcp_check_vdso(char **environ);
 
 #define BINARY_NAME "mtcp_restart"
 #define BINARY_NAME_M32 "mtcp_restart-32"
@@ -133,7 +136,7 @@ int __libc_start_main (int (*main) (int, char **, char **),
 }
 void __libc_csu_init (int argc, char **argv, char **envp) { }
 void __libc_csu_fini (void) { }
-void __stack_chk_fail (void) { }
+void __stack_chk_fail (void);  /* defined at end of file */
 void abort(void) { mtcp_abort(); }
 /* Implement memcpy() and memset() inside mtcp_restart. Although we are not
  * calling memset, the compiler may generate a call to memset() when trying to
@@ -153,7 +156,7 @@ void *memcpy(void *dest, const void *src, size_t n) {
 
 #define shift argv++; argc--;
 __attribute__((optimize(0)))
-int main(int argc, char *argv[])
+int main(int argc, char *argv[], char **environ)
 {
   int orig_argc = argc;
   char **orig_argv = argv;
@@ -161,6 +164,17 @@ int main(int argc, char *argv[])
   MtcpHeader mtcpHdr;
   int mtcp_sys_errno;
   int simulate = 0;
+
+#if 0
+MTCP_PRINTF("Attach for debugging.");
+{int x=1; while(x);}
+#endif
+
+  /* i386 uses random addresses for vdso.  Make sure that its location
+   * will not conflict with other memory regions.
+   * (Other arch's may also need this in the future.  So, we do it for all.)
+   */
+  mtcp_check_vdso(environ);
 
   rinfo.fd = -1;
   rinfo.use_gdb = 0;
@@ -387,17 +401,17 @@ static void restorememoryareas(RestoreInfo *rinfo_ptr)
   DPRINTF("Entering copy of restorememoryareas().  We will now unmap old memory"
           "\n    and restore memory sections from the checkpoint image.\n");
   if (rinfo_ptr->use_gdb) {
-    DPRINTF("Called with --use-gdb.  A useful command is:\n"
+    MTCP_PRINTF("Called with --use-gdb.  A useful command is:\n"
             "    (gdb) info proc mapping");
     if (rinfo_ptr->text_offset != -1) {
-      DPRINTF("Called with --text-offset 0x%x.  A useful command is:\n"
+      MTCP_PRINTF("Called with --text-offset 0x%x.  A useful command is:\n"
               "(gdb) add-symbol-file ../../bin/mtcp_restart %p\n",
               rinfo_ptr->text_offset,
               rinfo_ptr->restore_addr + rinfo_ptr->text_offset);
 #if defined(__i386__) || defined(__x86_64__)
       asm volatile ("int3"); // Do breakpoint; send SIGTRAP, caught by gdb
 #else
-      DPRINTF("IN GDB: interrupt (^C); add-symbol-file ...; (gdb) print x=0\n");
+      MTCP_PRINTF("IN GDB: interrupt (^C); add-symbol-file ...; (gdb) print x=0\n");
       { int x = 1; while (x); } // Stop execution for user to type command.
 #endif
     }
@@ -1257,4 +1271,54 @@ static void getMiscAddrs(VA *text_addr, size_t *size, VA *highest_va)
   }
   mtcp_sys_close (mapsfd);
   *highest_va = area_end;
+}
+
+// gcc can generate calls to these.
+void __stack_chk_fail(void)
+{
+  int mtcp_sys_errno;
+  MTCP_PRINTF("ERROR: Stack Overflow detected.\n");
+  mtcp_abort();
+}
+
+void __stack_chk_fail_local(void)
+{
+  int mtcp_sys_errno;
+  MTCP_PRINTF("ERROR: Stack Overflow detected.\n");
+  mtcp_abort();
+}
+
+void __stack_chk_guard(void)
+{
+  int mtcp_sys_errno;
+  MTCP_PRINTF("ERROR: Stack Overflow detected.\n");
+  mtcp_abort();
+}
+
+void _Unwind_Resume(void)
+{
+  int mtcp_sys_errno;
+  MTCP_PRINTF("MTCP Internal Error: %s Not Implemented.\n", __FUNCTION__);
+  mtcp_abort();
+}
+
+void __gcc_personality_v0(void)
+{
+  int mtcp_sys_errno;
+  MTCP_PRINTF("MTCP Internal Error: %s Not Implemented.\n", __FUNCTION__);
+  mtcp_abort();
+}
+
+void __intel_security_cookie(void)
+{
+  int mtcp_sys_errno;
+  MTCP_PRINTF("MTCP Internal Error: %s Not Implemented.\n", __FUNCTION__);
+  mtcp_abort();
+}
+
+void __intel_security_check_cookie(void)
+{
+  int mtcp_sys_errno;
+  MTCP_PRINTF("MTCP Internal Error: %s Not Implemented.\n", __FUNCTION__);
+  mtcp_abort();
 }

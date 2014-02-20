@@ -189,6 +189,28 @@ void mtcp_sys_memcpy (void *dstpp, const void *srcpp, size_t len)
   }
 }
 
+ssize_t mtcp_read_all(int fd, void *buf, size_t count)
+{
+  int mtcp_sys_errno;
+  int rc;
+  char *ptr = (char *) buf;
+  size_t num_read = 0;
+  for (num_read = 0; num_read < count;) {
+    rc = mtcp_sys_read (fd, ptr + num_read, count - num_read);
+    if (rc == -1) {
+      if (mtcp_sys_errno == EINTR || mtcp_sys_errno == EAGAIN)
+        continue;
+      else
+        return -1;
+    }
+    else if (rc == 0)
+      break;
+    else // else rc > 0
+      num_read += rc;
+  }
+  return num_read;
+}
+
 void mtcp_readfile(int fd, void *buf, size_t size)
 {
   int mtcp_sys_errno;
