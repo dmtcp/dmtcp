@@ -22,7 +22,7 @@ code can also be added by end users through the use of plugins.)
     b.  DNS - port 53
 
 2.  NSCD (Name Service Caching Daemon):  Zero out the shared memory area
-    between the NSCD daemon and the application on chekckpoint.  On restart
+    between the NSCD daemon and the application on checkpoint.  On restart
     or resume, glibc detects that the area has been zeroed out, and it
     stops using the NSCD daemon (presumably under the assumption that the
     NSCD daemon died).  It makes the related system calls with no cachine.

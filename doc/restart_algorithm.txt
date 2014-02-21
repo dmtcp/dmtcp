@@ -2,7 +2,7 @@ This is intended as one of a series of informal documents to describe
 and partially document some of the more subtle DMTCP data structures
 and algorithms.  These documents are snapshots in time, and they
 may become somewhat out-of-date over time (and hopefully also refreshed
-to re-sync them with the code again).  (Written Feb., 2014)
+to re-sync them with the code again).  (Updated Feb., 2014)
 
 This description is primarily for i386 (32-bit Intel).  Other architectures
 are simpler, and can be deduced from this description.  The sections
@@ -35,10 +35,10 @@ A. BACKGROUND:
 
 
 B. OVERVIEW:
-At the time of chekcpoint, writing a checkpoint image is done easily
+At the time of checkpoint, writing a checkpoint image is done easily
 by using the memory maps in '/proc/*/maps'.  The code for this is in
 src/writeckpt.cpp, and is not discussed further here.  See
-achitecture-of-dmtcp.pdf for a very high-level overview, and
+architecture-of-dmtcp.pdf for a very high-level overview, and
 plugin-tutorial.pdf for how internal plugins (found in src/plugin)
 are used to extend this capability.
 
@@ -86,7 +86,7 @@ to create other threads:
 
 
 D. HOW DOES DMTCP PATCH THE TCB with the current tid and pid?
-    The trick here is to know the offset into the TCB where glibc storces
+    The trick here is to know the offset into the TCB where glibc stores
 the tid and pid.  This is currently found during checkpoint itself.
 This could be found by looking at the include files of the glibc source
 code, but they have changed from one version to another, and glibc does
@@ -103,7 +103,7 @@ spawned to resolve the ambiguity.  We do not yet do this.  Note that
 this should not be done within dmtcp_launch itself, since we can't be
 sure which implementation of glibc (or other libc) is being used by the
 end user.
-    Note also, that there is no problem if we rsstart on a new machine
+    Note also, that there is no problem if we restart on a new machine
 with a different version of glibc.  This is because the libc.so library
 is saved and restored as part of the checkpoint image.  So, the original
 version of glibc stays with the process for its lifetime (which is probably

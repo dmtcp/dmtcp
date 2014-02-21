@@ -172,8 +172,8 @@ void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 
 % Plugin events:
 %
-% *** The model for events:  When a DMTCP event occurs, DMTCP calls ROUTINE
-% in each plugin, in the order that the plugins were loaded, offering each plugin
+% *** The model for events:  When a DMTCP event occurs, DMTCP calls ROUTINE in
+% each plugin, in the order that the plugins were loaded, offering each plugin
 % a chance to handle the event.  If ROUTINE is not defined in a plugin, DMTCP
 % skips calling that plugin.  When ROUTINE is called, it is given the unique
 % event id, and a switch statement can decide whether to take any special action.
@@ -182,10 +182,10 @@ void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 % user code fragment will:
 % A.  optionally carry out any pre-processing steps
 % B.  optionally ask DMTCP to invoke the next event handler
-% C.  optionall carry out any post-processing steps
+% C.  optionally carry out any post-processing steps
 %
-% If all three steps are invoked, this effectively creates a wrapper function around
-% any later plugins that handle the same event.  If step B is omitted,
+% If all three steps are invoked, this effectively creates a wrapper function
+% around any later plugins that handle the same event.  If step B is omitted,
 % no further plugins will be offered the opportunity to handle the event.
 
 \subsubsection{Plugin wrapper functions}

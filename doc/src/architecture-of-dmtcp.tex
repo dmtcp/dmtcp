@@ -16,7 +16,7 @@ This is intended as a gentle introduction to the architecture of DMTCP.
 Shorter descriptions are possible.  For a low-level description with
 references to code in the implementation, see
 {\tt doc/restart\_algorithm.txt}~.  For the general use of plugins,
-see {\tt doc/plugin\_tutorial.pdf}~.  DMTCP uses plugins internally
+see {\tt doc/plugin-tutorial.pdf}~.  DMTCP uses plugins internally
 from {\tt DMTCP\_ROOT/src/plugin}.  DMTCP also offers optional plugins
 (not enabled by default) to end users.  Thes come in two flavors:
 {\tt DMTCP\_ROOT/plugin}
@@ -226,7 +226,7 @@ invokes {\tt dmtcp\_coordinator} with those default values, localhost:7779.
 Thus, an occasional issue occurs when two users on the same host each
 invoke {\tt dmtcp\_launch} with default parameters.  They cannot both use
 the same coordinator.  Similarly, a single user may want to launch two
-independent copmutations, and independently checkpoint them.  If the user
+independent computations, and independently checkpoint them.  If the user
 invokes {\tt dmtcp\_launch} (default parameters) for both computation,
 then there will only be one coordinator.  So, in the view of DMTCP,
 there will only be a single computation, and a checkpoint command will
@@ -284,7 +284,7 @@ longer supported in \hbox{DMTCP-2.2} and beyond.
 In DMTCP-2.1 and earlier, the MTCP component of DMTCP could be compiled
 to run standalone, with opportunities for hook functions using weak symbols.
 MTCP has now been almost entirely re-written, and is now tightly integrated
-with DMTCP.  {\em For thos who wished to use the prior MTCP arhitecture
+with DMTCP.  {\em For thos who wished to use the prior MTCP architecture
 (just the checkpoint thread, but no separate coordinator), a plugin
 with those features is planned for the future.}
 
@@ -295,7 +295,7 @@ we part of the DMTCP implementation not too long after the
 initial offering of DMTCP.  More recently, this functionality was
 wrapped into a high level abstraction, plugins.  This section emphasizes
 the implementation of these features.  For information on using plugins,
-and writing your own, see {\tt doc/plugin-tuorial.pdf}~.
+and writing your own, see {\tt doc/plugin-tutorial.pdf}~.
 
 \subsubsection*{a. Wrapper functions}
 
@@ -343,6 +343,6 @@ the kernel always sees the real pid/tid.
 Plugins also offer a publish/subscribe service for situations where
 a DMTCP computation contains more than one process, and the user
 processes must coordinate with each other.  Details are in
-{\tt doc/plugin\_tutorial.pdf}~.
+{\tt doc/plugin-tutorial.pdf}~.
 
 \end{document}
