@@ -13,9 +13,17 @@
 \maketitle
 
 This is intended as a gentle introduction to the architecture of DMTCP.
-Shorter descriptions are possible.
+Shorter descriptions are possible.  For a low-level description with
+references to code in the implementation, see
+{\tt doc/restart\_algorithm.txt}~.  For the general use of plugins,
+see {\tt doc/plugin\_tutorial.pdf}~.  DMTCP uses plugins internally
+from {\tt DMTCP\_ROOT/src/plugin}.  DMTCP also offers optional plugins
+(not enabled by default) to end users.  Thes come in two flavors:
+{\tt DMTCP\_ROOT/plugin}
+(fully supported) and {\tt DMTCP\_ROOT/contrib} (newer plugins,
+possibly contributed by third parties).
 
-\subsection*{1. Usage:}
+\subsection*{1. Usage of DTMCP:}
 \begin{algorithmic}[1]
 \STATE {\tt dmtcp\_launch a.out}
 \STATE {\tt dmtcp\_command --checkpoint} \newline
