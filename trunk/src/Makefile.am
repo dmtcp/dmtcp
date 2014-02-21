@@ -12,8 +12,8 @@
 # have all needed files, that a GNU package needs
 AUTOMAKE_OPTIONS = foreign
 
-jalibdir=$(srcdir)/../jalib/
-dmtcpincludedir=$(srcdir)/../include
+jalibdir=$(top_srcdir)/jalib/
+dmtcpincludedir=$(top_srcdir)/include
 dmtcplibdir = $(pkglibdir)
 
 SUBDIRS = mtcp plugin
@@ -33,7 +33,7 @@ endif
 
 #HEADERS
 #set the include path found by configure
-AM_CPPFLAGS= $(all_includes) -I$(dmtcpincludedir) -I$(jalibdir)
+AM_CPPFLAGS= -I$(dmtcpincludedir) -I$(jalibdir)
 
 # targets:
 noinst_LIBRARIES = libdmtcpinternal.a libsyscallsreal.a libnohijack.a libjalib.a
