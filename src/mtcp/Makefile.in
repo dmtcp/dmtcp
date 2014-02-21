@@ -90,9 +90,8 @@ mtcp_restart.o: mtcp_restart.c $(HEADERS) mtcp_check_vdso.c
 
 # procmapssrea.h taken from mtcp_util.h ; Is this necessary?
 mtcp_check_vdso.o: mtcp_check_vdso.c mtcp_sys.h mtcp_util.h \
-	../../include/procmapsarea.h
-	${CC} ${MTCP_CFLAGS} -I. -I../../include -DPIC -fPIC -g -O0 \
-	  -fno-stack-protector -c $<
+	$(DMTCP_INCLUDE_PATH)/procmapsarea.h
+	$(COMPILE) -DPIC -fPIC -fno-stack-protector -g -O0 $<
 
 libmtcp.a: tlsinfo.o ${ARM_BINARIES}
 	ar cru $@ $^
@@ -110,9 +109,9 @@ libc-do-syscall-arm.o: libc-do-syscall-arm.S
 
 # Try 'make gdb' before 'make check' if you want debugging information
 #   available in the case of 'make check' dumping core.
-check: ../../bin/mtcp_restart ckpt_dmtcp1_test.dmtcp
-	../../bin/mtcp_restart --text-offset `./text_offset.sh \
-	  ../../bin/mtcp_restart` ckpt_dmtcp1_test.dmtcp
+check: $(targetdir)/bin/$(MTCP_RESTART) ckpt_dmtcp1_test.dmtcp
+	$(targetdir)/bin/$(MTCP_RESTART) --text-offset `./text_offset.sh \
+	  $(targetdir)/bin/$(MTCP_RESTART)` ckpt_dmtcp1_test.dmtcp
 
 gdb:
 	make -f Makefile.mtcp gdb
