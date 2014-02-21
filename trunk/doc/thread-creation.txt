@@ -1,5 +1,3 @@
-// MUST STILL EXPLAIN original_tid
-
 		   Thread Creation and Thread Exit
 
 This is intended as one of a series of informal documents to describe
@@ -7,6 +5,9 @@ and partially document some of the more subtle DMTCP data structures
 and algorithms.  These documents are snapshots in time, and they
 may become somewhat out-of-date over time (and hopefully also refreshed
 to re-sync them with the code again).
+
+[ WARNING:  Starting in DMTCP-2.2, this implementation was drastically
+            modified.  Much of this information is obsolete. ]
 
 This document is about thread creation and the exit of threads.  A closely
 related document is pid-tid-virtualization.txt.  There are several subtleties
@@ -34,7 +35,7 @@ concerning thread creation and exit:
   clone() returns the tid to the creator.  In case of a conflict, the creator
   waits to see CLONE_FAIL in the given field, and then loops around
   to create a new thread.
-2) MTCP keeps a thread descrriptor of type Thread ('struct thread') for
+2) MTCP keeps a thread descriptor of type Thread ('struct thread') for
   each running thread.  This is how MTCP maintains state information about
   that thread.  MTCP must create and delete these thread descriptors.
   This is done by MTCP:threadcloned (to create the descriptor) and

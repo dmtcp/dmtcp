@@ -16,13 +16,13 @@ in section 2 ('man 2 execve').
 
 After initialization, environment variables are maintained solely in
 user space, and are ignored by the kernel.  Since DMTCP saves all of
-user space in a checkpoint image, all environment variabls are saved
+user space in a checkpoint image, all environment variable are saved
 at checkpoint time and restored exactly on restart.  This is a good
 thing.  For example, a shell program may cache its own copy of the environment
 variables prior to checkpoint.  It would be bad if environment variables
 asynchronously appeared and disappeared as part of checkpoint/restart.
 
-Most environment variabls are defined as C macros in dmtcp/src/constants.h.
+Most environment variable are defined as C macros in dmtcp/src/constants.h.
 For example:
 #define ENV_VAR_QUIET "DMTCP_QUIET"
 

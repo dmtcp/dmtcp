@@ -135,7 +135,7 @@ id, and so a ''kill'' message will be returned.
 Finally, we discuss the simpler case of an exec by the user process
 after a ''kill'' message is sent.  First, we note that the ''kill''
 message is a single 'int', and hence it is atomic.  Either it is read
-by the checkpoiunt thread or it is not.
+by the checkpoint thread or it is not.
 
 The atomicity of the ''kill'' message is important.  The checkpoint thread
 might otherwise read part of a ''kill'' message, only to be interrupted
