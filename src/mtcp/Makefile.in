@@ -44,10 +44,9 @@ else
 endif
 
 DMTCP_INCLUDE_PATH = $(top_srcdir)/include
-JALIB_PATH = $(top_srcdir)/jalib
 
-INCLUDES = -I$(JALIB_PATH) -I$(DMTCP_INCLUDE_PATH) \
-	   -I$(top_builddir)/include -I$(srcdir) -I$(srcdir)/..
+INCLUDES = -I$(DMTCP_INCLUDE_PATH) -I$(top_builddir)/include \
+	   -I$(srcdir) -I$(srcdir)/..
 CFLAGS += -DHAVE_CONFIG_H -fPIC -g
 CXXFLAGS += -DHAVE_CONFIG_H -fPIC -g
 ifeq ($(M32),1)
@@ -67,10 +66,10 @@ endif
 HEADERS = mtcp_util.ic mtcp_sys.h mtcp_util.h ldt.h \
 	  $(srcdir)/../membarrier.h $(DMTCP_INCLUDE_PATH)/procmapsarea.h
 
-build: $(targetdir)/bin/$(MTCP_RESTART) libmtcp.a
+all: default
 default: build
 libs: build
-all: default
+build: $(targetdir)/bin/$(MTCP_RESTART) libmtcp.a
 
 $(targetdir)/bin/$(MTCP_RESTART): mtcp_restart.o
 	${LINK} -fPIC -g -O0 -nodefaultlibs ${ARM_EXTRAS} $^
