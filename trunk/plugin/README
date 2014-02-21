@@ -26,7 +26,8 @@ modify-env:  Modify the environment variables on restart.  This
 	to determine what environment variables should be modified
 	in the restarted process.
 
-batch-queue:  Support for using DMTCP with batch queue systems.
+batch-queue:  (also known as rm plugin, for "resource manager")
+	Support for using DMTCP with batch queue systems.
 	Currently TORQUE and SLURM are supported. Support for SGE and LSF
         is planned in the near future.  This is the work of Artem Polyakov.
 	Please report bugs to dmtcp@ccs.neu.edu as well as to

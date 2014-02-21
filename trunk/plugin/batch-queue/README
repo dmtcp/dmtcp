@@ -1,4 +1,5 @@
 General support for cluster resource managers (RM) is provided.
+Hence, its two names for the same plugin:  batch-queue and "rm".
 This module has been tested against the Open MPI implementation for MPI-2.
 
 A single plugin, libdmtcp_rm.so, supports several resource mangers.
