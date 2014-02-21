@@ -44,17 +44,15 @@ for line in file:
   fields = line.split()[0:2]
   fields = map(lambda(x):int(x,16), fields[0].split("-")) + [fields[1]]
   if fields[0] <= pc and pc < fields[1] and re.match("r.x.", fields[2]):
-    print int(fields[0])
     readelf = subprocess.Popen(
         "/usr/bin/readelf -S "+libdmtcp+" | grep '\.text'",
         shell=True, stdout=subprocess.PIPE)
     tmp = readelf.stdout.read()
-    print tmp
     textOffset = tmp.split()[4]
     readelf.stdout.close()
-    print textOffset
     readelf.stdout.close()
     gdbCmd = "add-symbol-file "+libdmtcp+" "+hex(fields[0]+int(textOffset,16))
+    print "Type this in gdb:"
     print gdbCmd
     break
 if not gdbCmd:
