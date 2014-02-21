@@ -45,8 +45,8 @@ endif
 # top-level include dir.
 DMTCP_INCLUDE_PATH = $(top_srcdir)/include
 
-INCLUDES = -I$(DMTCP_INCLUDE_PATH) -I$(top_builddir)/include \
-	   -I$(srcdir) -I$(srcdir)/..
+INCLUDES = -I$(top_builddir)/include -I$(DMTCP_INCLUDE_PATH) \
+	   -I$(srcdir) -I$(top_srcdir)/src
 
 COMPILE = $(CC) $(INCLUDES) $(CPPFLAGS) $(CFLAGS) -c -o $@
 LINK = $(CC) $(CFLAGS) $(LDFLAGS) -o $@
