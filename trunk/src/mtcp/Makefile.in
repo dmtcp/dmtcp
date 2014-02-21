@@ -106,7 +106,7 @@ check: $(targetdir)/bin/$(MTCP_RESTART) ckpt_dmtcp1_test.dmtcp
 	  $(targetdir)/bin/$(MTCP_RESTART)` ckpt_dmtcp1_test.dmtcp
 
 gdb:
-	make -f Makefile.mtcp gdb
+	make -f Makefile.debug gdb
 
 install: all
 	${INSTALL_PROGRAM} $(targetdir)/bin/$(MTCP_RESTART) $(DESTDIR)$(bindir)
