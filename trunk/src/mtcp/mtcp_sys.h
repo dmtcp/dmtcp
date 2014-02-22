@@ -367,7 +367,6 @@ struct linux_dirent {
 static inline void mtcp_abort (void) __attribute__ ((noreturn));
 static inline void mtcp_abort (void)
 {
-  while(1);
 #if defined(__i386__) || defined(__x86_64__)
   asm volatile (CLEAN_FOR_64_BIT(hlt ; xor %eax,%eax ; mov (%eax),%eax) );
 #elif defined(__arm__)
