@@ -420,6 +420,7 @@ void dmtcp::TcpConnection::restoreSocketPair(dmtcp::TcpConnection *peer)
 
 void dmtcp::TcpConnection::postRestart()
 {
+  int fd;
   JASSERT(_fds.size() > 0);
   switch (_type) {
     case TCP_PREEXISTING:
@@ -429,95 +430,90 @@ void dmtcp::TcpConnection::postRestart()
       JTRACE("Creating dead socket.") (_fds[0]) (_fds.size());
       Util::dupFds(_makeDeadSocket(), _fds);
       break;
+
     case TCP_CREATED:
     case TCP_BIND:
     case TCP_LISTEN:
-      {
-        // Sometimes _sockType contains SOCK_CLOEXEC/SOCK_NONBLOCK flags.
-        JWARNING((_sockDomain == AF_INET || _sockDomain == AF_UNIX ||
-                  _sockDomain == AF_INET6) && (_sockType & 077) == SOCK_STREAM)
-          (id()) (_sockDomain) (_sockType) (_sockProtocol)
-          .Text("Socket type not yet [fully] supported.");
+      // Sometimes _sockType contains SOCK_CLOEXEC/SOCK_NONBLOCK flags.
+      JWARNING((_sockDomain == AF_INET || _sockDomain == AF_UNIX ||
+                _sockDomain == AF_INET6) && (_sockType & 077) == SOCK_STREAM)
+        (id()) (_sockDomain) (_sockType) (_sockProtocol)
+        .Text("Socket type not yet [fully] supported.");
 
-        if (really_verbose) {
-          JTRACE("Restoring socket.") (id()) (_fds[0]);
-        }
+      if (really_verbose) {
+        JTRACE("Restoring socket.") (id()) (_fds[0]);
+      }
 
-        jalib::JSocket sock(_real_socket(_sockDomain, _sockType,
-                                         _sockProtocol));
-        JASSERT(sock.isValid());
-        sock.changeFd(_fds[0]);
+      fd = _real_socket(_sockDomain, _sockType, _sockProtocol);
+      JASSERT(fd != -1) (JASSERT_ERRNO);
+      Util::dupFds(fd, _fds);
 
-        Util::dupFds(_fds[0], _fds);
+      if (_type == TCP_CREATED) break;
 
-        if (_type == TCP_CREATED) break;
+      if (_sockDomain == AF_UNIX) {
+        const char* un_path =((sockaddr_un*) &_bindAddr)->sun_path;
+        JTRACE("Unlinking stale unix domain socket.") (un_path);
+        JWARNING(unlink(un_path) == 0) (un_path);
+      }
+      /*
+       * During restart, some socket options must be restored(using
+       * setsockopt) before the socket is used(bind etc.), otherwise we might
+       * not be able to restore them at all. One such option is set in the
+       * following way for IPV6 family:
+       * setsockopt(sd, IPPROTO_IPV6, IPV6_V6ONLY,...)
+       * This fix works for now. A better approach would be to restore the
+       * socket options in the order in which they are set by the user
+       * program.  This fix solves a bug that caused Open MPI to fail to
+       * restart under DMTCP.
+       *                               --Kapil
+       */
 
-        if (_sockDomain == AF_UNIX) {
-          const char* un_path =((sockaddr_un*) &_bindAddr)->sun_path;
-          JTRACE("Unlinking stale unix domain socket.") (un_path);
-          JWARNING(unlink(un_path) == 0) (un_path);
-        }
-        /*
-         * During restart, some socket options must be restored(using
-         * setsockopt) before the socket is used(bind etc.), otherwise we might
-         * not be able to restore them at all. One such option is set in the
-         * following way for IPV6 family:
-         * setsockopt(sd, IPPROTO_IPV6, IPV6_V6ONLY,...)
-         * This fix works for now. A better approach would be to restore the
-         * socket options in the order in which they are set by the user
-         * program.  This fix solves a bug that caused Open MPI to fail to
-         * restart under DMTCP.
-         *                               --Kapil
-         */
+      if (_sockDomain == AF_INET6) {
+        JTRACE("Restoring some socket options before binding.");
+        typedef map< int64_t, map< int64_t,
+                jalib::JBuffer > >::iterator levelIterator;
+        typedef map< int64_t, jalib::JBuffer >::iterator optionIterator;
 
-        if (_sockDomain == AF_INET6) {
-          JTRACE("Restoring some socket options before binding.");
-          typedef map< int64_t, map< int64_t,
-                                 jalib::JBuffer > >::iterator levelIterator;
-          typedef map< int64_t, jalib::JBuffer >::iterator optionIterator;
-
-          for (levelIterator lvl = _sockOptions.begin();
-               lvl!=_sockOptions.end(); ++lvl) {
-            if (lvl->first == IPPROTO_IPV6) {
-              for (optionIterator opt = lvl->second.begin();
-                   opt!=lvl->second.end(); ++opt) {
-                if (opt->first == IPV6_V6ONLY) {
-                  if (really_verbose) {
-                    JTRACE("Restoring socket option.")
-                      (_fds[0]) (opt->first) (opt->second.size());
-                  }
-                  int ret = _real_setsockopt(_fds[0], lvl->first, opt->first,
-                                              opt->second.buffer(),
-                                              opt->second.size());
-                  JASSERT(ret == 0) (JASSERT_ERRNO) (_fds[0]) (lvl->first)
-                    (opt->first) (opt->second.buffer()) (opt->second.size())
-                    .Text("Restoring setsockopt failed.");
+        for (levelIterator lvl = _sockOptions.begin();
+             lvl!=_sockOptions.end(); ++lvl) {
+          if (lvl->first == IPPROTO_IPV6) {
+            for (optionIterator opt = lvl->second.begin();
+                 opt!=lvl->second.end(); ++opt) {
+              if (opt->first == IPV6_V6ONLY) {
+                if (really_verbose) {
+                  JTRACE("Restoring socket option.")
+                    (_fds[0]) (opt->first) (opt->second.size());
                 }
+                int ret = _real_setsockopt(_fds[0], lvl->first, opt->first,
+                                           opt->second.buffer(),
+                                           opt->second.size());
+                JASSERT(ret == 0) (JASSERT_ERRNO) (_fds[0]) (lvl->first)
+                  (opt->first) (opt->second.buffer()) (opt->second.size())
+                  .Text("Restoring setsockopt failed.");
               }
             }
           }
         }
-
-        if (really_verbose) {
-          JTRACE("Binding socket.") (id());
-        }
-        errno = 0;
-        JWARNING(sock.bind((sockaddr*) &_bindAddr,_bindAddrlen))
-          (JASSERT_ERRNO) (id())
-          .Text("Bind failed.");
-        if (_type == TCP_BIND) break;
-
-        if (really_verbose) {
-          JTRACE("Listening socket.") (id());
-        }
-        errno = 0;
-        JWARNING(sock.listen(_listenBacklog))
-          (JASSERT_ERRNO) (id()) (_listenBacklog)
-          .Text("Bind failed.");
-        if (_type == TCP_LISTEN) break;
-
       }
+
+      if (really_verbose) {
+        JTRACE("Binding socket.") (id());
+      }
+      errno = 0;
+      JWARNING(_real_bind(_fds[0], (sockaddr*) &_bindAddr,_bindAddrlen) == 0)
+        (JASSERT_ERRNO) (id()) .Text("Bind failed.");
+      if (_type == TCP_BIND) break;
+
+      if (really_verbose) {
+        JTRACE("Listening socket.") (id());
+      }
+      errno = 0;
+      JWARNING(_real_listen(_fds[0], _listenBacklog) == 0)
+        (JASSERT_ERRNO) (id()) (_listenBacklog) .Text("Bind failed.");
+      if (_type == TCP_LISTEN) break;
+
       break;
+
     case TCP_ACCEPT:
       JASSERT(!_remotePeerId.isNull()) (id()) (_remotePeerId) (_fds[0])
         .Text("Can't restore a TCP_ACCEPT socket with null acceptRemoteId.\n"
@@ -525,6 +521,7 @@ void dmtcp::TcpConnection::postRestart()
       JTRACE("registerIncoming") (id()) (_remotePeerId) (_fds[0]);
       ConnectionRewirer::instance().registerIncoming(id(), this);
       break;
+
     case TCP_CONNECT:
       JTRACE("registerOutgoing") (id()) (_remotePeerId) (_fds[0]);
       ConnectionRewirer::instance().registerOutgoing(_remotePeerId, this);
