@@ -24,12 +24,14 @@
 #define CONNECTIONREWIRER_H
 
 #include <sys/socket.h>
+#include <sys/un.h>
 #include "dmtcpalloc.h"
 #include "connectionidentifier.h"
 #include "connection.h"
 
 namespace dmtcp
 {
+  typedef map<ConnectionIdentifier, Connection*> ConnectionListT;
 
   class ConnectionRewirer
   {
@@ -45,27 +47,36 @@ namespace dmtcp
 
       void openRestoreSocket();
       void registerIncoming(const ConnectionIdentifier& local,
-                            Connection *con);
+                            Connection *con,
+                            int domain);
       void registerOutgoing(const ConnectionIdentifier& remote,
                             Connection *con);
       void registerNSData();
       void sendQueries();
       void doReconnect();
-      void checkForPendingIncoming();
+      void checkForPendingIncoming(int restoreSockFd, ConnectionListT *conList);
 
       void debugPrint() const;
 
     private:
-      struct sockaddr_storage _restoreAddr;
-      socklen_t               _restoreAddrlen;
+      void registerNSData(void *addr, socklen_t len, ConnectionListT *conList);
 
-      typedef map<ConnectionIdentifier, Connection*> ConnectionListT;
+      struct sockaddr_in    _ip4RestoreAddr;
+      socklen_t             _ip4RestoreAddrlen;
+      struct sockaddr_in6   _ip6RestoreAddr;
+      socklen_t             _ip6RestoreAddrlen;
+      struct sockaddr_un    _udsRestoreAddr;
+      socklen_t             _udsRestoreAddrlen;
+
       typedef ConnectionListT::iterator iterator;
       typedef ConnectionListT::const_iterator const_iterator;
       typedef map<ConnectionIdentifier, struct RemoteAddr> RemoteInfoT;
       typedef RemoteInfoT::iterator remoteInfoIter;
 
-      ConnectionListT _pendingIncoming;
+      ConnectionListT _pendingIP4Incoming;
+      ConnectionListT _pendingIP6Incoming;
+      ConnectionListT _pendingUDSIncoming;
+
       ConnectionListT _pendingOutgoing;
       RemoteInfoT     _remoteInfo;
   };
