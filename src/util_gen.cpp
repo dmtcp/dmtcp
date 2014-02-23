@@ -175,12 +175,17 @@ ssize_t dmtcp::Util::skipBytes(int fd, size_t count)
   return totalSkipped;
 }
 
-void dmtcp::Util::dupFds(int oldfd, const dmtcp::vector<int>& newfds)
+void dmtcp::Util::changeFd(int oldfd, int newfd)
 {
-  JASSERT(_real_dup2(oldfd, newfds[0]) == newfds[0]);
-  if (oldfd != newfds[0]) {
+  if (oldfd != newfd) {
+    JASSERT(_real_dup2(oldfd, newfd) == newfd);
     _real_close(oldfd);
   }
+}
+
+void dmtcp::Util::dupFds(int oldfd, const dmtcp::vector<int>& newfds)
+{
+  changeFd(oldfd, newfds[0]);
   for (size_t i = 1; i < newfds.size(); i++) {
     JASSERT(_real_dup2(newfds[0], newfds[i]) == newfds[i]);
   }
