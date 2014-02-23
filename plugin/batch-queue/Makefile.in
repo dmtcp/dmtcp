@@ -43,9 +43,10 @@ endif
 LIBNAME=$(targetdir)/lib/${PACKAGE}/libdmtcp_${PLUGIN}.so
 
 DMTCP_INCLUDE_PATH = $(top_srcdir)/include
+DMTCP_SRC_PATH = $(top_srcdir)/src
 JALIB_PATH = $(top_srcdir)/jalib
 
-INCLUDES = -I$(JALIB_PATH) -I$(DMTCP_INCLUDE_PATH) -I$(top_builddir)/include
+INCLUDES = -I$(JALIB_PATH) -I$(DMTCP_INCLUDE_PATH) -I$(top_builddir)/include -I$(DMTCP_SRC_PATH)
 CFLAGS += -DHAVE_CONFIG_H -fPIC -g
 CXXFLAGS += -DHAVE_CONFIG_H -fPIC -g
 ifeq ($(M32),1)
@@ -63,10 +64,10 @@ HEADERS = $(DMTCP_INCLUDE_PATH)/util.h $(DMTCP_INCLUDE_PATH)/dmtcp.h \
 	  $(DMTCP_INCLUDE_PATH)/procmapsarea.h \
 	  $(JALIB_PATH)/jassert.h $(JALIB_PATH)/jalloc.h \
 	  $(JALIB_PATH)/jconvert.h $(JALIB_PATH)/jfilesystem.h \
-	  $(JALIB_PATH)/jalib.h resource_manager.h torque.h slurm.h
+	  $(JALIB_PATH)/jalib.h rm_main.h rm_torque.h rm_slurm.h rm_utils.h rm_pmi.h
 
-OBJS = resource_manager.o torque.o slurm.o
-SOURCES = resource_manager.cpp torque.cpp slurm.cpp
+OBJS = rm_main.o rm_torque.o rm_slurm.o rm_utils.o rm_pmi.o
+SOURCES = rm_main.cpp rm_torque.cpp rm_slurm.cpp rm_utils.cpp rm_pmi.cpp
 
 DISCOVER_OBJS = discover_dmtcpinput.o discover_resources.o discover_slurm.o \
 		discover_torque.o

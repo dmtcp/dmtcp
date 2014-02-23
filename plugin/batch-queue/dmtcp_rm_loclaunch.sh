@@ -1,5 +1,42 @@
 #!/bin/bash
+# ****************************************************************************
+# *  Copyright (C) 2012-2014 by Artem Y. Polyakov <artpol84@gmail.com>       *
+# *                                                                          *
+# *  This file is part of the RM plugin for DMTCP                            *
+# *                                                                          *
+# *  RM plugin is free software: you can redistribute it and/or              *
+# *  modify it under the terms of the GNU Lesser General Public License as   *
+# *  published by the Free Software Foundation, either version 3 of the      *
+# *  License, or (at your option) any later version.                         *
+# *                                                                          *
+# *  RM plugin is distributed in the hope that it will be useful,            *
+# *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
+# *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
+# *  GNU Lesser General Public License for more details.                     *
+# *                                                                          *
+# *  You should have received a copy of the GNU Lesser General Public        *
+# *  License along with DMTCP:dmtcp/src.  If not, see                        *
+# *  <http://www.gnu.org/licenses/>.                                         *
+# ****************************************************************************/
 
+prepare_SLURM_env()
+{
+  LOCAL_FILES="$1"
+  
+  # Create temp directory if need
+  DMTCP_TMPDIR=$TMPDIR/dmtcp-`whoami`@`hostname`
+  if [ ! -d "$DMTCP_TMPDIR" ]; then
+    mkdir -p $DMTCP_TMPDIR
+  fi
+  
+  # Create files with SLURM environment
+  for CKPT_FILE in $LOCAL_FILES; do
+    SUFFIX=${CKPT_FILE%%.dmtcp}
+    SLURM_ENV_FILE=$DMTCP_TMPDIR/slurm_env_${SUFFIX##*_}
+    echo "SLURM_SRUN_COMM_HOST=$SLURM_SRUN_COMM_HOST" > $SLURM_ENV_FILE
+    echo "SLURM_SRUN_COMM_PORT=$SLURM_SRUN_COMM_PORT" >> $SLURM_ENV_FILE
+  done
+}
 
 if [ -n "$SLURM_JOBID" ] || [ -n "$SLURM_JOB_ID" ]; then
   NODE=$SLURM_NODEID
@@ -38,10 +75,17 @@ if [ -n "$SLURM_JOBID" ] || [ -n "$SLURM_JOB_ID" ]; then
     exit 0
   fi
 
+  prepare_SLURM_env $LOCAL_FILES
+
   dmtcp_restart --join --host $DMTCP_HOST --port $DMTCP_PORT $LOCAL_FILES
-  if [ -d ./LOGS ]; then
+
+  # Accumulate logs from computing nodes
+  if [ -d ./LOGS ] && [ ${SLURM_LOCALID} -eq "0" ]; then
+    tmp=`ls $SLURMTMPDIR/dmtcp*`
+    rm -Rf $tmp
     cp -R $SLURMTMPDIR/dmtcp* ./LOGS/
   fi
+
 
 elif [ "$PBS_ENVIRONMENT" = PBS_BATCH ] && [ -n "$PBS_JOBID" ]; then
   cd $PBS_O_WORKDIR

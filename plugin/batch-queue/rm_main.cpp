@@ -1,5 +1,5 @@
 /****************************************************************************
- *  Copyright (C) 2012-2013 by Artem Y. Polyakov <artpol84@gmail.com>       *
+ *  Copyright (C) 2012-2014 by Artem Y. Polyakov <artpol84@gmail.com>       *
  *                                                                          *
  *  This file is part of the RM plugin for DMTCP                        *
  *                                                                          *
@@ -23,14 +23,39 @@
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-#include "resource_manager.h"
 #include "dmtcpalloc.h"
 #include "util.h"
 #include  "../jalib/jassert.h"
-#include "torque.h"
-#include "slurm.h"
+#include "rm_main.h"
+#include "rm_torque.h"
+#include "rm_slurm.h"
+#include "rm_pmi.h"
 
 extern "C" int dmtcp_batch_queue_enabled(void) { return 1; }
+
+void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t* data)
+{
+  JTRACE("Start");
+
+  switch (event) {
+  case DMTCP_EVENT_THREADS_SUSPEND:
+    rm_shutdown_pmi();
+    break;
+  case DMTCP_EVENT_THREADS_RESUME:
+    rm_restore_pmi();
+    break;
+  case DMTCP_EVENT_RESTART:
+    if ( _get_rmgr_type() == slurm ){
+      slurm_restore_env();
+    }
+    break;
+  default:
+    break;
+  }
+
+  DMTCP_NEXT_EVENT_HOOK(event, data);
+}
+
 
 // ----------------- global data ------------------------//
 static rmgr_type_t rmgr_type = Empty;

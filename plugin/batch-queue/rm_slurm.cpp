@@ -1,5 +1,5 @@
 /****************************************************************************
- *  Copyright (C) 2012-2013 by Artem Y. Polyakov <artpol84@gmail.com>       *
+ *  Copyright (C) 2012-2014 by Artem Y. Polyakov <artpol84@gmail.com>       *
  *                                                                          *
  *  This file is part of the RM plugin for DMTCP                        *
  *                                                                          *
@@ -33,9 +33,9 @@
 #include <jconvert.h>
 #include <jfilesystem.h>
 #include <dmtcp.h>
-#include "resource_manager.h"
-#include "slurm.h"
-
+#include <uniquepid.h>
+#include "rm_main.h"
+#include "rm_slurm.h"
 
 void probeSlurm()
 {
@@ -48,7 +48,53 @@ void probeSlurm()
   }
 }
 
+void slurm_restore_env()
+{
+  dmtcp::UniquePid uid;
+  uid = uid.ThisProcess();
+  const dmtcp::string str_uid = uid.toString();
+  dmtcp::string filename = uid.getTmpDir() + "/slurm_env_" + str_uid;
+  FILE *fp = fopen(filename.c_str(),"r");
+  if( !fp ){
+      JTRACE("Cannot open SLURM environment file. Environment won't be restored!")(filename);
+      return;
+  }
 
+#define MAX_ENV_LINE 256
+  char line[MAX_ENV_LINE];
+  bool host_env = false, port_env = false;
+  int len;
+  while( fgets(line,MAX_ENV_LINE,fp) != NULL ){
+    int len = strnlen(line, MAX_ENV_LINE);
+    if( line[len-1] == '\n' ){
+      line[len-1] = '\0';
+    }
+    dmtcp::string str = line;
+    size_t pos = str.find('=');
+    if( pos == dmtcp::string::npos ){
+      continue;
+    }
+    dmtcp::string var = str.substr(0,pos);
+    dmtcp::string val = str.substr(pos+1);
+    JTRACE("READ ENV LINE:")(var)(val);
+    if( var == "SLURM_SRUN_COMM_HOST" ){
+      host_env = true;
+    }
+    if( var == "SLURM_SRUN_COMM_PORT" ){
+      port_env = true;
+    }
+
+    if( var == "SLURM_SRUN_COMM_PORT" || var == "SLURM_SRUN_COMM_HOST" ){
+      setenv(var.c_str(), val.c_str(), 1);
+    }
+  }
+  if( !host_env || !port_env ){
+    JTRACE("Not all SLURM Environment was restored: ")(host_env)(port_env);
+  }
+  char *env_host = getenv("SLURM_SRUN_COMM_HOST");
+  char *env_port = getenv("SLURM_SRUN_COMM_PORT");
+  JTRACE("Variable at restart")(env_host)(env_port);
+}
 
 static void print_args(char *const argv[])
 {

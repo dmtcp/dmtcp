@@ -18,47 +18,54 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-
-#include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
-#include <getopt.h>
-#include <string.h>
-#include <map>
-#include <iostream>
-#include <string>
-#include <fstream>
+#include <linux/limits.h>
+#include <sys/wait.h>
+#include <pthread.h>
 #include <vector>
-#include <algorithm>
+#include <list>
+#include <string>
+#include "util.h"
+#include "procmapsarea.h"
+#include "jalib.h"
+#include "jassert.h"
+#include "jconvert.h"
+#include "jfilesystem.h"
+#include "rm_main.h"
 
-#include "discover_resources.h"
+int findLib_maps(dmtcp::string &pattern, dmtcp::string &libpath)
+{
+  // /proc/self/maps looks like: "<start addr>-<end addr> <mode> <offset> <device> <inode> <libpath>
+  // we need to extract libpath
+  ProcMapsArea area;
+  int ret = -1;
 
-#ifndef DISCOVER_DMTCPINPUT_H
-#define DISCOVER_DMTCPINPUT_H
+  // we will search for first libpath and first libname
+  int fd = _real_open ( "/proc/self/maps", O_RDONLY);
 
-#define MAX_LINE_LEN 1024
+  if( fd < 0 ){
+    JTRACE("Cannot open /proc/self/maps file");
+    return -1;
+  }
 
-class resources_input : public resources {
-private:
-  bool _valid;
-  typedef std::vector<std::string> slots_v;
-  std::map< std::string, slots_v> node_ckpt_map;
+  while( dmtcp::Util::readProcMapsLine(fd, &area) ){
+    libpath = area.name;
+    JTRACE("Inspect new /proc/seft/maps line")(libpath);
+    if( libpath.size() == 0 ){
+      JTRACE("anonymous region, skip");
+      continue;
+    }
 
-  void trim(std::string &str, std::string delim);
-  bool get_checkpoint_filename(std::string &str, std::string &ckptname);
-  bool is_serv_slot(std::string &str);
-  bool is_launch_process(std::string &str);
-  bool add_host(std::string &str, uint &node_id);
-  void split2slots(std::string &str, std::vector<std::string> &app_slots,
-                   std::vector<std::string> &srv_slots, bool &is_launch);
+    if( libpath.find(pattern) != dmtcp::string::npos ){
+      // this is library path that contains libtorque. This is what we need
+      JTRACE("Found libpath")(pattern)(libpath);
+      ret = 0;
+      break;
+    }else{
+      JTRACE("Libpath not found")(pattern)(libpath);
+    }
+  }
 
-public:
-  resources_input(std::string str);
-  int discover() { return 0; }
-  bool valid() { return _valid; }
-  void writeout_old(std::string env_var, resources &r);
-  void writeout_new(std::string env_var, resources &r);
-
-};
-
-#endif
+  _real_close(fd);
+  return ret;
+}

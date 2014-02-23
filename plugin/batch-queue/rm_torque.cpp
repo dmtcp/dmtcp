@@ -1,5 +1,5 @@
 /****************************************************************************
- *  Copyright (C) 2012-2013 by Artem Y. Polyakov <artpol84@gmail.com>       *
+ *  Copyright (C) 2012-2014 by Artem Y. Polyakov <artpol84@gmail.com>       *
  *                                                                          *
  *  This file is part of the RM plugin for DMTCP                        *
  *                                                                          *
@@ -40,12 +40,13 @@
 #include <list>
 #include <string>
 #include "util.h"
-#include "resource_manager.h"
 #include "procmapsarea.h"
 #include "jalib.h"
 #include "jassert.h"
 #include "jconvert.h"
 #include "jfilesystem.h"
+#include "rm_main.h"
+#include "rm_utils.h"
 
 // -------------------- Torque PBS tm.h definitions -------------------------//
 // Keep in sync with "tm.h" file in libtorque of Torque PBS resource manager
@@ -220,47 +221,11 @@ int findLibTorque_pbsconfig(dmtcp::string &libpath)
   }
 }
 
-int findLibTorque_maps(dmtcp::string &libpath)
-{
-  // /proc/self/maps looks like: "<start addr>-<end addr> <mode> <offset> <device> <inode> <libpath>
-  // we need to extract libpath
-  ProcMapsArea area;
-  int ret = -1;
-
-  // we will search for first libpath and first libname
-  int fd = _real_open ( "/proc/self/maps", O_RDONLY);
-
-  if( fd < 0 ){
-    JTRACE("Cannot open /proc/self/maps file");
-    return -1;
-  }
-
-  while( dmtcp::Util::readProcMapsLine(fd, &area) ){
-    libpath = area.name;
-    JTRACE("Inspect new /proc/seft/maps line")(libpath);
-    if( libpath.size() == 0 ){
-      JTRACE("anonymous region, skip");
-      continue;
-    }
-
-    if( libpath.find("libtorque") != dmtcp::string::npos ){
-      // this is library path that contains libtorque. This is what we need
-      JTRACE("Torque PBS libpath")(libpath);
-      ret = 0;
-      break;
-    }else{
-      JTRACE("Not a libtorque region")(libpath);
-    }
-  }
-
-  _real_close(fd);
-  return ret;
-}
-
 int findLibTorque(dmtcp::string &libpath)
 {
   bool found = false;
-  if( !findLibTorque_maps(libpath) ){
+  dmtcp::string pattern = "libtorque";
+  if( !findLib_maps(pattern, libpath) ){
     found = true;
   }else if( !findLibTorque_pbsconfig(libpath) ){
     found = true;
