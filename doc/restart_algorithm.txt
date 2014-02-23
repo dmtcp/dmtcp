@@ -4,6 +4,8 @@ and algorithms.  These documents are snapshots in time, and they
 may become somewhat out-of-date over time (and hopefully also refreshed
 to re-sync them with the code again).  (Updated Feb., 2014)
 
+Some related documents are architecture-of-dmtcp.pdf and threed-creation.txt.
+
 This description is primarily for i386 (32-bit Intel).  Other architectures
 are simpler, and can be deduced from this description.  The sections
 of this documentation are:
@@ -62,6 +64,19 @@ Now that the first thread can make calls to glibc, it is easy for it
 to recreate the other threads via clone, set_tid_address(), and
 then patching the TCB and setting the segment descriptors.
 
+When the other threads are restored, a call to setcontext will also restore
+their former program counter.  So, each thread will again be in the
+DMTCP signal handler.  The thread had entered the signal handler
+prior to checkpoint.  The signal handler is:  threadlist.cpp:stopthisthread()
+
+That signal handler had saved the thread registers, including its
+program counter, through sigsetjmp or through getcontext, prior to
+checkpoint.  It had then blocked through sem_wait().  We can now
+force the new thread to call siglongjmp or setcontext to restore its
+program counter and put it back in the signal handler.  The recreated
+thread will again block on sem_wait(), whereupon the checkpoint thread
+can release each user thread.
+
 
 C. ACTUAL FUNCTION CALLS:
 mtcp_restart.c calls:
@@ -82,7 +97,9 @@ threadinfo.c:restoreAllThreads()
   segment descriptor of %gs to call vdso to call kernel (e.g, call *%gs:0x10)
 
 Now that libc works, it is now safe to call clone via syscall,
-to create other threads:
+to create other threads.  See the end of Section C for how each
+user thread can now resume from the signal handler where it had been
+suspended prior to checkpoint.
 
 
 D. HOW DOES DMTCP PATCH THE TCB with the current tid and pid?

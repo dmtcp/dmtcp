@@ -58,7 +58,7 @@
 
 #include "mtcp_sys.h"
 #include "mtcp_util.ic"
-#include "mtcp_check_vdso.c"
+#include "mtcp_check_vdso.ic"
 #include "membarrier.h"
 #include "procmapsarea.h"
 #include "mtcp_header.h"
@@ -173,6 +173,9 @@ MTCP_PRINTF("Attach for debugging.");
   /* i386 uses random addresses for vdso.  Make sure that its location
    * will not conflict with other memory regions.
    * (Other arch's may also need this in the future.  So, we do it for all.)
+   * Note that we may need to keep the old and the new vdso.  We may
+   * have checkpointed inside gettimeofday inside the old vdso, and the
+   * kernel, on restart, knows only the new vdso.
    */
   mtcp_check_vdso(environ);
 
@@ -334,8 +337,8 @@ static void restart_fast_path()
 
 #if defined(__i386__) || defined(__x86_64__)
   asm volatile (CLEAN_FOR_64_BIT(mov %0,%%esp;)
-                /* This next assembly language confuses gdb,
-                   but seems to work fine anyway */
+                /* This next assembly language confuses gdb.  Set a future
+                   future breakpoint, or attach after this point, if in gdb. */
                 CLEAN_FOR_64_BIT(xor %%ebp,%%ebp)
                 : : "g" (stack_ptr) : "memory");
 #elif defined(__arm__)
@@ -347,6 +350,12 @@ static void restart_fast_path()
 # error "assembly instruction not translated"
 #endif
 
+  /* IMPORTANT:  We just changed stack pointers.  The call frame for this
+   * function is no longer available.  The only way to pass rinfo into
+   * the next function is by passing a pointer to a global variable.
+   * We call restorememoryareas_fptr(), which points to the copy of the
+   * the function in higher memory.  We will be unmapping the original fnc.
+   */
   rinfo.restorememoryareas_fptr(&rinfo);
 }
 
@@ -400,6 +409,9 @@ static void restorememoryareas(RestoreInfo *rinfo_ptr)
 
   DPRINTF("Entering copy of restorememoryareas().  We will now unmap old memory"
           "\n    and restore memory sections from the checkpoint image.\n");
+  
+  DPRINTF("DPRINTF may fail when we unmap, since strings are in rodata.\n"
+          "But we may be lucky if the strings have been cached by the O/S.\n");
   if (rinfo_ptr->use_gdb) {
     MTCP_PRINTF("Called with --use-gdb.  A useful command is:\n"
             "    (gdb) info proc mapping");
