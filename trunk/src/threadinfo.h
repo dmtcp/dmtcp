@@ -10,7 +10,7 @@
 #include <linux/version.h>
 #include "syscallwrappers.h"  /* for _real_syscall */
 #include "protectedfds.h"
-#include "mtcp/tlsinfo.h"
+#include "mtcp/restore_libc.h"
 
 // For i386 and x86_64, SETJMP currently has bugs.  Don't turn this
 //   on for them until they are debugged.

@@ -59,7 +59,7 @@ nobase_noinst_HEADERS = constants.h \
 	mtcpinterface.h syscallwrappers.h syslogwrappers.h \
 	threadlist.h threadinfo.h siginfo.h \
 	uniquepid.h processinfo.h ckptserializer.h \
-	mtcp/ldt.h mtcp/tlsinfo.h
+	mtcp/ldt.h mtcp/restore_libc.h
 
 # Note that libdmtcpinternal.a does not include wrappers.
 # dmtcp_launch, dmtcp_command, dmtcp_coordinator, etc.
@@ -117,9 +117,9 @@ __targetdir__bin_dmtcp_command_LDADD     = libdmtcpinternal.a libjalib.a \
 
 __targetdir__bin_dmtcp_launch_SOURCES = dmtcp_launch.cpp
 
-# We need to compile threadinfo.c, tlsinfo.c and mtcp_restart.c with
+# We need to compile threadinfo.c, restore_libc.c and mtcp_restart.c with
 # "-fno-stack-protector" to avoid runtime stack smashing detection.
-# [ tlsinfo.c and mtcp_restart.c have been moved to mtcp. ]
+# [ restore_libc.c and mtcp_restart.c have been moved to mtcp. ]
 # We also need to build mtcp_restart without optimization (-O0), otherwise it
 # may fail to restart. Since these three objects are fairly low level, we avoid
 # any surprises by compiling them without any optimization.

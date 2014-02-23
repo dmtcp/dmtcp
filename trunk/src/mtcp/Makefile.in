@@ -77,24 +77,24 @@ $(targetdir)/bin/$(MTCP_RESTART): mtcp_restart.o
 #    That now happens in a different function.
 # IMPORTANT:  Compile with -O2 or higher.  On some 32-bit CPUs
 #   (e.g. ARM/gcc-4.8), the inlining of -O2 avoids bugs when fnc's are copied.
-mtcp_restart.o: mtcp_restart.c $(HEADERS) mtcp_check_vdso.c
+mtcp_restart.o: mtcp_restart.c $(HEADERS) mtcp_check_vdso.ic
 	$(COMPILE) -DPIC -fPIC -fno-stack-protector -g -O0 $<
 
 # procmapssrea.h taken from mtcp_util.h ; Is this necessary?
-mtcp_check_vdso.o: mtcp_check_vdso.c mtcp_sys.h mtcp_util.h \
+mtcp_check_vdso.o: mtcp_check_vdso.ic mtcp_sys.h mtcp_util.h \
 	$(DMTCP_INCLUDE_PATH)/procmapsarea.h
 	$(COMPILE) -DPIC -fPIC -fno-stack-protector -g -O0 $<
 
-libmtcp.a: tlsinfo.o ${ARM_BINARIES}
+libmtcp.a: restore_libc.o ${ARM_BINARIES}
 	ar cru $@ $^
 # FIXME:  This is a low-level file.  Yet it draws from two directories.
-#    Part of the problem is that tlsinfo.h copies DPRINTF from mtcp_util.h
+#    Part of the problem is that restore_libc.h copies DPRINTF from mtcp_util.h
 #    and uses protectedfds.h, which is in ../../include
 #    Do we really need protectedfds.h for low-level, where there is no JASSERT?
 #    Similarly, we need -I.. for ldt.h.  Shouldn't that low-level file be here? 
 #    Because of all the abstractions, there is no way to know about this bloat
 #      and false dependencies, except by using 'make' as a black box
-tlsinfo.o: tlsinfo.c $(HEADERS) $(DMTCP_INCLUDE_PATH)/protectedfds.h
+restore_libc.o: restore_libc.c $(HEADERS) $(DMTCP_INCLUDE_PATH)/protectedfds.h
 	$(COMPILE) -DPIC -fPIC -fno-stack-protector -g -O0 $<
 libc-do-syscall-arm.o: libc-do-syscall-arm.S
 	${CC} -c $<

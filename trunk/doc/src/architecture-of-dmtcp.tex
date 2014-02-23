@@ -100,6 +100,9 @@ The higher layer is again called DMTCP (dmtcp subdirectory), and delegates
 to MTCP when it needs to checkpoint one process.  MTCP does not require
 a separate DMTCP coordinator.
 
+{\bf  NOTE: As of DMTCP-2.2, many functions have been moved.  The key
+files to look at are:  {\tt src/mtcp/mtcp\_restart.c},
+{\tt src/mtcp/restore\_libc.c}, and {\tt src/threadlist.cpp}.} \\
 So, at startup, we see:
 
 \begin{algorithmic}[1]

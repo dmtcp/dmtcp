@@ -21,14 +21,14 @@ all: ../../bin/mtcp_restart libmtcp.a ../../lib/dmtcp/libdmtcp.so
 
 # IMPORTANT:  Compile with -O2 or higher.  On some 32-bit CPUs
 #   (e.g. ARM/gcc-4.8), the inlining of -O2 avoids bugs when fnc's are copied.
-mtcp_restart.o: mtcp_restart.c mtcp_util.ic mtcp_check_vdso.c \
+mtcp_restart.o: mtcp_restart.c mtcp_util.ic mtcp_check_vdso.ic \
 	        mtcp_sys.h mtcp_util.h \
 	        ../membarrier.h ../../include/procmapsarea.h
 	${CC} ${MTCP_CFLAGS} -I. -I.. -I../../include \
 	    -DPIC -fPIC -g -O0 -fno-stack-protector -c $<
 
 # procmapssrea.h taken from mtcp_util.h ; Is this necessary?
-mtcp_check_vdso.o: mtcp_check_vdso.c mtcp_sys.h mtcp_util.h \
+mtcp_check_vdso.o: mtcp_check_vdso.ic mtcp_sys.h mtcp_util.h \
 	../../include/procmapsarea.h
 	${CC} ${MTCP_CFLAGS} -I. -I../../include -DPIC -fPIC -g -O2 -c $<
 
@@ -47,20 +47,20 @@ gdb_run: ../../bin/mtcp_restart ckpt_dmtcp1_test.dmtcp
 	offset=`./text_offset.sh ../../bin/mtcp_restart` ; \
 	  gdb --args ../../bin/mtcp_restart \
 	    --use-gdb --text-offset $$offset ckpt_dmtcp1_test.dmtcp
-ckpt_dmtcp1_test.dmtcp: ../../test/dmtcp1 tlsinfo.o
+ckpt_dmtcp1_test.dmtcp: ../../test/dmtcp1 restore_libc.o
 	../../bin/dmtcp_launch -i3 ../../test/dmtcp1 &
 	sleep 5 && ../../bin/dmtcp_command --quit
 	rm -f `ls -t dmtcp_restart_script*.sh`
 	mv `ls -t ckpt_dmtcp1_*.dmtcp | head -1` ckpt_dmtcp1_test.dmtcp.gz
 	gunzip ckpt_dmtcp1_test.dmtcp.gz
 
-libmtcp.a: tlsinfo.o ${ARM_BINARIES}
+libmtcp.a: restore_libc.o ${ARM_BINARIES}
 	ar cru $@ $^
 # FIXME:  This is a low-level file.  Yet it draws from two directories.
-#    Part of the problem is that tlsinfo.h copies DPRINTF from mtcp_util.h
+#    Part of the problem is that restore_libc.h copies DPRINTF from mtcp_util.h
 #    and uses protectedfds.h, which is in ../../include
 #    Do we really need protectedfds.h for low-level, where there is no JASSERT?
-tlsinfo.o: tlsinfo.c
+restore_libc.o: restore_libc.c
 	$(CC) -DPIC -fPIC -fno-stack-protector -g -O0 -I. -I../../include -c $<
 libc-do-syscall-arm.o: libc-do-syscall-arm.S
 	${CC} -c $<

@@ -9,7 +9,7 @@
 #include <linux/version.h>
 #include <gnu/libc-version.h>
 #include "mtcp_sys.h"
-#include "tlsinfo.h"
+#include "restore_libc.h"
 
 int mtcp_sys_errno;
 
@@ -24,9 +24,9 @@ int mtcp_sys_errno;
 
 /* These functions are not defined for x86_64. */
 #ifdef __i386__
-# define tlsinfo_get_thread_area(args...) \
+# define tls_get_thread_area(args...) \
     syscall(SYS_get_thread_area, args)
-# define tlsinfo_set_thread_area(args...) \
+# define tls_set_thread_area(args...) \
     mtcp_sys_set_thread_area(args)
 #endif
 
@@ -43,12 +43,12 @@ int arch_prctl();
 // Removing this will remove the dependency on mtcp_sys.h.  - Gene
 static unsigned long int myinfo_gs;
 /* ARE THE _GS OPERATIONS NECESSARY? */
-#  define tlsinfo_get_thread_area(uinfo) \
+#  define tls_get_thread_area(uinfo) \
     ( mtcp_inline_syscall(arch_prctl,2,ARCH_GET_FS, \
          (unsigned long int)(&(((struct user_desc *)uinfo)->base_addr))), \
       mtcp_inline_syscall(arch_prctl,2,ARCH_GET_GS, &myinfo_gs) \
     )
-#  define tlsinfo_set_thread_area(uinfo) \
+#  define tls_set_thread_area(uinfo) \
     ( mtcp_inline_syscall(arch_prctl,2,ARCH_SET_FS, \
 	*(unsigned long int *)&(((struct user_desc *)uinfo)->base_addr)), \
       mtcp_inline_syscall(arch_prctl,2,ARCH_SET_GS, myinfo_gs) \
@@ -56,12 +56,12 @@ static unsigned long int myinfo_gs;
 # else
 static unsigned long int myinfo_gs;
 /* ARE THE _GS OPERATIONS NECESSARY? */
-#  define tlsinfo_get_thread_area(uinfo) \
+#  define tls_get_thread_area(uinfo) \
      ( arch_prctl(ARCH_GET_FS, \
          (unsigned long int)(&(((struct user_desc *)uinfo)->base_addr))), \
        arch_prctl(ARCH_GET_GS, &myinfo_gs) \
      )
-#  define tlsinfo_set_thread_area(uinfo) \
+#  define tls_set_thread_area(uinfo) \
     ( arch_prctl(ARCH_SET_FS, \
 	*(unsigned long int *)&(((struct user_desc *)uinfo)->base_addr)), \
       arch_prctl(ARCH_SET_GS, myinfo_gs) \
@@ -85,14 +85,14 @@ static unsigned long int myinfo_gs;
  */
 static unsigned int myinfo_gs;
 
-#  define tlsinfo_get_thread_area(uinfo) \
+#  define tls_get_thread_area(uinfo) \
   ({ asm volatile ("mrc     p15, 0, %0, c13, c0, 3  @ load_tp_hard\n\t" \
                    : "=r" (myinfo_gs) ); \
     myinfo_gs = myinfo_gs - 1216; /* sizeof(struct pthread) = 1216 */ \
     *(unsigned long int *)&(((struct user_desc *)uinfo)->base_addr) \
       = myinfo_gs; \
     myinfo_gs; })
-#  define tlsinfo_set_thread_area(uinfo) \
+#  define tls_set_thread_area(uinfo) \
     ( myinfo_gs = \
         *(unsigned long int *)&(((struct user_desc *)uinfo)->base_addr), \
       (mtcp_sys_kernel_set_tls(myinfo_gs+1216), 0) \
@@ -319,7 +319,7 @@ static void* get_tls_base_addr()
   struct user_desc gdtentrytls;
 
   gdtentrytls.entry_number = get_tls_segreg() / 8;
-  if (tlsinfo_get_thread_area(&gdtentrytls) == -1) {
+  if (tls_get_thread_area(&gdtentrytls) == -1) {
     PRINTF("Error getting GDT TLS entry: %d\n", errno);
     _exit(0);
   }
@@ -509,7 +509,7 @@ void TLSInfo_SaveTLSState (ThreadTLSInfo *tlsInfo)
  */
   i = tlsInfo->TLSSEGREG / 8;
   tlsInfo->gdtentrytls[0].entry_number = i;
-  if (tlsinfo_get_thread_area (&(tlsInfo->gdtentrytls[0])) == -1) {
+  if (tls_get_thread_area (&(tlsInfo->gdtentrytls[0])) == -1) {
     PRINTF("Error saving GDT TLS entry: %d\n", errno);
     _exit(0);
   }
@@ -544,7 +544,7 @@ void TLSInfo_RestoreTLSState(ThreadTLSInfo *tlsInfo)
 
   /* Now pass this to the kernel, so it can adjust the segment descriptor.
    * This will make different kernel calls according to the CPU architecture. */
-  if (tlsinfo_set_thread_area (&(tlsInfo->gdtentrytls[0])) != 0) {
+  if (tls_set_thread_area (&(tlsInfo->gdtentrytls[0])) != 0) {
     PRINTF("Error restoring GDT TLS entry: %d\n", errno);
     mtcp_abort();
   }
