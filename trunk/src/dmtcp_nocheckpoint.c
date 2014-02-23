@@ -11,9 +11,9 @@ int main(int argc, char** argv) {
     fprintf(stderr, "USAGE %s cmd...\n", argv[0]);
     return 1;
   }
-  size_t i;
-  for (i = 1; i < PROTECTED_FD_COUNT; i++) {
-    close(PFD(i));
+  size_t fd;
+  for (fd = PROTECTED_FD_START; fd < PROTECTED_FD_END; fd++) {
+    close(fd);
   }
   execvp(argv[1], argv+1);
   perror("execvp:");

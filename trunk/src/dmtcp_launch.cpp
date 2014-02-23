@@ -281,8 +281,8 @@ static void processArgs(int *orig_argc, char ***orig_argv)
 
 int main ( int argc, char** argv )
 {
-  for (size_t i = 1; i < PROTECTED_FD_COUNT; i++) {
-    close(PFD(i));
+  for (size_t fd = PROTECTED_FD_START; fd < PROTECTED_FD_END; fd++) {
+    close(fd);
   }
 
   if (! getenv(ENV_VAR_QUIET))
