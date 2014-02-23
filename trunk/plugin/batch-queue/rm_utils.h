@@ -18,47 +18,12 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#ifndef RM_UTILS_H
+#define RM_UTILS_H
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <getopt.h>
-#include <string.h>
-#include <map>
-#include <iostream>
 #include <string>
-#include <fstream>
-#include <vector>
-#include <algorithm>
+#include "util.h"
 
-#include "discover_resources.h"
-
-#ifndef DISCOVER_DMTCPINPUT_H
-#define DISCOVER_DMTCPINPUT_H
-
-#define MAX_LINE_LEN 1024
-
-class resources_input : public resources {
-private:
-  bool _valid;
-  typedef std::vector<std::string> slots_v;
-  std::map< std::string, slots_v> node_ckpt_map;
-
-  void trim(std::string &str, std::string delim);
-  bool get_checkpoint_filename(std::string &str, std::string &ckptname);
-  bool is_serv_slot(std::string &str);
-  bool is_launch_process(std::string &str);
-  bool add_host(std::string &str, uint &node_id);
-  void split2slots(std::string &str, std::vector<std::string> &app_slots,
-                   std::vector<std::string> &srv_slots, bool &is_launch);
-
-public:
-  resources_input(std::string str);
-  int discover() { return 0; }
-  bool valid() { return _valid; }
-  void writeout_old(std::string env_var, resources &r);
-  void writeout_new(std::string env_var, resources &r);
-
-};
+int findLib_maps(dmtcp::string &pattern, dmtcp::string &libpath);
 
 #endif

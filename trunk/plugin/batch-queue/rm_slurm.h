@@ -1,5 +1,5 @@
 /****************************************************************************
- *  Copyright (C) 2012-2013 by Artem Y. Polyakov <artpol84@gmail.com>       *
+ *  Copyright (C) 2012-2014 by Artem Y. Polyakov <artpol84@gmail.com>       *
  *                                                                          *
  *  This file is part of the RM plugin for DMTCP                        *
  *                                                                          *
@@ -22,5 +22,6 @@
 #define SLURM_PLUGIN_H
 
 void probeSlurm();
+void slurm_restore_env();
 
 #endif
