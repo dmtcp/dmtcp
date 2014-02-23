@@ -522,12 +522,12 @@ void dmtcp::TcpConnection::postRestart()
       JASSERT(!_remotePeerId.isNull()) (id()) (_remotePeerId) (_fds[0])
         .Text("Can't restore a TCP_ACCEPT socket with null acceptRemoteId.\n"
               "  Perhaps handshake went wrong?");
-      JTRACE("registerOutgoing") (id()) (_remotePeerId) (_fds[0]);
-      ConnectionRewirer::instance().registerOutgoing(_remotePeerId, this);
-      break;
-    case TCP_CONNECT:
       JTRACE("registerIncoming") (id()) (_remotePeerId) (_fds[0]);
       ConnectionRewirer::instance().registerIncoming(id(), this);
+      break;
+    case TCP_CONNECT:
+      JTRACE("registerOutgoing") (id()) (_remotePeerId) (_fds[0]);
+      ConnectionRewirer::instance().registerOutgoing(_remotePeerId, this);
       break;
       //    case TCP_EXTERNAL_CONNECT:
       //      int sockFd = _real_socket(_sockDomain, _sockType, _sockProtocol);
