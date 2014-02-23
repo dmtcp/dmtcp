@@ -100,7 +100,6 @@ dmtcp::SocketConnection::SocketConnection(int domain, int type, int protocol)
   , _sockType(type)
   , _sockProtocol(protocol)
   , _peerType(PEER_UNKNOWN)
-  , _socketPairRestored(false)
 { }
 
 void dmtcp::SocketConnection::addSetsockopt(int level, int option,
@@ -133,8 +132,7 @@ void dmtcp::SocketConnection::restoreSocketOptions(dmtcp::vector<int>& fds)
 void dmtcp::SocketConnection::serialize(jalib::JBinarySerializer& o)
 {
   JSERIALIZE_ASSERT_POINT("dmtcp::SocketConnection");
-  o & _sockDomain  & _sockType & _sockProtocol
-    & _peerType & _socketPairRestored;
+  o & _sockDomain  & _sockType & _sockProtocol & _peerType;
 
   JSERIALIZE_ASSERT_POINT("SocketOptions:");
   uint64_t numSockOpts = _sockOptions.size();
@@ -284,7 +282,6 @@ void dmtcp::TcpConnection::onConnect(const struct sockaddr *addr, socklen_t len)
   JWARNING(_type == TCP_CREATED || _type == TCP_BIND) (_type) (id())
     .Text("Connecting with an in-use socket????");
 
-  /* socketpair wrapper calls onConnect with sockfd == -1 and addr == NULL */
   if (addr != NULL && _isBlacklistedTcp(_fds[0], addr, len)) {
     _type = TCP_EXTERNAL_CONNECT;
     _connectAddrlen = len;
@@ -378,7 +375,7 @@ void dmtcp::TcpConnection::doRecvHandshakes(const ConnectionIdentifier& coordId)
     case TCP_CONNECT:
     case TCP_ACCEPT:
       recvHandshake(_fds[0], coordId);
-      JTRACE("Received handshake.") (id()) (getRemoteId()) (_fds[0]);
+      JTRACE("Received handshake.") (id()) (_remotePeerId) (_fds[0]);
       break;
     case TCP_EXTERNAL_CONNECT:
       JTRACE("Socket to External Process, skipping handshake recv") (_fds[0]);
@@ -395,27 +392,6 @@ void dmtcp::TcpConnection::refill(bool isRestart)
              _type != TCP_EXTERNAL_CONNECT) {
     restoreSocketOptions(_fds);
   }
-}
-
-void dmtcp::TcpConnection::restoreSocketPair(dmtcp::TcpConnection *peer)
-{
-  int sv[2];
-  JASSERT(_peerType == PEER_SOCKETPAIR && _socketpairPeerId == peer->id())
-   (_peerType) (_socketpairPeerId) (peer->id());
-  JASSERT(_fds.size() > 0);
-  JASSERT(peer->numFds() > 0);
-
-  if (_socketPairRestored) {
-    _socketPairRestored = false;
-    return;
-  }
-  JASSERT(_real_socketpair(_sockDomain,_sockType,_sockProtocol, sv) == 0)
-   (JASSERT_ERRNO);
-
-  Util::dupFds(sv[0], _fds);
-  Util::dupFds(sv[1], peer->_fds);
-  peer->_socketPairRestored = true;
-  JTRACE("Restored Socketpair") (id()) (peer->id()) (_fds[0]) (peer->_fds[0]);
 }
 
 void dmtcp::TcpConnection::postRestart()
@@ -470,8 +446,8 @@ void dmtcp::TcpConnection::postRestart()
 
       if (_sockDomain == AF_INET6) {
         JTRACE("Restoring some socket options before binding.");
-        typedef map< int64_t, map< int64_t,
-                jalib::JBuffer > >::iterator levelIterator;
+        typedef map< int64_t,
+                     map< int64_t, jalib::JBuffer > >::iterator levelIterator;
         typedef map< int64_t, jalib::JBuffer >::iterator optionIterator;
 
         for (levelIterator lvl = _sockOptions.begin();
@@ -509,7 +485,7 @@ void dmtcp::TcpConnection::postRestart()
       }
       errno = 0;
       JWARNING(_real_listen(_fds[0], _listenBacklog) == 0)
-        (JASSERT_ERRNO) (id()) (_listenBacklog) .Text("Bind failed.");
+        (JASSERT_ERRNO) (id()) (_listenBacklog) .Text("listen failed.");
       if (_type == TCP_LISTEN) break;
 
       break;
@@ -518,11 +494,24 @@ void dmtcp::TcpConnection::postRestart()
       JASSERT(!_remotePeerId.isNull()) (id()) (_remotePeerId) (_fds[0])
         .Text("Can't restore a TCP_ACCEPT socket with null acceptRemoteId.\n"
               "  Perhaps handshake went wrong?");
+
       JTRACE("registerIncoming") (id()) (_remotePeerId) (_fds[0]);
-      ConnectionRewirer::instance().registerIncoming(id(), this);
+      ConnectionRewirer::instance().registerIncoming(id(), this, _sockDomain);
       break;
 
     case TCP_CONNECT:
+#ifdef ENABLE_IP6_SUPPORT
+      fd = _real_socket(_sockDomain, _sockType, _sockProtocol);
+#else
+      fd = _real_socket(_sockDomain == AF_INET6 ? AF_INET : _sockDomain,
+                        _sockType, _sockProtocol);
+#endif
+      JASSERT(fd != -1) (JASSERT_ERRNO);
+      Util::dupFds(fd, _fds);
+      if (_bindAddrlen != 0) {
+        JWARNING(_real_bind(_fds[0], (sockaddr*)&_bindAddr, _bindAddrlen) != -1)
+          (JASSERT_ERRNO);
+      }
       JTRACE("registerOutgoing") (id()) (_remotePeerId) (_fds[0]);
       ConnectionRewirer::instance().registerOutgoing(_remotePeerId, this);
       break;

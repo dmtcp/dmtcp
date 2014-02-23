@@ -45,7 +45,7 @@ namespace dmtcp
       {
         PEER_UNKNOWN,
         PEER_INTERNAL,
-        PEER_SOCKETPAIR
+        PEER_EXTERNAL
       };
 
       uint32_t peerType() const { return _peerType; }
@@ -61,7 +61,6 @@ namespace dmtcp
       int64_t _sockType;
       int64_t _sockProtocol;
       uint32_t _peerType;
-      int32_t  _socketPairRestored;
       map< int64_t, map<int64_t, jalib::JBuffer> > _sockOptions;
   };
 
@@ -112,18 +111,7 @@ namespace dmtcp
       void sendHandshake(int remotefd, const ConnectionIdentifier& coordId);
       void recvHandshake(int remotefd, const ConnectionIdentifier& coordId);
 
-      void setSocketpairPeer(ConnectionIdentifier id) {
-        _peerType = PEER_SOCKETPAIR;
-        _socketpairPeerId = id;
-      }
-
-      void restoreSocketPair(dmtcp::TcpConnection *peer);
-      const ConnectionIdentifier& getRemoteId() const
-      { return _remotePeerId;}
-      const ConnectionIdentifier& getSocketpairPeerId() const
-      { return _socketpairPeerId; }
       virtual string str() { return "<TCP Socket>"; }
-
       virtual void serializeSubClass(jalib::JBinarySerializer& o);
     private:
       TcpConnection& asTcp();
@@ -139,7 +127,6 @@ namespace dmtcp
         struct sockaddr_storage _connectAddr;
       };
       ConnectionIdentifier    _remotePeerId;
-      ConnectionIdentifier    _socketpairPeerId;
   };
 
   class RawSocketConnection : public Connection, public SocketConnection
