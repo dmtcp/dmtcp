@@ -23,20 +23,26 @@
 #include "connectionlist.h"
 #include "../jalib/jassert.h"
 #include "../jalib/jbuffer.h"
+#include "util.h"
 
 #define SOCKET_DRAIN_MAGIC_COOKIE_STR "[dmtcp{v0<DRAIN!"
 
-namespace
-{
-  const char theMagicDrainCookie[] = SOCKET_DRAIN_MAGIC_COOKIE_STR;
-
-  void scaleSendBuffers(double factor)
-  {
-    //todo resize buffers to avoid blocking
-  }
-
-}
 using namespace dmtcp;
+
+const char theMagicDrainCookie[] = SOCKET_DRAIN_MAGIC_COOKIE_STR;
+
+void scaleSendBuffers(int fd, double factor)
+{
+  int size;
+  unsigned len = sizeof(size);
+  JASSERT(getsockopt(fd, SOL_SOCKET, SO_SNDBUF, (void *)&size, &len) == 0);
+
+  // getsockopt returns doubled size. So, if we pass the same value to
+  // setsockopt, it would double the buffer size.
+  int newSize = size * factor / 2;
+  len = sizeof(newSize);
+  JASSERT(setsockopt(fd, SOL_SOCKET, SO_SNDBUF, (void *)&newSize, len) == 0);
+}
 
 static dmtcp::KernelBufferDrainer *theDrainer = NULL;
 dmtcp::KernelBufferDrainer& dmtcp::KernelBufferDrainer::instance()
@@ -154,8 +160,6 @@ void dmtcp::KernelBufferDrainer::beginDrainOf(int fd, const ConnectionIdentifier
 
 void dmtcp::KernelBufferDrainer::refillAllSockets()
 {
-  scaleSendBuffers(2);
-
   JTRACE("refilling socket buffers") (_drainedData.size());
 
   //write all buffers out
@@ -164,6 +168,8 @@ void dmtcp::KernelBufferDrainer::refillAllSockets()
     int size = i->second.size();
     JWARNING(size>=0) (size).Text("a failed drain is in our table???");
     if (size<0) size=0;
+    // Double the send buffer
+    scaleSendBuffers(i->first, 2);
     ConnMsg msg(ConnMsg::REFILL);
     msg.extraBytes = size;
     jalib::JSocket sock(i->first);
@@ -193,11 +199,11 @@ void dmtcp::KernelBufferDrainer::refillAllSockets()
       sock.readAll(tmp,size);
       sock.writeAll(tmp,size);
     }
+    // Reset the send buffer
+    scaleSendBuffers(i->first, 0.5);
   }
 
   JTRACE("buffers refilled");
-
-  scaleSendBuffers(0.5);
 
   // Free up the object
   delete theDrainer;
