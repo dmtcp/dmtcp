@@ -1,0 +1,162 @@
+Format: http://svn.debian.org/wsvn/dep/web/deps/dep5.mdwn?op=file&rev=166
+Upstream-Name: dmtcp
+Upstream-Contact: Kapil Arya <kapil@ccs.neu.edu>
+Source: http://www.dmtcp.sourceforge.net
+
+Files: *
+Copyright: 2006-2013, Jason Ansel <jansel@csail.mit.edu>
+           2006-2013, Kapil Arya <kapil@ccs.neu.edu>
+           2006-2013, Gene Cooperman <gene@ccs.neu.edu>
+License: LGPL-3
+
+Files: mtcp/*
+Copyright: 2006-2013, Mike Rieker <mrieker@nii.net>
+           2006-2013, Jason Ansel <jansel@csail.mit.edu>
+           2006-2013, Kapil Arya <kapil@ccs.neu.edu>
+           2006-2013, Gene Cooperman <gene@ccs.neu.edu>
+License: LGPL-3
+
+Files: debian/*
+Copyright: 2011-2014, Kapil Arya <kapil@ccs.neu.edu>
+License: GPL-3
+
+Files: opensuse/dmtcp.spec
+Copyright: 2012, SUSE LINUX Products GmbH, Nuernberg, Germany.
+           2012-2014, Kapil Arya <kapil@ccs.neu.edu>
+License: LGPL-3
+
+Files: dmtcp/jalib/*
+Copyright: 2005-2011, Jason Ansel <jansel@csail.mit.edu>
+License: LGPL-3
+
+Files: dmtcp/src/trampolines.*
+Copyright: 2006-2013, Kapil Arya <kapil@ccs.neu.edu>
+           2006-2013, Tyler Denniston <tyler@ccs.neu.edu>
+License: LGPL-3
+
+Files: dmtcp/src/plugin/ipc/event/eventwrappers.cpp
+Copyright: 2012, Kapil Arya <kapil@ccs.neu.edu>
+           2012, Gene Cooperman <gene@ccs.neu.edu>
+           2012, Rohan Garg <rohgarg@ccs.neu.edu>
+License: LGPL-3
+
+Files: dmtcp/src/plugin/ipc/event/util_descriptor.*
+Copyright: 2012, Onyeka Igabari
+License: LGPL-3
+
+Files: plugin/ptrace/*
+Copyright: 2009-2012, Ana-Maria Visan <amvisan@ccs.neu.edu>
+           2009-2012, Kapil Arya <kapil@ccs.neu.edu>
+           2009-2012, Gene Cooperman <gene@ccs.neu.edu>
+License: LGPL-3
+
+Files: dmtcp/src/glibcsystem.cpp
+Copyright: 1991-2000,2002,2003,2005,2007 Free Software Foundation, Inc.
+License: LGPL-2.1
+
+Files: dmtcp/include/dmtcpalloc.h
+Copyright: 2002 Pete Isensee <PKIsensee@msn.com>
+License: LGPL-3
+
+Files: mtcp/mtcp_sigaction_*
+Copyright: 1991-2000,2002,2003,2005,2007 Free Software Foundation, Inc.
+License: LGPL-2.1
+
+Files: mtcp/sysdep-*
+Copyright: 1991-2000,2002,2003,2005,2007 Free Software Foundation, Inc.
+License: LGPL-2.1
+
+Files: mtcp/NOTES-x86_64/*.[hS]
+Copyright: 1991-2000,2002,2003,2005,2007 Free Software Foundation, Inc.
+License: LGPL-2.1
+
+Files: mtcp/libc-do-*
+Copyright: 2010-2012 Free Software Foundation, Inc.
+License: LGPL-2.1
+
+Files: plugin/batch-queue/*
+Copyright: 2012-2013, Artem Y. Polyakov <artpol84@gmail.com>
+License: LGPL-3
+
+Files: contrib/infiniband/*
+Copyright: 2011-2013 Greg Kerr <kerr.g@neu.edu>
+           2011-2013 Jiajun Cao <jiajun@ccs.neu.edu>
+           2011-2013 Kapil Arya <kapil@ccs.neu.edu>
+           2011-2013 Gene Cooperman <gene@ccs.neu.edu>
+License: GPL-3
+
+Files: contrib/infiniband/examples/*
+Copyright: 2005, Topspin Communications
+License: GPL-2
+
+License: LGPL-3
+ This package is free software; you can redistribute it and/or
+ modify it under the terms of the GNU Lesser General Public
+ License as published by the Free Software Foundation; either
+ version 3 of the License, or (at your option) any later version.
+ .
+ This package is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ Lesser General Public License for more details.
+ .
+ You should have received a copy of the GNU Lesser General Public
+ License along with this package; if not, write to the Free Software
+ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
+ .
+ On Debian systems, the complete text of the GNU Lesser General
+ Public License can be found in `/usr/share/common-licenses/LGPL-3'.   
+
+License: GPL-3
+ This package is free software; you can redistribute it and/or
+ modify it under the terms of the GNU Lesser General Public
+ License as published by the Free Software Foundation; either
+ version 3 of the License, or (at your option) any later version.
+ .
+ This package is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ Lesser General Public License for more details.
+ .
+ You should have received a copy of the GNU Lesser General Public
+ License along with this package; if not, write to the Free Software
+ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
+ .
+ On Debian systems, the complete text of the GNU Lesser General
+ Public License can be found in `/usr/share/common-licenses/GPL-3'.   
+
+License: GPL-2
+ This program is free software; you can redistribute it and/or
+ modify it under the terms of the GNU General Public License
+ as published by the Free Software Foundation; either version 2
+ of the License, or (at your option) any later version.
+ .
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ GNU General Public License for more details.
+ .
+ You should have received a copy of the GNU General Public License
+ along with this program; if not, write to the Free Software
+ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301, USA
+ .
+ On Debian systems, the complete text of the GNU Lesser General
+ Public License can be found in `/usr/share/common-licenses/GPL-2'.
+
+License: LGPL-2.1
+ This library is free software; you can redistribute it and/or
+ modify it under the terms of the GNU Lesser General Public
+ License as published by the Free Software Foundation; either
+ version 2.1 of the License, or (at your option) any later version.
+ .
+ This library is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ Lesser General Public License for more details.
+ .
+ You should have received a copy of the GNU Lesser General Public
+ License along with this library; if not, write to the Free Software
+ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
+ .
+ On Debian systems, the complete text of the GNU Lesser General
+ Public License can be found in `/usr/share/common-licenses/LGPL-2.1'.   

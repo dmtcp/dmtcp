@@ -1,0 +1,86 @@
+Description: Automatically retry once on test failure.
+ Retry once if some test fails with autotest.py. 
+ .
+ dmtcp (2.1-1) unstable; urgency=low
+ .
+   * New upstream release 2.1.
+   * Updated debian standards version to 3.9.5.
+   * Removed libdmtcpaware packages.
+   * Run make check in "slow" mode.
+   * Updated copyright file.
+   * Removed some stale files from install procedure.
+   * Upload sponsored by Yaroslav Halchenko <debian@onerussian.com>
+Author: Kapil Arya <kapil@ccs.neu.edu>
+
+---
+--- dmtcp-2.1.orig/test/autotest.py
++++ dmtcp-2.1/test/autotest.py
+@@ -90,6 +90,9 @@ BUFFER_SIZE=4096*8
+ #False redirects process stderr
+ VERBOSE=False
+ 
++#Should we retry on a failure?
++RETRY_ONCE=False
++
+ #Run (most) tests with user default (usually with gzip enable)
+ GZIP=os.getenv('DMTCP_GZIP') or "1"
+ 
+@@ -109,6 +112,8 @@ for i in sys.argv:
+     CYCLES=100000
+   if i=="--slow":
+     SLOW=5
++  if i=="--retry-once":
++    RETRY_ONCE = True
+   #TODO:  Install SIGSEGV handler with infinite loop, and add to LD_PRELOAD
+   #In test/Makefile, build libcatchsigsegv.so
+   #Add --catchsigsegv  to usage string.
+@@ -165,7 +170,7 @@ def splitWithQuotes(string):
+ 
+ def shouldRunTest(name):
+   # FIXME:  This is a hack.  We should have created var, testNaems and use here
+-  if len(sys.argv) <= 1+(VERBOSE==True)+(SLOW!=1)+(CYCLES!=2):
++  if len(sys.argv) <= 1+(VERBOSE==True)+(SLOW!=1)+(CYCLES!=2)+(RETRY_ONCE==True):
+     return True
+   return name in sys.argv
+ 
+@@ -598,6 +603,9 @@ def runTestRaw(name, numProcs, cmds):
+       SHUTDOWN()
+       saveResultsNMI()
+       sys.exit(1)
++    if RETRY_ONCE:
++      clearCkptDir()
++      raise e
+ 
+   clearCkptDir()
+ 
+@@ -609,14 +617,22 @@ def getProcessChildren(pid):
+ 
+ # If the user types ^C, then kill all child processes.
+ def runTest(name, numProcs, cmds):
+-  try:
+-    runTestRaw(name, numProcs, cmds)
+-  except KeyboardInterrupt:
+-    for pid in getProcessChildren(os.getpid()):
+-      try:
+-        os.kill(pid, signal.SIGKILL)
+-      except OSError: # This happens if pid already died.
+-        pass
++  for i in range(2):
++    try:
++      runTestRaw(name, numProcs, cmds)
++      break;
++    except KeyboardInterrupt:
++      for pid in getProcessChildren(os.getpid()):
++        try:
++          os.kill(pid, signal.SIGKILL)
++        except OSError: # This happens if pid already died.
++          pass
++    except CheckFailed, e:
++      if not RETRY_ONCE:
++        break
++      if i == 0:
++        stats[1]-=1
++        print "Trying once again"
+ 
+ def saveResultsNMI():
+   if DEBUG == "yes":
