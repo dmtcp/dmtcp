@@ -733,10 +733,9 @@ if HAS_SSH == "yes":
   runTest("sshtest",     4, ["./test/sshtest"])
   S=DEFAULT_S
 
-if PID_VIRTUALIZATION == "yes":
-  S=2*DEFAULT_S
-  runTest("waitpid",      2, ["./test/waitpid"])
-  S=DEFAULT_S
+S=2*DEFAULT_S
+runTest("waitpid",      2, ["./test/waitpid"])
+S=DEFAULT_S
 
 runTest("client-server", 2, ["./test/client-server"])
 
@@ -805,10 +804,9 @@ runTest("perl",          1, ["/usr/bin/perl"])
 if HAS_PYTHON == "yes":
   runTest("python",      1, ["/usr/bin/python"])
 
-if PID_VIRTUALIZATION == "yes":
-  os.environ['DMTCP_GZIP'] = "0"
-  runTest("bash",        2, ["/bin/bash --norc -c 'ls; sleep 30; ls'"])
-  os.environ['DMTCP_GZIP'] = GZIP
+os.environ['DMTCP_GZIP'] = "0"
+runTest("bash",        2, ["/bin/bash --norc -c 'ls; sleep 30; ls'"])
+os.environ['DMTCP_GZIP'] = GZIP
 
 if HAS_DASH == "yes":
   os.environ['DMTCP_GZIP'] = "0"
@@ -828,7 +826,7 @@ if HAS_ZSH == "yes":
   S=DEFAULT_S
   os.environ['DMTCP_GZIP'] = GZIP
 
-if HAS_VIM == "yes" and PID_VIRTUALIZATION == "yes":
+if HAS_VIM == "yes":
   # Wait to checkpoint until vim finishes reading its initialization files
   S=10*DEFAULT_S
   if sys.version_info[0:2] >= (2,6):
@@ -849,7 +847,7 @@ if HAS_VIM == "yes" and PID_VIRTUALIZATION == "yes":
     killCommand(vimCommand)
   S=DEFAULT_S
 
-if PID_VIRTUALIZATION == "yes" and sys.version_info[0:2] >= (2,6):
+if sys.version_info[0:2] >= (2,6):
   #On some systems, "emacs -nw" launches dbus-daemon processes in
   #background throwing off the number of processes in the computation. The
   #test thus fails. The fix is to launch emacs-nox, if found. emacs-nox
@@ -871,7 +869,7 @@ if PID_VIRTUALIZATION == "yes" and sys.version_info[0:2] >= (2,6):
                                 " --no-init-file /etc/passwd"])
   S=DEFAULT_S
 
-if HAS_SCRIPT == "yes" and PID_VIRTUALIZATION == "yes":
+if HAS_SCRIPT == "yes":
   S=7*DEFAULT_S
   if sys.version_info[0:2] >= (2,6):
     # NOTE: If 'script' fails, try raising value of S, above, to larger number.
@@ -889,7 +887,7 @@ if HAS_SCRIPT == "yes" and PID_VIRTUALIZATION == "yes":
 # SHOULD HAVE screen RUN SOMETHING LIKE:  bash -c ./test/dmtcp1
 # FIXME: Currently fails on dekaksi due to DMTCP not honoring
 #        "Async-signal-safe functions" in signal handlers (see man 7 signal)
-if HAS_SCREEN == "yes" and PID_VIRTUALIZATION == "yes":
+if HAS_SCREEN == "yes":
   S=3*DEFAULT_S
   if sys.version_info[0:2] >= (2,6):
     runTest("screen",    3,  ["env TERM=vt100 " + SCREEN +
