@@ -32,7 +32,6 @@
 #include "jconvert.h"
 #include "jalib.h"
 #include "dmtcp.h"
-#include "util.h"
 // DMTCP config constants like ELF_INTERPRETER
 #include "config.h"
 
@@ -197,7 +196,7 @@ jalib::string jalib::Filesystem::ResolveSymlink ( const jalib::string& path )
   if (len <= 0) {
     return "";
   } else if (len > 0 && buf[0] != '/' &&
-             !dmtcp::Util::strStartsWith(path, "/proc/")) {
+             path.find("/proc/") != 0) {
     // Handle links of type "file -> dir/file2"
     string res = DirName(path).append("/").append(buf);
     return res;
