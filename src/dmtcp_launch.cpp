@@ -141,13 +141,40 @@ static const char* theUsage =
 static bool disableAllPlugins=false;
 static bool isSSHSlave=false;
 static bool checkpointOpenFiles=false;
-static bool enableRM=false;
-static bool enablePtrace=false;
+
+static bool enablePtracePlugin=false;
+static bool enableModifyEnvPlugin=false;
+static bool enableRMPlugin=false;
+
+static bool enableIB2TcpPlugin=false;
+static bool enableIBPlugin=false;
+
 static bool enableAllocPlugin=true;
 static bool enableDlPlugin=true;
-static bool enableModifyEnvPlugin=false;
-static bool enableIB=false;
-static bool enableIB2Tcp=false;
+static bool enableIPCPlugin=true;
+static bool enableLibDMTCP=true;
+static bool enablePIDPlugin=true;
+
+struct PluginInfo {
+  bool *enabled;
+  const char *lib;
+};
+
+static struct PluginInfo pluginInfo[] = {               // Default value
+  {&enablePtracePlugin,     "libdmtcp_ptrace.so"},      // Disabled
+  {&enableModifyEnvPlugin,  "libdmtcp_modify-env.so"},  // Disabled
+  {&enableIB2TcpPlugin,     "libdmtcp_ib2tcp.so"},      // Disabled
+  {&enableIBPlugin,         "libdmtcp_infiniband.so"},  // Disabled
+  {&enableRMPlugin,         "libdmtcp_batch-queue.so"}, // Disabled
+  {&enableAllocPlugin,      "libdmtcp_alloc.so"},       // Enabled
+  {&enableDlPlugin,         "libdmtcp_dl.so"},          // Enabled
+  {&enableIPCPlugin,        "libdmtcp_ipc.so"},         // Enabled
+  {&enableLibDMTCP,         "libdmtcp.so"},             // Enabled
+  {&enablePIDPlugin,        "libdmtcp_pid.so"}          // Enabled
+};
+
+const size_t numLibs = sizeof(pluginInfo) / sizeof (struct PluginInfo);
+
 static CoordinatorAPI::CoordinatorMode allowedModes = CoordinatorAPI::COORD_ANY;
 
 //shift args
@@ -233,16 +260,16 @@ static void processArgs(int *orig_argc, char ***orig_argv)
       checkpointOpenFiles = true;
       shift;
     } else if (s == "--ptrace") {
-      enablePtrace = true;
+      enablePtracePlugin = true;
       shift;
     } else if (s == "--modify-env") {
       enableModifyEnvPlugin = true;
       shift;
     } else if (s == "--ib" || s == "--infiniband") {
-      enableIB = true;
+      enableIBPlugin = true;
       shift;
     } else if (s == "--ib2tcp") {
-      enableIB2Tcp = true;
+      enableIB2TcpPlugin = true;
       shift;
     } else if (s == "--disable-alloc-plugin") {
       setenv(ENV_VAR_ALLOC_PLUGIN, "0", 1);
@@ -254,7 +281,7 @@ static void processArgs(int *orig_argc, char ***orig_argv)
       disableAllPlugins = true;
       shift;
     } else if (s == "--rm" || s == "--batch-queue") {
-      enableRM = true;
+      enableRMPlugin = true;
       shift;
     } else if (s == "--with-plugin") {
       setenv(ENV_VAR_PLUGIN, argv[1], 1);
@@ -589,51 +616,7 @@ static void setLDPreloadLibs(bool is32bitElf)
   setenv ( ENV_VAR_UTILITY_DIR, searchDir.c_str(), 0 );
 
   if (preloadLibs.find("fredhijack.so") != dmtcp::string::npos) {
-    enablePtrace = true;
-  }
-
-  if (enablePtrace) {
-    preloadLibs += jalib::Filesystem::FindHelperUtility("libdmtcp_ptrace.so");
-    preloadLibs += ":";
-
-#if defined(__x86_64__)
-    preloadLibs32 += jalib::Filesystem::FindHelperUtility("libdmtcp_ptrace.so",
-                                                          true);
-    preloadLibs32 += ":";
-#endif
-  }
-
-  if (enableModifyEnvPlugin) {
-    preloadLibs +=
-      jalib::Filesystem::FindHelperUtility("libdmtcp_modify-env.so");
-    preloadLibs += ":";
-
-#if defined(__x86_64__)
-    preloadLibs32 +=
-      jalib::Filesystem::FindHelperUtility("libdmtcp_modify-env.so", true);
-    preloadLibs32 += ":";
-#endif
-  }
-
-  if (enableIB2Tcp) {
-    preloadLibs += jalib::Filesystem::FindHelperUtility("libdmtcp_ib2tcp.so");
-    preloadLibs += ":";
-#if defined(__x86_64__)
-    preloadLibs32 += jalib::Filesystem::FindHelperUtility("libdmtcp_ib2tcp.so",
-                                                          true);
-    preloadLibs32 += ":";
-#endif
-    enableIB = true;
-  }
-
-  if (enableIB) {
-    preloadLibs += jalib::Filesystem::FindHelperUtility("libdmtcp_infiniband.so");
-#if defined(__x86_64__)
-    preloadLibs32 += jalib::Filesystem::FindHelperUtility("libdmtcp_infiniband.so",
-                                                          true);
-    preloadLibs32 += ":";
-#endif
-    preloadLibs += ":";
+    enablePtracePlugin = true;
   }
 
   //set up Alloc plugin
@@ -648,15 +631,6 @@ static void setLDPreloadLibs(bool is32bitElf)
         .Text("Invalid value for the environment variable.");
     }
   }
-  if (enableAllocPlugin) {
-    preloadLibs += jalib::Filesystem::FindHelperUtility("libdmtcp_alloc.so");
-    preloadLibs += ":";
-#if defined(__x86_64__)
-    preloadLibs32 += jalib::Filesystem::FindHelperUtility("libdmtcp_alloc.so",
-                                                          true);
-    preloadLibs32 += ":";
-#endif
-  }
 
   // Setup Dl plugin
   if (getenv(ENV_VAR_DL_PLUGIN) != NULL){
@@ -670,70 +644,23 @@ static void setLDPreloadLibs(bool is32bitElf)
         .Text("Invalid value for the environment variable.");
     }
   }
-  if (enableDlPlugin) {
-    preloadLibs += jalib::Filesystem::FindHelperUtility("libdmtcp_dl.so");
-    preloadLibs += ":";
-#if defined(__x86_64__)
-    preloadLibs32 += jalib::Filesystem::FindHelperUtility("libdmtcp_dl.so",
-                                                          true);
-    preloadLibs32 += ":";
-#endif
-  }
-
-  if (enableRM) {
-    preloadLibs +=
-      jalib::Filesystem::FindHelperUtility("libdmtcp_batch-queue.so");
-    preloadLibs += ":";
-#if defined(__x86_64__)
-    preloadLibs32 +=
-      jalib::Filesystem::FindHelperUtility("libdmtcp_batch-queue.so", true);
-    preloadLibs32 += ":";
-#endif
-  }
-
-  preloadLibs += jalib::Filesystem::FindHelperUtility("libdmtcp_ipc.so");
-  preloadLibs += ":";
-#if defined(__x86_64__)
-    preloadLibs32 += jalib::Filesystem::FindHelperUtility("libdmtcp_ipc.so",
-                                                          true);
-    preloadLibs32 += ":";
-#endif
-
-  preloadLibs += jalib::Filesystem::FindHelperUtility("libdmtcp.so");
-  preloadLibs += ":";
-
-#if defined(__x86_64__)
-    preloadLibs32 += jalib::Filesystem::FindHelperUtility("libdmtcp.so",
-                                                          true);
-    preloadLibs32 += ":";
-#endif
-
-  preloadLibs += jalib::Filesystem::FindHelperUtility("libdmtcp_pid.so");
-  preloadLibs += ":";
-#if defined(__x86_64__)
-    preloadLibs32 += jalib::Filesystem::FindHelperUtility("libdmtcp_pid.so",
-                                                          true);
-    preloadLibs32 += ":";
-#endif
-
-#if 0
-  // After updating rpath, we shouldn't need to set LD_LIBRARY_PATH explicitly.
-  const char *ldLibPath = getenv("LD_LIBRARY_PATH");
-  dmtcp::string libPath;
-  if (ldLibPath != NULL) {
-    libPath = ldLibPath;
-  }
-  libPath += ":" + jalib::Filesystem::DirName(
-               jalib::Filesystem::FindHelperUtility(MTCP_FILENAME));
-  JASSERT(!libPath.empty());
-  setenv("LD_LIBRARY_PATH", libPath.c_str(), 1);
-#endif
 
   if (disableAllPlugins) {
     preloadLibs = jalib::Filesystem::FindHelperUtility("libdmtcp.so");
 #if defined(__x86_64__)
     preloadLibs32 = jalib::Filesystem::FindHelperUtility("libdmtcp.so", true);
 #endif
+  } else {
+    for (size_t i = 0; i < numLibs; i++) {
+      struct PluginInfo *p= &pluginInfo[i];
+      if (*p->enabled) {
+        preloadLibs += jalib::Filesystem::FindHelperUtility(p->lib) + ":";
+#if defined(__x86_64__)
+        preloadLibs32 +=
+          jalib::Filesystem::FindHelperUtility(p->lib, true) + ":";
+#endif
+      }
+    }
   }
 
   setenv(ENV_VAR_HIJACK_LIBS, preloadLibs.c_str(), 1);
