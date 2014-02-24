@@ -1,7 +1,6 @@
 USE_TEST_SUITE="@USE_TEST_SUITE@"
 USE_M32=@M32@
 DEBUG="@DEBUG@"
-PID_VIRTUALIZATION="@PID_VIRTUALIZATION@"
 HBICT_DELTACOMP="@HBICT_DELTACOMP@"
 
 # We may be running a user's python, but we should only test with canonical one
