@@ -1,0 +1,143 @@
+			PID/TID virtualization in DMTCP
+
+This is intended as one of a series of informal documents to describe
+and partially document some of the more subtle DMTCP data structures
+and algorithms.  These documents are snapshots in time, and they
+may become somewhat out-of-date over time (and hopefully also refreshed
+to re-sync them with the code again).
+
+This document is about pid and tid virtualization.  A closely related
+document is thread-creation.txt.  The fundamental issue here is that
+processes and threads receive a pid and tid when they are created.
+But after checkpoint and restart, the kernel creates new versions with
+new pids and tids.  So, the kernel knows them by their current pid/tid.
+In a naive implementation, if the application code asks for the pid/tid
+from the kernel, it will see their current pid/tid.  If the application
+saves that value in a variable prior to checkpoint, and re-uses it
+after restart, then the application will know the pid/tid according
+their original value.
+
+To get around this problem, DMTCP maintains 'class dmtcp::VirtualPidTable'
+in virtualpidtable.cpp.  One can print it via:
+dmtcp::VirtualPidTable::instance().printPidMaps()
+or in gdb as:
+(gdb) p dmtcp::VirtualPidTable.printPidMaps(dmtcp::VirtualPidTable::instance())
+
+This allows most programs to work fine.  But we still have to worry about
+id collisions.  If a new pid or tid is created, and its pid/tid corresponds
+to an original pid/tid in the table, then we will have two pids or tids
+with the same original id.
+
+To avoid this situation, a DMTCP wrapper is placed around such
+calls as fork() (execwrappers.cpp) and _clone() (pidwrappers.cpp).
+We will describe the processing of _clone.  From this, it will be
+easy to observe the same pattern (in a simpler form) for fork().
+
+Currently, MTCP also places a wrapper around clone(), in addition to DMTCP.
+MTCP does this to find out the current threads and tids of a process.
+MTCP might also do that by inspecting /proc/self/task, although there
+could be dangers of a race in that scheme.
+
+So, when an application calls pthread_create(), libc will then
+call clone() or __clone().  The file mtcpinterface.cpp intercepts this
+through its clone() wrapper (in libdmtcp.so, which was preloaded).
+
+If this is a new thread, __clone() will call mtcpFuncPtrs.clone(),
+which is the MTCP definition of clone().  (If DMTCP is restarting,
+then __clone() will instead call __real_clone(), which will call
+libc.so:clone().)  Note that DMTCP will call clone() on a DMTCP
+function, mtcpinterface.cpp:clone_start().  The function clone_start()
+acts as a wrapper around the end user's thread start function.
+In particular, clone_start() will process tid conflicts (see below)
+and threads exiting, while still calling the user's original thread
+start function.
+
+In the case of a new thread, we now find ourselves inside mtcp.c:clone().
+The function mtcp.c:__clone() then calls clone_entry, which is a pointer
+to libc:__clone().  The MTCP call to libc:__clone() calls it on the MTCP
+function mtcp.c:threadcloned(), which records the new thread for MTCP,
+calls the original user's function passed in clone(), and then records the
+exiting of that thread for MTCP.  We then return to MTCP:__clone(), which
+then returns to DMTCP:__clone().  (However, since DMTCP has inserted its
+own mtcpinterface.cpp:clone_start() as the argument to DMTCP:__clone(),
+in fact, mtcp.c:threadcloned() will call mtcpinterface.cpp:clone_start(),
+which will finally call the end user's thread start function.)
+
+NOTE:  SOME OF THE LOGIC DESCRIBED IN THIS NEXT PARAGRAPH IS NOW OBSOLETE.
+PLEASE SEE thread-creation.txt FOR A MORE UP-TO-DATE EXPLANATION.
+In fact, the full story is a little more complicated.  If the target
+program called pthread_create, then glibc:pthread_create will call
+clone on its own wrapper function around the user's thread start function.
+So, the full calling sequence for the newly created child thread
+looks like this:
+    glibc:clone -> MTCP:threadcloned -> DMTCP:clone_start
+       -> glibc:start_thread -> user_thread_start_fnc
+[ The child thread was created by the glibc call to the kernel clone syscall. ]
+Note also that glibc:start_thread() calls syscall(SYS_exit, val) for the
+thread to exit.  So, the last part of the wrappers MTCP:threadcloned
+and DMTCP:clone_start don't actually exit.  In the future, we may
+insert those wrappers through pthread_create() instead of through clone()
+in order to guarantee that the pthread_create wrapper function,
+glibc:start_thread, is the outermost thread wrapper, as intended.  This
+improper wrapper order has implications for detecting TID conflicts
+(see below).]
+
+If DMTCP:__clone() discovers that the tid of the newly created thread is
+the same as the original thread of a different thread, then this is declared
+a TID conflict.  (This can happen if the different thread was created
+prior to the last checkpoint/restart and now has a new current tid.)
+In the case of a TID conflict, DMTCP has called MTCP:clone() and is now
+in the last part of DMTCP:__clone().  The newly created thread is
+in DMTCP:clone_start().  Both the parent that called clone() and the
+new thread in clone_start() are aware of the thread conflict.  This is because
+the new thread can call isConflictingTid(gettid()), while the parent
+discovers the child tid from the clone call and can also call
+isConflictingTid() on it.
+
+In this case of a TID conflict, the child does not call the user thread
+function.  Instead it would ideally return, allowing the thread to exit.
+At the same time, DMTCP:__clone() calls __clone() again (eventually reaching
+libc.so) and receives a new thread with a new tid.  If the new tid is not
+in conflict, this thread is accepted, and execution continues.
+
+However, at the time of this writing, the ordering of the wrapper
+functions is not correct (see above).  Normally, pthread_create defines
+its own wrapper function, glibc:start_thread(), and calls clone()
+on its own wrapper function.  The glibc:start_thread() function calls
+"syscall(exit,val)" for the thread to exit before returning to clone().
+This is needed to avoid the default behavior of clone().  If the thread
+were to return to clone() (glibc:clone.S), clone() would call __GI_exit()
+to kill the entire process.
+
+Currently, we have:
+  glibc:clone()->MTCP:threadcloned->DMTCP:clone_start->glibc:start_thread
+In the case of a TID conflict, DMTCP never calls glibc:start_thread.
+Hence, DMTCP must call "syscall(exit,val)" in order to avoid eventually
+returning to clone(), which would cause the entire process to exit.
+
+For some further background, note that some of the "cleanup" operations
+in glibc:create_thread() are (in glibc:pthread_create.c):
+  __nptl_death_event(), __free_tcb(), and __deallocate_stack().
+
+===
+However, on restart, mtcp.c calls a special version that will execute an
+initial function mtcp.c:restarthread.  Furthermore, MTCP:threadcloned()
+will insert the current TID in the TCB (thread control block, also
+referred to in mtcp.c as the TLS thread descriptor) for the restarted
+thread.  The TCB is a glibc construct of type "struct user_desc".
+Unfortunately, glibc does not export the offset of the TID in the TCB.
+So, MTCP uses some heuristics for finding it, and then (as a sanity check)
+comparing with the known TID offset for specific versions of glibc.
+Without this, glibc will not know the current TID, and will use an
+incorrect TID in talking to the kernel.
+
+===
+On restart, the TLS of the newly recreated thread must be set to
+the original tid so that libc.so continues to work with the current
+tid.  Our wrappers around libc.so will continue to make translations
+between the original tid (potentially stored in the user's application)
+and the current tid (stored in libc.so and the kernel).  DMTCP guarantees
+that original tids are always unique, as described above.
+
+The DMTCP wrapper, gettid(), maintains a thread-local variable
+dmtcp_thread_pid to save the original tid of each thread.

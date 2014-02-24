@@ -1,0 +1,71 @@
+The subdirectories within contrib are typically plugins that can be used
+with DMTCP.  They are written either by DMTCP developers or by third
+parties, but they are intended to be optional components.  They will
+not be loaded into DMTCP by default, but will typically require
+the --with-plugins flag of dmtcp_launch.
+
+If you would like to write your own DMTCP plugins, you can find some
+very simple examples of plugins in the directories in dmtcp/test/plugin .
+For each of those, 'make check' will provide a working demo of the plugin.
+Try, for example (using cd from this directory):
+  ( cd ../test/plugin/sleep1 ; make check )
+and then look at the source code in ../test/plugin/sleep1 .
+
+The documentation within each subdirectory has the details of how to use
+it.  Unless stated otherwise, many of the plugins are still experimental.
+Please report bugs back to the author and to dmtcp@ccs.neu.edu .
+An overview is given here:
+
+ckptfile:  A template for a plugin to adjust filepaths between checkpoint
+	and restart.  Modify this plugin according to your specific needs.
+
+condor:  Describes how to integrate DMTCP checkpointing with the Condor
+	system for high throughput computing.  The same information can be
+	found at:
+	http://dmtcp.sourceforge.net/condor.html
+	This is the work of Samaneh Kazemi, as well as the Condor team.
+	Please report bugs to dmtcp@ccs.neu.edu as well as to samaneh
+	using her account at ccs.neu.edu.
+
+infiniband:  Support for checkpointing applications over InfiniBand.
+	By default, DMTCP provides checkpoint-restart for TCP (socket-based
+	networks).  This plugin extends that support to InfiniBand.
+        In order to use this plugin, one must configure dmtcp with
+        --enable-infiniband-support flag.
+          [Note: If you are using a newer release of OFED, you may wish
+                 to use the rewrite of this plugin,
+                 to be available from the svn in late January, 2014. ]
+	This is the work of Jiajun Cao et al.
+	Please report bugs to dmtcp@ccs.neu.edu as well as to
+	jiajun using his account at ccs.neu.edu.
+	  [ If running on a cluster, you may also want to use this with
+ 	    the 'rm' plugin below. ]
+
+kvm:  Support for checkpointing Qemu virtual machine under KVM.  Note
+	that DMTCP can already checkpoint user-space Qemu without the
+	use of any additional plugins.  This work is reported on in
+	"Checkpoint-Restart for a Network of Virtual Machines"
+	at IEEE Cluster-2013, by Rohan Garg et al.
+	Please report bugs to dmtcp@ccs.neu.edu as well as to
+	rohgarg using his account at ccs.neu.edu.
+	  [ If running with a network of virtual machines, you may also want
+            to use this with the 'tun' plugin below. ]
+
+python:  Support for a Python module, dmtcp.py.  This integrates DMTCP
+	into Python (and IPython) so that DMTCP may be invoked directly
+	from Python.  This work was reported on at SciPy-2013 in
+	"DMTCP: Bringing Checkpoint-Restart to Python" by Kapil Arya et al.
+	The abstract and video are at:
+        http://conference.scipy.org/scipy2013/presentation_detail.php?id=201
+	Please report bugs to dmtcp@ccs.neu.edu as well as to
+	kapil using his account at ccs.neu.edu.
+
+tun:  Support for the Tun network (part of Tun/Tap in the Linux kernel).
+	Currently, this is primarily useful for checkpointing a network
+	of KVM-based virtual machines.  It may be useful in other
+	Tun-based applications.  Details are reported on in the same
+	article as for the kvm plugin.
+	Please report bugs to dmtcp@ccs.neu.edu as well as to
+	rohgarg using his account at ccs.neu.edu.
+	  [ This can be useful with the kvm plugin for a network of
+            virtual machines. ]

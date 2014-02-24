@@ -1,0 +1,170 @@
+		Fork and Exec in DMTCP
+
+This is intended as one of a series of informal documents to describe
+and partially document some of the more subtle DMTCP data structures
+and algorithms.  These documents are snapshots in time, and they
+may become somewhat out-of-date over time (and hopefully also refreshed
+to re-sync them with the code again).
+
+Fork and exec create a new process, and change the program of the process,
+respectively.  DMTCP must create or maintain the state of the original
+process/program associated with DMTCP.  DMTCP creates wrappers around
+the fork and exec family of system calls for this reason.
+
+A second reason for the wrappers is that the semantics of fork and exec
+specify that only the current thread survives (fork), or a single new
+thread is created (exec).  In the case of fork, the thread calling fork
+(which is always a user thread) will return to the DMTCP wrapper, which
+will then re-initialize the MTCP library and other DMTCP state.  In the
+case of exec, the exec wrapper, places the DMTCP hijack library back in
+the path specified by the LD_PRELOAD environment variable, prior to exec.
+The new program then runs the dmtcpWorker in the DMTCP hijack library,
+which loads the MTCP library, initializes it and other state, and then
+removes the DMTCP hijack library from the LD_PRELOAD path.  (The hijack
+library is removed again to be transparent to the user program.)
+
+Further, the DMTCP coordinator has a concept of a DMTCP computation.
+A DMTCP computation exists so long as there are sockets connected to
+the coordinator.  When the last socket disconnects (usually because all
+processes exited or died), then the computation ends.  If there is no
+current computation, and a new socket connection to the coordinator is
+created, that begins a new DMTCP computation.  The coordinator maintains
+a unique DMTCP computation id for each DMTCP computation.
+
+This document is divided into three parts:
+I.  DMTCP actions during a fork
+II.  DMTCP actions during an exec
+III.  Actions of DMTCP Coordinator during a fork or exec
+
+====
+
+I.  DMTCP actions during a fork
+	FILL IN
+
+
+====
+
+II.  DMTCP actions during an exec
+	FILL IN
+
+
+====
+
+III.  Actions of DMTCP Coordinator during a fork or exec
+
+When the DMTCP coordinator broadcasts a ''kill'' command (initiated
+by a user ''kill'' request to the coordinator), then the DMTCP checkpoint
+thread of each user process exits.  Currently, the DMTCP checkpoint thread
+must cooperate with the user threads in exiting, since the unique dmtcpWorker
+object was created by the first thread, a user thread.  This will be changed
+in the future to create the dmtcpWorker object as part of a placement array
+that will not be destroyed by the destructor when the original user thread
+exits.
+
+A related issue occurs when a user joinable thread exits.  See
+thread-creation.txt for a discussion of this situation.
+
+Another issue occurs due to a potential race when the coordinator
+broadcasts a ''kill'' command to each of the currently attached sockets,
+and a user process is creating a new child process and an associated
+socket to the coordinator.
+
+First, when a user process calls fork, the fork wrapper will proactively
+create a new socket and connect to the coordinator.  It will also
+send a DMT_UPDATE_PROCESS_INFO_AFTER_FORK message to the coordinator.
+This is done by the parent, _before_ the child has been created.  After the
+child is created, the parent will close its copy of the socket.  If the
+parent dies before this can happen, this has the same effect, when the
+O/S releases the parent's copy of the socket.  Naturally, no checkpoint
+is allowed during this sensitive time while the coordinator is waiting
+to hear from the new child to be created.
+
+This design was chosen instead of having the child process connect to the
+coordinator after it is created.  That alternative design was rejected
+because it could lead to a race.  The ''kill'' command could happen
+after the child process has been created and before the child process
+has connected to the coordinator.  In this case, the parent process
+would exit, and the coordinator would perceive a socket disconnect.
+The coordinator would then see a socket connection from the child process,
+and view this as an entirely new DMTCP computation.
+
+Next, there is a further danger of a race occurring if the coordinator
+sends a ''kill'' command that is received by the DMTCP checkpoint thread
+of the parent process, and at the same time, a user thread in the parent
+has created a new socket connection to the coordinator, and after the
+parent process has created the child process.  In this case, the child
+process holds a connection to the coordinator, and the child has never
+received a ''kill'' command through that socket from the coordinator.
+
+To remedy this, the coordinator notes that a ''kill'' is in process from
+the time that it receives a ''kill'' request from the user until the last
+process of the current DMTCP computation has disconnected its socket
+from the coordinator.  If a new process connects during the current
+computation (and therefore sends a DMT_UPDATE_PROCESS_INFO_AFTER_FORK
+message to the coordinator), then the coordinator replies to
+DMT_UPDATE_PROCESS_INFO_AFTER_FORK with a ''kill'' command.
+
+The above scheme works because the coordinator is single-threaded, and
+there are no asynchronous events.  The coordinator is always executing
+an event loop.  On detecting a connection, disconnection, etc., the
+top-level loop invokes methods for OnConnect, OnDisconnect, etc.  Hence,
+when the coordinator sees a connection by a user with a ''kill'' request,
+it issues a ''kill'' command to all currently connected sockets, before
+returning to the top level of the event loop.  It is only within the top
+level loop, that the coordinator can then recognize a new OnConnect event
+(from a child process in our scenario) -- along with the OnDisconnect
+events as each of the original processes of the DMTCP computation respond
+to the ''kill'' command.
+
+There is one final issue.  The DMTCP coordinator might see the child
+process with its DMT_UPDATE_PROCESS_INFO_AFTER_FORK message only after a
+new user process has connected to the coordinator with the intention of
+starting a new computation.  In this case, the coordinator will have just
+seen the number of connected sockets drop to zero.  So, the coordinator
+knows that the new user process represents a nw computation.  After this,
+the old child process connects with the DMT_UPDATE_PROCESS_INFO_AFTER_FORK
+message and its old computation id as a parameter.  This allows the
+coordinator to recognize that this process is part of the old computation,
+and a ''kill'' message is sent back.
+
+Similarly, if the DMT_UPDATE_PROCESS_INFO_AFTER_FORK arrives at the
+coordinator when there is no current computation, then the coordinator
+will recognize this as an old process _independently_ of its computation
+id, and so a ''kill'' message will be returned.
+
+Finally, we discuss the simpler case of an exec by the user process
+after a ''kill'' message is sent.  First, we note that the ''kill''
+message is a single 'int', and hence it is atomic.  Either it is read
+by the checkpoint thread or it is not.
+
+The atomicity of the ''kill'' message is important.  The checkpoint thread
+might otherwise read part of a ''kill'' message, only to be interrupted
+by a fork or exec.  In the case of a fork, the checkpoint thread in
+the parent would continue to read the ''kill'' message uninterrupted,
+and the analysis proceeds as earlier.  But in the case of exec, the
+atomicity is required.
+
+Next, the ''kill'' message is atomic and is the first work of the message.
+Hence, in the case of exec, the ''kill'' message may or may not be
+consumed before the exec.  But the ''kill'' cannot be half consumed.
+If the checkpoint thread of the new program sees the ''kill'' message
+after the exec, the new program will exit.  If the ''kill'' message
+was already consumed before the exec, then the user thread of the new
+program will create a new checkpoint thread.  This new checkpoint thread
+will discover the old socket to the coordinator in a special "LIFEBOAT"
+preserved by DMTCP across exec.  The new checkpoint thread will then
+recognize that it is in the middle of an exec (based on the "LIFEBOAT"),
+and send a DMT_UPDATE_PROCESS_INFO_AFTER_EXEC to the coordinator with
+the old computation id (also found in the "LIFEBOAT").  The rest of the
+analysis proceeds as before.  If the computation id is not part of the
+current computation of the coordinator, then the coordinator replies
+with a new ''kill'' message, and the checkpoint thread will cause the
+process to exit.  This all happens before the ''main'' routine of the
+new program begins to run.
+
+Note that the coordinator remains stateless in this analysis, except that
+it remembers the current computation id.  However, if the computation
+ever dies, and DMTCP must restart, then the restarted user processes will
+then inform the coordinator of their old computation id.  The coordinator
+again remembers the computation id in this case, and the old computation
+can be resumed.
