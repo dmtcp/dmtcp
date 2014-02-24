@@ -1,2 +1,0 @@
-# libmtcp1.so needs to be compiled with -O0
-libmtcp1 binary: hardening-no-fortify-functions *usr/lib/libmtcp.so.1.0.0
