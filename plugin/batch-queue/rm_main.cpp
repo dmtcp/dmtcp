@@ -39,13 +39,18 @@ void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t* data)
 
   switch (event) {
   case DMTCP_EVENT_THREADS_SUSPEND:
+    JTRACE("DMTCP_EVENT_THREADS_SUSPEND");
+    runUnderRMgr();
     rm_shutdown_pmi();
     break;
   case DMTCP_EVENT_THREADS_RESUME:
+    JTRACE("DMTCP_EVENT_THREADS_RESUME");
     rm_restore_pmi();
     break;
   case DMTCP_EVENT_RESTART:
+    JTRACE("DMTCP_EVENT_RESTART")(_get_rmgr_type());
     if ( _get_rmgr_type() == slurm ){
+	JTRACE("Call restore_env()");
       slurm_restore_env();
     }
     break;
