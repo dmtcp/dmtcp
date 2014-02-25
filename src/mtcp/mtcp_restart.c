@@ -98,7 +98,10 @@ static RestoreInfo rinfo;
 
 /* Internal routines */
 static void readmemoryareas(int fd);
+#if 0
+// Not currently used
 static void mmapfile(int fd, void *buf, size_t size, int prot, int flags);
+#endif
 static void read_shared_memory_area_from_file(int fd, Area* area, int flags);
 static VA highest_userspace_address (VA *vdso_addr, VA *vsyscall_addr,
                                      VA * stack_end_addr);
@@ -132,6 +135,7 @@ int __libc_start_main (int (*main) (int, char **, char **),
   char **envp = argv + argc + 1;
   int result = main(argc, argv, envp);
   mtcp_sys_exit(result);
+  (void)mtcp_sys_errno; /* Stop compiler warning about unused variable */
   while(1);
 }
 void __libc_csu_init (int argc, char **argv, char **envp) { }
@@ -158,8 +162,6 @@ void *memcpy(void *dest, const void *src, size_t n) {
 __attribute__((optimize(0)))
 int main(int argc, char *argv[], char **environ)
 {
-  int orig_argc = argc;
-  char **orig_argv = argv;
   char *ckptImage = NULL;
   MtcpHeader mtcpHdr;
   int mtcp_sys_errno;
@@ -256,6 +258,7 @@ MTCP_PRINTF("Attach for debugging.");
   } else {
     restart_fast_path();
   }
+  return 0;  /* Will not reach here, but need to satisfy the compiler */
 }
 
 __attribute__((optimize(0)))
@@ -362,7 +365,6 @@ static void restart_fast_path()
 __attribute__((optimize(0)))
 static void restart_slow_path()
 {
-  int mtcp_sys_errno;
   restorememoryareas(&rinfo);
 }
 
@@ -1218,7 +1220,6 @@ static void mmapfile(int fd, void *buf, size_t size, int prot, int flags)
 __attribute__((optimize(0)))
 static int doAreasOverlap(VA addr1, size_t size1, VA addr2, size_t size2)
 {
-  int mtcp_sys_errno;
   VA end1 = (char*)addr1 + size1;
   VA end2 = (char*)addr2 + size2;
   return (addr1 >= addr2 && addr1 < end2) || (addr2 >= addr1 && addr2 < end1);
@@ -1286,6 +1287,7 @@ static void getMiscAddrs(VA *text_addr, size_t *size, VA *highest_va)
 }
 
 // gcc can generate calls to these.
+// Eventually, we'll isolate the PIC code in a library, and this can go away.
 void __stack_chk_fail(void)
 {
   int mtcp_sys_errno;

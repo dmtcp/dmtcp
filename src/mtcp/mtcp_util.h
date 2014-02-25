@@ -30,6 +30,7 @@
   do { \
     mtcp_printf("[%d] %s:%d %s:\n  ", \
                 mtcp_sys_getpid(), __FILE__, __LINE__, __FUNCTION__); \
+    (void)mtcp_sys_errno; /* prevent compiler warning if we don't use it */ \
     mtcp_printf(args); \
   } while (0)
 

@@ -19,9 +19,11 @@ exec_prefix = @exec_prefix@
 bindir = @bindir@
 #libdir = @libdir@
 #pkglibdir = $(libdir)/@PACKAGE@
-top_builddir = @top_builddir@
+
 top_srcdir = @top_srcdir@
 srcdir = @srcdir@
+
+top_builddir = @top_builddir@
 targetdir = $(top_builddir)
 
 # VPATH specifies a list of directories that make should search for finding the
