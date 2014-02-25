@@ -79,11 +79,18 @@ if [ -n "$SLURM_JOBID" ] || [ -n "$SLURM_JOB_ID" ]; then
 
   dmtcp_restart --join --host $DMTCP_HOST --port $DMTCP_PORT $LOCAL_FILES
 
+  # set > set.$SLURM_NODEID.$SLURM_LOCALID
   # Accumulate logs from computing nodes
   if [ -d ./LOGS ] && [ ${SLURM_LOCALID} -eq "0" ]; then
-    tmp=`ls $SLURMTMPDIR/dmtcp*`
-    rm -Rf $tmp
-    cp -R $SLURMTMPDIR/dmtcp* ./LOGS/
+    TDIR="$SLURMTMPDIR"
+    if [ -z "$TDIR" ]; then
+        TDIR=$TMPDIR
+    fi
+    echo "TMPDIR=$TDIR"
+    if [ -n "$TDIR" ]; then
+        cp -R $TDIR/dmtcp* ./LOGS/
+        rm -R $TDIR/dmtcp*
+    fi
   fi
 
 
