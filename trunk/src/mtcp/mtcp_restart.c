@@ -549,7 +549,9 @@ static void restorememoryareas(RestoreInfo *rinfo_ptr)
   DPRINTF("restore complete, resuming by jumping to %p...\n",
           restore_info.post_restart);
 
-  /* Jump to finishrestore in original program's libmtcp.so image */
+  /* Jump to finishrestore in original program's libmtcp.so image.
+   * This is in libdmtcp.so, and is called: restore_libc.c:TLSInfo_PostRestart
+   */
   restore_info.post_restart();
 }
 
