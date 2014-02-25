@@ -51,7 +51,7 @@ extern "C" {
     char buf[4096]; \
     int c = sprintf(buf, "[%d] %s:%d in %s; REASON= " fmt, \
                     getpid(), __FILE__, __LINE__, __FUNCTION__, ##__VA_ARGS__); \
-    int dummy = write(PROTECTED_STDERR_FD, buf, c + 1); \
+    (void)write(PROTECTED_STDERR_FD, buf, c + 1); \
   } while (0);
 
 #ifdef DEBUG

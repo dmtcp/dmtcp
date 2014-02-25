@@ -313,7 +313,6 @@ char mtcp_readchar (int fd)
 /* Read decimal number, return value and terminating character */
 char mtcp_readdec (int fd, VA *value)
 {
-  int mtcp_sys_errno;
   char c;
   unsigned long int v;
 
@@ -331,7 +330,6 @@ char mtcp_readdec (int fd, VA *value)
 /* Read decimal number, return value and terminating character */
 char mtcp_readhex (int fd, VA *value)
 {
-  int mtcp_sys_errno;
   char c;
   unsigned long int v;
 
@@ -368,7 +366,7 @@ char mtcp_readhex (int fd, VA *value)
 
 int mtcp_readmapsline (int mapsfd, Area *area)
 {
-  int mtcp_sys_errno = 0;
+  int mtcp_sys_errno;
   char c, rflag, sflag, wflag, xflag;
   int i;
   off_t offset;
@@ -462,7 +460,7 @@ skipeol:
  *   and eu-strip modifies libmtcp.so in a way that libmtcp.so no longer works.
  * This is arguably a bug in eu-strip.
  *****************************************************************************/
-static int dummy_uninitialized_static_var;
+// static int dummy_uninitialized_static_var;
 void mtcp_get_memory_region_of_this_library(VA *startaddr, VA *endaddr)
 {
   int mtcp_sys_errno;
@@ -474,7 +472,7 @@ void mtcp_get_memory_region_of_this_library(VA *startaddr, VA *endaddr)
 
   Area area;
   VA thislib_fnc = (void*) &mtcp_get_memory_region_of_this_library;
-  VA thislib_static_var = (VA) &dummy_uninitialized_static_var;
+  // VA thislib_static_var = (VA) &dummy_uninitialized_static_var;
   char filename[PATH_MAX] = {0};
   text.start_addr = guard.start_addr = rodata.start_addr = NULL;
   rwdata.start_addr = bssdata.start_addr = bssdata.end_addr = NULL;

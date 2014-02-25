@@ -177,11 +177,11 @@ void *mtcp_get_thread_sysinfo() {
 }
 
 void mtcp_set_thread_sysinfo(void *sysinfo) {
-  int mtcp_sys_errno = 0;
 #if defined(__i386__) || defined(__x86_64__)
   asm volatile (CLEAN_FOR_64_BIT(mov %0, %%gs:) DEFAULT_SYSINFO_OFFSET "\n\t"
                 : : "r" (sysinfo) );
 #elif defined(__arm__)
+  int mtcp_sys_errno = 0;
   mtcp_sys_kernel_set_tls(sysinfo);
 #else
 # error "current architecture not supported"
@@ -231,7 +231,6 @@ static int write_args(char **vector, char *filename) {
 }
 
 static char *mygetenv(const char *name, char **environ) {
-  int mtcp_sys_errno;
   int i = 1;
   size_t len = mtcp_strlen(name);
   for (i = 0; i < MAX_NEW_ENVP_SIZE && environ[i] !=NULL; i++) {
@@ -441,7 +440,6 @@ static int setPersonalityEnv(const char* name, const char* val, char **environ)
 
 static int unsetPersonalityEnv(const char* name, char **environ)
 {
-  int mtcp_sys_errno;
   int i = 1;
   size_t len = mtcp_strlen(name);
   for (i = 0; i < MAX_NEW_ENVP_SIZE; i++) {
@@ -458,6 +456,7 @@ static int unsetPersonalityEnv(const char* name, char **environ)
   }
   return 1;
 }
+
 #ifdef STANDALONE
 int main() {
   mtcp_check_vdso();
