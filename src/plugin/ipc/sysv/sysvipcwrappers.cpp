@@ -76,7 +76,7 @@ void *shmat(int shmid, const void *shmaddr, int shmflg)
   // WHEN KERNEL FIX IS AVAILABLE, DO THIS ONLY FOR BUGGY KERNEL VERSIONS.
   if (((long)ret % 0x4000 != 0) && (ret != (void *)-1)) { // if ret%SHMLBA != 0
     void *ret_addr[20];
-    int i;
+    unsigned int i;
     for (i = 0; i < sizeof(ret_addr) / sizeof(ret_addr[0]) ; i++) {
       ret_addr[i] = ret; // Save bad address for detaching later
       ret = _real_shmat(realShmid, shmaddr, shmflg); // Try again
@@ -86,7 +86,7 @@ void *shmat(int shmid, const void *shmaddr, int shmflg)
     }
     // Detach all the bad addresses athat are not SHMLBA-aligned.
     if (i < sizeof(ret_addr) / sizeof(ret_addr[0]))
-      for (int j = 0; j < i+1; j++)
+      for (unsigned int j = 0; j < i+1; j++)
         _real_shmdt( ret_addr[j] );
     JASSERT((long)ret % 0x4000 == 0)
       (shmaddr) (shmflg) (getpid())
