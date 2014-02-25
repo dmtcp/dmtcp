@@ -305,6 +305,7 @@ void dmtcp::ConnectionRewirer::sendQueries()
   }
 }
 
+#if 0
 void dmtcp::ConnectionRewirer::debugPrint() const
 {
 #ifdef DEBUG
@@ -325,3 +326,4 @@ void dmtcp::ConnectionRewirer::debugPrint() const
   JNOTE("Pending connections") (o.str());
 #endif
 }
+#endif
