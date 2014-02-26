@@ -70,6 +70,6 @@ start_coordinator # -i 120 ... <put dmtcp coordinator options here>
 
 #export OMPI_MCA_btl="tcp,self"
 
-dmtcp_launch --rm mpirun --mca btl tcp,self ./mc_int
+dmtcp_launch --rm mpirun --mca btl tcp,self ./mc_int 100000000 1
 
 srun ./slurm_collect.sh
