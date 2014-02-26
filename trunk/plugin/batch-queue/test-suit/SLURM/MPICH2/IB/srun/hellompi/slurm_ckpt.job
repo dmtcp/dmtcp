@@ -68,8 +68,6 @@ cd $SLURM_SUBMIT_DIR
 
 start_coordinator # -i 120 ... <put dmtcp coordinator options here>
 
-export OMPI_MCA_btl="openib,self"
-
 echo "Start"
 date
 

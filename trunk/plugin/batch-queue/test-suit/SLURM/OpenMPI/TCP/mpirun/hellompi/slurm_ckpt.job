@@ -68,6 +68,12 @@ cd $SLURM_SUBMIT_DIR
 
 start_coordinator # -i 120 ... <put dmtcp coordinator options here>
 
+echo "Start"
+date
+
 dmtcp_launch --rm --ib mpirun --mca btl tcp,self ./hellompi
+
+echo "Finish"
+date
 
 srun ./slurm_collect.sh
