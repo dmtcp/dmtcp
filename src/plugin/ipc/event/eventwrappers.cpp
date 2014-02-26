@@ -156,7 +156,7 @@ extern "C" int epoll_wait(int epfd, struct epoll_event *events, int maxevents,
   int readyFds = 0;
   int timeLeft = timeout;
   int mytime;
-  JTRACE("Starting to do wait on epoll fd");
+//  JTRACE("Starting to do wait on epoll fd");
 
   if (timeout >= 0 && timeout < 1000) {
     // Short time intervals
