@@ -3,10 +3,9 @@
 #SBATCH --time=00:15:00           # put proper time of reservation here
 #SBATCH --nodes=2                 # number of nodes
 #SBATCH --ntasks-per-node=2       # processes per node
-#SBATCH --job-name="hellompi_c"
-#SBATCH --output=hellompi_c.std
-#SBATCH --error=hellompi_c.err
-# ? Any other batch options ?
+#SBATCH --job-name="hellompi_r"
+#SBATCH --output=hellompi_r.std
+#SBATCH --error=hellompi_r.err
 
 # Start dmtcp coordinator on launching node. Free TCP port is automatically allocated.
 # this function creates dmtcp_command.$JOBID script that serves like a wrapper around
@@ -68,15 +67,4 @@ cd $SLURM_SUBMIT_DIR
 
 start_coordinator # -i 120 ... <put dmtcp coordinator options here>
 
-export OMPI_MCA_btl="openib,self"
-
-echo "Start"
-date
-
-srun dmtcp_launch --rm --ib ./hellompi
-
-echo "Finish"
-date
-
-srun ./slurm_collect.sh
-
+/bin/bash ./dmtcp_restart_script.sh -h $DMTCP_HOST -p $DMTCP_PORT

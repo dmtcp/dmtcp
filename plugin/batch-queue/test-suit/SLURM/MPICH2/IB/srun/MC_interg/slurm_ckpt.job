@@ -70,13 +70,6 @@ start_coordinator # -i 120 ... <put dmtcp coordinator options here>
 
 export OMPI_MCA_btl="openib,self"
 
-echo "Start"
-date
-
-srun dmtcp_launch --rm --ib ./hellompi
-
-echo "Finish"
-date
+dmtcp_launch --rm --ib ./mc_int
 
 srun ./slurm_collect.sh
-
