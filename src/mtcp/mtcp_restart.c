@@ -59,7 +59,7 @@
 #include "mtcp_sys.h"
 #include "mtcp_util.ic"
 #include "mtcp_check_vdso.ic"
-#include "membarrier.h"
+#include "../membarrier.h"
 #include "procmapsarea.h"
 #include "mtcp_header.h"
 

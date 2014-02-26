@@ -24,7 +24,7 @@ all: ../../bin/mtcp_restart libmtcp.a ../../lib/dmtcp/libdmtcp.so
 mtcp_restart.o: mtcp_restart.c mtcp_util.ic mtcp_check_vdso.ic \
 	        mtcp_sys.h mtcp_util.h \
 	        ../membarrier.h ../../include/procmapsarea.h
-	${CC} ${MTCP_CFLAGS} -I. -I.. -I../../include \
+	${CC} ${MTCP_CFLAGS} -I. -I../../include \
 	    -DPIC -fPIC -g -O0 -fno-stack-protector -c $<
 
 # procmapssrea.h taken from mtcp_util.h ; Is this necessary?

@@ -49,8 +49,7 @@ endif
 # top-level include dir.
 DMTCP_INCLUDE_PATH = $(top_srcdir)/include
 
-INCLUDES = -I$(top_builddir)/include -I$(DMTCP_INCLUDE_PATH) \
-	   -I$(srcdir) -I$(top_srcdir)/src
+INCLUDES = -I$(top_builddir)/include -I$(DMTCP_INCLUDE_PATH) -I$(srcdir)
 
 COMPILE = $(CC) $(INCLUDES) $(CPPFLAGS) $(CFLAGS) -c -o $@
 LINK = $(CC) $(CFLAGS) $(LDFLAGS) -o $@
@@ -94,10 +93,7 @@ libmtcp.a: restore_libc.o ${ARM_BINARIES}
 # FIXME:  This is a low-level file.  Yet it draws from two directories.
 #    Part of the problem is that restore_libc.h copies DPRINTF from mtcp_util.h
 #    and uses protectedfds.h, which is in ../../include
-#    Do we really need protectedfds.h for low-level, where there is no JASSERT?
-#    Similarly, we need -I.. for ldt.h.  Shouldn't that low-level file be here? 
-#    Because of all the abstractions, there is no way to know about this bloat
-#      and false dependencies, except by using 'make' as a black box
+#    Do we need protectedfds.h for low-level, where there is no JASSERT?
 restore_libc.o: restore_libc.c $(HEADERS) $(DMTCP_INCLUDE_PATH)/protectedfds.h
 	$(COMPILE) -DPIC -fPIC -fno-stack-protector -g -O0 $<
 libc-do-syscall-arm.o: libc-do-syscall-arm.S

@@ -36,7 +36,7 @@
 #include <limits.h>
 
 #include "mtcp_util.h"
-#include  "membarrier.h"
+#include "../membarrier.h"
 
 unsigned long mtcp_strtol (char *str)
 {
