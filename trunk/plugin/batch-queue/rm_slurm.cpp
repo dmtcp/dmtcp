@@ -33,7 +33,6 @@
 #include <jconvert.h>
 #include <jfilesystem.h>
 #include <dmtcp.h>
-#include <uniquepid.h>
 #include "rm_main.h"
 #include "rm_slurm.h"
 
@@ -50,10 +49,10 @@ void probeSlurm()
 
 void slurm_restore_env()
 {
-  dmtcp::UniquePid uid;
-  uid = uid.ThisProcess();
-  const dmtcp::string str_uid = uid.toString();
-  dmtcp::string filename = uid.getTmpDir() + "/slurm_env_" + str_uid;
+  const dmtcp::string str_uid = dmtcp_get_uniquepid_str();
+  const char *ptr = dmtcp_get_tmpdir();
+  dmtcp::string tmpdir = dmtcp::string(ptr);
+  dmtcp::string filename =  tmpdir + "/slurm_env_" + str_uid;
   FILE *fp = fopen(filename.c_str(),"r");
   if( !fp ){
       JTRACE("Cannot open SLURM environment file. Environment won't be restored!")(filename);
