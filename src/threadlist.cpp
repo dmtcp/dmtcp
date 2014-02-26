@@ -451,8 +451,8 @@ void stopthisthread (int signum)
     if (retval) return;
   }
 
-  DPRINTF("Thread (%d) return address: %p\n",
-          curThread->tid, __builtin_return_address(0));
+//  DPRINTF("Thread (%d) return address: %p\n",
+//          curThread->tid, __builtin_return_address(0));
 
   // make sure we don't get called twice for same thread
   if (Thread_UpdateState(curThread, ST_SUSPINPROG, ST_SIGNALED)) {
@@ -467,8 +467,8 @@ void stopthisthread (int signum)
   ASSERT(getcontext(&curThread->savctx) == 0);
 #endif
   save_sp(&curThread->saved_sp);
-  DPRINTF("after sigsetjmp/getcontext. tid: %d, vtid: %d, saved_sp: %p\n",
-          curThread->tid, curThread->virtual_tid, curThread->saved_sp);
+//  DPRINTF("after sigsetjmp/getcontext. tid: %d, vtid: %d, saved_sp: %p\n",
+//          curThread->tid, curThread->virtual_tid, curThread->saved_sp);
 
     if (!restoreInProgress) {
       /* We are a user thread and all context is saved.
@@ -485,19 +485,19 @@ void stopthisthread (int signum)
       sem_post(&semNotifyCkptThread);
 
       /* Then wait for the ckpt thread to write the ckpt file then wake us up */
-      DPRINTF("User thread (%d) suspended\n", curThread->tid);
+//      DPRINTF("User thread (%d) suspended\n", curThread->tid);
       sem_wait(&semWaitForCkptThreadSignal);
-      DPRINTF("User thread (%d) resuming\n", curThread->tid);
+//      DPRINTF("User thread (%d) resuming\n", curThread->tid);
     } else {
       /* Else restoreinprog >= 1;  This stuff executes to do a restart */
       ThreadList::waitForAllRestored(curThread);
-      DPRINTF("thread (%d) restored\n", curThread->tid);
+//      DPRINTF("thread (%d) restored\n", curThread->tid);
     }
 
     ASSERT(Thread_UpdateState(curThread, ST_RUNNING, ST_SUSPENDED));
 
-    DPRINTF("Thread (%d) returning to user code: %p\n",
-            curThread->tid, __builtin_return_address(0));
+//    DPRINTF("Thread (%d) returning to user code: %p\n",
+//            curThread->tid, __builtin_return_address(0));
 
     callbackPreResumeUserThread(restoreInProgress);
   }
