@@ -68,7 +68,7 @@ start_coordinator # -i 120 ... <put dmtcp coordinator options here>
 echo "Start"
 date
 
-dmtcp_checkpoint --rm mpirun --mca btl self,tcp ./mc_int 1000 1
+dmtcp_checkpoint --rm mpirun --mca btl self,tcp ./mc_int 100000000 1 
 
 echo "Finish"
 date
