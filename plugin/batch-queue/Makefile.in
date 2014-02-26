@@ -43,10 +43,9 @@ endif
 LIBNAME=$(targetdir)/lib/${PACKAGE}/libdmtcp_${PLUGIN}.so
 
 DMTCP_INCLUDE_PATH = $(top_srcdir)/include
-DMTCP_SRC_PATH = $(top_srcdir)/src
 JALIB_PATH = $(top_srcdir)/jalib
 
-INCLUDES = -I$(JALIB_PATH) -I$(DMTCP_INCLUDE_PATH) -I$(top_builddir)/include -I$(DMTCP_SRC_PATH)
+INCLUDES = -I$(JALIB_PATH) -I$(DMTCP_INCLUDE_PATH) -I$(top_builddir)/include
 CFLAGS += -DHAVE_CONFIG_H -fPIC -g
 CXXFLAGS += -DHAVE_CONFIG_H -fPIC -g
 ifeq ($(M32),1)
