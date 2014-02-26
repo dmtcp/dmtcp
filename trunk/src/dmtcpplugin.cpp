@@ -194,10 +194,9 @@ EXTERNC int dmtcp_get_ckpt_signal(void)
 
 EXTERNC const char* dmtcp_get_tmpdir(void)
 {
-  static dmtcp::string *tmpdir = NULL;
-  if (tmpdir == NULL)
-    tmpdir = new dmtcp::string(dmtcp::UniquePid::getTmpDir());
-  return tmpdir->c_str();
+  static dmtcp::string tmpdir;
+  tmpdir = dmtcp::string(dmtcp::UniquePid::getTmpDir());
+  return tmpdir.c_str();
 }
 
 EXTERNC void dmtcp_set_tmpdir(const char* dir)
