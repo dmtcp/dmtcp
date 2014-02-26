@@ -16,7 +16,7 @@ int main(int argc, char* argv[])
     printf("*** Will print ten rows of dots.\n");  /* 1e7 / 1e6 == 10 */
   printf("Hello, world, I am %d of %d\n", rank, size);
 
-  for (i = 1; i < (int)1e7; i++)
+  for (i = 1; i < (int)1e4; i++)
   { int buf;
     MPI_Status status;
 
