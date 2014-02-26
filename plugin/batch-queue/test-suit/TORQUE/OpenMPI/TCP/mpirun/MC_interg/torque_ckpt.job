@@ -1,7 +1,7 @@
 #!/bin/bash
 # Put your PBS options here
 #PBS -N hellompi_c
-#PBS -l nodes=4:ppn=8
+#PBS -l nodes=2:ppn=1
 #PBS -q release
 
 
@@ -68,7 +68,7 @@ start_coordinator # -i 120 ... <put dmtcp coordinator options here>
 echo "Start"
 date
 
-dmtcp_checkpoint --rm mpirun --mca btl self,tcp ./mt_int
+dmtcp_checkpoint --rm mpirun --mca btl self,tcp ./mc_int 1000 1
 
 echo "Finish"
 date
