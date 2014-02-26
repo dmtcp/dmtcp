@@ -1,5 +1,6 @@
 #!/bin/bash
 
 # DMTCP settings
-export PATH="/home/research/artpol/sandbox/bin/:$PATH"
-export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/home/research/artpol/sandbox/lib"
+DMTCP_PATH="/home/research/artpol/sandbox"
+export PATH="$DMTCP_PATH/bin/:$PATH"
+export LD_LIBRARY_PATH="$DMTCP_PATH/lib:$LD_LIBRARY_PATH"
