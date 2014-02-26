@@ -86,7 +86,7 @@ if [ -n "$SLURM_JOBID" ] || [ -n "$SLURM_JOB_ID" ]; then
     if [ -z "$TDIR" ]; then
         TDIR=$TMPDIR
     fi
-    echo "TMPDIR=$TDIR"
+    #echo "TMPDIR=$TDIR"
     if [ -n "$TDIR" ]; then
         cp -R $TDIR/dmtcp* ./LOGS/
         rm -R $TDIR/dmtcp*
