@@ -16,6 +16,10 @@
 #include "jalloc.h"
 #include "jassert.h"
 
+// FIXME: Replace DPRINTF in the code below with JTRACE/JNOTE after the
+//        locking mechanism has been fixed.
+#undef DPRINTF
+#define DPRINTF(...) do{}while(0)
 
 // For i386 and x86_64, SETJMP currently has bugs.  Don't turn this
 //   on for them until they are debugged.
