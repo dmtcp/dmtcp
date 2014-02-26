@@ -1,2 +1,2 @@
 source ../../../../../dmtcp_env.sh
-source ../../../../../openmpi_env.sh
+source ../../../../../mpich2_env.sh
