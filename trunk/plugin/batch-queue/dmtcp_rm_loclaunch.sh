@@ -96,10 +96,10 @@ if [ -n "$SLURM_JOBID" ] || [ -n "$SLURM_JOB_ID" ]; then
 
 elif [ "$PBS_ENVIRONMENT" = PBS_BATCH ] && [ -n "$PBS_JOBID" ]; then
   cd $PBS_O_WORKDIR
-  ID=$PBS_NODENUM
-  if [ -z "$ID" ]; then
+  NODE=$PBS_NODENUM
+  if [ -z "$NODE" ]; then
     # something goes wrong. Shouldn't happen
-    echo "Cannot determine TORQUE_NODENUM. Exit."
+    echo "Cannot determine number of this node PBS_NODENUM=$PBS_NODENUM. Exit."
     set
     exit 0
   fi
@@ -111,15 +111,37 @@ elif [ "$PBS_ENVIRONMENT" = PBS_BATCH ] && [ -n "$PBS_JOBID" ]; then
   eval "$1"
 
   # Determine total number of nodes
-  IDS=$DMTCP_REMLAUNCH_IDS
-  if [ -z "$IDS" ] || [ "$ID" -ge "$IDS" ]; then
+  NODES=$DMTCP_REMLAUNCH_NODES
+  if [ -z "$NODES" ] || [ "$NODE" -ge "$NODES" ]; then
     # something goes wrong. Shouldn't happen
-    echo "No DMTCP environment or bad ID values: ID=$ID, IDS=$IDS. Exit."
+    echo "No DMTCP environment or bad ID values: ID=$NODE, IDS=$NODES. Exit."
     set
     exit 0
   fi
+
+
+  eval "LOCAL_SLOTS=\${DMTCP_REMLAUNCH_${NODE}_SLOTS}"
+  if [ "${LOCAL_SLOTS}" = 0 ] || [ -z "${LOCAL_SLOTS}" ]; then
+    echo "`hostname`: nothing to launch \${DMTCP_REMLAUNCH_${NODE}_SLOTS} = ${LOCAL_SLOTS}"
+    set
+    exit 0
+  fi
+
+  MAX_SLOT=`expr "$LOCAL_SLOTS" - 1`
+  LOCAL_FILES=""
+  for slot in `seq 0 $MAX_SLOT`; do
+    eval "LOCAL_FILES_TMP=\$DMTCP_REMLAUNCH_${NODE}_${slot}"
+    LOCAL_FILES=$LOCAL_FILES" "$LOCAL_FILES_TMP
+    unset LOCAL_FILES_TMP
+  done
   
-  eval "LOCAL_FILES=\${DMTCP_REMLAUNCH_$ID}"
+  if [ -z "$LOCAL_FILES" ]; then
+    echo "`hostname`: Bad LOCAL_FILES variable DMTCP_REMLAUNCH_${NODE}_${SLURM_LOCALID}"
+    set
+    exit 0
+  fi
+
+  #echo "LOCAL_FILES=$LOCAL_FILES"
   dmtcp_restart --join --host $DMTCP_HOST --port $DMTCP_PORT $LOCAL_FILES
   if [ -d ./LOGS ]; then
     cp -R /tmp/dmtcp* ./LOGS/
