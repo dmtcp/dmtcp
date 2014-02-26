@@ -16,7 +16,8 @@ int main(int argc, char* argv[])
     printf("*** Will print ten rows of dots.\n");  /* 1e7 / 1e6 == 10 */
   printf("Hello, world, I am %d of %d\n", rank, size);
 
-  for (i = 1; i < (int)1e7; i++)
+  double count = 1e6;
+  for (i = 1; i < (int)count; i++)
   { int buf;
     MPI_Status status;
 
@@ -37,10 +38,14 @@ int main(int argc, char* argv[])
     }
 
     if (rank == 0) {
-      if (i % (int)1e5 == 0) {printf("."); fflush(stdout);}
-      if (i % (int)5e6 == 0) printf("\n");
+      if (i % (int)(count/100) == 0) {printf("."); fflush(stdout);}
+      if (i % (int)(count/5) == 0) printf("\n");
     }
   }
+  
+  if( !rank )
+    printf("\n");
+    
   MPI_Finalize();
   return 0;
 }
