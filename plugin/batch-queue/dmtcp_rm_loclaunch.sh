@@ -75,7 +75,7 @@ if [ -n "$SLURM_JOBID" ] || [ -n "$SLURM_JOB_ID" ]; then
     exit 0
   fi
 
-  prepare_SLURM_env $LOCAL_FILES
+  prepare_SLURM_env "$LOCAL_FILES"
 
   dmtcp_restart --join --host $DMTCP_HOST --port $DMTCP_PORT $LOCAL_FILES
 
