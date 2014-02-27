@@ -64,6 +64,9 @@ static void suspendThreads();
 static void resumeThreads();
 static void stopthisthread(int sig);
 
+EXTERNC int dmtcp_ptrace_enabled(void) __attribute__((weak));
+
+
 /*****************************************************************************
  *
  * Lock and unlock the 'activeThreads' list
@@ -478,11 +481,20 @@ void stopthisthread (int signum)
       /* This sets a static variable in dmtcp.  It must be passed
        * from this user thread to ckpt thread before writing ckpt image
        */
-      callbackPreSuspendUserThread();
+      if (dmtcp_ptrace_enabled == NULL) {
+        callbackPreSuspendUserThread();
+      }
 
       /* Tell the checkpoint thread that we're all saved away */
       ASSERT(Thread_UpdateState(curThread, ST_SUSPENDED, ST_SUSPINPROG));
       sem_post(&semNotifyCkptThread);
+
+      /* This sets a static variable in dmtcp.  It must be passed
+       * from this user thread to ckpt thread before writing ckpt image
+       */
+      if (dmtcp_ptrace_enabled != NULL && dmtcp_ptrace_enabled()) {
+        callbackPreSuspendUserThread();
+      }
 
       /* Then wait for the ckpt thread to write the ckpt file then wake us up */
 //      DPRINTF("User thread (%d) suspended\n", curThread->tid);
