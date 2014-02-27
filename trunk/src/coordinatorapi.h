@@ -59,6 +59,7 @@ namespace dmtcp
 
       void connectToCoordOnStartup(CoordinatorMode  mode,
                                    string           progname,
+                                   DmtcpUniqueProcessId *compId,
                                    CoordinatorInfo *coordInfo,
                                    struct in_addr  *localIP);
       void createNewConnectionBeforeFork(string& progname);
@@ -99,7 +100,8 @@ namespace dmtcp
     private:
       void startNewCoordinator(CoordinatorAPI::CoordinatorMode mode);
       void createNewConnToCoord(CoordinatorAPI::CoordinatorMode mode);
-      DmtcpMessage sendRecvHandshake(DmtcpMessage msg, string progname);
+      DmtcpMessage sendRecvHandshake(DmtcpMessage msg, string progname,
+                                     UniquePid *compId = NULL);
 
     protected:
       jalib::JSocket          _coordinatorSocket;

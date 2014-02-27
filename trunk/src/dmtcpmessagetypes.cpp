@@ -39,7 +39,6 @@ dmtcp::DmtcpMessage::DmtcpMessage ( DmtcpMessageType t /*= DMT_NULL*/ )
     ,type ( t )
     ,state ( WorkerState::currentState() )
     ,from ( UniquePid::ThisProcess() )
-    ,compGroup ( UniquePid::ComputationId() )
     ,virtualPid ( -1 )
     ,realPid ( -1 )
     ,keyLen ( 0 )
@@ -53,6 +52,7 @@ dmtcp::DmtcpMessage::DmtcpMessage ( DmtcpMessageType t /*= DMT_NULL*/ )
 {
 //     struct sockaddr_storage _addr;
 //         socklen_t _addrlen;
+  memset(&compGroup, 0, sizeof(compGroup));
   memset(&ipAddr, 0, sizeof ipAddr);
   memset(nsid, 0, sizeof nsid);
   strncpy ( _magicBits,DMTCP_MAGIC_STRING,sizeof ( _magicBits ) );

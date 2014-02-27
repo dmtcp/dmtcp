@@ -384,9 +384,8 @@ void dmtcp::DmtcpWorker::waitForCoordinatorMsg(dmtcp::string msgStr,
   if (dmtcp_no_coordinator()) {
     if (type == DMT_DO_SUSPEND) {
       CoordinatorAPI::waitForCheckpointCommand();
-      UniquePid::ComputationId() = UniquePid::ThisProcess();
       ProcessInfo::instance().numPeers(1);
-      ProcessInfo::instance().compGroup(UniquePid::ComputationId());
+      ProcessInfo::instance().compGroup(SharedData::getCompId());
     }
     return;
   }
@@ -449,13 +448,13 @@ void dmtcp::DmtcpWorker::waitForCoordinatorMsg(dmtcp::string msgStr,
 
   // Coordinator sends some computation information along with the SUSPEND
   // message. Extracting that.
-  if (type == DMT_DO_SUSPEND) {
-    UniquePid::ComputationId() = msg.compGroup;
-  } else if (type == DMT_DO_FD_LEADER_ELECTION) {
+  if (type == DMT_DO_FD_LEADER_ELECTION) {
+    SharedData::updateGeneration(msg.compGroup.generation());
+    JASSERT(SharedData::getCompId() == msg.compGroup.upid()) (SharedData::getCompId())
+      (msg.compGroup);
     JTRACE("Computation information") (msg.compGroup) (msg.numPeers);
-    ProcessInfo::instance().numPeers(msg.numPeers);
-    JASSERT(UniquePid::ComputationId() == msg.compGroup);
     ProcessInfo::instance().compGroup(msg.compGroup);
+    ProcessInfo::instance().numPeers(msg.numPeers);
   }
 }
 

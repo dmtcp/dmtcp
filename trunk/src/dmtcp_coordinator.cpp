@@ -420,6 +420,7 @@ const int STDIN_FD = fileno ( stdin );
 JTIMER ( checkpoint );
 JTIMER ( restart );
 
+static UniquePid compId;
 static int numPeers = -1;
 static time_t curTimeStamp = -1;
 static time_t ckptTimeStamp = -1;
@@ -616,9 +617,7 @@ void dmtcp::DmtcpCoordinator::updateMinimumState(dmtcp::WorkerState oldState)
        && newState == WorkerState::SUSPENDED )
   {
     JNOTE ( "locking all nodes" );
-    broadcastMessage(DMT_DO_FD_LEADER_ELECTION,
-                     UniquePid::ComputationId(),
-                     getStatus().numPeers );
+    broadcastMessage(DMT_DO_FD_LEADER_ELECTION, compId, getStatus().numPeers );
   }
   if ( oldState == WorkerState::SUSPENDED
        && newState == WorkerState::FD_LEADER_ELECTION )
@@ -847,9 +846,8 @@ void dmtcp::DmtcpCoordinator::onData(CoordClient *client)
 static void removeStaleSharedAreaFile()
 {
   ostringstream o;
-  o << UniquePid::getTmpDir() << "/dmtcpSharedArea."
-    << UniquePid::ComputationId() << "."
-    << std::hex << curTimeStamp;
+  o << UniquePid::getTmpDir()
+    << "/dmtcpSharedArea." << compId << "." << std::hex << curTimeStamp;
   JTRACE("Removing sharedArea file.") (o.str());
   unlink(o.str().c_str());
 }
@@ -911,7 +909,7 @@ void dmtcp::DmtcpCoordinator::initializeComputation()
   updateCheckpointInterval( theDefaultCheckpointInterval );
 
   // drop current computation group to 0
-  UniquePid::ComputationId() = dmtcp::UniquePid(0,0,0);
+  compId = dmtcp::UniquePid(0,0,0);
   curTimeStamp = 0; // Drop timestamp to 0
   numPeers = -1; // Drop number of peers to unknown
   blockUntilDone = false;
@@ -1087,31 +1085,31 @@ bool dmtcp::DmtcpCoordinator::validateRestartingWorkerProcess
 
   JASSERT(hello_remote.state == WorkerState::RESTARTING) (hello_remote.state);
 
-  if (UniquePid::ComputationId() == dmtcp::UniquePid(0,0,0)) {
+  if (compId == dmtcp::UniquePid(0,0,0)) {
     JASSERT ( minimumState() == WorkerState::UNKNOWN )
       .Text ( "Coordinator should be idle at this moment" );
     // Coordinator is free at this moment - set up all the things
-    UniquePid::ComputationId() = hello_remote.compGroup;
+    compId = hello_remote.compGroup;
     numPeers = hello_remote.numPeers;
     JASSERT(gettimeofday(&tv, NULL) == 0);
     // Get the resolution down to 100 mili seconds.
     curTimeStamp = (tv.tv_sec << 4) | (tv.tv_usec / (100*1000));
     JNOTE ( "FIRST dmtcp_restart connection.  Set numPeers. Generate timestamp" )
-      ( numPeers ) ( curTimeStamp ) ( UniquePid::ComputationId() );
+      ( numPeers ) ( curTimeStamp ) ( compId );
     JTIMER_START(restart);
   } else if (minimumState() != WorkerState::RESTARTING &&
              minimumState() != WorkerState::CHECKPOINTED) {
     JNOTE ("Computation not in RESTARTING or CHECKPOINTED state."
            "  Reject incoming restarting computation process.")
-      (UniquePid::ComputationId()) (hello_remote.compGroup) (minimumState());
+      (compId) (hello_remote.compGroup) (minimumState());
     hello_local.type = dmtcp::DMT_REJECT_NOT_RESTARTING;
     remote << hello_local;
     remote.close();
     return false;
-  } else if ( hello_remote.compGroup != UniquePid::ComputationId()) {
+  } else if ( hello_remote.compGroup != compId) {
     JNOTE ("Reject incoming restarting computation process"
            " since it is not from current computation")
-      ( UniquePid::ComputationId() ) ( hello_remote.compGroup );
+      ( compId ) ( hello_remote.compGroup );
     hello_local.type = dmtcp::DMT_REJECT_WRONG_COMP;
     remote << hello_local;
     remote.close();
@@ -1122,7 +1120,7 @@ bool dmtcp::DmtcpCoordinator::validateRestartingWorkerProcess
   JASSERT ( curTimeStamp != 0 );
 
   JTRACE("Connection from (restarting) computation process")
-    ( UniquePid::ComputationId() ) ( hello_remote.compGroup ) ( minimumState() );
+    ( compId ) ( hello_remote.compGroup ) ( minimumState() );
 
   hello_local.coordTimeStamp = curTimeStamp;
   if (Util::strStartsWith(remoteIP, "127.")) {
@@ -1174,7 +1172,7 @@ bool dmtcp::DmtcpCoordinator::validateNewWorkerProcess
     JASSERT(s.minimumState != WorkerState::SUSPENDED) (s.minimumState);
 
     // Handshake
-    hello_local.compGroup = UniquePid::ComputationId();
+    hello_local.compGroup = compId;
     remote << hello_local;
 
     // Now send DMT_DO_SUSPEND message so that this process can also
@@ -1187,7 +1185,7 @@ bool dmtcp::DmtcpCoordinator::validateNewWorkerProcess
     // If some of the processes are not in RUNNING state
     JNOTE("Current computation not in RUNNING state."
           "  Refusing to accept new connections.")
-      (UniquePid::ComputationId()) (hello_remote.from)
+      (compId) (hello_remote.from)
       (s.numPeers) (s.minimumState);
     hello_local.type = dmtcp::DMT_REJECT_NOT_RUNNING;
     remote << hello_local;
@@ -1206,10 +1204,13 @@ bool dmtcp::DmtcpCoordinator::validateNewWorkerProcess
 
   } else {
     // If first process, create the new computation group
-    if (UniquePid::ComputationId() == UniquePid(0,0,0)) {
+    if (compId == UniquePid(0,0,0)) {
       struct timeval tv;
       // Connection of new computation.
-      UniquePid::ComputationId() = hello_remote.from;
+      compId = UniquePid(hello_remote.from.hostid(), client->virtualPid(),
+                         hello_remote.from.time(),
+                         hello_remote.from.generation());
+
       localPrefix.clear();
       localHostName.clear();
       remotePrefix.clear();
@@ -1222,7 +1223,7 @@ bool dmtcp::DmtcpCoordinator::validateNewWorkerProcess
       curTimeStamp = (tv.tv_sec << 4) | (tv.tv_usec / (100*1000));
       numPeers = -1;
       JTRACE("First process connected.  Creating new computation group")
-        (UniquePid::ComputationId());
+        (compId);
     } else {
       JTRACE("New process connected")
         (hello_remote.from) (client->prefixDir()) (client->virtualPid());
@@ -1232,7 +1233,7 @@ bool dmtcp::DmtcpCoordinator::validateNewWorkerProcess
       }
       if (!client->prefixDir().empty() && client->hostname() != localHostName) {
         if (remotePrefix.empty()) {
-          JASSERT (UniquePid::ComputationId() != UniquePid(0,0,0));
+          JASSERT (compId != UniquePid(0,0,0));
           remotePrefix = client->prefixDir();
         } else if (remotePrefix != client->prefixDir()) {
           JNOTE("This node has different prefixDir than the rest of the "
@@ -1245,7 +1246,7 @@ bool dmtcp::DmtcpCoordinator::validateNewWorkerProcess
         }
       }
     }
-    hello_local.compGroup = UniquePid::ComputationId();
+    hello_local.compGroup = compId;
     hello_local.coordTimeStamp = curTimeStamp;
     if (Util::strStartsWith(remoteIP, "127.")) {
       memcpy(&hello_local.ipAddr, &localhostIPAddr, sizeof localhostIPAddr);
@@ -1267,8 +1268,8 @@ bool dmtcp::DmtcpCoordinator::startCheckpoint()
     JTIMER_START ( checkpoint );
     _restartFilenames.clear();
     JNOTE ( "starting checkpoint, suspending all nodes" )( s.numPeers );
-    UniquePid::ComputationId().incrementGeneration();
-    JNOTE("Incremented Generation") (UniquePid::ComputationId().generation());
+    compId.incrementGeneration();
+    JNOTE("Incremented Generation") (compId.generation());
     // Pass number of connected peers to all clients
     broadcastMessage(DMT_DO_SUSPEND);
 
@@ -1354,10 +1355,10 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
   dmtcp::string uniqueFilename;
 
   o << dmtcp::string(ckptDir) << "/"
-    << RESTART_SCRIPT_BASENAME << "_" << UniquePid::ComputationId()
+    << RESTART_SCRIPT_BASENAME << "_" << compId
 #ifdef UNIQUE_CHECKPOINT_FILENAMES
     << "_"
-    << std::setw(5) << std::setfill('0') << UniquePid::ComputationId().generation()
+    << std::setw(5) << std::setfill('0') << compId.generation()
 #endif
     << "." << RESTART_SCRIPT_EXT;
   uniqueFilename = o.str();

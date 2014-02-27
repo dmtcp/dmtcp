@@ -134,6 +134,19 @@ EXTERNC int dmtcp_should_ckpt_open_files(void);
 
 EXTERNC int dmtcp_get_ckpt_signal(void);
 EXTERNC const char* dmtcp_get_uniquepid_str(void) __attribute__((weak));
+
+/*
+ * ComputationID
+ *   ComputationID of a computation is the unique-pid of the first process of
+ *   the computation. Even if that process dies, the rest of the computation
+ *   retains the same computation ID.
+ *
+ *   With --enable-unique-checkpoint-filenames, the ComputationID also includes
+ *   the checkpoint generation number (starting from 1). This number is same
+ *   for the entire computation at a given point in time. Dmtcp coordinator
+ *   increments this number prior to sending the SUSPEND message and is sent to
+ *   the workers as a part of the SUSPEND message.
+ */
 EXTERNC const char* dmtcp_get_computation_id_str(void);
 EXTERNC uint64_t dmtcp_get_coordinator_timestamp(void);
 EXTERNC uint32_t dmtcp_get_generation(void);

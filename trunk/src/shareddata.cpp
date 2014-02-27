@@ -68,7 +68,8 @@ void dmtcp_SharedData_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
   }
 }
 
-void dmtcp::SharedData::initializeHeader(CoordinatorInfo *coordInfo,
+void dmtcp::SharedData::initializeHeader(DmtcpUniqueProcessId *compId,
+                                         CoordinatorInfo *coordInfo,
                                          struct in_addr *localIPAddr)
 {
   JASSERT(coordInfo != NULL && localIPAddr != NULL);
@@ -97,6 +98,7 @@ void dmtcp::SharedData::initializeHeader(CoordinatorInfo *coordInfo,
   sharedDataHeader->numPtyNameMaps = 0;
   sharedDataHeader->initialized = true;
   sharedDataHeader->numMissingConMaps = 0;
+  memcpy(&sharedDataHeader->compId, compId, sizeof(*compId));
   memcpy(&sharedDataHeader->coordInfo, coordInfo, sizeof (*coordInfo));
   memcpy(&sharedDataHeader->localIPAddr, localIPAddr, sizeof (*localIPAddr));
   // The current implementation simply increments the last count and returns it.
@@ -110,7 +112,8 @@ void dmtcp::SharedData::initializeHeader(CoordinatorInfo *coordInfo,
   }
 }
 
-void dmtcp::SharedData::initialize(CoordinatorInfo *coordInfo = NULL,
+void dmtcp::SharedData::initialize(DmtcpUniqueProcessId *compId = NULL,
+                                   CoordinatorInfo *coordInfo = NULL,
                                    struct in_addr *localIPAddr = NULL)
 {
   /* FIXME: If the coordinator timestamp resolution is 1 second, during
@@ -125,8 +128,7 @@ void dmtcp::SharedData::initialize(CoordinatorInfo *coordInfo = NULL,
   if (!Util::isValidFd(PROTECTED_SHM_FD)) {
     dmtcp::ostringstream o;
     o << UniquePid::getTmpDir() << "/dmtcpSharedArea."
-      << UniquePid::ComputationId() << "."
-      << std::hex << coordInfo->timeStamp;
+      << *compId << "." << std::hex << coordInfo->timeStamp;
 
     int fd = _real_open(o.str().c_str(), O_RDWR | O_CREAT | O_EXCL, 0600);
     if (fd == -1 && errno == EEXIST) {
@@ -156,7 +158,7 @@ void dmtcp::SharedData::initialize(CoordinatorInfo *coordInfo = NULL,
 
   if (needToInitialize) {
     Util::lockFile(PROTECTED_SHM_FD);
-    initializeHeader(coordInfo, localIPAddr);
+    initializeHeader(compId, coordInfo, localIPAddr);
     Util::unlockFile(PROTECTED_SHM_FD);
   } else {
     struct stat statbuf;
@@ -294,6 +296,17 @@ void dmtcp::SharedData::setCkptInterval(uint32_t interval)
   Util::lockFile(PROTECTED_SHM_FD);
   sharedDataHeader->coordInfo.interval = interval;
   Util::unlockFile(PROTECTED_SHM_FD);
+}
+
+void dmtcp::SharedData::updateGeneration(uint32_t generation)
+{
+  if (sharedDataHeader == NULL) initialize();
+  sharedDataHeader->compId._generation = generation;
+}
+DmtcpUniqueProcessId dmtcp::SharedData::getCompId()
+{
+  if (sharedDataHeader == NULL) initialize();
+  return sharedDataHeader->compId;
 }
 
 DmtcpUniqueProcessId dmtcp::SharedData::getCoordId()
