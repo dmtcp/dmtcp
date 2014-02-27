@@ -122,14 +122,6 @@ static dmtcp::UniquePid& parentProcess()
   return *t;
 }
 
-static dmtcp::UniquePid& computationId()
-{
-  static char buf[sizeof(dmtcp::UniquePid)];
-  static dmtcp::UniquePid* t=NULL;
-  if(t==NULL) t = new (buf) dmtcp::UniquePid(0,0,0);
-  return *t;
-}
-
 dmtcp::UniquePid::UniquePid(const char *filename)
 {
   char *str = strdup(filename);
@@ -174,23 +166,6 @@ dmtcp::UniquePid& dmtcp::UniquePid::ThisProcess(bool disableJTrace /*=false*/)
 dmtcp::UniquePid& dmtcp::UniquePid::ParentProcess()
 {
   return parentProcess();
-}
-
-/*
- * ComputationID
- *   ComputationID of a computation is the unique-pid of the first process of
- *   the computation. Even if that process dies, the rest of the computation
- *   retains the same computation ID.
- *
- *   With --enable-unique-checkpoint-filenames, the ComputationID also includes
- *   the checkpoint generation number (starting from 1). This number is same
- *   for the entire computation at a given point in time. Dmtcp coordinator
- *   increments this number prior to sending the SUSPEND message and is sent to
- *   the workers as a part of the SUSPEND message.
- */
-dmtcp::UniquePid& dmtcp::UniquePid::ComputationId()
-{
-  return computationId();
 }
 
 /*!
@@ -283,12 +258,13 @@ void dmtcp::UniquePid::updateCkptDir()
   }
 
 #ifdef UNIQUE_CHECKPOINT_FILENAMES
-  JASSERT(computationId() != UniquePid(0,0,0));
-  JASSERT(computationId().generation() != -1);
+  UniquePid compId(SharedData::getCompId());
+  JASSERT(compId != UniquePid(0,0,0));
+  JASSERT(compId.generation() != -1);
 
   dmtcp::ostringstream o;
-  o << "/ckpt_" << _prefix << computationId() << "_"
-    << std::setw(5) << std::setfill('0') << computationId().generation();
+  o << "/ckpt_" << _prefix << compId << "_"
+    << std::setw(5) << std::setfill('0') << compId.generation();
   _uniqueDir() = o.str();
 #endif
 }
@@ -447,6 +423,27 @@ dmtcp::ostream& dmtcp::operator<< ( dmtcp::ostream& o,const dmtcp::UniquePid& id
 {
   o << std::hex << id.hostid() << '-' << std::dec << id.pid() << '-' << std::hex << id.time() << std::dec;
   return o;
+}
+
+dmtcp::ostream& dmtcp::operator<< ( dmtcp::ostream& o,const DmtcpUniqueProcessId& id )
+{
+  o << std::hex << id._hostid<< '-' << std::dec << id._pid << '-' << std::hex << id._time << std::dec;
+  return o;
+}
+
+bool dmtcp::operator==(const DmtcpUniqueProcessId& a,
+                       const DmtcpUniqueProcessId& b)
+{
+  return a._hostid == b._hostid &&
+         a._pid == b._pid &&
+         a._time == b._time &&
+         a._generation == b._generation;
+}
+
+bool dmtcp::operator!=(const DmtcpUniqueProcessId& a,
+                       const DmtcpUniqueProcessId& b)
+{
+  return !(a == b);
 }
 
 dmtcp::string dmtcp::UniquePid::toString() const{

@@ -34,7 +34,6 @@ namespace dmtcp
   {
   public:
     static dmtcp::UniquePid& ParentProcess();
-    static dmtcp::UniquePid& ComputationId();
     static dmtcp::UniquePid& ThisProcess(bool disableJTrace = false);
     UniquePid();
 
@@ -95,6 +94,9 @@ namespace dmtcp
   };
 
   dmtcp::ostream& operator << ( dmtcp::ostream& o,const dmtcp::UniquePid& id );
+  dmtcp::ostream& operator << ( dmtcp::ostream& o,const DmtcpUniqueProcessId& id );
+  bool operator==(const DmtcpUniqueProcessId& a, const DmtcpUniqueProcessId& b);
+  bool operator!=(const DmtcpUniqueProcessId& a, const DmtcpUniqueProcessId& b);
 }
 
 #endif

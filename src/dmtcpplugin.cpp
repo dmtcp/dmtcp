@@ -274,9 +274,10 @@ EXTERNC DmtcpUniqueProcessId dmtcp_get_uniquepid(void)
 EXTERNC const char* dmtcp_get_computation_id_str(void)
 {
   static dmtcp::string *compid_str = NULL;
-  if (compid_str == NULL)
-    compid_str =
-      new dmtcp::string(dmtcp::UniquePid::ComputationId().toString());
+  if (compid_str == NULL) {
+    UniquePid compId = SharedData::getCompId();
+    compid_str = new dmtcp::string(compId.toString());
+  }
   return compid_str->c_str();
 }
 
@@ -301,7 +302,7 @@ EXTERNC uint64_t dmtcp_get_coordinator_timestamp(void)
 
 EXTERNC uint32_t dmtcp_get_generation(void)
 {
-  return dmtcp::UniquePid::ComputationId().generation();
+  return dmtcp::SharedData::getCompId()._generation;
 }
 
 EXTERNC int dmtcp_is_running_state(void)

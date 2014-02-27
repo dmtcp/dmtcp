@@ -120,12 +120,17 @@ namespace dmtcp {
       InodeConnIdMap       inodeConnIdMap[MAX_INODE_PID_MAPS];
 
       char                 versionStr[32];
+      DmtcpUniqueProcessId compId;
       CoordinatorInfo      coordInfo;
       //char                 coordHost[NI_MAXHOST];
     };
 
-    void initialize(CoordinatorInfo *coordInfo, struct in_addr *localIP);
-    void initializeHeader(CoordinatorInfo *coordInfo, struct in_addr *localIP);
+    void initialize(DmtcpUniqueProcessId *compId,
+                    CoordinatorInfo *coordInfo,
+                    struct in_addr *localIP);
+    void initializeHeader(DmtcpUniqueProcessId *compId,
+                          CoordinatorInfo *coordInfo,
+                          struct in_addr *localIP);
     void suspended();
     void preCkpt();
     void refill();
@@ -141,6 +146,8 @@ namespace dmtcp {
 
     uint32_t  getCkptInterval();
     void setCkptInterval(uint32_t interval);
+    void updateGeneration(uint32_t generation);
+    DmtcpUniqueProcessId getCompId();
     DmtcpUniqueProcessId getCoordId();
     uint64_t getCoordTimeStamp();
     void getCoordAddr(struct sockaddr *addr, uint32_t *len);

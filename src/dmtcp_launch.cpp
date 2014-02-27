@@ -453,17 +453,19 @@ int main ( int argc, char** argv )
   // Set DLSYM_OFFSET env var(s).
   dmtcp::Util::prepareDlsymWrapper();
 
+  DmtcpUniqueProcessId compId;
   CoordinatorInfo coordInfo;
   struct in_addr localIPAddr;
   CoordinatorAPI::instance().connectToCoordOnStartup(allowedModes, argv[0],
-                                                     &coordInfo, &localIPAddr);
+                                                     &compId, &coordInfo,
+                                                     &localIPAddr);
   /* We need to initialize SharedData here to make sure that it is
    * initialized with the correct coordinator timestamp.  The coordinator
    * timestamp is updated only during postCkpt callback. However, the
    * SharedData area may be initialized earlier (for example, while
    * recreating threads), causing it to use *older* timestamp.
    */
-  dmtcp::SharedData::initialize(&coordInfo, &localIPAddr);
+  dmtcp::SharedData::initialize(&compId, &coordInfo, &localIPAddr);
 
   setLDPreloadLibs(is32bitElf);
 

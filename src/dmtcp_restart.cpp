@@ -179,10 +179,10 @@ class RestoreTarget
     {
       UniquePid::ThisProcess() = _pInfo.upid();
       UniquePid::ParentProcess() = _pInfo.uppid();
-      UniquePid::ComputationId() = _pInfo.compGroup();
       dmtcp::Util::initializeLogFile(_pInfo.procname());
 
       if (createIndependentRootProcesses) {
+        DmtcpUniqueProcessId compId = _pInfo.compGroup().upid();
         CoordinatorInfo coordInfo;
         struct in_addr localIPAddr;
         CoordinatorAPI::instance().connectToCoordOnRestart(CoordinatorAPI::COORD_ANY,
@@ -198,7 +198,7 @@ class RestoreTarget
          * SharedData area may be initialized earlier (for example, while
          * recreating threads), causing it to use *older* timestamp.
          */
-        dmtcp::SharedData::initialize(&coordInfo, &localIPAddr);
+        dmtcp::SharedData::initialize(&compId, &coordInfo, &localIPAddr);
       }
 
       JTRACE("Creating process during restart") (upid()) (_pInfo.procname());

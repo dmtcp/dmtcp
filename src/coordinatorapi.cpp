@@ -448,7 +448,8 @@ void CoordinatorAPI::createNewConnToCoord(CoordinatorAPI::CoordinatorMode mode)
 }
 
 DmtcpMessage dmtcp::CoordinatorAPI::sendRecvHandshake(DmtcpMessage msg,
-                                                      string progname)
+                                                      string progname,
+                                                      UniquePid *compId)
 {
   if (dmtcp_virtual_to_real_pid) {
     msg.realPid = dmtcp_virtual_to_real_pid(getpid());
@@ -485,7 +486,8 @@ DmtcpMessage dmtcp::CoordinatorAPI::sendRecvHandshake(DmtcpMessage msg,
             "Reason: Current computation not in RUNNING state.\n"
             "         Is a checkpoint/restart in progress?");
   } else if (msg.type == DMT_REJECT_WRONG_COMP) {
-    JASSERT(false) (UniquePid::ComputationId())
+    JASSERT(compId != NULL);
+    JASSERT(false) (*compId)
       .Text("Connection rejected by the coordinator.\n"
             " Reason: This process has a different computation group.");
   } else if (msg.type == DMT_REJECT_WRONG_PREFIX) {
@@ -501,6 +503,7 @@ DmtcpMessage dmtcp::CoordinatorAPI::sendRecvHandshake(DmtcpMessage msg,
 
 void dmtcp::CoordinatorAPI::connectToCoordOnStartup(CoordinatorMode  mode,
                                                     string           progname,
+                                                    DmtcpUniqueProcessId *compId,
                                                     CoordinatorInfo *coordInfo,
                                                     struct in_addr  *localIP)
 {
@@ -516,9 +519,8 @@ void dmtcp::CoordinatorAPI::connectToCoordOnStartup(CoordinatorMode  mode,
   JTRACE("Got virtual pid from coordinator") (hello_remote.virtualPid);
   dmtcp::Util::setVirtualPidEnvVar(hello_remote.virtualPid, getppid());
 
-  UniquePid::ComputationId() = hello_remote.compGroup;
-
-  JASSERT(localIP != NULL && coordInfo != NULL);
+  JASSERT(compId != NULL && localIP != NULL && coordInfo != NULL);
+  *compId = hello_remote.compGroup.upid();
   coordInfo->id = hello_remote.from.upid();
   coordInfo->timeStamp = hello_remote.coordTimeStamp;
   coordInfo->addrLen = sizeof (coordInfo->addr);
@@ -565,7 +567,8 @@ void dmtcp::CoordinatorAPI::connectToCoordOnRestart(CoordinatorMode  mode,
   hello_local.numPeers = np;
   hello_local.compGroup = compGroup;
 
-  DmtcpMessage hello_remote = sendRecvHandshake(hello_local, progname);
+  DmtcpMessage hello_remote = sendRecvHandshake(hello_local, progname,
+                                                &compGroup);
 
   if (coordInfo != NULL) {
     coordInfo->id = hello_remote.from.upid();
