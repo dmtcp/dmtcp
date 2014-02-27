@@ -894,10 +894,10 @@ if HAS_SCREEN == "yes":
                                 " -c /dev/null -s /bin/sh"])
   S=DEFAULT_S
 
-if PTRACE_SUPPORT == "yes" and sys.version_info[0:2] >= (2,6):
+if ARM_HOST == "no" and sys.version_info[0:2] >= (2,6):
   if HAS_STRACE == "yes":
     S=10*DEFAULT_S
-    runTest("strace",    2,  ["strace test/dmtcp2"])
+    runTest("strace",    2,  ["--ptrace strace test/dmtcp2"])
     S=DEFAULT_S
 
   if HAS_GDB == "yes":
@@ -908,10 +908,10 @@ if PTRACE_SUPPORT == "yes" and sys.version_info[0:2] >= (2,6):
       os.system("echo 'run' > dmtcp-gdbinit.tmp")
       S=10*DEFAULT_S
       runTest("gdb",          2,
-              ["gdb -n -batch -x dmtcp-gdbinit.tmp test/dmtcp1"])
+              ["--ptrace gdb -n -batch -x dmtcp-gdbinit.tmp test/dmtcp1"])
 
       runTest("gdb-pthread0", 2,
-              ["gdb -n -batch -x dmtcp-gdbinit.tmp test/dmtcp3"])
+              ["--ptrace gdb -n -batch -x dmtcp-gdbinit.tmp test/dmtcp3"])
 
       # These tests currently fail sometimes (if the computation is checkpointed
       # while a thread is being created). Re-enable them when this issue has
