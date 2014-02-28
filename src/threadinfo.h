@@ -1,5 +1,5 @@
-#ifndef TLSINFO_H
-#define TLSINFO_H
+#ifndef THREADINFO_H
+#define THREADINFO_H
 
 #include <ucontext.h>
 #include <signal.h>
@@ -10,7 +10,7 @@
 #include <linux/version.h>
 #include "syscallwrappers.h"  /* for _real_syscall */
 #include "protectedfds.h"
-#include "mtcp/mtcp_header.h"
+#include "mtcp/restore_libc.h"
 
 // For i386 and x86_64, SETJMP currently has bugs.  Don't turn this
 //   on for them until they are debugged.
@@ -23,32 +23,6 @@
 # include <setjmp.h>
 #else
 # include <ucontext.h>
-#endif
-
-#ifdef __x86_64__
-# define ELF_AUXV_T Elf64_auxv_t
-# define UINT_T uint64_t
-#else
-  // else __i386__ and __arm__
-# define ELF_AUXV_T Elf32_auxv_t
-# define UINT_T uint32_t
-#endif
-
-#ifdef __x86_64__
-# define eax rax
-# define ebx rbx
-# define ecx rcx
-# define edx rax
-# define ebp rbp
-# define esi rsi
-# define edi rdi
-# define esp rsp
-# define CLEAN_FOR_64_BIT(args...) CLEAN_FOR_64_BIT_HELPER(args)
-# define CLEAN_FOR_64_BIT_HELPER(args...) #args
-#elif __i386__
-# define CLEAN_FOR_64_BIT(args...) #args
-#else
-# define CLEAN_FOR_64_BIT(args...) "CLEAN_FOR_64_BIT_undefined"
 #endif
 
 #ifdef __cplusplus
@@ -116,15 +90,13 @@ struct Thread {
 
 };
 
-void TLSInfo_VerifyPidTid(pid_t pid, pid_t tid);
-void TLSInfo_UpdatePid();
-void TLSInfo_SaveTLSState (ThreadTLSInfo *tlsInfo);
-void TLSInfo_RestoreTLSState(ThreadTLSInfo *tlsInfo);
-void TLSInfo_SetThreadSysinfo(void *sysinfo);
-void *TLSInfo_GetThreadSysinfo();
-int  TLSInfo_HaveThreadSysinfoOffset();
-int  TLSInfo_GetTidOffset();
-int  TLSInfo_GetPidOffset();
+void Thread_Init();
+void Thread_PostRestart();
+
+int Thread_UpdateState(Thread *th, ThreadState newval, ThreadState oldval);
+
+void Thread_SaveSigState(Thread *th);
+void Thread_RestoreSigState(Thread *th);
 
 #ifdef __cplusplus
 }

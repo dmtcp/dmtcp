@@ -4,7 +4,6 @@
 #include <sys/syscall.h>
 #include <unistd.h>
 #include <semaphore.h>
-#include <assert.h>
 #include <sys/resource.h>
 #include <linux/version.h>
 #include "threadlist.h"
@@ -13,8 +12,7 @@
 #include "syscallwrappers.h"
 #include "mtcpinterface.h"
 #include "ckptserializer.h"
-#include "tlsinfo.h"
-#include "util.h"
+#include "uniquepid.h"
 #include "jalloc.h"
 #include "jassert.h"
 
@@ -40,16 +38,14 @@
 using namespace dmtcp;
 
 //Globals
-static volatile int restoreInProgress = 0;
-static Thread *motherofall = NULL;
-static void **motherofall_saved_sp = NULL;
-static ThreadTLSInfo *motherofall_tlsInfo = NULL;
-static pid_t motherpid = 0;
-static sigset_t sigpending_global;
-static Thread *activeThreads = NULL;
-static void *saved_sysinfo;
-static pthread_mutex_t threadStateLock = PTHREAD_MUTEX_INITIALIZER;
-
+volatile int restoreInProgress = 0;
+Thread *motherofall = NULL;
+void **motherofall_saved_sp = NULL;
+ThreadTLSInfo *motherofall_tlsInfo = NULL;
+pid_t motherpid = 0;
+sigset_t sigpending_global;
+Thread *activeThreads = NULL;
+void *saved_sysinfo;
 
 static Thread *threads_freelist = NULL;
 static pthread_mutex_t threadlistLock = PTHREAD_MUTEX_INITIALIZER;
@@ -68,35 +64,8 @@ static void suspendThreads();
 static void resumeThreads();
 static void stopthisthread(int sig);
 
-static int Thread_UpdateState(Thread *th, ThreadState newval, ThreadState oldval);
-static void Thread_SaveSigState(Thread *th);
-static void Thread_RestoreSigState (Thread *th);
-static void Thread_PostRestart(void);
-static int restarthread(void *threadv);
-
 EXTERNC int dmtcp_ptrace_enabled(void) __attribute__((weak));
 
-/*
- * struct MtcpRestartThreadArg
- *
- * DMTCP requires the virtual_tid of the threads being created during
- *  the RESTARTING phase.  We use a MtcpRestartThreadArg struct to pass
- *  the virtual_tid of the thread being created from MTCP to DMTCP.
- *
- * actual clone call: clone (fn, child_stack, flags, void *, ... )
- * new clone call   : clone (fn, child_stack, flags,
- *                           (struct MtcpRestartThreadArg *), ...)
- *
- * DMTCP automatically extracts arg from this structure and passes that
- * to the _real_clone call.
- *
- * IMPORTANT NOTE: While updating, this struct must be kept in sync
- * with the struct of the same name in mtcpinterface.cpp
- */
-struct MtcpRestartThreadArg {
-  void *arg;
-  pid_t virtual_tid;
-};
 
 /*****************************************************************************
  *
@@ -256,27 +225,6 @@ void ThreadList::killCkpthread()
 
 /*************************************************************************
  *
- *  Prepare MTCP Header
- *
- *************************************************************************/
-static void prepareMtcpHeader(MtcpHeader *mtcpHdr)
-{
-  memset(mtcpHdr, 0, sizeof mtcpHdr);
-  strncpy(mtcpHdr->signature, MTCP_SIGNATURE, strlen(MTCP_SIGNATURE) + 1);
-  mtcpHdr->saved_brk = sbrk(0);
-  // TODO: Now that we have a separate mtcp dir, the code dealing with
-  // restoreBuf should go in there.
-  mtcpHdr->restore_addr = (void*) ProcessInfo::instance().restoreBufAddr();
-  mtcpHdr->restore_size = ProcessInfo::instance().restoreBufLen();
-  mtcpHdr->post_restart = &Thread_PostRestart;
-  memcpy(&mtcpHdr->motherofall_tls_info, &motherofall->tlsInfo,
-         sizeof(motherofall->tlsInfo));
-  mtcpHdr->tls_pid_offset = TLSInfo_GetPidOffset();
-  mtcpHdr->tls_tid_offset = TLSInfo_GetTidOffset();
-}
-
-/*************************************************************************
- *
  *  This executes as a thread.  It sleeps for the checkpoint interval
  *    seconds, then wakes to write the checkpoint file.
  *
@@ -315,8 +263,8 @@ static void *checkpointhread (void *dummy)
     sigdelset(&set, SIGSETXID);
     sigdelset(&set, SIGCANCEL);
 
-    // FIXME: Compiler issuing warning here; Why do we mix assert and JASSERT?
-    assert(pthread_sigmask(SIG_SETMASK, &set, NULL) == 0);
+    // FIXME: Compiler issuing warning here; Why do we mix ASSERT and JASSERT?
+    ASSERT(pthread_sigmask(SIG_SETMASK, &set, NULL) == 0);
   }
 
   Thread_SaveSigState(ckptThread);
@@ -367,9 +315,7 @@ static void *checkpointhread (void *dummy)
     // Remove stale threads from activeThreads list.
     ThreadList::emptyFreeList();
 
-    MtcpHeader mtcpHdr;
-    prepareMtcpHeader(&mtcpHdr);
-    CkptSerializer::writeCkptImage(&mtcpHdr, sizeof(mtcpHdr));
+    CkptSerializer::writeCkptImage();
 
     JTRACE("before callbackPostCheckpoint(0, NULL)");
     callbackPostCheckpoint(0, NULL);
@@ -519,9 +465,9 @@ void stopthisthread (int signum)
 
     /* Set up our restart point, ie, we get jumped to here after a restore */
 #ifdef SETJMP
-  assert(sigsetjmp(curThread->jmpbuf, 1) >= 0);
+  ASSERT(sigsetjmp(curThread->jmpbuf, 1) >= 0);
 #else
-  assert(getcontext(&curThread->savctx) == 0);
+  ASSERT(getcontext(&curThread->savctx) == 0);
 #endif
   save_sp(&curThread->saved_sp);
 //  DPRINTF("after sigsetjmp/getcontext. tid: %d, vtid: %d, saved_sp: %p\n",
@@ -540,7 +486,7 @@ void stopthisthread (int signum)
       }
 
       /* Tell the checkpoint thread that we're all saved away */
-      assert(Thread_UpdateState(curThread, ST_SUSPENDED, ST_SUSPINPROG));
+      ASSERT(Thread_UpdateState(curThread, ST_SUSPENDED, ST_SUSPINPROG));
       sem_post(&semNotifyCkptThread);
 
       /* This sets a static variable in dmtcp.  It must be passed
@@ -560,7 +506,7 @@ void stopthisthread (int signum)
 //      DPRINTF("thread (%d) restored\n", curThread->tid);
     }
 
-    assert(Thread_UpdateState(curThread, ST_RUNNING, ST_SUSPENDED));
+    ASSERT(Thread_UpdateState(curThread, ST_RUNNING, ST_SUSPENDED));
 
 //    DPRINTF("Thread (%d) returning to user code: %p\n",
 //            curThread->tid, __builtin_return_address(0));
@@ -609,156 +555,6 @@ void ThreadList::waitForAllRestored(Thread *thread)
     sem_wait(&semWaitForCkptThreadSignal);
     Thread_RestoreSigState(thread);
   }
-}
-
-/*****************************************************************************
- *
- *****************************************************************************/
-static int Thread_UpdateState(Thread *th, ThreadState newval, ThreadState oldval)
-{
-  int res = 0;
-  assert(_real_pthread_mutex_lock(&threadStateLock) == 0);
-  if (oldval == th->state) {;
-    th->state = newval;
-    res = 1;
-  }
-  assert(_real_pthread_mutex_unlock(&threadStateLock) == 0);
-  return res;
-}
-
-/*****************************************************************************
- *
- *  Save signal mask and list of pending signals delivery
- *
- *****************************************************************************/
-static void Thread_SaveSigState(Thread *th)
-{
-  // Save signal block mask
-  assert(pthread_sigmask (SIG_SETMASK, NULL, &th->sigblockmask) == 0);
-
-  // Save pending signals
-  sigpending(&th->sigpending);
-}
-
-/*****************************************************************************
- *
- *  Restore signal mask and all pending signals
- *
- *****************************************************************************/
-static void Thread_RestoreSigState (Thread *th)
-{
-  int i;
-  //DPRINTF("restoring handlers for thread: %d", th->virtual_tid);
-  assert(pthread_sigmask (SIG_SETMASK, &th->sigblockmask, NULL) == 0);
-
-  // Raise the signals which were pending for only this thread at the time of
-  // checkpoint.
-  for (i = SIGRTMAX; i > 0; --i) {
-    if (sigismember(&th->sigpending, i)  == 1  &&
-        sigismember(&th->sigblockmask, i) == 1 &&
-        sigismember(&sigpending_global, i) == 0 &&
-        i != dmtcp_get_ckpt_signal()) {
-      if (i != SIGCHLD) {
-        //PRINTF("\n*** WARNING:  SIGCHLD was delivered prior to ckpt.\n"
-               //"*** Will raise it on restart.  If not desired, change\n"
-               //"*** this line raising SIGCHLD.");
-      }
-      raise(i);
-    }
-  }
-}
-
-/*****************************************************************************
- *
- *  The original program's memory and files have been restored
- *
- *****************************************************************************/
-static void Thread_PostRestart(void)
-{
-#if 0
-  /* FOR DEBUGGING:  Now test if we can make a kernel call through libc. */
-  mtcp_sys_write(1, "shell ../../util/gdb-add-libdmtcp-symbol-file.py PID PC\n",
-           sizeof("shell ../../util/gdb-add-libdmtcp-symbol-file.py PID PC\n"));
-#if defined(__i386__) || defined(__x86_64__)
-      asm volatile ("int3"); // Do breakpoint; send SIGTRAP, caught by gdb
-#else
-      DPRINTF("IN GDB: interrupt (^C); add-symbol-file ...; (gdb) print x=0\n");
-      { int x = 1; while (x); } // Stop execution for user to type command.
-#endif
-  int rc = nice(0);
-#endif
-
-  // We have now verified that libc functionality is restored.
-  Thread *thread;
-  sigset_t tmp;
-
-  /* Fill in the new mother process id */
-  motherpid = THREAD_REAL_TID();
-  motherofall->tid = motherpid;
-
-  restoreInProgress = 1;
-
-  sigfillset(&tmp);
-  for (thread = activeThreads; thread != NULL; thread = thread->next) {
-    struct MtcpRestartThreadArg mtcpRestartThreadArg;
-    sigandset(&sigpending_global, &tmp, &(thread->sigpending));
-    tmp = sigpending_global;
-
-    if (thread == motherofall) continue;
-
-    /* DMTCP needs to know virtual_tid of the thread being recreated by the
-     *  following clone() call.
-     *
-     * Threads are created by using syscall which is intercepted by DMTCP and
-     *  the virtual_tid is sent to DMTCP as a field of MtcpRestartThreadArg
-     *  structure. DMTCP will automatically extract the actual argument
-     *  (clonearg->arg) from clone_arg and will pass it on to the real
-     *  clone call.
-     */
-    void *clonearg = thread;
-    if (dmtcp_real_to_virtual_pid != NULL) {
-      mtcpRestartThreadArg.arg = thread;
-      mtcpRestartThreadArg.virtual_tid = thread->virtual_tid;
-      clonearg = &mtcpRestartThreadArg;
-    }
-
-    /* Create the thread so it can finish restoring itself. */
-    pid_t tid = _real_clone(restarthread,
-                            // -128 for red zone
-                            (void*)((char*)thread->saved_sp - 128),
-                            /* Don't do CLONE_SETTLS (it'll puke).  We do it
-                             * later via restoreTLSState. */
-                            thread->flags & ~CLONE_SETTLS,
-                            clonearg, thread->ptid, NULL, thread->ctid);
-
-    assert (tid > 0); // (JASSERT_ERRNO) .Text("Error recreating thread");
-    //DPRINTF("Thread recreated: orig_tid %d, new_tid: %d", thread->tid, tid);
-  }
-  restarthread (motherofall);
-}
-
-static int restarthread (void *threadv)
-{
-  Thread *thread = (Thread*) threadv;
-  thread->tid = THREAD_REAL_TID();
-  TLSInfo_RestoreTLSState(&thread->tlsInfo);
-
-  if (TLSInfo_HaveThreadSysinfoOffset())
-    TLSInfo_SetThreadSysinfo(saved_sysinfo);
-
-  /* Jump to the stopthisthread routine just after sigsetjmp/getcontext call.
-   * Note that if this is the restored checkpointhread, it jumps to the
-   * checkpointhread routine
-   */
-  //DPRINTF("calling siglongjmp/setcontext: tid: %d, vtid: %d",
-         //thread->tid, thread->virtual_tid);
-#ifdef SETJMP
-  siglongjmp(thread->jmpbuf, 1); /* Shouldn't return */
-#else
-  setcontext(&thread->savctx); /* Shouldn't return */
-#endif
-  assert(0);
-  return (0); /* NOTREACHED : stop compiler warning */
 }
 
 /*****************************************************************************
@@ -839,7 +635,7 @@ void ThreadList::addToActiveList()
 void ThreadList::threadIsDead (Thread *thread)
 {
   JASSERT(thread != NULL);
-  //DPRINTF("Putting thread (%d) on freelist\n", thread->tid);
+  DPRINTF("Putting thread (%d) on freelist\n", thread->tid);
 
   /* Remove thread block from 'threads' list */
   if (thread->prev != NULL) {
@@ -868,7 +664,7 @@ Thread *ThreadList::getNewThread()
   lock_threads();
   if (threads_freelist == NULL) {
     thread = (Thread*) JALLOC_HELPER_MALLOC(sizeof(Thread));
-    assert(thread != NULL);
+    ASSERT(thread != NULL);
   } else {
     thread = threads_freelist;
     threads_freelist = threads_freelist->next;
