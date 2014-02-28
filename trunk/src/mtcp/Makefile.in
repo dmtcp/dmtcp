@@ -56,6 +56,7 @@ LINK = $(CC) $(CFLAGS) $(LDFLAGS) -o $@
 
 ifeq (${ARM_HOST},yes)
   ARM_EXTRAS = $(srcdir)/libc-do-syscall-arm.S
+  ARM_BINARIES = $(srcdir)/libc-do-syscall-arm.o
 endif
 
 HEADERS = mtcp_util.ic mtcp_sys.h mtcp_util.h ldt.h \
@@ -64,7 +65,7 @@ HEADERS = mtcp_util.ic mtcp_sys.h mtcp_util.h ldt.h \
 all: default
 default: build
 libs: build
-build: $(targetdir)/bin/$(MTCP_RESTART)
+build: $(targetdir)/bin/$(MTCP_RESTART) libmtcp.a
 
 $(targetdir)/bin/$(MTCP_RESTART): mtcp_restart.o
 	${LINK} -fPIC -g -O0 -nodefaultlibs ${ARM_EXTRAS} $^
@@ -86,6 +87,17 @@ mtcp_restart.o: mtcp_restart.c $(HEADERS) mtcp_check_vdso.ic
 mtcp_check_vdso.o: mtcp_check_vdso.ic mtcp_sys.h mtcp_util.h \
 	$(DMTCP_INCLUDE_PATH)/procmapsarea.h
 	$(COMPILE) -DPIC -fPIC -fno-stack-protector -g -O0 $<
+
+libmtcp.a: restore_libc.o ${ARM_BINARIES}
+	ar cru $@ $^
+# FIXME:  This is a low-level file.  Yet it draws from two directories.
+#    Part of the problem is that restore_libc.h copies DPRINTF from mtcp_util.h
+#    and uses protectedfds.h, which is in ../../include
+#    Do we need protectedfds.h for low-level, where there is no JASSERT?
+restore_libc.o: restore_libc.c $(HEADERS) $(DMTCP_INCLUDE_PATH)/protectedfds.h
+	$(COMPILE) -DPIC -fPIC -fno-stack-protector -g -O0 $<
+libc-do-syscall-arm.o: libc-do-syscall-arm.S
+	${CC} -c $<
 
 # Try 'make gdb' before 'make check' if you want debugging information
 #   available in the case of 'make check' dumping core.
