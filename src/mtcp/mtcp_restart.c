@@ -33,7 +33,7 @@
  *  When we enter the copy of restorememoryareas() in the reserved memory,
  *  we will copy the data of rinfo from the global rinfo data to our
  *  new call frame.
- *    It is then safe to munmap the old text, data, and stack segments. 
+ *    It is then safe to munmap the old text, data, and stack segments.
  *  Once we have done the munmap, we have almost finished bootstrapping
  *  ourselves.  We only need to copy the memory sections from the checkpoint
  *  image to the original addresses in memory.  Finally, we will then jump
@@ -62,6 +62,7 @@
 #include "../membarrier.h"
 #include "procmapsarea.h"
 #include "mtcp_header.h"
+#include "tls_set_thread_area.h"
 
 void mtcp_check_vdso(char **environ);
 
@@ -93,6 +94,9 @@ typedef struct RestoreInfo {
   //void (*restorememoryareas_fptr)();
   int use_gdb;
   int text_offset;
+  ThreadTLSInfo motherofall_tls_info;
+  int tls_pid_offset;
+  int tls_tid_offset;
 } RestoreInfo;
 static RestoreInfo rinfo;
 
@@ -117,6 +121,8 @@ static int doAreasOverlap(VA addr1, size_t size1, VA addr2, size_t size2);
 static int hasOverlappingMapping(VA addr, size_t size);
 static void getMiscAddrs(VA *textAddr, size_t *size, VA *highest_va);
 static void mtcp_simulateread(int fd);
+void restore_libc(ThreadTLSInfo *tlsInfo, int tls_pid_offset,
+                  int tls_tid_offset);
 
 #define MB 1024*1024
 #define RESTORE_STACK_SIZE 5*MB
@@ -246,6 +252,9 @@ MTCP_PRINTF("Attach for debugging.");
   rinfo.restore_addr = mtcpHdr.restore_addr;
   rinfo.restore_size = mtcpHdr.restore_size;
   rinfo.post_restart = mtcpHdr.post_restart;
+  rinfo.motherofall_tls_info = mtcpHdr.motherofall_tls_info;
+  rinfo.tls_pid_offset = mtcpHdr.tls_pid_offset;
+  rinfo.tls_tid_offset = mtcpHdr.tls_tid_offset;
 
   restore_brk(rinfo.saved_brk, rinfo.restore_addr,
               rinfo.restore_addr + rinfo.restore_size);
@@ -411,7 +420,7 @@ static void restorememoryareas(RestoreInfo *rinfo_ptr)
 
   DPRINTF("Entering copy of restorememoryareas().  We will now unmap old memory"
           "\n    and restore memory sections from the checkpoint image.\n");
-  
+
   DPRINTF("DPRINTF may fail when we unmap, since strings are in rodata.\n"
           "But we may be lucky if the strings have been cached by the O/S.\n");
   if (rinfo_ptr->use_gdb) {
@@ -549,8 +558,12 @@ static void restorememoryareas(RestoreInfo *rinfo_ptr)
   DPRINTF("restore complete, resuming by jumping to %p...\n",
           restore_info.post_restart);
 
+  /* Restore libc */
+  restore_libc(&restore_info.motherofall_tls_info,
+               restore_info.tls_pid_offset, restore_info.tls_tid_offset);
+
   /* Jump to finishrestore in original program's libmtcp.so image.
-   * This is in libdmtcp.so, and is called: restore_libc.c:TLSInfo_PostRestart
+   * This is in libdmtcp.so, and is called: threadinfo.c:Thread_PostRestart
    */
   restore_info.post_restart();
 }
@@ -1286,6 +1299,61 @@ static void getMiscAddrs(VA *text_addr, size_t *size, VA *highest_va)
   }
   mtcp_sys_close (mapsfd);
   *highest_va = area_end;
+}
+
+/*****************************************************************************
+ *
+ *  Restore the GDT entries that are part of a thread's state
+ *
+ *  The kernel provides set_thread_area system call for a thread to alter a
+ *  particular range of GDT entries, and it switches those entries on a
+ *  per-thread basis.  So from our perspective, this is per-thread state that is
+ *  saved outside user addressable memory that must be manually saved.
+ *
+ *****************************************************************************/
+void restore_libc(ThreadTLSInfo *tlsInfo, int tls_pid_offset,
+                  int tls_tid_offset)
+{
+  int mtcp_sys_errno;
+  /* Every architecture needs a register to point to the current
+   * TLS (thread-local storage).  This is where we set it up.
+   */
+
+  /* Patch 'struct user_desc' (gdtentrytls) of glibc to contain the
+   * the new pid and tid.
+   */
+  *(pid_t *)(*(unsigned long *)&(tlsInfo->gdtentrytls[0].base_addr)
+             + tls_pid_offset) = mtcp_sys_getpid();
+  if (mtcp_sys_kernel_gettid() == mtcp_sys_getpid()) {
+    *(pid_t *)(*(unsigned long *)&(tlsInfo->gdtentrytls[0].base_addr)
+               + tls_tid_offset) = mtcp_sys_getpid();
+  }
+
+  /* Now pass this to the kernel, so it can adjust the segment descriptor.
+   * This will make different kernel calls according to the CPU architecture. */
+  if (tls_set_thread_area (&(tlsInfo->gdtentrytls[0])) != 0) {
+    MTCP_PRINTF("Error restoring GDT TLS entry: %d\n", mtcp_sys_errno);
+    mtcp_abort();
+  }
+
+  /* Finally, if this is i386, we need to set %gs to refer to the segment
+   * descriptor that we're using above.  We restore the original pointer.
+   * For the other architectures (not i386), the kernel call above
+   * already did the equivalent work of setting up thread registers.
+   */
+#ifdef __i386__
+  asm volatile ("movw %0,%%fs" : : "m" (tlsInfo->fs));
+  asm volatile ("movw %0,%%gs" : : "m" (tlsInfo->gs));
+#elif __x86_64__
+/* Don't directly set fs.  It would only set 32 bits, and we just
+ *  set the full 64-bit base of fs, using sys_set_thread_area,
+ *  which called arch_prctl.
+ *asm volatile ("movl %0,%%fs" : : "m" (tlsInfo->fs));
+ *asm volatile ("movl %0,%%gs" : : "m" (tlsInfo->gs));
+ */
+#elif __arm__
+/* ARM treats this same as x86_64 above. */
+#endif
 }
 
 // gcc can generate calls to these.
