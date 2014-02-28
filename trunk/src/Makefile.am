@@ -57,9 +57,9 @@ nobase_noinst_HEADERS = constants.h \
 	dmtcp_coordinator.h dmtcpmessagetypes.h lookup_service.h \
 	dmtcpworker.h threadsync.h coordinatorapi.h \
 	mtcpinterface.h syscallwrappers.h syslogwrappers.h \
-	threadlist.h threadinfo.h siginfo.h \
+	threadlist.h tlsinfo.h siginfo.h \
 	uniquepid.h processinfo.h ckptserializer.h \
-	mtcp/ldt.h mtcp/restore_libc.h
+	mtcp/ldt.h
 
 # Note that libdmtcpinternal.a does not include wrappers.
 # dmtcp_launch, dmtcp_command, dmtcp_coordinator, etc.
@@ -93,7 +93,7 @@ __targetdir__lib_dmtcp_libdmtcp_so_SOURCES = dmtcpworker.cpp threadsync.cpp \
 		      threadwrappers.cpp \
 		      miscwrappers.cpp ckptserializer.cpp writeckpt.cpp \
 		      glibcsystem.cpp \
-		      threadlist.cpp threadinfo.c siginfo.cpp \
+		      threadlist.cpp tlsinfo.c siginfo.cpp \
 		      dmtcpplugin.cpp popen.cpp syslogwrappers.cpp
 
 __targetdir__lib_dmtcp_libdmtcp_so_LDFLAGS = -shared -Xlinker -znow
@@ -103,7 +103,7 @@ __targetdir__lib_dmtcp_libdmtcp_so_LDFLAGS = -shared -Xlinker -znow
 # Note that an ELF object uses libsyscallsreal.a or libnohijack.a
 #  but not both.  libnohijack.a has stub definitions for same symbols.
 __targetdir__lib_dmtcp_libdmtcp_so_LDADD = libdmtcpinternal.a libjalib.a \
-					   libsyscallsreal.a mtcp/libmtcp.a \
+					   libsyscallsreal.a \
 					   -ldl -lpthread -lrt
 
 __targetdir__bin_dmtcp_coordinator_LDADD = libdmtcpinternal.a libjalib.a \
@@ -126,9 +126,6 @@ __targetdir__bin_dmtcp_launch_SOURCES = dmtcp_launch.cpp
 threadinfo.o:
 	$(COMPILE) -DPIC -fno-stack-protector -g -O0 -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $(srcdir)/$*.c
 	$(am__mv) $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
-
-mtcp/libmtcp.a:
-	cd mtcp && ${MAKE} libmtcp.a
 
 install-exec-hook:
 	cd $(DESTDIR)$(bindir) && $(LN_S) -f dmtcp_launch dmtcp_checkpoint

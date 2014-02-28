@@ -25,7 +25,7 @@
 #include <ucontext.h>
 #include <signal.h>
 #include <sys/types.h>
-#include "threadinfo.h"
+#include "tlsinfo.h"
 
 namespace dmtcp
 {
@@ -42,6 +42,7 @@ namespace dmtcp
     void postRestart();
     void killCkpthread();
     void threadExit();
+    void writeMtcpHeader(int fd);
 
     Thread *getNewThread();
     void addToActiveList();
