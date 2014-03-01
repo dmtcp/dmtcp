@@ -1,6 +1,9 @@
 CC = @CC@
 M32=@M32@
 CFLAGS = @CFLAGS@
+# Why do we define C preprocessor flags?  If we're not using them,
+#   then declaring them reduces the readability for a person.
+# - Gene
 CPPFLAGS = @CPPFLAGS@
 CXX = @CXX@
 CXXFLAGS = @CXXFLAGS@
@@ -55,8 +58,9 @@ COMPILE = $(CC) $(INCLUDES) $(CPPFLAGS) $(CFLAGS) -c -o $@
 LINK = $(CC) $(CFLAGS) $(LDFLAGS) -o $@
 
 ifeq (${ARM_HOST},yes)
-  ARM_EXTRAS = $(srcdir)/libc-do-syscall-arm.S
-  ARM_BINARIES = $(srcdir)/libc-do-syscall-arm.o
+  ARM_EXTRAS = $(srcdir)/syscall-arm.S
+  ARM_BINARIES = $(srcdir)/syscall-arm.o
+  CFLAGS += -DMTCP_SYS_ERRNO_ON_STACK
 endif
 
 HEADERS = mtcp_util.ic mtcp_sys.h mtcp_util.h ldt.h \
@@ -67,8 +71,8 @@ default: build
 libs: build
 build: $(targetdir)/bin/$(MTCP_RESTART) libmtcp.a
 
-$(targetdir)/bin/$(MTCP_RESTART): mtcp_restart.o
-	${LINK} -fPIC -g -O0 -nodefaultlibs ${ARM_EXTRAS} $^
+$(targetdir)/bin/$(MTCP_RESTART): mtcp_restart.o ${ARM_BINARIES}
+	${LINK} -fPIC -g -O0 -nodefaultlibs $^
 
 # We need to compile mtcp_restart.c with "-fno-stack-protector" to avoid
 # runtime stack smashing detection.
@@ -96,8 +100,8 @@ libmtcp.a: restore_libc.o ${ARM_BINARIES}
 #    Do we need protectedfds.h for low-level, where there is no JASSERT?
 restore_libc.o: restore_libc.c $(HEADERS) $(DMTCP_INCLUDE_PATH)/protectedfds.h
 	$(COMPILE) -DPIC -fPIC -fno-stack-protector -g -O0 $<
-libc-do-syscall-arm.o: libc-do-syscall-arm.S
-	${CC} -c $<
+syscall-arm.o: syscall-arm.S
+	${CC} ${CFLAGS} -c $<
 
 # Try 'make gdb' before 'make check' if you want debugging information
 #   available in the case of 'make check' dumping core.
