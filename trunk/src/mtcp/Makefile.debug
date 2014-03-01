@@ -36,7 +36,9 @@ mtcp_check_vdso.o: mtcp_check_vdso.ic mtcp_sys.h mtcp_util.h \
 #   available in the case of 'make check' dumping core.
 check: ../../bin/mtcp_restart ckpt_dmtcp1_test.dmtcp
 	@echo 'Expected result: "Error 99" (MTCP transfered to DMTCP correctly)'
-	../../bin/mtcp_restart --text-offset `./text_offset.sh ../../bin/mtcp_restart` ckpt_dmtcp1_test.dmtcp
+	../../bin/mtcp_restart \
+	  --text-offset `./text_offset.sh ../../bin/mtcp_restart` \
+	  ckpt_dmtcp1_test.dmtcp
 
 gdb: build_mtcp_restart_debug ../../lib/dmtcp/libdmtcp.so gdb_run
 build_mtcp_restart_debug:
@@ -44,9 +46,9 @@ build_mtcp_restart_debug:
 	${MAKE} -f ${lastword ${MAKEFILE_LIST}} MTCP_CFLAGS=-DDEBUG \
 	  mtcp_restart.o
 gdb_run: ../../bin/mtcp_restart ckpt_dmtcp1_test.dmtcp
-	offset=`./text_offset.sh ../../bin/mtcp_restart` ; \
-	  gdb --args ../../bin/mtcp_restart \
-	    --use-gdb --text-offset $$offset ckpt_dmtcp1_test.dmtcp
+	gdb --args ../../bin/mtcp_restart \
+	  --use-gdb --text-offset `./text_offset.sh ../../bin/mtcp_restart` \
+	  ckpt_dmtcp1_test.dmtcp
 ckpt_dmtcp1_test.dmtcp: ../../test/dmtcp1 restore_libc.o
 	../../bin/dmtcp_launch -i3 ../../test/dmtcp1 &
 	sleep 5 && ../../bin/dmtcp_command --quit

@@ -5,17 +5,15 @@ if file $1 | grep gzip > /dev/null; then
   exit 0
 fi
 
+dir=`dirname $0`
+
 if which mtcp_restart > /dev/null; then
   mtcp_restart --simulate $1
   exit 0
 fi
 
-if test -x bin/mtcp_restart; then
-  bin/mtcp_restart --simulate $1
-  exit 0
-fi
-
-if test -x ../../bin/mtcp_restart; then
-  ../../bin/mtcp_restart --simulate $1
+# This next one assumes that this script resides in DMTCP_ROOT/util/
+if test -x $dir/../bin/mtcp_restart; then
+  $dir/../bin/mtcp_restart --simulate $1
   exit 0
 fi

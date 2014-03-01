@@ -16,8 +16,21 @@ be in its own file in /tmp/dmtcp-USER@HOST/jassertlog*
 
 ===
 
-If the bug occurs in checkpoint-resume, try:
+If debugging under gdb, and the process exits before you can examine
+the cause, try:
+ (gdb) break FNC
+ [ for FNC among:  exit, _exit, _Exit, mtcp_abort ]
+
+===
+
+If the bug occurs during launch or possibly in checkpoint-resume, try:
   gdb --args dmtcp_launch -i5 test/dmtcp1
+
+If you want to stop GDB when DMTCP first takes control, do:
+  (gdb) break 'dmtcp::DmtcpWorker::DmtcpWorker(bool)'
+  [ and yes, to making a "breakpoint pending on future shared library load" ]
+
+===
 
 For low-level debugging on restart, try:
   cd src/mtcp

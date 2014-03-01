@@ -96,7 +96,7 @@ RETRY_ONCE=False
 #Run (most) tests with user default (usually with gzip enable)
 GZIP=os.getenv('DMTCP_GZIP') or "1"
 
-#Warn cant create a file of size:
+#Warn if can't create a file of size:
 REQUIRE_MB=50
 
 #Binaries
@@ -307,7 +307,8 @@ if free_diskspace(ckptDir) > 20*1024*1024:
     newLimit[0] = min(newLimit[0], oldLimit[1])
   resource.setrlimit(resource.RLIMIT_CORE, newLimit)
 
-#verify there is enough free space
+# This can be slow.
+print("Verifying there is enough disk space ...")
 tmpfile=ckptDir + "/freeSpaceTest.tmp"
 if os.system("dd if=/dev/zero of=" + tmpfile + " bs=1MB count=" +
              str(REQUIRE_MB) + " 2>/dev/null") != 0:
