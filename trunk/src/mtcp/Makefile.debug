@@ -61,7 +61,8 @@ libmtcp.a: restore_libc.o ${ARM_BINARIES}
 #    and uses protectedfds.h, which is in ../../include
 #    Do we really need protectedfds.h for low-level, where there is no JASSERT?
 restore_libc.o: restore_libc.c
-	$(CC) -DPIC -fPIC -fno-stack-protector -g -O0 -I. -I../../include -c $<
+	$(CC) ${MTCP_CFLAGS} -DPIC -fPIC -fno-stack-protector -g -O0 \
+	  -I. -I../../include -c $<
 libc-do-syscall-arm.o: libc-do-syscall-arm.S
 	${CC} -c $<
 

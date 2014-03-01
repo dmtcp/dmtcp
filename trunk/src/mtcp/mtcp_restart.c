@@ -236,6 +236,9 @@ MTCP_PRINTF("Attach for debugging.");
   DPRINTF("For debugging:\n"
           "    (gdb) add-symbol-file ../../bin/mtcp_restart %p\n",
           mtcpHdr.restore_addr + rinfo.text_offset);
+  if (rinfo.text_offset == -1)
+    DPRINTF("... but add to the above the result, 1 +"
+            " `text_offset.sh mtcp_restart`\n    in the mtcp subdirectory.\n");
 
   if (simulate) {
     mtcp_simulateread(rinfo.fd);
