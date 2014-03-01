@@ -6,8 +6,9 @@ CC=gcc
 
 HOST_IS_ARM=${shell uname -m | grep '^arm' | sed -e 's^\(...\).*^\1^'}
 ifeq ($(HOST_IS_ARM),arm)
-ARM_EXTRAS = libc-do-syscall-arm.S
-ARM_BINARIES = libc-do-syscall-arm.o
+  ARM_EXTRAS = syscall-arm.S
+  ARM_BINARIES = syscall-arm.o
+  CFLAGS += -DMTCP_SYS_ERRNO_ON_STACK
 endif
 
 all: ../../bin/mtcp_restart libmtcp.a ../../lib/dmtcp/libdmtcp.so
@@ -16,15 +17,15 @@ all: ../../bin/mtcp_restart libmtcp.a ../../lib/dmtcp/libdmtcp.so
 	cd ../..; make -j8
 
 # ../../bin/mtcp_restart: mtcp_restart.o mtcp_check_vdso.o
-../../bin/mtcp_restart: mtcp_restart.o
-	${CC} -fPIC -g -O2 -nodefaultlibs ${ARM_EXTRAS} -o $@ $^
+../../bin/mtcp_restart: mtcp_restart.o ${ARM_BINARIES}
+	${CC} -fPIC -g -O2 -nodefaultlibs -o $@ $^
 
 # IMPORTANT:  Compile with -O2 or higher.  On some 32-bit CPUs
 #   (e.g. ARM/gcc-4.8), the inlining of -O2 avoids bugs when fnc's are copied.
 mtcp_restart.o: mtcp_restart.c mtcp_util.ic mtcp_check_vdso.ic \
 	        mtcp_sys.h mtcp_util.h \
 	        ../membarrier.h ../../include/procmapsarea.h
-	${CC} ${MTCP_CFLAGS} -I. -I../../include \
+	${CC} ${CFLAGS} ${MTCP_CFLAGS} -I. -I../../include \
 	    -DPIC -fPIC -g -O0 -fno-stack-protector -c $<
 
 # procmapssrea.h taken from mtcp_util.h ; Is this necessary?
@@ -63,10 +64,10 @@ libmtcp.a: restore_libc.o ${ARM_BINARIES}
 #    and uses protectedfds.h, which is in ../../include
 #    Do we really need protectedfds.h for low-level, where there is no JASSERT?
 restore_libc.o: restore_libc.c
-	$(CC) ${MTCP_CFLAGS} -DPIC -fPIC -fno-stack-protector -g -O0 \
-	  -I. -I../../include -c $<
-libc-do-syscall-arm.o: libc-do-syscall-arm.S
-	${CC} -c $<
+	$(CC) ${CFLAGS} ${MTCP_CFLAGS} -DPIC -fPIC -fno-stack-protector \
+	  -g -O0 -I. -I../../include -c $<
+syscall-arm.o: syscall-arm.S
+	${CC} ${CFLAGS} -c $<
 
 tidy:
 	rm -rf ckpt_*_files

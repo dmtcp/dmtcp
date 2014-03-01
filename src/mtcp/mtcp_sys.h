@@ -21,6 +21,16 @@
  *  <http://www.gnu.org/licenses/>.                                          *
  *****************************************************************************/
 
+/* README!!!!
+ * For ARM, you can ignore almost all of this code.  Only the
+ *  mtcp_sys_XXX() macros are needed for ARM, along with the code at the end
+ *  of this file that overrides the definition of mtcp_inline_syscall(),
+ *  which directly calls syscall, defined in syscall-arm.S.
+ *  Even the name mtcp_inline_syscall() is bad, now that we call
+ *  a syscall function defined in syscall-arm.S.
+ * After the DMTCP-2.2 release, we will do the same thing for Intel.
+ */
+
 /*
  * The goal of including this file is to define most of the external
  *   symbols used in mtcp_sharetemp.c .  This to insure that the linker
@@ -53,6 +63,7 @@
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <linux/version.h>
+#include <sys/syscall.h>  /* For SYS_xxx definitions needed in expansions. */
 
 // Source code is taken from:  glibc-2.5/sysdeps/generic
 /* Type to use for aligned memory operations.
@@ -164,7 +175,9 @@ extern int mtcp_sys_errno;
 #elif __arm__
 // COPIED FROM:  glibc-ports-2.14/sysdeps/unix/sysv/linux/arm/eabi/sysdep.h
 //   In turn, this calls "sysdep-arm.h" from .../linux/arm/sysdep.h
-# include "sysdep/sysdep-arm-eabi.h"
+// We are removing this dependency, now that we're introducing syscall-arm.S
+// In the future, we'll do the same for i386 and x86_64 to simplify the logic.
+// # include "sysdep/sysdep-arm-eabi.h"
 
 #else
 # error "Missing sysdep.h file for this architecture."
@@ -318,7 +331,7 @@ struct linux_dirent {
 
 #if defined(__arm__)
 /* NOTE:  set_tls is an ARM-specific call, with only a kernel API.
- *   We use the _RAW form;  otherwise, set_tls would expand to __ARM_set_tls
+ *   We use the _RAW form;  otherwise, set_tls would expand to __SYS_set_tls
  *   This is a modification of sysdep-arm.h:INLINE_SYSCALL()
  */
 # define INLINE_SYSCALL_RAW(name, nr, args...)                          \
@@ -375,4 +388,23 @@ static inline void mtcp_abort (void)
   for (;;);  /* Without this, gcc emits warning:  `noreturn' fnc does return */
 }
 
+#endif
+
+// For DMTCP-2.2, we are definining MTCP_SYS_ERRNO_ON_STACK on command line.
+// After that, we will move this code to libmtcp.so, where we can again
+//   use global variables, and so will not need this defined.
+#ifdef __arm__
+#  undef mtcp_inline_syscall
+#  undef INLINE_SYSCALL_RAW
+# ifdef MTCP_SYS_ERRNO_ON_STACK
+#  define mtcp_inline_syscall(name, num_args, ...) \
+     mtcp_syscall(SYS_##name, &mtcp_sys_errno, ##__VA_ARGS__)
+# define INLINE_SYSCALL_RAW(name, nr, ...) \
+     mtcp_syscall(name, &mtcp_sys_errno, ##__VA_ARGS__)
+# else
+#  define mtcp_inline_syscall(name, num_args, args...) \
+     mtcp_syscall(SYS_##name, args)
+# define INLINE_SYSCALL_RAW(name, nr, ...) \
+     mtcp_syscall(name, ##__VA_ARGS__)
+# endif
 #endif
