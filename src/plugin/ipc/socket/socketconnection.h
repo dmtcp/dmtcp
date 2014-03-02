@@ -84,6 +84,7 @@ namespace dmtcp
 
       // This accessor is needed because _type is protected.
       void markExternalConnect() { _type = TCP_EXTERNAL_CONNECT; }
+      bool isBlacklistedTcp(const sockaddr* saddr, socklen_t len);
 
       //basic commands for updating state from wrappers
       /*onSocket*/

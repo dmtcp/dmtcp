@@ -65,36 +65,6 @@ static int _makeDeadSocket()
   return sp[0];
 }
 
-static bool _isBlacklistedTcp(int sockfd,
-                              const sockaddr* saddr, socklen_t len)
-{
-  JASSERT(saddr != NULL);
-  if (len >= sizeof(saddr->sa_family) && saddr->sa_family == AF_INET) {
-    struct sockaddr_in* addr =(sockaddr_in*)saddr;
-    // Ports 389 and 636 are the well-known ports in /etc/services that
-    // are reserved for LDAP.  Bash continues to maintain a connection to
-    // LDAP, leading to problems at restart time.  So, we discover the LDAP
-    // remote addresses, and turn them into dead sockets at restart time.
-    //However, libc.so:getpwuid() can call libnss_ldap.so which calls
-    // libldap-2.4.so to create the LDAP socket while evading our connect
-    // wrapper.
-    int blacklistedRemotePorts[] = {53,                 // DNS Server
-      389, 636,           // LDAP
-      -1};
-    int i;
-    for (i = 0; blacklistedRemotePorts[i] != -1; i++) {
-      if (ntohs(addr->sin_port) == blacklistedRemotePorts[i]) {
-        JTRACE("LDAP port found") (ntohs(addr->sin_port))
-          (blacklistedRemotePorts[0]) (blacklistedRemotePorts[1]);
-        return true;
-      }
-    }
-  }
-  // FIXME:  Consider adding configure or dmtcp_launch option to disable
-  //   all remote connections.  Handy as quick test for special cases.
-  return false;
-}
-
 dmtcp::SocketConnection::SocketConnection(int domain, int type, int protocol)
   : _sockDomain(domain)
   , _sockType(type)
@@ -224,6 +194,49 @@ dmtcp::TcpConnection& dmtcp::TcpConnection::asTcp()
   return *this;
 }
 
+bool TcpConnection::isBlacklistedTcp(const sockaddr* saddr, socklen_t len)
+{
+  JASSERT(saddr != NULL);
+  if (len <= sizeof(saddr->sa_family)) {
+    return false;
+  }
+
+  if (saddr->sa_family == AF_INET) {
+    struct sockaddr_in* addr =(sockaddr_in*)saddr;
+    // Ports 389 and 636 are the well-known ports in /etc/services that
+    // are reserved for LDAP.  Bash continues to maintain a connection to
+    // LDAP, leading to problems at restart time.  So, we discover the LDAP
+    // remote addresses, and turn them into dead sockets at restart time.
+    //However, libc.so:getpwuid() can call libnss_ldap.so which calls
+    // libldap-2.4.so to create the LDAP socket while evading our connect
+    // wrapper.
+    int blacklistedRemotePorts[] = {53,                 // DNS Server
+                                    389, 636,           // LDAP
+                                    -1};
+    for (size_t i = 0; blacklistedRemotePorts[i] != -1; i++) {
+      if (ntohs(addr->sin_port) == blacklistedRemotePorts[i]) {
+        JTRACE("LDAP port found") (ntohs(addr->sin_port))
+          (blacklistedRemotePorts[0]) (blacklistedRemotePorts[1]);
+        return true;
+      }
+    }
+  } else if (saddr->sa_family == AF_UNIX) {
+    struct sockaddr_un *uaddr = (struct sockaddr_un *) saddr;
+    static dmtcp::string blacklist[] = {""};
+    for (size_t i = 0; blacklist[i] != ""; i++) {
+      if (Util::strStartsWith(uaddr->sun_path, blacklist[i].c_str()) ||
+          Util::strStartsWith(&uaddr->sun_path[1], blacklist[i].c_str())) {
+        JTRACE("Blacklisted socket address") (uaddr->sun_path);
+        return true;
+      }
+    }
+  }
+
+  // FIXME:  Consider adding configure or dmtcp_launch option to disable
+  //   all remote connections.  Handy as quick test for special cases.
+  return false;
+}
+
 void dmtcp::TcpConnection::onBind(const struct sockaddr* addr, socklen_t len)
 {
   if (really_verbose) {
@@ -282,7 +295,7 @@ void dmtcp::TcpConnection::onConnect(const struct sockaddr *addr, socklen_t len)
   JWARNING(_type == TCP_CREATED || _type == TCP_BIND) (_type) (id())
     .Text("Connecting with an in-use socket????");
 
-  if (addr != NULL && _isBlacklistedTcp(_fds[0], addr, len)) {
+  if (addr != NULL && isBlacklistedTcp(addr, len)) {
     _type = TCP_EXTERNAL_CONNECT;
     _connectAddrlen = len;
     memcpy(&_connectAddr, addr, len);
