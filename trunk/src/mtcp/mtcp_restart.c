@@ -314,7 +314,7 @@ static void restore_brk(VA saved_brk, VA restore_begin, VA restore_end)
       else
         MTCP_PRINTF("error: new break (%p) != current break (%p)\n",
                     new_brk, current_brk);
-      mtcp_abort ();
+      //mtcp_abort ();
     }
   }
 }
