@@ -426,11 +426,15 @@ void dmtcp::TcpConnection::postRestart()
 
       if (_type == TCP_CREATED) break;
 
-      if (_sockDomain == AF_UNIX) {
-        const char* un_path =((sockaddr_un*) &_bindAddr)->sun_path;
-        JTRACE("Unlinking stale unix domain socket.") (un_path);
-        JWARNING(unlink(un_path) == 0) (un_path);
+      if (_sockDomain == AF_UNIX &&
+          _bindAddrlen > sizeof(_bindAddr.ss_family)) {
+        struct sockaddr_un *uaddr = (sockaddr_un*) &_bindAddr;
+        if (uaddr->sun_path[0] != '\0') {
+          JTRACE("Unlinking stale unix domain socket.") (uaddr->sun_path);
+          JWARNING(unlink(uaddr->sun_path) == 0) (uaddr->sun_path);
+        }
       }
+
       /*
        * During restart, some socket options must be restored(using
        * setsockopt) before the socket is used(bind etc.), otherwise we might
