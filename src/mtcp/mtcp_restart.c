@@ -344,14 +344,15 @@ static void restart_fast_path()
 #if defined(__i386__) || defined(__x86_64__)
   asm volatile (CLEAN_FOR_64_BIT(mov %0,%%esp;)
                 /* This next assembly language confuses gdb.  Set a future
-                   future breakpoint, or attach after this point, if in gdb. */
+                   future breakpoint, or attach after this point, if in gdb.
+		   It's here to force a hard error ealry , in case of a bug.*/
                 CLEAN_FOR_64_BIT(xor %%ebp,%%ebp)
                 : : "g" (stack_ptr) : "memory");
 #elif defined(__arm__)
   asm volatile ("mov sp,%0\n\t"
-                /* FIXME:  DO WE NEED THIS "xor"? */
-                // CLEAN_FOR_64_BIT(xor %%ebp,%%ebp\n\t)
                 : : "r" (stack_ptr) : "memory");
+  /* If we're going to have an error, force a hard error early, to debug. */
+  asm volatile ("mov fp,#0\n\tmov ip,#0\n\tmov lr,#0" : : );
 #else
 # error "assembly instruction not translated"
 #endif
@@ -412,11 +413,22 @@ static void restorememoryareas(RestoreInfo *rinfo_ptr)
 {
   int mtcp_sys_errno;
 
-  DPRINTF("Entering copy of restorememoryareas().  We will now unmap old memory"
+  DPRINTF("Entering copy of restorememoryareas().  Will now unmap old memory"
           "\n    and restore memory sections from the checkpoint image.\n");
   
   DPRINTF("DPRINTF may fail when we unmap, since strings are in rodata.\n"
-          "But we may be lucky if the strings have been cached by the O/S.\n");
+          "But we may be lucky if the strings have been cached by the O/S\n"
+          "or if compiler uses relative addressing for rodata with -fPIC\m");
+
+  int rc;
+  VA holebase;
+  VA highest_va;
+  VA vdso_addr = NULL, vsyscall_addr = NULL, stack_end_addr = NULL;
+  vdso_addr = vsyscall_addr = stack_end_addr = 0;
+  // Compute these now while it's safe; Use values later.
+  highest_va = highest_userspace_address(&vdso_addr, &vsyscall_addr,
+                                         &stack_end_addr);
+
   if (rinfo_ptr->use_gdb) {
     MTCP_PRINTF("Called with --use-gdb.  A useful command is:\n"
             "    (gdb) info proc mapping");
@@ -434,10 +446,6 @@ static void restorememoryareas(RestoreInfo *rinfo_ptr)
     }
   }
 
-  int rc;
-  VA holebase;
-  VA highest_va;
-  VA vdso_addr = NULL, vsyscall_addr = NULL, stack_end_addr = NULL;
   RestoreInfo restore_info;
   mtcp_sys_memcpy(&restore_info, rinfo_ptr, sizeof (restore_info));
 
@@ -477,9 +485,6 @@ static void restorememoryareas(RestoreInfo *rinfo_ptr)
   //                                : : : CLEAN_FOR_64_BIT(eax));
 
   /* Unmap from address 0 to holebase, except for [vdso] section */
-  vdso_addr = vsyscall_addr = stack_end_addr = 0;
-  highest_va = highest_userspace_address(&vdso_addr, &vsyscall_addr,
-                                         &stack_end_addr);
   if (stack_end_addr == 0) /* 0 means /proc/self/maps doesn't mark "[stack]" */
     highest_va = HIGHEST_VA;
   else
