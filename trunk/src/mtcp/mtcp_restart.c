@@ -338,6 +338,23 @@ static void restart_fast_path()
   mtcp_sys_memcpy(rinfo.restore_addr + rinfo.text_size, &rinfo, sizeof(rinfo));
   void *stack_ptr = rinfo.restore_addr + rinfo.restore_size - MB;
 
+#ifdef __arm__
+/* This delay loop was required for:
+ *    ARM v7 (rev 3, v71), SAMSUNG EXYNOS5 (Flattened Device Tree)
+ *    gcc-4.8.1 (Ubuntu pre-release for 14.04) ; Linux 3.13.0+ #54
+ */
+{int x = 10000000;
+int y = 1000000000;
+for (; x>0; x--) for (; y>0; y--);
+}
+#endif
+
+#if 0
+  IMB; // refresh instruction cache, for new memory
+  RMB; // refresh instruction cache, for new memory
+  WMB; // refresh instruction cache, for new memory
+#endif
+
   DPRINTF("We have copied mtcp_restart to higher address.  We will now\n"
           "    jump into a copy of restorememoryareas().\n");
 

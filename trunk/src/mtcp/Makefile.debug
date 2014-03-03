@@ -28,6 +28,13 @@ mtcp_restart.o: mtcp_restart.c mtcp_util.ic mtcp_check_vdso.ic \
 	${CC} ${CFLAGS} ${MTCP_CFLAGS} -I. -I../../include \
 	    -DPIC -fPIC -g -O0 -fno-stack-protector -c $<
 
+# Not used.  Convenience target for debugging.
+mtcp_restart.s: mtcp_restart.c mtcp_util.ic mtcp_check_vdso.ic \
+	        mtcp_sys.h mtcp_util.h \
+	        ../membarrier.h ../../include/procmapsarea.h
+	${CC} ${CFLAGS} ${MTCP_CFLAGS} -I. -I../../include \
+	    -DPIC -fPIC -g -O0 -fno-stack-protector -S $<
+
 # procmapssrea.h taken from mtcp_util.h ; Is this necessary?
 mtcp_check_vdso.o: mtcp_check_vdso.ic mtcp_sys.h mtcp_util.h \
 	../../include/procmapsarea.h
