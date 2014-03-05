@@ -67,4 +67,10 @@ cd $SLURM_SUBMIT_DIR
 
 start_coordinator # -i 120 ... <put dmtcp coordinator options here>
 
+echo "Start"
+date
+
 /bin/bash ./dmtcp_restart_script.sh -h $DMTCP_HOST -p $DMTCP_PORT
+
+echo "Finish"
+date
