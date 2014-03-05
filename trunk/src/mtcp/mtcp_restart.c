@@ -333,7 +333,11 @@ static void restart_fast_path()
 
   size_t offset = (char*)&restorememoryareas - rinfo.text_addr;
   rinfo.restorememoryareas_fptr = (fnptr_t)(rinfo.restore_addr + offset);
-
+/* For __arm__
+ *    should be able to use kernel call: __ARM_NR_cacheflush(start, end, flag)
+ *    followed by copying new text below, followed by DSB and ISB,
+ *    to eliminstate need for delay loop.  But this needs more testing.
+ */
   mtcp_sys_memcpy(rinfo.restore_addr, rinfo.text_addr, rinfo.text_size);
   mtcp_sys_memcpy(rinfo.restore_addr + rinfo.text_size, &rinfo, sizeof(rinfo));
   void *stack_ptr = rinfo.restore_addr + rinfo.restore_size - MB;
@@ -350,9 +354,9 @@ for (; x>0; x--) for (; y>0; y--);
 #endif
 
 #if 0
-  IMB; // refresh instruction cache, for new memory
   RMB; // refresh instruction cache, for new memory
   WMB; // refresh instruction cache, for new memory
+  IMB; // refresh instruction cache, for new memory
 #endif
 
   DPRINTF("We have copied mtcp_restart to higher address.  We will now\n"
