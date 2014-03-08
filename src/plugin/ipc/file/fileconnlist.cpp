@@ -360,7 +360,6 @@ void dmtcp::FileConnList::processFileConnection(int fd, const char *path,
     // FIFO
     c = new FifoConnection(path, flags, mode);
   } else {
-    sleep(10);
     JASSERT(false) (path) .Text("Unimplemented file type.");
   }
 
