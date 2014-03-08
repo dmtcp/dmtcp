@@ -191,8 +191,8 @@ void jalib::JAllocDispatcher::initialize(void)
        at different times for record vs. replay. */
     lvl1.initialize(1024*1024*16);
     lvl2.initialize(1024*1024*16);
-    lvl3.initialize(1024*32);
-    lvl4.initialize(1024*32);
+    lvl3.initialize(1024*32*16);
+    lvl4.initialize(1024*32*16);
   } else {
     lvl1.initialize(1024*16);
     lvl2.initialize(1024*16);
