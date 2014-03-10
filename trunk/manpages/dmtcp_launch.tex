@@ -34,8 +34,11 @@
     port is specified, start coordinator at a random port (same
     as specifying port '0').
   \item[\Opt{--no-coordinator}]
-    Execute the process in stand-alone coordinator-less mode.
-    Use dmtcp_command or \Opt{--interval} to request checkpoints.
+    Execute the process in stand-alone coordinator-less mode.\\
+    Use \Opt{--interval} to specify checkpoint interval. (Default: 3600 seconds) \\
+    On restart, the interval is reset to default value unless changed by
+    ``dmtcp_restart --interval''.
+
   \item[\Opt{-i}, \Opt{-interval} \Arg{seconds} (environment variable DMTCP_CHECKPOINT_INTERVAL)]
     Time in seconds between automatic checkpoints.
     0 implies never (manual ckpt only); if not set and no env var,

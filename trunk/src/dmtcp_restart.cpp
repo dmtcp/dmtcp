@@ -112,7 +112,6 @@ bool noStrictUIDChecking = false;
 bool runAsRoot = false;
 CoordinatorAPI::CoordinatorMode allowedModes = CoordinatorAPI::COORD_ANY;
 
-
 static void setEnvironFd();
 static void runMtcpRestart(int is32bitElf, int fd, dmtcp::ProcessInfo *pInfo);
 
@@ -185,7 +184,15 @@ class RestoreTarget
         DmtcpUniqueProcessId compId = _pInfo.compGroup().upid();
         CoordinatorInfo coordInfo;
         struct in_addr localIPAddr;
-        CoordinatorAPI::instance().connectToCoordOnRestart(CoordinatorAPI::COORD_ANY,
+        CoordinatorAPI::CoordinatorMode mode = CoordinatorAPI::COORD_ANY;
+        if (_pInfo.noCoordinator()) {
+          mode = CoordinatorAPI::COORD_NONE;
+          if (getenv(ENV_VAR_CKPT_INTR) == NULL) {
+            setenv(ENV_VAR_CKPT_INTR, "3600", 1);
+          }
+        }
+
+        CoordinatorAPI::instance().connectToCoordOnRestart(mode,
                                                            _pInfo.procname(),
                                                            _pInfo.compGroup(),
                                                            _pInfo.numPeers(),
