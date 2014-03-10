@@ -45,8 +45,8 @@
 
 \subsubsection{Checkpoint image generation}
 \begin{Description}
-  \item[\Opt{--gzip}, \Opt{--no-gzip} (environment variable DMTCP_GZIP={0,1})]
-    Enable/disable compression of checkpoint images (default: 1 (enabled))
+  \item[\Opt{--gzip}, \Opt{--no-gzip} (environment variable DMTCP_GZIP=\Lbr01\Rbr)]
+    Enable/disable compression of checkpoint images (default: 1 (enabled))\\
     WARNING:  gzip adds seconds.  Without gzip, ckpt is often $<$ 1s
   \item[\OptSArg{--ckptdir}{path} (environment variable DMTCP_CHECKPOINT_DIR)]
     Directory to store checkpoint images (default: curr dir at launch)
@@ -72,8 +72,12 @@
     (default: disabled)
   \item[\Opt{--ib}, \Opt{--infiniband}]
     Enable InfiniBand plugin. (default: disabled)
-  \item[\Opt{--disable-alloc-plugin} (environment variable DMTCP_ALLOC_PLUGIN=[01])]
+  \item[\Opt{--disable-alloc-plugin} (environment variable DMTCP_ALLOC_PLUGIN=\Lbr01\Rbr)]
     Disable alloc plugin (default: enabled).
+  \item[\Opt{--disable-dl-plugin} (environment variable DMTCP_DL_PLUGIN=\Lbr01\Rbr)]
+    Disable dl plugin (default: enabled).
+  \item[\Opt{--disable-all-plugins} (EXPERTS ONLY, FOR DEBUGGING)]
+    Disable all plugins.
 \end{Description}
 
 \subsubsection{Other options}

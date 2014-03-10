@@ -45,17 +45,25 @@
 
 \subsubsection{Other options}
 \begin{Description}
+  \item[\Opt{--run-as-root}]
+    Allow root to run dmtcp_restart and disable uid checking.
+    (default: disabled)
+
   \item[\Opt{--no-strict-uid-checking} (environment variable DMTCP_DISABLE_UID_CHECKING)]
     Disable uid checking for the checkpoint image. This allows the checkpoint image
     to be restarted by a different user than the one that created it.
 
   \item[\OptSArg{--ckptdir}{path} (environment variable DMTCP_CHECKPOINT_DIR)]
     Directory to store checkpoint images (default: use the same directory used in previous checkpoint)
+
   \item[\OptSArg{--tmpdir}{path} (environment variable DMTCP_TMPDIR)]
     Directory to store temporary files
     (default: \$TMDPIR/dmtcp-\$USER@\$HOST or /tmp/dmtcp-\$USER@\$HOST)
+
   \item[\Opt{-q}, \Opt{--quiet} (or set environment variable DMTCP_QUIET = 0, 1, or 2)]
     Skip banner and NOTE messages; if given twice, also skip WARNINGs
+
   \item[\Opt{--help}] Print this message and exit.
+
   \item[\Opt{--version}] Print version information and exit.
 \end{Description}
