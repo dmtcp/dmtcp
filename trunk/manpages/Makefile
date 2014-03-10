@@ -2,14 +2,16 @@ hdr=header.tex
 ftr=footer.tex
 macros=macros.trans
 tmp=tmp.tex
+vtmp=vtmp.tex
 
 targets = dmtcp_command dmtcp_coordinator dmtcp_launch dmtcp_restart
 
 default:
+	echo "\setVersion{`cat ../VERSION`}" > $(vtmp);
 	for i in $(targets); do \
-	  (cat $(hdr) $$i.tex $(ftr) > $(tmp); \
+	  (cat $(hdr) $(vtmp) $$i.tex $(ftr) > $(tmp); \
 	  latex2man -t $(macros) $(tmp) $$i.1); gzip $$i.1; \
 	done
-	rm $(tmp)
+	rm $(vtmp) $(tmp)
 
 .PHONY: default 
