@@ -50,10 +50,14 @@
     WARNING:  gzip adds seconds.  Without gzip, ckpt is often $<$ 1s
   \item[\OptSArg{--ckptdir}{path} (environment variable DMTCP_CHECKPOINT_DIR)]
     Directory to store checkpoint images (default: curr dir at launch)
-  \item[\Opt{--checkpoint-open-files}]
+  \item[\Opt{--ckpt-open-files}]
     Checkpoint open files and restore old working dir. (default: do neither)
+  \item[\Opt{--checkpoint-open-files}]
+    Deprecated. Use \Opt{--ckpt-open-files} instead.
+  \item[\OptSArg{--ckpt-signal}{signum}]
+      Signal number used internally by DMTCP for checkpointing (default: 12)
   \item[\OptSArg{--mtcp-checkpoint-signal}{signum}]
-      Signal number used internally by MTCP for checkpointing (default: 12)
+    Deprecated. Use \Opt{--ckpt-signal} instead.
 \end{Description}
 
 \subsubsection{Enable/disable plugins}
