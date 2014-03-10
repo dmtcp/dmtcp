@@ -38,6 +38,7 @@ using namespace dmtcp;
 
 void dmtcp_CoordinatorAPI_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
+  if (CoordinatorAPI::noCoordinator()) return;
   switch (event) {
     case DMTCP_EVENT_INIT:
       CoordinatorAPI::instance().init();
@@ -192,26 +193,45 @@ void dmtcp::CoordinatorAPI::resetOnFork(dmtcp::CoordinatorAPI& coordAPI)
   instance()._nsSock.close();
 }
 
-void dmtcp::CoordinatorAPI::setupVirtualCoordinator()
+void dmtcp::CoordinatorAPI::setupVirtualCoordinator(CoordinatorInfo *coordInfo,
+                                                    struct in_addr  *localIP)
 {
+#if SETUP_VIRT_COORD_SOCK
   jalib::JSockAddr addr;
   const char *portStr = getenv(ENV_VAR_NAME_PORT);
   int port = (portStr == NULL) ? DEFAULT_PORT : jalib::StringToInt(portStr);
   jalib::JServerSocket virtCoordSock (addr, port);
-  JASSERT(virtCoordSock.isValid()) (port) (JASSERT_ERRNO)
+  _coordinatorSocket = virtCoordSock;
+  JASSERT(coordinatorSocket.isValid()) (port) (JASSERT_ERRNO)
     .Text("Failed to create listen socket.");
-  virtCoordSock.changeFd(PROTECTED_VIRT_COORD_FD);
+  _coordinatorSocket.changeFd(PROTECTED_COORD_FD);
+#endif
+
+  dmtcp::Util::setVirtualPidEnvVar(INITIAL_VIRTUAL_PID, getppid());
+
+  UniquePid coordId = UniquePid(INITIAL_VIRTUAL_PID,
+                                UniquePid::ThisProcess().hostid(),
+                                UniquePid::ThisProcess().time());
+
+  coordInfo->id = coordId.upid();
+  coordInfo->timeStamp = coordId.time();
+  coordInfo->addrLen = 0;
+  if (getenv(ENV_VAR_CKPT_INTR) != NULL) {
+    coordInfo->interval = (uint32_t) strtol(getenv(ENV_VAR_CKPT_INTR), NULL, 0);
+  }
+  memset(&coordInfo->addr, 0, sizeof(coordInfo->addr));
+  memset(localIP, 0, sizeof(*localIP));
 }
 
+#if SETUP_VIRT_COORD_SOCK
 void dmtcp::CoordinatorAPI::waitForCheckpointCommand()
 {
   jalib::JSocket cmdSock(-1);
-  jalib::JServerSocket virtCoordSock (PROTECTED_VIRT_COORD_FD);
   dmtcp::DmtcpMessage msg;
   dmtcp::DmtcpMessage reply(DMT_USER_CMD_RESULT);
   do {
     cmdSock.close();
-    cmdSock = virtCoordSock.accept();
+    cmdSock = _coordinatorSocket.accept();
     msg.poison();
     JTRACE("Reading from incoming connection...");
     cmdSock >> msg;
@@ -243,14 +263,16 @@ void dmtcp::CoordinatorAPI::waitForCheckpointCommand()
   cmdSock.close();
   return;
 }
+#endif
 
 bool dmtcp::CoordinatorAPI::noCoordinator()
 {
   static int virtualCoordinator = -1;
   if (virtualCoordinator == -1) {
+#if SETUP_VIRT_COORD_SOCK
     int optVal = -1;
     socklen_t optLen = sizeof(optVal);
-    int ret = _real_getsockopt(PROTECTED_VIRT_COORD_FD, SOL_SOCKET,
+    int ret = _real_getsockopt(PROTECTED_COORD_FD, SOL_SOCKET,
                                SO_ACCEPTCONN, &optVal, &optLen);
     if (ret == 0) {
       JASSERT(optVal == 1);
@@ -258,6 +280,9 @@ bool dmtcp::CoordinatorAPI::noCoordinator()
     } else {
       virtualCoordinator = 0;
     }
+#else
+    virtualCoordinator = !Util::isValidFd(PROTECTED_COORD_FD);
+#endif
   }
   return virtualCoordinator;
 }
@@ -346,6 +371,7 @@ void dmtcp::CoordinatorAPI::sendMsgToCoordinator(const dmtcp::DmtcpMessage &msg,
                                                  const void *extraData,
                                                  size_t len)
 {
+  if (noCoordinator()) return;
   _coordinatorSocket << msg;
   if (msg.extraBytes > 0) {
     JASSERT(extraData != NULL);
@@ -357,6 +383,7 @@ void dmtcp::CoordinatorAPI::sendMsgToCoordinator(const dmtcp::DmtcpMessage &msg,
 void dmtcp::CoordinatorAPI::recvMsgFromCoordinator(dmtcp::DmtcpMessage *msg,
                                                    void **extraData)
 {
+  JASSERT(!noCoordinator());
   msg->poison();
   _coordinatorSocket >> (*msg);
 
@@ -421,10 +448,7 @@ void dmtcp::CoordinatorAPI::startNewCoordinator(CoordinatorAPI::CoordinatorMode
 
 void CoordinatorAPI::createNewConnToCoord(CoordinatorAPI::CoordinatorMode mode)
 {
-  if (mode & COORD_NONE) {
-    setupVirtualCoordinator();
-    return;
-  } else if (mode & COORD_JOIN) {
+  if (mode & COORD_JOIN) {
     _coordinatorSocket = createNewSocketToCoordinator(mode);
     JASSERT(_coordinatorSocket.isValid()) (JASSERT_ERRNO)
       .Text("Coordinator not found, but --join was specified. Exiting.");
@@ -445,6 +469,7 @@ void CoordinatorAPI::createNewConnToCoord(CoordinatorAPI::CoordinatorMode mode)
   } else {
     JASSERT(false) .Text("Not Reached");
   }
+  _coordinatorSocket.changeFd(PROTECTED_COORD_FD);
 }
 
 DmtcpMessage dmtcp::CoordinatorAPI::sendRecvHandshake(DmtcpMessage msg,
@@ -507,8 +532,15 @@ void dmtcp::CoordinatorAPI::connectToCoordOnStartup(CoordinatorMode  mode,
                                                     CoordinatorInfo *coordInfo,
                                                     struct in_addr  *localIP)
 {
+  JASSERT(compId != NULL && localIP != NULL && coordInfo != NULL);
+
+  if (mode & COORD_NONE) {
+    setupVirtualCoordinator(coordInfo, localIP);
+    *compId = coordInfo->id;
+    return;
+  }
+
   createNewConnToCoord(mode);
-  _coordinatorSocket.changeFd(PROTECTED_COORD_FD);
   JTRACE("sending coordinator handshake")(UniquePid::ThisProcess());
   DmtcpMessage hello_local(DMT_NEW_WORKER);
   hello_local.virtualPid = -1;
@@ -558,9 +590,12 @@ void dmtcp::CoordinatorAPI::connectToCoordOnRestart(CoordinatorMode  mode,
                                                     CoordinatorInfo *coordInfo,
                                                     struct in_addr  *localIP)
 {
-  if (noCoordinator()) return;
+  if (mode & COORD_NONE) {
+    setupVirtualCoordinator(coordInfo, localIP);
+    return;
+  }
+
   createNewConnToCoord(mode);
-  _coordinatorSocket.changeFd(PROTECTED_COORD_FD);
   JTRACE("sending coordinator handshake")(UniquePid::ThisProcess());
   DmtcpMessage hello_local(DMT_RESTART_WORKER);
   hello_local.virtualPid = -1;

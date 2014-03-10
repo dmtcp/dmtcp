@@ -64,7 +64,11 @@ static const char* theUsage =
   "              as specifying port '0').\n"
   "  --no-coordinator\n"
   "              Execute the process in stand-alone coordinator-less mode.\n"
-  "              Use dmtcp_command or --interval to request checkpoints.\n"
+  "              Use --interval to specify checkpoint interval.\n"
+  "              (Default: 3600 seconds).\n"
+  "              On restart, the interval is reset to default value unless \n"
+  "              changed by --interval."
+  //"              Use dmtcp_command or --interval to request checkpoints.\n"
   "  -i, -interval SECONDS (environment variable DMTCP_CHECKPOINT_INTERVAL)\n"
   "              Time in seconds between automatic checkpoints.\n"
   "              0 implies never (manual ckpt only); if not set and no env var,\n"
@@ -229,6 +233,9 @@ static void processArgs(int *orig_argc, char ***orig_argv)
       shift;
     } else if (s == "--no-coordinator") {
       allowedModes = dmtcp::CoordinatorAPI::COORD_NONE;
+      if (getenv(ENV_VAR_CKPT_INTR) == NULL) {
+        setenv(ENV_VAR_CKPT_INTR, "3600", 1);
+      }
       shift;
     } else if (s == "-i" || s == "--interval" ||
              (s.c_str()[0] == '-' && s.c_str()[1] == 'i' &&
