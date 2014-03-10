@@ -1265,9 +1265,8 @@ uninstall-am: uninstall-binPROGRAMS uninstall-dmtcplibPROGRAMS \
 # We also need to build mtcp_restart without optimization (-O0), otherwise it
 # may fail to restart. Since these three objects are fairly low level, we avoid
 # any surprises by compiling them without any optimization.
-threadinfo.o:
-	$(COMPILE) -DPIC -fno-stack-protector -g -O0 -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $(srcdir)/$*.c
-	$(am__mv) $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
+threadinfo.o: threadinfo.c threadinfo.h syscallwrappers.h mtcp/restore_libc.h
+	$(COMPILE) -DPIC -fno-stack-protector -g -O0 -c -o $@ $(srcdir)/$*.c
 
 mtcp/libmtcp.a:
 	cd mtcp && ${MAKE} libmtcp.a
