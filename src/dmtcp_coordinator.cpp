@@ -443,8 +443,6 @@ static jalib::JSocket *listenSock = NULL;
 static void removeStaleSharedAreaFile();
 static void preExitCleanup();
 
-#define INITIAL_VIRTUAL_PID  40000
-#define MAX_VIRTUAL_PID  400000000
 static pid_t _nextVirtualPid = INITIAL_VIRTUAL_PID;
 
 static int theNextClientNumber = 1;

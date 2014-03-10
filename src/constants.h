@@ -61,6 +61,10 @@
 // Not used
 //#define X11_LISTENER_PORT_START 6000
 
+// Virtual pids used by coordinator.
+#define INITIAL_VIRTUAL_PID  40000
+#define MAX_VIRTUAL_PID  400000000
+
 #define DEFAULT_HOST "127.0.0.1"
 #define DEFAULT_PORT 7779
 #define DMTCP_DEFAULT_SIGNAL SIGUSR2
