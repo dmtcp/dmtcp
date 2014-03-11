@@ -895,7 +895,8 @@ if HAS_SCREEN == "yes":
                                 " -c /dev/null -s /bin/sh"])
   S=DEFAULT_S
 
-if ARM_HOST == "no" and sys.version_info[0:2] >= (2,6):
+if PTRACE_SUPPORT == "yes" and ARM_HOST == "no" and \
+   sys.version_info[0:2] >= (2,6):
   if HAS_STRACE == "yes":
     S=10*DEFAULT_S
     runTest("strace",    2,  ["--ptrace strace test/dmtcp2"])
