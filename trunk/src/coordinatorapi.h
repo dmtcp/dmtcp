@@ -54,9 +54,9 @@ namespace dmtcp
       static void init();
       static void resetOnFork(CoordinatorAPI& coordAPI);
 
-      static void setupVirtualCoordinator(CoordinatorInfo *coordInfo,
-                                          struct in_addr  *localIP);
-      static void waitForCheckpointCommand();
+      void setupVirtualCoordinator(CoordinatorInfo *coordInfo,
+                                   struct in_addr  *localIP);
+      void waitForCheckpointCommand();
       static bool noCoordinator();
 
       void connectToCoordOnStartup(CoordinatorMode  mode,

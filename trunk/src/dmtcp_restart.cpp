@@ -187,9 +187,6 @@ class RestoreTarget
         CoordinatorAPI::CoordinatorMode mode = CoordinatorAPI::COORD_ANY;
         if (_pInfo.noCoordinator()) {
           mode = CoordinatorAPI::COORD_NONE;
-          if (getenv(ENV_VAR_CKPT_INTR) == NULL) {
-            setenv(ENV_VAR_CKPT_INTR, "3600", 1);
-          }
         }
 
         CoordinatorAPI::instance().connectToCoordOnRestart(mode,

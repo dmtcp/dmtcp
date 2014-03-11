@@ -386,16 +386,7 @@ void dmtcp::DmtcpWorker::waitForCoordinatorMsg(dmtcp::string msgStr,
       string shmFile = jalib::Filesystem::GetDeviceName(PROTECTED_SHM_FD);
       JASSERT(!shmFile.empty());
       unlink(shmFile.c_str());
-#if SETUP_VIRT_COORD_SOCK
       CoordinatorAPI::instance().waitForCheckpointCommand();
-#else
-      uint32_t ckptInterval = SharedData::getCkptInterval();
-      JASSERT(ckptInterval != 0);
-      size_t remaining = ckptInterval;
-      do {
-        remaining = sleep(remaining);
-      } while (remaining > 0);
-#endif
       ProcessInfo::instance().numPeers(1);
       ProcessInfo::instance().compGroup(SharedData::getCompId());
     }
