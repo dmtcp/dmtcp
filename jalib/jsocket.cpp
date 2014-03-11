@@ -228,16 +228,22 @@ jalib::JSocket jalib::JSocket::accept ( struct sockaddr_storage* remoteAddr,sock
 void jalib::JSocket::enablePortReuse()
 {
   int one = 1;
-  //These options will hopefully reduce address already in use errors
 #ifdef SO_REUSEADDR
+  // This option will hopefully reduce address already in use errors. More
+  // details here:
+  //   http://stackoverflow.com/a/14388707/1136967
   if (jalib::setsockopt(_sockfd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one)) < 0){
     JWARNING(false)(JASSERT_ERRNO).Text("setsockopt(SO_REUSEADDR) failed");
   }
 #endif
 #ifdef SO_REUSEPORT
-  if (jalib::setsockopt(_sockfd, SOL_SOCKET, SO_REUSEPORT, &one, sizeof(one)) < 0){
-    JWARNING(false)(JASSERT_ERRNO).Text("setsockopt(SO_REUSEPORT) failed");
-  }
+  /* Setting SO_REUSEPORT can be dangeroud, multiple processes can bind
+   * to the same address. See this for more explanation:
+   *   http://stackoverflow.com/a/14388707/1136967
+   */
+  // if (jalib::setsockopt(_sockfd, SOL_SOCKET, SO_REUSEPORT, &one, sizeof(one)) < 0){
+  //   JWARNING(false)(JASSERT_ERRNO).Text("setsockopt(SO_REUSEPORT) failed");
+  // }
 #endif
 }
 
