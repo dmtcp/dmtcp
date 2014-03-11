@@ -96,6 +96,8 @@ namespace dmtcp
 
     int readLine(int fd, char *buf, int count);
 
+
+    void writeCoordPortToFile(const char *port, const char *portFile);
     void initializeLogFile(dmtcp::string procname = "",
                            dmtcp::string preLogPath = "");
 

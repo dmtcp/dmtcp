@@ -20,12 +20,29 @@
  ****************************************************************************/
 
 #include <string.h>
+#include <sys/fcntl.h>
 #include "constants.h"
 #include "util.h"
 #include "protectedfds.h"
 #include "uniquepid.h"
 #include "../jalib/jassert.h"
 #include "../jalib/jfilesystem.h"
+#include "../jalib/jsocket.h"
+
+using namespace dmtcp;
+
+void dmtcp::Util::writeCoordPortToFile(const char *port, const char *portFile)
+{
+  if (port != NULL && portFile != NULL) {
+    int fd = open(portFile, O_CREAT|O_WRONLY|O_TRUNC, 0600);
+    JWARNING(fd != -1) (JASSERT_ERRNO) (portFile)
+      .Text("Failed to open port file.");
+    writeAll(fd, port, strlen(port));
+    fsync(fd);
+    close(fd);
+  }
+}
+
 
 void dmtcp::Util::initializeLogFile(dmtcp::string procname, dmtcp::string prevLogPath)
 {

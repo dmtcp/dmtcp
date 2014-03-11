@@ -53,6 +53,9 @@ static const char* theUsage =
   "              Hostname where dmtcp_coordinator is run (default: localhost)\n"
   "  -p, --port PORT_NUM (environment variable DMTCP_PORT)\n"
   "              Port where dmtcp_coordinator is run (default: 7779)\n"
+  "  --port-file FILENAME\n"
+  "              File to write listener port number.\n"
+  "              (Useful with '--port 0', which is used to assign a random port)\n"
   "  -j, --join\n"
   "              Join an existing coordinator, raise error if one doesn't\n"
   "              already exist\n"
@@ -64,11 +67,7 @@ static const char* theUsage =
   "              as specifying port '0').\n"
   "  --no-coordinator\n"
   "              Execute the process in stand-alone coordinator-less mode.\n"
-  "              Use --interval to specify checkpoint interval.\n"
-  "              (Default: 3600 seconds).\n"
-  "              On restart, the interval is reset to default value unless \n"
-  "              changed by --interval."
-  //"              Use dmtcp_command or --interval to request checkpoints.\n"
+  "              Use dmtcp_command or --interval to request checkpoints.\n"
   "  -i, -interval SECONDS (environment variable DMTCP_CHECKPOINT_INTERVAL)\n"
   "              Time in seconds between automatic checkpoints.\n"
   "              0 implies never (manual ckpt only); if not set and no env var,\n"
@@ -160,6 +159,7 @@ static bool enableDlPlugin=true;
 static bool enableIPCPlugin=true;
 static bool enableLibDMTCP=true;
 static bool enablePIDPlugin=true;
+static dmtcp::string thePortFile;
 
 struct PluginInfo {
   bool *enabled;
@@ -249,6 +249,9 @@ static void processArgs(int *orig_argc, char ***orig_argv)
       shift; shift;
     } else if (argc>1 && (s == "-p" || s == "--port")) {
       setenv(ENV_VAR_NAME_PORT, argv[1], 1);
+      shift; shift;
+    } else if (argc>1 && s == "--port-file"){
+      thePortFile = argv[1];
       shift; shift;
     } else if (argc>1 && (s == "--prefix")) {
       setenv(ENV_VAR_PREFIX_PATH, argv[1], 1);
@@ -466,6 +469,7 @@ int main ( int argc, char** argv )
   CoordinatorAPI::instance().connectToCoordOnStartup(allowedModes, argv[0],
                                                      &compId, &coordInfo,
                                                      &localIPAddr);
+  Util::writeCoordPortToFile(getenv(ENV_VAR_NAME_PORT), thePortFile.c_str());
   /* We need to initialize SharedData here to make sure that it is
    * initialized with the correct coordinator timestamp.  The coordinator
    * timestamp is updated only during postCkpt callback. However, the
