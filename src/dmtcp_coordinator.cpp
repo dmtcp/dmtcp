@@ -1814,13 +1814,9 @@ int main ( int argc, char** argv )
   }
 
   thePort = listenSock->port();
-  // Now write the port number to portfile.
   if (!thePortFile.empty()) {
-    FILE *fp = fopen(thePortFile.c_str(), "w");
-    JWARNING(fp != NULL) (thePortFile) .Text("Failed to open port file.");
-    fprintf(fp, "%d", thePort);
-    fflush(fp);
-    fclose(fp);
+    string coordPort= jalib::XToString(thePort);
+    Util::writeCoordPortToFile(coordPort.c_str(), thePortFile.c_str());
   }
 
   //parse checkpoint interval

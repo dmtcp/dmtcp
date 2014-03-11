@@ -205,6 +205,8 @@ void dmtcp::CoordinatorAPI::setupVirtualCoordinator(CoordinatorInfo *coordInfo,
   JASSERT(_coordinatorSocket.isValid()) (port) (JASSERT_ERRNO)
     .Text("Failed to create listen socket.");
   _coordinatorSocket.changeFd(PROTECTED_COORD_FD);
+  string coordPort= jalib::XToString(_coordinatorSocket.port());
+  setenv (ENV_VAR_NAME_PORT, coordPort.c_str(), 1);
 
   dmtcp::Util::setVirtualPidEnvVar(INITIAL_VIRTUAL_PID, getppid());
 

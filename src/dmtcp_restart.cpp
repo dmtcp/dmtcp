@@ -57,6 +57,9 @@ static const char* theUsage =
   "              Hostname where dmtcp_coordinator is run (default: localhost)\n"
   "  -p, --port PORT_NUM (environment variable DMTCP_PORT)\n"
   "              Port where dmtcp_coordinator is run (default: 7779)\n"
+  "  --port-file FILENAME\n"
+  "              File to write listener port number.\n"
+  "              (Useful with '--port 0', which is used to assign a random port)\n"
   "  -j, --join\n"
   "              Join an existing coordinator, raise error if one doesn't\n"
   "              already exist\n"
@@ -66,11 +69,6 @@ static const char* theUsage =
   "              with --port, or with environment variable DMTCP_PORT.  If no\n"
   "              port is specified, start coordinator at a random port (same\n"
   "              as specifying port '0').\n"
-#if 0 // FIXME: Add back when support for no-coordinator is added.
-  "  --no-coordinator\n"
-  "              Execute the process in stand-alone coordinator-less mode.\n"
-  "              Use dmtcp_command or --interval to request checkpoints.\n"
-#endif
   "  -i, -interval SECONDS (environment variable DMTCP_CHECKPOINT_INTERVAL)\n"
   "              Time in seconds between automatic checkpoints.\n"
   "              0 implies never (manual ckpt only); if not set and no env var,\n"
@@ -110,6 +108,7 @@ RestoreTargetMap targets;
 RestoreTargetMap independentProcessTreeRoots;
 bool noStrictUIDChecking = false;
 bool runAsRoot = false;
+static dmtcp::string thePortFile;
 CoordinatorAPI::CoordinatorMode allowedModes = CoordinatorAPI::COORD_ANY;
 
 static void setEnvironFd();
@@ -195,6 +194,8 @@ class RestoreTarget
                                                            _pInfo.numPeers(),
                                                            &coordInfo,
                                                            &localIPAddr);
+        Util::writeCoordPortToFile(getenv(ENV_VAR_NAME_PORT),
+                                   thePortFile.c_str());
 
         /* We need to initialize SharedData here to make sure that it is
          * initialized with the correct coordinator timestamp.  The coordinator
@@ -425,6 +426,9 @@ int main(int argc, char** argv)
       shift; shift;
     } else if (argc > 1 && (s == "-p" || s == "--port")) {
       setenv(ENV_VAR_NAME_PORT, argv[1], 1);
+      shift; shift;
+    } else if (argc>1 && s == "--port-file"){
+      thePortFile = argv[1];
       shift; shift;
     } else if (argc > 1 && (s == "-c" || s == "--ckptdir")) {
       setNewCkptDir(argv[1]);
