@@ -151,6 +151,9 @@ dmtcp::CoordinatorAPI& dmtcp::CoordinatorAPI::instance()
   //static SysVIPC *inst = new SysVIPC(); return *inst;
   if (coordAPIInst == NULL) {
     coordAPIInst = new CoordinatorAPI();
+    if (noCoordinator()) {
+      coordAPIInst->_coordinatorSocket = jalib::JSocket(PROTECTED_COORD_FD);
+    }
   }
   return *coordAPIInst;
 }
@@ -196,16 +199,12 @@ void dmtcp::CoordinatorAPI::resetOnFork(dmtcp::CoordinatorAPI& coordAPI)
 void dmtcp::CoordinatorAPI::setupVirtualCoordinator(CoordinatorInfo *coordInfo,
                                                     struct in_addr  *localIP)
 {
-#if SETUP_VIRT_COORD_SOCK
-  jalib::JSockAddr addr;
   const char *portStr = getenv(ENV_VAR_NAME_PORT);
   int port = (portStr == NULL) ? DEFAULT_PORT : jalib::StringToInt(portStr);
-  jalib::JServerSocket virtCoordSock (addr, port);
-  _coordinatorSocket = virtCoordSock;
-  JASSERT(coordinatorSocket.isValid()) (port) (JASSERT_ERRNO)
+  _coordinatorSocket = jalib::JServerSocket(jalib::JSockAddr::ANY, port);
+  JASSERT(_coordinatorSocket.isValid()) (port) (JASSERT_ERRNO)
     .Text("Failed to create listen socket.");
   _coordinatorSocket.changeFd(PROTECTED_COORD_FD);
-#endif
 
   dmtcp::Util::setVirtualPidEnvVar(INITIAL_VIRTUAL_PID, getppid());
 
@@ -218,14 +217,50 @@ void dmtcp::CoordinatorAPI::setupVirtualCoordinator(CoordinatorInfo *coordInfo,
   coordInfo->addrLen = 0;
   if (getenv(ENV_VAR_CKPT_INTR) != NULL) {
     coordInfo->interval = (uint32_t) strtol(getenv(ENV_VAR_CKPT_INTR), NULL, 0);
+  } else {
+    coordInfo->interval = 0;
   }
   memset(&coordInfo->addr, 0, sizeof(coordInfo->addr));
   memset(localIP, 0, sizeof(*localIP));
 }
 
-#if SETUP_VIRT_COORD_SOCK
 void dmtcp::CoordinatorAPI::waitForCheckpointCommand()
 {
+  uint32_t ckptInterval = SharedData::getCkptInterval();
+  struct timeval tmptime={0,0};
+  long remaining = ckptInterval;
+  do {
+    fd_set rfds;
+    struct timeval *timeout = NULL;
+    struct timeval start;
+    if (ckptInterval > 0) {
+      timeout = &tmptime;
+      timeout->tv_sec = remaining;
+      JASSERT(gettimeofday(&start, NULL) == 0) (JASSERT_ERRNO);
+    }
+    FD_ZERO(&rfds);
+    FD_SET(PROTECTED_COORD_FD, &rfds );
+    int retval = select(PROTECTED_COORD_FD+1, &rfds, NULL, NULL, timeout);
+    if (retval == 0) { // timeout expired, time for checkpoint
+      JTRACE("Timeout expired, checkpointing now.");
+      return;
+    } else if (retval > 0) {
+      JASSERT(FD_ISSET(PROTECTED_COORD_FD, &rfds));
+      JTRACE("Connect request on virtual coordinator socket.");
+      break;
+    }
+    JASSERT(errno == EINTR) (JASSERT_ERRNO);
+    if (ckptInterval > 0) {
+      struct timeval end;
+      JASSERT(gettimeofday(&end, NULL) == 0) (JASSERT_ERRNO);
+      remaining -= end.tv_sec - start.tv_sec;
+      // If the remaining time is negative, we can checkpoint now
+      if (remaining < 0) {
+        return;
+      }
+    }
+  } while (remaining > 0);
+
   jalib::JSocket cmdSock(-1);
   dmtcp::DmtcpMessage msg;
   dmtcp::DmtcpMessage reply(DMT_USER_CMD_RESULT);
@@ -242,18 +277,24 @@ void dmtcp::CoordinatorAPI::waitForCheckpointCommand()
 
   reply.coordCmdStatus = CoordCmdStatus::NOERROR;
 
+  bool exitWhenDone = false;
   switch (msg.coordCmd) {
 //    case 'b': case 'B':  // prefix blocking command, prior to checkpoint command
 //      JTRACE("blocking checkpoint beginning...");
 //      blockUntilDone = true;
 //      break;
+    case 's': case 'S':
+      JTRACE("Received status command");
+      reply.numPeers = 1;
+      reply.isRunning = 1;
+      break;
     case 'c': case 'C':
       JTRACE("checkpointing...");
       break;
     case 'k': case 'K':
     case 'q': case 'Q':
       JTRACE("Received KILL command from user, exiting");
-      _exit(0);
+      exitWhenDone = true;
       break;
     default:
       JTRACE("unhandled user command") (msg.coordCmd);
@@ -261,28 +302,25 @@ void dmtcp::CoordinatorAPI::waitForCheckpointCommand()
   }
   cmdSock << reply;
   cmdSock.close();
+  if (exitWhenDone) {
+    _exit(0);
+  }
   return;
 }
-#endif
 
 bool dmtcp::CoordinatorAPI::noCoordinator()
 {
   static int virtualCoordinator = -1;
   if (virtualCoordinator == -1) {
-#if SETUP_VIRT_COORD_SOCK
     int optVal = -1;
     socklen_t optLen = sizeof(optVal);
     int ret = _real_getsockopt(PROTECTED_COORD_FD, SOL_SOCKET,
                                SO_ACCEPTCONN, &optVal, &optLen);
-    if (ret == 0) {
-      JASSERT(optVal == 1);
+    if (ret == 0 && optVal == 1) {
       virtualCoordinator = 1;
     } else {
       virtualCoordinator = 0;
     }
-#else
-    virtualCoordinator = !Util::isValidFd(PROTECTED_COORD_FD);
-#endif
   }
   return virtualCoordinator;
 }

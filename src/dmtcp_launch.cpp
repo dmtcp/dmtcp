@@ -233,9 +233,6 @@ static void processArgs(int *orig_argc, char ***orig_argv)
       shift;
     } else if (s == "--no-coordinator") {
       allowedModes = dmtcp::CoordinatorAPI::COORD_NONE;
-      if (getenv(ENV_VAR_CKPT_INTR) == NULL) {
-        setenv(ENV_VAR_CKPT_INTR, "3600", 1);
-      }
       shift;
     } else if (s == "-i" || s == "--interval" ||
              (s.c_str()[0] == '-' && s.c_str()[1] == 'i' &&
