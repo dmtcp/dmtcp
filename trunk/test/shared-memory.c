@@ -2,8 +2,8 @@
  * gcc -o shared-memory -Wl,--export-dynamic THIS_FILE
  */
 
-// _BSD_SOURCE for mkstemp
-#define _BSD_SOURCE
+// _DEFAULT_SOURCE for mkstemp
+#define _DEFAULT_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>

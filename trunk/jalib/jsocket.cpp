@@ -19,7 +19,7 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#define _BSD_SOURCE
+#define _DEFAULT_SOURCE
 
 
 #include <stdio.h>

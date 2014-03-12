@@ -3,8 +3,8 @@
 // posix_openpt() needs _XOPEN_SOURCE set to 600
 #define _XOPEN_SOURCE 600
 // Using _XOPEN_SOURCE to ensure ptsname returns 'char *' (recommended by Open Group)
-#define _BSD_SOURCE
-// _BSD_SOURCE used to expose sys_errlist[]
+#define _DEFAULT_SOURCE
+// _DEFAULT_SOURCE used to expose sys_errlist[]
 #include <stdio.h>
 #include <pty.h>
 #include <stdlib.h>
