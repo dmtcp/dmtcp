@@ -33,7 +33,7 @@ using namespace dmtcp;
 
 void dmtcp::Util::writeCoordPortToFile(const char *port, const char *portFile)
 {
-  if (port != NULL && portFile != NULL) {
+  if (port != NULL && portFile != NULL && strlen(portFile) > 0) {
     int fd = open(portFile, O_CREAT|O_WRONLY|O_TRUNC, 0600);
     JWARNING(fd != -1) (JASSERT_ERRNO) (portFile)
       .Text("Failed to open port file.");
