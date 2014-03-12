@@ -49,7 +49,7 @@ else
   UNINSTALL_FLAGS = uninstall
 endif
 
-MANPAGES_AUTOGEN=dmtcp_nocheckpoint.1.gz \
+MANPAGES_AUTOGEN=dmtcp_nocheckpoint.1.gz mtcp_restart.1.gz \
 		 dmtcp_ssh.1.gz dmtcp_sshd.1.gz \
 		 dmtcp_discover_rm.1.gz dmtcp_rm_loclaunch.1.gz
 
@@ -252,6 +252,8 @@ ifeq ($(M32),0)
 	${INSTALL_DATA} $(top_srcdir)/manpages/*.1.gz $(DESTDIR)$(mandir)/man1
 	(cd $(DESTDIR)$(mandir)/man1; \
 	  for file in ${MANPAGES_AUTOGEN}; do $(LN_S) dmtcp.1.gz $$file; done)
+	(cd $(DESTDIR)$(mandir)/man1; \
+	  $(LN_S) dmtcp_launch.1.gz dmtcp_checkpoint.1.gz)
 endif
 
 uninstall:
