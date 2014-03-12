@@ -12,7 +12,7 @@
 # have all needed files, that a GNU package needs
 AUTOMAKE_OPTIONS = foreign
 
-jalibdir=$(top_srcdir)/jalib/
+jalibdir=$(top_srcdir)/jalib
 dmtcpincludedir=$(top_srcdir)/include
 dmtcplibdir = $(pkglibdir)
 
