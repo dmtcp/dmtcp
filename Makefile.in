@@ -228,18 +228,16 @@ dist: distclean dist_exclude.txt
 	ls -l ../dmtcp.tgz
 
 create-dirs:
-	test -e $(DESTDIR)$(bindir) || $(MKDIR_P) $(DESTDIR)$(bindir)
-	test -e $(DESTDIR)$(libdir) || $(MKDIR_P) $(DESTDIR)$(libdir)
-	test -e $(DESTDIR)$(pkglibdir) || $(MKDIR_P) $(DESTDIR)$(pkglibdir)
+	$(INSTALL) -d $(DESTDIR)$(bindir)
+	$(INSTALL) -d $(DESTDIR)$(libdir)
+	$(INSTALL) -d $(DESTDIR)$(pkglibdir)
 ifeq ($(M32),0)
-	test -e $(DESTDIR)$(includedir) || $(MKDIR_P) $(DESTDIR)$(includedir)
-	test -e $(DESTDIR)$(docdir) || $(MKDIR_P) $(DESTDIR)$(docdir)
-	test -e $(DESTDIR)$(mandir)/man1 || $(MKDIR_P) $(DESTDIR)$(mandir)/man1
+	$(INSTALL) -d $(DESTDIR)$(includedir)
+	$(INSTALL) -d $(DESTDIR)$(docdir)
+	$(INSTALL) -d $(DESTDIR)$(mandir)/man1
 else
-	test -e $(DESTDIR)$(libdir)/$(PACKAGE)/32/bin || \
-	  $(MKDIR_P) $(DESTDIR)$(libdir)/$(PACKAGE)/32/bin
-	test -e $(DESTDIR)$(libdir)/$(PACKAGE)/32/lib/$(PACKAGE) || \
-	  $(MKDIR_P) $(DESTDIR)$(libdir)/$(PACKAGE)/32/lib/$(PACKAGE)
+	$(INSTALL) -d $(DESTDIR)$(libdir)/$(PACKAGE)/32/bin
+	$(INSTALL) -d $(DESTDIR)$(libdir)/$(PACKAGE)/32/lib/$(PACKAGE)
 endif
 
 install: all create-dirs
