@@ -1,15 +1,13 @@
 %{!?_pkgdocdir: %global _pkgdocdir %{_docdir}/%{name}-%{version}}
 
 Name:		dmtcp
-Version:	2.1
+Version:	2.2
 Release:	1%{?dist}
 Summary:	Checkpoint/Restart functionality for Linux processes
 Group:		Applications/System
 License:	LGPLv3+
 URL:		http://dmtcp.sourceforge.net
 Source0:	http://downloads.sourceforge.net/%{name}/%{name}-%{version}.tar.gz
-Patch0:		0001-Remove-rpath-for-libdmtcp.so.patch
-Requires:	libmtcp%{?_isa} = %{version}-%{release}
 BuildRequires:	python
 
 # This package is functional only on i386 and x86_64 architectures.
@@ -37,64 +35,37 @@ Requires:	dmtcp%{?_isa} = %{version}-%{release}
 %description -n dmtcp-devel
 This package provides files for developing DMTCP plugins.
 
-%package -n libmtcp
-Summary:	MTCP -- Single process checkpointer library
-Group:		Development/Libraries
-
-%description -n libmtcp
-MTCP is the single process checkpoint package that is used by DMTCP to
-checkpoint processes.
-
-This package provides the libmtcp library that is required to checkpoint a
-single process.
-
-%package -n libmtcp-devel
-Summary:	MTCP developer package
-Group:		Development/Libraries
-Requires:	libmtcp%{?_isa} = %{version}-%{release}
-
-%description -n libmtcp-devel
-This package provides files for developing applications that need to
-interact with MTCP as opposed to DMTCP.
-
 %prep
 %setup -q
-%patch0 -p1
 
 %build
 %configure --docdir=%{_pkgdocdir}
 make %{?_smp_mflags}
 
 %check
-./test/autotest.py --slow || :
+./test/autotest.py --retry-once --slow || :
 
 %install
 make install DESTDIR=%{buildroot}
-
-%post -n libmtcp -p /sbin/ldconfig
-
-%postun -n libmtcp -p /sbin/ldconfig
 
 %files
 %{_bindir}/dmtcp_*
 %{_bindir}/mtcp_restart
 %{_libdir}/%{name}
 %dir %{_pkgdocdir}
-%{_pkgdocdir}/QUICK-START
-%{_pkgdocdir}/COPYING
-%{_mandir}/man1/*
+%{_pkgdocdir}
+%{_mandir}/man1/*gz
 
 %files -n dmtcp-devel
 %{_includedir}/dmtcp.h
 
-%files -n libmtcp
-%{_libdir}/libmtcp.so.*
-
-%files -n libmtcp-devel
-%{_libdir}/libmtcp.so
-%{_includedir}/mtcp.h
-
 %changelog
+* Mon Mar 10 2014 Kapil Arya <kapil@ccs.neu.edu> - 2.2-1
+- Preparing for upstream release 2.2.
+- Remove libmtcp* packages.
+- Install all docs in _pkgdocdir 
+- Added --retry-once flag to autotest.
+
 * Fri Jan 10 2014 Kapil Arya <kapil@ccs.neu.edu> - 2.1-1
 - Preparing for upstream release 2.1.
 
