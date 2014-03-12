@@ -249,6 +249,7 @@ install: all create-dirs
 ifeq ($(M32),0)
 	${INSTALL_DATA} $(top_srcdir)/QUICK-START $(DESTDIR)$(docdir)
 	${INSTALL_DATA} $(top_srcdir)/COPYING $(DESTDIR)$(docdir)
+	${INSTALL_DATA} $(top_srcdir)/AUTHORS $(DESTDIR)$(docdir)
 	${INSTALL_DATA} $(top_srcdir)/manpages/*.1.gz $(DESTDIR)$(mandir)/man1
 	(cd $(DESTDIR)$(mandir)/man1; \
 	  for file in ${MANPAGES_AUTOGEN}; do $(LN_S) dmtcp.1.gz $$file; done)
