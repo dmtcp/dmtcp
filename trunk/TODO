@@ -52,6 +52,20 @@
 
 - Add support for epoll_pwait() and ppoll().
 
+- If reading from stdin, maybe we should drain the stdin buffer first before
+  checkpointing, so we can restart without losing user input.  Or maybe
+  it's better if dmtcp does this.
+
+Memory maps:
+- Should save only used part of stack, and document this in DOC.
+  At least do this in x86_64 case, where stack is larger?
+
+- __i386__:
+  Right after heap, in address space of libraries, comes something of size
+  0x1000 with no read-write-exec permission, and then something of size:
+  0x801000
+  That's almost 10 MB.  What's it for?  Do we need to checkpoint it?
+
 PID-VIRTUALIZATION:
 1. wait status of zombie processes
      Store status of those processes which were zombie at checkpoint time. If
