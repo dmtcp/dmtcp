@@ -1,4 +1,4 @@
-## The initial draft of this writeup was provided by Joshua Louie @ Intel.
+## The initial draft of this writeup was provided by Joshua Louie.
 
 Restoring CWD and files on restart:
 ==================================
