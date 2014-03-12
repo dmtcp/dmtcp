@@ -136,8 +136,30 @@ static int patch_srun_cmdline(char * const argv_old[], char ***_argv_new)
   // all srun options starts with one or two dashes so we copy until see '-'.
   argv_new[0] = argv_old[0];
   size_t i;
-  for(i=1; i < argc_old && argv_old[i][0] == '-'; i++){
-    argv_new[i] = argv_old[i];
+  for(i=1; i < argc_old; i++){
+    if( argv_old[i][0] == '-' ){
+      argv_new[i] = argv_old[i];
+      if( argv_old[i][1] != '-' && (strlen(argv_old[i]) == 2) ){
+        // This is not complete handling of srun options.
+        // Most of short options like -N, -n have arguments.
+        // We assume that if first symbol is '-', secont is not '-' and 
+        // agv[i] len is equal to 2, say "-N", "-n" we skip second argument
+        // options like "-N8", "-n10" are not affected
+        i++;
+        argv_new[i] = argv_old[i];
+      }else{
+        // According to srun manpage you should use --nodelist="node1,node2,..."
+        // In practice some MPI implementation (i.e. Intel MPI) ignore this rule and use the following syntax:
+        // "--nodelist node1,node2,..." this causes full option to be splitted onto two argv strings.
+        // Here we handle ony those options that is the point of interest for MPI librarys.
+        if( strcmp(argv_old[i] + 2,"nodelist") == 0 ){
+          i++;
+          argv_new[i] = argv_old[i];
+        }
+      }
+    }else{
+      break;
+    }
   }
   size_t old_pos = i;
   size_t new_pos = i;

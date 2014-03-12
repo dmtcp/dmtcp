@@ -225,7 +225,7 @@ int findLibTorque(dmtcp::string &libpath)
 {
   bool found = false;
   dmtcp::string pattern = "libtorque";
-  if( !findLib_maps(pattern, libpath) ){
+  if( !findLib_byname(pattern, libpath) ){
     found = true;
   }else if( !findLibTorque_pbsconfig(libpath) ){
     found = true;
