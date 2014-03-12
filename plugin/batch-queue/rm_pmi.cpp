@@ -87,13 +87,24 @@ void rm_init_pmi(){
     if( !handle ){
       dmtcp::string pattern = "libpmi";
       dmtcp::string libpath;
-      JASSERT( findLib_maps(pattern,libpath) == 0 );
+      if( findLib_byname(pattern,libpath) != 0 ){
+        JASSERT( findLib_byfunc("PMI_Init",libpath) == 0);
+      }
       JTRACE("")(libpath);
-      handle = dlopen(libpath.c_str(),RTLD_NOW);
+      handle = dlopen(libpath.c_str(),RTLD_LAZY);
+      JASSERT( handle != NULL );
       _real_PMI_Init = (_PMI_Init_t)dlsym(handle,"PMI_Init");
+      JASSERT( _real_PMI_Init != NULL );
       _real_PMI_Fini = (_PMI_Fini_t)dlsym(handle,"PMI_Finalize");
+      JASSERT( _real_PMI_Fini != NULL );
       _real_PMI_Barrier = (_PMI_Barrier_t)dlsym(handle,"PMI_Barrier");
+      JASSERT( _real_PMI_Barrier != NULL );
       _real_PMI_Initialized = (_PMI_Initialized_t)dlsym(handle,"PMI_Initialized");
+      if( _real_PMI_Initialized == NULL ){
+        // eventually smpd of MPICH2 and Intel-MPI uses iPMI_Initialized function
+        _real_PMI_Initialized = (_PMI_Initialized_t)dlsym(handle,"iPMI_Initialized");
+      }
+      JASSERT( _real_PMI_Initialized != NULL );
     }
     do_unlock_lib();
     JTRACE("")(handle);

@@ -24,6 +24,7 @@
 #include <string>
 #include "util.h"
 
-int findLib_maps(dmtcp::string &pattern, dmtcp::string &libpath);
+int findLib_byname(dmtcp::string pttrn, dmtcp::string &libpath);
+int findLib_byfunc(dmtcp::string fname, dmtcp::string &libpath);
 
 #endif
