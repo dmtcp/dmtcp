@@ -1,24 +1,19 @@
 /*****************************************************************************
- *   Copyright (C) 2006-2013 by Michael Rieker, Jason Ansel, Kapil Arya, and *
- *                                                            Gene Cooperman *
- *   mrieker@nii.net, jansel@csail.mit.edu, kapil@ccs.neu.edu, and           *
- *                                                          gene@ccs.neu.edu *
+ * Copyright (C) 2014 Kapil Arya <kapil@ccs.neu.edu>                         *
+ * Copyright (C) 2014 Gene Cooperman <gene@ccs.neu.edu>                      *
  *                                                                           *
- *   This file is part of the MTCP module of DMTCP (DMTCP:mtcp).             *
+ * DMTCP is free software: you can redistribute it and/or                    *
+ * modify it under the terms of the GNU Lesser General Public License as     *
+ * published by the Free Software Foundation, either version 3 of the        *
+ * License, or (at your option) any later version.                           *
  *                                                                           *
- *  DMTCP:mtcp is free software: you can redistribute it and/or              *
- *  modify it under the terms of the GNU Lesser General Public License as    *
- *  published by the Free Software Foundation, either version 3 of the       *
- *  License, or (at your option) any later version.                          *
+ * DMTCP is distributed in the hope that it will be useful,                  *
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of            *
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the             *
+ * GNU Lesser General Public License for more details.                       *
  *                                                                           *
- *  DMTCP:dmtcp/src is distributed in the hope that it will be useful,       *
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of           *
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the            *
- *  GNU Lesser General Public License for more details.                      *
- *                                                                           *
- *  You should have received a copy of the GNU Lesser General Public         *
- *  License along with DMTCP:dmtcp/src.  If not, see                         *
- *  <http://www.gnu.org/licenses/>.                                          *
+ * You should have received a copy of the GNU Lesser General Public          *
+ * License along with DMTCP.  If not, see <http://www.gnu.org/licenses/>.    *
  *****************************************************************************/
 
 /* Algorithm:
@@ -33,7 +28,7 @@
  *  When we enter the copy of restorememoryareas() in the reserved memory,
  *  we will copy the data of rinfo from the global rinfo data to our
  *  new call frame.
- *    It is then safe to munmap the old text, data, and stack segments. 
+ *    It is then safe to munmap the old text, data, and stack segments.
  *  Once we have done the munmap, we have almost finished bootstrapping
  *  ourselves.  We only need to copy the memory sections from the checkpoint
  *  image to the original addresses in memory.  Finally, we will then jump
@@ -436,7 +431,7 @@ static void restorememoryareas(RestoreInfo *rinfo_ptr)
 
   DPRINTF("Entering copy of restorememoryareas().  Will now unmap old memory"
           "\n    and restore memory sections from the checkpoint image.\n");
-  
+
   DPRINTF("DPRINTF may fail when we unmap, since strings are in rodata.\n"
           "But we may be lucky if the strings have been cached by the O/S\n"
           "or if compiler uses relative addressing for rodata with -fPIC\m");

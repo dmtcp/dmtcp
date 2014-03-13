@@ -1,14 +1,14 @@
 /****************************************************************************
  *  Copyright (C) 2012-2014 by Artem Y. Polyakov <artpol84@gmail.com>       *
  *                                                                          *
- *  This file is part of the RM plugin for DMTCP                        *
+ *  This file is part of the RM plugin for DMTCP                            *
  *                                                                          *
- *  RM plugin is free software: you can redistribute it and/or          *
+ *  RM plugin is free software: you can redistribute it and/or              *
  *  modify it under the terms of the GNU Lesser General Public License as   *
  *  published by the Free Software Foundation, either version 3 of the      *
  *  License, or (at your option) any later version.                         *
  *                                                                          *
- *  RM plugin is distributed in the hope that it will be useful,        *
+ *  RM plugin is distributed in the hope that it will be useful,            *
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
  *  GNU Lesser General Public License for more details.                     *
@@ -125,13 +125,13 @@ static int patch_srun_cmdline(char * const argv_old[], char ***_argv_new)
   dmtcp::vector<dmtcp::string> dmtcp_args;
   dmtcp::Util::getDmtcpArgs(dmtcp_args);
   unsigned int dsize = dmtcp_args.size();
-  
+
   // Prepare final comman line
   *_argv_new = new char *[argc_old + (dsize + 1)]; // (dsize+1) is DMTCP part including dmtcpCkptPath
   char **argv_new = *_argv_new;
-  
-  
-  // Move srun part like: srun --nodes=3 --ntasks=3 --kill-on-bad-exit --nodelist=c2909,c2911,c2913 
+
+
+  // Move srun part like: srun --nodes=3 --ntasks=3 --kill-on-bad-exit --nodelist=c2909,c2911,c2913
   // first string is srun and we move it anyway
   // all srun options starts with one or two dashes so we copy until see '-'.
   argv_new[0] = argv_old[0];
@@ -142,7 +142,7 @@ static int patch_srun_cmdline(char * const argv_old[], char ***_argv_new)
       if( argv_old[i][1] != '-' && (strlen(argv_old[i]) == 2) ){
         // This is not complete handling of srun options.
         // Most of short options like -N, -n have arguments.
-        // We assume that if first symbol is '-', secont is not '-' and 
+        // We assume that if first symbol is '-', secont is not '-' and
         // agv[i] len is equal to 2, say "-N", "-n" we skip second argument
         // options like "-N8", "-n10" are not affected
         i++;
@@ -170,11 +170,11 @@ static int patch_srun_cmdline(char * const argv_old[], char ***_argv_new)
   for (i = 0; i < dsize; i++, new_pos++) {
     argv_new[new_pos] = strdup(dmtcp_args[i].c_str());
   }
-  
+
   for (; old_pos < argc_old; old_pos++, new_pos++) {
     argv_new[new_pos] = argv_old[old_pos];
   }
-  
+
   dmtcp::string cmdline;
   for (i = 0; argv_new[i] != NULL; i++ ) {
     cmdline +=  dmtcp::string() + argv_new[i] + " ";
@@ -191,7 +191,7 @@ void close_all_fds()
   jalib::IntVector fds =  jalib::Filesystem::ListOpenFds();
   for(size_t i = 0 ; i < fds.size(); i++){
     JTRACE("fds")(i)(fds[i]);
-    if( fds[i] > 2 ){ 
+    if( fds[i] > 2 ){
       JTRACE("Close")(i)(fds[i]);
       jalib::close(fds[i]);
     }
@@ -201,7 +201,7 @@ void close_all_fds()
   for(size_t i = 0 ; i < fds.size(); i++){
     JTRACE("fds")(i)(fds[i]);
   }
-  
+
 }
 
 extern "C" int execve (const char *filename, char *const argv[],
@@ -214,7 +214,7 @@ extern "C" int execve (const char *filename, char *const argv[],
   print_args(argv);
   char **argv_new;
   patch_srun_cmdline(argv, &argv_new);
-  
+
   dmtcp::string cmdline;
   for (int i = 0; argv_new[i] != NULL; i++ ) {
     cmdline +=  dmtcp::string() + argv_new[i] + " ";
@@ -225,9 +225,9 @@ extern "C" int execve (const char *filename, char *const argv[],
   for(int i = 0; envp[i] != NULL; i++){
     JTRACE("envp[i]")(i)(envp[i]);
   }
-  
+
   close_all_fds();
-  
+
   return _real_execve(filename, argv_new, envp);
 }
 

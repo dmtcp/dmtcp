@@ -1,9 +1,8 @@
 /*****************************************************************************
- *   Copyright (C) 2008-2013 by Ana-Maria Visan, Kapil Arya, and             *
- *                                                            Gene Cooperman *
+ *   Copyright (C) 2008-2013 Ana-Maria Visan, Kapil Arya, and Gene Cooperman *
  *   amvisan@cs.neu.edu, kapil@cs.neu.edu, and gene@ccs.neu.edu              *
  *                                                                           *
- *   This file is part of the PTRACE plugin of DMTCP (DMTCP:mtcp).           *
+ *  This file is part of the PTRACE plugin of DMTCP (DMTCP:plugin/ptrace).   *
  *                                                                           *
  *  DMTCP:mtcp is free software: you can redistribute it and/or              *
  *  modify it under the terms of the GNU Lesser General Public License as    *
