@@ -108,6 +108,7 @@ void dmtcp::callbackPostCheckpoint(int isRestart,
   if (isRestart) {
     //restoreArgvAfterRestart(mtcpRestoreArgvStartAddr);
     prctlRestoreProcessName();
+    fesetround(rounding_mode);
 
     JTRACE("begin postRestart()");
     WorkerState::setCurrentState(WorkerState::RESTARTING);
@@ -116,15 +117,15 @@ void dmtcp::callbackPostCheckpoint(int isRestart,
     }
     dmtcp::DmtcpWorker::eventHook(DMTCP_EVENT_RESTART, NULL);
   } else {
-
-    /* This function is: checkpointhread();  So, only ckpt thread executes */
-    fesetround(rounding_mode);
     dmtcp::DmtcpWorker::eventHook(DMTCP_EVENT_RESUME, NULL);
   }
 
   dmtcp::DmtcpWorker::instance().waitForStage3Refill(isRestart);
 
   dmtcp::DmtcpWorker::instance().waitForStage4Resume(isRestart);
+  if (isRestart) {
+    restore_term_settings();
+  }
 
   // Set the process state to RUNNING now, in case a dmtcpaware hook
   //  calls pthread_create, thereby invoking our virtualization.
