@@ -46,10 +46,9 @@ build-stamp: configure-stamp
 	dh_testdir
 
 	$(MAKE)
-	#docbook-to-man debian/dmtcp.sgml > dmtcp.1
 ifeq (,$(findstring nocheck,$(DEB_BUILD_OPTIONS)))
 ifneq ($(shell dpkg-architecture -qDEB_BUILD_ARCH_CPU),arm)
-	$(MAKE) AUTOTEST='--retry-once' check
+	#$(MAKE) AUTOTEST='--retry-once' check
 endif
 endif
 
@@ -60,7 +59,6 @@ clean:
 	rm -f build-stamp configure-stamp
 
 	[ ! -f Makefile ] || $(MAKE) distclean
-	rm -f config.sub config.guess
 
 	dh_clean
 
@@ -74,7 +72,7 @@ install: build
 	# Add here commands to install the package into debian/dmtcp.
 	$(MAKE) DESTDIR=$(DESTDIR) install
 
-	dh_install -Xshare/man -XQUICK-START -XCOPYING --fail-missing --sourcedir=$(BUILDDIR)
+	dh_install --fail-missing --sourcedir=$(BUILDDIR)
 
 
 # Build architecture-independent files here.
