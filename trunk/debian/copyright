@@ -9,13 +9,6 @@ Copyright: 2006-2013, Jason Ansel <jansel@csail.mit.edu>
            2006-2013, Gene Cooperman <gene@ccs.neu.edu>
 License: LGPL-3
 
-Files: mtcp/*
-Copyright: 2006-2013, Mike Rieker <mrieker@nii.net>
-           2006-2013, Jason Ansel <jansel@csail.mit.edu>
-           2006-2013, Kapil Arya <kapil@ccs.neu.edu>
-           2006-2013, Gene Cooperman <gene@ccs.neu.edu>
-License: LGPL-3
-
 Files: debian/*
 Copyright: 2011-2014, Kapil Arya <kapil@ccs.neu.edu>
 License: GPL-3
@@ -25,22 +18,22 @@ Copyright: 2012, SUSE LINUX Products GmbH, Nuernberg, Germany.
            2012-2014, Kapil Arya <kapil@ccs.neu.edu>
 License: LGPL-3
 
-Files: dmtcp/jalib/*
+Files: jalib/*
 Copyright: 2005-2011, Jason Ansel <jansel@csail.mit.edu>
 License: LGPL-3
 
-Files: dmtcp/src/trampolines.*
+Files: src/trampolines.*
 Copyright: 2006-2013, Kapil Arya <kapil@ccs.neu.edu>
            2006-2013, Tyler Denniston <tyler@ccs.neu.edu>
 License: LGPL-3
 
-Files: dmtcp/src/plugin/ipc/event/eventwrappers.cpp
+Files: src/plugin/ipc/event/eventwrappers.cpp
 Copyright: 2012, Kapil Arya <kapil@ccs.neu.edu>
            2012, Gene Cooperman <gene@ccs.neu.edu>
            2012, Rohan Garg <rohgarg@ccs.neu.edu>
 License: LGPL-3
 
-Files: dmtcp/src/plugin/ipc/event/util_descriptor.*
+Files: src/plugin/ipc/event/util_descriptor.*
 Copyright: 2012, Onyeka Igabari
 License: LGPL-3
 
@@ -50,28 +43,24 @@ Copyright: 2009-2012, Ana-Maria Visan <amvisan@ccs.neu.edu>
            2009-2012, Gene Cooperman <gene@ccs.neu.edu>
 License: LGPL-3
 
-Files: dmtcp/src/glibcsystem.cpp
+Files: src/glibcsystem.cpp
 Copyright: 1991-2000,2002,2003,2005,2007 Free Software Foundation, Inc.
 License: LGPL-2.1
 
-Files: dmtcp/include/dmtcpalloc.h
+Files: include/dmtcpalloc.h
 Copyright: 2002 Pete Isensee <PKIsensee@msn.com>
 License: LGPL-3
 
-Files: mtcp/mtcp_sigaction_*
+Files: src/mtcp/sysdep-*
 Copyright: 1991-2000,2002,2003,2005,2007 Free Software Foundation, Inc.
 License: LGPL-2.1
 
-Files: mtcp/sysdep-*
+Files: src/mtcp/NOTES-x86_64/*.[hS]
 Copyright: 1991-2000,2002,2003,2005,2007 Free Software Foundation, Inc.
 License: LGPL-2.1
 
-Files: mtcp/NOTES-x86_64/*.[hS]
-Copyright: 1991-2000,2002,2003,2005,2007 Free Software Foundation, Inc.
-License: LGPL-2.1
-
-Files: mtcp/libc-do-*
-Copyright: 2010-2012 Free Software Foundation, Inc.
+Files: src/mtcp/syscall-*.s
+Copyright: 2005, 2009 Free Software Foundation, Inc.
 License: LGPL-2.1
 
 Files: plugin/batch-queue/*

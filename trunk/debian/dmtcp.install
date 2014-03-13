@@ -11,9 +11,12 @@ usr/bin/dmtcp_sshd
 usr/bin/mtcp_restart
 usr/include/dmtcp.h
 usr/lib/dmtcp/libdmtcp.so
+usr/lib/dmtcp/libdmtcp_alloc.so
+usr/lib/dmtcp/libdmtcp_dl.so
 usr/lib/dmtcp/libdmtcp_ipc.so
 usr/lib/dmtcp/libdmtcp_pid.so
-usr/lib/dmtcp/libdmtcp_alloc.so
 usr/lib/dmtcp/libdmtcp_ptrace.so
 usr/lib/dmtcp/libdmtcp_modify-env.so
 usr/lib/dmtcp/libdmtcp_batch-queue.so
+usr/share/doc
+usr/share/man

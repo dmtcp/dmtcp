@@ -1,10 +1,12 @@
-dmtcp (2.1-1) unstable; urgency=low
+dmtcp (2.2-1) unstable; urgency=low
 
-  * New upstream release 2.1.
+  * New upstream release 2.2.
+  * Changing distribution from experimental to unstable.
   * Updated debian standards version to 3.9.5.
   * Removed libdmtcpaware packages.
   * Run make check in "slow" mode.
   * Updated copyright file.
+  * Added debian/NEWS file.
   * Removed some stale files from install procedure.
   * Upload sponsored by Yaroslav Halchenko <debian@onerussian.com>
 
