@@ -217,7 +217,7 @@ void dmtcp::FileConnList::remapShmMaps()
     ProcMapsArea *area = &shmAreas[i];
     FileConnection *fileCon = shmAreaConn[i];
     int fd = fileCon->getFds()[0];
-    JTRACE("Restoring shared memory area") (area->name) (area->addr);
+    JTRACE("Restoring shared memory area") (area->name) ((void*)area->addr);
     void *addr = _real_mmap(area->addr, area->size, area->prot,
                             MAP_FIXED | area->flags,
                             fd, area->offset);
