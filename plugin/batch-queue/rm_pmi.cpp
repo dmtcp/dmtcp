@@ -1,14 +1,14 @@
 /****************************************************************************
  *  Copyright (C) 2012-2014 by Artem Y. Polyakov <artpol84@gmail.com>       *
  *                                                                          *
- *  This file is part of the RM plugin for DMTCP                        *
+ *  This file is part of the RM plugin for DMTCP                            *
  *                                                                          *
- *  RM plugin is free software: you can redistribute it and/or          *
+ *  RM plugin is free software: you can redistribute it and/or              *
  *  modify it under the terms of the GNU Lesser General Public License as   *
  *  published by the Free Software Foundation, either version 3 of the      *
  *  License, or (at your option) any later version.                         *
  *                                                                          *
- *  RM plugin is distributed in the hope that it will be useful,        *
+ *  RM plugin is distributed in the hope that it will be useful,            *
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
  *  GNU Lesser General Public License for more details.                     *
@@ -82,7 +82,7 @@ static _PMI_Initialized_t _real_PMI_Initialized = NULL;
 static bool pmi_is_used = false;
 
 void rm_init_pmi(){
-    
+
     do_lock_lib();
     if( !handle ){
       dmtcp::string pattern = "libpmi";
@@ -115,7 +115,7 @@ extern "C" int PMI_Init( int *spawned )
     if( !_real_PMI_Init ){
       rm_init_pmi();
     }
-    
+
     if( ! pmi_is_used ){
       do_lock_flag();
       pmi_is_used = true;
@@ -129,7 +129,7 @@ extern "C" int PMI_Init( int *spawned )
 int rm_shutdown_pmi()
 {
   int ret = 0;
-  
+
   JTRACE("Start");
   if( pmi_is_used ){
     PMI_BOOL en;
@@ -149,7 +149,7 @@ int rm_shutdown_pmi()
 int rm_restore_pmi()
 {
   int ret = 0;
-  
+
   JTRACE("Start");
   if( pmi_is_used ){
     if( !_real_PMI_Init || ! _real_PMI_Initialized ){
@@ -157,7 +157,7 @@ int rm_restore_pmi()
     }
     PMI_BOOL en;
     int spawned;
-    JASSERT( _real_PMI_Initialized(&en) == PMI_SUCCESS ); 
+    JASSERT( _real_PMI_Initialized(&en) == PMI_SUCCESS );
     if( en == PMI_FALSE ){
       JASSERT( _real_PMI_Init(&spawned) == PMI_SUCCESS );
     }

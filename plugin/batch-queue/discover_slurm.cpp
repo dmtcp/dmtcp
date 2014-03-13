@@ -1,14 +1,14 @@
 /****************************************************************************
  *  Copyright (C) 2012-2014 by Artem Y. Polyakov <artpol84@gmail.com>       *
  *                                                                          *
- *  This file is part of the RM plugin for DMTCP                        *
+ *  This file is part of the RM plugin for DMTCP                            *
  *                                                                          *
- *  RM plugin is free software: you can redistribute it and/or          *
+ *  RM plugin is free software: you can redistribute it and/or              *
  *  modify it under the terms of the GNU Lesser General Public License as   *
  *  published by the Free Software Foundation, either version 3 of the      *
  *  License, or (at your option) any later version.                         *
  *                                                                          *
- *  RM plugin is distributed in the hope that it will be useful,        *
+ *  RM plugin is distributed in the hope that it will be useful,            *
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
  *  GNU Lesser General Public License for more details.                     *
@@ -62,8 +62,8 @@ public:
         with_prefix=false;
       }
     }
-    
-    while(1){ 
+
+    while(1){
       size_t next = str.find_first_of(",[]",pos);
       if( next == string::npos ){
         prefix = str.substr(pos);
