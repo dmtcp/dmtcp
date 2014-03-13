@@ -1,0 +1,5 @@
+usr/bin
+usr/include
+usr/lib/dmtcp
+usr/share/man/man1
+usr/share/lintian/overrides

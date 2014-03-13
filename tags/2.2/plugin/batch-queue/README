@@ -1,0 +1,99 @@
+General support for cluster resource managers (RM) is provided.
+Hence, its two names for the same plugin:  batch-queue and "rm".
+This module has been tested against the Open MPI implementation for MPI-2.
+
+A single plugin, libdmtcp_rm.so, supports several resource mangers.
+To invoke this plugin, you should only need to use the flag '--rm':
+  dmtcp_launch --rm MYAPP ARG1 ...
+
+Currently TORQUE and SLURM resource managers are both supported.
+Support for SGE and LSF is planned for the near future.
+
+Torque is still under testing.  If you have problems with it, please write
+to the authors.
+
+Also, SLURM _especially_ is new code.  It works on some clusters, but
+we have not done enough testing on the variety of clusters available.
+So, you should expect that you may find some smaller bugs.  If you do,
+please help us by sending feedback to the authors.  These bugs will be
+fixed as we discover them.
+
+USAGE EXAMPLES: 
+  To enable DMTCP RM module you need to use the --rm option in
+  dmtcp_launch.  Sample scripts for SLURM can be found below.  TORQUE scripts
+  can be constructed in a similar fashion.
+      During debugging, it is better to start the dmtcp_coordinator in an
+  interactive terminal on the front end.  In the sample batch script below
+  you should also remove the coordinator startup line and also specify
+  the appropriate hostname using the '-h' option of 'dmtcp_launch'.
+
+NOTE:  It is also possible to start dmtcp_coordinator with a randomly assigned
+port to avoid conflicts.  This is done by starting dmtcp_coordinator
+with port '0' as shown below:
+  dmtcp_coordinator --port 0 --port-file coordinator-port.txt
+In this case, DMTCP coordinator writes its listening port to the file
+specified by the --port-file option.
+
+NOTE:  The option
+  dmtcp_coordinator --daemon
+exists for running the coordinator in daemon mode (no I/O, no parent process).
+
+
+-------------------------------------------------------------------------------
+
+* Sample SLURM batch script to initially run a program under DMTCP:
+
+-------------------------------------------------------------------------------
+#!/bin/sh
+# Sample SLURM batch script to run a program
+# Be sure to modify the XXXX to the actual number of tasks for --ntasks.
+# Be sure to also modify the dmtcp_launch line for your actual job.
+
+#SBATCH --ntasks=XXXX
+#SBATCH ...
+  
+# Report actual hostname to user.
+hostname
+
+# If you install DMTCP in your user directory (not cluster-wide) you need to
+# extend the PATH variable:
+export PATH="<path-to-dmtcp-installation>:$PATH
+
+# Start dmtcp_coordinator (Fix if debugging or using coordinator on front end.)
+dmtcp_coordinator &
+
+# DMTCP coordinator needs to be started on localhost. Or put the other host
+#   in the '-h' option.
+# The flag '--interval 3600' creates a checkpoint every hour (3600 seconds).
+dmtcp_launch --rm --interval 3600 -h `hostname` <other-dmtcp-options> \
+  mpirun <mpi-options> ./mpi
+
+-------------------------------------------------------------------------------
+
+* Sample SLURM batch script for program restart:
+
+-------------------------------------------------------------------------------
+#!/bin/sh
+# Sample SLURM batch script for restart
+# You'll also need to customize the SBATCH lines below.
+# The script, ./dmtcp_restart_script.sh, will have been created for you
+#   by a checkpoint during the initial run.
+
+#SBATCH --ntasks=XXXX
+#SBATCH ...
+  
+# Report actual hostname to user.
+hostname
+
+# If you install DMTCP in your user directory (not cluster-wide), you'll
+# need to extend PATH variable:
+export PATH="<path-to-dmtcp-installation>:$PATH
+
+# Start dmtcp_coordinator (Fix if debugging or using coordinator on front end.)
+dmtcp_coordinator &
+export DMTCP_HOST=`hostname`
+
+# The flag '--interval 3600' creates a checkpoint every hour (3600 seconds).
+./dmtcp_restart_script.sh --interval 3600
+
+-------------------------------------------------------------------------------
