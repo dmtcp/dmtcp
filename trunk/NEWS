@@ -4,6 +4,39 @@ Please send DMTCP bug reports via <dmtcp-forum@lists.sourceforge.net>
 
 Version 2.1 release notes
 =========================
+In this release, the lowest layers have been re-organized and partially
+re-written for greater clarity of code and greater maintainability.
+These changes should be transparent to end users.
+
+Users relying on the use of DMTCP with MPI, InfiniBand or the Toruqe or
+SLURM batch queues are strongly advised to upgrade.
+
+Other changes are:
+* A --exit-after-ckpt flag was added for dmtcp_coordinator.
+* Scalability improvements were added.  DMTCP has now been tested
+  on an MPI jobs using 2048 MPI ranks over 2048  CPU cores.
+* Anybody using DMTCP with InfiniBand is strongly recommended to upgrade
+  to inherit important bug fixes.  The InfiniBand plugin is still
+  formally part of the 'contrib' directory during this release.  It was
+  tested primarily against Open MPI.  Further testing is still needed
+  before the InfiniBand plugin can be promoted from the 'contrib'
+  directory to the 'plugin' directory.
+* The --infiniband flag of dmtcp_launch was not fully functional in
+  version 2.1.  This is now fixed.
+* The 'dmtcp_launch --no-coordinator' option was broken in version 2.1.
+  This is now fixed.
+* The --disable-dl-plugin flag was added to dmtcp_launch.  Most users will
+  not need this option.  But software relying on DT_RPATH, DT_RUNPATH,
+  or certain other uncommon cases in loading dynamic libraries may need
+  to invoke this for stability.  It is hoped to remove the need for this
+  flag in a future release.
+* A similar comment holds for the --disable-alloc-plugin flag in dmtcp_launch.
+  If there appear to be issues with a memory allocator, consider invoking
+  this flag.
+* Numerous minor bug fixes and enhancements were added.
+
+Version 2.1 release notes
+=========================
 
 * DMTCP version 2.1. has now been released.  As before, it runs on most
   Linux distros, and supports both x86 and x86_64 (Intel/AMD for 32- and
