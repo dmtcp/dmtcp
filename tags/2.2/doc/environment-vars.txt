@@ -1,0 +1,61 @@
+		Environment variables in DMTCP
+
+This is intended as one of a series of informal documents to describe
+and partially document some of the more subtle DMTCP data structures
+and algorithms.  These documents are snapshots in time, and they
+may become somewhat out-of-date over time (and hopefully also refreshed
+to re-sync them with the code again).
+
+This document is about the environment variables usually accessed through
+the system calls getenv, setenv, putenv, etc.  Environment variables
+for a process are initialized by the kernel as part of execve().
+Even though glibc (and POSIX) provide for execl, execv, execle, execve,
+execlp, execvp, and fexecve, all of these are translated by glibc to execve
+when calling the kernel.  This is why only execve has an additional man page
+in section 2 ('man 2 execve').
+
+After initialization, environment variables are maintained solely in
+user space, and are ignored by the kernel.  Since DMTCP saves all of
+user space in a checkpoint image, all environment variable are saved
+at checkpoint time and restored exactly on restart.  This is a good
+thing.  For example, a shell program may cache its own copy of the environment
+variables prior to checkpoint.  It would be bad if environment variables
+asynchronously appeared and disappeared as part of checkpoint/restart.
+
+Most environment variable are defined as C macros in dmtcp/src/constants.h.
+For example:
+#define ENV_VAR_QUIET "DMTCP_QUIET"
+
+In addition to user environment variables, DMTCP sets a limited number
+of its own environment variables at the time of exec.  Those environment
+variables are mostly unset before the user's main() function begins.
+
+There are some special cases.  Variables like DMTCP_TMPDIR, DMTCP_QUIET,
+and LD_PRELOAD must be passed across a user's call to exec or to "ssh".
+This is because DMTCP is intended to be "contagious".  As new processes
+are exec'ed, they must inherit the DMTCP checkpointing software and the
+environment variables used to configure them.
+
+As of the time of this writing, the DMTCP wrapper for execv() calls
+the wrapper for execve().  The DMTCP wrapper for execvp() (and execlp, which
+delegates to execvp) has its own code, distinct from execve.  (WHY?)
+
+The execvp wrapper adjusts LD_PRELOAD to add our libdmtcp.so
+to LD_PRELOAD.  When the process exec's, it will load and execute
+libdmtcp.so before the user's main() routine.  That code will remove
+libdmtcp.so from LD_PRELOAD so as to hide the modified LD_PRELOAD from
+the user code.  See dmtcpworker.cpp:restoreUserLDPRELOAD() for that code.
+The restoreUserLDPRELAD code is also invoked for a newly loaded program
+invoked via dmtcp_launch.
+
+The execve wrapper should also be doing this.  In fact, this code
+should be absorbed into execwrappers.cpp:prepareForExec().  IS THIS DONE?
+IF NOT, WHY NOT?)
+
+The execve wrapper calls patchUserEnv, which removes any DMTCP environment
+variables.  In principle, there shouldn't be any remaining DMTCP
+environment variables, and this code is not needed.  We should have
+removed any DMTCP environment variables at the beginning of the call
+to libdmtcp.so before the user's main() function is executed.
+(LET'S TEST THIS, AND TURN THIS patchUserEnv INTO AN EXTENDED ASSERTION
+TO CHECK FOR CORRECTNESS.)

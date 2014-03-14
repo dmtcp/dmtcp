@@ -1,0 +1,33 @@
+This plugin supports checkpointing of applications over InfiniBand.
+(By default, DMTCP provides checkpoint-restart for TCP (socket-based networks.)
+
+This is the work of Jiajun Cao et al.  Please report bugs to
+dmtcp@ccs.neu.edu as well as to jiajun using his account at ccs.neu.edu.
+
+[
+ * Note that this plugin will be reorganized by the end of January, 2014.
+ * The reorganized plugin will not be available in time for the DMTCP 2.1
+ * release.  If you are using DMTCP 2.1, consider getting the newer plugin from
+ * the DMTCP svn.
+]
+
+To use InfiniBand, you must have first configured DMTCP to use it:
+To do so:
+  cd <DMTCP_ROOT>  # replace with wherever your DMTCP_ROOT is.
+  ./configure --enable-infiniband-support
+  make clean
+  make
+  # Replace next line with absolute path to your contrib/infiniband directory.
+  bin/dmtcp_checkpoint \
+    --with-plugin <DMTCP_ROOT>/contrib/infiniband/libinfiniband.so
+
+EXPERTS ONLY: libibtrace.so can also be built
+
+Note, configuring with '--enable-infiniband-support' will still allow
+DMTCP to be used with standard TCP instead of InfiniBand.
+
+However, this option is currently incompatible with a DMTCP optimization.
+DMTCP normally creates zero-fill-on-demand pages when it finds a
+page of all zeroes.  The '--enable-infiniband-support' disallows this
+optimization.  Zero pages will be saved as full pages of zeroes in the
+checkpoint image.  This is a bug that will be fixed in a future release.
