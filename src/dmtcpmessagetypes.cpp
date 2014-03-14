@@ -172,7 +172,6 @@ dmtcp::ostream& dmtcp::operator << ( dmtcp::ostream& o, const dmtcp::DmtcpMessag
 #endif
       OSHIFTPRINTF ( DMT_DO_REFILL )
       OSHIFTPRINTF ( DMT_DO_RESUME )
-      OSHIFTPRINTF ( DMT_FORCE_RESTART )
       OSHIFTPRINTF ( DMT_KILL_PEER )
 
 #ifdef COORD_NAMESERVICE

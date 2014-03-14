@@ -64,7 +64,6 @@ namespace dmtcp
     DMT_DO_SEND_QUERIES,
 #endif
     DMT_DO_REFILL,           // when coordinator wants slave to refill buffers
-    DMT_FORCE_RESTART,       // force a restart even if not all sockets are reconnected
     DMT_KILL_PEER,           // send kill message to peer
 
     DMT_REGISTER_NAME_SERVICE_DATA,
