@@ -96,7 +96,8 @@ unixsock_info()
       pid1=${l%/*}
       pid1=${pid1%/*}
       pid1=${pid1##*/}
-      echo -n " (maybe)$cmdline[$pid1]"
+      cmdline=${cmdline%%-*}
+      echo -n " (maybe)$cmdline[$pid1, uid=$uid1]"
     fi
   done
 
@@ -106,7 +107,8 @@ unixsock_info()
       pid1=${l%/*}
       pid1=${pid1%/*}
       pid1=${pid1##*/}
-      echo -n " (maybe)$cmdline[$pid1]"
+      cmdline=${cmdline%%-*}
+      echo -n " (maybe)$cmdline[$pid1, uid=$uid2]"
     fi
   done
 
