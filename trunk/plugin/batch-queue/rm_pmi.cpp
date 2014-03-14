@@ -80,6 +80,7 @@ static _PMI_Barrier_t _real_PMI_Barrier = NULL;
 static _PMI_Initialized_t _real_PMI_Initialized = NULL;
 
 static bool pmi_is_used = false;
+static bool pmi_is_internal = false;
 
 void rm_init_pmi(){
 
@@ -103,6 +104,7 @@ void rm_init_pmi(){
       if( _real_PMI_Initialized == NULL ){
         // eventually smpd of MPICH2 and Intel-MPI uses iPMI_Initialized function
         _real_PMI_Initialized = (_PMI_Initialized_t)dlsym(handle,"iPMI_Initialized");
+        pmi_is_internal = true;
       }
       JASSERT( _real_PMI_Initialized != NULL );
     }
@@ -130,8 +132,10 @@ int rm_shutdown_pmi()
 {
   int ret = 0;
 
-  JTRACE("Start");
-  if( pmi_is_used ){
+  JTRACE("Start, internal pmi capable");
+  if( pmi_is_used && !pmi_is_internal ){
+    JTRACE("Perform shutdown");
+
     PMI_BOOL en;
     if( !_real_PMI_Fini || ! _real_PMI_Initialized ){
       rm_init_pmi();
@@ -150,8 +154,9 @@ int rm_restore_pmi()
 {
   int ret = 0;
 
-  JTRACE("Start");
-  if( pmi_is_used ){
+  JTRACE("Start, internal pmi capable");
+  if( pmi_is_used && !pmi_is_internal ){
+    JTRACE("Perform restore");
     if( !_real_PMI_Init || ! _real_PMI_Initialized ){
       rm_init_pmi();
     }
