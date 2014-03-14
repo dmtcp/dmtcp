@@ -50,8 +50,6 @@ static const char* theUsage =
   "    -bc, --bcheckpoint:    Checkpoint all nodes, blocking until done\n"
   //"    xc, -xc, --xcheckpoint : Checkpoint all nodes, kill all nodes when done\n"
   "    -i, --interval <val>   Update ckpt interval to <val> seconds (0=never)\n"
-  "    -f, --force            Force restart even with missing nodes\n"
-  "                              (for debugging)\n"
   "    -k, --kill             Kill all nodes\n"
   "    -q, --quit             Kill all nodes and quit\n"
   "\n"
@@ -102,7 +100,7 @@ int main ( int argc, char** argv )
         fprintf(stderr, theUsage, "");
         return 1;
       } else if (*cmd == 's' || *cmd == 'i' || *cmd == 'c' || *cmd == 'b' ||
-                 *cmd == 'x' || *cmd == 'f' || *cmd == 'k' || *cmd == 'q') {
+                 *cmd == 'x' || *cmd == 'k' || *cmd == 'q') {
         request = s;
         if (*cmd == 'i') {
 	  if (isdigit(cmd[1])) { // if -i5, for example
@@ -149,7 +147,6 @@ int main ( int argc, char** argv )
     coordinatorAPI.connectAndSendUserCommand(*cmd, &coordCmdStatus,
                                              &numPeers, &isRunning);
   case 'c':
-  case 'f':
   case 'k':
   case 'q':
     coordinatorAPI.connectAndSendUserCommand(*cmd, &coordCmdStatus);
