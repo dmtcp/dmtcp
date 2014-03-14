@@ -96,6 +96,11 @@ int main(int argc, char *argv[], char *envp[])
   char *host;
   int port;
 
+  if (argc < 2) {
+    printf("***ERROR: This program shouldn't be used directly.\n");
+    exit(1);
+  }
+
   if (strcmp(argv[1], "--listenAddr") == 0) {
     dummySshdProcess(argv[2]);
     printf("ERROR: Not Implemented\n");

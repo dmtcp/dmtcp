@@ -131,6 +131,11 @@ int main(int argc, char *argv[], char *envp[])
   int status;
   int ssh_stdinfd, ssh_stdoutfd, ssh_stderrfd;
 
+  if (argc < 2) {
+    printf("***ERROR: This program shouldn't be used directly.\n");
+    exit(1);
+  }
+
   if (strcmp(argv[1], "--noStrictHostKeyChecking") == 0) {
     noStrictHostKeyChecking = 1;
     argv++;
