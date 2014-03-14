@@ -162,6 +162,11 @@ int main(int argc, char *argv[], char **environ)
   int mtcp_sys_errno;
   int simulate = 0;
 
+  if (argc == 1) {
+    MTCP_PRINTF("***ERROR: This program should not be used directly.\n");
+    mtcp_sys_exit(1);
+  }
+
 #if 0
 MTCP_PRINTF("Attach for debugging.");
 {int x=1; while(x);}
