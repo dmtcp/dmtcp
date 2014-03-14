@@ -1,14 +1,14 @@
 /****************************************************************************
  *  Copyright (C) 2012-2014 by Artem Y. Polyakov <artpol84@gmail.com>       *
  *                                                                          *
- *  This file is part of the RM plugin for DMTCP                        *
+ *  This file is part of the RM plugin for DMTCP                            *
  *                                                                          *
- *  RM plugin is free software: you can redistribute it and/or          *
+ *  RM plugin is free software: you can redistribute it and/or              *
  *  modify it under the terms of the GNU Lesser General Public License as   *
  *  published by the Free Software Foundation, either version 3 of the      *
  *  License, or (at your option) any later version.                         *
  *                                                                          *
- *  RM plugin is distributed in the hope that it will be useful,        *
+ *  RM plugin is distributed in the hope that it will be useful,            *
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
  *  GNU Lesser General Public License for more details.                     *
@@ -80,9 +80,10 @@ static _PMI_Barrier_t _real_PMI_Barrier = NULL;
 static _PMI_Initialized_t _real_PMI_Initialized = NULL;
 
 static bool pmi_is_used = false;
+static bool pmi_is_internal = false;
 
 void rm_init_pmi(){
-    
+
     do_lock_lib();
     if( !handle ){
       dmtcp::string pattern = "libpmi";
@@ -103,6 +104,7 @@ void rm_init_pmi(){
       if( _real_PMI_Initialized == NULL ){
         // eventually smpd of MPICH2 and Intel-MPI uses iPMI_Initialized function
         _real_PMI_Initialized = (_PMI_Initialized_t)dlsym(handle,"iPMI_Initialized");
+        pmi_is_internal = true;
       }
       JASSERT( _real_PMI_Initialized != NULL );
     }
@@ -115,7 +117,7 @@ extern "C" int PMI_Init( int *spawned )
     if( !_real_PMI_Init ){
       rm_init_pmi();
     }
-    
+
     if( ! pmi_is_used ){
       do_lock_flag();
       pmi_is_used = true;
@@ -129,9 +131,11 @@ extern "C" int PMI_Init( int *spawned )
 int rm_shutdown_pmi()
 {
   int ret = 0;
-  
-  JTRACE("Start");
-  if( pmi_is_used ){
+
+  JTRACE("Start, internal pmi capable");
+  if( pmi_is_used && !pmi_is_internal ){
+    JTRACE("Perform shutdown");
+
     PMI_BOOL en;
     if( !_real_PMI_Fini || ! _real_PMI_Initialized ){
       rm_init_pmi();
@@ -149,15 +153,16 @@ int rm_shutdown_pmi()
 int rm_restore_pmi()
 {
   int ret = 0;
-  
-  JTRACE("Start");
-  if( pmi_is_used ){
+
+  JTRACE("Start, internal pmi capable");
+  if( pmi_is_used && !pmi_is_internal ){
+    JTRACE("Perform restore");
     if( !_real_PMI_Init || ! _real_PMI_Initialized ){
       rm_init_pmi();
     }
     PMI_BOOL en;
     int spawned;
-    JASSERT( _real_PMI_Initialized(&en) == PMI_SUCCESS ); 
+    JASSERT( _real_PMI_Initialized(&en) == PMI_SUCCESS );
     if( en == PMI_FALSE ){
       JASSERT( _real_PMI_Init(&spawned) == PMI_SUCCESS );
     }

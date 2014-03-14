@@ -2,14 +2,14 @@
  *   Copyright (C) 2006-2013 by Jason Ansel, Kapil Arya, and Gene Cooperman *
  *   jansel@csail.mit.edu, kapil@ccs.neu.edu, gene@ccs.neu.edu              *
  *                                                                          *
- *   This file is part of the dmtcp/src module of DMTCP (DMTCP:dmtcp/src).  *
+ *  This file is part of DMTCP.                                             *
  *                                                                          *
- *  DMTCP:dmtcp/src is free software: you can redistribute it and/or        *
+ *  DMTCP is free software: you can redistribute it and/or                  *
  *  modify it under the terms of the GNU Lesser General Public License as   *
  *  published by the Free Software Foundation, either version 3 of the      *
  *  License, or (at your option) any later version.                         *
  *                                                                          *
- *  DMTCP:dmtcp/src is distributed in the hope that it will be useful,      *
+ *  DMTCP is distributed in the hope that it will be useful,                *
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
  *  GNU Lesser General Public License for more details.                     *
@@ -409,7 +409,7 @@ void dmtcp::DmtcpWorker::waitForCoordinatorMsg(dmtcp::string msgStr,
 
   if (type == DMT_DO_SUSPEND) {
     // Make a dummy syscall to inform superior of our status before we go into
-    // select. If // ptrace is disabled, this call has no significant effect.
+    // select. If ptrace is disabled, this call has no significant effect.
     _real_syscall(DMTCP_FAKE_SYSCALL);
   } else {
     msg.type = DMT_OK;
@@ -418,35 +418,17 @@ void dmtcp::DmtcpWorker::waitForCoordinatorMsg(dmtcp::string msgStr,
   }
 
   JTRACE("waiting for " + msgStr + " message");
+  CoordinatorAPI::instance().recvMsgFromCoordinator(&msg);
+  if (type == DMT_DO_SUSPEND && exitInProgress()) {
+    ThreadSync::destroyDmtcpWorkerLockUnlock();
+    pthread_exit(NULL);
+  }
 
-  do {
-    CoordinatorAPI::instance().recvMsgFromCoordinator(&msg);
-
-    if (type == DMT_DO_SUSPEND && exitInProgress()) {
-      ThreadSync::destroyDmtcpWorkerLockUnlock();
-      pthread_exit(NULL);
-    }
-
-    msg.assertValid();
-
-    if (msg.type == DMT_KILL_PEER) {
-      JTRACE("Received KILL message from coordinator, exiting");
-      _exit (0);
-    }
-
-    // The ckpt thread can receive multiple DMT_RESTORE_WAITING or
-    // DMT_FORCE_RESTART messages while waiting for a DMT_DO_REFILL message, we
-    // need to ignore them and wait for the DMT_DO_REFILL message to arrive.
-    if (type != DMT_DO_REFILL && type != DMT_DO_REGISTER_NAME_SERVICE_DATA &&
-         type != DMT_DO_SEND_QUERIES) {
-      break;
-    }
-
-  } while((type == DMT_DO_REFILL
-           || type == DMT_DO_REGISTER_NAME_SERVICE_DATA
-           || type == DMT_DO_SEND_QUERIES)
-          && msg.type == DMT_FORCE_RESTART);
-
+  msg.assertValid();
+  if (msg.type == DMT_KILL_PEER) {
+    JTRACE("Received KILL message from coordinator, exiting");
+    _exit (0);
+  }
   JASSERT(msg.type == type) (msg.type) (type);
 
   // Coordinator sends some computation information along with the SUSPEND

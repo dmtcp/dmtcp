@@ -2,14 +2,14 @@
  *   Copyright (C) 2006-2008 by Jason Ansel, Kapil Arya, and Gene Cooperman *
  *   jansel@csail.mit.edu, kapil@ccs.neu.edu, gene@ccs.neu.edu              *
  *                                                                          *
- *   This file is part of the dmtcp/src module of DMTCP (DMTCP:dmtcp/src).  *
+ *  This file is part of DMTCP.                                             *
  *                                                                          *
- *  DMTCP:dmtcp/src is free software: you can redistribute it and/or        *
+ *  DMTCP is free software: you can redistribute it and/or                  *
  *  modify it under the terms of the GNU Lesser General Public License as   *
  *  published by the Free Software Foundation, either version 3 of the      *
  *  License, or (at your option) any later version.                         *
  *                                                                          *
- *  DMTCP:dmtcp/src is distributed in the hope that it will be useful,      *
+ *  DMTCP is distributed in the hope that it will be useful,                *
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
  *  GNU Lesser General Public License for more details.                     *
@@ -165,18 +165,13 @@
 #define user_desc modify_ldt_ldt_s
 #endif
 
-#define DMTCP_VERSION_AND_COPYRIGHT_INFO                                        \
-  BINARY_NAME " (DMTCP) " PACKAGE_VERSION "\n\n"                                \
-  "Copyright (C) 2006-2014  Jason Ansel, Michael Rieker, Kapil Arya, and\n"     \
-  "                                                       Gene Cooperman\n"     \
-  "License LGPLv3+: GNU LGPL version 3 or later <http://gnu.org/licenses/lgpl.html>.\n"\
-  "This program comes with ABSOLUTELY NO WARRANTY.\n"                           \
-  "This is free software, and you are welcome to redistribute it\n"             \
+#define DMTCP_VERSION_AND_COPYRIGHT_INFO                                       \
+  BINARY_NAME " (DMTCP) " PACKAGE_VERSION "\n"                                 \
+  "License LGPLv3+: GNU LGPL version 3 or later\n"                             \
+  "    <http://gnu.org/licenses/lgpl.html>.\n"                                 \
+  "This program comes with ABSOLUTELY NO WARRANTY.\n"                          \
+  "This is free software, and you are welcome to redistribute it\n"            \
   "under certain conditions; see COPYING file for details.\n"
-
-#define DMTCP_BANNER                                                            \
-  DMTCP_VERSION_AND_COPYRIGHT_INFO                                              \
-  "(Use flag \"-q\" to hide this message.)\n\n"
 
 #define HELP_AND_CONTACT_INFO             \
   "Report bugs to: "PACKAGE_BUGREPORT"\n" \

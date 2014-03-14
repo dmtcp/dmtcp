@@ -2,14 +2,14 @@
  *   Copyright (C) 2006-2013 by Jason Ansel, Kapil Arya, and Gene Cooperman *
  *   jansel@csail.mit.edu, kapil@ccs.neu.edu, gene@ccs.neu.edu              *
  *                                                                          *
- *   This file is part of the dmtcp/src module of DMTCP (DMTCP:dmtcp/src).  *
+ *  This file is part of DMTCP.                                             *
  *                                                                          *
- *  DMTCP:dmtcp/src is free software: you can redistribute it and/or        *
+ *  DMTCP is free software: you can redistribute it and/or                  *
  *  modify it under the terms of the GNU Lesser General Public License as   *
  *  published by the Free Software Foundation, either version 3 of the      *
  *  License, or (at your option) any later version.                         *
  *                                                                          *
- *  DMTCP:dmtcp/src is distributed in the hope that it will be useful,      *
+ *  DMTCP is distributed in the hope that it will be useful,                *
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
  *  GNU Lesser General Public License for more details.                     *
@@ -84,7 +84,6 @@ static const char* theHelpMessage =
   "  c : Checkpoint all nodes\n"
   "  i : Print current checkpoint interval\n"
   "      (To change checkpoint interval, use dmtcp_command)\n"
-  "  f : Force a restart even if there are missing nodes (debugging only)\n"
   "  k : Kill all nodes\n"
   "  q : Kill all nodes and quit\n"
   "  ? : Show this message\n"
@@ -113,6 +112,8 @@ static const char* theUsage =
   "  -i, --interval (environment variable DMTCP_CHECKPOINT_INTERVAL):\n"
   "      Time in seconds between automatic checkpoints\n"
   "      (default: 0, disabled)\n"
+  "  -q, --quiet \n"
+  "      Skip copyright notice.\n"
   "  --help:\n"
   "      Print this message and exit.\n"
   "  --version:\n"
@@ -548,10 +549,6 @@ void dmtcp::DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*
         << ", " << clients[i]->state().toString()
         << '\n';
     }
-    break;
-  case 'f': case 'F':
-    JNOTE ( "forcing restart..." );
-    broadcastMessage ( DMT_FORCE_RESTART );
     break;
   case 'q': case 'Q':
   {
@@ -1724,6 +1721,7 @@ int main ( int argc, char** argv )
   if ( portStr != NULL ) thePort = jalib::StringToInt ( portStr );
 
   bool daemon = false;
+  bool quiet = false;
 
   shift;
   while(argc > 0){
@@ -1734,6 +1732,9 @@ int main ( int argc, char** argv )
     } else if ((s=="--version") && argc==1){
       printf("%s", DMTCP_VERSION_AND_COPYRIGHT_INFO);
       return 1;
+    }else if(s == "-q" || s == "--quiet"){
+      quiet = true;
+      shift;
     }else if(s=="--exit-on-last"){
       exitOnLast = true;
       shift;
@@ -1773,6 +1774,11 @@ int main ( int argc, char** argv )
       fprintf(stderr, theUsage, DEFAULT_PORT);
       return 1;
     }
+  }
+
+  if (!quiet) {
+    fprintf(stderr, DMTCP_VERSION_AND_COPYRIGHT_INFO);
+    fprintf(stderr, "(Use flag \"-q\" to hide this message.)\n\n");
   }
 
   dmtcp::UniquePid::setTmpDir(getenv(ENV_VAR_TMPDIR));

@@ -2,14 +2,14 @@
  *   Copyright (C) 2006-2010 by Jason Ansel, Kapil Arya, and Gene Cooperman *
  *   jansel@csail.mit.edu, kapil@ccs.neu.edu, gene@ccs.neu.edu              *
  *                                                                          *
- *   This file is part of the dmtcp/src module of DMTCP (DMTCP:dmtcp/src).  *
+ *  This file is part of DMTCP.                                             *
  *                                                                          *
- *  DMTCP:dmtcp/src is free software: you can redistribute it and/or        *
+ *  DMTCP is free software: you can redistribute it and/or                  *
  *  modify it under the terms of the GNU Lesser General Public License as   *
  *  published by the Free Software Foundation, either version 3 of the      *
  *  License, or (at your option) any later version.                         *
  *                                                                          *
- *  DMTCP:dmtcp/src is distributed in the hope that it will be useful,      *
+ *  DMTCP is distributed in the hope that it will be useful,                *
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
  *  GNU Lesser General Public License for more details.                     *
@@ -39,8 +39,6 @@ static const char* theUsage =
   "              Hostname where dmtcp_coordinator is run (default: localhost)\n"
   "  -p, --port PORT_NUM (environment variable DMTCP_PORT)\n"
   "              Port where dmtcp_coordinator is run (default: 7779)\n"
-  "  --quiet \n"
-  "              Skip copyright notice\n"
   "  --help \n"
   "              Print this message and exit.\n"
   "  --version \n"
@@ -52,8 +50,6 @@ static const char* theUsage =
   "    -bc, --bcheckpoint:    Checkpoint all nodes, blocking until done\n"
   //"    xc, -xc, --xcheckpoint : Checkpoint all nodes, kill all nodes when done\n"
   "    -i, --interval <val>   Update ckpt interval to <val> seconds (0=never)\n"
-  "    -f, --force            Force restart even with missing nodes\n"
-  "                              (for debugging)\n"
   "    -k, --kill             Kill all nodes\n"
   "    -q, --quit             Kill all nodes and quit\n"
   "\n"
@@ -67,7 +63,6 @@ static const char* theUsage =
 
 int main ( int argc, char** argv )
 {
-  bool quiet = false;
   dmtcp::string interval = "";
   dmtcp::string request = "h";
 
@@ -91,9 +86,6 @@ int main ( int argc, char** argv )
     }else if(argc>1 && (s == "-p" || s == "--port")){
       setenv(ENV_VAR_NAME_PORT, argv[1], 1);
       shift; shift;
-    }else if(s == "--quiet"){
-      quiet = true;
-      shift;
     }else if(s == "h" || s == "-h" || s == "--help" || s == "?"){
       fprintf(stderr, theUsage, "");
       return 1;
@@ -108,7 +100,7 @@ int main ( int argc, char** argv )
         fprintf(stderr, theUsage, "");
         return 1;
       } else if (*cmd == 's' || *cmd == 'i' || *cmd == 'c' || *cmd == 'b' ||
-                 *cmd == 'x' || *cmd == 'f' || *cmd == 'k' || *cmd == 'q') {
+                 *cmd == 'x' || *cmd == 'k' || *cmd == 'q') {
         request = s;
         if (*cmd == 'i') {
 	  if (isdigit(cmd[1])) { // if -i5, for example
@@ -129,15 +121,6 @@ int main ( int argc, char** argv )
       }
     }
   }
-
-  if (! quiet)
-    printf(  "DMTCP-" PACKAGE_VERSION " (+ MTCP), Copyright (C) 2006-2011"
-  "  Jason Ansel, Michael Rieker,\n"
-  "                                       Kapil Arya, and Gene Cooperman\n"
-           "This program comes with ABSOLUTELY NO WARRANTY.\n"
-           "This is free software, and you are welcome to redistribute it\n"
-           "under certain conditions; see COPYING file for details.\n"
-           "(Use flag \"--quiet\" to hide this message.)\n\n");
 
   int coordCmdStatus = CoordCmdStatus::NOERROR;
   int numPeers;
@@ -164,7 +147,6 @@ int main ( int argc, char** argv )
     coordinatorAPI.connectAndSendUserCommand(*cmd, &coordCmdStatus,
                                              &numPeers, &isRunning);
   case 'c':
-  case 'f':
   case 'k':
   case 'q':
     coordinatorAPI.connectAndSendUserCommand(*cmd, &coordCmdStatus);

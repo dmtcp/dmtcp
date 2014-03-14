@@ -2,14 +2,14 @@
  *   Copyright (C) 2006-2013 by Jason Ansel, Kapil Arya, and Gene Cooperman *
  *   jansel@csail.mit.edu, kapil@ccs.neu.edu, gene@ccs.neu.edu              *
  *                                                                          *
- *   This file is part of the dmtcp/src module of DMTCP (DMTCP:dmtcp/src).  *
+ *  This file is part of DMTCP.                                             *
  *                                                                          *
- *  DMTCP:dmtcp/src is free software: you can redistribute it and/or        *
+ *  DMTCP is free software: you can redistribute it and/or                  *
  *  modify it under the terms of the GNU Lesser General Public License as   *
  *  published by the Free Software Foundation, either version 3 of the      *
  *  License, or (at your option) any later version.                         *
  *                                                                          *
- *  DMTCP:dmtcp/src is distributed in the hope that it will be useful,      *
+ *  DMTCP is distributed in the hope that it will be useful,                *
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
  *  GNU Lesser General Public License for more details.                     *
@@ -125,7 +125,7 @@ static const char* theUsage =
   "              Directory to store temporary files \n"
   "              (default: $TMDPIR/dmtcp-$USER@$HOST or /tmp/dmtcp-$USER@$HOST)\n"
   "  -q, --quiet (or set environment variable DMTCP_QUIET = 0, 1, or 2)\n"
-  "              Skip banner and NOTE messages; if given twice, also skip WARNINGs\n"
+  "              Skip NOTE messages; if given twice, also skip WARNINGs\n"
   "  --help\n"
   "              Print this message and exit.\n"
   "  --version\n"
@@ -353,9 +353,6 @@ int main ( int argc, char** argv )
    */
   setenv(ENV_VAR_FORKED_CKPT, "1", 1);
 #endif
-
-  if (jassert_quiet == 0)
-    JASSERT_STDERR << DMTCP_BANNER;
 
   // This code will go away when zero-mapped pages are implemented in MTCP.
   struct rlimit rlim;
