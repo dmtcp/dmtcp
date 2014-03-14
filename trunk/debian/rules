@@ -48,7 +48,7 @@ build-stamp: configure-stamp
 	$(MAKE)
 ifeq (,$(findstring nocheck,$(DEB_BUILD_OPTIONS)))
 ifneq ($(shell dpkg-architecture -qDEB_BUILD_ARCH_CPU),arm)
-	#$(MAKE) AUTOTEST='--retry-once' check
+	$(MAKE) AUTOTEST='--retry-once' check
 endif
 endif
 
