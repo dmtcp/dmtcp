@@ -39,8 +39,6 @@ static const char* theUsage =
   "              Hostname where dmtcp_coordinator is run (default: localhost)\n"
   "  -p, --port PORT_NUM (environment variable DMTCP_PORT)\n"
   "              Port where dmtcp_coordinator is run (default: 7779)\n"
-  "  --quiet \n"
-  "              Skip copyright notice\n"
   "  --help \n"
   "              Print this message and exit.\n"
   "  --version \n"
@@ -67,7 +65,6 @@ static const char* theUsage =
 
 int main ( int argc, char** argv )
 {
-  bool quiet = false;
   dmtcp::string interval = "";
   dmtcp::string request = "h";
 
@@ -91,9 +88,6 @@ int main ( int argc, char** argv )
     }else if(argc>1 && (s == "-p" || s == "--port")){
       setenv(ENV_VAR_NAME_PORT, argv[1], 1);
       shift; shift;
-    }else if(s == "--quiet"){
-      quiet = true;
-      shift;
     }else if(s == "h" || s == "-h" || s == "--help" || s == "?"){
       fprintf(stderr, theUsage, "");
       return 1;
@@ -129,9 +123,6 @@ int main ( int argc, char** argv )
       }
     }
   }
-
-  if (! quiet)
-    printf(DMTCP_BANNER);
 
   int coordCmdStatus = CoordCmdStatus::NOERROR;
   int numPeers;

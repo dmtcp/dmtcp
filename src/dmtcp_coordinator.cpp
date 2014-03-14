@@ -113,6 +113,8 @@ static const char* theUsage =
   "  -i, --interval (environment variable DMTCP_CHECKPOINT_INTERVAL):\n"
   "      Time in seconds between automatic checkpoints\n"
   "      (default: 0, disabled)\n"
+  "  -q, --quiet \n"
+  "      Skip copyright notice.\n"
   "  --help:\n"
   "      Print this message and exit.\n"
   "  --version:\n"
@@ -1724,6 +1726,7 @@ int main ( int argc, char** argv )
   if ( portStr != NULL ) thePort = jalib::StringToInt ( portStr );
 
   bool daemon = false;
+  bool quiet = false;
 
   shift;
   while(argc > 0){
@@ -1734,6 +1737,9 @@ int main ( int argc, char** argv )
     } else if ((s=="--version") && argc==1){
       printf("%s", DMTCP_VERSION_AND_COPYRIGHT_INFO);
       return 1;
+    }else if(s == "-q" || s == "--quiet"){
+      quiet = true;
+      shift;
     }else if(s=="--exit-on-last"){
       exitOnLast = true;
       shift;
@@ -1773,6 +1779,11 @@ int main ( int argc, char** argv )
       fprintf(stderr, theUsage, DEFAULT_PORT);
       return 1;
     }
+  }
+
+  if (!quiet) {
+    fprintf(stderr, DMTCP_VERSION_AND_COPYRIGHT_INFO);
+    fprintf(stderr, "(Use flag \"-q\" to hide this message.)\n\n");
   }
 
   dmtcp::UniquePid::setTmpDir(getenv(ENV_VAR_TMPDIR));

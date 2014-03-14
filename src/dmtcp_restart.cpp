@@ -91,7 +91,7 @@ static const char* theUsage =
   "              Directory to store temporary files \n"
   "              (default: $TMDPIR/dmtcp-$USER@$HOST or /tmp/dmtcp-$USER@$HOST)\n"
   "  -q, --quiet (or set environment variable DMTCP_QUIET = 0, 1, or 2)\n"
-  "              Skip banner and NOTE messages; if given twice, also skip WARNINGs\n"
+  "              Skip NOTE messages; if given twice, also skip WARNINGs\n"
   "  --help\n"
   "              Print this message and exit.\n"
   "  --version\n"
@@ -461,9 +461,6 @@ int main(int argc, char** argv)
 
   //make sure JASSERT initializes now, rather than during restart
   Util::initializeLogFile();
-
-  if (jassert_quiet == 0)
-    JASSERT_STDERR << DMTCP_BANNER;
 
   if (!runAsRoot && (getuid() == 0 || geteuid() == 0)) {
     JASSERT_STDERR <<

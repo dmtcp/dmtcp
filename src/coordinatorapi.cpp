@@ -472,6 +472,7 @@ void dmtcp::CoordinatorAPI::startNewCoordinator(CoordinatorAPI::CoordinatorMode
     char *modeStr = (char *)"--daemon";
     char * args[] = {
       (char*)coordinator.c_str(),
+      (char*)"--quiet",
       (char*)"--exit-on-last",
       modeStr,
       NULL
