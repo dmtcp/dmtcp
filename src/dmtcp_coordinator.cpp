@@ -84,7 +84,6 @@ static const char* theHelpMessage =
   "  c : Checkpoint all nodes\n"
   "  i : Print current checkpoint interval\n"
   "      (To change checkpoint interval, use dmtcp_command)\n"
-  "  f : Force a restart even if there are missing nodes (debugging only)\n"
   "  k : Kill all nodes\n"
   "  q : Kill all nodes and quit\n"
   "  ? : Show this message\n"
@@ -550,10 +549,6 @@ void dmtcp::DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*
         << ", " << clients[i]->state().toString()
         << '\n';
     }
-    break;
-  case 'f': case 'F':
-    JNOTE ( "forcing restart..." );
-    broadcastMessage ( DMT_FORCE_RESTART );
     break;
   case 'q': case 'Q':
   {
