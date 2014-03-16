@@ -302,46 +302,56 @@ extern "C" int posix_openpt(int flags)
 
 extern "C" FILE *tmpfile()
 {
+  DMTCP_PLUGIN_DISABLE_CKPT();
   FILE *fp = _real_tmpfile();
   if (fp  != NULL && dmtcp_is_running_state()) {
     FileConnList::instance().processFileConnection(fileno(fp), NULL, O_RDWR, 0600);
   }
+  DMTCP_PLUGIN_ENABLE_CKPT();
   return fp;
 }
 
 extern "C" int mkstemp(char *ttemplate)
 {
+  DMTCP_PLUGIN_DISABLE_CKPT();
   int fd = _real_mkstemp(ttemplate);
   if (fd >= 0 && dmtcp_is_running_state()) {
     FileConnList::instance().processFileConnection(fd, NULL, O_RDWR, 0600);
   }
+  DMTCP_PLUGIN_ENABLE_CKPT();
   return fd;
 }
 
 extern "C" int mkostemp(char *ttemplate, int flags)
 {
+  DMTCP_PLUGIN_DISABLE_CKPT();
   int fd = _real_mkostemp(ttemplate, flags);
   if (fd >= 0 && dmtcp_is_running_state()) {
     FileConnList::instance().processFileConnection(fd, NULL, flags, 0600);
   }
+  DMTCP_PLUGIN_ENABLE_CKPT();
   return fd;
 }
 
 extern "C" int mkstemps(char *ttemplate, int suffixlen)
 {
+  DMTCP_PLUGIN_DISABLE_CKPT();
   int fd = _real_mkstemps(ttemplate, suffixlen);
   if (fd >= 0 && dmtcp_is_running_state()) {
     FileConnList::instance().processFileConnection(fd, NULL, O_RDWR, 0600);
   }
+  DMTCP_PLUGIN_ENABLE_CKPT();
   return fd;
 }
 
 extern "C" int mkostemps(char *ttemplate, int suffixlen, int flags)
 {
+  DMTCP_PLUGIN_DISABLE_CKPT();
   int fd = _real_mkostemps(ttemplate, suffixlen, flags);
   if (fd >= 0 && dmtcp_is_running_state()) {
     FileConnList::instance().processFileConnection(fd, NULL, flags, 0600);
   }
+  DMTCP_PLUGIN_ENABLE_CKPT();
   return fd;
 }
 
