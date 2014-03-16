@@ -552,23 +552,24 @@ extern "C" DIR *opendir(const char *name)
   return dir;
 }
 
-static void updateStatPath(const char *path, char *newpath)
+static void updateStatPath(const char *path, char **newpath)
 {
-    if (dmtcp::Util::strStartsWith(path, VIRT_PTS_PREFIX_STR)) {
+  if (dmtcp::Util::strStartsWith(path, VIRT_PTS_PREFIX_STR)) {
     char currPtsDevName[32];
     dmtcp::SharedData::getRealPtyName(path, currPtsDevName,
                                       sizeof(currPtsDevName));
-    strcpy(newpath, currPtsDevName);
+    strcpy(*newpath, currPtsDevName);
   } else {
-    strcpy(newpath, path);
+    *newpath = (char*) path;
   }
 }
 
 extern "C" int __xstat(int vers, const char *path, struct stat *buf)
 {
-  char newpath [ PATH_MAX ] = {0} ;
+  char tmpbuf [ PATH_MAX ] = {0} ;
+  char *newpath = tmpbuf;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  updateStatPath(path, newpath);
+  updateStatPath(path, &newpath);
   int retval = _real_xstat(vers, newpath, buf);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -576,9 +577,10 @@ extern "C" int __xstat(int vers, const char *path, struct stat *buf)
 
 extern "C" int __xstat64(int vers, const char *path, struct stat64 *buf)
 {
-  char newpath [ PATH_MAX ] = {0};
+  char tmpbuf [ PATH_MAX ] = {0};
+  char *newpath = tmpbuf;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  updateStatPath(path, newpath);
+  updateStatPath(path, &newpath);
   int retval = _real_xstat64(vers, newpath, buf);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -604,9 +606,10 @@ extern "C" int __fxstat64(int vers, int fd, struct stat64 *buf)
 
 extern "C" int __lxstat(int vers, const char *path, struct stat *buf)
 {
-  char newpath [ PATH_MAX ] = {0} ;
+  char tmpbuf [ PATH_MAX ] = {0} ;
+  char *newpath = tmpbuf;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  updateStatPath(path, newpath);
+  updateStatPath(path, &newpath);
   int retval = _real_lxstat(vers, newpath, buf);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -614,9 +617,10 @@ extern "C" int __lxstat(int vers, const char *path, struct stat *buf)
 
 extern "C" int __lxstat64(int vers, const char *path, struct stat64 *buf)
 {
-  char newpath [ PATH_MAX ] = {0} ;
+  char tmpbuf [ PATH_MAX ] = {0} ;
+  char *newpath = tmpbuf;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  updateStatPath(path, newpath);
+  updateStatPath(path, &newpath);
   int retval = _real_lxstat64(vers, newpath, buf);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -628,15 +632,16 @@ extern "C" int __lxstat64(int vers, const char *path, struct stat64 *buf)
 //   A user has reported this was needed for Linux SLES10.
 extern "C" ssize_t readlink(const char *path, char *buf, size_t bufsiz)
 {
-  char newpath [ PATH_MAX ] = {0} ;
+  char tmpbuf [ PATH_MAX ] = {0} ;
+  char *newpath = tmpbuf;
   DMTCP_PLUGIN_DISABLE_CKPT();
   ssize_t retval;
-  if (strcmp(path, "/proc/self/exe") == 0) {
+  if (path != NULL && strcmp(path, "/proc/self/exe") == 0) {
     const char *procSelfExe = dmtcp_get_executable_path();
     strncpy(buf, procSelfExe, bufsiz);
     retval = bufsiz > strlen(procSelfExe) ? strlen(procSelfExe) : bufsiz;
   } else {
-    updateStatPath(path, newpath);
+    updateStatPath(path, &newpath);
     retval = _real_readlink(newpath, buf, bufsiz);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();

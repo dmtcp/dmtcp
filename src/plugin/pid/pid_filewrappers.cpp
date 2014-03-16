@@ -54,53 +54,38 @@
 #undef readlink
 #undef realpath
 
-// FIXME:  This function needs third argument newpathsize, or assume PATH_MAX
-// FIXME:  This does a lot of copying even if "/proc" doesn't appear.
-static void updateProcPathVirtualToReal(const char *path, char *newpath)
-{
-  if (path == NULL || strlen(path) == 0) {
-    strcpy(newpath, "");
-    return;
-  }
+#define PROC_PREFIX "/proc/"
 
-  if (dmtcp::Util::strStartsWith(path, "/proc/")) {
-    int index = 6;
+// FIXME:  This function needs third argument newpathsize, or assume PATH_MAX
+static void updateProcPathVirtualToReal(const char *path, char **newpath)
+{
+  if (dmtcp::Util::strStartsWith(path, PROC_PREFIX)) {
+    int index = strlen(PROC_PREFIX);
     char *rest;
     pid_t virtualPid = strtol(&path[index], &rest, 0);
     if (virtualPid > 0 && *rest == '/') {
       pid_t realPid = VIRTUAL_TO_REAL_PID(virtualPid);
-      sprintf(newpath, "/proc/%d%s", realPid, rest);
-    } else {
-      strcpy(newpath, path);
+      sprintf(*newpath, "/proc/%d%s", realPid, rest);
+      return;
     }
-  } else {
-    strcpy(newpath, path);
   }
-  return;
+  *newpath = (char *)path;
 }
 
 // FIXME:  This function needs third argument newpathsize, or assume PATH_MAX
-// FIXME:  This does a lot of copying even if "/proc" doesn't appear.
-static void updateProcPathRealToVirtual(const char *path, char *newpath)
+static void updateProcPathRealToVirtual(const char *path, char **newpath)
 {
-  if (path == NULL || strlen(path) == 0) {
-    strcpy(newpath, "");
-    return;
-  }
-
-  if (dmtcp::Util::strStartsWith(path, "/proc/")) {
-    int index = 6;
+  if (dmtcp::Util::strStartsWith(path, PROC_PREFIX)) {
+    int index = strlen(PROC_PREFIX);
     char *rest;
     pid_t realPid = strtol(&path[index], &rest, 0);
     if (realPid > 0 && *rest == '/') {
       pid_t virtualPid = REAL_TO_VIRTUAL_PID(realPid);
-      sprintf(newpath, "/proc/%d%s", virtualPid, rest);
-    } else {
-      strcpy(newpath, path);
+      sprintf(*newpath, "/proc/%d%s", virtualPid, rest);
+      return;
     }
-  } else {
-    strcpy(newpath, path);
   }
+  *newpath = (char *)path;
   return;
 }
 
@@ -116,8 +101,9 @@ extern "C" int open (const char *path, int flags, ... )
     mode = va_arg (arg, int);
     va_end (arg);
   }
-  char newpath[PATH_MAX];
-  updateProcPathVirtualToReal(path, newpath);
+  char tmpbuf[PATH_MAX];
+  char *newpath = tmpbuf;
+  updateProcPathVirtualToReal(path, &newpath);
   return _real_open(newpath, flags, mode);
 }
 
@@ -132,37 +118,42 @@ extern "C" int open64 (const char *path, int flags, ... )
     mode = va_arg (arg, int);
     va_end (arg);
   }
-  char newpath[PATH_MAX];
-  updateProcPathVirtualToReal(path, newpath);
+  char tmpbuf[PATH_MAX];
+  char *newpath = tmpbuf;
+  updateProcPathVirtualToReal(path, &newpath);
   return _real_open64(newpath, flags, mode);
 }
 
 extern "C" FILE *fopen (const char* path, const char* mode)
 {
-  char newpath[PATH_MAX];
-  updateProcPathVirtualToReal(path, newpath);
+  char tmpbuf[PATH_MAX];
+  char *newpath = tmpbuf;
+  updateProcPathVirtualToReal(path, &newpath);
   return _real_fopen(newpath, mode);
 }
 
 extern "C" FILE *fopen64 (const char* path, const char* mode)
 {
-  char newpath[PATH_MAX];
-  updateProcPathVirtualToReal(path, newpath);
+  char tmpbuf[PATH_MAX];
+  char *newpath = tmpbuf;
+  updateProcPathVirtualToReal(path, &newpath);
   return _real_fopen64(newpath, mode);
 }
 
 extern "C" int __xstat(int vers, const char *path, struct stat *buf)
 {
-  char newpath [ PATH_MAX ] = {0} ;
-  updateProcPathVirtualToReal(path, newpath);
+  char tmpbuf[PATH_MAX];
+  char *newpath = tmpbuf;
+  updateProcPathVirtualToReal(path, &newpath);
   int retval = _real_xstat( vers, newpath, buf );
   return retval;
 }
 
 extern "C" int __xstat64(int vers, const char *path, struct stat64 *buf)
 {
-  char newpath [ PATH_MAX ] = {0};
-  updateProcPathVirtualToReal(path, newpath);
+  char tmpbuf[PATH_MAX];
+  char *newpath = tmpbuf;
+  updateProcPathVirtualToReal(path, &newpath);
   int retval = _real_xstat64( vers, newpath, buf );
   return retval;
 }
@@ -183,25 +174,28 @@ extern "C" int __fxstat64(int vers, int fd, struct stat64 *buf)
 
 extern "C" int __lxstat(int vers, const char *path, struct stat *buf)
 {
-  char newpath [ PATH_MAX ] = {0} ;
-  updateProcPathVirtualToReal(path, newpath);
+  char tmpbuf[PATH_MAX];
+  char *newpath = tmpbuf;
+  updateProcPathVirtualToReal(path, &newpath);
   int retval = _real_lxstat( vers, newpath, buf );
   return retval;
 }
 
 extern "C" int __lxstat64(int vers, const char *path, struct stat64 *buf)
 {
-  char newpath [ PATH_MAX ] = {0} ;
-  updateProcPathVirtualToReal(path, newpath);
+  char tmpbuf[PATH_MAX];
+  char *newpath = tmpbuf;
+  updateProcPathVirtualToReal(path, &newpath);
   int retval = _real_lxstat64( vers, newpath, buf );
   return retval;
 }
 
 extern "C" ssize_t readlink(const char *path, char *buf, size_t bufsiz)
 {
-  char newpath [ PATH_MAX ] = {0} ;
+  char tmpbuf[PATH_MAX];
+  char *newpath = tmpbuf;
   //FIXME:  Suppose the real path is longer than PATH_MAX.  Do we check?
-  updateProcPathVirtualToReal(path, newpath);
+  updateProcPathVirtualToReal(path, &newpath);
   return NEXT_FNC(readlink) (newpath, buf, bufsiz);
 #if 0
   if (ret != -1) {
@@ -217,11 +211,12 @@ extern "C" ssize_t readlink(const char *path, char *buf, size_t bufsiz)
 
 extern "C" char *realpath(const char *path, char *resolved_path)
 {
-  char newpath [ PATH_MAX ] = {0} ;
-  updateProcPathVirtualToReal(path, newpath);
+  char tmpbuf[PATH_MAX];
+  char *newpath = tmpbuf;
+  updateProcPathVirtualToReal(path, &newpath);
   char *retval = NEXT_FNC(realpath) (newpath, resolved_path);
   if (retval != NULL) {
-    updateProcPathRealToVirtual(retval, newpath);
+    updateProcPathRealToVirtual(retval, &newpath);
     strcpy(retval, newpath);
   }
   return retval;
@@ -246,8 +241,9 @@ extern "C" char *canonicalize_file_name(const char *path)
 #include <unistd.h>
 extern "C" int access(const char *path, int mode)
 {
-  char newpath [ PATH_MAX ] = {0} ;
-  updateProcPathVirtualToReal(path, newpath);
+  char tmpbuf[PATH_MAX];
+  char *newpath = tmpbuf;
+  updateProcPathVirtualToReal(path, &newpath);
   return NEXT_FNC(access) (newpath, mode);
 }
 

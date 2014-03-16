@@ -79,7 +79,9 @@ void dmtcp::Util::unlockFile(int fd)
 
 bool dmtcp::Util::strStartsWith(const char *str, const char *pattern)
 {
-  JASSERT(str != NULL && pattern != NULL);
+  if (str == NULL || pattern == NULL) {
+    return false;
+  }
   int len1 = strlen(str);
   int len2 = strlen(pattern);
   if (len1 >= len2) {
@@ -90,7 +92,9 @@ bool dmtcp::Util::strStartsWith(const char *str, const char *pattern)
 
 bool dmtcp::Util::strEndsWith(const char *str, const char *pattern)
 {
-  JASSERT(str != NULL && pattern != NULL);
+  if (str == NULL || pattern == NULL) {
+    return false;
+  }
   int len1 = strlen(str);
   int len2 = strlen(pattern);
   if (len1 >= len2) {
