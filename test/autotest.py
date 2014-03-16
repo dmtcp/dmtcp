@@ -691,6 +691,9 @@ runTest("dmtcp5",        2, ["./test/dmtcp5"])
 resource.setrlimit(resource.RLIMIT_STACK, oldLimit)
 
 # Test for files opened with WRONLY mode and later unlinked.
+runTest("syscall-tester",  1, ["./test/syscall-tester"])
+
+# Test for files opened with WRONLY mode and later unlinked.
 runTest("file1",         1, ["./test/file1"])
 
 runTest("dmtcpaware1",   1, ["./test/dmtcpaware1"])
