@@ -157,6 +157,7 @@ EXTERNC int dmtcp_get_restart_env(char *name, char *value, int maxvaluelen);
 EXTERNC int dmtcp_no_coordinator(void);
 EXTERNC DmtcpUniqueProcessId dmtcp_get_uniquepid();
 EXTERNC DmtcpUniqueProcessId dmtcp_get_coord_id();
+EXTERNC DmtcpUniqueProcessId dmtcp_get_computation_id();
 EXTERNC const char* dmtcp_get_executable_path();
 
 EXTERNC int dmtcp_get_ptrace_fd(void);

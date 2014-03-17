@@ -258,7 +258,7 @@ void dmtcp::UniquePid::updateCkptDir()
   }
 
 #ifdef UNIQUE_CHECKPOINT_FILENAMES
-  UniquePid compId(SharedData::getCompId());
+  UniquePid compId(dmtcp_get_computation_id());
   JASSERT(compId != UniquePid(0,0,0));
   JASSERT(compId.generation() != -1);
 

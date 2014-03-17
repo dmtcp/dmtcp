@@ -271,6 +271,11 @@ EXTERNC DmtcpUniqueProcessId dmtcp_get_uniquepid(void)
   return dmtcp::UniquePid::ThisProcess().upid();
 }
 
+EXTERNC DmtcpUniqueProcessId dmtcp_get_computation_id(void)
+{
+  return SharedData::getCompId();
+}
+
 EXTERNC const char* dmtcp_get_computation_id_str(void)
 {
   static dmtcp::string *compid_str = NULL;

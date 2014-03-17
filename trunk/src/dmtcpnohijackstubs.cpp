@@ -70,6 +70,12 @@ DmtcpUniqueProcessId dmtcp_get_uniquepid()
   return  dmtcp::UniquePid::ThisProcess(true).upid();
 }
 
+DmtcpUniqueProcessId dmtcp_get_computation_id()
+{
+  DmtcpUniqueProcessId id = {0, 0, 0, 0};
+  return id;
+}
+
 int  dmtcp_is_running_state()
 {
   JASSERT(false);
