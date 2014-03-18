@@ -73,11 +73,6 @@ namespace dmtcp
     static void setCkptDir(const char*);
     static void updateCkptDir();
     static void createCkptDir();
-    static void setTmpDir(const char * envVarTmpDir);
-    static dmtcp::string getTmpDir();
-
-    static dmtcp::string dmtcpTableFilename();
-    static dmtcp::string pidTableFilename();
 
     static void serialize( jalib::JBinarySerializer& o );
 

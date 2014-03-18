@@ -26,6 +26,7 @@
 #include <sys/un.h>
 #include <netdb.h>
 #include <arpa/inet.h>
+#include <linux/limits.h>
 #include "dmtcp.h"
 #include "dmtcpalloc.h"
 
@@ -91,6 +92,7 @@ namespace dmtcp {
     } InodeConnIdMap;
 
     struct Header {
+      char                 tmpDir[PATH_MAX];
       uint32_t             initialized;
       struct in_addr       localIPAddr;
 
@@ -126,10 +128,12 @@ namespace dmtcp {
       //char                 coordHost[NI_MAXHOST];
     };
 
-    void initialize(DmtcpUniqueProcessId *compId,
+    void initialize(const char *tmpDir,
+                    DmtcpUniqueProcessId *compId,
                     CoordinatorInfo *coordInfo,
                     struct in_addr *localIP);
-    void initializeHeader(DmtcpUniqueProcessId *compId,
+    void initializeHeader(const char *tmpDir,
+                          DmtcpUniqueProcessId *compId,
                           CoordinatorInfo *coordInfo,
                           struct in_addr *localIP);
     void suspended();
@@ -145,7 +149,8 @@ namespace dmtcp {
     void setCoordPort(uint32_t port);
 #endif
 
-    uint32_t  getCkptInterval();
+    char *getTmpDir(char *buf, uint32_t len);
+    uint32_t getCkptInterval();
     void setCkptInterval(uint32_t interval);
     void updateGeneration(uint32_t generation);
     DmtcpUniqueProcessId getCompId();

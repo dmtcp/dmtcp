@@ -53,9 +53,8 @@ int  dmtcp_get_ckpt_signal()
 
 const char* dmtcp_get_tmpdir()
 {
-  static dmtcp::string tmpdir;
-  tmpdir = dmtcp::UniquePid::getTmpDir();
-  return tmpdir.c_str();
+  JASSERT(false) .Text ("NOT REACHED");
+  return NULL;
 }
 
 const char* dmtcp_get_uniquepid_str()

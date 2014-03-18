@@ -841,7 +841,7 @@ void dmtcp::DmtcpCoordinator::onData(CoordClient *client)
 static void removeStaleSharedAreaFile()
 {
   ostringstream o;
-  o << UniquePid::getTmpDir()
+  o << Util::getTmpDir()
     << "/dmtcpSharedArea." << compId << "." << std::hex << curTimeStamp;
   JTRACE("Removing sharedArea file.") (o.str());
   unlink(o.str().c_str());
@@ -1781,7 +1781,7 @@ int main ( int argc, char** argv )
     fprintf(stderr, "(Use flag \"-q\" to hide this message.)\n\n");
   }
 
-  dmtcp::UniquePid::setTmpDir(getenv(ENV_VAR_TMPDIR));
+  dmtcp::Util::setTmpDir(getenv(ENV_VAR_TMPDIR));
 
   dmtcp::Util::initializeLogFile();
 

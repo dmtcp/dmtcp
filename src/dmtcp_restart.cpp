@@ -203,7 +203,8 @@ class RestoreTarget
          * SharedData area may be initialized earlier (for example, while
          * recreating threads), causing it to use *older* timestamp.
          */
-        dmtcp::SharedData::initialize(&compId, &coordInfo, &localIPAddr);
+        SharedData::initialize(Util::getTmpDir().c_str(), &compId, &coordInfo,
+                               &localIPAddr);
       }
 
       JTRACE("Creating process during restart") (upid()) (_pInfo.procname());
@@ -454,8 +455,8 @@ int main(int argc, char** argv)
     }
   }
 
-  dmtcp::UniquePid::setTmpDir(getenv(ENV_VAR_TMPDIR));
-  dmtcpTmpDir = dmtcp::UniquePid::getTmpDir();
+  dmtcp::Util::setTmpDir(getenv(ENV_VAR_TMPDIR));
+  dmtcpTmpDir = dmtcp::Util::getTmpDir();
 
   jassert_quiet = *getenv(ENV_VAR_QUIET) - '0';
 

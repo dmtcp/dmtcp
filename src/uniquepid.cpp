@@ -21,7 +21,6 @@
 
 #include <stdlib.h>
 #include <iomanip>
-#include <pwd.h>
 #include "uniquepid.h"
 #include "constants.h"
 #include "../jalib/jconvert.h"
@@ -269,126 +268,12 @@ void dmtcp::UniquePid::updateCkptDir()
 #endif
 }
 
-dmtcp::string dmtcp::UniquePid::dmtcpTableFilename()
-{
-  static int count = 0;
-  dmtcp::ostringstream os;
-
-  os << getTmpDir() << "/dmtcpConTable." << _prefix << ThisProcess()
-     << '_' << jalib::XToString ( count++ );
-  return os.str();
-}
-
-dmtcp::string dmtcp::UniquePid::pidTableFilename()
-{
-  static int count = 0;
-  dmtcp::ostringstream os;
-
-  os << getTmpDir() << "/dmtcpPidTable." << _prefix << ThisProcess()
-     << '_' << jalib::XToString ( count++ );
-  return os.str();
-}
-
 #ifdef RUN_AS_ROOT
 /* Global variable stores the name of the tmp directory when setTmpDir() is
  * called.
  */
 string g_tmpDirName = "";
 #endif
-
-dmtcp::string dmtcp::UniquePid::getTmpDir()
-{
-  dmtcp::string device = jalib::Filesystem::ResolveSymlink ( "/proc/self/fd/"
-                           + jalib::XToString ( PROTECTED_TMPDIR_FD ) );
-  if ( device.empty() ) {
-    JWARNING ( false ) .Text ("Unable to determine DMTCP_TMPDIR, retrying.");
-    setTmpDir(getenv(ENV_VAR_TMPDIR));
-    device = jalib::Filesystem::ResolveSymlink ( "/proc/self/fd/"
-               + jalib::XToString ( PROTECTED_TMPDIR_FD ) );
-#ifndef RUN_AS_ROOT
-    JASSERT ( !device.empty() )
-      .Text ( "Still unable to determine DMTCP_TMPDIR" );
-#else
-    /* For an application that gives up its privileges after
-     * starting as root (using setuid() for example), the checkpoint
-     * thread will not be able to open up /proc/self/fd/. This is a
-     * temporary fix for this problem.
-     */
-    JASSERT (PROTECTED_TMPDIR_FD)
-      .Text ( "Unable to determine DMTCP_TMPDIR. Setting it to default value." );
-    /* We return a sane value now. This is in addition to the previous fix
-     * (r2242).
-     */
-    device =  g_tmpDirName;
-#endif
-  }
-  return device;
-}
-
-
-/*
- * setTmpDir() computes the TmpDir to be used by DMTCP. It does so by using
- * DMTCP_TMPDIR env, current username, and hostname. Once computed, we open the
- * directory on file descriptor PROTECTED_TMPDIR_FD. The getTmpDir() routine
- * finds the TmpDir from looking at PROTECTED_TMPDIR_FD in proc file system.
- *
- * This mechanism was introduced to avoid calls to gethostname(), getpwuid()
- * etc. while DmtcpWorker was still initializing (in constructor) or the
- * process was restarting. gethostname(), getpwuid() will create a socket
- * connect to some DNS server to find out hostname and username. The socket is
- * closed only at next exec() and thus it leaves a dangling socket in the
- * worker process. To resolve this issue, we make sure to call setTmpDir() only
- * from dmtcp_launch and dmtcp_restart process and once the user process
- * has been exec()ed, we use getTmpDir() only.
- */
-void dmtcp::UniquePid::setTmpDir(const char* envVarTmpDir) {
-  dmtcp::string tmpDir;
-
-  char hostname[256];
-  memset(hostname, 0, sizeof(hostname));
-
-  JASSERT ( gethostname(hostname, sizeof(hostname)) == 0 ||
-	    errno == ENAMETOOLONG ).Text ( "gethostname() failed" );
-
-  dmtcp::ostringstream o;
-
-  char *userName = const_cast<char *>("");
-  if ( getpwuid ( getuid() ) != NULL ) {
-    userName = getpwuid ( getuid() ) -> pw_name;
-  } else if ( getenv("USER") != NULL ) {
-    userName = getenv("USER");
-  }
-
-  if (envVarTmpDir) {
-    o << envVarTmpDir;
-  } else if (getenv("TMPDIR")) {
-    o << getenv("TMPDIR") << "/dmtcp-" << userName << "@" << hostname;
-  } else {
-    o << "/tmp/dmtcp-" << userName << "@" << hostname;
-  }
-
-  JASSERT(mkdir(o.str().c_str(), S_IRWXU) == 0 || errno == EEXIST)
-    (JASSERT_ERRNO) (o.str())
-    .Text("Error creating tmp directory");
-
-  JASSERT(0 == access(o.str().c_str(), X_OK|W_OK)) (o.str())
-    .Text("ERROR: Missing execute- or write-access to tmp dir");
-
-  int tmpFd = open ( o.str().c_str(), O_RDONLY  );
-  JASSERT(tmpFd != -1);
-  JASSERT(_real_dup2(tmpFd, PROTECTED_TMPDIR_FD)==PROTECTED_TMPDIR_FD);
-
-#ifdef RUN_AS_ROOT
-  /* This is a temporary fix for the double-restart (ckpt->rst->ckpt->rst)
-   * problem with Apache. We save the path of the tmp directory here in
-   * a global variable that is referred to later when getTmpDir() is called
-   * on restart.
-   */
-  g_tmpDirName = o.str();
-#endif
-
-  close ( tmpFd );
-}
 
 void dmtcp::UniquePid::restart()
 {

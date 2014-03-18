@@ -341,7 +341,7 @@ int main ( int argc, char** argv )
     JASSERT(prefixPath == programPath) (prefixPath) (programPath);
   }
 
-  dmtcp::UniquePid::setTmpDir(getenv(ENV_VAR_TMPDIR));
+  dmtcp::Util::setTmpDir(getenv(ENV_VAR_TMPDIR));
   dmtcp::UniquePid::ThisProcess(true);
   dmtcp::Util::initializeLogFile();
 
@@ -473,7 +473,8 @@ int main ( int argc, char** argv )
    * SharedData area may be initialized earlier (for example, while
    * recreating threads), causing it to use *older* timestamp.
    */
-  dmtcp::SharedData::initialize(&compId, &coordInfo, &localIPAddr);
+  SharedData::initialize(Util::getTmpDir().c_str(), &compId, &coordInfo,
+                         &localIPAddr);
 
   setLDPreloadLibs(is32bitElf);
 
