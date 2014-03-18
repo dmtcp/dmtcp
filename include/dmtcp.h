@@ -122,7 +122,7 @@ EXTERNC int dmtcp_send_query_to_coordinator(const char *id,
 EXTERNC void dmtcp_get_local_ip_addr(struct in_addr *in);
 
 EXTERNC const char* dmtcp_get_tmpdir(void);
-EXTERNC void dmtcp_set_tmpdir(const char *);
+//EXTERNC void dmtcp_set_tmpdir(const char *);
 
 EXTERNC const char* dmtcp_get_ckpt_dir(void);
 EXTERNC void dmtcp_set_ckpt_dir(const char *);

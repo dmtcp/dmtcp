@@ -199,12 +199,12 @@ EXTERNC const char* dmtcp_get_tmpdir(void)
   return tmpdir.c_str();
 }
 
-EXTERNC void dmtcp_set_tmpdir(const char* dir)
-{
-  if (dir != NULL) {
-    dmtcp::UniquePid::setTmpDir(dir);
-  }
-}
+//EXTERNC void dmtcp_set_tmpdir(const char* dir)
+//{
+//  if (dir != NULL) {
+//    dmtcp::UniquePid::setTmpDir(dir);
+//  }
+//}
 
 EXTERNC const char* dmtcp_get_ckpt_dir()
 {
