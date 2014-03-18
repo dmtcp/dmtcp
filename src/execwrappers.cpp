@@ -28,6 +28,7 @@
 #include "syslogwrappers.h"
 #include "util.h"
 #include "coordinatorapi.h"
+#include "mtcpinterface.h"
 #include "shareddata.h"
 #include "threadsync.h"
 #include  "../jalib/jconvert.h"
