@@ -311,14 +311,21 @@ static void dmtcpPrepareForExec(const char *path, char *const argv[],
     *newArgv = (char**)argv;
   }
 
-  dmtcp::string serialFile = dmtcp::UniquePid::dmtcpTableFilename();
-  jalib::JBinarySerializeWriter wr (serialFile);
+  ostringstream os;
+  os << dmtcp_get_tmpdir() << "/dmtcpLifeBoat." << UniquePid::ThisProcess()
+     << "XXXXXX";
+  char *buf = (char*) JALLOC_HELPER_MALLOC(os.str().length()+1);
+  strcpy(buf, os.str().c_str());
+  int fd = mkstemp(buf);
+  JASSERT(fd != -1) (JASSERT_ERRNO);
+  JASSERT(unlink(buf) == 0) (JASSERT_ERRNO);
+  Util::changeFd(fd, PROTECTED_LIFEBOAT_FD);
+  jalib::JBinarySerializeWriterRaw wr ("", PROTECTED_LIFEBOAT_FD);
   dmtcp::UniquePid::serialize (wr);
   DmtcpEventData_t edata;
-  edata.serializerInfo.fd = wr.fd();
+  edata.serializerInfo.fd = PROTECTED_LIFEBOAT_FD;
   dmtcp::DmtcpWorker::eventHook(DMTCP_EVENT_PRE_EXEC, &edata);
 
-  setenv (ENV_VAR_SERIALFILE_INITIAL, serialFile.c_str(), 1);
   JTRACE("Will exec filename instead of path") (path) (*filename);
 
   dmtcp::Util::adjustRlimitStack();
@@ -354,10 +361,7 @@ static void dmtcpProcessFailedExec(const char *path, char *newArgv[])
 
   JTRACE("Processed failed Exec Attempt") (path) (getenv("LD_PRELOAD"));
   errno = saved_errno;
-
-  const char* serialFile = getenv(ENV_VAR_SERIALFILE_INITIAL);
-  _dmtcp_unsetenv(ENV_VAR_SERIALFILE_INITIAL);
-  JASSERT(unlink(serialFile) == 0) (JASSERT_ERRNO);
+  JASSERT(_real_close(PROTECTED_LIFEBOAT_FD) == 0) (JASSERT_ERRNO);
 }
 
 static dmtcp::string getUpdatedLdPreload(const char* filename,

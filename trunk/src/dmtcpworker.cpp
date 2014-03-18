@@ -211,24 +211,23 @@ static void writeCurrentLogFileNameToPrevLogFile(dmtcp::string& path)
 
 static void prepareLogAndProcessdDataFromSerialFile()
 {
-  const char* serialFile = getenv(ENV_VAR_SERIALFILE_INITIAL);
-  if (serialFile != NULL) {
+
+  if (Util::isValidFd(PROTECTED_LIFEBOAT_FD)) {
     // This process was under ckpt-control and exec()'d into a new program.
     // Find out path of previous log file so that later, we can write the name
     // of the new log file into that one.
     dmtcp::string prevLogFilePath = getLogFilePath();
 
-    jalib::JBinarySerializeReader rd (serialFile);
+    jalib::JBinarySerializeReaderRaw rd ("", PROTECTED_LIFEBOAT_FD);
+    rd.rewind();
     UniquePid::serialize (rd);
     Util::initializeLogFile("", prevLogFilePath);
 
     writeCurrentLogFileNameToPrevLogFile(prevLogFilePath);
 
     DmtcpEventData_t edata;
-    edata.serializerInfo.fd = rd.fd();
+    edata.serializerInfo.fd = PROTECTED_LIFEBOAT_FD;
     dmtcp::DmtcpWorker::eventHook(DMTCP_EVENT_POST_EXEC, &edata);
-    _dmtcp_unsetenv(ENV_VAR_SERIALFILE_INITIAL);
-    JASSERT(unlink(serialFile) == 0) (JASSERT_ERRNO);
   } else {
     // Brand new process (was never under ckpt-control),
     // Initialize the log file
