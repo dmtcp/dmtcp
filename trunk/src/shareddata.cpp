@@ -68,11 +68,12 @@ void dmtcp_SharedData_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
   }
 }
 
-void dmtcp::SharedData::initializeHeader(DmtcpUniqueProcessId *compId,
+void dmtcp::SharedData::initializeHeader(const char *tmpDir,
+                                         DmtcpUniqueProcessId *compId,
                                          CoordinatorInfo *coordInfo,
                                          struct in_addr *localIPAddr)
 {
-  JASSERT(coordInfo != NULL && localIPAddr != NULL);
+  JASSERT(tmpDir != NULL && coordInfo != NULL && localIPAddr != NULL);
   off_t size = CEIL(SHM_MAX_SIZE , Util::pageSize());
   JASSERT(lseek(PROTECTED_SHM_FD, size, SEEK_SET) == size)
     (JASSERT_ERRNO);
@@ -110,9 +111,12 @@ void dmtcp::SharedData::initializeHeader(DmtcpUniqueProcessId *compId,
   } else {
     sharedDataHeader->nextVirtualPtyId = 0;
   }
+  JASSERT(strlen(tmpDir) < sizeof(sharedDataHeader->tmpDir) - 1) (tmpDir);
+  strcpy(sharedDataHeader->tmpDir, tmpDir);
 }
 
-void dmtcp::SharedData::initialize(DmtcpUniqueProcessId *compId = NULL,
+void dmtcp::SharedData::initialize(const char *tmpDir = NULL,
+                                   DmtcpUniqueProcessId *compId = NULL,
                                    CoordinatorInfo *coordInfo = NULL,
                                    struct in_addr *localIPAddr = NULL)
 {
@@ -126,8 +130,9 @@ void dmtcp::SharedData::initialize(DmtcpUniqueProcessId *compId = NULL,
   JASSERT((coordInfo != NULL && localIPAddr != NULL) ||
           Util::isValidFd(PROTECTED_SHM_FD));
   if (!Util::isValidFd(PROTECTED_SHM_FD)) {
+    JASSERT(tmpDir != NULL);
     dmtcp::ostringstream o;
-    o << UniquePid::getTmpDir() << "/dmtcpSharedArea."
+    o << tmpDir << "/dmtcpSharedArea."
       << *compId << "." << std::hex << coordInfo->timeStamp;
 
     int fd = _real_open(o.str().c_str(), O_RDWR | O_CREAT | O_EXCL, 0600);
@@ -158,7 +163,7 @@ void dmtcp::SharedData::initialize(DmtcpUniqueProcessId *compId = NULL,
 
   if (needToInitialize) {
     Util::lockFile(PROTECTED_SHM_FD);
-    initializeHeader(compId, coordInfo, localIPAddr);
+    initializeHeader(tmpDir, compId, coordInfo, localIPAddr);
     Util::unlockFile(PROTECTED_SHM_FD);
   } else {
     struct stat statbuf;
@@ -283,6 +288,17 @@ void dmtcp::SharedData::setCoordPort(uint32_t port)
   Util::unlockFile(PROTECTED_SHM_FD);
 }
 #endif
+
+char *dmtcp::SharedData::getTmpDir(char *buf, uint32_t len)
+{
+  if (sharedDataHeader == NULL) initialize();
+  JASSERT(sharedDataHeader->tmpDir[0] != '\0');
+  if (len <= strlen(sharedDataHeader->tmpDir)) {
+    return NULL;
+  }
+  strcpy(buf, sharedDataHeader->tmpDir);
+  return buf;
+}
 
 uint32_t dmtcp::SharedData::getCkptInterval()
 {

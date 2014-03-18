@@ -313,7 +313,7 @@ static void dmtcpPrepareForExec(const char *path, char *const argv[],
 
   ostringstream os;
   os << dmtcp_get_tmpdir() << "/dmtcpLifeBoat." << UniquePid::ThisProcess()
-     << "XXXXXX";
+     << "-XXXXXX";
   char *buf = (char*) JALLOC_HELPER_MALLOC(os.str().length()+1);
   strcpy(buf, os.str().c_str());
   int fd = mkstemp(buf);

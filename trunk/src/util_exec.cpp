@@ -251,7 +251,7 @@ void dmtcp::Util::setScreenDir() {
 
 dmtcp::string dmtcp::Util::getScreenDir()
 {
-  dmtcp::string tmpdir = dmtcp::UniquePid::getTmpDir() + "/" + "uscreens";
+  dmtcp::string tmpdir = string(dmtcp_get_tmpdir()) + "/" + "uscreens";
   safeMkdir(tmpdir.c_str(), 0700);
   return tmpdir;
 }
@@ -300,7 +300,7 @@ void dmtcp::Util::patchArgvIfSetuid(const char* filename, char *const origArgv[]
   char cpCmdBuf[PATH_MAX * 2 + 8];
 
   snprintf(newFilename, PATH_MAX, "%s/%s",
-                                  dmtcp::UniquePid::getTmpDir().c_str(),
+                                  dmtcp_get_tmpdir(),
                                   jalib::Filesystem::BaseName(realFilename).c_str());
 
   snprintf(cpCmdBuf, sizeof(cpCmdBuf),
