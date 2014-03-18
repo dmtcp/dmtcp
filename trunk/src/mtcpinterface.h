@@ -26,7 +26,7 @@
 
 namespace dmtcp
 {
-  void __attribute__ ((weak)) initializeMtcpEngine();
+  void initializeMtcpEngine();
   void killCkpthread();
 
   //these next two are defined in dmtcpplugin.cpp
