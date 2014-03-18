@@ -371,10 +371,11 @@ static dmtcp::string getUpdatedLdPreload(const char* filename,
     }
   }
 
-  if (currLdPreload != NULL) {
+  const char *preloadEnv = getenv("LD_PRELOAD");
+  if (currLdPreload != NULL && strlen(currLdPreload) > 0) {
     setenv(ENV_VAR_ORIG_LD_PRELOAD, currLdPreload, 1);
     preload = preload + ":" + currLdPreload;
-  } else if (getenv("LD_PRELOAD") != NULL) {
+  } else if (preloadEnv != NULL && strlen(preloadEnv) > 0) {
     setenv(ENV_VAR_ORIG_LD_PRELOAD, getenv("LD_PRELOAD"), 1);
     preload = preload + ":" + getenv("LD_PRELOAD");
   }
