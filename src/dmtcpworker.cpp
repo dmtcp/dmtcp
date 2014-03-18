@@ -86,9 +86,8 @@ void restoreUserLDPRELOAD()
   //   exec("dmtcp_launch --ssh-slave ... ssh ..."), and re-execute.
   //   This way, we will unset LD_PRELOAD here and now, instead of at that time.
   char *preload = getenv("LD_PRELOAD");
-  const char *dummy = "LD_PRELOAD=";
   char *userPreload =  getenv(ENV_VAR_ORIG_LD_PRELOAD);
-  strcpy(preload, dummy);
+  preload[0] = '\0';
   if (userPreload == NULL) {
     //_dmtcp_unsetenv("LD_PRELOAD");
   } else {
