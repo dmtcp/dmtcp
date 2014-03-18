@@ -301,6 +301,12 @@ static void restore_brk(VA saved_brk, VA restore_begin, VA restore_end)
     MTCP_PRINTF("sbrk(%p): errno: %d (bad heap)\n",
 		 saved_brk, mtcp_sys_errno );
     mtcp_abort();
+  } else if (new_brk > current_brk) {
+    // Now unmap the just mapped extended heap. This is to ensure that we don't
+    // have overlap with the restore region.
+    if (mtcp_sys_munmap(current_brk, new_brk - current_brk) == -1) {
+      MTCP_PRINTF("***WARNING: munmap failed: %d\n", mtcp_sys_errno);
+    }
   }
   if (new_brk != saved_brk) {
     if (new_brk == current_brk && new_brk > saved_brk)
