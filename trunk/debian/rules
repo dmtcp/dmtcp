@@ -48,7 +48,7 @@ build-stamp: configure-stamp
 	$(MAKE)
 ifeq (,$(findstring nocheck,$(DEB_BUILD_OPTIONS)))
 ifneq ($(shell dpkg-architecture -qDEB_BUILD_ARCH_CPU),arm)
-	$(MAKE) AUTOTEST='--retry-once' check
+	env PWD=`pwd` ./test/autotest.py --retry-once --slow
 endif
 endif
 
@@ -72,7 +72,7 @@ install: build
 	# Add here commands to install the package into debian/dmtcp.
 	$(MAKE) DESTDIR=$(DESTDIR) install
 
-	dh_install --fail-missing --sourcedir=$(BUILDDIR)
+	dh_install -XCOPYING --fail-missing --sourcedir=$(BUILDDIR)
 
 
 # Build architecture-independent files here.
