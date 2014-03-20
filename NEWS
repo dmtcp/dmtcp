@@ -2,6 +2,12 @@ DMTCP NEWS -- history of user-visible changes.
 
 Please send DMTCP bug reports via <dmtcp-forum@lists.sourceforge.net>
 
+Version 2.2.1 release notes
+=========================
+This is a bug fix release. The previous release had a bug when configured
+with --enable-unique-checkpoint-filenames configure flag. This has been fixed
+now. Users relying on this flag are highly recommended to upgrade to 2.2.1.
+
 Version 2.2 release notes
 =========================
 In this release, the lowest layers have been re-organized and partially
