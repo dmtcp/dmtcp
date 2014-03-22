@@ -102,6 +102,13 @@ namespace dmtcp
       uint64_t restoreBufAddr(void) const { return _restoreBufAddr;}
       uint32_t restoreBufLen(void) const { return RESTORE_TOTAL_SIZE;}
 
+      string getCkptFilename() const { return _ckptFileName; }
+      string getCkptFilesSubDir() const { return _ckptFilesSubDir; }
+      string getCkptDir() const { return _ckptDir; }
+      void setCkptDir(const char*);
+      void setCkptFilename(const char*);
+      void updateCkptDirFileSubdir(string newCkptDir = "");
+
     private:
       dmtcp::map<pid_t, UniquePid> _childTable;
       dmtcp::map<pthread_t, pthread_t> _pthreadJoinId;
@@ -126,7 +133,10 @@ namespace dmtcp
       dmtcp::string _hostname;
       dmtcp::string _launchCWD;
       dmtcp::string _ckptCWD;
+
       dmtcp::string _ckptDir;
+      dmtcp::string _ckptFileName;
+      dmtcp::string _ckptFilesSubDir;
 
       UniquePid     _upid;
       UniquePid     _uppid;

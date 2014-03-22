@@ -470,14 +470,27 @@ int dmtcp::CkptSerializer::openCkptFileToRead(const dmtcp::string& path)
   return fd;
 }
 
+void dmtcp::CkptSerializer::createCkptDir()
+{
+  string ckptDir = ProcessInfo::instance().getCkptDir();
+  JASSERT(!ckptDir.empty());
+  JASSERT(mkdir(ckptDir.c_str(), S_IRWXU) == 0 || errno == EEXIST)
+    (JASSERT_ERRNO) (ckptDir)
+    .Text("Error creating checkpoint directory");
+
+  JASSERT(0 == access(ckptDir.c_str(), X_OK|W_OK)) (ckptDir)
+    .Text("ERROR: Missing execute- or write-access to checkpoint dir");
+}
+
 // See comments above for open_ckpt_to_read()
 void dmtcp::CkptSerializer::writeCkptImage()
 {
-  const char *ckptFilename = const_cast<char*> (UniquePid::getCkptFilename());
+  string ckptFilename = ProcessInfo::instance().getCkptFilename();
   string tempCkptFilename = ckptFilename;
   tempCkptFilename += ".temp";
 
   JTRACE("Thread performing checkpoint.") (gettid());
+  createCkptDir();
   forked_ckpt_status = test_and_prepare_for_forked_ckpt();
   if (forked_ckpt_status == FORKED_CKPT_PARENT) {
     JTRACE("*** Using forked checkpointing.\n");
@@ -506,7 +519,7 @@ void dmtcp::CkptSerializer::writeCkptImage()
   // Write header for mtcp_restart.
   writeMtcpHeader(fd);
 
-  JTRACE ( "MTCP is about to write checkpoint image." )(*ckptFilename);
+  JTRACE ( "MTCP is about to write checkpoint image." )(ckptFilename);
   mtcp_writememoryareas(fd);
 
   if (use_compression) {
@@ -543,7 +556,7 @@ void dmtcp::CkptSerializer::writeCkptImage()
    * checkpoint file.  Uses rename() syscall, which doesn't change i-nodes.
    * So, gzip process can continue to write to file even after renaming.
    */
-  JASSERT(rename(tempCkptFilename.c_str(), ckptFilename) == 0);
+  JASSERT(rename(tempCkptFilename.c_str(), ckptFilename.c_str()) == 0);
 
   if (forked_ckpt_status == FORKED_CKPT_CHILD)
     _real_exit(0); /* grandchild exits */
