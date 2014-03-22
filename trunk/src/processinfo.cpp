@@ -428,11 +428,12 @@ void dmtcp::ProcessInfo::setCkptDir(const char *dir)
 {
   JASSERT(dir != NULL);
   _ckptDir = dir;
-  _ckptFileName.clear();
-  _ckptFilesSubDir.clear();
+  _ckptFileName = _ckptDir + "/" + jalib::Filesystem::BaseName(_ckptFileName);
+  _ckptFilesSubDir = _ckptDir + "/" + jalib::Filesystem::BaseName(_ckptFilesSubDir);
 
-  JASSERT(access(_ckptDir.c_str(), X_OK|W_OK) == 0) (_ckptDir)
-    .Text("Missing execute- or write-access to checkpoint dir.");
+  JTRACE("setting ckptdir") (_ckptDir) (_ckptFilesSubDir);
+  //JASSERT(access(_ckptDir.c_str(), X_OK|W_OK) == 0) (_ckptDir)
+    //.Text("Missing execute- or write-access to checkpoint dir.");
 }
 
 void dmtcp::ProcessInfo::refresh()

@@ -50,6 +50,8 @@ namespace dmtcp
     DMT_GET_CKPT_DIR_RESULT,
     DMT_UPDATE_CKPT_DIR,
     DMT_CKPT_FILENAME,       // a slave sending it's checkpoint filename to coordinator
+    DMT_UNIQUE_CKPT_FILENAME,// same as DMT_CKPT_FILENAME, except when
+                             //   unique-ckpt plugin is being used.
 
     DMT_USER_CMD,            // on connect established dmtcp_command -> coordinator
     DMT_USER_CMD_RESULT,     // on reply coordinator -> dmtcp_command

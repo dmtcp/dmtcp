@@ -20,7 +20,6 @@
  ****************************************************************************/
 
 #include <stdlib.h>
-#include <iomanip>
 #include "uniquepid.h"
 #include "constants.h"
 #include "../jalib/jconvert.h"
