@@ -612,7 +612,7 @@ void dmtcp::DmtcpCoordinator::updateMinimumState(dmtcp::WorkerState oldState)
        && newState == WorkerState::SUSPENDED )
   {
     JNOTE ( "locking all nodes" );
-    broadcastMessage(DMT_DO_FD_LEADER_ELECTION, compId, getStatus().numPeers );
+    broadcastMessage(DMT_DO_FD_LEADER_ELECTION, getStatus().numPeers );
   }
   if ( oldState == WorkerState::SUSPENDED
        && newState == WorkerState::FD_LEADER_ELECTION )
@@ -1173,6 +1173,7 @@ bool dmtcp::DmtcpCoordinator::validateNewWorkerProcess
     // Now send DMT_DO_SUSPEND message so that this process can also
     // participate in the current checkpoint
     DmtcpMessage suspendMsg (dmtcp::DMT_DO_SUSPEND);
+    suspendMsg.compGroup = compId;
     remote << suspendMsg;
 
   } else if (s.numPeers > 0 && s.minimumState != WorkerState::RUNNING &&
@@ -1282,22 +1283,16 @@ bool dmtcp::DmtcpCoordinator::startCheckpoint()
   }
 }
 
-void dmtcp::DmtcpCoordinator::broadcastMessage ( DmtcpMessageType type,
-    dmtcp::UniquePid compGroup = dmtcp::UniquePid(), int numPeers = -1 )
+void dmtcp::DmtcpCoordinator::broadcastMessage(DmtcpMessageType type,
+                                               int numPeers)
 {
   DmtcpMessage msg;
   msg.type = type;
+  msg.compGroup = compId;
   if (numPeers > 0) {
     msg.numPeers = numPeers;
-    msg.compGroup = compGroup;
   }
 
-  broadcastMessage ( msg );
-  JTRACE ("sending message")( type );
-}
-
-void dmtcp::DmtcpCoordinator::broadcastMessage ( const DmtcpMessage& msg )
-{
   if (msg.type == DMT_KILL_PEER && clients.size() > 0) {
     killInProgress = true;
   } else if (msg.type == DMT_DO_FD_LEADER_ELECTION) {
@@ -1309,6 +1304,7 @@ void dmtcp::DmtcpCoordinator::broadcastMessage ( const DmtcpMessage& msg )
   for (size_t i = 0; i < clients.size(); i++) {
     clients[i]->sock() << msg;
   }
+  JTRACE ("sending message")( type );
 }
 
 dmtcp::DmtcpCoordinator::ComputationStatus dmtcp::DmtcpCoordinator::getStatus() const
