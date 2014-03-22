@@ -10,9 +10,9 @@
 //  All rights reserved worldwide.
 //
 //  Permission to copy, modify, reproduce or redistribute this source code is
-//  granted provided the above copyright notice is retained in the resulting 
+//  granted provided the above copyright notice is retained in the resulting
 //  source code.
-// 
+//
 //  This software is provided "as is" and without any express or implied
 //  warranties.
 //
@@ -31,6 +31,7 @@
 #include <set>
 #include <iostream>
 #include <fstream>
+#include <sstream>
 #include <cstddef>
 #include <utility>
 
@@ -40,7 +41,7 @@
 #define DMTCPMAP(K, V) dmtcp::map<K, V>
 #define DMTCPSET(K)    dmtcp::set<K>
 
-namespace dmtcp 
+namespace dmtcp
 {
 
 
@@ -105,9 +106,9 @@ public:
 
     // In-place destruction
     template<typename X>
-      void destroy(X* p) 
-      { 
-	p->~X(); 
+      void destroy(X* p)
+      {
+	p->~X();
       }
 #else
     // In-place construction
@@ -226,5 +227,5 @@ template < typename K, typename V > class map: public std::map<K, V, std::less<K
 template < typename K > class set: public std::set<K, std::less<K>, dmtcp::DmtcpAlloc<K> > {};
 
 }
-#endif 
+#endif
 
