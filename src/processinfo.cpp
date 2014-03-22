@@ -210,6 +210,42 @@ void dmtcp::ProcessInfo::init()
   _restoreBufAddr = (uint64_t) addr + 4096;
   JASSERT(mprotect((void*)_restoreBufAddr, _restoreBufLen, PROT_NONE) == 0)
     ((void*)_restoreBufAddr) (_restoreBufLen) (JASSERT_ERRNO);
+
+  if (_ckptDir.empty()) {
+    updateCkptDirFileSubdir();
+  }
+}
+
+void dmtcp::ProcessInfo::updateCkptDirFileSubdir(string newCkptDir)
+{
+  if (newCkptDir != "") {
+    _ckptDir = newCkptDir;
+  }
+
+  if (_ckptDir.empty()) {
+    const char *dir = getenv(ENV_VAR_CHECKPOINT_DIR);
+    if (dir == NULL) {
+      dir = ".";
+    }
+    _ckptDir = dir;
+  }
+
+  dmtcp::ostringstream o;
+  o << _ckptDir << "/"
+    << CKPT_FILE_PREFIX
+    << jalib::Filesystem::GetProgramName()
+    << '_' << UniquePid::ThisProcess();
+
+  _ckptFileName = o.str() + CKPT_FILE_SUFFIX;
+  _ckptFilesSubDir = o.str() + CKPT_FILES_SUBDIR_SUFFIX;
+}
+
+void dmtcp::ProcessInfo::postExec()
+{
+  _procname   = jalib::Filesystem::GetProgramName();
+  _upid       = UniquePid::ThisProcess();
+  _uppid      = UniquePid::ParentProcess();
+  updateCkptDirFileSubdir();
 }
 
 void dmtcp::ProcessInfo::resetOnFork()
@@ -221,6 +257,9 @@ void dmtcp::ProcessInfo::resetOnFork()
   _isRootOfProcessTree = false;
   _childTable.clear();
   _pthreadJoinId.clear();
+  _ckptFileName.clear();
+  _ckptFilesSubDir.clear();
+  updateCkptDirFileSubdir();
 }
 
 void dmtcp::ProcessInfo::restoreHeap()
@@ -242,8 +281,8 @@ void dmtcp::ProcessInfo::restoreHeap()
       .Text("mremap failed to map area between saved break and current break");
   } else if ((uint64_t) curBrk < _savedBrk) {
     if (brk((void*)_savedBrk) != 0) {
-    JNOTE("Failed to restore area between saved_break and curr_break.")
-      (_savedBrk) (curBrk) (JASSERT_ERRNO);
+      JNOTE("Failed to restore area between saved_break and curr_break.")
+        (_savedBrk) (curBrk) (JASSERT_ERRNO);
     }
   }
 }
@@ -254,6 +293,12 @@ void dmtcp::ProcessInfo::restart()
     ((void*)_restoreBufAddr) (_restoreBufLen) (JASSERT_ERRNO);
 
   restoreHeap();
+
+  // Update the ckptDir
+  string ckptDir = jalib::Filesystem::GetDeviceName(PROTECTED_CKPT_DIR_FD);
+  JASSERT(ckptDir.length() > 0);
+  _real_close(PROTECTED_CKPT_DIR_FD);
+  updateCkptDirFileSubdir(ckptDir);
 
   if (_launchCWD != _ckptCWD) {
     dmtcp::string rpath = "";
@@ -327,13 +372,6 @@ bool dmtcp::ProcessInfo::isChild(const UniquePid& upid)
   return res;
 }
 
-void dmtcp::ProcessInfo::postExec()
-{
-  _procname   = jalib::Filesystem::GetProgramName();
-  _upid       = UniquePid::ThisProcess();
-  _uppid      = UniquePid::ParentProcess();
-}
-
 bool dmtcp::ProcessInfo::beginPthreadJoin(pthread_t thread)
 {
   bool res = false;
@@ -364,6 +402,37 @@ void dmtcp::ProcessInfo::endPthreadJoin(pthread_t thread)
     _pthreadJoinId.erase(thread);
   }
   _do_unlock_tbl();
+}
+
+void dmtcp::ProcessInfo::setCkptFilename(const char *filename)
+{
+  JASSERT(filename != NULL);
+  if (filename[0] == '/') {
+    _ckptDir = jalib::Filesystem::DirName(filename);
+    _ckptFileName = filename;
+  } else {
+    _ckptFileName = _ckptDir + "/" + filename;
+  }
+
+  if (Util::strEndsWith(_ckptFileName, CKPT_FILE_SUFFIX)) {
+    string ckptFileBaseName =
+      _ckptFileName.substr(0, _ckptFileName.length() - CKPT_FILE_SUFFIX_LEN);
+    _ckptFilesSubDir = ckptFileBaseName +CKPT_FILES_SUBDIR_SUFFIX;
+  } else {
+    _ckptFilesSubDir = _ckptFileName + CKPT_FILES_SUBDIR_SUFFIX;
+  }
+}
+
+
+void dmtcp::ProcessInfo::setCkptDir(const char *dir)
+{
+  JASSERT(dir != NULL);
+  _ckptDir = dir;
+  _ckptFileName.clear();
+  _ckptFilesSubDir.clear();
+
+  JASSERT(access(_ckptDir.c_str(), X_OK|W_OK) == 0) (_ckptDir)
+    .Text("Missing execute- or write-access to checkpoint dir.");
 }
 
 void dmtcp::ProcessInfo::refresh()
@@ -428,6 +497,7 @@ void dmtcp::ProcessInfo::serialize(jalib::JBinarySerializer& o)
   o & _procname & _hostname & _launchCWD & _ckptCWD & _upid & _uppid;
   o & _compGroup & _numPeers & _noCoordinator & _argvSize & _envSize;
   o & _restoreBufAddr & _savedHeapStart & _savedBrk;
+  o & _ckptDir & _ckptFileName & _ckptFilesSubDir;
 
   JTRACE("Serialized process information")
     (_sid) (_ppid) (_gid) (_fgid)

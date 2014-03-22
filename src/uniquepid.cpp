@@ -34,43 +34,13 @@ using namespace dmtcp;
 void dmtcp_UniquePid_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   switch (event) {
-    case DMTCP_EVENT_THREADS_SUSPEND:
-      UniquePid::createCkptDir();
-      break;
-
     case DMTCP_EVENT_RESTART:
-      dmtcp::UniquePid::restart();
       break;
 
     default:
       break;
   }
 }
-
-static dmtcp::string& _ckptDir()
-{
-  static dmtcp::string str;
-  return str;
-}
-
-static dmtcp::string& _uniqueDir()
-{
-  static dmtcp::string str;
-  return str;
-}
-
-static dmtcp::string& _ckptFileName()
-{
-  static dmtcp::string str;
-  return str;
-}
-
-static dmtcp::string& _ckptFilesSubDir()
-{
-  static dmtcp::string str;
-  return str;
-}
-
 
 inline static long theUniqueHostId()
 {
@@ -88,16 +58,6 @@ inline static long theUniqueHostId()
   return h>0 ? h : -1*h;
 #endif
 }
-
-static char _prefix[32];
-static void setPrefix()
-{
-  memset(_prefix, 0, sizeof(_prefix));
-  if (getenv(ENV_VAR_PREFIX_ID) != NULL) {
-    strncpy(_prefix, getenv(ENV_VAR_PREFIX_ID), sizeof(_prefix) - 1);
-  }
-}
-
 
 static dmtcp::UniquePid& nullProcess()
 {
@@ -141,7 +101,6 @@ dmtcp::UniquePid::UniquePid(const char *filename)
   _pid = strtol(pid_str, NULL, 10);
   _time = strtol(time_str, NULL, 16);
   _generation = 0;
-  memset(_prefix, 0, sizeof _prefix);
 }
 
 // _generation field of return value may later have to be modified.
@@ -156,7 +115,6 @@ dmtcp::UniquePid& dmtcp::UniquePid::ThisProcess(bool disableJTrace /*=false*/)
     if (disableJTrace == false) {
       JTRACE ( "recalculated process UniquePid..." ) ( theProcess() );
     }
-    setPrefix();
   }
 
   return theProcess();
@@ -182,107 +140,6 @@ void  dmtcp::UniquePid::incrementGeneration()
   _generation++;
 }
 
-const char* dmtcp::UniquePid::getCkptFilename()
-{
-  if (_ckptFileName().empty()) {
-    dmtcp::ostringstream o;
-    o << getCkptDir() << "/"
-      << CKPT_FILE_PREFIX
-      << jalib::Filesystem::GetProgramName()
-      << '_' << _prefix << ThisProcess()
-      << CKPT_FILE_SUFFIX;
-
-    _ckptFileName() = o.str();
-  }
-  return _ckptFileName().c_str();
-}
-
-dmtcp::string dmtcp::UniquePid::getCkptFilesSubDir()
-{
-  if (_ckptFilesSubDir().empty()) {
-    dmtcp::ostringstream o;
-    o << getCkptDir() << "/"
-      << CKPT_FILE_PREFIX
-      << jalib::Filesystem::GetProgramName()
-      << '_' << _prefix << ThisProcess()
-      << CKPT_FILES_SUBDIR_SUFFIX;
-
-    _ckptFilesSubDir() = o.str();
-  }
-  return _ckptFilesSubDir();
-}
-
-void dmtcp::UniquePid::createCkptDir()
-{
-  updateCkptDir();
-  dmtcp::string dirname = _ckptDir() + _uniqueDir();
-  JASSERT(mkdir(dirname.c_str(), S_IRWXU) == 0 || errno == EEXIST)
-    (JASSERT_ERRNO) (dirname)
-    .Text("Error creating checkpoint directory");
-
-  JASSERT(0 == access(dirname.c_str(), X_OK|W_OK)) (dirname)
-    .Text("ERROR: Missing execute- or write-access to checkpoint dir");
-}
-
-dmtcp::string dmtcp::UniquePid::getCkptDir()
-{
-  if (_ckptDir().empty()) {
-    updateCkptDir();
-  }
-  JASSERT(!_ckptDir().empty());
-  return _ckptDir() + _uniqueDir();
-}
-
-void dmtcp::UniquePid::setCkptDir(const char *dir)
-{
-  JASSERT(dir != NULL);
-  _ckptDir() = dir;
-  _ckptFileName().clear();
-  _ckptFilesSubDir().clear();
-
-  JASSERT(access(_ckptDir().c_str(), X_OK|W_OK) == 0) (_ckptDir())
-    .Text("Missing execute- or write-access to checkpoint dir.");
-}
-
-void dmtcp::UniquePid::updateCkptDir()
-{
-  _ckptFileName().clear();
-  _ckptFilesSubDir().clear();
-  if (_ckptDir().empty()) {
-    const char *dir = getenv(ENV_VAR_CHECKPOINT_DIR);
-    if (dir == NULL) {
-      dir = ".";
-    }
-    setCkptDir(dir);
-  }
-
-#ifdef UNIQUE_CHECKPOINT_FILENAMES
-  UniquePid compId(dmtcp_get_computation_id());
-  JASSERT(compId != UniquePid(0,0,0));
-  JASSERT(compId.generation() != -1);
-
-  dmtcp::ostringstream o;
-  o << "/ckpt_" << _prefix << compId << "_"
-    << std::setw(5) << std::setfill('0') << compId.generation();
-  _uniqueDir() = o.str();
-#endif
-}
-
-#ifdef RUN_AS_ROOT
-/* Global variable stores the name of the tmp directory when setTmpDir() is
- * called.
- */
-string g_tmpDirName = "";
-#endif
-
-void dmtcp::UniquePid::restart()
-{
-  string ckptDir = jalib::Filesystem::GetDeviceName(PROTECTED_CKPT_DIR_FD);
-  JASSERT(ckptDir.length() > 0);
-  _real_close(PROTECTED_CKPT_DIR_FD);
-  setCkptDir(ckptDir.c_str());
-}
-
 /*!
     \fn dmtcp::UniquePid::operator<() const
  */
@@ -300,8 +157,6 @@ bool dmtcp::UniquePid::operator== ( const UniquePid& that ) const
   return _hostid==that.hostid()
          && _pid==that.pid()
          && _time==that.time();
-         // FIXME: Reinstate prefix check
-         //&& strncmp(_prefix, that.prefix(), sizeof(_prefix)) == 0;
 }
 
 dmtcp::ostream& dmtcp::operator<< ( dmtcp::ostream& o,const dmtcp::UniquePid& id )
@@ -343,9 +198,6 @@ void dmtcp::UniquePid::resetOnFork ( const dmtcp::UniquePid& newId )
   parentProcess() = ThisProcess();
   JTRACE ( "Explicitly setting process UniquePid" ) ( newId );
   theProcess() = newId;
-  _ckptFileName().clear();
-  _ckptFilesSubDir().clear();
-  //_ckptDir().clear();
 }
 
 bool dmtcp::UniquePid::isNull() const

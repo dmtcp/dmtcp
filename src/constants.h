@@ -49,6 +49,7 @@
 #define LIBDL_FILENAME "libdl.so.2"
 #define CKPT_FILE_PREFIX "ckpt_"
 #define CKPT_FILE_SUFFIX ".dmtcp"
+#define CKPT_FILE_SUFFIX_LEN strlen(".dmtcp")
 #define CKPT_FILES_SUBDIR_PREFIX "ckpt_"
 #define CKPT_FILES_SUBDIR_SUFFIX "_files"
 /* dmtcp_launch, dmtcp_restart return a unique rc (default: 99) */

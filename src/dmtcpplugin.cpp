@@ -209,14 +209,14 @@ EXTERNC const char* dmtcp_get_tmpdir(void)
 EXTERNC const char* dmtcp_get_ckpt_dir()
 {
   static dmtcp::string tmpdir;
-  tmpdir = dmtcp::UniquePid::getCkptDir();
+  tmpdir = dmtcp::ProcessInfo::instance().getCkptDir();
   return tmpdir.c_str();
 }
 
 EXTERNC void dmtcp_set_ckpt_dir(const char* dir)
 {
   if (dir != NULL) {
-    dmtcp::UniquePid::setCkptDir(dir);
+    dmtcp::ProcessInfo::instance().setCkptDir(dir);
   }
 }
 
@@ -234,17 +234,22 @@ EXTERNC void dmtcp_set_coord_ckpt_dir(const char* dir)
   }
 }
 
+EXTERNC void dmtcp_set_ckpt_file(const char *filename)
+{
+  dmtcp::ProcessInfo::instance().setCkptFilename(filename);
+}
+
 EXTERNC const char* dmtcp_get_ckpt_filename(void)
 {
   static dmtcp::string filename;
-  filename = dmtcp::UniquePid::getCkptFilename();
+  filename = dmtcp::ProcessInfo::instance().getCkptFilename();
   return filename.c_str();
 }
 
 EXTERNC const char* dmtcp_get_ckpt_files_subdir(void)
 {
   static dmtcp::string tmpdir;
-  tmpdir = dmtcp::UniquePid::getCkptFilesSubDir();
+  tmpdir = dmtcp::ProcessInfo::instance().getCkptFilesSubDir();
   return tmpdir.c_str();
 }
 
