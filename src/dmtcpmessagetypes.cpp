@@ -158,6 +158,7 @@ dmtcp::ostream& dmtcp::operator << ( dmtcp::ostream& o, const dmtcp::DmtcpMessag
       OSHIFTPRINTF ( DMT_USER_CMD )
       OSHIFTPRINTF ( DMT_USER_CMD_RESULT )
       OSHIFTPRINTF ( DMT_CKPT_FILENAME )
+      OSHIFTPRINTF ( DMT_UNIQUE_CKPT_FILENAME )
 
       //OSHIFTPRINTF ( DMT_RESTART_PROCESS )
       //OSHIFTPRINTF ( DMT_RESTART_PROCESS_REPLY )

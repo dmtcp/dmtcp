@@ -159,6 +159,12 @@ static bool enableDlPlugin=true;
 static bool enableIPCPlugin=true;
 static bool enableLibDMTCP=true;
 static bool enablePIDPlugin=true;
+#ifdef UNIQUE_CHECKPOINT_FILENAMES
+static bool enableUniqueCkptPlugin=true;
+#else
+static bool enableUniqueCkptPlugin=false;
+#endif
+
 static dmtcp::string thePortFile;
 
 struct PluginInfo {
@@ -169,6 +175,7 @@ struct PluginInfo {
 static struct PluginInfo pluginInfo[] = {               // Default value
   {&enablePtracePlugin,     "libdmtcp_ptrace.so"},      // Disabled
   {&enableModifyEnvPlugin,  "libdmtcp_modify-env.so"},  // Disabled
+  {&enableUniqueCkptPlugin, "libdmtcp_unique-ckpt.so"}, // Disabled
   {&enableIB2TcpPlugin,     "libdmtcp_ib2tcp.so"},      // Disabled
   {&enableIBPlugin,         "libdmtcp_infiniband.so"},  // Disabled
   {&enableRMPlugin,         "libdmtcp_batch-queue.so"}, // Disabled

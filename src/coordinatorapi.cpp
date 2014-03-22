@@ -671,7 +671,11 @@ void dmtcp::CoordinatorAPI::sendCkptFilename()
   dmtcp::string hostname = jalib::Filesystem::GetCurrentHostname();
   JTRACE("recording filenames") (ckptFilename) (hostname);
   dmtcp::DmtcpMessage msg;
-  msg.type = DMT_CKPT_FILENAME;
+  if (dmtcp_unique_ckpt_enabled && dmtcp_unique_ckpt_enabled()) {
+    msg.type = DMT_UNIQUE_CKPT_FILENAME;
+  } else {
+    msg.type = DMT_CKPT_FILENAME;
+  }
   msg.extraBytes = ckptFilename.length() + 1 + hostname.length() + 1;
   _coordinatorSocket << msg;
   _coordinatorSocket.writeAll(ckptFilename.c_str(), ckptFilename.length() + 1);
