@@ -455,10 +455,11 @@ void dmtcp::DmtcpWorker::waitForCoordinatorMsg(dmtcp::string msgStr,
 
   // Coordinator sends some computation information along with the SUSPEND
   // message. Extracting that.
-  if (type == DMT_DO_FD_LEADER_ELECTION) {
+  if (type == DMT_DO_SUSPEND) {
     SharedData::updateGeneration(msg.compGroup.generation());
-    JASSERT(SharedData::getCompId() == msg.compGroup.upid()) (SharedData::getCompId())
-      (msg.compGroup);
+    JASSERT(SharedData::getCompId() == msg.compGroup.upid())
+      (SharedData::getCompId()) (msg.compGroup);
+  } else if (type == DMT_DO_FD_LEADER_ELECTION) {
     JTRACE("Computation information") (msg.compGroup) (msg.numPeers);
     ProcessInfo::instance().compGroup(msg.compGroup);
     ProcessInfo::instance().numPeers(msg.numPeers);
