@@ -15,8 +15,7 @@
  *  GNU Lesser General Public License for more details.                     *
  *                                                                          *
  *  You should have received a copy of the GNU Lesser General Public        *
- *  License along with DMTCP:dmtcp/src.  If not, see                        *
- *  <http://www.gnu.org/licenses/>.                                         *
+ *  License along with DMTCP.  If not, see <http://www.gnu.org/licenses/>.  *
  ****************************************************************************/
 
 #include <stdlib.h>
@@ -271,7 +270,9 @@ static int test_and_prepare_for_forked_ckpt()
     JWARNING(grandchild_pid != -1)
       .Text("WARNING: Forked checkpoint failed, no checkpoint available");
     if (grandchild_pid > 0) {
-      exit(0); /* child exits */
+      // Use _exit() instead of exit() to avoid popping atexit() handlers
+      // registered by the parent process.
+      _exit(0); /* child exits */
     }
     /* grandchild continues; no need now to waitpid() on grandchild */
     JTRACE("inside grandchild process");
@@ -336,7 +337,6 @@ open_ckpt_to_write(int fd, int pipe_fds[2], char **extcomp_args)
     JASSERT(false)
       .Text("Compression failed! No checkpointing will be performed!"
             " Cancel now!");
-    _real_exit(1);
   }
 
   return fd;
@@ -424,7 +424,9 @@ static int open_ckpt_to_read(const char *filename)
       cpid = _real_fork();
       JASSERT(cpid != -1);
       if (cpid > 0) {
-        _real_exit(0);
+        // Use _exit() instead of exit() to avoid popping atexit() handlers
+        // registered by the parent process.
+        _exit(0);
       }
 
       // Grandchild process
@@ -558,8 +560,11 @@ void dmtcp::CkptSerializer::writeCkptImage()
    */
   JASSERT(rename(tempCkptFilename.c_str(), ckptFilename.c_str()) == 0);
 
-  if (forked_ckpt_status == FORKED_CKPT_CHILD)
-    _real_exit(0); /* grandchild exits */
+  if (forked_ckpt_status == FORKED_CKPT_CHILD) {
+    // Use _exit() instead of exit() to avoid popping atexit() handlers
+    // registered by the parent process.
+    _exit(0); /* grandchild exits */
+  }
 
   JTRACE("checkpoint complete");
 }
