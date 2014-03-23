@@ -39,7 +39,6 @@
 #include "socketwrappers.h"
 #include "kernelbufferdrainer.h"
 #include "connectionrewirer.h"
-#include "socketconnlist.h"
 
 #ifdef REALLY_VERBOSE_CONNECTION_CPP
 static bool really_verbose = true;

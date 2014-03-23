@@ -126,37 +126,40 @@ void dmtcp::ConnectionRewirer::doReconnect()
   _pendingOutgoing.clear();
   _remoteInfo.clear();
 
-  // Add O_NONBLOCK flag to the listener sockets.
-  markSocketBlocking(PROTECTED_RESTORE_IP4_SOCK_FD);
-  markSocketBlocking(PROTECTED_RESTORE_IP6_SOCK_FD);
-  markSocketBlocking(PROTECTED_RESTORE_UDS_SOCK_FD);
-
   if (_pendingIP4Incoming.size() > 0) {
+    // Add O_NONBLOCK flag to the listener sockets.
+    markSocketBlocking(PROTECTED_RESTORE_IP4_SOCK_FD);
     checkForPendingIncoming(PROTECTED_RESTORE_IP4_SOCK_FD,
                             &_pendingIP4Incoming);
+    _real_close(PROTECTED_RESTORE_IP4_SOCK_FD);
   }
   if (_pendingIP6Incoming.size() > 0) {
+    // Add O_NONBLOCK flag to the listener sockets.
+    markSocketBlocking(PROTECTED_RESTORE_IP6_SOCK_FD);
     checkForPendingIncoming(PROTECTED_RESTORE_IP6_SOCK_FD,
                             &_pendingIP6Incoming);
+    _real_close(PROTECTED_RESTORE_IP6_SOCK_FD);
   }
   if (_pendingUDSIncoming.size() > 0) {
+    // Add O_NONBLOCK flag to the listener sockets.
+    markSocketBlocking(PROTECTED_RESTORE_UDS_SOCK_FD);
     checkForPendingIncoming(PROTECTED_RESTORE_UDS_SOCK_FD,
                             &_pendingUDSIncoming);
+    _real_close(PROTECTED_RESTORE_UDS_SOCK_FD);
   }
-  JTRACE("Closing restore socket");
-  _real_close(PROTECTED_RESTORE_IP4_SOCK_FD);
-  _real_close(PROTECTED_RESTORE_IP6_SOCK_FD);
-  _real_close(PROTECTED_RESTORE_UDS_SOCK_FD);
+  JTRACE("Closed restore sockets");
 }
 
-void dmtcp::ConnectionRewirer::openRestoreSocket()
+void dmtcp::ConnectionRewirer::openRestoreSocket(bool hasIPv4Sock,
+                                                 bool hasIPv6Sock,
+                                                 bool hasUNIXSock)
 {
   memset(&_ip4RestoreAddr, 0, sizeof(_ip4RestoreAddr));
   memset(&_ip6RestoreAddr, 0, sizeof(_ip6RestoreAddr));
   memset(&_udsRestoreAddr, 0, sizeof(_udsRestoreAddr));
 
   // Open IP4 Restore Socket
-  {
+  if (hasIPv4Sock) {
     jalib::JServerSocket restoreSocket(jalib::JSockAddr::ANY, 0);
     JASSERT(restoreSocket.isValid());
     restoreSocket.changeFd(PROTECTED_RESTORE_IP4_SOCK_FD);
@@ -169,10 +172,11 @@ void dmtcp::ConnectionRewirer::openRestoreSocket()
 
     JTRACE("opened listen socket") (restoreSocket.sockfd())
       (inet_ntoa(_ip4RestoreAddr.sin_addr)) (ntohs(_ip4RestoreAddr.sin_port));
+    markSocketNonBlocking(PROTECTED_RESTORE_IP4_SOCK_FD);
   }
 
   // Open IP6 Restore Socket
-  {
+  if (hasIPv6Sock) {
     int ip6fd = _real_socket(AF_INET6, SOCK_STREAM, 0);
     JASSERT(ip6fd != -1) (JASSERT_ERRNO);
 
@@ -190,10 +194,11 @@ void dmtcp::ConnectionRewirer::openRestoreSocket()
     Util::changeFd(ip6fd, PROTECTED_RESTORE_IP6_SOCK_FD);
 
     JTRACE("opened ip6 listen socket") (PROTECTED_RESTORE_IP6_SOCK_FD);
+    markSocketNonBlocking(PROTECTED_RESTORE_IP6_SOCK_FD);
   }
 
   // Open UDS Restore Socket
-  {
+  if (hasUNIXSock) {
     dmtcp::ostringstream o;
     o << dmtcp_get_uniquepid_str() << "_" << dmtcp_get_coordinator_timestamp();
     dmtcp::string str = o.str();
@@ -211,11 +216,8 @@ void dmtcp::ConnectionRewirer::openRestoreSocket()
 
     JTRACE("opened UDS listen socket")
       (PROTECTED_RESTORE_UDS_SOCK_FD) (&_udsRestoreAddr.sun_path[1]);
+    markSocketNonBlocking(PROTECTED_RESTORE_UDS_SOCK_FD);
   }
-
-  markSocketNonBlocking(PROTECTED_RESTORE_IP4_SOCK_FD);
-  markSocketNonBlocking(PROTECTED_RESTORE_IP6_SOCK_FD);
-  markSocketNonBlocking(PROTECTED_RESTORE_UDS_SOCK_FD);
 }
 
 void
