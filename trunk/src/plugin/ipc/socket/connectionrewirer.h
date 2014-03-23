@@ -45,7 +45,7 @@ namespace dmtcp
       static ConnectionRewirer& instance();
       static void destroy();
 
-      void openRestoreSocket();
+      void openRestoreSocket(bool hasIPv4, bool hasIPv6, bool hasUNIX);
       void registerIncoming(const ConnectionIdentifier& local,
                             Connection *con,
                             int domain);
