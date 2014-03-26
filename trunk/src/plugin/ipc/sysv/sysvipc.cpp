@@ -698,8 +698,8 @@ dmtcp::Semaphore::Semaphore(int semid, int realSemid, key_t key, int nsems,
     _nsems = se.buf->sem_nsems;
     _flags = se.buf->sem_perm.mode;
   }
-  _semval = new unsigned short[_nsems];
-  _semadj = new int[_nsems];
+  _semval = (unsigned short*) JALLOC_HELPER_MALLOC(_nsems * sizeof(unsigned short));
+  _semadj = (int*) JALLOC_HELPER_MALLOC(_nsems * sizeof(int));
   for (int i = 0; i < _nsems; i++) {
     _semval[i] = 0;
     _semadj[i] = 0;

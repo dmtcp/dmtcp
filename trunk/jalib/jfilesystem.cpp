@@ -299,18 +299,19 @@ jalib::StringVector jalib::Filesystem::GetProgramArgs()
 
   if (rv.empty()) {
     jalib::string path = "/proc/self/cmdline";
+    // FIXME: Replace fopen with open.
     FILE* args = jalib::fopen ( path.c_str(),"r" );
 
     JASSERT ( args != NULL ) ( path ).Text ( "failed to open command line" );
 
-    char * lineptr = ( char* ) malloc ( 512 ); //getdelim will auto-grow this buffer
+    char * lineptr = ( char* ) JALLOC_HELPER_MALLOC ( 512 ); //getdelim will auto-grow this buffer
     size_t len = 511;
 
     while ( getdelim ( &lineptr, &len, '\0', args ) >= 0 ) {
       rv.push_back ( lineptr );
     }
 
-    free ( lineptr );
+    JALLOC_HELPER_FREE ( lineptr );
     jalib::fclose(args);
   }
 

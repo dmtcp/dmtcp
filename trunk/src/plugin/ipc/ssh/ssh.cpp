@@ -317,7 +317,7 @@ static void prepareForExec(char *const argv[], char ***newArgv)
   }
 
   //now repack args
-  char** new_argv = new char*[nargs + 10];
+  char** new_argv = (char**) JALLOC_HELPER_MALLOC(sizeof(char*) * (nargs + 10));
   memset(new_argv, 0, sizeof(char*) * (nargs + 10));
 
   size_t idx = 0;
