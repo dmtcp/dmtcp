@@ -40,6 +40,10 @@
 #define FALSE 0
 #define TRUE 1
 
+#ifndef CKPT_SIGNAL
+# define CKPT_SIGNAL SIGUSR2
+#endif
+
 // This macro (LIBC...) is also defined in ../jalib/jassert.cpp and should
 // always be kept in sync with that.
 #define LIBC_FILENAME "libc.so.6"
@@ -68,7 +72,6 @@
 
 #define DEFAULT_HOST "127.0.0.1"
 #define DEFAULT_PORT 7779
-#define DMTCP_DEFAULT_SIGNAL SIGUSR2
 
 // Matchup this definition with the one in plugins/ptrace/ptracewrappers.h
 #define DMTCP_FAKE_SYSCALL 1023

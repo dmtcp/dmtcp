@@ -791,6 +791,7 @@ enable_openmp
 enable_debug
 enable_quiet
 enable_timing
+enable_realtime_ckpt_signal
 enable_unique_checkpoint_filenames
 enable_infiniband_support
 enable_forked_checkpointing
@@ -1450,6 +1451,10 @@ Optional Features:
   --enable-timing         record checkpoint/restart timing information to
                           jtimings.csv, in working directory of
                           dmtcp_coordinator, and to stderr.
+  --enable-realtime-ckpt-signal
+                          Use a realtime signal (SIGRTMAX - 2) instead of the
+                          default SIGUSR2 signal. The signal can be overridden
+                          with the --ckpt-signal flag for dmtcp_launch.
   --enable-unique-checkpoint-filenames
                           By default, successive checkpoints are written to
                           the same filename. Enable if each successive
@@ -4808,6 +4813,20 @@ fi
 if test "$use_jtiming" = "yes"; then
 
 $as_echo "#define TIMING 1" >>confdefs.h
+
+fi
+
+# Check whether --enable-realtime_ckpt_signal was given.
+if test "${enable_realtime_ckpt_signal+set}" = set; then :
+  enableval=$enable_realtime_ckpt_signal; use_realtime_ckpt_signal=$enableval
+else
+  use_realtime_ckpt_signal=no
+fi
+
+
+if test "$use_realtime_ckpt_signal" = "yes"; then
+
+$as_echo "#define CKPT_SIGNAL (SIGRTMAX - 2)" >>confdefs.h
 
 fi
 
