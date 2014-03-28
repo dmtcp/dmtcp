@@ -626,9 +626,6 @@ ac_subst_vars='am__EXEEXT_FALSE
 am__EXEEXT_TRUE
 LTLIBOBJS
 LIBOBJS
-M32
-CONFIG_M32_FALSE
-CONFIG_M32_TRUE
 HAS_OPENMPI
 OPENMPI_MPIRUN
 OPENMPI_MPICC
@@ -665,10 +662,13 @@ HAS_TCSH
 HAS_DASH
 HAS_PYTHON
 HAS_PS
-HAS_READLINE
 ARM_HOST
 ARM_HOST_FALSE
 ARM_HOST_TRUE
+HAS_READLINE
+M32
+CONFIG_M32_FALSE
+CONFIG_M32_TRUE
 TEST_POSIX_MQ
 USE_TEST_SUITE
 HBICT_DELTACOMP
@@ -800,9 +800,8 @@ enable_test_suite
 enable_experts_only_space1
 enable_experts_only
 enable_experts_only_after
-enable_allocator
-with_mpich
 enable_m32
+with_mpich
 '
       ac_precious_vars='build_alias
 host_alias
@@ -1474,8 +1473,6 @@ Optional Features:
                  === **** NOTE:  EXPERTS ONLY BELOW HERE **** ===
                           (Use at your own risk!!)
 
-  --enable-allocator      cause DMTCP to use a custom allocator based on mmap
-                          and avoid calling malloc and free (EXPERIMENTAL)
   --enable-m32            Compile in 32 bit mode on 64 bit linux. (Works on
                           most, but not all programs, due to restrictions of
                           32-bit mode.)
@@ -5260,19 +5257,147 @@ if test "${enable_experts_only_after+set}" = set; then :
 fi
 
 
-# Check whether --enable-allocator was given.
-if test "${enable_allocator+set}" = set; then :
-  enableval=$enable_allocator; use_allocator=$enableval
+# Check whether --enable-m32 was given.
+if test "${enable_m32+set}" = set; then :
+  enableval=$enable_m32; use_m32=$enableval
 else
-  use_allocator=no
+  use_m32=no
 fi
 
 
-if test "$use_allocator" = "yes"; then
+ if test "$use_m32" = "yes"; then
+  CONFIG_M32_TRUE=
+  CONFIG_M32_FALSE='#'
+else
+  CONFIG_M32_TRUE='#'
+  CONFIG_M32_FALSE=
+fi
 
-$as_echo "#define OVERRIDE_GLOBAL_ALLOCATOR 1" >>confdefs.h
+if test "$use_m32" = "yes"; then
+  M32=1
+
+  HAS_READLINE=no
+
+
+$as_echo "#define CONFIG_M32 1" >>confdefs.h
+
+
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether multilib $CC compiles using -m32" >&5
+$as_echo_n "checking whether multilib $CC compiles using -m32... " >&6; }
+  ac_ext=c
+ac_cpp='$CPP $CPPFLAGS'
+ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
+  old_CFLAGS="$CFLAGS"
+  CFLAGS="$CFLAGS -m32"
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+  #include <stdio.h>
+  #include <features.h>  /* This often causes a problem. */
+
+int
+main ()
+{
+
+  printf("Hello, world!\n");
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  cc_m32='yes'
+else
+  cc_m32='no'
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+  CFLAGS="$old_CFLAGS"
+  ac_ext=c
+ac_cpp='$CPP $CPPFLAGS'
+ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $cc_m32" >&5
+$as_echo "$cc_m32" >&6; }
+  if test "$cc_m32" = "no"; then
+    { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "Failed to build with -m32
+    Consider installing gcc-multilib (and g++-multilib) or
+      the equivalent packages for your Linux distro.
+See \`config.log' for more details" "$LINENO" 5; }
+  fi
+
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether multilib $CXX compiles using -m32" >&5
+$as_echo_n "checking whether multilib $CXX compiles using -m32... " >&6; }
+  ac_ext=cpp
+ac_cpp='$CXXCPP $CPPFLAGS'
+ac_compile='$CXX -c $CXXFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CXX -o conftest$ac_exeext $CXXFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_cxx_compiler_gnu
+
+  old_CXXFLAGS="$CXXFLAGS"
+  CXXFLAGS="$CXXFLAGS -m32"
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+  #include <stdio.h>
+  #include <features.h>  /* This often causes a problem. */
+
+int
+main ()
+{
+
+  printf("Hello, world!\n");
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_cxx_try_link "$LINENO"; then :
+  cplusplus_m32='yes'
+else
+  cplusplus_m32='no'
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+  CXXFLAGS="$old_CXXFLAGS"
+  ac_ext=c
+ac_cpp='$CPP $CPPFLAGS'
+ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $cplusplus_m32" >&5
+$as_echo "$cplusplus_m32" >&6; }
+  if test "$cplusplus_m32" = "no"; then
+    { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "Failed to build with -m32
+    Typically, this means that 32-bit libstdc++.so was not found
+    Consider installing g++-multilib or equivalent pkg for your Linux distro.
+See \`config.log' for more details" "$LINENO" 5; }
+  fi
+else
+  M32=0
 
 fi
+
+#AC_ARG_ENABLE([allocator],
+#            [AS_HELP_STRING([--enable-allocator],
+#                            [cause DMTCP to use a custom allocator based on mmap
+#                             and avoid calling malloc and free (EXPERIMENTAL)])],
+#            [use_allocator=$enableval],
+#            [use_allocator=no])
+#
+#if test "$use_allocator" = "yes"; then
+#  AC_DEFINE([OVERRIDE_GLOBAL_ALLOCATOR],[1],[Use a custom allocator based on mmap])
+#fi
 
 case "$host_cpu" in
   arm*) is_arm_host=yes ;;
@@ -6791,141 +6916,6 @@ else
 
 fi
 
-# Check whether --enable-m32 was given.
-if test "${enable_m32+set}" = set; then :
-  enableval=$enable_m32; use_m32=$enableval
-else
-  use_m32=no
-fi
-
-
- if test "$use_m32" = "yes"; then
-  CONFIG_M32_TRUE=
-  CONFIG_M32_FALSE='#'
-else
-  CONFIG_M32_TRUE='#'
-  CONFIG_M32_FALSE=
-fi
-
-if test "$use_m32" = "yes"; then
-  M32=1
-
-  HAS_READLINE=no
-
-
-$as_echo "#define CONFIG_M32 1" >>confdefs.h
-
-else
-  M32=0
-
-fi
-
-if test "$use_m32" = "yes"; then
-  { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether multilib $CC compiles using -m32" >&5
-$as_echo_n "checking whether multilib $CC compiles using -m32... " >&6; }
-  ac_ext=c
-ac_cpp='$CPP $CPPFLAGS'
-ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
-ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
-ac_compiler_gnu=$ac_cv_c_compiler_gnu
-
-  old_CFLAGS="$CFLAGS"
-  CFLAGS="$CFLAGS -m32"
-  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-  #include <stdio.h>
-  #include <features.h>  /* This often causes a problem. */
-
-int
-main ()
-{
-
-  printf("Hello, world!\n");
-
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_link "$LINENO"; then :
-  cc_m32='yes'
-else
-  cc_m32='no'
-fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
-  CFLAGS="$old_CFLAGS"
-  ac_ext=c
-ac_cpp='$CPP $CPPFLAGS'
-ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
-ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
-ac_compiler_gnu=$ac_cv_c_compiler_gnu
-
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $cc_m32" >&5
-$as_echo "$cc_m32" >&6; }
-  if test "$cc_m32" = "no"; then
-    { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
-$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "Failed to build with -m32
-    Consider installing gcc-multilib (and g++-multilib) or
-      the equivalent packages for your Linux distro.
-See \`config.log' for more details" "$LINENO" 5; }
-  fi
-fi
-
-if test "$use_m32" = "yes"; then
-  { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether multilib $CXX compiles using -m32" >&5
-$as_echo_n "checking whether multilib $CXX compiles using -m32... " >&6; }
-  ac_ext=cpp
-ac_cpp='$CXXCPP $CPPFLAGS'
-ac_compile='$CXX -c $CXXFLAGS $CPPFLAGS conftest.$ac_ext >&5'
-ac_link='$CXX -o conftest$ac_exeext $CXXFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
-ac_compiler_gnu=$ac_cv_cxx_compiler_gnu
-
-  old_CXXFLAGS="$CXXFLAGS"
-  CXXFLAGS="$CXXFLAGS -m32"
-  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-  #include <stdio.h>
-  #include <features.h>  /* This often causes a problem. */
-
-int
-main ()
-{
-
-  printf("Hello, world!\n");
-
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_cxx_try_link "$LINENO"; then :
-  cplusplus_m32='yes'
-else
-  cplusplus_m32='no'
-fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
-  CXXFLAGS="$old_CXXFLAGS"
-  ac_ext=c
-ac_cpp='$CPP $CPPFLAGS'
-ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
-ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
-ac_compiler_gnu=$ac_cv_c_compiler_gnu
-
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $cplusplus_m32" >&5
-$as_echo "$cplusplus_m32" >&6; }
-  if test "$cplusplus_m32" = "no"; then
-    { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
-$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "Failed to build with -m32
-    Typically, this means that 32-bit libstdc++.so was not found
-    Consider installing g++-multilib or equivalent pkg for your Linux distro.
-See \`config.log' for more details" "$LINENO" 5; }
-  fi
-fi
-
 if test "$use_m32" = "yes"; then
   interp=/lib/ld-linux.so.2
 elif test -x /usr/bin/readelf -a -r /usr/bin/readelf; then
@@ -7116,12 +7106,12 @@ if test -z "${am__fastdepCXX_TRUE}" && test -z "${am__fastdepCXX_FALSE}"; then
   as_fn_error $? "conditional \"am__fastdepCXX\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
-if test -z "${ARM_HOST_TRUE}" && test -z "${ARM_HOST_FALSE}"; then
-  as_fn_error $? "conditional \"ARM_HOST\" was never defined.
-Usually this means the macro was only invoked conditionally." "$LINENO" 5
-fi
 if test -z "${CONFIG_M32_TRUE}" && test -z "${CONFIG_M32_FALSE}"; then
   as_fn_error $? "conditional \"CONFIG_M32\" was never defined.
+Usually this means the macro was only invoked conditionally." "$LINENO" 5
+fi
+if test -z "${ARM_HOST_TRUE}" && test -z "${ARM_HOST_FALSE}"; then
+  as_fn_error $? "conditional \"ARM_HOST\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 
