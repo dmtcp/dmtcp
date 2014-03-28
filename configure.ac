@@ -98,6 +98,19 @@ if test "$use_jtiming" = "yes"; then
   AC_DEFINE([TIMING],[1],[Record timing information to stderr and jtimings.csv])
 fi
 
+AC_ARG_ENABLE([realtime_ckpt_signal],
+            [AS_HELP_STRING([--enable-realtime-ckpt-signal],
+                            [Use a realtime signal (SIGRTMAX - 2) instead of
+                             the default SIGUSR2 signal.  The signal can be
+                             overridden with the --ckpt-signal flag for
+                             dmtcp_launch.])],
+            [use_realtime_ckpt_signal=$enableval],
+            [use_realtime_ckpt_signal=no])
+
+if test "$use_realtime_ckpt_signal" = "yes"; then
+  AC_DEFINE([CKPT_SIGNAL],[(SIGRTMAX - 2)],[Checkpoint signal to be used])
+fi
+
 AC_ARG_ENABLE([unique_checkpoint_filenames],
             [AS_HELP_STRING([--enable-unique-checkpoint-filenames],
                             [By default, successive checkpoints are written

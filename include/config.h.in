@@ -1,5 +1,8 @@
 /* include/config.h.in.  Generated from configure.ac by autoheader.  */
 
+/* Checkpoint signal to be used */
+#undef CKPT_SIGNAL
+
 /* Compiling in 32 bit mode on 64 bit linux. */
 #undef CONFIG_M32
 

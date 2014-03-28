@@ -109,15 +109,15 @@ void restoreUserLDPRELOAD()
 //__attribute__ ((visibility ("hidden")))
 int dmtcp::DmtcpWorker::determineCkptSignal()
 {
-  int sig = DMTCP_DEFAULT_SIGNAL;
+  int sig = CKPT_SIGNAL;
   char* endp = NULL;
   static const char* tmp = getenv(ENV_VAR_SIGCKPT);
   if (tmp != NULL) {
       sig = strtol(tmp, &endp, 0);
       if ((errno != 0) || (tmp == endp))
-        sig = DMTCP_DEFAULT_SIGNAL;
+        sig = CKPT_SIGNAL;
       if (sig < 1 || sig > 31)
-        sig = DMTCP_DEFAULT_SIGNAL;
+        sig = CKPT_SIGNAL;
   }
   return sig;
 }
