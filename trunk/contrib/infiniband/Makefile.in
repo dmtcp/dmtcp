@@ -63,10 +63,10 @@ CXXCOMPILE = $(CXX) $(INCLUDES) $(CPPFLAGS) $(CXXFLAGS) -c -o $@
 CXXLINK = $(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@
 
 HEADERS = $(DMTCP_INCLUDE_PATH)/dmtcp.h lib/list.h \
-	  ibvctx.h infinibandreals.h ibv_internal.h ibvidentifier.h debug.h 
+	  ibvctx.h ibv_internal.h ibvidentifier.h debug.h 
 
-LIBOBJS = infinibandreals.o infinibandwrappers.o ibvctx.o lib/list.o
-TRACEOBJS =  infinibandtrace.o infinibandreals.o
+LIBOBJS = infinibandwrappers.o ibvctx.o lib/list.o
+TRACEOBJS =  infinibandtrace.o 
 DMTCP_PORT=7783
 
 ifndef HOST0
