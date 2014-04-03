@@ -22,10 +22,22 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#define _GNU_SOURCE
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <dlfcn.h>
 #include <infiniband/verbs.h>
+
+// libibverbs.so includes two versions for each symbol, 1.1 for new one, which
+// is the default, and 1.0 for the old. We use dlvsym to call the new one.
+#define NEXT_IBV_FNC(func)                                                      \
+  ({                                                                        \
+     static __typeof__(&func) _real_##func = (__typeof__(&func)) -1;        \
+     if (_real_##func == (__typeof__(&func)) -1) {                          \
+       _real_##func = (__typeof__(&func)) dlvsym(RTLD_NEXT, #func, "IBVERBS_1.1");\
+     }                                                                      \
+   _real_##func;})
 
 void pre_checkpoint(void);
 int _fork_init(void);

@@ -1,13 +1,9 @@
+#define _GNU_SOURCE
+
 #include <dlfcn.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/select.h>
-#include <sys/un.h>
-#include <arpa/inet.h>
-#include <pthread.h>
-/* According to earlier standards */
-#include <sys/types.h>
 #include <unistd.h>
 #include <errno.h>
 #include "dmtcp.h"
@@ -15,6 +11,15 @@
 #include "ibvctx.h"
 #include "debug.h"
 #include <infiniband/verbs.h>
+
+void *dlopen(const char *filename, int flag) {
+  if (filename) {
+    if (strstr(filename, "libibverbs.so")) {
+      return RTLD_DEFAULT;
+    }
+  }
+  return NEXT_FNC(dlopen)(filename, flag);
+}
 
 int ibv_fork_init(void)
 {
