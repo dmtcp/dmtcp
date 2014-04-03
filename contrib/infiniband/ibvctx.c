@@ -346,8 +346,6 @@ void pre_checkpoint(void)
 // TODO: Must handle case of modifying after checkpoint
 void post_restart(void)
 {
-  int i = 1;
-//  while (i) sleep(1);
   is_restart = true;
   if (is_fork) {
     if (NEXT_IBV_FNC(ibv_fork_init)()) {
