@@ -113,7 +113,6 @@ int dmtcp_infiniband_enabled(void) { return 1; }
 
 void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t* data)
 {
-  bool isRestart = (bool) data;
   switch (event) {
   case DMTCP_EVENT_WRITE_CKPT:
     pre_checkpoint();
@@ -580,8 +579,6 @@ void post_restart(void)
     {
       struct ibv_modify_qp_log * mod = list_entry(w, struct ibv_modify_qp_log, elem);
 
-      struct ibv_qp_attr attr = mod->attr;
-
       if (mod->attr_mask & IBV_QP_AV)
       {
         internal_qp->current_id.lid |= mod->attr.ah_attr.src_path_bits;
@@ -708,6 +705,10 @@ void post_restart2(void)
       struct ibv_recv_wr * bad_wr;
     //  PDEBUG("About to repost recv.\n");
       int rslt = _real_ibv_post_recv(internal_qp->real_qp, copy_wr, &bad_wr);
+      if (rslt) {
+        fprintf(stderr, "Repost recv failed.\n");
+	exit(1);
+      }
       delete_recv_wr(copy_wr);
     }
   }
@@ -735,7 +736,10 @@ void refill(void)
       struct ibv_send_wr * bad_wr;
 //      PDEBUG("About to repost send.\n");
       int rslt = _real_ibv_post_send(internal_qp->real_qp, copy_wr, &bad_wr);
-
+      if (rslt) {
+        fprintf(stderr, "Repost recv failed.\n");
+	exit(1);
+      }
       delete_send_wr(copy_wr);
     }
   }
@@ -979,7 +983,6 @@ void _ack_async_event(struct ibv_async_event * event)
 void _free_device_list(struct ibv_device ** list)
 {
   NEXT_IBV_FNC(ibv_free_device_list)(_dev_list);
-  int i;
 
 /*  for (i = 0; i < _dmtcp_num_devices; i++) {
     free(list[i]);
@@ -1291,7 +1294,6 @@ struct ibv_qp * _create_qp(struct ibv_pd * pd, struct ibv_qp_init_attr * qp_init
 
   memcpy(&internal_qp->user_qp, internal_qp->real_qp, sizeof(struct ibv_qp));
 
-  bool dup_flag = false;
   if (is_restart) {
     struct list_elem *w;
     for (w = list_begin(&qp_list); w != list_end(&qp_list); w = list_next(w)) {

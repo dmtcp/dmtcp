@@ -204,7 +204,7 @@ int ibv_destroy_srq(struct ibv_srq *srq)
   dmtcp_plugin_disable_ckpt();
  // PDEBUG("******** WRAPPER for ibv_destroy_srq\n");
   int rslt = _destroy_srq(srq);
-  dmtcp_plugin_enable_ckpt;
+  dmtcp_plugin_enable_ckpt();
   return rslt;
 }
 
@@ -367,7 +367,8 @@ struct ibv_ah * ibv_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr){
   dmtcp_plugin_disable_ckpt();
 //  PDEBUG("******** WRAPPER for ibv_create_ah\n");
 
-  _create_ah(pd, attr);
+  struct ibv_ah *rslt = _create_ah(pd, attr);
 
   dmtcp_plugin_enable_ckpt();
+  return rslt;
 }
