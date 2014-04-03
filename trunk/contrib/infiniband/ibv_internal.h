@@ -27,7 +27,6 @@ struct internal_ibv_ctx {
 struct internal_ibv_comp_channel {
   struct ibv_comp_channel user_channel;
   struct ibv_comp_channel * real_channel;
-  bool recreate_channel;
   struct list_elem elem;
 };
 

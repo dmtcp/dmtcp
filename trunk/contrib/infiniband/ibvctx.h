@@ -39,6 +39,16 @@
      }                                                                      \
    _real_##func;})
 
+// For some reason, ibv_create_comp_channel() and ibv_destroy_comp_channel() 
+// have version 1.0 only
+#define NEXT_IBV_COMP_CHANNEL(func)                                                      \
+  ({                                                                        \
+     static __typeof__(&func) _real_##func = (__typeof__(&func)) -1;        \
+     if (_real_##func == (__typeof__(&func)) -1) {                          \
+       _real_##func = (__typeof__(&func)) dlvsym(RTLD_NEXT, #func, "IBVERBS_1.0");\
+     }                                                                      \
+   _real_##func;})
+
 void pre_checkpoint(void);
 int _fork_init(void);
 struct ibv_device ** _get_device_list(int * num_devices);

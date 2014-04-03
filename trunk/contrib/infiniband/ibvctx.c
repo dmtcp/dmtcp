@@ -346,6 +346,8 @@ void pre_checkpoint(void)
 // TODO: Must handle case of modifying after checkpoint
 void post_restart(void)
 {
+  int i = 1;
+//  while (i) sleep(1);
   is_restart = true;
   if (is_fork) {
     if (NEXT_IBV_FNC(ibv_fork_init)()) {
@@ -469,7 +471,7 @@ void post_restart(void)
 
     struct internal_ibv_ctx * internal_ctx = ibv_ctx_to_internal(internal_comp->user_channel.context);
 
-    internal_comp->real_channel = NEXT_IBV_FNC(ibv_create_comp_channel)(internal_ctx->real_ctx);
+    internal_comp->real_channel = NEXT_IBV_COMP_CHANNEL(ibv_create_comp_channel)(internal_ctx->real_ctx);
     if (!internal_comp->real_channel)
     {
       fprintf(stderr, "Error: Could not re-create the comp channel.\n");
@@ -486,8 +488,6 @@ void post_restart(void)
       close(internal_comp->real_channel->fd);
       internal_comp->real_channel->fd = internal_comp->user_channel.fd;
     }
-
-    internal_comp->recreate_channel = false;
   }
   /* end code to register the completion channel */
 
@@ -822,7 +822,7 @@ struct ibv_comp_channel * _create_comp_channel(struct ibv_context * ctx) {
     exit(1);
   }
 
-  internal_comp->real_channel = NEXT_IBV_FNC(ibv_create_comp_channel)(internal_ctx->real_ctx);
+  internal_comp->real_channel = NEXT_IBV_COMP_CHANNEL(ibv_create_comp_channel)(internal_ctx->real_ctx);
   if (!internal_comp->real_channel) {
     fprintf(stderr, "Channel could not be created.");
     exit(1);
@@ -831,9 +831,8 @@ struct ibv_comp_channel * _create_comp_channel(struct ibv_context * ctx) {
 
   internal_comp->user_channel.context = ctx;
 
-  list_push_front(&comp_list, &internal_comp->elem);
+  list_push_back(&comp_list, &internal_comp->elem);
 
-  internal_comp->recreate_channel = false;
   return &internal_comp->user_channel;
 }
 
@@ -841,12 +840,10 @@ int _destroy_comp_channel(struct ibv_comp_channel * channel)
 {
   struct internal_ibv_comp_channel * internal_comp = ibv_comp_to_internal(channel);
 
-  int rslt = NEXT_IBV_FNC(ibv_destroy_comp_channel)(internal_comp->real_channel);
+  int rslt = NEXT_IBV_COMP_CHANNEL(ibv_destroy_comp_channel)(internal_comp->real_channel);
 
-  if (rslt) {
-    list_remove(&internal_comp->elem);
-    free(channel);
-  }
+  list_remove(&internal_comp->elem);
+  free(internal_comp);
 
   return rslt;
 }
@@ -856,14 +853,7 @@ int _get_cq_event(struct ibv_comp_channel * channel, struct ibv_cq ** cq, void *
   struct internal_ibv_comp_channel * internal_channel = ibv_comp_to_internal(channel);
 
   int rslt;
-  if (internal_channel->recreate_channel == true) {
-    struct internal_ibv_ctx * internal_ctx = ibv_ctx_to_internal(internal_channel->user_channel.context);
-    internal_channel->real_channel = NEXT_IBV_FNC(ibv_create_comp_channel)(internal_ctx->real_ctx);
-    rslt = NEXT_IBV_FNC(ibv_get_cq_event)(internal_channel->real_channel, cq, cq_context);
-    internal_channel->recreate_channel = false;
-  } else {
-    rslt = NEXT_IBV_FNC(ibv_get_cq_event)(internal_channel->real_channel, cq, cq_context);
-  }
+  rslt = NEXT_IBV_FNC(ibv_get_cq_event)(internal_channel->real_channel, cq, cq_context);
 
   struct internal_ibv_cq * internal_cq = get_cq_from_pointer(*cq);
 
