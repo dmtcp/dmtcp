@@ -385,8 +385,8 @@ int main(int argc, char** argv)
   }
 
   if (argc == 1) {
-    JASSERT_STDERR << DMTCP_VERSION_AND_COPYRIGHT_INFO;
-    JASSERT_STDERR << "(For help:  " << argv[0] << " --help)\n\n";
+    printf("%s", DMTCP_VERSION_AND_COPYRIGHT_INFO);
+    printf("(For help: %s --help)\n\n", argv[0]);
     return DMTCP_FAIL_RC;
   }
 
@@ -444,8 +444,7 @@ int main(int argc, char** argv)
       shift;
     } else if ((s.length() > 2 && s.substr(0, 2) == "--") ||
                (s.length() > 1 && s.substr(0, 1) == "-")) {
-      JASSERT_STDERR << "Invalid Argument\n";
-      JASSERT_STDERR << theUsage;
+      printf("Invalid Argument\n%s", theUsage);
       return DMTCP_FAIL_RC;
     } else if (argc > 1 && s == "--") {
       shift;
