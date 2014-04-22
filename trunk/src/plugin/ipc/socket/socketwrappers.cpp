@@ -108,15 +108,19 @@ extern "C" int connect(int sockfd, const struct sockaddr *serv_addr,
   if (ret != -1 && !_doNotProcessSockets) {
     TcpConnection *con =
       (TcpConnection*) SocketConnList::instance().getConnection(sockfd);
-    con->onConnect(serv_addr, addrlen);
+    if (con == NULL) {
+      JTRACE("Connect operation on unsupported socket type.");
+    } else {
+      con->onConnect(serv_addr, addrlen);
 
 #if HANDSHAKE_ON_CONNECT == 1
-    JTRACE("connected, sending 1-way handshake") (sockfd) (con->id());
-    con->sendHandshake(sockfd, DmtcpWorker::instance().coordinatorId());
-    JTRACE("1-way handshake sent");
+      JTRACE("connected, sending 1-way handshake") (sockfd) (con->id());
+      con->sendHandshake(sockfd, DmtcpWorker::instance().coordinatorId());
+      JTRACE("1-way handshake sent");
 #else
-    JTRACE("connected") (sockfd) (con->id());
+      JTRACE("connected") (sockfd) (con->id());
 #endif
+    }
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return ret;
@@ -130,8 +134,12 @@ extern "C" int bind(int sockfd, const struct sockaddr *my_addr,
   if (ret != -1 && !_doNotProcessSockets) {
     TcpConnection *con =
       (TcpConnection*) SocketConnList::instance().getConnection(sockfd);
-    con->onBind((struct sockaddr*) my_addr, addrlen);
-    JTRACE("bind") (sockfd) (con->id());
+    if (con == NULL) {
+      JTRACE("bind operation on unsupported socket type.");
+    } else {
+      con->onBind((struct sockaddr*) my_addr, addrlen);
+      JTRACE("bind") (sockfd) (con->id());
+    }
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return ret;
@@ -144,8 +152,12 @@ extern "C" int listen(int sockfd, int backlog)
   if (ret != -1 && !_doNotProcessSockets) {
     TcpConnection *con =
       (TcpConnection*) SocketConnList::instance().getConnection(sockfd);
-    con->onListen(backlog);
-    JTRACE("listen") (sockfd) (con->id()) (backlog);
+    if (con == NULL) {
+      JTRACE("listen operation on unsupported socket type.");
+    } else {
+      con->onListen(backlog);
+      JTRACE("listen") (sockfd) (con->id()) (backlog);
+    }
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return ret;
@@ -158,6 +170,10 @@ static void process_accept(int ret, int sockfd, struct sockaddr *addr,
   TcpConnection *parent =
     (TcpConnection*) SocketConnList::instance().getConnection(sockfd);
   TcpConnection* con = new TcpConnection(*parent, ConnectionIdentifier::Null());
+  if (con == NULL) {
+    JTRACE("accept operation on unsupported socket type.");
+    return;
+  }
   SocketConnList::instance().add(ret, con);
 
 #if HANDSHAKE_ON_CONNECT == 1
@@ -221,7 +237,10 @@ extern "C" int setsockopt(int sockfd, int level, int optname,
     JTRACE("setsockopt") (ret) (sockfd) (optname);
     TcpConnection *con =
       (TcpConnection*) SocketConnList::instance().getConnection(sockfd);
-    con->addSetsockopt(level, optname,(char*) optval, optlen);
+    if (con == NULL) {
+      JTRACE("setsockopt operation on unsupported socket type.");
+      return ret;
+    }
   }
   return ret;
 }
