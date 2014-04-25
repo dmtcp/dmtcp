@@ -1,0 +1,66 @@
+Many people have contributed code included in the DMTCP distribution.  To show
+our appreciation for their public spirit, we list here a condensed list of
+their largest contributions in a somewhat chronological order.
+Conceptually, DMTCP evolved in three generations:
+* MTCP (single process)
+* DMTCP (version 1; monolithic)
+* DMTCP (version 2; plugins, adaptibility, extensibility)
+
+Michael Rieker <mrieker@nii.net>
+    MTCP:  Original author of MTCP (Multi-Threaded CheckPointing)
+    software. MTCP was the base layer for supporting single process
+    checkpointing.
+
+A distributed layer (DMTCP) was added later to support distributed
+processes. Most of MTCP has now been incorporated into the higher layer
+and as of the DMTCP-2.2 release, it no longer exists in its original form.
+
+Jason Ansel <jansel@csail.mit.edu>
+    DMTCP:  Wrote the original distributed layer of DMTCP, which added
+    support for sockets, etc. using the dmtcp_coordinator.  Jason also
+    contributed the jalib utilities.  This was the first version of
+    DMTCP able to checkpoint MPI.
+
+Gene Cooperman <gene@ccs.neu.edu>
+    As leader of the DMTCP project, Gene tries to review and maintain
+    the overall architecture, and take special responsibility for
+    extending the lower layers:  MTCP, ARM port, etc.
+
+Kapil Arya <kapil@ccs.neu.edu>
+    DMTCP version 2:  Authoer of the plugin architecture, without which
+    DMTCP would have collapsed under the weight of contributions of
+    successive waves of students.
+
+Artem Polyakov <artpol@gmail.com>
+    HPC:  developed HBICT project for differential checkpointing (with
+    delta-compression) on top of DMTCP.  Contributed and currently
+    maintains the batch-queue plugin to work with MPI.
+
+Ana-Maria Visan <anamaria.visan@gmail.com>
+    PTRACE:  Added support for checkpointing the ptrace system call,
+    allowing DMTCP to checkpoint GDB.  Later, Kapil revised the code
+    in order to incorporate it into the ptrace plugin.
+
+Tyler Denniston <tyler@csail.mit.edu>
+    Original author of the record-replay plugin that is used by FReD.
+
+Greg Kerr <kerrgi@gmail.com>
+    Author of the initial InfiniBand plugin as a proof of principle.
+
+Jiajun Cao <jiajun@ccs.neu.edu>
+    Extended the InfiniBand plugin into robust code suitable for
+    use with MPI.  Currently examining support for the Intel Xeon Phi.
+
+Rohan Garg <rohgarg@ccs.neu.edu>
+    Wrote KVM and Tun/Tap plugins to checkpoint a network of KVM virtual
+    machines.
+
+Others who either directly contributed code to DMTCP, or contributed an
+off-line proof of principle (in alphabetical order):
+ * Alex Brick
+ * Kito Cheng (adaptation to Android)
+ * Jim Huang (adaptation to Android)
+ * Zhengping Jin
+ * Samaneh Kazemi Nafchi
+ * Komal Sodha
+ * Praveen Singh Solanki

@@ -1,0 +1,124 @@
+\begin{document}
+
+\begin{Name}{1}{dmtcp\_launch}{Kapil Arya}{Distributed MultiThreaded CheckPointing}{dmtcp\_launch -- start a process under DMTCP control}
+  \myProg{dmtcp_launch} -- start a process under DMTCP control.
+\end{Name}
+
+\section{Synopsis}
+%%%%%%%%%%%%%%%%%%
+
+\myProg{dmtcp_launch} \oArg{OPTIONS} \Arg{<command>} \oArg{args...}
+
+\section{Description}
+%%%%%%%%%%%%%%%%%%
+
+\myProg{dmtcp_command} is a tool to send user commands to the
+\myProg{dmtcp_coordinator} remotely.
+
+\section{Options}
+%%%%%%%%%%%%%%%%%%
+
+\subsubsection{Connecting to the DMTCP Coordinator}
+\begin{Description}
+  \item[\Opt{-h}, \Opt{--host} \Arg{hostname} (environment variable DMTCP_HOST)]
+    Hostname where dmtcp_coordinator is run (default: localhost)
+
+  \item[\Opt{-p}, \Opt{--port} \Arg{port} (environment variable DMTCP_PORT)]
+    Port where dmtcp_coordinator is run (default: 7779)
+
+  \item[\OptSArg{--port-file}{filename}]
+    File to write listener port number.
+    (Useful with \Opt{--port 0}, which is used to assign a random port)
+
+  \item[\Opt{-j}, \Opt{--join}]
+    Join an existing coordinator, raise error if one doesn't
+    already exist
+
+  \item[\Opt{--new-coordinator}]
+    Create a new coordinator at the given port. Fail if one
+    already exists on the given port. The port can be specified
+    with \Opt{--port}, or with environment variable DMTCP_PORT.  If no
+    port is specified, start coordinator at a random port (same
+    as specifying port '0').
+
+  \item[\Opt{--no-coordinator}]
+    Execute the process in stand-alone coordinator-less mode.\\
+    Use \myProg{dmtcp_command} or \Opt{--interval} to request checkpoints.
+
+  \item[\Opt{-i}, \Opt{-interval} \Arg{seconds} (environment variable DMTCP_CHECKPOINT_INTERVAL)]
+    Time in seconds between automatic checkpoints.
+    0 implies never (manual ckpt only); if not set and no env var,
+    use default value set in dmtcp_coordinator or dmtcp_command.
+    Not allowed if \Opt{--join} is specified
+\end{Description}
+
+\subsubsection{Checkpoint image generation}
+\begin{Description}
+  \item[\Opt{--gzip}, \Opt{--no-gzip} (environment variable DMTCP_GZIP=\Lbr01\Rbr)]
+    Enable/disable compression of checkpoint images (default: 1 (enabled))\\
+    WARNING:  gzip adds seconds.  Without gzip, ckpt is often $<$ 1s
+
+  \item[\OptSArg{--ckptdir}{path} (environment variable DMTCP_CHECKPOINT_DIR)]
+    Directory to store checkpoint images (default: curr dir at launch)
+
+  \item[\Opt{--ckpt-open-files}]
+    Checkpoint open files and restore old working dir. (default: do neither)
+
+  \item[\Opt{--checkpoint-open-files}]
+    Deprecated. Use \Opt{--ckpt-open-files} instead.
+
+  \item[\OptSArg{--ckpt-signal}{signum}]
+      Signal number used internally by DMTCP for checkpointing (default: 12)
+
+  \item[\OptSArg{--mtcp-checkpoint-signal}{signum}]
+    Deprecated. Use \Opt{--ckpt-signal} instead.
+
+\end{Description}
+
+\subsubsection{Enable/disable plugins}
+\begin{Description}
+  \item[\OptSArg{--with-plugin}{plugins} (environment variable DMTCP_PLUGIN)]
+    Colon-separated list of DMTCP plugins to be preloaded with DMTCP.
+    (Absolute pathnames are required.)
+
+  \item[\Opt{--batch-queue}, \Opt{--rm}]
+    Enable support for resource managers (Torque PBS and SLURM).
+    (default: disabled)
+
+  \item[\Opt{--ptrace}]
+    Enable support for PTRACE system call for gdb/strace etc. (default: disabled)
+
+  \item[\Opt{--modify-env}]
+    Update environment variables based on the environment on the restart host
+    (e.g., DISPLAY=\$DISPLAY).  This can be set in a file dmtcp_env.txt.
+    (default: disabled)
+
+  \item[\Opt{--ib}, \Opt{--infiniband}]
+    Enable InfiniBand plugin. (default: disabled)
+
+  \item[\Opt{--disable-alloc-plugin} (environment variable DMTCP_ALLOC_PLUGIN=\Lbr01\Rbr)]
+    Disable alloc plugin (default: enabled).
+
+  \item[\Opt{--disable-dl-plugin} (environment variable DMTCP_DL_PLUGIN=\Lbr01\Rbr)]
+    Disable dl plugin (default: enabled).
+
+  \item[\Opt{--disable-all-plugins} (EXPERTS ONLY, FOR DEBUGGING)]
+    Disable all plugins.
+\end{Description}
+
+\subsubsection{Other options}
+\begin{Description}
+  \item[\OptSArg{--prefix}{path}]
+    Prefix where DMTCP is installed on remote nodes.
+
+  \item[\OptSArg{--tmpdir}{path} (environment variable DMTCP_TMPDIR)]
+    Directory to store temporary files
+    (default: \$TMDPIR/dmtcp-\$USER@\$HOST or /tmp/dmtcp-\$USER@\$HOST)
+
+  \item[\Opt{-q}, \Opt{--quiet} (or set environment variable DMTCP_QUIET = 0, 1, or 2)]
+    Skip NOTE messages; if given twice, also skip WARNINGs
+
+  \item[\Opt{--help}] Print this message and exit.
+
+  \item[\Opt{--version}] Print version information and exit.
+\end{Description}

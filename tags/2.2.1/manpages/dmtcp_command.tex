@@ -1,0 +1,42 @@
+\begin{document}
+
+\begin{Name}{1}{dmtcp\_command}{Kapil Arya}{Distributed MultiThreaded CheckPointing}{dmtcp\_command -- send a command to the dmtcp_coordinator remotely}
+  \myProg{dmtcp_command} -- send a command to the \myProg{dmtcp_coordinator} remotely.
+\end{Name}
+
+\section{Synopsis}
+%%%%%%%%%%%%%%%%%%
+
+\myProg{dmtcp_commmand} \oArg{OPTIONS} \Arg{command} \oArg{command...}
+
+\section{Description}
+
+\myProg{dmtcp_command} is a tool to send user commands to the
+\myProg{dmtcp_coordinator} remotely.
+
+\section{Options}
+%%%%%%%%%%%%%%%%%%
+
+\begin{Description}
+    \item[\Opt{-h}, \Opt{--host} \Arg{hostname} (environment variable DMTCP_HOST)]
+    Hostname where \myProg{dmtcp_coordinator} is run (default: localhost)
+
+  \item[\Opt{-p}, \Opt{--port} \Arg{port} (environment variable DMTCP_PORT)]
+    Port where \myProg{dmtcp_coordinator} is run (default: 7779)
+
+  \item[\Opt{--quiet}] Skip copyright notice
+  \item[\Opt{--help}] Print this message and exit.
+  \item[\Opt{--version}] Print version information and exit.
+\end{Description}
+
+\subsubsection{Commands for Coordinator}
+\begin{Description}
+  \item[\Opt{-s} \Opt{--status}] Print status message
+  \item[\Opt{-c}, \Opt{--checkpoint}] Checkpoint all nodes
+  \item[\Opt{-bc}, \Opt{--bcheckpoint}]
+    Checkpoint all nodes, blocking until done
+  \item[\Opt{-i}, \Opt{--interval} \Arg{<val>}]
+    Update ckpt interval to <val> seconds (0=never)
+  \item[\Opt{-k}, \Opt{--kill}] Kill all nodes
+  \item[\Opt{-q}, \Opt{--quit}] Kill all nodes and quit
+\end{Description}

@@ -1,0 +1,351 @@
+\documentclass{article}
+\usepackage{fullpage}
+\usepackage{graphicx}
+\usepackage[noend]{algorithmic}
+\usepackage{algorithm}
+
+
+\title{Architecture of DMTCP}
+\author{Gene Cooperman}
+\date{February, 2014}
+
+\begin{document}
+\maketitle
+
+This is intended as a gentle introduction to the architecture of DMTCP.
+Shorter descriptions are possible.  For a low-level description with
+references to code in the implementation, see
+{\tt doc/restart\_algorithm.txt}~.  For the general use of plugins,
+see {\tt doc/plugin-tutorial.pdf}~.  DMTCP uses plugins internally
+from {\tt DMTCP\_ROOT/src/plugin}.  DMTCP also offers optional plugins
+(not enabled by default) to end users.  Thes come in two flavors:
+{\tt DMTCP\_ROOT/plugin}
+(fully supported) and {\tt DMTCP\_ROOT/contrib} (newer plugins,
+possibly contributed by third parties).
+
+\subsection*{1. Usage of DTMCP:}
+\begin{algorithmic}[1]
+\STATE {\tt dmtcp\_launch a.out}
+\STATE {\tt dmtcp\_command --checkpoint} \newline
+\hbox{\ \ \ \ } $\hookrightarrow$ ckpt\_a.out.*.dmtcp
+\STATE {\tt dmtcp\_restart ckpt\_a.out.*.dmtcp}
+\end{algorithmic}
+
+\bigskip
+\noindent
+DMTCP offers a {\tt --help} command line option along with additional options
+both for {\tt configure} and for the individual DMTCP commands.
+To use DMTCP, just prefix your command line with {\tt dmtcp\_launch}.
+
+\subsection*{2. dmtcp\_launch a.out}
+
+The command {\tt dmtcp\_launch a.out} is roughly equivalent to:
+
+\begin{algorithmic}[1]
+\STATE {\tt dmtcp\_coordinator --background}  (if not already running)
+\STATE {\tt LD\_PRELOAD=libdmtcp.so a.out}
+\end{algorithmic}
+
+The {\tt dmtcp\_launch} command will cause a coordinator process
+to be launched on the local host with the default DMTCP port (if one is
+not already available).
+
+DMTCP implements a coordinator process because DMTCP can also checkpoint
+distributed computations across many computers.  The user can issue a command
+to the coordinator, which will then relay the command to each of
+the user processes of the distributed computation.
+
+Note that a {\em DMTCP computation} is defined to be a coordinator process
+and the set of user processes connected to that coordinator.  Therefore,
+one can have more than one DMTCP computation on a single computer,
+each computation having its own unique coordinator.
+
+\begin{center}
+\includegraphics[scale=0.5]{coord-client.eps}
+\end{center}
+
+The coordinator is {\em stateless}.  If the computation is ever killed,
+one needs only to start an entirely new coordinator, and then restart
+using the latest checkpoint images for each user process.
+
+LD\_PRELOAD is a special environment variable known to the loader.
+When the loader tries to load a binary (a.out, in this case), the loader
+will first check if LD\_PRELOAD is set (see `man ld.so').  If it is
+set, the loader will load the binary (a.out) and then the preload library
+(libdmtcp.so) before running the `main()' routine in a.out.
+(In fact, dmtcp\_launch may also preload some plugin libraries,
+ such as pidvirt.so (starting with DMTCP-2.0) and set some
+ environment variables such as DMTCP\_DLSYM\_OFFSET.)
+
+When the library libdmtcp.so is loaded, any top-level variables
+are initialized, before calling the user main().  If the top-level variable
+is a C++ object, then the C++ constructor is called before the
+user main.  In DMTCP, the first code to execute is the code
+below, inside libdmtcp.so:
+
+{\tt
+dmtcp::DmtcpWorker dmtcp::DmtcpWorker::theInstance ( true );
+}
+
+This initializes the global variable, {\tt theInstance} via a call
+to {\tt new dmtcp::DmtcpWorker::DmtcpWorker(true)}.  (Here, {\tt dmtcp}
+is a C++ namespace, and the first {\tt DmtcpWorker} is the class name,
+while the second {\tt DmtcpWorker} is the constructor function.  If DMTCP were
+not using C++, then it would use a direct way to use GNU gcc attributes
+to directly run a constructor function.)
+
+Note that DMTCP is organized in at least two layers.  The lowest layer
+is MTCP (mtcp subdirectory), which handles single-process checkpointing.
+The higher layer is again called DMTCP (dmtcp subdirectory), and delegates
+to MTCP when it needs to checkpoint one process.  MTCP does not require
+a separate DMTCP coordinator.
+
+{\bf  NOTE: As of DMTCP-2.2, many functions have been moved.  The key
+files to look at are:  {\tt src/mtcp/mtcp\_restart.c},
+{\tt src/mtcp/restore\_libc.c}, and {\tt src/threadlist.cpp}.} \\
+So, at startup, we see:
+
+\begin{algorithmic}[1]
+\STATE a.out process:
+\STATE {\ \ } primary user thread:
+\STATE {\ \ \ \ } new DmtcpWorker(true):
+\STATE {\ \ \ \ \ \ } Create a socket to the coordinator
+\STATE {\ \ \ \ \ \ } Register the signal handler that will be
+	used for checkpoints. \newline
+\hbox{\ \ \ \ \ \ \ \ } The signal handler is
+		 mtcp/mtcp.c:stopthisthread()\newline
+\hbox{\ \ \ \ \ \ \ \ } The default signal is STOPSIGNAL
+		 (default: SIGUSR2)\newline
+\hbox{\ \ \ \ \ \ \ \ } The signal handler is registered by
+	 {\tt mtcp\_sigaction(STOPSIGNAL, \&act, \&old\_act)} in mtcp/mtcp.c
+\STATE {\ \ \ \ \ \ } Create the checkpoint thread
+\hbox{\ \ \ \ \ \ \ \ } Call
+	{\tt pthread\_create (\&checkpointhreadid, NULL, checkpointhread, NULL)}
+	in mtcp/mtcp.c
+\STATE {\ \ \ \ \ \ } Wait until the checkpoint thread has initialized.
+\newline
+\STATE {\ \ } checkpoint thread:
+\STATE {\ \ \ \ } checkpointhread(dummy):  [from mtcp/mtcp.c]
+\STATE {\ \ \ \ \ \ } Register a.out process with coordinator
+\STATE {\ \ \ \ \ \ } Tell user thread we're done
+\STATE {\ \ \ \ \ \ } Call select() on socket to coordinator
+\newline
+\STATE {\ \ } primary user thread:
+\STATE {\ \ \ \ } new DmtcpWorker(true):  [continued from above invocation]
+\STATE {\ \ \ \ \ \ } Checkpoint thread is now initialized.  Return.
+\STATE {\ \ \ \ } main()  [User code now executes.]
+\end{algorithmic}
+
+\bigskip
+\noindent
+PRINCIPLE:  At any given moment either the user threads are active and
+	the checkpoint thread is blocked on {\tt select()}, or
+	the checkpoint thread is active and the user threads are
+	blocked inside the signal handler, stopthisthread().
+
+
+
+
+\newpage
+
+\subsection*{3. Execute a Checkpoint:}
+
+\begin{center}
+\includegraphics[scale=0.5]{dmtcp-ckpt.eps}
+\end{center}
+
+\begin{algorithmic}[1]
+\STATE checkpoint thread:
+\STATE   return from select()
+\STATE   receive CKPT message
+\STATE   send STOPSIGNAL (SIGUSR2) to each user thread
+\STATE      See:  retval = mtcp\_sys\_kernel\_tgkill(motherpid, thread->tid, STOPSIGNAL);
+		in mtcp/mtcp.c
+  See {\tt mtcp\_state\_set (\&(thread -> state), ST\_SUSPINPROG, ST\_SIGENABLED)}
+   and {\tt mtcp\_state\_set (\&(thread -> state), ST\_SUSPENDED, ST\_SUSPINPROG)}
+	in mtcp/mtcp.c
+\STATE   {\tt mtcp\_state\_set(MtcpState * state, int value, int oldval)}
+	is defined in mtcp/mtcp\_state.c, and does its work through
+	a Linux per-thread futex (similar to a mutex).
+\STATE   [Recall that dmtcpWorker created a signal handler, STOPSIGNAL (default: SIGUSR2)
+\STATE   Each user thread in the signal handler for STOPSIGNAL will block on
+	the per-thread futex.
+\STATE   The checkpoint thread does the checkpoint.
+\newline
+\STATE   Release each thread from its per-thread futex.
+    See {\tt mtcp\_state\_set (\&(thread -> state), ST\_RUNENABLED, ST\_SUSPENDED)}
+	in mtcp/mtcp.c
+\STATE   Call select() on the socket to the coordinator and again wait for
+	messages from the coordinator.
+\end{algorithmic}
+
+\subsection*{4. Checkpoint strategy (overview)}
+
+\begin{algorithmic}[1]
+\STATE Quiesce all user threads (using STOPSIGNAL (SIGUSR2), as above)
+\STATE Drain sockets \newline
+  \hbox{\ \ } (a) Sender sends a ``cookie'' \newline
+  \hbox{\ \ } (b) Receiver receives until it sees the ``cookie'' \newline
+  Note:  Usually all sockets are ``internal'' --- within the current
+    computation.  Heuristics are provided for the case of ``external'' sockets.
+\STATE Interrogate kernel state (open file descriptors, file descriptor offset, etc.)
+\STATE Save register values using setcontext (similar to setjmp) in mtcp/mtcp.c
+\STATE Copy all user-space memory to checkpoint image
+  To find all user-space memory, one can execute: \newline
+  \hbox{\ \ } {\tt cat /proc/self/maps}
+\STATE Unblock all use threads
+\end{algorithmic}
+
+\subsection*{5. Principle:  DMTCP is contagious}
+
+New Linux ``tasks'' are created in one of three ways:
+\begin{enumerate}
+  \item new thread: created by pthread\_create() or clone()
+  \item new process: created by fork()
+  \item new remote process: typically created by the `system' system call: \\
+	{\tt system("ssh REMOTE\_HOST a.out");}
+\end{enumerate}
+
+DMTCP makes sure to load itself using wrapper functions.
+
+\newpage
+
+
+\subsection*{6. Principle:  One DMTCP Coordinator for each DMTCP Computation}
+
+One may wish to run multiple DMTCP-based computations on a single host.
+This is easily done by using the {\tt --host} and {\tt --port} flags
+of {\tt dmtcp\_launch} or of {\tt dmtcp\_coordinator}.  If not specified,
+the default values are localhost and port~7779.  By using {\tt dmtcp\_command},
+one can communicate a checkpoint or other request to one's
+preferred coordinator (again by specifying host and port, if one is
+not using the default coordinator).
+
+In the simplest case, the user invokes only {\tt dmtcp\_launch}, with no
+flags.  The {\tt dmtcp\_launch} command then looks for an existing
+coordinator at localhost:7779.  If none is found, {\tt dmtcp\_launch}
+invokes {\tt dmtcp\_coordinator} with those default values, localhost:7779.
+
+Thus, an occasional issue occurs when two users on the same host each
+invoke {\tt dmtcp\_launch} with default parameters.  They cannot both use
+the same coordinator.  Similarly, a single user may want to launch two
+independent computations, and independently checkpoint them.  If the user
+invokes {\tt dmtcp\_launch} (default parameters) for both computation,
+then there will only be one coordinator.  So, in the view of DMTCP,
+there will only be a single computation, and a checkpoint command will
+checkpoint the processes of both computations.
+
+\subsection*{7. Plugins, and other End-User Customizations}
+
+DMTCP offers a rich set of features for customizing the behavior of
+DMTCP.  In this short overview, we will point to examples that can
+easily be modified by an end-user.
+
+\paragraph{DMTCP Plugins.}
+
+{\em DMTCP plugins\/} are the most general way to customize DMTCP.  Examples
+are in {\tt DMTCP\_ROOT/test/plugin/}.  A dynamic library~({\tt *.so})
+file is created to modify the behavior of DMTCP.  The library can
+write additional wrapper functions (and even define wrappers around
+previous wrapper functions).  The library can also register
+to be notified of {\em DMTCP events}.  In this case, DMTCP will
+call any plugin functions registered for each event.
+Examples of important events are
+\hbox{e.g.}~prior to checkpoint, after resume, and after restart
+from a checkpoint image.  As of this writing, there is no central
+list of all DMTCP events, and names of events are still subject to change.
+
+Plugin libraries are preloaded after libdmtcp.so.  As with all
+preloaded libraries, they can initialize themselves before the user's
+``main'' function, and at run-time, plugin wrapper functions will
+be found in standard Linux library search order prior to ordinary
+library functions in libc.so and elsewhere.
+
+For example, the sleep2 plugin example uses two plugins.  After building
+the plugins, it might be called as follows: \newline
+{\tt
+\hbox{\ \ }  dmtcp\_launch --with-plugin $\backslash$ \newline
+\hbox{\ \ \ \ }
+ PATH/sleep1/dmtcp\_sleep1hijack.so:PATH/sleep2/dmtcp\_sleep2hijack.so a.out}
+ \newline
+where {\tt PATH} is {\tt DMTCP\_ROOT/test/plugin}
+
+In a more involved example, whenever {\tt ./configure
+--enable-ptrace-support} is specified, then DMTCP will use the plugin
+{\tt DMTCP\_ROOT/plugin/ptrace/ptracehijack.so}.  A new plugin to
+provide PID/TID virtualization is currently planned.  As with support
+for ptrace, a more modular structure for PID/TID virtualization will be
+easier to maintain.
+
+\paragraph{Dmtcpaware.}
+
+The dmtcpaware interface is an obsolete customization mechanism that is no
+longer supported in \hbox{DMTCP-2.2} and beyond.
+
+\paragraph{MTCP.}
+
+In DMTCP-2.1 and earlier, the MTCP component of DMTCP could be compiled
+to run standalone, with opportunities for hook functions using weak symbols.
+MTCP has now been almost entirely re-written, and is now tightly integrated
+with DMTCP.  {\em For thos who wished to use the prior MTCP architecture
+(just the checkpoint thread, but no separate coordinator), a plugin
+with those features is planned for the future.}
+
+\subsection*{8. Implementation of Plugins}
+
+The implementation techniques of wrapper functions and pid/tid virtualization
+we part of the DMTCP implementation not too long after the
+initial offering of DMTCP.  More recently, this functionality was
+wrapped into a high level abstraction, plugins.  This section emphasizes
+the implementation of these features.  For information on using plugins,
+and writing your own, see {\tt doc/plugin-tutorial.pdf}~.
+
+\subsubsection*{a. Wrapper functions}
+
+Wrapper functions are functions around functions.  DMTCP creates
+functions around libc.so functions.
+Wrapper functions
+are typically created using dlopen/dlsym.  For example, to define
+a wrapper around libc:fork(), one defines a function fork()
+in libdmtcp.so (see {\tt extern "C" pid\_t fork()} in execwrappers.cpp).
+
+Continuing this example, if the user code calls fork(), then we see
+the following progression.
+
+a.out:call to fork() $\longrightarrow$ libdmtcp.so:fork() $\longrightarrow$ libc.so:fork()
+
+The symbol libdmtcp.so:fork appears before libc.so:fork in the
+library search order because libdmtcp.so was loaded before libc.so
+(due to LD\_PRELOAD).
+
+Next, the wrapper around {\tt pthread\_create} remembers the thread id
+of the new thread created.  The wrapper around {\tt fork} ensures
+that the environment variable LD\_PRELOAD is still set to libdmtcp.so.
+If LD\_PRELOAD does not currently include libdmtcp.so, then it is
+reset to include libdmtcp.so before the call to fork(), and then
+LD\_PRELOAD is reset to the original user value after fork().
+
+The wrapper around {\tt system} (in the case of creating remote processes)
+is perhaps the most interesting one.  See {\tt `man system'} for a description
+of the call {\tt system}.  It looks at an argument, for example
+{\tt "ssh REMOTE\_HOST a.out"}, and then edits the argument to
+{\tt "ssh REMOTE\_HOST dmtcp\_launch a.out"} before calling {\tt system}.
+Of course, this works only if dmtcp\_launch is in the user's path
+on {\tt REMOTE\_HOST}.  This is the responsibility of the user or the
+system administrator.
+
+\subsubsection*{b. PID/TID Virtualization}
+
+Any system calls that refer to a process id (pid) or thread id (tid) requires
+a wrapper.  DMTCP then translates between a virtual pid/tid an the
+real pid/tid.  The user code always sees the virtual pid/tid, while
+the kernel always sees the real pid/tid.
+
+\subsubsection*{c. Publish/Subscribe}
+
+Plugins also offer a publish/subscribe service for situations where
+a DMTCP computation contains more than one process, and the user
+processes must coordinate with each other.  Details are in
+{\tt doc/plugin-tutorial.pdf}~.
+
+\end{document}
