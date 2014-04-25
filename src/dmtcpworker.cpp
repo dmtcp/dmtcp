@@ -109,15 +109,15 @@ void restoreUserLDPRELOAD()
 //__attribute__ ((visibility ("hidden")))
 int dmtcp::DmtcpWorker::determineCkptSignal()
 {
-  int sig = CKPT_SIGNAL;
+  int sig = DMTCP_DEFAULT_SIGNAL;
   char* endp = NULL;
   static const char* tmp = getenv(ENV_VAR_SIGCKPT);
   if (tmp != NULL) {
       sig = strtol(tmp, &endp, 0);
       if ((errno != 0) || (tmp == endp))
-        sig = CKPT_SIGNAL;
+        sig = DMTCP_DEFAULT_SIGNAL;
       if (sig < 1 || sig > 31)
-        sig = CKPT_SIGNAL;
+        sig = DMTCP_DEFAULT_SIGNAL;
   }
   return sig;
 }
@@ -455,11 +455,10 @@ void dmtcp::DmtcpWorker::waitForCoordinatorMsg(dmtcp::string msgStr,
 
   // Coordinator sends some computation information along with the SUSPEND
   // message. Extracting that.
-  if (type == DMT_DO_SUSPEND) {
+  if (type == DMT_DO_FD_LEADER_ELECTION) {
     SharedData::updateGeneration(msg.compGroup.generation());
-    JASSERT(SharedData::getCompId() == msg.compGroup.upid())
-      (SharedData::getCompId()) (msg.compGroup);
-  } else if (type == DMT_DO_FD_LEADER_ELECTION) {
+    JASSERT(SharedData::getCompId() == msg.compGroup.upid()) (SharedData::getCompId())
+      (msg.compGroup);
     JTRACE("Computation information") (msg.compGroup) (msg.numPeers);
     ProcessInfo::instance().compGroup(msg.compGroup);
     ProcessInfo::instance().numPeers(msg.numPeers);

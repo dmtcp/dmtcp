@@ -67,6 +67,12 @@ namespace dmtcp
     }
 
     void incrementGeneration();
+    static const char* getCkptFilename();
+    static dmtcp::string getCkptFilesSubDir();
+    static dmtcp::string getCkptDir();
+    static void setCkptDir(const char*);
+    static void updateCkptDir();
+    static void createCkptDir();
 
     static void serialize( jalib::JBinarySerializer& o );
 

@@ -49,7 +49,7 @@ JALIB_PATH = $(top_srcdir)/jalib
 INCLUDES = -I$(JALIB_PATH) -I$(DMTCP_INCLUDE_PATH) -I$(top_builddir)/include
 CFLAGS += -DHAVE_CONFIG_H -fPIC -g --std=gnu99
 CXXFLAGS += -DHAVE_CONFIG_H -fPIC -g
-LIB_LDFLAGS = -libverbs -shared -Wl,--unresolved-symbols=ignore-all
+LIB_LDFLAGS = -shared -Wl,--unresolved-symbols=ignore-all
 
 ifeq ($(M32),1)
 CFLAGS += -m32 -Wa,--32
@@ -63,10 +63,10 @@ CXXCOMPILE = $(CXX) $(INCLUDES) $(CPPFLAGS) $(CXXFLAGS) -c -o $@
 CXXLINK = $(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@
 
 HEADERS = $(DMTCP_INCLUDE_PATH)/dmtcp.h lib/list.h \
-	  ibvctx.h ibv_internal.h ibvidentifier.h debug.h 
+	  ibvctx.h infinibandreals.h ibv_internal.h ibvidentifier.h debug.h 
 
-LIBOBJS = infinibandwrappers.o ibvctx.o lib/list.o
-TRACEOBJS =  infinibandtrace.o 
+LIBOBJS = infinibandreals.o infinibandwrappers.o ibvctx.o lib/list.o
+TRACEOBJS =  infinibandtrace.o infinibandreals.o
 DMTCP_PORT=7783
 
 ifndef HOST0

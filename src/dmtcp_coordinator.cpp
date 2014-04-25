@@ -404,7 +404,6 @@ static dmtcp::DmtcpCoordinator prog;
 static bool workersRunningAndSuspendMsgSent = false;
 
 static bool killInProgress = false;
-static bool uniqueCkptFilenames = false;
 
 /* If dmtcp_launch/dmtcp_restart specifies '-i', theCheckpointInterval
  * will be reset accordingly (valid for current computation).  If dmtcp_command
@@ -613,7 +612,7 @@ void dmtcp::DmtcpCoordinator::updateMinimumState(dmtcp::WorkerState oldState)
        && newState == WorkerState::SUSPENDED )
   {
     JNOTE ( "locking all nodes" );
-    broadcastMessage(DMT_DO_FD_LEADER_ELECTION, getStatus().numPeers );
+    broadcastMessage(DMT_DO_FD_LEADER_ELECTION, compId, getStatus().numPeers );
   }
   if ( oldState == WorkerState::SUSPENDED
        && newState == WorkerState::FD_LEADER_ELECTION )
@@ -750,9 +749,6 @@ void dmtcp::DmtcpCoordinator::onData(CoordClient *client)
       updateMinimumState(oldState);
       break;
     }
-    case DMT_UNIQUE_CKPT_FILENAME:
-      uniqueCkptFilenames = true;
-      // Fall though
     case DMT_CKPT_FILENAME:
     {
       JASSERT ( extraData!=0 )
@@ -1177,7 +1173,6 @@ bool dmtcp::DmtcpCoordinator::validateNewWorkerProcess
     // Now send DMT_DO_SUSPEND message so that this process can also
     // participate in the current checkpoint
     DmtcpMessage suspendMsg (dmtcp::DMT_DO_SUSPEND);
-    suspendMsg.compGroup = compId;
     remote << suspendMsg;
 
   } else if (s.numPeers > 0 && s.minimumState != WorkerState::RUNNING &&
@@ -1260,7 +1255,6 @@ bool dmtcp::DmtcpCoordinator::validateNewWorkerProcess
 
 bool dmtcp::DmtcpCoordinator::startCheckpoint()
 {
-  uniqueCkptFilenames = false;
   ComputationStatus s = getStatus();
   if ( s.minimumState == WorkerState::RUNNING && s.minimumStateUnanimous
        && !workersRunningAndSuspendMsgSent )
@@ -1288,16 +1282,22 @@ bool dmtcp::DmtcpCoordinator::startCheckpoint()
   }
 }
 
-void dmtcp::DmtcpCoordinator::broadcastMessage(DmtcpMessageType type,
-                                               int numPeers)
+void dmtcp::DmtcpCoordinator::broadcastMessage ( DmtcpMessageType type,
+    dmtcp::UniquePid compGroup = dmtcp::UniquePid(), int numPeers = -1 )
 {
   DmtcpMessage msg;
   msg.type = type;
-  msg.compGroup = compId;
   if (numPeers > 0) {
     msg.numPeers = numPeers;
+    msg.compGroup = compGroup;
   }
 
+  broadcastMessage ( msg );
+  JTRACE ("sending message")( type );
+}
+
+void dmtcp::DmtcpCoordinator::broadcastMessage ( const DmtcpMessage& msg )
+{
   if (msg.type == DMT_KILL_PEER && clients.size() > 0) {
     killInProgress = true;
   } else if (msg.type == DMT_DO_FD_LEADER_ELECTION) {
@@ -1309,7 +1309,6 @@ void dmtcp::DmtcpCoordinator::broadcastMessage(DmtcpMessageType type,
   for (size_t i = 0; i < clients.size(); i++) {
     clients[i]->sock() << msg;
   }
-  JTRACE ("sending message")( type );
 }
 
 dmtcp::DmtcpCoordinator::ComputationStatus dmtcp::DmtcpCoordinator::getStatus() const
@@ -1351,11 +1350,12 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
   dmtcp::string uniqueFilename;
 
   o << dmtcp::string(ckptDir) << "/"
-    << RESTART_SCRIPT_BASENAME << "_" << compId;
-  if (uniqueCkptFilenames) {
-    o << "_" << std::setw(5) << std::setfill('0') << compId.generation();
-  }
-  o << "." << RESTART_SCRIPT_EXT;
+    << RESTART_SCRIPT_BASENAME << "_" << compId
+#ifdef UNIQUE_CHECKPOINT_FILENAMES
+    << "_"
+    << std::setw(5) << std::setfill('0') << compId.generation()
+#endif
+    << "." << RESTART_SCRIPT_EXT;
   uniqueFilename = o.str();
 
   const bool isSingleHost = (_restartFilenames.size() == 1);

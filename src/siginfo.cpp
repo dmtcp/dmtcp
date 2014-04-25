@@ -37,24 +37,24 @@ void SigInfo::setupCkptSigHandler(sighandler_t handler)
     char *tmp, *endp;
     init = 1;
     /* If the user has defined a signal, use that to suspend.  Otherwise, use
-     * CKPT_SIGNAL */
+     * DMTCP_DEFAULT_SIGNAL */
     tmp = getenv("DMTCP_SIGCKPT");
     if (tmp == NULL) {
-      STOPSIGNAL = CKPT_SIGNAL;
+      STOPSIGNAL = DMTCP_DEFAULT_SIGNAL;
     } else {
       errno = 0;
       STOPSIGNAL = strtol(tmp, &endp, 0);
 
       if ((errno != 0) || (tmp == endp)) {
-        JWARNING(false) (getenv("DMTCP_SIGCKPT")) (CKPT_SIGNAL)
+        JWARNING(false) (getenv("DMTCP_SIGCKPT")) (DMTCP_DEFAULT_SIGNAL)
           .Text("Your chosen SIGCKPT does not translate to a number, and cannot be"
                 "used.  Default signal will be used instead");
-        STOPSIGNAL = CKPT_SIGNAL;
+        STOPSIGNAL = DMTCP_DEFAULT_SIGNAL;
       } else if (STOPSIGNAL < 1 || STOPSIGNAL > 31) {
         JNOTE("Your chosen SIGCKPT is not a valid signal, and cannot be used."
               " Default signal will be used instead.")
-          (STOPSIGNAL) (CKPT_SIGNAL);
-        STOPSIGNAL = CKPT_SIGNAL;
+          (STOPSIGNAL) (DMTCP_DEFAULT_SIGNAL);
+        STOPSIGNAL = DMTCP_DEFAULT_SIGNAL;
       }
     }
   }

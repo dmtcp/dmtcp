@@ -30,7 +30,6 @@
 #include "syscallwrappers.h"
 #include "util.h"
 #include "shareddata.h"
-#include "processinfo.h"
 #include  "../jalib/jconvert.h"
 #include  "../jalib/jfilesystem.h"
 #include <fcntl.h>
@@ -667,15 +666,11 @@ void dmtcp::CoordinatorAPI::sendCkptFilename()
 {
   if (noCoordinator()) return;
   // Tell coordinator to record our filename in the restart script
-  dmtcp::string ckptFilename = dmtcp::ProcessInfo::instance().getCkptFilename();
+  dmtcp::string ckptFilename = dmtcp::UniquePid::getCkptFilename();
   dmtcp::string hostname = jalib::Filesystem::GetCurrentHostname();
   JTRACE("recording filenames") (ckptFilename) (hostname);
   dmtcp::DmtcpMessage msg;
-  if (dmtcp_unique_ckpt_enabled && dmtcp_unique_ckpt_enabled()) {
-    msg.type = DMT_UNIQUE_CKPT_FILENAME;
-  } else {
-    msg.type = DMT_CKPT_FILENAME;
-  }
+  msg.type = DMT_CKPT_FILENAME;
   msg.extraBytes = ckptFilename.length() + 1 + hostname.length() + 1;
   _coordinatorSocket << msg;
   _coordinatorSocket.writeAll(ckptFilename.c_str(), ckptFilename.length() + 1);

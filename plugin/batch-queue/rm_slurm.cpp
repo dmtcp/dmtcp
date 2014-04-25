@@ -127,7 +127,7 @@ static int patch_srun_cmdline(char * const argv_old[], char ***_argv_new)
   unsigned int dsize = dmtcp_args.size();
 
   // Prepare final comman line
-  *_argv_new = (char**) JALLOC_HELPER_MALLOC(sizeof(char *) * (argc_old + (dsize + 1))); // (dsize+1) is DMTCP part including dmtcpCkptPath
+  *_argv_new = new char *[argc_old + (dsize + 1)]; // (dsize+1) is DMTCP part including dmtcpCkptPath
   char **argv_new = *_argv_new;
 
 

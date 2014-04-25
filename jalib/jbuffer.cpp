@@ -21,19 +21,18 @@
 
 #include "jbuffer.h"
 #include "jassert.h"
-#include "jalloc.h"
 
 jalib::JBuffer::JBuffer ( int size )
-    :_size ( size )
+    :_buffer ( new char[size] )
+    ,_size ( size )
 {
-  _buffer = (char*) JALLOC_HELPER_MALLOC(size);
   JASSERT ( size >= 0 ) ( size );
 }
 
 jalib::JBuffer::JBuffer ( const char* src, int size )
-    :_size ( size )
+    :_buffer ( new char[size] )
+    ,_size ( size )
 {
-  _buffer = (char*) JALLOC_HELPER_MALLOC(size);
   JASSERT ( size >= 0 ) ( size );
   memcpy ( _buffer, src, _size );
 }
@@ -41,21 +40,21 @@ jalib::JBuffer::JBuffer ( const char* src, int size )
 
 jalib::JBuffer::~JBuffer()
 {
-  JALLOC_HELPER_FREE(_buffer);
+  delete [] _buffer;
   _buffer = 0;
   _size = 0;
 }
 
 jalib::JBuffer::JBuffer ( const JBuffer& that )
-    : _size ( that._size )
+    : _buffer ( new char[that._size] )
+    , _size ( that._size )
 {
-  _buffer = (char*) JALLOC_HELPER_MALLOC(that._size);
   memcpy ( _buffer, that._buffer, _size );
 }
 
 jalib::JBuffer& jalib::JBuffer::operator= ( const JBuffer& that )
 {
-  JALLOC_HELPER_FREE(_buffer);
+  delete [] _buffer;
   _buffer = 0;
   _size = 0;
   new ( this ) JBuffer ( that );
@@ -75,3 +74,7 @@ int jalib::JBuffer::size() const
 {
   return _size;
 }
+
+
+
+

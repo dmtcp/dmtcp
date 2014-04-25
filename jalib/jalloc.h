@@ -53,27 +53,6 @@ namespace jalib
       static void enable_locks();
       static void reset_on_fork();
   };
-
-  class JAlloc {
-    public:
-#ifdef JALIB_ALLOCATOR
-      static void* operator new(size_t nbytes, void* p) {
-        return p;
-      }
-      static void* operator new(size_t nbytes) {
-        return JAllocDispatcher::malloc(nbytes);
-      }
-      static void* operator new[](size_t nbytes) {
-        return JAllocDispatcher::malloc(nbytes);
-      }
-      static void  operator delete(void* p) {
-        return JAllocDispatcher::free(p);
-      }
-      static void  operator delete[](void* p) {
-        return JAllocDispatcher::free(p);
-      }
-#endif
-  };
 }
 
 #define JALLOC_HELPER_LOCK() jalib::JAllocDispatcher::lock();
@@ -84,14 +63,9 @@ namespace jalib
 #define JALLOC_HELPER_RESET_ON_FORK() jalib::JAllocDispatcher::reset_on_fork();
 
 #define JALLOC_HELPER_NEW(nbytes) return jalib::JAllocDispatcher::malloc(nbytes)
-#define JALLOC_HELPER_DELETE(p) jalib::JAllocDispatcher::free(p)
+#define JALLOC_HELPER_DELETE(p) return jalib::JAllocDispatcher::free(p)
 
 #define JALLOC_HELPER_MALLOC(nbytes) jalib::JAllocDispatcher::malloc(nbytes)
 #define JALLOC_HELPER_FREE(p) jalib::JAllocDispatcher::free(p)
-
-#define JALLOC_NEW      JALLOC_HELPER_NEW
-#define JALLOC_DELETE   JALLOC_HELPER_DELETE
-#define JALLOC_MALLOC   JALLOC_HELPER_MALLOC
-#define JALLOC_FREE     JALLOC_HELPER_FREE
 
 #endif

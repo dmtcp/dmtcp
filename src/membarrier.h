@@ -35,9 +35,9 @@
 #  define IMB
 # endif
 #elif defined(__arm__)
-# define RMB asm volatile (".arch armv7-a \n\t dsb ; dmb" : : : "memory")
-# define WMB asm volatile (".arch armv7-a \n\t dsb ; dmb" : : : "memory")
-# define IMB asm volatile (".arch armv7-a \n\t isb" : : : "memory")
+# define RMB asm volatile ("dsb ; dmb" : : : "memory")
+# define WMB asm volatile ("dsb ; dmb" : : : "memory")
+# define IMB asm volatile ("isb" : : : "memory")
 #else
 # error "instruction architecture not implemented"
 #endif

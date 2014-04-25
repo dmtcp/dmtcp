@@ -201,6 +201,26 @@ int ibv_destroy_cq(struct ibv_cq *cq)
   JASSERT(!isVirtIB);
   return _real_ibv_destroy_cq(cq);
 }
+#endif
+
+extern "C"
+struct ibv_context *ibv_open_device(struct ibv_device *dev)
+{
+  JASSERT(!isVirtIB);
+
+  struct ibv_context * ctx = _real_ibv_open_device(dev);
+
+  if (ctx != NULL) {
+    /* setup the trampolines */
+    UPDATE_FUNC_ADDR(post_recv, ctx->ops.post_recv);
+    UPDATE_FUNC_ADDR(post_srq_recv, ctx->ops.post_srq_recv);
+    UPDATE_FUNC_ADDR(post_send, ctx->ops.post_send);
+    UPDATE_FUNC_ADDR(poll_cq, ctx->ops.poll_cq);
+    UPDATE_FUNC_ADDR(req_notify_cq, ctx->ops.req_notify_cq);
+  }
+  return ctx;
+}
+
 extern "C"
 int ibv_create_xrc_rcv_qp(struct ibv_qp_init_attr *init_attr,
                           uint32_t *xrc_rcv_qpn)
@@ -209,6 +229,7 @@ int ibv_create_xrc_rcv_qp(struct ibv_qp_init_attr *init_attr,
   return 0;
 }
 
+#if 0
 extern "C"
 struct ibv_srq *ibv_create_xrc_srq(struct ibv_pd *pd,
                                    struct ibv_xrc_domain *xrc_domain,
@@ -251,24 +272,6 @@ int ibv_destroy_srq(struct ibv_srq *srq)
   return _real_ibv_destroy_srq(srq);
 }
 #endif
-
-extern "C"
-struct ibv_context *ibv_open_device(struct ibv_device *dev)
-{
-  JASSERT(!isVirtIB);
-
-  struct ibv_context * ctx = _real_ibv_open_device(dev);
-
-  if (ctx != NULL) {
-    /* setup the trampolines */
-    UPDATE_FUNC_ADDR(post_recv, ctx->ops.post_recv);
-    UPDATE_FUNC_ADDR(post_srq_recv, ctx->ops.post_srq_recv);
-    UPDATE_FUNC_ADDR(post_send, ctx->ops.post_send);
-    UPDATE_FUNC_ADDR(poll_cq, ctx->ops.poll_cq);
-    UPDATE_FUNC_ADDR(req_notify_cq, ctx->ops.req_notify_cq);
-  }
-  return ctx;
-}
 
 extern "C"
 struct ibv_qp *ibv_create_qp(struct ibv_pd *pd,

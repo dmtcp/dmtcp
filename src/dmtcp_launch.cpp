@@ -159,12 +159,6 @@ static bool enableDlPlugin=true;
 static bool enableIPCPlugin=true;
 static bool enableLibDMTCP=true;
 static bool enablePIDPlugin=true;
-#ifdef UNIQUE_CHECKPOINT_FILENAMES
-static bool enableUniqueCkptPlugin=true;
-#else
-static bool enableUniqueCkptPlugin=false;
-#endif
-
 static dmtcp::string thePortFile;
 
 struct PluginInfo {
@@ -175,7 +169,6 @@ struct PluginInfo {
 static struct PluginInfo pluginInfo[] = {               // Default value
   {&enablePtracePlugin,     "libdmtcp_ptrace.so"},      // Disabled
   {&enableModifyEnvPlugin,  "libdmtcp_modify-env.so"},  // Disabled
-  {&enableUniqueCkptPlugin, "libdmtcp_unique-ckpt.so"}, // Disabled
   {&enableIB2TcpPlugin,     "libdmtcp_ib2tcp.so"},      // Disabled
   {&enableIBPlugin,         "libdmtcp_infiniband.so"},  // Disabled
   {&enableRMPlugin,         "libdmtcp_batch-queue.so"}, // Disabled
@@ -198,8 +191,8 @@ static void processArgs(int *orig_argc, char ***orig_argv)
   char **argv = *orig_argv;
 
   if (argc == 1) {
-    printf("%s", DMTCP_VERSION_AND_COPYRIGHT_INFO);
-    printf("(For help: %s --help)\n\n", argv[0]);
+    JASSERT_STDERR << DMTCP_VERSION_AND_COPYRIGHT_INFO;
+    JASSERT_STDERR << "(For help:  " << argv[0] << " --help)\n\n";
     exit(DMTCP_FAIL_RC);
   }
 
@@ -310,7 +303,8 @@ static void processArgs(int *orig_argc, char ***orig_argv)
       shift;
     } else if ( (s.length()>2 && s.substr(0,2)=="--") ||
               (s.length()>1 && s.substr(0,1)=="-" ) ) {
-      printf("Invalid Argument\n%s", theUsage);
+      JASSERT_STDERR << "Invalid Argument\n";
+      JASSERT_STDERR << theUsage;
       exit(DMTCP_FAIL_RC);
     } else if (argc>1 && s=="--") {
       shift;

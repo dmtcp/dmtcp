@@ -11,9 +11,6 @@
 #include "connectionrewirer.h"
 
 using namespace dmtcp;
-static bool _hasIPv4Sock = false;
-static bool _hasIPv6Sock = false;
-static bool _hasUNIXSock = false;
 
 void dmtcp_SocketConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
@@ -87,27 +84,11 @@ void dmtcp::SocketConnList::preCkpt()
   }
   JTRACE("handshaking done");
 #endif
-  _hasIPv4Sock = _hasIPv6Sock = _hasUNIXSock = false;
-  // Now check if we have IPv4, IPv6, or UNIX domain sockets to restore.
-  for (iterator i = begin(); i != end(); ++i) {
-    Connection *con = i->second;
-    if (con->hasLock() && con->conType() == Connection::TCP) {
-      int domain = ((TcpConnection*)con)->sockDomain();
-      if (domain == AF_INET) {
-        _hasIPv4Sock = true;
-      } else if (domain == AF_INET6) {
-        _hasIPv6Sock = true;
-      } else if (domain == AF_UNIX) {
-        _hasUNIXSock = true;
-      }
-    }
-  }
 }
 
 void dmtcp::SocketConnList::postRestart()
 {
-  ConnectionRewirer::instance().openRestoreSocket(_hasIPv4Sock, _hasIPv6Sock,
-                                                  _hasUNIXSock);
+  ConnectionRewirer::instance().openRestoreSocket();
   ConnectionList::postRestart();
 }
 

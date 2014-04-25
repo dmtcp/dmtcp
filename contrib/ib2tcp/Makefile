@@ -4,9 +4,9 @@ HEADERS = ib2tcp.h ibwrappers.h
 
 # This assumes infiniband is a subdirectory of dmtcp/src
 ifndef DMTCP_ROOT
-	DMTCP_ROOT=../..
+	DMTCP_ROOT=../../
 endif
-INCLUDE_FLAGS=-I${DMTCP_ROOT}/include -I${DMTCP_ROOT}/jalib
+INCLUDE_FLAGS=-I${DMTCP_ROOT}/dmtcp/include -I${DMTCP_ROOT}/dmtcp/jalib
 
 CFLAGS += ${INCLUDE_FLAGS} -DDMTCP -fPIC -c -g -O0
 CPPFLAGS += ${INCLUDE_FLAGS} -DDMTCP -fPIC -c -g -O0

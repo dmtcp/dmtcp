@@ -1,8 +1,5 @@
 /* include/config.h.in.  Generated from configure.ac by autoheader.  */
 
-/* Checkpoint signal to be used */
-#undef CKPT_SIGNAL
-
 /* Compiling in 32 bit mode on 64 bit linux. */
 #undef CONFIG_M32
 
@@ -71,6 +68,9 @@
 
 /* Use delta compression. */
 #undef HBICT_DELTACOMP
+
+/* Use a custom allocator based on mmap */
+#undef OVERRIDE_GLOBAL_ALLOCATOR
 
 /* Name of package */
 #undef PACKAGE

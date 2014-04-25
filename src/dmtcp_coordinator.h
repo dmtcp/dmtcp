@@ -92,7 +92,8 @@ namespace dmtcp
       int  getRemainingTimeoutMS();
       void updateMinimumState(dmtcp::WorkerState oldState);
       void initializeComputation();
-      void broadcastMessage(DmtcpMessageType type, int numPeers = -1);
+      void broadcastMessage(DmtcpMessageType type, dmtcp::UniquePid, int);
+      void broadcastMessage(const DmtcpMessage& msg);
       bool startCheckpoint();
 
       void handleUserCommand(char cmd, DmtcpMessage* reply = NULL);

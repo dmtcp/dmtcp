@@ -21,7 +21,6 @@
 
 #include "kernelbufferdrainer.h"
 #include "connectionlist.h"
-#include "socketwrappers.h"
 #include "../jalib/jassert.h"
 #include "../jalib/jbuffer.h"
 #include "util.h"
@@ -42,7 +41,7 @@ void scaleSendBuffers(int fd, double factor)
   // setsockopt, it would double the buffer size.
   int newSize = size * factor / 2;
   len = sizeof(newSize);
-  JASSERT(_real_setsockopt(fd, SOL_SOCKET, SO_SNDBUF, (void *)&newSize, len) == 0);
+  JASSERT(setsockopt(fd, SOL_SOCKET, SO_SNDBUF, (void *)&newSize, len) == 0);
 }
 
 static dmtcp::KernelBufferDrainer *theDrainer = NULL;

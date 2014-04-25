@@ -55,7 +55,6 @@ namespace dmtcp
       void addSetsockopt(int level, int option, const char* value, int len);
       void restoreSocketOptions(dmtcp::vector<int32_t>& fds);
       void serialize(jalib::JBinarySerializer& o);
-      int sockDomain() const { return _sockDomain; }
 
     protected:
       int64_t _sockDomain;

@@ -22,14 +22,20 @@
 #ifndef STLWRAPPER_H
 #define STLWRAPPER_H
 
+#ifdef HAVE_CONFIG_H
+# include "config.h"
+#endif
+
+#ifdef DMTCP
 #include "dmtcpalloc.h"
+#endif
 
 #include <string>
 #include <vector>
 
 
 namespace jalib {
-#if 1
+#ifdef DMTCP
   typedef dmtcp::string string;
   typedef dmtcp::ostringstream ostringstream;
   typedef dmtcp::vector<int> IntVector;
@@ -46,5 +52,5 @@ namespace jalib {
 #endif
 }
 
-#endif
+#endif 
 

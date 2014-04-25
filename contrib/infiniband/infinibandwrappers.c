@@ -1,9 +1,13 @@
-#define _GNU_SOURCE
-
 #include <dlfcn.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/select.h>
+#include <sys/un.h>
+#include <arpa/inet.h>
+#include <pthread.h>
+/* According to earlier standards */
+#include <sys/types.h>
 #include <unistd.h>
 #include <errno.h>
 #include "dmtcp.h"
@@ -11,15 +15,6 @@
 #include "ibvctx.h"
 #include "debug.h"
 #include <infiniband/verbs.h>
-
-void *dlopen(const char *filename, int flag) {
-  if (filename) {
-    if (strstr(filename, "libibverbs.so")) {
-      return RTLD_DEFAULT;
-    }
-  }
-  return NEXT_FNC(dlopen)(filename, flag);
-}
 
 int ibv_fork_init(void)
 {
@@ -204,7 +199,7 @@ int ibv_destroy_srq(struct ibv_srq *srq)
   dmtcp_plugin_disable_ckpt();
  // PDEBUG("******** WRAPPER for ibv_destroy_srq\n");
   int rslt = _destroy_srq(srq);
-  dmtcp_plugin_enable_ckpt();
+  dmtcp_plugin_enable_ckpt;
   return rslt;
 }
 
@@ -367,8 +362,7 @@ struct ibv_ah * ibv_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr){
   dmtcp_plugin_disable_ckpt();
 //  PDEBUG("******** WRAPPER for ibv_create_ah\n");
 
-  struct ibv_ah *rslt = _create_ah(pd, attr);
+  _create_ah(pd, attr);
 
   dmtcp_plugin_enable_ckpt();
-  return rslt;
 }

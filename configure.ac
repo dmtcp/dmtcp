@@ -31,7 +31,6 @@ AC_CONFIG_FILES([Makefile \
                  plugin/batch-queue/Makefile \
                  plugin/modify-env/Makefile \
                  plugin/ptrace/Makefile \
-                 plugin/unique-ckpt/Makefile \
                  src/Makefile \
                  src/mtcp/Makefile \
                  src/plugin/Makefile \
@@ -96,19 +95,6 @@ AC_ARG_ENABLE([timing],
 
 if test "$use_jtiming" = "yes"; then
   AC_DEFINE([TIMING],[1],[Record timing information to stderr and jtimings.csv])
-fi
-
-AC_ARG_ENABLE([realtime_ckpt_signal],
-            [AS_HELP_STRING([--enable-realtime-ckpt-signal],
-                            [Use a realtime signal (SIGRTMAX - 2) instead of
-                             the default SIGUSR2 signal.  The signal can be
-                             overridden with the --ckpt-signal flag for
-                             dmtcp_launch.])],
-            [use_realtime_ckpt_signal=$enableval],
-            [use_realtime_ckpt_signal=no])
-
-if test "$use_realtime_ckpt_signal" = "yes"; then
-  AC_DEFINE([CKPT_SIGNAL],[(SIGRTMAX - 2)],[Checkpoint signal to be used])
 fi
 
 AC_ARG_ENABLE([unique_checkpoint_filenames],
@@ -229,71 +215,16 @@ AC_ARG_ENABLE([experts_only],
 	    [], [])
 AC_ARG_ENABLE([experts_only_after], [AS_HELP_STRING([ ], [])], [], [])
 
-AC_ARG_ENABLE([m32],
-            [AS_HELP_STRING([--enable-m32],
-                            [Compile in 32 bit mode on 64 bit linux. (Works on
-                             most, but not all programs, due to restrictions of
-                             32-bit mode.)])],
-            [use_m32=$enableval],
-            [use_m32=no])
+AC_ARG_ENABLE([allocator],
+            [AS_HELP_STRING([--enable-allocator],
+                            [cause DMTCP to use a custom allocator based on mmap
+                             and avoid calling malloc and free (EXPERIMENTAL)])],
+            [use_allocator=$enableval],
+            [use_allocator=no])
 
-AM_CONDITIONAL(CONFIG_M32, [test "$use_m32" = "yes"])
-if test "$use_m32" = "yes"; then
-  AC_SUBST([M32], [1])
-  AC_SUBST([HAS_READLINE], [no])
-  AC_DEFINE([CONFIG_M32],[1],[Compiling in 32 bit mode on 64 bit linux.])
-
-  AC_MSG_CHECKING([whether multilib $CC compiles using -m32]) 
-  AC_LANG_PUSH([C])
-  old_CFLAGS="$CFLAGS"
-  CFLAGS="$CFLAGS -m32"
-  AC_LINK_IFELSE([AC_LANG_PROGRAM([[
-  #include <stdio.h>
-  #include <features.h>  /* This often causes a problem. */
-  ]], [[
-  printf("Hello, world!\n");
-  ]])], [cc_m32='yes'], [cc_m32='no'])
-  CFLAGS="$old_CFLAGS"
-  AC_LANG_POP([C])
-  AC_MSG_RESULT([$cc_m32]) 
-  if test "$cc_m32" = "no"; then
-    AC_MSG_FAILURE([[Failed to build with -m32
-    Consider installing gcc-multilib (and g++-multilib) or
-      the equivalent packages for your Linux distro.]])
-  fi
-
-  AC_MSG_CHECKING([whether multilib $CXX compiles using -m32]) 
-  AC_LANG_PUSH([C++])
-  old_CXXFLAGS="$CXXFLAGS"
-  CXXFLAGS="$CXXFLAGS -m32"
-  AC_LINK_IFELSE([AC_LANG_PROGRAM([[
-  #include <stdio.h>
-  #include <features.h>  /* This often causes a problem. */
-  ]], [[
-  printf("Hello, world!\n");
-  ]])], [cplusplus_m32='yes'], [cplusplus_m32='no'])
-  CXXFLAGS="$old_CXXFLAGS"
-  AC_LANG_POP([C++])
-  AC_MSG_RESULT([$cplusplus_m32]) 
-  if test "$cplusplus_m32" = "no"; then
-    AC_MSG_FAILURE([[Failed to build with -m32
-    Typically, this means that 32-bit libstdc++.so was not found
-    Consider installing g++-multilib or equivalent pkg for your Linux distro.]])
-  fi
-else
-  AC_SUBST([M32], [0])
+if test "$use_allocator" = "yes"; then
+  AC_DEFINE([OVERRIDE_GLOBAL_ALLOCATOR],[1],[Use a custom allocator based on mmap])
 fi
-
-#AC_ARG_ENABLE([allocator],
-#            [AS_HELP_STRING([--enable-allocator],
-#                            [cause DMTCP to use a custom allocator based on mmap
-#                             and avoid calling malloc and free (EXPERIMENTAL)])],
-#            [use_allocator=$enableval],
-#            [use_allocator=no])
-#
-#if test "$use_allocator" = "yes"; then
-#  AC_DEFINE([OVERRIDE_GLOBAL_ALLOCATOR],[1],[Use a custom allocator based on mmap])
-#fi
 
 case "$host_cpu" in
   arm*) is_arm_host=yes ;;
@@ -443,6 +374,65 @@ if test "$OPENMPI_MPICC" = "no" -o "$OPENMPI_MPIRUN" = "no"; then
   AC_SUBST(HAS_OPENMPI, [no])
 else
   AC_SUBST(HAS_OPENMPI, [yes])
+fi
+
+AC_ARG_ENABLE([m32],
+            [AS_HELP_STRING([--enable-m32],
+                            [Compile in 32 bit mode on 64 bit linux. (Works on
+                             most, but not all programs, due to restrictions of
+                             32-bit mode.)])],
+            [use_m32=$enableval],
+            [use_m32=no])
+
+AM_CONDITIONAL(CONFIG_M32, [test "$use_m32" = "yes"])
+if test "$use_m32" = "yes"; then
+  AC_SUBST([M32], [1])
+  AC_SUBST([HAS_READLINE], [no])
+  AC_DEFINE([CONFIG_M32],[1],[Compiling in 32 bit mode on 64 bit linux.])
+else
+  AC_SUBST([M32], [0])
+fi
+
+if test "$use_m32" = "yes"; then
+  AC_MSG_CHECKING([whether multilib $CC compiles using -m32]) 
+  AC_LANG_PUSH([C])
+  old_CFLAGS="$CFLAGS"
+  CFLAGS="$CFLAGS -m32"
+  AC_LINK_IFELSE([AC_LANG_PROGRAM([[
+  #include <stdio.h>
+  #include <features.h>  /* This often causes a problem. */
+  ]], [[
+  printf("Hello, world!\n");
+  ]])], [cc_m32='yes'], [cc_m32='no'])
+  CFLAGS="$old_CFLAGS"
+  AC_LANG_POP([C])
+  AC_MSG_RESULT([$cc_m32]) 
+  if test "$cc_m32" = "no"; then
+    AC_MSG_FAILURE([[Failed to build with -m32
+    Consider installing gcc-multilib (and g++-multilib) or
+      the equivalent packages for your Linux distro.]])
+  fi
+fi
+
+if test "$use_m32" = "yes"; then
+  AC_MSG_CHECKING([whether multilib $CXX compiles using -m32]) 
+  AC_LANG_PUSH([C++])
+  old_CXXFLAGS="$CXXFLAGS"
+  CXXFLAGS="$CXXFLAGS -m32"
+  AC_LINK_IFELSE([AC_LANG_PROGRAM([[
+  #include <stdio.h>
+  #include <features.h>  /* This often causes a problem. */
+  ]], [[
+  printf("Hello, world!\n");
+  ]])], [cplusplus_m32='yes'], [cplusplus_m32='no'])
+  CXXFLAGS="$old_CXXFLAGS"
+  AC_LANG_POP([C++])
+  AC_MSG_RESULT([$cplusplus_m32]) 
+  if test "$cplusplus_m32" = "no"; then
+    AC_MSG_FAILURE([[Failed to build with -m32
+    Typically, this means that 32-bit libstdc++.so was not found
+    Consider installing g++-multilib or equivalent pkg for your Linux distro.]])
+  fi
 fi
 
 if test "$use_m32" = "yes"; then
