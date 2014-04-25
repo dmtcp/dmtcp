@@ -1,0 +1,49 @@
+#!/bin/bash
+
+# Written by Gene Cooperman, Northeastern University
+# WISHLIST:  that something like this goes into a future version of gdb
+
+# This command will produce the add-symbol-file command with the
+#  correct parameters, as needed by gdb, for loading debugging
+#  information about a dynamic library (.so file)
+
+test -z "$2" && echo Usage:  $0 PROCESS_PID LIBRARY_NAME_SUBSTRING
+test -z "$2" && echo Note: '(gdb) info proc'
+test -z "$2" && echo '    ' will print PROCESS_PID of process debugged by gdb
+test -z "$2" && echo Then try: '(gdb) shell '$0 \
+				PROCESS_PID LIBRARY_NAME_SUBSTRING
+test -z "$2" && echo '    ' ... and paste the output of that command into gdb:
+test -z "$2" && echo Hence: '(gdb) add-symbol-file ...'
+test -z "$2" && exit
+
+processPID=`pgrep -n $1`
+processPID=$1
+if ! test -e /proc/$processPID; then
+  echo Process $processPID does not exist.  Please use existing proces.
+  exit 1
+fi
+if test -z "`cat /proc/$processPID/maps | grep $2`"; then
+  echo "**** Library $2 not found. "\
+       "Do:  cat /proc/$processPID/maps  to see all libs."
+  exit 1
+fi
+
+lib=`cat /proc/$processPID/maps | grep $2 | head -1 | \
+	sed -e 's%[^/]*\(/.*\)%\1%'`
+
+# libdmtcp.so can now have two r-x sections.  Why?
+segAddr=`cat /proc/$processPID/maps | grep $lib | head -1 | grep r-xp | \
+	sed -e 's%^\([0-9a-f]*\).*%0x\1%'`
+segDataAddr=`cat /proc/$processPID/maps | grep $lib | grep rw-p | \
+	sed -e 's%^\([0-9a-f]*\).*%0x\1%'`
+
+textOffset=`readelf -S $lib | grep '\.text ' | \
+	sed -e 's%^.*text[^0-9a-f]*[0-9a-f]* \([0-9a-f]*\).*%0x\1%'`
+dataOffset=`readelf -S $lib | grep '\.data ' | \
+	sed -e 's%^.*data[^0-9a-f]*[0-9a-f]* \([0-9a-f]*\).*%0x\1%'`
+bssOffset=`readelf -S $lib | grep '\.bss ' | \
+	sed -e 's%^.*bss[^0-9a-f]*[0-9a-f]* \([0-9a-f]*\).*%0x\1%'`
+
+echo add-symbol-file $lib $(($segAddr + $textOffset)) \
+	 -s .data $(($segDataAddr + $dataOffset)) \
+	 -s .bss $(($segDataAddr + $bssOffset))

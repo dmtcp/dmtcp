@@ -1,0 +1,26 @@
+#!/bin/bash
+# Put your PBS options here
+#PBS -N hellompi_c
+#PBS -l nodes=4:ppn=8
+#PBS -q release
+
+# Print out SLURM job information. Remove it if you don't need it
+echo "PBS_JOBID="$PBS_JOBID
+echo "PBS_NODEFILE"=$PBS_NODEFILE
+cat $PBS_NODEFILE
+echo "PBS_O_WORKDIR"=$PBS_O_WORKDIR
+
+# changedir to workdir
+cd $PBS_O_WORKDIR
+
+# Some initial setup like 
+
+. patch_env.sh
+
+echo "Start"
+date
+
+mpirun --mca btl self,tcp ./mc_int 100000 1
+
+echo "Finish"
+date

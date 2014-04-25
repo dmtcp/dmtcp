@@ -1,0 +1,50 @@
+DMTCP (and the included MTCP) is free software; you can redistribute it
+and/or modify it under the terms of the GNU Lesser General Public License
+(LGPL) as published by the Free Software Foundation; either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT 
+ANY WARRANTY; without even the implied warranty of  MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License
+for more details.
+
+A copy of the GPL license and the LGPL license are contained in the files,
+COPYING.GPL and COPYING.LESSER, respectively.
+
+The file include/dmtcp.h is released under MIT/BSD dual license. The user is
+allowed to use these files under either license.
+
+Files found in the directory src are Copyright (C) 2006-2014 by Jason
+Ansel, Kapil Arya, and Gene Cooperman, except:
+- files src/trampolines.* are Copyright (C) 2006-2013 by Tyler Denniston, and
+  Kapil Arya
+- files plugin/ipc/event/eventwrappers.* are Copyright (C) 2012 by Kapil Arya,
+  Gene Cooperman and Rohan Garg.
+
+Files src/mtcp/mtcp_sys.h and src/mtcp/mtcp_util.ic are Copyright (C) 2006-2014 by Michael Rieker, Gene Cooperman, and Kapil Arya.
+
+Files found in the directory src/jalib are Copyright (C) 2005-2008 by Jason Ansel.
+
+Files found in the directory jalib are Copyright (C) 2005-2008 by Jason Ansel.
+
+The contents of files src/mtcp/sysdep-*, src/mtcp/NOTES-x86_64/*.[hS] and
+src/glibcsystem.cpp are taken from glibc and is Copyright (C)
+1991-2000,2002,2003,2005,2007 Free Software Foundation, Inc.
+
+The contents of the file include/dmtcpalloc.h are Copyright (C) 2002 by
+Pete Isensee.
+
+Files found in the directory plugin/ptrace are Copyright (C) 2005-2013 by
+Ana-Maria Visan, Kapil Arya, and Gene Cooperman.
+
+Files found in the directory plugin/batch-queue are Copyright (C) 2012-2013 by
+Artem Y. Polyakov.
+
+Files found in a subdirectory of the contrib directory are Copyright (C) by the
+author of that subdirectory.
+
+File test/syscall-tester.c is Copyright (C) Copyright (C) 1990-2007, Condor
+Team, Computer Sciences Department, University of Wisconsin-Madison, WI.
+
+Any remaining files (for building and testing) are Copyright (C) 2006-2008,
+2012-2013 Jason Ansel, Kapil Arya, and Gene Cooperman.

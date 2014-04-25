@@ -1,0 +1,623 @@
+% dmtcp_event_hook -> dmtcp_event_hook
+% DMTCP_NEXT_EVENT_HOOK -> DMTCP_NEXT_EVENT_HOOK
+
+
+% =======================================
+
+% DMTCP-Internal plugins:  make sure restart/resume operates after event:
+%   RESTART/RESUME/REFILL/REGISTER\_NAME\_SERVICE\_DATA/SEND\_QUERIES
+% DMTCP hierarchy:  DMTCP\_ROOT/include/dmtcp/plugin.h  (etc.) ; not dmtpplugin.h
+% Do we install distro packages to use /usr/include/dmtcp/plugin.h for compatibility?
+% Check documentation of events; make sure they correspond to implementations
+% Section Using plugins to virtualize ids  (based on Torque?  Add to it, or skip.)
+% Move DMTCP\_ROOT?dmtcp/doc to:  DMTCP\_ROOT?doc
+% For KVM plugin, change MTCP break issue to be warning (not error)
+% KVM plugin:  QEMU complains about negative value in signalfd
+
+% TODO:  --with-icc
+% TODO:  --vnc  (for dmtcp_launch)
+% TODO:  test suite from Joshua Louie (dlopen prior to main; epoll taking too long)
+%
+% UPDATE 'svn co' on dmtcp.sf.net;  Add latest DMTCP papers to dmtcp.sf.net
+% ADD documents (design of DMTCP, design of plugins)
+
+\documentclass{article}
+\usepackage{fullpage}
+
+\title{Tutorial for DMTCP Plugins}
+\author{}
+\date{March, 2013}
+
+\begin{document}
+
+\maketitle
+\tableofcontents
+
+\section{Introduction}
+
+Plugins enable one to modify the behavior of DMTCP.  Two of the most
+common uses of plugins are:
+\begin{enumerate}
+\item to execute an additional action at the time of checkpoint, resume,
+	or restart.
+\item to add a wrapper function around a call to a library function (including
+	wrappers around system calls).
+\end{enumerate}
+
+Plugins are used for a variety of purposes. The {\tt DMTCP\_ROOT/contrib}
+directory contains packages that users and developers have contributed
+to be optionally loaded into DMTCP.
+
+
+% POSSIBLE LIST:
+% Torque, Condor, KVM/QEMU, record-replay, logging, restart on modified
+% filesystem/new host/modified uid/etc., integration w/ Python for
+% Python to call ckpt, ckpt over network to remote file
+
+Plugin code is expressive, while requiring only a modest number of lines
+of code.  The plugins in the contrib directory vary in size from
+400 lines to 3000 lines of code.
+
+Beginning with DMTCP version~2.0, much of DMTCP itself is also now
+a plugin.  In this new design, the core DMTCP code is responsible
+primarily for copying all of user space memory to a checkpoint
+image file.  The remaining functions of DMTCP are handled by plugins,
+found in {\tt DMTCP\_ROOT/plugin}.  Each plugin abstracts the essentials of a
+different subsystem of the operating system and modifies its behavior
+to accommodate checkpoint and restart.  Some of the subsystems for
+which plugins have been written are: virtualization of process
+and thread ids; files(open/close/dup/fopen/fclose/mmap/pty);
+events (eventfd/epoll/poll/inotify/signalfd);
+System~V IPC constructs (shmget/semget/msgget); TCP/IP
+sockets (socket/connect/bind/listen/accept); and timers
+(timer\_create/clock\_gettime).  (The indicated system calls are examples
+only and not all-inclusive.)
+
+\section{Anatomy of a plugin}
+
+A plugin modifies the behavior of either DMTCP or a target application,
+through three primary mechanisms, plus virtualization of ids.
+\begin{description}
+\item[Wrapper functions:]  One declares a wrapper function with the same
+	name as an existing library function (including system calls in
+	the run-time library).  The wrapper function can execute some
+	prolog code, pass control to the ``real'' function,
+	and then execute some epilog code.  Several plugins can wrap
+	the same function in a nested manner.  One can also omit
+	passing control to the ``real'' function, in order to shadow
+	that function with an alternate behavior.
+\item[Events:]  It is frequently useful to execute additional code
+	at the time of checkpoint, or resume, or restart.  Plugins
+	provide hook functions	to be called during these three events
+	and numerous other important events in the life of a process.
+\item[Coordinated checkpoint of distributed processes:]  DMTCP transparently
+	checkpoints distributed computations across many nodes.
+	At the time of checkpoint or restart, it may be necessary to
+	coordinate information among the distributed processes.  For example,
+	at restart time, an internal plugin of DMTCP allows the newly
+	re-created processes to ``talk'' to their peers to discover the
+	new network addresses of their peers.  This is important since
+	a distributed computation may be restarted on a different cluster
+	than its original one.
+\item[Virtualization of ids:]  Ids (process id, timer id, sysv ipc id, etc.)
+	are assigned by the kernel, by a peer process, and by remote processes.
+	Upon restart, the external agent may wish to assign a different
+	id than the one assigned prior to checkpoint.  Techniques for
+	virtualization of ids are described in Section~\ref{sec:virtualization}.
+\end{description}
+
+\section{Writing Plugins}
+
+\subsection{Invoking a plugin}
+
+Plugins are just dynamic run-time libraries (.so files).
+\hfill\break
+\medskip\noindent
+  \hspace{0.3truein} {\tt gcc -shared -fPIC -IDMTCP\_ROOT/dmtcp/include
+                         -o PLUGIN1.so PLUGIN1.c}
+\medskip
+
+They are invoked at the beginning of a DMTCP computation
+as command-line options:
+\hfill\break
+\medskip\noindent
+  \hspace{0.3truein} {\tt dmtcp\_launch --with-plugin PLUGIN1.so:PLUGIN2.so
+			  myapp}
+\medskip
+
+Note that one can invoke multiple plugins as a colon-separated list.
+One should either specify a full path for each plugin (each .so~library),
+or else to define LD\_LIBRARY\_PATH to include your own plugin directory.
+
+\subsection{The plugin mechanisms}
+
+The mechanisms of plugins are most easily described through examples.
+This tutorial will rely on the examples in {\tt DMTCP\_ROOT/test/plugin}.
+To get a feeling for the plugins, one can ``cd'' into each of the
+subdirectories and execute: ``{\tt make check}''.
+
+\subsubsection{Plugin events}
+
+For context, please scan the code of {\tt DMTCP\_ROOT/plugin/example/example.c}.
+Executing ``{\tt make check}'' will demonstrate the intended behavior.
+Plugin events are handled by including the function {\tt dmtcp\_event\_hook}.
+When a DMTCP plugin event occurs, DMTCP will call the
+function {\tt dmtcp\_event\_hook} for each plugin.
+This function is required only if the plugin will handle plugin events.
+See Appendix~A for further details.
+
+{\tt
+\begin{verbatim}
+void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
+{
+  switch (event) {
+  case DMTCP_EVENT_WRITE_CKPT:
+    printf("\n*** The plugin is being called before checkpointing. ***\n");
+    break;
+  case DMTCP_EVENT_RESUME:
+    printf("*** Resume: the plugin has now been checkpointed. ***\n");
+    break;
+  case DMTCP_EVENT_RESTART:
+    printf("*** The plugin is now being restarted. ***\n");
+    break;
+  ...
+  default:
+    break;
+  }
+  DMTCP_NEXT_EVENT_HOOK(event, data);
+}
+\end{verbatim}
+}
+
+
+% Plugin events:
+%
+% *** The model for events:  When a DMTCP event occurs, DMTCP calls ROUTINE in
+% each plugin, in the order that the plugins were loaded, offering each plugin
+% a chance to handle the event.  If ROUTINE is not defined in a plugin, DMTCP
+% skips calling that plugin.  When ROUTINE is called, it is given the unique
+% event id, and a switch statement can decide whether to take any special action.
+% If no action is taken, ROUTINE returns XXX, and the next plugin is offered
+% a chance to handle the event.  If a plugin does handle the event, a typical
+% user code fragment will:
+% A.  optionally carry out any pre-processing steps
+% B.  optionally ask DMTCP to invoke the next event handler
+% C.  optionally carry out any post-processing steps
+%
+% If all three steps are invoked, this effectively creates a wrapper function
+% around any later plugins that handle the same event.  If step B is omitted,
+% no further plugins will be offered the opportunity to handle the event.
+
+\subsubsection{Plugin wrapper functions}
+\label{sec:wrappers}
+
+In its simplest form, a wrapper function can be written as follows:
+
+{\tt
+\begin{verbatim}
+unsigned int sleep(unsigned int seconds) {
+  static unsigned int (*next_fnc)() = NULL; /* Same type signature as sleep */
+  struct timeval oldtv, tv;
+  gettimeofday(&oldtv, NULL);
+  time_t secs = val.tv_sec;
+  printf("sleep1: "); print_time(); printf(" ... ");
+  unsigned int result = NEXT_FNC(sleep)(seconds);
+  gettimeofday(&tv, NULL);
+  printf("Time elapsed:  %f\n",
+          (1e6*(val.tv_sec-oldval.tv_sec) + 1.0*(val.tv_usec-oldval.tv_usec)) / 1e6);
+  print_time(); printf("\n");
+
+  return result;
+}
+\end{verbatim}
+}
+
+In the above example, we could also shadow the standard ``sleep'' function
+by our own implementation, if we omit the call to ``{NEXT\_FNC}''.
+
+\noindent
+To see a related example, try:
+\hfill\break
+\medskip\noindent
+  \hspace{0.3truein} {\tt cd DMTCP\_ROOT/test/plugin/sleep1; make check}
+\medskip
+
+\noindent
+Wrapper functions from distinct plugins can be nested.  For a nesting
+of plugin sleep2 around sleep1, do:
+\hfill\break
+\medskip\noindent
+  \hspace{0.3truein} {\tt cd DMTCP\_ROOT/test/plugin; make; cd sleep2; make check}
+\medskip
+
+If one adds a wrapper around a function from a library other than libc.so
+(e.g., libglx.so), it is best to dynamically link to that additional library:
+\hfill\break
+\medskip\noindent
+  \hspace{0.3truein} {\tt gcc ...  -o PLUGIN1.so PLUGIN1.c -lglx.so}
+\medskip
+
+\subsubsection{Plugin coordination among multiple or distributed processes}
+\label{sec:publishSubscribe}
+
+It is often the case that an external agent will assign a particular
+initial id to your process, but later assign a different id on restart.
+Each process must re-discover its peers at restart time, without knowing
+the pre-checkpoint ids.
+
+DMTCP provides a ``Publish/Subscribe'' feature to enable communication among
+peer processes. Two plugin events allow user
+plugins to discover peers and pass information among peers.
+The two events are:  {\tt DMTCP\_EVENT\_REGISTER\_NAME\_SERVICE\_DATA}
+and {\tt DMTCP\_EVENT\_SEND\_QUERIES}.  DMTCP guarantees to provide a global
+barrier between the two events.
+
+An example of how to use the Publish/Subscribe feature is contained in
+{\tt DMTCP\_ROOT/test/plugin/example-db}~.  The explanation below is best
+understood in conjunction with reading that example.
+
+A plugin processing {\tt DMTCP\_EVENT\_REGISTER\_NAME\_SERVICE\_DATA} should invoke: \\
+int dmtcp\_send\_key\_val\_pair\_to\_coordinator(const void *key,
+                                                   size\_t key\_len, \
+                                                   const void *val, \
+                                                   size\_t val\_len).
+
+A plugin processing {\tt DMTCP\_EVENT\_SEND\_QUERIES} should invoke: \\
+int dmtcp\_send\_query\_to\_coordinator(const void *key, size\_t key\_len,
+                                            void *val, size\_t *val\_len).
+
+\subsubsection{Using plugins to virtualize ids and other names}
+\label{sec:virtualization}
+
+Often an id or name will change between checkpoint and restart.
+For example, on restart, the real pid of a process will change
+from its pid prior to checkpoint.  Some DMTCP internal plugins
+maintain a translation table in order to translate
+between a virtualized id passed to the user code and a real id
+maintained inside the kernel.  The utility to maintain this
+translation table can also be used within third-party plugins.
+For an example of adding virtualization to a plugin, see the plugin
+in plugin/ipc/timer.
+
+In some less common cases, it can happen that a virtualized id is passed
+to a library function by the target application.  Yet, that same library
+function may be passed a real id by a second function from within the
+same library.  In these cases, it is the responsibility of the
+plugin implementor to choose a scheme that allows the first library
+function to distinguish whether its argument is a virtual id (passed
+from the target application) or a real id (passed from within the same
+library).
+
+
+% \section{Caveats}
+%
+% CAVEATS:
+% Does your plugin break normal DMTCP?  to test this, modify DMTCP, and copy your
+% plugin into {\tt DMTCP\_ROOT/lib}, and then run 'make check' for DMTCP as usual.
+%
+% SHARED MEMORY REGIONS:
+% If two or more processes share a memory region, then the plugin writer must
+% be clear on whether DMTCP or the plugin has responsibility for restoring
+% the shared memory region.  Currently, EXPLAIN ....
+%
+% Virtualizing long-lived objects:  HOWTO
+%
+% INTERACTION OF MULTIPLE PLUGINS:
+%     For simple plugins, this issue can be ignored.  But if your plugin has
+% tables with long-lived data, other wrappers may create additional
+% instantiations.  % It is reasonable for them to do this for temporary data
+% structures at % the time of checkpoint or at the time of restart.  But
+% normally, such an % object, created when the checkpoint event occurs, should
+% be destroyed before % creating the actual checkpoint image.  Similarly, at
+% restart time, if new % instances are created, they should be destroyed before
+% returning control to the user threads.
+%     It is polite for a plugin to check the above restrictions.  If it is
+% violated, the plugin should print a warning about this.  This will help
+% others, who % accidentally create long-lived objects at checkpoint- or
+% restart-time, without intending to.  If the other plugin intends this unusual
+% behavior, one can add a whitelist feature for other plugings to declare such
+% intentions.
+%     This small effort will provide a well-defined protocol that limits the
+% interaction between distinct plugins.  Your effort helps others to debug their
+% plugins, and a similar effort on their part will help you to debug your own
+% plugin.
+%
+% Putting a printf inside a plugin at the time of checkpoint is dangerous.  This
+% is because printf indirectly invokes a lock to prevent two threads from
+% printing simultaneously.  This causes the checkpoint thread to call a printf.
+% {\bf See README in test/plugin.}
+%
+% At checkpoint time, the DMTCP user thread will stop on that same lock.  This
+% causes the two threads to deadlock.
+%
+% This use of conflicting locks is a bug in DMTCP as of DMTCP-2.0.  It will
+% be fixed in the future version of DMTCP.
+
+
+\section{Application-Initiated Checkpoints}
+
+Application-initiated checkpoints are even simpler than full-featured
+plugins.  In the simplest form, the following code can be executed both
+with {\tt dmtcp\_launch} and without.:
+
+{\tt
+\begin{verbatim}
+#include <stdio.h>
+#include "dmtcp.h"
+int main() {
+  if (dmtcpCheckpoint() == DMTCP_NOT_PRESENT) {
+    printf("dmtcpcheckpoint:  DMTCP not present.  No checkpoint is taken.\n");
+  }
+  return 0;
+}
+\end{verbatim}
+}
+
+For this program to be aware of DMTCP, it must be compiled with -fPIC and -ldl~:
+\hfill\break
+\medskip\noindent
+  \hspace{0.3truein} {\tt gcc -fPIC -IDMTCP\_ROOT/dmtcp/include -o myapp
+                      myapp.c -ldl}
+\medskip
+
+The most useful functions are:
+\begin{list}{}{\leftmargin=3em \itemindent=-2em}
+\item
+  {\tt int dmtcpIsEnabled()} --- returns 1 when running with DMTCP; 0 otherwise.
+\item
+  {\tt int dmtcpCheckpoint()} --- returns DMTCP\_AFTER\_CHECKPOINT,
+                                 DMTCP\_AFTER\_RESTART, or DMTCP\_NOT\_PRESENT.
+\item
+  {\tt int dmtcpDelayCheckpointsLock()} --- DMTCP will block any
+				 checkpoint requests.
+\item
+  {\tt int dmtcpDelayCheckpointsUnlock()} --- DMTCP will execute any blocked
+                checkpoint requests, and will permit new checkpoint requests.
+\end{list}
+
+The last two functions follow the common pattern of returning 0 on success
+and {\tt DMTCP\_NOT\_PRESENT} if DMTCP is not present.
+See the subdirectories
+{\tt DMTCP\_ROOT/test/plugin/applic-initiated-ckpt}
+and
+{\tt DMTCP\_ROOT/test/plugin/applic-delayed-ckpt}, where one can execute
+{\tt make check} for a live demonstration.
+
+\appendix
+\section{Appendix:  Plugin Manual}
+\subsection{Plugin events}
+% \addcontentsline{toc}{chapter}{Appendix A:  Plugin Events}
+
+\subsubsection{dmtcp\_event\_hook}
+
+In order to handle DMTCP plugin events, a plugin must
+define {\tt dmtcp\_event\_hook}.
+
+\begin{verbatim}
+NAME
+       dmtcp_event_hook - Handle plugin events for this plugin
+
+SYNOPSIS
+       #include "dmtcp/plugin.h"
+
+       void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
+
+DESCRIPTION
+       When a plugin event occurs, DMTCP will look for the symbol
+       dmtcp_event_hook in each plugin library.  If the symbol is found,
+       that function will be called for the given plugin library.  DMTCP
+       guarantees only to invoke the first such plugin library found in
+       library search order.  Occurrences of dmtcp_event_hook in later
+       plugin libraries will be called only if each previous function
+       had invoked DMTCP_NEXT_EVENT_HOOK.  The argument, <event>, will be
+       bound to the event being declared by DMTCP.  The argument, <data>,
+       is required only for certain events.  See the following section,
+       ``Plugin Events'' for a list of all events.
+
+SEE ALSO
+       DMTCP_NEXT_EVENT_HOOK
+\end{verbatim}
+
+\subsubsection{DMTCP\_NEXT\_EVENT\_HOOK}
+
+A typical definition of {\tt dmtcp\_event\_hook} will invoke
+{\tt DMTCP\_NEXT\_EVENT\_HOOK}.
+
+\begin{verbatim}
+NAME
+       DMTCP_NEXT_EVENT_HOOK - call dmtcp_event_hook in next plugin library
+
+SYNOPSIS
+       #include "dmtcp/plugin.h"
+
+       void DMTCP_NEXT_EVENT_HOOK(event, data)
+
+DESCRIPTION
+       This function must be invoked from within a plugin function library
+       called dmtcp_event_hook.  The arguments <event> and <data> should
+       normally be the same arguments passed to dmtcp_event_hook.
+
+       DMTCP_NEXT_EVENT_HOOK may be called zero or one times.  If invoked zero
+       times, no further plugin libraries will be called to handle events.
+       The behavior is undefined  if DMTCP_NEXT_EVENT_HOOK is invoked more than
+       once.  The typical usage of this function is to create a wrapper around
+       the handling of the same event by later plugins.
+
+SEE ALSO
+       dmtcp_event_hook
+\end{verbatim}
+
+There are examples of compiling a plugin in the examples in {\tt
+DMTCP\_ROOT/test/plugin}.
+
+\subsubsection{Event Names}
+
+The rest of this section defines plugin events.
+The complete list of plugin events is always contained in
+{\tt DMTCP\_ROOT/dmtcp/include/dmtcp/plugin.h}~.
+
+DMTCP guarantees to call the dmtcp\_event\_hook function of the plugin
+when the specified event occurs.
+% If an event is thread-specific, DMTCP guarantees to call
+% dmtcp\_event\_hook within the same thread.
+
+Plugins that pass significant data through the data parameter
+are marked with an asterisk: {}$^*$.
+Most plugin events do not pass data through the data parameter.
+
+Note that the events \\
+   RESTART / RESUME / REFILL / REGISTER\_NAME\_SERVICE\_DATA / SEND\_QUERIES \\
+should all be processed after the call to DMTCP\_NEXT\_EVENT\_HOOK() in
+order to guarantee that the internal DMTCP plugins have first restored full
+functionality.
+
+\itemsep0pt
+\subsubsection*{Checkpoint-Restart}
+\begin{list}{}{\leftmargin=3em \itemindent=-2em}
+\item
+  DMTCP\_EVENT\_WRITE\_CKPT --- Invoked at final barrier before writing checkpoint
+\item
+  DMTCP\_EVENT\_RESTART --- Invoked at first barrier during restart of new process
+\item
+  DMTCP\_EVENT\_RESUME --- Invoked at first barrier during resume following checkpoint
+\end{list}
+
+\subsubsection*{Coordination of Multiple or Distributed Processes during Restart
+	(see Appendix A.2.~Publish/Subscribe)}
+\begin{list}{}{\leftmargin=3em \itemindent=-2em}
+\item
+  DMTCP\_EVENT\_REGISTER\_NAME\_SERVICE\_DATA$^*$ restart/resume
+\item
+  DMTCP\_EVENT\_SEND\_QUERIES$^*$ restart/resume
+\end{list}
+
+\subsubsection*{WARNING:  EXPERTS ONLY FOR REMAINING EVENTS}
+\subsubsection*{Init/Fork/Exec/Exit}
+\begin{list}{}{\leftmargin=3em \itemindent=-2em}
+\item
+  DMTCP\_EVENT\_INIT --- Invoked before main (in both the original program
+and any new program called via exec)
+\item
+  DMTCP\_EVENT\_EXIT --- Invoked on call to exit/\_exit/\_Exit {\bf return from main?};
+\item
+  DMTCP\_EVENT\_PRE\_EXEC --- Invoked prior to call to exec
+\item
+  DMTCP\_EVENT\_POST\_EXEC --- Invoked before DMTCP\_EVENT\_INIT in new program
+\item
+  DMTCP\_EVENT\_ATFORK\_PREPARE --- Invoked before fork (see POSIX pthread\_atfork)
+\item
+  DMTCP\_EVENT\_ATFORK\_PARENT --- Invoked after fork by parent (see POSIX
+    pthread\_atfork)
+\item
+  DMTCP\_EVENT\_ATFORK\_CHILD --- Invoked after fork by child (see POSIX
+    pthread\_atfork) \\
+\end{list}
+
+\subsubsection*{Barriers (finer-grained control during checkpoint-restart)}
+\begin{list}{}{\leftmargin=3em \itemindent=-2em}
+\item
+  DMTCP\_EVENT\_WAIT\_FOR\_SUSPEND\_MSG --- Invoked at barrier during
+coordinated checkpoint
+\item
+  DMTCP\_EVENT\_SUSPENDED --- Invoked at barrier during coordinated checkpoint
+\item
+  DMTCP\_EVENT\_LEADER\_ELECTION --- Invoked at barrier during coordinated checkpoint
+\item
+  DMTCP\_EVENT\_DRAIN --- Invoked at barrier during coordinated checkpoint
+\item
+  DMTCP\_EVENT\_REFILL --- Invoked at first barrier during resume/restart of new process
+\end{list}
+
+\subsubsection*{Threads}
+\begin{list}{}{\leftmargin=3em \itemindent=-2em}
+\item
+  DMTCP\_EVENT\_THREADS\_SUSPEND --- Invoked within checkpoint thread
+	when all user threads have been suspended
+\item
+  DMTCP\_EVENT\_THREADS\_RESUME --- Invoked within checkpoint thread before
+	any user threads are resumed. \\
+	For debugging, consider calling the following code for this
+        event:  {\tt static int x = 1; while(x);}
+\item
+  DMTCP\_EVENT\_PRE\_SUSPEND\_USER\_THREAD --- Each user thread invokes this prior
+	to being suspended for a checkpoint
+\item
+  DMTCP\_EVENT\_RESUME\_USER\_THREAD --- Each user thread invokes this immediately
+	after a resume or restart ({\tt isRestart()} available to plugin)
+% \item
+%   {\bf should we have separate DMTCP\_EVENT\_RESTART\_USER\_THREAD?
+%     --- I vote yes.}
+\item
+  DMTCP\_EVENT\_THREAD\_START --- Invoked before start function given by clone
+\item
+  DMTCP\_EVENT\_THREAD\_CREATED --- Invoked within parent thread when clone call returns  (like parent for fork)
+\item
+  DMTCP\_EVENT\_PTHREAD\_START --- Invoked before start function given by pthread\_created
+\item
+  DMTCP\_EVENT\_PTHREAD\_EXIT --- Invoked before call to pthread\_exit
+\item
+  DMTCP\_EVENT\_PTHREAD\_RETURN --- Invoked in child thread when thread start function of pthread\_create returns
+\item
+\end{list}
+
+\subsection{Publish/Subscribe}
+% \addcontentsline({toc}{chapter}{Appendix B:  Publish/Subscribe}
+
+Section~\ref{sec:publishSubscribe} provides an explanation of the
+Publish/Subscribe feature for coordination among peer processes at resume-
+or restart-time.  An example of how to use the Publish/Subscribe feature
+is contained in {\tt DMTCP\_ROOT/test/plugin/example-db}~.
+
+The primary events and functions used in this feature are:
+
+\noindent
+{\tt DMTCP\_EVENT\_REGISTER\_NAME\_SERVICE\_DATA} \\
+\hbox{\ \ }
+int dmtcp\_send\_key\_val\_pair\_to\_coordinator(const void *key,
+                                                   size\_t key\_len,
+                                                   const void *val,
+                                                   size\_t val\_len) \\
+{\tt DMTCP\_EVENT\_SEND\_QUERIES} \\
+\hbox{\ \ }
+int dmtcp\_send\_query\_to\_coordinator(const void *key, size\_t key\_len,
+                                            void *val, size\_t *val\_len)
+
+\subsection{Wrapper functions}
+% \addcontentsline{toc}{chapter}{Appendix C:  Wrapper Functions}
+
+For a description of including wrapper functions in a plugin, see
+Section~\ref{sec:wrappers}.
+
+\subsection{Miscellaneous utility functions}
+
+Numerous DMTCP utility functions are provided that can be called from within
+dmtcp\_event\_hook().  For a complete list, see
+{\tt DMTCP\_ROOT/dmtcp/include/dmtcp/plugin.h}~.
+The utility functions are still under active development, and may change
+in small ways.  Some of the more commonly used utility functions follow.
+Functions that return ``char *'' will not allocate memory, but instead will
+return a pointer to a canonical string, which should not be changed.
+{\tt
+\begin{verbatim}
+void dmtcp_get_local_ip_addr(struct in_addr *in);
+const char* dmtcp_get_tmpdir(); /* given by --tmpdir, or DMTCP_TMPDIR, or TMPDIR */
+const char* dmtcp_get_ckpt_dir();
+   /* given by --ckptdir, or DMTCP_CHECKPOINT_DIR, or curr dir at ckpt time */
+const char* dmtcp_get_ckpt_files_subdir();
+int  dmtcp_get_ckpt_signal(); /* given by --mtcp-checkpoint-signal */
+const char* dmtcp_get_uniquepid_str();
+const char* dmtcp_get_computation_id_str();
+uint64_t dmtcp_get_coordinator_timestamp();
+uint32_t dmtcp_get_generation(); /* number of ckpt/restart sequences encountered */
+const char* dmtcp_get_executable_path();
+int dmtcp_get_restart_env(char *name, char *value, int maxvaluelen);
+  /* For 'name' in environment, copy its value into 'value' param, but with
+   * at most length 'maxvaluelen'.
+   * Return 0 for success, and return code for various errors
+   * See contrib/modify-env for an example of its use.
+   */
+\end{verbatim}
+}
+
+
+\end{document}

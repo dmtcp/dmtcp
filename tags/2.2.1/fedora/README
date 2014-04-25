@@ -1,0 +1,49 @@
+Build instructions for submitting packages to Fedora and EPEL.
+
+1. Build srpm package.
+    rpmbuild ~/rpmbuild -bs ~/rpmbuild/SPECS/dmtcp.spec
+   (This command expects the tarball in ~/rpmbuild/SOURCES)
+
+2. Do scratch builds with koji (see A):
+   List available targets with:
+     koji list-targets
+
+   - Build for the upcoming fedora:
+      koji build --scratch f21 ~/rpmbuild/SRPMS/dmtcp-2.2-1.fc21.src.rpm
+     Replace f21 with the apropriate release.
+
+   - Build for the epel release:
+      koji build --scratch dist-6E-epel ~/rpmbuild/SRPMS/dmtcp-2.2-1.fc21.src.rpm  
+
+At this point, if the koji builds should have succeeded.
+3. cd fedora-scp/dmtcp (see B):
+    (created by: git clone ssh://karya0@pkgs.fedoraproject.org/dmtcp)
+
+   git co master
+   fedpkg new-sources /path/to/dmtcp-x.y.tar.gz
+   cp /path/to/dmtcp.spec .
+   fedpkg commit
+   fedpkg push
+   fedpkg build
+   # once the build succeeds, do:
+   fedpkg update
+
+   # Now merge the changes into EPEL branch
+   fedpkg switch-branch el6
+   git merge master
+   # Resolve conflicts, if any and do "git commit -a"
+   fedpkg push
+   fedpkg build
+   # once the build succeeds, do:
+   fedpkg update
+
+   # Now merge the changes into older f20 branch
+   git co f20
+   git merge el6
+   fedpkg push
+   fedpkg build
+   # once the build succeeds, do:
+   fedpkg update
+
+(A) https://fedoraproject.org/wiki/Packaging:Guidelines
+(B) http://fedoraproject.org/wiki/Package_update_HOWTO 
