@@ -1,0 +1,340 @@
+Documentation by Gene Cooperman -- no guarantees of accuracy
+
+glibc_kernel_stat.h, sysdep-i386.h, and sysdep-x86_64.h are all taken
+from glibc.  Glibc has a LGPL license.  The rest of the MTCP software
+has a still stricter license:  GPL
+
+=========================================================================
+CAVEATS:
+    This is designed only for Intel/AMD Linux: either 32- or 64-bits.  With
+some work, this design should be portable to many other UNIX dialects.
+    Restart will use original application executable from disk.  If it has
+changed since then, the result is unpredictable.
+    MTCP will correctly continue reading/writing any open files, but if
+those files have changed in the interim, the result is unpredictable.
+    If it was being run under gdb prior to checkpointing, then gdb created
+an extra pipe and connected stdout to the pipe.  Since gdb no longer exists
+upon restart, restart fails.  This may be fixed in the future.  For now,
+processes under gdb control cannot be checkpointed.
+
+    On 32-bit Intel, there is no executable bit for memory pages.
+This makes buffer overrun exploits possible by executing code on the stack
+or in the data segment.  Several Linux distributions employ randomizing
+techniques to make such exploits difficult.  Randomizing standard memory
+locations also makes checkpoint/restart difficult.  DMTCP automatically
+works around some of those cases, and requires user cooperation in some
+other cases.  Some examples follow:
+    Ubuntu configures gcc to use -fstack-protector (at least in 32-bit Ubuntu).
+DMTCP accounts for that.  But a checkpointed file on a non-Ubuntu system may
+not restart correctly on an Ubuntu system.  If this is a concern, then compile
+all of your applications with -fno-stack-protector for portability between
+Ubuntu and other dialects of Linux.
+    Many recent 32-bit versions of Linux now set /proc/sys/vm/vdso_enabled
+to 1.  This randomly changes the way system calls are made.  When DMTCP detects
+that this is the case, it will stop and print to the screen asking to set:
+  echo 0 > /proc/sys/vm/vdso_enabled   [as root].
+    Glibc employs an acceleration mechanism, NSCD (Name Service Cache
+Daemon).  The daemon looks up names and caches them so that processes
+can obtain the information faster.  This is especially useful on servers.
+NSCD is employed both on 32-bit and on 64-bit computers.
+On SUSE clients, NSCD is enabled with "shared files".  The application
+mmaps a file that is shared with the daemon.  On restart, this shared
+mmap-ed file no longer exists on disk.  DMTCP checks this and warns
+that checkpointing may fail.  One can re-configure NSCD to not use
+shared files.  In the future, DMTCP may implement a planned workaround.
+=========================================================================
+The object file mtcp_restart_nolibc.o cannot refer to any symbols from glibc
+(see below),
+since it will execute at a time when glibc no longer exists in memory.
+Previously, this was accomplished by having extractobjectmodule extract
+from libc.a any needed modules and statically linking them.
+
+On x86_64 architectures, we're not able to unmap the stack.  But we
+still have read-write permission.  So, instead of failing when we
+try to mmap the saved stack on restart, we simply use the existing
+stack segment, and copy the saved stack into RAM.
+
+This version does not use extractobjectmodule.  Instead, it uses
+  mtcp_sys.h, which defines inline syscalls for all needed kernel services.
+  It also refers to mtcp_sys_errno for setting errno after such a syscall,
+  since errno is normally defined in libc.so.
+
+On x86_64 (and on i386 programs using thread-local variables),
+  position-independent code must be used ("CFLAGS += -fPIC -DPIC"
+  and "LDFLAGS = -shared").
+  However, if a symbol is external, the GNU C compiler cannot call the
+  function as a simple program-counter relative address.  This is because
+  the ELF standard allows one to define an "interposing symbol" so
+  that if one had previously linked a function external to a library,
+  and if one then links in the library (libmtcp.so in our case), then
+  even if the library also defines a function symbol of the same name,
+  the library call will be bound to the previous (external function)
+  that was linked in.  So, the GNU C compiler apparently is calling
+  additional code from a different segment to handle this case.  When we
+  call from mtcp_restart_nolibc.c, we don't have a different segment.  So, any
+  functions called by mtcp_restart_nolibc.c must not be global symbols.
+  One can either concatenate all files into one long one and declare
+  all symbols static (yuck!), or else declare such global symbols
+  to be library scope only (ELF hidden symbols).  See mtcp_internal.h
+  for declarations:  __attribute__ ((visibility ("hidden")))
+  [ I was lazy and only declared the functions that caused the code to break.
+    Why don't I need to do it for functions like mtcp_readhex? ]
+
+The __i386__ does not use futex, but the __x86_64__ version does, since
+the alternative is to use the pthread library, and __x86_64__ seems
+to have problems with this library not being fully loaded.  WHY??
+
+==========================================================================
+RESTART: Overview
+
+[ READ FROM TOP TO BOTTOM:  new column represents alternative memory map ]
+mtcp_restart
+[load checkpointed libmtcp.so from .mtcp image]
+  libmtcp.so(mtcp.c):restore_start
+  [switch to temporary stack inside libmtcp.so]
+                      libmtcp.so(mtcp_restart_nolibc.c):restoreverything :
+		      [unmap everything except libmtcp.so (& maybe except vdso)
+		       and remap remaining sections from .mtcp image]
+  libmtcp.so(mtcp.c):finishrestore
+  [reset stack ptr to old pre-checkpoint stack,
+   reset kernel state appropriately]
+  restarthread(motherofall)
+  [Current thread becomes motherofall, the original user thread;
+   Then restart remaining user threads and the ckpt thread;
+   each thread calls siglongjmp/setcontext to get back to its
+   original pre-checkpoint call frame]
+
+1.  Run:  mtcp_restart FILE.mtcp
+2.  mtcp_restart loads into memory original libmtcp.so from FILE.mtcp
+	along with entry point:
+		restore_start (a pointer to libmtcp.so:mtcp_restore_start)
+    [Also read finishrestore pointer from FILE.mtcp for later use.
+     Couldn't we have just saved the pointer in libmtcp.so ??]
+3.a.  Call restore_start (now inside libmtcp.so in file mtcp.c)
+3.b.  Switch to new stack; (can't even use local vars until in new callframe)
+3.c.  If tracing within gdb, set breakpoint to after this callframe, or
+	gdb will be very confused.
+4.  Switch to restoreverything (now inside libmtcp.so
+		in file mtcp_restart_nolibc.c; can again use local vars)
+5.  Unmap all other memory regions (except vdso and vsyscall, which belong
+	to the kernel); Not allowed to use libc.so at this point
+    (We had to switch to another temporary stack in libmtcp.so before
+      making any function calls, since mtcp_restart's stack is now gone.)
+6.  Map remaining memory regions from FILE.mtcp (libmtcp.so already mapped in)
+7.  Now switch back to function finishrestore in file mtcp.c in libmtcp.so .
+	Use pointer to finishrestore pointer as entry point.  Don't
+	depend on the linker between files being functional yet.
+8.  Set stack pointer (%esp/%rsp) to the stack pointer that we saved
+	prior to checkpoint.  (Currently save old stack pointer - 128
+	as red zone.)
+9.  Call restarthread(motherofall).  motherofall is the original user thread.
+	It is usually different from the checkpoint thread.  Tell kernel
+	to set our thread state to same parameters that we had saved
+	pre-checkpoint.
+10. Create user threads and have them also call restarthread w/ red zone
+	(extended stack pointer), etc.
+11. Checkpoint thread now calls siglongjmp()/setcontext() to fully return
+	to pre-checkpoint state.  We are now using our pre-checkpoint stack
+	instead of the temporary stack.
+12. We (the checkpoint thread) are now returning from sigsetjmp()/getcontext()
+	in checkpointhread().  Wait for user threads to be restored.
+	Execute mtcpHookRestart just before unlocking user threads.  Then
+	sleep again until next checkpoint.
+	Note that checkpointhread serves two purposes, since it's also the
+	original start function from when the checkpoint thread was created.
+13. The user thread returns from sigsetjmp()/getcontext() in stopthisthread()
+	[Better name might be:  stopthisuserthread().]
+
+RESTART: Details
+	    CAN USE CURRENT libc.so AT THIS POINT:
+            mtcp_restart.c:main restores old libmtcp.so from checkpoint file.
+            mtcp_restart.c:main calls libmtcp.so(mtcp.c):mtcp_restore_start
+               via an absolute memory address saved in the checkpoint file.
+	    [ If executing under gdb, it will stop with suggested
+	      add-symbol-file ... command for gdb.
+	      Paste it into gdb to see stack (doesn't always work). ]
+            We are now executing inside libmtcp.so, and will never again
+               use mtcp_restart.c.
+            libmtcp.so(mtcp.c):mtcp_restore_start then sets the stack pointer
+	       esp/rsp to a tempstack in libmtcp.so of length only 1024 long
+	       (raise this if needed!) and sets ebp/rbp to 0, and then calls
+               libmtcp.so(mtcp_restart_nolibc.c):mtcp_restoreverything.
+	       [ mtcp_restore_start will never execute again. ]
+
+	    libmtcp.so(mtcp_restart_nolibc.c): CAN'T USE ANY libc.so AT
+	    				       THIS POINT
+	    CAN NOT USE OLD STACK, AND ABOUT TO ALSO REMOVE OLD HEAP.
+            Within mtcp_restoreverything, we unmap all other memory segments
+                except libmtcp.so;  So, libc.so is no longer available.
+            All code within mtcp_restart_nolibc.c must follow the discipline of
+                not using libc.so. It either directly makes syscalls to kernel,
+                or else duplicates logic of simple libc.so functions.
+            mtcp_restoreverything then restores file descriptors and
+                loads memory segments of checkpointed application.
+            mtcp_restoreverything then calls libmtcp.so(mtcp.c):finishrestore
+                via absolute memory address saved in the checkpoint file.
+                [ IS IT NECESSARY TO USE ABSOLUTE MEMORY ADDRESS IF
+                  WE DECLARE finishrestore TO HAVE
+                   __attribute__ ((visibility ("hidden")))? ]
+
+	   libmtcp.so(mtcp.c): CAN NOW USE OLD CHECKPOINTED libc.so
+	   		        AT THIS POINT:
+           libmtcp.so(mtcp.c):finishrestore then restores
+	   			the original application
+                stack pointer and calls restart_thread(motherofall).
+           libmtcp.so(mtcp.c):restarthread then restores our thread manager
+                (motherofall), followed by the application threads.
+                It does so by calling restore_tls_state() for each thread?.
+           It then calls siglongjmp/setcontext, to restore the registers and signals
+		at the point of checkpointing (process-wide, not per thread)
+
+	  [ A better name for mtcp.c might be to break it up into:
+            mtcp_checkpoint.c and mtcp_restart_threads.c. ]
+
+==========================================================================
+FLOW OF CONTROL: checkpoint
+
+static globals:  Thread *motherofall;
+                 Thread *threads;
+                 pthread_t checkpointhreadid;
+                 int intervalsecs;
+                 clone_entry -> initialized as ptr to __clone fnc of libc;
+                                        created in setup_clone_entry()
+                 restore_start -> initialized later to mtcp_restore_start
+
+main:  application entry point
+  mtcp_init:
+    The caller is referred to as motherofall
+    setupthread:  bookkeeping about this main thread?
+      signal(STOPTHISTHREAD, stopthisthread)
+    pthread_create:  creates thread with start routine:  checkpointhread
+   
+mtcp_ok  - OK to do checkpointing
+
+mtcp_no  -  inhibit checkpointing
+  stopthisthread(0)  - no checkpointing
+
+NEW CHECKPINTING THREAD CREATED IN mtcp_init
+checkpointhread:
+  while (1)
+    sleep for intervalsecs
+    for all thread in threads do
+      tkill(thread, STOPSIGNAL)  (send internal STOPSIGNAL == SIGUSR2 to thread)
+        calls stopthisthread() of a different thread.
+    checkpointeverything:
+      write out everything to checkpoint file.
+
+SIGNAL HANDLER INVOKED BY checkpointhread() OF CHECKPOINTING THREAD
+stopthisthread - 
+  mtcp_setjmp
+    if original caller of setjmp
+      futex_ec - wake checkpointing thread to tell it we're ready
+      futex_ec - wait until checkpointing thread has written file and wakes us
+    else we had called longjmp from restarthread and ended up here
+      if ((verify_total != 0) && (verify_count == 0))
+        if we're not motherofall then
+          exit()
+        else we're motherofall
+        execlp("mtcp_restart", "mtcp_restart", "-verify", checkpointfilename)
+      else we're not in verify mode
+
+==========================================================================
+FLOW OF CONTROL: restart
+
+mtcp_restart.c:main():
+  reads the address of the mtcp_restore_start function from the checkpoint file, and  (It was saved there at checkpoint time).
+  then calls that address at the end of its main, just after restoring
+  the checkpoint file into memory.
+  The function pointer is called restore_start in main(), and
+	corresponds to mtcp_restore_start in mtcp.c.
+  Note that we are then in the restored libmtcp.so.  We never again execute
+	any code from mtcp_restart.c.
+
+mtcp.c:mtcp_restore_start():
+    mtcp_restart_nolibc.c:mtcp_restoreverything()  [ This is
+						     in mtcp_restart_nolibc.c ]
+    readcs  -  read checkpoint section
+    readfile - read address of finishrestore
+    readfildescrs  (restore open file descriptors)
+    readmemoryareas (restore mmap'ed regions)
+    mtcp.c:finishrestore() - now go back into mtcp.c
+
+NEW THREAD CREATED IN restarthread(motherofall):
+restarthread - called by finishrestore for motherofall;
+		but otherwise it's a new thread.
+  mtcp_longjmp
+    stopthisthread - resumes rest of function after mtcp_setjmp (see above)
+
+CALLED at end of mtcp_restart.c:mtcp_restoreverything()
+   AFTER LOADING CHECKPOINT FILE INTO RAM.
+finishrestore
+  create a big stack so longjmp will start beyond end of stack.
+  restarthread(motherofall)
+    __clone_entry(restarthread, ...)
+    mtcp_longjmp
+      stopthisthread - resumes rest of function after mtcp_setjmp (see above)
+
+==========================================================================
+Linux threads:
+
+Recall that a Linux thread is essentially a process with some special flags
+and fields.  pthread_create calls clone to create it.  A thread has both
+a tid (thread ID) and pid (process ID).
+
+In __i386__, the segment register %gs is used as a base for addresses in
+thread_private data.  It is written %gs:ADDR in assembly, where ADDR is any
+assembly address.  In __x86_64__, one uses %fs instead of %gs (and %gs
+used for what in __x76_64__?).  Because segment registers are bound to
+a particular CPU, distinct CPUs can have different values for %gs.
+So one can call the identical code with %gs:ADDR
+and in fact address distinct thread-local data, without even knowing
+on what CPU you were executing.
+
+Presumably, a context switch will also change the segment registers
+appropriately, thus allowing distinct threads on the same CPU to access
+distinct thread-local data.
+
+The MTCP data structure, Thread, keeps information about the kernel
+state of the thread.  It is used to restore the original state.
+
+As stated in man set_tid_address,
+ The  kernel  keeps for each process two values called set_child_tid and
+ clear_child_tid that are NULL by default.
+
+
+Some details to be aware of:
+clone allows 6 arguments if called via syscall.
+The three extra ones are:
+  int *parent_tidptr -- set tid of child in parent and child memory if flag set
+  struct user_desc * newtls -- set new Thread Local Storage descriptor
+  	The kernel keeps up to three TLS descriptors
+	  ([GDT_ENTRY_TLS_MIN..GDT_ENTRY_TLS_MAX]), that are stored
+		in the kernel in the tls_array of the current process.
+        Apparently, newer Linuxes use only the first TLS descriptor.
+	See /usr/include/asm/segment.h for values of GDT_ENTRY_TLS_MIN, etc.
+	In __i386__, one can call get_thread_area/set_thread_area to
+		read and change this.
+  int *child_tidptr -- set tid of child in child memory if flag set
+
+Restoring a thread is a matter of:
+ restarthread:
+  set_thread_area()
+  asm volatile ("movw %0,%%fs" : : "m" (thisthread -> fs));
+  asm volatile ("movw %0,%%gs" : : "m" (thisthread -> gs));
+  thisthread -> tid = mtcp_sys_kernel_gettid ();
+  [ THIS MEANS THAT WE DON'T VIRTUALIZE tid's AND SO RESTORED THREAD
+    SEE DIFFERENT tid.  WE STILL NEED TO FIX THIS.  IN PARTICULAR, SUPPOSE
+    ONE TRIES TO USE THE tid CREATED BY pthread_create. ]
+
+tid or "thread_t th" is used by:
+extern int pthread_create (pthread_t *__restrict __threadp,
+extern pthread_t pthread_self (void) __THROW;
+extern int pthread_equal (pthread_t __thread1, pthread_t __thread2) __THROW;
+extern int pthread_join (pthread_t __th, void **__thread_return);
+extern int pthread_detach (pthread_t __th) __THROW;
+extern int pthread_getattr_np (pthread_t __th, pthread_attr_t *__attr) __THROW;
+extern int pthread_setschedparam (pthread_t __target_thread, int __policy,
+extern int pthread_getschedparam (pthread_t __target_thread,
+extern int pthread_cancel (pthread_t __cancelthread);
+extern void pthread_testcancel (void);
+extern int pthread_getcpuclockid (pthread_t __thread_id,

@@ -1,0 +1,36 @@
+The subdirectories within contrib are typically plugins that can be used
+with DMTCP.  They are written either by DMTCP developers or by third
+parties, but they are intended to be optional components.  They will
+not be loaded into DMTCP by default, but will typically require
+the --with-plugins flag of dmtcp_launch.
+
+If you would like to write your own DMTCP plugins, you can find some
+very simple examples of plugins in the directories in dmtcp/test/plugin .
+For each of those, 'make check' will provide a working demo of the plugin.
+Try, for example (using cd from this directory):
+  ( cd ../test/plugin/sleep1 ; make check )
+and then look at the source code in ../test/plugin/sleep1 .
+
+The documentation within each subdirectory has the details of how to use
+it.  Unless stated otherwise, many of the plugins are still experimental.
+Please report bugs back to the author and to dmtcp@ccs.neu.edu .
+An overview is given here:
+
+ptrace: Support for checkpointing ptrace system call. Ptrace is used by gdb,
+        strace, etc. to trace an inferior process for debugging purposes. Use
+        this plugin (dmtcp_launch --ptrace ...) to start gdb/strace under
+        checkpoint control.
+
+modify-env:  Modify the environment variables on restart.  This
+	reads from a local file in the same directory, dmtcp_env.txt,
+	to determine what environment variables should be modified
+	in the restarted process.
+
+batch-queue:  (also known as rm plugin, for "resource manager")
+	Support for using DMTCP with batch queue systems.
+	Currently TORQUE and SLURM are supported. Support for SGE and LSF
+        is planned in the near future.  This is the work of Artem Polyakov.
+	Please report bugs to dmtcp@ccs.neu.edu as well as to
+	artem84 using his gmail account.
+	  [ This can be useful with the infiniband plugin for parallel
+            computations on an InfiniBand cluster using a batch queue. ]

@@ -1,0 +1,52 @@
+				External Sockets
+[ This is still in draft form.  It must be expanded and re-written. ]
+
+[Support for EXTERNAL SOCKETS has been removed from trunk]
+
+An external socket is a connection between two processes, where only
+one of the processes is under DMTCP checkpoint control.
+
+In the longer run, we want to offer users configure options about what
+to do with "external sockets" at checkpoint time.  
+Reasonable choices for this are:
+1) the external sockets are temporary; don't checkpoint yet, and 
+   the application will close the sockets; DMTCP can block any thread
+   that tries to open a new socket, if it is waiting to do a checkpoint.
+   [ This is the choice made with the config flag:  --condor-mode ]
+2) go ahead and checkpoint immediately;  but don't save any external
+   sockets, and don't restore them;  On restart, the application will
+   see that socket as a "dead socket", and should use its own error
+   recovery to create a new socket if needed.
+   [ DMTCP does this now for certain special cases.  One example is that
+     vim will open a connection to the X-Window server.  On restart,
+     we can't restart the X-Window server.  So, we make the socket
+     appear to be a dead socket on restart.  (Philsophy:  Well-behaved
+     applications should not assume that very long-lived connections
+     will continue forever (e.g. due to temporary network outage), and
+     should have an error recovery strategy.) ]
+
+Besides vim, another good example of software that silently creates
+an external socket is:  getpwuid() in libc.so when LDAP is configured.
+
+For implementation details, some items of note are:
+connection.h:markExternalConnect()
+connection.cpp:_makeDeadSocket
+connection.cpp: case TCP_EXTERNAL_CONNECT:
+connection.h:  markExternalConnect()
+
+Notice that in:
+connectionmanager.cpp:dmtcp::KernelDeviceToConnection::retrieve()
+  If DMTCP did not record a particular connection (e.g. done in the case
+  of the special LDAP ports), and if it is of type 'socket', then
+  is is marked TCP_EXTERNAL_CONNECT and not restored.
+
+Note also:
+connection.cpp:_isBlacklistedTcp()
+  It maintains blacklistedRemotePorts (currently only the LDAP ports),
+  and at restart time, those connections will be recreated as dead sockets.
+  (As of rev. 1270, this is not done for vim connecting to X-Windows.
+   The X-Windows port is simply closed.  But this would be an alternative
+   strategy.)
+
+
+TCP_EXTERNAL_CONNECT,

@@ -1,0 +1,78 @@
+\begin{document}
+
+\begin{Name}{1}{dmtcp\_restart}{Kapil Arya}{Distributed MultiThreaded CheckPointing}{dmtcp\_restart --restart processes from ckpt image}
+  \myProg{dmtcp_restart} -- restart processes from given checkpoint images.
+\end{Name}
+
+\section{Synopsis}
+%%%%%%%%%%%%%%%%%%
+
+\myProg{dmtcp_restart} \oArg{OPTIONS} \Arg{ckpt1.dmtcp} \oArg{ckpt2.dmtcp...}
+
+\section{Description}
+%%%%%%%%%%%%%%%%%%
+
+\myProg{dmtcp_command} is a tool to send user commands to the
+\myProg{dmtcp_coordinator} remotely.
+
+\section{Options}
+%%%%%%%%%%%%%%%%%%
+
+\subsubsection{Connecting to the DMTCP Coordinator}
+\begin{Description}
+  \item[\Opt{-h}, \Opt{--host} \Arg{hostname} (environment variable DMTCP_HOST)]
+    Hostname where dmtcp_coordinator is run (default: localhost)
+
+  \item[\Opt{-p}, \Opt{--port} \Arg{port} (environment variable DMTCP_PORT)]
+    Port where dmtcp_coordinator is run (default: 7779)
+
+  \item[\OptSArg{--port-file}{filename}]
+    File to write listener port number.
+    (Useful with \Opt{--port 0}, which is used to assign a random port)
+
+  \item[\Opt{-j}, \Opt{--join}]
+    Join an existing coordinator, raise error if one doesn't
+    already exist
+
+  \item[\Opt{--new-coordinator}]
+    Create a new coordinator at the given port. Fail if one
+    already exists on the given port. The port can be specified
+    with \Opt{--port}, or with environment variable DMTCP_PORT.  If no
+    port is specified, start coordinator at a random port (same
+    as specifying port '0').
+
+%  \item[\Opt{--no-coordinator}]
+%    Execute the process in stand-alone coordinator-less mode.
+%    Use dmtcp_command or \Opt{--interval} to request checkpoints.
+
+  \item[\Opt{-i}, \Opt{-interval} \Arg{seconds} (environment variable DMTCP_CHECKPOINT_INTERVAL)]
+    Time in seconds between automatic checkpoints.
+    0 implies never (manual ckpt only); if not set and no env var,
+    use default value set in dmtcp_coordinator or dmtcp_command.
+    Not allowed if \Opt{--join} is specified
+\end{Description}
+
+\subsubsection{Other options}
+\begin{Description}
+  \item[\Opt{--run-as-root}]
+    Allow root to run dmtcp_restart and disable uid checking.
+    (default: disabled)
+
+  \item[\Opt{--no-strict-uid-checking} (environment variable DMTCP_DISABLE_UID_CHECKING)]
+    Disable uid checking for the checkpoint image. This allows the checkpoint image
+    to be restarted by a different user than the one that created it.
+
+  \item[\OptSArg{--ckptdir}{path} (environment variable DMTCP_CHECKPOINT_DIR)]
+    Directory to store checkpoint images (default: use the same directory used in previous checkpoint)
+
+  \item[\OptSArg{--tmpdir}{path} (environment variable DMTCP_TMPDIR)]
+    Directory to store temporary files
+    (default: \$TMDPIR/dmtcp-\$USER@\$HOST or /tmp/dmtcp-\$USER@\$HOST)
+
+  \item[\Opt{-q}, \Opt{--quiet} (or set environment variable DMTCP_QUIET = 0, 1, or 2)]
+    Skip NOTE messages; if given twice, also skip WARNINGs
+
+  \item[\Opt{--help}] Print this message and exit.
+
+  \item[\Opt{--version}] Print version information and exit.
+\end{Description}
