@@ -8,8 +8,8 @@ lsof_L_cache=""
 prepare_lsof_cache()
 {
   echo "-->Cache LSOF output for future use"
-  lsof_cache=`mktemp lsof.XXXXXXXXXX`
-  lsof_L_cache=`mktemp lsof_L.XXXXXXXXXX`
+  lsof_cache=`mktemp /tmp/lsof.XXXXXXXXXX`
+  lsof_L_cache=`mktemp /tmp/lsof_L.XXXXXXXXXX`
   lsof > $lsof_cache
   lsof -L > $lsof_L_cache
 }

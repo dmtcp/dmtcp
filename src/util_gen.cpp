@@ -453,8 +453,20 @@ char *dmtcp::Util::findExecutable(char *executable, const char* path_env,
     len++;
     *path++ = '\0';
     strncat(exec_path, executable, PATH_MAX - len - 1);
-    if (access(exec_path, X_OK) == 0)
-      return exec_path;
+    if (access(exec_path, X_OK) == 0){
+      // Artem: Additionally check that this is regular file. 
+      // From access point of view directories are executables too :)
+      // I ran into problem on the system where user home dir was in the PATH
+      // and I create a directory named "hbict" in it.
+      // Eventually home path was before my sandbox path and DMTCP was
+      // trying to call a directory :)
+      struct stat buf;
+      if( stat(exec_path, &buf) ){
+        continue;
+      }
+      if( S_ISREG(buf.st_mode) )
+        return exec_path;
+    }
   }
 
   // In case we're running with PATH environment variable unset:
