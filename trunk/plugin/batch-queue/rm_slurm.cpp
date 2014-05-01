@@ -62,6 +62,7 @@ void slurm_restore_env()
 #define MAX_ENV_LINE 256
   char line[MAX_ENV_LINE];
   bool host_env = false, port_env = false;
+  bool tmpdir_env = false;
   int len;
   while( fgets(line,MAX_ENV_LINE,fp) != NULL ){
     int len = strnlen(line, MAX_ENV_LINE);
@@ -82,17 +83,21 @@ void slurm_restore_env()
     if( var == "SLURM_SRUN_COMM_PORT" ){
       port_env = true;
     }
-
-    if( var == "SLURM_SRUN_COMM_PORT" || var == "SLURM_SRUN_COMM_HOST" ){
-      setenv(var.c_str(), val.c_str(), 1);
+    if( var == "SLURMTMPDIR" ){
+      char *env_tmpdir = getenv("SLURMTMPDIR");
+      setenv("DMTCP_SLURMTMPDIR_OLD", env_tmpdir, 0);
+      tmpdir_env = true;
     }
+
+    setenv(var.c_str(), val.c_str(), 1);
   }
-  if( !host_env || !port_env ){
-    JTRACE("Not all SLURM Environment was restored: ")(host_env)(port_env);
+  if( !(host_env && port_env && tmpdir_env) ){
+      JTRACE("Not all SLURM Environment was restored: ")(host_env)(port_env)(tmpdir_env);
   }
   char *env_host = getenv("SLURM_SRUN_COMM_HOST");
   char *env_port = getenv("SLURM_SRUN_COMM_PORT");
-  JTRACE("Variable at restart")(env_host)(env_port);
+  char *env_tmpdir = getenv("SLURMTMPDIR");
+  JTRACE("Variable at restart")(env_host)(env_port)(env_tmpdir);
 }
 
 static void print_args(char *const argv[])
@@ -278,4 +283,78 @@ extern "C" int execvpe (const char *filename, char *const argv[],
   close_all_fds();
 
   return _real_execvpe(filename, argv_new, envp);
+}
+
+bool isSlurmTmpDir(dmtcp::string &str)
+{
+  char *env_tmpdir = getenv("SLURMTMPDIR");
+  dmtcp::string tpath(env_tmpdir);
+  // check if tpath is prefix of str
+  int pos;
+  for(pos = 0; pos < tpath.size(); pos++){
+      if( str[pos] != tpath[pos] ){
+          break;
+      }
+  }
+  if( pos == tpath.size() )
+      return true;
+  return false;
+}
+
+int slurmShouldCkptFile(const char *path, int *type)
+{
+  dmtcp::string str(path);
+
+  if (isSlurmTmpDir(str)) {
+    *type = SLURM_TMPDIR;
+    return 0;
+  }
+  return 0;
+}
+
+
+int slurmRestoreFile(const char *path, const char *savedFilePath,
+                                     int fcntlFlags, int type)
+{
+
+  if (type != SLURM_TMPDIR) {
+    // Shouldn't happen
+    return -1;
+  }
+
+  char *env_old = getenv("DMTCP_SLURMTMPDIR_OLD");
+  char *env_new = getenv("SLURMTMPDIR");
+
+  JASSERT( env_old && env_new )("Environment is broken")(env_old)(env_new);
+
+  dmtcp::string otmpdir(env_old);
+  dmtcp::string ntmpdir(env_new);
+  dmtcp::string newpath(path);
+
+  _rm_del_trailing_slash(otmpdir);
+  _rm_del_trailing_slash(ntmpdir);
+
+  size_t pos = 0;
+  for(pos = 0; pos < otmpdir.length(); pos++){
+    if( newpath[pos] != otmpdir[pos] ){
+      break;
+    }
+  }
+  JASSERT( pos == otmpdir.length() )
+          ("Something is wrong. otmpdir is not prefix of path\n")
+          (otmpdir)(path);
+  newpath = ntmpdir + newpath.substr(pos);
+  JTRACE("new path")(newpath);
+
+  JTRACE("Copying saved Resource Manager file to NEW location")
+    (savedFilePath) (newpath);
+
+  dmtcp::string command = "cat ";
+  command.append(savedFilePath).append(" > ").append(newpath);
+  JASSERT(_real_system(command.c_str()) != -1);
+
+  // Open with initial flags
+  int tempfd = _real_open(newpath.c_str(), fcntlFlags);
+  JASSERT(tempfd != -1) (path)(newpath)(JASSERT_ERRNO) .Text("open() failed");
+  return tempfd;
 }
