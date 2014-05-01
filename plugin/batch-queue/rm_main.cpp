@@ -141,7 +141,9 @@ extern "C" int dmtcp_is_bq_file(const char *path)
 
   if( _get_rmgr_type() == torque )
     return isTorqueIOFile(str) || isTorqueFile("", str);
-  else
+  else if( _get_rmgr_type() == slurm ){
+      return isSlurmTmpDir(str);
+  }else
     return false;
 }
 
@@ -153,6 +155,8 @@ extern "C" int dmtcp_bq_should_ckpt_file(const char *path, int *type)
 
   if( _get_rmgr_type() == torque ){
     return torqueShouldCkptFile(path,type);
+  }else if( _get_rmgr_type() == slurm ){
+    return slurmShouldCkptFile(path,type);
   }
   return 0;
 }
@@ -166,6 +170,8 @@ extern "C" int dmtcp_bq_restore_file(const char *path,
   int tempfd = -1;
   if( _get_rmgr_type() == torque ){
     tempfd = torqueRestoreFile(path, savedFilePath,fcntlFlags, type);
+  }else if( _get_rmgr_type() == slurm ){
+      tempfd = slurmRestoreFile(path, savedFilePath,fcntlFlags, type);
   }
 
   return tempfd;

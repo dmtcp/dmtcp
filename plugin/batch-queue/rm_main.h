@@ -48,5 +48,11 @@ void _set_rmgr_type(rmgr_type_t nval);
 void _rm_clear_path(dmtcp::string &path);
 void _rm_del_trailing_slash(dmtcp::string &path);
 
+enum ResMgrFileType
+{
+  TORQUE_IO,
+  TORQUE_NODE,
+  SLURM_TMPDIR
+};
 
 #endif

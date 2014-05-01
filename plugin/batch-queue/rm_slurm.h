@@ -23,5 +23,9 @@
 
 void probeSlurm();
 void slurm_restore_env();
+bool isSlurmTmpDir(dmtcp::string &str);
+int slurmShouldCkptFile(const char *path, int *type);
+int slurmRestoreFile(const char *path, const char *savedFilePath,
+                     int fcntlFlags, int type);
 
 #endif

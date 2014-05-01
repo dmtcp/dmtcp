@@ -69,12 +69,6 @@ static void *_libtorque_handle = NULL;
 typedef int (*tm_spawn_t)(int argc, char **argv, char **envp, tm_node_id where, tm_task_id *tid, tm_event_t *event);
 tm_spawn_t tm_spawn_ptr;
 
-enum ResMgrFileType
-{
-  TORQUE_IO,
-  TORQUE_NODE
-};
-
 static void setup_job();
 static dmtcp::string torque_home_nodefile(char *ptr);
 static void setup_torque_env();
