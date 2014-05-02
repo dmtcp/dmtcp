@@ -288,6 +288,9 @@ extern "C" int execvpe (const char *filename, char *const argv[],
 bool isSlurmTmpDir(dmtcp::string &str)
 {
   char *env_tmpdir = getenv("SLURMTMPDIR");
+  if( !env_tmpdir ){
+    return false;
+  }
   dmtcp::string tpath(env_tmpdir);
   // check if tpath is prefix of str
   int pos;
