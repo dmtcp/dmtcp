@@ -1575,8 +1575,8 @@ int _ibv_post_recv(struct ibv_qp * qp, struct ibv_recv_wr * wr, struct
 
   delete_recv_wr(copy_wr);
 
-  copy_wr = copy_send_wr(wr);
-  struct ibv_send_wr *copy_wr1 = copy_wr;
+  copy_wr = copy_recv_wr(wr);
+  struct ibv_recv_wr *copy_wr1 = copy_wr;
   while (copy_wr1) {
     struct ibv_post_recv_log * log = malloc(sizeof(struct ibv_post_recv_log));
 
@@ -1588,9 +1588,11 @@ int _ibv_post_recv(struct ibv_qp * qp, struct ibv_recv_wr * wr, struct
     log->wr.next = NULL;
 
     list_push_back(&internal_qp->post_recv_log, &log->elem);
+
+    struct ibv_recv_wr *tmp = copy_wr1;
     copy_wr1 = copy_wr1->next;
+    free(tmp);
   }
-  delete_recv_wr(copy_wr);
 
   dmtcp_plugin_enable_ckpt();
   return rslt;
@@ -1614,8 +1616,8 @@ int _ibv_post_srq_recv(struct ibv_srq * srq, struct ibv_recv_wr * wr, struct ibv
 
   delete_recv_wr(copy_wr);
 
-  copy_wr = copy_send_wr(wr);
-  struct ibv_send_wr *copy_wr1 = copy_wr;
+  copy_wr = copy_recv_wr(wr);
+  struct ibv_recv_wr *copy_wr1 = copy_wr;
   while (copy_wr1) {
     struct ibv_post_srq_recv_log * log = malloc(sizeof(struct ibv_post_srq_recv_log));
 
@@ -1625,11 +1627,13 @@ int _ibv_post_srq_recv(struct ibv_srq * srq, struct ibv_recv_wr * wr, struct ibv
     }
     log->wr = *copy_wr1;
     log->wr.next = NULL;
-
+    
     list_push_back(&internal_srq->post_srq_recv_log, &log->elem);
+
+    struct ibv_revc_wr *tmp = copy_wr1;
     copy_wr1 = copy_wr1->next;
+    free(tmp);
   }
-  delete_recv_wr(copy_wr);
 
   dmtcp_plugin_enable_ckpt();
   return rslt;
@@ -1660,12 +1664,11 @@ int _ibv_post_send(struct ibv_qp * qp, struct ibv_send_wr * wr, struct
     log->magic = SEND_MAGIC;
     log->wr = *copy_wr1;
     log->wr.next = NULL;
-
     list_push_back(&internal_qp->post_send_log, &log->elem);
+    struct ibv_send_wr *tmp = copy_wr1;
     copy_wr1 = copy_wr1->next;
+    free(tmp);
   }
-
-  delete_send_wr(copy_wr);
 
   dmtcp_plugin_enable_ckpt();
   return rslt;
@@ -1722,6 +1725,7 @@ int _ibv_poll_cq(struct ibv_cq * cq, int num_entries, struct ibv_wc * wc)
 	else {
           struct list_elem * e = list_pop_front(&internal_qp->post_recv_log);
           struct ibv_post_recv_log * log = list_entry(e, struct ibv_post_recv_log, elem);
+          free(log->wr.sg_list);
           free(log);
 	}
       } else if (opcode == IBV_WC_SEND ||
@@ -1741,11 +1745,13 @@ int _ibv_poll_cq(struct ibv_cq * cq, int num_entries, struct ibv_wc * wc)
             struct ibv_post_send_log * log = list_entry(e, struct ibv_post_send_log, elem);
 	    if (log->wr.send_flags & IBV_SEND_SIGNALED) {
               assert(log->magic == SEND_MAGIC);
+              free(log->wr.sg_list);
               free(log);
 	      break;
 	    }
 	    else {
               assert(log->magic == SEND_MAGIC);
+              free(log->wr.sg_list);
               free(log);
 	    }
 	  }
