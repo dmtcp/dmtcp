@@ -1575,7 +1575,8 @@ int _ibv_post_recv(struct ibv_qp * qp, struct ibv_recv_wr * wr, struct
 
   delete_recv_wr(copy_wr);
 
-  struct ibv_recv_wr * copy_wr1 = copy_recv_wr(wr);
+  copy_wr = copy_send_wr(wr);
+  struct ibv_send_wr *copy_wr1 = copy_wr;
   while (copy_wr1) {
     struct ibv_post_recv_log * log = malloc(sizeof(struct ibv_post_recv_log));
 
@@ -1589,6 +1590,7 @@ int _ibv_post_recv(struct ibv_qp * qp, struct ibv_recv_wr * wr, struct
     list_push_back(&internal_qp->post_recv_log, &log->elem);
     copy_wr1 = copy_wr1->next;
   }
+  delete_recv_wr(copy_wr);
 
   dmtcp_plugin_enable_ckpt();
   return rslt;
@@ -1612,7 +1614,8 @@ int _ibv_post_srq_recv(struct ibv_srq * srq, struct ibv_recv_wr * wr, struct ibv
 
   delete_recv_wr(copy_wr);
 
-  struct ibv_recv_wr * copy_wr1 = copy_recv_wr(wr);
+  copy_wr = copy_send_wr(wr);
+  struct ibv_send_wr *copy_wr1 = copy_wr;
   while (copy_wr1) {
     struct ibv_post_srq_recv_log * log = malloc(sizeof(struct ibv_post_srq_recv_log));
 
@@ -1626,6 +1629,7 @@ int _ibv_post_srq_recv(struct ibv_srq * srq, struct ibv_recv_wr * wr, struct ibv
     list_push_back(&internal_srq->post_srq_recv_log, &log->elem);
     copy_wr1 = copy_wr1->next;
   }
+  delete_recv_wr(copy_wr);
 
   dmtcp_plugin_enable_ckpt();
   return rslt;
@@ -1644,7 +1648,8 @@ int _ibv_post_send(struct ibv_qp * qp, struct ibv_send_wr * wr, struct
 
   delete_send_wr(copy_wr);
 
-  struct ibv_send_wr *copy_wr1 = copy_send_wr(wr);
+  copy_wr = copy_send_wr(wr);
+  struct ibv_send_wr *copy_wr1 = copy_wr;
   while (copy_wr1) {
     struct ibv_post_send_log * log = malloc(sizeof(struct ibv_post_send_log));
 
@@ -1659,6 +1664,8 @@ int _ibv_post_send(struct ibv_qp * qp, struct ibv_send_wr * wr, struct
     list_push_back(&internal_qp->post_send_log, &log->elem);
     copy_wr1 = copy_wr1->next;
   }
+
+  delete_send_wr(copy_wr);
 
   dmtcp_plugin_enable_ckpt();
   return rslt;
