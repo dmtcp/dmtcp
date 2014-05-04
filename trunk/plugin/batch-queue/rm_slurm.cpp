@@ -134,7 +134,7 @@ static int patch_srun_cmdline(char * const argv_old[], char ***_argv_new)
   // Prepare final comman line
   *_argv_new = (char**) JALLOC_HELPER_MALLOC(sizeof(char *) * (argc_old + (dsize + 1))); // (dsize+1) is DMTCP part including dmtcpCkptPath
   char **argv_new = *_argv_new;
-
+  memset(argv_new, 0, sizeof(char*) * (argc_old + (dsize + 1)) );
 
   // Move srun part like: srun --nodes=3 --ntasks=3 --kill-on-bad-exit --nodelist=c2909,c2911,c2913
   // first string is srun and we move it anyway
@@ -171,23 +171,18 @@ static int patch_srun_cmdline(char * const argv_old[], char ***_argv_new)
 
   // Copy dmtcp part so final command looks like: srun <opts> dmtcp_launch <dmtcp_options> orted <orted_options>
   argv_new[new_pos] = strdup(dmtcpCkptPath);
+  
+
   new_pos++;
   for (i = 0; i < dsize; i++, new_pos++) {
     argv_new[new_pos] = strdup(dmtcp_args[i].c_str());
   }
+  
 
   for (; old_pos < argc_old; old_pos++, new_pos++) {
     argv_new[new_pos] = argv_old[old_pos];
   }
 
-  dmtcp::string cmdline;
-  for (i = 0; argv_new[i] != NULL; i++ ) {
-    cmdline +=  dmtcp::string() + argv_new[i] + " ";
-  }
-
-  JTRACE( "call SLURM srun to run command on remote host" )
-        ( argv_new[0] );
-  JTRACE("CMD:")(cmdline);
   return ret;
 }
 
@@ -226,10 +221,6 @@ extern "C" int execve (const char *filename, char *const argv[],
   }
   JTRACE( "How command looks from exec*:" );
   JTRACE("CMD:")(cmdline);
-  JTRACE("envp:");
-  for(int i = 0; envp[i] != NULL; i++){
-    JTRACE("envp[i]")(i)(envp[i]);
-  }
 
   close_all_fds();
 
