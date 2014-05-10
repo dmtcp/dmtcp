@@ -304,9 +304,10 @@ jalib::StringVector jalib::Filesystem::GetProgramArgs()
 
     JASSERT ( args != NULL ) ( path ).Text ( "failed to open command line" );
 
-    char * lineptr = ( char* ) JALLOC_HELPER_MALLOC ( 512 ); //getdelim will auto-grow this buffer
-    size_t len = 511;
-
+    size_t len = 4095;
+    //getdelim will auto-grow this buffer using realloc which would fail with bad pointer.
+    // We should replace getdelim with our own version
+    char * lineptr = ( char* ) JALLOC_HELPER_MALLOC ( len+1 );
     while ( getdelim ( &lineptr, &len, '\0', args ) >= 0 ) {
       rv.push_back ( lineptr );
     }
