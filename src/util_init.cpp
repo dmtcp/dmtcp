@@ -34,7 +34,13 @@
 
 using namespace dmtcp;
 
-static string utilTmpDir;
+static string *utilTmpDirPtr = NULL;
+static string &utilTmpDir(){
+  if( utilTmpDirPtr == NULL ){
+    utilTmpDirPtr = new dmtcp::string;
+  }
+  return *utilTmpDirPtr;
+}
 
 void dmtcp::Util::writeCoordPortToFile(const char *port, const char *portFile)
 {
@@ -48,10 +54,13 @@ void dmtcp::Util::writeCoordPortToFile(const char *port, const char *portFile)
   }
 }
 
-dmtcp::string dmtcp::Util::getTmpDir()
+dmtcp::string &dmtcp::Util::getTmpDir()
 {
-  JASSERT(utilTmpDir.length() > 0);
-  return utilTmpDir;
+  if( utilTmpDir().length() == 0 ){
+    setTmpDir(getenv(ENV_VAR_TMPDIR));
+  }
+  JASSERT(utilTmpDir().length() > 0);
+  return utilTmpDir();
 }
 
 /*
@@ -72,7 +81,6 @@ dmtcp::string dmtcp::Util::getTmpDir()
 void dmtcp::Util::setTmpDir(const char *tmpdirenv)
 {
   dmtcp::string tmpDir;
-
   char hostname[256];
   memset(hostname, 0, sizeof(hostname));
 
@@ -95,25 +103,28 @@ void dmtcp::Util::setTmpDir(const char *tmpdirenv)
   } else {
     o << "/tmp/dmtcp-" << userName << "@" << hostname;
   }
-  utilTmpDir = o.str();
+  utilTmpDir() = o.str();
 
-  JASSERT(mkdir(utilTmpDir.c_str(), S_IRWXU) == 0 || errno == EEXIST)
-    (JASSERT_ERRNO) (utilTmpDir)
+
+  JASSERT(mkdir(utilTmpDir().c_str(), S_IRWXU) == 0 || errno == EEXIST)
+          (JASSERT_ERRNO) (utilTmpDir())
     .Text("Error creating tmp directory");
 
-  JASSERT(0 == access(utilTmpDir.c_str(), X_OK|W_OK)) (utilTmpDir)
+  JASSERT(0 == access(utilTmpDir().c_str(), X_OK|W_OK)) (utilTmpDir())
     .Text("ERROR: Missing execute- or write-access to tmp dir");
 }
 
 void dmtcp::Util::initializeLogFile(dmtcp::string procname, dmtcp::string prevLogPath)
 {
+
   dmtcp::UniquePid::ThisProcess(true);
 #ifdef DEBUG
   // Initialize JASSERT library here
   dmtcp::ostringstream o;
-  o << utilTmpDir << "/jassertlog."
-    << dmtcp::UniquePid::ThisProcess()
-    << "_";
+  o << getTmpDir();
+  o << "/jassertlog.";
+  o << dmtcp::UniquePid::ThisProcess();
+  o << "_";
   if (procname.empty()) {
     o << jalib::Filesystem::GetProgramName();
   } else {
