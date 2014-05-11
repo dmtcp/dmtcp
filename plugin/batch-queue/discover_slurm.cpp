@@ -59,7 +59,6 @@ public:
           return prefix + ss.str();
       }else{
         range_cur = range_end = range_num_len = -1;
-        with_prefix=false;
       }
     }
 
