@@ -80,9 +80,25 @@ public:
           if( prefix != "" )
             return prefix;
         }else{
-          num = str.substr(pos,next-pos);
-          pos = next + 1;
-          return prefix + num;
+            num = str.substr(pos,next-pos);
+            size_t dash = num.find_first_of("-",0);
+            if( dash == string::npos ){
+              num = str.substr(pos,next-pos);
+              pos = next + 1;
+              return prefix + num;
+            }else{
+              string start = num.substr(0,dash);
+              string end = num.substr(dash+1);
+              range_num_len = end.size();
+              range_cur = atoi(start.c_str());
+              range_end = atoi(end.c_str());
+              stringstream ss;
+              ss << setfill('0');
+              ss << setw(range_num_len) << range_cur;
+              range_cur++;
+              pos = next+1;
+              return prefix + ss.str();
+            }
         }
       }
       if( str[next] == '[' ){
@@ -102,7 +118,7 @@ public:
           with_prefix=true;
           string start = num.substr(0,dash);
           string end = num.substr(dash+1);
-          range_num_len = start.size();
+          range_num_len = end.size();
           range_cur = atoi(start.c_str());
           range_end = atoi(end.c_str());
           stringstream ss;
