@@ -141,7 +141,7 @@ extern "C" int epoll_ctl(int epfd, int op, int fd, struct epoll_event *event)
   DMTCP_PLUGIN_DISABLE_CKPT();
   int ret = _real_epoll_ctl(epfd, op, fd, event);
   if (ret != -1) {
-    JTRACE("epoll fd CTL") (ret) (epfd) (fd) (op);
+    //JTRACE("epoll fd CTL") (ret) (epfd) (fd) (op);
     EpollConnection *con =
       (EpollConnection*) EventConnList::instance().getConnection(epfd);
     con->onCTL(op, fd, event);
