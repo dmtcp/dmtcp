@@ -180,9 +180,15 @@ void dmtcp::SocketConnection::serialize(jalib::JBinarySerializer& o)
 {
   if (domain != -1) {
     // Sometimes _sockType contains SOCK_CLOEXEC/SOCK_NONBLOCK flags.
-    JWARNING((domain == AF_INET || domain == AF_UNIX || domain == AF_INET6)
-             && (type & 077) == SOCK_STREAM)
-      (domain) (type) (protocol);
+    if ((type & 077) == SOCK_DGRAM) {
+      JWARNING(false) (type)
+        .Text("Datagram Sockets not supported. "
+              "Hopefully, this is a short lived connection!");
+    } else {
+      JWARNING((domain == AF_INET || domain == AF_UNIX || domain == AF_INET6)
+               && (type & 077) == SOCK_STREAM)
+        (domain) (type) (protocol);
+    }
     JTRACE("Creating TcpConnection.") (id()) (domain) (type) (protocol);
   }
   memset(&_bindAddr, 0, sizeof _bindAddr);
