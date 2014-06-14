@@ -25,11 +25,9 @@
 #include "threadinfo.h"
 #include "dmtcp.h"
 
-static void restoreAllThreads(void);
 static int restarthread (void *threadv);
 
 static pthread_mutex_t threadStateLock = PTHREAD_MUTEX_INITIALIZER;
-static int ckptSignal = -1;
 
 extern volatile int restoreInProgress;
 extern Thread *motherofall;
@@ -39,7 +37,6 @@ extern Thread *activeThreads;
 extern void *saved_sysinfo;
 
 static int restarthread(void *threadv);
-static void restoreAllThreads(void);
 
 /*
  * struct MtcpRestartThreadArg

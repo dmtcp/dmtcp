@@ -52,7 +52,8 @@ extern "C" {
                  getpid(), __FILE__, __LINE__, __FUNCTION__, ##__VA_ARGS__); \
     if (c == sizeof(buf) - 1) buf[c] = '\n'; \
     /* assign to rc in order to avoid 'unused result' compiler warnings */ \
-    ssize_t rc = write(PROTECTED_STDERR_FD, buf, c + 1); \
+    ssize_t rc __attribute__((unused)); \
+    rc = write(PROTECTED_STDERR_FD, buf, c + 1); \
   } while (0);
 
 #ifdef DEBUG
