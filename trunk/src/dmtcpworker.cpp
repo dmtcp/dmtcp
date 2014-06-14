@@ -316,17 +316,7 @@ dmtcp::DmtcpWorker::DmtcpWorker (bool enableCheckpointing)
   // define "Weak Symbols for each library plugin in libdmtcp.so
   eventHook(DMTCP_EVENT_INIT, NULL);
 
-  /* Acquire the lock here, so that the checkpoint-thread won't be able to
-   * process CHECKPOINT request until we are done with initializeMtcpEngine()
-   */
-  if (initializeMtcpEngine) { // if strong symbol defined elsewhere
-    //WRAPPER_EXECUTION_GET_EXCL_LOCK();
-    initializeMtcpEngine();
-    //WRAPPER_EXECUTION_RELEASE_EXCL_LOCK();
-  } else { // else trying to call weak symbol, which is undefined
-    JASSERT(false) .Text("initializeMtcpEngine should not be called");
-  }
-
+  initializeMtcpEngine();
   informCoordinatorOfRUNNINGState();
 }
 
@@ -479,7 +469,6 @@ void dmtcp::DmtcpWorker::informCoordinatorOfRUNNINGState()
 
 void dmtcp::DmtcpWorker::waitForStage1Suspend()
 {
-  static int initialStartup = 1;
   JTRACE("running");
 
   WorkerState::setCurrentState (WorkerState::RUNNING);

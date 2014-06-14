@@ -16,7 +16,6 @@ extern "C" int dmtcp_unique_ckpt_enabled(void)
 
 void updateCkptDir()
 {
-  static int firstRun = 1;
   const char *ckptDir = dmtcp_get_ckpt_dir();
   string baseDir;
   if (strstr(ckptDir, dmtcp_get_computation_id_str()) != NULL) {

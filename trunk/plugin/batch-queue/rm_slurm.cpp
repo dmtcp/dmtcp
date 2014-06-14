@@ -63,7 +63,6 @@ void slurm_restore_env()
   char line[MAX_ENV_LINE];
   bool host_env = false, port_env = false;
   bool tmpdir_env = false;
-  int len;
   while( fgets(line,MAX_ENV_LINE,fp) != NULL ){
     int len = strnlen(line, MAX_ENV_LINE);
     if( line[len-1] == '\n' ){
@@ -284,7 +283,7 @@ bool isSlurmTmpDir(dmtcp::string &str)
   }
   dmtcp::string tpath(env_tmpdir);
   // check if tpath is prefix of str
-  int pos;
+  size_t pos;
   for(pos = 0; pos < tpath.size(); pos++){
       if( str[pos] != tpath[pos] ){
           break;
