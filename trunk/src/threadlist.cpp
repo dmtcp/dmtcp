@@ -294,12 +294,11 @@ static void *checkpointhread (void *dummy)
   }
 
   while (1) {
-    restoreInProgress = 0;
-
     /* Wait a while between writing checkpoint files */
     JTRACE("before callbackSleepBetweenCheckpoint(0)");
     callbackSleepBetweenCheckpoint(0);
 
+    restoreInProgress = 0;
     suspendThreads();
     SigInfo::saveSigHandlers();
     /* Do this once, same for all threads.  But restore for each thread. */
