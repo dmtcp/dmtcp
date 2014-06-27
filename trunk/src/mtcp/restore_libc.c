@@ -53,9 +53,11 @@ int mtcp_sys_errno;
 # include <sys/prctl.h>
 /* man arch_prctl has both signatures, and prctl.h above has no declaration.
  *  int arch_prctl(int code, unsigned long addr);
- *  int arch_prctl(int code, unsigned long addr);
+ *  int arch_prctl(int code, unsigned long *addr);
+ *
+ *  We use the first declaration for now.
  */
-int arch_prctl();
+int arch_prctl(int code, unsigned long addr);
 #if 0
 // I don't see why you would want a direct kernel call inside DMTCP.
 // Removing this will remove the dependency on mtcp_sys.h.  - Gene
@@ -76,12 +78,12 @@ static unsigned long int myinfo_gs;
 /* ARE THE _GS OPERATIONS NECESSARY? */
 #  define tls_get_thread_area(uinfo) \
      ( arch_prctl(ARCH_GET_FS, \
-         (unsigned long int)(&(((struct user_desc *)uinfo)->base_addr))), \
-       arch_prctl(ARCH_GET_GS, &myinfo_gs) \
+         (unsigned long)(&(((struct user_desc *)uinfo)->base_addr))), \
+       arch_prctl(ARCH_GET_GS, (unsigned long) &myinfo_gs) \
      )
 #  define tls_set_thread_area(uinfo) \
     ( arch_prctl(ARCH_SET_FS, \
-	*(unsigned long int *)&(((struct user_desc *)uinfo)->base_addr)), \
+	*(unsigned long*)&(((struct user_desc *)uinfo)->base_addr)), \
       arch_prctl(ARCH_SET_GS, myinfo_gs) \
     )
 # endif
