@@ -362,7 +362,7 @@ char mtcp_readhex (int fd, VA *value)
 
 int mtcp_readmapsline (int mapsfd, Area *area)
 {
-  int mtcp_sys_errno;
+  int mtcp_sys_errno __attribute__((unused));
   char c, rflag, sflag, wflag, xflag;
   int i;
   off_t offset;
