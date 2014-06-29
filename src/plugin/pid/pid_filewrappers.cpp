@@ -140,6 +140,14 @@ extern "C" FILE *fopen64 (const char* path, const char* mode)
   return _real_fopen64(newpath, mode);
 }
 
+extern "C" int fclose(FILE *fp)
+{
+  // This wrapper is needed to ensure that we call the "GLIBC_2.1" version in
+  // 32-bit systems.  Ideally, this should be done only in the plugin that uses
+  // fclose (e.g. File plugin), but doing it here will work as well.
+  return _real_fclose(fp);
+}
+
 extern "C" int __xstat(int vers, const char *path, struct stat *buf)
 {
   char tmpbuf[PATH_MAX];

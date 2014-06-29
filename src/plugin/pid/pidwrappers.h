@@ -124,7 +124,6 @@ extern "C"
   MACRO(fcntl)              \
   MACRO(open)               \
   MACRO(open64)             \
-  MACRO(fopen)              \
   MACRO(fopen64)            \
   MACRO(__xstat)            \
   MACRO(__xstat64)          \
@@ -137,11 +136,16 @@ extern "C"
   MACRO(semctl)             \
   MACRO(msgctl)
 
+#define FOREACH_FOPEN_WRAPPER(MACRO)\
+  MACRO(fopen)              \
+  MACRO(fclose)
+
 # define PIDVIRT_ENUM(x) pid_enum_ ## x
 # define PIDVIRT_GEN_ENUM(x) PIDVIRT_ENUM(x),
   typedef enum {
     FOREACH_PIDVIRT_WRAPPER(PIDVIRT_GEN_ENUM)
     FOREACH_SYSVIPC_CTL_WRAPPER(PIDVIRT_GEN_ENUM)
+    FOREACH_FOPEN_WRAPPER(PIDVIRT_GEN_ENUM)
     numPidVirtWrappers
   } PidVirtWrapperOffset;
 
@@ -207,6 +211,7 @@ extern "C"
   int _real_open64(const char *pathname, int flags, ...);
   FILE* _real_fopen(const char *path, const char *mode);
   FILE* _real_fopen64(const char *path, const char *mode);
+  int _real_fclose(FILE *fp);
   int _real_xstat(int vers, const char *path, struct stat *buf);
   int _real_xstat64(int vers, const char *path, struct stat64 *buf);
   int _real_lxstat(int vers, const char *path, struct stat *buf);
