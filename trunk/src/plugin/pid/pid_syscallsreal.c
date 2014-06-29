@@ -55,9 +55,13 @@ static int pid_wrappers_initialized = 0;
 // semctl, msgctl and shmctl. dlsym(RTLD_NEXT, ...) returns the address of the
 // GLIBC_2.0 version, whereas we need the GLIBC_2.2 version. In 64-bit glibc,
 // there is only one version.
+// Similarly, for fopen/fclose/fdopen, there is a GLIBC_2.1 in addition to
+// GLIBC_2.0 version.
 # define GET_SYSVIPC_CTL_FUNC_ADDR(name) GET_FUNC_ADDR_V(name, "GLIBC_2.2")
+# define GET_FOPEN_FUNC_ADDR(name) GET_FUNC_ADDR_V(name, "GLIBC_2.1")
 #else
 # define GET_SYSVIPC_CTL_FUNC_ADDR(name) GET_FUNC_ADDR(name)
+# define GET_FOPEN_FUNC_ADDR(name) GET_FUNC_ADDR(name)
 #endif
 
 LIB_PRIVATE
@@ -66,6 +70,7 @@ void pid_initialize_wrappers()
   if (!pid_wrappers_initialized) {
     FOREACH_PIDVIRT_WRAPPER(GET_FUNC_ADDR);
     FOREACH_SYSVIPC_CTL_WRAPPER(GET_SYSVIPC_CTL_FUNC_ADDR);
+    FOREACH_FOPEN_WRAPPER(GET_FOPEN_FUNC_ADDR);
     pid_wrappers_initialized = 1;
   }
 }
@@ -77,10 +82,10 @@ void pid_initialize_wrappers()
       pid_initialize_wrappers(); \
     fn = pid_real_func_addr[PIDVIRT_ENUM(name)]; \
     if (fn == NULL) { \
-      fprintf(stderr, "*** DMTCP: Error: lookup failed for %s.\n" \
+      fprintf(stderr, "%s:%d: *** DMTCP: Error: lookup failed for %s.\n" \
                       "           The symbol wasn't found in current library" \
                       " loading sequence.\n" \
-                      "    Aborting.\n", #name); \
+                      "    Aborting.\n", __FILE__, __LINE__, #name); \
       abort(); \
     } \
   }
@@ -374,6 +379,10 @@ FILE* _real_fopen(const char *path, const char *mode) {
 
 FILE* _real_fopen64(const char *path, const char *mode) {
   REAL_FUNC_PASSTHROUGH_TYPED(FILE*, fopen) (path, mode);
+}
+
+int _real_fclose(FILE *fp) {
+  REAL_FUNC_PASSTHROUGH(fclose) (fp);
 }
 
 int _real_xstat(int vers, const char *path, struct stat *buf) {
