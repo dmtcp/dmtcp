@@ -3,6 +3,22 @@
 FIXME:  This was valid with respect to DMTCP-2.1.  It must be updated
         for DMTCP-2.2 and beyond.
 
+One of the trickier parts of updating MTCP is tls_get_thread_area,
+since it seems like it is implemented differently on each architecture.
+A problem is that pthread_t is defined only as 'unsigned long' for
+users, when inside glibc it is really 'struct pthread *'.  To find
+it and its size, the easiest way is:
+gdb test/pthread1
+(gdb) b pthread_create
+(gdb) r
+(gdb) step
+(gdb) p sizeof(struct pthread)
+(gdb) ptype struct pthread
+(gdb) dir GLIBC_ROOT_DIR/nptl
+(gdb) where
+
+===
+
 [ This considers only porting to a new CPU in Linux, and not to porting to a
   new operating system.  That would require a discussion of other issues. ]
 

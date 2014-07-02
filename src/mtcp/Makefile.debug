@@ -59,7 +59,7 @@ gdb_run: ../../bin/mtcp_restart ckpt_dmtcp1_test.dmtcp
 	  ckpt_dmtcp1_test.dmtcp
 ckpt_dmtcp1_test.dmtcp: ../../test/dmtcp1 restore_libc.o
 	../../bin/dmtcp_launch -i3 ../../test/dmtcp1 &
-	sleep 5 && ../../bin/dmtcp_command --quit
+	sleep 8 && ../../bin/dmtcp_command --quit
 	rm -f `ls -t dmtcp_restart_script*.sh`
 	mv `ls -t ckpt_dmtcp1_*.dmtcp | head -1` ckpt_dmtcp1_test.dmtcp.gz
 	gunzip ckpt_dmtcp1_test.dmtcp.gz

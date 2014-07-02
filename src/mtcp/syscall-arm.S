@@ -86,7 +86,7 @@ ENTRY (mtcp_syscall)
 	RETINSTR(cc, lr)
 #ifdef MTCP_SYS_ERRNO_ON_STACK
 // r1 has &mtcp_sys_errno and r0 has encoded errno
-	neg	r0, r0 /* If r0-4096 was negate, 4096-r0 is the errno. */
+	neg	r0, r0 /* If r0-4096 was negative, 4096-r0 is the errno. */
 	str	r0, [r1, #0]
 	mvn	r0, #0 /* return -1 */
 	mov	pc, lr
