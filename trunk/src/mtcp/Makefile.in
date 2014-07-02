@@ -106,8 +106,16 @@ syscall-arm.o: syscall-arm.S
 # Try 'make gdb' before 'make check' if you want debugging information
 #   available in the case of 'make check' dumping core.
 check: $(targetdir)/bin/$(MTCP_RESTART) ckpt_dmtcp1_test.dmtcp
+        @echo 'Expected result: "Error 99" (MTCP transfered to DMTCP correctly)'
 	$(targetdir)/bin/$(MTCP_RESTART) --text-offset `./text_offset.sh \
 	  $(targetdir)/bin/$(MTCP_RESTART)` ckpt_dmtcp1_test.dmtcp
+
+ckpt_dmtcp1_test.dmtcp: ../../test/dmtcp1 restore_libc.o
+	../../bin/dmtcp_launch -i3 ../../test/dmtcp1 &
+	sleep 8 && ../../bin/dmtcp_command --quit
+	rm -f `ls -t dmtcp_restart_script*.sh`
+	mv `ls -t ckpt_dmtcp1_*.dmtcp | head -1` ckpt_dmtcp1_test.dmtcp.gz
+	gunzip ckpt_dmtcp1_test.dmtcp.gz
 
 gdb:
 	make -f Makefile.debug gdb

@@ -50,8 +50,8 @@ bool dmtcp::DmtcpWorker::_exitInProgress = false;
 void restoreUserLDPRELOAD()
 {
   /* A call to setenv() can result in a call to malloc(). The setenv() call may
-   * also grab an low-level libc lock before calling malloc. The malloc()
-   * wrapper, if present, will try to acquire the wrapper-lock. This can lead
+   * also grab a low-level libc lock before calling malloc. The malloc()
+   * wrapper, if present, will try to acquire the wrapper lock. This can lead
    * to a deadlock in the following scenario:
    *
    * T1 (main thread): fork() -> acquire exclusive lock
@@ -59,14 +59,13 @@ void restoreUserLDPRELOAD()
    *                   malloc -> wait for wrapper-exec lock.
    * T1: setenv() -> block on low-level libc lock (held by T2).
    *
-   * The simple solution is to not call setenv from DMTCP, and use putenv
-   * instead. This requires larger change.
+   * The simpler solution would have been to not call setenv from DMTCP, and
+   * use putenv instead. This would require larger change.
    *
-   * Another solution is to set LD_PRELOAD to "" before user main(). This is as
-   * good as unsetting it.  Later, the ckpt-thread can unset it if it is still
-   * NULL, but then there is a possibility of a race between user code and
-   * ckpt-thread.
-   *
+   * The solution used here is to set LD_PRELOAD to "" before * user main().
+   * This is as good as unsetting it.  Later, the ckpt-thread * can unset it
+   * if it is still NULL, but then there is a possibility of a race between
+   * user code and ckpt-thread.
    */
 
   // We have now successfully used LD_PRELOAD to execute prior to main()

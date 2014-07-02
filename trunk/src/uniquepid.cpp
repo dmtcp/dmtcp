@@ -27,6 +27,7 @@
 #include "../jalib/jserialize.h"
 #include "syscallwrappers.h"
 #include "protectedfds.h"
+#include "shareddata.h"
 
 using namespace dmtcp;
 

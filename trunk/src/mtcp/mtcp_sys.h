@@ -82,8 +82,10 @@
 //======================================================================
 
 // Rename it for cosmetic reasons.  We export mtcp_inline_syscall.
+// In gcc-4.8, we now need "<space>, ##args" below.
+//   SEE:  http://gcc.gnu.org/onlinedocs/cpp/Variadic-Macros.html
 #define mtcp_inline_syscall(name, num_args, args...) \
-                                        INLINE_SYSCALL(name, num_args, args)
+                                        INLINE_SYSCALL(name, num_args , ##args)
 
 /* We allocate this in mtcp_safemmap.c.  Files using mtcp_sys.h
  * are also linking with mtcp_safemmap.c.

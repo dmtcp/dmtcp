@@ -326,7 +326,7 @@ static int get_tls_segreg(void)
   asm volatile ("movw %%gs,%0" : "=g" (tlssegreg)); /* any general register */
 #elif __x86_64__
   /* q = a,b,c,d for i386; 8 low bits of r class reg for x86_64 */
-  asm volatile ("movl %%fs,%0" : "=q" (tlssegreg));
+  asm volatile ("movw %%fs,%0" : "=g" (tlssegreg));
 #elif __arm__
   asm volatile ("mrc     p15, 0, %0, c13, c0, 3  @ load_tp_hard\n\t"
                 : "=r" (tlssegreg));

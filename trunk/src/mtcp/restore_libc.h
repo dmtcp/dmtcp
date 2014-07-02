@@ -80,7 +80,7 @@ extern "C" {
 #ifdef __i386__
 typedef unsigned short segreg_t;
 #elif __x86_64__
-typedef unsigned int segreg_t;
+typedef unsigned short segreg_t;
 #elif __arm__
 typedef unsigned int segreg_t;
 #endif
