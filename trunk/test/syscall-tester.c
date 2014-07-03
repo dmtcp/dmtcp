@@ -908,7 +908,9 @@ int fcntl_test(int fd, int cmd, ...)
   int ret, save_errno;
   va_list ap;
   int arg;
+#ifdef F_FREESP
   struct flock *flp = NULL;
+#endif
 
   /* fcntl is really special, don't use the 'passed' construct here */
 
@@ -3151,6 +3153,7 @@ int expect_ptr(int expected, void *result)
 
       return FAILURE;
     }
+  return FAILURE;
 }
 
 /* handle something where result >= 0 is success */
@@ -3292,7 +3295,6 @@ int BasicFile(void)
 {
   char tf[NAMEBUF] = {0};
   int fd;
-  FILE *fp;
   int passed;
   int block = SUCCESS;
 
@@ -3571,7 +3573,6 @@ int BasicUid(void)
 {
   char tf[NAMEBUF] = {0};
   int fd;
-  FILE *fp;
   int passed;
   int block = SUCCESS;
   uid_t uid;
@@ -3780,7 +3781,6 @@ int BasicChdir(void)
   char *cwdfile = "_.-'^`-._";
   char *cwd = NULL;
   char *cwd_chdir = NULL;
-  struct stat buf;
 
   xtmpnam(tf);
 
@@ -3850,7 +3850,6 @@ int BasicFchdir(void)
   char *cwd = NULL;
   char *cwd_chdir = NULL;
   int tmpfd;
-  struct stat buf;
 
   xtmpnam(tf);
 
@@ -3914,7 +3913,6 @@ int BasicFchdir(void)
 int BasicMknod(void)
 {
   char tf[NAMEBUF] = {0};
-  int fd;
   int passed;
   int block = SUCCESS;
 
@@ -3981,8 +3979,10 @@ int BasicLink(void)
   int block = SUCCESS;
   struct stat buf;
   struct stat buf2;
+#ifndef LINUX
   uid_t uid;
   gid_t gid;
+#endif
   int ls; /* symlink size in bytes */
 
   xtmpnam(tf);
@@ -4112,12 +4112,10 @@ int BasicRename(void)
 int BasicTruncation(void)
 {
   char tf[NAMEBUF] = {0};
-  char ntf[NAMEBUF] = {0};
   int fd;
   int passed;
   int block = SUCCESS;
   struct stat buf;
-  struct stat buf2;
 
   xtmpnam(tf);
 
@@ -4165,12 +4163,10 @@ int BasicTruncation(void)
 int BasicFcntlTruncation(void)
 {
   char tf[NAMEBUF] = {0};
-  char ntf[NAMEBUF] = {0};
   int fd;
   int passed;
   int block = SUCCESS;
   struct stat buf;
-  struct stat buf2;
   struct flock fl;
 
   xtmpnam(tf);

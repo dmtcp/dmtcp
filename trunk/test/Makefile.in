@@ -149,6 +149,10 @@ posix-mq%: posix-mq%.c
 inotify%: inotify%.c
 	-$(CC) -o $@ $< $(CFLAGS) -lpthread
 
+#ignore printf format errors
+syscall-tester: syscall-tester.c
+	-$(CC) -o $@ $< $(CFLAGS) -Wno-format
+
 # dlopen will dlopen/dlclose libdlopen-lib[12].so
 libdlopen-lib1.so: dlopen1.c
 	${CC} ${CFLAGS} -shared -fPIC  -DLIB1 -o libdlopen-lib1.so $<
