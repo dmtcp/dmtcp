@@ -2,6 +2,19 @@ DMTCP NEWS -- history of user-visible changes.
 
 Please send DMTCP bug reports via <dmtcp-forum@lists.sourceforge.net>
 
+Version 2.3 release notes
+=========================
+This is primarily a bug fix release.  However, if you are using DMTCP
+for the ARM v7 CPU, or if you are using DMTCP either with the InfiniBand
+network or with the SLURM batch system, then it is strongly recommended
+to upgrade.
+
+The primary changes for this release are:
+* Bug fix affecting building for ARM on some recent armv7a CPUs.
+* Improvements in support for InfiniBand network and for SLURM
+  batch system.
+* Other smaller bug fixes.
+
 Version 2.2.1 release notes
 =========================
 This is a bug fix release. The previous release had a bug when configured
