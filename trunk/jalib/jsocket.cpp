@@ -410,7 +410,7 @@ bool jalib::JChunkReader::readOnce()
     if ( cnt > 0 )
       _read += cnt;
   }
-  return ready();
+  return _read > 0;
 }
 
 /*!
