@@ -1,0 +1,45 @@
+				DMTCP Heuristics
+
+This is intended as one of a series of informal documents to describe
+and partially document some of the more subtle DMTCP data structures
+and algorithms.  These documents are snapshots in time, and they
+may become somewhat out-of-date over time (and hopefully also refreshed
+to re-sync them with the code again).
+
+Recall that a DMTCP computation consists of all processes connected to
+a single coordinator.  They are checkpointed and restarted as a unit.
+Life would be simple if the "closed world assumption" were true:  No
+process in this closed world refers to any artifact outside of the
+closed world.  Unfortunately, that is not true.  The exceptions must
+be handled heuristically on a case-by-case basis.  Those heuristically
+handled exceptions are documented here.  (Heuristics for specific end-user
+code can also be added by end users through the use of plugins.)
+
+1.  Ports to certain protocols are blacklisted.  So, they are not drained
+    on checkpoint, and they are created as dead sockets on restart.
+    A current list includes:
+    a.  LDAP - port 389, 636
+    b.  DNS - port 53
+
+2.  NSCD (Name Service Caching Daemon):  Zero out the shared memory area
+    between the NSCD daemon and the application on checkpoint.  On restart
+    or resume, glibc detects that the area has been zeroed out, and it
+    stops using the NSCD daemon (presumably under the assumption that the
+    NSCD daemon died).  It makes the related system calls with no cachine.
+
+3.  If a file, /proc/PID/xxx is open at checkpoint time, then at restart
+    time, the open file descriptor must point to the new PID.
+
+4.  dmtcp_launch unsets the DISPLAY environment variable, since DMTCP
+    does not directly support graphics.  for this reason, some editors
+    (vim, emacs) and other programs may lose the use of the mouse.
+
+5.  Java:  usually runs with no change.  For some rare Java implementations,
+    it may be necessary to run with  java -Xmx<size>.
+
+6.  GNU screen:  this is a setuid process.  The user does not have setuid
+    privileges on restart.  So, dmtcp_launch makes a private copy
+    in $DMTCP_TMPDIR.  The private copy has no setuid privilege.  DMTCP
+    runs the private copy with the environment variable
+    SCREENDIR=$DMTCP_TMPIDR/uscreens
+    to avoid the default use of /var by screen.

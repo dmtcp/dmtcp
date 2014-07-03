@@ -1,0 +1,12 @@
+- mtcp_sys_memcpy, mtcp_sys_memcmp doing byte-at-a-time copy for simplicity
+  --- Go back and implement more efficient version from glibc?
+  Only need to keep it if we use mtcp_maybebpt when no libc.so avail.
+
+- Delete NOTES-x86_64 when no longer needed (or keep them around for others?).
+
+http://sourceware.org/ml/libc-ports/2006-09/msg00022.html
+http://sourceware.org/ml/libc-ports/2006-08/msg00017.html
+  This claims that the port to ARM has glibc support for Thread Local Storage
+	descriptors, and that much of it is generic and could eventually
+	be put in the generic branch.  It that happens, then we might
+	be able to use it.

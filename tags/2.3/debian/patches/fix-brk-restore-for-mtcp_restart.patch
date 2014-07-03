@@ -1,0 +1,38 @@
+Description: Fix brk restore for mtcp_restart.
+ To avoid conflicts with restore-area.
+ .
+ dmtcp (2.2-1) unstable; urgency=low
+ .
+   * New upstream release 2.2.
+   * Changing distribution from experimental to unstable.
+   * Updated debian standards version to 3.9.5.
+   * Removed libmtcp and libdmtcpaware packages.
+   * Run make check in "slow" mode.
+   * Updated copyright file.
+   * Added debian/NEWS file.
+   * Removed some stale files from install procedure.
+   * Upload sponsored by Yaroslav Halchenko <debian@onerussian.com>
+Author: Kapil Arya <kapil@ccs.neu.edu>
+
+---
+The information above should follow the Patch Tagging Guidelines, please
+checkout http://dep.debian.net/deps/dep3/ to learn about the format. Here
+are templates for supplementary fields that you might want to add:
+
+Origin: upstream (svn rev 2752)
+
+--- dmtcp-2.2.orig/src/mtcp/mtcp_restart.c
++++ dmtcp-2.2/src/mtcp/mtcp_restart.c
+@@ -301,6 +301,12 @@ static void restore_brk(VA saved_brk, VA
+     MTCP_PRINTF("sbrk(%p): errno: %d (bad heap)\n",
+ 		 saved_brk, mtcp_sys_errno );
+     mtcp_abort();
++  } else if (new_brk > current_brk) {
++    // Now unmap the just mapped extended heap. This is to ensure that we don't
++    // have overlap with the restore region.
++    if (mtcp_sys_munmap(current_brk, new_brk - current_brk) == -1) {
++      MTCP_PRINTF("***WARNING: munmap failed: %d\n", mtcp_sys_errno);
++    }
+   }
+   if (new_brk != saved_brk) {
+     if (new_brk == current_brk && new_brk > saved_brk)

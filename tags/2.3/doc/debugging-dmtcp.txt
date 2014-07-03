@@ -1,0 +1,65 @@
+This is intended as one of a series of informal documents to describe
+and partially document some of the more subtle DMTCP data structures
+and algorithms.  These documents are snapshots in time, and they
+may become somewhat out-of-date over time (and hopefully also refreshed
+to re-sync them with the code again).  (Updated Feb., 2014)
+
+===
+
+There are several ways to debug.  One simple way, is:
+  ./configure --enable-debug
+  make -j clean
+  make -j check-dmtcp1
+
+If there are multiple processes, then a log from each process will
+be in its own file in /tmp/dmtcp-USER@HOST/jassertlog*
+
+===
+
+If debugging under gdb, and the process exits before you can examine
+the cause, try:
+ (gdb) break FNC
+ [ for FNC among:  exit, _exit, _Exit, mtcp_abort ]
+
+===
+
+If the bug occurs during launch or possibly in checkpoint-resume, try:
+  gdb --args dmtcp_launch -i5 test/dmtcp1
+
+If you want to stop GDB when DMTCP first takes control, do:
+  (gdb) break 'dmtcp::DmtcpWorker::DmtcpWorker(bool)'
+  [ and yes, to making a "breakpoint pending on future shared library load" ]
+
+===
+
+For low-level debugging on restart, try:
+  cd src/mtcp
+  make tidy
+  // Optionally modify a file in the mtcp directory
+  make -f Makefile.debug
+  make gdb
+  // Follow instructions:  e.g., paste 'add-symbol-file ...' msg into GDB
+  // If the bug is still further, then use the 'hang or crash' trick.  Add:
+  {int x=1; while(x);}
+  // and look for whether it hangs (reaches this far) or crashes
+  // Move the while loop until you locate the bug.
+  // If GDB is fragile, a trick that may work is to run without GDB,
+  //    and then attach at the 'while' loop.  Alternatively, if in GDB:
+  (gdb) detach
+  gdb test/dmtcp1 PID    # for the appropriate pid
+  // GDB should be more robust after this.
+
+===
+
+      If debugging after restart, it is best to use 'gdb test/dmtcp1 PID'
+  (e.g., if debugging dmtcp1), in order to ensure that GDB understands
+  the full context.  If you want to capture DMTCP, add a 'sleep' or 'while'
+  loop at the beginning of threadinfo.c:void Thread_RestoreAllThreads()
+  to capture DMTCP early; or just before 'restarthread(motherofall)' at
+  the end of Thread_RestoreAllThreads() to capture DMTCP with all threads
+  restored.
+
+      Separately, if looking at DMTCP in GDB, one thread will be the
+  checkpoint thread.  You'll recognize it, because of the function
+  checkpointhread() on the stack.  It is the second thread on launch,
+  but it can be any thread on restart.

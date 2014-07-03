@@ -1,0 +1,57 @@
+## The initial draft of this writeup was provided by Joshua Louie.
+
+Restoring CWD and files on restart:
+==================================
+
+Key:
+InitWD - Work directory process started in
+CkptWD - Work directory process was in when checkpoint occurred
+FilePath - Absolute path to a file
+RestoreWD - Work directory process is restored in
+
+Example:
+InitWD - /tmp/init_wd
+CkptWD - /tmp/init_wd/subdir
+FilePath1 - /tmp/init_wd/file1
+FilePath2 - /tmp/somewhere/file2
+RestoreWD - /tmp/restore_wd
+
+A. Restore CWD: (Implemented in 2.1)
+====================================
+
+-+------------------------------------------------------------------------------
+#| Steps                                    | Example
+-+------------------------------------------------------------------------------
+1| Determine relative relationship between  | ./subdir
+ | InitWD and CkptWD                        |
+++------------------------------------------+-----------------------------------
+2| Attempt to cd to relative relationship   | cd ./subdir (Should
+ | get us to /tmp/restore_wd/subdir)        |
+-+------------------------------------------+-----------------------------------
+3| If #2 fails, go to CkptWD                | cd /tmp/init_wd/subdir
+-+------------------------------------------+-----------------------------------
+
+
+B. Determine filepaths: (Partially implementation in 2.1)
+=========================================================
+
+-+------------------------------------------------------------------------------
+#| Steps                                    | Example
+-+------------------------------------------------------------------------------
+1| Determine relative relationship between  | ../file1
+ | CkptWD and FilePath1, assuming FilePath1 |
+ | is located within InitWD                 |
+-+------------------------------------------+-----------------------------------
+2| Attempt to open FilePath1                | fopen("../file1", ...);
+-+------------------------------------------+-----------------------------------
+3| If #2 fails, try absolute path of        | fopen("/tmp/init_wd/file1",...)
+ | FilePath1
+-+------------------------------------------+-----------------------------------
+4| If #2 and #3 fails, then error out       |
+-+------------------------------------------+-----------------------------------
+5| Determine relative relationship between  | /tmp/somewhere/file2
+ | CkptWD and FilePath2, assuming FilePath2 | (Because file2 is not located
+ | is located within InitWD                 |  within /tmp/init_wd)
+-+------------------------------------------+-----------------------------------
+6| Attempt to open FilePath2                | fopen("/tmp/somewhere/file2", ...)
+-+------------------------------------------+-----------------------------------

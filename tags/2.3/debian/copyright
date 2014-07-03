@@ -1,0 +1,171 @@
+Format: http://svn.debian.org/wsvn/dep/web/deps/dep5.mdwn?op=file&rev=166
+Upstream-Name: dmtcp
+Upstream-Contact: Kapil Arya <kapil@ccs.neu.edu>
+Source: http://www.dmtcp.sourceforge.net
+
+Files: *
+Copyright: 2006-2013, Jason Ansel <jansel@csail.mit.edu>
+           2006-2013, Kapil Arya <kapil@ccs.neu.edu>
+           2006-2013, Gene Cooperman <gene@ccs.neu.edu>
+License: LGPL-3
+
+Files: debian/*
+Copyright: 2011-2014, Kapil Arya <kapil@ccs.neu.edu>
+License: GPL-3
+
+Files: opensuse/dmtcp.spec
+Copyright: 2012, SUSE LINUX Products GmbH, Nuernberg, Germany.
+           2012-2014, Kapil Arya <kapil@ccs.neu.edu>
+License: LGPL-3
+
+Files: jalib/*
+Copyright: 2005-2011, Jason Ansel <jansel@csail.mit.edu>
+License: LGPL-3
+
+Files: src/trampolines.*
+Copyright: 2006-2013, Kapil Arya <kapil@ccs.neu.edu>
+           2006-2013, Tyler Denniston <tyler@ccs.neu.edu>
+License: LGPL-3
+
+Files: src/plugin/ipc/event/eventwrappers.cpp
+Copyright: 2012, Kapil Arya <kapil@ccs.neu.edu>
+           2012, Gene Cooperman <gene@ccs.neu.edu>
+           2012, Rohan Garg <rohgarg@ccs.neu.edu>
+License: LGPL-3
+
+Files: src/plugin/ipc/event/util_descriptor.*
+Copyright: 2012, Onyeka Igabari
+License: LGPL-3
+
+Files: plugin/ptrace/*
+Copyright: 2009-2012, Ana-Maria Visan <amvisan@ccs.neu.edu>
+           2009-2012, Kapil Arya <kapil@ccs.neu.edu>
+           2009-2012, Gene Cooperman <gene@ccs.neu.edu>
+License: LGPL-3
+
+Files: src/glibcsystem.cpp
+Copyright: 1991-2000,2002,2003,2005,2007 Free Software Foundation, Inc.
+License: LGPL-2.1
+
+Files: include/dmtcpalloc.h
+Copyright: 2002 Pete Isensee <PKIsensee@msn.com>
+License: LGPL-3
+
+Files: src/mtcp/sysdep-*
+Copyright: 1991-2000,2002,2003,2005,2007 Free Software Foundation, Inc.
+License: LGPL-2.1
+
+Files: src/mtcp/NOTES-x86_64/*.[hS]
+Copyright: 1991-2000,2002,2003,2005,2007 Free Software Foundation, Inc.
+License: LGPL-2.1
+
+Files: src/mtcp/syscall-*.s
+Copyright: 2005, 2009 Free Software Foundation, Inc.
+License: LGPL-2.1
+
+Files: plugin/batch-queue/*
+Copyright: 2012-2013, Artem Y. Polyakov <artpol84@gmail.com>
+License: LGPL-3
+
+Files: contrib/infiniband/*
+Copyright: 2011-2013 Greg Kerr <kerr.g@neu.edu>
+           2011-2013 Jiajun Cao <jiajun@ccs.neu.edu>
+           2011-2013 Kapil Arya <kapil@ccs.neu.edu>
+           2011-2013 Gene Cooperman <gene@ccs.neu.edu>
+License: GPL-3
+
+Files: contrib/infiniband/examples/*
+Copyright: 2005, Topspin Communications
+License: GPL-2
+
+Files: test/syscall-tester
+Copyright: 1990-2007, Condor Team, University of Wisconsin-Madison, WI.
+License: Apache-2.0
+
+License: LGPL-3
+ This package is free software; you can redistribute it and/or
+ modify it under the terms of the GNU Lesser General Public
+ License as published by the Free Software Foundation; either
+ version 3 of the License, or (at your option) any later version.
+ .
+ This package is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ Lesser General Public License for more details.
+ .
+ You should have received a copy of the GNU Lesser General Public
+ License along with this package; if not, write to the Free Software
+ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
+ .
+ On Debian systems, the complete text of the GNU Lesser General
+ Public License can be found in `/usr/share/common-licenses/LGPL-3'.   
+
+License: GPL-3
+ This package is free software; you can redistribute it and/or
+ modify it under the terms of the GNU Lesser General Public
+ License as published by the Free Software Foundation; either
+ version 3 of the License, or (at your option) any later version.
+ .
+ This package is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ Lesser General Public License for more details.
+ .
+ You should have received a copy of the GNU Lesser General Public
+ License along with this package; if not, write to the Free Software
+ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
+ .
+ On Debian systems, the complete text of the GNU Lesser General
+ Public License can be found in `/usr/share/common-licenses/GPL-3'.   
+
+License: GPL-2
+ This program is free software; you can redistribute it and/or
+ modify it under the terms of the GNU General Public License
+ as published by the Free Software Foundation; either version 2
+ of the License, or (at your option) any later version.
+ .
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ GNU General Public License for more details.
+ .
+ You should have received a copy of the GNU General Public License
+ along with this program; if not, write to the Free Software
+ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301, USA
+ .
+ On Debian systems, the complete text of the GNU Lesser General
+ Public License can be found in `/usr/share/common-licenses/GPL-2'.
+
+License: LGPL-2.1
+ This library is free software; you can redistribute it and/or
+ modify it under the terms of the GNU Lesser General Public
+ License as published by the Free Software Foundation; either
+ version 2.1 of the License, or (at your option) any later version.
+ .
+ This library is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ Lesser General Public License for more details.
+ .
+ You should have received a copy of the GNU Lesser General Public
+ License along with this library; if not, write to the Free Software
+ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
+ .
+ On Debian systems, the complete text of the GNU Lesser General
+ Public License can be found in `/usr/share/common-licenses/LGPL-2.1'.   
+
+License: Apache-2.0
+ Licensed to You under the Apache License, Version 2.0
+ (the "License"); you may not use this file except in compliance with
+ the License.  You may obtain a copy of the License at
+ .
+      http://www.apache.org/licenses/LICENSE-2.0
+ .
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ .
+ On Debian systems, the full text of the Apache Software License version 2 can
+ be found in the file `/usr/share/common-licenses/Apache-2.0'.

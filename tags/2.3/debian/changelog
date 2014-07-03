@@ -1,0 +1,90 @@
+dmtcp (2.3-1) unstable; urgency=low
+
+  * New upstream release 2.3.
+  * Remove stale dependency on libmtcp1.
+  * Upload sponsored by Yaroslav Halchenko <debian@onerussian.com>
+
+ -- Kapil Arya <kapil@ccs.neu.edu>  Thu, 12 Jun 2014 19:51:02 -0400
+
+dmtcp (2.2-1) unstable; urgency=low
+
+  * New upstream release 2.2.
+  * Changing distribution from experimental to unstable.
+  * Updated debian standards version to 3.9.5.
+  * Removed libmtcp and libdmtcpaware packages.
+  * Run make check in "slow" mode.
+  * Updated copyright file.
+  * Added debian/NEWS file.
+  * Removed some stale files from install procedure.
+  * Upload sponsored by Yaroslav Halchenko <debian@onerussian.com>
+
+ -- Kapil Arya <kapil@ccs.neu.edu>  Sat, 11 Jan 2014 23:47:45 -0500
+
+dmtcp (1.2.7-1) experimental; urgency=low
+
+  * Preparing for upstream Release 1.2.7.
+  * Vcs-svn and Vcs-browser URLs updated.
+  * Upload sponsored by Yaroslav Halchenko <debian@onerussian.com>
+
+ -- Kapil Arya <kapil@ccs.neu.edu>  Thu, 14 Mar 2013 07:10:34 -0400
+
+dmtcp (1.2.5-1) unstable; urgency=low
+
+  * Preparing for upstream Release 1.2.5.
+  * debhelper version changed from >=9 to >=7 to accommodate older distros.
+  * Standards version changed to 3.9.3. 
+  * configure command line updated to include dkpg-buildflags.
+  * Added lintian overrides for libmtcp1, dmtcp and libdmtcpaware1 to suppress
+    hardening false positives.
+  * ARM support added.
+  * Upload sponsored by Yaroslav Halchenko <debian@onerussian.com>
+
+ -- Kapil Arya <kapil@ccs.neu.edu>  Sat, 26 May 2012 22:54:33 -0400
+
+dmtcp (1.2.4-1) unstable; urgency=low
+
+  * Preparing for upstream Release 1.2.4.
+  * New binary packages libmtcp1 and libmtcp1-dev created.
+  * Upload sponsored by Yaroslav Halchenko <debian@onerussian.com>
+
+ -- Kapil Arya <kapil@ccs.neu.edu>  Mon, 24 Jan 2012 17:00:11 -0500
+
+dmtcp (1.2.1-2) unstable; urgency=low
+
+  * Fixing compilation errors for gcc/g++ 4.6.
+  * Fixing compilation errors related to PAGE_SIZE and PAGE_MASK macros.
+  * Call "make check" towards the end of build-stamp.
+  * Add python to build-deps.
+  * Standards Version boosted to 3.9.2.
+  * Templates removed from debian/watch.
+  * Leading "./" removed from lintian-overrides.
+  * Upload sponsored by Yaroslav Halchenko <debian@onerussian.com>
+
+ -- Kapil Arya <kapil@ccs.neu.edu>  Tue, 31 May 2011 00:17:42 -0400
+
+dmtcp (1.2.1-1) unstable; urgency=low
+
+  * Preparing for upstream release 1.2.1. 
+
+ -- Kapil Arya <kapil@ccs.neu.edu>  Sat, 12 Mar 2011 17:41:11 -0500
+
+dmtcp (1.2.0+svn937-1) unstable; urgency=low
+
+  * Updating libdmtcpaware1.symbols to reflect the proper version.
+  * Updating watch file to point to proper package name
+
+ -- Kapil Arya <kapil@ccs.neu.edu>  Sat, 12 Mar 2011 17:10:02 -0500
+
+dmtcp (1.2.0+svn923-1) unstable; urgency=low
+
+  * Adding debian/libdmtcpaware1.symbols file.
+  * Upload sponsored by Yaroslav Halchenko <debian@onerussian.com>
+
+ -- Kapil Arya <kapil@ccs.neu.edu>  Wed, 09 Mar 2011 02:03:21 -0500
+
+dmtcp (1.2.0+svn876-1) unstable; urgency=low
+
+  * Initial release (Closes: #610653)
+  * Upload sponsored by Yaroslav Halchenko <debian@onerussian.com>
+
+ -- Kapil Arya <kapil@ccs.neu.edu>  Thu, 03 Feb 2011 09:52:24 -0500
