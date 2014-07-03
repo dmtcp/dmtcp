@@ -18,5 +18,6 @@ usr/lib/dmtcp/libdmtcp_pid.so
 usr/lib/dmtcp/libdmtcp_ptrace.so
 usr/lib/dmtcp/libdmtcp_modify-env.so
 usr/lib/dmtcp/libdmtcp_batch-queue.so
+usr/lib/dmtcp/libdmtcp_unique-ckpt.so
 usr/share/doc
 usr/share/man

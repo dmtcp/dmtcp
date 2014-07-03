@@ -1,3 +1,11 @@
+dmtcp (2.3-1) unstable; urgency=low
+
+  * New upstream release 2.3.
+  * Remove stale dependency on libmtcp1.
+  * Upload sponsored by Yaroslav Halchenko <debian@onerussian.com>
+
+ -- Kapil Arya <kapil@ccs.neu.edu>  Thu, 12 Jun 2014 19:51:02 -0400
+
 dmtcp (2.2-1) unstable; urgency=low
 
   * New upstream release 2.2.
