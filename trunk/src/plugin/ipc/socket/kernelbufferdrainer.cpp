@@ -83,7 +83,10 @@ void dmtcp::KernelBufferDrainer::onDisconnect(jalib::JReaderInterface* sock)
   if (fd < 0) return;
   JTRACE("found disconnected socket... marking it dead")
       (fd) (_reverseLookup[fd]) (JASSERT_ERRNO);
-  _disconnectedSockets.push_back(_reverseLookup[fd]);
+  _disconnectedSockets[_reverseLookup[fd]] = _drainedData[fd];
+  // _drainedData is used to refill socket buffers. Remove the disconnected
+  // socket from this list. Disconnected sockets are refilled when they are
+  // recreated by _makeDeadSocket().
   _drainedData.erase(fd);
 }
 
@@ -209,4 +212,10 @@ void dmtcp::KernelBufferDrainer::refillAllSockets()
   // Free up the object
   delete theDrainer;
   theDrainer = NULL;
+}
+
+const vector<char>& KernelBufferDrainer::getDrainedData(ConnectionIdentifier id)
+{
+  JASSERT(_disconnectedSockets.find(id) != _disconnectedSockets.end()) (id);
+  return _disconnectedSockets[id];
 }
