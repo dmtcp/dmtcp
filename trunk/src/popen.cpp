@@ -112,7 +112,7 @@ FILE *popen(const char *command, const char *mode)
          child_std_end, it has been already closed by the dup2 syscall
          above.  */
       if (fd != child_std_fd) {
-        fclose(it->first);
+        _real_fclose(it->first);
       }
     }
     _dmtcpPopenPidMap.clear();
@@ -159,7 +159,7 @@ int pclose(FILE *fp)
   }
   _unlock_popen_map();
 
-  if (pid == -1 || fclose(fp) != 0) {
+  if (pid == -1 || _real_fclose(fp) != 0) {
     return -1;
   }
 
@@ -170,4 +170,15 @@ int pclose(FILE *fp)
     return -1;
   }
   return wstatus;
+}
+
+EXTERNC int dmtcp_is_popen_fp(FILE *fp)
+{
+  int popen_fp = 0;
+  _lock_popen_map();
+  if (_dmtcpPopenPidMap.find(fp) != _dmtcpPopenPidMap.end()) {
+    popen_fp = 1;
+  }
+  _unlock_popen_map();
+  return popen_fp;
 }

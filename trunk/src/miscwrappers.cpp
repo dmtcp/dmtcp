@@ -37,6 +37,8 @@
 #include <sys/signalfd.h>
 #endif
 
+EXTERNC int dmtcp_is_popen_fp(FILE *fp) __attribute((weak));
+
 extern "C" void exit ( int status )
 {
   dmtcp::DmtcpWorker::setExitInProgress();
@@ -56,6 +58,10 @@ extern "C" int close(int fd)
 
 extern "C" int fclose(FILE *fp)
 {
+  // If this fp was obtained using popen(), we must pclose it
+  if (dmtcp_is_popen_fp(fp)) {
+    return pclose(fp);
+  }
   int fd = fileno(fp);
   if (DMTCP_IS_PROTECTED_FD(fd)) {
     JTRACE("blocked attempt to fclose protected fd") (fd);
