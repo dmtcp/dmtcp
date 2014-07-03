@@ -48,10 +48,11 @@ void dmtcp::SocketConnList::drain()
   //this will block until draining is complete
   KernelBufferDrainer::instance().monitorSockets(DRAINER_CHECK_FREQ);
   //handle disconnected sockets
-  const vector<ConnectionIdentifier>& discn =
+  const map<ConnectionIdentifier, vector<char> >& discn =
     KernelBufferDrainer::instance().getDisconnectedSockets();
-  for (size_t i = 0; i < discn.size(); ++i) {
-    const ConnectionIdentifier& id = discn[i];
+  map<ConnectionIdentifier, vector<char> >::const_iterator it;
+  for (it = discn.begin(); it != discn.end(); it++) {
+    const ConnectionIdentifier& id = it->first;
     TcpConnection *con =
       (TcpConnection*) SocketConnList::instance().getConnection(id);
     JTRACE("recreating disconnected socket") (id);

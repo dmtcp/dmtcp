@@ -49,7 +49,7 @@ static bool really_verbose = false;
 using namespace dmtcp;
 
 //this function creates a socket that is in an error state
-static int _makeDeadSocket()
+static int _makeDeadSocket(const char *refillData = NULL, ssize_t len = -1)
 {
   //it does it by creating a socket pair and closing one side
   int sp[2] = {-1,-1};
@@ -57,6 +57,9 @@ static int _makeDeadSocket()
     .Text("socketpair() failed");
   JASSERT(sp[0]>=0 && sp[1]>=0) (sp[0]) (sp[1])
     .Text("socketpair() failed");
+  if (refillData != NULL) {
+    JASSERT(Util::writeAll(sp[1], refillData, len) == len);
+  }
   _real_close(sp[1]);
   if (really_verbose) {
     JTRACE("Created dead socket.") (sp[0]);
@@ -332,7 +335,9 @@ void dmtcp::TcpConnection::onError()
   JTRACE("Error.") (id());
   _type = TCP_ERROR;
   JTRACE("Creating dead socket.") (_fds[0]) (_fds.size());
-  Util::dupFds(_makeDeadSocket(), _fds);
+  const vector<char>& buffer =
+    KernelBufferDrainer::instance().getDrainedData(_id);
+  Util::dupFds(_makeDeadSocket(&buffer[0], buffer.size()), _fds);
 }
 
 void dmtcp::TcpConnection::drain()
@@ -353,6 +358,9 @@ void dmtcp::TcpConnection::drain()
   }
 
   switch (_type) {
+    case TCP_ERROR:
+      // Treat TCP_ERROR as a regular socket for draining purposes. There still
+      // might be some stale data on it.
     case TCP_CONNECT:
     case TCP_ACCEPT:
       JTRACE("Will drain socket") (_hasLock) (_fds[0]) (_id) (_remotePeerId);
@@ -418,11 +426,19 @@ void dmtcp::TcpConnection::postRestart()
   JASSERT(_fds.size() > 0);
   switch (_type) {
     case TCP_PREEXISTING:
-    case TCP_ERROR: //not a valid socket
     case TCP_INVALID:
     case TCP_EXTERNAL_CONNECT:
       JTRACE("Creating dead socket.") (_fds[0]) (_fds.size());
       Util::dupFds(_makeDeadSocket(), _fds);
+      break;
+
+    case TCP_ERROR:
+      // Disconnected socket. Need to refill the drained data
+      {
+        const vector<char>& buffer =
+          KernelBufferDrainer::instance().getDrainedData(_id);
+        Util::dupFds(_makeDeadSocket(&buffer[0], buffer.size()), _fds);
+      }
       break;
 
     case TCP_CREATED:
