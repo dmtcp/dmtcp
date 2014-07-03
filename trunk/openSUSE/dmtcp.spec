@@ -18,7 +18,7 @@
 
 
 Name:           dmtcp
-Version:        2.2
+Version:        2.3
 Release:        0
 Summary:        Checkpoint/Restart functionality for Linux processes
 License:        LGPL-3.0+

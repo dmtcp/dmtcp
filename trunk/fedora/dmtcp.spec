@@ -1,7 +1,7 @@
 %{!?_pkgdocdir: %global _pkgdocdir %{_docdir}/%{name}-%{version}}
 
 Name:		dmtcp
-Version:	2.2
+Version:	2.3
 Release:	1%{?dist}
 Summary:	Checkpoint/Restart functionality for Linux processes
 Group:		Applications/System
@@ -60,6 +60,9 @@ make install DESTDIR=%{buildroot}
 %{_includedir}/dmtcp.h
 
 %changelog
+* Thu Jul 3 2014 Kapil Arya <kapil@ccs.neu.edu> - 2.3-1
+- Preparing for upstream release 2.3.
+
 * Mon Mar 10 2014 Kapil Arya <kapil@ccs.neu.edu> - 2.2-1
 - Preparing for upstream release 2.2.
 - Remove libmtcp* packages.
