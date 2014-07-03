@@ -11,7 +11,7 @@ Homepage: http://dmtcp.sourceforge.net
 
 Package: dmtcp
 Architecture: i386 amd64 armel
-Depends: libmtcp1, ${shlibs:Depends}, ${misc:Depends}
+Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: Checkpoint/Restart functionality for Linux processes
  DMTCP (Distributed MultiThreaded Checkpointing) is a tool to transparently
  checkpointing the state of an arbitrary group of programs including
