@@ -28,6 +28,7 @@
 #include <gnu/libc-version.h>
 #include "mtcp_sys.h"
 #include "restore_libc.h"
+#include "tlsutil.h"
 
 int mtcp_sys_errno;
 
@@ -42,81 +43,6 @@ int mtcp_sys_errno;
 
 extern MYINFO_GS_T myinfo_gs;
 
-/* These functions are not defined for x86_64. */
-#ifdef __i386__
-# define tls_get_thread_area(args...) \
-    syscall(SYS_get_thread_area, args)
-# define tls_set_thread_area(args...) \
-    mtcp_sys_set_thread_area(args)
-#endif
-
-#ifdef __x86_64__
-# include <asm/prctl.h>
-# include <sys/prctl.h>
-/* man arch_prctl has both signatures, and prctl.h above has no declaration.
- *  int arch_prctl(int code, unsigned long addr);
- *  int arch_prctl(int code, unsigned long *addr);
- *
- *  We use the first declaration for now.
- */
-int arch_prctl(int code, unsigned long addr);
-#if 0
-// I don't see why you would want a direct kernel call inside DMTCP.
-// Removing this will remove the dependency on mtcp_sys.h.  - Gene
-/* ARE THE _GS OPERATIONS NECESSARY? */
-#  define tls_get_thread_area(uinfo) \
-    ( mtcp_inline_syscall(arch_prctl,2,ARCH_GET_FS, \
-         (unsigned long int)(&(((struct user_desc *)uinfo)->base_addr))), \
-      mtcp_inline_syscall(arch_prctl,2,ARCH_GET_GS, &myinfo_gs) \
-    )
-#  define tls_set_thread_area(uinfo) \
-    ( mtcp_inline_syscall(arch_prctl,2,ARCH_SET_FS, \
-	*(unsigned long int *)&(((struct user_desc *)uinfo)->base_addr)), \
-      mtcp_inline_syscall(arch_prctl,2,ARCH_SET_GS, myinfo_gs) \
-    )
-# else
-/* ARE THE _GS OPERATIONS NECESSARY? */
-#  define tls_get_thread_area(uinfo) \
-     ( arch_prctl(ARCH_GET_FS, \
-         (unsigned long)(&(((struct user_desc *)uinfo)->base_addr))), \
-       arch_prctl(ARCH_GET_GS, (unsigned long) &myinfo_gs) \
-     )
-#  define tls_set_thread_area(uinfo) \
-    ( arch_prctl(ARCH_SET_FS, \
-	*(unsigned long*)&(((struct user_desc *)uinfo)->base_addr)), \
-      arch_prctl(ARCH_SET_GS, myinfo_gs) \
-    )
-# endif
-#endif /* end __x86_64__ */
-
-#ifdef __arm__
-/* This allocation hack will work only if calls to mtcp_sys_get_thread_area
- * and mtcp_sys_get_thread_area are both inside the same file (mtcp.c).
- * This is all because get_thread_area is not implemented for arm.
- *     For ARM, the thread pointer seems to point to the next slot
- * after the 'struct pthread'.  Why??  So, we subtract that address.
- * After that, tid/pid will be located at  offset 104/108 as expected
- * for glibc-2.13.
- * NOTE:  'struct pthread' defined in glibc/nptl/descr.h
- *     The value below (1216) is current for glibc-2.13.
- *     May have to update 'sizeof(struct pthread)' for new versions of glibc.
- *     We can automate this by searching for negative offset from end
- *     of 'struct pthread' in tls_tid_offset, tls_pid_offset in mtcp.c.
- */
-
-#  define tls_get_thread_area(uinfo) \
-  ({ asm volatile ("mrc     p15, 0, %0, c13, c0, 3  @ load_tp_hard\n\t" \
-                   : "=r" (myinfo_gs) ); \
-    myinfo_gs = myinfo_gs - 1216; /* sizeof(struct pthread) = 1216 */ \
-    *(unsigned long int *)&(((struct user_desc *)uinfo)->base_addr) \
-      = myinfo_gs; \
-    myinfo_gs; })
-#  define tls_set_thread_area(uinfo) \
-    ( myinfo_gs = \
-        *(unsigned long int *)&(((struct user_desc *)uinfo)->base_addr), \
-      (mtcp_sys_kernel_set_tls(myinfo_gs+1216), 0) \
-      /* 0 return value at end means success */ )
-#endif /* end __arm__ */
 
 /* Offset computed (&x.pid - &x) for
  *   struct pthread x;
@@ -344,7 +270,7 @@ static void* get_tls_base_addr()
   struct user_desc gdtentrytls;
 
   gdtentrytls.entry_number = get_tls_segreg() / 8;
-  if (tls_get_thread_area(&gdtentrytls) == -1) {
+  if (tls_get_thread_area(&gdtentrytls, myinfo_gs) == -1) {
     PRINTF("Error getting GDT TLS entry: %d\n", errno);
     _exit(0);
   }
@@ -535,7 +461,7 @@ void TLSInfo_SaveTLSState (ThreadTLSInfo *tlsInfo)
  */
   i = tlsInfo->TLSSEGREG / 8;
   tlsInfo->gdtentrytls[0].entry_number = i;
-  if (tls_get_thread_area (&(tlsInfo->gdtentrytls[0])) == -1) {
+  if (tls_get_thread_area (&(tlsInfo->gdtentrytls[0]), myinfo_gs) == -1) {
     PRINTF("Error saving GDT TLS entry: %d\n", errno);
     _exit(0);
   }
@@ -570,7 +496,7 @@ void TLSInfo_RestoreTLSState(ThreadTLSInfo *tlsInfo)
 
   /* Now pass this to the kernel, so it can adjust the segment descriptor.
    * This will make different kernel calls according to the CPU architecture. */
-  if (tls_set_thread_area (&(tlsInfo->gdtentrytls[0])) != 0) {
+  if (tls_set_thread_area (&(tlsInfo->gdtentrytls[0]), myinfo_gs) != 0) {
     PRINTF("Error restoring GDT TLS entry: %d\n", errno);
     mtcp_abort();
   }

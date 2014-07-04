@@ -59,7 +59,7 @@ nobase_noinst_HEADERS = constants.h \
 	mtcpinterface.h syscallwrappers.h syslogwrappers.h \
 	threadlist.h threadinfo.h siginfo.h \
 	uniquepid.h processinfo.h ckptserializer.h \
-	mtcp/ldt.h mtcp/restore_libc.h
+	mtcp/ldt.h mtcp/restore_libc.h mtcp/tlsutil.h
 
 # Note that libdmtcpinternal.a does not include wrappers.
 # dmtcp_launch, dmtcp_command, dmtcp_coordinator, etc.
@@ -123,7 +123,7 @@ __targetdir__bin_dmtcp_launch_SOURCES = dmtcp_launch.cpp
 # We also need to build mtcp_restart without optimization (-O0), otherwise it
 # may fail to restart. Since these three objects are fairly low level, we avoid
 # any surprises by compiling them without any optimization.
-threadinfo.o: threadinfo.c threadinfo.h syscallwrappers.h mtcp/restore_libc.h
+threadinfo.o: threadinfo.c threadinfo.h syscallwrappers.h mtcp/restore_libc.h mtcp/tlsutil.h
 	$(COMPILE) -DPIC -fno-stack-protector -g -O0 -c -o $@ $(srcdir)/$*.c
 
 mtcp/libmtcp.a:
