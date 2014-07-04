@@ -40,6 +40,8 @@ int mtcp_sys_errno;
 # define UINT_T uint32_t
 #endif
 
+extern MYINFO_GS_T myinfo_gs;
+
 /* These functions are not defined for x86_64. */
 #ifdef __i386__
 # define tls_get_thread_area(args...) \
@@ -61,7 +63,6 @@ int arch_prctl(int code, unsigned long addr);
 #if 0
 // I don't see why you would want a direct kernel call inside DMTCP.
 // Removing this will remove the dependency on mtcp_sys.h.  - Gene
-static unsigned long int myinfo_gs;
 /* ARE THE _GS OPERATIONS NECESSARY? */
 #  define tls_get_thread_area(uinfo) \
     ( mtcp_inline_syscall(arch_prctl,2,ARCH_GET_FS, \
@@ -74,7 +75,6 @@ static unsigned long int myinfo_gs;
       mtcp_inline_syscall(arch_prctl,2,ARCH_SET_GS, myinfo_gs) \
     )
 # else
-static unsigned long int myinfo_gs;
 /* ARE THE _GS OPERATIONS NECESSARY? */
 #  define tls_get_thread_area(uinfo) \
      ( arch_prctl(ARCH_GET_FS, \
@@ -103,7 +103,6 @@ static unsigned long int myinfo_gs;
  *     We can automate this by searching for negative offset from end
  *     of 'struct pthread' in tls_tid_offset, tls_pid_offset in mtcp.c.
  */
-static unsigned int myinfo_gs;
 
 #  define tls_get_thread_area(uinfo) \
   ({ asm volatile ("mrc     p15, 0, %0, c13, c0, 3  @ load_tp_hard\n\t" \
