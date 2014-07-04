@@ -47,6 +47,8 @@ pid_t motherpid = 0;
 sigset_t sigpending_global;
 Thread *activeThreads = NULL;
 void *saved_sysinfo;
+MYINFO_GS_T myinfo_gs __attribute__ ((visibility ("hidden")));
+
 
 static Thread *threads_freelist = NULL;
 static pthread_mutex_t threadlistLock = PTHREAD_MUTEX_INITIALIZER;

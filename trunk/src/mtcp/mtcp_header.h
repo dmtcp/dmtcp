@@ -23,6 +23,12 @@ typedef unsigned int segreg_t;
 # define TLSSEGREG fs
 #endif
 
+#ifdef __x86_64__
+# define MYINFO_GS_T unsigned long int
+#else
+# define MYINFO_GS_T unsigned int
+#endif
+
 typedef struct _ThreadTLSInfo {
   segreg_t fs, gs;  // thread local storage pointers
   struct user_desc gdtentrytls[1];
