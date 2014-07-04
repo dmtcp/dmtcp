@@ -217,7 +217,6 @@ static int STATIC_TLS_TID_OFFSET()
  *   of the original thread.
  * SEE: "struct pthread" in glibc-2.XX/nptl/descr.h for 'struct pthread'.
  */
-static int tls_tid_offset(void);
 
 /* Can remove the unused attribute when this __GLIBC_PREREQ is the only one. */
 static char *memsubarray (char *array, char *subarray, size_t len)
@@ -227,7 +226,11 @@ static void *get_tls_base_addr(void);
 extern void **motherofall_saved_sp;
 extern ThreadTLSInfo *motherofall_tlsInfo;
 
-static int tls_tid_offset(void)
+/*****************************************************************************
+ *
+ *****************************************************************************/
+int TLSInfo_GetTidOffset(void)
+
 {
   static int tid_offset = -1;
   if (tid_offset == -1) {
@@ -287,12 +290,15 @@ static int tls_tid_offset(void)
   return tid_offset;
 }
 
-static int tls_pid_offset(void)
+/*****************************************************************************
+ *
+ *****************************************************************************/
+int TLSInfo_GetPidOffset(void)
 {
   static int pid_offset = -1;
   struct {pid_t tid; pid_t pid;} tid_pid;
   if (pid_offset == -1) {
-    int tid_offset = tls_tid_offset();
+    int tid_offset = TLSInfo_GetTidOffset();
     pid_offset = tid_offset + (char *)&(tid_pid.pid) - (char *)&tid_pid;
     DPRINTF("pid_offset: %d\n", pid_offset);
   }
@@ -484,8 +490,8 @@ void TLSInfo_VerifyPidTid(pid_t pid, pid_t tid)
 {
   pid_t tls_pid, tls_tid;
   char *addr = (char*)get_tls_base_addr();
-  tls_pid = *(pid_t *) (addr + tls_pid_offset());
-  tls_tid = *(pid_t *) (addr + tls_tid_offset());
+  tls_pid = *(pid_t *) (addr + TLSInfo_GetPidOffset());
+  tls_tid = *(pid_t *) (addr + TLSInfo_GetTidOffset());
 
   if ((tls_pid != pid) || (tls_tid != tid)) {
     PRINTF("ERROR: getpid(%d), tls pid(%d), and tls tid(%d) must all match\n",
@@ -496,7 +502,8 @@ void TLSInfo_VerifyPidTid(pid_t pid, pid_t tid)
 
 void TLSInfo_UpdatePid()
 {
-  pid_t  *tls_pid = (pid_t *) ((char*)get_tls_base_addr() + tls_pid_offset());
+  pid_t  *tls_pid = (pid_t *) ((char*)get_tls_base_addr() +
+                               TLSInfo_GetPidOffset());
   *tls_pid = mtcp_sys_getpid();
 }
 
@@ -555,10 +562,10 @@ void TLSInfo_RestoreTLSState(ThreadTLSInfo *tlsInfo)
    * the new pid and tid.
    */
   *(pid_t *)(*(unsigned long *)&(tlsInfo->gdtentrytls[0].base_addr)
-             + tls_pid_offset()) = mtcp_sys_getpid();
+             + TLSInfo_GetPidOffset()) = mtcp_sys_getpid();
   if (mtcp_sys_kernel_gettid() == mtcp_sys_getpid()) {
     *(pid_t *)(*(unsigned long *)&(tlsInfo->gdtentrytls[0].base_addr)
-               + tls_tid_offset()) = mtcp_sys_getpid();
+               + TLSInfo_GetTidOffset()) = mtcp_sys_getpid();
   }
 
   /* Now pass this to the kernel, so it can adjust the segment descriptor.

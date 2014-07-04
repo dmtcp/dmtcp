@@ -241,6 +241,12 @@ static void prepareMtcpHeader(MtcpHeader *mtcpHdr)
   mtcpHdr->restore_addr = (void*) ProcessInfo::instance().restoreBufAddr();
   mtcpHdr->restore_size = ProcessInfo::instance().restoreBufLen();
   mtcpHdr->post_restart = &TLSInfo_PostRestart;
+  memcpy(&mtcpHdr->motherofall_tls_info,
+         &motherofall->tlsInfo,
+         sizeof(motherofall->tlsInfo));
+  mtcpHdr->tls_pid_offset = TLSInfo_GetPidOffset();
+  mtcpHdr->tls_tid_offset = TLSInfo_GetTidOffset();
+  mtcpHdr->myinfo_gs = myinfo_gs;
 }
 
 /*************************************************************************
