@@ -88,6 +88,10 @@ typedef struct RestoreInfo {
   //void (*restorememoryareas_fptr)();
   int use_gdb;
   int text_offset;
+  ThreadTLSInfo motherofall_tls_info;
+  int tls_pid_offset;
+  int tls_tid_offset;
+  MYINFO_GS_T myinfo_gs;
 } RestoreInfo;
 static RestoreInfo rinfo;
 
@@ -249,6 +253,10 @@ MTCP_PRINTF("Attach for debugging.");
   rinfo.restore_addr = mtcpHdr.restore_addr;
   rinfo.restore_size = mtcpHdr.restore_size;
   rinfo.post_restart = mtcpHdr.post_restart;
+  rinfo.motherofall_tls_info = mtcpHdr.motherofall_tls_info;
+  rinfo.tls_pid_offset = mtcpHdr.tls_pid_offset;
+  rinfo.tls_tid_offset = mtcpHdr.tls_tid_offset;
+  rinfo.myinfo_gs = mtcpHdr.myinfo_gs;
 
   restore_brk(rinfo.saved_brk, rinfo.restore_addr,
               rinfo.restore_addr + rinfo.restore_size);

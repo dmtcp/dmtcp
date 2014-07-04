@@ -43,6 +43,10 @@ typedef union _MtcpHeader {
     void *restore_addr;
     size_t restore_size;
     void (*post_restart) ();
+    ThreadTLSInfo motherofall_tls_info;
+    int tls_pid_offset;
+    int tls_tid_offset;
+    MYINFO_GS_T myinfo_gs;
   };
 
   char _padding[4096];
