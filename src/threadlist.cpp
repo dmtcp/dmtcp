@@ -15,6 +15,7 @@
 #include "uniquepid.h"
 #include "jalloc.h"
 #include "jassert.h"
+#include "mtcp/mtcp_header.h"
 
 // FIXME: Replace DPRINTF in the code below with JTRACE/JNOTE after the
 //        locking mechanism has been fixed.
@@ -225,6 +226,23 @@ void ThreadList::killCkpthread()
 
 /*************************************************************************
  *
+ *  Prepare MTCP Header
+ *
+ *************************************************************************/
+static void prepareMtcpHeader(MtcpHeader *mtcpHdr)
+{
+  memset(mtcpHdr, 0, sizeof(*mtcpHdr));
+  strncpy(mtcpHdr->signature, MTCP_SIGNATURE, strlen(MTCP_SIGNATURE) + 1);
+  mtcpHdr->saved_brk = sbrk(0);
+  // TODO: Now that we have a separate mtcp dir, the code dealing with
+  // restoreBuf should go in there.
+  mtcpHdr->restore_addr = (void*) ProcessInfo::instance().restoreBufAddr();
+  mtcpHdr->restore_size = ProcessInfo::instance().restoreBufLen();
+  mtcpHdr->post_restart = &TLSInfo_PostRestart;
+}
+
+/*************************************************************************
+ *
  *  This executes as a thread.  It sleeps for the checkpoint interval
  *    seconds, then wakes to write the checkpoint file.
  *
@@ -314,7 +332,9 @@ static void *checkpointhread (void *dummy)
     // Remove stale threads from activeThreads list.
     ThreadList::emptyFreeList();
 
-    CkptSerializer::writeCkptImage();
+    MtcpHeader mtcpHdr;
+    prepareMtcpHeader(&mtcpHdr);
+    CkptSerializer::writeCkptImage(&mtcpHdr, sizeof(mtcpHdr));
 
     JTRACE("before callbackPostCheckpoint(0, NULL)");
     callbackPostCheckpoint(0, NULL);
