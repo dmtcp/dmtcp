@@ -57,6 +57,7 @@
 #include "../membarrier.h"
 #include "procmapsarea.h"
 #include "mtcp_header.h"
+#include "tlsutil.h"
 
 void mtcp_check_vdso(char **environ);
 
@@ -116,6 +117,9 @@ static int doAreasOverlap(VA addr1, size_t size1, VA addr2, size_t size2);
 static int hasOverlappingMapping(VA addr, size_t size);
 static void getMiscAddrs(VA *textAddr, size_t *size, VA *highest_va);
 static void mtcp_simulateread(int fd);
+void restore_libc(ThreadTLSInfo *tlsInfo, int tls_pid_offset,
+                  int tls_tid_offset, MYINFO_GS_T myinfo_gs);
+
 
 #define MB 1024*1024
 #define RESTORE_STACK_SIZE 5*MB
@@ -591,6 +595,10 @@ static void restorememoryareas(RestoreInfo *rinfo_ptr)
   //IMB; // flush instruction cache, since mtcp_restart.c code is now gone.
   DPRINTF("restore complete, resuming by jumping to %p...\n",
           restore_info.post_restart);
+
+  /* Restore libc */
+  restore_libc(&restore_info.motherofall_tls_info, restore_info.tls_pid_offset,
+               restore_info.tls_tid_offset, restore_info.myinfo_gs);
 
   /* Jump to finishrestore in original program's libmtcp.so image.
    * This is in libdmtcp.so, and is called: restore_libc.c:TLSInfo_PostRestart
@@ -1114,6 +1122,64 @@ static VA highest_userspace_address (VA *vdso_addr, VA *vsyscall_addr,
     return highaddr;
 }
 
+/*****************************************************************************
+ *
+ *  Restore the GDT entries that are part of a thread's state
+ *
+ *  The kernel provides set_thread_area system call for a thread to alter a
+ *  particular range of GDT entries, and it switches those entries on a
+ *  per-thread basis.  So from our perspective, this is per-thread state that is
+ *  saved outside user addressable memory that must be manually saved.
+ *
+ *****************************************************************************/
+void restore_libc(ThreadTLSInfo *tlsInfo, int tls_pid_offset,
+                  int tls_tid_offset, MYINFO_GS_T myinfo_gs)
+{
+  int mtcp_sys_errno;
+  /* Every architecture needs a register to point to the current
+   * TLS (thread-local storage).  This is where we set it up.
+   */
+
+  /* Patch 'struct user_desc' (gdtentrytls) of glibc to contain the
+   * the new pid and tid.
+   */
+  *(pid_t *)(*(unsigned long *)&(tlsInfo->gdtentrytls[0].base_addr)
+             + tls_pid_offset) = mtcp_sys_getpid();
+  if (mtcp_sys_kernel_gettid() == mtcp_sys_getpid()) {
+    *(pid_t *)(*(unsigned long *)&(tlsInfo->gdtentrytls[0].base_addr)
+               + tls_tid_offset) = mtcp_sys_getpid();
+  }
+
+  /* Now pass this to the kernel, so it can adjust the segment descriptor.
+   * This will make different kernel calls according to the CPU architecture. */
+  if (tls_set_thread_area (&(tlsInfo->gdtentrytls[0]), myinfo_gs) != 0) {
+    MTCP_PRINTF("Error restoring GDT TLS entry: %d\n", mtcp_sys_errno);
+    mtcp_abort();
+  }
+
+  /* Finally, if this is i386, we need to set %gs to refer to the segment
+   * descriptor that we're using above.  We restore the original pointer.
+   * For the other architectures (not i386), the kernel call above
+   * already did the equivalent work of setting up thread registers.
+   */
+#ifdef __i386__
+  asm volatile ("movw %0,%%fs" : : "m" (tlsInfo->fs));
+  asm volatile ("movw %0,%%gs" : : "m" (tlsInfo->gs));
+#elif __x86_64__
+/* Don't directly set fs.  It would only set 32 bits, and we just
+ *  set the full 64-bit base of fs, using sys_set_thread_area,
+ *  which called arch_prctl.
+ *asm volatile ("movl %0,%%fs" : : "m" (tlsInfo->fs));
+ *asm volatile ("movl %0,%%gs" : : "m" (tlsInfo->gs));
+ */
+#elif __arm__
+/* ARM treats this same as x86_64 above. */
+#endif
+}
+
+/*****************************************************************************
+ *
+ *****************************************************************************/
 __attribute__((optimize(0)))
 static void lock_file(int fd, char* name, short l_type)
 {

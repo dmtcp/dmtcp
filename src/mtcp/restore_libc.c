@@ -544,7 +544,7 @@ void TLSInfo_PostRestart()
    * Step 3 (for Intel only):  Restore %fs and %gs to refer to the the
    *     segment descriptor for this primary thread (only %gs needed for i386).
    */
-  TLSInfo_RestoreTLSState(motherofall_tlsInfo);
+  //TLSInfo_RestoreTLSState(motherofall_tlsInfo);
 
 #if 0
   /* FOR DEBUGGING:  Now test if we can make a kernel call through libc. */
