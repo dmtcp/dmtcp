@@ -31,7 +31,6 @@
 #include "dmtcp.h"
 #include "protectedfds.h"
 #include "ckptserializer.h"
-#include "mtcp/mtcp_header.h"
 
 #define _real_pipe(a) _real_syscall(SYS_pipe, a)
 #define _real_waitpid(a,b,c) _real_syscall(SYS_wait4,a,b,c,NULL)
@@ -487,7 +486,8 @@ void dmtcp::CkptSerializer::createCkptDir()
 }
 
 // See comments above for open_ckpt_to_read()
-void dmtcp::CkptSerializer::writeCkptImage()
+void dmtcp::CkptSerializer::writeCkptImage(void *mtcpHdr, size_t mtcpHdrLen)
+
 {
   string ckptFilename = ProcessInfo::instance().getCkptFilename();
   string tempCkptFilename = ckptFilename;
@@ -520,8 +520,8 @@ void dmtcp::CkptSerializer::writeCkptImage()
   // The rest of this function is for compatibility with original definition.
   writeDmtcpHeader(fd);
 
-  // Write header for mtcp_restart.
-  writeMtcpHeader(fd);
+  // Write MTCP header
+  JASSERT(Util::writeAll(fd, mtcpHdr, mtcpHdrLen) == (ssize_t) mtcpHdrLen);
 
   JTRACE ( "MTCP is about to write checkpoint image." )(ckptFilename);
   mtcp_writememoryareas(fd);
@@ -569,23 +569,6 @@ void dmtcp::CkptSerializer::writeCkptImage()
   }
 
   JTRACE("checkpoint complete");
-}
-
-extern "C" void TLSInfo_PostRestart() __attribute__((weak));
-void dmtcp::CkptSerializer::writeMtcpHeader(int fd)
-{
-  MtcpHeader mtcpHdr;
-  memset(&mtcpHdr, 0, sizeof mtcpHdr);
-  strncpy(mtcpHdr.signature, MTCP_SIGNATURE, strlen(MTCP_SIGNATURE) + 1);
-  mtcpHdr.saved_brk = sbrk(0);
-  // TODO: Now that we have a separate mtcp dir, the code dealing with
-  // restoreBuf should go in there.
-  mtcpHdr.restore_addr = (void*) ProcessInfo::instance().restoreBufAddr();
-  mtcpHdr.restore_size = ProcessInfo::instance().restoreBufLen();
-  JASSERT(TLSInfo_PostRestart != NULL);
-  mtcpHdr.post_restart = &TLSInfo_PostRestart;
-
-  JASSERT(Util::writeAll(fd, &mtcpHdr, sizeof mtcpHdr) == sizeof mtcpHdr);
 }
 
 void dmtcp::CkptSerializer::writeDmtcpHeader(int fd)
