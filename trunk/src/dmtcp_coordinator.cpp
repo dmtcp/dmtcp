@@ -1639,7 +1639,12 @@ void dmtcp::DmtcpCoordinator::eventLoop(bool daemon)
   JASSERT(epoll_ctl(epollFd, EPOLL_CTL_ADD, listenSock->sockfd(), &ev) != -1)
     (JASSERT_ERRNO);
 
-  if (!daemon) {
+  if (!daemon &&
+      // epoll_ctl below fails if STDIN is pointing to /dev/null.
+      // Not sure why.
+      jalib::Filesystem::GetDeviceName(0) != "/dev/null" &&
+      jalib::Filesystem::GetDeviceName(0) != "/dev/zero" &&
+      jalib::Filesystem::GetDeviceName(0) != "/dev/random") {
     ev.events = EPOLLIN;
 #ifdef EPOLLRDHUP
     ev.events |= EPOLLRDHUP;
