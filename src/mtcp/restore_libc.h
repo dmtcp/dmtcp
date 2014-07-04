@@ -21,6 +21,7 @@
 
 #include "ldt.h"
 #include "protectedfds.h"
+#include "mtcp_header.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -76,31 +77,6 @@ extern "C" {
     _exit(0); \
   } while (0);
 
-
-#ifdef __i386__
-typedef unsigned short segreg_t;
-#elif __x86_64__
-typedef unsigned short segreg_t;
-#elif __arm__
-typedef unsigned int segreg_t;
-#endif
-
-/* TLS segment registers used differently in i386 and x86_64. - Gene */
-#ifdef __i386__
-# define TLSSEGREG gs
-#elif __x86_64__
-# define TLSSEGREG fs
-#elif __arm__
-/* FIXME: fs IS NOT AN arm REGISTER.  BUT THIS IS USED ONLY AS A FIELD NAME.
- *   ARM uses a register in coprocessor 15 as the thread-pointer (TLS Register)
- */
-# define TLSSEGREG fs
-#endif
-
-typedef struct _ThreadTLSInfo {
-  segreg_t fs, gs;  // thread local storage pointers
-  struct user_desc gdtentrytls[1];
-} ThreadTLSInfo;
 
 void TLSInfo_PostRestart();
 void TLSInfo_VerifyPidTid(pid_t pid, pid_t tid);
