@@ -22,7 +22,6 @@
 #ifndef UTIL_H
 #define UTIL_H
 
-#include "dmtcpalloc.h"
 #include "procmapsarea.h"
 
 #ifndef EXTERNC
@@ -76,6 +75,31 @@ EXTERNC int dmtcp_modify_env_enabled(void) __attribute__((weak));
 EXTERNC int dmtcp_ptrace_enabled(void) __attribute__((weak));
 EXTERNC int dmtcp_unique_ckpt_enabled(void) __attribute__((weak));
 
+
+/*
+ * struct MtcpRestartThreadArg
+ *
+ * DMTCP requires the virtualTids of the threads being created during
+ *  the RESTARTING phase.  We use an MtcpRestartThreadArg structure to pass
+ *  the virtualTid of the thread being created from MTCP to DMTCP.
+ *
+ * actual clone call: clone (fn, child_stack, flags, void *, ...)
+ * new clone call   : clone (fn, child_stack, flags,
+ *                           (struct MtcpRestartThreadArg *), ...)
+ *
+ * DMTCP automatically extracts arg from this structure and passes that
+ * to the _real_clone call.
+ *
+ * NOTE: This structure will be moved to a more appropriate place once we have
+ * finalized the code in threadlist.cpp.
+ */
+struct MtcpRestartThreadArg {
+  void * arg;
+  pid_t virtualTid;
+};
+
+#ifdef __cplusplus
+#include "dmtcpalloc.h"
 namespace dmtcp
 {
   namespace Util
@@ -143,5 +167,6 @@ namespace dmtcp
     void getDmtcpArgs(dmtcp::vector<dmtcp::string> &dmtcp_args);
   }
 }
+#endif
 
 #endif
