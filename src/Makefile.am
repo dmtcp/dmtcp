@@ -93,7 +93,7 @@ __targetdir__lib_dmtcp_libdmtcp_so_SOURCES = dmtcpworker.cpp threadsync.cpp \
 		      threadwrappers.cpp \
 		      miscwrappers.cpp ckptserializer.cpp writeckpt.cpp \
 		      glibcsystem.cpp \
-		      threadlist.cpp threadinfo.c siginfo.cpp \
+		      threadlist.cpp siginfo.cpp \
 		      dmtcpplugin.cpp popen.cpp syslogwrappers.cpp
 
 __targetdir__lib_dmtcp_libdmtcp_so_LDFLAGS = -shared -Xlinker -znow
@@ -116,15 +116,6 @@ __targetdir__bin_dmtcp_command_LDADD     = libdmtcpinternal.a libjalib.a \
 			  libnohijack.a -lpthread -lrt -ldl
 
 __targetdir__bin_dmtcp_launch_SOURCES = dmtcp_launch.cpp
-
-# We need to compile threadinfo.c, restore_libc.c and mtcp_restart.c with
-# "-fno-stack-protector" to avoid runtime stack smashing detection.
-# [ restore_libc.c and mtcp_restart.c have been moved to mtcp. ]
-# We also need to build mtcp_restart without optimization (-O0), otherwise it
-# may fail to restart. Since these three objects are fairly low level, we avoid
-# any surprises by compiling them without any optimization.
-threadinfo.o: threadinfo.c threadinfo.h syscallwrappers.h mtcp/restore_libc.h mtcp/tlsutil.h
-	$(COMPILE) -DPIC -fno-stack-protector -g -O0 -c -o $@ $(srcdir)/$*.c
 
 mtcp/libmtcp.a:
 	cd mtcp && ${MAKE} libmtcp.a
