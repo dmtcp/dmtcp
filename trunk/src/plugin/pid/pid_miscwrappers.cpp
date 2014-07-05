@@ -120,29 +120,8 @@ extern "C" int __clone(int (*fn) (void *arg), void *child_stack, int flags,
                        void *arg, int *parent_tidptr, struct user_desc *newtls,
                        int *child_tidptr)
 {
-  /*
-   * struct MtcpRestartThreadArg
-   *
-   * DMTCP requires the virtualTids of the threads being created during
-   *  the RESTARTING phase.  We use an MtcpRestartThreadArg structure to pass
-   *  the virtualTid of the thread being created from MTCP to DMTCP.
-   *
-   * actual clone call: clone (fn, child_stack, flags, void *, ...)
-   * new clone call   : clone (fn, child_stack, flags,
-   *                           (struct MtcpRestartThreadArg *), ...)
-   *
-   * DMTCP automatically extracts arg from this structure and passes that
-   * to the _real_clone call.
-   *
-   * IMPORTANT NOTE: While updating, this struct must be kept in sync
-   * with the struct of the same name in mtcp.c
-   */
-  struct MtcpRestartThreadArg {
-    void * arg;
-    pid_t virtualTid;
-  } *mtcpRestartThreadArg;
-
   pid_t virtualTid = -1;
+  struct MtcpRestartThreadArg *mtcpRestartThreadArg;
 
   if (!dmtcp_is_running_state()) {
     mtcpRestartThreadArg = (struct MtcpRestartThreadArg *) arg;

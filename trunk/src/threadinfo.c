@@ -24,6 +24,7 @@
 #include <sched.h>  /* for CLONE_SETTLS, needs _GNU_SOURCE */
 #include "threadinfo.h"
 #include "dmtcp.h"
+#include "util.h"
 
 static int restarthread (void *threadv);
 
@@ -37,29 +38,6 @@ extern Thread *activeThreads;
 extern void *saved_sysinfo;
 
 static int restarthread(void *threadv);
-
-/*
- * struct MtcpRestartThreadArg
- *
- * DMTCP requires the virtual_tid of the threads being created during
- *  the RESTARTING phase.  We use a MtcpRestartThreadArg struct to pass
- *  the virtual_tid of the thread being created from MTCP to DMTCP.
- *
- * actual clone call: clone (fn, child_stack, flags, void *, ... )
- * new clone call   : clone (fn, child_stack, flags,
- *                           (struct MtcpRestartThreadArg *), ...)
- *
- * DMTCP automatically extracts arg from this structure and passes that
- * to the _real_clone call.
- *
- * IMPORTANT NOTE: While updating, this struct must be kept in sync
- * with the struct of the same name in mtcpinterface.cpp
- */
-struct MtcpRestartThreadArg {
-  void *arg;
-  pid_t virtual_tid;
-};
-
 
 /*****************************************************************************
  *
@@ -158,7 +136,7 @@ void Thread_RestoreAllThreads(void)
     void *clonearg = thread;
     if (dmtcp_real_to_virtual_pid != NULL) {
       mtcpRestartThreadArg.arg = thread;
-      mtcpRestartThreadArg.virtual_tid = thread->virtual_tid;
+      mtcpRestartThreadArg.virtualTid = thread->virtual_tid;
       clonearg = &mtcpRestartThreadArg;
     }
 
