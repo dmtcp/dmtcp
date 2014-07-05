@@ -90,14 +90,6 @@ struct Thread {
 
 };
 
-void Thread_Init();
-void Thread_PostRestart();
-
-int Thread_UpdateState(Thread *th, ThreadState newval, ThreadState oldval);
-
-void Thread_SaveSigState(Thread *th);
-void Thread_RestoreSigState(Thread *th);
-
 #ifdef __cplusplus
 }
 #endif

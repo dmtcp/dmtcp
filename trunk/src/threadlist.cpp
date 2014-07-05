@@ -15,6 +15,7 @@
 #include "uniquepid.h"
 #include "jalloc.h"
 #include "jassert.h"
+#include "util.h"
 #include "mtcp/mtcp_header.h"
 
 // FIXME: Replace DPRINTF in the code below with JTRACE/JNOTE after the
@@ -52,6 +53,7 @@ MYINFO_GS_T myinfo_gs __attribute__ ((visibility ("hidden")));
 
 static Thread *threads_freelist = NULL;
 static pthread_mutex_t threadlistLock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t threadStateLock = PTHREAD_MUTEX_INITIALIZER;
 
 static __thread Thread *curThread = NULL;
 static Thread *ckptThread = NULL;
@@ -66,9 +68,12 @@ static void *checkpointhread (void *dummy);
 static void suspendThreads();
 static void resumeThreads();
 static void stopthisthread(int sig);
-
-EXTERNC int dmtcp_ptrace_enabled(void) __attribute__((weak));
-
+static int restarthread(void *threadv);
+static int Thread_UpdateState(Thread *th,
+                              ThreadState newval,
+                              ThreadState oldval);
+static void Thread_SaveSigState(Thread *th);
+static void Thread_RestoreSigState(Thread *th);
 
 /*****************************************************************************
  *
@@ -200,6 +205,17 @@ void ThreadList::initThread(Thread* th, int (*fn)(void*), void *arg, int flags,
    */
   TLSInfo_UpdatePid();
 }
+
+/*****************************************************************************
+ *
+ * Thread exited/exiting.
+ *
+ *****************************************************************************/
+void ThreadList::threadExit()
+{
+  curThread->state = ST_ZOMBIE;
+}
+
 /*****************************************************************************
  *
  *****************************************************************************/
@@ -586,13 +602,141 @@ void ThreadList::waitForAllRestored(Thread *thread)
 
 /*****************************************************************************
  *
- * Thread exited/exiting.
+ *****************************************************************************/
+void Thread_RestoreAllThreads(void)
+{
+  Thread *thread;
+  sigset_t tmp;
+
+  /* Fill in the new mother process id */
+  motherpid = THREAD_REAL_TID();
+  motherofall->tid = motherpid;
+
+  restoreInProgress = 1;
+
+  sigfillset(&tmp);
+  for (thread = activeThreads; thread != NULL; thread = thread->next) {
+    struct MtcpRestartThreadArg mtcpRestartThreadArg;
+    sigandset(&sigpending_global, &tmp, &(thread->sigpending));
+    tmp = sigpending_global;
+
+    if (thread == motherofall) continue;
+
+    /* DMTCP needs to know virtual_tid of the thread being recreated by the
+     *  following clone() call.
+     *
+     * Threads are created by using syscall which is intercepted by DMTCP and
+     *  the virtual_tid is sent to DMTCP as a field of MtcpRestartThreadArg
+     *  structure. DMTCP will automatically extract the actual argument
+     *  (clonearg->arg) from clone_arg and will pass it on to the real
+     *  clone call.
+     */
+    void *clonearg = thread;
+    if (dmtcp_real_to_virtual_pid != NULL) {
+      mtcpRestartThreadArg.arg = thread;
+      mtcpRestartThreadArg.virtualTid = thread->virtual_tid;
+      clonearg = &mtcpRestartThreadArg;
+    }
+
+    /* Create the thread so it can finish restoring itself. */
+    pid_t tid = _real_clone(restarthread,
+                            // -128 for red zone
+                            (void*)((char*)thread->saved_sp - 128),
+                            /* Don't do CLONE_SETTLS (it'll puke).  We do it
+                             * later via restoreTLSState. */
+                            thread->flags & ~CLONE_SETTLS,
+                            clonearg, thread->ptid, NULL, thread->ctid);
+
+    ASSERT (tid > 0); // (JASSERT_ERRNO) .Text("Error recreating thread");
+    DPRINTF("Thread recreated: orig_tid %d, new_tid: %d", thread->tid, tid);
+  }
+  restarthread (motherofall);
+}
+
+/*****************************************************************************
  *
  *****************************************************************************/
-void ThreadList::threadExit()
+static int restarthread (void *threadv)
 {
-  curThread->state = ST_ZOMBIE;
+  Thread *thread = (Thread*) threadv;
+  thread->tid = THREAD_REAL_TID();
+  TLSInfo_RestoreTLSState(&thread->tlsInfo);
+
+  if (TLSInfo_HaveThreadSysinfoOffset())
+    TLSInfo_SetThreadSysinfo(saved_sysinfo);
+
+  /* Jump to the stopthisthread routine just after sigsetjmp/getcontext call.
+   * Note that if this is the restored checkpointhread, it jumps to the
+   * checkpointhread routine
+   */
+  DPRINTF("calling siglongjmp/setcontext: tid: %d, vtid: %d",
+         thread->tid, thread->virtual_tid);
+#ifdef SETJMP
+  siglongjmp(thread->jmpbuf, 1); /* Shouldn't return */
+#else
+  setcontext(&thread->savctx); /* Shouldn't return */
+#endif
+  ASSERT_NOT_REACHED();
+  return (0); /* NOTREACHED : stop compiler warning */
 }
+
+/*****************************************************************************
+ *
+ *****************************************************************************/
+int Thread_UpdateState(Thread *th, ThreadState newval, ThreadState oldval)
+{
+  int res = 0;
+  ASSERT(_real_pthread_mutex_lock(&threadStateLock) == 0);
+  if (oldval == th->state) {;
+    th->state = newval;
+    res = 1;
+  }
+  ASSERT(_real_pthread_mutex_unlock(&threadStateLock) == 0);
+  return res;
+}
+
+/*****************************************************************************
+ *
+ *  Save signal mask and list of pending signals delivery
+ *
+ *****************************************************************************/
+void Thread_SaveSigState(Thread *th)
+{
+  // Save signal block mask
+  ASSERT(pthread_sigmask (SIG_SETMASK, NULL, &th->sigblockmask) == 0);
+
+  // Save pending signals
+  sigpending(&th->sigpending);
+}
+
+/*****************************************************************************
+ *
+ *  Restore signal mask and all pending signals
+ *
+ *****************************************************************************/
+void Thread_RestoreSigState (Thread *th)
+{
+  int i;
+  DPRINTF("restoring handlers for thread: %d", th->virtual_tid);
+  ASSERT(pthread_sigmask (SIG_SETMASK, &th->sigblockmask, NULL) == 0);
+
+  // Raise the signals which were pending for only this thread at the time of
+  // checkpoint.
+  for (i = SIGRTMAX; i > 0; --i) {
+    if (sigismember(&th->sigpending, i)  == 1  &&
+        sigismember(&th->sigblockmask, i) == 1 &&
+        sigismember(&sigpending_global, i) == 0 &&
+        i != dmtcp_get_ckpt_signal()) {
+      if (i != SIGCHLD) {
+        PRINTF("\n*** WARNING:  SIGCHLD was delivered prior to ckpt.\n"
+               "*** Will raise it on restart.  If not desired, change\n"
+               "*** this line raising SIGCHLD.");
+      }
+      raise(i);
+    }
+  }
+}
+
 
 /*****************************************************************************
  *

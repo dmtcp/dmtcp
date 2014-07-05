@@ -176,8 +176,8 @@ am___targetdir__lib_dmtcp_libdmtcp_so_OBJECTS = dmtcpworker.$(OBJEXT) \
 	signalwrappers.$(OBJEXT) threadwrappers.$(OBJEXT) \
 	miscwrappers.$(OBJEXT) ckptserializer.$(OBJEXT) \
 	writeckpt.$(OBJEXT) glibcsystem.$(OBJEXT) threadlist.$(OBJEXT) \
-	threadinfo.$(OBJEXT) siginfo.$(OBJEXT) dmtcpplugin.$(OBJEXT) \
-	popen.$(OBJEXT) syslogwrappers.$(OBJEXT)
+	siginfo.$(OBJEXT) dmtcpplugin.$(OBJEXT) popen.$(OBJEXT) \
+	syslogwrappers.$(OBJEXT)
 __targetdir__lib_dmtcp_libdmtcp_so_OBJECTS =  \
 	$(am___targetdir__lib_dmtcp_libdmtcp_so_OBJECTS)
 __targetdir__lib_dmtcp_libdmtcp_so_DEPENDENCIES = libdmtcpinternal.a \
@@ -561,7 +561,7 @@ __targetdir__lib_dmtcp_libdmtcp_so_SOURCES = dmtcpworker.cpp threadsync.cpp \
 		      threadwrappers.cpp \
 		      miscwrappers.cpp ckptserializer.cpp writeckpt.cpp \
 		      glibcsystem.cpp \
-		      threadlist.cpp threadinfo.c siginfo.cpp \
+		      threadlist.cpp siginfo.cpp \
 		      dmtcpplugin.cpp popen.cpp syslogwrappers.cpp
 
 __targetdir__lib_dmtcp_libdmtcp_so_LDFLAGS = -shared -Xlinker -znow
@@ -798,7 +798,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/signalwrappers.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/syscallsreal.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/syslogwrappers.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/threadinfo.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/threadlist.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/threadsync.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/threadwrappers.Po@am__quote@
@@ -1258,15 +1257,6 @@ uninstall-am: uninstall-binPROGRAMS uninstall-dmtcplibPROGRAMS \
 	uninstall-dmtcplibPROGRAMS uninstall-hook \
 	uninstall-includeHEADERS
 
-
-# We need to compile threadinfo.c, restore_libc.c and mtcp_restart.c with
-# "-fno-stack-protector" to avoid runtime stack smashing detection.
-# [ restore_libc.c and mtcp_restart.c have been moved to mtcp. ]
-# We also need to build mtcp_restart without optimization (-O0), otherwise it
-# may fail to restart. Since these three objects are fairly low level, we avoid
-# any surprises by compiling them without any optimization.
-threadinfo.o: threadinfo.c threadinfo.h syscallwrappers.h mtcp/restore_libc.h mtcp/tlsutil.h
-	$(COMPILE) -DPIC -fno-stack-protector -g -O0 -c -o $@ $(srcdir)/$*.c
 
 mtcp/libmtcp.a:
 	cd mtcp && ${MAKE} libmtcp.a
