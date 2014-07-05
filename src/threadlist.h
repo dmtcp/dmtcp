@@ -39,7 +39,6 @@ namespace dmtcp
                     int *ptid, int *ctid);
     void updateTid(Thread *);
     void resetOnFork();
-    void postRestart();
     void killCkpthread();
     void threadExit();
 
@@ -51,6 +50,7 @@ namespace dmtcp
     void suspendThreads();
     void resumeThreads();
     void waitForAllRestored(Thread *thisthread);
+    void postRestart();
 
   };
 };

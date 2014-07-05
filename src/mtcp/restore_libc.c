@@ -521,6 +521,7 @@ void TLSInfo_RestoreTLSState(ThreadTLSInfo *tlsInfo)
 #endif
 }
 
+#if 0
 /*****************************************************************************
  *
  *  The original program's memory and files have been restored
@@ -562,3 +563,4 @@ void TLSInfo_PostRestart()
   // We have now verified that libc functionality is restored.
   Thread_RestoreAllThreads();
 }
+#endif
