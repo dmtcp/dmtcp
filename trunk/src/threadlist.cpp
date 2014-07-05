@@ -256,7 +256,7 @@ static void prepareMtcpHeader(MtcpHeader *mtcpHdr)
   // restoreBuf should go in there.
   mtcpHdr->restore_addr = (void*) ProcessInfo::instance().restoreBufAddr();
   mtcpHdr->restore_size = ProcessInfo::instance().restoreBufLen();
-  mtcpHdr->post_restart = &TLSInfo_PostRestart;
+  mtcpHdr->post_restart = &ThreadList::postRestart;
   memcpy(&mtcpHdr->motherofall_tls_info,
          &motherofall->tlsInfo,
          sizeof(motherofall->tlsInfo));
@@ -603,7 +603,7 @@ void ThreadList::waitForAllRestored(Thread *thread)
 /*****************************************************************************
  *
  *****************************************************************************/
-void Thread_RestoreAllThreads(void)
+void ThreadList::postRestart(void)
 {
   Thread *thread;
   sigset_t tmp;
