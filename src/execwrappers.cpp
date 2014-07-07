@@ -247,7 +247,8 @@ static void execShortLivedProcessAndExit(const char *path, char *const argv[])
   // We  are now the new /lib/libXXX process, and it's safe for DMTCP to ckpt us.
   printf("%s", buf); // print buf, which is what /lib/libXXX would print
   JALLOC_HELPER_FREE(buf);
-  exit(0);
+  // Avoid running exit handlers of the parent process by calling _exit.
+  _exit(0);
 }
 
 // FIXME:  Unify this code with code prior to execvp in dmtcp_launch.cpp
