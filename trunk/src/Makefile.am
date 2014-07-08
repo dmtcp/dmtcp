@@ -94,7 +94,8 @@ __targetdir__lib_dmtcp_libdmtcp_so_SOURCES = dmtcpworker.cpp threadsync.cpp \
 		      miscwrappers.cpp ckptserializer.cpp writeckpt.cpp \
 		      glibcsystem.cpp \
 		      threadlist.cpp siginfo.cpp \
-		      dmtcpplugin.cpp popen.cpp syslogwrappers.cpp
+		      dmtcpplugin.cpp popen.cpp syslogwrappers.cpp \
+		      dlsym_default.c
 
 __targetdir__lib_dmtcp_libdmtcp_so_LDFLAGS = -shared -Xlinker -znow
 
