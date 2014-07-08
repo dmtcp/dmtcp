@@ -854,6 +854,11 @@ int _real_closedir(DIR *dir) {
   REAL_FUNC_PASSTHROUGH (closedir) (dir);
 }
 
+LIB_PRIVATE
+int _real_mkstemp(char *template) {
+  REAL_FUNC_PASSTHROUGH (mkstemp) (template);
+}
+
 /* See comments for syscall wrapper */
 LIB_PRIVATE
 SYSCALL_ARG_RET_TYPE _real_syscall(SYSCALL_ARG_RET_TYPE sys_num, ...) {
