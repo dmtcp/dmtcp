@@ -317,7 +317,7 @@ static void dmtcpPrepareForExec(const char *path, char *const argv[],
      << "-XXXXXX";
   char *buf = (char*) JALLOC_HELPER_MALLOC(os.str().length()+1);
   strcpy(buf, os.str().c_str());
-  int fd = mkstemp(buf);
+  int fd = _real_mkstemp(buf);
   JASSERT(fd != -1) (JASSERT_ERRNO);
   JASSERT(unlink(buf) == 0) (JASSERT_ERRNO);
   Util::changeFd(fd, PROTECTED_LIFEBOAT_FD);

@@ -227,6 +227,7 @@ static void prepareLogAndProcessdDataFromSerialFile()
     DmtcpEventData_t edata;
     edata.serializerInfo.fd = PROTECTED_LIFEBOAT_FD;
     dmtcp::DmtcpWorker::eventHook(DMTCP_EVENT_POST_EXEC, &edata);
+    _real_close(PROTECTED_LIFEBOAT_FD);
   } else {
     // Brand new process (was never under ckpt-control),
     // Initialize the log file
