@@ -1,0 +1,93 @@
+Description: Fix a racy setenv(LD_PRELOAD, ...)
+ See comments in src/dmtcpworker.cpp for more details.
+ .
+ dmtcp (2.2-1) unstable; urgency=low
+ .
+   * New upstream release 2.2.
+   * Changing distribution from experimental to unstable.
+   * Updated debian standards version to 3.9.5.
+   * Removed libmtcp and libdmtcpaware packages.
+   * Run make check in "slow" mode.
+   * Updated copyright file.
+   * Added debian/NEWS file.
+   * Removed some stale files from install procedure.
+   * Upload sponsored by Yaroslav Halchenko <debian@onerussian.com>
+Author: Kapil Arya <kapil@ccs.neu.edu>
+
+---
+The information above should follow the Patch Tagging Guidelines, please
+checkout http://dep.debian.net/deps/dep3/ to learn about the format. Here
+are templates for supplementary fields that you might want to add:
+
+Origin: upstream (svn rev 2750)
+
+--- dmtcp-2.2.orig/src/dmtcpworker.cpp
++++ dmtcp-2.2/src/dmtcpworker.cpp
+@@ -49,6 +49,26 @@ bool dmtcp::DmtcpWorker::_exitInProgress
+ 
+ void restoreUserLDPRELOAD()
+ {
++  /* A call to setenv() can result in a call to malloc(). The setenv() call may
++   * also grab an low-level libc lock before calling malloc. The malloc()
++   * wrapper, if present, will try to acquire the wrapper-lock. This can lead
++   * to a deadlock in the following scenario:
++   *
++   * T1 (main thread): fork() -> acquire exclusive lock
++   * T2 (ckpt thread): setenv() -> acquire low-level libc lock ->
++   *                   malloc -> wait for wrapper-exec lock.
++   * T1: setenv() -> block on low-level libc lock (held by T2).
++   *
++   * The simple solution is to not call setenv from DMTCP, and use putenv
++   * instead. This requires larger change.
++   *
++   * Another solution is to set LD_PRELOAD to "" before user main(). This is as
++   * good as unsetting it.  Later, the ckpt-thread can unset it if it is still
++   * NULL, but then there is a possibility of a race between user code and
++   * ckpt-thread.
++   *
++   */
++
+   // We have now successfully used LD_PRELOAD to execute prior to main()
+   // Next, hide our value of LD_PRELOAD, in a global variable.
+   // At checkpoint and restart time, we will no longer need our LD_PRELOAD.
+@@ -66,11 +86,14 @@ void restoreUserLDPRELOAD()
+   //   exec("dmtcp_launch --ssh-slave ... ssh ..."), and re-execute.
+   //   This way, we will unset LD_PRELOAD here and now, instead of at that time.
+   char *preload = getenv("LD_PRELOAD");
++  const char *dummy = "LD_PRELOAD=";
+   char *userPreload =  getenv(ENV_VAR_ORIG_LD_PRELOAD);
++  strcpy(preload, dummy);
+   if (userPreload == NULL) {
+-    _dmtcp_unsetenv("LD_PRELOAD");
++    //_dmtcp_unsetenv("LD_PRELOAD");
+   } else {
+-    setenv("LD_PRELOAD", userPreload, 1);
++    strcat(preload, userPreload);
++    //setenv("LD_PRELOAD", userPreload, 1);
+   }
+   JTRACE("LD_PRELOAD") (preload) (userPreload) (getenv(ENV_VAR_HIJACK_LIBS))
+     (getenv(ENV_VAR_HIJACK_LIBS_M32)) (getenv("LD_PRELOAD"));
+@@ -289,6 +312,7 @@ dmtcp::DmtcpWorker::DmtcpWorker (bool en
+     (programName) .Text("This program should not be run under ckpt control");
+ 
+   calculateArgvAndEnvSize();
++  restoreUserLDPRELOAD();
+ 
+   WorkerState::setCurrentState (WorkerState::RUNNING);
+   // define "Weak Symbols for each library plugin in libdmtcp.so
+@@ -461,15 +485,6 @@ void dmtcp::DmtcpWorker::waitForStage1Su
+ 
+   WorkerState::setCurrentState (WorkerState::RUNNING);
+ 
+-  if (initialStartup) {
+-    /* We should not call this function any higher in the logic because it
+-     * calls setenv() and if it is running under bash, then getenv() will
+-     * not work between the call to setenv() and bash main().
+-     */
+-    restoreUserLDPRELOAD();
+-    initialStartup = 0;
+-  }
+-
+   waitForCoordinatorMsg ("SUSPEND", DMT_DO_SUSPEND);
+ 
+   JTRACE("got SUSPEND message, preparing to acquire all ThreadSync locks");

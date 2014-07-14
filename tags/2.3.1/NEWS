@@ -1,0 +1,560 @@
+DMTCP NEWS -- history of user-visible changes.
+
+Please send DMTCP bug reports via <dmtcp-forum@lists.sourceforge.net>
+
+Version 2.3.1 release notes
+=========================
+This is primarily a bug fix release that contains several minor bug fixes.
+
+Version 2.3 release notes
+=========================
+This is primarily a bug fix release.  However, if you are using DMTCP
+for the ARM v7 CPU, or if you are using DMTCP either with the InfiniBand
+network or with the SLURM batch system, then it is strongly recommended
+to upgrade.
+
+The primary changes for this release are:
+* Bug fix affecting building for ARM on some recent armv7a CPUs.
+* Improvements in support for InfiniBand network and for SLURM
+  batch system.
+* Other smaller bug fixes.
+
+Version 2.2.1 release notes
+=========================
+This is a bug fix release. The previous release had a bug when configured
+with --enable-unique-checkpoint-filenames configure flag. This has been fixed
+now. Users relying on this flag are highly recommended to upgrade to 2.2.1.
+
+Version 2.2 release notes
+=========================
+In this release, the lowest layers have been re-organized and partially
+re-written for greater clarity of code and greater maintainability.
+These changes should be transparent to end users.
+
+Users relying on the use of DMTCP with MPI, InfiniBand or the Toruqe or
+SLURM batch queues are strongly advised to upgrade.
+
+Other changes are:
+* A --exit-after-ckpt flag was added for dmtcp_coordinator.
+* Scalability improvements were added.  DMTCP has now been tested
+  on an MPI jobs using 2048 MPI ranks over 2048  CPU cores.
+* Anybody using DMTCP with InfiniBand is strongly recommended to upgrade
+  to inherit important bug fixes.  The InfiniBand plugin is still
+  formally part of the 'contrib' directory during this release.  It was
+  tested primarily against Open MPI.  Further testing is still needed
+  before the InfiniBand plugin can be promoted from the 'contrib'
+  directory to the 'plugin' directory.
+* The --infiniband flag of dmtcp_launch was not fully functional in
+  version 2.1.  This is now fixed.
+* The 'dmtcp_launch --no-coordinator' option was broken in version 2.1.
+  This is now fixed.
+* The --disable-dl-plugin flag was added to dmtcp_launch.  Most users will
+  not need this option.  But software relying on DT_RPATH, DT_RUNPATH,
+  or certain other uncommon cases in loading dynamic libraries may need
+  to invoke this for stability.  It is hoped to remove the need for this
+  flag in a future release.
+* A similar comment holds for the --disable-alloc-plugin flag in dmtcp_launch.
+  If there appear to be issues with a memory allocator, consider invoking
+  this flag.
+* Numerous minor bug fixes and enhancements were added.
+
+Version 2.1 release notes
+=========================
+
+* DMTCP version 2.1. has now been released.  As before, it runs on most
+  Linux distros, and supports both x86 and x86_64 (Intel/AMD for 32- and
+  64-bits), and 32-bit ARM (ARMv7).  In addition, the older DMTCP version 1.2.x
+  (currently 1.2.8) continues to be maintained, but on a bug-fix basis only.
+
+* CHANGE NEEDED FOR ALL PLUGINS:
+  - If you have plugins that include "dmtcpplugin.h", they will now have to be
+    changed to include "dmtcp.h".  This is to reflect that "dmtcp.h" has more
+    uses than just for plugins.
+
+* This new release includes:
+  - some newly stable plugins - batch-queue, modify-env, ptrace (see below)
+  - full support for 32-/64-bit multilib architecture. (see below)
+  - other enhancements to the core feature set (see below)
+  - adapting DMTCP to application requirements:  removal of the old dmtcpaware
+    interface in favor of the newer interface:  test/plugin/applic-*ckpt/
+    (see below)
+  - attempt to restore current working directory on restart (may be impossible
+    if restart host has different filesystem)
+  - 'dmtcp_coordinator --port-file <FILE>' causes coordinator to write the port
+  - number on which it listens into FILE.  This is useful in
+    conjunction with 'dmtcp_coordinator --port 0', which starts a coordinator
+    at a random unused port.
+  - 'dmtcp_restart --ckptdir <DIR>' and 'dmtcp_restart_script.sh --ckptdir <DIR>'
+    will change to a new directory to hold checkpoint images on restart.
+  - 'dmtcp_restart --no-strict-uid-checking'
+    or 'dmtcp_coordinator --no-strict-uid-checking'
+    [ allows a user with a different uid to restart a checkpoint image;
+    process uid will be changed to that of the new user ]
+  - './configure --enable-run-as-root'  [ self explanatory; normally running
+    as root is bad practice ]
+  - a new internal plugin to handle 'ssh' uniformly; Some corner cases
+    in checkpointing MPI could have been affected by this.
+  - some bug fixes related to the new plugin software architecture initiated
+    with DMTCP 2.0
+
+* SOME NEWLY STABLE PLUGINS:
+  This release continues to emphasize the use of DMTCP plugins.
+  The plugins are now organized into two top-level subdirectories:
+  - plugin - plugin is built by './configure; make', but must be invoked,
+             typically through command-line option of 'dmtcp_launch'
+  - contrib - plugin not built; user must cd to the subdirectory of the plugin,
+              build it, and invoke it with 'dmtcp_launch --with-plugin ...'
+
+  - Plugins in the top-level plugin directory:
+    + ptrace :  'dmtcp_launch --ptrace'
+        a plugin to support checkpointing ptrace-based applications,
+        notably including GDB.
+    + batch-queue :  'dmtcp_launch --batch-queue'
+        a resource manager plugin that supports the Torque/PBS and SLURM
+        batch queue systems.  (This plugin is now mature, and was renamed
+        from 'rm' in DMTCP-2.0 to 'batch-queue' to better reflect its use.)
+        [ improved in DMTCP 2.1 ]
+    + modify-env :  'dmtcp_launch --modify-env'
+        Normally, on dmtcp_restart, a process can see only the original
+        environment variables in effect during dmtcp_launch or set by the
+        process itself.  It is common to wish to update these environment
+        variables based on the environment on the restart host
+        (e.g., DISPLAY=$DISPLAY).  This can be set in a file dmtcp_env.txt .
+        [ new in DMTCP 2.1 ]
+
+  - The contrib plugins include:
+    + condor : support for HTCondor, a framework for high throughput computing
+    + kvm : checkpointing of a KVM virtual machine
+    + tun : support for tun networking (as in Tun/Tap) between a virtual
+        machine and the host machine
+    + python : support for checkpoint/restart within a Python session
+    + infiniband : checkpointing over InfiniBand networks supports OFED
+        InfiniBand API.
+        (Note: If you are using a newer release of OFED, you may wish to use
+         the rewrite of this plugin, to be available from the svn in late
+         January, 2014.)
+      [ improved in DMTCP 2.1 ]
+    + ib2tcp : support for checkpointing computation over InfiniBand and
+        restarting over TCP.
+      [ new in DMTCP 2.1 ]
+    + ckptfile : example/template for a plugin to change the default directory
+        to receive checkpoint images.  This can be important when restarting on
+        a new host.
+      [ new in DMTCP 2.1 ]
+
+* FULL SUPPORT FOR 32-/64-bit MULTILIB ARCHITECTURE:
+
+  The standard binary, dmtcp_launch, now supports both 32- and 64-bit programs.
+  Further, a 64-bit program may invoke a 32-bit program and vice versa, as part
+  of a single computation under DMTCP control.
+
+* OTHER ENHANCEMENTS TO THE CORE FEATURE SET:
+
+  - For extremely malloc-intensive programs, run-time overhead from several
+      per cent to 20% has been observed.  This is due to DMTCP deadlock
+      avoidance.  (The glibc implementation of malloc uses a global lock,
+      that can result in deadlock if a user invokes malloc inside a plugin
+      during checkpoint or restart.)  If a user program is not using malloc
+      in a plugin during checkpoint, then the user can disable this
+      DMTCP deadlock avoidance scheme with a flag:
+        dmtcp_launch --disable-alloc-plugin
+      A future modification to DMTCP may remove this issue entirely.
+
+* ADAPTING DMTCP TO APPLICATION REQUIREMENTS AND TO EXTERNAL ENVIRONMENTS:
+
+  The old 'dmtcpaware' API is being removed in favor of:
+    test/plugin/applic-*ckpt/
+
+  For details on this newer API, please read the QUICK-START file with this
+  same heading:  ADAPTING DMTCP TO ...
+
+Version 2.0 release notes
+=========================
+
+This version 2.0 release represents the future of DMTCP.  The older DMTCP
+version 1.2.x branch will continue to be maintained for bug fixes and
+back-porting of simple enhancements to DMTCP, in order to provide backward
+compatibility.  But DMTCP version 1.2.x will not see most new features.
+
+
+DMTCP version 2.0 has been re-designed around the concept of DMTCP
+plugins (similar in spirit to web browser plugins).  Much of the internal
+architecture of DMTCP has been moved into plugins, for greater modularity.
+Further, the plugin capability has been exposed, to make it easy for end
+users to write their own plugins.  Among the capabilities of plugins are:
+
+* the ability for user code to initiate or delay a checkpoint;
+* the ability for user code to take special actions at the time
+  of checkpoint, resume, or restart (for example, disconnect from
+  a database at checkpoint time, and re-connect at restart time);
+* the ability of user code to virtualize ids and other interfaces
+  (for example virtualize global ids to data objects, in case they
+   change between the time of checkpoint and restart);
+
+For details on how to use plugins, see:
+
+* http://sourceforge.net/p/dmtcp/code/HEAD/tree/trunk/doc/plugin-tutorial.pdf 
+  and the examples in:
+* http://sourceforge.net/p/dmtcp/code/HEAD/tree/trunk/test/plugin/
+
+Other changes in this new DMTCP 2.0 branch include:
+
+* The command dmtcp_checkpoint has been renamed to dmtcp_launch.
+  The older dmtcp_checkpoint is still supported for backwards compatibility,
+  but deprecated.
+* Checkpointing of ssh connections is now more general and much more robust.
+  This may improve the robustness of DMTCP in checkpointing certain
+  dialects of MPI with unusual cluster configurations.  (The newer support
+  for ssh is based on an internal DMTCP plugin.)
+* There is now a contrib directory with support for several extensions to
+  DMTCP.
+  Note that many of these extensions represent new code that has not yet
+  been thoroughly tested.  Feedback is welcome.
+    - Checkpointing of KVM virtual machines from the outside, without
+        the need for KVM-specific snapshots (contrib/kvm)
+    - checkpoint of network of KVM virtual machines (contrib/tun with
+        contrib/kvm)
+    - plugin support both for Torque and SLURM batch queues (resource managers)
+	(contrib/torque and contrib/rm)
+    - integrated support for calling DMTCP from inside Python (contrib/python)
+    - support for checkpointing over InfiniBand (contrib/infiniband)
+    [ Note that this code is very new and is probably less than robust.
+      Feedback is very welcome, as we work on a future, improved version. ]
+    - support for checkpointing within Condor (contrib/condor)
+    [ This support was available for some years, but is now collected
+      into contrib. ]
+
+Version 1.2.8 release notes
+===========================
+
+DMTCP version 1.2.8 is primarily a bug fix release.  It is particularly
+recommended to upgrade if you are using DMTCP with the ARM CPU,
+or if you will compile DMTCP with a C++11 compiler (e.g. GNU flag -std=c++11).
+
+Important changes include:
+
+* Bug fixes for newer ARM CPUs --- especially addressing cache coherency
+   issues of multi-core ARM, and the more aggressive out-of-order
+   execution for newer ARM CPUs.
+* On restart, gzip zombie processes associated with compressed checkpoint
+   images were not always reaped properly.  This is now handled correctly.
+* Peliminary support for using C++11 compilers to compile DMTCP (but
+   not yet intensively tested).
+* Minor bug fixes.
+
+Version 1.2.7 release notes
+===========================
+
+- Proper restore of sockets calling bind with port '0'.
+- Allow plugins to call system() etc. during pre-ckpt phase.
+- Several other bug fixes and performance improvements
+
+
+Version 1.2.6 release notes
+===========================
+
+- Previous release (1.2.5) introduced compilation errors for older kernels.
+This release fixes them.
+- Several minor bug fixes related to gcc 4.7.
+
+
+Version 1.2.5 release notes
+===========================
+
+- epoll, eventfd, and signalfd are now supported
+- The ARM architecture for Linux is now supported.
+  (Linux currently supports 32-bit ARM EABI.)
+- The name "DMTCP module" is changed to "DMTCP plugin" (more common
+  terminology).  User plugins can greatly customize the behavior of DMTCP.
+- The dmtcp_checkpoint cmd was resetting the checkpoint interval even if the
+  user did not specify the -i/--interval flag.  This is now fixed.
+- Improved support for a planned Fedora package for DMTCP
+- On resume from ckpt, zero pages were sometimes expanded (increasing the
+  memory footprint).  This affected Java.  This is now fixed.
+- Some bug fixes were provided for programs that intensively create and destroy
+  threads (e.g. OpenMP, Java)
+- After restart, the floating point rounding mode (fesetround) was not being
+  properly restored.  This is now fixed.
+- There have been requests for support of DMTCP for PBS/TORQUE.  Some partial
+  support has now been added to the svn only (_not_ to this release).
+  Please write to us if you need this support from DMTCP.
+- The FAQ at the DMTCP web site was expanded.
+- 15% slowdown observed in an unusual case:
+  A user reports that if your program frequently does both of these:
+  a.  is heavily multi-threaded; and
+  b.  calls malloc/free intensively;
+  This has been diagnosed.  It was seen too close to this 1.2.5 release, and so
+  the fix will be provided for the next release (and in the public svn).
+
+Version 1.2.4 release notes
+===========================
+
+- There is now much more robust treatment of processes that rapidly create and
+  destroy threads.  This was the case for the Java JVM (both for OpenJDK and
+  Oracle (Sun) Java).  This was also the case for Cilk.  Cilk++ was not tested.
+  We believe this new DMTCP to now be highly robust -- and we would appreciate
+  receiving a notification if you find a Java or Cilk program that is not
+  compatible with DMTCP.
+- Zero-mapped pages are no longer expanded and saved to the DMTCP checkpoint
+  image.  For Java programs (and other programs using zero-mapped pages for
+  their allocation arena or garbage collecotr), the checkpoint image will now
+  be much smaller.  Checkpoint and restart times will also be faster.
+- DMTCP_ROOT/dmtcp/doc directory added with documentation of some DMTCP
+  internals.  architecture-of-dmtcp.pdf is a good place to start reading for
+  those who are curious.
+- The directory of example modules was moved to DMTCP_ROOT/test/module.  This
+  continues to support third-part wrappers around system calls, can registering
+  functions to be called by DMTCP at interesting times (like pre-checkpoint,
+  post-resume, post-restart, new thread created, etc.).
+- This version of MTCP (inside this package) should be compatible with the
+  checkpoint-restart service of Open MPI.  The usage will be documented soon
+  through the Open MPI web site.  As before, an alternative is to simply start
+  Open MPI inside DMTCP, and let DMTCP treat all of Open MPI as a "black box"
+  that happens to be a ditributed computation
+- A new --prefix command line flag has been added to dmtcp_checkpoint.  It
+  operates similarly to the flag of the same name in Open MPI.  For distributed
+  computations, remote processes will use the prefix as part of the path to
+  find the remote dmtcp_checkpoint command.  This is useful when a gateway
+  machine has a different directory structure from the remote nodes.
+- configure --enable-ptrace-support now uses ptrace module (more modular code).
+  The ptrace module should also be more robust.  It now fixes some additional
+  cases that were missing earlier
+- ./configure --enable-unique-checkpoint-filenames  was not respecting
+  bin/dmtcp_checkpoint --checkpoint-open-files .  This is now fixed.
+- If the coordinator received a kill request in the middle of a checkpoint, the
+  coordinator could freeze or die.  This has now been fixed, with the expected
+  behavior:  Kill the old computation that is in the middle of a checkpoint,
+  and then allow any new computations to begin.
+- dmtcp_inspector utility was broken in last release; now fixed
+- configure --enable-forked-checkpoint was broken in the last release.  It is
+  fixed again.
+- Many smaller bug fixes.
+- The debian packages and rpm packages for OpenSUSE will be submitted to the
+  distros over the next few days.
+
+Version 1.2.3 release notes
+===========================
+
+This release is primarily a bug-fix release. Here are the Release Notes:
+
+- Several bug fixes.
+- Modifications added for compatibility with the checkpoint-restart service of
+  OpenMPI (will be integrated with upcoming OpenMPI-1.6)
+- Tests for emacs, vim and strace added to 'make check'
+- When running emacs23 under GNU 'screen', it's not restored correctly.
+  Currently we warn user to use emacs22.  Emacs23 with 'screen' will be
+  supported in future (and 'emacs23' continues to work fine standalone).
+- Fixes a regression in which checkpointing 'gdb' with the required
+  './configure --enable-ptrace-support' was failing.  Works now.
+- /proc/*/cmdline was not being restored correctly when:  argc &gt; 1 (Fixed.)
+- debugging logic (primarily for DMTCP developers) was simplified so that
+  changing CFLAGS in mtcp/Makefile to add '-DDEBUG' suffices to include MTCP
+  debugging information.  If --enable-debug is also configured, then a copy of
+  MTCP debug information also goes into /tmp/dmtcp-USER@HOST/jassertlog.* .
+
+
+Version 1.2.2 release notes
+===========================
+
+- A new module system, allowing users to write their own extensions to DMTCP,
+  including wrappers around library calls.  See the module subdirectory for
+  examples.
+- ./configure --enable-m32 was not working in DMTCP 1.2.1.  It works again now.
+- more bug fixes and robustness testing.  Tested on kernels ranging from Linux
+  2.6.5 to the latest kernel.  Tested especially on the Linux distributions:
+  Red Hat/Fedora, Debian/Ubuntu, SuSe/OpenSUSE; although we don't know of any
+  Linux distributions where it fails to run.
+- 'screen' did not checkpoint properly on machines using LDAP authentication.
+  This could also affect processes using 'bash'.  This has been fixed.
+- Furthermore, recent versions of 'screen' began calling 'utempter' when
+  present Support for 'utempter' and some other setuid processes has been
+  added.
+- Removed the requirement for libc.a in building DMTCP, since Red Hat does not
+  include libc.a in its standard repository.
+- ./configure --enable-ptrace now more robust.  Still labelled "experimental"
+  for this release.  You will need to enable this if you want to checkpoint gdb
+  sessions, programs running under strace, and certain other applications.
+- ./configure --enable-fast-ckpt-restart  can make ckpt/restart faster by using
+  'mmap'.  You will need to set the environment variable DMTCP_GZIP to "0" if
+  you use this.  This feature is still experimental, and there are many other
+  tricks for speeding up ckpt/restart.  Please talk to the developers if this
+  is important for your application.
+- Experimental support added for HBICT ( hbict.sf.net ).  This provides support
+  for incremental and differential checkpointing.  However, this is still
+  ongoing work.
+- Work has begun on improved support for process migration between different
+  Linux kernels and distributions.  Simple applications should migrate.  Please
+  talk to us if this feature is important to you.
+- We do not yet support the 'epoll' and 'inotify' Linux system calls.
+  Recently, there has been some demand for this, and we intend to raise the
+  priority.  Please talk to us if this feature is important to you.
+
+Version 1.2.1 release notes
+===========================
+
+* Support for calling dmtcpaware API (dmtcpCheckpoint(), etc.) directly from
+  inside a python session.
+* The option for applications to use the dmtcpaware interface to link with a
+  shared library (libdmtcpaware.so) instead of libdmtcpaware.a.
+* Support for MPICH2 1.3.x (transparently checkpointing MPICH under DMTCP), as
+  well as continuing the existing support for checkpointing OpenMPI.
+* Support for running and checkpointing of binaries in non-privileged mode when
+  the setuid/setgid bits of the binaries are set.
+* Several bug fixes related to GNU screen.
+* Experimental support for ptrace to allow checkpointing of gdb sessions,
+  strace, and other ptrace-based aplications.
+* On restart, restore original process name for 'ps' and /proc/self/cmdline.
+* Additional bug fixes and enhancements.
+
+Version 1.2.0 release notes
+===========================
+
+* This is a semi-major release. DMTCP now supports GNU screen.
+* It also fixes some instabilities in checkpointing Matlab under certain
+  environments.
+* Numerous bug fixes were implemented as a part of review of DMTCP sub-systems.
+
+Version 1.1.9 release notes
+===========================
+
+* Better SIGNAL handling.
+* Bug fixes for Session/Process group restoration.
+* Bug fixes in file handling code.
+* Other minor bug fixes and improvements.
+
+Version 1.1.8 release notes
+===========================
+
+* DMTCP now works again with OpenMPI 1.4 and 1.5-pre (DMTCP releases 1.1.4
+  through 1.1.7 were not working with OpenMPI).
+* Other bug fixes and improvements
+
+Version 1.1.7 release notes
+===========================
+
+* DMTCP now works with 32-bit Ubuntu 10.04 Lucid and glibc-2.11. It was broken
+  in last release.
+* Other bug fixes and improvements.
+
+Version 1.1.6 release notes
+===========================
+
+* DMTCP now works with Ubuntu 10.04 Lucid and glibc-2.11.
+* Other bug fixes and improvements.
+
+Version 1.1.5 release notes
+===========================
+
+* Bug fixes related to malloc family of functions.
+* We strongly recommend that anyone with a malloc-intensive application, such
+  as C++ with intensive use of STL, should upgrade.
+* Some new flags for dmtcp_checkpoint, dmtcp_restart, dmtcp_command, and
+  dmtcp_restart_script.sh. For more information run the command with --help.
+* Simplified restart script for single process computations.
+* Signal handling improved.
+* Several other bug fixes and improvements.
+
+Version 1.1.4 release notes
+===========================
+
+* Fix for a regression bug which affected checkpointing bash in previous
+  release.
+* DMTCP will support next release of Maplesoft.
+* Improved support for Pid-Virtualization.
+* Some users reported compilation error in previous release, fixed in this
+  release.
+* dmtcp_nocheckpoing command added.
+* dmtcp_command supports multiple commands.
+* Fix for not checkpointing dmtcp_* commands.
+* Several other bug fixes and improvements.
+
+
+Version 1.1.3 release notes
+===========================
+
+* Improved support for OpenMPI 1.3 and 1.4
+* dmtcp_restart_script.sh allows user specified hostnames on restart.
+* dmtcp_command now supports blocked checkpoint mode.
+* Several other bug fixes and improvements.
+
+Version 1.1.2 release notes
+===========================
+
+* Support for glibc 2.10.
+* Thread safety mechanisms introduced for Pid-Virtualization Layer.
+* Various other bug fixes related to Pid/Tid-Virtualization
+* The default location for log files changed to /tmp/dmtcp-$USER@$HOST.
+
+Version 1.1.1 release notes
+===========================
+
+* Fixes several bugs affecting OpenMPI version 1.3.x
+* Improves the robustness of pid and tid virtualization.
+* Fixes a bug that would have prevented DMTCP from running under Linux kernel
+  2.6.31 and later.
+* --enable-unique-checkpoint-filenames option now available
+* --enable-debug doesn't work with --enable-pid-virtualization
+
+
+Version 1.1.0 release notes
+===========================
+
+* TID-Virtualization supported with improved PID-Virtualization. Also works for
+  OpenMPI.
+* IPv6 fixes for supporting OpenMPI 1.3.x. (OpenMPI now works with DMTCP.)
+* changed fork to vfork for gzip spawning for handling programs with huge
+  memory.
+* Process Group / foregroud process restored at restart.
+* Support for system() updated.
+* Some new configuration options
+* Several other bug fixes / enhancements.
+
+Version 1.06 release notes
+==========================
+
+Fixed a bug causing make to fail when configured with
+--disable-pid-virtualization
+
+Version 1.05 release notes
+==========================
+
+* Fixed bug affecting bash scripts that forked a child process instead of doing
+  an exec
+* OpenMPI now works with PID-Virtualization (default)
+* Support for FIFOs added
+
+Version 1.04 release notes
+==========================
+
+* Fixed Ubuntu 9.01 bug. glic-2.9 was more stringent about stack overflow
+  errors.
+* Ububtu 9.01 uses gcc-4.3.4 -Wformat=2 which produced false positives
+  warnings. We added %s format specifier to format string and empty string
+  argument to eliminate warnings.
+
+Version 1.02 release notes
+==========================
+
+* Support for PID-Virtualization
+* Session support included
+* Restoration of controlling terminal.
+* Fixes for problems caused by Address Space Randomization.
+* Bug fixes / enhancements related to file handling and Pseudo-terminals.
+* Fix for handling files created by "nscd" daemon.
+* Some new configuration option.
+
+Version 1.01 release notes
+==========================
+
+- Switched to LGPL license.
+- Bugfixes and improved support for checkpointing more applications.
+
+Version 1.0 release notes
+==========================
+
+- A programming interface to allow the checkpointed program to interact with
+  DMTCP.
+- A command line interface to allow scripts to interact with DMTCP.
+- Support for NSCD.
+- Boatloads of bugfixes.
+

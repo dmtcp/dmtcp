@@ -1,0 +1,274 @@
+@SET_MAKE@
+LN_S=@LN_S@ -f
+MKDIR_P=@MKDIR_P@
+CC=@CC@
+M32=@M32@
+DEBUG=@DEBUG@
+FAST_RESTART=@FAST_RESTART@
+HBICT_DELTACOMP=@HBICT_DELTACOMP@
+INFINIBAND_SUPPORT=@INFINIBAND_SUPPORT@
+HAS_JAVA=@HAS_JAVA@
+HAS_SSH=@HAS_SSH@
+PACKAGE=@PACKAGE_TARNAME@
+PACKAGE_TARNAME=@PACKAGE_TARNAME@-@PACKAGE_VERSION@
+VERSION=@PACKAGE_VERSION@
+CFLAGS = @CFLAGS@
+CPPFLAGS = @CPPFLAGS@
+LDFLAGS = @LDFLAGS@
+
+# Allow the user to specify the install program.
+INSTALL = @INSTALL@
+INSTALL_PROGRAM = @INSTALL_PROGRAM@
+INSTALL_DATA = @INSTALL_DATA@
+INSTALL_SCRIPT = @INSTALL_SCRIPT@
+
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+datarootdir=@datarootdir@
+bindir=@bindir@
+libdir=@libdir@
+pkglibdir = @libdir@/@PACKAGE@
+docdir=@docdir@
+includedir=@includedir@
+mandir=@mandir@
+infodir=@mandir@
+top_builddir = @top_builddir@
+top_srcdir = @top_srcdir@
+srcdir = @srcdir@
+VPATH = @srcdir@
+targetdir = $(top_builddir)
+
+ifeq ($(M32),1)
+  targetdir = $(top_builddir)/lib/$(PACKAGE)/32
+  INSTALL_FLAGS = libdir=$(libdir)/$(PACKAGE)/32/lib \
+		  bindir=$(libdir)/$(PACKAGE)/32/bin install-libs
+  UNINSTALL_FLAGS = libdir=$(libdir)/$(PACKAGE)/32/lib \
+		    bindir=$(libdir)/$(PACKAGE)/32/bin uninstall-libs
+else
+  INSTALL_FLAGS = install
+  UNINSTALL_FLAGS = uninstall
+endif
+
+MANPAGES_AUTOGEN=dmtcp_nocheckpoint.1.gz mtcp_restart.1.gz \
+		 dmtcp_ssh.1.gz dmtcp_sshd.1.gz \
+		 dmtcp_discover_rm.1.gz dmtcp_rm_loclaunch.1.gz
+
+MANPAGES=dmtcp.1.gz dmtcp_coordinator.1.gz dmtcp_command.1.gz dmtcp_launch.1.gz \
+	 dmtcp_restart.1.gz
+
+# Macros TEST and XTERM_E used on command line by check1, check2, ...:
+#   make TEST=readline XTERM_E="xterm -e" check-readline
+
+default: display-build-env build
+
+mkdirs:
+	$(MKDIR_P) $(targetdir)/bin
+	$(MKDIR_P) $(targetdir)/lib/dmtcp
+
+build: mkdirs dmtcp plugin contrib
+
+all: default
+
+display-build-env: display-config display-release
+	@- uname -a
+	@- echo 'Compiler:  ${CC}'
+	@- ${CC} -v 2>&1
+	@- ${LD} -v
+	@- if test "$(HAS_JAVA)" = "yes" ; then \
+	     java -showversion 2>&1 | head -3 ; \
+	   fi
+	@ ls -l /lib/libc.so.6 /lib[36]*/libc.so.6 /lib/*/libc.so.6 \
+	   2> /dev/null || true
+	@ ls -ld /var/*/nscd/* 2> /dev/null || true
+	@ echo ""
+
+display-release:
+	@ lsb_release -dc 2> /dev/null || \
+	    grep -i SUSE /etc/SuSE-release 2> /dev/null || \
+	    cat /etc/redhat-release 2> /dev/null || true
+	@ cat /etc/debian-version 2> /dev/null && echo '  (Debian)' || true
+	@ cat /etc/rocks-release 2> /dev/null || true
+
+display-config:
+	@- echo DMTCP version: ${VERSION}
+	@- echo Date built: \ \  `date`
+	@- if test -r ./config.log ; then \
+	    echo -n 'config.log: ' ; \
+	    grep '\$$ .*configure ' config.log | sed -e 's^\$$^^'; \
+	   fi
+
+dmtcp:
+ifeq ($(M32),1)
+	cd src && $(MAKE) libs
+else
+	cd src && $(MAKE)
+	cd $(targetdir)/bin && $(LN_S) dmtcp_launch dmtcp_checkpoint
+endif
+
+plugin: dmtcp
+	cd plugin && $(MAKE)
+
+contrib: dmtcp
+	cd contrib && $(MAKE)
+
+tests: build
+	cd test && $(MAKE)
+
+# Prevent mtcp_restart from flying out of control
+# (but Java/IcedTea6-1.9.x/RHEL-6.1 uses lots of memory,
+#  and modifies most of the zero-mapped pages -- using 16 MB)
+# JDK Runtime Environment (Java/IcedTea6 1.12.4 (OpenJDK, Java 1.6.0_27)
+#   now needs at least 32 MB  (June, 2013)
+LIMIT=ulimit -v 33554432
+
+check: tests
+	@ if [ "`id -u`" == "0" ]; then \
+	  echo "'make check' will fail if run as root."; \
+	  exit 1; \
+	fi
+	@ if python -c 'print "Python exits."' > /dev/null; then \
+	  bash -c "$(LIMIT) && $(top_srcdir)/test/autotest.py ${AUTOTEST} $*"; \
+	  else echo '*** No python found in your path.'; echo '*** Please add' \
+	   ' python to path or build Python 2.x for x >= 3.'; \
+	  fi
+
+check-%: tests
+	bash -c "$(LIMIT) && $(top_srcdir)/test/autotest.py ${AUTOTEST} '$*'"
+
+check1: icheck-dmtcp1
+
+check2: tests
+	${MAKE} XTERM_E="xterm -e" icheck-readline
+
+check3: icheck-shared-memory
+
+icheck-%: tests
+	@ echo ""
+	@ echo "*** Type:"
+	@ echo "***       h<return> for Help (optional)"
+	@ echo "***       c<return> to Checkpoint"
+	@ echo "***       k<return> to Kill and observe the Restart"
+	@ echo "***       c<return> to Checkpoint again"
+	@ echo "***       k<return> to Kill and restart again"
+	@ echo "***       q<return> to Quit"
+	@ echo ""
+	@ echo "Press <return> when ready to start."
+	@ read -p "> " dummy
+	@ rm -f ckpt_$*_* && sleep 3 && \
+	  echo "" && echo "*** Starting Program" && echo "" && \
+	  ${XTERM_E} $(targetdir)/bin/dmtcp_launch --join test/$* && \
+	  echo "" && echo "*** Restarting Program from Checkpoint" \
+	  "(press q<return> to quit)" && echo "" && \
+	  until ls ckpt_$*_*.dmtcp > /dev/null 2>&1; do true; done; \
+	  ${XTERM_E} $(targetdir)/bin/dmtcp_restart --join --quiet ckpt_$*_*.dmtcp; \
+	  echo "" && echo "*** Again Restarting Program from Checkpoint" \
+	  "(press q<return> to quit)" && echo "" && \
+	  until ls ckpt_$*_*.dmtcp > /dev/null 2>&1; do true; done; \
+	  ${XTERM_E} $(targetdir)/bin/dmtcp_restart --join --quiet ckpt_$*_*.dmtcp; \
+	  &
+	@ $(targetdir)/bin/dmtcp_coordinator
+
+tidy:
+	rm -rf dmtcp-autotest-* ckpt_*_files
+	rm -f ckpt_*.dmtcp dmtcp_restart_script* \
+	  dmtcp-shared-memory.* dmtcp-test-typescript.tmp core*
+	rm -rf ckpt_*
+
+clean: tidy
+	- cd src && $(MAKE) clean
+	- cd plugin && $(MAKE) clean
+	- cd contrib && $(MAKE) clean
+	- cd test  && $(MAKE) clean
+	- if test -z "$$DMTCP_TMPDIR"; then \
+	   if test -z "$$TMPDIR"; then \
+	     DMTCP_TMPDIR=/tmp/dmtcp-$$USER@`/bin/hostname`; \
+	   else \
+	     DMTCP_TMPDIR=$$TMPDIR/dmtcp-$$USER@`/bin/hostname`; \
+	   fi; \
+	 fi; \
+	 rm -rf $$DMTCP_TMPDIR
+	rm -rf $(targetdir)/lib $(targetdir)/bin
+
+distclean: clean
+	- cd src && $(MAKE) distclean
+	- cd plugin && $(MAKE) distclean
+	- cd contrib && $(MAKE) distclean
+	- cd test && $(MAKE) distclean
+	rm -f Makefile test/Makefile test/autotest_config.py \
+	  include/config.h include/stamp-h1 \
+	  config.log config.status config.cache
+	rm -rf autom4te.cache
+
+distsvn:
+	if test "`svn info`"; then \
+	  dir=$(PACKAGE_TARNAME)+svn`svnversion`; \
+	else \
+	  echo "svn info failed"; exit 1; \
+	fi; \
+	svn export . $$dir; \
+	tar czf $$dir.tar.gz $$dir; \
+	rm -rf $$dir 2&>/dev/null; \
+	ls -l $$dir.tar.gz;
+
+distgit:
+	if test "`git svn info|grep '^Revision:'|cut -d' ' -f2`"; then \
+	  svnversion="`git svn info|grep '^Revision:'|cut -d' ' -f2`" \
+	  dir=$(PACKAGE_TARNAME)+svn$$svnversion; \
+	else \
+	  echo "git svn info failed"; exit 1; \
+	fi; \
+	git archive --format=tar.gz --prefix=$$dir/ HEAD > $$dir.tar.gz \
+	rm -rf $$dir 2&>/dev/null; \
+	ls -l $$dir.tar.gz;
+
+dist_exclude.txt:
+	if ! test -r dist_exclude.txt; then touch dist_exclude.txt; fi
+
+dist: distclean dist_exclude.txt
+	dir=`pwd`; cd ..; tar czvf dmtcp.tgz \
+	    --exclude-from=$$dir/dist_exclude.txt \
+	    --exclude $$dir/dist_exclude.txt --exclude-vcs --exclude='*/.deps' \
+	    ./`basename $$dir`
+	ls -l ../dmtcp.tgz
+
+create-dirs:
+	$(INSTALL) -d $(DESTDIR)$(bindir)
+	$(INSTALL) -d $(DESTDIR)$(libdir)
+	$(INSTALL) -d $(DESTDIR)$(pkglibdir)
+ifeq ($(M32),0)
+	$(INSTALL) -d $(DESTDIR)$(includedir)
+	$(INSTALL) -d $(DESTDIR)$(docdir)
+	$(INSTALL) -d $(DESTDIR)$(mandir)/man1
+else
+	$(INSTALL) -d $(DESTDIR)$(libdir)/$(PACKAGE)/32/bin
+	$(INSTALL) -d $(DESTDIR)$(libdir)/$(PACKAGE)/32/lib/$(PACKAGE)
+endif
+
+install: all create-dirs
+	cd src && make DESTDIR=$(DESTDIR) $(INSTALL_FLAGS)
+	cd plugin && make DESTDIR=$(DESTDIR) $(INSTALL_FLAGS)
+	cd contrib && make DESTDIR=$(DESTDIR) $(INSTALL_FLAGS)
+ifeq ($(M32),0)
+	${INSTALL_DATA} $(top_srcdir)/QUICK-START $(DESTDIR)$(docdir)
+	${INSTALL_DATA} $(top_srcdir)/COPYING $(DESTDIR)$(docdir)
+	${INSTALL_DATA} $(top_srcdir)/AUTHORS $(DESTDIR)$(docdir)
+	${INSTALL_DATA} $(top_srcdir)/NEWS $(DESTDIR)$(docdir)
+	${INSTALL_DATA} $(top_srcdir)/manpages/*.1.gz $(DESTDIR)$(mandir)/man1
+	(cd $(DESTDIR)$(mandir)/man1; \
+	  for file in ${MANPAGES_AUTOGEN}; do $(LN_S) dmtcp.1.gz $$file; done)
+	(cd $(DESTDIR)$(mandir)/man1; \
+	  $(LN_S) dmtcp_launch.1.gz dmtcp_checkpoint.1.gz)
+endif
+
+uninstall:
+	cd src && make DESTDIR=$(DESTDIR) $(UNINSTALL_FLAGS)
+	cd plugin && make DESTDIR=$(DESTDIR) $(UNINSTALL_FLAGS)
+	cd contrib && make DESTDIR=$(DESTDIR) $(UNINSTALL_FLAGS)
+ifeq ($(M32),0)
+	rm -Rf "$(DESTDIR)$(docdir)"
+	cd $(DESTDIR)$(mandir)/man1 && rm -f ${MANPAGES} ${MANPAGES_AUTOGEN}
+endif
+
+.PHONY: default all \
+	display-build-env display-release display-config build \
+	dmtcp plugin contrib clean distclean

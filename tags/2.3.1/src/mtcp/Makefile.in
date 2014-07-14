@@ -1,0 +1,148 @@
+CC = @CC@
+M32=@M32@
+CFLAGS = @CFLAGS@
+# Why do we define C preprocessor flags?  If we're not using them,
+#   then declaring them reduces the readability for a person.
+# - Gene
+CPPFLAGS = @CPPFLAGS@
+CXX = @CXX@
+CXXFLAGS = @CXXFLAGS@
+LDFLAGS = @LDFLAGS@
+ARM_HOST = @ARM_HOST@
+PACKAGE = @PACKAGE@
+
+# Allow the user to specify the install program.
+INSTALL = @INSTALL@
+INSTALL_PROGRAM = @INSTALL_PROGRAM@
+INSTALL_DATA = @INSTALL_DATA@
+INSTALL_SCRIPT = @INSTALL_SCRIPT@
+
+prefix = @prefix@
+exec_prefix = @exec_prefix@
+bindir = @bindir@
+#libdir = @libdir@
+#pkglibdir = $(libdir)/@PACKAGE@
+
+top_srcdir = @top_srcdir@
+srcdir = @srcdir@
+
+top_builddir = @top_builddir@
+targetdir = $(top_builddir)
+
+# VPATH specifies a list of directories that make should search for finding the
+# prerequisite files that are not in the current directory.  This is needed if
+# the build process is initiated in a separate build directory, in which case,
+# VPATH is set to the corresponding srcdir.
+#
+# VPATH is not required for the regular "./configure; make" in the source
+# directory.
+VPATH = @srcdir@
+
+ifeq ($(M32),1)
+  CFLAGS += -m32 -Wa,--32
+  LDFLAGS += -m32 -Wl,-m32 -Wl,-melf_i386 -Wa,--32
+  MTCP_RESTART=mtcp_restart-32
+  # For mixed mode, 32-bit packages must be installed in the 64-bit libdir.
+  targetdir = $(top_builddir)/lib/$(PACKAGE)/32
+else
+  MTCP_RESTART=mtcp_restart
+endif
+
+# We currently use two files, procmapsarea.h and protectedfds.h, from the
+# top-level include dir.
+DMTCP_INCLUDE_PATH = $(top_srcdir)/include
+
+INCLUDES = -I$(top_builddir)/include -I$(DMTCP_INCLUDE_PATH) -I$(srcdir)
+
+COMPILE = $(CC) $(INCLUDES) $(CPPFLAGS) $(CFLAGS) -c -o $@
+LINK = $(CC) $(CFLAGS) $(LDFLAGS) -o $@
+
+ifeq (${ARM_HOST},yes)
+  ARM_EXTRAS = $(srcdir)/syscall-arm.S
+  ARM_BINARIES = $(srcdir)/syscall-arm.o
+  CFLAGS += -DMTCP_SYS_ERRNO_ON_STACK
+endif
+
+HEADERS = mtcp_util.ic mtcp_sys.h mtcp_util.h ldt.h \
+	  $(srcdir)/../membarrier.h $(DMTCP_INCLUDE_PATH)/procmapsarea.h
+
+all: default
+default: build
+libs: build
+build: $(targetdir)/bin/$(MTCP_RESTART) libmtcp.a
+
+$(targetdir)/bin/$(MTCP_RESTART): mtcp_restart.o ${ARM_BINARIES}
+	${LINK} -fPIC -g -O0 -nodefaultlibs $^
+
+# We need to compile mtcp_restart.c with "-fno-stack-protector" to avoid
+# runtime stack smashing detection.
+# We also need to build mtcp_restart without optimization (-O0), otherwise it
+# may fail to restart. Since these three objects are fairly low level, we avoid
+# any surprises by compiling them without any optimization.
+# FIXME:  Wasn't this an issue only for DMTCP-2.1 or earlier?
+#    The -fno-stack-protector concerned returning from the interrupt handler.
+#    That now happens in a different function.
+# IMPORTANT:  Compile with -O2 or higher.  On some 32-bit CPUs
+#   (e.g. ARM/gcc-4.8), the inlining of -O2 avoids bugs when fnc's are copied.
+mtcp_restart.o: mtcp_restart.c $(HEADERS) mtcp_check_vdso.ic
+	$(COMPILE) -DPIC -fPIC -fno-stack-protector -g -O0 $<
+
+# procmapssrea.h taken from mtcp_util.h ; Is this necessary?
+mtcp_check_vdso.o: mtcp_check_vdso.ic mtcp_sys.h mtcp_util.h \
+	$(DMTCP_INCLUDE_PATH)/procmapsarea.h
+	$(COMPILE) -DPIC -fPIC -fno-stack-protector -g -O0 $<
+
+libmtcp.a: restore_libc.o ${ARM_BINARIES}
+	ar cru $@ $^
+# FIXME:  This is a low-level file.  Yet it draws from two directories.
+#    Part of the problem is that restore_libc.h copies DPRINTF from mtcp_util.h
+#    and uses protectedfds.h, which is in ../../include
+#    Do we need protectedfds.h for low-level, where there is no JASSERT?
+restore_libc.o: restore_libc.c $(HEADERS) $(DMTCP_INCLUDE_PATH)/protectedfds.h
+	$(COMPILE) -DPIC -fPIC -fno-stack-protector -g -O0 $<
+syscall-arm.o: syscall-arm.S
+	${CC} ${CFLAGS} -c $<
+
+# Try 'make gdb' before 'make check' if you want debugging information
+#   available in the case of 'make check' dumping core.
+check: $(targetdir)/bin/$(MTCP_RESTART) ckpt_dmtcp1_test.dmtcp
+        @echo 'Expected result: "Error 99" (MTCP transfered to DMTCP correctly)'
+	$(targetdir)/bin/$(MTCP_RESTART) --text-offset `./text_offset.sh \
+	  $(targetdir)/bin/$(MTCP_RESTART)` ckpt_dmtcp1_test.dmtcp
+
+ckpt_dmtcp1_test.dmtcp: ../../test/dmtcp1 restore_libc.o
+	../../bin/dmtcp_launch -i3 ../../test/dmtcp1 &
+	sleep 8 && ../../bin/dmtcp_command --quit
+	rm -f `ls -t dmtcp_restart_script*.sh`
+	mv `ls -t ckpt_dmtcp1_*.dmtcp | head -1` ckpt_dmtcp1_test.dmtcp.gz
+	gunzip ckpt_dmtcp1_test.dmtcp.gz
+
+gdb:
+	make -f Makefile.debug gdb
+
+install: all
+	${INSTALL_PROGRAM} $(targetdir)/bin/$(MTCP_RESTART) $(DESTDIR)$(bindir)
+
+uninstall:
+	rm -f $(DESTDIR)$(bindir)/$(MTCP_RESTART)
+
+# The install-libs target is there to install plugin libraries when building
+# multi-arch builds. This prevents the installation of 32-bit binaries.
+# However, mtcp_restart is an exception -- we need to keep one copy for each
+# arch.
+install-libs: install
+
+uninstall-libs: uninstall
+
+tidy:
+	rm -rf ckpt_*_files
+	rm -f ckpt_*.dmtcp dmtcp_restart_script* core*
+
+clean: tidy
+	-rm -f *.o *.a
+	-rm -f $(targetdir)/bin/$(MTCP_RESTART)
+
+distclean: clean
+	rm -f Makefile
+
+.PHONY: default all build tidy clean distclean install uninstall gdb

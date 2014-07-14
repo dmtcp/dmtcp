@@ -1,0 +1,86 @@
+- PLANNED FOR AFTER DMTCP-1.2.4 (as time and resources permit):
+  1. Create MTCP ckpt module making it easy to choose the preferred
+	compression routine on fly, remote checkpoints, etc.
+  2. Modify ckpt image format to note zero-mapped pages and use /proc/*/pagemap.
+	(An intermediate solution to replace runs of zeros
+	 by a region of zero-mapped pages at checkpoint time has already
+	 been implemented as of DMTCP-1.2.4.)
+  3. Replace temporary files of $DMTCP_TMPDIR (created on restart)
+	by shared memory objects.
+  4. Faster checkpoint/restart:  Don't remap libs
+  5. ELF honors a segment of type PT_LOAD.  This can be used in the future
+	to reserve address ranges to prevent conflicts with vdso, etc.
+	This will aid process migration between different Linux kernels,
+	by stopping a loader using address space randomization from
+	placing vdso, etc., in the wrong place.
+  6. dmtcp_launch --disable-randomization   should be implemented,
+        which would also disable randomization on restart.
+        This can be useful for internal testing and further development,
+	but also useful for users with specialized needs.  Note that
+	gdb disables randomization of the target process by default starting
+	in GDB 7.x.
+
+- When environ is not yet initialized, currently libdmtcp.so simply returns.
+  (This occurs when executing libc.so.6 .)
+  We should spend more effort to find environ at top of stack.
+  Note that bash also plays tricks with environ, but bash still gives
+    us a working getenv().
+
+- We currently wrap fork(), but not vfork().  Usually, the exec happens
+  soon after vfork().  But if we checkpoint after vfork() and before
+  exec, then we would miss the child process.  This should be fixed.
+
+- setsighandler fails if user has reset our signal handler
+  Do we cleanly tell the user what signal is being used by app,
+  and to reurn dmtcp with --sigckpt  set to other signal?
+
+- Extend list of syscalls using netdb to put wrappers around them.
+  The danger is that in invoking the netdb, they might want to
+  create a socket.  Then we detect this, and we try to create
+  a socket to the coordinator.  This hits our wrapper function, which
+  then creates an infinite loop.  At least, we think we saw this in
+  Ubuntu 6.06 (dapper).
+          
+- Many more exotic fcntl()/ioctl() flags are not checkpointed
+
+- dmtcp_coordinator should refuse to allow other users to connect to it.
+  (Are there security issues with respect to spoofing, also?)
+
+- Tab completion fails on tcsh. (?)
+
+- dmtcp_launch a.out > a.txt ; restart fails if a.txt not found.
+
+- Add support for epoll_pwait() and ppoll().
+
+- If reading from stdin, maybe we should drain the stdin buffer first before
+  checkpointing, so we can restart without losing user input.  Or maybe
+  it's better if dmtcp does this.
+
+Memory maps:
+- Should save only used part of stack, and document this in DOC.
+  At least do this in x86_64 case, where stack is larger?
+
+- __i386__:
+  Right after heap, in address space of libraries, comes something of size
+  0x1000 with no read-write-exec permission, and then something of size:
+  0x801000
+  That's almost 10 MB.  What's it for?  Do we need to checkpoint it?
+
+PID-VIRTUALIZATION:
+1. wait status of zombie processes
+     Store status of those processes which were zombie at checkpoint time. If
+     the parent process does a wait() system call for that child after restart
+     we should return its status.
+2. update dmtcp_restart.cpp to check and restore orphaned child processes at restart.
+3. better error handling for missing processes.
+
+REPLACE all temporary files present in $DMTCP_TMP_DIR with some sort of shared-memory files.
+
+SOCKETS:
+1. A process calls socket(), then forks a child process. The child then calls
+   connect(). If the parent process were to save/restore socket, the parent
+   will just create the socket and not do the connect() on restart.
+
+LD_PRELOAD:
+1. Better error message when launching a 32-bit binary under a 64-bit system
+   without 32-bit plugin libraries.

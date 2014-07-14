@@ -1,0 +1,162 @@
+			dlsym
+
+This is intended as one of a series of informal documents to describe
+and partially document some of the more subtle DMTCP data structures
+and algorithms.  These documents are snapshots in time, and they
+may become somewhat out-of-date over time (and hopefully also refreshed
+to re-sync them with the code again).
+
+The GNU extension of the POSIX system call, dlsym(), was designed
+to support the concept of wrapper functions around a library,
+by using the pseudo-handle, RTLD_NEXT.  See 'man 3 dlopen' for details.
+In summary, something like the following example should work:
+  int fnc() {
+    void *handle = dlopen(RTLD_NEXT, RTLD_LAZY);
+    void *fnc_real = dlsym(handle, "fnc");
+    int (*fnc_ptr)() = fnc_real;
+    return (*fnc_ptr)();
+  }
+
+This does work, except in some situations where symbol versioning
+is used.  Symbol versioning is also a GNU extension.  It includes
+a concept of the "default version", and libraries that don't specify
+a particular version will invoke the default version.  Unfortunately,
+in the code above, dlsym will usually return the oldest version instead
+of the default version.  This behavior is not documented in 'man dlsym',
+but it is easily seen in tests.
+
+DMTCP has implemented DLSYM_DEFAULT(), a replacement for dlsym(),
+which will return the _default version_, which is presumably the
+desired behavior for most users calling this.
+
+These notes will help to understand the concepts and background for
+the implementations of src/dlsym_default.c.
+
+SUGGESTED READING:
+  http://refspecs.linuxfoundation.org/LSB_3.2.0/LSB-Core-generic/LSB-Core-generic/symversion.html#SYMRESOLUTION
+
+EXPLANATION:
+The "default version" doesn't seem to be a concept explicitly defined
+in the standard.  But in practice, references to the "default version"
+refer to the _unique_ symbol version, which is not a hidden symbol.
+So, we stop to define "hidden symbol".
+
+A hidden symbol is a symbol in the lookup table for which the "hidden
+bit" is set.  The intention was that only one symbol version (the
+default version) should be visible to linkers that don't know about
+symbol versioning.  All other versions should be hidden.
+
+So, a software package links to the "default version", unless it
+explicitly asks for a specific hidden version.  The function dlsym()
+unfortunately usually links to the oldest version, instead of the
+
+It depends on each
+software package to define at most one non-hidden symbol.
+ newest version
+(the one on which no other version depends; and the versioning standard
+defines dependencies among version numbers).
+default version.  GNU provides the alternative function, dlvsym,
+which will link to a specific version of a symbol.  But then to link
+to the default version, a programmer must first know the name (or
+version number) of the default version.  There is no GNU extension
+to automatically discover the default version number.  Further,
+different Linux distros may be using different default versions.
+So, the default version number is not a universally fixed value.
+
+====
+BACKGROUND DETAILS OF THE ELF LINKER:
+
+The rest of this note explains how the macro DLSYM_DEFAULT()
+(and the function dlsym_default()) find the default symbol.
+This is done in src/dlsym_default.c .
+
+The versym ELF section defines the symbol version strings of that file (and it
+states if a symbol version depends on a different one).  The versym ELF
+section is an extension of the dynsym (Dynamic Symbol) section.  It is
+the same length as the dynsym version.  The dynsym section is an array
+of structs and the versym section is an array of "version indexes".
+Thus it acts as an extra field in the dynsym section.  (This way,
+versioning can stay hidden from linkers that don't know about versioning.)
+
+The dynsym section is itself a subset of the symbol section, including only
+those symbols needed for dynamic linking.  That's why "nm -D" may
+show symbols when "nm -S" fails (when the object was stripped).
+A stripped object must keep its dynamic symbols or it can never be
+used for dynamic linking.
+
+If the high order bit (bit number 15) of the version symbol is set, the
+object cannot be used and the static linker shall ignore the symbol's
+presence in the object.  This bit is sometimes known as a "hidden bit",
+because an outside object can link to it only if it explicitly requests
+the specific version string.  Hence, if there is only one version
+of a symbol without a hidden bit, then that version is the default version
+for that symbol.
+
+If an unversioned symbol reference is linked with an object that has
+versioned symbols, then it is only allowed to link with the version
+index 1 (aka "GLOBAL", used for unversioned symbols) or version index
+2 (typically defined within an object file as the oldest version string of
+that file).  These two versions are known as the base definition.  (An
+unversioned symbol will have index 1 for its base definition, while
+a versioned symbol will have index 2 for its base definition.)
+The above are the rules for the "static linker" (linking done at load-time).
+
+In calls to dlopen, the "dynamic linker" is called.  If the dynamic linker
+does not find a base definition for a symbol, and if only one version
+is defined, it can link to that version.  (I'm not sure if that's allowed
+then the one defined version has the hidden bit set in the versym entry.
+
+====
+IMPLEMENTATION DETAILS:
+
+Strings can be compared using strcmp.  But one can also use the
+hash ELF section for symbol names.  This entry specifies the hash function
+to use:
+  http://www.sco.com/developers/gabi/latest/ch5.dynamic.html#hash
+
+====
+The following exist:
+  http://refspecs.linuxbase.org/LSB_3.1.1/LSB-Core-generic/LSB-Core-generic/elf-generic.html
+  http://refspecs.linuxbase.org/LSB_3.1.1/
+
+But the prior Sun/Oracle documents are sometimes more readable:
+  http://docs.oracle.com/cd/E19683-01/817-1983/6mhm6r4fj/index.html#chapter6-79797
+
+====
+The following are very rough notes taken in writing the implementation.
+No promises about readability:
+
+The base definition is for the filename (VER_FLG_BASE in vd_flags)!
+
+Should read the version definition (DT_VERDEF) section.
+That has a series of ElfXX_Verdef structs
+Each one has a vd_cnt of the number of versions in the vd_aux,
+  and a vd_aux entry with
+    vda_name:
+      The string table offset to a null-terminated string, giving the name of the version definition
+    and vda_next for the offset to a dependency of this versioned symbol
+	(for dependencies of this version definition:  each dependency
+	 will have its own version definition)
+    The first vda definition is the version name for this entry (each verdef
+	entry may be for a different version of same symbol)
+  and a vd_next pointing to the next ElfXX_Verdef entry
+  and a vd_ndx index that uniquely associates it with a versym entry of the
+	same index.  (This just a unique index which matches the _value_
+	in the versym array.  It is not an array index.  The versym array
+	is meant to add an extra field into the symtab section (array of
+	structs).  The field is a unique index corresponding to vd_ndx for
+	some version def.  Since the versym section and symtab section are
+	the same length, you can also use the same array index for both.)
+
+The versym section has a number of symbols the same as in the symbols section.
+  It's an array of ElfXX_Versym half-words.  If it's VER_NDX_GLOBAL (= 1),
+  then it's the base definition (default version); Otherwise, it's a
+  user-defined version definition (for constant greater than 1)
+  (Could it be that number 2 is for default version and number 1 for base?)
+  Maybe user must specify higher integer for each extra version, so that
+  this acts as a kind of numeric index for the version name??
+  And version references start where version definitions leave off.
+
+This link was also useful for documenting the ELF symbol table.
+http://docs.oracle.com/cd/E19683-01/817-1983/6mhm6r4fj/index.html#chapter6-79797
+The SYMTAB section has a st_name which is an index into the symbol string table.
