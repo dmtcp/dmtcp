@@ -80,3 +80,7 @@ SOCKETS:
 1. A process calls socket(), then forks a child process. The child then calls
    connect(). If the parent process were to save/restore socket, the parent
    will just create the socket and not do the connect() on restart.
+
+LD_PRELOAD:
+1. Better error message when launching a 32-bit binary under a 64-bit system
+   without 32-bit plugin libraries.
