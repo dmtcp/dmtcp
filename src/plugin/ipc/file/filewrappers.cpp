@@ -426,6 +426,18 @@ extern "C" int __open64_2(const char *path, int flags)
   return _open_open64_work(_real_open64, path, flags, 0);
 }
 
+extern "C" int creat(const char *path, mode_t mode)
+{
+  //creat() is equivalent to open() with flags equal to O_CREAT|O_WRONLY|O_TRUNC
+  return _open_open64_work(_real_open, path, O_CREAT|O_WRONLY|O_TRUNC, mode);
+}
+
+extern "C" int creat64(const char *path, mode_t mode)
+{
+  //creat() is equivalent to open() with flags equal to O_CREAT|O_WRONLY|O_TRUNC
+  return _open_open64_work(_real_open64, path, O_CREAT|O_WRONLY|O_TRUNC, mode);
+}
+
 static FILE *_fopen_fopen64_work(FILE*(*fn) (const char *path, const char *mode),
                                  const char *path, const char *mode)
 {
