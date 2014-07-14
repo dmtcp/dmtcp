@@ -2,6 +2,10 @@ DMTCP NEWS -- history of user-visible changes.
 
 Please send DMTCP bug reports via <dmtcp-forum@lists.sourceforge.net>
 
+Version 2.3.1 release notes
+=========================
+This is primarily a bug fix release that contains several minor bug fixes.
+
 Version 2.3 release notes
 =========================
 This is primarily a bug fix release.  However, if you are using DMTCP
