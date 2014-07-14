@@ -102,6 +102,9 @@ REQUIRE_MB=50
 #Binaries
 BIN="./bin/"
 
+#Checkpoint command to send to coordinator
+CKPT_CMD='c'
+
 #parse program args
 args={}
 for i in sys.argv:
@@ -498,11 +501,11 @@ def runTestRaw(name, numProcs, cmds):
 
   def testCheckpoint():
     #start checkpoint
-    coordinatorCmd('c')
+    coordinatorCmd(CKPT_CMD)
 
     #wait for files to appear and status to return to original
     WAITFOR(lambda: getNumCkptFiles(ckptDir)>0 and \
-                    doesStatusSatisfy(getStatus(), status),
+                    (CKPT_CMD == 'xc' or doesStatusSatisfy(getStatus(), status)),
             wfMsg("checkpoint error"))
 
     #make sure the right files are there
@@ -690,8 +693,21 @@ resource.setrlimit(resource.RLIMIT_STACK, [newCurrLimit, oldLimit[1]])
 runTest("dmtcp5",        2, ["./test/dmtcp5"])
 resource.setrlimit(resource.RLIMIT_STACK, oldLimit)
 
-# Test for files opened with WRONLY mode and later unlinked.
+# Test for a bunch of system calls. We want to use the 'xc' mode for
+# checkpointing so that the process is killed right after checkpoint. Otherwise
+# the syscall-tester could fail in the following case:
+#   1. create and open temp file
+#   2. close temp file
+#   3. ckpt
+#   4. unlink temp file
+# If the last step is executed before the process is killed after ckpt-resume,
+# the file would have been deleted from the disk. However, on restart, the test
+# program will try to unlink the file once again, but the unlink operation will
+# fail, causing the test to fail.
+old_ckpt_cmd = CKPT_CMD
+CKPT_CMD = 'xc'
 runTest("syscall-tester",  1, ["./test/syscall-tester"])
+CKPT_CMD = old_ckpt_cmd
 
 # Test for files opened with WRONLY mode and later unlinked.
 runTest("file1",         1, ["./test/file1"])
