@@ -123,7 +123,6 @@ namespace jassert_internal
       ///
       /// if set true (on construction) call exit() on destruction
       bool _exitWhenDone;
-      bool _logLockAcquired;
       dmtcp::ostringstream ss;
   };
 
@@ -169,18 +168,12 @@ namespace jassert_internal
   }
 
   void set_log_file ( const jalib::string& path );
-  void reset_on_fork ( );
 }//jassert_internal
 
 #define JASSERT_INIT(p) (jassert_internal::jassert_init());
 #define JASSERT_SET_LOG(p) (jassert_internal::set_log_file(p));
 
 #define JASSERT_CLOSE_STDERR() (jassert_internal::close_stderr());
-
-#define JASSERT_RESET_ON_FORK() (jassert_internal::reset_on_fork());
-
-#define JASSERT_CKPT_LOCK() (jassert_internal::lockLog());
-#define JASSERT_CKPT_UNLOCK() (jassert_internal::unlockLog());
 
 #define JASSERT_ERRNO (strerror(errno))
 
@@ -236,17 +229,5 @@ namespace jassert_internal
       jassert_internal::JAssert(true) \
         .JASSERT_CONTEXT("ERROR","JASSERT(" #term ") failed").JASSERT_CONT_A
 #endif
-
-#define JALIB_CKPT_LOCK() do{\
-  JASSERT_CKPT_LOCK();\
-} while(0)
-
-#define JALIB_CKPT_UNLOCK() do{\
-  JASSERT_CKPT_UNLOCK();\
-} while(0)
-
-#define JALIB_RESET_ON_FORK() do{\
-  JASSERT_RESET_ON_FORK();\
-} while(0)
 
 #endif

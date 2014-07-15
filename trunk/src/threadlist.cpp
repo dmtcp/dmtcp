@@ -441,11 +441,6 @@ static void suspendThreads()
   } while (needrescan);
   unlk_threads();
 
-  // All we want to do is unlock the jassert/jalloc locks, if we reset them, it
-  // serves the purpose without having a callback.
-  // TODO: Check for correctness.
-  JALIB_CKPT_UNLOCK();
-
   for (int i = 0; i < numUserThreads; i++) {
     sem_wait(&semNotifyCkptThread);
   }
