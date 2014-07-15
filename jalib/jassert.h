@@ -239,17 +239,14 @@ namespace jassert_internal
 
 #define JALIB_CKPT_LOCK() do{\
   JASSERT_CKPT_LOCK();\
-  JALLOC_HELPER_LOCK();\
 } while(0)
 
 #define JALIB_CKPT_UNLOCK() do{\
-  JALLOC_HELPER_UNLOCK();\
   JASSERT_CKPT_UNLOCK();\
 } while(0)
 
 #define JALIB_RESET_ON_FORK() do{\
   JASSERT_RESET_ON_FORK();\
-  JALLOC_HELPER_RESET_ON_FORK();\
 } while(0)
 
 #endif
