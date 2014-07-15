@@ -33,15 +33,16 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <string.h>
 
 #define _GNU_SOURCE
 #include <dlfcn.h>
 
-static unsigned long elf_hash(const unsigned char *name) {
+static unsigned long elf_hash(const char *name) {
   unsigned long h = 0, g;
   while (*name) {
     h = (h << 4) + *name++;
-    if (g = h & 0xf0000000)
+    if ((g = h & 0xf0000000))
       h ^= g >> 24;
       h &= ~g;
   }
@@ -50,16 +51,16 @@ static unsigned long elf_hash(const unsigned char *name) {
 
 static ElfW(Word) hash_first(const char *name, ElfW(Word)*hash_table) {
   ElfW(Word) nbucket = *hash_table++;
-  ElfW(Word) nchain = *hash_table++; // Note: nchain same as n_symtab
+  //ElfW(Word) nchain = *hash_table++; // Note: nchain same as n_symtab
   ElfW(Word) *bucket = hash_table;
-  ElfW(Word) *chain = hash_table + nbucket;
+  //ElfW(Word) *chain = hash_table + nbucket;
   return bucket[elf_hash(name) % nbucket];  // return index into symbol table
 }
 
 static ElfW(Word) hash_next(ElfW(Word) index, ElfW(Word)*hash_table) {
   ElfW(Word) nbucket = *hash_table++;
-  ElfW(Word) nchain = *hash_table++;
-  ElfW(Word) *bucket = hash_table;
+  //ElfW(Word) nchain = *hash_table++;
+  //ElfW(Word) *bucket = hash_table;
   ElfW(Word) *chain = hash_table + nbucket;
   return chain[index]; // If this returns STN_UNDEF, then it's the end of chain
 }
@@ -84,7 +85,6 @@ static char *symbol_name(int i, dt_tag *tags) {
 
 static char *version_name(ElfW(Word) version_ndx, dt_tag *tags) {
     ElfW(Verdef) *cur, *prev;
-    int i = 0;
 
     // Remove hidden bit, if it's set.
     if (version_ndx & (1<<15))
