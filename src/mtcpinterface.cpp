@@ -83,15 +83,6 @@ void dmtcp::callbackSleepBetweenCheckpoint ( int sec )
   dmtcp::DmtcpWorker::instance().waitForStage1Suspend();
 
   unmapRestoreArgv();
-
-  /* After acquiring this lock, there shouldn't be any
-   * allocations/deallocations and JASSERT/JTRACE/JWARNING/JNOTE etc.; the
-   * process can deadlock.
-   *
-   * The corresponding JALIB_CKPT_UNLOCK is called from within suspendThreads()
-   * function after all user threads have acknowledged the ckpt-signal.
-   */
-  JALIB_CKPT_LOCK();
 }
 
 void dmtcp::callbackPreCheckpoint()

@@ -57,31 +57,11 @@ jassert_internal::JAssert& jassert_internal::JAssert::Text ( const char* msg )
   return *this;
 }
 
-static pthread_mutex_t logLock = PTHREAD_ERRORCHECK_MUTEX_INITIALIZER_NP;
-
-bool jassert_internal::lockLog()
-{
-  int retVal = jalib::pthread_mutex_lock(&logLock);
-  if (retVal != 0) {
-    perror ( "jassert_internal::lockLog: Error acquiring mutex");
-  }
-  return retVal == 0;
-}
-
-void jassert_internal::unlockLog()
-{
-  int retVal = jalib::pthread_mutex_unlock(&logLock);
-  if (retVal != 0) {
-    perror ( "jassert_internal::unlockLog: Error releasing mutex");
-  }
-}
-
 jassert_internal::JAssert::JAssert ( bool exitWhenDone )
     : JASSERT_CONT_A ( *this )
     , JASSERT_CONT_B ( *this )
     , _exitWhenDone ( exitWhenDone )
 {
-  _logLockAcquired = jassert_internal::lockLog();
 }
 
 jassert_internal::JAssert::~JAssert()
@@ -101,8 +81,6 @@ jassert_internal::JAssert::~JAssert()
 
   if (!ss.str().empty())
     jassert_safe_print ( ss.str().c_str() );
-  if ( _logLockAcquired )
-    jassert_internal::unlockLog();
 
   if ( _exitWhenDone ) {
     _exit ( jalib::dmtcp_fail_rc );
@@ -142,9 +120,6 @@ static jalib::string& theLogFilePath() {static jalib::string s;return s;};
 
 void jassert_internal::jassert_init()
 {
-  pthread_mutex_t newLock = PTHREAD_MUTEX_INITIALIZER;
-  logLock = newLock;
-
   // Check if we already have a valid stderrFd
   if (jalib::dup2(jalib::stderrFd, jalib::stderrFd) != jalib::stderrFd) {
     const char* errpath = getenv("JALIB_STDERR_PATH");
@@ -252,12 +227,6 @@ jassert_internal::JAssert& jassert_internal::JAssert::jbacktrace ()
   // This prints to stdout and to jalib::logFd
   Print( writeJbacktraceMsg() );
   return *this;  // Needed as part of JASSERT macro
-}
-
-void jassert_internal::reset_on_fork ( )
-{
-  pthread_mutex_t newLock = PTHREAD_MUTEX_INITIALIZER;
-  logLock = newLock;
 }
 
 void jassert_internal::set_log_file ( const jalib::string& path )
