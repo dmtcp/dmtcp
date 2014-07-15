@@ -22,6 +22,7 @@
 #include <pthread.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <signal.h>
 #include "jalib.h"
 #include "jalloc.h"
 
@@ -29,38 +30,10 @@
 # include "config.h"
 #endif
 
+using namespace jalib;
+
 extern "C" int fred_record_replay_enabled() __attribute__ ((weak));
-static pthread_mutex_t allocateLock = PTHREAD_MUTEX_INITIALIZER;
-static bool _enable_locks = true;
 static bool _initialized = false;
-
-void jalib::JAllocDispatcher::reset_on_fork()
-{
-  pthread_mutex_t tmpLock = PTHREAD_MUTEX_INITIALIZER;
-  allocateLock = tmpLock;
-}
-
-void jalib::JAllocDispatcher::lock()
-{
-  if(_enable_locks && jalib::pthread_mutex_lock(&allocateLock) != 0)
-    perror("JGlobalAlloc::ckptThreadAcquireLock");
-}
-
-void jalib::JAllocDispatcher::unlock()
-{
-  if(_enable_locks && jalib::pthread_mutex_unlock(&allocateLock) != 0)
-    perror("JGlobalAlloc::ckptThreadReleaseLock");
-}
-
-void jalib::JAllocDispatcher::disable_locks()
-{
-  _enable_locks = false;
-}
-
-void jalib::JAllocDispatcher::enable_locks()
-{
-  _enable_locks = true;
-}
 
 #ifdef JALIB_ALLOCATOR
 
@@ -131,8 +104,15 @@ public:
   //allocate a chunk of size N
   void* allocate() {
     if(_root == NULL) expand();
-    FreeItem* item = _root;
-    _root = item->next;
+    FreeItem* item;
+    do {
+      /* Atomically does the following operation:
+       *   item = _root;
+       *   _root = item->next;
+       */
+      item = _root;
+    } while (!__sync_bool_compare_and_swap(&_root, item, item->next));
+
     item->next = NULL;
     return item;
   }
@@ -141,9 +121,15 @@ public:
   void deallocate(void* ptr) {
     if (ptr == NULL) return;
     FreeItem* item = static_cast<FreeItem*>(ptr);
-    item->next = _root;
-    _root = item;
+    do {
+      /* Atomically does the following operation:
+       *   item->next = _root;
+       *   _root = item;
+       */
+      item->next = _root;
+    } while (!__sync_bool_compare_and_swap(&_root, item->next, item));
   }
+
 protected:
   //allocate more raw memory when stack is empty
   void expand() {
@@ -161,9 +147,16 @@ protected:
     for(int i=0; i<count-1; ++i){
       bufs[i].next=bufs+i+1;
     }
-    bufs[count-1].next = _root;
-    _root=bufs;
+
+    do {
+      /* Atomically does the following operation:
+       *   bufs[count-1].next = _root;
+       *   _root = bufs;
+       */
+      bufs[count-1].next = _root;
+    } while (!__sync_bool_compare_and_swap(&_root, bufs[count-1].next, bufs));
   }
+
 protected:
   struct FreeItem {
     union {
@@ -203,7 +196,6 @@ void jalib::JAllocDispatcher::initialize(void)
 }
 void* jalib::JAllocDispatcher::allocate(size_t n)
 {
-  lock();
   if (!_initialized) {
     initialize();
   }
@@ -213,21 +205,20 @@ void* jalib::JAllocDispatcher::allocate(size_t n)
   if(n <= lvl3.chunkSize()) retVal = lvl3.allocate(); else
   if(n <= lvl4.chunkSize()) retVal = lvl4.allocate(); else
   retVal = _alloc_raw(n);
-  unlock();
   return retVal;
 }
 void jalib::JAllocDispatcher::deallocate(void* ptr, size_t n)
 {
-  lock();
   if (!_initialized) {
-    initialize();
+    char msg[] = "***DMTCP INTERNAL ERROR: Free called before init\n";
+    jalib::write(2, msg, sizeof(msg));
+    abort();
   }
   if(n <= lvl1.N) lvl1.deallocate(ptr); else
   if(n <= lvl2.N) lvl2.deallocate(ptr); else
   if(n <= lvl3.N) lvl3.deallocate(ptr); else
   if(n <= lvl4.N) lvl4.deallocate(ptr); else
   _dealloc_raw(ptr, n);
-  unlock();
 }
 
 #else
@@ -236,16 +227,12 @@ void jalib::JAllocDispatcher::deallocate(void* ptr, size_t n)
 
 void* jalib::JAllocDispatcher::allocate(size_t n)
 {
-  lock();
   void* p = ::malloc(n);
-  unlock();
   return p;
 }
 void jalib::JAllocDispatcher::deallocate(void* ptr, size_t)
 {
-  lock();
   ::free(ptr);
-  unlock();
 }
 
 #endif

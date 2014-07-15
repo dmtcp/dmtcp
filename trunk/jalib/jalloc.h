@@ -47,11 +47,6 @@ namespace jalib
         _p-=1;
         JAllocDispatcher::deallocate(_p, *_p+sizeof(size_t));
       }
-      static void lock();
-      static void unlock();
-      static void disable_locks();
-      static void enable_locks();
-      static void reset_on_fork();
   };
 
   class JAlloc {
@@ -75,13 +70,6 @@ namespace jalib
 #endif
   };
 }
-
-#define JALLOC_HELPER_LOCK() jalib::JAllocDispatcher::lock();
-#define JALLOC_HELPER_UNLOCK() jalib::JAllocDispatcher::unlock();
-#define JALLOC_HELPER_DISABLE_LOCKS() jalib::JAllocDispatcher::disable_locks();
-#define JALLOC_HELPER_ENABLE_LOCKS() jalib::JAllocDispatcher::enable_locks();
-
-#define JALLOC_HELPER_RESET_ON_FORK() jalib::JAllocDispatcher::reset_on_fork();
 
 #define JALLOC_HELPER_NEW(nbytes) return jalib::JAllocDispatcher::malloc(nbytes)
 #define JALLOC_HELPER_DELETE(p) jalib::JAllocDispatcher::free(p)
