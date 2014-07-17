@@ -165,7 +165,7 @@ protected:
     };
   };
 private:
-  FreeItem* _root;
+  FreeItem* volatile _root;
   size_t _blockSize;
   char padding[128];
 };
