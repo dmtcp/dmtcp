@@ -2,19 +2,15 @@
 LN_S=@LN_S@ -f
 MKDIR_P=@MKDIR_P@
 CC=@CC@
+CFLAGS = @CFLAGS@
+CXXFLAGS = @CXXFLAGS@
+CPPFLAGS = @CPPFLAGS@
+LDFLAGS = @LDFLAGS@
 M32=@M32@
-DEBUG=@DEBUG@
-FAST_RESTART=@FAST_RESTART@
-HBICT_DELTACOMP=@HBICT_DELTACOMP@
-INFINIBAND_SUPPORT=@INFINIBAND_SUPPORT@
 HAS_JAVA=@HAS_JAVA@
-HAS_SSH=@HAS_SSH@
 PACKAGE=@PACKAGE_TARNAME@
 PACKAGE_TARNAME=@PACKAGE_TARNAME@-@PACKAGE_VERSION@
 VERSION=@PACKAGE_VERSION@
-CFLAGS = @CFLAGS@
-CPPFLAGS = @CPPFLAGS@
-LDFLAGS = @LDFLAGS@
 
 # Allow the user to specify the install program.
 INSTALL = @INSTALL@
@@ -73,7 +69,10 @@ display-build-env: display-config display-release
 	@- uname -a
 	@- echo 'Compiler:  ${CC}'
 	@- ${CC} -v 2>&1
-	@- ${LD} -v
+	@- echo 'CFLAGS: ${CFLAGS}'
+	@- echo 'CXXFLAGS: ${CXXFLAGS}'
+	@- echo 'CPPFLAGS: ${CPPFLAGS}'
+	@- echo 'LDFLAGS: ${LDFLAGS}'
 	@- if test "$(HAS_JAVA)" = "yes" ; then \
 	     java -showversion 2>&1 | head -3 ; \
 	   fi
