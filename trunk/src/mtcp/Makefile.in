@@ -39,8 +39,6 @@ targetdir = $(top_builddir)
 VPATH = @srcdir@
 
 ifeq ($(M32),1)
-  CFLAGS += -m32 -Wa,--32
-  LDFLAGS += -m32 -Wl,-m32 -Wl,-melf_i386 -Wa,--32
   MTCP_RESTART=mtcp_restart-32
   # For mixed mode, 32-bit packages must be installed in the 64-bit libdir.
   targetdir = $(top_builddir)/lib/$(PACKAGE)/32

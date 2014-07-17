@@ -19,15 +19,13 @@ dmtcplibdir = $(pkglibdir)
 SUBDIRS = mtcp plugin
 
 PICFLAGS=-fPIC
-if CONFIG_M32
-AM_CFLAGS = -m32 -Wa,--32 $(PICFLAGS)
-AM_CXXFLAGS = -m32 -Wa,--32 $(PICFLAGS)
-AM_LDFLAGS =  -m32 -Wl,-m32 -Wl,-melf_i386 -Wa,--32 $(PICFLAGS)
-targetdir = $(top_builddir)/lib/$(PACKAGE)/32
-else
 AM_CFLAGS = $(PICFLAGS)
 AM_CXXFLAGS = $(PICFLAGS)
 AM_LDFLAGS = $(PICFLAGS)
+
+if CONFIG_M32
+targetdir = $(top_builddir)/lib/$(PACKAGE)/32
+else
 targetdir = $(top_builddir)
 endif
 
