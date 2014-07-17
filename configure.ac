@@ -243,17 +243,18 @@ if test "$use_m32" = "yes"; then
   AC_SUBST([HAS_READLINE], [no])
   AC_DEFINE([CONFIG_M32],[1],[Compiling in 32 bit mode on 64 bit linux.])
 
+  CFLAGS="$CFLAGS -m32 -march=i686 -Wa,--32"
+  CXXFLAGS="$CXXFLAGS -march=i686 -m32 -Wa,--32"
+  LDFLAGS="$LDFLAGS -m32 -march=i686 -Wl,-m32 -Wl,-melf_i386 -Wa,--32"
+
   AC_MSG_CHECKING([whether multilib $CC compiles using -m32]) 
   AC_LANG_PUSH([C])
-  old_CFLAGS="$CFLAGS"
-  CFLAGS="$CFLAGS -m32"
   AC_LINK_IFELSE([AC_LANG_PROGRAM([[
   #include <stdio.h>
   #include <features.h>  /* This often causes a problem. */
   ]], [[
   printf("Hello, world!\n");
   ]])], [cc_m32='yes'], [cc_m32='no'])
-  CFLAGS="$old_CFLAGS"
   AC_LANG_POP([C])
   AC_MSG_RESULT([$cc_m32]) 
   if test "$cc_m32" = "no"; then
@@ -264,15 +265,12 @@ if test "$use_m32" = "yes"; then
 
   AC_MSG_CHECKING([whether multilib $CXX compiles using -m32]) 
   AC_LANG_PUSH([C++])
-  old_CXXFLAGS="$CXXFLAGS"
-  CXXFLAGS="$CXXFLAGS -m32"
   AC_LINK_IFELSE([AC_LANG_PROGRAM([[
   #include <stdio.h>
   #include <features.h>  /* This often causes a problem. */
   ]], [[
   printf("Hello, world!\n");
   ]])], [cplusplus_m32='yes'], [cplusplus_m32='no'])
-  CXXFLAGS="$old_CXXFLAGS"
   AC_LANG_POP([C++])
   AC_MSG_RESULT([$cplusplus_m32]) 
   if test "$cplusplus_m32" = "no"; then
@@ -463,5 +461,26 @@ AC_CHECK_HEADERS_ONCE([sys/epoll.h sys/eventfd.h sys/signalfd.h sys/inotify.h])
 
 AC_DEFINE([DMTCP],[1],[Always enable this.])
 
+dnl atomic builtins are required for jalloc support.
+AC_MSG_CHECKING(for GCC atomic builtins)
+dnl Since we'll be using these atomic builtins in C++ files we should test
+dnl the C++ compiler.
+AC_LANG_PUSH([C++])
+AC_LINK_IFELSE(
+[
+  AC_LANG_SOURCE([[
+    int main() {
+      volatile unsigned long val = 1;
+      __sync_bool_compare_and_swap(&val, 1, 0);
+      return 0;
+    }
+  ]])
+], [gccAtomicBuiltins='yes'], [gccAtomicBuiltins='no'])
+AC_LANG_POP([C++])
+AC_MSG_RESULT([$gccAtomicBuiltins])
+
+if test "$gccAtomicBuiltins" = "no"; then
+  AC_MSG_ERROR([[GCC does not support atomic builtins. Consider upgrading gcc]])
+fi
 
 AC_OUTPUT
