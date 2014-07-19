@@ -139,7 +139,6 @@ LIB_PRIVATE void pthread_atfork_child()
   dmtcp::UniquePid child = dmtcp::UniquePid(host, getpid(), child_time);
   dmtcp::string child_name = jalib::Filesystem::GetProgramName() + "_(forked)";
   _dmtcp_remutex_on_fork();
-  dmtcp::SyslogCheckpointer::resetOnFork();
   dmtcp::ThreadSync::resetLocks();
 
   dmtcp::UniquePid::resetOnFork(child);

@@ -525,7 +525,7 @@ nobase_noinst_HEADERS = constants.h \
 	$(dmtcpincludedir)/virtualidtable.h $(dmtcpincludedir)/procmapsarea.h \
 	dmtcp_coordinator.h dmtcpmessagetypes.h lookup_service.h \
 	dmtcpworker.h threadsync.h coordinatorapi.h \
-	mtcpinterface.h syscallwrappers.h syslogwrappers.h \
+	mtcpinterface.h syscallwrappers.h \
 	threadlist.h threadinfo.h siginfo.h \
 	uniquepid.h processinfo.h ckptserializer.h \
 	mtcp/ldt.h mtcp/restore_libc.h mtcp/tlsutil.h
