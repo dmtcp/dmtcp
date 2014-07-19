@@ -78,9 +78,9 @@ void dmtcp::callbackSleepBetweenCheckpoint ( int sec )
     // seconds in here. This helps testing the initialization routines of various
     // plugins.
     // Inform Coordinator of our RUNNING state;
-    dmtcp::DmtcpWorker::instance().informCoordinatorOfRUNNINGState();
+    dmtcp::DmtcpWorker::informCoordinatorOfRUNNINGState();
   }
-  dmtcp::DmtcpWorker::instance().waitForStage1Suspend();
+  dmtcp::DmtcpWorker::waitForStage1Suspend();
 
   unmapRestoreArgv();
 }
@@ -89,7 +89,7 @@ void dmtcp::callbackPreCheckpoint()
 {
   //now user threads are stopped
   dmtcp::userHookTrampoline_preCkpt();
-  dmtcp::DmtcpWorker::instance().waitForStage2Checkpoint();
+  dmtcp::DmtcpWorker::waitForStage2Checkpoint();
   dmtcp::prepareForCkpt();
 }
 
@@ -111,9 +111,9 @@ void dmtcp::callbackPostCheckpoint(int isRestart,
     dmtcp::DmtcpWorker::eventHook(DMTCP_EVENT_RESUME, NULL);
   }
 
-  dmtcp::DmtcpWorker::instance().waitForStage3Refill(isRestart);
+  dmtcp::DmtcpWorker::waitForStage3Refill(isRestart);
 
-  dmtcp::DmtcpWorker::instance().waitForStage4Resume(isRestart);
+  dmtcp::DmtcpWorker::waitForStage4Resume(isRestart);
   if (isRestart) {
     restore_term_settings();
   }
@@ -127,7 +127,7 @@ void dmtcp::callbackPostCheckpoint(int isRestart,
   if (dmtcp_is_ptracing == NULL || !dmtcp_is_ptracing()) {
     // Inform Coordinator of our RUNNING state;
     // If running under ptrace, lets do this in sleep-between-ckpt callback
-    dmtcp::DmtcpWorker::instance().informCoordinatorOfRUNNINGState();
+    dmtcp::DmtcpWorker::informCoordinatorOfRUNNINGState();
   }
   // After this, the user threads will be unlocked in mtcp.c and will resume.
 }

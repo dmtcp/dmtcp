@@ -261,20 +261,19 @@ static void processRlimit()
 #endif
 }
 
-dmtcp::DmtcpWorker dmtcp::DmtcpWorker::theInstance ( true );
-dmtcp::DmtcpWorker& dmtcp::DmtcpWorker::instance() { return theInstance; }
+/* The following instance of the DmtcpWorker is just to trigger the constructor
+ * to allow us to hijack the process
+ */
+DmtcpWorker DmtcpWorker::theInstance;
 
 //called before user main()
 //workerhijack.cpp initializes a static variable theInstance to DmtcpWorker obj
-dmtcp::DmtcpWorker::DmtcpWorker (bool enableCheckpointing)
+dmtcp::DmtcpWorker::DmtcpWorker()
 {
-  if (!enableCheckpointing) return;
-  else {
-    WorkerState::setCurrentState(WorkerState::UNKNOWN);
-    initializeJalib();
-    dmtcp_prepare_wrappers();
-    prepareLogAndProcessdDataFromSerialFile();
-  }
+  WorkerState::setCurrentState(WorkerState::UNKNOWN);
+  initializeJalib();
+  dmtcp_prepare_wrappers();
+  prepareLogAndProcessdDataFromSerialFile();
 
   JTRACE("libdmtcp.so:  Running ")
     (jalib::Filesystem::GetProgramName()) (getenv ("LD_PRELOAD"));
@@ -321,7 +320,7 @@ void dmtcp::DmtcpWorker::resetOnFork()
 {
   eventHook(DMTCP_EVENT_ATFORK_CHILD, NULL);
 
-  theInstance.cleanupWorker();
+  cleanupWorker();
 
   /* If parent process had file connections and it fork()'d a child
    * process, the child process would consider the file connections as
@@ -333,7 +332,7 @@ void dmtcp::DmtcpWorker::resetOnFork()
    * in the constructor since it's not relevant. All we need to call is
    * connectToCoordinatorWithHandshake() and initializeMtcpEngine().
    */
-  new ( &theInstance ) DmtcpWorker ( false );
+  //new ( &theInstance ) DmtcpWorker ( false );
 
   ThreadList::resetOnFork();
 

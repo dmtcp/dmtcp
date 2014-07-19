@@ -36,35 +36,35 @@ namespace dmtcp
       static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
       static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
 #endif
-      DmtcpWorker ( bool shouldEnableCheckpointing );
+      DmtcpWorker();
       ~DmtcpWorker();
       static DmtcpWorker& instance();
 
-      void waitForCoordinatorMsg(dmtcp::string signalStr,
-                                 DmtcpMessageType type);
-      void informCoordinatorOfRUNNINGState();
-      void waitForStage1Suspend();
-      void waitForStage2Checkpoint();
-      void waitForStage3Refill(bool isRestart);
-      void waitForStage4Resume(bool isRestart);
-      void restoreVirtualPidTable();
-      void postRestart();
+      static void waitForCoordinatorMsg(dmtcp::string signalStr,
+                                        DmtcpMessageType type);
+      static void informCoordinatorOfRUNNINGState();
+      static void waitForStage1Suspend();
+      static void waitForStage2Checkpoint();
+      static void waitForStage3Refill(bool isRestart);
+      static void waitForStage4Resume(bool isRestart);
+      static void restoreVirtualPidTable();
+      static void postRestart();
 
       static void resetOnFork();
-      void cleanupWorker();
+      static void cleanupWorker();
 
       static int determineCkptSignal();
 
       static void setExitInProgress() { _exitInProgress = true; };
       static bool exitInProgress() { return _exitInProgress; };
-      void interruptCkpthread();
+      static void interruptCkpthread();
 
-      void writeCheckpointPrefix(int fd);
+      static void writeCheckpointPrefix(int fd);
 
       static void eventHook(DmtcpEvent_t id, DmtcpEventData_t *data);
 
     protected:
-      void sendUserCommand(char c, int* result = NULL);
+      static void sendUserCommand(char c, int* result = NULL);
     private:
       static DmtcpWorker theInstance;
       static bool _exitInProgress;
