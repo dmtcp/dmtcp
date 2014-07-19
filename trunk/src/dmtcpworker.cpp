@@ -560,10 +560,12 @@ void dmtcp_SharedData_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
 void dmtcp_ProcessInfo_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
 void dmtcp_UniquePid_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
 void dmtcp_ProcName_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
+void dmtcp_Terminal_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
 
 void dmtcp::DmtcpWorker::eventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   static jalib::JBuffer buf(0); // To force linkage of jbuffer.cpp
+  dmtcp_Terminal_EventHook(event, data);
   dmtcp_ProcName_EventHook(event, data);
   dmtcp_UniquePid_EventHook(event, data);
   dmtcp_CoordinatorAPI_EventHook(event, data);
