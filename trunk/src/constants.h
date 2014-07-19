@@ -61,8 +61,6 @@
         (getenv("DMTCP_FAIL_RC") && atoi(getenv("DMTCP_FAIL_RC")) ? \
 	 atoi(getenv("DMTCP_FAIL_RC")) : 99)
 
-#define DMTCP_PRGNAME_PREFIX "DMTCP:"
-
 // Not used
 //#define X11_LISTENER_PORT_START 6000
 

@@ -45,11 +45,6 @@
 using namespace dmtcp;
 
 int rounding_mode = 1;
-// FIXME: Linux prctl for PR_GET_NAME/PR_SET_NAME is on a per-thread basis.
-//   If we want to be really accurate, we should make this thread-local.
-static char prctlPrgName[16+sizeof(DMTCP_PRGNAME_PREFIX)-1] = {0};
-static void prctlGetProcessName();
-static void prctlRestoreProcessName();
 static void save_term_settings();
 static void restore_term_settings();
 
@@ -98,7 +93,6 @@ void dmtcp::callbackPostCheckpoint(int isRestart,
 {
   if (isRestart) {
     //restoreArgvAfterRestart(mtcpRestoreArgvStartAddr);
-    prctlRestoreProcessName();
     fesetround(rounding_mode);
 
     JTRACE("begin postRestart()");
@@ -158,16 +152,10 @@ void dmtcp::callbackPreSuspendUserThread()
 {
   dmtcp::ThreadSync::incrNumUserThreads();
   dmtcp::DmtcpWorker::eventHook(DMTCP_EVENT_PRE_SUSPEND_USER_THREAD, NULL);
-  if (gettid() == getpid()) {
-    prctlGetProcessName();
-  }
 }
 
 void dmtcp::callbackPreResumeUserThread(int isRestart)
 {
-  if (isRestart) {
-    prctlRestoreProcessName();
-  }
   DmtcpEventData_t edata;
   edata.resumeUserThreadInfo.isRestart = isRestart;
   dmtcp::DmtcpWorker::eventHook(DMTCP_EVENT_RESUME_USER_THREAD, &edata);
@@ -178,40 +166,6 @@ void dmtcp::callbackPreResumeUserThread(int isRestart)
   // Make a dummy syscall to inform superior of our status before we resume. If
   // ptrace is disabled, this call has no significant effect.
   syscall(DMTCP_FAKE_SYSCALL);
-}
-
-void prctlGetProcessName()
-{
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,11)
-  if (prctlPrgName[0] == '\0') {
-    memset(prctlPrgName, 0, sizeof(prctlPrgName));
-    strcpy(prctlPrgName, DMTCP_PRGNAME_PREFIX);
-    int ret = prctl(PR_GET_NAME, &prctlPrgName[strlen(DMTCP_PRGNAME_PREFIX)]);
-    if (ret != -1) {
-      JTRACE("prctl(PR_GET_NAME, ...) succeeded") (prctlPrgName);
-    } else {
-      JASSERT(errno == EINVAL) (JASSERT_ERRNO)
-        .Text ("prctl(PR_GET_NAME, ...) failed");
-      JTRACE("prctl(PR_GET_NAME, ...) failed. Not supported on this kernel?");
-    }
-  }
-#endif
-}
-
-void prctlRestoreProcessName()
-{
-  // Although PR_SET_NAME has been supported since 2.6.9, we wouldn't use it on
-  // kernel < 2.6.11 since we didn't get the process name using PR_GET_NAME
-  // which is supported on >= 2.6.11
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,11)
-    if (prctl(PR_SET_NAME, prctlPrgName) != -1) {
-      JTRACE("prctl(PR_SET_NAME, ...) succeeded") (prctlPrgName);
-    } else {
-      JASSERT(errno == EINVAL) (prctlPrgName) (JASSERT_ERRNO)
-        .Text ("prctl(PR_SET_NAME, ...) failed");
-      JTRACE("prctl(PR_SET_NAME, ...) failed") (prctlPrgName);
-    }
-#endif
 }
 
 #ifdef RESTORE_ARGV_AFTER_RESTART
