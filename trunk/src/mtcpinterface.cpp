@@ -18,8 +18,6 @@
  *  License along with DMTCP:dmtcp/src.  If not, see                        *
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
-#include <fenv.h>
-
 #include "constants.h"
 #include "mtcpinterface.h"
 #include "syscallwrappers.h"
@@ -79,7 +77,6 @@ void dmtcp::callbackPreCheckpoint()
   //now user threads are stopped
   dmtcp::userHookTrampoline_preCkpt();
   dmtcp::DmtcpWorker::waitForStage2Checkpoint();
-  dmtcp::prepareForCkpt();
 }
 
 void dmtcp::callbackPostCheckpoint(int isRestart,
@@ -87,7 +84,6 @@ void dmtcp::callbackPostCheckpoint(int isRestart,
 {
   if (isRestart) {
     //restoreArgvAfterRestart(mtcpRestoreArgvStartAddr);
-    fesetround(rounding_mode);
 
     JTRACE("begin postRestart()");
     WorkerState::setCurrentState(WorkerState::RESTARTING);
@@ -233,9 +229,4 @@ static void unmapRestoreArgv()
       (_mtcpRestoreArgvStartAddr) (len)
       .Text ("Failed to munmap extra pages that were mapped during restart");
   }
-}
-
-void dmtcp::prepareForCkpt()
-{
-  rounding_mode = fegetround();
 }
