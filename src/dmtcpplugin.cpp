@@ -50,13 +50,18 @@ static dmtcp_fnptr_t userHookPreCheckpoint = NULL;
 static dmtcp_fnptr_t userHookPostCheckpoint = NULL;
 static dmtcp_fnptr_t userHookPostRestart = NULL;
 
+// Remove the dead code once the other part has been verified
+#if 0
 //I wish we could use pthreads for the trickery in this file, but much of our
 //code is executed before the thread we want to wake is restored.  Thus we do
 //it the bad way.
-#if defined(__i386__) || defined(__x86_64__)
+# if defined(__i386__) || defined(__x86_64__)
 static inline void memfence(){  asm volatile ("mfence" ::: "memory"); }
-#elif defined(__arm__)
+# elif defined(__arm__)
 static inline void memfence(){  asm volatile ("dmb" ::: "memory"); }
+# endif
+#else
+# define memfence() __sync_synchronize()
 #endif
 
 EXTERNC int dmtcp_is_enabled() { return 1; }
