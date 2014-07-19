@@ -19,20 +19,50 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include "syslogwrappers.h"
-#include "syscallwrappers.h"
 #include <string>
-#include  "../jalib/jassert.h"
 #include <syslog.h>
+#include "syscallwrappers.h"
+#include "dmtcpalloc.h"
+#include  "../jalib/jassert.h"
 
-static bool         _isSuspended = false;
-static bool         _syslogEnabled = false;
-static bool         _identIsNotNULL = false;
-static dmtcp::string& _ident() {static dmtcp::string t; return t;}
-static int          _option = -1;
-static int          _facility = -1;
+static bool _isSuspended = false;
+static bool _syslogEnabled = false;
+static bool _identIsNotNULL = false;
+static int  _option = -1;
+static int  _facility = -1;
 
-void dmtcp::SyslogCheckpointer::stopService()
+static void SyslogCheckpointer_StopService();
+static void SyslogCheckpointer_RestoreService();
+static void SyslogCheckpointer_ResetOnFork();
+
+void dmtcp_Syslog_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
+{
+  switch (event) {
+    case DMTCP_EVENT_THREADS_SUSPEND:
+      SyslogCheckpointer_StopService();
+
+      break;
+
+    case DMTCP_EVENT_REFILL:
+      SyslogCheckpointer_RestoreService();
+      break;
+
+    case DMTCP_EVENT_ATFORK_CHILD:
+      SyslogCheckpointer_ResetOnFork();
+      break;
+
+    default:
+      break;
+  }
+}
+
+static dmtcp::string& _ident()
+{
+  static dmtcp::string t;
+  return t;
+}
+
+void SyslogCheckpointer_StopService()
 {
   JASSERT ( !_isSuspended );
   if ( _syslogEnabled )
@@ -42,7 +72,7 @@ void dmtcp::SyslogCheckpointer::stopService()
   }
 }
 
-void dmtcp::SyslogCheckpointer::restoreService()
+void SyslogCheckpointer_RestoreService()
 {
   if ( _isSuspended )
   {
@@ -53,7 +83,7 @@ void dmtcp::SyslogCheckpointer::restoreService()
   }
 }
 
-void dmtcp::SyslogCheckpointer::resetOnFork()
+void SyslogCheckpointer_ResetOnFork()
 {
   _syslogEnabled = false;
 }
