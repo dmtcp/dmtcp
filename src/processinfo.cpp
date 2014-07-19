@@ -19,6 +19,7 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#include <fenv.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/syscall.h>
@@ -33,6 +34,8 @@
 #include  "../jalib/jfilesystem.h"
 
 static pthread_mutex_t tblLock = PTHREAD_MUTEX_INITIALIZER;
+
+static int roundingMode;
 
 static void _do_lock_tbl()
 {
@@ -72,6 +75,7 @@ void dmtcp_ProcessInfo_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
       break;
 
     case DMTCP_EVENT_RESTART:
+      fesetround(roundingMode);
       dmtcp::ProcessInfo::instance().restart();
       break;
 
@@ -79,6 +83,10 @@ void dmtcp_ProcessInfo_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
       if (data->refillInfo.isRestart) {
         dmtcp::ProcessInfo::instance().restoreProcessGroupInfo();
       }
+      break;
+
+    case DMTCP_EVENT_THREADS_SUSPEND:
+      roundingMode = fegetround();
       break;
 
     case DMTCP_EVENT_THREADS_RESUME:
