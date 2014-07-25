@@ -5,14 +5,17 @@
 
 #define MAX_CKPT_DIR_LENGTH 128
 
+static char *baseCkptDir;
 static char newCkptDir[MAX_CKPT_DIR_LENGTH];
 
 void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   switch (event) {
   case DMTCP_EVENT_WRITE_CKPT:
-    printf("*** Will change ckpt dir to: %s ***.\n", dmtcp_get_computation_id_str());
-    snprintf(newCkptDir, MAX_CKPT_DIR_LENGTH, "%s_%05"PRIu32"",
+    if (dmtcp_get_generation() == 1) {
+      baseCkptDir = (char *)dmtcp_get_ckpt_dir();
+    }
+    snprintf(newCkptDir, MAX_CKPT_DIR_LENGTH, "%s/%s_%05"PRIu32"", baseCkptDir,
         dmtcp_get_computation_id_str(), dmtcp_get_generation());
 
     dmtcp_set_ckpt_dir(newCkptDir);
