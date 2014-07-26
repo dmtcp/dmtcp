@@ -1,0 +1,22 @@
+Description: Increase ckpt timeout for autotest
+ On slower machines, ckpt may not finish in 10 seconds. Increase it to 20
+ seconds.
+ .
+ dmtcp (2.3.1-2) unstable; urgency=low
+ .
+   * Compilation fix for older ARM CPUs.
+   * Ckpt timeout increased for slower machines.
+   * Upload sponsored by Yaroslav Halchenko <debian@onerussian.com>
+Author: Kapil Arya <kapil@ccs.neu.edu>
+
+
+--- dmtcp-2.3.1.orig/test/autotest.py
++++ dmtcp-2.3.1/test/autotest.py
+@@ -115,6 +115,7 @@ for i in sys.argv:
+     CYCLES=100000
+   if i=="--slow":
+     SLOW=5
++    TIMEOUT *= 2
+   if i=="--retry-once":
+     RETRY_ONCE = True
+   #TODO:  Install SIGSEGV handler with infinite loop, and add to LD_PRELOAD

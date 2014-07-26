@@ -1,3 +1,33 @@
+dmtcp (2.3.1-5) unstable; urgency=low
+
+  * Removed armhf architecture support from dmtcp-dbg as well.
+  * Upload sponsored by Yaroslav Halchenko <debian@onerussian.com>
+
+ -- Kapil Arya <kapil@ccs.neu.edu>  Sat, 26 Jul 2014 09:58:35 -0400
+
+dmtcp (2.3.1-4) unstable; urgency=low
+
+  * Removed armel architecture support.
+  * Remove previously added -march=armv7 for ARM builds.
+  * Upload sponsored by Yaroslav Halchenko <debian@onerussian.com>
+
+ -- Kapil Arya <kapil@ccs.neu.edu>  Fri, 25 Jul 2014 16:19:26 -0400
+
+dmtcp (2.3.1-3) unstable; urgency=low
+
+  * Added armhf architecture support.
+  * Force -march=armv7 for ARM builds.
+  * Upload sponsored by Yaroslav Halchenko <debian@onerussian.com>
+
+ -- Kapil Arya <kapil@ccs.neu.edu>  Thu, 24 Jul 2014 11:50:36 -0400
+
+dmtcp (2.3.1-2) unstable; urgency=low
+
+  * Compilation fix for older ARM CPUs.
+  * Upload sponsored by Yaroslav Halchenko <debian@onerussian.com>
+
+ -- Kapil Arya <kapil@ccs.neu.edu>  Sat, 19 Jul 2014 13:42:49 -0400
+
 dmtcp (2.3.1-1) unstable; urgency=low
 
   * New upstream release 2.3.1 (closes: #662910).
