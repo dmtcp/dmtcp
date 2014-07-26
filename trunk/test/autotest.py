@@ -115,6 +115,7 @@ for i in sys.argv:
     CYCLES=100000
   if i=="--slow":
     SLOW=5
+    TIMEOUT *= 2
   if i=="--retry-once":
     RETRY_ONCE = True
   #TODO:  Install SIGSEGV handler with infinite loop, and add to LD_PRELOAD
