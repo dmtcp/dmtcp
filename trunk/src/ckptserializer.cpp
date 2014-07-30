@@ -541,10 +541,6 @@ void dmtcp::CkptSerializer::writeCkptImage(void *mtcpHdr, size_t mtcpHdrLen)
   int use_compression = 0;
   int fdCkptFileOnDisk = -1;
   int fd = -1;
-#ifdef DEBUG
-  // For easy inspection inside gdb:
-  int jassertlog_fd = PROTECTED_JASSERTLOG_FD;
-#endif
 
   fd = perform_open_ckpt_image_fd(tempCkptFilename.c_str(), &use_compression,
                                   &fdCkptFileOnDisk);
