@@ -257,12 +257,12 @@ int ibv_query_qp(struct ibv_qp * qp, struct ibv_qp_attr * attr,
 
 int ibv_get_async_event(struct ibv_context *context, struct ibv_async_event *event)
 {
-  dmtcp_plugin_disable_ckpt();
+//  dmtcp_plugin_disable_ckpt();
 //  PDEBUG("******** WRAPPER FOR ibv_get_async_event\n");
 
   int rslt = _get_async_event(context, event);
 
-  dmtcp_plugin_enable_ckpt();
+//  dmtcp_plugin_enable_ckpt();
   return rslt;
 }
 
