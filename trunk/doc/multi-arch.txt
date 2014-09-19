@@ -23,29 +23,37 @@ locations.
 A. Compiling DMTCP for multi-arch support:
 =========================================
 
-1. Do the usual 64-bit compilation
-   ./configure
-   make
-   make install
-2. Do the 32-bit compilation (with -m32)
+1. Do the 32-bit compilation (with -m32)
    ./configure --enable-m32
    make clean
-   make
+   make -j
+   make install
+2. Do the usual 64-bit compilation
+   ./configure
+   make -j
    make install
 
-B. Handling dlsym offset:
-========================
+Use "./configure --prefix=$PWD/build" if you wish to build a local copy,
+instead of installing globally.
+
+Note that "--enable-m32" will not create the necessary DMTCP commands
+on a 64-bit Linux.  So, _on a 64-bit Linux_, you will still need the
+64-bit install, even if you intend only to run with 32-bit targets.
+
+
+B. IMPLEMENTATION NOTE: Handling dlsym offset:
+=============================================
 DMTCP relies on dlsym offset (calculated as the relative offset of dlsym from
 dlinfo in libdl.so) for calling the libdl:dlsym() function. This is to allow
 the plugins to put wrappers around dlsym() function itself.
 
 As can be seen, the dlsym offset may be different for 32-bit and 64-bit
 versions of libdl.so. To handle this, we calculate the offset for both
-architectures before hand (while executing in dmtcp_launch, and dmtcp_restart)
+architectures beforehand (while executing in dmtcp_launch and dmtcp_restart)
 and set the environment variables DMTCP_DLSYM_OFFSET (and
 DMTCP_DLSYM_OFFSET_M32). These offsets are also stored in SharedData area (see
 shareddata.h).
 
-While exec'ing a new program, the process can not rely on the current value
+While exec'ing a new program, the process cannot rely on the current value
 of the env vars as the values might be outdated. Thus, in prepareForExec(), the
 env vars are updated from the current values in SharedData.
