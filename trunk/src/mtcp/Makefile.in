@@ -61,6 +61,18 @@ ifeq (${ARM_HOST},yes)
   CFLAGS += -DMTCP_SYS_ERRNO_ON_STACK
 endif
 
+# This can be replaced when ARM_HOST is generalized.
+ifndef BUILDING_UTIL_ARCH
+  BUILDTYPE=${shell make BUILDING_UTIL_ARCH=1 util-arch > /dev/null; \
+                    ./util-arch}
+endif
+HOST_IS_AARCH64=${shell uname -m | grep '^aarch64'}
+ifeq ($(HOST_IS_AARCH64),aarch64)
+  ARM_EXTRAS = syscall-aarch64.S
+  ARM_BINARIES = syscall-aarch64.o
+  CFLAGS += -DMTCP_SYS_ERRNO_ON_STACK
+endif
+
 HEADERS = mtcp_util.ic mtcp_sys.h mtcp_util.h ldt.h \
 	  $(srcdir)/../membarrier.h $(DMTCP_INCLUDE_PATH)/procmapsarea.h
 
@@ -99,6 +111,8 @@ libmtcp.a: restore_libc.o ${ARM_BINARIES}
 restore_libc.o: restore_libc.c $(HEADERS) $(DMTCP_INCLUDE_PATH)/protectedfds.h
 	$(COMPILE) -DPIC -fPIC -fno-stack-protector -g -O0 $<
 syscall-arm.o: syscall-arm.S
+	${CC} ${CFLAGS} -c $<
+syscall-aarch64.o: syscall-aarch64.S
 	${CC} ${CFLAGS} -c $<
 
 # Try 'make gdb' before 'make check' if you want debugging information

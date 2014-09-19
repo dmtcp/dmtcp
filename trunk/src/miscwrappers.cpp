@@ -37,6 +37,29 @@
 #include <sys/signalfd.h>
 #endif
 
+#ifdef __aarch64__
+// We must support all deprecated syscalls in case the end user code uses it.
+# define __ARCH_WANT_SYSCALL_DEPRECATED
+# define __ARCH_WANT_SYSCALL_NO_AT
+# define __ARCH_WANT_SYSCALL_NO_FLAGS
+// SYS_fork is a deprecated kernel call in aarch64; in favor of SYS_clone?
+# include <asm-generic/unistd.h>
+// SYS_fork undefined in aarch64, but add extra insurance
+# undef SYS_fork
+# undef SYS_open
+# undef SYS_pipe
+# undef SYS_poll
+# define SYS_fork __NR_fork
+# define SYS_open __NR_open
+# define SYS_pipe __NR_pipe
+# define SYS_poll __NR_poll
+// These kernel calls are not deprecated.  But SYS_XXX is not defined for them.
+# define SYS_epoll_create __NR_epoll_create
+# define SYS_inotify_init __NR_inotify_init
+# define SYS_signalfd __NR_signalfd
+# define SYS_eventfd __NR_eventfd
+#endif
+
 EXTERNC int dmtcp_is_popen_fp(FILE *fp) __attribute((weak));
 
 extern "C" void exit ( int status )

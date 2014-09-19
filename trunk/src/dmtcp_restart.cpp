@@ -286,7 +286,7 @@ class RestoreTarget
       setEnvironFd();
       int is32bitElf = 0;
 
-#if defined(__x86_64__)
+#if defined(__x86_64__) || defined(__aarch64__)
       is32bitElf = (_pInfo.elfType() == ProcessInfo::Elf_32);
 #endif
       runMtcpRestart(is32bitElf, _fd, &_pInfo);

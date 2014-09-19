@@ -177,6 +177,9 @@ extern int mtcp_sys_errno;
 // In the future, we'll do the same for i386 and x86_64 to simplify the logic.
 // # include "sysdep/sysdep-arm-eabi.h"
 
+#elif defined(__aarch64__)
+// FIXME:  Now that we're introducing syscall-aarch64.S, we should abandon this.
+//# include "sysdep-aarch64.h"
 #else
 # error "Missing sysdep.h file for this architecture."
 #endif /* end __arm__ */
@@ -208,32 +211,68 @@ struct linux_dirent {
 #define mtcp_sys_read(args...)  mtcp_inline_syscall(read,3,args)
 #define mtcp_sys_write(args...)  mtcp_inline_syscall(write,3,args)
 #define mtcp_sys_lseek(args...)  mtcp_inline_syscall(lseek,3,args)
-#define mtcp_sys_open(args...)  mtcp_inline_syscall(open,3,args)
+
+/*
+ * As of glibc-2.18, open() has been replaced by openat(). glibc converts
+ * calls to open() to openat(), but NOT for Aarch64
+ */
+#if defined(__aarch64__)
+# define mtcp_sys_open(args...)  mtcp_inline_syscall(openat,4,AT_FDCWD,args)
+#else
+# define mtcp_sys_open(args...)  mtcp_inline_syscall(open,3,args)
+#endif
+
     // mode  must  be  specified  when O_CREAT is in the flags, and is ignored
     //   otherwise.
 #define mtcp_sys_open2(args...)  mtcp_sys_open(args,0777)
 #define mtcp_sys_ftruncate(args...) mtcp_inline_syscall(ftruncate,2,args)
 #define mtcp_sys_close(args...)  mtcp_inline_syscall(close,1,args)
-#define mtcp_sys_access(args...)  mtcp_inline_syscall(access,2,args)
+#if defined(__aarch64__)
+# define mtcp_sys_access(path,mode)  \
+         mtcp_inline_syscall(faccessat,4,AT_FDCWD,path,mode,AT_EACCESS)
+#else
+# define mtcp_sys_access(args...)  mtcp_inline_syscall(access,2,args)
+#endif
 #define mtcp_sys_fchmod(args...)  mtcp_inline_syscall(fchmod,2,args)
-#define mtcp_sys_rename(args...)  mtcp_inline_syscall(rename,2,args)
+#if defined(__aarch64__)
+# define mtcp_sys_rename(oldpath,newpath)  \
+         mtcp_inline_syscall(renameat,4,AT_FDCWD,oldpath,AT_FDCWD,newpath)
+#else
+# define mtcp_sys_rename(args...)  mtcp_inline_syscall(rename,2,args)
+#endif
 #define mtcp_sys_exit(args...)  mtcp_inline_syscall(exit,1,args)
-#define mtcp_sys_pipe(args...)  mtcp_inline_syscall(pipe,1,args)
+#if defined(__aarch64__)
+# define mtcp_sys_pipe(fd)  mtcp_inline_syscall(pipe2,2,fd,0)
+#else
+# define mtcp_sys_pipe(args...)  mtcp_inline_syscall(pipe,1,args)
+#endif
 #define mtcp_sys_dup(args...)  mtcp_inline_syscall(dup,1,args)
-#define mtcp_sys_dup2(args...)  mtcp_inline_syscall(dup2,2,args)
+#if defined(__aarch64__)
+# define mtcp_sys_dup2(oldfd,newfd) \
+         mtcp_inline_syscall(dup3,3,oldfd,newfd,NULL)
+#else
+# define mtcp_sys_dup2(args...)  mtcp_inline_syscall(dup2,2,args)
+#endif
 #define mtcp_sys_getpid(args...)  mtcp_inline_syscall(getpid,0)
 #define mtcp_sys_getppid(args...)  mtcp_inline_syscall(getppid,0)
-#define mtcp_sys_fork(args...)   mtcp_inline_syscall(fork,0)
+#if defined(__aarch64__)
+# define mtcp_sys_fork(args...) \
+         mtcp_inline_syscall(clone,4,SIGCHLD,NULL,NULL,NULL)
+#else
+# define mtcp_sys_fork(args...)   mtcp_inline_syscall(fork,0)
+#endif
 #define mtcp_sys_vfork(args...)   mtcp_inline_syscall(vfork,0)
 #define mtcp_sys_execve(args...)  mtcp_inline_syscall(execve,3,args)
 #define mtcp_sys_wait4(args...)  mtcp_inline_syscall(wait4,4,args)
 #define mtcp_sys_gettimeofday(args...)  mtcp_inline_syscall(gettimeofday,2,args)
-#if defined(__i386__) || defined(__x86_64__)
+#if defined(__i386__) || defined(__x86_64__) || defined(__aarch64__)
 # define mtcp_sys_mmap(args...)  (void *)mtcp_inline_syscall(mmap,6,args)
 #elif defined(__arm__)
 /* ARM Linux kernel doesn't support mmap: translate to newer mmap2 */
 # define mtcp_sys_mmap(addr,length,prot,flags,fd,offset) \
    (void *)mtcp_inline_syscall(mmap2,6,addr,length,prot,flags,fd,offset/4096)
+#elif defined(__aarch64__)
+# define mtcp_sys_mmap(args...)  (void *)mtcp_inline_syscall(mmap,6,args)
 #else
 # error "getrlimit kernel call not implemented in this architecture"
 #endif
@@ -251,13 +290,21 @@ struct linux_dirent {
 #define mtcp_sys_geteuid(args...) mtcp_inline_syscall(geteuid, 0)
 
 #define mtcp_sys_personality(args...) mtcp_inline_syscall(personality, 1, args)
-#define mtcp_sys_readlink(args...) mtcp_inline_syscall(readlink, 3, args)
-#if defined(__i386__) || defined(__x86_64__)
+#if defined(__aarch64__)
+  // As of glibc-2.18, readlink() has been replaced by readlinkat()
+  // glibc includes checks for old call, except in Aarch64
+# define mtcp_sys_readlink(args...) mtcp_inline_syscall(readlinkat, 3, args)
+#else
+# define mtcp_sys_readlink(args...) mtcp_inline_syscall(readlink, 3, args)
+#endif
+#if defined(__i386__) || defined(__x86_64__) || defined(__aarch64__)
   /* Should this be changed to use newer ugetrlimit kernel call? */
 # define mtcp_sys_getrlimit(args...) mtcp_inline_syscall(getrlimit, 2, args)
 #elif defined(__arm__)
   /* EABI ARM exclusively uses newer ugetrlimit kernel API, and not getrlimit */
 # define mtcp_sys_getrlimit(args...) mtcp_inline_syscall(ugetrlimit, 2, args)
+#elif defined(__aarch64__)
+# define mtcp_sys_getrlimit(args...) mtcp_inline_syscall(getrlimit, 2, args)
 #else
 # error "getrlimit kernel call not implemented in this architecture"
 #endif
@@ -275,7 +322,11 @@ struct linux_dirent {
 
 #define mtcp_sys_fcntl2(args...) mtcp_inline_syscall(fcntl,2,args)
 #define mtcp_sys_fcntl3(args...) mtcp_inline_syscall(fcntl,3,args)
-#define mtcp_sys_mkdir(args...) mtcp_inline_syscall(mkdir,2,args)
+#if defined(__aarch64__)
+# define mtcp_sys_mkdir(args...) mtcp_inline_syscall(mkdirat,3,AT_FDCWD,args)
+#else
+# define mtcp_sys_mkdir(args...) mtcp_inline_syscall(mkdir,2,args)
+#endif
 
 #ifdef __i386__
 # define mtcp_sys_get_thread_area(args...) \
@@ -283,6 +334,28 @@ struct linux_dirent {
 # define mtcp_sys_set_thread_area(args...) \
     mtcp_inline_syscall(set_thread_area,1,args)
 #endif
+
+#if defined(__aarch64__)
+// FIXME:  Is this code still needed?
+# ifdef MTCP_SYS_GET_SET_THREAD_AREA
+
+static unsigned int myinfo_gs;
+
+#  define mtcp_sys_get_thread_area(uinfo) \
+  ({ asm volatile ("mrs   %0, tpidr_el0" \
+                   : "=r" (myinfo_gs) ); \
+    myinfo_gs = myinfo_gs - 1216; /* sizeof(struct pthread) = 1216 */ \
+    *(unsigned long int *)&(((struct user_desc *)uinfo)->base_addr) \
+      = myinfo_gs; \
+    myinfo_gs; })
+#  define mtcp_sys_set_thread_area(uinfo) \
+   ({ myinfo_gs = \
+      *(unsigned long int *)&(((struct user_desc *)uinfo)->base_addr); \
+      myinfo_gs = myinfo_gs + 1216; \
+      asm volatile ("msr     tpidr_el0, %[gs]" : : [gs] "r" (myinfo_gs) ); \
+      0;  })
+# endif /* end MTCP_SYS_GET_SET_THREAD_AREA */
+#endif /* end __aarch64__ */
 
 /*****************************************************************************
  * mtcp_sys_kernel_XXX() indicates it's particular to Linux, or glibc uses
@@ -364,7 +437,7 @@ struct linux_dirent {
 # define CLEAN_FOR_64_BIT(args...) "CLEAN_FOR_64_BIT_undefined"
 #endif
 
-#if __arm__
+#if defined(__arm__) || defined(__aarch64__)
 /*
  * NOTE:  The following are not defined for __ARM_EABI__.  Each redirects
  * to a different kernel call.  See __NR_getrlimit__ for an example.
@@ -382,6 +455,8 @@ static inline void mtcp_abort (void)
   asm volatile (CLEAN_FOR_64_BIT(hlt ; xor %eax,%eax ; mov (%eax),%eax) );
 #elif defined(__arm__)
   asm volatile ("mov r0, #0 ; str r0, [r0]");
+#elif defined(__aarch64__)
+  asm volatile ("mov x0, #0 ; str x0, [X0]");
 #endif
   for (;;);  /* Without this, gcc emits warning:  `noreturn' fnc does return */
 }
@@ -391,9 +466,14 @@ static inline void mtcp_abort (void)
 // For DMTCP-2.2, we are definining MTCP_SYS_ERRNO_ON_STACK on command line.
 // After that, we will move this code to libmtcp.so, where we can again
 //   use global variables, and so will not need this defined.
-#ifdef __arm__
+#if defined(__arm__) || defined(__aarch64__)
 #  undef mtcp_inline_syscall
 #  undef INLINE_SYSCALL_RAW
+# if defined(__arm__)
+extern unsigned int mtcp_syscall();
+# elif defined(__aarch64__)
+extern unsigned long mtcp_syscall();
+# endif
 # ifdef MTCP_SYS_ERRNO_ON_STACK
 #  define mtcp_inline_syscall(name, num_args, ...) \
      mtcp_syscall(SYS_##name, &mtcp_sys_errno, ##__VA_ARGS__)

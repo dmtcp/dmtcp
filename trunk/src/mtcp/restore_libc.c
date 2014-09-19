@@ -32,7 +32,7 @@
 
 int mtcp_sys_errno;
 
-#ifdef __x86_64__
+#if defined(__x86_64__) || defined(__aarch64__)
 # define ELF_AUXV_T Elf64_auxv_t
 # define UINT_T uint64_t
 #else
@@ -147,7 +147,7 @@ static int STATIC_TLS_TID_OFFSET()
 /* Can remove the unused attribute when this __GLIBC_PREREQ is the only one. */
 static char *memsubarray (char *array, char *subarray, size_t len)
 					 __attribute__ ((unused));
-static int get_tls_segreg(void);
+static uint64_t get_tls_segreg(void);
 static void *get_tls_base_addr(void);
 extern void **motherofall_saved_sp;
 extern ThreadTLSInfo *motherofall_tlsInfo;
@@ -250,7 +250,7 @@ static char *memsubarray (char *array, char *subarray, size_t len)
    return NULL;
 }
 
-static int get_tls_segreg(void)
+static uint64_t get_tls_segreg(void)
 {
   segreg_t tlssegreg;
 #ifdef __i386__
@@ -261,9 +261,30 @@ static int get_tls_segreg(void)
 #elif __arm__
   asm volatile ("mrc     p15, 0, %0, c13, c0, 3  @ load_tp_hard\n\t"
                 : "=r" (tlssegreg));
+#elif defined(__aarch64__)
+  asm volatile ("mrs  %0, tpidr_el0" : "=r" (tlssegreg) );
 #endif
-  return (int)tlssegreg;
+  return (uint64_t)tlssegreg;
 }
+
+/*
+static int
+tls_get_thread_area(void *uinfo, MYINFO_GS_T dummy)
+{
+  asm volatile ("mrs   %0, tpidr_el0" : "=r" (myinfo_gs) );
+  myinfo_gs = myinfo_gs - 1776;
+  *(unsigned long int *)&(((struct user_desc *)uinfo)->base_addr) = myinfo_gs;
+   return myinfo_gs;
+}
+
+static int
+tls_set_thread_area(void *uinfo, MYINFO_GS_T dummy)
+{
+  myinfo_gs = *(unsigned long int *)&(((struct user_desc *)uinfo)->base_addr);
+  myinfo_gs = myinfo_gs + 1776;
+  asm volatile ("msr     tpidr_el0, %[gs]" : : [gs] "r" (myinfo_gs) );
+}
+*/
 
 static void* get_tls_base_addr()
 {
@@ -371,6 +392,8 @@ int TLSInfo_HaveThreadSysinfoOffset()
 #elif defined(__arm__)
   asm volatile ("mrc     p15, 0, %0, c13, c0, 3  @ load_tp_hard\n\t"
                 : "=r" (sysinfo) );
+#elif defined(__aarch64__)
+  asm volatile ("mrs     %0, tpidr_el0" : "=r" (sysinfo) );
 #else
 # error "current architecture not supported"
 #endif
@@ -391,6 +414,8 @@ void *TLSInfo_GetThreadSysinfo()
 #elif defined(__arm__)
   asm volatile ("mrc     p15, 0, %0, c13, c0, 3  @ load_tp_hard\n\t"
                 : "=r" (sysinfo) );
+#elif defined(__aarch64__)
+  asm volatile ("mrs     %0, tpidr_el0" : "=r" (sysinfo) );
 #else
 # error "current architecture not supported"
 #endif
@@ -403,6 +428,8 @@ void TLSInfo_SetThreadSysinfo(void *sysinfo) {
                 : : "r" (sysinfo) );
 #elif defined(__arm__)
   mtcp_sys_kernel_set_tls(sysinfo);
+#elif defined(__aarch64__)
+  asm volatile ("msr     tpidr_el0, %[gs]" : : [gs] "r" (sysinfo) );
 #else
 # error "current architecture not supported"
 #endif
@@ -449,7 +476,7 @@ void TLSInfo_SaveTLSState (ThreadTLSInfo *tlsInfo)
 #elif __x86_64__
   //asm volatile ("movl %%fs,%0" : "=m" (tlsInfo->fs));
   //asm volatile ("movl %%gs,%0" : "=m" (tlsInfo->gs));
-#elif __arm__
+#elif __arm__ || __aarch64__
   // Follow x86_64 for arm.
 #endif
 
@@ -518,6 +545,8 @@ void TLSInfo_RestoreTLSState(ThreadTLSInfo *tlsInfo)
  */
 #elif __arm__
 /* ARM treats this same as x86_64 above. */
+#elif defined(__aarch64__)
+# warning "TODO: Implementation for ARM64?"
 #endif
 }
 
@@ -553,6 +582,8 @@ void TLSInfo_PostRestart()
            sizeof("shell ../../util/gdb-add-libdmtcp-symbol-file.py PID PC\n"));
 #if defined(__i386__) || defined(__x86_64__)
       asm volatile ("int3"); // Do breakpoint; send SIGTRAP, caught by gdb
+#elif defined(__aarch64__)
+      asm("brk 0");
 #else
       DPRINTF("IN GDB: interrupt (^C); add-symbol-file ...; (gdb) print x=0\n");
       { int x = 1; while (x); } // Stop execution for user to type command.

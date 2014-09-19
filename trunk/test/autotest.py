@@ -66,7 +66,7 @@ DEFAULT_S=0.3
 if uname_p[0:3] == 'arm':
   DEFAULT_S *= 2
 #Allow extra time for slower CPUs
-if uname_m in ["i386", "i486", "i586", "i686", "armv7", "armv71"]:
+if uname_m in ["i386", "i486", "i586", "i686", "armv7", "armv71", "aarch64"]:
   DEFAULT_S *= 4
 
 S=DEFAULT_S

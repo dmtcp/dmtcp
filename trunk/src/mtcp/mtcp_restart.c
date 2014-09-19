@@ -362,8 +362,8 @@ static void restart_fast_path()
   mtcp_sys_memcpy(rinfo.restore_addr + rinfo.text_size, &rinfo, sizeof(rinfo));
   void *stack_ptr = rinfo.restore_addr + rinfo.restore_size - MB;
 
-#ifdef __arm__
-#if 1
+#if defined(__arm__) || defined(__aarch64__)
+# if 1
   memfence();
 # else
   // FIXME: Remove the dead code once memfence() is stable.
@@ -399,6 +399,11 @@ static void restart_fast_path()
                 : : "r" (stack_ptr) : "memory");
   /* If we're going to have an error, force a hard error early, to debug. */
   asm volatile ("mov fp,#0\n\tmov ip,#0\n\tmov lr,#0" : : );
+#elif defined(__aarch64__)
+  asm volatile ("mov sp,%0\n\t"
+                : : "r" (stack_ptr) : "memory");
+  /* If we're going to have an error, force a hard error early, to debug. */
+  // FIXME:  Add a hard error here in assembly.
 #else
 # error "assembly instruction not translated"
 #endif
@@ -523,6 +528,8 @@ static void restorememoryareas(RestoreInfo *rinfo_ptr)
 				: : : CLEAN_FOR_64_BIT(eax));
 #elif defined(__arm__)
   mtcp_sys_kernel_set_tls(0);  /* Uses 'mcr', a kernel-mode instr. on ARM */
+#elif defined(__aarch64__)
+# warning __FUNCTION__ "TODO: Implementation for ARM64"
 #endif
 
   // so make sure we get a hard failure just in case
@@ -788,7 +795,7 @@ static void readmemoryareas(int fd)
       }
     }
   }
-#if __arm__
+#if defined(__arm__) || defined(__aarch64__)
   /* On ARM, with gzip enabled, we sometimes see SEGFAULT without this.
    * The SEGFAULT occurs within the initial thread, before any user threads
    * are unblocked.  WHY DOES THIS HAPPEN?
@@ -1179,7 +1186,7 @@ void restore_libc(ThreadTLSInfo *tlsInfo, int tls_pid_offset,
  *asm volatile ("movl %0,%%fs" : : "m" (tlsInfo->fs));
  *asm volatile ("movl %0,%%gs" : : "m" (tlsInfo->gs));
  */
-#elif __arm__
+#elif defined(__arm__) || defined(__aarch64__)
 /* ARM treats this same as x86_64 above. */
 #endif
 }

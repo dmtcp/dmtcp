@@ -47,7 +47,7 @@ void dmtcp::Util::lockFile(int fd)
 
   JASSERT (result != -1) (JASSERT_ERRNO)
     .Text("Unable to lock the PID MAP file");
-#if __arm__
+#if (__arm__ || __aarch64__)
   WMB;  // DMB, ensure writes by others to memory have completed before we
         //      we enter protected region.
 #endif
@@ -58,7 +58,7 @@ void dmtcp::Util::unlockFile(int fd)
   struct flock fl;
   int result;
 
-#if __arm__
+#if (__arm__ || __aarch64__)
   RMB; WMB; // DMB, ensure accesses to protected memory have completed
             //      before releasing lock
 #endif
@@ -67,7 +67,7 @@ void dmtcp::Util::unlockFile(int fd)
   fl.l_start  = 0;        // Offset from l_whence
   fl.l_len    = 0;        // length, 0 = to EOF
 
-#if __arm__
+#if (__arm__ || __aarch64__)
   WMB;  // DSB, ensure update of fl before seen by other CPUs
 #endif
 

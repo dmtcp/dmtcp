@@ -9,6 +9,8 @@ typedef unsigned short segreg_t;
 typedef unsigned short segreg_t;
 #elif __arm__
 typedef unsigned int segreg_t;
+#elif defined(__aarch64__)
+typedef unsigned long int segreg_t;
 #endif
 
 /* TLS segment registers used differently in i386 and x86_64. - Gene */
@@ -16,14 +18,14 @@ typedef unsigned int segreg_t;
 # define TLSSEGREG gs
 #elif __x86_64__
 # define TLSSEGREG fs
-#elif __arm__
+#elif (__arm__ || __aarch64__)
 /* FIXME: fs IS NOT AN arm REGISTER.  BUT THIS IS USED ONLY AS A FIELD NAME.
  *   ARM uses a register in coprocessor 15 as the thread-pointer (TLS Register)
  */
 # define TLSSEGREG fs
 #endif
 
-#ifdef __x86_64__
+#if defined(__x86_64__) || defined(__aarch64__)
 # define MYINFO_GS_T unsigned long int
 #else
 # define MYINFO_GS_T unsigned int

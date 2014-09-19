@@ -38,6 +38,10 @@
 # define RMB __sync_synchronize()
 # define WMB __sync_synchronize()
 # define IMB __sync_synchronize()
+#elif defined(__aarch64__)
+# define RMB asm volatile ("dsb sy ; dmb sy" : : : "memory")
+# define WMB asm volatile ("dsb sy ; dmb sy" : : : "memory")
+# define IMB asm volatile ("isb" : : : "memory")
 #else
 # error "instruction architecture not implemented"
 #endif

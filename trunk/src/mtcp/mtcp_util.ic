@@ -214,7 +214,7 @@ void mtcp_readfile(int fd, void *buf, size_t size)
   size_t ar = 0;
   int tries = 0;
 
-#if __arm__
+#if __arm__ || __aarch64__
   /* ARM requires DMB instruction to ensure that any store to memory
    * by a prior kernel mmap call has completed.
    * SEE ARM Information Center article:
@@ -240,7 +240,7 @@ void mtcp_readfile(int fd, void *buf, size_t size)
     }
     ar += rc;
   }
-#if __arm__
+#if __arm__ || __aarch64__
   /* ARM requires DSB and ISB instructions to ensure that prior read
    * instructions complete, and prevent instructions being fetched prior to this.
    * SEE ARM Information Center article:
