@@ -431,7 +431,7 @@ static int32_t getDlsymOffset_m32()
 
   libdl = buf;
 
-  cmd2 = "nm -D -g " + libdl + " | grep 'dlinfo'";
+  cmd2 = "nm -D -g " + libdl + " | grep '" + LIBDL_BASE_FUNC_STR + "'";
   fp = popen(cmd2.c_str(), "r");
   JASSERT(fp != NULL);
   // fread returns the total number of bytes read only when 'size' is 1.

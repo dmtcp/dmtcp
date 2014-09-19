@@ -698,7 +698,9 @@ static void setLDPreloadLibs(bool is32bitElf)
     JWARNING(libdmtcp != "libdmtcp.so")
       .Text("You appear to be checkpointing a 32-bit target under 64-bit Linux.\n"
             "DMTCP was unable to find the 32-bit installation.\n"
-            "Try configure --enable-m32 ; make clean ; make ; make install");
+            "See DMTCP FAQ or try:\n"
+            "  ./configure --enable-m32 && make clean && make -j && make install\n"
+            "  ./configure && make clean && make -j && make install\n");
     setenv("LD_PRELOAD", preloadLibs32.c_str(), 1);
   }
 #endif

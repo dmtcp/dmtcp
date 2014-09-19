@@ -1,4 +1,4 @@
-			dlsym
+		A Better dlsym() :  Returning the Default Version
 
 This is intended as one of a series of informal documents to describe
 and partially document some of the more subtle DMTCP data structures
@@ -67,7 +67,7 @@ So, the default version number is not a universally fixed value.
 BACKGROUND DETAILS OF THE ELF LINKER:
 
 The rest of this note explains how the macro DLSYM_DEFAULT()
-(and the function dlsym_default()) find the default symbol.
+(and the function dlsym_default_internal()) find the default symbol.
 This is done in src/dlsym_default.c .
 
 The versym ELF section defines the symbol version strings of that file (and it
