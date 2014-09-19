@@ -35,6 +35,13 @@
 // DMTCP config constants like ELF_INTERPRETER
 #include "config.h"
 
+#ifdef __aarch64__
+// FIXME:  We should use SYS_getdents64, and not SYS_getdents for all arch's.
+// SYS_getdents not supported in aarch64.
+# undef SYS_getdents
+# define SYS_getdents SYS_getdents64
+#endif
+
 namespace
 {
   // In Red Hat Enterprise Linux Server 5.4 (Linux kernel 2.6.18)

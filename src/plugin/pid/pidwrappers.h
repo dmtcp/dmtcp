@@ -38,10 +38,10 @@
 # include <sys/ptrace.h>
 #endif
 #include <stdarg.h>
-#ifndef __arm__
-# include <asm/ldt.h> // Needed for 'struct user_desc' (arg 6 of __clone)
+#if defined(__arm__) || defined(__aarch64__)
+struct user_desc {int dummy;}; /* <asm/ldt.h> is missing in Ubuntu 14.04 */
 #else
-struct user_desc {int dummy;}; /* <asm/ldt.h> is missing in Ubuntu 11.10 */
+# include <asm/ldt.h> // Needed for 'struct user_desc' (arg 6 of __clone)
 #endif
 #include <stdio.h>
 #include <thread_db.h>

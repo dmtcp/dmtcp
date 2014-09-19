@@ -82,7 +82,7 @@ extern "C"
 {
 #endif
 
-#ifdef __arm__
+#if defined(__arm__) || defined(__aarch64__)
 # define DISABLE_PTHREAD_GETSPECIFIC_TRICK
 #endif
 

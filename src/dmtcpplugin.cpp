@@ -59,6 +59,9 @@ static dmtcp_fnptr_t userHookPostRestart = NULL;
 static inline void memfence(){  asm volatile ("mfence" ::: "memory"); }
 # elif defined(__arm__)
 static inline void memfence(){  asm volatile ("dmb" ::: "memory"); }
+#elif defined(__aarch64__)
+# include "membarrier.h"
+static inline void memfence(){  RMB; WMB; }
 # endif
 #else
 # define memfence() __sync_synchronize()

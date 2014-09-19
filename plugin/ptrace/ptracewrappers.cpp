@@ -89,6 +89,13 @@
 // FIXME:  ARM also uses sigreturn.  however, more debugging is needed before
 //         ptrace works for ARM.
 # define SIGRETURN_INST_16 -1
+#elif __aarch64__
+# warning "TODO: Implementation for ARM64."
+/* AArch64 uses PTRACE_GETREGSET */
+# undef PTRACE_GETREGS
+# define PTRACE_GETREGS PTRACE_GETREGSET
+# define SIGRETURN_INST_16 -1
+#define NUM_ARM_REGS 18
 #else
 # error Unknown architecture
 #endif
@@ -216,6 +223,11 @@ static void ptrace_wait_for_inferior_to_reach_syscall(pid_t inferior, int sysno)
   struct user_regs_struct regs;
 #elif defined(__arm__)
   struct user_regs regs;
+#elif defined(__aarch64__)
+  struct user_pt_regs aarch64_regs;
+  struct iovec iov;
+  iov.iov_base = &aarch64_regs;
+  iov.iov_len = sizeof(aarch64_regs);
 #endif
   int syscall_number;
   int status;
@@ -227,13 +239,23 @@ static void ptrace_wait_for_inferior_to_reach_syscall(pid_t inferior, int sysno)
     JASSERT(_real_wait4(inferior, &status, __WALL, NULL) == inferior)
       (inferior) (JASSERT_ERRNO);
 
+#if defined(__aarch64__)
+    JASSERT(_real_ptrace(PTRACE_GETREGS, inferior, 0, (void *)&iov) == 0)
+      (inferior) (JASSERT_ERRNO);
+#else
     JASSERT(_real_ptrace(PTRACE_GETREGS, inferior, 0, &regs) == 0)
       (inferior) (JASSERT_ERRNO);
+#endif
 
 #if defined(__i386__) || defined(__x86_64__)
     syscall_number = regs.ORIG_AX_REG;
 #elif(__arm__)
     syscall_number = regs.ARM_ORIG_r0;
+#elif(__aarch64__)
+    /* iov.iov_base points to &aarch64_regs, so it's
+     * okay to use it directly here for readability.
+     */
+    syscall_number = aarch64_regs.regs[8];
 #endif
     if (syscall_number == sysno) {
       JASSERT(_real_ptrace(PTRACE_SYSCALL, inferior, 0, (void*) 0) == 0)
@@ -253,6 +275,11 @@ static void ptrace_single_step_thread(dmtcp::Inferior *inferiorInfo,
   struct user_regs_struct regs;
 #elif defined(__arm__)
   struct user_regs regs;
+#elif defined(__aarch64__)
+  static struct user_pt_regs aarch64_regs;
+  struct iovec iov;
+  iov.iov_base = &aarch64_regs;
+  iov.iov_len = sizeof(aarch64_regs);
 #endif
   long peekdata;
   unsigned long addr;
@@ -277,8 +304,14 @@ static void ptrace_single_step_thread(dmtcp::Inferior *inferiorInfo,
       JTRACE("thread terminated by signal") (inferior);
     }
 
+#if defined(__aarch64__)
+    JASSERT(_real_ptrace(PTRACE_GETREGS, inferior, 0, (void *)&iov) != -1)
+      (superior) (inferior) (JASSERT_ERRNO);
+#else
     JASSERT(_real_ptrace(PTRACE_GETREGS, inferior, 0, &regs) != -1)
       (superior) (inferior) (JASSERT_ERRNO);
+#endif
+
 #ifdef __x86_64__
     /* For 64 bit architectures. */
     peekdata = _real_ptrace(PTRACE_PEEKDATA, inferior, (void*) regs.IP_REG, 0);
@@ -295,6 +328,14 @@ static void ptrace_single_step_thread(dmtcp::Inferior *inferiorInfo,
     peekdata = _real_ptrace(PTRACE_PEEKDATA, inferior, (void*) regs.ARM_pc, 0);
     long inst = peekdata & 0xffff;
     if (inst == SIGRETURN_INST_16 && regs.ARM_r0 == 0xf)
+#elif __aarch64__
+    /* For ARM64 architectures. */
+    /* Check if we are returning from a checkpoint signal.
+     */
+# warning "TODO: Implementation for ARM64."
+    peekdata = _real_ptrace(PTRACE_PEEKDATA, inferior, (void*) aarch64_regs.pc, 0);
+    long inst = peekdata & 0xffff;
+    if (inst == SIGRETURN_INST_16 && aarch64_regs.regs[0] == 0xf)
 #endif
     {
       if (isRestart) { /* Restart time. */

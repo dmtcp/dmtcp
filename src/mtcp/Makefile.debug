@@ -4,10 +4,18 @@
 
 CC=gcc
 
+# We need to integrate HOST_IS_ARM and HOST_IS_ARM64
 HOST_IS_ARM=${shell uname -m | grep '^arm' | sed -e 's^\(...\).*^\1^'}
 ifeq ($(HOST_IS_ARM),arm)
   ARM_EXTRAS = syscall-arm.S
   ARM_BINARIES = syscall-arm.o
+  CFLAGS += -DMTCP_SYS_ERRNO_ON_STACK
+endif
+
+HOST_IS_AARCH64=${shell uname -m | grep '^aarch64'}
+ifeq ($(HOST_IS_AARCH64),aarch64)
+  ARM_EXTRAS = syscall-aarch64.S
+  ARM_BINARIES = syscall-aarch64.o
   CFLAGS += -DMTCP_SYS_ERRNO_ON_STACK
 endif
 
@@ -74,6 +82,8 @@ restore_libc.o: restore_libc.c
 	$(CC) ${CFLAGS} ${MTCP_CFLAGS} -DPIC -fPIC -fno-stack-protector \
 	  -g -O0 -I. -I../../include -c $<
 syscall-arm.o: syscall-arm.S
+	${CC} ${CFLAGS} -c $<
+syscall-aarch64.o: syscall-aarch64.S
 	${CC} ${CFLAGS} -c $<
 
 tidy:
