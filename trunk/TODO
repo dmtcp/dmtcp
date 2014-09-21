@@ -33,7 +33,7 @@
 
 - setsighandler fails if user has reset our signal handler
   Do we cleanly tell the user what signal is being used by app,
-  and to reurn dmtcp with --sigckpt  set to other signal?
+  and to rerun dmtcp with --sigckpt  set to other signal?
 
 - Extend list of syscalls using netdb to put wrappers around them.
   The danger is that in invoking the netdb, they might want to
