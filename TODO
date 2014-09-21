@@ -1,7 +1,8 @@
 - PLANNED FOR AFTER DMTCP-1.2.4 (as time and resources permit):
   1. Create MTCP ckpt module making it easy to choose the preferred
 	compression routine on fly, remote checkpoints, etc.
-  2. Modify ckpt image format to note zero-mapped pages and use /proc/*/pagemap.
+  2. Modify ckpt image format to note zero-mapped pages and use
+     /proc/*/pagemap.
 	(An intermediate solution to replace runs of zeros
 	 by a region of zero-mapped pages at checkpoint time has already
 	 been implemented as of DMTCP-1.2.4.)
@@ -71,10 +72,12 @@ PID-VIRTUALIZATION:
      Store status of those processes which were zombie at checkpoint time. If
      the parent process does a wait() system call for that child after restart
      we should return its status.
-2. update dmtcp_restart.cpp to check and restore orphaned child processes at restart.
+2. update dmtcp_restart.cpp to check and restore orphaned child processes at
+  restart.
 3. better error handling for missing processes.
 
-REPLACE all temporary files present in $DMTCP_TMP_DIR with some sort of shared-memory files.
+REPLACE all temporary files present in $DMTCP_TMP_DIR with some sort of
+shared-memory files.
 
 SOCKETS:
 1. A process calls socket(), then forks a child process. The child then calls
