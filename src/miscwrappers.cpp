@@ -64,6 +64,11 @@ EXTERNC int dmtcp_is_popen_fp(FILE *fp) __attribute((weak));
 
 extern "C" void exit ( int status )
 {
+  /*
+   * NOTE: This sets the _exitInProgress flag to true which results in
+   *       a call to tgkill(SIGUSR2) for the ckpt thread.
+   *       Refer to the comment in: dmtcp::DmtcpWorker::~DmtcpWorker()
+   */
   dmtcp::DmtcpWorker::setExitInProgress();
   _real_exit ( status );
   for (;;); // Without this, gcc emits warning:  `noreturn' fnc does return
