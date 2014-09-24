@@ -16,24 +16,20 @@ DMTCP supports the OFED API for InfiniBand on an experimental basis. For older
 versions of OFED, the DMTCP 2.1 release should be adequate. For newer versions
 of OFED, please use DMTCP 2.2.
 
-To install DMTCP, see the file:
-  INSTALL
+To install DMTCP, see the file: `INSTALL`.
 
-For an overview DMTCP, see the file:
-  QUICK-START
+For an overview DMTCP, see the file: `QUICK-START`.
 
-For the licene an overview DMTCP, see the file:
-  COPYING
+For the licene an overview DMTCP, see the file: `COPYING`.
 
 Directory layout:
- - subdirectories: dmtcp and mtcp : will eventually be combined into
-   	a future top-level 'src' subdirectory
+ - src : DMTCP source code.
  - bin : DMTCP binaries (`dmtcp_launch`, `dmtcp_restart`, `dmtcp_coordinator`, etc.)
  - lib : DMTCP internal libraries, including internal plugins that are
         not exposed to the end user.
  - test : Used by 'make check'
  - plugin : (top-level directory of optional plugins; they must be
-             invoked by a command line flag of 'dmtcp_launch')
+             invoked by a command line flag of `dmtcp_launch`)
  - doc : Random documentation on aspects of the DMTCP design
          Note especially:  doc/plugin-tutorial.pdf
  - include : Contains dmtcp.h ; useful for third-party plugins
@@ -42,9 +38,6 @@ Directory layout:
              as they become mature;  Contrib plugins are not built by default
  - util : random utilities useful mostly for experts
 
-For more information on DMTCP, see:
-  [http://dmtcp.sourceforge.net](http://dmtcp.sourceforge.net)
-That web page also contains the release notes for each DMTCP release.
+For more information on DMTCP, see: [http://dmtcp.sourceforge.net](http://dmtcp.sourceforge.net).
 
-For the latest version of DMTCP (both official release and svn), see:
-  [http://dmtcp.sourceforge.net/downloads.html](http://dmtcp.sourceforge.net/downloads.html)
+For the latest version of DMTCP (both official release and svn), see:  [http://dmtcp.sourceforge.net/downloads.html](http://dmtcp.sourceforge.net/downloads.html).
