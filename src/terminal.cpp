@@ -94,10 +94,18 @@ static void restore_term_settings()
         .Text(":skip restore terminal step -- we are in BACKGROUND");
     }
   }
-  JWARNING(false).Text("Apache, when running in debug mode (-X), uses SIGWINCH"
-                       "as a signal for stopping gracefully. Please comment out"
-                       "the next line to prevent DMTCP from sending a SIGWINCH"
-                       "on restart when testing with Apache.");
+  /*
+   * NOTE:
+   * Apache, when running in debug mode (-X), uses SIGWINCH
+   * as a signal for stopping gracefully. Please comment out
+   * the next line to prevent DMTCP from sending a SIGWINCH
+   * on restart when testing with Apache.
+   *
+   * TODO:
+   * This should be done automatically by wrapping it in an ifdef
+   * or if condition that disables the SIGWINCH using configure or
+   * a runtime option (--no-sigwinch).
+   */
   if (kill(getpid(), SIGWINCH) == -1) {}  /* No remedy if error */
 }
 
