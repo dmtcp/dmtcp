@@ -95,6 +95,8 @@
 #define ENV_VAR_DMTCP_DUMMY "DMTCP_DUMMY"
 // Keep in sync with plugin/pid/pidwrappers.h
 #define ENV_VAR_VIRTUAL_PID "DMTCP_VIRTUAL_PID"
+// Keep in sync with plugin/batch-queue/rm_pmi.h
+#define ENV_VAR_EXPLICIT_SRUN "DMTCP_EXPLICIT_SRUN"
 
 
 // it is not yet safe to change these; these names are hard-wired in the code

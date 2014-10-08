@@ -21,6 +21,8 @@
 #ifndef RM_PMI_H
 #define RM_PMI_H
 
+#define ENV_VAR_EXPLICIT_SRUN "DMTCP_EXPLICIT_SRUN"
+
 int rm_restore_pmi();
 int rm_shutdown_pmi();
 
