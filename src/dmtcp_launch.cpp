@@ -150,6 +150,7 @@ static bool checkpointOpenFiles=false;
 static bool enablePtracePlugin=false;
 static bool enableModifyEnvPlugin=false;
 static bool enableRMPlugin=false;
+static bool explicitSrun = false;
 
 static bool enableIB2TcpPlugin=false;
 static bool enableIBPlugin=false;
@@ -299,6 +300,9 @@ static void processArgs(int *orig_argc, char ***orig_argv)
       shift;
     } else if (s == "--rm" || s == "--batch-queue") {
       enableRMPlugin = true;
+      shift;
+    } else if (s == "--explicit-srun" ) {
+      explicitSrun = true;
       shift;
     } else if (s == "--with-plugin") {
       setenv(ENV_VAR_PLUGIN, argv[1], 1);
@@ -456,6 +460,10 @@ int main ( int argc, char** argv )
     setenv("ORIG_DISPLAY", getenv("DISPLAY"), 1);
     // UNSET DISPLAY environment variable.
     unsetenv("DISPLAY");
+  }
+
+  if( explicitSrun ){
+      setenv(ENV_VAR_EXPLICIT_SRUN, "1", 1);
   }
 
 // FIXME:  Unify this code with code prior to execvp in execwrappers.cpp

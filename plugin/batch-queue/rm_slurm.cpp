@@ -131,7 +131,9 @@ static int patch_srun_cmdline(char * const argv_old[], char ***_argv_new)
   unsigned int dsize = dmtcp_args.size();
 
   // Prepare final comman line
-  *_argv_new = (char**) JALLOC_HELPER_MALLOC(sizeof(char *) * (argc_old + (dsize + 1))); // (dsize+1) is DMTCP part including dmtcpCkptPath
+  // (dsize+2) is DMTCP part including dmtcpCkptPath and --explicit-srun flag
+  *_argv_new = (char**) JALLOC_HELPER_MALLOC(sizeof(char *) * (argc_old + (dsize + 2)));
+
   char **argv_new = *_argv_new;
   memset(argv_new, 0, sizeof(char*) * (argc_old + (dsize + 1)) );
 
@@ -177,6 +179,7 @@ static int patch_srun_cmdline(char * const argv_old[], char ***_argv_new)
     argv_new[new_pos] = strdup(dmtcp_args[i].c_str());
   }
   
+  argv_new[new_pos++] = strdup("--explicit-srun");
 
   for (; old_pos < argc_old; old_pos++, new_pos++) {
     argv_new[new_pos] = argv_old[old_pos];
