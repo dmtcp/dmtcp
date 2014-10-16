@@ -195,7 +195,7 @@ static CoordinatorAPI::CoordinatorMode allowedModes = CoordinatorAPI::COORD_ANY;
 #define shift argc--,argv++
 static void processArgs(int *orig_argc, char ***orig_argv)
 {
-  char argc = *orig_argc;
+  int argc = *orig_argc;
   char **argv = *orig_argv;
 
   if (argc == 1) {
