@@ -85,7 +85,7 @@ static bool explicit_srun = false;
 
 static bool want_pmi_shutdown()
 {
-    return pmi_is_used && (_get_rmgr_type() != slurm || explicit_srun );
+    return pmi_is_used && (_get_rmgr_type() == slurm && !explicit_srun );
 }
 
 void rm_init_pmi(){
