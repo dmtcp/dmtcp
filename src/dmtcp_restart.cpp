@@ -137,6 +137,7 @@ class RestoreTarget
     string procname() { return _pInfo.procname(); }
     UniquePid compGroup() { return _pInfo.compGroup(); }
     int numPeers() { return _pInfo.numPeers(); }
+    bool noCoordinator() { return _pInfo.noCoordinator(); }
 
     void restoreGroup()
     {
@@ -183,12 +184,11 @@ class RestoreTarget
         DmtcpUniqueProcessId compId = _pInfo.compGroup().upid();
         CoordinatorInfo coordInfo;
         struct in_addr localIPAddr;
-        CoordinatorAPI::CoordinatorMode mode = CoordinatorAPI::COORD_ANY;
         if (_pInfo.noCoordinator()) {
-          mode = CoordinatorAPI::COORD_NONE;
+          allowedModes = CoordinatorAPI::COORD_NONE;
         }
 
-        CoordinatorAPI::instance().connectToCoordOnRestart(mode,
+        CoordinatorAPI::instance().connectToCoordOnRestart(allowedModes,
                                                            _pInfo.procname(),
                                                            _pInfo.compGroup(),
                                                            _pInfo.numPeers(),
@@ -276,7 +276,7 @@ class RestoreTarget
       }
 
       if (!createIndependentRootProcesses) {
-        CoordinatorAPI::instance().connectToCoordOnRestart(CoordinatorAPI::COORD_ANY,
+        CoordinatorAPI::instance().connectToCoordOnRestart(allowedModes,
                                                            _pInfo.procname(),
                                                            _pInfo.compGroup(),
                                                            _pInfo.numPeers(),
@@ -536,6 +536,9 @@ int main(int argc, char** argv)
 
   RestoreTarget *t = independentProcessTreeRoots.begin()->second;
   JASSERT(t->pid() != 0);
+  JASSERT(!t->noCoordinator() || allowedModes == CoordinatorAPI::COORD_ANY)
+    .Text("Process had no coordinator prior to checkpoint; but either --join or"
+          " --new-coordinator was specified.");
   t->createProcess(true);
   JASSERT(false).Text("unreachable");
   return -1;

@@ -67,13 +67,15 @@ static void getHostAndPort(CoordinatorAPI::CoordinatorMode mode,
                            dmtcp::string *hostname,
                            int *port)
 {
+  JASSERT(mode & CoordinatorAPI::COORD_JOIN ||
+          mode & CoordinatorAPI::COORD_NEW ||
+          mode & CoordinatorAPI::COORD_ANY);
+
   const char *addr = getenv (ENV_VAR_NAME_HOST);
   if (addr == NULL) addr = DEFAULT_HOST;
   *hostname = addr;
 
   const char *portStr = getenv (ENV_VAR_NAME_PORT);
-
-  JASSERT(mode & CoordinatorAPI::COORD_NEW || mode & CoordinatorAPI::COORD_ANY);
   if (portStr != NULL) {
     *port = jalib::StringToInt(portStr);
   } else if (mode & CoordinatorAPI::COORD_NEW) {
