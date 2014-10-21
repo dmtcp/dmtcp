@@ -97,6 +97,7 @@ void slurm_restore_env()
   char *env_port = getenv("SLURM_SRUN_COMM_PORT");
   char *env_tmpdir = getenv("SLURMTMPDIR");
   JTRACE("Variable at restart")(env_host)(env_port)(env_tmpdir);
+  fclose(fp);
 }
 
 static void print_args(char *const argv[])
