@@ -505,11 +505,7 @@ extern "C" int execve (const char *filename, char *const argv[],
                         char *const envp[])
 {
 
-  if( strstr(filename,"srun") != NULL ){
-    JTRACE("execvp() wrapper (srun) - will call ecexvp directly") (filename);
-  }
-
-  if (isPerformingCkptRestart() || isBlacklistedProgram(filename) || (strstr(filename,"srun") != NULL) ) {
+  if (isPerformingCkptRestart() || isBlacklistedProgram(filename) ) {
     return _real_execve(filename, argv, envp);
   }
   JTRACE("execve() wrapper") (filename);
@@ -544,11 +540,7 @@ extern "C" int execv (const char *path, char *const argv[])
 
 extern "C" int execvp (const char *filename, char *const argv[])
 {
-  if( strstr(filename,"srun") != NULL ){
-    JTRACE("execvp() wrapper (srun) - will call ecexvp directly") (filename);
-  }
-
-  if (isPerformingCkptRestart() || isBlacklistedProgram(filename) || (strstr(filename,"srun") != NULL) ) {
+  if (isPerformingCkptRestart() || isBlacklistedProgram(filename) ) {
     return _real_execvp(filename, argv);
   }
   JTRACE("execvp() wrapper") (filename);
