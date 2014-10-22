@@ -52,7 +52,18 @@ void resources_input::trim(string &str, string delim)
 
   bool resources_input::is_serv_slot(string &str)
   {
-    string serv_names[] = {"orted", "orterun", "mpiexec", "mpirun"};
+    string serv_names[] = {
+      // MPI
+      "mpiexec", "mpirun",
+      // Open MPI
+      "orted", "orterun",
+      // DMTCP
+      "dmtcp_srun_helper",
+      // MPICH/Hydra
+      "mpiexec.hydra", "hydra_pmi_proxy"
+
+      // To be continued ...
+    };
     uint size = sizeof (serv_names) / sizeof (serv_names[0]);
     uint i;
     for (i = 0; i < size; i++) {

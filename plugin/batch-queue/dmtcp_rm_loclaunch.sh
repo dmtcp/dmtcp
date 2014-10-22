@@ -36,6 +36,11 @@ prepare_SLURM_env()
     echo "SLURM_SRUN_COMM_HOST=$SLURM_SRUN_COMM_HOST" > $SLURM_ENV_FILE
     echo "SLURM_SRUN_COMM_PORT=$SLURM_SRUN_COMM_PORT" >> $SLURM_ENV_FILE
     echo "SLURMTMPDIR=$SLURMTMPDIR" >> $SLURM_ENV_FILE
+    # I used this to implement fd's passing from restoring srun helper to
+    # srun helper under checkpoint. But it turns out to be a bad idea:
+    # we just create an IO loop. Maybe this would be useful in future
+    # check dmtcp_srun_helper_bkp.cpp && rm_slurm_bkp.cpp
+    # echo "DMTCP_SRUN_HELPER_ADDR=$DMTCP_SRUN_HELPER_ADDR" >> $SLURM_ENV_FILE
   done
 }
 
