@@ -27,6 +27,13 @@ void dmtcp_Terminal_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
     case DMTCP_EVENT_THREADS_RESUME:
       if (data->resumeInfo.isRestart) {
         restore_term_settings();
+        /* If MTCP_RESTART_PAUSE set, sleep 15 seconds and allow gdb attach. */
+        if (getenv("MTCP_RESTART_PAUSE")) {
+          struct timespec delay = {15, 0}; /* 15 seconds */
+          printf("Pausing 15 seconds. Do:  gdb <PROGNAME> %d\n",
+          dmtcp_virtual_to_real_pid(getpid()));
+          nanosleep(&delay, NULL);
+        }
       }
       break;
 
