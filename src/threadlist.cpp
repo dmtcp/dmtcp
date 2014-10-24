@@ -595,6 +595,14 @@ void ThreadList::postRestart(void)
   Thread *thread;
   sigset_t tmp;
 
+  /* If MTCP_RESTART_PAUSE set, sleep 15 seconds and allow gdb attach. */
+  if (getenv("MTCP_RESTART_PAUSE")) {
+    struct timespec delay = {15, 0}; /* 15 seconds */
+    printf("Pausing 15 seconds. Do:  gdb <PROGNAME> %d\n",
+    	   THREAD_REAL_TID());
+    nanosleep(&delay, NULL);
+  }
+
   /* Fill in the new mother process id */
   motherpid = THREAD_REAL_TID();
   motherofall->tid = motherpid;
