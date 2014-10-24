@@ -386,10 +386,10 @@ static int connect_to_restart_helper(char *path)
   static struct sockaddr_un sa;
   memset(&sa, 0, sizeof(sa));
   int sd = _real_socket(AF_UNIX, SOCK_STREAM, 0);
-  assert( sd >= 0 );
+  JASSERT( sd >= 0 );
   sa.sun_family = AF_UNIX;
   memcpy(&sa.sun_path, path, sizeof(sa.sun_path));
-  assert( _real_connect(sd,(struct sockaddr*) &sa, sizeof(sa)) == 0);
+  JASSERT( _real_connect(sd,(struct sockaddr*) &sa, sizeof(sa)) == 0);
   return sd;
 }
 
@@ -400,7 +400,7 @@ static int create_fd_tx_socket(sockaddr_un *sa)
   int sd = _real_socket(AF_UNIX, SOCK_DGRAM, 0);
   JASSERT( sd >= 0 );
   sa->sun_family = AF_UNIX;
-  JASSERT( _real_bind(sd, (struct sockaddr*)sa, slen) == 0);
+  JASSERT( _real_bind(sd, (struct sockaddr*)sa, sizeof(sa->sun_family)) == 0);
   JASSERT( getsockname(sd,(struct sockaddr *)sa, &slen) == 0);
   return sd;
 }

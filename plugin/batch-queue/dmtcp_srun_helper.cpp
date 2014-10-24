@@ -533,9 +533,10 @@ static void setup_initial_helper()
 
   assert( read(sd, &sa, sizeof(sa)) == sizeof(sa) );
   int fd_sock = socket(AF_UNIX, SOCK_DGRAM, 0);
-  slurm_sendFd(fd_sock,srun_stdin, &srun_stdin, sizeof(int), sa, sizeof(sa));
-  slurm_sendFd(fd_sock,srun_stdout, &srun_stdout, sizeof(int), sa, sizeof(sa));
-  slurm_sendFd(fd_sock,srun_stderr, &srun_stderr, sizeof(int), sa, sizeof(sa));
+  socklen_t len = sizeof(sa.sun_family) + strlen(sa.sun_path+1) + 1;
+  slurm_sendFd(fd_sock,srun_stdin, &srun_stdin, sizeof(int), sa, len);
+  slurm_sendFd(fd_sock,srun_stdout, &srun_stdout, sizeof(int), sa, len);
+  slurm_sendFd(fd_sock,srun_stderr, &srun_stderr, sizeof(int), sa, len);
   close(fd_sock);
   close(sd);
   close(restart_fd);
@@ -586,6 +587,14 @@ int main(int argc, char **argv, char **envp)
     daemonize();
     create_stdio_fds_rstr(pipe_in, pipe_out, pipe_err);
   }else{
+
+//        {
+//          int delay = 1;
+//          while (delay) {
+//            sleep(1);
+//          }
+//        }
+
     create_stdio_fds(pipe_in, pipe_out, pipe_err);
   }
 
