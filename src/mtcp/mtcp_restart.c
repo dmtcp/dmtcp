@@ -1302,12 +1302,12 @@ static char* fix_filename_if_new_cwd(char* filename)
 __attribute__((optimize(0)))
 static int open_shared_file(char* filename)
 {
-  int mtcp_sys_errno;
+  int mtcp_sys_errno = 0;
   int fd;
   /* Create the file */
   fd = mtcp_sys_open(filename, O_CREAT|O_RDWR, S_IRUSR|S_IWUSR);
   if (fd<0){
-    MTCP_PRINTF("unable to create file %s\n", filename);
+    MTCP_PRINTF("unable to create file %s: %d\n", filename, mtcp_sys_errno);
     mtcp_abort();
   }
   return fd;
