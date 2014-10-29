@@ -1566,6 +1566,7 @@ static void calcLocalAddr()
   error = getaddrinfo(hostname, NULL, &hints, &result);
   if (error == 0) {
     /* loop over all returned results and do inverse lookup */
+    bool success = false;
     for (res = result; res != NULL; res = res->ai_next) {
       char name[NI_MAXHOST] = "";
       struct sockaddr_in *s = (struct sockaddr_in*) res->ai_addr;
@@ -1575,10 +1576,15 @@ static void calcLocalAddr()
         JTRACE("getnameinfo() failed.") (gai_strerror(error));
         continue;
       }
-      if (Util::strStartsWith(name, hostname)) {
+      if (Util::strStartsWith(name, hostname) || 
+          Util::strStartsWith(hostname, name)) {
         JASSERT(sizeof localhostIPAddr == sizeof s->sin_addr);
+        success = true;
         memcpy(&localhostIPAddr, &s->sin_addr, sizeof s->sin_addr);
       }
+    }
+    if (!success) {
+      JWARNING("Failed to find coordinator IP address.  DMTCP may fail.") (hostname) ;
     }
   } else {
     if (error == EAI_SYSTEM) {
