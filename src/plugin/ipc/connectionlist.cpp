@@ -43,11 +43,11 @@ using namespace dmtcp;
 // This is the first program after dmtcp_launch
 static bool freshProcess = true;
 
-dmtcp::ConnectionList::~ConnectionList()
+ConnectionList::~ConnectionList()
 {
 }
 
-void dmtcp::ConnectionList::eventHook(DmtcpEvent_t event,
+void ConnectionList::eventHook(DmtcpEvent_t event,
                                          DmtcpEventData_t *data)
 {
   switch (event) {
@@ -132,7 +132,7 @@ static bool _isBadFd(int fd)
 }
 
 //static ConnectionList *connectionList = NULL;
-//dmtcp::ConnectionList& dmtcp::ConnectionList::instance()
+//ConnectionList& ConnectionList::instance()
 //{
 //  if (connectionList == NULL) {
 //    connectionList = new ConnectionList();
@@ -140,14 +140,14 @@ static bool _isBadFd(int fd)
 //  return *connectionList;
 //}
 
-void dmtcp::ConnectionList::resetOnFork()
+void ConnectionList::resetOnFork()
 {
   JASSERT(pthread_mutex_destroy(&_lock) == 0) (JASSERT_ERRNO);
   JASSERT(pthread_mutex_init(&_lock, NULL) == 0) (JASSERT_ERRNO);
 }
 
 
-void dmtcp::ConnectionList::deleteStaleConnections()
+void ConnectionList::deleteStaleConnections()
 {
   //build list of stale connections
   vector<int> staleFds;
@@ -159,7 +159,7 @@ void dmtcp::ConnectionList::deleteStaleConnections()
 
 #ifdef DEBUG
   if (staleFds.size() > 0) {
-    dmtcp::ostringstream out;
+    ostringstream out;
     out << "\tDevice \t\t->\t File Descriptor -> ConnectionId\n";
     out << "==================================================\n";
     for (size_t i = 0; i < staleFds.size(); ++i) {
@@ -181,14 +181,14 @@ void dmtcp::ConnectionList::deleteStaleConnections()
   }
 }
 
-void dmtcp::ConnectionList::serialize(jalib::JBinarySerializer& o)
+void ConnectionList::serialize(jalib::JBinarySerializer& o)
 {
   JSERIALIZE_ASSERT_POINT("dmtcp-serialized-connection-table!v0.07");
 
-  JSERIALIZE_ASSERT_POINT("dmtcp::ConnectionIdentifier:");
+  JSERIALIZE_ASSERT_POINT("ConnectionIdentifier:");
   ConnectionIdentifier::serialize(o);
 
-  JSERIALIZE_ASSERT_POINT("dmtcp::ConnectionList:");
+  JSERIALIZE_ASSERT_POINT("ConnectionList:");
 
   uint32_t numCons = _connections.size();
   o & numCons;
@@ -226,7 +226,7 @@ void dmtcp::ConnectionList::serialize(jalib::JBinarySerializer& o)
   JSERIALIZE_ASSERT_POINT("EOF");
 }
 
-void dmtcp::ConnectionList::list()
+void ConnectionList::list()
 {
   ostringstream o;
   o << "\n";
@@ -244,8 +244,8 @@ void dmtcp::ConnectionList::list()
   JTRACE("ConnectionList") (dmtcp_get_uniquepid_str()) (o.str());
 }
 
-dmtcp::Connection*
-dmtcp::ConnectionList::getConnection(const ConnectionIdentifier& id)
+Connection*
+ConnectionList::getConnection(const ConnectionIdentifier& id)
 {
   if (_connections.find(id) == _connections.end()) {
     return NULL;
@@ -253,7 +253,7 @@ dmtcp::ConnectionList::getConnection(const ConnectionIdentifier& id)
   return _connections[id];
 }
 
-dmtcp::Connection *dmtcp::ConnectionList::getConnection(int fd)
+Connection *ConnectionList::getConnection(int fd)
 {
   if (_fdToCon.find(fd) == _fdToCon.end()) {
     return NULL;
@@ -261,7 +261,7 @@ dmtcp::Connection *dmtcp::ConnectionList::getConnection(int fd)
   return _fdToCon[fd];
 }
 
-void dmtcp::ConnectionList::add(int fd, Connection* c)
+void ConnectionList::add(int fd, Connection* c)
 {
   _lock_tbl();
 
@@ -283,7 +283,7 @@ void dmtcp::ConnectionList::add(int fd, Connection* c)
   _unlock_tbl();
 }
 
-void dmtcp::ConnectionList::processCloseWork(int fd)
+void ConnectionList::processCloseWork(int fd)
 {
   Connection *con = _fdToCon[fd];
   _fdToCon.erase(fd);
@@ -294,7 +294,7 @@ void dmtcp::ConnectionList::processCloseWork(int fd)
   }
 }
 
-void dmtcp::ConnectionList::processClose(int fd)
+void ConnectionList::processClose(int fd)
 {
   if (_fdToCon.find(fd) != _fdToCon.end()) {
     _lock_tbl();
@@ -303,7 +303,7 @@ void dmtcp::ConnectionList::processClose(int fd)
   }
 }
 
-void dmtcp::ConnectionList::processDup(int oldfd, int newfd)
+void ConnectionList::processDup(int oldfd, int newfd)
 {
   if (oldfd == newfd) return;
   if (_fdToCon.find(newfd) != _fdToCon.end()) {
@@ -328,7 +328,7 @@ void dmtcp::ConnectionList::processDup(int oldfd, int newfd)
 /*****************************************************/
 /*****************************************************/
 
-void dmtcp::ConnectionList::preLockSaveOptions()
+void ConnectionList::preLockSaveOptions()
 {
   deleteStaleConnections();
   list();
@@ -341,7 +341,7 @@ void dmtcp::ConnectionList::preLockSaveOptions()
   }
 }
 
-void dmtcp::ConnectionList::preCkptFdLeaderElection()
+void ConnectionList::preCkptFdLeaderElection()
 {
   deleteStaleConnections();
   for (iterator i = begin(); i != end(); ++i) {
@@ -351,7 +351,7 @@ void dmtcp::ConnectionList::preCkptFdLeaderElection()
   }
 }
 
-void dmtcp::ConnectionList::drain()
+void ConnectionList::drain()
 {
   for (iterator i = begin(); i != end(); ++i) {
     Connection* con =  i->second;
@@ -362,7 +362,7 @@ void dmtcp::ConnectionList::drain()
   }
 }
 
-void dmtcp::ConnectionList::preCkpt()
+void ConnectionList::preCkpt()
 {
   for (iterator i = begin(); i != end(); ++i) {
     Connection* con =  i->second;
@@ -372,7 +372,7 @@ void dmtcp::ConnectionList::preCkpt()
   }
 }
 
-void dmtcp::ConnectionList::refill(bool isRestart)
+void ConnectionList::refill(bool isRestart)
 {
   for (iterator i = begin(); i != end(); ++i) {
     Connection *con = i->second;
@@ -388,7 +388,7 @@ void dmtcp::ConnectionList::refill(bool isRestart)
   }
 }
 
-void dmtcp::ConnectionList::resume(bool isRestart)
+void ConnectionList::resume(bool isRestart)
 {
   for (iterator i = begin(); i != end(); ++i) {
     Connection *con = i->second;
@@ -398,7 +398,7 @@ void dmtcp::ConnectionList::resume(bool isRestart)
   }
 }
 
-void dmtcp::ConnectionList::postRestart()
+void ConnectionList::postRestart()
 {
   // Here we modify the restore algorithm by splitting it in two parts. In the
   // first part we restore all the connection except the PTY_SLAVE types and in
@@ -433,7 +433,7 @@ void dmtcp::ConnectionList::postRestart()
 }
 
 
-void dmtcp::ConnectionList::registerMissingCons()
+void ConnectionList::registerMissingCons()
 {
   int protected_fd = protectedFd();
   // Add receive-fd data socket.
@@ -476,7 +476,7 @@ void dmtcp::ConnectionList::registerMissingCons()
   }
 }
 
-void dmtcp::ConnectionList::sendReceiveMissingFds()
+void ConnectionList::sendReceiveMissingFds()
 {
   size_t i;
   vector<int> outgoingCons;

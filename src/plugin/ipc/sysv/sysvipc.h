@@ -109,8 +109,8 @@ namespace dmtcp
                      int msgtyp, int msgflg) {}
 
     protected:
-      dmtcp::map<int, SysVObj*> _map;
-      typedef dmtcp::map<int, SysVObj*>::iterator Iterator;
+      map<int, SysVObj*> _map;
+      typedef map<int, SysVObj*>::iterator Iterator;
       VirtualIdTable<int32_t> _virtIdTable;
       int _type;
   };
@@ -229,8 +229,8 @@ namespace dmtcp
       shmatt_t _nattch;
       unsigned short _mode;
       struct shmid_ds _shminfo;
-      typedef dmtcp::map<const void*, int> ShmaddrToFlag;
-      typedef dmtcp::map<const void*, int>::iterator ShmaddrToFlagIter;
+      typedef map<const void*, int> ShmaddrToFlag;
+      typedef map<const void*, int>::iterator ShmaddrToFlagIter;
       ShmaddrToFlag _shmaddrToFlag;
   };
 
@@ -281,7 +281,7 @@ namespace dmtcp
       virtual void preResume() {}
 
     private:
-      dmtcp::vector<jalib::JBuffer> _msgInQueue;
+      vector<jalib::JBuffer> _msgInQueue;
       msgqnum_t _qnum;
   };
 }

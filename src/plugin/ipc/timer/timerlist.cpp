@@ -46,15 +46,15 @@ void dmtcp_Timer_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 
   switch (event) {
     case DMTCP_EVENT_ATFORK_CHILD:
-      dmtcp::TimerList::instance().resetOnFork();
+      TimerList::instance().resetOnFork();
       break;
 
     case DMTCP_EVENT_WRITE_CKPT:
-      dmtcp::TimerList::instance().preCheckpoint();
+      TimerList::instance().preCheckpoint();
       break;
 
     case DMTCP_EVENT_RESTART:
-      dmtcp::TimerList::instance().postRestart();
+      TimerList::instance().postRestart();
       break;
 
     default:

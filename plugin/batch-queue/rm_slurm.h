@@ -21,12 +21,18 @@
 #ifndef SLURM_PLUGIN_H
 #define SLURM_PLUGIN_H
 
+#include "dmtcpalloc.h"
+
+namespace dmtcp {
+
 void probeSlurm();
 void slurm_restore_env();
-bool isSlurmTmpDir(dmtcp::string &str);
+bool isSlurmTmpDir(string &str);
 int slurmShouldCkptFile(const char *path, int *type);
 int slurmRestoreFile(const char *path, const char *savedFilePath,
                      int fcntlFlags, int type);
 void slurmRestoreHelper(bool isRestart);
+
+}
 
 #endif

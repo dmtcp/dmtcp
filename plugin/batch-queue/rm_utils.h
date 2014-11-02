@@ -21,10 +21,14 @@
 #ifndef RM_UTILS_H
 #define RM_UTILS_H
 
-#include <string>
+#include "dmtcpalloc.h"
 #include "util.h"
 
-int findLib_byname(dmtcp::string pttrn, dmtcp::string &libpath);
-int findLib_byfunc(dmtcp::string fname, dmtcp::string &libpath);
+namespace dmtcp {
+
+int findLib_byname(string pttrn, string &libpath);
+int findLib_byfunc(string fname, string &libpath);
+
+}
 
 #endif

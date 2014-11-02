@@ -189,7 +189,7 @@ void IB2TCP::postRestart()
 
 void IB2TCP::registerNSData()
 {
-  dmtcp::map<uint32_t, IB_QP*>::iterator it;
+  map<uint32_t, IB_QP*>::iterator it;
   for (it = queuePairs.begin(); it != queuePairs.end(); it++) {
     IB_QP *ibqp = it->second;
     if (ibqp->localId < ibqp->remoteId) {
@@ -204,7 +204,7 @@ void IB2TCP::registerNSData()
 
 void IB2TCP::sendQueries()
 {
-  dmtcp::map<uint32_t, IB_QP*>::iterator it;
+  map<uint32_t, IB_QP*>::iterator it;
   for (it = queuePairs.begin(); it != queuePairs.end(); it++) {
     IB_QP *ibqp = it->second;
     if (ibqp->localId > ibqp->remoteId) {
@@ -224,7 +224,7 @@ void IB2TCP::sendQueries()
 void IB2TCP::createTCPConnections()
 {
   size_t numRemaining = 0;
-  dmtcp::map<uint32_t, IB_QP*>::iterator it;
+  map<uint32_t, IB_QP*>::iterator it;
   //First do a connect
   for (it = queuePairs.begin(); it != queuePairs.end(); it++) {
     IB_QP *ibqp = it->second;

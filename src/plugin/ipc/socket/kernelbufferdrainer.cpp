@@ -45,8 +45,8 @@ void scaleSendBuffers(int fd, double factor)
   JASSERT(_real_setsockopt(fd, SOL_SOCKET, SO_SNDBUF, (void *)&newSize, len) == 0);
 }
 
-static dmtcp::KernelBufferDrainer *theDrainer = NULL;
-dmtcp::KernelBufferDrainer& dmtcp::KernelBufferDrainer::instance()
+static KernelBufferDrainer *theDrainer = NULL;
+KernelBufferDrainer& KernelBufferDrainer::instance()
 {
   if (theDrainer == NULL) {
     theDrainer = new KernelBufferDrainer();
@@ -54,9 +54,9 @@ dmtcp::KernelBufferDrainer& dmtcp::KernelBufferDrainer::instance()
   return *theDrainer;
 }
 
-void dmtcp::KernelBufferDrainer::onConnect(const jalib::JSocket& sock, const
-                                             struct sockaddr*
-                                             remoteAddr,socklen_t remoteLen)
+void KernelBufferDrainer::onConnect(const jalib::JSocket& sock,
+                                    const struct sockaddr* remoteAddr,
+                                    socklen_t remoteLen)
 {
   JWARNING(false) (sock.sockfd())
     .Text("we don't yet support checkpointing non-accepted connections..."
@@ -64,9 +64,9 @@ void dmtcp::KernelBufferDrainer::onConnect(const jalib::JSocket& sock, const
   jalib::JSocket(sock).close();
 }
 
-void dmtcp::KernelBufferDrainer::onData(jalib::JReaderInterface* sock)
+void KernelBufferDrainer::onData(jalib::JReaderInterface* sock)
 {
-  dmtcp::vector<char>& buffer = _drainedData[sock->socket().sockfd() ];
+  vector<char>& buffer = _drainedData[sock->socket().sockfd() ];
   buffer.resize(buffer.size() + sock->bytesRead());
   int startIdx = buffer.size() - sock->bytesRead();
   memcpy(&buffer[startIdx],sock->buffer(),sock->bytesRead());
@@ -74,7 +74,7 @@ void dmtcp::KernelBufferDrainer::onData(jalib::JReaderInterface* sock)
   sock->reset();
 }
 
-void dmtcp::KernelBufferDrainer::onDisconnect(jalib::JReaderInterface* sock)
+void KernelBufferDrainer::onDisconnect(jalib::JReaderInterface* sock)
 {
   int fd;
   errno = 0;
@@ -90,13 +90,13 @@ void dmtcp::KernelBufferDrainer::onDisconnect(jalib::JReaderInterface* sock)
   _drainedData.erase(fd);
 }
 
-void dmtcp::KernelBufferDrainer::onTimeoutInterval()
+void KernelBufferDrainer::onTimeoutInterval()
 {
   int count = 0;
   for (size_t i = 0; i < _dataSockets.size();++i)
   {
     if (_dataSockets[i]->bytesRead() > 0) onData(_dataSockets[i]);
-    dmtcp::vector<char>& buffer = _drainedData[_dataSockets[i]->socket().sockfd() ];
+    vector<char>& buffer = _drainedData[_dataSockets[i]->socket().sockfd() ];
     if (buffer.size() >= sizeof(theMagicDrainCookie)
         && memcmp(&buffer[buffer.size() - sizeof(theMagicDrainCookie)],
                   theMagicDrainCookie,
@@ -146,7 +146,7 @@ void dmtcp::KernelBufferDrainer::onTimeoutInterval()
   }
 }
 
-void dmtcp::KernelBufferDrainer::beginDrainOf(int fd, const ConnectionIdentifier& id)
+void KernelBufferDrainer::beginDrainOf(int fd, const ConnectionIdentifier& id)
 {
 //     JTRACE("will drain socket") (fd);
   _drainedData[fd]; // create buffer
@@ -162,12 +162,12 @@ void dmtcp::KernelBufferDrainer::beginDrainOf(int fd, const ConnectionIdentifier
 }
 
 
-void dmtcp::KernelBufferDrainer::refillAllSockets()
+void KernelBufferDrainer::refillAllSockets()
 {
   JTRACE("refilling socket buffers") (_drainedData.size());
 
   //write all buffers out
-  dmtcp::map<int, dmtcp::vector<char> >::iterator i;
+  map<int, vector<char> >::iterator i;
   for (i = _drainedData.begin(); i != _drainedData.end(); ++i) {
     int size = i->second.size();
     JWARNING(size>=0) (size).Text("a failed drain is in our table???");

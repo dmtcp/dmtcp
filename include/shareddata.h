@@ -183,7 +183,7 @@ namespace dmtcp {
                              socklen_t len);
     void getMissingConMaps(struct MissingConMap **map, uint32_t *nmaps);
 
-    void insertInodeConnIdMaps(vector<SharedData::InodeConnIdMap>& maps);
+    void insertInodeConnIdMaps(vector<InodeConnIdMap>& maps);
     bool getCkptLeaderForFile(dev_t devnum, ino_t inode, void *id);
   }
 }

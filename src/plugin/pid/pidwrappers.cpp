@@ -36,6 +36,8 @@
 #include "pid.h"
 #include "util.h"
 
+using namespace dmtcp;
+
 static __thread pid_t _dmtcp_thread_tid = -1;
 
 static pid_t _dmtcp_pid = -1;
@@ -64,7 +66,7 @@ void dmtcpResetPidPpid()
     _exit(0);
   }
   _dmtcp_pid = strtol(pidstr, &ppidstr, 10);
-  dmtcp::VirtualPidTable::instance().updateMapping(_dmtcp_pid,
+  VirtualPidTable::instance().updateMapping(_dmtcp_pid,
                                                    _real_getpid());
 
   if (ppidstr[0] != ':' && !isdigit(ppidstr[1])) {
@@ -75,7 +77,7 @@ void dmtcpResetPidPpid()
   }
   _dmtcp_ppid = strtol(ppidstr + 1, NULL, 10);
 
-  dmtcp::VirtualPidTable::instance().updateMapping(_dmtcp_ppid,
+  VirtualPidTable::instance().updateMapping(_dmtcp_ppid,
                                                    _real_getppid());
 }
 
@@ -94,7 +96,7 @@ extern "C"
 void dmtcp_update_ppid()
 {
   if (_dmtcp_ppid != 1) {
-    dmtcp::VirtualPidTable::instance().updateMapping(_dmtcp_ppid,
+    VirtualPidTable::instance().updateMapping(_dmtcp_ppid,
                                                      _real_getppid());
   }
 }
@@ -403,7 +405,7 @@ extern "C" int waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options)
       siginfop.si_pid = virtualPid;
 
       if (siginfop.si_code == CLD_EXITED || siginfop.si_code == CLD_KILLED)
-        dmtcp::VirtualPidTable::instance().erase(virtualPid);
+        VirtualPidTable::instance().erase(virtualPid);
     }
     DMTCP_PLUGIN_ENABLE_CKPT();
 
@@ -486,7 +488,7 @@ pid_t wait4(pid_t pid, __WAIT_STATUS status, int options, struct rusage *rusage)
 
     if (retval > 0 &&
         (WIFEXITED(*(int*)status) || WIFSIGNALED(*(int*)status))) {
-      dmtcp::VirtualPidTable::instance().erase(virtualPid);
+      VirtualPidTable::instance().erase(virtualPid);
     }
     DMTCP_PLUGIN_ENABLE_CKPT();
 

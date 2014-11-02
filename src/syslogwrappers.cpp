@@ -25,6 +25,8 @@
 #include "dmtcpalloc.h"
 #include  "../jalib/jassert.h"
 
+using namespace dmtcp;
+
 static bool _isSuspended = false;
 static bool _syslogEnabled = false;
 static bool _identIsNotNULL = false;
@@ -56,9 +58,9 @@ void dmtcp_Syslog_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
   }
 }
 
-static dmtcp::string& _ident()
+static string& _ident()
 {
-  static dmtcp::string t;
+  static string t;
   return t;
 }
 

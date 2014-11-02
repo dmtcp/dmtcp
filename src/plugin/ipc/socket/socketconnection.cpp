@@ -67,20 +67,20 @@ static int _makeDeadSocket(const char *refillData = NULL, ssize_t len = -1)
   return sp[0];
 }
 
-dmtcp::SocketConnection::SocketConnection(int domain, int type, int protocol)
+SocketConnection::SocketConnection(int domain, int type, int protocol)
   : _sockDomain(domain)
   , _sockType(type)
   , _sockProtocol(protocol)
   , _peerType(PEER_UNKNOWN)
 { }
 
-void dmtcp::SocketConnection::addSetsockopt(int level, int option,
-                                            const char* value, int len)
+void SocketConnection::addSetsockopt(int level, int option,
+                                     const char* value, int len)
 {
   _sockOptions[level][option] = jalib::JBuffer(value, len);
 }
 
-void dmtcp::SocketConnection::restoreSocketOptions(dmtcp::vector<int>& fds)
+void SocketConnection::restoreSocketOptions(vector<int>& fds)
 {
   typedef map<int64_t, map< int64_t, jalib::JBuffer> >::iterator levelIterator;
   typedef map<int64_t, jalib::JBuffer>::iterator optionIterator;
@@ -101,9 +101,9 @@ void dmtcp::SocketConnection::restoreSocketOptions(dmtcp::vector<int>& fds)
   }
 }
 
-void dmtcp::SocketConnection::serialize(jalib::JBinarySerializer& o)
+void SocketConnection::serialize(jalib::JBinarySerializer& o)
 {
-  JSERIALIZE_ASSERT_POINT("dmtcp::SocketConnection");
+  JSERIALIZE_ASSERT_POINT("SocketConnection");
   o & _sockDomain  & _sockType & _sockProtocol & _peerType;
 
   JSERIALIZE_ASSERT_POINT("SocketOptions:");
@@ -174,7 +174,7 @@ void dmtcp::SocketConnection::serialize(jalib::JBinarySerializer& o)
  *****************************************************************************/
 
 /*onSocket*/
-  dmtcp::TcpConnection::TcpConnection(int domain, int type, int protocol)
+  TcpConnection::TcpConnection(int domain, int type, int protocol)
   : Connection(TCP_CREATED)
   , SocketConnection(domain, type, protocol)
   , _listenBacklog(-1)
@@ -197,7 +197,7 @@ void dmtcp::SocketConnection::serialize(jalib::JBinarySerializer& o)
   memset(&_bindAddr, 0, sizeof _bindAddr);
 }
 
-dmtcp::TcpConnection& dmtcp::TcpConnection::asTcp()
+TcpConnection& TcpConnection::asTcp()
 {
   return *this;
 }
@@ -230,7 +230,7 @@ bool TcpConnection::isBlacklistedTcp(const sockaddr* saddr, socklen_t len)
     }
   } else if (saddr->sa_family == AF_UNIX) {
     struct sockaddr_un *uaddr = (struct sockaddr_un *) saddr;
-    static dmtcp::string blacklist[] = {""};
+    static string blacklist[] = {""};
     for (size_t i = 0; blacklist[i] != ""; i++) {
       if (Util::strStartsWith(uaddr->sun_path, blacklist[i].c_str()) ||
           Util::strStartsWith(&uaddr->sun_path[1], blacklist[i].c_str())) {
@@ -245,7 +245,7 @@ bool TcpConnection::isBlacklistedTcp(const sockaddr* saddr, socklen_t len)
   return false;
 }
 
-void dmtcp::TcpConnection::onBind(const struct sockaddr* addr, socklen_t len)
+void TcpConnection::onBind(const struct sockaddr* addr, socklen_t len)
 {
   if (really_verbose) {
     JTRACE("Binding.") (id()) (len);
@@ -271,7 +271,7 @@ void dmtcp::TcpConnection::onBind(const struct sockaddr* addr, socklen_t len)
   _type = TCP_BIND;
 }
 
-void dmtcp::TcpConnection::onListen(int backlog)
+void TcpConnection::onListen(int backlog)
 {
   /* The application didn't issue a bind() call; the kernel will assign
    * a random address in this case. Call the regular onBind() post-
@@ -295,7 +295,7 @@ void dmtcp::TcpConnection::onListen(int backlog)
   _listenBacklog = backlog;
 }
 
-void dmtcp::TcpConnection::onConnect(const struct sockaddr *addr, socklen_t len)
+void TcpConnection::onConnect(const struct sockaddr *addr, socklen_t len)
 {
   if (really_verbose) {
     JTRACE("Connecting.") (id());
@@ -313,8 +313,8 @@ void dmtcp::TcpConnection::onConnect(const struct sockaddr *addr, socklen_t len)
 }
 
 /*onAccept*/
-dmtcp::TcpConnection::TcpConnection(const TcpConnection& parent,
-                                    const ConnectionIdentifier& remote)
+TcpConnection::TcpConnection(const TcpConnection& parent,
+                             const ConnectionIdentifier& remote)
   : Connection(TCP_ACCEPT)
   , SocketConnection(parent._sockDomain, parent._sockType, parent._sockProtocol)
   , _listenBacklog(-1)
@@ -330,7 +330,7 @@ dmtcp::TcpConnection::TcpConnection(const TcpConnection& parent,
   memset(&_bindAddr, 0, sizeof _bindAddr);
 }
 
-void dmtcp::TcpConnection::onError()
+void TcpConnection::onError()
 {
   JTRACE("Error.") (id());
   _type = TCP_ERROR;
@@ -340,7 +340,7 @@ void dmtcp::TcpConnection::onError()
   Util::dupFds(_makeDeadSocket(&buffer[0], buffer.size()), _fds);
 }
 
-void dmtcp::TcpConnection::drain()
+void TcpConnection::drain()
 {
   JASSERT(_fds.size() > 0) (id());
 
@@ -381,7 +381,7 @@ void dmtcp::TcpConnection::drain()
   }
 }
 
-void dmtcp::TcpConnection::doSendHandshakes(const ConnectionIdentifier& coordId)
+void TcpConnection::doSendHandshakes(const ConnectionIdentifier& coordId)
 {
   switch (_type) {
     case TCP_CONNECT:
@@ -395,7 +395,7 @@ void dmtcp::TcpConnection::doSendHandshakes(const ConnectionIdentifier& coordId)
   }
 }
 
-void dmtcp::TcpConnection::doRecvHandshakes(const ConnectionIdentifier& coordId)
+void TcpConnection::doRecvHandshakes(const ConnectionIdentifier& coordId)
 {
   switch (_type) {
     case TCP_CONNECT:
@@ -409,7 +409,7 @@ void dmtcp::TcpConnection::doRecvHandshakes(const ConnectionIdentifier& coordId)
   }
 }
 
-void dmtcp::TcpConnection::refill(bool isRestart)
+void TcpConnection::refill(bool isRestart)
 {
   if ((_fcntlFlags & O_ASYNC) != 0) {
     JTRACE("Re-adding O_ASYNC flag.") (_fds[0]) (id());
@@ -420,7 +420,7 @@ void dmtcp::TcpConnection::refill(bool isRestart)
   }
 }
 
-void dmtcp::TcpConnection::postRestart()
+void TcpConnection::postRestart()
 {
   int fd;
   JASSERT(_fds.size() > 0);
@@ -565,8 +565,8 @@ void dmtcp::TcpConnection::postRestart()
   }
 }
 
-void dmtcp::TcpConnection::sendHandshake(int remotefd,
-                                         const ConnectionIdentifier& coordId)
+void TcpConnection::sendHandshake(int remotefd,
+                                  const ConnectionIdentifier& coordId)
 {
   jalib::JSocket remote(remotefd);
   ConnMsg msg(ConnMsg::HANDSHAKE);
@@ -575,8 +575,8 @@ void dmtcp::TcpConnection::sendHandshake(int remotefd,
   remote << msg;
 }
 
-void dmtcp::TcpConnection::recvHandshake(int remotefd,
-                                         const ConnectionIdentifier& coordId)
+void TcpConnection::recvHandshake(int remotefd,
+                                  const ConnectionIdentifier& coordId)
 {
   jalib::JSocket remote(remotefd);
   ConnMsg msg;
@@ -602,9 +602,9 @@ void dmtcp::TcpConnection::recvHandshake(int remotefd,
   }
 }
 
-void dmtcp::TcpConnection::serializeSubClass(jalib::JBinarySerializer& o)
+void TcpConnection::serializeSubClass(jalib::JBinarySerializer& o)
 {
-  JSERIALIZE_ASSERT_POINT("dmtcp::TcpConnection");
+  JSERIALIZE_ASSERT_POINT("TcpConnection");
   o & _listenBacklog & _bindAddrlen & _bindAddr & _remotePeerId;
   SocketConnection::serialize(o);
 }
@@ -613,8 +613,7 @@ void dmtcp::TcpConnection::serializeSubClass(jalib::JBinarySerializer& o)
  * RawSocket Connection
  *****************************************************************************/
 /*onSocket*/
-dmtcp::RawSocketConnection::RawSocketConnection(int domain, int type,
-                                                int protocol)
+RawSocketConnection::RawSocketConnection(int domain, int type, int protocol)
   : Connection(RAW)
     , SocketConnection(domain, type, protocol)
 {
@@ -624,7 +623,7 @@ dmtcp::RawSocketConnection::RawSocketConnection(int domain, int type,
   JTRACE("Creating Raw socket.") (id()) (domain) (type) (protocol);
 }
 
-void dmtcp::RawSocketConnection::drain()
+void RawSocketConnection::drain()
 {
   JASSERT(_fds.size() > 0) (id());
 
@@ -638,7 +637,7 @@ void dmtcp::RawSocketConnection::drain()
   }
 }
 
-void dmtcp::RawSocketConnection::refill(bool isRestart)
+void RawSocketConnection::refill(bool isRestart)
 {
   if ((_fcntlFlags & O_ASYNC) != 0) {
     JTRACE("Re-adding O_ASYNC flag.") (_fds[0]) (id());
@@ -648,7 +647,7 @@ void dmtcp::RawSocketConnection::refill(bool isRestart)
   }
 }
 
-void dmtcp::RawSocketConnection::postRestart()
+void RawSocketConnection::postRestart()
 {
   JASSERT(_fds.size() > 0);
   if (really_verbose) {
@@ -660,8 +659,8 @@ void dmtcp::RawSocketConnection::postRestart()
   Util::dupFds(sockfd, _fds);
 }
 
-void dmtcp::RawSocketConnection::serializeSubClass(jalib::JBinarySerializer& o)
+void RawSocketConnection::serializeSubClass(jalib::JBinarySerializer& o)
 {
-  JSERIALIZE_ASSERT_POINT("dmtcp::RawSocketConnection");
+  JSERIALIZE_ASSERT_POINT("RawSocketConnection");
   SocketConnection::serialize(o);
 }

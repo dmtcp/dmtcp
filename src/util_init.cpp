@@ -37,12 +37,12 @@ using namespace dmtcp;
 static string *utilTmpDirPtr = NULL;
 static string &utilTmpDir(){
   if( utilTmpDirPtr == NULL ){
-    utilTmpDirPtr = new dmtcp::string;
+    utilTmpDirPtr = new string;
   }
   return *utilTmpDirPtr;
 }
 
-void dmtcp::Util::writeCoordPortToFile(const char *port, const char *portFile)
+void Util::writeCoordPortToFile(const char *port, const char *portFile)
 {
   if (port != NULL && portFile != NULL && strlen(portFile) > 0) {
     int fd = open(portFile, O_CREAT|O_WRONLY|O_TRUNC, 0600);
@@ -54,7 +54,7 @@ void dmtcp::Util::writeCoordPortToFile(const char *port, const char *portFile)
   }
 }
 
-dmtcp::string &dmtcp::Util::getTmpDir()
+string &Util::getTmpDir()
 {
   if( utilTmpDir().length() == 0 ){
     setTmpDir(getenv(ENV_VAR_TMPDIR));
@@ -78,16 +78,16 @@ dmtcp::string &dmtcp::Util::getTmpDir()
  * from dmtcp_launch and dmtcp_restart process and once the user process
  * has been exec()ed, we use getTmpDir() only.
  */
-void dmtcp::Util::setTmpDir(const char *tmpdirenv)
+void Util::setTmpDir(const char *tmpdirenv)
 {
-  dmtcp::string tmpDir;
+  string tmpDir;
   char hostname[256];
   memset(hostname, 0, sizeof(hostname));
 
   JASSERT ( gethostname(hostname, sizeof(hostname)) == 0 ||
 	    errno == ENAMETOOLONG ).Text ( "gethostname() failed" );
 
-  dmtcp::ostringstream o;
+  ostringstream o;
 
   char *userName = const_cast<char *>("");
   if ( getpwuid ( getuid() ) != NULL ) {
@@ -114,16 +114,16 @@ void dmtcp::Util::setTmpDir(const char *tmpdirenv)
     .Text("ERROR: Missing execute- or write-access to tmp dir");
 }
 
-void dmtcp::Util::initializeLogFile(dmtcp::string procname, dmtcp::string prevLogPath)
+void Util::initializeLogFile(string procname, string prevLogPath)
 {
 
-  dmtcp::UniquePid::ThisProcess(true);
+  UniquePid::ThisProcess(true);
 #ifdef DEBUG
   // Initialize JASSERT library here
-  dmtcp::ostringstream o;
+  ostringstream o;
   o << getTmpDir();
   o << "/jassertlog.";
-  o << dmtcp::UniquePid::ThisProcess();
+  o << UniquePid::ThisProcess();
   o << "_";
   if (procname.empty()) {
     o << jalib::Filesystem::GetProgramName();
@@ -133,19 +133,19 @@ void dmtcp::Util::initializeLogFile(dmtcp::string procname, dmtcp::string prevLo
 
   JASSERT_SET_LOG(o.str());
 
-  dmtcp::ostringstream a;
+  ostringstream a;
   a << "\n========================================";
   a << "\nProcess Information";
   a << "\n========================================";
-  a << "\nThis Process: " << dmtcp::UniquePid::ThisProcess()
-    << "\nParent Process: " << dmtcp::UniquePid::ParentProcess();
+  a << "\nThis Process: " << UniquePid::ThisProcess()
+    << "\nParent Process: " << UniquePid::ParentProcess();
 
   if (!prevLogPath.empty()) {
     a << "\nPrev JAssertLog path: " << prevLogPath;
   }
 
   a << "\nArgv: ";
-  dmtcp::vector<dmtcp::string> args = jalib::Filesystem::GetProgramArgs();
+  vector<string> args = jalib::Filesystem::GetProgramArgs();
   size_t i;
   for (i = 0; i < args.size(); i++) {
     a << " " << args[i];

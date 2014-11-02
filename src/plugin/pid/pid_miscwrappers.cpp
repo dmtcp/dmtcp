@@ -41,6 +41,8 @@
 #include "util.h"
 #include "pid.h"
 
+using namespace dmtcp;
+
 LIB_PRIVATE pid_t getPidFromEnvVar();
 
 static bool pthread_atfork_initialized = false;
@@ -49,7 +51,7 @@ static void pidVirt_pthread_atfork_child()
 {
   dmtcpResetPidPpid();
   dmtcpResetTid(getpid());
-  dmtcp::VirtualPidTable::instance().resetOnFork();
+  VirtualPidTable::instance().resetOnFork();
 }
 
 
@@ -76,17 +78,17 @@ extern "C" pid_t fork()
   pid_t retval = 0;
   pid_t virtualPid = getPidFromEnvVar();
 
-  dmtcp::VirtualPidTable::instance().writeVirtualTidToFileForPtrace(virtualPid);
+  VirtualPidTable::instance().writeVirtualTidToFileForPtrace(virtualPid);
 
   pid_t realPid = _real_fork();
 
   if (realPid > 0) { /* Parent Process */
     retval = virtualPid;
-    dmtcp::VirtualPidTable::instance().updateMapping(virtualPid, realPid);
-    dmtcp::SharedData::setPidMap(virtualPid, realPid);
+    VirtualPidTable::instance().updateMapping(virtualPid, realPid);
+    SharedData::setPidMap(virtualPid, realPid);
   } else {
     retval = realPid;
-    dmtcp::VirtualPidTable::instance().readVirtualTidFromFileForPtrace();
+    VirtualPidTable::instance().readVirtualTidFromFileForPtrace();
   }
 
   return retval;
@@ -112,7 +114,7 @@ int clone_start(void *arg)
     dmtcpResetTid(virtualTid);
   }
 
-  dmtcp::VirtualPidTable::instance().updateMapping(virtualTid, _real_gettid());
+  VirtualPidTable::instance().updateMapping(virtualTid, _real_gettid());
   sem_post(&threadArg->sem);
 
   JTRACE("Calling user function") (virtualTid);
@@ -136,11 +138,11 @@ extern "C" int __clone(int (*fn) (void *arg), void *child_stack, int flags,
     arg                  = mtcpRestartThreadArg -> arg;
     virtualTid           = mtcpRestartThreadArg -> virtualTid;
     if (virtualTid != VIRTUAL_TO_REAL_PID(virtualTid)) {
-      dmtcp::VirtualPidTable::instance().postRestart();
+      VirtualPidTable::instance().postRestart();
     }
   } else {
-    virtualTid = dmtcp::VirtualPidTable::instance().getNewVirtualTid();
-    dmtcp::VirtualPidTable::instance().writeVirtualTidToFileForPtrace(virtualTid);
+    virtualTid = VirtualPidTable::instance().getNewVirtualTid();
+    VirtualPidTable::instance().writeVirtualTidToFileForPtrace(virtualTid);
   }
 
   // We have to use DMTCP-specific memory allocator because using glibc:malloc
@@ -160,7 +162,7 @@ extern "C" int __clone(int (*fn) (void *arg), void *child_stack, int flags,
                     parent_tidptr, newtls, child_tidptr);
 
   if (dmtcp_is_running_state()) {
-    dmtcp::VirtualPidTable::instance().readVirtualTidFromFileForPtrace();
+    VirtualPidTable::instance().readVirtualTidFromFileForPtrace();
   }
 
   if (tid > 0) {

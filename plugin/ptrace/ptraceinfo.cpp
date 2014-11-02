@@ -39,14 +39,14 @@
 
 using namespace dmtcp;
 
-static dmtcp::PtraceInfo *_ptraceInfo = NULL;
-dmtcp::PtraceInfo& dmtcp::PtraceInfo::instance()
+static PtraceInfo *_ptraceInfo = NULL;
+PtraceInfo& PtraceInfo::instance()
 {
   if (_ptraceInfo == NULL) _ptraceInfo = new PtraceInfo();
   return *_ptraceInfo;
 }
 
-void dmtcp::PtraceInfo::createSharedFile()
+void PtraceInfo::createSharedFile()
 {
   struct stat statbuf;
   int fd = dmtcp_get_ptrace_fd();
@@ -70,7 +70,7 @@ void dmtcp::PtraceInfo::createSharedFile()
   }
 }
 
-void dmtcp::PtraceInfo::mapSharedFile()
+void PtraceInfo::mapSharedFile()
 {
   int fd = dmtcp_get_ptrace_fd();
 
@@ -82,7 +82,7 @@ void dmtcp::PtraceInfo::mapSharedFile()
   _sharedData->init();
 }
 
-bool dmtcp::PtraceInfo::isPtracing()
+bool PtraceInfo::isPtracing()
 {
   if (_sharedData == NULL) {
     mapSharedFile();
@@ -90,27 +90,27 @@ bool dmtcp::PtraceInfo::isPtracing()
   return _sharedData->isPtracing();
 }
 
-void dmtcp::PtraceInfo::markAsCkptThread()
+void PtraceInfo::markAsCkptThread()
 {
   if (_sharedData == NULL) {
     mapSharedFile();
   }
-  pid_t superior = dmtcp::Util::getTracerPid();
+  pid_t superior = Util::getTracerPid();
   if (superior != 0) {
     _sharedData->insertInferior(superior, GETTID(), true);
   }
 }
 
-dmtcp::vector<pid_t> dmtcp::PtraceInfo::getInferiorVector(pid_t tid)
+vector<pid_t> PtraceInfo::getInferiorVector(pid_t tid)
 {
   if (_supToInfsMap.find(tid) == _supToInfsMap.end()) {
-    dmtcp::vector<pid_t> vec;
+    vector<pid_t> vec;
     return vec;
   }
   return _supToInfsMap[tid];
 }
 
-void dmtcp::PtraceInfo::setLastCmd(pid_t tid, int lastCmd)
+void PtraceInfo::setLastCmd(pid_t tid, int lastCmd)
 {
   if (!isPtracing()) {
     return;
@@ -122,9 +122,9 @@ void dmtcp::PtraceInfo::setLastCmd(pid_t tid, int lastCmd)
   inf->setLastCmd(lastCmd);
 }
 
-void dmtcp::PtraceInfo::insertInferior(pid_t tid)
+void PtraceInfo::insertInferior(pid_t tid)
 {
-  dmtcp::Inferior *inf = _sharedData->getInferior(tid);
+  Inferior *inf = _sharedData->getInferior(tid);
   if (inf == NULL) {
     inf = _sharedData->insertInferior(GETTID(), tid);
   }
@@ -132,18 +132,18 @@ void dmtcp::PtraceInfo::insertInferior(pid_t tid)
   _infToSupMap[tid] = inf->superior();
 }
 
-void dmtcp::PtraceInfo::eraseInferior(pid_t tid)
+void PtraceInfo::eraseInferior(pid_t tid)
 {
   if (_sharedData == NULL) {
     mapSharedFile();
   }
-  dmtcp::Inferior *inf = _sharedData->getInferior(tid);
+  Inferior *inf = _sharedData->getInferior(tid);
   JASSERT(inf != NULL) (tid);
   pid_t superior = inf->superior();
   _sharedData->eraseInferior(inf);
 
-  dmtcp::vector<int>& vec = _supToInfsMap[superior];
-  dmtcp::vector<int>::iterator it;
+  vector<int>& vec = _supToInfsMap[superior];
+  vector<int>::iterator it;
   for (it = vec.begin(); it != vec.end(); it++) {
     if (*it == tid) {
       vec.erase(it);
@@ -154,16 +154,16 @@ void dmtcp::PtraceInfo::eraseInferior(pid_t tid)
   _infToSupMap.erase(tid);
 }
 
-bool dmtcp::PtraceInfo::isInferior(pid_t tid)
+bool PtraceInfo::isInferior(pid_t tid)
 {
-  dmtcp::Inferior *inf = _sharedData->getInferior(tid);
+  Inferior *inf = _sharedData->getInferior(tid);
   if (inf != NULL) {
     return inf->superior() == GETTID();
   }
   return false;
 }
 
-void dmtcp::PtraceInfo::setPtracing()
+void PtraceInfo::setPtracing()
 {
   static int markPtracing = 0;
   if (!markPtracing) {
@@ -175,7 +175,7 @@ void dmtcp::PtraceInfo::setPtracing()
   }
 }
 
-void dmtcp::PtraceInfo::processSuccessfulPtraceCmd(int request, pid_t pid,
+void PtraceInfo::processSuccessfulPtraceCmd(int request, pid_t pid,
                                                    void *addr, void *data)
 {
   Inferior *inf;
@@ -242,12 +242,12 @@ void dmtcp::PtraceInfo::processSuccessfulPtraceCmd(int request, pid_t pid,
   return;
 }
 
-void dmtcp::PtraceInfo::processSetOptions(pid_t tid, void *data)
+void PtraceInfo::processSetOptions(pid_t tid, void *data)
 {
   // TODO:
 }
 
-pid_t dmtcp::PtraceInfo::getWait4Status(pid_t tid, int *status,
+pid_t PtraceInfo::getWait4Status(pid_t tid, int *status,
                                         struct rusage *rusage)
 {
   if (!isPtracing()) {
@@ -261,7 +261,7 @@ pid_t dmtcp::PtraceInfo::getWait4Status(pid_t tid, int *status,
   return -1;
 }
 
-void dmtcp::PtraceInfo::waitForSuperiorAttach()
+void PtraceInfo::waitForSuperiorAttach()
 {
   if (_sharedData == NULL) {
     mapSharedFile();
@@ -275,7 +275,7 @@ void dmtcp::PtraceInfo::waitForSuperiorAttach()
 }
 
 
-void dmtcp::PtraceInfo::processPreResumeAttach(pid_t inferior)
+void PtraceInfo::processPreResumeAttach(pid_t inferior)
 {
   Inferior *inf = _sharedData->getInferior(inferior);
   JASSERT(inf != NULL) (inferior);

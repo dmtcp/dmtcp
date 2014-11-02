@@ -36,7 +36,7 @@ using namespace dmtcp;
 static int32_t getDlsymOffset();
 static int32_t getDlsymOffset_m32();
 
-void dmtcp::Util::setVirtualPidEnvVar(pid_t pid, pid_t ppid)
+void Util::setVirtualPidEnvVar(pid_t pid, pid_t ppid)
 {
   // We want to use setenv() only once. For all later changes, we manipulate
   // the buffer in place. This was done to avoid a bug when using Perl. Perl
@@ -71,7 +71,7 @@ static int isdir0700(const char *pathname)
       );
 }
 
-int dmtcp::Util::safeMkdir(const char *pathname, mode_t mode)
+int Util::safeMkdir(const char *pathname, mode_t mode)
 {
   // If it exists and we can give it the right permissions, do it.
   chmod(pathname, 0700);
@@ -84,10 +84,10 @@ int dmtcp::Util::safeMkdir(const char *pathname, mode_t mode)
   return isdir0700(pathname);
 }
 
-int dmtcp::Util::safeSystem(const char *command)
+int Util::safeSystem(const char *command)
 {
   char *str = getenv("LD_PRELOAD");
-  dmtcp::string dmtcphjk;
+  string dmtcphjk;
   if (str != NULL)
     dmtcphjk = str;
   unsetenv("LD_PRELOAD");
@@ -97,7 +97,7 @@ int dmtcp::Util::safeSystem(const char *command)
   return rc;
 }
 
-int dmtcp::Util::expandPathname(const char *inpath, char * const outpath,
+int Util::expandPathname(const char *inpath, char * const outpath,
                                 size_t size)
 {
   bool success = false;
@@ -152,7 +152,7 @@ int dmtcp::Util::expandPathname(const char *inpath, char * const outpath,
   return (success ? 0 : -1);
 }
 
-int dmtcp::Util::elfType(const char *pathname, bool *isElf, bool *is32bitElf)
+int Util::elfType(const char *pathname, bool *isElf, bool *is32bitElf)
 {
   const char *magic_elf = "\177ELF"; // Magic number for ELF
   const char *magic_elf32 = "\177ELF\001"; // Magic number for ELF 32-bit
@@ -175,7 +175,7 @@ int dmtcp::Util::elfType(const char *pathname, bool *isElf, bool *is32bitElf)
   return 0;
 }
 
-static dmtcp::string ld_linux_so_path(int version, bool is32bitElf = false)
+static string ld_linux_so_path(int version, bool is32bitElf = false)
 {
   char buf[80];
 #if defined(__x86_64__) && !defined(CONFIG_M32)
@@ -188,11 +188,11 @@ static dmtcp::string ld_linux_so_path(int version, bool is32bitElf = false)
   sprintf(buf, ELF_INTERPRETER);
 #endif
 
-  dmtcp::string cmd = buf;
+  string cmd = buf;
   return cmd;
 }
 
-bool dmtcp::Util::isStaticallyLinked(const char *filename)
+bool Util::isStaticallyLinked(const char *filename)
 {
   bool isElf, is32bitElf;
   char pathname[PATH_MAX];
@@ -200,7 +200,7 @@ bool dmtcp::Util::isStaticallyLinked(const char *filename)
   elfType(pathname, &isElf, &is32bitElf);
 
   int version = 2;
-  dmtcp::string cmd;
+  string cmd;
   do {
     cmd = ld_linux_so_path(version, is32bitElf);
     version++;
@@ -216,7 +216,7 @@ bool dmtcp::Util::isStaticallyLinked(const char *filename)
   return false;
 }
 
-bool dmtcp::Util::isScreen(const char *filename)
+bool Util::isScreen(const char *filename)
 {
   return jalib::Filesystem::BaseName(filename) == "screen" &&
          isSetuid(filename);
@@ -226,7 +226,7 @@ bool dmtcp::Util::isScreen(const char *filename)
 // In Ubuntu 9.10, an unprivileged 'screen' (no setuid) will ckpt and restart
 // fine if SCREENDIR is set to the file $USER/tmp4 when $USER/tmp4 doesn't exist
 // Arguably this is a bug in screen-4.0.  Should we take advantage of it?
-void dmtcp::Util::setScreenDir() {
+void Util::setScreenDir() {
   if (getenv("SCREENDIR") == NULL) {
     // This will flash by, but the user will see it again on exiting screen.
     JASSERT_STDERR <<"*** WARNING: Environment variable SCREENDIR is not set!\n"
@@ -237,7 +237,7 @@ void dmtcp::Util::setScreenDir() {
                    << "***      As of DMTCP-1.2.3, emacs23 not yet supported\n"
                    << "***  inside screen.  Please use emacs22 for now.  This\n"
                    << "***  will be fixed in a future version of DMTCP.\n\n";
-    setenv("SCREENDIR", dmtcp::Util::getScreenDir().c_str(), 1);
+    setenv("SCREENDIR", Util::getScreenDir().c_str(), 1);
   } else {
     if (access(getenv("SCREENDIR"), R_OK|W_OK|X_OK) != 0)
       JASSERT_STDERR << "*** WARNING: Environment variable SCREENDIR is set\n"
@@ -249,14 +249,14 @@ void dmtcp::Util::setScreenDir() {
 
 }
 
-dmtcp::string dmtcp::Util::getScreenDir()
+string Util::getScreenDir()
 {
-  dmtcp::string tmpdir = string(dmtcp_get_tmpdir()) + "/" + "uscreens";
+  string tmpdir = string(dmtcp_get_tmpdir()) + "/" + "uscreens";
   safeMkdir(tmpdir.c_str(), 0700);
   return tmpdir;
 }
 
-bool dmtcp::Util::isSetuid(const char *filename)
+bool Util::isSetuid(const char *filename)
 {
   char pathname[PATH_MAX];
   if (expandPathname(filename, pathname, sizeof(pathname)) ==  0) {
@@ -269,7 +269,7 @@ bool dmtcp::Util::isSetuid(const char *filename)
   return false;
 }
 
-void dmtcp::Util::patchArgvIfSetuid(const char* filename, char *const origArgv[],
+void Util::patchArgvIfSetuid(const char* filename, char *const origArgv[],
                              char ***newArgv)
 {
   if (isSetuid(filename) == false) return;
@@ -364,7 +364,7 @@ void dmtcp::Util::patchArgvIfSetuid(const char* filename, char *const origArgv[]
   return;
 }
 
-void dmtcp::Util::freePatchedArgv(char **newArgv)
+void Util::freePatchedArgv(char **newArgv)
 {
   JALLOC_HELPER_FREE(*newArgv);
 }
@@ -373,7 +373,7 @@ void dmtcp::Util::freePatchedArgv(char **newArgv)
 // recalculated/reset right before returning from prepareForExec to support
 // process migration (the offset might have changed after the process had
 // migrated to a new machine with different ld.so.
-void dmtcp::Util::prepareDlsymWrapper()
+void Util::prepareDlsymWrapper()
 {
   /* For the sake of dlsym wrapper. We compute the address of _real_dlsym by
    * adding dlsym_offset to the address of dlopen after the exec into the user
@@ -452,10 +452,10 @@ static int32_t getDlsymOffset_m32()
   return diff;
 }
 
-void dmtcp::Util::runMtcpRestore(int is32bitElf, const char* path, int fd,
+void Util::runMtcpRestore(int is32bitElf, const char* path, int fd,
                                  size_t argvSize, size_t envSize)
 {
-  static dmtcp::string mtcprestart =
+  static string mtcprestart =
     jalib::Filesystem::FindHelperUtility ("mtcp_restart");
 
   if (is32bitElf) {
@@ -529,7 +529,7 @@ void dmtcp::Util::runMtcpRestore(int is32bitElf, const char* path, int fd,
           .Text ("exec() failed");
 }
 
-void dmtcp::Util::adjustRlimitStack()
+void Util::adjustRlimitStack()
 {
 #ifdef __i386__
   // This is needed in 32-bit Ubuntu 9.10, to fix bug with test/dmtcp5.c
@@ -564,9 +564,9 @@ void dmtcp::Util::adjustRlimitStack()
 #endif
 }
 
-dmtcp::string dmtcp::Util::getPath(dmtcp::string cmd)
+string Util::getPath(string cmd)
 {
-  dmtcp::string out;
+  string out;
   const char *prefixPath = getenv (ENV_VAR_PREFIX_PATH);
   if (prefixPath != NULL) {
     out.append(prefixPath).append("/bin/").append(cmd);
@@ -576,7 +576,7 @@ dmtcp::string dmtcp::Util::getPath(dmtcp::string cmd)
   return out;
 }
 
-void dmtcp::Util::getDmtcpArgs(dmtcp::vector<dmtcp::string> &dmtcp_args)
+void Util::getDmtcpArgs(vector<string> &dmtcp_args)
 {
   const char * prefixPath           = getenv (ENV_VAR_PREFIX_PATH);
   const char * coordinatorAddr      = getenv (ENV_VAR_NAME_HOST);

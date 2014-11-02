@@ -28,21 +28,23 @@
 #include "dmtcp.h"
 #include "util.h"
 
+using namespace dmtcp;
+
 static int originalStartup = 1;
 
 EXTERNC int dmtcp_ptrace_enabled() { return 1; }
 
 void ptraceInit()
 {
-  dmtcp::PtraceInfo::instance().createSharedFile();
-  dmtcp::PtraceInfo::instance().mapSharedFile();
+  PtraceInfo::instance().createSharedFile();
+  PtraceInfo::instance().mapSharedFile();
 }
 
 void ptraceWaitForSuspendMsg(DmtcpEventData_t *data)
 {
-  dmtcp::PtraceInfo::instance().markAsCkptThread();
+  PtraceInfo::instance().markAsCkptThread();
   if (!originalStartup) {
-    dmtcp::PtraceInfo::instance().waitForSuperiorAttach();
+    PtraceInfo::instance().waitForSuperiorAttach();
   } else {
     originalStartup = 0;
   }

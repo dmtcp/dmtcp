@@ -57,7 +57,7 @@ namespace dmtcp
       void restoreHeap();
       void growStack();
 
-      void insertChild (pid_t virtualPid, dmtcp::UniquePid uniquePid);
+      void insertChild (pid_t virtualPid, UniquePid uniquePid);
       void eraseChild (pid_t virtualPid);
 
       bool beginPthreadJoin(pthread_t thread);
@@ -85,9 +85,9 @@ namespace dmtcp
       size_t envSize() { return _envSize; }
       void envSize(int size) { _envSize = size; }
 
-      const dmtcp::string& procname() const { return _procname; }
-      const dmtcp::string& procSelfExe() const { return _procSelfExe; }
-      const dmtcp::string& hostname() const { return _hostname; }
+      const string& procname() const { return _procname; }
+      const string& procSelfExe() const { return _procSelfExe; }
+      const string& hostname() const { return _hostname; }
       const UniquePid& upid() const { return _upid; }
       const UniquePid& uppid() const { return _uppid; }
 
@@ -110,10 +110,10 @@ namespace dmtcp
       void updateCkptDirFileSubdir(string newCkptDir = "");
 
     private:
-      dmtcp::map<pid_t, UniquePid> _childTable;
-      dmtcp::map<pthread_t, pthread_t> _pthreadJoinId;
-      dmtcp::map<pid_t, pid_t> _sessionIds;
-      typedef dmtcp::map<pid_t, UniquePid>::iterator iterator;
+      map<pid_t, UniquePid> _childTable;
+      map<pthread_t, pthread_t> _pthreadJoinId;
+      map<pid_t, pid_t> _sessionIds;
+      typedef map<pid_t, UniquePid>::iterator iterator;
 
       uint32_t  _isRootOfProcessTree;
       pid_t _pid;
@@ -128,15 +128,15 @@ namespace dmtcp
       uint32_t  _envSize;
       uint32_t  _elfType;
 
-      dmtcp::string _procname;
-      dmtcp::string _procSelfExe;
-      dmtcp::string _hostname;
-      dmtcp::string _launchCWD;
-      dmtcp::string _ckptCWD;
+      string _procname;
+      string _procSelfExe;
+      string _hostname;
+      string _launchCWD;
+      string _ckptCWD;
 
-      dmtcp::string _ckptDir;
-      dmtcp::string _ckptFileName;
-      dmtcp::string _ckptFilesSubDir;
+      string _ckptDir;
+      string _ckptFileName;
+      string _ckptFilesSubDir;
 
       UniquePid     _upid;
       UniquePid     _uppid;

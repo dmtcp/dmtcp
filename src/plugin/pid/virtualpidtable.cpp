@@ -33,9 +33,11 @@
 #include "dmtcp.h"
 #include "shareddata.h"
 
+using namespace dmtcp;
+
 static int _numTids = 1;
 
-dmtcp::VirtualPidTable::VirtualPidTable()
+VirtualPidTable::VirtualPidTable()
   : VirtualIdTable<pid_t> ("Pid", getpid())
 {
   //_do_lock_tbl();
@@ -44,8 +46,8 @@ dmtcp::VirtualPidTable::VirtualPidTable()
   //_do_unlock_tbl();
 }
 
-static dmtcp::VirtualPidTable *virtPidTableInst = NULL;
-dmtcp::VirtualPidTable& dmtcp::VirtualPidTable::instance()
+static VirtualPidTable *virtPidTableInst = NULL;
+VirtualPidTable& VirtualPidTable::instance()
 {
   if (virtPidTableInst == NULL) {
     virtPidTableInst = new VirtualPidTable();
@@ -53,7 +55,7 @@ dmtcp::VirtualPidTable& dmtcp::VirtualPidTable::instance()
   return *virtPidTableInst;
 }
 
-void dmtcp::VirtualPidTable::postRestart()
+void VirtualPidTable::postRestart()
 {
   VirtualIdTable<pid_t>::postRestart();
   _do_lock_tbl();
@@ -61,7 +63,7 @@ void dmtcp::VirtualPidTable::postRestart()
   _do_unlock_tbl();
 }
 
-void dmtcp::VirtualPidTable::refresh()
+void VirtualPidTable::refresh()
 {
   id_iterator i;
   id_iterator next;
@@ -81,7 +83,7 @@ void dmtcp::VirtualPidTable::refresh()
   printMaps();
 }
 
-pid_t dmtcp::VirtualPidTable::getNewVirtualTid()
+pid_t VirtualPidTable::getNewVirtualTid()
 {
   pid_t tid;
   if (VirtualIdTable<pid_t>::getNewVirtualId(&tid) == false) {
@@ -94,7 +96,7 @@ pid_t dmtcp::VirtualPidTable::getNewVirtualTid()
   return tid;
 }
 
-void dmtcp::VirtualPidTable::resetOnFork()
+void VirtualPidTable::resetOnFork()
 {
   VirtualIdTable<pid_t>::resetOnFork(getpid());
   _numTids = 1;
@@ -103,7 +105,7 @@ void dmtcp::VirtualPidTable::resetOnFork()
   printMaps();
 }
 
-void dmtcp::VirtualPidTable::updateMapping(pid_t virtualId, pid_t realId)
+void VirtualPidTable::updateMapping(pid_t virtualId, pid_t realId)
 {
   if (virtualId > 0 && realId > 0) {
     _do_lock_tbl();
@@ -115,7 +117,7 @@ void dmtcp::VirtualPidTable::updateMapping(pid_t virtualId, pid_t realId)
 //to allow linking without ptrace plugin
 extern "C" int dmtcp_is_ptracing() __attribute__ ((weak));
 
-pid_t dmtcp::VirtualPidTable::realToVirtual(pid_t realPid)
+pid_t VirtualPidTable::realToVirtual(pid_t realPid)
 {
   if (realIdExists(realPid)) {
     return VirtualIdTable<pid_t>::realToVirtual(realPid);
@@ -137,7 +139,7 @@ pid_t dmtcp::VirtualPidTable::realToVirtual(pid_t realPid)
   return realPid;
 }
 
-pid_t dmtcp::VirtualPidTable::virtualToReal(pid_t virtualId)
+pid_t VirtualPidTable::virtualToReal(pid_t virtualId)
 {
   if (virtualId == -1) {
     return virtualId;
@@ -145,7 +147,7 @@ pid_t dmtcp::VirtualPidTable::virtualToReal(pid_t virtualId)
   pid_t id = (virtualId < -1 ? abs(virtualId) : virtualId);
   pid_t retVal = VirtualIdTable<pid_t>::virtualToReal(id);
   if (retVal == id) {
-    retVal = dmtcp::SharedData::getRealPid(id);
+    retVal = SharedData::getRealPid(id);
     if (retVal == -1) {
       retVal = id;
     }
@@ -154,18 +156,18 @@ pid_t dmtcp::VirtualPidTable::virtualToReal(pid_t virtualId)
   return retVal;
 }
 
-void dmtcp::VirtualPidTable::writeVirtualTidToFileForPtrace(pid_t pid)
+void VirtualPidTable::writeVirtualTidToFileForPtrace(pid_t pid)
 {
   if (!dmtcp_is_ptracing || !dmtcp_is_ptracing()) {
     return;
   }
-  pid_t tracerPid = dmtcp::Util::getTracerPid();
+  pid_t tracerPid = Util::getTracerPid();
   if (tracerPid != 0) {
-    dmtcp::SharedData::setPtraceVirtualId(tracerPid, pid);
+    SharedData::setPtraceVirtualId(tracerPid, pid);
   }
 }
 
-pid_t dmtcp::VirtualPidTable::readVirtualTidFromFileForPtrace(pid_t tid)
+pid_t VirtualPidTable::readVirtualTidFromFileForPtrace(pid_t tid)
 {
   pid_t pid;
 
@@ -173,13 +175,13 @@ pid_t dmtcp::VirtualPidTable::readVirtualTidFromFileForPtrace(pid_t tid)
     return -1;
   }
   if (tid == -1) {
-    tid = dmtcp::Util::getTracerPid();
+    tid = Util::getTracerPid();
     if (tid == 0) {
       return -1;
     }
   }
 
-  pid = dmtcp::SharedData::getPtraceVirtualId(tid);
+  pid = SharedData::getPtraceVirtualId(tid);
 
   JTRACE("Read virtual Pid/Tid from shared-area") (pid);
   return pid;

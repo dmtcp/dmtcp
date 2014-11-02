@@ -56,10 +56,12 @@
 
 #define PROC_PREFIX "/proc/"
 
+using namespace dmtcp;
+
 // FIXME:  This function needs third argument newpathsize, or assume PATH_MAX
 static void updateProcPathVirtualToReal(const char *path, char **newpath)
 {
-  if (dmtcp::Util::strStartsWith(path, PROC_PREFIX)) {
+  if (Util::strStartsWith(path, PROC_PREFIX)) {
     int index = strlen(PROC_PREFIX);
     char *rest;
     pid_t virtualPid = strtol(&path[index], &rest, 0);
@@ -75,7 +77,7 @@ static void updateProcPathVirtualToReal(const char *path, char **newpath)
 // FIXME:  This function needs third argument newpathsize, or assume PATH_MAX
 static void updateProcPathRealToVirtual(const char *path, char **newpath)
 {
-  if (dmtcp::Util::strStartsWith(path, PROC_PREFIX)) {
+  if (Util::strStartsWith(path, PROC_PREFIX)) {
     int index = strlen(PROC_PREFIX);
     char *rest;
     pid_t realPid = strtol(&path[index], &rest, 0);

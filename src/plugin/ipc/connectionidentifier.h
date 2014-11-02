@@ -109,19 +109,8 @@ namespace dmtcp
     int32_t extraBytes;
     char    padding[4];
   };
-}
 
-namespace std
-{
-  inline dmtcp::ostream& operator<<(dmtcp::ostream& o,
-                                    const dmtcp::ConnectionIdentifier& id)
-  {
-    o << std::hex << id.hostid()
-      << '-' << std::dec << id.pid()
-      << '-' << std::hex << id.time()
-      << std::dec << '(' << id.conId() << ')';
-    return o;
-  }
+  ostream& operator<<(ostream& o, const ConnectionIdentifier& id);
 }
 
 #endif

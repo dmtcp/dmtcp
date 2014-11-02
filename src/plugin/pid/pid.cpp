@@ -33,7 +33,7 @@ using namespace dmtcp;
 
 extern "C" pid_t dmtcp_update_ppid();
 
-static dmtcp::string pidMapFile;
+static string pidMapFile;
 
 extern "C"
 pid_t dmtcp_real_to_virtual_pid(pid_t realPid)
@@ -67,31 +67,31 @@ int dmtcp_real_tgkill(pid_t tgid, pid_t tid, int sig)
 
 static void pidVirt_AtForkParent(DmtcpEventData_t *data)
 {
-  dmtcp::Util::setVirtualPidEnvVar(getpid(), getppid());
+  Util::setVirtualPidEnvVar(getpid(), getppid());
 }
 
 static void pidVirt_ResetOnFork(DmtcpEventData_t *data)
 {
-  dmtcp::VirtualPidTable::instance().resetOnFork();
+  VirtualPidTable::instance().resetOnFork();
 }
 
 static void pidVirt_PrepareForExec(DmtcpEventData_t *data)
 {
-  dmtcp::Util::setVirtualPidEnvVar(getpid(), getppid());
+  Util::setVirtualPidEnvVar(getpid(), getppid());
   JASSERT(data != NULL);
   jalib::JBinarySerializeWriterRaw wr ("", data->serializerInfo.fd);
-  dmtcp::VirtualPidTable::instance().serialize(wr);
+  VirtualPidTable::instance().serialize(wr);
 }
 
 static void pidVirt_PostExec(DmtcpEventData_t *data)
 {
   JASSERT(data != NULL);
   jalib::JBinarySerializeReaderRaw rd ("", data->serializerInfo.fd);
-  dmtcp::VirtualPidTable::instance().serialize(rd);
-  dmtcp::VirtualPidTable::instance().refresh();
+  VirtualPidTable::instance().serialize(rd);
+  VirtualPidTable::instance().refresh();
 }
 
-static int openSharedFile(dmtcp::string name, int flags)
+static int openSharedFile(string name, int flags)
 {
   int fd;
   // try to create, truncate & open file
@@ -120,14 +120,14 @@ static int openSharedFile(dmtcp::string name, int flags)
 static void openOriginalToCurrentMappingFiles()
 {
   int fd;
-  dmtcp::ostringstream o;
+  ostringstream o;
   o << dmtcp_get_tmpdir() << "/dmtcpPidMap."
     << dmtcp_get_computation_id_str() << "."
     << std::hex << dmtcp_get_coordinator_timestamp();
   pidMapFile = o.str();
   // Open and create pidMapFile if it doesn't exist.
   JTRACE("Open dmtcpPidMapFile")(pidMapFile);
-  if (!dmtcp::Util::isValidFd(PROTECTED_PIDMAP_FD)) {
+  if (!Util::isValidFd(PROTECTED_PIDMAP_FD)) {
     fd = openSharedFile(pidMapFile, O_RDWR);
     JASSERT (fd != -1);
     JASSERT (dup2 (fd, PROTECTED_PIDMAP_FD) == PROTECTED_PIDMAP_FD)
@@ -152,12 +152,12 @@ static void pidVirt_PostRestart(DmtcpEventData_t *data)
 
   dmtcp_update_ppid();
   openOriginalToCurrentMappingFiles();
-  dmtcp::VirtualPidTable::instance().writeMapsToFile(PROTECTED_PIDMAP_FD);
+  VirtualPidTable::instance().writeMapsToFile(PROTECTED_PIDMAP_FD);
 }
 
 static void pidVirt_PostRestartRefill(DmtcpEventData_t *data)
 {
-  dmtcp::VirtualPidTable::instance().readMapsFromFile(PROTECTED_PIDMAP_FD);
+  VirtualPidTable::instance().readMapsFromFile(PROTECTED_PIDMAP_FD);
   dmtcp_close_protected_fd(PROTECTED_PIDMAP_FD);
   unlink(pidMapFile.c_str());
 }
@@ -170,7 +170,7 @@ static void pidVirt_ThreadExit(DmtcpEventData_t *data)
    *  thread actually exits?
    */
   pid_t tid = gettid();
-  dmtcp::VirtualPidTable::instance().erase(tid);
+  VirtualPidTable::instance().erase(tid);
 }
 
 extern "C" void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)

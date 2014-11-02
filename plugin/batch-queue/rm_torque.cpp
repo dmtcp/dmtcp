@@ -60,6 +60,8 @@
 #define TM_ENOTFOUND  17006
 #define TM_BADINIT  17007
 
+using namespace dmtcp;
+
 typedef int tm_node_id;
 typedef int tm_task_id;
 typedef int  tm_event_t;
@@ -70,15 +72,15 @@ typedef int (*tm_spawn_t)(int argc, char **argv, char **envp, tm_node_id where, 
 tm_spawn_t tm_spawn_ptr;
 
 static void setup_job();
-static dmtcp::string torque_home_nodefile(char *ptr);
+static string torque_home_nodefile(char *ptr);
 static void setup_torque_env();
 
-static dmtcp::string &torque_home(){
-  static dmtcp::string inst = ""; return inst;
+static string &torque_home(){
+  static string inst = ""; return inst;
 }
 
-static dmtcp::string &torque_jobname(){
-  static dmtcp::string inst = ""; return inst;
+static string &torque_jobname(){
+  static string inst = ""; return inst;
 }
 unsigned long torque_jobid = 0;
 
@@ -100,7 +102,7 @@ void probeTorque()
   }
 }
 
-static int queryPbsConfig(dmtcp::string option, dmtcp::string &pbs_config)
+static int queryPbsConfig(string option, string &pbs_config)
 {
   int fds[2];
   const char *pbs_config_path = "pbs-config";
@@ -152,18 +154,18 @@ static int queryPbsConfig(dmtcp::string option, dmtcp::string &pbs_config)
   int count = 0;
   while( (count = read(fds[0], buf, 255)) > 0 ){
     buf[count] = '\0';
-    pbs_config += dmtcp::string() + buf;
+    pbs_config += string() + buf;
   }
 
   JTRACE ( "pbs-config output:")(pbs_config);
   return 0;
 }
 
-int findLibTorque_pbsconfig(dmtcp::string &libpath)
+int findLibTorque_pbsconfig(string &libpath)
 {
   // config looks like: "-L<libpath> -l<libname> -Wl,--rpath -Wl,<libpath>"
   // we will search for first libpath and first libname
-  dmtcp::string libname, config;
+  string libname, config;
 
   if( queryPbsConfig("--libs",config) ){
     // failed to read pbs-config
@@ -171,34 +173,34 @@ int findLibTorque_pbsconfig(dmtcp::string &libpath)
   }
 
   bool name_found = false, path_found = false;
-  dmtcp::vector<dmtcp::string> params;
-  dmtcp::string delim = " \n\t";
+  vector<string> params;
+  string delim = " \n\t";
   params.clear();
   libpath = " ";
   libname = " ";
 
   size_t first = config.find_first_not_of(delim);
-  while( first != dmtcp::string::npos ){
+  while( first != string::npos ){
     size_t last = config.find_first_of(delim,first);
-    if( last != dmtcp::string::npos ){
-      dmtcp::string s(config,first,last-first);
+    if( last != string::npos ){
+      string s(config,first,last-first);
       params.push_back(s);
       first = config.find_first_not_of(delim,last);
     }else{
-      first = dmtcp::string::npos;
+      first = string::npos;
     }
   }
 
   // get -L & -l arguments
   for (size_t i = 0; i < params.size(); i++) {
-    dmtcp::string &s = params[i];
+    string &s = params[i];
     if (s[0] == '-') {
       if (s[1] == 'L') {
-        dmtcp::string tmp(s,2,s.size() - 2);
+        string tmp(s,2,s.size() - 2);
         libpath = tmp;
         path_found = true;
       } else if (s[1] == 'l') {
-        dmtcp::string tmp(s,2,s.size() - 2);
+        string tmp(s,2,s.size() - 2);
         libname = tmp;
         name_found = true;
       }
@@ -215,10 +217,10 @@ int findLibTorque_pbsconfig(dmtcp::string &libpath)
   }
 }
 
-int findLibTorque(dmtcp::string &libpath)
+int findLibTorque(string &libpath)
 {
   bool found = false;
-  dmtcp::string pattern = "libtorque";
+  string pattern = "libtorque";
   if( !findLib_byname(pattern, libpath) ){
     found = true;
   }else if( !findLibTorque_pbsconfig(libpath) ){
@@ -235,7 +237,7 @@ static void setup_job()
 {
   char *ptr;
   if ((ptr = getenv("PBS_JOBID"))){
-    dmtcp::string str = ptr, digits = "0123456789";
+    string str = ptr, digits = "0123456789";
     size_t pos = str.find_first_not_of(digits);
     char *eptr;
     str = str.substr(0,pos);
@@ -249,27 +251,27 @@ static void setup_job()
 }
 
 
-static dmtcp::string torque_home_nodefile(char *ptr)
+static string torque_home_nodefile(char *ptr)
 {
   // Usual nodefile path is: $PBS_HOME/aux/nodefile-name
-  dmtcp::string nodefile = ptr;
+  string nodefile = ptr;
   // clear nodefile path from duplicated slashes
   _rm_clear_path(nodefile);
 
   // start of file name entry
   size_t file_start = nodefile.find_last_of("/\\");
-  if( file_start == dmtcp::string::npos || file_start == 0 ){
+  if( file_start == string::npos || file_start == 0 ){
     JTRACE("No slashes in the nodefile path");
     return "";
   }
   // start of aux entry
   size_t aux_start = nodefile.find_last_of("/\\", file_start-1);
-  if( aux_start == dmtcp::string::npos || aux_start == 0 ){
+  if( aux_start == string::npos || aux_start == 0 ){
     JTRACE("Only one slash exist in nodefile path");
     return "";
   }
 
-  dmtcp::string aux_name = nodefile.substr(aux_start+1, file_start - (aux_start+1));
+  string aux_name = nodefile.substr(aux_start+1, file_start - (aux_start+1));
 
   JTRACE("Looks like we can grap PBS_HOME from PBS_NODEFILE")(nodefile)(file_start)(aux_start)(aux_name);
 
@@ -302,7 +304,7 @@ static void setup_torque_env()
 // -------------- (END) This functions probably should run with global_mutex locked! (END) -----------------------//
 
 
-bool isTorqueFile(dmtcp::string relpath, dmtcp::string &path)
+bool isTorqueFile(string relpath, string &path)
 {
   JTRACE("Start");
   switch( _get_rmgr_type() ){
@@ -320,7 +322,7 @@ bool isTorqueFile(dmtcp::string relpath, dmtcp::string &path)
   if( torque_home().size() == 0 )
     return false;
 
-  dmtcp::string abspath = torque_home() + "/" + relpath;
+  string abspath = torque_home() + "/" + relpath;
   JTRACE("Compare path with")(path)(abspath);
   if( path.size() < abspath.size() )
     return false;
@@ -331,14 +333,14 @@ bool isTorqueFile(dmtcp::string relpath, dmtcp::string &path)
   return false;
 }
 
-bool isTorqueHomeFile(dmtcp::string &path)
+bool isTorqueHomeFile(string &path)
 {
   // check if file is in home directory
   char *ptr;
-  dmtcp::string hpath = "";
+  string hpath = "";
 
   if ((ptr = getenv("HOME"))) {
-    hpath = dmtcp::string() + ptr;
+    hpath = string() + ptr;
     JTRACE("Home directory:")(hpath)(path);
   }else{
     JTRACE("Cannot determine user HOME directory!");
@@ -355,7 +357,7 @@ bool isTorqueHomeFile(dmtcp::string &path)
     return false;
   }
 
-  dmtcp::string suffix1 = ".OU", suffix2 = ".ER";
+  string suffix1 = ".OU", suffix2 = ".ER";
 
   if( !( (path.substr(path.size() - suffix1.size()) == suffix1) ||
         (path.substr(path.size() - suffix2.size()) == suffix2) ) ){
@@ -365,8 +367,8 @@ bool isTorqueHomeFile(dmtcp::string &path)
 
   char jobid[256];
   sprintf(jobid,"%lu",torque_jobid);
-  dmtcp::string spool_path = hpath + "/.pbs_spool/" + jobid;
-  dmtcp::string home_path = hpath + jobid;
+  string spool_path = hpath + "/.pbs_spool/" + jobid;
+  string home_path = hpath + jobid;
 
   if( path.substr(0,spool_path.size()) == spool_path ){
     JTRACE("File is located in $HOME/.pbs_spool/. It is Torque/PBS stdio file")(path);
@@ -381,7 +383,7 @@ bool isTorqueHomeFile(dmtcp::string &path)
   return false;
 }
 
-bool isTorqueIOFile(dmtcp::string &path)
+bool isTorqueIOFile(string &path)
 {
   // Check if file is located in $PBS_HOME/spool
   // If so - it is Torque stdio file
@@ -395,12 +397,12 @@ bool isTorqueIOFile(dmtcp::string &path)
   return false;
 }
 
-bool isTorqueStdout(dmtcp::string &path)
+bool isTorqueStdout(string &path)
 {
   if( !isTorqueIOFile(path) )
     return false;
 
-  dmtcp::string suffix = ".OU";
+  string suffix = ".OU";
 
   if( (path.substr(path.size() - suffix.size()) == suffix) ){
     return true;
@@ -409,12 +411,12 @@ bool isTorqueStdout(dmtcp::string &path)
   return false;
 }
 
-bool isTorqueStderr(dmtcp::string &path)
+bool isTorqueStderr(string &path)
 {
   if( !isTorqueIOFile(path) )
     return false;
 
-  dmtcp::string suffix = ".ER";
+  string suffix = ".ER";
 
   if( (path.substr(path.size() - suffix.size()) == suffix) ){
     return true;
@@ -423,7 +425,7 @@ bool isTorqueStderr(dmtcp::string &path)
   return false;
 }
 
-bool isTorqueNodeFile(dmtcp::string &path)
+bool isTorqueNodeFile(string &path)
 {
   // if this file is not located in $PBS_HOME/aux/ directory
   // it can't be node_file
@@ -441,7 +443,7 @@ static int libtorque_init()
   JASSERT(_real_pthread_mutex_lock(&_libtorque_mutex) == 0);
   if( _libtorque_handle == NULL ){
     // find library using pbs-config
-    dmtcp::string libpath;
+    string libpath;
     if( findLibTorque(libpath) ){
       ret = -1;
       goto unlock;
@@ -486,17 +488,17 @@ extern "C" int tm_spawn(int argc, char **argv, char **envp, tm_node_id where,
     return TM_BADINIT;
 
   char dmtcpCkptPath[PATH_MAX] = "";
-  dmtcp::string ckptCmdPath = dmtcp::Util::getPath("dmtcp_launch");
-  ret = dmtcp::Util::expandPathname(ckptCmdPath.c_str(),
+  string ckptCmdPath = Util::getPath("dmtcp_launch");
+  ret = Util::expandPathname(ckptCmdPath.c_str(),
                                     dmtcpCkptPath, sizeof(dmtcpCkptPath));
 
   JTRACE("Expand dmtcp_launch path")(dmtcpCkptPath);
 
-  dmtcp::vector<dmtcp::string> dmtcp_args;
-  dmtcp::Util::getDmtcpArgs(dmtcp_args);
+  vector<string> dmtcp_args;
+  Util::getDmtcpArgs(dmtcp_args);
   unsigned int dsize = dmtcp_args.size();
   const char *new_argv[ argc + (dsize + 1)]; // (dsize+1) is DMTCP part including dmtcpCkptPath
-  dmtcp::string cmdline;
+  string cmdline;
   size_t i;
 
   for(i = 0; i < (unsigned) argc; i++){
@@ -511,7 +513,7 @@ extern "C" int tm_spawn(int argc, char **argv, char **envp, tm_node_id where,
     new_argv[(1 + dsize) + j] = argv[j];
   }
   for (i = 0; i< dsize + argc + 1; i++ ) {
-    cmdline +=  dmtcp::string() + new_argv[i] + " ";
+    cmdline +=  string() + new_argv[i] + " ";
   }
 
   JTRACE( "call Torque PBS tm_spawn API to run command on remote host" )
@@ -524,7 +526,7 @@ extern "C" int tm_spawn(int argc, char **argv, char **envp, tm_node_id where,
 
 int torqueShouldCkptFile(const char *path, int *type)
 {
-  dmtcp::string str(path);
+  string str(path);
 
   if (isTorqueIOFile(str)) {
     *type = TORQUE_IO;
@@ -540,7 +542,7 @@ int torqueShouldCkptFile(const char *path, int *type)
 int torqueRestoreFile(const char *path, const char *savedFilePath,
                                      int fcntlFlags, int type)
 {
-  dmtcp::string newpath;
+  string newpath;
 
   int tempfd = -1;
   if (type == TORQUE_NODE) {
@@ -554,7 +556,7 @@ int torqueRestoreFile(const char *path, const char *savedFilePath,
             (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP) );
     JASSERT(tempfd != -1) (path)(newpath)(JASSERT_ERRNO) .Text("open() failed");
   } else if (type == TORQUE_IO) {
-    dmtcp::string str(path);
+    string str(path);
     JTRACE("Restore Torque IO file");
     if (isTorqueStdout(str)) {
       JTRACE("Restore Torque STDOUT file");
@@ -567,14 +569,14 @@ int torqueRestoreFile(const char *path, const char *savedFilePath,
     }
 
     // get new file name
-    dmtcp::string procpath = "/proc/self/fd/" + jalib::XToString(tempfd);
+    string procpath = "/proc/self/fd/" + jalib::XToString(tempfd);
     newpath = jalib::Filesystem::ResolveSymlink(procpath);
   }
 
   JTRACE("Copying saved Resource Manager file to NEW location")
     (savedFilePath) (newpath);
 
-  dmtcp::string command = "cat ";
+  string command = "cat ";
   command.append(savedFilePath).append(" > ").append(newpath);
   JASSERT(_real_system(command.c_str()) != -1);
 

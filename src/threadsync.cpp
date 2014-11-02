@@ -28,6 +28,8 @@
 #include "dmtcpworker.h"
 #include "syscallwrappers.h"
 
+using namespace dmtcp;
+
 /*
  * WrapperProtectionLock is used to make the checkpoint safe by making sure
  *   that no user-thread is executing any DMTCP wrapper code when it receives
@@ -91,14 +93,14 @@ static __thread bool _hasThreadFinishedInitialization = false;
  * plugin.
  */
 extern "C" int dmtcp_libdlLockLock() {
-  return dmtcp::ThreadSync::libdlLockLock();
+  return ThreadSync::libdlLockLock();
 }
 
 extern "C" void dmtcp_libdlLockUnlock() {
-  dmtcp::ThreadSync::libdlLockUnlock();
+  ThreadSync::libdlLockUnlock();
 }
 
-void dmtcp::ThreadSync::initThread()
+void ThreadSync::initThread()
 {
   // If we don't initialize these thread local variables here. If not done
   // here, there can be a race between checkpoint processing and this
@@ -116,13 +118,13 @@ void dmtcp::ThreadSync::initThread()
   _hasThreadFinishedInitialization = false;
 }
 
-void dmtcp::ThreadSync::initMotherOfAll()
+void ThreadSync::initMotherOfAll()
 {
   initThread();
   _hasThreadFinishedInitialization = true;
 }
 
-void dmtcp::ThreadSync::acquireLocks()
+void ThreadSync::acquireLocks()
 {
   JASSERT(WorkerState::currentState() == WorkerState::RUNNING);
   /* TODO: We should introduce the notion of lock ranks/priorities for all
@@ -157,7 +159,7 @@ void dmtcp::ThreadSync::acquireLocks()
   JTRACE("Done acquiring all locks");
 }
 
-void dmtcp::ThreadSync::releaseLocks()
+void ThreadSync::releaseLocks()
 {
   JASSERT(WorkerState::currentState() == WorkerState::SUSPENDED);
 
@@ -175,7 +177,7 @@ void dmtcp::ThreadSync::releaseLocks()
   setOkToGrabLock();
 }
 
-void dmtcp::ThreadSync::resetLocks()
+void ThreadSync::resetLocks()
 {
   pthread_rwlock_t newLock = PTHREAD_RWLOCK_WRITER_NONRECURSIVE_INITIALIZER_NP;
   _wrapperExecutionLock = newLock;
@@ -207,7 +209,7 @@ void dmtcp::ThreadSync::resetLocks()
   _threadCreationLockAcquiredByCkptThread = false;
 }
 
-bool dmtcp::ThreadSync::isThisThreadHoldingAnyLocks()
+bool ThreadSync::isThisThreadHoldingAnyLocks()
 {
   // If the wrapperExec lock has been acquired by the ckpt thread, then we are
   // certainly not holding it :). It's possible for the count to be still '1',
@@ -222,28 +224,28 @@ bool dmtcp::ThreadSync::isThisThreadHoldingAnyLocks()
           _wrapperExecutionLockLockCount > 0);
 }
 
-bool dmtcp::ThreadSync::isOkToGrabLock()
+bool ThreadSync::isOkToGrabLock()
 {
   return _isOkToGrabWrapperExecutionLock;
 }
 
-void dmtcp::ThreadSync::setOkToGrabLock()
+void ThreadSync::setOkToGrabLock()
 {
   _isOkToGrabWrapperExecutionLock = true;
 }
 
-void dmtcp::ThreadSync::unsetOkToGrabLock()
+void ThreadSync::unsetOkToGrabLock()
 {
   _isOkToGrabWrapperExecutionLock = false;
 }
 
-void dmtcp::ThreadSync::setSendCkptSignalOnFinalUnlock()
+void ThreadSync::setSendCkptSignalOnFinalUnlock()
 {
   JASSERT(_sendCkptSignalOnFinalUnlock == false);
   _sendCkptSignalOnFinalUnlock = true;
 }
 
-void dmtcp::ThreadSync::sendCkptSignalOnFinalUnlock()
+void ThreadSync::sendCkptSignalOnFinalUnlock()
 {
   if (_sendCkptSignalOnFinalUnlock && isThisThreadHoldingAnyLocks() == false) {
     _sendCkptSignalOnFinalUnlock = false;
@@ -256,54 +258,54 @@ void dmtcp::ThreadSync::sendCkptSignalOnFinalUnlock()
 extern "C" LIB_PRIVATE
 void dmtcp_setThreadPerformingDlopenDlsym()
 {
-  dmtcp::ThreadSync::setThreadPerformingDlopenDlsym();
+  ThreadSync::setThreadPerformingDlopenDlsym();
 }
 
 extern "C" LIB_PRIVATE
 void dmtcp_unsetThreadPerformingDlopenDlsym()
 {
-  dmtcp::ThreadSync::unsetThreadPerformingDlopenDlsym();
+  ThreadSync::unsetThreadPerformingDlopenDlsym();
 }
 
-bool dmtcp::ThreadSync::isThreadPerformingDlopenDlsym()
+bool ThreadSync::isThreadPerformingDlopenDlsym()
 {
   return _threadPerformingDlopenDlsym;
 }
 
-void dmtcp::ThreadSync::setThreadPerformingDlopenDlsym()
+void ThreadSync::setThreadPerformingDlopenDlsym()
 {
   _threadPerformingDlopenDlsym = true;
 }
 
-void dmtcp::ThreadSync::unsetThreadPerformingDlopenDlsym()
+void ThreadSync::unsetThreadPerformingDlopenDlsym()
 {
   _threadPerformingDlopenDlsym = false;
 }
 #endif
 
-void dmtcp::ThreadSync::destroyDmtcpWorkerLockLock()
+void ThreadSync::destroyDmtcpWorkerLockLock()
 {
   JASSERT(_real_pthread_mutex_lock(&destroyDmtcpWorkerLock) == 0)
     (JASSERT_ERRNO);
 }
 
-int dmtcp::ThreadSync::destroyDmtcpWorkerLockTryLock()
+int ThreadSync::destroyDmtcpWorkerLockTryLock()
 {
   return _real_pthread_mutex_trylock(&destroyDmtcpWorkerLock);
 }
 
-void dmtcp::ThreadSync::destroyDmtcpWorkerLockUnlock()
+void ThreadSync::destroyDmtcpWorkerLockUnlock()
 {
   JASSERT(_real_pthread_mutex_unlock(&destroyDmtcpWorkerLock) == 0)
     (JASSERT_ERRNO);
 }
 
-void dmtcp::ThreadSync::delayCheckpointsLock()
+void ThreadSync::delayCheckpointsLock()
 {
   JASSERT(_real_pthread_mutex_lock(&theCkptCanStart)==0)(JASSERT_ERRNO);
 }
 
-void dmtcp::ThreadSync::delayCheckpointsUnlock() {
+void ThreadSync::delayCheckpointsUnlock() {
   JASSERT(_real_pthread_mutex_unlock(&theCkptCanStart)==0)(JASSERT_ERRNO);
 }
 
@@ -319,7 +321,7 @@ static void decrementWrapperExecutionLockLockCount()
       .Text("wrapper-execution lock count can't be negative");
   }
   _wrapperExecutionLockLockCount--;
-  dmtcp::ThreadSync::sendCkptSignalOnFinalUnlock();
+  ThreadSync::sendCkptSignalOnFinalUnlock();
 }
 
 static void incrementThreadCreationLockLockCount()
@@ -330,10 +332,10 @@ static void incrementThreadCreationLockLockCount()
 static void decrementThreadCreationLockLockCount()
 {
   _threadCreationLockLockCount--;
-  dmtcp::ThreadSync::sendCkptSignalOnFinalUnlock();
+  ThreadSync::sendCkptSignalOnFinalUnlock();
 }
 
-bool dmtcp::ThreadSync::libdlLockLock()
+bool ThreadSync::libdlLockLock()
 {
   int saved_errno = errno;
   bool lockAcquired = false;
@@ -347,7 +349,7 @@ bool dmtcp::ThreadSync::libdlLockLock()
   return lockAcquired;
 }
 
-void dmtcp::ThreadSync::libdlLockUnlock()
+void ThreadSync::libdlLockUnlock()
 {
   int saved_errno = errno;
   JASSERT(libdlLockOwner == 0 || libdlLockOwner == gettid())
@@ -361,7 +363,7 @@ void dmtcp::ThreadSync::libdlLockUnlock()
 // XXX: Handle deadlock error code
 // NOTE: Don't do any fancy stuff in this wrapper which can cause the process
 //       to go into DEADLOCK
-bool dmtcp::ThreadSync::wrapperExecutionLockLock()
+bool ThreadSync::wrapperExecutionLockLock()
 {
   int saved_errno = errno;
   bool lockAcquired = false;
@@ -432,7 +434,7 @@ bool dmtcp::ThreadSync::wrapperExecutionLockLock()
  *    It is wrapped by the epoll_wait wraper in IPC plugin which then makes
  *    repeated calls to _real_epoll_wait with smaller timeout.
  */
-bool dmtcp::ThreadSync::wrapperExecutionLockLockExcl()
+bool ThreadSync::wrapperExecutionLockLockExcl()
 {
   int saved_errno = errno;
   bool lockAcquired = false;
@@ -455,7 +457,7 @@ bool dmtcp::ThreadSync::wrapperExecutionLockLockExcl()
 
 // NOTE: Don't do any fancy stuff in this wrapper which can cause the process
 // to go into DEADLOCK
-void dmtcp::ThreadSync::wrapperExecutionLockUnlock()
+void ThreadSync::wrapperExecutionLockUnlock()
 {
   int saved_errno = errno;
   if (WorkerState::currentState() != WorkerState::RUNNING &&
@@ -477,7 +479,7 @@ void dmtcp::ThreadSync::wrapperExecutionLockUnlock()
   errno = saved_errno;
 }
 
-bool dmtcp::ThreadSync::threadCreationLockLock()
+bool ThreadSync::threadCreationLockLock()
 {
   int saved_errno = errno;
   bool lockAcquired = false;
@@ -511,7 +513,7 @@ bool dmtcp::ThreadSync::threadCreationLockLock()
   return lockAcquired;
 }
 
-void dmtcp::ThreadSync::threadCreationLockUnlock()
+void ThreadSync::threadCreationLockUnlock()
 {
   int saved_errno = errno;
   if (WorkerState::currentState() != WorkerState::RUNNING) {
@@ -540,17 +542,17 @@ void dmtcp::ThreadSync::threadCreationLockUnlock()
 extern "C"
 int dmtcp_plugin_disable_ckpt()
 {
-  return dmtcp::ThreadSync::wrapperExecutionLockLock();
+  return ThreadSync::wrapperExecutionLockLock();
 }
 
 extern "C"
 void dmtcp_plugin_enable_ckpt()
 {
-  dmtcp::ThreadSync::wrapperExecutionLockUnlock();
+  ThreadSync::wrapperExecutionLockUnlock();
 }
 
 
-void dmtcp::ThreadSync::waitForThreadsToFinishInitialization()
+void ThreadSync::waitForThreadsToFinishInitialization()
 {
   while (_uninitializedThreadCount != 0) {
     struct timespec sleepTime = {0, 10*1000*1000};
@@ -559,7 +561,7 @@ void dmtcp::ThreadSync::waitForThreadsToFinishInitialization()
   }
 }
 
-void dmtcp::ThreadSync::incrementUninitializedThreadCount()
+void ThreadSync::incrementUninitializedThreadCount()
 {
   int saved_errno = errno;
   if (WorkerState::currentState() == WorkerState::RUNNING) {
@@ -573,7 +575,7 @@ void dmtcp::ThreadSync::incrementUninitializedThreadCount()
   errno = saved_errno;
 }
 
-void dmtcp::ThreadSync::decrementUninitializedThreadCount()
+void ThreadSync::decrementUninitializedThreadCount()
 {
   int saved_errno = errno;
   if (WorkerState::currentState() == WorkerState::RUNNING) {
@@ -588,17 +590,17 @@ void dmtcp::ThreadSync::decrementUninitializedThreadCount()
   errno = saved_errno;
 }
 
-void dmtcp::ThreadSync::threadFinishedInitialization()
+void ThreadSync::threadFinishedInitialization()
 {
   // The following line is to make sure the thread-local data is initialized
   // before any wrapper call is made.
   _hasThreadFinishedInitialization = false;
   decrementUninitializedThreadCount();
   _hasThreadFinishedInitialization = true;
-  dmtcp::ThreadSync::sendCkptSignalOnFinalUnlock();
+  ThreadSync::sendCkptSignalOnFinalUnlock();
 }
 
-void dmtcp::ThreadSync::incrNumUserThreads()
+void ThreadSync::incrNumUserThreads()
 {
   // This routine is called from within stopthisthread so it is not safe to
   // call JNOTE/JTRACE etc.
@@ -611,7 +613,7 @@ void dmtcp::ThreadSync::incrNumUserThreads()
   }
 }
 
-void dmtcp::ThreadSync::processPreResumeCB()
+void ThreadSync::processPreResumeCB()
 {
   if (_real_pthread_mutex_lock(&preResumeThreadCountLock) != 0) {
     JASSERT(false) .Text("Failed to acquire preResumeThreadCountLock");
@@ -623,7 +625,7 @@ void dmtcp::ThreadSync::processPreResumeCB()
   }
 }
 
-void dmtcp::ThreadSync::waitForUserThreadsToFinishPreResumeCB()
+void ThreadSync::waitForUserThreadsToFinishPreResumeCB()
 {
   if (preResumeThreadCount != INVALID_USER_THREAD_COUNT) {
     while (preResumeThreadCount != 0) {

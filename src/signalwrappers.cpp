@@ -32,6 +32,8 @@
 #define EXTERNC extern "C"
 #endif
 
+using namespace dmtcp;
+
 //gah!!! signals API is redundant
 
 static bool checkpointSignalBlockedForProcess = false;
@@ -42,7 +44,7 @@ static int stopSignal = -1;
 static int bannedSignalNumber()
 {
   if (stopSignal == -1) {
-    stopSignal = dmtcp::DmtcpWorker::determineCkptSignal();
+    stopSignal = DmtcpWorker::determineCkptSignal();
 
     // On some systems, the ckpt-signal may be blocked by default. Unblock it
     // now.

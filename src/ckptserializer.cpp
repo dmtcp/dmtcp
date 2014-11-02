@@ -504,7 +504,7 @@ static int open_ckpt_to_read(const char *filename)
 }
 
 // See comments above for open_ckpt_to_read()
-int dmtcp::CkptSerializer::openCkptFileToRead(const dmtcp::string& path)
+int CkptSerializer::openCkptFileToRead(const string& path)
 {
   char buf[1024];
   int fd = open_ckpt_to_read(path.c_str());
@@ -522,7 +522,7 @@ int dmtcp::CkptSerializer::openCkptFileToRead(const dmtcp::string& path)
   return fd;
 }
 
-void dmtcp::CkptSerializer::createCkptDir()
+void CkptSerializer::createCkptDir()
 {
   string ckptDir = ProcessInfo::instance().getCkptDir();
   JASSERT(!ckptDir.empty());
@@ -535,7 +535,7 @@ void dmtcp::CkptSerializer::createCkptDir()
 }
 
 // See comments above for open_ckpt_to_read()
-void dmtcp::CkptSerializer::writeCkptImage(void *mtcpHdr, size_t mtcpHdrLen)
+void CkptSerializer::writeCkptImage(void *mtcpHdr, size_t mtcpHdrLen)
 
 {
   string ckptFilename = ProcessInfo::instance().getCkptFilename();
@@ -599,13 +599,13 @@ void dmtcp::CkptSerializer::writeCkptImage(void *mtcpHdr, size_t mtcpHdrLen)
   JTRACE("checkpoint complete");
 }
 
-void dmtcp::CkptSerializer::writeDmtcpHeader(int fd)
+void CkptSerializer::writeDmtcpHeader(int fd)
 {
   const ssize_t len = strlen(DMTCP_FILE_HEADER);
   JASSERT(write(fd, DMTCP_FILE_HEADER, len) == len);
 
   jalib::JBinarySerializeWriterRaw wr("", fd);
-  dmtcp::ProcessInfo::instance().serialize(wr);
+  ProcessInfo::instance().serialize(wr);
   ssize_t written = len + wr.bytes();
 
   // We must write in multiple of PAGE_SIZE
@@ -615,8 +615,7 @@ void dmtcp::CkptSerializer::writeDmtcpHeader(int fd)
   JASSERT(Util::writeAll(fd, buf, remaining) == remaining);
 }
 
-int dmtcp::CkptSerializer::readCkptHeader(const dmtcp::string& path,
-                                          dmtcp::ProcessInfo *pInfo)
+int CkptSerializer::readCkptHeader(const string& path, ProcessInfo *pInfo)
 {
   int fd = openCkptFileToRead(path);
   const size_t len = strlen(DMTCP_FILE_HEADER);

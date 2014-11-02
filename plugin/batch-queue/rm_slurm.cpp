@@ -44,7 +44,9 @@
 
 static const char *srunHelper = "dmtcp_srun_helper";
 
-void probeSlurm()
+using namespace dmtcp;
+
+void dmtcp::probeSlurm()
 {
   JTRACE("Start");
   if( (getenv("SLURM_JOBID") != NULL) && (NULL != getenv("SLURM_NODELIST")) ){
@@ -55,12 +57,12 @@ void probeSlurm()
   }
 }
 
-void slurm_restore_env()
+void dmtcp::slurm_restore_env()
 {
-  const dmtcp::string str_uid = dmtcp_get_uniquepid_str();
+  const string str_uid = dmtcp_get_uniquepid_str();
   const char *ptr = dmtcp_get_tmpdir();
-  dmtcp::string tmpdir = dmtcp::string(ptr);
-  dmtcp::string filename =  tmpdir + "/slurm_env_" + str_uid;
+  string tmpdir = string(ptr);
+  string filename =  tmpdir + "/slurm_env_" + str_uid;
   FILE *fp = fopen(filename.c_str(),"r");
   if( !fp ){
       JTRACE("Cannot open SLURM environment file. Environment won't be restored!")(filename);
@@ -76,13 +78,13 @@ void slurm_restore_env()
     if( line[len-1] == '\n' ){
       line[len-1] = '\0';
     }
-    dmtcp::string str = line;
+    string str = line;
     size_t pos = str.find('=');
-    if( pos == dmtcp::string::npos ){
+    if( pos == string::npos ){
       continue;
     }
-    dmtcp::string var = str.substr(0,pos);
-    dmtcp::string val = str.substr(pos+1);
+    string var = str.substr(0,pos);
+    string val = str.substr(pos+1);
     JTRACE("READ ENV LINE:")(var)(val);
     if( var == "SLURM_SRUN_COMM_HOST" ){
       host_env = true;
@@ -111,9 +113,9 @@ void slurm_restore_env()
 static void print_args(char *const argv[])
 {
   int i;
-  dmtcp::string cmdline;
+  string cmdline;
   for (i = 0; argv[i] != NULL; i++ ) {
-    cmdline +=  dmtcp::string() + argv[i] + " ";
+    cmdline +=  string() + argv[i] + " ";
   }
 
   JTRACE("Init CMD:")(cmdline);
@@ -144,8 +146,8 @@ static int patch_srun_cmdline(char * const argv_old[], char ***_argv_new)
 
   JTRACE("Expand dmtcp_launch path")(dmtcpCkptPath);
 
-  dmtcp::vector<dmtcp::string> dmtcp_args;
-  dmtcp::Util::getDmtcpArgs(dmtcp_args);
+  vector<string> dmtcp_args;
+  Util::getDmtcpArgs(dmtcp_args);
   unsigned int dsize = dmtcp_args.size();
 
   // Prepare final comman line of length:
@@ -220,9 +222,9 @@ extern "C" int execve (const char *filename, char *const argv[],
   char **argv_new;
   patch_srun_cmdline(argv, &argv_new);
 
-  dmtcp::string cmdline;
+  string cmdline;
   for (int i = 0; argv_new[i] != NULL; i++ ) {
-    cmdline +=  dmtcp::string() + argv_new[i] + " ";
+    cmdline +=  string() + argv_new[i] + " ";
   }
   JTRACE( "How command looks from exec*:" );
   JTRACE("CMD:")(cmdline);
@@ -244,9 +246,9 @@ extern "C" int execvp (const char *filename, char *const argv[])
   char **argv_new;
   patch_srun_cmdline(argv, &argv_new);
 
-  dmtcp::string cmdline;
+  string cmdline;
   for (int i = 0; argv_new[i] != NULL; i++ ) {
-    cmdline +=  dmtcp::string() + argv_new[i] + " ";
+    cmdline +=  string() + argv_new[i] + " ";
   }
 
   JTRACE( "How command looks from exec*:" );
@@ -270,9 +272,9 @@ extern "C" int execvpe (const char *filename, char *const argv[],
   char **argv_new;
   patch_srun_cmdline(argv, &argv_new);
 
-  dmtcp::string cmdline;
+  string cmdline;
   for (int i = 0; argv_new[i] != NULL; i++ ) {
-    cmdline +=  dmtcp::string() + argv_new[i] + " ";
+    cmdline +=  string() + argv_new[i] + " ";
   }
   JTRACE( "How command looks from exec*:" );
   JTRACE("CMD:")(cmdline);
@@ -282,13 +284,13 @@ extern "C" int execvpe (const char *filename, char *const argv[],
   return _real_execvpe(srunHelper, argv_new, envp);
 }
 
-bool isSlurmTmpDir(dmtcp::string &str)
+bool dmtcp::isSlurmTmpDir(string &str)
 {
   char *env_tmpdir = getenv("SLURMTMPDIR");
   if( !env_tmpdir ){
     return false;
   }
-  dmtcp::string tpath(env_tmpdir);
+  string tpath(env_tmpdir);
   // check if tpath is prefix of str
   size_t pos;
   for(pos = 0; pos < tpath.size(); pos++){
@@ -301,9 +303,9 @@ bool isSlurmTmpDir(dmtcp::string &str)
   return false;
 }
 
-int slurmShouldCkptFile(const char *path, int *type)
+int dmtcp::slurmShouldCkptFile(const char *path, int *type)
 {
-  dmtcp::string str(path);
+  string str(path);
 
   if (isSlurmTmpDir(str)) {
     *type = SLURM_TMPDIR;
@@ -313,7 +315,7 @@ int slurmShouldCkptFile(const char *path, int *type)
 }
 
 
-int slurmRestoreFile(const char *path, const char *savedFilePath,
+int dmtcp::slurmRestoreFile(const char *path, const char *savedFilePath,
                                      int fcntlFlags, int type)
 {
 
@@ -327,9 +329,9 @@ int slurmRestoreFile(const char *path, const char *savedFilePath,
 
   JASSERT( env_old && env_new )("Environment is broken")(env_old)(env_new);
 
-  dmtcp::string otmpdir(env_old);
-  dmtcp::string ntmpdir(env_new);
-  dmtcp::string newpath(path);
+  string otmpdir(env_old);
+  string ntmpdir(env_new);
+  string newpath(path);
 
   _rm_del_trailing_slash(otmpdir);
   _rm_del_trailing_slash(ntmpdir);
@@ -349,7 +351,7 @@ int slurmRestoreFile(const char *path, const char *savedFilePath,
   JTRACE("Copying saved Resource Manager file to NEW location")
     (savedFilePath) (newpath);
 
-  dmtcp::string command = "cat ";
+  string command = "cat ";
   command.append(savedFilePath).append(" > ").append(newpath);
   JASSERT(_real_system(command.c_str()) != -1);
 

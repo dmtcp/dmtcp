@@ -53,7 +53,7 @@ namespace dmtcp
         static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
         static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
 #endif
-        VirtualIdTable(dmtcp::string typeStr, IdType base,
+        VirtualIdTable(string typeStr, IdType base,
                        size_t max = MAX_VIRTUAL_ID) {
           pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
           tblLock = lock;
@@ -182,8 +182,8 @@ namespace dmtcp
           JTRACE("Virtual To Real Mappings:") (_idMapTable.size()) (out.str());
         }
 
-        dmtcp::vector< IdType > getIdVector() {
-          dmtcp::vector< IdType > idVec;
+        vector< IdType > getIdVector() {
+          vector< IdType > idVec;
           _do_lock_tbl();
           for ( id_iterator i = _idMapTable.begin(); i != _idMapTable.end(); ++i )
             idVec.push_back ( i->first );
@@ -228,15 +228,15 @@ namespace dmtcp
 
 
         void serialize(jalib::JBinarySerializer& o) {
-          JSERIALIZE_ASSERT_POINT ( "dmtcp::VirtualIdTable:" );
+          JSERIALIZE_ASSERT_POINT("VirtualIdTable:");
           o.serializeMap(_idMapTable);
-          JSERIALIZE_ASSERT_POINT( "EOF" );
+          JSERIALIZE_ASSERT_POINT("EOF");
           printMaps();
         }
 
         void writeMapsToFile(int fd) {
-          dmtcp::string file = "/proc/self/fd/" + jalib::XToString(fd);
-          dmtcp::string mapFile = jalib::Filesystem::ResolveSymlink(file);
+          string file = "/proc/self/fd/" + jalib::XToString(fd);
+          string mapFile = jalib::Filesystem::ResolveSymlink(file);
 
           JASSERT (mapFile.length() > 0) (mapFile);
           JTRACE ("Write Maps to file") (mapFile);
@@ -254,8 +254,8 @@ namespace dmtcp
         }
 
         void readMapsFromFile(int fd) {
-          dmtcp::string file = "/proc/self/fd/" + jalib::XToString(fd);
-          dmtcp::string mapFile = jalib::Filesystem::ResolveSymlink(file);
+          string file = "/proc/self/fd/" + jalib::XToString(fd);
+          string mapFile = jalib::Filesystem::ResolveSymlink(file);
 
           JASSERT(mapFile.length() > 0) (mapFile);
           JTRACE("Read Maps from file") (mapFile);
@@ -278,11 +278,11 @@ namespace dmtcp
         }
 
       private:
-        dmtcp::string _typeStr;
+        string _typeStr;
         pthread_mutex_t tblLock;
       protected:
-        typedef typename dmtcp::map<IdType, IdType>::iterator id_iterator;
-        dmtcp::map<IdType, IdType> _idMapTable;
+        typedef typename map<IdType, IdType>::iterator id_iterator;
+        map<IdType, IdType> _idMapTable;
         IdType _base;
         size_t _max;
         IdType _nextVirtualId;

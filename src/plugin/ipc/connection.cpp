@@ -24,7 +24,9 @@
 #include "../jalib/jassert.h"
 #include "../jalib/jserialize.h"
 
-dmtcp::Connection::Connection(uint32_t t)
+using namespace dmtcp;
+
+Connection::Connection(uint32_t t)
   : _id(ConnectionIdentifier::Create())
   , _type((ConnectionType) t)
   , _fcntlFlags(-1)
@@ -33,12 +35,12 @@ dmtcp::Connection::Connection(uint32_t t)
   , _hasLock(false)
 {}
 
-void dmtcp::Connection::addFd(int fd)
+void Connection::addFd(int fd)
 {
   _fds.push_back(fd);
 }
 
-void dmtcp::Connection::removeFd(int fd)
+void Connection::removeFd(int fd)
 {
   JASSERT(_fds.size() > 0);
   if (_fds.size() == 1) {
@@ -54,7 +56,7 @@ void dmtcp::Connection::removeFd(int fd)
   }
 }
 
-void dmtcp::Connection::saveOptions()
+void Connection::saveOptions()
 {
   errno = 0;
   _fcntlFlags = fcntl(_fds[0],F_GETFL);
@@ -67,7 +69,7 @@ void dmtcp::Connection::saveOptions()
   JASSERT(_fcntlSignal >= 0) (_fcntlSignal) (JASSERT_ERRNO);
 }
 
-void dmtcp::Connection::restoreOptions()
+void Connection::restoreOptions()
 {
   //restore F_GETFL flags
   JASSERT(_fcntlFlags >= 0) (_fcntlFlags);
@@ -91,7 +93,7 @@ void dmtcp::Connection::restoreOptions()
     (_fds[0]) (_fcntlSignal) (JASSERT_ERRNO);
 }
 
-void dmtcp::Connection::doLocking()
+void Connection::doLocking()
 {
   errno = 0;
   _hasLock = false;
@@ -99,16 +101,16 @@ void dmtcp::Connection::doLocking()
    (_fds[0]) (JASSERT_ERRNO);
 }
 
-void dmtcp::Connection::checkLock()
+void Connection::checkLock()
 {
   pid_t pid = fcntl(_fds[0], F_GETOWN);
   JASSERT(pid != -1);
   _hasLock = pid == getpid();
 }
 
-void dmtcp::Connection::serialize(jalib::JBinarySerializer& o)
+void Connection::serialize(jalib::JBinarySerializer& o)
 {
-  JSERIALIZE_ASSERT_POINT("dmtcp::Connection");
+  JSERIALIZE_ASSERT_POINT("Connection");
   o & _id & _type & _fcntlFlags & _fcntlOwner & _fcntlSignal;
   o.serializeVector(_fds);
   serializeSubClass(o);

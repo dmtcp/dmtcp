@@ -48,16 +48,16 @@ using namespace dmtcp;
  *****************************************************************************/
 
 #ifdef HAVE_SYS_EPOLL_H
-void dmtcp::EpollConnection::drain()
+void EpollConnection::drain()
 {
   JASSERT(_fds.size() > 0);
 }
 
-void dmtcp::EpollConnection::refill(bool isRestart)
+void EpollConnection::refill(bool isRestart)
 {
   JASSERT(_fds.size() > 0);
   if (isRestart) {
-    typedef dmtcp::map< int, struct epoll_event >::iterator fdEventIterator;
+    typedef map< int, struct epoll_event >::iterator fdEventIterator;
     fdEventIterator fevt = _fdToEvent.begin();
     for (; fevt != _fdToEvent.end(); fevt++) {
       JTRACE("restore sfd options") (fevt->first);
@@ -69,7 +69,7 @@ void dmtcp::EpollConnection::refill(bool isRestart)
   }
 }
 
-void dmtcp::EpollConnection::postRestart()
+void EpollConnection::postRestart()
 {
   JASSERT(_fds.size()>0);
   JTRACE("Recreating epoll connection") (_fds[0]) (id());
@@ -78,19 +78,19 @@ void dmtcp::EpollConnection::postRestart()
   Util::dupFds(tempFd, _fds);
 }
 
-void dmtcp::EpollConnection::serializeSubClass(jalib::JBinarySerializer& o)
+void EpollConnection::serializeSubClass(jalib::JBinarySerializer& o)
 {
-  JSERIALIZE_ASSERT_POINT("dmtcp::EpollConnection");
+  JSERIALIZE_ASSERT_POINT("EpollConnection");
   o & _type & _stat;
   o.serializeMap(_fdToEvent);
 }
 
-dmtcp::EpollConnection& dmtcp::EpollConnection::asEpoll()
+EpollConnection& EpollConnection::asEpoll()
 {
   return *this;
 }
 
-void dmtcp::EpollConnection::onCTL(int op, int fd, struct epoll_event *event)
+void EpollConnection::onCTL(int op, int fd, struct epoll_event *event)
 {
   JASSERT(((op==EPOLL_CTL_MOD || op==EPOLL_CTL_ADD) && event != NULL) ||
           op==EPOLL_CTL_DEL) (epollType())
@@ -112,7 +112,7 @@ void dmtcp::EpollConnection::onCTL(int op, int fd, struct epoll_event *event)
  * Eventfd Connection
  *****************************************************************************/
 #ifdef HAVE_SYS_EVENTFD_H
-void dmtcp::EventFdConnection::drain()
+void EventFdConnection::drain()
 {
   JASSERT(_fds.size() > 0);
   JTRACE("Checkpoint eventfd.") (_fds[0]);
@@ -151,7 +151,7 @@ void dmtcp::EventFdConnection::drain()
   JTRACE("Checkpointing eventfd:  end.") (_fds[0]) (_initval);
 }
 
-void dmtcp::EventFdConnection::refill(bool isRestart)
+void EventFdConnection::refill(bool isRestart)
 {
   JTRACE("Begin refill eventfd.") (_fds[0]);
   JASSERT(_fds.size() > 0);
@@ -166,7 +166,7 @@ void dmtcp::EventFdConnection::refill(bool isRestart)
   JTRACE("End refill eventfd.") (_fds[0]);
 }
 
-void dmtcp::EventFdConnection::postRestart()
+void EventFdConnection::postRestart()
 {
   JASSERT(_fds.size() > 0);
 
@@ -177,9 +177,9 @@ void dmtcp::EventFdConnection::postRestart()
   Util::dupFds(tempfd, _fds);
 }
 
-void dmtcp::EventFdConnection::serializeSubClass(jalib::JBinarySerializer& o)
+void EventFdConnection::serializeSubClass(jalib::JBinarySerializer& o)
 {
-  JSERIALIZE_ASSERT_POINT("dmtcp::EventFdConnection");
+  JSERIALIZE_ASSERT_POINT("EventFdConnection");
   o & _initval & _flags;
   JTRACE("Serializing EvenFdConn.") ;
 }
@@ -189,7 +189,7 @@ void dmtcp::EventFdConnection::serializeSubClass(jalib::JBinarySerializer& o)
  * Signalfd Connection
  *****************************************************************************/
 #ifdef HAVE_SYS_SIGNALFD_H
-void dmtcp::SignalFdConnection::drain()
+void SignalFdConnection::drain()
 {
   JASSERT(_fds.size() > 0);
 
@@ -217,7 +217,7 @@ void dmtcp::SignalFdConnection::drain()
   JTRACE("Checkpointing signlfd:  end.") (_fds[0]) ;
 }
 
-void dmtcp::SignalFdConnection::refill(bool isRestart)
+void SignalFdConnection::refill(bool isRestart)
 {
   JTRACE("Begin refill signalfd.") (_fds[0]);
   JASSERT(_fds.size() > 0);
@@ -227,7 +227,7 @@ void dmtcp::SignalFdConnection::refill(bool isRestart)
   JTRACE("End refill signalfd.") (_fds[0]);
 }
 
-void dmtcp::SignalFdConnection::postRestart()
+void SignalFdConnection::postRestart()
 {
   JASSERT(_fds.size() > 0);
 
@@ -238,9 +238,9 @@ void dmtcp::SignalFdConnection::postRestart()
   Util::dupFds(tempfd, _fds);
 }
 
-void dmtcp::SignalFdConnection::serializeSubClass(jalib::JBinarySerializer& o)
+void SignalFdConnection::serializeSubClass(jalib::JBinarySerializer& o)
 {
-  JSERIALIZE_ASSERT_POINT("dmtcp::SignalFdConnection");
+  JSERIALIZE_ASSERT_POINT("SignalFdConnection");
   o &  _flags & _mask & _fdsi;
   JTRACE("Serializing SignalFdConn.") ;
 }
@@ -250,12 +250,12 @@ void dmtcp::SignalFdConnection::serializeSubClass(jalib::JBinarySerializer& o)
 /*****************************************************************************
  * Inotify Connection
  *****************************************************************************/
-void dmtcp::InotifyConnection::drain()
+void InotifyConnection::drain()
 {
   JASSERT(_fds.size() > 0);
 }
 
-void dmtcp::InotifyConnection::refill(bool isRestart)
+void InotifyConnection::refill(bool isRestart)
 {
   JASSERT(_fds.size() > 0);
   if (isRestart) {
@@ -289,7 +289,7 @@ void dmtcp::InotifyConnection::refill(bool isRestart)
   }
 }
 
-void dmtcp::InotifyConnection::postRestart()
+void InotifyConnection::postRestart()
 {
   //create a new inotify instance and clone it as the old one
   int tempfd =  _real_inotify_init1(_flags);
@@ -297,22 +297,22 @@ void dmtcp::InotifyConnection::postRestart()
   Util::dupFds(tempfd, _fds);
 }
 
-void dmtcp::InotifyConnection::serializeSubClass(jalib::JBinarySerializer& o)
+void InotifyConnection::serializeSubClass(jalib::JBinarySerializer& o)
 {
-  JSERIALIZE_ASSERT_POINT("dmtcp::InotifyConnection");
+  JSERIALIZE_ASSERT_POINT("InotifyConnection");
   o & _type & _stat;
   //o.serializeMap(_inotify_fd_to_wd);
   //o.serializeMap(_wd_to_pathname);
   //o.serializeMap(_pathname_to_mask);
 }
 
-dmtcp::InotifyConnection& dmtcp::InotifyConnection::asInotify()
+InotifyConnection& InotifyConnection::asInotify()
 {
   JTRACE("Return the connection as Inotify connection");
   return *this;
 }
 
-void dmtcp::InotifyConnection::add_watch_descriptors(int wd, int fd,
+void InotifyConnection::add_watch_descriptors(int wd, int fd,
                                                      const char *pathname,
                                                      uint32_t mask)
 {
@@ -343,7 +343,7 @@ void dmtcp::InotifyConnection::add_watch_descriptors(int wd, int fd,
    }
 }
 
-void  dmtcp::InotifyConnection::remove_watch_descriptors(int wd)
+void  InotifyConnection::remove_watch_descriptors(int wd)
 {
    Util::Descriptor descriptor;
    descriptor.remove_descriptor(INOTIFY_ADD_WATCH_DESCRIPTOR, (void *)&wd);

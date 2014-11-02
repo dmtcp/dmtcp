@@ -166,7 +166,7 @@ static bool enableUniqueCkptPlugin=true;
 static bool enableUniqueCkptPlugin=false;
 #endif
 
-static dmtcp::string thePortFile;
+static string thePortFile;
 
 struct PluginInfo {
   bool *enabled;
@@ -207,7 +207,7 @@ static void processArgs(int *orig_argc, char ***orig_argv)
   //process args
   shift;
   while (true) {
-    dmtcp::string s = argc>0 ? argv[0] : "--help";
+    string s = argc>0 ? argv[0] : "--help";
     if ((s=="--help") && argc==1) {
       printf("%s", theUsage);
       exit(DMTCP_FAIL_RC);
@@ -351,9 +351,9 @@ int main ( int argc, char** argv )
     JASSERT(prefixPath == programPath) (prefixPath) (programPath);
   }
 
-  dmtcp::Util::setTmpDir(getenv(ENV_VAR_TMPDIR));
-  dmtcp::UniquePid::ThisProcess(true);
-  dmtcp::Util::initializeLogFile();
+  Util::setTmpDir(getenv(ENV_VAR_TMPDIR));
+  UniquePid::ThisProcess(true);
+  Util::initializeLogFile();
 
 #ifdef FORKED_CHECKPOINTING
   /* When this is robust, add --forked-checkpointing option on command-line,
@@ -415,7 +415,7 @@ int main ( int argc, char** argv )
   if (testSetuid(argv[0])) {
     char **newArgv;
     // THIS NEXT LINE IS DANGEROUS.  MOST setuid PROGRAMS CAN'T RUN UNPRIVILEGED
-    dmtcp::Util::patchArgvIfSetuid(argv[0], argv, &newArgv);
+    Util::patchArgvIfSetuid(argv[0], argv, &newArgv);
     argv = newArgv;
   };
 
@@ -428,7 +428,7 @@ int main ( int argc, char** argv )
     const char* ckptDir = get_current_dir_name();
     if(ckptDir != NULL ){
       //copy to private buffer
-      static dmtcp::string _buf = ckptDir;
+      static string _buf = ckptDir;
       ckptDir = _buf.c_str();
     }else{
       ckptDir=".";
@@ -443,7 +443,7 @@ int main ( int argc, char** argv )
     unsetenv( ENV_VAR_CKPT_OPEN_FILES);
 
   bool isElf, is32bitElf;
-  if  (dmtcp::Util::elfType(argv[0], &isElf, &is32bitElf) == -1) {
+  if  (Util::elfType(argv[0], &isElf, &is32bitElf) == -1) {
     // Couldn't read argv_buf
     // FIXME:  This could have been a symbolic link.  Don't issue an error,
     //         unless we're sure that the executable is not readable.
@@ -485,10 +485,10 @@ int main ( int argc, char** argv )
 // FIXME:  Unify this code with code prior to execvp in execwrappers.cpp
 //   Can use argument to dmtcpPrepareForExec() or getenv("DMTCP_...")
 //   from DmtcpWorker constructor, to distinguish the two cases.
-  dmtcp::Util::adjustRlimitStack();
+  Util::adjustRlimitStack();
 
   // Set DLSYM_OFFSET env var(s).
-  dmtcp::Util::prepareDlsymWrapper();
+  Util::prepareDlsymWrapper();
 
   DmtcpUniqueProcessId compId;
   CoordinatorInfo coordInfo;
@@ -591,7 +591,7 @@ static int testJava(char **argv)
 
 static bool testSetuid(const char *filename)
 {
-  if (dmtcp::Util::isSetuid(filename) &&
+  if (Util::isSetuid(filename) &&
       strcmp(filename, "screen") != 0 && strstr(filename, "/screen") == NULL) {
 
     static const char* theSetuidWarning =
@@ -610,7 +610,7 @@ static bool testSetuid(const char *filename)
 
 void testStaticallyLinked(const char *pathname)
 {
-  if (dmtcp::Util::isStaticallyLinked(pathname)) {
+  if (Util::isStaticallyLinked(pathname)) {
     JASSERT_STDERR <<
       "*** WARNING:  " ELF_INTERPRETER " --verify " << pathname << " returns\n"
       << "***  nonzero status.\n"
@@ -630,9 +630,9 @@ void testStaticallyLinked(const char *pathname)
 // Test for 'screen' program, argvPtr is an in- and out- parameter
 static bool testScreen(char **argv, char ***newArgv)
 {
-  if (dmtcp::Util::isScreen(argv[0])) {
-    dmtcp::Util::setScreenDir();
-    dmtcp::Util::patchArgvIfSetuid(argv[0], argv, newArgv);
+  if (Util::isScreen(argv[0])) {
+    Util::setScreenDir();
+    Util::patchArgvIfSetuid(argv[0], argv, newArgv);
     return true;
   }
   return false;
@@ -642,7 +642,7 @@ static void setLDPreloadLibs(bool is32bitElf)
 {
   // preloadLibs are to set LD_PRELOAD:
   //   LD_PRELOAD=PLUGIN_LIBS:UTILITY_DIR/libdmtcp.so:R_LIBSR_UTILITY_DIR/
-  dmtcp::string preloadLibs = "";
+  string preloadLibs = "";
   // FIXME:  If the colon-separated elements of ENV_VAR_PLUGIN are not
   //     absolute pathnames, then they must be expanded to absolute pathnames.
   //     Warn user if an absolute pathname is not valid.
@@ -650,10 +650,10 @@ static void setLDPreloadLibs(bool is32bitElf)
     preloadLibs += getenv(ENV_VAR_PLUGIN);
     preloadLibs += ":";
   }
-  dmtcp::string preloadLibs32 = preloadLibs;
+  string preloadLibs32 = preloadLibs;
 
   // FindHelperUtiltiy requires ENV_VAR_UTILITY_DIR to be set
-  dmtcp::string searchDir = jalib::Filesystem::GetProgramDir();
+  string searchDir = jalib::Filesystem::GetProgramDir();
   setenv ( ENV_VAR_UTILITY_DIR, searchDir.c_str(), 0 );
 
   //set up Alloc plugin

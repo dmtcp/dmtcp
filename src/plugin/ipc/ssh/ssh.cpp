@@ -249,7 +249,7 @@ static void prepareForExec(char *const argv[], char ***newArgv)
 {
   size_t nargs = 0;
   bool noStrictChecking = false;
-  dmtcp::string precmd, postcmd, tempcmd;
+  string precmd, postcmd, tempcmd;
   while (argv[nargs++] != NULL);
 
   if (nargs < 3) {

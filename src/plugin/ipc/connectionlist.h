@@ -40,7 +40,7 @@ namespace dmtcp
       static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
       static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
 #endif
-      typedef dmtcp::map<ConnectionIdentifier, Connection*>::iterator iterator;
+      typedef map<ConnectionIdentifier, Connection*>::iterator iterator;
 
       ConnectionList() {
         numMissingCons = 0;

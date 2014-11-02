@@ -58,8 +58,8 @@ static void markSocketBlocking(int sockfd)
                         (void*) (long) (flags & ~O_NONBLOCK)) != -1);
 }
 
-static dmtcp::ConnectionRewirer *theRewirer = NULL;
-dmtcp::ConnectionRewirer& dmtcp::ConnectionRewirer::instance()
+static ConnectionRewirer *theRewirer = NULL;
+ConnectionRewirer& ConnectionRewirer::instance()
 {
   if (theRewirer == NULL) {
     theRewirer = new ConnectionRewirer();
@@ -67,7 +67,7 @@ dmtcp::ConnectionRewirer& dmtcp::ConnectionRewirer::instance()
   return *theRewirer;
 }
 
-void dmtcp::ConnectionRewirer::destroy()
+void ConnectionRewirer::destroy()
 {
   dmtcp_close_protected_fd(PROTECTED_RESTORE_IP4_SOCK_FD);
   dmtcp_close_protected_fd(PROTECTED_RESTORE_IP6_SOCK_FD);
@@ -78,8 +78,8 @@ void dmtcp::ConnectionRewirer::destroy()
   theRewirer = NULL;
 }
 
-void dmtcp::ConnectionRewirer::checkForPendingIncoming(int restoreSockFd,
-                                                       ConnectionListT *conList)
+void ConnectionRewirer::checkForPendingIncoming(int restoreSockFd,
+                                                ConnectionListT *conList)
 {
   while (conList->size() > 0) {
     int fd = _real_accept(restoreSockFd, NULL, NULL);
@@ -101,7 +101,7 @@ void dmtcp::ConnectionRewirer::checkForPendingIncoming(int restoreSockFd,
   }
 }
 
-void dmtcp::ConnectionRewirer::doReconnect()
+void ConnectionRewirer::doReconnect()
 {
   iterator i;
   for (i = _pendingOutgoing.begin(); i != _pendingOutgoing.end(); i++) {
@@ -150,9 +150,9 @@ void dmtcp::ConnectionRewirer::doReconnect()
   JTRACE("Closed restore sockets");
 }
 
-void dmtcp::ConnectionRewirer::openRestoreSocket(bool hasIPv4Sock,
-                                                 bool hasIPv6Sock,
-                                                 bool hasUNIXSock)
+void ConnectionRewirer::openRestoreSocket(bool hasIPv4Sock,
+                                          bool hasIPv6Sock,
+                                          bool hasUNIXSock)
 {
   memset(&_ip4RestoreAddr, 0, sizeof(_ip4RestoreAddr));
   memset(&_ip6RestoreAddr, 0, sizeof(_ip6RestoreAddr));
@@ -199,9 +199,9 @@ void dmtcp::ConnectionRewirer::openRestoreSocket(bool hasIPv4Sock,
 
   // Open UDS Restore Socket
   if (hasUNIXSock) {
-    dmtcp::ostringstream o;
+    ostringstream o;
     o << dmtcp_get_uniquepid_str() << "_" << dmtcp_get_coordinator_timestamp();
-    dmtcp::string str = o.str();
+    string str = o.str();
     int udsfd = _real_socket(AF_UNIX, SOCK_STREAM, 0);
     JASSERT(udsfd != -1);
     memset(&_udsRestoreAddr, 0, sizeof(struct sockaddr_un));
@@ -221,9 +221,9 @@ void dmtcp::ConnectionRewirer::openRestoreSocket(bool hasIPv4Sock,
 }
 
 void
-dmtcp::ConnectionRewirer::registerIncoming(const ConnectionIdentifier& local,
-                                           Connection* con,
-                                           int domain)
+ConnectionRewirer::registerIncoming(const ConnectionIdentifier& local,
+                                    Connection* con,
+                                    int domain)
 {
   JASSERT(domain == AF_INET || domain == AF_INET6 || domain == AF_UNIX)
     (domain) .Text("Unsupported domain.");
@@ -246,14 +246,14 @@ dmtcp::ConnectionRewirer::registerIncoming(const ConnectionIdentifier& local,
 }
 
 void
-dmtcp::ConnectionRewirer::registerOutgoing(const ConnectionIdentifier& remote,
-                                           Connection* con)
+ConnectionRewirer::registerOutgoing(const ConnectionIdentifier& remote,
+                                    Connection* con)
 {
   _pendingOutgoing[remote] = con;
   JTRACE("announcing pending outgoing") (remote);
 }
 
-void dmtcp::ConnectionRewirer::registerNSData()
+void ConnectionRewirer::registerNSData()
 {
   registerNSData((void*)&_ip4RestoreAddr, _ip4RestoreAddrlen,
                  &_pendingIP4Incoming);
@@ -263,9 +263,9 @@ void dmtcp::ConnectionRewirer::registerNSData()
                  &_pendingUDSIncoming);
 }
 
-void dmtcp::ConnectionRewirer::registerNSData(void            *addr,
-                                              socklen_t        addrLen,
-                                              ConnectionListT *conList)
+void ConnectionRewirer::registerNSData(void *addr,
+                                       socklen_t addrLen,
+                                       ConnectionListT *conList)
 {
   iterator i;
   JASSERT(theRewirer != NULL);
@@ -286,7 +286,7 @@ void dmtcp::ConnectionRewirer::registerNSData(void            *addr,
   //debugPrint();
 }
 
-void dmtcp::ConnectionRewirer::sendQueries()
+void ConnectionRewirer::sendQueries()
 {
   iterator i;
   for (i = _pendingOutgoing.begin(); i != _pendingOutgoing.end(); ++i) {
@@ -308,7 +308,7 @@ void dmtcp::ConnectionRewirer::sendQueries()
 }
 
 #if 0
-void dmtcp::ConnectionRewirer::debugPrint() const
+void ConnectionRewirer::debugPrint() const
 {
 #ifdef DEBUG
   ostringstream o;

@@ -23,8 +23,10 @@
 #include "threadsync.h"
 #include "../jalib/jassert.h"
 
-static dmtcp::map<FILE*, pid_t> _dmtcpPopenPidMap;
-typedef dmtcp::map<FILE*, pid_t>::iterator _dmtcpPopenPidMapIterator;
+using namespace dmtcp;
+
+static map<FILE*, pid_t> _dmtcpPopenPidMap;
+typedef map<FILE*, pid_t>::iterator _dmtcpPopenPidMapIterator;
 
 static pthread_mutex_t popen_map_lock = PTHREAD_MUTEX_INITIALIZER;
 

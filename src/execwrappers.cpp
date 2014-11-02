@@ -55,14 +55,14 @@ using namespace dmtcp;
 
 static bool pthread_atfork_enabled = false;
 static uint64_t child_time;
-static dmtcp::CoordinatorAPI coordinatorAPI;
+static CoordinatorAPI coordinatorAPI;
 
 // Allow plugins to call fork/exec/system to perform specific tasks during
 // preCKpt/postCkpt/PostRestart etc. event.
 static bool isPerformingCkptRestart()
 {
-  if (dmtcp::WorkerState::currentState() != dmtcp::WorkerState::UNKNOWN &&
-      dmtcp::WorkerState::currentState() != dmtcp::WorkerState::RUNNING) {
+  if (WorkerState::currentState() != WorkerState::UNKNOWN &&
+      WorkerState::currentState() != WorkerState::RUNNING) {
     return true;
   }
   return false;
@@ -70,7 +70,7 @@ static bool isPerformingCkptRestart()
 
 static bool isBlacklistedProgram(const char *path)
 {
-  dmtcp::string programName = jalib::Filesystem::BaseName(path);
+  string programName = jalib::Filesystem::BaseName(path);
 
   JASSERT(programName != "dmtcp_coordinator" &&
           programName != "dmtcp_launch"  &&
@@ -142,21 +142,21 @@ LIB_PRIVATE void pthread_atfork_child()
   }
   pthread_atfork_enabled = false;
 
-  uint64_t host = dmtcp::UniquePid::ThisProcess().hostid();
-  dmtcp::UniquePid parent = dmtcp::UniquePid::ThisProcess();
-  dmtcp::UniquePid child = dmtcp::UniquePid(host, getpid(), child_time);
-  dmtcp::string child_name = jalib::Filesystem::GetProgramName() + "_(forked)";
+  uint64_t host = UniquePid::ThisProcess().hostid();
+  UniquePid parent = UniquePid::ThisProcess();
+  UniquePid child = UniquePid(host, getpid(), child_time);
+  string child_name = jalib::Filesystem::GetProgramName() + "_(forked)";
   _dmtcp_remutex_on_fork();
-  dmtcp::ThreadSync::resetLocks();
+  ThreadSync::resetLocks();
 
-  dmtcp::UniquePid::resetOnFork(child);
-  dmtcp::Util::initializeLogFile(child_name);
+  UniquePid::resetOnFork(child);
+  Util::initializeLogFile(child_name);
 
-  dmtcp::ProcessInfo::instance().resetOnFork();
+  ProcessInfo::instance().resetOnFork();
 
   JTRACE("fork()ed [CHILD]") (child) (parent);
-  dmtcp::CoordinatorAPI::resetOnFork(coordinatorAPI);
-  dmtcp::DmtcpWorker::resetOnFork();
+  CoordinatorAPI::resetOnFork(coordinatorAPI);
+  DmtcpWorker::resetOnFork();
 }
 
 extern "C" pid_t fork()
@@ -169,14 +169,14 @@ extern "C" pid_t fork()
    * processing this system call.
    */
   WRAPPER_EXECUTION_GET_EXCL_LOCK();
-  dmtcp::DmtcpWorker::eventHook(DMTCP_EVENT_ATFORK_PREPARE, NULL);
+  DmtcpWorker::eventHook(DMTCP_EVENT_ATFORK_PREPARE, NULL);
 
   /* Little bit cheating here: child_time should be same for both parent and
    * child, thus we compute it before forking the child. */
   child_time = time(NULL);
-  uint64_t host = dmtcp::UniquePid::ThisProcess().hostid();
-  dmtcp::UniquePid parent = dmtcp::UniquePid::ThisProcess();
-  dmtcp::string child_name = jalib::Filesystem::GetProgramName() + "_(forked)";
+  uint64_t host = UniquePid::ThisProcess().hostid();
+  UniquePid parent = UniquePid::ThisProcess();
+  string child_name = jalib::Filesystem::GetProgramName() + "_(forked)";
 
   coordinatorAPI.createNewConnectionBeforeFork(child_name);
 
@@ -195,13 +195,13 @@ extern "C" pid_t fork()
      * within the DmtcpWorker constructor to make sure that this is the first
      * registered handle.
      */
-    dmtcp::UniquePid child = dmtcp::UniquePid(host, getpid(), child_time);
+    UniquePid child = UniquePid(host, getpid(), child_time);
     JTRACE("fork() done [CHILD]") (child) (parent);
 
-    dmtcp::initializeMtcpEngine();
+    initializeMtcpEngine();
   } else if (childPid > 0) { /* Parent Process */
-    dmtcp::UniquePid child = dmtcp::UniquePid(host, childPid, child_time);
-    dmtcp::ProcessInfo::instance().insertChild(childPid, child);
+    UniquePid child = UniquePid(host, childPid, child_time);
+    ProcessInfo::instance().insertChild(childPid, child);
     JTRACE("fork()ed [PARENT] done") (child);;
   }
 
@@ -209,7 +209,7 @@ extern "C" pid_t fork()
 
   if (childPid != 0) {
     coordinatorAPI.closeConnection();
-    dmtcp::DmtcpWorker::eventHook(DMTCP_EVENT_ATFORK_PARENT, NULL);
+    DmtcpWorker::eventHook(DMTCP_EVENT_ATFORK_PARENT, NULL);
     WRAPPER_EXECUTION_RELEASE_EXCL_LOCK();
   }
   return childPid;
@@ -237,7 +237,7 @@ static void execShortLivedProcessAndExit(const char *path, char *const argv[])
   if (argv[0] == NULL) {
     output = _real_popen(path, "r");
   } else {
-    dmtcp::string command = path;
+    string command = path;
     for (int i = 1; argv[i] != NULL; i++)
       command = command + " " + argv[i];
     output = _real_popen(command.c_str(), "r");
@@ -267,30 +267,30 @@ static void dmtcpPrepareForExec(const char *path, char *const argv[],
 
   const char * libPrefix = "/lib/lib";
   const char * lib64Prefix = "/lib64/lib";
-  if (path != NULL && dmtcp::Util::strStartsWith(path, libPrefix))
+  if (path != NULL && Util::strStartsWith(path, libPrefix))
     execShortLivedProcessAndExit(path, argv);
-  if (path != NULL && dmtcp::Util::strStartsWith(path, lib64Prefix))
+  if (path != NULL && Util::strStartsWith(path, lib64Prefix))
     execShortLivedProcessAndExit(path, argv);
   // Needed for /usr/libexec/utempter/utempter and other short-lived
   //  setuid/setgid processes.
   // FIXME:  USE THIS FOR ALL setuid/setgid PROCESSES EXCEPT ONES THAT
   //         WE DIRECTLY HANDLE, LIKE 'screen'.  (Need to name special routine,
   //         execScreenProcess() ??)
-  if (path != NULL && dmtcp::Util::strEndsWith(path, "/utempter")) {
+  if (path != NULL && Util::strEndsWith(path, "/utempter")) {
     JTRACE("Trying to exec: utempter")(path)(argv[0])(argv[1]);
     int oldIdx = -1;
     char *oldStr = NULL;
-    dmtcp::string realPtsNameStr;
+    string realPtsNameStr;
     // utempter takes a pts slave name as an argument. Since we virtualize
     // ptys, the slave name points to a virtual slave name, thus we need to
     // replace it with the real one.
     for (size_t i = 0; argv[i] != NULL; i++) {
-      if (dmtcp::Util::strStartsWith(argv[i], VIRT_PTS_PREFIX_STR)) {
+      if (Util::strStartsWith(argv[i], VIRT_PTS_PREFIX_STR)) {
         // FIXME: Potential memory leak if exec() fails.
         char *realPtsNameStr = (char*)JALLOC_HELPER_MALLOC(PTS_PATH_MAX);
         oldStr = argv[i];
         oldIdx = i;
-        dmtcp::SharedData::getRealPtyName(argv[i], realPtsNameStr,
+        SharedData::getRealPtyName(argv[i], realPtsNameStr,
                                           PTS_PATH_MAX);
         // Override const restriction
         *(const char**)&argv[i] = realPtsNameStr;
@@ -304,13 +304,13 @@ static void dmtcpPrepareForExec(const char *path, char *const argv[],
   }
 
   // FIXME:  SEE COMMENTS IN dmtcp_launch.cpp, rev. 1087; AND CHANGE THIS.
-  if (dmtcp::Util::isSetuid(path)) {
-    if (dmtcp::Util::isScreen(path)) {
-      dmtcp::Util::setScreenDir();
+  if (Util::isSetuid(path)) {
+    if (Util::isScreen(path)) {
+      Util::setScreenDir();
     }
     // THIS NEXT LINE IS DANGEROUS.  MOST setuid PROGRAMS CAN'T RUN UNPRIVILEGED
-    dmtcp::Util::patchArgvIfSetuid(path, argv, newArgv);
-    // BUG:  dmtcp::Util::patchArgvIfSetuid() DOES NOT SET newArgv WHEN COPYING
+    Util::patchArgvIfSetuid(path, argv, newArgv);
+    // BUG:  Util::patchArgvIfSetuid() DOES NOT SET newArgv WHEN COPYING
     //   BINARY IN CODE RE-FACTORING FROM REVISION 911.
     *filename = (*newArgv)[0];
   } else {
@@ -328,14 +328,14 @@ static void dmtcpPrepareForExec(const char *path, char *const argv[],
   JASSERT(unlink(buf) == 0) (JASSERT_ERRNO);
   Util::changeFd(fd, PROTECTED_LIFEBOAT_FD);
   jalib::JBinarySerializeWriterRaw wr ("", PROTECTED_LIFEBOAT_FD);
-  dmtcp::UniquePid::serialize (wr);
+  UniquePid::serialize (wr);
   DmtcpEventData_t edata;
   edata.serializerInfo.fd = PROTECTED_LIFEBOAT_FD;
-  dmtcp::DmtcpWorker::eventHook(DMTCP_EVENT_PRE_EXEC, &edata);
+  DmtcpWorker::eventHook(DMTCP_EVENT_PRE_EXEC, &edata);
 
   JTRACE("Will exec filename instead of path") (path) (*filename);
 
-  dmtcp::Util::adjustRlimitStack();
+  Util::adjustRlimitStack();
 
   char str[21] = {0};
   sprintf(str, "%d", SharedData::getDlsymOffset());
@@ -357,8 +357,8 @@ static void dmtcpProcessFailedExec(const char *path, char *newArgv[])
 {
   int saved_errno = errno;
 
-  if (dmtcp::Util::isSetuid(path)) {
-    dmtcp::Util::freePatchedArgv(newArgv);
+  if (Util::isSetuid(path)) {
+    Util::freePatchedArgv(newArgv);
   }
 
   restoreUserLDPRELOAD();
@@ -371,12 +371,12 @@ static void dmtcpProcessFailedExec(const char *path, char *newArgv[])
   JASSERT(_real_close(PROTECTED_LIFEBOAT_FD) == 0) (JASSERT_ERRNO);
 }
 
-static dmtcp::string getUpdatedLdPreload(const char* filename,
+static string getUpdatedLdPreload(const char* filename,
                                          const char* currLdPreload = NULL)
 {
-  dmtcp::string preload = getenv(ENV_VAR_HIJACK_LIBS);
+  string preload = getenv(ENV_VAR_HIJACK_LIBS);
   bool isElf, is32bitElf;
-  if  (dmtcp::Util::elfType(filename, &isElf, &is32bitElf) != -1) {
+  if  (Util::elfType(filename, &isElf, &is32bitElf) != -1) {
     if (isElf && is32bitElf && getenv(ENV_VAR_HIJACK_LIBS_M32) != NULL) {
       preload = getenv(ENV_VAR_HIJACK_LIBS_M32);
     }
@@ -399,7 +399,7 @@ static const char* ourImportantEnvs[] =
 };
 #define ourImportantEnvsCnt ((sizeof(ourImportantEnvs))/(sizeof(const char*)))
 
-static bool isImportantEnv (dmtcp::string str)
+static bool isImportantEnv (string str)
 {
   str = str.substr(0, str.find("="));
 
@@ -410,11 +410,11 @@ static bool isImportantEnv (dmtcp::string str)
   return false;
 }
 
-static dmtcp::vector<dmtcp::string> copyUserEnv (char *const envp[])
+static vector<string> copyUserEnv (char *const envp[])
 {
-  dmtcp::vector<dmtcp::string> strStorage;
+  vector<string> strStorage;
 
-  dmtcp::ostringstream out;
+  ostringstream out;
   out << "non-DMTCP env vars:\n";
   for (; *envp != NULL; ++envp) {
     if (isImportantEnv (*envp)) {
@@ -423,7 +423,7 @@ static dmtcp::vector<dmtcp::string> copyUserEnv (char *const envp[])
       }
       continue;
     }
-    dmtcp::string e(*envp);
+    string e(*envp);
     strStorage.push_back (e);
     if (dbg) {
       out << "     addenv[user]:" << strStorage.back() << '\n';
@@ -435,15 +435,15 @@ static dmtcp::vector<dmtcp::string> copyUserEnv (char *const envp[])
 }
 
 static
-dmtcp::vector<const char*> patchUserEnv (dmtcp::vector<dmtcp::string> &envp,
+vector<const char*> patchUserEnv (vector<string> &envp,
                                          const char* filename)
 {
-  dmtcp::vector<const char*> envVect;
+  vector<const char*> envVect;
   const char *userPreloadStr = NULL;
   envVect.clear();
   JASSERT(envVect.size() == 0);
 
-  dmtcp::ostringstream out;
+  ostringstream out;
   out << "non-DMTCP env vars:\n";
 
   for (size_t i = 0; i < envp.size(); i++) {
@@ -453,7 +453,7 @@ dmtcp::vector<const char*> patchUserEnv (dmtcp::vector<dmtcp::string> &envp,
       }
       continue;
     }
-    if (dmtcp::Util::strStartsWith(envp[i], "LD_PRELOAD=")) {
+    if (Util::strStartsWith(envp[i], "LD_PRELOAD=")) {
       userPreloadStr = envp[i].c_str() + strlen("LD_PRELOAD=");
       continue;
     }
@@ -469,7 +469,7 @@ dmtcp::vector<const char*> patchUserEnv (dmtcp::vector<dmtcp::string> &envp,
   out.str("DMTCP env vars:\n");
   for (size_t i=0; i<ourImportantEnvsCnt; ++i) {
     const char* v = getenv (ourImportantEnvs[i]);
-    dmtcp::string e = ourImportantEnvs[i];
+    string e = ourImportantEnvs[i];
     if (strcmp(ourImportantEnvs[i], ENV_VAR_ORIG_LD_PRELOAD) == 0 &&
         userPreloadStr != NULL && strlen(userPreloadStr) > 0) {
       envp.push_back(e + "=" + userPreloadStr);
@@ -484,7 +484,7 @@ dmtcp::vector<const char*> patchUserEnv (dmtcp::vector<dmtcp::string> &envp,
     }
   }
 
-  dmtcp::string ldPreloadStr = "LD_PRELOAD=";
+  string ldPreloadStr = "LD_PRELOAD=";
   ldPreloadStr += getUpdatedLdPreload(filename, userPreloadStr);
 
   envp.push_back(ldPreloadStr);
@@ -515,13 +515,13 @@ extern "C" int execve (const char *filename, char *const argv[],
    */
   WRAPPER_EXECUTION_GET_EXCL_LOCK();
 
-  dmtcp::vector<dmtcp::string> origUserEnv = copyUserEnv(envp);
+  vector<string> origUserEnv = copyUserEnv(envp);
 
   char *newFilename;
   char **newArgv;
   dmtcpPrepareForExec(filename, argv, &newFilename, &newArgv);
 
-  dmtcp::vector<const char*> envVect = patchUserEnv(origUserEnv, filename);
+  vector<const char*> envVect = patchUserEnv(origUserEnv, filename);
 
   int retVal = _real_execve (newFilename, newArgv, (char* const*)&envVect[0]);
 
@@ -576,13 +576,13 @@ extern "C" int execvpe (const char *filename, char *const argv[],
    */
   WRAPPER_EXECUTION_GET_EXCL_LOCK();
 
-  dmtcp::vector<dmtcp::string> origUserEnv = copyUserEnv(envp);
+  vector<string> origUserEnv = copyUserEnv(envp);
 
   char *newFilename;
   char **newArgv;
   dmtcpPrepareForExec(filename, argv, &newFilename, &newArgv);
 
-  dmtcp::vector<const char*> envVect = patchUserEnv(origUserEnv, filename);
+  vector<const char*> envVect = patchUserEnv(origUserEnv, filename);
 
   int retVal = _real_execvpe(newFilename, newArgv, (char* const*)&envVect[0]);
 

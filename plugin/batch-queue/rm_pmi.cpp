@@ -52,6 +52,8 @@
 #define PMI_ERR_INVALID_SIZE        13
 #define PMI_ERR_INVALID_KVS         14
 
+using namespace dmtcp;
+
 static pthread_mutex_t _lock_lib, _lock_flag;
 static void do_lock_lib() {
   JASSERT(pthread_mutex_lock(&_lock_lib) == 0);
@@ -92,8 +94,8 @@ void rm_init_pmi(){
 
     do_lock_lib();
     if( !handle ){
-      dmtcp::string pattern = "libpmi";
-      dmtcp::string libpath;
+      string pattern = "libpmi";
+      string libpath;
       if( findLib_byname(pattern,libpath) != 0 ){
         JASSERT( findLib_byfunc("PMI_Init",libpath) == 0);
       }

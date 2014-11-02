@@ -198,7 +198,7 @@ namespace dmtcp {
       Inferior* getInferior(pid_t pid) {
         return _sharedData->getInferior(pid);
       }
-      dmtcp::vector<pid_t> getInferiorVector(pid_t tid);
+      vector<pid_t> getInferiorVector(pid_t tid);
       void insertInferior(Inferior *inf);
 
       void createSharedFile();
@@ -224,8 +224,8 @@ namespace dmtcp {
     private:
       PtraceSharedData *_sharedData;
       size_t            _sharedDataSize;
-      dmtcp::map< pid_t, dmtcp::vector<pid_t> > _supToInfsMap;
-      dmtcp::map< pid_t, pid_t > _infToSupMap;
+      map< pid_t, vector<pid_t> > _supToInfsMap;
+      map< pid_t, pid_t > _infToSupMap;
   };
 }
 #endif

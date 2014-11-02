@@ -31,7 +31,7 @@
  *   back up to top level monitorSockets                                    *
  * Hence, even for checkpoint, handleUserCommand just changes state,        *
  *   broadcasts an initial checkpoint command, and then returns to top      *
- *   level.  Replies from clients then drive further state changes.        *
+ *   level.  Replies from clients then drive further state changes.         *
  * The prefix command 'b' (blocking) from dmtcp_command modifies behavior   *
  *   of 'c' so that the reply to dmtcp_command happens only when clients    *
  *   are back in RUNNING state.                                             *
@@ -42,10 +42,10 @@
  * Restart:    RESTARTING -> CHECKPOINTED -> NAME_SERVICE_DATA_REGISTERED   *
  *                -> DONE_QUERYING -> REFILLED -> RUNNING	            *
  * If debugging, set gdb breakpoint on:					    *
- *   dmtcp::DmtcpCoordinator::onConnect					    *
- *   dmtcp::DmtcpCoordinator::onData					    *
- *   dmtcp::DmtcpCoordinator::handleUserCommand				    *
- *   dmtcp::DmtcpCoordinator::broadcastMessage				    *
+ *   DmtcpCoordinator::onConnect					    *
+ *   DmtcpCoordinator::onData						    *
+ *   DmtcpCoordinator::handleUserCommand				    *
+ *   DmtcpCoordinator::broadcastMessage					    *
  ****************************************************************************/
 
 #include <stdlib.h>
@@ -395,14 +395,14 @@ static const char* theRestartScriptMultiHostProcessing =
 ;
 
 static int thePort = -1;
-static dmtcp::string thePortFile;
+static string thePortFile;
 
 static bool exitOnLast = false;
 static bool blockUntilDone = false;
 static bool exitAfterCkpt = false;
 static int blockUntilDoneRemote = -1;
 
-static dmtcp::DmtcpCoordinator prog;
+static DmtcpCoordinator prog;
 
 /* The coordinator can receive a second checkpoint request while processing the
  * first one.  If the second request comes at a point where the coordinator has
@@ -444,15 +444,15 @@ static int numPeers = -1;
 static time_t curTimeStamp = -1;
 static time_t ckptTimeStamp = -1;
 
-static dmtcp::LookupService lookupService;
-static dmtcp::string localHostName;
-static dmtcp::string localPrefix;
-static dmtcp::string remotePrefix;
+static LookupService lookupService;
+static string localHostName;
+static string localPrefix;
+static string remotePrefix;
 
-static dmtcp::string coordHostname;
+static string coordHostname;
 static struct in_addr localhostIPAddr;
 
-static dmtcp::string ckptDir;
+static string ckptDir;
 
 #define MAX_EVENTS 10000
 struct epoll_event events[MAX_EVENTS];
@@ -465,13 +465,13 @@ static void preExitCleanup();
 static pid_t _nextVirtualPid = INITIAL_VIRTUAL_PID;
 
 static int theNextClientNumber = 1;
-dmtcp::vector<CoordClient*> clients;
+vector<CoordClient*> clients;
 
-dmtcp::CoordClient::CoordClient(const jalib::JSocket& sock,
-                                const struct sockaddr_storage *addr,
-                                socklen_t len,
-                                dmtcp::DmtcpMessage &hello_remote,
-				int isNSWorker)
+CoordClient::CoordClient(const jalib::JSocket& sock,
+                         const struct sockaddr_storage *addr,
+                         socklen_t len,
+                         DmtcpMessage &hello_remote,
+                         int isNSWorker)
   : _sock(sock)
 {
   _isNSWorker = isNSWorker;
@@ -483,7 +483,7 @@ dmtcp::CoordClient::CoordClient(const jalib::JSocket& sock,
   _ip = inet_ntoa(in->sin_addr);
 }
 
-void dmtcp::CoordClient::readProcessInfo(dmtcp::DmtcpMessage& msg)
+void CoordClient::readProcessInfo(DmtcpMessage& msg)
 {
   if (msg.extraBytes > 0) {
     char* extraData = new char[msg.extraBytes];
@@ -497,7 +497,7 @@ void dmtcp::CoordClient::readProcessInfo(dmtcp::DmtcpMessage& msg)
   }
 }
 
-pid_t dmtcp::DmtcpCoordinator::getNewVirtualPid()
+pid_t DmtcpCoordinator::getNewVirtualPid()
 {
   pid_t pid = -1;
   JASSERT(_virtualPidToClientMap.size() < MAX_VIRTUAL_PID/1000)
@@ -516,7 +516,7 @@ pid_t dmtcp::DmtcpCoordinator::getNewVirtualPid()
   return pid;
 }
 
-void dmtcp::DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*= NULL*/)
+void DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*= NULL*/)
 {
   if (reply != NULL) reply->coordCmdStatus = CoordCmdStatus::NOERROR;
 
@@ -622,7 +622,7 @@ void dmtcp::DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*
   return;
 }
 
-void dmtcp::DmtcpCoordinator::updateMinimumState(dmtcp::WorkerState oldState)
+void DmtcpCoordinator::updateMinimumState(WorkerState oldState)
 {
   WorkerState newState = minimumState();
 
@@ -718,7 +718,7 @@ void dmtcp::DmtcpCoordinator::updateMinimumState(dmtcp::WorkerState oldState)
     if (blockUntilDone) {
       DmtcpMessage blockUntilDoneReply(DMT_USER_CMD_RESULT);
       JNOTE ( "replying to dmtcp_command:  we're done" );
-      // These were set in dmtcp::DmtcpCoordinator::onConnect in this file
+      // These were set in DmtcpCoordinator::onConnect in this file
       jalib::JSocket remote ( blockUntilDoneRemote );
       remote << blockUntilDoneReply;
       remote.close();
@@ -728,7 +728,7 @@ void dmtcp::DmtcpCoordinator::updateMinimumState(dmtcp::WorkerState oldState)
   }
 }
 
-void dmtcp::DmtcpCoordinator::onData(CoordClient *client)
+void DmtcpCoordinator::onData(CoordClient *client)
 {
   DmtcpMessage msg;
   JASSERT(client != NULL);
@@ -774,8 +774,8 @@ void dmtcp::DmtcpCoordinator::onData(CoordClient *client)
     {
       JASSERT ( extraData!=0 )
         .Text ( "extra data expected with DMT_CKPT_FILENAME message" );
-      dmtcp::string ckptFilename;
-      dmtcp::string hostname;
+      string ckptFilename;
+      string hostname;
       ckptFilename = extraData;
       hostname = extraData + ckptFilename.length() + 1;
 
@@ -814,7 +814,7 @@ void dmtcp::DmtcpCoordinator::onData(CoordClient *client)
     {
       JTRACE ("received REGISTER_NAME_SERVICE_DATA_SYNC msg") (client->identity());
       lookupService.registerData(msg, (const void*) extraData);
-      dmtcp::DmtcpMessage response(DMT_REGISTER_NAME_SERVICE_DATA_SYNC_RESPONSE);
+      DmtcpMessage response(DMT_REGISTER_NAME_SERVICE_DATA_SYNC_RESPONSE);
       JTRACE("Sending NS response to the client...");
       client->sock() << response;
     }
@@ -838,7 +838,7 @@ void dmtcp::DmtcpCoordinator::onData(CoordClient *client)
     break;
     case DMT_UPDATE_PROCESS_INFO_AFTER_EXEC:
     {
-      dmtcp::string progname = extraData;
+      string progname = extraData;
       JNOTE("Updating process Information after exec()")
         (progname) (msg.from) (client->identity());
       client->progname(progname);
@@ -875,7 +875,7 @@ static void preExitCleanup()
   unlink(thePortFile.c_str());
 }
 
-void dmtcp::DmtcpCoordinator::onDisconnect(CoordClient *client)
+void DmtcpCoordinator::onDisconnect(CoordClient *client)
 {
   if (client->isNSWorker()) {
     client->sock().close();
@@ -914,7 +914,7 @@ void dmtcp::DmtcpCoordinator::onDisconnect(CoordClient *client)
   }
 }
 
-void dmtcp::DmtcpCoordinator::initializeComputation()
+void DmtcpCoordinator::initializeComputation()
 {
   //this is the first connection, do some initializations
   workersRunningAndSuspendMsgSent = false;
@@ -925,14 +925,14 @@ void dmtcp::DmtcpCoordinator::initializeComputation()
   updateCheckpointInterval( theDefaultCheckpointInterval );
 
   // drop current computation group to 0
-  compId = dmtcp::UniquePid(0,0,0);
+  compId = UniquePid(0,0,0);
   curTimeStamp = 0; // Drop timestamp to 0
   numPeers = -1; // Drop number of peers to unknown
   blockUntilDone = false;
   //exitAfterCkpt = false;
 }
 
-void dmtcp::DmtcpCoordinator::onConnect()
+void DmtcpCoordinator::onConnect()
 {
   struct sockaddr_storage remoteAddr;
   socklen_t remoteLen = sizeof(remoteAddr);
@@ -944,7 +944,7 @@ void dmtcp::DmtcpCoordinator::onConnect()
     return;
   }
 
-  dmtcp::DmtcpMessage hello_remote;
+  DmtcpMessage hello_remote;
   hello_remote.poison();
   JTRACE("Reading from incoming connection...");
   remote >> hello_remote;
@@ -991,7 +991,7 @@ void dmtcp::DmtcpCoordinator::onConnect()
     JTRACE ("received REGISTER_NAME_SERVICE_DATA msg on running") (hello_remote.from);
     lookupService.registerData(hello_remote, (const void*) extraData);
     delete [] extraData;
-    dmtcp::DmtcpMessage response(DMT_REGISTER_NAME_SERVICE_DATA_SYNC_RESPONSE);
+    DmtcpMessage response(DMT_REGISTER_NAME_SERVICE_DATA_SYNC_RESPONSE);
     JTRACE("Reading from incoming connection...");
     remote << response;
     remote.close();
@@ -1062,8 +1062,8 @@ void dmtcp::DmtcpCoordinator::onConnect()
   JTRACE("END") (clients.size());
 }
 
-void dmtcp::DmtcpCoordinator::processDmtUserCmd( DmtcpMessage& hello_remote,
-						 jalib::JSocket& remote )
+void DmtcpCoordinator::processDmtUserCmd(DmtcpMessage& hello_remote,
+                                         jalib::JSocket& remote )
 {
   //dmtcp_command doesn't handshake (it is antisocial)
   JTRACE("got user command from dmtcp_command")(hello_remote.coordCmd);
@@ -1072,7 +1072,7 @@ void dmtcp::DmtcpCoordinator::processDmtUserCmd( DmtcpMessage& hello_remote,
   // if previous 'b' blocking prefix command had set blockUntilDone
   if (blockUntilDone && blockUntilDoneRemote == -1  &&
       hello_remote.coordCmd == 'c') {
-    // Reply will be done in dmtcp::DmtcpCoordinator::onData in this file.
+    // Reply will be done in DmtcpCoordinator::onData in this file.
     blockUntilDoneRemote = remote.sockfd();
     handleUserCommand( hello_remote.coordCmd, &reply );
   } else if ( (hello_remote.coordCmd == 'i')
@@ -1090,18 +1090,20 @@ void dmtcp::DmtcpCoordinator::processDmtUserCmd( DmtcpMessage& hello_remote,
   return;
 }
 
-bool dmtcp::DmtcpCoordinator::validateRestartingWorkerProcess
-	 (DmtcpMessage& hello_remote, jalib::JSocket& remote,
-          const struct sockaddr_storage* remoteAddr, socklen_t remoteLen)
+bool DmtcpCoordinator::validateRestartingWorkerProcess(
+    DmtcpMessage& hello_remote,
+    jalib::JSocket& remote,
+    const struct sockaddr_storage* remoteAddr,
+    socklen_t remoteLen)
 {
   struct timeval tv;
   const struct sockaddr_in *sin = (const struct sockaddr_in*) remoteAddr;
-  dmtcp::string remoteIP = inet_ntoa(sin->sin_addr);
-  dmtcp::DmtcpMessage hello_local ( dmtcp::DMT_ACCEPT );
+  string remoteIP = inet_ntoa(sin->sin_addr);
+  DmtcpMessage hello_local ( DMT_ACCEPT );
 
   JASSERT(hello_remote.state == WorkerState::RESTARTING) (hello_remote.state);
 
-  if (compId == dmtcp::UniquePid(0,0,0)) {
+  if (compId == UniquePid(0,0,0)) {
     JASSERT ( minimumState() == WorkerState::UNKNOWN )
       .Text ( "Coordinator should be idle at this moment" );
     // Coordinator is free at this moment - set up all the things
@@ -1118,7 +1120,7 @@ bool dmtcp::DmtcpCoordinator::validateRestartingWorkerProcess
     JNOTE ("Computation not in RESTARTING or CHECKPOINTED state."
            "  Reject incoming restarting computation process.")
       (compId) (hello_remote.compGroup) (minimumState());
-    hello_local.type = dmtcp::DMT_REJECT_NOT_RESTARTING;
+    hello_local.type = DMT_REJECT_NOT_RESTARTING;
     remote << hello_local;
     remote.close();
     return false;
@@ -1126,7 +1128,7 @@ bool dmtcp::DmtcpCoordinator::validateRestartingWorkerProcess
     JNOTE ("Reject incoming restarting computation process"
            " since it is not from current computation")
       ( compId ) ( hello_remote.compGroup );
-    hello_local.type = dmtcp::DMT_REJECT_WRONG_COMP;
+    hello_local.type = DMT_REJECT_WRONG_COMP;
     remote << hello_local;
     remote.close();
     return false;
@@ -1165,13 +1167,16 @@ bool dmtcp::DmtcpCoordinator::validateRestartingWorkerProcess
   return true;
 }
 
-bool dmtcp::DmtcpCoordinator::validateNewWorkerProcess
-  (DmtcpMessage& hello_remote, jalib::JSocket& remote, CoordClient *client,
-   const struct sockaddr_storage* remoteAddr, socklen_t remoteLen)
+bool DmtcpCoordinator::validateNewWorkerProcess(
+    DmtcpMessage& hello_remote,
+    jalib::JSocket& remote,
+    CoordClient *client,
+    const struct sockaddr_storage* remoteAddr,
+    socklen_t remoteLen)
 {
   const struct sockaddr_in *sin = (const struct sockaddr_in*) remoteAddr;
-  dmtcp::string remoteIP = inet_ntoa(sin->sin_addr);
-  dmtcp::DmtcpMessage hello_local(dmtcp::DMT_ACCEPT);
+  string remoteIP = inet_ntoa(sin->sin_addr);
+  DmtcpMessage hello_local(DMT_ACCEPT);
   hello_local.virtualPid = client->virtualPid();
   ComputationStatus s = getStatus();
 
@@ -1193,7 +1198,7 @@ bool dmtcp::DmtcpCoordinator::validateNewWorkerProcess
 
     // Now send DMT_DO_SUSPEND message so that this process can also
     // participate in the current checkpoint
-    DmtcpMessage suspendMsg (dmtcp::DMT_DO_SUSPEND);
+    DmtcpMessage suspendMsg (DMT_DO_SUSPEND);
     suspendMsg.compGroup = compId;
     remote << suspendMsg;
 
@@ -1204,7 +1209,7 @@ bool dmtcp::DmtcpCoordinator::validateNewWorkerProcess
           "  Refusing to accept new connections.")
       (compId) (hello_remote.from)
       (s.numPeers) (s.minimumState);
-    hello_local.type = dmtcp::DMT_REJECT_NOT_RUNNING;
+    hello_local.type = DMT_REJECT_NOT_RUNNING;
     remote << hello_local;
     remote.close();
     return false;
@@ -1214,7 +1219,7 @@ bool dmtcp::DmtcpCoordinator::validateNewWorkerProcess
     JNOTE ("New process, but already has computation group. Rejecting")
       (hello_remote.compGroup);
 
-    hello_local.type = dmtcp::DMT_REJECT_WRONG_COMP;
+    hello_local.type = DMT_REJECT_WRONG_COMP;
     remote << hello_local;
     remote.close();
     return false;
@@ -1256,7 +1261,7 @@ bool dmtcp::DmtcpCoordinator::validateNewWorkerProcess
           JNOTE("This node has different prefixDir than the rest of the "
                 "remote nodes. Rejecting connection!")
             (remotePrefix) (localPrefix) (client->prefixDir());
-          hello_local.type = dmtcp::DMT_REJECT_WRONG_PREFIX;
+          hello_local.type = DMT_REJECT_WRONG_PREFIX;
           remote << hello_local;
           remote.close();
           return false;
@@ -1275,7 +1280,7 @@ bool dmtcp::DmtcpCoordinator::validateNewWorkerProcess
   return true;
 }
 
-bool dmtcp::DmtcpCoordinator::startCheckpoint()
+bool DmtcpCoordinator::startCheckpoint()
 {
   uniqueCkptFilenames = false;
   ComputationStatus s = getStatus();
@@ -1305,8 +1310,7 @@ bool dmtcp::DmtcpCoordinator::startCheckpoint()
   }
 }
 
-void dmtcp::DmtcpCoordinator::broadcastMessage(DmtcpMessageType type,
-                                               int numPeers)
+void DmtcpCoordinator::broadcastMessage(DmtcpMessageType type, int numPeers)
 {
   DmtcpMessage msg;
   msg.type = type;
@@ -1329,7 +1333,7 @@ void dmtcp::DmtcpCoordinator::broadcastMessage(DmtcpMessageType type,
   JTRACE ("sending message")( type );
 }
 
-dmtcp::DmtcpCoordinator::ComputationStatus dmtcp::DmtcpCoordinator::getStatus() const
+DmtcpCoordinator::ComputationStatus DmtcpCoordinator::getStatus() const
 {
   ComputationStatus status;
   const static int INITIAL_MIN = WorkerState::_MAX;
@@ -1362,12 +1366,12 @@ dmtcp::DmtcpCoordinator::ComputationStatus dmtcp::DmtcpCoordinator::getStatus() 
   return status;
 }
 
-void dmtcp::DmtcpCoordinator::writeRestartScript()
+void DmtcpCoordinator::writeRestartScript()
 {
-  dmtcp::ostringstream o;
-  dmtcp::string uniqueFilename;
+  ostringstream o;
+  string uniqueFilename;
 
-  o << dmtcp::string(ckptDir) << "/"
+  o << string(ckptDir) << "/"
     << RESTART_SCRIPT_BASENAME << "_" << compId;
   if (uniqueCkptFilenames) {
     o << "_" << std::setw(5) << std::setfill('0') << compId.generation();
@@ -1377,8 +1381,8 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
 
   const bool isSingleHost = (_restartFilenames.size() == 1);
 
-  dmtcp::map< dmtcp::string, dmtcp::vector<dmtcp::string> >::const_iterator host;
-  dmtcp::vector<dmtcp::string>::const_iterator file;
+  map< string, vector<string> >::const_iterator host;
+  vector<string>::const_iterator file;
 
   char hostname[80];
   char timestamp[80];
@@ -1437,7 +1441,7 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
     JTRACE ( "Single HOST" );
 
     host=_restartFilenames.begin();
-    dmtcp::ostringstream o;
+    ostringstream o;
     for ( file=host->second.begin(); file!=host->second.end(); ++file ) {
       o << " " << *file;
     }
@@ -1542,8 +1546,8 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
 
   fclose ( fp );
   {
-    dmtcp::string filename = RESTART_SCRIPT_BASENAME "." RESTART_SCRIPT_EXT;
-    dmtcp::string dirname = jalib::Filesystem::DirName(uniqueFilename);
+    string filename = RESTART_SCRIPT_BASENAME "." RESTART_SCRIPT_EXT;
+    string dirname = jalib::Filesystem::DirName(uniqueFilename);
     int dirfd = open(dirname.c_str(), O_DIRECTORY | O_RDONLY);
     JASSERT(dirfd != -1) (dirname) (JASSERT_ERRNO);
 
@@ -1579,7 +1583,7 @@ static void setupSIGINTHandler()
 
 static void calcLocalAddr()
 {
-  dmtcp::string cmd;
+  string cmd;
   char hostname[HOST_NAME_MAX];
   JASSERT(gethostname(hostname, sizeof hostname) == 0) (JASSERT_ERRNO);
   struct addrinfo *result;
@@ -1611,7 +1615,7 @@ static void calcLocalAddr()
         JTRACE("getnameinfo() failed.") (gai_strerror(error));
         continue;
       }
-      if (Util::strStartsWith(name, hostname) || 
+      if (Util::strStartsWith(name, hostname) ||
           Util::strStartsWith(hostname, name)) {
         JASSERT(sizeof localhostIPAddr == sizeof s->sin_addr);
         success = true;
@@ -1632,7 +1636,7 @@ static void calcLocalAddr()
   coordHostname = hostname;
 }
 
-void dmtcp::DmtcpCoordinator::onTimeoutInterval()
+void DmtcpCoordinator::onTimeoutInterval()
 {
   if (theCheckpointInterval > 0) {
     startCheckpoint();
@@ -1640,7 +1644,7 @@ void dmtcp::DmtcpCoordinator::onTimeoutInterval()
   }
 }
 
-void dmtcp::DmtcpCoordinator::updateCheckpointInterval(uint32_t interval)
+void DmtcpCoordinator::updateCheckpointInterval(uint32_t interval)
 {
   if ( interval != DMTCPMESSAGE_SAME_CKPT_INTERVAL &&
       interval != theCheckpointInterval) {
@@ -1654,7 +1658,7 @@ void dmtcp::DmtcpCoordinator::updateCheckpointInterval(uint32_t interval)
   }
 }
 
-int dmtcp::DmtcpCoordinator::getRemainingTimeoutMS()
+int DmtcpCoordinator::getRemainingTimeoutMS()
 {
   int timeout = -1;
   if (theCheckpointInterval > 0) {
@@ -1669,7 +1673,7 @@ int dmtcp::DmtcpCoordinator::getRemainingTimeoutMS()
   return timeout;
 }
 
-void dmtcp::DmtcpCoordinator::eventLoop(bool daemon)
+void DmtcpCoordinator::eventLoop(bool daemon)
 {
   struct epoll_event ev;
   epollFd = epoll_create(MAX_EVENTS);
@@ -1743,7 +1747,7 @@ void dmtcp::DmtcpCoordinator::eventLoop(bool daemon)
   }
 }
 
-void dmtcp::DmtcpCoordinator::addDataSocket(CoordClient *client)
+void DmtcpCoordinator::addDataSocket(CoordClient *client)
 {
   struct epoll_event ev;
 
@@ -1773,7 +1777,7 @@ int main ( int argc, char** argv )
 
   shift;
   while(argc > 0){
-    dmtcp::string s = argv[0];
+    string s = argv[0];
     if(s=="-h" || s=="--help"){
       printf("%s", theUsage);
       return 1;
@@ -1829,12 +1833,12 @@ int main ( int argc, char** argv )
     fprintf(stderr, "(Use flag \"-q\" to hide this message.)\n\n");
   }
 
-  dmtcp::Util::setTmpDir(getenv(ENV_VAR_TMPDIR));
+  Util::setTmpDir(getenv(ENV_VAR_TMPDIR));
 
-  dmtcp::Util::initializeLogFile();
+  Util::initializeLogFile();
 
   JTRACE ( "New DMTCP coordinator starting." )
-    ( dmtcp::UniquePid::ThisProcess() );
+    ( UniquePid::ThisProcess() );
 
   if ( thePort < 0 )
   {

@@ -43,6 +43,9 @@
 //   that executes within the end user process
 
 // libdmtcp.so defines this differently
+
+using namespace dmtcp;
+
 void _dmtcp_setup_trampolines() {}
 
 int  dmtcp_get_ckpt_signal()
@@ -59,14 +62,14 @@ const char* dmtcp_get_tmpdir()
 
 const char* dmtcp_get_uniquepid_str()
 {
-  static dmtcp::string uniquepid_str;
-  uniquepid_str = dmtcp::UniquePid::ThisProcess(true).toString();
+  static string uniquepid_str;
+  uniquepid_str = UniquePid::ThisProcess(true).toString();
   return uniquepid_str.c_str();
 }
 
 DmtcpUniqueProcessId dmtcp_get_uniquepid()
 {
-  return  dmtcp::UniquePid::ThisProcess(true).upid();
+  return  UniquePid::ThisProcess(true).upid();
 }
 
 DmtcpUniqueProcessId dmtcp_get_computation_id()

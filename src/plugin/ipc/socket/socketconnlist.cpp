@@ -17,7 +17,7 @@ static bool _hasUNIXSock = false;
 
 void dmtcp_SocketConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
-  dmtcp::SocketConnList::instance().eventHook(event, data);
+  SocketConnList::instance().eventHook(event, data);
 }
 
 void dmtcp_SocketConn_ProcessFdEvent(int event, int arg1, int arg2)
@@ -31,8 +31,8 @@ void dmtcp_SocketConn_ProcessFdEvent(int event, int arg1, int arg2)
   }
 }
 
-static dmtcp::SocketConnList *socketConnList = NULL;
-dmtcp::SocketConnList& dmtcp::SocketConnList::instance()
+static SocketConnList *socketConnList = NULL;
+SocketConnList& SocketConnList::instance()
 {
   if (socketConnList == NULL) {
     socketConnList = new SocketConnList();
@@ -40,7 +40,7 @@ dmtcp::SocketConnList& dmtcp::SocketConnList::instance()
   return *socketConnList;
 }
 
-void dmtcp::SocketConnList::drain()
+void SocketConnList::drain()
 {
   // First, let all the Connection prepare for drain
   ConnectionList::drain();
@@ -64,7 +64,7 @@ void dmtcp::SocketConnList::drain()
   }
 }
 
-void dmtcp::SocketConnList::preCkpt()
+void SocketConnList::preCkpt()
 {
 #if HANDSHAKE_ON_CHECKPOINT == 1
   //handshake is done after one barrier after drain
@@ -105,14 +105,14 @@ void dmtcp::SocketConnList::preCkpt()
   }
 }
 
-void dmtcp::SocketConnList::postRestart()
+void SocketConnList::postRestart()
 {
   ConnectionRewirer::instance().openRestoreSocket(_hasIPv4Sock, _hasIPv6Sock,
                                                   _hasUNIXSock);
   ConnectionList::postRestart();
 }
 
-void dmtcp::SocketConnList::registerNSData(bool isRestart)
+void SocketConnList::registerNSData(bool isRestart)
 {
   if (isRestart) {
     ConnectionRewirer::instance().registerNSData();
@@ -120,7 +120,7 @@ void dmtcp::SocketConnList::registerNSData(bool isRestart)
   ConnectionList::registerNSData(isRestart);
 }
 
-void dmtcp::SocketConnList::sendQueries(bool isRestart)
+void SocketConnList::sendQueries(bool isRestart)
 {
   if (isRestart) {
     ConnectionRewirer::instance().sendQueries();
@@ -130,22 +130,22 @@ void dmtcp::SocketConnList::sendQueries(bool isRestart)
   ConnectionList::sendQueries(isRestart);
 }
 
-void dmtcp::SocketConnList::refill(bool isRestart)
+void SocketConnList::refill(bool isRestart)
 {
   KernelBufferDrainer::instance().refillAllSockets();
   ConnectionList::refill(isRestart);
 }
 
-void dmtcp::SocketConnList::scanForPreExisting()
+void SocketConnList::scanForPreExisting()
 {
   // FIXME: Detect stdin/out/err fds to detect duplicates.
-  dmtcp::vector<int> fds = jalib::Filesystem::ListOpenFds();
+  vector<int> fds = jalib::Filesystem::ListOpenFds();
   for (size_t i = 0; i < fds.size(); ++i) {
     int fd = fds[i];
     if (!Util::isValidFd(fd)) continue;
     if (dmtcp_is_protected_fd(fd)) continue;
 
-    dmtcp::string device = jalib::Filesystem::GetDeviceName(fd);
+    string device = jalib::Filesystem::GetDeviceName(fd);
 
     JTRACE("scanning pre-existing device") (fd) (device);
     if (device == jalib::Filesystem::GetControllingTerm()) {
@@ -162,7 +162,7 @@ void dmtcp::SocketConnList::scanForPreExisting()
   }
 }
 
-dmtcp::Connection *dmtcp::SocketConnList::createDummyConnection(int type)
+Connection *SocketConnList::createDummyConnection(int type)
 {
   if (type == Connection::TCP) {
     return new TcpConnection();

@@ -33,8 +33,8 @@ namespace dmtcp
   struct UniquePid : private DmtcpUniqueProcessId
   {
   public:
-    static dmtcp::UniquePid& ParentProcess();
-    static dmtcp::UniquePid& ThisProcess(bool disableJTrace = false);
+    static UniquePid& ParentProcess();
+    static UniquePid& ThisProcess(bool disableJTrace = false);
     UniquePid();
 
     UniquePid ( const uint64_t& host, const pid_t& pd, const uint64_t& tm,
@@ -75,15 +75,15 @@ namespace dmtcp
     bool operator!= ( const UniquePid& that ) const { return ! operator== ( that ); }
 
     static void restart();
-    static void resetOnFork ( const dmtcp::UniquePid& newId );
+    static void resetOnFork ( const UniquePid& newId );
 
-    dmtcp::string toString() const;
+    string toString() const;
 
     bool isNull() const;
   };
 
-  dmtcp::ostream& operator << ( dmtcp::ostream& o,const dmtcp::UniquePid& id );
-  dmtcp::ostream& operator << ( dmtcp::ostream& o,const DmtcpUniqueProcessId& id );
+  ostream& operator << ( ostream& o,const UniquePid& id );
+  ostream& operator << ( ostream& o,const DmtcpUniqueProcessId& id );
   bool operator==(const DmtcpUniqueProcessId& a, const DmtcpUniqueProcessId& b);
   bool operator!=(const DmtcpUniqueProcessId& a, const DmtcpUniqueProcessId& b);
 }

@@ -63,8 +63,8 @@ static const char* theUsage =
 
 int main ( int argc, char** argv )
 {
-  dmtcp::string interval = "";
-  dmtcp::string request = "h";
+  string interval = "";
+  string request = "h";
 
   initializeJalib();
 
@@ -73,7 +73,7 @@ int main ( int argc, char** argv )
   //process args
   shift;
   while(argc>0){
-    dmtcp::string s = argv[0];
+    string s = argv[0];
     if((s=="--help" || s=="-h") && argc==1){
       printf("%s", theUsage);
       return 1;

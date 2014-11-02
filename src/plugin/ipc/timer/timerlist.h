@@ -32,17 +32,17 @@
 #include "ipc.h"
 
 #define REAL_TO_VIRTUAL_TIMER_ID(id) \
-  dmtcp::TimerList::instance().realToVirtualTimerId(id)
+  TimerList::instance().realToVirtualTimerId(id)
 #define VIRTUAL_TO_REAL_TIMER_ID(id) \
-  dmtcp::TimerList::instance().virtualToRealTimerId(id)
+  TimerList::instance().virtualToRealTimerId(id)
 
 /*
 #define REAL_TO_VIRTUAL_CLOCK_ID(id) \
-  dmtcp::TimerList::instance().realToVirtualClockId(id)
+  TimerList::instance().realToVirtualClockId(id)
 */
 
 #define VIRTUAL_TO_REAL_CLOCK_ID(id) \
-  dmtcp::TimerList::instance().virtualToRealClockId(id)
+  TimerList::instance().virtualToRealClockId(id)
 
 namespace dmtcp {
   typedef struct TimerInfo {

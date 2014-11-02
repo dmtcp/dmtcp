@@ -87,7 +87,7 @@ namespace dmtcp
     };
   }
 
-  dmtcp::ostream& operator << ( dmtcp::ostream& o, const DmtcpMessageType& s );
+  ostream& operator << (ostream& o, const DmtcpMessageType& s);
 
   class WorkerState
   {
@@ -115,8 +115,8 @@ namespace dmtcp
       };
       WorkerState ( eWorkerState s = UNKNOWN ) : _state ( s ) {}
 
-      static void setCurrentState ( const dmtcp::WorkerState& theValue );
-      static dmtcp::WorkerState currentState();
+      static void setCurrentState ( const WorkerState& theValue );
+      static WorkerState currentState();
 
       eWorkerState value() const;
 

@@ -43,11 +43,11 @@ using namespace dmtcp;
 
 void dmtcp_FileConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
-  dmtcp::FileConnList::instance().eventHook(event, data);
+  FileConnList::instance().eventHook(event, data);
 }
 
-static dmtcp::vector<ProcMapsArea> shmAreas;
-static dmtcp::vector<dmtcp::FileConnection*> shmAreaConn;
+static vector<ProcMapsArea> shmAreas;
+static vector<FileConnection*> shmAreaConn;
 
 void dmtcp_FileConn_ProcessFdEvent(int event, int arg1, int arg2)
 {
@@ -61,7 +61,7 @@ void dmtcp_FileConn_ProcessFdEvent(int event, int arg1, int arg2)
 }
 
 static FileConnList *fileConnList = NULL;
-dmtcp::FileConnList& dmtcp::FileConnList::instance()
+FileConnList& FileConnList::instance()
 {
   if (fileConnList == NULL) {
     fileConnList = new FileConnList();
@@ -69,7 +69,7 @@ dmtcp::FileConnList& dmtcp::FileConnList::instance()
   return *fileConnList;
 }
 
-void dmtcp::FileConnList::preLockSaveOptions()
+void FileConnList::preLockSaveOptions()
 {
   // Now create a list of all shared-memory areas.
   prepareShmList();
@@ -77,7 +77,7 @@ void dmtcp::FileConnList::preLockSaveOptions()
   ConnectionList::preLockSaveOptions();
 }
 
-void dmtcp::FileConnList::drain()
+void FileConnList::drain()
 {
   ConnectionList::drain();
 
@@ -100,7 +100,7 @@ void dmtcp::FileConnList::drain()
   }
 }
 
-void dmtcp::FileConnList::postRestart()
+void FileConnList::postRestart()
 {
   /* It is possible to have two different connection-ids for a pre-existing
    * CTTY in two or more different process trees. In this case, only one of the
@@ -125,7 +125,7 @@ void dmtcp::FileConnList::postRestart()
   ConnectionList::postRestart();
 }
 
-void dmtcp::FileConnList::refill(bool isRestart)
+void FileConnList::refill(bool isRestart)
 {
   // Check comments in PtyConnection::preRefill()/refill()
   for (iterator i = begin(); i != end(); ++i) {
@@ -139,13 +139,13 @@ void dmtcp::FileConnList::refill(bool isRestart)
   ConnectionList::refill(isRestart);
 }
 
-void dmtcp::FileConnList::resume(bool isRestart)
+void FileConnList::resume(bool isRestart)
 {
   ConnectionList::resume(isRestart);
   remapShmMaps();
 }
 
-void dmtcp::FileConnList::prepareShmList()
+void FileConnList::prepareShmList()
 {
   ProcMapsArea area;
   int mapsfd = _real_open("/proc/self/maps", O_RDONLY, 0);
@@ -211,7 +211,7 @@ void dmtcp::FileConnList::prepareShmList()
   _real_close(mapsfd);
 }
 
-void dmtcp::FileConnList::remapShmMaps()
+void FileConnList::remapShmMaps()
 {
   for (size_t i = 0; i < shmAreas.size(); i++) {
     ProcMapsArea *area = &shmAreas[i];
@@ -230,12 +230,12 @@ void dmtcp::FileConnList::remapShmMaps()
 }
 
 //examine /proc/self/fd for unknown connections
-void dmtcp::FileConnList::scanForPreExisting()
+void FileConnList::scanForPreExisting()
 {
   // FIXME: Detect stdin/out/err fds to detect duplicates.
-  dmtcp::vector<int> fds = jalib::Filesystem::ListOpenFds();
-  dmtcp::string ctty = jalib::Filesystem::GetControllingTerm();
-  dmtcp::string parentCtty = jalib::Filesystem::GetControllingTerm(getppid());
+  vector<int> fds = jalib::Filesystem::ListOpenFds();
+  string ctty = jalib::Filesystem::GetControllingTerm();
+  string parentCtty = jalib::Filesystem::GetControllingTerm(getppid());
   for (size_t i = 0; i < fds.size(); ++i) {
     int fd = fds[i];
     if (!Util::isValidFd(fd)) continue;
@@ -245,7 +245,7 @@ void dmtcp::FileConnList::scanForPreExisting()
     bool isRegularFile = (S_ISREG(statbuf.st_mode) || S_ISCHR(statbuf.st_mode) ||
                           S_ISDIR(statbuf.st_mode) || S_ISBLK(statbuf.st_mode));
 
-    dmtcp::string device = jalib::Filesystem::GetDeviceName(fd);
+    string device = jalib::Filesystem::GetDeviceName(fd);
 
     JTRACE("scanning pre-existing device") (fd) (device);
     if (device == ctty || device == parentCtty) {
@@ -294,7 +294,7 @@ void dmtcp::FileConnList::scanForPreExisting()
   }
 }
 
-Connection *dmtcp::FileConnList::findDuplication(int fd, const char *path)
+Connection *FileConnList::findDuplication(int fd, const char *path)
 {
   string npath(path);
   for (iterator i = begin(); i != end(); ++i) {
@@ -312,14 +312,14 @@ Connection *dmtcp::FileConnList::findDuplication(int fd, const char *path)
   return NULL;
 }
 
-void dmtcp::FileConnList::processFileConnection(int fd, const char *path,
+void FileConnList::processFileConnection(int fd, const char *path,
                                                 int flags, mode_t mode)
 {
   Connection *c = NULL;
   struct stat statbuf;
   JASSERT(fstat(fd, &statbuf) == 0);
 
-  dmtcp::string device;
+  string device;
   if (path == NULL) {
     device = jalib::Filesystem::GetDeviceName(fd);
   } else {
@@ -335,17 +335,17 @@ void dmtcp::FileConnList::processFileConnection(int fd, const char *path,
     c = new PtyConnection(fd, path, flags, mode, PtyConnection::PTY_DEV_TTY);
   } else if (strcmp(path, "/dev/pty") == 0) {
     JASSERT(false) .Text("Not Implemented");
-  } else if (dmtcp::Util::strStartsWith(path, "/dev/pty")) {
+  } else if (Util::strStartsWith(path, "/dev/pty")) {
     // BSD Master
     c = new PtyConnection(fd, path, flags, mode, PtyConnection::PTY_BSD_MASTER);
-  } else if (dmtcp::Util::strStartsWith(path, "/dev/tty")) {
+  } else if (Util::strStartsWith(path, "/dev/tty")) {
     // BSD Slave
     c = new PtyConnection(fd, path, flags, mode, PtyConnection::PTY_BSD_SLAVE);
   } else if (strcmp(path, "/dev/ptmx") == 0 ||
              strcmp(path, "/dev/pts/ptmx") == 0) {
     // POSIX Master PTY
     c = new PtyConnection(fd, path, flags, mode, PtyConnection::PTY_MASTER);
-  } else if (dmtcp::Util::strStartsWith(path, "/dev/pts/")) {
+  } else if (Util::strStartsWith(path, "/dev/pts/")) {
     // POSIX Slave PTY
     c = new PtyConnection(fd, path, flags, mode, PtyConnection::PTY_SLAVE);
   } else if (S_ISREG(statbuf.st_mode) || S_ISCHR(statbuf.st_mode) ||
@@ -367,7 +367,7 @@ void dmtcp::FileConnList::processFileConnection(int fd, const char *path,
 }
 
 
-Connection *dmtcp::FileConnList::createDummyConnection(int type)
+Connection *FileConnList::createDummyConnection(int type)
 {
   switch (type) {
     case Connection::FILE:

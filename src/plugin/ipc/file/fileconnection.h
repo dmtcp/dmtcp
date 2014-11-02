@@ -59,8 +59,8 @@ namespace dmtcp
       PtyConnection() {}
       PtyConnection(int fd, const char *path, int flags, mode_t mode, int type);
 
-      dmtcp::string ptsName() { return _ptsName;; }
-      dmtcp::string virtPtsName() { return _virtPtsName;; }
+      string ptsName() { return _ptsName;; }
+      string virtPtsName() { return _virtPtsName;; }
       void markPreExistingCTTY() { _preExistingCTTY = true; }
 
       void preRefill(bool isRestart);
@@ -72,9 +72,9 @@ namespace dmtcp
       virtual bool isPreExistingCTTY() const { return _preExistingCTTY; }
       virtual string str() { return _masterName + ":" + _ptsName; }
     private:
-      dmtcp::string _masterName;
-      dmtcp::string _ptsName;
-      dmtcp::string _virtPtsName;
+      string _masterName;
+      string _ptsName;
+      string _virtPtsName;
       int64_t       _flags;
       int64_t       _mode;
       char          _ptmxIsPacketMode;
@@ -123,7 +123,7 @@ namespace dmtcp
       };
 
       FileConnection() {}
-      FileConnection(const dmtcp::string& path, int flags, mode_t mode,
+      FileConnection(const string& path, int flags, mode_t mode,
                      int type = FILE_REGULAR)
         : Connection(FILE)
         , _path(path)
@@ -145,7 +145,7 @@ namespace dmtcp
       virtual void serializeSubClass(jalib::JBinarySerializer& o);
 
       virtual string str() { return _path; }
-      dmtcp::string filePath() { return _path; }
+      string filePath() { return _path; }
       bool checkpointed() { return _checkpointed; }
       void doNotRestoreCkptCopy() { _checkpointed = false; }
 
@@ -158,11 +158,11 @@ namespace dmtcp
       void refreshPath();
       void handleUnlinkedFile();
       void calculateRelativePath();
-      dmtcp::string getSavedFilePath(const dmtcp::string& path);
+      string getSavedFilePath(const string& path);
 
-      dmtcp::string _path;
-      dmtcp::string _rel_path;
-      dmtcp::string _ckptFilesDir;
+      string _path;
+      string _rel_path;
+      string _ckptFilesDir;
       int32_t       _checkpointed;
       int32_t       _fileAlreadyExists;
       int32_t       _rmtype;
@@ -179,11 +179,11 @@ namespace dmtcp
     public:
 
       FifoConnection() {}
-      FifoConnection(const dmtcp::string& path, int flags, mode_t mode)
+      FifoConnection(const string& path, int flags, mode_t mode)
         : Connection(FIFO)
           , _path(path)
     {
-      dmtcp::string curDir = jalib::Filesystem::GetCWD();
+      string curDir = jalib::Filesystem::GetCWD();
       int offs = _path.find(curDir);
       if (offs < 0) {
         _rel_path = "*";
@@ -207,10 +207,10 @@ namespace dmtcp
     private:
       int  openFile();
       void refreshPath();
-      dmtcp::string getSavedFilePath(const dmtcp::string& path);
-      dmtcp::string _path;
-      dmtcp::string _rel_path;
-      dmtcp::string _savedRelativePath;
+      string getSavedFilePath(const string& path);
+      string _path;
+      string _rel_path;
+      string _savedRelativePath;
       int64_t       _flags;
       int64_t       _mode;
       vector<char> _in_data;
@@ -246,15 +246,15 @@ namespace dmtcp
       void on_mq_notify(const struct sigevent *sevp);
 
     private:
-      dmtcp::string  _name;
+      string  _name;
       int64_t        _oflag;
       int64_t        _mode;
       struct mq_attr _attr;
       int64_t        _qnum;
       char           _notifyReg;
       struct sigevent _sevp;
-      dmtcp::vector<jalib::JBuffer> _msgInQueue;
-      dmtcp::vector<uint32_t> _msgInQueuePrio;
+      vector<jalib::JBuffer> _msgInQueue;
+      vector<uint32_t> _msgInQueuePrio;
   };
 
 }

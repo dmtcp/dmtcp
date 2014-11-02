@@ -48,7 +48,7 @@ using namespace dmtcp;
 static bool ptmxTestPacketMode(int masterFd);
 static ssize_t ptmxReadAll(int fd, const void *origBuf, size_t maxCount);
 static ssize_t ptmxWriteAll(int fd, const void *buf, bool isPacketMode);
-static void CreateDirectoryStructure(const dmtcp::string& path);
+static void CreateDirectoryStructure(const string& path);
 static void writeFileFromFd(int fd, int destFd);
 static bool areFilesEqual(int fd, int destFd, size_t size);
 
@@ -57,7 +57,7 @@ static bool _isVimApp()
   static int isVimApp = -1;
 
   if (isVimApp == -1) {
-    dmtcp::string progName = jalib::Filesystem::GetProgramName();
+    string progName = jalib::Filesystem::GetProgramName();
 
     if (progName == "vi" || progName == "vim" || progName == "vim-normal" ||
         progName == "vim.basic"  || progName == "vim.tiny" ||
@@ -70,12 +70,12 @@ static bool _isVimApp()
   return isVimApp;
 }
 
-static bool _isBlacklistedFile(dmtcp::string& path)
+static bool _isBlacklistedFile(string& path)
 {
-  if ((dmtcp::Util::strStartsWith(path, "/dev/") &&
-       !dmtcp::Util::strStartsWith(path, "/dev/shm/")) ||
-      dmtcp::Util::strStartsWith(path, "/proc/") ||
-      dmtcp::Util::strStartsWith(path, dmtcp_get_tmpdir())) {
+  if ((Util::strStartsWith(path, "/dev/") &&
+       !Util::strStartsWith(path, "/dev/shm/")) ||
+      Util::strStartsWith(path, "/proc/") ||
+      Util::strStartsWith(path, dmtcp_get_tmpdir())) {
     return true;
   }
   return false;
@@ -226,7 +226,7 @@ static ssize_t ptmxWriteAll(int fd, const void *buf, bool isPacketMode)
   return(rc <= 0 ? rc : cum_count);
 }
 
-dmtcp::PtyConnection::PtyConnection(int fd, const char *path,
+PtyConnection::PtyConnection(int fd, const char *path,
                                     int flags, mode_t mode, int type)
   : Connection (PTY)
   , _flags(flags)
@@ -294,7 +294,7 @@ dmtcp::PtyConnection::PtyConnection(int fd, const char *path,
   }
 }
 
-void dmtcp::PtyConnection::drain()
+void PtyConnection::drain()
 {
   if (_type == PTY_MASTER) {
     const int maxCount = 10000;
@@ -315,7 +315,7 @@ void dmtcp::PtyConnection::drain()
   }
 }
 
-void dmtcp::PtyConnection::preRefill(bool isRestart)
+void PtyConnection::preRefill(bool isRestart)
 {
   if (!isRestart) {
     return;
@@ -346,7 +346,7 @@ void dmtcp::PtyConnection::preRefill(bool isRestart)
   }
 }
 
-void dmtcp::PtyConnection::refill(bool isRestart)
+void PtyConnection::refill(bool isRestart)
 {
   if (!isRestart) {
     return;
@@ -367,7 +367,7 @@ void dmtcp::PtyConnection::refill(bool isRestart)
   }
 }
 
-void dmtcp::PtyConnection::postRestart()
+void PtyConnection::postRestart()
 {
   JASSERT(_fds.size() > 0);
   if (_type == PTY_SLAVE || _type == PTY_BSD_SLAVE || _type == PTY_DEV_TTY) {
@@ -386,8 +386,8 @@ void dmtcp::PtyConnection::postRestart()
     case PTY_CTTY:
     case PTY_PARENT_CTTY:
       {
-        dmtcp::string controllingTty;
-        dmtcp::string stdinDeviceName;
+        string controllingTty;
+        string stdinDeviceName;
         if (_type == PTY_CTTY) {
           controllingTty = jalib::Filesystem::GetControllingTerm();
         } else {
@@ -459,7 +459,7 @@ void dmtcp::PtyConnection::postRestart()
     case PTY_BSD_MASTER:
       {
         JTRACE("Restoring BSD Master Pty") (_masterName) (_fds[0]);
-        //dmtcp::string slaveDeviceName =
+        //string slaveDeviceName =
           //_masterName.replace(0, strlen("/dev/pty"), "/dev/tty");
 
         tempfd = _real_open(_masterName.c_str(), _flags | extraFlags);
@@ -485,9 +485,9 @@ void dmtcp::PtyConnection::postRestart()
   Util::dupFds(tempfd, _fds);
 }
 
-void dmtcp::PtyConnection::serializeSubClass(jalib::JBinarySerializer& o)
+void PtyConnection::serializeSubClass(jalib::JBinarySerializer& o)
 {
-  JSERIALIZE_ASSERT_POINT("dmtcp::PtyConnection");
+  JSERIALIZE_ASSERT_POINT("PtyConnection");
   o & _ptsName & _virtPtsName & _masterName & _type;
   o & _flags & _mode & _preExistingCTTY;
   JTRACE("Serializing PtyConn.") (_ptsName) (_virtPtsName);
@@ -501,9 +501,9 @@ void dmtcp::PtyConnection::serializeSubClass(jalib::JBinarySerializer& o)
 // Default 100MB
 #define MAX_FILESIZE_TO_AUTOCKPT (100 * 1024 * 1024)
 
-void dmtcp::FileConnection::doLocking()
+void FileConnection::doLocking()
 {
-  if (dmtcp::Util::strStartsWith(_path, "/proc/")) {
+  if (Util::strStartsWith(_path, "/proc/")) {
     int index = 6;
     char *rest;
     pid_t proc_pid = strtol(&_path[index], &rest, 0);
@@ -518,7 +518,7 @@ void dmtcp::FileConnection::doLocking()
   _checkpointed = false;
 }
 
-void dmtcp::FileConnection::handleUnlinkedFile()
+void FileConnection::handleUnlinkedFile()
 {
   if ((!jalib::Filesystem::FileExists(_path) && !_isBlacklistedFile(_path)) ||
       _type == FILE_DELETED ||
@@ -550,9 +550,9 @@ void dmtcp::FileConnection::handleUnlinkedFile()
   }
 }
 
-void dmtcp::FileConnection::calculateRelativePath()
+void FileConnection::calculateRelativePath()
 {
-  dmtcp::string cwd = jalib::Filesystem::GetCWD();
+  string cwd = jalib::Filesystem::GetCWD();
   if (_path.compare(0, cwd.length(), cwd) == 0) {
     /* CWD = "/A/B", FileName = "/A/B/C/D" ==> relPath = "C/D" */
     _rel_path = _path.substr(cwd.length() + 1);
@@ -561,7 +561,7 @@ void dmtcp::FileConnection::calculateRelativePath()
   }
 }
 
-void dmtcp::FileConnection::drain()
+void FileConnection::drain()
 {
   struct stat statbuf;
   JASSERT(_fds.size() > 0);
@@ -631,14 +631,14 @@ void dmtcp::FileConnection::drain()
   }
 }
 
-void dmtcp::FileConnection::preCkpt()
+void FileConnection::preCkpt()
 {
   if (_checkpointed) {
     ConnectionIdentifier id;
     JASSERT(_type != FILE_PROCFS && _type != FILE_INVALID);
     JASSERT(SharedData::getCkptLeaderForFile(_st_dev, _st_ino, &id));
     if (id == _id) {
-      dmtcp::string savedFilePath = getSavedFilePath(_path);
+      string savedFilePath = getSavedFilePath(_path);
       CreateDirectoryStructure(savedFilePath);
 
       int destFd = _real_open(savedFilePath.c_str(), O_CREAT | O_WRONLY | O_TRUNC,
@@ -664,7 +664,7 @@ void dmtcp::FileConnection::preCkpt()
   }
 }
 
-void dmtcp::FileConnection::refill(bool isRestart)
+void FileConnection::refill(bool isRestart)
 {
   struct stat statbuf;
   if (!isRestart) return;
@@ -672,7 +672,7 @@ void dmtcp::FileConnection::refill(bool isRestart)
       strstr(_path.c_str(), "uverbs-event")) return;
 
   if (_checkpointed && _fileAlreadyExists) {
-    dmtcp::string savedFilePath = getSavedFilePath(_path);
+    string savedFilePath = getSavedFilePath(_path);
     int savedFd = _real_open(savedFilePath.c_str(), O_RDONLY, 0);
     JASSERT(savedFd != -1) (JASSERT_ERRNO) (savedFilePath);
 
@@ -738,7 +738,7 @@ void dmtcp::FileConnection::refill(bool isRestart)
   refreshPath();
 }
 
-void dmtcp::FileConnection::resume(bool isRestart)
+void FileConnection::resume(bool isRestart)
 {
   if (_checkpointed && isRestart && _type == FILE_DELETED) {
     /* Here we want to unlink the file. We want to do it only at the time of
@@ -755,13 +755,13 @@ void dmtcp::FileConnection::resume(bool isRestart)
   }
 }
 
-void dmtcp::FileConnection::refreshPath()
+void FileConnection::refreshPath()
 {
-  dmtcp::string cwd = jalib::Filesystem::GetCWD();
+  string cwd = jalib::Filesystem::GetCWD();
 
   if (_type == FILE_BATCH_QUEUE) {
     // get new file name
-    dmtcp::string newpath = jalib::Filesystem::GetDeviceName(_fds[0]);
+    string newpath = jalib::Filesystem::GetDeviceName(_fds[0]);
     JTRACE("This is Resource Manager file!") (_fds[0]) (newpath) (_path) (this);
     if (newpath != _path) {
       JTRACE("File Manager connection _path is changed => _path = newpath!")
@@ -786,7 +786,7 @@ void dmtcp::FileConnection::refreshPath()
     // If file at absolute path doesn't exist and file path is relative to
     // executable current dir
     string oldPath = _path;
-    dmtcp::string fullPath = cwd + "/" + _rel_path;
+    string fullPath = cwd + "/" + _rel_path;
     if (jalib::Filesystem::FileExists(fullPath)) {
       _path = fullPath;
       JTRACE("Change _path based on relative path")
@@ -804,7 +804,7 @@ void dmtcp::FileConnection::refreshPath()
   }
 }
 
-void dmtcp::FileConnection::postRestart()
+void FileConnection::postRestart()
 {
   int tempfd;
 
@@ -813,7 +813,7 @@ void dmtcp::FileConnection::postRestart()
   _fileAlreadyExists = false;
 
   JTRACE("Restoring File Connection") (id()) (_path);
-  dmtcp::string savedFilePath = getSavedFilePath(_path);
+  string savedFilePath = getSavedFilePath(_path);
   JASSERT(jalib::Filesystem::FileExists(savedFilePath))
     (savedFilePath) (_path) .Text("Unable to find checkpointed copy of file");
 
@@ -854,7 +854,7 @@ void dmtcp::FileConnection::postRestart()
   Util::dupFds(tempfd, _fds);
 }
 
-bool dmtcp::FileConnection::checkDup(int fd)
+bool FileConnection::checkDup(int fd)
 {
   bool retVal = false;
 
@@ -872,19 +872,19 @@ bool dmtcp::FileConnection::checkDup(int fd)
   return retVal;
 }
 
-static void CreateDirectoryStructure(const dmtcp::string& path)
+static void CreateDirectoryStructure(const string& path)
 {
   size_t index = path.rfind('/');
 
-  if (index == dmtcp::string::npos)
+  if (index == string::npos)
     return;
 
-  dmtcp::string dir = path.substr(0, index);
+  string dir = path.substr(0, index);
 
   index = path.find('/');
-  while (index != dmtcp::string::npos) {
+  while (index != string::npos) {
     if (index > 1) {
-      dmtcp::string dirName = path.substr(0, index);
+      string dirName = path.substr(0, index);
 
       int res = mkdir(dirName.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
       JASSERT(res != -1 || errno==EEXIST) (dirName) (path)
@@ -894,7 +894,7 @@ static void CreateDirectoryStructure(const dmtcp::string& path)
   }
 }
 
-int dmtcp::FileConnection::openFile()
+int FileConnection::openFile()
 {
   JASSERT(jalib::Filesystem::FileExists(_path)) (_path)
     .Text("File not present");
@@ -958,18 +958,18 @@ static void writeFileFromFd(int fd, int destFd)
   JASSERT(_real_lseek(fd, offset, SEEK_SET) != -1);
 }
 
-dmtcp::string dmtcp::FileConnection::getSavedFilePath(const dmtcp::string& path)
+string FileConnection::getSavedFilePath(const string& path)
 {
-  dmtcp::ostringstream os;
+  ostringstream os;
   os << dmtcp_get_ckpt_files_subdir()
     << "/" << jalib::Filesystem::BaseName(_path) << "_" << _id.conId();
 
   return os.str();
 }
 
-void dmtcp::FileConnection::serializeSubClass(jalib::JBinarySerializer& o)
+void FileConnection::serializeSubClass(jalib::JBinarySerializer& o)
 {
-  JSERIALIZE_ASSERT_POINT("dmtcp::FileConnection");
+  JSERIALIZE_ASSERT_POINT("FileConnection");
   o & _path & _rel_path;
   o & _offset & _st_dev & _st_ino & _st_size & _checkpointed & _rmtype;
   JTRACE("Serializing FileConn.") (_path) (_rel_path)
@@ -980,7 +980,7 @@ void dmtcp::FileConnection::serializeSubClass(jalib::JBinarySerializer& o)
  * FIFO Connection
  *****************************************************************************/
 
-void dmtcp::FifoConnection::drain()
+void FifoConnection::drain()
 {
   struct stat st;
   JASSERT(_fds.size() > 0);
@@ -1011,7 +1011,7 @@ void dmtcp::FifoConnection::drain()
   JTRACE("Checkpointing fifo:  end.") (_fds[0]) (_in_data.size());
 }
 
-void dmtcp::FifoConnection::refill(bool isRestart)
+void FifoConnection::refill(bool isRestart)
 {
   int new_flags =(_fcntlFlags &(~(O_RDONLY|O_WRONLY))) | O_RDWR | O_NONBLOCK;
   ckptfd = _real_open(_path.c_str(),new_flags);
@@ -1044,9 +1044,9 @@ void dmtcp::FifoConnection::refill(bool isRestart)
   JTRACE("End checkpointing fifo.") (_fds[0]);
 }
 
-void dmtcp::FifoConnection::refreshPath()
+void FifoConnection::refreshPath()
 {
-  dmtcp::string cwd = jalib::Filesystem::GetCWD();
+  string cwd = jalib::Filesystem::GetCWD();
   if (_rel_path != "*") { // file path is relative to executable current dir
     string oldPath = _path;
     ostringstream fullPath;
@@ -1058,7 +1058,7 @@ void dmtcp::FifoConnection::refreshPath()
   }
 }
 
-void dmtcp::FifoConnection::postRestart()
+void FifoConnection::postRestart()
 {
   JASSERT(_fds.size() > 0);
   JTRACE("Restoring Fifo Connection") (id()) (_path);
@@ -1068,7 +1068,7 @@ void dmtcp::FifoConnection::postRestart()
   refreshPath();
 }
 
-int dmtcp::FifoConnection::openFile()
+int FifoConnection::openFile()
 {
   int fd;
 
@@ -1088,9 +1088,9 @@ int dmtcp::FifoConnection::openFile()
   return fd;
 }
 
-void dmtcp::FifoConnection::serializeSubClass(jalib::JBinarySerializer& o)
+void FifoConnection::serializeSubClass(jalib::JBinarySerializer& o)
 {
-  JSERIALIZE_ASSERT_POINT("dmtcp::FifoConnection");
+  JSERIALIZE_ASSERT_POINT("FifoConnection");
   o & _path & _rel_path & _savedRelativePath & _mode & _in_data;
   JTRACE("Serializing FifoConn.") (_path) (_rel_path) (_savedRelativePath);
 }
@@ -1099,7 +1099,7 @@ void dmtcp::FifoConnection::serializeSubClass(jalib::JBinarySerializer& o)
  * Stdio Connection
  *****************************************************************************/
 
-void dmtcp::StdioConnection::postRestart()
+void StdioConnection::postRestart()
 {
   for (size_t i=0; i<_fds.size(); ++i) {
     int fd = _fds[i];
@@ -1133,11 +1133,11 @@ void dmtcp::StdioConnection::postRestart()
  * POSIX Message Queue Connection
  *****************************************************************************/
 
-void dmtcp::PosixMQConnection::on_mq_close()
+void PosixMQConnection::on_mq_close()
 {
 }
 
-void dmtcp::PosixMQConnection::on_mq_notify(const struct sigevent *sevp)
+void PosixMQConnection::on_mq_notify(const struct sigevent *sevp)
 {
   if (sevp == NULL && _notifyReg) {
     _notifyReg = false;
@@ -1147,7 +1147,7 @@ void dmtcp::PosixMQConnection::on_mq_notify(const struct sigevent *sevp)
   }
 }
 
-void dmtcp::PosixMQConnection::drain()
+void PosixMQConnection::drain()
 {
   JASSERT(_fds.size() > 0);
 
@@ -1182,7 +1182,7 @@ void dmtcp::PosixMQConnection::drain()
   _real_mq_close(fd);
 }
 
-void dmtcp::PosixMQConnection::refill(bool isRestart)
+void PosixMQConnection::refill(bool isRestart)
 {
   for (long i = 0; i < _qnum; i++) {
     JASSERT(_real_mq_send(_fds[0], _msgInQueue[i].buffer(),
@@ -1192,7 +1192,7 @@ void dmtcp::PosixMQConnection::refill(bool isRestart)
   _msgInQueuePrio.clear();
 }
 
-void dmtcp::PosixMQConnection::postRestart()
+void PosixMQConnection::postRestart()
 {
   JASSERT(_fds.size() > 0);
 
@@ -1206,8 +1206,8 @@ void dmtcp::PosixMQConnection::postRestart()
   Util::dupFds(tempfd, _fds);
 }
 
-void dmtcp::PosixMQConnection::serializeSubClass(jalib::JBinarySerializer& o)
+void PosixMQConnection::serializeSubClass(jalib::JBinarySerializer& o)
 {
-  JSERIALIZE_ASSERT_POINT("dmtcp::PosixMQConnection");
+  JSERIALIZE_ASSERT_POINT("PosixMQConnection");
   o & _name & _oflag & _mode & _attr;
 }

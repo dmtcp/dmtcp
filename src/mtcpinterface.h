@@ -27,11 +27,6 @@
 namespace dmtcp
 {
   void initializeMtcpEngine();
-  void killCkpthread();
-
-  //these next two are defined in dmtcpplugin.cpp
-  void userHookTrampoline_preCkpt();
-  void userHookTrampoline_postCkpt(bool isRestart);
 
   void callbackSleepBetweenCheckpoint(int sec);
   void callbackPreCheckpoint();
@@ -39,6 +34,9 @@ namespace dmtcp
   void callbackPreSuspendUserThread();
   void callbackPreResumeUserThread(int isRestart);
   void callbackHoldsAnyLocks(int *retval);
-  void prepareForCkpt();
+
+  //these next two are defined in dmtcpplugin.cpp
+  void userHookTrampoline_preCkpt();
+  void userHookTrampoline_postCkpt(bool isRestart);
 }
 #endif

@@ -66,7 +66,7 @@ namespace dmtcp
                                    struct in_addr  *localIP);
       void createNewConnectionBeforeFork(string& progname);
       void connectToCoordOnRestart(CoordinatorMode  mode,
-                                   dmtcp::string progname,
+                                   string progname,
                                    UniquePid compGroup,
                                    int np,
                                    CoordinatorInfo *coordInfo,
@@ -79,7 +79,7 @@ namespace dmtcp
       void sendMsgToCoordinator(const DmtcpMessage &msg,
                                 const void *extraData = NULL,
                                 size_t len = 0);
-      void recvMsgFromCoordinator(dmtcp::DmtcpMessage *msg,
+      void recvMsgFromCoordinator(DmtcpMessage *msg,
                                   void **extraData = NULL);
       void connectAndSendUserCommand(char c,
                                      int *coordCmdStatus = NULL,
@@ -87,7 +87,7 @@ namespace dmtcp
                                      int *isRunning = NULL);
 
       void updateCoordCkptDir(const char *dir);
-      dmtcp::string getCoordCkptDir(void);
+      string getCoordCkptDir(void);
 
       void sendCkptFilename();
 

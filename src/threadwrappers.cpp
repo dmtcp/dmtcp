@@ -51,17 +51,17 @@ int clone_start(void *arg)
 {
   Thread *thread = (Thread*) arg;
 
-  dmtcp::ThreadSync::initThread();
+  ThreadSync::initThread();
 
   ThreadList::updateTid(thread);
 
-  dmtcp::DmtcpWorker::eventHook(DMTCP_EVENT_THREAD_START, NULL);
+  DmtcpWorker::eventHook(DMTCP_EVENT_THREAD_START, NULL);
 
   /* Thread finished initialization.  It's now safe for this thread to
    * participate in checkpoint.  Decrement the uninitializedThreadCount in
    * DmtcpWorker.
    */
-  dmtcp::ThreadSync::decrementUninitializedThreadCount();
+  ThreadSync::decrementUninitializedThreadCount();
 
   JTRACE("Calling user function") (gettid());
   int ret = thread->fn(thread->arg);
@@ -98,7 +98,7 @@ extern "C" int __clone(int (*fn) (void *arg), void *child_stack, int flags,
                        struct user_desc *tls, int *ctid)
 {
   WRAPPER_EXECUTION_DISABLE_CKPT();
-  dmtcp::ThreadSync::incrementUninitializedThreadCount();
+  ThreadSync::incrementUninitializedThreadCount();
 
   Thread *thread = ThreadList::getNewThread();
   ThreadList::initThread(thread, fn, arg, flags, ptid, ctid);
@@ -112,10 +112,10 @@ extern "C" int __clone(int (*fn) (void *arg), void *child_stack, int flags,
 
   if (tid == -1) {
     JTRACE("Clone call failed")(JASSERT_ERRNO);
-    dmtcp::ThreadSync::decrementUninitializedThreadCount();
+    ThreadSync::decrementUninitializedThreadCount();
     delete thread;
   } else {
-    dmtcp::DmtcpWorker::eventHook(DMTCP_EVENT_THREAD_CREATED, NULL);
+    DmtcpWorker::eventHook(DMTCP_EVENT_THREAD_CREATED, NULL);
   }
 
   WRAPPER_EXECUTION_ENABLE_CKPT();
@@ -143,7 +143,7 @@ static void *pthread_start(void *arg)
 
   JASSERT(pthread_fn != 0x0);
   JALLOC_HELPER_FREE(arg); // Was allocated in calling thread in pthread_create
-  dmtcp::ThreadSync::threadFinishedInitialization();
+  ThreadSync::threadFinishedInitialization();
   void *result = (*pthread_fn)(thread_arg);
   JTRACE("Thread returned") (virtualTid);
   WRAPPER_EXECUTION_DISABLE_CKPT();
@@ -154,9 +154,9 @@ static void *pthread_start(void *arg)
    *  FIXME: What if the process gets checkpointed after erase() but before the
    *  thread actually exits?
    */
-  dmtcp::DmtcpWorker::eventHook(DMTCP_EVENT_PTHREAD_RETURN, NULL);
+  DmtcpWorker::eventHook(DMTCP_EVENT_PTHREAD_RETURN, NULL);
   WRAPPER_EXECUTION_ENABLE_CKPT();
-  dmtcp::ThreadSync::unsetOkToGrabLock();
+  ThreadSync::unsetOkToGrabLock();
   return result;
 }
 
@@ -198,17 +198,17 @@ extern "C" int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
    *                 space (stack etc.). The free() wrapper requires
    *                 wrapper-exec lock, which is not available.
    */
-  bool threadCreationLockAcquired = dmtcp::ThreadSync::threadCreationLockLock();
-  dmtcp::ThreadSync::incrementUninitializedThreadCount();
+  bool threadCreationLockAcquired = ThreadSync::threadCreationLockLock();
+  ThreadSync::incrementUninitializedThreadCount();
   retval = _real_pthread_create(thread, attr, pthread_start, threadArg);
   if (threadCreationLockAcquired) {
-    dmtcp::ThreadSync::threadCreationLockUnlock();
+    ThreadSync::threadCreationLockUnlock();
   }
   if (retval == 0) {
-    dmtcp::ProcessInfo::instance().clearPthreadJoinState(*thread);
+    ProcessInfo::instance().clearPthreadJoinState(*thread);
   } else { // if we failed to create new pthread
     JALLOC_HELPER_FREE(threadArg);
-    dmtcp::ThreadSync::decrementUninitializedThreadCount();
+    ThreadSync::decrementUninitializedThreadCount();
   }
   return retval;
 }
@@ -217,9 +217,9 @@ extern "C" void pthread_exit(void * retval)
 {
   WRAPPER_EXECUTION_DISABLE_CKPT();
   ThreadList::threadExit();
-  dmtcp::DmtcpWorker::eventHook(DMTCP_EVENT_PTHREAD_EXIT, NULL);
+  DmtcpWorker::eventHook(DMTCP_EVENT_PTHREAD_EXIT, NULL);
   WRAPPER_EXECUTION_ENABLE_CKPT();
-  dmtcp::ThreadSync::unsetOkToGrabLock();
+  ThreadSync::unsetOkToGrabLock();
   _real_pthread_exit(retval);
   for (;;); // To hide compiler warning about "noreturn" function
 }
@@ -250,31 +250,31 @@ extern "C" int pthread_join(pthread_t thread, void **retval)
 {
   int ret;
   struct timespec ts;
-  if (!dmtcp::ProcessInfo::instance().beginPthreadJoin(thread)) {
+  if (!ProcessInfo::instance().beginPthreadJoin(thread)) {
     return EINVAL;
   }
 
   while (1) {
     WRAPPER_EXECUTION_DISABLE_CKPT();
-    dmtcp::ThreadSync::unsetOkToGrabLock();
+    ThreadSync::unsetOkToGrabLock();
     JASSERT(clock_gettime(CLOCK_REALTIME, &ts) != -1);
     TIMESPEC_ADD(&ts, &ts_100ms, &ts);
     ret = _real_pthread_timedjoin_np(thread, retval, &ts);
     WRAPPER_EXECUTION_ENABLE_CKPT();
-    dmtcp::ThreadSync::setOkToGrabLock();
+    ThreadSync::setOkToGrabLock();
     if (ret != ETIMEDOUT) {
       break;
     }
   }
 
-  dmtcp::ProcessInfo::instance().endPthreadJoin(thread);
+  ProcessInfo::instance().endPthreadJoin(thread);
   return ret;
 }
 
 extern "C" int pthread_tryjoin_np(pthread_t thread, void **retval)
 {
   int ret;
-  if (!dmtcp::ProcessInfo::instance().beginPthreadJoin(thread)) {
+  if (!ProcessInfo::instance().beginPthreadJoin(thread)) {
     return EINVAL;
   }
 
@@ -282,7 +282,7 @@ extern "C" int pthread_tryjoin_np(pthread_t thread, void **retval)
   ret = _real_pthread_tryjoin_np(thread, retval);
   WRAPPER_EXECUTION_ENABLE_CKPT();
 
-  dmtcp::ProcessInfo::instance().endPthreadJoin(thread);
+  ProcessInfo::instance().endPthreadJoin(thread);
   return ret;
 }
 
@@ -291,7 +291,7 @@ extern "C" int pthread_timedjoin_np(pthread_t thread, void **retval,
 {
   int ret;
   struct timespec ts;
-  if (!dmtcp::ProcessInfo::instance().beginPthreadJoin(thread)) {
+  if (!ProcessInfo::instance().beginPthreadJoin(thread)) {
     return EINVAL;
   }
 
@@ -319,6 +319,6 @@ extern "C" int pthread_timedjoin_np(pthread_t thread, void **retval,
     }
   }
 
-  dmtcp::ProcessInfo::instance().endPthreadJoin(thread);
+  ProcessInfo::instance().endPthreadJoin(thread);
   return ret;
 }

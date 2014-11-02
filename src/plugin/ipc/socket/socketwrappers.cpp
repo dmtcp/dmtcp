@@ -192,7 +192,7 @@ extern "C" int accept(int sockfd, struct sockaddr *addr,
    * creating a new socket-fd). This can cause problems if it happens at a time
    * when some other thread is processing inside a fork() or exec() wrapper.
    * For more details, please look at the comment in
-   * dmtcp::DmtcpWorker::wrapperExecutionLockLockExcl().
+   * DmtcpWorker::wrapperExecutionLockLockExcl().
    *
    * Since it's a blocking call, we cannot grab the actual wrapper-execution
    * lock here.
@@ -270,14 +270,14 @@ extern "C" int socketpair(int d, int type, int protocol, int sv[2])
   if (rv != -1 && !_doNotProcessSockets) {
     JTRACE("socketpair()") (sv[0]) (sv[1]);
 
-    dmtcp::TcpConnection *a, *b;
+    TcpConnection *a, *b;
 
-    a = new dmtcp::TcpConnection(d, type, protocol);
+    a = new TcpConnection(d, type, protocol);
     a->onConnect();
-    b = new dmtcp::TcpConnection(*a, a->id());
+    b = new TcpConnection(*a, a->id());
 
-    dmtcp::SocketConnList::instance().add(sv[0], a);
-    dmtcp::SocketConnList::instance().add(sv[1], b);
+    SocketConnList::instance().add(sv[0], a);
+    SocketConnList::instance().add(sv[1], b);
   }
 
   DMTCP_PLUGIN_ENABLE_CKPT();

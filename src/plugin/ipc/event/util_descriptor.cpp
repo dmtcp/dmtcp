@@ -39,6 +39,8 @@
 #include "../jalib/jalloc.h"
 #include "../jalib/jassert.h"
 
+using namespace dmtcp;
+
 /******************************************************************
  * Class Variables: is_initialized, descriptor_counter,
  *                  descript_types_p
@@ -49,9 +51,9 @@
  *
  * Return:         NONE
  ******************************************************************/
-bool dmtcp::Util::Descriptor::is_initialized = false;
-unsigned int dmtcp::Util::Descriptor::descriptor_counter = 0;
-descriptor_types_u* dmtcp::Util::Descriptor::descrip_types_p[MAX_DESCRIPTORS] = {0};
+bool Util::Descriptor::is_initialized = false;
+unsigned int Util::Descriptor::descriptor_counter = 0;
+descriptor_types_u* Util::Descriptor::descrip_types_p[MAX_DESCRIPTORS] = {0};
 
 /******************************************************************
  * Class Function: Descriptor
@@ -62,7 +64,7 @@ descriptor_types_u* dmtcp::Util::Descriptor::descrip_types_p[MAX_DESCRIPTORS] = 
  *
  * Return:         NONE
  ******************************************************************/
-dmtcp::Util::Descriptor::Descriptor()
+Util::Descriptor::Descriptor()
 {
    if(false == is_initialized)
    {
@@ -100,7 +102,7 @@ dmtcp::Util::Descriptor::Descriptor()
  *
  * Return:         NONE
  ******************************************************************/
-dmtcp::Util::Descriptor::~Descriptor()
+Util::Descriptor::~Descriptor()
 {
    if(true == is_initialized)
    {
@@ -117,7 +119,7 @@ dmtcp::Util::Descriptor::~Descriptor()
  *
  * Return:         NONE
  ******************************************************************/
-void dmtcp::Util::Descriptor::add_descriptor(descriptor_types_u*  descriptor)
+void Util::Descriptor::add_descriptor(descriptor_types_u*  descriptor)
 {
    JASSERT(descriptor != NULL);
    if(descriptor_counter < MAX_DESCRIPTORS)
@@ -143,7 +145,7 @@ void dmtcp::Util::Descriptor::add_descriptor(descriptor_types_u*  descriptor)
  *
  * Return:         NONE
  ******************************************************************/
-int dmtcp::Util::Descriptor::remove_descriptor(descriptor_type_e type,
+int Util::Descriptor::remove_descriptor(descriptor_type_e type,
                                                 void* descriptor)
 {
    int ret_val = FAILURE;
@@ -192,7 +194,7 @@ int dmtcp::Util::Descriptor::remove_descriptor(descriptor_type_e type,
  *
  * Return:         true or false
  ******************************************************************/
-bool dmtcp::Util::Descriptor::get_descriptor(unsigned int index,
+bool Util::Descriptor::get_descriptor(unsigned int index,
                                              descriptor_type_e type,
                                              descriptor_types_u*  descriptor)
 {
@@ -222,7 +224,7 @@ bool dmtcp::Util::Descriptor::get_descriptor(unsigned int index,
  *
  * Return:         the number stored
  ******************************************************************/
-unsigned int dmtcp::Util::Descriptor::count_descriptors()
+unsigned int Util::Descriptor::count_descriptors()
 {
    unsigned int count = descriptor_counter;
 
@@ -238,7 +240,7 @@ unsigned int dmtcp::Util::Descriptor::count_descriptors()
  *
  * Return:         NONE
  ******************************************************************/
-int dmtcp::Util::Descriptor::remove_timer_descriptor(timer_t timer_id)
+int Util::Descriptor::remove_timer_descriptor(timer_t timer_id)
 {
    int i;
    int ret_val = FAILURE;
@@ -273,7 +275,7 @@ int dmtcp::Util::Descriptor::remove_timer_descriptor(timer_t timer_id)
  *
  * Return:         NONE
  ******************************************************************/
-int dmtcp::Util::Descriptor::remove_inotify_watch_descriptor(int watch_descriptor)
+int Util::Descriptor::remove_inotify_watch_descriptor(int watch_descriptor)
 {
    int i;
    int ret_val = FAILURE;

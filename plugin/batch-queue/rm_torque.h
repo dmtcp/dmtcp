@@ -34,15 +34,21 @@
 #ifndef TORQUE_PLUGIN_H
 #define TORQUE_PLUGIN_H
 
+#include "dmtcpalloc.h"
+
+namespace dmtcp {
+
 void probeTorque();
-bool isTorqueFile(dmtcp::string relpath, dmtcp::string &path);
-bool isTorqueHomeFile(dmtcp::string &path);
-bool isTorqueIOFile(dmtcp::string &path);
-bool isTorqueStdout(dmtcp::string &path);
-bool isTorqueStderr(dmtcp::string &path);
-bool isTorqueNodeFile(dmtcp::string &path);
+bool isTorqueFile(string relpath, string &path);
+bool isTorqueHomeFile(string &path);
+bool isTorqueIOFile(string &path);
+bool isTorqueStdout(string &path);
+bool isTorqueStderr(string &path);
+bool isTorqueNodeFile(string &path);
 int torqueShouldCkptFile(const char *path, int *type);
 int torqueRestoreFile(const char *path, const char *savedFilePath,
-                                     int fcntlFlags, int type);
+                      int fcntlFlags, int type);
+
+}
 
 #endif

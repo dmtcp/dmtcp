@@ -94,62 +94,62 @@ void dmtcp_SysVIPC_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   switch (event) {
     case DMTCP_EVENT_ATFORK_CHILD:
-      dmtcp::SysVShm::instance().resetOnFork();
-      dmtcp::SysVSem::instance().resetOnFork();
-      dmtcp::SysVMsq::instance().resetOnFork();
+      SysVShm::instance().resetOnFork();
+      SysVSem::instance().resetOnFork();
+      SysVMsq::instance().resetOnFork();
       break;
     case DMTCP_EVENT_WRITE_CKPT:
-      dmtcp::SysVShm::instance().preCheckpoint();
-      dmtcp::SysVSem::instance().preCheckpoint();
-      dmtcp::SysVMsq::instance().preCheckpoint();
+      SysVShm::instance().preCheckpoint();
+      SysVSem::instance().preCheckpoint();
+      SysVMsq::instance().preCheckpoint();
       break;
 
     case DMTCP_EVENT_LEADER_ELECTION:
-      dmtcp::SysVShm::instance().leaderElection();
-      dmtcp::SysVSem::instance().leaderElection();
-      dmtcp::SysVMsq::instance().leaderElection();
+      SysVShm::instance().leaderElection();
+      SysVSem::instance().leaderElection();
+      SysVMsq::instance().leaderElection();
       break;
 
     case DMTCP_EVENT_DRAIN:
-      dmtcp::SysVShm::instance().preCkptDrain();
-      dmtcp::SysVSem::instance().preCkptDrain();
-      dmtcp::SysVMsq::instance().preCkptDrain();
+      SysVShm::instance().preCkptDrain();
+      SysVSem::instance().preCkptDrain();
+      SysVMsq::instance().preCkptDrain();
       break;
 
     case DMTCP_EVENT_REFILL:
-      dmtcp::SysVShm::instance().refill(data->refillInfo.isRestart);
-      dmtcp::SysVSem::instance().refill(data->refillInfo.isRestart);
-      dmtcp::SysVMsq::instance().refill(data->refillInfo.isRestart);
+      SysVShm::instance().refill(data->refillInfo.isRestart);
+      SysVSem::instance().refill(data->refillInfo.isRestart);
+      SysVMsq::instance().refill(data->refillInfo.isRestart);
       break;
 
     case DMTCP_EVENT_THREADS_RESUME:
-      dmtcp::SysVShm::instance().preResume();
-      dmtcp::SysVSem::instance().preResume();
-      dmtcp::SysVMsq::instance().preResume();
+      SysVShm::instance().preResume();
+      SysVSem::instance().preResume();
+      SysVMsq::instance().preResume();
       break;
 
     case DMTCP_EVENT_PRE_EXEC:
       {
         jalib::JBinarySerializeWriterRaw wr("", data->serializerInfo.fd);
-        dmtcp::SysVShm::instance().serialize(wr);
-        dmtcp::SysVSem::instance().serialize(wr);
-        dmtcp::SysVMsq::instance().serialize(wr);
+        SysVShm::instance().serialize(wr);
+        SysVSem::instance().serialize(wr);
+        SysVMsq::instance().serialize(wr);
       }
       break;
 
     case DMTCP_EVENT_POST_EXEC:
       {
         jalib::JBinarySerializeReaderRaw rd("", data->serializerInfo.fd);
-        dmtcp::SysVShm::instance().serialize(rd);
-        dmtcp::SysVSem::instance().serialize(rd);
-        dmtcp::SysVMsq::instance().serialize(rd);
+        SysVShm::instance().serialize(rd);
+        SysVSem::instance().serialize(rd);
+        SysVMsq::instance().serialize(rd);
       }
       break;
 
     case DMTCP_EVENT_RESTART:
-      dmtcp::SysVShm::instance().postRestart();
-      dmtcp::SysVSem::instance().postRestart();
-      dmtcp::SysVMsq::instance().postRestart();
+      SysVShm::instance().postRestart();
+      SysVSem::instance().postRestart();
+      SysVMsq::instance().postRestart();
       break;
 
     default:
@@ -180,7 +180,7 @@ static void huge_memcpy(char *dest, char *src, size_t size)
   static long pagesPerChunk = chunkSize / page_size;
   size_t n = size / chunkSize;
   for (size_t i = 0; i < n; i++) {
-    if (!dmtcp::Util::areZeroPages(src, pagesPerChunk)) {
+    if (!Util::areZeroPages(src, pagesPerChunk)) {
       memcpy(dest, src, chunkSize);
     }
     madvise(src, chunkSize, MADV_DONTNEED);
@@ -191,10 +191,10 @@ static void huge_memcpy(char *dest, char *src, size_t size)
   memcpy(dest, src, size);
 }
 
-static dmtcp::SysVShm *sysvShmInst = NULL;
-static dmtcp::SysVSem *sysvSemInst = NULL;
-static dmtcp::SysVMsq *sysvMsqInst = NULL;
-dmtcp::SysVShm& dmtcp::SysVShm::instance()
+static SysVShm *sysvShmInst = NULL;
+static SysVSem *sysvSemInst = NULL;
+static SysVMsq *sysvMsqInst = NULL;
+SysVShm& SysVShm::instance()
 {
   if (sysvShmInst == NULL) {
     sysvShmInst = new SysVShm();
@@ -202,7 +202,7 @@ dmtcp::SysVShm& dmtcp::SysVShm::instance()
   return *sysvShmInst;
 }
 
-dmtcp::SysVSem& dmtcp::SysVSem::instance()
+SysVSem& SysVSem::instance()
 {
   if (sysvSemInst == NULL) {
     sysvSemInst = new SysVSem();
@@ -210,7 +210,7 @@ dmtcp::SysVSem& dmtcp::SysVSem::instance()
   return *sysvSemInst;
 }
 
-dmtcp::SysVMsq& dmtcp::SysVMsq::instance()
+SysVMsq& SysVMsq::instance()
 {
   if (sysvMsqInst == NULL) {
     sysvMsqInst = new SysVMsq();
@@ -237,7 +237,7 @@ SysVIPC::SysVIPC(const char *str, int32_t id, int type)
 void SysVIPC::removeStaleObjects()
 {
   _do_lock_tbl();
-  dmtcp::vector<int> staleIds;
+  vector<int> staleIds;
   for (Iterator i = _map.begin(); i != _map.end(); ++i) {
     SysVObj* obj = i->second;
     if (obj->isStale()) {
@@ -355,7 +355,7 @@ void SysVIPC::serialize(jalib::JBinarySerializer& o)
 /*
  * Shared Memory
  */
-void dmtcp::SysVShm::on_shmget(int shmid, key_t key, size_t size, int shmflg)
+void SysVShm::on_shmget(int shmid, key_t key, size_t size, int shmflg)
 {
   _do_lock_tbl();
   if (!_virtIdTable.realIdExists(shmid)) {
@@ -371,12 +371,12 @@ void dmtcp::SysVShm::on_shmget(int shmid, key_t key, size_t size, int shmflg)
   _do_unlock_tbl();
 }
 
-void dmtcp::SysVShm::on_shmat(int shmid, const void *shmaddr, int shmflg,
-                              void* newaddr)
+void SysVShm::on_shmat(int shmid, const void *shmaddr, int shmflg,
+                       void* newaddr)
 {
   _do_lock_tbl();
   if (!_virtIdTable.virtualIdExists(shmid)) {
-    int realId = dmtcp::SharedData::getRealIPCId(_type, shmid);
+    int realId = SharedData::getRealIPCId(_type, shmid);
     updateMapping(shmid, realId);
   }
   if (_map.find(shmid) == _map.end()) {
@@ -389,7 +389,7 @@ void dmtcp::SysVShm::on_shmat(int shmid, const void *shmaddr, int shmflg,
   _do_unlock_tbl();
 }
 
-void dmtcp::SysVShm::on_shmdt(const void *shmaddr)
+void SysVShm::on_shmdt(const void *shmaddr)
 {
   int shmid = shmaddrToShmid(shmaddr);
   JASSERT(shmid != -1) (shmaddr)
@@ -402,7 +402,7 @@ void dmtcp::SysVShm::on_shmdt(const void *shmaddr)
   _do_unlock_tbl();
 }
 
-int dmtcp::SysVShm::shmaddrToShmid(const void* shmaddr)
+int SysVShm::shmaddrToShmid(const void* shmaddr)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
   int shmid = -1;
@@ -422,7 +422,7 @@ int dmtcp::SysVShm::shmaddrToShmid(const void* shmaddr)
 /*
  * Semaphore
  */
-void dmtcp::SysVSem::on_semget(int semid, key_t key, int nsems, int semflg)
+void SysVSem::on_semget(int semid, key_t key, int nsems, int semflg)
 {
   _do_lock_tbl();
   if (!_virtIdTable.realIdExists(semid)) {
@@ -438,7 +438,7 @@ void dmtcp::SysVSem::on_semget(int semid, key_t key, int nsems, int semflg)
   _do_unlock_tbl();
 }
 
-void dmtcp::SysVSem::on_semctl(int semid, int semnum, int cmd, union semun arg)
+void SysVSem::on_semctl(int semid, int semnum, int cmd, union semun arg)
 {
   _do_lock_tbl();
   if (cmd == IPC_RMID && _virtIdTable.virtualIdExists(semid)) {
@@ -449,11 +449,11 @@ void dmtcp::SysVSem::on_semctl(int semid, int semnum, int cmd, union semun arg)
   return;
 }
 
-void dmtcp::SysVSem::on_semop(int semid, struct sembuf *sops, unsigned nsops)
+void SysVSem::on_semop(int semid, struct sembuf *sops, unsigned nsops)
 {
   _do_lock_tbl();
   if (!_virtIdTable.virtualIdExists(semid)) {
-    int realId = dmtcp::SharedData::getRealIPCId(_type, semid);
+    int realId = SharedData::getRealIPCId(_type, semid);
     updateMapping(semid, realId);
   }
   if (_map.find(semid) == _map.end()) {
@@ -467,7 +467,7 @@ void dmtcp::SysVSem::on_semop(int semid, struct sembuf *sops, unsigned nsops)
 /*
  * Message Queue
  */
-void dmtcp::SysVMsq::on_msgget(int msqid, key_t key, int msgflg)
+void SysVMsq::on_msgget(int msqid, key_t key, int msgflg)
 {
   _do_lock_tbl();
   if (!_virtIdTable.realIdExists(msqid)) {
@@ -482,7 +482,7 @@ void dmtcp::SysVMsq::on_msgget(int msqid, key_t key, int msgflg)
   _do_unlock_tbl();
 }
 
-void dmtcp::SysVMsq::on_msgctl(int msqid, int cmd, struct msqid_ds *buf)
+void SysVMsq::on_msgctl(int msqid, int cmd, struct msqid_ds *buf)
 {
   _do_lock_tbl();
   if (cmd == IPC_RMID && _virtIdTable.virtualIdExists(msqid)) {
@@ -493,12 +493,11 @@ void dmtcp::SysVMsq::on_msgctl(int msqid, int cmd, struct msqid_ds *buf)
   return;
 }
 
-void dmtcp::SysVMsq::on_msgsnd(int msqid, const void *msgp, size_t msgsz,
-                               int msgflg)
+void SysVMsq::on_msgsnd(int msqid, const void *msgp, size_t msgsz, int msgflg)
 {
   _do_lock_tbl();
   if (!_virtIdTable.virtualIdExists(msqid)) {
-    int realId = dmtcp::SharedData::getRealIPCId(_type, msqid);
+    int realId = SharedData::getRealIPCId(_type, msqid);
     updateMapping(msqid, realId);
   }
   if (_map.find(msqid) == _map.end()) {
@@ -508,12 +507,12 @@ void dmtcp::SysVMsq::on_msgsnd(int msqid, const void *msgp, size_t msgsz,
   _do_unlock_tbl();
 }
 
-void dmtcp::SysVMsq::on_msgrcv(int msqid, const void *msgp, size_t msgsz,
-                               int msgtyp, int msgflg)
+void SysVMsq::on_msgrcv(int msqid, const void *msgp, size_t msgsz,
+                        int msgtyp, int msgflg)
 {
   _do_lock_tbl();
   if (!_virtIdTable.virtualIdExists(msqid)) {
-    int realId = dmtcp::SharedData::getRealIPCId(_type, msqid);
+    int realId = SharedData::getRealIPCId(_type, msqid);
     updateMapping(msqid, realId);
   }
   if (_map.find(msqid) == _map.end()) {
@@ -529,8 +528,8 @@ void dmtcp::SysVMsq::on_msgrcv(int msqid, const void *msgp, size_t msgsz,
  *
  *****************************************************************************/
 
-dmtcp::ShmSegment::ShmSegment(int shmid, int realShmid, key_t key, size_t size,
-                              int shmflg)
+ShmSegment::ShmSegment(int shmid, int realShmid, key_t key, size_t size,
+                       int shmflg)
   : SysVObj(shmid, realShmid, key, shmflg)
 {
   _size = size;
@@ -544,12 +543,12 @@ dmtcp::ShmSegment::ShmSegment(int shmid, int realShmid, key_t key, size_t size,
   JTRACE("New Shm Segment") (_key) (_size) (_flags) (_id) (_isCkptLeader);
 }
 
-void dmtcp::ShmSegment::on_shmat(const void *shmaddr, int shmflg)
+void ShmSegment::on_shmat(const void *shmaddr, int shmflg)
 {
   _shmaddrToFlag[shmaddr] = shmflg;
 }
 
-void dmtcp::ShmSegment::on_shmdt(const void *shmaddr)
+void ShmSegment::on_shmdt(const void *shmaddr)
 {
   JASSERT(isValidShmaddr(shmaddr));
   _shmaddrToFlag.erase((void*)shmaddr);
@@ -557,12 +556,12 @@ void dmtcp::ShmSegment::on_shmdt(const void *shmaddr)
   // TODO: If num-attached == 0; and marked for deletion, remove this segment
 }
 
-bool dmtcp::ShmSegment::isValidShmaddr(const void* shmaddr)
+bool ShmSegment::isValidShmaddr(const void* shmaddr)
 {
   return _shmaddrToFlag.find((void*)shmaddr) != _shmaddrToFlag.end();
 }
 
-bool dmtcp::ShmSegment::isStale()
+bool ShmSegment::isStale()
 {
   struct shmid_ds shminfo;
   int ret = _real_shmctl(_realId, IPC_STAT, &shminfo);
@@ -576,7 +575,7 @@ bool dmtcp::ShmSegment::isStale()
   return false;
 }
 
-void dmtcp::ShmSegment::leaderElection()
+void ShmSegment::leaderElection()
 {
   /* We attach and detach to the shmid object to set the shm_lpid to our pid.
    * The process who calls the last shmdt() is declared the leader.
@@ -588,7 +587,7 @@ void dmtcp::ShmSegment::leaderElection()
   JASSERT(_real_shmdt(addr) == 0) (_id) (addr) (JASSERT_ERRNO);
 }
 
-void dmtcp::ShmSegment::preCkptDrain()
+void ShmSegment::preCkptDrain()
 {
   struct shmid_ds info;
   JASSERT(_real_shmctl(_realId, IPC_STAT, &info) != -1);
@@ -609,7 +608,7 @@ void dmtcp::ShmSegment::preCkptDrain()
   }
 }
 
-void dmtcp::ShmSegment::preCheckpoint()
+void ShmSegment::preCheckpoint()
 {
   ShmaddrToFlagIter i = _shmaddrToFlag.begin();
   /* If this process is the ckpt-leader, unmap all but first mapped addr,
@@ -624,7 +623,7 @@ void dmtcp::ShmSegment::preCheckpoint()
   }
 }
 
-void dmtcp::ShmSegment::postRestart()
+void ShmSegment::postRestart()
 {
   if (!_isCkptLeader) return;
 
@@ -650,7 +649,7 @@ void dmtcp::ShmSegment::postRestart()
   JTRACE("Remapping shared memory segment to original address") (_id) (_realId);
 }
 
-void dmtcp::ShmSegment::refill(bool isRestart)
+void ShmSegment::refill(bool isRestart)
 {
   if (!isRestart || _isCkptLeader) return;
 
@@ -658,7 +657,7 @@ void dmtcp::ShmSegment::refill(bool isRestart)
   _realId = VIRTUAL_TO_REAL_SHM_ID(_id);
 }
 
-void dmtcp::ShmSegment::preResume()
+void ShmSegment::preResume()
 {
   // Re-map all remaining addresses
   ShmaddrToFlagIter i = _shmaddrToFlag.begin();
@@ -684,8 +683,7 @@ void dmtcp::ShmSegment::preResume()
  *
  *****************************************************************************/
 
-dmtcp::Semaphore::Semaphore(int semid, int realSemid, key_t key, int nsems,
-                            int semflg)
+Semaphore::Semaphore(int semid, int realSemid, key_t key, int nsems, int semflg)
   : SysVObj(semid, realSemid, key, semflg)
 {
   _nsems = nsems;
@@ -708,7 +706,7 @@ dmtcp::Semaphore::Semaphore(int semid, int realSemid, key_t key, int nsems,
     (_key) (_nsems) (_flags) (_id) (_isCkptLeader);
 }
 
-void dmtcp::Semaphore::on_semop(struct sembuf *sops, unsigned nsops)
+void Semaphore::on_semop(struct sembuf *sops, unsigned nsops)
 {
   for (unsigned i = 0; i < nsops; i++) {
     int sem_num = sops[i].sem_num;
@@ -716,7 +714,7 @@ void dmtcp::Semaphore::on_semop(struct sembuf *sops, unsigned nsops)
   }
 }
 
-bool dmtcp::Semaphore::isStale()
+bool Semaphore::isStale()
 {
   int ret = _real_semctl(_realId, 0, GETPID);
   if (ret == -1) {
@@ -726,14 +724,14 @@ bool dmtcp::Semaphore::isStale()
   return false;
 }
 
-void dmtcp::Semaphore::resetOnFork()
+void Semaphore::resetOnFork()
 {
   for (int i = 0; i < _nsems; i++) {
     _semadj[i] = 0;
   }
 }
 
-void dmtcp::Semaphore::leaderElection()
+void Semaphore::leaderElection()
 {
   JASSERT(_realId != -1);
   /* Every process increments and decrements the semaphore value by 1 in order
@@ -753,7 +751,7 @@ void dmtcp::Semaphore::leaderElection()
   }
 }
 
-void dmtcp::Semaphore::preCkptDrain()
+void Semaphore::preCkptDrain()
 {
   _isCkptLeader = false;
   if (getpid() == _real_semctl(_realId, 0, GETPID)) {
@@ -764,11 +762,11 @@ void dmtcp::Semaphore::preCkptDrain()
   }
 }
 
-void dmtcp::Semaphore::preCheckpoint()
+void Semaphore::preCheckpoint()
 {
 }
 
-void dmtcp::Semaphore::postRestart()
+void Semaphore::postRestart()
 {
   if (_isCkptLeader) {
     _realId = _real_semget(_key, _nsems, _flags);
@@ -781,7 +779,7 @@ void dmtcp::Semaphore::postRestart()
   }
 }
 
-void dmtcp::Semaphore::refill(bool isRestart)
+void Semaphore::refill(bool isRestart)
 {
   if (!isRestart) return;
   /* Update the semadj value for this process.
@@ -813,7 +811,7 @@ void dmtcp::Semaphore::refill(bool isRestart)
  *
  *****************************************************************************/
 
-dmtcp::MsgQueue::MsgQueue(int msqid, int realMsqid, key_t key, int msgflg)
+MsgQueue::MsgQueue(int msqid, int realMsqid, key_t key, int msgflg)
   : SysVObj(msqid, realMsqid, key, msgflg)
 {
   if (key == -1) {
@@ -825,7 +823,7 @@ dmtcp::MsgQueue::MsgQueue(int msqid, int realMsqid, key_t key, int msgflg)
   JTRACE("New MsgQueue Created") (_key) (_flags) (_id);
 }
 
-bool dmtcp::MsgQueue::isStale()
+bool MsgQueue::isStale()
 {
   struct msqid_ds buf;
   int ret = _real_msgctl(_realId, IPC_STAT, &buf);
@@ -836,7 +834,7 @@ bool dmtcp::MsgQueue::isStale()
   return false;
 }
 
-void dmtcp::MsgQueue::leaderElection()
+void MsgQueue::leaderElection()
 {
   // Leader election is done in preCkptDrain(), here we just fetch the number
   // of messages in the queue.
@@ -846,7 +844,7 @@ void dmtcp::MsgQueue::leaderElection()
   _qnum = buf.msg_qnum;
 }
 
-void dmtcp::MsgQueue::preCkptDrain()
+void MsgQueue::preCkptDrain()
 {
   // This is where we elect the leader
   /* Every process send a message to the queue. Later on, these excess messages
@@ -860,7 +858,7 @@ void dmtcp::MsgQueue::preCkptDrain()
   _isCkptLeader = false;
 }
 
-void dmtcp::MsgQueue::preCheckpoint()
+void MsgQueue::preCheckpoint()
 {
   struct msqid_ds buf;
   memset(&buf, 0, sizeof buf);
@@ -885,7 +883,7 @@ void dmtcp::MsgQueue::preCheckpoint()
   }
 }
 
-void dmtcp::MsgQueue::postRestart()
+void MsgQueue::postRestart()
 {
   if (_isCkptLeader) {
     _realId = _real_msgget(_key, _flags);
@@ -895,7 +893,7 @@ void dmtcp::MsgQueue::postRestart()
   }
 }
 
-void dmtcp::MsgQueue::refill(bool isRestart)
+void MsgQueue::refill(bool isRestart)
 {
   if (_isCkptLeader) {
     struct msqid_ds buf;

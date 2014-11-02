@@ -107,12 +107,12 @@ namespace dmtcp
     void lockFile(int fd);
     void unlockFile(int fd);
     void changeFd(int oldfd, int newfd);
-    void dupFds(int oldfd, const dmtcp::vector<int>& newfds);
+    void dupFds(int oldfd, const vector<int>& newfds);
 
     bool strStartsWith(const char *str, const char *pattern);
     bool strEndsWith(const char *str, const char *pattern);
-    bool strStartsWith(const dmtcp::string& str, const char *pattern);
-    bool strEndsWith(const dmtcp::string& str, const char *pattern);
+    bool strStartsWith(const string& str, const char *pattern);
+    bool strEndsWith(const string& str, const char *pattern);
 
     ssize_t writeAll(int fd, const void *buf, size_t count);
     ssize_t readAll(int fd, void *buf, size_t count);
@@ -129,7 +129,7 @@ namespace dmtcp
     void setVirtualPidEnvVar(pid_t pid, pid_t ppid);
     bool isScreen(const char *filename);
     void setScreenDir();
-    dmtcp::string getScreenDir();
+    string getScreenDir();
     bool isSetuid(const char *filename);
     void freePatchedArgv(char **newArgv);
     void patchArgvIfSetuid(const char* filename, char *const origArgv[],
@@ -141,8 +141,7 @@ namespace dmtcp
     void writeCoordPortToFile(const char *port, const char *portFile);
     void setTmpDir(const char *tmpDir);
     string &getTmpDir();
-    void initializeLogFile(dmtcp::string procname = "",
-                           dmtcp::string preLogPath = "");
+    void initializeLogFile(string procname = "", string preLogPath = "");
 
     void prepareDlsymWrapper();
     void adjustRlimitStack();
@@ -163,8 +162,8 @@ namespace dmtcp
 
     char *findExecutable(char *executable, const char* path_env,
                          char *exec_path);
-    string getPath(dmtcp::string cmd);
-    void getDmtcpArgs(dmtcp::vector<dmtcp::string> &dmtcp_args);
+    string getPath(string cmd);
+    void getDmtcpArgs(vector<string> &dmtcp_args);
   }
 }
 #endif

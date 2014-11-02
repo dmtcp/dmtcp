@@ -47,15 +47,15 @@ namespace dmtcp
       virtual void onTimeoutInterval();
       virtual void onDisconnect(jalib::JReaderInterface* sock);
 
-      const dmtcp::map<ConnectionIdentifier, vector<char> >&
+      const map<ConnectionIdentifier, vector<char> >&
         getDisconnectedSockets() const { return _disconnectedSockets; }
 
       const vector<char>& getDrainedData(ConnectionIdentifier id);
 
     private:
-      dmtcp::map<int , dmtcp::vector<char> >    _drainedData;
-      dmtcp::map<int , ConnectionIdentifier > _reverseLookup;
-      dmtcp::map<ConnectionIdentifier, vector<char> > _disconnectedSockets;
+      map<int , vector<char> >    _drainedData;
+      map<int , ConnectionIdentifier > _reverseLookup;
+      map<ConnectionIdentifier, vector<char> > _disconnectedSockets;
       int _timeoutCount;
   };
 

@@ -25,7 +25,7 @@
 
 using namespace dmtcp;
 
-void dmtcp::LookupService::reset()
+void LookupService::reset()
 {
   MapIterator i;
   for (i = _maps.begin(); i != _maps.end(); i++) {
@@ -43,7 +43,7 @@ void dmtcp::LookupService::reset()
   _maps.clear();
 }
 
-void dmtcp::LookupService::addKeyValue(string id,
+void LookupService::addKeyValue(string id,
                                        const void *key, size_t keyLen,
                                        const void *val, size_t valLen)
 {
@@ -57,7 +57,7 @@ void dmtcp::LookupService::addKeyValue(string id,
   kvmap[k] = v;
 }
 
-void dmtcp::LookupService::query(string id,
+void LookupService::query(string id,
                                  const void *key, size_t keyLen,
                                  void **val, size_t *valLen)
 {
@@ -76,7 +76,7 @@ void dmtcp::LookupService::query(string id,
   memcpy(*val, v->data(), *valLen);
 }
 
-void dmtcp::LookupService::registerData(const DmtcpMessage& msg,
+void LookupService::registerData(const DmtcpMessage& msg,
                                         const void *data)
 {
   JASSERT (msg.keyLen > 0 && msg.valLen > 0 &&
@@ -89,7 +89,7 @@ void dmtcp::LookupService::registerData(const DmtcpMessage& msg,
   addKeyValue(msg.nsid, key, keyLen, val, valLen);
 }
 
-void dmtcp::LookupService::respondToQuery(jalib::JSocket& remote,
+void LookupService::respondToQuery(jalib::JSocket& remote,
                                           const DmtcpMessage& msg,
                                           const void *key)
 {

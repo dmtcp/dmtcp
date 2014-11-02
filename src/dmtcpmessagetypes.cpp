@@ -21,19 +21,21 @@
 
 #include "dmtcpmessagetypes.h"
 
-static dmtcp::WorkerState theState ( dmtcp::WorkerState::RUNNING );
+using namespace dmtcp;
 
-dmtcp::WorkerState dmtcp::WorkerState::currentState()
+static WorkerState theState ( WorkerState::RUNNING );
+
+WorkerState WorkerState::currentState()
 {
   return theState;
 }
 
-void dmtcp::WorkerState::setCurrentState ( const dmtcp::WorkerState& theValue )
+void WorkerState::setCurrentState ( const WorkerState& theValue )
 {
   theState = theValue;
 }
 
-dmtcp::DmtcpMessage::DmtcpMessage ( DmtcpMessageType t /*= DMT_NULL*/ )
+DmtcpMessage::DmtcpMessage ( DmtcpMessageType t /*= DMT_NULL*/ )
     :_msgSize ( sizeof ( DmtcpMessage ) )
     ,extraBytes ( 0 )
     ,type ( t )
@@ -58,7 +60,7 @@ dmtcp::DmtcpMessage::DmtcpMessage ( DmtcpMessageType t /*= DMT_NULL*/ )
   strncpy ( _magicBits,DMTCP_MAGIC_STRING,sizeof ( _magicBits ) );
 }
 
-void dmtcp::DmtcpMessage::assertValid() const
+void DmtcpMessage::assertValid() const
 {
   JASSERT ( strcmp ( DMTCP_MAGIC_STRING,_magicBits ) == 0 )( _magicBits )
 	  .Text ( "read invalid message, _magicBits mismatch."
@@ -67,7 +69,7 @@ void dmtcp::DmtcpMessage::assertValid() const
 	  .Text ( "read invalid message, size mismatch." );
 }
 
-bool dmtcp::DmtcpMessage::isValid() const
+bool DmtcpMessage::isValid() const
 {
   if (strcmp(DMTCP_MAGIC_STRING, _magicBits) == 0) {
     JNOTE("read invalid message, _magicBits mismatch."
@@ -82,16 +84,16 @@ bool dmtcp::DmtcpMessage::isValid() const
   return true;
 }
 
-void dmtcp::DmtcpMessage::poison() { memset ( _magicBits,0,sizeof ( _magicBits ) ); }
+void DmtcpMessage::poison() { memset ( _magicBits,0,sizeof ( _magicBits ) ); }
 
 
-dmtcp::WorkerState::eWorkerState dmtcp::WorkerState::value() const
+WorkerState::eWorkerState WorkerState::value() const
 {
   JASSERT(_state < _MAX) (_state);
   return (eWorkerState) _state;
 }
 
-dmtcp::ostream& dmtcp::operator << ( dmtcp::ostream& o, const dmtcp::WorkerState& s )
+ostream& dmtcp::operator << ( dmtcp::ostream& o, const WorkerState& s )
 {
   o << "WorkerState::";
   switch ( s.value() )
@@ -115,7 +117,7 @@ dmtcp::ostream& dmtcp::operator << ( dmtcp::ostream& o, const dmtcp::WorkerState
   return o;
 }
 
-const char* dmtcp::WorkerState::toString() const{
+const char* WorkerState::toString() const{
   switch(_state){
   case UNKNOWN:      return "UNKNOWN";
   case RUNNING:      return "RUNNING";
@@ -131,7 +133,7 @@ const char* dmtcp::WorkerState::toString() const{
   }
 }
 
-dmtcp::ostream& dmtcp::operator << ( dmtcp::ostream& o, const dmtcp::DmtcpMessageType & s )
+ostream& dmtcp::operator << ( dmtcp::ostream& o, const DmtcpMessageType & s )
 {
   // o << "DmtcpMessageType: ";
   switch ( s )

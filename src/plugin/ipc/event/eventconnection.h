@@ -102,7 +102,7 @@ namespace dmtcp
       int64_t     _type; // current state of EPOLL
       struct stat _stat; // not sure if stat makes sense in case  of epfd
       int64_t     _size; // flags
-      dmtcp::map<int, struct epoll_event > _fdToEvent;
+      map<int, struct epoll_event > _fdToEvent;
   };
 #endif
 

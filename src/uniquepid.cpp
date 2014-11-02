@@ -59,32 +59,32 @@ inline static long theUniqueHostId()
 #endif
 }
 
-static dmtcp::UniquePid& nullProcess()
+static UniquePid& nullProcess()
 {
-  static char buf[sizeof(dmtcp::UniquePid)];
-  static dmtcp::UniquePid* t=NULL;
-  if(t==NULL) t = new (buf) dmtcp::UniquePid(0,0,0);
+  static char buf[sizeof(UniquePid)];
+  static UniquePid* t=NULL;
+  if(t==NULL) t = new (buf) UniquePid(0,0,0);
   return *t;
 }
-static dmtcp::UniquePid& theProcess()
+static UniquePid& theProcess()
 {
-  static char buf[sizeof(dmtcp::UniquePid)];
-  static dmtcp::UniquePid* t=NULL;
-  if(t==NULL) t = new (buf) dmtcp::UniquePid(0,0,0);
+  static char buf[sizeof(UniquePid)];
+  static UniquePid* t=NULL;
+  if(t==NULL) t = new (buf) UniquePid(0,0,0);
   return *t;
 }
-static dmtcp::UniquePid& parentProcess()
+static UniquePid& parentProcess()
 {
-  static char buf[sizeof(dmtcp::UniquePid)];
-  static dmtcp::UniquePid* t=NULL;
-  if(t==NULL) t = new (buf) dmtcp::UniquePid(0,0,0);
+  static char buf[sizeof(UniquePid)];
+  static UniquePid* t=NULL;
+  if(t==NULL) t = new (buf) UniquePid(0,0,0);
   return *t;
 }
 
-dmtcp::UniquePid::UniquePid(const char *filename)
+UniquePid::UniquePid(const char *filename)
 {
   char *str = strdup(filename);
-  dmtcp::vector<char *> tokens;
+  vector<char *> tokens;
   char *token = strtok(str, "_");
   while (token != NULL) {
     tokens.push_back(token);
@@ -104,12 +104,12 @@ dmtcp::UniquePid::UniquePid(const char *filename)
 }
 
 // _generation field of return value may later have to be modified.
-// So, it can't return a const dmtcp::UniquePid
-dmtcp::UniquePid& dmtcp::UniquePid::ThisProcess(bool disableJTrace /*=false*/)
+// So, it can't return a const UniquePid
+UniquePid& UniquePid::ThisProcess(bool disableJTrace /*=false*/)
 {
   if ( theProcess() == nullProcess() )
   {
-    theProcess() = dmtcp::UniquePid ( theUniqueHostId() ,
+    theProcess() = UniquePid ( theUniqueHostId() ,
                                       ::getpid(),
                                       ::time(NULL) );
     if (disableJTrace == false) {
@@ -120,30 +120,30 @@ dmtcp::UniquePid& dmtcp::UniquePid::ThisProcess(bool disableJTrace /*=false*/)
   return theProcess();
 }
 
-dmtcp::UniquePid& dmtcp::UniquePid::ParentProcess()
+UniquePid& UniquePid::ParentProcess()
 {
   return parentProcess();
 }
 
 /*!
-    \fn dmtcp::UniquePid::UniquePid()
+    \fn UniquePid::UniquePid()
  */
-dmtcp::UniquePid::UniquePid()
+UniquePid::UniquePid()
 {
   _pid = 0;
   _hostid = 0;
   memset(&_time, 0, sizeof(_time));
 }
 
-void  dmtcp::UniquePid::incrementGeneration()
+void  UniquePid::incrementGeneration()
 {
   _generation++;
 }
 
 /*!
-    \fn dmtcp::UniquePid::operator<() const
+    \fn UniquePid::operator<() const
  */
-bool dmtcp::UniquePid::operator< ( const UniquePid& that ) const
+bool UniquePid::operator< ( const UniquePid& that ) const
 {
 #define TRY_LEQ(param) if(this->param != that.param) return this->param < that.param;
   TRY_LEQ ( _hostid );
@@ -152,20 +152,20 @@ bool dmtcp::UniquePid::operator< ( const UniquePid& that ) const
   return false;
 }
 
-bool dmtcp::UniquePid::operator== ( const UniquePid& that ) const
+bool UniquePid::operator== ( const UniquePid& that ) const
 {
   return _hostid==that.hostid()
          && _pid==that.pid()
          && _time==that.time();
 }
 
-dmtcp::ostream& dmtcp::operator<< ( dmtcp::ostream& o,const dmtcp::UniquePid& id )
+ostream& dmtcp::operator<< ( dmtcp::ostream& o,const UniquePid& id )
 {
   o << std::hex << id.hostid() << '-' << std::dec << id.pid() << '-' << std::hex << id.time() << std::dec;
   return o;
 }
 
-dmtcp::ostream& dmtcp::operator<< ( dmtcp::ostream& o,const DmtcpUniqueProcessId& id )
+ostream& dmtcp::operator<< ( dmtcp::ostream& o,const DmtcpUniqueProcessId& id )
 {
   o << std::hex << id._hostid<< '-' << std::dec << id._pid << '-' << std::hex << id._time << std::dec;
   return o;
@@ -186,13 +186,13 @@ bool dmtcp::operator!=(const DmtcpUniqueProcessId& a,
   return !(a == b);
 }
 
-dmtcp::string dmtcp::UniquePid::toString() const{
-  dmtcp::ostringstream o;
+string UniquePid::toString() const{
+  ostringstream o;
   o << *this;
   return o.str();
 }
 
-void dmtcp::UniquePid::resetOnFork ( const dmtcp::UniquePid& newId )
+void UniquePid::resetOnFork ( const UniquePid& newId )
 {
   // parentProcess() is for inspection tools
   parentProcess() = ThisProcess();
@@ -200,12 +200,12 @@ void dmtcp::UniquePid::resetOnFork ( const dmtcp::UniquePid& newId )
   theProcess() = newId;
 }
 
-bool dmtcp::UniquePid::isNull() const
+bool UniquePid::isNull() const
 {
   return (*this == nullProcess());
 }
 
-void dmtcp::UniquePid::serialize ( jalib::JBinarySerializer& o )
+void UniquePid::serialize ( jalib::JBinarySerializer& o )
 {
   // NOTE: Do not put JTRACE/JNOTE/JASSERT in here
   UniquePid theCurrentProcess, theParentProcess;

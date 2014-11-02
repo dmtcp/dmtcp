@@ -23,6 +23,8 @@
 #include "dmtcp.h"
 #include "../jalib/jassert.h"
 
+using namespace dmtcp;
+
 static int _nextConId = CONNECTION_ID_START;
 static int _nextConnectionId()
 {
@@ -30,34 +32,34 @@ static int _nextConnectionId()
   return _nextConId++;
 }
 
-dmtcp::ConnectionIdentifier::ConnectionIdentifier(int id)
+ConnectionIdentifier::ConnectionIdentifier(int id)
 {
   _upid = dmtcp_get_uniquepid();
   _id = id;
 }
 
-void dmtcp::ConnectionIdentifier::serialize (jalib::JBinarySerializer& o)
+void ConnectionIdentifier::serialize (jalib::JBinarySerializer& o)
 {
-  JSERIALIZE_ASSERT_POINT ("dmtcp::ConnectionIdentifier:");
+  JSERIALIZE_ASSERT_POINT ("ConnectionIdentifier:");
   o & _nextConId;
   JASSERT(_nextConId >= CONNECTION_ID_START);
 }
 
-dmtcp::ConnectionIdentifier dmtcp::ConnectionIdentifier::Create()
+ConnectionIdentifier ConnectionIdentifier::Create()
 {
   return ConnectionIdentifier (_nextConnectionId());
 }
-dmtcp::ConnectionIdentifier dmtcp::ConnectionIdentifier::Null()
+ConnectionIdentifier ConnectionIdentifier::Null()
 {
-  static dmtcp::ConnectionIdentifier n;
+  static ConnectionIdentifier n;
   return n;
 }
-dmtcp::ConnectionIdentifier dmtcp::ConnectionIdentifier::Self()
+ConnectionIdentifier ConnectionIdentifier::Self()
 {
   return ConnectionIdentifier(-1);
 }
 
-bool dmtcp::ConnectionIdentifier::operator<(const ConnectionIdentifier& that)
+bool ConnectionIdentifier::operator<(const ConnectionIdentifier& that)
   const
 {
 #define TRY_LEQ(param) \
@@ -69,7 +71,7 @@ bool dmtcp::ConnectionIdentifier::operator<(const ConnectionIdentifier& that)
   return _id < that._id;
 }
 
-bool dmtcp::ConnectionIdentifier::operator==(const ConnectionIdentifier& that)
+bool ConnectionIdentifier::operator==(const ConnectionIdentifier& that)
   const
 {
   return  _upid._hostid == that._upid._hostid &&
@@ -77,4 +79,13 @@ bool dmtcp::ConnectionIdentifier::operator==(const ConnectionIdentifier& that)
           _upid._time == that._upid._time &&
           _upid._generation == that._upid._generation &&
           _id   == that._id;
+}
+
+ostream& dmtcp::operator<<(ostream& o, const ConnectionIdentifier& id)
+{
+  o << std::hex << id.hostid()
+    << '-' << std::dec << id.pid()
+    << '-' << std::hex << id.time()
+    << std::dec << '(' << id.conId() << ')';
+  return o;
 }

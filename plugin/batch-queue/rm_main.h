@@ -43,6 +43,8 @@
 #define _real_connect NEXT_FNC(connect)
 #define _real_bind NEXT_FNC(bind)
 
+namespace dmtcp {
+
 // General
 bool runUnderRMgr();
 enum rmgr_type_t { Empty, None, torque, sge, lsf, slurm };
@@ -50,8 +52,8 @@ enum rmgr_type_t { Empty, None, torque, sge, lsf, slurm };
 rmgr_type_t _get_rmgr_type();
 void _set_rmgr_type(rmgr_type_t nval);
 
-void _rm_clear_path(dmtcp::string &path);
-void _rm_del_trailing_slash(dmtcp::string &path);
+void _rm_clear_path(string &path);
+void _rm_del_trailing_slash(string &path);
 
 enum ResMgrFileType
 {
@@ -59,6 +61,7 @@ enum ResMgrFileType
   TORQUE_NODE,
   SLURM_TMPDIR
 };
+}
 
 #define FWD_TO_DEV_NULL(fd) \
 { \

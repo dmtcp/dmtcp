@@ -23,8 +23,8 @@ namespace dmtcp
       virtual void onDisconnect(jalib::JReaderInterface* sock);
 
     private:
-      dmtcp::map<int, dmtcp::vector<char> >  _drainedData;
-      dmtcp::map<int, int> _refillFd;
+      map<int, vector<char> >  _drainedData;
+      map<int, int> _refillFd;
       int _timeoutCount;
   };
 

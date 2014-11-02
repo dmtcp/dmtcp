@@ -58,16 +58,16 @@ void dmtcp::initializeMtcpEngine()
 
 void dmtcp::callbackSleepBetweenCheckpoint ( int sec )
 {
-  dmtcp::ThreadSync::waitForUserThreadsToFinishPreResumeCB();
-  dmtcp::DmtcpWorker::eventHook(DMTCP_EVENT_WAIT_FOR_SUSPEND_MSG, NULL);
+  ThreadSync::waitForUserThreadsToFinishPreResumeCB();
+  DmtcpWorker::eventHook(DMTCP_EVENT_WAIT_FOR_SUSPEND_MSG, NULL);
   if (dmtcp_is_ptracing && dmtcp_is_ptracing()) {
     // FIXME: Add a test to make check that can insert a delay of a couple of
     // seconds in here. This helps testing the initialization routines of various
     // plugins.
     // Inform Coordinator of our RUNNING state;
-    dmtcp::DmtcpWorker::informCoordinatorOfRUNNINGState();
+    DmtcpWorker::informCoordinatorOfRUNNINGState();
   }
-  dmtcp::DmtcpWorker::waitForStage1Suspend();
+  DmtcpWorker::waitForStage1Suspend();
 
   unmapRestoreArgv();
 }
@@ -75,8 +75,8 @@ void dmtcp::callbackSleepBetweenCheckpoint ( int sec )
 void dmtcp::callbackPreCheckpoint()
 {
   //now user threads are stopped
-  dmtcp::userHookTrampoline_preCkpt();
-  dmtcp::DmtcpWorker::waitForStage2Checkpoint();
+  userHookTrampoline_preCkpt();
+  DmtcpWorker::waitForStage2Checkpoint();
 }
 
 void dmtcp::callbackPostCheckpoint(int isRestart,
@@ -90,25 +90,25 @@ void dmtcp::callbackPostCheckpoint(int isRestart,
     if (dmtcp_update_ppid) {
       dmtcp_update_ppid();
     }
-    dmtcp::DmtcpWorker::eventHook(DMTCP_EVENT_RESTART, NULL);
+    DmtcpWorker::eventHook(DMTCP_EVENT_RESTART, NULL);
   } else {
-    dmtcp::DmtcpWorker::eventHook(DMTCP_EVENT_RESUME, NULL);
+    DmtcpWorker::eventHook(DMTCP_EVENT_RESUME, NULL);
   }
 
-  dmtcp::DmtcpWorker::waitForStage3Refill(isRestart);
+  DmtcpWorker::waitForStage3Refill(isRestart);
 
-  dmtcp::DmtcpWorker::waitForStage4Resume(isRestart);
+  DmtcpWorker::waitForStage4Resume(isRestart);
 
   // Set the process state to RUNNING now, in case a dmtcpaware hook
   //  calls pthread_create, thereby invoking our virtualization.
-  dmtcp::WorkerState::setCurrentState( dmtcp::WorkerState::RUNNING );
+  WorkerState::setCurrentState( WorkerState::RUNNING );
   // Now everything but user threads are restored.  Call the user hook.
-  dmtcp::userHookTrampoline_postCkpt(isRestart);
+  userHookTrampoline_postCkpt(isRestart);
 
   if (dmtcp_is_ptracing == NULL || !dmtcp_is_ptracing()) {
     // Inform Coordinator of our RUNNING state;
     // If running under ptrace, lets do this in sleep-between-ckpt callback
-    dmtcp::DmtcpWorker::informCoordinatorOfRUNNINGState();
+    DmtcpWorker::informCoordinatorOfRUNNINGState();
   }
   // After this, the user threads will be unlocked in mtcp.c and will resume.
 }
@@ -127,29 +127,29 @@ void dmtcp::callbackHoldsAnyLocks(int *retval)
    * and will proceed normally.
    */
 
-  dmtcp::ThreadSync::unsetOkToGrabLock();
-  *retval = dmtcp::ThreadSync::isThisThreadHoldingAnyLocks();
+  ThreadSync::unsetOkToGrabLock();
+  *retval = ThreadSync::isThisThreadHoldingAnyLocks();
   if (*retval == TRUE) {
     JASSERT(dmtcp_is_ptracing && dmtcp_is_ptracing());
-    dmtcp::ThreadSync::setSendCkptSignalOnFinalUnlock();
+    ThreadSync::setSendCkptSignalOnFinalUnlock();
   }
 }
 
 void dmtcp::callbackPreSuspendUserThread()
 {
-  dmtcp::ThreadSync::incrNumUserThreads();
-  dmtcp::DmtcpWorker::eventHook(DMTCP_EVENT_PRE_SUSPEND_USER_THREAD, NULL);
+  ThreadSync::incrNumUserThreads();
+  DmtcpWorker::eventHook(DMTCP_EVENT_PRE_SUSPEND_USER_THREAD, NULL);
 }
 
 void dmtcp::callbackPreResumeUserThread(int isRestart)
 {
   DmtcpEventData_t edata;
   edata.resumeUserThreadInfo.isRestart = isRestart;
-  dmtcp::DmtcpWorker::eventHook(DMTCP_EVENT_RESUME_USER_THREAD, &edata);
-  dmtcp::ThreadSync::setOkToGrabLock();
+  DmtcpWorker::eventHook(DMTCP_EVENT_RESUME_USER_THREAD, &edata);
+  ThreadSync::setOkToGrabLock();
   // This should be the last significant work before returning from this
   // function.
-  dmtcp::ThreadSync::processPreResumeCB();
+  ThreadSync::processPreResumeCB();
   // Make a dummy syscall to inform superior of our status before we resume. If
   // ptrace is disabled, this call has no significant effect.
   syscall(DMTCP_FAKE_SYSCALL);
@@ -178,7 +178,7 @@ static void restoreArgvAfterRestart(char* mtcpRestoreArgvStartAddr)
   char *startAddr = (char*) ((unsigned long) mtcpRestoreArgvStartAddr & page_mask);
 
   size_t len;
-  len = (dmtcp::ProcessInfo::instance().argvSize() + page_size) & page_mask;
+  len = (ProcessInfo::instance().argvSize() + page_size) & page_mask;
 
   // Check to verify if any page in the given range is already mmap()'d.
   // It assumes that the given addresses may belong to stack only and if
@@ -198,7 +198,7 @@ static void restoreArgvAfterRestart(char* mtcpRestoreArgvStartAddr)
   if (retAddr != MAP_FAILED) {
     JTRACE("Restoring /proc/self/cmdline")
       (mtcpRestoreArgvStartAddr) (startAddr) (len) (JASSERT_ERRNO) ;
-    dmtcp::vector<dmtcp::string> args = jalib::Filesystem::GetProgramArgs();
+    vector<string> args = jalib::Filesystem::GetProgramArgs();
     char *addr = mtcpRestoreArgvStartAddr;
     // Do NOT change restarted process's /proc/self/cmdline.
     //args[0] = DMTCP_PRGNAME_PREFIX + args[0];
@@ -224,7 +224,7 @@ static void unmapRestoreArgv()
   if (_mtcpRestoreArgvStartAddr != NULL) {
     JTRACE("Unmapping previously mmap()'d pages (that were mmap()'d for restoring argv");
     size_t len;
-    len = (dmtcp::ProcessInfo::instance().argvSize() + page_size) & page_mask;
+    len = (ProcessInfo::instance().argvSize() + page_size) & page_mask;
     JASSERT(_real_munmap(_mtcpRestoreArgvStartAddr, len) == 0)
       (_mtcpRestoreArgvStartAddr) (len)
       .Text ("Failed to munmap extra pages that were mapped during restart");

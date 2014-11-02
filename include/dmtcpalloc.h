@@ -217,15 +217,21 @@ typedef std::fstream fstream;
 typedef std::ofstream ofstream;
 typedef std::ifstream ifstream;
 
-template < typename T > class vector: public std::vector<T, dmtcp::DmtcpAlloc<T> > {
+template < typename T >
+class vector: public std::vector<T, DmtcpAlloc<T> > {
 public:
-  vector(size_t n, const T& v=T()) : std::vector<T, dmtcp::DmtcpAlloc<T> >(n, v) {}
-  vector() : std::vector<T, dmtcp::DmtcpAlloc<T> >() {}
+  vector(size_t n, const T& v=T()) : std::vector<T, DmtcpAlloc<T> >(n, v) {}
+  vector() : std::vector<T, DmtcpAlloc<T> >() {}
 };
-template < typename T > class list: public std::list<T, dmtcp::DmtcpAlloc<T> > {};
-template < typename K, typename V > class map: public std::map<K, V, std::less<K>, dmtcp::DmtcpAlloc<std::pair<K, V> > > {};
-template < typename K > class set: public std::set<K, std::less<K>, dmtcp::DmtcpAlloc<K> > {};
+
+template < typename T >
+class list: public std::list<T, DmtcpAlloc<T> > {};
+
+template < typename K, typename V >
+class map: public std::map<K, V, std::less<K>, DmtcpAlloc<std::pair<K, V> > > {};
+
+template < typename K >
+class set: public std::set<K, std::less<K>, DmtcpAlloc<K> > {};
 
 }
 #endif
-

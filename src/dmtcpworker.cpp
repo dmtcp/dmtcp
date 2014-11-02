@@ -45,7 +45,7 @@ LIB_PRIVATE void pthread_atfork_prepare();
 LIB_PRIVATE void pthread_atfork_parent();
 LIB_PRIVATE void pthread_atfork_child();
 
-bool dmtcp::DmtcpWorker::_exitInProgress = false;
+bool DmtcpWorker::_exitInProgress = false;
 
 void restoreUserLDPRELOAD()
 {
@@ -106,7 +106,7 @@ void restoreUserLDPRELOAD()
 // Used in mtcpinterface.cpp and signalwrappers.cpp.
 // FIXME: DO we still want it to be library visible only?
 //__attribute__ ((visibility ("hidden")))
-int dmtcp::DmtcpWorker::determineCkptSignal()
+int DmtcpWorker::determineCkptSignal()
 {
   int sig = CKPT_SIGNAL;
   char* endp = NULL;
@@ -132,7 +132,7 @@ extern "C" void dmtcp_prepare_wrappers(void)
   if (!dmtcpWrappersInitialized) {
     dmtcp_wrappers_initializing = 1;
     initialize_libc_wrappers();
-    //dmtcp::DmtcpWorker::eventHook(DMTCP_EVENT_INIT_WRAPPERS, NULL);
+    //DmtcpWorker::eventHook(DMTCP_EVENT_INIT_WRAPPERS, NULL);
     dmtcp_wrappers_initializing = 0;
     initialize_libpthread_wrappers();
     dmtcpWrappersInitialized = true;
@@ -157,7 +157,7 @@ static void calculateArgvAndEnvSize()
 {
   size_t argvSize, envSize;
 
-  dmtcp::vector<dmtcp::string> args = jalib::Filesystem::GetProgramArgs();
+  vector<string> args = jalib::Filesystem::GetProgramArgs();
   argvSize = 0;
   for (size_t i = 0; i < args.size(); i++) {
     argvSize += args[i].length() + 1;
@@ -172,14 +172,14 @@ static void calculateArgvAndEnvSize()
   }
   envSize += args[0].length();
 
-  dmtcp::ProcessInfo::instance().argvSize(argvSize);
-  dmtcp::ProcessInfo::instance().envSize(envSize);
+  ProcessInfo::instance().argvSize(argvSize);
+  ProcessInfo::instance().envSize(envSize);
 }
 
-static dmtcp::string getLogFilePath()
+static string getLogFilePath()
 {
 #ifdef DEBUG
-  dmtcp::ostringstream o;
+  ostringstream o;
   o << "/proc/self/fd/" << PROTECTED_JASSERTLOG_FD;
   return jalib::Filesystem::ResolveSymlink(o.str());
 #else
@@ -187,10 +187,10 @@ static dmtcp::string getLogFilePath()
 #endif
 }
 
-static void writeCurrentLogFileNameToPrevLogFile(dmtcp::string& path)
+static void writeCurrentLogFileNameToPrevLogFile(string& path)
 {
 #ifdef DEBUG
-  dmtcp::ostringstream o;
+  ostringstream o;
   o << "========================================\n"
     << "This process exec()'d into a new program\n"
     << "Program Name: " << jalib::Filesystem::GetProgramName() << "\n"
@@ -212,7 +212,7 @@ static void prepareLogAndProcessdDataFromSerialFile()
     // This process was under ckpt-control and exec()'d into a new program.
     // Find out path of previous log file so that later, we can write the name
     // of the new log file into that one.
-    dmtcp::string prevLogFilePath = getLogFilePath();
+    string prevLogFilePath = getLogFilePath();
 
     jalib::JBinarySerializeReaderRaw rd ("", PROTECTED_LIFEBOAT_FD);
     rd.rewind();
@@ -223,7 +223,7 @@ static void prepareLogAndProcessdDataFromSerialFile()
 
     DmtcpEventData_t edata;
     edata.serializerInfo.fd = PROTECTED_LIFEBOAT_FD;
-    dmtcp::DmtcpWorker::eventHook(DMTCP_EVENT_POST_EXEC, &edata);
+    DmtcpWorker::eventHook(DMTCP_EVENT_POST_EXEC, &edata);
     _real_close(PROTECTED_LIFEBOAT_FD);
   } else {
     // Brand new process (was never under ckpt-control),
@@ -284,7 +284,7 @@ DmtcpWorker DmtcpWorker::theInstance;
 
 //called before user main()
 //workerhijack.cpp initializes a static variable theInstance to DmtcpWorker obj
-dmtcp::DmtcpWorker::DmtcpWorker()
+DmtcpWorker::DmtcpWorker()
 {
   WorkerState::setCurrentState(WorkerState::UNKNOWN);
   initializeJalib();
@@ -314,8 +314,8 @@ dmtcp::DmtcpWorker::DmtcpWorker()
   determineCkptSignal();
 
   // Also cache programName and arguments
-  dmtcp::string programName = jalib::Filesystem::GetProgramName();
-  dmtcp::vector<dmtcp::string> args = jalib::Filesystem::GetProgramArgs();
+  string programName = jalib::Filesystem::GetProgramName();
+  vector<string> args = jalib::Filesystem::GetProgramArgs();
 
   JASSERT(programName != "dmtcp_coordinator"  &&
           programName != "dmtcp_launch"   &&
@@ -337,7 +337,7 @@ dmtcp::DmtcpWorker::DmtcpWorker()
   informCoordinatorOfRUNNINGState();
 }
 
-void dmtcp::DmtcpWorker::resetOnFork()
+void DmtcpWorker::resetOnFork()
 {
   eventHook(DMTCP_EVENT_ATFORK_CHILD, NULL);
 
@@ -357,20 +357,20 @@ void dmtcp::DmtcpWorker::resetOnFork()
 
   ThreadList::resetOnFork();
 
-  dmtcp::DmtcpWorker::_exitInProgress = false;
+  DmtcpWorker::_exitInProgress = false;
 
   WorkerState::setCurrentState ( WorkerState::RUNNING );
 
 }
 
-void dmtcp::DmtcpWorker::cleanupWorker()
+void DmtcpWorker::cleanupWorker()
 {
   ThreadSync::resetLocks();
   WorkerState::setCurrentState(WorkerState::UNKNOWN);
   JTRACE("disconnecting from dmtcp coordinator");
 }
 
-void dmtcp::DmtcpWorker::interruptCkpthread()
+void DmtcpWorker::interruptCkpthread()
 {
   if (ThreadSync::destroyDmtcpWorkerLockTryLock() == EBUSY) {
     ThreadList::killCkpthread();
@@ -379,7 +379,7 @@ void dmtcp::DmtcpWorker::interruptCkpthread()
 }
 
 //called after user main()
-dmtcp::DmtcpWorker::~DmtcpWorker()
+DmtcpWorker::~DmtcpWorker()
 {
   if (exitInProgress()) {
     /*
@@ -407,7 +407,7 @@ dmtcp::DmtcpWorker::~DmtcpWorker()
   cleanupWorker();
 }
 
-void dmtcp::DmtcpWorker::waitForCoordinatorMsg(dmtcp::string msgStr,
+void DmtcpWorker::waitForCoordinatorMsg(string msgStr,
                                                DmtcpMessageType type)
 {
   if (dmtcp_no_coordinator()) {
@@ -434,7 +434,7 @@ void dmtcp::DmtcpWorker::waitForCoordinatorMsg(dmtcp::string msgStr,
     }
   }
 
-  dmtcp::DmtcpMessage msg;
+  DmtcpMessage msg;
 
   if (type == DMT_DO_SUSPEND) {
     // Make a dummy syscall to inform superior of our status before we go into
@@ -473,9 +473,9 @@ void dmtcp::DmtcpWorker::waitForCoordinatorMsg(dmtcp::string msgStr,
   }
 }
 
-void dmtcp::DmtcpWorker::informCoordinatorOfRUNNINGState()
+void DmtcpWorker::informCoordinatorOfRUNNINGState()
 {
-  dmtcp::DmtcpMessage msg;
+  DmtcpMessage msg;
 
   JASSERT(WorkerState::currentState() == WorkerState::RUNNING);
 
@@ -484,7 +484,7 @@ void dmtcp::DmtcpWorker::informCoordinatorOfRUNNINGState()
   CoordinatorAPI::instance().sendMsgToCoordinator(msg);
 }
 
-void dmtcp::DmtcpWorker::waitForStage1Suspend()
+void DmtcpWorker::waitForStage1Suspend()
 {
   JTRACE("running");
 
@@ -498,7 +498,7 @@ void dmtcp::DmtcpWorker::waitForStage1Suspend()
   JTRACE("Starting checkpoint, suspending...");
 }
 
-void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
+void DmtcpWorker::waitForStage2Checkpoint()
 {
   WorkerState::setCurrentState (WorkerState::SUSPENDED);
   JTRACE("suspended");
@@ -531,10 +531,10 @@ void dmtcp::DmtcpWorker::waitForStage2Checkpoint()
   eventHook(DMTCP_EVENT_WRITE_CKPT, NULL);
 
   // Unmap shared area
-  dmtcp::SharedData::preCkpt();
+  SharedData::preCkpt();
 }
 
-void dmtcp::DmtcpWorker::waitForStage3Refill(bool isRestart)
+void DmtcpWorker::waitForStage3Refill(bool isRestart)
 {
   DmtcpEventData_t edata;
   JTRACE("checkpointed");
@@ -558,10 +558,10 @@ void dmtcp::DmtcpWorker::waitForStage3Refill(bool isRestart)
   waitForCoordinatorMsg ("REFILL", DMT_DO_REFILL);
 
   edata.refillInfo.isRestart = isRestart;
-  dmtcp::DmtcpWorker::eventHook(DMTCP_EVENT_REFILL, &edata);
+  DmtcpWorker::eventHook(DMTCP_EVENT_REFILL, &edata);
 }
 
-void dmtcp::DmtcpWorker::waitForStage4Resume(bool isRestart)
+void DmtcpWorker::waitForStage4Resume(bool isRestart)
 {
   JTRACE("refilled");
   WorkerState::setCurrentState (WorkerState::REFILLED);
@@ -569,7 +569,7 @@ void dmtcp::DmtcpWorker::waitForStage4Resume(bool isRestart)
   JTRACE("got resume message");
   DmtcpEventData_t edata;
   edata.resumeInfo.isRestart = isRestart;
-  dmtcp::DmtcpWorker::eventHook(DMTCP_EVENT_THREADS_RESUME, &edata);
+  DmtcpWorker::eventHook(DMTCP_EVENT_THREADS_RESUME, &edata);
 }
 
 void dmtcp_CoordinatorAPI_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
@@ -580,7 +580,7 @@ void dmtcp_ProcName_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
 void dmtcp_Terminal_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
 void dmtcp_Syslog_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
 
-void dmtcp::DmtcpWorker::eventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
+void DmtcpWorker::eventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   static jalib::JBuffer buf(0); // To force linkage of jbuffer.cpp
   dmtcp_Syslog_EventHook(event, data);

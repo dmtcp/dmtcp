@@ -31,6 +31,8 @@
 #include "rm_slurm.h"
 #include "rm_pmi.h"
 
+using namespace dmtcp;
+
 extern "C" int dmtcp_batch_queue_enabled(void) { return 1; }
 
 void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t* data)
@@ -69,7 +71,7 @@ static rmgr_type_t rmgr_type = Empty;
 // TODO: Do we need locking here?
 //static pthread_mutex_t global_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-rmgr_type_t _get_rmgr_type()
+rmgr_type_t dmtcp::_get_rmgr_type()
 {
   // TODO: Do we need locking here?
   //JASSERT(_real_pthread_mutex_lock(&global_mutex) == 0);
@@ -79,7 +81,7 @@ rmgr_type_t _get_rmgr_type()
   return loc_rmgr_type;
 }
 
-void _set_rmgr_type(rmgr_type_t nval)
+void dmtcp::_set_rmgr_type(rmgr_type_t nval)
 {
   // TODO: Do we need locking here?
   //JASSERT(_real_pthread_mutex_lock(&global_mutex) == 0);
@@ -89,7 +91,7 @@ void _set_rmgr_type(rmgr_type_t nval)
 }
 
 
-void _rm_clear_path(dmtcp::string &path)
+void dmtcp::_rm_clear_path(string &path)
 {
   size_t i;
   for(i=0;i<path.size();i++){
@@ -105,7 +107,7 @@ void _rm_clear_path(dmtcp::string &path)
   }
 }
 
-void _rm_del_trailing_slash(dmtcp::string &path)
+void dmtcp::_rm_del_trailing_slash(string &path)
 {
     size_t i = path.size() - 1;
     while( (path[i] == ' ' || path[i] == '/' || path == "\\" ) && i>0 )
@@ -115,7 +117,7 @@ void _rm_del_trailing_slash(dmtcp::string &path)
 }
 
 //----------------- General -----------------------------//
-bool runUnderRMgr()
+bool dmtcp::runUnderRMgr()
 {
 
   if( _get_rmgr_type() == Empty ){
@@ -135,7 +137,7 @@ bool runUnderRMgr()
 
 extern "C" int dmtcp_is_bq_file(const char *path)
 {
-  dmtcp::string str(path);
+  string str(path);
 
   if( !runUnderRMgr() )
     return false;
@@ -166,7 +168,7 @@ extern "C" int dmtcp_bq_restore_file(const char *path,
                                      const char *savedFilePath,
                                      int fcntlFlags, int type)
 {
-  dmtcp::string newpath;
+  string newpath;
 
   int tempfd = -1;
   if( _get_rmgr_type() == torque ){

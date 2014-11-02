@@ -118,7 +118,7 @@ extern "C" int epoll_create(int size)
   int ret = _real_epoll_create(size);
   if (ret != -1) {
     JTRACE("epoll fd created") (ret) (size);
-    dmtcp::EventConnList::instance().add(ret, new dmtcp::EpollConnection(size));
+    EventConnList::instance().add(ret, new EpollConnection(size));
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return ret;
@@ -130,7 +130,7 @@ extern "C" int epoll_create1(int flags)
   int ret = _real_epoll_create1(flags);
   if (ret != -1) {
     JTRACE("epoll fd created1") (ret) (flags);
-    dmtcp::EventConnList::instance().add(ret, new dmtcp::EpollConnection(flags));
+    EventConnList::instance().add(ret, new EpollConnection(flags));
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return ret;
@@ -220,8 +220,8 @@ EXTERNC int inotify_init()
   if (fd > 0) {
     JTRACE ( "inotify fd created" ) ( ret );
     //create the inotify object
-    dmtcp::Connection *con = new dmtcp::InotifyConnection(0);
-    dmtcp::EventConnList::instance().add(ret, con);
+    Connection *con = new InotifyConnection(0);
+    EventConnList::instance().add(ret, con);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return fd;
@@ -241,8 +241,8 @@ EXTERNC int inotify_init1(int flags)
   int ret = _real_inotify_init1(flags);
   if (ret != -1) {
     JTRACE("inotify1 fd created") (ret) (flags);
-    dmtcp::Connection *con = new dmtcp::InotifyConnection(flags);
-    dmtcp::EventConnList::instance().add(ret, flags);
+    Connection *con = new InotifyConnection(flags);
+    EventConnList::instance().add(ret, flags);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return ret;

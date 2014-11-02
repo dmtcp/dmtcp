@@ -44,7 +44,7 @@ using namespace dmtcp;
 
 static void setEnvironFd();
 
-dmtcp::string dmtcpTmpDir = "/DMTCP/Uninitialized/Tmp/Dir";
+string dmtcpTmpDir = "/DMTCP/Uninitialized/Tmp/Dir";
 
 // gcc-4.3.4 -Wformat=2 issues false positives for warnings unless the format
 // string has at least one format specifier with corresponding format argument.
@@ -103,27 +103,27 @@ static const char* theUsage =
 
 class RestoreTarget;
 
-typedef dmtcp::map<dmtcp::UniquePid, RestoreTarget*> RestoreTargetMap;
+typedef map<UniquePid, RestoreTarget*> RestoreTargetMap;
 RestoreTargetMap targets;
 RestoreTargetMap independentProcessTreeRoots;
 bool noStrictUIDChecking = false;
 bool runAsRoot = false;
-static dmtcp::string thePortFile;
+static string thePortFile;
 CoordinatorMode allowedModes = COORD_ANY;
 
 static void setEnvironFd();
-static void runMtcpRestart(int is32bitElf, int fd, dmtcp::ProcessInfo *pInfo);
+static void runMtcpRestart(int is32bitElf, int fd, ProcessInfo *pInfo);
 
 class RestoreTarget
 {
   public:
-    RestoreTarget(const dmtcp::string& path)
+    RestoreTarget(const string& path)
       : _path(path)
     {
       JASSERT(jalib::Filesystem::FileExists(_path)) (_path)
         .Text ( "checkpoint file missing" );
 
-      _fd = dmtcp::CkptSerializer::readCkptHeader(_path, &_pInfo);
+      _fd = CkptSerializer::readCkptHeader(_path, &_pInfo);
       JTRACE("restore target") (_path) (_pInfo.numPeers()) (_pInfo.compGroup());
     }
 
@@ -178,7 +178,7 @@ class RestoreTarget
     {
       UniquePid::ThisProcess() = _pInfo.upid();
       UniquePid::ParentProcess() = _pInfo.uppid();
-      dmtcp::Util::initializeLogFile(_pInfo.procname());
+      Util::initializeLogFile(_pInfo.procname());
 
       if (createIndependentRootProcesses) {
         DmtcpUniqueProcessId compId = _pInfo.compGroup().upid();
@@ -266,7 +266,7 @@ class RestoreTarget
       if (ckptDir.length() == 0) {
         // Create the ckpt-dir fd so that the restarted process can know about
         // the abs-path of ckpt-image.
-        dmtcp::string dirName = jalib::Filesystem::DirName(_path);
+        string dirName = jalib::Filesystem::DirName(_path);
         int dirfd = open(dirName.c_str(), O_RDONLY);
         JASSERT(dirfd != -1) (JASSERT_ERRNO);
         if (dirfd != PROTECTED_CKPT_DIR_FD) {
@@ -295,19 +295,19 @@ class RestoreTarget
     }
 
   private:
-    dmtcp::string _path;
-    dmtcp::ProcessInfo _pInfo;
+    string _path;
+    ProcessInfo _pInfo;
     int _fd;
 };
 
-static void runMtcpRestart(int is32bitElf, int fd, dmtcp::ProcessInfo *pInfo)
+static void runMtcpRestart(int is32bitElf, int fd, ProcessInfo *pInfo)
 {
   char fdBuf[8];
   char stderrFdBuf[8];
   sprintf(fdBuf, "%d", fd);
   sprintf(stderrFdBuf, "%d", PROTECTED_STDERR_FD);
 
-  static dmtcp::string mtcprestart =
+  static string mtcprestart =
     jalib::Filesystem::FindHelperUtility ("mtcp_restart");
 
   if (is32bitElf) {
@@ -393,7 +393,7 @@ int main(int argc, char** argv)
   //process args
   shift;
   while (true) {
-    dmtcp::string s = argc>0 ? argv[0] : "--help";
+    string s = argc>0 ? argv[0] : "--help";
     if (s == "--help" && argc == 1) {
       printf("%s", theUsage);
       return DMTCP_FAIL_RC;
@@ -454,8 +454,8 @@ int main(int argc, char** argv)
     }
   }
 
-  dmtcp::Util::setTmpDir(getenv(ENV_VAR_TMPDIR));
-  dmtcpTmpDir = dmtcp::Util::getTmpDir();
+  Util::setTmpDir(getenv(ENV_VAR_TMPDIR));
+  dmtcpTmpDir = Util::getTmpDir();
 
   jassert_quiet = *getenv(ENV_VAR_QUIET) - '0';
 
@@ -474,7 +474,7 @@ int main(int argc, char** argv)
 
   bool doAbort = false;
   for (; argc > 0; shift) {
-    dmtcp::string restorename(argv[0]);
+    string restorename(argv[0]);
     struct stat buf;
     int rc = stat(restorename.c_str(), &buf);
     if (Util::strEndsWith(restorename, "_files")) {
@@ -532,7 +532,7 @@ int main(int argc, char** argv)
 
   WorkerState::setCurrentState(WorkerState::RESTARTING);
 
-  dmtcp::Util::prepareDlsymWrapper();
+  Util::prepareDlsymWrapper();
 
   RestoreTarget *t = independentProcessTreeRoots.begin()->second;
   JASSERT(t->pid() != 0);

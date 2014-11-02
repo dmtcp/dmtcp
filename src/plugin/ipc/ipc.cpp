@@ -27,6 +27,8 @@
 #include "jassert.h"
 #include "ipc.h"
 
+using namespace dmtcp;
+
 void dmtcp_SSH_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
 void dmtcp_FileConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
 void dmtcp_SocketConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data);

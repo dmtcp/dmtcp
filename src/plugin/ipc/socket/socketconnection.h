@@ -53,7 +53,7 @@ namespace dmtcp
       SocketConnection() {}
       SocketConnection(int domain, int type, int protocol);
       void addSetsockopt(int level, int option, const char* value, int len);
-      void restoreSocketOptions(dmtcp::vector<int32_t>& fds);
+      void restoreSocketOptions(vector<int32_t>& fds);
       void serialize(jalib::JBinarySerializer& o);
       int sockDomain() const { return _sockDomain; }
 
@@ -146,7 +146,7 @@ namespace dmtcp
       virtual void serializeSubClass(jalib::JBinarySerializer& o);
       virtual string str() { return "<TCP Socket>"; }
     private:
-      dmtcp::map< int64_t, dmtcp::map< int64_t, jalib::JBuffer > > _sockOptions;
+      map< int64_t, map< int64_t, jalib::JBuffer > > _sockOptions;
   };
 }
 

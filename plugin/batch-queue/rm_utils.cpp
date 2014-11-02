@@ -32,8 +32,11 @@
 #include "jconvert.h"
 #include "jfilesystem.h"
 #include "rm_main.h"
+#include "rm_utils.h"
 
-int findLib_byname(dmtcp::string pattern, dmtcp::string &libpath)
+using namespace dmtcp;
+
+int dmtcp::findLib_byname(string pattern, string &libpath)
 {
   // /proc/self/maps looks like: "<start addr>-<end addr> <mode> <offset> <device> <inode> <libpath>
   // we need to extract libpath
@@ -48,7 +51,7 @@ int findLib_byname(dmtcp::string pattern, dmtcp::string &libpath)
     return -1;
   }
 
-  while( dmtcp::Util::readProcMapsLine(fd, &area) ){
+  while( Util::readProcMapsLine(fd, &area) ){
     libpath = area.name;
     //JTRACE("Inspect new /proc/seft/maps line")(libpath);
     if( libpath.size() == 0 ){
@@ -56,7 +59,7 @@ int findLib_byname(dmtcp::string pattern, dmtcp::string &libpath)
       continue;
     }
 
-    if( libpath.find(pattern) != dmtcp::string::npos ){
+    if( libpath.find(pattern) != string::npos ){
       // this is library path that contains libtorque. This is what we need
       //JTRACE("Found libpath")(pattern)(libpath);
       ret = 0;
@@ -70,7 +73,7 @@ int findLib_byname(dmtcp::string pattern, dmtcp::string &libpath)
   return ret;
 }
 
-int findLib_byfunc(dmtcp::string fname, dmtcp::string &libpath)
+int dmtcp::findLib_byfunc(string fname, string &libpath)
 {
   // /proc/self/maps looks like: "<start addr>-<end addr> <mode> <offset> <device> <inode> <libpath>
   // we need to extract libpath
@@ -85,7 +88,7 @@ int findLib_byfunc(dmtcp::string fname, dmtcp::string &libpath)
     return -1;
   }
 
-  while( dmtcp::Util::readProcMapsLine(fd, &area) ){
+  while( Util::readProcMapsLine(fd, &area) ){
     libpath = area.name;
     //JTRACE("Inspect new /proc/seft/maps line")(libpath);
     if( libpath.size() == 0 ){
@@ -93,7 +96,7 @@ int findLib_byfunc(dmtcp::string fname, dmtcp::string &libpath)
       continue;
     }
 
-    if( libpath.find("libdmtcp") != dmtcp::string::npos ){
+    if( libpath.find("libdmtcp") != string::npos ){
       //JTRACE("dmtcp plugin, skip")(libpath);
       continue;
     }

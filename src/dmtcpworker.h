@@ -40,7 +40,7 @@ namespace dmtcp
       ~DmtcpWorker();
       static DmtcpWorker& instance();
 
-      static void waitForCoordinatorMsg(dmtcp::string signalStr,
+      static void waitForCoordinatorMsg(string signalStr,
                                         DmtcpMessageType type);
       static void informCoordinatorOfRUNNINGState();
       static void waitForStage1Suspend();

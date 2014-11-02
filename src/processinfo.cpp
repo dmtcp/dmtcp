@@ -33,6 +33,8 @@
 #include  "../jalib/jconvert.h"
 #include  "../jalib/jfilesystem.h"
 
+using namespace dmtcp;
+
 static pthread_mutex_t tblLock = PTHREAD_MUTEX_INITIALIZER;
 
 static int roundingMode;
@@ -51,37 +53,37 @@ void dmtcp_ProcessInfo_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   switch (event) {
     case DMTCP_EVENT_INIT:
-      dmtcp::ProcessInfo::instance().init();
+      ProcessInfo::instance().init();
       break;
 
     case DMTCP_EVENT_PRE_EXEC:
       {
         jalib::JBinarySerializeWriterRaw wr("", data->serializerInfo.fd);
-        dmtcp::ProcessInfo::instance().refresh();
-        dmtcp::ProcessInfo::instance().serialize(wr);
+        ProcessInfo::instance().refresh();
+        ProcessInfo::instance().serialize(wr);
       }
       break;
 
     case DMTCP_EVENT_POST_EXEC:
       {
         jalib::JBinarySerializeReaderRaw rd("", data->serializerInfo.fd);
-        dmtcp::ProcessInfo::instance().serialize(rd);
-        dmtcp::ProcessInfo::instance().postExec();
+        ProcessInfo::instance().serialize(rd);
+        ProcessInfo::instance().postExec();
       }
       break;
 
     case DMTCP_EVENT_DRAIN:
-      dmtcp::ProcessInfo::instance().refresh();
+      ProcessInfo::instance().refresh();
       break;
 
     case DMTCP_EVENT_RESTART:
       fesetround(roundingMode);
-      dmtcp::ProcessInfo::instance().restart();
+      ProcessInfo::instance().restart();
       break;
 
     case DMTCP_EVENT_REFILL:
       if (data->refillInfo.isRestart) {
-        dmtcp::ProcessInfo::instance().restoreProcessGroupInfo();
+        ProcessInfo::instance().restoreProcessGroupInfo();
       }
       break;
 
@@ -100,7 +102,7 @@ void dmtcp_ProcessInfo_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
   }
 }
 
-dmtcp::ProcessInfo::ProcessInfo()
+ProcessInfo::ProcessInfo()
 {
   char buf[PATH_MAX];
   _do_lock_tbl();
@@ -126,8 +128,8 @@ dmtcp::ProcessInfo::ProcessInfo()
   _do_unlock_tbl();
 }
 
-static dmtcp::ProcessInfo *pInfo = NULL;
-dmtcp::ProcessInfo& dmtcp::ProcessInfo::instance()
+static ProcessInfo *pInfo = NULL;
+ProcessInfo& ProcessInfo::instance()
 {
   if (pInfo == NULL) {
     pInfo = new ProcessInfo();
@@ -135,7 +137,7 @@ dmtcp::ProcessInfo& dmtcp::ProcessInfo::instance()
   return *pInfo;
 }
 
-void dmtcp::ProcessInfo::growStack()
+void ProcessInfo::growStack()
 {
   /* Grow the stack to the stack limit */
   struct rlimit rlim;
@@ -198,7 +200,7 @@ void dmtcp::ProcessInfo::growStack()
 #endif
 }
 
-void dmtcp::ProcessInfo::init()
+void ProcessInfo::init()
 {
 #ifdef CONFIG_M32
   _elfType = Elf_32;
@@ -224,7 +226,7 @@ void dmtcp::ProcessInfo::init()
   }
 }
 
-void dmtcp::ProcessInfo::updateCkptDirFileSubdir(string newCkptDir)
+void ProcessInfo::updateCkptDirFileSubdir(string newCkptDir)
 {
   if (newCkptDir != "") {
     _ckptDir = newCkptDir;
@@ -238,7 +240,7 @@ void dmtcp::ProcessInfo::updateCkptDirFileSubdir(string newCkptDir)
     _ckptDir = dir;
   }
 
-  dmtcp::ostringstream o;
+  ostringstream o;
   o << _ckptDir << "/"
     << CKPT_FILE_PREFIX
     << jalib::Filesystem::GetProgramName()
@@ -248,7 +250,7 @@ void dmtcp::ProcessInfo::updateCkptDirFileSubdir(string newCkptDir)
   _ckptFilesSubDir = o.str() + CKPT_FILES_SUBDIR_SUFFIX;
 }
 
-void dmtcp::ProcessInfo::postExec()
+void ProcessInfo::postExec()
 {
   _procname   = jalib::Filesystem::GetProgramName();
   _upid       = UniquePid::ThisProcess();
@@ -256,7 +258,7 @@ void dmtcp::ProcessInfo::postExec()
   updateCkptDirFileSubdir();
 }
 
-void dmtcp::ProcessInfo::resetOnFork()
+void ProcessInfo::resetOnFork()
 {
   pthread_mutex_t newlock = PTHREAD_MUTEX_INITIALIZER;
   tblLock = newlock;
@@ -270,7 +272,7 @@ void dmtcp::ProcessInfo::resetOnFork()
   updateCkptDirFileSubdir();
 }
 
-void dmtcp::ProcessInfo::restoreHeap()
+void ProcessInfo::restoreHeap()
 {
   /* If the original start of heap is lower than the current end of heap, we
    * want to mmap the area between _savedBrk and current break. This
@@ -295,7 +297,7 @@ void dmtcp::ProcessInfo::restoreHeap()
   }
 }
 
-void dmtcp::ProcessInfo::restart()
+void ProcessInfo::restart()
 {
   JASSERT(mprotect((void*)_restoreBufAddr, _restoreBufLen, PROT_NONE) == 0)
     ((void*)_restoreBufAddr) (_restoreBufLen) (JASSERT_ERRNO);
@@ -309,7 +311,7 @@ void dmtcp::ProcessInfo::restart()
   updateCkptDirFileSubdir(ckptDir);
 
   if (_launchCWD != _ckptCWD) {
-    dmtcp::string rpath = "";
+    string rpath = "";
     size_t llen = _launchCWD.length();
     if (Util::strStartsWith(_ckptCWD.c_str(), _launchCWD.c_str()) &&
         _ckptCWD[llen] == '/') {
@@ -325,7 +327,7 @@ void dmtcp::ProcessInfo::restart()
   }
 }
 
-void dmtcp::ProcessInfo::restoreProcessGroupInfo()
+void ProcessInfo::restoreProcessGroupInfo()
 {
   // Restore group assignment
   if (dmtcp_virtual_to_real_pid && dmtcp_virtual_to_real_pid(_gid) != _gid) {
@@ -344,7 +346,7 @@ void dmtcp::ProcessInfo::restoreProcessGroupInfo()
   }
 }
 
-void dmtcp::ProcessInfo::insertChild(pid_t pid, dmtcp::UniquePid uniquePid)
+void ProcessInfo::insertChild(pid_t pid, UniquePid uniquePid)
 {
   _do_lock_tbl();
   iterator i = _childTable.find(pid);
@@ -357,7 +359,7 @@ void dmtcp::ProcessInfo::insertChild(pid_t pid, dmtcp::UniquePid uniquePid)
   JTRACE("Creating new virtualPid -> realPid mapping.") (pid) (uniquePid);
 }
 
-void dmtcp::ProcessInfo::eraseChild(pid_t virtualPid)
+void ProcessInfo::eraseChild(pid_t virtualPid)
 {
   _do_lock_tbl();
   iterator i = _childTable.find(virtualPid);
@@ -366,7 +368,7 @@ void dmtcp::ProcessInfo::eraseChild(pid_t virtualPid)
   _do_unlock_tbl();
 }
 
-bool dmtcp::ProcessInfo::isChild(const UniquePid& upid)
+bool ProcessInfo::isChild(const UniquePid& upid)
 {
   bool res = false;
   _do_lock_tbl();
@@ -380,11 +382,11 @@ bool dmtcp::ProcessInfo::isChild(const UniquePid& upid)
   return res;
 }
 
-bool dmtcp::ProcessInfo::beginPthreadJoin(pthread_t thread)
+bool ProcessInfo::beginPthreadJoin(pthread_t thread)
 {
   bool res = false;
   _do_lock_tbl();
-  dmtcp::map<pthread_t, pthread_t>::iterator i = _pthreadJoinId.find(thread);
+  map<pthread_t, pthread_t>::iterator i = _pthreadJoinId.find(thread);
   if (i == _pthreadJoinId.end()) {
     _pthreadJoinId[thread] = pthread_self();
     res = true;
@@ -393,7 +395,7 @@ bool dmtcp::ProcessInfo::beginPthreadJoin(pthread_t thread)
   return res;
 }
 
-void dmtcp::ProcessInfo::clearPthreadJoinState(pthread_t thread)
+void ProcessInfo::clearPthreadJoinState(pthread_t thread)
 {
   _do_lock_tbl();
   if (_pthreadJoinId.find(thread) != _pthreadJoinId.end()) {
@@ -402,7 +404,7 @@ void dmtcp::ProcessInfo::clearPthreadJoinState(pthread_t thread)
   _do_unlock_tbl();
 }
 
-void dmtcp::ProcessInfo::endPthreadJoin(pthread_t thread)
+void ProcessInfo::endPthreadJoin(pthread_t thread)
 {
   _do_lock_tbl();
   if (_pthreadJoinId.find(thread) != _pthreadJoinId.end() &&
@@ -412,7 +414,7 @@ void dmtcp::ProcessInfo::endPthreadJoin(pthread_t thread)
   _do_unlock_tbl();
 }
 
-void dmtcp::ProcessInfo::setCkptFilename(const char *filename)
+void ProcessInfo::setCkptFilename(const char *filename)
 {
   JASSERT(filename != NULL);
   if (filename[0] == '/') {
@@ -432,7 +434,7 @@ void dmtcp::ProcessInfo::setCkptFilename(const char *filename)
 }
 
 
-void dmtcp::ProcessInfo::setCkptDir(const char *dir)
+void ProcessInfo::setCkptDir(const char *dir)
 {
   JASSERT(dir != NULL);
   _ckptDir = dir;
@@ -444,7 +446,7 @@ void dmtcp::ProcessInfo::setCkptDir(const char *dir)
     //.Text("Missing execute- or write-access to checkpoint dir.");
 }
 
-void dmtcp::ProcessInfo::refresh()
+void ProcessInfo::refresh()
 {
   _pid = getpid();
   _ppid = getppid();
@@ -481,7 +483,7 @@ void dmtcp::ProcessInfo::refresh()
   JTRACE("CHECK GROUP PID")(_gid)(_fgid)(_ppid)(_pid);
 }
 
-void dmtcp::ProcessInfo::refreshChildTable()
+void ProcessInfo::refreshChildTable()
 {
   iterator i = _childTable.begin();
   while (i != _childTable.end()) {
@@ -496,9 +498,9 @@ void dmtcp::ProcessInfo::refreshChildTable()
   }
 }
 
-void dmtcp::ProcessInfo::serialize(jalib::JBinarySerializer& o)
+void ProcessInfo::serialize(jalib::JBinarySerializer& o)
 {
-  JSERIALIZE_ASSERT_POINT("dmtcp::ProcessInfo:");
+  JSERIALIZE_ASSERT_POINT("ProcessInfo:");
   _savedBrk = (uint64_t) sbrk(0);
 
   o & _elfType;

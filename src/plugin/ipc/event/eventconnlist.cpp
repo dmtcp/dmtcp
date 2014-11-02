@@ -6,7 +6,7 @@
 using namespace dmtcp;
 void dmtcp_EventConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
-  dmtcp::EventConnList::instance().eventHook(event, data);
+  EventConnList::instance().eventHook(event, data);
 }
 
 void dmtcp_EventConn_ProcessFdEvent(int event, int arg1, int arg2)
@@ -21,8 +21,8 @@ void dmtcp_EventConn_ProcessFdEvent(int event, int arg1, int arg2)
 }
 
 
-static dmtcp::EventConnList *eventConnList = NULL;
-dmtcp::EventConnList& dmtcp::EventConnList::instance()
+static EventConnList *eventConnList = NULL;
+EventConnList& EventConnList::instance()
 {
   if (eventConnList == NULL) {
     eventConnList = new EventConnList();
@@ -30,7 +30,7 @@ dmtcp::EventConnList& dmtcp::EventConnList::instance()
   return *eventConnList;
 }
 
-Connection *dmtcp::EventConnList::createDummyConnection(int type)
+Connection *EventConnList::createDummyConnection(int type)
 {
   switch (type) {
 #ifdef HAVE_SYS_EPOLL_H

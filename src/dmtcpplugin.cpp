@@ -29,8 +29,6 @@
 #include "threadsync.h"
 #include "mtcpinterface.h"
 
-using namespace dmtcp;
-
 #undef dmtcp_is_enabled
 #undef dmtcp_checkpoint
 #undef dmtcp_disable_ckpt
@@ -40,6 +38,8 @@ using namespace dmtcp;
 #undef dmtcp_get_local_status
 #undef dmtcp_get_uniquepid_str
 #undef dmtcp_get_ckpt_filename
+
+using namespace dmtcp;
 
 //global counters
 static int numCheckpoints = 0;
@@ -76,7 +76,7 @@ static void runCoordinatorCmd(char c,
 {
   _dmtcp_lock();
   {
-    dmtcp::CoordinatorAPI coordinatorAPI;
+    CoordinatorAPI coordinatorAPI;
 
     dmtcp_disable_ckpt();
     coordinatorAPI.connectAndSendUserCommand(c, coordCmdStatus, numPeers,
@@ -96,7 +96,7 @@ static int dmtcpRunCommand(char command)
 	// There is possibility that checkpoint thread
 	// did not send state=RUNNING yet or Coordinator did not receive it
 	// -- Artem
-    if (coordCmdStatus == dmtcp::CoordCmdStatus::ERROR_NOT_RUNNING_STATE) {
+    if (coordCmdStatus == CoordCmdStatus::ERROR_NOT_RUNNING_STATE) {
       struct timespec t;
       t.tv_sec = 0;
       t.tv_nsec = 1000000;
@@ -108,7 +108,7 @@ static int dmtcpRunCommand(char command)
     }
     i++;
   }
-  return coordCmdStatus == dmtcp::CoordCmdStatus::NOERROR;
+  return coordCmdStatus == CoordCmdStatus::NOERROR;
 }
 
 EXTERNC int dmtcp_checkpoint()
@@ -164,13 +164,13 @@ EXTERNC int dmtcp_install_hooks(dmtcp_fnptr_t preCheckpoint,
 
 EXTERNC int dmtcp_disable_ckpt()
 {
-  dmtcp::ThreadSync::delayCheckpointsLock();
+  ThreadSync::delayCheckpointsLock();
   return 1;
 }
 
 EXTERNC int dmtcp_enable_ckpt()
 {
-  dmtcp::ThreadSync::delayCheckpointsUnlock();
+  ThreadSync::delayCheckpointsUnlock();
   return 1;
 }
 
@@ -196,41 +196,41 @@ void dmtcp::userHookTrampoline_postCkpt(bool isRestart)
 
 EXTERNC int dmtcp_get_ckpt_signal(void)
 {
-  const int ckpt_signal = dmtcp::DmtcpWorker::determineCkptSignal();
+  const int ckpt_signal = DmtcpWorker::determineCkptSignal();
   return ckpt_signal;
 }
 
 EXTERNC const char* dmtcp_get_tmpdir(void)
 {
   static char tmpdir[PATH_MAX];
-  JASSERT(dmtcp::SharedData::getTmpDir(tmpdir, sizeof(tmpdir)) != NULL);
+  JASSERT(SharedData::getTmpDir(tmpdir, sizeof(tmpdir)) != NULL);
   return tmpdir;
 }
 
 //EXTERNC void dmtcp_set_tmpdir(const char* dir)
 //{
 //  if (dir != NULL) {
-//    dmtcp::UniquePid::setTmpDir(dir);
+//    UniquePid::setTmpDir(dir);
 //  }
 //}
 
 EXTERNC const char* dmtcp_get_ckpt_dir()
 {
-  static dmtcp::string tmpdir;
-  tmpdir = dmtcp::ProcessInfo::instance().getCkptDir();
+  static string tmpdir;
+  tmpdir = ProcessInfo::instance().getCkptDir();
   return tmpdir.c_str();
 }
 
 EXTERNC void dmtcp_set_ckpt_dir(const char* dir)
 {
   if (dir != NULL) {
-    dmtcp::ProcessInfo::instance().setCkptDir(dir);
+    ProcessInfo::instance().setCkptDir(dir);
   }
 }
 
 EXTERNC const char* dmtcp_get_coord_ckpt_dir(void)
 {
-  static dmtcp::string dir;
+  static string dir;
   dir = CoordinatorAPI::instance().getCoordCkptDir();
   return dir.c_str();
 }
@@ -244,20 +244,20 @@ EXTERNC void dmtcp_set_coord_ckpt_dir(const char* dir)
 
 EXTERNC void dmtcp_set_ckpt_file(const char *filename)
 {
-  dmtcp::ProcessInfo::instance().setCkptFilename(filename);
+  ProcessInfo::instance().setCkptFilename(filename);
 }
 
 EXTERNC const char* dmtcp_get_ckpt_filename(void)
 {
-  static dmtcp::string filename;
-  filename = dmtcp::ProcessInfo::instance().getCkptFilename();
+  static string filename;
+  filename = ProcessInfo::instance().getCkptFilename();
   return filename.c_str();
 }
 
 EXTERNC const char* dmtcp_get_ckpt_files_subdir(void)
 {
-  static dmtcp::string tmpdir;
-  tmpdir = dmtcp::ProcessInfo::instance().getCkptFilesSubDir();
+  static string tmpdir;
+  tmpdir = ProcessInfo::instance().getCkptFilesSubDir();
   return tmpdir.c_str();
 }
 
@@ -268,20 +268,20 @@ EXTERNC int dmtcp_should_ckpt_open_files(void)
 
 EXTERNC const char* dmtcp_get_executable_path(void)
 {
-  return dmtcp::ProcessInfo::instance().procSelfExe().c_str();
+  return ProcessInfo::instance().procSelfExe().c_str();
 }
 
 EXTERNC const char* dmtcp_get_uniquepid_str(void)
 {
-  static dmtcp::string *uniquepid_str = NULL;
+  static string *uniquepid_str = NULL;
   uniquepid_str =
-    new dmtcp::string(dmtcp::UniquePid::ThisProcess(true).toString());
+    new string(UniquePid::ThisProcess(true).toString());
   return uniquepid_str->c_str();
 }
 
 EXTERNC DmtcpUniqueProcessId dmtcp_get_uniquepid(void)
 {
-  return dmtcp::UniquePid::ThisProcess().upid();
+  return UniquePid::ThisProcess().upid();
 }
 
 EXTERNC DmtcpUniqueProcessId dmtcp_get_computation_id(void)
@@ -291,10 +291,10 @@ EXTERNC DmtcpUniqueProcessId dmtcp_get_computation_id(void)
 
 EXTERNC const char* dmtcp_get_computation_id_str(void)
 {
-  static dmtcp::string *compid_str = NULL;
+  static string *compid_str = NULL;
   if (compid_str == NULL) {
     UniquePid compId = SharedData::getCompId();
-    compid_str = new dmtcp::string(compId.toString());
+    compid_str = new string(compId.toString());
   }
   return compid_str->c_str();
 }
@@ -320,12 +320,12 @@ EXTERNC uint64_t dmtcp_get_coordinator_timestamp(void)
 
 EXTERNC uint32_t dmtcp_get_generation(void)
 {
-  return dmtcp::SharedData::getCompId()._generation;
+  return SharedData::getCompId()._generation;
 }
 
 EXTERNC int dmtcp_is_running_state(void)
 {
-  return dmtcp::WorkerState::currentState() == dmtcp::WorkerState::RUNNING;
+  return WorkerState::currentState() == WorkerState::RUNNING;
 }
 
 EXTERNC int dmtcp_is_initializing_wrappers(void)
