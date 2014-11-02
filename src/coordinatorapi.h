@@ -31,17 +31,17 @@
 
 namespace dmtcp
 {
+  enum CoordinatorMode {
+    COORD_INVALID   = 0x0000,
+    COORD_JOIN      = 0x0001,
+    COORD_NEW       = 0x0002,
+    COORD_NONE      = 0x0004,
+    COORD_ANY       = 0x0010
+  };
+
   class CoordinatorAPI
   {
     public:
-      enum CoordinatorMode {
-        COORD_INVALID   = 0x0000,
-        COORD_JOIN      = 0x0001,
-        COORD_NEW       = 0x0002,
-        COORD_NONE      = 0x0004,
-        COORD_ANY       = 0x0010
-      };
-
 #ifdef JALIB_ALLOCATOR
       static void* operator new(size_t nbytes, void* p) { return p; }
       static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
@@ -100,8 +100,8 @@ namespace dmtcp
                                  void *val, uint32_t *val_len);
 
     private:
-      void startNewCoordinator(CoordinatorAPI::CoordinatorMode mode);
-      void createNewConnToCoord(CoordinatorAPI::CoordinatorMode mode);
+      void startNewCoordinator(CoordinatorMode mode);
+      void createNewConnToCoord(CoordinatorMode mode);
       DmtcpMessage sendRecvHandshake(DmtcpMessage msg, string progname,
                                      UniquePid *compId = NULL);
 

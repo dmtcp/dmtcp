@@ -189,7 +189,7 @@ static struct PluginInfo pluginInfo[] = {               // Default value
 
 const size_t numLibs = sizeof(pluginInfo) / sizeof (struct PluginInfo);
 
-static CoordinatorAPI::CoordinatorMode allowedModes = CoordinatorAPI::COORD_ANY;
+static CoordinatorMode allowedModes = COORD_ANY;
 
 //shift args
 #define shift argc--,argv++
@@ -218,7 +218,7 @@ static void processArgs(int *orig_argc, char ***orig_argv)
       isSSHSlave = true;
       shift;
     } else if (s == "-j" || s == "--join") {
-      allowedModes = dmtcp::CoordinatorAPI::COORD_JOIN;
+      allowedModes = COORD_JOIN;
       shift;
     } else if (s == "--gzip") {
       setenv(ENV_VAR_COMPRESSION, "1", 1);
@@ -237,10 +237,10 @@ static void processArgs(int *orig_argc, char ***orig_argv)
     }
 #endif
     else if (s == "--new-coordinator") {
-      allowedModes = dmtcp::CoordinatorAPI::COORD_NEW;
+      allowedModes = COORD_NEW;
       shift;
     } else if (s == "--no-coordinator") {
-      allowedModes = dmtcp::CoordinatorAPI::COORD_NONE;
+      allowedModes = COORD_NONE;
       shift;
     } else if (s == "-i" || s == "--interval" ||
              (s.c_str()[0] == '-' && s.c_str()[1] == 'i' &&

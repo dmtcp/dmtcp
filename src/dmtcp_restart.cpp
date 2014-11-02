@@ -109,7 +109,7 @@ RestoreTargetMap independentProcessTreeRoots;
 bool noStrictUIDChecking = false;
 bool runAsRoot = false;
 static dmtcp::string thePortFile;
-CoordinatorAPI::CoordinatorMode allowedModes = CoordinatorAPI::COORD_ANY;
+CoordinatorMode allowedModes = COORD_ANY;
 
 static void setEnvironFd();
 static void runMtcpRestart(int is32bitElf, int fd, dmtcp::ProcessInfo *pInfo);
@@ -185,7 +185,7 @@ class RestoreTarget
         CoordinatorInfo coordInfo;
         struct in_addr localIPAddr;
         if (_pInfo.noCoordinator()) {
-          allowedModes = CoordinatorAPI::COORD_NONE;
+          allowedModes = COORD_NONE;
         }
 
         CoordinatorAPI::instance().connectToCoordOnRestart(allowedModes,
@@ -401,10 +401,10 @@ int main(int argc, char** argv)
       printf("%s", DMTCP_VERSION_AND_COPYRIGHT_INFO);
       return DMTCP_FAIL_RC;
     } else if (s == "-j" || s == "--join") {
-      allowedModes = dmtcp::CoordinatorAPI::COORD_JOIN;
+      allowedModes = COORD_JOIN;
       shift;
     } else if (s == "--new-coordinator") {
-      allowedModes = dmtcp::CoordinatorAPI::COORD_NEW;
+      allowedModes = COORD_NEW;
       shift;
     } else if (s == "--run-as-root") {
       runAsRoot = true;
@@ -536,7 +536,7 @@ int main(int argc, char** argv)
 
   RestoreTarget *t = independentProcessTreeRoots.begin()->second;
   JASSERT(t->pid() != 0);
-  JASSERT(!t->noCoordinator() || allowedModes == CoordinatorAPI::COORD_ANY)
+  JASSERT(!t->noCoordinator() || allowedModes == COORD_ANY)
     .Text("Process had no coordinator prior to checkpoint; but either --join or"
           " --new-coordinator was specified.");
   t->createProcess(true);

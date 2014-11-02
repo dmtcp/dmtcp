@@ -63,13 +63,11 @@ void dmtcp_CoordinatorAPI_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
   }
 }
 
-static void getHostAndPort(CoordinatorAPI::CoordinatorMode mode,
+static void getHostAndPort(CoordinatorMode mode,
                            dmtcp::string *hostname,
                            int *port)
 {
-  JASSERT(mode & CoordinatorAPI::COORD_JOIN ||
-          mode & CoordinatorAPI::COORD_NEW ||
-          mode & CoordinatorAPI::COORD_ANY);
+  JASSERT(mode & COORD_JOIN || mode & COORD_NEW || mode & COORD_ANY);
 
   const char *addr = getenv (ENV_VAR_NAME_HOST);
   if (addr == NULL) addr = DEFAULT_HOST;
@@ -78,7 +76,7 @@ static void getHostAndPort(CoordinatorAPI::CoordinatorMode mode,
   const char *portStr = getenv (ENV_VAR_NAME_PORT);
   if (portStr != NULL) {
     *port = jalib::StringToInt(portStr);
-  } else if (mode & CoordinatorAPI::COORD_NEW) {
+  } else if (mode & COORD_NEW) {
     *port = 0;
   } else {
     *port = DEFAULT_PORT;
@@ -133,8 +131,7 @@ static dmtcp::string getPrefixDir()
   return prefixDir;
 }
 
-static jalib::JSocket
-createNewSocketToCoordinator( CoordinatorAPI::CoordinatorMode mode)
+static jalib::JSocket createNewSocketToCoordinator(CoordinatorMode mode)
 {
   dmtcp::string addr;
   int port;
@@ -441,8 +438,7 @@ void dmtcp::CoordinatorAPI::recvMsgFromCoordinator(dmtcp::DmtcpMessage *msg,
   }
 }
 
-void dmtcp::CoordinatorAPI::startNewCoordinator(CoordinatorAPI::CoordinatorMode
-                                                mode)
+void dmtcp::CoordinatorAPI::startNewCoordinator(CoordinatorMode mode)
 {
   dmtcp::string addr;
   int port;
@@ -490,7 +486,7 @@ void dmtcp::CoordinatorAPI::startNewCoordinator(CoordinatorAPI::CoordinatorMode
   JASSERT(wait(&status) > 0) (JASSERT_ERRNO);
 }
 
-void CoordinatorAPI::createNewConnToCoord(CoordinatorAPI::CoordinatorMode mode)
+void CoordinatorAPI::createNewConnToCoord(CoordinatorMode mode)
 {
   if (mode & COORD_JOIN) {
     _coordinatorSocket = createNewSocketToCoordinator(mode);
