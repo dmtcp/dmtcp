@@ -36,6 +36,17 @@
 #include "jassert.h"
 #include "util.h"
 
+#define DEV_ZERO_DELETED_STR "/dev/zero (deleted)"
+#define DEV_NULL_DELETED_STR "/dev/null (deleted)"
+#define SYS_V_SHMEM_FILE "/SYSV"
+#define INFINIBAND_SHMEM_FILE "/dev/infiniband/uverbs"
+
+/* Shared memory regions for Direct Rendering Infrastructure */
+#define DEV_DRI_SHMEM "/dev/dri/card"
+
+#define DELETED_FILE_SUFFIX " (deleted)"
+
+
 #define _real_open NEXT_FNC(open)
 #define _real_close NEXT_FNC(close)
 
@@ -51,6 +62,7 @@ static void writememoryarea (int fd, Area *area,
                              int stack_was_seen, int vsyscall_exists);
 static void preprocess_special_segments(int *vsyscall_exists);
 
+static bool isNscdArea(const Area& area);
 static void remap_nscd_areas(Area remap_nscd_areas_array[],
                              int  num_remap_nscd_areas);
 
@@ -175,9 +187,7 @@ void mtcp_writememoryareas(int fd)
       JTRACE("saving area as Anonymous") (area.name);
       area.flags = MAP_PRIVATE | MAP_ANONYMOUS;
       area.name[0] = '\0';
-    } else if (Util::strStartsWith(area.name, NSCD_MMAP_STR1) ||
-               Util::strStartsWith(area.name, NSCD_MMAP_STR2) ||
-               Util::strStartsWith(area.name, NSCD_MMAP_STR3)) {
+    } else if (isNscdArea(area)) {
       /* Special Case Handling: nscd is enabled*/
       JTRACE("NSCD daemon shared memory area present.\n"
               "  MTCP will now try to remap this area in read/write mode as\n"
@@ -274,6 +284,18 @@ void mtcp_writememoryareas(int fd)
 
   /* That's all folks */
   JASSERT(_real_close (fd) == 0);
+}
+
+// Check for NSCD area.
+static bool isNscdArea(const Area& area)
+{
+  if (Util::strStartsWith(area.name, "/run/nscd") || // OpenSUSE (newer)
+      Util::strStartsWith(area.name, "/var/run/nscd") || // OpenSUSE (older)
+      Util::strStartsWith(area.name, "/var/cache/nscd") || // Debain/Ubuntu
+      Util::strStartsWith(area.name, "/var/db/nscd")) { // RedHat/Fedora
+    return true;
+  }
+  return false;
 }
 
 /* FIXME:

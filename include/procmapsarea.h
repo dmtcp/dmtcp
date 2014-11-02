@@ -45,17 +45,6 @@
 # endif
 #endif
 
-#define NSCD_MMAP_STR1 "/var/run/nscd/"   /* OpenSUSE*/
-#define NSCD_MMAP_STR2 "/var/cache/nscd"  /* Debian / Ubuntu*/
-#define NSCD_MMAP_STR3 "/var/db/nscd"     /* RedHat / Fedora*/
-#define DEV_ZERO_DELETED_STR "/dev/zero (deleted)"
-#define DEV_NULL_DELETED_STR "/dev/null (deleted)"
-#define SYS_V_SHMEM_FILE "/SYSV"
-#define INFINIBAND_SHMEM_FILE "/dev/infiniband/uverbs"
-
-/* Shared memory regions for Direct Rendering Infrastructure */
-#define DEV_DRI_SHMEM "/dev/dri/card"
-
 #define DELETED_FILE_SUFFIX " (deleted)"
 
 /* Let MTCP_PROT_ZERO_PAGE be a unique bit mask
