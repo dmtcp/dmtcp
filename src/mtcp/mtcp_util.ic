@@ -217,6 +217,32 @@ ssize_t mtcp_read_all(int fd, void *buf, size_t count)
   return num_read;
 }
 
+void mtcp_mkdir(const char *dir)
+{
+  int mtcp_sys_errno;
+  char tmp[PATH_MAX];
+  size_t i;
+  size_t len = mtcp_strlen(dir);
+  MTCP_ASSERT(len < PATH_MAX);
+
+  mtcp_memset(tmp, 0, sizeof(tmp));
+  mtcp_strcpy(tmp, dir);
+
+  while (tmp[len - 1] == '/') {
+    tmp[len - 1] = 0;
+    len--;
+  }
+
+  for(i = 1; i < len; i++) {
+    if(tmp[i] == '/') {
+      tmp[i] = '\0';
+      mtcp_sys_mkdir(tmp, S_IRWXU);
+      tmp[i] = '/';
+    }
+  }
+  mtcp_sys_mkdir(tmp, S_IRWXU);
+}
+
 void mtcp_readfile(int fd, void *buf, size_t size)
 {
   int mtcp_sys_errno;

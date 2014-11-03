@@ -1300,6 +1300,21 @@ static int open_shared_file(char* filename)
 {
   int mtcp_sys_errno = 0;
   int fd;
+  size_t i;
+
+  /* Create the directory structure */
+  char dir[PATH_MAX];
+  mtcp_memset(dir, 0, sizeof(dir));
+  mtcp_strcpy(dir, filename);
+  for (i = mtcp_strlen(dir) - 1; i > 0; i--) {
+    /* Remove the filename from the string */
+    if (dir[i] == '/') {
+      dir[i] = '\0';
+      mtcp_mkdir(dir);
+      break;
+    }
+  }
+
   /* Create the file */
   fd = mtcp_sys_open(filename, O_CREAT|O_RDWR, S_IRUSR|S_IWUSR);
   if (fd<0){
