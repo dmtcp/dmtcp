@@ -462,6 +462,22 @@ int main ( int argc, char** argv )
     unsetenv("DISPLAY");
   }
 
+  // Unset SESSION_MANAGER environment variable. SESSION_MANAGER is used by the
+  // X Window system to save and restore the current state of applications.
+  // For example, on a session crash, the X session manager attempts to reopen
+  // the applications that were open before the crash.  An application has to
+  // create a (socket) connection to the SESSION_MANAGER to communicate the
+  // current state.
+  // See http://en.wikipedia.org/wiki/X_session_manager for more information.
+  //
+  // For our purposes, we don't care about session management and thus we
+  // should disable the SESSION_MANAGER environment variable to prevent the
+  // application from communication with the X session manager.
+  if (getenv("SESSION_MANAGER") != NULL) {
+    JTRACE("Unsetting SESSION_MANAGER environment variable.");
+    unsetenv("SESSION_MANAGER");
+  }
+
   if( explicitSrun ){
       setenv(ENV_VAR_EXPLICIT_SRUN, "1", 1);
   }
