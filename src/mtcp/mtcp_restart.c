@@ -152,15 +152,11 @@ void abort(void) { mtcp_abort(); }
  * initialize a large array etc.
  */
 void *memset(void *s, int c, size_t n) {
-  char *p = s;
-  while (n-- > 0) {
-    *p++ = (char)c;
-  }
-  return s;
+  return mtcp_memset(s, c, n);
 }
+
 void *memcpy(void *dest, const void *src, size_t n) {
-  mtcp_sys_memcpy(dest, src, n);
-  return dest;
+  return mtcp_memcpy(dest, src, n);
 }
 
 #define shift argv++; argc--;
@@ -358,8 +354,8 @@ static void restart_fast_path()
  *    followed by copying new text below, followed by DSB and ISB,
  *    to eliminstate need for delay loop.  But this needs more testing.
  */
-  mtcp_sys_memcpy(rinfo.restore_addr, rinfo.text_addr, rinfo.text_size);
-  mtcp_sys_memcpy(rinfo.restore_addr + rinfo.text_size, &rinfo, sizeof(rinfo));
+  mtcp_memcpy(rinfo.restore_addr, rinfo.text_addr, rinfo.text_size);
+  mtcp_memcpy(rinfo.restore_addr + rinfo.text_size, &rinfo, sizeof(rinfo));
   void *stack_ptr = rinfo.restore_addr + rinfo.restore_size - MB;
 
 #if defined(__arm__) || defined(__aarch64__)
@@ -498,7 +494,7 @@ static void restorememoryareas(RestoreInfo *rinfo_ptr)
   }
 
   RestoreInfo restore_info;
-  mtcp_sys_memcpy(&restore_info, rinfo_ptr, sizeof (restore_info));
+  mtcp_memcpy(&restore_info, rinfo_ptr, sizeof (restore_info));
 
 
   /* Unmap everything except for this image as everything we need

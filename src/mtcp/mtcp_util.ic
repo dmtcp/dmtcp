@@ -175,7 +175,16 @@ int mtcp_strendswith (const char *s1, const char *s2)
   return mtcp_strncmp(s1, s2, len2) == 0;
 }
 
-void mtcp_sys_memcpy (void *dstpp, const void *srcpp, size_t len)
+void *mtcp_memset(void *s, int c, size_t n)
+{
+  char *p = s;
+  while (n-- > 0) {
+    *p++ = (char)c;
+  }
+  return s;
+}
+
+void *mtcp_memcpy(void *dstpp, const void *srcpp, size_t len)
 {
   char *dst = (char*) dstpp;
   const char *src = (const char*) srcpp;
@@ -183,6 +192,7 @@ void mtcp_sys_memcpy (void *dstpp, const void *srcpp, size_t len)
     *dst++ = *src++;
     len--;
   }
+  return dstpp;
 }
 
 ssize_t mtcp_read_all(int fd, void *buf, size_t count)
