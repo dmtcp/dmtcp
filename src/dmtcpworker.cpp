@@ -261,6 +261,22 @@ static void processRlimit()
 #endif
 }
 
+static void segFaultHandler(int sig, siginfo_t* siginfo, void* context)
+{
+  while (1) sleep(1);
+}
+
+static void installSegFaultHandler()
+{
+  // install SIGSEGV handler
+  struct sigaction act;
+  memset(&act, 0, sizeof(act));
+  act.sa_sigaction = segFaultHandler;
+  act.sa_flags = SA_SIGINFO;
+  JASSERT (sigaction(SIGSEGV, &act, NULL) == 0) (JASSERT_ERRNO);
+}
+
+
 /* The following instance of the DmtcpWorker is just to trigger the constructor
  * to allow us to hijack the process
  */
@@ -287,6 +303,11 @@ dmtcp::DmtcpWorker::DmtcpWorker()
   }
 
   processRlimit();
+
+  if (getenv("DMTCP_SEGFAULT_HANDLER") != NULL) {
+    // Install a segmentation fault handler (for debugging).
+    installSegFaultHandler();
+  }
 
   //This is called for side effect only.  Force this function to call
   // getenv(ENV_VAR_SIGCKPT) now and cache it to avoid getenv calls later.
