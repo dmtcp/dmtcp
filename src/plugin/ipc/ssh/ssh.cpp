@@ -33,7 +33,7 @@ static int noStrictHostKeyChecking = 0;
 
 static bool sshPluginEnabled = false;
 
-LIB_PRIVATE void process_fd_event(int event, int arg1, int arg2 = -1);
+extern "C" void process_fd_event(int event, int arg1, int arg2 = -1);
 static void drain();
 static void refill(bool isRestart);
 static void sshdReceiveFds();

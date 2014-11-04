@@ -50,21 +50,69 @@ void resources_input::trim(string &str, string delim)
     return false;
   }
 
-  bool resources_input::is_serv_slot(string &str)
+  bool resources_input::is_serv_slot(string &str, pmtype_t &pt)
   {
-    string serv_names[] = {"orted", "orterun", "mpiexec", "mpirun"};
+    string serv_names[] = {
+      // Open MPI
+      "orted",
+      // MPICH/Hydra
+      "hydra_pmi_proxy"
+      // To be continued ...
+    };
+    pmtype_t ptmap[] = {
+      // Open MPI
+      pm_orte,
+      // Hydra
+      pm_hydra
+    };
     uint size = sizeof (serv_names) / sizeof (serv_names[0]);
     uint i;
     for (i = 0; i < size; i++) {
-      if (str.find("ckpt_" + serv_names[i]) != string::npos)
+      if (str.find("ckpt_" + serv_names[i]) != string::npos){
+        pt = ptmap[i];
         return true;
+      }
     }
     return false;
   }
 
-  bool resources_input::is_launch_process(string &str)
+  bool resources_input::is_launch_process(string &str, pmtype_t &pt)
   {
-    string serv_names[] = {"orterun", "mpiexec", "mpirun"};
+    string serv_names[] = {
+      // MPI
+      "mpiexec", "mpirun",
+      // Open MPI
+      "orterun",
+      // MPICH/Hydra
+      "mpiexec.hydra"
+
+      // To be continued ...
+    };
+    pmtype_t ptmap[] = {
+      // MPI
+      pm_unknown, pm_unknown,
+      // Open MPI
+      pm_orte,
+      // Hydra
+      pm_hydra
+    };
+    uint size = sizeof (serv_names) / sizeof (serv_names[0]);
+    uint i;
+    for (i = 0; i < size; i++) {
+      if (str.find("ckpt_" + serv_names[i]) != string::npos){
+        pt = ptmap[i];
+        return true;
+      }
+    }
+    return false;
+  }
+
+  bool resources_input::is_helper_process(string &str)
+  {
+    string serv_names[] = {
+      // DMTCP
+      "dmtcp_srun_helper"
+    };
     uint size = sizeof (serv_names) / sizeof (serv_names[0]);
     uint i;
     for (i = 0; i < size; i++) {
@@ -75,7 +123,8 @@ void resources_input::trim(string &str, string delim)
   }
 
   void resources_input::split2slots(std::string &str, std::vector<std::string> &app_slots,
-                                    std::vector<std::string> &srv_slots, bool &is_launch)
+                                    std::vector<std::string> &srv_slots,
+                                    std::vector<std::string> &launch_slots, pmtype_t &pt)
   {
     string delim = " ";
     size_t start_pos = 0, match_pos;
@@ -88,12 +137,24 @@ void resources_input::trim(string &str, string delim)
       if (sublen > 0) {
         string sub(str.substr(start_pos, sublen));
         string ckptname;
+        pmtype_t _pt = pm_unknown;
         if (get_checkpoint_filename(sub, ckptname)) {
-          if (is_serv_slot(ckptname)) {
-            is_launch = is_launch_process(ckptname);
+          if( is_launch_process(ckptname, _pt) ){
+            launch_slots.push_back(sub);
+          }else if( is_helper_process(ckptname) ){
+            launch_slots.push_back(sub);
+          } else if (is_serv_slot(ckptname, _pt)) {
             srv_slots.push_back(sub);
            } else{
             app_slots.push_back(sub);
+          }
+          if( pt == pm_unknown ){
+            pt = _pt;
+          }else{
+            if( _pt != pm_unknown && pt != _pt ){
+              warning += "WARINIG: Conflicting types of process manager detected: " +
+                  pmtype_to_string(pt) + " & " + pmtype_to_string(_pt) + ". Use first one\n";
+            }
           }
         }
       }
@@ -109,7 +170,6 @@ void resources_input::trim(string &str, string delim)
     size_t match_pos;
     string hostname = "";
     string mode = "";
-    bool is_launch;
 
     // get host name
     if ((match_pos = str.find(delim)) == string::npos)
@@ -138,32 +198,42 @@ void resources_input::trim(string &str, string delim)
     size_t sublen = str.length() - start_pos;
     string ckpts(str.substr(start_pos, sublen));
     trim(ckpts, "\n");
-    slots_v app_slots, srv_slots;
-    split2slots(ckpts, app_slots, srv_slots, is_launch);
+    slots_v app_slots, srv_slots, launch_slots;
+    split2slots(ckpts, app_slots, srv_slots, launch_slots, pmtype);
 
     if (node_map.find(hostname) != node_map.end()) {
       node_map[hostname].app_slots += app_slots.size();
       node_map[hostname].srv_slots += srv_slots.size();
-      node_map[hostname].is_launch = node_map[hostname].is_launch || is_launch;
+      node_map[hostname].launch_slots += launch_slots.size();
+      node_map[hostname].is_launch = node_map[hostname].is_launch || (launch_slots.size() > 0);
       slots_v &v = node_ckpt_map[hostname];
       v.insert(v.end(),app_slots.begin(),app_slots.end());
       slots_v::iterator it = srv_slots.begin();
       for(; it != srv_slots.end(); it++){
           v[0] += " " + (*it);
       }
+      it = launch_slots.begin();
+      for(; it != launch_slots.end(); it++){
+          launch_ckpts += " " + (*it);
+      }
     } else {
       node_map[hostname].id = node_id;
       node_id++;
       node_map[hostname].app_slots = app_slots.size();
       node_map[hostname].srv_slots = srv_slots.size();
+      node_map[hostname].launch_slots += launch_slots.size();
       node_map[hostname].name = hostname;
       node_map[hostname].mode = mode;
-      node_map[hostname].is_launch = is_launch;
+      node_map[hostname].is_launch = (launch_slots.size() > 0);
       slots_v &v = node_ckpt_map[hostname];
       v.insert(v.end(),app_slots.begin(),app_slots.end());
       slots_v::iterator it = srv_slots.begin();
       for(; it != srv_slots.end(); it++){
           v[0] += " " + (*it);
+      }
+      it = launch_slots.begin();
+      for(; it != launch_slots.end(); it++){
+          launch_ckpts += " " + (*it);
       }
     }
     return true;
@@ -173,9 +243,12 @@ resources_input::resources_input(string str) : resources(input)
 {
   string delim = "::";
   uint hostid = 0;
+  warning = "";
+  pmtype = pm_unknown;
 
   _valid = false;
   size_t start_pos = 0, match_pos;
+  launch_ckpts = "";
 
   if ((match_pos = str.find(delim)) == string::npos)
     return;
@@ -204,7 +277,7 @@ resources_input::resources_input(string str) : resources(input)
 void resources_input::writeout_old(string env_var, resources &r)
 {
   mapping_t map;
-  string warning = "";
+
   if (!map_to(r, map, warning)){
     cout << "DMTCP_DISCOVER_RM_ERROR=\'Cannot map initial resources into the restart allocation\'" << endl;
     return;
@@ -235,7 +308,7 @@ void resources_input::writeout_old(string env_var, resources &r)
 void resources_input::writeout_new(string env_var, resources &r)
 {
   mapping_t map;
-  string warning = "";
+
   if (!map_to(r, map, warning)){
     cout << "DMTCP_DISCOVER_RM_ERROR=\'Cannot map initial resources into the restart allocation\'" << endl;
     return;
@@ -243,6 +316,10 @@ void resources_input::writeout_new(string env_var, resources &r)
   if( warning != "" ){
     cout << "DMTCP_DISCOVER_RM_WARNING=\'" << warning << "\'" << endl;
   }
+
+  cout << "DMTCP_DISCOVER_PM_TYPE=\'" << pmtype_to_string(pmtype) << "\'" << endl;
+
+  cout << "DMTCP_LAUNCH_CKPTS=\'" << launch_ckpts << "\'" << endl;
 
   cout << env_var + "_NODES=" << r.ssize() << endl;
 

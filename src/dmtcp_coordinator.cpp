@@ -148,6 +148,7 @@ static const char* theRestartScriptHeader =
   "#     command.\n\n\n"
 ;
 
+
 static const char* theRestartScriptCheckLocal =
   "check_local()\n"
   "{\n"
@@ -176,6 +177,22 @@ static const char* theRestartScriptCheckLocal =
   "  fi\n"
   "}\n\n\n";
 
+static const char *slurmHelperContactFunction =
+"pass_slurm_helper_contact()\n"
+"{\n"
+"  LOCAL_FILES=\"$1\"\n"
+"  # Create temp directory if need\n"
+"  DMTCP_TMPDIR=$TMPDIR/dmtcp-`whoami`@`hostname`\n"
+"  if [ ! -d \"$DMTCP_TMPDIR\" ]; then\n"
+"    mkdir -p $DMTCP_TMPDIR\n"
+"  fi\n"
+"  # Create files with SLURM environment\n"
+"  for CKPT_FILE in $LOCAL_FILES; do\n"
+"    SUFFIX=${CKPT_FILE%%.dmtcp}\n"
+"    SLURM_ENV_FILE=$DMTCP_TMPDIR/slurm_env_${SUFFIX##*_}\n"
+"    echo \"DMTCP_SRUN_HELPER_ADDR=$DMTCP_SRUN_HELPER_ADDR\" >> $SLURM_ENV_FILE\n"
+"  done\n"
+"}\n\n\n";
 
 static const char* theRestartScriptUsage =
   "usage_str='USAGE:\n"
@@ -1375,6 +1392,7 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
 
   fprintf ( fp, "%s", theRestartScriptHeader );
   fprintf ( fp, "%s", theRestartScriptCheckLocal );
+  fprintf ( fp, "%s", slurmHelperContactFunction );
   fprintf ( fp, "%s", theRestartScriptUsage );
 
   ctime_r(&ckptTimeStamp, timestamp);
@@ -1469,7 +1487,23 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
                   "        export DMTCP_REMLAUNCH_${i}_${j}=\"$ckpts\"\n"
                   "      done\n"
                   "    done\n"
-                  "    $srun_path \"$llaunch\"\n"
+                  "    if [ \"$DMTCP_DISCOVER_PM_TYPE\" = \"ORTE\" ]; then\n"
+                  "      DMTCP_REMLAUNCH_0_0=\"$DMTCP_REMLAUNCH_0_0 $DMTCP_LAUNCH_CKPTS\"\n"
+                  "      $srun_path \"$llaunch\"\n"
+                  "    else\n"
+                  "      export DMTCP_SRUN_HELPER_SYNCFILE=`mktemp ./tmp.XXXXXXXXXX`\n"
+                  "      rm $DMTCP_SRUN_HELPER_SYNCFILE\n"
+                  "      dmtcp_srun_helper -r $srun_path \"$llaunch\"\n"
+                  "      if [ ! -f $DMTCP_SRUN_HELPER_SYNCFILE ]; then\n"
+                  "        echo \"Error launching application\"\n"
+                  "        exit 1\n"
+                  "      fi\n"
+                  "      # export helper contact info\n"
+                  "      . $DMTCP_SRUN_HELPER_SYNCFILE\n"
+                  "      pass_slurm_helper_contact \"$DMTCP_LAUNCH_CKPTS\"\n"
+                  "      rm $DMTCP_SRUN_HELPER_SYNCFILE\n"
+                  "      dmtcp_restart --join --host $DMTCP_HOST --port $DMTCP_PORT $DMTCP_LAUNCH_CKPTS\n"
+                  "    fi\n"
                   "    exit 0\n"
                   "  elif [ $RES_MANAGER = \"TORQUE\" ]; then\n"
                   "    #eval $(dmtcp_discover_rm \"$worker_ckpts\")\n"
@@ -1500,7 +1534,8 @@ void dmtcp::DmtcpCoordinator::writeRestartScript()
                   "    exit 0\n"
                   "  fi\n"
                   "fi\n"
-                  "\n\n");
+                  "\n\n"
+             );
 
     fprintf ( fp, "%s", theRestartScriptMultiHostProcessing );
   }

@@ -65,15 +65,13 @@ HEADERS = $(DMTCP_INCLUDE_PATH)/util.h $(DMTCP_INCLUDE_PATH)/dmtcp.h \
 	  $(JALIB_PATH)/jconvert.h $(JALIB_PATH)/jfilesystem.h \
 	  $(JALIB_PATH)/jalib.h rm_main.h rm_torque.h rm_slurm.h rm_utils.h rm_pmi.h
 
-OBJS = rm_main.o rm_torque.o rm_slurm.o rm_utils.o rm_pmi.o
-SOURCES = rm_main.cpp rm_torque.cpp rm_slurm.cpp rm_utils.cpp rm_pmi.cpp
+OBJS = rm_main.o rm_torque.o rm_slurm.o rm_utils.o rm_pmi.o slurm_helper.o
+SOURCES = rm_main.cpp rm_torque.cpp rm_slurm.cpp rm_utils.cpp rm_pmi.cpp slurm_helper.cpp
 
 DISCOVER_OBJS = discover_dmtcpinput.o discover_resources.o discover_slurm.o \
 		discover_torque.o
 DISCOVER_HEADERS = discover_dmtcpinput.h discover_resources.h discover_slurm.h \
 		   discover_torque.h
-
-
 LIB_LDFLAGS = -shared -Wl,--unresolved-symbols=ignore-all
 
 LDADD = -ldl -lpthread
@@ -84,7 +82,8 @@ default: build
 
 ifeq ($(M32),0)
   RM_BINS = $(targetdir)/bin/dmtcp_discover_rm \
-	    $(targetdir)/bin/dmtcp_rm_loclaunch
+	    $(targetdir)/bin/dmtcp_rm_loclaunch \
+	    $(targetdir)/bin/dmtcp_srun_helper
 endif
 
 build: ${LIBNAME} $(RM_BINS)
@@ -109,11 +108,13 @@ uninstall-libs:
 
 install: install-libs
 	${INSTALL_PROGRAM} $(targetdir)/bin/dmtcp_discover_rm $(DESTDIR)$(bindir)
+	${INSTALL_PROGRAM} $(targetdir)/bin/dmtcp_srun_helper $(DESTDIR)$(bindir)
 	${INSTALL_SCRIPT} $(targetdir)/bin/dmtcp_rm_loclaunch $(DESTDIR)$(bindir)
 
 uninstall: uninstall-libs
 	rm -f $(DESTDIR)$(bindir)/dmtcp_discover_rm
 	rm -f $(DESTDIR)$(bindir)/dmtcp_rm_loclaunch
+	rm -f $(DESTDIR)$(bindir)/bin/dmtcp_srun_helper
 
 
 ${LIBNAME}: $(OBJS) ${HEADERS}
@@ -126,6 +127,9 @@ $(targetdir)/bin/dmtcp_rm_loclaunch:
 $(targetdir)/bin/dmtcp_discover_rm: dmtcp_discover_rm.cpp $(DISCOVER_OBJS) \
   $(DISCOVER_HEADERS)
 	$(CXXLINK) $(INCLUDES) $(CPPFLAGS) $(DISCOVER_OBJS) -o $@ $<
+
+$(targetdir)/bin/dmtcp_srun_helper: dmtcp_srun_helper.cpp slurm_helper.cpp
+	$(CXXLINK) $(INCLUDES) $(CPPFLAGS) $< slurm_helper.cpp
 
 %.o: %.c ${HEADERS}
 	$(COMPILE)  $<

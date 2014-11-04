@@ -51,6 +51,7 @@ public:
     std::string name;
     uint app_slots;
     uint srv_slots;
+    uint launch_slots;
     uint id;
     std::string mode;
     bool is_launch;
@@ -162,7 +163,7 @@ public:
     return sorted_v.size();
   }
 
-  bool map_to(resources &newres, mapping_t &map, std::string warning);
+  bool map_to(resources &newres, mapping_t &map, std::string &warning);
   virtual int discover() = 0;
 };
 

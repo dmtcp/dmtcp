@@ -62,7 +62,7 @@ void resources::output_sorted(string env_name)
   printf("\"\n");
 }
 
-bool resources::map_to(resources &newres, mapping_t &map, string warning)
+bool resources::map_to(resources &newres, mapping_t &map, string &warning)
 {
     newres.update_sorted();
     update_sorted();
