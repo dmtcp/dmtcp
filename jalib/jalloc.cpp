@@ -103,15 +103,22 @@ public:
 
   //allocate a chunk of size N
   void* allocate() {
-    if(_root == NULL) expand();
-    FreeItem* item;
+    FreeItem* item = NULL;
     do {
+      if (_root == NULL) {
+        expand();
+      }
+
+      // NOTE: _root could still be NULL (if other threads consumed all
+      // blocks that were made available from expand().  In such case, we
+      // loop once again.
+
       /* Atomically does the following operation:
        *   item = _root;
        *   _root = item->next;
        */
       item = _root;
-    } while (!__sync_bool_compare_and_swap(&_root, item, item->next));
+    } while (!_root || !__sync_bool_compare_and_swap(&_root, item, item->next));
 
     item->next = NULL;
     return item;
