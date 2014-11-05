@@ -35,12 +35,6 @@
 #include <cstddef>
 #include <utility>
 
-#define DMTCPSTRING    dmtcp::string
-#define DMTCPVECTOR(T) dmtcp::vector<T>
-#define DMTCPLIST(T)   dmtcp::list<T>
-#define DMTCPMAP(K, V) dmtcp::map<K, V>
-#define DMTCPSET(K)    dmtcp::set<K>
-
 namespace dmtcp
 {
 
