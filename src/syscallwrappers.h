@@ -58,9 +58,8 @@
 #include "constants.h"
 #include "dmtcp.h"
 #include "mtcp/ldt.h"
-#ifdef HAVE_CONFIG_H
-# include "config.h"
-#endif
+#include "config.h"
+
 #ifdef HAVE_SYS_EPOLL_H
 # include <sys/epoll.h>
 #else

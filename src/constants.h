@@ -22,11 +22,10 @@
 #ifndef CONSTANTS_H
 #define CONSTANTS_H
 
-#ifdef HAVE_CONFIG_H
-# include "config.h"
-#endif
-#include "linux/version.h"
+#include <linux/version.h>
 #include <features.h>
+
+#include "config.h"
 
 // Turn on coordinator NameService by default. In future, we will replace the
 // logic in dmtcp_coordinator.cpp and dmtcp_worker.cpp to allow the coordinator

@@ -33,9 +33,7 @@
 #include <execinfo.h> /* For backtrace() */
 #define BT_SIZE 50 /* Maximum size backtrace of stack */
 
-#ifdef HAVE_CONFIG_H
-# include "config.h"
-#endif
+#include "config.h"
 #include "jalloc.h"
 
 extern int jassert_quiet;

@@ -30,9 +30,7 @@
 #include "jassert.h"
 #include "jalloc.h"
 
-#ifdef HAVE_CONFIG_H
-# include "config.h"
-#endif
+#include "config.h"
 
 #ifdef TIMING
 #define JTIMER(name) static jalib::JTimeRecorder _jtimer_ ## name (#name);
