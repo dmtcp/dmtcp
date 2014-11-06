@@ -399,6 +399,21 @@ DmtcpWorker::~DmtcpWorker()
   cleanupWorker();
 }
 
+static void ckptThreadPerformExit()
+{
+  // Ideally, we would like to perform pthread_exit(), but we are in the middle
+  // of process cleanup (due to the user thread's exit() call) and as a result,
+  // the static objects are being destroyed.  A call to pthread_exit() also
+  // results in execution of various cleanup routines.  If the thread tries to
+  // access any static objects during some cleanup routine, it will cause a
+  // segfault.
+  //
+  // Our approach to loop here while we wait for the process to terminate.
+  // This guarantees that we never access any static objects from this point
+  // forward.
+  while (1) sleep(1);
+}
+
 void DmtcpWorker::waitForCoordinatorMsg(string msgStr,
                                                DmtcpMessageType type)
 {
@@ -418,11 +433,11 @@ void DmtcpWorker::waitForCoordinatorMsg(string msgStr,
     if (ThreadSync::destroyDmtcpWorkerLockTryLock() != 0) {
       JTRACE("User thread is performing exit()."
                " ckpt thread exit()ing as well");
-      pthread_exit(NULL);
+      ckptThreadPerformExit();
     }
     if (exitInProgress()) {
       ThreadSync::destroyDmtcpWorkerLockUnlock();
-      pthread_exit(NULL);
+      ckptThreadPerformExit();
     }
   }
 
@@ -442,7 +457,7 @@ void DmtcpWorker::waitForCoordinatorMsg(string msgStr,
   CoordinatorAPI::instance().recvMsgFromCoordinator(&msg);
   if (type == DMT_DO_SUSPEND && exitInProgress()) {
     ThreadSync::destroyDmtcpWorkerLockUnlock();
-    pthread_exit(NULL);
+    ckptThreadPerformExit();
   }
 
   msg.assertValid();
@@ -497,7 +512,7 @@ void DmtcpWorker::waitForStage2Checkpoint()
 
   if (exitInProgress()) {
     ThreadSync::destroyDmtcpWorkerLockUnlock();
-    pthread_exit(NULL);
+    ckptThreadPerformExit();
   }
   ThreadSync::destroyDmtcpWorkerLockUnlock();
 
