@@ -378,12 +378,19 @@ void Util::prepareDlsymWrapper()
   /* For the sake of dlsym wrapper. We compute the address of _real_dlsym by
    * adding dlsym_offset to the address of dlopen after the exec into the user
    * application. */
-  uint32_t diff = getDlsymOffset();
-  uint32_t diff_m32 = getDlsymOffset_m32();
+  uint32_t offset = SharedData::getDlsymOffset();
+  uint32_t offset_m32 = SharedData::getDlsymOffset_m32();
+
+  if (offset == 0) {
+    offset = getDlsymOffset();
+    offset_m32 = getDlsymOffset_m32();
+    SharedData::updateDlsymOffset(offset, offset_m32);
+  }
+
   char str[21] = {0};
-  sprintf(str, "%d", diff);
+  sprintf(str, "%d", offset);
   setenv(ENV_VAR_DLSYM_OFFSET, str, 1);
-  sprintf(str, "%d", diff_m32);
+  sprintf(str, "%d", offset_m32);
   setenv(ENV_VAR_DLSYM_OFFSET_M32, str, 1);
 }
 
@@ -391,7 +398,7 @@ static int32_t getDlsymOffset()
 {
   void* base_addr = NULL;
   void* dlsym_addr = NULL;
-  int32_t diff;
+  int32_t offset;
   void* handle = NULL;
   handle = dlopen(LIBDL_FILENAME, RTLD_NOW);
   JASSERT(handle != NULL) (dlerror());
@@ -405,15 +412,15 @@ static int32_t getDlsymOffset()
   base_addr = dlsym(handle, LIBDL_BASE_FUNC_STR);
   dlsym_addr = dlsym(handle, "dlsym");
   dlclose(handle);
-  diff = (char *)dlsym_addr - (char *)base_addr;
-  return diff;
+  offset = (char *)dlsym_addr - (char *)base_addr;
+  return offset;
 }
 
 static int32_t getDlsymOffset_m32()
 {
   uint64_t base_addr = 0;
   uint64_t dlsym_addr = 0;
-  int32_t diff;
+  int32_t offset;
   FILE *fp;
   char buf[PATH_MAX];
   string cmd1, cmd2, libdl, libdmtcp32;
@@ -448,8 +455,8 @@ static int32_t getDlsymOffset_m32()
   JASSERT(base_addr != 0);
   fclose(fp);
 
-  diff = (int32_t) ((char *)dlsym_addr - (char *)base_addr);
-  return diff;
+  offset = (int32_t) ((char *)dlsym_addr - (char *)base_addr);
+  return offset;
 }
 
 void Util::runMtcpRestore(int is32bitElf, const char* path, int fd,

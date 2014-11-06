@@ -432,7 +432,11 @@ void CoordinatorAPI::startNewCoordinator(CoordinatorMode mode)
   JTRACE("Starting a new coordinator automatically.") (coordPort);
 
   if (fork() == 0) {
-    string coordinator = jalib::Filesystem::FindHelperUtility("dmtcp_coordinator");
+    // We can't use Util::getPath() here since the SharedData has not been
+    // initialized yet.
+    string coordinator =
+      jalib::Filesystem::GetProgramDir() + "/dmtcp_coordinator";
+
     char *modeStr = (char *)"--daemon";
     char * args[] = {
       (char*)coordinator.c_str(),

@@ -336,12 +336,7 @@ static void dmtcpPrepareForExec(const char *path, char *const argv[],
   JTRACE("Will exec filename instead of path") (path) (*filename);
 
   Util::adjustRlimitStack();
-
-  char str[21] = {0};
-  sprintf(str, "%d", SharedData::getDlsymOffset());
-  setenv(ENV_VAR_DLSYM_OFFSET, str, 1);
-  sprintf(str, "%d", SharedData::getDlsymOffset_m32());
-  setenv(ENV_VAR_DLSYM_OFFSET_M32, str, 1);
+  Util::prepareDlsymWrapper();
 
   // Remove FD_CLOEXEC flag from protected file descriptors.
   for (size_t i  = PROTECTED_FD_START; i < PROTECTED_FD_END; i++) {

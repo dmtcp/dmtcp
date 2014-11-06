@@ -211,6 +211,8 @@ class RestoreTarget
                                &compId,
                                &coordInfo,
                                &localIPAddr);
+
+        Util::prepareDlsymWrapper();
       }
 
       JTRACE("Creating process during restart") (upid()) (_pInfo.procname());
@@ -537,8 +539,6 @@ int main(int argc, char** argv)
           "process as session leader.");
 
   WorkerState::setCurrentState(WorkerState::RESTARTING);
-
-  Util::prepareDlsymWrapper();
 
   RestoreTarget *t = independentProcessTreeRoots.begin()->second;
   JASSERT(t->pid() != 0);

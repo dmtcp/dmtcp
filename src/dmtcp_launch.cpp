@@ -468,9 +468,6 @@ int main ( int argc, char** argv )
 //   from DmtcpWorker constructor, to distinguish the two cases.
   Util::adjustRlimitStack();
 
-  // Set DLSYM_OFFSET env var(s).
-  Util::prepareDlsymWrapper();
-
   DmtcpUniqueProcessId compId;
   CoordinatorInfo coordInfo;
   struct in_addr localIPAddr;
@@ -493,6 +490,9 @@ int main ( int argc, char** argv )
                          &compId,
                          &coordInfo,
                          &localIPAddr);
+
+  // Set DLSYM_OFFSET env var(s).
+  Util::prepareDlsymWrapper();
 
   setLDPreloadLibs(is32bitElf);
 

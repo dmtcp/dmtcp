@@ -88,12 +88,8 @@ void SharedData::initializeHeader(const char *tmpDir,
   sharedDataHeader->coordPort = -1;
   sharedDataHeader->ckptInterval = -1;
 #endif
-  JASSERT(getenv(ENV_VAR_DLSYM_OFFSET) != NULL);
-  sharedDataHeader->dlsymOffset =
-    (int32_t) strtol(getenv(ENV_VAR_DLSYM_OFFSET), NULL, 10);
-  JASSERT(getenv(ENV_VAR_DLSYM_OFFSET_M32) != NULL);
-  sharedDataHeader->dlsymOffset_m32 =
-    (int32_t) strtol(getenv(ENV_VAR_DLSYM_OFFSET_M32), NULL, 10);
+  sharedDataHeader->dlsymOffset = 0;
+  sharedDataHeader->dlsymOffset_m32 = 0;
   sharedDataHeader->numSysVShmIdMaps = 0;
   sharedDataHeader->numSysVSemIdMaps = 0;
   sharedDataHeader->numSysVMsqIdMaps = 0;
@@ -383,7 +379,6 @@ void SharedData::updateDlsymOffset(int32_t dlsymOffset,
 int32_t SharedData::getDlsymOffset(void)
 {
   if (sharedDataHeader == NULL) initialize();
-  JASSERT(sharedDataHeader->dlsymOffset != 0);
   return sharedDataHeader->dlsymOffset;
 }
 
