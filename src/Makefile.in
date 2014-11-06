@@ -1196,8 +1196,7 @@ install-dvi: install-dvi-recursive
 install-dvi-am:
 
 install-exec-am: install-binPROGRAMS
-	@$(NORMAL_INSTALL)
-	$(MAKE) $(AM_MAKEFLAGS) install-exec-hook
+
 install-html: install-html-recursive
 
 install-html-am:
@@ -1237,10 +1236,8 @@ ps-am:
 
 uninstall-am: uninstall-binPROGRAMS uninstall-dmtcplibPROGRAMS \
 	uninstall-includeHEADERS
-	@$(NORMAL_INSTALL)
-	$(MAKE) $(AM_MAKEFLAGS) uninstall-hook
-.MAKE: $(am__recursive_targets) install-am install-exec-am \
-	install-strip uninstall-am
+
+.MAKE: $(am__recursive_targets) install-am install-strip
 
 .PHONY: $(am__recursive_targets) CTAGS GTAGS TAGS all all-am check \
 	check-am clean clean-binPROGRAMS clean-dmtcplibPROGRAMS \
@@ -1249,26 +1246,19 @@ uninstall-am: uninstall-binPROGRAMS uninstall-dmtcplibPROGRAMS \
 	distclean-tags distdir dvi dvi-am html html-am info info-am \
 	install install-am install-binPROGRAMS install-data \
 	install-data-am install-dmtcplibPROGRAMS install-dvi \
-	install-dvi-am install-exec install-exec-am install-exec-hook \
-	install-html install-html-am install-includeHEADERS \
-	install-info install-info-am install-man install-pdf \
-	install-pdf-am install-ps install-ps-am install-strip \
-	installcheck installcheck-am installdirs installdirs-am \
-	maintainer-clean maintainer-clean-generic mostlyclean \
-	mostlyclean-compile mostlyclean-generic pdf pdf-am ps ps-am \
-	tags tags-am uninstall uninstall-am uninstall-binPROGRAMS \
-	uninstall-dmtcplibPROGRAMS uninstall-hook \
+	install-dvi-am install-exec install-exec-am install-html \
+	install-html-am install-includeHEADERS install-info \
+	install-info-am install-man install-pdf install-pdf-am \
+	install-ps install-ps-am install-strip installcheck \
+	installcheck-am installdirs installdirs-am maintainer-clean \
+	maintainer-clean-generic mostlyclean mostlyclean-compile \
+	mostlyclean-generic pdf pdf-am ps ps-am tags tags-am uninstall \
+	uninstall-am uninstall-binPROGRAMS uninstall-dmtcplibPROGRAMS \
 	uninstall-includeHEADERS
 
 
 mtcp/libmtcp.a:
 	cd mtcp && ${MAKE} libmtcp.a
-
-install-exec-hook:
-	cd $(DESTDIR)$(bindir) && $(LN_S) -f dmtcp_launch dmtcp_checkpoint
-
-uninstall-hook:
-	rm -f $(DESTDIR)$(bindir)/dmtcp_checkpoint
 
 libs: $(dmtcplib_PROGRAMS)
 	(cd mtcp && ${MAKE} libs)

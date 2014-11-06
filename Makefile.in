@@ -101,7 +101,6 @@ ifeq ($(M32),1)
 	cd src && $(MAKE) libs
 else
 	cd src && $(MAKE)
-	cd $(targetdir)/bin && $(LN_S) dmtcp_launch dmtcp_checkpoint
 endif
 
 plugin: dmtcp
@@ -255,8 +254,6 @@ ifeq ($(M32),0)
 	${INSTALL_DATA} $(top_srcdir)/manpages/*.1.gz $(DESTDIR)$(mandir)/man1
 	(cd $(DESTDIR)$(mandir)/man1; \
 	  for file in ${MANPAGES_AUTOGEN}; do $(LN_S) dmtcp.1.gz $$file; done)
-	(cd $(DESTDIR)$(mandir)/man1; \
-	  $(LN_S) dmtcp_launch.1.gz dmtcp_checkpoint.1.gz)
 endif
 
 uninstall:
