@@ -22,15 +22,15 @@ static pthread_mutex_t prgNameMapLock = PTHREAD_MUTEX_INITIALIZER;
 // place (courtesy of wrapper-execution locks).
 static void lockPrgNameMapLock()
 {
-  JASSERT(_real_pthread_mutex_lock(&prgNameMapLock) == 0) (JASSERT_ERRNO);
+  JASSERT(_real_pthread_mutex_lock(&prgNameMapLock) == 0)(JASSERT_ERRNO);
 }
 
 static void unlockPrgNameMapLock()
 {
-  JASSERT(_real_pthread_mutex_unlock(&prgNameMapLock) == 0) (JASSERT_ERRNO);
+  JASSERT(_real_pthread_mutex_unlock(&prgNameMapLock) == 0)(JASSERT_ERRNO);
 }
 
-void dmtcp_ProcName_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
+void dmtcp_ProcName_EventHook(DmtcpEvent_t event, DmtcpEventData_t* data)
 {
   switch (event) {
     case DMTCP_EVENT_WAIT_FOR_SUSPEND_MSG:
@@ -64,17 +64,17 @@ void prctlReset()
 
 void prctlGetProcessName()
 {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,11)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 11)
   char name[17] = {0};
   int ret = prctl(PR_GET_NAME, name);
   if (ret != -1) {
     lockPrgNameMapLock();
     prgNameMap[gettid()] = name;
     unlockPrgNameMapLock();
-    JTRACE("prctl(PR_GET_NAME, ...) succeeded") (name);
+    JTRACE("prctl(PR_GET_NAME, ...) succeeded")(name);
   } else {
-    JASSERT(errno == EINVAL) (JASSERT_ERRNO)
-      .Text ("prctl(PR_GET_NAME, ...) failed");
+    JASSERT(errno == EINVAL)(JASSERT_ERRNO)
+        .Text("prctl(PR_GET_NAME, ...) failed");
     JTRACE("prctl(PR_GET_NAME, ...) failed. Not supported on this kernel?");
   }
 #endif
@@ -82,10 +82,10 @@ void prctlGetProcessName()
 
 void prctlRestoreProcessName()
 {
-  // Although PR_SET_NAME has been supported since 2.6.9, we wouldn't use it on
-  // kernel < 2.6.11 since we didn't get the process name using PR_GET_NAME
-  // which is supported on >= 2.6.11
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,11)
+// Although PR_SET_NAME has been supported since 2.6.9, we wouldn't use it on
+// kernel < 2.6.11 since we didn't get the process name using PR_GET_NAME
+// which is supported on >= 2.6.11
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 11)
   // NOTE: We don't need to protect the access to prgNameMap with a lock
   // because all accesses during restart are guaranteed to be read-only.
   string prgName = prgNameMap[gettid()];
@@ -95,12 +95,11 @@ void prctlRestoreProcessName()
   }
 
   if (prctl(PR_SET_NAME, prgName.c_str()) != -1) {
-    JTRACE("prctl(PR_SET_NAME, ...) succeeded") (prgName);
+    JTRACE("prctl(PR_SET_NAME, ...) succeeded")(prgName);
   } else {
-    JASSERT(errno == EINVAL) (prgName) (JASSERT_ERRNO)
-      .Text ("prctl(PR_SET_NAME, ...) failed");
-    JTRACE("prctl(PR_SET_NAME, ...) failed") (prgName);
+    JASSERT(errno == EINVAL)(prgName)(JASSERT_ERRNO)
+        .Text("prctl(PR_SET_NAME, ...) failed");
+    JTRACE("prctl(PR_SET_NAME, ...) failed")(prgName);
   }
 #endif
 }
-

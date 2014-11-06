@@ -47,8 +47,7 @@ ConnectionList::~ConnectionList()
 {
 }
 
-void ConnectionList::eventHook(DmtcpEvent_t event,
-                                         DmtcpEventData_t *data)
+void ConnectionList::eventHook(DmtcpEvent_t event, DmtcpEventData_t* data)
 {
   switch (event) {
     case DMTCP_EVENT_INIT:
@@ -59,21 +58,17 @@ void ConnectionList::eventHook(DmtcpEvent_t event,
       }
       break;
 
-    case DMTCP_EVENT_PRE_EXEC:
-      {
-        jalib::JBinarySerializeWriterRaw wr("", data->serializerInfo.fd);
-        serialize(wr);
-      }
-      break;
+    case DMTCP_EVENT_PRE_EXEC: {
+      jalib::JBinarySerializeWriterRaw wr("", data->serializerInfo.fd);
+      serialize(wr);
+    } break;
 
-    case DMTCP_EVENT_POST_EXEC:
-      {
-        freshProcess = false;
-        jalib::JBinarySerializeReaderRaw rd("", data->serializerInfo.fd);
-        serialize(rd);
-        deleteStaleConnections();
-      }
-      break;
+    case DMTCP_EVENT_POST_EXEC: {
+      freshProcess = false;
+      jalib::JBinarySerializeReaderRaw rd("", data->serializerInfo.fd);
+      serialize(rd);
+      deleteStaleConnections();
+    } break;
 
     case DMTCP_EVENT_RESTART:
       postRestart();
@@ -131,8 +126,8 @@ static bool _isBadFd(int fd)
   return _real_fcntl(fd, F_GETFL, 0) == -1 && errno == EBADF;
 }
 
-//static ConnectionList *connectionList = NULL;
-//ConnectionList& ConnectionList::instance()
+// static ConnectionList *connectionList = NULL;
+// ConnectionList& ConnectionList::instance()
 //{
 //  if (connectionList == NULL) {
 //    connectionList = new ConnectionList();
@@ -142,14 +137,13 @@ static bool _isBadFd(int fd)
 
 void ConnectionList::resetOnFork()
 {
-  JASSERT(pthread_mutex_destroy(&_lock) == 0) (JASSERT_ERRNO);
-  JASSERT(pthread_mutex_init(&_lock, NULL) == 0) (JASSERT_ERRNO);
+  JASSERT(pthread_mutex_destroy(&_lock) == 0)(JASSERT_ERRNO);
+  JASSERT(pthread_mutex_init(&_lock, NULL) == 0)(JASSERT_ERRNO);
 }
-
 
 void ConnectionList::deleteStaleConnections()
 {
-  //build list of stale connections
+  // build list of stale connections
   vector<int> staleFds;
   for (FdToConMapT::iterator i = _fdToCon.begin(); i != _fdToCon.end(); ++i) {
     if (_isBadFd(i->first)) {
@@ -163,19 +157,17 @@ void ConnectionList::deleteStaleConnections()
     out << "\tDevice \t\t->\t File Descriptor -> ConnectionId\n";
     out << "==================================================\n";
     for (size_t i = 0; i < staleFds.size(); ++i) {
-      Connection *c = getConnection(staleFds[i]);
+      Connection* c = getConnection(staleFds[i]);
 
-      out << "\t[" << jalib::XToString(staleFds[i]) << "]"
-          << c->str()
-          << "\t->\t" << staleFds[i]
-          << "\t->\t" << c->id() << "\n";
+      out << "\t[" << jalib::XToString(staleFds[i]) << "]" << c->str()
+          << "\t->\t" << staleFds[i] << "\t->\t" << c->id() << "\n";
     }
     out << "==================================================\n";
-    JTRACE("Deleting Stale Connections") (out.str());
+    JTRACE("Deleting Stale Connections")(out.str());
   }
 #endif
 
-  //delete all the stale connections
+  // delete all the stale connections
   for (size_t i = 0; i < staleFds.size(); ++i) {
     processClose(staleFds[i]);
   }
@@ -191,16 +183,16 @@ void ConnectionList::serialize(jalib::JBinarySerializer& o)
   JSERIALIZE_ASSERT_POINT("ConnectionList:");
 
   uint32_t numCons = _connections.size();
-  o & numCons;
+  o& numCons;
 
   if (o.isWriter()) {
-    for (iterator i=_connections.begin(); i!=_connections.end(); ++i) {
+    for (iterator i = _connections.begin(); i != _connections.end(); ++i) {
       ConnectionIdentifier key = i->first;
       Connection& con = *i->second;
       uint32_t type = con.conType();
 
       JSERIALIZE_ASSERT_POINT("[StartConnection]");
-      o & key & type;
+      o& key& type;
       con.serialize(o);
       JSERIALIZE_ASSERT_POINT("[EndConnection]");
     }
@@ -211,9 +203,9 @@ void ConnectionList::serialize(jalib::JBinarySerializer& o)
       Connection* con = NULL;
 
       JSERIALIZE_ASSERT_POINT("[StartConnection]");
-      o & key & type;
+      o& key& type;
       con = createDummyConnection(type);
-      JASSERT(con != NULL) (key);
+      JASSERT(con != NULL)(key);
       con->serialize(o);
       _connections[key] = con;
       const vector<int32_t>& fds = con->getFds();
@@ -231,21 +223,19 @@ void ConnectionList::list()
   ostringstream o;
   o << "\n";
   for (iterator i = begin(); i != end(); i++) {
-    Connection *c = i->second;
+    Connection* c = i->second;
     vector<int> fds = c->getFds();
-    for (size_t j = 0; j<fds.size(); j++) {
+    for (size_t j = 0; j < fds.size(); j++) {
       o << fds[j];
-      if (j < fds.size() - 1)
-        o << "," ;
+      if (j < fds.size() - 1) o << ",";
     }
     o << "\t" << i->first << "\t" << c->str();
     o << "\n";
   }
-  JTRACE("ConnectionList") (dmtcp_get_uniquepid_str()) (o.str());
+  JTRACE("ConnectionList")(dmtcp_get_uniquepid_str())(o.str());
 }
 
-Connection*
-ConnectionList::getConnection(const ConnectionIdentifier& id)
+Connection* ConnectionList::getConnection(const ConnectionIdentifier& id)
 {
   if (_connections.find(id) == _connections.end()) {
     return NULL;
@@ -253,7 +243,7 @@ ConnectionList::getConnection(const ConnectionIdentifier& id)
   return _connections[id];
 }
 
-Connection *ConnectionList::getConnection(int fd)
+Connection* ConnectionList::getConnection(int fd)
 {
   if (_fdToCon.find(fd) == _fdToCon.end()) {
     return NULL;
@@ -276,7 +266,7 @@ void ConnectionList::add(int fd, Connection* c)
     processCloseWork(fd);
   }
 
-  if( _connections.find(c->id()) == _connections.end() )
+  if (_connections.find(c->id()) == _connections.end())
     _connections[c->id()] = c;
   c->addFd(fd);
   _fdToCon[fd] = c;
@@ -285,7 +275,7 @@ void ConnectionList::add(int fd, Connection* c)
 
 void ConnectionList::processCloseWork(int fd)
 {
-  Connection *con = _fdToCon[fd];
+  Connection* con = _fdToCon[fd];
   _fdToCon.erase(fd);
   con->removeFd(fd);
   if (con->numFds() == 0) {
@@ -313,7 +303,7 @@ void ConnectionList::processDup(int oldfd, int newfd)
   // Add only if the oldfd was already in the _fdToCon table.
   if (_fdToCon.find(oldfd) != _fdToCon.end()) {
     _lock_tbl();
-    Connection *con = _fdToCon[oldfd];
+    Connection* con = _fdToCon[oldfd];
     _fdToCon[newfd] = con;
     con->addFd(newfd);
     _unlock_tbl();
@@ -336,7 +326,7 @@ void ConnectionList::preLockSaveOptions()
   // preCkptFdLeaderElection because we want to restore the correct owner
   // in refill).
   for (iterator i = begin(); i != end(); ++i) {
-    Connection *con = i->second;
+    Connection* con = i->second;
     con->saveOptions();
   }
 }
@@ -345,7 +335,7 @@ void ConnectionList::preCkptFdLeaderElection()
 {
   deleteStaleConnections();
   for (iterator i = begin(); i != end(); ++i) {
-    Connection *con = i->second;
+    Connection* con = i->second;
     JASSERT(con->numFds() > 0);
     con->doLocking();
   }
@@ -354,7 +344,7 @@ void ConnectionList::preCkptFdLeaderElection()
 void ConnectionList::drain()
 {
   for (iterator i = begin(); i != end(); ++i) {
-    Connection* con =  i->second;
+    Connection* con = i->second;
     con->checkLock();
     if (con->hasLock()) {
       con->drain();
@@ -365,7 +355,7 @@ void ConnectionList::drain()
 void ConnectionList::preCkpt()
 {
   for (iterator i = begin(); i != end(); ++i) {
-    Connection* con =  i->second;
+    Connection* con = i->second;
     if (con->hasLock()) {
       con->preCkpt();
     }
@@ -375,7 +365,7 @@ void ConnectionList::preCkpt()
 void ConnectionList::refill(bool isRestart)
 {
   for (iterator i = begin(); i != end(); ++i) {
-    Connection *con = i->second;
+    Connection* con = i->second;
     if (con->hasLock()) {
       con->refill(isRestart);
       con->restoreOptions();
@@ -391,7 +381,7 @@ void ConnectionList::refill(bool isRestart)
 void ConnectionList::resume(bool isRestart)
 {
   for (iterator i = begin(); i != end(); ++i) {
-    Connection *con = i->second;
+    Connection* con = i->second;
     if (con->hasLock()) {
       con->resume(isRestart);
     }
@@ -411,34 +401,33 @@ void ConnectionList::postRestart()
   // Part 1: Restore all but Pseudo-terminal slaves and file connection which
   //         were not checkpointed
   for (iterator i = begin(); i != end(); ++i) {
-    Connection *con = i->second;
+    Connection* con = i->second;
     if (!con->hasLock()) continue;
 
-// TODO: FIXME: Add support for Socketpairs.
-//    if (con->conType() == Connection::TCP) {
-//      TcpConnection *tcpCon =(TcpConnection *) con;
-//      if (tcpCon->peerType() == TcpConnection::PEER_SOCKETPAIR) {
-//        ConnectionIdentifier peerId = tcpCon->getSocketpairPeerId();
-//        TcpConnection *peerCon = (TcpConnection*) getConnection(peerId);
-//        if (peerCon != NULL) {
-//          tcpCon->restoreSocketPair(peerCon);
-//          continue;
-//        }
-//      }
-//    }
+    // TODO: FIXME: Add support for Socketpairs.
+    //    if (con->conType() == Connection::TCP) {
+    //      TcpConnection *tcpCon =(TcpConnection *) con;
+    //      if (tcpCon->peerType() == TcpConnection::PEER_SOCKETPAIR) {
+    //        ConnectionIdentifier peerId = tcpCon->getSocketpairPeerId();
+    //        TcpConnection *peerCon = (TcpConnection*) getConnection(peerId);
+    //        if (peerCon != NULL) {
+    //          tcpCon->restoreSocketPair(peerCon);
+    //          continue;
+    //        }
+    //      }
+    //    }
     con->postRestart();
   }
 
   registerMissingCons();
 }
 
-
 void ConnectionList::registerMissingCons()
 {
   int protected_fd = protectedFd();
   // Add receive-fd data socket.
   static struct sockaddr_un fdReceiveAddr;
-  static socklen_t         fdReceiveAddrLen;
+  static socklen_t fdReceiveAddrLen;
 
   memset(&fdReceiveAddr, 0, sizeof(fdReceiveAddr));
   jalib::JSocket sock(_real_socket(AF_UNIX, SOCK_DGRAM, 0));
@@ -446,19 +435,18 @@ void ConnectionList::registerMissingCons()
   sock.changeFd(protected_fd);
   fdReceiveAddr.sun_family = AF_UNIX;
   JASSERT(_real_bind(protected_fd,
-                     (struct sockaddr*) &fdReceiveAddr,
-                     sizeof(fdReceiveAddr.sun_family)) == 0) (JASSERT_ERRNO);
+                     (struct sockaddr*)&fdReceiveAddr,
+                     sizeof(fdReceiveAddr.sun_family)) == 0)(JASSERT_ERRNO);
 
   fdReceiveAddrLen = sizeof(fdReceiveAddr);
   JASSERT(getsockname(protected_fd,
-                      (struct sockaddr *)&fdReceiveAddr,
+                      (struct sockaddr*)&fdReceiveAddr,
                       &fdReceiveAddrLen) == 0);
 
-
-  vector<const char *> missingCons;
+  vector<const char*> missingCons;
   ostringstream in, out;
   for (iterator i = begin(); i != end(); ++i) {
-    Connection *con = i->second;
+    Connection* con = i->second;
     // Check comments in FileConnList::postRestart() for the explanation
     // about isPreExistingCTTY.
     if (!con->hasLock() && !con->isStdio() && !con->isPreExistingCTTY()) {
@@ -468,11 +456,11 @@ void ConnectionList::registerMissingCons()
       out << "\n\t" << con->str() << i->first;
     }
   }
-  JTRACE("Missing/Outgoing Cons") (in.str()) (out.str());
+  JTRACE("Missing/Outgoing Cons")(in.str())(out.str());
   numMissingCons = missingCons.size();
   if (numMissingCons > 0) {
-    SharedData::registerMissingCons(missingCons, fdReceiveAddr,
-                                    fdReceiveAddrLen);
+    SharedData::registerMissingCons(
+        missingCons, fdReceiveAddr, fdReceiveAddrLen);
   }
 }
 
@@ -480,12 +468,12 @@ void ConnectionList::sendReceiveMissingFds()
 {
   size_t i;
   vector<int> outgoingCons;
-  SharedData::MissingConMap *maps;
+  SharedData::MissingConMap* maps;
   uint32_t nmaps;
   SharedData::getMissingConMaps(&maps, &nmaps);
   for (i = 0; i < nmaps; i++) {
-    ConnectionIdentifier *id = (ConnectionIdentifier*) maps[i].id;
-    Connection *con = getConnection(*id);
+    ConnectionIdentifier* id = (ConnectionIdentifier*)maps[i].id;
+    Connection* con = getConnection(*id);
     if (con != NULL && con->hasLock()) {
       outgoingCons.push_back(i);
     }
@@ -505,17 +493,21 @@ void ConnectionList::sendReceiveMissingFds()
       FD_SET(restoreFd, &rfds);
     }
 
-    int ret = _real_select(restoreFd+1, &rfds, &wfds, NULL, NULL);
-    JASSERT(ret != -1) (JASSERT_ERRNO);
+    int ret = _real_select(restoreFd + 1, &rfds, &wfds, NULL, NULL);
+    JASSERT(ret != -1)(JASSERT_ERRNO);
 
     if (numOutgoingCons > 0 && FD_ISSET(restoreFd, &wfds)) {
       size_t idx = outgoingCons.back();
       outgoingCons.pop_back();
-      ConnectionIdentifier *id = (ConnectionIdentifier*) maps[idx].id;
-      Connection *con = getConnection(*id);
-      JTRACE("Sending Missing Con") (*id);
-      JASSERT(sendFd(restoreFd, con->getFds()[0], id, sizeof(*id),
-                     maps[idx].addr, maps[idx].len) != -1);
+      ConnectionIdentifier* id = (ConnectionIdentifier*)maps[idx].id;
+      Connection* con = getConnection(*id);
+      JTRACE("Sending Missing Con")(*id);
+      JASSERT(sendFd(restoreFd,
+                     con->getFds()[0],
+                     id,
+                     sizeof(*id),
+                     maps[idx].addr,
+                     maps[idx].len) != -1);
       numOutgoingCons--;
     }
 
@@ -523,8 +515,8 @@ void ConnectionList::sendReceiveMissingFds()
       ConnectionIdentifier id;
       int fd = receiveFd(restoreFd, &id, sizeof(id));
       JASSERT(fd != -1);
-      Connection *con = getConnection(id);
-      JTRACE("Received Missing Con") (id);
+      Connection* con = getConnection(id);
+      JTRACE("Received Missing Con")(id);
       JASSERT(con != NULL);
       Util::dupFds(fd, con->getFds());
       numMissingCons--;

@@ -40,15 +40,14 @@ using namespace dmtcp;
 
 int rounding_mode = 1;
 
-static char *_mtcpRestoreArgvStartAddr = NULL;
+static char* _mtcpRestoreArgvStartAddr = NULL;
 #ifdef RESTORE_ARGV_AFTER_RESTART
 static void restoreArgvAfterRestart(char* mtcpRestoreArgvStartAddr);
 #endif
 static void unmapRestoreArgv();
 
-
-extern "C" int dmtcp_is_ptracing() __attribute__ ((weak));
-extern "C" int dmtcp_update_ppid() __attribute__ ((weak));
+extern "C" int dmtcp_is_ptracing() __attribute__((weak));
+extern "C" int dmtcp_update_ppid() __attribute__((weak));
 
 void dmtcp::initializeMtcpEngine()
 {
@@ -56,13 +55,14 @@ void dmtcp::initializeMtcpEngine()
   ThreadList::init();
 }
 
-void dmtcp::callbackSleepBetweenCheckpoint ( int sec )
+void dmtcp::callbackSleepBetweenCheckpoint(int sec)
 {
   ThreadSync::waitForUserThreadsToFinishPreResumeCB();
   DmtcpWorker::eventHook(DMTCP_EVENT_WAIT_FOR_SUSPEND_MSG, NULL);
   if (dmtcp_is_ptracing && dmtcp_is_ptracing()) {
     // FIXME: Add a test to make check that can insert a delay of a couple of
-    // seconds in here. This helps testing the initialization routines of various
+    // seconds in here. This helps testing the initialization routines of
+    // various
     // plugins.
     // Inform Coordinator of our RUNNING state;
     DmtcpWorker::informCoordinatorOfRUNNINGState();
@@ -74,7 +74,7 @@ void dmtcp::callbackSleepBetweenCheckpoint ( int sec )
 
 void dmtcp::callbackPreCheckpoint()
 {
-  //now user threads are stopped
+  // now user threads are stopped
   userHookTrampoline_preCkpt();
   DmtcpWorker::waitForStage2Checkpoint();
 }
@@ -83,7 +83,7 @@ void dmtcp::callbackPostCheckpoint(int isRestart,
                                    char* mtcpRestoreArgvStartAddr)
 {
   if (isRestart) {
-    //restoreArgvAfterRestart(mtcpRestoreArgvStartAddr);
+    // restoreArgvAfterRestart(mtcpRestoreArgvStartAddr);
 
     JTRACE("begin postRestart()");
     WorkerState::setCurrentState(WorkerState::RESTARTING);
@@ -101,7 +101,7 @@ void dmtcp::callbackPostCheckpoint(int isRestart,
 
   // Set the process state to RUNNING now, in case a dmtcpaware hook
   //  calls pthread_create, thereby invoking our virtualization.
-  WorkerState::setCurrentState( WorkerState::RUNNING );
+  WorkerState::setCurrentState(WorkerState::RUNNING);
   // Now everything but user threads are restored.  Call the user hook.
   userHookTrampoline_postCkpt(isRestart);
 
@@ -113,7 +113,7 @@ void dmtcp::callbackPostCheckpoint(int isRestart,
   // After this, the user threads will be unlocked in mtcp.c and will resume.
 }
 
-void dmtcp::callbackHoldsAnyLocks(int *retval)
+void dmtcp::callbackHoldsAnyLocks(int* retval)
 {
   /* This callback is useful only for the ptrace plugin currently, but may be
    * used for other stuff as well.
@@ -175,7 +175,8 @@ static void restoreArgvAfterRestart(char* mtcpRestoreArgvStartAddr)
 
   long page_size = sysconf(_SC_PAGESIZE);
   long page_mask = ~(page_size - 1);
-  char *startAddr = (char*) ((unsigned long) mtcpRestoreArgvStartAddr & page_mask);
+  char* startAddr =
+      (char*)((unsigned long)mtcpRestoreArgvStartAddr & page_mask);
 
   size_t len;
   len = (ProcessInfo::instance().argvSize() + page_size) & page_mask;
@@ -184,33 +185,36 @@ static void restoreArgvAfterRestart(char* mtcpRestoreArgvStartAddr)
   // It assumes that the given addresses may belong to stack only and if
   // mapped, will have read+write permissions.
   for (size_t i = 0; i < len; i += page_size) {
-    int ret = mprotect ((char*) startAddr + i, page_size,
-                        PROT_READ | PROT_WRITE);
+    int ret = mprotect((char*)startAddr + i, page_size, PROT_READ | PROT_WRITE);
     if (ret != -1 || errno != ENOMEM) {
       _mtcpRestoreArgvStartAddr = NULL;
       return;
     }
   }
 
-  //None of the pages are mapped -- it is safe to mmap() them
-  void *retAddr = mmap((void*) startAddr, len, PROT_READ | PROT_WRITE,
-                    MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
+  // None of the pages are mapped -- it is safe to mmap() them
+  void* retAddr = mmap((void*)startAddr,
+                       len,
+                       PROT_READ | PROT_WRITE,
+                       MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED,
+                       -1,
+                       0);
   if (retAddr != MAP_FAILED) {
     JTRACE("Restoring /proc/self/cmdline")
-      (mtcpRestoreArgvStartAddr) (startAddr) (len) (JASSERT_ERRNO) ;
+    (mtcpRestoreArgvStartAddr)(startAddr)(len)(JASSERT_ERRNO);
     vector<string> args = jalib::Filesystem::GetProgramArgs();
-    char *addr = mtcpRestoreArgvStartAddr;
+    char* addr = mtcpRestoreArgvStartAddr;
     // Do NOT change restarted process's /proc/self/cmdline.
-    //args[0] = DMTCP_PRGNAME_PREFIX + args[0];
-    for ( size_t i=0; i< args.size(); ++i ) {
-      if (addr + args[i].length() >= startAddr + len)
-        break;
+    // args[0] = DMTCP_PRGNAME_PREFIX + args[0];
+    for (size_t i = 0; i < args.size(); ++i) {
+      if (addr + args[i].length() >= startAddr + len) break;
       strcpy(addr, args[i].c_str());
       addr += args[i].length() + 1;
     }
     _mtcpRestoreArgvStartAddr = startAddr;
   } else {
-    JTRACE("Unable to restore /proc/self/cmdline") (startAddr) (len) (JASSERT_ERRNO) ;
+    JTRACE("Unable to restore /proc/self/cmdline")(startAddr)(len)(
+        JASSERT_ERRNO);
     _mtcpRestoreArgvStartAddr = NULL;
   }
   return;
@@ -222,11 +226,13 @@ static void unmapRestoreArgv()
   long page_size = sysconf(_SC_PAGESIZE);
   long page_mask = ~(page_size - 1);
   if (_mtcpRestoreArgvStartAddr != NULL) {
-    JTRACE("Unmapping previously mmap()'d pages (that were mmap()'d for restoring argv");
+    JTRACE(
+        "Unmapping previously mmap()'d pages (that were mmap()'d for restoring "
+        "argv");
     size_t len;
     len = (ProcessInfo::instance().argvSize() + page_size) & page_mask;
     JASSERT(_real_munmap(_mtcpRestoreArgvStartAddr, len) == 0)
-      (_mtcpRestoreArgvStartAddr) (len)
-      .Text ("Failed to munmap extra pages that were mapped during restart");
+    (_mtcpRestoreArgvStartAddr)(len)
+        .Text("Failed to munmap extra pages that were mapped during restart");
   }
 }

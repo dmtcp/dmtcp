@@ -26,17 +26,17 @@
 
 namespace dmtcp
 {
-  void initializeMtcpEngine();
+void initializeMtcpEngine();
 
-  void callbackSleepBetweenCheckpoint(int sec);
-  void callbackPreCheckpoint();
-  void callbackPostCheckpoint(int isRestart, char* mtcpRestoreArgvStartAddr);
-  void callbackPreSuspendUserThread();
-  void callbackPreResumeUserThread(int isRestart);
-  void callbackHoldsAnyLocks(int *retval);
+void callbackSleepBetweenCheckpoint(int sec);
+void callbackPreCheckpoint();
+void callbackPostCheckpoint(int isRestart, char* mtcpRestoreArgvStartAddr);
+void callbackPreSuspendUserThread();
+void callbackPreResumeUserThread(int isRestart);
+void callbackHoldsAnyLocks(int* retval);
 
-  //these next two are defined in dmtcpplugin.cpp
-  void userHookTrampoline_preCkpt();
-  void userHookTrampoline_postCkpt(bool isRestart);
+// these next two are defined in dmtcpplugin.cpp
+void userHookTrampoline_preCkpt();
+void userHookTrampoline_postCkpt(bool isRestart);
 }
 #endif

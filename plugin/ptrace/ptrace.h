@@ -27,14 +27,14 @@
 #include "dmtcp.h"
 
 #ifndef EXTERNC
-# ifdef __cplusplus
-#  define EXTERNC extern "C"
-# else
-#  define EXTERNC
-# endif
+#ifdef __cplusplus
+#define EXTERNC extern "C"
+#else
+#define EXTERNC
+#endif
 #endif
 
-#define LIB_PRIVATE __attribute__ ((visibility ("hidden")))
+#define LIB_PRIVATE __attribute__((visibility("hidden")))
 
 #define _real_wait4 NEXT_FNC(wait4)
 #define _real_open NEXT_FNC(open)
@@ -44,10 +44,10 @@
 #define _real_mmap NEXT_FNC(mmap)
 
 #define _real_ptrace(request, pid, addr, data) \
-  NEXT_FNC(ptrace)((enum __ptrace_request) request, pid, addr, data)
+  NEXT_FNC(ptrace)((enum __ptrace_request)request, pid, addr, data)
 
-#define GETTID() (int)syscall(SYS_gettid)
-#define TGKILL(pid, tid, sig) (int)syscall(SYS_tgkill, pid, tid, sig)
+#define GETTID() (int) syscall(SYS_gettid)
+#define TGKILL(pid, tid, sig) (int) syscall(SYS_tgkill, pid, tid, sig)
 
 typedef enum PtraceProcState {
   PTRACE_PROC_INVALID = -1,

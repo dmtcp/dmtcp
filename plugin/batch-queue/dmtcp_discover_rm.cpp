@@ -34,100 +34,96 @@
 #include "discover_torque.h"
 #include "discover_slurm.h"
 
-
-
-resources *discover_rm()
+resources* discover_rm()
 {
-  if ( resources_tm::probe() == true ) {
+  if (resources_tm::probe() == true) {
     return new resources_tm();
-  } else if ( resources_slurm::probe() == true ) {
+  } else if (resources_slurm::probe() == true) {
     return new resources_slurm();
   }
   return NULL;
 }
 
-void print_help(char *pname)
+void print_help(char* pname)
 {
   std::string name = pname;
   std::cout << "Usage: " + name << std::endl;
   std::cout << "--help or no arguments - print this page" << std::endl;
-  std::cout << "-t, --test-rm          - check for rm and write out allocated nodes" << std::endl;
-  std::cout << "-n, --new-output       - Output for RM remote launch utilitys" << std::endl;
-  std::cout << "no options mean read worker_ckpts content from input and do" << std::endl;
+  std::cout
+      << "-t, --test-rm          - check for rm and write out allocated nodes"
+      << std::endl;
+  std::cout << "-n, --new-output       - Output for RM remote launch utilitys"
+            << std::endl;
+  std::cout << "no options mean read worker_ckpts content from input and do"
+            << std::endl;
   std::cout << "mapping of exiting RM resources to old ones" << std::endl;
 }
 
-int main(int argc, char **argv)
+int main(int argc, char** argv)
 {
-  resources *rm = discover_rm();
+  resources* rm = discover_rm();
   bool new_out = false;
-  char *input_arg = NULL;
+  char* input_arg = NULL;
 
-  enum mode_t {
-    help, rmtest, full
-  } mode = help;
+  enum mode_t { help, rmtest, full } mode = help;
 
   while (1) {
     char c;
     int option_index;
-    static struct option long_options[] = {
-      // modes
-      { "help", 0, 0, 'h'},
-      { "test-rm", 1, 0, 't'},
-      { "new-output", 1, 0, 'n'},
-      { 0, 0, 0, 0}
-    };
+    static struct option long_options[] = {// modes
+                                           {"help", 0, 0, 'h'},
+                                           {"test-rm", 1, 0, 't'},
+                                           {"new-output", 1, 0, 'n'},
+                                           {0, 0, 0, 0}};
 
     c = getopt_long(argc, argv, "htn", long_options, &option_index);
-    if (c == -1)
-      break;
+    if (c == -1) break;
     switch (c) {
-    case 'h':
-      break;
-    case 't':
-      mode = rmtest;
-      break;
-    case 'n':
-      new_out = true;
-      break;
+      case 'h':
+        break;
+      case 't':
+        mode = rmtest;
+        break;
+      case 'n':
+        new_out = true;
+        break;
     }
   }
 
-  if(optind < argc && mode == help) {
+  if (optind < argc && mode == help) {
     mode = full;
     input_arg = argv[optind];
   }
 
-
   switch (mode) {
-  case help:
-    print_help(argv[0]);
-    break;
-  case rmtest:
-    if (rm == NULL || rm->discover()) {
-      printf("RES_MANAGER=NONE\n");
-    } else {
-      printf("RES_MANAGER=%s\n", rm->type_str());
-      rm->output("manager_resources");
+    case help:
+      print_help(argv[0]);
+      break;
+    case rmtest:
+      if (rm == NULL || rm->discover()) {
+        printf("RES_MANAGER=NONE\n");
+      } else {
+        printf("RES_MANAGER=%s\n", rm->type_str());
+        rm->output("manager_resources");
+        fflush(stdout);
+      }
+      break;
+    case full:
+      if (rm == NULL || rm->discover()) {
+        printf("RES_MANAGER=NONE\n");
+      } else {
+        printf("RES_MANAGER=%s\n", rm->type_str());
+        rm->output("manager_resources");
+        fflush(stdout);
+      }
+      resources_input inp(input_arg);
+      inp.output("input_config");
+      if (!new_out)
+        inp.writeout_old("new_worker_ckpts", *rm);
+      else
+        inp.writeout_new("DMTCP_REMLAUNCH", *rm);
       fflush(stdout);
-    }
-    break;
-  case full:
-    if (rm == NULL || rm->discover()) {
-      printf("RES_MANAGER=NONE\n");
-    } else {
-      printf("RES_MANAGER=%s\n", rm->type_str());
-      rm->output("manager_resources");
-      fflush(stdout);
-    }
-    resources_input inp(input_arg);
-    inp.output("input_config");
-    if( !new_out )
-      inp.writeout_old("new_worker_ckpts", *rm);
-    else
-      inp.writeout_new("DMTCP_REMLAUNCH", *rm);
-    fflush(stdout);
-    break;
+      break;
   }
   return 0;
 }

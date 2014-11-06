@@ -31,7 +31,7 @@ extern "C" void initializeJalib()
 {
   jalib::JalibFuncPtrs jalibFuncPtrs;
 
-#define INIT_JALIB_FPTR(name) jalibFuncPtrs.name = _real_ ## name;
+#define INIT_JALIB_FPTR(name) jalibFuncPtrs.name = _real_##name;
 
   jalibFuncPtrs.writeAll = Util::writeAll;
   jalibFuncPtrs.readAll = Util::readAll;
@@ -63,6 +63,8 @@ extern "C" void initializeJalib()
   INIT_JALIB_FPTR(pthread_mutex_trylock);
   INIT_JALIB_FPTR(pthread_mutex_unlock);
 
-  jalib_init(jalibFuncPtrs, PROTECTED_STDERR_FD, PROTECTED_JASSERTLOG_FD,
+  jalib_init(jalibFuncPtrs,
+             PROTECTED_STDERR_FD,
+             PROTECTED_JASSERTLOG_FD,
              DMTCP_FAIL_RC);
 }

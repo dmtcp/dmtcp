@@ -46,7 +46,6 @@
 
 #define DELETED_FILE_SUFFIX " (deleted)"
 
-
 #define _real_open NEXT_FNC(open)
 #define _real_close NEXT_FNC(close)
 
@@ -57,14 +56,16 @@ EXTERNC int dmtcp_infiniband_enabled(void) __attribute__((weak));
 static const int END_OF_NSCD_AREAS = -1;
 
 /* Internal routines */
-//static void sync_shared_mem(void);
-static void writememoryarea (int fd, Area *area,
-                             int stack_was_seen, int vsyscall_exists);
-static void preprocess_special_segments(int *vsyscall_exists);
+// static void sync_shared_mem(void);
+static void writememoryarea(int fd,
+                            Area* area,
+                            int stack_was_seen,
+                            int vsyscall_exists);
+static void preprocess_special_segments(int* vsyscall_exists);
 
 static bool isNscdArea(const Area& area);
 static void remap_nscd_areas(Area remap_nscd_areas_array[],
-                             int  num_remap_nscd_areas);
+                             int num_remap_nscd_areas);
 
 /*****************************************************************************
  *
@@ -76,15 +77,15 @@ static void remap_nscd_areas(Area remap_nscd_areas_array[],
 void mtcp_writememoryareas(int fd)
 {
   Area area;
-  //DeviceInfo dev_info;
+  // DeviceInfo dev_info;
   int stack_was_seen = 0;
 
   JTRACE("Performing checkpoint.");
 
   // Here we want to sync the shared memory pages with the backup files
   // FIXME: Why do we need this?
-  //JTRACE("syncing shared memory with backup files");
-  //sync_shared_mem();
+  // JTRACE("syncing shared memory with backup files");
+  // sync_shared_mem();
 
   int vsyscall_exists = 0;
   // Preprocess special segments like vsyscall, stack, heap etc.
@@ -109,7 +110,7 @@ void mtcp_writememoryareas(int fd)
 
     if ((uint64_t)area.addr == ProcessInfo::instance().restoreBufAddr()) {
       JASSERT(area.size == ProcessInfo::instance().restoreBufLen())
-        ((void*) area.addr) (area.size) (ProcessInfo::instance().restoreBufLen());
+      ((void*)area.addr)(area.size)(ProcessInfo::instance().restoreBufLen());
       continue;
     }
 
@@ -125,8 +126,7 @@ void mtcp_writememoryareas(int fd)
      * the last page of virtual memory.  Note 0xffffe000 >= HIGHEST_VA
      * implies we're in 32-bit mode.
      */
-    if (area_begin >= HIGHEST_VA && area_begin == (VA)0xffffe000)
-      continue;
+    if (area_begin >= HIGHEST_VA && area_begin == (VA)0xffffe000) continue;
 #ifdef __x86_64__
     /* And in 64-bit mode later Red Hat RHEL Linux 2.6.9 releases
      * use 0xffffffffff600000 for VDSO.
@@ -180,20 +180,21 @@ void mtcp_writememoryareas(int fd)
        *
        * The above explanation also applies to "/dev/null (deleted)"
        */
-      JTRACE("saving area as Anonymous") (area.name);
+      JTRACE("saving area as Anonymous")(area.name);
       area.flags = MAP_PRIVATE | MAP_ANONYMOUS;
       area.name[0] = '\0';
     } else if (Util::strStartsWith(area.name, SYS_V_SHMEM_FILE)) {
-      JTRACE("saving area as Anonymous") (area.name);
+      JTRACE("saving area as Anonymous")(area.name);
       area.flags = MAP_PRIVATE | MAP_ANONYMOUS;
       area.name[0] = '\0';
     } else if (isNscdArea(area)) {
       /* Special Case Handling: nscd is enabled*/
-      JTRACE("NSCD daemon shared memory area present.\n"
-              "  MTCP will now try to remap this area in read/write mode as\n"
-              "  private (zero pages), so that glibc will automatically\n"
-              "  stop using NSCD or ask NSCD daemon for new shared area\n")
-        (area.name);
+      JTRACE(
+          "NSCD daemon shared memory area present.\n"
+          "  MTCP will now try to remap this area in read/write mode as\n"
+          "  private (zero pages), so that glibc will automatically\n"
+          "  stop using NSCD or ask NSCD daemon for new shared area\n")
+      (area.name);
       area.prot = PROT_READ | PROT_WRITE | MTCP_PROT_ZERO_PAGE;
       area.flags = MAP_PRIVATE | MAP_ANONYMOUS;
 
@@ -203,17 +204,15 @@ void mtcp_writememoryareas(int fd)
       remap_nscd_areas_array[num_remap_nscd_areas++] = area;
       Util::writeAll(fd, &area, sizeof(area));
       continue;
-    }
-    else if (Util::strStartsWith(area.name, INFINIBAND_SHMEM_FILE)) {
+    } else if (Util::strStartsWith(area.name, INFINIBAND_SHMEM_FILE)) {
       // TODO: Don't checkpoint infiniband shared area for now.
       continue;
-    }
-    else if (Util::strEndsWith(area.name, DELETED_FILE_SUFFIX)) {
+    } else if (Util::strEndsWith(area.name, DELETED_FILE_SUFFIX)) {
       /* Deleted File */
     } else if (area.name[0] == '/' && strstr(&area.name[1], "/") != NULL) {
-      /* If an absolute pathname
-       * Posix and SysV shared memory segments can be mapped as /XYZ
-       */
+/* If an absolute pathname
+ * Posix and SysV shared memory segments can be mapped as /XYZ
+ */
 #if 0
       struct stat statbuf;
       unsigned int long devnum;
@@ -234,8 +233,7 @@ void mtcp_writememoryareas(int fd)
       int ffd = _real_open(area.name, O_RDONLY, 0);
       if (ffd != -1) {
         area.filesize = lseek(ffd, 0, SEEK_END);
-        if (area.filesize == -1)
-          area.filesize = 0;
+        if (area.filesize == -1) area.filesize = 0;
       }
       _real_close(ffd);
     }
@@ -258,17 +256,15 @@ void mtcp_writememoryareas(int fd)
        * disk.
        */
       JASSERT(msync(area.addr, area.size, MS_INVALIDATE) == 0)
-        (area.addr) (area.size) (area.name) (area.offset) (JASSERT_ERRNO);
+      (area.addr)(area.size)(area.name)(area.offset)(JASSERT_ERRNO);
     }
-
 
     /* Only write this image if it is not CS_RESTOREIMAGE.
      * Skip any mapping for this image - it got saved as CS_RESTOREIMAGE
      * at the beginning.
      */
 
-    if (strstr (area.name, "[stack]"))
-      stack_was_seen = 1;
+    if (strstr(area.name, "[stack]")) stack_was_seen = 1;
     // the whole thing comes after the restore image
     writememoryarea(fd, &area, stack_was_seen, vsyscall_exists);
   }
@@ -276,14 +272,14 @@ void mtcp_writememoryareas(int fd)
   /* It's now safe to do this, since we're done using mtcp_readmapsline() */
   remap_nscd_areas(remap_nscd_areas_array, num_remap_nscd_areas);
 
-  close (mapsfd);
+  close(mapsfd);
 
   area.addr = NULL; // End of data
   area.size = -1; // End of data
   Util::writeAll(fd, &area, sizeof(area));
 
   /* That's all folks */
-  JASSERT(_real_close (fd) == 0);
+  JASSERT(_real_close(fd) == 0);
 }
 
 // Check for NSCD area.
@@ -306,31 +302,30 @@ static bool isNscdArea(const Area& area)
  * - Gene
  */
 static void remap_nscd_areas(Area remap_nscd_areas_array[],
-			     int  num_remap_nscd_areas)
+                             int num_remap_nscd_areas)
 {
-  Area *area;
+  Area* area;
   for (area = remap_nscd_areas_array; num_remap_nscd_areas-- > 0; area++) {
     JASSERT(area->flags != END_OF_NSCD_AREAS)
-      .Text("Too many NSCD areas to remap.");
-    JASSERT(munmap(area->addr, area->size) == 0) (JASSERT_ERRNO)
-      .Text("error unmapping NSCD shared area");
-    JASSERT(mmap(area->addr, area->size, area->prot, area->flags, 0, 0)
-            != MAP_FAILED)
-      (JASSERT_ERRNO) .Text("error remapping NSCD shared area.");
+        .Text("Too many NSCD areas to remap.");
+    JASSERT(munmap(area->addr, area->size) == 0)(JASSERT_ERRNO)
+        .Text("error unmapping NSCD shared area");
+    JASSERT(mmap(area->addr, area->size, area->prot, area->flags, 0, 0) !=
+            MAP_FAILED)
+    (JASSERT_ERRNO).Text("error remapping NSCD shared area.");
     memset(area->addr, 0, area->size);
   }
 }
-
 
 /* This function returns a range of zero or non-zero pages. If the first page
  * is non-zero, it searches for all contiguous non-zero pages and returns them.
  * If the first page is all-zero, it searches for contiguous zero pages and
  * returns them.
  */
-static void mtcp_get_next_page_range(Area *area, size_t *size, int *is_zero)
+static void mtcp_get_next_page_range(Area* area, size_t* size, int* is_zero)
 {
-  char *pg;
-  char *prevAddr;
+  char* pg;
+  char* prevAddr;
   size_t count = 0;
   const size_t one_MB = (1024 * 1024);
   if (area->size < one_MB) {
@@ -341,26 +336,24 @@ static void mtcp_get_next_page_range(Area *area, size_t *size, int *is_zero)
   *size = one_MB;
   *is_zero = Util::areZeroPages(area->addr, one_MB / MTCP_PAGE_SIZE);
   prevAddr = area->addr;
-  for (pg = area->addr + one_MB;
-       pg < area->addr + area->size;
-       pg += one_MB) {
+  for (pg = area->addr + one_MB; pg < area->addr + area->size; pg += one_MB) {
     size_t minsize = MIN(one_MB, (size_t)(area->addr + area->size - pg));
     if (*is_zero != Util::areZeroPages(pg, minsize / MTCP_PAGE_SIZE)) {
       break;
     }
     *size += minsize;
     if (*is_zero && ++count % 10 == 0) { // madvise every 10MB
-      if (madvise(prevAddr, area->addr + *size - prevAddr,
-                  MADV_DONTNEED) == -1) {
+      if (madvise(prevAddr, area->addr + *size - prevAddr, MADV_DONTNEED) ==
+          -1) {
         JNOTE("error doing madvise(..., MADV_DONTNEED)")
-          (JASSERT_ERRNO) ((void*)area->addr) ((int)*size);
+        (JASSERT_ERRNO)((void*)area->addr)((int)*size);
         prevAddr = pg;
       }
     }
   }
 }
 
-static void mtcp_write_non_rwx_and_anonymous_pages(int fd, Area *orig_area)
+static void mtcp_write_non_rwx_and_anonymous_pages(int fd, Area* orig_area)
 {
   Area area = *orig_area;
   /* Now give read permission to the anonymous pages that do not have read
@@ -377,10 +370,11 @@ static void mtcp_write_non_rwx_and_anonymous_pages(int fd, Area *orig_area)
   JASSERT(orig_area->name[0] == '\0');
 
   if ((orig_area->prot & PROT_READ) == 0) {
-    JASSERT(mprotect(orig_area->addr, orig_area->size,
+    JASSERT(mprotect(orig_area->addr,
+                     orig_area->size,
                      orig_area->prot | PROT_READ) == 0)
-      (JASSERT_ERRNO) (orig_area->size) (orig_area->addr)
-      .Text("error adding PROT_READ to mem region");
+    (JASSERT_ERRNO)(orig_area->size)(orig_area->addr)
+        .Text("error adding PROT_READ to mem region");
   }
 
   while (area.size > 0) {
@@ -403,7 +397,7 @@ static void mtcp_write_non_rwx_and_anonymous_pages(int fd, Area *orig_area)
     } else {
       if (madvise(a.addr, a.size, MADV_DONTNEED) == -1) {
         JNOTE("error doing madvise(..., MADV_DONTNEED)")
-          (JASSERT_ERRNO) (a.addr) ((int)a.size);
+        (JASSERT_ERRNO)(a.addr)((int)a.size);
       }
     }
     area.addr += size;
@@ -414,61 +408,61 @@ static void mtcp_write_non_rwx_and_anonymous_pages(int fd, Area *orig_area)
   */
   if ((orig_area->prot & PROT_READ) == 0) {
     JASSERT(mprotect(orig_area->addr, orig_area->size, orig_area->prot) == 0)
-      (JASSERT_ERRNO) (orig_area->addr) (orig_area->size)
-      .Text("error removing PROT_READ from mem region.");
+    (JASSERT_ERRNO)(orig_area->addr)(orig_area->size)
+        .Text("error removing PROT_READ from mem region.");
   }
 }
 
-static void writememoryarea (int fd, Area *area, int stack_was_seen,
-			     int vsyscall_exists)
+static void writememoryarea(int fd,
+                            Area* area,
+                            int stack_was_seen,
+                            int vsyscall_exists)
 {
-  static void * orig_stack = NULL;
-  void *addr = area->addr;
+  static void* orig_stack = NULL;
+  void* addr = area->addr;
 
   /* Write corresponding descriptor to the file */
 
-  if (orig_stack == NULL && 0 == strcmp(area -> name, "[stack]"))
-    orig_stack = area -> addr + area -> size;
+  if (orig_stack == NULL && 0 == strcmp(area->name, "[stack]"))
+    orig_stack = area->addr + area->size;
 
-  if (0 == strcmp(area -> name, "[vdso]") && !stack_was_seen)
-    JTRACE("skipping over [vdso] section") (addr) (area->size);
-  else if (0 == strcmp(area -> name, "[vsyscall]") && !stack_was_seen)
-    JTRACE("skipping over [vsyscall] section") (addr) (area->size);
-  else if (0 == strcmp(area -> name, "[vectors]") && !stack_was_seen)
-    JTRACE("skipping over [vectors] section") (addr) (area->size);
-  else if (0 == strcmp(area -> name, "[stack]") &&
-	   orig_stack != area -> addr + area -> size)
+  if (0 == strcmp(area->name, "[vdso]") && !stack_was_seen)
+    JTRACE("skipping over [vdso] section")(addr)(area->size);
+  else if (0 == strcmp(area->name, "[vsyscall]") && !stack_was_seen)
+    JTRACE("skipping over [vsyscall] section")(addr)(area->size);
+  else if (0 == strcmp(area->name, "[vectors]") && !stack_was_seen)
+    JTRACE("skipping over [vectors] section")(addr)(area->size);
+  else if (0 == strcmp(area->name, "[stack]") &&
+           orig_stack != area->addr + area->size)
     /* Kernel won't let us munmap this.  But we don't need to restore it. */
     JTRACE("skipping over [stack] segment (not the orig stack)")
-      (addr) (area->size);
-  else if (!(area -> flags & MAP_ANONYMOUS))
-    JTRACE("save region") (addr) (area->size) (area->name) (area->offset);
-  else if (area -> name[0] == '\0')
-    JTRACE("save anonymous") (addr) (area->size);
-  else
-    JTRACE("save anonymous") (addr) (area->size) (area->name) (area->offset);
+  (addr)(area->size);
+  else if (!(area->flags & MAP_ANONYMOUS))
+      JTRACE("save region")(addr)(area->size)(area->name)(area->offset);
+  else if (area->name[0] == '\0') JTRACE("save anonymous")(addr)(area->size);
+  else JTRACE("save anonymous")(addr)(area->size)(area->name)(area->offset);
 
-  if ((area -> name[0]) == '\0') {
-    char *brk = (char*)sbrk(0);
-    if (brk > area -> addr && brk <= area -> addr + area -> size)
-      strcpy(area -> name, "[heap]");
+  if ((area->name[0]) == '\0') {
+    char* brk = (char*)sbrk(0);
+    if (brk > area->addr && brk <= area->addr + area->size)
+      strcpy(area->name, "[heap]");
   }
 
   if (area->prot == 0 ||
-      (area->name[0] == '\0' &&
-       ((area->flags & MAP_ANONYMOUS) != 0) &&
+      (area->name[0] == '\0' && ((area->flags & MAP_ANONYMOUS) != 0) &&
        ((area->flags & MAP_PRIVATE) != 0))) {
     /* Detect zero pages and do not write them to ckpt image.
      * Currently, we detect zero pages in non-rwx mapping and anonymous
      * mappings only
      */
     mtcp_write_non_rwx_and_anonymous_pages(fd, area);
-  } else if (0 != strcmp(area -> name, "[vsyscall]")
-             && 0 != strcmp(area -> name, "[vectors]")
-             && ((0 != strcmp(area -> name, "[vdso]")
-                  || vsyscall_exists /* which implies vdso can be overwritten */
-                  || !stack_was_seen))) /* If vdso appeared before stack, it can be
-                                         replaced */
+  } else if (0 != strcmp(area->name, "[vsyscall]") &&
+             0 != strcmp(area->name, "[vectors]") &&
+             ((0 != strcmp(area->name, "[vdso]") ||
+               vsyscall_exists /* which implies vdso can be overwritten */
+               ||
+               !stack_was_seen))) /* If vdso appeared before stack, it can be
+                                   replaced */
   {
     /* Anonymous sections need to have their data copied to the file,
      *   as there is no file that contains their data
@@ -481,11 +475,11 @@ static void writememoryarea (int fd, Area *area, int stack_was_seen,
   }
 }
 
-static void preprocess_special_segments(int *vsyscall_exists)
+static void preprocess_special_segments(int* vsyscall_exists)
 {
   Area area;
   int mapsfd = _real_open("/proc/self/maps", O_RDONLY);
-  JASSERT(mapsfd != -1) (JASSERT_ERRNO) .Text("Error opening /proc/self/maps");
+  JASSERT(mapsfd != -1)(JASSERT_ERRNO).Text("Error opening /proc/self/maps");
 
   while (Util::readProcMapsLine(mapsfd, &area)) {
     if (0 == strcmp(area.name, "[vsyscall]")) {
@@ -511,9 +505,10 @@ static void preprocess_special_segments(int *vsyscall_exists)
        *     new vdso segment, provided by mtcp_restart.
        */
       *vsyscall_exists = 1;
-    } else if (/*!mtcp_saved_heap_start && */strcmp(area.name, "[heap]") == 0) {
+    } else if (/*!mtcp_saved_heap_start && */ strcmp(area.name, "[heap]") ==
+               0) {
       // Record start of heap which will later be used in mtcp_restore_finish()
-      //mtcp_saved_heap_start = area.addr;
+      // mtcp_saved_heap_start = area.addr;
     } else if (strcmp(area.name, "[stack]") == 0) {
       /*
        * When using Matlab with dmtcp_launch, sometimes the bottom most
@@ -528,11 +523,12 @@ static void preprocess_special_segments(int *vsyscall_exists)
        */
       // FIXME : If the area following the stack is not empty, don't
       //         exercise this path.
-      int ret = mprotect(area.addr + area.size, 0x1000,
-                         PROT_READ | PROT_WRITE | PROT_EXEC);
+      int ret = mprotect(
+          area.addr + area.size, 0x1000, PROT_READ | PROT_WRITE | PROT_EXEC);
       if (ret == 0) {
-        JNOTE("bottom-most page of stack (page with highest address) was \n"
-              "  invisible in /proc/self/maps. It is made visible again now.");
+        JNOTE(
+            "bottom-most page of stack (page with highest address) was \n"
+            "  invisible in /proc/self/maps. It is made visible again now.");
       }
     }
   }

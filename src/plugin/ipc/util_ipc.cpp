@@ -21,13 +21,16 @@
 
 #include "util_ipc.h"
 
-extern "C" LIB_PRIVATE
-int sendFd(int restoreFd, int32_t fd, void *data, size_t len,
-           struct sockaddr_un& addr, socklen_t addrLen)
+extern "C" LIB_PRIVATE int sendFd(int restoreFd,
+                                  int32_t fd,
+                                  void* data,
+                                  size_t len,
+                                  struct sockaddr_un& addr,
+                                  socklen_t addrLen)
 {
   struct iovec iov;
   struct msghdr hdr;
-  struct cmsghdr *cmsg;
+  struct cmsghdr* cmsg;
   char cms[CMSG_SPACE(sizeof(int32_t))];
 
   iov.iov_base = data;
@@ -50,13 +53,12 @@ int sendFd(int restoreFd, int32_t fd, void *data, size_t len,
   return sendmsg(restoreFd, &hdr, 0);
 }
 
-extern "C" LIB_PRIVATE
-int32_t receiveFd(int restoreFd, void *data, size_t len)
+extern "C" LIB_PRIVATE int32_t receiveFd(int restoreFd, void* data, size_t len)
 {
   int32_t fd;
   struct iovec iov;
   struct msghdr hdr;
-  struct cmsghdr *cmsg;
+  struct cmsghdr* cmsg;
   char cms[CMSG_SPACE(sizeof(int32_t))];
 
   iov.iov_base = data;
@@ -76,10 +78,10 @@ int32_t receiveFd(int restoreFd, void *data, size_t len)
   }
 
   cmsg = CMSG_FIRSTHDR(&hdr);
-  if (cmsg->cmsg_level != SOL_SOCKET || cmsg->cmsg_type  != SCM_RIGHTS) {
+  if (cmsg->cmsg_level != SOL_SOCKET || cmsg->cmsg_type != SCM_RIGHTS) {
     return -1;
   }
-  fd = *(int32_t *) CMSG_DATA(cmsg);
+  fd = *(int32_t*)CMSG_DATA(cmsg);
 
   return fd;
 }

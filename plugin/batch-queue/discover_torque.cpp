@@ -30,22 +30,19 @@ int resources_tm::discover()
   bool is_launch = true;
 
   /* try to detect the default directory */
-  const char *nodefile = getenv("PBS_NODEFILE");
-  if (nodefile == NULL)
-    return -1;
+  const char* nodefile = getenv("PBS_NODEFILE");
+  if (nodefile == NULL) return -1;
 
   ifstream s(nodefile);
 
-  if (!s.is_open())
-    return -1;
+  if (!s.is_open()) return -1;
 
   s.getline(buf, max_len);
   while (!s.eof()) {
     if (s.fail() && !s.bad()) {
       // fail bit is set: too big string. Drop the rest
       fprintf(stderr, "Error: reading from PE HOSTFILE: too long string\n");
-      while (s.fail() && !s.bad())
-        s.getline(buf, max_len);
+      while (s.fail() && !s.bad()) s.getline(buf, max_len);
     } else if (s.bad()) {
       return -1;
     } else {
@@ -61,7 +58,7 @@ int resources_tm::discover()
         node_map[buf].is_launch = is_launch;
         is_launch = false;
       }
-       s.getline(buf, max_len);
+      s.getline(buf, max_len);
     }
   }
   return 0;

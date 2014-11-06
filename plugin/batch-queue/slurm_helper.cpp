@@ -5,12 +5,16 @@
 // This is a copy of the code from src/plugin/ipc/utils_ipc.cpp and SSH plugin
 // This code also must be shared between ssh ans rm plugins.
 
-int slurm_sendFd(int restoreFd, int32_t fd, void *data, size_t len,
-           struct sockaddr_un& addr, socklen_t addrLen)
+int slurm_sendFd(int restoreFd,
+                 int32_t fd,
+                 void* data,
+                 size_t len,
+                 struct sockaddr_un& addr,
+                 socklen_t addrLen)
 {
   struct iovec iov;
   struct msghdr hdr;
-  struct cmsghdr *cmsg;
+  struct cmsghdr* cmsg;
   char cms[CMSG_SPACE(sizeof(int32_t))];
 
   iov.iov_base = data;
@@ -33,12 +37,12 @@ int slurm_sendFd(int restoreFd, int32_t fd, void *data, size_t len,
   return sendmsg(restoreFd, &hdr, 0);
 }
 
-int32_t slurm_receiveFd(int restoreFd, void *data, size_t len)
+int32_t slurm_receiveFd(int restoreFd, void* data, size_t len)
 {
   int32_t fd;
   struct iovec iov;
   struct msghdr hdr;
-  struct cmsghdr *cmsg;
+  struct cmsghdr* cmsg;
   char cms[CMSG_SPACE(sizeof(int32_t))];
 
   iov.iov_base = data;
@@ -58,10 +62,10 @@ int32_t slurm_receiveFd(int restoreFd, void *data, size_t len)
   }
 
   cmsg = CMSG_FIRSTHDR(&hdr);
-  if (cmsg->cmsg_level != SOL_SOCKET || cmsg->cmsg_type  != SCM_RIGHTS) {
+  if (cmsg->cmsg_level != SOL_SOCKET || cmsg->cmsg_type != SCM_RIGHTS) {
     return -1;
   }
-  fd = *(int32_t *) CMSG_DATA(cmsg);
+  fd = *(int32_t*)CMSG_DATA(cmsg);
 
   return fd;
 }

@@ -36,19 +36,20 @@
 
 #include "dmtcpalloc.h"
 
-namespace dmtcp {
-
+namespace dmtcp
+{
 void probeTorque();
-bool isTorqueFile(string relpath, string &path);
-bool isTorqueHomeFile(string &path);
-bool isTorqueIOFile(string &path);
-bool isTorqueStdout(string &path);
-bool isTorqueStderr(string &path);
-bool isTorqueNodeFile(string &path);
-int torqueShouldCkptFile(const char *path, int *type);
-int torqueRestoreFile(const char *path, const char *savedFilePath,
-                      int fcntlFlags, int type);
-
+bool isTorqueFile(string relpath, string& path);
+bool isTorqueHomeFile(string& path);
+bool isTorqueIOFile(string& path);
+bool isTorqueStdout(string& path);
+bool isTorqueStderr(string& path);
+bool isTorqueNodeFile(string& path);
+int torqueShouldCkptFile(const char* path, int* type);
+int torqueRestoreFile(const char* path,
+                      const char* savedFilePath,
+                      int fcntlFlags,
+                      int type);
 }
 
 #endif

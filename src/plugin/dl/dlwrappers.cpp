@@ -23,10 +23,13 @@
 #include <unistd.h>
 #include "dmtcp.h"
 
-#define _real_dlopen  NEXT_FNC(dlopen)
+#define _real_dlopen NEXT_FNC(dlopen)
 #define _real_dlclose NEXT_FNC(dlclose)
 
-EXTERNC int dmtcp_dlopen_enabled() { return 1; }
+EXTERNC int dmtcp_dlopen_enabled()
+{
+  return 1;
+}
 
 extern "C" int dmtcp_libdlLockLock();
 extern "C" void dmtcp_libdlLockUnlock();
@@ -65,19 +68,17 @@ extern "C" void dmtcp_libdlLockUnlock();
  * stack frames.
  */
 
-extern "C"
-void *dlopen(const char *filename, int flag)
+extern "C" void* dlopen(const char* filename, int flag)
 {
   bool lockAcquired = dmtcp_libdlLockLock();
-  void *ret = _real_dlopen(filename, flag);
+  void* ret = _real_dlopen(filename, flag);
   if (lockAcquired) {
     dmtcp_libdlLockUnlock();
   }
   return ret;
 }
 
-extern "C"
-int dlclose(void *handle)
+extern "C" int dlclose(void* handle)
 {
   bool lockAcquired = dmtcp_libdlLockLock();
   int ret = _real_dlclose(handle);
@@ -86,4 +87,3 @@ int dlclose(void *handle)
   }
   return ret;
 }
-

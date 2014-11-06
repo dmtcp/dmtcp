@@ -37,8 +37,8 @@
 #define DRAINER_CHECK_FREQ 0.1
 #define DRAINER_WARNING_FREQ 10
 
-//at least one of these must be enabled:
-#define HANDSHAKE_ON_CONNECT    0
+// at least one of these must be enabled:
+#define HANDSHAKE_ON_CONNECT 0
 #define HANDSHAKE_ON_CHECKPOINT 1
 
 #define _real_socket NEXT_FNC(socket)
@@ -48,7 +48,7 @@
 #define _real_closedir NEXT_FNC(closedir)
 #define _real_dup NEXT_FNC(dup)
 #define _real_dup2 NEXT_FNC(dup2)
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,27)) && __GLIBC_PREREQ(2,9)
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)) && __GLIBC_PREREQ(2, 9)
 #define _real_dup3 NEXT_FNC(dup3)
 #endif
 

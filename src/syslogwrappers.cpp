@@ -23,21 +23,21 @@
 #include <syslog.h>
 #include "syscallwrappers.h"
 #include "dmtcpalloc.h"
-#include  "../jalib/jassert.h"
+#include "../jalib/jassert.h"
 
 using namespace dmtcp;
 
 static bool _isSuspended = false;
 static bool _syslogEnabled = false;
 static bool _identIsNotNULL = false;
-static int  _option = -1;
-static int  _facility = -1;
+static int _option = -1;
+static int _facility = -1;
 
 static void SyslogCheckpointer_StopService();
 static void SyslogCheckpointer_RestoreService();
 static void SyslogCheckpointer_ResetOnFork();
 
-void dmtcp_Syslog_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
+void dmtcp_Syslog_EventHook(DmtcpEvent_t event, DmtcpEventData_t* data)
 {
   switch (event) {
     case DMTCP_EVENT_THREADS_SUSPEND:
@@ -66,9 +66,8 @@ static string& _ident()
 
 void SyslogCheckpointer_StopService()
 {
-  JASSERT ( !_isSuspended );
-  if ( _syslogEnabled )
-  {
+  JASSERT(!_isSuspended);
+  if (_syslogEnabled) {
     closelog();
     _isSuspended = true;
   }
@@ -76,12 +75,10 @@ void SyslogCheckpointer_StopService()
 
 void SyslogCheckpointer_RestoreService()
 {
-  if ( _isSuspended )
-  {
+  if (_isSuspended) {
     _isSuspended = false;
-    JASSERT ( _option>=0 && _facility>=0 ) ( _option ) ( _facility );
-    openlog ( ( _identIsNotNULL ? _ident().c_str() : NULL),
-              _option, _facility );
+    JASSERT(_option >= 0 && _facility >= 0)(_option)(_facility);
+    openlog((_identIsNotNULL ? _ident().c_str() : NULL), _option, _facility);
   }
 }
 
@@ -90,11 +87,11 @@ void SyslogCheckpointer_ResetOnFork()
   _syslogEnabled = false;
 }
 
-extern "C" void openlog ( const char *ident, int option, int facility )
+extern "C" void openlog(const char* ident, int option, int facility)
 {
-  JASSERT ( !_isSuspended );
-  JTRACE ( "openlog" ) ( ident );
-  _real_openlog ( ident, option, facility );
+  JASSERT(!_isSuspended);
+  JTRACE("openlog")(ident);
+  _real_openlog(ident, option, facility);
   _syslogEnabled = true;
 
   _identIsNotNULL = (ident != NULL);
@@ -105,10 +102,10 @@ extern "C" void openlog ( const char *ident, int option, int facility )
   _facility = facility;
 }
 
-extern "C" void closelog ( void )
+extern "C" void closelog(void)
 {
-  JASSERT ( !_isSuspended );
-  JTRACE ( "closelog" );
+  JASSERT(!_isSuspended);
+  JTRACE("closelog");
   _real_closelog();
   _syslogEnabled = false;
 }

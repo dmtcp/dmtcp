@@ -32,18 +32,17 @@ static pthread_mutex_t popen_map_lock = PTHREAD_MUTEX_INITIALIZER;
 
 static void _lock_popen_map()
 {
-  JASSERT(_real_pthread_mutex_lock(&popen_map_lock) == 0) (JASSERT_ERRNO);
+  JASSERT(_real_pthread_mutex_lock(&popen_map_lock) == 0)(JASSERT_ERRNO);
 }
 
 static void _unlock_popen_map()
 {
-  JASSERT(_real_pthread_mutex_unlock(&popen_map_lock) == 0) (JASSERT_ERRNO);
+  JASSERT(_real_pthread_mutex_unlock(&popen_map_lock) == 0)(JASSERT_ERRNO);
 }
 
-extern "C"
-FILE *popen(const char *command, const char *mode)
+extern "C" FILE* popen(const char* command, const char* mode)
 {
-  FILE *fp;
+  FILE* fp;
   int parent_fd, child_fd;
   int pipe_fds[2];
   pid_t child_pid;
@@ -120,7 +119,7 @@ FILE *popen(const char *command, const char *mode)
     _dmtcpPopenPidMap.clear();
 
     fcntl(child_std_fd, F_SETFD, 0);
-    execl("/bin/sh", "sh", "-c", command, (char *) 0);
+    execl("/bin/sh", "sh", "-c", command, (char*)0);
     exit(127);
   }
   close(child_fd);
@@ -144,8 +143,7 @@ FILE *popen(const char *command, const char *mode)
   return fp;
 }
 
-extern "C"
-int pclose(FILE *fp)
+extern "C" int pclose(FILE* fp)
 {
   _dmtcpPopenPidMapIterator it;
   int wstatus;
@@ -174,7 +172,7 @@ int pclose(FILE *fp)
   return wstatus;
 }
 
-EXTERNC int dmtcp_is_popen_fp(FILE *fp)
+EXTERNC int dmtcp_is_popen_fp(FILE* fp)
 {
   int popen_fp = 0;
   _lock_popen_map();

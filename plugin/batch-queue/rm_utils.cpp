@@ -36,36 +36,37 @@
 
 using namespace dmtcp;
 
-int dmtcp::findLib_byname(string pattern, string &libpath)
+int dmtcp::findLib_byname(string pattern, string& libpath)
 {
-  // /proc/self/maps looks like: "<start addr>-<end addr> <mode> <offset> <device> <inode> <libpath>
+  // /proc/self/maps looks like: "<start addr>-<end addr> <mode> <offset>
+  // <device> <inode> <libpath>
   // we need to extract libpath
   ProcMapsArea area;
   int ret = -1;
 
   // we will search for first libpath and first libname
-  int fd = _real_open ( "/proc/self/maps", O_RDONLY);
+  int fd = _real_open("/proc/self/maps", O_RDONLY);
 
-  if( fd < 0 ){
+  if (fd < 0) {
     JTRACE("Cannot open /proc/self/maps file");
     return -1;
   }
 
-  while( Util::readProcMapsLine(fd, &area) ){
+  while (Util::readProcMapsLine(fd, &area)) {
     libpath = area.name;
-    //JTRACE("Inspect new /proc/seft/maps line")(libpath);
-    if( libpath.size() == 0 ){
-      //JTRACE("anonymous region, skip");
+    // JTRACE("Inspect new /proc/seft/maps line")(libpath);
+    if (libpath.size() == 0) {
+      // JTRACE("anonymous region, skip");
       continue;
     }
 
-    if( libpath.find(pattern) != string::npos ){
+    if (libpath.find(pattern) != string::npos) {
       // this is library path that contains libtorque. This is what we need
-      //JTRACE("Found libpath")(pattern)(libpath);
+      // JTRACE("Found libpath")(pattern)(libpath);
       ret = 0;
       break;
-    }else{
-      //JTRACE("Libpath not found")(pattern)(libpath);
+    } else {
+      // JTRACE("Libpath not found")(pattern)(libpath);
     }
   }
 
@@ -73,49 +74,50 @@ int dmtcp::findLib_byname(string pattern, string &libpath)
   return ret;
 }
 
-int dmtcp::findLib_byfunc(string fname, string &libpath)
+int dmtcp::findLib_byfunc(string fname, string& libpath)
 {
-  // /proc/self/maps looks like: "<start addr>-<end addr> <mode> <offset> <device> <inode> <libpath>
+  // /proc/self/maps looks like: "<start addr>-<end addr> <mode> <offset>
+  // <device> <inode> <libpath>
   // we need to extract libpath
   ProcMapsArea area;
   int ret = -1;
 
   // we will search for first libpath and first libname
-  int fd = _real_open ( "/proc/self/maps", O_RDONLY);
+  int fd = _real_open("/proc/self/maps", O_RDONLY);
 
-  if( fd < 0 ){
+  if (fd < 0) {
     JTRACE("Cannot open /proc/self/maps file");
     return -1;
   }
 
-  while( Util::readProcMapsLine(fd, &area) ){
+  while (Util::readProcMapsLine(fd, &area)) {
     libpath = area.name;
-    //JTRACE("Inspect new /proc/seft/maps line")(libpath);
-    if( libpath.size() == 0 ){
-      //JTRACE("anonymous region, skip");
+    // JTRACE("Inspect new /proc/seft/maps line")(libpath);
+    if (libpath.size() == 0) {
+      // JTRACE("anonymous region, skip");
       continue;
     }
 
-    if( libpath.find("libdmtcp") != string::npos ){
-      //JTRACE("dmtcp plugin, skip")(libpath);
+    if (libpath.find("libdmtcp") != string::npos) {
+      // JTRACE("dmtcp plugin, skip")(libpath);
       continue;
     }
 
-    void *handle = dlopen(libpath.c_str(),RTLD_LAZY);
-    if( handle == NULL ){
-      //JTRACE("Cannot open libpath, skip")(libpath);
+    void* handle = dlopen(libpath.c_str(), RTLD_LAZY);
+    if (handle == NULL) {
+      // JTRACE("Cannot open libpath, skip")(libpath);
       continue;
     }
-    void *fptr = dlsym(handle,fname.c_str());
-    if( fptr != NULL ){
+    void* fptr = dlsym(handle, fname.c_str());
+    if (fptr != NULL) {
       // able to find requested symbol
-      //JTRACE("Found libpath by content:")(fname)(libpath);
+      // JTRACE("Found libpath by content:")(fname)(libpath);
       dlclose(handle);
       ret = 0;
       break;
     }
     dlclose(handle);
-    //JTRACE("Libpath doesn't contain searched function")(fname)(libpath);
+    // JTRACE("Libpath doesn't contain searched function")(fname)(libpath);
   }
 
   _real_close(fd);

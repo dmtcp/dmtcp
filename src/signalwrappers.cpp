@@ -22,7 +22,7 @@
 #include "dmtcpworker.h"
 #include "mtcpinterface.h"
 #include "syscallwrappers.h"
-#include  "../jalib/jassert.h"
+#include "../jalib/jassert.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -34,12 +34,11 @@
 
 using namespace dmtcp;
 
-//gah!!! signals API is redundant
+// gah!!! signals API is redundant
 
 static bool checkpointSignalBlockedForProcess = false;
 static __thread bool checkpointSignalBlockedForThread = false;
 static int stopSignal = -1;
-
 
 static int bannedSignalNumber()
 {
@@ -52,7 +51,7 @@ static int bannedSignalNumber()
     sigemptyset(&set);
     sigaddset(&set, stopSignal);
     JASSERT(_real_pthread_sigmask(SIG_UNBLOCK, &set, NULL) == 0)
-      (JASSERT_ERRNO) (stopSignal);
+    (JASSERT_ERRNO)(stopSignal);
   }
   return stopSignal;
 }
@@ -63,7 +62,7 @@ static int patchBSDMask(int mask)
   return mask & allowedMask;
 }
 
-static inline void patchBSDUserMask(int how, const int mask, int *oldmask)
+static inline void patchBSDUserMask(int how, const int mask, int* oldmask)
 {
   const int bannedMask = sigmask(bannedSignalNumber());
   if (checkpointSignalBlockedForProcess == true) {
@@ -88,8 +87,9 @@ static inline sigset_t patchPOSIXMask(const sigset_t* mask)
   return t;
 }
 
-static inline void patchPOSIXUserMaskWork(int how, const sigset_t *set,
-                                          sigset_t *oldset,
+static inline void patchPOSIXUserMaskWork(int how,
+                                          const sigset_t* set,
+                                          sigset_t* oldset,
                                           bool checkpointSignalBlocked)
 {
   if (oldset != NULL) {
@@ -112,91 +112,96 @@ static inline void patchPOSIXUserMaskWork(int how, const sigset_t *set,
   }
 }
 
-static inline void patchPOSIXUserMask(int how, const sigset_t *set, sigset_t *oldset)
+static inline void patchPOSIXUserMask(int how,
+                                      const sigset_t* set,
+                                      sigset_t* oldset)
 {
   patchPOSIXUserMaskWork(how, set, oldset, checkpointSignalBlockedForProcess);
 }
 
 /* Multi-threaded version of the above function */
-static inline void patchPOSIXUserMaskMT(int how, const sigset_t *set, sigset_t *oldset)
+static inline void patchPOSIXUserMaskMT(int how,
+                                        const sigset_t* set,
+                                        sigset_t* oldset)
 {
   patchPOSIXUserMaskWork(how, set, oldset, checkpointSignalBlockedForThread);
 }
 
-
-//set the handler
+// set the handler
 EXTERNC sighandler_t signal(int signum, sighandler_t handler)
 {
-  if(signum == bannedSignalNumber()) {
+  if (signum == bannedSignalNumber()) {
     return SIG_IGN;
   }
-  return _real_signal( signum, handler );
+  return _real_signal(signum, handler);
 }
 
-
-EXTERNC int sigaction(int signum, const struct sigaction *act,
-                      struct sigaction *oldact)
+EXTERNC int sigaction(int signum,
+                      const struct sigaction* act,
+                      struct sigaction* oldact)
 {
-  if(signum == bannedSignalNumber() && act != NULL) {
-    JWARNING("Application trying to use DMTCP's signal for it's own use.\n"
-             "  You should employ a different signal by setting the\n"
-             "  environment variable DMTCP_SIGCKPT to the number\n"
-             "  of the signal that DMTCP should use for checkpointing.")
-      (stopSignal);
+  if (signum == bannedSignalNumber() && act != NULL) {
+    JWARNING(
+        "Application trying to use DMTCP's signal for it's own use.\n"
+        "  You should employ a different signal by setting the\n"
+        "  environment variable DMTCP_SIGCKPT to the number\n"
+        "  of the signal that DMTCP should use for checkpointing.")
+    (stopSignal);
     act = NULL;
   }
-  return _real_sigaction( signum, act, oldact);
+  return _real_sigaction(signum, act, oldact);
 }
 
-EXTERNC int rt_sigaction(int signum, const struct sigaction *act,
-                         struct sigaction *oldact)
+EXTERNC int rt_sigaction(int signum,
+                         const struct sigaction* act,
+                         struct sigaction* oldact)
 {
-  return sigaction (signum, act, oldact);
-  //if(signum == bannedSignalNumber()) {
+  return sigaction(signum, act, oldact);
+  // if(signum == bannedSignalNumber()) {
   //  act = NULL;
   //}
-  //return _real_rt_sigaction( signum, act, oldact);
+  // return _real_rt_sigaction( signum, act, oldact);
 }
-EXTERNC int sigvec(int signum, const struct sigvec *vec, struct sigvec *ovec)
+EXTERNC int sigvec(int signum, const struct sigvec* vec, struct sigvec* ovec)
 {
-  if(signum == bannedSignalNumber()) {
+  if (signum == bannedSignalNumber()) {
     vec = NULL;
   }
-  return _real_sigvec( signum, vec, ovec );
+  return _real_sigvec(signum, vec, ovec);
 }
 
-//set the mask
+// set the mask
 EXTERNC int sigblock(int mask)
 {
-  int oldmask = _real_sigblock( patchBSDMask(mask) );
+  int oldmask = _real_sigblock(patchBSDMask(mask));
   patchBSDUserMask(SIG_BLOCK, mask, &oldmask);
   return oldmask;
 }
 
 EXTERNC int sigsetmask(int mask)
 {
-  int oldmask = _real_sigsetmask( patchBSDMask(mask) );
+  int oldmask = _real_sigsetmask(patchBSDMask(mask));
   patchBSDUserMask(SIG_SETMASK, mask, &oldmask);
   return oldmask;
 }
 
 EXTERNC int siggetmask(void)
 {
-  int oldmask =  _real_siggetmask();
+  int oldmask = _real_siggetmask();
   patchBSDUserMask(SIG_BLOCK, 0, &oldmask);
   return oldmask;
 }
 
-EXTERNC int sigprocmask(int how, const sigset_t *set, sigset_t *oldset)
+EXTERNC int sigprocmask(int how, const sigset_t* set, sigset_t* oldset)
 {
   sigset_t tmp;
-  const sigset_t *orig = set;
+  const sigset_t* orig = set;
   if (set != NULL) {
     tmp = patchPOSIXMask(set);
     set = &tmp;
   }
 
-  int ret = _real_sigprocmask( how, set, oldset );
+  int ret = _real_sigprocmask(how, set, oldset);
 
   if (ret != -1) {
     patchPOSIXUserMask(how, orig, oldset);
@@ -204,25 +209,25 @@ EXTERNC int sigprocmask(int how, const sigset_t *set, sigset_t *oldset)
   return ret;
 }
 
-EXTERNC int rt_sigprocmask(int how, const sigset_t *set, sigset_t *oldset)
+EXTERNC int rt_sigprocmask(int how, const sigset_t* set, sigset_t* oldset)
 {
   return sigprocmask(how, set, oldset);
-//  sigset_t tmp;
-//  const sigset_t *orig = set;
-//  if (set != NULL) {
-//    tmp = patchPOSIXMask(set);
-//    set = &tmp;
-//  }
-//
-//  int ret = _real_rt_sigprocmask( how, set, oldset );
-//
-//  if (ret != -1) {
-//    patchPOSIXUserMask(how, orig, oldset);
-//  }
-//  return ret;
+  //  sigset_t tmp;
+  //  const sigset_t *orig = set;
+  //  if (set != NULL) {
+  //    tmp = patchPOSIXMask(set);
+  //    set = &tmp;
+  //  }
+  //
+  //  int ret = _real_rt_sigprocmask( how, set, oldset );
+  //
+  //  if (ret != -1) {
+  //    patchPOSIXUserMask(how, orig, oldset);
+  //  }
+  //  return ret;
 }
 
-EXTERNC int sigsuspend(const sigset_t *mask)
+EXTERNC int sigsuspend(const sigset_t* mask)
 {
   sigset_t tmp;
   if (mask != NULL) {
@@ -267,9 +272,9 @@ EXTERNC int sigrelse(int sig)
 // So, we wrap both version.
 EXTERNC int __sigpause(int __sig_or_mask, int __is_sig)
 {
-  JWARNING(false)
-    .Text("This function is deprecated. Use sigsuspend instead." \
-          "  The DMTCP wrappers for this function may not be fully tested");
+  JWARNING(false).Text(
+      "This function is deprecated. Use sigsuspend instead."
+      "  The DMTCP wrappers for this function may not be fully tested");
   return _real__sigpause(__sig_or_mask, __is_sig);
 }
 
@@ -278,9 +283,9 @@ EXTERNC int __sigpause(int __sig_or_mask, int __is_sig)
 #undef sigpause
 EXTERNC int sigpause(int sig)
 {
-  JWARNING(false)
-    .Text("This function is deprecated. Use sigsuspend instead." \
-          "  The DMTCP wrappers for this function may not be fully tested");
+  JWARNING(false).Text(
+      "This function is deprecated. Use sigsuspend instead."
+      "  The DMTCP wrappers for this function may not be fully tested");
   return _real_sigpause(sig);
 }
 
@@ -289,16 +294,16 @@ EXTERNC int sigpause(int sig)
  * patchPOSIXUserMask function. This will declare the static variables with
  * __thread to make them thread local.
  */
-EXTERNC int pthread_sigmask(int how, const sigset_t *set, sigset_t *oldmask)
+EXTERNC int pthread_sigmask(int how, const sigset_t* set, sigset_t* oldmask)
 {
-  const sigset_t *orig = set;
+  const sigset_t* orig = set;
   sigset_t tmp;
   if (set != NULL) {
     tmp = patchPOSIXMask(set);
     set = &tmp;
   }
 
-  int ret = _real_pthread_sigmask( how, set, oldmask );
+  int ret = _real_pthread_sigmask(how, set, oldmask);
 
   if (ret != -1) {
     patchPOSIXUserMaskMT(how, orig, oldmask);
@@ -313,7 +318,7 @@ EXTERNC int pthread_sigmask(int how, const sigset_t *set, sigset_t *oldmask)
  * Should we make the wrappers for sigwait/sigtimedwait homogeneous??
  *                                                          -- Kapil
  */
-EXTERNC int sigwait(const sigset_t *set, int *sig)
+EXTERNC int sigwait(const sigset_t* set, int* sig)
 {
   sigset_t tmp;
   if (set != NULL) {
@@ -321,7 +326,7 @@ EXTERNC int sigwait(const sigset_t *set, int *sig)
     set = &tmp;
   }
 
-  int ret = _real_sigwait( set, sig );
+  int ret = _real_sigwait(set, sig);
 
   return ret;
 }
@@ -349,12 +354,12 @@ EXTERNC int sigwait(const sigset_t *set, int *sig)
  * to the user code; I would like to do the former.
  *                                                              -- Kapil
  */
-EXTERNC int sigwaitinfo(const sigset_t *set, siginfo_t *info)
+EXTERNC int sigwaitinfo(const sigset_t* set, siginfo_t* info)
 {
   int ret;
-  while ( 1 ) {
-    ret = _real_sigwaitinfo( set, info );
-    if ( ret != bannedSignalNumber() ) {
+  while (1) {
+    ret = _real_sigwaitinfo(set, info);
+    if (ret != bannedSignalNumber()) {
       break;
     }
     raise(bannedSignalNumber());
@@ -362,13 +367,14 @@ EXTERNC int sigwaitinfo(const sigset_t *set, siginfo_t *info)
   return ret;
 }
 
-EXTERNC int sigtimedwait(const sigset_t *set, siginfo_t *info,
-                         const struct timespec *timeout)
+EXTERNC int sigtimedwait(const sigset_t* set,
+                         siginfo_t* info,
+                         const struct timespec* timeout)
 {
   int ret;
-  while ( 1 ) {
-    ret = _real_sigtimedwait( set, info, timeout );
-    if ( ret != bannedSignalNumber() ) {
+  while (1) {
+    ret = _real_sigtimedwait(set, info, timeout);
+    if (ret != bannedSignalNumber()) {
       break;
     }
     raise(bannedSignalNumber());

@@ -22,12 +22,12 @@
 #include <semaphore.h>
 #include <sys/syscall.h>
 #ifdef __aarch64__
-# define __ARCH_WANT_SYSCALL_DEPRECATED
+#define __ARCH_WANT_SYSCALL_DEPRECATED
 // SYS_getpgrp is a deprecated kernel call in aarch64, but in favor of what?
-# include <asm-generic/unistd.h>
+#include <asm-generic/unistd.h>
 // SYS_getpgrp undefined in aarch64, but add extra insurance
-# undef SYS_getpgrp
-# define SYS_getpgrp __NR_getpgrp
+#undef SYS_getpgrp
+#define SYS_getpgrp __NR_getpgrp
 #endif
 #include <linux/version.h>
 
@@ -54,12 +54,12 @@ static void pidVirt_pthread_atfork_child()
   VirtualPidTable::instance().resetOnFork();
 }
 
-
 /* This is defined by newer gcc version unique for each module.  */
-extern void *__dso_handle __attribute__ ((__weak__,
-					  __visibility__ ("hidden")));
-extern "C" int __register_atfork(void (*prepare)(void), void (*parent)(void),
-                                 void (*child)(void), void *dso_handle)
+extern void* __dso_handle __attribute__((__weak__, __visibility__("hidden")));
+extern "C" int __register_atfork(void (*prepare)(void),
+                                 void (*parent)(void),
+                                 void (*child)(void),
+                                 void* dso_handle)
 {
   if (!pthread_atfork_initialized) {
     pthread_atfork_initialized = true;
@@ -67,8 +67,8 @@ extern "C" int __register_atfork(void (*prepare)(void), void (*parent)(void),
      * To fix it, we use __register_atfork and use the __dso_handle provided by
      * the gcc compiler.
      */
-    NEXT_FNC(__register_atfork) (NULL, NULL, pidVirt_pthread_atfork_child,
-                                 __dso_handle);
+    NEXT_FNC(__register_atfork)(
+        NULL, NULL, pidVirt_pthread_atfork_child, __dso_handle);
   }
   return NEXT_FNC(__register_atfork)(prepare, parent, child, dso_handle);
 }
@@ -94,21 +94,22 @@ extern "C" pid_t fork()
   return retval;
 }
 
-struct ThreadArg {
-  int (*fn) (void *arg);  // clone() calls fn that returns int
-  void *arg;
+struct ThreadArg
+{
+  int (*fn)(void* arg); // clone() calls fn that returns int
+  void* arg;
   pid_t virtualTid;
   sem_t sem;
 };
 
 // Invoked via __clone
 LIB_PRIVATE
-int clone_start(void *arg)
+int clone_start(void* arg)
 {
-  struct ThreadArg *threadArg = (struct ThreadArg*) arg;
-  int (*fn) (void *) = threadArg->fn;
-  void *thread_arg = threadArg->arg;
-  pid_t virtualTid = threadArg -> virtualTid;
+  struct ThreadArg* threadArg = (struct ThreadArg*)arg;
+  int (*fn)(void*) = threadArg->fn;
+  void* thread_arg = threadArg->arg;
+  pid_t virtualTid = threadArg->virtualTid;
 
   if (dmtcp_is_running_state()) {
     dmtcpResetTid(virtualTid);
@@ -117,26 +118,33 @@ int clone_start(void *arg)
   VirtualPidTable::instance().updateMapping(virtualTid, _real_gettid());
   sem_post(&threadArg->sem);
 
-  JTRACE("Calling user function") (virtualTid);
-  return (*fn) (thread_arg);
+  JTRACE("Calling user function")(virtualTid);
+  return (*fn)(thread_arg);
 }
 
-
-typedef int (*clone_fptr_t)(int (*fn) (void *arg), void *child_stack, int
-                            flags, void *arg, int *parent_tidptr,
-                            struct user_desc *newtls, int *child_tidptr);
-//need to forward user clone
-extern "C" int __clone(int (*fn) (void *arg), void *child_stack, int flags,
-                       void *arg, int *parent_tidptr, struct user_desc *newtls,
-                       int *child_tidptr)
+typedef int (*clone_fptr_t)(int (*fn)(void* arg),
+                            void* child_stack,
+                            int flags,
+                            void* arg,
+                            int* parent_tidptr,
+                            struct user_desc* newtls,
+                            int* child_tidptr);
+// need to forward user clone
+extern "C" int __clone(int (*fn)(void* arg),
+                       void* child_stack,
+                       int flags,
+                       void* arg,
+                       int* parent_tidptr,
+                       struct user_desc* newtls,
+                       int* child_tidptr)
 {
   pid_t virtualTid = -1;
-  struct MtcpRestartThreadArg *mtcpRestartThreadArg;
+  struct MtcpRestartThreadArg* mtcpRestartThreadArg;
 
   if (!dmtcp_is_running_state()) {
-    mtcpRestartThreadArg = (struct MtcpRestartThreadArg *) arg;
-    arg                  = mtcpRestartThreadArg -> arg;
-    virtualTid           = mtcpRestartThreadArg -> virtualTid;
+    mtcpRestartThreadArg = (struct MtcpRestartThreadArg*)arg;
+    arg = mtcpRestartThreadArg->arg;
+    virtualTid = mtcpRestartThreadArg->virtualTid;
     if (virtualTid != VIRTUAL_TO_REAL_PID(virtualTid)) {
       VirtualPidTable::instance().postRestart();
     }
@@ -150,23 +158,28 @@ extern "C" int __clone(int (*fn) (void *arg), void *child_stack, int flags,
   // We use JALLOC_HELPER_FREE to free this memory in two places:
   //   1.  later in this function in case of failure on call to __clone; and
   //   2.  near the beginnging of clone_start (wrapper for start_routine).
-  struct ThreadArg *threadArg =
-    (struct ThreadArg *) JALLOC_HELPER_MALLOC(sizeof (struct ThreadArg));
+  struct ThreadArg* threadArg =
+      (struct ThreadArg*)JALLOC_HELPER_MALLOC(sizeof(struct ThreadArg));
   threadArg->fn = fn;
   threadArg->arg = arg;
   threadArg->virtualTid = virtualTid;
   sem_init(&threadArg->sem, 0, 0);
 
   JTRACE("Calling libc:__clone");
-  pid_t tid = _real_clone(clone_start, child_stack, flags, threadArg,
-                    parent_tidptr, newtls, child_tidptr);
+  pid_t tid = _real_clone(clone_start,
+                          child_stack,
+                          flags,
+                          threadArg,
+                          parent_tidptr,
+                          newtls,
+                          child_tidptr);
 
   if (dmtcp_is_running_state()) {
     VirtualPidTable::instance().readVirtualTidFromFileForPtrace();
   }
 
   if (tid > 0) {
-    JTRACE("New thread created") (tid);
+    JTRACE("New thread created")(tid);
     /* Wait for child thread to finish intializing.
      * We must let the child thread insert original->current tid in the
      * virtualpidtable. If we don't wait for the child thread and update the
@@ -185,8 +198,7 @@ extern "C" int __clone(int (*fn) (void *arg), void *child_stack, int flags,
   return virtualTid;
 }
 
-extern "C"
-int shmctl(int shmid, int cmd, struct shmid_ds *buf)
+extern "C" int shmctl(int shmid, int cmd, struct shmid_ds* buf)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
   int ret = _real_shmctl(shmid, cmd, buf);
@@ -198,14 +210,13 @@ int shmctl(int shmid, int cmd, struct shmid_ds *buf)
   return ret;
 }
 
-extern "C"
-int semctl(int semid, int semnum, int cmd, ...)
+extern "C" int semctl(int semid, int semnum, int cmd, ...)
 {
   union semun uarg;
   va_list arg;
-  va_start (arg, cmd);
-  uarg = va_arg (arg, union semun);
-  va_end (arg);
+  va_start(arg, cmd);
+  uarg = va_arg(arg, union semun);
+  va_end(arg);
 
   DMTCP_PLUGIN_DISABLE_CKPT();
   int ret = _real_semctl(semid, semnum, cmd, uarg);
@@ -216,8 +227,7 @@ int semctl(int semid, int semnum, int cmd, ...)
   return ret;
 }
 
-extern "C"
-int msgctl(int msqid, int cmd, struct msqid_ds *buf)
+extern "C" int msgctl(int msqid, int cmd, struct msqid_ds* buf)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
   int ret = _real_msgctl(msqid, cmd, buf);
@@ -229,8 +239,7 @@ int msgctl(int msqid, int cmd, struct msqid_ds *buf)
   return ret;
 }
 
-extern "C"
-int clock_getcpuclockid(pid_t pid, clockid_t *clock_id)
+extern "C" int clock_getcpuclockid(pid_t pid, clockid_t* clock_id)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
   pid_t realPid = VIRTUAL_TO_REAL_PID(pid);
@@ -258,45 +267,82 @@ int mq_notify(mqd_t mqdes, const struct sigevent *sevp)
 }
 #endif
 
-extern "C" int __clone (int (*fn) (void *arg), void *child_stack, int flags, void *arg, int *parent_tidptr, struct user_desc *newtls, int *child_tidptr);
+extern "C" int __clone(int (*fn)(void* arg),
+                       void* child_stack,
+                       int flags,
+                       void* arg,
+                       int* parent_tidptr,
+                       struct user_desc* newtls,
+                       int* child_tidptr);
 
-#define SYSCALL_VA_START()                                              \
-  va_list ap;                                                           \
+#define SYSCALL_VA_START() \
+  va_list ap;              \
   va_start(ap, sys_num)
 
-#define SYSCALL_VA_END()                                                \
-  va_end(ap)
+#define SYSCALL_VA_END() va_end(ap)
 
-#define SYSCALL_GET_ARG(type,arg) type arg = va_arg(ap, type)
+#define SYSCALL_GET_ARG(type, arg) type arg = va_arg(ap, type)
 
-#define SYSCALL_GET_ARGS_2(type1,arg1,type2,arg2)                       \
-  SYSCALL_GET_ARG(type1,arg1);                                          \
-  SYSCALL_GET_ARG(type2,arg2)
+#define SYSCALL_GET_ARGS_2(type1, arg1, type2, arg2) \
+  SYSCALL_GET_ARG(type1, arg1);                      \
+  SYSCALL_GET_ARG(type2, arg2)
 
-#define SYSCALL_GET_ARGS_3(type1,arg1,type2,arg2,type3,arg3)            \
-  SYSCALL_GET_ARGS_2(type1,arg1,type2,arg2);                            \
-  SYSCALL_GET_ARG(type3,arg3)
+#define SYSCALL_GET_ARGS_3(type1, arg1, type2, arg2, type3, arg3) \
+  SYSCALL_GET_ARGS_2(type1, arg1, type2, arg2);                   \
+  SYSCALL_GET_ARG(type3, arg3)
 
-#define SYSCALL_GET_ARGS_4(type1,arg1,type2,arg2,type3,arg3,type4,arg4) \
-  SYSCALL_GET_ARGS_3(type1,arg1,type2,arg2,type3,arg3);                 \
-  SYSCALL_GET_ARG(type4,arg4)
+#define SYSCALL_GET_ARGS_4(type1, arg1, type2, arg2, type3, arg3, type4, arg4) \
+  SYSCALL_GET_ARGS_3(type1, arg1, type2, arg2, type3, arg3);                   \
+  SYSCALL_GET_ARG(type4, arg4)
 
-#define SYSCALL_GET_ARGS_5(type1,arg1,type2,arg2,type3,arg3,type4,arg4, \
-                           type5,arg5)                                  \
-  SYSCALL_GET_ARGS_4(type1,arg1,type2,arg2,type3,arg3,type4,arg4);      \
-  SYSCALL_GET_ARG(type5,arg5)
+#define SYSCALL_GET_ARGS_5(                                               \
+    type1, arg1, type2, arg2, type3, arg3, type4, arg4, type5, arg5)      \
+  SYSCALL_GET_ARGS_4(type1, arg1, type2, arg2, type3, arg3, type4, arg4); \
+  SYSCALL_GET_ARG(type5, arg5)
 
-#define SYSCALL_GET_ARGS_6(type1,arg1,type2,arg2,type3,arg3,type4,arg4, \
-                           type5,arg5,type6,arg6)                        \
-  SYSCALL_GET_ARGS_5(type1,arg1,type2,arg2,type3,arg3,type4,arg4,       \
-                     type5,arg5);                                       \
-  SYSCALL_GET_ARG(type6,arg6)
+#define SYSCALL_GET_ARGS_6(type1,                                       \
+                           arg1,                                        \
+                           type2,                                       \
+                           arg2,                                        \
+                           type3,                                       \
+                           arg3,                                        \
+                           type4,                                       \
+                           arg4,                                        \
+                           type5,                                       \
+                           arg5,                                        \
+                           type6,                                       \
+                           arg6)                                        \
+  SYSCALL_GET_ARGS_5(                                                   \
+      type1, arg1, type2, arg2, type3, arg3, type4, arg4, type5, arg5); \
+  SYSCALL_GET_ARG(type6, arg6)
 
-#define SYSCALL_GET_ARGS_7(type1,arg1,type2,arg2,type3,arg3,type4,arg4, \
-                           type5,arg5,type6,arg6,type7,arg7)             \
-  SYSCALL_GET_ARGS_6(type1,arg1,type2,arg2,type3,arg3,type4,arg4,       \
-                     type5,arg5,type6,arg6);                             \
-  SYSCALL_GET_ARG(type7,arg7)
+#define SYSCALL_GET_ARGS_7(type1, \
+                           arg1,  \
+                           type2, \
+                           arg2,  \
+                           type3, \
+                           arg3,  \
+                           type4, \
+                           arg4,  \
+                           type5, \
+                           arg5,  \
+                           type6, \
+                           arg6,  \
+                           type7, \
+                           arg7)  \
+  SYSCALL_GET_ARGS_6(type1,       \
+                     arg1,        \
+                     type2,       \
+                     arg2,        \
+                     type3,       \
+                     arg3,        \
+                     type4,       \
+                     arg4,        \
+                     type5,       \
+                     arg5,        \
+                     type6,       \
+                     arg6);       \
+  SYSCALL_GET_ARG(type7, arg7)
 
 /* Comments by Gene:
  * Here, syscall is the wrapper, and the call to syscall would be _real_syscall
@@ -320,145 +366,143 @@ extern "C" SYSCALL_ARG_RET_TYPE syscall(SYSCALL_ARG_RET_TYPE sys_num, ...)
   va_start(ap, sys_num);
 
   switch (sys_num) {
-    case SYS_gettid:
-    {
+    case SYS_gettid: {
       ret = gettid();
       break;
     }
-    case SYS_tkill:
-    {
+    case SYS_tkill: {
       SYSCALL_GET_ARGS_2(int, tid, int, sig);
       ret = tkill(tid, sig);
       break;
     }
-    case SYS_tgkill:
-    {
+    case SYS_tgkill: {
       SYSCALL_GET_ARGS_3(int, tgid, int, tid, int, sig);
       ret = tgkill(tgid, tid, sig);
       break;
     }
 
-    case SYS_getpid:
-    {
+    case SYS_getpid: {
       ret = getpid();
       break;
     }
-    case SYS_getppid:
-    {
+    case SYS_getppid: {
       ret = getppid();
       break;
     }
 
-    case SYS_getpgrp:
-    {
+    case SYS_getpgrp: {
       ret = getpgrp();
       break;
     }
 
-    case SYS_getpgid:
-    {
-      SYSCALL_GET_ARG(pid_t,pid);
+    case SYS_getpgid: {
+      SYSCALL_GET_ARG(pid_t, pid);
       ret = getpgid(pid);
       break;
     }
-    case SYS_setpgid:
-    {
-      SYSCALL_GET_ARGS_2(pid_t,pid,pid_t,pgid);
+    case SYS_setpgid: {
+      SYSCALL_GET_ARGS_2(pid_t, pid, pid_t, pgid);
       ret = setpgid(pid, pgid);
       break;
     }
 
-    case SYS_getsid:
-    {
-      SYSCALL_GET_ARG(pid_t,pid);
+    case SYS_getsid: {
+      SYSCALL_GET_ARG(pid_t, pid);
       ret = getsid(pid);
       break;
     }
-    case SYS_setsid:
-    {
+    case SYS_setsid: {
       ret = setsid();
       break;
     }
 
-    case SYS_kill:
-    {
-      SYSCALL_GET_ARGS_2(pid_t,pid,int,sig);
+    case SYS_kill: {
+      SYSCALL_GET_ARGS_2(pid_t, pid, int, sig);
       ret = kill(pid, sig);
       break;
     }
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,9))
-    case SYS_waitid:
-    {
-      //SYSCALL_GET_ARGS_4(idtype_t,idtype,id_t,id,siginfo_t*,infop,int,options);
-      SYSCALL_GET_ARGS_4(int,idtype,id_t,id,siginfo_t*,infop,int,options);
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 9))
+    case SYS_waitid: {
+      // SYSCALL_GET_ARGS_4(idtype_t,idtype,id_t,id,siginfo_t*,infop,int,options);
+      SYSCALL_GET_ARGS_4(
+          int, idtype, id_t, id, siginfo_t*, infop, int, options);
       ret = waitid((idtype_t)idtype, id, infop, options);
       break;
     }
 #endif
-    case SYS_wait4:
-    {
-      SYSCALL_GET_ARGS_4(pid_t,pid,__WAIT_STATUS,status,int,options,
-                         struct rusage*,rusage);
+    case SYS_wait4: {
+      SYSCALL_GET_ARGS_4(pid_t,
+                         pid,
+                         __WAIT_STATUS,
+                         status,
+                         int,
+                         options,
+                         struct rusage*,
+                         rusage);
       ret = wait4(pid, status, options, rusage);
       break;
     }
 #ifdef __i386__
-    case SYS_waitpid:
-    {
-      SYSCALL_GET_ARGS_3(pid_t,pid,int*,status,int,options);
+    case SYS_waitpid: {
+      SYSCALL_GET_ARGS_3(pid_t, pid, int*, status, int, options);
       ret = waitpid(pid, status, options);
       break;
     }
 #endif
 
-    case SYS_setgid:
-    {
-      SYSCALL_GET_ARG(gid_t,gid);
+    case SYS_setgid: {
+      SYSCALL_GET_ARG(gid_t, gid);
       ret = setgid(gid);
       break;
     }
-    case SYS_setuid:
-    {
-      SYSCALL_GET_ARG(uid_t,uid);
+    case SYS_setuid: {
+      SYSCALL_GET_ARG(uid_t, uid);
       ret = setuid(uid);
       break;
     }
 
 #ifndef DISABLE_SYS_V_IPC
-# ifdef __x86_64__
-// These SYS_xxx are only defined for 64-bit Linux
-    case SYS_shmget:
-    {
-      SYSCALL_GET_ARGS_3(key_t,key,size_t,size,int,shmflg);
+#ifdef __x86_64__
+    // These SYS_xxx are only defined for 64-bit Linux
+    case SYS_shmget: {
+      SYSCALL_GET_ARGS_3(key_t, key, size_t, size, int, shmflg);
       ret = shmget(key, size, shmflg);
       break;
     }
-    case SYS_shmat:
-    {
-      SYSCALL_GET_ARGS_3(int,shmid,const void*,shmaddr,int,shmflg);
-      ret = (unsigned long) shmat(shmid, shmaddr, shmflg);
+    case SYS_shmat: {
+      SYSCALL_GET_ARGS_3(int, shmid, const void*, shmaddr, int, shmflg);
+      ret = (unsigned long)shmat(shmid, shmaddr, shmflg);
       break;
     }
-    case SYS_shmdt:
-    {
-      SYSCALL_GET_ARG(const void*,shmaddr);
+    case SYS_shmdt: {
+      SYSCALL_GET_ARG(const void*, shmaddr);
       ret = shmdt(shmaddr);
       break;
     }
-    case SYS_shmctl:
-    {
-      SYSCALL_GET_ARGS_3(int,shmid,int,cmd,struct shmid_ds*,buf);
+    case SYS_shmctl: {
+      SYSCALL_GET_ARGS_3(int, shmid, int, cmd, struct shmid_ds*, buf);
       ret = shmctl(shmid, cmd, buf);
       break;
     }
-# endif
+#endif
 #endif
 
-    default:
-    {
-      SYSCALL_GET_ARGS_7(void*, arg1, void*, arg2, void*, arg3, void*, arg4,
-                         void*, arg5, void*, arg6, void*, arg7);
+    default: {
+      SYSCALL_GET_ARGS_7(void*,
+                         arg1,
+                         void*,
+                         arg2,
+                         void*,
+                         arg3,
+                         void*,
+                         arg4,
+                         void*,
+                         arg5,
+                         void*,
+                         arg6,
+                         void*,
+                         arg7);
       ret = _real_syscall(sys_num, arg1, arg2, arg3, arg4, arg5, arg6, arg7);
       break;
     }

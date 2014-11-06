@@ -41,33 +41,32 @@
 
 namespace dmtcp
 {
-  class VirtualPidTable : public VirtualIdTable<pid_t>
-  {
-    public:
+class VirtualPidTable : public VirtualIdTable<pid_t>
+{
+public:
 #ifdef JALIB_ALLOCATOR
-      static void* operator new(size_t nbytes, void* p) { return p; }
-      static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
-      static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
+  static void* operator new(size_t nbytes, void* p) { return p; }
+  static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
+  static void operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
 #endif
-      VirtualPidTable();
-      static VirtualPidTable& instance();
-      static pid_t getPidFromEnvVar();
+  VirtualPidTable();
+  static VirtualPidTable& instance();
+  static pid_t getPidFromEnvVar();
 
-      virtual void postRestart();
-      virtual void resetOnFork();
+  virtual void postRestart();
+  virtual void resetOnFork();
 
-      void updateMapping(pid_t virtualId, pid_t realId);
-      pid_t realToVirtual(pid_t realPid);
-      pid_t virtualToReal(pid_t virtualId);
-      void refresh();
-      void writeVirtualTidToFileForPtrace(pid_t pid);
-      pid_t readVirtualTidFromFileForPtrace(pid_t realTid = -1);
+  void updateMapping(pid_t virtualId, pid_t realId);
+  pid_t realToVirtual(pid_t realPid);
+  pid_t virtualToReal(pid_t virtualId);
+  void refresh();
+  void writeVirtualTidToFileForPtrace(pid_t pid);
+  pid_t readVirtualTidFromFileForPtrace(pid_t realTid = -1);
 
-      pid_t getNewVirtualTid();
+  pid_t getNewVirtualTid();
 
-
-    private:
-  };
+private:
+};
 }
 
 #endif

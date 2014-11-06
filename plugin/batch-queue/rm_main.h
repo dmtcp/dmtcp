@@ -43,8 +43,8 @@
 #define _real_connect NEXT_FNC(connect)
 #define _real_bind NEXT_FNC(bind)
 
-namespace dmtcp {
-
+namespace dmtcp
+{
 // General
 bool runUnderRMgr();
 enum rmgr_type_t { Empty, None, torque, sge, lsf, slurm };
@@ -52,35 +52,29 @@ enum rmgr_type_t { Empty, None, torque, sge, lsf, slurm };
 rmgr_type_t _get_rmgr_type();
 void _set_rmgr_type(rmgr_type_t nval);
 
-void _rm_clear_path(string &path);
-void _rm_del_trailing_slash(string &path);
+void _rm_clear_path(string& path);
+void _rm_del_trailing_slash(string& path);
 
-enum ResMgrFileType
-{
-  TORQUE_IO,
-  TORQUE_NODE,
-  SLURM_TMPDIR
-};
+enum ResMgrFileType { TORQUE_IO, TORQUE_NODE, SLURM_TMPDIR };
 }
 
-#define FWD_TO_DEV_NULL(fd) \
-{ \
-  int tmp = open("/dev/null", O_CREAT|O_RDWR|O_TRUNC, 0666); \
-  if (tmp >= 0 && tmp != fd ) { \
-  dup2(tmp, fd); \
-  close(tmp); \
-  } \
-}
+#define FWD_TO_DEV_NULL(fd)                                        \
+  {                                                                \
+    int tmp = open("/dev/null", O_CREAT | O_RDWR | O_TRUNC, 0666); \
+    if (tmp >= 0 && tmp != fd) {                                   \
+      dup2(tmp, fd);                                               \
+      close(tmp);                                                  \
+    }                                                              \
+  }
 
-#define CHECK_FWD_TO_DEV_NULL(fd) \
-{ \
-  if( fcntl(fd,F_GETFL) == -1 ){ \
-    FWD_TO_DEV_NULL(fd) \
-  } \
-}
+#define CHECK_FWD_TO_DEV_NULL(fd)   \
+  {                                 \
+    if (fcntl(fd, F_GETFL) == -1) { \
+      FWD_TO_DEV_NULL(fd)           \
+    }                               \
+  }
 
 #define DMTCP_SRUN_HELPER_ADDR_ENV "DMTCP_SRUN_HELPER_ADDR"
 #define DMTCP_SRUN_HELPER_SYNC_ENV "DMTCP_SRUN_HELPER_SYNCFILE"
-
 
 #endif

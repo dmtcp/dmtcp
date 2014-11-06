@@ -16,7 +16,7 @@ extern "C" int dmtcp_unique_ckpt_enabled(void)
 
 void updateCkptDir()
 {
-  const char *ckptDir = dmtcp_get_ckpt_dir();
+  const char* ckptDir = dmtcp_get_ckpt_dir();
   string baseDir;
   if (strstr(ckptDir, dmtcp_get_computation_id_str()) != NULL) {
     baseDir = jalib::Filesystem::DirName(ckptDir);
@@ -29,7 +29,7 @@ void updateCkptDir()
   dmtcp_set_ckpt_dir(o.str().c_str());
 }
 
-void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
+void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t* data)
 {
   switch (event) {
     case DMTCP_EVENT_THREADS_SUSPEND:

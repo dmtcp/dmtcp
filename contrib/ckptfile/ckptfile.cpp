@@ -3,7 +3,7 @@
 #include "jassert.h"
 #include "dmtcp.h"
 
-extern "C" int dmtcp_must_ckpt_file(const char *abspath)
+extern "C" int dmtcp_must_ckpt_file(const char* abspath)
 {
   if (strstr(abspath, "/home/") == 0) {
     return 1;
@@ -11,8 +11,9 @@ extern "C" int dmtcp_must_ckpt_file(const char *abspath)
   return 0;
 }
 
-extern "C" void dmtcp_get_new_file_path(const char *abspath, const char *cwd,
-                                        char *newpath)
+extern "C" void dmtcp_get_new_file_path(const char* abspath,
+                                        const char* cwd,
+                                        char* newpath)
 {
   // Dummy for now.
   return;
@@ -30,7 +31,7 @@ static void restart()
   // You might want to update the criterion for dmtcp_get_new_file_path.
 }
 
-extern "C" void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
+extern "C" void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t* data)
 {
   switch (event) {
     case DMTCP_EVENT_THREADS_SUSPEND:

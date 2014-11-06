@@ -37,8 +37,7 @@ using namespace dmtcp;
 
 static int _numTids = 1;
 
-VirtualPidTable::VirtualPidTable()
-  : VirtualIdTable<pid_t> ("Pid", getpid())
+VirtualPidTable::VirtualPidTable() : VirtualIdTable<pid_t>("Pid", getpid())
 {
   //_do_lock_tbl();
   //_idMapTable[getpid()] = _real_getpid();
@@ -46,7 +45,7 @@ VirtualPidTable::VirtualPidTable()
   //_do_unlock_tbl();
 }
 
-static VirtualPidTable *virtPidTableInst = NULL;
+static VirtualPidTable* virtPidTableInst = NULL;
 VirtualPidTable& VirtualPidTable::instance()
 {
   if (virtPidTableInst == NULL) {
@@ -74,8 +73,8 @@ void VirtualPidTable::refresh()
   _do_lock_tbl();
   for (i = _idMapTable.begin(), next = i; i != _idMapTable.end(); i = next) {
     next++;
-    if (isIdCreatedByCurrentProcess(i->second)
-        && _real_tgkill(_real_pid, i->second, 0) == -1) {
+    if (isIdCreatedByCurrentProcess(i->second) &&
+        _real_tgkill(_real_pid, i->second, 0) == -1) {
       _idMapTable.erase(i);
     }
   }
@@ -91,7 +90,7 @@ pid_t VirtualPidTable::getNewVirtualTid()
   }
 
   JASSERT(VirtualIdTable<pid_t>::getNewVirtualId(&tid))
-    (_idMapTable.size()) .Text("Exceeded maximum number of threads allowed");
+  (_idMapTable.size()).Text("Exceeded maximum number of threads allowed");
 
   return tid;
 }
@@ -114,8 +113,8 @@ void VirtualPidTable::updateMapping(pid_t virtualId, pid_t realId)
   }
 }
 
-//to allow linking without ptrace plugin
-extern "C" int dmtcp_is_ptracing() __attribute__ ((weak));
+// to allow linking without ptrace plugin
+extern "C" int dmtcp_is_ptracing() __attribute__((weak));
 
 pid_t VirtualPidTable::realToVirtual(pid_t realPid)
 {
@@ -133,8 +132,8 @@ pid_t VirtualPidTable::realToVirtual(pid_t realPid)
     }
   }
 
-  //JWARNING(false) (realPid)
-    //.Text("No virtual pid/tid found for the given real pid");
+  // JWARNING(false) (realPid)
+  //.Text("No virtual pid/tid found for the given real pid");
   _do_unlock_tbl();
   return realPid;
 }
@@ -183,6 +182,6 @@ pid_t VirtualPidTable::readVirtualTidFromFileForPtrace(pid_t tid)
 
   pid = SharedData::getPtraceVirtualId(tid);
 
-  JTRACE("Read virtual Pid/Tid from shared-area") (pid);
+  JTRACE("Read virtual Pid/Tid from shared-area")(pid);
   return pid;
 }

@@ -36,16 +36,15 @@
 
 #include "discover_resources.h"
 
-class resources_tm : public resources {
+class resources_tm : public resources
+{
 public:
-
-  resources_tm() : resources(torque) {   }
+  resources_tm() : resources(torque) {}
 
   int discover();
   static bool probe()
   {
-    return (getenv("PBS_ENVIRONMENT") != NULL) &&
-            (NULL != getenv("PBS_JOBID"));
+    return (getenv("PBS_ENVIRONMENT") != NULL) && (NULL != getenv("PBS_JOBID"));
   }
 };
 

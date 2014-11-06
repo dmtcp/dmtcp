@@ -23,105 +23,105 @@
 #define DMTCPDMTCPCOORDINATOR_H
 
 #include "dmtcpalloc.h"
-#include  "../jalib/jsocket.h"
+#include "../jalib/jsocket.h"
 #include "dmtcpmessagetypes.h"
 
 namespace dmtcp
 {
-  class CoordClient
+class CoordClient
+{
+public:
+  CoordClient(const jalib::JSocket& sock,
+              const struct sockaddr_storage* addr,
+              socklen_t len,
+              DmtcpMessage& hello_remote,
+              int isNSWorker = 0);
+
+  jalib::JSocket& sock() { return _sock; }
+  const UniquePid& identity() const { return _identity; }
+  void identity(UniquePid upid) { _identity = upid; }
+  int clientNumber() const { return _clientNumber; }
+  string ip() const { return _ip; }
+  WorkerState state() const { return _state; }
+  void setState(WorkerState value) { _state = value; }
+  void progname(string pname) { _progname = pname; }
+  string progname(void) const { return _progname; }
+  void hostname(string hname) { _hostname = hname; }
+  string hostname(void) const { return _hostname; }
+  string prefixDir(void) const { return _prefixDir; }
+  pid_t realPid(void) const { return _realPid; }
+  void realPid(pid_t pid) { _realPid = pid; }
+  pid_t virtualPid(void) const { return _virtualPid; }
+  void virtualPid(pid_t pid) { _virtualPid = pid; }
+  int isNSWorker() { return _isNSWorker; }
+
+  void readProcessInfo(DmtcpMessage& msg);
+
+private:
+  UniquePid _identity;
+  int _clientNumber;
+  jalib::JSocket _sock;
+  WorkerState _state;
+  string _hostname;
+  string _progname;
+  string _prefixDir;
+  string _ip;
+  pid_t _realPid;
+  pid_t _virtualPid;
+  int _isNSWorker;
+};
+
+class DmtcpCoordinator
+{
+public:
+  typedef struct
   {
-    public:
-      CoordClient(const jalib::JSocket& sock,
-                  const struct sockaddr_storage *addr,
-                  socklen_t len,
-                  DmtcpMessage &hello_remote,
-		  int isNSWorker = 0);
+    WorkerState minimumState;
+    WorkerState maximumState;
+    bool minimumStateUnanimous;
+    int numPeers;
+  } ComputationStatus;
 
-      jalib::JSocket &sock() { return _sock; }
-      const UniquePid& identity() const { return _identity;}
-      void identity(UniquePid upid) { _identity = upid;}
-      int clientNumber() const { return _clientNumber; }
-      string ip() const { return _ip; }
-      WorkerState state() const { return _state; }
-      void setState ( WorkerState value ) { _state = value; }
-      void progname(string pname){ _progname = pname; }
-      string progname(void) const { return _progname; }
-      void hostname(string hname){ _hostname = hname; }
-      string hostname(void) const { return _hostname; }
-      string prefixDir(void) const { return _prefixDir; }
-      pid_t realPid(void) const { return _realPid; }
-      void realPid(pid_t pid) { _realPid = pid; }
-      pid_t virtualPid(void) const { return _virtualPid; }
-      void virtualPid(pid_t pid) { _virtualPid = pid; }
-      int isNSWorker() {return _isNSWorker;}
+  void onTimeoutInterval();
+  void onData(CoordClient* client);
+  void onConnect();
+  void onDisconnect(CoordClient* client);
+  void eventLoop(bool daemon);
 
-      void readProcessInfo(DmtcpMessage& msg);
+  void addDataSocket(CoordClient* client);
+  void updateCheckpointInterval(uint32_t timeout);
+  int getRemainingTimeoutMS();
+  void updateMinimumState(WorkerState oldState);
+  void initializeComputation();
+  void broadcastMessage(DmtcpMessageType type, int numPeers = -1);
+  bool startCheckpoint();
 
-    private:
-      UniquePid _identity;
-      int _clientNumber;
-      jalib::JSocket _sock;
-      WorkerState _state;
-      string _hostname;
-      string _progname;
-      string _prefixDir;
-      string _ip;
-      pid_t _realPid;
-      pid_t _virtualPid;
-      int _isNSWorker;
-  };
+  void handleUserCommand(char cmd, DmtcpMessage* reply = NULL);
 
-  class DmtcpCoordinator
-  {
-    public:
-      typedef struct {
-        WorkerState minimumState;
-        WorkerState maximumState;
-        bool minimumStateUnanimous;
-        int numPeers;
-      } ComputationStatus;
+  void processDmtUserCmd(DmtcpMessage& hello_remote, jalib::JSocket& remote);
+  bool validateNewWorkerProcess(DmtcpMessage& hello_remote,
+                                jalib::JSocket& remote,
+                                CoordClient* client,
+                                const struct sockaddr_storage* addr,
+                                socklen_t len);
+  bool validateRestartingWorkerProcess(DmtcpMessage& hello_remote,
+                                       jalib::JSocket& remote,
+                                       const struct sockaddr_storage* addr,
+                                       socklen_t len);
 
-      void onTimeoutInterval();
-      void onData(CoordClient *client);
-      void onConnect();
-      void onDisconnect(CoordClient *client);
-      void eventLoop(bool daemon);
+  ComputationStatus getStatus() const;
+  WorkerState minimumState() const { return getStatus().minimumState; }
 
-      void addDataSocket(CoordClient *client);
-      void updateCheckpointInterval(uint32_t timeout);
-      int  getRemainingTimeoutMS();
-      void updateMinimumState(WorkerState oldState);
-      void initializeComputation();
-      void broadcastMessage(DmtcpMessageType type, int numPeers = -1);
-      bool startCheckpoint();
+  pid_t getNewVirtualPid();
 
-      void handleUserCommand(char cmd, DmtcpMessage* reply = NULL);
+protected:
+  void writeRestartScript();
 
-      void processDmtUserCmd(DmtcpMessage& hello_remote,
-                             jalib::JSocket& remote);
-      bool validateNewWorkerProcess(DmtcpMessage& hello_remote,
-                                    jalib::JSocket& remote,
-                                    CoordClient *client,
-                                    const struct sockaddr_storage* addr,
-                                    socklen_t len);
-      bool validateRestartingWorkerProcess(DmtcpMessage& hello_remote,
-                                           jalib::JSocket& remote,
-                                           const struct sockaddr_storage* addr,
-                                           socklen_t len);
-
-      ComputationStatus getStatus() const;
-      WorkerState minimumState() const { return getStatus().minimumState; }
-
-      pid_t getNewVirtualPid();
-
-    protected:
-      void writeRestartScript();
-    private:
-      //map from hostname to checkpoint files
-      map< string, vector<string> > _restartFilenames;
-      map< pid_t, CoordClient* > _virtualPidToClientMap;
-  };
-
+private:
+  // map from hostname to checkpoint files
+  map<string, vector<string>> _restartFilenames;
+  map<pid_t, CoordClient*> _virtualPidToClientMap;
+};
 }
 
 #endif

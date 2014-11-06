@@ -32,85 +32,87 @@
 
 namespace dmtcp
 {
-  class ConnectionIdentifier
-  {
-    public:
+class ConnectionIdentifier
+{
+public:
 #ifdef JALIB_ALLOCATOR
-      static void* operator new(size_t nbytes, void* p) { return p; }
-      static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
-      static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
+  static void* operator new(size_t nbytes, void* p) { return p; }
+  static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
+  static void operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
 #endif
-      static ConnectionIdentifier Create();
-      static ConnectionIdentifier Null();
-      static ConnectionIdentifier Self();
+  static ConnectionIdentifier Create();
+  static ConnectionIdentifier Null();
+  static ConnectionIdentifier Self();
 
-      static void serialize ( jalib::JBinarySerializer& o );
+  static void serialize(jalib::JBinarySerializer& o);
 
-      uint64_t   hostid() const { return _upid._hostid; }
-      pid_t  pid() const { return _upid._pid; }
-      uint64_t time() const { return _upid._time; }
-      int64_t   conId() const { return _id; }
-      //int conId() const;
-      //const UniquePid& pid() const;
+  uint64_t hostid() const { return _upid._hostid; }
+  pid_t pid() const { return _upid._pid; }
+  uint64_t time() const { return _upid._time; }
+  int64_t conId() const { return _id; }
+  // int conId() const;
+  // const UniquePid& pid() const;
 
-      ConnectionIdentifier (int id = -1);
-      ConnectionIdentifier(DmtcpUniqueProcessId id) {
-        _upid = id;
-        _id = -1;
-      }
+  ConnectionIdentifier(int id = -1);
+  ConnectionIdentifier(DmtcpUniqueProcessId id)
+  {
+    _upid = id;
+    _id = -1;
+  }
 
-      bool isNull() const { return _id < 0; }
+  bool isNull() const { return _id < 0; }
 
-      bool operator==(const ConnectionIdentifier& that) const;
-      bool operator< (const ConnectionIdentifier& that) const;
-      bool operator!=(const ConnectionIdentifier& that) const
-      { return !(*this == that); }
+  bool operator==(const ConnectionIdentifier& that) const;
+  bool operator<(const ConnectionIdentifier& that) const;
+  bool operator!=(const ConnectionIdentifier& that) const
+  {
+    return !(*this == that);
+  }
 
-    private:
-      DmtcpUniqueProcessId _upid;
-      int64_t   _id;
-  };
+private:
+  DmtcpUniqueProcessId _upid;
+  int64_t _id;
+};
 
-  class ConnMsg {
-    public:
-    enum MsgType {
-      INVALID = -1,
-      HANDSHAKE = 0,
-      DRAIN,
-      REFILL
-    };
+class ConnMsg
+{
+public:
+  enum MsgType { INVALID = -1, HANDSHAKE = 0, DRAIN, REFILL };
 
-    ConnMsg(enum MsgType t = INVALID) {
-      strcpy(sign, HANDSHAKE_SIGNATURE_MSG);
-      type = t;
-      size = sizeof(ConnMsg);
-      extraBytes = 0;
-    }
+  ConnMsg(enum MsgType t = INVALID)
+  {
+    strcpy(sign, HANDSHAKE_SIGNATURE_MSG);
+    type = t;
+    size = sizeof(ConnMsg);
+    extraBytes = 0;
+  }
 
-    void poison() {
-      sign[0] = '\0';
-      type = INVALID;
-    }
+  void poison()
+  {
+    sign[0] = '\0';
+    type = INVALID;
+  }
 
-    void assertValid(enum MsgType t) {
-      JASSERT(strcmp(sign, HANDSHAKE_SIGNATURE_MSG) == 0) (sign)
+  void assertValid(enum MsgType t)
+  {
+    JASSERT(strcmp(sign, HANDSHAKE_SIGNATURE_MSG) == 0)(sign)
         .Text("read invalid message, signature mismatch. (External socket?)");
-      JASSERT(size == sizeof(ConnMsg)) (size) (sizeof(ConnMsg))
+    JASSERT(size == sizeof(ConnMsg))(size)(sizeof(ConnMsg))
         .Text("read invalid message, size mismatch.");
-      JASSERT(type == t) ((int)t) ((int)type) .Text("Wrong Msg Type.");
-    }
+    JASSERT(type == t)((int)t)((int)type).Text("Wrong Msg Type.");
+  }
 
-    ConnectionIdentifier from;
-    ConnectionIdentifier coordId;
+  ConnectionIdentifier from;
+  ConnectionIdentifier coordId;
 
-    char sign[32];
-    int32_t type;
-    int32_t size;
-    int32_t extraBytes;
-    char    padding[4];
-  };
+  char sign[32];
+  int32_t type;
+  int32_t size;
+  int32_t extraBytes;
+  char padding[4];
+};
 
-  ostream& operator<<(ostream& o, const ConnectionIdentifier& id);
+ostream& operator<<(ostream& o, const ConnectionIdentifier& id);
 }
 
 #endif
