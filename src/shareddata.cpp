@@ -69,11 +69,13 @@ void dmtcp_SharedData_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 }
 
 void SharedData::initializeHeader(const char *tmpDir,
+                                  const char *installDir,
                                   DmtcpUniqueProcessId *compId,
                                   CoordinatorInfo *coordInfo,
                                   struct in_addr *localIPAddr)
 {
-  JASSERT(tmpDir != NULL && coordInfo != NULL && localIPAddr != NULL);
+  JASSERT(tmpDir && installDir && coordInfo && localIPAddr);
+
   off_t size = CEIL(SHM_MAX_SIZE , Util::pageSize());
   JASSERT(lseek(PROTECTED_SHM_FD, size, SEEK_SET) == size)
     (JASSERT_ERRNO);
@@ -113,9 +115,14 @@ void SharedData::initializeHeader(const char *tmpDir,
   }
   JASSERT(strlen(tmpDir) < sizeof(sharedDataHeader->tmpDir) - 1) (tmpDir);
   strcpy(sharedDataHeader->tmpDir, tmpDir);
+
+  JASSERT(strlen(installDir) < sizeof(sharedDataHeader->installDir) - 1)
+    (installDir);
+  strcpy(sharedDataHeader->installDir, installDir);
 }
 
 void SharedData::initialize(const char *tmpDir = NULL,
+                            const char *installDir = NULL,
                             DmtcpUniqueProcessId *compId = NULL,
                             CoordinatorInfo *coordInfo = NULL,
                             struct in_addr *localIPAddr = NULL)
@@ -163,7 +170,7 @@ void SharedData::initialize(const char *tmpDir = NULL,
 
   if (needToInitialize) {
     Util::lockFile(PROTECTED_SHM_FD);
-    initializeHeader(tmpDir, compId, coordInfo, localIPAddr);
+    initializeHeader(tmpDir, installDir, compId, coordInfo, localIPAddr);
     Util::unlockFile(PROTECTED_SHM_FD);
   } else {
     struct stat statbuf;
@@ -298,6 +305,12 @@ char *SharedData::getTmpDir(char *buf, uint32_t len)
   }
   strcpy(buf, sharedDataHeader->tmpDir);
   return buf;
+}
+
+string SharedData::getInstallDir()
+{
+  if (sharedDataHeader == NULL) initialize();
+  return sharedDataHeader->installDir;
 }
 
 uint32_t SharedData::getCkptInterval()

@@ -478,13 +478,20 @@ int main ( int argc, char** argv )
                                                      &compId, &coordInfo,
                                                      &localIPAddr);
   Util::writeCoordPortToFile(getenv(ENV_VAR_NAME_PORT), thePortFile.c_str());
+
+  string installDir =
+    jalib::Filesystem::DirName(jalib::Filesystem::GetProgramDir());
+
   /* We need to initialize SharedData here to make sure that it is
    * initialized with the correct coordinator timestamp.  The coordinator
    * timestamp is updated only during postCkpt callback. However, the
    * SharedData area may be initialized earlier (for example, while
    * recreating threads), causing it to use *older* timestamp.
    */
-  SharedData::initialize(Util::getTmpDir().c_str(), &compId, &coordInfo,
+  SharedData::initialize(Util::getTmpDir().c_str(),
+                         installDir.c_str(),
+                         &compId,
+                         &coordInfo,
                          &localIPAddr);
 
   setLDPreloadLibs(is32bitElf);

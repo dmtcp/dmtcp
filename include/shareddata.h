@@ -93,6 +93,8 @@ namespace dmtcp {
 
     struct Header {
       char                 tmpDir[PATH_MAX];
+      char                 installDir[PATH_MAX];
+
       uint32_t             initialized;
       struct in_addr       localIPAddr;
 
@@ -129,10 +131,12 @@ namespace dmtcp {
     };
 
     void initialize(const char *tmpDir,
+                    const char *installDir,
                     DmtcpUniqueProcessId *compId,
                     CoordinatorInfo *coordInfo,
                     struct in_addr *localIP);
     void initializeHeader(const char *tmpDir,
+                          const char *installDir,
                           DmtcpUniqueProcessId *compId,
                           CoordinatorInfo *coordInfo,
                           struct in_addr *localIP);
@@ -150,6 +154,7 @@ namespace dmtcp {
 #endif
 
     char *getTmpDir(char *buf, uint32_t len);
+    string getInstallDir();
     uint32_t getCkptInterval();
     void setCkptInterval(uint32_t interval);
     void updateGeneration(uint32_t generation);
