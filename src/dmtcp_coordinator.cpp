@@ -137,7 +137,7 @@ static const char* theRestartScriptHeader =
   "#  2. If using ssh, verify that ssh does not require passwords or other\n"
   "#     prompts.\n"
   "#  3. Verify that the dmtcp_restart command is in your path on all hosts,\n"
-  "#     otherwise set the remote_prefix appropriately.\n"
+  "#     otherwise set the dmt_rstr_cmd appropriately.\n"
   "#  4. Verify DMTCP_HOST and DMTCP_PORT match the location of the\n"
   "#     dmtcp_coordinator. If necessary, add\n"
   "#     'DMTCP_PORT=<dmtcp_coordinator port>' after 'DMTCP_HOST=<...>'.\n"
@@ -373,14 +373,14 @@ static const char* theRestartScriptMultiHostProcessing =
 
   "  if [ -z $maybebg ]; then\n"
   "    $maybexterm /usr/bin/ssh -t \"$worker_host\" \\\n"
-  "      $remote_dmt_rstr_cmd --host \"$coord_host\" --port \"$coord_port\"\\\n"
+  "      $dmt_rstr_cmd --host \"$coord_host\" --port \"$coord_port\"\\\n"
   "      $ckpt_dir --join --interval \"$checkpoint_interval\" $tmpdir \\\n"
   "      $new_ckpt_files_group\n"
   "  else\n"
   "    $maybexterm /usr/bin/ssh \"$worker_host\" \\\n"
   // In Open MPI 1.4, without this (sh -c ...), orterun hangs at the
   // end of the computation until user presses enter key.
-  "      \"/bin/sh -c \'$remote_dmt_rstr_cmd --host $coord_host --port $coord_port\\\n"
+  "      \"/bin/sh -c \'$dmt_rstr_cmd --host $coord_host --port $coord_port\\\n"
   "      $ckpt_dir --join --interval \"$checkpoint_interval\" $tmpdir \\\n"
   "      $new_ckpt_files_group\'\" &\n"
   "  fi\n\n"
@@ -445,9 +445,6 @@ static time_t curTimeStamp = -1;
 static time_t ckptTimeStamp = -1;
 
 static LookupService lookupService;
-static string localHostName;
-static string localPrefix;
-static string remotePrefix;
 
 static string coordHostname;
 static struct in_addr localhostIPAddr;
@@ -490,9 +487,6 @@ void CoordClient::readProcessInfo(DmtcpMessage& msg)
     _sock.readAll(extraData, msg.extraBytes);
     _hostname = extraData;
     _progname = extraData + _hostname.length() + 1;
-    if (msg.extraBytes > _hostname.length() + _progname.length() + 2) {
-      _prefixDir = extraData + _hostname.length() + _progname.length() + 2;
-    }
     delete [] extraData;
   }
 }
@@ -1233,13 +1227,6 @@ bool DmtcpCoordinator::validateNewWorkerProcess(
                          hello_remote.from.time(),
                          hello_remote.from.generation());
 
-      localPrefix.clear();
-      localHostName.clear();
-      remotePrefix.clear();
-      if (!client->prefixDir().empty()) {
-        localPrefix = client->prefixDir();
-        localHostName = client->hostname();
-      }
       JASSERT(gettimeofday(&tv, NULL) == 0);
       // Get the resolution down to 100 mili seconds.
       curTimeStamp = (tv.tv_sec << 4) | (tv.tv_usec / (100*1000));
@@ -1248,25 +1235,7 @@ bool DmtcpCoordinator::validateNewWorkerProcess(
         (compId);
     } else {
       JTRACE("New process connected")
-        (hello_remote.from) (client->prefixDir()) (client->virtualPid());
-      if (client->hostname() == localHostName) {
-        JASSERT(client->prefixDir() == localPrefix)
-          (client->prefixDir()) (localPrefix);
-      }
-      if (!client->prefixDir().empty() && client->hostname() != localHostName) {
-        if (remotePrefix.empty()) {
-          JASSERT (compId != UniquePid(0,0,0));
-          remotePrefix = client->prefixDir();
-        } else if (remotePrefix != client->prefixDir()) {
-          JNOTE("This node has different prefixDir than the rest of the "
-                "remote nodes. Rejecting connection!")
-            (remotePrefix) (localPrefix) (client->prefixDir());
-          hello_local.type = DMT_REJECT_WRONG_PREFIX;
-          remote << hello_local;
-          remote.close();
-          return false;
-        }
-      }
+        (hello_remote.from) (client->virtualPid());
     }
     hello_local.compGroup = compId;
     hello_local.coordTimeStamp = curTimeStamp;
@@ -1425,13 +1394,6 @@ void DmtcpCoordinator::writeRestartScript()
                 " || echo \"$0: $dmt_rstr_cmd not found\"\n"
                 "which $dmt_rstr_cmd > /dev/null 2>&1 || exit 1\n\n",
                 jalib::Filesystem::GetProgramDir().c_str());
-
-  fprintf ( fp, "local_prefix=%s\n", localPrefix.c_str() );
-  fprintf ( fp, "remote_prefix=%s\n", remotePrefix.c_str() );
-  fprintf ( fp, "remote_dmt_rstr_cmd=" DMTCP_RESTART_CMD "\n"
-                "if ! test -z \"$remote_prefix\"; then\n"
-                "  remote_dmt_rstr_cmd=\"$remote_prefix/bin/" DMTCP_RESTART_CMD "\"\n"
-                "fi\n\n" );
 
   fprintf ( fp, "# Number of hosts in the computation = %zd\n"
                 "# Number of processes in the computation = %d\n\n",

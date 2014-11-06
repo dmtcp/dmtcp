@@ -48,7 +48,6 @@ namespace dmtcp
       string progname(void) const { return _progname; }
       void hostname(string hname){ _hostname = hname; }
       string hostname(void) const { return _hostname; }
-      string prefixDir(void) const { return _prefixDir; }
       pid_t realPid(void) const { return _realPid; }
       void realPid(pid_t pid) { _realPid = pid; }
       pid_t virtualPid(void) const { return _virtualPid; }
@@ -64,7 +63,6 @@ namespace dmtcp
       WorkerState _state;
       string _hostname;
       string _progname;
-      string _prefixDir;
       string _ip;
       pid_t _realPid;
       pid_t _virtualPid;
