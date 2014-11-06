@@ -564,21 +564,14 @@ void Util::adjustRlimitStack()
 #endif
 }
 
+// TODO(kapil): rewrite getPath to remove dependency on jalib.
 string Util::getPath(string cmd)
 {
-  string out;
-  const char *prefixPath = getenv (ENV_VAR_PREFIX_PATH);
-  if (prefixPath != NULL) {
-    out.append(prefixPath).append("/bin/").append(cmd);
-  } else {
-    out = jalib::Filesystem::FindHelperUtility(cmd);
-  }
-  return out;
+  return jalib::Filesystem::FindHelperUtility(cmd);
 }
 
 void Util::getDmtcpArgs(vector<string> &dmtcp_args)
 {
-  const char * prefixPath           = getenv (ENV_VAR_PREFIX_PATH);
   const char * coordinatorAddr      = getenv (ENV_VAR_NAME_HOST);
 
   char buf[256];
@@ -620,11 +613,6 @@ void Util::getDmtcpArgs(vector<string> &dmtcp_args)
   if (sigckpt != NULL) {
     dmtcp_args.push_back("--ckpt-signal");
     dmtcp_args.push_back(sigckpt);
-  }
-
-  if (prefixPath != NULL) {
-    dmtcp_args.push_back("--prefix");
-    dmtcp_args.push_back(prefixPath);
   }
 
   if (ckptDir != NULL) {

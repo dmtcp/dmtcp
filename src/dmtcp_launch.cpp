@@ -118,8 +118,6 @@ static const char* theUsage =
   "              Disable all plugins.\n"
   "\n"
   "Other options:\n"
-  "  --prefix PATH\n"
-  "              Prefix where DMTCP is installed on remote nodes.\n"
   "  --tmpdir PATH (environment variable DMTCP_TMPDIR)\n"
   "              Directory to store temporary files \n"
   "              (default: $TMDPIR/dmtcp-$USER@$HOST or /tmp/dmtcp-$USER@$HOST)\n"
@@ -260,9 +258,6 @@ static void processArgs(int *orig_argc, char ***orig_argv)
     } else if (argc>1 && s == "--port-file"){
       thePortFile = argv[1];
       shift; shift;
-    } else if (argc>1 && (s == "--prefix")) {
-      setenv(ENV_VAR_PREFIX_PATH, argv[1], 1);
-      shift; shift;
     } else if (argc>1 && (s == "-c" || s == "--ckptdir")) {
       setenv(ENV_VAR_CHECKPOINT_DIR, argv[1], 1);
       shift; shift;
@@ -336,18 +331,6 @@ int main ( int argc, char** argv )
   processArgs(&argc, &argv);
 
   initializeJalib();
-  // If --ssh-slave and --prefix both are present, verify that the prefix-dir
-  // of this binary (dmtcp_launch) is same as the one provided with
-  // --prefix
-  if (isSSHSlave && getenv(ENV_VAR_PREFIX_PATH) != NULL) {
-    char buf[PATH_MAX];
-    string prefixPath = getenv(ENV_VAR_PREFIX_PATH);
-    prefixPath += "/bin/dmtcp_launch";
-    JASSERT(realpath(prefixPath.c_str(), buf) != NULL) (prefixPath);
-    prefixPath = buf;
-    string programPath = jalib::Filesystem::GetProgramPath();
-    JASSERT(prefixPath == programPath) (prefixPath) (programPath);
-  }
 
   Util::setTmpDir(getenv(ENV_VAR_TMPDIR));
   UniquePid::ThisProcess(true);
