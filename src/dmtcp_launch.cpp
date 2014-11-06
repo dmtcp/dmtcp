@@ -90,9 +90,8 @@ static const char* theUsage =
   "              Checkpoint open files and restore old working dir.\n"
   "              (default: do neither)\n"
   "  --ckpt-signal signum\n"
-  "  --mtcp-checkpoint-signal signum\n"
   "              Signal number used internally by DMTCP for checkpointing\n"
-  "              (default: 12). --mtcp-checkpoint-signal is deprecated.\n"
+  "              (default: SIGUSR2/12).\n"
   "\n"
   "Enable/disable plugins:\n"
   "  --with-plugin (environment variable DMTCP_PLUGIN)\n"
@@ -270,8 +269,7 @@ static void processArgs(int *orig_argc, char ***orig_argv)
     } else if (argc>1 && (s == "-t" || s == "--tmpdir")) {
       setenv(ENV_VAR_TMPDIR, argv[1], 1);
       shift; shift;
-    } else if (argc>1 && (s == "--mtcp-checkpoint-signal" ||
-                          s == "--ckpt-signal")) {
+    } else if (argc>1 && s == "--ckpt-signal") {
       setenv(ENV_VAR_SIGCKPT, argv[1], 1);
       shift; shift;
     } else if (s == "--checkpoint-open-files" || s == "--ckpt-open-files") {

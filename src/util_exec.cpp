@@ -618,7 +618,7 @@ void Util::getDmtcpArgs(vector<string> &dmtcp_args)
   }
 
   if (sigckpt != NULL) {
-    dmtcp_args.push_back("--mtcp-checkpoint-signal");
+    dmtcp_args.push_back("--ckpt-signal");
     dmtcp_args.push_back(sigckpt);
   }
 
