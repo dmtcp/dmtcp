@@ -590,8 +590,7 @@ string Util::getPath(string cmd, bool is32bit)
   }
 
   // Search relative to dir of this command (bin/dmtcp_launch), (using p1).
-  string udir = jalib::Filesystem::DirName(jalib::Filesystem::GetProgramDir());
-
+  string udir = SharedData::getInstallDir();
   for (size_t i = 0; i < sizeof(p1) / sizeof(char*); i++) {
     string pth = udir + p1[i] + suffixFor32Bits + cmd;
     if (jalib::Filesystem::FileExists(pth)) {
