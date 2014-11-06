@@ -74,7 +74,7 @@ void SharedData::initializeHeader(const char *tmpDir,
                                   CoordinatorInfo *coordInfo,
                                   struct in_addr *localIPAddr)
 {
-  JASSERT(tmpDir && installDir && coordInfo && localIPAddr);
+  JASSERT(tmpDir && installDir && compId && coordInfo && localIPAddr);
 
   off_t size = CEIL(SHM_MAX_SIZE , Util::pageSize());
   JASSERT(lseek(PROTECTED_SHM_FD, size, SEEK_SET) == size)

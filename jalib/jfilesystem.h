@@ -48,10 +48,6 @@ namespace jalib
     //true if a given file exists
     bool FileExists ( const jalib::string& str );
 
-    //search for a given utility in many different places
-    jalib::string FindHelperUtility ( const jalib::string& name,
-                                      bool is32bit = false );
-
     jalib::string GetCWD();
     jalib::string GetProgramDir();
     jalib::string GetProgramName();

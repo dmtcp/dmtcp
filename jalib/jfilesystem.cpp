@@ -227,38 +227,6 @@ bool jalib::Filesystem::FileExists ( const jalib::string& str )
   }
 }
 
-jalib::string jalib::Filesystem::FindHelperUtility(const jalib::string& file,
-                                                   bool is32bit /*= false*/)
-{
-  // search relative to base dir of dmtcp installation.
-  const char *p1[] = {
-    "/bin/",
-    "/lib64/dmtcp/",
-    "/lib/dmtcp/",
-  };
-
-  string suffixFor32Bits;
-  if (is32bit) {
-    jalib::string basename = BaseName(file);
-    if (file == "mtcp_restart-32") {
-      suffixFor32Bits = "32/bin/";
-    } else {
-      suffixFor32Bits = "32/lib/dmtcp/";
-    }
-  }
-
-  // Search relative to dir of this command (bin/dmtcp_launch), (using p1).
-  jalib::string udir = DirName(GetProgramDir());
-  for (size_t i = 0; i < sizeof(p1) / sizeof(char*); i++) {
-    jalib::string pth = udir + p1[i] + suffixFor32Bits + file;
-    if (FileExists(pth)) {
-      return pth;
-    }
-  }
-
-  return file;
-}
-
 jalib::StringVector jalib::Filesystem::GetProgramArgs()
 {
   static StringVector rv;

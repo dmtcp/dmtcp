@@ -315,12 +315,10 @@ static void runMtcpRestart(int is32bitElf, int fd, ProcessInfo *pInfo)
   sprintf(fdBuf, "%d", fd);
   sprintf(stderrFdBuf, "%d", PROTECTED_STDERR_FD);
 
-  static string mtcprestart =
-    jalib::Filesystem::FindHelperUtility ("mtcp_restart");
+  static string mtcprestart = Util::getPath ("mtcp_restart");
 
   if (is32bitElf) {
-    mtcprestart = jalib::Filesystem::FindHelperUtility("mtcp_restart-32",
-                                                       is32bitElf);
+    mtcprestart = Util::getPath("mtcp_restart-32", is32bitElf);
   }
 
   char* const newArgs[] = {

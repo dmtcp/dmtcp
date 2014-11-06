@@ -667,18 +667,18 @@ static void setLDPreloadLibs(bool is32bitElf)
   }
 
   if (disableAllPlugins) {
-    preloadLibs = jalib::Filesystem::FindHelperUtility("libdmtcp.so");
+    preloadLibs = Util::getPath("libdmtcp.so");
 #if defined(__x86_64__)
-    preloadLibs32 = jalib::Filesystem::FindHelperUtility("libdmtcp.so", true);
+    preloadLibs32 = Util::getPath("libdmtcp.so", true);
 #endif
   } else {
     for (size_t i = 0; i < numLibs; i++) {
       struct PluginInfo *p= &pluginInfo[i];
       if (*p->enabled) {
-        preloadLibs += jalib::Filesystem::FindHelperUtility(p->lib) + ":";
+        preloadLibs += Util::getPath(p->lib) + ":";
 #if defined(__x86_64__)
         preloadLibs32 +=
-          jalib::Filesystem::FindHelperUtility(p->lib, true) + ":";
+          Util::getPath(p->lib, true) + ":";
 #endif
       }
     }
@@ -702,7 +702,7 @@ static void setLDPreloadLibs(bool is32bitElf)
   setenv("LD_PRELOAD", preloadLibs.c_str(), 1);
 #if defined(__x86_64__)
   if (is32bitElf) {
-    string libdmtcp = jalib::Filesystem::FindHelperUtility("libdmtcp.so", true);
+    string libdmtcp = Util::getPath("libdmtcp.so", true);
     JWARNING(libdmtcp != "libdmtcp.so")
       .Text("You appear to be checkpointing a 32-bit target under 64-bit Linux.\n"
             "DMTCP was unable to find the 32-bit installation.\n"

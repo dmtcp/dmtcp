@@ -168,7 +168,7 @@ namespace dmtcp
 
     char *findExecutable(char *executable, const char* path_env,
                          char *exec_path);
-    string getPath(string cmd);
+    string getPath(string cmd, bool is32bit = false);
     void getDmtcpArgs(vector<string> &dmtcp_args);
   }
 }

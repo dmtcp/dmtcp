@@ -425,7 +425,7 @@ static int32_t getDlsymOffset_m32()
   char buf[PATH_MAX];
   string cmd1, cmd2, libdl, libdmtcp32;
 
-  libdmtcp32 = jalib::Filesystem::FindHelperUtility("libdmtcp.so", true);
+  libdmtcp32 = Util::getPath("libdmtcp.so", true);
   if (libdmtcp32 == "libdmtcp.so") return 0;
 
   cmd1 = "ldd " + libdmtcp32 + " | grep " + LIBDL_FILENAME
@@ -462,12 +462,10 @@ static int32_t getDlsymOffset_m32()
 void Util::runMtcpRestore(int is32bitElf, const char* path, int fd,
                                  size_t argvSize, size_t envSize)
 {
-  static string mtcprestart =
-    jalib::Filesystem::FindHelperUtility ("mtcp_restart");
+  static string mtcprestart = Util::getPath ("mtcp_restart");
 
   if (is32bitElf) {
-    mtcprestart = jalib::Filesystem::FindHelperUtility("mtcp_restart-32",
-                                                       is32bitElf);
+    mtcprestart = Util::getPath("mtcp_restart-32", is32bitElf);
   }
 
   // Tell mtcp_restart process to write its debugging information to
@@ -572,9 +570,36 @@ void Util::adjustRlimitStack()
 }
 
 // TODO(kapil): rewrite getPath to remove dependency on jalib.
-string Util::getPath(string cmd)
+string Util::getPath(string cmd, bool is32bit)
 {
-  return jalib::Filesystem::FindHelperUtility(cmd);
+  // search relative to base dir of dmtcp installation.
+  const char *p1[] = {
+    "/bin/",
+    "/lib64/dmtcp/",
+    "/lib/dmtcp/",
+  };
+
+  string suffixFor32Bits;
+  if (is32bit) {
+    string basename = jalib::Filesystem::BaseName(cmd);
+    if (cmd == "mtcp_restart-32") {
+      suffixFor32Bits = "32/bin/";
+    } else {
+      suffixFor32Bits = "32/lib/dmtcp/";
+    }
+  }
+
+  // Search relative to dir of this command (bin/dmtcp_launch), (using p1).
+  string udir = jalib::Filesystem::DirName(jalib::Filesystem::GetProgramDir());
+
+  for (size_t i = 0; i < sizeof(p1) / sizeof(char*); i++) {
+    string pth = udir + p1[i] + suffixFor32Bits + cmd;
+    if (jalib::Filesystem::FileExists(pth)) {
+      return pth;
+    }
+  }
+
+  return cmd;
 }
 
 void Util::getDmtcpArgs(vector<string> &dmtcp_args)
