@@ -92,7 +92,6 @@
 
 
 // it is not yet safe to change these; these names are hard-wired in the code
-#define ENV_VAR_UTILITY_DIR "JALIB_UTILITY_DIR"
 #define ENV_VAR_STDERR_PATH "JALIB_STDERR_PATH"
 #define ENV_VAR_COMPRESSION "DMTCP_GZIP"
 #define ENV_VAR_ALLOC_PLUGIN "DMTCP_ALLOC_PLUGIN"
@@ -129,7 +128,6 @@
     ENV_VAR_TMPDIR,\
     ENV_VAR_CKPT_OPEN_FILES,\
     ENV_VAR_QUIET,\
-    ENV_VAR_UTILITY_DIR,\
     ENV_VAR_STDERR_PATH,\
     ENV_VAR_COMPRESSION,\
     ENV_VAR_ALLOC_PLUGIN,\

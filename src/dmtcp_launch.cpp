@@ -633,10 +633,6 @@ static void setLDPreloadLibs(bool is32bitElf)
   }
   string preloadLibs32 = preloadLibs;
 
-  // FindHelperUtiltiy requires ENV_VAR_UTILITY_DIR to be set
-  string searchDir = jalib::Filesystem::GetProgramDir();
-  setenv ( ENV_VAR_UTILITY_DIR, searchDir.c_str(), 0 );
-
   //set up Alloc plugin
   if (getenv(ENV_VAR_ALLOC_PLUGIN) != NULL){
     const char *ptr = getenv(ENV_VAR_ALLOC_PLUGIN);

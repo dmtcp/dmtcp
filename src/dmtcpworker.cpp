@@ -294,14 +294,6 @@ DmtcpWorker::DmtcpWorker()
   JTRACE("libdmtcp.so:  Running ")
     (jalib::Filesystem::GetProgramName()) (getenv ("LD_PRELOAD"));
 
-  if (getenv(ENV_VAR_UTILITY_DIR) == NULL) {
-    JNOTE("\n **** Not checkpointing this process,"
-            " due to missing environment var ****")
-          (getenv(ENV_VAR_UTILITY_DIR))
-          (jalib::Filesystem::GetProgramName());
-    return;
-  }
-
   processRlimit();
 
   if (getenv("DMTCP_SEGFAULT_HANDLER") != NULL) {

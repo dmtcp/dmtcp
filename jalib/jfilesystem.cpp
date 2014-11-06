@@ -230,31 +230,14 @@ bool jalib::Filesystem::FileExists ( const jalib::string& str )
 jalib::string jalib::Filesystem::FindHelperUtility(const jalib::string& file,
                                                    bool is32bit /*= false*/)
 {
-  const char* d = NULL;
-  // search relative to dir of dmtcp_launch
-  // (intended for private install by end user)
+  // search relative to base dir of dmtcp installation.
   const char *p1[] = {
-    "/",
-    "/../lib64/dmtcp/",
-    "/../lib/dmtcp/",
-  };
-  // FIXME: remove /.../lib{,64}/dmtcp/ above, & modify Makefile.in:(un)install
-
-  // Search in standard path, and if we fail, in our current and parent dir
-  // (intended for system-wide install by end user)
-  const char *p2[] = {
-    "/usr/local/bin/",
-    "/usr/bin/",
     "/bin/",
-    "/usr/local/lib64/dmtcp/",
-    "/usr/lib64/dmtcp/",
-    "/lib64/dmtcp",
-    "/usr/local/lib/dmtcp/",
-    "/usr/lib/dmtcp/",
-    "/lib/dmtcp/"
+    "/lib64/dmtcp/",
+    "/lib/dmtcp/",
   };
 
-  dmtcp::string suffixFor32Bits = "";
+  string suffixFor32Bits;
   if (is32bit) {
     jalib::string basename = BaseName(file);
     if (file == "mtcp_restart-32") {
@@ -263,35 +246,11 @@ jalib::string jalib::Filesystem::FindHelperUtility(const jalib::string& file,
       suffixFor32Bits = "32/lib/dmtcp/";
     }
   }
-  jalib::string pth;
-  jalib::string udir;
-  size_t i = 0;
-  // 1. Search relative to JALIB_UTILITY_DIR (using p1).
-  //    Note that this is needed, since program dir may refer to target app's
-  //    program dir instead of dir of dmtcp_launch.
-  if ( ( d=getenv ( "JALIB_UTILITY_DIR" ) ) != NULL ) {
-    JTRACE("JALIB_UTILITY_DIR was set:  using it");
-    udir = d;
-    for (i = 0; i < sizeof(p1) / sizeof(char*); i++) {
-      pth = udir + p1[i] + suffixFor32Bits + file;
-      if (FileExists(pth)) {
-        return pth;
-      }
-    }
-  }
 
-  // 2. Search relative to dir of this command (dmtcp_launch), (using p1).
-  udir = GetProgramDir();
-  for (i = 0; i < sizeof(p1) / sizeof(char*); i++) {
-    pth = udir + p1[i] + suffixFor32Bits + file;
-    if (FileExists(pth)) {
-      return pth;
-    }
-  }
-
-  // 3. Search in standard libraries for system-wide installed DMTCP (using p2).
-  for (i = 0; i < sizeof(p2) / sizeof(char*); i++) {
-    pth = p2[i] + suffixFor32Bits + file;
+  // Search relative to dir of this command (bin/dmtcp_launch), (using p1).
+  jalib::string udir = DirName(GetProgramDir());
+  for (size_t i = 0; i < sizeof(p1) / sizeof(char*); i++) {
+    jalib::string pth = udir + p1[i] + suffixFor32Bits + file;
     if (FileExists(pth)) {
       return pth;
     }
