@@ -367,25 +367,41 @@ static void dmtcpProcessFailedExec(const char *path, char *newArgv[])
 }
 
 static string getUpdatedLdPreload(const char* filename,
-                                         const char* currLdPreload = NULL)
+                                  const char* currLdPreload = NULL)
 {
   string preload = getenv(ENV_VAR_HIJACK_LIBS);
-  bool isElf, is32bitElf;
-  if  (Util::elfType(filename, &isElf, &is32bitElf) != -1) {
-    if (isElf && is32bitElf && getenv(ENV_VAR_HIJACK_LIBS_M32) != NULL) {
-      preload = getenv(ENV_VAR_HIJACK_LIBS_M32);
+
+  bool isElf = false;
+  bool is32bitElf = false;
+  if (getenv(ENV_VAR_HIJACK_LIBS_M32) != NULL &&
+      Util::elfType(filename, &isElf, &is32bitElf) != -1 &&
+      isElf &&
+      is32bitElf) {
+    preload = getenv(ENV_VAR_HIJACK_LIBS_M32);
+  }
+
+  vector<string> pluginLibraries = Util::tokenizeString(preload, ":");
+  for (size_t i = 0; i < pluginLibraries.size(); i++) {
+    // If the plugin doesn't exist, try to search it in the current install
+    // directory.
+    if (!jalib::Filesystem::FileExists(pluginLibraries[i])) {
+      pluginLibraries[i] =
+        Util::getPath(jalib::Filesystem::BaseName(pluginLibraries[i]),
+                                                  is32bitElf);
     }
   }
 
   const char *preloadEnv = getenv("LD_PRELOAD");
   if (currLdPreload != NULL && strlen(currLdPreload) > 0) {
+    pluginLibraries.push_back(currLdPreload);
     setenv(ENV_VAR_ORIG_LD_PRELOAD, currLdPreload, 1);
-    preload = preload + ":" + currLdPreload;
   } else if (preloadEnv != NULL && strlen(preloadEnv) > 0) {
-    setenv(ENV_VAR_ORIG_LD_PRELOAD, getenv("LD_PRELOAD"), 1);
-    preload = preload + ":" + getenv("LD_PRELOAD");
+    pluginLibraries.push_back(preloadEnv);
+    setenv(ENV_VAR_ORIG_LD_PRELOAD, preloadEnv, 1);
   }
-  return preload;
+
+  string newPreload = Util::joinStrings(pluginLibraries, ":");
+  return newPreload;
 }
 
 static const char* ourImportantEnvs[] =
