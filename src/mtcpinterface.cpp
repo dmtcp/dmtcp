@@ -129,7 +129,7 @@ void dmtcp::callbackHoldsAnyLocks(int *retval)
 
   ThreadSync::unsetOkToGrabLock();
   *retval = ThreadSync::isThisThreadHoldingAnyLocks();
-  if (*retval == TRUE) {
+  if (*retval) {
     JASSERT(dmtcp_is_ptracing && dmtcp_is_ptracing());
     ThreadSync::setSendCkptSignalOnFinalUnlock();
   }

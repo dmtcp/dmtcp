@@ -36,9 +36,6 @@
 // coordinator before it can do a query.
 #define COORD_NAMESERVICE
 
-#define FALSE 0
-#define TRUE 1
-
 #ifndef CKPT_SIGNAL
 # define CKPT_SIGNAL SIGUSR2
 #endif
