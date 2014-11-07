@@ -726,7 +726,7 @@ void DmtcpCoordinator::updateMinimumState(WorkerState oldState)
     JTIMER_STOP ( checkpoint );
     isRestarting = false;
 
-    updateCheckpointInterval( theCheckpointInterval );
+    resetCkptTimer();
 
     if (blockUntilDone) {
       DmtcpMessage blockUntilDoneReply(DMT_USER_CMD_RESULT);
@@ -1621,7 +1621,13 @@ void DmtcpCoordinator::onTimeoutInterval()
 {
   if (theCheckpointInterval > 0) {
     startCheckpoint();
-    updateCheckpointInterval(theCheckpointInterval);
+  }
+}
+
+void DmtcpCoordinator::resetCkptTimer()
+{
+  if (theCheckpointInterval > 0) {
+    JASSERT(clock_gettime(CLOCK_MONOTONIC, &startTime) == 0) (JASSERT_ERRNO);
   }
 }
 
@@ -1633,9 +1639,7 @@ void DmtcpCoordinator::updateCheckpointInterval(uint32_t interval)
     theCheckpointInterval = interval;
     JNOTE ( "CheckpointInterval updated (for this computation only)" )
       ( oldInterval ) ( theCheckpointInterval );
-  }
-  if (interval > 0) {
-    JASSERT(clock_gettime(CLOCK_MONOTONIC, &startTime) == 0) (JASSERT_ERRNO);
+    resetCkptTimer();
   }
 }
 
@@ -1682,13 +1686,14 @@ void DmtcpCoordinator::eventLoop(bool daemon)
 
   while (true) {
     int timeout = getRemainingTimeoutMS();
+    if (timeout == 0) {
+      onTimeoutInterval();
+      timeout = getRemainingTimeoutMS();
+    }
+
     int nfds = epoll_wait(epollFd, events, MAX_EVENTS, timeout);
     if (nfds == -1 && errno == EINTR) continue;
     JASSERT(nfds != -1) (JASSERT_ERRNO);
-
-    if (nfds == 0 && theCheckpointInterval > 0) {
-      onTimeoutInterval();
-    }
 
     for (int n = 0; n < nfds; ++n) {
       void *ptr = events[n].data.ptr;

@@ -88,6 +88,7 @@ namespace dmtcp
       void addDataSocket(CoordClient *client);
       void updateCheckpointInterval(uint32_t timeout);
       int  getRemainingTimeoutMS();
+      void resetCkptTimer();
       void updateMinimumState(WorkerState oldState);
       void initializeComputation();
       void broadcastMessage(DmtcpMessageType type, int numPeers = -1);
