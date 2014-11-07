@@ -586,24 +586,18 @@ void DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*= NULL*
     JASSERT_STDERR << theHelpMessage;
     break;
   case 's': case 'S':
-    {
-      ComputationStatus s = getStatus();
-      bool running = s.minimumStateUnanimous &&
-		     s.minimumState==WorkerState::RUNNING;
-      if (reply == NULL){
-        printf("Status...\n");
-        printf("NUM_PEERS=%d\n", s.numPeers);
-        printf("RUNNING=%s\n", (running?"yes":"no"));
-        fflush(stdout);
-        if (!running) {
-          JTRACE("raw status")(s.minimumState)(s.minimumStateUnanimous);
-        }
-      } else {
-        reply->numPeers = s.numPeers;
-        reply->isRunning = running;
-      }
+  {
+    ComputationStatus s = getStatus();
+    bool running = (s.minimumStateUnanimous &&
+                    s.minimumState==WorkerState::RUNNING);
+    if (reply != NULL) {
+      reply->numPeers = s.numPeers;
+      reply->isRunning = running;
+    } else {
+      printStatus(s.numPeers, running);
     }
     break;
+  }
   case ' ': case '\t': case '\n': case '\r':
     //ignore whitespace
     break;
@@ -614,6 +608,31 @@ void DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*= NULL*
     }
   }
   return;
+}
+
+void DmtcpCoordinator::printStatus(size_t numPeers, bool isRunning)
+{
+  ostringstream o;
+  o << "Status..." << std::endl
+    << "Host: " << coordHostname
+    << " (" << inet_ntoa(localhostIPAddr) << ")" << std::endl
+    << "Port: " << thePort << std::endl
+    << "Checkpoint Interval: ";
+
+  if (theCheckpointInterval == 0) {
+    o << "disabled (checkpoint manually instead)" << std::endl;
+  } else {
+    o << theCheckpointInterval << std::endl;
+  }
+
+  o << "Exit on last client: " << exitOnLast << std::endl
+    << "Exit after checkpoint: " << exitAfterCkpt << std::endl
+    << "Computation Id: " << compId << std::endl
+    << "Checkpoint Dir: " << ckptDir << std::endl
+    << "NUM_PEERS=" << numPeers << std::endl
+    << "RUNNING=" << (isRunning ? "yes" : "no") << std::endl;
+  printf(o.str().c_str());
+  fflush(stdout);
 }
 
 void DmtcpCoordinator::updateMinimumState(WorkerState oldState)
@@ -993,9 +1012,9 @@ void DmtcpCoordinator::onConnect()
   }
 #endif
 
-
-
   if (hello_remote.type == DMT_USER_CMD) {
+    // TODO(kapil): Update ckpt interval only if a valid one was supplied to
+    // dmtcp_command.
     updateCheckpointInterval(hello_remote.theCheckpointInterval);
     processDmtUserCmd(hello_remote, remote);
     return;
