@@ -440,7 +440,6 @@ void CoordinatorAPI::startNewCoordinator(CoordinatorMode mode)
     char *modeStr = (char *)"--daemon";
     char * args[] = {
       (char*)coordinator.c_str(),
-      (char*)"--quiet",
       (char*)"--exit-on-last",
       modeStr,
       NULL
