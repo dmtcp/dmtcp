@@ -1829,7 +1829,7 @@ int main ( int argc, char** argv )
   if (getenv(ENV_VAR_CHECKPOINT_DIR) != NULL) {
     ckptDir = getenv(ENV_VAR_CHECKPOINT_DIR);
   } else {
-    ckptDir = ".";
+    ckptDir = get_current_dir_name();
   }
 
   /*Test if the listener socket is already open*/
