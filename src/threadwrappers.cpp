@@ -35,21 +35,23 @@
 
 using namespace dmtcp;
 
-struct ThreadArg {
-  union {
-    int (*fn) (void *arg);
-    void * (*pthread_fn) (void *arg); // pthread_create calls fn -> void *
+struct ThreadArg
+{
+  union
+  {
+    int (*fn)(void* arg);
+    void* (*pthread_fn)(void* arg); // pthread_create calls fn -> void *
   };
-  void *arg;
-  void *mtcpArg;
+  void* arg;
+  void* mtcpArg;
   pid_t virtualTid;
 };
 
 // Invoked via __clone
 LIB_PRIVATE
-int clone_start(void *arg)
+int clone_start(void* arg)
 {
-  Thread *thread = (Thread*) arg;
+  Thread* thread = (Thread*)arg;
 
   ThreadSync::initThread();
 
@@ -63,7 +65,7 @@ int clone_start(void *arg)
    */
   ThreadSync::decrementUninitializedThreadCount();
 
-  JTRACE("Calling user function") (gettid());
+  JTRACE("Calling user function")(gettid());
   int ret = thread->fn(thread->arg);
 
   ThreadList::threadExit();
@@ -92,23 +94,27 @@ int clone_start(void *arg)
  *	      CLONE_DETACHED = create clone detached
  *
  *****************************************************************************/
-//need to forward user clone
-extern "C" int __clone(int (*fn) (void *arg), void *child_stack, int flags,
-                       void *arg, int *ptid,
-                       struct user_desc *tls, int *ctid)
+// need to forward user clone
+extern "C" int __clone(int (*fn)(void* arg),
+                       void* child_stack,
+                       int flags,
+                       void* arg,
+                       int* ptid,
+                       struct user_desc* tls,
+                       int* ctid)
 {
   WRAPPER_EXECUTION_DISABLE_CKPT();
   ThreadSync::incrementUninitializedThreadCount();
 
-  Thread *thread = ThreadList::getNewThread();
+  Thread* thread = ThreadList::getNewThread();
   ThreadList::initThread(thread, fn, arg, flags, ptid, ctid);
-//  if (ckpthread == NULL) {
-//    ckptthread = thread;
-//    thread->stateInit(ST_CKPNTHREAD);
-//  }
+  //  if (ckpthread == NULL) {
+  //    ckptthread = thread;
+  //    thread->stateInit(ST_CKPNTHREAD);
+  //  }
 
-  pid_t tid = _real_clone(clone_start, child_stack, flags, thread,
-                          ptid, tls, ctid);
+  pid_t tid =
+      _real_clone(clone_start, child_stack, flags, thread, ptid, tls, ctid);
 
   if (tid == -1) {
     JTRACE("Clone call failed")(JASSERT_ERRNO);
@@ -128,24 +134,24 @@ asm (".global clone ; .type clone,@function ; clone = __clone");
 // In arm, '@' is a comment character;  Arm uses '%' in type directive
 asm (".global clone ; .type clone,%function ; clone = __clone");
 #else
-# error Not implemented on this achitecture
+#error Not implemented on this achitecture
 #endif
 #endif
 
 // Invoked via pthread_create as start_routine
 // On return, it calls mtcp_threadiszombie()
-static void *pthread_start(void *arg)
+static void* pthread_start(void* arg)
 {
-  struct ThreadArg *threadArg = (struct ThreadArg*) arg;
-  void *thread_arg = threadArg->arg;
-  void * (*pthread_fn) (void *) = threadArg->pthread_fn;
+  struct ThreadArg* threadArg = (struct ThreadArg*)arg;
+  void* thread_arg = threadArg->arg;
+  void* (*pthread_fn)(void*) = threadArg->pthread_fn;
   pid_t virtualTid = threadArg->virtualTid;
 
   JASSERT(pthread_fn != 0x0);
   JALLOC_HELPER_FREE(arg); // Was allocated in calling thread in pthread_create
   ThreadSync::threadFinishedInitialization();
-  void *result = (*pthread_fn)(thread_arg);
-  JTRACE("Thread returned") (virtualTid);
+  void* result = (*pthread_fn)(thread_arg);
+  JTRACE("Thread returned")(virtualTid);
   WRAPPER_EXECUTION_DISABLE_CKPT();
   ThreadList::threadExit();
   /*
@@ -160,9 +166,10 @@ static void *pthread_start(void *arg)
   return result;
 }
 
-
-extern "C" int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
-                              void *(*start_routine)(void*), void *arg)
+extern "C" int pthread_create(pthread_t* thread,
+                              const pthread_attr_t* attr,
+                              void* (*start_routine)(void*),
+                              void* arg)
 {
   int retval;
   // We have to use DMTCP-specific memory allocator because using glibc:malloc
@@ -174,15 +181,16 @@ extern "C" int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
   //     near the end of this function.
   // We use MALLOC/FREE so that pthread_create() can be called again, without
   // waiting for the new thread to give up the buffer in pthread_start().
-  struct ThreadArg *threadArg =
-    (struct ThreadArg *) JALLOC_HELPER_MALLOC (sizeof (struct ThreadArg));
+  struct ThreadArg* threadArg =
+      (struct ThreadArg*)JALLOC_HELPER_MALLOC(sizeof(struct ThreadArg));
   threadArg->pthread_fn = start_routine;
   threadArg->arg = arg;
 
   /* pthread_create() should acquire the thread-creation lock. Not doing so can
    * result in a deadlock in the following scenario:
    * 1. user thread: pthread_create() - acquire wrapper-execution lock
-   * 2. ckpt-thread: SUSPEND msg received, wait on wrlock for wrapper-exection lock
+   * 2. ckpt-thread: SUSPEND msg received, wait on wrlock for wrapper-exection
+   *lock
    * 3. user thread: __clone() - try to acquire wrapper-execution lock
    *
    * We also need to increment the uninitialized-thread-count so that it is
@@ -213,7 +221,7 @@ extern "C" int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
   return retval;
 }
 
-extern "C" void pthread_exit(void * retval)
+extern "C" void pthread_exit(void* retval)
 {
   WRAPPER_EXECUTION_DISABLE_CKPT();
   ThreadList::threadExit();
@@ -221,7 +229,8 @@ extern "C" void pthread_exit(void * retval)
   WRAPPER_EXECUTION_ENABLE_CKPT();
   ThreadSync::unsetOkToGrabLock();
   _real_pthread_exit(retval);
-  for (;;); // To hide compiler warning about "noreturn" function
+  for (;;)
+    ; // To hide compiler warning about "noreturn" function
 }
 
 /*
@@ -246,7 +255,7 @@ extern "C" void pthread_exit(void * retval)
  * Similar measures are taken for pthread_timedjoin_np().
  */
 static struct timespec ts_100ms = {0, 100 * 1000 * 1000};
-extern "C" int pthread_join(pthread_t thread, void **retval)
+extern "C" int pthread_join(pthread_t thread, void** retval)
 {
   int ret;
   struct timespec ts;
@@ -271,7 +280,7 @@ extern "C" int pthread_join(pthread_t thread, void **retval)
   return ret;
 }
 
-extern "C" int pthread_tryjoin_np(pthread_t thread, void **retval)
+extern "C" int pthread_tryjoin_np(pthread_t thread, void** retval)
 {
   int ret;
   if (!ProcessInfo::instance().beginPthreadJoin(thread)) {
@@ -286,8 +295,9 @@ extern "C" int pthread_tryjoin_np(pthread_t thread, void **retval)
   return ret;
 }
 
-extern "C" int pthread_timedjoin_np(pthread_t thread, void **retval,
-                                    const struct timespec *abstime)
+extern "C" int pthread_timedjoin_np(pthread_t thread,
+                                    void** retval,
+                                    const struct timespec* abstime)
 {
   int ret;
   struct timespec ts;
@@ -302,7 +312,7 @@ extern "C" int pthread_timedjoin_np(pthread_t thread, void **retval,
   while (1) {
     WRAPPER_EXECUTION_DISABLE_CKPT();
     JASSERT(clock_gettime(CLOCK_REALTIME, &ts) != -1);
-    if (TIMESPEC_CMP(&ts, abstime, <)) {
+    if (TIMESPEC_CMP(&ts, abstime, < )) {
       TIMESPEC_ADD(&ts, &ts_100ms, &ts);
       ret = _real_pthread_timedjoin_np(thread, retval, &ts);
     } else {
@@ -313,7 +323,7 @@ extern "C" int pthread_timedjoin_np(pthread_t thread, void **retval,
     if (ret == EBUSY || ret == 0) {
       break;
     }
-    if (TIMESPEC_CMP(&ts, abstime, >=)) {
+    if (TIMESPEC_CMP(&ts, abstime, >= )) {
       ret = ETIMEDOUT;
       break;
     }

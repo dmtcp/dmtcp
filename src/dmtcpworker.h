@@ -28,47 +28,47 @@ void restoreUserLDPRELOAD();
 
 namespace dmtcp
 {
-  class DmtcpWorker
-  {
-    public:
+class DmtcpWorker
+{
+public:
 #ifdef JALIB_ALLOCATOR
-      static void* operator new(size_t nbytes, void* p) { return p; }
-      static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
-      static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
+  static void* operator new(size_t nbytes, void* p) { return p; }
+  static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
+  static void operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
 #endif
-      DmtcpWorker();
-      ~DmtcpWorker();
-      static DmtcpWorker& instance();
+  DmtcpWorker();
+  ~DmtcpWorker();
+  static DmtcpWorker& instance();
 
-      static void waitForCoordinatorMsg(string signalStr,
-                                        DmtcpMessageType type);
-      static void informCoordinatorOfRUNNINGState();
-      static void waitForStage1Suspend();
-      static void waitForStage2Checkpoint();
-      static void waitForStage3Refill(bool isRestart);
-      static void waitForStage4Resume(bool isRestart);
-      static void restoreVirtualPidTable();
-      static void postRestart();
+  static void waitForCoordinatorMsg(string signalStr, DmtcpMessageType type);
+  static void informCoordinatorOfRUNNINGState();
+  static void waitForStage1Suspend();
+  static void waitForStage2Checkpoint();
+  static void waitForStage3Refill(bool isRestart);
+  static void waitForStage4Resume(bool isRestart);
+  static void restoreVirtualPidTable();
+  static void postRestart();
 
-      static void resetOnFork();
-      static void cleanupWorker();
+  static void resetOnFork();
+  static void cleanupWorker();
 
-      static int determineCkptSignal();
+  static int determineCkptSignal();
 
-      static void setExitInProgress() { _exitInProgress = true; };
-      static bool exitInProgress() { return _exitInProgress; };
-      static void interruptCkpthread();
+  static void setExitInProgress() { _exitInProgress = true; };
+  static bool exitInProgress() { return _exitInProgress; };
+  static void interruptCkpthread();
 
-      static void writeCheckpointPrefix(int fd);
+  static void writeCheckpointPrefix(int fd);
 
-      static void eventHook(DmtcpEvent_t id, DmtcpEventData_t *data);
+  static void eventHook(DmtcpEvent_t id, DmtcpEventData_t* data);
 
-    protected:
-      static void sendUserCommand(char c, int* result = NULL);
-    private:
-      static DmtcpWorker theInstance;
-      static bool _exitInProgress;
-  };
+protected:
+  static void sendUserCommand(char c, int* result = NULL);
+
+private:
+  static DmtcpWorker theInstance;
+  static bool _exitInProgress;
+};
 }
 
 #endif

@@ -28,7 +28,7 @@ using namespace dmtcp;
 static int _nextConId = CONNECTION_ID_START;
 static int _nextConnectionId()
 {
-  //static int id = CONNECTION_ID_START;
+  // static int id = CONNECTION_ID_START;
   return _nextConId++;
 }
 
@@ -38,16 +38,16 @@ ConnectionIdentifier::ConnectionIdentifier(int id)
   _id = id;
 }
 
-void ConnectionIdentifier::serialize (jalib::JBinarySerializer& o)
+void ConnectionIdentifier::serialize(jalib::JBinarySerializer& o)
 {
-  JSERIALIZE_ASSERT_POINT ("ConnectionIdentifier:");
-  o & _nextConId;
+  JSERIALIZE_ASSERT_POINT("ConnectionIdentifier:");
+  o& _nextConId;
   JASSERT(_nextConId >= CONNECTION_ID_START);
 }
 
 ConnectionIdentifier ConnectionIdentifier::Create()
 {
-  return ConnectionIdentifier (_nextConnectionId());
+  return ConnectionIdentifier(_nextConnectionId());
 }
 ConnectionIdentifier ConnectionIdentifier::Null()
 {
@@ -59,33 +59,27 @@ ConnectionIdentifier ConnectionIdentifier::Self()
   return ConnectionIdentifier(-1);
 }
 
-bool ConnectionIdentifier::operator<(const ConnectionIdentifier& that)
-  const
+bool ConnectionIdentifier::operator<(const ConnectionIdentifier& that) const
 {
 #define TRY_LEQ(param) \
-  if(_upid.param != that._upid.param) return _upid.param < that._upid.param;
+  if (_upid.param != that._upid.param) return _upid.param < that._upid.param;
 
-  TRY_LEQ ( _hostid );
-  TRY_LEQ ( _pid );
-  TRY_LEQ ( _time );
+  TRY_LEQ(_hostid);
+  TRY_LEQ(_pid);
+  TRY_LEQ(_time);
   return _id < that._id;
 }
 
-bool ConnectionIdentifier::operator==(const ConnectionIdentifier& that)
-  const
+bool ConnectionIdentifier::operator==(const ConnectionIdentifier& that) const
 {
-  return  _upid._hostid == that._upid._hostid &&
-          _upid._pid == that._upid._pid &&
-          _upid._time == that._upid._time &&
-          _upid._generation == that._upid._generation &&
-          _id   == that._id;
+  return _upid._hostid == that._upid._hostid && _upid._pid == that._upid._pid &&
+         _upid._time == that._upid._time &&
+         _upid._generation == that._upid._generation && _id == that._id;
 }
 
 ostream& dmtcp::operator<<(ostream& o, const ConnectionIdentifier& id)
 {
-  o << std::hex << id.hostid()
-    << '-' << std::dec << id.pid()
-    << '-' << std::hex << id.time()
-    << std::dec << '(' << id.conId() << ')';
+  o << std::hex << id.hostid() << '-' << std::dec << id.pid() << '-' << std::hex
+    << id.time() << std::dec << '(' << id.conId() << ')';
   return o;
 }

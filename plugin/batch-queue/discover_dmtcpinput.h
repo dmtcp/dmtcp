@@ -37,46 +37,49 @@
 
 #define MAX_LINE_LEN 1024
 
-class resources_input : public resources {
+class resources_input : public resources
+{
 private:
   typedef std::vector<std::string> slots_v;
   typedef enum { pm_unknown, pm_hydra, pm_orte } pmtype_t;
   std::string warning;
-  inline std::string  pmtype_to_string(pmtype_t pt){
-    switch( pt ){
-    case pm_unknown:
-      return "UNKNOWN";
-    case pm_orte:
-      return "ORTE";
-    case pm_hydra:
-      return "HYDRA";
+  inline std::string pmtype_to_string(pmtype_t pt)
+  {
+    switch (pt) {
+      case pm_unknown:
+        return "UNKNOWN";
+      case pm_orte:
+        return "ORTE";
+      case pm_hydra:
+        return "HYDRA";
     }
     return "ERROR";
   }
 
   bool _valid;
-  std::map< std::string, slots_v> node_ckpt_map;
+  std::map<std::string, slots_v> node_ckpt_map;
   std::string launch_ckpts;
   pmtype_t pmtype;
 
-  void trim(std::string &str, std::string delim);
-  bool get_checkpoint_filename(std::string &str, std::string &ckptname);
-  bool is_serv_slot(std::string &str, pmtype_t &pt);
-  bool is_launch_process(std::string &str, pmtype_t &pt);
-  bool is_helper_process(std::string &str);
-  void set_pm_type(std::string &str);
-  bool add_host(std::string &str, uint &node_id);
-  void split2slots(std::string &str, std::vector<std::string> &app_slots,
-                   std::vector<std::string> &srv_slots, std::vector<std::string> &launch_slots,
-                   pmtype_t &pt);
+  void trim(std::string& str, std::string delim);
+  bool get_checkpoint_filename(std::string& str, std::string& ckptname);
+  bool is_serv_slot(std::string& str, pmtype_t& pt);
+  bool is_launch_process(std::string& str, pmtype_t& pt);
+  bool is_helper_process(std::string& str);
+  void set_pm_type(std::string& str);
+  bool add_host(std::string& str, uint& node_id);
+  void split2slots(std::string& str,
+                   std::vector<std::string>& app_slots,
+                   std::vector<std::string>& srv_slots,
+                   std::vector<std::string>& launch_slots,
+                   pmtype_t& pt);
 
 public:
   resources_input(std::string str);
   int discover() { return 0; }
   bool valid() { return _valid; }
-  void writeout_old(std::string env_var, resources &r);
-  void writeout_new(std::string env_var, resources &r);
-
+  void writeout_old(std::string env_var, resources& r);
+  void writeout_new(std::string env_var, resources& r);
 };
 
 #endif

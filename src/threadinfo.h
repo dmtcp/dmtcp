@@ -8,7 +8,7 @@
 #include <sys/types.h>
 #include <sys/syscall.h>
 #include <linux/version.h>
-#include "syscallwrappers.h"  /* for _real_syscall */
+#include "syscallwrappers.h" /* for _real_syscall */
 #include "protectedfds.h"
 #include "mtcp/restore_libc.h"
 
@@ -16,22 +16,21 @@
 //   on for them until they are debugged.
 // Default is to use  setcontext/getcontext.
 #if defined(__arm__) || defined(__aarch64__)
-# define SETJMP /* setcontext/getcontext not defined for ARM glibc */
+#define SETJMP /* setcontext/getcontext not defined for ARM glibc */
 #endif
 
 #ifdef SETJMP
-# include <setjmp.h>
+#include <setjmp.h>
 #else
-# include <ucontext.h>
+#include <ucontext.h>
 #endif
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 #define GETTID() _real_syscall(SYS_gettid)
-#define TGKILL(pid,tid,sig) _real_syscall(SYS_tgkill, pid, tid, sig)
+#define TGKILL(pid, tid, sig) _real_syscall(SYS_tgkill, pid, tid, sig)
 
 pid_t dmtcp_get_real_tid() __attribute((weak));
 pid_t dmtcp_get_real_pid() __attribute((weak));
@@ -43,9 +42,9 @@ int dmtcp_real_tgkill(pid_t pid, pid_t tid, int sig) __attribute((weak));
 #define THREAD_REAL_TID() \
   (dmtcp_get_real_tid != NULL ? dmtcp_get_real_tid() : GETTID())
 
-#define THREAD_TGKILL(pid, tid, sig) \
-  (dmtcp_real_tgkill != NULL ? dmtcp_real_tgkill(pid,tid,sig) \
-                                 : TGKILL(pid, tid, sig))
+#define THREAD_TGKILL(pid, tid, sig)                            \
+  (dmtcp_real_tgkill != NULL ? dmtcp_real_tgkill(pid, tid, sig) \
+                             : TGKILL(pid, tid, sig))
 
 typedef int (*fptr)(void*);
 
@@ -60,34 +59,34 @@ typedef enum ThreadState {
 
 typedef struct Thread Thread;
 
-struct Thread {
+struct Thread
+{
   pid_t tid;
-  Thread *next;
-  Thread *prev;
+  Thread* next;
+  Thread* prev;
   int state;
 
-  int (*fn)(void *);
-  void *arg;
+  int (*fn)(void*);
+  void* arg;
   int flags;
-  pid_t *ptid;
-  pid_t *ctid;
+  pid_t* ptid;
+  pid_t* ctid;
 
   pid_t virtual_tid;
   sigset_t sigblockmask; // blocked signals
-  sigset_t sigpending;   // pending signals
+  sigset_t sigpending; // pending signals
 
-  void *saved_sp; // at restart, we use a temporary stack just
-                  //   beyond original stack (red zone)
+  void* saved_sp; // at restart, we use a temporary stack just
+  //   beyond original stack (red zone)
 
   ThreadTLSInfo tlsInfo;
 
-  ///JA: new code ported from v54b
+/// JA: new code ported from v54b
 #ifdef SETJMP
-  sigjmp_buf jmpbuf;     // sigjmp_buf saved by sigsetjmp on ckpt
+  sigjmp_buf jmpbuf; // sigjmp_buf saved by sigsetjmp on ckpt
 #else
-  ucontext_t savctx;     // context saved on suspend
+  ucontext_t savctx; // context saved on suspend
 #endif
-
 };
 
 #ifdef __cplusplus

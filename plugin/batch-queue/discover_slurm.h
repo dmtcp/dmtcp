@@ -35,17 +35,19 @@
 
 #include "discover_resources.h"
 
-class resources_slurm : public resources {
+class resources_slurm : public resources
+{
 public:
-
-  resources_slurm() : resources(slurm) {   }
+  resources_slurm() : resources(slurm) {}
 
   int discover();
 
   static bool probe()
   {
-    return ( ( getenv("SLURM_JOB_ID") != NULL ) || ( getenv("SLURM_JOBID") != NULL ) ) &&
-           ( ( getenv("SLURM_JOB_NODELIST") != NULL) || (getenv("SLURM_NODELIST") != NULL ) );
+    return ((getenv("SLURM_JOB_ID") != NULL) ||
+            (getenv("SLURM_JOBID") != NULL)) &&
+           ((getenv("SLURM_JOB_NODELIST") != NULL) ||
+            (getenv("SLURM_NODELIST") != NULL));
   }
 };
 

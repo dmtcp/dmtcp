@@ -31,84 +31,88 @@
 
 namespace dmtcp
 {
-  enum CoordinatorMode {
-    COORD_INVALID   = 0x0000,
-    COORD_JOIN      = 0x0001,
-    COORD_NEW       = 0x0002,
-    COORD_NONE      = 0x0004,
-    COORD_ANY       = 0x0010
-  };
+enum CoordinatorMode {
+  COORD_INVALID = 0x0000,
+  COORD_JOIN = 0x0001,
+  COORD_NEW = 0x0002,
+  COORD_NONE = 0x0004,
+  COORD_ANY = 0x0010
+};
 
-  class CoordinatorAPI
-  {
-    public:
+class CoordinatorAPI
+{
+public:
 #ifdef JALIB_ALLOCATOR
-      static void* operator new(size_t nbytes, void* p) { return p; }
-      static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
-      static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
+  static void* operator new(size_t nbytes, void* p) { return p; }
+  static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
+  static void operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
 #endif
-      CoordinatorAPI (void) : _coordinatorSocket(-1), _nsSock(-1) {}
-      // Use default destructor
+  CoordinatorAPI(void) : _coordinatorSocket(-1), _nsSock(-1) {}
+  // Use default destructor
 
-      static CoordinatorAPI& instance();
-      static void init();
-      static void resetOnFork(CoordinatorAPI& coordAPI);
+  static CoordinatorAPI& instance();
+  static void init();
+  static void resetOnFork(CoordinatorAPI& coordAPI);
 
-      void setupVirtualCoordinator(CoordinatorInfo *coordInfo,
-                                   struct in_addr  *localIP);
-      void waitForCheckpointCommand();
-      static bool noCoordinator();
+  void setupVirtualCoordinator(CoordinatorInfo* coordInfo,
+                               struct in_addr* localIP);
+  void waitForCheckpointCommand();
+  static bool noCoordinator();
 
-      void connectToCoordOnStartup(CoordinatorMode  mode,
-                                   string           progname,
-                                   DmtcpUniqueProcessId *compId,
-                                   CoordinatorInfo *coordInfo,
-                                   struct in_addr  *localIP);
-      void createNewConnectionBeforeFork(string& progname);
-      void connectToCoordOnRestart(CoordinatorMode  mode,
-                                   string progname,
-                                   UniquePid compGroup,
-                                   int np,
-                                   CoordinatorInfo *coordInfo,
-                                   struct in_addr  *localIP);
-      void closeConnection() { _coordinatorSocket.close(); }
+  void connectToCoordOnStartup(CoordinatorMode mode,
+                               string progname,
+                               DmtcpUniqueProcessId* compId,
+                               CoordinatorInfo* coordInfo,
+                               struct in_addr* localIP);
+  void createNewConnectionBeforeFork(string& progname);
+  void connectToCoordOnRestart(CoordinatorMode mode,
+                               string progname,
+                               UniquePid compGroup,
+                               int np,
+                               CoordinatorInfo* coordInfo,
+                               struct in_addr* localIP);
+  void closeConnection() { _coordinatorSocket.close(); }
 
-      //jalib::JSocket& coordinatorSocket() { return _coordinatorSocket; }
-      bool isValid() { return _coordinatorSocket.isValid(); }
+  // jalib::JSocket& coordinatorSocket() { return _coordinatorSocket; }
+  bool isValid() { return _coordinatorSocket.isValid(); }
 
-      void sendMsgToCoordinator(const DmtcpMessage &msg,
-                                const void *extraData = NULL,
-                                size_t len = 0);
-      void recvMsgFromCoordinator(DmtcpMessage *msg,
-                                  void **extraData = NULL);
-      void connectAndSendUserCommand(char c,
-                                     int *coordCmdStatus = NULL,
-                                     int *numPeers = NULL,
-                                     int *isRunning = NULL);
+  void sendMsgToCoordinator(const DmtcpMessage& msg,
+                            const void* extraData = NULL,
+                            size_t len = 0);
+  void recvMsgFromCoordinator(DmtcpMessage* msg, void** extraData = NULL);
+  void connectAndSendUserCommand(char c,
+                                 int* coordCmdStatus = NULL,
+                                 int* numPeers = NULL,
+                                 int* isRunning = NULL);
 
-      void updateCoordCkptDir(const char *dir);
-      string getCoordCkptDir(void);
+  void updateCoordCkptDir(const char* dir);
+  string getCoordCkptDir(void);
 
-      void sendCkptFilename();
+  void sendCkptFilename();
 
-      int sendKeyValPairToCoordinator(const char *id,
-                                      const void *key, uint32_t key_len,
-                                      const void *val, uint32_t val_len,
-				      int sync = 0);
-      int sendQueryToCoordinator(const char *id,
-                                 const void *key, uint32_t key_len,
-                                 void *val, uint32_t *val_len);
+  int sendKeyValPairToCoordinator(const char* id,
+                                  const void* key,
+                                  uint32_t key_len,
+                                  const void* val,
+                                  uint32_t val_len,
+                                  int sync = 0);
+  int sendQueryToCoordinator(const char* id,
+                             const void* key,
+                             uint32_t key_len,
+                             void* val,
+                             uint32_t* val_len);
 
-    private:
-      void startNewCoordinator(CoordinatorMode mode);
-      void createNewConnToCoord(CoordinatorMode mode);
-      DmtcpMessage sendRecvHandshake(DmtcpMessage msg, string progname,
-                                     UniquePid *compId = NULL);
+private:
+  void startNewCoordinator(CoordinatorMode mode);
+  void createNewConnToCoord(CoordinatorMode mode);
+  DmtcpMessage sendRecvHandshake(DmtcpMessage msg,
+                                 string progname,
+                                 UniquePid* compId = NULL);
 
-    protected:
-      jalib::JSocket          _coordinatorSocket;
-      jalib::JSocket          _nsSock;
-  };
+protected:
+  jalib::JSocket _coordinatorSocket;
+  jalib::JSocket _nsSock;
+};
 }
 
 #endif

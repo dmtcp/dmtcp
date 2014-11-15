@@ -22,12 +22,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <fcntl.h>
-#include  "util.h"
-#include  "membarrier.h"
-#include  "syscallwrappers.h"
-#include  "dmtcp.h"
-#include  "../jalib/jassert.h"
-#include  "../jalib/jfilesystem.h"
+#include "util.h"
+#include "membarrier.h"
+#include "syscallwrappers.h"
+#include "dmtcp.h"
+#include "../jalib/jassert.h"
+#include "../jalib/jfilesystem.h"
 
 using namespace dmtcp;
 
@@ -35,23 +35,22 @@ void Util::lockFile(int fd)
 {
   struct flock fl;
 
-  fl.l_type   = F_WRLCK;  // F_RDLCK, F_WRLCK, F_UNLCK
+  fl.l_type = F_WRLCK; // F_RDLCK, F_WRLCK, F_UNLCK
   fl.l_whence = SEEK_SET; // SEEK_SET, SEEK_CUR, SEEK_END
-  fl.l_start  = 0;        // Offset from l_whence
-  fl.l_len    = 0;        // length, 0 = to EOF
-  //fl.l_pid    = _real_getpid(); // our PID
+  fl.l_start = 0; // Offset from l_whence
+  fl.l_len = 0; // length, 0 = to EOF
+  // fl.l_pid    = _real_getpid(); // our PID
 
   int result = -1;
   errno = 0;
   do {
-    result = _real_fcntl(fd, F_SETLKW, &fl);  /* F_GETLK, F_SETLK, F_SETLKW */
+    result = _real_fcntl(fd, F_SETLKW, &fl); /* F_GETLK, F_SETLK, F_SETLKW */
   } while (result == -1 && errno == EINTR);
 
-  JASSERT (result != -1) (JASSERT_ERRNO)
-    .Text("Unable to lock the PID MAP file");
+  JASSERT(result != -1)(JASSERT_ERRNO).Text("Unable to lock the PID MAP file");
 #if (__arm__ || __aarch64__)
-  WMB;  // DMB, ensure writes by others to memory have completed before we
-        //      we enter protected region.
+  WMB; // DMB, ensure writes by others to memory have completed before we
+//      we enter protected region.
 #endif
 }
 
@@ -61,25 +60,25 @@ void Util::unlockFile(int fd)
   int result;
 
 #if (__arm__ || __aarch64__)
-  RMB; WMB; // DMB, ensure accesses to protected memory have completed
-            //      before releasing lock
+  RMB;
+  WMB; // DMB, ensure accesses to protected memory have completed
+//      before releasing lock
 #endif
-  fl.l_type   = F_UNLCK;  // tell it to unlock the region
+  fl.l_type = F_UNLCK; // tell it to unlock the region
   fl.l_whence = SEEK_SET; // SEEK_SET, SEEK_CUR, SEEK_END
-  fl.l_start  = 0;        // Offset from l_whence
-  fl.l_len    = 0;        // length, 0 = to EOF
+  fl.l_start = 0; // Offset from l_whence
+  fl.l_len = 0; // length, 0 = to EOF
 
 #if (__arm__ || __aarch64__)
-  WMB;  // DSB, ensure update of fl before seen by other CPUs
+  WMB; // DSB, ensure update of fl before seen by other CPUs
 #endif
 
   result = _real_fcntl(fd, F_SETLK, &fl); /* set the region to unlocked */
 
-  JASSERT (result != -1 || errno == ENOLCK) (JASSERT_ERRNO)
-    .Text("Unlock Failed");
+  JASSERT(result != -1 || errno == ENOLCK)(JASSERT_ERRNO).Text("Unlock Failed");
 }
 
-bool Util::strStartsWith(const char *str, const char *pattern)
+bool Util::strStartsWith(const char* str, const char* pattern)
 {
   if (str == NULL || pattern == NULL) {
     return false;
@@ -92,7 +91,7 @@ bool Util::strStartsWith(const char *str, const char *pattern)
   return false;
 }
 
-bool Util::strEndsWith(const char *str, const char *pattern)
+bool Util::strEndsWith(const char* str, const char* pattern)
 {
   if (str == NULL || pattern == NULL) {
     return false;
@@ -101,41 +100,40 @@ bool Util::strEndsWith(const char *str, const char *pattern)
   int len2 = strlen(pattern);
   if (len1 >= len2) {
     size_t idx = len1 - len2;
-    return strncmp(str+idx, pattern, len2) == 0;
+    return strncmp(str + idx, pattern, len2) == 0;
   }
   return false;
 }
 
-bool Util::strStartsWith(const string& str, const char *pattern)
+bool Util::strStartsWith(const string& str, const char* pattern)
 {
   return strStartsWith(str.c_str(), pattern);
 }
 
-bool Util::strEndsWith(const string& str, const char *pattern)
+bool Util::strEndsWith(const string& str, const char* pattern)
 {
   return strEndsWith(str.c_str(), pattern);
 }
 
 // Fails or does entire write (returns count)
-ssize_t Util::writeAll(int fd, const void *buf, size_t count)
+ssize_t Util::writeAll(int fd, const void* buf, size_t count)
 {
-  const char *ptr = (const char *) buf;
+  const char* ptr = (const char*)buf;
   size_t num_written = 0;
 
   do {
-    ssize_t rc = _real_write (fd, ptr + num_written, count - num_written);
+    ssize_t rc = _real_write(fd, ptr + num_written, count - num_written);
     if (rc == -1) {
       if (errno == EINTR || errno == EAGAIN)
-	continue;
+        continue;
       else
         return rc;
-    }
-    else if (rc == 0)
+    } else if (rc == 0)
       break;
     else // else rc > 0
       num_written += rc;
   } while (num_written < count);
-  JASSERT (num_written == count) (num_written) (count);
+  JASSERT(num_written == count)(num_written)(count);
   return num_written;
 }
 
@@ -143,20 +141,19 @@ ssize_t Util::writeAll(int fd, const void *buf, size_t count)
 // return value:
 //    -1: unrecoverable error
 //   <n>: number of bytes read
-ssize_t Util::readAll(int fd, void *buf, size_t count)
+ssize_t Util::readAll(int fd, void* buf, size_t count)
 {
   ssize_t rc;
-  char *ptr = (char *) buf;
+  char* ptr = (char*)buf;
   size_t num_read = 0;
   for (num_read = 0; num_read < count;) {
-    rc = _real_read (fd, ptr + num_read, count - num_read);
+    rc = _real_read(fd, ptr + num_read, count - num_read);
     if (rc == -1) {
       if (errno == EINTR || errno == EAGAIN)
-	continue;
+        continue;
       else
         return -1;
-    }
-    else if (rc == 0)
+    } else if (rc == 0)
       break;
     else // else rc > 0
       num_read += rc;
@@ -197,12 +194,11 @@ void Util::dupFds(int oldfd, const vector<int>& newfds)
   }
 }
 
-
 /* Begin miscellaneous/helper functions. */
 // Reads from fd until count bytes are read, or newline encountered.
 // Returns NULL at EOF.
 // FIXME: count is unused. Buffer-overrun possible
-int Util::readLine(int fd, char *buf, int count)
+int Util::readLine(int fd, char* buf, int count)
 {
   int i = 0;
   char c;
@@ -220,16 +216,18 @@ int Util::readLine(int fd, char *buf, int count)
 
 /* Read decimal number, return value and terminating character */
 
-char Util::readDec (int fd, VA *value)
+char Util::readDec(int fd, VA* value)
 {
   char c;
   unsigned long int v;
 
   v = 0;
   while (1) {
-    c = readChar (fd);
-    if ((c >= '0') && (c <= '9')) c -= '0';
-    else break;
+    c = readChar(fd);
+    if ((c >= '0') && (c <= '9'))
+      c -= '0';
+    else
+      break;
     v = v * 10 + c;
   }
   *value = (VA)v;
@@ -238,18 +236,22 @@ char Util::readDec (int fd, VA *value)
 
 /* Read decimal number, return value and terminating character */
 
-char Util::readHex (int fd, VA *value)
+char Util::readHex(int fd, VA* value)
 {
   char c;
   unsigned long int v;
 
   v = 0;
   while (1) {
-    c = readChar (fd);
-         if ((c >= '0') && (c <= '9')) c -= '0';
-    else if ((c >= 'a') && (c <= 'f')) c -= 'a' - 10;
-    else if ((c >= 'A') && (c <= 'F')) c -= 'A' - 10;
-    else break;
+    c = readChar(fd);
+    if ((c >= '0') && (c <= '9'))
+      c -= '0';
+    else if ((c >= 'a') && (c <= 'f'))
+      c -= 'a' - 10;
+    else if ((c >= 'A') && (c <= 'F'))
+      c -= 'A' - 10;
+    else
+      break;
     v = v * 16 + c;
   }
   *value = (VA)v;
@@ -258,20 +260,19 @@ char Util::readHex (int fd, VA *value)
 
 /* Read non-null character, return null if EOF */
 
-char Util::readChar (int fd)
+char Util::readChar(int fd)
 {
   char c;
   int rc;
 
   do {
-    rc = _real_read (fd, &c, 1);
-  } while ( rc == -1 && errno == EINTR );
+    rc = _real_read(fd, &c, 1);
+  } while (rc == -1 && errno == EINTR);
   if (rc <= 0) return (0);
   return (c);
 }
 
-
-int Util::readProcMapsLine(int mapsfd, ProcMapsArea *area)
+int Util::readProcMapsLine(int mapsfd, ProcMapsArea* area)
 {
   char c, rflag, sflag, wflag, xflag;
   int i;
@@ -279,61 +280,61 @@ int Util::readProcMapsLine(int mapsfd, ProcMapsArea *area)
   unsigned int long devmajor, devminor, inodenum;
   VA startaddr, endaddr;
 
-  c = readHex (mapsfd, &startaddr);
+  c = readHex(mapsfd, &startaddr);
   if ((c == 0) && (startaddr == 0)) return (0);
   if (c != '-') {
     goto skipeol;
   }
-  c = readHex (mapsfd, &endaddr);
+  c = readHex(mapsfd, &endaddr);
   if (c != ' ') goto skipeol;
   if (endaddr < startaddr) goto skipeol;
 
-  rflag = c = readChar (mapsfd);
+  rflag = c = readChar(mapsfd);
   if ((c != 'r') && (c != '-')) goto skipeol;
-  wflag = c = readChar (mapsfd);
+  wflag = c = readChar(mapsfd);
   if ((c != 'w') && (c != '-')) goto skipeol;
-  xflag = c = readChar (mapsfd);
+  xflag = c = readChar(mapsfd);
   if ((c != 'x') && (c != '-')) goto skipeol;
-  sflag = c = readChar (mapsfd);
+  sflag = c = readChar(mapsfd);
   if ((c != 's') && (c != 'p')) goto skipeol;
 
-  c = readChar (mapsfd);
+  c = readChar(mapsfd);
   if (c != ' ') goto skipeol;
 
-  c = readHex (mapsfd, (VA *)&offset);
+  c = readHex(mapsfd, (VA*)&offset);
   if (c != ' ') goto skipeol;
-  area -> offset = offset;
+  area->offset = offset;
 
-  c = readHex (mapsfd, (VA *)&devmajor);
+  c = readHex(mapsfd, (VA*)&devmajor);
   if (c != ':') goto skipeol;
-  c = readHex (mapsfd, (VA *)&devminor);
+  c = readHex(mapsfd, (VA*)&devminor);
   if (c != ' ') goto skipeol;
-  c = readDec (mapsfd, (VA *)&inodenum);
-  area -> name[0] = '\0';
-  while (c == ' ') c = readChar (mapsfd);
+  c = readDec(mapsfd, (VA*)&inodenum);
+  area->name[0] = '\0';
+  while (c == ' ') c = readChar(mapsfd);
   if (c == '/' || c == '[') { /* absolute pathname, or [stack], [vdso], etc. */
     i = 0;
     do {
-      area -> name[i++] = c;
-      if (i == sizeof area -> name) goto skipeol;
-      c = readChar (mapsfd);
+      area->name[i++] = c;
+      if (i == sizeof area->name) goto skipeol;
+      c = readChar(mapsfd);
     } while (c != '\n');
-    area -> name[i] = '\0';
+    area->name[i] = '\0';
   }
 
   if (c != '\n') goto skipeol;
 
-  area -> addr = startaddr;
-  area -> size = endaddr - startaddr;
-  area -> endAddr = endaddr;
-  area -> prot = 0;
-  if (rflag == 'r') area -> prot |= PROT_READ;
-  if (wflag == 'w') area -> prot |= PROT_WRITE;
-  if (xflag == 'x') area -> prot |= PROT_EXEC;
-  area -> flags = MAP_FIXED;
-  if (sflag == 's') area -> flags |= MAP_SHARED;
-  if (sflag == 'p') area -> flags |= MAP_PRIVATE;
-  if (area -> name[0] == '\0') area -> flags |= MAP_ANONYMOUS;
+  area->addr = startaddr;
+  area->size = endaddr - startaddr;
+  area->endAddr = endaddr;
+  area->prot = 0;
+  if (rflag == 'r') area->prot |= PROT_READ;
+  if (wflag == 'w') area->prot |= PROT_WRITE;
+  if (xflag == 'x') area->prot |= PROT_EXEC;
+  area->flags = MAP_FIXED;
+  if (sflag == 's') area->flags |= MAP_SHARED;
+  if (sflag == 'p') area->flags |= MAP_PRIVATE;
+  if (area->name[0] == '\0') area->flags |= MAP_ANONYMOUS;
 
   area->devmajor = devmajor;
   area->devminor = devminor;
@@ -341,8 +342,8 @@ int Util::readProcMapsLine(int mapsfd, ProcMapsArea *area)
   return (1);
 
 skipeol:
-  JASSERT(false) .Text("Not Reached");
-  return (0);  /* NOTREACHED : stop compiler warning */
+  JASSERT(false).Text("Not Reached");
+  return (0); /* NOTREACHED : stop compiler warning */
 }
 
 int Util::memProtToOpenFlags(int prot)
@@ -361,7 +362,7 @@ pid_t Util::getTracerPid(pid_t tid)
   }
 
   char buf[512];
-  char *str;
+  char* str;
   static int tracerStrLen = strlen(TRACER_PID_STR);
   int fd;
 
@@ -370,7 +371,7 @@ pid_t Util::getTracerPid(pid_t tid)
   }
   sprintf(buf, "/proc/%d/status", tid);
   fd = _real_open(buf, O_RDONLY, 0);
-  JASSERT(fd != -1) (buf) (JASSERT_ERRNO);
+  JASSERT(fd != -1)(buf)(JASSERT_ERRNO);
   readAll(fd, buf, sizeof buf);
   _real_close(fd);
   str = strstr(buf, TRACER_PID_STR);
@@ -381,7 +382,7 @@ pid_t Util::getTracerPid(pid_t tid)
     str++;
   }
 
-  pid_t tracerPid = (pid_t) strtol(str, NULL, 10);
+  pid_t tracerPid = (pid_t)strtol(str, NULL, 10);
   return tracerPid == 0 ? tracerPid : dmtcp_real_to_virtual_pid(tracerPid);
 }
 
@@ -413,16 +414,16 @@ size_t Util::pageMask()
  * TODO: One can use /proc/self/pagemap to detect if the page is backed by a
  * shared zero page.
  */
-bool Util::areZeroPages(void *addr, size_t numPages)
+bool Util::areZeroPages(void* addr, size_t numPages)
 {
   static size_t page_size = pageSize();
-  long long *buf = (long long*) addr;
+  long long* buf = (long long*)addr;
   size_t i;
-  size_t end = numPages * page_size / sizeof (*buf);
+  size_t end = numPages * page_size / sizeof(*buf);
   long long res = 0;
   for (i = 0; i + 7 < end; i += 8) {
-    res = buf[i+0] | buf[i+1] | buf[i+2] | buf[i+3] |
-          buf[i+4] | buf[i+5] | buf[i+6] | buf[i+7];
+    res = buf[i + 0] | buf[i + 1] | buf[i + 2] | buf[i + 3] | buf[i + 4] |
+          buf[i + 5] | buf[i + 6] | buf[i + 7];
     if (res != 0) {
       break;
     }
@@ -431,11 +432,12 @@ bool Util::areZeroPages(void *addr, size_t numPages)
 }
 
 /* Caller must allocate exec_path of size at least MTCP_MAX_PATH */
-char *Util::findExecutable(char *executable, const char* path_env,
-                                  char *exec_path)
+char* Util::findExecutable(char* executable,
+                           const char* path_env,
+                           char* exec_path)
 {
-  char *path;
-  const char *tmp_env;
+  char* path;
+  const char* tmp_env;
   int len;
 
   JASSERT(exec_path != NULL);
@@ -455,7 +457,7 @@ char *Util::findExecutable(char *executable, const char* path_env,
     len++;
     *path++ = '\0';
     strncat(exec_path, executable, PATH_MAX - len - 1);
-    if (access(exec_path, X_OK) == 0){
+    if (access(exec_path, X_OK) == 0) {
       // Artem: Additionally check that this is regular file.
       // From access point of view directories are executables too :)
       // I ran into problem on the system where user home dir was in the PATH
@@ -463,20 +465,18 @@ char *Util::findExecutable(char *executable, const char* path_env,
       // Eventually home path was before my sandbox path and DMTCP was
       // trying to call a directory :)
       struct stat buf;
-      if( stat(exec_path, &buf) ){
+      if (stat(exec_path, &buf)) {
         continue;
       }
-      if( S_ISREG(buf.st_mode) )
-        return exec_path;
+      if (S_ISREG(buf.st_mode)) return exec_path;
     }
   }
 
   // In case we're running with PATH environment variable unset:
-  const char * stdpath = "/usr/local/bin:/usr/bin:/bin";
+  const char* stdpath = "/usr/local/bin:/usr/bin:/bin";
   if (strcmp(path_env, stdpath) == 0) {
-    return NULL;  // Already tried stdpath
+    return NULL; // Already tried stdpath
   } else {
     return findExecutable(executable, stdpath, exec_path);
   }
 }
-

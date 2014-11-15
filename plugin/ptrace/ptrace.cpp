@@ -32,7 +32,10 @@ using namespace dmtcp;
 
 static int originalStartup = 1;
 
-EXTERNC int dmtcp_ptrace_enabled() { return 1; }
+EXTERNC int dmtcp_ptrace_enabled()
+{
+  return 1;
+}
 
 void ptraceInit()
 {
@@ -40,7 +43,7 @@ void ptraceInit()
   PtraceInfo::instance().mapSharedFile();
 }
 
-void ptraceWaitForSuspendMsg(DmtcpEventData_t *data)
+void ptraceWaitForSuspendMsg(DmtcpEventData_t* data)
 {
   PtraceInfo::instance().markAsCkptThread();
   if (!originalStartup) {
@@ -50,12 +53,12 @@ void ptraceWaitForSuspendMsg(DmtcpEventData_t *data)
   }
 }
 
-void ptraceProcessResumeUserThread(DmtcpEventData_t *data)
+void ptraceProcessResumeUserThread(DmtcpEventData_t* data)
 {
   ptrace_process_resume_user_thread(data->resumeUserThreadInfo.isRestart);
 }
 
-extern "C" void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
+extern "C" void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t* data)
 {
   switch (event) {
     case DMTCP_EVENT_INIT:

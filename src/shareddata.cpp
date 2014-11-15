@@ -31,7 +31,7 @@
 #include "uniquepid.h"
 #include "syscallwrappers.h"
 #include "util.h"
-#include  "membarrier.h"
+#include "membarrier.h"
 #include "coordinatorapi.h"
 #include "shareddata.h"
 #include "../jalib/jassert.h"
@@ -40,11 +40,11 @@
 #define SHM_MAX_SIZE (sizeof(SharedData::Header))
 
 using namespace dmtcp;
-static struct SharedData::Header *sharedDataHeader = NULL;
-static void *prevSharedDataHeaderAddr = NULL;
+static struct SharedData::Header* sharedDataHeader = NULL;
+static void* prevSharedDataHeaderAddr = NULL;
 static uint32_t nextVirtualPtyId = (uint32_t)-1;
 
-void dmtcp_SharedData_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
+void dmtcp_SharedData_EventHook(DmtcpEvent_t event, DmtcpEventData_t* data)
 {
   switch (event) {
     case DMTCP_EVENT_INIT:
@@ -68,15 +68,15 @@ void dmtcp_SharedData_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
   }
 }
 
-void SharedData::initializeHeader(const char *tmpDir,
-                                  DmtcpUniqueProcessId *compId,
-                                  CoordinatorInfo *coordInfo,
-                                  struct in_addr *localIPAddr)
+void SharedData::initializeHeader(const char* tmpDir,
+                                  DmtcpUniqueProcessId* compId,
+                                  CoordinatorInfo* coordInfo,
+                                  struct in_addr* localIPAddr)
 {
   JASSERT(tmpDir != NULL && coordInfo != NULL && localIPAddr != NULL);
-  off_t size = CEIL(SHM_MAX_SIZE , Util::pageSize());
+  off_t size = CEIL(SHM_MAX_SIZE, Util::pageSize());
   JASSERT(lseek(PROTECTED_SHM_FD, size, SEEK_SET) == size)
-    (JASSERT_ERRNO);
+  (JASSERT_ERRNO);
   Util::writeAll(PROTECTED_SHM_FD, "", 1);
   memset(sharedDataHeader, 0, size);
 
@@ -88,10 +88,10 @@ void SharedData::initializeHeader(const char *tmpDir,
 #endif
   JASSERT(getenv(ENV_VAR_DLSYM_OFFSET) != NULL);
   sharedDataHeader->dlsymOffset =
-    (int32_t) strtol(getenv(ENV_VAR_DLSYM_OFFSET), NULL, 10);
+      (int32_t)strtol(getenv(ENV_VAR_DLSYM_OFFSET), NULL, 10);
   JASSERT(getenv(ENV_VAR_DLSYM_OFFSET_M32) != NULL);
   sharedDataHeader->dlsymOffset_m32 =
-    (int32_t) strtol(getenv(ENV_VAR_DLSYM_OFFSET_M32), NULL, 10);
+      (int32_t)strtol(getenv(ENV_VAR_DLSYM_OFFSET_M32), NULL, 10);
   sharedDataHeader->numSysVShmIdMaps = 0;
   sharedDataHeader->numSysVSemIdMaps = 0;
   sharedDataHeader->numSysVMsqIdMaps = 0;
@@ -100,8 +100,8 @@ void SharedData::initializeHeader(const char *tmpDir,
   sharedDataHeader->initialized = true;
   sharedDataHeader->numMissingConMaps = 0;
   memcpy(&sharedDataHeader->compId, compId, sizeof(*compId));
-  memcpy(&sharedDataHeader->coordInfo, coordInfo, sizeof (*coordInfo));
-  memcpy(&sharedDataHeader->localIPAddr, localIPAddr, sizeof (*localIPAddr));
+  memcpy(&sharedDataHeader->coordInfo, coordInfo, sizeof(*coordInfo));
+  memcpy(&sharedDataHeader->localIPAddr, localIPAddr, sizeof(*localIPAddr));
   // The current implementation simply increments the last count and returns it.
   // Although highly unlikely, this can cause a problem if the counter resets to
   // zero. In that case we should have some more sophisticated code which checks
@@ -111,14 +111,14 @@ void SharedData::initializeHeader(const char *tmpDir,
   } else {
     sharedDataHeader->nextVirtualPtyId = 0;
   }
-  JASSERT(strlen(tmpDir) < sizeof(sharedDataHeader->tmpDir) - 1) (tmpDir);
+  JASSERT(strlen(tmpDir) < sizeof(sharedDataHeader->tmpDir) - 1)(tmpDir);
   strcpy(sharedDataHeader->tmpDir, tmpDir);
 }
 
-void SharedData::initialize(const char *tmpDir = NULL,
-                            DmtcpUniqueProcessId *compId = NULL,
-                            CoordinatorInfo *coordInfo = NULL,
-                            struct in_addr *localIPAddr = NULL)
+void SharedData::initialize(const char* tmpDir = NULL,
+                            DmtcpUniqueProcessId* compId = NULL,
+                            CoordinatorInfo* coordInfo = NULL,
+                            struct in_addr* localIPAddr = NULL)
 {
   /* FIXME: If the coordinator timestamp resolution is 1 second, during
    * subsequent restart, the coordinator timestamp may have the same value
@@ -132,8 +132,8 @@ void SharedData::initialize(const char *tmpDir = NULL,
   if (!Util::isValidFd(PROTECTED_SHM_FD)) {
     JASSERT(tmpDir != NULL);
     ostringstream o;
-    o << tmpDir << "/dmtcpSharedArea."
-      << *compId << "." << std::hex << coordInfo->timeStamp;
+    o << tmpDir << "/dmtcpSharedArea." << *compId << "." << std::hex
+      << coordInfo->timeStamp;
 
     int fd = _real_open(o.str().c_str(), O_RDWR | O_CREAT | O_EXCL, 0600);
     if (fd == -1 && errno == EEXIST) {
@@ -141,24 +141,27 @@ void SharedData::initialize(const char *tmpDir = NULL,
     } else {
       needToInitialize = true;
     }
-    JASSERT(fd != -1) (JASSERT_ERRNO);
+    JASSERT(fd != -1)(JASSERT_ERRNO);
     JASSERT(_real_dup2(fd, PROTECTED_SHM_FD) == PROTECTED_SHM_FD)
-      (JASSERT_ERRNO);
+    (JASSERT_ERRNO);
     _real_close(fd);
   }
 
-  size_t size = CEIL(SHM_MAX_SIZE , Util::pageSize());
-  void *addr = _real_mmap(prevSharedDataHeaderAddr, size,
-                          PROT_READ | PROT_WRITE, MAP_SHARED,
-                          PROTECTED_SHM_FD, 0);
-  JASSERT(addr != MAP_FAILED) (JASSERT_ERRNO)
-    .Text("Unable to find shared area.");
+  size_t size = CEIL(SHM_MAX_SIZE, Util::pageSize());
+  void* addr = _real_mmap(prevSharedDataHeaderAddr,
+                          size,
+                          PROT_READ | PROT_WRITE,
+                          MAP_SHARED,
+                          PROTECTED_SHM_FD,
+                          0);
+  JASSERT(addr != MAP_FAILED)(JASSERT_ERRNO)
+      .Text("Unable to find shared area.");
 
 #if __arm__
-  WMB;  // Ensure store to memory by kernel mmap call has completed
+  WMB; // Ensure store to memory by kernel mmap call has completed
 #endif
 
-  sharedDataHeader = (struct Header*) addr;
+  sharedDataHeader = (struct Header*)addr;
   prevSharedDataHeaderAddr = addr;
 
   if (needToInitialize) {
@@ -169,24 +172,23 @@ void SharedData::initialize(const char *tmpDir = NULL,
     struct stat statbuf;
     while (1) {
       Util::lockFile(PROTECTED_SHM_FD);
-      JASSERT(fstat(PROTECTED_SHM_FD, &statbuf) != -1) (JASSERT_ERRNO);
+      JASSERT(fstat(PROTECTED_SHM_FD, &statbuf) != -1)(JASSERT_ERRNO);
       Util::unlockFile(PROTECTED_SHM_FD);
       if (statbuf.st_size > 0) {
         break;
       }
-      struct timespec sleepTime = {0, 100*1000*1000};
+      struct timespec sleepTime = {0, 100 * 1000 * 1000};
       nanosleep(&sleepTime, NULL);
     }
 
     Util::lockFile(PROTECTED_SHM_FD);
-    if (!Util::strStartsWith(sharedDataHeader->versionStr,
-                                    SHM_VERSION_STR)) {
-      JASSERT(false) (sharedDataHeader->versionStr) (SHM_VERSION_STR)
-        .Text("Wrong signature");
+    if (!Util::strStartsWith(sharedDataHeader->versionStr, SHM_VERSION_STR)) {
+      JASSERT(false)(sharedDataHeader->versionStr)(SHM_VERSION_STR)
+          .Text("Wrong signature");
     }
     Util::unlockFile(PROTECTED_SHM_FD);
   }
-  JTRACE("Shared area mapped") (sharedDataHeader);
+  JTRACE("Shared area mapped")(sharedDataHeader);
 }
 
 void SharedData::suspended()
@@ -201,9 +203,9 @@ void SharedData::preCkpt()
     nextVirtualPtyId = sharedDataHeader->nextVirtualPtyId;
     // Need to reset these counters before next post-restart/post-ckpt routines
     sharedDataHeader->numMissingConMaps = 0;
-WMB;
+    WMB;
     size_t size = CEIL(SHM_MAX_SIZE, Util::pageSize());
-    JASSERT(_real_munmap(sharedDataHeader, size) == 0) (JASSERT_ERRNO);
+    JASSERT(_real_munmap(sharedDataHeader, size) == 0)(JASSERT_ERRNO);
     sharedDataHeader = NULL;
   }
 }
@@ -216,7 +218,7 @@ void SharedData::refill()
 // At restart, the HOST/PORT used by dmtcp_coordinator could be different then
 // those at checkpoint time. This could cause the child processes created after
 // restart to fail to connect to the coordinator.
-extern "C" int fred_record_replay_enabled() __attribute__ ((weak));
+extern "C" int fred_record_replay_enabled() __attribute__((weak));
 void SharedData::updateHostAndPortEnv()
 {
   if (CoordinatorAPI::noCoordinator()) return;
@@ -227,7 +229,7 @@ void SharedData::updateHostAndPortEnv()
      until we have time to fix it. */
   if (fred_record_replay_enabled != 0) return;
 
-  struct sockaddr_storage *currAddr = &sharedDataHeader->coordInfo.addr;
+  struct sockaddr_storage* currAddr = &sharedDataHeader->coordInfo.addr;
   /* If the current coordinator is running on a HOST/PORT other than the
    * pre-checkpoint HOST/PORT, we need to update the environment variables
    * pointing to the coordinator HOST/PORT. This is needed if the new
@@ -239,23 +241,23 @@ void SharedData::updateHostAndPortEnv()
 
   // deal with both IPv4 and IPv6:
   if (currAddr->ss_family == AF_INET) {
-    struct sockaddr_in *s = (struct sockaddr_in *)currAddr;
+    struct sockaddr_in* s = (struct sockaddr_in*)currAddr;
     port = ntohs(s->sin_port);
     inet_ntop(AF_INET, &s->sin_addr, ipstr, sizeof ipstr);
   } else { // AF_INET6
-    JASSERT (currAddr->ss_family == AF_INET6) (currAddr->ss_family);
-    struct sockaddr_in6 *s = (struct sockaddr_in6 *)currAddr;
+    JASSERT(currAddr->ss_family == AF_INET6)(currAddr->ss_family);
+    struct sockaddr_in6* s = (struct sockaddr_in6*)currAddr;
     port = ntohs(s->sin6_port);
     inet_ntop(AF_INET6, &s->sin6_addr, ipstr, sizeof ipstr);
   }
 
   portStr = jalib::XToString(port);
   if (getenv(ENV_VAR_NAME_HOST) && strcmp(getenv(ENV_VAR_NAME_HOST), ipstr)) {
-    JASSERT(0 == setenv(ENV_VAR_NAME_HOST, ipstr, 1)) (JASSERT_ERRNO);
+    JASSERT(0 == setenv(ENV_VAR_NAME_HOST, ipstr, 1))(JASSERT_ERRNO);
   }
-  if (getenv(ENV_VAR_NAME_PORT) && strcmp(getenv(ENV_VAR_NAME_PORT),
-                                          portStr.c_str())) {
-    JASSERT(0 == setenv(ENV_VAR_NAME_PORT, portStr.c_str(), 1)) (JASSERT_ERRNO);
+  if (getenv(ENV_VAR_NAME_PORT) &&
+      strcmp(getenv(ENV_VAR_NAME_PORT), portStr.c_str())) {
+    JASSERT(0 == setenv(ENV_VAR_NAME_PORT, portStr.c_str(), 1))(JASSERT_ERRNO);
   }
 }
 #if 0
@@ -289,7 +291,7 @@ void SharedData::setCoordPort(uint32_t port)
 }
 #endif
 
-char *SharedData::getTmpDir(char *buf, uint32_t len)
+char* SharedData::getTmpDir(char* buf, uint32_t len)
 {
   if (sharedDataHeader == NULL) initialize();
   JASSERT(sharedDataHeader->tmpDir[0] != '\0');
@@ -337,7 +339,7 @@ uint64_t SharedData::getCoordTimeStamp()
   return sharedDataHeader->coordInfo.timeStamp;
 }
 
-void SharedData::getCoordAddr(struct sockaddr *addr, uint32_t *len)
+void SharedData::getCoordAddr(struct sockaddr* addr, uint32_t* len)
 {
   if (sharedDataHeader == NULL) initialize();
   JASSERT(addr != NULL);
@@ -345,26 +347,25 @@ void SharedData::getCoordAddr(struct sockaddr *addr, uint32_t *len)
   memcpy(addr, &sharedDataHeader->coordInfo.addr, *len);
 }
 
-void SharedData::getLocalIPAddr(struct in_addr *in)
+void SharedData::getLocalIPAddr(struct in_addr* in)
 {
   if (sharedDataHeader == NULL) initialize();
   JASSERT(in != NULL);
   memcpy(in, &sharedDataHeader->localIPAddr, sizeof *in);
 }
 
-void SharedData::updateDlsymOffset(int32_t dlsymOffset,
-                                   int32_t dlsymOffset_m32)
+void SharedData::updateDlsymOffset(int32_t dlsymOffset, int32_t dlsymOffset_m32)
 {
   if (sharedDataHeader == NULL) initialize();
   JASSERT(sharedDataHeader->dlsymOffset == 0 ||
           sharedDataHeader->dlsymOffset == dlsymOffset)
-    (dlsymOffset) (sharedDataHeader->dlsymOffset);
+  (dlsymOffset)(sharedDataHeader->dlsymOffset);
 
   JASSERT(sharedDataHeader->dlsymOffset_m32 == 0 ||
           sharedDataHeader->dlsymOffset_m32 == dlsymOffset_m32)
-    (dlsymOffset_m32) (sharedDataHeader->dlsymOffset_m32);
+  (dlsymOffset_m32)(sharedDataHeader->dlsymOffset_m32);
   sharedDataHeader->dlsymOffset = dlsymOffset;
-  sharedDataHeader->dlsymOffset_m32 =  dlsymOffset_m32;
+  sharedDataHeader->dlsymOffset_m32 = dlsymOffset_m32;
 }
 
 int32_t SharedData::getDlsymOffset(void)
@@ -418,7 +419,7 @@ int32_t SharedData::getRealIPCId(int type, int32_t virt)
 {
   int32_t res = -1;
   uint32_t nmaps = 0;
-  IPCIdMap *map = NULL;
+  IPCIdMap* map = NULL;
   if (sharedDataHeader == NULL) initialize();
   Util::lockFile(PROTECTED_SHM_FD);
   switch (type) {
@@ -438,7 +439,7 @@ int32_t SharedData::getRealIPCId(int type, int32_t virt)
       break;
 
     default:
-      JASSERT(false) (type) .Text("Unknown IPC-Id type.");
+      JASSERT(false)(type).Text("Unknown IPC-Id type.");
       break;
   }
   for (size_t i = 0; i < nmaps; i++) {
@@ -453,8 +454,8 @@ int32_t SharedData::getRealIPCId(int type, int32_t virt)
 void SharedData::setIPCIdMap(int type, int32_t virt, int32_t real)
 {
   size_t i;
-  uint32_t *nmaps = NULL;
-  IPCIdMap *map = NULL;
+  uint32_t* nmaps = NULL;
+  IPCIdMap* map = NULL;
   if (sharedDataHeader == NULL) initialize();
   Util::lockFile(PROTECTED_SHM_FD);
   switch (type) {
@@ -474,7 +475,7 @@ void SharedData::setIPCIdMap(int type, int32_t virt, int32_t real)
       break;
 
     default:
-      JASSERT(false) (type) .Text("Unknown IPC-Id type.");
+      JASSERT(false)(type).Text("Unknown IPC-Id type.");
       break;
   }
   for (i = 0; i < *nmaps; i++) {
@@ -501,7 +502,7 @@ pid_t SharedData::getPtraceVirtualId(pid_t tracerId)
     if (sharedDataHeader->ptraceIdMap[i].tracerId == tracerId) {
       childId = sharedDataHeader->ptraceIdMap[i].childId;
       sharedDataHeader->ptraceIdMap[i] =
-        sharedDataHeader->ptraceIdMap[sharedDataHeader->numPtraceIdMaps];
+          sharedDataHeader->ptraceIdMap[sharedDataHeader->numPtraceIdMaps];
       sharedDataHeader->numPtraceIdMaps--;
     }
   }
@@ -529,14 +530,14 @@ void SharedData::setPtraceVirtualId(pid_t tracerId, pid_t childId)
   Util::unlockFile(PROTECTED_SHM_FD);
 }
 
-void SharedData::createVirtualPtyName(const char* real, char *out, uint32_t len)
+void SharedData::createVirtualPtyName(const char* real, char* out, uint32_t len)
 {
   if (sharedDataHeader == NULL) initialize();
-  JASSERT(sharedDataHeader->nextVirtualPtyId != (unsigned) -1);
+  JASSERT(sharedDataHeader->nextVirtualPtyId != (unsigned)-1);
 
   Util::lockFile(PROTECTED_SHM_FD);
   string virt = VIRT_PTS_PREFIX_STR +
-                       jalib::XToString(sharedDataHeader->nextVirtualPtyId++);
+                jalib::XToString(sharedDataHeader->nextVirtualPtyId++);
   // FIXME: We should be removing ptys once they are gone.
   JASSERT(sharedDataHeader->numPtyNameMaps < MAX_PTY_NAME_MAPS);
   size_t n = sharedDataHeader->numPtyNameMaps++;
@@ -549,7 +550,7 @@ void SharedData::createVirtualPtyName(const char* real, char *out, uint32_t len)
   Util::unlockFile(PROTECTED_SHM_FD);
 }
 
-void SharedData::getRealPtyName(const char* virt, char *out, uint32_t len)
+void SharedData::getRealPtyName(const char* virt, char* out, uint32_t len)
 {
   if (sharedDataHeader == NULL) initialize();
   *out = '\0';
@@ -564,7 +565,7 @@ void SharedData::getRealPtyName(const char* virt, char *out, uint32_t len)
   Util::unlockFile(PROTECTED_SHM_FD);
 }
 
-void SharedData::getVirtPtyName(const char* real, char *out, uint32_t len)
+void SharedData::getVirtPtyName(const char* real, char* out, uint32_t len)
 {
   if (sharedDataHeader == NULL) initialize();
   *out = '\0';
@@ -606,7 +607,7 @@ void SharedData::registerMissingCons(vector<const char*>& ids,
   Util::unlockFile(PROTECTED_SHM_FD);
 }
 
-void SharedData::getMissingConMaps(MissingConMap **map, uint32_t *nmaps)
+void SharedData::getMissingConMaps(MissingConMap** map, uint32_t* nmaps)
 {
   if (sharedDataHeader == NULL) initialize();
   *map = sharedDataHeader->missingConMap;
@@ -626,14 +627,14 @@ void SharedData::insertInodeConnIdMaps(vector<InodeConnIdMap>& maps)
   }
 }
 
-bool SharedData::getCkptLeaderForFile(dev_t devnum, ino_t inode, void *id)
+bool SharedData::getCkptLeaderForFile(dev_t devnum, ino_t inode, void* id)
 {
   if (sharedDataHeader == NULL) initialize();
   JASSERT(id != NULL);
   if (sharedDataHeader->numInodeConnIdMaps > 0) {
     for (size_t i = sharedDataHeader->numInodeConnIdMaps - 1; i >= 0; i--) {
       InodeConnIdMap& map = sharedDataHeader->inodeConnIdMap[i];
-      if (map.devnum == devnum && map.inode== inode) {
+      if (map.devnum == devnum && map.inode == inode) {
         memcpy(id, map.id, sizeof(map.id));
         return true;
       }

@@ -29,29 +29,29 @@
 
 namespace dmtcp
 {
-  namespace ThreadList {
-    pid_t _real_pid();
-    pid_t _real_tid();
-    int _real_tgkill(pid_t tgid, pid_t tid, int sig);
+namespace ThreadList
+{
+pid_t _real_pid();
+pid_t _real_tid();
+int _real_tgkill(pid_t tgid, pid_t tid, int sig);
 
-    void init();
-    void initThread(Thread* th, int (*fn)(void*), void *arg, int flags,
-                    int *ptid, int *ctid);
-    void updateTid(Thread *);
-    void resetOnFork();
-    void killCkpthread();
-    void threadExit();
+void init();
+void initThread(
+    Thread* th, int (*fn)(void*), void* arg, int flags, int* ptid, int* ctid);
+void updateTid(Thread*);
+void resetOnFork();
+void killCkpthread();
+void threadExit();
 
-    Thread *getNewThread();
-    void addToActiveList();
-    void threadIsDead (Thread *thread);
-    void emptyFreeList();
+Thread* getNewThread();
+void addToActiveList();
+void threadIsDead(Thread* thread);
+void emptyFreeList();
 
-    void suspendThreads();
-    void resumeThreads();
-    void waitForAllRestored(Thread *thisthread);
-    void postRestart();
-
-  };
+void suspendThreads();
+void resumeThreads();
+void waitForAllRestored(Thread* thisthread);
+void postRestart();
+};
 };
 #endif

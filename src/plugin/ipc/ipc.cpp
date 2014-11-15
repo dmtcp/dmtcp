@@ -29,19 +29,18 @@
 
 using namespace dmtcp;
 
-void dmtcp_SSH_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
-void dmtcp_FileConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
-void dmtcp_SocketConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
-void dmtcp_EventConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
-void dmtcp_SysVIPC_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
-void dmtcp_Timer_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
+void dmtcp_SSH_EventHook(DmtcpEvent_t event, DmtcpEventData_t* data);
+void dmtcp_FileConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t* data);
+void dmtcp_SocketConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t* data);
+void dmtcp_EventConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t* data);
+void dmtcp_SysVIPC_EventHook(DmtcpEvent_t event, DmtcpEventData_t* data);
+void dmtcp_Timer_EventHook(DmtcpEvent_t event, DmtcpEventData_t* data);
 
 void dmtcp_FileConn_ProcessFdEvent(int event, int arg1, int arg2);
 void dmtcp_SocketConn_ProcessFdEvent(int event, int arg1, int arg2);
 void dmtcp_EventConn_ProcessFdEvent(int event, int arg1, int arg2);
 
-extern "C"
-void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
+extern "C" void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t* data)
 {
   dmtcp_SSH_EventHook(event, data);
   dmtcp_FileConnList_EventHook(event, data);
@@ -64,7 +63,7 @@ extern "C" void process_fd_event(int event, int arg1, int arg2 = -1)
 extern "C" int close(int fd)
 {
   if (dmtcp_is_protected_fd(fd)) {
-    JTRACE("blocked attempt to close protected fd") (fd);
+    JTRACE("blocked attempt to close protected fd")(fd);
     errno = EBADF;
     return -1;
   }
@@ -78,11 +77,11 @@ extern "C" int close(int fd)
   return rv;
 }
 
-extern "C" int fclose(FILE *fp)
+extern "C" int fclose(FILE* fp)
 {
   int fd = fileno(fp);
   if (dmtcp_is_protected_fd(fd)) {
-    JTRACE("blocked attempt to fclose protected fd") (fd);
+    JTRACE("blocked attempt to fclose protected fd")(fd);
     errno = EBADF;
     return -1;
   }
@@ -97,11 +96,11 @@ extern "C" int fclose(FILE *fp)
   return rv;
 }
 
-extern "C" int closedir(DIR *dir)
+extern "C" int closedir(DIR* dir)
 {
   int fd = dirfd(dir);
   if (dmtcp_is_protected_fd(fd)) {
-    JTRACE("blocked attempt to closedir protected fd") (fd);
+    JTRACE("blocked attempt to closedir protected fd")(fd);
     errno = EBADF;
     return -1;
   }
@@ -138,7 +137,7 @@ extern "C" int dup2(int oldfd, int newfd)
   return newfd;
 }
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,27)) && __GLIBC_PREREQ(2,9)
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)) && __GLIBC_PREREQ(2, 9)
 // dup3 appeared in Linux 2.6.27
 extern "C" int dup3(int oldfd, int newfd, int flags)
 {
@@ -151,4 +150,3 @@ extern "C" int dup3(int oldfd, int newfd, int flags)
   return newfd;
 }
 #endif
-

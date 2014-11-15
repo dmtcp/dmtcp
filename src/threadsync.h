@@ -22,87 +22,86 @@
 #ifndef THREADSYNC_H
 #define THREADSYNC_H
 
-
-#define WRAPPER_EXECUTION_DISABLE_CKPT()                \
-  /*JTRACE("Acquiring wrapperExecutionLock");*/         \
-  bool __wrapperExecutionLockAcquired =                 \
-    dmtcp::ThreadSync::wrapperExecutionLockLock();      \
-  if (__wrapperExecutionLockAcquired) {                 \
-    /*JTRACE("Acquired wrapperExecutionLock"); */       \
+#define WRAPPER_EXECUTION_DISABLE_CKPT()             \
+  /*JTRACE("Acquiring wrapperExecutionLock");*/      \
+  bool __wrapperExecutionLockAcquired =              \
+      dmtcp::ThreadSync::wrapperExecutionLockLock(); \
+  if (__wrapperExecutionLockAcquired) {              \
+    /*JTRACE("Acquired wrapperExecutionLock"); */    \
   }
 
-#define WRAPPER_EXECUTION_ENABLE_CKPT()                 \
-  if (__wrapperExecutionLockAcquired) {                 \
-    /*JTRACE("Releasing wrapperExecutionLock"); */      \
-    dmtcp::ThreadSync::wrapperExecutionLockUnlock();    \
+#define WRAPPER_EXECUTION_ENABLE_CKPT()              \
+  if (__wrapperExecutionLockAcquired) {              \
+    /*JTRACE("Releasing wrapperExecutionLock"); */   \
+    dmtcp::ThreadSync::wrapperExecutionLockUnlock(); \
   }
 
-#define DUMMY_WRAPPER_EXECUTION_DISABLE_CKPT()          \
+#define DUMMY_WRAPPER_EXECUTION_DISABLE_CKPT() \
   bool __wrapperExecutionLockAcquired = false;
 
-#define WRAPPER_EXECUTION_GET_EXCL_LOCK()               \
-  bool __wrapperExecutionLockAcquired                   \
-    = dmtcp::ThreadSync::wrapperExecutionLockLockExcl();\
+#define WRAPPER_EXECUTION_GET_EXCL_LOCK()                \
+  bool __wrapperExecutionLockAcquired =                  \
+      dmtcp::ThreadSync::wrapperExecutionLockLockExcl(); \
   dmtcp::ThreadSync::unsetOkToGrabLock();
 
-#define WRAPPER_EXECUTION_RELEASE_EXCL_LOCK()           \
-  WRAPPER_EXECUTION_ENABLE_CKPT();                      \
+#define WRAPPER_EXECUTION_RELEASE_EXCL_LOCK() \
+  WRAPPER_EXECUTION_ENABLE_CKPT();            \
   dmtcp::ThreadSync::setOkToGrabLock();
 
 namespace dmtcp
 {
-  namespace ThreadSync
-  {
-    void acquireLocks();
-    void releaseLocks();
-    void resetLocks();
-    void initThread();
-    void initMotherOfAll();
+namespace ThreadSync
+{
+void acquireLocks();
+void releaseLocks();
+void resetLocks();
+void initThread();
+void initMotherOfAll();
 
-    void destroyDmtcpWorkerLockLock();
-    void destroyDmtcpWorkerLockUnlock();
-    int destroyDmtcpWorkerLockTryLock();
+void destroyDmtcpWorkerLockLock();
+void destroyDmtcpWorkerLockUnlock();
+int destroyDmtcpWorkerLockTryLock();
 
-    void delayCheckpointsLock();
-    void delayCheckpointsUnlock();
+void delayCheckpointsLock();
+void delayCheckpointsUnlock();
 
-    bool wrapperExecutionLockLock();
-    void wrapperExecutionLockUnlock();
-    bool wrapperExecutionLockLockExcl();
+bool wrapperExecutionLockLock();
+void wrapperExecutionLockUnlock();
+bool wrapperExecutionLockLockExcl();
 
-    bool threadCreationLockLock();
-    void threadCreationLockUnlock();
+bool threadCreationLockLock();
+void threadCreationLockUnlock();
 
-    bool libdlLockLock();
-    void libdlLockUnlock();
-    void waitForThreadsToFinishInitialization();
-    void incrementUninitializedThreadCount();
-    void decrementUninitializedThreadCount();
-    void threadFinishedInitialization();
+bool libdlLockLock();
+void libdlLockUnlock();
+void waitForThreadsToFinishInitialization();
+void incrementUninitializedThreadCount();
+void decrementUninitializedThreadCount();
+void threadFinishedInitialization();
 
-    void disableLockAcquisitionForThisThread();
-    void enableLockAcquisitionForThisThread();
+void disableLockAcquisitionForThisThread();
+void enableLockAcquisitionForThisThread();
 
-    bool isThisThreadHoldingAnyLocks();
-    bool sendCkptSignalOnUnlock();
+bool isThisThreadHoldingAnyLocks();
+bool sendCkptSignalOnUnlock();
 
-    bool isOkToGrabLock();
-    void setOkToGrabLock();
-    void unsetOkToGrabLock();
+bool isOkToGrabLock();
+void setOkToGrabLock();
+void unsetOkToGrabLock();
 
-    void sendCkptSignalOnFinalUnlock();
-    void setSendCkptSignalOnFinalUnlock();
+void sendCkptSignalOnFinalUnlock();
+void setSendCkptSignalOnFinalUnlock();
 
 #if TRACK_DLOPEN_DLSYM_FOR_LOCKS
-    bool isThreadPerformingDlopenDlsym();
-    void setThreadPerformingDlopenDlsym();
-    void unsetThreadPerformingDlopenDlsym();
+bool isThreadPerformingDlopenDlsym();
+void setThreadPerformingDlopenDlsym();
+void unsetThreadPerformingDlopenDlsym();
 #endif
 
-    void incrNumUserThreads();
-    void processPreResumeCB();
-    void waitForUserThreadsToFinishPreResumeCB();
-  };
+void incrNumUserThreads();
+void processPreResumeCB();
+void waitForUserThreadsToFinishPreResumeCB();
+};
 }
 
 #endif

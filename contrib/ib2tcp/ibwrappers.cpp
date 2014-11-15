@@ -19,18 +19,21 @@
 
 using namespace dmtcp;
 
-static int ib2t_post_send(struct ibv_qp * qp, struct ibv_send_wr * wr,
-                          struct ibv_send_wr ** bad_wr);
-static int ib2t_post_recv(struct ibv_qp * qp, struct ibv_recv_wr * wr,
-                          struct ibv_recv_wr ** bad_wr);
-static int ib2t_post_srq_recv(struct ibv_srq * srq, struct ibv_recv_wr * wr,
-                              struct ibv_recv_wr ** bad_wr);
-static int ib2t_poll_cq(struct ibv_cq * cq, int num_entries,
-                        struct ibv_wc * wc);
-static int ib2t_req_notify_cq(struct ibv_cq * cq, int solicited_only);
+static int ib2t_post_send(struct ibv_qp* qp,
+                          struct ibv_send_wr* wr,
+                          struct ibv_send_wr** bad_wr);
+static int ib2t_post_recv(struct ibv_qp* qp,
+                          struct ibv_recv_wr* wr,
+                          struct ibv_recv_wr** bad_wr);
+static int ib2t_post_srq_recv(struct ibv_srq* srq,
+                              struct ibv_recv_wr* wr,
+                              struct ibv_recv_wr** bad_wr);
+static int ib2t_poll_cq(struct ibv_cq* cq, int num_entries, struct ibv_wc* wc);
+static int ib2t_req_notify_cq(struct ibv_cq* cq, int solicited_only);
 
-#define DECL_FPTR(func) \
-  static __typeof__(&ib2t_##func) _real_ibv_##func = (__typeof__(&ib2t_##func)) NULL
+#define DECL_FPTR(func)                              \
+  static __typeof__(&ib2t_##func) _real_ibv_##func = \
+      (__typeof__(&ib2t_##func))NULL
 
 #define UPDATE_FUNC_ADDR(func, addr) \
   do {                               \
@@ -252,12 +255,11 @@ int ibv_destroy_srq(struct ibv_srq *srq)
 }
 #endif
 
-extern "C"
-struct ibv_context *ibv_open_device(struct ibv_device *dev)
+extern "C" struct ibv_context* ibv_open_device(struct ibv_device* dev)
 {
   JASSERT(!isVirtIB);
 
-  struct ibv_context * ctx = _real_ibv_open_device(dev);
+  struct ibv_context* ctx = _real_ibv_open_device(dev);
 
   if (ctx != NULL) {
     /* setup the trampolines */
@@ -270,12 +272,11 @@ struct ibv_context *ibv_open_device(struct ibv_device *dev)
   return ctx;
 }
 
-extern "C"
-struct ibv_qp *ibv_create_qp(struct ibv_pd *pd,
-                             struct ibv_qp_init_attr *qp_init_attr)
+extern "C" struct ibv_qp* ibv_create_qp(struct ibv_pd* pd,
+                                        struct ibv_qp_init_attr* qp_init_attr)
 {
   JASSERT(!isVirtIB);
-  struct ibv_qp *qp = _real_ibv_create_qp(pd, qp_init_attr);
+  struct ibv_qp* qp = _real_ibv_create_qp(pd, qp_init_attr);
 
   if (qp != NULL) {
     IB2TCP::createQP(qp, qp_init_attr);
@@ -283,8 +284,9 @@ struct ibv_qp *ibv_create_qp(struct ibv_pd *pd,
   return qp;
 }
 
-extern "C"
-int ibv_modify_qp(struct ibv_qp * qp, struct ibv_qp_attr * attr, int attr_mask)
+extern "C" int ibv_modify_qp(struct ibv_qp* qp,
+                             struct ibv_qp_attr* attr,
+                             int attr_mask)
 {
   int rslt = _real_ibv_modify_qp(qp, attr, attr_mask);
   if (rslt == 0) {
@@ -293,8 +295,7 @@ int ibv_modify_qp(struct ibv_qp * qp, struct ibv_qp_attr * attr, int attr_mask)
   return rslt;
 }
 
-extern "C"
-int ibv_destroy_qp(struct ibv_qp *qp)
+extern "C" int ibv_destroy_qp(struct ibv_qp* qp)
 {
   JASSERT(false);
   JASSERT(!isVirtIB);
@@ -306,8 +307,7 @@ int ibv_destroy_qp(struct ibv_qp *qp)
 /***********************************************************/
 /***********************************************************/
 
-extern "C"
-void ibv_ack_cq_events(struct ibv_cq * cq, unsigned int nevents)
+extern "C" void ibv_ack_cq_events(struct ibv_cq* cq, unsigned int nevents)
 {
   JASSERT(false);
   // FIXME:
@@ -316,9 +316,9 @@ void ibv_ack_cq_events(struct ibv_cq * cq, unsigned int nevents)
   }
 }
 
-extern "C"
-int ibv_get_cq_event(struct ibv_comp_channel *channel, struct ibv_cq **cq,
-                     void **cq_context)
+extern "C" int ibv_get_cq_event(struct ibv_comp_channel* channel,
+                                struct ibv_cq** cq,
+                                void** cq_context)
 {
   JASSERT(false);
   // FIXME:
@@ -327,9 +327,8 @@ int ibv_get_cq_event(struct ibv_comp_channel *channel, struct ibv_cq **cq,
   }
 }
 
-extern "C"
-int ibv_get_async_event(struct ibv_context *context,
-                        struct ibv_async_event *event)
+extern "C" int ibv_get_async_event(struct ibv_context* context,
+                                   struct ibv_async_event* event)
 {
   JASSERT(false);
   // FIXME:
@@ -338,8 +337,7 @@ int ibv_get_async_event(struct ibv_context *context,
   }
 }
 
-extern "C"
-void ibv_ack_async_event(struct ibv_async_event *event)
+extern "C" void ibv_ack_async_event(struct ibv_async_event* event)
 {
   JASSERT(false);
   // FIXME:
@@ -353,8 +351,9 @@ void ibv_ack_async_event(struct ibv_async_event *event)
 /***********************************************************/
 /***********************************************************/
 
-static int ib2t_post_send(struct ibv_qp * qp, struct ibv_send_wr * wr,
-                          struct ibv_send_wr ** bad_wr)
+static int ib2t_post_send(struct ibv_qp* qp,
+                          struct ibv_send_wr* wr,
+                          struct ibv_send_wr** bad_wr)
 {
   int ret = 0;
   if (!isVirtIB) {
@@ -366,8 +365,9 @@ static int ib2t_post_send(struct ibv_qp * qp, struct ibv_send_wr * wr,
   return ret;
 }
 
-static int ib2t_post_recv(struct ibv_qp * qp, struct ibv_recv_wr * wr,
-                          struct ibv_recv_wr ** bad_wr)
+static int ib2t_post_recv(struct ibv_qp* qp,
+                          struct ibv_recv_wr* wr,
+                          struct ibv_recv_wr** bad_wr)
 {
   int ret = 0;
   if (!isVirtIB) {
@@ -379,8 +379,9 @@ static int ib2t_post_recv(struct ibv_qp * qp, struct ibv_recv_wr * wr,
   return ret;
 }
 
-static int ib2t_post_srq_recv(struct ibv_srq * srq, struct ibv_recv_wr * wr,
-                              struct ibv_recv_wr ** bad_wr)
+static int ib2t_post_srq_recv(struct ibv_srq* srq,
+                              struct ibv_recv_wr* wr,
+                              struct ibv_recv_wr** bad_wr)
 {
   int ret = 0;
   if (!isVirtIB) {
@@ -392,15 +393,14 @@ static int ib2t_post_srq_recv(struct ibv_srq * srq, struct ibv_recv_wr * wr,
   return ret;
 }
 
-static int ib2t_poll_cq(struct ibv_cq * cq, int num_entries,
-                        struct ibv_wc * wc)
+static int ib2t_poll_cq(struct ibv_cq* cq, int num_entries, struct ibv_wc* wc)
 {
   // FIXME: Drain completion queue on ckpt.
   int ret = 0;
   if (isVirtIB) {
     ret = IB2TCP::pollCq(cq, num_entries, wc);
   } else {
-  //if (ret < num_entries) {
+    // if (ret < num_entries) {
     int r = _real_ibv_poll_cq(cq, num_entries, &wc[ret]);
     IB2TCP::postPollCq(cq, r, &wc[ret]);
     ret += r;
@@ -408,7 +408,7 @@ static int ib2t_poll_cq(struct ibv_cq * cq, int num_entries,
   return ret;
 }
 
-static int ib2t_req_notify_cq(struct ibv_cq * cq, int solicited_only)
+static int ib2t_req_notify_cq(struct ibv_cq* cq, int solicited_only)
 {
   JASSERT(false);
   if (!isVirtIB) {

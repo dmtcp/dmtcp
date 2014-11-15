@@ -23,16 +23,17 @@
 
 #include "dmtcpalloc.h"
 
-namespace dmtcp {
-
+namespace dmtcp
+{
 void probeSlurm();
 void slurm_restore_env();
-bool isSlurmTmpDir(string &str);
-int slurmShouldCkptFile(const char *path, int *type);
-int slurmRestoreFile(const char *path, const char *savedFilePath,
-                     int fcntlFlags, int type);
+bool isSlurmTmpDir(string& str);
+int slurmShouldCkptFile(const char* path, int* type);
+int slurmRestoreFile(const char* path,
+                     const char* savedFilePath,
+                     int fcntlFlags,
+                     int type);
 void slurmRestoreHelper(bool isRestart);
-
 }
 
 #endif

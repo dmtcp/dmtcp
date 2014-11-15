@@ -25,7 +25,7 @@
 #include <sys/wait.h>
 #include "dmtcpalloc.h"
 #include "util.h"
-#include  "../jalib/jassert.h"
+#include "../jalib/jassert.h"
 #include "rm_main.h"
 #include "rm_torque.h"
 #include "rm_slurm.h"
@@ -33,148 +33,143 @@
 
 using namespace dmtcp;
 
-extern "C" int dmtcp_batch_queue_enabled(void) { return 1; }
+extern "C" int dmtcp_batch_queue_enabled(void)
+{
+  return 1;
+}
 
 void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t* data)
 {
   JTRACE("Start");
 
   switch (event) {
-  case DMTCP_EVENT_THREADS_SUSPEND:
-    JTRACE("DMTCP_EVENT_THREADS_SUSPEND");
-    runUnderRMgr();
-    rm_shutdown_pmi();
-    break;
-  case DMTCP_EVENT_THREADS_RESUME:
-    JTRACE("DMTCP_EVENT_THREADS_RESUME");
-    rm_restore_pmi();
-    slurmRestoreHelper(data->refillInfo.isRestart);
-    break;
-  case DMTCP_EVENT_RESTART:
-    JTRACE("DMTCP_EVENT_RESTART")(_get_rmgr_type());
-    if ( _get_rmgr_type() == slurm ){
-      JTRACE("Call restore_env()");
-      slurm_restore_env();
-    }
-    break;
-  default:
-    break;
+    case DMTCP_EVENT_THREADS_SUSPEND:
+      JTRACE("DMTCP_EVENT_THREADS_SUSPEND");
+      runUnderRMgr();
+      rm_shutdown_pmi();
+      break;
+    case DMTCP_EVENT_THREADS_RESUME:
+      JTRACE("DMTCP_EVENT_THREADS_RESUME");
+      rm_restore_pmi();
+      slurmRestoreHelper(data->refillInfo.isRestart);
+      break;
+    case DMTCP_EVENT_RESTART:
+      JTRACE("DMTCP_EVENT_RESTART")(_get_rmgr_type());
+      if (_get_rmgr_type() == slurm) {
+        JTRACE("Call restore_env()");
+        slurm_restore_env();
+      }
+      break;
+    default:
+      break;
   }
 
   DMTCP_NEXT_EVENT_HOOK(event, data);
 }
 
-
 // ----------------- global data ------------------------//
 static rmgr_type_t rmgr_type = Empty;
 
 // TODO: Do we need locking here?
-//static pthread_mutex_t global_mutex = PTHREAD_MUTEX_INITIALIZER;
+// static pthread_mutex_t global_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 rmgr_type_t dmtcp::_get_rmgr_type()
 {
   // TODO: Do we need locking here?
-  //JASSERT(_real_pthread_mutex_lock(&global_mutex) == 0);
+  // JASSERT(_real_pthread_mutex_lock(&global_mutex) == 0);
   rmgr_type_t loc_rmgr_type = rmgr_type;
   // TODO: Do we need locking here?
-  //JASSERT(_real_pthread_mutex_unlock(&global_mutex) == 0);
+  // JASSERT(_real_pthread_mutex_unlock(&global_mutex) == 0);
   return loc_rmgr_type;
 }
 
 void dmtcp::_set_rmgr_type(rmgr_type_t nval)
 {
   // TODO: Do we need locking here?
-  //JASSERT(_real_pthread_mutex_lock(&global_mutex) == 0);
+  // JASSERT(_real_pthread_mutex_lock(&global_mutex) == 0);
   rmgr_type = nval;
   // TODO: Do we need locking here?
-  //JASSERT(_real_pthread_mutex_unlock(&global_mutex) == 0);
+  // JASSERT(_real_pthread_mutex_unlock(&global_mutex) == 0);
 }
 
-
-void dmtcp::_rm_clear_path(string &path)
+void dmtcp::_rm_clear_path(string& path)
 {
   size_t i;
-  for(i=0;i<path.size();i++){
-    if( path[i] == '/' || path[i] == '\\' ){
-      size_t j = i+1;
-      while( (path[j] == '/' || path[j] == '\\') && j < path.size() ){
+  for (i = 0; i < path.size(); i++) {
+    if (path[i] == '/' || path[i] == '\\') {
+      size_t j = i + 1;
+      while ((path[j] == '/' || path[j] == '\\') && j < path.size()) {
         j++;
       }
-      if( j != i+1 ){
-        path.erase(i+1,j-(i+1));
+      if (j != i + 1) {
+        path.erase(i + 1, j - (i + 1));
       }
     }
   }
 }
 
-void dmtcp::_rm_del_trailing_slash(string &path)
+void dmtcp::_rm_del_trailing_slash(string& path)
 {
-    size_t i = path.size() - 1;
-    while( (path[i] == ' ' || path[i] == '/' || path == "\\" ) && i>0 )
-      i--;
-    if( i+1 < path.size() )
-      path = path.substr(0,i+1);
+  size_t i = path.size() - 1;
+  while ((path[i] == ' ' || path[i] == '/' || path == "\\") && i > 0) i--;
+  if (i + 1 < path.size()) path = path.substr(0, i + 1);
 }
 
 //----------------- General -----------------------------//
 bool dmtcp::runUnderRMgr()
 {
-
-  if( _get_rmgr_type() == Empty ){
+  if (_get_rmgr_type() == Empty) {
     probeTorque();
     probeSlurm();
     // probeSGE();
     // probeLSF();
 
-    if( _get_rmgr_type() == Empty )
-      _set_rmgr_type(None);
+    if (_get_rmgr_type() == Empty) _set_rmgr_type(None);
   }
 
-  return ( _get_rmgr_type() == None ) ? false : true;
+  return (_get_rmgr_type() == None) ? false : true;
 }
 
 //---------------------------- Torque Resource Manager ---------------------//
 
-extern "C" int dmtcp_is_bq_file(const char *path)
+extern "C" int dmtcp_is_bq_file(const char* path)
 {
   string str(path);
 
-  if( !runUnderRMgr() )
-    return false;
+  if (!runUnderRMgr()) return false;
 
-  if( _get_rmgr_type() == torque )
+  if (_get_rmgr_type() == torque)
     return isTorqueIOFile(str) || isTorqueFile("", str);
-  else if( _get_rmgr_type() == slurm ){
-      return isSlurmTmpDir(str);
-  }else
+  else if (_get_rmgr_type() == slurm) {
+    return isSlurmTmpDir(str);
+  } else
     return false;
 }
 
-extern "C" int dmtcp_bq_should_ckpt_file(const char *path, int *type)
+extern "C" int dmtcp_bq_should_ckpt_file(const char* path, int* type)
 {
+  if (!runUnderRMgr()) return false;
 
-  if( !runUnderRMgr() )
-    return false;
-
-  if( _get_rmgr_type() == torque ){
-    return torqueShouldCkptFile(path,type);
-  }else if( _get_rmgr_type() == slurm ){
-    return slurmShouldCkptFile(path,type);
+  if (_get_rmgr_type() == torque) {
+    return torqueShouldCkptFile(path, type);
+  } else if (_get_rmgr_type() == slurm) {
+    return slurmShouldCkptFile(path, type);
   }
   return 0;
 }
 
-extern "C" int dmtcp_bq_restore_file(const char *path,
-                                     const char *savedFilePath,
-                                     int fcntlFlags, int type)
+extern "C" int dmtcp_bq_restore_file(const char* path,
+                                     const char* savedFilePath,
+                                     int fcntlFlags,
+                                     int type)
 {
   string newpath;
 
   int tempfd = -1;
-  if( _get_rmgr_type() == torque ){
-    tempfd = torqueRestoreFile(path, savedFilePath,fcntlFlags, type);
-  }else if( _get_rmgr_type() == slurm ){
-      tempfd = slurmRestoreFile(path, savedFilePath,fcntlFlags, type);
+  if (_get_rmgr_type() == torque) {
+    tempfd = torqueRestoreFile(path, savedFilePath, fcntlFlags, type);
+  } else if (_get_rmgr_type() == slurm) {
+    tempfd = slurmRestoreFile(path, savedFilePath, fcntlFlags, type);
   }
 
   return tempfd;

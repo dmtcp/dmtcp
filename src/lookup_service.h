@@ -29,60 +29,68 @@
 
 namespace dmtcp
 {
-  class KeyValue {
-    public:
-      KeyValue(const void *data, const size_t len) {
-        _data = JALLOC_HELPER_MALLOC(len);
-        _len = len;
-        memcpy(_data, data, len);
-      }
-      ~KeyValue() {}
+class KeyValue
+{
+public:
+  KeyValue(const void* data, const size_t len)
+  {
+    _data = JALLOC_HELPER_MALLOC(len);
+    _len = len;
+    memcpy(_data, data, len);
+  }
+  ~KeyValue() {}
 
-      void destroy() {
-        JASSERT(_data != NULL);
-        JALLOC_HELPER_FREE(_data);
-      }
+  void destroy()
+  {
+    JASSERT(_data != NULL);
+    JALLOC_HELPER_FREE(_data);
+  }
 
-      void *data() {return _data;}
-      size_t len() {return _len;}
+  void* data() { return _data; }
+  size_t len() { return _len; }
 
-      bool operator< ( const KeyValue& that ) const {
-        if (_len == that._len) {
-          return memcmp(_data, that._data, _len) < 0;
-        }
-        return _len < that._len;
-      }
-      bool operator== ( const KeyValue& that ) const {
-        return _len == that._len && memcmp(_data, that._data, _len) == 0;
-      }
-      bool operator!= ( const KeyValue& that ) const {
-        return ! operator== ( that );
-      }
+  bool operator<(const KeyValue& that) const
+  {
+    if (_len == that._len) {
+      return memcmp(_data, that._data, _len) < 0;
+    }
+    return _len < that._len;
+  }
+  bool operator==(const KeyValue& that) const
+  {
+    return _len == that._len && memcmp(_data, that._data, _len) == 0;
+  }
+  bool operator!=(const KeyValue& that) const { return !operator==(that); }
 
-    private:
-      void *_data;
-      size_t _len;
-  };
+private:
+  void* _data;
+  size_t _len;
+};
 
-  class LookupService {
-    public:
-      LookupService(){}
-      ~LookupService() { reset(); }
-      void reset();
-      void registerData(const DmtcpMessage& msg, const void *data);
-      void respondToQuery(jalib::JSocket& remote,
-                          const DmtcpMessage& msg, const void *data);
+class LookupService
+{
+public:
+  LookupService() {}
+  ~LookupService() { reset(); }
+  void reset();
+  void registerData(const DmtcpMessage& msg, const void* data);
+  void respondToQuery(jalib::JSocket& remote,
+                      const DmtcpMessage& msg,
+                      const void* data);
 
-    private:
-      typedef map<KeyValue, KeyValue*> KeyValueMap;
-      typedef map<string, KeyValueMap>::iterator MapIterator;
-      void addKeyValue(string id, const void *key, size_t keyLen,
-                       const void *val, size_t valLen);
-      void query(string id, const void *key, size_t keyLen,
-                 void **val, size_t *valLen);
+private:
+  typedef map<KeyValue, KeyValue*> KeyValueMap;
+  typedef map<string, KeyValueMap>::iterator MapIterator;
+  void addKeyValue(string id,
+                   const void* key,
+                   size_t keyLen,
+                   const void* val,
+                   size_t valLen);
+  void query(
+      string id, const void* key, size_t keyLen, void** val, size_t* valLen);
 
-    private:
-      map<string, KeyValueMap> _maps;
-  };
+private:
+  map<string, KeyValueMap> _maps;
+};
 }
 #endif

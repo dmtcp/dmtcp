@@ -30,18 +30,18 @@ static trampoline_info_t sbrk_trampoline_info;
  * sbrk will present an abstraction corresponding to the original end of heap
  * before restart. FIXME: Potentially a user could call brk() directly, in
  * which case we would want a wrapper for that too. */
-static void *sbrk_wrapper(intptr_t increment)
+static void* sbrk_wrapper(intptr_t increment)
 {
-  static void *curbrk = NULL;
-  void *oldbrk = NULL;
+  static void* curbrk = NULL;
+  void* oldbrk = NULL;
   /* Initialize curbrk. */
   if (curbrk == NULL) {
     /* The man page says syscall returns int, but unistd.h says long int. */
     SYSCALL_ARG_RET_TYPE retval = syscall(SYS_brk, NULL);
-    curbrk = (void *)retval;
+    curbrk = (void*)retval;
   }
   oldbrk = curbrk;
-  curbrk = (void *)((char *)curbrk + increment);
+  curbrk = (void*)((char*)curbrk + increment);
   if (increment > 0) {
     syscall(SYS_brk, curbrk);
   }
@@ -49,11 +49,11 @@ static void *sbrk_wrapper(intptr_t increment)
 }
 
 /* Calls to sbrk will land here. */
-static void *sbrk_trampoline(intptr_t increment)
+static void* sbrk_trampoline(intptr_t increment)
 {
   /* Unpatch sbrk. */
   UNINSTALL_TRAMPOLINE(sbrk_trampoline_info);
-  void *retval = sbrk_wrapper(increment);
+  void* retval = sbrk_wrapper(increment);
   /* Repatch sbrk. */
   INSTALL_TRAMPOLINE(sbrk_trampoline_info);
   return retval;
@@ -63,6 +63,6 @@ static void *sbrk_trampoline(intptr_t increment)
    Called from DmtcpWorker constructor. */
 void _dmtcp_setup_trampolines()
 {
-  dmtcp_setup_trampoline("sbrk", (void*) &sbrk_trampoline,
-                         &sbrk_trampoline_info);
+  dmtcp_setup_trampoline(
+      "sbrk", (void*)&sbrk_trampoline, &sbrk_trampoline_info);
 }

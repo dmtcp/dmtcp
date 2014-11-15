@@ -45,45 +45,46 @@ static pid_t _dmtcp_ppid = -1;
 
 LIB_PRIVATE pid_t getPidFromEnvVar()
 {
-  const char *pidstr = getenv(ENV_VAR_VIRTUAL_PID);
+  const char* pidstr = getenv(ENV_VAR_VIRTUAL_PID);
   if (pidstr == NULL) {
-    fprintf(stderr, "ERROR at %s:%d: env var DMTCP_VIRTUAL_PID not set\n\n",
-            __FILE__, __LINE__);
+    fprintf(stderr,
+            "ERROR at %s:%d: env var DMTCP_VIRTUAL_PID not set\n\n",
+            __FILE__,
+            __LINE__);
     sleep(5);
     _exit(0);
   }
   return strtol(pidstr, NULL, 10);
 }
-extern "C" LIB_PRIVATE
-void dmtcpResetPidPpid()
+extern "C" LIB_PRIVATE void dmtcpResetPidPpid()
 {
-  const char *pidstr = getenv(ENV_VAR_VIRTUAL_PID);
-  char *ppidstr;
+  const char* pidstr = getenv(ENV_VAR_VIRTUAL_PID);
+  char* ppidstr;
   if (pidstr == NULL) {
-    fprintf(stderr, "ERROR at %s:%d: env var DMTCP_VIRTUAL_PID not set\n\n",
-            __FILE__, __LINE__);
+    fprintf(stderr,
+            "ERROR at %s:%d: env var DMTCP_VIRTUAL_PID not set\n\n",
+            __FILE__,
+            __LINE__);
     sleep(5);
     _exit(0);
   }
   _dmtcp_pid = strtol(pidstr, &ppidstr, 10);
-  VirtualPidTable::instance().updateMapping(_dmtcp_pid,
-                                                   _real_getpid());
+  VirtualPidTable::instance().updateMapping(_dmtcp_pid, _real_getpid());
 
   if (ppidstr[0] != ':' && !isdigit(ppidstr[1])) {
-    fprintf(stderr, "ERROR at %s:%d: env var DMTCP_VIRTUAL_PID invalid\n\n",
-            __FILE__, __LINE__);
+    fprintf(stderr,
+            "ERROR at %s:%d: env var DMTCP_VIRTUAL_PID invalid\n\n",
+            __FILE__,
+            __LINE__);
     sleep(5);
     _exit(0);
   }
   _dmtcp_ppid = strtol(ppidstr + 1, NULL, 10);
 
-  VirtualPidTable::instance().updateMapping(_dmtcp_ppid,
-                                                   _real_getppid());
+  VirtualPidTable::instance().updateMapping(_dmtcp_ppid, _real_getppid());
 }
 
-
-extern "C" LIB_PRIVATE
-void dmtcpResetTid(pid_t tid)
+extern "C" LIB_PRIVATE void dmtcpResetTid(pid_t tid)
 {
   _dmtcp_thread_tid = tid;
 }
@@ -92,12 +93,10 @@ void dmtcpResetTid(pid_t tid)
  * plugins are called in the reverse order during restart/resume phase, we can
  * call this function while processing RESTART event.
  */
-extern "C"
-void dmtcp_update_ppid()
+extern "C" void dmtcp_update_ppid()
 {
   if (_dmtcp_ppid != 1) {
-    VirtualPidTable::instance().updateMapping(_dmtcp_ppid,
-                                                     _real_getppid());
+    VirtualPidTable::instance().updateMapping(_dmtcp_ppid, _real_getppid());
   }
 }
 
@@ -110,7 +109,7 @@ extern "C" pid_t gettid()
   if (_dmtcp_thread_tid == -1) {
     _dmtcp_thread_tid = getpid();
     // Make sure this is the motherofall thread.
-    JASSERT(_real_gettid() == _real_getpid()) (_real_gettid()) (_real_getpid());
+    JASSERT(_real_gettid() == _real_getpid())(_real_gettid())(_real_getpid());
   }
   return _dmtcp_thread_tid;
 }
@@ -139,11 +138,11 @@ extern "C" pid_t tcsetpgrp(int fd, pid_t pgrp)
   DMTCP_PLUGIN_DISABLE_CKPT();
 
   pid_t currPgrp = VIRTUAL_TO_REAL_PID(pgrp);
-//  JTRACE("Inside tcsetpgrp wrapper") (fd) (pgrp) (currPgrp);
+  //  JTRACE("Inside tcsetpgrp wrapper") (fd) (pgrp) (currPgrp);
   pid_t realPid = _real_tcsetpgrp(fd, currPgrp);
   pid_t virtualPid = REAL_TO_VIRTUAL_PID(realPid);
 
-  //JTRACE("tcsetpgrp return value") (fd) (pgrp) (currPgrp) (retval);
+  // JTRACE("tcsetpgrp return value") (fd) (pgrp) (currPgrp) (retval);
   DMTCP_PLUGIN_ENABLE_CKPT();
 
   return virtualPid;
@@ -155,7 +154,7 @@ extern "C" pid_t tcgetpgrp(int fd)
 
   pid_t retval = REAL_TO_VIRTUAL_PID(_real_tcgetpgrp(fd));
 
-  JTRACE("tcgetpgrp return value") (fd) (retval);
+  JTRACE("tcgetpgrp return value")(fd)(retval);
   DMTCP_PLUGIN_ENABLE_CKPT();
 
   return retval;
@@ -167,7 +166,7 @@ extern "C" pid_t tcgetsid(int fd)
 
   pid_t retval = REAL_TO_VIRTUAL_PID(_real_tcgetsid(fd));
 
-  JTRACE("tcgetsid return value") (fd) (retval);
+  JTRACE("tcgetsid return value")(fd)(retval);
   DMTCP_PLUGIN_ENABLE_CKPT();
 
   return retval;
@@ -178,7 +177,7 @@ extern "C" pid_t getpgrp(void)
   DMTCP_PLUGIN_DISABLE_CKPT();
 
   pid_t pgrp = _real_getpgrp();
-  pid_t origPgrp =  REAL_TO_VIRTUAL_PID(pgrp);
+  pid_t origPgrp = REAL_TO_VIRTUAL_PID(pgrp);
 
   DMTCP_PLUGIN_ENABLE_CKPT();
 
@@ -201,23 +200,23 @@ extern "C" pid_t getpgid(pid_t pid)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
 
-  pid_t realPid = VIRTUAL_TO_REAL_PID (pid);
-  pid_t res = _real_getpgid (realPid);
-  pid_t origPgid = REAL_TO_VIRTUAL_PID (res);
+  pid_t realPid = VIRTUAL_TO_REAL_PID(pid);
+  pid_t res = _real_getpgid(realPid);
+  pid_t origPgid = REAL_TO_VIRTUAL_PID(res);
 
   DMTCP_PLUGIN_ENABLE_CKPT();
 
   return origPgid;
 }
 
-extern "C" int   setpgid(pid_t pid, pid_t pgid)
+extern "C" int setpgid(pid_t pid, pid_t pgid)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
 
-  pid_t currPid = VIRTUAL_TO_REAL_PID (pid);
-  pid_t currPgid = VIRTUAL_TO_REAL_PID (pgid);
+  pid_t currPid = VIRTUAL_TO_REAL_PID(pid);
+  pid_t currPgid = VIRTUAL_TO_REAL_PID(pgid);
 
-  int retVal = _real_setpgid (currPid, currPgid);
+  int retVal = _real_setpgid(currPid, currPgid);
 
   DMTCP_PLUGIN_ENABLE_CKPT();
 
@@ -232,13 +231,13 @@ extern "C" pid_t getsid(pid_t pid)
 
   // If !pid then we ask SID of this process
   if (pid)
-    currPid = VIRTUAL_TO_REAL_PID (pid);
+    currPid = VIRTUAL_TO_REAL_PID(pid);
   else
     currPid = _real_getpid();
 
-  pid_t res = _real_getsid (currPid);
+  pid_t res = _real_getsid(currPid);
 
-  pid_t origSid = REAL_TO_VIRTUAL_PID (res);
+  pid_t origSid = REAL_TO_VIRTUAL_PID(res);
 
   DMTCP_PLUGIN_ENABLE_CKPT();
 
@@ -250,14 +249,14 @@ extern "C" pid_t setsid(void)
   DMTCP_PLUGIN_DISABLE_CKPT();
 
   pid_t pid = _real_setsid();
-  pid_t origPid = REAL_TO_VIRTUAL_PID (pid);
+  pid_t origPid = REAL_TO_VIRTUAL_PID(pid);
 
   DMTCP_PLUGIN_ENABLE_CKPT();
 
   return origPid;
 }
 
-extern "C" int   kill(pid_t pid, int sig)
+extern "C" int kill(pid_t pid, int sig)
 {
   /* FIXME: When bash receives a SIGINT signal, the signal handler is
    * called to process the signal. Once the processing is done, bash
@@ -314,13 +313,13 @@ extern "C" int   kill(pid_t pid, int sig)
    * callframe like the one mentioned above.
    *
    */
-//  DMTCP_PLUGIN_DISABLE_CKPT();
+  //  DMTCP_PLUGIN_DISABLE_CKPT();
 
-  pid_t currPid = VIRTUAL_TO_REAL_PID (pid);
+  pid_t currPid = VIRTUAL_TO_REAL_PID(pid);
 
-  int retVal = _real_kill (currPid, sig);
+  int retVal = _real_kill(currPid, sig);
 
-//  DMTCP_PLUGIN_ENABLE_CKPT();
+  //  DMTCP_PLUGIN_ENABLE_CKPT();
 
   return retVal;
 }
@@ -329,13 +328,13 @@ LIB_PRIVATE
 int tkill(int tid, int sig)
 {
   // FIXME: Check the comments in kill()
-//  DMTCP_PLUGIN_DISABLE_CKPT();
+  //  DMTCP_PLUGIN_DISABLE_CKPT();
 
-  int realTid = VIRTUAL_TO_REAL_PID (tid);
+  int realTid = VIRTUAL_TO_REAL_PID(tid);
 
-  int retVal = _real_tkill (realTid, sig);
+  int retVal = _real_tkill(realTid, sig);
 
-//  DMTCP_PLUGIN_ENABLE_CKPT();
+  //  DMTCP_PLUGIN_ENABLE_CKPT();
 
   return retVal;
 }
@@ -344,20 +343,19 @@ LIB_PRIVATE
 int tgkill(int tgid, int tid, int sig)
 {
   // FIXME: Check the comments in kill()
-//  DMTCP_PLUGIN_DISABLE_CKPT();
+  //  DMTCP_PLUGIN_DISABLE_CKPT();
 
-  int realTgid = VIRTUAL_TO_REAL_PID (tgid);
-  int realTid = VIRTUAL_TO_REAL_PID (tid);
+  int realTgid = VIRTUAL_TO_REAL_PID(tgid);
+  int realTid = VIRTUAL_TO_REAL_PID(tid);
 
-  int retVal = _real_tgkill (realTgid, realTid, sig);
+  int retVal = _real_tgkill(realTgid, realTid, sig);
 
-//  DMTCP_PLUGIN_ENABLE_CKPT();
+  //  DMTCP_PLUGIN_ENABLE_CKPT();
 
   return retVal;
 }
 
-
-//long sys_tgkill (int tgid, int pid, int sig)
+// long sys_tgkill (int tgid, int pid, int sig)
 
 /*
  * TODO: Add the wrapper protection for wait() family of system calls.
@@ -366,17 +364,17 @@ int tgkill(int tgid, int tid, int sig)
  *                                                      --KAPIL
  */
 
-extern "C" pid_t wait (__WAIT_STATUS stat_loc)
+extern "C" pid_t wait(__WAIT_STATUS stat_loc)
 {
   return waitpid(-1, (int*)stat_loc, 0);
 }
 
-extern "C" pid_t waitpid(pid_t pid, int *stat_loc, int options)
+extern "C" pid_t waitpid(pid_t pid, int* stat_loc, int options)
 {
   return wait4(pid, stat_loc, options, NULL);
 }
 
-extern "C" int waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options)
+extern "C" int waitid(idtype_t idtype, id_t id, siginfo_t* infop, int options)
 {
   int retval = 0;
   struct timespec ts = {0, 1000};
@@ -397,11 +395,11 @@ extern "C" int waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options)
    */
   while (retval == 0) {
     DMTCP_PLUGIN_DISABLE_CKPT();
-    pid_t currPid = VIRTUAL_TO_REAL_PID (id);
-    retval = _real_waitid (idtype, currPid, &siginfop, options | WNOHANG);
+    pid_t currPid = VIRTUAL_TO_REAL_PID(id);
+    retval = _real_waitid(idtype, currPid, &siginfop, options | WNOHANG);
 
     if (retval != -1) {
-      pid_t virtualPid = REAL_TO_VIRTUAL_PID (siginfop.si_pid);
+      pid_t virtualPid = REAL_TO_VIRTUAL_PID(siginfop.si_pid);
       siginfop.si_pid = virtualPid;
 
       if (siginfop.si_code == CLD_EXITED || siginfop.si_code == CLD_KILLED)
@@ -409,13 +407,11 @@ extern "C" int waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options)
     }
     DMTCP_PLUGIN_ENABLE_CKPT();
 
-    if ((options & WNOHANG) ||
-        retval == -1 ||
-        siginfop.si_pid != 0) {
+    if ((options & WNOHANG) || retval == -1 || siginfop.si_pid != 0) {
       break;
     } else {
       nanosleep(&ts, NULL);
-      if (TIMESPEC_CMP(&ts, &maxts, <)) {
+      if (TIMESPEC_CMP(&ts, &maxts, < )) {
         TIMESPEC_ADD(&ts, &ts, &ts);
       }
     }
@@ -428,7 +424,7 @@ extern "C" int waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options)
   return retval;
 }
 
-extern "C" pid_t wait3(__WAIT_STATUS status, int options, struct rusage *rusage)
+extern "C" pid_t wait3(__WAIT_STATUS status, int options, struct rusage* rusage)
 {
   return wait4(-1, status, options, rusage);
 }
@@ -465,8 +461,10 @@ extern "C" pid_t wait3(__WAIT_STATUS status, int options, struct rusage *rusage)
  * 1 second. We hope that it would cover all the cases.
  *
  */
-extern "C"
-pid_t wait4(pid_t pid, __WAIT_STATUS status, int options, struct rusage *rusage)
+extern "C" pid_t wait4(pid_t pid,
+                       __WAIT_STATUS status,
+                       int options,
+                       struct rusage* rusage)
 {
   int stat;
   int saved_errno = errno;
@@ -476,8 +474,7 @@ pid_t wait4(pid_t pid, __WAIT_STATUS status, int options, struct rusage *rusage)
   struct timespec ts = {0, 1000};
   const struct timespec maxts = {1, 0};
 
-  if (status == NULL)
-    status = (__WAIT_STATUS) &stat;
+  if (status == NULL) status = (__WAIT_STATUS)&stat;
 
   while (retval == 0) {
     DMTCP_PLUGIN_DISABLE_CKPT();
@@ -496,7 +493,7 @@ pid_t wait4(pid_t pid, __WAIT_STATUS status, int options, struct rusage *rusage)
       break;
     } else {
       nanosleep(&ts, NULL);
-      if (TIMESPEC_CMP(&ts, &maxts, <)) {
+      if (TIMESPEC_CMP(&ts, &maxts, < )) {
         TIMESPEC_ADD(&ts, &ts, &ts);
       }
     }
@@ -505,39 +502,39 @@ pid_t wait4(pid_t pid, __WAIT_STATUS status, int options, struct rusage *rusage)
   return virtualPid;
 }
 
-extern "C" long ptrace (enum __ptrace_request request, ...)
+extern "C" long ptrace(enum __ptrace_request request, ...)
 {
   va_list ap;
   pid_t virtualPid;
   pid_t realPid;
-  void *addr;
-  void *data;
+  void* addr;
+  void* data;
 
   va_start(ap, request);
   virtualPid = va_arg(ap, pid_t);
-  addr = va_arg(ap, void *);
-  data = va_arg(ap, void *);
+  addr = va_arg(ap, void*);
+  data = va_arg(ap, void*);
   va_end(ap);
 
   realPid = VIRTUAL_TO_REAL_PID(virtualPid);
-  long ptrace_ret =  _real_ptrace(request, realPid, addr, data);
+  long ptrace_ret = _real_ptrace(request, realPid, addr, data);
 
-  /*
-   * PTRACE_GETEVENTMSG (since Linux 2.5.46)
-   *          Retrieve  a message (as an unsigned long) about the ptrace event
-   *          that just happened, placing it in the location data in the
-   *          parent.  For PTRACE_EVENT_EXIT this is the child's exit status.
-   *          For PTRACE_EVENT_FORK, PTRACE_EVENT_VFORK and PTRACE_EVENT_CLONE
-   *          this is the PID  of the new process.  Since Linux 2.6.18, the PID
-   *          of the new process is also available for PTRACE_EVENT_VFORK_DONE.
-   *          (addr is ignored.)
-   */
+/*
+ * PTRACE_GETEVENTMSG (since Linux 2.5.46)
+ *          Retrieve  a message (as an unsigned long) about the ptrace event
+ *          that just happened, placing it in the location data in the
+ *          parent.  For PTRACE_EVENT_EXIT this is the child's exit status.
+ *          For PTRACE_EVENT_FORK, PTRACE_EVENT_VFORK and PTRACE_EVENT_CLONE
+ *          this is the PID  of the new process.  Since Linux 2.6.18, the PID
+ *          of the new process is also available for PTRACE_EVENT_VFORK_DONE.
+ *          (addr is ignored.)
+ */
 
 #ifdef PT_GETEVENTMSG
   if (ptrace_ret == 0 && request == PTRACE_GETEVENTMSG) {
-    unsigned long *ldata = (unsigned long*) data;
-    pid_t newRealPid =  (pid_t) *ldata;
-    *ldata = (unsigned long) REAL_TO_VIRTUAL_PID(newRealPid);
+    unsigned long* ldata = (unsigned long*)data;
+    pid_t newRealPid = (pid_t)*ldata;
+    *ldata = (unsigned long)REAL_TO_VIRTUAL_PID(newRealPid);
   }
 #endif
 
@@ -548,10 +545,10 @@ extern "C" int fcntl(int fd, int cmd, ...)
 {
   va_list ap;
   // Handling the variable number of arguments
-  void *arg_in = NULL;
-  void *arg = NULL;
+  void* arg_in = NULL;
+  void* arg = NULL;
   va_start(ap, cmd);
-  arg_in = va_arg(ap, void *);
+  arg_in = va_arg(ap, void*);
   va_end(ap);
 
   arg = arg_in;
@@ -559,8 +556,8 @@ extern "C" int fcntl(int fd, int cmd, ...)
   DMTCP_PLUGIN_DISABLE_CKPT();
 
   if (cmd == F_SETOWN) {
-    pid_t virtualPid = VIRTUAL_TO_REAL_PID((pid_t) (unsigned long) arg_in);
-    arg = (void*) (unsigned long) virtualPid;
+    pid_t virtualPid = VIRTUAL_TO_REAL_PID((pid_t)(unsigned long) arg_in);
+    arg = (void*)(unsigned long) virtualPid;
   }
 
   int result = _real_fcntl(fd, cmd, arg);
@@ -589,13 +586,14 @@ extern "C" int setuid(uid_t uid)
 // long sys_set_tid_address(int __user *tidptr);
 // extern "C" int   sigqueue(pid_t pid, int signo, const union sigval value)
 
-
 // long sys_getuid(void);
 // long sys_geteuid(void);
 // long sys_getgid(void);
 // long sys_getegid(void);
-// long sys_getresuid(uid_t __user *ruid, uid_t __user *euid, uid_t __user *suid);
-// long sys_getresgid(gid_t __user *rgid, gid_t __user *egid, gid_t __user *sgid);
+// long sys_getresuid(uid_t __user *ruid, uid_t __user *euid, uid_t __user
+// *suid);
+// long sys_getresgid(gid_t __user *rgid, gid_t __user *egid, gid_t __user
+// *sgid);
 // long sys_getpgrp(void);
 // long sys_getgroups(int gidsetsize, gid_t __user *grouplist);
 //
@@ -694,7 +692,7 @@ extern "C" int setuid(uid_t uid)
 // 			     gid_t group, int flag);
 //
 // long sys_get_robust_list(int pid,
-// 				    struct robust_list_head __user * __user *head_ptr,
+// 				    struct robust_list_head __user * __user
+// *head_ptr,
 // 				    size_t __user *len_ptr);
 //
-

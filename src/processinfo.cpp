@@ -30,8 +30,8 @@
 #include "uniquepid.h"
 #include "processinfo.h"
 #include "coordinatorapi.h"
-#include  "../jalib/jconvert.h"
-#include  "../jalib/jfilesystem.h"
+#include "../jalib/jconvert.h"
+#include "../jalib/jfilesystem.h"
 
 using namespace dmtcp;
 
@@ -41,36 +41,32 @@ static int roundingMode;
 
 static void _do_lock_tbl()
 {
-  JASSERT(_real_pthread_mutex_lock(&tblLock) == 0) (JASSERT_ERRNO);
+  JASSERT(_real_pthread_mutex_lock(&tblLock) == 0)(JASSERT_ERRNO);
 }
 
 static void _do_unlock_tbl()
 {
-  JASSERT(_real_pthread_mutex_unlock(&tblLock) == 0) (JASSERT_ERRNO);
+  JASSERT(_real_pthread_mutex_unlock(&tblLock) == 0)(JASSERT_ERRNO);
 }
 
-void dmtcp_ProcessInfo_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
+void dmtcp_ProcessInfo_EventHook(DmtcpEvent_t event, DmtcpEventData_t* data)
 {
   switch (event) {
     case DMTCP_EVENT_INIT:
       ProcessInfo::instance().init();
       break;
 
-    case DMTCP_EVENT_PRE_EXEC:
-      {
-        jalib::JBinarySerializeWriterRaw wr("", data->serializerInfo.fd);
-        ProcessInfo::instance().refresh();
-        ProcessInfo::instance().serialize(wr);
-      }
-      break;
+    case DMTCP_EVENT_PRE_EXEC: {
+      jalib::JBinarySerializeWriterRaw wr("", data->serializerInfo.fd);
+      ProcessInfo::instance().refresh();
+      ProcessInfo::instance().serialize(wr);
+    } break;
 
-    case DMTCP_EVENT_POST_EXEC:
-      {
-        jalib::JBinarySerializeReaderRaw rd("", data->serializerInfo.fd);
-        ProcessInfo::instance().serialize(rd);
-        ProcessInfo::instance().postExec();
-      }
-      break;
+    case DMTCP_EVENT_POST_EXEC: {
+      jalib::JBinarySerializeReaderRaw rd("", data->serializerInfo.fd);
+      ProcessInfo::instance().serialize(rd);
+      ProcessInfo::instance().postExec();
+    } break;
 
     case DMTCP_EVENT_DRAIN:
       ProcessInfo::instance().refresh();
@@ -128,7 +124,7 @@ ProcessInfo::ProcessInfo()
   _do_unlock_tbl();
 }
 
-static ProcessInfo *pInfo = NULL;
+static ProcessInfo* pInfo = NULL;
 ProcessInfo& ProcessInfo::instance()
 {
   if (pInfo == NULL) {
@@ -143,7 +139,7 @@ void ProcessInfo::growStack()
   struct rlimit rlim;
   size_t stackSize;
   const rlim_t eightMB = 8 * MB;
-  JASSERT(getrlimit(RLIMIT_STACK, &rlim) == 0) (JASSERT_ERRNO);
+  JASSERT(getrlimit(RLIMIT_STACK, &rlim) == 0)(JASSERT_ERRNO);
   if (rlim.rlim_cur == RLIM_INFINITY) {
     if (rlim.rlim_max == RLIM_INFINITY) {
       stackSize = 8 * 1024 * 1024;
@@ -158,36 +154,36 @@ void ProcessInfo::growStack()
   ProcMapsArea area;
   bool flag = false;
   size_t allocSize;
-  void *tmpbuf;
+  void* tmpbuf;
   int fd = _real_open("/proc/self/maps", O_RDONLY);
-  JASSERT(fd != -1) (JASSERT_ERRNO);
+  JASSERT(fd != -1)(JASSERT_ERRNO);
   while (Util::readProcMapsLine(fd, &area)) {
     if (strcmp(area.name, "[heap]") == 0) {
       // Record start of heap which will later be used to restore heap
-      _savedHeapStart = (unsigned long) area.addr;
+      _savedHeapStart = (unsigned long)area.addr;
     }
-    if ((VA) &area >= area.addr && (VA) &area < area.endAddr) {
+    if ((VA)&area >= area.addr && (VA)&area < area.endAddr) {
       // Stack found
       flag = true;
       break;
     }
   }
   _real_close(fd);
-  JTRACE("Original stack area") ((void*)area.addr) (area.size);
+  JTRACE("Original stack area")((void*)area.addr)(area.size);
   JASSERT(flag && area.addr != NULL);
 
   // Grow the stack
   {
     allocSize = stackSize - area.size - 4095;
     tmpbuf = alloca(allocSize);
-    JASSERT(tmpbuf != NULL) (JASSERT_ERRNO);
+    JASSERT(tmpbuf != NULL)(JASSERT_ERRNO);
     memset(tmpbuf, 0, allocSize);
   }
 
 #ifdef DEBUG
   {
     int fd = _real_open("/proc/self/maps", O_RDONLY);
-    JASSERT(fd != -1) (JASSERT_ERRNO);
+    JASSERT(fd != -1)(JASSERT_ERRNO);
     while (Util::readProcMapsLine(fd, &area)) {
       if ((VA)&area >= area.addr && (VA)&area < area.endAddr) { // Stack found
         area = area;
@@ -195,7 +191,7 @@ void ProcessInfo::growStack()
       }
     }
     _real_close(fd);
-    JTRACE("New stack size") ((void*)area.addr) (area.size);
+    JTRACE("New stack size")((void*)area.addr)(area.size);
   }
 #endif
 }
@@ -214,12 +210,16 @@ void ProcessInfo::init()
   _restoreBufLen = RESTORE_TOTAL_SIZE;
   // Allocate two extra pages -- one at the start, one at the end -- to work as
   // guard pages for the restore area.
-  void *addr =  mmap(NULL, _restoreBufLen + (2 * 4096), PROT_READ,
-                     MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
-  JASSERT(addr != MAP_FAILED) (JASSERT_ERRNO);
-  _restoreBufAddr = (uint64_t) addr + 4096;
+  void* addr = mmap(NULL,
+                    _restoreBufLen + (2 * 4096),
+                    PROT_READ,
+                    MAP_PRIVATE | MAP_ANONYMOUS,
+                    -1,
+                    0);
+  JASSERT(addr != MAP_FAILED)(JASSERT_ERRNO);
+  _restoreBufAddr = (uint64_t)addr + 4096;
   JASSERT(mprotect((void*)_restoreBufAddr, _restoreBufLen, PROT_NONE) == 0)
-    ((void*)_restoreBufAddr) (_restoreBufLen) (JASSERT_ERRNO);
+  ((void*)_restoreBufAddr)(_restoreBufLen)(JASSERT_ERRNO);
 
   if (_ckptDir.empty()) {
     updateCkptDirFileSubdir();
@@ -233,7 +233,7 @@ void ProcessInfo::updateCkptDirFileSubdir(string newCkptDir)
   }
 
   if (_ckptDir.empty()) {
-    const char *dir = getenv(ENV_VAR_CHECKPOINT_DIR);
+    const char* dir = getenv(ENV_VAR_CHECKPOINT_DIR);
     if (dir == NULL) {
       dir = ".";
     }
@@ -241,10 +241,8 @@ void ProcessInfo::updateCkptDirFileSubdir(string newCkptDir)
   }
 
   ostringstream o;
-  o << _ckptDir << "/"
-    << CKPT_FILE_PREFIX
-    << jalib::Filesystem::GetProgramName()
-    << '_' << UniquePid::ThisProcess();
+  o << _ckptDir << "/" << CKPT_FILE_PREFIX
+    << jalib::Filesystem::GetProgramName() << '_' << UniquePid::ThisProcess();
 
   _ckptFileName = o.str() + CKPT_FILE_SUFFIX;
   _ckptFilesSubDir = o.str() + CKPT_FILES_SUBDIR_SUFFIX;
@@ -252,9 +250,9 @@ void ProcessInfo::updateCkptDirFileSubdir(string newCkptDir)
 
 void ProcessInfo::postExec()
 {
-  _procname   = jalib::Filesystem::GetProgramName();
-  _upid       = UniquePid::ThisProcess();
-  _uppid      = UniquePid::ParentProcess();
+  _procname = jalib::Filesystem::GetProgramName();
+  _upid = UniquePid::ThisProcess();
+  _uppid = UniquePid::ParentProcess();
   updateCkptDirFileSubdir();
 }
 
@@ -279,20 +277,20 @@ void ProcessInfo::restoreHeap()
    * happens when the size of checkpointed program is smaller then the size of
    * mtcp_restart program.
    */
-  VA curBrk = (char*) sbrk(0);
-  if ((uint64_t) curBrk > _savedBrk) {
+  VA curBrk = (char*)sbrk(0);
+  if ((uint64_t)curBrk > _savedBrk) {
     JNOTE("Area between saved_break and curr_break not mapped, mapping it now")
-      (_savedBrk) (curBrk);
+    (_savedBrk)(curBrk);
     size_t oldsize = _savedBrk - _savedHeapStart;
-    size_t newsize = (size_t) (curBrk - _savedHeapStart);
+    size_t newsize = (size_t)(curBrk - _savedHeapStart);
 
-    JASSERT(mremap((void*) _savedHeapStart, oldsize, newsize, 0) != NULL)
-      (_savedBrk) (curBrk)
-      .Text("mremap failed to map area between saved break and current break");
-  } else if ((uint64_t) curBrk < _savedBrk) {
+    JASSERT(mremap((void*)_savedHeapStart, oldsize, newsize, 0) != NULL)
+    (_savedBrk)(curBrk).Text(
+        "mremap failed to map area between saved break and current break");
+  } else if ((uint64_t)curBrk < _savedBrk) {
     if (brk((void*)_savedBrk) != 0) {
       JNOTE("Failed to restore area between saved_break and curr_break.")
-        (_savedBrk) (curBrk) (JASSERT_ERRNO);
+      (_savedBrk)(curBrk)(JASSERT_ERRNO);
     }
   }
 }
@@ -300,7 +298,7 @@ void ProcessInfo::restoreHeap()
 void ProcessInfo::restart()
 {
   JASSERT(mprotect((void*)_restoreBufAddr, _restoreBufLen, PROT_NONE) == 0)
-    ((void*)_restoreBufAddr) (_restoreBufLen) (JASSERT_ERRNO);
+  ((void*)_restoreBufAddr)(_restoreBufLen)(JASSERT_ERRNO);
 
   restoreHeap();
 
@@ -318,10 +316,10 @@ void ProcessInfo::restart()
       // _launchCWD = "/A/B"; _ckptCWD = "/A/B/C" -> rpath = "./c"
       rpath = "./" + _ckptCWD.substr(llen + 1);
       if (chdir(rpath.c_str()) == 0) {
-        JTRACE("Changed cwd") (_launchCWD) (_ckptCWD) (_launchCWD + rpath);
+        JTRACE("Changed cwd")(_launchCWD)(_ckptCWD)(_launchCWD + rpath);
       } else {
-        JWARNING(chdir(_ckptCWD.c_str()) == 0) (_ckptCWD) (_launchCWD)
-          (JASSERT_ERRNO) .Text("Failed to change directory to _ckptCWD");
+        JWARNING(chdir(_ckptCWD.c_str()) == 0)(_ckptCWD)(_launchCWD)(
+            JASSERT_ERRNO).Text("Failed to change directory to _ckptCWD");
       }
     }
   }
@@ -335,11 +333,11 @@ void ProcessInfo::restoreProcessGroupInfo()
     // Group ID is known inside checkpointed processes
     if (_gid != cgid) {
       JTRACE("Restore Group Assignment")
-        (_gid) (_fgid) (cgid) (_pid) (_ppid) (getppid());
-      JWARNING(setpgid(0, _gid) == 0) (_gid) (JASSERT_ERRNO)
-        .Text("Cannot change group information");
+      (_gid)(_fgid)(cgid)(_pid)(_ppid)(getppid());
+      JWARNING(setpgid(0, _gid) == 0)(_gid)(JASSERT_ERRNO)
+          .Text("Cannot change group information");
     } else {
-      JTRACE("Group is already assigned") (_gid) (cgid);
+      JTRACE("Group is already assigned")(_gid)(cgid);
     }
   } else {
     JTRACE("SKIP Group information, GID unknown");
@@ -350,21 +348,20 @@ void ProcessInfo::insertChild(pid_t pid, UniquePid uniquePid)
 {
   _do_lock_tbl();
   iterator i = _childTable.find(pid);
-  JWARNING(i == _childTable.end()) (pid) (uniquePid) (i->second)
-    .Text("child pid already exists!");
+  JWARNING(i == _childTable.end())(pid)(uniquePid)(i->second)
+      .Text("child pid already exists!");
 
   _childTable[pid] = uniquePid;
   _do_unlock_tbl();
 
-  JTRACE("Creating new virtualPid -> realPid mapping.") (pid) (uniquePid);
+  JTRACE("Creating new virtualPid -> realPid mapping.")(pid)(uniquePid);
 }
 
 void ProcessInfo::eraseChild(pid_t virtualPid)
 {
   _do_lock_tbl();
   iterator i = _childTable.find(virtualPid);
-  if (i != _childTable.end())
-    _childTable.erase(virtualPid);
+  if (i != _childTable.end()) _childTable.erase(virtualPid);
   _do_unlock_tbl();
 }
 
@@ -414,7 +411,7 @@ void ProcessInfo::endPthreadJoin(pthread_t thread)
   _do_unlock_tbl();
 }
 
-void ProcessInfo::setCkptFilename(const char *filename)
+void ProcessInfo::setCkptFilename(const char* filename)
 {
   JASSERT(filename != NULL);
   if (filename[0] == '/') {
@@ -426,24 +423,24 @@ void ProcessInfo::setCkptFilename(const char *filename)
 
   if (Util::strEndsWith(_ckptFileName, CKPT_FILE_SUFFIX)) {
     string ckptFileBaseName =
-      _ckptFileName.substr(0, _ckptFileName.length() - CKPT_FILE_SUFFIX_LEN);
-    _ckptFilesSubDir = ckptFileBaseName +CKPT_FILES_SUBDIR_SUFFIX;
+        _ckptFileName.substr(0, _ckptFileName.length() - CKPT_FILE_SUFFIX_LEN);
+    _ckptFilesSubDir = ckptFileBaseName + CKPT_FILES_SUBDIR_SUFFIX;
   } else {
     _ckptFilesSubDir = _ckptFileName + CKPT_FILES_SUBDIR_SUFFIX;
   }
 }
 
-
-void ProcessInfo::setCkptDir(const char *dir)
+void ProcessInfo::setCkptDir(const char* dir)
 {
   JASSERT(dir != NULL);
   _ckptDir = dir;
   _ckptFileName = _ckptDir + "/" + jalib::Filesystem::BaseName(_ckptFileName);
-  _ckptFilesSubDir = _ckptDir + "/" + jalib::Filesystem::BaseName(_ckptFilesSubDir);
+  _ckptFilesSubDir =
+      _ckptDir + "/" + jalib::Filesystem::BaseName(_ckptFilesSubDir);
 
-  JTRACE("setting ckptdir") (_ckptDir) (_ckptFilesSubDir);
-  //JASSERT(access(_ckptDir.c_str(), X_OK|W_OK) == 0) (_ckptDir)
-    //.Text("Missing execute- or write-access to checkpoint dir.");
+  JTRACE("setting ckptdir")(_ckptDir)(_ckptFilesSubDir);
+  // JASSERT(access(_ckptDir.c_str(), X_OK|W_OK) == 0) (_ckptDir)
+  //.Text("Missing execute- or write-access to checkpoint dir.");
 }
 
 void ProcessInfo::refresh()
@@ -501,27 +498,27 @@ void ProcessInfo::refreshChildTable()
 void ProcessInfo::serialize(jalib::JBinarySerializer& o)
 {
   JSERIALIZE_ASSERT_POINT("ProcessInfo:");
-  _savedBrk = (uint64_t) sbrk(0);
+  _savedBrk = (uint64_t)sbrk(0);
 
-  o & _elfType;
-  o & _isRootOfProcessTree & _pid & _sid & _ppid & _gid & _fgid;
-  o & _procname & _hostname & _launchCWD & _ckptCWD & _upid & _uppid;
-  o & _compGroup & _numPeers & _noCoordinator & _argvSize & _envSize;
-  o & _restoreBufAddr & _savedHeapStart & _savedBrk;
-  o & _ckptDir & _ckptFileName & _ckptFilesSubDir;
+  o& _elfType;
+  o& _isRootOfProcessTree& _pid& _sid& _ppid& _gid& _fgid;
+  o& _procname& _hostname& _launchCWD& _ckptCWD& _upid& _uppid;
+  o& _compGroup& _numPeers& _noCoordinator& _argvSize& _envSize;
+  o& _restoreBufAddr& _savedHeapStart& _savedBrk;
+  o& _ckptDir& _ckptFileName& _ckptFilesSubDir;
 
   JTRACE("Serialized process information")
-    (_sid) (_ppid) (_gid) (_fgid)
-    (_procname) (_hostname) (_launchCWD) (_ckptCWD) (_upid) (_uppid)
-    (_compGroup) (_numPeers) (_noCoordinator) (_argvSize) (_envSize) (_elfType);
+  (_sid)(_ppid)(_gid)(_fgid)(_procname)(_hostname)(_launchCWD)(_ckptCWD)(_upid)(
+      _uppid)(_compGroup)(_numPeers)(_noCoordinator)(_argvSize)(_envSize)(
+      _elfType);
 
-  JASSERT(!_noCoordinator || _numPeers == 1) (_noCoordinator) (_numPeers);
+  JASSERT(!_noCoordinator || _numPeers == 1)(_noCoordinator)(_numPeers);
 
   if (_isRootOfProcessTree) {
     JTRACE("This process is Root of Process Tree");
   }
 
-  JTRACE("Serializing ChildPid Table") (_childTable.size()) (o.filename());
+  JTRACE("Serializing ChildPid Table")(_childTable.size())(o.filename());
   o.serializeMap(_childTable);
 
   JSERIALIZE_ASSERT_POINT("EOF");

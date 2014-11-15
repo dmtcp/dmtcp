@@ -35,58 +35,53 @@ extern "C" pid_t dmtcp_update_ppid();
 
 static string pidMapFile;
 
-extern "C"
-pid_t dmtcp_real_to_virtual_pid(pid_t realPid)
+extern "C" pid_t dmtcp_real_to_virtual_pid(pid_t realPid)
 {
   return REAL_TO_VIRTUAL_PID(realPid);
 }
 
-extern "C"
-pid_t dmtcp_virtual_to_real_pid(pid_t virtualPid)
+extern "C" pid_t dmtcp_virtual_to_real_pid(pid_t virtualPid)
 {
   return VIRTUAL_TO_REAL_PID(virtualPid);
 }
 
-extern "C"
-pid_t dmtcp_get_real_pid()
+extern "C" pid_t dmtcp_get_real_pid()
 {
   return _real_getpid();
 }
 
-extern "C"
-pid_t dmtcp_get_real_tid()
+extern "C" pid_t dmtcp_get_real_tid()
 {
   return _real_gettid();
 }
 
-extern "C"
-int dmtcp_real_tgkill(pid_t tgid, pid_t tid, int sig)
+extern "C" int dmtcp_real_tgkill(pid_t tgid, pid_t tid, int sig)
 {
   return _real_tgkill(tgid, tid, sig);
 }
 
-static void pidVirt_AtForkParent(DmtcpEventData_t *data)
+static void pidVirt_AtForkParent(DmtcpEventData_t* data)
 {
   Util::setVirtualPidEnvVar(getpid(), getppid());
 }
 
-static void pidVirt_ResetOnFork(DmtcpEventData_t *data)
+static void pidVirt_ResetOnFork(DmtcpEventData_t* data)
 {
   VirtualPidTable::instance().resetOnFork();
 }
 
-static void pidVirt_PrepareForExec(DmtcpEventData_t *data)
+static void pidVirt_PrepareForExec(DmtcpEventData_t* data)
 {
   Util::setVirtualPidEnvVar(getpid(), getppid());
   JASSERT(data != NULL);
-  jalib::JBinarySerializeWriterRaw wr ("", data->serializerInfo.fd);
+  jalib::JBinarySerializeWriterRaw wr("", data->serializerInfo.fd);
   VirtualPidTable::instance().serialize(wr);
 }
 
-static void pidVirt_PostExec(DmtcpEventData_t *data)
+static void pidVirt_PostExec(DmtcpEventData_t* data)
 {
   JASSERT(data != NULL);
-  jalib::JBinarySerializeReaderRaw rd ("", data->serializerInfo.fd);
+  jalib::JBinarySerializeReaderRaw rd("", data->serializerInfo.fd);
   VirtualPidTable::instance().serialize(rd);
   VirtualPidTable::instance().refresh();
 }
@@ -100,7 +95,8 @@ static int openSharedFile(string name, int flags)
   JTRACE("shared file dir:")(dir);
   jalib::Filesystem::mkdir_r(dir, 0755);
 
-  if ((fd = _real_open(name.c_str(), O_EXCL|O_CREAT|O_TRUNC | flags, 0600)) >= 0) {
+  if ((fd = _real_open(
+           name.c_str(), O_EXCL | O_CREAT | O_TRUNC | flags, 0600)) >= 0) {
     return fd;
   }
 
@@ -121,25 +117,23 @@ static void openOriginalToCurrentMappingFiles()
 {
   int fd;
   ostringstream o;
-  o << dmtcp_get_tmpdir() << "/dmtcpPidMap."
-    << dmtcp_get_computation_id_str() << "."
-    << std::hex << dmtcp_get_coordinator_timestamp();
+  o << dmtcp_get_tmpdir() << "/dmtcpPidMap." << dmtcp_get_computation_id_str()
+    << "." << std::hex << dmtcp_get_coordinator_timestamp();
   pidMapFile = o.str();
   // Open and create pidMapFile if it doesn't exist.
   JTRACE("Open dmtcpPidMapFile")(pidMapFile);
   if (!Util::isValidFd(PROTECTED_PIDMAP_FD)) {
     fd = openSharedFile(pidMapFile, O_RDWR);
-    JASSERT (fd != -1);
-    JASSERT (dup2 (fd, PROTECTED_PIDMAP_FD) == PROTECTED_PIDMAP_FD)
-      (pidMapFile);
-    close (fd);
+    JASSERT(fd != -1);
+    JASSERT(dup2(fd, PROTECTED_PIDMAP_FD) == PROTECTED_PIDMAP_FD)
+    (pidMapFile);
+    close(fd);
   }
 }
 
-static void pidVirt_PostRestart(DmtcpEventData_t *data)
+static void pidVirt_PostRestart(DmtcpEventData_t* data)
 {
-  if ( jalib::Filesystem::GetProgramName() == "screen" )
-    send_sigwinch = 1;
+  if (jalib::Filesystem::GetProgramName() == "screen") send_sigwinch = 1;
   // With hardstatus (bottom status line), screen process has diff. size window
   // Must send SIGWINCH to adjust it.
   // MTCP will send SIGWINCH to process on restart.  This will force 'screen'
@@ -155,14 +149,14 @@ static void pidVirt_PostRestart(DmtcpEventData_t *data)
   VirtualPidTable::instance().writeMapsToFile(PROTECTED_PIDMAP_FD);
 }
 
-static void pidVirt_PostRestartRefill(DmtcpEventData_t *data)
+static void pidVirt_PostRestartRefill(DmtcpEventData_t* data)
 {
   VirtualPidTable::instance().readMapsFromFile(PROTECTED_PIDMAP_FD);
   dmtcp_close_protected_fd(PROTECTED_PIDMAP_FD);
   unlink(pidMapFile.c_str());
 }
 
-static void pidVirt_ThreadExit(DmtcpEventData_t *data)
+static void pidVirt_ThreadExit(DmtcpEventData_t* data)
 {
   /* This thread has finished its execution, do some cleanup on our part.
    *  erasing the original_tid entry from virtualpidtable
@@ -173,7 +167,7 @@ static void pidVirt_ThreadExit(DmtcpEventData_t *data)
   VirtualPidTable::instance().erase(tid);
 }
 
-extern "C" void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
+extern "C" void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t* data)
 {
   switch (event) {
     case DMTCP_EVENT_ATFORK_PARENT:

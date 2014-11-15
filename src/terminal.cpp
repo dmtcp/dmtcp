@@ -17,7 +17,7 @@ static struct winsize win;
 static void save_term_settings();
 static void restore_term_settings();
 
-void dmtcp_Terminal_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
+void dmtcp_Terminal_EventHook(DmtcpEvent_t event, DmtcpEventData_t* data)
 {
   switch (event) {
     case DMTCP_EVENT_THREADS_SUSPEND:
@@ -31,7 +31,7 @@ void dmtcp_Terminal_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
         if (getenv("MTCP_RESTART_PAUSE2")) {
           struct timespec delay = {15, 0}; /* 15 seconds */
           printf("Pausing 15 seconds. Do:  gdb <PROGNAME> %d\n",
-          dmtcp_virtual_to_real_pid(getpid()));
+                 dmtcp_virtual_to_real_pid(getpid()));
           nanosleep(&delay, NULL);
         }
       }
@@ -48,14 +48,14 @@ static void save_term_settings()
   tcdrain(STDOUT_FILENO);
   tcdrain(STDERR_FILENO);
 
-  saved_termios_exists = ( isatty(STDIN_FILENO)
-  		           && tcgetattr(STDIN_FILENO, &saved_termios) >= 0 );
-  if (saved_termios_exists)
-    ioctl (STDIN_FILENO, TIOCGWINSZ, (char *) &win);
+  saved_termios_exists =
+      (isatty(STDIN_FILENO) && tcgetattr(STDIN_FILENO, &saved_termios) >= 0);
+  if (saved_termios_exists) ioctl(STDIN_FILENO, TIOCGWINSZ, (char*)&win);
 }
 
-static int safe_tcsetattr(int fd, int optional_actions,
-                          const struct termios *termios_p)
+static int safe_tcsetattr(int fd,
+                          int optional_actions,
+                          const struct termios* termios_p)
 {
   struct termios old_termios, new_termios;
   /* We will compare old and new, and we don't want uninitialized data */
@@ -74,31 +74,31 @@ static int safe_tcsetattr(int fd, int optional_actions,
 // FIXME: Handle Virtual Pids
 static void restore_term_settings()
 {
-  if (saved_termios_exists){
+  if (saved_termios_exists) {
     /* First check if we are in foreground. If not, skip this and print
      *   warning.  If we try to call tcsetattr in background, we will hang up.
      */
     int foreground = (tcgetpgrp(STDIN_FILENO) == getpgrp());
     JTRACE("restore terminal attributes, check foreground status first")
-      (foreground);
+    (foreground);
     if (foreground) {
-      if ( ( ! isatty(STDIN_FILENO)
-             || safe_tcsetattr(STDIN_FILENO, TCSANOW, &saved_termios) == -1) )
-        JWARNING(false) .Text("failed to restore terminal");
+      if ((!isatty(STDIN_FILENO) ||
+           safe_tcsetattr(STDIN_FILENO, TCSANOW, &saved_termios) == -1))
+        JWARNING(false).Text("failed to restore terminal");
       else {
         struct winsize cur_win;
         JTRACE("restored terminal");
-        ioctl (STDIN_FILENO, TIOCGWINSZ, (char *) &cur_win);
-	/* ws_row/ws_col was probably not 0/0 prior to checkpoint.  We change
-	 * it back to last known row/col prior to checkpoint, and then send a
-	 * SIGWINCH (see below) to notify process that window might have changed
-	 */
+        ioctl(STDIN_FILENO, TIOCGWINSZ, (char*)&cur_win);
+        /* ws_row/ws_col was probably not 0/0 prior to checkpoint.  We change
+         * it back to last known row/col prior to checkpoint, and then send a
+         * SIGWINCH (see below) to notify process that window might have changed
+         */
         if (cur_win.ws_row == 0 && cur_win.ws_col == 0)
-          ioctl (STDIN_FILENO, TIOCSWINSZ, (char *) &win);
+          ioctl(STDIN_FILENO, TIOCSWINSZ, (char*)&win);
       }
     } else {
       JWARNING(false)
-        .Text(":skip restore terminal step -- we are in BACKGROUND");
+          .Text(":skip restore terminal step -- we are in BACKGROUND");
     }
   }
   /*
@@ -113,6 +113,6 @@ static void restore_term_settings()
    * or if condition that disables the SIGWINCH using configure or
    * a runtime option (--no-sigwinch).
    */
-  if (kill(getpid(), SIGWINCH) == -1) {}  /* No remedy if error */
+  if (kill(getpid(), SIGWINCH) == -1) {
+  } /* No remedy if error */
 }
-

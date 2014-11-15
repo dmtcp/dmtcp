@@ -34,29 +34,30 @@
 
 using namespace dmtcp;
 
-static string *utilTmpDirPtr = NULL;
-static string &utilTmpDir(){
-  if( utilTmpDirPtr == NULL ){
+static string* utilTmpDirPtr = NULL;
+static string& utilTmpDir()
+{
+  if (utilTmpDirPtr == NULL) {
     utilTmpDirPtr = new string;
   }
   return *utilTmpDirPtr;
 }
 
-void Util::writeCoordPortToFile(const char *port, const char *portFile)
+void Util::writeCoordPortToFile(const char* port, const char* portFile)
 {
   if (port != NULL && portFile != NULL && strlen(portFile) > 0) {
-    int fd = open(portFile, O_CREAT|O_WRONLY|O_TRUNC, 0600);
-    JWARNING(fd != -1) (JASSERT_ERRNO) (portFile)
-      .Text("Failed to open port file.");
+    int fd = open(portFile, O_CREAT | O_WRONLY | O_TRUNC, 0600);
+    JWARNING(fd != -1)(JASSERT_ERRNO)(portFile)
+        .Text("Failed to open port file.");
     writeAll(fd, port, strlen(port));
     fsync(fd);
     close(fd);
   }
 }
 
-string &Util::getTmpDir()
+string& Util::getTmpDir()
 {
-  if( utilTmpDir().length() == 0 ){
+  if (utilTmpDir().length() == 0) {
     setTmpDir(getenv(ENV_VAR_TMPDIR));
   }
   JASSERT(utilTmpDir().length() > 0);
@@ -78,21 +79,21 @@ string &Util::getTmpDir()
  * from dmtcp_launch and dmtcp_restart process and once the user process
  * has been exec()ed, we use getTmpDir() only.
  */
-void Util::setTmpDir(const char *tmpdirenv)
+void Util::setTmpDir(const char* tmpdirenv)
 {
   string tmpDir;
   char hostname[256];
   memset(hostname, 0, sizeof(hostname));
 
-  JASSERT ( gethostname(hostname, sizeof(hostname)) == 0 ||
-	    errno == ENAMETOOLONG ).Text ( "gethostname() failed" );
+  JASSERT(gethostname(hostname, sizeof(hostname)) == 0 || errno == ENAMETOOLONG)
+      .Text("gethostname() failed");
 
   ostringstream o;
 
-  char *userName = const_cast<char *>("");
-  if ( getpwuid ( getuid() ) != NULL ) {
-    userName = getpwuid ( getuid() ) -> pw_name;
-  } else if ( getenv("USER") != NULL ) {
+  char* userName = const_cast<char*>("");
+  if (getpwuid(getuid()) != NULL) {
+    userName = getpwuid(getuid())->pw_name;
+  } else if (getenv("USER") != NULL) {
     userName = getenv("USER");
   }
 
@@ -105,18 +106,15 @@ void Util::setTmpDir(const char *tmpdirenv)
   }
   utilTmpDir() = o.str();
 
-
   JASSERT(mkdir(utilTmpDir().c_str(), S_IRWXU) == 0 || errno == EEXIST)
-          (JASSERT_ERRNO) (utilTmpDir())
-    .Text("Error creating tmp directory");
+  (JASSERT_ERRNO)(utilTmpDir()).Text("Error creating tmp directory");
 
-  JASSERT(0 == access(utilTmpDir().c_str(), X_OK|W_OK)) (utilTmpDir())
-    .Text("ERROR: Missing execute- or write-access to tmp dir");
+  JASSERT(0 == access(utilTmpDir().c_str(), X_OK | W_OK))(utilTmpDir())
+      .Text("ERROR: Missing execute- or write-access to tmp dir");
 }
 
 void Util::initializeLogFile(string procname, string prevLogPath)
 {
-
   UniquePid::ThisProcess(true);
 #ifdef DEBUG
   // Initialize JASSERT library here

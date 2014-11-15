@@ -41,11 +41,11 @@
 
 using namespace dmtcp;
 
-//global counters
+// global counters
 static int numCheckpoints = 0;
-static int numRestarts    = 0;
+static int numRestarts = 0;
 
-//user hook functions
+// user hook functions
 static dmtcp_fnptr_t userHookPreCheckpoint = NULL;
 static dmtcp_fnptr_t userHookPostCheckpoint = NULL;
 static dmtcp_fnptr_t userHookPostRestart = NULL;
@@ -55,32 +55,35 @@ static dmtcp_fnptr_t userHookPostRestart = NULL;
 //I wish we could use pthreads for the trickery in this file, but much of our
 //code is executed before the thread we want to wake is restored.  Thus we do
 //it the bad way.
-# if defined(__i386__) || defined(__x86_64__)
+#if defined(__i386__) || defined(__x86_64__)
 static inline void memfence(){  asm volatile ("mfence" ::: "memory"); }
-# elif defined(__arm__)
+#elif defined(__arm__)
 static inline void memfence(){  asm volatile ("dmb" ::: "memory"); }
 #elif defined(__aarch64__)
-# include "membarrier.h"
+#include "membarrier.h"
 static inline void memfence(){  RMB; WMB; }
-# endif
+#endif
 #else
-# define memfence() __sync_synchronize()
+#define memfence() __sync_synchronize()
 #endif
 
-EXTERNC int dmtcp_is_enabled() { return 1; }
+EXTERNC int dmtcp_is_enabled()
+{
+  return 1;
+}
 
 static void runCoordinatorCmd(char c,
-                              int *coordCmdStatus = NULL,
-                              int *numPeers = NULL,
-                              int *isRunning = NULL)
+                              int* coordCmdStatus = NULL,
+                              int* numPeers = NULL,
+                              int* isRunning = NULL)
 {
   _dmtcp_lock();
   {
     CoordinatorAPI coordinatorAPI;
 
     dmtcp_disable_ckpt();
-    coordinatorAPI.connectAndSendUserCommand(c, coordCmdStatus, numPeers,
-                                             isRunning);
+    coordinatorAPI.connectAndSendUserCommand(
+        c, coordCmdStatus, numPeers, isRunning);
     dmtcp_enable_ckpt();
   }
   _dmtcp_unlock();
@@ -92,18 +95,18 @@ static int dmtcpRunCommand(char command)
   int i = 0;
   while (i < 100) {
     runCoordinatorCmd(command, &coordCmdStatus);
-  // if we got error result - check it
-	// There is possibility that checkpoint thread
-	// did not send state=RUNNING yet or Coordinator did not receive it
-	// -- Artem
+    // if we got error result - check it
+    // There is possibility that checkpoint thread
+    // did not send state=RUNNING yet or Coordinator did not receive it
+    // -- Artem
     if (coordCmdStatus == CoordCmdStatus::ERROR_NOT_RUNNING_STATE) {
       struct timespec t;
       t.tv_sec = 0;
       t.tv_nsec = 1000000;
       nanosleep(&t, NULL);
-      //printf("\nWAIT FOR CHECKPOINT ABLE\n\n");
+      // printf("\nWAIT FOR CHECKPOINT ABLE\n\n");
     } else {
-//      printf("\nEverything is OK - return\n");
+      //      printf("\nEverything is OK - return\n");
       break;
     }
     i++;
@@ -114,22 +117,24 @@ static int dmtcpRunCommand(char command)
 EXTERNC int dmtcp_checkpoint()
 {
   int rv = 0;
-  int oldNumRestarts    = numRestarts;
+  int oldNumRestarts = numRestarts;
   int oldNumCheckpoints = numCheckpoints;
-  memfence(); //make sure the reads above don't get reordered
+  memfence(); // make sure the reads above don't get reordered
 
-  if(dmtcpRunCommand('c')){ //request checkpoint
-    //and wait for the checkpoint
-    while(oldNumRestarts==numRestarts && oldNumCheckpoints==numCheckpoints){
-      //nanosleep should get interrupted by checkpointing with an EINTR error
-      //though there is a race to get to nanosleep() before the checkpoint
-      struct timespec t = {1,0};
+  if (dmtcpRunCommand('c')) { // request checkpoint
+    // and wait for the checkpoint
+    while (oldNumRestarts == numRestarts &&
+           oldNumCheckpoints == numCheckpoints) {
+      // nanosleep should get interrupted by checkpointing with an EINTR error
+      // though there is a race to get to nanosleep() before the checkpoint
+      struct timespec t = {1, 0};
       nanosleep(&t, NULL);
-      memfence();  //make sure the loop condition doesn't get optimized
+      memfence(); // make sure the loop condition doesn't get optimized
     }
-    rv = (oldNumRestarts==numRestarts ? DMTCP_AFTER_CHECKPOINT : DMTCP_AFTER_RESTART);
-  }else{
-  	/// TODO: Maybe we need to process it in some way????
+    rv = (oldNumRestarts == numRestarts ? DMTCP_AFTER_CHECKPOINT
+                                        : DMTCP_AFTER_RESTART);
+  } else {
+    /// TODO: Maybe we need to process it in some way????
     /// EXIT????
     /// -- Artem
     //	printf("\n\n\nError requesting checkpoint\n\n\n");
@@ -138,14 +143,14 @@ EXTERNC int dmtcp_checkpoint()
   return rv;
 }
 
-EXTERNC int dmtcp_get_coordinator_status(int *numPeers, int *isRunning)
+EXTERNC int dmtcp_get_coordinator_status(int* numPeers, int* isRunning)
 {
   int coordCmdStatus;
   runCoordinatorCmd('s', &coordCmdStatus, numPeers, isRunning);
   return 1;
 }
 
-EXTERNC int dmtcp_get_local_status(int *nCheckpoints, int *nRestarts)
+EXTERNC int dmtcp_get_local_status(int* nCheckpoints, int* nRestarts)
 {
   *nCheckpoints = numCheckpoints;
   *nRestarts = numRestarts;
@@ -156,9 +161,9 @@ EXTERNC int dmtcp_install_hooks(dmtcp_fnptr_t preCheckpoint,
                                 dmtcp_fnptr_t postCheckpoint,
                                 dmtcp_fnptr_t postRestart)
 {
-  userHookPreCheckpoint  = preCheckpoint;
+  userHookPreCheckpoint = preCheckpoint;
   userHookPostCheckpoint = postCheckpoint;
-  userHookPostRestart    = postRestart;
+  userHookPostRestart = postRestart;
   return 1;
 }
 
@@ -176,21 +181,18 @@ EXTERNC int dmtcp_enable_ckpt()
 
 void dmtcp::userHookTrampoline_preCkpt()
 {
-  if(userHookPreCheckpoint != NULL)
-    (*userHookPreCheckpoint)();
+  if (userHookPreCheckpoint != NULL) (*userHookPreCheckpoint)();
 }
 
 void dmtcp::userHookTrampoline_postCkpt(bool isRestart)
 {
-  //this function runs before other threads are resumed
-  if(isRestart){
+  // this function runs before other threads are resumed
+  if (isRestart) {
     numRestarts++;
-    if(userHookPostRestart != NULL)
-      (*userHookPostRestart)();
-  }else{
+    if (userHookPostRestart != NULL) (*userHookPostRestart)();
+  } else {
     numCheckpoints++;
-    if(userHookPostCheckpoint != NULL)
-      (*userHookPostCheckpoint)();
+    if (userHookPostCheckpoint != NULL) (*userHookPostCheckpoint)();
   }
 }
 
@@ -207,7 +209,7 @@ EXTERNC const char* dmtcp_get_tmpdir(void)
   return tmpdir;
 }
 
-//EXTERNC void dmtcp_set_tmpdir(const char* dir)
+// EXTERNC void dmtcp_set_tmpdir(const char* dir)
 //{
 //  if (dir != NULL) {
 //    UniquePid::setTmpDir(dir);
@@ -242,7 +244,7 @@ EXTERNC void dmtcp_set_coord_ckpt_dir(const char* dir)
   }
 }
 
-EXTERNC void dmtcp_set_ckpt_file(const char *filename)
+EXTERNC void dmtcp_set_ckpt_file(const char* filename)
 {
   ProcessInfo::instance().setCkptFilename(filename);
 }
@@ -273,9 +275,8 @@ EXTERNC const char* dmtcp_get_executable_path(void)
 
 EXTERNC const char* dmtcp_get_uniquepid_str(void)
 {
-  static string *uniquepid_str = NULL;
-  uniquepid_str =
-    new string(UniquePid::ThisProcess(true).toString());
+  static string* uniquepid_str = NULL;
+  uniquepid_str = new string(UniquePid::ThisProcess(true).toString());
   return uniquepid_str->c_str();
 }
 
@@ -291,7 +292,7 @@ EXTERNC DmtcpUniqueProcessId dmtcp_get_computation_id(void)
 
 EXTERNC const char* dmtcp_get_computation_id_str(void)
 {
-  static string *compid_str = NULL;
+  static string* compid_str = NULL;
   if (compid_str == NULL) {
     UniquePid compId = SharedData::getCompId();
     compid_str = new string(compId.toString());
@@ -307,9 +308,7 @@ EXTERNC DmtcpUniqueProcessId dmtcp_get_coord_id(void)
 EXTERNC int dmtcp_unique_pids_equal(DmtcpUniqueProcessId a,
                                     DmtcpUniqueProcessId b)
 {
-  return a._hostid == b._hostid &&
-         a._pid == b._pid &&
-         a._time == b._time &&
+  return a._hostid == b._hostid && a._pid == b._pid && a._time == b._time &&
          a._generation == b._generation;
 }
 
@@ -357,7 +356,8 @@ EXTERNC void dmtcp_close_protected_fd(int fd)
 // NOTE: This implementation assumes that a "name=value" string will be
 //   no more than 2000 bytes.
 
-EXTERNC int dmtcp_get_restart_env(char *name, char *value, int maxvaluelen) {
+EXTERNC int dmtcp_get_restart_env(char* name, char* value, int maxvaluelen)
+{
   int env_fd = dup(dmtcp_protected_environ_fd());
   JASSERT(env_fd != -1)(env_fd)(dmtcp_protected_environ_fd());
   lseek(env_fd, 0, SEEK_SET);
@@ -372,9 +372,9 @@ EXTERNC int dmtcp_get_restart_env(char *name, char *value, int maxvaluelen) {
   int rc = NOTFOUND; // Default is -1: name not found
 
   char env_buf[2000]; // All "name=val" strings must be shorter than this.
-  char *env_ptr_v[sizeof(env_buf)/4];
-  char *name_ptr = env_buf;
-  char *env_end_ptr = env_buf;
+  char* env_ptr_v[sizeof(env_buf) / 4];
+  char* name_ptr = env_buf;
+  char* env_end_ptr = env_buf;
 
   if (name == NULL || value == NULL) {
     close(env_fd);
@@ -391,25 +391,25 @@ EXTERNC int dmtcp_get_restart_env(char *name, char *value, int maxvaluelen) {
     // if we haven't finished reading environment from env_fd,
     //    then read until it's full or there is no more
     while (env_end_ptr != NULL &&
-           env_end_ptr - env_buf < (int) sizeof(env_buf)) {
-      int count = read(env_fd,
-                       env_end_ptr, sizeof(env_buf) - (env_end_ptr - env_buf));
+           env_end_ptr - env_buf < (int)sizeof(env_buf)) {
+      int count =
+          read(env_fd, env_end_ptr, sizeof(env_buf) - (env_end_ptr - env_buf));
       if (count == 0) {
         break;
       } else if (count == -1 && errno != EAGAIN && errno != EINTR) {
         rc = INTERNAL_ERROR;
-        JASSERT (false) (count) (JASSERT_ERRNO) .Text("internal error");
+        JASSERT(false)(count)(JASSERT_ERRNO).Text("internal error");
       } else {
         env_end_ptr += count;
       }
     }
-    JASSERT(env_end_ptr > env_buf || env_buf[0] == '\0') ((char *)env_buf);
+    JASSERT(env_end_ptr > env_buf || env_buf[0] == '\0')((char*)env_buf);
     // Set up env_ptr_v[]
     int env_ptr_v_idx = 0;
     env_ptr_v[env_ptr_v_idx++] = name_ptr;
     int end_of_buf = 0;
-    while ( ! end_of_buf ) {
-      char *last_name_ptr = name_ptr;
+    while (!end_of_buf) {
+      char* last_name_ptr = name_ptr;
       while (name_ptr < env_end_ptr && *name_ptr != '\0') {
         name_ptr++;
       }
@@ -441,8 +441,8 @@ EXTERNC int dmtcp_get_restart_env(char *name, char *value, int maxvaluelen) {
   }
 
   close(env_fd);
-  JWARNING (rc != DMTCP_BUF_TOO_SMALL)
-    (name) (sizeof(env_buf)) .Text("Resize env_buf[]");
+  JWARNING(rc != DMTCP_BUF_TOO_SMALL)
+  (name)(sizeof(env_buf)).Text("Resize env_buf[]");
   return rc;
 }
 
@@ -457,32 +457,34 @@ EXTERNC int dmtcp_get_ptrace_fd(void)
 }
 
 LIB_PRIVATE int32_t dmtcp_dlsym_offset = -1;
-typedef void* (*dlsym_fnptr_t) (void *handle, const char *symbol);
-EXTERNC void *dmtcp_get_libc_dlsym_addr(void)
+typedef void* (*dlsym_fnptr_t)(void* handle, const char* symbol);
+EXTERNC void* dmtcp_get_libc_dlsym_addr(void)
 {
   static dlsym_fnptr_t _libc_dlsym_fnptr = NULL;
 #ifndef CONFIG_M32
-  const char *evar = ENV_VAR_DLSYM_OFFSET;
+  const char* evar = ENV_VAR_DLSYM_OFFSET;
 #else
-  const char *evar = ENV_VAR_DLSYM_OFFSET_M32;
+  const char* evar = ENV_VAR_DLSYM_OFFSET_M32;
 #endif
 
   if (_libc_dlsym_fnptr == NULL) {
     if (getenv(evar) == NULL) {
-      fprintf(stderr,
-              "%s:%d DMTCP Internal Error: Env var DMTCP_DLSYM_OFFSET not set.\n"
-              "      Aborting.\n\n",
-              __FILE__, __LINE__);
+      fprintf(
+          stderr,
+          "%s:%d DMTCP Internal Error: Env var DMTCP_DLSYM_OFFSET not set.\n"
+          "      Aborting.\n\n",
+          __FILE__,
+          __LINE__);
       abort();
     }
 
-    dmtcp_dlsym_offset = (int32_t) strtol(getenv(evar), NULL, 10);
+    dmtcp_dlsym_offset = (int32_t)strtol(getenv(evar), NULL, 10);
 
-    _libc_dlsym_fnptr = (dlsym_fnptr_t)((char *)&LIBDL_BASE_FUNC +
-                                        dmtcp_dlsym_offset);
+    _libc_dlsym_fnptr =
+        (dlsym_fnptr_t)((char*)&LIBDL_BASE_FUNC + dmtcp_dlsym_offset);
   }
 
-  return (void*) _libc_dlsym_fnptr;
+  return (void*)_libc_dlsym_fnptr;
 }
 
 EXTERNC void dmtcp_block_ckpt_signal(void)
@@ -490,12 +492,12 @@ EXTERNC void dmtcp_block_ckpt_signal(void)
   static sigset_t signals_set;
   static bool initialized = false;
   if (!initialized) {
-    sigemptyset (&signals_set);
-    sigaddset (&signals_set, dmtcp_get_ckpt_signal());
+    sigemptyset(&signals_set);
+    sigaddset(&signals_set, dmtcp_get_ckpt_signal());
     initialized = true;
   }
 
-  JASSERT(_real_pthread_sigmask (SIG_BLOCK, &signals_set, NULL) == 0);
+  JASSERT(_real_pthread_sigmask(SIG_BLOCK, &signals_set, NULL) == 0);
 }
 
 EXTERNC void dmtcp_unblock_ckpt_signal(void)
@@ -503,48 +505,49 @@ EXTERNC void dmtcp_unblock_ckpt_signal(void)
   static sigset_t signals_set;
   static bool initialized = false;
   if (!initialized) {
-    sigemptyset (&signals_set);
-    sigaddset (&signals_set, dmtcp_get_ckpt_signal());
+    sigemptyset(&signals_set);
+    sigaddset(&signals_set, dmtcp_get_ckpt_signal());
     initialized = true;
   }
 
-  JASSERT(_real_pthread_sigmask (SIG_UNBLOCK, &signals_set, NULL) == 0);
+  JASSERT(_real_pthread_sigmask(SIG_UNBLOCK, &signals_set, NULL) == 0);
 }
 
-EXTERNC int dmtcp_send_key_val_pair_to_coordinator(const char *id,
-                                                   const void *key,
+EXTERNC int dmtcp_send_key_val_pair_to_coordinator(const char* id,
+                                                   const void* key,
                                                    uint32_t key_len,
-                                                   const void *val,
+                                                   const void* val,
                                                    uint32_t val_len)
 {
-  return CoordinatorAPI::instance().sendKeyValPairToCoordinator(id, key, key_len,
-                                                                val, val_len);
+  return CoordinatorAPI::instance().sendKeyValPairToCoordinator(
+      id, key, key_len, val, val_len);
 }
 
-EXTERNC int dmtcp_send_key_val_pair_to_coordinator_sync(const char *id,
-                                                        const void *key,
+EXTERNC int dmtcp_send_key_val_pair_to_coordinator_sync(const char* id,
+                                                        const void* key,
                                                         uint32_t key_len,
-                                                        const void *val,
+                                                        const void* val,
                                                         uint32_t val_len)
 {
-  return CoordinatorAPI::instance().sendKeyValPairToCoordinator(id, key, key_len,
-                                                                val, val_len,
-								1);
+  return CoordinatorAPI::instance().sendKeyValPairToCoordinator(
+      id, key, key_len, val, val_len, 1);
 }
 
 // On input, val points to a buffer in user memory and *val_len is the maximum
 //   size of that buffer (the memory allocated by user).
 // On output, we copy data to val, and set *val_len to the actual buffer size
 //   (to the size of the data that we copied to the user buffer).
-EXTERNC int dmtcp_send_query_to_coordinator(const char *id,
-                                            const void *key, uint32_t key_len,
-                                            void *val, uint32_t *val_len)
+EXTERNC int dmtcp_send_query_to_coordinator(const char* id,
+                                            const void* key,
+                                            uint32_t key_len,
+                                            void* val,
+                                            uint32_t* val_len)
 {
-  return CoordinatorAPI::instance().sendQueryToCoordinator(id, key, key_len,
-                                                           val, val_len);
+  return CoordinatorAPI::instance().sendQueryToCoordinator(
+      id, key, key_len, val, val_len);
 }
 
-EXTERNC void dmtcp_get_local_ip_addr(struct in_addr *in)
+EXTERNC void dmtcp_get_local_ip_addr(struct in_addr* in)
 {
   SharedData::getLocalIPAddr(in);
 }
