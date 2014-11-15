@@ -385,16 +385,21 @@ def getStatus():
 
   while True:
     try:
-      line=coordinator.stdout.readline()
+      line=coordinator.stdout.readline().strip()
       if not line:  # Immediate empty string on stdout means EOF
         CHECK(False, "coordinator died unexpectedly")
         return (-1, False)
-      line=line.strip()
-      if line=="Status...":
-        break;
-      if VERBOSE:
-        print "Ignoring line from coordinator: ", line
-        sleep(1)
+
+      m = re.search('NUM_PEERS=(\d+)', line)
+      if m != None:
+        peers = int(m.group(1))
+        continue
+
+      m = re.search('RUNNING=(\w+)', line)
+      if m != None:
+        running = m.group(1)
+        break
+
     except IOError, (errno, strerror):
       if coordinator.poll():
         if coordinator.poll() < 0:
@@ -405,14 +410,10 @@ def getStatus():
         continue
       raise CheckFailed("I/O error(%s): %s" % (errno, strerror))
 
-  x,peers=coordinator.stdout.readline().strip().split("=")
-  CHECK(x=="NUM_PEERS", "reading coordinator status")
-  x,running=coordinator.stdout.readline().strip().split("=")
-  CHECK(x=="RUNNING", "reading coordinator status")
-
   if VERBOSE:
-    print "STATUS: peers=%s, running=%s" % (peers,running)
-  return (int(peers), (running=="yes"))
+    print "STATUS: peers=%d, running=%s" % (peers,running)
+
+  return (peers, (running=="yes"))
 
 #delete all files in ckptDir
 def clearCkptDir():
