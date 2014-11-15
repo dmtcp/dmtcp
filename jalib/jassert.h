@@ -130,8 +130,6 @@ namespace jassert_internal
   void jassert_safe_print ( const char*, bool noConsoleOutput = false );
   void jassert_init();
   void close_stderr();
-  bool lockLog();
-  void unlockLog();
 
   template < typename T >
   inline JAssert& JAssert::Print ( const T& t )
