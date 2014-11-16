@@ -18,8 +18,8 @@ To do so:
   make clean
   make
   # Replace next line with absolute path to your contrib/infiniband directory.
-  bin/dmtcp_checkpoint \
-    --with-plugin <DMTCP_ROOT>/contrib/infiniband/libinfiniband.so
+  bin/dmtcp_launch \
+    --with-plugin <DMTCP_ROOT>/contrib/infiniband/libdmtcp_infiniband.so
 
 EXPERTS ONLY: libibtrace.so can also be built
 

@@ -112,8 +112,6 @@ static const char* theUsage =
   "  -i, --interval (environment variable DMTCP_CHECKPOINT_INTERVAL):\n"
   "      Time in seconds between automatic checkpoints\n"
   "      (default: 0, disabled)\n"
-  "  -q, --quiet \n"
-  "      Skip copyright notice.\n"
   "  --help:\n"
   "      Print this message and exit.\n"
   "  --version:\n"
@@ -137,7 +135,7 @@ static const char* theRestartScriptHeader =
   "#  2. If using ssh, verify that ssh does not require passwords or other\n"
   "#     prompts.\n"
   "#  3. Verify that the dmtcp_restart command is in your path on all hosts,\n"
-  "#     otherwise set the remote_prefix appropriately.\n"
+  "#     otherwise set the dmt_rstr_cmd appropriately.\n"
   "#  4. Verify DMTCP_HOST and DMTCP_PORT match the location of the\n"
   "#     dmtcp_coordinator. If necessary, add\n"
   "#     'DMTCP_PORT=<dmtcp_coordinator port>' after 'DMTCP_HOST=<...>'.\n"
@@ -373,14 +371,14 @@ static const char* theRestartScriptMultiHostProcessing =
 
   "  if [ -z $maybebg ]; then\n"
   "    $maybexterm /usr/bin/ssh -t \"$worker_host\" \\\n"
-  "      $remote_dmt_rstr_cmd --host \"$coord_host\" --port \"$coord_port\"\\\n"
+  "      $dmt_rstr_cmd --host \"$coord_host\" --port \"$coord_port\"\\\n"
   "      $ckpt_dir --join --interval \"$checkpoint_interval\" $tmpdir \\\n"
   "      $new_ckpt_files_group\n"
   "  else\n"
   "    $maybexterm /usr/bin/ssh \"$worker_host\" \\\n"
   // In Open MPI 1.4, without this (sh -c ...), orterun hangs at the
   // end of the computation until user presses enter key.
-  "      \"/bin/sh -c \'$remote_dmt_rstr_cmd --host $coord_host --port $coord_port\\\n"
+  "      \"/bin/sh -c \'$dmt_rstr_cmd --host $coord_host --port $coord_port\\\n"
   "      $ckpt_dir --join --interval \"$checkpoint_interval\" $tmpdir \\\n"
   "      $new_ckpt_files_group\'\" &\n"
   "  fi\n\n"
@@ -445,9 +443,6 @@ static time_t curTimeStamp = -1;
 static time_t ckptTimeStamp = -1;
 
 static LookupService lookupService;
-static string localHostName;
-static string localPrefix;
-static string remotePrefix;
 
 static string coordHostname;
 static struct in_addr localhostIPAddr;
@@ -490,9 +485,6 @@ void CoordClient::readProcessInfo(DmtcpMessage& msg)
     _sock.readAll(extraData, msg.extraBytes);
     _hostname = extraData;
     _progname = extraData + _hostname.length() + 1;
-    if (msg.extraBytes > _hostname.length() + _progname.length() + 2) {
-      _prefixDir = extraData + _hostname.length() + _progname.length() + 2;
-    }
     delete [] extraData;
   }
 }
@@ -592,24 +584,18 @@ void DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*= NULL*
     JASSERT_STDERR << theHelpMessage;
     break;
   case 's': case 'S':
-    {
-      ComputationStatus s = getStatus();
-      bool running = s.minimumStateUnanimous &&
-		     s.minimumState==WorkerState::RUNNING;
-      if (reply == NULL){
-        printf("Status...\n");
-        printf("NUM_PEERS=%d\n", s.numPeers);
-        printf("RUNNING=%s\n", (running?"yes":"no"));
-        fflush(stdout);
-        if (!running) {
-          JTRACE("raw status")(s.minimumState)(s.minimumStateUnanimous);
-        }
-      } else {
-        reply->numPeers = s.numPeers;
-        reply->isRunning = running;
-      }
+  {
+    ComputationStatus s = getStatus();
+    bool running = (s.minimumStateUnanimous &&
+                    s.minimumState==WorkerState::RUNNING);
+    if (reply != NULL) {
+      reply->numPeers = s.numPeers;
+      reply->isRunning = running;
+    } else {
+      printStatus(s.numPeers, running);
     }
     break;
+  }
   case ' ': case '\t': case '\n': case '\r':
     //ignore whitespace
     break;
@@ -620,6 +606,31 @@ void DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*= NULL*
     }
   }
   return;
+}
+
+void DmtcpCoordinator::printStatus(size_t numPeers, bool isRunning)
+{
+  ostringstream o;
+  o << "Status..." << std::endl
+    << "Host: " << coordHostname
+    << " (" << inet_ntoa(localhostIPAddr) << ")" << std::endl
+    << "Port: " << thePort << std::endl
+    << "Checkpoint Interval: ";
+
+  if (theCheckpointInterval == 0) {
+    o << "disabled (checkpoint manually instead)" << std::endl;
+  } else {
+    o << theCheckpointInterval << std::endl;
+  }
+
+  o << "Exit on last client: " << exitOnLast << std::endl
+    << "Exit after checkpoint: " << exitAfterCkpt << std::endl
+    << "Computation Id: " << compId << std::endl
+    << "Checkpoint Dir: " << ckptDir << std::endl
+    << "NUM_PEERS=" << numPeers << std::endl
+    << "RUNNING=" << (isRunning ? "yes" : "no") << std::endl;
+  printf(o.str().c_str());
+  fflush(stdout);
 }
 
 void DmtcpCoordinator::updateMinimumState(WorkerState oldState)
@@ -713,7 +724,7 @@ void DmtcpCoordinator::updateMinimumState(WorkerState oldState)
     JTIMER_STOP ( checkpoint );
     isRestarting = false;
 
-    updateCheckpointInterval( theCheckpointInterval );
+    resetCkptTimer();
 
     if (blockUntilDone) {
       DmtcpMessage blockUntilDoneReply(DMT_USER_CMD_RESULT);
@@ -999,9 +1010,9 @@ void DmtcpCoordinator::onConnect()
   }
 #endif
 
-
-
   if (hello_remote.type == DMT_USER_CMD) {
+    // TODO(kapil): Update ckpt interval only if a valid one was supplied to
+    // dmtcp_command.
     updateCheckpointInterval(hello_remote.theCheckpointInterval);
     processDmtUserCmd(hello_remote, remote);
     return;
@@ -1233,13 +1244,6 @@ bool DmtcpCoordinator::validateNewWorkerProcess(
                          hello_remote.from.time(),
                          hello_remote.from.generation());
 
-      localPrefix.clear();
-      localHostName.clear();
-      remotePrefix.clear();
-      if (!client->prefixDir().empty()) {
-        localPrefix = client->prefixDir();
-        localHostName = client->hostname();
-      }
       JASSERT(gettimeofday(&tv, NULL) == 0);
       // Get the resolution down to 100 mili seconds.
       curTimeStamp = (tv.tv_sec << 4) | (tv.tv_usec / (100*1000));
@@ -1248,25 +1252,7 @@ bool DmtcpCoordinator::validateNewWorkerProcess(
         (compId);
     } else {
       JTRACE("New process connected")
-        (hello_remote.from) (client->prefixDir()) (client->virtualPid());
-      if (client->hostname() == localHostName) {
-        JASSERT(client->prefixDir() == localPrefix)
-          (client->prefixDir()) (localPrefix);
-      }
-      if (!client->prefixDir().empty() && client->hostname() != localHostName) {
-        if (remotePrefix.empty()) {
-          JASSERT (compId != UniquePid(0,0,0));
-          remotePrefix = client->prefixDir();
-        } else if (remotePrefix != client->prefixDir()) {
-          JNOTE("This node has different prefixDir than the rest of the "
-                "remote nodes. Rejecting connection!")
-            (remotePrefix) (localPrefix) (client->prefixDir());
-          hello_local.type = DMT_REJECT_WRONG_PREFIX;
-          remote << hello_local;
-          remote.close();
-          return false;
-        }
-      }
+        (hello_remote.from) (client->virtualPid());
     }
     hello_local.compGroup = compId;
     hello_local.coordTimeStamp = curTimeStamp;
@@ -1425,13 +1411,6 @@ void DmtcpCoordinator::writeRestartScript()
                 " || echo \"$0: $dmt_rstr_cmd not found\"\n"
                 "which $dmt_rstr_cmd > /dev/null 2>&1 || exit 1\n\n",
                 jalib::Filesystem::GetProgramDir().c_str());
-
-  fprintf ( fp, "local_prefix=%s\n", localPrefix.c_str() );
-  fprintf ( fp, "remote_prefix=%s\n", remotePrefix.c_str() );
-  fprintf ( fp, "remote_dmt_rstr_cmd=" DMTCP_RESTART_CMD "\n"
-                "if ! test -z \"$remote_prefix\"; then\n"
-                "  remote_dmt_rstr_cmd=\"$remote_prefix/bin/" DMTCP_RESTART_CMD "\"\n"
-                "fi\n\n" );
 
   fprintf ( fp, "# Number of hosts in the computation = %zd\n"
                 "# Number of processes in the computation = %d\n\n",
@@ -1640,7 +1619,13 @@ void DmtcpCoordinator::onTimeoutInterval()
 {
   if (theCheckpointInterval > 0) {
     startCheckpoint();
-    updateCheckpointInterval(theCheckpointInterval);
+  }
+}
+
+void DmtcpCoordinator::resetCkptTimer()
+{
+  if (theCheckpointInterval > 0) {
+    JASSERT(clock_gettime(CLOCK_MONOTONIC, &startTime) == 0) (JASSERT_ERRNO);
   }
 }
 
@@ -1652,9 +1637,7 @@ void DmtcpCoordinator::updateCheckpointInterval(uint32_t interval)
     theCheckpointInterval = interval;
     JNOTE ( "CheckpointInterval updated (for this computation only)" )
       ( oldInterval ) ( theCheckpointInterval );
-  }
-  if (interval > 0) {
-    JASSERT(clock_gettime(CLOCK_MONOTONIC, &startTime) == 0) (JASSERT_ERRNO);
+    resetCkptTimer();
   }
 }
 
@@ -1701,13 +1684,14 @@ void DmtcpCoordinator::eventLoop(bool daemon)
 
   while (true) {
     int timeout = getRemainingTimeoutMS();
+    if (timeout == 0) {
+      onTimeoutInterval();
+      timeout = getRemainingTimeoutMS();
+    }
+
     int nfds = epoll_wait(epollFd, events, MAX_EVENTS, timeout);
     if (nfds == -1 && errno == EINTR) continue;
     JASSERT(nfds != -1) (JASSERT_ERRNO);
-
-    if (nfds == 0 && theCheckpointInterval > 0) {
-      onTimeoutInterval();
-    }
 
     for (int n = 0; n < nfds; ++n) {
       void *ptr = events[n].data.ptr;
@@ -1773,7 +1757,6 @@ int main ( int argc, char** argv )
   if ( portStr != NULL ) thePort = jalib::StringToInt ( portStr );
 
   bool daemon = false;
-  bool quiet = false;
 
   shift;
   while(argc > 0){
@@ -1785,7 +1768,7 @@ int main ( int argc, char** argv )
       printf("%s", DMTCP_VERSION_AND_COPYRIGHT_INFO);
       return 1;
     }else if(s == "-q" || s == "--quiet"){
-      quiet = true;
+      // TODO(kapil): Ignored for now. Remove in later versions.
       shift;
     }else if(s=="--exit-on-last"){
       exitOnLast = true;
@@ -1828,11 +1811,6 @@ int main ( int argc, char** argv )
     }
   }
 
-  if (!quiet) {
-    fprintf(stderr, DMTCP_VERSION_AND_COPYRIGHT_INFO);
-    fprintf(stderr, "(Use flag \"-q\" to hide this message.)\n\n");
-  }
-
   Util::setTmpDir(getenv(ENV_VAR_TMPDIR));
 
   Util::initializeLogFile();
@@ -1851,7 +1829,7 @@ int main ( int argc, char** argv )
   if (getenv(ENV_VAR_CHECKPOINT_DIR) != NULL) {
     ckptDir = getenv(ENV_VAR_CHECKPOINT_DIR);
   } else {
-    ckptDir = ".";
+    ckptDir = get_current_dir_name();
   }
 
   /*Test if the listener socket is already open*/

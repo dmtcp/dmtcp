@@ -67,6 +67,12 @@ static void getHostAndPort(CoordinatorMode mode, string *hostname, int *port)
 {
   JASSERT(mode & COORD_JOIN || mode & COORD_NEW || mode & COORD_ANY);
 
+  if (SharedData::initialized()) {
+    *hostname = SharedData::coordHost();
+    *port = SharedData::coordPort();
+    return;
+  }
+
   const char *addr = getenv (ENV_VAR_NAME_HOST);
   if (addr == NULL) addr = DEFAULT_HOST;
   *hostname = addr;
@@ -95,38 +101,6 @@ static uint32_t getCkptInterval()
   // Tell the coordinator the ckpt interval only once.  It can change later.
   _dmtcp_unsetenv (ENV_VAR_CKPT_INTR);
   return ret;
-}
-
-static string getPrefixDir()
-{
-  string prefixDir = "";
-  const char *prefixPathEnv = getenv(ENV_VAR_PREFIX_PATH);
-  if (prefixPathEnv != NULL) {
-    /* If --prefix was defined then this process is either running on the local
-     * node (the home of first process in the comptation) or a remote node.
-     *
-     * If the process is running on the local node, the prefix-path-env may be
-     * different from the prefix-dir of this binary, in which case, we want to
-     * send the prefix-path of this binary to the coordinator and the
-     * coordinator will save it as the local-prefix.
-     *
-     * However, if this is running on a remote node, the prefix-path-env would
-     * be the same as the prefix-path of this binary and we should send the
-     * prefix-path-env to the coordinator and the coordinator will note this as
-     * the remote-prefix.
-     */
-    const char *utilDirPath = getenv(ENV_VAR_UTILITY_DIR);
-    string utilDirPrefix = "";
-    if (utilDirPath != NULL) {
-      utilDirPrefix = jalib::Filesystem::DirName(utilDirPath);
-    }
-    if (utilDirPrefix == jalib::Filesystem::ResolveSymlink(prefixPathEnv)) {
-      prefixDir = prefixPathEnv;
-    } else {
-      prefixDir = utilDirPrefix;
-    }
-  }
-  return prefixDir;
 }
 
 static jalib::JSocket createNewSocketToCoordinator(CoordinatorMode mode)
@@ -464,11 +438,14 @@ void CoordinatorAPI::startNewCoordinator(CoordinatorMode mode)
   JTRACE("Starting a new coordinator automatically.") (coordPort);
 
   if (fork() == 0) {
-    string coordinator = jalib::Filesystem::FindHelperUtility("dmtcp_coordinator");
+    // We can't use Util::getPath() here since the SharedData has not been
+    // initialized yet.
+    string coordinator =
+      jalib::Filesystem::GetProgramDir() + "/dmtcp_coordinator";
+
     char *modeStr = (char *)"--daemon";
     char * args[] = {
       (char*)coordinator.c_str(),
-      (char*)"--quiet",
       (char*)"--exit-on-last",
       modeStr,
       NULL
@@ -521,19 +498,11 @@ DmtcpMessage CoordinatorAPI::sendRecvHandshake(DmtcpMessage msg,
 
   msg.theCheckpointInterval = getCkptInterval();
   string hostname = jalib::Filesystem::GetCurrentHostname();
-  string prefixDir = getPrefixDir();
   msg.extraBytes = hostname.length() + 1 + progname.length() + 1;
-  if (!prefixDir.empty()) {
-    msg.extraBytes += prefixDir.length() + 1;
-  }
 
   _coordinatorSocket << msg;
   _coordinatorSocket.writeAll(hostname.c_str(), hostname.length() + 1);
   _coordinatorSocket.writeAll(progname.c_str(), progname.length() + 1);
-  if (!prefixDir.empty()) {
-    _coordinatorSocket.writeAll(prefixDir.c_str(), prefixDir.length() + 1);
-    msg.extraBytes += prefixDir.length() + 1;
-  }
 
   msg.poison();
   _coordinatorSocket >> msg;
@@ -552,12 +521,6 @@ DmtcpMessage CoordinatorAPI::sendRecvHandshake(DmtcpMessage msg,
     JASSERT(false) (*compId)
       .Text("Connection rejected by the coordinator.\n"
             " Reason: This process has a different computation group.");
-  } else if (msg.type == DMT_REJECT_WRONG_PREFIX) {
-    JASSERT(false) (prefixDir)
-      .Text("Connection rejected by the coordinator.\n"
-            "Reason: Prefix supplied with --prefix doesn't match the prefix\n"
-            "        of other processes in the computation.\n"
-            "        (DMTCP installed at different paths?)");
   }
   JASSERT(msg.type == DMT_ACCEPT);
   return msg;

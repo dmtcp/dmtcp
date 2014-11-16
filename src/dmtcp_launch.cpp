@@ -90,9 +90,8 @@ static const char* theUsage =
   "              Checkpoint open files and restore old working dir.\n"
   "              (default: do neither)\n"
   "  --ckpt-signal signum\n"
-  "  --mtcp-checkpoint-signal signum\n"
   "              Signal number used internally by DMTCP for checkpointing\n"
-  "              (default: 12). --mtcp-checkpoint-signal is deprecated.\n"
+  "              (default: SIGUSR2/12).\n"
   "\n"
   "Enable/disable plugins:\n"
   "  --with-plugin (environment variable DMTCP_PLUGIN)\n"
@@ -119,8 +118,6 @@ static const char* theUsage =
   "              Disable all plugins.\n"
   "\n"
   "Other options:\n"
-  "  --prefix PATH\n"
-  "              Prefix where DMTCP is installed on remote nodes.\n"
   "  --tmpdir PATH (environment variable DMTCP_TMPDIR)\n"
   "              Directory to store temporary files \n"
   "              (default: $TMDPIR/dmtcp-$USER@$HOST or /tmp/dmtcp-$USER@$HOST)\n"
@@ -261,17 +258,13 @@ static void processArgs(int *orig_argc, char ***orig_argv)
     } else if (argc>1 && s == "--port-file"){
       thePortFile = argv[1];
       shift; shift;
-    } else if (argc>1 && (s == "--prefix")) {
-      setenv(ENV_VAR_PREFIX_PATH, argv[1], 1);
-      shift; shift;
     } else if (argc>1 && (s == "-c" || s == "--ckptdir")) {
       setenv(ENV_VAR_CHECKPOINT_DIR, argv[1], 1);
       shift; shift;
     } else if (argc>1 && (s == "-t" || s == "--tmpdir")) {
       setenv(ENV_VAR_TMPDIR, argv[1], 1);
       shift; shift;
-    } else if (argc>1 && (s == "--mtcp-checkpoint-signal" ||
-                          s == "--ckpt-signal")) {
+    } else if (argc>1 && s == "--ckpt-signal") {
       setenv(ENV_VAR_SIGCKPT, argv[1], 1);
       shift; shift;
     } else if (s == "--checkpoint-open-files" || s == "--ckpt-open-files") {
@@ -338,18 +331,6 @@ int main ( int argc, char** argv )
   processArgs(&argc, &argv);
 
   initializeJalib();
-  // If --ssh-slave and --prefix both are present, verify that the prefix-dir
-  // of this binary (dmtcp_launch) is same as the one provided with
-  // --prefix
-  if (isSSHSlave && getenv(ENV_VAR_PREFIX_PATH) != NULL) {
-    char buf[PATH_MAX];
-    string prefixPath = getenv(ENV_VAR_PREFIX_PATH);
-    prefixPath += "/bin/dmtcp_launch";
-    JASSERT(realpath(prefixPath.c_str(), buf) != NULL) (prefixPath);
-    prefixPath = buf;
-    string programPath = jalib::Filesystem::GetProgramPath();
-    JASSERT(prefixPath == programPath) (prefixPath) (programPath);
-  }
 
   Util::setTmpDir(getenv(ENV_VAR_TMPDIR));
   UniquePid::ThisProcess(true);
@@ -487,9 +468,6 @@ int main ( int argc, char** argv )
 //   from DmtcpWorker constructor, to distinguish the two cases.
   Util::adjustRlimitStack();
 
-  // Set DLSYM_OFFSET env var(s).
-  Util::prepareDlsymWrapper();
-
   DmtcpUniqueProcessId compId;
   CoordinatorInfo coordInfo;
   struct in_addr localIPAddr;
@@ -497,14 +475,26 @@ int main ( int argc, char** argv )
                                                      &compId, &coordInfo,
                                                      &localIPAddr);
   Util::writeCoordPortToFile(getenv(ENV_VAR_NAME_PORT), thePortFile.c_str());
+  unsetenv(ENV_VAR_NAME_HOST);
+  unsetenv(ENV_VAR_NAME_PORT);
+
+  string installDir =
+    jalib::Filesystem::DirName(jalib::Filesystem::GetProgramDir());
+
   /* We need to initialize SharedData here to make sure that it is
    * initialized with the correct coordinator timestamp.  The coordinator
    * timestamp is updated only during postCkpt callback. However, the
    * SharedData area may be initialized earlier (for example, while
    * recreating threads), causing it to use *older* timestamp.
    */
-  SharedData::initialize(Util::getTmpDir().c_str(), &compId, &coordInfo,
+  SharedData::initialize(Util::getTmpDir().c_str(),
+                         installDir.c_str(),
+                         &compId,
+                         &coordInfo,
                          &localIPAddr);
+
+  // Set DLSYM_OFFSET env var(s).
+  Util::prepareDlsymWrapper();
 
   setLDPreloadLibs(is32bitElf);
 
@@ -652,10 +642,6 @@ static void setLDPreloadLibs(bool is32bitElf)
   }
   string preloadLibs32 = preloadLibs;
 
-  // FindHelperUtiltiy requires ENV_VAR_UTILITY_DIR to be set
-  string searchDir = jalib::Filesystem::GetProgramDir();
-  setenv ( ENV_VAR_UTILITY_DIR, searchDir.c_str(), 0 );
-
   //set up Alloc plugin
   if (getenv(ENV_VAR_ALLOC_PLUGIN) != NULL){
     const char *ptr = getenv(ENV_VAR_ALLOC_PLUGIN);
@@ -683,18 +669,18 @@ static void setLDPreloadLibs(bool is32bitElf)
   }
 
   if (disableAllPlugins) {
-    preloadLibs = jalib::Filesystem::FindHelperUtility("libdmtcp.so");
+    preloadLibs = Util::getPath("libdmtcp.so");
 #if defined(__x86_64__)
-    preloadLibs32 = jalib::Filesystem::FindHelperUtility("libdmtcp.so", true);
+    preloadLibs32 = Util::getPath("libdmtcp.so", true);
 #endif
   } else {
     for (size_t i = 0; i < numLibs; i++) {
       struct PluginInfo *p= &pluginInfo[i];
       if (*p->enabled) {
-        preloadLibs += jalib::Filesystem::FindHelperUtility(p->lib) + ":";
+        preloadLibs += Util::getPath(p->lib) + ":";
 #if defined(__x86_64__)
         preloadLibs32 +=
-          jalib::Filesystem::FindHelperUtility(p->lib, true) + ":";
+          Util::getPath(p->lib, true) + ":";
 #endif
       }
     }
@@ -718,7 +704,7 @@ static void setLDPreloadLibs(bool is32bitElf)
   setenv("LD_PRELOAD", preloadLibs.c_str(), 1);
 #if defined(__x86_64__)
   if (is32bitElf) {
-    string libdmtcp = jalib::Filesystem::FindHelperUtility("libdmtcp.so", true);
+    string libdmtcp = Util::getPath("libdmtcp.so", true);
     JWARNING(libdmtcp != "libdmtcp.so")
       .Text("You appear to be checkpointing a 32-bit target under 64-bit Linux.\n"
             "DMTCP was unable to find the 32-bit installation.\n"

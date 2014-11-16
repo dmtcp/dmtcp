@@ -1,4 +1,3 @@
-usr/bin/dmtcp_checkpoint
 usr/bin/dmtcp_command
 usr/bin/dmtcp_coordinator
 usr/bin/dmtcp_discover_rm

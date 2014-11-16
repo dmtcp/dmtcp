@@ -116,6 +116,81 @@ bool Util::strEndsWith(const string& str, const char *pattern)
   return strEndsWith(str.c_str(), pattern);
 }
 
+string Util::joinStrings(vector<string> v, const string& delim)
+{
+  string result;
+  if (v.size() > 0) {
+    result = v[0];
+    for (size_t i = 1; i < v.size(); i++) {
+      result += delim + v[i];
+    }
+  }
+  return result;
+}
+
+// Tokenizes the string using the delimiters.
+// Empty tokens will not be included in the result.
+vector<string> Util::tokenizeString(const string& s, const string& delims)
+{
+  size_t offset = 0;
+  vector<string> tokens;
+
+  while (true) {
+    size_t i = s.find_first_not_of(delims, offset);
+    if (i == string::npos) {
+      break;
+    }
+
+    size_t j = s.find_first_of(delims, i);
+    if (j == string::npos) {
+      tokens.push_back(s.substr(i));
+      offset = s.length();
+      continue;
+    }
+
+    tokens.push_back(s.substr(i, j - i));
+    offset = j;
+  }
+  return tokens;
+}
+
+// Add it back if needed.
+#if 0
+// Splits the string using the provided delimiters.
+// The string is split each time at the first character
+// that matches any of the characters specified in delims.
+// Empty tokens are allowed in the result.
+// Optionally, maximum number of tokens to be returned
+// can be specified.
+inline vector<string> split(
+    const string& s,
+    const string& delims,
+    const Option<unsigned int>& n = None())
+{
+  vector<string> tokens;
+  size_t offset = 0;
+  size_t next = 0;
+
+  while (n.isNone() || n.get() > 0) {
+    next = s.find_first_of(delims, offset);
+    if (next == string::npos) {
+      tokens.push_back(s.substr(offset));
+      break;
+    }
+
+    tokens.push_back(s.substr(offset, next - offset));
+    offset = next + 1;
+
+    // Finish splitting if we've found enough tokens.
+    if (n.isSome() && tokens.size() == n.get() - 1) {
+      tokens.push_back(s.substr(offset));
+      break;
+    }
+  }
+  return tokens;
+}
+#endif
+
 // Fails or does entire write (returns count)
 ssize_t Util::writeAll(int fd, const void *buf, size_t count)
 {

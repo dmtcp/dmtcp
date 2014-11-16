@@ -120,12 +120,6 @@ __targetdir__bin_dmtcp_launch_SOURCES = dmtcp_launch.cpp
 mtcp/libmtcp.a:
 	cd mtcp && ${MAKE} libmtcp.a
 
-install-exec-hook:
-	cd $(DESTDIR)$(bindir) && $(LN_S) -f dmtcp_launch dmtcp_checkpoint
-
-uninstall-hook:
-	rm -f $(DESTDIR)$(bindir)/dmtcp_checkpoint
-
 libs: $(dmtcplib_PROGRAMS)
 	(cd mtcp && ${MAKE} libs)
 	(cd plugin && ${MAKE} libs)

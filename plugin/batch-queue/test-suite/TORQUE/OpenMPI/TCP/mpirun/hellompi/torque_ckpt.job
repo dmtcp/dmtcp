@@ -68,7 +68,7 @@ start_coordinator # -i 120 ... <put dmtcp coordinator options here>
 echo "Start"
 date
 
-dmtcp_checkpoint --rm mpirun --mca btl self,tcp ./hellompi
+dmtcp_launch --rm mpirun --mca btl self,tcp ./hellompi
 
 echo "Finish"
 date

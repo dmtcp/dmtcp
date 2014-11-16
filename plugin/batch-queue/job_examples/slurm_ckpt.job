@@ -76,5 +76,5 @@ cd $SLURM_SUBMIT_DIR
 
 start_coordinator # -i 120 ... <put dmtcp coordinator options here>
 
-dmtcp_checkpoint --rm mpirun --mca btl self,tcp ./<your binary>
+dmtcp_launch --rm mpirun --mca btl self,tcp ./<your binary>
 

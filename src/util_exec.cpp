@@ -30,6 +30,7 @@
 #include  "shareddata.h"
 #include  "../jalib/jassert.h"
 #include  "../jalib/jfilesystem.h"
+#include  "../jalib/jconvert.h"
 
 using namespace dmtcp;
 
@@ -378,12 +379,19 @@ void Util::prepareDlsymWrapper()
   /* For the sake of dlsym wrapper. We compute the address of _real_dlsym by
    * adding dlsym_offset to the address of dlopen after the exec into the user
    * application. */
-  uint32_t diff = getDlsymOffset();
-  uint32_t diff_m32 = getDlsymOffset_m32();
+  uint32_t offset = SharedData::getDlsymOffset();
+  uint32_t offset_m32 = SharedData::getDlsymOffset_m32();
+
+  if (offset == 0) {
+    offset = getDlsymOffset();
+    offset_m32 = getDlsymOffset_m32();
+    SharedData::updateDlsymOffset(offset, offset_m32);
+  }
+
   char str[21] = {0};
-  sprintf(str, "%d", diff);
+  sprintf(str, "%d", offset);
   setenv(ENV_VAR_DLSYM_OFFSET, str, 1);
-  sprintf(str, "%d", diff_m32);
+  sprintf(str, "%d", offset_m32);
   setenv(ENV_VAR_DLSYM_OFFSET_M32, str, 1);
 }
 
@@ -391,7 +399,7 @@ static int32_t getDlsymOffset()
 {
   void* base_addr = NULL;
   void* dlsym_addr = NULL;
-  int32_t diff;
+  int32_t offset;
   void* handle = NULL;
   handle = dlopen(LIBDL_FILENAME, RTLD_NOW);
   JASSERT(handle != NULL) (dlerror());
@@ -405,20 +413,20 @@ static int32_t getDlsymOffset()
   base_addr = dlsym(handle, LIBDL_BASE_FUNC_STR);
   dlsym_addr = dlsym(handle, "dlsym");
   dlclose(handle);
-  diff = (char *)dlsym_addr - (char *)base_addr;
-  return diff;
+  offset = (char *)dlsym_addr - (char *)base_addr;
+  return offset;
 }
 
 static int32_t getDlsymOffset_m32()
 {
   uint64_t base_addr = 0;
   uint64_t dlsym_addr = 0;
-  int32_t diff;
+  int32_t offset;
   FILE *fp;
   char buf[PATH_MAX];
   string cmd1, cmd2, libdl, libdmtcp32;
 
-  libdmtcp32 = jalib::Filesystem::FindHelperUtility("libdmtcp.so", true);
+  libdmtcp32 = Util::getPath("libdmtcp.so", true);
   if (libdmtcp32 == "libdmtcp.so") return 0;
 
   cmd1 = "ldd " + libdmtcp32 + " | grep " + LIBDL_FILENAME
@@ -448,19 +456,17 @@ static int32_t getDlsymOffset_m32()
   JASSERT(base_addr != 0);
   fclose(fp);
 
-  diff = (int32_t) ((char *)dlsym_addr - (char *)base_addr);
-  return diff;
+  offset = (int32_t) ((char *)dlsym_addr - (char *)base_addr);
+  return offset;
 }
 
 void Util::runMtcpRestore(int is32bitElf, const char* path, int fd,
                                  size_t argvSize, size_t envSize)
 {
-  static string mtcprestart =
-    jalib::Filesystem::FindHelperUtility ("mtcp_restart");
+  static string mtcprestart = Util::getPath ("mtcp_restart");
 
   if (is32bitElf) {
-    mtcprestart = jalib::Filesystem::FindHelperUtility("mtcp_restart-32",
-                                                       is32bitElf);
+    mtcprestart = Util::getPath("mtcp_restart-32", is32bitElf);
   }
 
   // Tell mtcp_restart process to write its debugging information to
@@ -564,29 +570,40 @@ void Util::adjustRlimitStack()
 #endif
 }
 
-string Util::getPath(string cmd)
+// TODO(kapil): rewrite getPath to remove dependency on jalib.
+string Util::getPath(string cmd, bool is32bit)
 {
-  string out;
-  const char *prefixPath = getenv (ENV_VAR_PREFIX_PATH);
-  if (prefixPath != NULL) {
-    out.append(prefixPath).append("/bin/").append(cmd);
-  } else {
-    out = jalib::Filesystem::FindHelperUtility(cmd);
+  // search relative to base dir of dmtcp installation.
+  const char *p1[] = {
+    "/bin/",
+    "/lib64/dmtcp/",
+    "/lib/dmtcp/",
+  };
+
+  string suffixFor32Bits;
+  if (is32bit) {
+    string basename = jalib::Filesystem::BaseName(cmd);
+    if (cmd == "mtcp_restart-32") {
+      suffixFor32Bits = "32/bin/";
+    } else {
+      suffixFor32Bits = "32/lib/dmtcp/";
+    }
   }
-  return out;
+
+  // Search relative to dir of this command (bin/dmtcp_launch), (using p1).
+  string udir = SharedData::getInstallDir();
+  for (size_t i = 0; i < sizeof(p1) / sizeof(char*); i++) {
+    string pth = udir + p1[i] + suffixFor32Bits + cmd;
+    if (jalib::Filesystem::FileExists(pth)) {
+      return pth;
+    }
+  }
+
+  return cmd;
 }
 
 void Util::getDmtcpArgs(vector<string> &dmtcp_args)
 {
-  const char * prefixPath           = getenv (ENV_VAR_PREFIX_PATH);
-  const char * coordinatorAddr      = getenv (ENV_VAR_NAME_HOST);
-
-  char buf[256];
-  if (coordinatorAddr == NULL) {
-    JASSERT(gethostname(buf, sizeof(buf)) == 0) (JASSERT_ERRNO);
-    coordinatorAddr = buf;
-  }
-  const char * coordinatorPortStr   = getenv (ENV_VAR_NAME_PORT);
   const char * sigckpt              = getenv (ENV_VAR_SIGCKPT);
   const char * compression          = getenv (ENV_VAR_COMPRESSION);
   const char * allocPlugin          = getenv (ENV_VAR_ALLOC_PLUGIN);
@@ -607,24 +624,14 @@ void Util::getDmtcpArgs(vector<string> &dmtcp_args)
 
   //modify the command
   dmtcp_args.clear();
-  if (coordinatorAddr != NULL) {
-    dmtcp_args.push_back("--host");
-    dmtcp_args.push_back(coordinatorAddr);
-  }
-
-  if (coordinatorPortStr != NULL) {
-    dmtcp_args.push_back("--port");
-    dmtcp_args.push_back(coordinatorPortStr);
-  }
+  dmtcp_args.push_back("--host");
+  dmtcp_args.push_back(SharedData::coordHost());
+  dmtcp_args.push_back("--port");
+  dmtcp_args.push_back(jalib::XToString(SharedData::coordPort()));
 
   if (sigckpt != NULL) {
-    dmtcp_args.push_back("--mtcp-checkpoint-signal");
+    dmtcp_args.push_back("--ckpt-signal");
     dmtcp_args.push_back(sigckpt);
-  }
-
-  if (prefixPath != NULL) {
-    dmtcp_args.push_back("--prefix");
-    dmtcp_args.push_back(prefixPath);
   }
 
   if (ckptDir != NULL) {

@@ -113,6 +113,12 @@ namespace dmtcp
     bool strEndsWith(const char *str, const char *pattern);
     bool strStartsWith(const string& str, const char *pattern);
     bool strEndsWith(const string& str, const char *pattern);
+    string joinStrings(vector<string> v, const string& delim);
+    vector<string> tokenizeString(const string& s, const string& delims);
+    // Add it back if needed.
+#if 0
+    vector<string> split(const string& s, const string& delims, size_t n = 0);
+#endif
 
     ssize_t writeAll(int fd, const void *buf, size_t count);
     ssize_t readAll(int fd, void *buf, size_t count);
@@ -162,7 +168,7 @@ namespace dmtcp
 
     char *findExecutable(char *executable, const char* path_env,
                          char *exec_path);
-    string getPath(string cmd);
+    string getPath(string cmd, bool is32bit = false);
     void getDmtcpArgs(vector<string> &dmtcp_args);
   }
 }

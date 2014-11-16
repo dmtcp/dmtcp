@@ -197,14 +197,22 @@ class RestoreTarget
         Util::writeCoordPortToFile(getenv(ENV_VAR_NAME_PORT),
                                    thePortFile.c_str());
 
+        string installDir =
+          jalib::Filesystem::DirName(jalib::Filesystem::GetProgramDir());
+
         /* We need to initialize SharedData here to make sure that it is
          * initialized with the correct coordinator timestamp.  The coordinator
          * timestamp is updated only during postCkpt callback. However, the
          * SharedData area may be initialized earlier (for example, while
          * recreating threads), causing it to use *older* timestamp.
          */
-        SharedData::initialize(Util::getTmpDir().c_str(), &compId, &coordInfo,
+        SharedData::initialize(Util::getTmpDir().c_str(),
+                               installDir.c_str(),
+                               &compId,
+                               &coordInfo,
                                &localIPAddr);
+
+        Util::prepareDlsymWrapper();
       }
 
       JTRACE("Creating process during restart") (upid()) (_pInfo.procname());
@@ -307,12 +315,10 @@ static void runMtcpRestart(int is32bitElf, int fd, ProcessInfo *pInfo)
   sprintf(fdBuf, "%d", fd);
   sprintf(stderrFdBuf, "%d", PROTECTED_STDERR_FD);
 
-  static string mtcprestart =
-    jalib::Filesystem::FindHelperUtility ("mtcp_restart");
+  static string mtcprestart = Util::getPath ("mtcp_restart");
 
   if (is32bitElf) {
-    mtcprestart = jalib::Filesystem::FindHelperUtility("mtcp_restart-32",
-                                                       is32bitElf);
+    mtcprestart = Util::getPath("mtcp_restart-32", is32bitElf);
   }
 
   char* const newArgs[] = {
@@ -531,8 +537,6 @@ int main(int argc, char** argv)
           "process as session leader.");
 
   WorkerState::setCurrentState(WorkerState::RESTARTING);
-
-  Util::prepareDlsymWrapper();
 
   RestoreTarget *t = independentProcessTreeRoots.begin()->second;
   JASSERT(t->pid() != 0);

@@ -27,6 +27,7 @@
 #include "eventconnection.h"
 
 #define _real_poll NEXT_FNC(poll)
+#define _real_pselect NEXT_FNC(pselect)
 
 #ifdef HAVE_SYS_EPOLL_H
 #define _real_epoll_create NEXT_FNC(epoll_create)
