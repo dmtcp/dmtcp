@@ -62,6 +62,10 @@ using namespace dmtcp;
  * + io_getevents(2).
  */
 
+// TODO(kapil): A better way to fix this is to lookup the stack to check if we
+// are in the middle of a poll/select/pselect call and set some global variable
+// and restart the syscall only if that variable is set.
+
 /* Poll wrapper forces poll to restart after ckpt/resume or ckpt/restart */
 extern "C" int poll(struct pollfd *fds, nfds_t nfds, POLL_TIMEOUT_TYPE timeout)
 {
@@ -79,6 +83,25 @@ extern "C" int poll(struct pollfd *fds, nfds_t nfds, POLL_TIMEOUT_TYPE timeout)
   return rc;
 }
 
+
+// pselect wrapper forces pselect to restart after ckpt/resume or ckpt/restart
+extern "C" int pselect(int nfds, fd_set *readfds, fd_set *writefds,
+                       fd_set *exceptfds, const struct timespec *timeout,
+                       const sigset_t *sigmask)
+{
+  int rc;
+  while (1) {
+    uint32_t orig_generation = dmtcp_get_generation();
+    rc = _real_pselect(nfds, readfds, writefds, exceptfds, timeout, sigmask);
+    if (rc == -1 && errno == EINTR &&
+         dmtcp_get_generation() > orig_generation) {
+      continue;  // This was a restart or resume after checkpoint.
+    } else {
+      break;  // The signal interrupting us was not our checkpoint signal.
+    }
+  }
+  return rc;
+}
 
 /****************************************************************************
  ****************************************************************************/
