@@ -30,6 +30,7 @@
 #include  "shareddata.h"
 #include  "../jalib/jassert.h"
 #include  "../jalib/jfilesystem.h"
+#include  "../jalib/jconvert.h"
 
 using namespace dmtcp;
 
@@ -603,14 +604,6 @@ string Util::getPath(string cmd, bool is32bit)
 
 void Util::getDmtcpArgs(vector<string> &dmtcp_args)
 {
-  const char * coordinatorAddr      = getenv (ENV_VAR_NAME_HOST);
-
-  char buf[256];
-  if (coordinatorAddr == NULL) {
-    JASSERT(gethostname(buf, sizeof(buf)) == 0) (JASSERT_ERRNO);
-    coordinatorAddr = buf;
-  }
-  const char * coordinatorPortStr   = getenv (ENV_VAR_NAME_PORT);
   const char * sigckpt              = getenv (ENV_VAR_SIGCKPT);
   const char * compression          = getenv (ENV_VAR_COMPRESSION);
   const char * allocPlugin          = getenv (ENV_VAR_ALLOC_PLUGIN);
@@ -631,15 +624,10 @@ void Util::getDmtcpArgs(vector<string> &dmtcp_args)
 
   //modify the command
   dmtcp_args.clear();
-  if (coordinatorAddr != NULL) {
-    dmtcp_args.push_back("--host");
-    dmtcp_args.push_back(coordinatorAddr);
-  }
-
-  if (coordinatorPortStr != NULL) {
-    dmtcp_args.push_back("--port");
-    dmtcp_args.push_back(coordinatorPortStr);
-  }
+  dmtcp_args.push_back("--host");
+  dmtcp_args.push_back(SharedData::coordHost());
+  dmtcp_args.push_back("--port");
+  dmtcp_args.push_back(jalib::XToString(SharedData::coordPort()));
 
   if (sigckpt != NULL) {
     dmtcp_args.push_back("--ckpt-signal");

@@ -130,6 +130,8 @@ namespace dmtcp {
       //char                 coordHost[NI_MAXHOST];
     };
 
+    bool initialized();
+
     void initialize(const char *tmpDir,
                     const char *installDir,
                     DmtcpUniqueProcessId *compId,
@@ -143,15 +145,11 @@ namespace dmtcp {
     void suspended();
     void preCkpt();
     void refill();
-    void updateHostAndPortEnv();
 
-#if 0
-    //string getCoordHost();
-    //void setCoordHost(const char *host);
-
-    uint32_t  getCoordPort();
-    void setCoordPort(uint32_t port);
-#endif
+    string coordHost();
+    uint32_t coordPort();
+    void getCoordAddr(struct sockaddr *addr, uint32_t *len);
+    uint64_t getCoordTimeStamp();
 
     char *getTmpDir(char *buf, uint32_t len);
     string getInstallDir();
@@ -160,8 +158,6 @@ namespace dmtcp {
     void updateGeneration(uint32_t generation);
     DmtcpUniqueProcessId getCompId();
     DmtcpUniqueProcessId getCoordId();
-    uint64_t getCoordTimeStamp();
-    void getCoordAddr(struct sockaddr *addr, uint32_t *len);
 
     void getLocalIPAddr(struct in_addr *in);
 

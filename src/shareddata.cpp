@@ -59,10 +59,6 @@ void dmtcp_SharedData_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
       SharedData::refill();
       break;
 
-    case DMTCP_EVENT_RESTART:
-      SharedData::updateHostAndPortEnv();
-      break;
-
     default:
       break;
   }
@@ -115,6 +111,11 @@ void SharedData::initializeHeader(const char *tmpDir,
   JASSERT(strlen(installDir) < sizeof(sharedDataHeader->installDir) - 1)
     (installDir);
   strcpy(sharedDataHeader->installDir, installDir);
+}
+
+bool SharedData::initialized()
+{
+  return sharedDataHeader != NULL;
 }
 
 void SharedData::initialize(const char *tmpDir = NULL,
@@ -216,81 +217,22 @@ void SharedData::refill()
   if (sharedDataHeader == NULL) initialize();
 }
 
-// At restart, the HOST/PORT used by dmtcp_coordinator could be different then
-// those at checkpoint time. This could cause the child processes created after
-// restart to fail to connect to the coordinator.
-extern "C" int fred_record_replay_enabled() __attribute__ ((weak));
-void SharedData::updateHostAndPortEnv()
-{
-  if (CoordinatorAPI::noCoordinator()) return;
-  if (sharedDataHeader == NULL) initialize();
-
-  /* This calls setenv() which calls malloc. Since this is only executed on
-     restart, that means it there is an extra malloc on replay. Commenting this
-     until we have time to fix it. */
-  if (fred_record_replay_enabled != 0) return;
-
-  struct sockaddr_storage *currAddr = &sharedDataHeader->coordInfo.addr;
-  /* If the current coordinator is running on a HOST/PORT other than the
-   * pre-checkpoint HOST/PORT, we need to update the environment variables
-   * pointing to the coordinator HOST/PORT. This is needed if the new
-   * coordinator has been moved around.
-   */
-  char ipstr[INET6_ADDRSTRLEN];
-  int port;
-  string portStr;
-
-  // deal with both IPv4 and IPv6:
-  if (currAddr->ss_family == AF_INET) {
-    struct sockaddr_in *s = (struct sockaddr_in *)currAddr;
-    port = ntohs(s->sin_port);
-    inet_ntop(AF_INET, &s->sin_addr, ipstr, sizeof ipstr);
-  } else { // AF_INET6
-    JASSERT (currAddr->ss_family == AF_INET6) (currAddr->ss_family);
-    struct sockaddr_in6 *s = (struct sockaddr_in6 *)currAddr;
-    port = ntohs(s->sin6_port);
-    inet_ntop(AF_INET6, &s->sin6_addr, ipstr, sizeof ipstr);
-  }
-
-  portStr = jalib::XToString(port);
-  if (getenv(ENV_VAR_NAME_HOST) && strcmp(getenv(ENV_VAR_NAME_HOST), ipstr)) {
-    JASSERT(0 == setenv(ENV_VAR_NAME_HOST, ipstr, 1)) (JASSERT_ERRNO);
-  }
-  if (getenv(ENV_VAR_NAME_PORT) && strcmp(getenv(ENV_VAR_NAME_PORT),
-                                          portStr.c_str())) {
-    JASSERT(0 == setenv(ENV_VAR_NAME_PORT, portStr.c_str(), 1)) (JASSERT_ERRNO);
-  }
-}
-#if 0
-string SharedData::getCoordHost()
+string SharedData::coordHost()
 {
   if (sharedDataHeader == NULL) initialize();
-  return sharedDataHeader->coordHost;
+  const struct sockaddr_in *sin =
+    (const struct sockaddr_in*) &sharedDataHeader->coordInfo.addr;
+  string remoteIP = inet_ntoa(sin->sin_addr);
+  return remoteIP;
 }
 
-void SharedData::setCoordHost(const char *host)
+uint32_t SharedData::coordPort()
 {
   if (sharedDataHeader == NULL) initialize();
-  JASSERT(strlen(host) < sizeof(sharedDataHeader->coordHost));
-  Util::lockFile(PROTECTED_SHM_FD);
-  strcpy(sharedDataHeader->coordHost, host);
-  Util::unlockFile(PROTECTED_SHM_FD);
+  const struct sockaddr_in *sin =
+    (const struct sockaddr_in*) &sharedDataHeader->coordInfo.addr;
+  return ntohs(sin->sin_port);
 }
-
-uint32_t SharedData::getCoordPort()
-{
-  if (sharedDataHeader == NULL) initialize();
-  return sharedDataHeader->coordPort;
-}
-
-void SharedData::setCoordPort(uint32_t port)
-{
-  if (sharedDataHeader == NULL) initialize();
-  Util::lockFile(PROTECTED_SHM_FD);
-  sharedDataHeader->coordPort = port;
-  Util::unlockFile(PROTECTED_SHM_FD);
-}
-#endif
 
 char *SharedData::getTmpDir(char *buf, uint32_t len)
 {

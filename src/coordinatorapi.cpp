@@ -67,6 +67,12 @@ static void getHostAndPort(CoordinatorMode mode, string *hostname, int *port)
 {
   JASSERT(mode & COORD_JOIN || mode & COORD_NEW || mode & COORD_ANY);
 
+  if (SharedData::initialized()) {
+    *hostname = SharedData::coordHost();
+    *port = SharedData::coordPort();
+    return;
+  }
+
   const char *addr = getenv (ENV_VAR_NAME_HOST);
   if (addr == NULL) addr = DEFAULT_HOST;
   *hostname = addr;

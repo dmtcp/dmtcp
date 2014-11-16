@@ -475,6 +475,8 @@ int main ( int argc, char** argv )
                                                      &compId, &coordInfo,
                                                      &localIPAddr);
   Util::writeCoordPortToFile(getenv(ENV_VAR_NAME_PORT), thePortFile.c_str());
+  unsetenv(ENV_VAR_NAME_HOST);
+  unsetenv(ENV_VAR_NAME_PORT);
 
   string installDir =
     jalib::Filesystem::DirName(jalib::Filesystem::GetProgramDir());
