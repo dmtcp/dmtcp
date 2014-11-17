@@ -5,7 +5,9 @@ AC_INIT([DMTCP],
         [http://dmtcp.sourceforge.net])
 
 AC_PREREQ([2.60])
-AM_INIT_AUTOMAKE([foreign])
+# TODO(kapil): Remove 'no-dependencies' flag in future after
+# http://debbugs.gnu.org/cgi/bugreport.cgi?bug=13928 has been fixed.
+AM_INIT_AUTOMAKE([subdir-objects no-dependencies foreign])
 AM_MAINTAINER_MODE
 AC_CANONICAL_HOST
 AC_PROG_INSTALL
@@ -22,7 +24,7 @@ dnl This sets OPENMP_CXXFLAGS
 AC_LANG_PUSH([C++])
 AC_OPENMP
 AC_LANG_POP([C++])
-AM_CONFIG_HEADER([include/config.h])
+AC_CONFIG_HEADERS([include/config.h])
 AC_CONFIG_FILES([Makefile \
                  contrib/Makefile \
                  contrib/ckptfile/Makefile \
