@@ -154,7 +154,6 @@ namespace dmtcp {
     char *getTmpDir(char *buf, uint32_t len);
     string getInstallDir();
     uint32_t getCkptInterval();
-    void setCkptInterval(uint32_t interval);
     void updateGeneration(uint32_t generation);
     DmtcpUniqueProcessId getCompId();
     DmtcpUniqueProcessId getCoordId();

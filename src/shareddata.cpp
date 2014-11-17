@@ -257,14 +257,6 @@ uint32_t SharedData::getCkptInterval()
   return sharedDataHeader->coordInfo.interval;
 }
 
-void SharedData::setCkptInterval(uint32_t interval)
-{
-  if (sharedDataHeader == NULL) initialize();
-  Util::lockFile(PROTECTED_SHM_FD);
-  sharedDataHeader->coordInfo.interval = interval;
-  Util::unlockFile(PROTECTED_SHM_FD);
-}
-
 void SharedData::updateGeneration(uint32_t generation)
 {
   if (sharedDataHeader == NULL) initialize();
