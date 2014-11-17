@@ -68,7 +68,8 @@ int main ( int argc, char** argv )
 
   initializeJalib();
 
-  Util::initializeLogFile();
+  // No need to initialize the log file.
+  // Util::initializeLogFile();
 
   //process args
   shift;

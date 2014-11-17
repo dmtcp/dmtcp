@@ -34,14 +34,6 @@
 
 using namespace dmtcp;
 
-static string *utilTmpDirPtr = NULL;
-static string &utilTmpDir(){
-  if( utilTmpDirPtr == NULL ){
-    utilTmpDirPtr = new string;
-  }
-  return *utilTmpDirPtr;
-}
-
 void Util::writeCoordPortToFile(const char *port, const char *portFile)
 {
   if (port != NULL && portFile != NULL && strlen(portFile) > 0) {
@@ -54,31 +46,21 @@ void Util::writeCoordPortToFile(const char *port, const char *portFile)
   }
 }
 
-string &Util::getTmpDir()
-{
-  if( utilTmpDir().length() == 0 ){
-    setTmpDir(getenv(ENV_VAR_TMPDIR));
-  }
-  JASSERT(utilTmpDir().length() > 0);
-  return utilTmpDir();
-}
-
 /*
- * setTmpDir() computes the TmpDir to be used by DMTCP. It does so by using
+ * calcTmpDir() computes the TmpDir to be used by DMTCP. It does so by using
  * DMTCP_TMPDIR env, current username, and hostname. Once computed, we open the
- * directory on file descriptor PROTECTED_TMPDIR_FD. The getTmpDir() routine
- * finds the TmpDir from looking at PROTECTED_TMPDIR_FD in proc file system.
+ * directory on file descriptor PROTECTED_TMPDIR_FD.
  *
  * This mechanism was introduced to avoid calls to gethostname(), getpwuid()
  * etc. while DmtcpWorker was still initializing (in constructor) or the
  * process was restarting. gethostname(), getpwuid() will create a socket
  * connect to some DNS server to find out hostname and username. The socket is
  * closed only at next exec() and thus it leaves a dangling socket in the
- * worker process. To resolve this issue, we make sure to call setTmpDir() only
+ * worker process. To resolve this issue, we make sure to call calcTmpDir() only
  * from dmtcp_launch and dmtcp_restart process and once the user process
- * has been exec()ed, we use getTmpDir() only.
+ * has been exec()ed, we use SharedData::getTmpDir() only.
  */
-void Util::setTmpDir(const char *tmpdirenv)
+string Util::calcTmpDir(const char *tmpdirenv)
 {
   string tmpDir;
   char hostname[256];
@@ -103,25 +85,26 @@ void Util::setTmpDir(const char *tmpdirenv)
   } else {
     o << "/tmp/dmtcp-" << userName << "@" << hostname;
   }
-  utilTmpDir() = o.str();
+  tmpDir = o.str();
 
 
-  JASSERT(mkdir(utilTmpDir().c_str(), S_IRWXU) == 0 || errno == EEXIST)
-          (JASSERT_ERRNO) (utilTmpDir())
+  JASSERT(mkdir(tmpDir.c_str(), S_IRWXU) == 0 || errno == EEXIST)
+          (JASSERT_ERRNO) (tmpDir)
     .Text("Error creating tmp directory");
 
-  JASSERT(0 == access(utilTmpDir().c_str(), X_OK|W_OK)) (utilTmpDir())
+  JASSERT(0 == access(tmpDir.c_str(), X_OK|W_OK)) (tmpDir)
     .Text("ERROR: Missing execute- or write-access to tmp dir");
+
+  return tmpDir;
 }
 
-void Util::initializeLogFile(string procname, string prevLogPath)
+void Util::initializeLogFile(string tmpDir, string procname, string prevLogPath)
 {
-
   UniquePid::ThisProcess(true);
 #ifdef DEBUG
   // Initialize JASSERT library here
   ostringstream o;
-  o << getTmpDir();
+  o << tmpDir;
   o << "/jassertlog.";
   o << UniquePid::ThisProcess();
   o << "_";

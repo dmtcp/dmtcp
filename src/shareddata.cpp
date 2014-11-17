@@ -234,6 +234,13 @@ uint32_t SharedData::coordPort()
   return ntohs(sin->sin_port);
 }
 
+string SharedData::getTmpDir()
+{
+  if (sharedDataHeader == NULL) initialize();
+  JASSERT(sharedDataHeader->tmpDir[0] != '\0');
+  return string(sharedDataHeader->tmpDir);
+}
+
 char *SharedData::getTmpDir(char *buf, uint32_t len)
 {
   if (sharedDataHeader == NULL) initialize();

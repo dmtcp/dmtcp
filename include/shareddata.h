@@ -151,6 +151,7 @@ namespace dmtcp {
     void getCoordAddr(struct sockaddr *addr, uint32_t *len);
     uint64_t getCoordTimeStamp();
 
+    string getTmpDir();
     char *getTmpDir(char *buf, uint32_t len);
     string getInstallDir();
     uint32_t getCkptInterval();
