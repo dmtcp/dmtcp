@@ -145,9 +145,10 @@ namespace dmtcp
 
 
     void writeCoordPortToFile(const char *port, const char *portFile);
-    void setTmpDir(const char *tmpDir);
-    string &getTmpDir();
-    void initializeLogFile(string procname = "", string preLogPath = "");
+    string calcTmpDir(const char *tmpDir);
+    void initializeLogFile(string tmpDir,
+                           string procname = "",
+                           string preLogPath = "");
 
     void prepareDlsymWrapper();
     void adjustRlimitStack();

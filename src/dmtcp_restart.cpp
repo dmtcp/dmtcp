@@ -44,7 +44,7 @@ using namespace dmtcp;
 
 static void setEnvironFd();
 
-string dmtcpTmpDir = "/DMTCP/Uninitialized/Tmp/Dir";
+string tmpDir = "/DMTCP/Uninitialized/Tmp/Dir";
 
 // gcc-4.3.4 -Wformat=2 issues false positives for warnings unless the format
 // string has at least one format specifier with corresponding format argument.
@@ -206,7 +206,7 @@ class RestoreTarget
          * SharedData area may be initialized earlier (for example, while
          * recreating threads), causing it to use *older* timestamp.
          */
-        SharedData::initialize(Util::getTmpDir().c_str(),
+        SharedData::initialize(tmpDir.c_str(),
                                installDir.c_str(),
                                &compId,
                                &coordInfo,
@@ -336,7 +336,7 @@ static void runMtcpRestart(int is32bitElf, int fd, ProcessInfo *pInfo)
 static void setEnvironFd()
 {
   char envFile[PATH_MAX];
-  sprintf(envFile, "%s/envFile.XXXXXX", dmtcpTmpDir.c_str());
+  sprintf(envFile, "%s/envFile.XXXXXX", tmpDir.c_str());
   int fd = mkstemp(envFile);
   JASSERT(fd != -1) (envFile) (JASSERT_ERRNO);
   JASSERT(unlink(envFile) == 0) (envFile) (JASSERT_ERRNO);
@@ -460,13 +460,12 @@ int main(int argc, char** argv)
     }
   }
 
-  Util::setTmpDir(getenv(ENV_VAR_TMPDIR));
-  dmtcpTmpDir = Util::getTmpDir();
+  tmpDir = Util::calcTmpDir(getenv(ENV_VAR_TMPDIR));
 
   jassert_quiet = *getenv(ENV_VAR_QUIET) - '0';
 
   //make sure JASSERT initializes now, rather than during restart
-  Util::initializeLogFile();
+  Util::initializeLogFile(tmpDir);
 
   if (!runAsRoot && (getuid() == 0 || geteuid() == 0)) {
     JASSERT_STDERR <<

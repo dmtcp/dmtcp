@@ -330,11 +330,12 @@ int main ( int argc, char** argv )
 
   processArgs(&argc, &argv);
 
+  string tmpDir = Util::calcTmpDir(getenv(ENV_VAR_TMPDIR));
+
   initializeJalib();
 
-  Util::setTmpDir(getenv(ENV_VAR_TMPDIR));
   UniquePid::ThisProcess(true);
-  Util::initializeLogFile();
+  Util::initializeLogFile(tmpDir);
 
 #ifdef FORKED_CHECKPOINTING
   /* When this is robust, add --forked-checkpointing option on command-line,
@@ -487,7 +488,7 @@ int main ( int argc, char** argv )
    * SharedData area may be initialized earlier (for example, while
    * recreating threads), causing it to use *older* timestamp.
    */
-  SharedData::initialize(Util::getTmpDir().c_str(),
+  SharedData::initialize(tmpDir.c_str(),
                          installDir.c_str(),
                          &compId,
                          &coordInfo,

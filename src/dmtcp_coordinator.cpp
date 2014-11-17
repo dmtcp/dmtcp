@@ -447,6 +447,7 @@ static LookupService lookupService;
 static string coordHostname;
 static struct in_addr localhostIPAddr;
 
+static string tmpDir;
 static string ckptDir;
 
 #define MAX_EVENTS 10000
@@ -873,7 +874,7 @@ void DmtcpCoordinator::onData(CoordClient *client)
 static void removeStaleSharedAreaFile()
 {
   ostringstream o;
-  o << Util::getTmpDir()
+  o << tmpDir
     << "/dmtcpSharedArea." << compId << "." << std::hex << curTimeStamp;
   JTRACE("Removing sharedArea file.") (o.str());
   unlink(o.str().c_str());
@@ -1811,9 +1812,9 @@ int main ( int argc, char** argv )
     }
   }
 
-  Util::setTmpDir(getenv(ENV_VAR_TMPDIR));
+  tmpDir = Util::calcTmpDir(getenv(ENV_VAR_TMPDIR));
 
-  Util::initializeLogFile();
+  Util::initializeLogFile(tmpDir);
 
   JTRACE ( "New DMTCP coordinator starting." )
     ( UniquePid::ThisProcess() );
