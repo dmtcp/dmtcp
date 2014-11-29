@@ -616,18 +616,18 @@ void Util::getDmtcpArgs(vector<string> &dmtcp_args)
   const char * tmpDir               = getenv (ENV_VAR_TMPDIR);
   const char * plugins              = getenv (ENV_VAR_PLUGIN);
 
-  if (getenv(ENV_VAR_QUIET)) {
-    jassert_quiet                   = *getenv (ENV_VAR_QUIET) - '0';
-  } else {
-    jassert_quiet = 0;
-  }
-
   //modify the command
   dmtcp_args.clear();
   dmtcp_args.push_back("--host");
   dmtcp_args.push_back(SharedData::coordHost());
   dmtcp_args.push_back("--port");
   dmtcp_args.push_back(jalib::XToString(SharedData::coordPort()));
+
+  if (jassert_quiet == 1) {
+    dmtcp_args.push_back("-q");
+  } else if (jassert_quiet == 2) {
+    dmtcp_args.push_back("-q -q");
+  }
 
   if (sigckpt != NULL) {
     dmtcp_args.push_back("--ckpt-signal");
