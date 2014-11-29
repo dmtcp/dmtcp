@@ -62,7 +62,6 @@ CXXLINK = $(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@
 HEADERS = $(DMTCP_INCLUDE_PATH)/util.h $(DMTCP_INCLUDE_PATH)/dmtcp.h \
 	  $(DMTCP_INCLUDE_PATH)/virtualidtable.h $(DMTCP_INCLUDE_PATH)/protectedfds.h \
 	  $(DMTCP_INCLUDE_PATH)/shareddata.h $(DMTCP_INCLUDE_PATH)/dmtcpalloc.h \
-	  $(top_builddir)/include/config.h \
 	  pid.h pidwrappers.h virtualpidtable.h \
 	  $(JALIB_PATH)/jassert.h $(JALIB_PATH)/jalloc.h \
 	  $(JALIB_PATH)/jalib.h $(JALIB_PATH)/jbuffer.h \
