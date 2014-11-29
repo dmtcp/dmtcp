@@ -63,6 +63,9 @@ extern "C" void initializeJalib()
   INIT_JALIB_FPTR(pthread_mutex_trylock);
   INIT_JALIB_FPTR(pthread_mutex_unlock);
 
-  jalib_init(jalibFuncPtrs, PROTECTED_STDERR_FD, PROTECTED_JASSERTLOG_FD,
+  jalib_init(jalibFuncPtrs,
+             ELF_INTERPRETER,
+             PROTECTED_STDERR_FD,
+             PROTECTED_JASSERTLOG_FD,
              DMTCP_FAIL_RC);
 }
