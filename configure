@@ -4546,8 +4546,8 @@ if test "$use_jassert" = "yes"; then
 
 $as_echo "#define DEBUG 1" >>confdefs.h
 
-  CFLAGS="-g -O0 -Wall"
-  CXXFLAGS="-g -O0 -Wall"
+  CFLAGS="-DDEBUG -g -O0 -Wall"
+  CXXFLAGS="-DDEBUG -g -O0 -Wall"
 else
   DEBUG=no
 
