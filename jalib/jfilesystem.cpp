@@ -32,8 +32,6 @@
 #include "jconvert.h"
 #include "jalib.h"
 #include "dmtcp.h"
-// DMTCP config constants like ELF_INTERPRETER
-#include "config.h"
 
 #ifdef __aarch64__
 // FIXME:  We should use SYS_getdents64, and not SYS_getdents for all arch's.
@@ -172,7 +170,8 @@ jalib::string jalib::Filesystem::GetProgramName()
     value = BaseName ( GetProgramPath() ); // uses /proc/self/exe
     // We may rewrite "a.out" to "/lib/ld-linux.so.2 a.out".  If so, find cmd.
     if (!value.empty()
-        && value == ResolveSymlink(ELF_INTERPRETER) // e.g. /lib/ld-linux.so.2
+        && elfInterpreter != NULL
+        && value == ResolveSymlink(elfInterpreter) // e.g. /lib/ld-linux.so.2
 	&& (len = _GetProgramCmdline(cmdline, sizeof(cmdline))) > 0
 	&& len > strlen(cmdline) + 1 // more than one word in cmdline
 	&& *(cmdline + strlen(cmdline) + 1) != '-') // second word not a flag

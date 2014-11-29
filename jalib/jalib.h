@@ -68,6 +68,7 @@ namespace jalib {
 
   extern JalibFuncPtrs jalibFuncPtrs;
   extern int jalib_funcptrs_initialized;
+  extern const char *elfInterpreter;
   extern int stderrFd;
   extern int logFd;
   extern int dmtcp_fail_rc;
@@ -107,6 +108,9 @@ namespace jalib {
 }
 
 extern "C" void jalib_init(jalib::JalibFuncPtrs jalibFuncPtrs,
-                           int stderrFd, int jassertLogFd, int dmtcp_fail_rc);
+                           const char *elfInterpreter,
+                           int stderrFd,
+                           int jassertLogFd,
+                           int dmtcp_fail_rc);
 
 #endif

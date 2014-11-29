@@ -36,15 +36,20 @@
 
 jalib::JalibFuncPtrs jalib::jalibFuncPtrs;
 int jalib::jalib_funcptrs_initialized = 0;
+const char *jalib::elfInterpreter = NULL;
 int jalib::stderrFd = -1;
 int jalib::logFd = -1;
 int jalib::dmtcp_fail_rc = -1;
 extern "C" void initializeJalib();
 
 extern "C" void jalib_init(jalib::JalibFuncPtrs jalibFuncPtrs,
-                      int stderrFd, int jassertLogFd, int dmtcp_fail_rc)
+                      const char *elfInterpreter,
+                      int stderrFd,
+                      int jassertLogFd,
+                      int dmtcp_fail_rc)
 {
   jalib::jalibFuncPtrs = jalibFuncPtrs;
+  jalib::elfInterpreter = elfInterpreter;
   jalib::stderrFd = stderrFd;
   jalib::logFd = jassertLogFd;
   jalib::jalib_funcptrs_initialized = 1;
