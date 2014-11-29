@@ -26,8 +26,6 @@
 #include "jalib.h"
 #include "jalloc.h"
 
-#include "config.h"
-
 using namespace jalib;
 
 extern "C" int fred_record_replay_enabled() __attribute__ ((weak));
