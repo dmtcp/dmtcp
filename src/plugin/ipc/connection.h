@@ -30,7 +30,6 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include "config.h"
 #include "dmtcpalloc.h"
 #include "jserialize.h"
 #include "jalloc.h"
