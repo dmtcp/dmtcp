@@ -67,7 +67,6 @@ COMMON_HEADERS = ipc.h util_ipc.h \
 		 $(DMTCP_INCLUDE_PATH)/virtualidtable.h \
 		 $(DMTCP_INCLUDE_PATH)/protectedfds.h \
 		 $(DMTCP_INCLUDE_PATH)/procmapsarea.h \
-		 $(top_builddir)/include/config.h \
 		 $(JALIB_PATH)/jassert.h $(JALIB_PATH)/jalloc.h \
 		 $(JALIB_PATH)/jalib.h $(JALIB_PATH)/jbuffer.h \
 		 $(JALIB_PATH)/jconvert.h $(JALIB_PATH)/jfilesystem.h \
