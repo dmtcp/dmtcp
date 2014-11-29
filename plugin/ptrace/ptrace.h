@@ -22,8 +22,6 @@
 #ifndef PTRACE_H
 #define PTRACE_H
 
-#include "config.h"
-
 #include "dmtcp.h"
 
 #ifndef EXTERNC
