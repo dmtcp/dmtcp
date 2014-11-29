@@ -10,6 +10,7 @@
 *.status
 *.so
 *.pyc
+*.dirstamp
 Makefile
 core
 cscope.*
@@ -21,7 +22,7 @@ autom4te.cache
 bin/
 lib/
 src/config.h
-include/stamp-h1
+src/stamp-h1
 dmtcp/src/dmtcp_checkpoint
 dmtcp/src/dmtcp_launch
 dmtcp/src/dmtcp_command
