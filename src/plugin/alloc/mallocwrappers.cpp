@@ -42,21 +42,30 @@ extern "C" void *malloc(size_t size)
   return retval;
 }
 
-extern "C" void *__libc_memalign(size_t boundary, size_t size)
+extern "C" void *memalign(size_t boundary, size_t size)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
-  void *retval = _real_libc_memalign(boundary, size);
+  void *retval = _real_memalign(boundary, size);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
 
-extern "C" void *valloc(size_t size)
+extern "C" int posix_memalign(void **memptr, size_t alignment, size_t size)
 {
-  return __libc_memalign(sysconf(_SC_PAGESIZE), size);
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  int retval = _real_posix_memalign(memptr, alignment, size);
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  return retval;
 }
 
-// FIXME:  Add wrapper for alloca(), posix_memalign(), etc.,
-//    using DMTCP_PLUGIN_DISABLE_CKPT(), etc.
+// man valloc: it is equivalent to memalign(sysconf(_SC_PAGESIZE),size).
+extern "C" void *valloc(size_t size)
+{
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  void *retval = _real_memalign(sysconf(_SC_PAGESIZE), size);
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  return retval;
+}
 
 extern "C" void free(void *ptr)
 {
