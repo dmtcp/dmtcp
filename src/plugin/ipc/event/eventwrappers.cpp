@@ -103,6 +103,25 @@ extern "C" int pselect(int nfds, fd_set *readfds, fd_set *writefds,
   return rc;
 }
 
+
+extern "C" int select(int nfds, fd_set *readfds, fd_set *writefds,
+                       fd_set *exceptfds, struct timeval *timeout)
+{
+  int rc;
+  while (1) {
+    uint32_t orig_generation = dmtcp_get_generation();
+    rc = _real_select(nfds, readfds, writefds, exceptfds, timeout);
+    if (rc == -1 && errno == EINTR &&
+         dmtcp_get_generation() > orig_generation) {
+      continue;  // This was a restart or resume after checkpoint.
+    } else {
+      break;  // The signal interrupting us was not our checkpoint signal.
+    }
+  }
+  return rc;
+}
+
+
 /****************************************************************************
  ****************************************************************************/
 
