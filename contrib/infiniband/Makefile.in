@@ -47,14 +47,15 @@ DMTCP_INCLUDE_PATH = $(top_srcdir)/include
 JALIB_PATH = $(top_srcdir)/jalib
 
 INCLUDES = -I$(JALIB_PATH) -I$(DMTCP_INCLUDE_PATH) -I$(top_builddir)/include
-CFLAGS += -DHAVE_CONFIG_H -fPIC -g --std=gnu99
-CXXFLAGS += -DHAVE_CONFIG_H -fPIC -g
-LIB_LDFLAGS = -libverbs -shared -Wl,--unresolved-symbols=ignore-all
+
+override CFLAGS += -DHAVE_CONFIG_H -fPIC -g --std=gnu99
+override CXXFLAGS += -DHAVE_CONFIG_H -fPIC -g
+override LIB_LDFLAGS = -libverbs -shared -Wl,--unresolved-symbols=ignore-all
 
 ifeq ($(M32),1)
-CFLAGS += -m32 -Wa,--32
-CXXFLAGS += -m32 -Wa,--32
-LDFLAGS += -m32 -Wl,-m32 -Wl,-melf_i386 -Wa,--32
+override CFLAGS += -m32 -Wa,--32
+override CXXFLAGS += -m32 -Wa,--32
+override LDFLAGS += -m32 -Wl,-m32 -Wl,-melf_i386 -Wa,--32
 endif
 
 COMPILE = $(CC) $(INCLUDES) $(CPPFLAGS) $(CFLAGS) -c -o $@
@@ -96,7 +97,7 @@ check-compat:
 libibtrace.so: ${TRACEOBJS}
 	${CC} -shared -fPIC -o $@ $^
 
-${LIBNAME}: ${LIBOBJS}
+${LIBNAME}: ${LIBOBJS} Makefile
 	#${CXX} -shared -fPIC -o $@ $^
 	@rm -f ${LIBNAME} libinfiniband.so
 	$(CXXLINK) $(LIBOBJS) $(LIB_LDFLAGS)

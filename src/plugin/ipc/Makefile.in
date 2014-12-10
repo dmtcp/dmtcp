@@ -47,12 +47,13 @@ JALIB_PATH = $(top_srcdir)/jalib
 
 INCLUDES = -I$(JALIB_PATH) -I$(DMTCP_INCLUDE_PATH) \
 	   -I$(top_builddir)/include -I$(srcdir)
-CFLAGS += -DHAVE_CONFIG_H -fPIC -g
-CXXFLAGS += -DHAVE_CONFIG_H -fPIC -g
+
+override CFLAGS += -DHAVE_CONFIG_H -fPIC
+override CXXFLAGS += -DHAVE_CONFIG_H -fPIC
 ifeq ($(M32),1)
-CFLAGS += -m32 -Wa,--32
-CXXFLAGS += -m32 -Wa,--32
-LDFLAGS += -m32 -Wl,-m32 -Wl,-melf_i386 -Wa,--32
+override CFLAGS += -m32 -Wa,--32
+override CXXFLAGS += -m32 -Wa,--32
+override LDFLAGS += -m32 -Wl,-m32 -Wl,-melf_i386 -Wa,--32
 endif
 
 CXXCOMPILE = $(CXX) $(INCLUDES) $(CPPFLAGS) $(CXXFLAGS) -c -o $@
@@ -89,10 +90,10 @@ SSH_HEADERS = ssh/ssh.h ssh/sshdrainer.h
 OBJS = ipc.o util_ipc.o connection.o connectionidentifier.o connectionlist.o \
        connectionrewirer.o kernelbufferdrainer.o \
        socketwrappers.o socketconnection.o socketconnlist.o \
-       util_descriptor.o eventwrappers.o eventconnection.o eventconnlist.o\
+       util_descriptor.o eventwrappers.o eventconnection.o eventconnlist.o \
        filewrappers.o fileconnection.o fileconnlist.o posixipcwrappers.o \
        sysvipc.o sysvipcwrappers.o \
-       ssh.o util_ssh.o sshdrainer.o\
+       ssh.o util_ssh.o sshdrainer.o \
        timerlist.o timerwrappers.o
 
 LIB_LDFLAGS = -shared -Wl,--unresolved-symbols=ignore-all
@@ -137,7 +138,7 @@ uninstall: uninstall-libs
 $(targetdir)/bin/%: ssh/%.cpp ${COMMON_HEADERS} util_ssh.o
 	$(CXXLINK) $(INCLUDES) $(CPPFLAGS) util_ssh.o util_ipc.o $<
 
-${LIBNAME}: $(OBJS)
+${LIBNAME}: $(OBJS) Makefile
 	@rm -f ${LIBNAME}
 	$(CXXLINK) $(OBJS) $(LIB_LDFLAGS) $(LDADD)
 
