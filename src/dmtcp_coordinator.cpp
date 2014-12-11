@@ -630,7 +630,7 @@ void DmtcpCoordinator::printStatus(size_t numPeers, bool isRunning)
     << "Checkpoint Dir: " << ckptDir << std::endl
     << "NUM_PEERS=" << numPeers << std::endl
     << "RUNNING=" << (isRunning ? "yes" : "no") << std::endl;
-  printf(o.str().c_str());
+  printf("%s", o.str().c_str());
   fflush(stdout);
 }
 
@@ -1914,6 +1914,22 @@ int main ( int argc, char** argv )
    * DMT_KILL_PEER message to all the connected peers before exiting.
    */
   setupSIGINTHandler();
+
+  /* If the coordinator was started transparently by dmtcp_launch, then we
+   * want to block signals, such as SIGINT.  To see why this is important:
+   * % gdb dmtcp_launch a.out
+   * (gdb) run
+   * ^C   # Stop gdb to get its attention, and continue debugging.
+   * # The above scenario causes the SIGINT to go to a.out and its child,
+   * # the dmtcp_coordinator.  The coord then triggers the SIGINT handler,
+   * # which sends DMT_KILL_PEER to kill a.out.
+   */
+  if ( exitOnLast && daemon ) {
+    sigset_t set;
+    sigfillset(&set);
+    // sigprocmask is only per-thread; but the coordinator is single-threaded.
+    sigprocmask(SIG_BLOCK, &set, NULL);
+  }
 
   prog.eventLoop(daemon);
   return 0;
