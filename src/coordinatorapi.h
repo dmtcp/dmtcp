@@ -52,6 +52,7 @@ namespace dmtcp
 
       static CoordinatorAPI& instance();
       static void init();
+      static void restart();
       static void resetOnFork(CoordinatorAPI& coordAPI);
 
       void setupVirtualCoordinator(CoordinatorInfo *coordInfo,
@@ -105,7 +106,6 @@ namespace dmtcp
       DmtcpMessage sendRecvHandshake(DmtcpMessage msg, string progname,
                                      UniquePid *compId = NULL);
 
-    protected:
       jalib::JSocket          _coordinatorSocket;
       jalib::JSocket          _nsSock;
   };

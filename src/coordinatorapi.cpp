@@ -49,6 +49,10 @@ void dmtcp_CoordinatorAPI_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
       JASSERT(CoordinatorAPI::instance().isValid());
       break;
 
+    case DMTCP_EVENT_RESTART:
+      CoordinatorAPI::restart();
+      break;
+
     case DMTCP_EVENT_RESUME:
       CoordinatorAPI::instance().sendCkptFilename();
       break;
@@ -61,6 +65,11 @@ void dmtcp_CoordinatorAPI_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
     default:
       break;
   }
+}
+
+void CoordinatorAPI::restart()
+{
+  instance()._nsSock.close();
 }
 
 static void getHostAndPort(CoordinatorMode mode, string *hostname, int *port)

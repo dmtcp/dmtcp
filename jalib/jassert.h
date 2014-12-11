@@ -33,7 +33,6 @@
 #include <execinfo.h> /* For backtrace() */
 #define BT_SIZE 50 /* Maximum size backtrace of stack */
 
-#include "config.h"
 #include "jalloc.h"
 
 extern int jassert_quiet;
@@ -200,20 +199,11 @@ namespace jassert_internal
 #define JTRACE(msg) if(true){}else jassert_internal::JAssert(false).JASSERT_CONTEXT("NOTE",msg).JASSERT_CONT_A
 #endif
 
-#ifdef QUIET
-#define JNOTE(msg) if(true){}else jassert_internal::JAssert(false).JASSERT_CONTEXT("NOTE",msg).JASSERT_CONT_A
-#else
 #define JNOTE(msg) if(jassert_quiet >= 1){}else \
     jassert_internal::JAssert(false).JASSERT_CONTEXT("NOTE",msg).JASSERT_CONT_A
-#endif
 
-#ifdef QUIET
-#define JWARNING(term) if(true){}else \
-    jassert_internal::JAssert(false).JASSERT_CONTEXT("WARNING","JWARNING(" #term ") failed").JASSERT_CONT_A
-#else
 #define JWARNING(term) if((term) || jassert_quiet >= 2){}else \
     jassert_internal::JAssert(false).JASSERT_CONTEXT("WARNING","JWARNING(" #term ") failed").JASSERT_CONT_A
-#endif
 
 #ifndef DEBUG
 # define JASSERT(term)  if((term)){}else \

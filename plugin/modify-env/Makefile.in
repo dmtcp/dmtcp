@@ -47,8 +47,8 @@ JALIB_PATH = $(top_srcdir)/jalib
 
 INCLUDES = -I$(JALIB_PATH) -I$(DMTCP_INCLUDE_PATH) -I$(top_builddir)/include
 
-override CFLAGS += -DHAVE_CONFIG_H -fPIC
-override CXXFLAGS += -DHAVE_CONFIG_H -fPIC
+override CFLAGS += -fPIC
+override CXXFLAGS += -fPIC
 ifeq ($(M32),1)
 override CFLAGS += -m32 -Wa,--32
 override CXXFLAGS += -m32 -Wa,--32

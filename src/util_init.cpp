@@ -147,5 +147,8 @@ void Util::initializeLogFile(string tmpDir, string procname, string prevLogPath)
   } else {
     jassert_quiet = 0;
   }
+#ifdef QUIET
+  jassert_quiet = 2;
+#endif
   unsetenv(ENV_VAR_STDERR_PATH);
 }
