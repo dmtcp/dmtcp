@@ -26,8 +26,6 @@
 #define _real_dlopen  NEXT_FNC(dlopen)
 #define _real_dlclose NEXT_FNC(dlclose)
 
-EXTERNC int dmtcp_dlopen_enabled() { return 1; }
-
 extern "C" int dmtcp_libdlLockLock();
 extern "C" void dmtcp_libdlLockUnlock();
 
