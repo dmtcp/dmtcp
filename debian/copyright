@@ -78,6 +78,10 @@ Files: contrib/infiniband/examples/*
 Copyright: 2005, Topspin Communications
 License: GPL-2
 
+Files: contrib/apache/*
+Copyright: 2014, Rohan Garg <rohgarg@ccs.neu.edu>
+License: LGPL-3
+
 Files: test/syscall-tester
 Copyright: 1990-2007, Condor Team, University of Wisconsin-Madison, WI.
 License: Apache-2.0
