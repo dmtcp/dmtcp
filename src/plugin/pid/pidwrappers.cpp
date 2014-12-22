@@ -103,8 +103,8 @@ void dmtcp_update_ppid()
 
 extern "C" pid_t gettid()
 {
-  /* mtcpinterface.cpp:thread_start calls gettid() before calling
-   * DmtcpWorker::decrementUninitializedThreadCount() and so the value is
+  /* dmtcp::ThreadList::updateTid calls gettid() before calling
+   *  ThreadSync::decrementUninitializedThreadCount() and so the value is
    * cached before it is accessed by some other DMTCP code.
    */
   if (_dmtcp_thread_tid == -1) {

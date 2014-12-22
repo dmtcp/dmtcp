@@ -461,7 +461,7 @@ static void prepare_initial_helper(char *sync_path)
   while( i < repmax ){
     fp = fopen(sync_path, "r");
     assert( fp != NULL );
-    fgets(buf,MAX_BUFFER_SIZE,fp);
+    assert( fgets(buf,MAX_BUFFER_SIZE,fp) != NULL );
     if( strstr(buf,path) != NULL )
       i = repmax;
     else{

@@ -30,7 +30,7 @@ extern "C"
 {
 #endif
 
-#define GETTID() _real_syscall(SYS_gettid)
+#define GETTID() (pid_t)_real_syscall(SYS_gettid)
 #define TGKILL(pid,tid,sig) _real_syscall(SYS_tgkill, pid, tid, sig)
 
 pid_t dmtcp_get_real_tid() __attribute((weak));

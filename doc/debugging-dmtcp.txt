@@ -51,6 +51,16 @@ For low-level debugging on restart, try:
 
 ===
 
+  If the target process exits under GDB, then you can catch it before
+  it exits by:
+  (gdb) break main
+  (gdb) run
+  (gdb) break exit
+  (gdb) break _exit
+  (gdb) break _Exit
+
+===
+
       If debugging after restart, it is best to use 'gdb test/dmtcp1 PID'
   (e.g., if debugging dmtcp1), in order to ensure that GDB understands
   the full context.  If you want to capture DMTCP, add a 'sleep' or 'while'

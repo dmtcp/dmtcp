@@ -85,6 +85,16 @@ TIMER_HEADERS = timer/timerwrappers.h timer/timerlist.h
 
 SSH_HEADERS = ssh/ssh.h ssh/sshdrainer.h
 
+#COMMON: ipc.o util_ipc.o connection.o connectionidentifier.o connectionlist.o
+#SUB-PLUGINS of ipc plugin:
+# socket: connectionrewirer.o kernelbufferdrainer.o 
+#         socketwrappers.o socketconnection.o socketconnlist.o
+# event:  util_descriptor.o eventwrappers.o eventconnection.o eventconnlist.o
+# file:   filewrappers.o fileconnection.o fileconnlist.o posixipcwrappers.o
+#          posixipcwrappers is for mq_*;  Why is it part of file?
+# sysv:   sysvipc.o sysvipcwrappers.o
+# ssh:    ssh.o util_ssh.o sshdrainer.o
+# timer:  timerlist.o timerwrappers.o
 OBJS = ipc.o util_ipc.o connection.o connectionidentifier.o connectionlist.o \
        connectionrewirer.o kernelbufferdrainer.o \
        socketwrappers.o socketconnection.o socketconnlist.o \

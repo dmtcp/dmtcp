@@ -155,13 +155,14 @@ static bool enableIBPlugin=false;
 static bool enableAllocPlugin=true;
 static bool enableDlPlugin=true;
 static bool enableIPCPlugin=true;
-static bool enableLibDMTCP=true;
 static bool enablePIDPlugin=true;
 #ifdef UNIQUE_CHECKPOINT_FILENAMES
 static bool enableUniqueCkptPlugin=true;
 #else
 static bool enableUniqueCkptPlugin=false;
 #endif
+// This is the base library.
+static bool enableLibDMTCP=true;
 
 static string thePortFile;
 
