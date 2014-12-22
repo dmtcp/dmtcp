@@ -29,6 +29,8 @@
  *
  * Also, on some machines (e.g. SLES 10), readlink has conflicting return types
  * (ssize_t and int).
+ *     In general, we rename the functions below, since any type declarations
+ * may vary on different systems, and so we ignore these type declarations.
 */
 #define ptsname_r ptsname_r_always_inline
 #define ttyname_r ttyname_r_always_inline
@@ -58,6 +60,16 @@
 #include <linux/version.h>
 #include <limits.h>
 
+#undef ptsname_r
+#undef ttyname_r
+#undef open
+#undef open64
+#undef openat
+#undef openat64
+#undef readlink
+#undef __readlink_chk
+#undef realpath
+
 #include "dmtcp.h"
 #include "shareddata.h"
 #include "util.h"
@@ -68,16 +80,6 @@
 #include "fileconnlist.h"
 #include "fileconnection.h"
 #include "filewrappers.h"
-
-#undef ptsname_r
-#undef ttyname_r
-#undef open
-#undef open64
-#undef openat
-#undef openat64
-#undef readlink
-#undef __readlink_chk
-#undef realpath
 
 using namespace dmtcp;
 #if 0

@@ -23,12 +23,14 @@
  * to define the realpath wrapper if compiled with -O0. Here we are renaming
  * realpath so that later code does not see the declaration of realpath as
  * inline. Normal user code from other files will continue to invoke realpath
- * as inline as an inline function calling __ptsname_r_chk. Later in this file
+ * as an inline function calling __ptsname_r_chk. Later in this file
  * we define __ptsname_r_chk to call the original realpath symbol.
  * Similarly, for ttyname_r, etc.
  *
  * Also, on some machines (e.g. SLES 10), readlink has conflicting return types
  * (ssize_t and int).
+ *     In general, we rename the functions below, since any type declarations
+ * may vary on different systems, and so we ignore these type declarations.
  */
 #define open open_always_inline
 #define open64 open64_always_inline
@@ -40,6 +42,11 @@
 #include <sys/ioctl.h>
 #include <string.h>
 
+#undef open
+#undef open64
+#undef readlink
+#undef realpath
+
 #include "jassert.h"
 #include "jfilesystem.h"
 #include "jconvert.h"
@@ -48,11 +55,6 @@
 #include "virtualpidtable.h"
 #include "dmtcp.h"
 #include "pid.h"
-
-#undef open
-#undef open64
-#undef readlink
-#undef realpath
 
 #define PROC_PREFIX "/proc/"
 

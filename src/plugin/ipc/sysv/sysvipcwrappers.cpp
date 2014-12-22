@@ -20,17 +20,19 @@
  ****************************************************************************/
 
 // msgrcv has confliciting return types on some systems (e.g. SLES 10)
+// So, we temporarily rename it so that type declarations are not for msgrcv.
 #define msgrcv msgrcv_glibc
 
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #include <stdarg.h>
+
+#undef msgrcv
+
 #include "dmtcp.h"
 #include "sysvipc.h"
 #include "sysvipcwrappers.h"
 #include "jassert.h"
-
-#undef msgrcv
 
 using namespace dmtcp;
 
