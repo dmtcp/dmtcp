@@ -50,7 +50,7 @@ INCLUDES = -I$(JALIB_PATH) -I$(DMTCP_INCLUDE_PATH)
 
 override CFLAGS += -fPIC --std=gnu99
 override CXXFLAGS += -fPIC
-LIB_LDFLAGS = -libverbs -shared -Wl,--unresolved-symbols=ignore-all
+override LIB_LDFLAGS = -libverbs -shared -Wl,--unresolved-symbols=ignore-all
 
 ifeq ($(M32),1)
 override CFLAGS += -m32 -Wa,--32
