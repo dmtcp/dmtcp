@@ -224,7 +224,8 @@ extern "C" char *realpath(const char *path, char *resolved_path)
   char tmpbuf[PATH_MAX];
   char *newpath = tmpbuf;
   updateProcPathVirtualToReal(path, &newpath);
-  char *retval = NEXT_FNC(realpath) (newpath, resolved_path);
+  // Required for matlab-2012 and later; realpath is a versioned symbol.
+  char *retval = NEXT_FNC_DEFAULT(realpath) (newpath, resolved_path);
   if (retval != NULL) {
     updateProcPathRealToVirtual(retval, &newpath);
     strcpy(retval, newpath);
