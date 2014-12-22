@@ -45,8 +45,7 @@ LIBNAME=$(targetdir)/lib/${PACKAGE}/libdmtcp_${PLUGIN}.so
 DMTCP_INCLUDE_PATH = $(top_srcdir)/include
 JALIB_PATH = $(top_srcdir)/jalib
 
-INCLUDES = -I$(JALIB_PATH) -I$(DMTCP_INCLUDE_PATH) \
-	   -I$(top_builddir)/include -I$(srcdir)
+INCLUDES = -I$(JALIB_PATH) -I$(DMTCP_INCLUDE_PATH) -I$(srcdir)
 
 override CFLAGS += -fPIC
 override CXXFLAGS += -fPIC

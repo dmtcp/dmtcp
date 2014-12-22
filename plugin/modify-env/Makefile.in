@@ -45,11 +45,10 @@ LIBNAME=$(targetdir)/lib/${PACKAGE}/libdmtcp_${PLUGIN}.so
 DMTCP_INCLUDE_PATH = $(top_srcdir)/include
 JALIB_PATH = $(top_srcdir)/jalib
 
-INCLUDES = -I$(JALIB_PATH) -I$(DMTCP_INCLUDE_PATH) -I$(top_builddir)/include
+INCLUDES = -I$(JALIB_PATH) -I$(DMTCP_INCLUDE_PATH)
 
 override CFLAGS += -fPIC
 override CXXFLAGS += -fPIC
->>>>>>> f116541... Removed -DHAVE_CONFIG_H from compile flags.
 ifeq ($(M32),1)
 override CFLAGS += -m32 -Wa,--32
 override CXXFLAGS += -m32 -Wa,--32

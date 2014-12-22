@@ -46,7 +46,7 @@ DMTCP_BIN = ${targetdir}/bin
 DMTCP_INCLUDE_PATH = $(top_srcdir)/include
 JALIB_PATH = $(top_srcdir)/jalib
 
-INCLUDES = -I$(JALIB_PATH) -I$(DMTCP_INCLUDE_PATH) -I$(top_builddir)/include
+INCLUDES = -I$(JALIB_PATH) -I$(DMTCP_INCLUDE_PATH)
 
 override CFLAGS += -fPIC --std=gnu99
 override CXXFLAGS += -fPIC
