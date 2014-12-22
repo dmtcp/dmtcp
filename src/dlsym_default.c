@@ -1,3 +1,31 @@
+/****************************************************************************
+ *   Copyright (C) 2014 by Gene Cooperman                                   *
+ *   gene@ccs.neu.edu                                                       *
+ *                                                                          *
+ *  This file is part of DMTCP.                                             *
+ *                                                                          *
+ *  DMTCP is free software: you can redistribute it and/or                  *
+ *  modify it under the terms of the GNU Lesser General Public License as   *
+ *  published by the Free Software Foundation, either version 3 of the      *
+ *  License, or (at your option) any later version.                         *
+ *                                                                          *
+ *  DMTCP is distributed in the hope that it will be useful,                *
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
+ *  GNU Lesser General Public License for more details.                     *
+ *                                                                          *
+ *  You should have received a copy of the GNU Lesser General Public        *
+ *  License along with DMTCP:dmtcp/src.  If not, see                        *
+ *  <http://www.gnu.org/licenses/>.                                         *
+ ****************************************************************************/
+
+/* USAGE:
+ * #include "dlsym_default.h"
+ * ... DLSYM_DEFAULT(RTLD_NEXT, ...) ...
+ * WARNING:  DLSYM_DEFAULT works within a library, but not in base executable
+ * WARNING:  RTLD_DEFAULT will not work with DLSYM_DEFAULT()
+ */
+
 /* THEORY:  A versioned symbol consists of multiple symbols, one for
  * each version.  Each symbol entry in the dynsym section (which becomes the
  * same as the symtab section when loaded in memory) should have a
@@ -22,11 +50,11 @@
  * version exists as unhidden.  Unfortunately, dlsym still chooses the
  * hidden base definition.
  *     Is this a bug in dlsym?  Or maybe just a bug in the 'man dlsym'
- * description?  Since versioning is not POSIX it's difficult to say.
+ * description?  Since versioning is not POSIX, it's difficult to say.
  */
 
 // Uncomment this to see what symbols and versions are chosen.
-#define VERBOSE
+// #define VERBOSE
 
 #define _GNU_SOURCE
 #include <link.h>
@@ -38,6 +66,11 @@
 #define _GNU_SOURCE
 #include <dlfcn.h>
 
+// ***** NOTE:  link.h invokes elf.h, which:
+// *****        expands ElfW(Word)  to  Elf64_Word; and then defines:
+// *****        typedef uint32_t Elf63_Word;
+
+// older sysv standard
 static unsigned long elf_hash(const char *name) {
   unsigned long h = 0, g;
   while (*name) {
@@ -49,20 +82,91 @@ static unsigned long elf_hash(const char *name) {
   return h;
 }
 
-static ElfW(Word) hash_first(const char *name, ElfW(Word)*hash_table) {
-  ElfW(Word) nbucket = *hash_table++;
-  //ElfW(Word) nchain = *hash_table++; // Note: nchain same as n_symtab
-  ElfW(Word) *bucket = hash_table;
-  //ElfW(Word) *chain = hash_table + nbucket;
-  return bucket[elf_hash(name) % nbucket];  // return index into symbol table
+// For GNU standard, below, see:
+//   https://blogs.oracle.com/ali/entry/gnu_hash_elf_sections
+//   http://deroko.phearless.org/dt_gnu_hash.txt
+//   glibc:elf/dl-lookup.c:do_lookup_x()
+//     See:  dl_setup_hash()  and  Elf32_Word bucket = map->l_gnu_buckets  ...
+
+// GNU standard
+#if 0
+static uint32_t elf_gnu_hash(const char *s) {
+  uint32_t h = 5381;
+  unsigned char c;
+  for (c = *s; c != '\0'; c = *++s)
+    h = h * 33 + c;
+  return h;
+}
+#elif 0
+// From binutils:bfd/elf.c:bfd_elf_gnu_hash()
+unsigned long elf_gnu_hash (const char *namearg)
+{
+  const unsigned char *name = (const unsigned char *) namearg;
+  unsigned long h = 5381;
+  unsigned char ch;
+
+  while ((ch = *name++) != '\0')
+    h = (h << 5) + h + ch;
+  return h & 0xffffffff;
+}
+#else
+// From glibc-2.19
+static uint_fast32_t elf_gnu_hash (const char *s)
+{
+  uint_fast32_t h = 5381;
+  unsigned char c;
+  for (c = *s; c != '\0'; c = *++s)
+    h = h * 33 + c;
+  return h & 0xffffffff;
+}
+#endif
+
+static Elf32_Word hash_first(const char *name, Elf32_Word *hash_table,
+                             int use_gnu_hash) {
+  if (use_gnu_hash) {
+    uint32_t nbuckets = ((uint32_t*)hash_table)[0];
+    uint32_t symndx = ((uint32_t*)hash_table)[1];
+    uint32_t maskwords = ((uint32_t*)hash_table)[2];
+    uint32_t *buckets = (uint32_t *)
+      ((char *)hash_table + 4*sizeof(uint32_t) + maskwords*sizeof(long unsigned int));
+    uint32_t *hashval = & buckets[nbuckets];
+    if (buckets[elf_gnu_hash(name) % nbuckets])
+      return buckets[elf_gnu_hash(name) % nbuckets];
+    else
+      return STN_UNDEF;
+  } else {
+    // http://www.sco.com/developers/gabi/latest/ch5.dynamic.html#hash
+    Elf32_Word nbucket = *hash_table++;
+    Elf32_Word nchain = *hash_table++; // Note: nchain same as n_symtab
+    Elf32_Word *bucket = hash_table;
+    Elf32_Word *chain = hash_table + nbucket;
+    return bucket[elf_hash(name) % nbucket]; // return index into symbol table
+  }
 }
 
-static ElfW(Word) hash_next(ElfW(Word) index, ElfW(Word)*hash_table) {
-  ElfW(Word) nbucket = *hash_table++;
-  //ElfW(Word) nchain = *hash_table++;
-  //ElfW(Word) *bucket = hash_table;
-  ElfW(Word) *chain = hash_table + nbucket;
-  return chain[index]; // If this returns STN_UNDEF, then it's the end of chain
+static Elf32_Word hash_next(Elf32_Word index, Elf32_Word *hash_table,
+                            int use_gnu_hash) {
+  if (use_gnu_hash) {
+    assert( index > STN_UNDEF );
+    uint32_t nbuckets = ((uint32_t*)hash_table)[0];
+    uint32_t symndx = ((uint32_t*)hash_table)[1];
+    uint32_t maskwords = ((uint32_t*)hash_table)[2];
+    uint32_t *hashval = (uint32_t *)
+      ((char *)hash_table + 4*sizeof(uint32_t) /* sizeof header */
+       + maskwords*sizeof(long unsigned int) /* sizeof Bloom filter */
+       + nbuckets*sizeof(Elf32_Word) /* sizeof hash buckets */
+      );
+    if (hashval[index - symndx] & 1)
+      return STN_UNDEF;  // end-of-chain indicator
+    else
+      return index+1;
+  } else {
+    Elf32_Word nbucket = *hash_table++;
+    Elf32_Word nchain = *hash_table++;
+    Elf32_Word *bucket = hash_table;
+    Elf32_Word *chain = hash_table + nbucket;
+    return chain[index]; // If this returns STN_UNDEF, then it's end of chain
+  }
 }
 
 typedef struct dt_tag{
@@ -76,7 +180,8 @@ typedef struct dt_tag{
     ElfW(Word) verdefnum;
     // ElfW(Word) first_ext_def;
     char *strtab;
-    ElfW(Word) *hash;
+    Elf32_Word *hash;
+    Elf32_Word *gnu_hash;
 } dt_tag;
 
 static char *symbol_name(int i, dt_tag *tags) {
@@ -125,10 +230,12 @@ static void get_dt_tags(void *handle, dt_tag *tags) {
     tags->verdef = NULL;
     tags->strtab = NULL;
     tags->hash = NULL;
+    tags->gnu_hash = NULL;
     tags->verdefnum = 0;
 
     ElfW(Dyn) *cur_dyn;
-printf("dyn: %p; _DYNAMIC: %p\n", dyn, _DYNAMIC);
+    // The _DYNAMIC symbol should be pointer to address of the dynamic section.
+    // printf("dyn: %p; _DYNAMIC: %p\n", dyn, _DYNAMIC);
     for (cur_dyn = dyn; cur_dyn->d_tag != DT_NULL;  cur_dyn++) {
       if (cur_dyn->d_tag == DT_VERSYM)
         tags->versym = (void *)cur_dyn->d_un.d_ptr;
@@ -144,6 +251,8 @@ printf("dyn: %p; _DYNAMIC: %p\n", dyn, _DYNAMIC);
         tags->symtab = (void *)cur_dyn->d_un.d_ptr;
       if (cur_dyn->d_tag == DT_HASH)
         tags->hash = (void *)cur_dyn->d_un.d_ptr;
+      if (cur_dyn->d_tag == DT_GNU_HASH)
+        tags->gnu_hash = (void *)cur_dyn->d_un.d_ptr;
       //if (cur_dyn->d_tag == DT_MIPS_SYMTABNO) // Number of DYNSYM entries
       //  n_symtab = (ElfW(Word))cur_dyn->d_un.d_val;
       //if (cur_dyn->d_tag == DT_MIPS_UNREFEXTNO)  // First external DYNSYM
@@ -151,19 +260,20 @@ printf("dyn: %p; _DYNAMIC: %p\n", dyn, _DYNAMIC);
     }
 }
 
+//  Don't use dlsym_default_internal(); use dlsym_default.h:DLSYM_DEFAULT()
 void *dlsym_default_internal(void *handle, const char*symbol) {
   dt_tag tags;
-  ElfW(Word) default_symbol_index = 0;
-  ElfW(Word) i;
+  Elf32_Word default_symbol_index = 0;
+  Elf32_Word i;
 
 #ifdef __USE_GNU
   if (handle == RTLD_NEXT || handle == RTLD_DEFAULT) {
     Dl_info info;
     void *tmp_fnc = dlsym(handle, symbol);  // Hack: get symbol w/ any version
-printf("tmp_fnc: %p\n", tmp_fnc);
+    // printf("tmp_fnc: %p\n", tmp_fnc);
     dladdr(tmp_fnc, &info);
     // ... and find what library the symbol is in
-printf("info.dli_fname: %s\n", info.dli_fname);
+   printf("info.dli_fname: %s\n", info.dli_fname);
 #if 0
 char *tmp = info.dli_fname;
 char *basename = tmp;
@@ -174,9 +284,6 @@ for ( ; *tmp != '\0'; tmp++ ) {
 #endif
     // Found handle of RTLD_NEXT or RTLD_DEFAULT
     handle = dlopen(info.dli_fname, RTLD_NOLOAD | RTLD_LAZY);
-/*
-handle = dlopen("/lib/x86_64-linux-gnu/libpthread.so.0", RTLD_LAZY);
-*/
     // symbol name is:  info.dli_sname;  Could add assert as double-check.
     if (handle == NULL)
       printf("ERROR:  RTLD_DEFAULT or RTLD_NEXT called; no library found.\n");
@@ -198,8 +305,11 @@ handle = dlopen("/lib/x86_64-linux-gnu/libpthread.so.0", RTLD_LAZY);
 #endif
 
   get_dt_tags(handle, &tags);
-  for (i = hash_first(symbol, tags.hash); i != STN_UNDEF;
-       i = hash_next(i, tags.hash)) {
+  assert(tags.hash != NULL || tags.gnu_hash != NULL);
+  int use_gnu_hash = (tags.hash == NULL);
+  Elf32_Word *hash = (use_gnu_hash ? tags.gnu_hash : tags.hash);
+  for (i = hash_first(symbol, hash, use_gnu_hash); i != STN_UNDEF;
+       i = hash_next(i, hash, use_gnu_hash)) {
     if (tags.symtab[i].st_name == 0 || tags.symtab[i].st_value == 0)
       continue;
     if (strcmp(symbol_name(i, &tags), symbol) != 0) // If different symbol name
@@ -235,5 +345,6 @@ if (default_symbol_index) {
   if (default_symbol_index)
     return tags.base_addr + tags.symtab[default_symbol_index].st_value;
   else
+    assert(0);
     return NULL;
 }
