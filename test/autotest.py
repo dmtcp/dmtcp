@@ -806,6 +806,7 @@ if old_ld_library_path:
 else:
   del os.environ['LD_LIBRARY_PATH']
 
+runTest("realpath",        1, ["./test/realpath"])
 runTest("pthread1",      1, ["./test/pthread1"])
 runTest("pthread2",      1, ["./test/pthread2"])
 S=10*DEFAULT_S
