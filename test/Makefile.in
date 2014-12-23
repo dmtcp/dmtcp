@@ -89,7 +89,7 @@ else
 	#$@: required libraries missing, skipping test
 endif
 
-timer: timer.c
+timer%: timer%.c
 	$(CC) -o $@ $< $(CFLAGS) -lrt
 
 clock: clock.c
