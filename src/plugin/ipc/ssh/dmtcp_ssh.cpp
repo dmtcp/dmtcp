@@ -125,6 +125,40 @@ static int waitForConnection(int listenSock)
   return fd;
 }
 
+void updateArgv(char *argv[])
+{
+  char buf[PATH_MAX + 80];
+  char hostname[80];
+  int port = getport(listenSock);
+
+  // Replace dmtcp_sshd replace with "dmtcp_sshd --host <host> --port <port>"
+  struct in_addr saddr;
+  if (dmtcp_get_local_ip_addr == NULL) {
+    printf("ERROR: Unable to find dmtcp_get_local_ip_addr.\n");
+    abort();
+  }
+  dmtcp_get_local_ip_addr(&saddr);
+  char *hostip = inet_ntoa(saddr);
+  strcpy(hostname, hostip);
+
+  size_t i = 0;
+  while (argv[i] != NULL) {
+    // "dmtcp_sshd" may be embedded deep inside the command line.
+    char *ptr = strstr(argv[i], SSHD_BINARY);
+    if (ptr != NULL) {
+      ptr += strlen(SSHD_BINARY);
+      if (*ptr != '\0') {
+        *ptr = '\0';
+        ptr++;
+      }
+      sprintf(buf, "%s --host %s --port %d %s",
+          argv[i], hostip, port, ptr);
+      argv[i] = buf;
+    }
+    i++;
+  }
+}
+
 int main(int argc, char *argv[], char *envp[])
 {
   int in[2], out[2], err[2];
@@ -143,13 +177,13 @@ int main(int argc, char *argv[], char *envp[])
 
   createStdioFds(in, out, err);
   listenSock = openListenSocket();
+
+  updateArgv(argv);
+
   signal(SIGCHLD, signal_handler);
 
   pid_t sshChildPid = fork();
   if (sshChildPid == 0) {
-    char buf[PATH_MAX + 80];
-    char hostname[80];
-    int port = getport(listenSock);
     close(listenSock);
 
     close(in[1]);
@@ -161,32 +195,6 @@ int main(int argc, char *argv[], char *envp[])
 
     unsetenv("LD_PRELOAD");
 
-    // Replace dmtcp_sshd replace with "dmtcp_sshd --host <host> --port <port>"
-    struct in_addr saddr;
-    if (dmtcp_get_local_ip_addr == NULL) {
-      printf("ERROR: Unable to find dmtcp_get_local_ip_addr.\n");
-      abort();
-    }
-    dmtcp_get_local_ip_addr(&saddr);
-    char *hostip = inet_ntoa(saddr);
-    strcpy(hostname, hostip);
-
-    size_t i = 0;
-    while (argv[i] != NULL) {
-      // "dmtcp_sshd" may be embedded deep inside the command line.
-      char *ptr = strstr(argv[i], SSHD_BINARY);
-      if (ptr != NULL) {
-        ptr += strlen(SSHD_BINARY);
-        if (*ptr != '\0') {
-          *ptr = '\0';
-          ptr++;
-        }
-        sprintf(buf, "%s --host %s --port %d %s",
-                argv[i], hostip, port, ptr);
-        argv[i] = buf;
-      }
-      i++;
-    }
     execvp(argv[1], &argv[1]);
     printf("%s:%d DMTCP Error detected. Failed to exec.", __FILE__, __LINE__);
     abort();
