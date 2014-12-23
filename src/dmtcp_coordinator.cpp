@@ -1931,6 +1931,9 @@ int main ( int argc, char** argv )
     sigprocmask(SIG_BLOCK, &set, NULL);
   }
 
+  // Initialize the startTime now, for use with the checkpoint interval.
+  prog.resetCkptTimer();
+
   prog.eventLoop(daemon);
   return 0;
 }
