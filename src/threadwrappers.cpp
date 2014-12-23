@@ -32,6 +32,7 @@
 #include "threadsync.h"
 #include "processinfo.h"
 #include "threadlist.h"
+#include "siginfo.h"
 
 using namespace dmtcp;
 
@@ -143,6 +144,17 @@ static void *pthread_start(void *arg)
 
   JASSERT(pthread_fn != 0x0);
   JALLOC_HELPER_FREE(arg); // Was allocated in calling thread in pthread_create
+
+  // Unblock ckpt signal (unblocking a non-blocked signal has no effect).
+  // Normally, DMTCP wouldn't allow the ckpt signal to be blocked. However, in
+  // some situations (e.g., timer_create), libc would internally block all
+  // signals before calling pthread_create to create a helper thread.  Since,
+  // the child threads inherit parent signal mask, the helper thread has all
+  // signals blocked.
+  sigset_t set;
+  sigaddset(&set, SigInfo::ckptSignal());
+  JASSERT(_real_pthread_sigmask(SIG_UNBLOCK, &set, NULL) == 0) (JASSERT_ERRNO);
+
   ThreadSync::threadFinishedInitialization();
   void *result = (*pthread_fn)(thread_arg);
   JTRACE("Thread returned") (virtualTid);
