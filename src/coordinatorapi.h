@@ -85,7 +85,8 @@ namespace dmtcp
       void connectAndSendUserCommand(char c,
                                      int *coordCmdStatus = NULL,
                                      int *numPeers = NULL,
-                                     int *isRunning = NULL);
+                                     int *isRunning = NULL,
+                                     int *ckptInterval = NULL);
 
       void updateCoordCkptDir(const char *dir);
       string getCoordCkptDir(void);

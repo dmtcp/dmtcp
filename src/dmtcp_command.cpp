@@ -126,6 +126,7 @@ int main ( int argc, char** argv )
   int coordCmdStatus = CoordCmdStatus::NOERROR;
   int numPeers;
   int isRunning;
+  int ckptInterval;
   CoordinatorAPI coordinatorAPI;
   char *cmd = (char *)request.c_str();
   switch (*cmd) {
@@ -146,7 +147,7 @@ int main ( int argc, char** argv )
     break;
   case 's':
     coordinatorAPI.connectAndSendUserCommand(*cmd, &coordCmdStatus,
-                                             &numPeers, &isRunning);
+                                        &numPeers, &isRunning, &ckptInterval);
   case 'c':
   case 'k':
   case 'q':
@@ -180,13 +181,23 @@ int main ( int argc, char** argv )
     return 2;
   }
 
+#define QUOTE(arg) #arg
+#define STRINGIFY(arg) QUOTE(arg)
   if(*cmd == 's'){
-    if (getenv(ENV_VAR_NAME_HOST))
-      printf("  Host: %s\n", getenv(ENV_VAR_NAME_HOST));
-    printf("  Port: %s\n", getenv(ENV_VAR_NAME_PORT));
+    printf("Coordinator:\n");
+    char *host = getenv(ENV_VAR_NAME_PORT);
+    printf("  Host: %s\n", (host ? host : "localhost"));
+    char *port = getenv(ENV_VAR_NAME_PORT);
+    printf("  Port: %s\n",
+           (port ? port : STRINGIFY(DEFAULT_PORT) " (default port)"));
     printf("Status...\n");
-    printf("NUM_PEERS=%d\n", numPeers);
-    printf("RUNNING=%s\n", (isRunning?"yes":"no"));
+    printf("  NUM_PEERS=%d\n", numPeers);
+    printf("  RUNNING=%s\n", (isRunning?"yes":"no"));
+    if (ckptInterval) {
+      printf("  CKPT_INTERVAL=%d\n", ckptInterval);
+    } else {
+      printf("  CKPT_INTERVAL=0 (checkpoint manually)\n");
+    }
   }
 
   return 0;

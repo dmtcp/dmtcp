@@ -311,7 +311,8 @@ bool CoordinatorAPI::noCoordinator()
 void CoordinatorAPI::connectAndSendUserCommand(char c,
                                                int *coordCmdStatus,
                                                int *numPeers,
-                                               int *isRunning)
+                                               int *isRunning,
+                                               int *ckptInterval)
 {
   _coordinatorSocket = createNewSocketToCoordinator(COORD_ANY);
   if (!_coordinatorSocket.isValid()) {
@@ -355,6 +356,9 @@ void CoordinatorAPI::connectAndSendUserCommand(char c,
   }
   if (isRunning != NULL) {
     *isRunning = reply.isRunning;
+  }
+  if (ckptInterval != NULL) {
+    *ckptInterval = reply.ckptInterval;
   }
 
   _coordinatorSocket.close();
