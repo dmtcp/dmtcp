@@ -28,7 +28,7 @@ int main(int argc, char* argv[])
     unsigned char data;
     unsigned char count = 0;
     while (1) {
-      read(sockets[1], &data, 1);
+      int dummy = read(sockets[1], &data, 1);
       printf("%s %d\n", me, data);
       assert(count == data);
       count++;
@@ -40,7 +40,7 @@ int main(int argc, char* argv[])
       buf[i] = i;
     }
     printf("%s", buf);
-    write(sockets[0], buf, sizeof(buf));
+    int dummy = write(sockets[0], buf, sizeof(buf));
     //child closes both
     close(sockets[0]);
     close(sockets[1]);

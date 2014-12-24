@@ -3,6 +3,8 @@
  */
 
 #define _GNU_SOURCE
+#include <unistd.h>
+#include <stdio.h>
 #include <assert.h>
 #include <pthread.h>
 #include <sys/signal.h>
@@ -12,7 +14,7 @@ timer_t timer_id;
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 int counter = 0;
 
-void timer_thread (void *arg)
+void timer_thread (union sigval arg)
 {
   int status;
 
@@ -23,7 +25,7 @@ void timer_thread (void *arg)
   assert_perror(pthread_mutex_unlock (&mutex));
 }
 
-main()
+int main()
 {
   int status;
   struct itimerspec ts;
@@ -48,7 +50,7 @@ main()
   status = timer_create(CLOCK_REALTIME, &se, &timer_id);
   assert_perror(status);
 
-  printf("Setting timer %d for 1-second expiration...\n", timer_id);
+  printf("Setting timer %p for 1-second expiration...\n", (void *)timer_id);
   status = timer_settime(timer_id, 0, &ts, 0);
   assert_perror(status);
 

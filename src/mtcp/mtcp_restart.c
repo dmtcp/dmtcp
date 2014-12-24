@@ -387,7 +387,7 @@ static void restart_fast_path()
   asm volatile (CLEAN_FOR_64_BIT(mov %0,%%esp;)
                 /* This next assembly language confuses gdb.  Set a future
                    future breakpoint, or attach after this point, if in gdb.
-		   It's here to force a hard error ealry , in case of a bug.*/
+		   It's here to force a hard error early, in case of a bug.*/
                 CLEAN_FOR_64_BIT(xor %%ebp,%%ebp)
                 : : "g" (stack_ptr) : "memory");
 #elif defined(__arm__)
