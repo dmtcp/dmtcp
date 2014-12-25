@@ -41,6 +41,7 @@ AC_CONFIG_FILES([Makefile \
                  src/plugin/dl/Makefile \
                  src/plugin/ipc/Makefile \
                  src/plugin/pid/Makefile \
+                 src/plugin/timer/Makefile \
                  test/Makefile \
                  test/autotest_config.py \
                  test/plugin/Makefile])

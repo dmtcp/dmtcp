@@ -29,7 +29,6 @@
 #include "virtualidtable.h"
 #include "jassert.h"
 #include "jconvert.h"
-#include "ipc.h"
 
 #define REAL_TO_VIRTUAL_TIMER_ID(id) \
   TimerList::instance().realToVirtualTimerId(id)

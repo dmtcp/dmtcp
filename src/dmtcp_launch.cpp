@@ -155,7 +155,8 @@ static bool enableIBPlugin=false;
 static bool enableAllocPlugin=true;
 static bool enableDlPlugin=true;
 static bool enableIPCPlugin=true;
-static bool enablePIDPlugin=true;
+static bool enableTimerPlugin=true;
+
 #ifdef UNIQUE_CHECKPOINT_FILENAMES
 static bool enableUniqueCkptPlugin=true;
 #else
@@ -163,6 +164,9 @@ static bool enableUniqueCkptPlugin=false;
 #endif
 // This is the base library.
 static bool enableLibDMTCP=true;
+
+// PID plugin must come last.
+static bool enablePIDPlugin=true;
 
 static string thePortFile;
 
@@ -181,7 +185,9 @@ static struct PluginInfo pluginInfo[] = {               // Default value
   {&enableAllocPlugin,      "libdmtcp_alloc.so"},       // Enabled
   {&enableDlPlugin,         "libdmtcp_dl.so"},          // Enabled
   {&enableIPCPlugin,        "libdmtcp_ipc.so"},         // Enabled
+  {&enableTimerPlugin,      "libdmtcp_timer.so"},       // Enabled
   {&enableLibDMTCP,         "libdmtcp.so"},             // Enabled
+  // PID plugin must come last.
   {&enablePIDPlugin,        "libdmtcp_pid.so"}          // Enabled
 };
 

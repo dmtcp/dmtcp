@@ -4517,7 +4517,7 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 ac_config_headers="$ac_config_headers src/config.h"
 
-ac_config_files="$ac_config_files Makefile contrib/Makefile contrib/ckptfile/Makefile contrib/infiniband/Makefile plugin/Makefile plugin/batch-queue/Makefile plugin/modify-env/Makefile plugin/ptrace/Makefile plugin/unique-ckpt/Makefile src/Makefile src/mtcp/Makefile src/plugin/Makefile src/plugin/alloc/Makefile src/plugin/dl/Makefile src/plugin/ipc/Makefile src/plugin/pid/Makefile test/Makefile test/autotest_config.py test/plugin/Makefile"
+ac_config_files="$ac_config_files Makefile contrib/Makefile contrib/ckptfile/Makefile contrib/infiniband/Makefile plugin/Makefile plugin/batch-queue/Makefile plugin/modify-env/Makefile plugin/ptrace/Makefile plugin/unique-ckpt/Makefile src/Makefile src/mtcp/Makefile src/plugin/Makefile src/plugin/alloc/Makefile src/plugin/dl/Makefile src/plugin/ipc/Makefile src/plugin/pid/Makefile src/plugin/timer/Makefile test/Makefile test/autotest_config.py test/plugin/Makefile"
 
 #AC_CONFIG_FILES([test/credentials/Makefile])
 
@@ -7525,6 +7525,7 @@ do
     "src/plugin/dl/Makefile") CONFIG_FILES="$CONFIG_FILES src/plugin/dl/Makefile" ;;
     "src/plugin/ipc/Makefile") CONFIG_FILES="$CONFIG_FILES src/plugin/ipc/Makefile" ;;
     "src/plugin/pid/Makefile") CONFIG_FILES="$CONFIG_FILES src/plugin/pid/Makefile" ;;
+    "src/plugin/timer/Makefile") CONFIG_FILES="$CONFIG_FILES src/plugin/timer/Makefile" ;;
     "test/Makefile") CONFIG_FILES="$CONFIG_FILES test/Makefile" ;;
     "test/autotest_config.py") CONFIG_FILES="$CONFIG_FILES test/autotest_config.py" ;;
     "test/plugin/Makefile") CONFIG_FILES="$CONFIG_FILES test/plugin/Makefile" ;;

@@ -1,4 +1,4 @@
-PLUGIN=ipc
+PLUGIN=timer
 CC = @CC@
 M32=@M32@
 CFLAGS = @CFLAGS@
@@ -58,8 +58,8 @@ endif
 CXXCOMPILE = $(CXX) $(INCLUDES) $(CPPFLAGS) $(CXXFLAGS) -c -o $@
 CXXLINK = $(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@
 
-COMMON_HEADERS = ipc.h util_ipc.h \
-		 $(DMTCP_INCLUDE_PATH)/util.h $(DMTCP_INCLUDE_PATH)/dmtcp.h \
+COMMON_HEADERS = $(DMTCP_INCLUDE_PATH)/util.h \
+		 $(DMTCP_INCLUDE_PATH)/dmtcp.h \
 		 $(DMTCP_INCLUDE_PATH)/shareddata.h \
 		 $(DMTCP_INCLUDE_PATH)/dmtcpalloc.h \
 		 $(DMTCP_INCLUDE_PATH)/protectedfds.h \
@@ -71,34 +71,9 @@ COMMON_HEADERS = ipc.h util_ipc.h \
 		 $(JALIB_PATH)/jconvert.h $(JALIB_PATH)/jfilesystem.h \
 		 $(JALIB_PATH)/jserialize.h $(JALIB_PATH)/jsocket.h
 
-CONNECTION_HEADERS = connection.h connectionidentifier.h connectionlist.h
-SOCKET_HEADERS = socket/connectionrewirer.h socket/kernelbufferdrainer.h \
-		 socket/socketwrappers.h socket/socketconnection.h \
-		 socket/socketconnlist.h
-FILE_HEADERS = file/filewrappers.h file/fileconnection.h file/fileconnlist.h
-EVENT_HEADERS = event/eventwrappers.h event/eventconnection.h \
-		event/eventconnlist.h event/util_descriptor.h
+HEADERS = timerwrappers.h timerlist.h
 
-SYSV_HEADERS = sysv/sysvipc.h sysv/sysvipcwrappers.h
-
-SSH_HEADERS = ssh/ssh.h ssh/sshdrainer.h
-
-#COMMON: ipc.o util_ipc.o connection.o connectionidentifier.o connectionlist.o
-#SUB-PLUGINS of ipc plugin:
-# socket: connectionrewirer.o kernelbufferdrainer.o 
-#         socketwrappers.o socketconnection.o socketconnlist.o
-# event:  util_descriptor.o eventwrappers.o eventconnection.o eventconnlist.o
-# file:   filewrappers.o fileconnection.o fileconnlist.o posixipcwrappers.o
-#          posixipcwrappers is for mq_*;  Why is it part of file?
-# sysv:   sysvipc.o sysvipcwrappers.o
-# ssh:    ssh.o util_ssh.o sshdrainer.o
-OBJS = ipc.o util_ipc.o connection.o connectionidentifier.o connectionlist.o \
-       connectionrewirer.o kernelbufferdrainer.o \
-       socketwrappers.o socketconnection.o socketconnlist.o \
-       util_descriptor.o eventwrappers.o eventconnection.o eventconnlist.o\
-       filewrappers.o fileconnection.o fileconnlist.o posixipcwrappers.o \
-       sysvipc.o sysvipcwrappers.o \
-       ssh.o util_ssh.o sshdrainer.o
+OBJS = timerlist.o timerwrappers.o
 
 LIB_LDFLAGS = -shared -Wl,--unresolved-symbols=ignore-all
 
@@ -109,11 +84,7 @@ all: default
 default: build
 
 
-ifeq ($(M32),0)
-  DMTCP_SSH_BINS = $(targetdir)/bin/dmtcp_ssh $(targetdir)/bin/dmtcp_sshd
-endif
-
-build: ${LIBNAME} $(DMTCP_SSH_BINS)
+build: ${LIBNAME}
 
 tidy:
 	rm -rf dmtcp-autotest-* ckpt_*_files
@@ -122,7 +93,6 @@ tidy:
 clean: tidy
 	-rm -f *.o
 	-rm -f $(LIBNAME)
-	-rm -f $(targetdir)/bin/dmtcp_ssh*
 
 distclean: clean
 	rm -f Makefile
@@ -134,34 +104,14 @@ uninstall-libs:
 	rm -f $(DESTDIR)$(pkglibdir)/$(LIBNAME)
 
 install: install-libs
-	${INSTALL_PROGRAM} $(targetdir)/bin/dmtcp_ssh* $(DESTDIR)$(bindir)
 
 uninstall: uninstall-libs
-	rm -f $(DESTDIR)$(bindir)/dmtcp_ssh*
-
-$(targetdir)/bin/%: ssh/%.cpp ${COMMON_HEADERS} util_ssh.o
-	$(CXXLINK) $(INCLUDES) $(CPPFLAGS) util_ssh.o util_ipc.o $<
 
 ${LIBNAME}: $(OBJS)
 	@rm -f ${LIBNAME}
 	$(CXXLINK) $(OBJS) $(LIB_LDFLAGS) $(LDADD)
 
-%.o: %.cpp ${COMMON_HEADERS} ${CONNECTION_HEADERS}
-	$(CXXCOMPILE)  $<
-
-%.o: ssh/%.cpp ${COMMON_HEADERS}
-	$(CXXCOMPILE)  $<
-
-%.o: socket/%.cpp ${COMMON_HEADERS} ${CONNECTION_HEADERS} ${SOCKET_HEADERS}
-	$(CXXCOMPILE)  $<
-
-%.o: file/%.cpp ${COMMON_HEADERS} ${CONNECTION_HEADERS} ${FILE_HEADERS}
-	$(CXXCOMPILE)  $<
-
-%.o: event/%.cpp ${COMMON_HEADERS} ${CONNECTION_HEADERS} ${EVENT_HEADERS}
-	$(CXXCOMPILE)  $<
-
-%.o: sysv/%.cpp ${COMMON_HEADERS} ${SYSV_HEADERS}
+%.o: %.cpp ${COMMON_HEADERS} ${HEADERS}
 	$(CXXCOMPILE)  $<
 
 .PHONY: default all build tidy clean distclean install uninstall
