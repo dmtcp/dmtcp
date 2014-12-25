@@ -592,7 +592,7 @@ void DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*= NULL*
     if (reply != NULL) {
       reply->numPeers = s.numPeers;
       reply->isRunning = running;
-      reply->ckptInterval = theCheckpointInterval;
+      reply->theCheckpointInterval = theCheckpointInterval;
     } else {
       printStatus(s.numPeers, running);
     }

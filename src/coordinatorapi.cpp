@@ -358,7 +358,7 @@ void CoordinatorAPI::connectAndSendUserCommand(char c,
     *isRunning = reply.isRunning;
   }
   if (ckptInterval != NULL) {
-    *ckptInterval = reply.ckptInterval;
+    *ckptInterval = reply.theCheckpointInterval;
   }
 
   _coordinatorSocket.close();
