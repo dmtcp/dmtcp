@@ -239,6 +239,23 @@ int clock_getcpuclockid(pid_t pid, clockid_t *clock_id)
   return ret;
 }
 
+extern "C" int timer_create(clockid_t clockid,
+                            struct sigevent *sevp,
+                            timer_t *timerid)
+{
+  if (sevp != NULL && (sevp->sigev_notify | SIGEV_THREAD_ID)) {
+    DMTCP_PLUGIN_DISABLE_CKPT();
+    pid_t virtPid = sevp->_sigev_un._tid;
+    sevp->_sigev_un._tid  = VIRTUAL_TO_REAL_PID(virtPid);
+    int ret = _real_timer_create(clockid, sevp, timerid);
+    sevp->_sigev_un._tid  = virtPid;
+    DMTCP_PLUGIN_ENABLE_CKPT();
+    return ret;
+  }
+  return _real_timer_create(clockid, sevp, timerid);
+}
+
+
 #if 0
 extern "C"
 int mq_notify(mqd_t mqdes, const struct sigevent *sevp)

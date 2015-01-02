@@ -339,6 +339,13 @@ int _real_clock_getcpuclockid(pid_t pid, clockid_t *clock_id) {
 }
 
 LIB_PRIVATE
+int _real_timer_create(clockid_t clockid,
+                       struct sigevent *sevp,
+                       timer_t *timerid) {
+  REAL_FUNC_PASSTHROUGH (timer_create) (clockid, sevp, timerid);
+}
+
+LIB_PRIVATE
 void _real_pthread_exit (void *retval) {
   REAL_FUNC_PASSTHROUGH_VOID ( pthread_exit ) (retval);
 }
