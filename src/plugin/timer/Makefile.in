@@ -73,7 +73,7 @@ COMMON_HEADERS = $(DMTCP_INCLUDE_PATH)/util.h \
 
 HEADERS = timerwrappers.h timerlist.h
 
-OBJS = timerlist.o timerwrappers.o
+OBJS = timerlist.o timerwrappers.o timer_create.o
 
 LIB_LDFLAGS = -shared -Wl,--unresolved-symbols=ignore-all
 

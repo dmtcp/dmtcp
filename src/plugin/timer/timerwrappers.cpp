@@ -27,11 +27,18 @@ using namespace dmtcp;
 extern "C" int timer_create(clockid_t clockid, struct sigevent *sevp,
                             timer_t *timerid)
 {
+  struct sigevent sevOut;
   timer_t realId;
   timer_t virtId;
+  int ret;
   DMTCP_PLUGIN_DISABLE_CKPT();
   clockid_t realClockId = VIRTUAL_TO_REAL_CLOCK_ID(clockid);
-  int ret = _real_timer_create(realClockId, sevp, &realId);
+  if (sevp != NULL && sevp->sigev_notify == SIGEV_THREAD) {
+    ret = timer_create_sigev_thread(realClockId, sevp, &realId, &sevOut);
+    sevp = &sevOut;
+  } else {
+    ret = _real_timer_create(realClockId, sevp, &realId);
+  }
   if (ret != -1 && timerid != NULL) {
     virtId = TimerList::instance().on_timer_create(realId, clockid, sevp);
     JTRACE ("Creating new timer") (clockid) (realClockId) (realId) (virtId);
