@@ -788,7 +788,7 @@ runTest("pty2",   2, ["./test/pty2"])
 
 #Invoke this test when support for timers is added to DMTCP.
 runTest("timer1",   1, ["./test/timer1"])
-#runTest("timer2",   1, ["./test/timer2"])
+runTest("timer2",   1, ["./test/timer2"])
 runTest("clock",   1, ["./test/clock"])
 
 old_ld_library_path = os.getenv("LD_LIBRARY_PATH")
