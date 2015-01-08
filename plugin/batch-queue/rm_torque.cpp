@@ -47,6 +47,7 @@
 #include "jfilesystem.h"
 #include "rm_main.h"
 #include "rm_utils.h"
+#include "rm_torque.h"
 
 // -------------------- Torque PBS tm.h definitions -------------------------//
 // Keep in sync with "tm.h" file in libtorque of Torque PBS resource manager
