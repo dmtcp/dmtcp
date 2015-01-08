@@ -221,7 +221,7 @@ void resources_input::trim(string &str, string delim)
       node_id++;
       node_map[hostname].app_slots = app_slots.size();
       node_map[hostname].srv_slots = srv_slots.size();
-      node_map[hostname].launch_slots += launch_slots.size();
+      node_map[hostname].launch_slots = launch_slots.size();
       node_map[hostname].name = hostname;
       node_map[hostname].mode = mode;
       node_map[hostname].is_launch = (launch_slots.size() > 0);
