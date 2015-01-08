@@ -86,7 +86,7 @@ unsigned long torque_jobid = 0;
 
 //--------------------- Torque/PBS initialization  -------------//
 
-void probeTorque()
+void dmtcp::probeTorque()
 {
   JTRACE("Start");
   if( (getenv("PBS_ENVIRONMENT") != NULL) && (NULL != getenv("PBS_JOBID")) ){
@@ -304,7 +304,7 @@ static void setup_torque_env()
 // -------------- (END) This functions probably should run with global_mutex locked! (END) -----------------------//
 
 
-bool isTorqueFile(string relpath, string &path)
+bool dmtcp::isTorqueFile(string relpath, string &path)
 {
   JTRACE("Start");
   switch( _get_rmgr_type() ){
@@ -333,7 +333,7 @@ bool isTorqueFile(string relpath, string &path)
   return false;
 }
 
-bool isTorqueHomeFile(string &path)
+bool dmtcp::isTorqueHomeFile(string &path)
 {
   // check if file is in home directory
   char *ptr;
@@ -383,7 +383,7 @@ bool isTorqueHomeFile(string &path)
   return false;
 }
 
-bool isTorqueIOFile(string &path)
+bool dmtcp::isTorqueIOFile(string &path)
 {
   // Check if file is located in $PBS_HOME/spool
   // If so - it is Torque stdio file
@@ -397,7 +397,7 @@ bool isTorqueIOFile(string &path)
   return false;
 }
 
-bool isTorqueStdout(string &path)
+bool dmtcp::isTorqueStdout(string &path)
 {
   if( !isTorqueIOFile(path) )
     return false;
@@ -411,7 +411,7 @@ bool isTorqueStdout(string &path)
   return false;
 }
 
-bool isTorqueStderr(string &path)
+bool dmtcp::isTorqueStderr(string &path)
 {
   if( !isTorqueIOFile(path) )
     return false;
@@ -425,7 +425,7 @@ bool isTorqueStderr(string &path)
   return false;
 }
 
-bool isTorqueNodeFile(string &path)
+bool dmtcp::isTorqueNodeFile(string &path)
 {
   // if this file is not located in $PBS_HOME/aux/ directory
   // it can't be node_file
@@ -524,7 +524,7 @@ extern "C" int tm_spawn(int argc, char **argv, char **envp, tm_node_id where,
   return ret;
 }
 
-int torqueShouldCkptFile(const char *path, int *type)
+int dmtcp::torqueShouldCkptFile(const char *path, int *type)
 {
   string str(path);
 
@@ -539,7 +539,7 @@ int torqueShouldCkptFile(const char *path, int *type)
 }
 
 
-int torqueRestoreFile(const char *path, const char *savedFilePath,
+int dmtcp::torqueRestoreFile(const char *path, const char *savedFilePath,
                                      int fcntlFlags, int type)
 {
   string newpath;
