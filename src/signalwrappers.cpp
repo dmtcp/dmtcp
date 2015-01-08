@@ -52,7 +52,7 @@ static int bannedSignalNumber()
     sigemptyset(&set);
     sigaddset(&set, stopSignal);
     JASSERT(_real_pthread_sigmask(SIG_UNBLOCK, &set, NULL) == 0)
-      (JASSERT_ERRNO) (stopSignal);
+      (strerror(_real_pthread_sigmask(SIG_UNBLOCK, &set, NULL))) (stopSignal);
   }
   return stopSignal;
 }
