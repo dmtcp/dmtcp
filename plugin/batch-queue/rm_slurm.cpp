@@ -54,6 +54,8 @@ void dmtcp::probeSlurm()
     // TODO: Do we need locking here?
     //JASSERT(_real_pthread_mutex_lock(&global_mutex) == 0);
     _set_rmgr_type(slurm);
+  } else {
+    JTRACE("SLURM is not our RM");
   }
 }
 
@@ -469,7 +471,7 @@ static void restart_helper()
 }
 
 
-void slurmRestoreHelper( bool isRestart )
+void dmtcp::slurmRestoreHelper( bool isRestart )
 {
   if( isRestart && is_srun_helper){
     JTRACE("This is srun helper. Restore it");
