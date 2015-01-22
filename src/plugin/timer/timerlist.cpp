@@ -41,26 +41,26 @@ static void _do_unlock_tbl()
 extern "C"
 void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
-  if (_timerlist == NULL) {
-    return;
+  if (_timerlist != NULL) {
+    switch (event) {
+      case DMTCP_EVENT_ATFORK_CHILD:
+        TimerList::instance().resetOnFork();
+        break;
+
+      case DMTCP_EVENT_WRITE_CKPT:
+        TimerList::instance().preCheckpoint();
+        break;
+
+      case DMTCP_EVENT_RESTART:
+        TimerList::instance().postRestart();
+        break;
+
+      default:
+        break;
+    }
   }
 
-  switch (event) {
-    case DMTCP_EVENT_ATFORK_CHILD:
-      TimerList::instance().resetOnFork();
-      break;
-
-    case DMTCP_EVENT_WRITE_CKPT:
-      TimerList::instance().preCheckpoint();
-      break;
-
-    case DMTCP_EVENT_RESTART:
-      TimerList::instance().postRestart();
-      break;
-
-    default:
-      break;
-  }
+  DMTCP_NEXT_EVENT_HOOK(event, data);
 }
 
 TimerList& TimerList::instance()
