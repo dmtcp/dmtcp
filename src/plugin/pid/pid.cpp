@@ -94,6 +94,7 @@ static void pidVirt_PostExec(DmtcpEventData_t *data)
 static int openSharedFile(string name, int flags)
 {
   int fd;
+  int errno_bkp;
   // try to create, truncate & open file
 
   jalib::string dir = jalib::Filesystem::DirName(name);
@@ -103,10 +104,11 @@ static int openSharedFile(string name, int flags)
   if ((fd = _real_open(name.c_str(), O_EXCL|O_CREAT|O_TRUNC | flags, 0600)) >= 0) {
     return fd;
   }
+  errno_bkp = errno;
 
-  JTRACE("_real_open: ")(strerror(errno))(fd);
+  JTRACE("_real_open: ")(strerror(errno))(fd)(flags);
 
-  if (fd < 0 && errno == EEXIST) {
+  if ( (fd < 0) && (errno_bkp == EEXIST) ) {
     errno = 0;
     if ((fd = _real_open(name.c_str(), flags, 0600)) >= 0) {
       return fd;
