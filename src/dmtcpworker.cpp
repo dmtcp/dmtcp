@@ -45,7 +45,6 @@ LIB_PRIVATE void pthread_atfork_prepare();
 LIB_PRIVATE void pthread_atfork_parent();
 LIB_PRIVATE void pthread_atfork_child();
 
-EXTERNC int dmtcp_infiniband_enabled(void) __attribute__((weak));
 EXTERNC void *ibv_get_device_list(void *) __attribute__((weak));
 
 bool DmtcpWorker::_exitInProgress = false;
@@ -326,8 +325,7 @@ DmtcpWorker::DmtcpWorker()
 
   WorkerState::setCurrentState (WorkerState::RUNNING);
 
-  if (ibv_get_device_list && ibv_get_device_list(NULL) &&
-      !dmtcp_infiniband_enabled) {
+  if (ibv_get_device_list && !dmtcp_infiniband_enabled) {
     JNOTE("\n\n*** Infiniband library detected."
           "  Please use dmtcp_launch --ib ***\n");
   }
