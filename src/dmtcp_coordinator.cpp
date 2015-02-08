@@ -1489,7 +1489,6 @@ void DmtcpCoordinator::writeRestartScript()
                   "      DMTCP_REMLAUNCH_0_0=\"$DMTCP_REMLAUNCH_0_0 $DMTCP_LAUNCH_CKPTS\"\n"
                   "      $srun_path \"$llaunch\"\n"
                   "    fi\n"
-                  "    fi\n"
                   "    exit 0\n"
                   "  elif [ $RES_MANAGER = \"TORQUE\" ]; then\n"
                   "    #eval $(dmtcp_discover_rm \"$worker_ckpts\")\n"
