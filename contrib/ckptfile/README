@@ -1,2 +1,58 @@
-This plugin serves as a template.  Please modify the given
-functions according to your needs.
+# 'ckptfile' plugin
+
+## Usage
+
+    $ DMTCP_CKPTFILES_DATA=/path/to/ckptfiles.dat dmtcp_launch --with-plugin /path/to/libdmtcp_ckptfile.so ./a.out
+
+## Details
+
+This plugin allows you to:
+
+ a) specify a file that DMTCP should checkpoint; and
+ b) specify the path on restart of a file if it wasn't checkpointed.
+
+The plugin reads a user-specified database at checkpoint time. The
+database is a simple text file that specifies the files that should
+be checkpointed, and the restart paths of files that shouldn't be
+checkpointed.
+
+The database file's format is described below.
+
+   FILE:SAVE_AND_RESTORE={1|0};RESTART_PATH=NEW_FILE
+   FILE_PATTERN:SAVE_AND_RESTORE={1|0};RESTART_PATH=NEW_FILE_PATTERN
+
+Here, FILE and NEW_FILE are pathnames, and FILE_PATTERN and
+NEW_FILE_PATTERN are shell wildcard patterns. The plugin uses the POSIX
+fnmatch() function for pattern matching.
+
+Note that for a file that's saved and then restored on restart
+(SAVE_AND_RESTORE=1), the restart path (RESTART_PATH=XXX) is ignored.
+
+Also, note that the plugin does *not* virtualize the paths for the target
+application. The plugin ensures that DMTCP will not assert and exit when
+an open file that wasn't checkpointed is moved to a different location
+before restart. On restart, the plugin assumes that the application
+does not refer to old pathnames. A future version of DMTCP will make it
+possible to restore the file to a filename that is different on restart.
+
+## Background
+
+Recall that the default behavior of DMTCP in checkpointing
+open files is:
+
+ a) if the file is open as read-only, do not assume write permission,
+    and do not checkpoint it.
+ b) if the file is open with write permission, and the offset is at the
+    end of the file, assume that the file is a log file.  Do not save,
+    and set the file descriptor back to the offset saved at checkpoint time.
+ c) if the file is open with write permission, and the offset is _not_ at the
+    end of the file, assume that the file is a database file.  Save the file
+    contents and restore at restart time.
+ d) if invoked as:  dmtcp_launch --checkpoint-open-files
+    then save the contents of all open files, and restore at restart time.
+
+Note: If DMTCP is invoked without the `--checkpoint-open-files` flag,
+the files that the application was using at checkpoint time are expected
+to be at their original location. On restart, the file descriptors are
+restored with the offsets saved at checkpoint time as described in the
+cases (a), (b), and (c) above.
