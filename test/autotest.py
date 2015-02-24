@@ -750,6 +750,13 @@ runTest("poll",          1, ["./test/poll"])
 
 runTest("forkexec",      2, ["./test/forkexec"])
 
+if os.getenv("LD_LIBRARY_PATH"):
+  os.environ["LD_LIBRARY_PATH"] += ":./test"
+else:
+  os.environ["LD_LIBRARY_PATH"] = "./test"
+runTest("pthread_atfork",      2, ["./test/pthread_atfork"])
+os.environ["LD_LIBRARY_PATH"] = os.getenv("LD_LIBRARY_PATH")[:-len(":./test")]
+
 if HAS_SSH == "yes":
   S=5*DEFAULT_S
   runTest("sshtest",     4, ["./test/sshtest"])
