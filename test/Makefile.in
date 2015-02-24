@@ -141,7 +141,7 @@ dmtcp5: dmtcp5.c
 	-$(CC) -o $@ $< $(CFLAGS) -lpthread
 
 libpthread_atfork.so: pthread_atfork.c
-	${CC} ${CFLAGS} -shared -fPIC  -DLIB -o libpthread_atfork.so $<
+	${CC} ${CFLAGS} -shared -fPIC -DLIB -o libpthread_atfork.so $<
 pthread_atfork: pthread_atfork.c libpthread_atfork.so
 	${CC} ${CFLAGS} -o pthread_atfork pthread_atfork.c \
 	  -L${PWD} -lpthread_atfork -lpthread
