@@ -295,6 +295,15 @@ void SharedData::getCoordAddr(struct sockaddr *addr, uint32_t *len)
   memcpy(addr, &sharedDataHeader->coordInfo.addr, *len);
 }
 
+void SharedData::setCoordHost(struct in_addr *in)
+{
+  if (sharedDataHeader == NULL) initialize();
+  JASSERT(in != NULL);
+  struct sockaddr_in *sin =
+    (struct sockaddr_in*) &sharedDataHeader->coordInfo.addr;
+  memcpy(&sin->sin_addr, in, sizeof sin->sin_addr);
+}
+
 void SharedData::getLocalIPAddr(struct in_addr *in)
 {
   if (sharedDataHeader == NULL) initialize();

@@ -149,6 +149,7 @@ namespace dmtcp {
     string coordHost();
     uint32_t coordPort();
     void getCoordAddr(struct sockaddr *addr, uint32_t *len);
+    void setCoordHost(struct in_addr *in);
     uint64_t getCoordTimeStamp();
 
     string getTmpDir();

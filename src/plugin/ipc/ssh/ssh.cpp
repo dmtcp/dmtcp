@@ -11,6 +11,7 @@
 #include "util_ipc.h"
 #include "ssh.h"
 #include "sshdrainer.h"
+#include "shareddata.h"
 
 using namespace dmtcp;
 
@@ -350,12 +351,73 @@ static void prepareForExec(char *const argv[], char ***newArgv)
   return;
 }
 
+// This code is copied from dmtcp_coordinator.cpp:calLocalAddr()
+static void updateCoordHost() {
+  if (SharedData::coordHost() != "127.0.0.1")  return;
+
+  struct in_addr localhostIPAddr;
+  string cmd;
+  char hostname[HOST_NAME_MAX];
+  JASSERT(gethostname(hostname, sizeof hostname) == 0) (JASSERT_ERRNO);
+  struct addrinfo *result;
+  struct addrinfo *res;
+  int error;
+  struct addrinfo hints;
+
+  memset(&localhostIPAddr, 0, sizeof localhostIPAddr);
+  memset(&hints, 0, sizeof(struct addrinfo));
+  hints.ai_family = AF_INET;
+  hints.ai_socktype = SOCK_STREAM;
+  hints.ai_flags = AI_PASSIVE;
+  hints.ai_protocol = 0;
+  hints.ai_canonname = NULL;
+  hints.ai_addr = NULL;
+  hints.ai_next = NULL;
+
+  /* resolve the domain name into a list of addresses */
+  error = getaddrinfo(hostname, NULL, &hints, &result);
+  if (error == 0) {
+    /* loop over all returned results and do inverse lookup */
+    bool success = false;
+    for (res = result; res != NULL; res = res->ai_next) {
+      char name[NI_MAXHOST] = "";
+      struct sockaddr_in *s = (struct sockaddr_in*) res->ai_addr;
+
+      error = getnameinfo(res->ai_addr, res->ai_addrlen, name, NI_MAXHOST, NULL, 0, 0);
+      if (error != 0) {
+        JTRACE("getnameinfo() failed.") (gai_strerror(error));
+        continue;
+      }
+      if (Util::strStartsWith(name, hostname) ||
+          Util::strStartsWith(hostname, name)) {
+        JASSERT(sizeof localhostIPAddr == sizeof s->sin_addr);
+        success = true;
+        memcpy(&localhostIPAddr, &s->sin_addr, sizeof s->sin_addr);
+      }
+    }
+    if (!success) {
+      JWARNING("Failed to find coordinator IP address.  DMTCP may fail.") (hostname) ;
+    }
+  } else {
+    if (error == EAI_SYSTEM) {
+      perror("getaddrinfo");
+    } else {
+      JTRACE("Error in getaddrinfo") (gai_strerror(error));
+    }
+    inet_aton("127.0.0.1", &localhostIPAddr);
+  }
+
+  SharedData::setCoordHost(&localhostIPAddr);
+}
+
 extern "C" int execve (const char *filename, char *const argv[],
                        char *const envp[])
 {
   if (jalib::Filesystem::BaseName(filename) != "ssh") {
     return _real_execve(filename, argv, envp);
   }
+
+  updateCoordHost();
 
   char **newArgv = NULL;
   prepareForExec(argv, &newArgv);
@@ -369,6 +431,8 @@ extern "C" int execvp (const char *filename, char *const argv[])
   if (jalib::Filesystem::BaseName(filename) != "ssh") {
     return _real_execvp(filename, argv);
   }
+
+  updateCoordHost();
 
   char **newArgv;
   prepareForExec(argv, &newArgv);
@@ -384,6 +448,9 @@ extern "C" int execvpe (const char *filename, char *const argv[],
   if (jalib::Filesystem::BaseName(filename) != "ssh") {
     return _real_execvpe(filename, argv, envp);
   }
+
+  updateCoordHost();
+
   char **newArgv;
   prepareForExec(argv, &newArgv);
   int ret = _real_execvpe(newArgv[0], newArgv, envp);

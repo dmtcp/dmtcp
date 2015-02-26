@@ -1562,6 +1562,7 @@ static void setupSIGINTHandler()
   sigaction ( SIGINT, &action, NULL );
 }
 
+// This code is also copied to ssh.cpp:updateCoordHost()
 static void calcLocalAddr()
 {
   string cmd;
