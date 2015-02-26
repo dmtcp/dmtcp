@@ -9,13 +9,27 @@
 #SBATCH --output=dmtcp.out        # change to proper file name or remove for defaults
 # ? Any other batch options ?
 
+#----------------------------- Setup DMTCP environment for a job --------------------------#
+
+############################################################################################
 # Start dmtcp coordinator on launching node. Free TCP port is automatically allocated.
 # this function creates dmtcp_command.$JOBID script that serves like a wrapper around
 # dmtcp_command that tunes it on exact dmtcp_coordinator (it's hostname and port)
 # instead of typing "dmtcp_command -h <coordinator hostname> -p <coordinator port> <command>"
 # you just type "dmtcp_command.$JOBID <command>" and talk to coordinator of JOBID job
+############################################################################################
+
 start_coordinator()
 {
+    ############################################################
+    # For debugging using custom launched coordinator uncomment 
+    # the following lines and provide proper host and port for 
+    # the coordinator
+    ############################################################
+    # export DMTCP_HOST=$h
+    # export DMTCP_PORT=$p
+    # return
+
     fname=dmtcp_command.$SLURM_JOBID
     h=`hostname`
 
@@ -53,8 +67,11 @@ start_coordinator()
 
 }
 
+#----------------------- Some rutine steps and information output -------------------------#
 
+############################################################################################
 # Print out SLURM job information. Remove it if you don't need it
+############################################################################################
 echo "SLURM_JOBID="$SLURM_JOBID
 echo "SLURM_JOB_NODELIST"=$SLURM_JOB_NODELIST
 echo "SLURM_NNODES"=$SLURM_NNODES
@@ -64,16 +81,27 @@ echo "working directory = "$SLURM_SUBMIT_DIR
 # changedir to workdir
 cd $SLURM_SUBMIT_DIR
 
-# Some initial setup like 
-# 1. Loading MPI or any other modules if you use modules.
-#module load openmpi/gcc-4.5.2/1.4.3
-#module list
-# 2. Make sure that DMTCP install prefix is in PATH & LD_LIBRARY_PATH. Remove if you sure about that.
-#export PATH=<DMTCP install path>/bin:$PATH
-#export LD_LIBRARY_PATH=<DMTCP install path>/lib:$LD_LIBRARY_PATH
-# 3. Other settings
-#ulimit -s unlimited
+#----------------------------------- Setup job environment --------------------------------#
+
+############################################################################################
+# Load all nessesary modules or export PATH/LD_LIBRARY_PATH/etc here.
+# Make sure that DMTCP install prefix is in PATH & LD_LIBRARY_PATH.
+############################################################################################
+
+# module load openmpi
+# export PATH=<dmtcp-install-path>/bin:$PATH
+# export LD_LIBRARY_PATH=<dmtcp-install-path>/lib:$LD_LIBRARY_PATH
+
+#------------------------------------- Launch application ---------------------------------#
+
+############################################################################################
+# 1. Start DMTCP coordinator
+############################################################################################
 
 start_coordinator # -i 120 ... <put dmtcp coordinator options here>
+
+############################################################################################
+# 2. Restart application
+############################################################################################
 
 /bin/bash ./dmtcp_restart_script.sh -h $DMTCP_HOST -p $DMTCP_PORT
