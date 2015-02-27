@@ -4,22 +4,24 @@
 #PBS -l nodes=2:ppn=2
 # ? Any other batch options ?
 
-#----------------------------- Setup DMTCP environment for a job --------------------------#
+#----------------------------- Set up DMTCP environment for a job ------------#
 
-############################################################################################
-# Start dmtcp coordinator on launching node. Free TCP port is automatically allocated.
-# this function creates dmtcp_command.$JOBID script that serves like a wrapper around
-# dmtcp_command that tunes it on exact dmtcp_coordinator (it's hostname and port)
-# instead of typing "dmtcp_command -h <coordinator hostname> -p <coordinator port> <command>"
-# you just type "dmtcp_command.$JOBID <command>" and talk to coordinator of JOBID job
-############################################################################################
+###############################################################################
+# Start DMTCP coordinator on the launching node. Free TCP port is automatically
+# allocated.  This function creates a dmtcp_command.$JOBID script, which serves
+# as a wrapper around dmtcp_command.  The script tunes dmtcp_command for the
+# exact dmtcp_coordinator (its hostname and port).  Instead of typing
+# "dmtcp_command -h <coordinator hostname> -p <coordinator port> <command>",
+# you just type "dmtcp_command.$JOBID <command>" and talk to the coordinator
+# for JOBID job.
+###############################################################################
 
 start_coordinator()
 {
     ############################################################
-    # For debugging using custom launched coordinator uncomment 
-    # the following lines and provide proper host and port for 
-    # the coordinator
+    # For debugging when launching a custom coordinator, uncomment 
+    # the following lines and provide the proper host and port for 
+    # the coordinator.
     ############################################################
     # export DMTCP_HOST=$h
     # export DMTCP_PORT=$p
@@ -30,7 +32,7 @@ start_coordinator()
 
     check_coordinator=`which dmtcp_coordinator`
     if [ -z "$check_coordinator" ]; then
-        echo "No dmtcp_coordinator found. Check your DMTCP installation and PATH settings"
+        echo "No dmtcp_coordinator found. Check your DMTCP installation and PATH settings."
         exit 0
     fi
 
@@ -56,44 +58,45 @@ start_coordinator()
     echo "export DMTCP_PORT=$p" >> $fname
     echo "dmtcp_command \$@" >> $fname
 
-    # Setup local environment for DMTCP
+    # Set up local environment for DMTCP
     export DMTCP_HOST=$h
     export DMTCP_PORT=$p
 
 }
 
-############################################################################################
-# Print out TORQUE job information. Remove it if you don't need it
-############################################################################################
+################################################################################
+# Print out the TORQUE job information.  Remove it if you don't need it.
+################################################################################
 echo "PBS_JOBID="$PBS_JOBID
 echo "PBS_NODEFILE"=$PBS_NODEFILE
 cat $PBS_NODEFILE
 echo "PBS_O_WORKDIR"=$PBS_O_WORKDIR
 
-# changedir to workdir
+# change dir to workdir
 cd $PBS_O_WORKDIR
 
-#----------------------------------- Setup job environment --------------------------------#
+#----------------------------------- Set up job environment ---------------------#
 
-############################################################################################
+##################################################################################
 # Load all nessesary modules or export PATH/LD_LIBRARY_PATH/etc here.
-# Make sure that DMTCP install prefix is in PATH & LD_LIBRARY_PATH.
-############################################################################################
+# Make sure that the prefix for the DMTCP install path is in PATH
+# and LD_LIBRARY_PATH.
+##################################################################################
 
 # module load openmpi
 # export PATH=<dmtcp-install-path>/bin:$PATH
 # export LD_LIBRARY_PATH=<dmtcp-install-path>/lib:$LD_LIBRARY_PATH
 
-#------------------------------------- Launch application ---------------------------------#
+#------------------------------------- Launch application ------------------------#
 
-############################################################################################
+###################################################################################
 # 1. Start DMTCP coordinator
-############################################################################################
+###################################################################################
 
 start_coordinator # -i 120 ... <put dmtcp coordinator options here>
 
-############################################################################################
+###################################################################################
 # 2. Restart application
-############################################################################################
+###################################################################################
 
 ./dmtcp_restart_script.sh -h $DMTCP_HOST -p $DMTCP_PORT

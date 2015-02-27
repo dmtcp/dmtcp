@@ -20,15 +20,15 @@
 
 /* Update by Kapil Arya to create the Torque DMTCP plugin. */
 
-/* Torque PBS resource manager supporting code
+/* The Torque PBS resource manager supporting code.
 
-   Torque PBS contains libtorque library that provides API for communications
-   with MOM Node management servers to obtain information about allocated
-   resources and use them. In particular spawn programs on remote nodes using
-   tm_spawn.
+   Torque PBS contains the libtorque library, which provides an API for
+   communication with the MOM Node management servers.  The library obtains
+   information about the allocated resources and uses it.  In particular the
+   spawn programs on the remote nodes use tm_spawn.
 
-   To keep track and control under all processes spawned using any method (like
-   exec, ssh) we need also to wrap tm_spawn function
+   To keep track of and control all processes spawned using any method (such as
+   exec, ssh), we also need to wrap the tm_spawn function.
 */
 
 
@@ -50,7 +50,8 @@
 #include "rm_torque.h"
 
 // -------------------- Torque PBS tm.h definitions -------------------------//
-// Keep in sync with "tm.h" file in libtorque of Torque PBS resource manager
+// Keep in sync with "tm.h" file in the libtorque library of the Torque PBS
+//   resource manager.
 #define TM_SUCCESS  0
 #define TM_ESYSTEM  17000
 #define TM_ENOEVENT  17001
@@ -95,7 +96,7 @@ void dmtcp::probeTorque()
     // TODO: Do we need locking here?
     //JASSERT(_real_pthread_mutex_lock(&global_mutex) == 0);
     _set_rmgr_type(torque);
-    // setup Torque PBS home dir
+    // Set up the Torque PBS home dir.
     setup_torque_env();
     setup_job();
     // TODO: Do we need locking here?
@@ -111,7 +112,7 @@ static int queryPbsConfig(string option, string &pbs_config)
   int cpid;
 
   if( pipe(fds) == -1){
-    // just go away - we cannot serve this request
+    // Just go away - we cannot serve this request.
     JTRACE("Cannot create pipe to execute pbs-config to find Torque/PBS library!");
     return -1;
   }
@@ -164,8 +165,8 @@ static int queryPbsConfig(string option, string &pbs_config)
 
 int findLibTorque_pbsconfig(string &libpath)
 {
-  // config looks like: "-L<libpath> -l<libname> -Wl,--rpath -Wl,<libpath>"
-  // we will search for first libpath and first libname
+  // Config looks like: "-L<libpath> -l<libname> -Wl,--rpath -Wl,<libpath>"
+  // We will search for the first libpath and the first libname.
   string libname, config;
 
   if( queryPbsConfig("--libs",config) ){
@@ -336,7 +337,7 @@ bool dmtcp::isTorqueFile(string relpath, string &path)
 
 bool dmtcp::isTorqueHomeFile(string &path)
 {
-  // check if file is in home directory
+  // Check if the file is in the home directory.
   char *ptr;
   string hpath = "";
 
@@ -386,14 +387,14 @@ bool dmtcp::isTorqueHomeFile(string &path)
 
 bool dmtcp::isTorqueIOFile(string &path)
 {
-  // Check if file is located in $PBS_HOME/spool
-  // If so - it is Torque stdio file
+  // Check if the file is located in $PBS_HOME/spool
+  // If so, it is the Torque stdio file.
   if( isTorqueFile("spool", path) )
     return true;
 
   if( isTorqueHomeFile(path) ){
-    // Torque can be configured to write directly into users home directory.
-    // In this case we need to check file pattern:
+    // Torque can be configured to write directly into a user's home directory.
+    // In this case, we need to check the file pattern:
   }
   return false;
 }
@@ -428,8 +429,8 @@ bool dmtcp::isTorqueStderr(string &path)
 
 bool dmtcp::isTorqueNodeFile(string &path)
 {
-  // if this file is not located in $PBS_HOME/aux/ directory
-  // it can't be node_file
+  // If this file is not located in the $PBS_HOME/aux/ directory,
+  // it can't be node_file.
   return isTorqueFile("aux", path);
 }
 
@@ -498,7 +499,7 @@ extern "C" int tm_spawn(int argc, char **argv, char **envp, tm_node_id where,
   vector<string> dmtcp_args;
   Util::getDmtcpArgs(dmtcp_args);
   unsigned int dsize = dmtcp_args.size();
-  const char *new_argv[ argc + (dsize + 1)]; // (dsize+1) is DMTCP part including dmtcpCkptPath
+  const char *new_argv[ argc + (dsize + 1)]; // (dsize+1) args are for DMTCP, including dmtcpCkptPath.
   string cmdline;
   size_t i;
 

@@ -226,7 +226,7 @@ int resources_slurm::discover()
 
   slurm_slots *slots = NULL;
   if( slotlist == NULL ){
-    // fail bit is set: too big string. Drop the rest
+    // fail bit is set:  string is too big.  Drop the rest.
     fprintf(stderr, "WARNING: environment variables SLURM_JOB_CPUS_PER_NODE or SLURM_TASKS_PER_NODE are not set!\n");
   }else{
     slots = new slurm_slots(slotlist);
@@ -245,7 +245,7 @@ int resources_slurm::discover()
     node_map[node].id = node_id++;
     node_map[node].app_slots = slotnum;
     node_map[node].name = node;
-    // first node in the list launches all application
+    // The first node in the list launches all applications.
     node_map[node].is_launch = is_launch;
     is_launch = false;
   }

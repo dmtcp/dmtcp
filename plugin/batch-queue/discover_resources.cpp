@@ -95,7 +95,7 @@ bool resources::map_to(resources &newres, mapping_t &map, string &warning)
 
     if (newres[new_launch].app_slots < sorted_v[old_launch]->app_slots) {
       warning += "WARINIG: amount of MPI-worker slots on new node is less than amount on old one\n";
-      // put only launch process on launch node ?
+      // Put only the launch process on the launch node?
     }
 
     map[new_launch].push_back(old_launch);

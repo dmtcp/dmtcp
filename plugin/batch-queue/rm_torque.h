@@ -20,15 +20,15 @@
 
 /* Update by Kapil Arya to create the Torque DMTCP plugin. */
 
-/* Torque PBS resource manager supporting code
+/* The Torque PBS resource manager supporting code.
 
-   Torque PBS contains libtorque library that provides API for communications
-   with MOM Node management servers to obtain information about allocated
-   resources and use them. In particular spawn programs on remote nodes using
-   tm_spawn.
+   Torque PBS contains the libtorque library, which provides the API for
+   communications with the MOM Node management servers.  The library obtains
+   information about the allocated resources and uses it.  In particular the
+   spawn programs on the remote nodes use tm_spawn.
 
-   To keep track and control under all processes spawned using any method (like
-   exec, ssh) we need also to wrap tm_spawn function
+   To keep track of and control all processes spawned using any method (such as
+   exec, ssh), we also need to wrap the tm_spawn function.
 */
 
 #ifndef TORQUE_PLUGIN_H

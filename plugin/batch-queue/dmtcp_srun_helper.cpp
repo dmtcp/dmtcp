@@ -33,8 +33,8 @@ int restart_fd = -1;
 
 //-------------------------------------8<------------------------------------------------//
 // FIXME: this is exactly the same code as in src/plugin/ipc/ssh/util_ssh.cpp
-// We need to use the same code base in future.
-// TODO: put this in some shared util location.
+// We need to use the same code base in the future.
+// TODO: Put this in some shared location (e.g., util directory).
 
 
 
@@ -140,7 +140,7 @@ static void set_nonblock(int fd)
 
 /*
  * Signal handler for signals that cause the program to terminate.  These
- * signals must be trapped to restore terminal modes.
+ * signals must be trapped to restore the terminal modes.
  */
 static void signal_handler_ini(int sig)
 {
@@ -149,7 +149,7 @@ static void signal_handler_ini(int sig)
     // TODO: wait stuff here?
     return;
   }
-  // Forward signals only at initial run
+  // Forward signals only during the initial run
   if (srun_pid != -1) {
     kill(srun_pid, sig);
   }
@@ -182,7 +182,7 @@ static void create_stdio_fds(int *in, int *out, int *err)
   out[0] = out[1] = -1;
   err[0] = err[1] = -1;
 
-  // Close all open file descriptors
+  // Close all open file descriptors.
   int maxfd = sysconf(_SC_OPEN_MAX);
   for (int i = 3; i < maxfd; i++) {
     close(i);
@@ -345,7 +345,7 @@ static void fwd_loop()
   while (!quit_pending) {
     struct timeval tv = {10, 0};
 
-    // Handle errors on all fds of interest
+    // Handle errors on all fds of interest.
     FD_ZERO(&errorset);
     FD_ZERO(&readset);
     FD_ZERO(&writeset);
@@ -383,8 +383,8 @@ static void signal_handler_rstr(int sig)
   quit_pending = 1;
   if( sig == SIGCHLD ){
     // TODO: wait stuff here?
-    // Forward termination to initial handler
-    // so mpirun/mpiexec will know that it was terminated
+    // Forward termination to the initial handler,
+    // so that mpirun/mpiexec will know that it was terminated.
     kill(helper_pid, SIGCHLD );
     return;
   }
@@ -456,7 +456,7 @@ static void prepare_initial_helper(char *sync_path)
   fprintf(fp, "export %s=%s\n", DMTCP_SRUN_HELPER_ADDR_ENV, path);
   fsync(fileno(fp));
   fclose(fp);
-  // Make sure that file is readable to others.
+  // Make sure that the file is readable to others.
   int i = 0, repmax = 10;
   while( i < repmax ){
     fp = fopen(sync_path, "r");
@@ -582,7 +582,7 @@ int main(int argc, char **argv, char **envp)
     // skip "-r" flag
     argc--;
     argv++;
-    // Prepare evironment and siganls
+    // Prepare the evironment and siganls
     prepare_initial_helper(sync_file_name);
     daemonize();
     create_stdio_fds_rstr(pipe_in, pipe_out, pipe_err);
@@ -602,7 +602,7 @@ int main(int argc, char **argv, char **envp)
 
   if( !restart_helper ){
     setup_signals_ini();
-    // This is initial helper
+    // This is the initial helper.
     assert(slurm_srun_handler_register != NULL);
     slurm_srun_handler_register(srun_stdin, srun_stdout, srun_stderr, &srun_pid);
     if( is_empty_loop() ){

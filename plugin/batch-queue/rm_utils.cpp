@@ -60,7 +60,7 @@ int dmtcp::findLib_byname(string pattern, string &libpath)
     }
 
     if( libpath.find(pattern) != string::npos ){
-      // this is library path that contains libtorque. This is what we need
+      // This is the library path that contains libtorque.  This is what we need.
       //JTRACE("Found libpath")(pattern)(libpath);
       ret = 0;
       break;
@@ -76,11 +76,11 @@ int dmtcp::findLib_byname(string pattern, string &libpath)
 int dmtcp::findLib_byfunc(string fname, string &libpath)
 {
   // /proc/self/maps looks like: "<start addr>-<end addr> <mode> <offset> <device> <inode> <libpath>
-  // we need to extract libpath
+  // We need to extract libpath.
   ProcMapsArea area;
   int ret = -1;
 
-  // we will search for first libpath and first libname
+  // We will search for the first libpath and the first libname.
   int fd = _real_open ( "/proc/self/maps", O_RDONLY);
 
   if( fd < 0 ){
@@ -108,14 +108,14 @@ int dmtcp::findLib_byfunc(string fname, string &libpath)
     }
     void *fptr = dlsym(handle,fname.c_str());
     if( fptr != NULL ){
-      // able to find requested symbol
+      // Able to find the requested symbol.
       //JTRACE("Found libpath by content:")(fname)(libpath);
       dlclose(handle);
       ret = 0;
       break;
     }
     dlclose(handle);
-    //JTRACE("Libpath doesn't contain searched function")(fname)(libpath);
+    //JTRACE("Function not found in Libpath")(fname)(libpath);
   }
 
   _real_close(fd);

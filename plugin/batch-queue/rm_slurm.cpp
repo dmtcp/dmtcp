@@ -124,24 +124,25 @@ static void print_args(char *const argv[])
 }
 
 /*
- * This routine hijacks original srun program in following way:
- * orig:
- * srun <srun-opts> <binary> <binary-opts>
- * new :
- * dmtcp_srun_helper dmtcp_nocheckpoint | srun <srun-opts> | dmtcp_launch <dmtcp-opts> --explicit-srun |  <binary> <binary-opts>
- * <---------- dmtcp hijack -----------> <-orig srun------> <------------- dmtcp hijack --------------> <----- orig binary----->
+ * This routine hijacks the original srun program in the following way:
+ * original:
+ *   srun <srun-opts> <binary> <binary-opts>
+ * new:
+ *   dmtcp_srun_helper dmtcp_nocheckpoint | srun <srun-opts> | dmtcp_launch <dmtcp-opts> --explicit-srun |  <binary> <binary-opts>
+ *   <---------- dmtcp hijack -----------> <-orig srun------> <------------- dmtcp hijack --------------> <----- orig binary----->
  *
- * This complexy is because we want to launch dmtcp srun helper that will knowingly be under
- * checkpoint control and will help to correctly redirect srun IO after restart.
- * The idea is derived from Kapil's SSH plugin.
+ * This complexity is because we want to launch the dmtcp srun helper that will
+ * be aware that it is under checkpoint control.  The srun helper will aid in
+ * correctly redirecting the srun I/O after restart.
+ * This idea is derived from the DMTCP ssh plugin.
  */
 static int patch_srun_cmdline(char * const argv_old[], char ***_argv_new)
 {
-  // Calculate initial argc
+  // Calculate the initial argc
   size_t argc_old;
   for(argc_old=0; argv_old[argc_old] != NULL; argc_old++);
 
-  // Prepare DMTCP part of exec* string
+  // Prepare the DMTCP part of exec* string
   char dmtcpNoCkptPath[] = "dmtcp_nocheckpoint";
   char dmtcpCkptPath[] = "dmtcp_launch";
   int ret = 0;
@@ -152,37 +153,40 @@ static int patch_srun_cmdline(char * const argv_old[], char ***_argv_new)
   Util::getDmtcpArgs(dmtcp_args);
   unsigned int dsize = dmtcp_args.size();
 
-  // Prepare final comman line of length:
+  // Prepare the final command line of length:
   // 1 /*end NULL*/ + 2 /* helper prefix*/ + dsize + 2 /* dmtcpCkptPath and --explicit-srun */
   int vect_size = sizeof(char *) * (argc_old + 5 + dsize);
   *_argv_new = (char**) JALLOC_HELPER_MALLOC(vect_size);
   char **argv_new = *_argv_new;
   memset(argv_new, 0, vect_size );
 
-  // Form DMTCP command to launch dmtcp_srun_helper
+  // Form the DMTCP command to launch dmtcp_srun_helper
   size_t new_pos = 0, i, old_pos = 0;
   argv_new[new_pos++] = strdup(srunHelper);
   argv_new[new_pos++] = strdup(dmtcpNoCkptPath);
 
-  // Move srun part like: srun --nodes=3 --ntasks=3 --kill-on-bad-exit --nodelist=c2909,c2911,c2913
-  // first string is srun and we move it anyway
-  // all srun options starts with one or two dashes so we copy until see '-'.
+  // Copy the srun part.  For example:
+  //     srun --nodes=3 --ntasks=3 --kill-on-bad-exit --nodelist=c2909,c2911,c2913
+  // The first string is "srun" and we always copy it.
+  // All srun options start with one or two dashes.  So we copy while seeing '-'.
   argv_new[new_pos++] = argv_old[old_pos++];
   for(; old_pos < argc_old; old_pos++){
     if( argv_old[old_pos][0] == '-' ){
       argv_new[new_pos++] = argv_old[old_pos];
       if( argv_old[old_pos][1] != '-' && (strlen(argv_old[old_pos]) == 2) ){
-        // This is not complete handling of srun options.
-        // Most of short options like -N, -n have arguments.
-        // We assume that if first symbol is '-', secont is not '-' and
-        // agv[i] len is equal to 2, say "-N", "-n" we skip second argument
-        // options like "-N8", "-n10" are not affected
+        // This is not the complete handling of the srun options.
+        // Most of the short options like -N, -n have arguments.
+        // We assume that if the first symbol is '-', the second is not '-' and
+        // agv[i] len is equal to 2.  For "-N", "-n", we skip the second argument.
+        // Options such as "-N8", "-n10" are not affected.
         argv_new[new_pos++] = argv_old[++old_pos];
       }else{
-        // According to srun manpage you should use --nodelist="node1,node2,..."
-        // In practice some MPI implementation (i.e. Intel MPI) ignore this rule and use the following syntax:
-        // "--nodelist node1,node2,..." this causes full option to be splitted onto two argv strings.
-        // Here we handle ony those options that is the point of interest for MPI librarys.
+        // According to the srun manpage, you should use
+        //                          --nodelist="node1,node2,..."
+        // In practice, some MPI implementations (e.g. Intel MPI) ignore this
+        //   rule and use the following syntax: // "--nodelist node1,node2,..."
+        // This causes the full option to be split into two argv strings.
+        // Here we handle only those options that are important for MPI libraries.
         if( strcmp(argv_old[old_pos] + 2,"nodelist") == 0 ){
           argv_new[new_pos++] = argv_old[++old_pos];
         }
@@ -191,7 +195,8 @@ static int patch_srun_cmdline(char * const argv_old[], char ***_argv_new)
       break;
     }
   }
-  // Copy dmtcp part so final command looks like: srun <opts> dmtcp_launch <dmtcp_options> orted <orted_options>
+  // Copy the dmtcp part so that the final command looks like:
+  //   srun <opts> dmtcp_launch <dmtcp_options> orted <orted_options>
   argv_new[new_pos++] = strdup(dmtcpCkptPath);
   for (i = 0; i < dsize; i++, new_pos++) {
     argv_new[new_pos] = strdup(dmtcp_args[i].c_str());
@@ -233,7 +238,7 @@ extern "C" int execve (const char *filename, char *const argv[],
 
   char helper_path[PATH_MAX];
   JASSERT(dmtcp::Util::expandPathname(srunHelper, helper_path, sizeof(helper_path)) == 0 );
-  // We need this step to protect stdio fd's from being opened for other purposes.
+  // We need this step to protect the stdio fd's from being opened for other purposes.
   occupate_stdio();
   return _real_execve(helper_path, argv_new, envp);
 }
@@ -256,7 +261,7 @@ extern "C" int execvp (const char *filename, char *const argv[])
   JTRACE( "How command looks from exec*:" );
   JTRACE("CMD:")(cmdline);
 
-  // We need this step to protect stdio fd's from being opened for other purposes.
+  // We need this step to protect the stdio fd's from being opened for other purposes.
   occupate_stdio();
   return _real_execvp(srunHelper, argv_new);
 }
@@ -281,7 +286,7 @@ extern "C" int execvpe (const char *filename, char *const argv[],
   JTRACE( "How command looks from exec*:" );
   JTRACE("CMD:")(cmdline);
 
-  // We need this step to protect stdio fd's from being opened for other purposes.
+  // We need this step to protect the stdio fd's from being opened for other purposes.
   occupate_stdio();
   return _real_execvpe(srunHelper, argv_new, envp);
 }
@@ -293,7 +298,7 @@ bool dmtcp::isSlurmTmpDir(string &str)
     return false;
   }
   string tpath(env_tmpdir);
-  // check if tpath is prefix of str
+  // Check if tpath is a prefix of str
   size_t pos;
   for(pos = 0; pos < tpath.size(); pos++){
       if( str[pos] != tpath[pos] ){
@@ -357,7 +362,7 @@ int dmtcp::slurmRestoreFile(const char *path, const char *savedFilePath,
   command.append(savedFilePath).append(" > ").append(newpath);
   JASSERT(_real_system(command.c_str()) != -1);
 
-  // Open with initial flags
+  // Open with the initial flags
   int tempfd = _real_open(newpath.c_str(), fcntlFlags);
   JASSERT(tempfd != -1) (path)(newpath)(JASSERT_ERRNO) .Text("open() failed");
   return tempfd;
@@ -370,7 +375,7 @@ static int srun_stdout;
 static int srun_stderr;
 static int *srun_pid = NULL;
 
-// FIXME: this is a hackish solution. TODO: add this to plugin API.
+// FIXME: this is a hackish solution. TODO: add this to the plugin API.
 extern "C" void process_fd_event(int event, int arg1, int arg2 = -1);
 
 extern "C" void slurm_srun_handler_register(int in, int out, int err, int *pid)
@@ -430,7 +435,7 @@ int move_fd_after(int fd, int min_fd)
   int i = min_fd + 1;
   while( i < 65000 ){
     if( _real_fcntl(i,F_GETFL) == -1 ){
-      // this fd is free
+      // This fd is freed.
       JASSERT(_real_dup2(fd, i) == i);
       _real_close(fd);
       return i;
@@ -452,7 +457,7 @@ static void restart_helper()
   int sd = connect_to_restart_helper(path);
   JASSERT( (sd = move_fd_after(sd,min_fd)) >= min_fd );
 
-  // TODO: is this normal way to obtain real PID?
+  // TODO: Is this the normal way to obtain the real PID?
   int pid = dmtcp_get_real_pid();
 
   JASSERT( write(sd, &pid, sizeof(pid)) == sizeof(pid) );
@@ -484,5 +489,3 @@ void dmtcp::slurmRestoreHelper( bool isRestart )
     restart_helper();
   }
 }
-
-

@@ -7,8 +7,8 @@
 
 
 //-------------------------------------8<------------------------------------------------//
-// This is a copy of the code from src/plugin/ipc/utils_ipc.cpp and SSH plugin
-// This code also must be shared between ssh ans rm plugins.
+// This is a copy of the code from src/plugin/ipc/utils_ipc.cpp and the SSH plugin.
+// This code also must be shared between the ssh and batch-queue/rm plugins.
 
 int slurm_sendFd(int restoreFd, int32_t fd, void *data, size_t len,
            struct sockaddr_un& addr, socklen_t addrLen);
