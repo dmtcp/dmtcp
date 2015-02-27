@@ -45,6 +45,15 @@ LIB_PRIVATE void pthread_atfork_prepare();
 LIB_PRIVATE void pthread_atfork_parent();
 LIB_PRIVATE void pthread_atfork_child();
 
+void pidVirt_pthread_atfork_child() __attribute__((weak));
+
+/* This is defined by newer gcc version unique for each module.  */
+extern void *__dso_handle __attribute__ ((__weak__,
+					  __visibility__ ("hidden")));
+
+EXTERNC int __register_atfork(void (*prepare)(void), void (*parent)(void),
+                              void (*child)(void), void *dso_handle);
+
 EXTERNC void *ibv_get_device_list(void *) __attribute__((weak));
 
 bool DmtcpWorker::_exitInProgress = false;
@@ -139,9 +148,12 @@ extern "C" void dmtcp_prepare_wrappers(void)
     initialize_libpthread_wrappers();
     dmtcpWrappersInitialized = true;
 
-    /* Register pthread_atfork_child() as the first post-fork handler for the
-     * child process. This needs to be the first function that is called by
-     * libc:fork() after the child process is created.
+    /* Register pidVirt_pthread_atfork_child() as the first post-fork handler
+     * for the child process. This needs to be the first function that is
+     * called by libc:fork() after the child process is created.
+     *
+     * pthread_atfork_child() needs to be the second post-fork handler for the
+     * child process.
      *
      * Some dmtcp plugin might also call pthread_atfork and so we call it right
      * here before initializing the wrappers.
@@ -149,6 +161,15 @@ extern "C" void dmtcp_prepare_wrappers(void)
      * NOTE: If this doesn't work and someone is able to call pthead_atfork
      * before this call, we might want to install a pthread_atfork() wrappers.
      */
+
+    /* If we use pthread_atfork here, it fails for Ubuntu 14.04 on ARM.
+     * To fix it, we use __register_atfork and use the __dso_handle provided by
+     * the gcc compiler.
+     */
+    JASSERT(__register_atfork(NULL, NULL,
+                           pidVirt_pthread_atfork_child,
+                           __dso_handle) == 0);
+
     JASSERT(pthread_atfork(pthread_atfork_prepare,
                            pthread_atfork_parent,
                            pthread_atfork_child) == 0);
