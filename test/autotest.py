@@ -65,6 +65,8 @@ RETRIES=2
 DEFAULT_S=0.3
 if uname_p[0:3] == 'arm':
   DEFAULT_S *= 2
+
+uname_m = uname_m.strip() # strip off any whitespace characters
 #Allow extra time for slower CPUs
 if uname_m in ["i386", "i486", "i586", "i686", "armv7", "armv71", "aarch64"]:
   DEFAULT_S *= 4
