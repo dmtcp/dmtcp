@@ -48,7 +48,7 @@ ${LIBNAME}.so: ${LIBOBJS}
 tidy:
 	rm -f *~ .*.swp dmtcp_restart_script*.sh ckpt_*.dmtcp
 
-clean:
+clean: tidy
 	rm -f ${LIBOBJS} ${LIBNAME}.so
 
 distclean: clean

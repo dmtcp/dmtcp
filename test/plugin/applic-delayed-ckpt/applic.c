@@ -37,8 +37,7 @@ int main() {
       exit(1);
     }
     printf("*** dmtcpDelayCheckpointsLock: Checkpoints are blocked.\n");
-    printf("      But a checkpoint was requested asynchronously\n"
-           "      using 'dmtcp_command -i 2' from the command line.\n");
+    printf("      But a checkpoint was requested every two seconds: '-i 2'\n");
     printf("*** sleep: sleeping 3 seconds.\n\n");
     sleep(3);
     printf("*** dmtcpDelayCheckpointsUnlock: Will now unblock checkpointing\n"
