@@ -6,6 +6,7 @@ AC_INIT([DMTCP],
 
 AC_PREREQ([2.60])
 # TODO(kapil): Remove 'no-dependencies' flag in future after
+#   gene: `no-dependencies' flag in future after
 # http://debbugs.gnu.org/cgi/bugreport.cgi?bug=13928 has been fixed.
 AM_INIT_AUTOMAKE([subdir-objects no-dependencies foreign])
 AM_MAINTAINER_MODE
@@ -194,8 +195,9 @@ if test "$use_test_suite" = "yes"; then
   AC_SUBST([USE_TEST_SUITE], [yes])
   AC_MSG_CHECKING([whether posix mq_open works]) 
   AC_LANG_PUSH([C])
-  old_LDFLAGS="$LDFLAGS"
-  LDFLAGS="$LDFLAGS -lrt"
+  CFLAGS="-g -O0"
+  old_LIBS="$LIBS"
+  LIBS="-lrt $LIBS"
   AC_TRY_RUN([
               #include <fcntl.h>           /* For O_* constants */
               #include <sys/stat.h>        /* For mode constants */
@@ -205,14 +207,14 @@ if test "$use_test_suite" = "yes"; then
               {
                 char *mqname = "/dmtcp-mq-conf-test";
                 mq_unlink(mqname);
-                if (mq_open(mqname, O_RDWR | O_CREAT, 0666, 0) == -1) {
+                if (mq_open(mqname, O_RDWR | O_CREAT, 0666, 0) == (mqd_t)-1) {
                   exit(1);
                 }
                 mq_unlink(mqname);
                 exit(0);
               }
               ], [posix_mq='yes'], [posix_mq='no'])
-  LDFLAGS="$old_LDFLAGS"
+  LIBS="$old_LIBS"
   AC_LANG_POP([C])
   AC_MSG_RESULT([$posix_mq]) 
   if test "$posix_mq" = "yes"; then
