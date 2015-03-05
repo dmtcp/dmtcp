@@ -95,7 +95,7 @@ out:
     status = -1;
   } else {
     /* Parent side.  */
-    /* Note the system() is a cancellation point.  But since we call
+    /* Note that system() is a cancellation point.  But since we call
        waitpid() which itself is a cancellation point we do not
        have to do anything here.  */
     do {

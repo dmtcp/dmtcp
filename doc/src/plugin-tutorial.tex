@@ -454,7 +454,7 @@ DMTCP\_ROOT/test/plugin}.
 
 The rest of this section defines plugin events.
 The complete list of plugin events is always contained in
-{\tt DMTCP\_ROOT/dmtcp/include/dmtcp/plugin.h}~.
+{\tt DMTCP\_ROOT/dmtcp/include/dmtcp.h}~.
 
 DMTCP guarantees to call the dmtcp\_event\_hook function of the plugin
 when the specified event occurs.
@@ -519,11 +519,13 @@ and any new program called via exec)
   DMTCP\_EVENT\_WAIT\_FOR\_SUSPEND\_MSG --- Invoked at barrier during
 coordinated checkpoint
 \item
-  DMTCP\_EVENT\_SUSPENDED --- Invoked at barrier during coordinated checkpoint
+  DMTCP\_EVENT\_THREADS\_SUSPEND --- Invoked at barrier during coordinated checkpoint
 \item
   DMTCP\_EVENT\_LEADER\_ELECTION --- Invoked at barrier during coordinated checkpoint
 \item
   DMTCP\_EVENT\_DRAIN --- Invoked at barrier during coordinated checkpoint
+\item
+  DMTCP\_EVENT\_WRITE\_CKPT --- Invoked at final barrier before writing checkpoint
 \item
   DMTCP\_EVENT\_REFILL --- Invoked at first barrier during resume/restart of new process
 \end{list}

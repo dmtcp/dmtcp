@@ -467,7 +467,7 @@ AC_CHECK_HEADERS_ONCE([sys/epoll.h sys/eventfd.h sys/signalfd.h sys/inotify.h])
 AC_DEFINE([DMTCP],[1],[Always enable this.])
 
 dnl atomic builtins are required for jalloc support.
-AC_MSG_CHECKING(for GCC atomic builtins)
+AC_MSG_CHECKING(for $CC atomic builtins)
 dnl Since we'll be using these atomic builtins in C++ files we should test
 dnl the C++ compiler.
 AC_LANG_PUSH([C++])
@@ -485,7 +485,7 @@ AC_LANG_POP([C++])
 AC_MSG_RESULT([$gccAtomicBuiltins])
 
 if test "$gccAtomicBuiltins" = "no"; then
-  AC_MSG_ERROR([[GCC does not support atomic builtins. Consider upgrading gcc]])
+  AC_MSG_ERROR([[$CC does not support atomic builtins. Consider upgrading]])
 fi
 
 AC_OUTPUT

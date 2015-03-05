@@ -86,6 +86,8 @@ static void msg_notify(mqd_t mqdes, int i)
 void parent(const char *mqname, const char *mqname2)
 {
   mqd_t mqdes = mq_open(mqname, O_RDWR | O_CREAT, 0666, 0);
+  // Unfortunately, DMTCP doesn't yet support unlinking while others use it:
+  // mq_unlink(mqname); /* parent and child will continue to use mqname */
   if (mqdes == -1) {
     perror("mq_open() failed");
     exit(1);
@@ -112,6 +114,8 @@ void parent(const char *mqname, const char *mqname2)
 void child(const char *mqname, const char *mqname2)
 {
   mqd_t mqdes = mq_open(mqname, O_RDWR | O_CREAT, 0666, 0);
+  // Unfortunately, DMTCP doesn't yet support unlinking while others use it:
+  // mq_unlink(mqname); /* parent and child will continue to use mqname */
   if (mqdes == -1) {
     perror("mq_open() failed");
     exit(1);

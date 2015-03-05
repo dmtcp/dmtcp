@@ -1167,7 +1167,7 @@ void PosixMQConnection::drain()
   }
 
   int fd = _real_mq_open(_name.c_str(), O_RDWR, 0, NULL);
-  JASSERT(fd != -1);
+  JASSERT(fd != -1) (_name) (JASSERT_ERRNO);
 
   _qnum = attr.mq_curmsgs;
   char *buf =(char*) JALLOC_HELPER_MALLOC(attr.mq_msgsize);
