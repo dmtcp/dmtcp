@@ -127,7 +127,7 @@ $(targetdir)/bin/dmtcp_rm_loclaunch:
 
 $(targetdir)/bin/dmtcp_discover_rm: dmtcp_discover_rm.cpp $(DISCOVER_OBJS) \
   $(DISCOVER_HEADERS)
-	$(CXXLINK) $(INCLUDES) $(CPPFLAGS) $(DISCOVER_OBJS) -o $@ $<
+	$(CXXLINK) $(INCLUDES) $(CPPFLAGS) $(DISCOVER_OBJS) $<
 
 $(targetdir)/bin/dmtcp_srun_helper: dmtcp_srun_helper.cpp slurm_helper.cpp
 	$(CXXLINK) $(INCLUDES) $(CPPFLAGS) $< slurm_helper.cpp
