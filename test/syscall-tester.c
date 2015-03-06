@@ -4361,7 +4361,8 @@ int BasicGetSetlimit(void)
   EXPECTED_RESP;
 
   /* if orlim is zero, then this will function correctly, since I'll be
-     setting the limit to something it is alread yset to. */
+     setting the limit to something it is already set to. */
+  nrlim = orlim;  /* added as bug fix to original code */
   if (nrlim.rlim_cur == RLIM_INFINITY) {
     /* this branch implies that the max must also be this value */
     nrlim.rlim_cur = INT_MAX / 2;

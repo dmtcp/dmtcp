@@ -36,7 +36,8 @@ int main(int argc, char* argv[])
     }
   }else{
     unsigned char buf[256];
-    for (unsigned i = 0; i < sizeof(buf); i++) {
+    unsigned int i;
+    for (i = 0; i < sizeof(buf); i++) {
       buf[i] = i;
     }
     printf("%s", buf);

@@ -127,11 +127,11 @@ class RestoreTarget
       JTRACE("restore target") (_path) (_pInfo.numPeers()) (_pInfo.compGroup());
     }
 
-    const int fd() const { return _fd; }
+    int fd() const { return _fd; }
     const UniquePid& upid() const { return _pInfo.upid(); }
-    const pid_t pid() const { return _pInfo.pid(); }
-    const pid_t sid() const { return _pInfo.sid(); }
-    const bool isRootOfProcessTree() const {
+    pid_t pid() const { return _pInfo.pid(); }
+    pid_t sid() const { return _pInfo.sid(); }
+    bool isRootOfProcessTree() const {
       return _pInfo.isRootOfProcessTree();
     }
     string procname() { return _pInfo.procname(); }
