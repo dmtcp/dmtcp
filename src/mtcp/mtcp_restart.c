@@ -358,6 +358,23 @@ static void restart_fast_path()
   mtcp_memcpy(rinfo.restore_addr + rinfo.text_size, &rinfo, sizeof(rinfo));
   void *stack_ptr = rinfo.restore_addr + rinfo.restore_size - MB;
 
+#if defined(__INTEL_COMPILER) && defined(__x86_64__)
+  memfence();
+  asm volatile (CLEAN_FOR_64_BIT(mov %0,%%esp;)
+                CLEAN_FOR_64_BIT(xor %%ebp,%%ebp)
+                : : "g" (stack_ptr) : "memory");
+  // This is copied from gcc assembly output for:
+  //     rinfo.restorememoryareas_fptr(&rinfo);
+  // Intel icc-13.1.3 output uses register rbp here.  It's no longer available.
+  asm volatile(
+   "movq    64+rinfo(%%rip), %%rdx;" /* rinfo.restorememoryareas_fptr */
+   "leaq    rinfo(%%rip), %%rdi;"    /* &rinfo */
+   "movl    $0, %%eax;"
+   "call    *%%rdx"
+   : : );
+  /* NOTREACHED */
+#endif
+
 #if defined(__arm__) || defined(__aarch64__)
 # if 1
   memfence();
