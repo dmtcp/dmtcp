@@ -421,8 +421,8 @@ bool ThreadSync::wrapperExecutionLockLock()
  * NOTE:
  * 1. Currently, we do not have WRAPPER_EXECUTION_LOCK/UNLOCK for socket()
  *    family of wrapper. That would be fixed in a later commit.
- * 2. We need to comeup with a strategy for certain blocking system calls that
- *    can change the state of the process (e.g. accept).
+ * 2. We need to come up with a strategy for certain blocking system calls
+ *    that can change the state of the process (e.g. accept).
  * 3. Using trywrlock() can result in starvation if multiple other threads are
  *    rapidly acquiring releasing the lock. For example thread A acquires the
  *    rdlock for 100 ms. Thread B executes and trywrlock and fails. Thread B
@@ -431,7 +431,7 @@ bool ThreadSync::wrapperExecutionLockLock()
  *    rdlock. This would cause the thread B to starve. This scenario can be
  *    easily observed if thread A calls
  *      epoll_wait(fd, events, max_events, -1).
- *    It is wrapped by the epoll_wait wraper in IPC plugin which then makes
+ *    It is wrapped by the epoll_wait wrapper in IPC plugin, which then makes
  *    repeated calls to _real_epoll_wait with smaller timeout.
  */
 bool ThreadSync::wrapperExecutionLockLockExcl()

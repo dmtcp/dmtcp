@@ -129,7 +129,7 @@ asm (".global clone ; .type clone,@function ; clone = __clone");
 // In arm, '@' is a comment character;  Arm uses '%' in type directive
 asm (".global clone ; .type clone,%function ; clone = __clone");
 #else
-# error Not implemented on this achitecture
+# error Not implemented on this architecture
 #endif
 #endif
 

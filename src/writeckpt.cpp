@@ -291,7 +291,7 @@ static bool isNscdArea(const Area& area)
 {
   if (Util::strStartsWith(area.name, "/run/nscd") || // OpenSUSE (newer)
       Util::strStartsWith(area.name, "/var/run/nscd") || // OpenSUSE (older)
-      Util::strStartsWith(area.name, "/var/cache/nscd") || // Debain/Ubuntu
+      Util::strStartsWith(area.name, "/var/cache/nscd") || // Debian/Ubuntu
       Util::strStartsWith(area.name, "/var/db/nscd")) { // RedHat/Fedora
     return true;
   }

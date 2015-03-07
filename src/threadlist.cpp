@@ -458,7 +458,7 @@ static void resumeThreads()
  *************************************************************************/
 void stopthisthread (int signum)
 {
-  // If this is checkpoint thread - exit immidiately
+  // If this is checkpoint thread, exit immediately
   if (curThread == ckptThread) return;
 
   /* Possible state change scenarios:

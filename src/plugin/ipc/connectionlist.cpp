@@ -97,7 +97,7 @@ void ConnectionList::eventHook(DmtcpEvent_t event,
       break;
 
     case DMTCP_EVENT_WRITE_CKPT:
-      JTRACE("preCKpt...");
+      JTRACE("preCkpt...");
       preCkpt();
       JTRACE("done preCkpt");
       break;

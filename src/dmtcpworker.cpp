@@ -158,7 +158,7 @@ extern "C" void dmtcp_prepare_wrappers(void)
      * Some dmtcp plugin might also call pthread_atfork and so we call it right
      * here before initializing the wrappers.
      *
-     * NOTE: If this doesn't work and someone is able to call pthead_atfork
+     * NOTE: If this doesn't work and someone is able to call pthread_atfork
      * before this call, we might want to install a pthread_atfork() wrappers.
      */
 
@@ -347,7 +347,7 @@ DmtcpWorker::DmtcpWorker()
   WorkerState::setCurrentState (WorkerState::RUNNING);
 
   if (ibv_get_device_list && !dmtcp_infiniband_enabled) {
-    JNOTE("\n\n*** Infiniband library detected."
+    JNOTE("\n\n*** InfiniBand library detected."
           "  Please use dmtcp_launch --ib ***\n");
   }
 

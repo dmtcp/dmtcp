@@ -532,16 +532,16 @@ int main(int argc, char** argv)
     }
   }
   JASSERT(independentProcessTreeRoots.size() > 0)
-    .Text("There must atleast one process tree which doesn't have a different "
-          "process as session leader.");
+    .Text("There must be at least one process tree that doesn't have\n"
+          "  a different process as session leader.");
 
   WorkerState::setCurrentState(WorkerState::RESTARTING);
 
   RestoreTarget *t = independentProcessTreeRoots.begin()->second;
   JASSERT(t->pid() != 0);
   JASSERT(!t->noCoordinator() || allowedModes == COORD_ANY)
-    .Text("Process had no coordinator prior to checkpoint; but either --join or"
-          " --new-coordinator was specified.");
+    .Text("Process had no coordinator prior to checkpoint;\n"
+          "  but either --join or --new-coordinator was specified.");
   t->createProcess(true);
   JASSERT(false).Text("unreachable");
   return -1;

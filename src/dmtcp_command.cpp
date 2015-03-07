@@ -29,7 +29,7 @@
 using namespace dmtcp;
 
 // gcc-4.3.4 -Wformat=2 issues false positives for warnings unless the format
-// string has atleast one format specifier with corresponding format argument.
+// string has at least one format specifier with corresponding format argument.
 // Ubuntu 9.01 uses -Wformat=2 by default.
 static const char* theUsage =
   "Usage:  dmtcp_command [OPTIONS] COMMAND [COMMAND...]\n"

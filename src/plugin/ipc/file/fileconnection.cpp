@@ -622,8 +622,8 @@ void FileConnection::drain()
              _offset < _st_size &&
              _st_size < MAX_FILESIZE_TO_AUTOCKPT &&
              statbuf.st_uid == getuid()) {
-    // FIXME: Disable the following heuristic until we can comeup with a better
-    // one
+    // FIXME: Disable the following heuristic until we can come up with
+    //        a better one
     _checkpointed = true;
 #endif
   } else {

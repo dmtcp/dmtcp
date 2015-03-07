@@ -404,13 +404,14 @@ static void restart_fast_path()
 # error "assembly instruction not translated"
 #endif
 
-  /* IMPORTANT:  We just changed stack pointers.  The call frame for this
-   * function is no longer available.  The only way to pass rinfo into
-   * the next function is by passing a pointer to a global variable.
+  /* IMPORTANT:  We just changed to a new stack.  The call frame for this
+   * function on the old stack is no longer available.  The only way to pass
+   * rinfo into the next function is by passing a pointer to a global variable
    * We call restorememoryareas_fptr(), which points to the copy of the
-   * the function in higher memory.  We will be unmapping the original fnc.
+   * function in higher memory.  We will be unmapping the original fnc.
    */
   rinfo.restorememoryareas_fptr(&rinfo);
+  /* NOTREACHED */
 }
 
 __attribute__((optimize(0)))
