@@ -368,7 +368,8 @@ void post_restart(void)
   {
     struct internal_ibv_ctx * internal_ctx = list_entry(e, struct internal_ibv_ctx, elem);
 
-    for (int i = 0; i < num; i++)
+    int i;
+    for (i = 0; i < num; i++)
     {
       if (!strncmp(internal_ctx->user_ctx.device->dev_name, _dev_list[i]->dev_name, strlen(_dev_list[i]->dev_name)))
       {
@@ -769,7 +770,8 @@ struct ibv_device ** _get_device_list(int * num_devices) {
     exit(1);
   }
 
-  for (int i = 0; i < _dmtcp_num_devices; i++) {
+  int i;
+  for (i = 0; i < _dmtcp_num_devices; i++) {
     struct internal_ibv_dev * dev = (struct internal_ibv_dev *) malloc(sizeof(struct internal_ibv_dev));
     struct address_pair *pair = (struct address_pair *)malloc(sizeof(struct address_pair));
 
@@ -1683,9 +1685,10 @@ int _ibv_poll_cq(struct ibv_cq * cq, int num_entries, struct ibv_wc * wc)
 
   int size = list_size(&internal_cq->wc_queue);
 
+  int i;
   if (size > 0) {
     struct list_elem * e = list_front(&internal_cq->wc_queue);
-    for (int i = 0; (i < size) && (i < num_entries); i++) {
+    for (i = 0; (i < size) && (i < num_entries); i++) {
 //      PDEBUG("Polling completion from internal buffer\n");
       struct list_elem * w = e;
       wc[i] = list_entry(e, struct ibv_wc_wrapper, elem)->wc;
@@ -1711,7 +1714,7 @@ int _ibv_poll_cq(struct ibv_cq * cq, int num_entries, struct ibv_wc * wc)
       }
   }
 
-  for (int i = 0; i < rslt; i++) {
+  for (i = 0; i < rslt; i++) {
     struct internal_ibv_qp * internal_qp = qp_num_to_qp(&qp_list, wc[i].qp_num);
     if (i >= size) {
       enum ibv_wc_opcode opcode = wc[i].opcode;
