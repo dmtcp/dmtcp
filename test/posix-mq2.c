@@ -14,7 +14,7 @@ struct msgbuf {
 
 void msg_snd(mqd_t mqdes, int i);
 void msg_rcv(mqd_t mqdes, int i);
-static void msg_notify(mqd_t mqdes, int i);
+static int msg_notify(mqd_t mqdes, int i);
 
 static void                     /* Thread start function */
 tfunc(union sigval sv)
@@ -35,7 +35,7 @@ void msg_snd(mqd_t mqdes, int i)
 
   errno = 0;
   if (mq_send(mqdes, buf, strlen(buf) + 1, 0) == -1) {
-    perror("mq_send failed");
+    perror("mq_send");
     fflush(stdout);
     sleep(1);
     exit(1);
@@ -53,7 +53,7 @@ void msg_rcv(mqd_t mqdes, int i)
   char *buf = malloc(attr.mq_msgsize);
 
   if (mq_receive(mqdes, buf, attr.mq_msgsize, NULL) == -1) {
-    perror("mq_receive failed");
+    perror("mq_receive");
     fflush(stdout);
     sleep(1);
     exit(1);
@@ -67,7 +67,7 @@ void msg_rcv(mqd_t mqdes, int i)
   free(buf);
 }
 
-static void msg_notify(mqd_t mqdes, int i)
+static int msg_notify(mqd_t mqdes, int i)
 {
   struct msgbuf *m = malloc(sizeof(struct msgbuf));
   m->mqdes = mqdes;
@@ -77,10 +77,7 @@ static void msg_notify(mqd_t mqdes, int i)
   sev.sigev_notify_function = tfunc;
   sev.sigev_notify_attributes = NULL;
   sev.sigev_value.sival_ptr = m;   /* Arg. to thread func. */
-  if (mq_notify(mqdes, &sev) == -1) {
-    perror("mq_notify");
-    exit(1);
-  }
+  return mq_notify(mqdes, &sev);
 }
 
 void parent(const char *mqname, const char *mqname2)
@@ -89,19 +86,33 @@ void parent(const char *mqname, const char *mqname2)
   // Unfortunately, DMTCP doesn't yet support unlinking while others use it:
   // mq_unlink(mqname); /* parent and child will continue to use mqname */
   if (mqdes == -1) {
-    perror("mq_open() failed");
+    perror("mq_open");
     exit(1);
   }
 
   mqd_t mqdes2 = mq_open(mqname2, O_RDWR | O_CREAT, 0666, 0);
   if (mqdes == -1) {
-    perror("mq_open() failed");
+    perror("mq_open");
     exit(1);
   }
 
   int i = 1;
   while (1) {
-    msg_notify(mqdes2, i+1);
+    int rc;
+    // Will call mq_notify, causing a thread to run tfunc and do mq_recv()
+    // Notification will only occur after the queue is emptied
+    //   and a new message arrives.
+    do {
+      // It's possible for parent to iterate twice before child receives.
+      // Keep trying.  We need a notify after each successful receive.
+      sleep(1);
+      rc = msg_notify(mqdes2, i+1);
+      // printf("Was notified: rc, errno: %d %d\n", rc, errno);
+    } while ((rc == -1) && (errno == EBUSY));
+    if (rc == -1) {
+      perror("mq_notify");
+      exit(1);
+    }
     printf("Server: sending %d\n", i);
     fflush(stdout);
     msg_snd(mqdes, i);
@@ -117,13 +128,13 @@ void child(const char *mqname, const char *mqname2)
   // Unfortunately, DMTCP doesn't yet support unlinking while others use it:
   // mq_unlink(mqname); /* parent and child will continue to use mqname */
   if (mqdes == -1) {
-    perror("mq_open() failed");
+    perror("mq_open");
     exit(1);
   }
 
   mqd_t mqdes2 = mq_open(mqname2, O_RDWR | O_CREAT, 0666, 0);
   if (mqdes == -1) {
-    perror("mq_open() failed");
+    perror("mq_open");
     exit(1);
   }
 
