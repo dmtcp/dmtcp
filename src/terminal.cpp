@@ -1,6 +1,10 @@
 #include <termios.h>
 #include <signal.h>
 #include <sys/ioctl.h>
+#include "config.h"
+#ifdef HAS_PR_SET_PTRACER
+# include <sys/prctl.h>
+#endif
 #include "dmtcp.h"
 #include "../jalib/jassert.h"
 
@@ -27,12 +31,18 @@ void dmtcp_Terminal_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
     case DMTCP_EVENT_THREADS_RESUME:
       if (data->resumeInfo.isRestart) {
         restore_term_settings();
-        /* If MTCP_RESTART_PAUSE2 set, sleep 15 seconds and allow gdb attach. */
-        if (getenv("MTCP_RESTART_PAUSE2")) {
+        /* If DMTCP_RESTART_PAUSE2 set, sleep 15 seconds to allow gdb attach.*/
+        if (getenv("MTCP_RESTART_PAUSE2") || getenv("DMTCP_RESTART_PAUSE2")) {
+#ifdef HAS_PR_SET_PTRACER
+          prctl(PR_SET_PTRACER, 1, 0, 0, 0); // Allow 'gdb attach'
+#endif
           struct timespec delay = {15, 0}; /* 15 seconds */
           printf("Pausing 15 seconds. Do:  gdb <PROGNAME> %d\n",
           dmtcp_virtual_to_real_pid(getpid()));
           nanosleep(&delay, NULL);
+#ifdef HAS_PR_SET_PTRACER
+          prctl(PR_SET_PTRACER, 0, 0, 0, 0); // Revert permission to default.
+#endif
         }
       }
       break;

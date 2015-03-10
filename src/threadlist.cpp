@@ -6,6 +6,10 @@
 #include <semaphore.h>
 #include <sys/resource.h>
 #include <linux/version.h>
+#include "config.h"
+#ifdef HAS_PR_SET_PTRACER
+# include <sys/prctl.h>
+#endif
 #include "threadlist.h"
 #include "siginfo.h"
 #include "dmtcpalloc.h"
@@ -595,12 +599,18 @@ void ThreadList::postRestart(void)
   Thread *thread;
   sigset_t tmp;
 
-  /* If MTCP_RESTART_PAUSE set, sleep 15 seconds and allow gdb attach. */
-  if (getenv("MTCP_RESTART_PAUSE")) {
+  /* If DMTCP_RESTART_PAUSE set, sleep 15 seconds and allow gdb attach. */
+  if (getenv("MTCP_RESTART_PAUSE") || getenv("DMTCP_RESTART_PAUSE")) {
+#ifdef HAS_PR_SET_PTRACER
+    prctl(PR_SET_PTRACER, 1, 0, 0, 0); // Allow 'gdb attach'
+#endif
     struct timespec delay = {15, 0}; /* 15 seconds */
     printf("Pausing 15 seconds. Do:  gdb <PROGNAME> %ld\n",
     	   (long)THREAD_REAL_TID());
     nanosleep(&delay, NULL);
+#ifdef HAS_PR_SET_PTRACER
+    prctl(PR_SET_PTRACER, 0, 0, 0, 0); ; // Revert permission to default.
+#endif
   }
 
   /* Fill in the new mother process id */

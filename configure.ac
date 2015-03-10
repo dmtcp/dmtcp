@@ -309,9 +309,24 @@ else
   AC_SUBST([ARM_HOST], [no])
 fi
 
+AC_MSG_CHECKING([whether PR_SET_PTRACER is an option for prctl()]) 
+AC_TRY_RUN([
+           #include <sys/prctl.h>
+           int main() {
+             prctl(PR_SET_PTRACER, 1, 0, 0, 0);
+             prctl(PR_SET_PTRACER, 0, 0, 0, 0);
+             exit(0);
+           }
+           ], [has_pr_set_ptracer='yes'], [has_pr_set_ptracer='no'])
+if test "$has_pr_set_ptracer" == "yes"; then
+  AC_DEFINE([HAS_PR_SET_PTRACER],[1],[allow 'gdb attach' when DMTCP_RESTART_PAUSE is defined.])
+fi
+AC_MSG_RESULT([$has_pr_set_ptracer]) 
+
 #check for -lreadline -lhistory v5; does not require curses
 AC_CHECK_LIB([readline], [readline], [linksReadline=yes], [linksReadline=no], [-lhistory -lcurses])
-AC_CHECK_HEADERS([readline/readline.h readline/history.h], [includeReadline=no],)
+includeReadline=yes
+AC_CHECK_HEADERS([readline/readline.h readline/history.h], [], [includeReadline=no],)
 if test "$linksReadline" = "yes" -a "$includeReadline" != "no"; then
   AC_SUBST([HAS_READLINE], [yes])
 else

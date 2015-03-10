@@ -18,6 +18,9 @@
 /* Child process does checkpointing */
 #undef FORKED_CHECKPOINTING
 
+/* allow 'gdb attach' when DMTCP_RESTART_PAUSE is defined. */
+#undef HAS_PR_SET_PTRACER
+
 /* Define to 1 if you have the <infiniband/verbs.h> header file. */
 #undef HAVE_INFINIBAND_VERBS_H
 
@@ -75,11 +78,8 @@
 /* Name of package */
 #undef PACKAGE
 
-/* Define the address where bug reports for this package should be sent. */
+/* Define to the address where bug reports for this package should be sent. */
 #undef PACKAGE_BUGREPORT
-
-/* Define the URL for this package. */
-#undef PACKAGE_URL
 
 /* Define to the full name of this package. */
 #undef PACKAGE_NAME
