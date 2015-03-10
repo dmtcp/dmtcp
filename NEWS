@@ -193,7 +193,7 @@ users to write their own plugins.  Among the capabilities of plugins are:
 
 For details on how to use plugins, see:
 
-* http://sourceforge.net/p/dmtcp/code/HEAD/tree/trunk/doc/plugin-tutorial.pdf 
+* http://sourceforge.net/p/dmtcp/code/HEAD/tree/trunk/doc/plugin-tutorial.pdf
   and the examples in:
 * http://sourceforge.net/p/dmtcp/code/HEAD/tree/trunk/test/plugin/
 

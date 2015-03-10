@@ -25,7 +25,7 @@ CXXFLAGS += -m32 -Wa,--32
 LDFLAGS += -m32 -Wl,-m32 -Wl,-melf_i386 -Wa,--32
 endif
 
-plugins = 
+plugins =
 plugins_distclean = ckptfile infiniband
 
 ifeq ($(INFINIBAND_SUPPORT),yes)

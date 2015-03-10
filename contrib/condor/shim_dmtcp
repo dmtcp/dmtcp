@@ -56,13 +56,13 @@ Options:
   A path to an installation of DMTCP. If not specified, it defaults to
   /usr/lib/dmtcp. The current working directory of the shim_script when
   it executes will always be tested for a DMTCP installation before using
-  whatever is specified with --with-dmtcp regardless of its definition. 
+  whatever is specified with --with-dmtcp regardless of its definition.
   The default may change in the future.
 
 --with-condor path
-  A path to an installation of Condor-aka the "release_dir". If not 
+  A path to an installation of Condor-aka the "release_dir". If not
   specified, it defaults to /unsup/condor-production. The condor functionality
-  the shim script utilizes is not required by the shim script, but it'll 
+  the shim script utilizes is not required by the shim script, but it'll
   make debugging certain failures a lot easier.
   The default may change in the future.
 

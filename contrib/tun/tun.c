@@ -271,15 +271,15 @@ int open64(const char *pathname, int flags, ...)
 {
   va_list argp;
   static int (*next_fnc)() = NULL; /* Same type signature as open */
-  mode_t mode = 0;                                                                 
+  mode_t mode = 0;
   int result;
 
-  if (flags & O_CREAT) {                                                           
-    va_list arg;                                                                   
-    va_start(arg, flags);                                                          
-    mode = va_arg(arg, int);                                                       
-    va_end(arg);                                                                   
-  }                                                                                
+  if (flags & O_CREAT) {
+    va_list arg;
+    va_start(arg, flags);
+    mode = va_arg(arg, int);
+    va_end(arg);
+  }
 
   result = NEXT_FNC(open)(pathname, flags, mode);
 
@@ -300,15 +300,15 @@ int open(const char *pathname, int flags, ...)
 {
   va_list argp;
   static int (*next_fnc)() = NULL; /* Same type signature as open */
-  mode_t mode = 0;                                                                 
+  mode_t mode = 0;
   int result;
 
-  if (flags & O_CREAT) {                                                           
-    va_list arg;                                                                   
-    va_start(arg, flags);                                                          
-    mode = va_arg(arg, int);                                                       
-    va_end(arg);                                                                   
-  }                                                                                
+  if (flags & O_CREAT) {
+    va_list arg;
+    va_start(arg, flags);
+    mode = va_arg(arg, int);
+    va_end(arg);
+  }
 
   result = NEXT_FNC(open)(pathname, flags, mode);
 
@@ -366,7 +366,7 @@ int ioctl(int fd, unsigned long int request, ...)
  * On ckpt:
  *  - Flush a cookie down the tap/tun interface
  *  - Do a timed wait (of MAX_READ_WAIT_TIME milliseconds) for any incoming data
- *  - Store the data, if any, 
+ *  - Store the data, if any,
  * On resume:
  *  - Do nothing
  * On restart:
@@ -376,7 +376,7 @@ int ioctl(int fd, unsigned long int request, ...)
  */
 void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
-  int i, request, idx, ret, flags, count; 
+  int i, request, idx, ret, flags, count;
   char *request_name;
   char error_string[MAX_ERROR_STRING_LENGTH];
   void* arg;

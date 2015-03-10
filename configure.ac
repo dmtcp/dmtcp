@@ -193,7 +193,7 @@ AC_ARG_ENABLE([test_suite],
             [use_test_suite=yes])
 if test "$use_test_suite" = "yes"; then
   AC_SUBST([USE_TEST_SUITE], [yes])
-  AC_MSG_CHECKING([whether posix mq_open works]) 
+  AC_MSG_CHECKING([whether posix mq_open works])
   AC_LANG_PUSH([C])
   CFLAGS="-g -O0"
   old_LIBS="$LIBS"
@@ -216,7 +216,7 @@ if test "$use_test_suite" = "yes"; then
               ], [posix_mq='yes'], [posix_mq='no'])
   LIBS="$old_LIBS"
   AC_LANG_POP([C])
-  AC_MSG_RESULT([$posix_mq]) 
+  AC_MSG_RESULT([$posix_mq])
   if test "$posix_mq" = "yes"; then
     AC_SUBST([TEST_POSIX_MQ], [yes])
   else
@@ -252,7 +252,7 @@ if test "$use_m32" = "yes"; then
   CXXFLAGS="$CXXFLAGS -march=i686 -m32 -Wa,--32"
   LDFLAGS="$LDFLAGS -m32 -march=i686 -Wl,-m32 -Wl,-melf_i386 -Wa,--32"
 
-  AC_MSG_CHECKING([whether multilib $CC compiles using -m32]) 
+  AC_MSG_CHECKING([whether multilib $CC compiles using -m32])
   AC_LANG_PUSH([C])
   AC_LINK_IFELSE([AC_LANG_PROGRAM([[
   #include <stdio.h>
@@ -261,14 +261,14 @@ if test "$use_m32" = "yes"; then
   printf("Hello, world!\n");
   ]])], [cc_m32='yes'], [cc_m32='no'])
   AC_LANG_POP([C])
-  AC_MSG_RESULT([$cc_m32]) 
+  AC_MSG_RESULT([$cc_m32])
   if test "$cc_m32" = "no"; then
     AC_MSG_FAILURE([[Failed to build with -m32
     Consider installing gcc-multilib (and g++-multilib) or
       the equivalent packages for your Linux distro.]])
   fi
 
-  AC_MSG_CHECKING([whether multilib $CXX compiles using -m32]) 
+  AC_MSG_CHECKING([whether multilib $CXX compiles using -m32])
   AC_LANG_PUSH([C++])
   AC_LINK_IFELSE([AC_LANG_PROGRAM([[
   #include <stdio.h>
@@ -277,7 +277,7 @@ if test "$use_m32" = "yes"; then
   printf("Hello, world!\n");
   ]])], [cplusplus_m32='yes'], [cplusplus_m32='no'])
   AC_LANG_POP([C++])
-  AC_MSG_RESULT([$cplusplus_m32]) 
+  AC_MSG_RESULT([$cplusplus_m32])
   if test "$cplusplus_m32" = "no"; then
     AC_MSG_FAILURE([[Failed to build with -m32
     Typically, this means that 32-bit libstdc++.so was not found
@@ -309,7 +309,7 @@ else
   AC_SUBST([ARM_HOST], [no])
 fi
 
-AC_MSG_CHECKING([whether PR_SET_PTRACER is an option for prctl()]) 
+AC_MSG_CHECKING([whether PR_SET_PTRACER is an option for prctl()])
 AC_TRY_RUN([
            #include <sys/prctl.h>
            int main() {
@@ -321,7 +321,7 @@ AC_TRY_RUN([
 if test "$has_pr_set_ptracer" == "yes"; then
   AC_DEFINE([HAS_PR_SET_PTRACER],[1],[allow 'gdb attach' when DMTCP_RESTART_PAUSE is defined.])
 fi
-AC_MSG_RESULT([$has_pr_set_ptracer]) 
+AC_MSG_RESULT([$has_pr_set_ptracer])
 
 #check for -lreadline -lhistory v5; does not require curses
 AC_CHECK_LIB([readline], [readline], [linksReadline=yes], [linksReadline=no], [-lhistory -lcurses])

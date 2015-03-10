@@ -16,7 +16,7 @@ will install to the install directory based on configure.
 There are available Debian, OpenSUSE and Fedora  packages that will
 install system-wide.
 
-To support multilib (mixed use of 32- and 64-bit applications), 
+To support multilib (mixed use of 32- and 64-bit applications),
 there are two possibilities:
 1.  Install both the 32- and 64-bit versions of DMTCP packages for your distro.
 OR:

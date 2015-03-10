@@ -82,7 +82,7 @@ CONVENIENCE COMMANDS AND DEBUGGING RESTARTED PROCESSES:
   bin/dmtcp_command --quit
   # Restart directly from local checkpoint images (.dmtcp files)
   ./dmtcp_restart_script.sh
-  # Or else, directly restart from the ckpt images in the current directory. 
+  # Or else, directly restart from the ckpt images in the current directory.
   # (Be sure there are no old ckpt_a.out_*.dmtcp files.
   #  Ensure that the restarted process is running, and not suspended.)
   bin/dmtcp_restart ckpt_a.out_*.dmtcp &
@@ -91,7 +91,7 @@ CONVENIENCE COMMANDS AND DEBUGGING RESTARTED PROCESSES:
   gdb ./a.out `pgrep -n MTCP`
   # force a.out to exit any low level libraries and return to a known location
   # set a breakpoint on a common function and continue:
-  (gdb) break write   
+  (gdb) break write
   (gdb) continue
 
 ============================================
@@ -226,7 +226,7 @@ SHORT NOTES:
     11. The particular combination of Ubuntu 8.10 (Intrepid) and
 	 g++-4.3 with the default -O2 flag appears to have a bug.
          (g++-4.3 decides to inline a certain function, and then fails
-	 to compile because it decides that that function cannot be inlined.)  
+	 to compile because it decides that that function cannot be inlined.)
 	There are two easy workarounds.  First, if make fails, then manually
 	re-execute the g++ compilation from the last line output by make,
 	but do not include "-O2".  Alternatively, when configuring, use:
