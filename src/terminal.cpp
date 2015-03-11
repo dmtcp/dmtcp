@@ -34,7 +34,7 @@ void dmtcp_Terminal_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
         /* If DMTCP_RESTART_PAUSE2 set, sleep 15 seconds to allow gdb attach.*/
         if (getenv("MTCP_RESTART_PAUSE2") || getenv("DMTCP_RESTART_PAUSE2")) {
 #ifdef HAS_PR_SET_PTRACER
-          prctl(PR_SET_PTRACER, 1, 0, 0, 0); // Allow 'gdb attach'
+          prctl(PR_SET_PTRACER, PR_SET_PTRACER_ANY, 0, 0, 0); //For: gdb attach
 #endif
           struct timespec delay = {15, 0}; /* 15 seconds */
           printf("Pausing 15 seconds. Do:  gdb <PROGNAME> %d\n",

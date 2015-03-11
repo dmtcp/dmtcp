@@ -602,7 +602,7 @@ void ThreadList::postRestart(void)
   /* If DMTCP_RESTART_PAUSE set, sleep 15 seconds and allow gdb attach. */
   if (getenv("MTCP_RESTART_PAUSE") || getenv("DMTCP_RESTART_PAUSE")) {
 #ifdef HAS_PR_SET_PTRACER
-    prctl(PR_SET_PTRACER, 1, 0, 0, 0); // Allow 'gdb attach'
+    prctl(PR_SET_PTRACER, PR_SET_PTRACER_ANY, 0, 0, 0); // Allow 'gdb attach'
 #endif
     struct timespec delay = {15, 0}; /* 15 seconds */
     printf("Pausing 15 seconds. Do:  gdb <PROGNAME> %ld\n",
