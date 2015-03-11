@@ -313,7 +313,7 @@ AC_MSG_CHECKING([whether PR_SET_PTRACER is an option for prctl()])
 AC_TRY_RUN([
            #include <sys/prctl.h>
            int main() {
-             prctl(PR_SET_PTRACER, 1, 0, 0, 0);
+             prctl(PR_SET_PTRACER, PR_SET_PTRACER_ANY, 0, 0, 0);
              prctl(PR_SET_PTRACER, 0, 0, 0, 0);
              exit(0);
            }
