@@ -1,8 +1,8 @@
 %{!?_pkgdocdir: %global _pkgdocdir %{_docdir}/%{name}-%{version}}
 
 Name:		dmtcp
-Version:	2.3
-Release:	1%{?dist}
+Version:	2.4
+Release:	0%{?dist}
 Summary:	Checkpoint/Restart functionality for Linux processes
 Group:		Applications/System
 License:	LGPLv3+
@@ -14,16 +14,18 @@ BuildRequires:	python
 ExclusiveArch:	%ix86 x86_64
 
 %description
-DMTCP (Distributed MultiThreaded Checkpointing) is a tool to transparently
-checkpointing the state of an arbitrary group of programs including
-multi-threaded and distributed computations.  It operates directly on the user
-binary executable, with no Linux kernel modules or other kernel mods.
+DMTCP (Distributed MultiThreaded Checkpointing) is a tool to
+transparently checkpointing the state of an arbitrary group of
+applications including multi-threaded and distributed computations.
+It operates directly on the user binary executable, with no Linux kernel
+modules or other kernel mods.
 
-Among the applications supported by DMTCP are Open MPI, MATLAB, Python, Perl,
-and many programming languages and shell scripting languages.  DMTCP also
-supports GNU screen sessions, including vim/cscope and emacs. With the use of
-TightVNC, it can also checkpoint and restart X-Windows applications, as long as
-they do not use extensions (e.g.: no OpenGL, no video).
+Among the applications supported by DMTCP are Open MPI, MVAPICH2, MATLAB,
+R, Python, Perl, and many programming languages and shell scripting
+languages.  It supports both TCP sockets and InfiniBand connections.
+With the use of TightVNC, it can also checkpoint and restart X-Window
+applications.  The OpenGL library for 3D graphics is supported through
+a special plugin.
 
 This package contains DMTCP binaries.
 
@@ -66,7 +68,7 @@ make install DESTDIR=%{buildroot}
 * Mon Mar 10 2014 Kapil Arya <kapil@ccs.neu.edu> - 2.2-1
 - Preparing for upstream release 2.2.
 - Remove libmtcp* packages.
-- Install all docs in _pkgdocdir 
+- Install all docs in _pkgdocdir
 - Added --retry-once flag to autotest.
 
 * Fri Jan 10 2014 Kapil Arya <kapil@ccs.neu.edu> - 2.1-1
