@@ -7,7 +7,9 @@ may become somewhat out-of-date over time (and hopefully also refreshed
 to re-sync them with the code again).
 
 [ WARNING:  Starting in DMTCP-2.2, this implementation was drastically
-            modified.  Much of this information is obsolete. ]
+            modified.  Much of this information is obsolete.  See
+            architecture-of-dmtcp.pdf for a less detailed but more
+            up-to-date description. ]
 
 This document is about thread creation and the exit of threads.  A closely
 related document is pid-tid-virtualization.txt.  There are several subtleties

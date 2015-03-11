@@ -43,14 +43,16 @@ The command {\tt dmtcp\_launch a.out} is roughly equivalent to:
 
 \begin{algorithmic}[1]
 \STATE {\tt dmtcp\_coordinator --background}  (if not already running)
-\STATE {\tt LD\_PRELOAD=libdmtcp.so a.out}
+\STATE {\tt LD\_PRELOAD=libdmtcp.so a.out} \\ ({\tt LD\_PRELOAD} causes
+   {\tt libdmtcp.so} to be loaded first, and initialized before the call to
+   {\tt main} in {\tt a.out}.)
 \end{algorithmic}
 
 The {\tt dmtcp\_launch} command will cause a coordinator process
 to be launched on the local host with the default DMTCP port (if one is
 not already available).
 
-DMTCP implements a coordinator process because DMTCP can also checkpoint
+DMTCP includes a special coordinator process so that DMTCP can also checkpoint
 distributed computations across many computers.  The user can issue a command
 to the coordinator, which will then relay the command to each of
 the user processes of the distributed computation.
@@ -58,7 +60,9 @@ the user processes of the distributed computation.
 Note that a {\em DMTCP computation} is defined to be a coordinator process
 and the set of user processes connected to that coordinator.  Therefore,
 one can have more than one DMTCP computation on a single computer,
-each computation having its own unique coordinator.
+each computation having its own unique coordinator.  Each coordinator
+is defined by its unique network address, ``(hostname, port)'', which
+defaults to ``(localhost, 7779)''.
 
 \begin{center}
 \includegraphics[scale=0.5]{coord-client.eps}
@@ -84,14 +88,14 @@ user main.  In DMTCP, the first code to execute is the code
 below, inside libdmtcp.so:
 
 {\tt
-dmtcp::DmtcpWorker dmtcp::DmtcpWorker::theInstance ( true );
+dmtcp::DmtcpWorker dmtcp::DmtcpWorker::theInstance;
 }
 
 This initializes the global variable, {\tt theInstance} via a call
-to {\tt new dmtcp::DmtcpWorker::DmtcpWorker(true)}.  (Here, {\tt dmtcp}
+to {\tt new dmtcp::DmtcpWorker::DmtcpWorker()}.  (Here, {\tt dmtcp}
 is a C++ namespace, and the first {\tt DmtcpWorker} is the class name,
 while the second {\tt DmtcpWorker} is the constructor function.  If DMTCP were
-not using C++, then it would use a direct way to use GNU gcc attributes
+not using C++, then it would use GNU gcc attributes
 to directly run a constructor function.)
 
 Note that DMTCP is organized in at least two layers.  The lowest layer
@@ -100,38 +104,36 @@ The higher layer is again called DMTCP (dmtcp subdirectory), and delegates
 to MTCP when it needs to checkpoint one process.  MTCP does not require
 a separate DMTCP coordinator.
 
-{\bf  NOTE: As of DMTCP-2.2, many functions have been moved.  The key
-files to look at are:  {\tt src/mtcp/mtcp\_restart.c},
-{\tt src/mtcp/restore\_libc.c}, and {\tt src/threadlist.cpp}.} \\
 So, at startup, we see:
 
 \begin{algorithmic}[1]
 \STATE a.out process:
 \STATE {\ \ } primary user thread:
-\STATE {\ \ \ \ } new DmtcpWorker(true):
+\STATE {\ \ \ \ } new DmtcpWorker():
 \STATE {\ \ \ \ \ \ } Create a socket to the coordinator
 \STATE {\ \ \ \ \ \ } Register the signal handler that will be
 	used for checkpoints. \newline
 \hbox{\ \ \ \ \ \ \ \ } The signal handler is
-		 mtcp/mtcp.c:stopthisthread()\newline
-\hbox{\ \ \ \ \ \ \ \ } The default signal is STOPSIGNAL
+		 src/threadlist.cpp:stopthisthread(sig)\newline
+\hbox{\ \ \ \ \ \ \ \ } The default signal is src/siginfo.cpp:STOPSIGNAL
 		 (default: SIGUSR2)\newline
-\hbox{\ \ \ \ \ \ \ \ } The signal handler is registered by
-	 {\tt mtcp\_sigaction(STOPSIGNAL, \&act, \&old\_act)} in mtcp/mtcp.c
-\STATE {\ \ \ \ \ \ } Create the checkpoint thread
+\hbox{\ \ \ \ \ \ \ \ } The signal handler for STOPSIGNAL is registered by
+	 {\tt SigInfo::setupCkptSigHandler(\&stopthisthread)}
+\hbox{\ \ \ \ \ \ \ \ } in src/threadlist.cpp
+\STATE {\ \ \ \ \ \ } Create the checkpoint thread: \newline
 \hbox{\ \ \ \ \ \ \ \ } Call
 	{\tt pthread\_create (\&checkpointhreadid, NULL, checkpointhread, NULL)}
-	in mtcp/mtcp.c
+	in src/threadlist.cpp
 \STATE {\ \ \ \ \ \ } Wait until the checkpoint thread has initialized.
 \newline
 \STATE {\ \ } checkpoint thread:
-\STATE {\ \ \ \ } checkpointhread(dummy):  [from mtcp/mtcp.c]
+\STATE {\ \ \ \ } checkpointhread(dummy):  [from src/threadlist.cpp]
 \STATE {\ \ \ \ \ \ } Register a.out process with coordinator
 \STATE {\ \ \ \ \ \ } Tell user thread we're done
 \STATE {\ \ \ \ \ \ } Call select() on socket to coordinator
 \newline
 \STATE {\ \ } primary user thread:
-\STATE {\ \ \ \ } new DmtcpWorker(true):  [continued from above invocation]
+\STATE {\ \ \ \ } new DmtcpWorker():  [continued from above invocation]
 \STATE {\ \ \ \ \ \ } Checkpoint thread is now initialized.  Return.
 \STATE {\ \ \ \ } main()  [User code now executes.]
 \end{algorithmic}
@@ -156,27 +158,32 @@ PRINCIPLE:  At any given moment either the user threads are active and
 
 \begin{algorithmic}[1]
 \STATE checkpoint thread:
-\STATE   return from select()
+\STATE   return from {\tt DmtcpWorker::waitForCoordinatorMsg()}
+	   in src/dmtcpworker.cpp
 \STATE   receive CKPT message
-\STATE   send STOPSIGNAL (SIGUSR2) to each user thread
-\STATE      See:  retval = mtcp\_sys\_kernel\_tgkill(motherpid, thread->tid, STOPSIGNAL);
-		in mtcp/mtcp.c
-  See {\tt mtcp\_state\_set (\&(thread -> state), ST\_SUSPINPROG, ST\_SIGENABLED)}
-   and {\tt mtcp\_state\_set (\&(thread -> state), ST\_SUSPENDED, ST\_SUSPINPROG)}
-	in mtcp/mtcp.c
-\STATE   {\tt mtcp\_state\_set(MtcpState * state, int value, int oldval)}
-	is defined in mtcp/mtcp\_state.c, and does its work through
-	a Linux per-thread futex (similar to a mutex).
-\STATE   [Recall that dmtcpWorker created a signal handler, STOPSIGNAL (default: SIGUSR2)
-\STATE   Each user thread in the signal handler for STOPSIGNAL will block on
-	the per-thread futex.
+\STATE   send STOPSIGNAL (SIGUSR2) to each user thread \\
+  See:  {\tt THREAD\_TGKILL(motherpid, thread->tid, SigInfo::ckptSignal()}
+                in the section \\
+                ~~labelled {\tt case~ST\_RUNNING:} in src/threadlist.cpp \\
+  See {\tt Thread\_UpdateState(curThread, ST\_SUSPINPROG, ST\_SIGNALED)} \\
+  ~~and {\tt Thread\_UpdateState(curThread, ST\_SUSPENDED, ST\_SUSPINPROG)}
+	in src/threadlist.cpp
+\STATE   Recall that dmtcpWorker created a signal handler,
+            {\tt stopthisthread()}, for STOPSIGNAL (default: SIGUSR2)
+\STATE   Each user thread in that signal handler will
+           execute {\tt sem\_wait(\&semWaitForCkptThreadSignal)} and block.
 \STATE   The checkpoint thread does the checkpoint.
 \newline
-\STATE   Release each thread from its per-thread futex.
-    See {\tt mtcp\_state\_set (\&(thread -> state), ST\_RUNENABLED, ST\_SUSPENDED)}
-	in mtcp/mtcp.c
-\STATE   Call select() on the socket to the coordinator and again wait for
-	messages from the coordinator.
+\STATE   Release each thread from its mutex
+           by calling {sem\_post(\&semWaitForCkptThreadSignal)}
+           inside {\tt resumeThreads()}.
+\STATE  Each thread updates its state from {\tt ST\_SUSPENDED}
+           to {\tt ST\_RUNNING}: \\
+       See {\tt Thread\_UpdateState(curThread, ST\_RUNNING, ST\_SUSPENDED)}
+	in src/threadlist.cpp
+\STATE  Call {\tt DmtcpWorker::waitForCoordinatorMsg()} using the socket
+          to the coordinator and again wait for
+	  messages from the coordinator.
 \end{algorithmic}
 
 \subsection*{4. Checkpoint strategy (overview)}
@@ -196,7 +203,32 @@ PRINCIPLE:  At any given moment either the user threads are active and
 \STATE Unblock all use threads
 \end{algorithmic}
 
-\subsection*{5. Principle:  DMTCP is contagious}
+\subsection*{5. Restart strategy (overview)}
+
+{\bf This section will be revised in the future.}
+
+The key ideas are that {\tt dmtcp\_restart} exec's into {\tt
+mtcp\_restart}.  The program {\tt mtcp\_restart} (source code in
+src/mtcp/) is created specially so that the process will consist of a
+single relocatable memory segment.  The program relocates itself into
+a ``hole'' in memory not occupied by the checkpoint image.  It then
+calls\linebreak[4] {\tt src/mtcp/mtcp\_restart.c:restorememoryareas()}.
+This maps the memory areas of the checkpoint image into their original
+memory addresses.  (``Bits are bits.'')
+
+While still in {\tt restorememoryareas()}, it calls {restore\_libc()} to
+update the information in memory about the different threads.  Finally,
+it calls a function pointer, {\tt restore\_info.post\_restart}, which
+in fact is bound to {\tt ThreadList::postRestart()} in src/threadlist.cpp.
+
+It is then the job of {\tt ThreadList::postRestart()} to create the
+remaining threads and set their state correctly.  Each remaining thread
+finds itself inside the signal handler again (After all, ``bits are
+bits.''), and the checkpoint thread then releases each thread, as
+described in the previous section.
+
+
+\subsection*{6. Principle:  DMTCP is contagious}
 
 New Linux ``tasks'' are created in one of three ways:
 \begin{enumerate}
@@ -208,10 +240,8 @@ New Linux ``tasks'' are created in one of three ways:
 
 DMTCP makes sure to load itself using wrapper functions.
 
-\newpage
 
-
-\subsection*{6. Principle:  One DMTCP Coordinator for each DMTCP Computation}
+\subsection*{7. Principle:  One DMTCP Coordinator for each DMTCP Computation}
 
 One may wish to run multiple DMTCP-based computations on a single host.
 This is easily done by using the {\tt --host} and {\tt --port} flags
@@ -235,11 +265,12 @@ then there will only be one coordinator.  So, in the view of DMTCP,
 there will only be a single computation, and a checkpoint command will
 checkpoint the processes of both computations.
 
-\subsection*{7. Plugins, and other End-User Customizations}
+\subsection*{8. Plugins and other End-User Customizations}
 
 DMTCP offers a rich set of features for customizing the behavior of
 DMTCP.  In this short overview, we will point to examples that can
-easily be modified by an end-user.
+easily be modified by an end-user.  See {\tt doc/plugin-tutorial.pdf}
+for a more extensive description of plugins.
 
 \paragraph{DMTCP Plugins.}
 
@@ -291,7 +322,7 @@ with DMTCP.  {\em For thos who wished to use the prior MTCP architecture
 (just the checkpoint thread, but no separate coordinator), a plugin
 with those features is planned for the future.}
 
-\subsection*{8. Implementation of Plugins}
+\subsection*{9. Implementation of Plugins}
 
 The implementation techniques of wrapper functions and pid/tid virtualization
 we part of the DMTCP implementation not too long after the

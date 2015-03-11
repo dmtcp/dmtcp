@@ -18,4 +18,4 @@ architecture-of-dmtcp.dvi: architecture-of-dmtcp.tex ${EPS}
 	fig2dev -L eps $< > $@
 
 clean:
-	rm -rf *.eps *.dvi *.ps *.pdf *.aux *.log *.toc
+	rm -rf *.eps *.dvi *.ps *.pdf *.aux *.log *.toc *.out

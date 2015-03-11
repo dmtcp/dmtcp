@@ -1,28 +1,16 @@
-% dmtcp_event_hook -> dmtcp_event_hook
-% DMTCP_NEXT_EVENT_HOOK -> DMTCP_NEXT_EVENT_HOOK
-
-
-% =======================================
-
 % DMTCP-Internal plugins:  make sure restart/resume operates after event:
 %   RESTART/RESUME/REFILL/REGISTER\_NAME\_SERVICE\_DATA/SEND\_QUERIES
-% DMTCP hierarchy:  DMTCP\_ROOT/include/dmtcp/plugin.h  (etc.) ; not dmtpplugin.h
 % Do we install distro packages to use /usr/include/dmtcp/plugin.h for compatibility?
-% Check documentation of events; make sure they correspond to implementations
-% Section Using plugins to virtualize ids  (based on Torque?  Add to it, or skip.)
-% Move DMTCP\_ROOT?dmtcp/doc to:  DMTCP\_ROOT?doc
 % For KVM plugin, change MTCP break issue to be warning (not error)
 % KVM plugin:  QEMU complains about negative value in signalfd
 
 % TODO:  --with-icc
 % TODO:  --vnc  (for dmtcp_launch)
 % TODO:  test suite from Joshua Louie (dlopen prior to main; epoll taking too long)
-%
-% UPDATE 'svn co' on dmtcp.sf.net;  Add latest DMTCP papers to dmtcp.sf.net
-% ADD documents (design of DMTCP, design of plugins)
 
 \documentclass{article}
 \usepackage{fullpage}
+\usepackage[hidelinks]{hyperref}
 
 \title{Tutorial for DMTCP Plugins}
 \author{}
@@ -103,7 +91,8 @@ through three primary mechanisms, plus virtualization of ids.
 	are assigned by the kernel, by a peer process, and by remote processes.
 	Upon restart, the external agent may wish to assign a different
 	id than the one assigned prior to checkpoint.  Techniques for
-	virtualization of ids are described in Section~\ref{sec:virtualization}.
+	virtualization of ids are described in
+        Section~\ref{sec:virtualization}.
 \end{description}
 
 \section{Writing Plugins}
@@ -274,10 +263,10 @@ For example, on restart, the real pid of a process will change
 from its pid prior to checkpoint.  Some DMTCP internal plugins
 maintain a translation table in order to translate
 between a virtualized id passed to the user code and a real id
-maintained inside the kernel.  The utility to maintain this
+maintained inside the kernel.  The ability to maintain this
 translation table can also be used within third-party plugins.
 For an example of adding virtualization to a plugin, see the plugin
-in plugin/ipc/timer.
+in {\tt src/plugin/timer}.
 
 In some less common cases, it can happen that a virtualized id is passed
 to a library function by the target application.  Yet, that same library
@@ -363,15 +352,16 @@ For this program to be aware of DMTCP, it must be compiled with -fPIC and -ldl~:
 The most useful functions are:
 \begin{list}{}{\leftmargin=3em \itemindent=-2em}
 \item
-  {\tt int dmtcpIsEnabled()} --- returns 1 when running with DMTCP; 0 otherwise.
+  {\tt int dmtcp\_is\_enabled()} --- returns 1 when running with DMTCP;
+                                     0 otherwise.
 \item
-  {\tt int dmtcpCheckpoint()} --- returns DMTCP\_AFTER\_CHECKPOINT,
+  {\tt int dmtcp\_checkpoint()} --- returns DMTCP\_AFTER\_CHECKPOINT,
                                  DMTCP\_AFTER\_RESTART, or DMTCP\_NOT\_PRESENT.
 \item
-  {\tt int dmtcpDelayCheckpointsLock()} --- DMTCP will block any
+  {\tt int dmtcp\_disable\_ckpt()} --- DMTCP will block any
 				 checkpoint requests.
 \item
-  {\tt int dmtcpDelayCheckpointsUnlock()} --- DMTCP will execute any blocked
+  {\tt int dmtcp\_enable\_ckpt()} --- DMTCP will execute any blocked
                 checkpoint requests, and will permit new checkpoint requests.
 \end{list}
 
@@ -382,6 +372,15 @@ See the subdirectories
 and
 {\tt DMTCP\_ROOT/test/plugin/applic-delayed-ckpt}, where one can execute
 {\tt make check} for a live demonstration.
+
+For advanced users, the file {\tt DMTCP\_ROOT/dmtcp/include/dmtcp.h}
+also defines some additional functions not documented here:\\
+~~{\tt dmtcp\_install\_hooks}\\
+~~{\tt dmtcp\_get\_coordinator\_status}\\
+~~{\tt dmtcp\_get\_local\_status}\\
+~~{\tt dmtcp\_get\_uniquepid\_str}\\
+~~{\tt dmtcp\_get\_ckpt\_filename}\\
+and many others in {\tt dmtcp.h}.
 
 \appendix
 \section{Appendix:  Plugin Manual}

@@ -4,7 +4,7 @@ and algorithms.  These documents are snapshots in time, and they
 may become somewhat out-of-date over time (and hopefully also refreshed
 to re-sync them with the code again).  (Updated Feb., 2014)
 
-Some related documents are architecture-of-dmtcp.pdf and threed-creation.txt.
+Some related documents are architecture-of-dmtcp.pdf and thread-creation.txt.
 
 This description is primarily for i386 (32-bit Intel).  Other architectures
 are simpler, and can be deduced from this description.  The sections
