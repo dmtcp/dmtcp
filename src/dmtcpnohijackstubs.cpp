@@ -22,13 +22,13 @@
 #include "uniquepid.h"
 #include "../jalib/jassert.h"
 
-#undef dmtcpIsEnabled
-#undef dmtcpCheckpoint
-#undef dmtcpDelayCheckpointsLock
-#undef dmtcpDelayCheckpointsUnlock
-#undef dmtcpInstallHooks
-#undef dmtcpGetCoordinatorStatus
-#undef dmtcpGetLocalStatus
+#undef dmtcp_is_enabled
+#undef dmtcp_checkpoint
+#undef dmtcp_disable_ckpt
+#undef dmtcp_enable_ckpt
+#undef dmtcp_install_hooks
+#undef dmtcp_get_coordinator_status
+#undef dmtcp_get_local_status
 #undef dmtcp_get_uniquepid_str
 #undef dmtcp_get_ckpt_filename
 

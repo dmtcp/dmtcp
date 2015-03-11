@@ -233,9 +233,9 @@ EXTERNC void dmtcp_prepare_wrappers(void) __attribute((weak));
 // DMTCP utilities
 
 #ifndef DMTCP_AFTER_CHECKPOINT
-  // Return value of dmtcpCheckpoint
+  // Return value of dmtcp_checkpoint
 # define DMTCP_AFTER_CHECKPOINT 1
-  // Return value of dmtcpCheckpoint
+  // Return value of dmtcp_checkpoint
 # define DMTCP_AFTER_RESTART    2
 #endif
 #ifndef DMTCP_NOT_PRESENT
@@ -257,8 +257,8 @@ EXTERNC void dmtcp_prepare_wrappers(void) __attribute((weak));
 
 //FIXME:
 // If a plugin is not compiled with defined(__PIC__) and we can verify
-// that we're using DMTCP (environment variables), and dmtcpIsEnabled
-// or dmtcpCheckpoint expands to 0, then we should print a warning
+// that we're using DMTCP (environment variables), and dmtcp_is_enabled
+// or dmtcp_checkpoint expands to 0, then we should print a warning
 // at run-time.
 
 // These utility functions require compiling the target app with -fPIC
