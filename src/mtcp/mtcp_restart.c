@@ -100,6 +100,7 @@ static RestoreInfo rinfo;
 
 /* Internal routines */
 static void readmemoryareas(int fd);
+static int read_one_memory_area(int fd);
 #if 0
 // Not currently used
 static void mmapfile(int fd, void *buf, size_t size, int prot, int flags);
@@ -483,7 +484,7 @@ static void restorememoryareas(RestoreInfo *rinfo_ptr)
 
   DPRINTF("DPRINTF may fail when we unmap, since strings are in rodata.\n"
           "But we may be lucky if the strings have been cached by the O/S\n"
-          "or if compiler uses relative addressing for rodata with -fPIC\m");
+          "or if compiler uses relative addressing for rodata with -fPIC\n");
 
   int rc;
   VA holebase;
@@ -661,152 +662,10 @@ static void restorememoryareas(RestoreInfo *rinfo_ptr)
  *
  **************************************************************************/
 
-__attribute__((optimize(0)))
 static void readmemoryareas(int fd)
-{
-  int mtcp_sys_errno;
-  Area area;
-  int flags, imagefd;
-  void *mmappedat;
-
-  while (1) {
-    int try_skipping_existing_segment = 0;
-    mtcp_readfile(fd, &area, sizeof area);
-    if (area.size == -1) break;
-
-    if (area.name && mtcp_strstr(area.name, "[heap]")
-        && mtcp_sys_brk(NULL) != area.addr + area.size) {
-      DPRINTF("WARNING: break (%p) not equal to end of heap (%p)\n",
-              mtcp_sys_brk(NULL), area.addr + area.size);
-    }
-
-    if ((area.flags & MAP_ANONYMOUS) && (area.flags & MAP_SHARED)) {
-      MTCP_PRINTF("\n\n*** WARNING:  Next area specifies MAP_ANONYMOUS"
-		  "  and MAP_SHARED.\n"
-		  "*** Turning off MAP_ANONYMOUS and hoping for best.\n\n");
-    }
-
-    if ((area.prot & MTCP_PROT_ZERO_PAGE) != 0) {
-      DPRINTF("restoring non-rwx anonymous area, %p bytes at %p\n",
-              area.size, area.addr);
-      mmappedat = mtcp_sys_mmap (area.addr, area.size,
-                                 area.prot & ~MTCP_PROT_ZERO_PAGE,
-                                 area.flags | MAP_FIXED, -1, 0);
-
-      if (mmappedat != area.addr) {
-        DPRINTF("error %d mapping %p bytes at %p\n",
-                mtcp_sys_errno, area.size, area.addr);
-        mtcp_abort ();
-      }
-    }
-
-    /* CASE MAP_ANONYMOUS (usually implies MAP_PRIVATE):
-     * For anonymous areas, the checkpoint file contains the memory contents
-     * directly.  So mmap an anonymous area and read the file into it.
-     * If file exists, turn off MAP_ANONYMOUS: standard private map
-     */
-    else if (area.flags & MAP_ANONYMOUS) {
-
-      /* If there is a filename there, though, pretend like we're mapping
-       * to it so a new /proc/self/maps will show a filename there like with
-       * original process.  We only need read-only access because we don't
-       * want to ever write the file.
-       */
-
-      if (area.flags & MAP_ANONYMOUS) {
-        DPRINTF("restoring anonymous area, %p  bytes at %p\n",
-                area.size, area.addr);
-      } else {
-        DPRINTF("restoring to non-anonymous area from anonymous area,"
-                " %p bytes at %p from %s + 0x%X\n",
-                area.size, area.addr, area.name, area.offset);
-      }
-      imagefd = -1;
-      if (area.name[0] == '/') { /* If not null string, not [stack] or [vdso] */
-        imagefd = mtcp_sys_open (area.name, O_RDONLY, 0);
-        if (imagefd >= 0)
-          area.flags ^= MAP_ANONYMOUS;
-      }
-
-      /* Create the memory area */
-
-      /* POSIX says mmap would unmap old memory.  Munmap never fails if args
-       * are valid.  Can we unmap vdso and vsyscall in Linux?  Used to use
-       * mtcp_safemmap here to check for address conflicts.
-       */
-      mmappedat = mtcp_sys_mmap (area.addr, area.size, area.prot | PROT_WRITE,
-                                 area.flags, imagefd, area.offset);
-
-      if (mmappedat == MAP_FAILED) {
-        DPRINTF("error %d mapping %p bytes at %p\n",
-                mtcp_sys_errno, area.size, area.addr);
-        if (mtcp_sys_errno == ENOMEM) {
-          MTCP_PRINTF(
-            "\n**********************************************************\n"
-            "****** Received ENOMEM.  Trying to continue, but may fail.\n"
-            "****** Please run 'free' to see if you have enough swap space.\n"
-            "**********************************************************\n\n");
-        }
-        try_skipping_existing_segment = 1;
-      }
-      if (mmappedat != area.addr && !try_skipping_existing_segment) {
-        MTCP_PRINTF("area at %p got mmapped to %p\n", area.addr, mmappedat);
-        mtcp_abort ();
-      }
-
-      if (imagefd >= 0)
-        adjust_for_smaller_file_size(&area, imagefd);
-
-      /* Close image file (fd only gets in the way) */
-      if (!(area.flags & MAP_ANONYMOUS)) mtcp_sys_close (imagefd);
-
-      if (try_skipping_existing_segment) {
-        // This fails on teracluster.  Presumably extra symbols cause overflow.
-        mtcp_skipfile(fd, area.size);
-      } else {
-        /* This mmapfile after prev. mmap is okay; use same args again.
-         *  Posix says prev. map will be munmapped.
-         */
-        /* ANALYZE THE CONDITION FOR DOING mmapfile MORE CAREFULLY. */
-        mtcp_readfile(fd, area.addr, area.size);
-        if (!(area.prot & PROT_WRITE)) {
-          if (mtcp_sys_mprotect (area.addr, area.size, area.prot) < 0) {
-            MTCP_PRINTF("error %d write-protecting %p bytes at %p\n",
-                        mtcp_sys_errno, area.size, area.addr);
-            mtcp_abort ();
-          }
-        }
-      }
-    }
-
-    /* CASE NOT MAP_ANONYMOUS:
-     * Otherwise, we mmap the original file contents to the area
-     */
-
-    else {
-      DPRINTF("restoring mapped area, %p bytes at %p to %s + 0x%X\n",
-              area.size, area.addr, area.name, area.offset);
-      flags = 0;            // see how to open it based on the access required
-      // O_RDONLY = 00
-      // O_WRONLY = 01
-      // O_RDWR   = 02
-      if (area.prot & PROT_WRITE) flags = O_WRONLY;
-      if (area.prot & (PROT_EXEC | PROT_READ)){
-        flags = O_RDONLY;
-        if (area.prot & PROT_WRITE) flags = O_RDWR;
-      }
-
-      if (area.prot & MAP_SHARED) {
-        read_shared_memory_area_from_file(fd, &area, flags);
-      } else { /* not MAP_ANONYMOUS, not MAP_SHARED */
-        /* During checkpoint, MAP_ANONYMOUS flag is forced whenever MAP_PRIVATE
-         * is set. There is no reason for any mapping to have MAP_PRIVATE and
-         * not have MAP_ANONYMOUS at this point. (MAP_ANONYMOUS is handled
-         * earlier in this function.
-         */
-        MTCP_PRINTF("Unreachable. MAP_PRIVATE implies MAP_ANONYMOUS\n");
-        mtcp_abort();
-      }
+{ while (1) {
+    if (read_one_memory_area(fd) == -1) {
+      break; /* error */
     }
   }
 #if defined(__arm__) || defined(__aarch64__)
@@ -816,6 +675,187 @@ static void readmemoryareas(int fd)
    */
   WMB;
 #endif
+}
+
+__attribute__((optimize(0)))
+static int read_one_memory_area(int fd)
+{
+  int mtcp_sys_errno;
+  int flags, imagefd;
+  void *mmappedat;
+  int try_skipping_existing_segment = 0;
+
+  /* Read header of memory area into area; next mtcp_readfile() reads data  */
+  Area area;
+  mtcp_readfile(fd, &area, sizeof area);
+  if (area.size == -1) return -1;
+
+  if (area.name && mtcp_strstr(area.name, "[heap]")
+      && mtcp_sys_brk(NULL) != area.addr + area.size) {
+    DPRINTF("WARNING: break (%p) not equal to end of heap (%p)\n",
+            mtcp_sys_brk(NULL), area.addr + area.size);
+  }
+
+ read_data:
+  /* FIXME:  Where is MAP_ANONYMOUS turned off? */
+  if ((area.flags & MAP_ANONYMOUS) && (area.flags & MAP_SHARED)) {
+    MTCP_PRINTF("\n\n*** WARNING:  Next area specifies MAP_ANONYMOUS"
+      	  "  and MAP_SHARED.\n"
+      	  "*** Turning off MAP_ANONYMOUS and hoping for best.\n\n");
+  }
+
+  /* CASE MAPPED AS ZERO PAGE: */
+  if ((area.prot & MTCP_PROT_ZERO_PAGE) != 0) {
+    DPRINTF("restoring non-rwx anonymous area, %p bytes at %p\n",
+            area.size, area.addr);
+    mmappedat = mtcp_sys_mmap (area.addr, area.size,
+                               area.prot & ~MTCP_PROT_ZERO_PAGE,
+                               area.flags | MAP_FIXED, -1, 0);
+
+    if (mmappedat != area.addr) {
+      DPRINTF("error %d mapping %p bytes at %p\n",
+              mtcp_sys_errno, area.size, area.addr);
+      mtcp_abort ();
+    }
+  }
+
+  /* CASE MAP_ANONYMOUS (usually implies MAP_PRIVATE):
+   * For anonymous areas, the checkpoint file contains the memory contents
+   * directly.  So mmap an anonymous area and read the file into it.
+   * If file exists, turn off MAP_ANONYMOUS: standard private map
+   */
+  else if (area.flags & MAP_ANONYMOUS) {
+
+    /* If there is a filename there, though, pretend like we're mapping
+     * to it so a new /proc/self/maps will show a filename there like with
+     * original process.  We only need read-only access because we don't
+     * want to ever write the file.
+     */
+
+    imagefd = -1;
+    if (area.name[0] == '/') { /* If not null string, not [stack] or [vdso] */
+      imagefd = mtcp_sys_open (area.name, O_RDONLY, 0);
+      if (imagefd >= 0)
+        area.flags ^= MAP_ANONYMOUS;
+    }
+
+    if (area.flags & MAP_ANONYMOUS) {
+      DPRINTF("restoring anonymous area, %p  bytes at %p\n",
+              area.size, area.addr);
+    } else {
+      DPRINTF("restoring to non-anonymous area from anonymous area,"
+              " %p bytes at %p from %s + 0x%X\n",
+              area.size, area.addr, area.name, area.offset);
+    }
+
+    /* Create the memory area */
+
+    /* POSIX says mmap would unmap old memory.  Munmap never fails if args
+     * are valid.  Can we unmap vdso and vsyscall in Linux?  Used to use
+     * mtcp_safemmap here to check for address conflicts.
+     */
+    mmappedat = mtcp_sys_mmap (area.addr, area.size, area.prot | PROT_WRITE,
+                               area.flags, imagefd, area.offset);
+
+    if (mmappedat == MAP_FAILED) {
+      DPRINTF("error %d mapping %p bytes at %p\n",
+              mtcp_sys_errno, area.size, area.addr);
+      if (mtcp_sys_errno == ENOMEM) {
+        MTCP_PRINTF(
+          "\n**********************************************************\n"
+          "****** Received ENOMEM.  Trying to continue, but may fail.\n"
+          "****** Please run 'free' to see if you have enough swap space.\n"
+          "**********************************************************\n\n");
+      }
+      try_skipping_existing_segment = 1;
+    }
+    if (mmappedat != area.addr && !try_skipping_existing_segment) {
+      MTCP_PRINTF("area at %p got mmapped to %p\n", area.addr, mmappedat);
+      mtcp_abort ();
+    }
+
+    if (imagefd >= 0)
+      adjust_for_smaller_file_size(&area, imagefd);
+
+    /* Close image file (fd only gets in the way) */
+    if (!(area.flags & MAP_ANONYMOUS)) mtcp_sys_close (imagefd);
+
+    if (try_skipping_existing_segment) {
+      // This fails on teracluster.  Presumably extra symbols cause overflow.
+      mtcp_skipfile(fd, area.size);
+    } else {
+      /* This mmapfile after prev. mmap is okay; use same args again.
+       *  Posix says prev. map will be munmapped.
+       */
+      /* ANALYZE THE CONDITION FOR DOING mmapfile MORE CAREFULLY. */
+      mtcp_readfile(fd, area.addr, area.size);
+      if (!(area.prot & PROT_WRITE)) {
+        if (mtcp_sys_mprotect (area.addr, area.size, area.prot) < 0) {
+          MTCP_PRINTF("error %d write-protecting %p bytes at %p\n",
+                      mtcp_sys_errno, area.size, area.addr);
+          mtcp_abort ();
+        }
+      }
+    }
+  }
+
+  /* CASE NOT MAP_ANONYMOUS:
+   * Otherwise, we mmap the original file contents to the area
+   */
+
+  else {
+    DPRINTF("restoring mapped area, %p bytes at %p to %s + 0x%X\n",
+            area.size, area.addr, area.name, area.offset);
+    flags = 0;            // see how to open it based on the access required
+    // O_RDONLY = 00
+    // O_WRONLY = 01
+    // O_RDWR   = 02
+    if (area.prot & PROT_WRITE) flags = O_WRONLY;
+    if (area.prot & (PROT_EXEC | PROT_READ)){
+      flags = O_RDONLY;
+      if (area.prot & PROT_WRITE) flags = O_RDWR;
+    }
+
+    if (area.prot & MAP_SHARED) {
+      imagefd = mtcp_sys_open (area.name, flags, 0);  // Can we open file.?
+      if (imagefd < 0 && mtcp_sys_errno == ENOENT) {
+        // File doesn't exist.  Do we have perm to create it and write data?
+        imagefd = mtcp_sys_open (area.name, O_CREAT|O_RDWR, 0);
+        if (imagefd >= 0) {
+          mtcp_sys_unlink(area.name);
+        } else {
+          // We don't have permission to re-create shared file.
+          // Open it as anonymous private, and hope for the best.
+          area.flags ^= MAP_SHARED;
+          area.flags |= MAP_PRIVATE;
+          area.flags |= MAP_ANONYMOUS;
+          if (area.prot & PROT_WRITE) {
+            area.prot ^= PROT_WRITE;
+            MTCP_PRINTF("Found old underlying file %s\n"
+                        " that no longer exists, but it's mapped shared,"
+                        " with write permission,\n and we don't have permission"
+                        " to re-create it.  We will map it read-only\n"
+                        " and hope for the best.\n", area.name);
+          }
+          goto read_data;
+        }
+      }
+      if (imagefd >= 0) {
+        mtcp_sys_close(imagefd);
+      }
+
+      read_shared_memory_area_from_file(fd, &area, flags);
+    } else { /* not MAP_ANONYMOUS, not MAP_SHARED */
+      /* During checkpoint, MAP_ANONYMOUS flag is forced whenever MAP_PRIVATE
+       * is set. There is no reason for any mapping to have MAP_PRIVATE and
+       * not have MAP_ANONYMOUS at this point. (MAP_ANONYMOUS is handled
+       * earlier in this function.
+       */
+      MTCP_PRINTF("Unreachable. MAP_PRIVATE implies MAP_ANONYMOUS\n");
+      mtcp_abort();
+    }
+  }
+  return 0;
 }
 
 __attribute__((optimize(0)))
@@ -901,7 +941,7 @@ static void read_shared_memory_area_from_file(int fd, Area* area, int flags)
 
   if (imagefd < 0) {
     // If the shared file doesn't exist on the disk, we try to create it
-    DPRINTF("Shared file %s not found. Creating new\n", area_name);
+    DPRINTF("Shared file %s not found. Creating new one.\n", area_name);
 
     /* Dangerous for DMTCP:  Since file is created with O_CREAT,
      * hopefully, a second process should ignore O_CREAT and just
