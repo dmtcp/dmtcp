@@ -2,16 +2,16 @@ When using DMTCP, you will need two submit scripts:  one for
 launching under checkpoint control, and one for restarting
 from a crashed job.
 
-For example, for SLURM, you would modify slurm_ckpt.job to change
+For example, for SLURM, you would modify slurm_launch.job to change
 "<your_binary>" in the line for dmtcp_launch.  The default script
 does not automatically checkpoint.  Search on "dmtcp_command" for
 instructions on how to use it to manually request a checkpoint.
 Do "dmtcp_command -h" to see the options for "dmtcp_command".
-Alternatively, search on "start_coordinator" in slurm_ckpt.job,
+Alternatively, search on "start_coordinator" in slurm_launch.job,
 and add "-i 3600" to create a checkpoint every 3600 seconds (every hour).
 "dmtcp_coordinator -h" and "dmtcp_launch -h" also exist.
 When ready, execute the SLURM command:
-  sbatch slurm_ckpt.job
+  sbatch slurm_launch.job
 
 Upon checkpointing, a script, dmtcp_restart_script.sh, will be saved
 in the local directory, along with the checkpoint image files.
