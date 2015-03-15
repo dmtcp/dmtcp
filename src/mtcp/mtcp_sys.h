@@ -227,11 +227,12 @@ struct linux_dirent {
 #define mtcp_sys_open2(args...)  mtcp_sys_open(args,0777)
 #define mtcp_sys_ftruncate(args...) mtcp_inline_syscall(ftruncate,2,args)
 #define mtcp_sys_close(args...)  mtcp_inline_syscall(close,1,args)
-#define mtcp_sys_unlink(args...)  mtcp_inline_syscall(unlink,1,args)
 #if defined(__aarch64__)
 # define mtcp_sys_access(path,mode)  \
          mtcp_inline_syscall(faccessat,4,AT_FDCWD,path,mode,AT_EACCESS)
+# define mtcp_sys_unlink(path)  mtcp_inline_syscall(unlinkat,3,AT_FDCWD, path, 0)
 #else
+# define mtcp_sys_unlink(args...)  mtcp_inline_syscall(unlink,1,args)
 # define mtcp_sys_access(args...)  mtcp_inline_syscall(access,2,args)
 #endif
 #define mtcp_sys_fchmod(args...)  mtcp_inline_syscall(fchmod,2,args)
