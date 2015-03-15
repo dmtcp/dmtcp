@@ -31,7 +31,7 @@
 using namespace dmtcp;
 
 /*
- * WrapperProtectionLock is used to make the checkpoint safe by making sure
+ * _wrapperExecutionLock is used to make the checkpoint safe by making sure
  *   that no user-thread is executing any DMTCP wrapper code when it receives
  *   the checkpoint signal.
  * Working:
@@ -45,8 +45,9 @@ using namespace dmtcp;
  * There is a corner case too -- the newly created thread that has not been
  *   initialized yet; we need to take some extra efforts for that.
  * Here are the steps to handle the newly created uninitialized thread:
- *   A counter for the number of newly created uninitialized threads is kept.
- *     The counter is made thread safe by using a mutex.
+ *   A counter (_uninitializedThreadCount) for the number of newly
+ *     created uninitialized threads is kept.  The counter is made
+ *     thread-safe by using a mutex.
  *   The calling thread (parent) increments the counter before calling clone.
  *   The newly created child thread decrements the counter at the end of
  *     initialization in MTCP/DMTCP.

@@ -144,8 +144,9 @@ static void pidVirt_PostRestart(DmtcpEventData_t *data)
     send_sigwinch = 1;
   // With hardstatus (bottom status line), screen process has diff. size window
   // Must send SIGWINCH to adjust it.
-  // MTCP will send SIGWINCH to process on restart.  This will force 'screen'
-  // to execute ioctl wrapper.  The wrapper will report a changed winsize,
+  // src/terminal.cpp:restore_term_settings() will send SIGWINCH to process
+  // on restart.  This will force 'screen' to execute ioctl wrapper.
+  // The wrapper will report a changed winsize,
   // so that 'screen' must re-initialize the screen (scrolling regions, etc.).
   // The wrapper will also send a second SIGWINCH.  Then 'screen' will
   // call ioctl and get the correct window size and resize again.
