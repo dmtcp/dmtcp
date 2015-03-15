@@ -440,39 +440,69 @@ int _real_pthread_rwlock_trywrlock(pthread_rwlock_t *rwlock) {
 LIB_PRIVATE
 int _real_pthread_cond_broadcast(pthread_cond_t *cond)
 {
+#if __aarch64__
+  int result = NEXT_FNC_DEFAULT(pthread_cond_broadcast)(cond);
+  return result;
+#else
   REAL_FUNC_PASSTHROUGH_TYPED (int,pthread_cond_broadcast) (cond);
+#endif
 }
 
 LIB_PRIVATE
 int _real_pthread_cond_destroy(pthread_cond_t *cond)
 {
+#if __aarch64__
+  int result = NEXT_FNC_DEFAULT(pthread_cond_destroy)(cond);
+  return result;
+#else
   REAL_FUNC_PASSTHROUGH_TYPED (int,pthread_cond_destroy) (cond);
+#endif
 }
 
 LIB_PRIVATE
 int _real_pthread_cond_init(pthread_cond_t *cond,
                             const pthread_condattr_t *attr)
 {
+#if __aarch64__
+  int result = NEXT_FNC_DEFAULT(pthread_cond_init)(cond,attr);
+  return result;
+#else
   REAL_FUNC_PASSTHROUGH_TYPED (int,pthread_cond_init) (cond,attr);
+#endif
 }
 
 LIB_PRIVATE
 int _real_pthread_cond_signal(pthread_cond_t *cond)
 {
+#if __aarch64__
+  int result = NEXT_FNC_DEFAULT(pthread_cond_signal)(cond);
+  return result;
+#else
   REAL_FUNC_PASSTHROUGH_TYPED (int,pthread_cond_signal) (cond);
+#endif
 }
 
 LIB_PRIVATE
 int _real_pthread_cond_timedwait(pthread_cond_t *cond, pthread_mutex_t *mutex,
                                  const struct timespec *abstime)
 {
+#if __aarch64__
+  int result = NEXT_FNC_DEFAULT(pthread_cond_timedwait)(cond, mutex, abstime);
+  return result;
+#else
   REAL_FUNC_PASSTHROUGH_TYPED (int,pthread_cond_timedwait) (cond,mutex,abstime);
+#endif
 }
 
 LIB_PRIVATE
 int _real_pthread_cond_wait(pthread_cond_t *cond, pthread_mutex_t *mutex)
 {
+#if __aarch64__
+  int result = NEXT_FNC_DEFAULT(pthread_cond_wait)(cond,mutex);
+  return result;
+#else
   REAL_FUNC_PASSTHROUGH_TYPED (int,pthread_cond_wait) (cond,mutex);
+#endif
 }
 
 LIB_PRIVATE
