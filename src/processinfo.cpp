@@ -154,7 +154,7 @@ void ProcessInfo::growStack()
     stackSize = rlim.rlim_cur;
   }
 
-  // Find the current stack area and heap
+  // Find the current stack area, heap, stack, vDSO and vvar areas.
   ProcMapsArea area;
   ProcMapsArea stackArea = {0};
   size_t allocSize;
@@ -165,6 +165,12 @@ void ProcessInfo::growStack()
     if (strcmp(area.name, "[heap]") == 0) {
       // Record start of heap which will later be used to restore heap
       _savedHeapStart = (unsigned long) area.addr;
+    } else if (strcmp(area.name, "[vdso]") == 0) {
+      _vdsoStart = (unsigned long) area.addr;
+      _vdsoEnd = (unsigned long) area.endAddr;
+    } else if (strcmp(area.name, "[vvar]") == 0) {
+      _vvarStart = (unsigned long) area.addr;
+      _vvarEnd = (unsigned long) area.endAddr;
     } else if ((VA) &area >= area.addr && (VA) &area < area.endAddr) {
       JTRACE("Original stack area") ((void*)area.addr) (area.size);
       stackArea = area;
@@ -504,6 +510,7 @@ void ProcessInfo::serialize(jalib::JBinarySerializer& o)
   o & _procname & _hostname & _launchCWD & _ckptCWD & _upid & _uppid;
   o & _compGroup & _numPeers & _noCoordinator & _argvSize & _envSize;
   o & _restoreBufAddr & _savedHeapStart & _savedBrk;
+  o & _vdsoStart & _vdsoEnd & _vvarStart & _vvarEnd;
   o & _ckptDir & _ckptFileName & _ckptFilesSubDir;
 
   JTRACE("Serialized process information")

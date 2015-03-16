@@ -102,6 +102,11 @@ namespace dmtcp
       uint64_t restoreBufAddr(void) const { return _restoreBufAddr;}
       uint64_t restoreBufLen(void) const { return RESTORE_TOTAL_SIZE;}
 
+      uint64_t vdsoStart(void) const { return _vdsoStart;}
+      uint64_t vdsoEnd(void) const { return _vdsoEnd;}
+      uint64_t vvarStart(void) const { return _vvarStart;}
+      uint64_t vvarEnd(void) const { return _vvarEnd;}
+
       string getCkptFilename() const { return _ckptFileName; }
       string getCkptFilesSubDir() const { return _ckptFilesSubDir; }
       string getCkptDir() const { return _ckptDir; }
@@ -147,6 +152,11 @@ namespace dmtcp
 
       uint64_t      _savedHeapStart;
       uint64_t      _savedBrk;
+
+      uint64_t      _vdsoStart;
+      uint64_t      _vdsoEnd;
+      uint64_t      _vvarStart;
+      uint64_t      _vvarEnd;
   };
 
 }
