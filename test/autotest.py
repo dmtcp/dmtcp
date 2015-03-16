@@ -898,13 +898,8 @@ if sys.version_info[0:2] >= (2,6):
     # Under emacs23, it opens /dev/tty directly in a new fd.
     # To avoid this, consider using emacs --batch -l EMACS-LISTP-CODE ...
     # ... or else a better pty wrapper to capture emacs output to /dev/tty.
-    if False:
-      # emacs23 and following seem to now use libglib (GTK), which uses eventfd.
-      # Eventfd fd's not restore on restart, and emacs then calls abort()
-      #   upon returning from pselect().
-      # Omit this test until there's time to dig deeper.
-      runTest("emacs -nw",     1,  ["env TERM=vt100 /usr/bin/emacs -nw" +
-                                    " --no-init-file /etc/passwd"])
+    runTest("emacs",     1,  ["env TERM=vt100 /usr/bin/emacs -nw" +
+                              " --no-init-file /etc/passwd"])
   S=DEFAULT_S
 
 if HAS_SCRIPT == "yes":
