@@ -100,7 +100,7 @@ namespace dmtcp
       int elfType() const { return _elfType; }
       uint64_t savedBrk(void) const { return _savedBrk;}
       uint64_t restoreBufAddr(void) const { return _restoreBufAddr;}
-      uint32_t restoreBufLen(void) const { return RESTORE_TOTAL_SIZE;}
+      uint64_t restoreBufLen(void) const { return RESTORE_TOTAL_SIZE;}
 
       string getCkptFilename() const { return _ckptFileName; }
       string getCkptFilesSubDir() const { return _ckptFilesSubDir; }
@@ -143,7 +143,8 @@ namespace dmtcp
       UniquePid     _compGroup;
 
       uint64_t      _restoreBufAddr;
-      uint32_t      _restoreBufLen;
+      uint64_t      _restoreBufLen;
+
       uint64_t      _savedHeapStart;
       uint64_t      _savedBrk;
   };
