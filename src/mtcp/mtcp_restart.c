@@ -581,6 +581,7 @@ static void unmap_memory_areas_and_restore_vdso(RestoreInfo *rinfo)
       // Do not unmap vdso.
       vdsoStart = area.addr;
       vdsoEnd = area.endAddr;
+      DPRINTF("***INFO: vDSO found (%p-%p)\n", area.addr, area.endAddr);
     } else if (mtcp_strcmp(area.name, "[vvar]") == 0) {
       // Do not unmap vvar.
       vvarStart = area.addr;
@@ -588,12 +589,12 @@ static void unmap_memory_areas_and_restore_vdso(RestoreInfo *rinfo)
     } else if (mtcp_strcmp(area.name, "[vsyscall]") == 0) {
       // Do not unmap vsyscall.
     } else if (area.size > 0 ) {
+      DPRINTF("***INFO: munmapping (%p-%p)\n", area.addr, area.endAddr);
       if (mtcp_sys_munmap(area.addr, area.size) == -1) {
         MTCP_PRINTF("***WARNING: munmap(%p, %d) failed: %d\n",
                     area.addr, area.size, mtcp_sys_errno);
         mtcp_abort();
       }
-      MTCP_PRINTF("***INFO: munmap(%p, %d) worked\n", area.addr, area.size);
       // Rewind and reread maps.
       mtcp_sys_lseek(mapsfd, 0, SEEK_SET);
     }
@@ -616,27 +617,31 @@ static void unmap_memory_areas_and_restore_vdso(RestoreInfo *rinfo)
     mtcp_abort();
   }
 
-  void *vdso = mtcp_sys_mremap(vdsoStart,
-                               vdsoEnd - vdsoStart,
-                               vdsoEnd - vdsoStart,
-                               MREMAP_FIXED | MREMAP_MAYMOVE,
-                               rinfo->vdsoStart);
-  if (vdso == MAP_FAILED) {
-    MTCP_PRINTF("***Error: failed to mremap vdso.\n");
-    mtcp_abort();
+  if (vdsoStart != NULL) {
+    void *vdso = mtcp_sys_mremap(vdsoStart,
+                                 vdsoEnd - vdsoStart,
+                                 vdsoEnd - vdsoStart,
+                                 MREMAP_FIXED | MREMAP_MAYMOVE,
+                                 rinfo->vdsoStart);
+    if (vdso == MAP_FAILED) {
+      MTCP_PRINTF("***Error: failed to mremap vdso.\n");
+      mtcp_abort();
+    }
+    MTCP_ASSERT(vdso == rinfo->vdsoStart);
   }
-  MTCP_ASSERT(vdso == rinfo->vdsoStart);
 
-  void *vvar = mtcp_sys_mremap(vvarStart,
-                               vvarEnd - vvarStart,
-                               vvarEnd - vvarStart,
-                               MREMAP_FIXED | MREMAP_MAYMOVE,
-                               rinfo->vvarStart);
-  if (vvar == MAP_FAILED) {
-    MTCP_PRINTF("***Error: failed to mremap vvar.\n");
-    mtcp_abort();
+  if (vvarStart != NULL) {
+    void *vvar = mtcp_sys_mremap(vvarStart,
+                                 vvarEnd - vvarStart,
+                                 vvarEnd - vvarStart,
+                                 MREMAP_FIXED | MREMAP_MAYMOVE,
+                                 rinfo->vvarStart);
+    if (vvar == MAP_FAILED) {
+      MTCP_PRINTF("***Error: failed to mremap vvar: %d.\n", mtcp_sys_errno);
+      mtcp_abort();
+    }
+    MTCP_ASSERT(vvar == rinfo->vvarStart);
   }
-  MTCP_ASSERT(vvar == rinfo->vvarStart);
 }
 
 /**************************************************************************
