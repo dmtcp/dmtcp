@@ -174,6 +174,25 @@ void ProcessInfo::growStack()
     } else if ((VA) &area >= area.addr && (VA) &area < area.endAddr) {
       JTRACE("Original stack area") ((void*)area.addr) (area.size);
       stackArea = area;
+      /*
+       * When using Matlab with dmtcp_launch, sometimes the bottom most
+       * page of stack (the page with highest address) which contains the
+       * environment strings and the argv[] was not shown in /proc/self/maps.
+       * This is arguably a bug in the Linux kernel as of version 2.6.32, etc.
+       * This happens on some odd combination of environment passed on to
+       * Matlab process. As a result, the page was not checkpointed and hence
+       * the process segfaulted on restart. The fix is to try to mprotect this
+       * page with RWX permission to make the page visible again. This call
+       * will fail if no stack page was invisible to begin with.
+       */
+      // FIXME : If the area following the stack is not empty, don't
+      //         exercise this path.
+      int ret = mprotect(area.addr + area.size, 0x1000,
+                         PROT_READ | PROT_WRITE | PROT_EXEC);
+      if (ret == 0) {
+        JNOTE("bottom-most page of stack (page with highest address) was\n"
+              "  invisible in /proc/self/maps. It is made visible again now.");
+      }
     }
   }
   _real_close(fd);
@@ -209,6 +228,8 @@ void ProcessInfo::init()
 #else
   _elfType = Elf_64;
 #endif
+
+  _vdsoStart = _vdsoEnd = _vvarStart = _vvarEnd = 0;
 
   growStack();
 

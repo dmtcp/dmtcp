@@ -452,6 +452,7 @@ int mtcp_readmapsline (int mapsfd, Area *area)
   if (c != '\n') goto skipeol;
 
   area -> addr = startaddr;
+  area -> endAddr = endaddr;
   area -> size = endaddr - startaddr;
   area -> prot = 0;
   if (rflag == 'r') area -> prot |= PROT_READ;

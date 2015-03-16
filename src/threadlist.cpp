@@ -255,6 +255,12 @@ static void prepareMtcpHeader(MtcpHeader *mtcpHdr)
   // restoreBuf should go in there.
   mtcpHdr->restore_addr = (void*) ProcessInfo::instance().restoreBufAddr();
   mtcpHdr->restore_size = ProcessInfo::instance().restoreBufLen();
+
+  mtcpHdr->vdsoStart = (void*) ProcessInfo::instance().vdsoStart();
+  mtcpHdr->vdsoEnd = (void*) ProcessInfo::instance().vdsoEnd();
+  mtcpHdr->vvarStart = (void*) ProcessInfo::instance().vvarStart();
+  mtcpHdr->vvarEnd = (void*) ProcessInfo::instance().vvarEnd();
+
   mtcpHdr->post_restart = &ThreadList::postRestart;
   memcpy(&mtcpHdr->motherofall_tls_info,
          &motherofall->tlsInfo,
