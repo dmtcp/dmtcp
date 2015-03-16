@@ -156,7 +156,7 @@ void ProcessInfo::growStack()
 
   // Find the current stack area and heap
   ProcMapsArea area;
-  bool flag = false;
+  ProcMapsArea stackArea = {0};
   size_t allocSize;
   void *tmpbuf;
   int fd = _real_open("/proc/self/maps", O_RDONLY);
@@ -165,20 +165,17 @@ void ProcessInfo::growStack()
     if (strcmp(area.name, "[heap]") == 0) {
       // Record start of heap which will later be used to restore heap
       _savedHeapStart = (unsigned long) area.addr;
-    }
-    if ((VA) &area >= area.addr && (VA) &area < area.endAddr) {
-      // Stack found
-      flag = true;
-      break;
+    } else if ((VA) &area >= area.addr && (VA) &area < area.endAddr) {
+      JTRACE("Original stack area") ((void*)area.addr) (area.size);
+      stackArea = area;
     }
   }
   _real_close(fd);
-  JTRACE("Original stack area") ((void*)area.addr) (area.size);
-  JASSERT(flag && area.addr != NULL);
+  JASSERT(stackArea.addr != NULL);
 
   // Grow the stack
   {
-    allocSize = stackSize - area.size - 4095;
+    allocSize = stackSize - stackArea.size - 4095;
     tmpbuf = alloca(allocSize);
     JASSERT(tmpbuf != NULL) (JASSERT_ERRNO);
     memset(tmpbuf, 0, allocSize);
@@ -190,12 +187,11 @@ void ProcessInfo::growStack()
     JASSERT(fd != -1) (JASSERT_ERRNO);
     while (Util::readProcMapsLine(fd, &area)) {
       if ((VA)&area >= area.addr && (VA)&area < area.endAddr) { // Stack found
-        area = area;
+        JTRACE("New stack size") ((void*)area.addr) (area.size);
         break;
       }
     }
     _real_close(fd);
-    JTRACE("New stack size") ((void*)area.addr) (area.size);
   }
 #endif
 }
