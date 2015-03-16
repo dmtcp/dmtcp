@@ -59,8 +59,7 @@ static const int END_OF_NSCD_AREAS = -1;
 /* Internal routines */
 //static void sync_shared_mem(void);
 static void writememoryarea (int fd, Area *area,
-                             int stack_was_seen, int vsyscall_exists);
-static void preprocess_special_segments(int *vsyscall_exists);
+                             int stack_was_seen);
 
 static bool isNscdArea(const Area& area);
 static void remap_nscd_areas(Area remap_nscd_areas_array[],
@@ -85,10 +84,6 @@ void mtcp_writememoryareas(int fd)
   // FIXME: Why do we need this?
   //JTRACE("syncing shared memory with backup files");
   //sync_shared_mem();
-
-  int vsyscall_exists = 0;
-  // Preprocess special segments like vsyscall, stack, heap etc.
-  preprocess_special_segments(&vsyscall_exists);
 
   /**************************************************************************/
   /* We can't do any more mallocing at this point because malloc stuff is   */
@@ -270,7 +265,7 @@ void mtcp_writememoryareas(int fd)
     if (strstr (area.name, "[stack]"))
       stack_was_seen = 1;
     // the whole thing comes after the restore image
-    writememoryarea(fd, &area, stack_was_seen, vsyscall_exists);
+    writememoryarea(fd, &area, stack_was_seen);
   }
 
   /* It's now safe to do this, since we're done using mtcp_readmapsline() */
@@ -419,29 +414,12 @@ static void mtcp_write_non_rwx_and_anonymous_pages(int fd, Area *orig_area)
   }
 }
 
-static void writememoryarea (int fd, Area *area, int stack_was_seen,
-			     int vsyscall_exists)
+static void writememoryarea (int fd, Area *area, int stack_was_seen)
 {
   static void * orig_stack = NULL;
   void *addr = area->addr;
 
-  /* Write corresponding descriptor to the file */
-
-  if (orig_stack == NULL && 0 == strcmp(area -> name, "[stack]"))
-    orig_stack = area -> addr + area -> size;
-
-  if (0 == strcmp(area -> name, "[vdso]") && !stack_was_seen)
-    JTRACE("skipping over [vdso] section") (addr) (area->size);
-  else if (0 == strcmp(area -> name, "[vsyscall]") && !stack_was_seen)
-    JTRACE("skipping over [vsyscall] section") (addr) (area->size);
-  else if (0 == strcmp(area -> name, "[vectors]") && !stack_was_seen)
-    JTRACE("skipping over [vectors] section") (addr) (area->size);
-  else if (0 == strcmp(area -> name, "[stack]") &&
-	   orig_stack != area -> addr + area -> size)
-    /* Kernel won't let us munmap this.  But we don't need to restore it. */
-    JTRACE("skipping over [stack] segment (not the orig stack)")
-      (addr) (area->size);
-  else if (!(area -> flags & MAP_ANONYMOUS))
+  if (!(area -> flags & MAP_ANONYMOUS))
     JTRACE("save region") (addr) (area->size) (area->name) (area->offset);
   else if (area -> name[0] == '\0')
     JTRACE("save anonymous") (addr) (area->size);
@@ -454,7 +432,17 @@ static void writememoryarea (int fd, Area *area, int stack_was_seen,
       strcpy(area -> name, "[heap]");
   }
 
-  if (area->prot == 0 ||
+  if (area->size == 0) {
+    /* Kernel won't let us munmap this.  But we don't need to restore it. */
+    JTRACE("skipping over [stack] segment (not the orig stack)")
+      (addr) (area->size);
+  } else if (0 == strcmp(area -> name, "[vsyscall]") ||
+             0 == strcmp(area -> name, "[vectors]") ||
+             0 == strcmp(area -> name, "[vvar]") ||
+             0 == strcmp(area -> name, "[vdso]")) {
+    JTRACE("skipping over memory special section")
+      (area->name) (addr) (area->size);
+  } else if (area->prot == 0 ||
       (area->name[0] == '\0' &&
        ((area->flags & MAP_ANONYMOUS) != 0) &&
        ((area->flags & MAP_PRIVATE) != 0))) {
@@ -463,13 +451,7 @@ static void writememoryarea (int fd, Area *area, int stack_was_seen,
      * mappings only
      */
     mtcp_write_non_rwx_and_anonymous_pages(fd, area);
-  } else if (0 != strcmp(area -> name, "[vsyscall]")
-             && 0 != strcmp(area -> name, "[vectors]")
-             && ((0 != strcmp(area -> name, "[vdso]")
-                  || vsyscall_exists /* which implies vdso can be overwritten */
-                  || !stack_was_seen))) /* If vdso appeared before stack, it can be
-                                         replaced */
-  {
+  } else {
     /* Anonymous sections need to have their data copied to the file,
      *   as there is no file that contains their data
      * We also save shared files to checkpoint file to handle shared memory
@@ -479,64 +461,6 @@ static void writememoryarea (int fd, Area *area, int stack_was_seen,
     Util::writeAll(fd, area, sizeof(*area));
     Util::writeAll(fd, area->addr, area->size);
   }
-}
-
-static void preprocess_special_segments(int *vsyscall_exists)
-{
-  Area area;
-  int mapsfd = _real_open("/proc/self/maps", O_RDONLY);
-  JASSERT(mapsfd != -1) (JASSERT_ERRNO) .Text("Error opening /proc/self/maps");
-
-  while (Util::readProcMapsLine(mapsfd, &area)) {
-    if (0 == strcmp(area.name, "[vsyscall]")) {
-      /* Determine if [vsyscall] exists.  If [vdso] and [vsyscall] exist,
-       * [vdso] will be saved and restored.
-       * NOTE:  [vdso] is relocated if /proc/sys/kernel/randomize_va_space == 2.
-       * We must restore old [vdso] and also keep [vdso] in that case.
-       * On Linux 2.6.25:
-       *   32-bit Linux has:  [heap], /lib/ld-2.7.so, [vdso], libs, [stack].
-       *   64-bit Linux has:  [stack], [vdso], [vsyscall].
-       * and at least for gcl, [stack], libmtcp.so, [vsyscall] seen.
-       * If 32-bit process in 64-bit Linux:
-       *     [stack] (0xffffd000), [vdso] (0xffffe0000)
-       * On 32-bit Linux, mtcp_restart has [vdso], /lib/ld-2.7.so, [stack]
-       * Need to restore old [vdso] into mtcp_restart, to restart.
-       * With randomize_va_space turned off, libraries start at high address
-       *     0xb8000000 and are loaded progressively at lower addresses.
-       * mtcp_restart loads vdso (which looks like a shared library) first.
-       * But libpthread/libdl/libc libraries are loaded above vdso in user
-       * image.
-       * So, we must use the opposite of the user's setting (no randomization if
-       *     user turned it on, and vice versa).  We must also keep the
-       *     new vdso segment, provided by mtcp_restart.
-       */
-      *vsyscall_exists = 1;
-    } else if (/*!mtcp_saved_heap_start && */strcmp(area.name, "[heap]") == 0) {
-      // Record start of heap which will later be used in mtcp_restore_finish()
-      //mtcp_saved_heap_start = area.addr;
-    } else if (strcmp(area.name, "[stack]") == 0) {
-      /*
-       * When using Matlab with dmtcp_launch, sometimes the bottom most
-       * page of stack (the page with highest address) which contains the
-       * environment strings and the argv[] was not shown in /proc/self/maps.
-       * This is arguably a bug in the Linux kernel as of version 2.6.32, etc.
-       * This happens on some odd combination of environment passed on to
-       * Matlab process. As a result, the page was not checkpointed and hence
-       * the process segfaulted on restart. The fix is to try to mprotect this
-       * page with RWX permission to make the page visible again. This call
-       * will fail if no stack page was invisible to begin with.
-       */
-      // FIXME : If the area following the stack is not empty, don't
-      //         exercise this path.
-      int ret = mprotect(area.addr + area.size, 0x1000,
-                         PROT_READ | PROT_WRITE | PROT_EXEC);
-      if (ret == 0) {
-        JNOTE("bottom-most page of stack (page with highest address) was\n"
-              "  invisible in /proc/self/maps. It is made visible again now.");
-      }
-    }
-  }
-  close(mapsfd);
 }
 
 #if 0

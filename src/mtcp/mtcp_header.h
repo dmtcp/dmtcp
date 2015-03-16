@@ -44,6 +44,10 @@ typedef union _MtcpHeader {
     void *saved_brk;
     void *restore_addr;
     size_t restore_size;
+    void *vdsoStart;
+    void *vdsoEnd;
+    void *vvarStart;
+    void *vvarEnd;
     void (*post_restart) ();
     ThreadTLSInfo motherofall_tls_info;
     int tls_pid_offset;

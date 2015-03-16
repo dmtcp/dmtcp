@@ -37,6 +37,7 @@
  *  this memory region again until we restart from the next checkpoint.
  */
 
+#define _GNU_SOURCE 1
 #include <errno.h>
 #include <fcntl.h>
 #include <sched.h>
@@ -83,8 +84,12 @@ typedef struct RestoreInfo {
   size_t text_size;
   VA saved_brk;
   VA restore_addr;
+  VA restore_end;
   size_t restore_size;
-  VA highest_va;
+  VA vdsoStart;
+  VA vdsoEnd;
+  VA vvarStart;
+  VA vvarEnd;
   fnptr_t post_restart;
   fnptr_t restorememoryareas_fptr;
   //void (*post_restart)();
@@ -106,8 +111,6 @@ static int read_one_memory_area(int fd);
 static void mmapfile(int fd, void *buf, size_t size, int prot, int flags);
 #endif
 static void read_shared_memory_area_from_file(int fd, Area* area, int flags);
-static VA highest_userspace_address (VA *vdso_addr, VA *vsyscall_addr,
-                                     VA * stack_end_addr);
 static void lock_file(int fd, char* name, short l_type);
 // static char* fix_filename_if_new_cwd(char* filename);
 static int open_shared_file(char* filename);
@@ -118,10 +121,11 @@ static void restart_fast_path(void);
 static void restart_slow_path(void);
 static int doAreasOverlap(VA addr1, size_t size1, VA addr2, size_t size2);
 static int hasOverlappingMapping(VA addr, size_t size);
-static void getMiscAddrs(VA *textAddr, size_t *size, VA *highest_va);
+static void getTextAddr(VA *textAddr, size_t *size);
 static void mtcp_simulateread(int fd);
 void restore_libc(ThreadTLSInfo *tlsInfo, int tls_pid_offset,
                   int tls_tid_offset, MYINFO_GS_T myinfo_gs);
+static void unmap_memory_areas_and_restore_vdso(RestoreInfo *rinfo);
 
 
 #define MB 1024*1024
@@ -254,7 +258,12 @@ MTCP_PRINTF("Attach for debugging.");
 
   rinfo.saved_brk = mtcpHdr.saved_brk;
   rinfo.restore_addr = mtcpHdr.restore_addr;
+  rinfo.restore_end = mtcpHdr.restore_addr + mtcpHdr.restore_size;
   rinfo.restore_size = mtcpHdr.restore_size;
+  rinfo.vdsoStart = mtcpHdr.vdsoStart;
+  rinfo.vdsoEnd = mtcpHdr.vdsoEnd;
+  rinfo.vvarStart = mtcpHdr.vvarStart;
+  rinfo.vvarEnd = mtcpHdr.vvarEnd;
   rinfo.post_restart = mtcpHdr.post_restart;
   rinfo.motherofall_tls_info = mtcpHdr.motherofall_tls_info;
   rinfo.tls_pid_offset = mtcpHdr.tls_pid_offset;
@@ -263,8 +272,7 @@ MTCP_PRINTF("Attach for debugging.");
 
   restore_brk(rinfo.saved_brk, rinfo.restore_addr,
               rinfo.restore_addr + rinfo.restore_size);
-  // We will not use rinfo.highest_va.  It fails on several distros/CPUs.
-  getMiscAddrs(&rinfo.text_addr, &rinfo.text_size, &rinfo.highest_va);
+  getTextAddr(&rinfo.text_addr, &rinfo.text_size);
   if (hasOverlappingMapping(rinfo.restore_addr, rinfo.restore_size)) {
     MTCP_PRINTF("*** Not Implemented.\n\n");
     mtcp_abort();
@@ -486,23 +494,14 @@ static void restorememoryareas(RestoreInfo *rinfo_ptr)
           "But we may be lucky if the strings have been cached by the O/S\n"
           "or if compiler uses relative addressing for rodata with -fPIC\n");
 
-  int rc;
-  VA holebase;
-  VA highest_va;
-  VA vdso_addr = NULL, vsyscall_addr = NULL, stack_end_addr = NULL;
-  vdso_addr = vsyscall_addr = stack_end_addr = 0;
-  // Compute these now while it's safe; Use values later.
-  highest_va = highest_userspace_address(&vdso_addr, &vsyscall_addr,
-                                         &stack_end_addr);
-
   if (rinfo_ptr->use_gdb) {
     MTCP_PRINTF("Called with --use-gdb.  A useful command is:\n"
-            "    (gdb) info proc mapping");
+                "    (gdb) info proc mapping");
     if (rinfo_ptr->text_offset != -1) {
       MTCP_PRINTF("Called with --text-offset 0x%x.  A useful command is:\n"
-              "(gdb) add-symbol-file ../../bin/mtcp_restart %p\n",
-              rinfo_ptr->text_offset,
-              rinfo_ptr->restore_addr + rinfo_ptr->text_offset);
+                  "(gdb) add-symbol-file ../../bin/mtcp_restart %p\n",
+                  rinfo_ptr->text_offset,
+                  rinfo_ptr->restore_addr + rinfo_ptr->text_offset);
 #if defined(__i386__) || defined(__x86_64__)
       asm volatile ("int3"); // Do breakpoint; send SIGTRAP, caught by gdb
 #else
@@ -515,29 +514,6 @@ static void restorememoryareas(RestoreInfo *rinfo_ptr)
   RestoreInfo restore_info;
   mtcp_memcpy(&restore_info, rinfo_ptr, sizeof (restore_info));
 
-
-  /* Unmap everything except for this image as everything we need
-   *   is contained in the libmtcp.so image.
-   * Unfortunately, in later Linuxes, it's important also not to wipe
-   *   out [vsyscall] if it exists (we may not have permission to remove it).
-   *   In any case, [vsyscall] is the highest section if it exists.
-   * Further, if the [vdso] when we restart is different from the old
-   *   [vdso] that was saved at checkpoint time, then we need to keep
-   *   both of them.  The old one may be needed if we're returning from
-   *   a system call at checkpoint time.  The new one is needed for future
-   *   system calls.
-   * Highest_userspace_address is determined heuristically.  Primarily, it
-   *   was intended to make sure we don't overwrite [vdso] or [vsyscall].
-   *   But it was heuristically chosen as a constant (works for earlier
-   *   Linuxes), or as the end of stack.  Probably, we should review that,
-   *   and just make it beginning of [vsyscall] where that exists.
-   */
-
-  holebase = restore_info.restore_addr;
-  // WAS: holebase  = mtcp_shareable_begin;
-  // WAS: holebase = (VA)((unsigned long int)holebase & -MTCP_PAGE_SIZE);
-  // The unmaps will wipe what it points to anyway.
-  // Force a hard error if any code tries to use the thread-pointer register.
 #if defined(__i386__) || defined(__x86_64__)
   asm volatile (CLEAN_FOR_64_BIT(xor %%eax,%%eax ; movw %%ax,%%fs)
 				: : : CLEAN_FOR_64_BIT(eax));
@@ -547,70 +523,16 @@ static void restorememoryareas(RestoreInfo *rinfo_ptr)
 # warning __FUNCTION__ "TODO: Implementation for ARM64"
 #endif
 
-  // so make sure we get a hard failure just in case
-  // ... it's left dangling on something I want
-  // asm volatile (CLEAN_FOR_64_BIT(xor %%eax,%%eax ; movw %%ax,%%gs)
-  //                                : : : CLEAN_FOR_64_BIT(eax));
-
-  /* Unmap from address 0 to holebase, except for [vdso] section */
-  if (stack_end_addr == 0) /* 0 means /proc/self/maps doesn't mark "[stack]" */
-    highest_va = HIGHEST_VA;
-  else
-    highest_va = stack_end_addr;
-  // DPRINTF("new_brk (end of heap): %\n", new_brk);
-  DPRINTF("holebase (libmtcp.so): %p,\n"
-          " stack_end_addr: %p, vdso_addr: %p, highest_va: %p,\n"
-          " vsyscall_addr: %p\n",
-          holebase, stack_end_addr,
-          vdso_addr, highest_va, vsyscall_addr);
-
-  if (vdso_addr != NULL && vdso_addr < holebase) {
-    DPRINTF("unmapping %p..%p, %p..%p\n",
-            NULL, vdso_addr-1, vdso_addr+MTCP_PAGE_SIZE, holebase - 1);
-    rc = mtcp_sys_munmap (NULL, (size_t)vdso_addr);
-    rc |= mtcp_sys_munmap (vdso_addr + MTCP_PAGE_SIZE,
-			   holebase - vdso_addr - MTCP_PAGE_SIZE);
-  } else {
-    DPRINTF("unmapping 0..%p\n", holebase - 1);
-    rc = mtcp_sys_munmap (NULL, holebase);
-  }
-  if (rc == -1) {
-      MTCP_PRINTF("error %d unmapping from 0 to %p\n",
-                  mtcp_sys_errno, holebase);
-      mtcp_abort ();
-  }
-
-  /* Unmap from address holebase to highest_va, except for [vdso] section */
-  /* Value of mtcp_shareable_end (end of data segment) can change from before */
-  holebase = restore_info.restore_addr + restore_info.restore_size;
-  /* restore_info.highest_va had bugs for ARM, for older Linuxes
-   * (incl. 2.6.18, and maybe 2.6.31 under Ubuntu 9.04).  So, we're reverting to
-   * highest_userspace_address(), with years of experience on various distros.
+  /* Unmap everything except for vdso, vvar, vsyscall and this image as
+   *  everything we need is contained in the libmtcp.so image.
+   * Unfortunately, in later Linuxes, it's important also not to wipe
+   *   out [vsyscall] if it exists (we may not have permission to remove it).
+   * Further, if the [vdso] when we restart is different from the old
+   *   [vdso] that was saved at checkpoint time, then we need to overwrite
+   *   the old vdso with the new one (using mremap).
+   *   Similarly for vvar.
    */
-  if (vdso_addr != NULL && vdso_addr + MTCP_PAGE_SIZE <= highest_va) {
-    if (vdso_addr > holebase) {
-      DPRINTF("unmapping %p..%p, %p..%p\n",
-              holebase, vdso_addr-1, vdso_addr + MTCP_PAGE_SIZE,
-              highest_va - 1);
-      rc = mtcp_sys_munmap (holebase, vdso_addr - holebase);
-      rc |= mtcp_sys_munmap (vdso_addr + MTCP_PAGE_SIZE,
-                             highest_va - vdso_addr - MTCP_PAGE_SIZE);
-    } else {
-      DPRINTF("unmapping %p..%p\n", holebase, highest_va - 1);
-      if (highest_va < holebase) {
-        MTCP_PRINTF("error unmapping: highest_va(%p) < holebase(%p)\n",
-                    highest_va, holebase);
-        mtcp_abort ();
-      }
-      rc = mtcp_sys_munmap (holebase, highest_va - holebase);
-    }
-  }
-  if (rc == -1) {
-      MTCP_PRINTF("error %d unmapping from %p by %p bytes\n",
-                  mtcp_sys_errno, holebase, highest_va - holebase);
-      mtcp_abort ();
-  }
-  DPRINTF("\n"); /* end of munmap */
+  unmap_memory_areas_and_restore_vdso(&restore_info);
 
   /* Restore memory areas */
   DPRINTF("restoring memory areas\n");
@@ -633,6 +555,88 @@ static void restorememoryareas(RestoreInfo *rinfo_ptr)
    * This is in libdmtcp.so, and is called: restore_libc.c:TLSInfo_PostRestart
    */
   restore_info.post_restart();
+}
+
+__attribute__((optimize(0)))
+static void unmap_memory_areas_and_restore_vdso(RestoreInfo *rinfo)
+{
+  /* Unmap everything except this image, vdso, vvar and vsyscall. */
+  int mtcp_sys_errno;
+  Area area;
+  VA vdsoStart = NULL;
+  VA vdsoEnd = NULL;
+  VA vvarStart = NULL;
+  VA vvarEnd = NULL;
+
+  int mapsfd = mtcp_sys_open2("/proc/self/maps", O_RDONLY);
+  if (mapsfd < 0) {
+    MTCP_PRINTF("error opening /proc/self/maps: errno: %d\n", mtcp_sys_errno);
+    mtcp_abort ();
+  }
+
+  while (mtcp_readmapsline(mapsfd, &area)) {
+    if (area.addr >= rinfo->restore_addr && area.addr < rinfo->restore_end) {
+      // Do not unmap this restore image.
+    } else if (mtcp_strcmp(area.name, "[vdso]") == 0) {
+      // Do not unmap vdso.
+      vdsoStart = area.addr;
+      vdsoEnd = area.endAddr;
+    } else if (mtcp_strcmp(area.name, "[vvar]") == 0) {
+      // Do not unmap vvar.
+      vvarStart = area.addr;
+      vvarEnd = area.endAddr;
+    } else if (mtcp_strcmp(area.name, "[vsyscall]") == 0) {
+      // Do not unmap vsyscall.
+    } else if (area.size > 0 ) {
+      if (mtcp_sys_munmap(area.addr, area.size) == -1) {
+        MTCP_PRINTF("***WARNING: munmap(%p, %d) failed: %d\n",
+                    area.addr, area.size, mtcp_sys_errno);
+        mtcp_abort();
+      }
+      MTCP_PRINTF("***INFO: munmap(%p, %d) worked\n", area.addr, area.size);
+      // Rewind and reread maps.
+      mtcp_sys_lseek(mapsfd, 0, SEEK_SET);
+    }
+  }
+  mtcp_sys_close (mapsfd);
+
+  if ((vdsoStart == vvarEnd && rinfo->vdsoStart != rinfo->vvarEnd) ||
+      (vvarStart == vdsoEnd && rinfo->vvarStart != rinfo->vdsoEnd)) {
+    MTCP_PRINTF("***Error: vdso/vvar order was different during ckpt.\n");
+    mtcp_abort();
+  }
+
+  if (vdsoEnd - vdsoStart != rinfo->vdsoEnd - rinfo->vdsoStart) {
+    MTCP_PRINTF("***Error: vdso size mismatch.\n");
+    mtcp_abort();
+  }
+
+  if (vvarEnd - vvarStart != rinfo->vvarEnd - rinfo->vvarStart) {
+    MTCP_PRINTF("***Error: vvar size mismatch.\n");
+    mtcp_abort();
+  }
+
+  void *vdso = mtcp_sys_mremap(vdsoStart,
+                               vdsoEnd - vdsoStart,
+                               vdsoEnd - vdsoStart,
+                               MREMAP_FIXED | MREMAP_MAYMOVE,
+                               rinfo->vdsoStart);
+  if (vdso == MAP_FAILED) {
+    MTCP_PRINTF("***Error: failed to mremap vdso.\n");
+    mtcp_abort();
+  }
+  MTCP_ASSERT(vdso == rinfo->vdsoStart);
+
+  void *vvar = mtcp_sys_mremap(vvarStart,
+                               vvarEnd - vvarStart,
+                               vvarEnd - vvarStart,
+                               MREMAP_FIXED | MREMAP_MAYMOVE,
+                               rinfo->vvarStart);
+  if (vvar == MAP_FAILED) {
+    MTCP_PRINTF("***Error: failed to mremap vvar.\n");
+    mtcp_abort();
+  }
+  MTCP_ASSERT(vvar == rinfo->vvarStart);
 }
 
 /**************************************************************************
@@ -1118,78 +1122,6 @@ static void read_shared_memory_area_from_file(int fd, Area* area, int flags)
     mtcp_sys_close (imagefd); // don't leave dangling fd in way of other stuff
 }
 
-/* Modelled after mtcp_safemmap.  - Gene */
-static VA highest_userspace_address (VA *vdso_addr, VA *vsyscall_addr,
-				     VA *stack_end_addr)
-{
-    int mtcp_sys_errno;
-    char c;
-    int mapsfd, i;
-    VA endaddr, startaddr;
-    VA highaddr = 0; /* high stack address should be highest userspace addr */
-    const char *stackstring = "[stack]";
-    const char *vdsostring = "[vdso]";
-    const char *vsyscallstring = "[vsyscall]";
-    const int bufsize = 1 + sizeof "[vsyscall]"; /* largest of last 3 strings */
-    char buf[bufsize];
-
-    buf[0] = '\0';
-    buf[bufsize - 1] = '\0';
-
-    /* Scan through the mappings of this process */
-
-    mapsfd = mtcp_sys_open ("/proc/self/maps", O_RDONLY, 0);
-    if (mapsfd < 0) {
-	MTCP_PRINTF("couldn't open /proc/self/maps; error %d\n",
-                    mtcp_sys_errno);
-	mtcp_abort();
-    }
-
-    *vdso_addr = NULL;
-    while (1) {
-
-	/* Read a line from /proc/self/maps */
-
-	c = mtcp_readhex (mapsfd, &startaddr);
-	if (c == '\0') break;
-	if (c != '-') continue; /* skip to next line */
-	c = mtcp_readhex (mapsfd, &endaddr);
-	if (c == '\0') break;
-	if (c != ' ') continue; /* skip to next line */
-
-	while ((c != '\0') && (c != '\n')) {
-	    if (c != ' ') {
-		for (i = 0; (i < bufsize) && (c != ' ')
-			 && (c != 0) && (c != '\n'); i++) {
-		    buf[i] = c;
-		    c = mtcp_readchar (mapsfd);
-		}
-	    } else {
-		c = mtcp_readchar (mapsfd);
-	    }
-	}
-
-	if (0 == mtcp_strncmp(buf, stackstring, mtcp_strlen(stackstring))) {
-	    *stack_end_addr = endaddr;
-	    highaddr = endaddr;  /* We found "[stack]" in /proc/self/maps */
-	}
-
-	if (0 == mtcp_strncmp(buf, vdsostring, mtcp_strlen(vdsostring))) {
-	    *vdso_addr = startaddr;
-	    highaddr = endaddr;  /* We found "[vdso]" in /proc/self/maps */
-	}
-
-	if (0 == mtcp_strncmp(buf, vsyscallstring, mtcp_strlen(vsyscallstring))) {
-	    *vsyscall_addr = startaddr;
-	    highaddr = endaddr;  /* We found "[vsyscall]" in /proc/self/maps */
-	}
-    }
-
-    mtcp_sys_close (mapsfd);
-
-    return highaddr;
-}
-
 /*****************************************************************************
  *
  *  Restore the GDT entries that are part of a thread's state
@@ -1442,12 +1374,11 @@ static int hasOverlappingMapping(VA addr, size_t size)
 }
 
 __attribute__((optimize(0)))
-static void getMiscAddrs(VA *text_addr, size_t *size, VA *highest_va)
+static void getTextAddr(VA *text_addr, size_t *size)
 {
   int mtcp_sys_errno;
   Area area;
-  VA area_end = NULL;
-  VA this_fn = (VA) &getMiscAddrs;
+  VA this_fn = (VA) &getTextAddr;
   int mapsfd = mtcp_sys_open2("/proc/self/maps", O_RDONLY);
   if (mapsfd < 0) {
     MTCP_PRINTF("error opening /proc/self/maps: errno: %d\n", mtcp_sys_errno);
@@ -1469,15 +1400,10 @@ static void getMiscAddrs(VA *text_addr, size_t *size, VA *highest_va)
         (area.addr < this_fn && (area.addr + area.size) > this_fn)) {
       *text_addr = area.addr;
       *size = area.size;
-    }
-    if (mtcp_strstr (area.name, "[vsyscall]") != NULL) {
-      /* vsyscall is highest section, when it exists */
       break;
     }
-    area_end = area.addr + area.size;
   }
   mtcp_sys_close (mapsfd);
-  *highest_va = area_end;
 }
 
 // gcc can generate calls to these.

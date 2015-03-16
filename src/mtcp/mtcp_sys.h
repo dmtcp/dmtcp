@@ -278,7 +278,7 @@ struct linux_dirent {
 #else
 # error "getrlimit kernel call not implemented in this architecture"
 #endif
-#define mtcp_sys_mremap(args...)  (void *)mtcp_inline_syscall(mremap,4,args)
+#define mtcp_sys_mremap(args...)  (void *)mtcp_inline_syscall(mremap,5,args)
 #define mtcp_sys_munmap(args...)  mtcp_inline_syscall(munmap,2,args)
 #define mtcp_sys_mprotect(args...)  mtcp_inline_syscall(mprotect,3,args)
 #define mtcp_sys_nanosleep(args...)  mtcp_inline_syscall(nanosleep,2,args)
