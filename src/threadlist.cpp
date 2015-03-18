@@ -575,7 +575,7 @@ void ThreadList::waitForAllRestored(Thread *thread)
      * sent to individual threads.
      */
     for (i = SIGRTMAX; i > 0; --i) {
-      if (sigismember(&sigpending_global, i)) {
+      if (sigismember(&sigpending_global, i) == 1) {
         kill(getpid(), i);
       }
     }
