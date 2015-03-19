@@ -5,15 +5,16 @@ Please send DMTCP bug reports via <dmtcp-forum@lists.sourceforge.net>
 Version 2.4 release notes
 =========================
 Several important enancements were added:
-* Newer versions of matlab (matlab-2013 and later) were using additional
+* Newer versions of MATLAB (matlab-2013 and later) were using additional
    Linux features.  All recent versions of matlab are again supported.
 * Intensive testing done for integration of MPI/SLURM
-   for the following MPI dialectsIntel MPI/MVAPICH-2/MPICH-2/Open MPI
-   See plugin/batch-queue/job_examples/ for SLURM/DMTCP submission scripts
+   for the following MPI dialects:  Intel MPI/MVAPICH-2/MPICH-2/Open MPI
+   See plugin/batch-queue/job_examples/ for SLURM/DMTCP submission scripts.
+* Added support for newest Linux kernels: split of [vdso]
+   into [vdso] and [vvar]
 * Enhancements added for newer 32-bit ARM (armv7) CPUs
 * Experimental support is now provided for 64-bit ARM (armv8)
-* Added support for newest Linux kernels: split of [vdso] into [vds] and [vvar]
-* Numerous bug fixes
+* Bug fixes
 
 Version 2.3.1 release notes
 =========================
