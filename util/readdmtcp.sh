@@ -1,8 +1,17 @@
 #!/bin/sh
 
-if file $1 | grep gzip > /dev/null; then
-  echo '***' $1 is a gzipped file.  Please uncompress it first.
+if test "$1" = ""; then
+  echo 'Usage:  readdmtcp.sh <CKPT IMAGE>'
+  echo 'Example:  util/readdmtcp.sh ckpt_dmtcp1_*.dmtcp'
   exit 0
+fi
+
+trap 'rm -f ckpt_tmp.dmtcp' INT QUIT EXIT
+
+if file $1 | grep gzip > /dev/null; then
+  echo '***' $1 is a gzipped file.  Will uncompress it into ckpt_tmp.dmcp first.
+  gzip -dc $1 > ckpt_tmp.dmtcp
+  set ckpt_tmp.dmtcp
 fi
 
 dir=`dirname $0`
