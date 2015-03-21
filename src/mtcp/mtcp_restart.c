@@ -239,9 +239,11 @@ MTCP_PRINTF("Attach for debugging.");
       mtcp_abort();
     }
     // This assumes that the MTCP header signature is unique.
-    do {
-      mtcp_readfile(rinfo.fd, &mtcpHdr, sizeof mtcpHdr);
-    } while (mtcp_strcmp(mtcpHdr.signature, MTCP_SIGNATURE) != 0);
+    mtcp_readfile(rinfo.fd, &mtcpHdr, sizeof mtcpHdr);
+    if (mtcp_strcmp(mtcpHdr.signature, MTCP_SIGNATURE) != 0) {
+      MTCP_PRINTF("***ERROR: ckpt image doesn't match MTCP_SIGNATURE\n");
+      mtcp_abort();
+    }
   }
 
   DPRINTF("For debugging:\n"
@@ -826,7 +828,7 @@ static int read_one_memory_area(int fd)
     }
 
     if (area.prot & MAP_SHARED) {
-      imagefd = mtcp_sys_open (area.name, flags, 0);  // Can we open file.?
+      imagefd = mtcp_sys_open (area.name, flags, 0);  // Can we open file?
       if (imagefd < 0 && mtcp_sys_errno == ENOENT) {
         // File doesn't exist.  Do we have perm to create it and write data?
         imagefd = mtcp_sys_open (area.name, O_CREAT|O_RDWR, 0);
@@ -835,6 +837,8 @@ static int read_one_memory_area(int fd)
         } else {
           // We don't have permission to re-create shared file.
           // Open it as anonymous private, and hope for the best.
+          // FIXME:  Or maybe we do have permission to re-create shared file,
+          //         but it requires us to also re-create the parent directory.
           area.flags ^= MAP_SHARED;
           area.flags |= MAP_PRIVATE;
           area.flags |= MAP_ANONYMOUS;
