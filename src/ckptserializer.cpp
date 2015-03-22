@@ -19,6 +19,7 @@
  ****************************************************************************/
 
 #include <stdlib.h>
+#include <limits.h> /* for LONG_MIN and LONG_MAX */
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <sys/syscall.h>
@@ -156,7 +157,9 @@ static int test_use_compression(char *compressor, char *command, char *path,
     do_we_compress = default_val;
 
   char *endptr;
-  strtol(do_we_compress, &endptr, 0);
+  errno = 0;
+  long int rc = strtol(do_we_compress, &endptr, 0);
+  JASSERT(rc != LONG_MIN && rc != LONG_MAX) (do_we_compress) (JASSERT_ERRNO);
   if (*do_we_compress == '\0' || *endptr != '\0') {
     JWARNING(false) (evar) (do_we_compress)
       .Text("Compression env var not defined as a number."
