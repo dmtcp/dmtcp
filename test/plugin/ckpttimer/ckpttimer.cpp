@@ -193,23 +193,16 @@ dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
         start_stop_timer(timerid, g_interval, START_TIMER);
         break;
       }
-    case DMTCP_EVENT_RESUME:
-      {
-        JTRACE("*** The plugin has now been checkpointed. ***");
-        start_stop_timer(timerid, g_interval, STOP_TIMER);
-        JTRACE("*** Cancelled the ckpt timer! ***");
-        break;
-      }
     case DMTCP_EVENT_THREADS_RESUME:
       {
         if (data->resumeInfo.isRestart) {
           JTRACE("The plugin is now restarting from checkpointing.");
-          /* Need to stop the timer on restart. */
-          start_stop_timer(timerid, g_interval, STOP_TIMER);
-          JTRACE("*** Cancelled the ckpt timer! ***");
         } else {
           JTRACE("The process is now resuming after checkpoint.");
         }
+        /* Need to stop the timer on resume/restart. */
+        start_stop_timer(timerid, g_interval, STOP_TIMER);
+        JTRACE("*** Cancelled the ckpt timer! ***");
         break;
       }
     default:
