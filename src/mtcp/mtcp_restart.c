@@ -617,6 +617,26 @@ static void unmap_memory_areas_and_restore_vdso(RestoreInfo *rinfo)
     mtcp_abort();
   }
 
+  if (vdsoStart == rinfo->vdsoStart) {
+    // If the new vDSO is at the same address as the old one, do nothing.
+    MTCP_ASSERT(vvarStart == rinfo->vvarStart);
+    return;
+  }
+
+  // Check for overlap between newer and older vDSO/vvar sections.
+  if (doAreasOverlap(vdsoStart, vdsoEnd - vdsoStart,
+                     rinfo->vdsoStart, rinfo->vdsoEnd - rinfo->vdsoStart) ||
+      doAreasOverlap(vdsoStart, vdsoEnd - vdsoStart,
+                     rinfo->vvarStart, rinfo->vvarEnd - rinfo->vvarStart) ||
+      doAreasOverlap(vvarStart, vvarEnd - vvarStart,
+                     rinfo->vdsoStart, rinfo->vdsoEnd - rinfo->vdsoStart) ||
+      doAreasOverlap(vdsoStart, vdsoEnd - vdsoStart,
+                     rinfo->vvarStart, rinfo->vvarEnd - rinfo->vvarStart)) {
+    MTCP_PRINTF("*** MTCP Error: Overlapping addresses for older and newer\n"
+                "                vDSO/vvar sections.\n");
+    mtcp_abort();
+  }
+
   if (vdsoStart != NULL) {
     void *vdso = mtcp_sys_mremap(vdsoStart,
                                  vdsoEnd - vdsoStart,
