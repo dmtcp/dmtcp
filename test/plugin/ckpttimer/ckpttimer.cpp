@@ -191,11 +191,6 @@ dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
         start_stop_timer(timerid, g_interval, START_TIMER);
         break;
       }
-    case DMTCP_EVENT_THREADS_SUSPEND:
-      {
-        JTRACE("*** The plugin is being called after suspend. ***");
-        break;
-      }
     case DMTCP_EVENT_RESUME:
       {
         JTRACE("*** The plugin has now been checkpointed. ***");
@@ -215,16 +210,6 @@ dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
         }
         break;
       }
-    case DMTCP_EVENT_EXIT:
-      DPRINTF("The plugin is being called before exiting.\n");
-      break;
-    /* These events are unused and could be omitted.  See dmtcp.h for
-     * complete list.
-     */
-    case DMTCP_EVENT_RESTART:
-    case DMTCP_EVENT_ATFORK_CHILD:
-    case DMTCP_EVENT_LEADER_ELECTION:
-    case DMTCP_EVENT_DRAIN:
     default:
       break;
   }
