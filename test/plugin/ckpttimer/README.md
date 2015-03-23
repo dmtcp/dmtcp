@@ -9,7 +9,7 @@ the plugin:
     DMTCP_CKPTTIMER_SIGNAL:   Use this to specify the timeout signal
     DMTCP_CKPTTIMER_ACTION:   Use this to specify the action on timeout
     DMTCP_CKPTTIMER_INTERVAL: Use this to specify the timeout interval
-                              in nanoseconds
+                              in seconds
 
 Example:
 

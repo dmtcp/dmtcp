@@ -40,7 +40,7 @@
 
 #define CLOCKID         CLOCK_REALTIME
 #define DEFAULT_SIGNAL  SIGRTMIN+2
-#define SAMPLE_INTERVAL 1000000000 // 1 second
+#define SAMPLE_INTERVAL 1 // 1 second
 #define START_TIMER     true
 #define STOP_TIMER      false
 
@@ -48,7 +48,7 @@
 #define PRINT_WARNING_AND_EXIT  1
 
 /* Globals */
-static long long g_interval = SAMPLE_INTERVAL;
+static long g_interval = SAMPLE_INTERVAL;
 static int g_action  = PRINT_WARNING_AND_EXIT;
 static int g_sig_num = DEFAULT_SIGNAL;
 
@@ -72,7 +72,7 @@ get_and_save_envvars()
   }
 
   if (interval) {
-    g_interval = atoll(interval);
+    g_interval = atol(interval);
   }
 }
 
@@ -119,13 +119,13 @@ make_timer()
 }
 
 static void
-start_stop_timer(timer_t timerid, long long interval, bool start)
+start_stop_timer(timer_t timerid, long interval, bool start)
 {
   struct itimerspec its;
 
   if (start) {
-    its.it_value.tv_sec = interval / 1000000000;
-    its.it_value.tv_nsec = interval % 1000000000;
+    its.it_value.tv_sec = interval;
+    its.it_value.tv_nsec = 0;
   } else {
 #ifdef CKPTTIMER_PLUGIN_DEBUG
     if (timer_gettime(timerid, &its) == 0) {
