@@ -39,7 +39,7 @@
 
 
 #define CLOCKID         CLOCK_REALTIME
-#define DEFAULT_SIGN    SIGRTMIN+2
+#define DEFAULT_SIGNAL  SIGRTMIN+2
 #define SAMPLE_INTERVAL 1000000000 // 1 second
 #define START_TIMER     true
 #define STOP_TIMER      false
@@ -50,7 +50,7 @@
 /* Globals */
 static long long g_interval = SAMPLE_INTERVAL;
 static int g_action  = PRINT_WARNING_AND_EXIT;
-static int g_sig_num = DEFAULT_SIGN;
+static int g_sig_num = DEFAULT_SIGNAL;
 
 /* File local functions  */
 static void
@@ -64,7 +64,7 @@ get_and_save_envvars()
     g_sig_num = atoi(signal);
     JTRACE("Using signal for ckpt timer") (g_sig_num);
   } else {
-    g_sig_num = DEFAULT_SIGN;
+    g_sig_num = DEFAULT_SIGNAL;
   }
 
   if (action) {
