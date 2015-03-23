@@ -26,13 +26,9 @@
 #include "dmtcp.h"
 #include "jassert.h"
 
-#define DEBUG_SIGNATURE "[Ckpttimer Plugin]"
 #ifdef CKPTTIMER_PLUGIN_DEBUG
-# define DPRINTF(fmt, ...) \
-  do { fprintf(stderr, DEBUG_SIGNATURE fmt, ## __VA_ARGS__); } while (0)
-#else
-# define DPRINTF(fmt, ...) \
-  do { } while (0)
+# undef JTRACE
+# define JTRACE JNOTE
 #endif
 
 #define PRINTF(fmt, ...) \
@@ -64,14 +60,9 @@ get_and_save_envvars()
   const char *action = getenv("DMTCP_CKPTTIMER_ACTION");
   const char *interval = getenv("DMTCP_CKPTTIMER_INTERVAL");
 
-#ifdef CKPTTIMER_PLUGIN_TEST
-  static int dummy = 0;
-  while (!dummy);
-#endif
-
   if (signal) {
     g_sig_num = atoi(signal);
-    DPRINTF("Using signal (%d) for ckpt timer\n", g_sig_num);
+    JTRACE("Using signal for ckpt timer") (g_sig_num);
   } else {
     g_sig_num = DEFAULT_SIGN;
   }
@@ -88,7 +79,7 @@ get_and_save_envvars()
 static void
 timeout_handler(int sig, siginfo_t *si, void *uc)
 {
-  JWARNING("Checkpoint took longer than expected.");
+  JWARNING(false) .Text("Checkpoint took longer than expected.");
   fflush(stdout);
   if (g_action == PRINT_WARNING_AND_EXIT) {
     JASSERT(false)("Killing the application.");
@@ -138,7 +129,10 @@ start_stop_timer(timer_t timerid, long long interval, bool start)
   } else {
 #ifdef CKPTTIMER_PLUGIN_DEBUG
     if (timer_gettime(timerid, &its) == 0) {
-      DPRINTF("it_value(%lld, %lld), it_interval(%lld, %lld)\n", its.it_value.tv_sec, its.it_value.tv_nsec, its.it_interval.tv_sec, its.it_interval.tv_nsec);
+      JTRACE("it_value, it_interval") (its.it_value.tv_sec)
+                                      (its.it_value.tv_nsec)
+                                      (its.it_interval.tv_sec)
+                                      (its.it_interval.tv_nsec);
     } else {
       handleError("timer_gettime");
     }
@@ -155,7 +149,10 @@ start_stop_timer(timer_t timerid, long long interval, bool start)
   }
 #ifdef CKPTTIMER_PLUGIN_DEBUG
   if (timer_gettime(timerid, &its) == 0) {
-    DPRINTF("After disabling: it_value(%lld, %lld), it_interval(%lld, %lld)\n", its.it_value.tv_sec, its.it_value.tv_nsec, its.it_interval.tv_sec, its.it_interval.tv_nsec);
+    JTRACE("After disabling: it_value, it_interval") (its.it_value.tv_sec)
+                                                     (its.it_value.tv_nsec)
+                                                     (its.it_interval.tv_sec)
+                                                     (its.it_interval.tv_nsec);
   } else {
     handleError("timer_gettime");
   }
@@ -182,12 +179,12 @@ dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
           doneInitialization = 1;
         }
 
-        DPRINTF("The plugin containing %s has been initialized.\n", __FILE__);
+        JTRACE("The plugin has been initialized.");
         break;
       }
     case DMTCP_EVENT_WRITE_CKPT:
       {
-        DPRINTF("*** The plugin is being called before checkpointing. ***\n");
+        JTRACE("*** The plugin is being called before checkpointing. ***");
         /* Unblock the timer signal, and then start the timer */
         if (sigprocmask(SIG_UNBLOCK, &mask, NULL) == -1)
           handleError ("sigprocmask");
@@ -196,33 +193,25 @@ dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       }
     case DMTCP_EVENT_THREADS_SUSPEND:
       {
-        DPRINTF("*** The plugin is being called after suspend. ***\n");
+        JTRACE("*** The plugin is being called after suspend. ***");
         break;
       }
     case DMTCP_EVENT_RESUME:
       {
-        DPRINTF("*** The plugin has now been checkpointed. ***\n");
-#ifdef CKPTTIMER_PLUGIN_TEST
-        static int dummy = 0;
-        while (!dummy);
-#endif
+        JTRACE("*** The plugin has now been checkpointed. ***");
         start_stop_timer(timerid, g_interval, STOP_TIMER);
-        DPRINTF("*** Cancelled the ckpt timer! ***\n");
+        JTRACE("*** Cancelled the ckpt timer! ***");
         break;
       }
     case DMTCP_EVENT_THREADS_RESUME:
       {
         if (data->resumeInfo.isRestart) {
-          DPRINTF("The plugin is now restarting from checkpointing.\n");
-#ifdef CKPTTIMER_PLUGIN_TEST
-          static int dummy = 0;
-          while (!dummy);
-#endif
+          JTRACE("The plugin is now restarting from checkpointing.");
           /* Need to stop the timer on restart. */
           start_stop_timer(timerid, g_interval, STOP_TIMER);
-          DPRINTF("*** Cancelled the ckpt timer! ***\n");
+          JTRACE("*** Cancelled the ckpt timer! ***");
         } else {
-          DPRINTF("The process is now resuming after checkpoint.\n");
+          JTRACE("The process is now resuming after checkpoint.");
         }
         break;
       }
