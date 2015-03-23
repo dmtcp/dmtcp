@@ -647,7 +647,7 @@ static void unmap_memory_areas_and_restore_vdso(RestoreInfo *rinfo)
                                  MREMAP_FIXED | MREMAP_MAYMOVE,
                                  rinfo->vdsoStart);
     if (vdso == MAP_FAILED) {
-      MTCP_PRINTF("***Error: failed to mremap vdso.\n");
+      MTCP_PRINTF("***Error: failed to mremap vdso: %d.\n", mtcp_sys_errno);
       mtcp_abort();
     }
     MTCP_ASSERT(vdso == rinfo->vdsoStart);
