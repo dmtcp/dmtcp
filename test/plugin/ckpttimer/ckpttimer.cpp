@@ -129,10 +129,10 @@ start_stop_timer(timer_t timerid, long interval, bool start)
   } else {
 #ifdef CKPTTIMER_PLUGIN_DEBUG
     if (timer_gettime(timerid, &its) == 0) {
-      JTRACE("it_value, it_interval") (its.it_value.tv_sec)
-                                      (its.it_value.tv_nsec)
-                                      (its.it_interval.tv_sec)
-                                      (its.it_interval.tv_nsec);
+      JTRACE("Time left: it_value, it_interval") (its.it_value.tv_sec)
+                                                 (its.it_value.tv_nsec)
+                                                 (its.it_interval.tv_sec)
+                                                 (its.it_interval.tv_nsec);
     } else {
       handleError("timer_gettime");
     }
@@ -148,13 +148,15 @@ start_stop_timer(timer_t timerid, long interval, bool start)
     handleError("timer_settime");
   }
 #ifdef CKPTTIMER_PLUGIN_DEBUG
-  if (timer_gettime(timerid, &its) == 0) {
-    JTRACE("After disabling: it_value, it_interval") (its.it_value.tv_sec)
-                                                     (its.it_value.tv_nsec)
-                                                     (its.it_interval.tv_sec)
-                                                     (its.it_interval.tv_nsec);
-  } else {
-    handleError("timer_gettime");
+  if (!start) {
+    if (timer_gettime(timerid, &its) == 0) {
+      JTRACE("After disabling: it_value, it_interval") (its.it_value.tv_sec)
+                                                       (its.it_value.tv_nsec)
+                                                       (its.it_interval.tv_sec)
+                                                       (its.it_interval.tv_nsec);
+    } else {
+      handleError("timer_gettime");
+    }
   }
 #endif
 }
