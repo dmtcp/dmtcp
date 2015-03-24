@@ -43,11 +43,15 @@ endif
 LIBNAME=$(targetdir)/lib/${PACKAGE}/libdmtcp_${PLUGIN}.so
 
 DMTCP_INCLUDE_PATH = $(top_srcdir)/include
-DMTCP_SRC_PATH = $(top_srcdir)/src
 JALIB_PATH = $(top_srcdir)/jalib
 
-INCLUDES = -I$(JALIB_PATH) -I$(DMTCP_INCLUDE_PATH) -I${DMTCP_SRC_PATH} \
-           -I$(srcdir)
+INCLUDES = -I$(JALIB_PATH) -I$(DMTCP_INCLUDE_PATH) -I$(srcdir)
+
+# Needed for include/config.h
+ifneq ($(top_builddir),$(top_srcdir))
+  INCLUDES += -I$(top_builddir)/include
+endif
+
 
 override CFLAGS += -fPIC
 override CXXFLAGS += -fPIC
@@ -61,6 +65,7 @@ CXXCOMPILE = $(CXX) $(INCLUDES) $(CPPFLAGS) $(CXXFLAGS) -c -o $@
 CXXLINK = $(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@
 
 COMMON_HEADERS = ipc.h util_ipc.h \
+		 $(top_builddir)/include/config.h \
 		 $(DMTCP_INCLUDE_PATH)/util.h $(DMTCP_INCLUDE_PATH)/dmtcp.h \
 		 $(DMTCP_INCLUDE_PATH)/shareddata.h \
 		 $(DMTCP_INCLUDE_PATH)/dmtcpalloc.h \

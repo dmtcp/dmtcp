@@ -1,4 +1,4 @@
-/* src/config.h.in.  Generated from configure.ac by autoheader.  */
+/* include/config.h.in.  Generated from configure.ac by autoheader.  */
 
 /* Checkpoint signal to be used */
 #undef CKPT_SIGNAL

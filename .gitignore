@@ -22,8 +22,8 @@ autom4te.cache
 bin/
 lib/
 local/
-src/config.h
-src/stamp-h1
+include/config.h
+include/stamp-h1
 dmtcp/src/dmtcp_checkpoint
 dmtcp/src/dmtcp_launch
 dmtcp/src/dmtcp_command
