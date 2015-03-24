@@ -40,7 +40,7 @@ void scaleSendBuffers(int fd, double factor)
 
   // getsockopt returns doubled size. So, if we pass the same value to
   // setsockopt, it would double the buffer size.
-  int newSize = size * factor / 2;
+  int newSize = static_cast<int>(size * factor / 2);
   len = sizeof(newSize);
   JASSERT(_real_setsockopt(fd, SOL_SOCKET, SO_SNDBUF, (void *)&newSize, len) == 0);
 }
