@@ -22,6 +22,7 @@
 #ifndef SYSCALLWRAPPERS_H
 #define SYSCALLWRAPPERS_H
 
+#include <features.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <sys/types.h>
@@ -352,7 +353,7 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
                       struct sigaction *oldact);
   int _real_rt_sigaction(int signum, const struct sigaction *act,
                          struct sigaction *oldact);
-#if !__GNUC_PREREQ(2,21)
+#if !__GLIBC_PREREQ(2,21)
   int _real_sigvec(int sig, const struct sigvec *vec, struct sigvec *ovec);
 #endif
 
