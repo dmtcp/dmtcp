@@ -233,18 +233,6 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   MACRO(select)                             \
   MACRO(poll)                               \
                                             \
-  MACRO(epoll_create)                       \
-  MACRO(epoll_create1)                      \
-  MACRO(epoll_ctl)                          \
-  MACRO(epoll_wait)                         \
-  MACRO(epoll_pwait)                        \
-  MACRO(eventfd)                            \
-  MACRO(signalfd)                           \
-  MACRO(inotify_init)                       \
-  MACRO(inotify_init1)                      \
-  MACRO(inotify_add_watch)                  \
-  MACRO(inotify_rm_watch)                   \
-                                            \
   MACRO(pthread_create)                     \
   MACRO(pthread_exit)                       \
   MACRO(pthread_tryjoin_np)                 \
@@ -455,20 +443,6 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   int _real_pthread_cond_wait(pthread_cond_t *cond, pthread_mutex_t *mutex);
 
   int _real_poll(struct pollfd *fds, nfds_t nfds, POLL_TIMEOUT_TYPE timeout);
-
-  int _real_epoll_create(int size);
-  int _real_epoll_create1(int flags);
-  int _real_epoll_ctl(int epfd, int op, int fd, struct epoll_event *event);
-  int _real_epoll_wait(int epfd, struct epoll_event *events,
-                       int maxevents, int timeout);
-  int _real_epoll_pwait(int epfd, struct epoll_event *events,
-                        int maxevents, int timeout, const sigset_t *sigmask);
-  int _real_eventfd(EVENTFD_VAL_TYPE initval, int flags);
-  int _real_signalfd (int fd, const sigset_t *mask, int flags);
-  int _real_inotify_init(void);
-  int _real_inotify_init1(int flags);
-  int _real_inotify_add_watch(int fd, const char *pathname, uint32_t mask);
-  int _real_inotify_rm_watch(int fd, int wd);
 
   int   _real_waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options);
   pid_t _real_wait4(pid_t pid, __WAIT_STATUS status, int options,

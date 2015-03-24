@@ -46,7 +46,6 @@
 
 #define SYSCALL_ARG_RET_TYPE long int
 #define POLL_TIMEOUT_TYPE int
-#define EVENTFD_VAL_TYPE int
 
 #define DELETED_FILE_SUFFIX " (deleted)"
 #define LIB_PRIVATE __attribute__ ((visibility ("hidden")))

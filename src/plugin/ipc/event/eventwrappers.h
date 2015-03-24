@@ -23,8 +23,10 @@
 #ifndef EVENT_WRAPPERS_H
 #define EVENT_WRAPPERS_H
 
+#define EVENTFD_VAL_TYPE unsigned int
+
+#include "config.h"
 #include "dmtcp.h"
-#include "eventconnection.h"
 
 #define _real_poll NEXT_FNC(poll)
 #define _real_pselect NEXT_FNC(pselect)
