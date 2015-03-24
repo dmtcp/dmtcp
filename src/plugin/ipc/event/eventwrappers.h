@@ -23,10 +23,16 @@
 #ifndef EVENT_WRAPPERS_H
 #define EVENT_WRAPPERS_H
 
-#define EVENTFD_VAL_TYPE unsigned int
+#include <features.h>
 
 #include "config.h"
 #include "dmtcp.h"
+
+#if __GLIBC_PREREQ(2,21)
+# define EVENTFD_VAL_TYPE unsigned int
+#else
+# define EVENTFD_VAL_TYPE int
+#endif
 
 #define _real_poll NEXT_FNC(poll)
 #define _real_pselect NEXT_FNC(pselect)
