@@ -18,6 +18,9 @@
 /* Child process does checkpointing */
 #undef FORKED_CHECKPOINTING
 
+/* can use __sync_bool_compare_and_swap(), etc. */
+#undef HAS_ATOMIC_BUILTINS
+
 /* allow 'gdb attach' when DMTCP_RESTART_PAUSE is defined. */
 #undef HAS_PR_SET_PTRACER
 

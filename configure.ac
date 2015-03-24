@@ -499,8 +499,10 @@ AC_LINK_IFELSE(
 AC_LANG_POP([C++])
 AC_MSG_RESULT([$gccAtomicBuiltins])
 
-if test "$gccAtomicBuiltins" = "no"; then
-  AC_MSG_ERROR([[$CC does not support atomic builtins. Consider upgrading]])
+if test "$gccAtomicBuiltins" = "yes"; then
+  AC_DEFINE([HAS_ATOMIC_BUILTINS],[1],
+            [can use __sync_bool_compare_and_swap(), etc.])
 fi
+dnl Else will use mutex implementation; see jalib/jalloc.cpp
 
 AC_OUTPUT
