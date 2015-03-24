@@ -70,9 +70,12 @@ OBJS = rm_main.o rm_torque.o rm_slurm.o rm_utils.o rm_pmi.o slurm_helper.o
 SOURCES = rm_main.cpp rm_torque.cpp rm_slurm.cpp rm_utils.cpp rm_pmi.cpp slurm_helper.cpp
 
 DISCOVER_OBJS = discover_dmtcpinput.o discover_resources.o discover_slurm.o \
-		discover_torque.o
+		discover_torque.o dmtcp_discover_rm.o
 DISCOVER_HEADERS = discover_dmtcpinput.h discover_resources.h discover_slurm.h \
 		   discover_torque.h
+
+SRUN_HELPER_OBJS = slurm_helper.o dmtcp_srun_helper.o
+
 LIB_LDFLAGS = -shared -Wl,--unresolved-symbols=ignore-all
 
 LDADD = -ldl -lpthread
@@ -125,12 +128,11 @@ ${LIBNAME}: $(OBJS) ${HEADERS}
 $(targetdir)/bin/dmtcp_rm_loclaunch:
 	cp $(srcdir)/dmtcp_rm_loclaunch.sh $(targetdir)/bin/dmtcp_rm_loclaunch
 
-$(targetdir)/bin/dmtcp_discover_rm: dmtcp_discover_rm.cpp $(DISCOVER_OBJS) \
-  $(DISCOVER_HEADERS)
-	$(CXXLINK) $(INCLUDES) $(CPPFLAGS) $(DISCOVER_OBJS) $<
+$(targetdir)/bin/dmtcp_discover_rm: $(DISCOVER_OBJS) $(DISCOVER_HEADERS)
+	$(CXXLINK) $(INCLUDES) $(CPPFLAGS) $(DISCOVER_OBJS)
 
-$(targetdir)/bin/dmtcp_srun_helper: dmtcp_srun_helper.cpp slurm_helper.cpp
-	$(CXXLINK) $(INCLUDES) $(CPPFLAGS) $< slurm_helper.cpp
+$(targetdir)/bin/dmtcp_srun_helper: $(SRUN_HELPER_OBJS)
+	$(CXXLINK) $(INCLUDES) $(CPPFLAGS) $(SRUN_HELPER_OBJS)
 
 %.o: %.c ${HEADERS}
 	$(COMPILE)  $<
