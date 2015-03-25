@@ -243,6 +243,10 @@ MTCP_PRINTF("Attach for debugging.");
       mtcp_abort();
     }
     // This assumes that the MTCP header signature is unique.
+    // We repeatedly look for mtcpHdr because the first header will be
+    //   for DMTCP.  So, we look deeper for the MTCP header.  The MTCP
+    //   header is guaranteed to start on an offset that's an integer
+    //   multiple of sizeof(mtcpHdr), which is currently 4096 bytes.
     do {
       rc = mtcp_readfile(rinfo.fd, &mtcpHdr, sizeof mtcpHdr);
     } while (rc > 0 && mtcp_strcmp(mtcpHdr.signature, MTCP_SIGNATURE) != 0);
