@@ -243,7 +243,7 @@ void mtcp_mkdir(const char *dir)
   mtcp_sys_mkdir(tmp, S_IRWXU);
 }
 
-void mtcp_readfile(int fd, void *buf, size_t size)
+int mtcp_readfile(int fd, void *buf, size_t size)
 {
   int mtcp_sys_errno;
   ssize_t rc;
@@ -263,16 +263,22 @@ void mtcp_readfile(int fd, void *buf, size_t size)
   while(ar != size) {
     rc = mtcp_sys_read(fd, buf + ar, size - ar);
     if (rc < 0 && rc > -4096) { /* kernel could return large unsigned int */
-      MTCP_PRINTF("error %d reading checkpoint\n", mtcp_sys_errno);
-      mtcp_abort();
-    }
-    else if (rc == 0) {
-      MTCP_PRINTF("only read %u bytes instead of %u from checkpoint file\n",
-                  (unsigned)ar, (unsigned)size);
-      if (tries++ >= 10) {
-        MTCP_PRINTF(" failed to read after 10 tries in a row.\n");
+      if (rc == -1 && (mtcp_sys_errno == EAGAIN || mtcp_sys_errno == EINTR)) {
+        tries++;
+        if (tries++ >= 10) {
+          MTCP_PRINTF(" failed to read after 10 tries in a row.\n");
+          mtcp_abort();
+        }
+        continue;
+      } else {  /* else error:  rc < 0 and not EAGAIN and not EINTR */
+        MTCP_PRINTF("error %d reading checkpoint\n", mtcp_sys_errno);
+        MTCP_PRINTF("only read %u bytes instead of %u from checkpoint file\n",
+                    (unsigned)ar, (unsigned)size);
         mtcp_abort();
       }
+    }
+    else if (rc == 0) {  /* if end of file */
+      return 0;  /* success:  end of file */
     }
     ar += rc;
   }
@@ -286,6 +292,7 @@ void mtcp_readfile(int fd, void *buf, size_t size)
   WMB;
   IMB;
 #endif
+  return ar;  /* read ar characters */
 }
 
 // FIXME:  Equiv. to mtcp_sys_lseek(fd, size, SEEK_CUR), but doesn't work
