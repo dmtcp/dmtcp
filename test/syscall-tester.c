@@ -43,6 +43,8 @@
 
 */
 
+#pragma GCC diagnostic ignored "-Wformat"
+
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
