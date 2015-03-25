@@ -309,6 +309,19 @@ else
   AC_SUBST([ARM_HOST], [no])
 fi
 
+AC_MSG_CHECKING([whether GNU_HASH is supported for ELF])
+AC_TRY_RUN([
+           #include <elf.h>
+           int main() {
+             printf("DT_GNU_HASH: %d\n", DT_GNU_HASH);
+             exit(0);
+           }
+           ], [has_gnu_hash='yes'], [has_gnu_hash='no'])
+if test "$has_gnu_hash" == "yes"; then
+  AC_DEFINE([HAS_GNU_HASH],[1],[DT_GNU_HASH is defined (e.g., in elf.h).])
+fi
+AC_MSG_RESULT([$has_gnu_hash])
+
 AC_MSG_CHECKING([whether PR_SET_PTRACER is an option for prctl()])
 AC_TRY_RUN([
            #include <sys/prctl.h>

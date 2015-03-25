@@ -66,6 +66,8 @@
 #define _GNU_SOURCE
 #include <dlfcn.h>
 
+#include "config.h"
+
 // ***** NOTE:  link.h invokes elf.h, which:
 // *****        expands ElfW(Word)  to  Elf64_Word; and then defines:
 // *****        typedef uint32_t Elf63_Word;
@@ -251,8 +253,10 @@ static void get_dt_tags(void *handle, dt_tag *tags) {
         tags->symtab = (void *)cur_dyn->d_un.d_ptr;
       if (cur_dyn->d_tag == DT_HASH)
         tags->hash = (void *)cur_dyn->d_un.d_ptr;
+#ifdef HAS_GNU_HASH
       if (cur_dyn->d_tag == DT_GNU_HASH)
         tags->gnu_hash = (void *)cur_dyn->d_un.d_ptr;
+#endif
       //if (cur_dyn->d_tag == DT_MIPS_SYMTABNO) // Number of DYNSYM entries
       //  n_symtab = (ElfW(Word))cur_dyn->d_un.d_val;
       //if (cur_dyn->d_tag == DT_MIPS_UNREFEXTNO)  // First external DYNSYM
