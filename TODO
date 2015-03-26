@@ -76,7 +76,7 @@ PID-VIRTUALIZATION:
   restart.
 3. better error handling for missing processes.
 
-REPLACE all temporary files present in $DMTCP_TMP_DIR with some sort of
+REPLACE all temporary files present in $DMTCP_TMPDIR with some sort of
 shared-memory files.
 
 SOCKETS:

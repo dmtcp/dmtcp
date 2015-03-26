@@ -9,7 +9,7 @@
 
 int main()
 {
-    int count = 0;
+    long int count = 0;
     int fd;
     FILE *fp;
     char filename[100];  /* "/tmp/ff_jdl_XXXXXX" for current TMPDIR */
@@ -42,7 +42,10 @@ int main()
     unlink(filename);
 
     while (1) {
-      printf("%d ", count);
+      if (count % (int)1e6 == 0) {
+        printf("%d ", count);
+        fflush(stdout);
+      }
       fprintf(fp, "%d", count++);
     }
 
