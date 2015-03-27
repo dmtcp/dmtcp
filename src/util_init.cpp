@@ -79,18 +79,31 @@ string Util::calcTmpDir(const char *tmpdirenv)
   }
 
   if (tmpdirenv) {
+    // tmpdirenv was set by --tmpdir
+    // Preserve previous semantics for now;  Change this in next commit.
+    o << tmpdirenv;
+  } else if (getenv("DMTCP_TMPDIR")) {
+    tmpdirenv = getenv("DMTCP_TMPDIR");
+    // Preserve previous semantics for now;  Change this in next commit.
     o << tmpdirenv;
   } else if (getenv("TMPDIR")) {
-    o << getenv("TMPDIR") << "/dmtcp-" << userName << "@" << hostname;
+    tmpdirenv = getenv("TMPDIR");
+    o << tmpdirenv << "/dmtcp-" << userName << "@" << hostname;
   } else {
-    o << "/tmp/dmtcp-" << userName << "@" << hostname;
+    tmpdirenv = "/tmp";
+    o << tmpdirenv << "/dmtcp-" << userName << "@" << hostname;
   }
-  tmpDir = o.str();
 
+  JASSERT(mkdir(tmpdirenv, S_IRWXU) == 0 || errno == EEXIST)
+          (JASSERT_ERRNO) (tmpdirenv)
+    .Text("Error creating base directory (--tmpdir/DMTCP_TMPDIR/TMPDIR)");
+
+  tmpDir = o.str();
 
   JASSERT(mkdir(tmpDir.c_str(), S_IRWXU) == 0 || errno == EEXIST)
           (JASSERT_ERRNO) (tmpDir)
     .Text("Error creating tmp directory");
+
 
   JASSERT(0 == access(tmpDir.c_str(), X_OK|W_OK)) (tmpDir)
     .Text("ERROR: Missing execute- or write-access to tmp dir");
