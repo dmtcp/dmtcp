@@ -88,8 +88,7 @@ static const char* theUsage =
   "              Directory to store checkpoint images\n"
   "              (default: use the same directory used in previous checkpoint)\n"
   "  --tmpdir PATH (environment variable DMTCP_TMPDIR)\n"
-  "              Directory to store temporary files\n"
-  "              (default: $TMDPIR/dmtcp-$USER@$HOST or /tmp/dmtcp-$USER@$HOST)\n"
+  "              Directory to store temporary files (default: $TMDPIR or /tmp)\n"
   "  -q, --quiet (or set environment variable DMTCP_QUIET = 0, 1, or 2)\n"
   "              Skip NOTE messages; if given twice, also skip WARNINGs\n"
   "  --help\n"
@@ -380,6 +379,8 @@ static void setNewCkptDir(char *path)
 
 int main(int argc, char** argv)
 {
+  char *tmpdir_arg = NULL;
+
   initializeJalib();
 
   if (!getenv(ENV_VAR_QUIET)) {
@@ -441,7 +442,7 @@ int main(int argc, char** argv)
       setNewCkptDir(argv[1]);
       shift; shift;
     } else if (argc > 1 && (s == "-t" || s == "--tmpdir")) {
-      setenv(ENV_VAR_TMPDIR, argv[1], 1);
+      tmpdir_arg = argv[1];
       shift; shift;
     } else if (s == "-q" || s == "--quiet") {
       *getenv(ENV_VAR_QUIET) = *getenv(ENV_VAR_QUIET) + 1;
@@ -460,7 +461,7 @@ int main(int argc, char** argv)
     }
   }
 
-  tmpDir = Util::calcTmpDir(getenv(ENV_VAR_TMPDIR));
+  tmpDir = Util::calcTmpDir(tmpdir_arg);
 
   jassert_quiet = *getenv(ENV_VAR_QUIET) - '0';
 

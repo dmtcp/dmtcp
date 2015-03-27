@@ -121,6 +121,7 @@ static const char* theUsage =
   "  --tmpdir PATH (environment variable DMTCP_TMPDIR)\n"
   "              Directory to store temporary files\n"
   "              (default: $TMDPIR/dmtcp-$USER@$HOST or /tmp/dmtcp-$USER@$HOST)\n"
+  "              Can preempt previous tmpdir of coord or earlier launch.\n"
   "  -q, --quiet (or set environment variable DMTCP_QUIET = 0, 1, or 2)\n"
   "              Skip NOTE messages; if given twice, also skip WARNINGs\n"
   "  --help\n"
@@ -197,10 +198,11 @@ static CoordinatorMode allowedModes = COORD_ANY;
 
 //shift args
 #define shift argc--,argv++
-static void processArgs(int *orig_argc, char ***orig_argv)
+static void processArgs(int *orig_argc, char ***orig_argv, string *tmpDir_p)
 {
   int argc = *orig_argc;
   char **argv = *orig_argv;
+  char *tmpdir_arg = NULL;
 
   if (argc == 1) {
     printf("%s", DMTCP_VERSION_AND_COPYRIGHT_INFO);
@@ -269,7 +271,7 @@ static void processArgs(int *orig_argc, char ***orig_argv)
       setenv(ENV_VAR_CHECKPOINT_DIR, argv[1], 1);
       shift; shift;
     } else if (argc>1 && (s == "-t" || s == "--tmpdir")) {
-      setenv(ENV_VAR_TMPDIR, argv[1], 1);
+      tmpdir_arg = argv[1];
       shift; shift;
     } else if (argc>1 && s == "--ckpt-signal") {
       setenv(ENV_VAR_SIGCKPT, argv[1], 1);
@@ -323,6 +325,7 @@ static void processArgs(int *orig_argc, char ***orig_argv)
       break;
     }
   }
+  *tmpDir_p = Util::calcTmpDir(tmpdir_arg);
   *orig_argv = argv;
 }
 
@@ -335,9 +338,8 @@ int main ( int argc, char** argv )
   if (! getenv(ENV_VAR_QUIET))
     setenv(ENV_VAR_QUIET, "0", 0);
 
-  processArgs(&argc, &argv);
-
-  string tmpDir = Util::calcTmpDir(getenv(ENV_VAR_TMPDIR));
+  string tmpDir = "tmpDir is not set";
+  processArgs(&argc, &argv, &tmpDir);
 
   initializeJalib();
 
