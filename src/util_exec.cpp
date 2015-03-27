@@ -223,7 +223,7 @@ bool Util::isScreen(const char *filename)
          isSetuid(filename);
 }
 
-//NOTE:  This routine is called only is 'screen' is setuid.
+//NOTE:  This routine is called only if 'screen' is setuid.
 // In Ubuntu 9.10, an unprivileged 'screen' (no setuid) will ckpt and restart
 // fine if SCREENDIR is set to the file $USER/tmp4 when $USER/tmp4 doesn't exist
 // Arguably this is a bug in screen-4.0.  Should we take advantage of it?
@@ -233,7 +233,8 @@ void Util::setScreenDir() {
     JASSERT_STDERR <<"*** WARNING: Environment variable SCREENDIR is not set!\n"
                    << "***  Set this to a safe location, and if restarting on\n"
                    << "***  a new host, copy your SCREENDIR directory there.\n"
-                   << "***  DMTCP will use $DMTCP_TMPDIR/uscreens for now,\n"
+                   << "***  DMTCP will use"
+                            " $DMTCP_TMPDIR/dmtcp-USER@HOST/uscreens for now,\n"
                    << "***  but this directory may not survive a re-boot!\n"
                    << "***      As of DMTCP-1.2.3, emacs23 not yet supported\n"
                    << "***  inside screen.  Please use emacs22 for now.  This\n"

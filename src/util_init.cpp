@@ -62,14 +62,11 @@ void Util::writeCoordPortToFile(const char *port, const char *portFile)
  */
 string Util::calcTmpDir(const char *tmpdirenv)
 {
-  string tmpDir;
   char hostname[256];
   memset(hostname, 0, sizeof(hostname));
 
   JASSERT ( gethostname(hostname, sizeof(hostname)) == 0 ||
 	    errno == ENAMETOOLONG ).Text ( "gethostname() failed" );
-
-  ostringstream o;
 
   char *userName = const_cast<char *>("");
   if ( getpwuid ( getuid() ) != NULL ) {
@@ -80,25 +77,21 @@ string Util::calcTmpDir(const char *tmpdirenv)
 
   if (tmpdirenv) {
     // tmpdirenv was set by --tmpdir
-    // Preserve previous semantics for now;  Change this in next commit.
-    o << tmpdirenv;
   } else if (getenv("DMTCP_TMPDIR")) {
     tmpdirenv = getenv("DMTCP_TMPDIR");
-    // Preserve previous semantics for now;  Change this in next commit.
-    o << tmpdirenv;
   } else if (getenv("TMPDIR")) {
     tmpdirenv = getenv("TMPDIR");
-    o << tmpdirenv << "/dmtcp-" << userName << "@" << hostname;
   } else {
     tmpdirenv = "/tmp";
-    o << tmpdirenv << "/dmtcp-" << userName << "@" << hostname;
   }
 
   JASSERT(mkdir(tmpdirenv, S_IRWXU) == 0 || errno == EEXIST)
           (JASSERT_ERRNO) (tmpdirenv)
     .Text("Error creating base directory (--tmpdir/DMTCP_TMPDIR/TMPDIR)");
 
-  tmpDir = o.str();
+  ostringstream o;
+  o << tmpdirenv << "/dmtcp-" << userName << "@" << hostname;
+  string tmpDir = o.str();
 
   JASSERT(mkdir(tmpDir.c_str(), S_IRWXU) == 0 || errno == EEXIST)
           (JASSERT_ERRNO) (tmpDir)
