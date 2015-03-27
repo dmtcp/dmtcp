@@ -180,7 +180,11 @@ static const char *slurmHelperContactFunction =
 "{\n"
 "  LOCAL_FILES=\"$1\"\n"
 "  # Create temp directory if need\n"
-"  DMTCP_TMPDIR=$TMPDIR/dmtcp-`whoami`@`hostname`\n"
+"  if [  -d \"$TMPDIR\" ]; then\n"
+"    DMTCP_TMPDIR=$TMPDIR/dmtcp-`whoami`@`hostname`\n"
+"  else\n"
+"    DMTCP_TMPDIR=/tmp/dmtcp-`whoami`@`hostname`\n"
+"  fi\n"
 "  if [ ! -d \"$DMTCP_TMPDIR\" ]; then\n"
 "    mkdir -p $DMTCP_TMPDIR\n"
 "  fi\n"
@@ -208,8 +212,7 @@ static const char* theRestartScriptUsage =
   "  --restartdir, -d, (environment variable DMTCP_RESTART_DIR):\n"
   "      Directory to read checkpoint images from\n"
   "  --tmpdir, -t, (environment variable DMTCP_TMPDIR):\n"
-  "      Directory to store temporary files\n"
-  "        (default: $TMDPIR/dmtcp-$USER@$HOST or /tmp/dmtcp-$USER@$HOST)\n"
+  "      Directory to store temporary files (default: $TMDPIR or /tmp)\n"
   "  --no-strict-uid-checking:\n"
   "      Disable uid checking for the checkpoint image.  This allows the\n"
   "        checkpoint image to be restarted by a different user than the one\n"
@@ -1796,7 +1799,7 @@ int main ( int argc, char** argv )
       setenv(ENV_VAR_CHECKPOINT_DIR, argv[1], 1);
       shift; shift;
     }else if(argc>1 && (s == "-t" || s == "--tmpdir")){
-      setenv(ENV_VAR_TMPDIR, argv[1], 1);
+      tmpDir = Util::calcTmpDir(argv[1]);
       shift; shift;
     }else if(argc == 1){ //last arg can be port
       char *endptr;
@@ -1814,8 +1817,6 @@ int main ( int argc, char** argv )
       return 1;
     }
   }
-
-  tmpDir = Util::calcTmpDir(getenv(ENV_VAR_TMPDIR));
 
   Util::initializeLogFile(tmpDir);
 

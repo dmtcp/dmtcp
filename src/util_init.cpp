@@ -62,14 +62,11 @@ void Util::writeCoordPortToFile(const char *port, const char *portFile)
  */
 string Util::calcTmpDir(const char *tmpdirenv)
 {
-  string tmpDir;
   char hostname[256];
   memset(hostname, 0, sizeof(hostname));
 
   JASSERT ( gethostname(hostname, sizeof(hostname)) == 0 ||
 	    errno == ENAMETOOLONG ).Text ( "gethostname() failed" );
-
-  ostringstream o;
 
   char *userName = const_cast<char *>("");
   if ( getpwuid ( getuid() ) != NULL ) {
@@ -79,18 +76,27 @@ string Util::calcTmpDir(const char *tmpdirenv)
   }
 
   if (tmpdirenv) {
-    o << tmpdirenv;
+    // tmpdirenv was set by --tmpdir
+  } else if (getenv("DMTCP_TMPDIR")) {
+    tmpdirenv = getenv("DMTCP_TMPDIR");
   } else if (getenv("TMPDIR")) {
-    o << getenv("TMPDIR") << "/dmtcp-" << userName << "@" << hostname;
+    tmpdirenv = getenv("TMPDIR");
   } else {
-    o << "/tmp/dmtcp-" << userName << "@" << hostname;
+    tmpdirenv = "/tmp";
   }
-  tmpDir = o.str();
 
+  JASSERT(mkdir(tmpdirenv, S_IRWXU) == 0 || errno == EEXIST)
+          (JASSERT_ERRNO) (tmpdirenv)
+    .Text("Error creating base directory (--tmpdir/DMTCP_TMPDIR/TMPDIR)");
+
+  ostringstream o;
+  o << tmpdirenv << "/dmtcp-" << userName << "@" << hostname;
+  string tmpDir = o.str();
 
   JASSERT(mkdir(tmpDir.c_str(), S_IRWXU) == 0 || errno == EEXIST)
           (JASSERT_ERRNO) (tmpDir)
     .Text("Error creating tmp directory");
+
 
   JASSERT(0 == access(tmpDir.c_str(), X_OK|W_OK)) (tmpDir)
     .Text("ERROR: Missing execute- or write-access to tmp dir");
