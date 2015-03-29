@@ -92,7 +92,15 @@ cd $SLURM_SUBMIT_DIR
 # and LD_LIBRARY_PATH.
 ###############################################################################
 
+#           **** IF USING Open MPI 1.8, SEE COMMENT BELOW ****
 # module load openmpi
+###############################################################################
+# For Open MPI 1.8, if using InfiniBand, uncomment the following statement
+# export OMPI_MCA_mpi_leave_pinned=0
+# This could prevent a bug due to interaction with memalign() and ptmalloc2()
+# on restart.
+###############################################################################
+
 # export PATH=<dmtcp-install-path>/bin:$PATH
 # export LD_LIBRARY_PATH=<dmtcp-install-path>/lib:$LD_LIBRARY_PATH
 
