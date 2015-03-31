@@ -354,13 +354,18 @@ void post_restart(void)
     }
   }
   /* code to re-open device */
-  int num;
-  _dev_list = NEXT_IBV_FNC(ibv_get_device_list)(&num);
+  int num = 0;
 
-  if (!num)
-  {
-    fprintf(stderr, "Error: ibv_get_device_list returned 0 devices.\n");
-    exit(1);
+  // This is useful when IB is not used while the plugin is enabled.
+  if (dlvsym(RTLD_NEXT, "ibv_get_device_list", "IBVERBS_1.1") != NULL) {
+
+    _dev_list = NEXT_IBV_FNC(ibv_get_device_list)(&num);
+
+    if (!num)
+    {
+      fprintf(stderr, "Error: ibv_get_device_list returned 0 devices.\n");
+      exit(1);
+    }
   }
 
   struct list_elem *e;
