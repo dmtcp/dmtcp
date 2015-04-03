@@ -112,6 +112,7 @@ static void mmapfile(int fd, void *buf, size_t size, int prot, int flags);
 #endif
 static void read_shared_memory_area_from_file(int fd, Area* area, int flags);
 static void lock_file(int fd, char* name, short l_type);
+static char* fix_parent_directories(char* filename);
 // static char* fix_filename_if_new_cwd(char* filename);
 static int open_shared_file(char* filename);
 static void adjust_for_smaller_file_size(Area *area, int fd);
@@ -859,41 +860,54 @@ static int read_one_memory_area(int fd)
     }
 
     if (area.prot & MAP_SHARED) {
-      imagefd = mtcp_sys_open (area.name, flags, 0);  // Can we open file?
+
+      int can_create_area = 1;
+      // NOTE: mtcp_sys_open may also fail if filename is ".../myfile (deleted)"
+      //       or if we migrated to new filesystem where filename doesn't exist.
+      imagefd = mtcp_sys_open(area.name, flags, 0);  // Can we open file?
       if (imagefd < 0 && mtcp_sys_errno == ENOENT) {
         // File doesn't exist.  Do we have perm to create it and write data?
-        imagefd = mtcp_sys_open (area.name, O_CREAT|O_RDWR, 0);
+        imagefd = mtcp_sys_open(area.name, O_CREAT|O_RDWR, 0);
         if (imagefd >= 0) {
           mtcp_sys_unlink(area.name);
         } else {
-          // We don't have permission to re-create shared file.
-          // Open it as anonymous private, and hope for the best.
-          // FIXME: Or maybe we do have permission to re-create shared file,
-          // but it requires us to also re-create the parent directory.
-          area.flags ^= MAP_SHARED;
-          area.flags |= MAP_PRIVATE;
-          area.flags |= MAP_ANONYMOUS;
-          if (area.prot & PROT_WRITE) {
-            area.prot ^= PROT_WRITE;
-            MTCP_PRINTF("Found old underlying file %s\n"
-                        " that no longer exists, but it's mapped shared,"
-                        " with write permission,\n and we don't have permission"
-                        " to re-create it.  We will map it read-only\n"
-                        " and hope for the best.\n", area.name);
-          }
-          goto read_data;
+          // Maybe we failed because the parent directory is missing:
+          if (fix_parent_directories(area.name) != area.name)
+            can_create_area = 0;
         }
       }
       if (imagefd >= 0) {
         mtcp_sys_close(imagefd);
       }
 
-      read_shared_memory_area_from_file(fd, &area, flags);
+      if (can_create_area) {
+        // We know we can re-create filename.
+        // So, read_shared_memory_area_from_file() will recreate if needed.
+        // (For example, user might have unlinked this file before checkpoint.)
+        read_shared_memory_area_from_file(fd, &area, flags);
+      } else {
+        // We don't have permission to re-create shared file.
+        // Open it as anonymous private, and hope for the best.
+        // FIXME: Or maybe we do have permission to re-create shared file,
+        // but it requires us to also re-create the parent directory.
+        area.flags ^= MAP_SHARED;
+        area.flags |= MAP_PRIVATE;
+        area.flags |= MAP_ANONYMOUS;
+        if (area.prot & PROT_WRITE) {
+          area.prot ^= PROT_WRITE;
+          MTCP_PRINTF("Found old underlying file %s\n"
+                      " that no longer exists, but it's mapped shared, with"
+                      " write permission,\n and we don't have permission"
+                      " to re-create it.  We will map it read-only\n"
+                      " and hope for the best.\n", area.name);
+        }
+        goto read_data;
+      }
     } else { /* not MAP_ANONYMOUS, not MAP_SHARED */
       /* During checkpoint, MAP_ANONYMOUS flag is forced whenever MAP_PRIVATE
        * is set. There is no reason for any mapping to have MAP_PRIVATE and
        * not have MAP_ANONYMOUS at this point. (MAP_ANONYMOUS is handled
-       * earlier in this function.
+       * earlier in this function.)
        */
       MTCP_PRINTF("Unreachable. MAP_PRIVATE implies MAP_ANONYMOUS\n");
       mtcp_abort();
@@ -971,14 +985,22 @@ static void read_shared_memory_area_from_file(int fd, Area* area, int flags)
 
   /* Check to see if the filename ends with " (deleted)" */
   if (mtcp_strendswith(area_name, DELETED_FILE_SUFFIX)) {
+    // FIXME:  Shouldn't we also unlink area_name after re-mapping it?
     area_name[ mtcp_strlen(area_name) - mtcp_strlen(DELETED_FILE_SUFFIX) ] =
       '\0';
+#if 0
+    if (fix_parent_directories(area_name) != area_name) {
+      MTCP_PRINTF("error %d re-creating directory %s\n",
+                  mtcp_sys_errno, area_name);
+      mtcp_abort();
+    }
+#endif
   }
 
   imagefd = mtcp_sys_open (area_name, flags, 0);  // open it
 
   if (imagefd < 0 && mtcp_sys_errno != ENOENT) {
-    MTCP_PRINTF("error %d opening mmap file %s with flags:%d\n",
+    MTCP_PRINTF("error %d opening mmapped file %s with flags:%d\n",
                 mtcp_sys_errno, area_name, flags);
     mtcp_abort();
   }
@@ -1267,10 +1289,35 @@ static void lock_file(int fd, char* name, short l_type)
   }
 }
 
+static char* fix_parent_directories(char* filename) {
+  int mtcp_sys_errno;
+  int i;
+  for (i=1; filename[i] != '\0'; i++) {
+    if (filename[i] == '/') {
+      int rc;
+      filename[i] = '\0';
+      rc = mtcp_sys_mkdir(filename, S_IRWXU);
+      if (rc < 0 && mtcp_sys_errno != EEXIST ) {
+        MTCP_PRINTF("error %d re-creating directory %s\n",
+		    mtcp_sys_errno, filename);
+        filename[i] = '/';  // Restore original filename
+	mtcp_abort();
+      } // else parent directory already exists or was re-created
+      // FIXME:  We should unlink parent directories if we re-created them.
+      filename[i] = '/';  // Restore original filename
+    }
+  }
+  return filename;  // Success.  All parent directories now exist.
+}
+
 #if 0
 /* Adjust for new pwd, and recreate any missing subdirectories. */
+/* FIXME:  This logic could be modifed to use fix_parent_directories in each
+ *         of the two parts of the function.
+ */
 static char* fix_filename_if_new_cwd(char* filename)
 {
+  int mtcp_sys_errno;
   int i;
   int fIndex;
   int errorFilenameFromPreviousCwd = 0;
