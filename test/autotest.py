@@ -716,6 +716,10 @@ CKPT_CMD = old_ckpt_cmd
 # Test for files opened with WRONLY mode and later unlinked.
 runTest("file1",         1, ["./test/file1"])
 
+# FIXME:  Currently, we re-create deleted subdirectories when file
+#         is mmap'ed, but not yet when file is referenced by open fd.
+# runTest("file2",         1, ["./test/file2"])
+
 runTest("dmtcpaware1",   1, ["./test/dmtcpaware1"])
 
 PWD=os.getcwd()
@@ -779,7 +783,8 @@ runTest("frisbee",       3, ["./test/frisbee "+p1+" localhost "+p2,
                              "./test/frisbee "+p3+" localhost "+p1+" starter"])
 os.environ['DMTCP_GZIP'] = "0"
 
-runTest("shared-memory", 2, ["./test/shared-memory"])
+runTest("shared-memory1", 2, ["./test/shared-memory1"])
+runTest("shared-memory2", 2, ["./test/shared-memory2"])
 
 runTest("sysv-shm1",     2, ["./test/sysv-shm1"])
 runTest("sysv-shm2",     2, ["./test/sysv-shm2"])

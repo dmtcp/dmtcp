@@ -1,8 +1,4 @@
-/* Compile:
- * gcc -o shared-memory -Wl,--export-dynamic THIS_FILE
- */
-
-// _DEFAULT_SOURCE for mkstemp
+// _DEFAULT_SOURCE for mkstemp  (WHY?)
 #define _DEFAULT_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
@@ -21,10 +17,11 @@ void writer(int fd);
 
 int main() {
   char filename[] = "dmtcp-shared-memory.XXXXXX";
-  int initValue = -1;
   int fd;
 
   fd = mkstemp(filename);
+  printf("creating temporary file in local directory: %s\n", filename);
+  //printf("creating file: %s\n", "/tmp/dmtcp-shared-memory.dat");
   unlink(filename);
   //if (-1 == unlink(filename)) {
   //  perror("unlink");
@@ -33,10 +30,9 @@ int main() {
   //fd = open("/tmp/dmtcp-shared-memory.dat", O_RDWR | O_CREAT, S_IREAD|S_IWRITE);
   // if (fd == -1) perror("open");
   /* Extend file to needed size */
-  while ( write(fd, &initValue, sizeof(int)) != sizeof(int) )
+  int initValue = -1;
+  while ( write(fd, &initValue, sizeof(initValue)) != sizeof(initValue) )
     continue;
-  printf("creating temporary file in local directory: %s\n", filename);
-  //printf("creating file: %s\n", "/tmp/dmtcp-shared-memory.dat");
 
   if (fork())
     writer(fd);

@@ -43,10 +43,10 @@ int main()
 
     while (1) {
       if (count % (int)1e6 == 0) {
-        printf("%d ", count);
+        printf("%ld ", count);
         fflush(stdout);
       }
-      fprintf(fp, "%d", count++);
+      fprintf(fp, "%ld", count++);
     }
 
     fprintf(stdout, "I have returned\n");
