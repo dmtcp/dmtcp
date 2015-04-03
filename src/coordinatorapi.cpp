@@ -286,7 +286,7 @@ void CoordinatorAPI::waitForCheckpointCommand()
   cmdSock << reply;
   cmdSock.close();
   if (exitWhenDone) {
-    _exit(0);
+    _real_exit(0);
   }
   return;
 }
@@ -522,7 +522,7 @@ DmtcpMessage CoordinatorAPI::sendRecvHandshake(DmtcpMessage msg,
   msg.assertValid();
   if (msg.type == DMT_KILL_PEER) {
     JTRACE("Received KILL message from coordinator, exiting");
-    _exit (0);
+    _real_exit (0);
   }
   if (msg.type == DMT_REJECT_NOT_RUNNING) {
     JASSERT(false)
