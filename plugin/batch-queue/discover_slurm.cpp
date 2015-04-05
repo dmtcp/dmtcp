@@ -32,7 +32,7 @@ private:
   string	str, prefix, num;
   size_t pos;
   int range_cur, range_end, range_num_len;
-  bool is_end;
+  bool is_end, last_range;
   bool with_prefix;
 public:
   slurm_nodes(string s)
@@ -47,6 +47,7 @@ public:
 
   string next()
   {
+
     if( is_end )
       return "";
 
@@ -59,6 +60,10 @@ public:
           return prefix + ss.str();
       }else{
         range_cur = range_end = range_num_len = -1;
+        if( last_range ){
+          with_prefix = false;
+          last_range = false;
+        }
       }
     }
 
@@ -103,6 +108,7 @@ public:
       if( str[next] == '[' ){
         prefix = str.substr(pos,next-pos);
         with_prefix = true;
+        last_range = false;
         pos = next + 1;
       }
 
@@ -114,7 +120,7 @@ public:
           pos = next + 1;
           return prefix + num;
         }else{
-          with_prefix=true;
+          last_range = true;
           string start = num.substr(0,dash);
           string end = num.substr(dash+1);
           range_num_len = end.size();
