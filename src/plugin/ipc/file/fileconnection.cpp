@@ -942,6 +942,10 @@ static void writeFileFromFd(int fd, int destFd)
   const size_t bufSize = 1024 * page_size;
   char *buf =(char*)JALLOC_HELPER_MALLOC(bufSize);
 
+  // Synchronize memory buffer with data in filesystem
+  // On some Linux kernels, the shared-memory test will fail without this.
+  fsync(fd);
+
   off_t offset = _real_lseek(fd, 0, SEEK_CUR);
   JASSERT(_real_lseek(fd, 0, SEEK_SET) == 0) (fd) (JASSERT_ERRNO);
   JASSERT(_real_lseek(destFd, 0, SEEK_SET) == 0) (destFd) (JASSERT_ERRNO);
