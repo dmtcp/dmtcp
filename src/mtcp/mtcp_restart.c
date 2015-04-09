@@ -1140,18 +1140,22 @@ static void read_shared_memory_area_from_file(int fd, Area* area, int flags)
        * If read-only permission, warn user that we're using curr. file.
        */
       if (imagefd >= 0 && -1 == mtcp_sys_access(area->name, X_OK)) {
+        // FIXME:  if and else conditions are the same.  Why?
         if (mtcp_strstartswith(area->name, "/usr/") ||
             mtcp_strstartswith(area->name, "/var/")) {
           DPRINTF("mapping current version of %s into memory;\n"
                   "  _not_ file as it existed at time of checkpoint.\n"
+                  "  (Or this may be a file shared by multiple processes.)\n"
                   "  Change %s:%d and re-compile, if you want different "
                   "behavior.\n",
                   area->name, __FILE__, __LINE__);
         } else {
           MTCP_PRINTF("mapping current version of %s into memory;\n"
                       "  _not_ file as it existed at time of checkpoint.\n"
+                      "  (Or this may be a file shared by"
+                      " multiple processes.)\n"
                       "  Change %s:%d and re-compile, if you want different "
-                      "behavior. %d: %d\n",
+                      "behavior.\n",
                       area->name, __FILE__, __LINE__);
         }
       }
