@@ -4788,8 +4788,12 @@ if test "x$ac_cv_header_infiniband_verbs_h" = xyes; then :
 _ACEOF
 
 else
-  as_fn_error $? "#include: <infiniband/verbs.h> not found: consider adding devel package for libibverbs
-    " "$LINENO" 5
+  as_fn_error $? "#include: <infiniband/verbs.h> not found:
+                It may exist in /usr/local/ofed/include or /opt/ofed/include
+                If so, consider calling:
+                  ./configure CPPFLAGS=<INCL_DIR> --enable-infiniband-support
+                Otherwise, consider adding devel package for libibverbs." "$LINENO" 5
+
 fi
 
 done
