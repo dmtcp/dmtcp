@@ -603,7 +603,7 @@ void jalib::JMultiSocketProgram::monitorSockets ( double dblTimeout )
       timeout = NULL;
     }
 
-    //collect listen fds in rfds, cleanup dead sockets
+    //collect listen fds in rfds, clean up dead sockets
     for ( i=0; i<_listenSockets.size(); ++i )
     {
       if ( _listenSockets[i].isValid() )
@@ -623,7 +623,7 @@ void jalib::JMultiSocketProgram::monitorSockets ( double dblTimeout )
       }
     }
 
-    //collect data fds in rfds, cleanup dead sockets
+    //collect data fds in rfds, clean up dead sockets
     for ( i=0; i<_dataSockets.size(); ++i )
     {
       if ( !_dataSockets[i]->hadError() )

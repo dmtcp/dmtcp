@@ -144,14 +144,14 @@ int jalib::Filesystem::mkdir_r( const jalib::string& dir, mode_t mode)
     return ret;
   }
 
-  if(  ret && errno == ENOENT ){
+  if( ret && errno == ENOENT ){
     jalib::string pdir = DirName(dir);
     JTRACE("Create parent dir")(pdir);
     mkdir_r(pdir, mode);
     return mkdir(dir.c_str(), mode);
   }
 
-  JTRACE("Directory already exist")(dir);
+  JTRACE("Directory already exists")(dir);
   return 0;
 }
 

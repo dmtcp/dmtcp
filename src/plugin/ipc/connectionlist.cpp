@@ -38,6 +38,18 @@
 #include "connection.h"
 #include "connectionlist.h"
 
+// There is a list of outgoing connections (outgoingCons) and 
+//  incoming connections (missingCons).  These refer to shared fd's.
+//  For the various processes on the same host, any shared fd corresponding
+//  to a connection has a 'con->hasLock()' method.  If it's true, this
+//  process owns the shared fd, and must send it as an outgoing connection.
+//  If it's false, this process does not own the shared fd, and it must
+//  receive it from another process.
+// A UNIX domain socket (called 'restoreFd' or 'protected_fd', depending
+//  on the function, but always deduced from protectedFd()) is used to
+//  send the outgoing connections, and to receive the incoming connections
+//  at restart time, so that the corresponding fd's can again be shared.
+
 using namespace dmtcp;
 
 // This is the first program after dmtcp_launch
@@ -52,7 +64,7 @@ void ConnectionList::eventHook(DmtcpEvent_t event,
 {
   switch (event) {
     case DMTCP_EVENT_INIT:
-      // Delete Stale Connections if any.
+      // Delete stale connections if any.
       deleteStaleConnections();
       if (freshProcess) {
         scanForPreExisting();
@@ -332,7 +344,7 @@ void ConnectionList::preLockSaveOptions()
 {
   deleteStaleConnections();
   list();
-  // Save Options for each Fd(We need to do it here instead of
+  // Save Options for each Fd (We need to do it here instead of in
   // preCkptFdLeaderElection because we want to restore the correct owner
   // in refill).
   for (iterator i = begin(); i != end(); ++i) {
@@ -400,9 +412,9 @@ void ConnectionList::resume(bool isRestart)
 
 void ConnectionList::postRestart()
 {
-  // Here we modify the restore algorithm by splitting it in two parts. In the
-  // first part we restore all the connection except the PTY_SLAVE types and in
-  // the second part we restore only PTY_SLAVE _connections. This is done to
+  // Here we modify the restore algorithm by splitting it into two parts. In the
+  // first part we restore all the connections except the PTY_SLAVE types and
+  // in the second part we restore only PTY_SLAVE _connections. This is done to
   // make sure that by the time we are trying to restore a PTY_SLAVE
   // connection, its corresponding PTY_MASTER connection has already been
   // restored.

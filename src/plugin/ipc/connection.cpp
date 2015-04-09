@@ -83,6 +83,7 @@ void Connection::restoreOptions()
   JASSERT(fcntl(_fds[0], F_SETOWN, (int)_fcntlOwner) == 0)
    (_fds[0]) (_fcntlOwner) (JASSERT_ERRNO);
 
+  //FIXME:  The comment below seems to be obsolete now.
   // This JASSERT will almost always trigger until we fix the above mentioned
   // bug.
   //JASSERT(fcntl(_fds[0], F_GETOWN) == _fcntlOwner)
