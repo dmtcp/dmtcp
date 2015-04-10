@@ -603,8 +603,9 @@ static void unmap_memory_areas_and_restore_vdso(RestoreInfo *rinfo)
     } else if (area.size > 0 ) {
       DPRINTF("***INFO: munmapping (%p-%p)\n", area.addr, area.endAddr);
       if (mtcp_sys_munmap(area.addr, area.size) == -1) {
-        MTCP_PRINTF("***WARNING: munmap(%p, %d) failed: %d\n",
-                    area.addr, area.size, mtcp_sys_errno);
+        MTCP_PRINTF("***WARNING: munmap(%s, %x, %p, %d) failed: %d\n",
+                    area.name, area.flags, area.addr, area.size,
+                    mtcp_sys_errno);
         mtcp_abort();
       }
       // Rewind and reread maps.
