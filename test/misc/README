@@ -1,0 +1,5 @@
+This directory is for special cases, such as
+* multi-arch
+* forked checkpointing,
+* fast restart
+* etc.
