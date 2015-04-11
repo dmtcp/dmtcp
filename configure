@@ -5018,9 +5018,12 @@ $as_echo "$cc_m32" >&6; }
   if test "$cc_m32" = "no"; then
     { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "Failed to build with -m32
-    Consider installing gcc-multilib (and g++-multilib) or
-      the equivalent packages for your Linux distro.
+as_fn_error $? "Failed to build C program with -m32
+    Typically, this means that 32-bit glibc include files were not found.
+    Consider installing gcc-multilib g++-multilib libc6-dev-i386 (Debian/Ubuntu)
+     or glibc-devel.i686 glibc-devel ibstdc++-devel.i686 (Red Hat/Fedora/CentOS)
+     or glibc-devel-32bit (SUSE/OpenSUSE)
+     or the equivalent packages for your Linux distro.
 See \`config.log' for more details" "$LINENO" 5; }
   fi
 
@@ -5066,9 +5069,12 @@ $as_echo "$cplusplus_m32" >&6; }
   if test "$cplusplus_m32" = "no"; then
     { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "Failed to build with -m32
+as_fn_error $? "Failed to build C++ program with -m32
     Typically, this means that 32-bit libstdc++.so was not found
-    Consider installing g++-multilib or equivalent pkg for your Linux distro.
+    Consider installing gcc-multilib g++-multilib libc6-dev-i386 (Debian/Ubuntu)
+     or glibc-devel.i686 glibc-devel ibstdc++-devel.i686 (Red Hat/Fedora/CentOS)
+     or glibc-devel-32bit (SUSE/OpenSUSE)
+     or the equivalent packages for your Linux distro.
 See \`config.log' for more details" "$LINENO" 5; }
   fi
 else
