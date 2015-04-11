@@ -248,22 +248,23 @@ static void processArgs(int *orig_argc, char ***orig_argv, string *tmpDir_p)
     } else if (s == "--no-coordinator") {
       allowedModes = COORD_NONE;
       shift;
-    } else if (s == "-i" || s == "--interval" ||
-             (s.c_str()[0] == '-' && s.c_str()[1] == 'i' &&
-              isdigit(s.c_str()[2]) ) ) {
-      if (isdigit(s.c_str()[2])) { // if -i5, for example
-        setenv(ENV_VAR_CKPT_INTR, s.c_str()+2, 1);
-        shift;
-      } else { // else -i 5
-        setenv(ENV_VAR_CKPT_INTR, argv[1], 1);
-        shift; shift;
-      }
+    } else if (s == "-i" || s == "--interval") {
+      setenv(ENV_VAR_CKPT_INTR, argv[1], 1);
+      shift; shift;
+    } else if (s.c_str()[0] == '-' && s.c_str()[1] == 'i' &&
+               isdigit(s.c_str()[2])) { // else if -i5, for example
+      setenv(ENV_VAR_CKPT_INTR, s.c_str()+2, 1);
+      shift;
     } else if (argc>1 && (s == "-h" || s == "--host")) {
       setenv(ENV_VAR_NAME_HOST, argv[1], 1);
       shift; shift;
     } else if (argc>1 && (s == "-p" || s == "--port")) {
       setenv(ENV_VAR_NAME_PORT, argv[1], 1);
       shift; shift;
+    } else if (s.c_str()[0] == '-' && s.c_str()[1] == 'p' &&
+               isdigit(s.c_str()[2])) { // else if -p0, for example
+      setenv(ENV_VAR_NAME_PORT, s.c_str()+2, 1);
+      shift;
     } else if (argc>1 && s == "--port-file"){
       thePortFile = argv[1];
       shift; shift;
@@ -715,7 +716,7 @@ static void setLDPreloadLibs(bool is32bitElf)
 #if defined(__x86_64__)
   if (is32bitElf) {
     string libdmtcp = Util::getPath("libdmtcp.so", true);
-    JWARNING(libdmtcp != "libdmtcp.so")
+    JWARNING(libdmtcp != "libdmtcp.so") (libdmtcp)
       .Text("You appear to be checkpointing a 32-bit target under 64-bit Linux.\n"
             "DMTCP was unable to find the 32-bit installation.\n"
             "See DMTCP FAQ or try:\n"

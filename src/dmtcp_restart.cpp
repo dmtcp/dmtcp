@@ -419,22 +419,23 @@ int main(int argc, char** argv)
     } else if (s == "--no-strict-uid-checking") {
       noStrictUIDChecking = true;
       shift;
-    } else if (s == "-i" || s == "--interval" ||
-               (s.c_str()[0] == '-' && s.c_str()[1] == 'i' &&
-                isdigit(s.c_str()[2]))) {
-      if (isdigit(s.c_str()[2])) { // if -i5, for example
-        setenv(ENV_VAR_CKPT_INTR, s.c_str()+2, 1);
-        shift;
-      } else { // else -i 5
-        setenv(ENV_VAR_CKPT_INTR, argv[1], 1);
-        shift; shift;
-      }
+    } else if (s == "-i" || s == "--interval") {
+      setenv(ENV_VAR_CKPT_INTR, argv[1], 1);
+      shift; shift;
+    } else if (s.c_str()[0] == '-' && s.c_str()[1] == 'i' &&
+               isdigit(s.c_str()[2])) { // else if -i5, for example
+      setenv(ENV_VAR_CKPT_INTR, s.c_str()+2, 1);
+      shift;
     } else if (argc > 1 && (s == "-h" || s == "--host")) {
       setenv(ENV_VAR_NAME_HOST, argv[1], 1);
       shift; shift;
-    } else if (argc > 1 && (s == "-p" || s == "--port")) {
+    } else if (argc>1 && (s == "-p" || s == "--port")) {
       setenv(ENV_VAR_NAME_PORT, argv[1], 1);
       shift; shift;
+    } else if (s.c_str()[0] == '-' && s.c_str()[1] == 'p' &&
+               isdigit(s.c_str()[2])) { // else if -p0, for example
+      setenv(ENV_VAR_NAME_PORT, s.c_str()+2, 1);
+      shift;
     } else if (argc>1 && s == "--port-file"){
       thePortFile = argv[1];
       shift; shift;
