@@ -138,6 +138,29 @@ void SocketConnList::refill(bool isRestart)
 
 void SocketConnList::scanForPreExisting()
 {
+  // TODO: This is a hack when SLURM + MPI are used:
+  // when we use command
+  // srun/ibrun dmtcp_launch a.out
+  // inside the SLURM submission script, the MPI launching
+  // process will not run under the control of DMTCP. Instead,
+  // only the computing processes are. The launching process
+  // will create some sockets, and then create the computing
+  // processes. Hence the sockets are shared among the created
+  // processes at the time when dmtcp_launch is launched. DMTCP
+  // will treat these sockets as pre-existing sockets instead of
+  // shared sockets.
+  //
+  // In the future, we should generalize the processing of
+  // pre-existing fds. For example, at checkpoint time, determine
+  // which sockets are shared, regardless of whether they are
+  // pre-existing or not. This can be done by adding an extra round
+  // of leader election.
+
+  char *slurm_jobid = getenv("slurm_jobid_JOBID");
+  if (slurm_jobid || (slurm_jobid = getenv("slurm_jobid_JOB_ID"))) {
+    return;
+  }
+
   // FIXME: Detect stdin/out/err fds to detect duplicates.
   vector<int> fds = jalib::Filesystem::ListOpenFds();
   for (size_t i = 0; i < fds.size(); ++i) {
