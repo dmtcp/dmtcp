@@ -738,7 +738,9 @@ runTest("gettimeofday",  1, ["./test/gettimeofday"])
 
 runTest("sigchild",      1, ["./test/sigchild"])
 
-runTest("shared-fd",     2, ["./test/shared-fd"])
+runTest("shared-fd1",     2, ["./test/shared-fd1"])
+
+runTest("shared-fd2",     2, ["./test/shared-fd2"])
 
 runTest("stale-fd",      2, ["./test/stale-fd"])
 

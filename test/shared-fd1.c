@@ -5,16 +5,16 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 
-//This example mimics a bug in some versions of MPICH2 mpd
-//the parent process forgets to close one end of a socket pair
+// This example mimics a DMTCP bug in some versions of MPICH2 mpd.
+// The parent process forgets to close one end of a socket pair.
 
 int main(int argc, char* argv[])
 {
   int count = 1;
   int sockets[2];
   if (socketpair(AF_UNIX, SOCK_STREAM, 0, sockets) < 0) {
-    perror("socketpair()");
-    return -1;
+    perror("socketpair");
+    return 1;
   }
 
   const char* me;
