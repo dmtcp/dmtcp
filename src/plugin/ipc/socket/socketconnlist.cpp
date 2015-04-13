@@ -156,8 +156,7 @@ void SocketConnList::scanForPreExisting()
   // pre-existing or not. This can be done by adding an extra round
   // of leader election.
 
-  char *slurm_jobid = getenv("slurm_jobid_JOBID");
-  if (slurm_jobid || (slurm_jobid = getenv("slurm_jobid_JOB_ID"))) {
+  if (getenv("SLURM_JOBID") || (getenv("SLURM_JOB_ID"))) {
     return;
   }
 
