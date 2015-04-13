@@ -24,15 +24,21 @@ prepare_SLURM_env()
   LOCAL_FILES="$1"
   
   # Create temp directory if need
-  DMTCP_TMPDIR=$TMPDIR/dmtcp-`whoami`@`hostname`
-  if [ ! -d "$DMTCP_TMPDIR" ]; then
-    mkdir -p $DMTCP_TMPDIR
+  if [ -n "$DMTCP_TMPDIR" ]; then
+    CURRENT_TMPDIR=$DMTCP_TMPDIR/dmtcp-`whoami`@`hostname`
+  elif [ -n "$TMPDIR" ]; then
+    CURRENT_TMPDIR=$TMPDIR/dmtcp-`whoami`@`hostname`
+  else
+    CURRENT_TMPDIR=/tmp/dmtcp-`whoami`@`hostname`
   fi
-  
+  if [ ! -d "$CURRENT_TMPDIR" ]; then
+    mkdir -p $CURRENT_TMPDIR
+  fi
+
   # Create files with SLURM environment
   for CKPT_FILE in $LOCAL_FILES; do
     SUFFIX=${CKPT_FILE%%.dmtcp}
-    SLURM_ENV_FILE=$DMTCP_TMPDIR/slurm_env_${SUFFIX##*_}
+    SLURM_ENV_FILE=$CURRENT_TMPDIR/slurm_env_${SUFFIX##*_}
     echo "SLURM_SRUN_COMM_HOST=$SLURM_SRUN_COMM_HOST" > $SLURM_ENV_FILE
     echo "SLURM_SRUN_COMM_PORT=$SLURM_SRUN_COMM_PORT" >> $SLURM_ENV_FILE
     echo "SLURMTMPDIR=$SLURMTMPDIR" >> $SLURM_ENV_FILE
