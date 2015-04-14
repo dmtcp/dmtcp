@@ -367,7 +367,7 @@ void ConnectionList::drain()
 {
   for (iterator i = begin(); i != end(); ++i) {
     Connection* con =  i->second;
-    con->checkLock();
+    con->checkLocking();
     if (con->hasLock()) {
       con->drain();
     }

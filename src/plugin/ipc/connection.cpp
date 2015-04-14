@@ -102,7 +102,7 @@ void Connection::doLocking()
    (_fds[0]) (JASSERT_ERRNO);
 }
 
-void Connection::checkLock()
+void Connection::checkLocking()
 {
   pid_t pid = fcntl(_fds[0], F_GETOWN);
   JASSERT(pid != -1);
