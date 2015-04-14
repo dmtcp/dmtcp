@@ -484,8 +484,7 @@ AC_PATH_PROGS([OPENMPI_MPIRUN],  [mpirun.openmpi mpirun], [no], [$MPI_PATH])
 if test "$OPENMPI_MPICC" = "no" -o "$OPENMPI_MPIRUN" = "no"; then
   AC_SUBST(HAS_OPENMPI, [no])
 else
-  if 
-    if $OPENMPI_MPIRUN --help 2>&1 | grep -i 'open mpi' > /dev/null;  then
+  if $OPENMPI_MPIRUN --help 2>&1 | grep -i 'open mpi' > /dev/null;  then
     AC_SUBST(HAS_OPENMPI, [yes])
   else
     AC_SUBST(HAS_OPENMPI, [no])
