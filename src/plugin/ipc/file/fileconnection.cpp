@@ -515,7 +515,7 @@ void FileConnection::doLocking()
     }
   }
   Connection::doLocking();
-  _checkpointed = false;
+  _ckpted_file = false;
 }
 
 void FileConnection::handleUnlinkedFile()
@@ -570,7 +570,7 @@ void FileConnection::drain()
 
   calculateRelativePath();
 
-  _checkpointed = false;
+  _ckpted_file = false;
 
   // Read the current file descriptor offset
   _offset = lseek(_fds[0], 0, SEEK_CUR);
@@ -591,12 +591,12 @@ void FileConnection::drain()
     JTRACE("Pre-checkpoint Torque files") (_fds.size());
     for (unsigned int i=0; i< _fds.size(); i++)
       JTRACE("_fds[i]=") (i) (_fds[i]);
-    _checkpointed = true;
+    _ckpted_file = true;
     return;
   }
 
   if (dmtcp_must_ckpt_file && dmtcp_must_ckpt_file(_path.c_str())) {
-    _checkpointed = true;
+    _ckpted_file = true;
     return;
   }
 
@@ -607,16 +607,16 @@ void FileConnection::drain()
     return;
   }
   if (dmtcp_should_ckpt_open_files() && statbuf.st_uid == getuid()) {
-    _checkpointed = true;
+    _ckpted_file = true;
   } else if (_type == FILE_DELETED || _type == FILE_SHM) {
-    _checkpointed = true;
+    _ckpted_file = true;
   } else if (_isVimApp() &&
              (Util::strEndsWith(_path, ".swp") == 0 ||
               Util::strEndsWith(_path, ".swo") == 0)) {
-    _checkpointed = true;
+    _ckpted_file = true;
   } else if (Util::strStartsWith(jalib::Filesystem::GetProgramName(),
                                  "emacs")) {
-    _checkpointed = true;
+    _ckpted_file = true;
 #if 0
   } else if ((_fcntlFlags &(O_WRONLY|O_RDWR)) != 0 &&
              _offset < _st_size &&
@@ -624,16 +624,16 @@ void FileConnection::drain()
              statbuf.st_uid == getuid()) {
     // FIXME: Disable the following heuristic until we can come up with
     //        a better one
-    _checkpointed = true;
+    _ckpted_file = true;
 #endif
   } else {
-    _checkpointed = false;
+    _ckpted_file = false;
   }
 }
 
 void FileConnection::preCkpt()
 {
-  if (_checkpointed) {
+  if (_ckpted_file) {
     ConnectionIdentifier id;
     JASSERT(_type != FILE_PROCFS && _type != FILE_INVALID);
     JASSERT(SharedData::getCkptLeaderForFile(_st_dev, _st_ino, &id));
@@ -659,7 +659,7 @@ void FileConnection::preCkpt()
       _real_close(destFd);
     } else {
       JTRACE("Not checkpointing this file") (_path);
-      _checkpointed = false;
+      _ckpted_file = false;
     }
   }
 }
@@ -671,7 +671,7 @@ void FileConnection::refill(bool isRestart)
   if (strstr(_path.c_str(), "infiniband/uverbs") ||
       strstr(_path.c_str(), "uverbs-event")) return;
 
-  if (_checkpointed && _fileAlreadyExists) {
+  if (_ckpted_file && _fileAlreadyExists) {
     string savedFilePath = getSavedFilePath(_path);
     int savedFd = _real_open(savedFilePath.c_str(), O_RDONLY, 0);
     JASSERT(savedFd != -1) (JASSERT_ERRNO) (savedFilePath);
@@ -696,7 +696,7 @@ void FileConnection::refill(bool isRestart)
     _real_close(savedFd);
   }
 
-  if (!_checkpointed) {
+  if (!_ckpted_file) {
     int tempfd;
     if (_type == FILE_DELETED && (_flags & O_WRONLY)) {
       tempfd = _real_open(_path.c_str(), _fcntlFlags | O_CREAT, 0600);
@@ -740,7 +740,7 @@ void FileConnection::refill(bool isRestart)
 
 void FileConnection::resume(bool isRestart)
 {
-  if (_checkpointed && isRestart && _type == FILE_DELETED) {
+  if (_ckpted_file && isRestart && _type == FILE_DELETED) {
     /* Here we want to unlink the file. We want to do it only at the time of
      * restart, but there is no way of finding out if we are restarting or not.
      * That is why we look for the file on disk and if it is present(it was
@@ -809,7 +809,7 @@ void FileConnection::postRestart()
   int tempfd;
 
   JASSERT(_fds.size() > 0);
-  if (!_checkpointed) return;
+  if (!_ckpted_file) return;
   _fileAlreadyExists = false;
 
   JTRACE("Restoring File Connection") (id()) (_path);
@@ -975,9 +975,9 @@ void FileConnection::serializeSubClass(jalib::JBinarySerializer& o)
 {
   JSERIALIZE_ASSERT_POINT("FileConnection");
   o & _path & _rel_path;
-  o & _offset & _st_dev & _st_ino & _st_size & _checkpointed & _rmtype;
+  o & _offset & _st_dev & _st_ino & _st_size & _ckpted_file & _rmtype;
   JTRACE("Serializing FileConn.") (_path) (_rel_path)
-    (dmtcp_get_ckpt_files_subdir()) (_checkpointed) (_fcntlFlags);
+    (dmtcp_get_ckpt_files_subdir()) (_ckpted_file) (_fcntlFlags);
 }
 
 /*****************************************************************************
