@@ -146,8 +146,8 @@ namespace dmtcp
 
       virtual string str() { return _path; }
       string filePath() { return _path; }
-      bool checkpointed() { return _checkpointed; }
-      void doNotRestoreCkptCopy() { _checkpointed = false; }
+      bool checkpointed() { return _ckpted_file; }
+      void doNotRestoreCkptCopy() { _ckpted_file = false; }
 
       dev_t devnum() const { return _st_dev; }
       ino_t inode() const { return _st_ino; }
@@ -163,7 +163,7 @@ namespace dmtcp
       string _path;
       string _rel_path;
       string _ckptFilesDir;
-      int32_t       _checkpointed;
+      int32_t       _ckpted_file;
       int32_t       _fileAlreadyExists;
       int32_t       _rmtype;
       int64_t       _flags;
