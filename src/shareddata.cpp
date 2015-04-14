@@ -31,7 +31,7 @@
 #include "uniquepid.h"
 #include "syscallwrappers.h"
 #include "util.h"
-#include  "membarrier.h"
+#include "membarrier.h"
 #include "coordinatorapi.h"
 #include "shareddata.h"
 #include "../jalib/jassert.h"
@@ -92,7 +92,7 @@ void SharedData::initializeHeader(const char *tmpDir,
   sharedDataHeader->numPtraceIdMaps = 0;
   sharedDataHeader->numPtyNameMaps = 0;
   sharedDataHeader->initialized = true;
-  sharedDataHeader->numMissingConMaps = 0;
+  sharedDataHeader->numIncomingConMaps = 0;
   memcpy(&sharedDataHeader->compId, compId, sizeof(*compId));
   memcpy(&sharedDataHeader->coordInfo, coordInfo, sizeof (*coordInfo));
   memcpy(&sharedDataHeader->localIPAddr, localIPAddr, sizeof (*localIPAddr));
@@ -204,7 +204,7 @@ void SharedData::preCkpt()
   if (sharedDataHeader != NULL) {
     nextVirtualPtyId = sharedDataHeader->nextVirtualPtyId;
     // Need to reset these counters before next post-restart/post-ckpt routines
-    sharedDataHeader->numMissingConMaps = 0;
+    sharedDataHeader->numIncomingConMaps = 0;
 WMB;
     size_t size = CEIL(SHM_MAX_SIZE, Util::pageSize());
     JASSERT(_real_munmap(sharedDataHeader, size) == 0) (JASSERT_ERRNO);
@@ -549,26 +549,26 @@ void SharedData::insertPtyNameMap(const char* virt, const char* real)
   Util::unlockFile(PROTECTED_SHM_FD);
 }
 
-void SharedData::registerMissingCons(vector<const char*>& ids,
+void SharedData::registerIncomingCons(vector<const char*>& ids,
                                      struct sockaddr_un receiverAddr,
                                      socklen_t len)
 {
   if (sharedDataHeader == NULL) initialize();
   Util::lockFile(PROTECTED_SHM_FD);
   for (size_t i = 0; i < ids.size(); i++) {
-    size_t n = sharedDataHeader->numMissingConMaps++;
-    memcpy(sharedDataHeader->missingConMap[n].id, ids[i], CON_ID_LEN);
-    memcpy(&sharedDataHeader->missingConMap[n].addr, &receiverAddr, len);
-    sharedDataHeader->missingConMap[n].len = len;
+    size_t n = sharedDataHeader->numIncomingConMaps++;
+    memcpy(sharedDataHeader->incomingConMap[n].id, ids[i], CON_ID_LEN);
+    memcpy(&sharedDataHeader->incomingConMap[n].addr, &receiverAddr, len);
+    sharedDataHeader->incomingConMap[n].len = len;
   }
   Util::unlockFile(PROTECTED_SHM_FD);
 }
 
-void SharedData::getMissingConMaps(MissingConMap **map, uint32_t *nmaps)
+void SharedData::getMissingConMaps(IncomingConMap **map, uint32_t *nmaps)
 {
   if (sharedDataHeader == NULL) initialize();
-  *map = sharedDataHeader->missingConMap;
-  *nmaps = sharedDataHeader->numMissingConMaps;
+  *map = sharedDataHeader->incomingConMap;
+  *nmaps = sharedDataHeader->numIncomingConMaps;
 }
 
 void SharedData::insertInodeConnIdMaps(vector<InodeConnIdMap>& maps)

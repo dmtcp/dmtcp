@@ -35,7 +35,7 @@
 #define MAX_IPC_ID_MAPS 256
 #define MAX_PTY_NAME_MAPS 256
 #define MAX_PTRACE_ID_MAPS 256
-#define MAX_MISSING_CONNECTIONS 10240
+#define MAX_INCOMING_CONNECTIONS 10240
 #define MAX_INODE_PID_MAPS 10240
 #define CON_ID_LEN \
   (sizeof(DmtcpUniqueProcessId) + sizeof(int64_t))
@@ -74,7 +74,7 @@ namespace dmtcp {
       char real[PTS_PATH_MAX];
     };
 
-    struct MissingConMap {
+    struct IncomingConMap {
       char                 id[CON_ID_LEN];
       struct sockaddr_un   addr;
       socklen_t            len;
@@ -112,7 +112,7 @@ namespace dmtcp {
       uint32_t             nextPtyName;
       uint32_t             nextVirtualPtyId;
 
-      uint32_t             numMissingConMaps;
+      uint32_t             numIncomingConMaps;
       uint32_t             numInodeConnIdMaps;
 
       struct PidMap        pidMap[MAX_PID_MAPS];
@@ -121,7 +121,7 @@ namespace dmtcp {
       struct IPCIdMap      sysvMsqIdMap[MAX_IPC_ID_MAPS];
       struct PtraceIdMaps  ptraceIdMap[MAX_PTRACE_ID_MAPS];
       struct PtyNameMap    ptyNameMap[MAX_PTY_NAME_MAPS];
-      struct MissingConMap missingConMap[MAX_MISSING_CONNECTIONS];
+      struct IncomingConMap incomingConMap[MAX_INCOMING_CONNECTIONS];
       InodeConnIdMap       inodeConnIdMap[MAX_INODE_PID_MAPS];
 
       char                 versionStr[32];
@@ -180,10 +180,10 @@ namespace dmtcp {
     void createVirtualPtyName(const char* real, char *out, uint32_t len);
     void insertPtyNameMap(const char* virt, const char* real);
 
-    void registerMissingCons(vector<const char*>& ids,
+    void registerIncomingCons(vector<const char*>& ids,
                              struct sockaddr_un receiverAddr,
                              socklen_t len);
-    void getMissingConMaps(struct MissingConMap **map, uint32_t *nmaps);
+    void getMissingConMaps(struct IncomingConMap **map, uint32_t *nmaps);
 
     void insertInodeConnIdMaps(vector<InodeConnIdMap>& maps);
     bool getCkptLeaderForFile(dev_t devnum, ino_t inode, void *id);
