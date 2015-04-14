@@ -95,6 +95,13 @@ cd $SLURM_SUBMIT_DIR
 # export PATH=<dmtcp-install-path>/bin:$PATH
 # export LD_LIBRARY_PATH=<dmtcp-install-path>/lib:$LD_LIBRARY_PATH
 
+###############################################################################
+# If you use the Stampede supercomputer at Texas Advanced Computing Center
+# (TACC), add the following:
+# HOSTFILE=hostfile
+# echo "SLURM_JOB_NODELIST" | scontrol show hostname > $HOSTFILE
+###############################################################################
+
 #------------------------------------- Launch application ---------------------#
 
 ################################################################################
@@ -108,3 +115,9 @@ start_coordinator # -i 120 ... <put dmtcp coordinator options here>
 ################################################################################
 
 /bin/bash ./dmtcp_restart_script.sh -h $DMTCP_HOST -p $DMTCP_PORT
+
+###############################################################################
+# If you use the Stampede supercomputer at Texas Advanced Computing Center
+# (TACC), add the --hostfile option:
+# /bin/bash ./dmtcp_restart_script.sh -h $DMTCP_HOST -p $DMTCP_PORT --hostfile $HOSTFILE
+###############################################################################
