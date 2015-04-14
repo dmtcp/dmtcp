@@ -43,7 +43,7 @@ namespace dmtcp
       typedef map<ConnectionIdentifier, Connection*>::iterator iterator;
 
       ConnectionList() {
-        numMissingCons = 0;
+        numIncomingCons = 0;
         JASSERT(pthread_mutex_init(&_lock, NULL) == 0);}
       virtual ~ConnectionList();
 
@@ -72,7 +72,7 @@ namespace dmtcp
       virtual void refill(bool isRestart);
       virtual void resume(bool isRestart);
 
-      void registerMissingCons();
+      void registerIncomingCons();
       void determineOutgoingCons();
       void sendReceiveMissingFds();
       virtual int protectedFd() = 0;
@@ -98,7 +98,7 @@ namespace dmtcp
       typedef map<int, Connection*> FdToConMapT;
       FdToConMapT _fdToCon;
 
-      size_t numMissingCons;
+      size_t numIncomingCons;
   };
 }
 #endif

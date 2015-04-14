@@ -39,7 +39,7 @@
 #include "connectionlist.h"
 
 // There is a list of outgoing connections (outgoingCons) and 
-//  incoming connections (missingCons).  These refer to shared fd's.
+//  incoming connections (incomingCons).  These refer to shared fd's.
 //  For the various processes on the same host, any shared fd corresponding
 //  to a connection has a 'con->hasLock()' method.  If it's true, this
 //  process owns the shared fd, and must send it as an outgoing connection.
@@ -441,11 +441,11 @@ void ConnectionList::postRestart()
     con->postRestart();
   }
 
-  registerMissingCons();
+  registerIncomingCons();
 }
 
 
-void ConnectionList::registerMissingCons()
+void ConnectionList::registerIncomingCons()
 {
   int protected_fd = protectedFd();
   // Add receive-fd data socket.
@@ -467,23 +467,23 @@ void ConnectionList::registerMissingCons()
                       &fdReceiveAddrLen) == 0);
 
 
-  vector<const char *> missingCons;
+  vector<const char *> incomingCons;
   ostringstream in, out;
   for (iterator i = begin(); i != end(); ++i) {
     Connection *con = i->second;
     // Check comments in FileConnList::postRestart() for the explanation
     // about isPreExistingCTTY.
     if (!con->hasLock() && !con->isStdio() && !con->isPreExistingCTTY()) {
-      missingCons.push_back((const char*)&i->first);
+      incomingCons.push_back((const char*)&i->first);
       in << "\n\t" << con->str() << i->first;
     } else {
       out << "\n\t" << con->str() << i->first;
     }
   }
-  JTRACE("Missing/Outgoing Cons") (in.str()) (out.str());
-  numMissingCons = missingCons.size();
-  if (numMissingCons > 0) {
-    SharedData::registerMissingCons(missingCons, fdReceiveAddr,
+  JTRACE("Incoming/Outgoing Cons") (in.str()) (out.str());
+  numIncomingCons = incomingCons.size();
+  if (numIncomingCons > 0) {
+    SharedData::registerIncomingCons(incomingCons, fdReceiveAddr,
                                     fdReceiveAddrLen);
   }
 }
@@ -492,7 +492,7 @@ void ConnectionList::sendReceiveMissingFds()
 {
   size_t i;
   vector<int> outgoingCons;
-  SharedData::MissingConMap *maps;
+  SharedData::IncomingConMap *maps;
   uint32_t nmaps;
   SharedData::getMissingConMaps(&maps, &nmaps);
   for (i = 0; i < nmaps; i++) {
@@ -507,13 +507,13 @@ void ConnectionList::sendReceiveMissingFds()
   fd_set wfds;
   int restoreFd = protectedFd();
   size_t numOutgoingCons = outgoingCons.size();
-  while (numOutgoingCons > 0 || numMissingCons > 0) {
+  while (numOutgoingCons > 0 || numIncomingCons > 0) {
     FD_ZERO(&wfds);
     if (outgoingCons.size() > 0) {
       FD_SET(restoreFd, &wfds);
     }
     FD_ZERO(&rfds);
-    if (numMissingCons > 0) {
+    if (numIncomingCons > 0) {
       FD_SET(restoreFd, &rfds);
     }
 
@@ -531,7 +531,7 @@ void ConnectionList::sendReceiveMissingFds()
       numOutgoingCons--;
     }
 
-    if (numMissingCons > 0 && FD_ISSET(restoreFd, &rfds)) {
+    if (numIncomingCons > 0 && FD_ISSET(restoreFd, &rfds)) {
       ConnectionIdentifier id;
       int fd = receiveFd(restoreFd, &id, sizeof(id));
       JASSERT(fd != -1);
@@ -539,7 +539,7 @@ void ConnectionList::sendReceiveMissingFds()
       JTRACE("Received Missing Con") (id);
       JASSERT(con != NULL);
       Util::dupFds(fd, con->getFds());
-      numMissingCons--;
+      numIncomingCons--;
     }
   }
   dmtcp_close_protected_fd(restoreFd);
