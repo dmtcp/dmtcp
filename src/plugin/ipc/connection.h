@@ -77,7 +77,7 @@ namespace dmtcp
       bool hasLock() { return _hasLock; }
       bool isStdio() { return conType() == STDIO; }
 
-      void  checkLock();
+      void  checkLocking();
       const ConnectionIdentifier& id() const { return _id; }
 
       virtual void saveOptions();
