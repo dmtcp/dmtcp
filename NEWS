@@ -8,9 +8,14 @@ Several important enancements were added:
 * Newer versions of MATLAB (matlab-2013 and later) were using additional
    Linux features.  All recent versions of matlab are again supported.
 * Intensive testing done for integration of MPI/SLURM
-   for the following MPI dialects:  Intel MPI/MVAPICH-2/MPICH-2/Open MPI
+   for the following MPI dialects:  Intel MPI/MVAPICH-2/MPICH-2/Open MPI.
    See plugin/batch-queue/job_examples/ for SLURM/DMTCP submission scripts.
    Preliminary support for some other resource managers also provided.
+ - Open MPI version 1.8 _with_ InfiniBand is not yet supported.
+     This is due to the OMPI use of UD (unreliable datagrams) for InfiniBand.
+     Support is planned for the near future.  Earlier OMPI versions continue
+     to work with IB.  We do not currently know of a config in OMPI-1.8 to
+     avoid IB/UD (to use only IB/CM).  Such a workaround would let DMTCP work.
 * Added support for newest Linux kernels: split of [vdso]
    into [vdso] and [vvar]; To see if this affects you, do:
      cat /proc/self/maps | grep '\[vvar]'
