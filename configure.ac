@@ -200,6 +200,7 @@ if test "$use_test_suite" = "yes"; then
   AC_SUBST([USE_TEST_SUITE], [yes])
   AC_MSG_CHECKING([whether posix mq_open works])
   AC_LANG_PUSH([C])
+  old_CFLAGS="$CFLAGS"
   CFLAGS="-g -O0"
   old_LIBS="$LIBS"
   LIBS="-lrt $LIBS"
@@ -219,6 +220,7 @@ if test "$use_test_suite" = "yes"; then
                 exit(0);
               }
               ], [posix_mq='yes'], [posix_mq='no'])
+  CFLAGS="$oldC_FLAGS"
   LIBS="$old_LIBS"
   AC_LANG_POP([C])
   AC_MSG_RESULT([$posix_mq])
