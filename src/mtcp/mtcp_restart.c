@@ -594,7 +594,8 @@ static void unmap_memory_areas_and_restore_vdso(RestoreInfo *rinfo)
       // Do not unmap vdso.
       vdsoStart = area.addr;
       vdsoEnd = area.endAddr;
-      DPRINTF("***INFO: vDSO found (%p-%p)\n", area.addr, area.endAddr);
+      DPRINTF("***INFO: vDSO found (%p-%p)\n orignal vDSO: (%p-%p)\n",
+              area.addr, area.endAddr, rinfo->vdsoStart, rinfo->vdsoEnd);
     } else if (mtcp_strcmp(area.name, "[vvar]") == 0) {
       // Do not unmap vvar.
       vvarStart = area.addr;
