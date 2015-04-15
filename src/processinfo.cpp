@@ -302,17 +302,17 @@ void ProcessInfo::restoreHeap()
    * happens when the size of checkpointed program is smaller then the size of
    * mtcp_restart program.
    */
-  VA curBrk = (char*) sbrk(0);
-  if ((uint64_t) curBrk > _savedBrk) {
+  uint64_t curBrk = (uint64_t) sbrk(0);
+  if (curBrk > _savedBrk) {
     JNOTE("Area between saved_break and curr_break not mapped, mapping it now")
       (_savedBrk) (curBrk);
     size_t oldsize = _savedBrk - _savedHeapStart;
-    size_t newsize = (size_t) (curBrk - _savedHeapStart);
+    size_t newsize = curBrk - _savedHeapStart;
 
     JASSERT(mremap((void*) _savedHeapStart, oldsize, newsize, 0) != NULL)
       (_savedBrk) (curBrk)
       .Text("mremap failed to map area between saved break and current break");
-  } else if ((uint64_t) curBrk < _savedBrk) {
+  } else if (curBrk < _savedBrk) {
     if (brk((void*)_savedBrk) != 0) {
       JNOTE("Failed to restore area between saved_break and curr_break.")
         (_savedBrk) (curBrk) (JASSERT_ERRNO);
