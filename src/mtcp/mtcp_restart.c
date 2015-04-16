@@ -184,8 +184,7 @@ MTCP_PRINTF("Attach for debugging.");
 {int x=1; while(x);}
 #endif
 
-// Remove this block and the corresponding file after sufficient testing.
-#ifdef ENABLE_VDSO_CHECK
+  // If mtcp_check_vdso isn't called, CentOS 7 fails on dmtcp3, dmtcp5, others
   /* i386 uses random addresses for vdso.  Make sure that its location
    * will not conflict with other memory regions.
    * (Other arch's may also need this in the future.  So, we do it for all.)
@@ -194,7 +193,6 @@ MTCP_PRINTF("Attach for debugging.");
    * kernel, on restart, knows only the new vdso.
    */
   mtcp_check_vdso(environ);
-#endif
 
   rinfo.fd = -1;
   rinfo.use_gdb = 0;
