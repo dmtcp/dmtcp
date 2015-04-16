@@ -38,17 +38,44 @@
 #include "connection.h"
 #include "connectionlist.h"
 
+// Each fd may be shared or private.  If a fd is shared, this situation
+//  must be restored at restart time, and only one process should set
+//  the properties of that shared fd.  The sequence of events follows.
+
+// At the time of checkpoint, a leader election algorithm is used to decide
+//  on a unique process as leader, who will be responsible for restoring the
+//  state of a file descriptor (whether shared or not) at the time of restart.
+//  It is implemented through doLocking and checkLocking, in which each
+//  process uses fcntl() with SETOWN, and after a barrier, they check
+//  if they are still the owner using GETOWN.
+// A list of connections (fd's) is found through /proc/*/fd and saved
+//  in the ConnectionList object.
+// At the time of restart, con->hasLock() will tell a process if it is the
+//  the leader for that connection (con).  However, the process must still
+//  discover if the file descriptor is private or shared.
+// We define a "private fd" as an fd that is shared by exactly one process.
+//  This criterion is used in the implementation.
 // There is a list of outgoing connections (outgoingCons) and 
-//  incoming connections (incomingCons).  These refer to shared fd's.
+//  incoming connections (incomingCons).  These will refer to shared fd's.
 //  For the various processes on the same host, any shared fd corresponding
 //  to a connection has a 'con->hasLock()' method.  If it's true, this
 //  process owns the shared fd, and must send it as an outgoing connection.
 //  If it's false, this process does not own the shared fd, and it must
 //  receive it from another process.
+// The connections of the ConnectionList object are initially entered into
+//  a list of outgoing connections.  If a process sees a fd and it does not
+//  have the lock (if con->hasLock() == false), then the process knows that
+//  the fd must be shared.  So, the process declares this fd to be "incoming".
+//  Then registerIncomingCons() can separate the fd's into incoming and outgoing
+//  connections.  This is done by looking up the shared-area to see which
+//  connections have been declared as "incoming" by other processes.
 // A UNIX domain socket (called 'restoreFd' or 'protected_fd', depending
 //  on the function, but always deduced from protectedFd()) is used to
 //  send the outgoing connections, and to receive the incoming connections
 //  at restart time, so that the corresponding fd's can again be shared.
+// The owner of each outgoing connection sends the fd out, and for each
+//  process, if that connection is on its list of incoming connections
+//  (missing connections), then the fd is kept as a shared fd.
 
 using namespace dmtcp;
 
