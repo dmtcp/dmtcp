@@ -184,7 +184,11 @@ MTCP_PRINTF("Attach for debugging.");
 {int x=1; while(x);}
 #endif
 
-// Remove this block and the corresponding file after sufficient testing.
+// TODO(karya0): Remove vDSO checks after 2.4.0-rc3 release.
+// Without mtcp_check_vdso, CentOS 7 fails on dmtcp3, dmtcp5, others.
+#define ENABLE_VDSO_CHECK
+// TODO(karya0): Remove this block and the corresponding file after sufficient
+// testing.
 #ifdef ENABLE_VDSO_CHECK
   /* i386 uses random addresses for vdso.  Make sure that its location
    * will not conflict with other memory regions.
