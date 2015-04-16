@@ -4,14 +4,14 @@
 NAME=${shell basename $$PWD}
 
 # By default, your resulting library will have this name.
-LIBNAME=dmtcp_${NAME}hijack
+LIBNAME=dmtcp_${NAME}
 
 # As you add new files to your hijack library, add the object file names here.
 LIBOBJS = ${NAME}.o
 
 # Modify if your DMTCP_ROOT is located elsewhere.
 ifndef DMTCP_ROOT
-  DMTCP_ROOT=../../..
+  DMTCP_ROOT=../../
 endif
 DMTCP_INCLUDE=${DMTCP_ROOT}/include
 JALIB_INCLUDE=${DMTCP_ROOT}/jalib/
