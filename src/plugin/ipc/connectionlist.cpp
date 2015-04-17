@@ -53,6 +53,8 @@
 // At the time of restart, con->hasLock() will tell a process if it is the
 //  the leader for that connection (con).  However, the process must still
 //  discover if the file descriptor is private or shared.
+// We define a "private fd" as an fd that is shared by exactly one process.
+//  This criterion is used in the implementation.
 // There is a list of outgoing connections (outgoingCons) and 
 //  incoming connections (incomingCons).  These will refer to shared fd's.
 //  For the various processes on the same host, any shared fd corresponding
@@ -61,9 +63,12 @@
 //  If it's false, this process does not own the shared fd, and it must
 //  receive it from another process.
 // The connections of the ConnectionList object are initially entered into
-//  a list of outgoing connections.  Then registerIncomingCons() separates
-//  them into incoming and outgoing connections.  Finally, some
-//  OTHER METHOD (??) removes those outgoing connections that are not shared.
+//  a list of outgoing connections.  If a process sees a fd and it does not
+//  have the lock (if con->hasLock() == false), then the process knows that
+//  the fd must be shared.  So, the process declares this fd to be "incoming".
+//  Then registerIncomingCons() can separate the fd's into incoming and outgoing
+//  connections.  This is done by looking up the shared-area to see which
+//  connections have been declared as "incoming" by other processes.
 // A UNIX domain socket (called 'restoreFd' or 'protected_fd', depending
 //  on the function, but always deduced from protectedFd()) is used to
 //  send the outgoing connections, and to receive the incoming connections
