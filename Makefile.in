@@ -267,6 +267,11 @@ ifeq ($(M32),0)
 	cd $(DESTDIR)$(mandir)/man1 && rm -f ${MANPAGES} ${MANPAGES_AUTOGEN}
 endif
 
+# src/Makefile tries to make this, to ensure that configure, config.status,
+#   and so on are up to date.  It's assuming that this directory is also
+#   under control of automake.  So, we add this stub to satisfy automake.
+am--refresh:
+
 .PHONY: default all \
 	display-build-env display-release display-config build \
-	dmtcp plugin contrib clean distclean
+	dmtcp plugin contrib clean distclean am--refresh
