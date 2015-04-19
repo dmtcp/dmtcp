@@ -31,7 +31,6 @@
 #include "jfilesystem.h"
 #include "jconvert.h"
 #include "jalib.h"
-#include "dmtcp.h"
 
 #ifdef __aarch64__
 // FIXME:  We should use SYS_getdents64, and not SYS_getdents for all arch's.
@@ -39,6 +38,8 @@
 # undef SYS_getdents
 # define SYS_getdents SYS_getdents64
 #endif
+
+#define DELETED_FILE_SUFFIX " (deleted)"
 
 namespace
 {

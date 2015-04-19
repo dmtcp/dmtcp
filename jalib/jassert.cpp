@@ -29,6 +29,9 @@
 #include <fstream>
 #include <execinfo.h>  /* For backtrace() */
 
+// TODO(karya0): Remove after cleanup.
+#include "dmtcp.h"
+
 #include "jalib.h"
 #include "jconvert.h"
 #include "jassert.h"
