@@ -171,8 +171,8 @@ jalib::string jalib::Filesystem::GetProgramName()
     value = BaseName ( GetProgramPath() ); // uses /proc/self/exe
     // We may rewrite "a.out" to "/lib/ld-linux.so.2 a.out".  If so, find cmd.
     if (!value.empty()
-        && elfInterpreter != NULL
-        && value == ResolveSymlink(elfInterpreter) // e.g. /lib/ld-linux.so.2
+        && jalib::elfInterpreter() != NULL
+        && value == ResolveSymlink(jalib::elfInterpreter()) // e.g. /lib/ld-linux.so.2
 	&& (len = _GetProgramCmdline(cmdline, sizeof(cmdline))) > 0
 	&& len > strlen(cmdline) + 1 // more than one word in cmdline
 	&& *(cmdline + strlen(cmdline) + 1) != '-') // second word not a flag

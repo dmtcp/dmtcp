@@ -34,28 +34,55 @@
 #include "jalib.h"
 #include "jassert.h"
 
-jalib::JalibFuncPtrs jalib::jalibFuncPtrs;
-int jalib::jalib_funcptrs_initialized = 0;
-const char *jalib::elfInterpreter = NULL;
-int jalib::stderrFd = -1;
-int jalib::logFd = -1;
-int jalib::dmtcp_fail_rc = -1;
+static jalib::JalibFuncPtrs jalibFuncPtrs;
+static int jalib_funcptrs_initialized = 0;
+
+static struct {
+  const char *elfInterpreter;
+  int stderrFd;
+  int logFd;
+  int dmtcp_fail_rc;
+} dmtcpInfo = {NULL, -1, -1, -1};
+
 extern "C" void initializeJalib();
 
-extern "C" void jalib_init(jalib::JalibFuncPtrs jalibFuncPtrs,
-                      const char *elfInterpreter,
-                      int stderrFd,
-                      int jassertLogFd,
-                      int dmtcp_fail_rc)
+extern "C" void jalib_init(jalib::JalibFuncPtrs _jalibFuncPtrs,
+                           const char *elfInterpreter,
+                           int stderrFd,
+                           int jassertLogFd,
+                           int dmtcp_fail_rc)
 {
-  jalib::jalibFuncPtrs = jalibFuncPtrs;
-  jalib::elfInterpreter = elfInterpreter;
-  jalib::stderrFd = stderrFd;
-  jalib::logFd = jassertLogFd;
-  jalib::jalib_funcptrs_initialized = 1;
-  jalib::dmtcp_fail_rc = dmtcp_fail_rc;
+  dmtcpInfo.elfInterpreter = elfInterpreter;
+  dmtcpInfo.stderrFd = stderrFd;
+  dmtcpInfo.logFd = jassertLogFd;
+  dmtcpInfo.dmtcp_fail_rc = dmtcp_fail_rc;
+
+  jalibFuncPtrs = _jalibFuncPtrs;
+  jalib_funcptrs_initialized = 1;
+
   JASSERT_INIT();
 }
+
+const char *jalib::elfInterpreter()
+{
+  return dmtcpInfo.elfInterpreter;
+}
+
+int jalib::stderrFd()
+{
+  return dmtcpInfo.stderrFd;
+}
+
+int jalib::logFd()
+{
+  return dmtcpInfo.logFd;
+}
+
+int jalib::dmtcp_fail_rc()
+{
+  return dmtcpInfo.dmtcp_fail_rc;
+}
+
 
 #define REAL_FUNC_PASSTHROUGH(type,name) \
   if (!jalib_funcptrs_initialized) { \

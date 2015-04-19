@@ -65,12 +65,10 @@ namespace jalib {
     ssize_t (*readAll)(int fd, void *buf, size_t count);
   } JalibFuncPtrs;
 
-  extern JalibFuncPtrs jalibFuncPtrs;
-  extern int jalib_funcptrs_initialized;
-  extern const char *elfInterpreter;
-  extern int stderrFd;
-  extern int logFd;
-  extern int dmtcp_fail_rc;
+  const char *elfInterpreter();
+  int stderrFd();
+  int logFd();
+  int dmtcp_fail_rc();
 
   int open(const char *pathname, int flags, ...);
   FILE* fopen(const char *path, const char *mode);
