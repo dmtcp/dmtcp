@@ -44,8 +44,6 @@
 # endif
 #endif
 
-#define POLL_TIMEOUT_TYPE int
-
 #define DELETED_FILE_SUFFIX " (deleted)"
 #define LIB_PRIVATE __attribute__ ((visibility ("hidden")))
 

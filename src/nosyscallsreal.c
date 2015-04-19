@@ -444,7 +444,7 @@ int _real_shmctl (int shmid, int cmd, struct shmid_ds *buf) {
 }
 
 LIB_PRIVATE
-int _real_poll(struct pollfd *fds, nfds_t nfds, POLL_TIMEOUT_TYPE timeout) {
+int _real_poll(struct pollfd *fds, nfds_t nfds, int timeout) {
   REAL_FUNC_PASSTHROUGH (poll) (fds, nfds, timeout);
 }
 

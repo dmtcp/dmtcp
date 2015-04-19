@@ -67,7 +67,7 @@ using namespace dmtcp;
 // and restart the syscall only if that variable is set.
 
 /* Poll wrapper forces poll to restart after ckpt/resume or ckpt/restart */
-extern "C" int poll(struct pollfd *fds, nfds_t nfds, POLL_TIMEOUT_TYPE timeout)
+extern "C" int poll(struct pollfd *fds, nfds_t nfds, int timeout)
 {
   int rc;
   while (1) {

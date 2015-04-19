@@ -445,7 +445,7 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
                                    const struct timespec *abstime);
   int _real_pthread_cond_wait(pthread_cond_t *cond, pthread_mutex_t *mutex);
 
-  int _real_poll(struct pollfd *fds, nfds_t nfds, POLL_TIMEOUT_TYPE timeout);
+  int _real_poll(struct pollfd *fds, nfds_t nfds, int timeout);
 
   int   _real_waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options);
   pid_t _real_wait4(pid_t pid, __WAIT_STATUS status, int options,
