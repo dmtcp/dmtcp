@@ -29,7 +29,6 @@
 #include <fcntl.h>
 
 #include <fstream>
-#include "dmtcp.h"
 
 namespace jalib {
   typedef struct JalibFuncPtrs {
@@ -41,7 +40,7 @@ namespace jalib {
     int   (*dup2)(int oldfd, int newfd);
     ssize_t (*readlink)(const char *path, char *buf, size_t bufsiz);
 
-    SYSCALL_ARG_RET_TYPE (*syscall)(SYSCALL_ARG_RET_TYPE sys_num, ...);
+    long  (*syscall)(long sys_num, ...);
     void*    (*mmap)(void *addr, size_t length, int prot, int flags, int fd,
                      off_t offset);
     int      (*munmap)(void *addr, size_t length);
@@ -81,7 +80,7 @@ namespace jalib {
   int dup2(int oldfd, int newfd);
   ssize_t readlink(const char *path, char *buf, size_t bufsiz);
 
-  SYSCALL_ARG_RET_TYPE syscall(SYSCALL_ARG_RET_TYPE sys_num, ...);
+  long syscall(long sys_num, ...);
   void *mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset);
   int   munmap(void *addr, size_t length);
 

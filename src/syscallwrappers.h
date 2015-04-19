@@ -384,7 +384,7 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   int   _real_tkill(int tid, int sig);
   int   _real_tgkill(int tgid, int tid, int sig);
 
-  SYSCALL_ARG_RET_TYPE _real_syscall(SYSCALL_ARG_RET_TYPE sys_num, ...);
+  long _real_syscall(long sys_num, ...);
 
   int _real_pthread_create(pthread_t *thread, const pthread_attr_t *attr,
       void *(*start_routine)(void*), void *arg);

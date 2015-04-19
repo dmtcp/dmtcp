@@ -263,7 +263,7 @@ int   _real_tgkill(int tgid, int tid, int sig) {
 }
 
 LIB_PRIVATE
-SYSCALL_ARG_RET_TYPE _real_syscall(SYSCALL_ARG_RET_TYPE sys_num, ... ) {
+long _real_syscall(long sys_num, ... ) {
   int i;
   void * arg[7];
   va_list ap;
@@ -274,10 +274,9 @@ SYSCALL_ARG_RET_TYPE _real_syscall(SYSCALL_ARG_RET_TYPE sys_num, ... ) {
   va_end(ap);
 
   // /usr/include/unistd.h says syscall returns long int (contrary to man page)
-  REAL_FUNC_PASSTHROUGH_TYPED ( SYSCALL_ARG_RET_TYPE, syscall ) (
-                                                      sys_num, arg[0], arg[1],
-                                                      arg[2], arg[3], arg[4],
-                                                      arg[5], arg[6] );
+  REAL_FUNC_PASSTHROUGH_TYPED ( long, syscall ) (sys_num, arg[0], arg[1],
+                                                 arg[2], arg[3], arg[4],
+                                                 arg[5], arg[6] );
 }
 
 LIB_PRIVATE
