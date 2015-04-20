@@ -181,7 +181,7 @@ static void restoreArgvAfterRestart(char* mtcpRestoreArgvStartAddr)
   len = (ProcessInfo::instance().argvSize() + page_size) & page_mask;
 
   // Check to verify if any page in the given range is already mmap()'d.
-  // It assumes that the given addresses may belong to stack only and if
+  // It assumes that the given addresses may belong to stack only, and if
   // mapped, will have read+write permissions.
   for (size_t i = 0; i < len; i += page_size) {
     int ret = mprotect ((char*) startAddr + i, page_size,

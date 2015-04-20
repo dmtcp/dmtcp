@@ -340,6 +340,7 @@ int main ( int argc, char** argv )
     setenv(ENV_VAR_QUIET, "0", 0);
 
   string tmpDir = "tmpDir is not set";
+  // This will change argv to refer to the target application.
   processArgs(&argc, &argv, &tmpDir);
 
   initializeJalib();
@@ -491,6 +492,18 @@ int main ( int argc, char** argv )
 
   string installDir =
     jalib::Filesystem::DirName(jalib::Filesystem::GetProgramDir());
+
+#if defined(__i386__)
+  if (Util::strEndsWith(installDir, "/lib/dmtcp/32")) {
+    // If dmtcp_launch was compiled for 32 bits in a 64-bit O/S, then note:
+    // DMTCP_ROOT/bin/dmtcp_launch is a symbolic link to:
+    //    DMTCP_ROOT/bin/dmtcp_launch/lib/dmtcp/32/bin
+    // GetProgramDir() followed the link.  So, we need to remove the suffix.
+    char *str = const_cast<char*>(installDir.c_str());
+    str[strlen(str) - strlen("/lib/dmtcp/32")] = '\0';
+    installDir = str;
+  }
+#endif
 
   /* We need to initialize SharedData here to make sure that it is
    * initialized with the correct coordinator timestamp.  The coordinator
@@ -688,10 +701,9 @@ static void setLDPreloadLibs(bool is32bitElf)
     for (size_t i = 0; i < numLibs; i++) {
       struct PluginInfo *p= &pluginInfo[i];
       if (*p->enabled) {
-        preloadLibs += Util::getPath(p->lib) + ":";
+        preloadLibs += Util::getPath(p->lib, is32bitElf) + ":";
 #if defined(__x86_64__)
-        preloadLibs32 +=
-          Util::getPath(p->lib, true) + ":";
+        preloadLibs32 += Util::getPath(p->lib, true) + ":";
 #endif
       }
     }
@@ -703,7 +715,7 @@ static void setLDPreloadLibs(bool is32bitElf)
 #endif
 
   // If dmtcp_launch was called with user LD_PRELOAD, and if
-  //   if dmtcp_launch survived the experience, then pass it back to user.
+  //   dmtcp_launch survived the experience, then pass it back to user.
   if (getenv("LD_PRELOAD")) {
     setenv(ENV_VAR_ORIG_LD_PRELOAD, getenv("LD_PRELOAD"), 1);
     preloadLibs = preloadLibs + ":" + getenv("LD_PRELOAD");
@@ -722,7 +734,7 @@ static void setLDPreloadLibs(bool is32bitElf)
             "See DMTCP FAQ or try:\n"
             "  ./configure --enable-m32 && make clean && make -j && make install\n"
             "  ./configure && make clean && make -j && make install\n");
-    setenv("LD_PRELOAD", preloadLibs32.c_str(), 1);
+    setenv("LD_PRELOAD", preloadLibs.c_str(), 1);
   }
 #endif
   JTRACE("getting value of LD_PRELOAD")
