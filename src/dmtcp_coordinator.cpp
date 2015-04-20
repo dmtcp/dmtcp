@@ -1801,11 +1801,11 @@ int main ( int argc, char** argv )
       setenv(ENV_VAR_CKPT_INTR, s.c_str()+2, 1);
       shift;
     } else if (argc>1 && (s == "-p" || s == "--port")) {
-      setenv(ENV_VAR_NAME_PORT, argv[1], 1);
+      thePort = jalib::StringToInt( argv[1] );
       shift; shift;
     } else if (s.c_str()[0] == '-' && s.c_str()[1] == 'p' &&
                isdigit(s.c_str()[2])) { // else if -p0, for example
-      setenv(ENV_VAR_NAME_PORT, s.c_str()+2, 1);
+      thePort = jalib::StringToInt( s.c_str()+2 );
       shift;
     }else if(argc>1 && s == "--port-file"){
       thePortFile = argv[1];
