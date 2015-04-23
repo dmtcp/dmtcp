@@ -99,11 +99,7 @@ display-config:
 	   fi
 
 dmtcp:
-ifeq ($(M32),1)
-	cd src && $(MAKE) libs
-else
 	cd src && $(MAKE)
-endif
 
 plugin: dmtcp
 	cd plugin && $(MAKE)
