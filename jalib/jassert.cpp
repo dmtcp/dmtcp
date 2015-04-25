@@ -29,9 +29,6 @@
 #include <fstream>
 #include <execinfo.h>  /* For backtrace() */
 
-// TODO(karya0): Remove after cleanup.
-#include "dmtcp.h"
-
 #include "jalib.h"
 #include "jconvert.h"
 #include "jassert.h"
@@ -43,14 +40,38 @@
 using namespace jalib;
 int jassert_quiet = 0;
 
+namespace jalib {
+
 static int theLogFileFd = -1;
 static int errConsoleFd = -1;
+
+// With multiple global non-POD (Plain Old Data) objects, the order in which
+// their constructors are called is hard to reason about. It is not defined by
+// the language specification. However, in this case, we want precise control
+// over when the initialization of tmpDir happens. This is important because
+// the DMTCP libraries, and the executables that statically link with
+// libjalib.a can define their own global C++ objects. (In fact, libdmtcp
+// relies on this trick to inject a ckpt thread in every process).
+//
+// Thus wrapping global C++ objects in functions is the idiomatic way of
+// implementing this. This is portable and avoids non-deterministic behavior.
+// See: https://isocpp.org/wiki/faq/ctors#static-init-order, and
+// https://isocpp.org/wiki/faq/ctors#static-init-order-on-first-use.
+//
+// The following two functions provide wrappers around static local variables
+// and return a reference. Thus, we can use the function on the left-hand side
+// (as a lvalue) to modifying the underlying variable.
+
+static jalib::string& tmpDir() {static jalib::string s;return s;};
+static jalib::string& uniquePidStr() {static jalib::string s;return s;};
 
 static int jwrite(int fd, const char *str)
 {
   jalib::writeAll(fd, str, strlen(str));
   return strlen(str);
 }
+
+};
 
 jassert_internal::JAssert& jassert_internal::JAssert::Text ( const char* msg )
 {
@@ -163,7 +184,7 @@ void jassert_internal::close_stderr()
 }
 
 static const jalib::string writeJbacktraceMsg() {
-  dmtcp::ostringstream o;
+  jalib::ostringstream o;
   jalib::string thisProgram = "libdmtcp.so";
   if (jalib::Filesystem::GetProgramName() == "dmtcp_coordinator")
     thisProgram = "dmtcp_coordinator";
@@ -178,12 +199,12 @@ static const jalib::string writeJbacktraceMsg() {
     "     ";
   o << msg << "util/dmtcp_backtrace.py" << " "
     << thisProgram << " "
-    << dmtcp_get_tmpdir() << "/backtrace."
-    << dmtcp_get_uniquepid_str() << " ";
+    << tmpDir() << "/backtrace."
+    << uniquePidStr() << " ";
   // Weird bug:  If we don't start a new statement here,
-  // then the second call to dmtcp_get_uniquepid_str() returns just 831.
-  o << dmtcp_get_tmpdir() << "/proc-maps."
-    << dmtcp_get_uniquepid_str()
+  // then the second call to jalib::uniquePidStr() returns just 831.
+  o << tmpDir() << "/proc-maps."
+    << uniquePidStr()
     << "\n   (For further help, try:  util/dmtcp_backtrace.py --help)\n";
   return o.str();
 }
@@ -191,11 +212,8 @@ static const jalib::string writeJbacktraceMsg() {
 static void writeBacktrace() {
   void *buffer[BT_SIZE];
   int nptrs = backtrace(buffer, BT_SIZE);
-  dmtcp::ostringstream o;
-  o << dmtcp_get_tmpdir() << "/backtrace."
-    << dmtcp_get_uniquepid_str();
-  int fd = jalib::open(o.str().c_str(), O_WRONLY|O_CREAT|O_TRUNC,
-                       S_IRUSR|S_IWUSR);
+  jalib::string path = tmpDir() + "/backtrace." + uniquePidStr();
+  int fd = jalib::open(path.c_str(), O_WRONLY|O_CREAT|O_TRUNC, S_IRUSR|S_IWUSR);
   if (fd != -1) {
     backtrace_symbols_fd( buffer, nptrs, fd );
     jalib::close(fd);
@@ -213,11 +231,8 @@ static void writeProcMaps() {
   count = jalib::readAll(fd, mapsBuf, sizeof(mapsBuf) - 1);
   jalib::close(fd);
 
-  dmtcp::ostringstream o;
-  o << dmtcp_get_tmpdir() << "/proc-maps."
-    << dmtcp_get_uniquepid_str();
-  fd = jalib::open(o.str().c_str(), O_WRONLY | O_CREAT | O_TRUNC,
-                   S_IRUSR|S_IWUSR);
+  jalib::string path = tmpDir() + "/proc-maps." + uniquePidStr();
+  fd = jalib::open(path.c_str(), O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR|S_IWUSR);
   if (fd == -1) return;
   count = jalib::writeAll(fd, mapsBuf, count);
   jalib::close(fd);
@@ -232,8 +247,13 @@ jassert_internal::JAssert& jassert_internal::JAssert::jbacktrace ()
   return *this;  // Needed as part of JASSERT macro
 }
 
-void jassert_internal::set_log_file ( const jalib::string& path )
+void jassert_internal::set_log_file(const jalib::string& path,
+                                    const jalib::string _tmpDir,
+                                    const jalib::string& _uniquePidStr)
 {
+  tmpDir() = _tmpDir;
+  uniquePidStr() = _uniquePidStr;
+
   theLogFilePath() = path;
   if ( theLogFileFd != -1 ) jalib::close ( theLogFileFd );
   theLogFileFd = -1;

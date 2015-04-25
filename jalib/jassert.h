@@ -162,11 +162,15 @@ namespace jassert_internal
     return *this;
   }
 
-  void set_log_file ( const jalib::string& path );
+  void set_log_file(const jalib::string& path,
+                    const jalib::string tmpDir,
+                    const jalib::string& uniquePidStr);
 }//jassert_internal
 
 #define JASSERT_INIT(p) (jassert_internal::jassert_init());
-#define JASSERT_SET_LOG(p) (jassert_internal::set_log_file(p));
+
+#define JASSERT_SET_LOG(log, tmpdir, uniquePidStr) \
+  (jassert_internal::set_log_file(log, tmpdir, uniquePidStr));
 
 #define JASSERT_CLOSE_STDERR() (jassert_internal::close_stderr());
 
