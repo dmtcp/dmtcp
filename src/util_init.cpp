@@ -120,7 +120,7 @@ void Util::initializeLogFile(string tmpDir, string procname, string prevLogPath)
     o << procname;
   }
 
-  JASSERT_SET_LOG(o.str());
+  JASSERT_SET_LOG(o.str(), tmpDir, UniquePid::ThisProcess().toString());
 
   ostringstream a;
   a << "\n========================================";
@@ -147,6 +147,8 @@ void Util::initializeLogFile(string tmpDir, string procname, string prevLogPath)
   a << "\n========================================\n";
 
   JLOG(a.str().c_str());
+#else
+  JASSERT_SET_LOG("", tmpDir, UniquePid::ThisProcess().toString());
 #endif
   if (getenv(ENV_VAR_QUIET)) {
     jassert_quiet = *getenv(ENV_VAR_QUIET) - '0';
