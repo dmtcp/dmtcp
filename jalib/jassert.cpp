@@ -259,15 +259,11 @@ void jassert_internal::jassert_safe_print(const char* str, bool noConsoleOutput)
   if (theLogFileFd != -1) {
     int rv = jwrite(theLogFileFd, str);
 
-    if (rv < 0) {
+    if (rv < 0 && theLogFileFd == EBADF) {
       if (errConsoleFd != -1) {
-        jwrite(errConsoleFd, "JASSERT: write failed, reopening log file.\n");
+        jwrite(errConsoleFd, "JASSERT: failed to write to log file.\n");
       }
-      set_log_file(theLogFilePath());
-      if (theLogFileFd != -1) {
-        jwrite(theLogFileFd, "JASSERT: write failed, reopened log file:\n");
-        jwrite(theLogFileFd, str);
-      }
+      theLogFileFd = -1;
     }
   }
 }
