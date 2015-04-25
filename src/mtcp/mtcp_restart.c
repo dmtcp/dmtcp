@@ -976,6 +976,7 @@ static void read_shared_memory_area_from_file(int fd, Area* area, int flags)
   int mtcp_sys_errno;
   void *mmappedat;
   int areaContentsAlreadyRead = 0;
+  int deletedFile = 0;
   int imagefd, rc;
   char *area_name = area->name; /* Modified in fix_filename_if_new_cwd below. */
 
@@ -989,6 +990,7 @@ static void read_shared_memory_area_from_file(int fd, Area* area, int flags)
     // FIXME:  Shouldn't we also unlink area_name after re-mapping it?
     area_name[ mtcp_strlen(area_name) - mtcp_strlen(DELETED_FILE_SUFFIX) ] =
       '\0';
+    deletedFile = 1;
 #if 0
     if (fix_parent_directories(area_name) != area_name) {
       MTCP_PRINTF("error %d re-creating directory %s\n",
@@ -1187,6 +1189,8 @@ static void read_shared_memory_area_from_file(int fd, Area* area, int flags)
   }
   if (imagefd >= 0)
     mtcp_sys_close (imagefd); // don't leave dangling fd in way of other stuff
+  if (deletedFile)
+    mtcp_sys_unlink (area->name);
 }
 
 /*****************************************************************************
