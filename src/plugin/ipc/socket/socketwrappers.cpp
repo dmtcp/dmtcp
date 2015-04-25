@@ -54,7 +54,7 @@ extern "C" int socket(int domain, int type, int protocol)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
   int ret = _real_socket(domain, type, protocol);
-  if (ret != -1 && !_doNotProcessSockets) {
+  if (ret != -1 && dmtcp_is_running_state() && !_doNotProcessSockets) {
     Connection *con;
     JTRACE("socket created") (ret) (domain) (type) (protocol);
     if ((type & 0xff) == SOCK_RAW) {
@@ -105,7 +105,7 @@ extern "C" int connect(int sockfd, const struct sockaddr *serv_addr,
       JTRACE("No data within five seconds.");
   }
 
-  if (ret != -1 && !_doNotProcessSockets) {
+  if (ret != -1 && dmtcp_is_running_state() && !_doNotProcessSockets) {
     TcpConnection *con =
       (TcpConnection*) SocketConnList::instance().getConnection(sockfd);
     if (con == NULL) {
@@ -131,7 +131,7 @@ extern "C" int bind(int sockfd, const struct sockaddr *my_addr,
 {
   DMTCP_PLUGIN_DISABLE_CKPT(); // The lock is released inside the macro.
   int ret = _real_bind(sockfd, my_addr, addrlen);
-  if (ret != -1 && !_doNotProcessSockets) {
+  if (ret != -1 && dmtcp_is_running_state() && !_doNotProcessSockets) {
     TcpConnection *con =
       (TcpConnection*) SocketConnList::instance().getConnection(sockfd);
     if (con == NULL) {
@@ -149,7 +149,7 @@ extern "C" int listen(int sockfd, int backlog)
 {
   DMTCP_PLUGIN_DISABLE_CKPT(); // The lock is released inside the macro.
   int ret = _real_listen(sockfd, backlog);
-  if (ret != -1 && !_doNotProcessSockets) {
+  if (ret != -1 && dmtcp_is_running_state() && !_doNotProcessSockets) {
     TcpConnection *con =
       (TcpConnection*) SocketConnList::instance().getConnection(sockfd);
     if (con == NULL) {
@@ -205,7 +205,7 @@ extern "C" int accept(int sockfd, struct sockaddr *addr,
     addrlen = &tmp_len;
   }
   int ret = _real_accept(sockfd, addr, addrlen);
-  if (ret != -1 && !_doNotProcessSockets) {
+  if (ret != -1 && dmtcp_is_running_state() && !_doNotProcessSockets) {
     process_accept(ret, sockfd, addr, addrlen);
   }
   return ret;
@@ -223,7 +223,7 @@ extern "C" int accept4(int sockfd, struct sockaddr *addr,
     addrlen = &tmp_len;
   }
   int ret = _real_accept4(sockfd, addr, addrlen, flags);
-  if (ret != -1 && !_doNotProcessSockets) {
+  if (ret != -1 && dmtcp_is_running_state() && !_doNotProcessSockets) {
     process_accept(ret, sockfd, addr, addrlen);
   }
   return ret;
@@ -233,7 +233,7 @@ extern "C" int setsockopt(int sockfd, int level, int optname,
                           const void *optval, socklen_t optlen)
 {
   int ret = _real_setsockopt(sockfd, level, optname, optval, optlen);
-  if (ret != -1 && !_doNotProcessSockets) {
+  if (ret != -1 && dmtcp_is_running_state() && !_doNotProcessSockets) {
     JTRACE("setsockopt") (ret) (sockfd) (optname);
     TcpConnection *con =
       (TcpConnection*) SocketConnList::instance().getConnection(sockfd);
@@ -267,7 +267,7 @@ extern "C" int socketpair(int d, int type, int protocol, int sv[2])
 
   JASSERT(sv != NULL);
   int rv = _real_socketpair(d,type,protocol,sv);
-  if (rv != -1 && !_doNotProcessSockets) {
+  if (rv != -1 && dmtcp_is_running_state() && !_doNotProcessSockets) {
     JTRACE("socketpair()") (sv[0]) (sv[1]);
 
     TcpConnection *a, *b;
@@ -305,6 +305,27 @@ extern "C" int getnameinfo(const struct sockaddr *sa, socklen_t salen,
   DMTCP_PLUGIN_DISABLE_CKPT();
   _doNotProcessSockets = true;
   int ret = _real_getnameinfo(sa, salen, host, hostlen, serv, servlen, flags);
+  _doNotProcessSockets = false;
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  return ret;
+}
+
+extern "C" struct hostent *gethostbyname(const char *name)
+{
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  _doNotProcessSockets = true;
+  struct hostent *ret = _real_gethostbyname(name);
+  _doNotProcessSockets = false;
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  return ret;
+}
+
+extern "C" struct hostent *gethostbyaddr(const void *addr,
+					socklen_t len, int type)
+{
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  _doNotProcessSockets = true;
+  struct hostent *ret = _real_gethostbyaddr(addr, len, type);
   _doNotProcessSockets = false;
   DMTCP_PLUGIN_ENABLE_CKPT();
   return ret;
