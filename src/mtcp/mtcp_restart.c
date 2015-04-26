@@ -1193,6 +1193,12 @@ static void read_shared_memory_area_from_file(int fd, Area* area, int flags)
   }
   if (imagefd >= 0)
     mtcp_sys_close (imagefd); // don't leave dangling fd in way of other stuff
+
+  /* On restart, mtcp_restart would recreate the (deleted) MAP_SHARED files.
+   * After mmapping the files, it should unlink those files. Otherwise, Upon
+   * the second checkpoint, the FILE plugin will treat them as undeleted files.
+   * This would cause a problem on the second restart.
+   */
   if (deletedFile)
     mtcp_sys_unlink (area->name);
 }
