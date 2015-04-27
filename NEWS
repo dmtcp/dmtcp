@@ -10,7 +10,8 @@ Several important enancements were added:
 * Intensive testing done for integration of MPI/SLURM
    for the following MPI dialects:  Intel MPI/MVAPICH-2/MPICH-2/Open MPI.
    See plugin/batch-queue/job_examples/ for SLURM/DMTCP submission scripts.
-   Preliminary support for some other resource managers also provided.
+   Preliminary support for some other resource managers also provided,
+   especially including ibrun.
  - Open MPI version 1.8 _with_ InfiniBand is not yet supported.
      This is due to the OMPI use of UD (unreliable datagrams) for InfiniBand.
      Support is planned for the near future.  Earlier OMPI versions continue
