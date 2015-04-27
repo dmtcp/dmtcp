@@ -199,6 +199,18 @@ class RestoreTarget
         string installDir =
           jalib::Filesystem::DirName(jalib::Filesystem::GetProgramDir());
 
+#if defined(__i386__)
+        if (Util::strEndsWith(installDir, "/lib/dmtcp/32")) {
+          // If dmtcp_launch was compiled for 32 bits in 64-bit O/S, then note:
+          // DMTCP_ROOT/bin/dmtcp_launch is a symbolic link to:
+          //    DMTCP_ROOT/bin/dmtcp_launch/lib/dmtcp/32/bin
+          // GetProgramDir() followed the link.  So, need to remove the suffix.
+          char *str = const_cast<char*>(installDir.c_str());
+          str[strlen(str) - strlen("/lib/dmtcp/32")] = '\0';
+          installDir = str;
+        }
+#endif
+
         /* We need to initialize SharedData here to make sure that it is
          * initialized with the correct coordinator timestamp.  The coordinator
          * timestamp is updated only during postCkpt callback. However, the
@@ -295,6 +307,8 @@ class RestoreTarget
 
 #if defined(__x86_64__) || defined(__aarch64__)
       is32bitElf = (_pInfo.elfType() == ProcessInfo::Elf_32);
+#elif defined(__i386__) || defined(__arm__)
+      is32bitElf = true;
 #endif
       runMtcpRestart(is32bitElf, _fd, &_pInfo);
 
