@@ -584,7 +584,8 @@ string Util::getPath(string cmd, bool is32bit)
   };
 
   string suffixFor32Bits;
-  if (is32bit) {
+#if defined(__x86_64__) || defined(__aarch64__)
+  if (is32bit) {  // if this is a multi-architecture build
     string basename = jalib::Filesystem::BaseName(cmd);
     if (cmd == "mtcp_restart-32") {
       suffixFor32Bits = "32/bin/";
@@ -592,6 +593,7 @@ string Util::getPath(string cmd, bool is32bit)
       suffixFor32Bits = "32/lib/dmtcp/";
     }
   }
+#endif
 
   // Search relative to dir of this command (bin/dmtcp_launch), (using p1).
   string udir = SharedData::getInstallDir();
