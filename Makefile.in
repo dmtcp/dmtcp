@@ -185,6 +185,12 @@ clean: tidy
 	 rm -rf $$DMTCP_TMPDIR
 	rm -rf $(targetdir)/lib $(targetdir)/bin
 
+# clean-64 preserves files in lib/dmtcp/32.  This is useful for a local multi-arch.
+clean-64: tidy
+	mv ./lib/dmtcp/32 ./32
+	${MAKE} clean
+	mkdir -p ./lib/dmtcp && mv ./32 ./lib/dmtcp/32
+
 distclean: clean
 	- cd src && $(MAKE) distclean
 	- cd plugin && $(MAKE) distclean
