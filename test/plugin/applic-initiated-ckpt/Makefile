@@ -17,6 +17,7 @@ DMTCP_INCLUDE=${DMTCP_ROOT}/include
 
 CFLAGS += -I${DMTCP_INCLUDE} -DDMTCP -fPIC -c -g
 CXXFLAGS += -I${DMTCP_INCLUDE} -DDMTCP -fPIC -c -g
+LINK = ${CC}
 
 DEMO_PORT=7781
 
@@ -44,7 +45,7 @@ check: ${LIBNAME}.so applic
 
 # We link the library using C++ for compatibility with the main libdmtcp.so
 ${LIBNAME}.so: ${LIBOBJS}
-	${CXX} -shared -fPIC -o $@ $^
+	${LINK} -shared -fPIC -o $@ $^
 
 .c.o:
 	${CC} ${CFLAGS} -o $@ $<
