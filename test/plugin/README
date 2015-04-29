@@ -35,7 +35,7 @@ impressed by how few lines of code can express so much flexibility
 for checkpointing:
 
     cd sleep1
-    make clean tidy
+    make clean
     ls
     make -n
     make 
@@ -44,7 +44,7 @@ for checkpointing:
     make check
 
     cd ../sleep2
-    make clean tidy
+    make clean
     make -n check
     make check
 
