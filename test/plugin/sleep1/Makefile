@@ -3,10 +3,10 @@
 # The name will be the same as the current directory name.
 NAME=${shell basename $$PWD}
 
-# By default, your resulting library will have this name.
-LIBNAME=dmtcp_${NAME}hijack
+# By default, your resulting plugin library will have this name.
+LIBNAME=libdmtcp_${NAME}
 
-# As you add new files to your hijack library, add the object file names here.
+# As you add new files to your plugin library, add the object file names here.
 LIBOBJS = ${NAME}.o
 
 # Modify if your DMTCP_ROOT is located elsewhere.
