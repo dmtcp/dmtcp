@@ -29,9 +29,6 @@
 #include <fstream>
 #include <execinfo.h>  /* For backtrace() */
 
-// TODO(karya0): Remove after cleanup.
-#include "dmtcp.h"
-
 #include "jalib.h"
 #include "jconvert.h"
 #include "jassert.h"
@@ -45,6 +42,9 @@ int jassert_quiet = 0;
 
 static int theLogFileFd = -1;
 static int errConsoleFd = -1;
+
+static jalib::string& tmpDir() {static jalib::string s;return s;};
+static jalib::string& uniquePidStr() {static jalib::string s;return s;};
 
 static int jwrite(int fd, const char *str)
 {
@@ -86,7 +86,7 @@ jassert_internal::JAssert::~JAssert()
     jassert_safe_print ( ss.str().c_str() );
 
   if ( _exitWhenDone ) {
-    _exit ( jalib::dmtcp_fail_rc );
+    _exit ( jalib::dmtcp_fail_rc() );
   }
 }
 
@@ -105,7 +105,7 @@ static int _open_log_safe ( const char* filename, int protectedFd )
   int tfd = jalib::open(filename, O_WRONLY | O_APPEND | O_CREAT /*| O_SYNC*/,
                         S_IRUSR | S_IWUSR );
   if (tfd == -1) return -1;
-  //change fd to 827 (jalib::logFd -- PFD(6))
+  //change fd to 827 (jalib::logFd() -- PFD(6))
   int nfd = jalib::dup2 ( tfd, protectedFd );
   if (tfd != nfd) {
     jalib::close ( tfd );
@@ -124,11 +124,11 @@ static jalib::string& theLogFilePath() {static jalib::string s;return s;};
 void jassert_internal::jassert_init()
 {
   // Check if we already have a valid stderrFd
-  if (jalib::dup2(jalib::stderrFd, jalib::stderrFd) != jalib::stderrFd) {
+  if (jalib::dup2(jalib::stderrFd(), jalib::stderrFd()) != jalib::stderrFd()) {
     const char* errpath = getenv("JALIB_STDERR_PATH");
 
     if (errpath != NULL) {
-      errConsoleFd = _open_log_safe(errpath, jalib::stderrFd);
+      errConsoleFd = _open_log_safe(errpath, jalib::stderrFd());
     } else {
       /* TODO:
        * If stderr is a pseudo terminal for IPC between parent/child processes,
@@ -142,9 +142,9 @@ void jassert_internal::jassert_init()
 
       if (stderrDevice.length() > 0
           && jalib::Filesystem::FileExists(stderrDevice)) {
-        errConsoleFd = jalib::dup2(fileno(stderr), jalib::stderrFd);
+        errConsoleFd = jalib::dup2(fileno(stderr), jalib::stderrFd());
       } else {
-        errConsoleFd = _open_log_safe("/dev/null", jalib::stderrFd);
+        errConsoleFd = _open_log_safe("/dev/null", jalib::stderrFd());
       }
     }
 
@@ -153,7 +153,7 @@ void jassert_internal::jassert_init()
              "dmtcp: cannot open output channel for error logging\n");
     }
   } else {
-    errConsoleFd = jalib::stderrFd;
+    errConsoleFd = jalib::stderrFd();
   }
 }
 
@@ -163,7 +163,7 @@ void jassert_internal::close_stderr()
 }
 
 static const jalib::string writeJbacktraceMsg() {
-  dmtcp::ostringstream o;
+  jalib::ostringstream o;
   jalib::string thisProgram = "libdmtcp.so";
   if (jalib::Filesystem::GetProgramName() == "dmtcp_coordinator")
     thisProgram = "dmtcp_coordinator";
@@ -178,12 +178,12 @@ static const jalib::string writeJbacktraceMsg() {
     "     ";
   o << msg << "util/dmtcp_backtrace.py" << " "
     << thisProgram << " "
-    << dmtcp_get_tmpdir() << "/backtrace."
-    << dmtcp_get_uniquepid_str() << " ";
+    << tmpDir() << "/backtrace."
+    << uniquePidStr() << " ";
   // Weird bug:  If we don't start a new statement here,
-  // then the second call to dmtcp_get_uniquepid_str() returns just 831.
-  o << dmtcp_get_tmpdir() << "/proc-maps."
-    << dmtcp_get_uniquepid_str()
+  // then the second call to jalib::uniquePidStr() returns just 831.
+  o << tmpDir() << "/proc-maps."
+    << uniquePidStr()
     << "\n   (For further help, try:  util/dmtcp_backtrace.py --help)\n";
   return o.str();
 }
@@ -191,11 +191,8 @@ static const jalib::string writeJbacktraceMsg() {
 static void writeBacktrace() {
   void *buffer[BT_SIZE];
   int nptrs = backtrace(buffer, BT_SIZE);
-  dmtcp::ostringstream o;
-  o << dmtcp_get_tmpdir() << "/backtrace."
-    << dmtcp_get_uniquepid_str();
-  int fd = jalib::open(o.str().c_str(), O_WRONLY|O_CREAT|O_TRUNC,
-                       S_IRUSR|S_IWUSR);
+  jalib::string path = tmpDir() + "/backtrace." + uniquePidStr();
+  int fd = jalib::open(path.c_str(), O_WRONLY|O_CREAT|O_TRUNC, S_IRUSR|S_IWUSR);
   if (fd != -1) {
     backtrace_symbols_fd( buffer, nptrs, fd );
     jalib::close(fd);
@@ -213,11 +210,8 @@ static void writeProcMaps() {
   count = jalib::readAll(fd, mapsBuf, sizeof(mapsBuf) - 1);
   jalib::close(fd);
 
-  dmtcp::ostringstream o;
-  o << dmtcp_get_tmpdir() << "/proc-maps."
-    << dmtcp_get_uniquepid_str();
-  fd = jalib::open(o.str().c_str(), O_WRONLY | O_CREAT | O_TRUNC,
-                   S_IRUSR|S_IWUSR);
+  jalib::string path = tmpDir() + "/proc-maps." + uniquePidStr();
+  fd = jalib::open(path.c_str(), O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR|S_IWUSR);
   if (fd == -1) return;
   count = jalib::writeAll(fd, mapsBuf, count);
   jalib::close(fd);
@@ -227,27 +221,32 @@ jassert_internal::JAssert& jassert_internal::JAssert::jbacktrace ()
 {
   writeBacktrace();
   writeProcMaps();
-  // This prints to stdout and to jalib::logFd
+  // This prints to stdout and to jalib::logFd()
   Print( writeJbacktraceMsg() );
   return *this;  // Needed as part of JASSERT macro
 }
 
-void jassert_internal::set_log_file ( const jalib::string& path )
+void jassert_internal::set_log_file(const jalib::string& path,
+                                    const jalib::string _tmpDir,
+                                    const jalib::string& _uniquePidStr)
 {
+  tmpDir() = _tmpDir;
+  uniquePidStr() = _uniquePidStr;
+
   theLogFilePath() = path;
   if ( theLogFileFd != -1 ) jalib::close ( theLogFileFd );
   theLogFileFd = -1;
   if ( path.length() > 0 )
   {
-    theLogFileFd = _open_log_safe ( path, jalib::logFd );
+    theLogFileFd = _open_log_safe ( path, jalib::logFd() );
     if ( theLogFileFd == -1 )
-      theLogFileFd = _open_log_safe ( path + "_2", jalib::logFd );
+      theLogFileFd = _open_log_safe ( path + "_2", jalib::logFd() );
     if ( theLogFileFd == -1 )
-      theLogFileFd = _open_log_safe ( path + "_3", jalib::logFd );
+      theLogFileFd = _open_log_safe ( path + "_3", jalib::logFd() );
     if ( theLogFileFd == -1 )
-      theLogFileFd = _open_log_safe ( path + "_4", jalib::logFd );
+      theLogFileFd = _open_log_safe ( path + "_4", jalib::logFd() );
     if ( theLogFileFd == -1 )
-      theLogFileFd = _open_log_safe ( path + "_5", jalib::logFd );
+      theLogFileFd = _open_log_safe ( path + "_5", jalib::logFd() );
   }
 }
 
@@ -259,15 +258,11 @@ void jassert_internal::jassert_safe_print(const char* str, bool noConsoleOutput)
   if (theLogFileFd != -1) {
     int rv = jwrite(theLogFileFd, str);
 
-    if (rv < 0) {
+    if (rv < 0 && theLogFileFd == EBADF) {
       if (errConsoleFd != -1) {
-        jwrite(errConsoleFd, "JASSERT: write failed, reopening log file.\n");
+        jwrite(errConsoleFd, "JASSERT: failed to write to log file.\n");
       }
-      set_log_file(theLogFilePath());
-      if (theLogFileFd != -1) {
-        jwrite(theLogFileFd, "JASSERT: write failed, reopened log file:\n");
-        jwrite(theLogFileFd, str);
-      }
+      theLogFileFd = -1;
     }
   }
 }
