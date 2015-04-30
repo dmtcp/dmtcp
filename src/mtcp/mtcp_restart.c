@@ -184,11 +184,11 @@ MTCP_PRINTF("Attach for debugging.");
 {int x=1; while(x);}
 #endif
 
-// TODO(karya0): Remove vDSO checks after 2.4.0-rc3 release.
+// TODO(karya0): Remove vDSO checks after 2.4.0-rc3 release, and after testing.
 // Without mtcp_check_vdso, CentOS 7 fails on dmtcp3, dmtcp5, others.
 #define ENABLE_VDSO_CHECK
 // TODO(karya0): Remove this block and the corresponding file after sufficient
-// testing.
+// testing:  including testing for __i386__, __arm__ and __aarch64__
 #ifdef ENABLE_VDSO_CHECK
   /* i386 uses random addresses for vdso.  Make sure that its location
    * will not conflict with other memory regions.
@@ -243,7 +243,7 @@ MTCP_PRINTF("Attach for debugging.");
     int rc = -1;
     rinfo.fd = mtcp_sys_open2(ckptImage, O_RDONLY);
     if (rinfo.fd == -1) {
-      MTCP_PRINTF("***ERROR opening ckpt image (%s): %d\n",
+      MTCP_PRINTF("***ERROR opening ckpt image (%s); errno: %d\n",
                   ckptImage, mtcp_sys_errno);
       mtcp_abort();
     }
@@ -341,7 +341,7 @@ static void restore_brk(VA saved_brk, VA restore_begin, VA restore_end)
     // Now unmap the just mapped extended heap. This is to ensure that we don't
     // have overlap with the restore region.
     if (mtcp_sys_munmap(current_brk, new_brk - current_brk) == -1) {
-      MTCP_PRINTF("***WARNING: munmap failed: %d\n", mtcp_sys_errno);
+      MTCP_PRINTF("***WARNING: munmap failed; errno: %d\n", mtcp_sys_errno);
     }
   }
   if (new_brk != saved_brk) {
@@ -369,7 +369,7 @@ static void restart_fast_path()
                              PROT_READ|PROT_WRITE|PROT_EXEC,
                              MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
   if (addr == MAP_FAILED) {
-    MTCP_PRINTF("mmap failed with error: %d\n", mtcp_sys_errno);
+    MTCP_PRINTF("mmap failed with error; errno: %d\n", mtcp_sys_errno);
     mtcp_abort();
   }
 
@@ -475,12 +475,12 @@ static void mtcp_simulateread(int fd)
       void *addr = mtcp_sys_mmap(0, area.size, PROT_WRITE | PROT_READ,
                                  MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
       if (addr == MAP_FAILED) {
-        MTCP_PRINTF("***Error: mmap failed: %d\n", mtcp_sys_errno);
+        MTCP_PRINTF("***Error: mmap failed; errno: %d\n", mtcp_sys_errno);
         mtcp_abort();
       }
       mtcp_readfile(fd, addr, area.size);
       if (mtcp_sys_munmap(addr, area.size) == -1) {
-        MTCP_PRINTF("***Error: munmap failed: %d\n", mtcp_sys_errno);
+        MTCP_PRINTF("***Error: munmap failed; errno: %d\n", mtcp_sys_errno);
         mtcp_abort();
       }
     }
@@ -587,7 +587,7 @@ static void unmap_memory_areas_and_restore_vdso(RestoreInfo *rinfo)
 
   int mapsfd = mtcp_sys_open2("/proc/self/maps", O_RDONLY);
   if (mapsfd < 0) {
-    MTCP_PRINTF("error opening /proc/self/maps: errno: %d\n", mtcp_sys_errno);
+    MTCP_PRINTF("error opening /proc/self/maps; errno: %d\n", mtcp_sys_errno);
     mtcp_abort ();
   }
 
@@ -609,7 +609,7 @@ static void unmap_memory_areas_and_restore_vdso(RestoreInfo *rinfo)
     } else if (area.size > 0 ) {
       DPRINTF("***INFO: munmapping (%p-%p)\n", area.addr, area.endAddr);
       if (mtcp_sys_munmap(area.addr, area.size) == -1) {
-        MTCP_PRINTF("***WARNING: munmap(%s, %x, %p, %d) failed: %d\n",
+        MTCP_PRINTF("***WARNING: munmap(%s, %x, %p, %d) failed; errno: %d\n",
                     area.name, area.flags, area.addr, area.size,
                     mtcp_sys_errno);
         mtcp_abort();
@@ -663,10 +663,41 @@ static void unmap_memory_areas_and_restore_vdso(RestoreInfo *rinfo)
                                  MREMAP_FIXED | MREMAP_MAYMOVE,
                                  rinfo->vdsoStart);
     if (vdso == MAP_FAILED) {
-      MTCP_PRINTF("***Error: failed to mremap vdso: %d.\n", mtcp_sys_errno);
+      MTCP_PRINTF("***Error: failed to mremap vdso; errno: %d.\n", mtcp_sys_errno);
       mtcp_abort();
     }
     MTCP_ASSERT(vdso == rinfo->vdsoStart);
+
+#if defined(__i386__)
+    // In commit dec2c26c1eb13eb1c12edfdc9e8e811e4cc0e3c2 , the mremap
+    //   code above was added, and then caused a segfault on restart for
+    //   __i386__ in CentOS 7.  In that case ENABLE_VDSO_CHECK was not defined.
+    //   This version was needed in that commit for __i386__
+    //   (i.e., for multi-arch.sh) to succeed.
+    // Newer Linux kernels, such as __x86_64__, provide a separate vsyscall segment
+    //   for kernel calls while using vdso for system calls that can be
+    //   executed purely in user space through kernel-specific user-space code.
+    // On older kernels like __x86__, both purposes are squeezed into vdso.
+    //   Since vdso will use randomized addresses (unlike the standard practice
+    //   for vsyscall), this implies that kernel calls on __x86__ can go through
+    //   randomized addresses, and so they need special treatment.
+    vdso = mtcp_sys_mmap(vdsoStart, vdsoEnd - vdsoStart,
+                         PROT_EXEC | PROT_WRITE | PROT_READ,
+                         MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
+    // The new vdso was remapped to the location of the old vdso, since the
+    //   restarted application code remembers the old vdso address.
+    //   But for __i386__, a kernel call will go through the old vdso address
+    //   into the kernel, and then the kernel will return to the new vdso address
+    //   that was created by this kernel.  So, we need to copy the new vdso
+    //   code from its current location at the old vdso address back into
+    //   the new vdso address that was just mmap'ed.
+    if (vdso == MAP_FAILED) {
+      MTCP_PRINTF("***Error: failed to mremap vdso; errno: %d\n", mtcp_sys_errno);
+      mtcp_abort();
+    }
+    MTCP_ASSERT(vdso == vdsoStart);
+    mtcp_memcpy(vdsoStart, rinfo->vdsoStart, vdsoEnd - vdsoStart);
+#endif
   }
 
   if (vvarStart != NULL) {
@@ -676,10 +707,22 @@ static void unmap_memory_areas_and_restore_vdso(RestoreInfo *rinfo)
                                  MREMAP_FIXED | MREMAP_MAYMOVE,
                                  rinfo->vvarStart);
     if (vvar == MAP_FAILED) {
-      MTCP_PRINTF("***Error: failed to mremap vvar: %d.\n", mtcp_sys_errno);
+      MTCP_PRINTF("***Error: failed to mremap vvar; errno: %d.\n", mtcp_sys_errno);
       mtcp_abort();
     }
     MTCP_ASSERT(vvar == rinfo->vvarStart);
+
+#if defined(__i386__)
+    vvar = mtcp_sys_mmap(vvarStart, vvarEnd - vvarStart,
+                         PROT_EXEC | PROT_WRITE | PROT_READ,
+                         MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
+    if (vvar == MAP_FAILED) {
+      MTCP_PRINTF("***Error: failed to mremap vvar; errno: %d\n", mtcp_sys_errno);
+      mtcp_abort();
+    }
+    MTCP_ASSERT(vvar == vvarStart);
+    mtcp_memcpy(vvarStart, rinfo->vvarStart, vvarEnd - vvarStart);
+#endif
   }
 }
 
@@ -1234,7 +1277,7 @@ void restore_libc(ThreadTLSInfo *tlsInfo, int tls_pid_offset,
   /* Now pass this to the kernel, so it can adjust the segment descriptor.
    * This will make different kernel calls according to the CPU architecture. */
   if (tls_set_thread_area (&(tlsInfo->gdtentrytls[0]), myinfo_gs) != 0) {
-    MTCP_PRINTF("Error restoring GDT TLS entry: %d\n", mtcp_sys_errno);
+    MTCP_PRINTF("Error restoring GDT TLS entry; errno: %d\n", mtcp_sys_errno);
     mtcp_abort();
   }
 
@@ -1414,7 +1457,7 @@ static int open_shared_file(char* filename)
   /* Create the file */
   fd = mtcp_sys_open(filename, O_CREAT|O_RDWR, S_IRUSR|S_IWUSR);
   if (fd<0){
-    MTCP_PRINTF("unable to create file %s: %d\n", filename, mtcp_sys_errno);
+    MTCP_PRINTF("unable to create file %s; errno: %d\n", filename, mtcp_sys_errno);
     mtcp_abort();
   }
   return fd;
