@@ -37,7 +37,7 @@ int main()
     strncpy(dir2, dir1, strlen(dir1));  // Update new prefix
     if (mkdtemp(dir2) == NULL) abort();
     strncpy(filename, dir2, strlen(dir2));  // Update new prefix
-    fd = mkostemp(filename, O_WRONLY|O_CREAT);
+    fd = mkstemp(filename);
     if (fd == -1)
       abort();
 
