@@ -402,29 +402,14 @@ void DmtcpWorker::interruptCkpthread()
 //called after user main()
 DmtcpWorker::~DmtcpWorker()
 {
-  if (exitInProgress()) {
-    /*
-     * Exit race fixed. If the user threads calls exit(), ~DmtcpWorker() is
-     * called.  Now if the ckpt-thread is trying to use DmtcpWorker object
-     * while it is being destroyed, there is a problem.
-     *
-     * The fix here is to raise the flag exitInProgress in the exit() system
-     * call wrapper. Later in ~DmtcpWorker() we check if the flag has been
-     * raised or not.  If the exitInProgress flag has been raised, it closes
-     * the coordinator socket and tries to acquire destroyDmtcpWorker mutex.
-     *
-     * The ckpt-thread tries to acquire the destroyDmtcpWorker mutex before
-     * writing/reading any message to/from coordinator socket while the user
-     * threads are running (i.e. messages like DMT_SUSPEND, DMT_SUSPENDED
-     * etc.)_. If it fails to acquire the lock, it verifies that the
-     * exitInProgress has been raised and performs pthread_exit().
-     *
-     * As obvious, once the user threads have been suspended the ckpt-thread
-     *  releases the destroyDmtcpWorker() mutex and continues normal execution.
-     */
-    eventHook(DMTCP_EVENT_EXIT, NULL);
-    interruptCkpthread();
-  }
+  /* If the destructor was called, we know that we are exiting
+   * After setting this, the wrapper execution locks will be ignored.
+   * FIXME:  A better solution is to add a ZOMBIE state to DmtcpWorker,
+   *         instead of using a separate variable, _exitInProgress.
+   */
+  setExitInProgress();
+  eventHook(DMTCP_EVENT_EXIT, NULL);
+  interruptCkpthread();
   cleanupWorker();
 }
 

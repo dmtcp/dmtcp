@@ -368,6 +368,10 @@ bool ThreadSync::wrapperExecutionLockLock()
 {
   int saved_errno = errno;
   bool lockAcquired = false;
+  // Ignore locks if we are about to exit
+  if (DmtcpWorker::exitInProgress()) {
+    return false;
+  }
   while (1) {
     if (WorkerState::currentState() == WorkerState::RUNNING &&
 #if TRACK_DLOPEN_DLSYM_FOR_LOCKS
@@ -439,6 +443,10 @@ bool ThreadSync::wrapperExecutionLockLockExcl()
 {
   int saved_errno = errno;
   bool lockAcquired = false;
+  // Ignore locks if we are about to exit
+  if (DmtcpWorker::exitInProgress()) {
+    return false;
+  }
   if (WorkerState::currentState() == WorkerState::RUNNING) {
     incrementWrapperExecutionLockLockCount();
     int retVal = _real_pthread_rwlock_wrlock(&_wrapperExecutionLock);
@@ -461,14 +469,27 @@ bool ThreadSync::wrapperExecutionLockLockExcl()
 void ThreadSync::wrapperExecutionLockUnlock()
 {
   int saved_errno = errno;
-  if (WorkerState::currentState() != WorkerState::RUNNING &&
-      !DmtcpWorker::exitInProgress()) {
-    fprintf(stderr, "DMTCP INTERNAL ERROR: %s:%d: %s\n"
-            "       This process is not in RUNNING state and yet this thread\n"
-            "       managed to acquire the wrapperExecutionLock.\n"
-            "       This should not be happening, something is wrong.\n",
-            __FILE__, __LINE__, __PRETTY_FUNCTION__);
-    _exit(1);
+  // Ignore locks if we are about to exit
+  /*
+   * NOTE: Ideally, this function should never be called from a wrapper if
+   *       exitInProgress is set, but there are two cases when it gets
+   *       called despite the flag being set:
+   *       1) The exitInProgress flag is set, and then an incorrectly
+   *          implemented wrapper calls this function even though the
+   *          lock function returned false. See commit:
+   *          f2d2a7c6feba38ab0b0cb8e09a4ad6cc37d9f330 for an example.
+   *       2) A correctly implemented wrapper calls this but the exitInProgress
+   *          is set after having acquired the wrapperExecution lock. This can
+   *          occur if a user thread called exit while another was
+   *          in the middle of the wrapper.
+   *       The following if clause guards against both the scenarios.
+   * TODO: Add a message that warns the user if any of the above
+   *       two cases are seen.
+   *
+   */
+
+  if (DmtcpWorker::exitInProgress()) {
+    return;
   }
   if (_real_pthread_rwlock_unlock(&_wrapperExecutionLock) != 0) {
     fprintf(stderr, "ERROR %s:%d %s: Failed to release lock\n",
