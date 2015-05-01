@@ -123,7 +123,7 @@ static void restart_slow_path(void);
 static int doAreasOverlap(VA addr1, size_t size1, VA addr2, size_t size2);
 static int hasOverlappingMapping(VA addr, size_t size);
 static void getTextAddr(VA *textAddr, size_t *size);
-static void mtcp_simulateread(int fd);
+static void mtcp_simulateread(int fd, MtcpHeader *mtcpHdr);
 void restore_libc(ThreadTLSInfo *tlsInfo, int tls_pid_offset,
                   int tls_tid_offset, MYINFO_GS_T myinfo_gs);
 static void unmap_memory_areas_and_restore_vdso(RestoreInfo *rinfo);
@@ -207,7 +207,8 @@ MTCP_PRINTF("Attach for debugging.");
   while (argc > 0) {
     // Flags for standalone debugging
     if (argc == 1) {
-      MTCP_PRINTF("Considering '%s' as a ckpt image.\n", argv[0]);
+      // We would use MTCP_PRINTF, but it's also for output of util/readdmtcp.sh
+      mtcp_printf("Considering '%s' as a ckpt image.\n", argv[0]);
       ckptImage = argv[0];
       break;
     } else if (mtcp_strcmp(argv[0], "--use-gdb") == 0) {
@@ -269,7 +270,7 @@ MTCP_PRINTF("Attach for debugging.");
             " `text_offset.sh mtcp_restart`\n    in the mtcp subdirectory.\n");
 
   if (simulate) {
-    mtcp_simulateread(rinfo.fd);
+    mtcp_simulateread(rinfo.fd, &mtcpHdr);
     return 0;
   }
 
@@ -463,11 +464,27 @@ static void restart_slow_path()
   restorememoryareas(&rinfo);
 }
 
-static void mtcp_simulateread(int fd)
+// Used by util/readdmtcp.sh
+// So, we use mtcp_printf to stdout instead of MTCP_PRINTF (diagnosis for DMTCP)
+static void mtcp_simulateread(int fd, MtcpHeader *mtcpHdr)
 {
   int mtcp_sys_errno;
+
+  // Print miscellaneous information:
+  char buf[MTCP_SIGNATURE_LEN+1];
+  mtcp_memcpy(buf, mtcpHdr->signature, MTCP_SIGNATURE_LEN);
+  buf[MTCP_SIGNATURE_LEN] = '\0';
+  mtcp_printf("\nMTCP: %s", buf);
+  mtcp_printf("**** mtcp_restart (will be copied here): %p-%p\n",
+            mtcpHdr->restore_addr, mtcpHdr->restore_addr + mtcpHdr->restore_size);
+  mtcp_printf("**** DMTCP entry point (ThreadList::postRestart()): %p\n",
+              mtcpHdr->post_restart);
+  mtcp_printf("**** brk (sbrk(0)): %p\n", mtcpHdr->saved_brk);
+  mtcp_printf("**** vdso: %p-%p\n", mtcpHdr->vdsoStart, mtcpHdr->vdsoEnd);
+  mtcp_printf("**** vvar: %p-%p\n", mtcpHdr->vvarStart, mtcpHdr->vvarEnd);
+
   Area area;
-  MTCP_PRINTF("Listing ckpt image area:\n");
+  mtcp_printf("\n**** Listing ckpt image area:\n");
   while(1) {
     mtcp_readfile(fd, &area, sizeof area);
     if (area.size == -1) break;
