@@ -694,7 +694,7 @@ static void setLDPreloadLibs(bool is32bitElf)
 
   if (disableAllPlugins) {
     preloadLibs = Util::getPath("libdmtcp.so");
-#if defined(__x86_64__)
+#if defined(__x86_64__) || defined(__aarch64__)
     preloadLibs32 = Util::getPath("libdmtcp.so", true);
 #endif
   } else {
@@ -702,7 +702,7 @@ static void setLDPreloadLibs(bool is32bitElf)
       struct PluginInfo *p= &pluginInfo[i];
       if (*p->enabled) {
         preloadLibs += Util::getPath(p->lib, is32bitElf) + ":";
-#if defined(__x86_64__)
+#if defined(__x86_64__) || defined(__aarch64__)
         preloadLibs32 += Util::getPath(p->lib, true) + ":";
 #endif
       }
@@ -710,7 +710,7 @@ static void setLDPreloadLibs(bool is32bitElf)
   }
 
   setenv(ENV_VAR_HIJACK_LIBS, preloadLibs.c_str(), 1);
-#if defined(__x86_64__)
+#if defined(__x86_64__) || defined(__aarch64__)
   setenv(ENV_VAR_HIJACK_LIBS_M32, preloadLibs32.c_str(), 1);
 #endif
 
@@ -719,13 +719,13 @@ static void setLDPreloadLibs(bool is32bitElf)
   if (getenv("LD_PRELOAD")) {
     setenv(ENV_VAR_ORIG_LD_PRELOAD, getenv("LD_PRELOAD"), 1);
     preloadLibs = preloadLibs + ":" + getenv("LD_PRELOAD");
-#if defined(__x86_64__)
+#if defined(__x86_64__) || defined(__aarch64__)
     preloadLibs32 = preloadLibs32 + ":" + getenv("LD_PRELOAD");
 #endif
   }
 
   setenv("LD_PRELOAD", preloadLibs.c_str(), 1);
-#if defined(__x86_64__)
+#if defined(__x86_64__) || defined(__aarch64__)
   if (is32bitElf) {
     string libdmtcp = Util::getPath("libdmtcp.so", true);
     JWARNING(libdmtcp != "libdmtcp.so") (libdmtcp)
