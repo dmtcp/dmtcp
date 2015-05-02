@@ -765,14 +765,16 @@ else:
 runTest("pthread_atfork",      2, ["./test/pthread_atfork"])
 os.environ["LD_LIBRARY_PATH"] = os.getenv("LD_LIBRARY_PATH")[:-len(":./test")]
 
-if HAS_SSH == "yes":
-  S=5*DEFAULT_S
-  runTest("sshtest",     4, ["./test/sshtest"])
-  S=DEFAULT_S
+if not USE_M32:  # ssh (a 64-bit child process) is forked
+  if HAS_SSH == "yes":
+    S=5*DEFAULT_S
+    runTest("sshtest",     4, ["./test/sshtest"])
+    S=DEFAULT_S
 
-S=2*DEFAULT_S
-runTest("waitpid",      2, ["./test/waitpid"])
-S=DEFAULT_S
+if not USE_M32:  # waitpid forks a 64-bit child process, /bin/sleep
+  S=2*DEFAULT_S
+  runTest("waitpid",      2, ["./test/waitpid"])
+  S=DEFAULT_S
 
 runTest("client-server", 2, ["./test/client-server"])
 
@@ -831,6 +833,10 @@ runTest("pthread3",      1, ["./test/pthread2 80"])
 S=DEFAULT_S
 runTest("pthread4",      1, ["./test/pthread4"])
 runTest("pthread5",      1, ["./test/pthread5"])
+
+# Most of the remaining tests are on 64-bit processes.
+if USE_M32:
+  sys.exit()
 
 os.environ['DMTCP_GZIP'] = "1"
 runTest("gzip",          1, ["./test/dmtcp1"])
