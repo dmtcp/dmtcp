@@ -99,7 +99,7 @@ tidy:
 clean: tidy
 	-rm -f *.o
 	-rm -f $(LIBNAME)
-	-rm -f $(targetdir)/bin/dmtcp_discover_rm
+	-rm -f $(RM_BINS)
 
 distclean: clean
 	rm -f Makefile
