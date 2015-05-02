@@ -560,7 +560,7 @@ static void restorememoryareas(RestoreInfo *rinfo_ptr)
   DPRINTF("close cpfd %d\n", restore_info.fd);
   mtcp_sys_close (restore_info.fd);
 
-  //IMB; // flush instruction cache, since mtcp_restart.c code is now gone.
+  IMB; // flush instruction cache, since mtcp_restart.c code is now gone.
   DPRINTF("restore complete, resuming by jumping to %p...\n",
           restore_info.post_restart);
 
