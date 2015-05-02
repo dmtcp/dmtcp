@@ -5,7 +5,7 @@ applications, including multi-threaded and distributed applications. It
 operates directly on the user binary executable, without any Linux kernel
 modules or other kernel modifications.
 
-Among the applications supported by DMTCP are MPI (verious implementations),
+Among the applications supported by DMTCP are MPI (various implementations),
 OpenMP, MATLAB, Python, Perl, R, and many programming languages and shell
 scripting languages. DMTCP also supports GNU screen sessions, including
 vim/cscope and emacs. With the use of TightVNC, it can also checkpoint
@@ -13,7 +13,7 @@ and restart X Window applications.  The OpenGL library for 3D graphics
 is supported through a special plugin.
 
 DMTCP supports the commonly used OFED API for InfiniBand, as well as its
-integration with various implementatoins of MPI, and resource managers
+integration with various implementations of MPI, and resource managers
 (e.g., SLURM).
 
 To install DMTCP, see the file: `INSTALL`.
@@ -36,7 +36,7 @@ Directory layout:
  - doc : Random documentation on aspects of the DMTCP design
          Note especially:  doc/plugin-tutorial.pdf
  - include : Contains dmtcp.h ; useful for third-party plugins
- - contrib : Contributed plugins and other addons.  The more popular ones
+ - contrib : Contributed plugins and other add-ons.  The more popular ones
              will eventually be migrated to the top-level plugin directory
              as they become mature;  Contrib plugins are not built by default.
  - util : random utilities, useful mostly for experts

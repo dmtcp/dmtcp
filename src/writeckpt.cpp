@@ -231,8 +231,8 @@ void mtcp_writememoryareas(int fd)
         area.filesize = lseek(ffd, 0, SEEK_END);
         if (area.filesize == -1)
           area.filesize = 0;
-      }
-      _real_close(ffd);
+        _real_close(ffd);
+      } /* else no such file; don't need to close it */
     }
 
     /* Force the anonymous flag if it's a private writeable section, as the

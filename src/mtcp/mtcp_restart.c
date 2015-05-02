@@ -561,16 +561,16 @@ static void restorememoryareas(RestoreInfo *rinfo_ptr)
   mtcp_sys_close (restore_info.fd);
 
   //IMB; // flush instruction cache, since mtcp_restart.c code is now gone.
-  DPRINTF("restore complete, resuming by jumping to %p...\n",
-          restore_info.post_restart);
 
   /* Restore libc */
+  DPRINTF("Memory is now restored.  Will next restore libc internals.\n");
   restore_libc(&restore_info.motherofall_tls_info, restore_info.tls_pid_offset,
                restore_info.tls_tid_offset, restore_info.myinfo_gs);
+  /* System calls and libc library calls should now work. */
 
-  /* Jump to finishrestore in original program's libmtcp.so image.
-   * This is in libdmtcp.so, and is called: restore_libc.c:TLSInfo_PostRestart
-   */
+  DPRINTF("MTCP restore is now complete.  Continuing by jumping to\n"
+          "  ThreadList:postRestart() back inside libdmtcp.so: %p...\n",
+          restore_info.post_restart);
   restore_info.post_restart();
 }
 
