@@ -16,7 +16,7 @@ fi
 
 dir=`dirname $0`
 
-if which mtcp_restart > /dev/null; then
+if which mtcp_restart > /dev/null 2> /dev/null; then
   mtcp_restart --simulate $1 2>&1
   exit 0
 fi
