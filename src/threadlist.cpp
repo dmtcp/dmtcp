@@ -318,7 +318,7 @@ static void *checkpointhread (void *dummy)
   /* Release user thread after we've initialized. */
   sem_post(&sem_start);
 
-  /* Set up our restart point, ie, we get jumped to here after a restore */
+  /* Set up our restart point.  I.e., we get jumped to here after a restore. */
 #ifdef SETJMP
   JASSERT(sigsetjmp(ckptThread->jmpbuf, 1) >= 0) (JASSERT_ERRNO);
 #else
@@ -339,6 +339,9 @@ static void *checkpointhread (void *dummy)
     JTRACE("resuming after restore");
   }
 
+  /* This is a sleep-checkpoint-resume loop by the checkpoint thread.
+   * On restart, we arrive back at getcontext, above, and then re-enter the loop.
+   */
   while (1) {
     /* Wait a while between writing checkpoint files */
     JTRACE("before callbackSleepBetweenCheckpoint(0)");
@@ -362,8 +365,30 @@ static void *checkpointhread (void *dummy)
 
     MtcpHeader mtcpHdr;
     prepareMtcpHeader(&mtcpHdr);
+    /* That's it, folks.  We just did the checkpoint.  After this, we will meet
+     *   on the flip side of checkpoint.
+     */
     CkptSerializer::writeCkptImage(&mtcpHdr, sizeof(mtcpHdr));
 
+    /* NOTE: This code is only for the checkpoint thread.  If you're looking for
+     *       what the user thread does at checkpoint time, see:  stopthisthread()
+     *
+     * There are two ways for the _checkpoint_ thread to return from a checkpoint:
+     *                 resume and restart
+     * If we're here, we just 'resume'd after checkpoint.  It's the same process.
+     * If we chose checkpoint, 'bin/mtcp_restart' created a new process.  The
+     *   source code is in 'src/mtcp'.  The program 'bin/mtcp_restart' will map our
+     *   memory into the new process, and then meet us back here by calling the
+     *   function specified by 'mtcpHdr->post_restart': ThreadList::postRestart().
+     *   Actually, postRestart() will start the user threads and then call
+     *   restarthread() for the 'motherofall' thread.  Then, restarthread()
+     *   will call setcontext(), in order to arrive back at getcontext() here
+     *   in this function, just before the 'while(1)' loop.
+     * FIXME:  We're calling the checkpoint thread 'motherofall' (primary thread),
+     *   on restart, since it's the first thread.  But on launch, 'motherofall'
+     *   was the primary user thread, and the checkpoint thread was the second
+     *   thread.  Why do we switch at the time of restart?  Should we fix this?
+     */
     JTRACE("before callbackPostCheckpoint(0, NULL)");
     callbackPostCheckpoint(0, NULL);
 
@@ -671,6 +696,7 @@ static int restarthread (void *threadv)
 {
   Thread *thread = (Thread*) threadv;
   thread->tid = THREAD_REAL_TID();
+  // This function and related ones are defined in src/mtcp/restore_libc.c
   TLSInfo_RestoreTLSState(&thread->tlsInfo);
 
   if (TLSInfo_HaveThreadSysinfoOffset())
