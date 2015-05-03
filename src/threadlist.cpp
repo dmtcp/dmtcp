@@ -371,23 +371,25 @@ static void *checkpointhread (void *dummy)
     CkptSerializer::writeCkptImage(&mtcpHdr, sizeof(mtcpHdr));
 
     /* NOTE: This code is only for the checkpoint thread.  If you're looking for
-     *       what the user thread does at checkpoint time, see:  stopthisthread()
+     *      what the user threads do at checkpoint time, see:  stopthisthread()
      *
-     * There are two ways for the _checkpoint_ thread to return from a checkpoint:
+     * There are two ways for the checkpoint thread to return from a checkpoint:
      *                 resume and restart
-     * If we're here, we just 'resume'd after checkpoint.  It's the same process.
+     * If we're here, we just resume'd after checkpoint.  It's the same process.
      * If we chose checkpoint, 'bin/mtcp_restart' created a new process.  The
-     *   source code is in 'src/mtcp'.  The program 'bin/mtcp_restart' will map our
-     *   memory into the new process, and then meet us back here by calling the
-     *   function specified by 'mtcpHdr->post_restart': ThreadList::postRestart().
+     *   source code is in 'src/mtcp'.  The program 'bin/mtcp_restart' will map
+     *   our memory into the new process, and then meet us back here by calling
+     *   the function specified by 'mtcpHdr->post_restart':
+     *                                        ThreadList::postRestart().
      *   Actually, postRestart() will start the user threads and then call
      *   restarthread() for the 'motherofall' thread.  Then, restarthread()
      *   will call setcontext(), in order to arrive back at getcontext() here
      *   in this function, just before the 'while(1)' loop.
-     * FIXME:  We're calling the checkpoint thread 'motherofall' (primary thread),
-     *   on restart, since it's the first thread.  But on launch, 'motherofall'
-     *   was the primary user thread, and the checkpoint thread was the second
-     *   thread.  Why do we switch at the time of restart?  Should we fix this?
+     * FIXME:  The 'motherofall' thread is the primary thread of the process.
+     *   On launch, 'motherofall' was the user thread exeicuting main().
+     *   and the checkpoint thread was the second thread.  But now,
+     *   motherofall will be the checkpoint thread.  Why do we switch at the
+     *   time of restart?  Should we fix this?
      */
     JTRACE("before callbackPostCheckpoint(0, NULL)");
     callbackPostCheckpoint(0, NULL);
