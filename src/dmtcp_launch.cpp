@@ -34,7 +34,9 @@
 
 using namespace dmtcp;
 
-static void processArgs(int *orig_argc, char ***orig_argv);
+static void processArgs(int *orig_argc, char ***orig_argv,
+                        string *tmpDir_p, const char **host,
+                        const char **portStr);
 static int testMatlab(const char *filename);
 static int testJava(char **argv);
 static bool testSetuid(const char *filename);
@@ -198,11 +200,15 @@ static CoordinatorMode allowedModes = COORD_ANY;
 
 //shift args
 #define shift argc--,argv++
-static void processArgs(int *orig_argc, char ***orig_argv, string *tmpDir_p)
+static void processArgs(int *orig_argc, char ***orig_argv,
+                        string *tmpDir_p,
+                        const char **host, const char **portStr)
 {
   int argc = *orig_argc;
   char **argv = *orig_argv;
   char *tmpdir_arg = NULL;
+  *host = NULL; // uninitialized
+  *portStr = NULL; // uninitialized
 
   if (argc == 1) {
     printf("%s", DMTCP_VERSION_AND_COPYRIGHT_INFO);
@@ -256,14 +262,14 @@ static void processArgs(int *orig_argc, char ***orig_argv, string *tmpDir_p)
       setenv(ENV_VAR_CKPT_INTR, s.c_str()+2, 1);
       shift;
     } else if (argc>1 && (s == "-h" || s == "--host")) {
-      setenv(ENV_VAR_NAME_HOST, argv[1], 1);
+      *host = argv[1];
       shift; shift;
     } else if (argc>1 && (s == "-p" || s == "--port")) {
-      setenv(ENV_VAR_NAME_PORT, argv[1], 1);
+      *portStr = argv[1];
       shift; shift;
     } else if (s.c_str()[0] == '-' && s.c_str()[1] == 'p' &&
                isdigit(s.c_str()[2])) { // else if -p0, for example
-      setenv(ENV_VAR_NAME_PORT, s.c_str()+2, 1);
+      *portStr = s.c_str()+2;
       shift;
     } else if (argc>1 && s == "--port-file"){
       thePortFile = argv[1];
@@ -341,8 +347,10 @@ int main ( int argc, char** argv )
     setenv(ENV_VAR_QUIET, "0", 0);
 
   string tmpDir = "tmpDir is not set";
+  const char *host;
+  const char *portStr;
   // This will change argv to refer to the target application.
-  processArgs(&argc, &argv, &tmpDir);
+  processArgs(&argc, &argv, &tmpDir, &host, &portStr);
 
   initializeJalib();
 
@@ -484,12 +492,15 @@ int main ( int argc, char** argv )
   DmtcpUniqueProcessId compId;
   CoordinatorInfo coordInfo;
   struct in_addr localIPAddr;
+  int port = (portStr ? jalib::StringToInt(portStr) : UNINITIALIZED_PORT);
+  // Initialize host and port now.  Will be used in low-level functions.
+  Util::getCoordHostAndPort(allowedModes, &host, &port);
   CoordinatorAPI::instance().connectToCoordOnStartup(allowedModes, argv[0],
                                                      &compId, &coordInfo,
                                                      &localIPAddr);
-  Util::writeCoordPortToFile(getenv(ENV_VAR_NAME_PORT), thePortFile.c_str());
-  unsetenv(ENV_VAR_NAME_HOST);
-  unsetenv(ENV_VAR_NAME_PORT);
+  // If port was 0, we'll get new random port when coordinator starts up.
+  Util::getCoordHostAndPort(allowedModes, &host, &port);
+  Util::writeCoordPortToFile(port, thePortFile.c_str());
 
   string installDir =
     jalib::Filesystem::DirName(jalib::Filesystem::GetProgramDir());

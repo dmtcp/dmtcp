@@ -72,31 +72,6 @@ void CoordinatorAPI::restart()
   instance()._nsSock.close();
 }
 
-static void getHostAndPort(CoordinatorMode mode, string *hostname, int *port)
-{
-  JASSERT(mode & COORD_JOIN || mode & COORD_NEW || mode & COORD_ANY);
-
-  if (SharedData::initialized()) {
-    *hostname = SharedData::coordHost();
-    *port = SharedData::coordPort();
-    return;
-  }
-
-  const char *addr = getenv (ENV_VAR_NAME_HOST);
-  if (addr == NULL) addr = DEFAULT_HOST;
-  *hostname = addr;
-
-  const char *portStr = getenv (ENV_VAR_NAME_PORT);
-  if (portStr != NULL) {
-    *port = jalib::StringToInt(portStr);
-  } else if (mode & COORD_NEW) {
-    *port = 0;
-  } else {
-    *port = DEFAULT_PORT;
-  }
-}
-
-
 static uint32_t getCkptInterval()
 {
   uint32_t ret = DMTCPMESSAGE_SAME_CKPT_INTERVAL;
@@ -114,12 +89,11 @@ static uint32_t getCkptInterval()
 
 static jalib::JSocket createNewSocketToCoordinator(CoordinatorMode mode)
 {
-  string addr;
+  const char*host;
   int port;
 
-  getHostAndPort(mode, &addr, &port);
-  jalib::JSocket sock = jalib::JClientSocket(addr.c_str(), port);
-  return sock;
+  Util::getCoordHostAndPort(COORD_ANY, &host, &port);
+  return jalib::JClientSocket(host, port);
 }
 
 //CoordinatorAPI::CoordinatorAPI (int sockfd)
@@ -177,17 +151,19 @@ void CoordinatorAPI::resetOnFork(CoordinatorAPI& coordAPI)
   instance()._nsSock.close();
 }
 
+// FIXME:  Does "virtual coordinator" mean coordinator built into the
+//         the current process (no separate process?)
 void CoordinatorAPI::setupVirtualCoordinator(CoordinatorInfo *coordInfo,
                                              struct in_addr  *localIP)
 {
-  const char *portStr = getenv(ENV_VAR_NAME_PORT);
-  int port = (portStr == NULL) ? DEFAULT_PORT : jalib::StringToInt(portStr);
+  const char *host = NULL;
+  int port;
+  Util::getCoordHostAndPort(COORD_NONE, &host, &port);
   _coordinatorSocket = jalib::JServerSocket(jalib::JSockAddr::ANY, port);
   JASSERT(_coordinatorSocket.isValid()) (port) (JASSERT_ERRNO)
     .Text("Failed to create listen socket.");
   _coordinatorSocket.changeFd(PROTECTED_COORD_FD);
-  string coordPort= jalib::XToString(_coordinatorSocket.port());
-  setenv (ENV_VAR_NAME_PORT, coordPort.c_str(), 1);
+  Util::setCoordPort(_coordinatorSocket.port());
 
   Util::setVirtualPidEnvVar(INITIAL_VIRTUAL_PID, getppid());
 
@@ -424,14 +400,14 @@ void CoordinatorAPI::recvMsgFromCoordinator(DmtcpMessage *msg, void **extraData)
 
 void CoordinatorAPI::startNewCoordinator(CoordinatorMode mode)
 {
-  string addr;
+  const char *host;
   int port;
-  getHostAndPort(mode, &addr, &port);
+  Util::getCoordHostAndPort(mode, &host, &port);
 
-  JASSERT(addr == "localhost" ||
-          addr == "127.0.0.1" ||
-          addr == jalib::Filesystem::GetCurrentHostname())
-    (addr) (jalib::Filesystem::GetCurrentHostname())
+  JASSERT(strcmp(host, "localhost") == 0 ||
+          strcmp(host, "127.0.0.1") == 0 ||
+          jalib::Filesystem::GetCurrentHostname() == host)
+    (host) (jalib::Filesystem::GetCurrentHostname())
     .Text("Won't automatically start coordinator because DMTCP_HOST"
           " is set to a remote host.");
   // Create a socket and bind it to an unused port.
@@ -445,10 +421,10 @@ void CoordinatorAPI::startNewCoordinator(CoordinatorMode mode)
           "\nKill other coordinators and try again in a minute or so.");
   // Now dup the sockfd to
   coordinatorListenerSocket.changeFd(PROTECTED_COORD_FD);
-  string coordPort= jalib::XToString(coordinatorListenerSocket.port());
-  setenv (ENV_VAR_NAME_PORT, coordPort.c_str(), 1);
+  Util::setCoordPort(coordinatorListenerSocket.port());
 
-  JTRACE("Starting a new coordinator automatically.") (coordPort);
+  JTRACE("Starting a new coordinator automatically.")
+        (coordinatorListenerSocket.port());
 
   if (fork() == 0) {
     // We can't use Util::getPath() here since the SharedData has not been
@@ -601,6 +577,8 @@ void CoordinatorAPI::connectToCoordOnRestart(CoordinatorMode  mode,
                                              UniquePid compGroup,
                                              int np,
                                              CoordinatorInfo *coordInfo,
+                                             const char *host,
+                                             int port,
                                              struct in_addr  *localIP)
 {
   if (mode & COORD_NONE) {

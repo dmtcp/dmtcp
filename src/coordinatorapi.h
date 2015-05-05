@@ -71,6 +71,8 @@ namespace dmtcp
                                    UniquePid compGroup,
                                    int np,
                                    CoordinatorInfo *coordInfo,
+                                   const char *host,
+                                   int port,
                                    struct in_addr  *localIP);
       void closeConnection() { _coordinatorSocket.close(); }
 

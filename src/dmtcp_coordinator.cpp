@@ -1872,8 +1872,7 @@ int main ( int argc, char** argv )
 
   thePort = listenSock->port();
   if (!thePortFile.empty()) {
-    string coordPort= jalib::XToString(thePort);
-    Util::writeCoordPortToFile(coordPort.c_str(), thePortFile.c_str());
+    Util::writeCoordPortToFile(thePort, thePortFile.c_str());
   }
 
   //parse checkpoint interval
