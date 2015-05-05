@@ -189,7 +189,7 @@ int main ( int argc, char** argv )
 #define STRINGIFY(arg) QUOTE(arg)
   if(*cmd == 's'){
     printf("Coordinator:\n");
-    char *host = getenv(ENV_VAR_NAME_PORT);
+    char *host = getenv(ENV_VAR_NAME_HOST);
     printf("  Host: %s\n", (host ? host : "localhost"));
     char *port = getenv(ENV_VAR_NAME_PORT);
     printf("  Port: %s\n",
