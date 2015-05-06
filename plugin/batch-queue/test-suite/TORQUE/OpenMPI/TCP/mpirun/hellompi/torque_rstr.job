@@ -38,13 +38,13 @@ start_coordinator()
     echo "#!/bin/bash" > $fname
     echo >> $fname
     echo "export PATH=$PATH" >> $fname
-    echo "export DMTCP_HOST=$h" >> $fname
-    echo "export DMTCP_PORT=$p" >> $fname
+    echo "export DMTCP_COORD_HOST=$h" >> $fname
+    echo "export DMTCP_COORD_PORT=$p" >> $fname
     echo "dmtcp_command \$@" >> $fname
 
     # Setup local environment for DMTCP
-    export DMTCP_HOST=$h
-    export DMTCP_PORT=$p
+    export DMTCP_COORD_HOST=$h
+    export DMTCP_COORD_PORT=$p
 
 }
 
@@ -66,7 +66,7 @@ start_coordinator # -i 120 ... <put dmtcp coordinator options here>
 echo "Start"
 date
 
-./dmtcp_restart_script.sh -h $DMTCP_HOST -p $DMTCP_PORT
+./dmtcp_restart_script.sh -h $DMTCP_COORD_HOST -p $DMTCP_COORD_PORT
 
 echo "Finish"
 date

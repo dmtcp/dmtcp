@@ -90,12 +90,12 @@ start_coordinator()
     echo >> $fname
     echo "export PATH=$PATH" >> $fname
     echo "export DMTCP_HOST=$h" >> $fname
-    echo "export DMTCP_PORT=$p" >> $fname
+    echo "export DMTCP_COORD_PORT=$p" >> $fname
     echo "dmtcp_command \$@" >> $fname
 
     # Setup local environment for DMTCP
-    export DMTCP_HOST=$h
-    export DMTCP_PORT=$p
+    export DMTCP_COORD_HOST=$h
+    export DMTCP_COORD_PORT=$p
 }
 
 echo "Launching dmtcp coordintor daemon"
@@ -115,8 +115,8 @@ echo "Checkpointing will commence after $nTics seconds"
 tic=`date +%s`
 if [[ -f ./dmtcp_restart_script.sh ]] && [[ "${FORCE_CHECKPOINT}" == "No" ]]; then
   echo "Restarting application under dmtcp control"
-  echo "./dmtcp_restart_script.sh -h $DMTCP_HOST -p $DMTCP_PORT -i $nTics 1>>$OUTFILE 2>>$ERRFILE"
-  ./dmtcp_restart_script.sh -h $DMTCP_HOST -p $DMTCP_PORT -i $nTics 1>>${OUTFILE}.${SLURM_JOB_ID} 2>>${ERRFILE}.${SLURM_JOB_ID}
+  echo "./dmtcp_restart_script.sh -h $DMTCP_COORD_HOST -p $DMTCP_COORD_PORT -i $nTics 1>>$OUTFILE 2>>$ERRFILE"
+  ./dmtcp_restart_script.sh -h $DMTCP_COORD_HOST -p $DMTCP_COORD_PORT -i $nTics 1>>${OUTFILE}.${SLURM_JOB_ID} 2>>${ERRFILE}.${SLURM_JOB_ID}
   cat ${OUTFILE}.${SLURM_JOB_ID} >> ${OUTFILE}
   rm -f ${OUTFILE}.${SLURM_JOB_ID}
   cat ${ERRFILE}.${SLURM_JOB_ID} >> ${ERRFILE}

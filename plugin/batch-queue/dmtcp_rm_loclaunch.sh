@@ -84,7 +84,8 @@ if [ -n "$SLURM_JOBID" ] || [ -n "$SLURM_JOB_ID" ]; then
 
   prepare_SLURM_env "$LOCAL_FILES"
 
-  dmtcp_restart --join --host $DMTCP_HOST --port $DMTCP_PORT $LOCAL_FILES
+  dmtcp_restart --join --coord-host $DMTCP_COORD_HOST \
+                       --coord-port $DMTCP_COORD_PORT $LOCAL_FILES
 
   # set > set.$SLURM_NODEID.$SLURM_LOCALID
   # Accumulate logs from computing nodes
@@ -149,7 +150,8 @@ elif [ "$PBS_ENVIRONMENT" = PBS_BATCH ] && [ -n "$PBS_JOBID" ]; then
   fi
 
   #echo "LOCAL_FILES=$LOCAL_FILES"
-  dmtcp_restart --join --host $DMTCP_HOST --port $DMTCP_PORT $LOCAL_FILES
+  dmtcp_restart --join --coord-host $DMTCP_COORD_HOST \
+                       --coord-port $DMTCP_COORD_PORT $LOCAL_FILES
   if [ -d ./LOGS ]; then
     cp -R /tmp/dmtcp* ./LOGS/
   fi

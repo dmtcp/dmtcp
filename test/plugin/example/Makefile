@@ -27,7 +27,7 @@ ${DMTCP_ROOT}/test/dmtcp1: ${DMTCP_ROOT}/test
 	cd ${DMTCP_ROOT}/test; make dmtcp1
 check: ${LIBNAME}.so ${DMTCP_ROOT}/test/dmtcp1
 	# Note that full path of plugin (using $$PWD in this case) is required.
-	${DMTCP_ROOT}/bin/dmtcp_launch --port ${DEMO_PORT} -i 5 \
+	${DMTCP_ROOT}/bin/dmtcp_launch --coord-port ${DEMO_PORT} --interval 5 \
 	  --with-plugin $$PWD/${LIBNAME}.so ${DMTCP_ROOT}/test/dmtcp1
 
 # We link the library using C++ for compatibility with the main libdmtcp.so

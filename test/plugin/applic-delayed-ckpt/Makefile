@@ -34,9 +34,9 @@ check: ${LIBNAME}.so applic
 	@ echo ""
 	@ sleep 3
 	@ echo "============ TESTING ./applic WITH DMTCP ================="
-	# -i 2 flag will write checkpoint every two seconds.
-	${DMTCP_ROOT}/bin/dmtcp_launch --quiet --port ${DEMO_PORT} -i 2 \
-	  --with-plugin $$PWD/${LIBNAME}.so ./applic &
+	# --interval 2 flag will write checkpoint every two seconds.
+	${DMTCP_ROOT}/bin/dmtcp_launch --quiet --coord-port ${DEMO_PORT} \
+	  --interval 2 --with-plugin $$PWD/${LIBNAME}.so ./applic &
 	@ sleep 7
 	@ echo ""
 	@ echo "===== RESTARTING USING ./dmtcp_restart_script.sh ============="

@@ -42,13 +42,13 @@ start_coordinator()
     echo "#!/bin/bash" > $fname
     echo >> $fname
     echo "export PATH=$PATH" >> $fname
-    echo "export DMTCP_HOST=$h" >> $fname
-    echo "export DMTCP_PORT=$p" >> $fname
+    echo "export DMTCP_COORD_HOST=$h" >> $fname
+    echo "export DMTCP_COORD_PORT=$p" >> $fname
     echo "dmtcp_command \$@" >> $fname
 
     # Setup local environment for DMTCP
-    export DMTCP_HOST=$h
-    export DMTCP_PORT=$p
+    export DMTCP_COORD_HOST=$h
+    export DMTCP_COORD_PORT=$p
 
 }
 
