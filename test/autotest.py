@@ -282,8 +282,8 @@ def launch(cmd):
 #randomize port and dir, so multiple processes works
 ckptDir="dmtcp-autotest-%d" % randint(100000000,999999999)
 os.mkdir(ckptDir);
-os.environ['DMTCP_HOST'] = "localhost"
-os.environ['DMTCP_PORT'] = str(randint(2000,10000))
+os.environ['DMTCP_COORD_HOST'] = "localhost"
+os.environ['DMTCP_COORD_PORT'] = str(randint(2000,10000))
 os.environ['DMTCP_CHECKPOINT_DIR'] = os.path.abspath(ckptDir)
 #Use default SIGCKPT for test suite.
 os.unsetenv('DMTCP_SIGCKPT')
@@ -293,7 +293,7 @@ os.unsetenv('MTCP_SIGCKPT')
 if not VERBOSE:
   os.environ['JALIB_STDERR_PATH'] = os.devnull
 if VERBOSE:
-  print "coordinator port:  " + os.environ['DMTCP_PORT']
+  print "coordinator port:  " + os.environ['DMTCP_COORD_PORT']
 
 # We'll copy ckptdir to DMTCP_TMPDIR in case of error.
 def dmtcp_tmpdir():

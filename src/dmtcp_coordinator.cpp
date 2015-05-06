@@ -94,7 +94,7 @@ static const char* theUsage =
   "Usage: dmtcp_coordinator [OPTIONS] [port]\n"
   "Coordinates checkpoints between multiple processes.\n\n"
   "Options:\n"
-  "  -p, --port PORT_NUM (environment variable DMTCP_PORT)\n"
+  "  -p, --coord-port PORT_NUM (environment variable DMTCP_COORD_PORT)\n"
   "      Port to listen on (default: 7779)\n"
   "  --port-file filename\n"
   "      File to write listener port number.\n"
@@ -136,9 +136,10 @@ static const char* theRestartScriptHeader =
   "#     prompts.\n"
   "#  3. Verify that the dmtcp_restart command is in your path on all hosts,\n"
   "#     otherwise set the dmt_rstr_cmd appropriately.\n"
-  "#  4. Verify DMTCP_HOST and DMTCP_PORT match the location of the\n"
-  "#     dmtcp_coordinator. If necessary, add\n"
-  "#     'DMTCP_PORT=<dmtcp_coordinator port>' after 'DMTCP_HOST=<...>'.\n"
+  "#  4. Verify DMTCP_COORD_HOST and DMTCP_COORD_PORT match the location of\n"
+  "#     the dmtcp_coordinator. If necessary, add\n"
+  "#     'DMTCP_COORD_PORT=<dmtcp_coordinator port>' after\n"
+  "#     'DMTCP_COORD_HOST=<...>'.\n"
   "#  5. Remove the '&' from a line if that process reads STDIN.\n"
   "#     If multiple processes read STDIN then prefix the line with\n"
   "#     'xterm -hold -e' and put '&' at the end of the line.\n"
@@ -202,9 +203,9 @@ static const char* theRestartScriptUsage =
   "usage_str='USAGE:\n"
   "  dmtcp_restart_script.sh [OPTIONS]\n\n"
   "OPTIONS:\n"
-  "  --host, -h, (environment variable DMTCP_HOST):\n"
+  "  --coord-host, -h, (environment variable DMTCP_COORD_HOST):\n"
   "      Hostname where dmtcp_coordinator is running\n"
-  "  --port, -p, (environment variable DMTCP_PORT):\n"
+  "  --coord-port, -p, (environment variable DMTCP_COORD_PORT):\n"
   "      Port where dmtcp_coordinator is running\n"
   "  --hostfile <arg0> :\n"
   "      Provide a hostfile (One host per line, \"#\" indicates comments)\n"
@@ -236,10 +237,10 @@ static const char* theRestartScriptCmdlineArgHandler =
   "      exit\n"
   "    elif [ $# -ge 1 ]; then\n"
   "      case \"$1\" in\n"
-  "        --host|-h)\n"
+  "        --coord-host|--host|-h)\n"
   "          coord_host=\"$2\"\n"
   "          shift; shift;;\n"
-  "        --port|-p)\n"
+  "        --coord=port|--port|-p)\n"
   "          coord_port=\"$2\"\n"
   "          shift; shift;;\n"
   "        --hostfile)\n"
@@ -292,7 +293,7 @@ static const char* theRestartScriptSingleHostProcessing =
   "  ckpt_files=$given_ckpt_files\n"
   "fi\n\n"
 
-  "coordinator_info=\"--host $coord_host --port $coord_port\"\n"
+  "coordinator_info=\"--coord-host $coord_host --coord-port $coord_port\"\n"
 
   "tmpdir=\n"
   "if [ ! -z \"$DMTCP_TMPDIR\" ]; then\n"
@@ -376,20 +377,23 @@ static const char* theRestartScriptMultiHostProcessing =
 
   "  if [ -z $maybebg ]; then\n"
   "    $maybexterm /usr/bin/ssh -t \"$worker_host\" \\\n"
-  "      $dmt_rstr_cmd --host \"$coord_host\" --port \"$coord_port\"\\\n"
+  "      $dmt_rstr_cmd --coord-host \"$coord_host\""
+                                             " --cord-port \"$coord_port\"\\\n"
   "      $ckpt_dir --join --interval \"$checkpoint_interval\" $tmpdir \\\n"
   "      $new_ckpt_files_group\n"
   "  else\n"
   "    $maybexterm /usr/bin/ssh \"$worker_host\" \\\n"
   // In Open MPI 1.4, without this (sh -c ...), orterun hangs at the
   // end of the computation until user presses enter key.
-  "      \"/bin/sh -c \'$dmt_rstr_cmd --host $coord_host --port $coord_port\\\n"
+  "      \"/bin/sh -c \'$dmt_rstr_cmd --coord-host $coord_host"
+                                                " --coord-port $coord_port\\\n"
   "      $ckpt_dir --join --interval \"$checkpoint_interval\" $tmpdir \\\n"
   "      $new_ckpt_files_group\'\" &\n"
   "  fi\n\n"
   "done\n\n"
   "if [ -n \"$localhost_ckpt_files_group\" ]; then\n"
-  "exec $dmt_rstr_cmd --host \"$coord_host\" --port \"$coord_port\" \\\n"
+  "exec $dmt_rstr_cmd --coord-host \"$coord_host\""
+                                           " --coord-port \"$coord_port\" \\\n"
   "  $ckpt_dir $maybejoin --interval \"$checkpoint_interval\" $tmpdir $noStrictUidChecking $localhost_ckpt_files_group\n"
   "fi\n\n"
 
@@ -1492,9 +1496,12 @@ void DmtcpCoordinator::writeRestartScript()
                   "        . $DMTCP_SRUN_HELPER_SYNCFILE\n"
                   "        pass_slurm_helper_contact \"$DMTCP_LAUNCH_CKPTS\"\n"
                   "        rm $DMTCP_SRUN_HELPER_SYNCFILE\n"
-                  "        dmtcp_restart --join --host $DMTCP_HOST --port $DMTCP_PORT $DMTCP_LAUNCH_CKPTS\n"
+                  "        dmtcp_restart --join --coord-host $DMTCP_COORD_HOST"
+                              " --coord-port $DMTCP_COORD_PORT"
+                              " $DMTCP_LAUNCH_CKPTS\n"
                   "      else\n"
-                  "        DMTCP_REMLAUNCH_0_0=\"$DMTCP_REMLAUNCH_0_0 $DMTCP_LAUNCH_CKPTS\"\n"
+                  "        DMTCP_REMLAUNCH_0_0=\"$DMTCP_REMLAUNCH_0_0"
+                                                     " $DMTCP_LAUNCH_CKPTS\"\n"
                   "        $srun_path \"$llaunch\"\n"
                   "      fi\n"
                   "      exit 0\n"
@@ -1509,7 +1516,8 @@ void DmtcpCoordinator::writeRestartScript()
                   "          echo \"Allocated resources: $manager_resources\"\n"
                   "          exit 0\n"
                   "      fi\n"
-                  "      arguments=\"PATH=$PATH DMTCP_HOST=$DMTCP_HOST DMTCP_PORT=$DMTCP_PORT\"\n"
+                  "      arguments=\"PATH=$PATH DMTCP_COORD_HOST=$DMTCP_COORD_HOST"
+                                      " DMTCP_COORD_PORT=$DMTCP_COORD_PORT\"\n"
                   "      arguments=$arguments\" DMTCP_CHECKPOINT_INTERVAL=$DMTCP_CHECKPOINT_INTERVAL\"\n"
                   "      arguments=$arguments\" DMTCP_TMPDIR=$DMTCP_TMPDIR\"\n"
                   "      arguments=$arguments\" DMTCP_REMLAUNCH_NODES=$DMTCP_REMLAUNCH_NODES\"\n"
@@ -1765,8 +1773,9 @@ int main ( int argc, char** argv )
 
   //parse port
   thePort = DEFAULT_PORT;
-  const char* portStr = getenv ( ENV_VAR_NAME_PORT );
-  if ( portStr != NULL ) thePort = jalib::StringToInt ( portStr );
+  const char* portStr = getenv( ENV_VAR_NAME_PORT );
+  if ( portStr == NULL ) portStr = getenv("DMTCP_PORT"); // deprecated
+  if ( portStr != NULL ) thePort = jalib::StringToInt( portStr );
 
   bool daemon = false;
 
@@ -1796,16 +1805,16 @@ int main ( int argc, char** argv )
     } else if (s == "-i" || s == "--interval") {
       setenv(ENV_VAR_CKPT_INTR, argv[1], 1);
       shift; shift;
-    } else if (s.c_str()[0] == '-' && s.c_str()[1] == 'i' &&
-               isdigit(s.c_str()[2])) { // else if -i5, for example
-      setenv(ENV_VAR_CKPT_INTR, s.c_str()+2, 1);
+    } else if (argv[0][0] == '-' && argv[0][1] == 'i' &&
+               isdigit(argv[0][2])) { // else if -i5, for example
+      setenv(ENV_VAR_CKPT_INTR, argv[0]+2, 1);
       shift;
     } else if (argc>1 && (s == "-p" || s == "--port")) {
       thePort = jalib::StringToInt( argv[1] );
       shift; shift;
-    } else if (s.c_str()[0] == '-' && s.c_str()[1] == 'p' &&
-               isdigit(s.c_str()[2])) { // else if -p0, for example
-      thePort = jalib::StringToInt( s.c_str()+2 );
+    } else if (argv[0][0] == '-' && argv[0][1] == 'p' &&
+               isdigit(argv[0][2])) { // else if -p0, for example
+      thePort = jalib::StringToInt( argv[0]+2 );
       shift;
     }else if(argc>1 && s == "--port-file"){
       thePortFile = argv[1];

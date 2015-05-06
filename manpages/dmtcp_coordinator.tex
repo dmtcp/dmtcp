@@ -17,12 +17,12 @@
 %%%%%%%%%%%%%%%%%%
 
 \begin{Description}
-  \item[\Opt{-p}, \OptSArg{--port}{port} (environment variable DMTCP_PORT)]
+  \item[\Opt{-p}, \OptSArg{--coord-port}{port} (environment variable DMTCP_COORD_PORT)]
     Port to listen on (default: 7779)
 
   \item[\OptSArg{--port-file}{filename}]
     File to write listener port number.
-    (Useful with \Opt{--port 0}, which is used to assign a random port)
+    (Useful with \Opt{--coord-port 0}, which is used to assign a random port)
 
   \item[\OptSArg{--ckptdir}{path} (environment variable DMTCP_CHECKPOINT_DIR)]
     Directory to store dmtcp_restart_script.sh (default: ./)

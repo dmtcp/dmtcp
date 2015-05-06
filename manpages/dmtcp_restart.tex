@@ -20,10 +20,10 @@
 
 \subsubsection{Connecting to the DMTCP Coordinator}
 \begin{Description}
-  \item[\Opt{-h}, \Opt{--host} \Arg{hostname} (environment variable DMTCP_HOST)]
+  \item[\Opt{-h}, \Opt{--coord-host} \Arg{hostname} (environment variable DMTCP_COORD_HOST)]
     Hostname where dmtcp_coordinator is run (default: localhost)
 
-  \item[\Opt{-p}, \Opt{--port} \Arg{port} (environment variable DMTCP_PORT)]
+  \item[\Opt{-p}, \Opt{--coord-port} \Arg{port} (environment variable DMTCP_COORD_PORT)]
     Port where dmtcp_coordinator is run (default: 7779)
 
   \item[\OptSArg{--port-file}{filename}]
@@ -37,8 +37,8 @@
   \item[\Opt{--new-coordinator}]
     Create a new coordinator at the given port. Fail if one
     already exists on the given port. The port can be specified
-    with \Opt{--port}, or with environment variable DMTCP_PORT.  If no
-    port is specified, start coordinator at a random port (same
+    with \Opt{--coord-port}, or with environment variable DMTCP_COORD_PORT.
+    If no port is specified, start coordinator at a random port (same
     as specifying port '0').
 
 %  \item[\Opt{--no-coordinator}]

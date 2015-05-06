@@ -51,22 +51,22 @@ static const char* theUsage =
   "Usage: dmtcp_launch [OPTIONS] <command> [args...]\n"
   "Start a process under DMTCP control.\n\n"
   "Connecting to the DMTCP Coordinator:\n"
-  "  -h, --host HOSTNAME (environment variable DMTCP_HOST)\n"
+  "  -h, --coord-host HOSTNAME (environment variable DMTCP_COORD_HOST)\n"
   "              Hostname where dmtcp_coordinator is run (default: localhost)\n"
-  "  -p, --port PORT_NUM (environment variable DMTCP_PORT)\n"
+  "  -p, --coord-port PORT_NUM (environment variable DMTCP_COORD_PORT)\n"
   "              Port where dmtcp_coordinator is run (default: 7779)\n"
   "  --port-file FILENAME\n"
-  "              File to write listener port number.\n"
-  "              (Useful with '--port 0', which is used to assign a random port)\n"
+  "              File to write listener port number.  (Useful with\n"
+  "              '--coord-port 0', which is used to assign a random port)\n"
   "  -j, --join\n"
   "              Join an existing coordinator, raise error if one doesn't\n"
   "              already exist\n"
   "  --new-coordinator\n"
   "              Create a new coordinator at the given port. Fail if one\n"
   "              already exists on the given port. The port can be specified\n"
-  "              with --port, or with environment variable DMTCP_PORT.  If no\n"
-  "              port is specified, start coordinator at a random port (same\n"
-  "              as specifying port '0').\n"
+  "              with --coord-port, or with environment variable DMTCP_COORD_PORT.\n"
+  "              If no port is specified, start coordinator at a random port\n"
+  "              (same as specifying port '0').\n"
   "  --no-coordinator\n"
   "              Execute the process in stand-alone coordinator-less mode.\n"
   "              Use dmtcp_command or --interval to request checkpoints.\n"
@@ -257,19 +257,19 @@ static void processArgs(int *orig_argc, char ***orig_argv,
     } else if (s == "-i" || s == "--interval") {
       setenv(ENV_VAR_CKPT_INTR, argv[1], 1);
       shift; shift;
-    } else if (s.c_str()[0] == '-' && s.c_str()[1] == 'i' &&
-               isdigit(s.c_str()[2])) { // else if -i5, for example
-      setenv(ENV_VAR_CKPT_INTR, s.c_str()+2, 1);
+    } else if (argv[0][0] == '-' && argv[0][1] == 'i' &&
+               isdigit(argv[0][2])) { // else if -i5, for example
+      setenv(ENV_VAR_CKPT_INTR, argv[0]+2, 1);
       shift;
-    } else if (argc>1 && (s == "-h" || s == "--host")) {
+    } else if (argc>1 && (s == "-h" || s == "--coord-host" || s == "--host")) {
       *host = argv[1];
       shift; shift;
-    } else if (argc>1 && (s == "-p" || s == "--port")) {
+    } else if (argc>1 && (s == "-p" || s == "--coord-port" || s == "--port")) {
       *portStr = argv[1];
       shift; shift;
-    } else if (s.c_str()[0] == '-' && s.c_str()[1] == 'p' &&
-               isdigit(s.c_str()[2])) { // else if -p0, for example
-      *portStr = s.c_str()+2;
+    } else if (argv[0][0] == '-' && argv[0][1] == 'p' &&
+               isdigit(argv[0][2])) { // else if -p0, for example
+      *portStr = argv[0]+2; // Must use argv[0] here, and not s
       shift;
     } else if (argc>1 && s == "--port-file"){
       thePortFile = argv[1];

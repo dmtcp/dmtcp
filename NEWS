@@ -4,7 +4,11 @@ Please send DMTCP bug reports via <dmtcp-forum@lists.sourceforge.net>
 
 Version 2.4 release notes
 =========================
-Several important enancements were added:
+Several important changes and enancements were added:
+* dmtcp_launch/restart/command/coordinator now take the flags
+    -h, -p, --coord-host/port and environment variables
+    DMTCP_COORD_HOST/PORT.  The older --host, --port, DMTCP_HOST/PORT
+    are now deprecated.
 * Newer versions of MATLAB (matlab-2013 and later) were using additional
    Linux features.  All recent versions of matlab are again supported.
 * Intensive testing done for integration of MPI/SLURM

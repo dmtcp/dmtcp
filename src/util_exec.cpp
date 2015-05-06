@@ -623,9 +623,9 @@ void Util::getDmtcpArgs(vector<string> &dmtcp_args)
 
   //modify the command
   dmtcp_args.clear();
-  dmtcp_args.push_back("--host");
+  dmtcp_args.push_back("--coord-host");
   dmtcp_args.push_back(SharedData::coordHost());
-  dmtcp_args.push_back("--port");
+  dmtcp_args.push_back("--coord-port");
   dmtcp_args.push_back(jalib::XToString(SharedData::coordPort()));
 
   if (jassert_quiet == 1) {

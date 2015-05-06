@@ -35,9 +35,9 @@ static const char* theUsage =
   "Usage:  dmtcp_command [OPTIONS] COMMAND [COMMAND...]\n"
   "Send a command to the dmtcp_coordinator remotely.\n\n"
   "Options:\n\n"
-  "  -h, --host HOSTNAME (environment variable DMTCP_HOST)\n"
+  "  -h, --coord-host HOSTNAME (environment variable DMTCP_COORD_HOST)\n"
   "              Hostname where dmtcp_coordinator is run (default: localhost)\n"
-  "  -p, --port PORT_NUM (environment variable DMTCP_PORT)\n"
+  "  -p, --coord-port PORT_NUM (environment variable DMTCP_COORD_PORT)\n"
   "              Port where dmtcp_coordinator is run (default: 7779)\n"
   "  --help\n"
   "              Print this message and exit.\n"
@@ -81,15 +81,15 @@ int main ( int argc, char** argv )
     } else if ((s=="--version") && argc==1){
       printf("%s", DMTCP_VERSION_AND_COPYRIGHT_INFO);
       return 1;
-    }else if(argc>1 && (s == "-h" || s == "--host")){
+    }else if(argc>1 && (s == "-h" || s == "--coord-host" || s == "--host")){
       setenv(ENV_VAR_NAME_HOST, argv[1], 1);
       shift; shift;
-    } else if (argc>1 && (s == "-p" || s == "--port")) {
+    } else if (argc>1 && (s == "-p" || s == "--coord-port" || s == "--port")) {
       setenv(ENV_VAR_NAME_PORT, argv[1], 1);
       shift; shift;
-    } else if (s.c_str()[0] == '-' && s.c_str()[1] == 'p' &&
-               isdigit(s.c_str()[2])) { // else if -p0, for example
-      setenv(ENV_VAR_NAME_PORT, s.c_str()+2, 1);
+    } else if (argv[0][0] == '-' && argv[0][1] == 'p' &&
+               isdigit(argv[0][2])) { // else if -p0, for example
+      setenv(ENV_VAR_NAME_PORT, argv[0]+2, 1);
       shift;
     }else if(s == "h" || s == "-h" || s == "--help" || s == "?"){
       fprintf(stderr, theUsage, "");
@@ -163,7 +163,7 @@ int main ( int argc, char** argv )
   if (coordCmdStatus != CoordCmdStatus::NOERROR) {
     switch(coordCmdStatus){
     case CoordCmdStatus::ERROR_COORDINATOR_NOT_FOUND:
-      if (getenv("DMTCP_PORT"))
+      if (getenv("DMTCP_COORD_PORT") || getenv("DMTCP_PORT"))
         fprintf(stderr, "Coordinator not found. Please check port and host.\n");
       else
         fprintf(stderr,
@@ -190,8 +190,10 @@ int main ( int argc, char** argv )
   if(*cmd == 's'){
     printf("Coordinator:\n");
     char *host = getenv(ENV_VAR_NAME_HOST);
+    if (host == NULL) host = getenv("DMTCP_HOST"); // deprecated
     printf("  Host: %s\n", (host ? host : "localhost"));
     char *port = getenv(ENV_VAR_NAME_PORT);
+    if (port == NULL) port = getenv("DMTCP_PORT"); // deprecated
     printf("  Port: %s\n",
            (port ? port : STRINGIFY(DEFAULT_PORT) " (default port)"));
     printf("Status...\n");

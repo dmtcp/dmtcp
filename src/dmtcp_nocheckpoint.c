@@ -29,7 +29,7 @@
 int main(int argc, char** argv) {
   unsetenv("LD_PRELOAD");
   if(argc==1){
-    fprintf(stderr, "USAGE %s cmd...\n", argv[0]);
+    fprintf(stderr, "USAGE:  %s cmd ...\n", argv[0]);
     return 1;
   }
   size_t fd;

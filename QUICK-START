@@ -10,9 +10,9 @@ unprivileged users (no root privilege needed).  One can later restart
 from a checkpoint, or even migrate the processes by moving the checkpoint
 files to another host prior to restarting.
 
-There is one DMTCP coordinator for each computation that you wish
-to checkpoint.  By specifying --host and --port (or the environment
-variables DMTCP_HOST and DMTCP_PORT), you can add a process
+There is one DMTCP coordinator for each computation that you wish to
+checkpoint.  By specifying --coord-host and --coord-port (or the environment
+variables DMTCP_COORD_HOST and DMTCP_COORD_PORT), you can add a process
 to a coordinator different from the default coordinator.  If you don't
 specify, the default coordinator is always at (localhost, 7779).
 
@@ -104,14 +104,14 @@ offers help when run (Type 'h<return>' for help.).
 OPTIONS THROUGH ENVIRONMENT VARIABLES:
   dmtcp_coordinator:
     dmtcp_launch=<time in seconds> (default: 0, disabled)
-    DMTCP_PORT=<coordinator listener port> (default: 7779)
+    DMTCP_COORD_PORT=<coordinator listener port> (default: 7779)
     DMTCP_CHECKPOINT_DIR=<where restart script is written> (default: ./)
     DMTCP_TMPDIR=<where temporary files are written>
 					 (default: env var TMPDIR or /tmp)
 
   dmtcp_launch / dmtcp_restart:
-    DMTCP_HOST = <hostname where coordinator is running> (default: localhost)
-    DMTCP_PORT = <coordinator listener port> (default: 7779)
+    DMTCP_COORD_HOST =<hostname where coordinator will run> (default: localhost)
+    DMTCP_COORD_PORT = <coordinator listener port> (default: 7779)
     DMTCP_GZIP = <0: disable compression of checkpoint image>
 					 (default: 1, compression enabled)
     DMTCP_CHECKPOINT_DIR = <location to store checkpoints> (default: ./)
@@ -120,8 +120,8 @@ OPTIONS THROUGH ENVIRONMENT VARIABLES:
 					 (default: env var TMPDIR or /tmp)
 
   dmtcp_command:
-    DMTCP_HOST = <hostname where coordinator is running> (default: localhost)
-    DMTCP_PORT = <coordinator listener port> (default: 7779)
+    DMTCP_COORD_HOST =<hostname where coordinator will run> (default: localhost)
+    DMTCP_COORD_PORT = <coordinator listener port> (default: 7779)
 
 ============================================
 ADAPTING DMTCP TO APPLICATION REQUIREMENTS AND TO EXTERNAL ENVIRONMENTS:
@@ -155,10 +155,10 @@ SHORT NOTES:
        restarted by the dmtcp_restart command needs to know the host and port
        used by dmtcp_coordinator.  These default to localhost and port 7779.
        The coordinator can be specified to use port 0, in which case the
-       coordinator chooses arbitrary port, and prints it to stdout.
-       Setting DMTCP_PORT in the environment seen by the four main commands
+       coordinator chooses arbitrary port, and prints it to stdout.  Setting
+       DMTCP_COORD_PORT in the environment seen by the four main commands
        (dmtcp_coordinator, dmtcp_launch, dmtcp_restart and dmtcp_command)
-       will override the default port.  Similarly, setting DMTCP_HOST for
+       will override the default port.  Similarly, setting DMTCP_COORD_HOST for
        dmtcp_launch and dmtcp_restart is needed if they start on
        a different host than that of the coordinator.
     3. If your application has only a single process (single- or
