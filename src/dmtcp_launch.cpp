@@ -214,7 +214,7 @@ static void processArgs(int *orig_argc, char ***orig_argv, string *tmpDir_p)
   shift;
   while (true) {
     string s = argc>0 ? argv[0] : "--help";
-    if ((s=="--help") && argc==1) {
+    if ((s=="--help") && argc<=1) {
       printf("%s", theUsage);
       exit(DMTCP_FAIL_RC);
     } else if ((s=="--version") && argc==1) {
@@ -327,6 +327,7 @@ static void processArgs(int *orig_argc, char ***orig_argv, string *tmpDir_p)
     }
   }
   *tmpDir_p = Util::calcTmpDir(tmpdir_arg);
+  *orig_argc = argc;
   *orig_argv = argv;
 }
 
