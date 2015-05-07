@@ -89,8 +89,8 @@ static uint32_t getCkptInterval()
 
 static jalib::JSocket createNewSocketToCoordinator(CoordinatorMode mode)
 {
-  const char*host;
-  int port;
+  const char*host = NULL;
+  int port = UNINITIALIZED_PORT;
 
   Util::getCoordHostAndPort(COORD_ANY, &host, &port);
   return jalib::JClientSocket(host, port);
