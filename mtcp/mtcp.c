@@ -464,6 +464,7 @@ static sigset_t sigpending_global;  // pending signals for the process
 static char const *nscd_mmap_str1 = "/var/run/nscd/";   // OpenSUSE
 static char const *nscd_mmap_str2 = "/var/cache/nscd";  // Debian / Ubuntu
 static char const *nscd_mmap_str3 = "/var/db/nscd";     // RedHat / Fedora
+static char const *nscd_mmap_str4 = "/run/nscd";        // RedHat 7.x
 static char const *dev_zero_deleted_str = "/dev/zero (deleted)";
 static char const *dev_null_deleted_str = "/dev/null (deleted)";
 static char const *sys_v_shmem_file = "/SYSV";
@@ -2830,7 +2831,8 @@ void write_ckpt_to_file(int fd, int tmpDMTCPHeaderFd, int fdCkptFileOnDisk)
     /* Special Case Handling: nscd is enabled*/
     if ( mtcp_strstartswith(area.name, nscd_mmap_str1) ||
          mtcp_strstartswith(area.name, nscd_mmap_str2) ||
-         mtcp_strstartswith(area.name, nscd_mmap_str3) ) {
+         mtcp_strstartswith(area.name, nscd_mmap_str3) ||
+         mtcp_strstartswith(area.name, nscd_mmap_str4) ) {
       DPRINTF("NSCD daemon shared memory area present:  %s\n"
               "  MTCP will now try to remap this area in read/write mode as\n"
               "  private (zero pages), so that glibc will automatically\n"
@@ -4043,7 +4045,8 @@ int mtcp_readmapsline (int mapsfd, Area *area)
   }
   if (mtcp_strstartswith(area -> name, nscd_mmap_str1)  ||
       mtcp_strstartswith(area -> name, nscd_mmap_str2) ||
-      mtcp_strstartswith(area -> name, nscd_mmap_str3)) {
+      mtcp_strstartswith(area -> name, nscd_mmap_str3) ||
+      mtcp_strstartswith(area -> name, nscd_mmap_str4)) {
     /* if nscd is active */
   } else if ( mtcp_strstartswith(area -> name, sys_v_shmem_file) ) {
     /* System V Shared-Memory segments are handled by DMTCP. */
