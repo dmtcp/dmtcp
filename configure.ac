@@ -415,14 +415,6 @@ AC_PATH_PROG([GCL],    [gcl],        [no], [$PATH:/usr/local/bin:/usr/bin])
 AC_CHECK_PROG(HAS_MATLAB, [matlab], [yes], [no], [$PATH:/usr/local/bin:/usr/bin])
 AC_PATH_PROG([MATLAB],    [matlab],        [no], [$PATH:/usr/local/bin:/usr/bin])
 
-#check for patch utility
-AC_CHECK_PROG(HAS_PATCH, [patch], [yes], [no], [$PATH:/usr/bin:/bin])
-
-if test "$HAS_PATCH" != "yes"; then
-   AC_MSG_ERROR(
-    [Executable, patch, not found:  consider adding pkg:  'patch'])
-fi
-
 #check for g++
 AC_CHECK_PROG(HAS_CPP, [g++], [yes], [no], [$PATH:/usr/bin:/bin])
 

@@ -338,10 +338,8 @@ SHORT NOTES:
         Note: if checkpointing doesn't fully complete, make sure you're not out
         of disk space, and that there are no other file system problems.
 
-    15. For Ubuntu/Debian Linux, ensure that the
-	  packages 'patch' and 'linux-libc-dev' are installed.
-	For OpenSuse Linux, ensure that the
-	  packages 'patch' and 'linux-kernel-headers'
+    15. For Ubuntu/Debian Linux, ensure that 'linux-libc-dev' is installed.
+	For OpenSuse Linux, ensure that 'linux-kernel-headers' is installed.
 
     16. By default in DMTCP, successive checkpoints of the same process
 	write to the same checkpoint image filename.  If you prefer that
