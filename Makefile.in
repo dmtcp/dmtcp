@@ -127,7 +127,7 @@ tests: build
 LIMIT=ulimit -v 33554432
 
 check: tests
-	@ if [ "`id -u`" == "0" ]; then \
+	@ if which id > /dev/null && test "`id -u`" = "0" ; then \
 	  echo "'make check' will fail if run as root."; \
 	  exit 1; \
 	fi
