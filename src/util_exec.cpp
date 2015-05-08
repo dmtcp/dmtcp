@@ -179,7 +179,7 @@ int Util::elfType(const char *pathname, bool *isElf, bool *is32bitElf)
 static string ld_linux_so_path(int version, bool is32bitElf = false)
 {
   char buf[80];
-#if defined(__x86_64__) && !defined(CONFIG_M32)
+#if (defined(__x86_64__) || defined(__aarch64__)) && !defined(CONFIG_M32)
   if (is32bitElf) {
     sprintf(buf, "/lib/ld-linux.so.%d", version);
   } else {
@@ -333,7 +333,7 @@ void Util::patchArgvIfSetuid(const char* filename, char *const origArgv[],
   // Use /lib64 if 64-bit O/S and not 32-bit app:
 
   char *ldStrPtr = NULL;
-# if defined(__x86_64__) && !defined(CONFIG_M32)
+#if (defined(__x86_64__) || defined(__aarch64__)) && !defined(CONFIG_M32)
   bool isElf, is32bitElf;
   elfType(cmdBuf, &isElf, &is32bitElf);
   if (is32bitElf)
