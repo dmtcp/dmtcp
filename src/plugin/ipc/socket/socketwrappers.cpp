@@ -169,7 +169,7 @@ static void process_accept(int ret, int sockfd, struct sockaddr *addr,
   JASSERT(ret != -1);
   TcpConnection *parent =
     (TcpConnection*) SocketConnList::instance().getConnection(sockfd);
-  TcpConnection* con = new TcpConnection(*parent, ConnectionIdentifier::Null());
+  TcpConnection* con = new TcpConnection(*parent, ConnectionIdentifier::null());
   if (con == NULL) {
     JTRACE("accept operation on unsupported socket type.");
     return;

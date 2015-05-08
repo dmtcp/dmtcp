@@ -179,7 +179,7 @@ void SocketConnection::serialize(jalib::JBinarySerializer& o)
   , SocketConnection(domain, type, protocol)
   , _listenBacklog(-1)
   , _bindAddrlen(0)
-  , _remotePeerId(ConnectionIdentifier::Null())
+  , _remotePeerId(ConnectionIdentifier::null())
 {
   if (domain != -1) {
     // Sometimes _sockType contains SOCK_CLOEXEC/SOCK_NONBLOCK flags.

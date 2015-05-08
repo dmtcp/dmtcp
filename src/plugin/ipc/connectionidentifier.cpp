@@ -45,16 +45,17 @@ void ConnectionIdentifier::serialize (jalib::JBinarySerializer& o)
   JASSERT(_nextConId >= CONNECTION_ID_START);
 }
 
-ConnectionIdentifier ConnectionIdentifier::Create()
+ConnectionIdentifier ConnectionIdentifier::create()
 {
   return ConnectionIdentifier (_nextConnectionId());
 }
-ConnectionIdentifier ConnectionIdentifier::Null()
+ConnectionIdentifier ConnectionIdentifier::null()
 {
   static ConnectionIdentifier n;
   return n;
 }
-ConnectionIdentifier ConnectionIdentifier::Self()
+// FIXME:  This is never used.
+ConnectionIdentifier ConnectionIdentifier::self()
 {
   return ConnectionIdentifier(-1);
 }
