@@ -6,6 +6,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
+#include <stdbool.h>
 #include "dmtcp.h"
 
 #include "ibvctx.h"
