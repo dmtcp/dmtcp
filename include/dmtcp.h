@@ -196,7 +196,7 @@ EXTERNC void dmtcp_prepare_wrappers(void) __attribute((weak));
 
 // To be used by plugins
 #define DMTCP_PLUGIN_DISABLE_CKPT() \
-  bool __dmtcp_plugin_ckpt_disabled = dmtcp_plugin_disable_ckpt()
+  int __dmtcp_plugin_ckpt_disabled = dmtcp_plugin_disable_ckpt()
 
 #define DMTCP_PLUGIN_ENABLE_CKPT() \
   if (__dmtcp_plugin_ckpt_disabled) dmtcp_plugin_enable_ckpt()
