@@ -48,7 +48,7 @@ using namespace dmtcp;
 static bool ptmxTestPacketMode(int masterFd);
 static ssize_t ptmxReadAll(int fd, const void *origBuf, size_t maxCount);
 static ssize_t ptmxWriteAll(int fd, const void *buf, bool isPacketMode);
-static void CreateDirectoryStructure(const string& path);
+static void createDirectoryStructure(const string& path);
 static void writeFileFromFd(int fd, int destFd);
 static bool areFilesEqual(int fd, int destFd, size_t size);
 
@@ -639,7 +639,7 @@ void FileConnection::preCkpt()
     JASSERT(SharedData::getCkptLeaderForFile(_st_dev, _st_ino, &id));
     if (id == _id) {
       string savedFilePath = getSavedFilePath(_path);
-      CreateDirectoryStructure(savedFilePath);
+      createDirectoryStructure(savedFilePath);
 
       int destFd = _real_open(savedFilePath.c_str(), O_CREAT | O_WRONLY | O_TRUNC,
                               S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
@@ -824,7 +824,7 @@ void FileConnection::postRestart()
     JTRACE("Restore Resource Manager File") (_path);
   } else {
     refreshPath();
-    CreateDirectoryStructure(_path);
+    createDirectoryStructure(_path);
     /* Now try to create the file with O_EXCL. If we fail with EEXIST, there
      * are two possible scenarios:
      * - The file was created by a different restarting process with data from
@@ -872,7 +872,7 @@ bool FileConnection::checkDup(int fd)
   return retVal;
 }
 
-static void CreateDirectoryStructure(const string& path)
+static void createDirectoryStructure(const string& path)
 {
   size_t index = path.rfind('/');
 

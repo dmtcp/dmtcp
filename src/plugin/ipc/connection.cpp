@@ -27,7 +27,7 @@
 using namespace dmtcp;
 
 Connection::Connection(uint32_t t)
-  : _id(ConnectionIdentifier::Create())
+  : _id(ConnectionIdentifier::create())
   , _type((ConnectionType) t)
   , _fcntlFlags(-1)
   , _fcntlOwner(-1)

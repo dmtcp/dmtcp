@@ -40,9 +40,9 @@ namespace dmtcp
       static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
       static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
 #endif
-      static ConnectionIdentifier Create();
-      static ConnectionIdentifier Null();
-      static ConnectionIdentifier Self();
+      static ConnectionIdentifier create();
+      static ConnectionIdentifier null();
+      static ConnectionIdentifier self();
 
       static void serialize ( jalib::JBinarySerializer& o );
 
