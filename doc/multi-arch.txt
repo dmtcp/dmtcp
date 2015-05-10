@@ -27,11 +27,13 @@ A. Compiling DMTCP for multi-arch support:
    ./configure --enable-m32
    make clean
    make -j
-   make install
 2. Do the usual 64-bit compilation
    ./configure
+   make clean-64
    make -j
-   make install
+
+Optionally, add 'make install' at the end of each of the above stages,
+if you want to install a mulit-arch implementation.
 
 Use "./configure --prefix=$PWD/build" if you wish to build a local copy,
 instead of installing globally.
