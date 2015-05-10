@@ -59,7 +59,12 @@ MANPAGES=dmtcp.1.gz dmtcp_coordinator.1.gz dmtcp_command.1.gz dmtcp_launch.1.gz 
 
 default: display-build-env build
 
+# If M32, 'rm -rf lib bin'.  Can't do a 32-bit build on top of a 64-bit build,
+#   neither './configure --enable-m32' nor 'make clean' will remove these dirs.
 mkdirs:
+ifeq ($(M32),1)
+	rm -rf lib bin
+endif
 	$(MKDIR_P) $(targetdir)/bin
 	$(MKDIR_P) $(targetdir)/lib/dmtcp
 
@@ -100,6 +105,10 @@ display-config:
 
 dmtcp:
 	cd src && $(MAKE)
+ifeq ($(M32),1)
+	cd lib/dmtcp && ln -s 32/lib/dmtcp/* ./
+	mkdir -p bin && cd bin && ln -s ../lib/dmtcp/32/bin/* ./
+endif
 
 plugin: dmtcp
 	cd plugin && $(MAKE)
