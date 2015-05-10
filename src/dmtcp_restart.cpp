@@ -347,7 +347,7 @@ static void runMtcpRestart(int is32bitElf, int fd, ProcessInfo *pInfo)
 
   static string mtcprestart = Util::getPath ("mtcp_restart");
 
-#if defined(__x86_64__) || defined(__aarch64__)
+#if defined(CONFIG_M32)
   if (is32bitElf) {
     mtcprestart = Util::getPath("mtcp_restart-32", is32bitElf);
   }
