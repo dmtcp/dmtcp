@@ -43,6 +43,7 @@ int main() {
 
 void reader(int fd) {
   int *sharedMemory;
+  volatile int val;
   int i;
   sharedMemory = mmap(0, sizeof(int), PROT_READ, MAP_SHARED, fd, 0);
   if (sharedMemory == MAP_FAILED) {
@@ -50,7 +51,8 @@ void reader(int fd) {
     exit(1);
   }
   for (i = -1; ; ) {
-    if (*sharedMemory > i) {
+    val = *sharedMemory;
+    if (val > i) {
       i = *sharedMemory;
       printf("%d ", i);
       fflush(stdout);
