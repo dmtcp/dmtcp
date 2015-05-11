@@ -64,7 +64,7 @@ nobase_noinst_HEADERS = constants.h \
 #   should not need wrappers.
 libdmtcpinternal_a_SOURCES = dmtcpmessagetypes.cpp  coordinatorapi.cpp \
 			     uniquepid.cpp shareddata.cpp \
-			     util_exec.cpp util_gen.cpp util_init.cpp \
+			     util_exec.cpp util_misc.cpp util_init.cpp \
 			     jalibinterface.cpp processinfo.cpp
 
 libjalib_a_SOURCES = $(jalibdir)/jalib.cpp $(jalibdir)/jassert.cpp \

@@ -119,7 +119,7 @@ libdmtcpinternal_a_AR = $(AR) $(ARFLAGS)
 libdmtcpinternal_a_LIBADD =
 am_libdmtcpinternal_a_OBJECTS = dmtcpmessagetypes.$(OBJEXT) \
 	coordinatorapi.$(OBJEXT) uniquepid.$(OBJEXT) \
-	shareddata.$(OBJEXT) util_exec.$(OBJEXT) util_gen.$(OBJEXT) \
+	shareddata.$(OBJEXT) util_exec.$(OBJEXT) util_misc.$(OBJEXT) \
 	util_init.$(OBJEXT) jalibinterface.$(OBJEXT) \
 	processinfo.$(OBJEXT)
 libdmtcpinternal_a_OBJECTS = $(am_libdmtcpinternal_a_OBJECTS)
@@ -527,7 +527,7 @@ nobase_noinst_HEADERS = constants.h \
 #   should not need wrappers.
 libdmtcpinternal_a_SOURCES = dmtcpmessagetypes.cpp  coordinatorapi.cpp \
 			     uniquepid.cpp shareddata.cpp \
-			     util_exec.cpp util_gen.cpp util_init.cpp \
+			     util_exec.cpp util_misc.cpp util_init.cpp \
 			     jalibinterface.cpp processinfo.cpp
 
 libjalib_a_SOURCES = $(jalibdir)/jalib.cpp $(jalibdir)/jassert.cpp \
