@@ -116,8 +116,8 @@ for i in sys.argv:
   if i=="--stress":
     CYCLES=100000
   if i=="--slow":
-    SLOW=5
-    TIMEOUT *= 2
+    SLOW *= 5  # SLOW was initialized to 1 ; --slow --slow => SLOW==25
+    TIMEOUT *= SLOW
   if i=="--retry-once":
     RETRY_ONCE = True
   #TODO:  Install SIGSEGV handler with infinite loop, and add to LD_PRELOAD
@@ -220,10 +220,10 @@ def master_read(fd):
   os.read(fd, 4096)
   return ''
 
-#launch a child process
+#run a child process
 # NOTE:  Can eventually migrate to Python 2.7:  subprocess.check_output
 devnullFd = os.open(os.devnull, os.O_WRONLY)
-def launch(cmd):
+def runCmd(cmd):
   global devnullFd
   global master_read
   if VERBOSE:
@@ -335,8 +335,8 @@ if os.getenv('LD_LIBRARY_PATH'):
 else:
     os.environ['LD_LIBRARY_PATH'] = os.getenv("PWD")+"/lib"
 
-#launch the coordinator
-coordinator = launch(BIN+"dmtcp_coordinator")
+#run the coordinator
+coordinator = runCmd(BIN+"dmtcp_coordinator")
 
 #send a command to the coordinator process
 def coordinatorCmd(cmd):
@@ -477,8 +477,8 @@ def runTestRaw(name, numProcs, cmds):
       global coordinator
       coordinatorCmd('q')
       os.system("kill -9 %d" % coordinator.pid)
-      print "Trying to kill old coordinator, and launch new one on same port"
-      coordinator = launch(BIN+"dmtcp_coordinator")
+      print "Trying to kill old coordinator, and run new one on same port"
+      coordinator = runCmd(BIN+"dmtcp_coordinator")
     for x in procs:
       #cleanup proc
       try:
@@ -509,14 +509,26 @@ def runTestRaw(name, numProcs, cmds):
 
     #wait for files to appear and status to return to original
     WAITFOR(lambda: getNumCkptFiles(ckptDir)>0 and \
-                    (CKPT_CMD == 'xc' or doesStatusSatisfy(getStatus(), status)),
+                   (CKPT_CMD == 'xc' or doesStatusSatisfy(getStatus(), status)),
             wfMsg("checkpoint error"))
+    #we now know there was at least one checkpoint file, and the correct number
+    #  of processes have restarted;  but they may faily quickly after restert
+
+    if SLOW > 1:
+      #wait and give the processes time to write all of the checkpoint files
+      sleep(S*SLOW)
 
     #make sure the right files are there
     numFiles=getNumCkptFiles(ckptDir) # len(os.listdir(ckptDir))
     CHECK(doesStatusSatisfy((numFiles,True),status),
           "unexpected number of checkpoint files, %s procs, %d files"
           % (str(status[0]), numFiles))
+
+    if SLOW > 1:
+      #wait and see if some processes will die shortly after checkpointing
+      sleep(S*SLOW)
+      CHECK(doesStatusSatisfy(getStatus(), status),
+            "error: processes checkpointed, but died upon resume")
 
   def testRestart():
     #build restart command
@@ -525,9 +537,14 @@ def runTestRaw(name, numProcs, cmds):
       if i.endswith(".dmtcp"):
         cmd+= " "+ckptDir+"/"+i
     #run restart and test if it worked
-    procs.append(launch(cmd))
+    procs.append(runCmd(cmd))
     WAITFOR(lambda: doesStatusSatisfy(getStatus(), status),
             wfMsg("restart error"))
+    if SLOW > 1:
+      #wait and see if process will die shortly after restart
+      sleep(S*SLOW)
+      CHECK(doesStatusSatisfy(getStatus(), status),
+            "error:  processes restarted and then died")
     if HBICT_DELTACOMP == "no":
       clearCkptDir()
 
@@ -543,11 +560,12 @@ def runTestRaw(name, numProcs, cmds):
 
     #start user programs
     for cmd in cmds:
-      procs.append(launch(BIN+"dmtcp_launch "+cmd))
-      sleep(S*SLOW)
+      procs.append(runCmd(BIN+"dmtcp_launch "+cmd))
 
+    #TIMEOUT in WAITFOR has also been multiplied by SLOW
     WAITFOR(lambda: doesStatusSatisfy(getStatus(), status),
             wfMsg("user program startup error"))
+    #Will sleep(S*SLOW) in the following for loop.
 
     for i in range(CYCLES):
       if i!=0 and i%2==0:
@@ -556,6 +574,8 @@ def runTestRaw(name, numProcs, cmds):
       printFixed("ckpt:")
       # NOTE:  If this faile, it will throw an exception to CheckFailed
       #  of this function:  testRestart
+      #wait for launched processes to settle down, before we try to checkpoint
+      sleep(S*SLOW)
       testCheckpoint()
       printFixed("PASSED ")
       testKill()
@@ -900,10 +920,10 @@ if HAS_VIM == "yes":
   S=DEFAULT_S
 
 if sys.version_info[0:2] >= (2,6):
-  #On some systems, "emacs -nw" launches dbus-daemon processes in
+  #On some systems, "emacs -nw" runs dbus-daemon processes in
   #background throwing off the number of processes in the computation. The
-  #test thus fails. The fix is to launch emacs-nox, if found. emacs-nox
-  #doesn't launch any background processes.
+  #test thus fails. The fix is to run emacs-nox, if found. emacs-nox
+  #doesn't run any background processes.
   S=15*DEFAULT_S
   if HAS_EMACS_NOX == "yes":
     # Wait to checkpoint until emacs finishes reading its initialization files
