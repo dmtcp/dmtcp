@@ -208,7 +208,7 @@ class RestoreTarget
         string installDir =
           jalib::Filesystem::DirName(jalib::Filesystem::GetProgramDir());
 
-#if defined(__i386__)
+#if defined(__i386__) || defined(__arm__)
         if (Util::strEndsWith(installDir, "/lib/dmtcp/32")) {
           // If dmtcp_launch was compiled for 32 bits in 64-bit O/S, then note:
           // DMTCP_ROOT/bin/dmtcp_launch is a symbolic link to:
