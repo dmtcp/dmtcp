@@ -116,7 +116,7 @@ static void * get_at_sysinfo(char **environ) {
     if ( auxv->a_type == (UINT_T)AT_SYSINFO ) {
       MTCP_PRINTF("AT_SYSINFO      (at 0x%p) is:  0x%lx\n",
         &auxv->a_un.a_val, auxv->a_un.a_val);
-      return (void *)auxv->a_un.a_val;
+      return (void *)(uintptr_t)auxv->a_un.a_val;
     }
   }
   return NULL;  /* Couldn't find AT_SYSINFO */
