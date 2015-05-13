@@ -16,7 +16,12 @@ includedir=@includedir@
 mandir=@mandir@
 infodir=@mandir@
 
+ifeq (${shell uname -m},aarch64)
+# FIXME:  ptrace plugin not yet working for x86_64
+plugins = modify-env batch-queue unique-ckpt
+else
 plugins = ptrace modify-env batch-queue unique-ckpt
+endif
 
 default:
 	for p in $(plugins); do (cd $$p && $(MAKE)); done
