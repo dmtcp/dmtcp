@@ -23,6 +23,20 @@ the cause, try:
 
 ===
 
+JASSERT doesn't generate a core dump by default (because it calls _exit()).
+Exporting the environment variable DMTCP_ABORT_ON_FAILED_ASSERT will cause
+it to call abort(). This can be useful when debugging distributed processes.
+Example:
+  DMTCP_ABORT_ON_FAILED_ASSERT=1 bin/dmtcp_launch a.out
+  gdb a.out core
+
+When used with dmtcp_restart, it is important to embed
+DMTCP_ABORT_ON_FAILED_ASSERT in the checkpoint image by first using it with
+dmtcp_launch, as above. After that, a restarted process will also generate
+a core dump.
+
+===
+
 If the bug occurs during launch or possibly in checkpoint-resume, try:
   gdb --args dmtcp_launch -i5 test/dmtcp1
 

@@ -107,7 +107,12 @@ jassert_internal::JAssert::~JAssert()
     jassert_safe_print ( ss.str().c_str() );
 
   if ( _exitWhenDone ) {
-    _exit ( jalib::dmtcp_fail_rc() );
+    /* Generate core-dump for debugging */
+    if ( getenv("DMTCP_ABORT_ON_FAILED_ASSERT") ) {
+      abort();
+    } else {
+     _exit ( jalib::dmtcp_fail_rc() );
+    }
   }
 }
 
