@@ -1,4 +1,5 @@
 #!/bin/sh
+# git test
 # Does autoconf/automake as needed for DMTCP:
 # See for overview:  http://www.openismus.com/documents/linux/automake/automake
 # INPUT:  dmtcp/src/Makefile.am, configure.ac
