@@ -83,7 +83,7 @@ __targetdir__bin_dmtcp_coordinator_SOURCES = dmtcp_coordinator.cpp lookup_servic
 
 __targetdir__bin_dmtcp_nocheckpoint_SOURCES = dmtcp_nocheckpoint.c
 
-__targetdir__bin_dmtcp_restart_SOURCES = dmtcp_restart.cpp util_exec.cpp ckptserializer.cpp
+__targetdir__bin_dmtcp_restart_SOURCES = dmtcp_restart.cpp util_exec.cpp
 
 __targetdir__bin_dmtcp_command_SOURCES = dmtcp_command.cpp
 

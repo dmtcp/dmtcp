@@ -37,7 +37,6 @@
 #include "uniquepid.h"
 #include "processinfo.h"
 #include "shareddata.h"
-#include "ckptserializer.h"
 #include  "../jalib/jassert.h"
 #include  "../jalib/jfilesystem.h"
 
@@ -45,6 +44,13 @@
 #define MTCP_RESTART_BINARY "mtcp_restart"
 
 using namespace dmtcp;
+
+// Copied from mtcp/mtcp_restart.c.
+#define DMTCP_MAGIC_FIRST 'D'
+#define GZIP_FIRST 037
+#ifdef HBICT_DELTACOMP
+#define HBICT_FIRST 'H'
+#endif
 
 static void setEnvironFd();
 
@@ -116,6 +122,8 @@ CoordinatorMode allowedModes = COORD_ANY;
 
 static void setEnvironFd();
 static void runMtcpRestart(int is32bitElf, int fd, ProcessInfo *pInfo);
+static int readCkptHeader(const string& path, ProcessInfo *pInfo);
+static int openCkptFileToRead(const string& path);
 
 class RestoreTarget
 {
@@ -126,7 +134,7 @@ class RestoreTarget
       JASSERT(jalib::Filesystem::FileExists(_path)) (_path)
         .Text ( "checkpoint file missing" );
 
-      _fd = CkptSerializer::readCkptHeader(_path, &_pInfo);
+      _fd = readCkptHeader(_path, &_pInfo);
       JTRACE("restore target") (_path) (_pInfo.numPeers()) (_pInfo.compGroup());
     }
 
@@ -382,6 +390,171 @@ static void runMtcpRestart(int is32bitElf, int fd, ProcessInfo *pInfo)
   JASSERT (false) (newArgs[0]) (newArgs[1]) (JASSERT_ERRNO)
     .Text ("exec() failed");
 }
+
+// ************************ For reading checkpoint files *****************
+
+int readCkptHeader(const string& path, ProcessInfo *pInfo)
+{
+  int fd = openCkptFileToRead(path);
+  const size_t len = strlen(DMTCP_FILE_HEADER);
+
+  jalib::JBinarySerializeReaderRaw rdr("", fd);
+  pInfo->serialize(rdr);
+  size_t numRead = len + rdr.bytes();
+
+  // We must read in multiple of PAGE_SIZE
+  const ssize_t pagesize = Util::pageSize();
+  ssize_t remaining = pagesize - (numRead % pagesize);
+  char buf[remaining];
+  JASSERT(Util::readAll(fd, buf, remaining) == remaining);
+  return fd;
+}
+
+static char first_char(const char *filename)
+{
+  int fd, rc;
+  char c;
+
+  fd = open(filename, O_RDONLY);
+  JASSERT(fd >= 0) (filename) .Text("ERROR: Cannot open filename");
+
+  rc = read(fd, &c, 1);
+  JASSERT(rc == 1) (filename) .Text("ERROR: Error reading from filename");
+
+  close(fd);
+  return c;
+}
+
+// Copied from mtcp/mtcp_restart.c.
+// Let's keep this code close to MTCP code to avoid maintenance problems.
+// MTCP code in:  mtcp/mtcp_restart.c:open_ckpt_to_read()
+// A previous version tried to replace this with popen, causing a regression:
+//   (no call to pclose, and possibility of using a wrong fd).
+// Returns fd;
+static int open_ckpt_to_read(const char *filename)
+{
+  int fd;
+  int fds[2];
+  char fc;
+  const char *decomp_path;
+  const char **decomp_args;
+  const char *gzip_path = "gzip";
+  static const char * gzip_args[] = {
+    const_cast<char*> ("gzip"),
+    const_cast<char*> ("-d"),
+    const_cast<char*> ("-"),
+    NULL
+  };
+#ifdef HBICT_DELTACOMP
+  const char *hbict_path = const_cast<char*> ("hbict");
+  static const char *hbict_args[] = {
+    const_cast<char*> ("hbict"),
+    const_cast<char*> ("-r"),
+    NULL
+  };
+#endif
+  pid_t cpid;
+
+  fc = first_char(filename);
+  fd = open(filename, O_RDONLY);
+  JASSERT(fd>=0)(filename).Text("Failed to open file.");
+
+  if (fc == DMTCP_MAGIC_FIRST) { /* no compression */
+    return fd;
+  }
+  else if (fc == GZIP_FIRST
+#ifdef HBICT_DELTACOMP
+           || fc == HBICT_FIRST
+#endif
+          ) {
+    if (fc == GZIP_FIRST) {
+      decomp_path = gzip_path;
+      decomp_args = gzip_args;
+    }
+#ifdef HBICT_DELTACOMP
+    else {
+      decomp_path = hbict_path;
+      decomp_args = hbict_args;
+    }
+#endif
+
+    JASSERT(pipe(fds) != -1) (filename)
+      .Text("Cannot create pipe to execute gunzip to decompress ckpt file!");
+
+    cpid = fork();
+
+    JASSERT(cpid != -1)
+      .Text("ERROR: Cannot fork to execute gunzip to decompress ckpt file!");
+    if (cpid > 0) { /* parent process */
+      JTRACE("created child process to uncompress checkpoint file") (cpid);
+      close(fd);
+      close(fds[1]);
+      // Wait for child process
+      JASSERT(waitpid(cpid, NULL, 0) == cpid);
+      return fds[0];
+    } else { /* child process */
+      /* Fork a grandchild process and kill the parent. This way the grandchild
+       * process never becomes a zombie.
+       *
+       * Sometimes dmtcp_restart is called with multiple ckpt images. In that
+       * situation, the dmtcp_restart process creates gzip processes and only
+       * later forks mtcp_restart processes. The gzip processes can not be
+       * wait()'d upon by the corresponding mtcp_restart processes because
+       * their parent is the original dmtcp_restart process and thus they
+       * become zombie.
+       */
+      cpid = fork();
+      JASSERT(cpid != -1);
+      if (cpid > 0) {
+        // Use _exit() instead of exit() to avoid popping atexit() handlers
+        // registered by the parent process.
+        _exit(0);
+      }
+
+      // Grandchild process
+      JTRACE ( "child process, will exec into external de-compressor");
+      fd = dup(dup(dup(fd)));
+      fds[1] = dup(fds[1]);
+      close(fds[0]);
+      JASSERT(fd != -1);
+      JASSERT(dup2(fd, STDIN_FILENO) == STDIN_FILENO);
+      close(fd);
+      JASSERT(dup2(fds[1], STDOUT_FILENO) == STDOUT_FILENO);
+      close(fds[1]);
+      execvp(decomp_path, (char **)decomp_args);
+      JASSERT(decomp_path!=NULL) (decomp_path)
+        .Text("Failed to launch gzip.");
+      /* should not get here */
+      JASSERT(false)
+        .Text("Decompression failed!  No restoration will be performed!");
+    }
+  } else { /* invalid magic number */
+    JASSERT(false)
+      .Text("ERROR: Invalid magic number in this checkpoint file!");
+  }
+  return -1;
+}
+
+// See comments above for open_ckpt_to_read()
+int openCkptFileToRead(const string& path)
+{
+  char buf[1024];
+  int fd = open_ckpt_to_read(path.c_str());
+  // The rest of this function is for compatibility with original definition.
+  JASSERT(fd >= 0) (path) .Text("Failed to open file.");
+  const int len = strlen(DMTCP_FILE_HEADER);
+  JASSERT(read(fd, buf, len) == len)(path) .Text("read() failed");
+  if (strncmp(buf, DMTCP_FILE_HEADER, len) == 0) {
+    JTRACE("opened checkpoint file [uncompressed]")(path);
+  } else {
+    close(fd);
+    fd = open_ckpt_to_read(path.c_str()); /* Re-open from beginning */
+    JASSERT(fd >= 0) (path) .Text("Failed to open file.");
+  }
+  return fd;
+}
+// ************************ End of for reading checkpoint files *************
+
 
 static void setEnvironFd()
 {

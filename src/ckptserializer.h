@@ -30,12 +30,10 @@ namespace dmtcp
 {
   namespace CkptSerializer
   {
-    int openCkptFileToRead(const string& path);
     int openCkptFileToWrite(const string& path);
     void createCkptDir();
     void writeCkptImage(void *mtcpHdr, size_t mtcpHdrLen);
     void writeDmtcpHeader(int fd);
-    int readCkptHeader(const string& path, ProcessInfo *pInfo);
   };
 }
 

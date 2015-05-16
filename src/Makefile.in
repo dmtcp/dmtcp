@@ -174,7 +174,7 @@ __targetdir__bin_dmtcp_nocheckpoint_OBJECTS =  \
 	$(am___targetdir__bin_dmtcp_nocheckpoint_OBJECTS)
 __targetdir__bin_dmtcp_nocheckpoint_LDADD = $(LDADD)
 am___targetdir__bin_dmtcp_restart_OBJECTS = dmtcp_restart.$(OBJEXT) \
-	util_exec.$(OBJEXT) ckptserializer.$(OBJEXT)
+	util_exec.$(OBJEXT)
 __targetdir__bin_dmtcp_restart_OBJECTS =  \
 	$(am___targetdir__bin_dmtcp_restart_OBJECTS)
 __targetdir__bin_dmtcp_restart_DEPENDENCIES = libdmtcpinternal.a \
@@ -563,7 +563,7 @@ libsyscallsreal_a_SOURCES = syscallsreal.c trampolines.cpp
 libnohijack_a_SOURCES = nosyscallsreal.c dmtcpnohijackstubs.cpp
 __targetdir__bin_dmtcp_coordinator_SOURCES = dmtcp_coordinator.cpp lookup_service.cpp
 __targetdir__bin_dmtcp_nocheckpoint_SOURCES = dmtcp_nocheckpoint.c
-__targetdir__bin_dmtcp_restart_SOURCES = dmtcp_restart.cpp util_exec.cpp ckptserializer.cpp
+__targetdir__bin_dmtcp_restart_SOURCES = dmtcp_restart.cpp util_exec.cpp
 __targetdir__bin_dmtcp_command_SOURCES = dmtcp_command.cpp
 __targetdir__lib_dmtcp_libdmtcp_so_SOURCES = dmtcpworker.cpp threadsync.cpp \
 		      coordinatorapi.cpp execwrappers.cpp \
