@@ -102,7 +102,7 @@ static void restore_sigchld_handler_and_wait_for_zombie(pid_t pid)
     sigset_t suspend_sigset;
     sigfillset(&suspend_sigset);
     sigdelset(&suspend_sigset, SIGCHLD);
-    sigsuspend(&suspend_sigset);
+    _real_sigsuspend(&suspend_sigset);
     JWARNING(_real_waitpid(pid, NULL, 0) != -1) (pid) (JASSERT_ERRNO);
     pid = -1;
     sigaction(SIGCHLD, &saved_sigchld_action, NULL);
