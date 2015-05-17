@@ -68,7 +68,7 @@ if uname_p[0:3] == 'arm':
 
 uname_m = uname_m.strip() # strip off any whitespace characters
 #Allow extra time for slower CPUs
-if uname_m in ["i386", "i486", "i586", "i686", "armv7", "armv71", "aarch64"]:
+if uname_m in ["i386", "i486", "i586", "i686", "armv7", "armv7l", "aarch64"]:
   DEFAULT_S *= 4
 
 S=DEFAULT_S
@@ -758,12 +758,18 @@ runTest("poll",          1, ["./test/poll"])
 
 runTest("forkexec",      2, ["./test/forkexec"])
 
-if os.getenv("LD_LIBRARY_PATH"):
-  os.environ["LD_LIBRARY_PATH"] += ":./test"
+# FIXME:  pthread_atfork doesn't compile on some architectures.
+#         If we add a configure test for pthread_atfork, we can
+#           set a Python variable in autotest_config.py.in
+if uname_m != "armv7" and uname_m != "armv7l" and uname_m != "aarch64":
+  if os.getenv("LD_LIBRARY_PATH"):
+    os.environ["LD_LIBRARY_PATH"] += ":./test"
+  else:
+    os.environ["LD_LIBRARY_PATH"] = "./test"
+  runTest("pthread_atfork",      2, ["./test/pthread_atfork"])
+  os.environ["LD_LIBRARY_PATH"] = os.getenv("LD_LIBRARY_PATH")[:-len(":./test")]
 else:
-  os.environ["LD_LIBRARY_PATH"] = "./test"
-runTest("pthread_atfork",      2, ["./test/pthread_atfork"])
-os.environ["LD_LIBRARY_PATH"] = os.getenv("LD_LIBRARY_PATH")[:-len(":./test")]
+  print "Skipping pthread_atfork test; doesn't build on ARM/aarch64/glibc/Linux"
 
 if not USE_M32:  # ssh (a 64-bit child process) is forked
   if HAS_SSH == "yes":
