@@ -26,6 +26,10 @@
 #include <sys/mman.h>
 #include <limits.h>
 #include <elf.h>
+#include "config.h"
+#ifdef HAS_PR_SET_PTRACER
+# include <sys/prctl.h>
+#endif
 
 #include "constants.h"
 #include "coordinatorapi.h"
@@ -344,6 +348,20 @@ static void runMtcpRestart(int is32bitElf, int fd, ProcessInfo *pInfo)
   char stderrFdBuf[8];
   sprintf(fdBuf, "%d", fd);
   sprintf(stderrFdBuf, "%d", PROTECTED_STDERR_FD);
+
+#ifdef HAS_PR_SET_PTRACER
+  if (getenv("DMTCP_GDB_ATTACH_ON_RESTART")) {
+    JNOTE("\n     *******************************************************\n"
+          "     *** Environment variable, DMTCP_GDB_ATTACH_ON_RESTART is set\n"
+          "     *** You can attach to the running process as follows:\n"
+          "     ***     gdb _PROGRAM_NAME_ PID  [See below for PID.]\n"
+          "     *** NOTE:  This mode can be a security risk.\n"
+          "     ***        Do not set the env. variable normally.\n"
+          "     *******************************************************")
+         (getpid());
+    prctl(PR_SET_PTRACER, PR_SET_PTRACER_ANY, 0, 0, 0); // Allow 'gdb attach'
+  }
+#endif
 
   static string mtcprestart = Util::getPath ("mtcp_restart");
 

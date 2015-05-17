@@ -4,7 +4,7 @@ Please send DMTCP bug reports via <dmtcp-forum@lists.sourceforge.net>
 
 Version 2.4 release notes
 =========================
-Several important changes and enancements were added:
+Several important changes and enhancements were added:
 * dmtcp_launch/restart/command/coordinator now take the flags
     -h, -p, --coord-host/port and environment variables
     DMTCP_COORD_HOST/PORT.  The older --host, --port, DMTCP_HOST/PORT
@@ -26,6 +26,11 @@ Several important changes and enancements were added:
      cat /proc/self/maps | grep '\[vvar]'
 * Support for glibc version 2.21 added.  To see if this affects you, do:
      ls -l /lib*/libc.so.6 /lib/*/libc.so.6
+* The environment variable DMTCP_GDB_ATTACH_ON_RESTART was added.  Setting
+     this permanently is a security risk. But on a temporary basis,
+     it can enable easier debugging of restarted processes:
+       DMTCP_GDB_ATTACH_ON_RESTART=1 dmtcp_restart ckpt_a.out_*.dmtcp &
+       gdb a.out `pgrep -n a.out`
 * Enhancements added for newer 32-bit ARM (armv7) CPUs
 * Experimental support is now provided for 64-bit ARM (armv8)
 * Bug fixes
@@ -338,7 +343,7 @@ Version 1.2.4 release notes
   checkpoint-restart service of Open MPI.  The usage will be documented soon
   through the Open MPI web site.  As before, an alternative is to simply start
   Open MPI inside DMTCP, and let DMTCP treat all of Open MPI as a "black box"
-  that happens to be a ditributed computation
+  that happens to be a distributed computation
 - A new --prefix command line flag has been added to dmtcp_checkpoint.  It
   operates similarly to the flag of the same name in Open MPI.  For distributed
   computations, remote processes will use the prefix as part of the path to
@@ -430,7 +435,7 @@ Version 1.2.1 release notes
   the setuid/setgid bits of the binaries are set.
 * Several bug fixes related to GNU screen.
 * Experimental support for ptrace to allow checkpointing of gdb sessions,
-  strace, and other ptrace-based aplications.
+  strace, and other ptrace-based applications.
 * On restart, restore original process name for 'ps' and /proc/self/cmdline.
 * Additional bug fixes and enhancements.
 
@@ -532,7 +537,7 @@ Version 1.1.0 release notes
 * IPv6 fixes for supporting OpenMPI 1.3.x. (OpenMPI now works with DMTCP.)
 * changed fork to vfork for gzip spawning for handling programs with huge
   memory.
-* Process Group / foregroud process restored at restart.
+* Process Group / foreground process restored at restart.
 * Support for system() updated.
 * Some new configuration options
 * Several other bug fixes / enhancements.
@@ -556,7 +561,7 @@ Version 1.04 release notes
 
 * Fixed Ubuntu 9.01 bug. glic-2.9 was more stringent about stack overflow
   errors.
-* Ububtu 9.01 uses gcc-4.3.4 -Wformat=2 which produced false positives
+* Ubuntu 9.01 uses gcc-4.3.4 -Wformat=2 which produced false positives
   warnings. We added %s format specifier to format string and empty string
   argument to eliminate warnings.
 
