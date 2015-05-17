@@ -619,6 +619,8 @@ static void unmap_memory_areas_and_restore_vdso(RestoreInfo *rinfo)
       vvarEnd = area.endAddr;
     } else if (mtcp_strcmp(area.name, "[vsyscall]") == 0) {
       // Do not unmap vsyscall.
+    } else if (mtcp_strcmp(area.name, "[vectors]") == 0) {
+      // Do not unmap vectors.  (used in Linux 3.10 on __arm__)
     } else if (area.size > 0 ) {
       DPRINTF("***INFO: munmapping (%p-%p)\n", area.addr, area.endAddr);
       if (mtcp_sys_munmap(area.addr, area.size) == -1) {
