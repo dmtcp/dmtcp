@@ -65,8 +65,6 @@ void mtcp_check_vdso(char **environ);
 #define BINARY_NAME "mtcp_restart"
 #define BINARY_NAME_M32 "mtcp_restart-32"
 
-#define memfence() __sync_synchronize()
-
 /* struct RestoreInfo to pass all parameters from one function to next.
  * This must be global (not on stack) at the time that we jump from
  * original stack to copy of restorememoryareas() on new stack.
@@ -403,18 +401,18 @@ static void restart_fast_path()
 #endif
 
 #if defined(__arm__) || defined(__aarch64__)
-# if 1
+# if 0
   memfence();
 # else
-  // FIXME: Remove the dead code once memfence() is stable.
+// FIXME: Replace this code by memfence() for __aarch64__, once it is stable.
 /* This delay loop was required for:
  *    ARM v7 (rev 3, v71), SAMSUNG EXYNOS5 (Flattened Device Tree)
  *    gcc-4.8.1 (Ubuntu pre-release for 14.04) ; Linux 3.13.0+ #54
  */
-//{int x = 10000000;
-//int y = 1000000000;
-//for (; x>0; x--) for (; y>0; y--);
-//}
+{int x = 10000000;
+int y = 1000000000;
+for (; x>0; x--) for (; y>0; y--);
+}
 # endif
 #endif
 

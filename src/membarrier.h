@@ -35,9 +35,9 @@
 #  define IMB
 # endif
 #elif defined(__arm__)
-# define RMB __sync_synchronize()
-# define WMB __sync_synchronize()
-# define IMB __sync_synchronize()
+# define RMB asm volatile (".arch armv7-a \n\t dsb ; dmb" : : : "memory")
+# define WMB asm volatile (".arch armv7-a \n\t dsb ; dmb" : : : "memory")
+# define IMB asm volatile (".arch armv7-a \n\t isb" : : : "memory")
 #elif defined(__aarch64__)
 # define RMB asm volatile ("dsb sy ; dmb sy" : : : "memory")
 # define WMB asm volatile ("dsb sy ; dmb sy" : : : "memory")
