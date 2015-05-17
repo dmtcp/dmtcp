@@ -34,6 +34,17 @@ srcdir = @srcdir@
 VPATH = @srcdir@
 targetdir = $(top_builddir)
 
+ifeq (${shell uname -m},aarch64)
+else
+ifeq (${shell uname -m},armv7)
+else
+ifeq (${shell uname -m},armv7l)
+else
+DO_PTHREAD_ATFORK = yes
+endif
+endif
+endif
+
 DMTCP_INCLUDE=${top_srcdir}/include
 
 CFLAGS += -I${DMTCP_INCLUDE} -DDMTCP -fPIC -g
@@ -140,18 +151,19 @@ dmtcp4: dmtcp4.c
 dmtcp5: dmtcp5.c
 	-$(CC) -o $@ $< $(CFLAGS) -lpthread
 
-ifeq (${shell uname -m},aarch64)
-# FIXME:  On aarch64, gcc-4.9.2, libcg-2.19, pthread_atfork error:
-#    /usr/bin/ld: pthread_atfork: hidden symbol `pthread_atfork' in ...
-#                                 is referenced by DSO
-pthread_atfork: pthread_atfork.c
-	@ echo "FIXME: pthread_atfork is not being compiled for aarch64"
-else
+# FIXME:  We should create a test in configure.ac to see if this compiles.
+ifeq (${DO_PTHREAD_ATFORK},yes)
 libpthread_atfork.so: pthread_atfork.c
 	${CC} ${CFLAGS} -shared -fPIC -DLIB -o libpthread_atfork.so $<
 pthread_atfork: pthread_atfork.c libpthread_atfork.so
 	${CC} ${CFLAGS} -o pthread_atfork pthread_atfork.c \
 	  -L${PWD} -lpthread_atfork -lpthread
+else
+# FIXME:  On aarch64, gcc-4.9.2, libcg-2.19, pthread_atfork error:
+#    /usr/bin/ld: pthread_atfork: hidden symbol `pthread_atfork' in ...
+#                                 is referenced by DSO
+pthread_atfork: pthread_atfork.c
+       @ echo "FIXME: pthread_atfork is not being compiled for aarch64"
 endif
 
 pthread%: pthread%.c
