@@ -1,0 +1,81 @@
+@SET_MAKE@
+LN_S=@LN_S@ -f
+MKDIR_P=@MKDIR_P@
+CC=@CC@
+M32=@M32@
+INFINIBAND_SUPPORT=@INFINIBAND_SUPPORT@
+PACKAGE=@PACKAGE_TARNAME@
+PACKAGE_TARNAME=@PACKAGE_TARNAME@-@PACKAGE_VERSION@
+VERSION=@PACKAGE_VERSION@
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+datarootdir=@datarootdir@
+bindir=@bindir@
+libdir=@libdir@
+docdir=@docdir@
+includedir=@includedir@
+mandir=@mandir@
+infodir=@mandir@
+
+override CFLAGS += -fPIC
+override CXXFLAGS += -fPIC
+ifeq ($(M32),1)
+CFLAGS += -m32 -Wa,--32
+CXXFLAGS += -m32 -Wa,--32
+LDFLAGS += -m32 -Wl,-m32 -Wl,-melf_i386 -Wa,--32
+endif
+
+plugins =
+plugins_distclean = ckptfile infiniband
+
+ifeq ($(INFINIBAND_SUPPORT),yes)
+  plugins += infiniband  # ib2tcp
+endif
+
+default: build
+
+build: $(plugins)
+
+all: default
+
+ckptfile:
+	cd $@ && $(MAKE)
+
+$(plugins):
+	cd $@ && $(MAKE)
+
+tidy:
+	rm -rf dmtcp-autotest-* ckpt_*_files
+	rm -f ckpt_*.dmtcp dmtcp_restart_script* \
+	  dmtcp-shared-memory.* dmtcp-test-typescript.tmp core*
+	rm -rf ckpt_*
+
+clean: tidy
+	for p in $(plugins); do (cd $$p && $(MAKE) clean); done
+
+distclean: clean
+	for p in $(plugins); do \
+	  (cd $$p && $(MAKE) distclean 2>/dev/null); \
+	done
+	for p in $(plugins_distclean); do \
+	  (cd $$p && $(MAKE) distclean 2>/dev/null); \
+	done
+	rm -f Makefile
+
+install-libs: all
+	test -e $(DESTDIR)$(libdir) || $(MKDIR_P) $(DESTDIR)$(libdir)
+	for p in $(plugins); do (cd $$p && $(MAKE) install-libs); done
+
+install: all
+	test -e $(DESTDIR)$(bindir) || $(MKDIR_P) $(DESTDIR)$(bindir)
+	test -e $(DESTDIR)$(libdir) || $(MKDIR_P) $(DESTDIR)$(libdir)
+	test -e $(DESTDIR)$(includedir) || $(MKDIR_P) $(DESTDIR)$(includedir)
+	for p in $(plugins); do (cd $$p && $(MAKE) install); done
+
+uninstall:
+	for p in $(plugins); do (cd $$p && $(MAKE) uninstall); done
+
+uninstall-libs:
+	for p in $(plugins); do (cd $$p && $(MAKE) uninstall-libs); done
+
+.PHONY: default all build infiniband ckptfile tidy clean distclean install uninstall

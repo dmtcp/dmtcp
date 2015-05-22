@@ -1,0 +1,18 @@
+This directory contains some useful scripts to work with DMTCP on clusters.
+This directory is becoming somewhat crowded, but some particularly useful
+utilities to highlight are:
+
+* readdmtcp.sh - read the memory map of a DMTCP checkpoint image (ckpt_*.dmtcp)
+* git-bisect.sh - a template for doing 'git bisect run ./git-bisect.sh'
+			tests on the DMTCP revision history in git
+* gdb-add-symbol-file - After DMTCP restart, the debug symbol information
+			for a library in memory may no longer be available,
+			since the in-memory copy was restored rather than
+			loaded from the library on disk.  This allows you
+			to recover debugging symbol information on that library.
+[ Contributors:  please add to this list, above. ]
+
+OLD TEXT:
+It also contains gdb-add-symbol-file.  Execute it with no arguments
+  for instructions on its usage.  It loads library debugging symbols
+  into gdb that might not otherwise be there, such as libc-2.7.so.

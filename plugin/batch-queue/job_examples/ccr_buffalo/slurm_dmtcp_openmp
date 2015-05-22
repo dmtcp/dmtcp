@@ -1,0 +1,145 @@
+#!/bin/bash
+#SBATCH --time=01:00:00
+#SBATCH --nodes=1
+#SBATCH --cpus-per-task=8
+#SBATCH --tasks-per-node=1
+#SBATCH --mail-user=your_user_name@buffalo.edu
+#SBATCH --mail-type=END
+#SBATCH --job-name=dmtcp
+#SBATCH --output=output.out
+#SBATCH --error=output.err
+#SBATCH --partition=debug
+
+# spit out some basic SLURM information
+echo "SLURM_JOBID         = "$SLURM_JOB_ID
+echo "SLURM_SUBMIT_DIR    = "$SLURM_SUBMIT_DIR
+echo "SLURM_NODELIST      = "`nodeset -e $SLURM_NODELIST`
+echo "SLURM_NPROCS        = "$SLURM_NPROCS
+echo "SLURM_NNODES        = "$SLURM_NNODES
+echo "SLURM_CPUS_PER_TASK = "$SLURM_CPUS_PER_TASK
+echo "SLURMTMPDIR         = "$SLURMTMPDIR 
+
+# configure OpenMP environment
+export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
+
+module load dmtcp/2.2.1-r2777
+module list
+ulimit -s unlimited
+
+#
+# How long to run the application before checkpointing.
+# After checkpointing, the application will be shut down. 
+# Users will typically want to set this to occur a bit before 
+# the job's walltime expires.
+#
+CHECKPOINT_TIME=1m
+
+# EXE is the name of the application/executable
+# ARGS is any command-line args
+# OUTFILE is the file where stdout will be redirected
+# ERRFILE if the file where stderr will be redirected
+EXE=$SLURM_SUBMIT_DIR/MonteCarloIntegration
+ARGS="1200000000 0 8"
+OUTFILE=Integrals.out
+ERRFILE=Integrals.err
+
+# This script with auto-sense whether to perform a checkpoint
+# or restart operation. Set FORCE_CHECKPOINT to yes if you 
+# DO NOT want to restart even if a restart script is located 
+# in the working directory.
+FORCE_CHECKPOINT=No
+
+# *************************************************************************************************
+# *************************************************************************************************
+# Users should not have to change anything beyond this point!
+# *************************************************************************************************
+# *************************************************************************************************
+export DMTCP_TMPDIR=$SLURM_SUBMIT_DIR
+
+# =================================================================================================
+# start_coordinator() 
+#   Routine provided by Artem Polyakov
+#
+# Start dmtcp coordinator on launching node. Free TCP port is automatically allocated.
+# this function creates dmtcp_command.$JOBID script that serves like a wrapper around
+# dmtcp_command that tunes it on exact dmtcp_coordinator (it's hostname and port)
+# instead of typing "dmtcp_command -h <coordinator hostname> -p <coordinator port> <command>"
+# you just type "dmtcp_command.$JOBID <command>" and talk to coordinator of JOBID job
+# =================================================================================================
+start_coordinator()
+{
+    fname=dmtcp_command.$SLURM_JOBID
+    h=`hostname`
+    echo "dmtcp_coordinator --daemon --exit-on-last -p 0 --port-file $fname $@ 1>/dev/null 2>&1"
+    dmtcp_coordinator --daemon --exit-on-last -p 0 --port-file $fname $@ 1>/dev/null 2>&1
+    
+    while true; do 
+        if [ -f "$fname" ]; then
+            p=`cat $fname`
+            if [ -n "$p" ]; then
+                # try to communicate ? dmtcp_command -p $p l
+                break
+            fi
+        fi
+    done
+    
+    # Create dmtcp_command wrapper for easy communication with coordinator
+    p=`cat $fname`
+    chmod +x $fname
+    echo "#!/bin/bash" > $fname
+    echo >> $fname
+    echo "export PATH=$PATH" >> $fname
+    echo "export DMTCP_HOST=$h" >> $fname
+    echo "export DMTCP_COORD_PORT=$p" >> $fname
+    echo "dmtcp_command \$@" >> $fname
+
+    # Setup local environment for DMTCP
+    export DMTCP_COORD_HOST=$h
+    export DMTCP_COORD_PORT=$p
+}
+
+echo "Launching dmtcp coordintor daemon"
+echo "start_coordinator --exit-after-ckpt"
+start_coordinator --exit-after-ckpt
+
+# convert checkpoint time to seconds
+nTics=`echo $CHECKPOINT_TIME | \
+sed 's/m/ \* 60/g' | \
+sed 's/h/ \* 3600/g' | \
+sed 's/d/ \* 86400/g' | \
+sed 's/s//g' | \
+bc | \
+awk '{ printf("%d\n", $1); }'`
+echo "Checkpointing will commence after $nTics seconds"
+
+tic=`date +%s`
+if [[ -f ./dmtcp_restart_script.sh ]] && [[ "${FORCE_CHECKPOINT}" == "No" ]]; then
+  echo "Restarting application under dmtcp control"
+  echo "./dmtcp_restart_script.sh -h $DMTCP_COORD_HOST -p $DMTCP_COORD_PORT -i $nTics 1>>$OUTFILE 2>>$ERRFILE"
+  ./dmtcp_restart_script.sh -h $DMTCP_COORD_HOST -p $DMTCP_COORD_PORT -i $nTics 1>>${OUTFILE}.${SLURM_JOB_ID} 2>>${ERRFILE}.${SLURM_JOB_ID}
+  cat ${OUTFILE}.${SLURM_JOB_ID} >> ${OUTFILE}
+  rm -f ${OUTFILE}.${SLURM_JOB_ID}
+  cat ${ERRFILE}.${SLURM_JOB_ID} >> ${ERRFILE}
+  rm -f ${ERRFILE}.${SLURM_JOB_ID}
+else
+  # clear output and error files
+  echo "" > ${OUTFILE}
+  echo "" > ${ERRFILE}
+  echo "Launching application under dmtcp control"
+  echo "srun dmtcp_launch --quiet --rm -i $nTics $EXE $ARGS 1>${OUTFILE} 2>${ERRFILE}"
+  srun dmtcp_launch --quiet --rm -i $nTics $EXE $ARGS 1>${OUTFILE} 2>${ERRFILE}
+fi
+toc=`date +%s`
+
+elapsedTime=`expr $toc - $tic`
+overheadTime=`expr $elapsedTime - $nTics`
+if [ "$overheadTime" -lt "0" ]; then
+  overheadTime=0
+  echo "All done - no checkpoint was required."
+else
+  echo "All done - checkpoint files are listed below:"
+  ls -1 *.dmtcp
+fi
+
+echo "Elapsed Time = $elapsedTime seconds"
+echo "Checkpoint Overhead = $overheadTime seconds"

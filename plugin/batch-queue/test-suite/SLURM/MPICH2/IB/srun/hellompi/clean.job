@@ -1,0 +1,20 @@
+#!/bin/bash
+# Put your SLURM options here
+#SBATCH --time=00:15:00           # put proper time of reservation here
+#SBATCH --nodes=2                 # number of nodes
+#SBATCH --ntasks-per-node=2       # processes per node
+#SBATCH --job-name="hellompi_c"
+#SBATCH --output=hellompi_c.std
+#SBATCH --error=hellompi_c.err
+# ? Any other batch options ?
+
+# Some initial setup like 
+. patch_env.sh
+
+echo "Start"
+date
+
+srun ./hellompi
+
+echo "Finish"
+date

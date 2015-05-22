@@ -1,0 +1,74 @@
+#!/bin/bash
+# Put your PBS options here
+#PBS -N hellompi_c
+#PBS -l nodes=4:ppn=8
+#PBS -q release
+
+
+# Start dmtcp coordinator on launching node. Free TCP port is automatically allocated.
+# this function creates dmtcp_command.$JOBID script that serves like a wrapper around
+# dmtcp_command that tunes it on exact dmtcp_coordinator (it's hostname and port)
+# instead of typing "dmtcp_command -h <coordinator hostname> -p <coordinator port> <command>"
+# you just type "dmtcp_command.$JOBID <command>" and talk to coordinator of JOBID job
+start_coordinator()
+{
+    fname=dmtcp_command.${PBS_JOBID%%\.*}
+    h=`hostname`
+
+    check_coordinator=`which dmtcp_coordinator`
+    if [ -z "$check_coordinator" ]; then
+        echo "No dmtcp_coordinator found. Check your DMTCP installation and PATH settings"
+        exit 0
+    fi
+
+    dmtcp_coordinator --daemon --exit-on-last -p 0 --port-file $fname $@ 1>/dev/null 2>&1
+    
+    while true; do 
+        if [ -f "$fname" ]; then
+            p=`cat $fname`
+            if [ -n "$p" ]; then
+                # try to communicate ? dmtcp_command -p $p l
+                break
+            fi
+        fi
+    done
+    
+    # Create dmtcp_command wrapper for easy communication with coordinator
+    p=`cat $fname`
+    chmod +x $fname
+    echo "#!/bin/bash" > $fname
+    echo >> $fname
+    echo "export PATH=$PATH" >> $fname
+    echo "export DMTCP_COORD_HOST=$h" >> $fname
+    echo "export DMTCP_COORD_PORT=$p" >> $fname
+    echo "dmtcp_command \$@" >> $fname
+
+    # Setup local environment for DMTCP
+    export DMTCP_COORD_HOST=$h
+    export DMTCP_COORD_PORT=$p
+
+}
+
+
+# Print out SLURM job information. Remove it if you don't need it
+echo "PBS_JOBID="$PBS_JOBID
+echo "PBS_NODEFILE"=$PBS_NODEFILE
+cat $PBS_NODEFILE
+echo "PBS_O_WORKDIR"=$PBS_O_WORKDIR
+
+# changedir to workdir
+cd $PBS_O_WORKDIR
+
+# Some initial setup like 
+
+. patch_env.sh
+
+start_coordinator # -i 120 ... <put dmtcp coordinator options here>
+
+echo "Start"
+date
+
+dmtcp_launch --rm mpirun --mca btl self,tcp ./hellompi
+
+echo "Finish"
+date

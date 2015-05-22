@@ -1,0 +1,31 @@
+This directory is for utilities to help manually test some special cases.
+Some of these special cases could be combined into autotest.py, and
+  tested only on dmtcp1 by default, for the sake of speed.
+
+Examples of special cases are:
+* All CPU architectures:  x86, x86_64, arm, aarch64
+* The three major branches of distros:  Debian/Ubuntu, and
+                                          RedHat/Fedora/CoreOS, OpenSUSE/SUSE
+* 32-bit Linux:  native, --enable-m32, and multi-arch  (see multi-arch.sh)
+* 'make install' for native 64-bit and each of the 32-bit Linux combinations
+* forked checkpointing
+* fast restart
+* --no-gzip
+* --no-coordinator
+* --tmpdir
+* --ckptdir
+* Coordinator specifications:
+    '-p0 --port-file', --host, dmtcp_command,
+    coordinator started in background versus coordinator in other window
+* MPI:
+  +  Implemenations: MVAPICH, Open MPI, Intel MPI
+  +  Resource managers:  SLURM, Torque, ibrun
+  *  Network:  InfiniBand (CM and UD), TCP
+  +  Shared filesystems:  NFS, Lustre
+* openmp and Intel TBB
+* MIC
+* SOON:  OpenGL
+* Widely used commercial software:  Matlab, ...
+* Non-default plugins:
+  --ptrace, modify-env
+* Builds of DMTCP with other compilers:  icc LLVM/Clang

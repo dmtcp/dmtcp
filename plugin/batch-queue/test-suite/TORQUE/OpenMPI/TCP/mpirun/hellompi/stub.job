@@ -1,0 +1,8 @@
+#!/bin/bash
+# Put your PBS options here
+#PBS -N hellompi_c
+#PBS -l nodes=2:ppn=8
+#PBS -q release
+
+
+sleep 1000

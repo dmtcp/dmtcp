@@ -1,0 +1,127 @@
+This is intended as one of a series of informal documents to describe
+and partially document some of the more subtle DMTCP data structures
+and algorithms.  These documents are snapshots in time, and they
+may become somewhat out-of-date over time (and hopefully also refreshed
+to re-sync them with the code again).  (Updated Feb., 2014)
+
+Some related documents are architecture-of-dmtcp.pdf and thread-creation.txt.
+
+This description is primarily for i386 (32-bit Intel).  Other architectures
+are simpler, and can be deduced from this description.  The sections
+of this documentation are:
+
+A. BACKGROUND
+B. OVERVIEW
+C. ACTUAL FUNCTION CALLS
+D. HOW DOES DMTCP PATCH THE TCB
+
+
+A. BACKGROUND:
+    Much of the difficulty of restoring multi-threaded processes is
+    in how to restore the state of glibc and the kernel.  The issues follow:
+1. The run-time library, glibc, creates a TCB (thread-control-block), for
+   each thread, as part of pthread_create().  That TCB specifies the
+   pid and tid, which will change when a process is recreated.
+2. The compiler creates thread-private variables using thread-local
+   storage (TLS).  It generates references to memory at %gs:ADDR (in
+   the example of i386).  This says to look up the segment descriptor
+   associated with %gs, and add its base address to ADDR.  The base
+   address is the beginning of the TLS.  (Hence we also call the segment
+   descriptor a TLS descriptor.)
+3. When the kernel does a context switch to a new thread, it must
+   change %gs to point to a new segment descriptor.  Further, the kernel
+   maintains the segment descriptors.  So, it must provide a kernel
+   call to allow users to update those segment descriptors.  (Usually,
+   this call is used only by libc.)  The call is set_thread_area (i386),
+   or arch_prctl *(x86_64), or set_tls (32-bit ARM).
+
+
+B. OVERVIEW:
+At the time of checkpoint, writing a checkpoint image is done easily
+by using the memory maps in '/proc/*/maps'.  The code for this is in
+src/writeckpt.cpp, and is not discussed further here.  See
+architecture-of-dmtcp.pdf for a very high-level overview, and
+plugin-tutorial.pdf for how internal plugins (found in src/plugin)
+are used to extend this capability.
+
+On restart from a checkpoint image, see top of src/mtcp/mtcp_restart.c
+for how the memory is restored from the checkpoint image.  Once the
+memory is restored, the next tasks are:
+
+Restore the primary stack [used by the first thread of the process]
+Set:  motherpid = THREAD_REAL_TID();  [using a direct kernel call]
+      [ Note that the pid and tid are the same for this first thread. ]
+Patch the TCB with the correct pid and tid: TLSInfo_UpdatePID ??
+Set up the segment descriptor for %gs, and restore %gs to point to it:
+  TLSInfo_RestoreTLSState(motherofall);
+    which calls set_thread_area
+  restore gs
+We may now make calls to glibc.  This is needed, since glibc makes
+  a kernel call via something similar to "call *%gs:0x10", which calls
+  a subroutine in the vdso segment.
+
+Now that the first thread can make calls to glibc, it is easy for it
+to recreate the other threads via clone, set_tid_address(), and
+then patching the TCB and setting the segment descriptors.
+
+When the other threads are restored, a call to setcontext will also restore
+their former program counter.  So, each thread will again be in the
+DMTCP signal handler.  The thread had entered the signal handler
+prior to checkpoint.  The signal handler is:  threadlist.cpp:stopthisthread()
+
+That signal handler had saved the thread registers, including its
+program counter, through sigsetjmp or through getcontext, prior to
+checkpoint.  It had then blocked through sem_wait().  We can now
+force the new thread to call siglongjmp or setcontext to restore its
+program counter and put it back in the signal handler.  The recreated
+thread will again block on sem_wait(), whereupon the checkpoint thread
+can release each user thread.
+
+
+C. ACTUAL FUNCTION CALLS:
+mtcp_restart.c calls:
+threadinfo.c:Thread_PostRestart, which calls:
+threadinfo.c:restoreAllThreads()
+  motherpid = THREAD_REAL_TID();
+  [ Do we also set motherofall->pid ? ]
+  motherofall->tid = motherpid;
+  TLSInfo_RestoreTLSState(motherofall);
+    tlsinfo.c:TLSInfo_RestoreTLSState()
+      which uses: thread->gdtentrytls[0].base_addr (for TCB)
+      tlsinfo_set_thread_area (&(thread->gdtentrytls[0]))
+      and tell kernel to set segment descriptor (TLS descriptor in
+	GDT (global descriptor table)) of %gs for this base_addr
+      If we have it right, asm("movw %gs:0x10 %0" : : m=(dummy))
+	will put an address in dummy, such that *dummy points to vdso_addr
+  This must be done before any libc calls, since libc wll use the
+  segment descriptor of %gs to call vdso to call kernel (e.g, call *%gs:0x10)
+
+Now that libc works, it is now safe to call clone via syscall,
+to create other threads.  See the end of Section C for how each
+user thread can now resume from the signal handler where it had been
+suspended prior to checkpoint.
+
+
+D. HOW DOES DMTCP PATCH THE TCB with the current tid and pid?
+    The trick here is to know the offset into the TCB where glibc stores
+the tid and pid.  This is currently found during checkpoint itself.
+This could be found by looking at the include files of the glibc source
+code, but they have changed from one version to another, and glibc does
+not export this information.
+    So currently, we take advantage of the fact that we already know the
+pid and tid of the current thread.  So, we look for the bit patttern
+corresponding to the adjacent pid and tid fields.  If that bit pattern
+is not unique in the TCB, then we print an "internal error" message to
+the user.  However, this has never occurred in our experience.
+    Ideally, we would discover the offset in the TCB when libdmtcp.so
+is preloaded into the application.  Any ambiguity could be discovered
+within dmtcp_launch, and a second thread with a different tid could be
+spawned to resolve the ambiguity.  We do not yet do this.  Note that
+this should not be done within dmtcp_launch itself, since we can't be
+sure which implementation of glibc (or other libc) is being used by the
+end user.
+    Note also, that there is no problem if we restart on a new machine
+with a different version of glibc.  This is because the libc.so library
+is saved and restored as part of the checkpoint image.  So, the original
+version of glibc stays with the process for its lifetime (which is probably
+a good thing, for the sake of robustness).

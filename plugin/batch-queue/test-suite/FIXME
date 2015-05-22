@@ -1,0 +1,2 @@
+Should change DMTCP_HOST -> DMTCP_COORD_HOST and DMTCP_PORT -> DMTCP_COORD_PORT
+everywhere in this directory tree.

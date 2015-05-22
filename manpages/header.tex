@@ -1,0 +1,32 @@
+\documentclass[a4paper,english]{article}
+\usepackage{a4wide}
+\usepackage[latin1]{inputenc}
+\usepackage{babel}
+\usepackage{verbatim}
+
+%% do we have the `hyperref package?
+\IfFileExists{hyperref.sty}{
+   \usepackage[bookmarksopen,bookmarksnumbered]{hyperref}
+}{}
+
+%% do we have the `fancyhdr' package?
+\IfFileExists{fancyhdr.sty}{
+\usepackage[fancyhdr]{latex2man}
+}{
+%% do we have the `fancyheadings' package?
+\IfFileExists{fancyheadings.sty}{
+\usepackage[fancy]{latex2man}
+}{
+\usepackage[nofancy]{latex2man}
+\message{no fancyhdr or fancyheadings package present, discard it}
+}}
+
+%% do we have the `rcsinfo' package?
+\IfFileExists{rcsinfo.sty}{
+\usepackage[nofancy]{rcsinfo}
+\rcsInfo $Id: latex2man.tex,v 1.191 2010/12/22 11:54:49 vollmer Exp $
+\setDate{\rcsInfoLongDate}
+}{
+\setDate{March 2014}    %%%% must be manually set, if rcsinfo is not present
+\message{package rcsinfo not present, discard it}
+}

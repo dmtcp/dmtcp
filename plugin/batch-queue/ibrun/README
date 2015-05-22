@@ -1,0 +1,7 @@
+This is a client-server model used to allocate each computing process a unique
+ID, by combining SLURM_NODEID and SLURM_LOCALID. At Stampede, these
+environment variables are not used, and always set to 0. dmtcp_rm_loclaunch
+needs these environment variables to distribute the checkpoint images.
+
+Currently this model is not used, since we skip dmtcp_rm_loclaunch at Stampede.
+However, in the future, it may be useful for similar cases.

@@ -1,0 +1,43 @@
+#!/bin/bash
+# Put your SLURM options here
+#SBATCH --partition=debug         # change to proper partition name or remove
+#SBATCH --time=00:15:00           # put proper time of reservation here
+#SBATCH --nodes=2                 # number of nodes
+#SBATCH --ntasks-per-node=2       # processes per node
+#SBATCH --mem=24000               # memory resource
+#SBATCH --job-name="dmtcp_job"    # change to your job name
+#SBATCH --output=0_clean.out        # change to proper file name or remove for defaults
+#SBATCH --error=0_clean.err        # change to proper file name or remove for defaults
+# ? Any other batch options ?
+
+
+# Print out SLURM job information. Remove it if you don't need it
+echo "SLURM_JOBID="$SLURM_JOBID
+echo "SLURM_JOB_NODELIST"=$SLURM_JOB_NODELIST
+echo "SLURM_NNODES"=$SLURM_NNODES
+echo "SLURMTMPDIR="$SLURMTMPDIR
+
+# changedir to workdir
+cd $SLURM_SUBMIT_DIR
+
+# Some initial setup like 
+. patch_env.sh
+
+export LD_LIBRARY_PATH="$SLURM_SUBMIT_DIR/lib/":$LD_LIBRARY_PATH
+
+# 3. Other settings
+ulimit -s unlimited
+
+#export OMPI_MCA_btl="tcp,self"
+export OMPI_MCA_mtl="^psm"
+
+echo "Start"
+date
+
+export PMI_DEBUG=40
+export LD_PRELOAD="$SLURM_SUBMIT_DIR/libpmihj.so"
+
+srun ./pmi_prog
+
+echo "Finish"
+date

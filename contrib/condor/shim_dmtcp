@@ -1,0 +1,430 @@
+#! /bin/sh
+
+#################################################################
+# This version was retrieved from Condor-7.8.  The newest version
+# of this shim_dmtcp script will always be found as part of the
+# Condor distribution.  Nevertheless, this version is expected
+# to work on most versions of Condor.
+#################################################################
+
+# play safe
+set -u
+
+# TODO
+# Figure out what happens when a program checkpoints while slowly reading
+# stdin, does it restart properly?
+
+# DEFAULTS, some not sane, some sane
+
+# This first one is the default for debian installations...
+DMTCP_PATH=/usr/lib/dmtcp
+
+# This next one is a default for UW-Madison pools. It is the "release_dir".
+CONDOR_PATH=/unsup/condor-production
+
+# These are sane defaults.
+LOG="/dev/null"
+STDIN="/dev/null"
+STDOUT="/dev/null"
+STDERR="/dev/null"
+CKPTINT=1800
+
+# The version of the shim script. Useful for debugging between groups using
+# this shim script.
+VERSION=0.4
+SCRIPTNAME=$(basename $0)
+
+host=`/bin/hostname | /bin/sed -e 's/\.cs\.wisc\.edu//g'`
+
+###############################################################
+# cmdline args
+###############################################################
+
+print_help()
+{
+cat << EOT
+Usage:  $SCRIPTNAME [OPTIONS] <executable> [<args>]
+
+Options:
+-h,--help
+  Print usage summary and option list.
+
+--version
+  Print version information and exit.
+
+--with-dmtcp path
+  A path to an installation of DMTCP. If not specified, it defaults to
+  /usr/lib/dmtcp. The current working directory of the shim_script when
+  it executes will always be tested for a DMTCP installation before using
+  whatever is specified with --with-dmtcp regardless of its definition.
+  The default may change in the future.
+
+--with-condor path
+  A path to an installation of Condor-aka the "release_dir". If not
+  specified, it defaults to /unsup/condor-production. The condor functionality
+  the shim script utilizes is not required by the shim script, but it'll
+  make debugging certain failures a lot easier.
+  The default may change in the future.
+
+--log
+  Logfile name. By default no logfile is created.
+
+--stdin
+  File with stdin content for the job. By default
+  no stdin is directed to the job.
+
+--stdout
+  File to store stdout of the job. By default
+  no stdout is captured.
+
+--stderr
+  File to store stderr of the job. By default
+  no stderr is captured.
+
+EOT
+}
+
+print_description()
+{
+cat << EOT
+Shim script for DMTCP-based checkpointing of Condor vanilla universe jobs.
+
+EOT
+}
+
+print_version()
+{
+cat << EOT
+$SCRIPTNAME $VERSION
+
+This code is under the Apache V2.0 License. It was written by
+Peter Keller <psilord@cs.wisc.edu>.
+
+Additional modifications by:
+    Michael Hanke <michael.hanke@gmail.com>.
+
+EOT
+}
+
+# Parse commandline options
+# Note that we use `"$@"' to let each command-line parameter expand to a
+# separate word. The quotes around `$@' are essential!
+# We need CLOPTS as the `eval set --' would nuke the return value of getopt.
+CLOPTS=`getopt -o h --long with-condor:,with-dmtcp:,help,version,log:,stdin:,stdout:,stderr:,ckptint: -n "$SCRIPTNAME" -- "$@"`
+
+if [ $? != 0 ] ; then
+  echo "Terminating..." >&2
+  exit 1
+fi
+
+# Note the quotes around `$CLOPTS': they are essential!
+eval set -- "$CLOPTS"
+
+while true ; do
+  case "$1" in
+    -h|--help) print_description; print_help; exit 0;;
+    --version) print_version; exit 0;;
+    --with-dmtcp) shift; DMTCP_PATH=$1; shift;;
+    --with-condor) shift; CONDOR_PATH=$1; shift;;
+    --log) shift; LOG=$1; shift;;
+    --stdin) shift; STDIN=$1; shift;;
+    --stdout) shift; STDOUT=$1; shift;;
+    --stderr) shift; STDERR=$1; shift;;
+    --ckptint) shift; CKPTINT=$1; shift;;
+    --) shift ; break ;;
+    *) echo "Internal error! ($1)"; exit 1;;
+  esac
+done
+
+if [ ! $# -ge 1 ]; then
+  printf "Need at least one argument.\n\n"
+  print_help
+  exit 1
+fi
+
+logit()
+{
+	d=`date +"%D %R:%S %Z"`
+
+	echo [$host $d]: "$@" >> $LOG
+}
+
+logitnohdr()
+{
+	echo "$@" >> $LOG
+}
+
+runcmd()
+{
+	rc_cmd=$@
+	logit "running command: $rc_cmd"
+	logit "---BEGIN STDOUT/ERR---"
+	$rc_cmd >> $LOG 2>&1
+	logit "---END STDOUT/ERR---"
+	rc_ret=$?
+	logit "command exited with: $rc_ret"
+	return $rc_ret
+}
+
+die_bad_manifest ()
+{
+	logit "The required DMTCP file is not present: $1"
+	logit "This file must exist for the DMTCP shim to work properly."
+	exit 1
+}
+
+# This function asserts that all of the files we need for DMTCP are present.
+assert_dmtcp_manifest ()
+{
+	files="dmtcp_launch
+dmtcp_coordinator
+dmtcp_command
+dmtcp_restart
+dmtcphijack.so
+libmtcp.so
+mtcp_restart"
+	
+	logit "Checking DMTCP manifest. An install in cwd overrides default choice."
+
+	for file in $files
+	do
+		if [ -f "./$file" ] ; then
+			eval ${file%*.so}="./${file}"
+		elif [ -f "${DMTCP_PATH}/$file" ]; then
+			eval ${file%*.so}="${DMTCP_PATH}/${file}"
+		else
+			die_bad_manifest "$file"
+		fi
+	done
+
+	logit "Manifest check passed."
+}
+
+# Try to idenitify the machine we are on well enough to debug checkpoint
+# permutation testing.
+ckptsignature()
+{
+	logit "Hostname: $host"
+
+	if [ -f /etc/issue ] ; then
+		ret=`cat /etc/issue | /usr/bin/head -1`
+		logit "Linux Flavor: $ret"
+	else
+		logit "Linux Flavor: Unknown"
+	fi
+
+	ret=`/bin/uname -a | /usr/bin/awk '{print $3}'`
+	logit "Kernel: $ret"
+
+	ret=`/usr/bin/gcc --version | /usr/bin/head -1`
+	logit "GCC revision: $ret"
+
+	# See if there is a checkpoint platform
+	if [ -x "${CONDOR_PATH}/bin/condor_status" ] ; then
+		ckptsig=`${CONDOR_PATH}/bin/condor_status -l $host 2>&1 | /bin/egrep -i '^checkpointplatform' | /usr/bin/uniq`
+		logit "Checkpoint platform: $ckptsig"
+	else
+		logit "Checkpoint platform: Unknown"
+	fi
+}
+
+delay()
+{
+	val=${1:-3}
+
+	logit "sleeping $val seconds"
+	/bin/sleep $val
+}
+
+checkpoint()
+{
+	logit "Soft kill signal received by $0 [pid=$$]: Starting checkpoint..."
+	runcmd ${dmtcp_command} --port $port c
+
+	delay
+
+	# when this returns, the checkpointing should be done.
+	logit "what is the coordinator status"
+	runcmd ${dmtcp_command} --port $port s
+
+	# kill everything off.
+	logit "killing process hierarchy (coordinator also goes away)"
+	runcmd ${dmtcp_command} --port $port k
+
+	delay
+
+	# tell me if ./dmtcp_restart_script.sh is present, which is written by
+	# the dmtcp_coordinator when I asked for the checkpoint, cause if it isn't
+	# then that is a DMTCP bug (or full file system!)
+	if [ -f "./dmtcp_restart_script.sh" ] ; then
+		logit "Found dmtcp_restart_script.sh. Good!"
+
+		# if it is a symlink, convert it to a real file
+		if [ -h "./dmtcp_restart_script.sh" ] ; then
+			logit "Converting symlink ./dmtcp_restart_script.sh to real file."
+			if [ -x /usr/bin/readlink ] ; then
+				realfile=`/usr/bin/readlink ./dmtcp_restart_script.sh`
+			else
+				realfile=`/bin/readlink ./dmtcp_restart_script.sh`
+			fi
+			/bin/rm ./dmtcp_restart_script.sh
+			/bin/mv "$realfile" "./dmtcp_restart_script.sh"
+			if [ -f "$realfile" ] ; then
+				logit "Problem: $realfile was not converted to ./dmtcp_restart_script.sh"
+			fi
+		fi
+		logit "Next invocation is restart!"
+	else
+		logit "Didn't find dmtcp_restart_script.sh. Next invocation is initial!"
+		logit "This is bad and means DMTCP failed to write it, or a full fs."
+	fi
+
+	logit "About to exit 0 in signal handler after sleeping 2 seconds."
+	logit "Checkpointing continuation on $host"
+	logitnohdr "                                        |"
+	logitnohdr "                                        V"
+	logitnohdr "                                        *"
+	/bin/sleep 2
+	exit 0
+}
+
+# If we've already checkpointed once, then return true, otherwise, false.
+is_restart()
+{
+	if [ -f "./dmtcp_restart_script.sh" ]; then
+		return 1
+	fi
+
+	return 0
+}
+
+###############################################################
+# start
+###############################################################
+
+# This goes to the stdout specified in the job.sub file, since that file
+# gets truncated every restart, we keep the useful information in a log file
+# specified to the shim script.
+echo "Please see the file $LOG for what happened to this job."
+echo "Shim Script Version: $VERSION"
+
+# run or restart the job.
+is_restart
+restart=$?
+
+# Now what are we tasked to do?
+if [ $restart -eq 0 ]; then
+	logitnohdr "                                        -"
+	logitnohdr "                                        |"
+	logitnohdr "                                        V"
+	logit "Initial shim script (Version: $VERSION) invocation on $host"
+else
+	logitnohdr "                                        |"
+	logitnohdr "                                        V"
+	logit "Resumption shim script (Version: $VERSION) invocation on $host"
+fi
+
+logit "Shim script start [pid: $$]"
+logit "STDIN: $STDIN"
+logit "STDOUT: $STDOUT"
+logit "STDERR: $STDERR"
+
+# ensure we have everything we need, otherwise bail!
+assert_dmtcp_manifest
+
+# WARNING:
+# Close the gcb inherited fd which was left open to an unlinked file when the
+# job executes under a gcb enabled execute node.
+# DMTCP croaks on it because it can't restore it.
+FD=`/usr/bin/env | /bin/grep CB_INHERITFILE | /bin/sed -e 's/.*=//'`
+if [ -n "$FD" ] ; then
+	logit "Closing secretly inherited GCB fd $FD"
+	IFD=`/usr/bin/expr "$FD"`
+	eval "exec $IFD>&-"
+	if [ $? == 1 ] ; then
+		logit "Oops! The close didn't happen properly! Attempting to continue."
+	else
+		logit "GCB fd $FD closed."
+	fi
+fi
+
+# What kind of a checkpoint signature does this machine have?
+ckptsignature
+
+# Each job will have its own dmtcp coordinator that exits when the job finishes.
+logit "starting the dmtcp_coordinator process"
+# We start it on an ephemeral port and save it for later.
+port=`${dmtcp_coordinator} --port 0 --exit-on-last --interval ${CKPTINT} --background 2>&1 | grep "Port:" | /bin/sed -e 's/Port://g' -e 's/[ \t]//g'`
+
+if [ $? -eq 0 ]; then
+	logit "started dmtcp_coordinator on port $port with checkpoint interval ${CKPTINT}"
+else
+	logit "could not start dmtcp_coordinator"
+fi
+
+# see if the port if defined
+if [ "x$port" = "x" ]; then
+	logit "dmtcp_coordinator port is unknown! Aborting."
+	exit 1
+fi
+
+# give it time to wake up.
+delay 2
+
+# catch sigint, checkpoint and exit on vacate.
+logit "Setting signal trap for SIGINT [2]"
+trap checkpoint 2
+
+if [ $restart -eq 0 ]; then
+	logit "running application for the first time"
+
+	# Don't run this with runcmd, since I want the stdout/err of the process to
+	# flow through this shell.
+	# XXX if there are literal spaces in the arguments, this screws up!
+	${dmtcp_launch} --port $port -j "$@" <$STDIN 1>$STDOUT 2>$STDERR &
+	wait %1
+	ret=$?
+
+	logit "wait returned with value $ret!"
+
+	if [ $ret -gt 128 ] ; then
+		logit "got vacate signal, waiting until signal handler exit"
+		while [ true ]
+		do
+			:
+		done
+	fi
+
+	logit "Program terminated."
+
+	exit $ret
+
+else
+	# We inherit DMTCP_PREFIX_ID from the environment
+	logit "Restarting application: "
+	DMTCP_PORT=$port
+	DMTCP_HOST=$host
+	DMTCP_RESTART_DIR=./
+	# This next line is because the dmtcp_restart_script.sh program expects
+	# to find dmtcp_restart in the path.
+	PATH=.:$PATH
+	export DMTCP_PORT
+	export DMTCP_HOST
+	export DMTCP_RESTART_DIR
+	export PATH
+	logit "PATH=.:$PATH"
+	logit "DMTCP_PORT=$DMTCP_PORT"
+	logit "DMTCP_HOST=$DMTCP_HOST"
+	logit "DMTCP_RESTART_DIR=$DMTCP_RESTART_DIR"
+	logit "./dmtcp_restart_script.sh"
+	./dmtcp_restart_script.sh &
+	wait %1
+	ret=$?
+	logit "Application returned: $ret"
+	exit $ret;
+fi
+
+logit "Should never get here!"
+exit 1;
+
+

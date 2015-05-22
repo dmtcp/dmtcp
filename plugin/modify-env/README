@@ -1,0 +1,36 @@
+DMTCP preserves the original pre-checkpoint environment variables when
+it restarts.  Usually, this is the desired behavior.  In a few cases,
+one wishes to update the environment variables based on their values
+within the parent process of the restarted process.  These updates
+can be specified in a file:
+  dmtcp_env.txt
+The file dmtcp_env.txt must be in the same checkpoint directory as
+the checkpoint image files ( ckpt_*.dmtcp ).
+
+For example, one might wish to update $DISPLAY, based on the environment
+at the time of restart.  To do this, add a file, dmtcp_env.txt, in the
+current directory with the line:
+
+DISPLAY=$DISPLAY
+
+It would then be up to the target application to call getenv("DISPLAY")
+one more time.  This could be done within the target application, or
+else the target application writer might choose to create an additional
+plugin (loaded after this one), which copies getenv("DISPLAY")
+to a global variable at the time of restart.
+
+To demonstrate, do:
+  make check
+
+The file dmtcp_env.txt should illustrate the syntax and usage.
+
+WARNING:  Do not disable the built-in malloc plugin when using this,
+  or else there will be a danger of deadlock at the time of restart
+  due to a lock in libc_malloc.
+    (In rare cases of highly malloc-intensive probrams, users sometimes
+  disable the built-in malloc plugin to avoid overhead.  In the future,
+  this source of overhead will be eliminated, so that no user need disable
+  the malloc plugin.)
+
+
+

@@ -1,0 +1,28 @@
+General support for cluster resource managers (RM) is provided.
+The two names for this plugin (batch-queue and "rm") are synonyms.
+
+Instead of using this plugin directly, please read USAGE EXAMPLES below.
+
+A single plugin, libdmtcp_rm.so, supports several resource mangers.
+To invoke this plugin, you should only need to use the flag '--rm':
+  dmtcp_launch --rm MYAPP ARG1 ...
+
+Currently the TORQUE and SLURM resource managers are supported.
+Support for SGE and LSF is planned for the near future.
+
+Torque is still under testing.  If you have problems with it, please write
+to the authors.
+
+Also, SLURM _especially_ is new code.  It works on most clusters, but
+we have not done enough testing on the variety of clusters available.
+There may still be some smaller bugs.  Please help us by sending feedback
+to the authors.  Such bugs will be fixed as we discover them.
+
+USAGE EXAMPLES: 
+  To enable the DMTCP RM module you need to use the --rm option in
+  dmtcp_launch.  
+  Sample scripts are located in: <dmtcp-topdir>/plugin/batch-queue/job_examples.
+  The examples aim to be self-descriptive.
+      During debugging, it is better to start the dmtcp_coordinator in an
+  interactive terminal on the front end.  Refer to the example batch script
+  (with its comment in the start_coordinator() function).
