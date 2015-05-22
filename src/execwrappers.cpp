@@ -304,7 +304,12 @@ static void dmtcpPrepareForExec(const char *path, char *const argv[],
   }
 
   // FIXME:  SEE COMMENTS IN dmtcp_launch.cpp, rev. 1087; AND CHANGE THIS.
-  if (Util::isSetuid(path)) {
+  //
+  // Assuming rsh is shortlived and will go away at the time
+  // checkpointing in Emulation, so skipping rsh to be
+  // copied and ran from local-copy ---AGARG(09/04/2015)
+  bool isRshExecutable = (path != NULL && (Util::strEndsWith(path, "rsh")));
+  if (!isRshExecutable && (Util::isSetuid(path))) {
     if (Util::isScreen(path)) {
       Util::setScreenDir();
     }
