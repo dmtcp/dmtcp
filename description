@@ -1,0 +1,6 @@
+This project have been checkout from public repository 
+      git://github.com/dmtcp/dmtcp.git
+Repository is soley for private development related to 
+emulation for support of DMTCP feature. All public submission
+should be done directly on github. All development should
+be done under emul_dmtcp branch and not in master branch
