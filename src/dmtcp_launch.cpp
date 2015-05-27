@@ -70,7 +70,7 @@ static const char* theUsage =
   "  --no-coordinator\n"
   "              Execute the process in stand-alone coordinator-less mode.\n"
   "              Use dmtcp_command or --interval to request checkpoints.\n"
-  "  -i, -interval SECONDS (environment variable DMTCP_CHECKPOINT_INTERVAL)\n"
+  "  -i, --interval SECONDS (environment variable DMTCP_CHECKPOINT_INTERVAL)\n"
   "              Time in seconds between automatic checkpoints.\n"
   "              0 implies never (manual ckpt only); if not set and no env var,\n"
   "              use default value set in dmtcp_coordinator or dmtcp_command.\n"
