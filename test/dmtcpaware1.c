@@ -1,3 +1,14 @@
+/******************************************************************
+ * PLEASE NOTE:
+ *   dmtcpaware is an older interface, that is now deprecated.
+ * It is recommended to use the more flexible interfaces found in:
+ *   <DMTCP>/test/plugin/
+ * Of particular interest are the subdirectories:
+ *   applic-delayed-ckpt
+ *   applic-initiated-ckpt
+ *   sleep1
+ ******************************************************************/
+
 #include <assert.h>
 #include <stdio.h>
 #include <unistd.h>
