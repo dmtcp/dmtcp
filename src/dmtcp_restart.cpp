@@ -73,7 +73,7 @@ static const char* theUsage =
   "              with --coord-port, or with environment variable DMTCP_COORD_PORT.\n"
   "              If no port is specified, start coordinator at a random port\n"
   "              (same as specifying port '0').\n"
-  "  -i, -interval SECONDS (environment variable DMTCP_CHECKPOINT_INTERVAL)\n"
+  "  -i, --interval SECONDS (environment variable DMTCP_CHECKPOINT_INTERVAL)\n"
   "              Time in seconds between automatic checkpoints.\n"
   "              0 implies never (manual ckpt only); if not set and no env var,\n"
   "              use default value set in dmtcp_coordinator or dmtcp_command.\n"
@@ -202,7 +202,7 @@ class RestoreTarget
                                                            _pInfo.compGroup(),
                                                            _pInfo.numPeers(),
                                                            &coordInfo,
-                                                           host, 
+                                                           host,
                                                            port,
                                                            &localIPAddr);
         // If port was 0, we'll get new random port when coordinator starts up.
