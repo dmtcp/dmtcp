@@ -886,9 +886,26 @@ static void createDirectoryStructure(const string& path)
     if (index > 1) {
       string dirName = path.substr(0, index);
 
+      errno = 0;
       int res = mkdir(dirName.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
-      JASSERT(res != -1 || errno==EEXIST) (dirName) (path)
+#ifdef STAMPEDE_LUSTRE_FIX
+      if (res < 0) {
+        if (errno == EACCES) {
+          struct stat buff;
+          int ret = stat(dirName.c_str(), &buff);
+          JASSERT(ret == 0) (dirName) (path) (JASSERT_ERRNO)
+             .Text("Unable to open directory");
+        } else if (errno == EEXIST) {
+          /* do nothing */
+        } else {
+          JASSERT(false) (dirName) (path) (JASSERT_ERRNO)
+          .Text("Unable to create directory in File Path");
+        }
+      }
+#else
+      JASSERT(res != -1 || errno==EEXIST) (dirName) (path) (JASSERT_ERRNO)
         .Text("Unable to create directory in File Path");
+#endif
     }
     index = path.find('/', index+1);
   }
