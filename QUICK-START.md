@@ -226,6 +226,13 @@ Options through environment variables:
    ./configure --enable-unique-checkpoint-filenames
    ```
 
+7. Using Ctrl+C to kill a computation could leave some stale processes
+   that remain connected to the coordinator. This can affect the
+   restart. To ensure that this isn't the case, verify that there
+   are no stale processes from your computation using `dmtcp_command`
+   or `dmtcp_coordinator`. An alternative to Ctrl+C is to use the kill
+   command in `dmtcp_command` or `dmtcp_coordinator`.
+
 ## Checkpointing Open MPI
 
 Verify that `mpirun` works.
