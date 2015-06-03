@@ -13,10 +13,9 @@
  *               checkpoint requests, and will permit new checkpoint requests.
  *
  * FOR ADVANCED USERS, ONLY:
- *   dmtcpGetLocalStatus
- *   dmtcpGetCoordinatorStatus
- *   dmtcpInstallHooks
- *   dmtcpRunCommand
+ *   dmtcp_get_local_status
+ *   dmtcp_get_coordinator_status
+ *   dmtcp_install_hooks
  */
 
 #include <stdio.h>
