@@ -76,7 +76,7 @@ test: test.c
 	$(CXXLINK) -fPIC $(INCLUDES) $(CPPFLAGS) -o $@ $< -ldl
 
 DEMO_PORT=7781
-check: ${LIBNAME}.so test
+check: ${LIBNAME} test
 	${targetdir}/bin/dmtcp_launch --quiet --port ${DEMO_PORT} \
 	  --modify-env ./test
 	./dmtcp_restart_script.sh

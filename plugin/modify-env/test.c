@@ -4,11 +4,11 @@
 #include "dmtcp.h"
 
 int main(int argc, char *argv[]) {
-  char *user = malloc(strlen(getenv("USER"))+1);
+  char *user = (char*)malloc(strlen(getenv("USER"))+1);
   strcpy(user, getenv("USER"));
   printf("These tests depend on dmtcp_env.txt in local directory.\n");
 
-  int retval = dmtcpCheckpoint();
+  int retval = dmtcp_checkpoint();
   switch (retval) {
   case DMTCP_NOT_PRESENT:
     printf(""" test.c:  Not launched under DMTCP.  Please try again.\n");
@@ -23,7 +23,7 @@ int main(int argc, char *argv[]) {
   }
 
   int newuser_len = strlen("new-")+strlen(getenv("HOME"))+1+strlen(user)+1;
-  char *newuser = malloc(newuser_len);
+  char *newuser = (char*)malloc(newuser_len);
   strcpy(newuser, "new-");
   strcpy(newuser+strlen(newuser), getenv("HOME"));
   strcpy(newuser+strlen(newuser), "-");
