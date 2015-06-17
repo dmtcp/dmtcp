@@ -29,10 +29,6 @@ AC_CONFIG_FILES([Makefile \
                  contrib/ckptfile/Makefile \
                  contrib/infiniband/Makefile \
                  plugin/Makefile \
-                 plugin/batch-queue/Makefile \
-                 plugin/modify-env/Makefile \
-                 plugin/ptrace/Makefile \
-                 plugin/unique-ckpt/Makefile \
                  src/Makefile \
                  src/mtcp/Makefile \
                  src/plugin/Makefile \
