@@ -441,7 +441,7 @@ pid_t Util::getTracerPid(pid_t tid)
   int fd;
 
   if (tid == -1) {
-    tid = gettid();
+    tid = dmtcp_gettid();
   }
   sprintf(buf, "/proc/%d/status", tid);
   fd = _real_open(buf, O_RDONLY, 0);

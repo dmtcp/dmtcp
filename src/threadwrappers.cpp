@@ -64,7 +64,7 @@ int clone_start(void *arg)
    */
   ThreadSync::decrementUninitializedThreadCount();
 
-  JTRACE("Calling user function") (gettid());
+  JTRACE("Calling user function") (dmtcp_gettid());
   int ret = thread->fn(thread->arg);
 
   ThreadList::threadExit();

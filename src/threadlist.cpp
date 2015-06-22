@@ -223,7 +223,7 @@ void ThreadList::updateTid(Thread *th)
   if (curThread == NULL)
     curThread = th;
   th->tid = THREAD_REAL_TID();
-  th->virtual_tid = _real_gettid();
+  th->virtual_tid = dmtcp_gettid();
   JTRACE("starting thread") (th->tid) (th->virtual_tid);
   // Check and remove any thread descriptor which has the same tid as ours.
   // Also, remove any dead threads from the list.

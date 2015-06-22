@@ -545,7 +545,7 @@ void CkptSerializer::writeCkptImage(void *mtcpHdr, size_t mtcpHdrLen)
   string tempCkptFilename = ckptFilename;
   tempCkptFilename += ".temp";
 
-  JTRACE("Thread performing checkpoint.") (gettid());
+  JTRACE("Thread performing checkpoint.") (dmtcp_gettid());
   createCkptDir();
   forked_ckpt_status = test_and_prepare_for_forked_ckpt();
   if (forked_ckpt_status == FORKED_CKPT_PARENT) {
