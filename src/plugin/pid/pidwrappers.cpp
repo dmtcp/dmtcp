@@ -101,7 +101,7 @@ void dmtcp_update_ppid()
   }
 }
 
-extern "C" pid_t gettid()
+LIB_PRIVATE pid_t dmtcp_gettid()
 {
   /* dmtcp::ThreadList::updateTid calls gettid() before calling
    *  ThreadSync::decrementUninitializedThreadCount() and so the value is
@@ -326,7 +326,7 @@ extern "C" int   kill(pid_t pid, int sig)
 }
 
 LIB_PRIVATE
-int tkill(int tid, int sig)
+int dmtcp_tkill(int tid, int sig)
 {
   // FIXME: Check the comments in kill()
 //  DMTCP_PLUGIN_DISABLE_CKPT();
@@ -341,7 +341,7 @@ int tkill(int tid, int sig)
 }
 
 LIB_PRIVATE
-int tgkill(int tgid, int tid, int sig)
+int dmtcp_tgkill(int tgid, int tid, int sig)
 {
   // FIXME: Check the comments in kill()
 //  DMTCP_PLUGIN_DISABLE_CKPT();
