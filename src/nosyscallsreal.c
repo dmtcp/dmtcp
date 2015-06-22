@@ -375,24 +375,14 @@ long _real_syscall(long sys_num, ...) {
                                                arg[5], arg[6]);
 }
 
-LIB_PRIVATE pid_t gettid() {
+LIB_PRIVATE pid_t dmtcp_gettid() {
   return syscall(SYS_gettid);
 }
-LIB_PRIVATE int tkill(int tid, int sig) {
+LIB_PRIVATE int dmtcp_tkill(int tid, int sig) {
   return syscall(SYS_tkill, tid, sig);
 }
-LIB_PRIVATE int tgkill(int tgid, int tid, int sig) {
+LIB_PRIVATE int dmtcp_tgkill(int tgid, int tid, int sig) {
   return syscall(SYS_tgkill, tgid, tid, sig);
-}
-
-// gettid / tkill / tgkill are not defined in libc.
-pid_t _real_gettid(void) {
-  REAL_FUNC_PASSTHROUGH_PID_T (syscall(SYS_gettid));
-}
-
-LIB_PRIVATE
-int   _real_tgkill(int tgid, int tid, int sig) {
-  return (int) _real_syscall(SYS_tgkill, tgid, tid, sig);
 }
 
 int _real_open (const char *pathname, int flags, ...) {

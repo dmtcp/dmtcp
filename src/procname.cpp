@@ -69,7 +69,7 @@ void prctlGetProcessName()
   int ret = prctl(PR_GET_NAME, name);
   if (ret != -1) {
     lockPrgNameMapLock();
-    prgNameMap[gettid()] = name;
+    prgNameMap[dmtcp_gettid()] = name;
     unlockPrgNameMapLock();
     JTRACE("prctl(PR_GET_NAME, ...) succeeded") (name);
   } else {
@@ -88,7 +88,7 @@ void prctlRestoreProcessName()
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,11)
   // NOTE: We don't need to protect the access to prgNameMap with a lock
   // because all accesses during restart are guaranteed to be read-only.
-  string prgName = prgNameMap[gettid()];
+  string prgName = prgNameMap[dmtcp_gettid()];
   if (!Util::strStartsWith(prgName, DMTCP_PRGNAME_PREFIX)) {
     // Add the "DMTCP:" prefix.
     prgName = DMTCP_PRGNAME_PREFIX + prgName;

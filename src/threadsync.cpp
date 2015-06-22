@@ -251,7 +251,7 @@ void ThreadSync::sendCkptSignalOnFinalUnlock()
   if (_sendCkptSignalOnFinalUnlock && isThisThreadHoldingAnyLocks() == false) {
     _sendCkptSignalOnFinalUnlock = false;
     JASSERT(raise(DmtcpWorker::determineCkptSignal()) == 0)
-      (getpid()) (gettid()) (JASSERT_ERRNO);
+      (getpid()) (dmtcp_gettid()) (JASSERT_ERRNO);
   }
 }
 
@@ -341,9 +341,9 @@ bool ThreadSync::libdlLockLock()
   int saved_errno = errno;
   bool lockAcquired = false;
   if (WorkerState::currentState() == WorkerState::RUNNING &&
-      libdlLockOwner !=  gettid()) {
+      libdlLockOwner !=  dmtcp_gettid()) {
     JASSERT(_real_pthread_mutex_lock(&libdlLock) == 0);
-    libdlLockOwner = gettid();
+    libdlLockOwner = dmtcp_gettid();
     lockAcquired = true;
   }
   errno = saved_errno;
@@ -353,8 +353,8 @@ bool ThreadSync::libdlLockLock()
 void ThreadSync::libdlLockUnlock()
 {
   int saved_errno = errno;
-  JASSERT(libdlLockOwner == 0 || libdlLockOwner == gettid())
-    (libdlLockOwner) (gettid());
+  JASSERT(libdlLockOwner == 0 || libdlLockOwner == dmtcp_gettid())
+    (libdlLockOwner) (dmtcp_gettid());
   JASSERT (WorkerState::currentState() == WorkerState::RUNNING);
   libdlLockOwner = 0;
   JASSERT(_real_pthread_mutex_unlock(&libdlLock) == 0);
@@ -640,7 +640,7 @@ void ThreadSync::processPreResumeCB()
   if (_real_pthread_mutex_lock(&preResumeThreadCountLock) != 0) {
     JASSERT(false) .Text("Failed to acquire preResumeThreadCountLock");
   }
-  JASSERT(preResumeThreadCount > 0) (gettid()) (preResumeThreadCount);
+  JASSERT(preResumeThreadCount > 0) (dmtcp_gettid()) (preResumeThreadCount);
   preResumeThreadCount--;
   if (_real_pthread_mutex_unlock(&preResumeThreadCountLock) != 0) {
     JASSERT(false) .Text("Failed to release preResumeThreadCountLock");

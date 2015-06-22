@@ -86,10 +86,9 @@ extern "C"
 # define DISABLE_PTHREAD_GETSPECIFIC_TRICK
 #endif
 
-LIB_PRIVATE pid_t gettid();
-LIB_PRIVATE int tkill(int tid, int sig);
-LIB_PRIVATE int tgkill(int tgid, int tid, int sig);
-
+LIB_PRIVATE pid_t dmtcp_gettid();
+LIB_PRIVATE int dmtcp_tkill(int tid, int sig);
+LIB_PRIVATE int dmtcp_tgkill(int tgid, int tid, int sig);
 
 extern int dmtcp_wrappers_initializing;
 
@@ -379,10 +378,6 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   int _real_sigwaitinfo(const sigset_t *set, siginfo_t *info);
   int _real_sigtimedwait(const sigset_t *set, siginfo_t *info,
                          const struct timespec *timeout);
-
-  pid_t _real_gettid(void);
-  int   _real_tkill(int tid, int sig);
-  int   _real_tgkill(int tgid, int tid, int sig);
 
   long _real_syscall(long sys_num, ...);
 

@@ -52,14 +52,15 @@ typedef funcptr_t (*signal_funcptr_t) ();
 
 static pthread_mutex_t theMutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
 
-LIB_PRIVATE pid_t gettid() {
-  return syscall(SYS_gettid);
+// gettid / tkill / tgkill are not defined in libc.
+LIB_PRIVATE pid_t dmtcp_gettid() {
+  return _real_syscall(SYS_gettid);
 }
-LIB_PRIVATE int tkill(int tid, int sig) {
-  return syscall(SYS_tkill, tid, sig);
+LIB_PRIVATE int dmtcp_tkill(int tid, int sig) {
+  return _real_syscall(SYS_tkill, tid, sig);
 }
-LIB_PRIVATE int tgkill(int tgid, int tid, int sig) {
-  return syscall(SYS_tgkill, tgid, tid, sig);
+LIB_PRIVATE int dmtcp_tgkill(int tgid, int tid, int sig) {
+  return _real_syscall(SYS_tgkill, tgid, tid, sig);
 }
 
 // FIXME: Are these primitives (_dmtcp_lock, _dmtcp_unlock) required anymore?
@@ -796,28 +797,6 @@ LIB_PRIVATE
 int _real_sigtimedwait(const sigset_t *set, siginfo_t *info,
                        const struct timespec *timeout) {
   REAL_FUNC_PASSTHROUGH (sigtimedwait) (set, info, timeout);
-}
-
-// gettid / tkill / tgkill are not defined in libc.
-LIB_PRIVATE
-pid_t _real_gettid(void) {
-  // No glibc wrapper for gettid, although even if it had one, we would have
-  // the issues similar to getpid/getppid().
-  return (pid_t) _real_syscall(SYS_gettid);
-}
-
-LIB_PRIVATE
-int   _real_tkill(int tid, int sig) {
-  // No glibc wrapper for tkill, although even if it had one, we would have
-  // the issues similar to getpid/getppid().
-  return (int) _real_syscall(SYS_tkill, tid, sig);
-}
-
-LIB_PRIVATE
-int   _real_tgkill(int tgid, int tid, int sig) {
-  // No glibc wrapper for tgkill, although even if it had one, we would have
-  // the issues similar to getpid/getppid().
-  return (int) _real_syscall(SYS_tgkill, tgid, tid, sig);
 }
 
 LIB_PRIVATE
