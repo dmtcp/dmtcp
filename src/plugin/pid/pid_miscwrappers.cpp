@@ -327,19 +327,19 @@ extern "C" long syscall(long sys_num, ...)
   switch (sys_num) {
     case SYS_gettid:
     {
-      ret = gettid();
+      ret = dmtcp_gettid();
       break;
     }
     case SYS_tkill:
     {
       SYSCALL_GET_ARGS_2(int, tid, int, sig);
-      ret = tkill(tid, sig);
+      ret = dmtcp_tkill(tid, sig);
       break;
     }
     case SYS_tgkill:
     {
       SYSCALL_GET_ARGS_3(int, tgid, int, tid, int, sig);
-      ret = tgkill(tgid, tid, sig);
+      ret = dmtcp_tgkill(tgid, tid, sig);
       break;
     }
 

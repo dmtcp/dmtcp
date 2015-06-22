@@ -172,7 +172,7 @@ static void pidVirt_ThreadExit(DmtcpEventData_t *data)
    *  FIXME: What if the process gets checkpointed after erase() but before the
    *  thread actually exits?
    */
-  pid_t tid = gettid();
+  pid_t tid = dmtcp_gettid();
   VirtualPidTable::instance().erase(tid);
 }
 

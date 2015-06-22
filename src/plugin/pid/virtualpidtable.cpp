@@ -125,7 +125,7 @@ pid_t VirtualPidTable::realToVirtual(pid_t realPid)
 
   _do_lock_tbl();
   if (dmtcp_is_ptracing != 0 && dmtcp_is_ptracing() && realPid > 0) {
-    pid_t virtualPid = readVirtualTidFromFileForPtrace(gettid());
+    pid_t virtualPid = readVirtualTidFromFileForPtrace(dmtcp_gettid());
     if (virtualPid != -1) {
       _do_unlock_tbl();
       updateMapping(virtualPid, realPid);

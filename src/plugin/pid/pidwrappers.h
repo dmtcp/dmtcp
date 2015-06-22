@@ -84,9 +84,9 @@ extern "C"
   LIB_PRIVATE void *_real_dlsym(void *handle, const char *symbol);
 
 /* The following function are defined in pidwrappers.cpp */
-  pid_t gettid();
-  int tkill(int tid, int sig);
-  int tgkill(int tgid, int tid, int sig);
+  LIB_PRIVATE pid_t dmtcp_gettid();
+  LIB_PRIVATE int dmtcp_tkill(int tid, int sig);
+  LIB_PRIVATE int dmtcp_tgkill(int tgid, int tid, int sig);
 
 #define FOREACH_PIDVIRT_WRAPPER(MACRO)\
   MACRO(fork)               \

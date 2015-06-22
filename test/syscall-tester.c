@@ -67,6 +67,7 @@
 #define LINUX
 
 #if defined(LINUX)
+#include <sys/syscall.h>
 #include <sys/uio.h>
 #include <sys/vfs.h>
 #endif
@@ -3109,6 +3110,40 @@ int writev_test(int fd, struct iovec *iov, int iovcnt)
   return ret;
 }
 
+pid_t gettid(void)
+{
+  return syscall(SYS_gettid);
+}
+
+int gettid_test(void)
+{
+  printf("gettid():\n");
+  fflush(NULL);
+
+  pid_t pid = getpid();
+  pid_t sys_getpid = syscall(SYS_getpid);
+  if (pid != sys_getpid) {
+    printf("\tFailed Phase 1: getpid() returned %d, "
+           "while syscall(SYS_getpid) returned %d!\n",
+           pid, sys_getpid);
+    return FAILURE;
+  }
+
+  pid_t tid = gettid();
+  if (tid != pid) {
+    printf("\tFailed Phase 1: getpid() returned %d, "
+           "while syscall(SYS_gettid) returned %d!\n",
+           pid, tid);
+    return FAILURE;
+  }
+
+  printf("\t\tpid = %d, tid = %d\n", pid, tid);
+  printf("\tSucceeded Phase 1\n");
+  fflush(NULL);
+
+  return 0;
+}
+
 /* These functions do the self analysis, I expect something to happen,
    these tell me if it did.  Expected is SUCCESS, or FAILURE,
    depending upon what I am looking for. These are Phase 2 tests. */
@@ -4560,6 +4595,20 @@ int BasicTime(void)
   return block;
 }
 
+int BasicGettid(void)
+{
+  int passed;
+  int block = SUCCESS;
+
+  testbreak();
+
+  passed = expect_gez(SUCCESS, gettid_test());
+  EXPECTED_RESP;
+  testbreak();
+
+  return block;
+}
+
 int testall()
 {
   int ret;
@@ -4604,6 +4653,7 @@ int testall()
     {BasicName, "BasicName: Do I know my own name?"},
     /*            {BasicTime, "BasicTime: Do I know what time it is?"},*/
     {BasicGetSetlimit, "BasicGetSetLimit: Can I change proc limits?"},
+    {BasicGettid, "BasicGettid: Does gettid() == getpid()?"},
   };
 
   printf("Condor System Call Tester $Revision: 1.5 $\n\n");
