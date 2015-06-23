@@ -202,6 +202,20 @@ TcpConnection& TcpConnection::asTcp()
   return *this;
 }
 
+#ifdef MPISPAWN_WORKAROUND
+static int
+getMPISpawnPortNum(const char* envVar)
+{
+  /* PMI_PORT is of the form: "hostname:port" */
+  char *temp = getenv(envVar);
+  if (temp) {
+    while (*temp && *temp != ':') *temp++;
+    if (*temp == ':') return atoi(temp+1);
+  }
+  return 0;
+}
+#endif
+
 bool TcpConnection::isBlacklistedTcp(const sockaddr* saddr, socklen_t len)
 {
   JASSERT(saddr != NULL);
@@ -221,6 +235,15 @@ bool TcpConnection::isBlacklistedTcp(const sockaddr* saddr, socklen_t len)
     int blacklistedRemotePorts[] = {53,                 // DNS Server
                                     389, 636,           // LDAP
                                     -1};
+#ifdef MPISPAWN_WORKAROUND
+    int mpispawnPort = getMPISpawnPortNum("PMI_PORT");
+    JTRACE("PMI_PORT port") (mpispawnPort) (ntohs(addr->sin_port));
+    JASSERT(mpispawnPort != 0).Text("PMI_PORT not found");
+    if (ntohs(addr->sin_port) == mpispawnPort) {
+      JTRACE("PMI_PORT port found") (mpispawnPort);
+      return true;
+    }
+#endif
     for (size_t i = 0; blacklistedRemotePorts[i] != -1; i++) {
       if (ntohs(addr->sin_port) == blacklistedRemotePorts[i]) {
         JTRACE("LDAP port found") (ntohs(addr->sin_port))
