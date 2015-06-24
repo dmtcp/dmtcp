@@ -26,12 +26,12 @@ default: ${LIBNAME}.so
 
 ${DMTCP_ROOT}/test/dmtcp1: ${DMTCP_ROOT}/test
 	cd ${DMTCP_ROOT}/test; make dmtcp1
-../sleep1/dmtcp_sleep1hijack.so: ../sleep1
-	cd ../sleep1; make dmtcp_sleep1hijack.so
-check: ${LIBNAME}.so ../sleep1/dmtcp_sleep1hijack.so ${DMTCP_ROOT}/test/dmtcp1
+../sleep1/libdmtcp_sleep1.so: ../sleep1
+	cd ../sleep1; make libdmtcp_sleep1.so
+check: ${LIBNAME}.so ../sleep1/libdmtcp_sleep1.so ${DMTCP_ROOT}/test/dmtcp1
 	${DMTCP_ROOT}/bin/dmtcp_launch --coord-port ${DEMO_PORT} --interval 5 \
 	  --with-plugin \
-		$$PWD/../sleep1/dmtcp_sleep1hijack.so:$$PWD/${LIBNAME}.so \
+		$$PWD/../sleep1/libdmtcp_sleep1.so:$$PWD/${LIBNAME}.so \
 	  ${DMTCP_ROOT}/test/dmtcp1
 
 # We link the library using C++ for compatibility with the main libdmtcp.so
