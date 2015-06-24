@@ -30,12 +30,6 @@
 # undef __USE_GNU
 #endif
 
-// for NEXT_FNC_DEFAULT();  Needed to handle GNU symbol versioning.
-#include "dlsym_default.h"
-
-// Defines DLSYM_DEFAULT and NEXT_FNC_DEFAULT
-#include "dlsym_default.h"
-
 #ifndef EXTERNC
 # ifdef __cplusplus
 #  define EXTERNC extern "C"
@@ -44,7 +38,6 @@
 # endif
 #endif
 
-#define DELETED_FILE_SUFFIX " (deleted)"
 #define LIB_PRIVATE __attribute__ ((visibility ("hidden")))
 
 typedef enum eDmtcpEvent {
