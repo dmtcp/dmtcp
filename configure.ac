@@ -5,10 +5,8 @@ AC_INIT([DMTCP],
         [http://dmtcp.sourceforge.net])
 
 AC_PREREQ([2.60])
-# TODO(kapil): Remove 'no-dependencies' flag in future after
-#   gene: `no-dependencies' flag in future after
-# http://debbugs.gnu.org/cgi/bugreport.cgi?bug=13928 has been fixed.
-AM_INIT_AUTOMAKE([subdir-objects no-dependencies foreign])
+# TODO(kapil): Add 'subdir-objects after automake 1.16 has been released.
+AM_INIT_AUTOMAKE([foreign])
 AM_MAINTAINER_MODE
 AC_CANONICAL_HOST
 AC_PROG_INSTALL

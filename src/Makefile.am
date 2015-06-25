@@ -10,6 +10,7 @@
 
 # not a GNU package. You can remove this line, if
 # have all needed files, that a GNU package needs
+# TODO(kapil): Add 'subdir-objects after automake 1.16 has been released.
 AUTOMAKE_OPTIONS = foreign
 
 jalibdir=$(top_srcdir)/jalib
