@@ -620,6 +620,10 @@ void DmtcpWorker::eventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
     case DMTCP_EVENT_THREAD_CREATED:
 
     case DMTCP_EVENT_PTHREAD_START:
+      for (size_t i = 0; i < pluginDescriptors->size(); i++) {
+        (*pluginDescriptors)[i].event_hook(event, data);
+      }
+      break;
 
     case DMTCP_EVENT_EXIT:
     case DMTCP_EVENT_PTHREAD_EXIT:
@@ -635,7 +639,7 @@ void DmtcpWorker::eventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
     case DMTCP_EVENT_THREADS_RESUME:
 
     case DMTCP_EVENT_RESUME_USER_THREAD:
-      for (size_t i = 0; i < pluginDescriptors->size(); i++) {
+      for (int i = pluginDescriptors->size() - 1; i >= 0; i--) {
         (*pluginDescriptors)[i].event_hook(event, data);
       }
       break;
