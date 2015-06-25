@@ -285,4 +285,4 @@ am--refresh:
 
 .PHONY: default all \
 	display-build-env display-release display-config build \
-	dmtcp plugin contrib clean distclean am--refresh
+	mkdirs dmtcp plugin contrib clean distclean am--refresh
