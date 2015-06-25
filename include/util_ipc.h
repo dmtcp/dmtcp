@@ -18,12 +18,17 @@
  *  License along with DMTCP:dmtcp/src.  If not, see                        *
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
+#ifndef __DMTCP_UTIL_H__
+#define __DMTCP_UTIL_H__
 
-#include "util_ipc.h"
+#include <sys/socket.h>
+#include <sys/un.h>
 
-extern "C" LIB_PRIVATE
-int sendFd(int restoreFd, int32_t fd, void *data, size_t len,
-           struct sockaddr_un& addr, socklen_t addrLen)
+namespace dmtcp {
+namespace Util {
+
+static int sendFd(int restoreFd, int32_t fd, void *data, size_t len,
+                         struct sockaddr_un& addr, socklen_t addrLen)
 {
   struct iovec iov;
   struct msghdr hdr;
@@ -50,8 +55,7 @@ int sendFd(int restoreFd, int32_t fd, void *data, size_t len,
   return sendmsg(restoreFd, &hdr, 0);
 }
 
-extern "C" LIB_PRIVATE
-int32_t receiveFd(int restoreFd, void *data, size_t len)
+static int32_t receiveFd(int restoreFd, void *data, size_t len)
 {
   int32_t fd;
   struct iovec iov;
@@ -83,3 +87,7 @@ int32_t receiveFd(int restoreFd, void *data, size_t len)
 
   return fd;
 }
+
+}
+}
+#endif // #ifndef __DMTCP_UTIL_H__

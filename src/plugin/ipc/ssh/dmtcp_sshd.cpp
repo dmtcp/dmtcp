@@ -13,6 +13,8 @@
 #include "ssh.h"
 #include "util_ipc.h"
 
+using dmtcp::Util::sendFd;
+
 static pid_t childPid = -1;
 static int remotePeerSock = -1;
 

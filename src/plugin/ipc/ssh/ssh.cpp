@@ -5,10 +5,10 @@
 #include <sys/un.h>
 #include "dmtcp.h"
 #include "util.h"
+#include "util_ipc.h"
 #include "jassert.h"
 #include "jfilesystem.h"
 #include "ipc.h"
-#include "util_ipc.h"
 #include "ssh.h"
 #include "sshdrainer.h"
 #include "shareddata.h"
@@ -92,7 +92,7 @@ static void refill(bool isRestart)
 static void receiveFileDescr(int fd)
 {
   int data;
-  int ret = receiveFd(SSHD_RECEIVE_FD, &data, sizeof(data));
+  int ret = Util::receiveFd(SSHD_RECEIVE_FD, &data, sizeof(data));
   if (fd == SSHD_PIPE_FD) {
     return;
   }

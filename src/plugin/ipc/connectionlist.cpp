@@ -55,7 +55,7 @@
 //  discover if the file descriptor is private or shared.
 // We define a "private fd" as an fd that is shared by exactly one process.
 //  This criterion is used in the implementation.
-// There is a list of outgoing connections (outgoingCons) and 
+// There is a list of outgoing connections (outgoingCons) and
 //  incoming connections (incomingCons).  These will refer to shared fd's.
 //  For the various processes on the same host, any shared fd corresponding
 //  to a connection has a 'con->hasLock()' method.  If it's true, this
@@ -553,14 +553,14 @@ void ConnectionList::sendReceiveMissingFds()
       ConnectionIdentifier *id = (ConnectionIdentifier*) maps[idx].id;
       Connection *con = getConnection(*id);
       JTRACE("Sending Missing Con") (*id);
-      JASSERT(sendFd(restoreFd, con->getFds()[0], id, sizeof(*id),
-                     maps[idx].addr, maps[idx].len) != -1);
+      JASSERT(Util::sendFd(restoreFd, con->getFds()[0], id, sizeof(*id),
+                           maps[idx].addr, maps[idx].len) != -1);
       numOutgoingCons--;
     }
 
     if (numIncomingCons > 0 && FD_ISSET(restoreFd, &rfds)) {
       ConnectionIdentifier id;
-      int fd = receiveFd(restoreFd, &id, sizeof(id));
+      int fd = Util::receiveFd(restoreFd, &id, sizeof(id));
       JASSERT(fd != -1);
       Connection *con = getConnection(id);
       JTRACE("Received Missing Con") (id);
