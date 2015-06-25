@@ -157,6 +157,7 @@ static bool enableIBPlugin=false;
 static bool enableAllocPlugin=true;
 static bool enableDlPlugin=true;
 static bool enableIPCPlugin=true;
+static bool enableSvipcPlugin=true;
 static bool enableTimerPlugin=true;
 
 #ifdef UNIQUE_CHECKPOINT_FILENAMES
@@ -187,6 +188,7 @@ static struct PluginInfo pluginInfo[] = {               // Default value
   {&enableAllocPlugin,      "libdmtcp_alloc.so"},       // Enabled
   {&enableDlPlugin,         "libdmtcp_dl.so"},          // Enabled
   {&enableIPCPlugin,        "libdmtcp_ipc.so"},         // Enabled
+  {&enableSvipcPlugin,      "libdmtcp_svipc.so"},       // Enabled
   {&enableTimerPlugin,      "libdmtcp_timer.so"},       // Enabled
   {&enableLibDMTCP,         "libdmtcp.so"},             // Enabled
   // PID plugin must come last.

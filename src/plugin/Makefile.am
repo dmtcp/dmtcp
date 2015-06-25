@@ -49,7 +49,7 @@ __d_libdir__libdmtcp_dl_so_LDADD = $(LDADD)
 
 #
 # IPC plugin
-# TODO(kapil): Split SSH and SysV plugins into their own.
+# TODO(kapil): Split SSH plugin into its own.
 #
 noinst_LIBRARIES += libssh.a
 libssh_a_SOURCES =                                                     \
@@ -96,11 +96,7 @@ __d_libdir__libdmtcp_ipc_so_SOURCES =                                  \
 	ipc/ssh/ssh.cpp                                                \
 	ipc/ssh/sshdrainer.cpp                                         \
 	ipc/ssh/sshdrainer.h                                           \
-	ipc/ssh/ssh.h                                                  \
-	ipc/sysv/sysvipc.cpp                                           \
-	ipc/sysv/sysvipc.h                                             \
-	ipc/sysv/sysvipcwrappers.cpp                                   \
-	ipc/sysv/sysvipcwrappers.h
+	ipc/ssh/ssh.h
 __d_libdir__libdmtcp_ipc_so_CPPFLAGS = $(AM_CPPFLAGS) -I$(srcdir)/ipc
 __d_libdir__libdmtcp_ipc_so_LDFLAGS = $(dmtcp_ldflags)
 __d_libdir__libdmtcp_ipc_so_LDADD = $(LDADD) -lrt
@@ -135,6 +131,17 @@ __d_libdir__libdmtcp_pid_so_SOURCES =                                  \
 	pid/virtualpidtable.cpp                                        \
 	pid/virtualpidtable.h
 __d_libdir__libdmtcp_pid_so_LDFLAGS = $(dmtcp_ldflags)
+
+#
+# SysV Plugin
+#
+libdmtcp_PROGRAMS += $(d_libdir)/libdmtcp_svipc.so
+__d_libdir__libdmtcp_svipc_so_SOURCES =                                \
+	svipc/sysvipc.cpp                                              \
+	svipc/sysvipc.h                                                \
+	svipc/sysvipcwrappers.cpp                                      \
+	svipc/sysvipcwrappers.h
+__d_libdir__libdmtcp_svipc_so_LDFLAGS = $(dmtcp_ldflags)
 
 #
 # Timer plugin

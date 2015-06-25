@@ -96,6 +96,7 @@ libdmtcp_PROGRAMS = $(d_libdir)/libdmtcp_alloc.so$(EXEEXT) \
 	$(d_libdir)/libdmtcp_dl.so$(EXEEXT) \
 	$(d_libdir)/libdmtcp_ipc.so$(EXEEXT) \
 	$(d_libdir)/libdmtcp_pid.so$(EXEEXT) \
+	$(d_libdir)/libdmtcp_svipc.so$(EXEEXT) \
 	$(d_libdir)/libdmtcp_timer.so$(EXEEXT)
 subdir = src/plugin
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
@@ -160,8 +161,7 @@ am___d_libdir__libdmtcp_ipc_so_OBJECTS = ipc/i-connection.$(OBJEXT) \
 	ipc/socket/i-socketconnection.$(OBJEXT) \
 	ipc/socket/i-socketconnlist.$(OBJEXT) \
 	ipc/socket/i-socketwrappers.$(OBJEXT) ipc/ssh/i-ssh.$(OBJEXT) \
-	ipc/ssh/i-sshdrainer.$(OBJEXT) ipc/sysv/i-sysvipc.$(OBJEXT) \
-	ipc/sysv/i-sysvipcwrappers.$(OBJEXT)
+	ipc/ssh/i-sshdrainer.$(OBJEXT)
 __d_libdir__libdmtcp_ipc_so_OBJECTS =  \
 	$(am___d_libdir__libdmtcp_ipc_so_OBJECTS)
 __d_libdir__libdmtcp_ipc_so_DEPENDENCIES = $(am__DEPENDENCIES_1)
@@ -177,6 +177,15 @@ __d_libdir__libdmtcp_pid_so_LDADD = $(LDADD)
 __d_libdir__libdmtcp_pid_so_DEPENDENCIES =
 __d_libdir__libdmtcp_pid_so_LINK = $(CXXLD) $(AM_CXXFLAGS) $(CXXFLAGS) \
 	$(__d_libdir__libdmtcp_pid_so_LDFLAGS) $(LDFLAGS) -o $@
+am___d_libdir__libdmtcp_svipc_so_OBJECTS = svipc/sysvipc.$(OBJEXT) \
+	svipc/sysvipcwrappers.$(OBJEXT)
+__d_libdir__libdmtcp_svipc_so_OBJECTS =  \
+	$(am___d_libdir__libdmtcp_svipc_so_OBJECTS)
+__d_libdir__libdmtcp_svipc_so_LDADD = $(LDADD)
+__d_libdir__libdmtcp_svipc_so_DEPENDENCIES =
+__d_libdir__libdmtcp_svipc_so_LINK = $(CXXLD) $(AM_CXXFLAGS) \
+	$(CXXFLAGS) $(__d_libdir__libdmtcp_svipc_so_LDFLAGS) \
+	$(LDFLAGS) -o $@
 am___d_libdir__libdmtcp_timer_so_OBJECTS =  \
 	timer/timer_create.$(OBJEXT) timer/timerlist.$(OBJEXT) \
 	timer/timerwrappers.$(OBJEXT)
@@ -265,6 +274,7 @@ SOURCES = $(libssh_a_SOURCES) $(__d_bindir__dmtcp_ssh_SOURCES) \
 	$(__d_libdir__libdmtcp_dl_so_SOURCES) \
 	$(__d_libdir__libdmtcp_ipc_so_SOURCES) \
 	$(__d_libdir__libdmtcp_pid_so_SOURCES) \
+	$(__d_libdir__libdmtcp_svipc_so_SOURCES) \
 	$(__d_libdir__libdmtcp_timer_so_SOURCES)
 DIST_SOURCES = $(libssh_a_SOURCES) $(__d_bindir__dmtcp_ssh_SOURCES) \
 	$(__d_bindir__dmtcp_sshd_SOURCES) \
@@ -272,6 +282,7 @@ DIST_SOURCES = $(libssh_a_SOURCES) $(__d_bindir__dmtcp_ssh_SOURCES) \
 	$(__d_libdir__libdmtcp_dl_so_SOURCES) \
 	$(__d_libdir__libdmtcp_ipc_so_SOURCES) \
 	$(__d_libdir__libdmtcp_pid_so_SOURCES) \
+	$(__d_libdir__libdmtcp_svipc_so_SOURCES) \
 	$(__d_libdir__libdmtcp_timer_so_SOURCES)
 am__can_run_installinfo = \
   case $$AM_UPDATE_INFO_DIR in \
@@ -465,7 +476,7 @@ dist_bin_SCRIPTS =
 
 #
 # IPC plugin
-# TODO(kapil): Split SSH and SysV plugins into their own.
+# TODO(kapil): Split SSH plugin into its own.
 #
 noinst_LIBRARIES = libssh.a
 __d_libdir__libdmtcp_alloc_so_SOURCES = \
@@ -523,11 +534,7 @@ __d_libdir__libdmtcp_ipc_so_SOURCES = \
 	ipc/ssh/ssh.cpp                                                \
 	ipc/ssh/sshdrainer.cpp                                         \
 	ipc/ssh/sshdrainer.h                                           \
-	ipc/ssh/ssh.h                                                  \
-	ipc/sysv/sysvipc.cpp                                           \
-	ipc/sysv/sysvipc.h                                             \
-	ipc/sysv/sysvipcwrappers.cpp                                   \
-	ipc/sysv/sysvipcwrappers.h
+	ipc/ssh/ssh.h
 
 __d_libdir__libdmtcp_ipc_so_CPPFLAGS = $(AM_CPPFLAGS) -I$(srcdir)/ipc
 __d_libdir__libdmtcp_ipc_so_LDFLAGS = $(dmtcp_ldflags)
@@ -557,6 +564,13 @@ __d_libdir__libdmtcp_pid_so_SOURCES = \
 	pid/virtualpidtable.h
 
 __d_libdir__libdmtcp_pid_so_LDFLAGS = $(dmtcp_ldflags)
+__d_libdir__libdmtcp_svipc_so_SOURCES = \
+	svipc/sysvipc.cpp                                              \
+	svipc/sysvipc.h                                                \
+	svipc/sysvipcwrappers.cpp                                      \
+	svipc/sysvipcwrappers.h
+
+__d_libdir__libdmtcp_svipc_so_LDFLAGS = $(dmtcp_ldflags)
 __d_libdir__libdmtcp_timer_so_SOURCES = \
 	timer/timer_create.cpp                                         \
 	timer/timerlist.cpp                                            \
@@ -759,11 +773,6 @@ ipc/socket/i-socketconnlist.$(OBJEXT): ipc/socket/$(am__dirstamp)
 ipc/socket/i-socketwrappers.$(OBJEXT): ipc/socket/$(am__dirstamp)
 ipc/ssh/i-ssh.$(OBJEXT): ipc/ssh/$(am__dirstamp)
 ipc/ssh/i-sshdrainer.$(OBJEXT): ipc/ssh/$(am__dirstamp)
-ipc/sysv/$(am__dirstamp):
-	@$(MKDIR_P) ipc/sysv
-	@: > ipc/sysv/$(am__dirstamp)
-ipc/sysv/i-sysvipc.$(OBJEXT): ipc/sysv/$(am__dirstamp)
-ipc/sysv/i-sysvipcwrappers.$(OBJEXT): ipc/sysv/$(am__dirstamp)
 
 $(d_libdir)/libdmtcp_ipc.so$(EXEEXT): $(__d_libdir__libdmtcp_ipc_so_OBJECTS) $(__d_libdir__libdmtcp_ipc_so_DEPENDENCIES) $(EXTRA___d_libdir__libdmtcp_ipc_so_DEPENDENCIES) $(d_libdir)/$(am__dirstamp)
 	@rm -f $(d_libdir)/libdmtcp_ipc.so$(EXEEXT)
@@ -781,6 +790,15 @@ pid/virtualpidtable.$(OBJEXT): pid/$(am__dirstamp)
 $(d_libdir)/libdmtcp_pid.so$(EXEEXT): $(__d_libdir__libdmtcp_pid_so_OBJECTS) $(__d_libdir__libdmtcp_pid_so_DEPENDENCIES) $(EXTRA___d_libdir__libdmtcp_pid_so_DEPENDENCIES) $(d_libdir)/$(am__dirstamp)
 	@rm -f $(d_libdir)/libdmtcp_pid.so$(EXEEXT)
 	$(AM_V_CXXLD)$(__d_libdir__libdmtcp_pid_so_LINK) $(__d_libdir__libdmtcp_pid_so_OBJECTS) $(__d_libdir__libdmtcp_pid_so_LDADD) $(LIBS)
+svipc/$(am__dirstamp):
+	@$(MKDIR_P) svipc
+	@: > svipc/$(am__dirstamp)
+svipc/sysvipc.$(OBJEXT): svipc/$(am__dirstamp)
+svipc/sysvipcwrappers.$(OBJEXT): svipc/$(am__dirstamp)
+
+$(d_libdir)/libdmtcp_svipc.so$(EXEEXT): $(__d_libdir__libdmtcp_svipc_so_OBJECTS) $(__d_libdir__libdmtcp_svipc_so_DEPENDENCIES) $(EXTRA___d_libdir__libdmtcp_svipc_so_DEPENDENCIES) $(d_libdir)/$(am__dirstamp)
+	@rm -f $(d_libdir)/libdmtcp_svipc.so$(EXEEXT)
+	$(AM_V_CXXLD)$(__d_libdir__libdmtcp_svipc_so_LINK) $(__d_libdir__libdmtcp_svipc_so_OBJECTS) $(__d_libdir__libdmtcp_svipc_so_LDADD) $(LIBS)
 timer/$(am__dirstamp):
 	@$(MKDIR_P) timer
 	@: > timer/$(am__dirstamp)
@@ -871,8 +889,8 @@ mostlyclean-compile:
 	-rm -f ipc/file/*.$(OBJEXT)
 	-rm -f ipc/socket/*.$(OBJEXT)
 	-rm -f ipc/ssh/*.$(OBJEXT)
-	-rm -f ipc/sysv/*.$(OBJEXT)
 	-rm -f pid/*.$(OBJEXT)
+	-rm -f svipc/*.$(OBJEXT)
 	-rm -f timer/*.$(OBJEXT)
 
 distclean-compile:
@@ -1022,18 +1040,6 @@ ipc/ssh/i-sshdrainer.o: ipc/ssh/sshdrainer.cpp
 ipc/ssh/i-sshdrainer.obj: ipc/ssh/sshdrainer.cpp
 	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_ipc_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o ipc/ssh/i-sshdrainer.obj `if test -f 'ipc/ssh/sshdrainer.cpp'; then $(CYGPATH_W) 'ipc/ssh/sshdrainer.cpp'; else $(CYGPATH_W) '$(srcdir)/ipc/ssh/sshdrainer.cpp'; fi`
 
-ipc/sysv/i-sysvipc.o: ipc/sysv/sysvipc.cpp
-	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_ipc_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o ipc/sysv/i-sysvipc.o `test -f 'ipc/sysv/sysvipc.cpp' || echo '$(srcdir)/'`ipc/sysv/sysvipc.cpp
-
-ipc/sysv/i-sysvipc.obj: ipc/sysv/sysvipc.cpp
-	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_ipc_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o ipc/sysv/i-sysvipc.obj `if test -f 'ipc/sysv/sysvipc.cpp'; then $(CYGPATH_W) 'ipc/sysv/sysvipc.cpp'; else $(CYGPATH_W) '$(srcdir)/ipc/sysv/sysvipc.cpp'; fi`
-
-ipc/sysv/i-sysvipcwrappers.o: ipc/sysv/sysvipcwrappers.cpp
-	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_ipc_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o ipc/sysv/i-sysvipcwrappers.o `test -f 'ipc/sysv/sysvipcwrappers.cpp' || echo '$(srcdir)/'`ipc/sysv/sysvipcwrappers.cpp
-
-ipc/sysv/i-sysvipcwrappers.obj: ipc/sysv/sysvipcwrappers.cpp
-	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_ipc_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o ipc/sysv/i-sysvipcwrappers.obj `if test -f 'ipc/sysv/sysvipcwrappers.cpp'; then $(CYGPATH_W) 'ipc/sysv/sysvipcwrappers.cpp'; else $(CYGPATH_W) '$(srcdir)/ipc/sysv/sysvipcwrappers.cpp'; fi`
-
 ID: $(am__tagged_files)
 	$(am__define_uniq_tagged_files); mkid -fID $$unique
 tags: tags-am
@@ -1157,8 +1163,8 @@ distclean-generic:
 	-rm -f ipc/file/$(am__dirstamp)
 	-rm -f ipc/socket/$(am__dirstamp)
 	-rm -f ipc/ssh/$(am__dirstamp)
-	-rm -f ipc/sysv/$(am__dirstamp)
 	-rm -f pid/$(am__dirstamp)
+	-rm -f svipc/$(am__dirstamp)
 	-rm -f timer/$(am__dirstamp)
 	-test -z "$(d_bindir)/$(am__dirstamp)" || rm -f $(d_bindir)/$(am__dirstamp)
 	-test -z "$(d_libdir)/$(am__dirstamp)" || rm -f $(d_libdir)/$(am__dirstamp)
