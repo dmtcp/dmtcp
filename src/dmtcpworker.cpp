@@ -43,6 +43,8 @@ LIB_PRIVATE void pthread_atfork_prepare();
 LIB_PRIVATE void pthread_atfork_parent();
 LIB_PRIVATE void pthread_atfork_child();
 
+static void initializePlugins();
+
 void pidVirt_pthread_atfork_child() __attribute__((weak));
 
 /* This is defined by newer gcc version unique for each module.  */
@@ -59,6 +61,8 @@ EXTERNC void *ibv_get_device_list(void *) __attribute__((weak));
  */
 DmtcpWorker DmtcpWorker::theInstance;
 bool DmtcpWorker::_exitInProgress = false;
+
+vector<DmtcpPluginDescriptor_t> *pluginDescriptors = NULL;
 
 /* NOTE:  Please keep this function in sync with its copy at:
  *   dmtcp_nocheckpoint.cpp:restoreUserLDPRELOAD()
@@ -253,9 +257,11 @@ static void installSegFaultHandler()
 DmtcpWorker::DmtcpWorker()
 {
   WorkerState::setCurrentState(WorkerState::UNKNOWN);
+
   dmtcp_prepare_wrappers();
   initializeJalib();
   dmtcp_prepare_atfork();
+  initializePlugins();
   prepareLogAndProcessdDataFromSerialFile();
 
   JTRACE("libdmtcp.so:  Running ")
@@ -543,6 +549,21 @@ void dmtcp_UniquePid_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
 void dmtcp_Terminal_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
 void dmtcp_Syslog_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
 void dmtcp_Alarm_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
+
+static void initializePlugins()
+{
+  pluginDescriptors = new vector<DmtcpPluginDescriptor_t>;
+  // Call into other plugins to have them register with us.
+  if (dmtcp_initialize_plugin != NULL) {
+    dmtcp_initialize_plugin();
+  }
+}
+
+extern "C" void dmtcp_register_plugin(DmtcpPluginDescriptor_t descr)
+{
+  // TODO(kapil): Validate the incoming descriptor.
+  pluginDescriptors->push_back(descr);
+}
 
 void DmtcpWorker::eventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {

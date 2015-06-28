@@ -47,6 +47,8 @@
 
 #define LIB_PRIVATE __attribute__ ((visibility ("hidden")))
 
+#define DMTCP_PLUGIN_API_VERSION "3"
+
 typedef enum eDmtcpEvent {
   //DMTCP_EVENT_WRAPPER_INIT, // Future Work :-).
   DMTCP_EVENT_INIT,
@@ -93,7 +95,63 @@ typedef union _DmtcpEventData_t {
   struct {
     int isRestart;
   } resumeUserThreadInfo, refillInfo, resumeInfo, nameserviceInfo;
+
+  struct {
+    const char* barrierId;
+  } barrierInfo;
 } DmtcpEventData_t;
+
+typedef enum {
+  DMTCP_GLOBAL_BARRIER_PRE_CKPT,
+  DMTCP_LOCAL_BARRIER_PRE_CKPT,
+
+  DMTCP_GLOBAL_BARRIER_RESUME,
+  DMTCP_LOCAL_BARRIER_RESUME,
+
+  DMTCP_GLOBAL_BARRIER_RESTART,
+  DMTCP_LOCAL_BARRIER_RESTART
+} DmtcpBarrierType;
+
+typedef struct
+{
+  DmtcpBarrierType type;
+  void (*barrier_hook)();
+  const char *id;
+} DmtcpBarrier;
+
+typedef void (*HookFunctionPtr_t)(DmtcpEvent_t, DmtcpEventData_t *);
+
+typedef struct
+{
+  const char* pluginApiVersion;
+  const char* dmtcpVersion;
+
+  const char* pluginName;
+  const char* authorName;
+  const char* authorEmail;
+  const char* description;
+
+  size_t numBarriers;
+  DmtcpBarrier *barriers;
+
+  void (*event_hook)(const DmtcpEvent_t event, DmtcpEventData_t *data);
+} DmtcpPluginDescriptor_t;
+
+#define DMTCP_NO_PLUGIN_BARRIERS 0, NULL
+
+#define DMTCP_DECL_BARRIERS(barriers)                                          \
+  sizeof(barriers) / sizeof (DmtcpBarrier),                                    \
+  barriers
+
+#define DMTCP_DECL_PLUGIN(descr)                                               \
+  EXTERNC void dmtcp_initialize_plugin()                                       \
+  {                                                                            \
+    dmtcp_register_plugin(descr);                                              \
+    void (*fn)() = NEXT_FNC(dmtcp_initialize_plugin);                          \
+    if (fn != NULL) {                                                          \
+      (*fn)();                                                                 \
+    }                                                                          \
+  }
 
 typedef struct DmtcpUniqueProcessId {
   uint64_t  _hostid; //gethostid()
@@ -159,6 +217,8 @@ EXTERNC int dmtcp_enable_ckpt(DMTCP_VOID) __attribute__ ((weak));
 // See: test/plugin/sleep1 dir and sibling directories for examples:
 EXTERNC void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
   __attribute((weak));
+
+EXTERNC void dmtcp_initialize_plugin(void) __attribute((weak));
 
 // See: test/plugin/example-db dir for an example:
 EXTERNC int dmtcp_send_key_val_pair_to_coordinator(const char *id,
@@ -311,6 +371,11 @@ EXTERNC int dmtcp_must_ckpt_file(const char *path) __attribute((weak));
 EXTERNC void dmtcp_get_new_file_path(const char *abspath, const char *cwd,
                                      char *newpath)
   __attribute((weak));
+
+
+EXTERNC void dmtcp_prepare_wrappers(void) __attribute((weak));
+
+EXTERNC void dmtcp_register_plugin(DmtcpPluginDescriptor_t);
 
 #define dmtcp_process_event(e,d) \
     __REPLACE_dmtcp_process_event_WITH_dmtcp_event_hook()__
