@@ -16,7 +16,7 @@ struct keyPid {
   pid_t pid;
 } mystruct, mystruct_other;
 
-void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
+static void example_db_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   uint32_t sizeofPid;
 
@@ -76,7 +76,6 @@ void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
   default:
     break;
   }
-  DMTCP_NEXT_EVENT_HOOK(event, data);
 }
 
 static DmtcpBarrier exampledbBarriers[] = {
@@ -95,7 +94,7 @@ DmtcpPluginDescriptor_t example_db_plugin = {
   "dmtcp@ccs.neu.edu",
   "Example-db Plugin",
   DMTCP_DECL_BARRIERS(exampledbBarriers),
-  NULL
+  example_db_event_hook
 };
 
 DMTCP_DECL_PLUGIN(example_db_plugin);

@@ -51,7 +51,7 @@ static void restart()
   readAndSetEnv(buf, size);
 }
 
-void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
+static void modify_env_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   /* NOTE:  See warning in plugin/README about calls to printf here. */
   switch (event) {
@@ -61,7 +61,6 @@ void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
   default:
     break;
   }
-  DMTCP_NEXT_EVENT_HOOK(event, data);
 }
 
 static DmtcpBarrier modify_env_barriers[] = {
@@ -76,7 +75,7 @@ DmtcpPluginDescriptor_t modify_env_plugin = {
   "dmtcp@ccs.neu.edu",
   "Modify-Environment Plugin",
   DMTCP_DECL_BARRIERS(modify_env_barriers),
-  NULL
+  modify_env_event_hook
 };
 
 DMTCP_DECL_PLUGIN(modify_env_plugin);

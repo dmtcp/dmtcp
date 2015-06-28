@@ -43,16 +43,12 @@ void dmtcp_EventConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
 void dmtcp_FileConn_ProcessFdEvent(int event, int arg1, int arg2);
 void dmtcp_SocketConn_ProcessFdEvent(int event, int arg1, int arg2);
 void dmtcp_EventConn_ProcessFdEvent(int event, int arg1, int arg2);
-extern "C"
-void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
+static void ipc_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   dmtcp_SSH_EventHook(event, data);
   dmtcp_FileConnList_EventHook(event, data);
   dmtcp_SocketConnList_EventHook(event, data);
   dmtcp_EventConnList_EventHook(event, data);
-
-  DMTCP_NEXT_EVENT_HOOK(event, data);
-  return;
 }
 
 static DmtcpBarrier fileBarriers[] = {
@@ -161,12 +157,9 @@ DmtcpPluginDescriptor_t ipcPlugin = {
   "dmtcp@ccs.neu.edu",
   "IPC Virtualization Plugin",
   DMTCP_NO_PLUGIN_BARRIERS,
-  NULL
+  ipc_event_hook
 };
 
-#if 1
-DMTCP_DECL_PLUGIN(ipcPlugin);
-#else
 EXTERNC void dmtcp_initialize_plugin()
 {
   dmtcp_register_plugin(sshPlugin);
@@ -179,7 +172,6 @@ EXTERNC void dmtcp_initialize_plugin()
     (*fn)();
   }
 }
-#endif
 
 /*
  *

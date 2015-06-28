@@ -17,7 +17,7 @@ unsigned int sleep(unsigned int seconds) {
   return result;
 }
 
-void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
+static void sleep1_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   /* NOTE:  See warning in plugin/README about calls to printf here. */
   switch (event) {
@@ -31,9 +31,6 @@ void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
   default:
     ;
   }
-
-  /* Call this next line in order to pass DMTCP events to later plugins. */
-  DMTCP_NEXT_EVENT_HOOK(event, data);
 }
 
 DmtcpPluginDescriptor_t sleep1_plugin = {
@@ -44,7 +41,7 @@ DmtcpPluginDescriptor_t sleep1_plugin = {
   "dmtcp@ccs.neu.edu",
   "Sleep1 Plugin",
   DMTCP_NO_PLUGIN_BARRIERS,
-  NULL
+  sleep1_event_hook
 };
 
 DMTCP_DECL_PLUGIN(sleep1_plugin);

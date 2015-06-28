@@ -468,7 +468,7 @@ static void restart()
   refill_tun_fd();
 }
 
-void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
+static void tun_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   int i, request, idx, ret, flags, count;
   char *request_name;
@@ -515,7 +515,6 @@ void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
   default:
     break;
   }
-  DMTCP_NEXT_EVENT_HOOK(event, data);
 }
 
 static DmtcpBarrier tunBarriers[] = {
@@ -532,7 +531,7 @@ DmtcpPluginDescriptor_t tun_plugin = {
   "dmtcp@ccs.neu.edu",
   "TUN Plugin",
   DMTCP_DECL_BARRIERS(tunBarriers),
-  NULL
+  tun_event_hook
 };
 
 DMTCP_DECL_PLUGIN(tun_plugin);

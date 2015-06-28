@@ -29,7 +29,7 @@ unsigned int real_sleep(unsigned int seconds) {
   return (*real_fnc)(seconds);
 }
 
-void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
+static void sleep2_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   static void (*next_fnc)() = NULL;/* Same type signature as this fnc */
 
@@ -47,9 +47,6 @@ void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
   default:
     ;
   }
-
-  /* Call this next line in order to pass DMTCP events to later plugins. */
-  DMTCP_NEXT_EVENT_HOOK(event, data);
 }
 
 DmtcpPluginDescriptor_t sleep2_plugin = {
@@ -60,7 +57,7 @@ DmtcpPluginDescriptor_t sleep2_plugin = {
   "dmtcp@ccs.neu.edu",
   "Sleep2 Plugin",
   DMTCP_NO_PLUGIN_BARRIERS,
-  NULL
+  sleep2_event_hook
 };
 
 DMTCP_DECL_PLUGIN(sleep2_plugin);

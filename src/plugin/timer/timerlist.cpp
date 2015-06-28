@@ -50,8 +50,7 @@ static void postRestart()
   TimerList::instance().postRestart();
 }
 
-extern "C"
-void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
+static void timer_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   if (_timerlist != NULL) {
     switch (event) {
@@ -71,8 +70,6 @@ void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
         break;
     }
   }
-
-  DMTCP_NEXT_EVENT_HOOK(event, data);
 }
 
 static DmtcpBarrier timerBarriers[] = {
@@ -88,7 +85,7 @@ DmtcpPluginDescriptor_t timerPlugin = {
   "dmtcp@ccs.neu.edu",
   "IPC Virtualization Plugin",
   DMTCP_DECL_BARRIERS(timerBarriers),
-  NULL
+  timer_event_hook
 };
 
 DMTCP_DECL_PLUGIN(timerPlugin);
