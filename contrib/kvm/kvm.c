@@ -884,9 +884,8 @@ static void restart()
   }
 }
 
-void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
+static void kvm_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
-
   /* NOTE:  See warning in plugin/README about calls to printf here. */
   switch (event) {
     case DMTCP_EVENT_INIT:
@@ -922,7 +921,6 @@ void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     default:
       break;
   }
-  DMTCP_NEXT_EVENT_HOOK(event, data);
 }
 
 static DmtcpBarrier kvmBarriers[] = {
@@ -938,7 +936,7 @@ DmtcpPluginDescriptor_t kvm_plugin = {
   "dmtcp@ccs.neu.edu",
   "KVM Plugin",
   DMTCP_DECL_BARRIERS(kvmBarriers),
-  NULL
+  kvm_event_hook
 };
 
 DMTCP_DECL_PLUGIN(kvm_plugin);

@@ -598,13 +598,48 @@ extern "C" void dmtcp_register_plugin(DmtcpPluginDescriptor_t descr)
 void DmtcpWorker::eventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   static jalib::JBuffer buf(0); // To force linkage of jbuffer.cpp
-  dmtcp_Syslog_EventHook(event, data);
-  dmtcp_Terminal_EventHook(event, data);
-  dmtcp_UniquePid_EventHook(event, data);
-  dmtcp_CoordinatorAPI_EventHook(event, data);
-  dmtcp_ProcessInfo_EventHook(event, data);
-  dmtcp_Alarm_EventHook(event, data);
-  if (dmtcp_event_hook != NULL) {
-    dmtcp_event_hook(event, data);
+
+  switch (event) {
+    // case DMTCP_EVENT_WRAPPER_INIT, // Future Work :-).
+    case DMTCP_EVENT_INIT:
+
+    case DMTCP_EVENT_PRE_EXEC:
+    case DMTCP_EVENT_POST_EXEC:
+
+    case DMTCP_EVENT_ATFORK_PARENT:
+    case DMTCP_EVENT_ATFORK_CHILD:
+
+    case DMTCP_EVENT_WAIT_FOR_SUSPEND_MSG:
+    case DMTCP_EVENT_THREADS_SUSPEND:
+    case DMTCP_EVENT_LEADER_ELECTION:
+    case DMTCP_EVENT_DRAIN:
+    case DMTCP_EVENT_WRITE_CKPT:
+    case DMTCP_EVENT_PRE_SUSPEND_USER_THREAD:
+
+    case DMTCP_EVENT_THREAD_START:
+    case DMTCP_EVENT_THREAD_CREATED:
+
+    case DMTCP_EVENT_PTHREAD_START:
+
+    case DMTCP_EVENT_EXIT:
+    case DMTCP_EVENT_PTHREAD_EXIT:
+    case DMTCP_EVENT_PTHREAD_RETURN:
+
+    case DMTCP_EVENT_ATFORK_PREPARE:
+
+    case DMTCP_EVENT_RESTART:
+    case DMTCP_EVENT_RESUME:
+    case DMTCP_EVENT_REGISTER_NAME_SERVICE_DATA:
+    case DMTCP_EVENT_SEND_QUERIES:
+    case DMTCP_EVENT_REFILL:
+    case DMTCP_EVENT_THREADS_RESUME:
+
+    case DMTCP_EVENT_RESUME_USER_THREAD:
+      for (size_t i = 0; i < pluginDescriptors->size(); i++) {
+        (*pluginDescriptors)[i].event_hook(event, data);
+      }
+      break;
+    default:
+      JASSERT(false) (event) .Text("Not Reachable");
   }
 }

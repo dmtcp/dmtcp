@@ -3,7 +3,7 @@
 #include "config.h"
 
 
-void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
+static void applic_delayed_ckpt_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   /* NOTE:  See warning in plugin/README about calls to printf here. */
   switch (event) {
@@ -35,7 +35,6 @@ void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
   default:
     break;
   }
-  DMTCP_NEXT_EVENT_HOOK(event, data);
 }
 
 DmtcpPluginDescriptor_t applic_delayed_ckpt_plugin = {
@@ -46,7 +45,7 @@ DmtcpPluginDescriptor_t applic_delayed_ckpt_plugin = {
   "dmtcp@ccs.neu.edu",
   "Application delayed ckpt plugin",
   DMTCP_NO_PLUGIN_BARRIERS,
-  NULL
+  applic_delayed_ckpt_event_hook
 };
 
 DMTCP_DECL_PLUGIN(applic_delayed_ckpt_plugin);

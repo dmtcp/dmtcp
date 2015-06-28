@@ -194,7 +194,7 @@ static void pidVirt_ThreadExit(DmtcpEventData_t *data)
   VirtualPidTable::instance().erase(tid);
 }
 
-extern "C" void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
+static void pid_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   switch (event) {
     case DMTCP_EVENT_ATFORK_PARENT:
@@ -231,9 +231,6 @@ extern "C" void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     default:
       break;
   }
-
-  DMTCP_NEXT_EVENT_HOOK(event, data);
-  return;
 }
 
 static DmtcpBarrier pidBarriers[] = {
@@ -249,7 +246,7 @@ DmtcpPluginDescriptor_t pidPlugin = {
   "dmtcp@ccs.neu.edu",
   "PID Virtualization Plugin",
   DMTCP_DECL_BARRIERS(pidBarriers),
-  NULL
+  pid_event_hook
 };
 
 DMTCP_DECL_PLUGIN(pidPlugin);

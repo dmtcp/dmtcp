@@ -3,7 +3,7 @@
 #include "config.h"
 
 
-void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
+static void example_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   /* NOTE:  See warning in plugin/README about calls to printf here. */
   switch (event) {
@@ -37,7 +37,6 @@ void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
   default:
     break;
   }
-  DMTCP_NEXT_EVENT_HOOK(event, data);
 }
 
 DmtcpPluginDescriptor_t example_plugin = {
@@ -48,7 +47,7 @@ DmtcpPluginDescriptor_t example_plugin = {
   "dmtcp@ccs.neu.edu",
   "Example Plugin",
   DMTCP_NO_PLUGIN_BARRIERS,
-  NULL
+  example_event_hook
 };
 
 DMTCP_DECL_PLUGIN(example_plugin);

@@ -3,7 +3,8 @@
 #include "config.h"
 
 
-void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
+static void applic_initiated_ckpt_event_hook(DmtcpEvent_t event,
+                                      DmtcpEventData_t *data)
 {
   /* NOTE:  See warning in plugin/README about calls to printf here. */
   switch (event) {
@@ -35,8 +36,8 @@ void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
   default:
     break;
   }
-  DMTCP_NEXT_EVENT_HOOK(event, data);
 }
+
 DmtcpPluginDescriptor_t applic_initiated_ckpt_plugin = {
   DMTCP_PLUGIN_API_VERSION,
   PACKAGE_VERSION,
@@ -45,7 +46,7 @@ DmtcpPluginDescriptor_t applic_initiated_ckpt_plugin = {
   "dmtcp@ccs.neu.edu",
   "Application initiated ckpt plugin",
   DMTCP_NO_PLUGIN_BARRIERS,
-  NULL
+  applic_initiated_ckpt_event_hook
 };
 
 DMTCP_DECL_PLUGIN(applic_initiated_ckpt_plugin);

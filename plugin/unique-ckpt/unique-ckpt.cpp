@@ -30,7 +30,7 @@ void updateCkptDir()
   dmtcp_set_ckpt_dir(o.str().c_str());
 }
 
-void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
+static void unique_ckpt_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   switch (event) {
     case DMTCP_EVENT_THREADS_SUSPEND:
@@ -40,7 +40,6 @@ void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     default:
       break;
   }
-  DMTCP_NEXT_EVENT_HOOK(event, data);
 }
 
 static DmtcpBarrier unique_ckpt_barriers[] = {
@@ -55,7 +54,7 @@ DmtcpPluginDescriptor_t unique_ckpt_plugin = {
   "dmtcp@ccs.neu.edu",
   "Unique-ckpt filename plugin",
   DMTCP_DECL_BARRIERS(unique_ckpt_barriers),
-  NULL
+  unique_ckpt_event_hook
 };
 
 DMTCP_DECL_PLUGIN(unique_ckpt_plugin);

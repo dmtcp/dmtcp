@@ -25,7 +25,7 @@ static void pre_ckpt()
   dmtcp_set_coord_ckpt_dir(newCkptDir);
 }
 
-void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
+static void snooze_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   switch (event) {
   case DMTCP_EVENT_WRITE_CKPT:
@@ -36,9 +36,6 @@ void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
   default:
     ;
   }
-
-  /* Call this next line in order to pass DMTCP events to later plugins. */
-  DMTCP_NEXT_EVENT_HOOK(event, data);
 }
 
 static DmtcpBarrier snoozeBarriers[] = {
@@ -53,7 +50,7 @@ DmtcpPluginDescriptor_t snooze_plugin = {
   "dmtcp@ccs.neu.edu",
   "Snooze Plugin",
   DMTCP_DECL_BARRIERS(snoozeBarriers),
-  NULL
+  snooze_event_hook
 };
 
 DMTCP_DECL_PLUGIN(snooze_plugin);

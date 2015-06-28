@@ -63,7 +63,7 @@ static void do_unlock() {
   JASSERT(pthread_mutex_unlock(&_lock) == 0);
 }
 
-void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t* data)
+static void ib2tcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t* data)
 {
   switch (event) {
   case DMTCP_EVENT_WRITE_CKPT:
@@ -91,8 +91,6 @@ void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t* data)
   default:
     break;
   }
-
-  DMTCP_NEXT_EVENT_HOOK(event, data);
 }
 
 
@@ -111,7 +109,7 @@ DmtcpPluginDescriptor_t ib2tcp_plugin = {
   "dmtcp@ccs.neu.edu",
   "IB2TCP Plugin",
   DMTCP_DECL_BARRIERS(ib2tcpBarriers),
-  NULL
+  ib2tcp_event_hook
 };
 
 DMTCP_DECL_PLUGIN(ib2tcp_plugin);

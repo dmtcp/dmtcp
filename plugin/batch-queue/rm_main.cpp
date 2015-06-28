@@ -33,7 +33,7 @@
 
 using namespace dmtcp;
 
-extern "C" int dmtcp_batch_queue_enabled(void) { return 1; }
+EXTERNC int dmtcp_batch_queue_enabled(void) { return 1; }
 
 static void pre_ckpt()
 {
@@ -65,7 +65,7 @@ static void restart_resume()
   slurmRestoreHelper(true);
 }
 
-void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t* data)
+static void batch_queue_event_hook(DmtcpEvent_t event, DmtcpEventData_t* data)
 {
   JTRACE("Start");
 
@@ -86,8 +86,6 @@ void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t* data)
   default:
     break;
   }
-
-  DMTCP_NEXT_EVENT_HOOK(event, data);
 }
 
 static DmtcpBarrier rmBarriers[] = {
@@ -105,10 +103,11 @@ DmtcpPluginDescriptor_t batch_queue_plugin = {
   "dmtcp@ccs.neu.edu",
   "Batch-queue Plugin",
   DMTCP_DECL_BARRIERS(rmBarriers),
-  NULL
+  batch_queue_event_hook
 };
 
 DMTCP_DECL_PLUGIN(batch_queue_plugin);
+
 
 // ----------------- global data ------------------------//
 static rmgr_type_t rmgr_type = Empty;

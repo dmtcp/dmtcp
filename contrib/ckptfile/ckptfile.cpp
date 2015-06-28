@@ -166,7 +166,7 @@ restart()
 }
 
 #ifndef STANDALONE
-extern "C" void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
+static void ckpfile_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   switch (event) {
     case DMTCP_EVENT_THREADS_SUSPEND:
@@ -180,9 +180,6 @@ extern "C" void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     default:
       break;
   }
-
-  DMTCP_NEXT_EVENT_HOOK(event, data);
-  return;
 }
 #else
 int main()
@@ -206,7 +203,7 @@ DmtcpPluginDescriptor_t ckpfile_plugin = {
   "dmtcp@ccs.neu.edu",
   "ckptfile Plugin",
   DMTCP_DECL_BARRIERS(ckptfileBarriers),
-  NULL
+  ckpfile_event_hook
 };
 
 DMTCP_DECL_PLUGIN(ckpfile_plugin);

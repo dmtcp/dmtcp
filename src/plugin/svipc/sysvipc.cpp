@@ -146,7 +146,7 @@ static void restartResume()
   SysVMsq::instance().preResume();
 }
 
-extern "C" void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
+static void svipc_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   switch (event) {
     case DMTCP_EVENT_ATFORK_CHILD:
@@ -208,7 +208,6 @@ extern "C" void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     default:
       break;
   }
-  DMTCP_NEXT_EVENT_HOOK(event, data);
 }
 
 static DmtcpBarrier svipcBarriers[] = {
@@ -232,7 +231,7 @@ DmtcpPluginDescriptor_t svipcPlugin = {
   "dmtcp@ccs.neu.edu",
   "Sys V IPC Virtualization Plugin",
   DMTCP_DECL_BARRIERS(svipcBarriers),
-  NULL
+  svipc_event_hook
 };
 
 DMTCP_DECL_PLUGIN(svipcPlugin);

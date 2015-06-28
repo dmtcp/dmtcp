@@ -192,8 +192,7 @@ static void restart()
 }
 
 
-extern "C" void
-dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
+static void ckpttimer_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   sigset_t mask;
 
@@ -230,7 +229,6 @@ dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     default:
       break;
   }
-  DMTCP_NEXT_EVENT_HOOK(event, data);
 }
 
 static DmtcpBarrier ckpttimerBarriers[] = {
@@ -247,7 +245,7 @@ DmtcpPluginDescriptor_t ckpttimer_plugin = {
   "dmtcp@ccs.neu.edu",
   "Ckpttimer Plugin",
   DMTCP_DECL_BARRIERS(ckpttimerBarriers),
-  NULL
+  ckpttimer_event_hook
 };
 
 DMTCP_DECL_PLUGIN(ckpttimer_plugin);
