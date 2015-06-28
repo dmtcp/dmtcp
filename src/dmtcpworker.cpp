@@ -56,6 +56,10 @@ EXTERNC int __register_atfork(void (*prepare)(void), void (*parent)(void),
 
 EXTERNC void *ibv_get_device_list(void *) __attribute__((weak));
 
+/* The following instance of the DmtcpWorker is just to trigger the constructor
+ * to allow us to hijack the process
+ */
+DmtcpWorker DmtcpWorker::theInstance;
 bool DmtcpWorker::_exitInProgress = false;
 
 void restoreUserLDPRELOAD()
@@ -298,12 +302,6 @@ static void installSegFaultHandler()
   act.sa_flags = SA_SIGINFO;
   JASSERT (sigaction(SIGSEGV, &act, NULL) == 0) (JASSERT_ERRNO);
 }
-
-
-/* The following instance of the DmtcpWorker is just to trigger the constructor
- * to allow us to hijack the process
- */
-DmtcpWorker DmtcpWorker::theInstance;
 
 //called before user main()
 //workerhijack.cpp initializes a static variable theInstance to DmtcpWorker obj
