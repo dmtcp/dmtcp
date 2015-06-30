@@ -262,6 +262,7 @@ static void prepareForExec(char *const argv[], char ***newArgv)
   //find command part
   size_t commandStart = 2;
   for (size_t i = 1; i < nargs; ++i) {
+    string s = argv[i];
     if (strcmp(argv[i], "-o") == 0) {
       if (strcmp(argv[i+1], "StrictHostKeyChecking=no") == 0) {
         noStrictChecking = true;
@@ -269,6 +270,25 @@ static void prepareForExec(char *const argv[], char ***newArgv)
       i++;
       continue;
     }
+
+    // The following flags have additional parameters and aren't fully
+    // supported. We simply forward them to the ssh command.
+    if (s == "-b" || s == "-c" || s == "-E" || s == "-e" || s == "-F" ||
+        s == "-I" || s == "-i" || s == "-l" || s == "-O" || s == "-o" ||
+        s == "-p" || s == "-Q" || s == "-S") {
+      i++;
+      continue;
+    }
+
+    // These options have a higer probability of failure due to binding
+    // addresses, etc.
+    if (s == "-b" || s == "-D" || s == "-L" || s == "-m" || s == "-R" ||
+        s == "-W" || s == "-w") {
+      JNOTE("The '" + s + "' ssh option isn't fully supported!");
+      i++;
+      continue;
+    }
+
     if (argv[i][0] != '-') {
       commandStart = i + 1;
       break;
