@@ -22,30 +22,17 @@
 #include <stdio.h>
 
 #include "dmtcp.h"
-#include "jassert.h"
 
 #ifdef ALARM_PLUGIN_DEBUG
-# undef JTRACE
-# define JTRACE JNOTE
+# define DEBUG
 #endif
-
-#define _next_alarm NEXT_FNC(alarm)
-
-bool g_usealarm = false; 
+#include "jassert.h"
 
 /* File local functions  */
 static unsigned
 start_stop_alarm(unsigned int timeout)
 {
   return alarm(timeout);
-}
-
-/* Wrapper to determine if the application is using alarm */
-extern "C" unsigned int
-alarm(unsigned int seconds)
-{
-  g_usealarm = true;
-  return _next_alarm(seconds);
 }
 
 extern "C" void
@@ -61,10 +48,8 @@ dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     case DMTCP_EVENT_WRITE_CKPT:
       {
         JTRACE("*** The plugin is being called before checkpointing. ***");
-        if (g_usealarm) {
-          l_timeleft = start_stop_alarm(0);
-          JTRACE("*** Alarm stopped. ***") (l_timeleft);
-        }
+        l_timeleft = start_stop_alarm(0);
+        JTRACE("*** Alarm stopped. ***") (l_timeleft);
         break;
       }
     case DMTCP_EVENT_THREADS_RESUME:
@@ -75,7 +60,7 @@ dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
           JTRACE("The process is now resuming after checkpoint.");
         }
         /* Need to restart the timer on resume/restart. */
-        if (g_usealarm) {
+        if (l_timeleft > 0) {
           JTRACE("*** Resuming alarm. ***") (l_timeleft);
           l_timeleft = start_stop_alarm(l_timeleft);
         }
