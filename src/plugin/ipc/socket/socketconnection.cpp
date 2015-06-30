@@ -202,7 +202,7 @@ TcpConnection& TcpConnection::asTcp()
   return *this;
 }
 
-#ifdef MPISPAWN_WORKAROUND
+#ifdef STAMPEDE_MPISPAWN_FIX
 static int
 getMPISpawnPortNum(const char* envVar)
 {
@@ -235,7 +235,7 @@ bool TcpConnection::isBlacklistedTcp(const sockaddr* saddr, socklen_t len)
     int blacklistedRemotePorts[] = {53,                 // DNS Server
                                     389, 636,           // LDAP
                                     -1};
-#ifdef MPISPAWN_WORKAROUND
+#ifdef STAMPEDE_MPISPAWN_FIX
     int mpispawnPort = getMPISpawnPortNum("PMI_PORT");
     JTRACE("PMI_PORT port") (mpispawnPort) (ntohs(addr->sin_port));
     JASSERT(mpispawnPort != 0).Text("PMI_PORT not found");
