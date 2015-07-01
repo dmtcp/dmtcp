@@ -240,7 +240,7 @@ static const char* theRestartScriptCmdlineArgHandler =
   "        --coord-host|--host|-h)\n"
   "          coord_host=\"$2\"\n"
   "          shift; shift;;\n"
-  "        --coord=port|--port|-p)\n"
+  "        --coord_port|--port|-p)\n"
   "          coord_port=\"$2\"\n"
   "          shift; shift;;\n"
   "        --hostfile)\n"
@@ -1809,7 +1809,7 @@ int main ( int argc, char** argv )
                isdigit(argv[0][2])) { // else if -i5, for example
       setenv(ENV_VAR_CKPT_INTR, argv[0]+2, 1);
       shift;
-    } else if (argc>1 && (s == "-p" || s == "--port")) {
+    } else if (argc>1 && (s == "-p" || s == "--port" || s == "--coord-port")) {
       thePort = jalib::StringToInt( argv[1] );
       shift; shift;
     } else if (argv[0][0] == '-' && argv[0][1] == 'p' &&
