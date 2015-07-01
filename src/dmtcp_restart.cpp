@@ -554,7 +554,7 @@ int main(int argc, char** argv)
 	     "This is dangerous.  Aborting for security reasons.\n" \
              "If you still want to do this (at your own risk),\n" \
              "  then modify dmtcp/src/%s:%d and re-compile.\n",
-             getuid(), buf.st_uid, restorename.c_str(), __FILE__, __LINE__ - 6);
+             getuid(), buf.st_uid, restorename.c_str(), __FILE__, __LINE__ - 7);
       doAbort = true;
     }
     if (doAbort) {
