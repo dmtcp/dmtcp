@@ -240,7 +240,7 @@ static const char* theRestartScriptCmdlineArgHandler =
   "        --coord-host|--host|-h)\n"
   "          coord_host=\"$2\"\n"
   "          shift; shift;;\n"
-  "        --coord_port|--port|-p)\n"
+  "        --coord-port|--port|-p)\n"
   "          coord_port=\"$2\"\n"
   "          shift; shift;;\n"
   "        --hostfile)\n"
