@@ -306,7 +306,7 @@ static void prepareForExec(char *const argv[], char ***newArgv)
   dmtcp_sshd_path = Util::getPath("dmtcp_sshd");
   dmtcp_nocheckpoint_path = Util::getPath("dmtcp_nocheckpoint");
 
-  prefix = dmtcp_launch_path + " --ssh-slave ";
+  prefix = dmtcp_launch_path + " ";
   for(size_t i = 0; i < dmtcp_args.size(); i++){
     prefix += dmtcp_args[i] + " ";
   }

@@ -144,7 +144,6 @@ static const char* theUsage =
 // ;
 
 static bool disableAllPlugins=false;
-static bool isSSHSlave=false;
 static bool checkpointOpenFiles=false;
 
 static bool enablePtracePlugin=false;
@@ -226,9 +225,6 @@ static void processArgs(int *orig_argc, char ***orig_argv,
     } else if ((s=="--version") && argc==1) {
       printf("%s", DMTCP_VERSION_AND_COPYRIGHT_INFO);
       exit(DMTCP_FAIL_RC);
-    } else if (s=="--ssh-slave") {
-      isSSHSlave = true;
-      shift;
     } else if (s == "-j" || s == "--join") {
       allowedModes = COORD_JOIN;
       shift;
