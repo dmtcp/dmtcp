@@ -4,3 +4,4 @@ compiler:
 
 script: ./configure && make -j4
 
+after_success: make -j4 check
