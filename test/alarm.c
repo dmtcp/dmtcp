@@ -14,6 +14,6 @@ main()
 {
   signal(SIGALRM, handle_alarm);
   alarm(15);
-  while (1);
+  while (1) sleep(1);
   return 0;
 }

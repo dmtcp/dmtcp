@@ -25,30 +25,23 @@
 
 #include "jassert.h"
 
-/* File local functions  */
-static unsigned
-start_stop_alarm(unsigned int timeout)
-{
-  return alarm(timeout);
-}
-
 void
 dmtcp_Alarm_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
-  static unsigned int l_timeleft = 0;
+  static unsigned int timeLeft = 0;
   switch (event) {
     case DMTCP_EVENT_WRITE_CKPT:
       {
-        l_timeleft = start_stop_alarm(0);
-        JTRACE("*** Alarm stopped. ***") (l_timeleft);
+        timeLeft = alarm(0);
+        JTRACE("*** Alarm stopped. ***") (timeLeft);
         break;
       }
     case DMTCP_EVENT_THREADS_RESUME:
       {
         /* Need to restart the timer on resume/restart. */
-        if (l_timeleft > 0) {
-          JTRACE("*** Resuming alarm. ***") (l_timeleft);
-          l_timeleft = start_stop_alarm(l_timeleft);
+        if (timeLeft > 0) {
+          JTRACE("*** Resuming alarm. ***") (timeLeft);
+          timeLeft = alarm(timeLeft);
         }
         break;
       }
