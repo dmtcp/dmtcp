@@ -600,6 +600,7 @@ void dmtcp_UniquePid_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
 void dmtcp_ProcName_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
 void dmtcp_Terminal_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
 void dmtcp_Syslog_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
+void dmtcp_Alarm_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
 
 void DmtcpWorker::eventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
@@ -611,6 +612,7 @@ void DmtcpWorker::eventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
   dmtcp_CoordinatorAPI_EventHook(event, data);
   dmtcp_SharedData_EventHook(event, data);
   dmtcp_ProcessInfo_EventHook(event, data);
+  dmtcp_Alarm_EventHook(event, data);
   if (dmtcp_event_hook != NULL) {
     dmtcp_event_hook(event, data);
   }
