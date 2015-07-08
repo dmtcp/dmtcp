@@ -367,7 +367,7 @@ static void dmtcpProcessFailedExec(const char *path, char *newArgv[])
 }
 
 static string getUpdatedLdPreload(const char* filename,
-                                  const char* currLdPreload = NULL)
+                                  const char* currLdPreload)
 {
   string preload = getenv(ENV_VAR_HIJACK_LIBS);
 
@@ -421,55 +421,29 @@ static bool isImportantEnv (string str)
   return false;
 }
 
-static vector<string> copyUserEnv (char *const envp[])
+static vector<string> patchUserEnv (char *const envp[], const char* filename)
 {
-  vector<string> strStorage;
-
-  ostringstream out;
-  out << "non-DMTCP env vars:\n";
-  for (; *envp != NULL; ++envp) {
-    if (isImportantEnv (*envp)) {
-      if (dbg) {
-        out << "     skipping: " << *envp << '\n';
-      }
-      continue;
-    }
-    string e(*envp);
-    strStorage.push_back (e);
-    if (dbg) {
-      out << "     addenv[user]:" << strStorage.back() << '\n';
-    }
-  }
-  JTRACE("Creating a copy of (non-DMTCP) user env vars...") (out.str());
-
-  return strStorage;
-}
-
-static
-vector<const char*> patchUserEnv (vector<string> &envp,
-                                         const char* filename)
-{
-  vector<const char*> envVect;
-  const char *userPreloadStr = NULL;
+  vector<string> envVect;
+  string userPreloadStr;
   envVect.clear();
   JASSERT(envVect.size() == 0);
 
   ostringstream out;
   out << "non-DMTCP env vars:\n";
 
-  for (size_t i = 0; i < envp.size(); i++) {
-    if (isImportantEnv (envp[i].c_str())) {
+  for (; *envp != NULL; envp++) {
+    if (isImportantEnv (*envp)) {
       if (dbg) {
-        out << "     skipping: " << envp[i] << '\n';
+        out << "     skipping: " << *envp << '\n';
       }
       continue;
     }
-    if (Util::strStartsWith(envp[i], "LD_PRELOAD=")) {
-      userPreloadStr = envp[i].c_str() + strlen("LD_PRELOAD=");
+    if (Util::strStartsWith(*envp, "LD_PRELOAD=")) {
+      userPreloadStr = (*envp) + strlen("LD_PRELOAD=");
       continue;
     }
 
-    envVect.push_back (envp[i].c_str());
+    envVect.push_back(*envp);
     if (dbg) {
       out << "     addenv[user]:" << envVect.back() << '\n';
     }
@@ -479,16 +453,12 @@ vector<const char*> patchUserEnv (vector<string> &envp,
   //pack up our ENV into the new ENV
   out.str("DMTCP env vars:\n");
   for (size_t i=0; i<ourImportantEnvsCnt; ++i) {
-    const char* v = getenv (ourImportantEnvs[i]);
-    string e = ourImportantEnvs[i];
-    if (strcmp(ourImportantEnvs[i], ENV_VAR_ORIG_LD_PRELOAD) == 0 &&
-        userPreloadStr != NULL && strlen(userPreloadStr) > 0) {
-      envp.push_back(e + "=" + userPreloadStr);
+    const char* v = getenv(ourImportantEnvs[i]);
+    const string e = ourImportantEnvs[i];
+    if (e == ENV_VAR_ORIG_LD_PRELOAD && !userPreloadStr.empty()) {
+      envVect.push_back(e + "=" + userPreloadStr);
     } else if (v != NULL) {
-      envp.push_back (e + '=' + v);
-      const char *ptr = envp.back().c_str();
-      JASSERT(ptr != NULL);
-      envVect.push_back(ptr);
+      envVect.push_back (e + '=' + v);
       if (dbg) {
         out << "     addenv[dmtcp]:" << envVect.back() << '\n';
       }
@@ -496,19 +466,15 @@ vector<const char*> patchUserEnv (vector<string> &envp,
   }
 
   string ldPreloadStr = "LD_PRELOAD=";
-  ldPreloadStr += getUpdatedLdPreload(filename, userPreloadStr);
+  ldPreloadStr += getUpdatedLdPreload(filename, userPreloadStr.c_str());
 
-  envp.push_back(ldPreloadStr);
-  envVect.push_back(envp.back().c_str());
+  envVect.push_back(ldPreloadStr);
   if (dbg) {
     out << "     addenv[dmtcp]:" << envVect.back() << '\n';
   }
 
-  JTRACE("patching user envp...")  (out.str());
+  JTRACE("Patched user envp...")  (out.str());
 
-  envVect.push_back (NULL);
-
-  JTRACE("Done patching environ");
   return envVect;
 }
 
@@ -526,15 +492,18 @@ extern "C" int execve (const char *filename, char *const argv[],
    */
   WRAPPER_EXECUTION_GET_EXCL_LOCK();
 
-  vector<string> origUserEnv = copyUserEnv(envp);
-
   char *newFilename;
   char **newArgv;
   dmtcpPrepareForExec(filename, argv, &newFilename, &newArgv);
 
-  vector<const char*> envVect = patchUserEnv(origUserEnv, filename);
+  vector<string> envVect = patchUserEnv(envp, filename);
+  vector<const char*> newEnv;
+  for (size_t i = 0; i < envVect.size(); i++) {
+    newEnv.push_back(envVect[i].c_str());
+  }
+  newEnv.push_back(NULL);
 
-  int retVal = _real_execve (newFilename, newArgv, (char* const*)&envVect[0]);
+  int retVal = _real_execve (newFilename, newArgv, (char* const*)&newEnv[0]);
 
   dmtcpProcessFailedExec(filename, newArgv);
 
@@ -563,7 +532,7 @@ extern "C" int execvp (const char *filename, char *const argv[])
   char *newFilename;
   char **newArgv;
   dmtcpPrepareForExec(filename, argv, &newFilename, &newArgv);
-  setenv("LD_PRELOAD", getUpdatedLdPreload(filename).c_str(), 1);
+  setenv("LD_PRELOAD", getUpdatedLdPreload(filename, NULL).c_str(), 1);
 
   int retVal = _real_execvp (newFilename, newArgv);
 
@@ -587,15 +556,18 @@ extern "C" int execvpe (const char *filename, char *const argv[],
    */
   WRAPPER_EXECUTION_GET_EXCL_LOCK();
 
-  vector<string> origUserEnv = copyUserEnv(envp);
-
   char *newFilename;
   char **newArgv;
   dmtcpPrepareForExec(filename, argv, &newFilename, &newArgv);
 
-  vector<const char*> envVect = patchUserEnv(origUserEnv, filename);
+  vector<string> envVect = patchUserEnv(envp, filename);
+  vector<const char*> newEnv;
+  for (size_t i = 0; i < envVect.size(); i++) {
+    newEnv.push_back(envVect[i].c_str());
+  }
+  newEnv.push_back(NULL);
 
-  int retVal = _real_execvpe(newFilename, newArgv, (char* const*)&envVect[0]);
+  int retVal = _real_execvpe(newFilename, newArgv, (char* const*)&newEnv[0]);
 
   dmtcpProcessFailedExec(filename, newArgv);
 
