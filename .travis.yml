@@ -1,6 +1,8 @@
+# Allow containerized builds.
+sudo: false
+
 language: cpp
 compiler:
   - gcc
 
-script: ./configure && make -j4
-
+script: ./configure && make -j4 && make tests && ./test/autotest.py --retry-once
