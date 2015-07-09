@@ -518,38 +518,6 @@ void FileConnection::doLocking()
   _ckpted_file = false;
 }
 
-void FileConnection::handleUnlinkedFile()
-{
-  if ((!jalib::Filesystem::FileExists(_path) && !_isBlacklistedFile(_path)) ||
-      _type == FILE_DELETED ||
-      Util::strStartsWith(jalib::Filesystem::BaseName(_path), ".nfs")) {
-    /* File not present in Filesystem.
-     * /proc/self/fd lists filename of unlink()ed files as:
-     *   "<original_file_name>(deleted)"
-     */
-    string currPath = jalib::Filesystem::GetDeviceName(_fds[0]);
-
-    if (Util::strEndsWith(currPath, DELETED_FILE_SUFFIX)) {
-      JTRACE("Deleted file") (_path);
-      _type = FILE_DELETED;
-    } else if (Util::strStartsWith(jalib::Filesystem::BaseName(currPath),
-                                   ".nfs")) {
-      JTRACE("Deleted NFS file.") (_path) (currPath);
-      _type = FILE_DELETED;
-      _path = currPath;
-    } else {
-      string currPath = jalib::Filesystem::GetDeviceName(_fds[0]);
-      if (jalib::Filesystem::FileExists(currPath)) {
-        _path = currPath;
-        return;
-      }
-      JASSERT(_type == FILE_DELETED) (_path) (currPath)
-        .Text("File not found on disk and yet the filename doesn't "
-              "contain the suffix '(deleted)'");
-    }
-  }
-}
-
 void FileConnection::calculateRelativePath()
 {
   string cwd = jalib::Filesystem::GetCWD();
@@ -566,10 +534,6 @@ void FileConnection::drain()
   struct stat statbuf;
   JASSERT(_fds.size() > 0);
 
-  handleUnlinkedFile();
-
-  calculateRelativePath();
-
   _ckpted_file = false;
 
   // Read the current file descriptor offset
@@ -582,6 +546,20 @@ void FileConnection::drain()
   if (_type == FILE_PROCFS) {
     return;
   }
+
+  if (statbuf.st_nlink == 0) {
+    _type = FILE_DELETED;
+  } else if (Util::strStartsWith(jalib::Filesystem::BaseName(_path), ".nfs")) {
+    // Files deleted on NFS have the .nfsXXXX format.
+    _type = FILE_DELETED;
+  } else {
+    // Update _path to reflect the current state. The file path might be a new
+    // one after restart and if the current process wasn't the leader, it never
+    // had a chance to update the _path. Update it now.
+    _path = jalib::Filesystem::GetDeviceName(_fds[0]);
+  }
+
+  calculateRelativePath();
 
   // If this file is related to supported Resource Management system
   // handle it specially

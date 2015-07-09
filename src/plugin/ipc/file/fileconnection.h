@@ -156,7 +156,6 @@ namespace dmtcp
     private:
       int  openFile();
       void refreshPath();
-      void handleUnlinkedFile();
       void calculateRelativePath();
       string getSavedFilePath(const string& path);
 
