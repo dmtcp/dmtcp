@@ -54,6 +54,8 @@ static Thread *threads_freelist = NULL;
 static pthread_mutex_t threadlistLock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t threadStateLock = PTHREAD_MUTEX_INITIALIZER;
 
+static pthread_rwlock_t *threadResumeLock = NULL;
+
 static __thread Thread *curThread = NULL;
 static Thread *ckptThread = NULL;
 static int numUserThreads = 0;
@@ -65,7 +67,6 @@ static sem_t semWaitForCkptThreadSignal;
 
 static void *checkpointhread (void *dummy);
 static void suspendThreads();
-static void resumeThreads();
 static void stopthisthread(int sig);
 static int restarthread(void *threadv);
 static int Thread_UpdateState(Thread *th,
@@ -348,6 +349,12 @@ static void *checkpointhread (void *dummy)
     callbackSleepBetweenCheckpoint(0);
 
     restoreInProgress = 0;
+
+    // We need to reinitialize the lock.
+    pthread_rwlock_t rwLock = PTHREAD_RWLOCK_INITIALIZER;
+    threadResumeLock = &rwLock;
+    JASSERT(_real_pthread_rwlock_wrlock(threadResumeLock) == 0) (JASSERT_ERRNO);
+
     suspendThreads();
     SigInfo::saveSigHandlers();
     /* Do this once, same for all threads.  But restore for each thread. */
@@ -396,7 +403,7 @@ static void *checkpointhread (void *dummy)
 
     /* Resume all threads. */
     JTRACE("resuming everything");
-    resumeThreads();
+    JASSERT(_real_pthread_rwlock_unlock(threadResumeLock) == 0) (JASSERT_ERRNO);
     JTRACE("everything resumed");
   }
   return NULL;
@@ -480,14 +487,6 @@ static void suspendThreads()
   JTRACE("everything suspended") (numUserThreads);
 }
 
-static void resumeThreads()
-{
-  int i;
-  for (i = 0; i < numUserThreads; i++) {
-    sem_post(&semWaitForCkptThreadSignal);
-  }
-}
-
 /*************************************************************************
  *
  *  Signal handler for user threads.
@@ -565,7 +564,21 @@ void stopthisthread (int signum)
 
       /* Then wait for the ckpt thread to write the ckpt file then wake us up */
       JTRACE("User thread suspended") (curThread->tid);
-      sem_wait(&semWaitForCkptThreadSignal);
+
+      // We can't use sem_wait here because sem_wait registers a cleanup
+      // handler before going into blocking wait. The handler is popped before
+      // returning from it. However, on restart, the thread will do a longjump
+      // and thus will never come out of the sem_wait, thus the handler is
+      // never popped. This causes a problem later on during pthread_exit. The
+      // pthread_exit routine executes all registered cleanup handlers.
+      // However, the sem_wait cleanup handler is now invalid and thus we get a
+      // segfault.
+      // The change in sem_wait behavior was first introduce in glibc 2.21.
+      JASSERT(_real_pthread_rwlock_rdlock(threadResumeLock) == 0)
+        (JASSERT_ERRNO);
+      JASSERT(_real_pthread_rwlock_unlock(threadResumeLock) == 0)
+        (JASSERT_ERRNO);
+
       JTRACE("User thread resuming") (curThread->tid);
     } else {
       /* Else restoreinprog >= 1;  This stuff executes to do a restart */
