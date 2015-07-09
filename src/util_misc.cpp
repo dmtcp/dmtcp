@@ -386,7 +386,10 @@ int Util::readProcMapsLine(int mapsfd, ProcMapsArea *area)
   c = readDec (mapsfd, (VA *)&inodenum);
   area -> name[0] = '\0';
   while (c == ' ') c = readChar (mapsfd);
-  if (c == '/' || c == '[') { /* absolute pathname, or [stack], [vdso], etc. */
+  if (c == '/' || c == '[' || c == '(') {
+    // absolute pathname, or [stack], [vdso], etc.
+    // On some machines, deleted files have a " (deleted)" prefix to the
+    // filename.
     i = 0;
     do {
       area -> name[i++] = c;
