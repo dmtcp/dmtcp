@@ -8,6 +8,7 @@ Examples of special cases are:
                                           RedHat/Fedora/CoreOS, OpenSUSE/SUSE
 * 32-bit Linux:  native, --enable-m32, and multi-arch  (see multi-arch.sh)
 * 'make install' for native 64-bit and each of the 32-bit Linux combinations
+* for file in test/plugin/*; do (cd $file && make check); done
 * forked checkpointing
 * fast restart
 * --no-gzip
