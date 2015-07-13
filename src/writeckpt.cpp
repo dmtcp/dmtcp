@@ -416,7 +416,6 @@ static void mtcp_write_non_rwx_and_anonymous_pages(int fd, Area *orig_area)
 
 static void writememoryarea (int fd, Area *area, int stack_was_seen)
 {
-  static void * orig_stack = NULL;
   void *addr = area->addr;
 
   if (!(area -> flags & MAP_ANONYMOUS))
