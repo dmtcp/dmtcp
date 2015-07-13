@@ -52,7 +52,6 @@ namespace dmtcp
       _generation = id._generation;
     }
 
-    UniquePid(const char *str);
     uint64_t hostid() const { return _hostid; }
     pid_t pid() const { return _pid; }
     int generation() const { return _generation; }

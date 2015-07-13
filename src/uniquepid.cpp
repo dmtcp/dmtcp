@@ -81,28 +81,6 @@ static UniquePid& parentProcess()
   return *t;
 }
 
-UniquePid::UniquePid(const char *filename)
-{
-  char *str = strdup(filename);
-  vector<char *> tokens;
-  char *token = strtok(str, "_");
-  while (token != NULL) {
-    tokens.push_back(token);
-    token = strtok(NULL, "_");
-  } while (token != NULL);
-  JASSERT(tokens.size() >= 3);
-
-  char *uidstr = tokens.back();
-  char *hostid_str = strtok(uidstr, "-");
-  char *pid_str = strtok(NULL, "-");
-  char *time_str = strtok(NULL, ".");
-
-  _hostid = strtoll(hostid_str, NULL, 16);
-  _pid = strtol(pid_str, NULL, 10);
-  _time = strtol(time_str, NULL, 16);
-  _generation = 0;
-}
-
 // _generation field of return value may later have to be modified.
 // So, it can't return a const UniquePid
 UniquePid& UniquePid::ThisProcess(bool disableJTrace /*=false*/)
