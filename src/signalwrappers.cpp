@@ -90,10 +90,10 @@ static inline sigset_t patchPOSIXMask(const sigset_t* mask)
 
 static inline void patchPOSIXUserMaskWork(int how, const sigset_t *set,
                                           sigset_t *oldset,
-                                          bool checkpointSignalBlocked)
+                                          bool *checkpointSignalBlocked)
 {
   if (oldset != NULL) {
-    if (checkpointSignalBlocked == true) {
+    if (*checkpointSignalBlocked == true) {
       sigaddset(oldset, bannedSignalNumber());
     } else {
       sigdelset(oldset, bannedSignalNumber());
@@ -103,24 +103,24 @@ static inline void patchPOSIXUserMaskWork(int how, const sigset_t *set,
   if (set != NULL) {
     int bannedSignaIsMember = sigismember(set, bannedSignalNumber());
     if (how == SIG_BLOCK && bannedSignaIsMember) {
-      checkpointSignalBlocked = true;
+      *checkpointSignalBlocked = true;
     } else if (how == SIG_UNBLOCK && bannedSignaIsMember) {
-      checkpointSignalBlocked = false;
+      *checkpointSignalBlocked = false;
     } else if (how == SIG_SETMASK) {
-      checkpointSignalBlocked = bannedSignaIsMember;
+      *checkpointSignalBlocked = bannedSignaIsMember;
     }
   }
 }
 
 static inline void patchPOSIXUserMask(int how, const sigset_t *set, sigset_t *oldset)
 {
-  patchPOSIXUserMaskWork(how, set, oldset, checkpointSignalBlockedForProcess);
+  patchPOSIXUserMaskWork(how, set, oldset, &checkpointSignalBlockedForProcess);
 }
 
 /* Multi-threaded version of the above function */
 static inline void patchPOSIXUserMaskMT(int how, const sigset_t *set, sigset_t *oldset)
 {
-  patchPOSIXUserMaskWork(how, set, oldset, checkpointSignalBlockedForThread);
+  patchPOSIXUserMaskWork(how, set, oldset, &checkpointSignalBlockedForThread);
 }
 
 
