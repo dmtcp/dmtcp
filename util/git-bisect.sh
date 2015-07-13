@@ -2,8 +2,8 @@
 
 # Copy this script to the DMTCP root director.
 # Then modify this script first for your purposes.
-# In particular, look for the two grep strings (test if good, test if bad), and
-#   modify them for your test.
+# In particular, search below for the two strings
+#   ("Test if good", "Test if bad"), and modify them for your test.
 # Then execute something like:
 # git bisect start
 # git bisect bad
@@ -47,7 +47,7 @@ good_match="$good_match_1$good_match_2"
   exit 0
 
 # Test if bad
-# We consider a run "bad" only if it compiled and started autotext.py.
+# Consider a run "bad" only if it compiled and started autotest.py and failed.
 #   Anything else should be skipped as a problem for that single revision.
 grep 'ckpt:' git-bisect.out > /dev/null && exit 1
 

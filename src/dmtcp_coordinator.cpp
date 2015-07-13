@@ -1705,10 +1705,16 @@ void DmtcpCoordinator::eventLoop(bool daemon)
   while (true) {
     int timeout = getRemainingTimeoutMS();
     if (timeout == 0) {
+      // Note: timeout will not be reset to a positive number until 
+      //    newState == WorkerState::REFILLED
+      // Until then, onTimeoutInterval() will repeatedly call startCheckpoint()
+      //    if theCheckpointInterval > 0
       onTimeoutInterval();
       timeout = getRemainingTimeoutMS();
     }
 
+    // Note: getRemainingTimeoutMS() returns -1 if theCheckpointInterval == 0.
+    // If 'timeout == -1', then epoll_wait never times out.
     int nfds = epoll_wait(epollFd, events, MAX_EVENTS, timeout);
     if (nfds == -1 && errno == EINTR) continue;
     JASSERT(nfds != -1) (JASSERT_ERRNO);

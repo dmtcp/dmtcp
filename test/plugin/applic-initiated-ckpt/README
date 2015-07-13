@@ -1,8 +1,12 @@
 This plugin causes the application applic.c to invoke DMTCP
-to checkpoint itself.  In this example, the plugin could be omitted.
+to checkpoint itself.
 
-Note the need to compile with -fPIC the target file that uses dmtcpCheckpoint().
-This is needed so that the same binary can used both with and without DMTCP.
+The plugin is not needed here.  It's used only to generate printing of events.
+
+Note the need to compile the target application with -fPIC, due to the use
+of dmtcpCheckpoint().  The '-fPIC' is needed so that the same binary
+can used both with and without DMTCP.
+
 
 This example is sufficient for most application, but more advanced
 hooks to DMTCP are also listed in applic.c .

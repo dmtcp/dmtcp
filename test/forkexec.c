@@ -34,7 +34,6 @@ int main ( int argc, char** argv )
 
     if ( fork() == 0 )  // if child
     {
-printf("child created\n");
       //oops... the user forgot to close an unused socket!!!
       //close(fd[1]);
       dup2 ( fd[0], WELL_KNOWN_FD );
