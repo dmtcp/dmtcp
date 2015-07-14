@@ -515,7 +515,21 @@ extern "C" int execve (const char *filename, char *const argv[],
 extern "C" int execv (const char *path, char *const argv[])
 {
   JTRACE("execv() wrapper, calling execve with environ") (path);
-  return execve(path, argv, environ);
+
+  // Make a copy of the environ coz it might change after a setenv().
+  vector<string> envStrings;
+  for (size_t i = 0; environ[i] != NULL; i++) {
+    envStrings.push_back(environ[i]);
+  }
+
+  // Now get the pointers.
+  vector<const char*> env;
+  for (size_t i = 0; i < envStrings.size(); i++) {
+    env.push_back(envStrings[i].c_str());
+  }
+  env.push_back(NULL);
+
+  return execve(path, argv, (char* const*) &env[0]);
 }
 
 extern "C" int execvp (const char *filename, char *const argv[])
