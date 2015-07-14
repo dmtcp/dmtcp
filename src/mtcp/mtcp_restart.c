@@ -1259,8 +1259,10 @@ static void read_shared_memory_area_from_file(int fd, Area* area, int flags)
    * the second checkpoint, the FILE plugin will treat them as undeleted files.
    * This would cause a problem on the second restart.
    */
+#ifndef STAMPEDE_FIX
   if (deletedFile)
     mtcp_sys_unlink (area->name);
+#endif
 }
 
 /*****************************************************************************
