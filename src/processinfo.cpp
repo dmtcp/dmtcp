@@ -223,6 +223,15 @@ void ProcessInfo::growStack()
 
 void ProcessInfo::init()
 {
+  if (_pid == -1) {
+    // This is a brand new process.
+    _pid = getpid();
+    _ppid = getppid();
+    _isRootOfProcessTree = true;
+    _uppid = UniquePid();
+    _procSelfExe = jalib::Filesystem::ResolveSymlink("/proc/self/exe");
+  }
+
 #ifdef CONFIG_M32
   _elfType = Elf_32;
 #else
@@ -471,8 +480,8 @@ void ProcessInfo::setCkptDir(const char *dir)
 
 void ProcessInfo::refresh()
 {
-  _pid = getpid();
-  _ppid = getppid();
+  JASSERT(_pid == getpid()) (_pid) (getpid());
+
   _gid = getpgid(0);
   _sid = getsid(0);
 
@@ -484,7 +493,12 @@ void ProcessInfo::refresh()
     _real_close(tfd);
   }
 
-  if (_ppid == 1) {
+  if (_ppid != getppid()) {
+    // Our original parent died; we are the root of the process tree now.
+    //
+    // On older systems, a process is inherited by init (pid = 1) after its
+    // parent dies. However, with the new per-user init process, the parent
+    // pid is no longer "1"; it's the pid of the user-specific init process.
     _isRootOfProcessTree = true;
     _uppid = UniquePid();
   } else {
@@ -535,7 +549,7 @@ void ProcessInfo::serialize(jalib::JBinarySerializer& o)
   o & _ckptDir & _ckptFileName & _ckptFilesSubDir;
 
   JTRACE("Serialized process information")
-    (_sid) (_ppid) (_gid) (_fgid)
+    (_sid) (_ppid) (_gid) (_fgid) (_isRootOfProcessTree)
     (_procname) (_hostname) (_launchCWD) (_ckptCWD) (_upid) (_uppid)
     (_compGroup) (_numPeers) (_noCoordinator) (_argvSize) (_envSize) (_elfType);
 

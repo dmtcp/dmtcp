@@ -78,7 +78,7 @@ void dmtcpResetPidPpid()
   _dmtcp_ppid = strtol(ppidstr + 1, NULL, 10);
 
   VirtualPidTable::instance().updateMapping(_dmtcp_ppid,
-                                                   _real_getppid());
+                                            _real_getppid());
 }
 
 
@@ -128,8 +128,13 @@ extern "C" pid_t getppid()
   if (_dmtcp_ppid == -1) {
     dmtcpResetPidPpid();
   }
-  if (_real_getppid() == 1) {
-    _dmtcp_ppid = 1;
+  if (_real_getppid() != VIRTUAL_TO_REAL_PID(_dmtcp_ppid)) {
+    // The original parent died; reset our ppid.
+    //
+    // On older systems, a process is inherited by init (pid = 1) after its
+    // parent dies. However, with the new per-user init process, the parent
+    // pid is no longer "1"; it's the pid of the user-specific init process.
+    _dmtcp_ppid = _real_getppid();
   }
   return _dmtcp_ppid;
 }
