@@ -220,7 +220,7 @@ if test "$use_test_suite" = "yes"; then
                 exit(0);
               }
               ], [posix_mq='yes'], [posix_mq='no'])
-  CFLAGS="$oldC_FLAGS"
+  CFLAGS="$old_CFLAGS"
   LIBS="$old_LIBS"
   AC_LANG_POP([C])
   AC_MSG_RESULT([$posix_mq])
