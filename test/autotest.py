@@ -66,6 +66,10 @@ DEFAULT_S=0.3
 if uname_p[0:3] == 'arm':
   DEFAULT_S *= 2
 
+# Sleep before the first ckpt _only_.
+DEFAULT_POST_LAUNCH_SLEEP = 0.0
+POST_LAUNCH_SLEEP = 0.0
+
 uname_m = uname_m.strip() # strip off any whitespace characters
 #Allow extra time for slower CPUs
 if uname_m in ["i386", "i486", "i586", "i686", "armv7", "armv7l", "aarch64"]:
@@ -565,6 +569,10 @@ def runTestRaw(name, numProcs, cmds):
     #TIMEOUT in WAITFOR has also been multiplied by SLOW
     WAITFOR(lambda: doesStatusSatisfy(getStatus(), status),
             wfMsg("user program startup error"))
+
+    # Additional sleep to allow the test to boot.
+    sleep(POST_LAUNCH_SLEEP)
+
     #Will sleep(S*SLOW) in the following for loop.
 
     for i in range(CYCLES):
@@ -808,9 +816,11 @@ runTest("client-server", 2, ["./test/client-server"])
 
 # frisbee creates three processes, each with 14 MB, if no gzip is used
 os.environ['DMTCP_GZIP'] = "1"
+POST_LAUNCH_SLEEP=2
 runTest("frisbee",       3, ["./test/frisbee "+p1+" localhost "+p2,
                              "./test/frisbee "+p2+" localhost "+p3,
                              "./test/frisbee "+p3+" localhost "+p1+" starter"])
+POST_LAUNCH_SLEEP=DEFAULT_POST_LAUNCH_SLEEP
 os.environ['DMTCP_GZIP'] = "0"
 
 runTest("shared-memory1", 2, ["./test/shared-memory1"])

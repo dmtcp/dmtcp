@@ -34,6 +34,8 @@ int main ( int argc, char ** argv )
   assert ( connectHost!=NULL );
   assert ( connectPort > 0 );
 
+  bool isStarterNode = (argc==5);
+
   //bind listen socket
   {
     sockaddr_in listenAddy;
@@ -46,8 +48,6 @@ int main ( int argc, char ** argv )
 
     assert ( listen ( listenSock,5 ) >=0 );
   }
-
-  bool isStarterNode = (argc==5);
 
   {
     //std::cout << "starter node? [y/n] ";
@@ -107,6 +107,19 @@ void doConnect ( int& connectSock, hostent* host, int port,const char* hostname 
   addr.sin_family = AF_INET;
   memcpy ( &addr.sin_addr.s_addr, host->h_addr, host->h_length );
   addr.sin_port = htons ( port );
-  assert ( connect ( connectSock, ( sockaddr* ) &addr,sizeof ( addr ) ) >=0 );
+  int fd = -1;
+  for (size_t i = 0; i < 20; i++) {
+    fd = connect ( connectSock, ( sockaddr* ) &addr,sizeof ( addr ) );
+    if (fd != -1) {
+      break;
+    }
+    // Sleep for 100 ms to allow the other process to do a bind.
+    struct timespec t;
+    t.tv_sec = 0;
+    t.tv_nsec = 100 * 1000 * 1000;
+    nanosleep(&t, NULL);
+  }
+  // If connect fails even after 20 tries, give up.
+  assert(fd >= 0);
 }
 
