@@ -136,6 +136,7 @@ extern "C" pid_t getppid()
     // parent dies. However, with the new per-user init process, the parent
     // pid is no longer "1"; it's the pid of the user-specific init process.
     _dmtcp_ppid = _real_getppid();
+    JNOTE("NEW ppid") (_dmtcp_ppid) (_real_getppid());
   }
   return _dmtcp_ppid;
 }
