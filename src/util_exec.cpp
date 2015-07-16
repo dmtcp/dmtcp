@@ -37,7 +37,7 @@ using namespace dmtcp;
 static int32_t getDlsymOffset();
 static int32_t getDlsymOffset_m32();
 
-void Util::setVirtualPidEnvVar(pid_t pid, pid_t ppid)
+void Util::setVirtualPidEnvVar(pid_t pid, pid_t virtPpid, pid_t realPpid)
 {
   // We want to use setenv() only once. For all later changes, we manipulate
   // the buffer in place. This was done to avoid a bug when using Perl. Perl
@@ -49,7 +49,7 @@ void Util::setVirtualPidEnvVar(pid_t pid, pid_t ppid)
   memset(buf2, '#', sizeof(buf2));
   buf2[sizeof(buf2) - 1] = '\0';
 
-  sprintf(buf1, "%d:%d:", pid, ppid);
+  sprintf(buf1, "%d:%d:%d:", pid, virtPpid, realPpid);
 
   if (getenv(ENV_VAR_VIRTUAL_PID) == NULL) {
     memcpy(buf2, buf1, strlen(buf1));

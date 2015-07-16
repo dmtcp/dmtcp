@@ -54,31 +54,56 @@ LIB_PRIVATE pid_t getPidFromEnvVar()
   }
   return strtol(pidstr, NULL, 10);
 }
+
 extern "C" LIB_PRIVATE
 void dmtcpResetPidPpid()
 {
   const char *pidstr = getenv(ENV_VAR_VIRTUAL_PID);
-  char *ppidstr;
+  char *virtPpidstr = NULL;
+  char *realPpidstr = NULL;
+  pid_t virtPpid;
+  pid_t realPpid;
+
   if (pidstr == NULL) {
     fprintf(stderr, "ERROR at %s:%d: env var DMTCP_VIRTUAL_PID not set\n\n",
             __FILE__, __LINE__);
     sleep(5);
     _exit(0);
   }
-  _dmtcp_pid = strtol(pidstr, &ppidstr, 10);
-  VirtualPidTable::instance().updateMapping(_dmtcp_pid,
-                                                   _real_getpid());
+  _dmtcp_pid = strtol(pidstr, &virtPpidstr, 10);
+  VirtualPidTable::instance().updateMapping(_dmtcp_pid, _real_getpid());
 
-  if (ppidstr[0] != ':' && !isdigit(ppidstr[1])) {
+  if (virtPpidstr[0] != ':' && !isdigit(virtPpidstr[1])) {
     fprintf(stderr, "ERROR at %s:%d: env var DMTCP_VIRTUAL_PID invalid\n\n",
             __FILE__, __LINE__);
     sleep(5);
     _exit(0);
   }
-  _dmtcp_ppid = strtol(ppidstr + 1, NULL, 10);
+  virtPpid = strtol(virtPpidstr + 1, &realPpidstr, 10);
 
-  VirtualPidTable::instance().updateMapping(_dmtcp_ppid,
-                                            _real_getppid());
+  if (realPpidstr[0] != ':' && !isdigit(realPpidstr[1])) {
+    fprintf(stderr, "ERROR at %s:%d: env var DMTCP_VIRTUAL_PID invalid\n\n",
+            __FILE__, __LINE__);
+    sleep(5);
+    _exit(0);
+  }
+  realPpid = strtol(realPpidstr + 1, NULL, 10);
+
+  pid_t curRealPpid = _real_getppid();
+  if (realPpid != curRealPpid) {
+    // Parent is dead; we have a new parent (init).
+    _dmtcp_ppid = curRealPpid;
+  } else {
+    // Parent is alive.
+    // We shouldn't need to update mapping for virtual->real ppid. If we are
+    // the same process as dmtcp_launch, then the parent would not be under
+    // DMTCP anyways. Instead, if we were created after a fork, we inherited
+    // the memory maps. However, if we did an exec after a fork, we might not
+    // have had a chance to serialize the maps yet, so we better insert the
+    // mapping here.
+    _dmtcp_ppid = virtPpid;
+    VirtualPidTable::instance().updateMapping(_dmtcp_ppid, curRealPpid);
+  }
 }
 
 
