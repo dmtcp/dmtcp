@@ -129,6 +129,7 @@ extern "C" pid_t getppid()
     dmtcpResetPidPpid();
   }
   if (_real_getppid() != VIRTUAL_TO_REAL_PID(_dmtcp_ppid)) {
+    JNOTE("NEW ppid\n\n\n\n\n\n\n") (_dmtcp_ppid) (_real_getppid());
     // The original parent died; reset our ppid.
     //
     // On older systems, a process is inherited by init (pid = 1) after its
