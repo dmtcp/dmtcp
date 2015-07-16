@@ -669,7 +669,11 @@ static void unmap_memory_areas_and_restore_vdso(RestoreInfo *rinfo)
       doAreasOverlap(vdsoStart, vdsoEnd - vdsoStart,
                      rinfo->vvarStart, rinfo->vvarEnd - rinfo->vvarStart)) {
     MTCP_PRINTF("*** MTCP Error: Overlapping addresses for older and newer\n"
-                "                vDSO/vvar sections.\n");
+                "                vDSO/vvar sections.\n"
+                "      vdsoStart: %p vdsoEnd: %p vvarStart: %p vvarEnd: %p\n"
+                "rinfo:vdsoStart: %p vdsoEnd: %p vvarStart: %p vvarEnd: %p\n",
+                vdsoStart, vdsoEnd, vvarStart, vvarEnd,
+                rinfo->vdsoStart, rinfo->vdsoEnd, rinfo->vvarStart, rinfo->vvarEnd);
     mtcp_abort();
   }
 
