@@ -499,6 +499,7 @@ void ProcessInfo::refresh()
     // On older systems, a process is inherited by init (pid = 1) after its
     // parent dies. However, with the new per-user init process, the parent
     // pid is no longer "1"; it's the pid of the user-specific init process.
+    _ppid = getppid();
     _isRootOfProcessTree = true;
     _uppid = UniquePid();
   } else {
