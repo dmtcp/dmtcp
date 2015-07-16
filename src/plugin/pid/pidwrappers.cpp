@@ -66,8 +66,7 @@ void dmtcpResetPidPpid()
     _exit(0);
   }
   _dmtcp_pid = strtol(pidstr, &ppidstr, 10);
-  VirtualPidTable::instance().updateMapping(_dmtcp_pid,
-                                                   _real_getpid());
+  VirtualPidTable::instance().updateMapping(_dmtcp_pid, _real_getpid());
 
   if (ppidstr[0] != ':' && !isdigit(ppidstr[1])) {
     fprintf(stderr, "ERROR at %s:%d: env var DMTCP_VIRTUAL_PID invalid\n\n",
@@ -77,8 +76,22 @@ void dmtcpResetPidPpid()
   }
   _dmtcp_ppid = strtol(ppidstr + 1, NULL, 10);
 
-  VirtualPidTable::instance().updateMapping(_dmtcp_ppid,
-                                            _real_getppid());
+  // The parent might have died after fork.
+  pid_t origRealPpid = VIRTUAL_TO_REAL_PID(_dmtcp_ppid);
+  pid_t curRealPpid = _real_getppid();
+  if (origRealPpid != curRealPpid) {
+    // Parent is dead; we have a new parent (init).
+    _dmtcp_ppid = curRealPpid;
+  } else {
+    // Parent is alive.
+    // We shouldn't need to update mapping for virtual->real ppid. If we are
+    // the same process as dmtcp_launch, then the parent would not be under
+    // DMTCP anyways. Instead, if we were created after a fork, we inherited
+    // the memory maps. However, if we did an exec after a fork, we might not
+    // have had a chance to serialize the maps yet, so we better insert the
+    // mapping here.
+    VirtualPidTable::instance().updateMapping(_dmtcp_ppid, curRealPpid);
+  }
 }
 
 
