@@ -37,6 +37,7 @@
  *  this memory region again until we restart from the next checkpoint.
  */
 
+#define DEBUG
 #define _GNU_SOURCE 1
 #include <errno.h>
 #include <fcntl.h>
