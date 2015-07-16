@@ -1076,7 +1076,7 @@ void DmtcpCoordinator::onConnect()
   }
 
   updateCheckpointInterval(hello_remote.theCheckpointInterval);
-  JNOTE ( "worker connected" ) ( hello_remote.from );
+  JNOTE ( "worker connected" ) ( hello_remote.from ) (hello_remote.realPid);
 
   clients.push_back(client);
   addDataSocket(client);

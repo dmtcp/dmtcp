@@ -1,3 +1,5 @@
+#define DEBUG
+
 /****************************************************************************
  *   Copyright (C) 2006-2013 by Jason Ansel, Kapil Arya, and Gene Cooperman *
  *   jansel@csail.mit.edu, kapil@ccs.neu.edu, gene@ccs.neu.edu              *
@@ -493,6 +495,7 @@ void ProcessInfo::refresh()
     _real_close(tfd);
   }
 
+  JNOTE("***************") (_ppid) (getppid());
   if (_ppid != getppid()) {
     // Our original parent died; we are the root of the process tree now.
     //
@@ -505,6 +508,7 @@ void ProcessInfo::refresh()
   } else {
     _uppid = UniquePid::ParentProcess();
   }
+  JNOTE("***************") (_ppid) (getppid());
 
   _procname = jalib::Filesystem::GetProgramName();
   _hostname = jalib::Filesystem::GetCurrentHostname();

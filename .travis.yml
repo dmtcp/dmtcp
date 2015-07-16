@@ -5,4 +5,4 @@ language: cpp
 compiler:
   - gcc
 
-script: ./configure && make -j4 && make tests && ./test/autotest.py --retry-once
+script: ./configure && make -j4 && make tests && ./test/autotest.py --retry-once -v shared-fd2
