@@ -165,7 +165,8 @@ void CoordinatorAPI::setupVirtualCoordinator(CoordinatorInfo *coordInfo,
   _coordinatorSocket.changeFd(PROTECTED_COORD_FD);
   Util::setCoordPort(_coordinatorSocket.port());
 
-  Util::setVirtualPidEnvVar(INITIAL_VIRTUAL_PID, getppid());
+  pid_t ppid = getppid();
+  Util::setVirtualPidEnvVar(INITIAL_VIRTUAL_PID, ppid, ppid);
 
   UniquePid coordId = UniquePid(INITIAL_VIRTUAL_PID,
                                 UniquePid::ThisProcess().hostid(),
@@ -538,7 +539,9 @@ void CoordinatorAPI::connectToCoordOnStartup(CoordinatorMode mode,
 
   JASSERT(hello_remote.virtualPid != -1);
   JTRACE("Got virtual pid from coordinator") (hello_remote.virtualPid);
-  Util::setVirtualPidEnvVar(hello_remote.virtualPid, getppid());
+
+  pid_t ppid = getppid();
+  Util::setVirtualPidEnvVar(hello_remote.virtualPid, ppid, ppid);
 
   JASSERT(compId != NULL && localIP != NULL && coordInfo != NULL);
   *compId = hello_remote.compGroup.upid();
@@ -568,7 +571,9 @@ void CoordinatorAPI::createNewConnectionBeforeFork(string& progname)
 
   if (dmtcp_virtual_to_real_pid) {
     JTRACE("Got virtual pid from coordinator") (hello_remote.virtualPid);
-    Util::setVirtualPidEnvVar(hello_remote.virtualPid, getpid());
+    pid_t pid = getpid();
+    pid_t realPid = dmtcp_virtual_to_real_pid(pid);
+    Util::setVirtualPidEnvVar(hello_remote.virtualPid, pid, realPid);
   }
 }
 

@@ -67,7 +67,9 @@ int dmtcp_real_tgkill(pid_t tgid, pid_t tid, int sig)
 
 static void pidVirt_AtForkParent(DmtcpEventData_t *data)
 {
-  Util::setVirtualPidEnvVar(getpid(), getppid());
+  pid_t virtPpid = getppid();
+  pid_t realPpid = VIRTUAL_TO_REAL_PID(virtPpid);
+  Util::setVirtualPidEnvVar(getpid(), virtPpid, realPpid);
 }
 
 static void pidVirt_ResetOnFork(DmtcpEventData_t *data)
@@ -77,7 +79,10 @@ static void pidVirt_ResetOnFork(DmtcpEventData_t *data)
 
 static void pidVirt_PrepareForExec(DmtcpEventData_t *data)
 {
-  Util::setVirtualPidEnvVar(getpid(), getppid());
+  pid_t virtPpid = getppid();
+  pid_t realPpid = VIRTUAL_TO_REAL_PID(virtPpid);
+  Util::setVirtualPidEnvVar(getpid(), virtPpid, realPpid);
+
   JASSERT(data != NULL);
   jalib::JBinarySerializeWriterRaw wr ("", data->serializerInfo.fd);
   VirtualPidTable::instance().serialize(wr);
