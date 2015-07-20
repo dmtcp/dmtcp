@@ -28,6 +28,7 @@
 #include "shareddata.h"
 #include "threadsync.h"
 #include "mtcpinterface.h"
+#include "util.h"
 
 #undef dmtcp_is_enabled
 #undef dmtcp_checkpoint
@@ -352,89 +353,68 @@ EXTERNC void dmtcp_close_protected_fd(int fd)
 //   dmtcp_get_restart_env(name, value, MAXSIZE);
 //  Returns 0 on success, -1 if name not found; -2 if value > MAXSIZE
 // NOTE: This implementation assumes that a "name=value" string will be
-//   no more than 2000 bytes.
+//   no more than MAXSIZE bytes.
 
-EXTERNC int dmtcp_get_restart_env(char *name, char *value, int maxvaluelen) {
+EXTERNC int
+dmtcp_get_restart_env(const char *name,   // IN
+                      char *value,        // OUT
+                      int maxvaluelen)
+{
   int env_fd = dup(dmtcp_protected_environ_fd());
   JASSERT(env_fd != -1)(env_fd)(dmtcp_protected_environ_fd());
   lseek(env_fd, 0, SEEK_SET);
   int namelen = strlen(name);
   *value = '\0'; // Default is null string
+
 #define SUCCESS 0
 #define NOTFOUND -1
 #define TOOLONG -2
 #define DMTCP_BUF_TOO_SMALL -3
 #define INTERNAL_ERROR -4
 #define NULL_PTR -5
+#define MAXSIZE 3000
+
   int rc = NOTFOUND; // Default is -1: name not found
 
-  char env_buf[2000]; // All "name=val" strings must be shorter than this.
-  char *env_ptr_v[sizeof(env_buf)/4];
-  char *name_ptr = env_buf;
-  char *env_end_ptr = env_buf;
+  char env_buf[MAXSIZE] = {0}; // All "name=val" strings must be shorter than this.
 
   if (name == NULL || value == NULL) {
     close(env_fd);
     return NULL_PTR;
   }
 
-  while (rc == NOTFOUND && env_end_ptr != NULL) {
-    // if name_ptr is in second half of env_buf, move everything back to start
-    if (name_ptr > env_buf) {
-      memmove(env_buf, name_ptr, env_end_ptr - name_ptr);
-      env_end_ptr -= (name_ptr - env_buf);
-      name_ptr = env_buf;
-    }
-    // if we haven't finished reading environment from env_fd,
-    //    then read until it's full or there is no more
-    while (env_end_ptr != NULL &&
-           env_end_ptr - env_buf < (int) sizeof(env_buf)) {
-      int count = read(env_fd,
-                       env_end_ptr, sizeof(env_buf) - (env_end_ptr - env_buf));
-      if (count == 0) {
-        break;
-      } else if (count == -1 && errno != EAGAIN && errno != EINTR) {
-        rc = INTERNAL_ERROR;
-        JASSERT (false) (count) (JASSERT_ERRNO) .Text("internal error");
-      } else {
-        env_end_ptr += count;
-      }
-    }
-    JASSERT(env_end_ptr > env_buf || env_buf[0] == '\0') ((char *)env_buf);
-    // Set up env_ptr_v[]
-    int env_ptr_v_idx = 0;
-    env_ptr_v[env_ptr_v_idx++] = name_ptr;
-    int end_of_buf = 0;
-    while ( ! end_of_buf ) {
-      char *last_name_ptr = name_ptr;
-      while (name_ptr < env_end_ptr && *name_ptr != '\0') {
-        name_ptr++;
-      }
-      if (name_ptr < env_end_ptr) {
-        JASSERT(*name_ptr == '\0');
-        name_ptr++;
-        env_ptr_v[env_ptr_v_idx++] = name_ptr; // Add name-value pair
-      } else {
-        JASSERT(name_ptr == env_end_ptr); // Reached end of what was read in
-        end_of_buf = 1;
-        name_ptr = last_name_ptr;
-        env_ptr_v[env_ptr_v_idx - 1] = NULL; // Last name-value was incomplete
-        if (name_ptr == env_buf) {
-          rc = DMTCP_BUF_TOO_SMALL;
-        }
-      }
-    }
-    // Now search for name among strings of env_ptr_v[] that were read.
-    int i;
-    for (i = 0; env_ptr_v[i] != NULL; i++) {
-      if (strncmp(env_ptr_v[i], name, namelen) == 0 &&
-          *(env_ptr_v[i] + namelen) == '=') {
-        strncpy(value, env_ptr_v[i] + namelen + 1, maxvaluelen);
-        rc = SUCCESS;
-        if (namelen + 1 > maxvaluelen)
-          rc = TOOLONG; // value does not fit in user string
-      }
-    }
+  char *pos = NULL;
+
+  while (rc == NOTFOUND) {
+   memset(env_buf, 0, MAXSIZE);
+   // read a flattened name-value pairs list
+   int count = Util::readLine(env_fd, env_buf, MAXSIZE);
+   if (count == 0) {
+     break;
+   } else if (count == -1) {
+     rc = INTERNAL_ERROR;
+   } else if (count == -2) {
+     rc = DMTCP_BUF_TOO_SMALL;
+   } else {
+     char *start_ptr = env_buf;
+     // iterate over the flattened list of name-value pairs
+     while (start_ptr - env_buf < sizeof(env_buf)) {
+       pos = NULL;
+       if (strncmp(start_ptr, name, namelen) == 0) {
+         if ((pos = strchr(start_ptr, '='))) {
+           strncpy(value, pos + 1, maxvaluelen);
+           if (strlen(pos+1) >= maxvaluelen) {
+             rc = TOOLONG; // value does not fit in the user-provided value buffer
+             break;
+           }
+         }
+         rc = SUCCESS;
+         break;
+       }
+       // skip over a name-value pair
+       start_ptr += strlen(start_ptr) + 1;
+     }
+   }
   }
 
   close(env_fd);
