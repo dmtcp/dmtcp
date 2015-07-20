@@ -274,23 +274,40 @@ void Util::dupFds(int oldfd, const vector<int>& newfds)
 
 
 /* Begin miscellaneous/helper functions. */
-// Reads from fd until count bytes are read, or newline encountered.
-// Returns NULL at EOF.
-// FIXME: count is unused. Buffer-overrun possible
+
+/* Reads from fd until count bytes are read, or
+ * newline encountered.
+ *
+ * Side effects: Copies the characters, including
+ * the newline, read from the fd into the buf.
+ *
+ * Returns num of chars read on success;
+ *         -1 on read failure or invalid args; and
+ *         -2 if the buffer is too small
+ */
 int Util::readLine(int fd, char *buf, int count)
 {
   int i = 0;
   char c;
+  JASSERT(fd >= 0 && buf != NULL) (fd) ((void*)buf);
+#define NEWLINE '\n' // Linux, OSX
   while (i < count) {
-    if (_real_read(fd, &c, 1) == 0) {
+    ssize_t rc = read(fd, &c, 1);
+    if (rc == 0) {
+      break;
+    } else if (rc < 0) {
       buf[i] = '\0';
-      return '\0';
+      return -1;
+    } else {
+      buf[i++] = c;
+      if (c == NEWLINE) break;
     }
-    buf[i++] = c;
-    if (c == '\n') break;
   }
-  buf[i++] = '\0';
-  return i;
+  buf[i] = '\0';
+  if (i >= count)
+    return -2;
+  else
+    return i;
 }
 
 /* Read decimal number, return value and terminating character */
