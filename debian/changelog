@@ -1,3 +1,11 @@
+dmtcp (2.4.0-1) unstable; urgency=medium
+
+  * New upstream release 2.4.0.
+  * Support for ARM64 (closes: #791940).
+  * Upload sponsored by Yaroslav Halchenko <debian@onerussian.com>
+
+ -- Kapil Arya <kapil@ccs.neu.edu>  Wed, 15 Jul 2015 10:01:42 -0400
+
 dmtcp (2.3.1-5) unstable; urgency=low
 
   * Removed armhf architecture support from dmtcp-dbg as well.

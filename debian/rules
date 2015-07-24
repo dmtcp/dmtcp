@@ -48,7 +48,7 @@ build-stamp: configure-stamp
 	$(MAKE)
 ifeq (,$(findstring nocheck,$(DEB_BUILD_OPTIONS)))
 ifneq ($(shell dpkg-architecture -qDEB_BUILD_ARCH_CPU),arm)
-	env PWD=`pwd` ./test/autotest.py --retry-once --slow
+	env PWD=`pwd` ./test/autotest.py
 endif
 endif
 

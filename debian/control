@@ -5,12 +5,12 @@ Maintainer: Kapil Arya <kapil@ccs.neu.edu>
 Uploaders: Yaroslav Halchenko <debian@onerussian.com>
 Build-Depends: debhelper (>= 7), python
 Standards-Version: 3.9.5
-Vcs-svn: svn://svn.code.sf.net/p/dmtcp/code/trunk
-Vcs-browser: https://sourceforge.net/p/dmtcp/code
+Vcs-git: https://github.com/dmtcp/dmtcp.git
+Vcs-browser: https://github.com/dmtcp/dmtcp
 Homepage: http://dmtcp.sourceforge.net
 
 Package: dmtcp
-Architecture: i386 amd64 armhf
+Architecture: i386 amd64 armhf arm64
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: Checkpoint/Restart functionality for Linux processes
  DMTCP (Distributed MultiThreaded Checkpointing) is a tool to
@@ -29,7 +29,7 @@ Description: Checkpoint/Restart functionality for Linux processes
  This package contains DMTCP binaries.
 
 Package: dmtcp-dbg
-Architecture: i386 amd64 armhf
+Architecture: i386 amd64 armhf arm64
 Section: debug
 Priority: extra
 Depends: dmtcp, ${misc:Depends}

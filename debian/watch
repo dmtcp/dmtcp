@@ -1,5 +1,5 @@
 # Compulsory line, this is a version 3 file
 version=3
 
-# Uncomment to find new files on sourceforge, for devscripts >= 2.9
-http://sf.net/dmtcp/dmtcp-(\d+).(\d+)\.tar\.gz
+opts=filenamemangle=s/.+\/v?(\d\S*)\.tar\.gz/dmtcp-$1\.tar\.gz/ \
+  https://github.com/dmtcp/dmtcp/tags .*/v?(\d\S*)\.tar\.gz

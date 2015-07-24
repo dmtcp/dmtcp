@@ -5,6 +5,7 @@ usr/bin/dmtcp_launch
 usr/bin/dmtcp_nocheckpoint
 usr/bin/dmtcp_restart
 usr/bin/dmtcp_rm_loclaunch
+usr/bin/dmtcp_srun_helper
 usr/bin/dmtcp_ssh
 usr/bin/dmtcp_sshd
 usr/bin/mtcp_restart
@@ -17,6 +18,7 @@ usr/lib/dmtcp/libdmtcp_pid.so
 usr/lib/dmtcp/libdmtcp_ptrace.so
 usr/lib/dmtcp/libdmtcp_modify-env.so
 usr/lib/dmtcp/libdmtcp_batch-queue.so
+usr/lib/dmtcp/libdmtcp_timer.so
 usr/lib/dmtcp/libdmtcp_unique-ckpt.so
 usr/share/doc
 usr/share/man
