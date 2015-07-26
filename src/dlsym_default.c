@@ -127,11 +127,11 @@ static Elf32_Word hash_first(const char *name, Elf32_Word *hash_table,
                              int use_gnu_hash) {
   if (use_gnu_hash) {
     uint32_t nbuckets = ((uint32_t*)hash_table)[0];
-    uint32_t symndx = ((uint32_t*)hash_table)[1];
+    // uint32_t symndx = ((uint32_t*)hash_table)[1];
     uint32_t maskwords = ((uint32_t*)hash_table)[2];
     uint32_t *buckets = (uint32_t *)
       ((char *)hash_table + 4*sizeof(uint32_t) + maskwords*sizeof(long unsigned int));
-    uint32_t *hashval = & buckets[nbuckets];
+    // uint32_t *hashval = & buckets[nbuckets];
     if (buckets[elf_gnu_hash(name) % nbuckets])
       return buckets[elf_gnu_hash(name) % nbuckets];
     else
@@ -139,9 +139,9 @@ static Elf32_Word hash_first(const char *name, Elf32_Word *hash_table,
   } else {
     // http://www.sco.com/developers/gabi/latest/ch5.dynamic.html#hash
     Elf32_Word nbucket = *hash_table++;
-    Elf32_Word nchain = *hash_table++; // Note: nchain same as n_symtab
+    // Elf32_Word nchain = *hash_table++; // Note: nchain same as n_symtab
     Elf32_Word *bucket = hash_table;
-    Elf32_Word *chain = hash_table + nbucket;
+    // Elf32_Word *chain = hash_table + nbucket;
     return bucket[elf_hash(name) % nbucket]; // return index into symbol table
   }
 }
@@ -164,8 +164,8 @@ static Elf32_Word hash_next(Elf32_Word index, Elf32_Word *hash_table,
       return index+1;
   } else {
     Elf32_Word nbucket = *hash_table++;
-    Elf32_Word nchain = *hash_table++;
-    Elf32_Word *bucket = hash_table;
+    // Elf32_Word nchain = *hash_table++;
+    // Elf32_Word *bucket = hash_table;
     Elf32_Word *chain = hash_table + nbucket;
     return chain[index]; // If this returns STN_UNDEF, then it's end of chain
   }
