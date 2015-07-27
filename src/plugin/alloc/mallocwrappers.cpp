@@ -58,11 +58,10 @@ extern "C" int posix_memalign(void **memptr, size_t alignment, size_t size)
   return retval;
 }
 
-// man valloc: it is equivalent to memalign(sysconf(_SC_PAGESIZE),size).
 extern "C" void *valloc(size_t size)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
-  void *retval = _real_memalign(sysconf(_SC_PAGESIZE), size);
+  void *retval = _real_valloc(size);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }

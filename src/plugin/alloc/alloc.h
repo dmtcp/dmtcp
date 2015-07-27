@@ -30,6 +30,7 @@ extern "C" void *__libc_memalign(size_t boundary, size_t size);
 
 #define _real_malloc  NEXT_FNC(malloc)
 #define _real_calloc  NEXT_FNC(calloc)
+#define _real_valloc  NEXT_FNC(valloc)
 #define _real_realloc NEXT_FNC(realloc)
 #define _real_free    NEXT_FNC(free)
 #define _real_memalign NEXT_FNC(memalign)
