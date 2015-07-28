@@ -1140,15 +1140,6 @@ static void read_shared_memory_area_from_file(int fd, Area* area, int flags)
     if (area->prot & PROT_EXEC)  fileprot |= S_IXUSR;
     mtcp_sys_fchmod(imagefd, fileprot);
 
-    //close the file
-    mtcp_sys_close(imagefd);
-
-    // now open the file again, this time with appropriate flags
-    imagefd = mtcp_sys_open (area_name, flags, 0);
-    if (imagefd < 0){
-      MTCP_PRINTF("error %d opening mmap file %s\n", mtcp_sys_errno, area_name);
-      mtcp_abort ();
-    }
   } else { /* else file exists */
     /* This prevents us writing to an mmap()ed file whose length is smaller
      * than the region in memory.  This occurred when checkpointing from within
@@ -1262,6 +1253,16 @@ static void read_shared_memory_area_from_file(int fd, Area* area, int flags)
    * After mmapping the files, it should unlink those files. Otherwise, Upon
    * the second checkpoint, the FILE plugin will treat them as undeleted files.
    * This would cause a problem on the second restart.
+   *
+   * FIXME: There is a race if two processes were restarting at the same time.
+   * It's possible that the first process creates, mmaps, and unlinks the file
+   * before the second process has a chance to use that file. In that case, the
+   * second process will create a new file, mmap it and then unlink it. Even
+   * though both of them have mapped the file as shared, the two memory regions
+   * refer to two different inodes and thus the file is not truly shared.
+   * A proper fix would require synchronization between all restarting
+   * processes and thus the file plugin is a better place to handle shared
+   * memory areas.
    */
 #ifndef STAMPEDE_FIX
   if (deletedFile)
@@ -1477,7 +1478,12 @@ static int open_shared_file(char* filename)
     }
   }
 
-  /* Create the file */
+  /* Create the file. We are using O_RDWR flag even though the memory area
+   * might be mapped with lesser permission. This doesn't hurt because we are
+   * going to use mprotect to update memory protection anyways and this file
+   * descriptor would eventually be closed.
+   */
+
   fd = mtcp_sys_open(filename, O_CREAT|O_RDWR, S_IRUSR|S_IWUSR);
   if (fd<0){
     MTCP_PRINTF("unable to create file %s; errno: %d\n", filename, mtcp_sys_errno);
