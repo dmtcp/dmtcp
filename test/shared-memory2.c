@@ -16,10 +16,8 @@ void writer(int fd);
 int main()
 {
   // Most of main() copied from file2.c
-  long int count = 0;
   int fd;
   int rc;
-  FILE *fp;
   char filename[100];
   char dir1[100];
   char dir2[100];

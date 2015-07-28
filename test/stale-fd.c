@@ -28,7 +28,10 @@ int main(int argc, char* argv[])
     unsigned char data;
     unsigned char count = 0;
     while (1) {
-      int dummy = read(sockets[1], &data, 1);
+      if (read(sockets[1], &data, 1) != 1) {
+        perror("read failed");
+        exit(1);
+      };
       printf("%s %d\n", me, data);
       assert(count == data);
       count++;
@@ -41,7 +44,11 @@ int main(int argc, char* argv[])
       buf[i] = i;
     }
     printf("%s", buf);
-    int dummy = write(sockets[0], buf, sizeof(buf));
+    if (write(sockets[0], buf, sizeof(buf)) != sizeof(buf)) {
+      perror("Write failed");
+      exit(1);
+    };
+
     //child closes both
     close(sockets[0]);
     close(sockets[1]);

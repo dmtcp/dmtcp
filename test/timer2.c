@@ -16,8 +16,6 @@ int counter = 0;
 
 void timer_thread (union sigval arg)
 {
-  int status;
-
   sleep(1);
 
   assert_perror(pthread_mutex_lock (&mutex));

@@ -27,7 +27,7 @@
 namespace dmtcp {
 namespace Util {
 
-static int sendFd(int restoreFd, int32_t fd, void *data, size_t len,
+static inline int sendFd(int restoreFd, int32_t fd, void *data, size_t len,
                          struct sockaddr_un& addr, socklen_t addrLen)
 {
   struct iovec iov;
@@ -55,7 +55,7 @@ static int sendFd(int restoreFd, int32_t fd, void *data, size_t len,
   return sendmsg(restoreFd, &hdr, 0);
 }
 
-static int32_t receiveFd(int restoreFd, void *data, size_t len)
+static inline int32_t receiveFd(int restoreFd, void *data, size_t len)
 {
   int32_t fd;
   struct iovec iov;
