@@ -62,9 +62,7 @@ Note that files `/tmp/${USER}/dmtcp-${USER}@${HOST}/jassertlog.*` are created
 with debugging information if you configured with `--enable-debug`.
 See `./configure --help` for that and other options.
 
-See the file
-[QUICK-START](https://github.com/dmtcp/dmtcp/blob/master/QUICK-START) for
-further information on using DMTCP.
+See the file [QUICK-START](QUICK-START) for further information on using DMTCP.
 
 
 ## RUNNING WITHOUT A SEPARATE COORDINATOR PROCESS:

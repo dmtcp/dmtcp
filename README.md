@@ -16,31 +16,13 @@ DMTCP supports the commonly used OFED API for InfiniBand, as well as its
 integration with various implementations of MPI, and resource managers
 (e.g., SLURM).
 
-To install DMTCP, see the file: `INSTALL`.
+To install DMTCP, see [INSTALL.md](INSTALL.md).
 
-For an overview DMTCP, see the file: `QUICK-START`.
+For an overview DMTCP, see [QUICK-START](QUICK-START).
 
-For the license, see the file: `COPYING`.
-
-Directory layout:
- - src : DMTCP source code.
- - src/plugin : source for DMTCP internal plugins.
- - jalib : small pkg used by DMTCP for assertions, warnings, tracing code, etc.
- - bin : DMTCP binaries (`dmtcp_launch`, `dmtcp_restart`, `dmtcp_coordinator`, etc.)
- - lib : DMTCP internal libraries, including internal plugins that are
-        not exposed to the end user.
- - test : Used by 'make check'
- - test/plugin : Simple examples for learning DMTCP plugins
- - plugin : (top-level directory of optional plugins; they must be
-             invoked by a command line flag of `dmtcp_launch`)
- - doc : Random documentation on aspects of the DMTCP design
-         Note especially:  doc/plugin-tutorial.pdf
- - include : Contains dmtcp.h ; useful for third-party plugins
- - contrib : Contributed plugins and other add-ons.  The more popular ones
-             will eventually be migrated to the top-level plugin directory
-             as they become mature;  Contrib plugins are not built by default.
- - util : random utilities, useful mostly for experts
+For the license, see [COPYING](COPYING).
 
 For more information on DMTCP, see: [http://dmtcp.sourceforge.net](http://dmtcp.sourceforge.net).
 
-For the latest version of DMTCP (both official release and svn), see:  [http://dmtcp.sourceforge.net/downloads.html](http://dmtcp.sourceforge.net/downloads.html).
+For the latest version of DMTCP (both official release and git), see:
+[http://dmtcp.sourceforge.net/downloads.html](http://dmtcp.sourceforge.net/downloads.html).
