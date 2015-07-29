@@ -29,6 +29,9 @@ ${DMTCP_ROOT}/test/dmtcp1: ${DMTCP_ROOT}/test
 ../sleep1/libdmtcp_sleep1.so: ../sleep1
 	cd ../sleep1; make libdmtcp_sleep1.so
 check: ${LIBNAME}.so ../sleep1/libdmtcp_sleep1.so ${DMTCP_ROOT}/test/dmtcp1
+	# Kill any old coordinator on this port, just in case.
+	@ ${DMTCP_ROOT}/bin/dmtcp_command --quit --quiet \
+	  --coord-port ${DEMO_PORT} || true
 	${DMTCP_ROOT}/bin/dmtcp_launch --coord-port ${DEMO_PORT} --interval 5 \
 	  --with-plugin \
 		$$PWD/../sleep1/libdmtcp_sleep1.so:$$PWD/${LIBNAME}.so \

@@ -34,6 +34,9 @@ check: ${LIBNAME}.so applic
 	@ echo ""
 	@ sleep 3
 	@ echo "============ TESTING ./applic WITH DMTCP ================="
+	# Kill any old coordinator on this port, just in case.
+	@ ${DMTCP_ROOT}/bin/dmtcp_command --quit --quiet \
+	  --coord-port ${DEMO_PORT} || true
 	${DMTCP_ROOT}/bin/dmtcp_launch --quiet --coord-port ${DEMO_PORT} \
 	  --with-plugin $$PWD/${LIBNAME}.so ./applic
 	@ echo ""
