@@ -149,6 +149,10 @@ EXTERNC int dmtcp_get_local_status(int *nCheckpoints, int *nRestarts)
   return 1;
 }
 
+// DEPRECATED:  This function is deprecated.  It and the userHook functions
+//   and variables of this file are all part of the older dmtcpaware API.
+//   They will be deleted, along with the declaration in include/dmtcp.h,
+//   in some future release.
 EXTERNC int dmtcp_install_hooks(dmtcp_fnptr_t preCheckpoint,
                                 dmtcp_fnptr_t postCheckpoint,
                                 dmtcp_fnptr_t postRestart)
