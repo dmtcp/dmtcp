@@ -539,7 +539,6 @@ void CkptSerializer::createCkptDir()
 
 // See comments above for open_ckpt_to_read()
 void CkptSerializer::writeCkptImage(void *mtcpHdr, size_t mtcpHdrLen)
-
 {
   string ckptFilename = ProcessInfo::instance().getCkptFilename();
   string tempCkptFilename = ckptFilename;

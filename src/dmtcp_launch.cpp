@@ -68,7 +68,7 @@ static const char* theUsage =
   "              If no port is specified, start coordinator at a random port\n"
   "              (same as specifying port '0').\n"
   "  --no-coordinator\n"
-  "              Execute the process in stand-alone coordinator-less mode.\n"
+  "              Execute the process in standalone coordinator-less mode.\n"
   "              Use dmtcp_command or --interval to request checkpoints.\n"
   "  -i, --interval SECONDS (environment variable DMTCP_CHECKPOINT_INTERVAL)\n"
   "              Time in seconds between automatic checkpoints.\n"
