@@ -1161,7 +1161,7 @@ int _dereg_mr(struct ibv_mr * mr)
 
 int _ibv_req_notify_cq(struct ibv_cq * cq, int solicited_only)
 {
-  dmtcp_plugin_disable_ckpt();
+  DMTCP_PLUGIN_DISABLE_CKPT();
   struct internal_ibv_cq * internal_cq = ibv_cq_to_internal(cq);
 
   int rslt = _real_ibv_req_notify_cq(internal_cq->real_cq, solicited_only);
@@ -1178,7 +1178,7 @@ int _ibv_req_notify_cq(struct ibv_cq * cq, int solicited_only)
     list_push_back(&internal_cq->req_notify_log, &log->elem);
   }
 
-  dmtcp_plugin_enable_ckpt();
+  DMTCP_PLUGIN_ENABLE_CKPT();
   return rslt;
 }
 
@@ -1571,7 +1571,7 @@ int _query_srq(struct ibv_srq * srq, struct ibv_srq_attr * srq_attr)
 int _ibv_post_recv(struct ibv_qp * qp, struct ibv_recv_wr * wr, struct
                    ibv_recv_wr ** bad_wr)
 {
-  dmtcp_plugin_disable_ckpt();
+  DMTCP_PLUGIN_DISABLE_CKPT();
   struct internal_ibv_qp * internal_qp = ibv_qp_to_internal(qp);
 
   //TODO: Technically this does multiple loops, but, the code is cleaner
@@ -1601,13 +1601,13 @@ int _ibv_post_recv(struct ibv_qp * qp, struct ibv_recv_wr * wr, struct
     free(tmp);
   }
 
-  dmtcp_plugin_enable_ckpt();
+  DMTCP_PLUGIN_ENABLE_CKPT();
   return rslt;
 }
 
 int _ibv_post_srq_recv(struct ibv_srq * srq, struct ibv_recv_wr * wr, struct ibv_recv_wr ** bad_wr)
 {
-  dmtcp_plugin_disable_ckpt();
+  DMTCP_PLUGIN_DISABLE_CKPT();
   struct internal_ibv_srq * internal_srq = ibv_srq_to_internal(srq);
 
   //TODO: Technically this does multiple loops, but, the code is cleaner
@@ -1642,14 +1642,14 @@ int _ibv_post_srq_recv(struct ibv_srq * srq, struct ibv_recv_wr * wr, struct ibv
     free(tmp);
   }
 
-  dmtcp_plugin_enable_ckpt();
+  DMTCP_PLUGIN_ENABLE_CKPT();
   return rslt;
 }
 
 int _ibv_post_send(struct ibv_qp * qp, struct ibv_send_wr * wr, struct
                    ibv_send_wr ** bad_wr)
 {
-  dmtcp_plugin_disable_ckpt();
+  DMTCP_PLUGIN_DISABLE_CKPT();
   struct internal_ibv_qp * internal_qp = ibv_qp_to_internal(qp);
   struct ibv_send_wr * copy_wr = copy_send_wr(wr);
   update_lkey_send(copy_wr);
@@ -1677,13 +1677,13 @@ int _ibv_post_send(struct ibv_qp * qp, struct ibv_send_wr * wr, struct
     free(tmp);
   }
 
-  dmtcp_plugin_enable_ckpt();
+  DMTCP_PLUGIN_ENABLE_CKPT();
   return rslt;
 }
 
 int _ibv_poll_cq(struct ibv_cq * cq, int num_entries, struct ibv_wc * wc)
 {
-  dmtcp_plugin_disable_ckpt();
+  DMTCP_PLUGIN_DISABLE_CKPT();
   int rslt = 0;
 
   struct internal_ibv_cq * internal_cq = ibv_cq_to_internal(cq);
@@ -1774,7 +1774,7 @@ int _ibv_poll_cq(struct ibv_cq * cq, int num_entries, struct ibv_wc * wc)
     }
   }
 
-  dmtcp_plugin_enable_ckpt();
+  DMTCP_PLUGIN_ENABLE_CKPT();
   return rslt;
 }
 
