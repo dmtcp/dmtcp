@@ -242,7 +242,8 @@ EXTERNC int dmtcp_get_local_status(int *numCheckpoints, int *numRestarts)
 //   (e.g., not in pre-ckpt, post-ckpt, post-restart event)?
 EXTERNC int dmtcp_is_running_state(void);
 // Primarily for use by the modify-env plugin.
-EXTERNC int dmtcp_get_restart_env(char *name, char *value, int maxvaluelen);
+EXTERNC int dmtcp_get_restart_env(const char *name,
+                                  char *value, int maxvaluelen);
 // Get pathname of target executable under DMTCP control.
 EXTERNC const char* dmtcp_get_executable_path();
 // True if dmtcp_launch called with --no-coordinator
