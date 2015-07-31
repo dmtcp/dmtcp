@@ -1,5 +1,5 @@
 # Dockerfile to build DMTCP container images.
-FROM phusion/baseimage
+FROM ubuntu:15.04
 MAINTAINER Kapil Arya <kapil@ccs.neu.edu>
 
 RUN apt-get update -q && apt-get -qy install    \
