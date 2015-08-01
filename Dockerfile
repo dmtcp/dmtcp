@@ -4,12 +4,8 @@ MAINTAINER Kapil Arya <kapil@ccs.neu.edu>
 
 RUN apt-get update -q && apt-get -qy install    \
       build-essential                           \
-      gdb                                       \
       git-core                                  \
-      make                                      \
-      python                                    \
-      python2.7                                 \
-      wget
+      make
 
 RUN mkdir -p /dmtcp
 RUN mkdir -p /tmp
