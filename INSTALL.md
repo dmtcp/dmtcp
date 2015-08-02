@@ -62,17 +62,13 @@ Note that files `/tmp/${USER}/dmtcp-${USER}@${HOST}/jassertlog.*` are created
 with debugging information if you configured with `--enable-debug`.
 See `./configure --help` for that and other options.
 
-See the file [QUICK-START](QUICK-START) for further information on using DMTCP.
+See the file [QUICK-START.md](QUICK-START.md) for further information on using DMTCP.
 
 
-## RUNNING WITHOUT A SEPARATE COORDINATOR PROCESS:
+## Running without a separate coordinator process:
 
 Usually, the most convenient procedure is to use DMTCP in its
 default mode, which includes a separate DMTCP coordinator process.
-In some rare cases, you may wish to avoid a separate coordinator process.
-For this, there are two options.  The DMTCP-1.2.x series and versions
-through DMTCP-2.1 will support a standalone MTCP.  Starting with
-DMTCP-2.2, a second option will be available.  A DMTCP plugin will
-be provided to run processes without a DMTCP coordinator, and the
-application will directly control checkpointing (see the examples in
-`test/plugin/applic-*-ckpt/`).
+In some rare cases, you may wish to avoid a separate coordinator process by
+providing a `--no-coordinator` flag to `dmtcp_launch`. Multiprocess
+computations are not supported with this flag.
