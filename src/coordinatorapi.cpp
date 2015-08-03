@@ -209,7 +209,7 @@ void CoordinatorAPI::waitForCheckpointCommand()
       JTRACE("Connect request on virtual coordinator socket.");
       break;
     }
-    JASSERT(errno == EINTR) (JASSERT_ERRNO);
+    JASSERT(errno == EINTR) (JASSERT_ERRNO); /* EINTR: a signal was caught */
     if (ckptInterval > 0) {
       struct timeval end;
       JASSERT(gettimeofday(&end, NULL) == 0) (JASSERT_ERRNO);

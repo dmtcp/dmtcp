@@ -788,7 +788,7 @@ static int read_one_memory_area(int fd)
   void *mmappedat;
   int try_skipping_existing_segment = 0;
 
-  /* Read header of memory area into area; next mtcp_readfile() reads data  */
+  /* Read header of memory area into area; mtcp_readfile() will read header */
   Area area;
   mtcp_readfile(fd, &area, sizeof area);
   if (area.size == -1) return -1;

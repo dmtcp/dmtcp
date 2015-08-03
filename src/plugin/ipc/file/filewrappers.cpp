@@ -371,7 +371,7 @@ static int _open_open64_work(int(*fn) (const char *path, int flags, ...),
     newpath = currPtsDevName;
   }
 
-  int fd =(*fn) (newpath, flags, mode);
+  int fd = (*fn) (newpath, flags, mode);
 
   if (fd >= 0 && dmtcp_is_running_state()) {
     FileConnList::instance().processFileConnection(fd, newpath, flags, mode);

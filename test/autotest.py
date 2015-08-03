@@ -516,7 +516,7 @@ def runTestRaw(name, numProcs, cmds):
                    (CKPT_CMD == 'xc' or doesStatusSatisfy(getStatus(), status)),
             wfMsg("checkpoint error"))
     #we now know there was at least one checkpoint file, and the correct number
-    #  of processes have restarted;  but they may faily quickly after restert
+    #  of processes have restarted;  but they may fail quickly after restert
 
     if SLOW > 1:
       #wait and give the processes time to write all of the checkpoint files

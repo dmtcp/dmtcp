@@ -413,10 +413,10 @@ static DmtcpCoordinator prog;
 
 /* The coordinator can receive a second checkpoint request while processing the
  * first one.  If the second request comes at a point where the coordinator has
- * broadcasted DMTCP_DO_SUSPEND message but the workers haven't replied, the
- * coordinator sends another DMTCP_DO_SUSPEND message.  The workers having
+ * broadcast DMT_DO_SUSPEND message but the workers haven't replied, the
+ * coordinator sends another DMT_DO_SUSPEND message.  The workers, having
  * replied to the first DMTCP_DO_SUSPEND message (by suspending all the user
- * threads) are waiting for the next message (DMT_DO_FD_LEADER_ELECTION or
+ * threads), are waiting for the next message (DMT_DO_FD_LEADER_ELECTION or
  * DMT_KILL_PEER), however they receive DMT_DO_SUSPEND message and thus exit()
  * indicating an error.
  * The fix to this problem is to introduce a global
@@ -1197,7 +1197,7 @@ bool DmtcpCoordinator::validateNewWorkerProcess(
   if (workersRunningAndSuspendMsgSent == true) {
     /* Worker trying to connect after SUSPEND message has been sent.
      * This happens if the worker process is executing a fork() system call
-     * when the DMT_DO_SUSPEND is broadcasted. We need to make sure that the
+     * when the DMT_DO_SUSPEND is broadcast. We need to make sure that the
      * child process is allowed to participate in the current checkpoint.
      */
     JASSERT(s.numPeers > 0) (s.numPeers);

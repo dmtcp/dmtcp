@@ -950,7 +950,7 @@ void FifoConnection::drain()
   JTRACE("Checkpoint fifo.") (_fds[0]);
   _mode = st.st_mode;
 
-  int new_flags =(_fcntlFlags &(~(O_RDONLY|O_WRONLY))) | O_RDWR | O_NONBLOCK;
+  int new_flags =(_fcntlFlags & (~(O_RDONLY|O_WRONLY))) | O_RDWR | O_NONBLOCK;
   ckptfd = _real_open(_path.c_str(),new_flags);
   JASSERT(ckptfd >= 0) (ckptfd) (JASSERT_ERRNO);
 

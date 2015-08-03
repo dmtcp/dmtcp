@@ -349,7 +349,7 @@ DmtcpWorker::DmtcpWorker()
           "  Please use dmtcp_launch --ib ***\n");
   }
 
-  // define "Weak Symbols for each library plugin in libdmtcp.so
+  // In libdmtcp.so, notify this event for each plugin.
   eventHook(DMTCP_EVENT_INIT, NULL);
 
   initializeMtcpEngine();

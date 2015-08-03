@@ -62,9 +62,9 @@ void dmtcp::callbackSleepBetweenCheckpoint ( int sec )
   DmtcpWorker::eventHook(DMTCP_EVENT_WAIT_FOR_SUSPEND_MSG, NULL);
   if (dmtcp_is_ptracing && dmtcp_is_ptracing()) {
     // FIXME: Add a test to make check that can insert a delay of a couple of
-    // seconds in here. This helps testing the initialization routines of various
-    // plugins.
-    // Inform Coordinator of our RUNNING state;
+    //        seconds in here. This helps testing the initialization routines
+    //        of various plugins.
+    // Inform coordinator of our RUNNING state;
     DmtcpWorker::informCoordinatorOfRUNNINGState();
   }
   DmtcpWorker::waitForStage1Suspend();
@@ -101,8 +101,8 @@ void dmtcp::callbackPostCheckpoint(int isRestart,
   WorkerState::setCurrentState( WorkerState::RUNNING );
 
   if (dmtcp_is_ptracing == NULL || !dmtcp_is_ptracing()) {
-    // Inform Coordinator of our RUNNING state;
-    // If running under ptrace, lets do this in sleep-between-ckpt callback
+    // Inform coordinator of our RUNNING state;
+    // If running under ptrace, let's do this in sleep-between-ckpt callback.
     DmtcpWorker::informCoordinatorOfRUNNINGState();
   }
   // After this, the user threads will be unlocked in mtcp.c and will resume.
