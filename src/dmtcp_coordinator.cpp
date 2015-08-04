@@ -771,17 +771,6 @@ void DmtcpCoordinator::onData(CoordClient *client)
       client->setState ( msg.state );
       ComputationStatus s = getStatus();
       WorkerState newState = s.minimumState;
-      /* It is possible for minimumState to be RUNNING while one or more
-       * processes are still in REFILLED state.
-       */
-      if (s.minimumState == WorkerState::RUNNING && !s.minimumStateUnanimous &&
-          s.maximumState == WorkerState::REFILLED) {
-        /* If minimumState is RUNNING, and not every processes is in RUNNING
-         * state, the maximumState must be REFILLED. This is the case when we
-         * are performing ckpt-resume or rst-resume).
-         */
-        newState = s.maximumState;
-      }
 
       JTRACE ("got DMT_OK message")
         ( msg.from )( msg.state )( oldState )( newState );
