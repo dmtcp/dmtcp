@@ -1659,7 +1659,7 @@ int DmtcpCoordinator::getRemainingTimeoutMS()
     timeout = startTime.tv_sec + theCheckpointInterval - curTime.tv_sec;
     timeout *= 1000;
     if (timeout < 0) {
-      timeout = 0;
+      timeout = -1;
     }
   }
   return timeout;
