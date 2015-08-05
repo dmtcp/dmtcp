@@ -21,10 +21,10 @@
 
 /****************************************************************************
  * Coordinator code logic:                                                  *
- * main calls monitorSockets, which acts as a top level event loop.         *
- * monitorSockets calls:  onConnect, onData, onDisconnect, onTimeoutInterval*
+ * main calls eventLoop, a top-level event loop.                            *
+ * eventLoop calls:  onConnect, onData, onDisconnect, onTimeoutInterval     *
  *   when client or dmtcp_command talks to coordinator.                     *
- * onConnect and onData receive a socket parameter, read msg, and pass to:  *
+ * onConnect called on msg at listener port.  It passes control to:         *
  *   handleUserCommand, which takes single char arg ('s', 'c', 'k', 'q', ...)*
  * handleUserCommand calls broadcastMessage to send data back               *
  * any message sent by broadcastMessage takes effect only on returning      *
@@ -35,6 +35,14 @@
  * The prefix command 'b' (blocking) from dmtcp_command modifies behavior   *
  *   of 'c' so that the reply to dmtcp_command happens only when clients    *
  *   are back in RUNNING state.                                             *
+ * onData called when a message arrives at a client's port.  It either      *
+ *   processes a per-client special request, or continues the protocol      *
+ *   for a checkpoint or restart sequence (see below).                      *
+ *                                                                          *
+ * updateMinimumState() is responsible for keeping track of states.         *
+ * The coordinator keeps a ComputationStatus, with minimumState and         *
+ *   maximumState for states of all workers, accessed through getStatus()   *
+ *   or through minimumState()                                              *
  * The states for a worker (client) are:                                    *
  * Checkpoint: RUNNING -> SUSPENDED -> FD_LEADER_ELECTION -> DRAINED        *
  *       	  -> CHECKPOINTED -> NAME_SERVICE_DATA_REGISTERED           *
@@ -703,20 +711,21 @@ void DmtcpCoordinator::updateMinimumState(WorkerState oldState)
   }
   if ( oldState == WorkerState::DONE_QUERYING
        && newState == WorkerState::REFILLED )
+    /* then broadcastMessage(DMT_DO_RESUME) after the #endif, below */
 #else
-    if ( oldState == WorkerState::DRAINED
-         && newState == WorkerState::CHECKPOINTED )
-    {
-      writeRestartScript();
-      if (exitAfterCkpt) {
-        JNOTE("Checkpoint Done. Killing all peers.");
-        broadcastMessage(DMT_KILL_PEER);
-        exitAfterCkpt = false;
-      } else {
-        JNOTE ( "refilling all nodes" );
-        broadcastMessage ( DMT_DO_REFILL );
-      }
+  if ( oldState == WorkerState::DRAINED
+       && newState == WorkerState::CHECKPOINTED )
+  {
+    writeRestartScript();
+    if (exitAfterCkpt) {
+      JNOTE("Checkpoint Done. Killing all peers.");
+      broadcastMessage(DMT_KILL_PEER);
+      exitAfterCkpt = false;
+    } else {
+      JNOTE ( "refilling all nodes" );
+      broadcastMessage ( DMT_DO_REFILL );
     }
+  }
   if ( oldState == WorkerState::RESTARTING
        && newState == WorkerState::CHECKPOINTED )
   {
@@ -773,7 +782,7 @@ void DmtcpCoordinator::onData(CoordClient *client)
       WorkerState newState = s.minimumState;
 
       JTRACE ("got DMT_OK message")
-        ( msg.from )( msg.state )( oldState )( newState );
+        ( oldState )( msg.from )( msg.state )( newState );
 
       updateMinimumState(oldState);
       break;
@@ -847,7 +856,7 @@ void DmtcpCoordinator::onData(CoordClient *client)
         client->realPid(msg.realPid);
     }
     break;
-    case DMT_UPDATE_PROCESS_INFO_AFTER_EXEC:
+    case DMT_UPDATE_PROCESS_INFO_AFTER_INIT_OR_EXEC:
     {
       string progname = extraData;
       JNOTE("Updating process Information after exec()")
@@ -1702,6 +1711,7 @@ void DmtcpCoordinator::eventLoop(bool daemon)
       timeout = getRemainingTimeoutMS();
     }
 
+    // This call implements both the interval timer and event loop for sockets.
     // Note: getRemainingTimeoutMS() returns -1 if theCheckpointInterval == 0.
     // If 'timeout == -1', then epoll_wait never times out.
     int nfds = epoll_wait(epollFd, events, MAX_EVENTS, timeout);

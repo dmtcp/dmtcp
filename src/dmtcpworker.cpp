@@ -477,6 +477,7 @@ void DmtcpWorker::waitForCoordinatorMsg(string msgStr,
     JTRACE("Received KILL message from coordinator, exiting");
     _exit (0);
   }
+
   JASSERT(msg.type == type) (msg.type) (type);
 
   // Coordinator sends some computation information along with the SUSPEND

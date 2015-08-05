@@ -117,7 +117,7 @@ void CoordinatorAPI::init()
 {
   JTRACE("Informing coordinator of new process") (UniquePid::ThisProcess());
 
-  DmtcpMessage msg (DMT_UPDATE_PROCESS_INFO_AFTER_EXEC);
+  DmtcpMessage msg (DMT_UPDATE_PROCESS_INFO_AFTER_INIT_OR_EXEC);
   string progname = jalib::Filesystem::GetProgramName();
   msg.extraBytes = progname.length() + 1;
 
