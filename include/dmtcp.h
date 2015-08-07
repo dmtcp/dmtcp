@@ -207,7 +207,7 @@ EXTERNC const char* dmtcp_get_uniquepid_str(void) __attribute__((weak));
 EXTERNC const char* dmtcp_get_computation_id_str(void);
 EXTERNC uint64_t dmtcp_get_coordinator_timestamp(void);
 // Generation is 0 before first checkpoint, and then successively incremented.
-EXTERNC uint32_t dmtcp_get_generation(void) __attribute((weak));
+EXTERNC uint32_t dmtcp_get_generation(void) __attribute__((weak));
 
 /**
  * Gets the coordinator-specific status of DMTCP.
