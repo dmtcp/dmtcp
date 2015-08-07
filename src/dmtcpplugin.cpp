@@ -325,6 +325,12 @@ EXTERNC uint32_t dmtcp_get_generation(void)
   return ProcessInfo::instance().get_generation();
 }
 
+EXTERNC int checkpoint_is_pending(void)
+{
+  return SharedData::getCompId()._computation_generation >
+           ProcessInfo::instance().get_generation();
+}
+
 EXTERNC int dmtcp_is_running_state(void)
 {
   return WorkerState::currentState() == WorkerState::RUNNING;
