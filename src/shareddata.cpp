@@ -267,7 +267,7 @@ uint32_t SharedData::getCkptInterval()
 void SharedData::updateGeneration(uint32_t generation)
 {
   if (sharedDataHeader == NULL) initialize();
-  sharedDataHeader->compId._generation = generation;
+  sharedDataHeader->compId._computation_generation = generation;
 }
 DmtcpUniqueProcessId SharedData::getCompId()
 {

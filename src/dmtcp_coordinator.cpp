@@ -1243,7 +1243,7 @@ bool DmtcpCoordinator::validateNewWorkerProcess(
       // Connection of new computation.
       compId = UniquePid(hello_remote.from.hostid(), client->virtualPid(),
                          hello_remote.from.time(),
-                         hello_remote.from.generation());
+                         hello_remote.from.computationGeneration());
 
       JASSERT(gettimeofday(&tv, NULL) == 0);
       // Get the resolution down to 100 mili seconds.
@@ -1279,7 +1279,7 @@ bool DmtcpCoordinator::startCheckpoint()
     _restartFilenames.clear();
     JNOTE ( "starting checkpoint, suspending all nodes" )( s.numPeers );
     compId.incrementGeneration();
-    JNOTE("Incremented Generation") (compId.generation());
+    JNOTE("Incremented computationGeneration") (compId.computationGeneration());
     // Pass number of connected peers to all clients
     broadcastMessage(DMT_DO_SUSPEND);
 
@@ -1361,7 +1361,7 @@ void DmtcpCoordinator::writeRestartScript()
   o << string(ckptDir) << "/"
     << RESTART_SCRIPT_BASENAME << "_" << compId;
   if (uniqueCkptFilenames) {
-    o << "_" << std::setw(5) << std::setfill('0') << compId.generation();
+    o << "_" << std::setw(5) << std::setfill('0') << compId.computationGeneration();
   }
   o << "." << RESTART_SCRIPT_EXT;
   uniqueFilename = o.str();

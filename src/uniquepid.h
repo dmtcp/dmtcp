@@ -42,26 +42,26 @@ namespace dmtcp
       _hostid = host;
       _pid = pd;
       _time = tm;
-      _generation = gen;
+      _computation_generation = gen;
     }
 
     UniquePid(DmtcpUniqueProcessId id) {
       _hostid = id._hostid;
       _pid = id._pid;
       _time = id._time;
-      _generation = id._generation;
+      _computation_generation = id._computation_generation;
     }
 
     uint64_t hostid() const { return _hostid; }
     pid_t pid() const { return _pid; }
-    int generation() const { return _generation; }
+    int computationGeneration() const { return _computation_generation; }
     uint64_t time() const { return _time; }
     DmtcpUniqueProcessId upid() const {
       DmtcpUniqueProcessId up;
       up._hostid = _hostid;
       up._pid = _pid;
       up._time = _time;
-      up._generation = _generation;
+      up._computation_generation = _computation_generation;
       return up;
     }
 

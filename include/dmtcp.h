@@ -99,7 +99,7 @@ typedef struct DmtcpUniqueProcessId {
   uint64_t  _hostid; //gethostid()
   uint64_t _time; //time()
   pid_t _pid; //getpid()
-  uint32_t _generation; //generation()
+  uint32_t _computation_generation; //computationGeneration()
 } DmtcpUniqueProcessId;
 
 EXTERNC int dmtcp_unique_pids_equal(DmtcpUniqueProcessId a,
