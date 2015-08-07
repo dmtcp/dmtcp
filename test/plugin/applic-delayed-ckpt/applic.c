@@ -34,8 +34,12 @@ int main() {
     if (retval == DMTCP_NOT_PRESENT) {
       printf("\n *** dmtcp_disable_ckpt: DMTCP_NOT_PRESENT."
              "  Will exit.\n");
-      exit(1);
+      exit(0);
     }
+
+    // This assumes that DMTCP is present.
+    int original_generation = dmtcp_get_generation();
+
     printf("*** dmtcp_disable_ckpt: Checkpoints are blocked.\n");
     printf("      But a checkpoint was requested every two seconds: '-i 2'\n");
     printf("*** sleep: sleeping 3 seconds.\n\n");
@@ -44,7 +48,11 @@ int main() {
            "      and write ./dmtcp_restart_script.sh.\n");
     printf("*** Execute ./dmtcp_restart_script.sh to restart from here.\n");
     dmtcp_enable_ckpt();
-    sleep(2); // Wait long enough for checkpoint to be written.
+
+    // Wait long enough for checkpoint to be written.
+    while (dmtcp_get_generation() == original_generation) {
+      sleep(1);
+    }
 
     printf("\n*** Process done executing.  Successfully exiting.\n");
     return 0;
