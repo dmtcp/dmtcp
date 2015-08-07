@@ -99,7 +99,7 @@ typedef struct DmtcpUniqueProcessId {
   uint64_t  _hostid; //gethostid()
   uint64_t _time; //time()
   pid_t _pid; //getpid()
-  uint32_t _generation; //generation()
+  uint32_t _computation_generation; //computationGeneration()
 } DmtcpUniqueProcessId;
 
 EXTERNC int dmtcp_unique_pids_equal(DmtcpUniqueProcessId a,
@@ -207,7 +207,8 @@ EXTERNC const char* dmtcp_get_uniquepid_str(void) __attribute__((weak));
 EXTERNC const char* dmtcp_get_computation_id_str(void);
 EXTERNC uint64_t dmtcp_get_coordinator_timestamp(void);
 // Generation is 0 before first checkpoint, and then successively incremented.
-EXTERNC uint32_t dmtcp_get_generation(void) __attribute((weak));
+EXTERNC uint32_t dmtcp_get_generation(void) __attribute__((weak));
+EXTERNC int checkpoint_is_pending(void) __attribute__((weak));
 
 /**
  * Gets the coordinator-specific status of DMTCP.

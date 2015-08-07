@@ -24,13 +24,25 @@
 #include "dmtcp.h"
 
 int main() {
-    if ( ! dmtcp_is_enabled() ) {
+    int dmtcp_enabled = dmtcp_is_enabled();
+    if ( ! dmtcp_enabled ) {
       printf("\n *** dmtcp_is_enabled: executable seems to not be running"
              " under dmtcp_launch.\n\n");
     }
 
+    int original_generation;
+    if ( dmtcp_enabled ) {
+      original_generation = dmtcp_get_generation();
+    }
+
+
     int retval = dmtcp_checkpoint();
     if (retval == DMTCP_AFTER_CHECKPOINT) {
+      // Wait long enough for checkpoint request to be written out.
+      while (dmtcp_get_generation() == original_generation) {
+        sleep(1);
+    }
+
       printf("*** dmtcp_checkpoint: This program has now invoked a checkpoint.\n"
              "      It will resume its execution next.\n");
     } else if (retval == DMTCP_AFTER_RESTART) {

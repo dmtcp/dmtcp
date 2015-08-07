@@ -79,6 +79,8 @@ namespace dmtcp
       void noCoordinator(bool nc) { _noCoordinator = nc; }
       pid_t pid() const { return _pid; }
       pid_t sid() const { return _sid; }
+      uint32_t get_generation() { return _generation; }
+      void set_generation(uint32_t generation) { _generation = generation; }
 
       size_t argvSize() { return _argvSize; }
       void argvSize(int size) { _argvSize = size; }
@@ -129,6 +131,12 @@ namespace dmtcp
 
       uint32_t  _numPeers;
       uint32_t  _noCoordinator;
+      uint32_t  _generation;
+        // _generation, above, is per-process.  This constrasts with
+        //   _computation_generation, which is shared among all processes on a host.
+        // _computation_generation is updated in shareddata.cpp by:
+        //      sharedDataHeader->compId._computation_generation = generation;
+        // _generation is updated later when this process begins its checkpoint.
       uint32_t  _argvSize;
       uint32_t  _envSize;
       uint32_t  _elfType;

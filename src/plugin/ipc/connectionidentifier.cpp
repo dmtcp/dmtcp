@@ -78,7 +78,7 @@ bool ConnectionIdentifier::operator==(const ConnectionIdentifier& that)
   return  _upid._hostid == that._upid._hostid &&
           _upid._pid == that._upid._pid &&
           _upid._time == that._upid._time &&
-          _upid._generation == that._upid._generation &&
+          _upid._computation_generation == that._upid._computation_generation &&
           _id   == that._id;
 }
 

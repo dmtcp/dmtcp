@@ -364,6 +364,12 @@ static void *checkpointhread (void *dummy)
     /* All other threads halted in 'stopthisthread' routine (they are all
      * in state ST_SUSPENDED).  It's safe to write checkpoint file now.
      */
+
+    // Update generation, in case user callback calls dmtcp_get_generation().
+    uint32_t computation_generation =
+               SharedData::getCompId()._computation_generation;
+    ProcessInfo::instance().set_generation(computation_generation);
+
     JTRACE("before callbackSleepBetweenCheckpoint(0)");
     callbackPreCheckpoint();
 

@@ -81,7 +81,7 @@ static UniquePid& parentProcess()
   return *t;
 }
 
-// _generation field of return value may later have to be modified.
+// _computation_generation field of return value may later have to be modified.
 // So, it can't return a const UniquePid
 UniquePid& UniquePid::ThisProcess(bool disableJTrace /*=false*/)
 {
@@ -113,9 +113,10 @@ UniquePid::UniquePid()
   memset(&_time, 0, sizeof(_time));
 }
 
+// This is called only by the DMTCP coordinator.
 void  UniquePid::incrementGeneration()
 {
-  _generation++;
+  _computation_generation++;
 }
 
 /*!
@@ -155,7 +156,7 @@ bool dmtcp::operator==(const DmtcpUniqueProcessId& a,
   return a._hostid == b._hostid &&
          a._pid == b._pid &&
          a._time == b._time &&
-         a._generation == b._generation;
+         a._computation_generation == b._computation_generation;
 }
 
 bool dmtcp::operator!=(const DmtcpUniqueProcessId& a,
