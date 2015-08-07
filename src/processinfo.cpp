@@ -112,6 +112,11 @@ ProcessInfo::ProcessInfo()
   _sid = -1;
   _isRootOfProcessTree = false;
   _noCoordinator = false;
+  _generation = 0;
+    // _generation, above, is per-process.
+    // This constrasts with DmtcpUniqueProcessId:_computation_generation, which is
+    //   shared among all process on a node; used in variable sharedDataHeader.
+    // _generation is updated when _this_ process begins its checkpoint.
   _childTable.clear();
   _pthreadJoinId.clear();
   _procSelfExe = jalib::Filesystem::ResolveSymlink("/proc/self/exe");
@@ -542,7 +547,7 @@ void ProcessInfo::serialize(jalib::JBinarySerializer& o)
   _savedBrk = (uint64_t) sbrk(0);
 
   o & _elfType;
-  o & _isRootOfProcessTree & _pid & _sid & _ppid & _gid & _fgid;
+  o & _isRootOfProcessTree & _pid & _sid & _ppid & _gid & _fgid & _generation;
   o & _procname & _hostname & _launchCWD & _ckptCWD & _upid & _uppid;
   o & _compGroup & _numPeers & _noCoordinator & _argvSize & _envSize;
   o & _restoreBufAddr & _savedHeapStart & _savedBrk;

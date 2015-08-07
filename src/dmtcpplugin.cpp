@@ -322,7 +322,7 @@ EXTERNC uint64_t dmtcp_get_coordinator_timestamp(void)
 
 EXTERNC uint32_t dmtcp_get_generation(void)
 {
-  return SharedData::getCompId()._computation_generation;
+  return ProcessInfo::instance().get_generation();
 }
 
 EXTERNC int dmtcp_is_running_state(void)
