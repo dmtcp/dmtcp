@@ -1,9 +1,3 @@
-/* NOTE:  if you just want to insert your own code at the time of checkpoint
- *  and restart, there are two simpler additional mechanisms:
- *  dmtcpaware, and the MTCP special hook functions:
- *    mtcpHookPreCheckpoint, mtcpHookPostCheckpoint, mtcpHookRestart
- */
-
 /* NOTE: This file contains the dmtcp plugin to handle the checkpoint restart
  * of a process that uses tap/tun driver. This can correctly handle a process
  * which creates just one connection to a tap/tun interface.

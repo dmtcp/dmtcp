@@ -75,7 +75,6 @@ void dmtcp::callbackSleepBetweenCheckpoint ( int sec )
 void dmtcp::callbackPreCheckpoint()
 {
   //now user threads are stopped
-  userHookTrampoline_preCkpt();
   DmtcpWorker::waitForStage2Checkpoint();
 }
 
@@ -99,11 +98,7 @@ void dmtcp::callbackPostCheckpoint(int isRestart,
 
   DmtcpWorker::waitForStage4Resume(isRestart);
 
-  // Set the process state to RUNNING now, in case a dmtcpaware hook
-  //  calls pthread_create, thereby invoking our virtualization.
   WorkerState::setCurrentState( WorkerState::RUNNING );
-  // Now everything but user threads are restored.  Call the user hook.
-  userHookTrampoline_postCkpt(isRestart);
 
   if (dmtcp_is_ptracing == NULL || !dmtcp_is_ptracing()) {
     // Inform Coordinator of our RUNNING state;

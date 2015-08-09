@@ -34,7 +34,6 @@
 #undef dmtcp_checkpoint
 #undef dmtcp_disable_ckpt
 #undef dmtcp_enable_ckpt
-#undef dmtcp_install_hooks
 #undef dmtcp_get_coordinator_status
 #undef dmtcp_get_local_status
 #undef dmtcp_get_uniquepid_str
@@ -45,11 +44,6 @@ using namespace dmtcp;
 //global counters
 static int numCheckpoints = 0;
 static int numRestarts    = 0;
-
-//user hook functions
-static dmtcp_fnptr_t userHookPreCheckpoint = NULL;
-static dmtcp_fnptr_t userHookPostCheckpoint = NULL;
-static dmtcp_fnptr_t userHookPostRestart = NULL;
 
 //I wish we could use pthreads for the trickery in this file, but much of our
 //code is executed before the thread we want to wake is restored.  Thus we do
@@ -150,20 +144,6 @@ EXTERNC int dmtcp_get_local_status(int *nCheckpoints, int *nRestarts)
   return 1;
 }
 
-// DEPRECATED:  This function is deprecated.  It and the userHook functions
-//   and variables of this file are all part of the older dmtcpaware API.
-//   They will be deleted, along with the declaration in include/dmtcp.h,
-//   in some future release.
-EXTERNC int dmtcp_install_hooks(dmtcp_fnptr_t preCheckpoint,
-                                dmtcp_fnptr_t postCheckpoint,
-                                dmtcp_fnptr_t postRestart)
-{
-  userHookPreCheckpoint  = preCheckpoint;
-  userHookPostCheckpoint = postCheckpoint;
-  userHookPostRestart    = postRestart;
-  return 1;
-}
-
 EXTERNC int dmtcp_disable_ckpt()
 {
   ThreadSync::delayCheckpointsLock();
@@ -174,26 +154,6 @@ EXTERNC int dmtcp_enable_ckpt()
 {
   ThreadSync::delayCheckpointsUnlock();
   return 1;
-}
-
-void dmtcp::userHookTrampoline_preCkpt()
-{
-  if(userHookPreCheckpoint != NULL)
-    (*userHookPreCheckpoint)();
-}
-
-void dmtcp::userHookTrampoline_postCkpt(bool isRestart)
-{
-  //this function runs before other threads are resumed
-  if(isRestart){
-    numRestarts++;
-    if(userHookPostRestart != NULL)
-      (*userHookPostRestart)();
-  }else{
-    numCheckpoints++;
-    if(userHookPostCheckpoint != NULL)
-      (*userHookPostCheckpoint)();
-  }
 }
 
 EXTERNC int dmtcp_get_ckpt_signal(void)

@@ -1,9 +1,3 @@
-/* NOTE:  if you just want to insert your own code at the time of checkpoint
- *  and restart, there are two simpler additional mechanisms:
- *  dmtcpaware, and the MTCP special hook functions:
- *    mtcpHookPreCheckpoint, mtcpHookPostCheckpoint, mtcpHookRestart
- */
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h> /* For strcmp(), etc. */
@@ -293,7 +287,7 @@ static int create_vcpu()
   if (ret < 0) {
     return ret;
   }
-  
+
   g_vcpu_fd = dup2(ret, g_vcpu_fd);
   if (g_vcpu_fd < 0) {
     return g_vcpu_fd;
@@ -333,7 +327,7 @@ static int restore_id_map_addr()
     DPRINTF ("Could not set id-map\n");
     return ret;
   }
-  
+
   return 0;
 }
 
@@ -348,7 +342,7 @@ static int restore_tss_addr()
     DPRINTF ("Could not set tss address.\n");
     return ret;
   }
-  
+
   return 0;
 }
 
@@ -718,7 +712,7 @@ void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
   int r;
   static int dummy = 1;
   static int (*next_fnc)() = NULL; /* Same type signature as ioctl */
-  
+
   /* NOTE:  See warning in plugin/README about calls to printf here. */
   switch (event) {
     case DMTCP_EVENT_INIT:
@@ -866,7 +860,7 @@ void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
                 g_kvm_irq_level.irq = array[i];
                 r = NEXT_FNC(ioctl)(g_vm_fd, KVM_IRQ_LINE_STATUS, &g_kvm_irq_level);
                 if (r < 0) {
-                  DPRINTF("ERROR: Resetting IRQ#%d LINE returned: %d\n", g_kvm_irq_level.irq, r); 
+                  DPRINTF("ERROR: Resetting IRQ#%d LINE returned: %d\n", g_kvm_irq_level.irq, r);
                   exit(-1);
                 }
               }

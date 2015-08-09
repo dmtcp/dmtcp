@@ -360,23 +360,4 @@ EXTERNC void dmtcp_plugin_enable_ckpt(void);
 /// Pointer to a "void foo();" function
 typedef void (*dmtcp_fnptr_t)(void);
 
-/**
- * THIS FUNCTION IS DEPRECATED.  IT IS PART OF AN OLDER dmtcpaware API.
- * USE dmtcp_event_hook() INSTEAD.  (See examples in test/plugin/* dirs.)
- *
- * Sets the hook functions that DMTCP calls when it checkpoints/restarts.
- * - These functions are called from the DMTCP thread while all user threads
- *   are suspended.
- * - First preCheckpoint() is called, then either postCheckpoint() or
- *   postRestart() is called.
- * - Set to NULL to disable.
- * - Returns 1 on success, <=0 on error
- */
-EXTERNC int dmtcp_install_hooks(dmtcp_fnptr_t preCheckpoint,
-                                dmtcp_fnptr_t postCheckpoint,
-                                dmtcp_fnptr_t postRestart)
-  __attribute__((weak));
-#define dmtcp_install_hooks(a,b,c) \
-  (dmtcp_install_hooks ? dmtcp_install_hooks(a,b,c) : DMTCP_NOT_PRESENT)
-
 #endif
