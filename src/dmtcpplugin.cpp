@@ -328,7 +328,7 @@ EXTERNC void dmtcp_close_protected_fd(int fd)
 EXTERNC int
 dmtcp_get_restart_env(const char *name,   // IN
                       char *value,        // OUT
-                      int maxvaluelen)
+                      size_t maxvaluelen)
 {
   int env_fd = dup(dmtcp_protected_environ_fd());
   JASSERT(env_fd != -1)(env_fd)(dmtcp_protected_environ_fd());
@@ -368,7 +368,7 @@ dmtcp_get_restart_env(const char *name,   // IN
    } else {
      char *start_ptr = env_buf;
      // iterate over the flattened list of name-value pairs
-     while (start_ptr - env_buf < sizeof(env_buf)) {
+     while (start_ptr - env_buf < (int) sizeof(env_buf)) {
        pos = NULL;
        if (strncmp(start_ptr, name, namelen) == 0) {
          if ((pos = strchr(start_ptr, '='))) {
