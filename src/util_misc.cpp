@@ -128,6 +128,17 @@ string Util::joinStrings(vector<string> v, const string& delim)
   return result;
 }
 
+
+string Util::removeSuffix(const string& s, const string& suffix)
+{
+  if (strEndsWith(s, suffix.c_str())) {
+    string result(s, s.length() - suffix.length());
+    return result;
+  }
+  return s;
+}
+
+
 // Tokenizes the string using the delimiters.
 // Empty tokens will not be included in the result.
 vector<string> Util::tokenizeString(const string& s, const string& delims)
@@ -190,6 +201,47 @@ inline vector<string> split(
   return tokens;
 }
 #endif
+
+bool Util::createDirectoryTree(const string& path)
+{
+  size_t index = path.rfind('/');
+
+  if (index == string::npos)
+    return true;
+
+  string dir = path.substr(0, index);
+
+  index = path.find('/');
+  while (index != string::npos) {
+    if (index > 1) {
+      string dirName = path.substr(0, index);
+
+      errno = 0;
+      int res = mkdir(dirName.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+#ifdef STAMPEDE_LUSTRE_FIX
+      if (res < 0) {
+        if (errno == EACCES) {
+          struct stat buff;
+          int ret = stat(dirName.c_str(), &buff);
+          if (ret != 0) {
+            return false;
+          };
+        } else if (errno == EEXIST) {
+          /* do nothing */
+        } else {
+          return false;
+        }
+      }
+#else
+      if (res == -1 && errno != EEXIST) {
+        return false;
+      }
+#endif
+    }
+    index = path.find('/', index+1);
+  }
+  return true;
+}
 
 // Fails or does entire write (returns count)
 ssize_t Util::writeAll(int fd, const void *buf, size_t count)

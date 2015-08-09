@@ -48,7 +48,6 @@ using namespace dmtcp;
 static bool ptmxTestPacketMode(int masterFd);
 static ssize_t ptmxReadAll(int fd, const void *origBuf, size_t maxCount);
 static ssize_t ptmxWriteAll(int fd, const void *buf, bool isPacketMode);
-static void createDirectoryStructure(const string& path);
 static void writeFileFromFd(int fd, int destFd);
 static bool areFilesEqual(int fd, int destFd, size_t size);
 
@@ -617,7 +616,8 @@ void FileConnection::preCkpt()
     JASSERT(SharedData::getCkptLeaderForFile(_st_dev, _st_ino, &id));
     if (id == _id) {
       string savedFilePath = getSavedFilePath(_path);
-      createDirectoryStructure(savedFilePath);
+      JASSERT(Util::createDirectoryTree(savedFilePath)) (savedFilePath)
+        .Text("Unable to create directory in File Path");
 
       int destFd = _real_open(savedFilePath.c_str(), O_CREAT | O_WRONLY | O_TRUNC,
                               S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
@@ -802,7 +802,8 @@ void FileConnection::postRestart()
     JTRACE("Restore Resource Manager File") (_path);
   } else {
     refreshPath();
-    createDirectoryStructure(_path);
+    JASSERT(Util::createDirectoryTree(_path)) (_path)
+      .Text("Unable to create directory in File Path");
     /* Now try to create the file with O_EXCL. If we fail with EEXIST, there
      * are two possible scenarios:
      * - The file was created by a different restarting process with data from
@@ -813,7 +814,7 @@ void FileConnection::postRestart()
      */
     int fd = _real_open(_path.c_str(), O_CREAT | O_EXCL | O_RDWR,
                         S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
-    JASSERT(fd != -1 || errno == EEXIST);
+    JASSERT(fd != -1 || errno == EEXIST) (_path) (JASSERT_ERRNO);
 
     if (fd == -1) {
       _fileAlreadyExists = true;
@@ -848,45 +849,6 @@ bool FileConnection::checkDup(int fd)
     JASSERT (-1 != lseek (myfd, -1, SEEK_CUR)) .Text("lseek failed");
   }
   return retVal;
-}
-
-static void createDirectoryStructure(const string& path)
-{
-  size_t index = path.rfind('/');
-
-  if (index == string::npos)
-    return;
-
-  string dir = path.substr(0, index);
-
-  index = path.find('/');
-  while (index != string::npos) {
-    if (index > 1) {
-      string dirName = path.substr(0, index);
-
-      errno = 0;
-      int res = mkdir(dirName.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
-#ifdef STAMPEDE_LUSTRE_FIX
-      if (res < 0) {
-        if (errno == EACCES) {
-          struct stat buff;
-          int ret = stat(dirName.c_str(), &buff);
-          JASSERT(ret == 0) (dirName) (path) (JASSERT_ERRNO)
-             .Text("Unable to open directory");
-        } else if (errno == EEXIST) {
-          /* do nothing */
-        } else {
-          JASSERT(false) (dirName) (path) (JASSERT_ERRNO)
-          .Text("Unable to create directory in File Path");
-        }
-      }
-#else
-      JASSERT(res != -1 || errno==EEXIST) (dirName) (path) (JASSERT_ERRNO)
-        .Text("Unable to create directory in File Path");
-#endif
-    }
-    index = path.find('/', index+1);
-  }
 }
 
 int FileConnection::openFile()
