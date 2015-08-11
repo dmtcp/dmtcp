@@ -57,6 +57,8 @@ EXTERNC int dmtcp_infiniband_enabled(void) __attribute__((weak));
 static const int END_OF_NSCD_AREAS = -1;
 
 ProcSelfMaps *procSelfMaps = NULL;
+vector<ProcMapsArea> *nscdAreas = NULL;
+
 
 /* Internal routines */
 //static void sync_shared_mem(void);
@@ -64,8 +66,7 @@ static void writememoryarea (int fd, Area *area,
                              int stack_was_seen);
 
 static bool isNscdArea(const Area& area);
-static void remap_nscd_areas(Area remap_nscd_areas_array[],
-                             int  num_remap_nscd_areas);
+static void remap_nscd_areas(const vector<ProcMapsArea> & areas);
 
 /*****************************************************************************
  *
@@ -98,9 +99,28 @@ void mtcp_writememoryareas(int fd)
   /* inconsistent state.  See note in restoreverything routine.             */
   /**************************************************************************/
 
-  int num_remap_nscd_areas = 0;
-  Area remap_nscd_areas_array[10];
-  remap_nscd_areas_array[9].flags = END_OF_NSCD_AREAS;
+  {
+    if (nscdAreas == NULL) {
+      nscdAreas = new vector<ProcMapsArea>();
+    }
+    nscdAreas->clear();
+    // This block is to ensure that the object is deleted as soon as we leave
+    // this block.
+    ProcSelfMaps procSelfMaps;
+    // Preprocess memory regions as needed.
+    while (procSelfMaps.getNextArea(&area)) {
+      if (isNscdArea(area)) {
+        /* Special Case Handling: nscd is enabled*/
+        JNOTE("NSCD daemon shared memory area present.\n"
+            "  MTCP will now try to remap this area in read/write mode as\n"
+            "  private (zero pages), so that glibc will automatically\n"
+            "  stop using NSCD or ask NSCD daemon for new shared area\n")
+          (area.name);
+
+        nscdAreas->push_back(area);
+      }
+    }
+  }
 
   if (procSelfMaps != NULL) {
     // We need to explicitly delete this object here because on restart, we
@@ -201,22 +221,11 @@ void mtcp_writememoryareas(int fd)
       area.name[0] = '\0';
     } else if (isNscdArea(area)) {
       /* Special Case Handling: nscd is enabled*/
-      JTRACE("NSCD daemon shared memory area present.\n"
-              "  MTCP will now try to remap this area in read/write mode as\n"
-              "  private (zero pages), so that glibc will automatically\n"
-              "  stop using NSCD or ask NSCD daemon for new shared area\n")
-        (area.name);
       area.prot = PROT_READ | PROT_WRITE | MTCP_PROT_ZERO_PAGE;
       area.flags = MAP_PRIVATE | MAP_ANONYMOUS;
-
-      /* We're still using proc-maps in mtcp_readmapsline();
-       * So, remap NSCD later.
-       */
-      remap_nscd_areas_array[num_remap_nscd_areas++] = area;
       Util::writeAll(fd, &area, sizeof(area));
       continue;
-    }
-    else if (Util::strStartsWith(area.name, INFINIBAND_SHMEM_FILE)) {
+    } else if (Util::strStartsWith(area.name, INFINIBAND_SHMEM_FILE)) {
       // TODO: Don't checkpoint infiniband shared area for now.
       continue;
     }
@@ -290,7 +299,7 @@ void mtcp_writememoryareas(int fd)
   procSelfMaps = NULL;
 
   /* It's now safe to do this, since we're done using mtcp_readmapsline() */
-  remap_nscd_areas(remap_nscd_areas_array, num_remap_nscd_areas);
+  remap_nscd_areas(*nscdAreas);
 
   area.addr = NULL; // End of data
   area.size = -1; // End of data
@@ -312,26 +321,14 @@ static bool isNscdArea(const Area& area)
   return false;
 }
 
-/* FIXME:
- * We should read /proc/self/maps into temporary array and mtcp_readmapsline
- * should then read from it.  This is cleaner than this hack here.
- * Then this body can go back to replacing:
- *    remap_nscd_areas_array[num_remap_nscd_areas++] = area;
- * - Gene
- */
-static void remap_nscd_areas(Area remap_nscd_areas_array[],
-			     int  num_remap_nscd_areas)
+static void remap_nscd_areas(const vector<ProcMapsArea>& areas)
 {
-  Area *area;
-  for (area = remap_nscd_areas_array; num_remap_nscd_areas-- > 0; area++) {
-    JASSERT(area->flags != END_OF_NSCD_AREAS)
-      .Text("Too many NSCD areas to remap.");
-    JASSERT(munmap(area->addr, area->size) == 0) (JASSERT_ERRNO)
+  for (size_t i = 0; i < areas.size(); i++) {
+    JASSERT(munmap(areas[i].addr, areas[i].size) == 0) (JASSERT_ERRNO)
       .Text("error unmapping NSCD shared area");
-    JASSERT(mmap(area->addr, area->size, area->prot, area->flags, 0, 0)
-            != MAP_FAILED)
+    JASSERT(mmap(areas[i].addr, areas[i].size, areas[i].prot,
+            MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED, 0, 0) != MAP_FAILED)
       (JASSERT_ERRNO) .Text("error remapping NSCD shared area.");
-    memset(area->addr, 0, area->size);
   }
 }
 
