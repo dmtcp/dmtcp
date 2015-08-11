@@ -27,6 +27,7 @@
 #include <string>
 #include "util.h"
 #include "procmapsarea.h"
+#include "procselfmaps.h"
 #include "jalib.h"
 #include "jassert.h"
 #include "jconvert.h"
@@ -43,15 +44,8 @@ int dmtcp::findLib_byname(string pattern, string &libpath)
   ProcMapsArea area;
   int ret = -1;
 
-  // we will search for first libpath and first libname
-  int fd = _real_open ( "/proc/self/maps", O_RDONLY);
-
-  if( fd < 0 ){
-    JTRACE("Cannot open /proc/self/maps file");
-    return -1;
-  }
-
-  while( Util::readProcMapsLine(fd, &area) ){
+  ProcSelfMaps procSelfMaps;
+  while (procSelfMaps.getNextArea(&area)) {
     libpath = area.name;
     //JTRACE("Inspect new /proc/seft/maps line")(libpath);
     if( libpath.size() == 0 ){
@@ -69,7 +63,6 @@ int dmtcp::findLib_byname(string pattern, string &libpath)
     }
   }
 
-  _real_close(fd);
   return ret;
 }
 
@@ -80,15 +73,8 @@ int dmtcp::findLib_byfunc(string fname, string &libpath)
   ProcMapsArea area;
   int ret = -1;
 
-  // We will search for the first libpath and the first libname.
-  int fd = _real_open ( "/proc/self/maps", O_RDONLY);
-
-  if( fd < 0 ){
-    JTRACE("Cannot open /proc/self/maps file");
-    return -1;
-  }
-
-  while( Util::readProcMapsLine(fd, &area) ){
+  ProcSelfMaps procSelfMaps;
+  while (procSelfMaps.getNextArea(&area)) {
     libpath = area.name;
     //JTRACE("Inspect new /proc/seft/maps line")(libpath);
     if( libpath.size() == 0 ){
@@ -118,6 +104,5 @@ int dmtcp::findLib_byfunc(string fname, string &libpath)
     //JTRACE("Function not found in Libpath")(fname)(libpath);
   }
 
-  _real_close(fd);
   return ret;
 }
