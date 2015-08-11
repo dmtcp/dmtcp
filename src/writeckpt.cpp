@@ -38,8 +38,6 @@
 
 #define DEV_ZERO_DELETED_STR "/dev/zero (deleted)"
 #define DEV_NULL_DELETED_STR "/dev/null (deleted)"
-#define SYS_V_SHMEM_FILE "/SYSV"
-#define INFINIBAND_SHMEM_FILE "/dev/infiniband/uverbs"
 
 /* Shared memory regions for Direct Rendering Infrastructure */
 #define DEV_DRI_SHMEM "/dev/dri/card"
@@ -65,7 +63,6 @@ vector<ProcMapsArea> *nscdAreas = NULL;
 static void writememoryarea (int fd, Area *area,
                              int stack_was_seen);
 
-static bool isNscdArea(const Area& area);
 static void remap_nscd_areas(const vector<ProcMapsArea> & areas);
 
 /*****************************************************************************
@@ -109,7 +106,7 @@ void mtcp_writememoryareas(int fd)
     ProcSelfMaps procSelfMaps;
     // Preprocess memory regions as needed.
     while (procSelfMaps.getNextArea(&area)) {
-      if (isNscdArea(area)) {
+      if (Util::isNscdArea(area)) {
         /* Special Case Handling: nscd is enabled*/
         JNOTE("NSCD daemon shared memory area present.\n"
             "  MTCP will now try to remap this area in read/write mode as\n"
@@ -212,21 +209,20 @@ void mtcp_writememoryareas(int fd)
       JTRACE("saving area as Anonymous") (area.name);
       area.flags = MAP_PRIVATE | MAP_ANONYMOUS;
       area.name[0] = '\0';
-    } else if (Util::strStartsWith(area.name, SYS_V_SHMEM_FILE)) {
+    } else if (Util::isSysVShmArea(area)) {
       JTRACE("saving area as Anonymous") (area.name);
       area.flags = MAP_PRIVATE | MAP_ANONYMOUS;
       area.name[0] = '\0';
-    } else if (isNscdArea(area)) {
+    } else if (Util::isNscdArea(area)) {
       /* Special Case Handling: nscd is enabled*/
       area.prot = PROT_READ | PROT_WRITE | MTCP_PROT_ZERO_PAGE;
       area.flags = MAP_PRIVATE | MAP_ANONYMOUS;
       Util::writeAll(fd, &area, sizeof(area));
       continue;
-    } else if (Util::strStartsWith(area.name, INFINIBAND_SHMEM_FILE)) {
+    } else if (Util::isIBShmArea(area)) {
       // TODO: Don't checkpoint infiniband shared area for now.
       continue;
-    }
-    else if (Util::strEndsWith(area.name, DELETED_FILE_SUFFIX)) {
+    } else if (Util::strEndsWith(area.name, DELETED_FILE_SUFFIX)) {
       /* Deleted File */
     } else if (area.name[0] == '/' && strstr(&area.name[1], "/") != NULL) {
       /* If an absolute pathname
@@ -270,18 +266,6 @@ void mtcp_writememoryareas(int fd)
 
   /* That's all folks */
   JASSERT(_real_close (fd) == 0);
-}
-
-// Check for NSCD area.
-static bool isNscdArea(const Area& area)
-{
-  if (Util::strStartsWith(area.name, "/run/nscd") || // OpenSUSE (newer)
-      Util::strStartsWith(area.name, "/var/run/nscd") || // OpenSUSE (older)
-      Util::strStartsWith(area.name, "/var/cache/nscd") || // Debian/Ubuntu
-      Util::strStartsWith(area.name, "/var/db/nscd")) { // RedHat/Fedora
-    return true;
-  }
-  return false;
 }
 
 static void remap_nscd_areas(const vector<ProcMapsArea>& areas)
