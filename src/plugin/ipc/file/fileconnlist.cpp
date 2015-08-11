@@ -30,6 +30,7 @@
 #include <mqueue.h>
 #include <stdint.h>
 #include <signal.h>
+#include "procselfmaps.h"
 #include "util.h"
 #include "shareddata.h"
 #include "jfilesystem.h"
@@ -147,13 +148,12 @@ void FileConnList::resume(bool isRestart)
 
 void FileConnList::prepareShmList()
 {
+  ProcSelfMaps procSelfMaps;
   ProcMapsArea area;
-  int mapsfd = _real_open("/proc/self/maps", O_RDONLY, 0);
-  JASSERT(mapsfd != -1) (JASSERT_ERRNO);
 
   shmAreas.clear();
   shmAreaConn.clear();
-  while (Util::readProcMapsLine(mapsfd, &area)) {
+  while (procSelfMaps.getNextArea(&area)) {
     if ((area.flags & MAP_SHARED) && area.prot != 0) {
       if (strstr(area.name, "ptraceSharedInfo") != NULL ||
           strstr(area.name, "dmtcpPidMap") != NULL ||
@@ -208,7 +208,6 @@ void FileConnList::prepareShmList()
       }
     }
   }
-  _real_close(mapsfd);
 }
 
 void FileConnList::remapShmMaps()
