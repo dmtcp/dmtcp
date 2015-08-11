@@ -232,30 +232,6 @@ void mtcp_writememoryareas(int fd)
       /* If an absolute pathname
        * Posix and SysV shared memory segments can be mapped as /XYZ
        */
-#if 0
-      struct stat statbuf;
-      unsigned int long devnum;
-      if (stat(area.name, &statbuf) < 0) {
-        JWARNING(false) (area.name) (JASSERT_ERRNO)
-          .Text("Error statting file.");
-      } else {
-        devnum = makedev(dev_info.devmajor, dev_info.devminor);
-        JWARNING (devnum == statbuf.st_dev && dev_info.inodenum == statbuf.st_ino)
-          (area.name) (statbuf.st_dev) (statbuf.st_ino)
-          (devnum) (dev_info.inodenum);
-      }
-#endif
-    }
-
-    area.filesize = 0;
-    if (area.name[0] != '\0') {
-      int ffd = _real_open(area.name, O_RDONLY, 0);
-      if (ffd != -1) {
-        area.filesize = lseek(ffd, 0, SEEK_END);
-        if (area.filesize == -1)
-          area.filesize = 0;
-        _real_close(ffd);
-      } /* else no such file; don't need to close it */
     }
 
     /* Force the anonymous flag if it's a private writeable section, as the

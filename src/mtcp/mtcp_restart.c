@@ -991,7 +991,7 @@ static void adjust_for_smaller_file_size(Area *area, int fd)
   int mtcp_sys_errno;
   off_t curr_size = mtcp_sys_lseek(fd, 0, SEEK_END);
   if (curr_size == -1) return;
-  if (curr_size < area->filesize && (area->offset + area->size > curr_size)) {
+  if (area->offset + area->size > curr_size) {
     size_t diff_in_size = (area->offset + area->size) - curr_size;
     size_t anon_area_size = (diff_in_size + MTCP_PAGE_SIZE - 1)
                              & MTCP_PAGE_MASK;
