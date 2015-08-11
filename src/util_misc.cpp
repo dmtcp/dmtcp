@@ -627,3 +627,26 @@ char *Util::findExecutable(char *executable, const char* path_env,
   }
 }
 
+// Check for NSCD area.
+bool Util::isNscdArea(const ProcMapsArea& area)
+{
+  if (strStartsWith(area.name, "/run/nscd") || // OpenSUSE (newer)
+      strStartsWith(area.name, "/var/run/nscd") || // OpenSUSE (older)
+      strStartsWith(area.name, "/var/cache/nscd") || // Debian/Ubuntu
+      strStartsWith(area.name, "/var/db/nscd")) { // RedHat/Fedora
+    return true;
+  }
+  return false;
+}
+
+// Check for Sys V shared memory area.
+bool Util::isSysVShmArea(const ProcMapsArea& area)
+{
+  return strStartsWith(area.name, "/SYSV");
+}
+
+// Check for Sys V shared memory area.
+bool Util::isIBShmArea(const ProcMapsArea& area)
+{
+  return strStartsWith(area.name, "/dev/infiniband/uverbs");
+}
