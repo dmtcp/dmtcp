@@ -808,6 +808,14 @@ static int read_one_memory_area(int fd)
             mtcp_sys_brk(NULL), area.addr + area.size);
   }
 
+  // We could have replaced MAP_SHARED with MAP_PRIVATE in writeckpt.cpp
+  // instead of here. But we do it this way for debugging purposes. This way,
+  // readdmtcp.sh will still be able to properly list the shared memory areas.
+  if (area.flags & MAP_SHARED) {
+    area.flags = area.flags ^ MAP_SHARED;
+    area.flags = area.flags | MAP_PRIVATE | MAP_ANONYMOUS;
+  }
+
  read_data:
   /* FIXME:  Where is MAP_ANONYMOUS turned off? */
   if ((area.flags & MAP_ANONYMOUS) && (area.flags & MAP_SHARED)) {

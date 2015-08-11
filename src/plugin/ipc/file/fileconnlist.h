@@ -60,6 +60,9 @@ namespace dmtcp
 
       void prepareShmList();
       void remapShmMaps();
+      void recreateShmFileAndMap(const ProcMapsArea& area);
+      void restoreShmArea(const ProcMapsArea& area, int fd = -1);
+
   };
 }
 #endif
