@@ -136,9 +136,6 @@ void mtcp_writememoryareas(int fd)
     // will invoke mmap if the JAlloc arena is full. Similarly, for STL objects
     // such as vector and string.
 
-    VA area_begin = area.addr;
-    /* VA area_end   = area_begin + area.size; */
-
     if ((uint64_t)area.addr == ProcessInfo::instance().restoreBufAddr()) {
       JASSERT(area.size == ProcessInfo::instance().restoreBufLen())
         ((void*) area.addr) (area.size) (ProcessInfo::instance().restoreBufLen());
@@ -150,20 +147,20 @@ void mtcp_writememoryareas(int fd)
      * Added: That's the vdso section for earlier Linux 2.6 kernels.  For later
      *  2.6 kernels, vdso occurs at an earlier address.  If it's unreadable,
      *  then we simply won't copy it.  But let's try to read all areas, anyway.
-     * **COMMENTED OUT:** if (area_begin >= HIGHEST_VA) continue;
+     * **COMMENTED OUT:** if (area.addr >= HIGHEST_VA) continue;
      */
     /* If it's readable, but it's VDSO, it will be dangerous to restore it.
      * In 32-bit mode later Red Hat RHEL Linux 2.6.9 releases use 0xffffe000,
      * the last page of virtual memory.  Note 0xffffe000 >= HIGHEST_VA
      * implies we're in 32-bit mode.
      */
-    if (area_begin >= HIGHEST_VA && area_begin == (VA)0xffffe000)
+    if (area.addr >= HIGHEST_VA && area.addr == (VA)0xffffe000)
       continue;
 #ifdef __x86_64__
     /* And in 64-bit mode later Red Hat RHEL Linux 2.6.9 releases
      * use 0xffffffffff600000 for VDSO.
      */
-    if (area_begin >= HIGHEST_VA && area_begin == (VA)0xffffffffff600000)
+    if (area.addr >= HIGHEST_VA && area.addr == (VA)0xffffffffff600000)
       continue;
 #endif
 
