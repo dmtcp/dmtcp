@@ -246,16 +246,6 @@ void mtcp_writememoryareas(int fd)
       area.flags |= MAP_ANONYMOUS;
     }
 
-    if (area.flags & MAP_SHARED) {
-      /* invalidate shared memory pages so that the next read to it (when we are
-       * writing them to ckpt file) will cause them to be reloaded from the
-       * disk.
-       */
-      JASSERT(msync(area.addr, area.size, MS_INVALIDATE) == 0)
-        (area.addr) (area.size) (area.name) (area.offset) (JASSERT_ERRNO);
-    }
-
-
     /* Only write this image if it is not CS_RESTOREIMAGE.
      * Skip any mapping for this image - it got saved as CS_RESTOREIMAGE
      * at the beginning.
@@ -450,52 +440,3 @@ static void writememoryarea (int fd, Area *area, int stack_was_seen)
     Util::writeAll(fd, area->addr, area->size);
   }
 }
-
-#if 0
-
-/*****************************************************************************
- *
- *  Sync shared memory pages with backup files on disk
- *
- *****************************************************************************/
-static void sync_shared_mem(void)
-{
-  int mapsfd;
-  Area area;
-
-  mapsfd = _real_open("/proc/self/maps", O_RDONLY);
-  JASSERT(mapsfd != -1) (JASSERT_ERRNO) .Text("Error opening /proc/self/maps");
-
-  while (mtcp_readmapsline (mapsfd, &area, NULL)) {
-    /* Skip anything that has no read or execute permission.  This occurs on one
-     * page in a Linux 2.6.9 installation.  No idea why.  This code would also
-     * take care of kernel sections since we don't have read/execute permission
-     * there.
-     */
-
-    if (!((area.prot & PROT_READ) || (area.prot & PROT_WRITE))) continue;
-
-    if (!(area.flags & MAP_SHARED)) continue;
-
-    if (Util::strEndsWith(area.name, DELETED_FILE_SUFFIX)) continue;
-
-    /* Don't sync the DRI shared memory region for OpenGL */
-    if (Util::strStartsWith(area.name, DEV_DRI_SHMEM)) continue;
-
-#ifdef IBV
-    // TODO: Don't checkpoint infiniband shared area for now.
-   if (Util::strstartswith(area.name, INFINIBAND_SHMEM_FILE)) {
-     continue;
-   }
-#endif
-
-    JTRACE("syncing shared memory region")
-      (area.size) (area.addr) (area.name) (area.offset);
-
-    JASSERT(msync(area.addr, area.size, MS_SYNC) == 0)
-      (area.addr) (area.size) (area.name) (area.offset) (JASSERT_ERRNO);
-  }
-
-  _real_close(mapsfd);
-}
-#endif

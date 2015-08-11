@@ -164,6 +164,14 @@ void FileConnList::prepareShmList()
           strstr(area.name, "synchronization-read-log") != NULL) {
         continue;
       }
+
+      /* Invalidate shared memory pages so that the next read to it (when we are
+       * writing them to ckpt file) will cause them to be reloaded from the
+       * disk.
+       */
+      JWARNING(msync(area.addr, area.size, MS_INVALIDATE) == 0)
+        (area.addr) (area.size) (area.name) (area.offset) (JASSERT_ERRNO);
+
       if (jalib::Filesystem::FileExists(area.name)) {
         if (_real_access(area.name, W_OK) == 0) {
           JTRACE("Will checkpoint shared memory area") (area.name);
