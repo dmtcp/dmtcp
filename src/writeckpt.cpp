@@ -18,7 +18,6 @@
  *  License along with DMTCP:dmtcp/src.  If not, see                        *
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
-
 #include <errno.h>
 #include <sched.h>
 #include <signal.h>
@@ -33,6 +32,7 @@
 #include "dmtcp.h"
 #include "processinfo.h"
 #include "procmapsarea.h"
+#include "procselfmaps.h"
 #include "jassert.h"
 #include "util.h"
 
@@ -56,6 +56,8 @@ EXTERNC int dmtcp_infiniband_enabled(void) __attribute__((weak));
 
 static const int END_OF_NSCD_AREAS = -1;
 
+ProcSelfMaps *procSelfMaps = NULL;
+
 /* Internal routines */
 //static void sync_shared_mem(void);
 static void writememoryarea (int fd, Area *area,
@@ -69,6 +71,10 @@ static void remap_nscd_areas(Area remap_nscd_areas_array[],
  *
  *  This routine is called from time-to-time to write a new checkpoint file.
  *  It assumes all the threads are suspended.
+ *
+ *  NOTE: Any memory allocated in this function should be released explicitely
+ *  during the next ckpt cycle. Otherwise, on restart, we never come back to
+ *  this function which can cause memory leaks.
  *
  *****************************************************************************/
 
@@ -96,9 +102,20 @@ void mtcp_writememoryareas(int fd)
   Area remap_nscd_areas_array[10];
   remap_nscd_areas_array[9].flags = END_OF_NSCD_AREAS;
 
+  if (procSelfMaps != NULL) {
+    // We need to explicitly delete this object here because on restart, we
+    // never get back to this function and the object is never released.
+    delete procSelfMaps;
+  };
+
   /* Finally comes the memory contents */
-  int mapsfd = _real_open("/proc/self/maps", O_RDONLY);
-  while (Util::readProcMapsLine(mapsfd, &area)) {
+  procSelfMaps = new ProcSelfMaps();
+  while (procSelfMaps->getNextArea(&area)) {
+    // TODO(kapil): Verify that we are not doing any operation that might
+    // result in a change of memory layout. For example, a call to JALLOC_NEW
+    // will invoke mmap if the JAlloc arena is full. Similarly, for STL objects
+    // such as vector and string.
+
     VA area_begin = area.addr;
     /* VA area_end   = area_begin + area.size; */
 
@@ -268,10 +285,12 @@ void mtcp_writememoryareas(int fd)
     writememoryarea(fd, &area, stack_was_seen);
   }
 
+  // Release the memory.
+  delete procSelfMaps;
+  procSelfMaps = NULL;
+
   /* It's now safe to do this, since we're done using mtcp_readmapsline() */
   remap_nscd_areas(remap_nscd_areas_array, num_remap_nscd_areas);
-
-  close (mapsfd);
 
   area.addr = NULL; // End of data
   area.size = -1; // End of data
