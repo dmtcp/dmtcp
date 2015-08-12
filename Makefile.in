@@ -260,7 +260,7 @@ install: all create-dirs
 	cd plugin && make DESTDIR=$(DESTDIR) $(INSTALL_FLAGS)
 	cd contrib && make DESTDIR=$(DESTDIR) $(INSTALL_FLAGS)
 ifeq ($(M32),0)
-	${INSTALL_DATA} $(top_srcdir)/QUICK-START $(DESTDIR)$(docdir)
+	${INSTALL_DATA} $(top_srcdir)/QUICK-START.md $(DESTDIR)$(docdir)
 	${INSTALL_DATA} $(top_srcdir)/COPYING $(DESTDIR)$(docdir)
 	${INSTALL_DATA} $(top_srcdir)/AUTHORS $(DESTDIR)$(docdir)
 	${INSTALL_DATA} $(top_srcdir)/NEWS $(DESTDIR)$(docdir)

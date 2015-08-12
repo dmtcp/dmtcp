@@ -18,7 +18,7 @@ integration with various implementations of MPI, and resource managers
 
 To install DMTCP, see [INSTALL.md](INSTALL.md).
 
-For an overview DMTCP, see [QUICK-START](QUICK-START).
+For an overview DMTCP, see [QUICK-START.md](QUICK-START.md).
 
 For the license, see [COPYING](COPYING).
 
