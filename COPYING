@@ -8,8 +8,7 @@ ANY WARRANTY; without even the implied warranty of  MERCHANTABILITY or
 FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License
 for more details.
 
-A copy of the GPL license and the LGPL license are contained in the files,
-COPYING.GPL and COPYING.LESSER, respectively.
+A copy of the LGPL license is contained in the COPYING.LESSER file.
 
 The file include/dmtcp.h is released under MIT/BSD dual license. The user is
 allowed to use these files under either license.
