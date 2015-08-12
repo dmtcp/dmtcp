@@ -821,8 +821,12 @@ runTest("frisbee",       3, ["./test/frisbee "+p1+" localhost "+p2,
 POST_LAUNCH_SLEEP=DEFAULT_POST_LAUNCH_SLEEP
 os.environ['DMTCP_GZIP'] = "0"
 
+# On an NFS filesystem, a race can manifest late on the second restart,
+# due to a slow coordinator.
+S=10*DEFAULT_S
 runTest("shared-memory1", 2, ["./test/shared-memory1"])
 runTest("shared-memory2", 2, ["./test/shared-memory2"])
+S=DEFAULT_S
 
 runTest("sysv-shm1",     2, ["./test/sysv-shm1"])
 runTest("sysv-shm2",     2, ["./test/sysv-shm2"])
