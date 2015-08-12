@@ -1,9 +1,3 @@
-/* NOTE:  if you just want to insert your own code at the time of checkpoint
- *  and restart, there are two simpler additional mechanisms:
- *  dmtcpaware, and the MTCP special hook functions:
- *    mtcpHookPreCheckpoint, mtcpHookPostCheckpoint, mtcpHookRestart
- */
-
 #include <stdio.h>
 #include "dmtcp.h"
 

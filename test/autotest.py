@@ -750,8 +750,6 @@ runTest("file1",         1, ["./test/file1"])
 #         is mmap'ed, but not yet when file is referenced by open fd.
 # runTest("file2",         1, ["./test/file2"])
 
-runTest("dmtcpaware1",   1, ["./test/dmtcpaware1"])
-
 PWD=os.getcwd()
 runTest("plugin-sleep2", 1, ["--with-plugin "+
                              PWD+"/test/plugin/sleep1/dmtcp_sleep1hijack.so:"+

@@ -19,6 +19,42 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+/*
+ * Ckpt policy for handling files and shared memory segments.
+ *
+ * TODO(kapil): Fill the holes in this policy.
+ *
+ * Regular File:
+ * - Ckpt file descriptor
+ * - Leader election
+ * - Ckpt file based on heuristics
+ * Unlinked File:
+ * - Ckpt file descriptor
+ * - Leader election
+ * - Ckpt file
+ *
+ * Shared-memory area with regular file:
+ * - TODO(kapil): Any file descriptor with the file? If yes, use that to
+ *   ckpt-file.
+ * - Open a file descriptor
+ * - Ckpt file based on heuristics
+ * - recreate file on restart
+ * - close fd on restart.
+ *
+ * Shared-memory area with unlinked file:
+ * + Ckpt:
+ *   - TODO(kapil): Any file descriptor pointing to the file? If yes, delegate
+ *     ckpt to the file descriptor.
+ *   - everyone saves the contents of the shared-area.
+ * + Restart
+ *   - File already exists: verify that the file is at least as large as
+ *     (area.offset+area.size).
+ *   - File doesn't exist: try to recreate the file; write content
+ * - on restart, everyone tries to recreate the file and write their data
+ *   (offset, length) to the file.
+ * - everyone tries to unlink the file in a subsequent barrier.
+ */
+
 // THESE INCLUDES ARE IN RANDOM ORDER.  LET'S CLEAN IT UP AFTER RELEASE. - Gene
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -30,6 +66,7 @@
 #include <mqueue.h>
 #include <stdint.h>
 #include <signal.h>
+#include "procselfmaps.h"
 #include "util.h"
 #include "shareddata.h"
 #include "jfilesystem.h"
@@ -47,6 +84,8 @@ void dmtcp_FileConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 }
 
 static vector<ProcMapsArea> shmAreas;
+static vector<ProcMapsArea> unlinkedShmAreas;
+static vector<ProcMapsArea> missingUnlinkedShmFiles;
 static vector<FileConnection*> shmAreaConn;
 
 void dmtcp_FileConn_ProcessFdEvent(int event, int arg1, int arg2)
@@ -122,6 +161,20 @@ void FileConnList::postRestart()
     }
   }
 
+  /* Try to map the file as is, if it already exists on the disk.
+   */
+  for (size_t i = 0; i < unlinkedShmAreas.size(); i++) {
+    if (jalib::Filesystem::FileExists(unlinkedShmAreas[i].name)) {
+      // TODO(kapil): Verify the file contents.
+      JWARNING(false) (unlinkedShmAreas[i].name)
+        .Text("File was unlinked at ckpt but is currently present on disk; "
+              "remove it and try again.");
+      restoreShmArea(unlinkedShmAreas[i]);
+    } else {
+      missingUnlinkedShmFiles.push_back(unlinkedShmAreas[i]);
+    }
+  }
+
   ConnectionList::postRestart();
 }
 
@@ -136,6 +189,14 @@ void FileConnList::refill(bool isRestart)
     }
   }
 
+  if (isRestart) {
+    // The backing file will be created as a result of restoreShmArea. We need
+    // to unlink all such files in the resume() call below.
+    for (size_t i = 0; i < missingUnlinkedShmFiles.size(); i++) {
+      recreateShmFileAndMap(missingUnlinkedShmFiles[i]);
+    }
+  }
+
   ConnectionList::refill(isRestart);
 }
 
@@ -143,17 +204,28 @@ void FileConnList::resume(bool isRestart)
 {
   ConnectionList::resume(isRestart);
   remapShmMaps();
+
+  if (isRestart) {
+    // Now unlink the files that we created as a side-effect of restoreShmArea.
+    for (size_t i = 0; i < missingUnlinkedShmFiles.size(); i++) {
+      JWARNING(unlink(missingUnlinkedShmFiles[i].name) != -1)
+        (missingUnlinkedShmFiles[i].name) (JASSERT_ERRNO)
+        .Text("The file was unlinked at the time of checkpoint. "
+              "Unlinking it after restart failed");
+    }
+  }
 }
 
 void FileConnList::prepareShmList()
 {
+  ProcSelfMaps procSelfMaps;
   ProcMapsArea area;
-  int mapsfd = _real_open("/proc/self/maps", O_RDONLY, 0);
-  JASSERT(mapsfd != -1) (JASSERT_ERRNO);
 
   shmAreas.clear();
+  unlinkedShmAreas.clear();
+  missingUnlinkedShmFiles.clear();
   shmAreaConn.clear();
-  while (Util::readProcMapsLine(mapsfd, &area)) {
+  while (procSelfMaps.getNextArea(&area)) {
     if ((area.flags & MAP_SHARED) && area.prot != 0) {
       if (strstr(area.name, "ptraceSharedInfo") != NULL ||
           strstr(area.name, "dmtcpPidMap") != NULL ||
@@ -164,6 +236,20 @@ void FileConnList::prepareShmList()
           strstr(area.name, "synchronization-read-log") != NULL) {
         continue;
       }
+
+      if (Util::isNscdArea(area) ||
+          Util::isIBShmArea(area) ||
+          Util::isSysVShmArea(area)) {
+        continue;
+      }
+
+      /* Invalidate shared memory pages so that the next read to it (when we are
+       * writing them to ckpt file) will cause them to be reloaded from the
+       * disk.
+       */
+      JWARNING(msync(area.addr, area.size, MS_INVALIDATE) == 0)
+        (area.addr) (area.size) (area.name) (area.offset) (JASSERT_ERRNO);
+
       if (jalib::Filesystem::FileExists(area.name)) {
         if (_real_access(area.name, W_OK) == 0) {
           JTRACE("Will checkpoint shared memory area") (area.name);
@@ -194,21 +280,70 @@ void FileConnList::prepareShmList()
         }
       } else {
         // TODO: Shared memory areas with unlinked backing files.
-#if 0
         JASSERT(Util::strEndsWith(area.name, DELETED_FILE_SUFFIX)) (area.name);
         if (Util::strStartsWith(area.name, DEV_ZERO_DELETED_STR) ||
             Util::strStartsWith(area.name, DEV_NULL_DELETED_STR)) {
           JWARNING(false) (area.name)
-            .Text("Ckpt/Restart of Anon Shared memory not supported.");
+            .Text("Ckpt/Restart of anonymous shared memory not supported.");
         } else {
           JTRACE("Will recreate shm file on restart.") (area.name);
-          //shmAreas[area] = NULL;
+
+          // Remove the DELETED suffix.
+          area.name[strlen(area.name) - strlen(DELETED_FILE_SUFFIX)] = '\0';
+          unlinkedShmAreas.push_back(area);
         }
-#endif
       }
     }
   }
-  _real_close(mapsfd);
+}
+
+void FileConnList::recreateShmFileAndMap(const ProcMapsArea& area)
+{
+  // TODO(kapil): Handle /dev/zero, /dev/random, etc.
+  // Recreate file in dmtcp-tmpdir;
+  string filename = Util::removeSuffix(area.name, DELETED_FILE_SUFFIX);
+  JASSERT(Util::createDirectoryTree(area.name)) (area.name)
+    .Text("Unable to create directory in File Path");
+
+  /* Now try to create the file with O_EXCL. If we fail with EEXIST, there
+   * are two possible scenarios:
+   * - The file was created by a different restarting process with data from
+   *   checkpointed copy. It is possible that the data is "in flight", so we
+   *   should wait until the next barrier to compare the data from our copy.
+   * - The file existed before restart. After the next barrier, abort if the
+   *   contents differ from our checkpointed copy.
+   */
+  int fd = _real_open(area.name, O_CREAT | O_EXCL | O_RDWR,
+                      S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+  JASSERT(fd != -1 || errno == EEXIST) (area.name);
+
+  if (fd == -1) {
+    fd = _real_open(area.name, O_RDWR);
+    JASSERT(fd != -1) (JASSERT_ERRNO);
+  }
+
+  // Get to the correct offset.
+  JASSERT(lseek(fd, area.offset, SEEK_SET) == area.offset) (JASSERT_ERRNO);
+  // Now populate file contents from memory.
+  JASSERT(Util::writeAll(fd, area.addr, area.size) == area.size)
+    (JASSERT_ERRNO);
+  restoreShmArea(area, fd);
+}
+
+void FileConnList::restoreShmArea(const ProcMapsArea& area, int fd)
+{
+  if (fd == -1) {
+    fd = _real_open(area.name, Util::memProtToOpenFlags(area.prot));
+  }
+
+  JASSERT(fd != -1) (area.name) (JASSERT_ERRNO);
+
+  JTRACE("Restoring shared memory area") (area.name) ((void*)area.addr);
+  void *addr = _real_mmap(area.addr, area.size, area.prot,
+                          MAP_FIXED | area.flags, fd, area.offset);
+  JASSERT(addr != MAP_FAILED) (area.flags) (area.prot) (JASSERT_ERRNO)
+    .Text("mmap failed");
+  _real_close(fd);
 }
 
 void FileConnList::remapShmMaps()

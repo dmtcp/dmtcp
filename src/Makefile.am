@@ -53,6 +53,7 @@ nobase_noinst_HEADERS = constants.h \
 	$(dmtcpincludedir)/protectedfds.h $(dmtcpincludedir)/shareddata.h \
 	$(dmtcpincludedir)/trampolines.h $(dmtcpincludedir)/util.h \
 	$(dmtcpincludedir)/virtualidtable.h $(dmtcpincludedir)/procmapsarea.h \
+	$(dmtcpincludedir)/procselfmaps.h \
 	dmtcp_coordinator.h dmtcpmessagetypes.h lookup_service.h \
 	dmtcpworker.h threadsync.h coordinatorapi.h \
 	mtcpinterface.h syscallwrappers.h \
@@ -66,7 +67,7 @@ nobase_noinst_HEADERS = constants.h \
 libdmtcpinternal_a_SOURCES = dmtcpmessagetypes.cpp  coordinatorapi.cpp \
 			     uniquepid.cpp shareddata.cpp \
 			     util_exec.cpp util_misc.cpp util_init.cpp \
-			     jalibinterface.cpp processinfo.cpp
+			     jalibinterface.cpp processinfo.cpp procselfmaps.cpp
 
 libjalib_a_SOURCES = $(jalibdir)/jalib.cpp $(jalibdir)/jassert.cpp \
 		     $(jalibdir)/jbuffer.cpp $(jalibdir)/jfilesystem.cpp \

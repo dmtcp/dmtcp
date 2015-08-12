@@ -130,7 +130,7 @@ am_libdmtcpinternal_a_OBJECTS = dmtcpmessagetypes.$(OBJEXT) \
 	coordinatorapi.$(OBJEXT) uniquepid.$(OBJEXT) \
 	shareddata.$(OBJEXT) util_exec.$(OBJEXT) util_misc.$(OBJEXT) \
 	util_init.$(OBJEXT) jalibinterface.$(OBJEXT) \
-	processinfo.$(OBJEXT)
+	processinfo.$(OBJEXT) procselfmaps.$(OBJEXT)
 libdmtcpinternal_a_OBJECTS = $(am_libdmtcpinternal_a_OBJECTS)
 libjalib_a_AR = $(AR) $(ARFLAGS)
 libjalib_a_LIBADD =
@@ -534,6 +534,7 @@ nobase_noinst_HEADERS = constants.h \
 	$(dmtcpincludedir)/protectedfds.h $(dmtcpincludedir)/shareddata.h \
 	$(dmtcpincludedir)/trampolines.h $(dmtcpincludedir)/util.h \
 	$(dmtcpincludedir)/virtualidtable.h $(dmtcpincludedir)/procmapsarea.h \
+	$(dmtcpincludedir)/procselfmaps.h \
 	dmtcp_coordinator.h dmtcpmessagetypes.h lookup_service.h \
 	dmtcpworker.h threadsync.h coordinatorapi.h \
 	mtcpinterface.h syscallwrappers.h \
@@ -548,7 +549,7 @@ nobase_noinst_HEADERS = constants.h \
 libdmtcpinternal_a_SOURCES = dmtcpmessagetypes.cpp  coordinatorapi.cpp \
 			     uniquepid.cpp shareddata.cpp \
 			     util_exec.cpp util_misc.cpp util_init.cpp \
-			     jalibinterface.cpp processinfo.cpp
+			     jalibinterface.cpp processinfo.cpp procselfmaps.cpp
 
 libjalib_a_SOURCES = $(jalibdir)/jalib.cpp $(jalibdir)/jassert.cpp \
 		     $(jalibdir)/jbuffer.cpp $(jalibdir)/jfilesystem.cpp \
@@ -776,6 +777,7 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/alarm.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ckptserializer.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/coordinatorapi.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dlsym_default.Po@am__quote@
@@ -806,6 +808,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/popen.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/processinfo.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/procname.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/procselfmaps.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/shareddata.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/siginfo.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/signalwrappers.Po@am__quote@

@@ -156,7 +156,7 @@ EXTERNC int dmtcp_enable_ckpt(VOID) __attribute__ ((weak));
 #define dmtcp_enable_ckpt() \
  (dmtcp_enable_ckpt ? dmtcp_enable_ckpt() : DMTCP_NOT_PRESENT)
 
-// See: test/plugin/sleep1 dir and sibling directories for examples: 
+// See: test/plugin/sleep1 dir and sibling directories for examples:
 EXTERNC void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
   __attribute((weak));
 
@@ -244,7 +244,7 @@ EXTERNC int dmtcp_get_local_status(int *numCheckpoints, int *numRestarts)
 EXTERNC int dmtcp_is_running_state(void);
 // Primarily for use by the modify-env plugin.
 EXTERNC int dmtcp_get_restart_env(const char *name,
-                                  char *value, int maxvaluelen);
+                                  char *value, size_t maxvaluelen);
 // Get pathname of target executable under DMTCP control.
 EXTERNC const char* dmtcp_get_executable_path();
 // True if dmtcp_launch called with --no-coordinator
@@ -359,24 +359,5 @@ EXTERNC void dmtcp_plugin_enable_ckpt(void);
 
 /// Pointer to a "void foo();" function
 typedef void (*dmtcp_fnptr_t)(void);
-
-/**
- * THIS FUNCTION IS DEPRECATED.  IT IS PART OF AN OLDER dmtcpaware API.
- * USE dmtcp_event_hook() INSTEAD.  (See examples in test/plugin/* dirs.)
- *
- * Sets the hook functions that DMTCP calls when it checkpoints/restarts.
- * - These functions are called from the DMTCP thread while all user threads
- *   are suspended.
- * - First preCheckpoint() is called, then either postCheckpoint() or
- *   postRestart() is called.
- * - Set to NULL to disable.
- * - Returns 1 on success, <=0 on error
- */
-EXTERNC int dmtcp_install_hooks(dmtcp_fnptr_t preCheckpoint,
-                                dmtcp_fnptr_t postCheckpoint,
-                                dmtcp_fnptr_t postRestart)
-  __attribute__((weak));
-#define dmtcp_install_hooks(a,b,c) \
-  (dmtcp_install_hooks ? dmtcp_install_hooks(a,b,c) : DMTCP_NOT_PRESENT)
 
 #endif

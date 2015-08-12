@@ -612,15 +612,23 @@ void ShmSegment::preCkptDrain()
 void ShmSegment::preCheckpoint()
 {
   ShmaddrToFlagIter i = _shmaddrToFlag.begin();
-  /* If this process is the ckpt-leader, unmap all but first mapped addr,
-   * otherwise, unmap all the the mappings of this memory-segment.
+  /* If this process won the leader election, unmap all but the first memory
+   * segment, otherwise, unmap all the mappings of this memory-segment.
    */
   if (_isCkptLeader) {
     ++i;
   }
   for (; i != _shmaddrToFlag.end(); ++i) {
-    JASSERT(_real_shmdt(i->first) == 0);
     JTRACE("Unmapping shared memory segment") (_id)(i->first);
+    JASSERT(_real_shmdt(i->first) == 0);
+
+    // We need to unmap the duplicate shared memory segments to optimize ckpt
+    // image size. But we will remap it with zero pages that have no rwx
+    // permission, to stop the kernel from assigning these memory addresses for
+    // future mmap calls, since we will be re-mapping it during post-ckpt.
+    JASSERT(mmap((void*) i->first, _size,
+                 PROT_NONE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED,
+                 0, 0) == i->first);
   }
 }
 
@@ -668,6 +676,9 @@ void ShmSegment::preResume()
   }
 
   for (; i != _shmaddrToFlag.end(); ++i) {
+    // Unmap the reserved area.
+    JASSERT(munmap((void*) i->first, _size) == 0);
+
     JTRACE("Remapping shared memory segment")(_realId);
     JASSERT (_real_shmat(_realId, i->first, i->second) != (void *) -1)
       (JASSERT_ERRNO) (_realId) (_id) (_isCkptLeader)

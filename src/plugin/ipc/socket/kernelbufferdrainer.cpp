@@ -126,8 +126,8 @@ void KernelBufferDrainer::onTimeoutInterval()
           .Text("Still draining socket... "
                 "perhaps remote host is not running under DMTCP?");
 #ifdef CERN_CMS
-        JNOTE("\n*** Closing this socket(to database?).  Please use dmtcpaware\n"
-              "***  to gracefully handle database connections, and re-run.\n"
+        JNOTE("\n*** Closing this socket (to database?).  Please use dmtcp \n"
+              "***  plugins to gracefully handle such sockets, and re-run.\n"
               "***  Trying a workaround for now, and hoping it doesn't fail.\n");
         _real_close(_dataSockets[i]->socket().sockfd());
 	//it does it by creating a socket pair and closing one side

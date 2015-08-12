@@ -18,7 +18,6 @@
  *  License along with DMTCP:dmtcp/src.  If not, see                        *
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
-
 #include <errno.h>
 #include <sched.h>
 #include <signal.h>
@@ -33,13 +32,12 @@
 #include "dmtcp.h"
 #include "processinfo.h"
 #include "procmapsarea.h"
+#include "procselfmaps.h"
 #include "jassert.h"
 #include "util.h"
 
 #define DEV_ZERO_DELETED_STR "/dev/zero (deleted)"
 #define DEV_NULL_DELETED_STR "/dev/null (deleted)"
-#define SYS_V_SHMEM_FILE "/SYSV"
-#define INFINIBAND_SHMEM_FILE "/dev/infiniband/uverbs"
 
 /* Shared memory regions for Direct Rendering Infrastructure */
 #define DEV_DRI_SHMEM "/dev/dri/card"
@@ -56,19 +54,25 @@ EXTERNC int dmtcp_infiniband_enabled(void) __attribute__((weak));
 
 static const int END_OF_NSCD_AREAS = -1;
 
+ProcSelfMaps *procSelfMaps = NULL;
+vector<ProcMapsArea> *nscdAreas = NULL;
+
+
 /* Internal routines */
 //static void sync_shared_mem(void);
 static void writememoryarea (int fd, Area *area,
                              int stack_was_seen);
 
-static bool isNscdArea(const Area& area);
-static void remap_nscd_areas(Area remap_nscd_areas_array[],
-                             int  num_remap_nscd_areas);
+static void remap_nscd_areas(const vector<ProcMapsArea> & areas);
 
 /*****************************************************************************
  *
  *  This routine is called from time-to-time to write a new checkpoint file.
  *  It assumes all the threads are suspended.
+ *
+ *  NOTE: Any memory allocated in this function should be released explicitely
+ *  during the next ckpt cycle. Otherwise, on restart, we never come back to
+ *  this function which can cause memory leaks.
  *
  *****************************************************************************/
 
@@ -92,15 +96,42 @@ void mtcp_writememoryareas(int fd)
   /* inconsistent state.  See note in restoreverything routine.             */
   /**************************************************************************/
 
-  int num_remap_nscd_areas = 0;
-  Area remap_nscd_areas_array[10];
-  remap_nscd_areas_array[9].flags = END_OF_NSCD_AREAS;
+  {
+    if (nscdAreas == NULL) {
+      nscdAreas = new vector<ProcMapsArea>();
+    }
+    nscdAreas->clear();
+    // This block is to ensure that the object is deleted as soon as we leave
+    // this block.
+    ProcSelfMaps procSelfMaps;
+    // Preprocess memory regions as needed.
+    while (procSelfMaps.getNextArea(&area)) {
+      if (Util::isNscdArea(area)) {
+        /* Special Case Handling: nscd is enabled*/
+        JNOTE("NSCD daemon shared memory area present.\n"
+            "  MTCP will now try to remap this area in read/write mode as\n"
+            "  private (zero pages), so that glibc will automatically\n"
+            "  stop using NSCD or ask NSCD daemon for new shared area\n")
+          (area.name);
+
+        nscdAreas->push_back(area);
+      }
+    }
+  }
+
+  if (procSelfMaps != NULL) {
+    // We need to explicitly delete this object here because on restart, we
+    // never get back to this function and the object is never released.
+    delete procSelfMaps;
+  };
 
   /* Finally comes the memory contents */
-  int mapsfd = _real_open("/proc/self/maps", O_RDONLY);
-  while (Util::readProcMapsLine(mapsfd, &area)) {
-    VA area_begin = area.addr;
-    /* VA area_end   = area_begin + area.size; */
+  procSelfMaps = new ProcSelfMaps();
+  while (procSelfMaps->getNextArea(&area)) {
+    // TODO(kapil): Verify that we are not doing any operation that might
+    // result in a change of memory layout. For example, a call to JALLOC_NEW
+    // will invoke mmap if the JAlloc arena is full. Similarly, for STL objects
+    // such as vector and string.
 
     if ((uint64_t)area.addr == ProcessInfo::instance().restoreBufAddr()) {
       JASSERT(area.size == ProcessInfo::instance().restoreBufLen())
@@ -113,20 +144,20 @@ void mtcp_writememoryareas(int fd)
      * Added: That's the vdso section for earlier Linux 2.6 kernels.  For later
      *  2.6 kernels, vdso occurs at an earlier address.  If it's unreadable,
      *  then we simply won't copy it.  But let's try to read all areas, anyway.
-     * **COMMENTED OUT:** if (area_begin >= HIGHEST_VA) continue;
+     * **COMMENTED OUT:** if (area.addr >= HIGHEST_VA) continue;
      */
     /* If it's readable, but it's VDSO, it will be dangerous to restore it.
      * In 32-bit mode later Red Hat RHEL Linux 2.6.9 releases use 0xffffe000,
      * the last page of virtual memory.  Note 0xffffe000 >= HIGHEST_VA
      * implies we're in 32-bit mode.
      */
-    if (area_begin >= HIGHEST_VA && area_begin == (VA)0xffffe000)
+    if (area.addr >= HIGHEST_VA && area.addr == (VA)0xffffe000)
       continue;
 #ifdef __x86_64__
     /* And in 64-bit mode later Red Hat RHEL Linux 2.6.9 releases
      * use 0xffffffffff600000 for VDSO.
      */
-    if (area_begin >= HIGHEST_VA && area_begin == (VA)0xffffffffff600000)
+    if (area.addr >= HIGHEST_VA && area.addr == (VA)0xffffffffff600000)
       continue;
 #endif
 
@@ -178,61 +209,25 @@ void mtcp_writememoryareas(int fd)
       JTRACE("saving area as Anonymous") (area.name);
       area.flags = MAP_PRIVATE | MAP_ANONYMOUS;
       area.name[0] = '\0';
-    } else if (Util::strStartsWith(area.name, SYS_V_SHMEM_FILE)) {
+    } else if (Util::isSysVShmArea(area)) {
       JTRACE("saving area as Anonymous") (area.name);
       area.flags = MAP_PRIVATE | MAP_ANONYMOUS;
       area.name[0] = '\0';
-    } else if (isNscdArea(area)) {
+    } else if (Util::isNscdArea(area)) {
       /* Special Case Handling: nscd is enabled*/
-      JTRACE("NSCD daemon shared memory area present.\n"
-              "  MTCP will now try to remap this area in read/write mode as\n"
-              "  private (zero pages), so that glibc will automatically\n"
-              "  stop using NSCD or ask NSCD daemon for new shared area\n")
-        (area.name);
       area.prot = PROT_READ | PROT_WRITE | MTCP_PROT_ZERO_PAGE;
       area.flags = MAP_PRIVATE | MAP_ANONYMOUS;
-
-      /* We're still using proc-maps in mtcp_readmapsline();
-       * So, remap NSCD later.
-       */
-      remap_nscd_areas_array[num_remap_nscd_areas++] = area;
       Util::writeAll(fd, &area, sizeof(area));
       continue;
-    }
-    else if (Util::strStartsWith(area.name, INFINIBAND_SHMEM_FILE)) {
+    } else if (Util::isIBShmArea(area)) {
       // TODO: Don't checkpoint infiniband shared area for now.
       continue;
-    }
-    else if (Util::strEndsWith(area.name, DELETED_FILE_SUFFIX)) {
+    } else if (Util::strEndsWith(area.name, DELETED_FILE_SUFFIX)) {
       /* Deleted File */
     } else if (area.name[0] == '/' && strstr(&area.name[1], "/") != NULL) {
       /* If an absolute pathname
        * Posix and SysV shared memory segments can be mapped as /XYZ
        */
-#if 0
-      struct stat statbuf;
-      unsigned int long devnum;
-      if (stat(area.name, &statbuf) < 0) {
-        JWARNING(false) (area.name) (JASSERT_ERRNO)
-          .Text("Error statting file.");
-      } else {
-        devnum = makedev(dev_info.devmajor, dev_info.devminor);
-        JWARNING (devnum == statbuf.st_dev && dev_info.inodenum == statbuf.st_ino)
-          (area.name) (statbuf.st_dev) (statbuf.st_ino)
-          (devnum) (dev_info.inodenum);
-      }
-#endif
-    }
-
-    area.filesize = 0;
-    if (area.name[0] != '\0') {
-      int ffd = _real_open(area.name, O_RDONLY, 0);
-      if (ffd != -1) {
-        area.filesize = lseek(ffd, 0, SEEK_END);
-        if (area.filesize == -1)
-          area.filesize = 0;
-        _real_close(ffd);
-      } /* else no such file; don't need to close it */
     }
 
     /* Force the anonymous flag if it's a private writeable section, as the
@@ -247,16 +242,6 @@ void mtcp_writememoryareas(int fd)
       area.flags |= MAP_ANONYMOUS;
     }
 
-    if (area.flags & MAP_SHARED) {
-      /* invalidate shared memory pages so that the next read to it (when we are
-       * writing them to ckpt file) will cause them to be reloaded from the
-       * disk.
-       */
-      JASSERT(msync(area.addr, area.size, MS_INVALIDATE) == 0)
-        (area.addr) (area.size) (area.name) (area.offset) (JASSERT_ERRNO);
-    }
-
-
     /* Only write this image if it is not CS_RESTOREIMAGE.
      * Skip any mapping for this image - it got saved as CS_RESTOREIMAGE
      * at the beginning.
@@ -268,10 +253,12 @@ void mtcp_writememoryareas(int fd)
     writememoryarea(fd, &area, stack_was_seen);
   }
 
-  /* It's now safe to do this, since we're done using mtcp_readmapsline() */
-  remap_nscd_areas(remap_nscd_areas_array, num_remap_nscd_areas);
+  // Release the memory.
+  delete procSelfMaps;
+  procSelfMaps = NULL;
 
-  close (mapsfd);
+  /* It's now safe to do this, since we're done using mtcp_readmapsline() */
+  remap_nscd_areas(*nscdAreas);
 
   area.addr = NULL; // End of data
   area.size = -1; // End of data
@@ -281,38 +268,14 @@ void mtcp_writememoryareas(int fd)
   JASSERT(_real_close (fd) == 0);
 }
 
-// Check for NSCD area.
-static bool isNscdArea(const Area& area)
+static void remap_nscd_areas(const vector<ProcMapsArea>& areas)
 {
-  if (Util::strStartsWith(area.name, "/run/nscd") || // OpenSUSE (newer)
-      Util::strStartsWith(area.name, "/var/run/nscd") || // OpenSUSE (older)
-      Util::strStartsWith(area.name, "/var/cache/nscd") || // Debian/Ubuntu
-      Util::strStartsWith(area.name, "/var/db/nscd")) { // RedHat/Fedora
-    return true;
-  }
-  return false;
-}
-
-/* FIXME:
- * We should read /proc/self/maps into temporary array and mtcp_readmapsline
- * should then read from it.  This is cleaner than this hack here.
- * Then this body can go back to replacing:
- *    remap_nscd_areas_array[num_remap_nscd_areas++] = area;
- * - Gene
- */
-static void remap_nscd_areas(Area remap_nscd_areas_array[],
-			     int  num_remap_nscd_areas)
-{
-  Area *area;
-  for (area = remap_nscd_areas_array; num_remap_nscd_areas-- > 0; area++) {
-    JASSERT(area->flags != END_OF_NSCD_AREAS)
-      .Text("Too many NSCD areas to remap.");
-    JASSERT(munmap(area->addr, area->size) == 0) (JASSERT_ERRNO)
+  for (size_t i = 0; i < areas.size(); i++) {
+    JASSERT(munmap(areas[i].addr, areas[i].size) == 0) (JASSERT_ERRNO)
       .Text("error unmapping NSCD shared area");
-    JASSERT(mmap(area->addr, area->size, area->prot, area->flags, 0, 0)
-            != MAP_FAILED)
+    JASSERT(mmap(areas[i].addr, areas[i].size, areas[i].prot,
+            MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED, 0, 0) != MAP_FAILED)
       (JASSERT_ERRNO) .Text("error remapping NSCD shared area.");
-    memset(area->addr, 0, area->size);
   }
 }
 
@@ -461,52 +424,3 @@ static void writememoryarea (int fd, Area *area, int stack_was_seen)
     Util::writeAll(fd, area->addr, area->size);
   }
 }
-
-#if 0
-
-/*****************************************************************************
- *
- *  Sync shared memory pages with backup files on disk
- *
- *****************************************************************************/
-static void sync_shared_mem(void)
-{
-  int mapsfd;
-  Area area;
-
-  mapsfd = _real_open("/proc/self/maps", O_RDONLY);
-  JASSERT(mapsfd != -1) (JASSERT_ERRNO) .Text("Error opening /proc/self/maps");
-
-  while (mtcp_readmapsline (mapsfd, &area, NULL)) {
-    /* Skip anything that has no read or execute permission.  This occurs on one
-     * page in a Linux 2.6.9 installation.  No idea why.  This code would also
-     * take care of kernel sections since we don't have read/execute permission
-     * there.
-     */
-
-    if (!((area.prot & PROT_READ) || (area.prot & PROT_WRITE))) continue;
-
-    if (!(area.flags & MAP_SHARED)) continue;
-
-    if (Util::strEndsWith(area.name, DELETED_FILE_SUFFIX)) continue;
-
-    /* Don't sync the DRI shared memory region for OpenGL */
-    if (Util::strStartsWith(area.name, DEV_DRI_SHMEM)) continue;
-
-#ifdef IBV
-    // TODO: Don't checkpoint infiniband shared area for now.
-   if (Util::strstartswith(area.name, INFINIBAND_SHMEM_FILE)) {
-     continue;
-   }
-#endif
-
-    JTRACE("syncing shared memory region")
-      (area.size) (area.addr) (area.name) (area.offset);
-
-    JASSERT(msync(area.addr, area.size, MS_SYNC) == 0)
-      (area.addr) (area.size) (area.name) (area.offset) (JASSERT_ERRNO);
-  }
-
-  _real_close(mapsfd);
-}
-#endif

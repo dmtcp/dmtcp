@@ -29,6 +29,7 @@
 #include "syscallwrappers.h"
 #include "uniquepid.h"
 #include "processinfo.h"
+#include "procselfmaps.h"
 #include "coordinatorapi.h"
 #include  "../jalib/jconvert.h"
 #include  "../jalib/jfilesystem.h"
@@ -164,9 +165,8 @@ void ProcessInfo::growStack()
   ProcMapsArea stackArea = {0};
   size_t allocSize;
   void *tmpbuf;
-  int fd = _real_open("/proc/self/maps", O_RDONLY);
-  JASSERT(fd != -1) (JASSERT_ERRNO);
-  while (Util::readProcMapsLine(fd, &area)) {
+  ProcSelfMaps procSelfMaps;
+  while (procSelfMaps.getNextArea(&area)) {
     if (strcmp(area.name, "[heap]") == 0) {
       // Record start of heap which will later be used to restore heap
       _savedHeapStart = (unsigned long) area.addr;
@@ -200,7 +200,6 @@ void ProcessInfo::growStack()
       }
     }
   }
-  _real_close(fd);
   JASSERT(stackArea.addr != NULL);
 
   // Grow the stack
@@ -213,15 +212,13 @@ void ProcessInfo::growStack()
 
 #ifdef DEBUG
   {
-    int fd = _real_open("/proc/self/maps", O_RDONLY);
-    JASSERT(fd != -1) (JASSERT_ERRNO);
-    while (Util::readProcMapsLine(fd, &area)) {
+    ProcSelfMaps maps
+    while (maps.getNextArea(&area)) {
       if ((VA)&area >= area.addr && (VA)&area < area.endAddr) { // Stack found
         JTRACE("New stack size") ((void*)area.addr) (area.size);
         break;
       }
     }
-    _real_close(fd);
   }
 #endif
 }

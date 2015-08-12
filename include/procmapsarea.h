@@ -71,10 +71,6 @@ typedef union ProcMapsArea {
       uint64_t __size;
     };
     union {
-      off_t filesize;
-      uint64_t __filesize;
-    };
-    union {
       off_t offset;
       uint64_t __offset;
     };
