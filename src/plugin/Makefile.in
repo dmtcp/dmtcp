@@ -170,7 +170,8 @@ __d_libdir__libdmtcp_ipc_so_LINK = $(CXXLD) $(AM_CXXFLAGS) $(CXXFLAGS) \
 am___d_libdir__libdmtcp_pid_so_OBJECTS = pid/pid.$(OBJEXT) \
 	pid/pid_filewrappers.$(OBJEXT) pid/pid_miscwrappers.$(OBJEXT) \
 	pid/pid_syscallsreal.$(OBJEXT) pid/pidwrappers.$(OBJEXT) \
-	pid/virtualpidtable.$(OBJEXT)
+	pid/virtualpidtable.$(OBJEXT) \
+	pid/pthread_mutex_wrappers.$(OBJEXT)
 __d_libdir__libdmtcp_pid_so_OBJECTS =  \
 	$(am___d_libdir__libdmtcp_pid_so_OBJECTS)
 __d_libdir__libdmtcp_pid_so_LDADD = $(LDADD)

@@ -66,6 +66,10 @@ struct user_desc {int dummy;}; /* <asm/ldt.h> is missing in Ubuntu 14.04 */
 // Keep in sync with dmtcp/src/constants.h
 #define ENV_VAR_VIRTUAL_PID "DMTCP_VIRTUAL_PID"
 
+/* Defined in pthread_mutex_wrappers.cpp */
+extern void patchMutexesPostRestart();
+extern void pruneUnlockedMutexesAtCheckpoint();
+
 #ifdef __cplusplus
 extern "C"
 {

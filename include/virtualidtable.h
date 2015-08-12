@@ -107,6 +107,8 @@ namespace dmtcp
           resetNextVirtualId();
         }
 
+        map<IdType, IdType> getMap() const { return _idMapTable; }
+
         bool getNewVirtualId(IdType *id) {
           bool res = false;
           _do_lock_tbl();
