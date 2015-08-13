@@ -75,7 +75,7 @@ pruneUnlockedMutexesAtCheckpoint()
   dmtcp::map<pthread_mutex_t*, int>::iterator it;
   for (it = mutexMap.begin(); it != mutexMap.end(); it++) {
     pthread_mutex_t* mutex = it->first;
-    if (it->second > 0) {
+    if (it->second > 0 && mutex->__data.__lock) {
       prunedMutexMap[mutex] = it->second;
     }
   }
