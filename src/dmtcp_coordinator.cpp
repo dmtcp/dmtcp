@@ -22,7 +22,7 @@
 /****************************************************************************
  * Coordinator code logic:                                                  *
  * main calls eventLoop, a top-level event loop.                            *
- * eventLoop calls:  onConnect, onData, onDisconnect, onTimeoutInterval     *
+ * eventLoop calls:  onConnect, onData, onDisconnect, startCheckpoint       *
  *   when client or dmtcp_command talks to coordinator.                     *
  * onConnect called on msg at listener port.  It passes control to:         *
  *   handleUserCommand, which takes single char arg ('s', 'c', 'k', 'q', ...)*
@@ -446,8 +446,10 @@ static bool uniqueCkptFilenames = false;
  */
 static uint32_t theCheckpointInterval = 0; /* Current checkpoint interval */
 static uint32_t theDefaultCheckpointInterval = 0; /* Reset to this on new comp. */
-static struct timespec startTime;
 static bool isRestarting = false;
+static bool timerExpired = false;
+
+static void resetCkptTimer();
 
 const int STDIN_FD = fileno ( stdin );
 
@@ -548,7 +550,7 @@ void DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*= NULL*
     }
     break;
   case 'i': case 'I':
-    JTRACE("setting timeout interval...");
+    JTRACE("setting checkpoint interval...");
     updateCheckpointInterval ( theCheckpointInterval );
     if (theCheckpointInterval == 0)
       printf("Current Checkpoint Interval:"
@@ -1563,18 +1565,26 @@ void DmtcpCoordinator::writeRestartScript()
   _restartFilenames.clear();
 }
 
-static void SIGINTHandler(int signum)
+static void signalHandler(int signum)
 {
-  prog.handleUserCommand('q');
+  if (signum == SIGINT) {
+    prog.handleUserCommand('q');
+  } else if (signum == SIGALRM) {
+    timerExpired = true;
+  } else {
+    JASSERT(false) .Text("Not reached");
+  }
 }
 
-static void setupSIGINTHandler()
+static void setupSignalHandlers()
 {
   struct sigaction action;
-  action.sa_handler = SIGINTHandler;
-  sigemptyset ( &action.sa_mask );
+  sigemptyset(&action.sa_mask);
   action.sa_flags = 0;
-  sigaction ( SIGINT, &action, NULL );
+  action.sa_handler = signalHandler;
+
+  sigaction(SIGINT, &action, NULL);
+  sigaction(SIGALRM, &action, NULL);
 }
 
 // This code is also copied to ssh.cpp:updateCoordHost()
@@ -1633,18 +1643,9 @@ static void calcLocalAddr()
   coordHostname = hostname;
 }
 
-void DmtcpCoordinator::onTimeoutInterval()
+static void resetCkptTimer()
 {
-  if (theCheckpointInterval > 0) {
-    startCheckpoint();
-  }
-}
-
-void DmtcpCoordinator::resetCkptTimer()
-{
-  if (theCheckpointInterval > 0) {
-    JASSERT(clock_gettime(CLOCK_MONOTONIC, &startTime) == 0) (JASSERT_ERRNO);
-  }
+  alarm(theCheckpointInterval);
 }
 
 void DmtcpCoordinator::updateCheckpointInterval(uint32_t interval)
@@ -1657,21 +1658,6 @@ void DmtcpCoordinator::updateCheckpointInterval(uint32_t interval)
       ( oldInterval ) ( theCheckpointInterval );
     resetCkptTimer();
   }
-}
-
-int DmtcpCoordinator::getRemainingTimeoutMS()
-{
-  int timeout = -1;
-  if (theCheckpointInterval > 0) {
-    struct timespec curTime;
-    JASSERT(clock_gettime(CLOCK_MONOTONIC, &curTime) == 0) (JASSERT_ERRNO);
-    timeout = startTime.tv_sec + theCheckpointInterval - curTime.tv_sec;
-    timeout *= 1000;
-    if (timeout < 0) {
-      timeout = -1;
-    }
-  }
-  return timeout;
 }
 
 void DmtcpCoordinator::eventLoop(bool daemon)
@@ -1701,21 +1687,17 @@ void DmtcpCoordinator::eventLoop(bool daemon)
   }
 
   while (true) {
-    int timeout = getRemainingTimeoutMS();
-    if (timeout == 0) {
-      // Note: timeout will not be reset to a positive number until 
-      //    newState == WorkerState::REFILLED
-      // Until then, onTimeoutInterval() will repeatedly call startCheckpoint()
-      //    if theCheckpointInterval > 0
-      onTimeoutInterval();
-      timeout = getRemainingTimeoutMS();
+    // Wait until either there is some activity on client sockets, or the timer
+    // has expired.
+    int nfds = epoll_wait(epollFd, events, MAX_EVENTS, -1);
+
+    // The ckpt timer has expired; it's time to checkpoint.
+    if (nfds == -1 && errno == EINTR && timerExpired) {
+      timerExpired = false;
+      startCheckpoint();
+      continue;
     }
 
-    // This call implements both the interval timer and event loop for sockets.
-    // Note: getRemainingTimeoutMS() returns -1 if theCheckpointInterval == 0.
-    // If 'timeout == -1', then epoll_wait never times out.
-    int nfds = epoll_wait(epollFd, events, MAX_EVENTS, timeout);
-    if (nfds == -1 && errno == EINTR) continue;
     JASSERT(nfds != -1) (JASSERT_ERRNO);
 
     for (int n = 0; n < nfds; ++n) {
@@ -1943,10 +1925,12 @@ int main ( int argc, char** argv )
       "\n\n";
   }
 
-  /* We set up the signal handler for SIGINT so that it would send the
-   * DMT_KILL_PEER message to all the connected peers before exiting.
+  /* We set up the signal handler for SIGINT and SIGALRM.
+   * SIGINT is used to send DMT_KILL_PEER message to all the connected peers
+   * before exiting.
+   * SIGALRM is used for interval checkpointing.
    */
-  setupSIGINTHandler();
+  setupSignalHandlers();
 
   /* If the coordinator was started transparently by dmtcp_launch, then we
    * want to block signals, such as SIGINT.  To see why this is important:
@@ -1963,9 +1947,6 @@ int main ( int argc, char** argv )
     // sigprocmask is only per-thread; but the coordinator is single-threaded.
     sigprocmask(SIG_BLOCK, &set, NULL);
   }
-
-  // Initialize the startTime now, for use with the checkpoint interval.
-  prog.resetCkptTimer();
 
   prog.eventLoop(daemon);
   return 0;
