@@ -82,9 +82,11 @@ static void processDmtcpCommands(dmtcp::string programName,
 static void processSshCommand(dmtcp::string programName,
                               dmtcp::vector<dmtcp::string>& args);
 
+#ifndef DMTCPMTCPINTERFACE_H
 // To allow linking without mtcpinterface;  Weak symbol undefined, is set to 0
 void __attribute__ ((weak)) dmtcp::initializeMtcpEngine();
 void __attribute__ ((weak)) dmtcp::killCkpthread();
+#endif
 
 const unsigned int dmtcp::DmtcpWorker::ld_preload_c_len;
 char dmtcp::DmtcpWorker::ld_preload_c[dmtcp::DmtcpWorker::ld_preload_c_len];
