@@ -325,7 +325,7 @@ void FileConnList::recreateShmFileAndMap(const ProcMapsArea& area)
   // Get to the correct offset.
   JASSERT(lseek(fd, area.offset, SEEK_SET) == area.offset) (JASSERT_ERRNO);
   // Now populate file contents from memory.
-  JASSERT(Util::writeAll(fd, area.addr, area.size) == area.size)
+  JASSERT(Util::writeAll(fd, area.addr, area.size) == (ssize_t)area.size)
     (JASSERT_ERRNO);
   restoreShmArea(area, fd);
 }

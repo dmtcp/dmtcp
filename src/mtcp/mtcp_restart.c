@@ -784,7 +784,7 @@ __attribute__((optimize(0)))
 static int read_one_memory_area(int fd)
 {
   int mtcp_sys_errno;
-  int flags, imagefd;
+  int imagefd;
   void *mmappedat;
   int try_skipping_existing_segment = 0;
 
@@ -807,7 +807,8 @@ static int read_one_memory_area(int fd)
     area.flags = area.flags | MAP_PRIVATE | MAP_ANONYMOUS;
   }
 
- read_data:
+  /* Now mmap the data of the area into memory. */
+
   /* CASE MAPPED AS ZERO PAGE: */
   if ((area.prot & MTCP_PROT_ZERO_PAGE) != 0) {
     DPRINTF("restoring non-rwx anonymous area, %p bytes at %p\n",
@@ -904,21 +905,12 @@ static int read_one_memory_area(int fd)
   }
 
   /* CASE NOT MAP_ANONYMOUS:
-   * Otherwise, we mmap the original file contents to the area
+   * Otherwise, we mmap the original file contents to the area.
+   * This case is now delegated to DMTCP.  Nothing to do for MTCP.
    */
 
-  else {
-    DPRINTF("restoring mapped area, %p bytes at %p to %s + 0x%X\n",
-            area.size, area.addr, area.name, area.offset);
-    flags = 0;            // see how to open it based on the access required
-    // O_RDONLY = 00
-    // O_WRONLY = 01
-    // O_RDWR   = 02
-    if (area.prot & PROT_WRITE) flags = O_WRONLY;
-    if (area.prot & (PROT_EXEC | PROT_READ)){
-      flags = O_RDONLY;
-      if (area.prot & PROT_WRITE) flags = O_RDWR;
-    }
+  else { /* Internal error. */
+    MTCP_ASSERT(0);
   }
   return 0;
 }
