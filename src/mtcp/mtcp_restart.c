@@ -60,6 +60,15 @@
 #include "mtcp_header.h"
 #include "tlsutil.h"
 
+/* The use of NO_OPTIMIZE is deprecated and will be removed, since we
+ * compile mtcp_restart.c with the -O0 flag already.
+ */
+#ifdef __clang__
+# define NO_OPTIMIZE __attribute__((optnone)) /* Supported only in late 2014 */
+#else
+# define NO_OPTIMIZE __attribute__((optimize(0)))
+#endif
+
 void mtcp_check_vdso(char **environ);
 
 #define BINARY_NAME "mtcp_restart"
@@ -155,7 +164,7 @@ void *memcpy(void *dest, const void *src, size_t n) {
 }
 
 #define shift argv++; argc--;
-__attribute__((optimize(0)))
+NO_OPTIMIZE
 int main(int argc, char *argv[], char **environ)
 {
   char *ckptImage = NULL;
@@ -290,7 +299,7 @@ MTCP_PRINTF("Attach for debugging.");
   return 0;  /* Will not reach here, but need to satisfy the compiler */
 }
 
-__attribute__((optimize(0)))
+NO_OPTIMIZE
 static void restore_brk(VA saved_brk, VA restore_begin, VA restore_end)
 {
   int mtcp_sys_errno;
@@ -351,7 +360,7 @@ static void restore_brk(VA saved_brk, VA restore_begin, VA restore_end)
   }
 }
 
-__attribute__((optimize(0)))
+NO_OPTIMIZE
 static void restart_fast_path()
 {
   int mtcp_sys_errno;
@@ -447,7 +456,7 @@ for (; x>0; x--) for (; y>0; y--);
   /* NOTREACHED */
 }
 
-__attribute__((optimize(0)))
+NO_OPTIMIZE
 static void restart_slow_path()
 {
   restorememoryareas(&rinfo);
@@ -505,7 +514,7 @@ static void mtcp_simulateread(int fd, MtcpHeader *mtcpHdr)
   }
 }
 
-__attribute__((optimize(0)))
+NO_OPTIMIZE
 static void restorememoryareas(RestoreInfo *rinfo_ptr)
 {
   int mtcp_sys_errno;
@@ -580,7 +589,7 @@ static void restorememoryareas(RestoreInfo *rinfo_ptr)
   restore_info.post_restart();
 }
 
-__attribute__((optimize(0)))
+NO_OPTIMIZE
 static void unmap_memory_areas_and_restore_vdso(RestoreInfo *rinfo)
 {
   /* Unmap everything except this image, vdso, vvar and vsyscall. */
@@ -780,7 +789,7 @@ static void readmemoryareas(int fd)
 #endif
 }
 
-__attribute__((optimize(0)))
+NO_OPTIMIZE
 static int read_one_memory_area(int fd)
 {
   int mtcp_sys_errno;
@@ -915,7 +924,7 @@ static int read_one_memory_area(int fd)
   return 0;
 }
 
-__attribute__((optimize(0)))
+NO_OPTIMIZE
 static void adjust_for_smaller_file_size(Area *area, int fd)
 {
   int mtcp_sys_errno;
@@ -1002,7 +1011,7 @@ void restore_libc(ThreadTLSInfo *tlsInfo, int tls_pid_offset,
 #endif
 }
 
-__attribute__((optimize(0)))
+NO_OPTIMIZE
 static int doAreasOverlap(VA addr1, size_t size1, VA addr2, size_t size2)
 {
   VA end1 = (char*)addr1 + size1;
@@ -1010,7 +1019,7 @@ static int doAreasOverlap(VA addr1, size_t size1, VA addr2, size_t size2)
   return (addr1 >= addr2 && addr1 < end2) || (addr2 >= addr1 && addr2 < end1);
 }
 
-__attribute__((optimize(0)))
+NO_OPTIMIZE
 static int hasOverlappingMapping(VA addr, size_t size)
 {
   int mtcp_sys_errno;
@@ -1032,7 +1041,7 @@ static int hasOverlappingMapping(VA addr, size_t size)
   return ret;
 }
 
-__attribute__((optimize(0)))
+NO_OPTIMIZE
 static void getTextAddr(VA *text_addr, size_t *size)
 {
   int mtcp_sys_errno;

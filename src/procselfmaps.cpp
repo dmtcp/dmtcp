@@ -29,10 +29,10 @@ using namespace dmtcp;
 
 
 ProcSelfMaps::ProcSelfMaps()
-  : fd(-1),
-    dataIdx(0),
+  : dataIdx(0),
     numAreas(0),
-    numBytes(0)
+    numBytes(0),
+    fd(-1)
 {
   char buf[4096];
   fd = _real_open("/proc/self/maps", O_RDONLY);

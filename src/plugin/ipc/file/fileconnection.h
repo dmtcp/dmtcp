@@ -129,7 +129,8 @@ namespace dmtcp
         , _path(path)
         , _fileAlreadyExists(false)
         , _flags(flags)
-        , _mode(mode)
+        /* No method uses _mode yet.  Stop compiler from issuing warning. */
+        /* , _mode(mode) */
       {
          _type = type;
       }
@@ -166,7 +167,8 @@ namespace dmtcp
       int32_t       _fileAlreadyExists;
       int32_t       _rmtype;
       int64_t       _flags;
-      int64_t       _mode;
+      /* No method uses _mode yet.  Stop compiler from issuing warning. */
+      /* int64_t       _mode; */
       int64_t       _offset;
       uint64_t      _st_dev;
       uint64_t      _st_ino;
