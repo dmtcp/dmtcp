@@ -676,7 +676,7 @@ void FileConnection::refill(bool isRestart)
 
   if (!_ckpted_file) {
     int tempfd;
-    if (_type == FILE_DELETED && (_flags & O_WRONLY)) {
+    if (_type == FILE_DELETED && (_flags & (O_WRONLY | O_RDWR))) {
       tempfd = _real_open(_path.c_str(), _fcntlFlags | O_CREAT, 0600);
       JASSERT(tempfd != -1) (_path) (JASSERT_ERRNO) .Text("open() failed");
       JASSERT(truncate(_path.c_str(), _st_size) ==  0)
