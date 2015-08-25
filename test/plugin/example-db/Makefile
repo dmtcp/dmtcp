@@ -15,8 +15,8 @@ ifndef DMTCP_ROOT
 endif
 DMTCP_INCLUDE=${DMTCP_ROOT}/include
 
-CFLAGS += -I${DMTCP_INCLUDE} -DDMTCP -fPIC -c -g
-CXXFLAGS += -I${DMTCP_INCLUDE} -DDMTCP -fPIC -c -g
+override CFLAGS += -fPIC -I${DMTCP_INCLUDE}
+override CXXFLAGS += -fPIC -I${DMTCP_INCLUDE}
 LINK = ${CC}
 
 DEMO_PORT=7781
@@ -41,14 +41,13 @@ check: ${LIBNAME}.so ${DMTCP_ROOT}/test/dmtcp1
 	  --with-plugin $$PWD/${LIBNAME}.so ${DMTCP_ROOT}/test/dmtcp1 &
 	sleep 20; ${DMTCP_ROOT}/bin/dmtcp_command --coord-port ${DEMO_PORT} --quit
 
-# We link the library using C++ for compatibility with the main libdmtcp.so
 ${LIBNAME}.so: ${LIBOBJS}
 	${LINK} -shared -fPIC -o $@ $^
 
 .c.o:
-	${CC} ${CFLAGS} -o $@ $<
+	${CC} ${CFLAGS} -c -o $@ $<
 .cpp.o:
-	${CXX} ${CXXFLAGS} -o $@ $<
+	${CXX} ${CXXFLAGS} -c -o $@ $<
 
 tidy:
 	rm -f *~ .*.swp dmtcp_restart_script*.sh ckpt_*.dmtcp
