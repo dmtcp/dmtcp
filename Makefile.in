@@ -103,7 +103,12 @@ display-config:
 	    grep '\$$ .*configure ' config.log | sed -e 's^\$$^^'; \
 	   fi
 
+# Remove any stray src/config.h files that may still exist.
+# If the developer accidentally leaves an old src/config.h in place (e.g.,
+#   after examining an old revision when this really existed), then some
+#   source code would pull in src/config.h in preference to include/config.h
 dmtcp:
+	rm -f src/config.h
 	cd src && $(MAKE)
 ifeq ($(M32),1)
 	cd lib/dmtcp && ln -s 32/lib/dmtcp/* ./
