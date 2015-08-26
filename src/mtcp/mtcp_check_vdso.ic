@@ -94,7 +94,7 @@ static void * get_at_sysinfo(char **environ) {
   stack = (void **)&my_environ[-1];
   if (*stack != NULL) {
     MTCP_PRINTF("This should be argv[argc] == NULL and it's not.\n"
-	"NO &argv[argc], stack: %p\n", stack);
+        "NO &argv[argc], stack: %p\n", stack);
     mtcp_sys_exit(1);
   }
 #endif
@@ -305,19 +305,19 @@ void mtcp_check_vdso(char **environ)
       int i = mtcp_sys_readlink("/proc/self/exe", runtime, PATH_MAX);
       if ( i != -1)
       { char *argv[MAX_ARGS+1];
-	struct rlimit rlim;
+        struct rlimit rlim;
 
-	/* "make" has the capability to raise RLIMIT_STACK to infinity.
-	 * This is a problem.  When the kernel (2.6.24 or later) detects this,
-	 * it falls back to an older "standard" memory layout for libs.
-	 *
-	 * "standard" memory layout puts [vdso] segment in low memory, which
-	 *  MTCP currently doesn't handle properly.
-	 *
-	 * glibc:nptl/sysdeps/<ARCH>/pthreaddef.h defines the default stack for
-	 *  pthread_create to be ARCH_STACK_DEFAULT_SIZE if rlimit is set to be
-	 *  unlimited. We follow the same default.
-	 */
+        /* "make" has the capability to raise RLIMIT_STACK to infinity.
+         * This is a problem.  When the kernel (2.6.24 or later) detects this,
+         * it falls back to an older "standard" memory layout for libs.
+         *
+         * "standard" memory layout puts [vdso] segment in low memory, which
+         *  MTCP currently doesn't handle properly.
+         *
+         * glibc:nptl/sysdeps/<ARCH>/pthreaddef.h defines the default stack for
+         *  pthread_create to be ARCH_STACK_DEFAULT_SIZE if rlimit is set to be
+         *  unlimited. We follow the same default.
+         */
 //#ifdef __x86_64__
 //# define ARCH_STACK_DEFAULT_SIZE (32 * 1024 * 1024)
 //#else
@@ -329,25 +329,25 @@ void mtcp_check_vdso(char **environ)
          *  has to do with VDSO. The location of VDSO section conflicts with the
          *  location of process libraries and hence it is unmapped which causes
          *  failure during the restarting phase. If we set the stack limit to
-         *  256 MB or higher, we donot see this bug.
+         *  256 MB or higher, we do not see this bug.
          * It Should also be noted that the process will call setrlimit to set
          *  the resource limits to their pre-checkpoint values.
          */
 #define ARCH_STACK_DEFAULT_SIZE (256 * 1024 * 1024)
 
         int rlimit_failed = 0;
-	if ( -1 == mtcp_sys_getrlimit(RLIMIT_STACK, &rlim) ||
+        if ( -1 == mtcp_sys_getrlimit(RLIMIT_STACK, &rlim) ||
              ( rlim.rlim_cur = rlim.rlim_max = ARCH_STACK_DEFAULT_SIZE,
-	       rlimit_failed |= mtcp_sys_setrlimit(RLIMIT_STACK, &rlim),
-	       rlimit_failed |= mtcp_sys_getrlimit(RLIMIT_STACK, &rlim),
-	       rlimit_failed || rlim.rlim_max == RLIM_INFINITY )
-	   ) {
+               rlimit_failed |= mtcp_sys_setrlimit(RLIMIT_STACK, &rlim),
+               rlimit_failed |= mtcp_sys_getrlimit(RLIMIT_STACK, &rlim),
+               rlimit_failed || rlim.rlim_max == RLIM_INFINITY )
+           ) {
           MTCP_PRINTF("Failed to reduce RLIMIT_STACK below RLIM_INFINITY\n");
-	  mtcp_sys_exit(1);
-	}
-	write_args(argv, "/proc/self/cmdline");
+          mtcp_sys_exit(1);
+        }
+        write_args(argv, "/proc/self/cmdline");
         runtime[i] = '\0';
-	setenv_oldpers(oldpers, environ);
+        setenv_oldpers(oldpers, environ);
         mtcp_sys_execve(runtime, argv, environ);
       }
       if (-1 == mtcp_sys_personality(oldpers)) /* reset if we couldn't exec */
