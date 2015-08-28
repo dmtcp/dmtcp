@@ -156,8 +156,16 @@ extern "C" int __xstat(int vers, const char *path, struct stat *buf)
 {
   char tmpbuf[PATH_MAX];
   char *newpath = tmpbuf;
-  updateProcPathVirtualToReal(path, &newpath);
-  int retval = _real_xstat( vers, newpath, buf );
+  // See filewrapper.cpp:__xstat() for comments on this code.
+  int retval = _real_xstat(vers, path, buf);
+  if (retval == -1 && errno == EFAULT) {
+    // We're done.  Return.
+  } else {
+    updateProcPathVirtualToReal(path, &newpath);
+    if (newpath != path) {
+      retval = _real_xstat(vers, newpath, buf); 
+    } 
+  }
   return retval;
 }
 
@@ -165,8 +173,16 @@ extern "C" int __xstat64(int vers, const char *path, struct stat64 *buf)
 {
   char tmpbuf[PATH_MAX];
   char *newpath = tmpbuf;
-  updateProcPathVirtualToReal(path, &newpath);
-  int retval = _real_xstat64( vers, newpath, buf );
+  // See filewrapper.cpp:__xstat() for comments on this code.
+  int retval = _real_xstat64(vers, path, buf);
+  if (retval == -1 && errno == EFAULT) {
+    // We're done.  Return.
+  } else {
+    updateProcPathVirtualToReal(path, &newpath);
+    if (newpath != path) {
+      retval = _real_xstat64(vers, newpath, buf); 
+    } 
+  }
   return retval;
 }
 
@@ -188,8 +204,16 @@ extern "C" int __lxstat(int vers, const char *path, struct stat *buf)
 {
   char tmpbuf[PATH_MAX];
   char *newpath = tmpbuf;
-  updateProcPathVirtualToReal(path, &newpath);
-  int retval = _real_lxstat( vers, newpath, buf );
+  // See filewrapper.cpp:__xstat() for comments on this code.
+  int retval = _real_lxstat(vers, path, buf);
+  if (retval == -1 && errno == EFAULT) {
+    // We're done.  Return.
+  } else {
+    updateProcPathVirtualToReal(path, &newpath);
+    if (newpath != path) {
+      retval = _real_lxstat(vers, newpath, buf); 
+    } 
+  }
   return retval;
 }
 
@@ -197,8 +221,16 @@ extern "C" int __lxstat64(int vers, const char *path, struct stat64 *buf)
 {
   char tmpbuf[PATH_MAX];
   char *newpath = tmpbuf;
-  updateProcPathVirtualToReal(path, &newpath);
-  int retval = _real_lxstat64( vers, newpath, buf );
+  // See filewrapper.cpp:__xstat() for comments on this code.
+  int retval = _real_lxstat64(vers, path, buf);
+  if (retval == -1 && errno == EFAULT) {
+    // We're done.  Return.
+  } else {
+    updateProcPathVirtualToReal(path, &newpath);
+    if (newpath != path) {
+      retval = _real_lxstat64(vers, newpath, buf); 
+    } 
+  }
   return retval;
 }
 

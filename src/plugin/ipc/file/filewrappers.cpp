@@ -583,8 +583,21 @@ extern "C" int __xstat(int vers, const char *path, struct stat *buf)
   char tmpbuf [ PATH_MAX ] = {0} ;
   char *newpath = tmpbuf;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  updateStatPath(path, &newpath);
-  int retval = _real_xstat(vers, newpath, buf);
+  // We want to call updateStatPath(). But if path is an invalid memory address,
+  //   then updateStatPath() will crash.  So, do a preliminary call to
+  //   _real_xstat().  If path or buf is invalid, return with the erro.
+  //   If path is a valid memory address, but not a valid filename,
+  //   there is no harm done, since xstat has no side effects outside of buf.
+  int retval = _real_xstat(vers, path, buf);
+  if (retval == -1 && errno == EFAULT) {
+    // EFAULT means path or buf was a bad address.  So, we're done.  Return.
+    // And don't call updateStatPath().  If path is bad, it will crash.
+  } else {
+    updateStatPath(path, &newpath);
+    if (newpath != path) {
+      retval = _real_xstat(vers, newpath, buf); // Re-do it with correct path.
+    } // else use answer from previous call to _real_xstat(), and save time.
+  }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
@@ -594,8 +607,16 @@ extern "C" int __xstat64(int vers, const char *path, struct stat64 *buf)
   char tmpbuf [ PATH_MAX ] = {0};
   char *newpath = tmpbuf;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  updateStatPath(path, &newpath);
-  int retval = _real_xstat64(vers, newpath, buf);
+  // See filewrapper.cpp:__xstat() for comments on this code.
+  int retval = _real_xstat64(vers, path, buf);
+  if (retval == -1 && errno == EFAULT) {
+    // We're done.  Return.
+  } else {
+    updateStatPath(path, &newpath);
+    if (newpath != path) {
+      retval = _real_xstat64(vers, newpath, buf);
+    }
+  }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
@@ -623,8 +644,16 @@ extern "C" int __lxstat(int vers, const char *path, struct stat *buf)
   char tmpbuf [ PATH_MAX ] = {0} ;
   char *newpath = tmpbuf;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  updateStatPath(path, &newpath);
-  int retval = _real_lxstat(vers, newpath, buf);
+  // See filewrapper.cpp:__xstat() for comments on this code.
+  int retval = _real_lxstat(vers, path, buf);
+  if (retval == -1 && errno == EFAULT) {
+    // We're done.  Return.
+  } else {
+    updateStatPath(path, &newpath);
+    if (newpath != path) {
+      retval = _real_lxstat(vers, newpath, buf);
+    }
+  }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
@@ -634,8 +663,16 @@ extern "C" int __lxstat64(int vers, const char *path, struct stat64 *buf)
   char tmpbuf [ PATH_MAX ] = {0} ;
   char *newpath = tmpbuf;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  updateStatPath(path, &newpath);
-  int retval = _real_lxstat64(vers, newpath, buf);
+  // See filewrapper.cpp:__xstat() for comments on this code.
+  int retval = _real_lxstat64(vers, path, buf);
+  if (retval == -1 && errno == EFAULT) {
+    // We're done.  Return.
+  } else {
+    updateStatPath(path, &newpath);
+    if (newpath != path) {
+      retval = _real_lxstat64(vers, newpath, buf);
+    }
+  }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
