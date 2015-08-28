@@ -427,10 +427,14 @@ for (; x>0; x--) for (; y>0; y--);
 
 #if defined(__i386__) || defined(__x86_64__)
   asm volatile (CLEAN_FOR_64_BIT(mov %0,%%esp;)
+#ifndef __clang__
                 /* This next assembly language confuses gdb.  Set a future
                    future breakpoint, or attach after this point, if in gdb.
-		   It's here to force a hard error early, in case of a bug.*/
+                   It's here to force a hard error early, in case of a bug.*/
                 CLEAN_FOR_64_BIT(xor %%ebp,%%ebp)
+#else
+                /* Even with -O0, clang-3.4 uses register ebp after this statement. */
+#endif
                 : : "g" (stack_ptr) : "memory");
 #elif defined(__arm__)
   asm volatile ("mov sp,%0\n\t"
