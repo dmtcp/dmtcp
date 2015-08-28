@@ -196,11 +196,16 @@ extern "C" void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       pidVirt_PrepareForExec(data);
       break;
 
+    case DMTCP_EVENT_WRITE_CKPT:
+      pruneUnlockedMutexesAtCheckpoint();
+      break;
+
     case DMTCP_EVENT_POST_EXEC:
       pidVirt_PostExec(data);
       break;
 
     case DMTCP_EVENT_RESTART:
+      patchMutexesPostRestart();
       pidVirt_PostRestart(data);
       break;
 
