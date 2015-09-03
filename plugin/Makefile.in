@@ -119,29 +119,24 @@ CONFIG_CLEAN_VPATH_FILES =
 am__installdirs = "$(DESTDIR)$(bindir)" "$(DESTDIR)$(libdmtcpdir)" \
 	"$(DESTDIR)$(bindir)" "$(DESTDIR)$(bindir)"
 PROGRAMS = $(bin_PROGRAMS) $(libdmtcp_PROGRAMS)
-am__dirstamp = $(am__leading_dot)dirstamp
 am___d_bindir__dmtcp_discover_rm_OBJECTS =  \
-	batch-queue/discover_dmtcpinput.$(OBJEXT) \
-	batch-queue/discover_resources.$(OBJEXT) \
-	batch-queue/discover_slurm.$(OBJEXT) \
-	batch-queue/discover_torque.$(OBJEXT) \
-	batch-queue/dmtcp_discover_rm.$(OBJEXT)
+	discover_dmtcpinput.$(OBJEXT) discover_resources.$(OBJEXT) \
+	discover_slurm.$(OBJEXT) discover_torque.$(OBJEXT) \
+	dmtcp_discover_rm.$(OBJEXT)
 __d_bindir__dmtcp_discover_rm_OBJECTS =  \
 	$(am___d_bindir__dmtcp_discover_rm_OBJECTS)
 __d_bindir__dmtcp_discover_rm_LDADD = $(LDADD)
 __d_bindir__dmtcp_discover_rm_DEPENDENCIES =
-am___d_bindir__dmtcp_srun_helper_OBJECTS =  \
-	batch-queue/slurm_helper.$(OBJEXT) \
-	batch-queue/dmtcp_srun_helper.$(OBJEXT)
+am__dirstamp = $(am__leading_dot)dirstamp
+am___d_bindir__dmtcp_srun_helper_OBJECTS = slurm_helper.$(OBJEXT) \
+	dmtcp_srun_helper.$(OBJEXT)
 __d_bindir__dmtcp_srun_helper_OBJECTS =  \
 	$(am___d_bindir__dmtcp_srun_helper_OBJECTS)
 __d_bindir__dmtcp_srun_helper_LDADD = $(LDADD)
 __d_bindir__dmtcp_srun_helper_DEPENDENCIES =
-am___d_libdir__libdmtcp_batch_queue_so_OBJECTS =  \
-	batch-queue/rm_main.$(OBJEXT) batch-queue/rm_torque.$(OBJEXT) \
-	batch-queue/rm_slurm.$(OBJEXT) batch-queue/rm_utils.$(OBJEXT) \
-	batch-queue/rm_pmi.$(OBJEXT) \
-	batch-queue/slurm_helper.$(OBJEXT)
+am___d_libdir__libdmtcp_batch_queue_so_OBJECTS = rm_main.$(OBJEXT) \
+	rm_torque.$(OBJEXT) rm_slurm.$(OBJEXT) rm_utils.$(OBJEXT) \
+	rm_pmi.$(OBJEXT) slurm_helper.$(OBJEXT)
 __d_libdir__libdmtcp_batch_queue_so_OBJECTS =  \
 	$(am___d_libdir__libdmtcp_batch_queue_so_OBJECTS)
 am__DEPENDENCIES_1 =
@@ -150,8 +145,7 @@ __d_libdir__libdmtcp_batch_queue_so_DEPENDENCIES =  \
 __d_libdir__libdmtcp_batch_queue_so_LINK = $(CXXLD) $(AM_CXXFLAGS) \
 	$(CXXFLAGS) $(__d_libdir__libdmtcp_batch_queue_so_LDFLAGS) \
 	$(LDFLAGS) -o $@
-am___d_libdir__libdmtcp_modify_env_so_OBJECTS =  \
-	modify-env/modify-env.$(OBJEXT)
+am___d_libdir__libdmtcp_modify_env_so_OBJECTS = modify-env.$(OBJEXT)
 __d_libdir__libdmtcp_modify_env_so_OBJECTS =  \
 	$(am___d_libdir__libdmtcp_modify_env_so_OBJECTS)
 __d_libdir__libdmtcp_modify_env_so_DEPENDENCIES =  \
@@ -159,8 +153,8 @@ __d_libdir__libdmtcp_modify_env_so_DEPENDENCIES =  \
 __d_libdir__libdmtcp_modify_env_so_LINK = $(CCLD) $(AM_CFLAGS) \
 	$(CFLAGS) $(__d_libdir__libdmtcp_modify_env_so_LDFLAGS) \
 	$(LDFLAGS) -o $@
-am___d_libdir__libdmtcp_ptrace_so_OBJECTS = ptrace/ptrace.$(OBJEXT) \
-	ptrace/ptraceinfo.$(OBJEXT) ptrace/ptracewrappers.$(OBJEXT)
+am___d_libdir__libdmtcp_ptrace_so_OBJECTS = ptrace.$(OBJEXT) \
+	ptraceinfo.$(OBJEXT) ptracewrappers.$(OBJEXT)
 __d_libdir__libdmtcp_ptrace_so_OBJECTS =  \
 	$(am___d_libdir__libdmtcp_ptrace_so_OBJECTS)
 __d_libdir__libdmtcp_ptrace_so_DEPENDENCIES = $(am__DEPENDENCIES_1)
@@ -168,7 +162,7 @@ __d_libdir__libdmtcp_ptrace_so_LINK = $(CXXLD) $(AM_CXXFLAGS) \
 	$(CXXFLAGS) $(__d_libdir__libdmtcp_ptrace_so_LDFLAGS) \
 	$(LDFLAGS) -o $@
 am___d_libdir__libdmtcp_unique_ckpt_so_OBJECTS =  \
-	unique-ckpt/unique-ckpt.$(OBJEXT)
+	unique-ckpt.$(OBJEXT)
 __d_libdir__libdmtcp_unique_ckpt_so_OBJECTS =  \
 	$(am___d_libdir__libdmtcp_unique_ckpt_so_OBJECTS)
 __d_libdir__libdmtcp_unique_ckpt_so_DEPENDENCIES =  \
@@ -217,8 +211,13 @@ am__v_at_ = $(am__v_at_@AM_DEFAULT_V@)
 am__v_at_0 = @
 am__v_at_1 = 
 DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)/include
-depcomp =
-am__depfiles_maybe =
+depcomp = $(SHELL) $(top_srcdir)/depcomp
+am__depfiles_maybe = depfiles
+am__mv = mv -f
+AM_V_lt = $(am__v_lt_@AM_V@)
+am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
+am__v_lt_0 = --silent
+am__v_lt_1 = 
 COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
 AM_V_CC = $(am__v_CC_@AM_V@)
@@ -280,7 +279,7 @@ am__define_uniq_tagged_files = \
   done | $(am__uniquify_input)`
 ETAGS = etags
 CTAGS = ctags
-am__DIST_COMMON = $(srcdir)/Makefile.in README
+am__DIST_COMMON = $(srcdir)/Makefile.in $(top_srcdir)/depcomp README
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
 ACLOCAL = @ACLOCAL@
 AMTAR = @AMTAR@
@@ -291,15 +290,18 @@ AUTOHEADER = @AUTOHEADER@
 AUTOMAKE = @AUTOMAKE@
 AWK = @AWK@
 CC = @CC@
+CCDEPMODE = @CCDEPMODE@
 CFLAGS = @CFLAGS@
 CILKC = @CILKC@
 CPP = @CPP@
 CPPFLAGS = @CPPFLAGS@
 CXX = @CXX@
+CXXDEPMODE = @CXXDEPMODE@
 CXXFLAGS = @CXXFLAGS@
 CYGPATH_W = @CYGPATH_W@
 DEBUG = @DEBUG@
 DEFS = @DEFS@
+DEPDIR = @DEPDIR@
 ECHO_C = @ECHO_C@
 ECHO_N = @ECHO_N@
 ECHO_T = @ECHO_T@
@@ -382,7 +384,9 @@ abs_top_builddir = @abs_top_builddir@
 abs_top_srcdir = @abs_top_srcdir@
 ac_ct_CC = @ac_ct_CC@
 ac_ct_CXX = @ac_ct_CXX@
+am__include = @am__include@
 am__leading_dot = @am__leading_dot@
+am__quote = @am__quote@
 am__tar = @am__tar@
 am__untar = @am__untar@
 bindir = @bindir@
@@ -506,9 +510,9 @@ $(srcdir)/Makefile.in: @MAINTAINER_MODE_TRUE@ $(srcdir)/Makefile.am  $(am__confi
 	      exit 1;; \
 	  esac; \
 	done; \
-	echo ' cd $(top_srcdir) && $(AUTOMAKE) --foreign --ignore-deps plugin/Makefile'; \
+	echo ' cd $(top_srcdir) && $(AUTOMAKE) --foreign plugin/Makefile'; \
 	$(am__cd) $(top_srcdir) && \
-	  $(AUTOMAKE) --foreign --ignore-deps plugin/Makefile
+	  $(AUTOMAKE) --foreign plugin/Makefile
 Makefile: $(srcdir)/Makefile.in $(top_builddir)/config.status
 	@case '$?' in \
 	  *config.status*) \
@@ -610,15 +614,6 @@ uninstall-libdmtcpPROGRAMS:
 
 clean-libdmtcpPROGRAMS:
 	-test -z "$(libdmtcp_PROGRAMS)" || rm -f $(libdmtcp_PROGRAMS)
-batch-queue/$(am__dirstamp):
-	@$(MKDIR_P) batch-queue
-	@: > batch-queue/$(am__dirstamp)
-batch-queue/discover_dmtcpinput.$(OBJEXT):  \
-	batch-queue/$(am__dirstamp)
-batch-queue/discover_resources.$(OBJEXT): batch-queue/$(am__dirstamp)
-batch-queue/discover_slurm.$(OBJEXT): batch-queue/$(am__dirstamp)
-batch-queue/discover_torque.$(OBJEXT): batch-queue/$(am__dirstamp)
-batch-queue/dmtcp_discover_rm.$(OBJEXT): batch-queue/$(am__dirstamp)
 $(d_bindir)/$(am__dirstamp):
 	@$(MKDIR_P) $(d_bindir)
 	@: > $(d_bindir)/$(am__dirstamp)
@@ -626,17 +621,10 @@ $(d_bindir)/$(am__dirstamp):
 $(d_bindir)/dmtcp_discover_rm$(EXEEXT): $(__d_bindir__dmtcp_discover_rm_OBJECTS) $(__d_bindir__dmtcp_discover_rm_DEPENDENCIES) $(EXTRA___d_bindir__dmtcp_discover_rm_DEPENDENCIES) $(d_bindir)/$(am__dirstamp)
 	@rm -f $(d_bindir)/dmtcp_discover_rm$(EXEEXT)
 	$(AM_V_CXXLD)$(CXXLINK) $(__d_bindir__dmtcp_discover_rm_OBJECTS) $(__d_bindir__dmtcp_discover_rm_LDADD) $(LIBS)
-batch-queue/slurm_helper.$(OBJEXT): batch-queue/$(am__dirstamp)
-batch-queue/dmtcp_srun_helper.$(OBJEXT): batch-queue/$(am__dirstamp)
 
 $(d_bindir)/dmtcp_srun_helper$(EXEEXT): $(__d_bindir__dmtcp_srun_helper_OBJECTS) $(__d_bindir__dmtcp_srun_helper_DEPENDENCIES) $(EXTRA___d_bindir__dmtcp_srun_helper_DEPENDENCIES) $(d_bindir)/$(am__dirstamp)
 	@rm -f $(d_bindir)/dmtcp_srun_helper$(EXEEXT)
 	$(AM_V_CXXLD)$(CXXLINK) $(__d_bindir__dmtcp_srun_helper_OBJECTS) $(__d_bindir__dmtcp_srun_helper_LDADD) $(LIBS)
-batch-queue/rm_main.$(OBJEXT): batch-queue/$(am__dirstamp)
-batch-queue/rm_torque.$(OBJEXT): batch-queue/$(am__dirstamp)
-batch-queue/rm_slurm.$(OBJEXT): batch-queue/$(am__dirstamp)
-batch-queue/rm_utils.$(OBJEXT): batch-queue/$(am__dirstamp)
-batch-queue/rm_pmi.$(OBJEXT): batch-queue/$(am__dirstamp)
 $(d_libdir)/$(am__dirstamp):
 	@$(MKDIR_P) $(d_libdir)
 	@: > $(d_libdir)/$(am__dirstamp)
@@ -644,28 +632,14 @@ $(d_libdir)/$(am__dirstamp):
 $(d_libdir)/libdmtcp_batch-queue.so$(EXEEXT): $(__d_libdir__libdmtcp_batch_queue_so_OBJECTS) $(__d_libdir__libdmtcp_batch_queue_so_DEPENDENCIES) $(EXTRA___d_libdir__libdmtcp_batch_queue_so_DEPENDENCIES) $(d_libdir)/$(am__dirstamp)
 	@rm -f $(d_libdir)/libdmtcp_batch-queue.so$(EXEEXT)
 	$(AM_V_CXXLD)$(__d_libdir__libdmtcp_batch_queue_so_LINK) $(__d_libdir__libdmtcp_batch_queue_so_OBJECTS) $(__d_libdir__libdmtcp_batch_queue_so_LDADD) $(LIBS)
-modify-env/$(am__dirstamp):
-	@$(MKDIR_P) modify-env
-	@: > modify-env/$(am__dirstamp)
-modify-env/modify-env.$(OBJEXT): modify-env/$(am__dirstamp)
 
 $(d_libdir)/libdmtcp_modify-env.so$(EXEEXT): $(__d_libdir__libdmtcp_modify_env_so_OBJECTS) $(__d_libdir__libdmtcp_modify_env_so_DEPENDENCIES) $(EXTRA___d_libdir__libdmtcp_modify_env_so_DEPENDENCIES) $(d_libdir)/$(am__dirstamp)
 	@rm -f $(d_libdir)/libdmtcp_modify-env.so$(EXEEXT)
 	$(AM_V_CCLD)$(__d_libdir__libdmtcp_modify_env_so_LINK) $(__d_libdir__libdmtcp_modify_env_so_OBJECTS) $(__d_libdir__libdmtcp_modify_env_so_LDADD) $(LIBS)
-ptrace/$(am__dirstamp):
-	@$(MKDIR_P) ptrace
-	@: > ptrace/$(am__dirstamp)
-ptrace/ptrace.$(OBJEXT): ptrace/$(am__dirstamp)
-ptrace/ptraceinfo.$(OBJEXT): ptrace/$(am__dirstamp)
-ptrace/ptracewrappers.$(OBJEXT): ptrace/$(am__dirstamp)
 
 $(d_libdir)/libdmtcp_ptrace.so$(EXEEXT): $(__d_libdir__libdmtcp_ptrace_so_OBJECTS) $(__d_libdir__libdmtcp_ptrace_so_DEPENDENCIES) $(EXTRA___d_libdir__libdmtcp_ptrace_so_DEPENDENCIES) $(d_libdir)/$(am__dirstamp)
 	@rm -f $(d_libdir)/libdmtcp_ptrace.so$(EXEEXT)
 	$(AM_V_CXXLD)$(__d_libdir__libdmtcp_ptrace_so_LINK) $(__d_libdir__libdmtcp_ptrace_so_OBJECTS) $(__d_libdir__libdmtcp_ptrace_so_LDADD) $(LIBS)
-unique-ckpt/$(am__dirstamp):
-	@$(MKDIR_P) unique-ckpt
-	@: > unique-ckpt/$(am__dirstamp)
-unique-ckpt/unique-ckpt.$(OBJEXT): unique-ckpt/$(am__dirstamp)
 
 $(d_libdir)/libdmtcp_unique-ckpt.so$(EXEEXT): $(__d_libdir__libdmtcp_unique_ckpt_so_OBJECTS) $(__d_libdir__libdmtcp_unique_ckpt_so_DEPENDENCIES) $(EXTRA___d_libdir__libdmtcp_unique_ckpt_so_DEPENDENCIES) $(d_libdir)/$(am__dirstamp)
 	@rm -f $(d_libdir)/libdmtcp_unique-ckpt.so$(EXEEXT)
@@ -743,25 +717,293 @@ uninstall-dist_binSCRIPTS:
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
-	-rm -f batch-queue/*.$(OBJEXT)
-	-rm -f modify-env/*.$(OBJEXT)
-	-rm -f ptrace/*.$(OBJEXT)
-	-rm -f unique-ckpt/*.$(OBJEXT)
 
 distclean-compile:
 	-rm -f *.tab.c
 
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/discover_dmtcpinput.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/discover_resources.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/discover_slurm.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/discover_torque.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcp_discover_rm.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcp_srun_helper.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/modify-env.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ptrace.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ptraceinfo.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ptracewrappers.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/rm_main.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/rm_pmi.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/rm_slurm.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/rm_torque.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/rm_utils.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/slurm_helper.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/unique-ckpt.Po@am__quote@
+
 .c.o:
-	$(AM_V_CC)$(COMPILE) -c -o $@ $<
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(COMPILE) -c -o $@ $<
 
 .c.obj:
-	$(AM_V_CC)$(COMPILE) -c -o $@ `$(CYGPATH_W) '$<'`
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ `$(CYGPATH_W) '$<'`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(COMPILE) -c -o $@ `$(CYGPATH_W) '$<'`
+
+modify-env.o: modify-env/modify-env.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT modify-env.o -MD -MP -MF $(DEPDIR)/modify-env.Tpo -c -o modify-env.o `test -f 'modify-env/modify-env.c' || echo '$(srcdir)/'`modify-env/modify-env.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/modify-env.Tpo $(DEPDIR)/modify-env.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='modify-env/modify-env.c' object='modify-env.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o modify-env.o `test -f 'modify-env/modify-env.c' || echo '$(srcdir)/'`modify-env/modify-env.c
+
+modify-env.obj: modify-env/modify-env.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT modify-env.obj -MD -MP -MF $(DEPDIR)/modify-env.Tpo -c -o modify-env.obj `if test -f 'modify-env/modify-env.c'; then $(CYGPATH_W) 'modify-env/modify-env.c'; else $(CYGPATH_W) '$(srcdir)/modify-env/modify-env.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/modify-env.Tpo $(DEPDIR)/modify-env.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='modify-env/modify-env.c' object='modify-env.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o modify-env.obj `if test -f 'modify-env/modify-env.c'; then $(CYGPATH_W) 'modify-env/modify-env.c'; else $(CYGPATH_W) '$(srcdir)/modify-env/modify-env.c'; fi`
 
 .cpp.o:
-	$(AM_V_CXX)$(CXXCOMPILE) -c -o $@ $<
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXXCOMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXXCOMPILE) -c -o $@ $<
 
 .cpp.obj:
-	$(AM_V_CXX)$(CXXCOMPILE) -c -o $@ `$(CYGPATH_W) '$<'`
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXXCOMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ `$(CYGPATH_W) '$<'`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXXCOMPILE) -c -o $@ `$(CYGPATH_W) '$<'`
+
+discover_dmtcpinput.o: batch-queue/discover_dmtcpinput.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT discover_dmtcpinput.o -MD -MP -MF $(DEPDIR)/discover_dmtcpinput.Tpo -c -o discover_dmtcpinput.o `test -f 'batch-queue/discover_dmtcpinput.cpp' || echo '$(srcdir)/'`batch-queue/discover_dmtcpinput.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/discover_dmtcpinput.Tpo $(DEPDIR)/discover_dmtcpinput.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='batch-queue/discover_dmtcpinput.cpp' object='discover_dmtcpinput.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o discover_dmtcpinput.o `test -f 'batch-queue/discover_dmtcpinput.cpp' || echo '$(srcdir)/'`batch-queue/discover_dmtcpinput.cpp
+
+discover_dmtcpinput.obj: batch-queue/discover_dmtcpinput.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT discover_dmtcpinput.obj -MD -MP -MF $(DEPDIR)/discover_dmtcpinput.Tpo -c -o discover_dmtcpinput.obj `if test -f 'batch-queue/discover_dmtcpinput.cpp'; then $(CYGPATH_W) 'batch-queue/discover_dmtcpinput.cpp'; else $(CYGPATH_W) '$(srcdir)/batch-queue/discover_dmtcpinput.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/discover_dmtcpinput.Tpo $(DEPDIR)/discover_dmtcpinput.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='batch-queue/discover_dmtcpinput.cpp' object='discover_dmtcpinput.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o discover_dmtcpinput.obj `if test -f 'batch-queue/discover_dmtcpinput.cpp'; then $(CYGPATH_W) 'batch-queue/discover_dmtcpinput.cpp'; else $(CYGPATH_W) '$(srcdir)/batch-queue/discover_dmtcpinput.cpp'; fi`
+
+discover_resources.o: batch-queue/discover_resources.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT discover_resources.o -MD -MP -MF $(DEPDIR)/discover_resources.Tpo -c -o discover_resources.o `test -f 'batch-queue/discover_resources.cpp' || echo '$(srcdir)/'`batch-queue/discover_resources.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/discover_resources.Tpo $(DEPDIR)/discover_resources.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='batch-queue/discover_resources.cpp' object='discover_resources.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o discover_resources.o `test -f 'batch-queue/discover_resources.cpp' || echo '$(srcdir)/'`batch-queue/discover_resources.cpp
+
+discover_resources.obj: batch-queue/discover_resources.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT discover_resources.obj -MD -MP -MF $(DEPDIR)/discover_resources.Tpo -c -o discover_resources.obj `if test -f 'batch-queue/discover_resources.cpp'; then $(CYGPATH_W) 'batch-queue/discover_resources.cpp'; else $(CYGPATH_W) '$(srcdir)/batch-queue/discover_resources.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/discover_resources.Tpo $(DEPDIR)/discover_resources.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='batch-queue/discover_resources.cpp' object='discover_resources.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o discover_resources.obj `if test -f 'batch-queue/discover_resources.cpp'; then $(CYGPATH_W) 'batch-queue/discover_resources.cpp'; else $(CYGPATH_W) '$(srcdir)/batch-queue/discover_resources.cpp'; fi`
+
+discover_slurm.o: batch-queue/discover_slurm.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT discover_slurm.o -MD -MP -MF $(DEPDIR)/discover_slurm.Tpo -c -o discover_slurm.o `test -f 'batch-queue/discover_slurm.cpp' || echo '$(srcdir)/'`batch-queue/discover_slurm.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/discover_slurm.Tpo $(DEPDIR)/discover_slurm.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='batch-queue/discover_slurm.cpp' object='discover_slurm.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o discover_slurm.o `test -f 'batch-queue/discover_slurm.cpp' || echo '$(srcdir)/'`batch-queue/discover_slurm.cpp
+
+discover_slurm.obj: batch-queue/discover_slurm.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT discover_slurm.obj -MD -MP -MF $(DEPDIR)/discover_slurm.Tpo -c -o discover_slurm.obj `if test -f 'batch-queue/discover_slurm.cpp'; then $(CYGPATH_W) 'batch-queue/discover_slurm.cpp'; else $(CYGPATH_W) '$(srcdir)/batch-queue/discover_slurm.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/discover_slurm.Tpo $(DEPDIR)/discover_slurm.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='batch-queue/discover_slurm.cpp' object='discover_slurm.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o discover_slurm.obj `if test -f 'batch-queue/discover_slurm.cpp'; then $(CYGPATH_W) 'batch-queue/discover_slurm.cpp'; else $(CYGPATH_W) '$(srcdir)/batch-queue/discover_slurm.cpp'; fi`
+
+discover_torque.o: batch-queue/discover_torque.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT discover_torque.o -MD -MP -MF $(DEPDIR)/discover_torque.Tpo -c -o discover_torque.o `test -f 'batch-queue/discover_torque.cpp' || echo '$(srcdir)/'`batch-queue/discover_torque.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/discover_torque.Tpo $(DEPDIR)/discover_torque.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='batch-queue/discover_torque.cpp' object='discover_torque.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o discover_torque.o `test -f 'batch-queue/discover_torque.cpp' || echo '$(srcdir)/'`batch-queue/discover_torque.cpp
+
+discover_torque.obj: batch-queue/discover_torque.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT discover_torque.obj -MD -MP -MF $(DEPDIR)/discover_torque.Tpo -c -o discover_torque.obj `if test -f 'batch-queue/discover_torque.cpp'; then $(CYGPATH_W) 'batch-queue/discover_torque.cpp'; else $(CYGPATH_W) '$(srcdir)/batch-queue/discover_torque.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/discover_torque.Tpo $(DEPDIR)/discover_torque.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='batch-queue/discover_torque.cpp' object='discover_torque.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o discover_torque.obj `if test -f 'batch-queue/discover_torque.cpp'; then $(CYGPATH_W) 'batch-queue/discover_torque.cpp'; else $(CYGPATH_W) '$(srcdir)/batch-queue/discover_torque.cpp'; fi`
+
+dmtcp_discover_rm.o: batch-queue/dmtcp_discover_rm.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT dmtcp_discover_rm.o -MD -MP -MF $(DEPDIR)/dmtcp_discover_rm.Tpo -c -o dmtcp_discover_rm.o `test -f 'batch-queue/dmtcp_discover_rm.cpp' || echo '$(srcdir)/'`batch-queue/dmtcp_discover_rm.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/dmtcp_discover_rm.Tpo $(DEPDIR)/dmtcp_discover_rm.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='batch-queue/dmtcp_discover_rm.cpp' object='dmtcp_discover_rm.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o dmtcp_discover_rm.o `test -f 'batch-queue/dmtcp_discover_rm.cpp' || echo '$(srcdir)/'`batch-queue/dmtcp_discover_rm.cpp
+
+dmtcp_discover_rm.obj: batch-queue/dmtcp_discover_rm.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT dmtcp_discover_rm.obj -MD -MP -MF $(DEPDIR)/dmtcp_discover_rm.Tpo -c -o dmtcp_discover_rm.obj `if test -f 'batch-queue/dmtcp_discover_rm.cpp'; then $(CYGPATH_W) 'batch-queue/dmtcp_discover_rm.cpp'; else $(CYGPATH_W) '$(srcdir)/batch-queue/dmtcp_discover_rm.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/dmtcp_discover_rm.Tpo $(DEPDIR)/dmtcp_discover_rm.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='batch-queue/dmtcp_discover_rm.cpp' object='dmtcp_discover_rm.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o dmtcp_discover_rm.obj `if test -f 'batch-queue/dmtcp_discover_rm.cpp'; then $(CYGPATH_W) 'batch-queue/dmtcp_discover_rm.cpp'; else $(CYGPATH_W) '$(srcdir)/batch-queue/dmtcp_discover_rm.cpp'; fi`
+
+slurm_helper.o: batch-queue/slurm_helper.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT slurm_helper.o -MD -MP -MF $(DEPDIR)/slurm_helper.Tpo -c -o slurm_helper.o `test -f 'batch-queue/slurm_helper.cpp' || echo '$(srcdir)/'`batch-queue/slurm_helper.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/slurm_helper.Tpo $(DEPDIR)/slurm_helper.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='batch-queue/slurm_helper.cpp' object='slurm_helper.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o slurm_helper.o `test -f 'batch-queue/slurm_helper.cpp' || echo '$(srcdir)/'`batch-queue/slurm_helper.cpp
+
+slurm_helper.obj: batch-queue/slurm_helper.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT slurm_helper.obj -MD -MP -MF $(DEPDIR)/slurm_helper.Tpo -c -o slurm_helper.obj `if test -f 'batch-queue/slurm_helper.cpp'; then $(CYGPATH_W) 'batch-queue/slurm_helper.cpp'; else $(CYGPATH_W) '$(srcdir)/batch-queue/slurm_helper.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/slurm_helper.Tpo $(DEPDIR)/slurm_helper.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='batch-queue/slurm_helper.cpp' object='slurm_helper.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o slurm_helper.obj `if test -f 'batch-queue/slurm_helper.cpp'; then $(CYGPATH_W) 'batch-queue/slurm_helper.cpp'; else $(CYGPATH_W) '$(srcdir)/batch-queue/slurm_helper.cpp'; fi`
+
+dmtcp_srun_helper.o: batch-queue/dmtcp_srun_helper.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT dmtcp_srun_helper.o -MD -MP -MF $(DEPDIR)/dmtcp_srun_helper.Tpo -c -o dmtcp_srun_helper.o `test -f 'batch-queue/dmtcp_srun_helper.cpp' || echo '$(srcdir)/'`batch-queue/dmtcp_srun_helper.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/dmtcp_srun_helper.Tpo $(DEPDIR)/dmtcp_srun_helper.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='batch-queue/dmtcp_srun_helper.cpp' object='dmtcp_srun_helper.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o dmtcp_srun_helper.o `test -f 'batch-queue/dmtcp_srun_helper.cpp' || echo '$(srcdir)/'`batch-queue/dmtcp_srun_helper.cpp
+
+dmtcp_srun_helper.obj: batch-queue/dmtcp_srun_helper.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT dmtcp_srun_helper.obj -MD -MP -MF $(DEPDIR)/dmtcp_srun_helper.Tpo -c -o dmtcp_srun_helper.obj `if test -f 'batch-queue/dmtcp_srun_helper.cpp'; then $(CYGPATH_W) 'batch-queue/dmtcp_srun_helper.cpp'; else $(CYGPATH_W) '$(srcdir)/batch-queue/dmtcp_srun_helper.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/dmtcp_srun_helper.Tpo $(DEPDIR)/dmtcp_srun_helper.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='batch-queue/dmtcp_srun_helper.cpp' object='dmtcp_srun_helper.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o dmtcp_srun_helper.obj `if test -f 'batch-queue/dmtcp_srun_helper.cpp'; then $(CYGPATH_W) 'batch-queue/dmtcp_srun_helper.cpp'; else $(CYGPATH_W) '$(srcdir)/batch-queue/dmtcp_srun_helper.cpp'; fi`
+
+rm_main.o: batch-queue/rm_main.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT rm_main.o -MD -MP -MF $(DEPDIR)/rm_main.Tpo -c -o rm_main.o `test -f 'batch-queue/rm_main.cpp' || echo '$(srcdir)/'`batch-queue/rm_main.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/rm_main.Tpo $(DEPDIR)/rm_main.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='batch-queue/rm_main.cpp' object='rm_main.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o rm_main.o `test -f 'batch-queue/rm_main.cpp' || echo '$(srcdir)/'`batch-queue/rm_main.cpp
+
+rm_main.obj: batch-queue/rm_main.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT rm_main.obj -MD -MP -MF $(DEPDIR)/rm_main.Tpo -c -o rm_main.obj `if test -f 'batch-queue/rm_main.cpp'; then $(CYGPATH_W) 'batch-queue/rm_main.cpp'; else $(CYGPATH_W) '$(srcdir)/batch-queue/rm_main.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/rm_main.Tpo $(DEPDIR)/rm_main.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='batch-queue/rm_main.cpp' object='rm_main.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o rm_main.obj `if test -f 'batch-queue/rm_main.cpp'; then $(CYGPATH_W) 'batch-queue/rm_main.cpp'; else $(CYGPATH_W) '$(srcdir)/batch-queue/rm_main.cpp'; fi`
+
+rm_torque.o: batch-queue/rm_torque.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT rm_torque.o -MD -MP -MF $(DEPDIR)/rm_torque.Tpo -c -o rm_torque.o `test -f 'batch-queue/rm_torque.cpp' || echo '$(srcdir)/'`batch-queue/rm_torque.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/rm_torque.Tpo $(DEPDIR)/rm_torque.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='batch-queue/rm_torque.cpp' object='rm_torque.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o rm_torque.o `test -f 'batch-queue/rm_torque.cpp' || echo '$(srcdir)/'`batch-queue/rm_torque.cpp
+
+rm_torque.obj: batch-queue/rm_torque.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT rm_torque.obj -MD -MP -MF $(DEPDIR)/rm_torque.Tpo -c -o rm_torque.obj `if test -f 'batch-queue/rm_torque.cpp'; then $(CYGPATH_W) 'batch-queue/rm_torque.cpp'; else $(CYGPATH_W) '$(srcdir)/batch-queue/rm_torque.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/rm_torque.Tpo $(DEPDIR)/rm_torque.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='batch-queue/rm_torque.cpp' object='rm_torque.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o rm_torque.obj `if test -f 'batch-queue/rm_torque.cpp'; then $(CYGPATH_W) 'batch-queue/rm_torque.cpp'; else $(CYGPATH_W) '$(srcdir)/batch-queue/rm_torque.cpp'; fi`
+
+rm_slurm.o: batch-queue/rm_slurm.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT rm_slurm.o -MD -MP -MF $(DEPDIR)/rm_slurm.Tpo -c -o rm_slurm.o `test -f 'batch-queue/rm_slurm.cpp' || echo '$(srcdir)/'`batch-queue/rm_slurm.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/rm_slurm.Tpo $(DEPDIR)/rm_slurm.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='batch-queue/rm_slurm.cpp' object='rm_slurm.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o rm_slurm.o `test -f 'batch-queue/rm_slurm.cpp' || echo '$(srcdir)/'`batch-queue/rm_slurm.cpp
+
+rm_slurm.obj: batch-queue/rm_slurm.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT rm_slurm.obj -MD -MP -MF $(DEPDIR)/rm_slurm.Tpo -c -o rm_slurm.obj `if test -f 'batch-queue/rm_slurm.cpp'; then $(CYGPATH_W) 'batch-queue/rm_slurm.cpp'; else $(CYGPATH_W) '$(srcdir)/batch-queue/rm_slurm.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/rm_slurm.Tpo $(DEPDIR)/rm_slurm.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='batch-queue/rm_slurm.cpp' object='rm_slurm.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o rm_slurm.obj `if test -f 'batch-queue/rm_slurm.cpp'; then $(CYGPATH_W) 'batch-queue/rm_slurm.cpp'; else $(CYGPATH_W) '$(srcdir)/batch-queue/rm_slurm.cpp'; fi`
+
+rm_utils.o: batch-queue/rm_utils.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT rm_utils.o -MD -MP -MF $(DEPDIR)/rm_utils.Tpo -c -o rm_utils.o `test -f 'batch-queue/rm_utils.cpp' || echo '$(srcdir)/'`batch-queue/rm_utils.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/rm_utils.Tpo $(DEPDIR)/rm_utils.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='batch-queue/rm_utils.cpp' object='rm_utils.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o rm_utils.o `test -f 'batch-queue/rm_utils.cpp' || echo '$(srcdir)/'`batch-queue/rm_utils.cpp
+
+rm_utils.obj: batch-queue/rm_utils.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT rm_utils.obj -MD -MP -MF $(DEPDIR)/rm_utils.Tpo -c -o rm_utils.obj `if test -f 'batch-queue/rm_utils.cpp'; then $(CYGPATH_W) 'batch-queue/rm_utils.cpp'; else $(CYGPATH_W) '$(srcdir)/batch-queue/rm_utils.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/rm_utils.Tpo $(DEPDIR)/rm_utils.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='batch-queue/rm_utils.cpp' object='rm_utils.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o rm_utils.obj `if test -f 'batch-queue/rm_utils.cpp'; then $(CYGPATH_W) 'batch-queue/rm_utils.cpp'; else $(CYGPATH_W) '$(srcdir)/batch-queue/rm_utils.cpp'; fi`
+
+rm_pmi.o: batch-queue/rm_pmi.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT rm_pmi.o -MD -MP -MF $(DEPDIR)/rm_pmi.Tpo -c -o rm_pmi.o `test -f 'batch-queue/rm_pmi.cpp' || echo '$(srcdir)/'`batch-queue/rm_pmi.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/rm_pmi.Tpo $(DEPDIR)/rm_pmi.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='batch-queue/rm_pmi.cpp' object='rm_pmi.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o rm_pmi.o `test -f 'batch-queue/rm_pmi.cpp' || echo '$(srcdir)/'`batch-queue/rm_pmi.cpp
+
+rm_pmi.obj: batch-queue/rm_pmi.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT rm_pmi.obj -MD -MP -MF $(DEPDIR)/rm_pmi.Tpo -c -o rm_pmi.obj `if test -f 'batch-queue/rm_pmi.cpp'; then $(CYGPATH_W) 'batch-queue/rm_pmi.cpp'; else $(CYGPATH_W) '$(srcdir)/batch-queue/rm_pmi.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/rm_pmi.Tpo $(DEPDIR)/rm_pmi.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='batch-queue/rm_pmi.cpp' object='rm_pmi.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o rm_pmi.obj `if test -f 'batch-queue/rm_pmi.cpp'; then $(CYGPATH_W) 'batch-queue/rm_pmi.cpp'; else $(CYGPATH_W) '$(srcdir)/batch-queue/rm_pmi.cpp'; fi`
+
+ptrace.o: ptrace/ptrace.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT ptrace.o -MD -MP -MF $(DEPDIR)/ptrace.Tpo -c -o ptrace.o `test -f 'ptrace/ptrace.cpp' || echo '$(srcdir)/'`ptrace/ptrace.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/ptrace.Tpo $(DEPDIR)/ptrace.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='ptrace/ptrace.cpp' object='ptrace.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o ptrace.o `test -f 'ptrace/ptrace.cpp' || echo '$(srcdir)/'`ptrace/ptrace.cpp
+
+ptrace.obj: ptrace/ptrace.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT ptrace.obj -MD -MP -MF $(DEPDIR)/ptrace.Tpo -c -o ptrace.obj `if test -f 'ptrace/ptrace.cpp'; then $(CYGPATH_W) 'ptrace/ptrace.cpp'; else $(CYGPATH_W) '$(srcdir)/ptrace/ptrace.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/ptrace.Tpo $(DEPDIR)/ptrace.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='ptrace/ptrace.cpp' object='ptrace.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o ptrace.obj `if test -f 'ptrace/ptrace.cpp'; then $(CYGPATH_W) 'ptrace/ptrace.cpp'; else $(CYGPATH_W) '$(srcdir)/ptrace/ptrace.cpp'; fi`
+
+ptraceinfo.o: ptrace/ptraceinfo.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT ptraceinfo.o -MD -MP -MF $(DEPDIR)/ptraceinfo.Tpo -c -o ptraceinfo.o `test -f 'ptrace/ptraceinfo.cpp' || echo '$(srcdir)/'`ptrace/ptraceinfo.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/ptraceinfo.Tpo $(DEPDIR)/ptraceinfo.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='ptrace/ptraceinfo.cpp' object='ptraceinfo.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o ptraceinfo.o `test -f 'ptrace/ptraceinfo.cpp' || echo '$(srcdir)/'`ptrace/ptraceinfo.cpp
+
+ptraceinfo.obj: ptrace/ptraceinfo.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT ptraceinfo.obj -MD -MP -MF $(DEPDIR)/ptraceinfo.Tpo -c -o ptraceinfo.obj `if test -f 'ptrace/ptraceinfo.cpp'; then $(CYGPATH_W) 'ptrace/ptraceinfo.cpp'; else $(CYGPATH_W) '$(srcdir)/ptrace/ptraceinfo.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/ptraceinfo.Tpo $(DEPDIR)/ptraceinfo.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='ptrace/ptraceinfo.cpp' object='ptraceinfo.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o ptraceinfo.obj `if test -f 'ptrace/ptraceinfo.cpp'; then $(CYGPATH_W) 'ptrace/ptraceinfo.cpp'; else $(CYGPATH_W) '$(srcdir)/ptrace/ptraceinfo.cpp'; fi`
+
+ptracewrappers.o: ptrace/ptracewrappers.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT ptracewrappers.o -MD -MP -MF $(DEPDIR)/ptracewrappers.Tpo -c -o ptracewrappers.o `test -f 'ptrace/ptracewrappers.cpp' || echo '$(srcdir)/'`ptrace/ptracewrappers.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/ptracewrappers.Tpo $(DEPDIR)/ptracewrappers.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='ptrace/ptracewrappers.cpp' object='ptracewrappers.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o ptracewrappers.o `test -f 'ptrace/ptracewrappers.cpp' || echo '$(srcdir)/'`ptrace/ptracewrappers.cpp
+
+ptracewrappers.obj: ptrace/ptracewrappers.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT ptracewrappers.obj -MD -MP -MF $(DEPDIR)/ptracewrappers.Tpo -c -o ptracewrappers.obj `if test -f 'ptrace/ptracewrappers.cpp'; then $(CYGPATH_W) 'ptrace/ptracewrappers.cpp'; else $(CYGPATH_W) '$(srcdir)/ptrace/ptracewrappers.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/ptracewrappers.Tpo $(DEPDIR)/ptracewrappers.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='ptrace/ptracewrappers.cpp' object='ptracewrappers.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o ptracewrappers.obj `if test -f 'ptrace/ptracewrappers.cpp'; then $(CYGPATH_W) 'ptrace/ptracewrappers.cpp'; else $(CYGPATH_W) '$(srcdir)/ptrace/ptracewrappers.cpp'; fi`
+
+unique-ckpt.o: unique-ckpt/unique-ckpt.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT unique-ckpt.o -MD -MP -MF $(DEPDIR)/unique-ckpt.Tpo -c -o unique-ckpt.o `test -f 'unique-ckpt/unique-ckpt.cpp' || echo '$(srcdir)/'`unique-ckpt/unique-ckpt.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/unique-ckpt.Tpo $(DEPDIR)/unique-ckpt.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='unique-ckpt/unique-ckpt.cpp' object='unique-ckpt.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o unique-ckpt.o `test -f 'unique-ckpt/unique-ckpt.cpp' || echo '$(srcdir)/'`unique-ckpt/unique-ckpt.cpp
+
+unique-ckpt.obj: unique-ckpt/unique-ckpt.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT unique-ckpt.obj -MD -MP -MF $(DEPDIR)/unique-ckpt.Tpo -c -o unique-ckpt.obj `if test -f 'unique-ckpt/unique-ckpt.cpp'; then $(CYGPATH_W) 'unique-ckpt/unique-ckpt.cpp'; else $(CYGPATH_W) '$(srcdir)/unique-ckpt/unique-ckpt.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/unique-ckpt.Tpo $(DEPDIR)/unique-ckpt.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='unique-ckpt/unique-ckpt.cpp' object='unique-ckpt.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o unique-ckpt.obj `if test -f 'unique-ckpt/unique-ckpt.cpp'; then $(CYGPATH_W) 'unique-ckpt/unique-ckpt.cpp'; else $(CYGPATH_W) '$(srcdir)/unique-ckpt/unique-ckpt.cpp'; fi`
 
 ID: $(am__tagged_files)
 	$(am__define_uniq_tagged_files); mkid -fID $$unique
@@ -879,10 +1121,6 @@ clean-generic:
 distclean-generic:
 	-test -z "$(CONFIG_CLEAN_FILES)" || rm -f $(CONFIG_CLEAN_FILES)
 	-test . = "$(srcdir)" || test -z "$(CONFIG_CLEAN_VPATH_FILES)" || rm -f $(CONFIG_CLEAN_VPATH_FILES)
-	-rm -f batch-queue/$(am__dirstamp)
-	-rm -f modify-env/$(am__dirstamp)
-	-rm -f ptrace/$(am__dirstamp)
-	-rm -f unique-ckpt/$(am__dirstamp)
 	-test -z "$(d_bindir)/$(am__dirstamp)" || rm -f $(d_bindir)/$(am__dirstamp)
 	-test -z "$(d_libdir)/$(am__dirstamp)" || rm -f $(d_libdir)/$(am__dirstamp)
 
@@ -895,6 +1133,7 @@ clean-am: clean-binPROGRAMS clean-generic clean-libdmtcpPROGRAMS \
 	mostlyclean-am
 
 distclean: distclean-am
+	-rm -rf ./$(DEPDIR)
 	-rm -f Makefile
 distclean-am: clean-am distclean-compile distclean-generic \
 	distclean-tags
@@ -941,6 +1180,7 @@ install-ps-am:
 installcheck-am:
 
 maintainer-clean: maintainer-clean-am
+	-rm -rf ./$(DEPDIR)
 	-rm -f Makefile
 maintainer-clean-am: distclean-am maintainer-clean-generic
 
