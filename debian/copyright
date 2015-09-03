@@ -1,7 +1,7 @@
 Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: dmtcp
 Upstream-Contact: Kapil Arya <kapil@ccs.neu.edu>
-Source: http://dmtcp.sourceforge.net
+Source: http://github.com/dmtcp/dmtcp
 
 Files: *
 Copyright: 2006-2013, Jason Ansel <jansel@csail.mit.edu>
