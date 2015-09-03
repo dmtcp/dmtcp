@@ -4,7 +4,10 @@ OPENMP_CFLAGS=@OPENMP_CFLAGS@
 OPENMP_CXXFLAGS=@OPENMP_CXXFLAGS@
 CC = @CC@
 M32=@M32@
-CFLAGS = @CFLAGS@
+# Unfortunately, there is a name clash for 'DEBUG'.
+# --enable-debug intends to set 'DEBUG' in src, but sets it everywhere.
+# Here in 'test', we use 'DEBUG' for one-off tests.  So, we unset 'DEBUG'.
+CFLAGS = @CFLAGS@ -UDEBUG
 CPPFLAGS = @CPPFLAGS@
 CXX = @CXX@
 CXXFLAGS = @CXXFLAGS@
