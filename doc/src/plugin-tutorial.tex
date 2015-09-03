@@ -144,10 +144,10 @@ void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     printf("\n*** The plugin is being called before checkpointing. ***\n");
     break;
   case DMTCP_EVENT_RESUME:
-    printf("*** Resume: the plugin has now been checkpointed. ***\n");
+    printf("*** Resume: the application has now been checkpointed. ***\n");
     break;
   case DMTCP_EVENT_RESTART:
-    printf("*** The plugin is now being restarted. ***\n");
+    printf("*** The application is now being restarted. ***\n");
     break;
   ...
   default:

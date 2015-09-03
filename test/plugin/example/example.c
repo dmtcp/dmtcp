@@ -13,11 +13,11 @@ void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     printf("\n*** The plugin is being called before checkpointing. ***\n");
     break;
   case DMTCP_EVENT_RESUME:
-    printf("*** The plugin has now been checkpointed. ***\n");
+    printf("*** The application has now been checkpointed. ***\n");
     break;
   case DMTCP_EVENT_THREADS_RESUME:
     if (data->resumeInfo.isRestart) {
-      printf("The plugin is now resuming or restarting from checkpointing.\n");
+      printf("The application is now resuming or restarting from checkpointing.\n");
     } else {
       printf("The process is now resuming after checkpoint.\n");
     }
