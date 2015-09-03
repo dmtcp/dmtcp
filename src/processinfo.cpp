@@ -212,7 +212,7 @@ void ProcessInfo::growStack()
 
 #ifdef DEBUG
   {
-    ProcSelfMaps maps
+    ProcSelfMaps maps;
     while (maps.getNextArea(&area)) {
       if ((VA)&area >= area.addr && (VA)&area < area.endAddr) { // Stack found
         JTRACE("New stack size") ((void*)area.addr) (area.size);
