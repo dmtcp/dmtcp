@@ -92,8 +92,8 @@ static void restore_sigchld_handler_and_wait_for_zombie(pid_t pid)
      *  Otherwise, kernel could have optimization allowing us to close fd and
      *  rename tmp ckpt file to permanent even while gzip is still writing.
      */
-    /* All signals, incl. SIGCHLD, were blocked in mtcp.c:save_sig_state()
-     * when beginning the ckpt.  A SIGCHLD handler was declared before
+    /* All signals, incl. SIGCHLD, were blocked in
+     * threadlist.cpp:checkpointhread().  A SIGCHLD handler was declared before
      * the gzip child process was forked.  The child may have already
      * terminated and returned, creating a blocked SIGCHLD.
      *   So, we use sigsuspend so that we can clean up the child zombie

@@ -12,6 +12,7 @@ Examples of special cases are:
 * forked checkpointing
 * fast restart
 * --no-gzip
+* --interval 5
 * --no-coordinator
 * --tmpdir
 * --ckptdir

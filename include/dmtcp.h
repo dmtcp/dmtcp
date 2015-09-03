@@ -148,7 +148,7 @@ EXTERNC int dmtcp_disable_ckpt(VOID) __attribute__ ((weak));
  (dmtcp_disable_ckpt ? dmtcp_disable_ckpt() : DMTCP_NOT_PRESENT)
 
 /**
- * Re-allow checkpoints, opposite of dmtcp_disable_checkpoint().
+ * Re-allow checkpoints, opposite of dmtcp_disable_ckpt().
  * + Returns 1 on success, <=0 on error
  * See: test/plugin/applic-delayed-ckpt directory for an exammple:
  */

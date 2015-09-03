@@ -103,12 +103,12 @@ extern "C" void dmtcp_libdlLockUnlock() {
 
 void ThreadSync::initThread()
 {
-  // If we don't initialize these thread local variables here. If not done
-  // here, there can be a race between checkpoint processing and this
-  // thread trying to initialize some thread-local variable. Here is a possible
-  // calltrace:
-  // pthread_start -> threadFinishedInitialization -> stopthisthread ->
-  // callbackHoldsAnyLocks -> JASSERT().
+  // We initialize these thread-local variables here. If not done here,
+  // there can be a race between checkpoint processing and this
+  // thread trying to initialize some thread-local variable.
+  // Here is a possible calltrace:
+  //   pthread_start -> threadFinishedInitialization -> stopthisthread ->
+  //   callbackHoldsAnyLocks -> JASSERT().
   _wrapperExecutionLockLockCount = 0;
   _threadCreationLockLockCount = 0;
 #if TRACK_DLOPEN_DLSYM_FOR_LOCKS

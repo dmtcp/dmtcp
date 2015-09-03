@@ -335,7 +335,7 @@ AC_TRY_RUN([
            }
            ], [has_pr_set_ptracer='yes'], [has_pr_set_ptracer='no'])
 if test "$has_pr_set_ptracer" == "yes"; then
-  AC_DEFINE([HAS_PR_SET_PTRACER],[1],[allow 'gdb attach' when DMTCP_RESTART_PAUSE is defined.])
+  AC_DEFINE([HAS_PR_SET_PTRACER],[1],[Allow 'gdb attach' when DMTCP_RESTART_PAUSE is defined.])
 fi
 AC_MSG_RESULT([$has_pr_set_ptracer])
 

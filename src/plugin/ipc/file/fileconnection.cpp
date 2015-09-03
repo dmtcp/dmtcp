@@ -664,7 +664,7 @@ void FileConnection::refill(bool isRestart)
                 "different behavior.");
       } else {
         const char *errMsg =
-          "\n**** File already exist! Checkpointed copy can't be restored.\n"
+          "\n**** File already exists! Checkpointed copy can't be restored.\n"
           "       The Contents of checkpointed copy differ from the "
           "contents of the existing copy.\n"
           "****Delete the existing file and try again!";
