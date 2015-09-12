@@ -88,6 +88,8 @@ __d_libdir__libdmtcp_modify_env_so_LDADD = $(LDADD)
 #
 # Ptrace plugin
 #
+
+if !ARM_HOST
 libdmtcp_PROGRAMS += $(d_libdir)/libdmtcp_ptrace.so
 __d_libdir__libdmtcp_ptrace_so_SOURCES =                               \
 	ptrace/ptrace.cpp                                              \
@@ -97,7 +99,7 @@ __d_libdir__libdmtcp_ptrace_so_SOURCES =                               \
 	ptrace/ptracewrappers.cpp
 __d_libdir__libdmtcp_ptrace_so_LDFLAGS = $(dmtcp_ldflags)
 __d_libdir__libdmtcp_ptrace_so_LDADD = $(LDADD)
-
+endif
 
 #
 # Unique ckpt plugin

@@ -102,9 +102,13 @@ host_triplet = @host@
 bin_PROGRAMS = $(d_bindir)/dmtcp_discover_rm$(EXEEXT) \
 	$(d_bindir)/dmtcp_srun_helper$(EXEEXT)
 libdmtcp_PROGRAMS = $(d_libdir)/libdmtcp_batch-queue.so$(EXEEXT) \
-	$(d_libdir)/libdmtcp_modify-env.so$(EXEEXT) \
-	$(d_libdir)/libdmtcp_ptrace.so$(EXEEXT) \
+	$(d_libdir)/libdmtcp_modify-env.so$(EXEEXT) $(am__EXEEXT_1) \
 	$(d_libdir)/libdmtcp_unique-ckpt.so$(EXEEXT)
+
+#
+# Ptrace plugin
+#
+@ARM_HOST_FALSE@am__append_1 = $(d_libdir)/libdmtcp_ptrace.so
 subdir = plugin
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/configure.ac
@@ -118,6 +122,8 @@ CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
 am__installdirs = "$(DESTDIR)$(bindir)" "$(DESTDIR)$(libdmtcpdir)" \
 	"$(DESTDIR)$(bindir)" "$(DESTDIR)$(bindir)"
+@ARM_HOST_FALSE@am__EXEEXT_1 =  \
+@ARM_HOST_FALSE@	$(d_libdir)/libdmtcp_ptrace.so$(EXEEXT)
 PROGRAMS = $(bin_PROGRAMS) $(libdmtcp_PROGRAMS)
 am___d_bindir__dmtcp_discover_rm_OBJECTS =  \
 	discover_dmtcpinput.$(OBJEXT) discover_resources.$(OBJEXT) \
@@ -153,11 +159,16 @@ __d_libdir__libdmtcp_modify_env_so_DEPENDENCIES =  \
 __d_libdir__libdmtcp_modify_env_so_LINK = $(CCLD) $(AM_CFLAGS) \
 	$(CFLAGS) $(__d_libdir__libdmtcp_modify_env_so_LDFLAGS) \
 	$(LDFLAGS) -o $@
-am___d_libdir__libdmtcp_ptrace_so_OBJECTS = ptrace.$(OBJEXT) \
-	ptraceinfo.$(OBJEXT) ptracewrappers.$(OBJEXT)
+am____d_libdir__libdmtcp_ptrace_so_SOURCES_DIST = ptrace/ptrace.cpp \
+	ptrace/ptrace.h ptrace/ptraceinfo.cpp ptrace/ptraceinfo.h \
+	ptrace/ptracewrappers.cpp
+@ARM_HOST_FALSE@am___d_libdir__libdmtcp_ptrace_so_OBJECTS =  \
+@ARM_HOST_FALSE@	ptrace.$(OBJEXT) ptraceinfo.$(OBJEXT) \
+@ARM_HOST_FALSE@	ptracewrappers.$(OBJEXT)
 __d_libdir__libdmtcp_ptrace_so_OBJECTS =  \
 	$(am___d_libdir__libdmtcp_ptrace_so_OBJECTS)
-__d_libdir__libdmtcp_ptrace_so_DEPENDENCIES = $(am__DEPENDENCIES_1)
+@ARM_HOST_FALSE@__d_libdir__libdmtcp_ptrace_so_DEPENDENCIES =  \
+@ARM_HOST_FALSE@	$(am__DEPENDENCIES_1)
 __d_libdir__libdmtcp_ptrace_so_LINK = $(CXXLD) $(AM_CXXFLAGS) \
 	$(CXXFLAGS) $(__d_libdir__libdmtcp_ptrace_so_LDFLAGS) \
 	$(LDFLAGS) -o $@
@@ -253,7 +264,7 @@ DIST_SOURCES = $(__d_bindir__dmtcp_discover_rm_SOURCES) \
 	$(__d_bindir__dmtcp_srun_helper_SOURCES) \
 	$(__d_libdir__libdmtcp_batch_queue_so_SOURCES) \
 	$(__d_libdir__libdmtcp_modify_env_so_SOURCES) \
-	$(__d_libdir__libdmtcp_ptrace_so_SOURCES) \
+	$(am____d_libdir__libdmtcp_ptrace_so_SOURCES_DIST) \
 	$(__d_libdir__libdmtcp_unique_ckpt_so_SOURCES)
 am__can_run_installinfo = \
   case $$AM_UPDATE_INFO_DIR in \
@@ -483,15 +494,15 @@ __d_libdir__libdmtcp_modify_env_so_SOURCES = \
 
 __d_libdir__libdmtcp_modify_env_so_LDFLAGS = $(dmtcp_ldflags)
 __d_libdir__libdmtcp_modify_env_so_LDADD = $(LDADD)
-__d_libdir__libdmtcp_ptrace_so_SOURCES = \
-	ptrace/ptrace.cpp                                              \
-	ptrace/ptrace.h                                                \
-	ptrace/ptraceinfo.cpp                                          \
-	ptrace/ptraceinfo.h                                            \
-	ptrace/ptracewrappers.cpp
+@ARM_HOST_FALSE@__d_libdir__libdmtcp_ptrace_so_SOURCES = \
+@ARM_HOST_FALSE@	ptrace/ptrace.cpp                                              \
+@ARM_HOST_FALSE@	ptrace/ptrace.h                                                \
+@ARM_HOST_FALSE@	ptrace/ptraceinfo.cpp                                          \
+@ARM_HOST_FALSE@	ptrace/ptraceinfo.h                                            \
+@ARM_HOST_FALSE@	ptrace/ptracewrappers.cpp
 
-__d_libdir__libdmtcp_ptrace_so_LDFLAGS = $(dmtcp_ldflags)
-__d_libdir__libdmtcp_ptrace_so_LDADD = $(LDADD)
+@ARM_HOST_FALSE@__d_libdir__libdmtcp_ptrace_so_LDFLAGS = $(dmtcp_ldflags)
+@ARM_HOST_FALSE@__d_libdir__libdmtcp_ptrace_so_LDADD = $(LDADD)
 __d_libdir__libdmtcp_unique_ckpt_so_SOURCES = \
 	unique-ckpt/unique-ckpt.cpp
 
