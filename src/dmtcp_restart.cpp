@@ -695,10 +695,9 @@ int main(int argc, char** argv)
 
   if (!runAsRoot && (getuid() == 0 || geteuid() == 0)) {
     JASSERT_STDERR <<
-      "Running dmtcp_restart as root is dangerous.  Aborting.\n"
-      "If you still want to do this (at your own risk), then use\n" \
-      "    dmtcp_restart --run-as-root\n";
-    exit(0);
+      "WARNING:  Running dmtcp_restart as root can be dangerous.\n"
+      "  An unknown checkpoint image or bugs in DMTCP may lead to unforeseen\n"
+      "  consequences.  Continuing as root ....\n";
   }
 
   JTRACE("New dmtcp_restart process; _argc_ ckpt images") (argc);
@@ -725,9 +724,9 @@ int main(int argc, char** argv)
       printf("\nProcess uid (%d) doesn't match uid (%d) of\n" \
              "checkpoint image (%s).\n" \
 	     "This is dangerous.  Aborting for security reasons.\n" \
-             "If you still want to do this (at your own risk),\n" \
-             "  then modify dmtcp/src/%s:%d and re-compile.\n",
-             getuid(), buf.st_uid, restorename.c_str(), __FILE__, __LINE__ - 7);
+             "If you still want to do this, then re-run dmtcp_restart\n" \
+             "  with the --run-as-root flag.\n",
+             getuid(), buf.st_uid, restorename.c_str());
       doAbort = true;
     }
     if (doAbort) {
