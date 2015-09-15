@@ -7,8 +7,14 @@
 
 #include <stdio.h>
 
-//
-//#define PDEBUG(fmt,args...) fprintf(stderr,__FILE__ "(%d): " fmt " \n", __LINE__, ## args  )
-//#define PDEBUG(fmt, args...) write(825, fmt, strlen(fmt))
-#define PDEBUG(fmt, args...) printf(fmt, ##args)
+//#define IBV_DEBUG
+
+#ifdef IBV_DEBUG
+#define PDEBUG(fmt, ...) \
+    do { fprintf(stderr, fmt, ## __VA_ARGS__); } while (0)
+#else
+#define PDEBUG(fmt, ...) \
+    do { } while (0)
+#endif
+
 #endif
