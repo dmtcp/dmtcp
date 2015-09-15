@@ -1,10 +1,6 @@
 #ifndef IBVID_H
 #define IBVID_H
-#include <sys/types.h>
-#include <infiniband/verbs.h>
-#include <limits.h>
-#include <unistd.h>
-#include <stdlib.h>
+#include <stdint.h>
 
 struct ibv_qp_id {
   uint32_t qpn;

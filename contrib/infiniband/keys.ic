@@ -42,7 +42,11 @@ uint32_t update_rkey_restart(uint32_t rkey, int pd_id)
   pair->orig_rkey.pd_id = pd_id;
   pair->orig_rkey.rkey = rkey;
   pair->new_rkey = 0;
-  if (dmtcp_send_query_to_coordinator("mr_info", &pair->orig_rkey, sizeof(pair->orig_rkey), &new_rkey, &size)) {
+  if (dmtcp_send_query_to_coordinator("mr_info",
+                                      &pair->orig_rkey,
+                                      sizeof(pair->orig_rkey),
+                                      &new_rkey,
+                                      &size)) {
     assert(size == sizeof(uint32_t));
     pair->new_rkey = new_rkey;
     list_push_back(&rkey_list, &pair->elem);

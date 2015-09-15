@@ -1,5 +1,5 @@
 /****************************************************************************
- *   Copyright (C) 2011-2013 by Greg Kerr, Jiajun Cao, Kapil Arya, and      *
+ *   Copyright (C) 2011-2015 by Greg Kerr, Jiajun Cao, Kapil Arya, and      *
  *   Gene Cooperman                                                         *
  *   kerrgi@gmail.com, jiajun@ccs.neu.edu, kapil@ccs.neu.edu, and           *
  *   gene@ccs.neu.edu                                                       *

@@ -162,12 +162,13 @@ struct ibv_rkey_pair {
  \param qp_num The id number of the qp being located
  \return A pointer to the internal_ibv_qp
  */
-static inline struct internal_ibv_qp * qp_num_to_qp(struct list * l, uint32_t qp_num)
-{
+static inline struct internal_ibv_qp *
+qp_num_to_qp(struct list * l, uint32_t qp_num) {
   struct list_elem *e;
-  for (e = list_begin(l); e != list_end(l); e = list_next(e))
-  {
-    struct internal_ibv_qp * internal_qp = list_entry(e, struct internal_ibv_qp, elem);
+  for (e = list_begin(l); e != list_end(l); e = list_next(e)) {
+    struct internal_ibv_qp * internal_qp;
+
+    internal_qp = list_entry(e, struct internal_ibv_qp, elem);
     if (internal_qp->real_qp->qp_num == qp_num) {
       return internal_qp;
     }
@@ -180,8 +181,8 @@ static inline struct internal_ibv_qp * qp_num_to_qp(struct list * l, uint32_t qp
  \param dev a pointer to an ibv_device which is embedded in an internal_ibv_dev
  \return A pointer to the internal_ibv_dev struct which dev is embedded in
  */
-static inline struct internal_ibv_dev * ibv_device_to_internal(struct ibv_device * dev)
-{
+static inline struct internal_ibv_dev *
+ibv_device_to_internal(struct ibv_device * dev) {
   return (struct internal_ibv_dev *) dev;
 }
 
@@ -190,8 +191,8 @@ static inline struct internal_ibv_dev * ibv_device_to_internal(struct ibv_device
  * \param ctx a pointer to an ibv_context which is embedded in an internal_ibv_ctx
  * \return A pointer to the internal_ibv_ctx struct which ctx is embedded in
  * */
-static inline struct internal_ibv_ctx * ibv_ctx_to_internal(struct ibv_context * ctx)
-{
+static inline struct internal_ibv_ctx *
+ibv_ctx_to_internal(struct ibv_context * ctx) {
   return (struct internal_ibv_ctx *) ctx;
 }
 
@@ -200,8 +201,8 @@ static inline struct internal_ibv_ctx * ibv_ctx_to_internal(struct ibv_context *
  * \param pd a pointer to an ibv_pd which is embedded in an internal_ibv_pd
  * \return A pointer to the internal_ibv_pd struct which pd is embedded in
  * */
-static inline struct internal_ibv_pd * ibv_pd_to_internal(struct ibv_pd * pd)
-{
+static inline struct internal_ibv_pd *
+ibv_pd_to_internal(struct ibv_pd * pd) {
   return (struct internal_ibv_pd *) pd;
 }
 
@@ -210,8 +211,8 @@ static inline struct internal_ibv_pd * ibv_pd_to_internal(struct ibv_pd * pd)
  * \param mr a pointer to an ibv_mr which is embedded in an internal_ibv_mr
  * \return A pointer to the internal_ibv_mr which mr is embedded in
  */
-static inline struct internal_ibv_mr * ibv_mr_to_internal(struct ibv_mr * mr)
-{
+static inline struct internal_ibv_mr *
+ibv_mr_to_internal(struct ibv_mr * mr) {
   return (struct internal_ibv_mr *) mr;
 }
 
@@ -220,8 +221,8 @@ static inline struct internal_ibv_mr * ibv_mr_to_internal(struct ibv_mr * mr)
  * \param comp a pointer to an ibv_comp_channel which is embedded in an internal_ibv_comp_channel
  * \return A pointer to internal_ibv_comp_channel which comp is embedded in
  */
-static inline struct internal_ibv_comp_channel * ibv_comp_to_internal(struct ibv_comp_channel * comp)
-{
+static inline struct internal_ibv_comp_channel *
+ibv_comp_to_internal(struct ibv_comp_channel * comp) {
   return (struct internal_ibv_comp_channel *) comp;
 }
 
@@ -230,8 +231,8 @@ static inline struct internal_ibv_comp_channel * ibv_comp_to_internal(struct ibv
  * \param cq a pointer to an ibv_cq which is embedded in an internal_ibv_cq
  * \return A pointer to the internal_ibv_cq which cq is embedded in
  */
-static inline struct internal_ibv_cq * ibv_cq_to_internal(struct ibv_cq * cq)
-{
+static inline struct internal_ibv_cq *
+ibv_cq_to_internal(struct ibv_cq * cq) {
   return (struct internal_ibv_cq *) cq;
 }
 
@@ -240,8 +241,8 @@ static inline struct internal_ibv_cq * ibv_cq_to_internal(struct ibv_cq * cq)
  * \param qp a pointer to an ibv_qp whcih is embedded in an internal_ibv_qp
  * \return A pointer to the internal_ibv_qp which qp is embedded in
  */
-static inline struct internal_ibv_qp * ibv_qp_to_internal(struct ibv_qp * qp)
-{
+static inline struct internal_ibv_qp *
+ibv_qp_to_internal(struct ibv_qp * qp) {
   return (struct internal_ibv_qp *) qp;
 }
 
@@ -250,7 +251,7 @@ static inline struct internal_ibv_qp * ibv_qp_to_internal(struct ibv_qp * qp)
  * \param srq a pointer to an ibv_srq whcih is embedded in an internal_ibv_srq
  * \return A pointer to the internal_ibv_srq which srq is embedded in
  */
-static inline struct internal_ibv_srq * ibv_srq_to_internal(struct ibv_srq * srq)
-{
+static inline struct internal_ibv_srq *
+ibv_srq_to_internal(struct ibv_srq * srq) {
   return (struct internal_ibv_srq *) srq;
 }
