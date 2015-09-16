@@ -302,13 +302,14 @@ fi
 
 case "$host_cpu" in
   arm*) is_arm_host=yes ;;
+  aarch64*) is_aarch64_host=yes ;;
   i?86) is_i486_host=yes ;;
 esac
-AM_CONDITIONAL(ARM_HOST, [test "$is_arm_host" == "yes"])
-if test "$is_arm_host" == "yes"; then
-  AC_SUBST([ARM_HOST], [yes])
+AM_CONDITIONAL(AARCH64_HOST, [test "$is_aarch64_host" == "yes"])
+if test "$is_aarch64_host" == "yes"; then
+  AC_SUBST([AARCH64_HOST], [yes])
 else
-  AC_SUBST([ARM_HOST], [no])
+  AC_SUBST([AARCH64_HOST], [no])
 fi
 
 AC_MSG_CHECKING([whether GNU_HASH is supported for ELF])
