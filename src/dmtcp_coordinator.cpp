@@ -120,6 +120,8 @@ static const char* theUsage =
   "  -i, --interval (environment variable DMTCP_CHECKPOINT_INTERVAL):\n"
   "      Time in seconds between automatic checkpoints\n"
   "      (default: 0, disabled)\n"
+  "  -q, --quiet \n"
+  "      Skip startup message.\n"
   "  --help:\n"
   "      Print this message and exit.\n"
   "  --version:\n"
@@ -1769,6 +1771,7 @@ int main ( int argc, char** argv )
   if ( portStr != NULL ) thePort = jalib::StringToInt( portStr );
 
   bool daemon = false;
+  bool quiet = false;
 
   char * tmpdir_arg = NULL;
 
@@ -1782,7 +1785,7 @@ int main ( int argc, char** argv )
       printf("%s", DMTCP_VERSION_AND_COPYRIGHT_INFO);
       return 1;
     }else if(s == "-q" || s == "--quiet"){
-      // TODO(kapil): Ignored for now. Remove in later versions.
+      quiet = true;
       shift;
     }else if(s=="--exit-on-last"){
       exitOnLast = true;
@@ -1883,32 +1886,37 @@ int main ( int argc, char** argv )
   }
 
 #if 0
-  JASSERT_STDERR <<
-    "dmtcp_coordinator starting..." <<
-    "\n    Port: " << thePort <<
-    "\n    Checkpoint Interval: ";
-  if(theCheckpointInterval==0)
-    JASSERT_STDERR << "disabled (checkpoint manually instead)";
-  else
-    JASSERT_STDERR << theCheckpointInterval;
-  JASSERT_STDERR  <<
-    "\n    Exit on last client: " << exitOnLast << "\n";
+  if (!quiet) {
+    JASSERT_STDERR <<
+      "dmtcp_coordinator starting..." <<
+      "\n    Port: " << thePort <<
+      "\n    Checkpoint Interval: ";
+    if(theCheckpointInterval==0)
+      JASSERT_STDERR << "disabled (checkpoint manually instead)";
+    else
+      JASSERT_STDERR << theCheckpointInterval;
+    JASSERT_STDERR  <<
+      "\n    Exit on last client: " << exitOnLast << "\n";
+  }
 #else
-
-  fprintf(stderr, "dmtcp_coordinator starting..."
-          "\n    Host: %s (%s)"
-          "\n    Port: %d"
-          "\n    Checkpoint Interval: ",
-          coordHostname.c_str(), inet_ntoa(localhostIPAddr), thePort);
-  if(theCheckpointInterval==0)
-    fprintf(stderr, "disabled (checkpoint manually instead)");
-  else
-    fprintf(stderr, "%d", theCheckpointInterval);
-  fprintf(stderr, "\n    Exit on last client: %d\n", exitOnLast);
+  if (!quiet) {
+    fprintf(stderr, "dmtcp_coordinator starting..."
+            "\n    Host: %s (%s)"
+            "\n    Port: %d"
+            "\n    Checkpoint Interval: ",
+            coordHostname.c_str(), inet_ntoa(localhostIPAddr), thePort);
+    if (theCheckpointInterval==0)
+      fprintf(stderr, "disabled (checkpoint manually instead)");
+    else
+      fprintf(stderr, "%d", theCheckpointInterval);
+    fprintf(stderr, "\n    Exit on last client: %d\n", exitOnLast);
+  }
 #endif
 
   if (daemon) {
-    JASSERT_STDERR  << "Backgrounding...\n";
+    if (!quiet) {
+      JASSERT_STDERR  << "Backgrounding...\n";
+    }
     int fd = open("/dev/null", O_RDWR);
     JASSERT(dup2(fd, STDIN_FILENO) == STDIN_FILENO);
     JASSERT(dup2(fd, STDOUT_FILENO) == STDOUT_FILENO);
@@ -1924,9 +1932,11 @@ int main ( int argc, char** argv )
     }
     //pid_t sid = setsid();
   } else {
-    JASSERT_STDERR  <<
-      "Type '?' for help." <<
-      "\n\n";
+    if (!quiet) {
+      JASSERT_STDERR  <<
+        "Type '?' for help." <<
+        "\n\n";
+    }
   }
 
   /* We set up the signal handler for SIGINT and SIGALRM.
