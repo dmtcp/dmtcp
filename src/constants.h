@@ -65,7 +65,7 @@
 #define DEFAULT_HOST "127.0.0.1"
 #define DEFAULT_PORT 7779
 
-// Matchup this definition with the one in plugins/ptrace/ptracewrappers.h
+// Match up this definition with the one in plugin/ptrace/ptracewrappers.cpp
 #define DMTCP_FAKE_SYSCALL 1023
 
 //this next string can be at most 16 chars long

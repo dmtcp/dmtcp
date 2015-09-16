@@ -57,7 +57,7 @@
 #include "jfilesystem.h"
 #include "util.h"
 
-// Matchup this definition with the one in dmtcp/src/constants.h
+// Match up this definition with the one in src/constants.h
 #define DMTCP_FAKE_SYSCALL 1023
 
 #define EFLAGS_OFFSET (64)
