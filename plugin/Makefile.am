@@ -89,6 +89,7 @@ __d_libdir__libdmtcp_modify_env_so_LDADD = $(LDADD)
 # Ptrace plugin
 #
 
+# FIXME:  ptrace plugin not yet working for aarch64
 if !AARCH64_HOST
 libdmtcp_PROGRAMS += $(d_libdir)/libdmtcp_ptrace.so
 __d_libdir__libdmtcp_ptrace_so_SOURCES =                               \
