@@ -44,6 +44,9 @@
 #include <ctype.h>
 #include <assert.h>
 #include "syscallwrappers.h"
+#if __aarch64__
+# include "dlsym_default.h"
+#endif
 #include "trampolines.h"
 
 typedef int (*funcptr_t) ();
