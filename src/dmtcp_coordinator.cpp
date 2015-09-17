@@ -1944,6 +1944,8 @@ int main ( int argc, char** argv )
   if ( exitOnLast && daemon ) {
     sigset_t set;
     sigfillset(&set);
+    // unblock SIGALRM because we are using alarm() for interval checkpointing
+    sigdelset(&set, SIGALRM);
     // sigprocmask is only per-thread; but the coordinator is single-threaded.
     sigprocmask(SIG_BLOCK, &set, NULL);
   }
