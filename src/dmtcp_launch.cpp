@@ -231,6 +231,7 @@ static void processArgs(int *orig_argc, char ***orig_argv,
       allowedModes = COORD_JOIN;
       shift;
     } else if (s == "--gzip") {
+      /* NOTE: If gzip flags not set, default is --gzip */
       setenv(ENV_VAR_COMPRESSION, "1", 1);
       shift;
     } else if (s == "--no-gzip") {
@@ -330,6 +331,22 @@ static void processArgs(int *orig_argc, char ***orig_argv,
       break;
     }
   }
+#if __aarch64__
+  /* FIXME:  Currently, there is a bug exposed by SIGRETURN for aarch64,
+   *      when we create a SIGCHLD handler for the gzip process.
+   *      So, we're temporarily disabling GZIP for aarch64.
+   */
+  if (getenv(ENV_VAR_COMPRESSION) == NULL /* NULL default => --gzip */ ||
+      strcmp(getenv(ENV_VAR_COMPRESSION), "1") == 0) {
+    setenv(ENV_VAR_COMPRESSION, "0", 1);
+    if (getenv(ENV_VAR_QUIET) != NULL &&
+        strcmp(getenv(ENV_VAR_QUIET), "0") == 0) {
+      JASSERT_STDERR <<
+        "\n*** Turning off gzip compression.  The armvv8 CPU support is"
+        " still experimental.\n*** Gzip not yet supported.\n\n";
+    }
+  }
+#endif
   *tmpDir_p = Util::calcTmpDir(tmpdir_arg);
   *orig_argc = argc;
   *orig_argv = argv;
@@ -569,7 +586,9 @@ static int testMatlab(const char *filename)
 	    " executing.)\n\n" ;
 
   // FIXME:  should expand filename and "matlab" before checking
-  if ( strcmp(filename, "matlab") == 0 && getenv(ENV_VAR_QUIET) == NULL) {
+  if ( strcmp(filename, "matlab") == 0 &&
+       ( getenv(ENV_VAR_QUIET) == NULL || strcmp(getenv(ENV_VAR_QUIET), "0") ) )
+  {
     JASSERT_STDERR << theMatlabWarning;
     return -1;
   }
