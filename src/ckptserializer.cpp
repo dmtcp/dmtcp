@@ -194,10 +194,10 @@ static int open_ckpt_to_write_gz(int fd, int pipe_fds[2], char *gzip_path)
 }
 
 static int perform_open_ckpt_image_fd(const char *tempCkptFilename,
-                                      int *use_compression,
+                                      bool *use_compression,
                                       int *fdCkptFileOnDisk)
 {
-  *use_compression = 0;  /* default value */
+  *use_compression = false;  /* default value */
 
   /* 1. Open fd to checkpoint image on disk */
   /* Create temp checkpoint file and write magic number to it */
@@ -251,18 +251,18 @@ static int perform_open_ckpt_image_fd(const char *tempCkptFilename,
     /* 3c. Fork compressor child */
     if (use_deltacompression) { /* fork a hbict process */
 # ifdef HBICT_DELTACOMP
-      *use_compression = 1;
+      *use_compression = true;
       if ( use_gzip_compression ) // We may want hbict compression only
         fd = open_ckpt_to_write_hbict(fd, pipe_fds, hbict_path, gzip_path);
       else
         fd = open_ckpt_to_write_hbict(fd, pipe_fds, hbict_path, NULL);
 # endif
     } else if (use_gzip_compression) {/* fork a gzip process */
-      *use_compression = 1;
+      *use_compression = true;
       fd = open_ckpt_to_write_gz(fd, pipe_fds, gzip_path);
       if (pipe_fds[0] == -1) {
         /* If open_ckpt_to_write_gz() failed to fork the gzip process */
-        *use_compression = 0;
+        *use_compression = false;
       }
     } else {
       JASSERT(false) .Text("Not Reached!\n");
@@ -404,7 +404,7 @@ void CkptSerializer::writeCkptImage(void *mtcpHdr, size_t mtcpHdrLen)
   /* fd will either point to the ckpt file to write, or else the write end
    * of a pipe leading to a compression child process.
    */
-  int use_compression = 0;
+  bool use_compression = false;
   int fdCkptFileOnDisk = -1;
   int fd = -1;
 

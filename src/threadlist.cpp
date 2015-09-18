@@ -39,7 +39,7 @@
 using namespace dmtcp;
 
 //Globals
-volatile int restoreInProgress = 0;
+volatile bool restoreInProgress = false;
 Thread *motherofall = NULL;
 void **motherofall_saved_sp = NULL;
 ThreadTLSInfo *motherofall_tlsInfo = NULL;
@@ -348,7 +348,7 @@ static void *checkpointhread (void *dummy)
     JTRACE("before callbackSleepBetweenCheckpoint(0)");
     callbackSleepBetweenCheckpoint(0);
 
-    restoreInProgress = 0;
+    restoreInProgress = false;
 
     // We need to reinitialize the lock.
     pthread_rwlock_t rwLock = PTHREAD_RWLOCK_INITIALIZER;
@@ -669,7 +669,7 @@ void ThreadList::postRestart(void)
   motherpid = THREAD_REAL_TID();
   motherofall->tid = motherpid;
 
-  restoreInProgress = 1;
+  restoreInProgress = true;
 
   sigfillset(&tmp);
   for (thread = activeThreads; thread != NULL; thread = thread->next) {
