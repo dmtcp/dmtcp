@@ -113,7 +113,9 @@ static RestoreInfo rinfo;
 /* Internal routines */
 static void readmemoryareas(int fd);
 static int read_one_memory_area(int fd);
+#if 0
 static void adjust_for_smaller_file_size(Area *area, int fd);
+#endif
 static void restorememoryareas(RestoreInfo *rinfo_ptr);
 static void restore_brk(VA saved_brk, VA restore_begin, VA restore_end);
 static void restart_fast_path(void);
@@ -853,8 +855,22 @@ static int read_one_memory_area(int fd)
     imagefd = -1;
     if (area.name[0] == '/') { /* If not null string, not [stack] or [vdso] */
       imagefd = mtcp_sys_open (area.name, O_RDONLY, 0);
-      if (imagefd >= 0)
-        area.flags ^= MAP_ANONYMOUS;
+      if (imagefd >= 0) {
+
+        /* If the current file size is smaller than the original, we map the region
+         * as private anonymous. Note that with this we lose the name of the region
+         * but most applications may not care.
+         */
+        off_t curr_size = mtcp_sys_lseek(imagefd, 0, SEEK_END);
+        MTCP_ASSERT(curr_size != -1);
+        if (curr_size < area.offset + area.size) {
+          mtcp_sys_close(imagefd);
+          imagefd = -1;
+          area.offset = 0;
+        } else {
+          area.flags ^= MAP_ANONYMOUS;
+        }
+      }
     }
 
     if (area.flags & MAP_ANONYMOUS) {
@@ -892,11 +908,19 @@ static int read_one_memory_area(int fd)
       mtcp_abort ();
     }
 
+#if 0
+
+   /*
+    * The function is not used but is truer to maintaining the user's
+    * view of /proc/*/maps. It can be enabled again in the future after
+    * we fix the logic to handle zero-sized files.
+    */
     if (imagefd >= 0)
       adjust_for_smaller_file_size(&area, imagefd);
+#endif
 
     /* Close image file (fd only gets in the way) */
-    if (!(area.flags & MAP_ANONYMOUS)) mtcp_sys_close (imagefd);
+    if (imagefd >=0 && !(area.flags & MAP_ANONYMOUS)) mtcp_sys_close (imagefd);
 
     if (try_skipping_existing_segment) {
       // This fails on teracluster.  Presumably extra symbols cause overflow.
@@ -928,6 +952,8 @@ static int read_one_memory_area(int fd)
   return 0;
 }
 
+#if 0
+// See note above.
 NO_OPTIMIZE
 static void adjust_for_smaller_file_size(Area *area, int fd)
 {
@@ -958,6 +984,7 @@ static void adjust_for_smaller_file_size(Area *area, int fd)
     }
   }
 }
+#endif
 
 
 /*****************************************************************************
