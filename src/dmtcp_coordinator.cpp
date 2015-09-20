@@ -1698,7 +1698,9 @@ void DmtcpCoordinator::eventLoop(bool daemon)
       continue;
     }
 
-    JASSERT(nfds != -1) (JASSERT_ERRNO);
+    // alarm() is not always the only source of interrupts.
+    // For example, any signal, including signal 0 or SIGWINCH can cause this.
+    JASSERT(nfds != -1 || errno == EINTR) (JASSERT_ERRNO);
 
     for (int n = 0; n < nfds; ++n) {
       void *ptr = events[n].data.ptr;
