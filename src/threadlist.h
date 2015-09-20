@@ -43,7 +43,7 @@ namespace dmtcp
     void threadExit();
 
     Thread *getNewThread();
-    void addToActiveList();
+    void addToActiveList(Thread *th);
     void threadIsDead (Thread *thread);
     void emptyFreeList();
 

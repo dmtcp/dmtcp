@@ -148,6 +148,11 @@ void ThreadList::init()
 
   SigInfo::setupCkptSigHandler(&stopthisthread);
 
+  // CONTEXT:  updateTid() resets curThread only if it's non-NULL.
+  //   ... -> initializeMtcpEngine() -> ThreadList::init() -> updateTid()
+  // See addToActiveList() for more information.
+  curThread = NULL;
+
   /* Set up caller as one of our threads so we can work on it */
   motherofall = ThreadList::getNewThread();
   motherofall_saved_sp = &motherofall->saved_sp;
@@ -177,6 +182,7 @@ void ThreadList::init()
 /*****************************************************************************
  *
  *****************************************************************************/
+// Called from:  threadwrappers.cpp:__clone()
 void ThreadList::initThread(Thread* th, int (*fn)(void*), void *arg, int flags,
                             int *ptid, int *ctid)
 {
@@ -228,7 +234,7 @@ void ThreadList::updateTid(Thread *th)
   JTRACE("starting thread") (th->tid) (th->virtual_tid);
   // Check and remove any thread descriptor which has the same tid as ours.
   // Also, remove any dead threads from the list.
-  ThreadList::addToActiveList();
+  ThreadList::addToActiveList(th);
 }
 
 /*************************************************************************
@@ -801,13 +807,31 @@ void Thread_RestoreSigState (Thread *th)
  * thread. Remove it now.
  *
  *****************************************************************************/
-void ThreadList::addToActiveList()
+void ThreadList::addToActiveList(Thread *th)
 {
   int tid;
   Thread *thread;
   Thread *next_thread;
 
   lock_threads();
+  // CONTEXT:  After fork(), we called:
+  //   ... -> initializeMtcpEngine() -> ThreadList::init() -> updateTid()
+  //       -> addToActiveList()
+  //   NOTE:  After a call to fork(), only the calling thread continues to live.
+  //   Before initializeMtcpEngine() called init(), it called:
+  //   ... -> initializeMtcpEngine() -> ThreadSync::initMotherOfAll() -> 
+  //       -> ThreadSync::initThread()
+  //   Logically, we would have set 'curThread = NULL;; inside
+  //     ThreadSync::initThread(), but it's inconvenient since curThread
+  //     is static (file-private).
+  //   So, updateTid() created the new thread descriptor.  We make sure
+  //     to set curThread to th, the new descriptor, now, in case it wasn't
+  //     done yet.
+  //   We had also set curThread to NULL in ThreadList::init().  This also
+  //     makes logical sense, but only because a call to fork() allows
+  //     only the calling thread (caller of ThreadList::init()) to live on.
+  //     So, that solution seems less general.  So, we'll handle it here, too:
+  curThread = th;
 
   tid = curThread->tid;
   JASSERT (tid != 0);
@@ -822,6 +846,9 @@ void ThreadList::addToActiveList()
       threadIsDead(thread);
       continue;
     }
+    // FIXME:  This causes segfault on second restart.  Why?
+    // JASSERT(thread != curThread)(thread)
+    //   .Text("adding curThread, but it's already on activeThreads");
     /* NOTE:  ST_ZOMBIE is used only for the sake of efficiency.  We
      *   test threads in state ST_ZOMBIE using tgkill to remove them
      *   early (before reaching a checkpoint) so that the
