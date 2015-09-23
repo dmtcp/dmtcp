@@ -128,6 +128,7 @@ __d_libdir__libdmtcp_pid_so_SOURCES =                                  \
 	pid/pid_syscallsreal.c                                         \
 	pid/pidwrappers.cpp                                            \
 	pid/pidwrappers.h                                              \
+	pid/sched_wrappers.cpp                                         \
 	pid/virtualpidtable.cpp                                        \
 	pid/virtualpidtable.h
 __d_libdir__libdmtcp_pid_so_LDFLAGS = $(dmtcp_ldflags)

@@ -640,18 +640,6 @@ extern "C" int setuid(uid_t uid)
 // long sys_setsid(void);
 // long sys_setgroups(int gidsetsize, gid_t __user *grouplist);
 //
-//
-// long sys_sched_setscheduler(pid_t pid, int policy,
-// 					struct sched_param __user *param);
-// long sys_sched_setparam(pid_t pid,
-// 					struct sched_param __user *param);
-// long sys_sched_getscheduler(pid_t pid);
-// long sys_sched_getparam(pid_t pid,
-// 					struct sched_param __user *param);
-// long sys_sched_setaffinity(pid_t pid, unsigned int len,
-// 					unsigned long __user *user_mask_ptr);
-// long sys_sched_getaffinity(pid_t pid, unsigned int len,
-// 					unsigned long __user *user_mask_ptr);
 // long sys_sched_yield(void);
 // long sys_sched_rr_get_interval(pid_t pid,
 //

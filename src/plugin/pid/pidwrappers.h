@@ -26,6 +26,7 @@
 #define _GNU_SOURCE
 #endif
 
+#include <sched.h>
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -141,12 +142,24 @@ extern "C"
   MACRO(fopen)              \
   MACRO(fclose)
 
+#define FOREACH_SCHED_WRAPPER(MACRO)\
+  MACRO(sched_setaffinity) \
+  MACRO(sched_getaffinity)  \
+  MACRO(sched_setscheduler) \
+  MACRO(sched_getscheduler) \
+  MACRO(sched_setparam) \
+  MACRO(sched_getparam) \
+  MACRO(sched_setattr) \
+  MACRO(sched_getattr)
+
+
 # define PIDVIRT_ENUM(x) pid_enum_ ## x
 # define PIDVIRT_GEN_ENUM(x) PIDVIRT_ENUM(x),
   typedef enum {
     FOREACH_PIDVIRT_WRAPPER(PIDVIRT_GEN_ENUM)
     FOREACH_SYSVIPC_CTL_WRAPPER(PIDVIRT_GEN_ENUM)
     FOREACH_FOPEN_WRAPPER(PIDVIRT_GEN_ENUM)
+    FOREACH_SCHED_WRAPPER(PIDVIRT_GEN_ENUM)
     numPidVirtWrappers
   } PidVirtWrapperOffset;
 
@@ -221,6 +234,17 @@ extern "C"
   int _real_lxstat(int vers, const char *path, struct stat *buf);
   int _real_lxstat64(int vers, const char *path, struct stat64 *buf);
   ssize_t _real_readlink(const char *path, char *buf, size_t bufsiz);
+
+  int _real_sched_setaffinity(pid_t pid, size_t cpusetsize, const cpu_set_t *mask);
+  int _real_sched_getaffinity(pid_t pid, size_t cpusetsize, cpu_set_t *mask);
+  int _real_sched_setscheduler(pid_t pid, int policy, const struct sched_param *param);
+  int _real_sched_getscheduler(pid_t pid);
+  int _real_sched_setparam(pid_t pid, const struct sched_param *param);
+  int _real_sched_getparam(pid_t pid, struct sched_param *param);
+#if 0
+  int _real_sched_setattr(pid_t pid, const struct sched_attr *attr, unsigned int flags);
+  int _real_sched_getattr(pid_t pid, const struct sched_attr *attr, unsigned int size, unsigned int flags);
+#endif
 
 #ifdef __cplusplus
 }

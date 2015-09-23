@@ -714,6 +714,8 @@ runTest("dmtcp4",        1, ["./test/dmtcp4"])
 
 runTest("alarm",        1, ["./test/alarm"])
 
+runTest("sched_test",    2, ["./test/sched_test"])
+
 # In 32-bit Ubuntu 9.10, the default small stacksize (8 MB) forces
 # legacy_va_layout, which places vdso in low memory.  This collides with text
 # in low memory (0x110000) in the statically linked mtcp_restart executable.
