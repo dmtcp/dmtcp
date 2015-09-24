@@ -86,14 +86,11 @@ static const char* theUsage =
   "              Not allowed if --join is specified\n"
   "\n"
   "Other options:\n"
-  "  --run-as-root\n"
-  "              Allow root to run dmtcp_restart and disable uid checking.\n"
-  "              (default: disabled)\n"
-  "  --no-strict-uid-checking\n"
-  "              Disable uid checking for the checkpoint image. This allows\n"
-  "              the checkpoint image to be restarted by a different user\n"
-  "              than the one that created it.\n"
-  "              (environment variable DMTCP_DISABLE_UID_CHECKING)\n"
+  "  --no-strict-checking\n"
+  "              Disable uid checking for checkpoint image. Allow checkpoint\n"
+  "              image to be restarted by a different user than the one\n"
+  "              that created it.  And suppress warning about running as root.\n"
+  "              (environment variable DMTCP_DISABLE_STRICT_CHECKING)\n"
   "  --ckptdir (environment variable DMTCP_CHECKPOINT_DIR):\n"
   "              Directory to store checkpoint images\n"
   "              (default: use the same directory used in previous checkpoint)\n"
@@ -115,8 +112,7 @@ class RestoreTarget;
 typedef map<UniquePid, RestoreTarget*> RestoreTargetMap;
 RestoreTargetMap targets;
 RestoreTargetMap independentProcessTreeRoots;
-bool noStrictUIDChecking = false;
-bool runAsRoot = false;
+bool noStrictChecking = false;
 static string thePortFile;
 CoordinatorMode allowedModes = COORD_ANY;
 
@@ -611,8 +607,8 @@ int main(int argc, char** argv)
     setenv(ENV_VAR_QUIET, "0", 0);
   }
 
-  if (getenv(ENV_VAR_DISABLE_UID_CHECKING)) {
-    noStrictUIDChecking = true;
+  if (getenv(ENV_VAR_DISABLE_STRICT_CHECKING)) {
+    noStrictChecking = true;
   }
 
   if (argc == 1) {
@@ -637,11 +633,8 @@ int main(int argc, char** argv)
     } else if (s == "--new-coordinator") {
       allowedModes = COORD_NEW;
       shift;
-    } else if (s == "--run-as-root") {
-      runAsRoot = true;
-      shift;
-    } else if (s == "--no-strict-uid-checking") {
-      noStrictUIDChecking = true;
+    } else if (s == "--no-strict-checking") {
+      noStrictChecking = true;
       shift;
     } else if (s == "-i" || s == "--interval") {
       setenv(ENV_VAR_CKPT_INTR, argv[1], 1);
@@ -693,7 +686,8 @@ int main(int argc, char** argv)
   //make sure JASSERT initializes now, rather than during restart
   Util::initializeLogFile(tmpDir);
 
-  if (!runAsRoot && (getuid() == 0 || geteuid() == 0)) {
+  if (!noStrictChecking && jassert_quiet < 2 &&
+      (getuid() == 0 || geteuid() == 0)) {
     JASSERT_STDERR <<
       "WARNING:  Running dmtcp_restart as root can be dangerous.\n"
       "  An unknown checkpoint image or bugs in DMTCP may lead to unforeseen\n"
@@ -710,8 +704,8 @@ int main(int argc, char** argv)
     if (Util::strEndsWith(restorename, "_files")) {
       continue;
     } else if (!Util::strEndsWith(restorename, ".dmtcp")) {
-      JNOTE("File doesn't have .dmtcp extension. Check Usage.")
-        (restorename);
+      JNOTE("File doesn't have .dmtcp extension. Check Usage.") (restorename);
+      // Don't test for --quiet here.  We're aborting.  We need to say why.
       JASSERT_STDERR << theUsage;
       doAbort = true;
     } else if (rc == -1) {
@@ -719,13 +713,13 @@ int main(int argc, char** argv)
       sprintf(error_msg, "\ndmtcp_restart: ckpt image %s", restorename.c_str());
       perror(error_msg);
       doAbort = true;
-    } else if (buf.st_uid != getuid() && !noStrictUIDChecking && !runAsRoot) {
+    } else if (buf.st_uid != getuid() && !noStrictChecking) {
       /*Could also run if geteuid() matches*/
       printf("\nProcess uid (%d) doesn't match uid (%d) of\n" \
              "checkpoint image (%s).\n" \
 	     "This is dangerous.  Aborting for security reasons.\n" \
              "If you still want to do this, then re-run dmtcp_restart\n" \
-             "  with the --run-as-root flag.\n",
+             "  with the --no-strict-checking flag.\n",
              getuid(), buf.st_uid, restorename.c_str());
       doAbort = true;
     }
