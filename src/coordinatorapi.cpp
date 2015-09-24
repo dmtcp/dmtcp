@@ -437,6 +437,7 @@ void CoordinatorAPI::startNewCoordinator(CoordinatorMode mode)
     char * args[] = {
       (char*)coordinator.c_str(),
       (char*)"--quiet",
+      /* If we wish to also suppress coordinator warnings, call --quiet twice */
       (char*)"--exit-on-last",
       modeStr,
       NULL

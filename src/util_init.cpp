@@ -220,7 +220,7 @@ void Util::initializeLogFile(string tmpDir, string procname, string prevLogPath)
   if (getenv(ENV_VAR_QUIET)) {
     jassert_quiet = *getenv(ENV_VAR_QUIET) - '0';
   } else {
-    jassert_quiet = 0;
+    // jassert.cpp initializes jassert_quiet to 0
   }
 #ifdef QUIET
   jassert_quiet = 2;

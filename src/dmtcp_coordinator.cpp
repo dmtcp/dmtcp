@@ -64,6 +64,7 @@
 #include "lookup_service.h"
 #include "syscallwrappers.h"
 #include "util.h"
+#include "../jalib/jassert.h"
 #include "../jalib/jconvert.h"
 #include "../jalib/jtimer.h"
 #include "../jalib/jfilesystem.h"
@@ -121,7 +122,7 @@ static const char* theUsage =
   "      Time in seconds between automatic checkpoints\n"
   "      (default: 0, disabled)\n"
   "  -q, --quiet \n"
-  "      Skip startup message.\n"
+  "      Skip startup msg; Skip NOTE msgs; if given twice, also skip WARNINGs\n"
   "  --help:\n"
   "      Print this message and exit.\n"
   "  --version:\n"
@@ -1786,6 +1787,7 @@ int main ( int argc, char** argv )
       return 1;
     }else if(s == "-q" || s == "--quiet"){
       quiet = true;
+      jassert_quiet++;
       shift;
     }else if(s=="--exit-on-last"){
       exitOnLast = true;
