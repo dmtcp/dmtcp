@@ -943,9 +943,6 @@ void DmtcpCoordinator::initializeComputation()
   killInProgress = false;
   //_nextVirtualPid = INITIAL_VIRTUAL_PID;
 
-  // theCheckpointInterval can be overridden later by msg from this client.
-  updateCheckpointInterval( theDefaultCheckpointInterval );
-
   // drop current computation group to 0
   compId = UniquePid(0,0,0);
   curTimeStamp = 0; // Drop timestamp to 0
@@ -1650,12 +1647,17 @@ static void resetCkptTimer()
 
 void DmtcpCoordinator::updateCheckpointInterval(uint32_t interval)
 {
-  if ( interval != DMTCPMESSAGE_SAME_CKPT_INTERVAL &&
-      interval != theCheckpointInterval) {
+  static bool firstClient = true;
+  if ( (interval != DMTCPMESSAGE_SAME_CKPT_INTERVAL &&
+        interval != theCheckpointInterval) ||
+       firstClient ) {
     int oldInterval = theCheckpointInterval;
-    theCheckpointInterval = interval;
+    if (interval != DMTCPMESSAGE_SAME_CKPT_INTERVAL) {
+      theCheckpointInterval = interval;
+    }
     JNOTE ( "CheckpointInterval updated (for this computation only)" )
       ( oldInterval ) ( theCheckpointInterval );
+    firstClient = false;
     resetCkptTimer();
   }
 }
