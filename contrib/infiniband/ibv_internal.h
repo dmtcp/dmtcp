@@ -81,12 +81,12 @@ struct internal_ibv_qp {
   struct ibv_qp   user_qp;
   struct ibv_qp * real_qp;
   struct ibv_qp_init_attr init_attr; /*!< The attributes used to construct the queue */
-  struct ibv_qp_id original_id;
-  struct ibv_qp_id remote_id;
-  struct ibv_qp_id current_remote;
-  struct ibv_qp_id current_id;
-  struct ibv_qp_pd_id local_qp_pd_id;
-  struct ibv_qp_pd_id remote_qp_pd_id;
+  ibv_qp_id original_id;
+  ibv_qp_id remote_id;
+  ibv_qp_id current_remote;
+  ibv_qp_id current_id;
+  ibv_qp_pd_id local_qp_pd_id;
+  ibv_qp_pd_id remote_qp_pd_id;
   int remote_pd_id;
   struct list modify_qp_log;
   uint8_t port_num; // port_num is used to get the correct lid
@@ -107,6 +107,13 @@ struct internal_ibv_srq {
   struct list modify_srq_log;
   struct list post_srq_recv_log;
   uint32_t recv_count;
+  struct list_elem elem;
+};
+
+struct internal_ibv_ah {
+  struct ibv_ah user_ah;
+  struct ibv_ah * real_ah;
+  struct ibv_ah_attr attr;
   struct list_elem elem;
 };
 
@@ -152,6 +159,12 @@ struct ibv_req_notify_cq_log {
 struct ibv_rkey_pair {
   struct ibv_rkey_id orig_rkey;
   uint32_t new_rkey;
+  struct list_elem elem;
+};
+
+struct ibv_ud_qp_id_pair {
+  ibv_ud_qp_id orig_id;
+  ibv_ud_qp_id curr_id;
   struct list_elem elem;
 };
 
@@ -254,4 +267,9 @@ ibv_qp_to_internal(struct ibv_qp * qp) {
 static inline struct internal_ibv_srq *
 ibv_srq_to_internal(struct ibv_srq * srq) {
   return (struct internal_ibv_srq *) srq;
+}
+
+static inline struct internal_ibv_ah *
+ibv_ah_to_internal(struct ibv_ah * ah) {
+  return (struct internal_ibv_ah *) ah;
 }
