@@ -62,20 +62,28 @@ uint32_t update_rkey_restart(uint32_t rkey, int pd_id)
 
 void update_rkey_send(struct ibv_send_wr * wr, int pd_id)
 {
-  if (is_restart) {
-    if (wr == NULL) {
-      return;
-    }
-    if (wr->opcode == IBV_WR_RDMA_WRITE || 
-        wr->opcode == IBV_WR_RDMA_WRITE_WITH_IMM || 
-        wr->opcode == IBV_WR_RDMA_READ) {
-      wr->wr.rdma.rkey = update_rkey_restart(wr->wr.rdma.rkey, pd_id);
-    }
-    
-    if (wr->opcode == IBV_WR_ATOMIC_CMP_AND_SWP ||
-        wr->opcode == IBV_WR_ATOMIC_FETCH_AND_ADD) {
-      wr->wr.atomic.rkey = update_rkey_restart(wr->wr.atomic.rkey, pd_id);
-    }
-    update_rkey_send(wr->next, pd_id);
+  if (wr == NULL) {
+    return;
   }
+
+  if (wr->opcode == IBV_WR_RDMA_WRITE ||
+      wr->opcode == IBV_WR_RDMA_WRITE_WITH_IMM ||
+      wr->opcode == IBV_WR_RDMA_READ) {
+    wr->wr.rdma.rkey = update_rkey_restart(wr->wr.rdma.rkey, pd_id);
+  }
+
+  if (wr->opcode == IBV_WR_ATOMIC_CMP_AND_SWP ||
+      wr->opcode == IBV_WR_ATOMIC_FETCH_AND_ADD) {
+    wr->wr.atomic.rkey = update_rkey_restart(wr->wr.atomic.rkey, pd_id);
+  }
+  update_rkey_send(wr->next, pd_id);
+}
+
+void update_pd_id_ud_send(struct ibv_send_wr *wr) {
+  if (wr == NULL) {
+    return;
+  }
+
+  wr->wr.ud.ah
+  update_pd_id_ud_send(wr->next);
 }

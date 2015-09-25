@@ -386,3 +386,16 @@ struct ibv_ah * ibv_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr){
   DMTCP_PLUGIN_ENABLE_CKPT();
   return rslt;
 }
+
+int ibv_destroy_ah(struct ibv_ah * ah) {
+  int rslt;
+
+  PDEBUG("******** WRAPPER for ibv_destroy_ah\n");
+  DMTCP_PLUGIN_DISABLE_CKPT();
+
+  rslt = _destroy_ah(ah);
+
+  DMTCP_PLUGIN_ENABLE_CKPT();
+
+  return rslt;
+}

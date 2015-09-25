@@ -91,3 +91,4 @@ int _dereg_mr(struct ibv_mr * mr);
 int _dealloc_pd(struct ibv_pd * pd);
 void _ack_cq_events(struct ibv_cq * cq, unsigned int nevents);
 struct ibv_ah * _create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr);
+int _destroy_ah(struct ibv_ah * ah);
