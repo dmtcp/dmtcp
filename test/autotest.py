@@ -799,8 +799,13 @@ if uname_m != "armv7" and uname_m != "armv7l" and uname_m != "aarch64":
     os.environ["LD_LIBRARY_PATH"] += ":./test"
   else:
     os.environ["LD_LIBRARY_PATH"] = "./test"
-  runTest("pthread_atfork",      2, ["./test/pthread_atfork"])
-  os.environ["LD_LIBRARY_PATH"] = os.getenv("LD_LIBRARY_PATH")[:-len(":./test")]
+  runTest("pthread_atfork1",      2, ["./test/pthread_atfork1"])
+  runTest("pthread_atfork2",      2, ["./test/pthread_atfork2"])
+  if os.environ["LD_LIBRARY_PATH"] == "./test":
+    del os.environ["LD_LIBRARY_PATH"]
+  else:
+    os.environ["LD_LIBRARY_PATH"] = \
+      os.getenv("LD_LIBRARY_PATH")[:-len(":./test")]
 else:
   print "Skipping pthread_atfork test; doesn't build on ARM/aarch64/glibc/Linux"
 
