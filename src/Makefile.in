@@ -158,7 +158,8 @@ __targetdir__bin_dmtcp_command_DEPENDENCIES = libdmtcpinternal.a \
 	libjalib.a libnohijack.a
 am__dirstamp = $(am__leading_dot)dirstamp
 am___targetdir__bin_dmtcp_coordinator_OBJECTS =  \
-	dmtcp_coordinator.$(OBJEXT) lookup_service.$(OBJEXT)
+	dmtcp_coordinator.$(OBJEXT) lookup_service.$(OBJEXT) \
+	restartscript.$(OBJEXT)
 __targetdir__bin_dmtcp_coordinator_OBJECTS =  \
 	$(am___targetdir__bin_dmtcp_coordinator_OBJECTS)
 __targetdir__bin_dmtcp_coordinator_DEPENDENCIES = libdmtcpinternal.a \
@@ -534,6 +535,7 @@ nobase_noinst_HEADERS = constants.h \
 	$(dmtcpincludedir)/trampolines.h $(dmtcpincludedir)/util.h \
 	$(dmtcpincludedir)/virtualidtable.h $(dmtcpincludedir)/procmapsarea.h \
 	$(dmtcpincludedir)/procselfmaps.h \
+	restartscript.h \
 	dmtcp_coordinator.h dmtcpmessagetypes.h lookup_service.h \
 	dmtcpworker.h threadsync.h coordinatorapi.h \
 	mtcpinterface.h syscallwrappers.h \
@@ -560,7 +562,7 @@ libjalib_a_SOURCES = $(jalibdir)/jalib.cpp $(jalibdir)/jassert.cpp \
 # An executable should use either libsyscallsreal.a or libnohijack.a -- not both
 libsyscallsreal_a_SOURCES = syscallsreal.c trampolines.cpp
 libnohijack_a_SOURCES = nosyscallsreal.c dmtcpnohijackstubs.cpp
-__targetdir__bin_dmtcp_coordinator_SOURCES = dmtcp_coordinator.cpp lookup_service.cpp
+__targetdir__bin_dmtcp_coordinator_SOURCES = dmtcp_coordinator.cpp lookup_service.cpp restartscript.cpp
 __targetdir__bin_dmtcp_nocheckpoint_SOURCES = dmtcp_nocheckpoint.c
 __targetdir__bin_dmtcp_restart_SOURCES = dmtcp_restart.cpp util_exec.cpp
 __targetdir__bin_dmtcp_command_SOURCES = dmtcp_command.cpp
@@ -808,6 +810,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/processinfo.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/procname.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/procselfmaps.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/restartscript.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/shareddata.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/siginfo.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/signalwrappers.Po@am__quote@

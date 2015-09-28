@@ -54,6 +54,7 @@ nobase_noinst_HEADERS = constants.h \
 	$(dmtcpincludedir)/trampolines.h $(dmtcpincludedir)/util.h \
 	$(dmtcpincludedir)/virtualidtable.h $(dmtcpincludedir)/procmapsarea.h \
 	$(dmtcpincludedir)/procselfmaps.h \
+	restartscript.h \
 	dmtcp_coordinator.h dmtcpmessagetypes.h lookup_service.h \
 	dmtcpworker.h threadsync.h coordinatorapi.h \
 	mtcpinterface.h syscallwrappers.h \
@@ -79,7 +80,7 @@ libjalib_a_SOURCES = $(jalibdir)/jalib.cpp $(jalibdir)/jassert.cpp \
 libsyscallsreal_a_SOURCES = syscallsreal.c trampolines.cpp
 libnohijack_a_SOURCES = nosyscallsreal.c dmtcpnohijackstubs.cpp
 
-__targetdir__bin_dmtcp_coordinator_SOURCES = dmtcp_coordinator.cpp lookup_service.cpp
+__targetdir__bin_dmtcp_coordinator_SOURCES = dmtcp_coordinator.cpp lookup_service.cpp restartscript.cpp
 
 __targetdir__bin_dmtcp_nocheckpoint_SOURCES = dmtcp_nocheckpoint.c
 
