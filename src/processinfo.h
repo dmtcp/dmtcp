@@ -82,6 +82,7 @@ namespace dmtcp
       uint32_t get_generation() { return _generation; }
       void set_generation(uint32_t generation) { _generation = generation; }
 
+      void processRlimit();
       void calculateArgvAndEnvSize();
       size_t argvSize() { return _argvSize; }
       size_t envSize() { return _envSize; }
