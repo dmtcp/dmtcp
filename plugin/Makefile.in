@@ -102,15 +102,8 @@ host_triplet = @host@
 bin_PROGRAMS = $(d_bindir)/dmtcp_discover_rm$(EXEEXT) \
 	$(d_bindir)/dmtcp_srun_helper$(EXEEXT)
 libdmtcp_PROGRAMS = $(d_libdir)/libdmtcp_batch-queue.so$(EXEEXT) \
-	$(d_libdir)/libdmtcp_modify-env.so$(EXEEXT) $(am__EXEEXT_1) \
+	$(d_libdir)/libdmtcp_modify-env.so$(EXEEXT) \
 	$(d_libdir)/libdmtcp_unique-ckpt.so$(EXEEXT)
-
-#
-# Ptrace plugin
-#
-
-# FIXME:  ptrace plugin not yet working for aarch64
-@AARCH64_HOST_FALSE@am__append_1 = $(d_libdir)/libdmtcp_ptrace.so
 subdir = plugin
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/configure.ac
@@ -124,8 +117,6 @@ CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
 am__installdirs = "$(DESTDIR)$(bindir)" "$(DESTDIR)$(libdmtcpdir)" \
 	"$(DESTDIR)$(bindir)" "$(DESTDIR)$(bindir)"
-@AARCH64_HOST_FALSE@am__EXEEXT_1 =  \
-@AARCH64_HOST_FALSE@	$(d_libdir)/libdmtcp_ptrace.so$(EXEEXT)
 PROGRAMS = $(bin_PROGRAMS) $(libdmtcp_PROGRAMS)
 am___d_bindir__dmtcp_discover_rm_OBJECTS =  \
 	discover_dmtcpinput.$(OBJEXT) discover_resources.$(OBJEXT) \
@@ -160,19 +151,6 @@ __d_libdir__libdmtcp_modify_env_so_DEPENDENCIES =  \
 	$(am__DEPENDENCIES_1)
 __d_libdir__libdmtcp_modify_env_so_LINK = $(CCLD) $(AM_CFLAGS) \
 	$(CFLAGS) $(__d_libdir__libdmtcp_modify_env_so_LDFLAGS) \
-	$(LDFLAGS) -o $@
-am____d_libdir__libdmtcp_ptrace_so_SOURCES_DIST = ptrace/ptrace.cpp \
-	ptrace/ptrace.h ptrace/ptraceinfo.cpp ptrace/ptraceinfo.h \
-	ptrace/ptracewrappers.cpp
-@AARCH64_HOST_FALSE@am___d_libdir__libdmtcp_ptrace_so_OBJECTS =  \
-@AARCH64_HOST_FALSE@	ptrace.$(OBJEXT) ptraceinfo.$(OBJEXT) \
-@AARCH64_HOST_FALSE@	ptracewrappers.$(OBJEXT)
-__d_libdir__libdmtcp_ptrace_so_OBJECTS =  \
-	$(am___d_libdir__libdmtcp_ptrace_so_OBJECTS)
-@AARCH64_HOST_FALSE@__d_libdir__libdmtcp_ptrace_so_DEPENDENCIES =  \
-@AARCH64_HOST_FALSE@	$(am__DEPENDENCIES_1)
-__d_libdir__libdmtcp_ptrace_so_LINK = $(CXXLD) $(AM_CXXFLAGS) \
-	$(CXXFLAGS) $(__d_libdir__libdmtcp_ptrace_so_LDFLAGS) \
 	$(LDFLAGS) -o $@
 am___d_libdir__libdmtcp_unique_ckpt_so_OBJECTS =  \
 	unique-ckpt.$(OBJEXT)
@@ -260,13 +238,11 @@ SOURCES = $(__d_bindir__dmtcp_discover_rm_SOURCES) \
 	$(__d_bindir__dmtcp_srun_helper_SOURCES) \
 	$(__d_libdir__libdmtcp_batch_queue_so_SOURCES) \
 	$(__d_libdir__libdmtcp_modify_env_so_SOURCES) \
-	$(__d_libdir__libdmtcp_ptrace_so_SOURCES) \
 	$(__d_libdir__libdmtcp_unique_ckpt_so_SOURCES)
 DIST_SOURCES = $(__d_bindir__dmtcp_discover_rm_SOURCES) \
 	$(__d_bindir__dmtcp_srun_helper_SOURCES) \
 	$(__d_libdir__libdmtcp_batch_queue_so_SOURCES) \
 	$(__d_libdir__libdmtcp_modify_env_so_SOURCES) \
-	$(am____d_libdir__libdmtcp_ptrace_so_SOURCES_DIST) \
 	$(__d_libdir__libdmtcp_unique_ckpt_so_SOURCES)
 am__can_run_installinfo = \
   case $$AM_UPDATE_INFO_DIR in \
@@ -496,15 +472,6 @@ __d_libdir__libdmtcp_modify_env_so_SOURCES = \
 
 __d_libdir__libdmtcp_modify_env_so_LDFLAGS = $(dmtcp_ldflags)
 __d_libdir__libdmtcp_modify_env_so_LDADD = $(LDADD)
-@AARCH64_HOST_FALSE@__d_libdir__libdmtcp_ptrace_so_SOURCES = \
-@AARCH64_HOST_FALSE@	ptrace/ptrace.cpp                                              \
-@AARCH64_HOST_FALSE@	ptrace/ptrace.h                                                \
-@AARCH64_HOST_FALSE@	ptrace/ptraceinfo.cpp                                          \
-@AARCH64_HOST_FALSE@	ptrace/ptraceinfo.h                                            \
-@AARCH64_HOST_FALSE@	ptrace/ptracewrappers.cpp
-
-@AARCH64_HOST_FALSE@__d_libdir__libdmtcp_ptrace_so_LDFLAGS = $(dmtcp_ldflags)
-@AARCH64_HOST_FALSE@__d_libdir__libdmtcp_ptrace_so_LDADD = $(LDADD)
 __d_libdir__libdmtcp_unique_ckpt_so_SOURCES = \
 	unique-ckpt/unique-ckpt.cpp
 
@@ -650,10 +617,6 @@ $(d_libdir)/libdmtcp_modify-env.so$(EXEEXT): $(__d_libdir__libdmtcp_modify_env_s
 	@rm -f $(d_libdir)/libdmtcp_modify-env.so$(EXEEXT)
 	$(AM_V_CCLD)$(__d_libdir__libdmtcp_modify_env_so_LINK) $(__d_libdir__libdmtcp_modify_env_so_OBJECTS) $(__d_libdir__libdmtcp_modify_env_so_LDADD) $(LIBS)
 
-$(d_libdir)/libdmtcp_ptrace.so$(EXEEXT): $(__d_libdir__libdmtcp_ptrace_so_OBJECTS) $(__d_libdir__libdmtcp_ptrace_so_DEPENDENCIES) $(EXTRA___d_libdir__libdmtcp_ptrace_so_DEPENDENCIES) $(d_libdir)/$(am__dirstamp)
-	@rm -f $(d_libdir)/libdmtcp_ptrace.so$(EXEEXT)
-	$(AM_V_CXXLD)$(__d_libdir__libdmtcp_ptrace_so_LINK) $(__d_libdir__libdmtcp_ptrace_so_OBJECTS) $(__d_libdir__libdmtcp_ptrace_so_LDADD) $(LIBS)
-
 $(d_libdir)/libdmtcp_unique-ckpt.so$(EXEEXT): $(__d_libdir__libdmtcp_unique_ckpt_so_OBJECTS) $(__d_libdir__libdmtcp_unique_ckpt_so_DEPENDENCIES) $(EXTRA___d_libdir__libdmtcp_unique_ckpt_so_DEPENDENCIES) $(d_libdir)/$(am__dirstamp)
 	@rm -f $(d_libdir)/libdmtcp_unique-ckpt.so$(EXEEXT)
 	$(AM_V_CXXLD)$(__d_libdir__libdmtcp_unique_ckpt_so_LINK) $(__d_libdir__libdmtcp_unique_ckpt_so_OBJECTS) $(__d_libdir__libdmtcp_unique_ckpt_so_LDADD) $(LIBS)
@@ -741,9 +704,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcp_discover_rm.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcp_srun_helper.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/modify-env.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ptrace.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ptraceinfo.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ptracewrappers.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/rm_main.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/rm_pmi.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/rm_slurm.Po@am__quote@
@@ -961,48 +921,6 @@ rm_pmi.obj: batch-queue/rm_pmi.cpp
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='batch-queue/rm_pmi.cpp' object='rm_pmi.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o rm_pmi.obj `if test -f 'batch-queue/rm_pmi.cpp'; then $(CYGPATH_W) 'batch-queue/rm_pmi.cpp'; else $(CYGPATH_W) '$(srcdir)/batch-queue/rm_pmi.cpp'; fi`
-
-ptrace.o: ptrace/ptrace.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT ptrace.o -MD -MP -MF $(DEPDIR)/ptrace.Tpo -c -o ptrace.o `test -f 'ptrace/ptrace.cpp' || echo '$(srcdir)/'`ptrace/ptrace.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/ptrace.Tpo $(DEPDIR)/ptrace.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='ptrace/ptrace.cpp' object='ptrace.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o ptrace.o `test -f 'ptrace/ptrace.cpp' || echo '$(srcdir)/'`ptrace/ptrace.cpp
-
-ptrace.obj: ptrace/ptrace.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT ptrace.obj -MD -MP -MF $(DEPDIR)/ptrace.Tpo -c -o ptrace.obj `if test -f 'ptrace/ptrace.cpp'; then $(CYGPATH_W) 'ptrace/ptrace.cpp'; else $(CYGPATH_W) '$(srcdir)/ptrace/ptrace.cpp'; fi`
-@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/ptrace.Tpo $(DEPDIR)/ptrace.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='ptrace/ptrace.cpp' object='ptrace.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o ptrace.obj `if test -f 'ptrace/ptrace.cpp'; then $(CYGPATH_W) 'ptrace/ptrace.cpp'; else $(CYGPATH_W) '$(srcdir)/ptrace/ptrace.cpp'; fi`
-
-ptraceinfo.o: ptrace/ptraceinfo.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT ptraceinfo.o -MD -MP -MF $(DEPDIR)/ptraceinfo.Tpo -c -o ptraceinfo.o `test -f 'ptrace/ptraceinfo.cpp' || echo '$(srcdir)/'`ptrace/ptraceinfo.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/ptraceinfo.Tpo $(DEPDIR)/ptraceinfo.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='ptrace/ptraceinfo.cpp' object='ptraceinfo.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o ptraceinfo.o `test -f 'ptrace/ptraceinfo.cpp' || echo '$(srcdir)/'`ptrace/ptraceinfo.cpp
-
-ptraceinfo.obj: ptrace/ptraceinfo.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT ptraceinfo.obj -MD -MP -MF $(DEPDIR)/ptraceinfo.Tpo -c -o ptraceinfo.obj `if test -f 'ptrace/ptraceinfo.cpp'; then $(CYGPATH_W) 'ptrace/ptraceinfo.cpp'; else $(CYGPATH_W) '$(srcdir)/ptrace/ptraceinfo.cpp'; fi`
-@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/ptraceinfo.Tpo $(DEPDIR)/ptraceinfo.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='ptrace/ptraceinfo.cpp' object='ptraceinfo.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o ptraceinfo.obj `if test -f 'ptrace/ptraceinfo.cpp'; then $(CYGPATH_W) 'ptrace/ptraceinfo.cpp'; else $(CYGPATH_W) '$(srcdir)/ptrace/ptraceinfo.cpp'; fi`
-
-ptracewrappers.o: ptrace/ptracewrappers.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT ptracewrappers.o -MD -MP -MF $(DEPDIR)/ptracewrappers.Tpo -c -o ptracewrappers.o `test -f 'ptrace/ptracewrappers.cpp' || echo '$(srcdir)/'`ptrace/ptracewrappers.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/ptracewrappers.Tpo $(DEPDIR)/ptracewrappers.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='ptrace/ptracewrappers.cpp' object='ptracewrappers.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o ptracewrappers.o `test -f 'ptrace/ptracewrappers.cpp' || echo '$(srcdir)/'`ptrace/ptracewrappers.cpp
-
-ptracewrappers.obj: ptrace/ptracewrappers.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT ptracewrappers.obj -MD -MP -MF $(DEPDIR)/ptracewrappers.Tpo -c -o ptracewrappers.obj `if test -f 'ptrace/ptracewrappers.cpp'; then $(CYGPATH_W) 'ptrace/ptracewrappers.cpp'; else $(CYGPATH_W) '$(srcdir)/ptrace/ptracewrappers.cpp'; fi`
-@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/ptracewrappers.Tpo $(DEPDIR)/ptracewrappers.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='ptrace/ptracewrappers.cpp' object='ptracewrappers.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o ptracewrappers.obj `if test -f 'ptrace/ptracewrappers.cpp'; then $(CYGPATH_W) 'ptrace/ptracewrappers.cpp'; else $(CYGPATH_W) '$(srcdir)/ptrace/ptracewrappers.cpp'; fi`
 
 unique-ckpt.o: unique-ckpt/unique-ckpt.cpp
 @am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT unique-ckpt.o -MD -MP -MF $(DEPDIR)/unique-ckpt.Tpo -c -o unique-ckpt.o `test -f 'unique-ckpt/unique-ckpt.cpp' || echo '$(srcdir)/'`unique-ckpt/unique-ckpt.cpp
