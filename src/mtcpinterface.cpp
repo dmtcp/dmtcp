@@ -46,8 +46,6 @@ static void restoreArgvAfterRestart(char* mtcpRestoreArgvStartAddr);
 #endif
 static void unmapRestoreArgv();
 
-
-extern "C" int dmtcp_is_ptracing() __attribute__ ((weak));
 extern "C" int dmtcp_update_ppid() __attribute__ ((weak));
 
 void dmtcp::initializeMtcpEngine()
@@ -60,13 +58,6 @@ void dmtcp::callbackSleepBetweenCheckpoint ( int sec )
 {
   ThreadSync::waitForUserThreadsToFinishPreResumeCB();
   DmtcpWorker::eventHook(DMTCP_EVENT_WAIT_FOR_SUSPEND_MSG, NULL);
-  if (dmtcp_is_ptracing && dmtcp_is_ptracing()) {
-    // FIXME: Add a test to make check that can insert a delay of a couple of
-    //        seconds in here. This helps testing the initialization routines
-    //        of various plugins.
-    // Inform coordinator of our RUNNING state;
-    DmtcpWorker::informCoordinatorOfRUNNINGState();
-  }
   DmtcpWorker::waitForStage1Suspend();
 
   unmapRestoreArgv();
@@ -102,11 +93,7 @@ void dmtcp::callbackPostCheckpoint(int isRestart,
 
   WorkerState::setCurrentState( WorkerState::RUNNING );
 
-  if (dmtcp_is_ptracing == NULL || !dmtcp_is_ptracing()) {
-    // Inform coordinator of our RUNNING state;
-    // If running under ptrace, let's do this in sleep-between-ckpt callback.
-    DmtcpWorker::informCoordinatorOfRUNNINGState();
-  }
+  DmtcpWorker::informCoordinatorOfRUNNINGState();
   // After this, the user threads will be unlocked in mtcp.c and will resume.
 }
 
@@ -126,10 +113,8 @@ void dmtcp::callbackHoldsAnyLocks(int *retval)
 
   ThreadSync::unsetOkToGrabLock();
   *retval = ThreadSync::isThisThreadHoldingAnyLocks();
-  if (*retval) {
-    JASSERT(dmtcp_is_ptracing && dmtcp_is_ptracing());
-    ThreadSync::setSendCkptSignalOnFinalUnlock();
-  }
+  // *retval should be true only if we are using the ptrace plugin.
+  JASSERT(!*retval) .Text("Not implemented");
 }
 
 void dmtcp::callbackPreSuspendUserThread()
@@ -147,9 +132,6 @@ void dmtcp::callbackPreResumeUserThread(int isRestart)
   // This should be the last significant work before returning from this
   // function.
   ThreadSync::processPreResumeCB();
-  // Make a dummy syscall to inform superior of our status before we resume. If
-  // ptrace is disabled, this call has no significant effect.
-  syscall(DMTCP_FAKE_SYSCALL);
 }
 
 #ifdef RESTORE_ARGV_AFTER_RESTART
