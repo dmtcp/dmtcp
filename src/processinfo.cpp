@@ -260,6 +260,25 @@ void ProcessInfo::init()
   }
 }
 
+void ProcessInfo::calculateArgvAndEnvSize()
+{
+  vector<string> args = jalib::Filesystem::GetProgramArgs();
+  _argvSize = 0;
+  for (size_t i = 0; i < args.size(); i++) {
+    _argvSize += args[i].length() + 1;
+  }
+
+  _envSize = 0;
+  if (environ != NULL) {
+    char *ptr = environ[0];
+    while (*ptr != '\0' && args[0].compare(ptr) != 0) {
+      _envSize += strlen(ptr) + 1;
+      ptr += strlen(ptr) + 1;
+    }
+  }
+  _envSize += args[0].length();
+}
+
 void ProcessInfo::updateCkptDirFileSubdir(string newCkptDir)
 {
   if (newCkptDir != "") {

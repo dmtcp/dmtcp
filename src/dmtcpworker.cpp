@@ -180,29 +180,6 @@ extern "C" void dmtcp_prepare_wrappers(void)
   }
 }
 
-static void calculateArgvAndEnvSize()
-{
-  size_t argvSize, envSize;
-
-  vector<string> args = jalib::Filesystem::GetProgramArgs();
-  argvSize = 0;
-  for (size_t i = 0; i < args.size(); i++) {
-    argvSize += args[i].length() + 1;
-  }
-  envSize = 0;
-  if (environ != NULL) {
-    char *ptr = environ[0];
-    while (*ptr != '\0' && args[0].compare(ptr) != 0) {
-      envSize += strlen(ptr) + 1;
-      ptr += strlen(ptr) + 1;
-    }
-  }
-  envSize += args[0].length();
-
-  ProcessInfo::instance().argvSize(argvSize);
-  ProcessInfo::instance().envSize(envSize);
-}
-
 static string getLogFilePath()
 {
 #ifdef DEBUG
@@ -328,7 +305,6 @@ DmtcpWorker::DmtcpWorker()
 
   // Also cache programName and arguments
   string programName = jalib::Filesystem::GetProgramName();
-  vector<string> args = jalib::Filesystem::GetProgramArgs();
 
   JASSERT(programName != "dmtcp_coordinator"  &&
           programName != "dmtcp_launch"   &&
@@ -339,7 +315,7 @@ DmtcpWorker::DmtcpWorker()
           programName != "ssh")
     (programName) .Text("This program should not be run under ckpt control");
 
-  calculateArgvAndEnvSize();
+  ProcessInfo::instance().calculateArgvAndEnvSize();
   restoreUserLDPRELOAD();
 
   WorkerState::setCurrentState (WorkerState::RUNNING);
