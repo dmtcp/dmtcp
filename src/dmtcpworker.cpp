@@ -266,8 +266,6 @@ DmtcpWorker::DmtcpWorker()
   JTRACE("libdmtcp.so:  Running ")
     (jalib::Filesystem::GetProgramName()) (getenv ("LD_PRELOAD"));
 
-  ProcessInfo::instance().processRlimit()
-
   if (getenv("DMTCP_SEGFAULT_HANDLER") != NULL) {
     // Install a segmentation fault handler (for debugging).
     installSegFaultHandler();

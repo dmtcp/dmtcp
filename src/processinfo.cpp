@@ -242,6 +242,8 @@ void ProcessInfo::init()
 
   _vdsoStart = _vdsoEnd = _vvarStart = _vvarEnd = 0;
 
+  processRlimit();
+
   growStack();
 
   // Reserve space for restoreBuf
