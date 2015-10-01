@@ -762,6 +762,34 @@ void post_restart(void)
 void post_restart2(void)
 {
   struct list_elem * e;
+
+  // Recreate the Address Handlers
+  for (e = list_begin(&ah_list); e != list_end(&ah_list); e = list_next(e)) {
+    uint32_t size;
+    struct ibv_ah_attr real_attr;
+    struct internal_ibv_ah *internal_ah;
+
+    internal_ah = list_entry(e, struct internal_ibv_ah, elem);
+    real_attr = internal_ah->attr;
+
+    dmtcp_send_query_to_coordinator("lid_info",
+                                    &internal_ah->attr.dlid,
+                                    sizeof(internal_ah->attr.dlid),
+                                    &real_attr.dlid,
+                                    &size);
+
+    assert(size == sizeof(internal_ah->attr.dlid));
+
+    internal_ah->real_ah =
+      NEXT_IBV_FNC(ibv_create_ah)
+                  (ibv_pd_to_internal(internal_ah->user_ah.pd)->real_pd,
+                  &real_attr);
+    if (internal_ah->real_ah == NULL) {
+      fprintf(stderr, "Fail to recreate the ah.\n");
+      exit(1);
+    }
+  }
+
   for (e = list_begin(&srq_list); e != list_end(&srq_list); e = list_next(e))
   {
     struct internal_ibv_srq * internal_srq;
@@ -2183,6 +2211,7 @@ struct ibv_ah * _create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr){
   }
   memset(internal_ah, 0, sizeof(struct internal_ibv_ah));
   internal_ah->attr = *attr;
+  internal_ah->is_restart = false;
 
   // On restart, we need to fix the lid
   if (is_restart) {
@@ -2193,6 +2222,8 @@ struct ibv_ah * _create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr){
                                     &real_attr.dlid,
                                     &size);
     assert(size == sizeof(attr->dlid));
+
+    internal_ah->is_restart = true;
   }
 
   internal_ah->real_ah = NEXT_IBV_FNC(ibv_create_ah)(internal_pd->real_pd,
@@ -2204,7 +2235,9 @@ struct ibv_ah * _create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr){
     return NULL;
   }
 
-  memcpy(&internal_ah->user_ah, internal_ah->real_ah, sizeof(ibv_ah));
+  memcpy(&internal_ah->user_ah,
+         internal_ah->real_ah,
+         sizeof(struct ibv_ah));
   internal_ah->user_ah.context = internal_pd->user_pd.context;
   internal_ah->user_ah.pd = &internal_pd->user_pd;
 
