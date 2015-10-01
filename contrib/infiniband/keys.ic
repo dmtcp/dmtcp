@@ -79,11 +79,28 @@ void update_rkey_send(struct ibv_send_wr * wr, int pd_id)
   update_rkey_send(wr->next, pd_id);
 }
 
-void update_pd_id_ud_send(struct ibv_send_wr *wr) {
+void update_qp_id_ud_send(struct ibv_send_wr *wr) {
+  struct internal_ibv_ah *internal_ah;
+  uint32_t size;
+  ibv_ud_qp_id orig_id, curr_id;
+
   if (wr == NULL) {
     return;
   }
 
-  wr->wr.ud.ah
+  internal_ah = ibv_ah_to_internal(wr->wr.ud.ah);
+  orig_id.qpn = wr->wr.ud.remote_qpn;
+  orig_id.lid = internal_ah->attr.dlid;
+
+  dmtcp_send_query_to_coordinator("qp_info",
+                                  &orig_id, sizeof(orig_id),
+                                  &curr_id, &size);
+
+  if (size == sizeof(ibv_ud_qp_id)) {
+    // The qp is created before checkpoint, qp_num changes
+    wr->wr.ud.remote_qpn = curr_id.qpn;
+  }
+
+  wr->wr.ud.ah = internal_ah->real_ah;
   update_pd_id_ud_send(wr->next);
 }
