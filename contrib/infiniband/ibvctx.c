@@ -181,7 +181,7 @@ static void send_qp_info(void)
       dmtcp_send_key_val_pair_to_coordinator("lid_info",
                                              &internal_qp->original_id.lid,
                                              sizeof(internal_qp->original_id.lid),
-                                             &interal_qp->current_id.lid,
+                                             &internal_qp->current_id.lid,
                                              sizeof(internal_qp->current_id.lid));
 
       switch (internal_qp->user_qp.qp_type) {
@@ -199,8 +199,10 @@ static void send_qp_info(void)
             				         sizeof(internal_qp->original_id),
                                                  &internal_qp->current_id,
             				         sizeof(internal_qp->current_id));
+          break;
 
         case IBV_QPT_UD:
+        {
           // Reuse original_id and current_id structure here, excluding psn
           ibv_ud_qp_id orig_id, curr_id;
 
@@ -221,6 +223,13 @@ static void send_qp_info(void)
             				         sizeof(orig_id),
                                                  &curr_id,
             				         sizeof(curr_id));
+          break;
+        }
+
+        default:
+          fprintf(stderr, "Warning: unsupported qp type: %d\n",
+                  internal_qp->user_qp.qp_type);
+          exit(1);
       }
     }
   }
