@@ -28,7 +28,6 @@
 #include <linux/version.h>
 #include "dmtcp.h"
 
-#define HANDSHAKE_SIGNATURE_MSG "DMTCP_SOCK_HANDSHAKE_V0\n"
 #define CONNECTION_ID_START 99000
 
 #define DEV_ZERO_DELETED_STR "/dev/zero (deleted)"

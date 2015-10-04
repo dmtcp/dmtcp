@@ -35,6 +35,7 @@
 #include "jfilesystem.h"
 #include "jconvert.h"
 
+#include "connectionmessage.h"
 #include "socketconnection.h"
 #include "socketwrappers.h"
 #include "kernelbufferdrainer.h"

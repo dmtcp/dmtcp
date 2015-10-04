@@ -20,55 +20,61 @@
  ****************************************************************************/
 
 #pragma once
-#ifndef CONNECTIONIDENTIFIER_H
-#define CONNECTIONIDENTIFIER_H
+#ifndef __SOCKET_CONNECTIONMESSAGE_H__
+#define __SOCKET_CONNECTIONMESSAGE_H__
 
 #include <stdint.h>
 #include "dmtcpalloc.h"
-#include "dmtcp.h"
 #include "jalloc.h"
-#include "jserialize.h"
-#include "ipc.h"
+#include "connectionidentifier.h"
+
+#define HANDSHAKE_SIGNATURE_MSG "DMTCP_SOCK_HANDSHAKE_V0\n"
 
 namespace dmtcp
 {
-  class ConnectionIdentifier
-  {
+  class ConnMsg {
     public:
 #ifdef JALIB_ALLOCATOR
       static void* operator new(size_t nbytes, void* p) { return p; }
       static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
       static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
 #endif
-      static ConnectionIdentifier create();
-      static ConnectionIdentifier null();
-      static ConnectionIdentifier self();
 
-      static void serialize ( jalib::JBinarySerializer& o );
+    enum MsgType {
+      INVALID = -1,
+      HANDSHAKE = 0,
+      DRAIN,
+      REFILL
+    };
 
-      uint64_t   hostid() const { return _upid._hostid; }
-      pid_t  pid() const { return _upid._pid; }
-      uint64_t time() const { return _upid._time; }
-      int64_t   conId() const { return _id; }
-      //int conId() const;
-      //const UniquePid& pid() const;
+    ConnMsg(enum MsgType t = INVALID) {
+      strcpy(sign, HANDSHAKE_SIGNATURE_MSG);
+      type = t;
+      size = sizeof(ConnMsg);
+      extraBytes = 0;
+    }
 
-      ConnectionIdentifier (int id = -1);
-      ConnectionIdentifier(DmtcpUniqueProcessId id) {
-        _upid = id;
-        _id = -1;
-      }
+    void poison() {
+      sign[0] = '\0';
+      type = INVALID;
+    }
 
-      bool isNull() const { return _id < 0; }
+    void assertValid(enum MsgType t) {
+      JASSERT(strcmp(sign, HANDSHAKE_SIGNATURE_MSG) == 0) (sign)
+        .Text("read invalid message, signature mismatch. (External socket?)");
+      JASSERT(size == sizeof(ConnMsg)) (size) (sizeof(ConnMsg))
+        .Text("read invalid message, size mismatch.");
+      JASSERT(type == t) ((int)t) ((int)type) .Text("Wrong Msg Type.");
+    }
 
-      bool operator==(const ConnectionIdentifier& that) const;
-      bool operator< (const ConnectionIdentifier& that) const;
-      bool operator!=(const ConnectionIdentifier& that) const
-      { return !(*this == that); }
+    ConnectionIdentifier from;
+    ConnectionIdentifier coordId;
 
-    private:
-      DmtcpUniqueProcessId _upid;
-      int64_t   _id;
+    char sign[32];
+    int32_t type;
+    int32_t size;
+    int32_t extraBytes;
+    char    padding[4];
   };
 
   ostream& operator<<(ostream& o, const ConnectionIdentifier& id);

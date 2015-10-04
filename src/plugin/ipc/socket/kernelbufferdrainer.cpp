@@ -21,6 +21,7 @@
 
 #include "kernelbufferdrainer.h"
 #include "connectionlist.h"
+#include "connectionmessage.h"
 #include "socketwrappers.h"
 #include "../jalib/jassert.h"
 #include "../jalib/jbuffer.h"
