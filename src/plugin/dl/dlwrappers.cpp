@@ -22,6 +22,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include "dmtcp.h"
+#include "../jalib/jassert.h"
 
 #define _real_dlopen  NEXT_FNC(dlopen)
 #define _real_dlclose NEXT_FNC(dlclose)
@@ -71,6 +72,11 @@ void *dlopen(const char *filename, int flag)
   if (lockAcquired) {
     dmtcp_libdlLockUnlock();
   }
+  JWARNING(ret) (filename) (flag)
+    .Text("dlopen failed.  You may also see a message 'ERROR: ld.so:'\n"
+    "from libdl.so.  If this happens only under DMTCP, then consider setting\n"
+    "the environment variable DMTCP_DL_PLUGIN to \"0\" before 'dmtcp_launch'.\n"
+    "If the problem persists, please write to the DMTCP developers.\n");
   return ret;
 }
 
