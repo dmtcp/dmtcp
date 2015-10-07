@@ -137,7 +137,7 @@ namespace dmtcp
         : SysVIPC("SysVSem", getpid(), SYSV_SEM_ID) {}
 
       static SysVSem& instance();
-      virtual void on_semget(int semid, key_t key, int nsems, int semflg);
+      virtual void on_semget(int realSemId, key_t key, int nsems, int semflg);
       virtual void on_semctl(int semid, int semnum, int cmd, union semun arg);
       virtual void on_semop(int semid, struct sembuf *sops, unsigned nsops);
   };

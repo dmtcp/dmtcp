@@ -423,18 +423,18 @@ int SysVShm::shmaddrToShmid(const void* shmaddr)
 /*
  * Semaphore
  */
-void SysVSem::on_semget(int semid, key_t key, int nsems, int semflg)
+void SysVSem::on_semget(int realSemId, key_t key, int nsems, int semflg)
 {
   _do_lock_tbl();
-  if (!_virtIdTable.realIdExists(semid)) {
-    //JASSERT(key == IPC_PRIVATE || (semflg & IPC_CREAT) != 0) (key) (semid);
-    JASSERT(_map.find(semid) == _map.end());
-    JTRACE ("Semid not found in table. Creating new entry") (semid);
+  if (!_virtIdTable.realIdExists(realSemId)) {
+    //JASSERT(key == IPC_PRIVATE || (semflg & IPC_CREAT) != 0) (key) (realSemId);
+    JTRACE ("Semid not found in table. Creating new entry") (realSemId);
     int virtId = getNewVirtualId();
-    updateMapping(virtId, semid);
-    _map[virtId] = new Semaphore (virtId, semid, key, nsems, semflg);
+    JASSERT(_map.find(virtId) == _map.end());
+    updateMapping(virtId, realSemId);
+    _map[virtId] = new Semaphore (virtId, realSemId, key, nsems, semflg);
   } else {
-    JASSERT(_map.find(semid) != _map.end());
+    JASSERT(_map.find(REAL_TO_VIRTUAL_SEM_ID(realSemId)) != _map.end());
   }
   _do_unlock_tbl();
 }
