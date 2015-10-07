@@ -222,15 +222,21 @@ int semctl(int semid, int semnum, int cmd, ...)
   va_start (arg, cmd);
   uarg = va_arg (arg, union semun);
   va_end (arg);
+  int ret = -1;
+
+  if (cmd == SEM_INFO || cmd == IPC_INFO) {
+    return _real_semctl(semid, semnum, cmd, uarg);
+  }
 
   DMTCP_PLUGIN_DISABLE_CKPT();
   int realId = VIRTUAL_TO_REAL_SEM_ID(semid);
-  JASSERT(realId != -1);
-  int ret = _real_semctl(realId, semnum, cmd, uarg);
+  JASSERT(realId != -1) (semid) (semnum) (cmd);
+  ret = _real_semctl(realId, semnum, cmd, uarg);
   if (ret != -1) {
     SysVSem::instance().on_semctl(semid, semnum, cmd, uarg);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
+
   return ret;
 }
 /******************************************************************************
