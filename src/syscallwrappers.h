@@ -22,6 +22,11 @@
 #ifndef SYSCALLWRAPPERS_H
 #define SYSCALLWRAPPERS_H
 
+// FIXME:  Why are we adding all these includes here, if we're declaring
+//         only our own _real_XXX() functions?  Some *wrappers.cpp files
+//         use these includes.  But, then we should split up these includes
+//         among the individual *wrappers.cpp files that actually need them,
+//         and not declare every possible include in one giant .h file.
 #include <features.h>
 #include <pthread.h>
 #include <stdio.h>
@@ -34,7 +39,15 @@
 #include <stdarg.h>
 #include <sys/shm.h>
 #include <sys/sem.h>
-#include <sys/msg.h>
+// FIXME:  The SLES 10 (glibc-2.4) declaration for msgctl differs from
+//         our wrapper's declaration, which uses the POSIX declaration.
+//         If for syscallsreal.c, use the local (e.g., SLES 10) decl.
+//         Otherwise, skip declaration, and use decl. in pidwrappers.h
+//         or in syscallwrappers.h.  The correct solution should be to fix
+//         the way that *wrappers.h get their decl. of msgctl().
+#ifdef FOR_SYSCALLSREAL_C
+# include <sys/msg.h>
+#endif
 #ifdef __cplusplus
 # include <sys/stat.h>
 #else
