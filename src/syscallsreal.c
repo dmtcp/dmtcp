@@ -25,6 +25,10 @@
 // #define GNU_SRC
 // #define __USE_UNIX98
 
+// FIXME:  See comment in syscallsreal.h about how to remove the need for
+//         this extra declaration.
+#define FOR_SYSCALLSREAL_C
+
 #include <malloc.h>
 #include <pthread.h>
 #include <dlfcn.h>
