@@ -39,8 +39,6 @@ using namespace dmtcp;
 void Util::getCoordHostAndPort(CoordinatorMode mode,
                                const char **host, int *port)
 {
-  JASSERT(mode & COORD_JOIN || mode & COORD_NEW || mode & COORD_ANY);
-
   if (SharedData::initialized()) {
     *host = SharedData::coordHost().c_str();
     *port = SharedData::coordPort();
@@ -92,7 +90,7 @@ void Util::getCoordHostAndPort(CoordinatorMode mode,
   }
 }
 void Util::setCoordPort(int port)
-{ 
+{
   const char *host = NULL;
   // mode will be ignored, since this is not the first time we call this.
   Util::getCoordHostAndPort(COORD_ANY, &host, &port);
