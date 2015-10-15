@@ -787,6 +787,9 @@ void FileConnection::postRestart()
   int tempfd;
 
   JASSERT(_fds.size() > 0);
+
+  if (dmtcp_get_new_file_path) refreshPath();
+
   if (!_ckpted_file) return;
   _fileAlreadyExists = false;
 
