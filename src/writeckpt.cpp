@@ -137,6 +137,8 @@ void mtcp_writememoryareas(int fd)
       JASSERT(area.size == ProcessInfo::instance().restoreBufLen())
         ((void*) area.addr) (area.size) (ProcessInfo::instance().restoreBufLen());
       continue;
+    } else if (SharedData::isSharedDataRegion(area.addr)) {
+      continue;
     }
 
     /* Original comment:  Skip anything in kernel address space ---

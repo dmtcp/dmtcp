@@ -479,6 +479,9 @@ void DmtcpWorker::waitForStage2Checkpoint()
 
   ThreadSync::releaseLocks();
 
+  // Prepare SharedData for ckpt.
+  SharedData::suspended();
+
   eventHook(DMTCP_EVENT_THREADS_SUSPEND, NULL);
 
   waitForCoordinatorMsg ("FD_LEADER_ELECTION", DMT_DO_FD_LEADER_ELECTION);
@@ -498,8 +501,7 @@ void DmtcpWorker::waitForStage2Checkpoint()
 
   eventHook(DMTCP_EVENT_WRITE_CKPT, NULL);
 
-  // Unmap shared area
-  SharedData::preCkpt();
+  SharedData::writeCkpt();
 }
 
 void DmtcpWorker::waitForStage3Refill(bool isRestart)
@@ -541,7 +543,6 @@ void DmtcpWorker::waitForStage4Resume(bool isRestart)
 }
 
 void dmtcp_CoordinatorAPI_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
-void dmtcp_SharedData_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
 void dmtcp_ProcessInfo_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
 void dmtcp_UniquePid_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
 void dmtcp_ProcName_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
@@ -557,7 +558,6 @@ void DmtcpWorker::eventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
   dmtcp_ProcName_EventHook(event, data);
   dmtcp_UniquePid_EventHook(event, data);
   dmtcp_CoordinatorAPI_EventHook(event, data);
-  dmtcp_SharedData_EventHook(event, data);
   dmtcp_ProcessInfo_EventHook(event, data);
   dmtcp_Alarm_EventHook(event, data);
   if (dmtcp_event_hook != NULL) {

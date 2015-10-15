@@ -41,28 +41,7 @@
 
 using namespace dmtcp;
 static struct SharedData::Header *sharedDataHeader = NULL;
-static void *prevSharedDataHeaderAddr = NULL;
 static uint32_t nextVirtualPtyId = (uint32_t)-1;
-
-void dmtcp_SharedData_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
-{
-  switch (event) {
-    case DMTCP_EVENT_INIT:
-      break;
-
-    case DMTCP_EVENT_THREADS_SUSPEND:
-      SharedData::suspended();
-      break;
-
-    case DMTCP_EVENT_REGISTER_NAME_SERVICE_DATA:
-    case DMTCP_EVENT_REFILL:
-      SharedData::refill();
-      break;
-
-    default:
-      break;
-  }
-}
 
 void SharedData::initializeHeader(const char *tmpDir,
                                   const char *installDir,
@@ -152,7 +131,7 @@ void SharedData::initialize(const char *tmpDir = NULL,
   }
 
   size_t size = CEIL(SHM_MAX_SIZE , Util::pageSize());
-  void *addr = _real_mmap(prevSharedDataHeaderAddr, size,
+  void *addr = _real_mmap((void*) sharedDataHeader, size,
                           PROT_READ | PROT_WRITE, MAP_SHARED,
                           PROTECTED_SHM_FD, 0);
   JASSERT(addr != MAP_FAILED) (JASSERT_ERRNO)
@@ -163,7 +142,6 @@ void SharedData::initialize(const char *tmpDir = NULL,
 #endif
 
   sharedDataHeader = (struct Header*) addr;
-  prevSharedDataHeaderAddr = addr;
 
   if (needToInitialize) {
     Util::lockFile(PROTECTED_SHM_FD);
@@ -193,28 +171,27 @@ void SharedData::initialize(const char *tmpDir = NULL,
   JTRACE("Shared area mapped") (sharedDataHeader);
 }
 
+bool SharedData::isSharedDataRegion(void *addr)
+{
+  return addr == (void*) sharedDataHeader;
+}
+
 void SharedData::suspended()
 {
-  if (sharedDataHeader == NULL) initialize();
   sharedDataHeader->numInodeConnIdMaps = 0;
+  // Need to reset these counters before next post-restart/post-ckpt routines
+  sharedDataHeader->numIncomingConMaps = 0;
+  WMB;
 }
 
-void SharedData::preCkpt()
+void SharedData::writeCkpt()
 {
-  if (sharedDataHeader != NULL) {
-    nextVirtualPtyId = sharedDataHeader->nextVirtualPtyId;
-    // Need to reset these counters before next post-restart/post-ckpt routines
-    sharedDataHeader->numIncomingConMaps = 0;
-WMB;
-    size_t size = CEIL(SHM_MAX_SIZE, Util::pageSize());
-    JASSERT(_real_munmap(sharedDataHeader, size) == 0) (JASSERT_ERRNO);
-    sharedDataHeader = NULL;
-  }
+  nextVirtualPtyId = sharedDataHeader->nextVirtualPtyId;
 }
 
-void SharedData::refill()
+void SharedData::postRestart()
 {
-  if (sharedDataHeader == NULL) initialize();
+  initialize();
 }
 
 string SharedData::coordHost()

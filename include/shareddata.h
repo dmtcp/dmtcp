@@ -142,9 +142,11 @@ namespace dmtcp {
                           DmtcpUniqueProcessId *compId,
                           CoordinatorInfo *coordInfo,
                           struct in_addr *localIP);
+
+    bool isSharedDataRegion(void *addr);
     void suspended();
-    void preCkpt();
-    void refill();
+    void writeCkpt();
+    void postRestart();
 
     string coordHost();
     uint32_t coordPort();
