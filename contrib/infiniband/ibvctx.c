@@ -961,7 +961,7 @@ void refill(void)
           break;
         case IBV_QPT_UD:
           assert(copy_wr->opcode == IBV_WR_SEND);
-          update_qp_id_ud_send(copy_wr);
+          update_ud_send_restart(copy_wr);
           break;
         default:
           fprintf(stderr, "Warning: unsupported qp type: %d\n",
@@ -1802,10 +1802,9 @@ int _modify_qp(struct ibv_qp * qp, struct ibv_qp_attr * attr, int attr_mask)
 
   if (attr_mask & IBV_QP_PORT) {
     struct ibv_port_attr attr2;
-    int rslt2;
     if (NEXT_IBV_FNC(ibv_query_port)(internal_qp->real_qp->context,
                                      attr->port_num, &attr2) != 0) {
-      fprintf(stderr, "Call to ibv_query_port failed %d\n", rslt2);
+      fprintf(stderr, "Call to ibv_query_port failed\n");
       exit(1);
     }
     internal_qp->original_id.lid = attr2.lid;

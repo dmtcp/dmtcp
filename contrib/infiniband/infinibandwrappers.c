@@ -247,12 +247,12 @@ int ibv_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 int ibv_get_cq_event(struct ibv_comp_channel *channel, struct ibv_cq **cq,
                      void **cq_context)
 {
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  // DMTCP_PLUGIN_DISABLE_CKPT();
   PDEBUG("******** WRAPPER for ibv_get_cq_event");
 
   int rslt = _get_cq_event(channel, cq, cq_context);
 
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  // DMTCP_PLUGIN_ENABLE_CKPT();
   return rslt;
 }
 
