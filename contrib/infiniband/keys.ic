@@ -79,7 +79,7 @@ void update_rkey_send(struct ibv_send_wr * wr, int pd_id)
   update_rkey_send(wr->next, pd_id);
 }
 
-void update_qp_id_ud_send(struct ibv_send_wr *wr) {
+void update_ud_send_restart(struct ibv_send_wr *wr) {
   struct internal_ibv_ah *internal_ah;
   uint32_t size;
   ibv_ud_qp_id orig_id, curr_id;
@@ -102,5 +102,19 @@ void update_qp_id_ud_send(struct ibv_send_wr *wr) {
   }
 
   wr->wr.ud.ah = internal_ah->real_ah;
-  update_pd_id_ud_send(wr->next);
+
+  update_ud_send_restart(wr->next);
+}
+
+void update_ud_send(struct ibv_send_wr *wr) {
+  struct internal_ibv_ah *internal_ah;
+
+  if (wr == NULL) {
+    return;
+  }
+
+  internal_ah = ibv_ah_to_internal(wr->wr.ud.ah);
+  wr->wr.ud.ah = internal_ah->real_ah;
+
+  update_ud_send(wr->next);
 }

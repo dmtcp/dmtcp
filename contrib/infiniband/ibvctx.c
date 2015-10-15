@@ -178,7 +178,7 @@ static void send_qp_info(void)
 
     internal_qp = list_entry(e, struct internal_ibv_qp, elem);
     if (internal_qp->user_qp.state != IBV_QPS_INIT) {
-      dmtcp_send_key_val_pair_to_coordinator("lid_info",
+      dmtcp_send_key_val_pair_to_coordinator("lidInfo",
                                              &internal_qp->original_id.lid,
                                              sizeof(internal_qp->original_id.lid),
                                              &internal_qp->current_id.lid,
@@ -781,7 +781,7 @@ void post_restart2(void)
     internal_ah = list_entry(e, struct internal_ibv_ah, elem);
     real_attr = internal_ah->attr;
 
-    dmtcp_send_query_to_coordinator("lid_info",
+    dmtcp_send_query_to_coordinator("lidInfo",
                                     &internal_ah->attr.dlid,
                                     sizeof(internal_ah->attr.dlid),
                                     &real_attr.dlid,
@@ -2047,20 +2047,25 @@ int _ibv_post_send(struct ibv_qp * qp, struct ibv_send_wr * wr, struct
 
   update_lkey_send(copy_wr);
 
-  if (is_restart) {
-    switch (internal_qp->user_qp.qp_type) {
-      case IBV_QPT_RC:
+  switch (internal_qp->user_qp.qp_type) {
+    case IBV_QPT_RC:
+      if (is_restart) {
         update_rkey_send(copy_wr, internal_qp->remote_pd_id);
-        break;
-      case IBV_QPT_UD:
-        assert(copy_wr->opcode == IBV_WR_SEND);
-        update_qp_id_ud_send(copy_wr);
-        break;
-      default:
-        fprintf(stderr, "Warning: unsupported qp type: %d\n",
-                internal_qp->user_qp.qp_type);
-        exit(1);
-    }
+      }
+      break;
+    case IBV_QPT_UD:
+      assert(copy_wr->opcode == IBV_WR_SEND);
+      if (is_restart) {
+        update_ud_send_restart(copy_wr);
+      }
+      else {
+        update_ud_send(copy_wr);
+      }
+      break;
+    default:
+      fprintf(stderr, "Warning: unsupported qp type: %d\n",
+              internal_qp->user_qp.qp_type);
+      exit(1);
   }
 
   rslt = _real_ibv_post_send(internal_qp->real_qp, copy_wr, bad_wr);
@@ -2208,7 +2213,7 @@ void _ack_cq_events(struct ibv_cq * cq, unsigned int nevents)
   return NEXT_IBV_FNC(ibv_ack_cq_events)(internal_cq->real_cq, nevents);
 }
 
-struct ibv_ah * _create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr){
+struct ibv_ah * _create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr) {
   struct internal_ibv_pd * internal_pd = ibv_pd_to_internal(pd);
   struct internal_ibv_ah * internal_ah;
   struct ibv_ah_attr real_attr = *attr;
@@ -2225,7 +2230,7 @@ struct ibv_ah * _create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr){
   // On restart, we need to fix the lid
   if (is_restart) {
     uint32_t size;
-    dmtcp_send_query_to_coordinator("lid_info",
+    dmtcp_send_query_to_coordinator("lidInfo",
                                     &attr->dlid,
                                     sizeof(attr->dlid),
                                     &real_attr.dlid,
