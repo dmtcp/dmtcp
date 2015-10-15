@@ -36,9 +36,9 @@ check: ${LIBNAME}.so applic
 	@ echo ""
 	@ sleep 3
 	@ echo "============ TESTING ./applic WITH DMTCP ================="
-	# Kill any old coordinator on this port, just in case.
+	# Kill an old coordinator on this port if present, just in case.
 	@ ${DMTCP_ROOT}/bin/dmtcp_command --quit --quiet \
-	  --coord-port ${DEMO_PORT} || true
+	  --coord-port ${DEMO_PORT} 2>/dev/null || true
 	# --interval 2 flag will write checkpoint every two seconds.
 	${DMTCP_ROOT}/bin/dmtcp_launch --quiet --coord-port ${DEMO_PORT} \
 	  --interval 2 --with-plugin $$PWD/${LIBNAME}.so ./applic &

@@ -27,9 +27,9 @@ default: ${LIBNAME}.so
 ${DMTCP_ROOT}/test/dmtcp1: ${DMTCP_ROOT}/test
 	cd ${DMTCP_ROOT}/test; make dmtcp1
 check: ${LIBNAME}.so ${DMTCP_ROOT}/test/dmtcp1
-	# Kill any old coordinator on this port, just in case.
+	# Kill an old coordinator on this port if present, just in case.
 	@ ${DMTCP_ROOT}/bin/dmtcp_command --quit --quiet \
-	  --coord-port ${DEMO_PORT} || true
+	  --coord-port ${DEMO_PORT} 2>/dev/null || true
 	# Begin test
 	${DMTCP_ROOT}/bin/dmtcp_coordinator --coord-port ${DEMO_PORT} \
 	  --daemon --exit-on-last -i 5
