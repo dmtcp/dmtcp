@@ -19,7 +19,6 @@ try:
     checkpoint        = libdmtcp.dmtcp_checkpoint;
     disableCkpt       = libdmtcp.dmtcp_disable_ckpt;
     enableCkpt        = libdmtcp.dmtcp_enable_ckpt;
-    installHooks      = libdmtcp.dmtcp_install_hooks;
 
     getCkptFilename   = libdmtcp.dmtcp_get_ckpt_filename
     getCkptFilename.restype = c_char_p
