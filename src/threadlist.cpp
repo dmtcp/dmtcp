@@ -657,6 +657,8 @@ void ThreadList::postRestart(void)
   Thread *thread;
   sigset_t tmp;
 
+  SharedData::postRestart();
+
   /* If DMTCP_RESTART_PAUSE set, sleep 15 seconds and allow gdb attach. */
   if (getenv("MTCP_RESTART_PAUSE") || getenv("DMTCP_RESTART_PAUSE")) {
 #ifdef HAS_PR_SET_PTRACER

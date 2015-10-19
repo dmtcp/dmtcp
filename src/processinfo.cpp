@@ -242,6 +242,8 @@ void ProcessInfo::init()
 
   _vdsoStart = _vdsoEnd = _vvarStart = _vvarEnd = 0;
 
+  processRlimit();
+
   growStack();
 
   // Reserve space for restoreBuf
@@ -258,6 +260,51 @@ void ProcessInfo::init()
   if (_ckptDir.empty()) {
     updateCkptDirFileSubdir();
   }
+}
+
+void ProcessInfo::processRlimit()
+{
+#ifdef __i386__
+  // Match work begun in dmtcpPrepareForExec()
+# if 0
+  if (getenv("DMTCP_ADDR_COMPAT_LAYOUT")) {
+    _dmtcp_unsetenv("DMTCP_ADDR_COMPAT_LAYOUT");
+    // DMTCP had set ADDR_COMPAT_LAYOUT.  Now unset it.
+    personality((unsigned long)personality(0xffffffff) ^ ADDR_COMPAT_LAYOUT);
+    JTRACE("unsetting ADDR_COMPAT_LAYOUT");
+  }
+# else
+  { char * rlim_cur_char = getenv("DMTCP_RLIMIT_STACK");
+    if (rlim_cur_char != NULL) {
+      struct rlimit rlim;
+      getrlimit(RLIMIT_STACK, &rlim);
+      rlim.rlim_cur = atol(rlim_cur_char);
+      JTRACE("rlim_cur for RLIMIT_STACK being restored.") (rlim.rlim_cur);
+      setrlimit(RLIMIT_STACK, &rlim);
+      _dmtcp_unsetenv("DMTCP_RLIMIT_STACK");
+    }
+  }
+# endif
+#endif
+}
+
+void ProcessInfo::calculateArgvAndEnvSize()
+{
+  vector<string> args = jalib::Filesystem::GetProgramArgs();
+  _argvSize = 0;
+  for (size_t i = 0; i < args.size(); i++) {
+    _argvSize += args[i].length() + 1;
+  }
+
+  _envSize = 0;
+  if (environ != NULL) {
+    char *ptr = environ[0];
+    while (*ptr != '\0' && args[0].compare(ptr) != 0) {
+      _envSize += strlen(ptr) + 1;
+      ptr += strlen(ptr) + 1;
+    }
+  }
+  _envSize += args[0].length();
 }
 
 void ProcessInfo::updateCkptDirFileSubdir(string newCkptDir)

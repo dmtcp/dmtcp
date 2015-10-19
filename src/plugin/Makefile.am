@@ -83,6 +83,7 @@ __d_libdir__libdmtcp_ipc_so_SOURCES =                                  \
 	ipc/file/filewrappers.cpp                                      \
 	ipc/file/filewrappers.h                                        \
 	ipc/file/posixipcwrappers.cpp                                  \
+	ipc/socket/connectionmessage.h                                 \
 	ipc/socket/connectionrewirer.cpp                               \
 	ipc/socket/connectionrewirer.h                                 \
 	ipc/socket/kernelbufferdrainer.cpp                             \

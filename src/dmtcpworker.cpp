@@ -180,29 +180,6 @@ extern "C" void dmtcp_prepare_wrappers(void)
   }
 }
 
-static void calculateArgvAndEnvSize()
-{
-  size_t argvSize, envSize;
-
-  vector<string> args = jalib::Filesystem::GetProgramArgs();
-  argvSize = 0;
-  for (size_t i = 0; i < args.size(); i++) {
-    argvSize += args[i].length() + 1;
-  }
-  envSize = 0;
-  if (environ != NULL) {
-    char *ptr = environ[0];
-    while (*ptr != '\0' && args[0].compare(ptr) != 0) {
-      envSize += strlen(ptr) + 1;
-      ptr += strlen(ptr) + 1;
-    }
-  }
-  envSize += args[0].length();
-
-  ProcessInfo::instance().argvSize(argvSize);
-  ProcessInfo::instance().envSize(envSize);
-}
-
 static string getLogFilePath()
 {
 #ifdef DEBUG
@@ -262,32 +239,6 @@ static void prepareLogAndProcessdDataFromSerialFile()
   }
 }
 
-static void processRlimit()
-{
-#ifdef __i386__
-  // Match work begun in dmtcpPrepareForExec()
-# if 0
-  if (getenv("DMTCP_ADDR_COMPAT_LAYOUT")) {
-    _dmtcp_unsetenv("DMTCP_ADDR_COMPAT_LAYOUT");
-    // DMTCP had set ADDR_COMPAT_LAYOUT.  Now unset it.
-    personality((unsigned long)personality(0xffffffff) ^ ADDR_COMPAT_LAYOUT);
-    JTRACE("unsetting ADDR_COMPAT_LAYOUT");
-  }
-# else
-  { char * rlim_cur_char = getenv("DMTCP_RLIMIT_STACK");
-    if (rlim_cur_char != NULL) {
-      struct rlimit rlim;
-      getrlimit(RLIMIT_STACK, &rlim);
-      rlim.rlim_cur = atol(rlim_cur_char);
-      JTRACE("rlim_cur for RLIMIT_STACK being restored.") (rlim.rlim_cur);
-      setrlimit(RLIMIT_STACK, &rlim);
-      _dmtcp_unsetenv("DMTCP_RLIMIT_STACK");
-    }
-  }
-# endif
-#endif
-}
-
 static void segFaultHandler(int sig, siginfo_t* siginfo, void* context)
 {
   while (1) sleep(1);
@@ -315,8 +266,6 @@ DmtcpWorker::DmtcpWorker()
   JTRACE("libdmtcp.so:  Running ")
     (jalib::Filesystem::GetProgramName()) (getenv ("LD_PRELOAD"));
 
-  processRlimit();
-
   if (getenv("DMTCP_SEGFAULT_HANDLER") != NULL) {
     // Install a segmentation fault handler (for debugging).
     installSegFaultHandler();
@@ -328,7 +277,6 @@ DmtcpWorker::DmtcpWorker()
 
   // Also cache programName and arguments
   string programName = jalib::Filesystem::GetProgramName();
-  vector<string> args = jalib::Filesystem::GetProgramArgs();
 
   JASSERT(programName != "dmtcp_coordinator"  &&
           programName != "dmtcp_launch"   &&
@@ -339,7 +287,7 @@ DmtcpWorker::DmtcpWorker()
           programName != "ssh")
     (programName) .Text("This program should not be run under ckpt control");
 
-  calculateArgvAndEnvSize();
+  ProcessInfo::instance().calculateArgvAndEnvSize();
   restoreUserLDPRELOAD();
 
   WorkerState::setCurrentState (WorkerState::RUNNING);
@@ -531,6 +479,9 @@ void DmtcpWorker::waitForStage2Checkpoint()
 
   ThreadSync::releaseLocks();
 
+  // Prepare SharedData for ckpt.
+  SharedData::prepareForCkpt();
+
   eventHook(DMTCP_EVENT_THREADS_SUSPEND, NULL);
 
   waitForCoordinatorMsg ("FD_LEADER_ELECTION", DMT_DO_FD_LEADER_ELECTION);
@@ -550,8 +501,7 @@ void DmtcpWorker::waitForStage2Checkpoint()
 
   eventHook(DMTCP_EVENT_WRITE_CKPT, NULL);
 
-  // Unmap shared area
-  SharedData::preCkpt();
+  SharedData::writeCkpt();
 }
 
 void DmtcpWorker::waitForStage3Refill(bool isRestart)
@@ -593,7 +543,6 @@ void DmtcpWorker::waitForStage4Resume(bool isRestart)
 }
 
 void dmtcp_CoordinatorAPI_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
-void dmtcp_SharedData_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
 void dmtcp_ProcessInfo_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
 void dmtcp_UniquePid_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
 void dmtcp_ProcName_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
@@ -609,7 +558,6 @@ void DmtcpWorker::eventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
   dmtcp_ProcName_EventHook(event, data);
   dmtcp_UniquePid_EventHook(event, data);
   dmtcp_CoordinatorAPI_EventHook(event, data);
-  dmtcp_SharedData_EventHook(event, data);
   dmtcp_ProcessInfo_EventHook(event, data);
   dmtcp_Alarm_EventHook(event, data);
   if (dmtcp_event_hook != NULL) {
