@@ -176,10 +176,12 @@ bool SharedData::isSharedDataRegion(void *addr)
   return addr == (void*) sharedDataHeader;
 }
 
-void SharedData::suspended()
+
+// Here we reset some counters that are used by IPC plugin for local
+// name-service database, etc. during ckpt/resume/restart phases.
+void SharedData::prepareForCkpt()
 {
   sharedDataHeader->numInodeConnIdMaps = 0;
-  // Need to reset these counters before next post-restart/post-ckpt routines
   sharedDataHeader->numIncomingConMaps = 0;
   WMB;
 }

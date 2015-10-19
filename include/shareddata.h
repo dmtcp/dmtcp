@@ -144,7 +144,7 @@ namespace dmtcp {
                           struct in_addr *localIP);
 
     bool isSharedDataRegion(void *addr);
-    void suspended();
+    void prepareForCkpt();
     void writeCkpt();
     void postRestart();
 

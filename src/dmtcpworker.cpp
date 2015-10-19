@@ -480,7 +480,7 @@ void DmtcpWorker::waitForStage2Checkpoint()
   ThreadSync::releaseLocks();
 
   // Prepare SharedData for ckpt.
-  SharedData::suspended();
+  SharedData::prepareForCkpt();
 
   eventHook(DMTCP_EVENT_THREADS_SUSPEND, NULL);
 
