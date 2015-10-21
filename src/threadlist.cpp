@@ -49,6 +49,7 @@ Thread *activeThreads = NULL;
 void *saved_sysinfo;
 MYINFO_GS_T myinfo_gs __attribute__ ((visibility ("hidden")));
 
+static const char* DMTCP_PRGNAME_PREFIX = "DMTCP:";
 
 static Thread *threads_freelist = NULL;
 static pthread_mutex_t threadlistLock = PTHREAD_MUTEX_INITIALIZER;
@@ -194,6 +195,7 @@ void ThreadList::initThread(Thread* th, int (*fn)(void*), void *arg, int flags,
   th->ctid  = ctid;
   th->next  = NULL;
   th->state = ST_RUNNING;
+  th->procname[0] = '\0';
 
   /* libpthread may recycle the thread stacks after the thread exits (due to
    * return, pthread_exit, or pthread_cancel) by reusing them for a different
@@ -536,6 +538,12 @@ void stopthisthread (int signum)
 
   // make sure we don't get called twice for same thread
   if (Thread_UpdateState(curThread, ST_SUSPINPROG, ST_SIGNALED)) {
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,11)
+    JWARNING(prctl(PR_GET_NAME, curThread->procname) != -1) (JASSERT_ERRNO)
+      .Text("prctl(PR_GET_NAME, ...) failed");
+#endif
+
     Thread_SaveSigState(curThread); // save sig state (and block sig delivery)
     TLSInfo_SaveTLSState(&curThread->tlsInfo); // save thread local storage state
 
@@ -595,6 +603,19 @@ void stopthisthread (int signum)
     } else {
       /* Else restoreinprog >= 1;  This stuff executes to do a restart */
       ThreadList::waitForAllRestored(curThread);
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,11)
+      if (!Util::strStartsWith(curThread->procname, DMTCP_PRGNAME_PREFIX)) {
+        // Add the "DMTCP:" prefix.
+        string newName = string(DMTCP_PRGNAME_PREFIX) + curThread->procname;
+        strncpy(curThread->procname,
+                newName.c_str(),
+                sizeof(curThread->procname));
+      }
+      JASSERT(prctl(PR_SET_NAME, curThread->procname) != -1 || errno == EINVAL)
+        (curThread->procname) (JASSERT_ERRNO)
+        .Text ("prctl(PR_SET_NAME, ...) failed");
+#endif
       JTRACE("User thread restored") (curThread->tid);
     }
 
@@ -821,7 +842,7 @@ void ThreadList::addToActiveList(Thread *th)
   //       -> addToActiveList()
   //   NOTE:  After a call to fork(), only the calling thread continues to live.
   //   Before initializeMtcpEngine() called init(), it called:
-  //   ... -> initializeMtcpEngine() -> ThreadSync::initMotherOfAll() -> 
+  //   ... -> initializeMtcpEngine() -> ThreadSync::initMotherOfAll() ->
   //       -> ThreadSync::initThread()
   //   Logically, we would have set 'curThread = NULL;; inside
   //     ThreadSync::initThread(), but it's inconvenient since curThread

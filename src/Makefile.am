@@ -91,7 +91,7 @@ __targetdir__bin_dmtcp_command_SOURCES = dmtcp_command.cpp
 __targetdir__lib_dmtcp_libdmtcp_so_SOURCES = dmtcpworker.cpp threadsync.cpp \
 		      coordinatorapi.cpp execwrappers.cpp \
 		      mtcpinterface.cpp signalwrappers.cpp \
-		      procname.cpp terminal.cpp \
+		      terminal.cpp \
 		      alarm.cpp \
 		      threadwrappers.cpp \
 		      miscwrappers.cpp ckptserializer.cpp writeckpt.cpp \

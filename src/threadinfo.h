@@ -62,9 +62,9 @@ typedef struct Thread Thread;
 
 struct Thread {
   pid_t tid;
-  Thread *next;
-  Thread *prev;
   int state;
+
+  char procname[17];
 
   int (*fn)(void *);
   void *arg;
@@ -88,6 +88,8 @@ struct Thread {
   ucontext_t savctx;     // context saved on suspend
 #endif
 
+  Thread *next;
+  Thread *prev;
 };
 
 #ifdef __cplusplus
