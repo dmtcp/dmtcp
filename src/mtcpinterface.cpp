@@ -89,6 +89,8 @@ void dmtcp::callbackPostCheckpoint(int isRestart,
 
   DmtcpWorker::waitForStage4Resume(isRestart);
 
+  increment_counters(isRestart);
+
   WorkerState::setCurrentState( WorkerState::RUNNING );
 
   DmtcpWorker::informCoordinatorOfRUNNINGState();
