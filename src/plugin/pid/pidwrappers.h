@@ -145,9 +145,7 @@ extern "C"
   MACRO(__xstat64)          \
   MACRO(__lxstat)           \
   MACRO(__lxstat64)         \
-  MACRO(readlink)           \
-  MACRO(process_vm_readv)   \
-  MACRO(process_vm_writev)
+  MACRO(readlink)
 
 #define FOREACH_SYSVIPC_CTL_WRAPPER(MACRO)\
   MACRO(shmctl)             \
@@ -168,6 +166,11 @@ extern "C"
   MACRO(sched_setattr) \
   MACRO(sched_getattr)
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,2,0))
+#define FOREACH_CMA_WRAPPER(MACRO)\
+  MACRO(process_vm_readv)   \
+  MACRO(process_vm_writev)
+#endif
 
 # define PIDVIRT_ENUM(x) pid_enum_ ## x
 # define PIDVIRT_GEN_ENUM(x) PIDVIRT_ENUM(x),
@@ -176,6 +179,9 @@ extern "C"
     FOREACH_SYSVIPC_CTL_WRAPPER(PIDVIRT_GEN_ENUM)
     FOREACH_FOPEN_WRAPPER(PIDVIRT_GEN_ENUM)
     FOREACH_SCHED_WRAPPER(PIDVIRT_GEN_ENUM)
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,2,0))
+    FOREACH_CMA_WRAPPER(PIDVIRT_GEN_ENUM)
+#endif
     numPidVirtWrappers
   } PidVirtWrapperOffset;
 
