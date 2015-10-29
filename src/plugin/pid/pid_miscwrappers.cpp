@@ -471,3 +471,41 @@ extern "C" long syscall(long sys_num, ...)
   va_end(ap);
   return ret;
 }
+
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,2,0))
+ssize_t process_vm_readv(pid_t pid,
+                         const struct iovec *local_iov,
+                         unsigned long liovcnt,
+                         const struct iovec *remote_iov,
+                         unsigned long riovcnt,
+                         unsigned long flags) {
+  pid_t realPid;
+  ssize_t ret;
+
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  realPid = VIRTUAL_TO_REAL_PID(pid);
+  ret = _real_process_vm_readv(pid, local_iov, liovcnt,
+                               remote_iov, riovcnt, flags);
+  DMTCP_PLUGIN_ENABLE_CKPT();
+
+  return ret;
+}
+
+ssize_t process_vm_writev(pid_t pid,
+                          const struct iovec *local_iov,
+                          unsigned long liovcnt,
+                          const struct iovec *remote_iov,
+                          unsigned long riovcnt,
+                          unsigned long flags) {
+  pid_t realPid;
+  ssize_t ret;
+
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  realPid = VIRTUAL_TO_REAL_PID(pid);
+  ret = _real_process_vm_writev(pid, local_iov, liovcnt,
+                               remote_iov, riovcnt, flags);
+  DMTCP_PLUGIN_ENABLE_CKPT();
+
+  return ret;
+}
+#endif

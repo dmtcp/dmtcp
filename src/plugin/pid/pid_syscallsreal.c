@@ -461,3 +461,25 @@ int _real_sched_getattr(pid_t pid, const struct sched_attr *attr, unsigned int s
   REAL_FUNC_PASSTHROUGH(sched_getattr) (pid, attr, size, flags);
 }
 #endif
+
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,2,0))
+ssize_t _real_process_vm_readv(pid_t pid,
+                               const struct iovec *local_iov,
+                               unsigned long liovcnt,
+                               const struct iovec *remote_iov,
+                               unsigned long riovcnt,
+                               unsigned long flags) {
+  REAL_FUNC_PASSTHROUGH(process_vm_readv) (pid, local_iov, liovcnt,
+                                           remote_iov, riovcnt, flags);
+}
+
+ssize_t _real_process_vm_writev(pid_t pid,
+                                const struct iovec *local_iov,
+                                unsigned long liovcnt,
+                                const struct iovec *remote_iov,
+                                unsigned long riovcnt,
+                                unsigned long flags) {
+  REAL_FUNC_PASSTHROUGH(process_vm_writev) (pid, local_iov, liovcnt,
+                                            remote_iov, riovcnt, flags);
+}
+#endif

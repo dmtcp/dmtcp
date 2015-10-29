@@ -34,6 +34,11 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <sys/ptrace.h>
+#include <linux/version.h>
+// To support CMA (Cross Memory Attach)
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,2,0))
+# include <sys/uio.h>
+#endif
 // This was needed for 64-bit SUSE LINUX Enterprise Server 9 (Linux 2.6.5):
 #ifndef PTRACE_GETEVENTMSG
 # include <sys/ptrace.h>
@@ -140,7 +145,9 @@ extern "C"
   MACRO(__xstat64)          \
   MACRO(__lxstat)           \
   MACRO(__lxstat64)         \
-  MACRO(readlink)
+  MACRO(readlink)           \
+  MACRO(process_vm_readv)   \
+  MACRO(process_vm_writev)
 
 #define FOREACH_SYSVIPC_CTL_WRAPPER(MACRO)\
   MACRO(shmctl)             \
@@ -243,6 +250,20 @@ extern "C"
   int _real_lxstat(int vers, const char *path, struct stat *buf);
   int _real_lxstat64(int vers, const char *path, struct stat64 *buf);
   ssize_t _real_readlink(const char *path, char *buf, size_t bufsiz);
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,2,0))
+  ssize_t _real_process_vm_readv(pid_t pid,
+                                 const struct iovec *local_iov,
+                                 unsigned long liovcnt,
+                                 const struct iovec *remote_iov,
+                                 unsigned long riovcnt,
+                                 unsigned long flags);
+  ssize_t _real_process_vm_writev(pid_t pid,
+                                  const struct iovec *local_iov,
+                                  unsigned long liovcnt,
+                                  const struct iovec *remote_iov,
+                                  unsigned long riovcnt,
+                                  unsigned long flags);
+#endif
 
   int _real_sched_setaffinity(pid_t pid, size_t cpusetsize, const cpu_set_t *mask);
   int _real_sched_getaffinity(pid_t pid, size_t cpusetsize, cpu_set_t *mask);
