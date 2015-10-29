@@ -484,7 +484,7 @@ ssize_t process_vm_readv(pid_t pid,
 
   DMTCP_PLUGIN_DISABLE_CKPT();
   realPid = VIRTUAL_TO_REAL_PID(pid);
-  ret = _real_process_vm_readv(pid, local_iov, liovcnt,
+  ret = _real_process_vm_readv(realPid, local_iov, liovcnt,
                                remote_iov, riovcnt, flags);
   DMTCP_PLUGIN_ENABLE_CKPT();
 
@@ -502,7 +502,7 @@ ssize_t process_vm_writev(pid_t pid,
 
   DMTCP_PLUGIN_DISABLE_CKPT();
   realPid = VIRTUAL_TO_REAL_PID(pid);
-  ret = _real_process_vm_writev(pid, local_iov, liovcnt,
+  ret = _real_process_vm_writev(realPid, local_iov, liovcnt,
                                remote_iov, riovcnt, flags);
   DMTCP_PLUGIN_ENABLE_CKPT();
 
