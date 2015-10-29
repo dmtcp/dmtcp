@@ -838,6 +838,7 @@ runTest("shared-memory1", 2, ["./test/shared-memory1"])
 runTest("shared-memory2", 2, ["./test/shared-memory2"])
 S=DEFAULT_S
 
+runTest("cma",     2, ["./test/cma"])
 runTest("sysv-shm1",     2, ["./test/sysv-shm1"])
 runTest("sysv-shm2",     2, ["./test/sysv-shm2"])
 runTest("sysv-sem",      2, ["./test/sysv-sem"])
