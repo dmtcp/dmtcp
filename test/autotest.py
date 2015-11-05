@@ -838,11 +838,14 @@ runTest("shared-memory1", 2, ["./test/shared-memory1"])
 runTest("shared-memory2", 2, ["./test/shared-memory2"])
 S=DEFAULT_S
 
-runTest("cma",     2, ["./test/cma"])
 runTest("sysv-shm1",     2, ["./test/sysv-shm1"])
 runTest("sysv-shm2",     2, ["./test/sysv-shm2"])
 runTest("sysv-sem",      2, ["./test/sysv-sem"])
 runTest("sysv-msg",      2, ["./test/sysv-msg"])
+
+# Makefile compiles cma only for Linux 3.2 and higher.
+if os.path.exists("cma"):
+  runTest("cma",         2, ["./test/cma"])
 
 # ARM glibc 2.16 with Linux kernel 3.0 doesn't support mq_send, etc.
 if uname_p[0:3] == 'arm':
