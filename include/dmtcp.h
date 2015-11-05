@@ -212,7 +212,9 @@ EXTERNC int checkpoint_is_pending(void) __attribute__((weak));
 
 /**
  * Gets the coordinator-specific status of DMTCP.
- * - Returns 0 on success and -1 on error.
+ * - Returns DMTCP_IS_PRESENT if running under DMTCP and DMTCP_NOT_PRESENT
+ *   otherwise.
+ * - Side effects: modifies the arguments
  *
  * Args:
  *   numPeers: Number of processes connected to dmtcp_coordinator
@@ -227,7 +229,9 @@ EXTERNC int dmtcp_get_coordinator_status(int *numPeers, int *isRunning)
 
 /**
  * Queries local state of this process, not global state seen by DMTCP coord.
- * + Returns 0 on success and -1 on error.
+ * - Returns DMTCP_IS_PRESENT if running under DMTCP and DMTCP_NOT_PRESENT
+ *   otherwise.
+ * - Side effects: modifies the arguments
  *
  * Args:
  *   numCheckpoints: The number of times this process has been checkpointed
@@ -406,6 +410,9 @@ DECLARE_TYPEOF_FNC(dmtcp_event_hook,_real_dmtcp_event_hook);
 #endif
 #ifndef DMTCP_NOT_PRESENT
 # define DMTCP_NOT_PRESENT 3
+#endif
+#ifndef DMTCP_IS_PRESENT
+# define DMTCP_IS_PRESENT 4
 #endif
 
 #define dmtcp_get_ckpt_filename() \

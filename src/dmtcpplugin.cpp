@@ -134,14 +134,14 @@ EXTERNC int dmtcp_get_coordinator_status(int *numPeers, int *isRunning)
 {
   int coordCmdStatus;
   runCoordinatorCmd('s', &coordCmdStatus, numPeers, isRunning);
-  return 1;
+  return DMTCP_IS_PRESENT;;
 }
 
 EXTERNC int dmtcp_get_local_status(int *nCheckpoints, int *nRestarts)
 {
   *nCheckpoints = numCheckpoints;
   *nRestarts = numRestarts;
-  return 1;
+  return DMTCP_IS_PRESENT;;
 }
 
 EXTERNC int dmtcp_disable_ckpt()
