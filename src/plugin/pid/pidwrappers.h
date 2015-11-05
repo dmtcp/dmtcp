@@ -166,7 +166,7 @@ extern "C"
   MACRO(sched_setattr) \
   MACRO(sched_getattr)
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,2,0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,2,0)) && __GLIBC_PREREQ(2,15)
 #define FOREACH_CMA_WRAPPER(MACRO)\
   MACRO(process_vm_readv)   \
   MACRO(process_vm_writev)
