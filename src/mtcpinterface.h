@@ -30,9 +30,9 @@ namespace dmtcp
 
   void callbackSleepBetweenCheckpoint(int sec);
   void callbackPreCheckpoint();
-  void callbackPostCheckpoint(int isRestart, char* mtcpRestoreArgvStartAddr);
+  void callbackPostCheckpoint(bool isRestart, char* mtcpRestoreArgvStartAddr);
   void callbackPreSuspendUserThread();
-  void callbackPreResumeUserThread(int isRestart);
+  void callbackPreResumeUserThread(bool isRestart);
   void callbackHoldsAnyLocks(int *retval);
 
   //these next two are defined in dmtcpplugin.cpp

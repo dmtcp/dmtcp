@@ -69,7 +69,7 @@ void dmtcp::callbackPreCheckpoint()
   DmtcpWorker::waitForStage2Checkpoint();
 }
 
-void dmtcp::callbackPostCheckpoint(int isRestart,
+void dmtcp::callbackPostCheckpoint(bool isRestart,
                                    char* mtcpRestoreArgvStartAddr)
 {
   if (isRestart) {
@@ -123,7 +123,7 @@ void dmtcp::callbackPreSuspendUserThread()
   DmtcpWorker::eventHook(DMTCP_EVENT_PRE_SUSPEND_USER_THREAD, NULL);
 }
 
-void dmtcp::callbackPreResumeUserThread(int isRestart)
+void dmtcp::callbackPreResumeUserThread(bool isRestart)
 {
   DmtcpEventData_t edata;
   edata.resumeUserThreadInfo.isRestart = isRestart;
