@@ -7,7 +7,7 @@
 #include <sys/resource.h>
 #include <linux/version.h>
 #include "config.h"
-#ifdef HAS_PR_SET_PTRACER
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,11) || defined(HAS_PR_SET_PTRACER)
 # include <sys/prctl.h>
 #endif
 #include "threadlist.h"
