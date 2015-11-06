@@ -67,7 +67,7 @@ extern "C" int close(int fd)
 
   DMTCP_PLUGIN_DISABLE_CKPT();
   int rv = _real_close(fd);
-  if (rv == 0 && dmtcp_is_running_state()) {
+  if (rv == 0) {
     process_fd_event(SYS_close, fd);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
