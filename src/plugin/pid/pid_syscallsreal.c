@@ -465,7 +465,7 @@ int _real_sched_getattr(pid_t pid, const struct sched_attr *attr, unsigned int s
 }
 #endif
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,2,0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,2,0)) && __GLIBC_PREREQ(2,15)
 ssize_t _real_process_vm_readv(pid_t pid,
                                const struct iovec *local_iov,
                                unsigned long liovcnt,
