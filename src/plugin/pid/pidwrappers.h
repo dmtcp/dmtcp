@@ -36,7 +36,7 @@
 #include <sys/ptrace.h>
 #include <linux/version.h>
 // To support CMA (Cross Memory Attach)
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,2,0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,2,0)) && __GLIBC_PREREQ(2,15)
 # include <sys/uio.h>
 #endif
 // This was needed for 64-bit SUSE LINUX Enterprise Server 9 (Linux 2.6.5):
@@ -179,7 +179,7 @@ extern "C"
     FOREACH_SYSVIPC_CTL_WRAPPER(PIDVIRT_GEN_ENUM)
     FOREACH_FOPEN_WRAPPER(PIDVIRT_GEN_ENUM)
     FOREACH_SCHED_WRAPPER(PIDVIRT_GEN_ENUM)
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,2,0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,2,0)) && __GLIBC_PREREQ(2,15)
     FOREACH_CMA_WRAPPER(PIDVIRT_GEN_ENUM)
 #endif
     numPidVirtWrappers
@@ -256,7 +256,7 @@ extern "C"
   int _real_lxstat(int vers, const char *path, struct stat *buf);
   int _real_lxstat64(int vers, const char *path, struct stat64 *buf);
   ssize_t _real_readlink(const char *path, char *buf, size_t bufsiz);
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,2,0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,2,0)) && __GLIBC_PREREQ(2,15)
   ssize_t _real_process_vm_readv(pid_t pid,
                                  const struct iovec *local_iov,
                                  unsigned long liovcnt,
