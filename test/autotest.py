@@ -843,6 +843,10 @@ runTest("sysv-shm2",     2, ["./test/sysv-shm2"])
 runTest("sysv-sem",      2, ["./test/sysv-sem"])
 runTest("sysv-msg",      2, ["./test/sysv-msg"])
 
+# Makefile compiles cma only for Linux 3.2 and higher.
+if os.path.exists("cma"):
+  runTest("cma",         2, ["./test/cma"])
+
 # ARM glibc 2.16 with Linux kernel 3.0 doesn't support mq_send, etc.
 if uname_p[0:3] == 'arm':
   print "Skipping posix-mq1/mq2 tests; ARM/glibc/Linux does not support mq_send"

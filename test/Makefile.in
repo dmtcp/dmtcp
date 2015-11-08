@@ -44,6 +44,9 @@ else
 ifeq (${shell uname -m},armv7l)
 else
 DO_PTHREAD_ATFORK = yes
+ifeq (${shell test `uname -r` \> 3.2.0 && echo true},true)
+DO_CMA = yes
+endif
 endif
 endif
 endif
@@ -174,6 +177,16 @@ pthread_atfork1: pthread_atfork1.c
 	@ echo "FIXME: pthread_atfork is not being compiled for arm/aarch64"
 pthread_atfork2: pthread_atfork2.c
 	@ echo "FIXME: pthread_atfork is not being compiled for arm/aarch64"
+endif
+
+# FIXME:  We should create a test in configure.ac to see if process_vm_XXX()
+#   is available.
+ifeq (${DO_CMA},yes)
+cma: cma.c
+	${CC} ${CFLAGS} -o cma cma.c
+else
+cma: cma.c
+	@ echo "#cma: Skipping test for cma.  CMA requires Linux 3.2 or later."
 endif
 
 pthread%: pthread%.c
