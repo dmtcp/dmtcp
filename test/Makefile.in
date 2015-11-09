@@ -13,6 +13,7 @@ CXX = @CXX@
 CXXFLAGS = @CXXFLAGS@
 HAS_JAVA= @HAS_JAVA@
 HAS_JAVAC= @HAS_JAVAC@
+HAS_CMA= @HAS_CMA@
 LDFLAGS = @LDFLAGS@
 MKDIR_P = @MKDIR_P@
 PACKAGE = @PACKAGE@
@@ -44,9 +45,6 @@ else
 ifeq (${shell uname -m},armv7l)
 else
 DO_PTHREAD_ATFORK = yes
-ifeq (${shell test `uname -r` \> 3.2.0 && echo true},true)
-DO_CMA = yes
-endif
 endif
 endif
 endif
@@ -179,9 +177,7 @@ pthread_atfork2: pthread_atfork2.c
 	@ echo "FIXME: pthread_atfork is not being compiled for arm/aarch64"
 endif
 
-# FIXME:  We should create a test in configure.ac to see if process_vm_XXX()
-#   is available.
-ifeq (${DO_CMA},yes)
+ifeq (${HAS_CMA},yes)
 cma: cma.c
 	${CC} ${CFLAGS} -o cma cma.c
 else

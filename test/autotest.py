@@ -844,7 +844,7 @@ runTest("sysv-sem",      2, ["./test/sysv-sem"])
 runTest("sysv-msg",      2, ["./test/sysv-msg"])
 
 # Makefile compiles cma only for Linux 3.2 and higher.
-if os.path.exists("cma"):
+if HAS_CMA == "yes":
   runTest("cma",         2, ["./test/cma"])
 
 # ARM glibc 2.16 with Linux kernel 3.0 doesn't support mq_send, etc.
