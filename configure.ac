@@ -203,10 +203,10 @@ if test "$use_test_suite" = "yes"; then
                 char *mqname = "/dmtcp-mq-conf-test";
                 mq_unlink(mqname);
                 if (mq_open(mqname, O_RDWR | O_CREAT, 0666, 0) == (mqd_t)-1) {
-                  exit(1);
+                  return 1;
                 }
                 mq_unlink(mqname);
-                exit(0);
+                return 0;
               }
               ], [posix_mq='yes'], [posix_mq='no'])
   CFLAGS="$old_CFLAGS"
@@ -356,10 +356,11 @@ fi
 
 AC_MSG_CHECKING([whether GNU_HASH is supported for ELF])
 AC_TRY_RUN([
+           #include <stdio.h>
            #include <elf.h>
            int main() {
              printf("DT_GNU_HASH: %d\n", DT_GNU_HASH);
-             exit(0);
+             return 0;
            }
            ], [has_gnu_hash='yes'], [has_gnu_hash='no'])
 if test "$has_gnu_hash" == "yes"; then
@@ -373,7 +374,7 @@ AC_TRY_RUN([
            int main() {
              prctl(PR_SET_PTRACER, PR_SET_PTRACER_ANY, 0, 0, 0);
              prctl(PR_SET_PTRACER, 0, 0, 0, 0);
-             exit(0);
+             return 0;
            }
            ], [has_pr_set_ptracer='yes'], [has_pr_set_ptracer='no'])
 if test "$has_pr_set_ptracer" == "yes"; then
