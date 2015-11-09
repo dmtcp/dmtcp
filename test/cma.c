@@ -1,7 +1,7 @@
 #define _GNU_SOURCE
 #include <stdio.h>
 #include <linux/version.h>
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,2,0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,2,0)) && __GLIBC_PREREQ(2,15)
   #include <sys/uio.h>
 #endif
 #include <unistd.h>
@@ -23,7 +23,7 @@ int main() {
   }
   else {
     while (1) {
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,2,0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,2,0)) && __GLIBC_PREREQ(2,15)
       struct iovec local, remote;
       ssize_t ret;
 
