@@ -135,15 +135,15 @@ static char *dynamic_path_swap(const char *path)
         return NULL;
 
     /* found it in old list, now get a pointer to the new prefix to swap in*/
-    char *new = clget(new_path_prefix_list, index);
-    if (new == NULL)
+    char *newPathPtr = clget(new_path_prefix_list, index);
+    if (newPathPtr == NULL)
         return NULL;
 
-    size_t new_element_sz = clgetsize_ptr(new_path_prefix_list, new);
+    size_t new_element_sz = clgetsize_ptr(new_path_prefix_list, newPathPtr);
     size_t old_element_sz = clgetsize_ind(old_path_prefix_list, index);
 
     /* temporarily null terminate new element */
-    new[new_element_sz] = '\0';
+    newPathPtr[new_element_sz] = '\0';
 
     /* finally, create full path with the new prefix swapped in */
 
@@ -153,11 +153,11 @@ static char *dynamic_path_swap(const char *path)
        there will be two extra slashes if the new prefix ends with a slash
        and the old one doesn't. plus 1 for NULL */
     size_t newpathsize = (strlen(path) - old_element_sz) + new_element_sz + 1 + 1;
-    char *newpath = malloc(newpathsize);
-    snprintf(newpath, newpathsize, "%s/%s", new, path + old_element_sz);
+    char *newpath = (char*)malloc(newpathsize);
+    snprintf(newpath, newpathsize, "%s/%s", newPathPtr, path + old_element_sz);
 
     /* repair the colon list */
-    new[new_element_sz] = ':';
+    newPathPtr[new_element_sz] = ':';
 
     return newpath;
 }
@@ -166,7 +166,7 @@ static char *dynamic_path_swap(const char *path)
  * Libc Hooks (for all path related functions)
  */
 
-int fopen64(const char *path, const char *mode)
+FILE* fopen64(const char *path, const char *mode)
 {
     char *hook_path = dynamic_path_swap(path);
 
@@ -175,12 +175,12 @@ int fopen64(const char *path, const char *mode)
         return NEXT_FNC(fopen64)(path, mode);
 
     /* swapping */
-    int fd = NEXT_FNC(fopen64)(hook_path, mode);
+    FILE* filePtr = NEXT_FNC(fopen64)(hook_path, mode);
 
     /* dynamic_path_swap's return val needs to be free'd */
     free(hook_path);
 
-    return fd;
+    return filePtr;
 }
 
 int open(const char *path, int oflag, mode_t mode)
