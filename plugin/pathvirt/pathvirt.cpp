@@ -28,19 +28,26 @@ static char new_path_prefix_list[MAX_ENV_VAR_SIZE];
 
 /*
  * clfind - returns first index in colonlist which is a prefix for path
+ *          modifies the @listPtr to point to the element in colonlist
  */
-static int clfind(char *colonlist, const char *path)
+static int
+clfind(const char *colonlist,  // IN
+       const char *path,       // IN
+       char **listPtr)         // OUT
 {
     int index = 0;
-    char *element = colonlist, *colon;
+    char *element = const_cast<char *>(colonlist);
+    char *colon = NULL;
 
     /* while there is a colon present, loop */
     while (colon = strchr(element, ':')) {
         /* check if element is a prefix of path. here, colon - element is
            an easy way to calculate the length of the element in the list
            to use as the size parameter to strncmp */
-        if (strncmp(path, element, colon - element) == 0)
+        if (strncmp(path, element, colon - element) == 0) {
+            *listPtr = element;
             return index;
+        }
 
         /* move element to point to next element */
         element = colon + 1;
@@ -49,8 +56,10 @@ static int clfind(char *colonlist, const char *path)
     }
 
     /* process the last element in the list */
-    if (strncmp(path, element, strlen(element)) == 0)
+    if (strncmp(path, element, strlen(element)) == 0) {
+        *listPtr = element;
         return index;
+    }
 
     /* not found */
     return -1;
@@ -124,6 +133,7 @@ static ssize_t clgetsize_ind(char *colonlist, const unsigned int i)
  */
 static char *dynamic_path_swap(const char *path)
 {
+    char *oldPathPtr = NULL;
     /* quickly return NULL if no swap */
     if (!should_swap) {
         return NULL;
@@ -132,7 +142,7 @@ static char *dynamic_path_swap(const char *path)
     /* yes, should swap */
 
     /* check if path is in list of registered paths to swap out */
-    int index = clfind(old_path_prefix_list, path);
+    int index = clfind(old_path_prefix_list, path, &oldPathPtr);
     if (index == -1)
         return NULL;
 
@@ -142,7 +152,7 @@ static char *dynamic_path_swap(const char *path)
         return NULL;
 
     size_t new_element_sz = clgetsize_ptr(new_path_prefix_list, newPathPtr);
-    size_t old_element_sz = clgetsize_ind(old_path_prefix_list, index);
+    size_t old_element_sz = clgetsize_ptr(old_path_prefix_list, oldPathPtr);
 
     /* temporarily null terminate new element */
     newPathPtr[new_element_sz] = '\0';
