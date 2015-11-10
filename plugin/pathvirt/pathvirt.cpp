@@ -69,10 +69,12 @@ clfind(const char *colonlist,  // IN
  * clget - returns pointer to element in colonlist at index i
  *         and NULL if not found
  */
-char *clget(char *colonlist, unsigned int i)
+char*
+clget(const char *colonlist, unsigned int i)
 {
     int curr_ind = 0;
-    char *element = colonlist, *colon;
+    char *element = const_cast<char *>(colonlist);
+    char *colon = NULL;
 
     /* iterate through elements until last one */
     while (colon = strchr(element, ':')) {
@@ -97,11 +99,13 @@ char *clget(char *colonlist, unsigned int i)
  * clgetsize_ptr - returns size of an element pointed to by @element in the
  *                 list
  */
-static size_t clgetsize_ptr(char *colonlist, char *element)
+static size_t
+clgetsize_ptr(const char *colonlist, const char *element)
 {
     /* either calculate the element's length, or call
      * strlen if element was last one */
-    char *colon = strchr(element, ':');
+    const char *colon = strchr(element, ':');
+    JASSERT(colon >= element) (colonlist) (element);
     return colon ? colon - element : strlen(element);
 }
 
@@ -109,7 +113,7 @@ static size_t clgetsize_ptr(char *colonlist, char *element)
  * clgetsize - returns size of an element at index i in colonlist
  *             and -1 if not found
  */
-static ssize_t clgetsize_ind(char *colonlist, const unsigned int i)
+static ssize_t clgetsize_ind(const char *colonlist, const unsigned int i)
 {
     /* get pointer to element at index i */
     char *element = clget(colonlist, i);
