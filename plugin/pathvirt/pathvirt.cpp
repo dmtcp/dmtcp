@@ -6,8 +6,8 @@
 
 #include <stdio.h>
 #include <sys/time.h>
-#include <string.h>
-#include <stdlib.h>
+#include <cstring>
+#include <cstdlib>
 #include "dmtcp.h"
 #include "jassert.h"
 
