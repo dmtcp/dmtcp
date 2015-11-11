@@ -389,8 +389,8 @@ void writeScript(const string& ckptDir,
                 "which $dmt_rstr_cmd > /dev/null 2>&1 || exit 1\n\n",
                 jalib::Filesystem::GetProgramDir().c_str());
 
-  fprintf ( fp, "# Number of hosts in the computation = %zd\n"
-                "# Number of processes in the computation = %d\n\n",
+  fprintf ( fp, "# Number of hosts in the computation = %zu\n"
+                "# Number of processes in the computation = %zu\n\n",
                 restartFilenames.size(), numPeers );
 
   if ( isSingleHost ) {
