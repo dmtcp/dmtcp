@@ -105,7 +105,6 @@ clgetsize_ptr(const char *colonlist, const char *element)
     /* either calculate the element's length, or call
      * strlen if element was last one */
     const char *colon = strchr(element, ':');
-    JASSERT(colon >= element) (colonlist) (element);
     return colon ? colon - element : strlen(element);
 }
 
