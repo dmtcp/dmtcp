@@ -141,7 +141,7 @@ dynamic_path_swap(const char *path)
     char *oldPathPtr = NULL;
     /* quickly return NULL if no swap */
     if (!should_swap) {
-        return NULL;
+        return "";
     }
 
     /* yes, should swap */
@@ -149,12 +149,12 @@ dynamic_path_swap(const char *path)
     /* check if path is in list of registered paths to swap out */
     int index = clfind(old_path_prefix_list, path, &oldPathPtr);
     if (index == -1)
-        return NULL;
+        return "";
 
     /* found it in old list, now get a pointer to the new prefix to swap in*/
     char *newPathPtr = clget(new_path_prefix_list, index);
     if (newPathPtr == NULL)
-        return NULL;
+        return "";
 
     size_t new_element_sz = clgetsize_ptr(new_path_prefix_list, newPathPtr);
     size_t old_element_sz = clgetsize_ptr(old_path_prefix_list, oldPathPtr);
