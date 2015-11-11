@@ -1,0 +1,46 @@
+# Path Virtualization DMTCP Plugin
+
+by Mark Mossberg
+
+## testing
+
+You may need to edit the PATHVIRT variable in the Makefile within the slot5/
+directory to correct the paths to the pathvirt directory.
+
+To run a basic test, run the following:
+
+make
+cd slot5
+make check
+*** wait for a checkpoint, then ctrl-c ***
+make restart
+*** wait for a checkpoint, then ctrl-c ***
+make test
+
+You should observe that on launch, the slot5/***5/pv-test.txt files were being
+written to, but after restart the ../misc/slot7/***7/pv-test.txt files were
+being written to.
+
+## overview
+
+- pathvirt.c is a DMTCP plugin that allows colon delimited path lists to be
+  registered with it via the DMTCP_PATH_PREFIX environment variable
+- the plugin records the list of paths that should be swapped out in the
+  future into an internal buffer on launch
+- on restart, a new colon list of path prefixes are given, and the plugin's
+  libc hooks become active (currently only implemented for open and fopen64).
+  Any attempt to call a libc function on a previously registered path will
+  result in a new path being created with the old path prefix replaced by the
+  newly given one and the call forwarded on.
+
+  This flexibly allows path access to be redirected based on the conditions
+  the process is being restarted in.
+
+## constraints
+
+- due to a current limitation of dmtcp_get_restart_env(), the maximum length of
+  the colon lists that can be provided via the DMTCP_PATH_PREFIX variable
+  is 2982 bytes. This is because the maximum size of the name=value
+  string is 3000 bytes and "DMTCP_PATH_PREFIX=" occupies 18 of those. If
+  a environment variable that exceeds these limits is provided, it will be
+  truncated.
