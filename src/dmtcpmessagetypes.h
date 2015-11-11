@@ -114,6 +114,7 @@ namespace dmtcp
       };
       WorkerState ( eWorkerState s = UNKNOWN ) : _state ( s ) {}
 
+      static WorkerState& instance();
       static void setCurrentState ( const WorkerState& theValue );
       static WorkerState currentState();
 

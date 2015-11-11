@@ -23,16 +23,24 @@
 
 using namespace dmtcp;
 
-static WorkerState theState ( WorkerState::RUNNING );
+static WorkerState *theState = NULL;
+WorkerState& WorkerState::instance()
+{
+  if (theState == NULL) {
+    theState = new WorkerState();
+  }
+  return *theState;
+}
+
 
 WorkerState WorkerState::currentState()
 {
-  return theState;
+  return instance();
 }
 
 void WorkerState::setCurrentState ( const WorkerState& theValue )
 {
-  theState = theValue;
+  instance() = theValue;
 }
 
 DmtcpMessage::DmtcpMessage ( DmtcpMessageType t /*= DMT_NULL*/ )
