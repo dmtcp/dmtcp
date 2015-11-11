@@ -31,6 +31,7 @@
 #endif
 #include <linux/version.h>
 
+#include "config.h"  // for HAS_CMA
 #include "jassert.h"
 #include "jfilesystem.h"
 #include "jconvert.h"
@@ -472,7 +473,7 @@ extern "C" long syscall(long sys_num, ...)
   return ret;
 }
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,2,0)) && __GLIBC_PREREQ(2,15)
+#ifdef HAS_CMA
 ssize_t process_vm_readv(pid_t pid,
                          const struct iovec *local_iov,
                          unsigned long liovcnt,
