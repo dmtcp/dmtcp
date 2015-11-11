@@ -134,13 +134,13 @@ static ssize_t clgetsize_ind(const char *colonlist, const unsigned int i)
  *
  * If didn't return NULL, the returned pointer must be freed.
  */
-static dmtcp::string
-dynamic_path_swap(const char *path)
+static bool
+dynamic_path_swap(const char *path, dmtcp::string &newPath)
 {
     char *oldPathPtr = NULL;
     /* quickly return NULL if no swap */
     if (!should_swap) {
-        return "";
+        return false;
     }
 
     /* yes, should swap */
@@ -148,12 +148,12 @@ dynamic_path_swap(const char *path)
     /* check if path is in list of registered paths to swap out */
     int index = clfind(old_path_prefix_list, path, &oldPathPtr);
     if (index == -1)
-        return "";
+        return false;
 
     /* found it in old list, now get a pointer to the new prefix to swap in*/
     char *newPathPtr = clget(new_path_prefix_list, index);
     if (newPathPtr == NULL)
-        return "";
+        return false;
 
     size_t new_element_sz = clgetsize_ptr(new_path_prefix_list, newPathPtr);
     size_t old_element_sz = clgetsize_ptr(old_path_prefix_list, oldPathPtr);
@@ -169,14 +169,14 @@ dynamic_path_swap(const char *path)
        there will be two extra slashes if the new prefix ends with a slash
        and the old one doesn't. plus 1 for NULL */
     size_t newpathsize = (strlen(path) - old_element_sz) + new_element_sz + 1 + 1;
-    dmtcp::string newpath (newPathPtr);
-    newpath += "/";
-    newpath += (path + old_element_sz);
+    newPath = newPathPtr;
+    newPath += "/";
+    newPath += (path + old_element_sz);
 
     /* repair the colon list */
     newPathPtr[new_element_sz] = ':';
 
-    return newpath;
+    return true;
 }
 
 /*
@@ -186,14 +186,15 @@ dynamic_path_swap(const char *path)
 extern "C"
 FILE* fopen64(const char *path, const char *mode)
 {
-    const char *hook_path = dynamic_path_swap(path).c_str();
+    dmtcp::string hook_path = "";
+    bool doSwap = dynamic_path_swap(path, hook_path);
 
     /* hook_path was NULL, not swapping */
-    if (!hook_path)
+    if (!doSwap)
         return NEXT_FNC(fopen64)(path, mode);
 
     /* swapping */
-    FILE* filePtr = NEXT_FNC(fopen64)(hook_path, mode);
+    FILE* filePtr = NEXT_FNC(fopen64)(hook_path.c_str(), mode);
 
     /* dynamic_path_swap's return val needs to be free'd */
 
@@ -203,14 +204,15 @@ FILE* fopen64(const char *path, const char *mode)
 extern "C"
 int open(const char *path, int oflag, mode_t mode)
 {
-    const char *hook_path = dynamic_path_swap(path).c_str();
+    dmtcp::string hook_path = "";
+    bool doSwap = dynamic_path_swap(path, hook_path);
 
     /* hook_path was NULL, not swapping */
-    if (!hook_path)
+    if (!doSwap)
         return NEXT_FNC(open)(path, oflag, mode);
 
     /* swapping */
-    int fd = NEXT_FNC(open)(hook_path, oflag, mode);
+    int fd = NEXT_FNC(open)(hook_path.c_str(), oflag, mode);
 
     /* dynamic_path_swap's return val needs to be free'd */
 
