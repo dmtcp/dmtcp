@@ -108,10 +108,10 @@ void mtcp_writememoryareas(int fd)
     while (procSelfMaps.getNextArea(&area)) {
       if (Util::isNscdArea(area)) {
         /* Special Case Handling: nscd is enabled*/
-        JNOTE("NSCD daemon shared memory area present.\n"
-            "  MTCP will now try to remap this area in read/write mode as\n"
-            "  private (zero pages), so that glibc will automatically\n"
-            "  stop using NSCD or ask NSCD daemon for new shared area\n")
+        JTRACE("NSCD daemon shared memory area present.\n"
+               "  DMTCP will now try to remap this area in read/write mode as\n"
+               "  private (zero pages), so that glibc will automatically\n"
+               "  stop using NSCD or ask NSCD daemon for new shared area\n")
           (area.name);
 
         nscdAreas->push_back(area);
