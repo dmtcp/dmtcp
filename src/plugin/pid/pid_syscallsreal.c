@@ -32,6 +32,8 @@
 #include <unistd.h>
 #include "pidwrappers.h"
 
+#include "config.h" // for HAS_CMA
+
 typedef int ( *funcptr_t ) ();
 typedef pid_t ( *funcptr_pid_t ) ();
 typedef funcptr_t ( *signal_funcptr_t ) ();
@@ -72,7 +74,7 @@ void pid_initialize_wrappers()
     FOREACH_SYSVIPC_CTL_WRAPPER(GET_SYSVIPC_CTL_FUNC_ADDR);
     FOREACH_FOPEN_WRAPPER(GET_FOPEN_FUNC_ADDR);
     FOREACH_SCHED_WRAPPER(GET_FUNC_ADDR);
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,2,0)) && __GLIBC_PREREQ(2,15)
+#if HAS_CMA
     FOREACH_CMA_WRAPPER(GET_FUNC_ADDR);
 #endif
     pid_wrappers_initialized = 1;
@@ -465,7 +467,7 @@ int _real_sched_getattr(pid_t pid, const struct sched_attr *attr, unsigned int s
 }
 #endif
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,2,0)) && __GLIBC_PREREQ(2,15)
+#if HAS_CMA
 ssize_t _real_process_vm_readv(pid_t pid,
                                const struct iovec *local_iov,
                                unsigned long liovcnt,
