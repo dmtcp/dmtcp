@@ -12,7 +12,7 @@
 #include "jassert.h"
 
 #define ENV_DPP            "DMTCP_PATH_PREFIX"
-#define MAX_ENV_VAR_SIZE   1024
+#define MAX_ENV_VAR_SIZE   4096
 
 /* paths should only be swapped on restarts (not on initial run), so this flag */
 /* is set on restart */
