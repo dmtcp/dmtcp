@@ -54,10 +54,6 @@ void dmtcp_CoordinatorAPI_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
       CoordinatorAPI::instance().init();
       break;
 
-    case DMTCP_EVENT_THREADS_SUSPEND:
-      JASSERT(CoordinatorAPI::instance().isValid());
-      break;
-
     case DMTCP_EVENT_RESTART:
       CoordinatorAPI::restart();
       break;
@@ -115,7 +111,8 @@ CoordinatorAPI& CoordinatorAPI::instance()
   //static SysVIPC *inst = new SysVIPC(); return *inst;
   if (coordAPIInst == NULL) {
     coordAPIInst = new CoordinatorAPI();
-    if (noCoordinator()) {
+    if (noCoordinator() ||
+        Util::isValidFd(PROTECTED_COORD_FD)) {
       coordAPIInst->_coordinatorSocket = jalib::JSocket(PROTECTED_COORD_FD);
     }
   }
@@ -130,8 +127,6 @@ void CoordinatorAPI::init()
   string progname = jalib::Filesystem::GetProgramName();
   msg.extraBytes = progname.length() + 1;
 
-  JASSERT(Util::isValidFd(PROTECTED_COORD_FD));
-  instance()._coordinatorSocket = jalib::JSocket(PROTECTED_COORD_FD);
   instance()._coordinatorSocket << msg;
   instance()._coordinatorSocket.writeAll(progname.c_str(),
                                          progname.length() + 1);
@@ -221,13 +216,14 @@ void CoordinatorAPI::waitForCheckpointCommand()
     }
 
     FD_ZERO(&rfds);
-    FD_SET(PROTECTED_COORD_FD, &rfds);
-    int retval = select(PROTECTED_COORD_FD+1, &rfds, NULL, NULL, timeout);
+    FD_SET(_coordinatorSocket.sockfd(), &rfds );
+    int retval =
+      select(_coordinatorSocket.sockfd()+1, &rfds, NULL, NULL, timeout);
     if (retval == 0) { // timeout expired, time for checkpoint
       JTRACE("Timeout expired, checkpointing now.");
       return;
     } else if (retval > 0) {
-      JASSERT(FD_ISSET(PROTECTED_COORD_FD, &rfds));
+      JASSERT(FD_ISSET(_coordinatorSocket.sockfd(), &rfds));
       JTRACE("Connect request on virtual coordinator socket.");
       break;
     }
