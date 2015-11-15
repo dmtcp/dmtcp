@@ -460,8 +460,6 @@ void DmtcpWorker::waitForCoordinatorMsg(DmtcpMessageType type)
 
 void DmtcpWorker::waitForCheckpointRequest()
 {
-  ThreadSync::waitForUserThreadsToFinishPreResumeCB();
-
   JTRACE("running");
 
   WorkerState::setCurrentState (WorkerState::RUNNING);
