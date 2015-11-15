@@ -213,16 +213,6 @@ static void pid_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       pidVirt_PostExec(data);
       break;
 
-    case DMTCP_EVENT_RESTART:
-      pidVirt_PostRestart();
-      break;
-
-    case DMTCP_EVENT_REFILL:
-      if (data->refillInfo.isRestart) {
-        pidVirt_PostRestartRefill();
-      }
-      break;
-
     case DMTCP_EVENT_PTHREAD_RETURN:
     case DMTCP_EVENT_PTHREAD_EXIT:
       pidVirt_ThreadExit(data);

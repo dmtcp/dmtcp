@@ -65,32 +65,7 @@ static void do_unlock() {
 
 static void ib2tcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t* data)
 {
-  switch (event) {
-  case DMTCP_EVENT_WRITE_CKPT:
-    //drainCq();
-    break;
-  case DMTCP_EVENT_RESTART:
-    IB2TCP::postRestart();
-    break;
-  case DMTCP_EVENT_REGISTER_NAME_SERVICE_DATA:
-    if (isVirtIB && data->nameserviceInfo.isRestart) {
-      IB2TCP::registerNSData();
-    }
-    break;
-  case DMTCP_EVENT_SEND_QUERIES:
-    if (isVirtIB && data->nameserviceInfo.isRestart) {
-      IB2TCP::sendQueries();
-    }
-    break;
-
-  case DMTCP_EVENT_THREADS_RESUME:
-    if (isVirtIB && data->resumeInfo.isRestart) {
-      IB2TCP::createTCPConnections();
-    }
-    break;
-  default:
-    break;
-  }
+  return;
 }
 
 

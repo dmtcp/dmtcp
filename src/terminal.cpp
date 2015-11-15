@@ -6,6 +6,7 @@
 # include <sys/prctl.h>
 #endif
 #include "dmtcp.h"
+#include "config.h"
 #include "../jalib/jassert.h"
 
 /*************************************************************************
@@ -13,6 +14,7 @@
  *  Save and restore terminal settings.
  *
  *************************************************************************/
+namespace dmtcp {
 
 static int saved_termios_exists = 0;
 static struct termios saved_termios;
@@ -21,35 +23,9 @@ static struct winsize win;
 static void save_term_settings();
 static void restore_term_settings();
 
-void dmtcp_Terminal_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
+static void terminal_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
-  switch (event) {
-    case DMTCP_EVENT_THREADS_SUSPEND:
-      save_term_settings();
-      break;
-
-    case DMTCP_EVENT_THREADS_RESUME:
-      if (data->resumeInfo.isRestart) {
-        restore_term_settings();
-        /* If DMTCP_RESTART_PAUSE2 set, sleep 15 seconds to allow gdb attach.*/
-        if (getenv("MTCP_RESTART_PAUSE2") || getenv("DMTCP_RESTART_PAUSE2")) {
-#ifdef HAS_PR_SET_PTRACER
-          prctl(PR_SET_PTRACER, PR_SET_PTRACER_ANY, 0, 0, 0); //For: gdb attach
-#endif
-          struct timespec delay = {15, 0}; /* 15 seconds */
-          printf("Pausing 15 seconds. Do:  gdb <PROGNAME> %d\n",
-          dmtcp_virtual_to_real_pid(getpid()));
-          nanosleep(&delay, NULL);
-#ifdef HAS_PR_SET_PTRACER
-          prctl(PR_SET_PTRACER, 0, 0, 0, 0); // Revert permission to default.
-#endif
-        }
-      }
-      break;
-
-    default:
-      break;
-  }
+  return;
 }
 
 static void save_term_settings()
@@ -126,3 +102,49 @@ static void restore_term_settings()
   if (kill(getpid(), SIGWINCH) == -1) {}  /* No remedy if error */
 }
 
+static void checkpoint()
+{
+  save_term_settings();
+}
+
+static void restart()
+{
+  restore_term_settings();
+  /* If DMTCP_RESTART_PAUSE2 set, sleep 15 seconds to allow gdb attach.*/
+  if (getenv("MTCP_RESTART_PAUSE2") || getenv("DMTCP_RESTART_PAUSE2")) {
+#ifdef HAS_PR_SET_PTRACER
+    prctl(PR_SET_PTRACER, PR_SET_PTRACER_ANY, 0, 0, 0); //For: gdb attach
+#endif
+    struct timespec delay = {15, 0}; /* 15 seconds */
+    printf("Pausing 15 seconds. Do:  gdb <PROGNAME> %d\n",
+        dmtcp_virtual_to_real_pid(getpid()));
+    nanosleep(&delay, NULL);
+#ifdef HAS_PR_SET_PTRACER
+    prctl(PR_SET_PTRACER, 0, 0, 0, 0); // Revert permission to default.
+#endif
+  }
+}
+
+static DmtcpBarrier terminalBarriers[] = {
+  {DMTCP_GLOBAL_BARRIER_PRE_CKPT, checkpoint, "checkpoint"},
+  {DMTCP_GLOBAL_BARRIER_RESTART, restart, "restart"}
+};
+
+static DmtcpPluginDescriptor_t terminalPlugin = {
+  DMTCP_PLUGIN_API_VERSION,
+  PACKAGE_VERSION,
+  "terminal",
+  "DMTCP",
+  "dmtcp@ccs.neu.edu",
+  "Terminal plugin",
+  DMTCP_DECL_BARRIERS(terminalBarriers),
+  terminal_event_hook
+};
+
+
+DmtcpPluginDescriptor_t dmtcp_Terminal_PluginDescr()
+{
+  return terminalPlugin;
+}
+
+}

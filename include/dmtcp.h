@@ -50,7 +50,6 @@
 #define DMTCP_PLUGIN_API_VERSION "3"
 
 typedef enum eDmtcpEvent {
-  //DMTCP_EVENT_WRAPPER_INIT, // Future Work :-).
   DMTCP_EVENT_INIT,
   DMTCP_EVENT_EXIT,
 
@@ -60,25 +59,6 @@ typedef enum eDmtcpEvent {
   DMTCP_EVENT_ATFORK_PREPARE,
   DMTCP_EVENT_ATFORK_PARENT,
   DMTCP_EVENT_ATFORK_CHILD,
-
-  DMTCP_EVENT_WAIT_FOR_SUSPEND_MSG,
-  DMTCP_EVENT_THREADS_SUSPEND,
-  DMTCP_EVENT_LEADER_ELECTION,
-  DMTCP_EVENT_DRAIN,
-  DMTCP_EVENT_WRITE_CKPT,
-
-  DMTCP_EVENT_RESTART,
-  DMTCP_EVENT_RESUME,
-  DMTCP_EVENT_REGISTER_NAME_SERVICE_DATA,
-  DMTCP_EVENT_SEND_QUERIES,
-  DMTCP_EVENT_REFILL,
-  DMTCP_EVENT_THREADS_RESUME,
-
-  DMTCP_EVENT_PRE_SUSPEND_USER_THREAD,
-  DMTCP_EVENT_RESUME_USER_THREAD,
-
-  DMTCP_EVENT_THREAD_START,
-  DMTCP_EVENT_THREAD_CREATED,
 
   DMTCP_EVENT_PTHREAD_START,
   DMTCP_EVENT_PTHREAD_EXIT,
@@ -94,7 +74,7 @@ typedef union _DmtcpEventData_t {
 
   struct {
     int isRestart;
-  } resumeUserThreadInfo, refillInfo, resumeInfo, nameserviceInfo;
+  } resumeUserThreadInfo, nameserviceInfo;
 
   struct {
     const char* barrierId;
@@ -115,7 +95,7 @@ typedef enum {
 typedef struct
 {
   DmtcpBarrierType type;
-  void (*barrier_hook)();
+  void (*callback)();
   const char *id;
 } DmtcpBarrier;
 

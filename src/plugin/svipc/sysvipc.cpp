@@ -173,38 +173,6 @@ static void svipc_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       }
       break;
 
-    case DMTCP_EVENT_WRITE_CKPT:
-      preCheckpoint();
-      break;
-
-    case DMTCP_EVENT_LEADER_ELECTION:
-      leaderElection();
-      break;
-
-    case DMTCP_EVENT_DRAIN:
-      preCkptDrain();
-      break;
-
-    case DMTCP_EVENT_REFILL:
-      if (data->refillInfo.isRestart) {
-        restartRefill();
-      } else {
-        resumeRefill();
-      }
-      break;
-
-    case DMTCP_EVENT_THREADS_RESUME:
-      if (data->refillInfo.isRestart) {
-        restartResume();
-      } else {
-        resumeResume();
-      }
-      break;
-
-    case DMTCP_EVENT_RESTART:
-      postRestart();
-      break;
-
     default:
       break;
   }

@@ -44,23 +44,7 @@ static void createNewDmtcpSshdProcess();
 
 void dmtcp_SSH_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
-  if (!sshPluginEnabled) return;
-  switch (event) {
-    case DMTCP_EVENT_CHECKPOINT:
-      dmtcp_ssh_drain();
-      break;
-
-    case DMTCP_EVENT_RESUME:
-      dmtcp_ssh_restart();
-      break;
-
-    case DMTCP_EVENT_RESTART:
-      dmtcp_ssh_restart();
-      break;
-
-    default:
-      break;
-  }
+  return;
 }
 
 void dmtcp_ssh_drain()

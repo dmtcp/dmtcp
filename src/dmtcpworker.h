@@ -40,14 +40,13 @@ namespace dmtcp
       ~DmtcpWorker();
       static DmtcpWorker& instance();
 
-      static void waitForCoordinatorMsg(string signalStr,
-                                        DmtcpMessageType type);
+      static void waitForSuspendMessage();
+      static void waitForCoordinatorMsg(DmtcpMessageType type);
       static void informCoordinatorOfRUNNINGState();
-      static void waitForStage1Suspend();
-      static void waitForStage2Checkpoint();
-      static void waitForStage3Refill(bool isRestart);
-      static void waitForStage4Resume(bool isRestart);
-      static void restoreVirtualPidTable();
+
+      static void waitForCheckpointRequest();
+      static void preCheckpoint();
+      static void postCheckpoint();
       static void postRestart();
 
       static void resetOnFork();
@@ -60,8 +59,6 @@ namespace dmtcp
       static void interruptCkpthread();
 
       static void writeCheckpointPrefix(int fd);
-
-      static void eventHook(DmtcpEvent_t id, DmtcpEventData_t *data);
 
     protected:
       static void sendUserCommand(char c, int* result = NULL);

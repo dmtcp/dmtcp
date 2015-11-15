@@ -22,30 +22,53 @@
 #include <stdio.h>
 
 #include "dmtcp.h"
+#include "config.h"
 
 #include "jassert.h"
 
-void
-dmtcp_Alarm_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
+namespace dmtcp {
+static unsigned int timeLeft = 0;
+
+static void alarm_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
-  static unsigned int timeLeft = 0;
-  switch (event) {
-    case DMTCP_EVENT_WRITE_CKPT:
-      {
-        timeLeft = alarm(0);
-        JTRACE("*** Alarm stopped. ***") (timeLeft);
-        break;
-      }
-    case DMTCP_EVENT_THREADS_RESUME:
-      {
-        /* Need to restart the timer on resume/restart. */
-        if (timeLeft > 0) {
-          JTRACE("*** Resuming alarm. ***") (timeLeft);
-          timeLeft = alarm(timeLeft);
-        }
-        break;
-      }
-    default:
-      break;
+  return;
+}
+
+static void checkpoint()
+{
+  timeLeft = alarm(0);
+  JTRACE("*** Alarm stopped. ***") (timeLeft);
+}
+
+static void resume()
+{
+  /* Need to restart the timer on resume/restart. */
+  if (timeLeft > 0) {
+    JTRACE("*** Resuming alarm. ***") (timeLeft);
+    timeLeft = alarm(timeLeft);
   }
+}
+
+static DmtcpBarrier alarmBarriers[] = {
+  {DMTCP_GLOBAL_BARRIER_PRE_CKPT, checkpoint, "checkpoint"},
+  {DMTCP_GLOBAL_BARRIER_RESUME, resume, "resume"},
+  {DMTCP_GLOBAL_BARRIER_RESTART, resume, "restart"}
+};
+
+static DmtcpPluginDescriptor_t alarmPlugin = {
+  DMTCP_PLUGIN_API_VERSION,
+  PACKAGE_VERSION,
+  "alarm",
+  "DMTCP",
+  "dmtcp@ccs.neu.edu",
+  "Alarm plugin",
+  DMTCP_DECL_BARRIERS(alarmBarriers),
+  alarm_event_hook
+};
+
+
+DmtcpPluginDescriptor_t dmtcp_Alarm_PluginDescr()
+{
+  return alarmPlugin;
+}
 }

@@ -58,14 +58,6 @@ static void timer_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
         TimerList::instance().resetOnFork();
         break;
 
-      case DMTCP_EVENT_WRITE_CKPT:
-        preCheckpoint();
-        break;
-
-      case DMTCP_EVENT_RESTART:
-        postRestart();
-        break;
-
       default:
         break;
     }

@@ -116,36 +116,7 @@ int dmtcp_infiniband_enabled(void) { return 1; }
 
 static void infiniband_event_hook(DmtcpEvent_t event, DmtcpEventData_t* data)
 {
-  switch (event) {
-  case DMTCP_EVENT_WRITE_CKPT:
-    pre_checkpoint();
-    break;
-
-  case DMTCP_EVENT_RESTART:
-    post_restart();
-    break;
-
-  case DMTCP_EVENT_REGISTER_NAME_SERVICE_DATA:
-    if (data->nameserviceInfo.isRestart) {
-      register_ns_data();
-    }
-    break;
-
-  case DMTCP_EVENT_SEND_QUERIES:
-    if (data->nameserviceInfo.isRestart) {
-      send_queries();
-    }
-    break;
-
-  case DMTCP_EVENT_REFILL:
-    if (is_restart) {
-      refill();
-    }
-    break;
-
-  default:
-    break;
-  }
+  return;
 }
 
 static DmtcpBarrier infinibandBarriers[] = {

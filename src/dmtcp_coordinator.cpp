@@ -175,7 +175,6 @@ static bool uniqueCkptFilenames = false;
  */
 static uint32_t theCheckpointInterval = 0; /* Current checkpoint interval */
 static uint32_t theDefaultCheckpointInterval = 0; /* Reset to this on new comp. */
-static bool isRestarting = false;
 static bool timerExpired = false;
 
 static void resetCkptTimer();
@@ -187,6 +186,7 @@ JTIMER ( restart );
 
 static UniquePid compId;
 static int numPeers = -1;
+static int workersAtCurrentBarrier = 0;
 static time_t curTimeStamp = -1;
 static time_t ckptTimeStamp = -1;
 
@@ -385,123 +385,88 @@ void DmtcpCoordinator::printStatus(size_t numPeers, bool isRunning)
   fflush(stdout);
 }
 
-void DmtcpCoordinator::updateMinimumState(WorkerState oldState)
+void DmtcpCoordinator::liftBarrier(const string& barrier)
 {
-  WorkerState newState = minimumState();
+  broadcastMessage(DMT_BARRIER_LIFTED, barrier.length() + 1, barrier.c_str());
+}
 
-  if ( oldState == WorkerState::RUNNING
-       && newState == WorkerState::SUSPENDED )
-  {
-    JNOTE ( "locking all nodes" );
-    broadcastMessage(DMT_DO_FD_LEADER_ELECTION, getStatus().numPeers );
-  }
-  if ( oldState == WorkerState::SUSPENDED
-       && newState == WorkerState::FD_LEADER_ELECTION )
-  {
-    JNOTE ( "draining all nodes" );
-    broadcastMessage ( DMT_DO_DRAIN );
-  }
-  if ( oldState == WorkerState::FD_LEADER_ELECTION
-       && newState == WorkerState::DRAINED )
-  {
-    JNOTE ( "checkpointing all nodes" );
-    broadcastMessage ( DMT_DO_CHECKPOINT );
+void DmtcpCoordinator::updateMinimumState()
+{
+  workersAtCurrentBarrier++;
+
+  ComputationStatus status = getStatus();
+  if (!status.minimumStateUnanimous ||
+      workersAtCurrentBarrier < status.numPeers) {
+    return;
   }
 
-#ifdef COORD_NAMESERVICE
-  if ( oldState == WorkerState::DRAINED
-       && newState == WorkerState::CHECKPOINTED )
-  {
-    RestartScript::writeScript(ckptDir,
-                               uniqueCkptFilenames,
-                               ckptTimeStamp,
-                               theCheckpointInterval,
-                               thePort,
-                               compId,
-                               _restartFilenames);
-
-    if (exitAfterCkpt || exitAfterCkptOnce) {
-      JNOTE("Checkpoint Done. Killing all peers.");
-      broadcastMessage(DMT_KILL_PEER);
-      exitAfterCkptOnce = false;
+  if (status.minimumState == WorkerState::SUSPENDED) {
+    if (nextPreCkptBarrier < preCkptBarriers.size()) {
+      JNOTE("Lifting next pre-ckpt barrier")
+        (preCkptBarriers[nextPreCkptBarrier]);
+      liftBarrier(preCkptBarriers[nextPreCkptBarrier]);
+      nextPreCkptBarrier++;
     } else {
-      JNOTE ( "building name service database" );
-      lookupService.reset();
-      broadcastMessage ( DMT_DO_REGISTER_NAME_SERVICE_DATA );
+      JNOTE("checkpointing all nodes");
+      broadcastMessage(DMT_DO_CHECKPOINT);
     }
   }
-  if ( oldState == WorkerState::RESTARTING
-       && newState == WorkerState::CHECKPOINTED )
-  {
-    JTIMER_STOP ( restart );
 
-    lookupService.reset();
-    JNOTE ( "building name service database (after restart)" );
-    broadcastMessage ( DMT_DO_REGISTER_NAME_SERVICE_DATA );
-  }
-  if ( oldState == WorkerState::CHECKPOINTED
-       && newState == WorkerState::NAME_SERVICE_DATA_REGISTERED ){
-    JNOTE ( "entertaining queries now" );
-    broadcastMessage ( DMT_DO_SEND_QUERIES );
-  }
-  if ( oldState == WorkerState::NAME_SERVICE_DATA_REGISTERED
-       && newState == WorkerState::DONE_QUERYING ){
-    JNOTE ( "refilling all nodes" );
-    broadcastMessage ( DMT_DO_REFILL );
-  }
-  if ( oldState == WorkerState::DONE_QUERYING
-       && newState == WorkerState::REFILLED )
-    /* then broadcastMessage(DMT_DO_RESUME) after the #endif, below */
-#else
-  if ( oldState == WorkerState::DRAINED
-       && newState == WorkerState::CHECKPOINTED )
-  {
-    RestartScript::writeScript(ckptDir,
-                               uniqueCkptFilenames,
-                               ckptTimeStamp,
-                               theCheckpointInterval,
-                               thePort,
-                               compId,
-                               _restartFilenames);
+  if (status.minimumState == WorkerState::CHECKPOINTED) {
+    if (nextResumeBarrier == 0) {
+      RestartScript::writeScript(ckptDir,
+          uniqueCkptFilenames,
+          ckptTimeStamp,
+          theCheckpointInterval,
+          thePort,
+          compId,
+          _restartFilenames);
 
-    if (exitAfterCkpt || exitAfterCkptOnce) {
-      JNOTE("Checkpoint Done. Killing all peers.");
-      broadcastMessage(DMT_KILL_PEER);
-      exitAfterCkptOnce = false;
+      JTIMER_STOP ( checkpoint );
+      resetCkptTimer();
+
+      if (blockUntilDone) {
+        DmtcpMessage blockUntilDoneReply(DMT_USER_CMD_RESULT);
+        JNOTE ( "replying to dmtcp_command:  we're done" );
+        // These were set in DmtcpCoordinator::onConnect in this file
+        jalib::JSocket remote ( blockUntilDoneRemote );
+        remote << blockUntilDoneReply;
+        remote.close();
+        blockUntilDone = false;
+        blockUntilDoneRemote = -1;
+      }
+
+      if (exitAfterCkpt || exitAfterCkptOnce) {
+        JNOTE("Checkpoint Done. Killing all peers.");
+        broadcastMessage(DMT_KILL_PEER);
+        exitAfterCkptOnce = false;
+      } else {
+        lookupService.reset();
+      }
+    }
+
+    if (nextResumeBarrier < resumeBarriers.size()) {
+      JNOTE("Lifting next resume barrier")
+        (resumeBarriers[nextResumeBarrier]);
+      liftBarrier(resumeBarriers[nextResumeBarrier]);
+      nextResumeBarrier++;
     } else {
-      JNOTE ( "refilling all nodes" );
-      broadcastMessage ( DMT_DO_REFILL );
+      JNOTE("Resuming all nodes after checkpoint");
+      broadcastMessage(DMT_DO_RESUME);
     }
   }
-  if ( oldState == WorkerState::RESTARTING
-       && newState == WorkerState::CHECKPOINTED )
-  {
-    JTIMER_STOP ( restart );
 
-    JNOTE ( "refilling all nodes (after checkpoint)" );
-    broadcastMessage ( DMT_DO_REFILL );
-  }
-  if ( oldState == WorkerState::CHECKPOINTED
-       && newState == WorkerState::REFILLED )
-#endif
-  {
-    JNOTE ( "restarting all nodes" );
-    broadcastMessage ( DMT_DO_RESUME );
+  if (status.minimumState == WorkerState::RESTARTING) {
 
-    JTIMER_STOP ( checkpoint );
-    isRestarting = false;
-
-    resetCkptTimer();
-
-    if (blockUntilDone) {
-      DmtcpMessage blockUntilDoneReply(DMT_USER_CMD_RESULT);
-      JNOTE ( "replying to dmtcp_command:  we're done" );
-      // These were set in DmtcpCoordinator::onConnect in this file
-      jalib::JSocket remote ( blockUntilDoneRemote );
-      remote << blockUntilDoneReply;
-      remote.close();
-      blockUntilDone = false;
-      blockUntilDoneRemote = -1;
+    if (nextRestartBarrier < restartBarriers.size()) {
+      JNOTE("Lifting next restart barrier")
+        (restartBarriers[nextRestartBarrier]);
+      liftBarrier(restartBarriers[nextRestartBarrier]);
+      nextRestartBarrier++;
+    } else {
+      JTIMER_STOP(restart);
+      JNOTE("Resuming all nodes after restart");
+      broadcastMessage(DMT_DO_RESUME);
     }
   }
 }
@@ -523,17 +488,24 @@ void DmtcpCoordinator::onData(CoordClient *client)
   {
     case DMT_OK:
     {
-      WorkerState oldState = client->state();
-      client->setState ( msg.state );
-      ComputationStatus s = getStatus();
-      WorkerState newState = s.minimumState;
-
-      JTRACE ("got DMT_OK message")
-        ( oldState )( msg.from )( msg.state )( newState );
-
-      updateMinimumState(oldState);
+      JTRACE ("got DMT_OK message") (msg.from) (msg.state);
+      client->setState(msg.state);
+      updateMinimumState();
       break;
     }
+
+    case DMT_BARRIER_LIST:
+    {
+      JNOTE("got DMT_BARRIER_LIST message") (msg.from) (extraData);
+      // TODO(kapil): Check barrier mismatch.
+      vector<string> barriers = Util::tokenizeString(extraData, ";");
+      JASSERT(barriers.size() == 3) (barriers.size());
+      preCkptBarriers = Util::tokenizeString(barriers[0], ",");
+      resumeBarriers = Util::tokenizeString(barriers[1], ",");
+      restartBarriers = Util::tokenizeString(barriers[2], ",");
+      break;
+    }
+
     case DMT_UNIQUE_CKPT_FILENAME:
       uniqueCkptFilenames = true;
       // Fall though
@@ -569,7 +541,6 @@ void DmtcpCoordinator::onData(CoordClient *client)
     }
     break;
 
-#ifdef COORD_NAMESERVICE
     case DMT_REGISTER_NAME_SERVICE_DATA:
     {
       JTRACE ("received REGISTER_NAME_SERVICE_DATA msg") (client->identity());
@@ -593,7 +564,6 @@ void DmtcpCoordinator::onData(CoordClient *client)
                                    (const void*) extraData);
     }
     break;
-#endif
 
     case DMT_UPDATE_PROCESS_INFO_AFTER_FORK:
     {
@@ -677,12 +647,13 @@ void DmtcpCoordinator::onDisconnect(CoordClient *client)
         ( theCheckpointInterval );
     }
   } else {
-    updateMinimumState(client->state());
+    updateMinimumState();
   }
 }
 
 void DmtcpCoordinator::initializeComputation()
 {
+  JNOTE("Resetting computation");
   //this is the first connection, do some initializations
   workersRunningAndSuspendMsgSent = false;
   killInProgress = false;
@@ -694,6 +665,13 @@ void DmtcpCoordinator::initializeComputation()
   numPeers = -1; // Drop number of peers to unknown
   blockUntilDone = false;
   exitAfterCkptOnce = false;
+  workersAtCurrentBarrier = 0;
+  nextPreCkptBarrier = nextResumeBarrier = nextRestartBarrier = 0;
+  //exitAfterCkpt = false;
+
+  preCkptBarriers.clear();
+  resumeBarriers.clear();
+  restartBarriers.clear();
 }
 
 void DmtcpCoordinator::onConnect()
@@ -717,7 +695,6 @@ void DmtcpCoordinator::onConnect()
     return;
   }
 
-#ifdef COORD_NAMESERVICE
   if (hello_remote.type == DMT_NAME_SERVICE_WORKER) {
     CoordClient *client = new CoordClient(remote, &remoteAddr, remoteLen,
 		                          hello_remote);
@@ -761,7 +738,6 @@ void DmtcpCoordinator::onConnect()
     remote.close();
     return;
   }
-#endif
 
   if (hello_remote.type == DMT_USER_CMD) {
     // TODO(kapil): Update ckpt interval only if a valid one was supplied to
@@ -801,7 +777,6 @@ void DmtcpCoordinator::onConnect()
     }
     client->virtualPid(hello_remote.from.pid());
     _virtualPidToClientMap[client->virtualPid()] = client;
-    isRestarting = true;
   } else if (hello_remote.type == DMT_NEW_WORKER) {
     JASSERT(hello_remote.state == WorkerState::RUNNING ||
             hello_remote.state == WorkerState::UNKNOWN);
@@ -868,7 +843,8 @@ bool DmtcpCoordinator::validateRestartingWorkerProcess(
   JASSERT(hello_remote.state == WorkerState::RESTARTING) (hello_remote.state);
 
   if (compId == UniquePid(0,0,0)) {
-    JASSERT ( minimumState() == WorkerState::UNKNOWN )
+    lookupService.reset();
+    JASSERT ( minimumState() == WorkerState::UNKNOWN ) (minimumState())
       .Text ( "Coordinator should be idle at this moment" );
     // Coordinator is free at this moment - set up all the things
     compId = hello_remote.compGroup;
@@ -1022,6 +998,8 @@ bool DmtcpCoordinator::validateNewWorkerProcess(
 
 bool DmtcpCoordinator::startCheckpoint()
 {
+  nextPreCkptBarrier = nextResumeBarrier = nextRestartBarrier = 0;
+
   uniqueCkptFilenames = false;
   ComputationStatus s = getStatus();
   if ( s.minimumState == WorkerState::RUNNING && s.minimumStateUnanimous
@@ -1050,27 +1028,32 @@ bool DmtcpCoordinator::startCheckpoint()
   }
 }
 
-void DmtcpCoordinator::broadcastMessage(DmtcpMessageType type, int numPeers)
+void DmtcpCoordinator::broadcastMessage(DmtcpMessageType type,
+                                        size_t extraBytes,
+                                        const void *extraData)
 {
   DmtcpMessage msg;
   msg.type = type;
   msg.compGroup = compId;
-  if (numPeers > 0) {
-    msg.numPeers = numPeers;
-  }
+  msg.numPeers = clients.size();
+  msg.extraBytes = extraBytes;
 
   if (msg.type == DMT_KILL_PEER && clients.size() > 0) {
     killInProgress = true;
-  } else if (msg.type == DMT_DO_FD_LEADER_ELECTION) {
+  } else if (msg.type == DMT_DO_CHECKPOINT) {
     // All the workers are in SUSPENDED state, now it is safe to reset
     // this flag.
     workersRunningAndSuspendMsgSent = false;
   }
 
+  JTRACE ("sending message")( type );
   for (size_t i = 0; i < clients.size(); i++) {
     clients[i]->sock() << msg;
+    if (extraBytes > 0) {
+      clients[i]->sock().writeAll((const char*) extraData, extraBytes);
+    }
   }
-  JTRACE ("sending message")( type );
+  workersAtCurrentBarrier = 0;
 }
 
 DmtcpCoordinator::ComputationStatus DmtcpCoordinator::getStatus() const
@@ -1092,8 +1075,7 @@ DmtcpCoordinator::ComputationStatus DmtcpCoordinator::getStatus() const
 
   status.minimumState = ( min==INITIAL_MIN ? WorkerState::UNKNOWN
 			  : (WorkerState::eWorkerState)min );
-  if( status.minimumState == WorkerState::CHECKPOINTED &&
-      isRestarting && count < numPeers ){
+  if( status.minimumState == WorkerState::RESTARTING && count < numPeers ){
     JTRACE("minimal state counted as CHECKPOINTED but not all processes"
 	   " are connected yet.  So we wait.") ( numPeers ) ( count );
     status.minimumState = WorkerState::RESTARTING;

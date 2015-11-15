@@ -19,19 +19,25 @@ unsigned int sleep(unsigned int seconds) {
 
 static void sleep1_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
-  /* NOTE:  See warning in plugin/README about calls to printf here. */
-  switch (event) {
-  case DMTCP_EVENT_WRITE_CKPT:
-    printf("\n*** The plugin %s is being called before checkpointing. ***\n",
-	   __FILE__);
-    break;
-  case DMTCP_EVENT_RESUME:
-    printf("*** The plugin %s has now been checkpointed. ***\n", __FILE__);
-    break;
-  default:
-    ;
-  }
+  return;
 }
+
+
+static void checkpoint()
+{
+  printf("\n*** The plugin %s is being called before checkpointing. ***\n",
+         __FILE__);
+}
+
+static void resume()
+{
+  printf("*** The plugin %s has now been checkpointed. ***\n", __FILE__);
+}
+
+static DmtcpBarrier barriers[] = {
+  {DMTCP_GLOBAL_BARRIER_PRE_CKPT, checkpoint, "checkpoint"},
+  {DMTCP_GLOBAL_BARRIER_RESUME, resume, "resume"}
+};
 
 DmtcpPluginDescriptor_t sleep1_plugin = {
   DMTCP_PLUGIN_API_VERSION,
@@ -40,7 +46,7 @@ DmtcpPluginDescriptor_t sleep1_plugin = {
   "DMTCP",
   "dmtcp@ccs.neu.edu",
   "Sleep1 Plugin",
-  DMTCP_NO_PLUGIN_BARRIERS,
+  DMTCP_DECL_BARRIERS(barriers),
   sleep1_event_hook
 };
 

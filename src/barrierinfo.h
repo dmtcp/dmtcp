@@ -1,5 +1,5 @@
 /****************************************************************************
- *   Copyright (C) 2006-2008 by Jason Ansel, Kapil Arya, and Gene Cooperman *
+ *   Copyright (C) 2006-2013 by Jason Ansel, Kapil Arya, and Gene Cooperman *
  *   jansel@csail.mit.edu, kapil@ccs.neu.edu, gene@ccs.neu.edu              *
  *                                                                          *
  *  This file is part of DMTCP.                                             *
@@ -19,26 +19,59 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#ifndef DMTCPMTCPINTERFACE_H
-#define DMTCPMTCPINTERFACE_H
+#ifndef __BARRIERINFO_H__
+#define __BARRIERINFO_H__
 
-#include <sys/types.h>
+#include "dmtcpalloc.h"
+#include "dmtcp.h"
 
 namespace dmtcp
 {
-  void initializeMtcpEngine();
+  class BarrierInfo
+  {
+    public:
+#ifdef JALIB_ALLOCATOR
+      static void* operator new(size_t nbytes, void* p) { return p; }
+      static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
+      static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
+#endif
+      BarrierInfo(string _pluginName, const DmtcpBarrier& barrier)
+        : type (barrier.type),
+          callback (barrier.callback),
+          id (barrier.id),
+          pluginName (_pluginName)
+      {}
 
-  void callbackSleepBetweenCheckpoint(int sec);
-  void callbackPreCheckpoint();
-  void callbackPostCheckpoint(bool isRestart, char* mtcpRestoreArgvStartAddr);
-  void callbackPreSuspendUserThread();
-  void callbackPreResumeUserThread(bool isRestart);
-  void callbackHoldsAnyLocks(int *retval);
+      string toString() const
+      {
+        return pluginName + "::" + id;
+      }
 
-  //these next two are defined in dmtcpplugin.cpp
-  void userHookTrampoline_preCkpt();
-  void userHookTrampoline_postCkpt(bool isRestart);
+      bool operator == (const BarrierInfo& that) const
+      {
+        return type == that.type &&
+               id == that.id &&
+               pluginName == that.pluginName;
+      }
 
-  void increment_counters(int isRestart);
+      bool isGlobal() const {
+        return
+          type == DMTCP_GLOBAL_BARRIER_PRE_CKPT ||
+          type == DMTCP_GLOBAL_BARRIER_RESUME ||
+          type == DMTCP_GLOBAL_BARRIER_RESTART;
+      }
+
+      const DmtcpBarrierType type;
+      const string id;
+      void (*callback)();
+      const string pluginName;
+  };
+
+  static inline ostream& operator << (ostream& o, const BarrierInfo& info)
+  {
+    return o << info.toString();
+  }
+
 }
+
 #endif

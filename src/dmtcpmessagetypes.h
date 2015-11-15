@@ -56,15 +56,12 @@ namespace dmtcp
     DMT_USER_CMD_RESULT,     // on reply coordinator -> dmtcp_command
 
     DMT_DO_SUSPEND,          // when coordinator wants slave to suspend        8
-    DMT_DO_RESUME,           // when coordinator wants slave to resume (after checkpoint)
-    DMT_DO_FD_LEADER_ELECTION, // when coordinator wants slaves to do leader election
-    DMT_DO_DRAIN,            // when coordinator wants slave to flush
     DMT_DO_CHECKPOINT,       // when coordinator wants slave to checkpoint
-#ifdef COORD_NAMESERVICE
-    DMT_DO_REGISTER_NAME_SERVICE_DATA,
-    DMT_DO_SEND_QUERIES,
-#endif
-    DMT_DO_REFILL,           // when coordinator wants slave to refill buffers
+    DMT_DO_RESUME,           // when coordinator wants slave to resume (after checkpoint)
+
+    DMT_BARRIER_LIFTED,
+    DMT_BARRIER_LIST,
+
     DMT_KILL_PEER,           // send kill message to peer
 
     DMT_REGISTER_NAME_SERVICE_DATA,
@@ -101,17 +98,11 @@ namespace dmtcp
         UNKNOWN,
         RUNNING,
         SUSPENDED,
-        FD_LEADER_ELECTION,
-        DRAINED,
-        RESTARTING,
         CHECKPOINTED,
-#ifdef COORD_NAMESERVICE
-        NAME_SERVICE_DATA_REGISTERED,
-        DONE_QUERYING,
-#endif
-        REFILLED,
+        RESTARTING,
         _MAX
       };
+
       WorkerState ( eWorkerState s = UNKNOWN ) : _state ( s ) {}
 
       static WorkerState& instance();

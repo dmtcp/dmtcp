@@ -78,14 +78,7 @@ static void restart()
 
 static void modify_env_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
-  /* NOTE:  See warning in plugin/README about calls to printf here. */
-  switch (event) {
-  case DMTCP_EVENT_RESTART:
-    restart();
-    break;
-  default:
-    break;
-  }
+  return;
 }
 
 static DmtcpBarrier modify_env_barriers[] = {

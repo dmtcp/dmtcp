@@ -11,31 +11,37 @@ static void applic_delayed_ckpt_event_hook(DmtcpEvent_t event, DmtcpEventData_t 
     printf("Plugin(%s:%d): initialization of plugin is complete.\n",
 	   __FILE__, __LINE__);
     break;
-  case DMTCP_EVENT_WRITE_CKPT:
-    printf("Plugin(%s:%d): about to checkpoint.\n", __FILE__, __LINE__);
-    break;
-  case DMTCP_EVENT_RESUME:
-    printf("Plugin(%s:%d): done checkpointing.\n", __FILE__, __LINE__);
-    break;
-  case DMTCP_EVENT_RESTART:
-    printf("Plugin(%s:%d): done restarting from checkpoint image.\n",
-           __FILE__, __LINE__);
-    break;
   case DMTCP_EVENT_EXIT:
     printf("Plugin(%s:%d): exiting.\n", __FILE__, __LINE__);
     break;
-  /* These events are unused and could be omitted.  See dmtcp.h for
-   * complete list.
-   */
-  case DMTCP_EVENT_THREADS_RESUME:
-  case DMTCP_EVENT_ATFORK_CHILD:
-  case DMTCP_EVENT_THREADS_SUSPEND:
-  case DMTCP_EVENT_LEADER_ELECTION:
-  case DMTCP_EVENT_DRAIN:
+
   default:
     break;
   }
 }
+
+
+static void checkpoint()
+{
+  printf("Plugin(%s:%d): about to checkpoint.\n", __FILE__, __LINE__);
+}
+
+static void resume()
+{
+  printf("Plugin(%s:%d): done checkpointing.\n", __FILE__, __LINE__);
+}
+
+static void restart()
+{
+  printf("Plugin(%s:%d): done restarting from checkpoint image.\n",
+         __FILE__, __LINE__);
+}
+
+static DmtcpBarrier barriers[] = {
+  {DMTCP_GLOBAL_BARRIER_PRE_CKPT, checkpoint, "checkpoint"},
+  {DMTCP_GLOBAL_BARRIER_RESUME, resume, "resume"},
+  {DMTCP_GLOBAL_BARRIER_RESTART, restart, "restart"}
+};
 
 DmtcpPluginDescriptor_t applic_delayed_ckpt_plugin = {
   DMTCP_PLUGIN_API_VERSION,
@@ -44,7 +50,7 @@ DmtcpPluginDescriptor_t applic_delayed_ckpt_plugin = {
   "DMTCP",
   "dmtcp@ccs.neu.edu",
   "Application delayed ckpt plugin",
-  DMTCP_NO_PLUGIN_BARRIERS,
+  DMTCP_DECL_BARRIERS(barriers),
   applic_delayed_ckpt_event_hook
 };
 

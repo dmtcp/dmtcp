@@ -67,25 +67,7 @@ static void restart_resume()
 
 static void batch_queue_event_hook(DmtcpEvent_t event, DmtcpEventData_t* data)
 {
-  JTRACE("Start");
-
-  switch (event) {
-  case DMTCP_EVENT_THREADS_SUSPEND:
-    pre_ckpt();
-    break;
-  case DMTCP_EVENT_THREADS_RESUME:
-    if (data->resumeInfo.isRestart) {
-      restart_resume();
-    } else {
-      resume();
-    }
-    break;
-  case DMTCP_EVENT_RESTART:
-    restart();
-    break;
-  default:
-    break;
-  }
+  return;
 }
 
 static DmtcpBarrier rmBarriers[] = {

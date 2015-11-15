@@ -182,13 +182,13 @@ __d_bindir__dmtcp_restart_DEPENDENCIES = libdmtcpinternal.a libjalib.a \
 	libnohijack.a
 am___d_libdir__libdmtcp_so_OBJECTS = dmtcpworker.$(OBJEXT) \
 	threadsync.$(OBJEXT) coordinatorapi.$(OBJEXT) \
-	execwrappers.$(OBJEXT) mtcpinterface.$(OBJEXT) \
-	signalwrappers.$(OBJEXT) terminal.$(OBJEXT) alarm.$(OBJEXT) \
-	threadwrappers.$(OBJEXT) miscwrappers.$(OBJEXT) \
-	ckptserializer.$(OBJEXT) writeckpt.$(OBJEXT) \
-	glibcsystem.$(OBJEXT) threadlist.$(OBJEXT) siginfo.$(OBJEXT) \
-	dmtcpplugin.$(OBJEXT) popen.$(OBJEXT) syslogwrappers.$(OBJEXT) \
-	dlsym_default.$(OBJEXT)
+	execwrappers.$(OBJEXT) signalwrappers.$(OBJEXT) \
+	terminal.$(OBJEXT) alarm.$(OBJEXT) threadwrappers.$(OBJEXT) \
+	miscwrappers.$(OBJEXT) ckptserializer.$(OBJEXT) \
+	writeckpt.$(OBJEXT) glibcsystem.$(OBJEXT) threadlist.$(OBJEXT) \
+	siginfo.$(OBJEXT) dmtcpplugin.$(OBJEXT) popen.$(OBJEXT) \
+	syslogwrappers.$(OBJEXT) dlsym_default.$(OBJEXT) \
+	plugininfo.$(OBJEXT) pluginmanager.$(OBJEXT)
 __d_libdir__libdmtcp_so_OBJECTS =  \
 	$(am___d_libdir__libdmtcp_so_OBJECTS)
 __d_libdir__libdmtcp_so_DEPENDENCIES = libdmtcpinternal.a libjalib.a \
@@ -539,7 +539,8 @@ nobase_noinst_HEADERS = constants.h \
 	restartscript.h \
 	dmtcp_coordinator.h dmtcpmessagetypes.h lookup_service.h \
 	dmtcpworker.h threadsync.h coordinatorapi.h \
-	mtcpinterface.h syscallwrappers.h \
+	barrierinfo.h pluginmanager.h plugininfo.h \
+	syscallwrappers.h \
 	threadlist.h threadinfo.h siginfo.h \
 	uniquepid.h processinfo.h ckptserializer.h \
 	mtcp/ldt.h mtcp/restore_libc.h mtcp/tlsutil.h
@@ -569,7 +570,7 @@ __d_bindir__dmtcp_restart_SOURCES = dmtcp_restart.cpp util_exec.cpp
 __d_bindir__dmtcp_command_SOURCES = dmtcp_command.cpp
 __d_libdir__libdmtcp_so_SOURCES = dmtcpworker.cpp threadsync.cpp \
 		      coordinatorapi.cpp execwrappers.cpp \
-		      mtcpinterface.cpp signalwrappers.cpp \
+		      signalwrappers.cpp \
 		      terminal.cpp \
 		      alarm.cpp \
 		      threadwrappers.cpp \
@@ -577,7 +578,7 @@ __d_libdir__libdmtcp_so_SOURCES = dmtcpworker.cpp threadsync.cpp \
 		      glibcsystem.cpp \
 		      threadlist.cpp siginfo.cpp \
 		      dmtcpplugin.cpp popen.cpp syslogwrappers.cpp \
-		      dlsym_default.c
+		      dlsym_default.c plugininfo.cpp pluginmanager.cpp
 
 __d_libdir__libdmtcp_so_LDFLAGS = -shared -Xlinker -znow
 
@@ -803,8 +804,9 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/jtimer.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lookup_service.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/miscwrappers.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mtcpinterface.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/nosyscallsreal.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/plugininfo.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pluginmanager.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/popen.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/processinfo.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/procselfmaps.Po@am__quote@
