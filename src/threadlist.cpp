@@ -496,34 +496,6 @@ static void resumeThreads()
   JTRACE("everything resumed");
 }
 
-// FIXME: The following three functions were required for PTRACE only. Let's
-// rework them.
-#if 0
-static bool callbackHoldsAnyLocks(int *retval)
-{
-  /* This callback is useful only for the ptrace plugin currently, but may be
-   * used for other stuff as well.
-   *
-   * This is invoked as the first thing in stopthisthread() routine, which is
-   * the signal handler for CKPT signal, to check if the current thread is
-   * holding any of the wrapperExecLock or threadCreationLock. If the thread is
-   * holding any of these locks, we return from the signal handler and wait for
-   * the thread to release the lock. Once the thread has release the last lock,
-   * it will send itself the CKPT signal and will return to the signal handler
-   * and will proceed normally.
-   */
-
-  ThreadSync::unsetOkToGrabLock();
-  int result = ThreadSync::isThisThreadHoldingAnyLocks();
-  if (result) {
-    JASSERT(dmtcp_is_ptracing && dmtcp_is_ptracing());
-    ThreadSync::setSendCkptSignalOnFinalUnlock();
-  }
-  return result;
-}
-#endif
-
-
 /*************************************************************************
  *
  *  Signal handler for user threads.
@@ -540,9 +512,7 @@ void stopthisthread (int signum)
    * Proceed normally.
    *
    * 2. STOPSIGNAL received from Superior thread. In this case we change the
-   * state to ST_SIGNALED, if currently in ST_RUNNING. If we are holding
-   * any locks (callback_holds_any_locks), we return from the signal handler.
-   *
+   * state to ST_SIGNALED, if currently in ST_RUNNING.
    * 3. STOPSIGNAL raised by this thread itself, after releasing all the locks.
    * In this case, we had already changed the state to ST_SIGNALED as a
    * result of step (2), so the ckpt-thread will never send us a signal.
@@ -553,13 +523,6 @@ void stopthisthread (int signum)
    * later call sigaction(STOPSIGNAL, SIG_IGN) followed by
    * sigaction(STOPSIGNAL, stopthisthread) to discard all pending signals.
    */
-#if 0
-  if (Thread_UpdateState(curThread, ST_SIGNALED, ST_RUNNING)) {
-    if (callbackHoldsAnyLocks()) {
-      return;
-    }
-  }
-#endif
 
   // make sure we don't get called twice for same thread
   if (Thread_UpdateState(curThread, ST_SUSPINPROG, ST_SIGNALED)) {
