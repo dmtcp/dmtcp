@@ -34,7 +34,7 @@
 #include  "../jalib/jconvert.h"
 #include  "../jalib/jfilesystem.h"
 
-using namespace dmtcp;
+namespace dmtcp {
 
 static pthread_mutex_t tblLock = PTHREAD_MUTEX_INITIALIZER;
 
@@ -50,7 +50,17 @@ static void _do_unlock_tbl()
   JASSERT(_real_pthread_mutex_unlock(&tblLock) == 0) (JASSERT_ERRNO);
 }
 
-void dmtcp_ProcessInfo_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
+static void checkpoint()
+{
+  ProcessInfo::instance().refresh();
+}
+
+static void restart()
+{
+  ProcessInfo::instance().restart();
+}
+
+static void processInfo_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   switch (event) {
     case DMTCP_EVENT_INIT:
@@ -73,34 +83,31 @@ void dmtcp_ProcessInfo_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
       }
       break;
 
-    case DMTCP_EVENT_DRAIN:
-      ProcessInfo::instance().refresh();
-      break;
-
-    case DMTCP_EVENT_RESTART:
-      fesetround(roundingMode);
-      ProcessInfo::instance().restart();
-      break;
-
-    case DMTCP_EVENT_REFILL:
-      if (data->refillInfo.isRestart) {
-        ProcessInfo::instance().restoreProcessGroupInfo();
-      }
-      break;
-
-    case DMTCP_EVENT_THREADS_SUSPEND:
-      roundingMode = fegetround();
-      break;
-
-    case DMTCP_EVENT_THREADS_RESUME:
-      if (data->refillInfo.isRestart) {
-        _real_close(PROTECTED_ENVIRON_FD);
-      }
-      break;
-
     default:
       break;
   }
+}
+
+static DmtcpBarrier processInfoBarriers[] = {
+  {DMTCP_GLOBAL_BARRIER_PRE_CKPT, checkpoint, "checkpoint"},
+  {DMTCP_GLOBAL_BARRIER_RESTART, restart, "restart"}
+};
+
+static DmtcpPluginDescriptor_t processInfoPlugin = {
+  DMTCP_PLUGIN_API_VERSION,
+  PACKAGE_VERSION,
+  "processInfo",
+  "DMTCP",
+  "dmtcp@ccs.neu.edu",
+  "processInfo plugin",
+  DMTCP_DECL_BARRIERS(processInfoBarriers),
+  processInfo_EventHook
+};
+
+
+DmtcpPluginDescriptor_t dmtcp_ProcessInfo_PluginDescr()
+{
+  return processInfoPlugin;
 }
 
 ProcessInfo::ProcessInfo()
@@ -307,6 +314,84 @@ void ProcessInfo::calculateArgvAndEnvSize()
   _envSize += args[0].length();
 }
 
+#ifdef RESTORE_ARGV_AFTER_RESTART
+void Process:Info::restoreArgvAfterRestart(char* mtcpRestoreArgvStartAddr)
+{
+  /*
+   * The addresses where argv of mtcp_restart process starts. /proc/PID/cmdline
+   * information is looked up from these addresses.  We observed that the
+   * stack-base for mtcp_restart is always 0x7ffffffff000 in 64-bit system and
+   * 0xc0000000 in case of 32-bit system.  Once we restore the checkpointed
+   * process's memory, we will map the pages ending in these address into the
+   * process's memory if they are unused i.e. not mapped by the process (which
+   * is true for most processes running with ASLR).  Once we map them, we can
+   * put the argv of the checkpointed process in there so that
+   * /proc/self/cmdline shows the correct values.
+   * Note that if compiled in 32-bit mode '-m32', the stack base address
+   * is in still a different location, and so this logic is not valid.
+   */
+  JASSERT(mtcpRestoreArgvStartAddr != NULL);
+
+  long page_size = sysconf(_SC_PAGESIZE);
+  long page_mask = ~(page_size - 1);
+  char *startAddr = (char*) ((unsigned long) mtcpRestoreArgvStartAddr & page_mask);
+
+  size_t len;
+  len = (ProcessInfo::instance().argvSize() + page_size) & page_mask;
+
+  // Check to verify if any page in the given range is already mmap()'d.
+  // It assumes that the given addresses may belong to stack only, and if
+  // mapped, will have read+write permissions.
+  for (size_t i = 0; i < len; i += page_size) {
+    int ret = mprotect ((char*) startAddr + i, page_size,
+                        PROT_READ | PROT_WRITE);
+    if (ret != -1 || errno != ENOMEM) {
+      _mtcpRestoreArgvStartAddr = NULL;
+      return;
+    }
+  }
+
+  //None of the pages are mapped -- it is safe to mmap() them
+  void *retAddr = mmap((void*) startAddr, len, PROT_READ | PROT_WRITE,
+                    MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
+  if (retAddr != MAP_FAILED) {
+    JTRACE("Restoring /proc/self/cmdline")
+      (mtcpRestoreArgvStartAddr) (startAddr) (len) (JASSERT_ERRNO) ;
+    vector<string> args = jalib::Filesystem::GetProgramArgs();
+    char *addr = mtcpRestoreArgvStartAddr;
+    // Do NOT change restarted process's /proc/self/cmdline.
+    //args[0] = DMTCP_PRGNAME_PREFIX + args[0];
+    for ( size_t i=0; i< args.size(); ++i ) {
+      if (addr + args[i].length() >= startAddr + len)
+        break;
+      strcpy(addr, args[i].c_str());
+      addr += args[i].length() + 1;
+    }
+    _mtcpRestoreArgvStartAddr = startAddr;
+  } else {
+    JTRACE("Unable to restore /proc/self/cmdline") (startAddr) (len) (JASSERT_ERRNO) ;
+    _mtcpRestoreArgvStartAddr = NULL;
+  }
+  return;
+}
+
+static char *_mtcpRestoreArgvStartAddr = NULL;
+// FIXME(kapil): Call this after restart has finished.
+static void unmapRestoreArgv()
+{
+  long page_size = sysconf(_SC_PAGESIZE);
+  long page_mask = ~(page_size - 1);
+  if (_mtcpRestoreArgvStartAddr != NULL) {
+    JTRACE("Unmapping previously mmap()'d pages (that were mmap()'d for restoring argv");
+    size_t len;
+    len = (ProcessInfo::instance().argvSize() + page_size) & page_mask;
+    JASSERT(_real_munmap(_mtcpRestoreArgvStartAddr, len) == 0)
+      (_mtcpRestoreArgvStartAddr) (len)
+      .Text ("Failed to munmap extra pages that were mapped during restart");
+  }
+}
+#endif
+
 void ProcessInfo::updateCkptDirFileSubdir(string newCkptDir)
 {
   if (newCkptDir != "") {
@@ -380,6 +465,7 @@ void ProcessInfo::restoreHeap()
 
 void ProcessInfo::restart()
 {
+  fesetround(roundingMode);
   JASSERT(mprotect((void*)_restoreBufAddr, _restoreBufLen, PROT_NONE) == 0)
     ((void*)_restoreBufAddr) (_restoreBufLen) (JASSERT_ERRNO);
 
@@ -406,6 +492,13 @@ void ProcessInfo::restart()
       }
     }
   }
+
+#ifdef RESTORE_ARGV_AFTER_RESTART
+  restoreArgvAfterRestart(char* mtcpRestoreArgvStartAddr);
+#endif
+
+  restoreProcessGroupInfo();
+  _real_close(PROTECTED_ENVIRON_FD);
 }
 
 void ProcessInfo::restoreProcessGroupInfo()
@@ -531,6 +624,8 @@ void ProcessInfo::refresh()
 {
   JASSERT(_pid == getpid()) (_pid) (getpid());
 
+  roundingMode = fegetround();
+
   _gid = getpgid(0);
   _sid = getsid(0);
 
@@ -613,4 +708,5 @@ void ProcessInfo::serialize(jalib::JBinarySerializer& o)
   o.serializeMap(_childTable);
 
   JSERIALIZE_ASSERT_POINT("EOF");
+}
 }

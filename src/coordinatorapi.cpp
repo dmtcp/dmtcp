@@ -44,22 +44,14 @@
 LIB_PRIVATE bool sem_launch_first_time = false;
 LIB_PRIVATE sem_t sem_launch;
 
-using namespace dmtcp;
+namespace dmtcp {
 
-void dmtcp_CoordinatorAPI_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
+static void coordinatorAPI_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   if (CoordinatorAPI::noCoordinator()) return;
   switch (event) {
     case DMTCP_EVENT_INIT:
       CoordinatorAPI::instance().init();
-      break;
-
-    case DMTCP_EVENT_RESTART:
-      CoordinatorAPI::restart();
-      break;
-
-    case DMTCP_EVENT_RESUME:
-      CoordinatorAPI::instance().sendCkptFilename();
       break;
 
     case DMTCP_EVENT_EXIT:
@@ -70,6 +62,26 @@ void dmtcp_CoordinatorAPI_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
     default:
       break;
   }
+}
+
+static DmtcpBarrier coordinatorAPIBarriers[] = {
+  {DMTCP_GLOBAL_BARRIER_RESTART, CoordinatorAPI::restart, "restart"}
+};
+
+static DmtcpPluginDescriptor_t coordinatorAPIPlugin = {
+  DMTCP_PLUGIN_API_VERSION,
+  PACKAGE_VERSION,
+  "alarm",
+  "DMTCP",
+  "dmtcp@ccs.neu.edu",
+  "Coordinator API plugin",
+  DMTCP_DECL_BARRIERS(coordinatorAPIBarriers),
+  coordinatorAPI_EventHook
+};
+
+DmtcpPluginDescriptor_t dmtcp_CoordinatorAPI_PluginDescr()
+{
+  return coordinatorAPIPlugin;
 }
 
 void CoordinatorAPI::restart()
@@ -759,4 +771,6 @@ int CoordinatorAPI::sendQueryToCoordinator(const char *id,
   }
 
   return *val_len;
+}
+
 }

@@ -1,5 +1,5 @@
 /****************************************************************************
- *   Copyright (C) 2006-2012 by Jason Ansel, Kapil Arya, and Gene Cooperman *
+ *   Copyright (C) 2006-2013 by Jason Ansel, Kapil Arya, and Gene Cooperman *
  *   jansel@csail.mit.edu, kapil@ccs.neu.edu, gene@ccs.neu.edu              *
  *                                                                          *
  *  This file is part of DMTCP.                                             *
@@ -19,40 +19,42 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#ifndef THREADLIST_H
-#define THREADLIST_H
+#ifndef __PLUGINMANAGER_H__
+#define __PLUGINMANAGER_H__
 
-#include <ucontext.h>
-#include <signal.h>
-#include <sys/types.h>
-#include "threadinfo.h"
+#include "barrierinfo.h"
+#include "plugininfo.h"
+#include "dmtcpalloc.h"
+#include "dmtcp.h"
 
 namespace dmtcp
 {
-  namespace ThreadList {
-    pid_t _real_pid();
-    pid_t _real_tid();
-    int _real_tgkill(pid_t tgid, pid_t tid, int sig);
+  class PluginManager
+  {
+    public:
+#ifdef JALIB_ALLOCATOR
+      static void* operator new(size_t nbytes, void* p) { return p; }
+      static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
+      static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
+#endif
+      PluginManager();
 
-    void init();
-    void initThread(Thread* th, int (*fn)(void*), void *arg, int flags,
-                    int *ptid, int *ctid);
-    void updateTid(Thread *);
-    void resetOnFork();
-    void killCkpthread();
-    void threadExit();
+      void registerPlugin(DmtcpPluginDescriptor_t descr);
 
-    Thread *getNewThread();
-    void addToActiveList(Thread *th);
-    void threadIsDead (Thread *thread);
-    void emptyFreeList();
+      static void initialize();
+      static void registerBarriersWithCoordinator();
+      static void processCkptBarriers();
+      static void processResumeBarriers();
+      static void processRestartBarriers();
+      static void eventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
 
-    void suspendThreads();
-    void resumeThreads();
-    void waitForAllRestored(Thread *thisthread);
-    void writeCkpt();
-    void postRestart();
+    private:
+      void initializePlugins();
 
+      vector<PluginInfo*> pluginInfos;
   };
-};
+
+  void increment_counters(int isRestart);
+}
+
 #endif

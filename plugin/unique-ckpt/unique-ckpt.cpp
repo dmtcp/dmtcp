@@ -32,14 +32,7 @@ void updateCkptDir()
 
 static void unique_ckpt_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
-  switch (event) {
-    case DMTCP_EVENT_THREADS_SUSPEND:
-      updateCkptDir();
-      break;
-
-    default:
-      break;
-  }
+  return;
 }
 
 static DmtcpBarrier unique_ckpt_barriers[] = {

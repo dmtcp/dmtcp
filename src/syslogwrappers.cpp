@@ -25,7 +25,7 @@
 #include "dmtcpalloc.h"
 #include  "../jalib/jassert.h"
 
-using namespace dmtcp;
+namespace dmtcp {
 
 static bool _isSuspended = false;
 static bool _syslogEnabled = false;
@@ -37,18 +37,9 @@ static void SyslogCheckpointer_StopService();
 static void SyslogCheckpointer_RestoreService();
 static void SyslogCheckpointer_ResetOnFork();
 
-void dmtcp_Syslog_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
+static void syslog_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   switch (event) {
-    case DMTCP_EVENT_THREADS_SUSPEND:
-      SyslogCheckpointer_StopService();
-
-      break;
-
-    case DMTCP_EVENT_REFILL:
-      SyslogCheckpointer_RestoreService();
-      break;
-
     case DMTCP_EVENT_ATFORK_CHILD:
       SyslogCheckpointer_ResetOnFork();
       break;
@@ -56,6 +47,29 @@ void dmtcp_Syslog_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
     default:
       break;
   }
+}
+
+static DmtcpBarrier syslogBarriers[] = {
+  {DMTCP_GLOBAL_BARRIER_PRE_CKPT, SyslogCheckpointer_StopService, "checkpoint"},
+  {DMTCP_GLOBAL_BARRIER_RESUME, SyslogCheckpointer_RestoreService, "resume"},
+  {DMTCP_GLOBAL_BARRIER_RESTART, SyslogCheckpointer_RestoreService, "restart"}
+};
+
+static DmtcpPluginDescriptor_t syslogPlugin = {
+  DMTCP_PLUGIN_API_VERSION,
+  PACKAGE_VERSION,
+  "syslog",
+  "DMTCP",
+  "dmtcp@ccs.neu.edu",
+  "Syslog plugin",
+  DMTCP_DECL_BARRIERS(syslogBarriers),
+  syslog_event_hook
+};
+
+
+DmtcpPluginDescriptor_t dmtcp_Syslog_PluginDescr()
+{
+  return syslogPlugin;
 }
 
 static string& _ident()
@@ -121,3 +135,4 @@ extern "C" void closelog ( void )
 //  NOTE:  We also need to save and restore the mask of setlogmask()
 //  NOTE:  Need a test/syslog.c to test this code.  How can we verify that
 //         it continues to log on restart in an automatic fashion?
+}

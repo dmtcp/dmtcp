@@ -27,7 +27,6 @@
 #include "processinfo.h"
 #include "shareddata.h"
 #include "threadsync.h"
-#include "mtcpinterface.h"
 #include "util.h"
 
 #undef dmtcp_is_enabled

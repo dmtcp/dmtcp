@@ -212,20 +212,6 @@ static void ckpttimer_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
         JTRACE("The plugin has been initialized.");
         break;
       }
-    case DMTCP_EVENT_WRITE_CKPT:
-      {
-        pre_ckpt();
-        break;
-      }
-    case DMTCP_EVENT_THREADS_RESUME:
-      {
-        if (data->resumeInfo.isRestart) {
-          restart();
-        } else {
-          resume();
-        }
-        break;
-      }
     default:
       break;
   }

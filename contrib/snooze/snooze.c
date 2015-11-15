@@ -27,15 +27,7 @@ static void pre_ckpt()
 
 static void snooze_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
-  switch (event) {
-  case DMTCP_EVENT_WRITE_CKPT:
-    pre_ckpt();
-    break;
-  case DMTCP_EVENT_RESUME:
-    break;
-  default:
-    ;
-  }
+  return;
 }
 
 static DmtcpBarrier snoozeBarriers[] = {

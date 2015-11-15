@@ -893,31 +893,10 @@ static void kvm_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
         DPRINTF("The plugin containing %s has been initialized.\n", __FILE__);
         break;
       }
-    case DMTCP_EVENT_WRITE_CKPT:
-      pre_ckpt();
-      break;
 
-    case DMTCP_EVENT_THREADS_RESUME:
-      DPRINTF("Resuming after checkpoint.\n");
-      if (data->resumeInfo.isRestart) {
-        restart();
-      }
-      //__asm("int3");
-      DPRINTF("The process is now resuming after checkpoint.\n");
-      break;
-
-    case DMTCP_EVENT_RESUME:
     case DMTCP_EVENT_EXIT:
       DPRINTF("The plugin is being called before exiting.\n");
       break;
-      /* These events are unused and could be omitted.  See dmtcp.h for
-       * complete list.
-       */
-    case DMTCP_EVENT_RESTART:
-    case DMTCP_EVENT_ATFORK_CHILD:
-    case DMTCP_EVENT_THREADS_SUSPEND:
-    case DMTCP_EVENT_LEADER_ELECTION:
-    case DMTCP_EVENT_DRAIN:
     default:
       break;
   }

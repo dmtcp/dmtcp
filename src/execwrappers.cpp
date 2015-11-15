@@ -31,12 +31,12 @@
 #include "constants.h"
 #include "uniquepid.h"
 #include "dmtcpworker.h"
+#include "pluginmanager.h"
 #include "processinfo.h"
 #include "syscallwrappers.h"
 #include "syslogwrappers.h"
 #include "util.h"
 #include "coordinatorapi.h"
-#include "mtcpinterface.h"
 #include "shareddata.h"
 #include "threadsync.h"
 #include  "../jalib/jconvert.h"
@@ -169,7 +169,7 @@ extern "C" pid_t fork()
    * processing this system call.
    */
   WRAPPER_EXECUTION_GET_EXCL_LOCK();
-  DmtcpWorker::eventHook(DMTCP_EVENT_ATFORK_PREPARE, NULL);
+  PluginManager::eventHook(DMTCP_EVENT_ATFORK_PREPARE, NULL);
 
   /* Little bit cheating here: child_time should be same for both parent and
    * child, thus we compute it before forking the child. */
@@ -197,8 +197,6 @@ extern "C" pid_t fork()
      */
     UniquePid child = UniquePid(host, getpid(), child_time);
     JTRACE("fork() done [CHILD]") (child) (parent);
-
-    initializeMtcpEngine();
   } else if (childPid > 0) { /* Parent Process */
     UniquePid child = UniquePid(host, childPid, child_time);
     ProcessInfo::instance().insertChild(childPid, child);
@@ -209,7 +207,7 @@ extern "C" pid_t fork()
 
   if (childPid != 0) {
     coordinatorAPI.closeConnection();
-    DmtcpWorker::eventHook(DMTCP_EVENT_ATFORK_PARENT, NULL);
+    PluginManager::eventHook(DMTCP_EVENT_ATFORK_PARENT, NULL);
     WRAPPER_EXECUTION_RELEASE_EXCL_LOCK();
   }
   return childPid;
@@ -331,7 +329,7 @@ static void dmtcpPrepareForExec(const char *path, char *const argv[],
   UniquePid::serialize (wr);
   DmtcpEventData_t edata;
   edata.serializerInfo.fd = PROTECTED_LIFEBOAT_FD;
-  DmtcpWorker::eventHook(DMTCP_EVENT_PRE_EXEC, &edata);
+  PluginManager::eventHook(DMTCP_EVENT_PRE_EXEC, &edata);
 
   JTRACE("Will exec filename instead of path") (path) (*filename);
 

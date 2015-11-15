@@ -168,18 +168,7 @@ restart()
 #ifndef STANDALONE
 static void ckpfile_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
-  switch (event) {
-    case DMTCP_EVENT_THREADS_SUSPEND:
-      preCkpt();
-      break;
-
-    case DMTCP_EVENT_RESTART:
-      restart();
-      break;
-
-    default:
-      break;
-  }
+  return;
 }
 #else
 int main()
