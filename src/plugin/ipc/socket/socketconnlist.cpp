@@ -40,6 +40,7 @@ SocketConnList& SocketConnList::instance()
   return *socketConnList;
 }
 
+
 void SocketConnList::drain()
 {
   // First, let all the Connection prepare for drain

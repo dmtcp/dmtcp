@@ -26,6 +26,12 @@
 #include "dmtcp.h"
 #include "jassert.h"
 #include "ipc.h"
+#include "config.h"
+
+#include "file/fileconnlist.h"
+#include "event/eventconnlist.h"
+#include "socket/socketconnlist.h"
+#include "ssh/ssh.h"
 
 using namespace dmtcp;
 
@@ -37,7 +43,6 @@ void dmtcp_EventConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
 void dmtcp_FileConn_ProcessFdEvent(int event, int arg1, int arg2);
 void dmtcp_SocketConn_ProcessFdEvent(int event, int arg1, int arg2);
 void dmtcp_EventConn_ProcessFdEvent(int event, int arg1, int arg2);
-
 extern "C"
 void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
@@ -50,6 +55,135 @@ void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
   return;
 }
 
+static DmtcpBarrier fileBarriers[] = {
+  {DMTCP_GLOBAL_BARRIER_PRE_CKPT, FileConnList::saveOptions, "PRE_CKPT"},
+  {DMTCP_GLOBAL_BARRIER_PRE_CKPT, FileConnList::leaderElection, "LEADER_ELECTION"},
+  {DMTCP_GLOBAL_BARRIER_PRE_CKPT, FileConnList::drainFd, "DRAIN"},
+  {DMTCP_GLOBAL_BARRIER_PRE_CKPT, FileConnList::ckpt, "WRITE_CKPT"},
+
+  {DMTCP_GLOBAL_BARRIER_RESUME,   FileConnList::resumeRefill, "RESUME_REFILL"},
+  {DMTCP_GLOBAL_BARRIER_RESUME,   FileConnList::resumeResume, "RESUME_RESUME"},
+
+  {DMTCP_GLOBAL_BARRIER_RESTART,  FileConnList::restart, "RESTART_POST_RESTART"},
+  {DMTCP_GLOBAL_BARRIER_RESTART,  FileConnList::restartRegisterNSData, "RESTART_NS_REGISTER_DATA"},
+  {DMTCP_GLOBAL_BARRIER_RESTART,  FileConnList::restartSendQueries, "RESTART_NS_SEND_QUERIES"},
+  {DMTCP_GLOBAL_BARRIER_RESTART,  FileConnList::restartRefill, "RESTART_REFILL"},
+  {DMTCP_GLOBAL_BARRIER_RESTART,  FileConnList::restartResume, "RESTART_RESUME"}
+};
+
+static DmtcpBarrier socketBarriers[] = {
+  {DMTCP_GLOBAL_BARRIER_PRE_CKPT, SocketConnList::saveOptions, "PRE_CKPT"},
+  {DMTCP_GLOBAL_BARRIER_PRE_CKPT, SocketConnList::leaderElection, "LEADER_ELECTION"},
+  {DMTCP_GLOBAL_BARRIER_PRE_CKPT, SocketConnList::drainFd, "DRAIN"},
+  {DMTCP_GLOBAL_BARRIER_PRE_CKPT, SocketConnList::ckpt, "WRITE_CKPT"},
+
+  {DMTCP_GLOBAL_BARRIER_RESUME,   SocketConnList::resumeRefill, "RESUME_REFILL"},
+  {DMTCP_GLOBAL_BARRIER_RESUME,   SocketConnList::resumeResume, "RESUME_RESUME"},
+
+  {DMTCP_GLOBAL_BARRIER_RESTART,  SocketConnList::restart, "RESTART_POST_RESTART"},
+  {DMTCP_GLOBAL_BARRIER_RESTART,  SocketConnList::restartRegisterNSData, "RESTART_NS_REGISTER_DATA"},
+  {DMTCP_GLOBAL_BARRIER_RESTART,  SocketConnList::restartSendQueries, "RESTART_NS_SEND_QUERIES"},
+  {DMTCP_GLOBAL_BARRIER_RESTART,  SocketConnList::restartRefill, "RESTART_REFILL"},
+  {DMTCP_GLOBAL_BARRIER_RESTART,  SocketConnList::restartResume, "RESTART_RESUME"}
+};
+
+static DmtcpBarrier eventBarriers[] = {
+  {DMTCP_GLOBAL_BARRIER_PRE_CKPT, EventConnList::saveOptions, "PRE_CKPT"},
+  {DMTCP_GLOBAL_BARRIER_PRE_CKPT, EventConnList::leaderElection, "LEADER_ELECTION"},
+  {DMTCP_GLOBAL_BARRIER_PRE_CKPT, EventConnList::drainFd, "DRAIN"},
+  {DMTCP_GLOBAL_BARRIER_PRE_CKPT, EventConnList::ckpt, "WRITE_CKPT"},
+
+  {DMTCP_GLOBAL_BARRIER_RESUME,   EventConnList::resumeRefill, "RESUME_REFILL"},
+  {DMTCP_GLOBAL_BARRIER_RESUME,   EventConnList::resumeResume, "RESUME_RESUME"},
+
+  {DMTCP_GLOBAL_BARRIER_RESTART,  EventConnList::restart, "RESTART_POST_RESTART"},
+  {DMTCP_GLOBAL_BARRIER_RESTART,  EventConnList::restartRegisterNSData, "RESTART_NS_REGISTER_DATA"},
+  {DMTCP_GLOBAL_BARRIER_RESTART,  EventConnList::restartSendQueries, "RESTART_NS_SEND_QUERIES"},
+  {DMTCP_GLOBAL_BARRIER_RESTART,  EventConnList::restartRefill, "RESTART_REFILL"},
+  {DMTCP_GLOBAL_BARRIER_RESTART,  EventConnList::restartResume, "RESTART_RESUME"}
+};
+
+static DmtcpBarrier sshBarriers[] = {
+  {DMTCP_GLOBAL_BARRIER_PRE_CKPT, dmtcp_ssh_drain, "DRAIN"},
+  {DMTCP_GLOBAL_BARRIER_RESUME,   dmtcp_ssh_resume, "RESUME"},
+  {DMTCP_GLOBAL_BARRIER_RESTART,  dmtcp_ssh_restart, "RESTART"}
+};
+
+DmtcpPluginDescriptor_t sshPlugin = {
+  DMTCP_PLUGIN_API_VERSION,
+  PACKAGE_VERSION,
+  "ssh",
+  "DMTCP",
+  "dmtcp@ccs.neu.edu",
+  "SSH Plugin",
+  DMTCP_DECL_BARRIERS(sshBarriers),
+  dmtcp_SSH_EventHook
+};
+
+DmtcpPluginDescriptor_t filePlugin = {
+  DMTCP_PLUGIN_API_VERSION,
+  PACKAGE_VERSION,
+  "file",
+  "DMTCP",
+  "dmtcp@ccs.neu.edu",
+  "File Plugin",
+  DMTCP_DECL_BARRIERS(fileBarriers),
+  dmtcp_FileConnList_EventHook
+};
+
+DmtcpPluginDescriptor_t socketPlugin = {
+  DMTCP_PLUGIN_API_VERSION,
+  PACKAGE_VERSION,
+  "socket",
+  "DMTCP",
+  "dmtcp@ccs.neu.edu",
+  "Socket Plugin",
+  DMTCP_DECL_BARRIERS(socketBarriers),
+  dmtcp_SocketConnList_EventHook
+};
+
+DmtcpPluginDescriptor_t eventPlugin = {
+  DMTCP_PLUGIN_API_VERSION,
+  PACKAGE_VERSION,
+  "event",
+  "DMTCP",
+  "dmtcp@ccs.neu.edu",
+  "Event Plugin",
+  DMTCP_DECL_BARRIERS(eventBarriers),
+  dmtcp_EventConnList_EventHook
+};
+
+DmtcpPluginDescriptor_t ipcPlugin = {
+  DMTCP_PLUGIN_API_VERSION,
+  PACKAGE_VERSION,
+  "ipc",
+  "DMTCP",
+  "dmtcp@ccs.neu.edu",
+  "IPC Virtualization Plugin",
+  DMTCP_NO_PLUGIN_BARRIERS,
+  NULL
+};
+
+#if 1
+DMTCP_DECL_PLUGIN(ipcPlugin);
+#else
+EXTERNC void dmtcp_initialize_plugin()
+{
+  dmtcp_register_plugin(sshPlugin);
+  dmtcp_register_plugin(filePlugin);
+  dmtcp_register_plugin(socketPlugin);
+  dmtcp_register_plugin(eventPlugin);
+
+  void (*fn)() = NEXT_FNC(dmtcp_initialize_plugin);
+  if (fn != NULL) {
+    (*fn)();
+  }
+}
+#endif
+
+/*
+ *
+ */
 extern "C" void process_fd_event(int event, int arg1, int arg2 = -1)
 {
   dmtcp_FileConn_ProcessFdEvent(event, arg1, arg2);

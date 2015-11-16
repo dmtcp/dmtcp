@@ -550,6 +550,22 @@ void dmtcp_Terminal_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
 void dmtcp_Syslog_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
 void dmtcp_Alarm_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
 
+DmtcpPluginDescriptor_t createPluginDescr(const char *name,
+                                          HookFunctionPtr_t hook)
+{
+  DmtcpPluginDescriptor_t descr = {
+    DMTCP_PLUGIN_API_VERSION,
+    PACKAGE_VERSION,
+    name,
+    "DMTCP",
+    "dmtcp@ccs.neu.edu",
+    "",
+    DMTCP_NO_PLUGIN_BARRIERS,
+    hook
+  };
+  return descr;
+}
+
 static void initializePlugins()
 {
   pluginDescriptors = new vector<DmtcpPluginDescriptor_t>;
@@ -557,6 +573,20 @@ static void initializePlugins()
   if (dmtcp_initialize_plugin != NULL) {
     dmtcp_initialize_plugin();
   }
+
+  // Now register the "in-built" plugins.
+  dmtcp_register_plugin(createPluginDescr("syslog",
+                                          dmtcp_Syslog_EventHook));
+  dmtcp_register_plugin(createPluginDescr("alarm",
+                                          dmtcp_Alarm_EventHook));
+  dmtcp_register_plugin(createPluginDescr("terminal",
+                                          dmtcp_Terminal_EventHook));
+  dmtcp_register_plugin(createPluginDescr("upid",
+                                          dmtcp_UniquePid_EventHook));
+  dmtcp_register_plugin(createPluginDescr("coordinatorAPI",
+                                          dmtcp_CoordinatorAPI_EventHook));
+  dmtcp_register_plugin(createPluginDescr("processInfo",
+                                          dmtcp_ProcessInfo_EventHook));
 }
 
 extern "C" void dmtcp_register_plugin(DmtcpPluginDescriptor_t descr)

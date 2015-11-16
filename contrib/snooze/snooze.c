@@ -3,6 +3,7 @@
 #include <sys/time.h>
 #include <inttypes.h>
 #include "dmtcp.h"
+#include "config.h"
 
 #define MAX_CKPT_DIR_LENGTH 256
 #define MAX_HOST_NAME_LENTGH 128
@@ -39,3 +40,20 @@ void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
   /* Call this next line in order to pass DMTCP events to later plugins. */
   DMTCP_NEXT_EVENT_HOOK(event, data);
 }
+
+static DmtcpBarrier snoozeBarriers[] = {
+  {DMTCP_GLOBAL_BARRIER_PRE_CKPT, pre_ckpt, "checkpoint"}
+};
+
+DmtcpPluginDescriptor_t snooze_plugin = {
+  DMTCP_PLUGIN_API_VERSION,
+  PACKAGE_VERSION,
+  "snooze",
+  "DMTCP",
+  "dmtcp@ccs.neu.edu",
+  "Snooze Plugin",
+  DMTCP_DECL_BARRIERS(snoozeBarriers),
+  NULL
+};
+
+DMTCP_DECL_PLUGIN(snooze_plugin);

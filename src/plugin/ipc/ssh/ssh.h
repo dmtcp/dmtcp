@@ -18,4 +18,7 @@ extern "C" void dmtcp_ssh_register_fds(int isSshd, int in, int out, int err,
 
 void client_loop(int ssh_stdin, int ssh_stdout, int ssh_stderr, int remoteSock);
 
+void dmtcp_ssh_drain();
+void dmtcp_ssh_resume();
+void dmtcp_ssh_restart();
 #endif

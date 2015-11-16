@@ -192,3 +192,21 @@ int main()
   return 0;
 }
 #endif
+
+static DmtcpBarrier ckptfileBarriers[] = {
+  {DMTCP_GLOBAL_BARRIER_PRE_CKPT, preCkpt, "checkpoint"},
+  {DMTCP_GLOBAL_BARRIER_RESTART, restart, "restart"}
+};
+
+DmtcpPluginDescriptor_t ckpfile_plugin = {
+  DMTCP_PLUGIN_API_VERSION,
+  PACKAGE_VERSION,
+  "ckptfile",
+  "DMTCP",
+  "dmtcp@ccs.neu.edu",
+  "ckptfile Plugin",
+  DMTCP_DECL_BARRIERS(ckptfileBarriers),
+  NULL
+};
+
+DMTCP_DECL_PLUGIN(ckpfile_plugin);

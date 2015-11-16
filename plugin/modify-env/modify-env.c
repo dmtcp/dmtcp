@@ -18,6 +18,7 @@
 #include <sys/mman.h>
 #ifndef STANDALONE
 # include "dmtcp.h"
+# include "config.h"
 #endif
 
 #define DMTCP_ENV_VAR "DMTCP_ENV_FILE"
@@ -87,6 +88,23 @@ void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
   }
   DMTCP_NEXT_EVENT_HOOK(event, data);
 }
+
+static DmtcpBarrier modify_env_barriers[] = {
+  {DMTCP_GLOBAL_BARRIER_RESTART, restart, "restart"}
+};
+
+DmtcpPluginDescriptor_t modify_env_plugin = {
+  DMTCP_PLUGIN_API_VERSION,
+  PACKAGE_VERSION,
+  "modify-env",
+  "DMTCP",
+  "dmtcp@ccs.neu.edu",
+  "Modify-Environment Plugin",
+  DMTCP_DECL_BARRIERS(modify_env_barriers),
+  NULL
+};
+
+DMTCP_DECL_PLUGIN(modify_env_plugin);
 #endif
 
 #define readEOF ((char)-1)

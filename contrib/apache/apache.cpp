@@ -20,6 +20,7 @@
 #include <stdio.h>
 #include <sys/shm.h>
 #include <sys/ipc.h>
+#include "config.h"
 #include "dmtcp.h"
 
 #define DEBUG_SIGNATURE "[Apache Plugin]"
@@ -132,3 +133,16 @@ int shmget(key_t key, size_t size, int shmflg)
   DMTCP_PLUGIN_ENABLE_CKPT();
   return virtId;
 }
+
+DmtcpPluginDescriptor_t apache_plugin = {
+  DMTCP_PLUGIN_API_VERSION,
+  PACKAGE_VERSION,
+  "apache",
+  "DMTCP",
+  "dmtcp@ccs.neu.edu",
+  "Apache Plugin",
+  DMTCP_NO_PLUGIN_BARRIERS,
+  NULL
+};
+
+DMTCP_DECL_PLUGIN(apache_plugin);

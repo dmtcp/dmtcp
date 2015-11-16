@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include "dmtcp.h"
+#include "config.h"
 
 
 void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
@@ -36,3 +37,16 @@ void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
   }
   DMTCP_NEXT_EVENT_HOOK(event, data);
 }
+
+DmtcpPluginDescriptor_t applic_delayed_ckpt_plugin = {
+  DMTCP_PLUGIN_API_VERSION,
+  PACKAGE_VERSION,
+  "applic_delayed_ckpt",
+  "DMTCP",
+  "dmtcp@ccs.neu.edu",
+  "Application delayed ckpt plugin",
+  DMTCP_NO_PLUGIN_BARRIERS,
+  NULL
+};
+
+DMTCP_DECL_PLUGIN(applic_delayed_ckpt_plugin);

@@ -23,6 +23,7 @@
 #include <signal.h>
 #include <time.h>
 
+#include "config.h"
 #include "dmtcp.h"
 #include "jassert.h"
 
@@ -231,3 +232,22 @@ dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
   }
   DMTCP_NEXT_EVENT_HOOK(event, data);
 }
+
+static DmtcpBarrier ckpttimerBarriers[] = {
+  {DMTCP_GLOBAL_BARRIER_PRE_CKPT, pre_ckpt, "checkpoint"},
+  {DMTCP_GLOBAL_BARRIER_RESUME, resume, "resume"},
+  {DMTCP_GLOBAL_BARRIER_RESTART, restart, "restart"}
+};
+
+DmtcpPluginDescriptor_t ckpttimer_plugin = {
+  DMTCP_PLUGIN_API_VERSION,
+  PACKAGE_VERSION,
+  "ckpttimer",
+  "DMTCP",
+  "dmtcp@ccs.neu.edu",
+  "Ckpttimer Plugin",
+  DMTCP_DECL_BARRIERS(ckpttimerBarriers),
+  NULL
+};
+
+DMTCP_DECL_PLUGIN(ckpttimer_plugin);

@@ -90,6 +90,25 @@ void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t* data)
   DMTCP_NEXT_EVENT_HOOK(event, data);
 }
 
+static DmtcpBarrier rmBarriers[] = {
+  {DMTCP_GLOBAL_BARRIER_PRE_CKPT, pre_ckpt, "checkpoint"},
+  {DMTCP_GLOBAL_BARRIER_RESUME, resume, "resume"},
+  {DMTCP_GLOBAL_BARRIER_RESTART, restart, "restart"},
+  {DMTCP_GLOBAL_BARRIER_RESTART, restart_resume, "restart_resume"}
+};
+
+DmtcpPluginDescriptor_t batch_queue_plugin = {
+  DMTCP_PLUGIN_API_VERSION,
+  PACKAGE_VERSION,
+  "batch-queue",
+  "DMTCP",
+  "dmtcp@ccs.neu.edu",
+  "Batch-queue Plugin",
+  DMTCP_DECL_BARRIERS(rmBarriers),
+  NULL
+};
+
+DMTCP_DECL_PLUGIN(batch_queue_plugin);
 
 // ----------------- global data ------------------------//
 static rmgr_type_t rmgr_type = Empty;

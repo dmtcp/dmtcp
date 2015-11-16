@@ -13,6 +13,7 @@
 #endif
 
 #include "dmtcp.h"
+#include "config.h"
 
 #define DEBUG_SIGNATURE "DEBUG [KVM Plugin]: "
 #define MAX_MSR_ENTRIES 100
@@ -923,3 +924,21 @@ void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
   }
   DMTCP_NEXT_EVENT_HOOK(event, data);
 }
+
+static DmtcpBarrier kvmBarriers[] = {
+  {DMTCP_GLOBAL_BARRIER_PRE_CKPT, pre_ckpt, "checkpoint"},
+  {DMTCP_GLOBAL_BARRIER_RESTART, restart, "restart"}
+};
+
+DmtcpPluginDescriptor_t kvm_plugin = {
+  DMTCP_PLUGIN_API_VERSION,
+  PACKAGE_VERSION,
+  "kvm",
+  "DMTCP",
+  "dmtcp@ccs.neu.edu",
+  "KVM Plugin",
+  DMTCP_DECL_BARRIERS(kvmBarriers),
+  NULL
+};
+
+DMTCP_DECL_PLUGIN(kvm_plugin);

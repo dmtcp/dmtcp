@@ -37,6 +37,7 @@
 #include "jconvert.h"
 #include "connectionlist.h"
 #include "fileconnection.h"
+#include "procmapsarea.h"
 
 namespace dmtcp
 {
@@ -44,6 +45,20 @@ namespace dmtcp
   {
     public:
       static FileConnList& instance();
+
+      static void saveOptions() { instance().preLockSaveOptions(); }
+      static void leaderElection() { instance().preCkptFdLeaderElection(); }
+      static void drainFd() { instance().drain(); }
+      static void ckpt() { instance().preCkpt(); }
+
+      static void resumeRefill() { instance().refill(false); }
+      static void resumeResume() { instance().resume(false); }
+
+      static void restart() { instance().postRestart(); }
+      static void restartRegisterNSData() { instance().registerNSData(); }
+      static void restartSendQueries() { instance().sendQueries(); }
+      static void restartRefill() { instance().refill(true); }
+      static void restartResume() { instance().resume(true); }
 
       virtual void preLockSaveOptions();
       virtual void drain();

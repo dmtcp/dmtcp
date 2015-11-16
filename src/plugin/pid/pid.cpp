@@ -28,6 +28,7 @@
 #include "virtualpidtable.h"
 #include "dmtcp.h"
 #include "protectedfds.h"
+#include "config.h"
 
 using namespace dmtcp;
 
@@ -234,3 +235,21 @@ extern "C" void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
   DMTCP_NEXT_EVENT_HOOK(event, data);
   return;
 }
+
+static DmtcpBarrier pidBarriers[] = {
+  {DMTCP_GLOBAL_BARRIER_RESTART, pidVirt_PostRestart, "RESTART1"},
+  {DMTCP_GLOBAL_BARRIER_RESTART, pidVirt_PostRestartRefill, "RESTART2"}
+};
+
+DmtcpPluginDescriptor_t pidPlugin = {
+  DMTCP_PLUGIN_API_VERSION,
+  PACKAGE_VERSION,
+  "pid",
+  "DMTCP",
+  "dmtcp@ccs.neu.edu",
+  "PID Virtualization Plugin",
+  DMTCP_DECL_BARRIERS(pidBarriers),
+  NULL
+};
+
+DMTCP_DECL_PLUGIN(pidPlugin);
