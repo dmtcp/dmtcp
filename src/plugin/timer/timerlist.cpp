@@ -38,6 +38,16 @@ static void _do_unlock_tbl()
   JASSERT(_real_pthread_mutex_unlock(&timerLock) == 0) (JASSERT_ERRNO);
 }
 
+static void preCheckpoint()
+{
+  TimerList::instance().preCheckpoint();
+}
+
+static void postRestart()
+{
+  TimerList::instance().postRestart();
+}
+
 extern "C"
 void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
@@ -48,11 +58,11 @@ void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
         break;
 
       case DMTCP_EVENT_WRITE_CKPT:
-        TimerList::instance().preCheckpoint();
+        preCheckpoint();
         break;
 
       case DMTCP_EVENT_RESTART:
-        TimerList::instance().postRestart();
+        postRestart();
         break;
 
       default:

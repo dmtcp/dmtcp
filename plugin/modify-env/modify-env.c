@@ -42,16 +42,21 @@ int dmtcp_get_restart_env(char *envName, char *dest, size_t size) {
 #endif
 
 #ifndef STANDALONE
+
+static void restart()
+{
+  int size = 12288;
+  char *buf = read_dmtcp_env_file("dmtcp_env.txt", size);
+  readAndSetEnv(buf, size);
+}
+
 void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   /* NOTE:  See warning in plugin/README about calls to printf here. */
   switch (event) {
   case DMTCP_EVENT_RESTART:
-  { int size = 12288;
-    char *buf = read_dmtcp_env_file("dmtcp_env.txt", size);
-    readAndSetEnv(buf, size);
+    restart();
     break;
-  }
   default:
     break;
   }

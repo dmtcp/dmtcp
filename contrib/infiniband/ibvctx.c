@@ -84,6 +84,8 @@ static void query_qp_pd_info(void);
 static void send_rkey_info(void);
 static void post_restart(void);
 static void post_restart2(void);
+static void register_ns_data(void);
+static void send_queries(void);
 static void refill(void);
 
 int _ibv_post_send(struct ibv_qp * qp, struct ibv_send_wr * wr, struct
@@ -124,38 +126,52 @@ int dmtcp_infiniband_enabled(void) { return 1; }
 void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t* data)
 {
   switch (event) {
-    case DMTCP_EVENT_WRITE_CKPT:
-      pre_checkpoint();
-      break;
-    case DMTCP_EVENT_RESTART:
-      list_init(&rkey_list);
-      list_init(&remote_ud_qp_list);
-      post_restart();
-      break;
-    case DMTCP_EVENT_REGISTER_NAME_SERVICE_DATA:
-      if (data->nameserviceInfo.isRestart) {
-        send_qp_info();
-        send_qp_pd_info();
-        send_rkey_info();
-      }
-      break;
-    case DMTCP_EVENT_SEND_QUERIES:
-      if (data->nameserviceInfo.isRestart) {
-        query_qp_info();
-        query_qp_pd_info();
-        post_restart2();
-      }
-      break;
-    case DMTCP_EVENT_REFILL:
-      if (is_restart) {
-        refill();
-      }
-      break;
-    default:
-      break;
+  case DMTCP_EVENT_WRITE_CKPT:
+    pre_checkpoint();
+    break;
+
+  case DMTCP_EVENT_RESTART:
+    post_restart();
+    break;
+
+  case DMTCP_EVENT_REGISTER_NAME_SERVICE_DATA:
+    if (data->nameserviceInfo.isRestart) {
+      register_ns_data();
+    }
+    break;
+
+  case DMTCP_EVENT_SEND_QUERIES:
+    if (data->nameserviceInfo.isRestart) {
+      send_queries();
+    }
+    break;
+
+  case DMTCP_EVENT_REFILL:
+    if (is_restart) {
+      refill();
+    }
+    break;
+
+  default:
+    break;
   }
 
   DMTCP_NEXT_EVENT_HOOK(event, data);
+}
+
+static void register_ns_data(void)
+{
+  send_qp_info();
+  send_qp_pd_info();
+  send_rkey_info();
+}
+
+
+static void send_queries(void)
+{
+  query_qp_info();
+  query_qp_pd_info();
+  post_restart2();
 }
 
 
@@ -462,6 +478,8 @@ void pre_checkpoint(void)
 // TODO: Must handle case of modifying after checkpoint
 void post_restart(void)
 {
+  list_init(&rkey_list);
+  list_init(&remote_ud_qp_list);
   is_restart = true;
   if (is_fork) {
     if (NEXT_IBV_FNC(ibv_fork_init)()) {

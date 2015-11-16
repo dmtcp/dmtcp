@@ -35,27 +35,53 @@ using namespace dmtcp;
 
 extern "C" int dmtcp_batch_queue_enabled(void) { return 1; }
 
+static void pre_ckpt()
+{
+  JTRACE("DMTCP_EVENT_THREADS_SUSPEND");
+  runUnderRMgr();
+  rm_shutdown_pmi();
+}
+
+static void resume()
+{
+  JTRACE("DMTCP_EVENT_THREADS_RESUME");
+  rm_restore_pmi();
+  slurmRestoreHelper(false);
+}
+
+static void restart()
+{
+  JTRACE("DMTCP_EVENT_RESTART")(_get_rmgr_type());
+  if ( _get_rmgr_type() == slurm ){
+    JTRACE("Call restore_env()");
+    slurm_restore_env();
+  }
+}
+
+static void restart_resume()
+{
+  JTRACE("DMTCP_EVENT_THREADS_RESUME");
+  rm_restore_pmi();
+  slurmRestoreHelper(true);
+}
+
 void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t* data)
 {
   JTRACE("Start");
 
   switch (event) {
   case DMTCP_EVENT_THREADS_SUSPEND:
-    JTRACE("DMTCP_EVENT_THREADS_SUSPEND");
-    runUnderRMgr();
-    rm_shutdown_pmi();
+    pre_ckpt();
     break;
   case DMTCP_EVENT_THREADS_RESUME:
-    JTRACE("DMTCP_EVENT_THREADS_RESUME");
-    rm_restore_pmi();
-    slurmRestoreHelper(data->refillInfo.isRestart);
+    if (data->resumeInfo.isRestart) {
+      restart_resume();
+    } else {
+      resume();
+    }
     break;
   case DMTCP_EVENT_RESTART:
-    JTRACE("DMTCP_EVENT_RESTART")(_get_rmgr_type());
-    if ( _get_rmgr_type() == slurm ){
-      JTRACE("Call restore_env()");
-      slurm_restore_env();
-    }
+    restart();
     break;
   default:
     break;

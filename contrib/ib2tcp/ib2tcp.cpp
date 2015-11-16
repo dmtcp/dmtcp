@@ -69,8 +69,6 @@ void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t* data)
     //drainCq();
     break;
   case DMTCP_EVENT_RESTART:
-    isVirtIB = 1;
-    pthread_mutex_init(&_lock, NULL);
     IB2TCP::postRestart();
     break;
   case DMTCP_EVENT_REGISTER_NAME_SERVICE_DATA:
@@ -184,11 +182,17 @@ void IB2TCP::init()
 
 void IB2TCP::postRestart()
 {
+  isVirtIB = 1;
+  pthread_mutex_init(&_lock, NULL);
   openListenSocket();
 }
 
 void IB2TCP::registerNSData()
 {
+  if (!isVirtIB) {
+    return;
+  }
+
   map<uint32_t, IB_QP*>::iterator it;
   for (it = queuePairs.begin(); it != queuePairs.end(); it++) {
     IB_QP *ibqp = it->second;
@@ -204,6 +208,10 @@ void IB2TCP::registerNSData()
 
 void IB2TCP::sendQueries()
 {
+  if (!isVirtIB) {
+    return;
+  }
+
   map<uint32_t, IB_QP*>::iterator it;
   for (it = queuePairs.begin(); it != queuePairs.end(); it++) {
     IB_QP *ibqp = it->second;
@@ -223,6 +231,10 @@ void IB2TCP::sendQueries()
 
 void IB2TCP::createTCPConnections()
 {
+  if (!isVirtIB) {
+    return;
+  }
+
   size_t numRemaining = 0;
   map<uint32_t, IB_QP*>::iterator it;
   //First do a connect

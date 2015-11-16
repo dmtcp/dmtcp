@@ -368,6 +368,105 @@ int ioctl(int fd, unsigned long int request, ...)
  *  - Replay the sequence of ioctl's
  *  - Write the saved data, if any, back to the tun fd
  */
+
+static void pre_ckpt()
+{
+  int i, request, idx, ret, flags, count;
+  char *request_name;
+  char error_string[MAX_ERROR_STRING_LENGTH];
+  void* arg;
+
+  DPRINTF("\n*** The plugin is being called before checkpointing. ***\n");
+  /* TODO: flush(g_tun_fd)?? */
+  fsync(g_tun_fd);
+
+  /* Try to drain the data from the tap/tun fd; later, we'll put the data
+   * back "on the wire".
+   */
+
+  /* But first, save the flags, and make the reads non-blocking */
+  g_tunfd_flags = get_flags(g_tun_fd);
+  DPRINTF("Setting tunfd to non-blocking\n");
+  ret = set_non_blocking(g_tun_fd);
+  count = 0;
+
+  DPRINTF("Draining the tunfd(%d)\n", g_tun_fd);
+  /* NOTE: This is a heuristic, should work for now. */
+  while (count < MAX_NUM_OF_READS) {
+    ret = read(g_tun_fd, (g_drained_data + g_bytes_read),
+               (MAX_BUF_SIZE - g_bytes_read));
+    if (ret > 0) {
+      g_bytes_read += ret;
+    }
+    count += 1;
+  }
+  DPRINTF("Read %d bytes from the tunfd(%d)\n", g_bytes_read, g_tun_fd);
+
+  /* Restore the flags */
+  ret = set_flags(g_tun_fd, g_tunfd_flags);
+}
+
+static void refill_tun_fd()
+{
+  if (g_bytes_read > 0) {
+    /* It's time to put the captured data back on the wire */
+    DPRINTF("Writing %d bytes back to the tunfd(%d)\n", g_bytes_read, g_tun_fd);
+
+    /* Again, first save the flags, and make the write non-blocking */
+    g_tunfd_flags = get_flags(g_tun_fd);
+    int ret = set_non_blocking(g_tun_fd);
+
+    if ((ret = write(g_tun_fd, g_drained_data, g_bytes_read)) < 0) {
+      perror("ERROR: Unable to put the capture data back on the wire.");
+    }
+
+    /* Restore the flags */
+    ret = set_flags(g_tun_fd, g_tunfd_flags);
+  }
+}
+
+static void resume()
+{
+  DPRINTF("The process is now resuming after checkpoint.\n");
+  refill_tun_fd();
+}
+
+
+static void restart()
+{
+  int i, request, idx, ret, flags, count;
+  char *request_name;
+  char error_string[MAX_ERROR_STRING_LENGTH];
+  void* arg;
+
+  DPRINTF("The plugin is now restarting from checkpointing.\n");
+  if (g_tun_fd != -1) {
+    /* Replay the sequence of ioctls */
+    DPRINTF("Replaying %d ioctls on tunfd(%d)\n", g_last_req_idx + 1, g_tun_fd);
+    for (i = 0; i <= g_last_req_idx; i++) {
+      request = g_request_table[i].request;
+      idx = get_request_name_idx(request);
+      request_name = (idx != -1) ? request_names[idx]: "UNKNOWN";
+      DPRINTF("REQUEST #%d: %s\n", i, request_name);
+      arg = g_request_table[i].arg;
+      ret = NEXT_FNC(ioctl)(g_tun_fd, request, arg);
+      if (ret < 0) {
+        snprintf(error_string, MAX_ERROR_STRING_LENGTH,
+                 "ERROR: ioctl(%s)\n", request_name);
+        perror(error_string);
+        if (is_fatal(request)) {
+          DPRINTF("FATAL ERROR: Cannot continue!\n");
+          exit(-1);
+        }
+      }
+    }
+  } else {
+    DPRINTF("ERROR: Cannot restore tap/tun connection. g_tun_fd is -1.\n");
+  }
+
+  refill_tun_fd();
+}
+
 void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   int i, request, idx, ret, flags, count;
@@ -384,34 +483,6 @@ void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     }
   case DMTCP_EVENT_WRITE_CKPT:
     {
-      DPRINTF("\n*** The plugin is being called before checkpointing. ***\n");
-      /* TODO: flush(g_tun_fd)?? */
-      fsync(g_tun_fd);
-
-      /* Try to drain the data from the tap/tun fd; later, we'll put the data
-       * back "on the wire".
-       */
-
-      /* But first, save the flags, and make the reads non-blocking */
-      g_tunfd_flags = get_flags(g_tun_fd);
-      DPRINTF("Setting tunfd to non-blocking\n");
-      ret = set_non_blocking(g_tun_fd);
-      count = 0;
-
-      DPRINTF("Draining the tunfd(%d)\n", g_tun_fd);
-      /* NOTE: This is a heuristic, should work for now. */
-      while (count < MAX_NUM_OF_READS) {
-        ret = read(g_tun_fd, (g_drained_data + g_bytes_read),
-                             (MAX_BUF_SIZE - g_bytes_read));
-        if (ret > 0) {
-          g_bytes_read += ret;
-        }
-        count += 1;
-      }
-      DPRINTF("Read %d bytes from the tunfd(%d)\n", g_bytes_read, g_tun_fd);
-
-      /* Restore the flags */
-      ret = set_flags(g_tun_fd, g_tunfd_flags);
       break;
     }
   case DMTCP_EVENT_RESUME:
@@ -422,50 +493,11 @@ void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
   case DMTCP_EVENT_THREADS_RESUME:
     {
       if (data->resumeInfo.isRestart) {
-        DPRINTF("The plugin is now restarting from checkpointing.\n");
-        if (g_tun_fd != -1) {
-          /* Replay the sequence of ioctls */
-          DPRINTF("Replaying %d ioctls on tunfd(%d)\n", g_last_req_idx + 1, g_tun_fd);
-          for (i = 0; i <= g_last_req_idx; i++) {
-            request = g_request_table[i].request;
-            idx = get_request_name_idx(request);
-            request_name = (idx != -1) ? request_names[idx]: "UNKNOWN";
-            DPRINTF("REQUEST #%d: %s\n", i, request_name);
-            arg = g_request_table[i].arg;
-            ret = NEXT_FNC(ioctl)(g_tun_fd, request, arg);
-            if (ret < 0) {
-              snprintf(error_string, MAX_ERROR_STRING_LENGTH,
-                  "ERROR: ioctl(%s)\n", request_name);
-              perror(error_string);
-              if (is_fatal(request)) {
-                DPRINTF("FATAL ERROR: Cannot continue!\n");
-                exit(-1);
-              }
-            }
-          }
-        } else {
-          DPRINTF("ERROR: Cannot restore tap/tun connection. g_tun_fd is -1.\n");
-        }
+        restart();
       } else {
-        DPRINTF("The process is now resuming after checkpoint.\n");
+        resume();
       }
 
-      if (g_bytes_read > 0)
-      {
-        /* It's time to put the captured data back on the wire */
-        DPRINTF("Writing %d bytes back to the tunfd(%d)\n", g_bytes_read, g_tun_fd);
-
-        /* Again, first save the flags, and make the write non-blocking */
-        g_tunfd_flags = get_flags(g_tun_fd);
-        ret = set_non_blocking(g_tun_fd);
-
-        if ((ret = write(g_tun_fd, g_drained_data, g_bytes_read)) < 0) {
-          perror("ERROR: Unable to put the capture data back on the wire.");
-        }
-
-        /* Restore the flags */
-        ret = set_flags(g_tun_fd, g_tunfd_flags);
-      }
       break;
     }
   case DMTCP_EVENT_EXIT:
