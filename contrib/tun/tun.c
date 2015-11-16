@@ -17,6 +17,7 @@
 
 #include <fcntl.h>
 #include "dmtcp.h"
+#include "config.h"
 
 #define DEBUG_SIGNATURE "DEBUG [TUN Plugin]: "
 
@@ -516,3 +517,22 @@ void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
   }
   DMTCP_NEXT_EVENT_HOOK(event, data);
 }
+
+static DmtcpBarrier tunBarriers[] = {
+  {DMTCP_GLOBAL_BARRIER_PRE_CKPT, pre_ckpt, "checkpoint"},
+  {DMTCP_GLOBAL_BARRIER_RESUME, resume, "resume"},
+  {DMTCP_GLOBAL_BARRIER_RESTART, restart, "restart"}
+};
+
+DmtcpPluginDescriptor_t tun_plugin = {
+  DMTCP_PLUGIN_API_VERSION,
+  PACKAGE_VERSION,
+  "tun",
+  "DMTCP",
+  "dmtcp@ccs.neu.edu",
+  "TUN Plugin",
+  DMTCP_DECL_BARRIERS(tunBarriers),
+  NULL
+};
+
+DMTCP_DECL_PLUGIN(tun_plugin);

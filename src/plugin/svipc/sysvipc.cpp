@@ -211,6 +211,33 @@ extern "C" void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
   DMTCP_NEXT_EVENT_HOOK(event, data);
 }
 
+static DmtcpBarrier svipcBarriers[] = {
+  {DMTCP_GLOBAL_BARRIER_PRE_CKPT, leaderElection, "LEADER_ELECTION"},
+  {DMTCP_GLOBAL_BARRIER_PRE_CKPT, preCkptDrain, "DRAIN"},
+  {DMTCP_GLOBAL_BARRIER_PRE_CKPT, preCheckpoint, "PRE_CKPT"},
+
+  {DMTCP_GLOBAL_BARRIER_RESUME, resumeRefill, "RESUME_REFILL"},
+  {DMTCP_GLOBAL_BARRIER_RESUME, resumeResume, "RESUME"},
+
+  {DMTCP_GLOBAL_BARRIER_RESTART, postRestart, "RESTART"},
+  {DMTCP_GLOBAL_BARRIER_RESTART, restartRefill, "RESTART_REFILL"},
+  {DMTCP_GLOBAL_BARRIER_RESTART, restartResume, "RESTART_RESUME"}
+};
+
+DmtcpPluginDescriptor_t svipcPlugin = {
+  DMTCP_PLUGIN_API_VERSION,
+  PACKAGE_VERSION,
+  "svipc",
+  "DMTCP",
+  "dmtcp@ccs.neu.edu",
+  "Sys V IPC Virtualization Plugin",
+  DMTCP_DECL_BARRIERS(svipcBarriers),
+  NULL
+};
+
+DMTCP_DECL_PLUGIN(svipcPlugin);
+
+
 static void _do_lock_tbl()
 {
   JASSERT(_real_pthread_mutex_lock(&tblLock) == 0) (JASSERT_ERRNO);

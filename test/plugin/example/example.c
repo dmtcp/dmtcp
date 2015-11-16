@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include "dmtcp.h"
+#include "config.h"
 
 
 void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
@@ -38,3 +39,16 @@ void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
   }
   DMTCP_NEXT_EVENT_HOOK(event, data);
 }
+
+DmtcpPluginDescriptor_t example_plugin = {
+  DMTCP_PLUGIN_API_VERSION,
+  PACKAGE_VERSION,
+  "example",
+  "DMTCP",
+  "dmtcp@ccs.neu.edu",
+  "Example Plugin",
+  DMTCP_NO_PLUGIN_BARRIERS,
+  NULL
+};
+
+DMTCP_DECL_PLUGIN(example_plugin);

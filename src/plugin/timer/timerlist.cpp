@@ -22,6 +22,8 @@
 #include <time.h>
 #include "timerlist.h"
 #include "timerwrappers.h"
+#include "config.h"
+#include "dmtcp.h"
 
 using namespace dmtcp;
 
@@ -73,6 +75,28 @@ void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
   DMTCP_NEXT_EVENT_HOOK(event, data);
 }
 
+static DmtcpBarrier timerBarriers[] = {
+  {DMTCP_GLOBAL_BARRIER_PRE_CKPT, preCheckpoint, "PRE_CKPT"},
+  {DMTCP_GLOBAL_BARRIER_RESTART, postRestart, "RESTART"}
+};
+
+DmtcpPluginDescriptor_t timerPlugin = {
+  DMTCP_PLUGIN_API_VERSION,
+  PACKAGE_VERSION,
+  "ipc",
+  "DMTCP",
+  "dmtcp@ccs.neu.edu",
+  "IPC Virtualization Plugin",
+  DMTCP_DECL_BARRIERS(timerBarriers),
+  NULL
+};
+
+DMTCP_DECL_PLUGIN(timerPlugin);
+
+
+/*
+ *
+ */
 TimerList& TimerList::instance()
 {
   if (_timerlist == NULL) {

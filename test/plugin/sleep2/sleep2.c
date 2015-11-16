@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <sys/time.h>
 #include "dmtcp.h"
+#include "config.h"
 
 void print_time() {
   struct timeval val;
@@ -50,3 +51,16 @@ void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
   /* Call this next line in order to pass DMTCP events to later plugins. */
   DMTCP_NEXT_EVENT_HOOK(event, data);
 }
+
+DmtcpPluginDescriptor_t sleep2_plugin = {
+  DMTCP_PLUGIN_API_VERSION,
+  PACKAGE_VERSION,
+  "sleep2",
+  "DMTCP",
+  "dmtcp@ccs.neu.edu",
+  "Sleep2 Plugin",
+  DMTCP_NO_PLUGIN_BARRIERS,
+  NULL
+};
+
+DMTCP_DECL_PLUGIN(sleep2_plugin);

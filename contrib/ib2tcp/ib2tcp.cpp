@@ -16,6 +16,7 @@
 #include <queue>
 
 #include "dmtcp.h"
+#include "config.h"
 #include "dmtcpalloc.h"
 #include "util.h"
 #include "jsocket.h"
@@ -93,6 +94,27 @@ void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t* data)
 
   DMTCP_NEXT_EVENT_HOOK(event, data);
 }
+
+
+static DmtcpBarrier ib2tcpBarriers[] = {
+  {DMTCP_GLOBAL_BARRIER_RESTART, IB2TCP::postRestart, "restart"},
+  {DMTCP_GLOBAL_BARRIER_RESTART, IB2TCP::registerNSData, "register_ns_data"},
+  {DMTCP_GLOBAL_BARRIER_RESTART, IB2TCP::sendQueries, "send_queries"},
+  {DMTCP_GLOBAL_BARRIER_RESTART, IB2TCP::createTCPConnections, "restart_resume"}
+};
+
+DmtcpPluginDescriptor_t ib2tcp_plugin = {
+  DMTCP_PLUGIN_API_VERSION,
+  PACKAGE_VERSION,
+  "ib2tcp",
+  "DMTCP",
+  "dmtcp@ccs.neu.edu",
+  "IB2TCP Plugin",
+  DMTCP_DECL_BARRIERS(ib2tcpBarriers),
+  NULL
+};
+
+DMTCP_DECL_PLUGIN(ib2tcp_plugin);
 
 /**************************************************************/
 /**************************************************************/

@@ -9,6 +9,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include "dmtcp.h"
+#include "config.h"
 
 struct keyPid {
   int key;
@@ -77,3 +78,24 @@ void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
   }
   DMTCP_NEXT_EVENT_HOOK(event, data);
 }
+
+static DmtcpBarrier exampledbBarriers[] = {
+  {DMTCP_GLOBAL_BARRIER_RESUME, "RESUME_NS_REGISTER_DATA"},
+  {DMTCP_GLOBAL_BARRIER_RESUME, "RESUME_NS_SEND_QUERIES"},
+
+  {DMTCP_GLOBAL_BARRIER_RESTART, "RESTART_NS_REGISTER_DATA"},
+  {DMTCP_GLOBAL_BARRIER_RESTART, "RESTART_NS_SEND_QUERIES"}
+};
+
+DmtcpPluginDescriptor_t example_db_plugin = {
+  DMTCP_PLUGIN_API_VERSION,
+  PACKAGE_VERSION,
+  "example_db",
+  "DMTCP",
+  "dmtcp@ccs.neu.edu",
+  "Example-db Plugin",
+  DMTCP_DECL_BARRIERS(exampledbBarriers),
+  NULL
+};
+
+DMTCP_DECL_PLUGIN(example_db_plugin);
