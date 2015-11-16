@@ -371,7 +371,15 @@ static int _open_open64_work(int(*fn) (const char *path, int flags, ...),
     newpath = currPtsDevName;
   }
 
-  int fd = (*fn) (newpath, flags, mode);
+  dmtcp::string hook_path = "";
+  bool doSwap = dynamic_path_swap ? dynamic_path_swap(newpath, hook_path) : false;
+  int fd = -1;
+
+  /* hook_path was NULL, not swapping */
+  if (!doSwap)
+    fd = (*fn)(path, flags, mode);
+  else
+    fd = (*fn)(hook_path.c_str(), flags, mode);
 
   if (fd >= 0 && dmtcp_is_running_state()) {
     FileConnList::instance().processFileConnection(fd, newpath, flags, mode);
@@ -454,7 +462,15 @@ static FILE *_fopen_fopen64_work(FILE*(*fn) (const char *path, const char *mode)
     newpath = currPtsDevName;
   }
 
-  FILE *file =(*fn) (newpath, mode);
+  dmtcp::string hook_path = "";
+  bool doSwap = dynamic_path_swap ? dynamic_path_swap(newpath, hook_path) : false;
+  FILE* file = NULL;
+
+  /* hook_path was NULL, not swapping */
+  if (!doSwap)
+    file = (*fn)(newpath, mode);
+  else
+    file = (*fn)(hook_path.c_str(), mode);
 
   if (file != NULL && dmtcp_is_running_state()) {
     FileConnList::instance().processFileConnection(fileno(file), newpath,

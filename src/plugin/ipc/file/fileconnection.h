@@ -39,6 +39,8 @@
 #include "jconvert.h"
 #include "connection.h"
 
+extern bool dynamic_path_swap(const char *path, dmtcp::string &newPath) __attribute ((weak));
+
 namespace dmtcp
 {
   class PtyConnection : public Connection

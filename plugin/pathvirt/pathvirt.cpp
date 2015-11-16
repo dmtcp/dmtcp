@@ -179,6 +179,7 @@ dynamic_path_swap(const char *path, dmtcp::string &newPath)
     return true;
 }
 
+#if 0
 /*
  * Libc Hooks (for all path related functions)
  */
@@ -218,6 +219,7 @@ int open(const char *path, int oflag, mode_t mode)
 
     return fd;
 }
+#endif
 
 /*
  * DMTCP Setup
