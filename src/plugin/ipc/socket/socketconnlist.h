@@ -22,8 +22,8 @@ namespace dmtcp
       virtual void drain();
       virtual void preCkpt();
       virtual void postRestart();
-      virtual void registerNSData(bool isRestart);
-      virtual void sendQueries(bool isRestart);
+      virtual void registerNSData();
+      virtual void sendQueries();
       virtual void refill(bool isRestart);
 
       virtual int protectedFd() { return PROTECTED_SOCKET_FDREWIRER_FD; }

@@ -73,6 +73,8 @@ static void query_qp_pd_info(void);
 static void send_rkey_info(void);
 static void post_restart(void);
 static void post_restart2(void);
+static void register_ns_data(void);
+static void send_queries(void);
 static void refill(void);
 
 int _ibv_post_send(struct ibv_qp * qp, struct ibv_send_wr * wr,
@@ -114,37 +116,52 @@ int dmtcp_infiniband_enabled(void) { return 1; }
 void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t* data)
 {
   switch (event) {
-    case DMTCP_EVENT_WRITE_CKPT:
-      pre_checkpoint();
-      break;
-    case DMTCP_EVENT_RESTART:
-      list_init(&rkey_list);
-      post_restart();
-      break;
-    case DMTCP_EVENT_REGISTER_NAME_SERVICE_DATA:
-      if (data->nameserviceInfo.isRestart) {
-        send_qp_info();
-        send_qp_pd_info();
-        send_rkey_info();
-      }
-      break;
-    case DMTCP_EVENT_SEND_QUERIES:
-      if (data->nameserviceInfo.isRestart) {
-        query_qp_info();
-        query_qp_pd_info();
-        post_restart2();
-      }
-      break;
-    case DMTCP_EVENT_REFILL:
-      if (is_restart) {
-        refill();
-      }
-      break;
-    default:
-      break;
+  case DMTCP_EVENT_WRITE_CKPT:
+    pre_checkpoint();
+    break;
+
+  case DMTCP_EVENT_RESTART:
+    post_restart();
+    break;
+
+  case DMTCP_EVENT_REGISTER_NAME_SERVICE_DATA:
+    if (data->nameserviceInfo.isRestart) {
+      register_ns_data();
+    }
+    break;
+
+  case DMTCP_EVENT_SEND_QUERIES:
+    if (data->nameserviceInfo.isRestart) {
+      send_queries();
+    }
+    break;
+
+  case DMTCP_EVENT_REFILL:
+    if (is_restart) {
+      refill();
+    }
+    break;
+
+  default:
+    break;
   }
 
   DMTCP_NEXT_EVENT_HOOK(event, data);
+}
+
+static void register_ns_data(void)
+{
+  send_qp_info();
+  send_qp_pd_info();
+  send_rkey_info();
+}
+
+
+static void send_queries(void)
+{
+  query_qp_info();
+  query_qp_pd_info();
+  post_restart2();
 }
 
 
@@ -243,10 +260,10 @@ static void query_qp_info(void)
              internal_qp->remote_id.qpn, internal_qp->remote_id.lid,
              internal_qp->remote_id.psn, hostname);
 
-      dmtcp_send_query_to_coordinator("qp_info", 
-                                      &internal_qp->remote_id, 
+      dmtcp_send_query_to_coordinator("qp_info",
+                                      &internal_qp->remote_id,
                                       sizeof(internal_qp->remote_id),
-                                      &internal_qp->current_remote, 
+                                      &internal_qp->current_remote,
           			      &size);
 
       assert(size == sizeof(ibv_qp_id_t));
@@ -266,10 +283,10 @@ static void send_qp_pd_info(void) {
     internal_pd = ibv_pd_to_internal(internal_qp->user_qp.pd);
     size = sizeof(internal_pd->pd_id);
 
-    dmtcp_send_key_val_pair_to_coordinator("pd_info", 
-                                           &internal_qp->local_qp_pd_id, 
+    dmtcp_send_key_val_pair_to_coordinator("pd_info",
+                                           &internal_qp->local_qp_pd_id,
                                            sizeof(ibv_qp_pd_id_t),
-                                           &internal_pd->pd_id, 
+                                           &internal_pd->pd_id,
 					   size);
   }
 }
@@ -285,8 +302,8 @@ static void query_qp_pd_info(void) {
     internal_qp = list_entry(e, struct internal_ibv_qp, elem);
     if (internal_qp->user_qp.qp_type == IBV_QPT_RC) {
       size = sizeof(internal_qp->remote_pd_id);
-      ret = dmtcp_send_query_to_coordinator("pd_info", 
-                                            &internal_qp->remote_qp_pd_id, 
+      ret = dmtcp_send_query_to_coordinator("pd_info",
+                                            &internal_qp->remote_qp_pd_id,
                                             sizeof(ibv_qp_pd_id_t),
                                             &internal_qp->remote_pd_id,
           			            &size);
@@ -451,6 +468,7 @@ void pre_checkpoint(void)
 // TODO: Must handle case of modifying after checkpoint
 void post_restart(void)
 {
+  list_init(&rkey_list);
   is_restart = true;
   if (is_fork) {
     if (NEXT_IBV_FNC(ibv_fork_init)()) {
@@ -679,7 +697,7 @@ void post_restart(void)
     internal_srq = list_entry(e, struct internal_ibv_srq, elem);
     new_attr = internal_srq->init_attr;
 
-    internal_srq->real_srq = 
+    internal_srq->real_srq =
     NEXT_IBV_FNC(ibv_create_srq)
                   (ibv_pd_to_internal(internal_srq->user_srq.pd)->real_pd,
                    &new_attr);
@@ -702,7 +720,7 @@ void post_restart(void)
     new_attr = internal_qp->init_attr;
     new_attr.recv_cq = ibv_cq_to_internal(internal_qp->user_qp.recv_cq)->real_cq;
     new_attr.send_cq = ibv_cq_to_internal(internal_qp->user_qp.send_cq)->real_cq;
-    
+
     if(new_attr.srq) {
       new_attr.srq = ibv_srq_to_internal(internal_qp->user_qp.srq)->real_srq;
     }
@@ -1010,7 +1028,7 @@ struct ibv_device ** _get_device_list(int * num_devices) {
 
   for (i = 0; i < real_num_devices; i++) {
     struct internal_ibv_dev * dev;
-    
+
     dev = (struct internal_ibv_dev *) malloc(sizeof(struct internal_ibv_dev));
 
     if (!dev) {
@@ -1492,7 +1510,7 @@ struct ibv_mr * _reg_mr(struct ibv_pd * pd, void * addr,
   /*
   *  We need to check that memery regions created
   *  before checkpointing and after restarting will not
-  *  have the same lkey. 
+  *  have the same lkey.
   */
   if (is_restart) {
     struct list_elem * e;
@@ -2117,7 +2135,7 @@ int _ibv_post_srq_recv(struct ibv_srq * srq, struct ibv_recv_wr * wr,
     }
     log->wr = *copy_wr1;
     log->wr.next = NULL;
-    
+
     list_push_back(&internal_srq->post_srq_recv_log, &log->elem);
 
     tmp = copy_wr1;
@@ -2288,7 +2306,7 @@ int _ibv_poll_cq(struct ibv_cq * cq, int num_entries, struct ibv_wc * wc)
 	  }
 	}
       } else if (opcode == IBV_WC_BIND_MW) {
-        fprintf(stderr, 
+        fprintf(stderr,
                 "Error: opcode %d specifies unsupported operation.\n", opcode);
         exit(1);
       } else {
@@ -2343,7 +2361,7 @@ struct ibv_ah * _create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr) {
 
   internal_ah->real_ah = NEXT_IBV_FNC(ibv_create_ah)(internal_pd->real_pd,
                                                      &real_attr);
-    
+
   if (internal_ah->real_ah == NULL) {
     fprintf(stderr, "Error: _real_ibv_create_ah fail\n");
     free(internal_ah);

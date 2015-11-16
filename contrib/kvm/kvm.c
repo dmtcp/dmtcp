@@ -5,13 +5,14 @@
 #include <unistd.h>
 #include <stdint.h>
 #include <stdarg.h> /* For va_arg(), etc. */
-#include "dmtcp.h"
 #include <linux/kvm.h> /* For all the kvm data structs */
 #include <sys/ioctl.h> /* For ioctl() */
 #include <sys/mman.h> /* For mmap() */
 #if 0
   #include <sys/utsname.h> /* For uname */
 #endif
+
+#include "dmtcp.h"
 
 #define DEBUG_SIGNATURE "DEBUG [KVM Plugin]: "
 #define MAX_MSR_ENTRIES 100
@@ -705,13 +706,185 @@ int ioctl(int fd, unsigned long int request, ...)
 /*=========================== END WRAPPER FUNCTIONS ==========================*/
 /*============================================================================*/
 
+static int dummy = 1;
+static int (*next_fnc)() = NULL; /* Same type signature as ioctl */
+
+static void pre_ckpt()
+{
+  int r;
+  DPRINTF("\n*** Before checkpointing. ***\n");
+  if (dummy == 1) {
+    r = save_registers();
+    if (r < 0) {
+      DPRINTF("ERROR: Querying CPU state from the kernel returned: %d\n", r);
+      DPRINTF("WARNING: Please try checkpointing again\n");
+    }
+    r = save_pit2();
+    if (r < 0) {
+      DPRINTF("ERROR: Querying PIT state from the kernel returned: %d\n", r);
+      DPRINTF("WARNING: Please try checkpointing again\n");
+    }
+    r = save_irqchip();
+    if (r < 0) {
+      DPRINTF("ERROR: Querying IRQCHIP state from the kernel returned: %d\n", r);
+      DPRINTF("WARNING: Please try checkpointing again\n");
+    }
+    //dummy = 2;
+  } else if (dummy >= 2) {
+    r = restore_registers();
+    if (r < 0) {
+      DPRINTF("ERROR: Restoring the registers returned: %d\n", r);
+      DPRINTF("WARNING: Cannot continue\n");
+      exit(-1);
+    }
+  }
+}
+
+static void restart()
+{
+  int r;
+  DPRINTF("Restarting from checkpoint.\n");
+  if (g_kvm_fd > 0 && g_vm_fd > 0 && g_vcpu_fd > 0) {
+    r = create_vm();
+    if (r < 0) {
+      DPRINTF("ERROR: Creating VMFD returned: %d\n", r);
+      DPRINTF("WARNING: Please try checkpointing again\n");
+      exit(-1);
+    } else if (r > 0) {
+      int i = 0;
+      int t = 0;
+
+      r = restore_id_map_addr();
+      if (r < 0) {
+        DPRINTF("ERROR: Restoring identity map addr returned: %d\n", r);
+        DPRINTF("WARNING: Please try checkpointing again\n");
+        exit(-1);
+      }
+      r = restore_tss_addr();
+      if (r < 0) {
+        DPRINTF("ERROR: Restoring tss addr returned: %d\n", r);
+        DPRINTF("WARNING: Please try checkpointing again\n");
+        exit(-1);
+      }
+      r = create_irqchip();
+      if (r < 0) {
+        DPRINTF("ERROR: Creating IRQCHIP returned: %d\n", r);
+        DPRINTF("WARNING: Please try checkpointing again\n");
+        exit(-1);
+      }
+
+      r = create_vcpu();
+      if (r < 0) {
+        DPRINTF("ERROR: Creating new VCPU returned: %d\n", r);
+        DPRINTF("WARNING: Cannot continue\n");
+        exit(-1);
+      }
+      if (NEXT_FNC(mmap)(g_vcpu_mmap_addr, g_vcpu_mmap_length,
+                         g_vcpu_mmap_prot, g_vcpu_mmap_flags | MAP_FIXED,
+                         g_vcpu_fd, 0) == MAP_FAILED) {
+
+        DPRINTF("ERROR: Mapping the new VCPU returned MAP_FAILED\n");
+        DPRINTF("WARNING: Cannot continue\n");
+        exit(-1);
+      }
+
+      r = NEXT_FNC(ioctl)(g_vcpu_fd, KVM_SET_SIGNAL_MASK, &g_kvm_sigmask);
+      if (r < 0) {
+        DPRINTF("ERROR: Setting VCPU Signal Mask returned: %d\n", r);
+        exit(-1);
+      }
+
+      r = NEXT_FNC(ioctl)(g_vm_fd, KVM_IRQ_LINE_STATUS, &g_kvm_irq_level);
+      if (r < 0) {
+        DPRINTF("ERROR: Setting IRQ LINE status returned: %d\n", r);
+        exit(-1);
+      }
+
+      r = NEXT_FNC(ioctl)(g_vm_fd, KVM_REGISTER_COALESCED_MMIO,
+                          &g_kvm_coalesced_mmio_zone);
+      if (r < 0) {
+        DPRINTF("ERROR: Setting Coalesced MMIO Zone returned: %d\n", r);
+        exit(-1);
+      }
+
+      DPRINTF ("Setting #%d memory regions\n", g_num_of_memory_regions);
+      struct kvm_userspace_memory_region *mem;
+      for (i = 0; i < g_num_of_memory_regions; i++) {
+        mem = &g_kvm_mem_region[i];
+        DPRINTF("slot:%X, flags:%X, start:%llX, size:%llX, ram:%llX)\n",
+                mem->slot, mem->flags, mem->guest_phys_addr,
+                mem->memory_size, mem->userspace_addr);
+        r = NEXT_FNC(ioctl)(g_vm_fd, KVM_SET_USER_MEMORY_REGION,
+                            &g_kvm_mem_region[i]);
+        if (r < 0) {
+          DPRINTF ("ERROR: Creating memory region #%d returned: \n", i, r);
+          perror("ioctl(KVM_SET_USER_MEMORY_REGION)");
+        }
+      }
+
+      /* See note in the ioctl() wrapper. */
+      DPRINTF("Setting routing tables. ptr: %p...\n",
+              g_kvm_gsi_routing_table);
+      r = NEXT_FNC(ioctl)(g_vm_fd, KVM_SET_GSI_ROUTING,
+                          g_kvm_gsi_routing_table);
+      if (r < 0) {
+        DPRINTF("ERROR: Setting routing table (#routes=%d) returned: "
+                "%d\n", g_kvm_gsi_routing_table->nr, r);
+      }
+
+      r = create_pit2();
+      if (r < 0) {
+        DPRINTF ("Creating PIT2 returned: %d\n", r);
+      }
+      r = restore_pit2();
+      if (r < 0) {
+        DPRINTF("ERROR: Restoring PIT2 returned: %d\n", r);
+        DPRINTF("WARNING: Cannot continue\n");
+        exit(-1);
+      }
+      int array[] = {0, 1, 4, 8, 12};
+      g_kvm_irq_level.level = 0;
+      for (i = 0; i < 5; i++) {
+        g_kvm_irq_level.irq = array[i];
+        r = NEXT_FNC(ioctl)(g_vm_fd, KVM_IRQ_LINE_STATUS, &g_kvm_irq_level);
+        if (r < 0) {
+          DPRINTF("ERROR: Resetting IRQ#%d LINE returned: %d\n", g_kvm_irq_level.irq, r);
+          exit(-1);
+        }
+      }
+      r = restore_irqchip();
+      if (r < 0) {
+        DPRINTF("ERROR: Restoring IRQCHIP returned: %d\n", r);
+        DPRINTF("WARNING: Cannot continue\n");
+        exit(-1);
+      }
+      r = NEXT_FNC(ioctl)(g_vcpu_fd, KVM_TPR_ACCESS_REPORTING,
+                          &g_kvm_tpr_access_ctl);
+      if (r < 0) {
+        DPRINTF("ERROR: Restoring the tpr access reporting returned: %d\n", r);
+        DPRINTF("WARNING: Cannot continue\n");
+        exit(-1);
+      }
+      r = NEXT_FNC(ioctl)(g_vcpu_fd, KVM_SET_VAPIC_ADDR,
+                          &g_kvm_vapic_addr);
+      if (r < 0) {
+        DPRINTF("ERROR: Restoring the vapic addr returned: %d\n", r);
+        DPRINTF("WARNING: Cannot continue\n");
+        exit(-1);
+      }
+      r = restore_registers();
+      if (r < 0) {
+
+        DPRINTF("ERROR: Restoring the registers returned: %d\n", r);
+        DPRINTF("WARNING: Cannot continue\n");
+        exit(-1);
+      }
+    }
+  }
+}
+
 void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
-  char *blob;
-  int blob_size = 0;
-  int r;
-  static int dummy = 1;
-  static int (*next_fnc)() = NULL; /* Same type signature as ioctl */
 
   /* NOTE:  See warning in plugin/README about calls to printf here. */
   switch (event) {
@@ -721,183 +894,18 @@ void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
         break;
       }
     case DMTCP_EVENT_WRITE_CKPT:
-      {
-        DPRINTF("\n*** Before checkpointing. ***\n");
-        if (dummy == 1) {
-          r = save_registers();
-          if (r < 0) {
-            DPRINTF("ERROR: Querying CPU state from the kernel returned: %d\n", r);
-            DPRINTF("WARNING: Please try checkpointing again\n");
-          }
-          r = save_pit2();
-          if (r < 0) {
-            DPRINTF("ERROR: Querying PIT state from the kernel returned: %d\n", r);
-            DPRINTF("WARNING: Please try checkpointing again\n");
-          }
-          r = save_irqchip();
-          if (r < 0) {
-            DPRINTF("ERROR: Querying IRQCHIP state from the kernel returned: %d\n", r);
-            DPRINTF("WARNING: Please try checkpointing again\n");
-          }
-          //dummy = 2;
-        } else if (dummy >= 2) {
-          r = restore_registers();
-          if (r < 0) {
-            DPRINTF("ERROR: Restoring the registers returned: %d\n", r);
-            DPRINTF("WARNING: Cannot continue\n");
-            exit(-1);
-          }
-        }
-        break;
-      }
+      pre_ckpt();
+      break;
+
     case DMTCP_EVENT_THREADS_RESUME:
       DPRINTF("Resuming after checkpoint.\n");
-      //__asm("int3");
-      {
-        if (data->resumeInfo.isRestart) {
-          DPRINTF("Restarting from checkpoint.\n");
-          if (g_kvm_fd > 0 && g_vm_fd > 0 && g_vcpu_fd > 0) {
-            r = create_vm();
-            if (r < 0) {
-              DPRINTF("ERROR: Creating VMFD returned: %d\n", r);
-              DPRINTF("WARNING: Please try checkpointing again\n");
-              exit(-1);
-            } else if (r > 0) {
-              int i = 0;
-              int t = 0;
-
-              r = restore_id_map_addr();
-              if (r < 0) {
-                DPRINTF("ERROR: Restoring identity map addr returned: %d\n", r);
-                DPRINTF("WARNING: Please try checkpointing again\n");
-                exit(-1);
-              }
-              r = restore_tss_addr();
-              if (r < 0) {
-                DPRINTF("ERROR: Restoring tss addr returned: %d\n", r);
-                DPRINTF("WARNING: Please try checkpointing again\n");
-                exit(-1);
-              }
-              r = create_irqchip();
-              if (r < 0) {
-                DPRINTF("ERROR: Creating IRQCHIP returned: %d\n", r);
-                DPRINTF("WARNING: Please try checkpointing again\n");
-                exit(-1);
-              }
-
-              r = create_vcpu();
-              if (r < 0) {
-                DPRINTF("ERROR: Creating new VCPU returned: %d\n", r);
-                DPRINTF("WARNING: Cannot continue\n");
-                exit(-1);
-              }
-              if (NEXT_FNC(mmap)(g_vcpu_mmap_addr, g_vcpu_mmap_length,
-                    g_vcpu_mmap_prot, g_vcpu_mmap_flags | MAP_FIXED,
-                    g_vcpu_fd, 0) == MAP_FAILED) {
-
-                DPRINTF("ERROR: Mapping the new VCPU returned MAP_FAILED\n");
-                DPRINTF("WARNING: Cannot continue\n");
-                exit(-1);
-              }
-
-              r = NEXT_FNC(ioctl)(g_vcpu_fd, KVM_SET_SIGNAL_MASK, &g_kvm_sigmask);
-              if (r < 0) {
-                DPRINTF("ERROR: Setting VCPU Signal Mask returned: %d\n", r);
-                exit(-1);
-              }
-
-              r = NEXT_FNC(ioctl)(g_vm_fd, KVM_IRQ_LINE_STATUS, &g_kvm_irq_level);
-              if (r < 0) {
-                DPRINTF("ERROR: Setting IRQ LINE status returned: %d\n", r);
-                exit(-1);
-              }
-
-              r = NEXT_FNC(ioctl)(g_vm_fd, KVM_REGISTER_COALESCED_MMIO,
-                                  &g_kvm_coalesced_mmio_zone);
-              if (r < 0) {
-                DPRINTF("ERROR: Setting Coalesced MMIO Zone returned: %d\n", r);
-                exit(-1);
-              }
-
-              DPRINTF ("Setting #%d memory regions\n", g_num_of_memory_regions);
-              struct kvm_userspace_memory_region *mem;
-              for (i = 0; i < g_num_of_memory_regions; i++) {
-                mem = &g_kvm_mem_region[i];
-                DPRINTF("slot:%X, flags:%X, start:%llX, size:%llX, ram:%llX)\n",
-                        mem->slot, mem->flags, mem->guest_phys_addr,
-                        mem->memory_size, mem->userspace_addr);
-                r = NEXT_FNC(ioctl)(g_vm_fd, KVM_SET_USER_MEMORY_REGION,
-                                    &g_kvm_mem_region[i]);
-                if (r < 0) {
-                  DPRINTF ("ERROR: Creating memory region #%d returned: \n", i, r);
-                  perror("ioctl(KVM_SET_USER_MEMORY_REGION)");
-                }
-              }
-
-              /* See note in the ioctl() wrapper. */
-              DPRINTF("Setting routing tables. ptr: %p...\n",
-                       g_kvm_gsi_routing_table);
-              r = NEXT_FNC(ioctl)(g_vm_fd, KVM_SET_GSI_ROUTING,
-                                  g_kvm_gsi_routing_table);
-              if (r < 0) {
-                DPRINTF("ERROR: Setting routing table (#routes=%d) returned: "
-                        "%d\n", g_kvm_gsi_routing_table->nr, r);
-              }
-
-              r = create_pit2();
-              if (r < 0) {
-                DPRINTF ("Creating PIT2 returned: %d\n", r);
-              }
-              r = restore_pit2();
-              if (r < 0) {
-                DPRINTF("ERROR: Restoring PIT2 returned: %d\n", r);
-                DPRINTF("WARNING: Cannot continue\n");
-                exit(-1);
-              }
-              int array[] = {0, 1, 4, 8, 12};
-              g_kvm_irq_level.level = 0;
-              for (i = 0; i < 5; i++) {
-                g_kvm_irq_level.irq = array[i];
-                r = NEXT_FNC(ioctl)(g_vm_fd, KVM_IRQ_LINE_STATUS, &g_kvm_irq_level);
-                if (r < 0) {
-                  DPRINTF("ERROR: Resetting IRQ#%d LINE returned: %d\n", g_kvm_irq_level.irq, r);
-                  exit(-1);
-                }
-              }
-              r = restore_irqchip();
-              if (r < 0) {
-                DPRINTF("ERROR: Restoring IRQCHIP returned: %d\n", r);
-                DPRINTF("WARNING: Cannot continue\n");
-                exit(-1);
-              }
-              r = NEXT_FNC(ioctl)(g_vcpu_fd, KVM_TPR_ACCESS_REPORTING,
-                                  &g_kvm_tpr_access_ctl);
-              if (r < 0) {
-                DPRINTF("ERROR: Restoring the tpr access reporting returned: %d\n", r);
-                DPRINTF("WARNING: Cannot continue\n");
-                exit(-1);
-              }
-              r = NEXT_FNC(ioctl)(g_vcpu_fd, KVM_SET_VAPIC_ADDR,
-                                  &g_kvm_vapic_addr);
-              if (r < 0) {
-                DPRINTF("ERROR: Restoring the vapic addr returned: %d\n", r);
-                DPRINTF("WARNING: Cannot continue\n");
-                exit(-1);
-              }
-              r = restore_registers();
-              if (r < 0) {
-
-                DPRINTF("ERROR: Restoring the registers returned: %d\n", r);
-                DPRINTF("WARNING: Cannot continue\n");
-                exit(-1);
-              }
-            }
-          }
-        } else {
-          DPRINTF("The process is now resuming after checkpoint.\n");
-        }
-        break;
+      if (data->resumeInfo.isRestart) {
+        restart();
       }
+      //__asm("int3");
+      DPRINTF("The process is now resuming after checkpoint.\n");
+      break;
+
     case DMTCP_EVENT_RESUME:
     case DMTCP_EVENT_EXIT:
       DPRINTF("The plugin is being called before exiting.\n");

@@ -144,7 +144,7 @@ static void openOriginalToCurrentMappingFiles()
   }
 }
 
-static void pidVirt_PostRestart(DmtcpEventData_t *data)
+static void pidVirt_PostRestart()
 {
   if ( jalib::Filesystem::GetProgramName() == "screen" )
     send_sigwinch = 1;
@@ -164,11 +164,22 @@ static void pidVirt_PostRestart(DmtcpEventData_t *data)
   VirtualPidTable::instance().writeMapsToFile(PROTECTED_PIDMAP_FD);
 }
 
-static void pidVirt_PostRestartRefill(DmtcpEventData_t *data)
+static void pidVirt_RefillTid() {
+  map<pthread_mutex_t*, pid_t>::iterator it;
+
+  for (it = mapMutexVirtTid.begin(); it != mapMutexVirtTid.end(); it++) {
+    if (it->first->__data.__owner != 0) {
+      it->first->__data.__owner = VIRTUAL_TO_REAL_PID(it->second);
+    }
+  }
+}
+
+static void pidVirt_PostRestartRefill()
 {
   VirtualPidTable::instance().readMapsFromFile(PROTECTED_PIDMAP_FD);
   dmtcp_close_protected_fd(PROTECTED_PIDMAP_FD);
   unlink(pidMapFile.c_str());
+  pidVirt_RefillTid();
 }
 
 static void pidVirt_ThreadExit(DmtcpEventData_t *data)
@@ -180,16 +191,6 @@ static void pidVirt_ThreadExit(DmtcpEventData_t *data)
    */
   pid_t tid = dmtcp_gettid();
   VirtualPidTable::instance().erase(tid);
-}
-
-static void pidVirt_RefillTid() {
-  map<pthread_mutex_t*, pid_t>::iterator it;
-
-  for (it = mapMutexVirtTid.begin(); it != mapMutexVirtTid.end(); it++) {
-    if (it->first->__data.__owner != 0) {
-      it->first->__data.__owner = VIRTUAL_TO_REAL_PID(it->second);
-    }
-  }
 }
 
 extern "C" void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
@@ -212,13 +213,12 @@ extern "C" void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       break;
 
     case DMTCP_EVENT_RESTART:
-      pidVirt_PostRestart(data);
+      pidVirt_PostRestart();
       break;
 
     case DMTCP_EVENT_REFILL:
       if (data->refillInfo.isRestart) {
-        pidVirt_PostRestartRefill(data);
-        pidVirt_RefillTid();
+        pidVirt_PostRestartRefill();
       }
       break;
 

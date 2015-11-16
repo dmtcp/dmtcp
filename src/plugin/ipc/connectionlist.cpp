@@ -142,19 +142,31 @@ void ConnectionList::eventHook(DmtcpEvent_t event,
       break;
 
     case DMTCP_EVENT_REFILL:
-      refill(data->refillInfo.isRestart);
+      if (data->refillInfo.isRestart) {
+        postRestartRefill();
+      } else {
+        ckptRefill();
+      }
       break;
 
     case DMTCP_EVENT_THREADS_RESUME:
-      resume(data->resumeInfo.isRestart);
+      if (data->refillInfo.isRestart) {
+        postRestartResume();
+      } else {
+        ckptResume();
+      }
       break;
 
     case DMTCP_EVENT_REGISTER_NAME_SERVICE_DATA:
-      registerNSData(data->nameserviceInfo.isRestart);
+      if (data->refillInfo.isRestart) {
+        registerNSData();
+      }
       break;
 
     case DMTCP_EVENT_SEND_QUERIES:
-      sendQueries(data->nameserviceInfo.isRestart);
+      if (data->refillInfo.isRestart) {
+        sendQueries();
+      }
       break;
 
     default:

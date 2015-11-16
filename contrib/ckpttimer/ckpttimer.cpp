@@ -161,11 +161,39 @@ start_stop_timer(timer_t timerid, long interval, bool start)
 #endif
 }
 
+static timer_t timerid = 0;
+static int doneInitialization = 0;
+
+static void pre_ckpt()
+{
+  sigset_t mask;
+  JTRACE("*** The plugin is being called before checkpointing. ***");
+  /* Unblock the timer signal, and then start the timer */
+  if (sigprocmask(SIG_UNBLOCK, &mask, NULL) == -1)
+    handleError ("sigprocmask");
+  start_stop_timer(timerid, g_interval, START_TIMER);
+}
+
+static void resume()
+{
+  JTRACE("The process is now resuming after checkpoint.");
+  /* Need to stop the timer on resume/restart. */
+  start_stop_timer(timerid, g_interval, STOP_TIMER);
+  JTRACE("*** Cancelled the ckpt timer! ***");
+}
+
+static void restart()
+{
+  JTRACE("The plugin is now restarting from checkpointing.");
+  /* Need to stop the timer on resume/restart. */
+  start_stop_timer(timerid, g_interval, STOP_TIMER);
+  JTRACE("*** Cancelled the ckpt timer! ***");
+}
+
+
 extern "C" void
 dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
-  static timer_t timerid = 0;
-  static int doneInitialization = 0;
   sigset_t mask;
 
   switch (event) {
@@ -186,23 +214,16 @@ dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       }
     case DMTCP_EVENT_WRITE_CKPT:
       {
-        JTRACE("*** The plugin is being called before checkpointing. ***");
-        /* Unblock the timer signal, and then start the timer */
-        if (sigprocmask(SIG_UNBLOCK, &mask, NULL) == -1)
-          handleError ("sigprocmask");
-        start_stop_timer(timerid, g_interval, START_TIMER);
+        pre_ckpt();
         break;
       }
     case DMTCP_EVENT_THREADS_RESUME:
       {
         if (data->resumeInfo.isRestart) {
-          JTRACE("The plugin is now restarting from checkpointing.");
+          restart();
         } else {
-          JTRACE("The process is now resuming after checkpoint.");
+          resume();
         }
-        /* Need to stop the timer on resume/restart. */
-        start_stop_timer(timerid, g_interval, STOP_TIMER);
-        JTRACE("*** Cancelled the ckpt timer! ***");
         break;
       }
     default:

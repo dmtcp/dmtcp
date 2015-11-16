@@ -67,10 +67,16 @@ namespace dmtcp
       virtual void drain();
       virtual void preCkpt();
       virtual void postRestart();
-      virtual void registerNSData(bool isRestart) {}
-      virtual void sendQueries(bool isRestart) {}
+      virtual void registerNSData() {}
+      virtual void sendQueries() {}
       virtual void refill(bool isRestart);
       virtual void resume(bool isRestart);
+
+      void ckptRefill() { refill(false); }
+      void ckptResume() { resume(false); }
+
+      void postRestartRefill() { refill(true); }
+      void postRestartResume() { resume(true); }
 
       void registerIncomingCons();
       void determineOutgoingCons();
