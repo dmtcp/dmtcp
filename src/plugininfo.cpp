@@ -79,7 +79,9 @@ PluginInfo *PluginInfo::create(const DmtcpPluginDescriptor_t& descr)
 
 void PluginInfo::eventHook (const DmtcpEvent_t event, DmtcpEventData_t *data)
 {
-  event_hook(event, data);
+  if (event_hook != NULL) {
+    event_hook(event, data);
+  }
 }
 
 void PluginInfo::processBarriers()

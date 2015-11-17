@@ -65,11 +65,6 @@ static void restart_resume()
   slurmRestoreHelper(true);
 }
 
-static void batch_queue_event_hook(DmtcpEvent_t event, DmtcpEventData_t* data)
-{
-  return;
-}
-
 static DmtcpBarrier rmBarriers[] = {
   {DMTCP_GLOBAL_BARRIER_PRE_CKPT, pre_ckpt, "checkpoint"},
   {DMTCP_GLOBAL_BARRIER_RESUME, resume, "resume"},
@@ -85,7 +80,7 @@ DmtcpPluginDescriptor_t batch_queue_plugin = {
   "dmtcp@ccs.neu.edu",
   "Batch-queue Plugin",
   DMTCP_DECL_BARRIERS(rmBarriers),
-  batch_queue_event_hook
+  NULL
 };
 
 DMTCP_DECL_PLUGIN(batch_queue_plugin);
