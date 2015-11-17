@@ -23,11 +23,6 @@ static struct winsize win;
 static void save_term_settings();
 static void restore_term_settings();
 
-static void terminal_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
-{
-  return;
-}
-
 static void save_term_settings()
 {
   /* Drain stdin and stdout before checkpoint */
@@ -138,7 +133,7 @@ static DmtcpPluginDescriptor_t terminalPlugin = {
   "dmtcp@ccs.neu.edu",
   "Terminal plugin",
   DMTCP_DECL_BARRIERS(terminalBarriers),
-  terminal_event_hook
+  NULL
 };
 
 

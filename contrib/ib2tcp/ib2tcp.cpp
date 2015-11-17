@@ -63,11 +63,6 @@ static void do_unlock() {
   JASSERT(pthread_mutex_unlock(&_lock) == 0);
 }
 
-static void ib2tcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t* data)
-{
-  return;
-}
-
 
 static DmtcpBarrier ib2tcpBarriers[] = {
   {DMTCP_GLOBAL_BARRIER_RESTART, IB2TCP::postRestart, "restart"},
@@ -84,7 +79,7 @@ DmtcpPluginDescriptor_t ib2tcp_plugin = {
   "dmtcp@ccs.neu.edu",
   "IB2TCP Plugin",
   DMTCP_DECL_BARRIERS(ib2tcpBarriers),
-  ib2tcp_event_hook
+  NULL
 };
 
 DMTCP_DECL_PLUGIN(ib2tcp_plugin);

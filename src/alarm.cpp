@@ -29,11 +29,6 @@
 namespace dmtcp {
 static unsigned int timeLeft = 0;
 
-static void alarm_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
-{
-  return;
-}
-
 static void checkpoint()
 {
   timeLeft = alarm(0);
@@ -63,7 +58,7 @@ static DmtcpPluginDescriptor_t alarmPlugin = {
   "dmtcp@ccs.neu.edu",
   "Alarm plugin",
   DMTCP_DECL_BARRIERS(alarmBarriers),
-  alarm_event_hook
+  NULL
 };
 
 

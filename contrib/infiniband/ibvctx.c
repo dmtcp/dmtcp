@@ -114,11 +114,6 @@ DECL_FPTR(req_notify_cq);
 
 int dmtcp_infiniband_enabled(void) { return 1; }
 
-static void infiniband_event_hook(DmtcpEvent_t event, DmtcpEventData_t* data)
-{
-  return;
-}
-
 static DmtcpBarrier infinibandBarriers[] = {
   {DMTCP_GLOBAL_BARRIER_PRE_CKPT, pre_checkpoint, "checkpoint"},
 
@@ -136,7 +131,7 @@ DmtcpPluginDescriptor_t infiniband_plugin = {
   "dmtcp@ccs.neu.edu",
   "InfiniBand plugin",
   DMTCP_DECL_BARRIERS(infinibandBarriers),
-  infiniband_event_hook
+  NULL
 };
 
 DMTCP_DECL_PLUGIN(infiniband_plugin);

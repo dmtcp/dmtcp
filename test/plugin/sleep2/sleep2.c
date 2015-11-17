@@ -29,11 +29,6 @@ unsigned int real_sleep(unsigned int seconds) {
   return (*real_fnc)(seconds);
 }
 
-static void sleep2_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
-{
-  return;
-}
-
 
 static void checkpoint()
 {
@@ -61,7 +56,7 @@ DmtcpPluginDescriptor_t sleep2_plugin = {
   "dmtcp@ccs.neu.edu",
   "Sleep2 Plugin",
   DMTCP_DECL_BARRIERS(barriers),
-  sleep2_event_hook
+  NULL
 };
 
 DMTCP_DECL_PLUGIN(sleep2_plugin);
