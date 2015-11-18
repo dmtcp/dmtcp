@@ -32,6 +32,7 @@
 
 #undef dmtcp_is_enabled
 #undef dmtcp_checkpoint
+#undef dmtcp_checkpoint_ckptDir
 #undef dmtcp_disable_ckpt
 #undef dmtcp_enable_ckpt
 #undef dmtcp_get_coordinator_status
@@ -127,6 +128,15 @@ EXTERNC int dmtcp_checkpoint()
     //	printf("\n\n\nError requesting checkpoint\n\n\n");
   }
 
+  return rv;
+}
+
+EXTERNC int dmtcp_checkpoint_ckptDir(const char* ckptDir)
+{
+  if (ckptDir != NULL) {
+    CoordinatorAPI::instance().updateCkptDirGlobally(ckptDir);
+  }
+  int rv = dmtcp_checkpoint();
   return rv;
 }
 

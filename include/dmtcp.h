@@ -134,6 +134,12 @@ EXTERNC int dmtcp_checkpoint(VOID) __attribute__ ((weak));
 #define dmtcp_checkpoint() \
   (dmtcp_checkpoint ? dmtcp_checkpoint() : DMTCP_NOT_PRESENT)
 
+EXTERNC int dmtcp_checkpoint_ckptDir(const char* ckptDir)
+  __attribute__ ((weak));
+#define dmtcp_checkpoint_ckptDir(a) \
+  (dmtcp_checkpoint_ckptDir ? dmtcp_checkpoint_ckptDir(a) : DMTCP_NOT_PRESENT)
+
+
 /**
  * Prevent a checkpoint from starting until dmtcp_enable_checkpoint() is
  * called.

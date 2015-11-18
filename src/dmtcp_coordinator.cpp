@@ -196,6 +196,7 @@ static struct in_addr localhostIPAddr;
 
 static string tmpDir;
 static string ckptDir;
+static string ckptDirGlobal;
 
 #define MAX_EVENTS 10000
 struct epoll_event events[MAX_EVENTS];
@@ -565,6 +566,19 @@ void DmtcpCoordinator::onData(CoordClient *client)
       }
     }
     break;
+    case DMT_GET_GLOBAL_CKPT_DIR:
+    {
+      DmtcpMessage reply(DMT_GET_GLOBAL_CKPT_DIR_RESULT);
+      if(!ckptDirGlobal.empty()) {
+        reply.extraBytes = ckptDirGlobal.length() + 1;
+        client->sock() << reply;
+        client->sock().writeAll(ckptDirGlobal.c_str(), reply.extraBytes);
+      }
+      else {
+        client->sock() << reply;
+      }
+    }
+    break;
 
 #ifdef COORD_NAMESERVICE
     case DMT_REGISTER_NAME_SERVICE_DATA:
@@ -765,6 +779,22 @@ void DmtcpCoordinator::onConnect()
     // dmtcp_command.
     updateCheckpointInterval(hello_remote.theCheckpointInterval);
     processDmtUserCmd(hello_remote, remote);
+    return;
+  }
+  else if(hello_remote.type == DMT_UPDATE_CKPT_DIR_FOR_ALL_PROCESS)
+  {
+    JASSERT(hello_remote.extraBytes > 0) (hello_remote.extraBytes);
+    char *extraData = new char[hello_remote.extraBytes];
+    remote.readAll(extraData, hello_remote.extraBytes);
+    JASSERT(extraData != 0)
+      .Text("extra data expected with DMT_UPDATE_CKPT_DIR_FOR_ALL_PROCESS: message");
+    if (strcmp(ckptDirGlobal.c_str(), extraData) != 0) {
+      ckptDirGlobal = extraData;
+      JNOTE("Global ckptDir for all processes") (ckptDirGlobal);
+    }
+    DmtcpMessage reply(DMT_UPDATE_CKPT_DIR_FOR_ALL_PROCESS_RESULT);
+    remote << reply;
+    remote.close();
     return;
   }
 
