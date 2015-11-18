@@ -134,12 +134,6 @@ EXTERNC int dmtcp_checkpoint(VOID) __attribute__ ((weak));
 #define dmtcp_checkpoint() \
   (dmtcp_checkpoint ? dmtcp_checkpoint() : DMTCP_NOT_PRESENT)
 
-EXTERNC int dmtcp_checkpoint_ckptDir(const char* ckptDir)
-  __attribute__ ((weak));
-#define dmtcp_checkpoint_ckptDir(a) \
-  (dmtcp_checkpoint_ckptDir ? dmtcp_checkpoint_ckptDir(a) : DMTCP_NOT_PRESENT)
-
-
 /**
  * Prevent a checkpoint from starting until dmtcp_enable_checkpoint() is
  * called.
@@ -196,6 +190,16 @@ EXTERNC int dmtcp_should_ckpt_open_files(void);
 
 EXTERNC int dmtcp_get_ckpt_signal(void);
 EXTERNC const char* dmtcp_get_uniquepid_str(void) __attribute__((weak));
+
+/*
+ * This API will set the checkpoint directory globally for all processes.
+ * This means that after this call ckpt files for all associated process 
+ * will get stored in common directory pointed by user.
+ */
+EXTERNC void dmtcp_set_global_ckpt_dir(const char* dir) __attribute__((weak));
+#define dmtcp_set_global_ckpt_dir(d) \
+  (dmtcp_set_global_ckpt_dir ? dmtcp_set_global_ckpt_dir(d) \
+                             : DMTCP_NOT_PRESENT)
 
 /*
  * ComputationID

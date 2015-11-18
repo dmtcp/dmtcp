@@ -32,9 +32,9 @@
 
 #undef dmtcp_is_enabled
 #undef dmtcp_checkpoint
-#undef dmtcp_checkpoint_ckptDir
 #undef dmtcp_disable_ckpt
 #undef dmtcp_enable_ckpt
+#undef dmtcp_set_global_ckpt_dir
 #undef dmtcp_get_coordinator_status
 #undef dmtcp_get_local_status
 #undef dmtcp_get_uniquepid_str
@@ -131,15 +131,6 @@ EXTERNC int dmtcp_checkpoint()
   return rv;
 }
 
-EXTERNC int dmtcp_checkpoint_ckptDir(const char* ckptDir)
-{
-  if (ckptDir != NULL) {
-    CoordinatorAPI::instance().updateCkptDirGlobally(ckptDir);
-  }
-  int rv = dmtcp_checkpoint();
-  return rv;
-}
-
 EXTERNC int dmtcp_get_coordinator_status(int *numPeers, int *isRunning)
 {
   int coordCmdStatus;
@@ -197,6 +188,13 @@ EXTERNC void dmtcp_set_ckpt_dir(const char* dir)
 {
   if (dir != NULL) {
     ProcessInfo::instance().setCkptDir(dir);
+  }
+}
+
+EXTERNC void dmtcp_set_global_ckpt_dir(const char* dir)
+{
+  if (dir != NULL) {
+    CoordinatorAPI::instance().setGlobalCkptDir(dir);
   }
 }
 

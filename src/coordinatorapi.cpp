@@ -369,7 +369,7 @@ void CoordinatorAPI::updateCoordCkptDir(const char *dir)
   _coordinatorSocket.writeAll(dir, strlen(dir) + 1);
 }
 
-void CoordinatorAPI::updateCkptDirGlobally(const char *dir)
+void CoordinatorAPI::setGlobalCkptDir(const char *dir)
 {
   JASSERT(dir != NULL);
 
@@ -391,10 +391,9 @@ void CoordinatorAPI::updateCkptDirGlobally(const char *dir)
   _coordinatorSocket1.close();
 }
 
-string CoordinatorAPI::getGlobalCkptDir(void)
+char* CoordinatorAPI::getGlobalCkptDir(void)
 {
-  // FIXME: Add a test for make-check.
-  char buf[PATH_MAX];
+  static char buf[PATH_MAX];
   if (noCoordinator()) return "";
   DmtcpMessage msg(DMT_GET_GLOBAL_CKPT_DIR);
   _coordinatorSocket << msg;

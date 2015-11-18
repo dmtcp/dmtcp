@@ -91,9 +91,10 @@ namespace dmtcp
                                      int *ckptInterval = NULL);
 
       void updateCoordCkptDir(const char *dir);
-      void updateCkptDirGlobally(const char *dir);
       string getCoordCkptDir(void);
-      string getGlobalCkptDir(void);
+
+      void setGlobalCkptDir(const char *dir);
+      char* getGlobalCkptDir(void);
 
       void sendCkptFilename();
 
