@@ -134,7 +134,7 @@ static ssize_t clgetsize_ind(const char *colonlist, const unsigned int i)
  *
  * If didn't return NULL, the returned pointer must be freed.
  */
-static bool
+bool
 dynamic_path_swap(const char *path, dmtcp::string &newPath)
 {
     char *oldPathPtr = NULL;
