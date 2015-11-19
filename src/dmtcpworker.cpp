@@ -460,13 +460,6 @@ void DmtcpWorker::waitForStage1Suspend()
 
   waitForCoordinatorMsg ("SUSPEND", DMT_DO_SUSPEND);
 
-  string globalCkptDir = CoordinatorAPI::instance().getGlobalCkptDir();
-
-  if(!globalCkptDir.empty()) {
-    JTRACE("Setting global ckpt dir ")(globalCkptDir.c_str());
-    ProcessInfo::instance().setCkptDir(globalCkptDir.c_str());
-  }
-
   JTRACE("got SUSPEND message, preparing to acquire all ThreadSync locks");
   ThreadSync::acquireLocks();
 

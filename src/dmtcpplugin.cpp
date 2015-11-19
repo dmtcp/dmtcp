@@ -198,6 +198,11 @@ EXTERNC void dmtcp_set_global_ckpt_dir(const char* dir)
   }
 }
 
+EXTERNC const char* dmtcp_get_global_ckpt_dir()
+{
+  return CoordinatorAPI::instance().getGlobalCkptDir();
+}
+
 EXTERNC const char* dmtcp_get_coord_ckpt_dir(void)
 {
   static string dir;

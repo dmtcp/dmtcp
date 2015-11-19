@@ -197,9 +197,7 @@ EXTERNC const char* dmtcp_get_uniquepid_str(void) __attribute__((weak));
  * will get stored in common directory pointed by user.
  */
 EXTERNC void dmtcp_set_global_ckpt_dir(const char* dir) __attribute__((weak));
-#define dmtcp_set_global_ckpt_dir(d) \
-  (dmtcp_set_global_ckpt_dir ? dmtcp_set_global_ckpt_dir(d) \
-                             : DMTCP_NOT_PRESENT)
+EXTERNC const char* dmtcp_get_global_ckpt_dir();
 
 /*
  * ComputationID
