@@ -407,8 +407,10 @@ static string getUpdatedLdPreload(const char* filename,
 static vector<string> copyEnv(char *const envp[])
 {
   vector<string> result;
-  for (size_t i = 0; envp[i] != NULL; i++) {
-    result.push_back(envp[i]);
+  if (envp) {
+    for (size_t i = 0; envp[i] != NULL; i++) {
+      result.push_back(envp[i]);
+    }
   }
   return result;
 }
