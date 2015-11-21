@@ -448,10 +448,14 @@ void CoordinatorAPI::startNewCoordinator(CoordinatorMode mode)
   jalib::JServerSocket coordinatorListenerSocket(jalib::JSockAddr::ANY,
                                                  port, 128);
   JASSERT(coordinatorListenerSocket.isValid())
-    (coordinatorListenerSocket.port()) (JASSERT_ERRNO)
-    .Text("Failed to create listen socket."
-          "\nIf msg is \"Address already in use\", this may be an old coordinator."
-          "\nKill other coordinators and try again in a minute or so.");
+    (coordinatorListenerSocket.port()) (JASSERT_ERRNO) (host) (port)
+    .Text("Failed to create socket to coordinator port."
+          "\nIf msg is \"Address already in use\","
+             " this may be an old coordinator."
+          "\nEither try again a few seconds or a minute later,"
+          "\nOr kill other coordinators on this host and port:"
+          "\n    dmtcp_command ---coord-host XXX --coord-port XXX"
+          "\nOr specify --join-coordinator if joining existing computation.");
   // Now dup the sockfd to
   coordinatorListenerSocket.changeFd(PROTECTED_COORD_FD);
   Util::setCoordPort(coordinatorListenerSocket.port());
@@ -545,6 +549,17 @@ DmtcpMessage CoordinatorAPI::sendRecvHandshake(DmtcpMessage msg,
     JASSERT(false) (*compId)
       .Text("Connection rejected by the coordinator.\n"
             " Reason: This process has a different computation group.");
+  }
+  // Coordinator also prints this, but its stderr may go to /dev/null
+  if (msg.type == DMT_REJECT_NOT_RESTARTING) {
+    string coordinatorHost = ""; // C++ magic code; "" to be invisibly replaced
+    int coordinatorPort;
+    Util::getCoordHostAndPort(COORD_ANY, coordinatorHost, &coordinatorPort);
+    JNOTE ("\n\n*** Computation not in RESTARTING or CHECKPOINTED state."
+        "\n***Can't join the existing coordinator, as it is serving a"
+        "\n***different computation.  Consider launching a new coordinator."
+        "\n***Consider, also, checking with:  dmtcp_command --status")
+        (coordinatorPort);
   }
   JASSERT(msg.type == DMT_ACCEPT)(msg.type);
   return msg;

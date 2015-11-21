@@ -910,7 +910,7 @@ bool DmtcpCoordinator::validateRestartingWorkerProcess(
     compId = hello_remote.compGroup;
     numPeers = hello_remote.numPeers;
     JASSERT(gettimeofday(&tv, NULL) == 0);
-    // Get the resolution down to 100 mili seconds.
+    // Get the resolution down to 100 milliseconds.
     curTimeStamp = (tv.tv_sec << 4) | (tv.tv_usec / (100*1000));
     JNOTE ( "FIRST dmtcp_restart connection.  Set numPeers. Generate timestamp" )
       ( numPeers ) ( curTimeStamp ) ( compId );
