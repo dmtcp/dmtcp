@@ -62,6 +62,9 @@ EXTERNC void *ibv_get_device_list(void *) __attribute__((weak));
 DmtcpWorker DmtcpWorker::theInstance;
 bool DmtcpWorker::_exitInProgress = false;
 
+/* NOTE:  Please keep this function in sync with its copy at:
+ *   dmtcp_nocheckpoint.cpp:restoreUserLDPRELOAD()
+ */
 void restoreUserLDPRELOAD()
 {
   /* A call to setenv() can result in a call to malloc(). The setenv() call may
@@ -89,18 +92,21 @@ void restoreUserLDPRELOAD()
   // We will need it in only one place:
   //  when the user application makes an exec call:
   //   If anybody calls our execwrapper, we will reset LD_PRELOAD then.
-  //   If they directly call _real_execve to get libc symbol, they will
-  //   not be part of DMTCP computation.
+  //   EXCEPTION:  If anybody directly calls _real_execve with env arg of NULL,
+  //   they will not be part of DMTCP computation.
   // This has the advantage that our value of LD_PRELOAD will always come
   //   before any paths set by user application.
   // Also, bash likes to keep its own envp, but we will interact with bash only
   //   within the exec wrapper.
   // NOTE:  If the user called exec("ssh ..."), we currently catch this in
-  //   DmtcpWorker() due to LD_PRELOAD, unset LD_PRELOAD, and edit this into
-  //   exec("dmtcp_launch ... ssh ..."), and re-execute.
-  //   This way, we will unset LD_PRELOAD here and now, instead of at that time.
+  //   src/pugin/dmtcp_ssh.cp:main(), and edit this into
+  //   exec("dmtcp_launch ... dmtcp_ssh ..."), and re-execute.
+  // NOTE:  If the user called exec("dmtcp_nocheckpoint ..."), we will
+  //   reset LD_PRELOAD back to ENV_VAR_ORIG_LD_PRELOAD in dmtcp_nocheckpoint
   char *preload = getenv("LD_PRELOAD");
-  char *userPreload =  getenv(ENV_VAR_ORIG_LD_PRELOAD);
+  char *userPreload = getenv(ENV_VAR_ORIG_LD_PRELOAD);
+  JASSERT(userPreload == NULL || strlen(userPreload) <= strlen(preload));
+  // Destructively modify environment variable "LD_PRELOAD" in place:
   preload[0] = '\0';
   if (userPreload == NULL) {
     //_dmtcp_unsetenv("LD_PRELOAD");

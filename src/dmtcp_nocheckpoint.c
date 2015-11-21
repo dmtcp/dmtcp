@@ -24,10 +24,16 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <string.h>
 #include "protectedfds.h"
+#include "constants.h" // for ENV_VAR_ORIG_LD_PRELOAD
+
+static void restoreUserLDPRELOAD();
 
 int main(int argc, char** argv) {
-  unsetenv("LD_PRELOAD");
+  if (getenv("LD_PRELOAD")) {
+    restoreUserLDPRELOAD();
+  }
   if(argc==1){
     fprintf(stderr, "USAGE:  %s cmd ...\n", argv[0]);
     return 1;
@@ -39,4 +45,25 @@ int main(int argc, char** argv) {
   execvp(argv[1], argv+1);
   perror("execvp:");
   return 2;
+}
+
+// This is a copy of the code in dmtcpworker.cpp:restoreUserLDPRELOAD()
+// Please keep this function in sync.
+// Note that the DMTCP exec wrappers will set ENV_VAR_ORIG_LD_PRELOAD.
+static void restoreUserLDPRELOAD()
+{
+  char *preload = getenv("LD_PRELOAD");
+  char *userPreload = getenv(ENV_VAR_ORIG_LD_PRELOAD);
+  // This is a C program.  JASSERT and JTRACE are not available:
+  // JASSERT(userPreload == NULL || strlen(userPreload) <= strlen(preload));
+  // Destructively modify environment variable "LD_PRELOAD" in place:
+  preload[0] = '\0';
+  if (userPreload == NULL) {
+    //_dmtcp_unsetenv("LD_PRELOAD");
+  } else {
+    strcat(preload, userPreload);
+    //setenv("LD_PRELOAD", userPreload, 1);
+  }
+  // JTRACE("LD_PRELOAD") (preload) (userPreload) (getenv(ENV_VAR_HIJACK_LIBS))
+  //   (getenv(ENV_VAR_HIJACK_LIBS_M32)) (getenv("LD_PRELOAD"));
 }
