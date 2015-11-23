@@ -83,15 +83,14 @@ extern "C" void dmtcp_initialize_plugin()
 
 void PluginManager::registerBarriersWithCoordinator()
 {
-  vector<string> preCkptBarriers;
-  vector<string> resumeBarriers;
+  vector<string> ckptBarriers;
   vector<string> restartBarriers;
 
   for (size_t i = 0; i < pluginManager->pluginInfos.size(); i++) {
     const vector<BarrierInfo*> barriers =
       pluginManager->pluginInfos[i]->preCkptBarriers;
     for (size_t j = 0; j < barriers.size(); j++) {
-      preCkptBarriers.push_back(barriers[j]->toString());
+      ckptBarriers.push_back(barriers[j]->toString());
     }
   }
 
@@ -99,7 +98,7 @@ void PluginManager::registerBarriersWithCoordinator()
     const vector<BarrierInfo*> barriers =
       pluginManager->pluginInfos[i]->resumeBarriers;
     for (size_t j = 0; j < barriers.size(); j++) {
-      resumeBarriers.push_back(barriers[j]->toString());
+      ckptBarriers.push_back(barriers[j]->toString());
     }
   }
 
@@ -113,8 +112,7 @@ void PluginManager::registerBarriersWithCoordinator()
 
   // TODO(kapil): Have a generic way to avoid bugs.
   string barrierList =
-    Util::joinStrings(preCkptBarriers, ",") + ";" +
-    Util::joinStrings(resumeBarriers, ",") + ";" +
+    Util::joinStrings(ckptBarriers, ",") + ";" +
     Util::joinStrings(restartBarriers, ",");
 
   DmtcpMessage msg;

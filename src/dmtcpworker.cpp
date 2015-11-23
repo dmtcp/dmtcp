@@ -424,13 +424,13 @@ void DmtcpWorker::waitForSuspendMessage()
     (SharedData::getCompId()) (msg.compGroup);
 }
 
-void DmtcpWorker::waitForCoordinatorMsg(DmtcpMessageType type)
+void DmtcpWorker::waitForCheckpointMessage()
 {
-  JTRACE("Waiting for coordinator message") (type);
   if (dmtcp_no_coordinator()) {
     return;
   }
 
+  JTRACE("Waiting for DMT_DO_CHECKPOINT message");
   CoordinatorAPI::instance().sendMsgToCoordinator(DmtcpMessage(DMT_OK));
 
   DmtcpMessage msg;
@@ -441,13 +441,12 @@ void DmtcpWorker::waitForCoordinatorMsg(DmtcpMessageType type)
     _exit (0);
   }
 
-  JASSERT(msg.type == type) (msg.type) (type);
-   if (type == DMT_DO_CHECKPOINT) {
-     JNOTE("Computation information") (msg.compGroup) (msg.numPeers);
-     ProcessInfo::instance().compGroup(msg.compGroup);
-     ProcessInfo::instance().numPeers(msg.numPeers);
-   }
+  JASSERT(msg.type == DMT_DO_CHECKPOINT) (msg.type);
+  JTRACE("Computation information") (msg.compGroup) (msg.numPeers);
+  ProcessInfo::instance().compGroup(msg.compGroup);
+  ProcessInfo::instance().numPeers(msg.numPeers);
 }
+
 
 void DmtcpWorker::waitForCheckpointRequest()
 {
@@ -482,12 +481,10 @@ void DmtcpWorker::preCheckpoint()
     SharedData::getCompId()._computation_generation;
   ProcessInfo::instance().set_generation(computationGeneration);
 
-  // Prepare SharedData for ckpt.
+  waitForCheckpointMessage();
+  WorkerState::setCurrentState(WorkerState::CHECKPOINTING);
   SharedData::prepareForCkpt();
-
   PluginManager::processCkptBarriers();
-
-  SharedData::writeCkpt();
 }
 
 void DmtcpWorker::postCheckpoint()
@@ -496,8 +493,6 @@ void DmtcpWorker::postCheckpoint()
   CoordinatorAPI::instance().sendCkptFilename();
 
   PluginManager::processResumeBarriers();
-  waitForCoordinatorMsg (DMT_DO_RESUME);
-  JTRACE("got resume message");
   WorkerState::setCurrentState( WorkerState::RUNNING );
 }
 
@@ -507,8 +502,6 @@ void DmtcpWorker::postRestart()
   WorkerState::setCurrentState(WorkerState::RESTARTING);
 
   PluginManager::processRestartBarriers();
-  waitForCoordinatorMsg (DMT_DO_RESUME);
-
   JTRACE("got resume message after restart");
 
   WorkerState::setCurrentState( WorkerState::RUNNING );

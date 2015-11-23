@@ -57,7 +57,6 @@ namespace dmtcp
 
     DMT_DO_SUSPEND,          // when coordinator wants slave to suspend        8
     DMT_DO_CHECKPOINT,       // when coordinator wants slave to checkpoint
-    DMT_DO_RESUME,           // when coordinator wants slave to resume (after checkpoint)
 
     DMT_BARRIER_LIFTED,
     DMT_BARRIER_LIST,
@@ -98,6 +97,7 @@ namespace dmtcp
         UNKNOWN,
         RUNNING,
         SUSPENDED,
+        CHECKPOINTING,
         CHECKPOINTED,
         RESTARTING,
         _MAX

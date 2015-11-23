@@ -84,6 +84,7 @@ namespace dmtcp
                                 size_t len = 0);
       void recvMsgFromCoordinator(DmtcpMessage *msg,
                                   void **extraData = NULL);
+      void waitForBarrier(const string& barrierId);
       void connectAndSendUserCommand(char c,
                                      int *coordCmdStatus = NULL,
                                      int *numPeers = NULL,

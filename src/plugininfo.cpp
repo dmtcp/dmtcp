@@ -86,7 +86,7 @@ void PluginInfo::eventHook (const DmtcpEvent_t event, DmtcpEventData_t *data)
 
 void PluginInfo::processBarriers()
 {
-  if (WorkerState::currentState() == WorkerState::SUSPENDED) {
+  if (WorkerState::currentState() == WorkerState::CHECKPOINTING) {
     for (int i = 0; i < preCkptBarriers.size(); i++) {
       processBarrier(preCkptBarriers[i]);
     }
@@ -105,44 +105,16 @@ void PluginInfo::processBarriers()
 
 void PluginInfo::processBarrier(BarrierInfo *barrier)
 {
-  waitForBarrier(barrier);
+  if (dmtcp_no_coordinator()) {
+    // Do nothing.
+  } else if (barrier->isGlobal()) {
+    CoordinatorAPI::instance().waitForBarrier(barrier->toString());
+  } else {
+    //SharedData::waitForLocalBarrier(barrier);
+  }
+
   JNOTE("Barrier lifted") (barrier->toString());
   barrier->callback();
 }
 
-void PluginInfo::waitForBarrier(BarrierInfo *barrier)
-{
-  if (dmtcp_no_coordinator()) {
-    return;
-  }
-
-  if (!barrier->isGlobal()) {
-    //SharedData::waitForLocalBarrier(barrier);
-    return;
-  }
-
-  CoordinatorAPI::instance().sendMsgToCoordinator(DmtcpMessage(DMT_OK));
-
-  JTRACE("waiting for DMT_BARRIER_LIFTED message");
-
-  char *extraData = NULL;
-  DmtcpMessage msg;
-  CoordinatorAPI::instance().recvMsgFromCoordinator(&msg, (void**)&extraData);
-
-  msg.assertValid();
-  if (msg.type == DMT_KILL_PEER) {
-    JTRACE("Received KILL message from coordinator, exiting");
-    _exit (0);
-  }
-
-  JASSERT(msg.type == DMT_BARRIER_LIFTED) (msg.type);
-
-  JASSERT(extraData != NULL);
-  JASSERT(barrier->toString() == extraData) (barrier->toString()) (extraData);
-
-  JALLOC_FREE(extraData);
-
-  // Now ack the receipt of the barrier message.
-  //CoordinatorAPI::instance().sendMsgToCoordinator(DmtcpMessage(DMT_OK));
-}
 }
