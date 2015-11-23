@@ -41,7 +41,7 @@ namespace dmtcp
       static DmtcpWorker& instance();
 
       static void waitForSuspendMessage();
-      static void waitForCoordinatorMsg(DmtcpMessageType type);
+      static void waitForCheckpointMessage();
       static void informCoordinatorOfRUNNINGState();
 
       static void waitForCheckpointRequest();

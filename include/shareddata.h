@@ -145,7 +145,6 @@ namespace dmtcp {
 
     bool isSharedDataRegion(void *addr);
     void prepareForCkpt();
-    void writeCkpt();
     void postRestart();
 
     string coordHost();

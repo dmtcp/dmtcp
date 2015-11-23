@@ -53,8 +53,6 @@ namespace dmtcp
 
       vector<PluginInfo*> pluginInfos;
   };
-
-  void increment_counters(int isRestart);
 }
 
 #endif

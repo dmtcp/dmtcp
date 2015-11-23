@@ -181,14 +181,10 @@ bool SharedData::isSharedDataRegion(void *addr)
 // name-service database, etc. during ckpt/resume/restart phases.
 void SharedData::prepareForCkpt()
 {
+  nextVirtualPtyId = sharedDataHeader->nextVirtualPtyId;
   sharedDataHeader->numInodeConnIdMaps = 0;
   sharedDataHeader->numIncomingConMaps = 0;
   WMB;
-}
-
-void SharedData::writeCkpt()
-{
-  nextVirtualPtyId = sharedDataHeader->nextVirtualPtyId;
 }
 
 void SharedData::postRestart()

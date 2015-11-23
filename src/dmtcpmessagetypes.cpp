@@ -111,8 +111,9 @@ ostream& dmtcp::operator << ( dmtcp::ostream& o, const WorkerState& s )
       OSHIFTPRINTF ( UNKNOWN )
       OSHIFTPRINTF ( RUNNING )
       OSHIFTPRINTF ( SUSPENDED )
-      OSHIFTPRINTF ( RESTARTING )
+      OSHIFTPRINTF ( CHECKPOINTING )
       OSHIFTPRINTF ( CHECKPOINTED )
+      OSHIFTPRINTF ( RESTARTING )
     default:
       JASSERT ( false ) .Text ( "Invalid WorkerState" );
       o << (int)s.value();
@@ -126,6 +127,7 @@ const char* WorkerState::toString() const{
   case RUNNING:      return "RUNNING";
   case SUSPENDED:    return "SUSPENDED";
   case CHECKPOINTED: return "CHECKPOINTED";
+  case CHECKPOINTING: return "CHECKPOINTING";
   case RESTARTING:   return "RESTARTING";
   default:           return "???";
   }
@@ -164,7 +166,6 @@ ostream& dmtcp::operator << ( dmtcp::ostream& o, const DmtcpMessageType & s )
 
       OSHIFTPRINTF ( DMT_DO_SUSPEND )
       OSHIFTPRINTF ( DMT_DO_CHECKPOINT )
-      OSHIFTPRINTF ( DMT_DO_RESUME )
       OSHIFTPRINTF ( DMT_BARRIER_LIFTED )
       OSHIFTPRINTF ( DMT_BARRIER_LIST )
 

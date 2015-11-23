@@ -437,6 +437,30 @@ void CoordinatorAPI::recvMsgFromCoordinator(DmtcpMessage *msg, void **extraData)
   }
 }
 
+void CoordinatorAPI::waitForBarrier(const string& barrierId)
+{
+  CoordinatorAPI::instance().sendMsgToCoordinator(DmtcpMessage(DMT_OK));
+
+  JTRACE("waiting for DMT_BARRIER_LIFTED message");
+
+  char *extraData = NULL;
+  DmtcpMessage msg;
+  CoordinatorAPI::instance().recvMsgFromCoordinator(&msg, (void**)&extraData);
+
+  msg.assertValid();
+  if (msg.type == DMT_KILL_PEER) {
+    JTRACE("Received KILL message from coordinator, exiting");
+    _exit (0);
+  }
+
+  JASSERT(msg.type == DMT_BARRIER_LIFTED) (msg.type);
+  JASSERT(extraData != NULL);
+  JASSERT(barrierId == extraData) (barrierId) (extraData);
+
+  JALLOC_FREE(extraData);
+
+}
+
 void CoordinatorAPI::startNewCoordinator(CoordinatorMode mode)
 {
   const char *host;

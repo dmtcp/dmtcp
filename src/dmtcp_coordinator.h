@@ -91,8 +91,9 @@ namespace dmtcp
       void broadcastMessage(DmtcpMessageType type,
                             size_t extraBytes = 0,
                             const void *extraData = NULL);
-      void liftBarrier(const string& barrier);
+      void releaseBarrier(const string& barrier);
       bool startCheckpoint();
+      void recordCkptFilename(const char *barrierList);
 
       void handleUserCommand(char cmd, DmtcpMessage* reply = NULL);
       void printStatus(size_t numPeers, bool isRunning);
@@ -117,16 +118,16 @@ namespace dmtcp
     protected:
       void writeRestartScript();
     private:
+      size_t _numCkptWorkers;
+      size_t _numRestartFilenames;
       //map from hostname to checkpoint files
       map< string, vector<string> > _restartFilenames;
       map< pid_t, CoordClient* > _virtualPidToClientMap;
 
-      vector<string> preCkptBarriers;
-      vector<string> resumeBarriers;
+      vector<string> ckptBarriers;
       vector<string> restartBarriers;
 
-      size_t nextPreCkptBarrier;
-      size_t nextResumeBarrier;
+      size_t nextCkptBarrier;
       size_t nextRestartBarrier;
   };
 
