@@ -70,7 +70,7 @@ static const char* theUsage =
   "  --port-file FILENAME\n"
   "              File to write listener port number.\n"
   "              (Useful with '--port 0', which is used to assign a random port)\n"
-  "  -j, --join\n"
+  "  -j, --join-coordinator\n"
   "              Join an existing coordinator, raise error if one doesn't\n"
   "              already exist\n"
   "  --new-coordinator\n"
@@ -83,7 +83,7 @@ static const char* theUsage =
   "              Time in seconds between automatic checkpoints.\n"
   "              0 implies never (manual ckpt only); if not set and no env var,\n"
   "              use default value set in dmtcp_coordinator or dmtcp_command.\n"
-  "              Not allowed if --join is specified\n"
+  "              Not allowed if --join-coordinator is specified\n"
   "\n"
   "Other options:\n"
   "  --no-strict-checking\n"
@@ -704,7 +704,7 @@ int main(int argc, char** argv)
     } else if ((s == "--version") && argc == 1) {
       printf("%s", DMTCP_VERSION_AND_COPYRIGHT_INFO);
       return DMTCP_FAIL_RC;
-    } else if (s == "-j" || s == "--join") {
+    } else if (s == "-j" || s == "--join-coordinator" || s == "--join") {
       allowedModes = COORD_JOIN;
       shift;
     } else if (s == "--new-coordinator") {
@@ -859,8 +859,8 @@ int main(int argc, char** argv)
   JASSERT(t != NULL);
   JASSERT(t->pid() != 0);
   JASSERT(!t->noCoordinator() || allowedModes == COORD_ANY)
-    .Text("Process had no coordinator prior to checkpoint;\n"
-          "  but either --join or --new-coordinator was specified.");
+   .Text("Process had no coordinator prior to checkpoint;\n"
+         "  but either --join-coordinator or --new-coordinator was specified.");
 
   if( foundNonOrphan ){
     t->createProcess(true);
