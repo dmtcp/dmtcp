@@ -68,9 +68,9 @@ static const char *theUsage =
   "  -p, --coord-port PORT_NUM (environment variable DMTCP_COORD_PORT)\n"
   "              Port where dmtcp_coordinator is run (default: 7779)\n"
   "  --port-file FILENAME\n"
-  "              File to write listener port number. (Useful with '--port 0',\n"
-  "              which is used to assign a random port)\n"
-  "  -j, --join\n"
+  "              File to write listener port number.\n"
+  "              (Useful with '--port 0', in order to assign a random port)\n"
+  "  -j, --join-coordinator\n"
   "              Join an existing coordinator, raise error if one doesn't\n"
   "              already exist\n"
   "  --new-coordinator\n"
@@ -80,12 +80,19 @@ static const char *theUsage =
   "              DMTCP_COORD_PORT.\n"
   "              If no port is specified, start coordinator at a random port\n"
   "              (same as specifying port '0').\n"
+  "  --any-coordinator\n"
+  "              Use --join-coordinator if possible, but only if port"
+                                                            " was specified.\n"
+  "              Else use --new-coordinator with specified port (if avail.),\n"
+  "                and otherwise with the default port: --port "
+                                                  STRINGIFY(DEFAULT_PORT) ")\n"
+  "              (This is the default.)\n"
   "  -i, --interval SECONDS (environment variable DMTCP_CHECKPOINT_INTERVAL)\n"
   "              Time in seconds between automatic checkpoints.\n"
   "              0 implies never (manual ckpt only); if not set and no env\n"
   "              var, use default value set in dmtcp_coordinator or \n"
   "              dmtcp_command.\n"
-  "              Not allowed if --join is specified\n"
+  "              Not allowed if --join-coordinator is specified\n"
   "\n"
   "Other options:\n"
   "  --no-strict-checking\n"
@@ -734,11 +741,14 @@ main(int argc, char **argv)
     } else if ((s == "--version") && argc == 1) {
       printf("%s", DMTCP_VERSION_AND_COPYRIGHT_INFO);
       return DMTCP_FAIL_RC;
-    } else if (s == "-j" || s == "--join") {
+    } else if (s == "-j" || s == "--join-coordinator" || s == "--join") {
       allowedModes = COORD_JOIN;
       shift;
     } else if (s == "--new-coordinator") {
       allowedModes = COORD_NEW;
+      shift;
+    } else if (s == "--any-coordinator") {
+      allowedModes = COORD_ANY;
       shift;
     } else if (s == "--no-strict-checking") {
       noStrictChecking = true;
@@ -793,6 +803,15 @@ main(int argc, char **argv)
     } else {
       break;
     }
+  }
+
+  if ((getenv(ENV_VAR_NAME_PORT) == NULL ||
+       getenv(ENV_VAR_NAME_PORT)[0]== '\0') &&
+      allowedModes != COORD_NEW) {
+    allowedModes = COORD_NEW;
+    setenv(ENV_VAR_NAME_PORT, "7779", 1);
+    JTRACE("No port specified\n"
+           "Setting mode to --new-coordinator --coord-port 7779");
   }
 
   tmpDir = Util::calcTmpDir(tmpdir_arg);
@@ -896,7 +915,7 @@ main(int argc, char **argv)
   JASSERT(t->pid() != 0);
   JASSERT(!t->noCoordinator() || allowedModes == COORD_ANY)
   .Text("Process had no coordinator prior to checkpoint;\n"
-        "  but either --join or --new-coordinator was specified.");
+        "  but either --join-coordinator or --new-coordinator was specified.");
 
   if (foundNonOrphan) {
     t->createProcess(true);

@@ -60,7 +60,7 @@ static const char *theUsage =
   "  --port-file FILENAME\n"
   "              File to write listener port number.  (Useful with\n"
   "              '--coord-port 0', which is used to assign a random port)\n"
-  "  -j, --join\n"
+  "  -j, --join-coordinator\n"
   "              Join an existing coordinator, raise error if one doesn't\n"
   "              already exist\n"
   "  --new-coordinator\n"
@@ -70,6 +70,13 @@ static const char *theUsage =
   "              DMTCP_COORD_PORT.\n"
   "              If no port is specified, start coordinator at a random port\n"
   "              (same as specifying port '0').\n"
+  "  --any-coordinator\n"
+  "              Use --join-coordinator if possible, but only if port"
+                                                            " was specified.\n"
+  "              Else use --new-coordinator with specified port (if avail.),\n"
+  "                and otherwise with the default port: --port "
+                                                  STRINGIFY(DEFAULT_PORT) ")\n"
+  "              (This is the default.)\n"
   "  --no-coordinator\n"
   "              Execute the process in standalone coordinator-less mode.\n"
   "              Use dmtcp_command or --interval to request checkpoints.\n"
@@ -80,7 +87,7 @@ static const char *theUsage =
   "              0 implies never (manual ckpt only);\n"
   "              if not set and no env var, use default value set in\n"
   "              dmtcp_coordinator or dmtcp_command.\n"
-  "              Not allowed if --join is specified\n"
+  "              Not allowed if --join-coordinator is specified\n"
   "\n"
   "Checkpoint image generation:\n"
   "  --gzip, --no-gzip, (environment variable DMTCP_GZIP=[01])\n"
@@ -244,7 +251,7 @@ processArgs(int *orig_argc,
     } else if ((s == "--version") && argc == 1) {
       printf("%s", DMTCP_VERSION_AND_COPYRIGHT_INFO);
       exit(DMTCP_FAIL_RC);
-    } else if (s == "-j" || s == "--join") {
+    } else if (s == "-j" || s == "--join-coordinator" || s == "--join") {
       allowedModes = COORD_JOIN;
       shift;
     } else if (s == "--gzip") {
@@ -266,6 +273,9 @@ processArgs(int *orig_argc,
 #endif // ifdef HBICT_DELTACOMP
     else if (s == "--new-coordinator") {
       allowedModes = COORD_NEW;
+      shift;
+    } else if (s == "--any-coordinator") {
+      allowedModes = COORD_ANY;
       shift;
     } else if (s == "--no-coordinator") {
       allowedModes = COORD_NONE;
@@ -380,6 +390,17 @@ processArgs(int *orig_argc,
     }
   }
 #endif // if __aarch64__
+  if ((portStr == NULL || portStr[0] == '\0') &&
+      (getenv(ENV_VAR_NAME_PORT) == NULL ||
+       getenv(ENV_VAR_NAME_PORT)[0]== '\0') &&
+      allowedModes != COORD_NEW) {
+    allowedModes = COORD_NEW;
+    // Use static; some compilers will save "7779" on local stack otherwise.
+    static const char *default_port = "7779";
+    setenv(ENV_VAR_NAME_PORT, default_port, 1);
+    JTRACE("No port specified\n"
+           "Setting mode to --new-coordinator --coord-port 7779");
+  }
   *tmpDir_p = Util::calcTmpDir(tmpdir_arg);
   *orig_argc = argc;
   *orig_argv = argv;
