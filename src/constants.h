@@ -64,8 +64,12 @@
 #define INITIAL_VIRTUAL_PID         40000
 #define MAX_VIRTUAL_PID             400000000
 
-#define DEFAULT_HOST                "127.0.0.1"
-#define DEFAULT_PORT                7779
+// NEEDED FOR STRINGIFY(DEFAULT_PORT)
+#define QUOTE(arg) #arg
+#define STRINGIFY(arg) QUOTE(arg)
+
+#define DEFAULT_HOST "127.0.0.1"
+#define DEFAULT_PORT 7779
 #define UNINITIALIZED_PORT          -1 /* used with getCoordHostAndPort() */
 
 // Match up this definition with the one in plugin/ptrace/ptracewrappers.cpp

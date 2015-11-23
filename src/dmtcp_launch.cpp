@@ -56,7 +56,8 @@ static const char *theUsage =
   "  -h, --coord-host HOSTNAME (environment variable DMTCP_COORD_HOST)\n"
   "              Hostname where dmtcp_coordinator is run (default: localhost)\n"
   "  -p, --coord-port PORT_NUM (environment variable DMTCP_COORD_PORT)\n"
-  "              Port where dmtcp_coordinator is run (default: 7779)\n"
+  "              Port where dmtcp_coordinator is run (default: "
+                                                  STRINGIFY(DEFAULT_PORT) ")\n"
   "  --port-file FILENAME\n"
   "              File to write listener port number.  (Useful with\n"
   "              '--coord-port 0', which is used to assign a random port)\n"
@@ -395,11 +396,12 @@ processArgs(int *orig_argc,
        getenv(ENV_VAR_NAME_PORT)[0]== '\0') &&
       allowedModes != COORD_NEW) {
     allowedModes = COORD_NEW;
-    // Use static; some compilers will save "7779" on local stack otherwise.
-    static const char *default_port = "7779";
+    // Use static; some compilers save string const on local stack otherwise.
+    static const char *default_port = STRINGIFY(DEFAULT_PORT);
     setenv(ENV_VAR_NAME_PORT, default_port, 1);
     JTRACE("No port specified\n"
-           "Setting mode to --new-coordinator --coord-port 7779");
+           "Setting mode to --new-coordinator --coord-port "
+           STRINGIFY(DEFAULT_PORT));
   }
   *tmpDir_p = Util::calcTmpDir(tmpdir_arg);
   *orig_argc = argc;
