@@ -343,7 +343,7 @@ static const char* theRestartScriptMultiHostProcessing =
 
   "maybejoin=\n"
   "if [ \"$num_worker_hosts\" != \"1\" ]; then\n"
-  "  maybejoin='--join'\n"
+  "  maybejoin='--join-coordinator'\n"
   "fi\n\n"
 
   "for worker_host in $worker_hosts\n"
@@ -390,7 +390,8 @@ static const char* theRestartScriptMultiHostProcessing =
   "    $maybexterm /usr/bin/ssh -t \"$worker_host\" \\\n"
   "      $dmt_rstr_cmd --coord-host \"$coord_host\""
                                              " --cord-port \"$coord_port\"\\\n"
-  "      $ckpt_dir --join --interval \"$checkpoint_interval\" $tmpdir \\\n"
+  "      $ckpt_dir --join-coordinator --interval \"$checkpoint_interval\""
+                                                " $tmpdir \\\n"
   "      $new_ckpt_files_group\n"
   "  else\n"
   "    $maybexterm /usr/bin/ssh \"$worker_host\" \\\n"
@@ -398,7 +399,8 @@ static const char* theRestartScriptMultiHostProcessing =
   // end of the computation until user presses enter key.
   "      \"/bin/sh -c \'$dmt_rstr_cmd --coord-host $coord_host"
                                                 " --coord-port $coord_port\\\n"
-  "      $ckpt_dir --join --interval \"$checkpoint_interval\" $tmpdir \\\n"
+  "      $ckpt_dir --join-coordinator --interval \"$checkpoint_interval\""
+                                                " $tmpdir \\\n"
   "      $new_ckpt_files_group\'\" &\n"
   "  fi\n\n"
   "done\n\n"
@@ -1496,7 +1498,8 @@ void DmtcpCoordinator::writeRestartScript()
                   "        . $DMTCP_SRUN_HELPER_SYNCFILE\n"
                   "        pass_slurm_helper_contact \"$DMTCP_LAUNCH_CKPTS\"\n"
                   "        rm $DMTCP_SRUN_HELPER_SYNCFILE\n"
-                  "        dmtcp_restart --join --coord-host $DMTCP_COORD_HOST"
+                  "        dmtcp_restart --join-coordinator"
+                              " --coord-host $DMTCP_COORD_HOST"
                               " --coord-port $DMTCP_COORD_PORT"
                               " $DMTCP_LAUNCH_CKPTS\n"
                   "      else\n"

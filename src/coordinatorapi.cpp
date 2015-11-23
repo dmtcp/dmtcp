@@ -487,7 +487,7 @@ void CoordinatorAPI::createNewConnToCoord(CoordinatorMode mode)
   if (mode & COORD_JOIN) {
     _coordinatorSocket = createNewSocketToCoordinator(mode);
     JASSERT(_coordinatorSocket.isValid()) (JASSERT_ERRNO)
-      .Text("Coordinator not found, but --join was specified. Exiting.");
+     .Text("Coordinator not found, but --join-coordinator specified. Exiting.");
   } else if (mode & COORD_NEW) {
     startNewCoordinator(mode);
     _coordinatorSocket = createNewSocketToCoordinator(mode);

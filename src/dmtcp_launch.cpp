@@ -58,7 +58,7 @@ static const char* theUsage =
   "  --port-file FILENAME\n"
   "              File to write listener port number.  (Useful with\n"
   "              '--coord-port 0', which is used to assign a random port)\n"
-  "  -j, --join\n"
+  "  -j, --join-coordinator\n"
   "              Join an existing coordinator, raise error if one doesn't\n"
   "              already exist\n"
   "  --new-coordinator\n"
@@ -76,7 +76,7 @@ static const char* theUsage =
   "              Time in seconds between automatic checkpoints.\n"
   "              0 implies never (manual ckpt only); if not set and no env var,\n"
   "              use default value set in dmtcp_coordinator or dmtcp_command.\n"
-  "              Not allowed if --join is specified\n"
+  "              Not allowed if --join-coordinator is specified\n"
   "\n"
   "Checkpoint image generation:\n"
   "  --gzip, --no-gzip, (environment variable DMTCP_GZIP=[01])\n"
@@ -229,7 +229,7 @@ static void processArgs(int *orig_argc, char ***orig_argv,
     } else if ((s=="--version") && argc==1) {
       printf("%s", DMTCP_VERSION_AND_COPYRIGHT_INFO);
       exit(DMTCP_FAIL_RC);
-    } else if (s == "-j" || s == "--join") {
+    } else if (s == "-j" || s == "--join-coordinator" || s == "--join") {
       allowedModes = COORD_JOIN;
       shift;
     } else if (s == "--gzip") {
