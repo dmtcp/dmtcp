@@ -105,7 +105,7 @@ static const char* theUsage =
   "Coordinates checkpoints between multiple processes.\n\n"
   "Options:\n"
   "  -p, --coord-port PORT_NUM (environment variable DMTCP_COORD_PORT)\n"
-  "      Port to listen on (default: 7779)\n"
+  "      Port to listen on (default: " STRINGIFY(DEFAULT_PORT) ")\n"
   "  --port-file filename\n"
   "      File to write listener port number.\n"
   "      (Useful with '--port 0', which is used to assign a random port)\n"
