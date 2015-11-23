@@ -155,6 +155,10 @@ ostream& dmtcp::operator << ( dmtcp::ostream& o, const DmtcpMessageType & s )
       OSHIFTPRINTF ( DMT_GET_CKPT_DIR )
       OSHIFTPRINTF ( DMT_GET_CKPT_DIR_RESULT )
       OSHIFTPRINTF ( DMT_UPDATE_CKPT_DIR )
+      OSHIFTPRINTF ( DMT_UPDATE_CKPT_DIR_FOR_ALL_PROCESS )
+      OSHIFTPRINTF ( DMT_UPDATE_CKPT_DIR_FOR_ALL_PROCESS_RESULT )
+      OSHIFTPRINTF ( DMT_GET_GLOBAL_CKPT_DIR )
+      OSHIFTPRINTF ( DMT_GET_GLOBAL_CKPT_DIR_RESULT )
 
       OSHIFTPRINTF ( DMT_USER_CMD )
       OSHIFTPRINTF ( DMT_USER_CMD_RESULT )
@@ -190,6 +194,7 @@ ostream& dmtcp::operator << ( dmtcp::ostream& o, const DmtcpMessageType & s )
       JASSERT ( false ) ( s ) .Text ( "Invalid Message Type" );
       //o << s;
   }
+
   return o;
 }
 

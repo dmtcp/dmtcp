@@ -48,6 +48,10 @@ namespace dmtcp
     DMT_GET_CKPT_DIR,
     DMT_GET_CKPT_DIR_RESULT,
     DMT_UPDATE_CKPT_DIR,
+    DMT_UPDATE_CKPT_DIR_FOR_ALL_PROCESS,
+    DMT_UPDATE_CKPT_DIR_FOR_ALL_PROCESS_RESULT,
+    DMT_GET_GLOBAL_CKPT_DIR,
+    DMT_GET_GLOBAL_CKPT_DIR_RESULT,
     DMT_CKPT_FILENAME,       // a slave sending it's checkpoint filename to coordinator
     DMT_UNIQUE_CKPT_FILENAME,// same as DMT_CKPT_FILENAME, except when
                              //   unique-ckpt plugin is being used.

@@ -369,6 +369,48 @@ void CoordinatorAPI::updateCoordCkptDir(const char *dir)
   _coordinatorSocket.writeAll(dir, strlen(dir) + 1);
 }
 
+void CoordinatorAPI::setGlobalCkptDir(const char *dir)
+{
+  JASSERT(dir != NULL);
+
+  jalib::JSocket _coordinatorSocket1 = createNewSocketToCoordinator(COORD_ANY);
+  if (!_coordinatorSocket1.isValid()) {
+    return;
+  }
+
+  DmtcpMessage msg(DMT_UPDATE_CKPT_DIR_FOR_ALL_PROCESS);
+  msg.extraBytes = strlen(dir) + 1;
+  _coordinatorSocket1 << msg;
+  _coordinatorSocket1.writeAll(dir, strlen(dir) + 1);
+
+  msg.poison();
+  _coordinatorSocket1 >> msg;
+  msg.assertValid();
+  JASSERT(msg.type == DMT_UPDATE_CKPT_DIR_FOR_ALL_PROCESS_RESULT) (msg.type);
+
+  _coordinatorSocket1.close();
+}
+
+char* CoordinatorAPI::getGlobalCkptDir(void)
+{
+  static char buf[PATH_MAX];
+  if (noCoordinator()) return "";
+  DmtcpMessage msg(DMT_GET_GLOBAL_CKPT_DIR);
+  _coordinatorSocket << msg;
+
+  msg.poison();
+  _coordinatorSocket >> msg;
+  msg.assertValid();
+  JASSERT(msg.type == DMT_GET_GLOBAL_CKPT_DIR_RESULT) (msg.type);
+
+  buf[0] = '\0';
+
+  if(msg.extraBytes > 0) {
+    _coordinatorSocket.readAll(buf, msg.extraBytes);
+  }
+  return buf;
+}
+
 void CoordinatorAPI::sendMsgToCoordinator(const DmtcpMessage &msg,
                                           const void *extraData,
                                           size_t len)

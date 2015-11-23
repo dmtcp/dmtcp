@@ -16,7 +16,13 @@ extern "C" int dmtcp_unique_ckpt_enabled(void)
 
 void updateCkptDir()
 {
-  const char *ckptDir = dmtcp_get_ckpt_dir();
+  const char *ckptDir = NULL; 
+  string globalCkptDir = dmtcp_get_global_ckpt_dir();
+  if(globalCkptDir.empty())
+    ckptDir = dmtcp_get_ckpt_dir();
+  else
+    ckptDir = globalCkptDir.c_str();
+
   string baseDir;
   if (strstr(ckptDir, dmtcp_get_computation_id_str()) != NULL) {
     baseDir = jalib::Filesystem::DirName(ckptDir);

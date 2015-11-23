@@ -192,6 +192,14 @@ EXTERNC int dmtcp_get_ckpt_signal(void);
 EXTERNC const char* dmtcp_get_uniquepid_str(void) __attribute__((weak));
 
 /*
+ * This API will set the checkpoint directory globally for all processes.
+ * This means that after this call ckpt files for all associated process 
+ * will get stored in common directory pointed by user.
+ */
+EXTERNC void dmtcp_set_global_ckpt_dir(const char* dir) __attribute__((weak));
+EXTERNC const char* dmtcp_get_global_ckpt_dir();
+
+/*
  * ComputationID
  *   ComputationID of a computation is the unique-pid of the first process of
  *   the computation. Even if that process dies, the rest of the computation
