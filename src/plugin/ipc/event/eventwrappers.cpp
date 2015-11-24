@@ -84,6 +84,31 @@ extern "C" int poll(struct pollfd *fds, nfds_t nfds, int timeout)
 }
 
 
+/* Poll wrapper forces poll to restart after ckpt/resume or ckpt/restart */
+// Two separate definitions for poll and __poll_chk allow us to support
+// application binaries compiled with "poll" (older libc versions) as well as
+// binaries compiled with "__poll_chk" (newer libc versions).
+extern "C" int __poll_chk(struct pollfd *fds, nfds_t nfds, int timeout,
+                          size_t fdslen)
+{
+  JASSERT((fdslen / sizeof (*fds)) >= nfds) (nfds) (fdslen)
+    .Text("Buffer Overflow detected!");
+
+  int rc;
+  while (1) {
+    uint32_t orig_generation = dmtcp_get_generation();
+    rc = _real_poll_chk(fds, nfds, timeout,fdslen);
+    if (rc == -1 && errno == EINTR &&
+         dmtcp_get_generation() > orig_generation) {
+      continue;  // This was a restart or resume after checkpoint.
+    } else {
+      break;  // The signal interrupting us was not our checkpoint signal.
+    }
+  }
+  return rc;
+}
+
+
 // pselect wrapper forces pselect to restart after ckpt/resume or ckpt/restart
 extern "C" int pselect(int nfds, fd_set *readfds, fd_set *writefds,
                        fd_set *exceptfds, const struct timespec *timeout,
