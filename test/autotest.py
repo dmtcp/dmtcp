@@ -978,7 +978,9 @@ if HAS_SCRIPT == "yes":
     #  /usr/lib/locale/locale-archive is 100 MB, and yet 'locale -a |wc' shows
     #  only 8KB of content in ASCII.  The 100 MB of locale-archive condenses
     #  to 25 MB _per process_ under gzip, but this can be slow at ckpt time.
-    runTest("script",    4,  ["/usr/bin/script -f" +
+    # On some systems, the script test has two `script` processes, while on some
+    # other systems, there is only a single `script` process.
+    runTest("script",    [3,4],  ["/usr/bin/script -f" +
                               " -c 'bash -c \"ls; sleep 30\"'" +
                               " dmtcp-test-typescript.tmp"])
   os.system("rm -f dmtcp-test-typescript.tmp")
