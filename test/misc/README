@@ -16,6 +16,7 @@ Examples of special cases are:
 * --no-coordinator
 * --tmpdir
 * --ckptdir
+* --checkpoint-open-files (especially in the case of open, but deleted files)
 * Coordinator specifications:
     '-p0 --port-file', --host, dmtcp_command,
     coordinator started in background versus coordinator in other window
@@ -30,4 +31,5 @@ Examples of special cases are:
 * Widely used commercial software:  Matlab, ...
 * Non-default plugins:
   --ptrace, modify-env
+  test/plugin/{applic-inititated-ckdpt,applic-delayed-ckpt}
 * Builds of DMTCP with other compilers:  icc LLVM/Clang
