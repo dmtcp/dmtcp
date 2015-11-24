@@ -914,7 +914,7 @@ void DmtcpCoordinator::onDisconnect(CoordClient *client)
     }
   }
   client->sock().close();
-  JNOTE ( "client disconnected" ) ( client->identity() );
+  JNOTE ( "client disconnected" ) ( client->identity() ) (client->progname());
   _virtualPidToClientMap.erase(client->virtualPid());
 
   ComputationStatus s = getStatus();
