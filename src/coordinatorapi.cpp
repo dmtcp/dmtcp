@@ -406,7 +406,7 @@ void CoordinatorAPI::sendMsgToCoordinator(const DmtcpMessage &msg,
 
 void CoordinatorAPI::recvMsgFromCoordinator(DmtcpMessage *msg, void **extraData)
 {
-  JASSERT(!noCoordinator());
+  JASSERT(!noCoordinator()).Text("internal error");
   if (sem_launch_first_time) {
     // Release user thread now that we've initialized the checkpoint thread.
     // This code is reached if the --no-coordinator flag is not used.
@@ -589,7 +589,10 @@ void CoordinatorAPI::connectToCoordOnStartup(CoordinatorMode mode,
 
 void CoordinatorAPI::createNewConnectionBeforeFork(string& progname)
 {
-  JASSERT(!noCoordinator());
+  JASSERT(!noCoordinator())
+    .Text("Process attempted to call fork() while in --no-coordinator mode\n"
+          "  Because the coordinator is embedded in a single process,\n"
+          "    DMTCP will not work with multiple processes.");
   struct sockaddr_storage addr;
   uint32_t len;
   SharedData::getCoordAddr((struct sockaddr *)&addr, &len);
