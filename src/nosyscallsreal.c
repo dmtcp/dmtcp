@@ -26,6 +26,10 @@
 // #define GNU_SRC
 // #define __USE_UNIX98
 
+// FIXME:  See comment in syscallwrappers.h about how to remove the need for
+//         this extra declaration.
+#define FOR_SYSCALLSREAL_C
+
 #include <pthread.h>
 // We should not need dlopen/dlsym
 // #include <dlfcn.h>
