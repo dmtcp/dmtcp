@@ -335,28 +335,29 @@ void ConnectionList::processCloseWork(int fd)
 
 void ConnectionList::processClose(int fd)
 {
+  _lock_tbl();
   if (_fdToCon.find(fd) != _fdToCon.end()) {
-    _lock_tbl();
     processCloseWork(fd);
-    _unlock_tbl();
   }
+  _unlock_tbl();
 }
 
 void ConnectionList::processDup(int oldfd, int newfd)
 {
   if (oldfd == newfd) return;
+
+  _lock_tbl();
   if (_fdToCon.find(newfd) != _fdToCon.end()) {
-    processClose(newfd);
+    processCloseWork(newfd);
   }
 
   // Add only if the oldfd was already in the _fdToCon table.
   if (_fdToCon.find(oldfd) != _fdToCon.end()) {
-    _lock_tbl();
     Connection *con = _fdToCon[oldfd];
     _fdToCon[newfd] = con;
     con->addFd(newfd);
-    _unlock_tbl();
   }
+  _unlock_tbl();
 }
 
 /*****************************************************/
