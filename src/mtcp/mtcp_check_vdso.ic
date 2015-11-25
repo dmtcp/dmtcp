@@ -325,13 +325,13 @@ void mtcp_check_vdso(char **environ)
 //#endif
         /*
          * XXX: TODO: Due to some reason, manual restart of checkpointed
-         *  processes fails if  ARCH_STACK_DEFAULT_SIZE is less than 256MB. It
+         *  processes fails if ARCH_STACK_DEFAULT_SIZE is less than 256MB. It
          *  has to do with VDSO. The location of VDSO section conflicts with the
          *  location of process libraries and hence it is unmapped which causes
          *  failure during the restarting phase. If we set the stack limit to
          *  256 MB or higher, we do not see this bug.
-         * It Should also be noted that the process will call setrlimit to set
-         *  the resource limits to their pre-checkpoint values.
+         * It should also be noted that the process will later call setrlimit
+         *  to set the resource limits to their pre-checkpoint values.
          */
 #define ARCH_STACK_DEFAULT_SIZE (256 * 1024 * 1024)
 
@@ -342,7 +342,8 @@ void mtcp_check_vdso(char **environ)
                rlimit_failed |= mtcp_sys_getrlimit(RLIMIT_STACK, &rlim),
                rlimit_failed || rlim.rlim_max == RLIM_INFINITY )
            ) {
-          MTCP_PRINTF("Failed to reduce RLIMIT_STACK below RLIM_INFINITY\n");
+          MTCP_PRINTF("Failed to reduce RLIMIT_STACK to %d\n",
+                      ARCH_STACK_DEFAULT_SIZE);
           mtcp_sys_exit(1);
         }
         write_args(argv, "/proc/self/cmdline");
