@@ -24,6 +24,9 @@
 
 #include <netdb.h>
 #include <arpa/inet.h>
+#include <sys/time.h>
+#include <sys/types.h>
+#include <unistd.h>
 #include "coordinatorapi.h"
 #include "dmtcp.h"
 #include "util.h"
@@ -34,6 +37,12 @@
 #include  "../jalib/jconvert.h"
 #include  "../jalib/jfilesystem.h"
 #include <fcntl.h>
+#include <semaphore.h> // for sem_post(&sem_launch)
+
+// sem_launch is used in threadlist.cpp
+// sem_launch_first_time will be set just before pthread_create(checkpointhread)
+LIB_PRIVATE bool sem_launch_first_time = false;
+LIB_PRIVATE sem_t sem_launch;
 
 using namespace dmtcp;
 
@@ -198,8 +207,21 @@ void CoordinatorAPI::waitForCheckpointCommand()
       timeout->tv_sec = remaining;
       JASSERT(gettimeofday(&start, NULL) == 0) (JASSERT_ERRNO);
     }
+
+    // This call to select() does nothing and returns.
+    // But we want to find address of select() using dlsym/libc before
+    //   allowing the user thread to continue.
+    struct timeval timezero = {0,0};
+    select(0, NULL, NULL, NULL, &timezero);
+    if (sem_launch_first_time) {
+      // Release user thread now that we've initialized the checkpoint thread.
+      // This code is reached if the --no-coordinator flag is used.
+      sem_post(&sem_launch);
+      sem_launch_first_time = false;
+    }
+
     FD_ZERO(&rfds);
-    FD_SET(PROTECTED_COORD_FD, &rfds );
+    FD_SET(PROTECTED_COORD_FD, &rfds);
     int retval = select(PROTECTED_COORD_FD+1, &rfds, NULL, NULL, timeout);
     if (retval == 0) { // timeout expired, time for checkpoint
       JTRACE("Timeout expired, checkpointing now.");
@@ -385,6 +407,14 @@ void CoordinatorAPI::sendMsgToCoordinator(const DmtcpMessage &msg,
 void CoordinatorAPI::recvMsgFromCoordinator(DmtcpMessage *msg, void **extraData)
 {
   JASSERT(!noCoordinator());
+  if (sem_launch_first_time) {
+    // Release user thread now that we've initialized the checkpoint thread.
+    // This code is reached if the --no-coordinator flag is not used.
+    // FIXME:  Technically, some rare type of software could still execute
+    //   between here and when we readall() from coord, thus creating a race.
+    sem_post(&sem_launch);
+    sem_launch_first_time = false;
+  }
   msg->poison();
   _coordinatorSocket >> (*msg);
 
