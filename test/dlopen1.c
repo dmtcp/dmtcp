@@ -1,5 +1,6 @@
 /* To compile, use -DLIB1 to create libdlopen-lib1.so, -DLIB2 for
- * libdlopen-lib2.so, and define neither to create executable.
+ *   libdlopen-lib2.so, and define neither to create executable.
+ * To run, do:  LD_LIBRARY_PATH=. ./dlopen1
  */
 
 #if !defined(LIB1) && !defined(LIB2)
