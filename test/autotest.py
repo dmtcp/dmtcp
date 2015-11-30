@@ -872,6 +872,7 @@ else:
 runTest("dlopen1",        1, ["./test/dlopen1"])
 # Disable the dlopen2 test until we can figure out a way to handle calls to
 # fork/exec/wait during library intialization with dlopen().
+# This seems to affect Travis CI of github, but not Ubuntu-12.04
 #if not USE_M32:
 #  runTest("dlopen2",        1, ["./test/dlopen2"])
 if old_ld_library_path:
@@ -879,7 +880,7 @@ if old_ld_library_path:
 else:
   del os.environ['LD_LIBRARY_PATH']
 
-runTest("realpath",        1, ["./test/realpath"])
+runTest("realpath",      1, ["./test/realpath"])
 runTest("pthread1",      1, ["./test/pthread1"])
 runTest("pthread2",      1, ["./test/pthread2"])
 S=10*DEFAULT_S

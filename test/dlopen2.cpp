@@ -1,5 +1,6 @@
-/* To compile, use -DLIB1 to create libdlopen-lib3.so, -DLIB2 for
+/* To compile, use -DLIB3 to create libdlopen-lib3.so, -DLIB4 for
  * libdlopen-lib4.so, and define neither to create executable.
+ * To run, do:  LD_LIBRARY_PATH=. ./dlopen2
  */
 
 # include <dlfcn.h>
