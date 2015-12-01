@@ -775,6 +775,8 @@ struct ibv_device ** _get_device_list(int * num_devices) {
     exit(1);
   }
 
+  memset(user_list, 0, (_dmtcp_num_devices + 1) * sizeof(struct ibv_device *));
+
   int i;
   for (i = 0; i < _dmtcp_num_devices; i++) {
     struct internal_ibv_dev * dev = (struct internal_ibv_dev *) malloc(sizeof(struct internal_ibv_dev));
@@ -977,12 +979,22 @@ void _ack_async_event(struct ibv_async_event * event)
  */
 void _free_device_list(struct ibv_device ** list)
 {
+  int i;
+  struct list_elem * e = list_begin(&dev_list);
+
   NEXT_IBV_FNC(ibv_free_device_list)(_dev_list);
 
-/*  for (i = 0; i < _dmtcp_num_devices; i++) {
-    free(list[i]);
+  for (i = 0; i < _dmtcp_num_devices; i++) {
+    struct internal_ibv_dev * dev = ibv_device_to_internal(list[i]);
+    struct list_elem * w = e;
+    struct address_pair * pair = list_entry(e, struct address_pair, elem);
+
+    e = list_next(e);
+    list_remove(w);
+    free(pair);
+    free(dev);
   }
-*/
+
   free(list);
 }
 
