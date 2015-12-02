@@ -38,6 +38,10 @@
 #undef dmtcp_get_local_status
 #undef dmtcp_get_uniquepid_str
 #undef dmtcp_get_ckpt_filename
+#undef dmtcp_set_coord_ckpt_dir
+#undef dmtcp_get_coord_ckpt_dir
+#undef dmtcp_set_ckpt_dir
+#undef dmtcp_get_ckpt_dir
 
 using namespace dmtcp;
 
@@ -183,11 +187,12 @@ EXTERNC const char* dmtcp_get_ckpt_dir()
   return tmpdir.c_str();
 }
 
-EXTERNC void dmtcp_set_ckpt_dir(const char* dir)
+EXTERNC int dmtcp_set_ckpt_dir(const char* dir)
 {
   if (dir != NULL) {
     ProcessInfo::instance().setCkptDir(dir);
   }
+  return DMTCP_IS_PRESENT;
 }
 
 EXTERNC const char* dmtcp_get_coord_ckpt_dir(void)
@@ -197,11 +202,12 @@ EXTERNC const char* dmtcp_get_coord_ckpt_dir(void)
   return dir.c_str();
 }
 
-EXTERNC void dmtcp_set_coord_ckpt_dir(const char* dir)
+EXTERNC int dmtcp_set_coord_ckpt_dir(const char* dir)
 {
   if (dir != NULL) {
     CoordinatorAPI::instance().updateCoordCkptDir(dir);
   }
+  return DMTCP_IS_PRESENT;
 }
 
 EXTERNC void dmtcp_set_ckpt_file(const char *filename)
