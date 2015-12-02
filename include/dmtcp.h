@@ -180,10 +180,18 @@ EXTERNC void dmtcp_get_local_ip_addr(struct in_addr *in);
 EXTERNC const char* dmtcp_get_tmpdir(void);
 //EXTERNC void dmtcp_set_tmpdir(const char *);
 
-EXTERNC const char* dmtcp_get_ckpt_dir(void);
-EXTERNC void dmtcp_set_ckpt_dir(const char *);
-EXTERNC const char* dmtcp_get_coord_ckpt_dir(void);
-EXTERNC void dmtcp_set_coord_ckpt_dir(const char* dir);
+EXTERNC const char* dmtcp_get_ckpt_dir(void) __attribute ((weak));
+#define dmtcp_get_ckpt_dir() \
+ (dmtcp_get_ckpt_dir ? dmtcp_get_ckpt_dir() : NULL)
+EXTERNC int dmtcp_set_ckpt_dir(const char *) __attribute ((weak));
+#define dmtcp_set_ckpt_dir(d) \
+ (dmtcp_set_ckpt_dir ? dmtcp_set_ckpt_dir(d) : DMTCP_NOT_PRESENT)
+EXTERNC const char* dmtcp_get_coord_ckpt_dir(void) __attribute__ ((weak));
+#define dmtcp_get_coord_ckpt_dir() \
+ (dmtcp_get_coord_ckpt_dir ? dmtcp_get_coord_ckpt_dir() : NULL)
+EXTERNC int dmtcp_set_coord_ckpt_dir(const char* dir) __attribute__ ((weak));
+#define dmtcp_set_coord_ckpt_dir(d) \
+ (dmtcp_set_coord_ckpt_dir ? dmtcp_set_coord_ckpt_dir(d) : DMTCP_NOT_PRESENT)
 EXTERNC const char* dmtcp_get_ckpt_filename(void) __attribute__((weak));
 EXTERNC const char* dmtcp_get_ckpt_files_subdir(void);
 EXTERNC int dmtcp_should_ckpt_open_files(void);
