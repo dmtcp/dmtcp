@@ -1,19 +1,23 @@
 /*! \file ibv_internal.h */
 #include <infiniband/verbs.h>
+#include <stdbool.h>
 #include "ibvidentifier.h"
 #include "lib/list.h"
 #include "debug.h"
+
+struct dev_list_info {
+  int num_devices;
+  bool in_free;
+  struct ibv_device ** user_dev_list;
+  struct ibv_device ** real_dev_list;
+};
 
 //! A wrapper around a device
 struct internal_ibv_dev {
   struct ibv_device user_dev;
   struct ibv_device * real_dev;
-};
-
-struct address_pair {
-  void *user;
-  void *real;
-  struct list_elem elem;
+  bool in_use;
+  struct dev_list_info * list_info;
 };
 
 //! A wrapper around a context

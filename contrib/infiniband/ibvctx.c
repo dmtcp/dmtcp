@@ -40,15 +40,13 @@ static bool is_restart = false;
 //! This flag is used to trace whether ibv_fork_init is called
 static bool is_fork = false;
 
-//! This is a list of devices open with ibv_open_device
-static struct ibv_device ** _dev_list;
-//! This is the int of how many devices were in _dev_list
-static int _dmtcp_num_devices;
+/* ibv_get_device_list may call ibv_get_device_name internally
+ * This flag is used to indicate whether ibv_get_device_name
+ * is called by user, or by ibv_get_device_list() */
+static bool in_getdevlist = false;
 
 /* these lists will track the resources so they can be recreated
  * at restart time */
-//! This is a list of devices
-static struct list dev_list = LIST_INITIALIZER(dev_list);
 //! This is the list of contexts
 static struct list ctx_list = LIST_INITIALIZER(ctx_list);
 //! This is the list of protection domains
@@ -355,11 +353,14 @@ void post_restart(void)
   }
   /* code to re-open device */
   int num = 0;
+  struct ibv_device ** real_dev_list;
 
   // This is useful when IB is not used while the plugin is enabled.
   if (dlvsym(RTLD_NEXT, "ibv_get_device_list", "IBVERBS_1.1") != NULL) {
 
-    _dev_list = NEXT_IBV_FNC(ibv_get_device_list)(&num);
+    in_getdevlist = true;
+    real_dev_list = NEXT_IBV_FNC(ibv_get_device_list)(&num);
+    in_getdevlist = false;
 
     if (!num)
     {
@@ -376,9 +377,9 @@ void post_restart(void)
     int i;
     for (i = 0; i < num; i++)
     {
-      if (!strncmp(internal_ctx->user_ctx.device->dev_name, _dev_list[i]->dev_name, strlen(_dev_list[i]->dev_name)))
+      if (!strncmp(internal_ctx->user_ctx.device->dev_name, real_dev_list[i]->dev_name, strlen(real_dev_list[i]->dev_name)))
       {
-          internal_ctx->real_ctx = NEXT_IBV_FNC(ibv_open_device)(_dev_list[i]);
+          internal_ctx->real_ctx = NEXT_IBV_FNC(ibv_open_device)(real_dev_list[i]);
 
           if (!internal_ctx->real_ctx)
           {
@@ -429,6 +430,7 @@ void post_restart(void)
       }
     }
   }
+  NEXT_IBV_FNC(ibv_free_device_list)(real_dev_list);
   /* end code to re-open device */
 
   /* code to alloc the protection domain */
@@ -760,39 +762,50 @@ int _fork_init() {
 }
 
 struct ibv_device ** _get_device_list(int * num_devices) {
-  _dev_list = NEXT_IBV_FNC(ibv_get_device_list)(&_dmtcp_num_devices);
+  struct ibv_device ** real_dev_list;
+  int real_num_devices;
+  struct dev_list_info * list_info;
 
-  struct ibv_device ** user_list =  0;
+  in_getdevlist = true;
+  real_dev_list = NEXT_IBV_FNC(ibv_get_device_list)(&real_num_devices);
+  in_getdevlist = false;
+
+  struct ibv_device ** user_list = NULL;
 
   if (num_devices) {
-    *num_devices = _dmtcp_num_devices;
+    *num_devices = real_num_devices;
   }
 
-  user_list = calloc(_dmtcp_num_devices + 1, sizeof(struct ibv_device *));
+  user_list = calloc(real_num_devices + 1, sizeof(struct ibv_device *));
+  list_info = (struct dev_list_info *)malloc(sizeof(struct dev_list_info));
 
-  if (!user_list) {
+  if (!user_list || list_info) {
     fprintf(stderr, "Error: Could not allocate memory for _get_device_list.\n");
     exit(1);
   }
 
-  memset(user_list, 0, (_dmtcp_num_devices + 1) * sizeof(struct ibv_device *));
+  memset(user_list, 0, (real_num_devices + 1) * sizeof(struct ibv_device *));
+  memset(list_info, 0, sizeof(struct dev_list_info));
+
+  list_info->num_devices = real_num_devices;
+  list_info->user_dev_list = user_list;
+  list_info->real_dev_list = real_dev_list;
 
   int i;
-  for (i = 0; i < _dmtcp_num_devices; i++) {
+  for (i = 0; i < real_num_devices; i++) {
     struct internal_ibv_dev * dev = (struct internal_ibv_dev *) malloc(sizeof(struct internal_ibv_dev));
-    struct address_pair *pair = (struct address_pair *)malloc(sizeof(struct address_pair));
 
-    if (!dev || !pair) {
+    if (!dev) {
       fprintf(stderr, "Error: Could not allocate memory for _get_device_list.\n");
       exit(1);
     }
 
-    memcpy(&dev->user_dev, _dev_list[i], sizeof(struct ibv_device));
-    dev->real_dev = _dev_list[i];
+    memset(dev, 0, sizeof(struct internal_ibv_dev));
+
+    memcpy(&dev->user_dev, real_dev_list[i], sizeof(struct ibv_device));
+    dev->real_dev = real_dev_list[i];
     user_list[i] = &dev->user_dev;
-    pair->user = user_list[i];
-    pair->real = _dev_list[i];
-    list_push_back(&dev_list, &pair->elem);
+    dev->list_info = list_info;
   }
 
   return user_list;
@@ -800,15 +813,11 @@ struct ibv_device ** _get_device_list(int * num_devices) {
 
 const char * _get_device_name(struct ibv_device * device)
 {
-  struct list_elem *e;
-  for (e = list_begin(&dev_list); e != list_end(&dev_list); e = list_next(e)) {
-    struct address_pair *pair = list_entry(e, struct address_pair, elem);
-    if (pair->user == device) {
-      return NEXT_IBV_FNC(ibv_get_device_name)(ibv_device_to_internal(device)->real_dev);
-    }
-    else if (pair->real == device) {
-      return NEXT_IBV_FNC(ibv_get_device_name)(device);
-    }
+  if (in_getdevlist) {
+    return NEXT_IBV_FNC(ibv_get_device_name)(device);
+  }
+  else {
+    return NEXT_IBV_FNC(ibv_get_device_name)(ibv_device_to_internal(device)->real_dev);
   }
 }
 
@@ -979,39 +988,56 @@ void _ack_async_event(struct ibv_async_event * event)
  */
 void _free_device_list(struct ibv_device ** list)
 {
+  struct ibv_device ** real_dev_list;
   int i;
-  struct list_elem * e = list_begin(&dev_list);
+  bool all_device_free = true;
+  struct dev_list_info * list_info;
 
-  NEXT_IBV_FNC(ibv_free_device_list)(_dev_list);
+  if (!list) return;
 
-  for (i = 0; i < _dmtcp_num_devices; i++) {
+  list_info = ibv_device_to_internal(list[0])->list_info;
+  real_dev_list = list_info->real_dev_list;
+
+  NEXT_IBV_FNC(ibv_free_device_list)(real_dev_list);
+
+  for (i = 0; i < list_info->num_devices; i++) {
     struct internal_ibv_dev * dev = ibv_device_to_internal(list[i]);
-    struct list_elem * w = e;
-    struct address_pair * pair = list_entry(e, struct address_pair, elem);
-
-    e = list_next(e);
-    list_remove(w);
-    free(pair);
-    free(dev);
+    if (dev->in_use) {
+      all_device_free = false;
+      break;
+    }
   }
 
-  free(list);
+  if (all_device_free) {
+    for (i = 0; i < list_info->num_devices; i++) {
+      struct internal_ibv_dev * dev = ibv_device_to_internal(list[i]);
+      free(dev);
+    }
+    free(list);
+    free(list_info);
+  }
+  else {
+    list_info->in_free = true;
+  }
 }
 
 struct ibv_context * _open_device(struct ibv_device * device) {
   struct internal_ibv_ctx * ctx = malloc(sizeof(struct internal_ibv_ctx));
+  struct internal_ibv_dev * dev = ibv_device_to_internal(device);
 
   if (!ctx) {
     fprintf(stderr, "Couldn't allocate memory for _open_device!\n");
     exit(1);
   }
 
-  ctx->real_ctx = NEXT_IBV_FNC(ibv_open_device)(ibv_device_to_internal(device)->real_dev);
+  ctx->real_ctx = NEXT_IBV_FNC(ibv_open_device)(dev->real_dev);
 
   if (ctx->real_ctx == NULL) {
     fprintf(stderr, "Could not allocate the real ctx.\n");
     exit(1);
   }
+
+  dev->in_use = true;
 
   /* setup the trampolines */
   UPDATE_FUNC_ADDR(post_recv, ctx->real_ctx->ops.post_recv);
@@ -1061,9 +1087,42 @@ int _query_gid(struct ibv_context *context, uint8_t port_num, int index, union i
 int _close_device(struct ibv_context * ctx)
 {
   struct internal_ibv_ctx * internal_ctx = ibv_ctx_to_internal(ctx);
+  struct internal_ibv_dev * dev;
+  struct dev_list_info * list_info;
+
+  dev = ibv_device_to_internal(internal_ctx->user_ctx.device);
+  dev->in_use = false;
+  list_info = dev->list_info;
+
   int rslt = NEXT_IBV_FNC(ibv_close_device)(internal_ctx->real_ctx);
   list_remove(&internal_ctx->elem);
   free(internal_ctx);
+
+  if (list_info->in_free) {
+    int i;
+    struct ibv_device ** user_list;
+    bool all_device_free = true;
+    struct internal_ibv_dev * dev_elem;
+
+    user_list = list_info->user_dev_list;
+    for (i = 0; i < list_info->num_devices; i++) {
+      dev_elem = ibv_device_to_internal(user_list[i]);
+      if (dev_elem->in_use) {
+        all_device_free = false;
+        break;
+      }
+    }
+
+    if (all_device_free) {
+      for (i = 0; i < list_info->num_devices; i++) {
+        dev_elem = ibv_device_to_internal(user_list[i]);
+        free(dev_elem);
+      }
+      free(user_list);
+      free(list_info);
+    }
+  }
+
 
   return rslt;
 }
