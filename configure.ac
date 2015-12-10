@@ -459,14 +459,6 @@ AC_PATH_PROG([GCL],    [gcl],        [no], [$PATH:/usr/local/bin:/usr/bin])
 AC_CHECK_PROG(HAS_MATLAB, [matlab], [yes], [no], [$PATH:/usr/local/bin:/usr/bin])
 AC_PATH_PROG([MATLAB],    [matlab],        [no], [$PATH:/usr/local/bin:/usr/bin])
 
-#check for g++
-AC_CHECK_PROG(HAS_CPP, [g++], [yes], [no], [$PATH:/usr/bin:/bin])
-
-if test "$HAS_CPP" != "yes"; then
-   AC_MSG_ERROR(
-    [Executable, g++, not found:  consider adding pkg:  'g++'])
-fi
-
 #if /usr/include/linux/version.h is missing, give up on configuring.
 AC_CHECK_HEADERS([linux/version.h], [], [AC_MSG_ERROR(
      [#include: <linux/version.h> not found: consider adding linux-libc-dev pkg]
