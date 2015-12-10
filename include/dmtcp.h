@@ -40,9 +40,9 @@
 
 // C++ takes null arg, while C takes void arg.
 #ifdef __cplusplus
-# define VOID
+# define DMTCP_VOID
 #else
-# define VOID void
+# define DMTCP_VOID void
 #endif
 
 #define LIB_PRIVATE __attribute__ ((visibility ("hidden")))
@@ -118,7 +118,7 @@ EXTERNC int dmtcp_unique_pids_equal(DmtcpUniqueProcessId a,
  * See: test/plugin/applic-initiated-ckpt and applic-delayed-ckpt
  *      directories for exammples:
  */
-EXTERNC int dmtcp_is_enabled(VOID) __attribute ((weak));
+EXTERNC int dmtcp_is_enabled(DMTCP_VOID) __attribute ((weak));
 #define dmtcp_is_enabled() (dmtcp_is_enabled ? dmtcp_is_enabled() : 0)
 
 /**
@@ -130,7 +130,7 @@ EXTERNC int dmtcp_is_enabled(VOID) __attribute ((weak));
  * + returns <=0 on error.
  * See: test/plugin/applic-initiated-ckpt directory for an exammple:
  */
-EXTERNC int dmtcp_checkpoint(VOID) __attribute__ ((weak));
+EXTERNC int dmtcp_checkpoint(DMTCP_VOID) __attribute__ ((weak));
 #define dmtcp_checkpoint() \
   (dmtcp_checkpoint ? dmtcp_checkpoint() : DMTCP_NOT_PRESENT)
 
@@ -143,7 +143,7 @@ EXTERNC int dmtcp_checkpoint(VOID) __attribute__ ((weak));
  * + Returns 1 on success, <=0 on error
  * See: test/plugin/applic-delayed-ckpt directory for an exammple:
  */
-EXTERNC int dmtcp_disable_ckpt(VOID) __attribute__ ((weak));
+EXTERNC int dmtcp_disable_ckpt(DMTCP_VOID) __attribute__ ((weak));
 #define dmtcp_disable_ckpt() \
  (dmtcp_disable_ckpt ? dmtcp_disable_ckpt() : DMTCP_NOT_PRESENT)
 
@@ -152,7 +152,7 @@ EXTERNC int dmtcp_disable_ckpt(VOID) __attribute__ ((weak));
  * + Returns 1 on success, <=0 on error
  * See: test/plugin/applic-delayed-ckpt directory for an exammple:
  */
-EXTERNC int dmtcp_enable_ckpt(VOID) __attribute__ ((weak));
+EXTERNC int dmtcp_enable_ckpt(DMTCP_VOID) __attribute__ ((weak));
 #define dmtcp_enable_ckpt() \
  (dmtcp_enable_ckpt ? dmtcp_enable_ckpt() : DMTCP_NOT_PRESENT)
 
