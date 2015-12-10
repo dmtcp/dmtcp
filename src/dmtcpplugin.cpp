@@ -348,7 +348,7 @@ dmtcp_get_restart_env(const char *name,   // IN
 #define DMTCP_BUF_TOO_SMALL -3
 #define INTERNAL_ERROR -4
 #define NULL_PTR -5
-#define MAXSIZE 3000
+#define MAXSIZE 5000
 
   int rc = NOTFOUND; // Default is -1: name not found
 
