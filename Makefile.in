@@ -74,6 +74,7 @@ all: default
 
 display-build-env: display-config display-release
 	@- uname -a
+	@ ldd --version | head -1 || true
 	@- echo 'Compiler:  ${CC}'
 	@- ${CC} -v 2>&1
 	@- echo 'CFLAGS: ${CFLAGS}'
@@ -83,8 +84,6 @@ display-build-env: display-config display-release
 	@- if test "$(HAS_JAVA)" = "yes" ; then \
 	     java -showversion 2>&1 | head -3 ; \
 	   fi
-	@ ls -l /lib/libc.so.6 /lib32/libc.so.6 /lib64/libc.so.6 \
-	   /lib/*/libc.so.6  2> /dev/null || true
 	@ ls -ld /var/*/nscd/* 2> /dev/null || true
 	@ echo ""
 
