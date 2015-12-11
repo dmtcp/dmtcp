@@ -12,6 +12,14 @@ struct dev_list_info {
   struct ibv_device ** real_dev_list;
 };
 
+/*
+ * On restart, the real resouces inside the internal structures below
+ * are recreated. However, the old real resources are not released,
+ * thus leading to a memory leak. Currenly we do not handle this memory
+ * leak, because the memory leak is tiny, and destroying those resources
+ * at checkpoint time will affect the performance.
+ */
+
 //! A wrapper around a device
 struct internal_ibv_dev {
   struct ibv_device user_dev;
