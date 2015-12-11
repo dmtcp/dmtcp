@@ -202,39 +202,7 @@ static const char* cmdlineArgHandler =
   "fi\n\n"
 ;
 
-static const char* singleHostProcessing =
-  "ckpt_files=\"\"\n"
-  "if [ ! -z \"$DMTCP_RESTART_DIR\" ]; then\n"
-  "  for tmp in $given_ckpt_files; do\n"
-  "    ckpt_files=\"$DMTCP_RESTART_DIR/$(basename $tmp) $ckpt_files\"\n"
-  "  done\n"
-  "else\n"
-  "  ckpt_files=$given_ckpt_files\n"
-  "fi\n\n"
-
-  "coordinator_info=\"--coord-host $coord_host --coord-port $coord_port\"\n"
-
-  "tmpdir=\n"
-  "if [ ! -z \"$DMTCP_TMPDIR\" ]; then\n"
-  "  tmpdir=\"--tmpdir $DMTCP_TMPDIR\"\n"
-  "fi\n\n"
-
-  "ckpt_dir=\n"
-  "if [ ! -z \"$DMTCP_CKPT_DIR\" ]; then\n"
-  "  ckpt_dir=\"--ckptdir $DMTCP_CKPT_DIR\"\n"
-  "fi\n\n"
-
-  "coord_logfile=\n"
-  "if [ ! -z \"$DMTCP_COORD_LOGFILE\" ]; then\n"
-  "  coord_logfile=\"--coord-logfile $DMTCP_COORD_LOGFILE\"\n"
-  "fi\n\n"
-
-  "exec $dmt_rstr_cmd $coordinator_info $ckpt_dir \\\n"
-  "  $maybejoin --interval \"$checkpoint_interval\" $tmpdir $noStrictChecking $coord_logfile\\\n"
-  "  $ckpt_files\n"
-;
-
-static const char* multiHostProcessing =
+static const char* rstrtCmdProcessing =
   "worker_ckpts_regexp=\\\n"
   "\'[^:]*::[ \\t\\n]*\\([^ \\t\\n]\\+\\)[ \\t\\n]*:\\([a-z]\\+\\):[ \\t\\n]*\\([^:]\\+\\)[ \\t\\n]*:\\([^:]\\+\\)\'\n\n"
 
@@ -357,8 +325,6 @@ void writeScript(const string& ckptDir,
   o << "." << RESTART_SCRIPT_EXT;
   uniqueFilename = o.str();
 
-  const bool isSingleHost = ((rshCmdFileNames.size() == 0) && (sshCmdFileNames.size() == 0) && (restartFilenames.size() == 1));
-
   map< string, vector<string> >::const_iterator host;
 
   size_t numPeers = 0;
@@ -430,19 +396,6 @@ void writeScript(const string& ckptDir,
                 (restartFilenames.size() + sshCmdFileNames.size() + rshCmdFileNames.size()), 
                 numPeers );
 
-  if ( isSingleHost ) {
-    JTRACE ( "Single HOST" );
-
-    host=restartFilenames.begin();
-    ostringstream o;
-    for ( file=host->second.begin(); file!=host->second.end(); ++file ) {
-      o << " " << *file;
-    }
-    fprintf ( fp, "given_ckpt_files=\"%s\"\n\n", o.str().c_str());
-
-    fprintf ( fp, "%s", singleHostProcessing );
-  }
-  else
   {
     fprintf ( fp, "%s",
               "# SYNTAX:\n"
@@ -574,7 +527,7 @@ void writeScript(const string& ckptDir,
                   "\n\n"
              );
 
-    fprintf ( fp, "%s", multiHostProcessing );
+    fprintf ( fp, "%s", rstrtCmdProcessing);
   }
 
   fclose ( fp );
