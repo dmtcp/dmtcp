@@ -762,7 +762,7 @@ int _fork_init() {
   and then copy the list, returning an image of the copy to the user
   */
 struct ibv_device ** _get_device_list(int * num_devices) {
-  struct ibv_device ** real_dev_list;
+  struct ibv_device ** real_dev_list = NULL;
   int real_num_devices;
   struct dev_list_info * list_info;
 
@@ -770,16 +770,20 @@ struct ibv_device ** _get_device_list(int * num_devices) {
   real_dev_list = NEXT_IBV_FNC(ibv_get_device_list)(&real_num_devices);
   in_real_get_dev_list = false;
 
-  struct ibv_device ** user_list = NULL;
-
   if (num_devices) {
     *num_devices = real_num_devices;
   }
 
+  if (!real_dev_list) {
+    return NULL;
+  }
+
+  struct ibv_device ** user_list = NULL;
+
   user_list = calloc(real_num_devices + 1, sizeof(struct ibv_device *));
   list_info = (struct dev_list_info *)malloc(sizeof(struct dev_list_info));
 
-  if (!user_list || list_info) {
+  if (!user_list || !list_info) {
     fprintf(stderr, "Error: Could not allocate memory for _get_device_list.\n");
     exit(1);
   }
@@ -986,22 +990,22 @@ void _ack_async_event(struct ibv_async_event * event)
 /*! This function will free the real device list and then
  * delete the members of the device list copy
  */
-void _free_device_list(struct ibv_device ** list)
+void _free_device_list(struct ibv_device ** dev_list)
 {
   struct ibv_device ** real_dev_list;
   int i;
   bool all_device_free = true;
   struct dev_list_info * list_info;
 
-  if (!list) return;
+  if (!dev_list) return;
 
-  list_info = ibv_device_to_internal(list[0])->list_info;
+  list_info = ibv_device_to_internal(dev_list[0])->list_info;
   real_dev_list = list_info->real_dev_list;
 
   NEXT_IBV_FNC(ibv_free_device_list)(real_dev_list);
 
   for (i = 0; i < list_info->num_devices; i++) {
-    struct internal_ibv_dev * dev = ibv_device_to_internal(list[i]);
+    struct internal_ibv_dev * dev = ibv_device_to_internal(dev_list[i]);
     if (dev->in_use) {
       all_device_free = false;
       break;
@@ -1010,10 +1014,10 @@ void _free_device_list(struct ibv_device ** list)
 
   if (all_device_free) {
     for (i = 0; i < list_info->num_devices; i++) {
-      struct internal_ibv_dev * dev = ibv_device_to_internal(list[i]);
+      struct internal_ibv_dev * dev = ibv_device_to_internal(dev_list[i]);
       free(dev);
     }
-    free(list);
+    free(dev_list);
     free(list_info);
   }
   else {
@@ -1022,7 +1026,7 @@ void _free_device_list(struct ibv_device ** list)
 }
 
 /*
- * TODO: if a checkpoint happens between ibv_get_device_list() and 
+ * FIXME :if a checkpoint happens between ibv_get_device_list() and
  * ibv_open_device(), the current code doesn't work for restart.
  * We currently assume these work is done at initialization phase.
  * We need to recreate the device list(s) that have been created,
