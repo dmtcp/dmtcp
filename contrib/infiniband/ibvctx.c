@@ -43,7 +43,7 @@ static bool is_fork = false;
 /* ibv_get_device_list may call ibv_get_device_name internally
  * This flag is used to indicate whether ibv_get_device_name
  * is called by user, or by ibv_get_device_list() */
-static bool in_getdevlist = false;
+static bool in_real_get_dev_list = false;
 
 /* these lists will track the resources so they can be recreated
  * at restart time */
@@ -358,9 +358,9 @@ void post_restart(void)
   // This is useful when IB is not used while the plugin is enabled.
   if (dlvsym(RTLD_NEXT, "ibv_get_device_list", "IBVERBS_1.1") != NULL) {
 
-    in_getdevlist = true;
+    in_real_get_dev_list = true;
     real_dev_list = NEXT_IBV_FNC(ibv_get_device_list)(&num);
-    in_getdevlist = false;
+    in_real_get_dev_list = false;
 
     if (!num)
     {
@@ -751,24 +751,24 @@ void refill(void)
   }
 }
 
-//! This performs the work of the _get_device_list_wrapper
-/*!
-  This function will open the real device list, store into _dev_list
-  and then copy the list, returning an image of the copy to the user
-  */
 int _fork_init() {
   is_fork = true;
   return NEXT_IBV_FNC(ibv_fork_init)();
 }
 
+//! This performs the work of the _get_device_list_wrapper
+/*!
+  This function will open the real device list, store into real_dev_list
+  and then copy the list, returning an image of the copy to the user
+  */
 struct ibv_device ** _get_device_list(int * num_devices) {
   struct ibv_device ** real_dev_list;
   int real_num_devices;
   struct dev_list_info * list_info;
 
-  in_getdevlist = true;
+  in_real_get_dev_list = true;
   real_dev_list = NEXT_IBV_FNC(ibv_get_device_list)(&real_num_devices);
-  in_getdevlist = false;
+  in_real_get_dev_list = false;
 
   struct ibv_device ** user_list = NULL;
 
@@ -813,7 +813,7 @@ struct ibv_device ** _get_device_list(int * num_devices) {
 
 const char * _get_device_name(struct ibv_device * device)
 {
-  if (in_getdevlist) {
+  if (in_real_get_dev_list) {
     return NEXT_IBV_FNC(ibv_get_device_name)(device);
   }
   else {
@@ -1021,6 +1021,13 @@ void _free_device_list(struct ibv_device ** list)
   }
 }
 
+/*
+ * TODO: if a checkpoint happens between ibv_get_device_list() and 
+ * ibv_open_device(), the current code doesn't work for restart.
+ * We currently assume these work is done at initialization phase.
+ * We need to recreate the device list(s) that have been created,
+ * and not yet freed.
+ */
 struct ibv_context * _open_device(struct ibv_device * device) {
   struct internal_ibv_ctx * ctx = malloc(sizeof(struct internal_ibv_ctx));
   struct internal_ibv_dev * dev = ibv_device_to_internal(device);
