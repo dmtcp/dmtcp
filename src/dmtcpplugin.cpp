@@ -323,6 +323,13 @@ EXTERNC void dmtcp_close_protected_fd(int fd)
   _real_close(fd);
 }
 
+// dmtcp_get_restart_env() will take an environment variable, name,
+//   from the current environment at the time dmtcp_restart,
+//   and return its value.  This is useful since by default,
+//   an application would see only the restored memory from checkpoint
+//   time, which includes only environment variable values that
+//   existed at the time of checkpoint.
+// The plugin modify-env uses this function intensively.
 // EXTERNC int dmtcp_get_restart_env(char *name, char *value, int maxvaluelen);
 // USAGE:
 //   char value[MAXSIZE];

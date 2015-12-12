@@ -115,7 +115,7 @@ __d_libdir__libdmtcp_so_LDADD = libdmtcpinternal.a libjalib.a \
 __d_bindir__dmtcp_coordinator_LDADD = libdmtcpinternal.a libjalib.a \
 			  libnohijack.a -lpthread -lrt
 __d_bindir__dmtcp_launch_LDADD  = libdmtcpinternal.a libjalib.a \
-			  libnohijack.a -ldl -lpthread -lrt
+			  libnohijack.a -lpthread -lrt -ldl
 __d_bindir__dmtcp_restart_LDADD     = libdmtcpinternal.a libjalib.a \
 			  libnohijack.a -lpthread -lrt -ldl
 __d_bindir__dmtcp_command_LDADD     = libdmtcpinternal.a libjalib.a \

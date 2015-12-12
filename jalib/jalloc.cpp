@@ -88,7 +88,7 @@ inline void* _alloc_raw(size_t n)
 # endif
 
   if(p==MAP_FAILED)
-    perror("_alloc_raw: ");
+    perror("DMTCP(" __FILE__ "): _alloc_raw: ");
   return p;
 #endif
 }
@@ -101,7 +101,7 @@ inline void _dealloc_raw(void* ptr, size_t n)
   if(ptr==0 || n==0) return;
   int rv = munmap(ptr, n);
   if(rv!=0)
-    perror("_dealloc_raw: ");
+    perror("DMTCP(" __FILE__ "): _dealloc_raw: ");
 #endif
 }
 
@@ -190,7 +190,7 @@ protected:
       abort();
     }
     FreeItem* bufs = static_cast<FreeItem*>(_alloc_raw(_blockSize));
-    int count= _blockSize / sizeof(FreeItem);
+    int count = _blockSize / sizeof(FreeItem);
     for(int i=0; i<count-1; ++i){
       bufs[i].next=bufs+i+1;
     }

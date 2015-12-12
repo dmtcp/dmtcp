@@ -26,6 +26,11 @@
 #define _GNU_SOURCE
 #endif
 
+// FIXME:  Why are we adding all these includes here, if we're declaring
+//         only our own _real_XXX() functions?  Some *wrappers.cpp files
+//         use these includes.  But, then we should split up these includes
+//         among the individual *wrappers.cpp files that actually need them,
+//         and not declare every possible include in one giant .h file.
 #include <sched.h>
 #include <stdio.h>
 #include <sys/types.h>

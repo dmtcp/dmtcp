@@ -262,7 +262,7 @@ if test "$use_m32" = "yes"; then
     AC_MSG_FAILURE([[Failed to build C program with -m32
     Typically, this means that 32-bit glibc include files were not found.
     Consider installing gcc-multilib g++-multilib libc6-dev-i386 (Debian/Ubuntu)
-     or glibc-devel.i686 glibc-devel ibstdc++-devel.i686 (Red Hat/Fedora/CentOS)
+     or glibc-devel.i686 glibc-devel libstdc++-devel.i686(Red Hat/Fedora/CentOS)
      or glibc-devel-32bit (SUSE/OpenSUSE)
      or the equivalent packages for your Linux distro.]])
   fi
@@ -278,7 +278,7 @@ if test "$use_m32" = "yes"; then
   AC_LANG_POP([C++])
   AC_MSG_RESULT([$cplusplus_m32])
   if test "$cplusplus_m32" = "no"; then
-    AC_MSG_FAILURE([[Failed to build C++ program with -m32
+    AC_MSG_FAILURE([[Failed to build $CXX program with -m32
     Typically, this means that 32-bit libstdc++.so was not found
     Consider installing gcc-multilib g++-multilib libc6-dev-i386 (Debian/Ubuntu)
      or glibc-devel.i686 glibc-devel ibstdc++-devel.i686 (Red Hat/Fedora/CentOS)

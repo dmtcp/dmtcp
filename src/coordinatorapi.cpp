@@ -544,7 +544,7 @@ DmtcpMessage CoordinatorAPI::sendRecvHandshake(DmtcpMessage msg,
       .Text("Connection rejected by the coordinator.\n"
             " Reason: This process has a different computation group.");
   }
-  JASSERT(msg.type == DMT_ACCEPT);
+  JASSERT(msg.type == DMT_ACCEPT)(msg.type);
   return msg;
 }
 

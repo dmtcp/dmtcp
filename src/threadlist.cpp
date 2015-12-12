@@ -416,8 +416,8 @@ static void *checkpointhread (void *dummy)
      *   motherofall will be the checkpoint thread.  Why do we switch at the
      *   time of restart?  Should we fix this?
      */
-    JTRACE("before callbackPostCheckpoint(0, NULL)");
-    callbackPostCheckpoint(0, NULL);
+    JTRACE("before callbackPostCheckpoint(false, NULL)");
+    callbackPostCheckpoint(false, NULL);
 
     /* Resume all threads. */
     JTRACE("resuming everything");
@@ -646,9 +646,9 @@ void ThreadList::waitForAllRestored(Thread *thread)
       sem_wait(&semNotifyCkptThread);
     }
 
-    JTRACE("before callback_post_ckpt(1=restarting)");
-    callbackPostCheckpoint(1, NULL); //mtcp_restoreargv_start_addr);
-    JTRACE("after callback_post_ckpt(1=restarting)");
+    JTRACE("before callbackPostCheckpoint(isRestart=true)");
+    callbackPostCheckpoint(true, NULL); //(isRestart,mtcpRestoreArgvStartAddr);
+    JTRACE("after callbackPostCheckpoint(isRestart=true)");
 
     SigInfo::restoreSigHandlers();
 

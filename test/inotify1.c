@@ -78,7 +78,7 @@ int main(int argc, char** argv)
    strcat(directory_2, "/dmtcp_inotify2/");
 
    
-   //create the directory in /tmp which will host the files
+   //create directory_1 and directory_2 in the tmp dir that will host the files
    if((ret_val = mkdir(directory_1, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH)) != SUCCESS)
    {
       printf("couldn't create the directory...it probably already exists\n");

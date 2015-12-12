@@ -102,7 +102,7 @@ extern "C" int connect(int sockfd, const struct sockaddr *serv_addr,
       if (val==0) ret = 0;
     }
     else
-      JTRACE("No data within five seconds.");
+      JTRACE("No data within 15 seconds.");
   }
 
   if (ret != -1 && dmtcp_is_running_state() && !_doNotProcessSockets) {
