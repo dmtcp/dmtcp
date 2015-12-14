@@ -197,7 +197,7 @@ static const char* cmdlineArgHandler =
   "fi\n\n"
 ;
 
-static const char* rstrCmdProcessing =
+static const char* rstrtCmdProcessing =
   "worker_ckpts_regexp=\\\n"
   "\'[^:]*::[ \\t\\n]*\\([^ \\t\\n]\\+\\)[ \\t\\n]*:\\([a-z]\\+\\):[ \\t\\n]*\\([^:]\\+\\)\'\n\n"
 
@@ -462,7 +462,7 @@ void writeScript(const string& ckptDir,
                   "\n\n"
              );
 
-    fprintf ( fp, "%s", rstrCmdProcessing);
+    fprintf ( fp, "%s", rstrtCmdProcessing);
   }
 
   fclose ( fp );
