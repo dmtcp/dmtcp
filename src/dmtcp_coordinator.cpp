@@ -1559,7 +1559,10 @@ void DmtcpCoordinator::writeRestartScript()
     JTRACE("linking \"dmtcp_restart_script.sh\" filename to uniqueFilename")
       (filename) (dirname) (uniqueFilename);
     // FIXME:  Handle error case of symlink()
-    JWARNING(symlinkat(uniqueFilename.c_str(), dirfd, filename.c_str()) == 0);
+    JWARNING(symlinkat(basename(uniqueFilename.c_str()),
+                       dirfd,
+                       filename.c_str()) == 0)
+      (JASSERT_ERRNO);
     JASSERT(close(dirfd) == 0);
   }
   _restartFilenames.clear();
