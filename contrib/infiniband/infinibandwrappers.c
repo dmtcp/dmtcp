@@ -15,7 +15,15 @@
 void *dlopen(const char *filename, int flag) {
   if (filename) {
     if (strstr(filename, "libibverbs.so")) {
-      return RTLD_DEFAULT;
+      void *handle = NEXT_FNC(dlopen)("libdmtcp_infiniband.so", flag);
+      if (handle == NULL) {
+        fprintf(stderr,
+                "\n*** Please either add $DMTCP_PATH$/lib/dmtcp "
+                "to LD_LIBRARY_PATH,\n"
+                "*** or else include an absolute pathname "
+                "for libdmtcp_infiniband.so\n\n");
+      }
+      return handle;
     }
   }
   return NEXT_FNC(dlopen)(filename, flag);
