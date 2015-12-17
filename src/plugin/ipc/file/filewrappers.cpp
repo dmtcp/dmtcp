@@ -377,7 +377,7 @@ static int _open_open64_work(int(*fn) (const char *path, int flags, ...),
 
   /* hook_path was NULL, not swapping */
   if (!doSwap)
-    fd = (*fn)(path, flags, mode);
+    fd = (*fn)(newpath, flags, mode);
   else
     fd = (*fn)(hook_path.c_str(), flags, mode);
 
