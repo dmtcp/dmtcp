@@ -179,48 +179,6 @@ dynamic_path_swap(const char *path, dmtcp::string &newPath)
     return true;
 }
 
-#if 0
-/*
- * Libc Hooks (for all path related functions)
- */
-
-extern "C"
-FILE* fopen64(const char *path, const char *mode)
-{
-    dmtcp::string hook_path = "";
-    bool doSwap = dynamic_path_swap(path, hook_path);
-
-    /* hook_path was NULL, not swapping */
-    if (!doSwap)
-        return NEXT_FNC(fopen64)(path, mode);
-
-    /* swapping */
-    FILE* filePtr = NEXT_FNC(fopen64)(hook_path.c_str(), mode);
-
-    /* dynamic_path_swap's return val needs to be free'd */
-
-    return filePtr;
-}
-
-extern "C"
-int open(const char *path, int oflag, mode_t mode)
-{
-    dmtcp::string hook_path = "";
-    bool doSwap = dynamic_path_swap(path, hook_path);
-
-    /* hook_path was NULL, not swapping */
-    if (!doSwap)
-        return NEXT_FNC(open)(path, oflag, mode);
-
-    /* swapping */
-    int fd = NEXT_FNC(open)(hook_path.c_str(), oflag, mode);
-
-    /* dynamic_path_swap's return val needs to be free'd */
-
-    return fd;
-}
-#endif
-
 /*
  * DMTCP Setup
  */
@@ -254,43 +212,7 @@ void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
         int ret = dmtcp_get_restart_env(ENV_DPP, new_path_prefix_list,
                                         sizeof(new_path_prefix_list) - 1);
 
-        /* see below comment for why ret == -1 isn't checked here */
-
-        if (ret == -2) {
-#if 0
-            /* it found the env var, but we need to allocate more memory and
-             * retry
-             */
-
-            /* loop until dmtcp_get_restart_env works */
-            while (ret == -2) {
-
-                /* double buffer size */
-                prefix_list_sz *= 2;
-                new_path_prefix_list = realloc(new_path_prefix_list,
-                                               prefix_list_sz);
-
-                if (new_path_prefix_list == NULL) {
-                    /* TODO handle error, jassert or something */
-                }
-
-                /* redo stuff at the beginning */
-                memset(new_path_prefix_list, 0, prefix_list_sz);
-
-                ret = dmtcp_get_restart_env(ENV_DPP, new_path_prefix_list,
-                                                prefix_list_sz - 1);
-
-                /* This will not infinite loop because a limitation of
-                 * dmtcp_get_restart_env is that the name=value pair
-                 * can only be a maximum of 2999 bytes long. As soon
-                 * as prefix_list_sz exceeds 3000 bytes, dmtcp_get_restart_env
-                 * cannot fail with -2 (buffer too small) because the buffer we
-                 * provide it will be larger than its maximum output size.
-                 */
-            }
-
-#endif
-        }
+        JASSERT(ret == 0);
 
         /* we should only swap if old_path_prefix_list contians something,
          * meaning DMTCP_PATH_PREFIX was supplied on launch, and
