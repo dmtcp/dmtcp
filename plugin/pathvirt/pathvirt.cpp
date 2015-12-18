@@ -12,7 +12,7 @@
 #include "jassert.h"
 
 #define ENV_DPP            "DMTCP_PATH_PREFIX"
-#define MAX_ENV_VAR_SIZE   4096
+#define MAX_ENV_VAR_SIZE   10*1024
 
 /* paths should only be swapped on restarts (not on initial run), so this flag */
 /* is set on restart */
@@ -69,7 +69,7 @@ clfind(const char *colonlist,  // IN
  * clget - returns pointer to element in colonlist at index i
  *         and NULL if not found
  */
-char*
+static char*
 clget(const char *colonlist, unsigned int i)
 {
     int curr_ind = 0;
@@ -112,7 +112,8 @@ clgetsize_ptr(const char *colonlist, const char *element)
  * clgetsize - returns size of an element at index i in colonlist
  *             and -1 if not found
  */
-static ssize_t clgetsize_ind(const char *colonlist, const unsigned int i)
+static ssize_t
+clgetsize_ind(const char *colonlist, const unsigned int i)
 {
     /* get pointer to element at index i */
     char *element = clget(colonlist, i);
@@ -183,7 +184,8 @@ dynamic_path_swap(const char *path, dmtcp::string &newPath)
  * DMTCP Setup
  */
 
-void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
+void
+dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
     /* NOTE:  See warning in plugin/README about calls to printf here. */
     switch (event) {
