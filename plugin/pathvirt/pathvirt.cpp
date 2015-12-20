@@ -14,11 +14,12 @@
 #define ENV_DPP            "DMTCP_PATH_PREFIX"
 #define MAX_ENV_VAR_SIZE   10*1024
 
-/* paths should only be swapped on restarts (not on initial run), so this flag */
-/* is set on restart */
+/* paths should only be swapped on restarts (not on initial run), so this flag
+   is set on restart */
 static int should_swap;
 
-// NOTE: DMTCP_PATH_PREFIX env variables cannot exceed MAX_ENV_VAR_SIZE characters in length
+/* NOTE: DMTCP_PATH_PREFIX env variables cannot exceed MAX_ENV_VAR_SIZE
+   characters in length */
 static char old_path_prefix_list[MAX_ENV_VAR_SIZE];
 static char new_path_prefix_list[MAX_ENV_VAR_SIZE];
 
@@ -195,12 +196,10 @@ dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
            DMTCP_PATH_PREFIX env */
         char *old_env = getenv(ENV_DPP);
         if (old_env) {
-
             /* if so, save it to buffer */
             snprintf(old_path_prefix_list, sizeof(old_path_prefix_list), "%s",
                      old_env);
         }
-
         break;
     }
     case DMTCP_EVENT_RESTART:
@@ -224,10 +223,8 @@ dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
          * dynamic_path_swap can know whether to try to swap or not
          */
         should_swap = *old_path_prefix_list && *new_path_prefix_list;
-
         break;
     }
-
     case DMTCP_EVENT_WRITE_CKPT:
         JTRACE("\n*** The plugin %s is being called before checkpointing. ***");
         break;
