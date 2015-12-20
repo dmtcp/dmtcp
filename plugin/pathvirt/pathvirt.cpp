@@ -16,28 +16,28 @@
 
 /* paths should only be swapped on restarts (not on initial run), so this flag
    is set on restart */
-static int should_swap;
+static int shouldSwap;
 
 /* NOTE: DMTCP_PATH_PREFIX env variables cannot exceed MAX_ENV_VAR_SIZE
    characters in length */
-static char old_path_prefix_list[MAX_ENV_VAR_SIZE];
-static char new_path_prefix_list[MAX_ENV_VAR_SIZE];
+static char oldPathPrefixList[MAX_ENV_VAR_SIZE];
+static char newPathPrefixList[MAX_ENV_VAR_SIZE];
 
 /*
  * Helper Functions
  */
 
 /*
- * clfind - returns first index in colonlist which is a prefix for path
- *          modifies the @listPtr to point to the element in colonlist
+ * clfind - returns first index in colonList which is a prefix for path
+ *          modifies the @listPtr to point to the element in colonList
  */
 static int
-clfind(const char *colonlist,  // IN
+clfind(const char *colonList,  // IN
        const char *path,       // IN
        char **listPtr)         // OUT
 {
     int index = 0;
-    char *element = const_cast<char *>(colonlist);
+    char *element = const_cast<char *>(colonList);
     char *colon = NULL;
 
     /* while there is a colon present, loop */
@@ -67,14 +67,14 @@ clfind(const char *colonlist,  // IN
 }
 
 /*
- * clget - returns pointer to element in colonlist at index i
+ * clget - returns pointer to element in colonList at index i
  *         and NULL if not found
  */
 static char*
-clget(const char *colonlist, unsigned int i)
+clget(const char *colonList, unsigned int i)
 {
     int curr_ind = 0;
-    char *element = const_cast<char *>(colonlist);
+    char *element = const_cast<char *>(colonList);
     char *colon = NULL;
 
     /* iterate through elements until last one */
@@ -101,7 +101,7 @@ clget(const char *colonlist, unsigned int i)
  *                 list
  */
 static size_t
-clgetsize_ptr(const char *colonlist, const char *element)
+clgetsize_ptr(const char *colonList, const char *element)
 {
     /* either calculate the element's length, or call
      * strlen if element was last one */
@@ -110,17 +110,17 @@ clgetsize_ptr(const char *colonlist, const char *element)
 }
 
 /*
- * clgetsize - returns size of an element at index i in colonlist
+ * clgetsize - returns size of an element at index i in colonList
  *             and -1 if not found
  */
 static ssize_t
-clgetsize_ind(const char *colonlist, const unsigned int i)
+clgetsize_ind(const char *colonList, const unsigned int i)
 {
     /* get pointer to element at index i */
-    char *element = clget(colonlist, i);
+    char *element = clget(colonList, i);
     if (element) {
         /* now that we have a pointer, we can use clgetsize_ptr */
-        return clgetsize_ptr(colonlist, element);
+        return clgetsize_ptr(colonList, element);
     }
 
     /* not found */
@@ -128,55 +128,47 @@ clgetsize_ind(const char *colonlist, const unsigned int i)
 }
 
 /*
- * dynamic_path_swap - given old path, return new path or NULL
+ * pathvirt_get_physical_path - translate virtual to physical path
  *
- * Returns NULL if no swap is to be done and the original path value should
- * be used. Returns a malloc'd pointer to the new string if a swap should
- * happen.
- *
- * If didn't return NULL, the returned pointer must be freed.
+ * Returns a bool representing whether a path translation occurred. If one
+ * did occur, the translated physical path will be assigned to the second
+ * argument.
  */
 bool
-dynamic_path_swap(const char *path, dmtcp::string &newPath)
+pathvirt_get_physical_path(const char *path,       // IN
+                           dmtcp::string &newPath) // OUT
 {
     char *oldPathPtr = NULL;
     /* quickly return NULL if no swap */
-    if (!should_swap) {
+    if (!shouldSwap) {
         return false;
     }
 
     /* yes, should swap */
 
     /* check if path is in list of registered paths to swap out */
-    int index = clfind(old_path_prefix_list, path, &oldPathPtr);
+    int index = clfind(oldPathPrefixList, path, &oldPathPtr);
     if (index == -1)
         return false;
 
     /* found it in old list, now get a pointer to the new prefix to swap in*/
-    char *newPathPtr = clget(new_path_prefix_list, index);
+    char *newPathPtr = clget(newPathPrefixList, index);
     if (newPathPtr == NULL)
         return false;
 
-    size_t new_element_sz = clgetsize_ptr(new_path_prefix_list, newPathPtr);
-    size_t old_element_sz = clgetsize_ptr(old_path_prefix_list, oldPathPtr);
+    size_t newElementSz = clgetsize_ptr(newPathPrefixList, newPathPtr);
+    size_t oldElementSz = clgetsize_ptr(oldPathPrefixList, oldPathPtr);
 
     /* temporarily null terminate new element */
-    newPathPtr[new_element_sz] = '\0';
+    newPathPtr[newElementSz] = '\0';
 
     /* finally, create full path with the new prefix swapped in */
-
-    /* plus 1 is for safety slash we include between the new prefix and the
-       unchanged rest of the path. this is in case their environment
-       variable doesn't end with a slash. in the "worst" case,
-       there will be two extra slashes if the new prefix ends with a slash
-       and the old one doesn't. plus 1 for NULL */
-    size_t newpathsize = (strlen(path) - old_element_sz) + new_element_sz + 1 + 1;
     newPath = newPathPtr;
     newPath += "/";
-    newPath += (path + old_element_sz);
+    newPath += (path + oldElementSz);
 
     /* repair the colon list */
-    newPathPtr[new_element_sz] = ':';
+    newPathPtr[newElementSz] = ':';
 
     return true;
 }
@@ -194,11 +186,11 @@ dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     {
         /* On init, check if they've specified paths to virtualize via
            DMTCP_PATH_PREFIX env */
-        char *old_env = getenv(ENV_DPP);
-        if (old_env) {
+        char *oldEnv = getenv(ENV_DPP);
+        if (oldEnv) {
             /* if so, save it to buffer */
-            snprintf(old_path_prefix_list, sizeof(old_path_prefix_list), "%s",
-                     old_env);
+            snprintf(oldPathPrefixList, sizeof(oldPathPrefixList), "%s",
+                     oldEnv);
         }
         break;
     }
@@ -206,23 +198,23 @@ dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     {
         /* necessary since we don't know how many bytes dmtcp_get_restart_env
            will write */
-        memset(new_path_prefix_list, 0, sizeof(new_path_prefix_list));
+        memset(newPathPrefixList, 0, sizeof(newPathPrefixList));
 
         /* Try to get the value of ENV_DPP from new environment variables,
          * passed in on restart */
-        int ret = dmtcp_get_restart_env(ENV_DPP, new_path_prefix_list,
-                                        sizeof(new_path_prefix_list) - 1);
+        int ret = dmtcp_get_restart_env(ENV_DPP, newPathPrefixList,
+                                        sizeof(newPathPrefixList) - 1);
 
         JASSERT(ret == 0);
 
-        /* we should only swap if old_path_prefix_list contians something,
+        /* we should only swap if oldPathPrefixList contians something,
          * meaning DMTCP_PATH_PREFIX was supplied on launch, and
-         * new_path_prefix_list contains something, meaning DMTCP_PATH_PREFIX
+         * newPathPrefixList contains something, meaning DMTCP_PATH_PREFIX
          * was supplied on restart. this line will run whether
          * DMTCP_PATH_PREFIX was given on restart or not (ret == -1), so
-         * dynamic_path_swap can know whether to try to swap or not
+         * pathvirt_get_physical_path can know whether to try to swap or not
          */
-        should_swap = *old_path_prefix_list && *new_path_prefix_list;
+        shouldSwap = *oldPathPrefixList && *newPathPrefixList;
         break;
     }
     case DMTCP_EVENT_WRITE_CKPT:

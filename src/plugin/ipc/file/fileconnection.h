@@ -39,7 +39,7 @@
 #include "jconvert.h"
 #include "connection.h"
 
-extern bool dynamic_path_swap(const char *path, dmtcp::string &newPath) __attribute ((weak));
+extern bool pathvirt_get_physical_path(const char *path, dmtcp::string &newPath) __attribute ((weak));
 
 namespace dmtcp
 {

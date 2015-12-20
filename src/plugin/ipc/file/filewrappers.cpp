@@ -372,7 +372,7 @@ static int _open_open64_work(int(*fn) (const char *path, int flags, ...),
   }
 
   dmtcp::string hook_path = "";
-  bool doSwap = dynamic_path_swap ? dynamic_path_swap(newpath, hook_path) : false;
+  bool doSwap = pathvirt_get_physical_path ? pathvirt_get_physical_path(newpath, hook_path) : false;
   int fd = -1;
 
   /* hook_path was NULL, not swapping */
@@ -463,7 +463,7 @@ static FILE *_fopen_fopen64_work(FILE*(*fn) (const char *path, const char *mode)
   }
 
   dmtcp::string hook_path = "";
-  bool doSwap = dynamic_path_swap ? dynamic_path_swap(newpath, hook_path) : false;
+  bool doSwap = pathvirt_get_physical_path ? pathvirt_get_physical_path(newpath, hook_path) : false;
   FILE* file = NULL;
 
   /* hook_path was NULL, not swapping */
