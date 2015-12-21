@@ -205,10 +205,24 @@ dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
         int ret = dmtcp_get_restart_env(ENV_DPP, newPathPrefixList,
                                         sizeof(newPathPrefixList) - 1);
 
-        if (ret == -2) {
-            // TODO: fail and print error to user "provided env variable
-            // exceeds maximum size. use a shorter variable or recompile
-            // DMTCP"
+        /* ret == -1 is fine everything else is not */
+        if (ret < -1) {
+            /* this will be run into first, since dmtcp_get_restart_env's
+               MAXSIZE is currently less than MAX_ENV_VAR_SIZE */
+            JASSERT(ret != -3).Text("dmtcpplugin: DMTCP_PATH_PREFIX exceeds "
+                    "dmtcp_get_restart_env()'s MAXSIZE. Use a shorter "
+                    "environment variable or increase MAXSIZE and recompile.");
+
+            /* if MAXSIZE is resized in the future to be greater than
+               MAX_ENV_VAR_SIZE (to get past the first assert) we will then
+               trigger this assert */
+            JASSERT(ret != -2).Text("pathvirt: DMTCP_PATH_PREFIX exceeds "
+                    "maximum size (10kb). Use a shorter environment variable "
+                    "or increase MAX_ENV_VAR_SIZE and recompile.");
+
+            /* all other errors */
+            JASSERT(ret >= 0).Text("Fatal error retrieving DMTCP_PATH_PREFIX "
+                    "environment variable.");
         }
 
         /* we should only swap if oldPathPrefixList contains something,
