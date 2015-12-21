@@ -205,9 +205,13 @@ dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
         int ret = dmtcp_get_restart_env(ENV_DPP, newPathPrefixList,
                                         sizeof(newPathPrefixList) - 1);
 
-        JASSERT(ret == 0);
+        if (ret == -2) {
+            // TODO: fail and print error to user "provided env variable
+            // exceeds maximum size. use a shorter variable or recompile
+            // DMTCP"
+        }
 
-        /* we should only swap if oldPathPrefixList contians something,
+        /* we should only swap if oldPathPrefixList contains something,
          * meaning DMTCP_PATH_PREFIX was supplied on launch, and
          * newPathPrefixList contains something, meaning DMTCP_PATH_PREFIX
          * was supplied on restart. this line will run whether
