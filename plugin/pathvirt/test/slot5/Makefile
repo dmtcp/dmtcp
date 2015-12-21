@@ -23,12 +23,12 @@ check-python:  clean
 
 restart:
 	DMTCP_PATH_PREFIX=$(PATHVIRT)/misc/slot7/bin7:$(PATHVIRT)/misc/slot7/doc7:$(PATHVIRT)/misc/slot7/lib7 \
-		${DMTCP_ROOT}/bin/dmtcp_restart ckpt_*.dmtcp
+	./dmtcp_restart_script.sh
 
 # second restart test just to show it works more than once
 restart2:
 	DMTCP_PATH_PREFIX=$(PATHVIRT)/misc/slot9/bin9:$(PATHVIRT)/misc/slot9/doc9:$(PATHVIRT)/misc/slot9/lib9 \
-		./dmtcp_restart_script.sh
+	./dmtcp_restart_script.sh
 
 clean:
 	rm -f pv-test ckpt* dmtcp*
