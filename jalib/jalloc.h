@@ -47,6 +47,8 @@ namespace jalib
         _p-=1;
         JAllocDispatcher::deallocate(_p, *_p+sizeof(size_t));
       }
+      static int numExpands();
+      static void preExpand();
   };
 
   class JAlloc {

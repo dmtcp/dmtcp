@@ -54,8 +54,18 @@ EXTERNC int dmtcp_infiniband_enabled(void) __attribute__((weak));
 
 static const int END_OF_NSCD_AREAS = -1;
 
+// FIXME:  Why do we create two global variable here?  They should at least
+//         be static (file-private), and preferably local to a function.
 ProcSelfMaps *procSelfMaps = NULL;
 vector<ProcMapsArea> *nscdAreas = NULL;
+// FIXME:  If we allocate in the middle of reading
+//         /proc/self/maps, we modify the mapping.  But whenever we
+//         add to nscdAreas, we risk allocating memory.  So, we're depending
+//         on this memory being smaller than any pre-allocated memory,
+//         so that the memory allocator does not call mmap in the middle
+//         of reading /proc/self/maps.  A better design would be to create
+//         an nscdArea method of the ProcSelfMaps class, and that
+//         class can then be careful about allocating memory.
 
 
 /* Internal routines */
@@ -257,7 +267,7 @@ void mtcp_writememoryareas(int fd)
   delete procSelfMaps;
   procSelfMaps = NULL;
 
-  /* It's now safe to do this, since we're done using mtcp_readmapsline() */
+  /* It's now safe to do this, since we're done using writememoryarea() */
   remap_nscd_areas(*nscdAreas);
 
   area.addr = NULL; // End of data
