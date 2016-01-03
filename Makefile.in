@@ -59,12 +59,7 @@ MANPAGES=dmtcp.1.gz dmtcp_coordinator.1.gz dmtcp_command.1.gz dmtcp_launch.1.gz 
 
 default: display-build-env build
 
-# If M32, 'rm -rf lib bin'.  Can't do a 32-bit build on top of a 64-bit build,
-#   neither './configure --enable-m32' nor 'make clean' will remove these dirs.
 mkdirs:
-ifeq ($(M32),1)
-	rm -rf lib bin
-endif
 	$(MKDIR_P) $(targetdir)/bin
 	$(MKDIR_P) $(targetdir)/lib/dmtcp
 
@@ -197,13 +192,9 @@ clean: tidy
 	   fi; \
 	 fi; \
 	 rm -rf $$DMTCP_TMPDIR
-	rm -rf $(targetdir)/lib $(targetdir)/bin
 
-# clean-64 preserves files in lib/dmtcp/32.  This is useful for a local multi-arch.
-clean-64: tidy
-	mv ./lib/dmtcp/32 ./32
-	${MAKE} clean
-	mkdir -p ./lib/dmtcp && mv ./32 ./lib/dmtcp/32
+# Obsolete, remove in 2.5.0.
+clean-64: clean
 
 distclean: clean
 	- cd src && $(MAKE) distclean
@@ -214,6 +205,7 @@ distclean: clean
 	  include/config.h include/stamp-h1 \
 	  config.log config.status config.cache
 	rm -rf autom4te.cache
+	rm -rf $(top_builddir)/lib $(top_builddir)/bin
 
 distsvn:
 	if test "`svn info`"; then \
