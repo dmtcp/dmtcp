@@ -69,6 +69,10 @@ endif
 	$(MKDIR_P) $(targetdir)/lib/dmtcp
 
 build: mkdirs dmtcp plugin contrib
+ifeq ($(M32),1)
+	cd lib/dmtcp && $(LN_S) 32/lib/dmtcp/* ./
+	mkdir -p bin && cd bin && $(LN_S) ../lib/dmtcp/32/bin/* ./
+endif
 
 all: default
 
@@ -110,10 +114,6 @@ display-config:
 dmtcp:
 	rm -f src/config.h
 	cd src && $(MAKE)
-ifeq ($(M32),1)
-	cd lib/dmtcp && ln -s 32/lib/dmtcp/* ./
-	mkdir -p bin && cd bin && ln -s ../lib/dmtcp/32/bin/* ./
-endif
 
 plugin: dmtcp
 	cd plugin && $(MAKE)
