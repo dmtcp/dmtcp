@@ -100,12 +100,12 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
-bin_PROGRAMS = $(targetdir)/bin/dmtcp_launch$(EXEEXT) \
-	$(targetdir)/bin/dmtcp_command$(EXEEXT) \
-	$(targetdir)/bin/dmtcp_coordinator$(EXEEXT) \
-	$(targetdir)/bin/dmtcp_restart$(EXEEXT) \
-	$(targetdir)/bin/dmtcp_nocheckpoint$(EXEEXT)
-dmtcplib_PROGRAMS = $(targetdir)/lib/dmtcp/libdmtcp.so$(EXEEXT)
+bin_PROGRAMS = $(d_bindir)/dmtcp_launch$(EXEEXT) \
+	$(d_bindir)/dmtcp_command$(EXEEXT) \
+	$(d_bindir)/dmtcp_coordinator$(EXEEXT) \
+	$(d_bindir)/dmtcp_restart$(EXEEXT) \
+	$(d_bindir)/dmtcp_nocheckpoint$(EXEEXT)
+dmtcplib_PROGRAMS = $(d_libdir)/libdmtcp.so$(EXEEXT)
 subdir = src
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/configure.ac
@@ -151,36 +151,36 @@ libsyscallsreal_a_OBJECTS = $(am_libsyscallsreal_a_OBJECTS)
 am__installdirs = "$(DESTDIR)$(bindir)" "$(DESTDIR)$(dmtcplibdir)" \
 	"$(DESTDIR)$(includedir)"
 PROGRAMS = $(bin_PROGRAMS) $(dmtcplib_PROGRAMS)
-am___targetdir__bin_dmtcp_command_OBJECTS = dmtcp_command.$(OBJEXT)
-__targetdir__bin_dmtcp_command_OBJECTS =  \
-	$(am___targetdir__bin_dmtcp_command_OBJECTS)
-__targetdir__bin_dmtcp_command_DEPENDENCIES = libdmtcpinternal.a \
-	libjalib.a libnohijack.a
+am___d_bindir__dmtcp_command_OBJECTS = dmtcp_command.$(OBJEXT)
+__d_bindir__dmtcp_command_OBJECTS =  \
+	$(am___d_bindir__dmtcp_command_OBJECTS)
+__d_bindir__dmtcp_command_DEPENDENCIES = libdmtcpinternal.a libjalib.a \
+	libnohijack.a
 am__dirstamp = $(am__leading_dot)dirstamp
-am___targetdir__bin_dmtcp_coordinator_OBJECTS =  \
+am___d_bindir__dmtcp_coordinator_OBJECTS =  \
 	dmtcp_coordinator.$(OBJEXT) lookup_service.$(OBJEXT) \
 	restartscript.$(OBJEXT)
-__targetdir__bin_dmtcp_coordinator_OBJECTS =  \
-	$(am___targetdir__bin_dmtcp_coordinator_OBJECTS)
-__targetdir__bin_dmtcp_coordinator_DEPENDENCIES = libdmtcpinternal.a \
+__d_bindir__dmtcp_coordinator_OBJECTS =  \
+	$(am___d_bindir__dmtcp_coordinator_OBJECTS)
+__d_bindir__dmtcp_coordinator_DEPENDENCIES = libdmtcpinternal.a \
 	libjalib.a libnohijack.a
-am___targetdir__bin_dmtcp_launch_OBJECTS = dmtcp_launch.$(OBJEXT)
-__targetdir__bin_dmtcp_launch_OBJECTS =  \
-	$(am___targetdir__bin_dmtcp_launch_OBJECTS)
-__targetdir__bin_dmtcp_launch_DEPENDENCIES = libdmtcpinternal.a \
-	libjalib.a libnohijack.a
-am___targetdir__bin_dmtcp_nocheckpoint_OBJECTS =  \
+am___d_bindir__dmtcp_launch_OBJECTS = dmtcp_launch.$(OBJEXT)
+__d_bindir__dmtcp_launch_OBJECTS =  \
+	$(am___d_bindir__dmtcp_launch_OBJECTS)
+__d_bindir__dmtcp_launch_DEPENDENCIES = libdmtcpinternal.a libjalib.a \
+	libnohijack.a
+am___d_bindir__dmtcp_nocheckpoint_OBJECTS =  \
 	dmtcp_nocheckpoint.$(OBJEXT)
-__targetdir__bin_dmtcp_nocheckpoint_OBJECTS =  \
-	$(am___targetdir__bin_dmtcp_nocheckpoint_OBJECTS)
-__targetdir__bin_dmtcp_nocheckpoint_LDADD = $(LDADD)
-am___targetdir__bin_dmtcp_restart_OBJECTS = dmtcp_restart.$(OBJEXT) \
+__d_bindir__dmtcp_nocheckpoint_OBJECTS =  \
+	$(am___d_bindir__dmtcp_nocheckpoint_OBJECTS)
+__d_bindir__dmtcp_nocheckpoint_LDADD = $(LDADD)
+am___d_bindir__dmtcp_restart_OBJECTS = dmtcp_restart.$(OBJEXT) \
 	util_exec.$(OBJEXT)
-__targetdir__bin_dmtcp_restart_OBJECTS =  \
-	$(am___targetdir__bin_dmtcp_restart_OBJECTS)
-__targetdir__bin_dmtcp_restart_DEPENDENCIES = libdmtcpinternal.a \
-	libjalib.a libnohijack.a
-am___targetdir__lib_dmtcp_libdmtcp_so_OBJECTS = dmtcpworker.$(OBJEXT) \
+__d_bindir__dmtcp_restart_OBJECTS =  \
+	$(am___d_bindir__dmtcp_restart_OBJECTS)
+__d_bindir__dmtcp_restart_DEPENDENCIES = libdmtcpinternal.a libjalib.a \
+	libnohijack.a
+am___d_libdir__libdmtcp_so_OBJECTS = dmtcpworker.$(OBJEXT) \
 	threadsync.$(OBJEXT) coordinatorapi.$(OBJEXT) \
 	execwrappers.$(OBJEXT) mtcpinterface.$(OBJEXT) \
 	signalwrappers.$(OBJEXT) terminal.$(OBJEXT) alarm.$(OBJEXT) \
@@ -189,13 +189,12 @@ am___targetdir__lib_dmtcp_libdmtcp_so_OBJECTS = dmtcpworker.$(OBJEXT) \
 	glibcsystem.$(OBJEXT) threadlist.$(OBJEXT) siginfo.$(OBJEXT) \
 	dmtcpplugin.$(OBJEXT) popen.$(OBJEXT) syslogwrappers.$(OBJEXT) \
 	dlsym_default.$(OBJEXT)
-__targetdir__lib_dmtcp_libdmtcp_so_OBJECTS =  \
-	$(am___targetdir__lib_dmtcp_libdmtcp_so_OBJECTS)
-__targetdir__lib_dmtcp_libdmtcp_so_DEPENDENCIES = libdmtcpinternal.a \
-	libjalib.a libsyscallsreal.a mtcp/libmtcp.a
-__targetdir__lib_dmtcp_libdmtcp_so_LINK = $(CXXLD) $(AM_CXXFLAGS) \
-	$(CXXFLAGS) $(__targetdir__lib_dmtcp_libdmtcp_so_LDFLAGS) \
-	$(LDFLAGS) -o $@
+__d_libdir__libdmtcp_so_OBJECTS =  \
+	$(am___d_libdir__libdmtcp_so_OBJECTS)
+__d_libdir__libdmtcp_so_DEPENDENCIES = libdmtcpinternal.a libjalib.a \
+	libsyscallsreal.a mtcp/libmtcp.a
+__d_libdir__libdmtcp_so_LINK = $(CXXLD) $(AM_CXXFLAGS) $(CXXFLAGS) \
+	$(__d_libdir__libdmtcp_so_LDFLAGS) $(LDFLAGS) -o $@
 AM_V_P = $(am__v_P_@AM_V@)
 am__v_P_ = $(am__v_P_@AM_DEFAULT_V@)
 am__v_P_0 = false
@@ -243,20 +242,20 @@ am__v_CXXLD_0 = @echo "  CXXLD   " $@;
 am__v_CXXLD_1 = 
 SOURCES = $(libdmtcpinternal_a_SOURCES) $(libjalib_a_SOURCES) \
 	$(libnohijack_a_SOURCES) $(libsyscallsreal_a_SOURCES) \
-	$(__targetdir__bin_dmtcp_command_SOURCES) \
-	$(__targetdir__bin_dmtcp_coordinator_SOURCES) \
-	$(__targetdir__bin_dmtcp_launch_SOURCES) \
-	$(__targetdir__bin_dmtcp_nocheckpoint_SOURCES) \
-	$(__targetdir__bin_dmtcp_restart_SOURCES) \
-	$(__targetdir__lib_dmtcp_libdmtcp_so_SOURCES)
+	$(__d_bindir__dmtcp_command_SOURCES) \
+	$(__d_bindir__dmtcp_coordinator_SOURCES) \
+	$(__d_bindir__dmtcp_launch_SOURCES) \
+	$(__d_bindir__dmtcp_nocheckpoint_SOURCES) \
+	$(__d_bindir__dmtcp_restart_SOURCES) \
+	$(__d_libdir__libdmtcp_so_SOURCES)
 DIST_SOURCES = $(libdmtcpinternal_a_SOURCES) $(libjalib_a_SOURCES) \
 	$(libnohijack_a_SOURCES) $(libsyscallsreal_a_SOURCES) \
-	$(__targetdir__bin_dmtcp_command_SOURCES) \
-	$(__targetdir__bin_dmtcp_coordinator_SOURCES) \
-	$(__targetdir__bin_dmtcp_launch_SOURCES) \
-	$(__targetdir__bin_dmtcp_nocheckpoint_SOURCES) \
-	$(__targetdir__bin_dmtcp_restart_SOURCES) \
-	$(__targetdir__lib_dmtcp_libdmtcp_so_SOURCES)
+	$(__d_bindir__dmtcp_command_SOURCES) \
+	$(__d_bindir__dmtcp_coordinator_SOURCES) \
+	$(__d_bindir__dmtcp_launch_SOURCES) \
+	$(__d_bindir__dmtcp_nocheckpoint_SOURCES) \
+	$(__d_bindir__dmtcp_restart_SOURCES) \
+	$(__d_libdir__libdmtcp_so_SOURCES)
 RECURSIVE_TARGETS = all-recursive check-recursive cscopelist-recursive \
 	ctags-recursive dvi-recursive html-recursive info-recursive \
 	install-data-recursive install-dvi-recursive \
@@ -383,7 +382,7 @@ FAST_RESTART = @FAST_RESTART@
 GCL = @GCL@
 GREP = @GREP@
 HAS_CILK = @HAS_CILK@
-HAS_CPP = @HAS_CPP@
+HAS_CMA = @HAS_CMA@
 HAS_DASH = @HAS_DASH@
 HAS_EMACS = @HAS_EMACS@
 HAS_EMACS_NOX = @HAS_EMACS_NOX@
@@ -514,8 +513,10 @@ PICFLAGS = -fPIC
 AM_CFLAGS = $(PICFLAGS)
 AM_CXXFLAGS = $(PICFLAGS)
 AM_LDFLAGS = $(PICFLAGS)
-@CONFIG_M32_FALSE@targetdir = $(top_builddir)
-@CONFIG_M32_TRUE@targetdir = $(top_builddir)/lib/$(PACKAGE)/32
+@CONFIG_M32_FALSE@d_libdir = $(top_builddir)/lib/$(PACKAGE)
+@CONFIG_M32_TRUE@d_libdir = $(top_builddir)/lib/$(PACKAGE)/32/lib/$(PACKAGE)
+@CONFIG_M32_FALSE@d_bindir = $(top_builddir)/bin
+@CONFIG_M32_TRUE@d_bindir = $(top_builddir)/lib/$(PACKAGE)/32/bin
 
 #HEADERS
 #set the include path found by configure
@@ -562,11 +563,11 @@ libjalib_a_SOURCES = $(jalibdir)/jalib.cpp $(jalibdir)/jassert.cpp \
 # An executable should use either libsyscallsreal.a or libnohijack.a -- not both
 libsyscallsreal_a_SOURCES = syscallsreal.c trampolines.cpp
 libnohijack_a_SOURCES = nosyscallsreal.c dmtcpnohijackstubs.cpp
-__targetdir__bin_dmtcp_coordinator_SOURCES = dmtcp_coordinator.cpp lookup_service.cpp restartscript.cpp
-__targetdir__bin_dmtcp_nocheckpoint_SOURCES = dmtcp_nocheckpoint.c
-__targetdir__bin_dmtcp_restart_SOURCES = dmtcp_restart.cpp util_exec.cpp
-__targetdir__bin_dmtcp_command_SOURCES = dmtcp_command.cpp
-__targetdir__lib_dmtcp_libdmtcp_so_SOURCES = dmtcpworker.cpp threadsync.cpp \
+__d_bindir__dmtcp_coordinator_SOURCES = dmtcp_coordinator.cpp lookup_service.cpp restartscript.cpp
+__d_bindir__dmtcp_nocheckpoint_SOURCES = dmtcp_nocheckpoint.c
+__d_bindir__dmtcp_restart_SOURCES = dmtcp_restart.cpp util_exec.cpp
+__d_bindir__dmtcp_command_SOURCES = dmtcp_command.cpp
+__d_libdir__libdmtcp_so_SOURCES = dmtcpworker.cpp threadsync.cpp \
 		      coordinatorapi.cpp execwrappers.cpp \
 		      mtcpinterface.cpp signalwrappers.cpp \
 		      terminal.cpp \
@@ -578,29 +579,29 @@ __targetdir__lib_dmtcp_libdmtcp_so_SOURCES = dmtcpworker.cpp threadsync.cpp \
 		      dmtcpplugin.cpp popen.cpp syslogwrappers.cpp \
 		      dlsym_default.c
 
-__targetdir__lib_dmtcp_libdmtcp_so_LDFLAGS = -shared -Xlinker -znow
+__d_libdir__libdmtcp_so_LDFLAGS = -shared -Xlinker -znow
 
 #dmtcp_nocheckpoint_LDFLAGS = -static
 
 # Note that an ELF object uses libsyscallsreal.a or libnohijack.a
 #  but not both.  libnohijack.a has stub definitions for same symbols.
-__targetdir__lib_dmtcp_libdmtcp_so_LDADD = libdmtcpinternal.a libjalib.a \
-					   libsyscallsreal.a mtcp/libmtcp.a \
-					   -ldl -lpthread -lrt
+__d_libdir__libdmtcp_so_LDADD = libdmtcpinternal.a libjalib.a \
+				libsyscallsreal.a mtcp/libmtcp.a \
+				-ldl -lpthread -lrt
 
-__targetdir__bin_dmtcp_coordinator_LDADD = libdmtcpinternal.a libjalib.a \
+__d_bindir__dmtcp_coordinator_LDADD = libdmtcpinternal.a libjalib.a \
 			  libnohijack.a -lpthread -lrt
 
-__targetdir__bin_dmtcp_launch_LDADD = libdmtcpinternal.a libjalib.a \
+__d_bindir__dmtcp_launch_LDADD = libdmtcpinternal.a libjalib.a \
 			  libnohijack.a -ldl -lpthread -lrt
 
-__targetdir__bin_dmtcp_restart_LDADD = libdmtcpinternal.a libjalib.a \
+__d_bindir__dmtcp_restart_LDADD = libdmtcpinternal.a libjalib.a \
 			  libnohijack.a -lpthread -lrt -ldl
 
-__targetdir__bin_dmtcp_command_LDADD = libdmtcpinternal.a libjalib.a \
+__d_bindir__dmtcp_command_LDADD = libdmtcpinternal.a libjalib.a \
 			  libnohijack.a -lpthread -lrt -ldl
 
-__targetdir__bin_dmtcp_launch_SOURCES = dmtcp_launch.cpp
+__d_bindir__dmtcp_launch_SOURCES = dmtcp_launch.cpp
 all: all-recursive
 
 .SUFFIXES:
@@ -741,36 +742,36 @@ uninstall-dmtcplibPROGRAMS:
 
 clean-dmtcplibPROGRAMS:
 	-test -z "$(dmtcplib_PROGRAMS)" || rm -f $(dmtcplib_PROGRAMS)
-$(targetdir)/bin/$(am__dirstamp):
-	@$(MKDIR_P) $(targetdir)/bin
-	@: > $(targetdir)/bin/$(am__dirstamp)
+$(d_bindir)/$(am__dirstamp):
+	@$(MKDIR_P) $(d_bindir)
+	@: > $(d_bindir)/$(am__dirstamp)
 
-$(targetdir)/bin/dmtcp_command$(EXEEXT): $(__targetdir__bin_dmtcp_command_OBJECTS) $(__targetdir__bin_dmtcp_command_DEPENDENCIES) $(EXTRA___targetdir__bin_dmtcp_command_DEPENDENCIES) $(targetdir)/bin/$(am__dirstamp)
-	@rm -f $(targetdir)/bin/dmtcp_command$(EXEEXT)
-	$(AM_V_CXXLD)$(CXXLINK) $(__targetdir__bin_dmtcp_command_OBJECTS) $(__targetdir__bin_dmtcp_command_LDADD) $(LIBS)
+$(d_bindir)/dmtcp_command$(EXEEXT): $(__d_bindir__dmtcp_command_OBJECTS) $(__d_bindir__dmtcp_command_DEPENDENCIES) $(EXTRA___d_bindir__dmtcp_command_DEPENDENCIES) $(d_bindir)/$(am__dirstamp)
+	@rm -f $(d_bindir)/dmtcp_command$(EXEEXT)
+	$(AM_V_CXXLD)$(CXXLINK) $(__d_bindir__dmtcp_command_OBJECTS) $(__d_bindir__dmtcp_command_LDADD) $(LIBS)
 
-$(targetdir)/bin/dmtcp_coordinator$(EXEEXT): $(__targetdir__bin_dmtcp_coordinator_OBJECTS) $(__targetdir__bin_dmtcp_coordinator_DEPENDENCIES) $(EXTRA___targetdir__bin_dmtcp_coordinator_DEPENDENCIES) $(targetdir)/bin/$(am__dirstamp)
-	@rm -f $(targetdir)/bin/dmtcp_coordinator$(EXEEXT)
-	$(AM_V_CXXLD)$(CXXLINK) $(__targetdir__bin_dmtcp_coordinator_OBJECTS) $(__targetdir__bin_dmtcp_coordinator_LDADD) $(LIBS)
+$(d_bindir)/dmtcp_coordinator$(EXEEXT): $(__d_bindir__dmtcp_coordinator_OBJECTS) $(__d_bindir__dmtcp_coordinator_DEPENDENCIES) $(EXTRA___d_bindir__dmtcp_coordinator_DEPENDENCIES) $(d_bindir)/$(am__dirstamp)
+	@rm -f $(d_bindir)/dmtcp_coordinator$(EXEEXT)
+	$(AM_V_CXXLD)$(CXXLINK) $(__d_bindir__dmtcp_coordinator_OBJECTS) $(__d_bindir__dmtcp_coordinator_LDADD) $(LIBS)
 
-$(targetdir)/bin/dmtcp_launch$(EXEEXT): $(__targetdir__bin_dmtcp_launch_OBJECTS) $(__targetdir__bin_dmtcp_launch_DEPENDENCIES) $(EXTRA___targetdir__bin_dmtcp_launch_DEPENDENCIES) $(targetdir)/bin/$(am__dirstamp)
-	@rm -f $(targetdir)/bin/dmtcp_launch$(EXEEXT)
-	$(AM_V_CXXLD)$(CXXLINK) $(__targetdir__bin_dmtcp_launch_OBJECTS) $(__targetdir__bin_dmtcp_launch_LDADD) $(LIBS)
+$(d_bindir)/dmtcp_launch$(EXEEXT): $(__d_bindir__dmtcp_launch_OBJECTS) $(__d_bindir__dmtcp_launch_DEPENDENCIES) $(EXTRA___d_bindir__dmtcp_launch_DEPENDENCIES) $(d_bindir)/$(am__dirstamp)
+	@rm -f $(d_bindir)/dmtcp_launch$(EXEEXT)
+	$(AM_V_CXXLD)$(CXXLINK) $(__d_bindir__dmtcp_launch_OBJECTS) $(__d_bindir__dmtcp_launch_LDADD) $(LIBS)
 
-$(targetdir)/bin/dmtcp_nocheckpoint$(EXEEXT): $(__targetdir__bin_dmtcp_nocheckpoint_OBJECTS) $(__targetdir__bin_dmtcp_nocheckpoint_DEPENDENCIES) $(EXTRA___targetdir__bin_dmtcp_nocheckpoint_DEPENDENCIES) $(targetdir)/bin/$(am__dirstamp)
-	@rm -f $(targetdir)/bin/dmtcp_nocheckpoint$(EXEEXT)
-	$(AM_V_CCLD)$(LINK) $(__targetdir__bin_dmtcp_nocheckpoint_OBJECTS) $(__targetdir__bin_dmtcp_nocheckpoint_LDADD) $(LIBS)
+$(d_bindir)/dmtcp_nocheckpoint$(EXEEXT): $(__d_bindir__dmtcp_nocheckpoint_OBJECTS) $(__d_bindir__dmtcp_nocheckpoint_DEPENDENCIES) $(EXTRA___d_bindir__dmtcp_nocheckpoint_DEPENDENCIES) $(d_bindir)/$(am__dirstamp)
+	@rm -f $(d_bindir)/dmtcp_nocheckpoint$(EXEEXT)
+	$(AM_V_CCLD)$(LINK) $(__d_bindir__dmtcp_nocheckpoint_OBJECTS) $(__d_bindir__dmtcp_nocheckpoint_LDADD) $(LIBS)
 
-$(targetdir)/bin/dmtcp_restart$(EXEEXT): $(__targetdir__bin_dmtcp_restart_OBJECTS) $(__targetdir__bin_dmtcp_restart_DEPENDENCIES) $(EXTRA___targetdir__bin_dmtcp_restart_DEPENDENCIES) $(targetdir)/bin/$(am__dirstamp)
-	@rm -f $(targetdir)/bin/dmtcp_restart$(EXEEXT)
-	$(AM_V_CXXLD)$(CXXLINK) $(__targetdir__bin_dmtcp_restart_OBJECTS) $(__targetdir__bin_dmtcp_restart_LDADD) $(LIBS)
-$(targetdir)/lib/dmtcp/$(am__dirstamp):
-	@$(MKDIR_P) $(targetdir)/lib/dmtcp
-	@: > $(targetdir)/lib/dmtcp/$(am__dirstamp)
+$(d_bindir)/dmtcp_restart$(EXEEXT): $(__d_bindir__dmtcp_restart_OBJECTS) $(__d_bindir__dmtcp_restart_DEPENDENCIES) $(EXTRA___d_bindir__dmtcp_restart_DEPENDENCIES) $(d_bindir)/$(am__dirstamp)
+	@rm -f $(d_bindir)/dmtcp_restart$(EXEEXT)
+	$(AM_V_CXXLD)$(CXXLINK) $(__d_bindir__dmtcp_restart_OBJECTS) $(__d_bindir__dmtcp_restart_LDADD) $(LIBS)
+$(d_libdir)/$(am__dirstamp):
+	@$(MKDIR_P) $(d_libdir)
+	@: > $(d_libdir)/$(am__dirstamp)
 
-$(targetdir)/lib/dmtcp/libdmtcp.so$(EXEEXT): $(__targetdir__lib_dmtcp_libdmtcp_so_OBJECTS) $(__targetdir__lib_dmtcp_libdmtcp_so_DEPENDENCIES) $(EXTRA___targetdir__lib_dmtcp_libdmtcp_so_DEPENDENCIES) $(targetdir)/lib/dmtcp/$(am__dirstamp)
-	@rm -f $(targetdir)/lib/dmtcp/libdmtcp.so$(EXEEXT)
-	$(AM_V_CXXLD)$(__targetdir__lib_dmtcp_libdmtcp_so_LINK) $(__targetdir__lib_dmtcp_libdmtcp_so_OBJECTS) $(__targetdir__lib_dmtcp_libdmtcp_so_LDADD) $(LIBS)
+$(d_libdir)/libdmtcp.so$(EXEEXT): $(__d_libdir__libdmtcp_so_OBJECTS) $(__d_libdir__libdmtcp_so_DEPENDENCIES) $(EXTRA___d_libdir__libdmtcp_so_DEPENDENCIES) $(d_libdir)/$(am__dirstamp)
+	@rm -f $(d_libdir)/libdmtcp.so$(EXEEXT)
+	$(AM_V_CXXLD)$(__d_libdir__libdmtcp_so_LINK) $(__d_libdir__libdmtcp_so_OBJECTS) $(__d_libdir__libdmtcp_so_LDADD) $(LIBS)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
@@ -1175,8 +1176,8 @@ clean-generic:
 distclean-generic:
 	-test -z "$(CONFIG_CLEAN_FILES)" || rm -f $(CONFIG_CLEAN_FILES)
 	-test . = "$(srcdir)" || test -z "$(CONFIG_CLEAN_VPATH_FILES)" || rm -f $(CONFIG_CLEAN_VPATH_FILES)
-	-test -z "$(targetdir)/bin/$(am__dirstamp)" || rm -f $(targetdir)/bin/$(am__dirstamp)
-	-test -z "$(targetdir)/lib/dmtcp/$(am__dirstamp)" || rm -f $(targetdir)/lib/dmtcp/$(am__dirstamp)
+	-test -z "$(d_bindir)/$(am__dirstamp)" || rm -f $(d_bindir)/$(am__dirstamp)
+	-test -z "$(d_libdir)/$(am__dirstamp)" || rm -f $(d_libdir)/$(am__dirstamp)
 
 maintainer-clean-generic:
 	@echo "This command is intended for maintainers to use"
@@ -1277,10 +1278,6 @@ uninstall-am: uninstall-binPROGRAMS uninstall-dmtcplibPROGRAMS \
 mtcp/libmtcp.a:
 	cd mtcp && ${MAKE} libmtcp.a
 
-libs: $(dmtcplib_PROGRAMS)
-	(cd mtcp && ${MAKE} libs)
-	(cd plugin && ${MAKE} libs)
-
 install-libs: install-dmtcplibPROGRAMS
 	(cd mtcp && ${MAKE} install-libs)
 	(cd plugin && ${MAKE} install-libs)
@@ -1289,7 +1286,7 @@ uninstall-libs: uninstall-dmtcplibPROGRAMS
 	(cd mtcp && ${MAKE} uninstall-libs)
 	(cd plugin && ${MAKE} uninstall-libs)
 
-.PHONY: libs install-libs uninstall-libs
+.PHONY: install-libs uninstall-libs
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
