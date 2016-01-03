@@ -451,18 +451,20 @@ PICFLAGS = -fPIC
 AM_CFLAGS = $(PICFLAGS)
 AM_CXXFLAGS = $(PICFLAGS)
 AM_LDFLAGS = $(PICFLAGS)
+@CONFIG_M32_FALSE@d_libdir = $(top_builddir)/lib/$(PACKAGE)
+@CONFIG_M32_TRUE@d_libdir = $(top_builddir)/lib/$(PACKAGE)/32/lib/$(PACKAGE)
+@CONFIG_M32_FALSE@d_bindir = $(top_builddir)/bin
+@CONFIG_M32_TRUE@d_bindir = $(top_builddir)/lib/$(PACKAGE)/32/bin
 
 #HEADERS
 #set the include path found by configure
 AM_CPPFLAGS = -I$(top_srcdir)/include -I$(top_srcdir)/jalib
 dmtcp_ldflags = -shared -Xlinker -znow -Wl,--unresolved-symbols=ignore-all
 LDADD = -ldl -lpthread
-d_libdir = $(top_builddir)/lib/$(PACKAGE)
-d_bindir = $(top_builddir)/bin
 libdmtcpdir = $(pkglibdir)
-dist_bin_SCRIPTS = 
-bin_SCRIPTS = $(d_bindir)/dmtcp_rm_loclaunch
-CLEANFILES = $(bin_SCRIPTS)
+dist_bin_SCRIPTS = batch-queue/dmtcp_rm_loclaunch
+bin_SCRIPTS = 
+CLEANFILES = 
 __d_libdir__libdmtcp_batch_queue_so_SOURCES = \
 	batch-queue/rm_main.cpp                                        \
 	batch-queue/rm_main.h                                          \
@@ -1234,8 +1236,12 @@ uninstall-am: uninstall-binPROGRAMS uninstall-binSCRIPTS \
 
 .PRECIOUS: Makefile
 
-$(d_bindir)/dmtcp_rm_loclaunch: batch-queue/dmtcp_rm_loclaunch
-	cp $< $(d_bindir)/$@
+
+install-libs: install-libdmtcpPROGRAMS
+
+uninstall-libs: uninstall-libdmtcpPROGRAMS
+
+.PHONY: install-libs uninstall-libs
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
