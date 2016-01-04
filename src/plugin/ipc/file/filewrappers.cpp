@@ -466,7 +466,7 @@ static FILE *_fopen_fopen64_work(FILE*(*fn) (const char *path, const char *mode)
 
   if (file != NULL && dmtcp_is_running_state()) {
     FileConnList::instance().processFileConnection(fileno(file), newpath,
-                                                   -1, -1);
+                                                     -1, -1);
   }
 
   DMTCP_PLUGIN_ENABLE_CKPT();
