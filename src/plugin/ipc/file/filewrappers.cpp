@@ -361,28 +361,24 @@ static int _open_open64_work(int(*fn) (const char *path, int flags, ...),
                              const char *path, int flags, mode_t mode)
 {
   char currPtsDevName[32];
-  const char *newpath = path;
+  const char *virt_path = path;
 
   DMTCP_PLUGIN_DISABLE_CKPT();
 
   if (Util::strStartsWith(path, VIRT_PTS_PREFIX_STR)) {
     SharedData::getRealPtyName(path, currPtsDevName,
                                       sizeof(currPtsDevName));
-    newpath = currPtsDevName;
+    virt_path = currPtsDevName;
   }
 
-  dmtcp::string hook_path = "";
-  bool doSwap = pathvirt_get_physical_path ? pathvirt_get_physical_path(newpath, hook_path) : false;
-  int fd = -1;
+  dmtcp::string phys_path_string = "";
+  const char *phys_path = virtual_to_physical_path(virt_path, phys_path_string);
 
-  /* hook_path was NULL, not swapping */
-  if (!doSwap)
-    fd = (*fn)(newpath, flags, mode);
-  else
-    fd = (*fn)(hook_path.c_str(), flags, mode);
+  int fd = -1;
+  fd = (*fn)(phys_path, flags, mode);
 
   if (fd >= 0 && dmtcp_is_running_state()) {
-    FileConnList::instance().processFileConnection(fd, newpath, flags, mode);
+    FileConnList::instance().processFileConnection(fd, virt_path, flags, mode);
   }
 
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -452,29 +448,25 @@ static FILE *_fopen_fopen64_work(FILE*(*fn) (const char *path, const char *mode)
                                  const char *path, const char *mode)
 {
   char currPtsDevName[32];
-  const char *newpath = path;
+  const char *virt_path = path;
 
   DMTCP_PLUGIN_DISABLE_CKPT();
 
   if (Util::strStartsWith(path, VIRT_PTS_PREFIX_STR)) {
     SharedData::getRealPtyName(path, currPtsDevName,
                                       sizeof(currPtsDevName));
-    newpath = currPtsDevName;
+    virt_path = currPtsDevName;
   }
 
-  dmtcp::string hook_path = "";
-  bool doSwap = pathvirt_get_physical_path ? pathvirt_get_physical_path(newpath, hook_path) : false;
-  FILE* file = NULL;
+  dmtcp::string phys_path_string = "";
+  const char *phys_path =  virtual_to_physical_path(virt_path, phys_path_string);
 
-  /* hook_path was NULL, not swapping */
-  if (!doSwap)
-    file = (*fn)(newpath, mode);
-  else
-    file = (*fn)(hook_path.c_str(), mode);
+  FILE* file = NULL;
+  file = (*fn)(phys_path, mode);
 
   if (file != NULL && dmtcp_is_running_state()) {
-    FileConnList::instance().processFileConnection(fileno(file), newpath,
-                                                     -1, -1);
+    FileConnList::instance().processFileConnection(fileno(file), virt_path,
+                                                   -1, -1);
   }
 
   DMTCP_PLUGIN_ENABLE_CKPT();

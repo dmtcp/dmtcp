@@ -122,49 +122,52 @@ clgetsize_ind(const char *colonList, const unsigned int i)
 }
 
 /*
- * pathvirt_get_physical_path - translate virtual to physical path
+ * virtual_to_physical_path - translate virtual to physical path
  *
- * Returns a bool representing whether a path translation occurred. If one
- * did occur, the translated physical path will be assigned to the second
- * argument.
+ * Returns a const char* for the corresponding physical path to the given
+ * virtual path. If no path translation occurred, the given virtual path
+ * will simply be returned. If path translation *did* occur, the translated
+ * physical path will also be available as a dmtcp::string from the second
+ * parameter.
  */
-bool
-pathvirt_get_physical_path(const char *path,       // IN
-                           dmtcp::string &newPath) // OUT
+const char *
+virtual_to_physical_path(const char *virt_path,         // IN
+                         dmtcp::string &physPathString) // OUT
 {
     char *oldPathPtr = NULL;
-    /* quickly return NULL if no swap */
+
+    /* quickly return if no swap */
     if (!shouldSwap) {
-        return false;
+        return virt_path;
     }
 
     /* yes, should swap */
 
     /* check if path is in list of registered paths to swap out */
-    int index = clfind(oldPathPrefixList, path, &oldPathPtr);
+    int index = clfind(oldPathPrefixList, virt_path, &oldPathPtr);
     if (index == -1)
-        return false;
+        return virt_path;
 
     /* found it in old list, now get a pointer to the new prefix to swap in*/
-    char *newPathPtr = clget(newPathPrefixList, index);
-    if (newPathPtr == NULL)
-        return false;
+    char *physPathPtr = clget(newPathPrefixList, index);
+    if (physPathPtr == NULL)
+        return virt_path;
 
-    size_t newElementSz = clgetsize_ptr(newPathPrefixList, newPathPtr);
+    size_t newElementSz = clgetsize_ptr(newPathPrefixList, physPathPtr);
     size_t oldElementSz = clgetsize_ptr(oldPathPrefixList, oldPathPtr);
 
     /* temporarily null terminate new element */
-    newPathPtr[newElementSz] = '\0';
+    physPathPtr[newElementSz] = '\0';
 
     /* finally, create full path with the new prefix swapped in */
-    newPath = newPathPtr;
-    newPath += "/";
-    newPath += (path + oldElementSz);
+    physPathString = physPathPtr;
+    physPathString += "/";
+    physPathString += (virt_path + oldElementSz);
 
     /* repair the colon list */
-    newPathPtr[newElementSz] = ':';
+    physPathPtr[newElementSz] = ':';
 
-    return true;
+    return physPathString.c_str();
 }
 
 /*
@@ -219,7 +222,7 @@ dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
          * newPathPrefixList contains something, meaning DMTCP_PATH_PREFIX
          * was supplied on restart. this line will run whether
          * DMTCP_PATH_PREFIX was given on restart or not (ret == -1), so
-         * pathvirt_get_physical_path can know whether to try to swap or not
+         * virtual_to_physical_path can know whether to try to swap or not
          */
         shouldSwap = *oldPathPrefixList && *newPathPrefixList;
         break;
