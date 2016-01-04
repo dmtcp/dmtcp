@@ -361,24 +361,24 @@ static int _open_open64_work(int(*fn) (const char *path, int flags, ...),
                              const char *path, int flags, mode_t mode)
 {
   char currPtsDevName[32];
-  const char *virt_path = path;
+  const char *newpath = path;
 
   DMTCP_PLUGIN_DISABLE_CKPT();
 
   if (Util::strStartsWith(path, VIRT_PTS_PREFIX_STR)) {
     SharedData::getRealPtyName(path, currPtsDevName,
                                       sizeof(currPtsDevName));
-    virt_path = currPtsDevName;
+    newpath = currPtsDevName;
   }
 
   dmtcp::string phys_path_string = "";
-  const char *phys_path = virtual_to_physical_path(virt_path, phys_path_string);
+  const char *phys_path = virtual_to_physical_path(newpath, phys_path_string);
 
   int fd = -1;
   fd = (*fn)(phys_path, flags, mode);
 
   if (fd >= 0 && dmtcp_is_running_state()) {
-    FileConnList::instance().processFileConnection(fd, virt_path, flags, mode);
+    FileConnList::instance().processFileConnection(fd, newpath, flags, mode);
   }
 
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -448,24 +448,24 @@ static FILE *_fopen_fopen64_work(FILE*(*fn) (const char *path, const char *mode)
                                  const char *path, const char *mode)
 {
   char currPtsDevName[32];
-  const char *virt_path = path;
+  const char *newpath = path;
 
   DMTCP_PLUGIN_DISABLE_CKPT();
 
   if (Util::strStartsWith(path, VIRT_PTS_PREFIX_STR)) {
     SharedData::getRealPtyName(path, currPtsDevName,
                                       sizeof(currPtsDevName));
-    virt_path = currPtsDevName;
+    newpath = currPtsDevName;
   }
 
   dmtcp::string phys_path_string = "";
-  const char *phys_path =  virtual_to_physical_path(virt_path, phys_path_string);
+  const char *phys_path =  virtual_to_physical_path(newpath, phys_path_string);
 
   FILE* file = NULL;
   file = (*fn)(phys_path, mode);
 
   if (file != NULL && dmtcp_is_running_state()) {
-    FileConnList::instance().processFileConnection(fileno(file), virt_path,
+    FileConnList::instance().processFileConnection(fileno(file), newpath,
                                                    -1, -1);
   }
 
