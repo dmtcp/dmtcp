@@ -333,7 +333,7 @@ FAST_RESTART = @FAST_RESTART@
 GCL = @GCL@
 GREP = @GREP@
 HAS_CILK = @HAS_CILK@
-HAS_CPP = @HAS_CPP@
+HAS_CMA = @HAS_CMA@
 HAS_DASH = @HAS_DASH@
 HAS_EMACS = @HAS_EMACS@
 HAS_EMACS_NOX = @HAS_EMACS_NOX@
@@ -459,14 +459,16 @@ PICFLAGS = -fPIC
 AM_CFLAGS = $(PICFLAGS)
 AM_CXXFLAGS = $(PICFLAGS)
 AM_LDFLAGS = $(PICFLAGS)
+@CONFIG_M32_FALSE@d_libdir = $(top_builddir)/lib/$(PACKAGE)
+@CONFIG_M32_TRUE@d_libdir = $(top_builddir)/lib/$(PACKAGE)/32/lib/$(PACKAGE)
+@CONFIG_M32_FALSE@d_bindir = $(top_builddir)/bin
+@CONFIG_M32_TRUE@d_bindir = $(top_builddir)/lib/$(PACKAGE)/32/bin
 
 #HEADERS
 #set the include path found by configure
 AM_CPPFLAGS = -I$(top_srcdir)/include -I$(top_srcdir)/jalib
 dmtcp_ldflags = -shared -Xlinker -znow -Wl,--unresolved-symbols=ignore-all
 LDADD = -ldl -lpthread
-d_libdir = $(top_builddir)/lib/$(PACKAGE)
-d_bindir = $(top_builddir)/bin
 libdmtcpdir = $(pkglibdir)
 bin_SCRIPTS = 
 CLEANFILES = 
@@ -1618,6 +1620,12 @@ uninstall-am: uninstall-binPROGRAMS uninstall-binSCRIPTS \
 
 .PRECIOUS: Makefile
 
+
+install-libs: install-libdmtcpPROGRAMS
+
+uninstall-libs: uninstall-libdmtcpPROGRAMS
+
+.PHONY: install-libs uninstall-libs
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

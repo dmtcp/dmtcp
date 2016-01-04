@@ -7,6 +7,14 @@ AM_CFLAGS = $(PICFLAGS)
 AM_CXXFLAGS = $(PICFLAGS)
 AM_LDFLAGS = $(PICFLAGS)
 
+if CONFIG_M32
+d_libdir = $(top_builddir)/lib/$(PACKAGE)/32/lib/$(PACKAGE)
+d_bindir = $(top_builddir)/lib/$(PACKAGE)/32/bin
+else
+d_libdir = $(top_builddir)/lib/$(PACKAGE)
+d_bindir = $(top_builddir)/bin
+endif
+
 #HEADERS
 #set the include path found by configure
 AM_CPPFLAGS  = -I$(top_srcdir)/include
@@ -14,9 +22,6 @@ AM_CPPFLAGS += -I$(top_srcdir)/jalib
 
 dmtcp_ldflags = -shared -Xlinker -znow -Wl,--unresolved-symbols=ignore-all
 LDADD = -ldl -lpthread
-
-d_libdir = $(top_builddir)/lib/$(PACKAGE)
-d_bindir = $(top_builddir)/bin
 
 libdmtcpdir = $(pkglibdir)
 
@@ -156,3 +161,9 @@ __d_libdir__libdmtcp_timer_so_SOURCES =                                \
 	timer/timerwrappers.cpp                                        \
 	timer/timerwrappers.h
 __d_libdir__libdmtcp_timer_so_LDFLAGS = $(dmtcp_ldflags)
+
+install-libs: install-libdmtcpPROGRAMS
+
+uninstall-libs: uninstall-libdmtcpPROGRAMS
+
+.PHONY: install-libs uninstall-libs
