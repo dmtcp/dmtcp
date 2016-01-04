@@ -91,34 +91,16 @@ clget(const char *colonList, unsigned int i)
 }
 
 /*
- * clgetsize_ptr - returns size of an element pointed to by @element in the
- *                 list
+ * clgetsize - returns size of an element pointed to by @element in the
+ *             list
  */
 static size_t
-clgetsize_ptr(const char *colonList, const char *element)
+clgetsize(const char *colonList, const char *element)
 {
     /* either calculate the element's length, or call
      * strlen if element was last one */
     const char *colon = strchr(element, ':');
     return colon ? colon - element : strlen(element);
-}
-
-/*
- * clgetsize - returns size of an element at index i in colonList
- *             and -1 if not found
- */
-static ssize_t
-clgetsize_ind(const char *colonList, const unsigned int i)
-{
-    /* get pointer to element at index i */
-    char *element = clget(colonList, i);
-    if (element) {
-        /* now that we have a pointer, we can use clgetsize_ptr */
-        return clgetsize_ptr(colonList, element);
-    }
-
-    /* not found */
-    return -1;
 }
 
 /*
@@ -153,8 +135,8 @@ virtual_to_physical_path(const char *virt_path,         // IN
     if (physPathPtr == NULL)
         return virt_path;
 
-    size_t newElementSz = clgetsize_ptr(newPathPrefixList, physPathPtr);
-    size_t oldElementSz = clgetsize_ptr(oldPathPrefixList, oldPathPtr);
+    size_t newElementSz = clgetsize(newPathPrefixList, physPathPtr);
+    size_t oldElementSz = clgetsize(oldPathPrefixList, oldPathPtr);
 
     /* temporarily null terminate new element */
     physPathPtr[newElementSz] = '\0';
