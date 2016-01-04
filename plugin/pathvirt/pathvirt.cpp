@@ -111,6 +111,14 @@ clgetsize(const char *colonList, const char *element)
  * will simply be returned. If path translation *did* occur, the translated
  * physical path will also be available as a dmtcp::string from the second
  * parameter.
+ *
+ * Conceptually, an original path prior to the first checkpoint is considered a
+ * "virtual path".  After a restart, it will be substituted using the latest
+ * list of registered paths.  Hence, a newly registered path to be substituted
+ * is a "physical path".  Internally, DMTCP works with the original "virtual
+ * path" as the canonical name.  But in any system calls, it must translate the
+ * virtual path to the latest "physical path", which will correspond to the
+ * current, post-restart filesystem.
  */
 const char *
 virtual_to_physical_path(const char *virt_path,         // IN
