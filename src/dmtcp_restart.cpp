@@ -369,7 +369,10 @@ static void runMtcpRestart(int is32bitElf, int fd, ProcessInfo *pInfo)
 
   static string mtcprestart = Util::getPath ("mtcp_restart");
 
-#if defined(CONFIG_M32)
+#if defined(__x86_64__) || defined(__aarch64__) || defined(CONFIG_M32)
+  // FIXME: This is needed for CONFIG_M32 only because getPath("mtcp_restart")
+  //        fails to return the absolute path for mtcprestart.  We should fix
+  //        the bug in Util::getPath() and remove CONFIG_M32 condition in #if.
   if (is32bitElf) {
     mtcprestart = Util::getPath("mtcp_restart-32", is32bitElf);
   }
