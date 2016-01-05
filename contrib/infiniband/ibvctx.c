@@ -204,7 +204,7 @@ static void send_qp_info(void)
         case IBV_QPT_UD:
         {
           // Reuse original_id and current_id structure here, excluding psn
-          ibv_ud_qp_id orig_id, curr_id;
+          ibv_ud_qp_id_t orig_id, curr_id;
 
           orig_id.qpn = internal_qp->original_id.qpn;
           orig_id.lid = internal_qp->original_id.lid;
@@ -260,7 +260,7 @@ static void query_qp_info(void)
                                       &internal_qp->current_remote, 
           			      &size);
 
-      assert(size == sizeof(ibv_qp_id));
+      assert(size == sizeof(ibv_qp_id_t));
     }
   }
 }
@@ -279,7 +279,7 @@ static void send_qp_pd_info(void) {
 
     dmtcp_send_key_val_pair_to_coordinator("pd_info", 
                                            &internal_qp->local_qp_pd_id, 
-                                           sizeof(ibv_qp_pd_id),
+                                           sizeof(ibv_qp_pd_id_t),
                                            &internal_pd->pd_id, 
 					   size);
   }
@@ -298,7 +298,7 @@ static void query_qp_pd_info(void) {
       size = sizeof(internal_qp->remote_pd_id);
       ret = dmtcp_send_query_to_coordinator("pd_info", 
                                             &internal_qp->remote_qp_pd_id, 
-                                            sizeof(ibv_qp_pd_id),
+                                            sizeof(ibv_qp_pd_id_t),
                                             &internal_qp->remote_pd_id,
           			            &size);
       assert(size == sizeof(int));
@@ -1770,7 +1770,7 @@ int _modify_qp(struct ibv_qp * qp, struct ibv_qp_attr * attr, int attr_mask)
     internal_qp->remote_id.qpn = attr->dest_qp_num;
     internal_qp->remote_qp_pd_id.qpn = attr->dest_qp_num;
     if (is_restart) {
-      ibv_qp_pd_id id = {
+      ibv_qp_pd_id_t id = {
         .qpn = attr->dest_qp_num,
 	.lid = attr->ah_attr.dlid
       };
