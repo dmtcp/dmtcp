@@ -81,12 +81,12 @@ struct internal_ibv_qp {
   struct ibv_qp   user_qp;
   struct ibv_qp * real_qp;
   struct ibv_qp_init_attr init_attr; /*!< The attributes used to construct the queue */
-  ibv_qp_id original_id;
-  ibv_qp_id remote_id;
-  ibv_qp_id current_remote;
-  ibv_qp_id current_id;
-  ibv_qp_pd_id local_qp_pd_id;
-  ibv_qp_pd_id remote_qp_pd_id;
+  ib_qp_id_t original_id;
+  ib_qp_id_t remote_id;
+  ib_qp_id_t current_remote;
+  ib_qp_id_t current_id;
+  ibv_qp_pd_id_t local_qp_pd_id;
+  ibv_qp_pd_id_t remote_qp_pd_id;
   int remote_pd_id;
   struct list modify_qp_log;
   uint8_t port_num; // port_num is used to get the correct lid
@@ -165,8 +165,8 @@ struct ibv_rkey_pair {
 };
 
 struct ibv_ud_qp_id_pair {
-  ibv_ud_qp_id orig_id;
-  ibv_ud_qp_id curr_id;
+  ibv_ud_qp_id_t orig_id;
+  ibv_ud_qp_id_t curr_id;
   struct list_elem elem;
 };
 

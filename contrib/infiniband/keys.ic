@@ -82,7 +82,7 @@ void update_rkey_send(struct ibv_send_wr * wr, int pd_id)
 void update_ud_send_restart(struct ibv_send_wr *wr) {
   struct internal_ibv_ah *internal_ah;
   uint32_t size;
-  ibv_ud_qp_id orig_id, curr_id;
+  ibv_ud_qp_id_t orig_id, curr_id;
 
   if (wr == NULL) {
     return;
@@ -96,7 +96,8 @@ void update_ud_send_restart(struct ibv_send_wr *wr) {
                                   &orig_id, sizeof(orig_id),
                                   &curr_id, &size);
 
-  if (size == sizeof(ibv_ud_qp_id)) {
+  // If the key in the query does not exist, size == 0.
+  if (size == sizeof(ibv_ud_qp_id_t)) {
     // The qp is created before checkpoint, qp_num changes
     wr->wr.ud.remote_qpn = curr_id.qpn;
   }
