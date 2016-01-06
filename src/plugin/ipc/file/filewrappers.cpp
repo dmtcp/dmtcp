@@ -372,7 +372,9 @@ static int _open_open64_work(int(*fn) (const char *path, int flags, ...),
   }
 
   dmtcp::string phys_path_string = "";
-  const char *phys_path = virtual_to_physical_path(newpath, phys_path_string);
+  const char *phys_path =  virtual_to_physical_path ?
+                           virtual_to_physical_path(newpath, phys_path_string):
+                           newpath;
 
   int fd = -1;
   fd = (*fn)(phys_path, flags, mode);
@@ -459,7 +461,9 @@ static FILE *_fopen_fopen64_work(FILE*(*fn) (const char *path, const char *mode)
   }
 
   dmtcp::string phys_path_string = "";
-  const char *phys_path =  virtual_to_physical_path(newpath, phys_path_string);
+  const char *phys_path =  virtual_to_physical_path ?
+                           virtual_to_physical_path(newpath, phys_path_string):
+                           newpath;
 
   FILE* file = NULL;
   file = (*fn)(phys_path, mode);
