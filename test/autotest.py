@@ -748,9 +748,13 @@ CKPT_CMD = old_ckpt_cmd
 # Test for files opened with WRONLY mode and later unlinked.
 runTest("file1",         1, ["./test/file1"])
 
-# FIXME:  Currently, we re-create deleted subdirectories when file
-#         is mmap'ed, but not yet when file is referenced by open fd.
-# runTest("file2",         1, ["./test/file2"])
+# Test for files and their directories opened and unlinked
+# PREV. NOTE (now fixed?):
+#   Currently, we re-create deleted subdirectories when file
+#   is mmap'ed, but not yet when file is referenced by open fd.
+S=10*DEFAULT_S
+runTest("file2",         1, ["./test/file2"])
+S=DEFAULT_S
 
 # Test for normal file, /dev/tty, proc file, and illegal pathname
 runTest("stat",         1, ["./test/stat"])
