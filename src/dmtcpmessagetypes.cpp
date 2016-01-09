@@ -169,6 +169,8 @@ ostream& dmtcp::operator << ( dmtcp::ostream& o, const DmtcpMessageType & s )
       OSHIFTPRINTF ( DMT_BARRIER_LIFTED )
       OSHIFTPRINTF ( DMT_BARRIER_LIST )
 
+      OSHIFTPRINTF ( DMT_COMPUTATION_INFO)
+
       OSHIFTPRINTF ( DMT_KILL_PEER )
 
       OSHIFTPRINTF ( DMT_REGISTER_NAME_SERVICE_DATA )

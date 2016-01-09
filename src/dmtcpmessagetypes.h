@@ -58,6 +58,8 @@ namespace dmtcp
     DMT_DO_SUSPEND,          // when coordinator wants slave to suspend        8
     DMT_DO_CHECKPOINT,       // when coordinator wants slave to checkpoint
 
+    DMT_COMPUTATION_INFO,
+
     DMT_BARRIER_LIFTED,
     DMT_BARRIER_LIST,
 

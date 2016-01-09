@@ -433,7 +433,7 @@ void DmtcpWorker::waitForSuspendMessage()
     (SharedData::getCompId()) (msg.compGroup);
 }
 
-void DmtcpWorker::waitForCheckpointMessage()
+void DmtcpWorker::acknowledgeSuspendMsg()
 {
   if (dmtcp_no_coordinator()) {
     return;
@@ -450,7 +450,7 @@ void DmtcpWorker::waitForCheckpointMessage()
     _exit (0);
   }
 
-  JASSERT(msg.type == DMT_DO_CHECKPOINT) (msg.type);
+  JASSERT(msg.type == DMT_COMPUTATION_INFO) (msg.type);
   JTRACE("Computation information") (msg.compGroup) (msg.numPeers);
   ProcessInfo::instance().compGroup(msg.compGroup);
   ProcessInfo::instance().numPeers(msg.numPeers);
@@ -490,7 +490,8 @@ void DmtcpWorker::preCheckpoint()
     SharedData::getCompId()._computation_generation;
   ProcessInfo::instance().set_generation(computationGeneration);
 
-  waitForCheckpointMessage();
+  acknowledgeSuspendMsg();
+
   WorkerState::setCurrentState(WorkerState::CHECKPOINTING);
   SharedData::prepareForCkpt();
   PluginManager::processCkptBarriers();
