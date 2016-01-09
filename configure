@@ -801,6 +801,7 @@ enable_experts_only_space1
 enable_experts_only
 enable_experts_only_after
 enable_m32
+enable_static_libstdcxx
 with_mpich
 '
       ac_precious_vars='build_alias
@@ -1480,6 +1481,10 @@ Optional Features:
   --enable-m32            Compile in 32 bit mode on 64 bit linux. (Works on
                           most, but not all programs, due to restrictions of
                           32-bit mode.)
+  --enable-static-libstdcxx
+                          Compile $CXX with -static-libstdc++. This allows
+                          DMTCP executables compiled on later distro to run
+                          correctly on earlier distros.)
 
 Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
@@ -5458,7 +5463,7 @@ $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "Failed to build C program with -m32
     Typically, this means that 32-bit glibc include files were not found.
     Consider installing gcc-multilib g++-multilib libc6-dev-i386 (Debian/Ubuntu)
-     or glibc-devel.i686 glibc-devel ibstdc++-devel.i686 (Red Hat/Fedora/CentOS)
+     or glibc-devel.i686 glibc-devel libstdc++-devel.i686(Red Hat/Fedora/CentOS)
      or glibc-devel-32bit (SUSE/OpenSUSE)
      or the equivalent packages for your Linux distro.
 See \`config.log' for more details" "$LINENO" 5; }
@@ -5506,7 +5511,7 @@ $as_echo "$cplusplus_m32" >&6; }
   if test "$cplusplus_m32" = "no"; then
     { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "Failed to build C++ program with -m32
+as_fn_error $? "Failed to build $CXX program with -m32
     Typically, this means that 32-bit libstdc++.so was not found
     Consider installing gcc-multilib g++-multilib libc6-dev-i386 (Debian/Ubuntu)
      or glibc-devel.i686 glibc-devel ibstdc++-devel.i686 (Red Hat/Fedora/CentOS)
@@ -5517,6 +5522,80 @@ See \`config.log' for more details" "$LINENO" 5; }
 else
   M32=0
 
+fi
+
+# Check whether --enable-static_libstdcxx was given.
+if test "${enable_static_libstdcxx+set}" = set; then :
+  enableval=$enable_static_libstdcxx; use_static_libstdcxx=$enableval
+else
+  use_static_libstdcxx=no
+fi
+
+
+if test "$use_static_libstdcxx" = "yes"; then
+  CXXFLAGS="$CXXFLAGS -static-libstdc++"
+
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether $CXX compiles using -static-libstdc++" >&5
+$as_echo_n "checking whether $CXX compiles using -static-libstdc++... " >&6; }
+  ac_ext=cpp
+ac_cpp='$CXXCPP $CPPFLAGS'
+ac_compile='$CXX -c $CXXFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CXX -o conftest$ac_exeext $CXXFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_cxx_compiler_gnu
+
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+  #include <stdio.h>
+  #include <features.h>  /* This often causes a problem. */
+
+int
+main ()
+{
+
+  printf("Hello, world!\n");
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_cxx_try_link "$LINENO"; then :
+  cplusplus_static_libstdcxx='yes'
+else
+  cplusplus_static_libstdcxx='no'
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+  ac_ext=c
+ac_cpp='$CPP $CPPFLAGS'
+ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $cplusplus_static_libstdcxx" >&5
+$as_echo "$cplusplus_static_libstdcxx" >&6; }
+  if test "$cplusplus_static_libstdcxx" = "no"; then
+    { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "Failed to build $CXX program with -static-libstdc++
+    Typically, this means that you are missing a static package.
+    Consider installing libstdc++-static (Red Hat/Fedora/CentOS)
+     or the equivalent packages for your Linux distro.
+See \`config.log' for more details" "$LINENO" 5; }
+  fi
+
+  # We do this hack for cross-distro compatibility only if we already
+  #   requested the other hack, --enable-static-libstdcxx
+  OLDPATH="$PATH"
+  if test "$MKDIR_P" = "/usr/bin/mkdir -p" && \
+     test -x /bin/mkdir && test -x /usr/bin/mkdir && \
+     diff /bin/mkdir /usr/bin/mkdir > /dev/null; then
+    # Fedora prefers /usr/bin/mkdir to /bin/mkdir.  But on shared filesystems,
+    #   this creates a problem for Ubuntu, which supports only /bin/mkdir.
+    MKDIR_P="/bin/mkdir -p"
+    { $as_echo "$as_me:${as_lineno-$LINENO}: --enable-static-libstdcxx: thread-safe \"mkdir -p\": $MKDIR_P" >&5
+$as_echo "$as_me: --enable-static-libstdcxx: thread-safe \"mkdir -p\": $MKDIR_P" >&6;}
+  fi
 fi
 
 #AC_ARG_ENABLE([allocator],
@@ -5622,8 +5701,8 @@ fi
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $has_pr_set_ptracer" >&5
 $as_echo "$has_pr_set_ptracer" >&6; }
 
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking if process_vm_readv/process_vm_writev (CMA) available" >&5
-$as_echo_n "checking if process_vm_readv/process_vm_writev (CMA) available... " >&6; }
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking if process_vm_readv/process_vm_writev available" >&5
+$as_echo_n "checking if process_vm_readv/process_vm_writev available... " >&6; }
 if test "$cross_compiling" = yes; then :
   { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
@@ -5686,6 +5765,8 @@ rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext \
   conftest.$ac_objext conftest.beam conftest.$ac_ext
 fi
 
+# FIXME: MVAPICH started using process_vm_readv/writev when CMA became
+#   available in the Linux kernel.  But the name has_cma is probably a bad one.
 if test "$has_cma" == "yes"; then
 
 $as_echo "#define HAS_CMA 1" >>confdefs.h

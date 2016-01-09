@@ -289,6 +289,48 @@ else
   AC_SUBST([M32], [0])
 fi
 
+AC_ARG_ENABLE([static_libstdcxx],
+            [AS_HELP_STRING([--enable-static-libstdcxx],
+                            [Compile $CXX with -static-libstdc++.
+                             This allows DMTCP executables compiled on later
+                             distro to run correctly on earlier distros.)])],
+            [use_static_libstdcxx=$enableval],
+            [use_static_libstdcxx=no])
+
+if test "$use_static_libstdcxx" = "yes"; then
+  CXXFLAGS="$CXXFLAGS -static-libstdc++"
+
+  AC_MSG_CHECKING([whether $CXX compiles using -static-libstdc++])
+  AC_LANG_PUSH([C++])
+  AC_LINK_IFELSE([AC_LANG_PROGRAM([[
+  #include <stdio.h>
+  #include <features.h>  /* This often causes a problem. */
+  ]], [[
+  printf("Hello, world!\n");
+  ]])], [cplusplus_static_libstdcxx='yes'], [cplusplus_static_libstdcxx='no'])
+  AC_LANG_POP([C++])
+  AC_MSG_RESULT([$cplusplus_static_libstdcxx])
+  if test "$cplusplus_static_libstdcxx" = "no"; then
+    AC_MSG_FAILURE([[Failed to build $CXX program with -static-libstdc++
+    Typically, this means that you are missing a static package.
+    Consider installing libstdc++-static (Red Hat/Fedora/CentOS)
+     or the equivalent packages for your Linux distro.]])
+  fi
+
+  # We do this hack for cross-distro compatibility only if we already
+  #   requested the other hack, --enable-static-libstdcxx
+  OLDPATH="$PATH"
+  if test "$MKDIR_P" = "/usr/bin/mkdir -p" && \
+     test -x /bin/mkdir && test -x /usr/bin/mkdir && \
+     diff /bin/mkdir /usr/bin/mkdir > /dev/null; then
+    # Fedora prefers /usr/bin/mkdir to /bin/mkdir.  But on shared filesystems,
+    #   this creates a problem for Ubuntu, which supports only /bin/mkdir.
+    MKDIR_P="/bin/mkdir -p"
+    AC_MSG_NOTICE(
+      [--enable-static-libstdcxx: thread-safe "mkdir -p": $MKDIR_P])
+  fi
+fi
+
 #AC_ARG_ENABLE([allocator],
 #            [AS_HELP_STRING([--enable-allocator],
 #                            [cause DMTCP to use a custom allocator based on mmap
