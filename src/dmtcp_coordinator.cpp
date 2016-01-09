@@ -401,11 +401,8 @@ void DmtcpCoordinator::updateMinimumState()
   }
 
   if (status.minimumState == WorkerState::SUSPENDED) {
-    if (_numCkptWorkers == 0) {
-      _numCkptWorkers = status.numPeers;
-    }
-    JTRACE("Checkpointing all nodes");
-    broadcastMessage(DMT_DO_CHECKPOINT);
+    broadcastMessage(DMT_COMPUTATION_INFO);
+    _numCkptWorkers = status.numPeers;
   }
 
   if (status.minimumState == WorkerState::CHECKPOINTING ||
@@ -510,9 +507,14 @@ void DmtcpCoordinator::onData(CoordClient *client)
       JNOTE("got DMT_BARRIER_LIST message") (msg.from) (extraData);
       // TODO(kapil): Check barrier mismatch.
       vector<string> barriers = Util::tokenizeString(extraData, ";");
-      JASSERT(barriers.size() == 2) (barriers.size());
-      ckptBarriers = Util::tokenizeString(barriers[0], ",");
-      restartBarriers = Util::tokenizeString(barriers[1], ",");
+      if (barriers.size() == 2) {
+        ckptBarriers = Util::tokenizeString(barriers[0], ",");
+        restartBarriers = Util::tokenizeString(barriers[1], ",");
+      } else if (barriers.size() == 1 && extraData[0] == ';') {
+        restartBarriers = Util::tokenizeString(barriers[1], ",");
+      } else if (barriers.size() == 1) {
+        ckptBarriers = Util::tokenizeString(barriers[1], ",");
+      }
       break;
     }
 
