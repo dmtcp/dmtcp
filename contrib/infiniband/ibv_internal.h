@@ -81,10 +81,10 @@ struct internal_ibv_qp {
   struct ibv_qp   user_qp;
   struct ibv_qp * real_qp;
   struct ibv_qp_init_attr init_attr; /*!< The attributes used to construct the queue */
-  ib_qp_id_t original_id;
-  ib_qp_id_t remote_id;
-  ib_qp_id_t current_remote;
-  ib_qp_id_t current_id;
+  ibv_qp_id_t original_id;
+  ibv_qp_id_t remote_id;
+  ibv_qp_id_t current_remote;
+  ibv_qp_id_t current_id;
   ibv_qp_pd_id_t local_qp_pd_id;
   ibv_qp_pd_id_t remote_qp_pd_id;
   int remote_pd_id;
