@@ -500,7 +500,11 @@ extern "C" FILE *freopen(const char *path, const char *mode, FILE *stream)
     newpath = currPtsDevName;
   }
 
-  FILE *file = _real_freopen(newpath, mode, stream);
+  dmtcp::string phys_path_string = "";
+  const char *phys_path =  virtual_to_physical_path ?
+                           virtual_to_physical_path(newpath, phys_path_string):
+                           newpath;
+  FILE *file = _real_freopen(phys_path, mode, stream);
 
   if (file != NULL && dmtcp_is_running_state()) {
     FileConnList::instance().processFileConnection(fileno(file), newpath,
@@ -518,7 +522,11 @@ extern "C" int openat(int dirfd, const char *path, int flags, ...)
   mode_t mode = va_arg(arg, int);
   va_end(arg);
   DMTCP_PLUGIN_DISABLE_CKPT();
-  int fd = _real_openat(dirfd, path, flags, mode);
+  dmtcp::string phys_path_string = "";
+  const char *phys_path =  virtual_to_physical_path ?
+                           virtual_to_physical_path(path, phys_path_string):
+                           path;
+  int fd = _real_openat(dirfd, phys_path, flags, mode);
   if (fd >= 0 && dmtcp_is_running_state()) {
     string procpath = "/proc/self/fd/" + jalib::XToString(fd);
     string device = jalib::Filesystem::ResolveSymlink(procpath);
@@ -546,7 +554,11 @@ extern "C" int openat64(int dirfd, const char *path, int flags, ...)
   mode_t mode = va_arg(arg, int);
   va_end(arg);
   DMTCP_PLUGIN_DISABLE_CKPT();
-  int fd = _real_openat64(dirfd, path, flags, mode);
+  dmtcp::string phys_path_string = "";
+  const char *phys_path =  virtual_to_physical_path ?
+                           virtual_to_physical_path(path, phys_path_string):
+                           path;
+  int fd = _real_openat64(dirfd, phys_path, flags, mode);
   if (fd >= 0 && dmtcp_is_running_state()) {
     string procpath = "/proc/self/fd/" + jalib::XToString(fd);
     string device = jalib::Filesystem::ResolveSymlink(procpath);
@@ -570,7 +582,11 @@ extern "C" int __openat64_2(int dirfd, const char *path, int flags)
 extern "C" DIR *opendir(const char *name)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
-  DIR *dir = _real_opendir(name);
+  dmtcp::string phys_path_string = "";
+  const char *phys_path =  virtual_to_physical_path ?
+                           virtual_to_physical_path(name, phys_path_string):
+                           name;
+  DIR *dir = _real_opendir(phys_path);
   if (dir != NULL && dmtcp_is_running_state()) {
     FileConnList::instance().processFileConnection(dirfd(dir), name, -1, -1);
   }
@@ -600,14 +616,21 @@ extern "C" int __xstat(int vers, const char *path, struct stat *buf)
   //   _real_xstat().  If path or buf is invalid, return with the erro.
   //   If path is a valid memory address, but not a valid filename,
   //   there is no harm done, since xstat has no side effects outside of buf.
-  int retval = _real_xstat(vers, path, buf);
+  dmtcp::string phys_path_string = "";
+  const char *phys_path =  virtual_to_physical_path ?
+                           virtual_to_physical_path(path, phys_path_string):
+                           path;
+  int retval = _real_xstat(vers, phys_path, buf);
   if (retval == -1 && errno == EFAULT) {
     // EFAULT means path or buf was a bad address.  So, we're done.  Return.
     // And don't call updateStatPath().  If path is bad, it will crash.
   } else {
     updateStatPath(path, &newpath);
     if (newpath != path) {
-      retval = _real_xstat(vers, newpath, buf); // Re-do it with correct path.
+      phys_path =  virtual_to_physical_path ?
+                   virtual_to_physical_path(newpath, phys_path_string):
+                   newpath;
+      retval = _real_xstat(vers, phys_path, buf); // Re-do it with correct path.
     } // else use answer from previous call to _real_xstat(), and save time.
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -620,13 +643,20 @@ extern "C" int __xstat64(int vers, const char *path, struct stat64 *buf)
   char *newpath = tmpbuf;
   DMTCP_PLUGIN_DISABLE_CKPT();
   // See filewrapper.cpp:__xstat() for comments on this code.
-  int retval = _real_xstat64(vers, path, buf);
+  dmtcp::string phys_path_string = "";
+  const char *phys_path =  virtual_to_physical_path ?
+                           virtual_to_physical_path(path, phys_path_string):
+                           path;
+  int retval = _real_xstat64(vers, phys_path, buf);
   if (retval == -1 && errno == EFAULT) {
     // We're done.  Return.
   } else {
     updateStatPath(path, &newpath);
     if (newpath != path) {
-      retval = _real_xstat64(vers, newpath, buf);
+      phys_path =  virtual_to_physical_path ?
+                   virtual_to_physical_path(newpath, phys_path_string):
+                   newpath;
+      retval = _real_xstat64(vers, phys_path, buf);
     }
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -657,13 +687,20 @@ extern "C" int __lxstat(int vers, const char *path, struct stat *buf)
   char *newpath = tmpbuf;
   DMTCP_PLUGIN_DISABLE_CKPT();
   // See filewrapper.cpp:__xstat() for comments on this code.
-  int retval = _real_lxstat(vers, path, buf);
+  dmtcp::string phys_path_string = "";
+  const char *phys_path =  virtual_to_physical_path ?
+                           virtual_to_physical_path(path, phys_path_string):
+                           path;
+  int retval = _real_lxstat(vers, phys_path, buf);
   if (retval == -1 && errno == EFAULT) {
     // We're done.  Return.
   } else {
     updateStatPath(path, &newpath);
     if (newpath != path) {
-      retval = _real_lxstat(vers, newpath, buf);
+      phys_path =  virtual_to_physical_path ?
+                   virtual_to_physical_path(newpath, phys_path_string):
+                   newpath;
+      retval = _real_lxstat(vers, phys_path, buf);
     }
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -676,13 +713,20 @@ extern "C" int __lxstat64(int vers, const char *path, struct stat64 *buf)
   char *newpath = tmpbuf;
   DMTCP_PLUGIN_DISABLE_CKPT();
   // See filewrapper.cpp:__xstat() for comments on this code.
-  int retval = _real_lxstat64(vers, path, buf);
+  dmtcp::string phys_path_string = "";
+  const char *phys_path =  virtual_to_physical_path ?
+                           virtual_to_physical_path(path, phys_path_string):
+                           path;
+  int retval = _real_lxstat64(vers, phys_path, buf);
   if (retval == -1 && errno == EFAULT) {
     // We're done.  Return.
   } else {
     updateStatPath(path, &newpath);
     if (newpath != path) {
-      retval = _real_lxstat64(vers, newpath, buf);
+      phys_path =  virtual_to_physical_path ?
+                   virtual_to_physical_path(newpath, phys_path_string):
+                   newpath;
+      retval = _real_lxstat64(vers, phys_path, buf);
     }
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -705,7 +749,11 @@ extern "C" ssize_t readlink(const char *path, char *buf, size_t bufsiz)
     retval = bufsiz > strlen(procSelfExe) ? strlen(procSelfExe) : bufsiz;
   } else {
     updateStatPath(path, &newpath);
-    retval = _real_readlink(newpath, buf, bufsiz);
+    dmtcp::string phys_path_string = "";
+    const char *phys_path =  virtual_to_physical_path ?
+                             virtual_to_physical_path(newpath, phys_path_string):
+                             newpath;
+    retval = _real_readlink(phys_path, buf, bufsiz);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -754,7 +802,11 @@ extern "C" char *realpath(const char *path, char *resolved_path)
     }
     strcpy(ret, path);
   } else {
-    ret = _real_realpath(path, resolved_path);
+    dmtcp::string phys_path_string = "";
+    const char *phys_path =  virtual_to_physical_path ?
+                             virtual_to_physical_path(path, phys_path_string):
+                             path;
+    ret = _real_realpath(phys_path, resolved_path);
   }
   return ret;
 }
@@ -785,7 +837,11 @@ extern "C" int access(const char *path, int mode)
     DMTCP_PLUGIN_ENABLE_CKPT();
     return ret;
   }
-  return _real_access(path, mode);
+  dmtcp::string phys_path_string = "";
+  const char *phys_path =  virtual_to_physical_path ?
+                           virtual_to_physical_path(path, phys_path_string):
+                           path;
+  return _real_access(phys_path, mode);
 }
 
 #if 0
