@@ -315,13 +315,13 @@ static const char* multiHostProcessing =
   "wait\n"
 ;
 
-void writeScript(const string& ckptDir,
-                 bool uniqueCkptFilenames,
-                 const time_t& ckptTimeStamp,
-                 const uint32_t theCheckpointInterval,
-                 const int thePort,
-                 const UniquePid& compId,
-                 const map<string, vector<string> >& restartFilenames)
+string writeScript(const string& ckptDir,
+                   bool uniqueCkptFilenames,
+                   const time_t& ckptTimeStamp,
+                   const uint32_t theCheckpointInterval,
+                   const int thePort,
+                   const UniquePid& compId,
+                   const map<string, vector<string> >& restartFilenames)
 {
   ostringstream o;
   string uniqueFilename;
@@ -527,6 +527,7 @@ void writeScript(const string& ckptDir,
     JWARNING(symlinkat(basename(uniqueFilename.c_str()), dirfd, filename.c_str()) == 0) (JASSERT_ERRNO);
     JASSERT(close(dirfd) == 0);
   }
+  return uniqueFilename;
 }
 
 } // namespace dmtcp {

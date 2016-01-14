@@ -5,6 +5,8 @@
 #include "plugininfo.h"
 #include "util.h"
 
+static const char *firstRestartBarrier = "DMTCP::RESTART";
+
 static dmtcp::PluginManager *pluginManager = NULL;
 
 extern "C" void dmtcp_register_plugin(DmtcpPluginDescriptor_t descr)
@@ -102,6 +104,7 @@ void PluginManager::registerBarriersWithCoordinator()
     }
   }
 
+  restartBarriers.push_back(firstRestartBarrier);
   for (int i = pluginManager->pluginInfos.size() - 1; i >= 0; i--) {
     const vector<BarrierInfo*> barriers =
       pluginManager->pluginInfos[i]->restartBarriers;
@@ -142,6 +145,7 @@ void PluginManager::processRestartBarriers()
 {
   PluginManager::registerBarriersWithCoordinator();
 
+  CoordinatorAPI::instance().waitForBarrier(firstRestartBarrier);
   for (int i = pluginManager->pluginInfos.size() - 1; i >= 0; i--) {
     pluginManager->pluginInfos[i]->processBarriers();
   }

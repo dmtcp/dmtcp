@@ -47,7 +47,7 @@
  * Checkpoint: RUNNING -> SUSPENDED -> FD_LEADER_ELECTION -> DRAINED        *
  *       	  -> CHECKPOINTED -> NAME_SERVICE_DATA_REGISTERED           *
  *                -> DONE_QUERYING -> REFILLED -> RUNNING		    *
- * Restart:    RESTARTING -> CHECKPOINTED -> NAME_SERVICE_DATA_REGISTERED   *
+ * Restart:    RESTARTING -> NAME_SERVICE_DATA_REGISTERED                   *
  *                -> DONE_QUERYING -> REFILLED -> RUNNING	            *
  * If debugging, set gdb breakpoint on:					    *
  *   DmtcpCoordinator::onConnect					    *
@@ -443,13 +443,16 @@ void DmtcpCoordinator::recordCkptFilename(const char *extraData)
   _numRestartFilenames++;
 
   if (_numRestartFilenames == _numCkptWorkers) {
-    RestartScript::writeScript(ckptDir,
-                               uniqueCkptFilenames,
-                               ckptTimeStamp,
-                               theCheckpointInterval,
-                               thePort,
-                               compId,
-                               _restartFilenames);
+    const string restartScriptPath =
+      RestartScript::writeScript(ckptDir,
+                                 uniqueCkptFilenames,
+                                 ckptTimeStamp,
+                                 theCheckpointInterval,
+                                 thePort,
+                                 compId,
+                                 _restartFilenames);
+
+    JNOTE("Checkpoint complete. Wrote restart script") (restartScriptPath);
 
     JTIMER_STOP(checkpoint);
     resetCkptTimer();
@@ -496,7 +499,7 @@ void DmtcpCoordinator::onData(CoordClient *client)
   {
     case DMT_OK:
     {
-      JTRACE ("got DMT_OK message") (msg.from) (msg.state);
+      JTRACE ("got DMT_OK message") (client->state()) (msg.from) (msg.state);
       client->setState(msg.state);
       updateMinimumState();
       break;
@@ -504,16 +507,16 @@ void DmtcpCoordinator::onData(CoordClient *client)
 
     case DMT_BARRIER_LIST:
     {
-      JNOTE("got DMT_BARRIER_LIST message") (msg.from) (extraData);
+      JNOTE("got DMT_BARRIER_LIST message") (msg.from) (extraData) (client->state());
       // TODO(kapil): Check barrier mismatch.
       vector<string> barriers = Util::tokenizeString(extraData, ";");
       if (barriers.size() == 2) {
         ckptBarriers = Util::tokenizeString(barriers[0], ",");
         restartBarriers = Util::tokenizeString(barriers[1], ",");
       } else if (barriers.size() == 1 && extraData[0] == ';') {
-        restartBarriers = Util::tokenizeString(barriers[1], ",");
+        restartBarriers = Util::tokenizeString(barriers[0], ",");
       } else if (barriers.size() == 1) {
-        ckptBarriers = Util::tokenizeString(barriers[1], ",");
+        ckptBarriers = Util::tokenizeString(barriers[0], ",");
       }
       break;
     }
@@ -857,9 +860,8 @@ bool DmtcpCoordinator::validateRestartingWorkerProcess(
     JNOTE ( "FIRST dmtcp_restart connection.  Set numPeers. Generate timestamp" )
       ( numPeers ) ( curTimeStamp ) ( compId );
     JTIMER_START(restart);
-  } else if (minimumState() != WorkerState::RESTARTING &&
-             minimumState() != WorkerState::CHECKPOINTED) {
-    JNOTE ("Computation not in RESTARTING or CHECKPOINTED state."
+  } else if (minimumState() != WorkerState::RESTARTING) {
+    JNOTE ("Computation not in RESTARTING state."
            "  Reject incoming computation process requesting restart.")
       (compId) (hello_remote.compGroup) (minimumState());
     hello_local.type = DMT_REJECT_NOT_RESTARTING;
@@ -1075,7 +1077,7 @@ DmtcpCoordinator::ComputationStatus DmtcpCoordinator::getStatus() const
   status.minimumState = ( min==INITIAL_MIN ? WorkerState::UNKNOWN
 			  : (WorkerState::eWorkerState)min );
   if( status.minimumState == WorkerState::RESTARTING && count < numPeers ){
-    JTRACE("minimal state counted as CHECKPOINTED but not all processes"
+    JTRACE("minimal state counted as RESTARTING but not all processes"
 	   " are connected yet.  So we wait.") ( numPeers ) ( count );
     status.minimumState = WorkerState::RESTARTING;
   }
