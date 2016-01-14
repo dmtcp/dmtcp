@@ -45,9 +45,9 @@ static void resume()
 }
 
 static DmtcpBarrier alarmBarriers[] = {
-  {DMTCP_GLOBAL_BARRIER_PRE_CKPT, checkpoint, "checkpoint"},
-  {DMTCP_GLOBAL_BARRIER_RESUME, resume, "resume"},
-  {DMTCP_GLOBAL_BARRIER_RESTART, resume, "restart"}
+  {DMTCP_LOCAL_BARRIER_PRE_CKPT, checkpoint, "checkpoint"},
+  {DMTCP_LOCAL_BARRIER_RESUME, resume, "resume"},
+  {DMTCP_LOCAL_BARRIER_RESTART, resume, "restart"}
 };
 
 static DmtcpPluginDescriptor_t alarmPlugin = {

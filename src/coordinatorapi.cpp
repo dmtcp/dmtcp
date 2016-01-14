@@ -65,13 +65,13 @@ static void coordinatorAPI_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 }
 
 static DmtcpBarrier coordinatorAPIBarriers[] = {
-  {DMTCP_GLOBAL_BARRIER_RESTART, CoordinatorAPI::restart, "restart"}
+  {DMTCP_LOCAL_BARRIER_RESTART, CoordinatorAPI::restart, "restart"}
 };
 
 static DmtcpPluginDescriptor_t coordinatorAPIPlugin = {
   DMTCP_PLUGIN_API_VERSION,
   PACKAGE_VERSION,
-  "alarm",
+  "coordinatorapi",
   "DMTCP",
   "dmtcp@ccs.neu.edu",
   "Coordinator API plugin",
