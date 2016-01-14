@@ -92,7 +92,9 @@ void PluginManager::registerBarriersWithCoordinator()
     const vector<BarrierInfo*> barriers =
       pluginManager->pluginInfos[i]->preCkptBarriers;
     for (size_t j = 0; j < barriers.size(); j++) {
-      ckptBarriers.push_back(barriers[j]->toString());
+      if (barriers[j]->isGlobal()) {
+        ckptBarriers.push_back(barriers[j]->toString());
+      }
     }
   }
 
@@ -100,7 +102,9 @@ void PluginManager::registerBarriersWithCoordinator()
     const vector<BarrierInfo*> barriers =
       pluginManager->pluginInfos[i]->resumeBarriers;
     for (size_t j = 0; j < barriers.size(); j++) {
-      ckptBarriers.push_back(barriers[j]->toString());
+      if (barriers[j]->isGlobal()) {
+        ckptBarriers.push_back(barriers[j]->toString());
+      }
     }
   }
 
@@ -109,7 +113,9 @@ void PluginManager::registerBarriersWithCoordinator()
     const vector<BarrierInfo*> barriers =
       pluginManager->pluginInfos[i]->restartBarriers;
     for (size_t j = 0; j < barriers.size(); j++) {
-      restartBarriers.push_back(barriers[j]->toString());
+      if (barriers[j]->isGlobal()) {
+        restartBarriers.push_back(barriers[j]->toString());
+      }
     }
   }
 

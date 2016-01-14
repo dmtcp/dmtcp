@@ -110,7 +110,7 @@ void PluginInfo::processBarrier(BarrierInfo *barrier)
   } else if (barrier->isGlobal()) {
     CoordinatorAPI::instance().waitForBarrier(barrier->toString());
   } else {
-    //SharedData::waitForLocalBarrier(barrier);
+    SharedData::waitForBarrier(barrier->toString());
   }
 
   JNOTE("Barrier lifted") (barrier->toString());
