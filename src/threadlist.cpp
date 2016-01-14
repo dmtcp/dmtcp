@@ -642,8 +642,8 @@ void ThreadList::waitForAllRestored(Thread *thread)
   } else {
     sem_post(&semNotifyCkptThread);
     sem_wait(&semWaitForCkptThreadSignal);
-    Thread_RestoreSigState(thread);
   }
+  Thread_RestoreSigState(thread);
 }
 
 /*****************************************************************************
