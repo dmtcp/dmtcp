@@ -25,6 +25,7 @@
 #include <sys/types.h>
 #include <sys/un.h>
 #include <netdb.h>
+#include <semaphore.h>
 #include <arpa/inet.h>
 #include <linux/limits.h>
 #include "dmtcp.h"
@@ -91,6 +92,11 @@ namespace dmtcp {
       char  id[CON_ID_LEN];
     } InodeConnIdMap;
 
+    struct BarrierInfo {
+      uint32_t numCkptPeers;
+      pthread_barrier_t barrier;
+    };
+
     struct Header {
       char                 tmpDir[PATH_MAX];
       char                 installDir[PATH_MAX];
@@ -114,6 +120,11 @@ namespace dmtcp {
 
       uint32_t             numIncomingConMaps;
       uint32_t             numInodeConnIdMaps;
+
+      union {
+        struct BarrierInfo barrierInfo;
+        char               pad[128];
+      };
 
       struct PidMap        pidMap[MAX_PID_MAPS];
       struct IPCIdMap      sysvShmIdMap[MAX_IPC_ID_MAPS];
@@ -144,8 +155,11 @@ namespace dmtcp {
                           struct in_addr *localIP);
 
     bool isSharedDataRegion(void *addr);
+    void initializeBarrier();
+    void resetBarrierInfo();
     void prepareForCkpt();
     void postRestart();
+    void waitForBarrier(const string& barrierId);
 
     string coordHost();
     uint32_t coordPort();

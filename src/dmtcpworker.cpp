@@ -385,6 +385,7 @@ static void ckptThreadPerformExit()
 
 void DmtcpWorker::waitForSuspendMessage()
 {
+  SharedData::resetBarrierInfo();
   if (dmtcp_no_coordinator()) {
     string shmFile = jalib::Filesystem::GetDeviceName(PROTECTED_SHM_FD);
     JASSERT(!shmFile.empty());
@@ -490,10 +491,11 @@ void DmtcpWorker::preCheckpoint()
     SharedData::getCompId()._computation_generation;
   ProcessInfo::instance().set_generation(computationGeneration);
 
+  SharedData::prepareForCkpt();
+
   acknowledgeSuspendMsg();
 
   WorkerState::setCurrentState(WorkerState::CHECKPOINTING);
-  SharedData::prepareForCkpt();
   PluginManager::processCkptBarriers();
 }
 
