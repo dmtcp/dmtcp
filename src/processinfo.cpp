@@ -89,8 +89,8 @@ static void processInfo_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 }
 
 static DmtcpBarrier processInfoBarriers[] = {
-  {DMTCP_GLOBAL_BARRIER_PRE_CKPT, checkpoint, "checkpoint"},
-  {DMTCP_GLOBAL_BARRIER_RESTART, restart, "restart"}
+  {DMTCP_LOCAL_BARRIER_PRE_CKPT, checkpoint, "checkpoint"},
+  {DMTCP_LOCAL_BARRIER_RESTART, restart, "restart"}
 };
 
 static DmtcpPluginDescriptor_t processInfoPlugin = {

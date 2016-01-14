@@ -65,8 +65,8 @@ static void timer_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 }
 
 static DmtcpBarrier timerBarriers[] = {
-  {DMTCP_GLOBAL_BARRIER_PRE_CKPT, preCheckpoint, "PRE_CKPT"},
-  {DMTCP_GLOBAL_BARRIER_RESTART, postRestart, "RESTART"}
+  {DMTCP_LOCAL_BARRIER_PRE_CKPT, preCheckpoint, "PRE_CKPT"},
+  {DMTCP_LOCAL_BARRIER_RESTART, postRestart, "RESTART"}
 };
 
 DmtcpPluginDescriptor_t timerPlugin = {
