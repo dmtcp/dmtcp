@@ -23,14 +23,15 @@ second colon delimited list of path prefixes. For example:
 
     $ DMTCP_PATH_PREFIX=/home/user2/bin2:/home/user2/lib2:/home/user2/doc2 \
         ./dmtcp_restart_script.sh
-        
+
 If you *do not* provide DMTCP_PATH_PREFIX on restart, pathvirt does nothing,
 and the program is restarted from the last checkpoint as normal.
 
 If you *do* provide it, pathvirt becomes active and starts performing path
 translation.  At this point, prefixes in this second list will dynamically
 replace corresponding prefixes in the first list when a program uses a path
-that is prefixed with an entry in the first colon list. For example:
+that is prefixed with an entry in the first colon list in a call to libc. For
+example:
 
     open("/home/user1/bin1/ls") => open("/home/user2/bin2/ls")
     open("/home/user1/lib1/libc.so.6") => open("/home/user2/lib2/libc.so.6")
