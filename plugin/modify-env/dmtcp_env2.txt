@@ -1,0 +1,18 @@
+# Provide 'name=value' pairs in a format similar to that of putenv().
+#   The 'name=value' will be added to the environment of the restarted process.
+#   A 'name' with no '=' indicates to unset 'name' in the restarted process.
+# The syntax of putenv strings is extended to recognize '\', '"', and '$'.
+# The '"' and '\' syntax follow standard C conventions.
+# The '$' character indicates to expand the next word, based on the
+#   that name in the current environment (as it exists at restart time).
+#   A word consists of a sequence of alphanumeric or '_' characters.
+
+# The '#' character is the comment character.  Nothing is read beyond that.
+# Spaces and tabs outside of quotes (outside of '"') 
+
+HOME=you      # This is the new value of HOME.
+HOST=newhost
+DISPLAY=$DISPLAY
+EDITOR       # Unset any environment variable EDITOR.
+FOO="\"a b c\" (quoted)"  # value of var (in quotes) will include spaces
+USER="new-$HOME"-$USER  # $HOME will be expanded
