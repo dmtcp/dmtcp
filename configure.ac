@@ -340,7 +340,7 @@ fi
 AC_MSG_RESULT([$has_pr_set_ptracer])
 
 dnl CMA brought in with  Linux 3.2.0 and glibc 2.15
-AC_MSG_CHECKING([if process_vm_readv/process_vm_writev (CMA) available])
+AC_MSG_CHECKING([if process_vm_readv/process_vm_writev available])
 AC_TRY_RUN([
             #include <stdio.h>
             #include <unistd.h>
@@ -385,6 +385,8 @@ AC_TRY_RUN([
               return 0;
             }
            ], [has_cma='yes'], [has_cma='no'])
+# FIXME: MVAPICH started using process_vm_readv/writev when CMA became
+#   available in the Linux kernel.  But the name has_cma is probably a bad one.
 if test "$has_cma" == "yes"; then
   AC_DEFINE([HAS_CMA],[1],[Define to 1 if you have process_vm_readv and process_vm_writev.])
   AC_SUBST([HAS_CMA], [yes])

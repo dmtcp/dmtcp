@@ -73,7 +73,7 @@ all: default
 
 display-build-env: display-config display-release
 	@- uname -a
-	@ ldd --version | head -1 || true
+	@  echo -n "libc version: " && ldd --version | head -1 || true
 	@- echo 'Compiler:  ${CC}'
 	@- ${CC} -v 2>&1
 	@- echo 'CFLAGS: ${CFLAGS}'

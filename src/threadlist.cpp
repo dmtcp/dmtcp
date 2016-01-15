@@ -60,7 +60,7 @@ static pthread_rwlock_t *threadResumeLock = NULL;
 static __thread Thread *curThread = NULL;
 static Thread *ckptThread = NULL;
 static int numUserThreads = 0;
-static int originalstartup;
+static bool originalstartup;
 
 extern bool sem_launch_first_time;
 extern sem_t sem_launch; // allocated in coordinatorapi.cpp
@@ -165,7 +165,7 @@ void ThreadList::init()
   sem_init(&semNotifyCkptThread, 0, 0);
   sem_init(&semWaitForCkptThreadSignal, 0, 0);
 
-  originalstartup = 1;
+  originalstartup = true;
   pthread_t checkpointhreadid;
   /* Spawn off a thread that will perform the checkpoints from time to time */
   JASSERT(pthread_create(&checkpointhreadid, NULL, checkpointhread, NULL) == 0);
@@ -342,7 +342,7 @@ static void *checkpointhread (void *dummy)
     (curThread->tid) (curThread->virtual_tid) (curThread->saved_sp);
 
   if (originalstartup) {
-    originalstartup = 0;
+    originalstartup = false;
   } else {
     /* We are being restored.  Wait for all other threads to finish being
      * restored before resuming checkpointing.

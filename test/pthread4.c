@@ -26,7 +26,7 @@ void * child_thread(void *arg)
     for(i = 0; i < NUM_THREADS_2; i++) {
         pthread_t my_child;
         pthread_create(&my_child, NULL, child_thread_2, NULL);
-        printf("b");
+        printf("b"); fflush(stdout);
         pthread_join(my_child, NULL);
     }
     printf("\nThread increment completed\n");

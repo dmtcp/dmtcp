@@ -106,7 +106,7 @@ extern "C" int clock_getcpuclockid(pid_t pid, clockid_t *clock_id)
   DMTCP_PLUGIN_DISABLE_CKPT();
   int ret = _real_clock_getcpuclockid(pid, &realId);
   if (ret == 0) {
-    *clock_id = TimerList::instance().on_clock_getcpuclockid(pid, realId);
+    *clock_id = REAL_TO_VIRTUAL_CLOCK_ID(pid, realId);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return ret;

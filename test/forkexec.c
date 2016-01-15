@@ -85,7 +85,7 @@ int main ( int argc, char** argv )
 
     while ( read ( WELL_KNOWN_FD,&c,1 ) )
     {
-      printf ( " %c",c );
+      printf ( " %c",c ); fflush(stdout);
     }
 
     die ( "child done" );
