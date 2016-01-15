@@ -54,7 +54,7 @@ DmtcpPluginDescriptor_t sleep2_plugin = {
   "sleep2",
   "DMTCP",
   "dmtcp@ccs.neu.edu",
-  "Sleep2 Plugin",
+  "Sleep2 plugin",
   DMTCP_DECL_BARRIERS(barriers),
   NULL
 };

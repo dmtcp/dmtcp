@@ -86,7 +86,7 @@ DmtcpPluginDescriptor_t modify_env_plugin = {
   "modify-env",
   "DMTCP",
   "dmtcp@ccs.neu.edu",
-  "Modify-Environment Plugin",
+  "Modify-Environment plugin",
   DMTCP_DECL_BARRIERS(modify_env_barriers),
   NULL
 };

@@ -30,7 +30,7 @@ static void resume()
 
 static void restart()
 {
-  printf("The application is now restarting from checkpointing.\n");
+  printf("The application is now restarting from a checkpoint.\n");
 }
 
 static DmtcpBarrier barriers[] = {
@@ -45,7 +45,7 @@ DmtcpPluginDescriptor_t example_plugin = {
   "example",
   "DMTCP",
   "dmtcp@ccs.neu.edu",
-  "Example Plugin",
+  "Example plugin",
   DMTCP_DECL_BARRIERS(barriers),
   example_event_hook
 };

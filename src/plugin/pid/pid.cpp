@@ -234,7 +234,7 @@ DmtcpPluginDescriptor_t pidPlugin = {
   "pid",
   "DMTCP",
   "dmtcp@ccs.neu.edu",
-  "PID Virtualization Plugin",
+  "PID virtualization plugin",
   DMTCP_DECL_BARRIERS(pidBarriers),
   pid_event_hook
 };

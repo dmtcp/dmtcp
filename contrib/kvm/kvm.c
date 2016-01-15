@@ -913,7 +913,7 @@ DmtcpPluginDescriptor_t kvm_plugin = {
   "kvm",
   "DMTCP",
   "dmtcp@ccs.neu.edu",
-  "KVM Plugin",
+  "KVM plugin",
   DMTCP_DECL_BARRIERS(kvmBarriers),
   kvm_event_hook
 };

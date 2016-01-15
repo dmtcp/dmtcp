@@ -502,7 +502,7 @@ DmtcpPluginDescriptor_t tun_plugin = {
   "tun",
   "DMTCP",
   "dmtcp@ccs.neu.edu",
-  "TUN Plugin",
+  "TUN plugin",
   DMTCP_DECL_BARRIERS(tunBarriers),
   tun_event_hook
 };

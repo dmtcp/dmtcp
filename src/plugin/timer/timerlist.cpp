@@ -72,10 +72,10 @@ static DmtcpBarrier timerBarriers[] = {
 DmtcpPluginDescriptor_t timerPlugin = {
   DMTCP_PLUGIN_API_VERSION,
   PACKAGE_VERSION,
-  "ipc",
+  "timer",
   "DMTCP",
   "dmtcp@ccs.neu.edu",
-  "IPC Virtualization Plugin",
+  "Timer plugin",
   DMTCP_DECL_BARRIERS(timerBarriers),
   timer_event_hook
 };

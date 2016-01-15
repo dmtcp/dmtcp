@@ -111,7 +111,7 @@ DmtcpPluginDescriptor_t sshPlugin = {
   "ssh",
   "DMTCP",
   "dmtcp@ccs.neu.edu",
-  "SSH Plugin",
+  "SSH plugin",
   DMTCP_DECL_BARRIERS(sshBarriers),
   dmtcp_SSH_EventHook
 };
@@ -122,7 +122,7 @@ DmtcpPluginDescriptor_t filePlugin = {
   "file",
   "DMTCP",
   "dmtcp@ccs.neu.edu",
-  "File Plugin",
+  "File plugin",
   DMTCP_DECL_BARRIERS(fileBarriers),
   dmtcp_FileConnList_EventHook
 };
@@ -133,7 +133,7 @@ DmtcpPluginDescriptor_t socketPlugin = {
   "socket",
   "DMTCP",
   "dmtcp@ccs.neu.edu",
-  "Socket Plugin",
+  "Socket plugin",
   DMTCP_DECL_BARRIERS(socketBarriers),
   dmtcp_SocketConnList_EventHook
 };
@@ -144,7 +144,7 @@ DmtcpPluginDescriptor_t eventPlugin = {
   "event",
   "DMTCP",
   "dmtcp@ccs.neu.edu",
-  "Event Plugin",
+  "Event plugin",
   DMTCP_DECL_BARRIERS(eventBarriers),
   dmtcp_EventConnList_EventHook
 };
@@ -155,7 +155,7 @@ DmtcpPluginDescriptor_t ipcPlugin = {
   "ipc",
   "DMTCP",
   "dmtcp@ccs.neu.edu",
-  "IPC Virtualization Plugin",
+  "IPC virtualization plugin",
   DMTCP_NO_PLUGIN_BARRIERS,
   ipc_event_hook
 };
