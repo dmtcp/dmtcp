@@ -185,7 +185,7 @@ static void resume()
 
 static void restart()
 {
-  JTRACE("The plugin is now restarting from checkpointing.");
+  JTRACE("The plugin is now being restarting from a checkpoint.");
   /* Need to stop the timer on resume/restart. */
   start_stop_timer(timerid, g_interval, STOP_TIMER);
   JTRACE("*** Cancelled the ckpt timer! ***");
@@ -229,7 +229,7 @@ DmtcpPluginDescriptor_t ckpttimer_plugin = {
   "ckpttimer",
   "DMTCP",
   "dmtcp@ccs.neu.edu",
-  "Ckpttimer Plugin",
+  "Ckpttimer plugin",
   DMTCP_DECL_BARRIERS(ckpttimerBarriers),
   ckpttimer_event_hook
 };

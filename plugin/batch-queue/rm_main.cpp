@@ -37,21 +37,21 @@ EXTERNC int dmtcp_batch_queue_enabled(void) { return 1; }
 
 static void pre_ckpt()
 {
-  JTRACE("DMTCP_EVENT_THREADS_SUSPEND");
+  JTRACE("checkpoint");
   runUnderRMgr();
   rm_shutdown_pmi();
 }
 
 static void resume()
 {
-  JTRACE("DMTCP_EVENT_THREADS_RESUME");
+  JTRACE("post-checkpoint resume");
   rm_restore_pmi();
   slurmRestoreHelper(false);
 }
 
 static void restart()
 {
-  JTRACE("DMTCP_EVENT_RESTART")(_get_rmgr_type());
+  JTRACE("restart")(_get_rmgr_type());
   if ( _get_rmgr_type() == slurm ){
     JTRACE("Call restore_env()");
     slurm_restore_env();
@@ -60,7 +60,7 @@ static void restart()
 
 static void restart_resume()
 {
-  JTRACE("DMTCP_EVENT_THREADS_RESUME");
+  JTRACE("post-restart resume");
   rm_restore_pmi();
   slurmRestoreHelper(true);
 }
@@ -78,7 +78,7 @@ DmtcpPluginDescriptor_t batch_queue_plugin = {
   "batch-queue",
   "DMTCP",
   "dmtcp@ccs.neu.edu",
-  "Batch-queue Plugin",
+  "Batch-queue plugin",
   DMTCP_DECL_BARRIERS(rmBarriers),
   NULL
 };

@@ -190,7 +190,7 @@ DmtcpPluginDescriptor_t ckpfile_plugin = {
   "ckptfile",
   "DMTCP",
   "dmtcp@ccs.neu.edu",
-  "ckptfile Plugin",
+  "Ckptfile plugin",
   DMTCP_DECL_BARRIERS(ckptfileBarriers),
   NULL
 };

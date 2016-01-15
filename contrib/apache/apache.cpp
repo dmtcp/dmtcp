@@ -118,7 +118,7 @@ DmtcpPluginDescriptor_t apache_plugin = {
   "apache",
   "DMTCP",
   "dmtcp@ccs.neu.edu",
-  "Apache Plugin",
+  "Apache plugin",
   DMTCP_NO_PLUGIN_BARRIERS,
   apache_event_hook
 };

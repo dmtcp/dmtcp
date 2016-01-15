@@ -320,8 +320,8 @@ void Process:Info::restoreArgvAfterRestart(char* mtcpRestoreArgvStartAddr)
   /*
    * The addresses where argv of mtcp_restart process starts. /proc/PID/cmdline
    * information is looked up from these addresses.  We observed that the
-   * stack-base for mtcp_restart is always 0x7ffffffff000 in 64-bit system and
-   * 0xc0000000 in case of 32-bit system.  Once we restore the checkpointed
+   * stack base for mtcp_restart is always 0x7ffffffff000 in 64-bit system and
+   * 0xc0000000 in case of 32-bit systems.  Once we restore the checkpointed
    * process's memory, we will map the pages ending in these address into the
    * process's memory if they are unused i.e. not mapped by the process (which
    * is true for most processes running with ASLR).  Once we map them, we can

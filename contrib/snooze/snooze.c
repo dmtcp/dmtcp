@@ -35,7 +35,7 @@ DmtcpPluginDescriptor_t snooze_plugin = {
   "snooze",
   "DMTCP",
   "dmtcp@ccs.neu.edu",
-  "Snooze Plugin",
+  "Snooze plugin",
   DMTCP_DECL_BARRIERS(snoozeBarriers),
   NULL
 };

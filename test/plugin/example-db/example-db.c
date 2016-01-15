@@ -103,7 +103,7 @@ DmtcpPluginDescriptor_t example_db_plugin = {
   "example_db",
   "DMTCP",
   "dmtcp@ccs.neu.edu",
-  "Example-db Plugin",
+  "Example database plugin using publish-subscribe",
   DMTCP_DECL_BARRIERS(barriers),
   example_db_event_hook
 };

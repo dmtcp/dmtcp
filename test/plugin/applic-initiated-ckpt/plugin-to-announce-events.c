@@ -50,7 +50,7 @@ DmtcpPluginDescriptor_t applic_initiated_ckpt_plugin = {
   "applic_initiated_ckpt",
   "DMTCP",
   "dmtcp@ccs.neu.edu",
-  "Application initiated ckpt plugin",
+  "Application-initiated checkpoint plugin",
   DMTCP_DECL_BARRIERS(barriers),
   applic_initiated_ckpt_event_hook
 };

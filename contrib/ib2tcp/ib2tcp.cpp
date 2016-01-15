@@ -77,7 +77,7 @@ DmtcpPluginDescriptor_t ib2tcp_plugin = {
   "ib2tcp",
   "DMTCP",
   "dmtcp@ccs.neu.edu",
-  "IB2TCP Plugin",
+  "IB2TCP plugin",
   DMTCP_DECL_BARRIERS(ib2tcpBarriers),
   NULL
 };
