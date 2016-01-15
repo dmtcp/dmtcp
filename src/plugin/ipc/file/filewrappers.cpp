@@ -175,6 +175,17 @@ extern "C" int dup3(int oldfd, int newfd, int flags)
 #endif
 #endif
 
+/*
+ * In some libc prototypes (e.g. access(2)), a pointer argument is
+ * marked with GCC attribute `nonnull`. This allows GCC to optimize away any
+ * code paths related to testing whether the pointer argument is NULL or not.
+ * Therefore, we need to do that control logic in a separate function.
+ */
+static int is_null(const void *p)
+{
+    return p == NULL;
+}
+
 static int ptsname_r_work(int fd, char * buf, size_t buflen)
 {
   JTRACE("Calling ptsname_r");
@@ -371,10 +382,7 @@ static int _open_open64_work(int(*fn) (const char *path, int flags, ...),
     newpath = currPtsDevName;
   }
 
-  dmtcp::string phys_path_string = "";
-  const char *phys_path =  virtual_to_physical_path ?
-                           virtual_to_physical_path(newpath, phys_path_string):
-                           newpath;
+  const char *phys_path = VIRTUAL_TO_PHYSICAL_PATH(newpath).c_str();
 
   int fd = -1;
   fd = (*fn)(phys_path, flags, mode);
@@ -460,10 +468,7 @@ static FILE *_fopen_fopen64_work(FILE*(*fn) (const char *path, const char *mode)
     newpath = currPtsDevName;
   }
 
-  dmtcp::string phys_path_string = "";
-  const char *phys_path =  virtual_to_physical_path ?
-                           virtual_to_physical_path(newpath, phys_path_string):
-                           newpath;
+  const char *phys_path = VIRTUAL_TO_PHYSICAL_PATH(newpath).c_str();
 
   FILE* file = NULL;
   file = (*fn)(phys_path, mode);
@@ -500,10 +505,7 @@ extern "C" FILE *freopen(const char *path, const char *mode, FILE *stream)
     newpath = currPtsDevName;
   }
 
-  dmtcp::string phys_path_string = "";
-  const char *phys_path =  virtual_to_physical_path ?
-                           virtual_to_physical_path(newpath, phys_path_string):
-                           newpath;
+  const char *phys_path = VIRTUAL_TO_PHYSICAL_PATH(newpath).c_str();
   FILE *file = _real_freopen(phys_path, mode, stream);
 
   if (file != NULL && dmtcp_is_running_state()) {
@@ -522,10 +524,7 @@ extern "C" int openat(int dirfd, const char *path, int flags, ...)
   mode_t mode = va_arg(arg, int);
   va_end(arg);
   DMTCP_PLUGIN_DISABLE_CKPT();
-  dmtcp::string phys_path_string = "";
-  const char *phys_path =  virtual_to_physical_path ?
-                           virtual_to_physical_path(path, phys_path_string):
-                           path;
+  const char *phys_path = VIRTUAL_TO_PHYSICAL_PATH(path).c_str();
   int fd = _real_openat(dirfd, phys_path, flags, mode);
   if (fd >= 0 && dmtcp_is_running_state()) {
     string procpath = "/proc/self/fd/" + jalib::XToString(fd);
@@ -554,10 +553,7 @@ extern "C" int openat64(int dirfd, const char *path, int flags, ...)
   mode_t mode = va_arg(arg, int);
   va_end(arg);
   DMTCP_PLUGIN_DISABLE_CKPT();
-  dmtcp::string phys_path_string = "";
-  const char *phys_path =  virtual_to_physical_path ?
-                           virtual_to_physical_path(path, phys_path_string):
-                           path;
+  const char *phys_path = VIRTUAL_TO_PHYSICAL_PATH(path).c_str();
   int fd = _real_openat64(dirfd, phys_path, flags, mode);
   if (fd >= 0 && dmtcp_is_running_state()) {
     string procpath = "/proc/self/fd/" + jalib::XToString(fd);
@@ -582,10 +578,7 @@ extern "C" int __openat64_2(int dirfd, const char *path, int flags)
 extern "C" DIR *opendir(const char *name)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
-  dmtcp::string phys_path_string = "";
-  const char *phys_path =  virtual_to_physical_path ?
-                           virtual_to_physical_path(name, phys_path_string):
-                           name;
+  const char *phys_path = VIRTUAL_TO_PHYSICAL_PATH(name).c_str();
   DIR *dir = _real_opendir(phys_path);
   if (dir != NULL && dmtcp_is_running_state()) {
     FileConnList::instance().processFileConnection(dirfd(dir), name, -1, -1);
@@ -616,10 +609,7 @@ extern "C" int __xstat(int vers, const char *path, struct stat *buf)
   //   _real_xstat().  If path or buf is invalid, return with the erro.
   //   If path is a valid memory address, but not a valid filename,
   //   there is no harm done, since xstat has no side effects outside of buf.
-  dmtcp::string phys_path_string = "";
-  const char *phys_path =  virtual_to_physical_path ?
-                           virtual_to_physical_path(path, phys_path_string):
-                           path;
+  const char *phys_path = VIRTUAL_TO_PHYSICAL_PATH(path).c_str();
   int retval = _real_xstat(vers, phys_path, buf);
   if (retval == -1 && errno == EFAULT) {
     // EFAULT means path or buf was a bad address.  So, we're done.  Return.
@@ -627,9 +617,7 @@ extern "C" int __xstat(int vers, const char *path, struct stat *buf)
   } else {
     updateStatPath(path, &newpath);
     if (newpath != path) {
-      phys_path =  virtual_to_physical_path ?
-                   virtual_to_physical_path(newpath, phys_path_string):
-                   newpath;
+      phys_path = VIRTUAL_TO_PHYSICAL_PATH(newpath).c_str();
       retval = _real_xstat(vers, phys_path, buf); // Re-do it with correct path.
     } // else use answer from previous call to _real_xstat(), and save time.
   }
@@ -643,19 +631,14 @@ extern "C" int __xstat64(int vers, const char *path, struct stat64 *buf)
   char *newpath = tmpbuf;
   DMTCP_PLUGIN_DISABLE_CKPT();
   // See filewrapper.cpp:__xstat() for comments on this code.
-  dmtcp::string phys_path_string = "";
-  const char *phys_path =  virtual_to_physical_path ?
-                           virtual_to_physical_path(path, phys_path_string):
-                           path;
+  const char *phys_path = VIRTUAL_TO_PHYSICAL_PATH(path).c_str();
   int retval = _real_xstat64(vers, phys_path, buf);
   if (retval == -1 && errno == EFAULT) {
     // We're done.  Return.
   } else {
     updateStatPath(path, &newpath);
     if (newpath != path) {
-      phys_path =  virtual_to_physical_path ?
-                   virtual_to_physical_path(newpath, phys_path_string):
-                   newpath;
+      phys_path = VIRTUAL_TO_PHYSICAL_PATH(newpath).c_str();
       retval = _real_xstat64(vers, phys_path, buf);
     }
   }
@@ -687,19 +670,14 @@ extern "C" int __lxstat(int vers, const char *path, struct stat *buf)
   char *newpath = tmpbuf;
   DMTCP_PLUGIN_DISABLE_CKPT();
   // See filewrapper.cpp:__xstat() for comments on this code.
-  dmtcp::string phys_path_string = "";
-  const char *phys_path =  virtual_to_physical_path ?
-                           virtual_to_physical_path(path, phys_path_string):
-                           path;
+  const char *phys_path = VIRTUAL_TO_PHYSICAL_PATH(path).c_str();
   int retval = _real_lxstat(vers, phys_path, buf);
   if (retval == -1 && errno == EFAULT) {
     // We're done.  Return.
   } else {
     updateStatPath(path, &newpath);
     if (newpath != path) {
-      phys_path =  virtual_to_physical_path ?
-                   virtual_to_physical_path(newpath, phys_path_string):
-                   newpath;
+      phys_path = VIRTUAL_TO_PHYSICAL_PATH(newpath).c_str();
       retval = _real_lxstat(vers, phys_path, buf);
     }
   }
@@ -713,19 +691,14 @@ extern "C" int __lxstat64(int vers, const char *path, struct stat64 *buf)
   char *newpath = tmpbuf;
   DMTCP_PLUGIN_DISABLE_CKPT();
   // See filewrapper.cpp:__xstat() for comments on this code.
-  dmtcp::string phys_path_string = "";
-  const char *phys_path =  virtual_to_physical_path ?
-                           virtual_to_physical_path(path, phys_path_string):
-                           path;
+  const char *phys_path = VIRTUAL_TO_PHYSICAL_PATH(path).c_str();
   int retval = _real_lxstat64(vers, phys_path, buf);
   if (retval == -1 && errno == EFAULT) {
     // We're done.  Return.
   } else {
     updateStatPath(path, &newpath);
     if (newpath != path) {
-      phys_path =  virtual_to_physical_path ?
-                   virtual_to_physical_path(newpath, phys_path_string):
-                   newpath;
+      phys_path = VIRTUAL_TO_PHYSICAL_PATH(newpath).c_str();
       retval = _real_lxstat64(vers, phys_path, buf);
     }
   }
@@ -749,10 +722,7 @@ extern "C" ssize_t readlink(const char *path, char *buf, size_t bufsiz)
     retval = bufsiz > strlen(procSelfExe) ? strlen(procSelfExe) : bufsiz;
   } else {
     updateStatPath(path, &newpath);
-    dmtcp::string phys_path_string = "";
-    const char *phys_path =  virtual_to_physical_path ?
-                             virtual_to_physical_path(newpath, phys_path_string):
-                             newpath;
+    const char *phys_path = VIRTUAL_TO_PHYSICAL_PATH(newpath).c_str();
     retval = _real_readlink(phys_path, buf, bufsiz);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -802,10 +772,7 @@ extern "C" char *realpath(const char *path, char *resolved_path)
     }
     strcpy(ret, path);
   } else {
-    dmtcp::string phys_path_string = "";
-    const char *phys_path =  virtual_to_physical_path ?
-                             virtual_to_physical_path(path, phys_path_string):
-                             path;
+    const char *phys_path = VIRTUAL_TO_PHYSICAL_PATH(path).c_str();
     ret = _real_realpath(phys_path, resolved_path);
   }
   return ret;
@@ -829,18 +796,20 @@ extern "C" char *canonicalize_file_name(const char *path)
 
 extern "C" int access(const char *path, int mode)
 {
-  if (Util::strStartsWith(path, "/dev/pts")) {
+  if (is_null(path)) {
+    return _real_access(path, mode);
+  }
+
+  const char *phys_path = VIRTUAL_TO_PHYSICAL_PATH(path).c_str();
+
+  if (Util::strStartsWith(phys_path, "/dev/pts")) {
     char currPtsDevName[32];
     DMTCP_PLUGIN_DISABLE_CKPT();
-    SharedData::getRealPtyName(path, currPtsDevName, sizeof(currPtsDevName));
+    SharedData::getRealPtyName(phys_path, currPtsDevName, sizeof(currPtsDevName));
     int ret = _real_access(currPtsDevName, mode);
     DMTCP_PLUGIN_ENABLE_CKPT();
     return ret;
   }
-  dmtcp::string phys_path_string = "";
-  const char *phys_path =  virtual_to_physical_path ?
-                           virtual_to_physical_path(path, phys_path_string):
-                           path;
   return _real_access(phys_path, mode);
 }
 

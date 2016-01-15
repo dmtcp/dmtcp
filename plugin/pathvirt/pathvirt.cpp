@@ -107,11 +107,9 @@ clgetsize(const char *colonList, const char *element)
 /*
  * virtual_to_physical_path - translate virtual to physical path
  *
- * Returns a const char* for the corresponding physical path to the given
+ * Returns a dmtcp::string for the corresponding physical path to the given
  * virtual path. If no path translation occurred, the given virtual path
- * will simply be returned. If path translation *did* occur, the translated
- * physical path will also be available as a dmtcp::string from the second
- * parameter.
+ * will simply be returned as a dmtcp::string.
  *
  * Conceptually, an original path prior to the first checkpoint is considered a
  * "virtual path".  After a restart, it will be substituted using the latest
@@ -121,15 +119,16 @@ clgetsize(const char *colonList, const char *element)
  * virtual path to the latest "physical path", which will correspond to the
  * current, post-restart filesystem.
  */
-const char *
-virtual_to_physical_path(const char *virt_path,         // IN
-                         dmtcp::string &physPathString) // OUT
+dmtcp::string
+virtual_to_physical_path(const char *virt_path)
 {
     char *oldPathPtr = NULL;
+    dmtcp::string virtPathString(virt_path?virt_path:"");
+    dmtcp::string physPathString;
 
     /* quickly return if no swap */
     if (!shouldSwap) {
-        return virt_path;
+        return virtPathString;
     }
 
     /* yes, should swap */
@@ -137,12 +136,12 @@ virtual_to_physical_path(const char *virt_path,         // IN
     /* check if path is in list of registered paths to swap out */
     int index = clfind(oldPathPrefixList, virt_path, &oldPathPtr);
     if (index == -1)
-        return virt_path;
+        return virtPathString;
 
     /* found it in old list, now get a pointer to the new prefix to swap in*/
     char *physPathPtr = clget(newPathPrefixList, index);
     if (physPathPtr == NULL)
-        return virt_path;
+        return virtPathString;
 
     size_t newElementSz = clgetsize(newPathPrefixList, physPathPtr);
     size_t oldElementSz = clgetsize(oldPathPrefixList, oldPathPtr);
@@ -158,7 +157,7 @@ virtual_to_physical_path(const char *virt_path,         // IN
     /* repair the colon list */
     physPathPtr[newElementSz] = ':';
 
-    return physPathString.c_str();
+    return physPathString;
 }
 
 /*

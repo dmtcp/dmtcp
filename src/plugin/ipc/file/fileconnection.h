@@ -39,7 +39,13 @@
 #include "jconvert.h"
 #include "connection.h"
 
-extern const char *virtual_to_physical_path(const char *virt_path, dmtcp::string &phys_path_string) __attribute ((weak));
+/*
+ * External pathvirt interfaces.
+ */
+extern dmtcp::string virtual_to_physical_path(const char *virt_path) __attribute ((weak));
+#define VIRTUAL_TO_PHYSICAL_PATH(virt) \
+        (virtual_to_physical_path ? \
+        virtual_to_physical_path(virt) : dmtcp::string(virt?virt:""))
 
 namespace dmtcp
 {
