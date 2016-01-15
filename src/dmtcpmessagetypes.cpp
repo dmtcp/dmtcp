@@ -166,7 +166,7 @@ ostream& dmtcp::operator << ( dmtcp::ostream& o, const DmtcpMessageType & s )
 
       OSHIFTPRINTF ( DMT_DO_SUSPEND )
       OSHIFTPRINTF ( DMT_DO_CHECKPOINT )
-      OSHIFTPRINTF ( DMT_BARRIER_LIFTED )
+      OSHIFTPRINTF ( DMT_BARRIER_RELEASED )
       OSHIFTPRINTF ( DMT_BARRIER_LIST )
 
       OSHIFTPRINTF ( DMT_COMPUTATION_INFO)

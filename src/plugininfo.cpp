@@ -113,7 +113,7 @@ void PluginInfo::processBarrier(BarrierInfo *barrier)
     SharedData::waitForBarrier(barrier->toString());
   }
 
-  JNOTE("Barrier lifted") (barrier->toString());
+  JNOTE("Barrier released") (barrier->toString());
   barrier->callback();
 }
 

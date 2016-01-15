@@ -387,7 +387,7 @@ void DmtcpCoordinator::printStatus(size_t numPeers, bool isRunning)
 
 void DmtcpCoordinator::releaseBarrier(const string& barrier)
 {
-  broadcastMessage(DMT_BARRIER_LIFTED, barrier.length() + 1, barrier.c_str());
+  broadcastMessage(DMT_BARRIER_RELEASED, barrier.length() + 1, barrier.c_str());
 }
 
 void DmtcpCoordinator::updateMinimumState()
