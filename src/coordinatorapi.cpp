@@ -441,7 +441,7 @@ void CoordinatorAPI::waitForBarrier(const string& barrierId)
 {
   CoordinatorAPI::instance().sendMsgToCoordinator(DmtcpMessage(DMT_OK));
 
-  JTRACE("waiting for DMT_BARRIER_LIFTED message");
+  JTRACE("waiting for DMT_BARRIER_RELEASED message");
 
   char *extraData = NULL;
   DmtcpMessage msg;
@@ -453,7 +453,7 @@ void CoordinatorAPI::waitForBarrier(const string& barrierId)
     _exit (0);
   }
 
-  JASSERT(msg.type == DMT_BARRIER_LIFTED) (msg.type);
+  JASSERT(msg.type == DMT_BARRIER_RELEASED) (msg.type);
   JASSERT(extraData != NULL);
   JASSERT(barrierId == extraData) (barrierId) (extraData);
 

@@ -60,7 +60,7 @@ namespace dmtcp
 
     DMT_COMPUTATION_INFO,
 
-    DMT_BARRIER_LIFTED,
+    DMT_BARRIER_RELEASED,
     DMT_BARRIER_LIST,
 
     DMT_KILL_PEER,           // send kill message to peer
