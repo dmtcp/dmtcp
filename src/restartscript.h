@@ -30,13 +30,13 @@
 namespace dmtcp {
 namespace RestartScript {
 
-  void writeScript(const string& ckptDir,
-                   bool uniqueCkptFilenames,
-                   const time_t& ckptTimeStamp,
-                   const uint32_t theCheckpointInterval,
-                   const int thePort,
-                   const UniquePid& compId,
-                   const map<string, vector<string> >& restartFilenames);
+  string writeScript(const string& ckptDir,
+                     bool uniqueCkptFilenames,
+                     const time_t& ckptTimeStamp,
+                     const uint32_t theCheckpointInterval,
+                     const int thePort,
+                     const UniquePid& compId,
+                     const map<string, vector<string> >& restartFilenames);
 
 } // namespace dmtcp {
 } // namespace RestartScript {

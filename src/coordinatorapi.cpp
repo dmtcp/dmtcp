@@ -44,26 +44,14 @@
 LIB_PRIVATE bool sem_launch_first_time = false;
 LIB_PRIVATE sem_t sem_launch;
 
-using namespace dmtcp;
+namespace dmtcp {
 
-void dmtcp_CoordinatorAPI_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
+static void coordinatorAPI_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   if (CoordinatorAPI::noCoordinator()) return;
   switch (event) {
     case DMTCP_EVENT_INIT:
       CoordinatorAPI::instance().init();
-      break;
-
-    case DMTCP_EVENT_THREADS_SUSPEND:
-      JASSERT(CoordinatorAPI::instance().isValid());
-      break;
-
-    case DMTCP_EVENT_RESTART:
-      CoordinatorAPI::restart();
-      break;
-
-    case DMTCP_EVENT_RESUME:
-      CoordinatorAPI::instance().sendCkptFilename();
       break;
 
     case DMTCP_EVENT_EXIT:
@@ -74,6 +62,26 @@ void dmtcp_CoordinatorAPI_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
     default:
       break;
   }
+}
+
+static DmtcpBarrier coordinatorAPIBarriers[] = {
+  {DMTCP_LOCAL_BARRIER_RESTART, CoordinatorAPI::restart, "restart"}
+};
+
+static DmtcpPluginDescriptor_t coordinatorAPIPlugin = {
+  DMTCP_PLUGIN_API_VERSION,
+  PACKAGE_VERSION,
+  "coordinatorapi",
+  "DMTCP",
+  "dmtcp@ccs.neu.edu",
+  "Coordinator API plugin",
+  DMTCP_DECL_BARRIERS(coordinatorAPIBarriers),
+  coordinatorAPI_EventHook
+};
+
+DmtcpPluginDescriptor_t dmtcp_CoordinatorAPI_PluginDescr()
+{
+  return coordinatorAPIPlugin;
 }
 
 void CoordinatorAPI::restart()
@@ -115,7 +123,8 @@ CoordinatorAPI& CoordinatorAPI::instance()
   //static SysVIPC *inst = new SysVIPC(); return *inst;
   if (coordAPIInst == NULL) {
     coordAPIInst = new CoordinatorAPI();
-    if (noCoordinator()) {
+    if (noCoordinator() ||
+        Util::isValidFd(PROTECTED_COORD_FD)) {
       coordAPIInst->_coordinatorSocket = jalib::JSocket(PROTECTED_COORD_FD);
     }
   }
@@ -130,8 +139,6 @@ void CoordinatorAPI::init()
   string progname = jalib::Filesystem::GetProgramName();
   msg.extraBytes = progname.length() + 1;
 
-  JASSERT(Util::isValidFd(PROTECTED_COORD_FD));
-  instance()._coordinatorSocket = jalib::JSocket(PROTECTED_COORD_FD);
   instance()._coordinatorSocket << msg;
   instance()._coordinatorSocket.writeAll(progname.c_str(),
                                          progname.length() + 1);
@@ -221,13 +228,14 @@ void CoordinatorAPI::waitForCheckpointCommand()
     }
 
     FD_ZERO(&rfds);
-    FD_SET(PROTECTED_COORD_FD, &rfds);
-    int retval = select(PROTECTED_COORD_FD+1, &rfds, NULL, NULL, timeout);
+    FD_SET(_coordinatorSocket.sockfd(), &rfds );
+    int retval =
+      select(_coordinatorSocket.sockfd()+1, &rfds, NULL, NULL, timeout);
     if (retval == 0) { // timeout expired, time for checkpoint
       JTRACE("Timeout expired, checkpointing now.");
       return;
     } else if (retval > 0) {
-      JASSERT(FD_ISSET(PROTECTED_COORD_FD, &rfds));
+      JASSERT(FD_ISSET(_coordinatorSocket.sockfd(), &rfds));
       JTRACE("Connect request on virtual coordinator socket.");
       break;
     }
@@ -427,6 +435,30 @@ void CoordinatorAPI::recvMsgFromCoordinator(DmtcpMessage *msg, void **extraData)
     JASSERT(extraData != NULL);
     *extraData = buf;
   }
+}
+
+void CoordinatorAPI::waitForBarrier(const string& barrierId)
+{
+  CoordinatorAPI::instance().sendMsgToCoordinator(DmtcpMessage(DMT_OK));
+
+  JTRACE("waiting for DMT_BARRIER_RELEASED message");
+
+  char *extraData = NULL;
+  DmtcpMessage msg;
+  CoordinatorAPI::instance().recvMsgFromCoordinator(&msg, (void**)&extraData);
+
+  msg.assertValid();
+  if (msg.type == DMT_KILL_PEER) {
+    JTRACE("Received KILL message from coordinator, exiting");
+    _exit (0);
+  }
+
+  JASSERT(msg.type == DMT_BARRIER_RELEASED) (msg.type);
+  JASSERT(extraData != NULL);
+  JASSERT(barrierId == extraData) (barrierId) (extraData);
+
+  JALLOC_FREE(extraData);
+
 }
 
 void CoordinatorAPI::startNewCoordinator(CoordinatorMode mode)
@@ -763,4 +795,6 @@ int CoordinatorAPI::sendQueryToCoordinator(const char *id,
   }
 
   return *val_len;
+}
+
 }

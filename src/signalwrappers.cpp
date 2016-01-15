@@ -20,7 +20,6 @@
  ****************************************************************************/
 
 #include "dmtcpworker.h"
-#include "mtcpinterface.h"
 #include "syscallwrappers.h"
 #include  "../jalib/jassert.h"
 

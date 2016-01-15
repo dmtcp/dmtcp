@@ -1,5 +1,5 @@
 /****************************************************************************
- *   Copyright (C) 2006-2008 by Jason Ansel, Kapil Arya, and Gene Cooperman *
+ *   Copyright (C) 2006-2013 by Jason Ansel, Kapil Arya, and Gene Cooperman *
  *   jansel@csail.mit.edu, kapil@ccs.neu.edu, gene@ccs.neu.edu              *
  *                                                                          *
  *  This file is part of DMTCP.                                             *
@@ -19,16 +19,18 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#ifndef DMTCPDMTCPWORKER_H
-#define DMTCPDMTCPWORKER_H
+#ifndef __PLUGININFO_H__
+#define __PLUGININFO_H__
 
+#include "barrierinfo.h"
+#include "dmtcpalloc.h"
 #include "dmtcpmessagetypes.h"
-
-void restoreUserLDPRELOAD();
+#include "dmtcp.h"
+#include "jassert.h"
 
 namespace dmtcp
 {
-  class DmtcpWorker
+  class PluginInfo
   {
     public:
 #ifdef JALIB_ALLOCATOR
@@ -36,35 +38,32 @@ namespace dmtcp
       static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
       static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
 #endif
-      DmtcpWorker();
-      ~DmtcpWorker();
-      static DmtcpWorker& instance();
+      static PluginInfo *create(const DmtcpPluginDescriptor_t& descr);
 
-      static void waitForSuspendMessage();
-      static void acknowledgeSuspendMsg();
-      static void informCoordinatorOfRUNNINGState();
+      void eventHook (const DmtcpEvent_t event, DmtcpEventData_t *data);
 
-      static void waitForCheckpointRequest();
-      static void preCheckpoint();
-      static void postCheckpoint();
-      static void postRestart();
+      void processBarriers();
 
-      static void resetOnFork();
-      static void cleanupWorker();
+      const string pluginName;
+      const string authorName;
+      const string authorEmail;
+      const string description;
+      void (*const event_hook)(const DmtcpEvent_t event, DmtcpEventData_t *data);
 
-      static int determineCkptSignal();
+      const vector<BarrierInfo*> preCkptBarriers;
+      const vector<BarrierInfo*> resumeBarriers;
+      const vector<BarrierInfo*> restartBarriers;
 
-      static void setExitInProgress() { _exitInProgress = true; };
-      static bool exitInProgress() { return _exitInProgress; };
-      static void interruptCkpthread();
-
-      static void writeCheckpointPrefix(int fd);
-
-    protected:
-      static void sendUserCommand(char c, int* result = NULL);
     private:
-      static DmtcpWorker theInstance;
-      static bool _exitInProgress;
+
+      PluginInfo(const DmtcpPluginDescriptor_t& descr,
+                 const vector<BarrierInfo*>& _preCkptBarriers,
+                 const vector<BarrierInfo*>& _resumeBarriers,
+                 const vector<BarrierInfo*>& _restartBarriers);
+
+      void processBarrier(BarrierInfo *barrier);
+      void waitForBarrier(BarrierInfo *barrier);
+
   };
 }
 

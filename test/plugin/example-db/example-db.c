@@ -8,17 +8,17 @@
 #include <stdlib.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <string.h>
 #include "dmtcp.h"
+#include "config.h"
 
 struct keyPid {
   int key;
   pid_t pid;
 } mystruct, mystruct_other;
 
-void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
+static void example_db_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
-  uint32_t sizeofPid;
-
   /* NOTE:  See warning in plugin/README about calls to printf here. */
   switch (event) {
   case DMTCP_EVENT_INIT:
@@ -34,46 +34,78 @@ void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       mystruct_other.pid = -1; /* -1 means unkonwn */
     }
     break;
-  case DMTCP_EVENT_WRITE_CKPT:
-    printf("\nThe plugin is being called before checkpointing.\n");
-    break;
-  case DMTCP_EVENT_REGISTER_NAME_SERVICE_DATA:
-    /* Although one process resumes late, they will still all synchronize. */
-    if (mystruct.key == 1) sleep(1);
-    printf("The plugin is now resuming or restarting from checkpointing.\n");
-    dmtcp_send_key_val_pair_to_coordinator("ex-db",
-                                           &(mystruct.key),
-                                           sizeof(mystruct.key),
-                                           &(mystruct.pid),
-                                           sizeof(mystruct.pid));
-    printf("  Data sent:  My (key, pid) is: (%d, %ld).\n",
-	   mystruct.key, (long)mystruct.pid);
-    break;
-  case DMTCP_EVENT_SEND_QUERIES:
-    /* NOTE: DMTCP creates a barrier between
-     *   DMTCP_EVENT_REGISTER_NAME_SERVICE_DATA and DMTCP_EVENT_SEND_QUERIES.
-     *   The calls to send_key_val_pair and send_query require this barrier.
-     *   Associating these functions with the wrong DMTCP events risks aborting
-     *   the computation.  Also, calling send_query on a non-existent key
-     *   risks aborting the computation.
-     *     Currently, calling send_query without having previously called
-     *   send_key_val_pair within the same transaction also risks an abort.
-     */
-    /* Set max size of the buffer &(mystruct.pid) */
-    /* This process was called with an environment variable,
-     *  EXAMPLE_DB_KEY_OTHER, whose value was used to set mystruct_other.key.
-     */
-    sizeofPid = sizeof(mystruct_other.pid);
-    dmtcp_send_query_to_coordinator("ex-db",
-                                    &(mystruct_other.key),
-                                    sizeof(mystruct_other.key),
-                                    &(mystruct_other.pid),
-                                    &sizeofPid);
-    printf("Data exchanged:  My (key,pid) is: (%d, %ld);  The other pid is:  "
-	  "%ld.\n", mystruct.key, (long)mystruct.pid, (long)mystruct_other.pid);
-    break;
+
   default:
     break;
   }
-  DMTCP_NEXT_EVENT_HOOK(event, data);
 }
+
+
+static void checkpoint()
+{
+  printf("\nThe plugin is being called before checkpointing.\n");
+}
+
+static void registerNSData()
+{
+  /* Although one process resumes late, they will still all synchronize. */
+  if (mystruct.key == 1) sleep(1);
+  printf("The plugin is now resuming or restarting from checkpointing.\n");
+  dmtcp_send_key_val_pair_to_coordinator("ex-db",
+                                         &(mystruct.key),
+                                         sizeof(mystruct.key),
+                                         &(mystruct.pid),
+                                         sizeof(mystruct.pid));
+  printf("  Data sent:  My (key, pid) is: (%d, %ld).\n",
+         mystruct.key, (long)mystruct.pid);
+
+}
+
+static void sendQueries()
+{
+  /* NOTE: DMTCP creates a barrier between
+   *   DMTCP_EVENT_REGISTER_NAME_SERVICE_DATA and DMTCP_EVENT_SEND_QUERIES.
+   *   The calls to send_key_val_pair and send_query require this barrier.
+   *   Associating these functions with the wrong DMTCP events risks aborting
+   *   the computation.  Also, calling send_query on a non-existent key
+   *   risks aborting the computation.
+   *     Currently, calling send_query without having previously called
+   *   send_key_val_pair within the same transaction also risks an abort.
+   */
+  /* Set max size of the buffer &(mystruct.pid) */
+  /* This process was called with an environment variable,
+   *  EXAMPLE_DB_KEY_OTHER, whose value was used to set mystruct_other.key.
+   */
+  uint32_t sizeofPid = sizeof(mystruct_other.pid);
+  dmtcp_send_query_to_coordinator("ex-db",
+                                  &(mystruct_other.key),
+                                  sizeof(mystruct_other.key),
+                                  &(mystruct_other.pid),
+                                  &sizeofPid);
+  printf("Data exchanged:  My (key,pid) is: (%d, %ld);  The other pid is:  "
+         "%ld.\n", mystruct.key, (long)mystruct.pid, (long)mystruct_other.pid);
+}
+
+
+static DmtcpBarrier barriers[] = {
+  {DMTCP_GLOBAL_BARRIER_PRE_CKPT, checkpoint, "checkpoint"},
+
+  {DMTCP_GLOBAL_BARRIER_RESUME, registerNSData, "RESUME_NS_REGISTER_DATA"},
+  {DMTCP_GLOBAL_BARRIER_RESUME, sendQueries, "RESUME_NS_SEND_QUERIES"},
+
+  {DMTCP_GLOBAL_BARRIER_RESTART, registerNSData, "RESTART_NS_REGISTER_DATA"},
+  {DMTCP_GLOBAL_BARRIER_RESTART, sendQueries, "RESTART_NS_SEND_QUERIES"}
+};
+
+DmtcpPluginDescriptor_t example_db_plugin = {
+  DMTCP_PLUGIN_API_VERSION,
+  PACKAGE_VERSION,
+  "example_db",
+  "DMTCP",
+  "dmtcp@ccs.neu.edu",
+  "Example database plugin using publish-subscribe",
+  DMTCP_DECL_BARRIERS(barriers),
+  example_db_event_hook
+};
+
+DMTCP_DECL_PLUGIN(example_db_plugin);

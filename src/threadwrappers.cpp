@@ -21,8 +21,7 @@
 
 #include <sys/syscall.h>
 #include "constants.h"
-#include "dmtcpworker.h"
-#include "mtcpinterface.h"
+#include "pluginmanager.h"
 #include "syscallwrappers.h"
 #include "dmtcp.h"
 #include "uniquepid.h"
@@ -55,8 +54,6 @@ int clone_start(void *arg)
   ThreadSync::initThread();
 
   ThreadList::updateTid(thread);
-
-  DmtcpWorker::eventHook(DMTCP_EVENT_THREAD_START, NULL);
 
   /* Thread finished initialization.  It's now safe for this thread to
    * participate in checkpoint.  Decrement the uninitializedThreadCount in
@@ -115,8 +112,6 @@ extern "C" int __clone(int (*fn) (void *arg), void *child_stack, int flags,
     JTRACE("Clone call failed")(JASSERT_ERRNO);
     ThreadSync::decrementUninitializedThreadCount();
     delete thread;
-  } else {
-    DmtcpWorker::eventHook(DMTCP_EVENT_THREAD_CREATED, NULL);
   }
 
   WRAPPER_EXECUTION_ENABLE_CKPT();
@@ -166,7 +161,7 @@ static void *pthread_start(void *arg)
    *  FIXME: What if the process gets checkpointed after erase() but before the
    *  thread actually exits?
    */
-  DmtcpWorker::eventHook(DMTCP_EVENT_PTHREAD_RETURN, NULL);
+  PluginManager::eventHook(DMTCP_EVENT_PTHREAD_RETURN, NULL);
   WRAPPER_EXECUTION_ENABLE_CKPT();
   ThreadSync::unsetOkToGrabLock();
   return result;
@@ -229,7 +224,7 @@ extern "C" void pthread_exit(void * retval)
 {
   WRAPPER_EXECUTION_DISABLE_CKPT();
   ThreadList::threadExit();
-  DmtcpWorker::eventHook(DMTCP_EVENT_PTHREAD_EXIT, NULL);
+  PluginManager::eventHook(DMTCP_EVENT_PTHREAD_EXIT, NULL);
   WRAPPER_EXECUTION_ENABLE_CKPT();
   ThreadSync::unsetOkToGrabLock();
   _real_pthread_exit(retval);

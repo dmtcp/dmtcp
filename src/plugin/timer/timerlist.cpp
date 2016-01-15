@@ -22,6 +22,8 @@
 #include <time.h>
 #include "timerlist.h"
 #include "timerwrappers.h"
+#include "config.h"
+#include "dmtcp.h"
 
 using namespace dmtcp;
 
@@ -38,8 +40,17 @@ static void _do_unlock_tbl()
   JASSERT(_real_pthread_mutex_unlock(&timerLock) == 0) (JASSERT_ERRNO);
 }
 
-extern "C"
-void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
+static void preCheckpoint()
+{
+  TimerList::instance().preCheckpoint();
+}
+
+static void postRestart()
+{
+  TimerList::instance().postRestart();
+}
+
+static void timer_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   if (_timerlist != NULL) {
     switch (event) {
@@ -47,22 +58,34 @@ void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
         TimerList::instance().resetOnFork();
         break;
 
-      case DMTCP_EVENT_WRITE_CKPT:
-        TimerList::instance().preCheckpoint();
-        break;
-
-      case DMTCP_EVENT_RESTART:
-        TimerList::instance().postRestart();
-        break;
-
       default:
         break;
     }
   }
-
-  DMTCP_NEXT_EVENT_HOOK(event, data);
 }
 
+static DmtcpBarrier timerBarriers[] = {
+  {DMTCP_LOCAL_BARRIER_PRE_CKPT, preCheckpoint, "PRE_CKPT"},
+  {DMTCP_LOCAL_BARRIER_RESTART, postRestart, "RESTART"}
+};
+
+DmtcpPluginDescriptor_t timerPlugin = {
+  DMTCP_PLUGIN_API_VERSION,
+  PACKAGE_VERSION,
+  "timer",
+  "DMTCP",
+  "dmtcp@ccs.neu.edu",
+  "Timer plugin",
+  DMTCP_DECL_BARRIERS(timerBarriers),
+  timer_event_hook
+};
+
+DMTCP_DECL_PLUGIN(timerPlugin);
+
+
+/*
+ *
+ */
 TimerList& TimerList::instance()
 {
   if (_timerlist == NULL) {

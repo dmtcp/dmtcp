@@ -35,30 +35,24 @@ static int noStrictHostKeyChecking = 0;
 static bool sshPluginEnabled = false;
 
 extern "C" void process_fd_event(int event, int arg1, int arg2 = -1);
-static void drain();
+void dmtcp_ssh_drain();
+void dmtcp_ssh_resume();
+void dmtcp_ssh_restart();
 static void refill(bool isRestart);
 static void sshdReceiveFds();
 static void createNewDmtcpSshdProcess();
 
 void dmtcp_SSH_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
-  if (!sshPluginEnabled) return;
-  switch (event) {
-    case DMTCP_EVENT_DRAIN:
-      drain();
-      break;
-
-    case DMTCP_EVENT_THREADS_RESUME:
-      refill(data->refillInfo.isRestart);
-      break;
-
-    default:
-      break;
-  }
+  return;
 }
 
-static void drain()
+void dmtcp_ssh_drain()
 {
+  if (!sshPluginEnabled) {
+    return;
+  }
+
   JASSERT(theDrainer == NULL);
   theDrainer = new SSHDrainer();
   if (isSshdProcess) { // dmtcp_ssh process
@@ -71,6 +65,24 @@ static void drain()
     theDrainer->beginDrainOf(sshStderr, STDERR_FILENO);
   }
   theDrainer->monitorSockets(DRAINER_CHECK_FREQ);
+}
+
+void dmtcp_ssh_resume()
+{
+  if (!sshPluginEnabled) {
+    return;
+  }
+
+  refill(false);
+}
+
+void dmtcp_ssh_restart()
+{
+  if (!sshPluginEnabled) {
+    return;
+  }
+
+  refill(true);
 }
 
 static void refill(bool isRestart)

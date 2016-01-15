@@ -140,7 +140,7 @@ See Appendix~A for further details.
 void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   switch (event) {
-  case DMTCP_EVENT_WRITE_CKPT:
+  case DMTCP_EVENT_CHECKPOINT:
     printf("\n*** The plugin is being called before checkpointing. ***\n");
     break;
   case DMTCP_EVENT_RESUME:

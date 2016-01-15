@@ -14,12 +14,14 @@
 #include "siginfo.h"
 #include "dmtcpalloc.h"
 #include "syscallwrappers.h"
-#include "mtcpinterface.h"
 #include "ckptserializer.h"
 #include "uniquepid.h"
 #include "jalloc.h"
 #include "jassert.h"
 #include "util.h"
+#include "dmtcpworker.h"
+#include "pluginmanager.h"
+#include "threadsync.h"
 #include "mtcp/mtcp_header.h"
 
 // For i386 and x86_64, SETJMP currently has bugs.  Don't turn this
@@ -55,7 +57,7 @@ static Thread *threads_freelist = NULL;
 static pthread_mutex_t threadlistLock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t threadStateLock = PTHREAD_MUTEX_INITIALIZER;
 
-static pthread_rwlock_t *threadResumeLock = NULL;
+static pthread_rwlock_t threadResumeLock = PTHREAD_RWLOCK_INITIALIZER;
 
 static __thread Thread *curThread = NULL;
 static Thread *ckptThread = NULL;
@@ -69,6 +71,7 @@ static sem_t semWaitForCkptThreadSignal;
 
 static void *checkpointhread (void *dummy);
 static void suspendThreads();
+static void resumeThreads();
 static void stopthisthread(int sig);
 static int restarthread(void *threadv);
 static int Thread_UpdateState(Thread *th,
@@ -129,6 +132,7 @@ void ThreadList::resetOnFork()
     ThreadList::threadIsDead(activeThreads); // takes care of updating "activeThreads" ptr.
   }
   unlk_threads();
+  init();
 }
 
 /*****************************************************************************
@@ -282,6 +286,27 @@ static void prepareMtcpHeader(MtcpHeader *mtcpHdr)
 
 /*************************************************************************
  *
+ *  Write checkpoint image
+ *
+ *************************************************************************/
+void ThreadList::writeCkpt()
+{
+  // Remove stale threads from activeThreads list.
+  emptyFreeList();
+  SigInfo::saveSigHandlers();
+
+  /* Do this once, same for all threads.  But restore for each thread. */
+  if (TLSInfo_HaveThreadSysinfoOffset()) {
+    saved_sysinfo = TLSInfo_GetThreadSysinfo();
+  }
+
+  MtcpHeader mtcpHdr;
+  prepareMtcpHeader(&mtcpHdr);
+  CkptSerializer::writeCkptImage(&mtcpHdr, sizeof(mtcpHdr));
+}
+
+/*************************************************************************
+ *
  *  This executes as a thread.  It sleeps for the checkpoint interval
  *    seconds, then wakes to write the checkpoint file.
  *
@@ -357,73 +382,26 @@ static void *checkpointhread (void *dummy)
    */
   while (1) {
     /* Wait a while between writing checkpoint files */
-    JTRACE("before callbackSleepBetweenCheckpoint(0)");
-    callbackSleepBetweenCheckpoint(0);
+    JTRACE("before DmtcpWorker::waitForCheckpointRequest()");
+    DmtcpWorker::waitForCheckpointRequest();
 
     restoreInProgress = false;
 
-    // We need to reinitialize the lock.
-    pthread_rwlock_t rwLock = PTHREAD_RWLOCK_INITIALIZER;
-    threadResumeLock = &rwLock;
-    JASSERT(_real_pthread_rwlock_wrlock(threadResumeLock) == 0) (JASSERT_ERRNO);
-
     suspendThreads();
-    SigInfo::saveSigHandlers();
-    /* Do this once, same for all threads.  But restore for each thread. */
-    if (TLSInfo_HaveThreadSysinfoOffset())
-      saved_sysinfo = TLSInfo_GetThreadSysinfo();
+
+    JTRACE("Prepare plugin, etc. for checkpoint");
+    DmtcpWorker::preCheckpoint();
 
     /* All other threads halted in 'stopthisthread' routine (they are all
      * in state ST_SUSPENDED).  It's safe to write checkpoint file now.
      */
+    ThreadList::writeCkpt();
 
-    // Update generation, in case user callback calls dmtcp_get_generation().
-    uint32_t computation_generation =
-               SharedData::getCompId()._computation_generation;
-    ProcessInfo::instance().set_generation(computation_generation);
+    DmtcpWorker::postCheckpoint();
 
-    JTRACE("before callbackSleepBetweenCheckpoint(0)");
-    callbackPreCheckpoint();
-
-    // Remove stale threads from activeThreads list.
-    ThreadList::emptyFreeList();
-
-    MtcpHeader mtcpHdr;
-    prepareMtcpHeader(&mtcpHdr);
-    /* That's it, folks.  We just did the checkpoint.  After this, we will meet
-     *   on the flip side of checkpoint.
-     */
-    CkptSerializer::writeCkptImage(&mtcpHdr, sizeof(mtcpHdr));
-
-    /* NOTE: This code is only for the checkpoint thread.  If you're looking for
-     *      what the user threads do at checkpoint time, see:  stopthisthread()
-     *
-     * There are two ways for the checkpoint thread to return from a checkpoint:
-     *                 resume and restart
-     * If we're here, we just resume'd after checkpoint.  It's the same process.
-     * If we chose checkpoint, 'bin/mtcp_restart' created a new process.  The
-     *   source code is in 'src/mtcp'.  The program 'bin/mtcp_restart' will map
-     *   our memory into the new process, and then meet us back here by calling
-     *   the function specified by 'mtcpHdr->post_restart':
-     *                                        ThreadList::postRestart().
-     *   Actually, postRestart() will start the user threads and then call
-     *   restarthread() for the 'motherofall' thread.  Then, restarthread()
-     *   will call setcontext(), in order to arrive back at getcontext() here
-     *   in this function, just before the 'while(1)' loop.
-     * FIXME:  The 'motherofall' thread is the primary thread of the process.
-     *   On launch, 'motherofall' was the user thread exeicuting main().
-     *   and the checkpoint thread was the second thread.  But now,
-     *   motherofall will be the checkpoint thread.  Why do we switch at the
-     *   time of restart?  Should we fix this?
-     */
-    JTRACE("before callbackPostCheckpoint(0, NULL)");
-    callbackPostCheckpoint(0, NULL);
-
-    /* Resume all threads. */
-    JTRACE("resuming everything");
-    JASSERT(_real_pthread_rwlock_unlock(threadResumeLock) == 0) (JASSERT_ERRNO);
-    JTRACE("everything resumed");
+    resumeThreads();
   }
+
   return NULL;
 }
 
@@ -432,6 +410,11 @@ static void suspendThreads()
   int needrescan;
   Thread *thread;
   Thread *next;
+
+  JASSERT(pthread_rwlock_destroy(&threadResumeLock) == 0) (JASSERT_ERRNO);
+  JASSERT(pthread_rwlock_init(&threadResumeLock, NULL) == 0)
+    (JASSERT_ERRNO);
+  JASSERT(_real_pthread_rwlock_wrlock(&threadResumeLock) == 0) (JASSERT_ERRNO);
 
   /* Halt all other threads - force them to call stopthisthread
    * If any have blocked checkpointing, wait for them to unblock before
@@ -505,6 +488,14 @@ static void suspendThreads()
   JTRACE("everything suspended") (numUserThreads);
 }
 
+/* Resume all threads. */
+static void resumeThreads()
+{
+  JTRACE("resuming everything");
+  JASSERT(_real_pthread_rwlock_unlock(&threadResumeLock) == 0) (JASSERT_ERRNO);
+  JTRACE("everything resumed");
+}
+
 /*************************************************************************
  *
  *  Signal handler for user threads.
@@ -521,9 +512,7 @@ void stopthisthread (int signum)
    * Proceed normally.
    *
    * 2. STOPSIGNAL received from Superior thread. In this case we change the
-   * state to ST_SIGNALED, if currently in ST_RUNNING. If we are holding
-   * any locks (callback_holds_any_locks), we return from the signal handler.
-   *
+   * state to ST_SIGNALED, if currently in ST_RUNNING.
    * 3. STOPSIGNAL raised by this thread itself, after releasing all the locks.
    * In this case, we had already changed the state to ST_SIGNALED as a
    * result of step (2), so the ckpt-thread will never send us a signal.
@@ -534,11 +523,6 @@ void stopthisthread (int signum)
    * later call sigaction(STOPSIGNAL, SIG_IGN) followed by
    * sigaction(STOPSIGNAL, stopthisthread) to discard all pending signals.
    */
-  if (Thread_UpdateState(curThread, ST_SIGNALED, ST_RUNNING)) {
-    int retval;
-    callbackHoldsAnyLocks(&retval);
-    if (retval) return;
-  }
 
   // make sure we don't get called twice for same thread
   if (Thread_UpdateState(curThread, ST_SUSPINPROG, ST_SIGNALED)) {
@@ -568,23 +552,9 @@ void stopthisthread (int signum)
        * Wait for ckpt thread to write ckpt, and resume.
        */
 
-      /* This sets a static variable in dmtcp.  It must be passed
-       * from this user thread to ckpt thread before writing ckpt image
-       */
-      if (dmtcp_ptrace_enabled == NULL) {
-        callbackPreSuspendUserThread();
-      }
-
       /* Tell the checkpoint thread that we're all saved away */
       JASSERT(Thread_UpdateState(curThread, ST_SUSPENDED, ST_SUSPINPROG));
       sem_post(&semNotifyCkptThread);
-
-      /* This sets a static variable in dmtcp.  It must be passed
-       * from this user thread to ckpt thread before writing ckpt image
-       */
-      if (dmtcp_ptrace_enabled != NULL && dmtcp_ptrace_enabled()) {
-        callbackPreSuspendUserThread();
-      }
 
       /* Then wait for the ckpt thread to write the ckpt file then wake us up */
       JTRACE("User thread suspended") (curThread->tid);
@@ -598,9 +568,9 @@ void stopthisthread (int signum)
       // However, the sem_wait cleanup handler is now invalid and thus we get a
       // segfault.
       // The change in sem_wait behavior was first introduce in glibc 2.21.
-      JASSERT(_real_pthread_rwlock_rdlock(threadResumeLock) == 0)
+      JASSERT(_real_pthread_rwlock_rdlock(&threadResumeLock) == 0)
         (JASSERT_ERRNO);
-      JASSERT(_real_pthread_rwlock_unlock(threadResumeLock) == 0)
+      JASSERT(_real_pthread_rwlock_unlock(&threadResumeLock) == 0)
         (JASSERT_ERRNO);
 
       JTRACE("User thread resuming") (curThread->tid);
@@ -625,8 +595,10 @@ void stopthisthread (int signum)
 
     JASSERT(Thread_UpdateState(curThread, ST_RUNNING, ST_SUSPENDED));
 
+    // This should be the last significant work before returning from this
+    // function.
+    //ThreadSync::processPreResumeCB();
 
-    callbackPreResumeUserThread(restoreInProgress);
     JTRACE("User thread returning to user code")
       (curThread->tid) (__builtin_return_address(0));
   }
@@ -646,9 +618,9 @@ void ThreadList::waitForAllRestored(Thread *thread)
       sem_wait(&semNotifyCkptThread);
     }
 
-    JTRACE("before callback_post_ckpt(1=restarting)");
-    callbackPostCheckpoint(1, NULL); //mtcp_restoreargv_start_addr);
-    JTRACE("after callback_post_ckpt(1=restarting)");
+    JTRACE("before DmtcpWorker::postRestart()");
+    DmtcpWorker::postRestart(); //mtcp_restoreargv_start_addr);
+    JTRACE("after DmtcpWorker::postRestart()");
 
     SigInfo::restoreSigHandlers();
 
@@ -670,8 +642,8 @@ void ThreadList::waitForAllRestored(Thread *thread)
   } else {
     sem_post(&semNotifyCkptThread);
     sem_wait(&semWaitForCkptThreadSignal);
-    Thread_RestoreSigState(thread);
   }
+  Thread_RestoreSigState(thread);
 }
 
 /*****************************************************************************

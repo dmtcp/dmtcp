@@ -80,28 +80,15 @@ namespace dmtcp
     void decrementUninitializedThreadCount();
     void threadFinishedInitialization();
 
-    void disableLockAcquisitionForThisThread();
-    void enableLockAcquisitionForThisThread();
-
-    bool isThisThreadHoldingAnyLocks();
-    bool sendCkptSignalOnUnlock();
-
     bool isOkToGrabLock();
     void setOkToGrabLock();
     void unsetOkToGrabLock();
-
-    void sendCkptSignalOnFinalUnlock();
-    void setSendCkptSignalOnFinalUnlock();
 
 #if TRACK_DLOPEN_DLSYM_FOR_LOCKS
     bool isThreadPerformingDlopenDlsym();
     void setThreadPerformingDlopenDlsym();
     void unsetThreadPerformingDlopenDlsym();
 #endif
-
-    void incrNumUserThreads();
-    void processPreResumeCB();
-    void waitForUserThreadsToFinishPreResumeCB();
   };
 }
 

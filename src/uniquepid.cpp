@@ -31,17 +31,6 @@
 
 using namespace dmtcp;
 
-void dmtcp_UniquePid_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
-{
-  switch (event) {
-    case DMTCP_EVENT_RESTART:
-      break;
-
-    default:
-      break;
-  }
-}
-
 inline static long theUniqueHostId()
 {
 #ifdef USE_GETHOSTID

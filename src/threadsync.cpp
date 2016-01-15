@@ -85,7 +85,6 @@ static __thread int _threadCreationLockLockCount = 0;
 #if TRACK_DLOPEN_DLSYM_FOR_LOCKS
 static __thread bool _threadPerformingDlopenDlsym = false;
 #endif
-static __thread bool _sendCkptSignalOnFinalUnlock = false;
 static __thread bool _isOkToGrabWrapperExecutionLock = true;
 static __thread bool _hasThreadFinishedInitialization = false;
 
@@ -114,7 +113,6 @@ void ThreadSync::initThread()
 #if TRACK_DLOPEN_DLSYM_FOR_LOCKS
   _threadPerformingDlopenDlsym = false;
 #endif
-  _sendCkptSignalOnFinalUnlock = false;
   _isOkToGrabWrapperExecutionLock = true;
   _hasThreadFinishedInitialization = false;
 }
@@ -189,7 +187,6 @@ void ThreadSync::resetLocks()
 #if TRACK_DLOPEN_DLSYM_FOR_LOCKS
   _threadPerformingDlopenDlsym = false;
 #endif
-  _sendCkptSignalOnFinalUnlock = false;
   _isOkToGrabWrapperExecutionLock = true;
   _hasThreadFinishedInitialization = true;
 
@@ -210,21 +207,6 @@ void ThreadSync::resetLocks()
   _threadCreationLockAcquiredByCkptThread = false;
 }
 
-bool ThreadSync::isThisThreadHoldingAnyLocks()
-{
-  // If the wrapperExec lock has been acquired by the ckpt thread, then we are
-  // certainly not holding it :). It's possible for the count to be still '1',
-  // as it may happen that the thread got suspended after releasing the lock
-  // and before decrementing the lock-count.
-  if (_hasThreadFinishedInitialization == false) {
-    return true;
-  }
-  return (_wrapperExecutionLockAcquiredByCkptThread == false ||
-          _threadCreationLockAcquiredByCkptThread == false) &&
-         (_threadCreationLockLockCount > 0 ||
-          _wrapperExecutionLockLockCount > 0);
-}
-
 bool ThreadSync::isOkToGrabLock()
 {
   return _isOkToGrabWrapperExecutionLock;
@@ -238,21 +220,6 @@ void ThreadSync::setOkToGrabLock()
 void ThreadSync::unsetOkToGrabLock()
 {
   _isOkToGrabWrapperExecutionLock = false;
-}
-
-void ThreadSync::setSendCkptSignalOnFinalUnlock()
-{
-  JASSERT(_sendCkptSignalOnFinalUnlock == false);
-  _sendCkptSignalOnFinalUnlock = true;
-}
-
-void ThreadSync::sendCkptSignalOnFinalUnlock()
-{
-  if (_sendCkptSignalOnFinalUnlock && isThisThreadHoldingAnyLocks() == false) {
-    _sendCkptSignalOnFinalUnlock = false;
-    JASSERT(raise(DmtcpWorker::determineCkptSignal()) == 0)
-      (getpid()) (dmtcp_gettid()) (JASSERT_ERRNO);
-  }
 }
 
 #if TRACK_DLOPEN_DLSYM_FOR_LOCKS
@@ -322,7 +289,6 @@ static void decrementWrapperExecutionLockLockCount()
       .Text("wrapper-execution lock count can't be negative");
   }
   _wrapperExecutionLockLockCount--;
-  ThreadSync::sendCkptSignalOnFinalUnlock();
 }
 
 static void incrementThreadCreationLockLockCount()
@@ -333,7 +299,6 @@ static void incrementThreadCreationLockLockCount()
 static void decrementThreadCreationLockLockCount()
 {
   _threadCreationLockLockCount--;
-  ThreadSync::sendCkptSignalOnFinalUnlock();
 }
 
 bool ThreadSync::libdlLockLock()
@@ -619,48 +584,4 @@ void ThreadSync::threadFinishedInitialization()
   _hasThreadFinishedInitialization = false;
   decrementUninitializedThreadCount();
   _hasThreadFinishedInitialization = true;
-  ThreadSync::sendCkptSignalOnFinalUnlock();
-}
-
-void ThreadSync::incrNumUserThreads()
-{
-  // This routine is called from within stopthisthread so it is not safe to
-  // call JNOTE/JTRACE etc.
-  if (_real_pthread_mutex_lock(&preResumeThreadCountLock) != 0) {
-    JASSERT(false) .Text("Failed to acquire preResumeThreadCountLock");
-  }
-  preResumeThreadCount++;
-  if (_real_pthread_mutex_unlock(&preResumeThreadCountLock) != 0) {
-    JASSERT(false) .Text("Failed to release preResumeThreadCountLock");
-  }
-}
-
-void ThreadSync::processPreResumeCB()
-{
-  if (_real_pthread_mutex_lock(&preResumeThreadCountLock) != 0) {
-    JASSERT(false) .Text("Failed to acquire preResumeThreadCountLock");
-  }
-  JASSERT(preResumeThreadCount > 0) (dmtcp_gettid()) (preResumeThreadCount);
-  preResumeThreadCount--;
-  if (_real_pthread_mutex_unlock(&preResumeThreadCountLock) != 0) {
-    JASSERT(false) .Text("Failed to release preResumeThreadCountLock");
-  }
-}
-
-void ThreadSync::waitForUserThreadsToFinishPreResumeCB()
-{
-  if (preResumeThreadCount != INVALID_USER_THREAD_COUNT) {
-    while (preResumeThreadCount != 0) {
-      struct timespec sleepTime = {0, 10*1000*1000};
-      nanosleep(&sleepTime, NULL);
-    }
-  }
-  // Now we wait for the lock to make sure that the user threads have released
-  // it.
-  if (_real_pthread_mutex_lock(&preResumeThreadCountLock) != 0) {
-    JASSERT(false) .Text("Failed to acquire preResumeThreadCountLock");
-  }
-  if (_real_pthread_mutex_unlock(&preResumeThreadCountLock) != 0) {
-    JASSERT(false) .Text("Failed to release preResumeThreadCountLock");
-  }
 }

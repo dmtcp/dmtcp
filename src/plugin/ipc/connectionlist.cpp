@@ -114,49 +114,6 @@ void ConnectionList::eventHook(DmtcpEvent_t event,
       }
       break;
 
-    case DMTCP_EVENT_RESTART:
-      postRestart();
-
-      break;
-
-    case DMTCP_EVENT_THREADS_SUSPEND:
-      preLockSaveOptions();
-      break;
-
-    case DMTCP_EVENT_LEADER_ELECTION:
-      JTRACE("locking...");
-      preCkptFdLeaderElection();
-      JTRACE("locked");
-      break;
-
-    case DMTCP_EVENT_DRAIN:
-      JTRACE("draining...");
-      drain();
-      JTRACE("drained");
-      break;
-
-    case DMTCP_EVENT_WRITE_CKPT:
-      JTRACE("preCkpt...");
-      preCkpt();
-      JTRACE("done preCkpt");
-      break;
-
-    case DMTCP_EVENT_REFILL:
-      refill(data->refillInfo.isRestart);
-      break;
-
-    case DMTCP_EVENT_THREADS_RESUME:
-      resume(data->resumeInfo.isRestart);
-      break;
-
-    case DMTCP_EVENT_REGISTER_NAME_SERVICE_DATA:
-      registerNSData(data->nameserviceInfo.isRestart);
-      break;
-
-    case DMTCP_EVENT_SEND_QUERIES:
-      sendQueries(data->nameserviceInfo.isRestart);
-      break;
-
     default:
       break;
   }

@@ -17,6 +17,7 @@
 #include <sys/mman.h>
 #ifndef STANDALONE
 # include "dmtcp.h"
+# include "config.h"
 #endif
 
 /* Example of dmtcp_env.txt:  spaces not allowed in VAR=VAL unless in quotes
@@ -42,21 +43,30 @@ int dmtcp_get_restart_env(char *envName, char *dest, size_t size) {
 #endif
 
 #ifndef STANDALONE
-void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
+
+static void restart()
 {
-  /* NOTE:  See warning in plugin/README about calls to printf here. */
-  switch (event) {
-  case DMTCP_EVENT_RESTART:
-  { int size = 12288;
-    char *buf = read_dmtcp_env_file("dmtcp_env.txt", size);
-    readAndSetEnv(buf, size);
-    break;
-  }
-  default:
-    break;
-  }
-  DMTCP_NEXT_EVENT_HOOK(event, data);
+  int size = 12288;
+  char *buf = read_dmtcp_env_file("dmtcp_env.txt", size);
+  readAndSetEnv(buf, size);
 }
+
+static DmtcpBarrier modify_env_barriers[] = {
+  {DMTCP_GLOBAL_BARRIER_RESTART, restart, "restart"}
+};
+
+DmtcpPluginDescriptor_t modify_env_plugin = {
+  DMTCP_PLUGIN_API_VERSION,
+  PACKAGE_VERSION,
+  "modify-env",
+  "DMTCP",
+  "dmtcp@ccs.neu.edu",
+  "Modify-Environment plugin",
+  DMTCP_DECL_BARRIERS(modify_env_barriers),
+  NULL
+};
+
+DMTCP_DECL_PLUGIN(modify_env_plugin);
 #endif
 
 #define readEOF ((char)-1)
