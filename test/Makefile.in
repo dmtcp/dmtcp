@@ -154,6 +154,12 @@ dmtcp4: dmtcp4.c
 dmtcp5: dmtcp5.c
 	-$(CC) -o $@ $< $(CFLAGS) -lpthread
 
+pthread%: pthread%.c
+	-$(CC) -o $@ $< $(CFLAGS) -lpthread
+
+mutex%: mutex%.c
+	-$(CC) -o $@ $< $(CFLAGS) -lpthread
+
 # FIXME:  We should create a test in configure.ac to see if this compiles.
 ifeq (${DO_PTHREAD_ATFORK},yes)
 libpthread_atfork1.so: pthread_atfork1.c
@@ -182,9 +188,6 @@ else
 cma: cma.c
 	@ echo "#cma: Skipping test for cma.  CMA requires Linux 3.2 or later."
 endif
-
-pthread%: pthread%.c
-	-$(CC) -o $@ $< $(CFLAGS) -lpthread
 
 posix-mq%: posix-mq%.c
 	-$(CC) -o $@ $< $(CFLAGS) -lrt

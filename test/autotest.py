@@ -797,6 +797,20 @@ runTest("environ",       1, ["./test/environ"])
 
 runTest("forkexec",      2, ["./test/forkexec"])
 
+runTest("realpath",      1, ["./test/realpath"])
+runTest("pthread1",      1, ["./test/pthread1"])
+runTest("pthread2",      1, ["./test/pthread2"])
+S=10*DEFAULT_S
+runTest("pthread3",      1, ["./test/pthread2 80"])
+S=DEFAULT_S
+runTest("pthread4",      1, ["./test/pthread4"])
+runTest("pthread5",      1, ["./test/pthread5"])
+
+runTest("mutex1",        1, ["./test/mutex1"])
+runTest("mutex2",        1, ["./test/mutex2"])
+runTest("mutex3",        1, ["./test/mutex3"])
+runTest("mutex4",        1, ["./test/mutex4"])
+
 # FIXME:  pthread_atfork doesn't compile on some architectures.
 #         If we add a configure test for pthread_atfork, we can
 #           set a Python variable in autotest_config.py.in
@@ -885,15 +899,6 @@ if old_ld_library_path:
   os.environ['LD_LIBRARY_PATH'] = old_ld_library_path
 else:
   del os.environ['LD_LIBRARY_PATH']
-
-runTest("realpath",      1, ["./test/realpath"])
-runTest("pthread1",      1, ["./test/pthread1"])
-runTest("pthread2",      1, ["./test/pthread2"])
-S=10*DEFAULT_S
-runTest("pthread3",      1, ["./test/pthread2 80"])
-S=DEFAULT_S
-runTest("pthread4",      1, ["./test/pthread4"])
-runTest("pthread5",      1, ["./test/pthread5"])
 
 # Most of the remaining tests are on 64-bit processes.
 if USE_M32:
