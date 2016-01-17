@@ -603,6 +603,7 @@ static void setNewCkptDir(char *path)
 int main(int argc, char** argv)
 {
   char *tmpdir_arg = NULL;
+  char *ckptdir_arg = NULL;
 
   initializeJalib();
 
@@ -612,6 +613,10 @@ int main(int argc, char** argv)
 
   if (getenv(ENV_VAR_DISABLE_STRICT_CHECKING)) {
     noStrictChecking = true;
+  }
+
+  if (getenv(ENV_VAR_CHECKPOINT_DIR)) {
+    ckptdir_arg = getenv(ENV_VAR_CHECKPOINT_DIR);
   }
 
   if (argc == 1) {
@@ -660,7 +665,7 @@ int main(int argc, char** argv)
       thePortFile = argv[1];
       shift; shift;
     } else if (argc > 1 && (s == "-c" || s == "--ckptdir")) {
-      setNewCkptDir(argv[1]);
+      ckptdir_arg = argv[1];
       shift; shift;
     } else if (argc > 1 && (s == "-t" || s == "--tmpdir")) {
       tmpdir_arg = argv[1];
@@ -683,6 +688,9 @@ int main(int argc, char** argv)
   }
 
   tmpDir = Util::calcTmpDir(tmpdir_arg);
+  if (ckptdir_arg) {
+    setNewCkptDir(ckptdir_arg);
+  }
 
   jassert_quiet = *getenv(ENV_VAR_QUIET) - '0';
 
