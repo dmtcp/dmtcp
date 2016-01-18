@@ -677,7 +677,7 @@ void FileConnection::refill(bool isRestart)
   if (!_ckpted_file) {
     int tempfd;
     if (_type == FILE_DELETED && (_flags & (O_WRONLY | O_RDWR))) {
-      dmtcp::string phys_path_string = "";
+      dmtcp::string phys_path_string = _path;
       const char *phys_path =  virtual_to_physical_path ?
                                virtual_to_physical_path(_path.c_str(), phys_path_string):
                                _path.c_str();
@@ -860,7 +860,7 @@ bool FileConnection::checkDup(int fd)
 
 int FileConnection::openFile()
 {
-  dmtcp::string phys_path_string = "";
+  dmtcp::string phys_path_string = _path;
   const char *phys_path =  virtual_to_physical_path ?
                            virtual_to_physical_path(_path.c_str(), phys_path_string):
                            _path.c_str();
