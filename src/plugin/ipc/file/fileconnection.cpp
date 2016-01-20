@@ -677,12 +677,10 @@ void FileConnection::refill(bool isRestart)
   if (!_ckpted_file) {
     int tempfd;
     if (_type == FILE_DELETED && (_flags & (O_WRONLY | O_RDWR))) {
-      dmtcp::string phys_path_string = VIRTUAL_TO_PHYSICAL_PATH(_path.c_str());
-      const char *phys_path = phys_path_string.c_str();
-      tempfd = _real_open(phys_path, _fcntlFlags | O_CREAT, 0600);
-      JASSERT(tempfd != -1) (phys_path_string) (JASSERT_ERRNO) .Text("open() failed");
-      JASSERT(truncate(phys_path, _st_size) ==  0)
-        (phys_path) (_st_size) (JASSERT_ERRNO);
+      tempfd = _real_open(_path.c_str(), _fcntlFlags | O_CREAT, 0600);
+      JASSERT(tempfd != -1) (_path) (JASSERT_ERRNO) .Text("open() failed");
+      JASSERT(truncate(_path.c_str(), _st_size) ==  0)
+        (_path.c_str()) (_st_size) (JASSERT_ERRNO);
     } else {
 
       JASSERT(jalib::Filesystem::FileExists(_path)) (_path)
@@ -858,15 +856,13 @@ bool FileConnection::checkDup(int fd)
 
 int FileConnection::openFile()
 {
-  dmtcp::string phys_path_string = VIRTUAL_TO_PHYSICAL_PATH(_path.c_str());
-  const char *phys_path = phys_path_string.c_str();
-  JASSERT(jalib::Filesystem::FileExists(phys_path_string)) (_path)
+  JASSERT(jalib::Filesystem::FileExists(_path)) (_path)
     .Text("File not present");
 
-  int fd = _real_open(phys_path, _fcntlFlags);
-  JASSERT(fd != -1) (phys_path_string) (JASSERT_ERRNO) .Text("open() failed");
+  int fd = _real_open(_path.c_str(), _fcntlFlags);
+  JASSERT(fd != -1) (_path) (JASSERT_ERRNO) .Text("open() failed");
 
-  JTRACE("open(phys_path, _fcntlFlags)") (fd) (phys_path) (_fcntlFlags);
+  JTRACE("open(_path.c_str(), _fcntlFlags)") (fd) (_path.c_str()) (_fcntlFlags);
   return fd;
 }
 
