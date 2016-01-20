@@ -3,7 +3,6 @@
 #include <cstring>
 #include <cstdlib>
 #include "dmtcp.h"
-#include "dmtcpplugin.h"
 #include "jassert.h"
 
 #define ENV_DPP            "DMTCP_PATH_PREFIX"
@@ -193,7 +192,7 @@ dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
                                         sizeof(newPathPrefixList) - 1);
 
         /* ret == -1 is fine; everything else is not */
-        if (ret < -1) {
+        if (ret < -1 /* RESTART_ENV_NOT_FOUND */) {
             JASSERT(ret != RESTART_ENV_TOOLONG).Text("pathvirt: DMTCP_PATH_PREFIX exceeds "
                     "maximum size (10kb). Use a shorter environment variable "
                     "or increase MAX_ENV_VAR_SIZE and recompile.");
