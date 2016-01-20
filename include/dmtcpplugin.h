@@ -1,5 +1,3 @@
-#pragma once
-
 /* Constants used by dmtcp_get_restart_env() and callers */
 #define RESTART_ENV_SUCCESS 0
 #define RESTART_ENV_NOTFOUND -1
