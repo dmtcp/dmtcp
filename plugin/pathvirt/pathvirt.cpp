@@ -3,6 +3,7 @@
 #include <cstring>
 #include <cstdlib>
 #include "dmtcp.h"
+#include "dmtcpplugin.h"
 #include "jassert.h"
 
 #define ENV_DPP            "DMTCP_PATH_PREFIX"
