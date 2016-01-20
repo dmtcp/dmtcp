@@ -116,7 +116,7 @@ static const char* theUsage =
   "  --exit-on-last\n"
   "      Exit automatically when last client disconnects\n"
   "  --exit-after-ckpt\n"
-  "      Exit automatically after checkpoint is created\n"
+  "      Kill peer processes of computation after first checkpoint is created\n"
   "  --daemon\n"
   "      Run silently in the background after detaching from the parent process.\n"
   "  -i, --interval (environment variable DMTCP_CHECKPOINT_INTERVAL):\n"
@@ -143,6 +143,7 @@ static string thePortFile;
 static bool exitOnLast = false;
 static bool blockUntilDone = false;
 static bool exitAfterCkpt = false;
+static bool exitAfterCkptOnce = false;
 static int blockUntilDoneRemote = -1;
 
 static DmtcpCoordinator prog;
@@ -267,7 +268,7 @@ void DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*= NULL*
     break;
   case 'x': case 'X':  // prefix exit command, prior to checkpoint command
     JTRACE ( "Will exit after creating the checkpoint..." );
-    exitAfterCkpt = true;
+    exitAfterCkptOnce = true;
     break;
   case 'c': case 'C':
     JTRACE ( "checkpointing..." );
@@ -374,6 +375,8 @@ void DmtcpCoordinator::printStatus(size_t numPeers, bool isRunning)
 
   o << "Exit on last client: " << exitOnLast << std::endl
     << "Exit after checkpoint: " << exitAfterCkpt << std::endl
+    // << "Exit after checkpoint (first time only): " << exitAfterCkptOnce
+    //    << std::endl
     << "Computation Id: " << compId << std::endl
     << "Checkpoint Dir: " << ckptDir << std::endl
     << "NUM_PEERS=" << numPeers << std::endl
@@ -417,10 +420,10 @@ void DmtcpCoordinator::updateMinimumState(WorkerState oldState)
                                compId,
                                _restartFilenames);
 
-    if (exitAfterCkpt) {
+    if (exitAfterCkpt || exitAfterCkptOnce) {
       JNOTE("Checkpoint Done. Killing all peers.");
       broadcastMessage(DMT_KILL_PEER);
-      exitAfterCkpt = false;
+      exitAfterCkptOnce = false;
     } else {
       JNOTE ( "building name service database" );
       lookupService.reset();
@@ -461,10 +464,10 @@ void DmtcpCoordinator::updateMinimumState(WorkerState oldState)
                                compId,
                                _restartFilenames);
 
-    if (exitAfterCkpt) {
+    if (exitAfterCkpt || exitAfterCkptOnce) {
       JNOTE("Checkpoint Done. Killing all peers.");
       broadcastMessage(DMT_KILL_PEER);
-      exitAfterCkpt = false;
+      exitAfterCkptOnce = false;
     } else {
       JNOTE ( "refilling all nodes" );
       broadcastMessage ( DMT_DO_REFILL );
@@ -690,7 +693,7 @@ void DmtcpCoordinator::initializeComputation()
   curTimeStamp = 0; // Drop timestamp to 0
   numPeers = -1; // Drop number of peers to unknown
   blockUntilDone = false;
-  //exitAfterCkpt = false;
+  exitAfterCkptOnce = false;
 }
 
 void DmtcpCoordinator::onConnect()
