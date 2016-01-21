@@ -740,16 +740,16 @@ extern "C" int fcntl(int fd, int cmd, ...)
 extern "C" char *realpath(const char *path, char *resolved_path)
 {
   char *ret;
-  if (Util::strStartsWith(path, "/dev/pts")) {
-    JASSERT(strlen(path) < PATH_MAX);
+  const char *phys_path = VIRTUAL_TO_PHYSICAL_PATH(path).c_str();
+  if (Util::strStartsWith(phys_path, "/dev/pts")) {
+    JASSERT(strlen(phys_path) < PATH_MAX);
     if (resolved_path == NULL) {
-      ret = (char*) malloc(strlen(path) + 1);
+      ret = (char*) malloc(strlen(phys_path) + 1);
     } else {
       ret = resolved_path;
     }
-    strcpy(ret, path);
+    strcpy(ret, phys_path);
   } else {
-    const char *phys_path = VIRTUAL_TO_PHYSICAL_PATH(path).c_str();
     ret = _real_realpath(phys_path, resolved_path);
   }
   return ret;
