@@ -181,7 +181,7 @@ extern "C" int dup3(int oldfd, int newfd, int flags)
  * code paths related to testing whether the pointer argument is NULL or not.
  * Therefore, we need to do that control logic in a separate function.
  */
-static int is_null(const void *p)
+extern "C" int is_null(const char *p)
 {
     return p == NULL;
 }
@@ -609,17 +609,14 @@ extern "C" int __xstat(int vers, const char *path, struct stat *buf)
   //   _real_xstat().  If path or buf is invalid, return with the erro.
   //   If path is a valid memory address, but not a valid filename,
   //   there is no harm done, since xstat has no side effects outside of buf.
-  const char *phys_path = VIRTUAL_TO_PHYSICAL_PATH(path).c_str();
-  int retval = _real_xstat(vers, phys_path, buf);
+  int retval = _real_xstat(vers, path, buf);
   if (retval == -1 && errno == EFAULT) {
     // EFAULT means path or buf was a bad address.  So, we're done.  Return.
     // And don't call updateStatPath().  If path is bad, it will crash.
   } else {
     updateStatPath(path, &newpath);
-    if (newpath != path) {
-      phys_path = VIRTUAL_TO_PHYSICAL_PATH(newpath).c_str();
-      retval = _real_xstat(vers, phys_path, buf); // Re-do it with correct path.
-    } // else use answer from previous call to _real_xstat(), and save time.
+    const char *phys_path = VIRTUAL_TO_PHYSICAL_PATH(newpath).c_str();
+    retval = _real_xstat(vers, phys_path, buf); // Re-do it with correct path.
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -670,16 +667,13 @@ extern "C" int __lxstat(int vers, const char *path, struct stat *buf)
   char *newpath = tmpbuf;
   DMTCP_PLUGIN_DISABLE_CKPT();
   // See filewrapper.cpp:__xstat() for comments on this code.
-  const char *phys_path = VIRTUAL_TO_PHYSICAL_PATH(path).c_str();
-  int retval = _real_lxstat(vers, phys_path, buf);
+  int retval = _real_lxstat(vers, path, buf);
   if (retval == -1 && errno == EFAULT) {
     // We're done.  Return.
   } else {
     updateStatPath(path, &newpath);
-    if (newpath != path) {
-      phys_path = VIRTUAL_TO_PHYSICAL_PATH(newpath).c_str();
-      retval = _real_lxstat(vers, phys_path, buf);
-    }
+    const char *phys_path = VIRTUAL_TO_PHYSICAL_PATH(newpath).c_str();
+    retval = _real_lxstat(vers, phys_path, buf);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
