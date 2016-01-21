@@ -181,7 +181,7 @@ extern "C" int dup3(int oldfd, int newfd, int flags)
  * code paths related to testing whether the pointer argument is NULL or not.
  * Therefore, we need to do that control logic in a separate function.
  */
-extern "C" int is_null(const char *p)
+int is_null(const void *p)
 {
     return p == NULL;
 }
