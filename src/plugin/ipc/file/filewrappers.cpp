@@ -779,10 +779,6 @@ extern "C" char *canonicalize_file_name(const char *path)
 
 extern "C" int access(const char *path, int mode)
 {
-  if (Util::isNull(path)) {
-    return _real_access(path, mode);
-  }
-
   const char *phys_path = VIRTUAL_TO_PHYSICAL_PATH(path).c_str();
 
   if (Util::strStartsWith(phys_path, "/dev/pts")) {
