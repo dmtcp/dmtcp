@@ -183,6 +183,7 @@ namespace dmtcp
                              const char **host, int *port);
     void setCoordPort(int port);
     void getDmtcpArgs(vector<string> &dmtcp_args);
+    bool isNull(const void *p);
   }
 }
 #endif

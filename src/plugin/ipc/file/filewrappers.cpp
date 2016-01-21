@@ -175,17 +175,6 @@ extern "C" int dup3(int oldfd, int newfd, int flags)
 #endif
 #endif
 
-/*
- * In some libc prototypes (e.g. access(2)), a pointer argument is
- * marked with GCC attribute `nonnull`. This allows GCC to optimize away any
- * code paths related to testing whether the pointer argument is NULL or not.
- * Therefore, we need to do that control logic in a separate function.
- */
-int is_null(const void *p)
-{
-    return p == NULL;
-}
-
 static int ptsname_r_work(int fd, char * buf, size_t buflen)
 {
   JTRACE("Calling ptsname_r");
@@ -790,7 +779,7 @@ extern "C" char *canonicalize_file_name(const char *path)
 
 extern "C" int access(const char *path, int mode)
 {
-  if (is_null(path)) {
+  if (Util::isNull(path)) {
     return _real_access(path, mode);
   }
 
