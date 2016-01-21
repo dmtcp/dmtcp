@@ -617,16 +617,13 @@ extern "C" int __xstat64(int vers, const char *path, struct stat64 *buf)
   char *newpath = tmpbuf;
   DMTCP_PLUGIN_DISABLE_CKPT();
   // See filewrapper.cpp:__xstat() for comments on this code.
-  const char *phys_path = VIRTUAL_TO_PHYSICAL_PATH(path).c_str();
-  int retval = _real_xstat64(vers, phys_path, buf);
+  int retval = _real_xstat64(vers, path, buf);
   if (retval == -1 && errno == EFAULT) {
     // We're done.  Return.
   } else {
     updateStatPath(path, &newpath);
-    if (newpath != path) {
-      phys_path = VIRTUAL_TO_PHYSICAL_PATH(newpath).c_str();
-      retval = _real_xstat64(vers, phys_path, buf);
-    }
+    const char *phys_path = VIRTUAL_TO_PHYSICAL_PATH(newpath).c_str();
+    retval = _real_xstat64(vers, phys_path, buf);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -674,16 +671,13 @@ extern "C" int __lxstat64(int vers, const char *path, struct stat64 *buf)
   char *newpath = tmpbuf;
   DMTCP_PLUGIN_DISABLE_CKPT();
   // See filewrapper.cpp:__xstat() for comments on this code.
-  const char *phys_path = VIRTUAL_TO_PHYSICAL_PATH(path).c_str();
-  int retval = _real_lxstat64(vers, phys_path, buf);
+  int retval = _real_lxstat64(vers, path, buf);
   if (retval == -1 && errno == EFAULT) {
     // We're done.  Return.
   } else {
     updateStatPath(path, &newpath);
-    if (newpath != path) {
-      phys_path = VIRTUAL_TO_PHYSICAL_PATH(newpath).c_str();
-      retval = _real_lxstat64(vers, phys_path, buf);
-    }
+    const char *phys_path = VIRTUAL_TO_PHYSICAL_PATH(newpath).c_str();
+    retval = _real_lxstat64(vers, phys_path, buf);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
