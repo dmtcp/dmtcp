@@ -126,8 +126,8 @@ virtual_to_physical_path(const char *virt_path)
     dmtcp::string virtPathString(virt_path?virt_path:"");
     dmtcp::string physPathString;
 
-    /* quickly return if no swap */
-    if (!shouldSwap) {
+    /* quickly return if no swap or NULL path */
+    if (!shouldSwap || !virt_path) {
         return virtPathString;
     }
 
