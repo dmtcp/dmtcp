@@ -36,10 +36,6 @@
 #define DRAINER_CHECK_FREQ 0.1
 #define DRAINER_WARNING_FREQ 10
 
-//at least one of these must be enabled:
-#define HANDSHAKE_ON_CONNECT    0
-#define HANDSHAKE_ON_CHECKPOINT 1
-
 #define _real_socket NEXT_FNC(socket)
 #define _real_bind NEXT_FNC(bind)
 #define _real_close NEXT_FNC(close)
