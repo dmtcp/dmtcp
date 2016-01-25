@@ -296,8 +296,7 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   LIB_PRIVATE void dmtcpResetPidPpid();
 
   int _dmtcp_unsetenv(const char *name);
-  void initialize_libc_wrappers();
-  void initialize_libpthread_wrappers();
+  void dmtcp_prepare_wrappers();
 
   int _real_socket (int domain, int type, int protocol);
   int _real_connect (int sockfd,  const  struct sockaddr *serv_addr,

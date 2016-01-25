@@ -39,8 +39,6 @@
 
 using namespace dmtcp;
 
-LIB_PRIVATE int dmtcp_wrappers_initializing = 0;
-
 LIB_PRIVATE void pthread_atfork_prepare();
 LIB_PRIVATE void pthread_atfork_parent();
 LIB_PRIVATE void pthread_atfork_child();
@@ -147,43 +145,33 @@ int DmtcpWorker::determineCkptSignal()
  * functions reliably. Read the comment at the top of syscallsreal.c for more
  * details.
  */
-static bool dmtcpWrappersInitialized = false;
-extern "C" void dmtcp_prepare_wrappers(void)
+static void dmtcp_prepare_atfork(void)
 {
-  if (!dmtcpWrappersInitialized) {
-    dmtcp_wrappers_initializing = 1;
-    initialize_libc_wrappers();
-    //DmtcpWorker::eventHook(DMTCP_EVENT_INIT_WRAPPERS, NULL);
-    dmtcp_wrappers_initializing = 0;
-    initialize_libpthread_wrappers();
-    dmtcpWrappersInitialized = true;
+  /* Register pidVirt_pthread_atfork_child() as the first post-fork handler
+   * for the child process. This needs to be the first function that is
+   * called by libc:fork() after the child process is created.
+   *
+   * pthread_atfork_child() needs to be the second post-fork handler for the
+   * child process.
+   *
+   * Some dmtcp plugin might also call pthread_atfork and so we call it right
+   * here before initializing the wrappers.
+   *
+   * NOTE: If this doesn't work and someone is able to call pthread_atfork
+   * before this call, we might want to install a pthread_atfork() wrapper.
+   */
 
-    /* Register pidVirt_pthread_atfork_child() as the first post-fork handler
-     * for the child process. This needs to be the first function that is
-     * called by libc:fork() after the child process is created.
-     *
-     * pthread_atfork_child() needs to be the second post-fork handler for the
-     * child process.
-     *
-     * Some dmtcp plugin might also call pthread_atfork and so we call it right
-     * here before initializing the wrappers.
-     *
-     * NOTE: If this doesn't work and someone is able to call pthread_atfork
-     * before this call, we might want to install a pthread_atfork() wrappers.
-     */
+  /* If we use pthread_atfork here, it fails for Ubuntu 14.04 on ARM.
+   * To fix it, we use __register_atfork and use the __dso_handle provided by
+   * the gcc compiler.
+   */
+  JASSERT(__register_atfork(NULL, NULL,
+                         pidVirt_pthread_atfork_child,
+                         __dso_handle) == 0);
 
-    /* If we use pthread_atfork here, it fails for Ubuntu 14.04 on ARM.
-     * To fix it, we use __register_atfork and use the __dso_handle provided by
-     * the gcc compiler.
-     */
-    JASSERT(__register_atfork(NULL, NULL,
-                           pidVirt_pthread_atfork_child,
-                           __dso_handle) == 0);
-
-    JASSERT(pthread_atfork(pthread_atfork_prepare,
-                           pthread_atfork_parent,
-                           pthread_atfork_child) == 0);
-  }
+  JASSERT(pthread_atfork(pthread_atfork_prepare,
+                         pthread_atfork_parent,
+                         pthread_atfork_child) == 0);
 }
 
 static string getLogFilePath()
@@ -265,8 +253,9 @@ static void installSegFaultHandler()
 DmtcpWorker::DmtcpWorker()
 {
   WorkerState::setCurrentState(WorkerState::UNKNOWN);
-  initializeJalib();
   dmtcp_prepare_wrappers();
+  initializeJalib();
+  dmtcp_prepare_atfork();
   prepareLogAndProcessdDataFromSerialFile();
 
   JTRACE("libdmtcp.so:  Running ")

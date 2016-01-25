@@ -261,8 +261,6 @@ EXTERNC int dmtcp_get_restart_env(const char *name,
 EXTERNC const char* dmtcp_get_executable_path();
 // True if dmtcp_launch called with --no-coordinator
 EXTERNC int dmtcp_no_coordinator(void);
-// True in early stages of dmtcp_launch; If true, DMTCP may not be stable yet.
-EXTERNC int dmtcp_is_initializing_wrappers(void);
 /* If your plugin invokes wrapper functions before DMTCP is initialized,
  *   then call this prior to your first wrapper function call.
  */
@@ -353,7 +351,7 @@ EXTERNC void dmtcp_plugin_enable_ckpt(void);
 #if defined(__clang__) && __clang_major__ < 3 || \
     __clang_major__ == 3 && __clang_minor__ <= 4
 /***************************************************************************
- * This workaround is required for what is arguably a bug in clang-3.4.1 
+ * This workaround is required for what is arguably a bug in clang-3.4.1
  *   under Ubuntu 13.10.
  * We don't see a problem with clang-3.4.2 under Ubuntu 14.04.  So, eventually
  *   we can deprecate this patch, when most distros use a later clang.
@@ -365,7 +363,7 @@ EXTERNC void dmtcp_plugin_enable_ckpt(void);
  ***************************************************************************/
 # define DECLARE_TYPEOF_FNC(fnc_type,fnc) \
 static __typeof__(&fnc_type) fnc          \
-      = (__typeof__(&fnc_type)) -1   
+      = (__typeof__(&fnc_type)) -1
 
 // For clang, declare these at top level, instead of inside a function.
 DECLARE_TYPEOF_FNC(dmtcp_event_hook,fn);

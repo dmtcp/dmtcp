@@ -302,11 +302,6 @@ EXTERNC int dmtcp_is_running_state(void)
   return WorkerState::currentState() == WorkerState::RUNNING;
 }
 
-EXTERNC int dmtcp_is_initializing_wrappers(void)
-{
-  return dmtcp_wrappers_initializing;
-}
-
 EXTERNC int dmtcp_is_protected_fd(int fd)
 {
   return DMTCP_IS_PROTECTED_FD(fd);
