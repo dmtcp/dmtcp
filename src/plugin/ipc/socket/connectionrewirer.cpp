@@ -293,9 +293,11 @@ void ConnectionRewirer::sendQueries()
     const ConnectionIdentifier& id = i->first;
     struct RemoteAddr remote;
     uint32_t len = sizeof(remote.addr);
-    dmtcp_send_query_to_coordinator("Socket",
-                                    (const void *)&id, (uint32_t) sizeof(id),
-                                    &remote.addr, &len);
+    JASSERT(dmtcp_send_query_to_coordinator("Socket",
+                                            (const void *)&id,
+                                            (uint32_t) sizeof(id),
+                                            &remote.addr,
+                                            &len) != 0);
     remote.len = len;
     /*
     sockaddr_in *sn = (sockaddr_in*) &remote.addr;
