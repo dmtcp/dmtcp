@@ -218,9 +218,7 @@ void SharedData::postRestart()
 
 void SharedData::waitForBarrier(const string& barrierId)
 {
-  JNOTE("Waiting for barrier") (barrierId);
   pthread_barrier_wait(&sharedDataHeader->barrierInfo.barrier);
-  JNOTE("Barrier released") (barrierId);
 }
 
 string SharedData::coordHost()
