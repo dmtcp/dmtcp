@@ -31,6 +31,7 @@ static int sshStderr = -1;
 static int sshSockFd = -1;
 static bool isSshdProcess = false;
 static int noStrictHostKeyChecking = 0;
+static int isRshProcess = 0;
 
 static bool sshPluginEnabled = false;
 
@@ -187,6 +188,7 @@ createNewDmtcpSshdProcess()
     dmtcp_sshd_path = Util::getPath("dmtcp_sshd");
   }
 
+
   JASSERT(pipe(in) == 0) (JASSERT_ERRNO);
   JASSERT(pipe(out) == 0) (JASSERT_ERRNO);
   JASSERT(pipe(err) == 0) (JASSERT_ERRNO);
@@ -198,8 +200,17 @@ createNewDmtcpSshdProcess()
     char *argv[16];
     int idx = 0;
 
-    argv[idx++] = (char *)dmtcp_nocheckpoint_path.c_str();
-    argv[idx++] = const_cast<char *>("ssh");
+    argv[idx++] = (char*) dmtcp_nocheckpoint_path.c_str();
+
+    const char* shellType = NULL;
+
+    if(isRshProcess)
+      shellType = "rsh";
+    else
+      shellType = "ssh";
+
+    argv[idx++] = const_cast<char*>(shellType);
+
     if (noStrictHostKeyChecking) {
       argv[idx++] = const_cast<char *>("-o");
       argv[idx++] = const_cast<char *>("StrictHostKeyChecking=no");
@@ -253,7 +264,8 @@ dmtcp_ssh_register_fds(int isSshd,
                        int out,
                        int err,
                        int sock,
-                       int noStrictChecking)
+                       int noStrictChecking,
+                       int rshProcess)
 {
   if (isSshd) { // dmtcp_sshd
     process_fd_event(SYS_close, STDIN_FILENO);
@@ -263,6 +275,7 @@ dmtcp_ssh_register_fds(int isSshd,
     process_fd_event(SYS_close, in);
     process_fd_event(SYS_close, out);
     process_fd_event(SYS_close, err);
+    isRshProcess = rshProcess;
   }
   sshStdin = in;
   sshStdout = out;
@@ -283,9 +296,15 @@ prepareForExec(char *const argv[], char ***newArgv)
   while (argv[nargs++] != NULL) {}
 
   if (nargs < 3) {
+    if(!isRshProcess) {
     JNOTE("ssh with less than 3 args") (argv[0]) (argv[1]);
     *newArgv = (char **)argv;
     return;
+    } else if(nargs < 2) {
+        JNOTE("rsh with less than 2 args") (argv[0]);
+        *newArgv = (char**) argv;
+        return;
+      }
   }
 
   // find command part
@@ -340,6 +359,12 @@ prepareForExec(char *const argv[], char ***newArgv)
     prefix += dmtcp_args[i] + " ";
   }
   prefix += dmtcp_sshd_path + " ";
+
+  if(isRshProcess)
+    prefix += " --rsh-slave ";
+  else
+    prefix += " --ssh-slave ";
+
   JTRACE("Prefix")(prefix);
 
   // process command
@@ -369,17 +394,23 @@ prepareForExec(char *const argv[], char ***newArgv)
 
   // now repack args
   char **new_argv =
-    (char **)JALLOC_HELPER_MALLOC(sizeof(char *) * (nargs + 10));
-  memset(new_argv, 0, sizeof(char *) * (nargs + 10));
+    (char **)JALLOC_HELPER_MALLOC(sizeof(char *) * (nargs + 11));
+  memset(new_argv, 0, sizeof(char *) * (nargs + 11));
 
   size_t idx = 0;
   new_argv[idx++] = (char *)dmtcp_ssh_path.c_str();
   if (noStrictChecking) {
     new_argv[idx++] = const_cast<char *>("--noStrictHostKeyChecking");
   }
-  new_argv[idx++] = (char *)dmtcp_nocheckpoint_path.c_str();
+  if(isRshProcess)
+    new_argv[idx++] = const_cast<char*>("--rsh-slave");
+  else
+    new_argv[idx++] = const_cast<char*>("--ssh-slave");
 
-  string newCommand = string(new_argv[0]) + " " + string(new_argv[1]) + " ";
+  new_argv[idx++] = (char*) dmtcp_nocheckpoint_path.c_str();
+
+  string newCommand = string(new_argv[0]) + " " +
+                      string(new_argv[1]) + " " + string(new_argv[2]) + " ";
   for (size_t i = 0; i < commandStart; ++i) {
     new_argv[idx++] = (char *)argv[i];
     if (argv[i] != NULL) {
@@ -397,7 +428,10 @@ prepareForExec(char *const argv[], char ***newArgv)
       newCommand += ' ';
     }
   }
-  JNOTE("New ssh command") (newCommand);
+  if(isRshProcess)
+    JNOTE("New rsh command") (newCommand);
+  else
+    JNOTE("New ssh command") (newCommand);
   *newArgv = new_argv;
 }
 
@@ -474,9 +508,13 @@ updateCoordHost()
 extern "C" int
 execve(const char *filename, char *const argv[], char *const envp[])
 {
-  if (jalib::Filesystem::BaseName(filename) != "ssh") {
+  if ((jalib::Filesystem::BaseName(filename) != "ssh") &&
+      (jalib::Filesystem::BaseName(filename) != "rsh")) {
     return _real_execve(filename, argv, envp);
   }
+
+  if (jalib::Filesystem::BaseName(filename) == "rsh")
+    isRshProcess = 1;
 
   updateCoordHost();
 
@@ -490,9 +528,13 @@ execve(const char *filename, char *const argv[], char *const envp[])
 extern "C" int
 execvp(const char *filename, char *const argv[])
 {
-  if (jalib::Filesystem::BaseName(filename) != "ssh") {
+  if ((jalib::Filesystem::BaseName(filename) != "ssh") &&
+      (jalib::Filesystem::BaseName(filename) != "rsh")) {
     return _real_execvp(filename, argv);
   }
+
+  if (jalib::Filesystem::BaseName(filename) == "rsh")
+    isRshProcess = 1;
 
   updateCoordHost();
 
@@ -507,9 +549,13 @@ execvp(const char *filename, char *const argv[])
 extern "C" int
 execvpe(const char *filename, char *const argv[], char *const envp[])
 {
-  if (jalib::Filesystem::BaseName(filename) != "ssh") {
+  if ((jalib::Filesystem::BaseName(filename) != "ssh") &&
+      (jalib::Filesystem::BaseName(filename) != "rsh")) {
     return _real_execvpe(filename, argv, envp);
   }
+
+  if (jalib::Filesystem::BaseName(filename) == "rsh")
+    isRshProcess = 1;
 
   updateCoordHost();
 

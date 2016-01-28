@@ -139,6 +139,10 @@ class DmtcpCoordinator
     size_t _numCkptWorkers;
     size_t _numRestartFilenames;
 
+    // Store whether rsh/ssh was used
+    map< string, vector<string> > _rshCmdFileNames;
+    map< string, vector<string> > _sshCmdFileNames;
+
     // map from hostname to checkpoint files
     map<string, vector<string> >_restartFilenames;
     map<pid_t, CoordClient *>_virtualPidToClientMap;

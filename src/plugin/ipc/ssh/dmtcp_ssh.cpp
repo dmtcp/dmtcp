@@ -16,6 +16,7 @@
 
 static int listenSock = -1;
 static int noStrictHostKeyChecking = 0;
+static int isRshProcess = 0;
 
 // static bool strEndsWith(const char *str, const char *pattern)
 // {
@@ -132,6 +133,9 @@ waitForConnection(int listenSock)
   return fd;
 }
 
+// shift args
+#define shift argc--, argv++
+
 int
 main(int argc, char *argv[], char *envp[])
 {
@@ -144,9 +148,27 @@ main(int argc, char *argv[], char *envp[])
     exit(1);
   }
 
-  if (strcmp(argv[1], "--noStrictHostKeyChecking") == 0) {
-    noStrictHostKeyChecking = 1;
-    argv++;
+  /* command line parsing was assuming the location of arguments
+   * so moving to more robust shift based mechanism used at other
+   * places too
+   */
+
+  shift;
+  while(true) {
+    if ( strcmp(argv[0], "--noStrictHostKeyChecking") == 0 ) {
+      noStrictHostKeyChecking = 1;
+      shift;
+    }
+    else if ( strcmp(argv[0], "--rsh-slave") == 0 ) {
+      isRshProcess = 1;
+      shift;
+    }
+    else if ( strcmp(argv[0], "--ssh-slave")== 0 ) {
+      isRshProcess = 0;
+      shift;
+    } else {
+      break;
+    }
   }
 
   createStdioFds(in, out, err);
@@ -195,7 +217,7 @@ main(int argc, char *argv[], char *envp[])
       }
       i++;
     }
-    execvp(argv[1], &argv[1]);
+    execvp(argv[0], &argv[0]);
     printf("%s:%d DMTCP Error detected. Failed to exec.", __FILE__, __LINE__);
     abort();
   }
@@ -212,7 +234,7 @@ main(int argc, char *argv[], char *envp[])
 
   assert(dmtcp_ssh_register_fds != NULL);
   dmtcp_ssh_register_fds(false, ssh_stdinfd, ssh_stdoutfd, ssh_stderrfd,
-                         childSock, noStrictHostKeyChecking);
+                         childSock, noStrictHostKeyChecking, isRshProcess);
 
   client_loop(ssh_stdinfd, ssh_stdoutfd, ssh_stderrfd, childSock);
   wait(&status);

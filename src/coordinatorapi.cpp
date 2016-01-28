@@ -675,18 +675,27 @@ CoordinatorAPI::sendCkptFilename()
   // Tell coordinator to record our filename in the restart script
   string ckptFilename = ProcessInfo::instance().getCkptFilename();
   string hostname = jalib::Filesystem::GetCurrentHostname();
-  JTRACE("recording filenames") (ckptFilename) (hostname);
   DmtcpMessage msg;
   if (dmtcp_unique_ckpt_enabled && dmtcp_unique_ckpt_enabled()) {
     msg.type = DMT_UNIQUE_CKPT_FILENAME;
   } else {
     msg.type = DMT_CKPT_FILENAME;
   }
+  // Tell coordinator type of remote shell command used ssh/rsh
+  string shellType = "";
+  const char *remoteShellType = getenv(ENV_VAR_REMOTE_SHELL_CMD);
+  if(remoteShellType != NULL) {
+    shellType = remoteShellType;
+  }
+  JTRACE("recording filenames") (ckptFilename) (hostname) (shellType);
 
-  size_t buflen = hostname.length() + ckptFilename.length() + 2;
+  size_t buflen = hostname.length() + shellType.length() +
+                  ckptFilename.length() + 3;
   char buf[buflen];
   strcpy(buf, ckptFilename.c_str());
-  strcpy(&buf[ckptFilename.length() + 1], hostname.c_str());
+  strcpy(&buf[ckptFilename.length() + 1], shellType.c_str());
+  strcpy(&buf[ckptFilename.length() + 1 + shellType.length() + 1],
+         hostname.c_str());
 
   sendMsgToCoordinator(msg, buf, buflen);
 }

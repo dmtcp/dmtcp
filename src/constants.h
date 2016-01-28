@@ -128,12 +128,14 @@
 #define LIBDL_BASE_FUNC_STR             "dlinfo"
 #define ENV_VAR_DLSYM_OFFSET            "DMTCP_DLSYM_OFFSET"
 #define ENV_VAR_DLSYM_OFFSET_M32        "DMTCP_DLSYM_OFFSET_M32"
+#define ENV_VAR_REMOTE_SHELL_CMD        "DMTCP_REMOTE_SHELL_CMD"
 
 // this list should be kept up to date with all "protected" environment vars
 #define ENV_VARS_ALL                  \
   ENV_VAR_NAME_HOST,                  \
   ENV_VAR_NAME_PORT,                  \
   ENV_VAR_CKPT_INTR,                  \
+  ENV_VAR_REMOTE_SHELL_CMD,           \
   ENV_VAR_ORIG_LD_PRELOAD,            \
   ENV_VAR_HIJACK_LIBS,                \
   ENV_VAR_HIJACK_LIBS_M32,            \

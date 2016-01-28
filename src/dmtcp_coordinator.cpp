@@ -494,9 +494,25 @@ DmtcpCoordinator::recordCkptFilename(CoordClient *client, const char *extraData)
 
   string ckptFilename = extraData;
   string hostname = extraData + ckptFilename.length() + 1;
+  string shellType;
+
+  ckptFilename = extraData;
+  shellType = extraData + ckptFilename.length() + 1;
+  hostname = extraData + shellType.length() + 1 + ckptFilename.length() + 1;
 
   JTRACE("recording restart info") (ckptFilename) (hostname);
-  _restartFilenames[hostname].push_back(ckptFilename);
+  JTRACE ( "recording restart info with shellType" )
+    ( ckptFilename ) ( hostname ) (shellType);
+  if(shellType.empty())
+    _restartFilenames[hostname].push_back ( ckptFilename );
+  else if(shellType == "rsh")
+    _rshCmdFileNames[hostname].push_back( ckptFilename );
+  else if(shellType == "ssh")
+    _sshCmdFileNames[hostname].push_back( ckptFilename );
+  else {
+    JASSERT(0)(shellType)
+      .Text("Shell command not supported. Report this to DMTCP community.");
+  }
   _numRestartFilenames++;
 
   if (_numRestartFilenames == _numCkptWorkers) {
@@ -507,7 +523,9 @@ DmtcpCoordinator::recordCkptFilename(CoordClient *client, const char *extraData)
                                  theCheckpointInterval,
                                  thePort,
                                  compId,
-                                 _restartFilenames);
+                                 _restartFilenames,
+                                 _rshCmdFileNames,
+                                 _sshCmdFileNames);
 
     JNOTE("Checkpoint complete. Wrote restart script") (restartScriptPath);
 
@@ -1081,6 +1099,8 @@ DmtcpCoordinator::startCheckpoint()
     JTIMER_START(checkpoint);
     _numRestartFilenames = 0;
     _restartFilenames.clear();
+    _rshCmdFileNames.clear();
+    _sshCmdFileNames.clear();
     compId.incrementGeneration();
     JNOTE("starting checkpoint; incrementing generation; suspending all nodes")
       (s.numPeers) (compId.computationGeneration());
