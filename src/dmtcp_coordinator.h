@@ -114,6 +114,11 @@ namespace dmtcp
     protected:
       void writeRestartScript();
     private:
+
+      // Store whether rsh/ssh was used
+      map< string, vector<string> > _rshCmdFileNames;
+      map< string, vector<string> > _sshCmdFileNames;
+
       //map from hostname to checkpoint files
       map< string, vector<string> > _restartFilenames;
       map< pid_t, CoordClient* > _virtualPidToClientMap;
