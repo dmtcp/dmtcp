@@ -97,7 +97,7 @@ static bool isBlacklistedProgram(const char *path)
   }
 
   if (programName == "dmtcp_nocheckpoint" || programName == "dmtcp_command" ||
-      programName == "ssh") {
+      programName == "ssh" || programName == "rsh" ) {
     return true;
   }
   return false;
