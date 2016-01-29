@@ -200,7 +200,7 @@ pathvirtInitialize()
  * virtual path to the latest "physical path", which will correspond to the
  * current, post-restart filesystem.
  */
-dmtcp::string
+static dmtcp::string
 virtual_to_physical_path(const char *virt_path)
 {
     char *oldPathPtr = NULL;
@@ -241,6 +241,30 @@ virtual_to_physical_path(const char *virt_path)
     return physPathString;
 }
 
+void
+set_old_path_prefix_list(const char* oldPathPrefix)
+{
+  strncpy(oldPathPrefixList, oldPathPrefix, sizeof(oldPathPrefixList));
+}
+
+void
+set_new_path_prefix_list(const char* newPathPrefix)
+{
+  strncpy(newPathPrefixList, newPathPrefix, sizeof(newPathPrefixList));
+}
+
+const char*
+get_old_path_prefix_list()
+{
+  return oldPathPrefixList;
+}
+
+const char*
+get_new_path_prefix_list()
+{
+  return newPathPrefixList;
+}
+
 /*
  * DMTCP Setup
  */
@@ -257,8 +281,7 @@ dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
         char *oldEnv = getenv(ENV_DPP);
         if (oldEnv) {
             /* if so, save it to buffer */
-            snprintf(oldPathPrefixList, sizeof(oldPathPrefixList), "%s",
-                     oldEnv);
+            set_old_path_prefix_list(oldEnv);
         }
         break;
     }
