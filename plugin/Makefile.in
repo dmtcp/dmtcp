@@ -103,7 +103,8 @@ bin_PROGRAMS = $(d_bindir)/dmtcp_discover_rm$(EXEEXT) \
 	$(d_bindir)/dmtcp_srun_helper$(EXEEXT)
 libdmtcp_PROGRAMS = $(d_libdir)/libdmtcp_batch-queue.so$(EXEEXT) \
 	$(d_libdir)/libdmtcp_modify-env.so$(EXEEXT) \
-	$(d_libdir)/libdmtcp_unique-ckpt.so$(EXEEXT)
+	$(d_libdir)/libdmtcp_unique-ckpt.so$(EXEEXT) \
+	$(d_libdir)/libdmtcp_pathvirt.so$(EXEEXT)
 subdir = plugin
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/configure.ac
@@ -152,6 +153,13 @@ __d_libdir__libdmtcp_modify_env_so_DEPENDENCIES =  \
 	$(am__DEPENDENCIES_1)
 __d_libdir__libdmtcp_modify_env_so_LINK = $(CXXLD) $(AM_CXXFLAGS) \
 	$(CXXFLAGS) $(__d_libdir__libdmtcp_modify_env_so_LDFLAGS) \
+	$(LDFLAGS) -o $@
+am___d_libdir__libdmtcp_pathvirt_so_OBJECTS = pathvirt.$(OBJEXT)
+__d_libdir__libdmtcp_pathvirt_so_OBJECTS =  \
+	$(am___d_libdir__libdmtcp_pathvirt_so_OBJECTS)
+__d_libdir__libdmtcp_pathvirt_so_DEPENDENCIES = $(am__DEPENDENCIES_1)
+__d_libdir__libdmtcp_pathvirt_so_LINK = $(CXXLD) $(AM_CXXFLAGS) \
+	$(CXXFLAGS) $(__d_libdir__libdmtcp_pathvirt_so_LDFLAGS) \
 	$(LDFLAGS) -o $@
 am___d_libdir__libdmtcp_unique_ckpt_so_OBJECTS =  \
 	unique-ckpt.$(OBJEXT)
@@ -239,11 +247,13 @@ SOURCES = $(__d_bindir__dmtcp_discover_rm_SOURCES) \
 	$(__d_bindir__dmtcp_srun_helper_SOURCES) \
 	$(__d_libdir__libdmtcp_batch_queue_so_SOURCES) \
 	$(__d_libdir__libdmtcp_modify_env_so_SOURCES) \
+	$(__d_libdir__libdmtcp_pathvirt_so_SOURCES) \
 	$(__d_libdir__libdmtcp_unique_ckpt_so_SOURCES)
 DIST_SOURCES = $(__d_bindir__dmtcp_discover_rm_SOURCES) \
 	$(__d_bindir__dmtcp_srun_helper_SOURCES) \
 	$(__d_libdir__libdmtcp_batch_queue_so_SOURCES) \
 	$(__d_libdir__libdmtcp_modify_env_so_SOURCES) \
+	$(__d_libdir__libdmtcp_pathvirt_so_SOURCES) \
 	$(__d_libdir__libdmtcp_unique_ckpt_so_SOURCES)
 am__can_run_installinfo = \
   case $$AM_UPDATE_INFO_DIR in \
@@ -480,6 +490,11 @@ __d_libdir__libdmtcp_unique_ckpt_so_SOURCES = \
 
 __d_libdir__libdmtcp_unique_ckpt_so_LDFLAGS = $(dmtcp_ldflags)
 __d_libdir__libdmtcp_unique_ckpt_so_LDADD = $(LDADD)
+__d_libdir__libdmtcp_pathvirt_so_SOURCES = \
+	pathvirt/pathvirt.cpp
+
+__d_libdir__libdmtcp_pathvirt_so_LDFLAGS = $(dmtcp_ldflags)
+__d_libdir__libdmtcp_pathvirt_so_LDADD = $(LDADD)
 all: all-am
 
 .SUFFIXES:
@@ -620,6 +635,10 @@ $(d_libdir)/libdmtcp_modify-env.so$(EXEEXT): $(__d_libdir__libdmtcp_modify_env_s
 	@rm -f $(d_libdir)/libdmtcp_modify-env.so$(EXEEXT)
 	$(AM_V_CXXLD)$(__d_libdir__libdmtcp_modify_env_so_LINK) $(__d_libdir__libdmtcp_modify_env_so_OBJECTS) $(__d_libdir__libdmtcp_modify_env_so_LDADD) $(LIBS)
 
+$(d_libdir)/libdmtcp_pathvirt.so$(EXEEXT): $(__d_libdir__libdmtcp_pathvirt_so_OBJECTS) $(__d_libdir__libdmtcp_pathvirt_so_DEPENDENCIES) $(EXTRA___d_libdir__libdmtcp_pathvirt_so_DEPENDENCIES) $(d_libdir)/$(am__dirstamp)
+	@rm -f $(d_libdir)/libdmtcp_pathvirt.so$(EXEEXT)
+	$(AM_V_CXXLD)$(__d_libdir__libdmtcp_pathvirt_so_LINK) $(__d_libdir__libdmtcp_pathvirt_so_OBJECTS) $(__d_libdir__libdmtcp_pathvirt_so_LDADD) $(LIBS)
+
 $(d_libdir)/libdmtcp_unique-ckpt.so$(EXEEXT): $(__d_libdir__libdmtcp_unique_ckpt_so_OBJECTS) $(__d_libdir__libdmtcp_unique_ckpt_so_DEPENDENCIES) $(EXTRA___d_libdir__libdmtcp_unique_ckpt_so_DEPENDENCIES) $(d_libdir)/$(am__dirstamp)
 	@rm -f $(d_libdir)/libdmtcp_unique-ckpt.so$(EXEEXT)
 	$(AM_V_CXXLD)$(__d_libdir__libdmtcp_unique_ckpt_so_LINK) $(__d_libdir__libdmtcp_unique_ckpt_so_OBJECTS) $(__d_libdir__libdmtcp_unique_ckpt_so_LDADD) $(LIBS)
@@ -707,6 +726,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcp_discover_rm.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcp_srun_helper.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/modify-env.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pathvirt.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/rm_main.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/rm_pmi.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/rm_slurm.Po@am__quote@
@@ -939,6 +959,20 @@ warning.obj: modify-env/warning.cpp
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='modify-env/warning.cpp' object='warning.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o warning.obj `if test -f 'modify-env/warning.cpp'; then $(CYGPATH_W) 'modify-env/warning.cpp'; else $(CYGPATH_W) '$(srcdir)/modify-env/warning.cpp'; fi`
+
+pathvirt.o: pathvirt/pathvirt.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT pathvirt.o -MD -MP -MF $(DEPDIR)/pathvirt.Tpo -c -o pathvirt.o `test -f 'pathvirt/pathvirt.cpp' || echo '$(srcdir)/'`pathvirt/pathvirt.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/pathvirt.Tpo $(DEPDIR)/pathvirt.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='pathvirt/pathvirt.cpp' object='pathvirt.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o pathvirt.o `test -f 'pathvirt/pathvirt.cpp' || echo '$(srcdir)/'`pathvirt/pathvirt.cpp
+
+pathvirt.obj: pathvirt/pathvirt.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT pathvirt.obj -MD -MP -MF $(DEPDIR)/pathvirt.Tpo -c -o pathvirt.obj `if test -f 'pathvirt/pathvirt.cpp'; then $(CYGPATH_W) 'pathvirt/pathvirt.cpp'; else $(CYGPATH_W) '$(srcdir)/pathvirt/pathvirt.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/pathvirt.Tpo $(DEPDIR)/pathvirt.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='pathvirt/pathvirt.cpp' object='pathvirt.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o pathvirt.obj `if test -f 'pathvirt/pathvirt.cpp'; then $(CYGPATH_W) 'pathvirt/pathvirt.cpp'; else $(CYGPATH_W) '$(srcdir)/pathvirt/pathvirt.cpp'; fi`
 
 unique-ckpt.o: unique-ckpt/unique-ckpt.cpp
 @am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT unique-ckpt.o -MD -MP -MF $(DEPDIR)/unique-ckpt.Tpo -c -o unique-ckpt.o `test -f 'unique-ckpt/unique-ckpt.cpp' || echo '$(srcdir)/'`unique-ckpt/unique-ckpt.cpp
