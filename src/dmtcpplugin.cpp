@@ -21,6 +21,7 @@
 
 #include <stdlib.h>
 #include "dmtcp.h"
+#include "dmtcpplugin.h"
 #include "dmtcpworker.h"
 #include "coordinatorapi.h"
 #include "syscallwrappers.h"
@@ -318,20 +319,13 @@ EXTERNC void dmtcp_close_protected_fd(int fd)
   _real_close(fd);
 }
 
-// dmtcp_get_restart_env() will take an environment variable, name,
-//   from the current environment at the time dmtcp_restart,
-//   and return its value.  This is useful since by default,
-//   an application would see only the restored memory from checkpoint
-//   time, which includes only environment variable values that
-//   existed at the time of checkpoint.
-// The plugin modify-env uses this function intensively.
 // EXTERNC int dmtcp_get_restart_env(char *name, char *value, int maxvaluelen);
 // USAGE:
-//   char value[MAXSIZE];
-//   dmtcp_get_restart_env(name, value, MAXSIZE);
-//  Returns 0 on success, -1 if name not found; -2 if value > MAXSIZE
+//   char value[RESTART_ENV_MAXSIZE];
+//   dmtcp_get_restart_env(name, value, RESTART_ENV_MAXSIZE);
+//  Returns 0 on success, -1 if name not found; -2 if value > RESTART_ENV_MAXSIZE
 // NOTE: This implementation assumes that a "name=value" string will be
-//   no more than MAXSIZE bytes.
+//   no more than RESTART_ENV_MAXSIZE bytes.
 
 EXTERNC int
 dmtcp_get_restart_env(const char *name,   // IN
@@ -344,35 +338,27 @@ dmtcp_get_restart_env(const char *name,   // IN
   int namelen = strlen(name);
   *value = '\0'; // Default is null string
 
-#define SUCCESS 0
-#define NOTFOUND -1
-#define TOOLONG -2
-#define DMTCP_BUF_TOO_SMALL -3
-#define INTERNAL_ERROR -4
-#define NULL_PTR -5
-#define MAXSIZE 12288
+  int rc = RESTART_ENV_NOTFOUND; // Default is -1: name not found
 
-  int rc = NOTFOUND; // Default is -1: name not found
-
-  char env_buf[MAXSIZE] = {0}; // All "name=val" strings must be shorter than this.
+  char env_buf[RESTART_ENV_MAXSIZE] = {0}; // All "name=val" strings must be shorter than this.
 
   if (name == NULL || value == NULL) {
     close(env_fd);
-    return NULL_PTR;
+    return RESTART_ENV_NULL_PTR;
   }
 
   char *pos = NULL;
 
-  while (rc == NOTFOUND) {
-   memset(env_buf, 0, MAXSIZE);
+  while (rc == RESTART_ENV_NOTFOUND) {
+   memset(env_buf, 0, RESTART_ENV_MAXSIZE);
    // read a flattened name-value pairs list
-   int count = Util::readLine(env_fd, env_buf, MAXSIZE);
+   int count = Util::readLine(env_fd, env_buf, RESTART_ENV_MAXSIZE);
    if (count == 0) {
      break;
    } else if (count == -1) {
-     rc = INTERNAL_ERROR;
+     rc = RESTART_ENV_INTERNAL_ERROR;
    } else if (count == -2) {
-     rc = DMTCP_BUF_TOO_SMALL;
+     rc = RESTART_ENV_DMTCP_BUF_TOO_SMALL;
    } else {
      char *start_ptr = env_buf;
      // iterate over the flattened list of name-value pairs
@@ -382,11 +368,11 @@ dmtcp_get_restart_env(const char *name,   // IN
          if ((pos = strchr(start_ptr, '='))) {
            strncpy(value, pos + 1, maxvaluelen);
            if (strlen(pos+1) >= maxvaluelen) {
-             rc = TOOLONG; // value does not fit in the user-provided value buffer
+             rc = RESTART_ENV_TOOLONG; // value does not fit in the user-provided value buffer
              break;
            }
          }
-         rc = SUCCESS;
+         rc = RESTART_ENV_SUCCESS;
          break;
        }
        // skip over a name-value pair
@@ -396,7 +382,7 @@ dmtcp_get_restart_env(const char *name,   // IN
   }
 
   close(env_fd);
-  JWARNING (rc != DMTCP_BUF_TOO_SMALL)
+  JWARNING (rc != RESTART_ENV_DMTCP_BUF_TOO_SMALL)
     (name) (sizeof(env_buf)) .Text("Resize env_buf[]");
   return rc;
 }

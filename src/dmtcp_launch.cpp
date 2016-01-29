@@ -112,6 +112,9 @@ static const char* theUsage =
   "              restart host (e.g., DISPLAY=$DISPLAY).\n"
   "              This can be set in a file dmtcp_env.txt.\n"
   "              (default: disabled)\n"
+  "  --pathvirt\n"
+  "              Update file pathnames based on DMTCP_PATH_PREFIX\n"
+  "              (default: disabled)\n"
   "  --ib, --infiniband\n"
   "              Enable InfiniBand plugin. (default: disabled)\n"
   "  --disable-alloc-plugin: (environment variable DMTCP_ALLOC_PLUGIN=[01])\n"
@@ -160,6 +163,7 @@ static bool enableAllocPlugin=true;
 static bool enableDlPlugin=true;
 static bool enableIPCPlugin=true;
 static bool enableSvipcPlugin=true;
+static bool enablePathVirtPlugin=false;
 static bool enableTimerPlugin=true;
 
 #ifdef UNIQUE_CHECKPOINT_FILENAMES
@@ -191,6 +195,7 @@ static struct PluginInfo pluginInfo[] = {               // Default value
   {&enableDlPlugin,         "libdmtcp_dl.so"},          // Enabled
   {&enableIPCPlugin,        "libdmtcp_ipc.so"},         // Enabled
   {&enableSvipcPlugin,      "libdmtcp_svipc.so"},       // Enabled
+  {&enablePathVirtPlugin,   "libdmtcp_pathvirt.so"},    // Enabled
   {&enableTimerPlugin,      "libdmtcp_timer.so"},       // Enabled
   {&enableLibDMTCP,         "libdmtcp.so"},             // Enabled
   // PID plugin must come last.
@@ -292,6 +297,9 @@ static void processArgs(int *orig_argc, char ***orig_argv,
       shift;
     } else if (s == "--modify-env") {
       enableModifyEnvPlugin = true;
+      shift;
+    } else if (s == "--pathvirt") {
+      enablePathVirtPlugin = true;
       shift;
     } else if (s == "--ib" || s == "--infiniband") {
       enableIBPlugin = true;
