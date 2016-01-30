@@ -152,8 +152,7 @@ int main(int argc, char *argv[], char *envp[])
 
   if (isRshProcess) {
     setenv(ENV_VAR_REMOTE_SHELL_CMD, "rsh", 1);
-  }
-  else {
+  } else {
     setenv(ENV_VAR_REMOTE_SHELL_CMD, "ssh", 1);
   }
 
