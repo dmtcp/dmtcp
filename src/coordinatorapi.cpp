@@ -665,18 +665,18 @@ void CoordinatorAPI::sendCkptFilename()
     msg.type = DMT_CKPT_FILENAME;
   }
   // Tell coordinator type of remote shell command used ssh/rsh
-  string shellType("");
+  const char* shellType = "";
   const char *remoteShellType = getenv(ENV_VAR_REMOTE_SHELL_CMD);
   if(remoteShellType != NULL) {
     shellType = remoteShellType;
   }
 
   JTRACE("recording filenames") (ckptFilename) (hostname) (shellType);
-  msg.extraBytes = ckptFilename.length() + 1 + hostname.length() + 1+ shellType.length() + 1;
+  msg.extraBytes = ckptFilename.length() + 1 + hostname.length() + 1+ strlen(shellType) + 1;
  
   _coordinatorSocket << msg;
   _coordinatorSocket.writeAll(ckptFilename.c_str(), ckptFilename.length() + 1);
-  _coordinatorSocket.writeAll(shellType.c_str(), shellType.length() + 1);
+  _coordinatorSocket.writeAll(shellType, strlen(shellType) + 1);
   _coordinatorSocket.writeAll(hostname.c_str(), hostname.length() + 1);
 }
 

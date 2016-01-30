@@ -109,26 +109,22 @@ int main(int argc, char *argv[], char *envp[])
   }
 
   shift;
-  while(true) { 
+  while (true) { 
     if ( argc > 1 && (strcmp(argv[0], "--listenAddr") == 0)) {
       dummySshdProcess(argv[1]);
       shift; shift;
       printf("ERROR: Not Implemented\n");
       assert(0);
-    }
-    else if ( argc > 1 && (strcmp(argv[0],"--host") == 0)) {
+    } else if ( argc > 1 && (strcmp(argv[0],"--host") == 0)) {
       host = argv[1];
       shift; shift;
-    }
-    else if ( argc > 1 && (strcmp(argv[0], "--port") == 0)) {
+    } else if ( argc > 1 && (strcmp(argv[0], "--port") == 0)) {
       port = atoi(argv[1]);
       shift; shift;
-    }
-    else if ( strcmp(argv[0], "--rsh-slave") == 0) {
+    } else if ( strcmp(argv[0], "--rsh-slave") == 0) {
       isRshProcess = 1;
       shift;
-    }
-    else if ( strcmp(argv[0], "--ssh-slave") == 0) {
+    } else if ( strcmp(argv[0], "--ssh-slave") == 0) {
       isRshProcess = 0;
       shift;
     } else {
@@ -155,10 +151,12 @@ int main(int argc, char *argv[], char *envp[])
    * dummy daemon which will launched by the same command. 
    */
 
-  if(isRshProcess)
+  if(isRshProcess) {
     setenv(ENV_VAR_REMOTE_SHELL_CMD, "rsh", 1);
-  else
+  }
+  else {
     setenv(ENV_VAR_REMOTE_SHELL_CMD, "ssh", 1);
+  }
 
   childPid = fork();
   if (childPid == 0) {
