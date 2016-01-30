@@ -185,8 +185,7 @@ static void createNewDmtcpSshdProcess()
 
     if(isRshProcess) {
       shellType = "rsh";
-    }
-    else {
+    } else {
       shellType = "ssh";
     }
 
@@ -334,8 +333,7 @@ static void prepareForExec(char *const argv[], char ***newArgv)
 
   if(isRshProcess) {
     prefix += " --rsh-slave ";
-  }
-  else {
+  } else {
     prefix += " --ssh-slave ";
   }
 
@@ -376,8 +374,7 @@ static void prepareForExec(char *const argv[], char ***newArgv)
   }
   if(isRshProcess) {
     new_argv[idx++] = const_cast<char*>("--rsh-slave");
-  }
-  else {
+  } else {
     new_argv[idx++] = const_cast<char*>("--ssh-slave");
   }
 
@@ -403,8 +400,7 @@ static void prepareForExec(char *const argv[], char ***newArgv)
   }
   if(isRshProcess) { 
     JNOTE("New rsh command") (newCommand);
-  }
-  else {
+  } else {
     JNOTE("New ssh command") (newCommand);
   }
   *newArgv = new_argv;
