@@ -150,10 +150,12 @@ int main(int argc, char *argv[], char *envp[])
    * dummy daemon which will launched by the same command.
    */
 
-  if(isRshProcess)
+  if (isRshProcess) {
     setenv(ENV_VAR_REMOTE_SHELL_CMD, "rsh", 1);
-  else
+  }
+  else {
     setenv(ENV_VAR_REMOTE_SHELL_CMD, "ssh", 1);
+  }
 
   childPid = fork();
   if (childPid == 0) {

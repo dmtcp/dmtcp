@@ -204,10 +204,12 @@ createNewDmtcpSshdProcess()
 
     const char* shellType = NULL;
 
-    if(isRshProcess)
+    if (isRshProcess) {
       shellType = "rsh";
-    else
+    }
+    else {
       shellType = "ssh";
+    }
 
     argv[idx++] = const_cast<char*>(shellType);
 
@@ -296,11 +298,11 @@ prepareForExec(char *const argv[], char ***newArgv)
   while (argv[nargs++] != NULL) {}
 
   if (nargs < 3) {
-    if(!isRshProcess) {
+    if (!isRshProcess) {
     JNOTE("ssh with less than 3 args") (argv[0]) (argv[1]);
     *newArgv = (char **)argv;
     return;
-    } else if(nargs < 2) {
+    } else if (nargs < 2) {
         JNOTE("rsh with less than 2 args") (argv[0]);
         *newArgv = (char**) argv;
         return;
@@ -360,10 +362,12 @@ prepareForExec(char *const argv[], char ***newArgv)
   }
   prefix += dmtcp_sshd_path + " ";
 
-  if(isRshProcess)
+  if (isRshProcess) {
     prefix += " --rsh-slave ";
-  else
+  }
+  else {
     prefix += " --ssh-slave ";
+  }
 
   JTRACE("Prefix")(prefix);
 
@@ -402,10 +406,12 @@ prepareForExec(char *const argv[], char ***newArgv)
   if (noStrictChecking) {
     new_argv[idx++] = const_cast<char *>("--noStrictHostKeyChecking");
   }
-  if(isRshProcess)
+  if (isRshProcess) {
     new_argv[idx++] = const_cast<char*>("--rsh-slave");
-  else
+  }
+  else {
     new_argv[idx++] = const_cast<char*>("--ssh-slave");
+  }
 
   new_argv[idx++] = (char*) dmtcp_nocheckpoint_path.c_str();
 
@@ -428,10 +434,12 @@ prepareForExec(char *const argv[], char ***newArgv)
       newCommand += ' ';
     }
   }
-  if(isRshProcess)
+  if (isRshProcess) {
     JNOTE("New rsh command") (newCommand);
-  else
+  }
+  else {
     JNOTE("New ssh command") (newCommand);
+  }
   *newArgv = new_argv;
 }
 
@@ -513,8 +521,9 @@ execve(const char *filename, char *const argv[], char *const envp[])
     return _real_execve(filename, argv, envp);
   }
 
-  if (jalib::Filesystem::BaseName(filename) == "rsh")
+  if (jalib::Filesystem::BaseName(filename) == "rsh") {
     isRshProcess = 1;
+  }
 
   updateCoordHost();
 
@@ -533,8 +542,9 @@ execvp(const char *filename, char *const argv[])
     return _real_execvp(filename, argv);
   }
 
-  if (jalib::Filesystem::BaseName(filename) == "rsh")
+  if (jalib::Filesystem::BaseName(filename) == "rsh") {
     isRshProcess = 1;
+  }
 
   updateCoordHost();
 
@@ -554,8 +564,9 @@ execvpe(const char *filename, char *const argv[], char *const envp[])
     return _real_execvpe(filename, argv, envp);
   }
 
-  if (jalib::Filesystem::BaseName(filename) == "rsh")
+  if (jalib::Filesystem::BaseName(filename) == "rsh") {
     isRshProcess = 1;
+  }
 
   updateCoordHost();
 

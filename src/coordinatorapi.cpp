@@ -684,7 +684,7 @@ CoordinatorAPI::sendCkptFilename()
   // Tell coordinator type of remote shell command used ssh/rsh
   string shellType = "";
   const char *remoteShellType = getenv(ENV_VAR_REMOTE_SHELL_CMD);
-  if(remoteShellType != NULL) {
+  if (remoteShellType != NULL) {
     shellType = remoteShellType;
   }
   JTRACE("recording filenames") (ckptFilename) (hostname) (shellType);

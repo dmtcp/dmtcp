@@ -154,16 +154,14 @@ main(int argc, char *argv[], char *envp[])
    */
 
   shift;
-  while(true) {
+  while (true) {
     if ( strcmp(argv[0], "--noStrictHostKeyChecking") == 0 ) {
       noStrictHostKeyChecking = 1;
       shift;
-    }
-    else if ( strcmp(argv[0], "--rsh-slave") == 0 ) {
+    } else if ( strcmp(argv[0], "--rsh-slave") == 0 ) {
       isRshProcess = 1;
       shift;
-    }
-    else if ( strcmp(argv[0], "--ssh-slave")== 0 ) {
+    } else if ( strcmp(argv[0], "--ssh-slave")== 0 ) {
       isRshProcess = 0;
       shift;
     } else {

@@ -483,18 +483,18 @@ writeScript(const string &ckptDir,
       }
 
       /*
-       * Process which are launched on local machine without using rsh/ssh
-       * command are part of restartFilenames. So we have to choose default
-       * shell command for them.  Search if some process is launched on local
-       * machine via rsh/ssh command and use that, in case its not found
-       * give preference to ssh if no rsh command is absent.
+       * Process which are launched on local machine without using an rsh/ssh
+       * command are part of restartFilenames. So we have to choose the default
+       * shell command for them.  Search if some process is launched on the
+       * local machine via rsh/ssh command and use that. In case it's not found,
+       * give preference to ssh when no rsh command is found.
        */
 
-      if(sshCmdFileNames.find(host->first) != sshCmdFileNames.end())
+      if(sshCmdFileNames.find(host->first) != sshCmdFileNames.end()) {
         defaultShellType = "ssh";
-      else if(rshCmdFileNames.find(host->first) != rshCmdFileNames.end())
+      } else if(rshCmdFileNames.find(host->first) != rshCmdFileNames.end()) {
         defaultShellType = "rsh";
-      else {
+      } else {
         defaultShellType = rshCmdFileNames.empty() ? "ssh" : "rsh";
       }
       fprintf (fp, " : %s", defaultShellType.c_str());
