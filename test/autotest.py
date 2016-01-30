@@ -797,6 +797,8 @@ runTest("environ",       1, ["./test/environ"])
 
 runTest("forkexec",      2, ["./test/forkexec"])
 
+runTest("exec-repeat",      2, ["./test/exec-repeat"])
+
 # FIXME:  pthread_atfork doesn't compile on some architectures.
 #         If we add a configure test for pthread_atfork, we can
 #           set a Python variable in autotest_config.py.in
