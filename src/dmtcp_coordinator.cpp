@@ -554,13 +554,13 @@ void DmtcpCoordinator::onData(CoordClient *client)
       hostname = extraData + shellType.length() + 1 + ckptFilename.length() + 1;
 
       JTRACE ( "recording restart info with shellType" ) ( ckptFilename ) ( hostname ) (shellType);
-      if(shellType.empty())
+      if(shellType.empty()) {
         _restartFilenames[hostname].push_back ( ckptFilename );
-      else if(shellType == "rsh")
+      } else if(shellType == "rsh") {
         _rshCmdFileNames[hostname].push_back( ckptFilename );
-      else if(shellType == "ssh")
+      } else if(shellType == "ssh") {
         _sshCmdFileNames[hostname].push_back( ckptFilename );
-      else {
+      } else {
         JASSERT(0)(shellType)
           .Text("Shell command not supported. Report this to DMTCP community.");
       }
