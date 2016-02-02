@@ -244,13 +244,13 @@ virtual_to_physical_path(const char *virt_path)
 void
 set_old_path_prefix_list(const char* oldPathPrefix)
 {
-  strncpy(oldPathPrefixList, oldPathPrefix, sizeof(oldPathPrefixList));
+  snprintf(oldPathPrefixList, sizeof(oldPathPrefixList), "%s", oldPathPrefix);
 }
 
 void
 set_new_path_prefix_list(const char* newPathPrefix)
 {
-  strncpy(newPathPrefixList, newPathPrefix, sizeof(newPathPrefixList));
+  snprintf(newPathPrefixList, sizeof(newPathPrefixList), "%s", newPathPrefix);
 }
 
 const char*
@@ -287,40 +287,7 @@ dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     }
     case DMTCP_EVENT_RESTART:
     {
-#if 0
-        /* necessary since we don't know how many bytes dmtcp_get_restart_env
-           will write */
-        memset(newPathPrefixList, 0, sizeof(newPathPrefixList));
-
-        /* Try to get the value of ENV_DPP from new environment variables,
-         * passed in on restart */
-        int ret = dmtcp_get_restart_env(ENV_DPP, newPathPrefixList,
-                                        sizeof(newPathPrefixList) - 1);
-
-        /* ret == -1 is fine; everything else is not */
-        if (ret < -1 /* RESTART_ENV_NOT_FOUND */) {
-            JASSERT(ret != RESTART_ENV_TOOLONG).Text("pathvirt: DMTCP_PATH_PREFIX exceeds "
-                    "maximum size (10kb). Use a shorter environment variable "
-                    "or increase MAX_ENV_VAR_SIZE and recompile.");
-
-            JASSERT(ret != RESTART_ENV_DMTCP_BUF_TOO_SMALL).Text("dmtcpplugin: DMTCP_PATH_PREFIX exceeds "
-                    "dmtcp_get_restart_env()'s MAXSIZE. Use a shorter "
-                    "environment variable or increase MAXSIZE and recompile.");
-
-            /* all other errors */
-            JASSERT(ret >= 0).Text("Fatal error retrieving DMTCP_PATH_PREFIX "
-                    "environment variable.");
-        }
-
-        /* we should only swap if oldPathPrefixList contains something,
-         * meaning DMTCP_PATH_PREFIX was supplied on launch, and
-         * newPathPrefixList contains something, meaning DMTCP_PATH_PREFIX
-         * was supplied on restart. this line will run whether
-         * DMTCP_PATH_PREFIX was given on restart or not (ret == -1), so
-         * virtual_to_physical_path can know whether to try to swap or not
-         */
-        shouldSwap = *oldPathPrefixList && *newPathPrefixList;
-#endif
+        JTRACE("\n*** The plugin %s is being called after restart. ***");
         break;
     }
     case DMTCP_EVENT_WRITE_CKPT:
