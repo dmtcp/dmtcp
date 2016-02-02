@@ -12,12 +12,16 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <assert.h>
+#include <limits.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
 #ifndef STANDALONE
 # include "dmtcp.h"
 #endif
+
+#define DMTCP_ENV_VAR "DMTCP_ENV_FILE"
+#define DMTCP_DEFAULT_ENV_FILE "dmtcp_env.txt"
 
 /* Example of dmtcp_env.txt:  spaces not allowed in VAR=VAL unless in quotes
  * # comment
@@ -48,7 +52,16 @@ void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
   switch (event) {
   case DMTCP_EVENT_RESTART:
   { int size = 12288;
-    char *buf = read_dmtcp_env_file("dmtcp_env.txt", size);
+    int retval;
+    char env_file[PATH_MAX];
+
+    retval = dmtcp_get_restart_env(DMTCP_ENV_VAR, env_file, PATH_MAX);
+    if (retval != 0) {
+        strncpy(env_file, DMTCP_DEFAULT_ENV_FILE, 
+                sizeof DMTCP_DEFAULT_ENV_FILE); 
+    }
+    char *buf = read_dmtcp_env_file(env_file, size);
+
     readAndSetEnv(buf, size);
     break;
   }
