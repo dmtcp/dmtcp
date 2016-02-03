@@ -31,6 +31,7 @@
 #include "dmtcp.h"
 #include "dmtcpplugin.h"
 #include "jassert.h"
+#include "pathvirt.h"
 
 #define ENV_DPP            "DMTCP_PATH_PREFIX"
 #define MAX_ENV_VAR_SIZE   10*1024
@@ -61,6 +62,8 @@ static int shouldSwap;
    characters in length */
 static char oldPathPrefixList[MAX_ENV_VAR_SIZE];
 static char newPathPrefixList[MAX_ENV_VAR_SIZE];
+
+static pthread_rwlock_t  listRwLock;
 
 /*
  * Helper Functions
@@ -214,6 +217,7 @@ virtual_to_physical_path(const char *virt_path)
 
     /* yes, should swap */
 
+    pthread_rwlock_rdlock(&listRwLock);
     /* check if path is in list of registered paths to swap out */
     int index = clfind(oldPathPrefixList, virt_path, &oldPathPtr);
     if (index == -1)
@@ -238,31 +242,41 @@ virtual_to_physical_path(const char *virt_path)
     /* repair the colon list */
     physPathPtr[newElementSz] = ':';
 
+    pthread_rwlock_unlock(&listRwLock);
+
     return physPathString;
 }
 
 void
 set_old_path_prefix_list(const char* oldPathPrefix)
 {
+  pthread_rwlock_wrlock(&listRwLock);
   snprintf(oldPathPrefixList, sizeof(oldPathPrefixList), "%s", oldPathPrefix);
+  pthread_rwlock_unlock(&listRwLock);
 }
 
 void
 set_new_path_prefix_list(const char* newPathPrefix)
 {
+  pthread_rwlock_wrlock(&listRwLock);
   snprintf(newPathPrefixList, sizeof(newPathPrefixList), "%s", newPathPrefix);
+  pthread_rwlock_unlock(&listRwLock);
 }
 
 const char*
 get_old_path_prefix_list()
 {
+  pthread_rwlock_rdlock(&listRwLock);
   return oldPathPrefixList;
+  pthread_rwlock_unlock(&listRwLock);
 }
 
 const char*
 get_new_path_prefix_list()
 {
+  pthread_rwlock_rdlock(&listRwLock);
   return newPathPrefixList;
+  pthread_rwlock_unlock(&listRwLock);
 }
 
 /*
@@ -283,6 +297,7 @@ dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
             /* if so, save it to buffer */
             set_old_path_prefix_list(oldEnv);
         }
+        pthread_rwlock_init(&listRwLock, NULL);
         break;
     }
     case DMTCP_EVENT_RESTART:
