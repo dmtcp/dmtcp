@@ -226,7 +226,7 @@ static const char* singleHostProcessing =
 
 static const char* multiHostProcessing =
   "worker_ckpts_regexp=\\\n"
-  "\'[^:]*::[ \\t\\n]*\\([^ \\t\\n]\\+\\)[ \\t\\n]*:\\([a-z]\\+\\):[ \\t\\n]*\\([^:]\\+\\)\'\n\n"
+  "\'[^:]*::[ \\t\\n]*\\([^ \\t\\n]\\+\\)[ \\t\\n]*:\\([a-z]\\+\\):[ \\t\\n]*\\([^:]\\+\\)[ \\t\\n]*:\\([^:]\\+\\)\'\n\n"
 
   "worker_hosts=$(\\\n"
   "  echo $worker_ckpts | sed -e \'s/\'\"$worker_ckpts_regexp\"\'/\\1 /g\')\n"
@@ -234,6 +234,8 @@ static const char* multiHostProcessing =
   "  echo $worker_ckpts | sed -e \'s/\'\"$worker_ckpts_regexp\"\'/: \\2/g\')\n"
   "ckpt_files_groups=$(\\\n"
   "  echo $worker_ckpts | sed -e \'s/\'\"$worker_ckpts_regexp\"\'/: \\3/g\')\n"
+  "remote_cmd=$(\\\n"
+  "  echo $worker_ckpts | sed -e \'s/\'\"$worker_ckpts_regexp\"\'/: \\4/g\')\n"
   "\n"
   "if [ ! -z \"$hostfile\" ]; then\n"
   "  worker_hosts=$(\\\n"
@@ -257,6 +259,8 @@ static const char* multiHostProcessing =
   "\n"
   "  mode=$(echo $restart_modes | sed -e \'s/[^:]*:[ \\t\\n]*\\([^:]*\\).*/\\1/\')\n"
   "  restart_modes=$(echo $restart_modes | sed -e \'s/[^:]*:[^:]*//\')\n\n"
+  "  remote_shell_cmd=$(echo $remote_cmd | sed -e \'s/[^:]*:[ \\t\\n]*\\([^:]*\\).*/\\1/\')\n"
+  "  remote_cmd=$(echo $remote_cmd | sed -e \'s/[^:]*:[^:]*//\')\n\n"
   "  maybexterm=\n"
   "  maybebg=\n"
   "  case $mode in\n"
@@ -285,18 +289,18 @@ static const char* multiHostProcessing =
 
   "  check_local $worker_host\n"
   "  if [ \"$is_local_node\" -eq 1 -o \"$num_worker_hosts\" == \"1\" ]; then\n"
-  "    localhost_ckpt_files_group=\"$new_ckpt_files_group\"\n"
+  "    localhost_ckpt_files_group=\"$new_ckpt_files_group $localhost_ckpt_files_group\"\n"
   "    continue\n"
   "  fi\n"
 
   "  if [ -z $maybebg ]; then\n"
-  "    $maybexterm /usr/bin/ssh -t \"$worker_host\" \\\n"
+  "    $maybexterm /usr/bin/$remote_shell_cmd -t \"$worker_host\" \\\n"
   "      $dmt_rstr_cmd --coord-host \"$coord_host\""
                                              " --cord-port \"$coord_port\"\\\n"
   "      $ckpt_dir --join --interval \"$checkpoint_interval\" $tmpdir \\\n"
   "      $new_ckpt_files_group\n"
   "  else\n"
-  "    $maybexterm /usr/bin/ssh \"$worker_host\" \\\n"
+  "    $maybexterm /usr/bin/$remote_shell_cmd \"$worker_host\" \\\n"
   // In Open MPI 1.4, without this (sh -c ...), orterun hangs at the
   // end of the computation until user presses enter key.
   "      \"/bin/sh -c \'$dmt_rstr_cmd --coord-host $coord_host"
@@ -321,7 +325,9 @@ void writeScript(const string& ckptDir,
                  const uint32_t theCheckpointInterval,
                  const int thePort,
                  const UniquePid& compId,
-                 const map<string, vector<string> >& restartFilenames)
+                 const map<string, vector<string> >& restartFilenames,
+                 const map<string, vector<string> >& rshCmdFileNames,
+                 const map<string, vector<string> >& sshCmdFileNames)
 {
   ostringstream o;
   string uniqueFilename;
@@ -334,16 +340,27 @@ void writeScript(const string& ckptDir,
   o << "." << RESTART_SCRIPT_EXT;
   uniqueFilename = o.str();
 
-  const bool isSingleHost = (restartFilenames.size() == 1);
+  const bool isSingleHost = ((rshCmdFileNames.size() == 0) && (sshCmdFileNames.size() == 0) && (restartFilenames.size() == 1));
 
   map< string, vector<string> >::const_iterator host;
 
-  size_t numPeers;
+  size_t numPeers = 0;
   for (host = restartFilenames.begin();
        host != restartFilenames.end();
        host++) {
     numPeers += host->second.size();
   }
+  for (host = rshCmdFileNames.begin();
+       host != rshCmdFileNames.end();
+       host++) {
+    numPeers += host->second.size();
+  }
+  for (host = sshCmdFileNames.begin();
+       host != sshCmdFileNames.end();
+       host++) {
+    numPeers += host->second.size();
+  }
+
 
   vector<string>::const_iterator file;
 
@@ -366,6 +383,8 @@ void writeScript(const string& ckptDir,
   // Remove the trailing '\n'
   timestamp[strlen(timestamp) - 1] = '\0';
   fprintf ( fp, "ckpt_timestamp=\"%s\"\n\n", timestamp );
+
+  fprintf ( fp, "remote_shell_cmd=\"ssh\"\n\n");
 
   fprintf ( fp, "coord_host=$" ENV_VAR_NAME_HOST "\n"
                 "if test -z \"$" ENV_VAR_NAME_HOST "\"; then\n"
@@ -391,7 +410,8 @@ void writeScript(const string& ckptDir,
 
   fprintf ( fp, "# Number of hosts in the computation = %zu\n"
                 "# Number of processes in the computation = %zu\n\n",
-                restartFilenames.size(), numPeers );
+                (restartFilenames.size() + sshCmdFileNames.size() + rshCmdFileNames.size()), 
+                numPeers );
 
   if ( isSingleHost ) {
     JTRACE ( "Single HOST" );
@@ -409,17 +429,49 @@ void writeScript(const string& ckptDir,
   {
     fprintf ( fp, "%s",
               "# SYNTAX:\n"
-              "#  :: <HOST> :<MODE>: <CHECKPOINT_IMAGE> ...\n"
+              "#  :: <HOST> :<MODE>: <CHECKPOINT_IMAGE> ... :<REMOTE SHELL CMD>\n"
               "# Host names and filenames must not include \':\'\n"
               "# At most one fg (foreground) mode allowed; it must be last.\n"
               "# \'maybexterm\' and \'maybebg\' are set from <MODE>.\n");
 
     fprintf ( fp, "%s", "worker_ckpts=\'" );
+    for ( host=rshCmdFileNames.begin(); host!=rshCmdFileNames.end(); ++host ) {
+      fprintf ( fp, "\n :: %s :bg:", host->first.c_str() );
+      for ( file=host->second.begin(); file!=host->second.end(); ++file ) {
+        fprintf ( fp," %s", file->c_str() );
+      }
+      fprintf (fp, " : rsh");
+    }
+    for ( host=sshCmdFileNames.begin(); host!=sshCmdFileNames.end(); ++host ) {
+      fprintf ( fp, "\n :: %s :bg:", host->first.c_str() );
+      for ( file=host->second.begin(); file!=host->second.end(); ++file ) {
+        fprintf ( fp," %s", file->c_str() );
+      }
+      fprintf (fp, " : ssh");
+    }
+    string defaultShellType;
     for ( host=restartFilenames.begin(); host!=restartFilenames.end(); ++host ) {
       fprintf ( fp, "\n :: %s :bg:", host->first.c_str() );
       for ( file=host->second.begin(); file!=host->second.end(); ++file ) {
         fprintf ( fp," %s", file->c_str() );
       }
+
+      /* 
+       * Process which are launched on local machine without using an rsh/ssh
+       * command are part of restartFilenames. So we have to choose the default
+       * shell command for them.  Search if some process is launched on the local
+       * machine via rsh/ssh command and use that. In case it's not found, give
+       * preference to ssh when no rsh command is found.
+       */
+
+      if(sshCmdFileNames.find(host->first) != sshCmdFileNames.end()) {
+        defaultShellType = "ssh";
+      } else if(rshCmdFileNames.find(host->first) != rshCmdFileNames.end()) {
+        defaultShellType = "rsh";
+      } else {
+        defaultShellType = rshCmdFileNames.empty() ? "ssh" : "rsh";
+      }
+      fprintf (fp, " : %s", defaultShellType.c_str());
     }
     fprintf ( fp, "%s", "\n\'\n\n" );
 
