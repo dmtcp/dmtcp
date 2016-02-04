@@ -34,6 +34,8 @@
 #include "pathvirt.h"
 
 #define ENV_DPP            "DMTCP_PATH_PREFIX"
+#define ENV_OLD_DPP        "DMTCP_OLD_PATH_PREFIX"
+#define ENV_NEW_DPP        "DMTCP_NEW_PATH_PREFIX"
 #define MAX_ENV_VAR_SIZE   10*1024
 
 #define VIRTUAL_TO_PHYSICAL_PATH(virt) virtual_to_physical_path(virt)
@@ -151,18 +153,9 @@ clgetsize(const char *colonList, const char *element)
     return colon ? colon - element : strlen(element);
 }
 
-void
-pathvirtInitialize()
+static void
+errCheckGetRestartEnv(int ret)
 {
-    /* necessary since we don't know how many bytes dmtcp_get_restart_env
-       will write */
-    memset(newPathPrefixList, 0, sizeof(newPathPrefixList));
-
-    /* Try to get the value of ENV_DPP from new environment variables,
-     * passed in on restart */
-    int ret = dmtcp_get_restart_env(ENV_DPP, newPathPrefixList,
-                                    sizeof(newPathPrefixList) - 1);
-
     /* ret == -1 is fine; everything else is not */
     if (ret < -1 /* RESTART_ENV_NOT_FOUND */) {
         JASSERT(ret != RESTART_ENV_TOOLONG).Text("pathvirt: DMTCP_PATH_PREFIX exceeds "
@@ -176,6 +169,38 @@ pathvirtInitialize()
         /* all other errors */
         JASSERT(ret >= 0).Text("Fatal error retrieving DMTCP_PATH_PREFIX "
                 "environment variable.");
+    }
+}
+
+void
+pathvirtInitialize()
+{
+    /* necessary since we don't know how many bytes dmtcp_get_restart_env
+       will write */
+    memset(newPathPrefixList, 0, sizeof(newPathPrefixList));
+    char tmpOldPathPrefixList[MAX_ENV_VAR_SIZE] = {0};
+    char tmpNewPathPrefixList[MAX_ENV_VAR_SIZE] = {0};
+
+    /* Try to get the value of ENV_DPP from new environment variables,
+     * passed in on restart */
+    int ret = dmtcp_get_restart_env(ENV_DPP, newPathPrefixList,
+                                    sizeof(newPathPrefixList) - 1);
+    errCheckGetRestartEnv(ret);
+
+    ret = dmtcp_get_restart_env(ENV_NEW_DPP, tmpNewPathPrefixList,
+                                sizeof(tmpNewPathPrefixList) - 1);
+    errCheckGetRestartEnv(ret);
+    if (ret == RESTART_ENV_SUCCESS) {
+        memset(newPathPrefixList, 0, sizeof(newPathPrefixList));
+        set_new_path_prefix_list(tmpNewPathPrefixList);
+    }
+
+    ret = dmtcp_get_restart_env(ENV_OLD_DPP, tmpOldPathPrefixList,
+                                sizeof(tmpOldPathPrefixList) - 1);
+    errCheckGetRestartEnv(ret);
+    if (ret == RESTART_ENV_SUCCESS) {
+        memset(oldPathPrefixList, 0, sizeof(oldPathPrefixList));
+        set_old_path_prefix_list(tmpOldPathPrefixList);
     }
 
     /* we should only swap if oldPathPrefixList contains something,
