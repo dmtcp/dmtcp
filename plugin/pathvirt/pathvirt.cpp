@@ -33,8 +33,7 @@
 #include "jassert.h"
 #include "pathvirt.h"
 
-#define ENV_DPP            "DMTCP_PATH_PREFIX"
-#define ENV_OLD_DPP        "DMTCP_OLD_PATH_PREFIX"
+#define ENV_ORIG_DPP       "DMTCP_ORIGINAL_PATH_PREFIX"
 #define ENV_NEW_DPP        "DMTCP_NEW_PATH_PREFIX"
 #define MAX_ENV_VAR_SIZE   10*1024
 
@@ -63,8 +62,10 @@ static int shouldSwap;
 /* NOTE: DMTCP_PATH_PREFIX env variables cannot exceed MAX_ENV_VAR_SIZE
    characters in length */
 static char oldPathPrefixList[MAX_ENV_VAR_SIZE];
+static char tmpOldPathPrefixList[MAX_ENV_VAR_SIZE];
 static char newPathPrefixList[MAX_ENV_VAR_SIZE];
 
+static bool tmpBufferModified = false;
 static pthread_rwlock_t  listRwLock;
 
 /*
@@ -172,35 +173,41 @@ errCheckGetRestartEnv(int ret)
     }
 }
 
+/* This function gets called on every restart. Since no user threads are
+ * active at that point, it's safe to access the shared data without
+ * locks.
+ */
 void
 pathvirtInitialize()
 {
+    char tmp[MAX_ENV_VAR_SIZE] = {0};
+
     /* necessary since we don't know how many bytes dmtcp_get_restart_env
        will write */
     memset(newPathPrefixList, 0, sizeof(newPathPrefixList));
-    char tmpOldPathPrefixList[MAX_ENV_VAR_SIZE] = {0};
-    char tmpNewPathPrefixList[MAX_ENV_VAR_SIZE] = {0};
-
     /* Try to get the value of ENV_DPP from new environment variables,
      * passed in on restart */
-    int ret = dmtcp_get_restart_env(ENV_DPP, newPathPrefixList,
+    int ret = dmtcp_get_restart_env(ENV_NEW_DPP, newPathPrefixList,
                                     sizeof(newPathPrefixList) - 1);
     errCheckGetRestartEnv(ret);
 
-    ret = dmtcp_get_restart_env(ENV_NEW_DPP, tmpNewPathPrefixList,
-                                sizeof(tmpNewPathPrefixList) - 1);
-    errCheckGetRestartEnv(ret);
-    if (ret == RESTART_ENV_SUCCESS) {
-        memset(newPathPrefixList, 0, sizeof(newPathPrefixList));
-        set_new_path_prefix_list(tmpNewPathPrefixList);
+    /* If the user had modified the original buffer prior to checkpointing,
+     * we use it now.
+     */
+    if (tmpBufferModified) {
+        snprintf(oldPathPrefixList, sizeof(oldPathPrefixList), "%s", tmpOldPathPrefixList);
+        tmpBufferModified = false;
+        memset(tmpOldPathPrefixList, 0, sizeof(tmpOldPathPrefixList));
     }
 
-    ret = dmtcp_get_restart_env(ENV_OLD_DPP, tmpOldPathPrefixList,
-                                sizeof(tmpOldPathPrefixList) - 1);
+    /* If the user specified the DMTCP_ORIGINAL_PATH_PREFIX on restart,
+     * this will overrided previous calls to set the original buffer.
+     */
+    ret = dmtcp_get_restart_env(ENV_ORIG_DPP, tmp, sizeof(tmp) - 1);
     errCheckGetRestartEnv(ret);
     if (ret == RESTART_ENV_SUCCESS) {
         memset(oldPathPrefixList, 0, sizeof(oldPathPrefixList));
-        set_old_path_prefix_list(tmpOldPathPrefixList);
+        snprintf(oldPathPrefixList, sizeof(oldPathPrefixList), "%s", tmp);
     }
 
     /* we should only swap if oldPathPrefixList contains something,
@@ -272,31 +279,24 @@ virtual_to_physical_path(const char *virt_path)
     return physPathString;
 }
 
-void
-set_old_path_prefix_list(const char* oldPathPrefix)
+EXTERNC void
+set_original_path_prefix_list(const char* oldPathPrefix)
 {
   pthread_rwlock_wrlock(&listRwLock);
-  snprintf(oldPathPrefixList, sizeof(oldPathPrefixList), "%s", oldPathPrefix);
+  snprintf(tmpOldPathPrefixList, sizeof(tmpOldPathPrefixList), "%s", oldPathPrefix);
+  tmpBufferModified = true;
   pthread_rwlock_unlock(&listRwLock);
 }
 
-void
-set_new_path_prefix_list(const char* newPathPrefix)
-{
-  pthread_rwlock_wrlock(&listRwLock);
-  snprintf(newPathPrefixList, sizeof(newPathPrefixList), "%s", newPathPrefix);
-  pthread_rwlock_unlock(&listRwLock);
-}
-
-const char*
-get_old_path_prefix_list()
+EXTERNC const char*
+get_original_path_prefix_list()
 {
   pthread_rwlock_rdlock(&listRwLock);
   return oldPathPrefixList;
   pthread_rwlock_unlock(&listRwLock);
 }
 
-const char*
+EXTERNC const char*
 get_new_path_prefix_list()
 {
   pthread_rwlock_rdlock(&listRwLock);
@@ -317,10 +317,10 @@ dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     {
         /* On init, check if they've specified paths to virtualize via
            DMTCP_PATH_PREFIX env */
-        char *oldEnv = getenv(ENV_DPP);
+        char *oldEnv = getenv(ENV_ORIG_DPP);
         if (oldEnv) {
             /* if so, save it to buffer */
-            set_old_path_prefix_list(oldEnv);
+            snprintf(oldPathPrefixList, sizeof(oldPathPrefixList), "%s", oldEnv);
         }
         pthread_rwlock_init(&listRwLock, NULL);
         break;
