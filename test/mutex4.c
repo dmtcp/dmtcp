@@ -6,20 +6,17 @@
 #include <pthread.h>
 #include "dmtcp.h"
 
-// This code uses dmtcp_mutex_trylock() and dmtcp_mutex_unlock().
-// We could alternatively have used pthread_mutex_locak/unlock,
-//   but in this case, it will simply hang on restart, and our
-//   current autotest can't check for processes that live, but hang.
-// NOTE:  This test specializes in testing an error-checking mutex,
-//   since na error-checking must check the owner when unlocking.
-//   (In contrsst, a recursive mutex will check the owner when locking.)
-//   This version runs with two threads instead of just one thread.
+// This code uses the attribute PTHREAD_MUTEX_ERRORCHECK.
+// An error-checking mutex must check the owner when unlocking.
+// (In contrsst, a recursive mutex will check the owner when locking.)
+// This version runs with two threads instead of just one thread.
 
 pthread_mutex_t mutex;
 void *mutex_loop(void *arg);
 
 int main() {
   pthread_mutexattr_t attr;
+  pthread_mutexattr_init(&attr);
   pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_ERRORCHECK);
   pthread_mutex_init(&mutex, &attr);
 

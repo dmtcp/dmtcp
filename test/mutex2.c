@@ -19,6 +19,7 @@ int main() {
 
   pthread_mutex_t mutex;
   pthread_mutexattr_t attr;
+  pthread_mutexattr_init(&attr);
   pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
   pthread_mutex_init(&mutex, &attr);
 
@@ -27,7 +28,7 @@ int main() {
     int rc;
     rc = pthread_mutex_timedlock(&mutex, &zerotime);
     if (rc != 0) {
-      printf("pthread_mutex_trylock: %s\n\n",
+      printf("pthread_mutex_timedlock: %s\n\n",
              strerror(rc));
       exit(1);
     }
@@ -39,7 +40,7 @@ int main() {
     // zerotime means either succeed in locking or fail immediately.
     rc = pthread_mutex_timedlock(&mutex, &zerotime);
     if (rc != 0) {
-      printf("pthread_mutex_trylock (recursive): %s\n\n",
+      printf("pthread_mutex_timedlock (recursive): %s\n\n",
              strerror(rc));
       exit(1);
     }
