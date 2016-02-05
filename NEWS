@@ -2,6 +2,10 @@ DMTCP NEWS -- history of user-visible changes.
 
 Please send DMTCP bug reports via <dmtcp-forum@lists.sourceforge.net>
 
+Version 2.5.0 release notes
+===========================
+TODO:
+
 Version 2.4.4 release notes
 ===========================
 DMTCP now supports InfiniBand UD (in addition to the more common InfiniBand
