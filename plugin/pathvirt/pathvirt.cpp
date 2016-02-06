@@ -116,9 +116,9 @@ clfind(const char *colonList,  // IN
  *         and NULL if not found
  */
 static char*
-clget(const char *colonList, unsigned int i)
+clget(const char *colonList, unsigned i)
 {
-    int curr_ind = 0;
+    unsigned curr_ind = 0;
     char *element = const_cast<char *>(colonList);
     char *colon = NULL;
 
