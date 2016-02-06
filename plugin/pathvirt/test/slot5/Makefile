@@ -48,7 +48,7 @@ restart2:
 	./dmtcp_restart_script.sh
 
 clean:
-	rm -rf pv-test file-test* ckpt* dmtcp*
+	rm -rf pv-test file-test file-test2 ckpt* dmtcp*
 	rm -f /tmp/msg $(PATHVIRT)/msg
 	> ../misc/slot7/bin7/pv-test.txt
 	> ../misc/slot7/doc7/pv-test.txt
