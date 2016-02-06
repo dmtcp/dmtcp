@@ -1,0 +1,3 @@
+#!/bin/sh
+
+curl https://patch-diff.githubusercontent.com/raw/dmtcp/dmtcp/pull/${1}.patch | git am

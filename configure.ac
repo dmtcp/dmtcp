@@ -382,53 +382,8 @@ fi
 AC_MSG_RESULT([$has_pr_set_ptracer])
 
 dnl CMA brought in with  Linux 3.2.0 and glibc 2.15
-AC_MSG_CHECKING([if process_vm_readv/process_vm_writev available])
-AC_TRY_RUN([
-            #include <stdio.h>
-            #include <unistd.h>
-            #include <sys/types.h>
-            #include <signal.h>
-            #include <sys/uio.h>
-            int main(void)
-            {
-              struct iovec local[2];
-              struct iovec remote[1];
-              volatile char buf1[10];
-              volatile char buf2[10];
-              ssize_t nread;
-            
-              volatile char childbuf[10] = "abc";
-              buf1[0] = 'a';
-            
-              pid_t childpid = fork();
-              if (childpid == 0) { /* if child */
-                childbuf[0] = 'x';
-                sleep(100);
-                return 0;
-              }
-            
-              /* parent continues here */
-              local[0].iov_base = (char *)buf1; // discard volatile
-              local[0].iov_len = 10;
-              local[1].iov_base = (char *)buf2; // discard volatile
-              local[1].iov_len = 10;
-              remote[0].iov_base = (void *) childbuf;
-              remote[0].iov_len = 20;
-            
-              while (buf1[0] != 'x') {
-                nread = process_vm_readv(childpid, local, 2, remote, 1, 0);
-                if (nread == -1) {
-                  perror("process_vm_readv");
-                  return 1;
-                }
-              }
-              if ( kill(childpid, SIGQUIT) == -1)
-                return 2;
-              return 0;
-            }
-           ], [has_cma='yes'], [has_cma='no'])
-# FIXME: MVAPICH started using process_vm_readv/writev when CMA became
-#   available in the Linux kernel.  But the name has_cma is probably a bad one.
+AC_MSG_CHECKING([if process_vm_readv/process_vm_writev (CMA) available])
+AC_CHECK_FUNC(process_vm_readv, [has_cma='yes'], [has_cma='no'])
 if test "$has_cma" == "yes"; then
   AC_DEFINE([HAS_CMA],[1],[Define to 1 if you have process_vm_readv and process_vm_writev.])
   AC_SUBST([HAS_CMA], [yes])

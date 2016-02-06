@@ -1952,6 +1952,73 @@ $as_echo "$ac_res" >&6; }
   eval $as_lineno_stack; ${as_lineno_stack:+:} unset as_lineno
 
 } # ac_fn_c_check_header_compile
+
+# ac_fn_c_check_func LINENO FUNC VAR
+# ----------------------------------
+# Tests whether FUNC exists, setting the cache variable VAR accordingly
+ac_fn_c_check_func ()
+{
+  as_lineno=${as_lineno-"$1"} as_lineno_stack=as_lineno_stack=$as_lineno_stack
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for $2" >&5
+$as_echo_n "checking for $2... " >&6; }
+if eval \${$3+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+/* Define $2 to an innocuous variant, in case <limits.h> declares $2.
+   For example, HP-UX 11i <limits.h> declares gettimeofday.  */
+#define $2 innocuous_$2
+
+/* System header to define __stub macros and hopefully few prototypes,
+    which can conflict with char $2 (); below.
+    Prefer <limits.h> to <assert.h> if __STDC__ is defined, since
+    <limits.h> exists even on freestanding compilers.  */
+
+#ifdef __STDC__
+# include <limits.h>
+#else
+# include <assert.h>
+#endif
+
+#undef $2
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char $2 ();
+/* The GNU C library defines this for functions which it implements
+    to always fail with ENOSYS.  Some functions are actually named
+    something starting with __ and the normal name is an alias.  */
+#if defined __stub_$2 || defined __stub___$2
+choke me
+#endif
+
+int
+main ()
+{
+return $2 ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  eval "$3=yes"
+else
+  eval "$3=no"
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+fi
+eval ac_res=\$$3
+	       { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_res" >&5
+$as_echo "$ac_res" >&6; }
+  eval $as_lineno_stack; ${as_lineno_stack:+:} unset as_lineno
+
+} # ac_fn_c_check_func
 cat >config.log <<_ACEOF
 This file contains any messages produced by compilers while
 running configure, to aid debugging if configure makes a mistake.
@@ -5701,72 +5768,15 @@ fi
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $has_pr_set_ptracer" >&5
 $as_echo "$has_pr_set_ptracer" >&6; }
 
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking if process_vm_readv/process_vm_writev available" >&5
-$as_echo_n "checking if process_vm_readv/process_vm_writev available... " >&6; }
-if test "$cross_compiling" = yes; then :
-  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
-$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "cannot run test program while cross compiling
-See \`config.log' for more details" "$LINENO" 5; }
-else
-  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-            #include <stdio.h>
-            #include <unistd.h>
-            #include <sys/types.h>
-            #include <signal.h>
-            #include <sys/uio.h>
-            int main(void)
-            {
-              struct iovec local[2];
-              struct iovec remote[1];
-              volatile char buf1[10];
-              volatile char buf2[10];
-              ssize_t nread;
-
-              volatile char childbuf[10] = "abc";
-              buf1[0] = 'a';
-
-              pid_t childpid = fork();
-              if (childpid == 0) { /* if child */
-                childbuf[0] = 'x';
-                sleep(100);
-                return 0;
-              }
-
-              /* parent continues here */
-              local[0].iov_base = (char *)buf1; // discard volatile
-              local[0].iov_len = 10;
-              local[1].iov_base = (char *)buf2; // discard volatile
-              local[1].iov_len = 10;
-              remote[0].iov_base = (void *) childbuf;
-              remote[0].iov_len = 20;
-
-              while (buf1[0] != 'x') {
-                nread = process_vm_readv(childpid, local, 2, remote, 1, 0);
-                if (nread == -1) {
-                  perror("process_vm_readv");
-                  return 1;
-                }
-              }
-              if ( kill(childpid, SIGQUIT) == -1)
-                return 2;
-              return 0;
-            }
-
-_ACEOF
-if ac_fn_c_try_run "$LINENO"; then :
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking if process_vm_readv/process_vm_writev (CMA) available" >&5
+$as_echo_n "checking if process_vm_readv/process_vm_writev (CMA) available... " >&6; }
+ac_fn_c_check_func "$LINENO" "process_vm_readv" "ac_cv_func_process_vm_readv"
+if test "x$ac_cv_func_process_vm_readv" = xyes; then :
   has_cma='yes'
 else
   has_cma='no'
 fi
-rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext \
-  conftest.$ac_objext conftest.beam conftest.$ac_ext
-fi
 
-# FIXME: MVAPICH started using process_vm_readv/writev when CMA became
-#   available in the Linux kernel.  But the name has_cma is probably a bad one.
 if test "$has_cma" == "yes"; then
 
 $as_echo "#define HAS_CMA 1" >>confdefs.h
