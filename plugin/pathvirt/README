@@ -1,0 +1,95 @@
+# pathvirt (Path Virtualization DMTCP Plugin)
+
+pathvirt is a DMTCP plugin that virtualizes access to file system paths for
+programs run under DMTCP. This allows path access to be transparently
+redirected elsewhere on the file system on DMTCP restart.
+
+## Usage
+
+pathvirt operates on the basis of path prefixes and is interfaced with using
+the DMTCP_PATH_PREFIX environment variable.
+
+On DMTCP init, set DMTCP_ORIGINAL_PATH_PREFIX to a colon delimited list of path
+prefixes to register them with pathvirt. This is required, but does not
+actually change anything about the execution of the program until the first
+restart. For example:
+
+    $ DMTCP_ORIGINAL_PATH_PREFIX=/home/user1/bin1:/home/user1/lib1:/home/user1/doc1 \
+        dmtcp_launch -i4 --with-plugin $DMTCP_ROOT/lib/dmtcp/libdmtcp_pathvirt.so \
+        ./my-program
+
+Then, on any DMTCP restart, you can optionally set DMTCP_NEW_PATH_PREFIX to a
+second colon delimited list of path prefixes. For example:
+
+    $ DMTCP_PATH_PREFIX=/home/user2/bin2:/home/user2/lib2:/home/user2/doc2 \
+        ./dmtcp_restart_script.sh
+
+If you *do not* provide DMTCP_NEW_PATH_PREFIX on restart, pathvirt does nothing,
+and the program is restarted from the last checkpoint as normal.
+
+If you *do* provide it, pathvirt becomes active and starts performing path
+translation.  At this point, prefixes in this second list will dynamically
+replace corresponding prefixes in the first list when a program uses a path
+that is prefixed with an entry in the first colon list in a call to libc. For
+example:
+
+    open("/home/user1/bin1/ls") => open("/home/user2/bin2/ls")
+    open("/home/user1/lib1/libc.so.6") => open("/home/user2/lib2/libc.so.6")
+    open("/home/user1/doc1/proj/README") => open("/home/user2/doc2/proj/README")
+    open("/not/registered/prefix.txt") => open("/not/registered/prefix.txt")
+
+### Usage Rules
+
+1.  Environment variables:
+     - DMTCP_ORIGINAL_PATH_PREFIX: recognized at time of launch or restart (to override)
+     - DMTCP_NEW_PATH_PREFIX: recognized at time of restart only
+
+2.  Programmatic API:
+     - dmtcp_set_original_path_prefix_list()
+     - dmtcp_get_original_path_prefix_list()
+     - dmtcp_get_new_path_prefix_list()
+    NOTE: There is no dmtcp_set_new_path_prefix()
+
+3.  dmtcp_set_original_path_prefix() can be called at any time
+    (at checkpoint time, within a user's plugin wrapper function, etc.).
+
+    However, this will have no effect until the next restart.
+    The user must then set the environment variable DMTCP_NEW_PATH_PREFIX
+    prior to restart.
+
+4.  On restart, if the original path and new path are of different lengths,
+    this is a user error, and DMTCP will report the current old and new path,
+    and exit.
+    (The DMTCP_NEW_PATH_PREFIX can be set prior to restart to guarantee that
+    the path lists are of the same length.)
+
+## Constraints
+
+- The maximum size permitted for the DMTCP_PATH_PREFIX environment variable is
+  10*1024 bytes at time of writing. This configuration can be increased by
+  editing `plugin/pathvirt/pathvirt.cpp:MAX_ENV_VAR_SIZE` and recompiling.
+- DMTCP_PATH_PREFIX is also constrained by a DMTCP environment variable
+  limit of 12*1024 bytes at time of writing. This configuration can be
+  increased by editing `src/dmtcpplugin.cpp:MAXSIZE` and recompiling.
+
+## Development
+
+### Testing
+
+To run a basic test, cd into plugin/pathvirt/test/slot5.
+
+    make check
+    *** wait for a checkpoint, then ctrl-c ***
+    make restart
+    *** wait for a checkpoint, then ctrl-c ***
+    make test
+
+You should observe that on launch, the slot5/***5/pv-test.txt files were being
+written to, but after restart the ../misc/slot7/***7/pv-test.txt files were
+being written to.
+
+---
+
+Authors:
+Mark Mossberg <mark.mossberg@gmail.com>
+Rohan Garg <rohgarg@ccs.neu.edu>
