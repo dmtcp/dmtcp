@@ -23,6 +23,7 @@
 #include <signal.h>
 #include <time.h>
 
+#include "config.h"
 #include "dmtcp.h"
 #include "jassert.h"
 
@@ -161,11 +162,38 @@ start_stop_timer(timer_t timerid, long interval, bool start)
 #endif
 }
 
-extern "C" void
-dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
+static timer_t timerid = 0;
+static int doneInitialization = 0;
+
+static void pre_ckpt()
 {
-  static timer_t timerid = 0;
-  static int doneInitialization = 0;
+  sigset_t mask;
+  JTRACE("*** The plugin is being called before checkpointing. ***");
+  /* Unblock the timer signal, and then start the timer */
+  if (sigprocmask(SIG_UNBLOCK, &mask, NULL) == -1)
+    handleError ("sigprocmask");
+  start_stop_timer(timerid, g_interval, START_TIMER);
+}
+
+static void resume()
+{
+  JTRACE("The process is now resuming after checkpoint.");
+  /* Need to stop the timer on resume/restart. */
+  start_stop_timer(timerid, g_interval, STOP_TIMER);
+  JTRACE("*** Cancelled the ckpt timer! ***");
+}
+
+static void restart()
+{
+  JTRACE("The plugin is now being restarting from a checkpoint.");
+  /* Need to stop the timer on resume/restart. */
+  start_stop_timer(timerid, g_interval, STOP_TIMER);
+  JTRACE("*** Cancelled the ckpt timer! ***");
+}
+
+
+static void ckpttimer_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
+{
   sigset_t mask;
 
   switch (event) {
@@ -184,29 +212,26 @@ dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
         JTRACE("The plugin has been initialized.");
         break;
       }
-    case DMTCP_EVENT_WRITE_CKPT:
-      {
-        JTRACE("*** The plugin is being called before checkpointing. ***");
-        /* Unblock the timer signal, and then start the timer */
-        if (sigprocmask(SIG_UNBLOCK, &mask, NULL) == -1)
-          handleError ("sigprocmask");
-        start_stop_timer(timerid, g_interval, START_TIMER);
-        break;
-      }
-    case DMTCP_EVENT_THREADS_RESUME:
-      {
-        if (data->resumeInfo.isRestart) {
-          JTRACE("The plugin is now restarting from checkpointing.");
-        } else {
-          JTRACE("The process is now resuming after checkpoint.");
-        }
-        /* Need to stop the timer on resume/restart. */
-        start_stop_timer(timerid, g_interval, STOP_TIMER);
-        JTRACE("*** Cancelled the ckpt timer! ***");
-        break;
-      }
     default:
       break;
   }
-  DMTCP_NEXT_EVENT_HOOK(event, data);
 }
+
+static DmtcpBarrier ckpttimerBarriers[] = {
+  {DMTCP_GLOBAL_BARRIER_PRE_CKPT, pre_ckpt, "checkpoint"},
+  {DMTCP_GLOBAL_BARRIER_RESUME, resume, "resume"},
+  {DMTCP_GLOBAL_BARRIER_RESTART, restart, "restart"}
+};
+
+DmtcpPluginDescriptor_t ckpttimer_plugin = {
+  DMTCP_PLUGIN_API_VERSION,
+  PACKAGE_VERSION,
+  "ckpttimer",
+  "DMTCP",
+  "dmtcp@ccs.neu.edu",
+  "Ckpttimer plugin",
+  DMTCP_DECL_BARRIERS(ckpttimerBarriers),
+  ckpttimer_event_hook
+};
+
+DMTCP_DECL_PLUGIN(ckpttimer_plugin);

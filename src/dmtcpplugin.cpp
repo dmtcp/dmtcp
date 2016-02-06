@@ -27,7 +27,6 @@
 #include "processinfo.h"
 #include "shareddata.h"
 #include "threadsync.h"
-#include "mtcpinterface.h"
 #include "util.h"
 
 #undef dmtcp_is_enabled
@@ -509,7 +508,7 @@ EXTERNC int dmtcp_no_coordinator(void)
   return CoordinatorAPI::noCoordinator();
 }
 
-void dmtcp::increment_counters(int isRestart)
+void increment_counters(int isRestart)
 {
   if (isRestart) {
     numRestarts++;

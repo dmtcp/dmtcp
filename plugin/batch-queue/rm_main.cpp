@@ -33,36 +33,57 @@
 
 using namespace dmtcp;
 
-extern "C" int dmtcp_batch_queue_enabled(void) { return 1; }
+EXTERNC int dmtcp_batch_queue_enabled(void) { return 1; }
 
-void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t* data)
+static void pre_ckpt()
 {
-  JTRACE("Start");
-
-  switch (event) {
-  case DMTCP_EVENT_THREADS_SUSPEND:
-    JTRACE("DMTCP_EVENT_THREADS_SUSPEND");
-    runUnderRMgr();
-    rm_shutdown_pmi();
-    break;
-  case DMTCP_EVENT_THREADS_RESUME:
-    JTRACE("DMTCP_EVENT_THREADS_RESUME");
-    rm_restore_pmi();
-    slurmRestoreHelper(data->refillInfo.isRestart);
-    break;
-  case DMTCP_EVENT_RESTART:
-    JTRACE("DMTCP_EVENT_RESTART")(_get_rmgr_type());
-    if ( _get_rmgr_type() == slurm ){
-      JTRACE("Call restore_env()");
-      slurm_restore_env();
-    }
-    break;
-  default:
-    break;
-  }
-
-  DMTCP_NEXT_EVENT_HOOK(event, data);
+  JTRACE("checkpoint");
+  runUnderRMgr();
+  rm_shutdown_pmi();
 }
+
+static void resume()
+{
+  JTRACE("post-checkpoint resume");
+  rm_restore_pmi();
+  slurmRestoreHelper(false);
+}
+
+static void restart()
+{
+  JTRACE("restart")(_get_rmgr_type());
+  if ( _get_rmgr_type() == slurm ){
+    JTRACE("Call restore_env()");
+    slurm_restore_env();
+  }
+}
+
+static void restart_resume()
+{
+  JTRACE("post-restart resume");
+  rm_restore_pmi();
+  slurmRestoreHelper(true);
+}
+
+static DmtcpBarrier rmBarriers[] = {
+  {DMTCP_GLOBAL_BARRIER_PRE_CKPT, pre_ckpt, "checkpoint"},
+  {DMTCP_GLOBAL_BARRIER_RESUME, resume, "resume"},
+  {DMTCP_GLOBAL_BARRIER_RESTART, restart, "restart"},
+  {DMTCP_GLOBAL_BARRIER_RESTART, restart_resume, "restart_resume"}
+};
+
+DmtcpPluginDescriptor_t batch_queue_plugin = {
+  DMTCP_PLUGIN_API_VERSION,
+  PACKAGE_VERSION,
+  "batch-queue",
+  "DMTCP",
+  "dmtcp@ccs.neu.edu",
+  "Batch-queue plugin",
+  DMTCP_DECL_BARRIERS(rmBarriers),
+  NULL
+};
+
+DMTCP_DECL_PLUGIN(batch_queue_plugin);
 
 
 // ----------------- global data ------------------------//

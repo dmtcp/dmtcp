@@ -50,6 +50,7 @@ namespace dmtcp
     void suspendThreads();
     void resumeThreads();
     void waitForAllRestored(Thread *thisthread);
+    void writeCkpt();
     void postRestart();
 
   };

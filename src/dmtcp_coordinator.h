@@ -86,10 +86,14 @@ namespace dmtcp
 
       void addDataSocket(CoordClient *client);
       void updateCheckpointInterval(uint32_t timeout);
-      void updateMinimumState(WorkerState oldState);
+      void updateMinimumState();
       void initializeComputation();
-      void broadcastMessage(DmtcpMessageType type, int numPeers = -1);
+      void broadcastMessage(DmtcpMessageType type,
+                            size_t extraBytes = 0,
+                            const void *extraData = NULL);
+      void releaseBarrier(const string& barrier);
       bool startCheckpoint();
+      void recordCkptFilename(const char *barrierList);
 
       void handleUserCommand(char cmd, DmtcpMessage* reply = NULL);
       void printStatus(size_t numPeers, bool isRunning);
@@ -114,9 +118,17 @@ namespace dmtcp
     protected:
       void writeRestartScript();
     private:
+      size_t _numCkptWorkers;
+      size_t _numRestartFilenames;
       //map from hostname to checkpoint files
       map< string, vector<string> > _restartFilenames;
       map< pid_t, CoordClient* > _virtualPidToClientMap;
+
+      vector<string> ckptBarriers;
+      vector<string> restartBarriers;
+
+      size_t nextCkptBarrier;
+      size_t nextRestartBarrier;
   };
 
 }

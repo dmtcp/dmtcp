@@ -90,42 +90,69 @@ using namespace dmtcp;
 
 static pthread_mutex_t tblLock = PTHREAD_MUTEX_INITIALIZER;
 
-extern "C" void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
+static void preCheckpoint()
+{
+  SysVShm::instance().preCheckpoint();
+  SysVSem::instance().preCheckpoint();
+  SysVMsq::instance().preCheckpoint();
+}
+
+static void leaderElection()
+{
+  SysVShm::instance().leaderElection();
+  SysVSem::instance().leaderElection();
+  SysVMsq::instance().leaderElection();
+}
+
+static void preCkptDrain()
+{
+  SysVShm::instance().preCkptDrain();
+  SysVSem::instance().preCkptDrain();
+  SysVMsq::instance().preCkptDrain();
+}
+
+static void resumeRefill()
+{
+  SysVShm::instance().refill(false);
+  SysVSem::instance().refill(false);
+  SysVMsq::instance().refill(false);
+}
+
+static void resumeResume()
+{
+  SysVShm::instance().preResume();
+  SysVSem::instance().preResume();
+  SysVMsq::instance().preResume();
+}
+
+static void postRestart()
+{
+  SysVShm::instance().postRestart();
+  SysVSem::instance().postRestart();
+  SysVMsq::instance().postRestart();
+}
+
+static void restartRefill()
+{
+  SysVShm::instance().refill(true);
+  SysVSem::instance().refill(true);
+  SysVMsq::instance().refill(true);
+}
+
+static void restartResume()
+{
+  SysVShm::instance().preResume();
+  SysVSem::instance().preResume();
+  SysVMsq::instance().preResume();
+}
+
+static void sysvipc_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   switch (event) {
     case DMTCP_EVENT_ATFORK_CHILD:
       SysVShm::instance().resetOnFork();
       SysVSem::instance().resetOnFork();
       SysVMsq::instance().resetOnFork();
-      break;
-    case DMTCP_EVENT_WRITE_CKPT:
-      SysVShm::instance().preCheckpoint();
-      SysVSem::instance().preCheckpoint();
-      SysVMsq::instance().preCheckpoint();
-      break;
-
-    case DMTCP_EVENT_LEADER_ELECTION:
-      SysVShm::instance().leaderElection();
-      SysVSem::instance().leaderElection();
-      SysVMsq::instance().leaderElection();
-      break;
-
-    case DMTCP_EVENT_DRAIN:
-      SysVShm::instance().preCkptDrain();
-      SysVSem::instance().preCkptDrain();
-      SysVMsq::instance().preCkptDrain();
-      break;
-
-    case DMTCP_EVENT_REFILL:
-      SysVShm::instance().refill(data->refillInfo.isRestart);
-      SysVSem::instance().refill(data->refillInfo.isRestart);
-      SysVMsq::instance().refill(data->refillInfo.isRestart);
-      break;
-
-    case DMTCP_EVENT_THREADS_RESUME:
-      SysVShm::instance().preResume();
-      SysVSem::instance().preResume();
-      SysVMsq::instance().preResume();
       break;
 
     case DMTCP_EVENT_PRE_EXEC:
@@ -146,17 +173,37 @@ extern "C" void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       }
       break;
 
-    case DMTCP_EVENT_RESTART:
-      SysVShm::instance().postRestart();
-      SysVSem::instance().postRestart();
-      SysVMsq::instance().postRestart();
-      break;
-
     default:
       break;
   }
-  DMTCP_NEXT_EVENT_HOOK(event, data);
 }
+
+static DmtcpBarrier sysvipcBarriers[] = {
+  {DMTCP_LOCAL_BARRIER_PRE_CKPT, leaderElection, "LEADER_ELECTION"},
+  {DMTCP_LOCAL_BARRIER_PRE_CKPT, preCkptDrain, "DRAIN"},
+  {DMTCP_LOCAL_BARRIER_PRE_CKPT, preCheckpoint, "PRE_CKPT"},
+
+  {DMTCP_LOCAL_BARRIER_RESUME, resumeRefill, "RESUME_REFILL"},
+  {DMTCP_LOCAL_BARRIER_RESUME, resumeResume, "RESUME"},
+
+  {DMTCP_LOCAL_BARRIER_RESTART, postRestart, "RESTART"},
+  {DMTCP_LOCAL_BARRIER_RESTART, restartRefill, "RESTART_REFILL"},
+  {DMTCP_LOCAL_BARRIER_RESTART, restartResume, "RESTART_RESUME"}
+};
+
+DmtcpPluginDescriptor_t sysvipcPlugin = {
+  DMTCP_PLUGIN_API_VERSION,
+  PACKAGE_VERSION,
+  "sysvipc",
+  "DMTCP",
+  "dmtcp@ccs.neu.edu",
+  "Sys V IPC virtualization plugin",
+  DMTCP_DECL_BARRIERS(sysvipcBarriers),
+  sysvipc_event_hook
+};
+
+DMTCP_DECL_PLUGIN(sysvipcPlugin);
+
 
 static void _do_lock_tbl()
 {

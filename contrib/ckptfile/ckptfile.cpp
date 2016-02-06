@@ -166,22 +166,8 @@ restart()
 }
 
 #ifndef STANDALONE
-extern "C" void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
+static void ckpfile_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
-  switch (event) {
-    case DMTCP_EVENT_THREADS_SUSPEND:
-      preCkpt();
-      break;
-
-    case DMTCP_EVENT_RESTART:
-      restart();
-      break;
-
-    default:
-      break;
-  }
-
-  DMTCP_NEXT_EVENT_HOOK(event, data);
   return;
 }
 #else
@@ -192,3 +178,21 @@ int main()
   return 0;
 }
 #endif
+
+static DmtcpBarrier ckptfileBarriers[] = {
+  {DMTCP_GLOBAL_BARRIER_PRE_CKPT, preCkpt, "checkpoint"},
+  {DMTCP_GLOBAL_BARRIER_RESTART, restart, "restart"}
+};
+
+DmtcpPluginDescriptor_t ckpfile_plugin = {
+  DMTCP_PLUGIN_API_VERSION,
+  PACKAGE_VERSION,
+  "ckptfile",
+  "DMTCP",
+  "dmtcp@ccs.neu.edu",
+  "Ckptfile plugin",
+  DMTCP_DECL_BARRIERS(ckptfileBarriers),
+  NULL
+};
+
+DMTCP_DECL_PLUGIN(ckpfile_plugin);

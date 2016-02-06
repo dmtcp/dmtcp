@@ -40,6 +40,7 @@ SocketConnList& SocketConnList::instance()
   return *socketConnList;
 }
 
+
 void SocketConnList::drain()
 {
   // First, let all the Connection prepare for drain
@@ -110,22 +111,20 @@ void SocketConnList::postRestart()
   ConnectionList::postRestart();
 }
 
-void SocketConnList::registerNSData(bool isRestart)
+void SocketConnList::registerNSData()
 {
-  if (isRestart) {
-    ConnectionRewirer::instance().registerNSData();
-  }
-  ConnectionList::registerNSData(isRestart);
+  ConnectionRewirer::instance().registerNSData();
+
+  ConnectionList::registerNSData();
 }
 
-void SocketConnList::sendQueries(bool isRestart)
+void SocketConnList::sendQueries()
 {
-  if (isRestart) {
-    ConnectionRewirer::instance().sendQueries();
-    ConnectionRewirer::instance().doReconnect();
-    ConnectionRewirer::destroy();
-  }
-  ConnectionList::sendQueries(isRestart);
+  ConnectionRewirer::instance().sendQueries();
+  ConnectionRewirer::instance().doReconnect();
+  ConnectionRewirer::destroy();
+
+  ConnectionList::sendQueries();
 }
 
 void SocketConnList::refill(bool isRestart)

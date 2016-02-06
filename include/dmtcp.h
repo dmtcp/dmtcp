@@ -47,8 +47,9 @@
 
 #define LIB_PRIVATE __attribute__ ((visibility ("hidden")))
 
+#define DMTCP_PLUGIN_API_VERSION "3"
+
 typedef enum eDmtcpEvent {
-  //DMTCP_EVENT_WRAPPER_INIT, // Future Work :-).
   DMTCP_EVENT_INIT,
   DMTCP_EVENT_EXIT,
 
@@ -58,25 +59,6 @@ typedef enum eDmtcpEvent {
   DMTCP_EVENT_ATFORK_PREPARE,
   DMTCP_EVENT_ATFORK_PARENT,
   DMTCP_EVENT_ATFORK_CHILD,
-
-  DMTCP_EVENT_WAIT_FOR_SUSPEND_MSG,
-  DMTCP_EVENT_THREADS_SUSPEND,
-  DMTCP_EVENT_LEADER_ELECTION,
-  DMTCP_EVENT_DRAIN,
-  DMTCP_EVENT_WRITE_CKPT,
-
-  DMTCP_EVENT_RESTART,
-  DMTCP_EVENT_RESUME,
-  DMTCP_EVENT_REGISTER_NAME_SERVICE_DATA,
-  DMTCP_EVENT_SEND_QUERIES,
-  DMTCP_EVENT_REFILL,
-  DMTCP_EVENT_THREADS_RESUME,
-
-  DMTCP_EVENT_PRE_SUSPEND_USER_THREAD,
-  DMTCP_EVENT_RESUME_USER_THREAD,
-
-  DMTCP_EVENT_THREAD_START,
-  DMTCP_EVENT_THREAD_CREATED,
 
   DMTCP_EVENT_PTHREAD_START,
   DMTCP_EVENT_PTHREAD_EXIT,
@@ -92,8 +74,64 @@ typedef union _DmtcpEventData_t {
 
   struct {
     int isRestart;
-  } resumeUserThreadInfo, refillInfo, resumeInfo, nameserviceInfo;
+  } resumeUserThreadInfo, nameserviceInfo;
+
+  struct {
+    const char* barrierId;
+  } barrierInfo;
 } DmtcpEventData_t;
+
+typedef enum {
+  DMTCP_GLOBAL_BARRIER_PRE_CKPT,
+  DMTCP_LOCAL_BARRIER_PRE_CKPT,
+
+  DMTCP_GLOBAL_BARRIER_RESUME,
+  DMTCP_LOCAL_BARRIER_RESUME,
+
+  DMTCP_GLOBAL_BARRIER_RESTART,
+  DMTCP_LOCAL_BARRIER_RESTART
+} DmtcpBarrierType;
+
+typedef struct
+{
+  DmtcpBarrierType type;
+  void (*callback)();
+  const char *id;
+} DmtcpBarrier;
+
+typedef void (*HookFunctionPtr_t)(DmtcpEvent_t, DmtcpEventData_t *);
+
+typedef struct
+{
+  const char* pluginApiVersion;
+  const char* dmtcpVersion;
+
+  const char* pluginName;
+  const char* authorName;
+  const char* authorEmail;
+  const char* description;
+
+  size_t numBarriers;
+  DmtcpBarrier *barriers;
+
+  void (*event_hook)(const DmtcpEvent_t event, DmtcpEventData_t *data);
+} DmtcpPluginDescriptor_t;
+
+#define DMTCP_NO_PLUGIN_BARRIERS 0, NULL
+
+#define DMTCP_DECL_BARRIERS(barriers)                                          \
+  sizeof(barriers) / sizeof (DmtcpBarrier),                                    \
+  barriers
+
+#define DMTCP_DECL_PLUGIN(descr)                                               \
+  EXTERNC void dmtcp_initialize_plugin()                                       \
+  {                                                                            \
+    dmtcp_register_plugin(descr);                                              \
+    void (*fn)() = NEXT_FNC(dmtcp_initialize_plugin);                          \
+    if (fn != NULL) {                                                          \
+      (*fn)();                                                                 \
+    }                                                                          \
+  }
 
 typedef struct DmtcpUniqueProcessId {
   uint64_t  _hostid; //gethostid()
@@ -156,9 +194,7 @@ EXTERNC int dmtcp_enable_ckpt(DMTCP_VOID) __attribute__ ((weak));
 #define dmtcp_enable_ckpt() \
  (dmtcp_enable_ckpt ? dmtcp_enable_ckpt() : DMTCP_NOT_PRESENT)
 
-// See: test/plugin/sleep1 dir and sibling directories for examples:
-EXTERNC void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
-  __attribute((weak));
+EXTERNC void dmtcp_initialize_plugin(void) __attribute((weak));
 
 // See: test/plugin/example-db dir for an example:
 EXTERNC int dmtcp_send_key_val_pair_to_coordinator(const char *id,
@@ -312,8 +348,10 @@ EXTERNC void dmtcp_get_new_file_path(const char *abspath, const char *cwd,
                                      char *newpath)
   __attribute((weak));
 
-#define dmtcp_process_event(e,d) \
-    __REPLACE_dmtcp_process_event_WITH_dmtcp_event_hook()__
+
+EXTERNC void dmtcp_prepare_wrappers(void) __attribute((weak));
+
+EXTERNC void dmtcp_register_plugin(DmtcpPluginDescriptor_t);
 
 // These are part of the internal implementation of DMTCP plugins
 EXTERNC int dmtcp_plugin_disable_ckpt(void);
@@ -335,75 +373,6 @@ EXTERNC void dmtcp_plugin_enable_ckpt(void);
        _real_##func = (__typeof__(&func)) (*dlsym_fnptr) (RTLD_NEXT, #func);\
      }                                                                      \
    _real_##func;})
-
-#define DMTCP_NEXT_EVENT_HOOK(event, data)                                  \
-  do {                                                                      \
-    static __typeof__(&dmtcp_event_hook) fn                                 \
-      = (__typeof__(&dmtcp_event_hook)) -1;                                 \
-    if ((void*) fn == (void*) -1) {                                         \
-      fn = NEXT_FNC(dmtcp_event_hook);                                      \
-    }                                                                       \
-    if (fn != NULL) {                                                       \
-      (*fn) (event, data);                                                  \
-    }                                                                       \
-  } while (0)
-
-#if defined(__clang__) && __clang_major__ < 3 || \
-    __clang_major__ == 3 && __clang_minor__ <= 4
-/***************************************************************************
- * This workaround is required for what is arguably a bug in clang-3.4.1
- *   under Ubuntu 13.10.
- * We don't see a problem with clang-3.4.2 under Ubuntu 14.04.  So, eventually
- *   we can deprecate this patch, when most distros use a later clang.
- * clang-3.4 declares fn and dmtcp_event_hook as weak symbols ("V")
- *   when these variables are delcared inside the function dmtcp_event_hook().
- *   This workaround declares them outside of dmtcp_event_hook().
- *   If the bug in clang gets fixed, we should expand this macro inline
- *     for the non-clang case.
- ***************************************************************************/
-# define DECLARE_TYPEOF_FNC(fnc_type,fnc) \
-static __typeof__(&fnc_type) fnc          \
-      = (__typeof__(&fnc_type)) -1
-
-// For clang, declare these at top level, instead of inside a function.
-DECLARE_TYPEOF_FNC(dmtcp_event_hook,fn);
-DECLARE_TYPEOF_FNC(dmtcp_event_hook,_real_dmtcp_event_hook);
-# undef DECLARE_TYPEOF_FNC
-// This removes the declarations from NEXT_FNC2() and DMTCP_NEXT_EVENT_HOOK()
-// Those macros are invoked from inside dmtcp_next_event_hook(), which
-//   is declare in dmtcp.h as a weak function.
-//   clang-3.4.1 seems to declare these inner fnc pointer types as weak
-//     because the outer function is weak.  Arguably, this is a bug.
-# define DECLARE_TYPEOF_FNC(fnc_type,fnc)
-
-# define NEXT_FNC2(func)                                                    \
-  ({                                                                        \
-     /* static __typeof__(&func) _real_##func = (__typeof__(&func)) -1; */  \
-     DECLARE_TYPEOF_FNC(func,_real_##func);                                 \
-     if (_real_##func == (__typeof__(&func)) -1) {                          \
-       if (dmtcp_prepare_wrappers) dmtcp_prepare_wrappers();                \
-       __typeof__(&dlsym) dlsym_fnptr;                                      \
-       dlsym_fnptr = (__typeof__(&dlsym)) dmtcp_get_libc_dlsym_addr();      \
-       _real_##func = (__typeof__(&func)) (*dlsym_fnptr) (RTLD_NEXT, #func);\
-     }                                                                      \
-   _real_##func;})
-
-# undef DMTCP_NEXT_EVENT_HOOK
-# define DMTCP_NEXT_EVENT_HOOK(event, data)                                 \
-  do {                                                                      \
-    /* static __typeof__(&dmtcp_event_hook) fn                              \
-        = (__typeof__(&dmtcp_event_hook)) -1; */                            \
-    DECLARE_TYPEOF_FNC(dmtcp_event_hook,fn);                                \
-    if ((void*) fn == (void*) -1) {                                         \
-      fn = NEXT_FNC2(dmtcp_event_hook);                                     \
-    }                                                                       \
-    if (fn != NULL) {                                                       \
-      (*fn) (event, data);                                                  \
-    }                                                                       \
-  } while (0)
-
-// End of patches for clang-3.4.1
-#endif
 
 //===================================================================
 // DMTCP utilities

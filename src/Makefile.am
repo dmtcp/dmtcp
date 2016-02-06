@@ -59,7 +59,8 @@ nobase_noinst_HEADERS = constants.h \
 	restartscript.h \
 	dmtcp_coordinator.h dmtcpmessagetypes.h lookup_service.h \
 	dmtcpworker.h threadsync.h coordinatorapi.h \
-	mtcpinterface.h syscallwrappers.h \
+	barrierinfo.h pluginmanager.h plugininfo.h \
+	syscallwrappers.h \
 	threadlist.h threadinfo.h siginfo.h \
 	uniquepid.h processinfo.h ckptserializer.h \
 	mtcp/ldt.h mtcp/restore_libc.h mtcp/tlsutil.h
@@ -92,7 +93,7 @@ __d_bindir__dmtcp_command_SOURCES = dmtcp_command.cpp
 
 __d_libdir__libdmtcp_so_SOURCES = dmtcpworker.cpp threadsync.cpp \
 		      coordinatorapi.cpp execwrappers.cpp \
-		      mtcpinterface.cpp signalwrappers.cpp \
+		      signalwrappers.cpp \
 		      terminal.cpp \
 		      alarm.cpp \
 		      threadwrappers.cpp \
@@ -100,7 +101,7 @@ __d_libdir__libdmtcp_so_SOURCES = dmtcpworker.cpp threadsync.cpp \
 		      glibcsystem.cpp \
 		      threadlist.cpp siginfo.cpp \
 		      dmtcpplugin.cpp popen.cpp syslogwrappers.cpp \
-		      dlsym_default.c
+		      dlsym_default.c plugininfo.cpp pluginmanager.cpp
 
 __d_libdir__libdmtcp_so_LDFLAGS = -shared -Xlinker -znow
 

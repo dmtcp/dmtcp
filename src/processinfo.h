@@ -51,8 +51,8 @@ namespace dmtcp
       void init();
       void postExec();
       void resetOnFork();
+      void preCkpt();
       void restart();
-      void postRestartRefill();
       void restoreProcessGroupInfo();
       void restoreHeap();
       void growStack();
@@ -84,6 +84,9 @@ namespace dmtcp
 
       void processRlimit();
       void calculateArgvAndEnvSize();
+#ifdef RESTORE_ARGV_AFTER_RESTART
+      void restoreArgvAfterRestart(char* mtcpRestoreArgvStartAddr);
+#endif
       size_t argvSize() { return _argvSize; }
       size_t envSize() { return _envSize; }
 

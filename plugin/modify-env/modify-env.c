@@ -18,6 +18,7 @@
 #include <sys/mman.h>
 #ifndef STANDALONE
 # include "dmtcp.h"
+# include "config.h"
 #endif
 
 #define DMTCP_ENV_VAR "DMTCP_ENV_FILE"
@@ -47,42 +48,50 @@ int dmtcp_get_restart_env(char *envName, char *dest, size_t size) {
 #endif
 
 #ifndef STANDALONE
-void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
-{
-  /* NOTE:  See warning in plugin/README about calls to printf here. */
-  switch (event) {
-  case DMTCP_EVENT_RESTART:
-  {
-    char env_file[PATH_MAX];
-    int retval = dmtcp_get_restart_env(DMTCP_ENV_VAR, env_file, PATH_MAX);
-    if (retval != 0) {
-      strncpy(env_file, DMTCP_DEFAULT_ENV_FILE, sizeof DMTCP_DEFAULT_ENV_FILE);
-    }
 
-    int size = 12288;
-    char *buf = read_dmtcp_env_file(env_file, size);
-    if (buf != NULL) { // If env_file exists
-      readAndSetEnv(buf, size);
-    } else { // else env_file doesn't exist (buf == NULL)
+static void restart()
+{
+  char env_file[PATH_MAX];
+  int retval = dmtcp_get_restart_env(DMTCP_ENV_VAR, env_file, PATH_MAX);
+  if (retval != 0) {
+    strncpy(env_file, DMTCP_DEFAULT_ENV_FILE, sizeof DMTCP_DEFAULT_ENV_FILE);
+  }
+
+  int size = 12288;
+  char *buf = read_dmtcp_env_file(env_file, size);
+  if (buf != NULL) { // If env_file exists
+    readAndSetEnv(buf, size);
+  } else { // else env_file doesn't exist (buf == NULL)
 #if 0
-      // FIXME:  This "if" condition to check environ var. always triggers,
-      //   even if environ var. was never present.  Uncomment this when fixed.
-      if (!getenv("DMTCP_QUIET") &&
-          strcmp(getenv("DMTCP_QUIET")[0], "0") != 0) {
+    // FIXME:  This "if" condition to check environ var. always triggers,
+    //   even if environ var. was never present.  Uncomment this when fixed.
+    if (!getenv("DMTCP_QUIET") &&
+        strcmp(getenv("DMTCP_QUIET")[0], "0") != 0) {
 #endif
-        warning("modify-env plugin: Couldn't open ",
-                "\"dmtcp_env.txt\"\n");
+      warning("modify-env plugin: Couldn't open ",
+              "\"dmtcp_env.txt\"\n");
 #if 0
-      }
-#endif
     }
-    break;
+#endif
   }
-  default:
-    break;
-  }
-  DMTCP_NEXT_EVENT_HOOK(event, data);
 }
+
+static DmtcpBarrier modify_env_barriers[] = {
+  {DMTCP_GLOBAL_BARRIER_RESTART, restart, "restart"}
+};
+
+DmtcpPluginDescriptor_t modify_env_plugin = {
+  DMTCP_PLUGIN_API_VERSION,
+  PACKAGE_VERSION,
+  "modify-env",
+  "DMTCP",
+  "dmtcp@ccs.neu.edu",
+  "Modify-Environment plugin",
+  DMTCP_DECL_BARRIERS(modify_env_barriers),
+  NULL
+};
+
+DMTCP_DECL_PLUGIN(modify_env_plugin);
 #endif
 
 #define readEOF ((char)-1)
