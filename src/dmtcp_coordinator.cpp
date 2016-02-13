@@ -1041,6 +1041,7 @@ void DmtcpCoordinator::broadcastMessage(DmtcpMessageType type,
   msg.type = type;
   msg.compGroup = compId;
   msg.numPeers = clients.size();
+  msg.exitAfterCkpt = exitAfterCkpt || exitAfterCkptOnce;
   msg.extraBytes = extraBytes;
 
   if (msg.type == DMT_KILL_PEER && clients.size() > 0) {

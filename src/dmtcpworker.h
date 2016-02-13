@@ -60,11 +60,10 @@ namespace dmtcp
 
       static void writeCheckpointPrefix(int fd);
 
-    protected:
-      static void sendUserCommand(char c, int* result = NULL);
     private:
       static DmtcpWorker theInstance;
       static bool _exitInProgress;
+      static bool _exitAfterCkpt;
   };
 }
 
