@@ -30,6 +30,7 @@
 #include <fstream>
 
 #include "util.h"
+#include "config.h"
 #include "dmtcp.h"
 #include "shareddata.h"
 #include "jassert.h"

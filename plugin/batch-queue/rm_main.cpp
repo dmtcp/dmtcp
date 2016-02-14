@@ -25,6 +25,7 @@
 #include <sys/wait.h>
 #include "dmtcpalloc.h"
 #include "util.h"
+#include "config.h"
 #include  "../jalib/jassert.h"
 #include "rm_main.h"
 #include "rm_torque.h"

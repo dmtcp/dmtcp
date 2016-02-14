@@ -64,6 +64,7 @@
 
 #define DEFAULT_HOST "127.0.0.1"
 #define DEFAULT_PORT 7779
+#define UNINITIALIZED_PORT -1 /* used with getCoordHostAndPort() */
 
 // Match up this definition with the one in plugin/ptrace/ptracewrappers.cpp
 #define DMTCP_FAKE_SYSCALL 1023

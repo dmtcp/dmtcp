@@ -22,6 +22,7 @@
 #include "dmtcpworker.h"
 #include "pluginmanager.h"
 #include "threadsync.h"
+#include "shareddata.h"
 #include "mtcp/mtcp_header.h"
 
 // For i386 and x86_64, SETJMP currently has bugs.  Don't turn this

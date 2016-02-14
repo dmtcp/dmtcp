@@ -68,6 +68,65 @@ static DmtcpBarrier coordinatorAPIBarriers[] = {
   {DMTCP_LOCAL_BARRIER_RESTART, CoordinatorAPI::restart, "restart"}
 };
 
+static bool _firstTime = true;
+static const char *_cachedHost = NULL;
+static int _cachedPort = 0;
+
+void CoordinatorAPI::getCoordHostAndPort(CoordinatorMode mode,
+                                         const char **host, int *port)
+{
+  if (SharedData::initialized()) {
+    *host = SharedData::coordHost().c_str();
+    *port = SharedData::coordPort();
+    return;
+  }
+
+  if (_firstTime) {
+    // Set host to cmd line (if --cord-host) or env var or DEFAULT_HOST
+    if (*host == NULL) {
+      if (getenv(ENV_VAR_NAME_HOST)) {
+        *host = getenv(ENV_VAR_NAME_HOST);
+      } else if (getenv("DMTCP_HOST")) { // deprecated
+        *host = getenv("DMTCP_HOST");
+      } else {
+        *host = DEFAULT_HOST;
+      }
+    }
+
+    // Set port to cmd line (if --coord-port) or env var
+    //   or 0 (if --new-coordinator from cmd line) or DEFAULT_PORT
+    if (*port == UNINITIALIZED_PORT) {
+      if (getenv(ENV_VAR_NAME_PORT)) {
+        *port = jalib::StringToInt(getenv(ENV_VAR_NAME_PORT));
+      } else if (getenv("DMTCP_PORT")) { // deprecated
+        *port = jalib::StringToInt(getenv("DMTCP_PORT"));
+      } else if (mode & COORD_NEW) {
+        *port = 0;
+      } else {
+        *port = DEFAULT_PORT;
+      }
+    }
+
+    _cachedHost = *host;
+    _cachedPort = *port;
+    _firstTime = false;
+
+  } else {
+    // We might have gotten a user-requested port of 0 (random port) before,
+    //   and now the user is passing in the actual coordinator port.
+    if (*port > 0 && _cachedPort == 0) {
+      _cachedPort = *port;
+    }
+    *host = _cachedHost;
+    *port = _cachedPort;
+  }
+}
+
+void CoordinatorAPI::setCoordPort(int port)
+{
+  _cachedPort = port;
+}
+
 static DmtcpPluginDescriptor_t coordinatorAPIPlugin = {
   DMTCP_PLUGIN_API_VERSION,
   PACKAGE_VERSION,
@@ -109,7 +168,7 @@ static jalib::JSocket createNewSocketToCoordinator(CoordinatorMode mode)
   const char*host = NULL;
   int port = UNINITIALIZED_PORT;
 
-  Util::getCoordHostAndPort(COORD_ANY, &host, &port);
+  CoordinatorAPI::getCoordHostAndPort(COORD_ANY, &host, &port);
   return jalib::JClientSocket(host, port);
 }
 
@@ -174,12 +233,12 @@ void CoordinatorAPI::setupVirtualCoordinator(CoordinatorInfo *coordInfo,
 {
   const char *host = NULL;
   int port;
-  Util::getCoordHostAndPort(COORD_NONE, &host, &port);
+  CoordinatorAPI::getCoordHostAndPort(COORD_NONE, &host, &port);
   _coordinatorSocket = jalib::JServerSocket(jalib::JSockAddr::ANY, port);
   JASSERT(_coordinatorSocket.isValid()) (port) (JASSERT_ERRNO)
     .Text("Failed to create listen socket.");
   _coordinatorSocket.changeFd(PROTECTED_COORD_FD);
-  Util::setCoordPort(_coordinatorSocket.port());
+  CoordinatorAPI::setCoordPort(_coordinatorSocket.port());
 
   pid_t ppid = getppid();
   Util::setVirtualPidEnvVar(INITIAL_VIRTUAL_PID, ppid, ppid);
@@ -465,7 +524,7 @@ void CoordinatorAPI::startNewCoordinator(CoordinatorMode mode)
 {
   const char *host;
   int port;
-  Util::getCoordHostAndPort(mode, &host, &port);
+  CoordinatorAPI::getCoordHostAndPort(mode, &host, &port);
 
   JASSERT(strcmp(host, "localhost") == 0 ||
           strcmp(host, "127.0.0.1") == 0 ||
@@ -484,7 +543,7 @@ void CoordinatorAPI::startNewCoordinator(CoordinatorMode mode)
           "\nKill other coordinators and try again in a minute or so.");
   // Now dup the sockfd to
   coordinatorListenerSocket.changeFd(PROTECTED_COORD_FD);
-  Util::setCoordPort(coordinatorListenerSocket.port());
+  CoordinatorAPI::setCoordPort(coordinatorListenerSocket.port());
 
   JTRACE("Starting a new coordinator automatically.")
         (coordinatorListenerSocket.port());
