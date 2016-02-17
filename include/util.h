@@ -106,7 +106,7 @@ namespace dmtcp
   {
     void lockFile(int fd);
     void unlockFile(int fd);
-    void changeFd(int oldfd, int newfd);
+    int changeFd(int oldfd, int newfd);
     void dupFds(int oldfd, const vector<int>& newfds);
 
     bool strStartsWith(const char *str, const char *pattern);
