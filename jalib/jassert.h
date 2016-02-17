@@ -149,7 +149,7 @@ namespace jassert_internal
 
   const char* jassert_basename ( const char* str );
   dmtcp::ostream& jassert_output_stream();
-  void jassert_safe_print ( const char*, bool noConsoleOutput = false );
+  void jassert_safe_print ( const char* );
   void jassert_init();
   void close_stderr();
 
