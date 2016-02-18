@@ -198,7 +198,7 @@ class RestoreTarget
         // dmtcp_restart sets ENV_VAR_NAME_HOST/PORT, even if cmd line flag used
         const char *host = NULL;
         int port = UNINITIALIZED_PORT;
-        Util::getCoordHostAndPort(allowedModes, &host, &port);
+        CoordinatorAPI::getCoordHostAndPort(allowedModes, &host, &port);
         // FIXME:  We will use the new HOST and PORT here, but after restart,,
         //           we will use the old HOST and PORT from the ckpt image.
         CoordinatorAPI::instance().connectToCoordOnRestart(allowedModes,
@@ -210,7 +210,7 @@ class RestoreTarget
                                                            port,
                                                            &localIPAddr);
         // If port was 0, we'll get new random port when coordinator starts up.
-        Util::getCoordHostAndPort(allowedModes, &host, &port);
+        CoordinatorAPI::getCoordHostAndPort(allowedModes, &host, &port);
         Util::writeCoordPortToFile(port, thePortFile.c_str());
 
         string installDir =
@@ -316,7 +316,7 @@ class RestoreTarget
         const char *host = NULL;
         int port = UNINITIALIZED_PORT;
         int *port_p = &port;
-        Util::getCoordHostAndPort(allowedModes, &host, port_p);
+        CoordinatorAPI::getCoordHostAndPort(allowedModes, &host, port_p);
         CoordinatorAPI::instance().connectToCoordOnRestart(allowedModes,
                                                            _pInfo.procname(),
                                                            _pInfo.compGroup(),

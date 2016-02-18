@@ -151,10 +151,11 @@ am___d_libdir__libdmtcp_ipc_so_OBJECTS = i-connection.$(OBJEXT) \
 	i-eventconnlist.$(OBJEXT) i-eventwrappers.$(OBJEXT) \
 	i-util_descriptor.$(OBJEXT) i-fileconnection.$(OBJEXT) \
 	i-fileconnlist.$(OBJEXT) i-filewrappers.$(OBJEXT) \
-	i-posixipcwrappers.$(OBJEXT) i-connectionrewirer.$(OBJEXT) \
-	i-kernelbufferdrainer.$(OBJEXT) i-socketconnection.$(OBJEXT) \
-	i-socketconnlist.$(OBJEXT) i-socketwrappers.$(OBJEXT) \
-	i-ssh.$(OBJEXT) i-sshdrainer.$(OBJEXT)
+	i-posixipcwrappers.$(OBJEXT) i-ptyconnection.$(OBJEXT) \
+	i-connectionrewirer.$(OBJEXT) i-kernelbufferdrainer.$(OBJEXT) \
+	i-socketconnection.$(OBJEXT) i-socketconnlist.$(OBJEXT) \
+	i-socketwrappers.$(OBJEXT) i-ssh.$(OBJEXT) \
+	i-sshdrainer.$(OBJEXT)
 __d_libdir__libdmtcp_ipc_so_OBJECTS =  \
 	$(am___d_libdir__libdmtcp_ipc_so_OBJECTS)
 __d_libdir__libdmtcp_ipc_so_DEPENDENCIES = $(am__DEPENDENCIES_1)
@@ -522,6 +523,7 @@ __d_libdir__libdmtcp_ipc_so_SOURCES = \
 	ipc/file/filewrappers.cpp                                      \
 	ipc/file/filewrappers.h                                        \
 	ipc/file/posixipcwrappers.cpp                                  \
+	ipc/file/ptyconnection.cpp                                     \
 	ipc/socket/connectionmessage.h                                 \
 	ipc/socket/connectionrewirer.cpp                               \
 	ipc/socket/connectionrewirer.h                                 \
@@ -839,6 +841,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/i-ipc.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/i-kernelbufferdrainer.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/i-posixipcwrappers.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/i-ptyconnection.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/i-socketconnection.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/i-socketconnlist.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/i-socketwrappers.Po@am__quote@
@@ -1155,6 +1158,20 @@ i-posixipcwrappers.obj: ipc/file/posixipcwrappers.cpp
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='ipc/file/posixipcwrappers.cpp' object='i-posixipcwrappers.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_ipc_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o i-posixipcwrappers.obj `if test -f 'ipc/file/posixipcwrappers.cpp'; then $(CYGPATH_W) 'ipc/file/posixipcwrappers.cpp'; else $(CYGPATH_W) '$(srcdir)/ipc/file/posixipcwrappers.cpp'; fi`
+
+i-ptyconnection.o: ipc/file/ptyconnection.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_ipc_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT i-ptyconnection.o -MD -MP -MF $(DEPDIR)/i-ptyconnection.Tpo -c -o i-ptyconnection.o `test -f 'ipc/file/ptyconnection.cpp' || echo '$(srcdir)/'`ipc/file/ptyconnection.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/i-ptyconnection.Tpo $(DEPDIR)/i-ptyconnection.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='ipc/file/ptyconnection.cpp' object='i-ptyconnection.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_ipc_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o i-ptyconnection.o `test -f 'ipc/file/ptyconnection.cpp' || echo '$(srcdir)/'`ipc/file/ptyconnection.cpp
+
+i-ptyconnection.obj: ipc/file/ptyconnection.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_ipc_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT i-ptyconnection.obj -MD -MP -MF $(DEPDIR)/i-ptyconnection.Tpo -c -o i-ptyconnection.obj `if test -f 'ipc/file/ptyconnection.cpp'; then $(CYGPATH_W) 'ipc/file/ptyconnection.cpp'; else $(CYGPATH_W) '$(srcdir)/ipc/file/ptyconnection.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/i-ptyconnection.Tpo $(DEPDIR)/i-ptyconnection.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='ipc/file/ptyconnection.cpp' object='i-ptyconnection.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_ipc_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o i-ptyconnection.obj `if test -f 'ipc/file/ptyconnection.cpp'; then $(CYGPATH_W) 'ipc/file/ptyconnection.cpp'; else $(CYGPATH_W) '$(srcdir)/ipc/file/ptyconnection.cpp'; fi`
 
 i-connectionrewirer.o: ipc/socket/connectionrewirer.cpp
 @am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_ipc_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT i-connectionrewirer.o -MD -MP -MF $(DEPDIR)/i-connectionrewirer.Tpo -c -o i-connectionrewirer.o `test -f 'ipc/socket/connectionrewirer.cpp' || echo '$(srcdir)/'`ipc/socket/connectionrewirer.cpp

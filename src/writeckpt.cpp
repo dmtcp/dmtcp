@@ -35,6 +35,7 @@
 #include "procselfmaps.h"
 #include "jassert.h"
 #include "util.h"
+#include "shareddata.h"
 
 #define DEV_ZERO_DELETED_STR "/dev/zero (deleted)"
 #define DEV_NULL_DELETED_STR "/dev/null (deleted)"

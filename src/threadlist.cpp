@@ -22,6 +22,7 @@
 #include "dmtcpworker.h"
 #include "pluginmanager.h"
 #include "threadsync.h"
+#include "shareddata.h"
 #include "mtcp/mtcp_header.h"
 
 // For i386 and x86_64, SETJMP currently has bugs.  Don't turn this
@@ -570,14 +571,12 @@ void stopthisthread (int signum)
       // The change in sem_wait behavior was first introduce in glibc 2.21.
       JASSERT(_real_pthread_rwlock_rdlock(&threadResumeLock) == 0)
         (JASSERT_ERRNO);
+
+      JASSERT(Thread_UpdateState(curThread, ST_RUNNING, ST_SUSPENDED));
+
       JASSERT(_real_pthread_rwlock_unlock(&threadResumeLock) == 0)
         (JASSERT_ERRNO);
-
-      JTRACE("User thread resuming") (curThread->tid);
     } else {
-      /* Else restoreinprog >= 1;  This stuff executes to do a restart */
-      ThreadList::waitForAllRestored(curThread);
-
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,11)
       if (!Util::strStartsWith(curThread->procname, DMTCP_PRGNAME_PREFIX)) {
         // Add the "DMTCP:" prefix.
@@ -590,14 +589,12 @@ void stopthisthread (int signum)
         (curThread->procname) (JASSERT_ERRNO)
         .Text ("prctl(PR_SET_NAME, ...) failed");
 #endif
-      JTRACE("User thread restored") (curThread->tid);
+
+      JASSERT(Thread_UpdateState(curThread, ST_RUNNING, ST_SUSPENDED));
+
+      /* Else restoreinprog >= 1;  This stuff executes to do a restart */
+      ThreadList::waitForAllRestored(curThread);
     }
-
-    JASSERT(Thread_UpdateState(curThread, ST_RUNNING, ST_SUSPENDED));
-
-    // This should be the last significant work before returning from this
-    // function.
-    //ThreadSync::processPreResumeCB();
 
     JTRACE("User thread returning to user code")
       (curThread->tid) (__builtin_return_address(0));

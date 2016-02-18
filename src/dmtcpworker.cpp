@@ -59,7 +59,7 @@ EXTERNC void *ibv_get_device_list(void *) __attribute__((weak));
  */
 DmtcpWorker DmtcpWorker::theInstance;
 bool DmtcpWorker::_exitInProgress = false;
-
+bool DmtcpWorker::_exitAfterCkpt = 0;
 
 /* NOTE:  Please keep this function in sync with its copy at:
  *   dmtcp_nocheckpoint.cpp:restoreUserLDPRELOAD()
@@ -397,9 +397,6 @@ void DmtcpWorker::waitForSuspendMessage()
     ckptThreadPerformExit();
   }
 
-  // Inform Coordinator of RUNNING state.
-  CoordinatorAPI::instance().sendMsgToCoordinator(DmtcpMessage(DMT_OK));
-
   JTRACE("waiting for SUSPEND message");
 
   DmtcpMessage msg;
@@ -423,6 +420,8 @@ void DmtcpWorker::waitForSuspendMessage()
   SharedData::updateGeneration(msg.compGroup.computationGeneration());
   JASSERT(SharedData::getCompId() == msg.compGroup.upid())
     (SharedData::getCompId()) (msg.compGroup);
+
+  _exitAfterCkpt = msg.exitAfterCkpt;
 }
 
 void DmtcpWorker::acknowledgeSuspendMsg()
@@ -495,8 +494,16 @@ void DmtcpWorker::postCheckpoint()
   WorkerState::setCurrentState(WorkerState::CHECKPOINTED);
   CoordinatorAPI::instance().sendCkptFilename();
 
+  if (_exitAfterCkpt) {
+    JTRACE("Asked to exit after checkpoint. Exiting!");
+    _exit (0);
+  }
+
   PluginManager::processResumeBarriers();
+
+  // Inform Coordinator of RUNNING state.
   WorkerState::setCurrentState( WorkerState::RUNNING );
+  CoordinatorAPI::instance().sendMsgToCoordinator(DmtcpMessage(DMT_OK));
 }
 
 void DmtcpWorker::postRestart()
@@ -507,5 +514,7 @@ void DmtcpWorker::postRestart()
   PluginManager::processRestartBarriers();
   JTRACE("got resume message after restart");
 
+  // Inform Coordinator of RUNNING state.
   WorkerState::setCurrentState( WorkerState::RUNNING );
+  CoordinatorAPI::instance().sendMsgToCoordinator(DmtcpMessage(DMT_OK));
 }

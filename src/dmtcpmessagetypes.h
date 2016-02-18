@@ -141,11 +141,9 @@ namespace dmtcp
     pid_t       virtualPid;
     pid_t       realPid;
 
-//#ifdef COORD_NAMESERVICE
     char        nsid[8];
     uint32_t    keyLen;
     uint32_t    valLen;
-//#endif
 
     uint32_t numPeers;
     uint32_t isRunning;
@@ -157,8 +155,9 @@ namespace dmtcp
     uint32_t theCheckpointInterval;
     struct in_addr ipAddr;
 
-    static void setDefaultCoordinator ( const DmtcpUniqueProcessId& id );
-    static void setDefaultCoordinator ( const UniquePid& id );
+    uint32_t exitAfterCkpt;
+    uint32_t padding;
+
     DmtcpMessage ( DmtcpMessageType t = DMT_NULL );
     void assertValid() const;
     bool isValid() const;

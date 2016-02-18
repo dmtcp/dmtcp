@@ -36,66 +36,6 @@
 
 using namespace dmtcp;
 
-void Util::getCoordHostAndPort(CoordinatorMode mode,
-                               const char **host, int *port)
-{
-  if (SharedData::initialized()) {
-    *host = SharedData::coordHost().c_str();
-    *port = SharedData::coordPort();
-    return;
-  }
-
-  static bool _firstTime = true;
-  static const char *_cachedHost;
-  static int _cachedPort;
-
-  if (_firstTime) {
-    // Set host to cmd line (if --cord-host) or env var or DEFAULT_HOST
-    if (*host == NULL) {
-      if (getenv(ENV_VAR_NAME_HOST)) {
-        *host = getenv(ENV_VAR_NAME_HOST);
-      } else if (getenv("DMTCP_HOST")) { // deprecated
-        *host = getenv("DMTCP_HOST");
-      } else {
-        *host = DEFAULT_HOST;
-      }
-    }
-
-    // Set port to cmd line (if --coord-port) or env var
-    //   or 0 (if --new-coordinator from cmd line) or DEFAULT_PORT
-    if (*port == UNINITIALIZED_PORT) {
-      if (getenv(ENV_VAR_NAME_PORT)) {
-        *port = jalib::StringToInt(getenv(ENV_VAR_NAME_PORT));
-      } else if (getenv("DMTCP_PORT")) { // deprecated
-        *port = jalib::StringToInt(getenv("DMTCP_PORT"));
-      } else if (mode & COORD_NEW) {
-        *port = 0;
-      } else {
-        *port = DEFAULT_PORT;
-      }
-    }
-
-    _cachedHost = *host;
-    _cachedPort = *port;
-    _firstTime = false;
-
-  } else {
-    // We might have gotten a user-requested port of 0 (random port) before,
-    //   and now the user is passing in the actual coordinator port.
-    if (*port > 0 && _cachedPort == 0) {
-      _cachedPort = *port;
-    }
-    *host = _cachedHost;
-    *port = _cachedPort;
-  }
-}
-void Util::setCoordPort(int port)
-{
-  const char *host = NULL;
-  // mode will be ignored, since this is not the first time we call this.
-  Util::getCoordHostAndPort(COORD_ANY, &host, &port);
-}
-
 void Util::writeCoordPortToFile(int port, const char *portFile)
 {
   if (portFile != NULL && strlen(portFile) > 0) {

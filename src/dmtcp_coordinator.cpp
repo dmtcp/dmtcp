@@ -392,9 +392,8 @@ void DmtcpCoordinator::releaseBarrier(const string& barrier)
 
 void DmtcpCoordinator::updateMinimumState()
 {
-  workersAtCurrentBarrier++;
-
   ComputationStatus status = getStatus();
+
   if (!status.minimumStateUnanimous ||
       workersAtCurrentBarrier < status.numPeers) {
     return;
@@ -430,8 +429,10 @@ void DmtcpCoordinator::updateMinimumState()
   }
 }
 
-void DmtcpCoordinator::recordCkptFilename(const char *extraData)
+void DmtcpCoordinator::recordCkptFilename(CoordClient *client,
+                                          const char *extraData)
 {
+  client->setState(WorkerState::CHECKPOINTED);
   JASSERT(extraData != NULL)
     .Text("extra data expected with DMT_CKPT_FILENAME message");
 
@@ -501,6 +502,7 @@ void DmtcpCoordinator::onData(CoordClient *client)
     {
       JTRACE ("got DMT_OK message") (client->state()) (msg.from) (msg.state);
       client->setState(msg.state);
+      workersAtCurrentBarrier++;
       updateMinimumState();
       break;
     }
@@ -525,7 +527,7 @@ void DmtcpCoordinator::onData(CoordClient *client)
       uniqueCkptFilenames = true;
       // Fall though
     case DMT_CKPT_FILENAME:
-      recordCkptFilename(extraData);
+      recordCkptFilename(client, extraData);
     break;
 
     case DMT_GET_CKPT_DIR:
@@ -584,6 +586,7 @@ void DmtcpCoordinator::onData(CoordClient *client)
       string progname = extraData;
       JNOTE("Updating process Information after exec()")
         (progname) (msg.from) (client->identity());
+      client->setState(msg.state);
       client->progname(progname);
       client->identity(msg.from);
     }
@@ -798,7 +801,7 @@ void DmtcpCoordinator::onConnect()
   }
 
   updateCheckpointInterval(hello_remote.theCheckpointInterval);
-  JNOTE ( "worker connected" ) ( hello_remote.from );
+  JNOTE ( "worker connected" ) ( hello_remote.from ) (client->progname());
 
   clients.push_back(client);
   addDataSocket(client);
@@ -1013,9 +1016,9 @@ bool DmtcpCoordinator::startCheckpoint()
     JTIMER_START ( checkpoint );
     _numRestartFilenames = 0;
     _restartFilenames.clear();
-    JNOTE ( "starting checkpoint, suspending all nodes" )( s.numPeers );
     compId.incrementGeneration();
-    JNOTE("Incremented computationGeneration") (compId.computationGeneration());
+    JNOTE("starting checkpoint; incrementing generation; suspending all nodes")
+      (s.numPeers) (compId.computationGeneration());
     // Pass number of connected peers to all clients
     broadcastMessage(DMT_DO_SUSPEND);
 
@@ -1041,6 +1044,7 @@ void DmtcpCoordinator::broadcastMessage(DmtcpMessageType type,
   msg.type = type;
   msg.compGroup = compId;
   msg.numPeers = clients.size();
+  msg.exitAfterCkpt = exitAfterCkpt || exitAfterCkptOnce;
   msg.extraBytes = extraBytes;
 
   if (msg.type == DMT_KILL_PEER && clients.size() > 0) {

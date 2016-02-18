@@ -3,6 +3,7 @@
 #include "dmtcp.h"
 #include "dmtcpalloc.h"
 #include "plugininfo.h"
+#include "coordinatorapi.h"
 #include "util.h"
 
 static const char *firstRestartBarrier = "DMTCP::RESTART";

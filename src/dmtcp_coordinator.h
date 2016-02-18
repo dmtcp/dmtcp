@@ -93,7 +93,7 @@ namespace dmtcp
                             const void *extraData = NULL);
       void releaseBarrier(const string& barrier);
       bool startCheckpoint();
-      void recordCkptFilename(const char *barrierList);
+      void recordCkptFilename(CoordClient *client, const char *barrierList);
 
       void handleUserCommand(char cmd, DmtcpMessage* reply = NULL);
       void printStatus(size_t numPeers, bool isRunning);
@@ -115,7 +115,6 @@ namespace dmtcp
 
       pid_t getNewVirtualPid();
 
-    protected:
       void writeRestartScript();
     private:
       size_t _numCkptWorkers;
