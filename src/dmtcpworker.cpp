@@ -397,9 +397,6 @@ void DmtcpWorker::waitForSuspendMessage()
     ckptThreadPerformExit();
   }
 
-  // Inform Coordinator of RUNNING state.
-  CoordinatorAPI::instance().sendMsgToCoordinator(DmtcpMessage(DMT_OK));
-
   JTRACE("waiting for SUSPEND message");
 
   DmtcpMessage msg;
@@ -503,7 +500,10 @@ void DmtcpWorker::postCheckpoint()
   }
 
   PluginManager::processResumeBarriers();
+
+  // Inform Coordinator of RUNNING state.
   WorkerState::setCurrentState( WorkerState::RUNNING );
+  CoordinatorAPI::instance().sendMsgToCoordinator(DmtcpMessage(DMT_OK));
 }
 
 void DmtcpWorker::postRestart()
@@ -514,5 +514,7 @@ void DmtcpWorker::postRestart()
   PluginManager::processRestartBarriers();
   JTRACE("got resume message after restart");
 
+  // Inform Coordinator of RUNNING state.
   WorkerState::setCurrentState( WorkerState::RUNNING );
+  CoordinatorAPI::instance().sendMsgToCoordinator(DmtcpMessage(DMT_OK));
 }
