@@ -36,6 +36,7 @@
 #include "processinfo.h"
 #include  "../jalib/jconvert.h"
 #include  "../jalib/jfilesystem.h"
+#include "../jalib/jsocket.h"
 #include <fcntl.h>
 #include <semaphore.h> // for sem_post(&sem_launch)
 
@@ -145,7 +146,8 @@ DmtcpPluginDescriptor_t dmtcp_CoordinatorAPI_PluginDescr()
 
 void CoordinatorAPI::restart()
 {
-  instance()._nsSock.close();
+  _real_close(instance()._nsSock);
+  instance()._nsSock = -1;
 }
 
 static uint32_t getCkptInterval()
@@ -163,13 +165,13 @@ static uint32_t getCkptInterval()
   return ret;
 }
 
-static jalib::JSocket createNewSocketToCoordinator(CoordinatorMode mode)
+static int createNewSocketToCoordinator(CoordinatorMode mode)
 {
   const char*host = NULL;
   int port = UNINITIALIZED_PORT;
 
   CoordinatorAPI::getCoordHostAndPort(COORD_ANY, &host, &port);
-  return jalib::JClientSocket(host, port);
+  return jalib::JClientSocket(host, port).sockfd();
 }
 
 //CoordinatorAPI::CoordinatorAPI (int sockfd)
@@ -184,7 +186,7 @@ CoordinatorAPI& CoordinatorAPI::instance()
     coordAPIInst = new CoordinatorAPI();
     if (noCoordinator() ||
         Util::isValidFd(PROTECTED_COORD_FD)) {
-      coordAPIInst->_coordinatorSocket = jalib::JSocket(PROTECTED_COORD_FD);
+      coordAPIInst->_coordinatorSocket = PROTECTED_COORD_FD;
     }
   }
   return *coordAPIInst;
@@ -195,22 +197,15 @@ void CoordinatorAPI::init()
   JTRACE("Informing coordinator of new process") (UniquePid::ThisProcess());
 
   DmtcpMessage msg (DMT_UPDATE_PROCESS_INFO_AFTER_INIT_OR_EXEC);
-  string progname = jalib::Filesystem::GetProgramName();
-  msg.extraBytes = progname.length() + 1;
-
-  instance()._coordinatorSocket << msg;
-  instance()._coordinatorSocket.writeAll(progname.c_str(),
-                                         progname.length() + 1);
-  // The coordinator won't send any msg in response to DMT_UPDATE... so no need
-  // to call recvCoordinatorHandshake().
+  instance().sendMsgToCoordinator(msg, jalib::Filesystem::GetProgramName());
 }
 
 void CoordinatorAPI::resetOnFork(CoordinatorAPI& coordAPI)
 {
-  JASSERT(coordAPI._coordinatorSocket.isValid());
-  JASSERT(coordAPI._coordinatorSocket.sockfd() != PROTECTED_COORD_FD);
+  JASSERT(coordAPI._coordinatorSocket != -1);
+  JASSERT(coordAPI._coordinatorSocket != PROTECTED_COORD_FD);
+  coordAPI.updateSockFd();
   instance() = coordAPI;
-  instance()._coordinatorSocket.changeFd(PROTECTED_COORD_FD);
 
   JTRACE("Informing coordinator of new process") (UniquePid::ThisProcess());
 
@@ -220,158 +215,15 @@ void CoordinatorAPI::resetOnFork(CoordinatorAPI& coordAPI)
   } else {
     msg.realPid = getpid();
   }
-  instance()._coordinatorSocket << msg;
-  // The coordinator won't send any msg in response to DMT_UPDATE... so no need
-  // to call recvCoordinatorHandshake().
-  instance()._nsSock.close();
+  instance().sendMsgToCoordinator(msg);
+  _real_close(instance()._nsSock);
+  instance()._nsSock = -1;
 }
 
-// FIXME:  Does "virtual coordinator" mean coordinator built into the
-//         the current process (no separate process?)
-void CoordinatorAPI::setupVirtualCoordinator(CoordinatorInfo *coordInfo,
-                                             struct in_addr  *localIP)
+void CoordinatorAPI::updateSockFd()
 {
-  const char *host = NULL;
-  int port;
-  CoordinatorAPI::getCoordHostAndPort(COORD_NONE, &host, &port);
-  _coordinatorSocket = jalib::JServerSocket(jalib::JSockAddr::ANY, port);
-  JASSERT(_coordinatorSocket.isValid()) (port) (JASSERT_ERRNO)
-    .Text("Failed to create listen socket.");
-  _coordinatorSocket.changeFd(PROTECTED_COORD_FD);
-  CoordinatorAPI::setCoordPort(_coordinatorSocket.port());
-
-  pid_t ppid = getppid();
-  Util::setVirtualPidEnvVar(INITIAL_VIRTUAL_PID, ppid, ppid);
-
-  UniquePid coordId = UniquePid(INITIAL_VIRTUAL_PID,
-                                UniquePid::ThisProcess().hostid(),
-                                UniquePid::ThisProcess().time());
-
-  coordInfo->id = coordId.upid();
-  coordInfo->timeStamp = coordId.time();
-  coordInfo->addrLen = 0;
-  if (getenv(ENV_VAR_CKPT_INTR) != NULL) {
-    coordInfo->interval = (uint32_t) strtol(getenv(ENV_VAR_CKPT_INTR), NULL, 0);
-  } else {
-    coordInfo->interval = 0;
-  }
-  memset(&coordInfo->addr, 0, sizeof(coordInfo->addr));
-  memset(localIP, 0, sizeof(*localIP));
-}
-
-void CoordinatorAPI::waitForCheckpointCommand()
-{
-  uint32_t ckptInterval = SharedData::getCkptInterval();
-  struct timeval tmptime={0,0};
-  long remaining = ckptInterval;
-  do {
-    fd_set rfds;
-    struct timeval *timeout = NULL;
-    struct timeval start;
-    if (ckptInterval > 0) {
-      timeout = &tmptime;
-      timeout->tv_sec = remaining;
-      JASSERT(gettimeofday(&start, NULL) == 0) (JASSERT_ERRNO);
-    }
-
-    // This call to select() does nothing and returns.
-    // But we want to find address of select() using dlsym/libc before
-    //   allowing the user thread to continue.
-    struct timeval timezero = {0,0};
-    select(0, NULL, NULL, NULL, &timezero);
-    if (sem_launch_first_time) {
-      // Release user thread now that we've initialized the checkpoint thread.
-      // This code is reached if the --no-coordinator flag is used.
-      sem_post(&sem_launch);
-      sem_launch_first_time = false;
-    }
-
-    FD_ZERO(&rfds);
-    FD_SET(_coordinatorSocket.sockfd(), &rfds );
-    int retval =
-      select(_coordinatorSocket.sockfd()+1, &rfds, NULL, NULL, timeout);
-    if (retval == 0) { // timeout expired, time for checkpoint
-      JTRACE("Timeout expired, checkpointing now.");
-      return;
-    } else if (retval > 0) {
-      JASSERT(FD_ISSET(_coordinatorSocket.sockfd(), &rfds));
-      JTRACE("Connect request on virtual coordinator socket.");
-      break;
-    }
-    JASSERT(errno == EINTR) (JASSERT_ERRNO); /* EINTR: a signal was caught */
-    if (ckptInterval > 0) {
-      struct timeval end;
-      JASSERT(gettimeofday(&end, NULL) == 0) (JASSERT_ERRNO);
-      remaining -= end.tv_sec - start.tv_sec;
-      // If the remaining time is negative, we can checkpoint now
-      if (remaining < 0) {
-        return;
-      }
-    }
-  } while (remaining > 0);
-
-  jalib::JSocket cmdSock(-1);
-  DmtcpMessage msg;
-  DmtcpMessage reply(DMT_USER_CMD_RESULT);
-  do {
-    cmdSock.close();
-    cmdSock = _coordinatorSocket.accept();
-    msg.poison();
-    JTRACE("Reading from incoming connection...");
-    cmdSock >> msg;
-  } while (!cmdSock.isValid());
-
-  JASSERT(msg.type == DMT_USER_CMD) (msg.type)
-    .Text("Unexpected connection.");
-
-  reply.coordCmdStatus = CoordCmdStatus::NOERROR;
-
-  bool exitWhenDone = false;
-  switch (msg.coordCmd) {
-//    case 'b': case 'B':  // prefix blocking command, prior to checkpoint command
-//      JTRACE("blocking checkpoint beginning...");
-//      blockUntilDone = true;
-//      break;
-    case 's': case 'S':
-      JTRACE("Received status command");
-      reply.numPeers = 1;
-      reply.isRunning = 1;
-      break;
-    case 'c': case 'C':
-      JTRACE("checkpointing...");
-      break;
-    case 'k': case 'K':
-    case 'q': case 'Q':
-      JTRACE("Received KILL command from user, exiting");
-      exitWhenDone = true;
-      break;
-    default:
-      JTRACE("unhandled user command") (msg.coordCmd);
-      reply.coordCmdStatus = CoordCmdStatus::ERROR_INVALID_COMMAND;
-  }
-  cmdSock << reply;
-  cmdSock.close();
-  if (exitWhenDone) {
-    _real_exit(0);
-  }
-  return;
-}
-
-bool CoordinatorAPI::noCoordinator()
-{
-  static int virtualCoordinator = -1;
-  if (virtualCoordinator == -1) {
-    int optVal = -1;
-    socklen_t optLen = sizeof(optVal);
-    int ret = _real_getsockopt(PROTECTED_COORD_FD, SOL_SOCKET,
-                               SO_ACCEPTCONN, &optVal, &optLen);
-    if (ret == 0 && optVal == 1) {
-      virtualCoordinator = 1;
-    } else {
-      virtualCoordinator = 0;
-    }
-  }
-  return virtualCoordinator;
+  _coordinatorSocket = Util::changeFd(_coordinatorSocket, PROTECTED_COORD_FD);
+  JASSERT(_coordinatorSocket == PROTECTED_COORD_FD);
 }
 
 void CoordinatorAPI::connectAndSendUserCommand(char c,
@@ -381,7 +233,7 @@ void CoordinatorAPI::connectAndSendUserCommand(char c,
                                                int *ckptInterval)
 {
   _coordinatorSocket = createNewSocketToCoordinator(COORD_ANY);
-  if (!_coordinatorSocket.isValid()) {
+  if (_coordinatorSocket == -1) {
     *coordCmdStatus = CoordCmdStatus::ERROR_COORDINATOR_NOT_FOUND;
     return;
   }
@@ -400,7 +252,7 @@ void CoordinatorAPI::connectAndSendUserCommand(char c,
     }
   }
 
-  _coordinatorSocket << msg;
+  sendMsgToCoordinator(msg);
 
   //the coordinator will violently close our socket...
   if (c=='q' || c=='Q') {
@@ -409,8 +261,7 @@ void CoordinatorAPI::connectAndSendUserCommand(char c,
   }
 
   //receive REPLY
-  reply.poison();
-  _coordinatorSocket >> reply;
+  recvMsgFromCoordinator(&reply);
   reply.assertValid();
   JASSERT(reply.type == DMT_USER_CMD_RESULT);
 
@@ -427,7 +278,8 @@ void CoordinatorAPI::connectAndSendUserCommand(char c,
     *ckptInterval = reply.theCheckpointInterval;
   }
 
-  _coordinatorSocket.close();
+  _real_close(_coordinatorSocket);
+  instance()._coordinatorSocket = -1;
 }
 
 string CoordinatorAPI::getCoordCkptDir(void)
@@ -436,15 +288,16 @@ string CoordinatorAPI::getCoordCkptDir(void)
   char buf[PATH_MAX];
   if (noCoordinator()) return "";
   DmtcpMessage msg(DMT_GET_CKPT_DIR);
-  _coordinatorSocket << msg;
+  sendMsgToCoordinator(msg);
 
-  msg.poison();
-  _coordinatorSocket >> msg;
+  char *extraData = NULL;
+  recvMsgFromCoordinator(&msg, (void**)&extraData);
   msg.assertValid();
   JASSERT(msg.type == DMT_GET_CKPT_DIR_RESULT) (msg.type);
 
-  JASSERT(msg.extraBytes > 0);
-  _coordinatorSocket.readAll(buf, msg.extraBytes);
+  JASSERT(msg.extraBytes > 0 && msg.extraBytes < PATH_MAX);
+  strcpy(buf, extraData);
+  JALLOC_HELPER_FREE(extraData);
   return buf;
 }
 
@@ -453,26 +306,32 @@ void CoordinatorAPI::updateCoordCkptDir(const char *dir)
   if (noCoordinator()) return;
   JASSERT(dir != NULL);
   DmtcpMessage msg(DMT_UPDATE_CKPT_DIR);
-  msg.extraBytes = strlen(dir) + 1;
-  _coordinatorSocket << msg;
-  _coordinatorSocket.writeAll(dir, strlen(dir) + 1);
+  sendMsgToCoordinator(msg, dir, strlen(dir) + 1);
 }
 
-void CoordinatorAPI::sendMsgToCoordinator(const DmtcpMessage &msg,
+void CoordinatorAPI::sendMsgToCoordinator(DmtcpMessage msg,
                                           const void *extraData,
                                           size_t len)
 {
   if (noCoordinator()) return;
-  _coordinatorSocket << msg;
-  if (msg.extraBytes > 0) {
-    JASSERT(extraData != NULL);
-    JASSERT(len == msg.extraBytes);
-    _coordinatorSocket.writeAll((const char *)extraData, msg.extraBytes);
+  if (extraData != NULL) {
+    msg.extraBytes = len;
   }
+  JASSERT(Util::writeAll(_coordinatorSocket, &msg, sizeof(msg)) == sizeof(msg));
+  if (extraData != NULL) {
+    JASSERT(Util::writeAll(_coordinatorSocket, extraData, len) == len);
+  }
+}
+
+void CoordinatorAPI::sendMsgToCoordinator(const DmtcpMessage &msg,
+                                          const string &data)
+{
+  sendMsgToCoordinator(msg, data.c_str(), data.length() + 1);
 }
 
 void CoordinatorAPI::recvMsgFromCoordinator(DmtcpMessage *msg, void **extraData)
 {
+  msg->poison();
   JASSERT(!noCoordinator()).Text("internal error");
   if (sem_launch_first_time) {
     // Release user thread now that we've initialized the checkpoint thread.
@@ -482,15 +341,18 @@ void CoordinatorAPI::recvMsgFromCoordinator(DmtcpMessage *msg, void **extraData)
     sem_post(&sem_launch);
     sem_launch_first_time = false;
   }
-  msg->poison();
-  _coordinatorSocket >> (*msg);
 
-  if (extraData != NULL) {
-    msg->assertValid();
-    JASSERT(msg->extraBytes > 0);
+  if (Util::readAll(_coordinatorSocket, msg, sizeof(*msg)) != sizeof(*msg)) {
+    // Perhaps the process is exit()'ing.
+    return;
+  }
+
+  if (msg->extraBytes > 0) {
+    JASSERT(extraData != NULL);
     // Caller must free this buffer
     void *buf = JALLOC_HELPER_MALLOC(msg->extraBytes);
-    _coordinatorSocket.readAll((char*)buf, msg->extraBytes);
+    JASSERT(Util::readAll(_coordinatorSocket, (char*) buf, msg->extraBytes) ==
+            msg->extraBytes);
     JASSERT(extraData != NULL);
     *extraData = buf;
   }
@@ -498,13 +360,13 @@ void CoordinatorAPI::recvMsgFromCoordinator(DmtcpMessage *msg, void **extraData)
 
 void CoordinatorAPI::waitForBarrier(const string& barrierId)
 {
-  CoordinatorAPI::instance().sendMsgToCoordinator(DmtcpMessage(DMT_OK));
+  instance().sendMsgToCoordinator(DmtcpMessage(DMT_OK));
 
   JTRACE("waiting for DMT_BARRIER_RELEASED message");
 
   char *extraData = NULL;
   DmtcpMessage msg;
-  CoordinatorAPI::instance().recvMsgFromCoordinator(&msg, (void**)&extraData);
+  instance().recvMsgFromCoordinator(&msg, (void**)&extraData);
 
   msg.assertValid();
   if (msg.type == DMT_KILL_PEER) {
@@ -577,26 +439,26 @@ void CoordinatorAPI::createNewConnToCoord(CoordinatorMode mode)
 {
   if (mode & COORD_JOIN) {
     _coordinatorSocket = createNewSocketToCoordinator(mode);
-    JASSERT(_coordinatorSocket.isValid()) (JASSERT_ERRNO)
+    JASSERT(_coordinatorSocket != -1) (JASSERT_ERRNO)
       .Text("Coordinator not found, but --join was specified. Exiting.");
   } else if (mode & COORD_NEW) {
     startNewCoordinator(mode);
     _coordinatorSocket = createNewSocketToCoordinator(mode);
-    JASSERT(_coordinatorSocket.isValid()) (JASSERT_ERRNO)
+    JASSERT(_coordinatorSocket != -1) (JASSERT_ERRNO)
       .Text("Error connecting to newly started coordinator.");
   } else if (mode & COORD_ANY) {
     _coordinatorSocket = createNewSocketToCoordinator(mode);
-    if (!_coordinatorSocket.isValid()) {
+    if (_coordinatorSocket == -1) {
       JTRACE("Coordinator not found, trying to start a new one.");
       startNewCoordinator(mode);
       _coordinatorSocket = createNewSocketToCoordinator(mode);
-      JASSERT(_coordinatorSocket.isValid()) (JASSERT_ERRNO)
+      JASSERT(_coordinatorSocket != -1) (JASSERT_ERRNO)
         .Text("Error connecting to newly started coordinator.");
     }
   } else {
     JASSERT(false) .Text("Not Reached");
   }
-  _coordinatorSocket.changeFd(PROTECTED_COORD_FD);
+  updateSockFd();
 }
 
 DmtcpMessage CoordinatorAPI::sendRecvHandshake(DmtcpMessage msg,
@@ -610,15 +472,17 @@ DmtcpMessage CoordinatorAPI::sendRecvHandshake(DmtcpMessage msg,
   }
 
   msg.theCheckpointInterval = getCkptInterval();
+
   string hostname = jalib::Filesystem::GetCurrentHostname();
-  msg.extraBytes = hostname.length() + 1 + progname.length() + 1;
 
-  _coordinatorSocket << msg;
-  _coordinatorSocket.writeAll(hostname.c_str(), hostname.length() + 1);
-  _coordinatorSocket.writeAll(progname.c_str(), progname.length() + 1);
+  size_t buflen = hostname.length() + progname.length() + 2;
+  char buf[buflen];
+  strcpy(buf, hostname.c_str());
+  strcpy(&buf[hostname.length() + 1], progname.c_str());
 
-  msg.poison();
-  _coordinatorSocket >> msg;
+  sendMsgToCoordinator(msg, buf, buflen);
+
+  recvMsgFromCoordinator(&msg);
   msg.assertValid();
   if (msg.type == DMT_KILL_PEER) {
     JTRACE("Received KILL message from coordinator, exiting");
@@ -671,7 +535,7 @@ void CoordinatorAPI::connectToCoordOnStartup(CoordinatorMode mode,
   coordInfo->id = hello_remote.from.upid();
   coordInfo->timeStamp = hello_remote.coordTimeStamp;
   coordInfo->addrLen = sizeof (coordInfo->addr);
-  JASSERT(getpeername(_coordinatorSocket.sockfd(),
+  JASSERT(getpeername(_coordinatorSocket,
                       (struct sockaddr*) &coordInfo->addr,
                       &coordInfo->addrLen) == 0)
     (JASSERT_ERRNO);
@@ -689,7 +553,7 @@ void CoordinatorAPI::createNewConnectionBeforeFork(string& progname)
   SharedData::getCoordAddr((struct sockaddr *)&addr, &len);
   socklen_t addrlen = len;
   _coordinatorSocket = jalib::JClientSocket((struct sockaddr *)&addr, addrlen);
-  JASSERT(_coordinatorSocket.isValid());
+  JASSERT(_coordinatorSocket != -1);
 
   DmtcpMessage hello_local(DMT_NEW_WORKER);
   DmtcpMessage hello_remote = sendRecvHandshake(hello_local, progname);
@@ -731,7 +595,7 @@ void CoordinatorAPI::connectToCoordOnRestart(CoordinatorMode  mode,
     coordInfo->id = hello_remote.from.upid();
     coordInfo->timeStamp = hello_remote.coordTimeStamp;
     coordInfo->addrLen = sizeof (coordInfo->addr);
-    JASSERT(getpeername(_coordinatorSocket.sockfd(),
+    JASSERT(getpeername(_coordinatorSocket,
                         (struct sockaddr*) &coordInfo->addr,
                         &coordInfo->addrLen) == 0)
       (JASSERT_ERRNO);
@@ -756,10 +620,13 @@ void CoordinatorAPI::sendCkptFilename()
   } else {
     msg.type = DMT_CKPT_FILENAME;
   }
-  msg.extraBytes = ckptFilename.length() + 1 + hostname.length() + 1;
-  _coordinatorSocket << msg;
-  _coordinatorSocket.writeAll(ckptFilename.c_str(), ckptFilename.length() + 1);
-  _coordinatorSocket.writeAll(hostname.c_str(), hostname.length() + 1);
+
+  size_t buflen = hostname.length() + ckptFilename.length() + 2;
+  char buf[buflen];
+  strcpy(buf, ckptFilename.c_str());
+  strcpy(&buf[ckptFilename.length() + 1], hostname.c_str());
+
+  sendMsgToCoordinator(msg, buf, buflen);
 }
 
 
@@ -779,27 +646,28 @@ int CoordinatorAPI::sendKeyValPairToCoordinator(const char *id,
   msg.keyLen = key_len;
   msg.valLen = val_len;
   msg.extraBytes = key_len + val_len;
-  jalib::JSocket sock = _coordinatorSocket;
+  int sock = _coordinatorSocket;
   if (dmtcp_is_running_state()) {
-    if (_nsSock.sockfd() == -1) {
+    if (_nsSock == -1) {
       _nsSock = createNewSocketToCoordinator(COORD_ANY);
-      JASSERT(_nsSock.isValid());
-      _nsSock.changeFd(PROTECTED_NS_FD);
+      JASSERT(_nsSock != -1);
+      _nsSock = Util::changeFd(_nsSock, PROTECTED_NS_FD);
+      sock = _nsSock;
       DmtcpMessage m(DMT_NAME_SERVICE_WORKER);
-      _nsSock << m;
+      JASSERT(Util::writeAll(sock, &m, sizeof(m)) == sizeof(m));
     }
     sock = _nsSock;
-    JASSERT(sock.isValid());
   }
 
-  sock << msg;
-  sock.writeAll((const char *)key, key_len);
-  sock.writeAll((const char *)val, val_len);
+  JASSERT(Util::writeAll(sock, &msg, sizeof(msg)) == sizeof(msg));
+  JASSERT(Util::writeAll(sock, key, key_len) == key_len);
+  JASSERT(Util::writeAll(sock, val, val_len) == val_len);
+
   if (sync) {
     msg.poison();
-    sock >> msg;
+    JASSERT(Util::readAll(sock, &msg, sizeof(msg)) == sizeof(msg));
+    msg.assertValid();
     JASSERT(msg.type == DMT_REGISTER_NAME_SERVICE_DATA_SYNC_RESPONSE)(msg.type);
-
   }
   return 1;
 }
@@ -820,40 +688,195 @@ int CoordinatorAPI::sendQueryToCoordinator(const char *id,
   msg.keyLen = key_len;
   msg.valLen = 0;
   msg.extraBytes = key_len;
-  jalib::JSocket sock = _coordinatorSocket;
+  int sock = _coordinatorSocket;
 
   if (key == NULL || key_len == 0 || val == NULL || val_len == 0) {
     return 0;
   }
 
   if (dmtcp_is_running_state()) {
-    if (!_nsSock.isValid()) {
+    if (_nsSock == -1) {
       _nsSock = createNewSocketToCoordinator(COORD_ANY);
-      JASSERT(_nsSock.isValid());
-      _nsSock.changeFd(PROTECTED_NS_FD);
+      JASSERT(_nsSock != -1);
+      _nsSock = Util::changeFd(_nsSock, PROTECTED_NS_FD);
+      JASSERT(_nsSock == PROTECTED_NS_FD);
       DmtcpMessage m(DMT_NAME_SERVICE_WORKER);
-      _nsSock << m;
+      JASSERT(Util::writeAll(_nsSock, &m, sizeof(m)) == sizeof(m));
     }
     sock = _nsSock;
-    JASSERT(sock.isValid());
   }
 
-  sock << msg;
-  sock.writeAll((const char *)key, key_len);
+  JASSERT(Util::writeAll(sock, &msg, sizeof(msg)) == sizeof(msg));
+  JASSERT(Util::writeAll(sock, key, key_len) == key_len);
 
   msg.poison();
-  sock >> msg;
+
+  JASSERT(Util::readAll(sock, &msg, sizeof(msg)) == sizeof(msg));
   msg.assertValid();
   JASSERT(msg.type == DMT_NAME_SERVICE_QUERY_RESPONSE &&
           msg.extraBytes == msg.valLen);
 
   JASSERT (*val_len >= msg.valLen);
   *val_len = msg.valLen;
-  if (*val_len > 0) {
-    sock.readAll((char*)val, *val_len);
-  }
+  JASSERT(Util::readAll(sock, val, *val_len) == *val_len);
 
   return *val_len;
+}
+
+/*
+ * Setup a virtual coordinator. It's part of the running process (i.e., no
+ * separate process is created).
+ *
+ * FIXME: This is the only place in this file where we use JSocket. May be get
+ * rid of it here too?
+ */
+void CoordinatorAPI::setupVirtualCoordinator(CoordinatorInfo *coordInfo,
+                                             struct in_addr  *localIP)
+{
+  const char *host = NULL;
+  int port;
+  CoordinatorAPI::getCoordHostAndPort(COORD_NONE, &host, &port);
+  jalib::JSocket sock =
+    jalib::JServerSocket(jalib::JSockAddr::ANY, port).sockfd();
+  _coordinatorSocket = sock.sockfd();
+  JASSERT(_coordinatorSocket != -1) (port) (JASSERT_ERRNO)
+    .Text("Failed to create listen socket.");
+  updateSockFd();
+  CoordinatorAPI::setCoordPort(sock.port());
+
+  pid_t ppid = getppid();
+  Util::setVirtualPidEnvVar(INITIAL_VIRTUAL_PID, ppid, ppid);
+
+  UniquePid coordId = UniquePid(INITIAL_VIRTUAL_PID,
+                                UniquePid::ThisProcess().hostid(),
+                                UniquePid::ThisProcess().time());
+
+  coordInfo->id = coordId.upid();
+  coordInfo->timeStamp = coordId.time();
+  coordInfo->addrLen = 0;
+  if (getenv(ENV_VAR_CKPT_INTR) != NULL) {
+    coordInfo->interval = (uint32_t) strtol(getenv(ENV_VAR_CKPT_INTR), NULL, 0);
+  } else {
+    coordInfo->interval = 0;
+  }
+  memset(&coordInfo->addr, 0, sizeof(coordInfo->addr));
+  memset(localIP, 0, sizeof(*localIP));
+}
+
+void CoordinatorAPI::waitForCheckpointCommand()
+{
+  uint32_t ckptInterval = SharedData::getCkptInterval();
+  struct timeval tmptime={0,0};
+  long remaining = ckptInterval;
+  do {
+    fd_set rfds;
+    struct timeval *timeout = NULL;
+    struct timeval start;
+    if (ckptInterval > 0) {
+      timeout = &tmptime;
+      timeout->tv_sec = remaining;
+      JASSERT(gettimeofday(&start, NULL) == 0) (JASSERT_ERRNO);
+    }
+
+    // This call to select() does nothing and returns.
+    // But we want to find address of select() using dlsym/libc before
+    //   allowing the user thread to continue.
+    struct timeval timezero = {0,0};
+    select(0, NULL, NULL, NULL, &timezero);
+    if (sem_launch_first_time) {
+      // Release user thread now that we've initialized the checkpoint thread.
+      // This code is reached if the --no-coordinator flag is used.
+      sem_post(&sem_launch);
+      sem_launch_first_time = false;
+    }
+
+    FD_ZERO(&rfds);
+    FD_SET(_coordinatorSocket, &rfds );
+    int retval =
+      select(_coordinatorSocket + 1, &rfds, NULL, NULL, timeout);
+    if (retval == 0) { // timeout expired, time for checkpoint
+      JTRACE("Timeout expired, checkpointing now.");
+      return;
+    } else if (retval > 0) {
+      JASSERT(FD_ISSET(_coordinatorSocket, &rfds));
+      JTRACE("Connect request on virtual coordinator socket.");
+      break;
+    }
+    JASSERT(errno == EINTR) (JASSERT_ERRNO); /* EINTR: a signal was caught */
+    if (ckptInterval > 0) {
+      struct timeval end;
+      JASSERT(gettimeofday(&end, NULL) == 0) (JASSERT_ERRNO);
+      remaining -= end.tv_sec - start.tv_sec;
+      // If the remaining time is negative, we can checkpoint now
+      if (remaining < 0) {
+        return;
+      }
+    }
+  } while (remaining > 0);
+
+  jalib::JSocket cmdSock(-1);
+  DmtcpMessage msg;
+  DmtcpMessage reply(DMT_USER_CMD_RESULT);
+  do {
+    cmdSock.close();
+    jalib::JServerSocket sock(_coordinatorSocket);
+    cmdSock = sock.accept();
+    msg.poison();
+    JTRACE("Reading from incoming connection...");
+    cmdSock >> msg;
+  } while (!cmdSock.isValid());
+
+  JASSERT(msg.type == DMT_USER_CMD) (msg.type)
+    .Text("Unexpected connection.");
+
+  reply.coordCmdStatus = CoordCmdStatus::NOERROR;
+
+  bool exitWhenDone = false;
+  switch (msg.coordCmd) {
+//    case 'b': case 'B':  // prefix blocking command, prior to checkpoint command
+//      JTRACE("blocking checkpoint beginning...");
+//      blockUntilDone = true;
+//      break;
+    case 's': case 'S':
+      JTRACE("Received status command");
+      reply.numPeers = 1;
+      reply.isRunning = 1;
+      break;
+    case 'c': case 'C':
+      JTRACE("checkpointing...");
+      break;
+    case 'k': case 'K':
+    case 'q': case 'Q':
+      JTRACE("Received KILL command from user, exiting");
+      exitWhenDone = true;
+      break;
+    default:
+      JTRACE("unhandled user command") (msg.coordCmd);
+      reply.coordCmdStatus = CoordCmdStatus::ERROR_INVALID_COMMAND;
+  }
+  cmdSock << reply;
+  cmdSock.close();
+  if (exitWhenDone) {
+    _real_exit(0);
+  }
+  return;
+}
+
+bool CoordinatorAPI::noCoordinator()
+{
+  static int virtualCoordinator = -1;
+  if (virtualCoordinator == -1) {
+    int optVal = -1;
+    socklen_t optLen = sizeof(optVal);
+    int ret = _real_getsockopt(PROTECTED_COORD_FD, SOL_SOCKET,
+                               SO_ACCEPTCONN, &optVal, &optLen);
+    if (ret == 0 && optVal == 1) {
+      virtualCoordinator = 1;
+    } else {
+      virtualCoordinator = 0;
+    }
+  }
+  return virtualCoordinator;
 }
 
 }
