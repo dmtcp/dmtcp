@@ -23,20 +23,22 @@
  ****************************************************************************/
 
 #include "ibvctx.h"
+#include <assert.h>
+#include <errno.h>
+#include <fcntl.h>
 #include <infiniband/verbs.h>
 #include <linux/types.h>
-#include <sys/types.h>
-#include <fcntl.h>
-#include <assert.h>
-#include "ibv_internal.h"
-#include <stdlib.h>
+#include <poll.h>
+#include <pthread.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
-#include "lib/list.h"
+#include <sys/types.h>
+#include "config.h"
 #include "dmtcp.h"
-#include <pthread.h>
-#include <errno.h>
+#include "ibv_internal.h"
+#include "lib/list.h"
 
 static bool is_restart = false;
 
@@ -1106,11 +1108,36 @@ int _destroy_comp_channel(struct ibv_comp_channel * channel)
 int _get_cq_event(struct ibv_comp_channel * channel,
                   struct ibv_cq ** cq, void ** cq_context)
 {
-  struct internal_ibv_comp_channel * internal_channel;
-  struct internal_ibv_cq * internal_cq;
-  int rslt;
+  struct internal_ibv_comp_channel *internal_channel;
+  struct internal_ibv_cq *internal_cq;
+  int rslt, flags;
 
   internal_channel = ibv_comp_to_internal(channel);
+  flags = fcntl(internal_channel->real_channel->fd, F_GETFL, NULL);
+
+  // We need to change the call to non-blocking mode
+  if (flags & O_NONBLOCK == 0) {
+    int ms_timeout = 100;
+    struct pollfd my_pollfd = {
+      .fd = internal_channel->real_channel->fd,
+      .events = POLLIN,
+      .revents = 0
+    };
+
+    fcntl(internal_channel->real_channel->fd,
+          F_SETFL, flags | O_NONBLOCK);
+    do {
+      rslt = poll(&my_pollfd, 1, ms_timeout);
+    } while (rslt == 0);
+
+    if (rslt == -1) {
+      fprintf(stderr, "poll() in ibv_get_cq_event() failed\n");
+      exit(1);
+    }
+  }
+
+  DMTCP_PLUGIN_DISABLE_CKPT();
+
   if (!IS_INTERNAL_IBV_STRUCT(internal_channel)) {
     rslt = NEXT_IBV_FNC(ibv_get_cq_event)(channel, cq, cq_context);
   }
@@ -1125,6 +1152,7 @@ int _get_cq_event(struct ibv_comp_channel * channel,
   *cq = &internal_cq->user_cq;
   *cq_context = internal_cq->user_cq.context;
 
+  DMTCP_PLUGIN_ENABLE_CKPT();
   return rslt;
 }
 
@@ -1135,6 +1163,31 @@ int _get_async_event(struct ibv_context * ctx, struct ibv_async_event * event)
   struct internal_ibv_cq * internal_cq;
   struct internal_ibv_srq * internal_srq;
   int rslt;
+
+  int flags = fcntl(internal_ctx->real_ctx->async_fd, F_GETFL, NULL);
+
+  // We need to change the call to non-blocking mode
+  if (flags & O_NONBLOCK == 0) {
+    int ms_timeout = 100;
+    struct pollfd my_pollfd = {
+      .fd = internal_ctx->real_ctx->async_fd,
+      .events = POLLIN,
+      .revents = 0
+    };
+
+    fcntl(internal_ctx->real_ctx->async_fd,
+          F_SETFL, flags | O_NONBLOCK);
+    do {
+      rslt = poll(&my_pollfd, 1, ms_timeout);
+    } while (rslt == 0);
+
+    if (rslt == -1) {
+      fprintf(stderr, "poll() in ibv_get_async_event() failed\n");
+      exit(1);
+    }
+  }
+
+  DMTCP_PLUGIN_DISABLE_CKPT();
 
   if (!IS_INTERNAL_IBV_STRUCT(internal_ctx)) {
     rslt = NEXT_IBV_FNC(ibv_get_async_event)(ctx, event);
@@ -1187,6 +1240,7 @@ int _get_async_event(struct ibv_context * ctx, struct ibv_async_event * event)
       break;
     }
 
+  DMTCP_PLUGIN_ENABLE_CKPT();
   return rslt;
 }
 
