@@ -272,12 +272,10 @@ ibv_get_cq_event(struct ibv_comp_channel *channel,
                  struct ibv_cq **cq,
                  void **cq_context)
 {
-  // DMTCP_PLUGIN_DISABLE_CKPT();
   PDEBUG("******** WRAPPER for ibv_get_cq_event");
 
   int rslt = _get_cq_event(channel, cq, cq_context);
 
-  // DMTCP_PLUGIN_ENABLE_CKPT();
   return rslt;
 }
 
@@ -299,12 +297,10 @@ ibv_query_qp(struct ibv_qp *qp,
 int
 ibv_get_async_event(struct ibv_context *context, struct ibv_async_event *event)
 {
-  // DMTCP_PLUGIN_DISABLE_CKPT();
   PDEBUG("******** WRAPPER FOR ibv_get_async_event\n");
 
   int rslt = _get_async_event(context, event);
 
-  // DMTCP_PLUGIN_ENABLE_CKPT();
   return rslt;
 }
 
