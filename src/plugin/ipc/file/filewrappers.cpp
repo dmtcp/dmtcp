@@ -371,7 +371,10 @@ static int _open_open64_work(int(*fn) (const char *path, int flags, ...),
     newpath = currPtsDevName;
   }
 
-  int fd = (*fn) (newpath, flags, mode);
+  const char *phys_path = VIRTUAL_TO_PHYSICAL_PATH(newpath).c_str();
+
+  int fd = -1;
+  fd = (*fn)(phys_path, flags, mode);
 
   if (fd >= 0 && dmtcp_is_running_state()) {
     FileConnList::instance().processFileConnection(fd, newpath, flags, mode);
@@ -454,7 +457,10 @@ static FILE *_fopen_fopen64_work(FILE*(*fn) (const char *path, const char *mode)
     newpath = currPtsDevName;
   }
 
-  FILE *file =(*fn) (newpath, mode);
+  const char *phys_path = VIRTUAL_TO_PHYSICAL_PATH(newpath).c_str();
+
+  FILE* file = NULL;
+  file = (*fn)(phys_path, mode);
 
   if (file != NULL && dmtcp_is_running_state()) {
     FileConnList::instance().processFileConnection(fileno(file), newpath,
@@ -488,7 +494,8 @@ extern "C" FILE *freopen(const char *path, const char *mode, FILE *stream)
     newpath = currPtsDevName;
   }
 
-  FILE *file = _real_freopen(newpath, mode, stream);
+  const char *phys_path = VIRTUAL_TO_PHYSICAL_PATH(newpath).c_str();
+  FILE *file = _real_freopen(phys_path, mode, stream);
 
   if (file != NULL && dmtcp_is_running_state()) {
     FileConnList::instance().processFileConnection(fileno(file), newpath,
@@ -506,7 +513,8 @@ extern "C" int openat(int dirfd, const char *path, int flags, ...)
   mode_t mode = va_arg(arg, int);
   va_end(arg);
   DMTCP_PLUGIN_DISABLE_CKPT();
-  int fd = _real_openat(dirfd, path, flags, mode);
+  const char *phys_path = VIRTUAL_TO_PHYSICAL_PATH(path).c_str();
+  int fd = _real_openat(dirfd, phys_path, flags, mode);
   if (fd >= 0 && dmtcp_is_running_state()) {
     string procpath = "/proc/self/fd/" + jalib::XToString(fd);
     string device = jalib::Filesystem::ResolveSymlink(procpath);
@@ -534,7 +542,8 @@ extern "C" int openat64(int dirfd, const char *path, int flags, ...)
   mode_t mode = va_arg(arg, int);
   va_end(arg);
   DMTCP_PLUGIN_DISABLE_CKPT();
-  int fd = _real_openat64(dirfd, path, flags, mode);
+  const char *phys_path = VIRTUAL_TO_PHYSICAL_PATH(path).c_str();
+  int fd = _real_openat64(dirfd, phys_path, flags, mode);
   if (fd >= 0 && dmtcp_is_running_state()) {
     string procpath = "/proc/self/fd/" + jalib::XToString(fd);
     string device = jalib::Filesystem::ResolveSymlink(procpath);
@@ -558,7 +567,8 @@ extern "C" int __openat64_2(int dirfd, const char *path, int flags)
 extern "C" DIR *opendir(const char *name)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
-  DIR *dir = _real_opendir(name);
+  const char *phys_path = VIRTUAL_TO_PHYSICAL_PATH(name).c_str();
+  DIR *dir = _real_opendir(phys_path);
   if (dir != NULL && dmtcp_is_running_state()) {
     FileConnList::instance().processFileConnection(dirfd(dir), name, -1, -1);
   }
@@ -594,9 +604,8 @@ extern "C" int __xstat(int vers, const char *path, struct stat *buf)
     // And don't call updateStatPath().  If path is bad, it will crash.
   } else {
     updateStatPath(path, &newpath);
-    if (newpath != path) {
-      retval = _real_xstat(vers, newpath, buf); // Re-do it with correct path.
-    } // else use answer from previous call to _real_xstat(), and save time.
+    const char *phys_path = VIRTUAL_TO_PHYSICAL_PATH(newpath).c_str();
+    retval = _real_xstat(vers, phys_path, buf); // Re-do it with correct path.
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -613,9 +622,8 @@ extern "C" int __xstat64(int vers, const char *path, struct stat64 *buf)
     // We're done.  Return.
   } else {
     updateStatPath(path, &newpath);
-    if (newpath != path) {
-      retval = _real_xstat64(vers, newpath, buf);
-    }
+    const char *phys_path = VIRTUAL_TO_PHYSICAL_PATH(newpath).c_str();
+    retval = _real_xstat64(vers, phys_path, buf);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -650,9 +658,8 @@ extern "C" int __lxstat(int vers, const char *path, struct stat *buf)
     // We're done.  Return.
   } else {
     updateStatPath(path, &newpath);
-    if (newpath != path) {
-      retval = _real_lxstat(vers, newpath, buf);
-    }
+    const char *phys_path = VIRTUAL_TO_PHYSICAL_PATH(newpath).c_str();
+    retval = _real_lxstat(vers, phys_path, buf);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -669,9 +676,8 @@ extern "C" int __lxstat64(int vers, const char *path, struct stat64 *buf)
     // We're done.  Return.
   } else {
     updateStatPath(path, &newpath);
-    if (newpath != path) {
-      retval = _real_lxstat64(vers, newpath, buf);
-    }
+    const char *phys_path = VIRTUAL_TO_PHYSICAL_PATH(newpath).c_str();
+    retval = _real_lxstat64(vers, phys_path, buf);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -693,7 +699,8 @@ extern "C" ssize_t readlink(const char *path, char *buf, size_t bufsiz)
     retval = bufsiz > strlen(procSelfExe) ? strlen(procSelfExe) : bufsiz;
   } else {
     updateStatPath(path, &newpath);
-    retval = _real_readlink(newpath, buf, bufsiz);
+    const char *phys_path = VIRTUAL_TO_PHYSICAL_PATH(newpath).c_str();
+    retval = _real_readlink(phys_path, buf, bufsiz);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -733,16 +740,17 @@ extern "C" int fcntl(int fd, int cmd, ...)
 extern "C" char *realpath(const char *path, char *resolved_path)
 {
   char *ret;
-  if (Util::strStartsWith(path, "/dev/pts")) {
-    JASSERT(strlen(path) < PATH_MAX);
+  const char *phys_path = VIRTUAL_TO_PHYSICAL_PATH(path).c_str();
+  if (Util::strStartsWith(phys_path, "/dev/pts")) {
+    JASSERT(strlen(phys_path) < PATH_MAX);
     if (resolved_path == NULL) {
-      ret = (char*) malloc(strlen(path) + 1);
+      ret = (char*) malloc(strlen(phys_path) + 1);
     } else {
       ret = resolved_path;
     }
-    strcpy(ret, path);
+    strcpy(ret, phys_path);
   } else {
-    ret = _real_realpath(path, resolved_path);
+    ret = _real_realpath(phys_path, resolved_path);
   }
   return ret;
 }
@@ -765,15 +773,17 @@ extern "C" char *canonicalize_file_name(const char *path)
 
 extern "C" int access(const char *path, int mode)
 {
-  if (Util::strStartsWith(path, "/dev/pts")) {
+  const char *phys_path = VIRTUAL_TO_PHYSICAL_PATH(path).c_str();
+
+  if (Util::strStartsWith(phys_path, "/dev/pts")) {
     char currPtsDevName[32];
     DMTCP_PLUGIN_DISABLE_CKPT();
-    SharedData::getRealPtyName(path, currPtsDevName, sizeof(currPtsDevName));
+    SharedData::getRealPtyName(phys_path, currPtsDevName, sizeof(currPtsDevName));
     int ret = _real_access(currPtsDevName, mode);
     DMTCP_PLUGIN_ENABLE_CKPT();
     return ret;
   }
-  return _real_access(path, mode);
+  return _real_access(phys_path, mode);
 }
 
 #if 0

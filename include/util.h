@@ -177,6 +177,7 @@ namespace dmtcp
                          char *exec_path);
     string getPath(string cmd, bool is32bit = false);
     void getDmtcpArgs(vector<string> &dmtcp_args);
+    bool isNull(const void *p);
   }
 }
 #endif

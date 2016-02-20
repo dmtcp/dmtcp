@@ -39,6 +39,18 @@
 #include "jconvert.h"
 #include "connection.h"
 
+/*
+ * External pathvirt interfaces for converting virtual to physical paths. The
+ * macro is provided for convenience, since code that uses
+ * virtual_to_physical_path must check if it is linked before using it.
+ * Note that this macro requires Util. To see why Util::isNull() is required,
+ * read the comment above Util::isNull() in util_misc.cpp
+ */
+extern dmtcp::string virtual_to_physical_path(const char *virt_path) __attribute ((weak));
+#define VIRTUAL_TO_PHYSICAL_PATH(virt) \
+        (virtual_to_physical_path ? \
+        virtual_to_physical_path(virt) : dmtcp::string(Util::isNull(virt)?"":virt))
+
 namespace dmtcp
 {
   class PtyConnection : public Connection

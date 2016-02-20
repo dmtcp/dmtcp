@@ -651,3 +651,15 @@ bool Util::isIBShmArea(const ProcMapsArea& area)
 {
   return strStartsWith(area.name, "/dev/infiniband/uverbs");
 }
+
+/*
+ * In some libc prototypes (e.g. access(2)), a pointer argument is
+ * marked with GCC attribute `nonnull`. This allows GCC to optimize away any
+ * code paths related to testing whether the pointer argument is NULL or not.
+ * Therefore, when implementing a libc wrapper, if we need to do that control
+ * flow, it must be done in a separate function.
+ */
+bool Util::isNull(const void *p)
+{
+    return p == NULL;
+}
