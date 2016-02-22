@@ -83,7 +83,7 @@ dist_bin_SCRIPTS += batch-queue/dmtcp_rm_loclaunch
 #
 libdmtcp_PROGRAMS += $(d_libdir)/libdmtcp_modify-env.so
 __d_libdir__libdmtcp_modify_env_so_SOURCES =                           \
-	modify-env/modify-env.c
+	modify-env/modify-env.c modify-env/warning.cpp
 __d_libdir__libdmtcp_modify_env_so_LDFLAGS = $(dmtcp_ldflags)
 __d_libdir__libdmtcp_modify_env_so_LDADD = $(LDADD)
 
