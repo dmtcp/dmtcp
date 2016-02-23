@@ -25,22 +25,24 @@ void * child_thread(void *arg)
     printf("Child thread...\n");
     for(i = 0; i < NUM_THREADS_2; i++) {
         pthread_t my_child;
-        pthread_create(&my_child, NULL, child_thread_2, NULL);
-        printf("b");
-        pthread_join(my_child, NULL);
+        int rc = pthread_create(&my_child, NULL, child_thread_2, NULL);
+        printf("b"); fflush(stdout);
+        if (rc == 0) pthread_join(my_child, NULL);
     }
     printf("\nThread increment completed\n");
     return NULL;
 }
 
 int main(int argc, char *argv[]) {
-    int i;
+    int i, rc;
     printf("\nCreating threads...\n");
     for(i = 0; i < NUM_THREADS; i++) {
-        pthread_create(&child_thread_id[i], NULL, child_thread, NULL);
+        rc = pthread_create(&child_thread_id[i], NULL, child_thread, NULL);
+        if (rc < 0) child_thread_id[i] = -1;
     }
     printf("\nJoining threads...\n");
     for(i = 0; i < NUM_THREADS; i++) {
+      if (child_thread_id[i] == -1) continue;
       int ret = pthread_join(child_thread_id[i], NULL);
       if (ret != 0) {
         printf("\n\n pthread_join returned an error :%d\n", ret);
