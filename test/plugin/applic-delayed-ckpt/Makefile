@@ -44,7 +44,6 @@ check: ${LIBNAME}.so applic
 	  --interval 2 --with-plugin $$PWD/${LIBNAME}.so ./applic &
 	@ sleep 7
 	@ echo ""
-	@ echo "DEBUGGING"
 	@ ${DMTCP_ROOT}/bin/dmtcp_command --coord-port ${DEMO_PORT} -s || echo "NO COORDINATOR"
 	@ echo "===== RESTARTING USING ./dmtcp_restart_script.sh ============="
 	./dmtcp_restart_script.sh
