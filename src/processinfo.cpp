@@ -55,8 +55,14 @@ static void checkpoint()
   ProcessInfo::instance().refresh();
 }
 
+static void resume()
+{
+  ProcessInfo::instance().incrementNumCheckpoints();
+}
+
 static void restart()
 {
+  ProcessInfo::instance().incrementNumRestarts();
   ProcessInfo::instance().restart();
 }
 
@@ -90,6 +96,7 @@ static void processInfo_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 
 static DmtcpBarrier processInfoBarriers[] = {
   {DMTCP_LOCAL_BARRIER_PRE_CKPT, checkpoint, "checkpoint"},
+  {DMTCP_LOCAL_BARRIER_RESUME, resume, "resume"},
   {DMTCP_LOCAL_BARRIER_RESTART, restart, "restart"}
 };
 

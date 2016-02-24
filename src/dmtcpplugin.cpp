@@ -44,10 +44,6 @@
 
 using namespace dmtcp;
 
-//global counters
-static int numCheckpoints = 0;
-static int numRestarts    = 0;
-
 //I wish we could use pthreads for the trickery in this file, but much of our
 //code is executed before the thread we want to wake is restored.  Thus we do
 //it the bad way.
@@ -109,20 +105,22 @@ static int dmtcpRunCommand(char command)
 EXTERNC int dmtcp_checkpoint()
 {
   int rv = 0;
-  int oldNumRestarts    = numRestarts;
-  int oldNumCheckpoints = numCheckpoints;
+  int oldNumRestarts    = ProcessInfo::instance().numRestarts();
+  int oldNumCheckpoints = ProcessInfo::instance().numCheckpoints();
   memfence(); //make sure the reads above don't get reordered
 
   if(dmtcpRunCommand('c')){ //request checkpoint
     //and wait for the checkpoint
-    while(oldNumRestarts==numRestarts && oldNumCheckpoints==numCheckpoints){
+    while (oldNumRestarts == ProcessInfo::instance().numRestarts() &&
+           oldNumCheckpoints == ProcessInfo::instance().numCheckpoints()) {
       //nanosleep should get interrupted by checkpointing with an EINTR error
       //though there is a race to get to nanosleep() before the checkpoint
       struct timespec t = {1,0};
       nanosleep(&t, NULL);
       memfence();  //make sure the loop condition doesn't get optimized
     }
-    rv = (oldNumRestarts==numRestarts ? DMTCP_AFTER_CHECKPOINT : DMTCP_AFTER_RESTART);
+    rv = (oldNumRestarts==ProcessInfo::instance().numRestarts()
+          ? DMTCP_AFTER_CHECKPOINT : DMTCP_AFTER_RESTART);
   }else{
   	/// TODO: Maybe we need to process it in some way????
     /// EXIT????
@@ -142,8 +140,8 @@ EXTERNC int dmtcp_get_coordinator_status(int *numPeers, int *isRunning)
 
 EXTERNC int dmtcp_get_local_status(int *nCheckpoints, int *nRestarts)
 {
-  *nCheckpoints = numCheckpoints;
-  *nRestarts = numRestarts;
+  *nCheckpoints = ProcessInfo::instance().numCheckpoints();
+  *nRestarts = ProcessInfo::instance().numRestarts();
   return DMTCP_IS_PRESENT;;
 }
 
@@ -506,13 +504,4 @@ EXTERNC void dmtcp_get_local_ip_addr(struct in_addr *in)
 EXTERNC int dmtcp_no_coordinator(void)
 {
   return CoordinatorAPI::noCoordinator();
-}
-
-void increment_counters(int isRestart)
-{
-  if (isRestart) {
-    numRestarts++;
-  } else {
-    numCheckpoints++;
-  }
 }
