@@ -279,7 +279,7 @@ void CoordinatorAPI::connectAndSendUserCommand(char c,
   }
 
   _real_close(_coordinatorSocket);
-  instance()._coordinatorSocket = -1;
+  _coordinatorSocket = -1;
 }
 
 string CoordinatorAPI::getCoordCkptDir(void)

@@ -82,6 +82,12 @@ namespace dmtcp
       uint32_t get_generation() { return _generation; }
       void set_generation(uint32_t generation) { _generation = generation; }
 
+      uint32_t numCheckpoints() { return _numCheckpoints; }
+      uint32_t numRestarts() { return _numRestarts; }
+
+      uint32_t incrementNumCheckpoints() { _numCheckpoints++; }
+      uint32_t incrementNumRestarts() { _numRestarts++; }
+
       void processRlimit();
       void calculateArgvAndEnvSize();
 #ifdef RESTORE_ARGV_AFTER_RESTART
@@ -132,14 +138,17 @@ namespace dmtcp
       pid_t _gid;
       pid_t _fgid;
 
+      // _generation is per-process.  This constrasts with
+      // _computation_generation, which is shared among all processes on a host.
+      // _computation_generation is updated in shareddata.cpp by:
+      //      sharedDataHeader->compId._computation_generation = generation;
+      // _generation is updated later when this process begins its checkpoint.
+      uint32_t  _generation;
+      uint32_t  _numCheckpoints;
+      uint32_t  _numRestarts;
+
       uint32_t  _numPeers;
       uint32_t  _noCoordinator;
-      uint32_t  _generation;
-        // _generation, above, is per-process.  This constrasts with
-        //   _computation_generation, which is shared among all processes on a host.
-        // _computation_generation is updated in shareddata.cpp by:
-        //      sharedDataHeader->compId._computation_generation = generation;
-        // _generation is updated later when this process begins its checkpoint.
       uint32_t  _argvSize;
       uint32_t  _envSize;
       uint32_t  _elfType;

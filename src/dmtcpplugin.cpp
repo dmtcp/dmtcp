@@ -44,10 +44,6 @@
 
 using namespace dmtcp;
 
-//global counters
-static int numCheckpoints = 0;
-static int numRestarts    = 0;
-
 //I wish we could use pthreads for the trickery in this file, but much of our
 //code is executed before the thread we want to wake is restored.  Thus we do
 //it the bad way.
@@ -64,86 +60,59 @@ static inline void memfence(){  RMB; WMB; }
 
 EXTERNC int dmtcp_is_enabled() { return 1; }
 
-static void runCoordinatorCmd(char c,
-                              int *coordCmdStatus = NULL,
-                              int *numPeers = NULL,
-                              int *isRunning = NULL)
-{
-  _dmtcp_lock();
-  {
-    CoordinatorAPI coordinatorAPI;
-
-    dmtcp_disable_ckpt();
-    coordinatorAPI.connectAndSendUserCommand(c, coordCmdStatus, numPeers,
-                                             isRunning);
-    dmtcp_enable_ckpt();
-  }
-  _dmtcp_unlock();
-}
-
-static int dmtcpRunCommand(char command)
-{
-  int coordCmdStatus;
-  int i = 0;
-  while (i < 100) {
-    runCoordinatorCmd(command, &coordCmdStatus);
-  // if we got error result - check it
-	// There is possibility that checkpoint thread
-	// did not send state=RUNNING yet or Coordinator did not receive it
-	// -- Artem
-    if (coordCmdStatus == CoordCmdStatus::ERROR_NOT_RUNNING_STATE) {
-      struct timespec t;
-      t.tv_sec = 0;
-      t.tv_nsec = 1000000;
-      nanosleep(&t, NULL);
-      //printf("\nWAIT FOR CHECKPOINT ABLE\n\n");
-    } else {
-//      printf("\nEverything is OK - return\n");
-      break;
-    }
-    i++;
-  }
-  return coordCmdStatus == CoordCmdStatus::NOERROR;
-}
-
 EXTERNC int dmtcp_checkpoint()
 {
-  int rv = 0;
-  int oldNumRestarts    = numRestarts;
-  int oldNumCheckpoints = numCheckpoints;
-  memfence(); //make sure the reads above don't get reordered
+  int oldNumRestarts, oldNumCheckpoints;
 
-  if(dmtcpRunCommand('c')){ //request checkpoint
-    //and wait for the checkpoint
-    while(oldNumRestarts==numRestarts && oldNumCheckpoints==numCheckpoints){
-      //nanosleep should get interrupted by checkpointing with an EINTR error
-      //though there is a race to get to nanosleep() before the checkpoint
-      struct timespec t = {1,0};
-      nanosleep(&t, NULL);
-      memfence();  //make sure the loop condition doesn't get optimized
+  while (1) {
+    WRAPPER_EXECUTION_GET_EXCL_LOCK();
+
+    CoordinatorAPI coordinatorAPI;
+    int status;
+    coordinatorAPI.connectAndSendUserCommand('c', &status);
+
+    if (status != CoordCmdStatus::ERROR_NOT_RUNNING_STATE) {
+      oldNumRestarts    = ProcessInfo::instance().numRestarts();
+      oldNumCheckpoints = ProcessInfo::instance().numCheckpoints();
+      WRAPPER_EXECUTION_RELEASE_EXCL_LOCK();
+      break;
     }
-    rv = (oldNumRestarts==numRestarts ? DMTCP_AFTER_CHECKPOINT : DMTCP_AFTER_RESTART);
-  }else{
-  	/// TODO: Maybe we need to process it in some way????
-    /// EXIT????
-    /// -- Artem
-    //	printf("\n\n\nError requesting checkpoint\n\n\n");
+
+    WRAPPER_EXECUTION_RELEASE_EXCL_LOCK();
+
+    struct timespec t = {0, 100 * 1000 * 1000}; // 100ms.
+    nanosleep(&t, NULL);
   }
 
-  return rv;
+  while (oldNumRestarts == ProcessInfo::instance().numRestarts() &&
+         oldNumCheckpoints == ProcessInfo::instance().numCheckpoints()) {
+    //nanosleep should get interrupted by checkpointing with an EINTR error
+    //though there is a race to get to nanosleep() before the checkpoint
+    struct timespec t = {1,0};
+    nanosleep(&t, NULL);
+    memfence();  //make sure the loop condition doesn't get optimized
+  }
+
+  return (ProcessInfo::instance().numRestarts() == oldNumRestarts
+          ? DMTCP_AFTER_CHECKPOINT : DMTCP_AFTER_RESTART);
 }
 
 EXTERNC int dmtcp_get_coordinator_status(int *numPeers, int *isRunning)
 {
-  int coordCmdStatus;
-  runCoordinatorCmd('s', &coordCmdStatus, numPeers, isRunning);
+  WRAPPER_EXECUTION_GET_EXCL_LOCK();
+
+  int status;
+  CoordinatorAPI coordinatorAPI;
+  coordinatorAPI.connectAndSendUserCommand('s', &status, numPeers, isRunning);
+
+  WRAPPER_EXECUTION_RELEASE_EXCL_LOCK();
   return DMTCP_IS_PRESENT;;
 }
 
 EXTERNC int dmtcp_get_local_status(int *nCheckpoints, int *nRestarts)
 {
-  *nCheckpoints = numCheckpoints;
-  *nRestarts = numRestarts;
+  *nCheckpoints = ProcessInfo::instance().numCheckpoints();
+  *nRestarts = ProcessInfo::instance().numRestarts();
   return DMTCP_IS_PRESENT;;
 }
 
@@ -506,13 +475,4 @@ EXTERNC void dmtcp_get_local_ip_addr(struct in_addr *in)
 EXTERNC int dmtcp_no_coordinator(void)
 {
   return CoordinatorAPI::noCoordinator();
-}
-
-void increment_counters(int isRestart)
-{
-  if (isRestart) {
-    numRestarts++;
-  } else {
-    numCheckpoints++;
-  }
 }
