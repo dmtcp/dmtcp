@@ -1,0 +1,5 @@
+For users who want to use DMTCP for large-scale applications on the
+Stampede supercomputer at Texas Advanced Computing Center (TACC),
+these scripts will automatically set up the coordinator on a
+separate node, launch the application, and restart from the
+previous checkpoint if needed.
