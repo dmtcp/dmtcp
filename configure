@@ -4930,7 +4930,7 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 ac_config_headers="$ac_config_headers include/config.h"
 
-ac_config_files="$ac_config_files Makefile contrib/Makefile contrib/ckptfile/Makefile contrib/infiniband/Makefile contrib/delayresume/Makefile plugin/Makefile src/Makefile src/mtcp/Makefile src/plugin/Makefile test/Makefile test/autotest_config.py test/plugin/Makefile"
+ac_config_files="$ac_config_files Makefile contrib/Makefile contrib/ckptfile/Makefile contrib/infiniband/Makefile contrib/delayresume/Makefile contrib/slurm-ft/Makefile plugin/Makefile src/Makefile src/mtcp/Makefile src/plugin/Makefile test/Makefile test/autotest_config.py test/plugin/Makefile"
 
 #AC_CONFIG_FILES([test/credentials/Makefile])
 
@@ -8110,6 +8110,7 @@ do
     "contrib/Makefile") CONFIG_FILES="$CONFIG_FILES contrib/Makefile" ;;
     "contrib/ckptfile/Makefile") CONFIG_FILES="$CONFIG_FILES contrib/ckptfile/Makefile" ;;
     "contrib/infiniband/Makefile") CONFIG_FILES="$CONFIG_FILES contrib/infiniband/Makefile" ;;
+    "contrib/slurm-ft/Makefile") CONFIG_FILES="$CONFIG_FILES contrib/slurm-ft/Makefile" ;;
     "plugin/Makefile") CONFIG_FILES="$CONFIG_FILES plugin/Makefile" ;;
     "src/Makefile") CONFIG_FILES="$CONFIG_FILES src/Makefile" ;;
     "src/mtcp/Makefile") CONFIG_FILES="$CONFIG_FILES src/mtcp/Makefile" ;;
