@@ -186,13 +186,14 @@ void ThreadList::init()
  *****************************************************************************/
 // Called from:  threadwrappers.cpp:__clone()
 void ThreadList::initThread(Thread* th, int (*fn)(void*), void *arg, int flags,
-                            int *ptid, int *ctid)
+                            int *ptid, struct user_desc *tls, int *ctid)
 {
   /* Save exactly what the caller is supplying */
   th->fn    = fn;
   th->arg   = arg;
   th->flags = flags;
   th->ptid  = ptid;
+  th->tls   = tls;
   th->ctid  = ctid;
   th->next  = NULL;
   th->state = ST_RUNNING;
