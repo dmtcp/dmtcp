@@ -524,7 +524,7 @@ fi
 if test "$use_m32" = "yes"; then
   interp=/lib/ld-linux.so.2
 elif test -x /usr/bin/readelf -a -r /usr/bin/readelf; then
-  interp=`/usr/bin/readelf -aW /usr/bin/readelf | grep interpreter | \
+  interp=`/usr/bin/readelf -aW /usr/bin/readelf | grep 'interpreter.*]' | \
           sed -e 's^.* interpreter: \(.*\)]^\1^'`
 elif test `uname -m` == x86_64; then
   interp=/lib64/ld-linux-x86-64.so.2
