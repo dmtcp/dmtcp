@@ -29,6 +29,7 @@ AC_CONFIG_FILES([Makefile \
                  contrib/ckptfile/Makefile \
                  contrib/delayresume/Makefile \
                  contrib/infiniband/Makefile \
+                 contrib/slurm-ft/Makefile \
                  plugin/Makefile \
                  src/Makefile \
                  src/mtcp/Makefile \
