@@ -111,7 +111,7 @@ extern "C" int __clone(int (*fn) (void *arg), void *child_stack, int flags,
   if (tid == -1) {
     JTRACE("Clone call failed")(JASSERT_ERRNO);
     ThreadSync::decrementUninitializedThreadCount();
-    JALLOC_HELPER_FREE(thread);
+    ThreadList::threadIsDead(thread);
   }
 
   WRAPPER_EXECUTION_ENABLE_CKPT();
