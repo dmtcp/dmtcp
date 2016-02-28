@@ -464,6 +464,9 @@ void FileConnList::processFileConnection(int fd, const char *path,
     }
   }
 
+  if (strstr(device.c_str(), "infiniband/uverbs") ||
+      strstr(device.c_str(), "uverbs-event")) return;
+
   path = device.c_str();
   if (strcmp(path, "/dev/tty") == 0) {
     // Controlling terminal
