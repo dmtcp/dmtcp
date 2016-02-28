@@ -1078,14 +1078,15 @@ DmtcpCoordinator::ComputationStatus DmtcpCoordinator::getStatus() const
     if ( cliState > max ) max = cliState;
   }
 
+  status.minimumStateUnanimous = unanimous;
   status.minimumState = ( min==INITIAL_MIN ? WorkerState::UNKNOWN
 			  : (WorkerState::eWorkerState)min );
   if( status.minimumState == WorkerState::RESTARTING && count < numPeers ){
     JTRACE("minimal state counted as RESTARTING but not all processes"
 	   " are connected yet.  So we wait.") ( numPeers ) ( count );
     status.minimumState = WorkerState::RESTARTING;
+    status.minimumStateUnanimous = false;
   }
-  status.minimumStateUnanimous = unanimous;
 
   status.maximumState = ( max==INITIAL_MAX ? WorkerState::UNKNOWN
 			  : (WorkerState::eWorkerState)max );
