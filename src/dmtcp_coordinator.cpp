@@ -422,6 +422,7 @@ void DmtcpCoordinator::updateMinimumState(WorkerState oldState)
 
     if (exitAfterCkpt || exitAfterCkptOnce) {
       JNOTE("Checkpoint Done. Killing all peers.");
+      JTIMER_STOP ( checkpoint );
       broadcastMessage(DMT_KILL_PEER);
       exitAfterCkptOnce = false;
     } else {
@@ -466,6 +467,7 @@ void DmtcpCoordinator::updateMinimumState(WorkerState oldState)
 
     if (exitAfterCkpt || exitAfterCkptOnce) {
       JNOTE("Checkpoint Done. Killing all peers.");
+      JTIMER_STOP ( checkpoint );
       broadcastMessage(DMT_KILL_PEER);
       exitAfterCkptOnce = false;
     } else {
