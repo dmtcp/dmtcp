@@ -227,7 +227,8 @@ void mtcp_writememoryareas(int fd)
       area.name[0] = '\0';
     } else if (Util::isNscdArea(area)) {
       /* Special Case Handling: nscd is enabled*/
-      area.prot = PROT_READ | PROT_WRITE | MTCP_PROT_ZERO_PAGE;
+      area.prot = PROT_READ | PROT_WRITE;
+      area.properties |= DMTCP_ZERO_PAGE;
       area.flags = MAP_PRIVATE | MAP_ANONYMOUS;
       Util::writeAll(fd, &area, sizeof(area));
       continue;
@@ -364,7 +365,7 @@ static void mtcp_write_non_rwx_and_anonymous_pages(int fd, Area *orig_area)
       mtcp_get_next_page_range(&a, &size, &is_zero);
     }
 
-    a.prot |= is_zero ? MTCP_PROT_ZERO_PAGE : 0;
+    a.properties |= is_zero ? DMTCP_ZERO_PAGE : 0;
     a.size = size;
 
     Util::writeAll(fd, &a, sizeof(a));
