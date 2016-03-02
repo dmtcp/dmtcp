@@ -492,7 +492,8 @@ static void mtcp_simulateread(int fd, MtcpHeader *mtcpHdr)
   while(1) {
     mtcp_readfile(fd, &area, sizeof area);
     if (area.size == -1) break;
-    if ((area.properties & DMTCP_ZERO_PAGE) == 0) {
+    if ((area.properties & DMTCP_ZERO_PAGE) == 0 &&
+        (area.properties & DMTCP_SKIP_WRITING_TEXT_SEGMENTS) == 0) {
       void *addr = mtcp_sys_mmap(0, area.size, PROT_WRITE | PROT_READ,
                                  MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
       if (addr == MAP_FAILED) {
@@ -925,7 +926,7 @@ static int read_one_memory_area(int fd)
     if (try_skipping_existing_segment) {
       // This fails on teracluster.  Presumably extra symbols cause overflow.
       mtcp_skipfile(fd, area.size);
-    } else {
+    } else if ((area.properties & DMTCP_SKIP_WRITING_TEXT_SEGMENTS) == 0) {
       /* This mmapfile after prev. mmap is okay; use same args again.
        *  Posix says prev. map will be munmapped.
        */
