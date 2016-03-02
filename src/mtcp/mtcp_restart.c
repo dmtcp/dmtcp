@@ -492,7 +492,7 @@ static void mtcp_simulateread(int fd, MtcpHeader *mtcpHdr)
   while(1) {
     mtcp_readfile(fd, &area, sizeof area);
     if (area.size == -1) break;
-    if ((area.prot & MTCP_PROT_ZERO_PAGE) == 0) {
+    if ((area.properties & DMTCP_ZERO_PAGE) == 0) {
       void *addr = mtcp_sys_mmap(0, area.size, PROT_WRITE | PROT_READ,
                                  MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
       if (addr == MAP_FAILED) {
@@ -825,11 +825,11 @@ static int read_one_memory_area(int fd)
   /* Now mmap the data of the area into memory. */
 
   /* CASE MAPPED AS ZERO PAGE: */
-  if ((area.prot & MTCP_PROT_ZERO_PAGE) != 0) {
+  if ((area.properties & DMTCP_ZERO_PAGE) != 0) {
     DPRINTF("restoring non-rwx anonymous area, %p bytes at %p\n",
             area.size, area.addr);
     mmappedat = mtcp_sys_mmap (area.addr, area.size,
-                               area.prot & ~MTCP_PROT_ZERO_PAGE,
+                               area.prot,
                                area.flags | MAP_FIXED, -1, 0);
 
     if (mmappedat != area.addr) {
