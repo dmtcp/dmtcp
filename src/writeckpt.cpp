@@ -30,6 +30,7 @@
 #include <sys/stat.h>
 #include <sys/fcntl.h>
 #include "dmtcp.h"
+#include "constants.h"
 #include "processinfo.h"
 #include "procmapsarea.h"
 #include "procselfmaps.h"
@@ -54,6 +55,7 @@ using namespace dmtcp;
 EXTERNC int dmtcp_infiniband_enabled(void) __attribute__((weak));
 
 static const int END_OF_NSCD_AREAS = -1;
+static bool skipWritingTextSegments = false;
 
 // FIXME:  Why do we create two global variable here?  They should at least
 //         be static (file-private), and preferably local to a function.
@@ -92,6 +94,10 @@ void mtcp_writememoryareas(int fd)
   Area area;
   //DeviceInfo dev_info;
   int stack_was_seen = 0;
+
+  if (getenv(ENV_VAR_SKIP_WRITING_TEXT_SEGMENTS) != NULL) {
+    skipWritingTextSegments = true;
+  }
 
   JTRACE("Performing checkpoint.");
 
@@ -263,6 +269,7 @@ void mtcp_writememoryareas(int fd)
 
     if (strstr (area.name, "[stack]"))
       stack_was_seen = 1;
+
     // the whole thing comes after the restore image
     writememoryarea(fd, &area, stack_was_seen);
   }
@@ -366,7 +373,7 @@ static void mtcp_write_non_rwx_and_anonymous_pages(int fd, Area *orig_area)
       mtcp_get_next_page_range(&a, &size, &is_zero);
     }
 
-    a.properties |= is_zero ? DMTCP_ZERO_PAGE : 0;
+    a.properties = is_zero ? DMTCP_ZERO_PAGE : 0;
     a.size = size;
 
     Util::writeAll(fd, &a, sizeof(a));
@@ -434,7 +441,14 @@ static void writememoryarea (int fd, Area *area, int stack_was_seen)
      *   implemented with backing files
      */
     JASSERT((area->flags & MAP_ANONYMOUS) || (area->flags & MAP_SHARED));
-    Util::writeAll(fd, area, sizeof(*area));
-    Util::writeAll(fd, area->addr, area->size);
+
+    if (skipWritingTextSegments && (area->prot & PROT_EXEC)) {
+      area->properties |= DMTCP_SKIP_WRITING_TEXT_SEGMENTS;
+      Util::writeAll(fd, area, sizeof(*area));
+      JTRACE("Skipping over text segments") (area->name) ((void*)area->addr);
+    } else {
+      Util::writeAll(fd, area, sizeof(*area));
+      Util::writeAll(fd, area->addr, area->size);
+    }
   }
 }

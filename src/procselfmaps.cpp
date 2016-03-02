@@ -235,5 +235,7 @@ int ProcSelfMaps::getNextArea(ProcMapsArea* area)
     area -> flags |= MAP_ANONYMOUS;
   }
 
+  area->properties = 0;
+
   return 1;
 }
