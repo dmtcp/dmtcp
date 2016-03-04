@@ -422,7 +422,8 @@ void DmtcpCoordinator::updateMinimumState()
         (restartBarriers[nextRestartBarrier]);
       releaseBarrier(restartBarriers[nextRestartBarrier]);
       nextRestartBarrier++;
-    } else {
+    }
+    if (nextRestartBarrier == restartBarriers.size()) {
       JTIMER_STOP(restart);
       JNOTE("Resuming all nodes after restart");
     }
