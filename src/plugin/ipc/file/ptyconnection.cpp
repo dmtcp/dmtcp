@@ -32,6 +32,7 @@
 
 #include "fileconnection.h"
 #include "filewrappers.h"
+#include "ptywrappers.h"
 
 using namespace dmtcp;
 

@@ -87,8 +87,11 @@ __d_libdir__libdmtcp_ipc_so_SOURCES =                                  \
 	ipc/file/fileconnlist.h                                        \
 	ipc/file/filewrappers.cpp                                      \
 	ipc/file/filewrappers.h                                        \
+	ipc/file/openwrappers.cpp                                      \
 	ipc/file/posixipcwrappers.cpp                                  \
 	ipc/file/ptyconnection.cpp                                     \
+	ipc/file/ptywrappers.cpp                                       \
+	ipc/file/ptywrappers.h                                         \
 	ipc/socket/connectionmessage.h                                 \
 	ipc/socket/connectionrewirer.cpp                               \
 	ipc/socket/connectionrewirer.h                                 \
