@@ -543,6 +543,18 @@ bool Util::isValidFd(int fd)
   return _real_fcntl(fd, F_GETFL, 0) != -1;
 }
 
+bool Util::isPseudoTty(const string& path)
+{
+  if (Util::strStartsWith(path, "/dev/tty") ||
+      Util::strStartsWith(path, "/dev/pty") ||
+      Util::strStartsWith(path, "/dev/pts/") ||
+      path == "/dev/ptmx" ||
+      path == "/dev/pts/ptmx") {
+    return true;
+  }
+  return false;
+}
+
 size_t Util::pageSize()
 {
   static size_t page_size = sysconf(_SC_PAGESIZE);
