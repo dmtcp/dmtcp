@@ -50,9 +50,9 @@ static void syslog_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 }
 
 static DmtcpBarrier syslogBarriers[] = {
-  {DMTCP_LOCAL_BARRIER_PRE_CKPT, SyslogCheckpointer_StopService, "checkpoint"},
-  {DMTCP_LOCAL_BARRIER_RESUME, SyslogCheckpointer_RestoreService, "resume"},
-  {DMTCP_LOCAL_BARRIER_RESTART, SyslogCheckpointer_RestoreService, "restart"}
+  {DMTCP_PRIVATE_BARRIER_PRE_CKPT, SyslogCheckpointer_StopService, "checkpoint"},
+  {DMTCP_PRIVATE_BARRIER_RESUME, SyslogCheckpointer_RestoreService, "resume"},
+  {DMTCP_PRIVATE_BARRIER_RESTART, SyslogCheckpointer_RestoreService, "restart"}
 };
 
 static DmtcpPluginDescriptor_t syslogPlugin = {

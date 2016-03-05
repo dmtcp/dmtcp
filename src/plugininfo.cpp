@@ -53,16 +53,19 @@ PluginInfo *PluginInfo::create(const DmtcpPluginDescriptor_t& descr)
     switch (barrier->type) {
       case DMTCP_GLOBAL_BARRIER_PRE_CKPT:
       case DMTCP_LOCAL_BARRIER_PRE_CKPT:
+      case DMTCP_PRIVATE_BARRIER_PRE_CKPT:
         preCkptBarriers.push_back(barrier);
         break;
 
       case DMTCP_GLOBAL_BARRIER_RESUME:
       case DMTCP_LOCAL_BARRIER_RESUME:
+      case DMTCP_PRIVATE_BARRIER_RESUME:
         resumeBarriers.push_back(barrier);
         break;
 
       case DMTCP_GLOBAL_BARRIER_RESTART:
       case DMTCP_LOCAL_BARRIER_RESTART:
+      case DMTCP_PRIVATE_BARRIER_RESTART:
         restartBarriers.push_back(barrier);
         break;
 
@@ -110,7 +113,7 @@ void PluginInfo::processBarrier(BarrierInfo *barrier)
   } else if (barrier->isGlobal()) {
     JTRACE("Waiting for global barrier") (barrier->toString());
     CoordinatorAPI::instance().waitForBarrier(barrier->toString());
-  } else {
+  } else if (barrier->isLocal()) {
     JTRACE("Waiting for local barrier") (barrier->toString());
     SharedData::waitForBarrier(barrier->toString());
   }

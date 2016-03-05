@@ -52,15 +52,16 @@ static void ipc_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 }
 
 static DmtcpBarrier fileBarriers[] = {
-  {DMTCP_LOCAL_BARRIER_PRE_CKPT, FileConnList::saveOptions, "PRE_CKPT"},
+  {DMTCP_PRIVATE_BARRIER_PRE_CKPT, FileConnList::saveOptions, "PRE_CKPT"},
   {DMTCP_LOCAL_BARRIER_PRE_CKPT, FileConnList::leaderElection, "LEADER_ELECTION"},
   {DMTCP_LOCAL_BARRIER_PRE_CKPT, FileConnList::drainFd, "DRAIN"},
   {DMTCP_LOCAL_BARRIER_PRE_CKPT, FileConnList::ckpt, "WRITE_CKPT"},
 
-  {DMTCP_LOCAL_BARRIER_RESUME,   FileConnList::resumeRefill, "RESUME_REFILL"},
+  {DMTCP_PRIVATE_BARRIER_RESUME,   FileConnList::resumeRefill, "RESUME_REFILL"},
   {DMTCP_LOCAL_BARRIER_RESUME,   FileConnList::resumeResume, "RESUME_RESUME"},
 
-  {DMTCP_LOCAL_BARRIER_RESTART,  FileConnList::restart, "RESTART_POST_RESTART"},
+  {DMTCP_PRIVATE_BARRIER_RESTART,  FileConnList::restart, "RESTART_POST_RESTART"},
+  // We might be able to mark the next barrier as PRIVATE too.
   {DMTCP_LOCAL_BARRIER_RESTART,  FileConnList::restartRegisterNSData, "RESTART_NS_REGISTER_DATA"},
   {DMTCP_LOCAL_BARRIER_RESTART,  FileConnList::restartSendQueries, "RESTART_NS_SEND_QUERIES"},
   {DMTCP_LOCAL_BARRIER_RESTART,  FileConnList::restartRefill, "RESTART_REFILL"},
@@ -68,15 +69,16 @@ static DmtcpBarrier fileBarriers[] = {
 };
 
 static DmtcpBarrier socketBarriers[] = {
-  {DMTCP_LOCAL_BARRIER_PRE_CKPT, SocketConnList::saveOptions, "PRE_CKPT"},
+  {DMTCP_PRIVATE_BARRIER_PRE_CKPT, SocketConnList::saveOptions, "PRE_CKPT"},
   {DMTCP_LOCAL_BARRIER_PRE_CKPT, SocketConnList::leaderElection, "LEADER_ELECTION"},
   {DMTCP_LOCAL_BARRIER_PRE_CKPT, SocketConnList::drainFd, "DRAIN"},
   {DMTCP_LOCAL_BARRIER_PRE_CKPT, SocketConnList::ckpt, "WRITE_CKPT"},
 
-  {DMTCP_LOCAL_BARRIER_RESUME,   SocketConnList::resumeRefill, "RESUME_REFILL"},
+  {DMTCP_PRIVATE_BARRIER_RESUME,   SocketConnList::resumeRefill, "RESUME_REFILL"},
   {DMTCP_LOCAL_BARRIER_RESUME,   SocketConnList::resumeResume, "RESUME_RESUME"},
 
-  {DMTCP_LOCAL_BARRIER_RESTART,  SocketConnList::restart, "RESTART_POST_RESTART"},
+  {DMTCP_PRIVATE_BARRIER_RESTART,  SocketConnList::restart, "RESTART_POST_RESTART"},
+  // We might be able to mark the next barrier as PRIVATE too.
   {DMTCP_LOCAL_BARRIER_RESTART,  SocketConnList::restartRegisterNSData, "RESTART_NS_REGISTER_DATA"},
   {DMTCP_GLOBAL_BARRIER_RESTART,  SocketConnList::restartSendQueries, "RESTART_NS_SEND_QUERIES"},
   {DMTCP_LOCAL_BARRIER_RESTART,  SocketConnList::restartRefill, "RESTART_REFILL"},
@@ -84,15 +86,16 @@ static DmtcpBarrier socketBarriers[] = {
 };
 
 static DmtcpBarrier eventBarriers[] = {
-  {DMTCP_LOCAL_BARRIER_PRE_CKPT, EventConnList::saveOptions, "PRE_CKPT"},
+  {DMTCP_PRIVATE_BARRIER_PRE_CKPT, EventConnList::saveOptions, "PRE_CKPT"},
   {DMTCP_LOCAL_BARRIER_PRE_CKPT, EventConnList::leaderElection, "LEADER_ELECTION"},
   {DMTCP_LOCAL_BARRIER_PRE_CKPT, EventConnList::drainFd, "DRAIN"},
   {DMTCP_LOCAL_BARRIER_PRE_CKPT, EventConnList::ckpt, "WRITE_CKPT"},
 
-  {DMTCP_LOCAL_BARRIER_RESUME,   EventConnList::resumeRefill, "RESUME_REFILL"},
+  {DMTCP_PRIVATE_BARRIER_RESUME,   EventConnList::resumeRefill, "RESUME_REFILL"},
   {DMTCP_LOCAL_BARRIER_RESUME,   EventConnList::resumeResume, "RESUME_RESUME"},
 
-  {DMTCP_LOCAL_BARRIER_RESTART,  EventConnList::restart, "RESTART_POST_RESTART"},
+  {DMTCP_PRIVATE_BARRIER_RESTART,  EventConnList::restart, "RESTART_POST_RESTART"},
+  // We might be able to mark the next barrier as PRIVATE too.
   {DMTCP_LOCAL_BARRIER_RESTART,  EventConnList::restartRegisterNSData, "RESTART_NS_REGISTER_DATA"},
   {DMTCP_LOCAL_BARRIER_RESTART,  EventConnList::restartSendQueries, "RESTART_NS_SEND_QUERIES"},
   {DMTCP_LOCAL_BARRIER_RESTART,  EventConnList::restartRefill, "RESTART_REFILL"},
@@ -100,9 +103,9 @@ static DmtcpBarrier eventBarriers[] = {
 };
 
 static DmtcpBarrier sshBarriers[] = {
-  {DMTCP_LOCAL_BARRIER_PRE_CKPT, dmtcp_ssh_drain, "DRAIN"},
-  {DMTCP_LOCAL_BARRIER_RESUME,   dmtcp_ssh_resume, "RESUME"},
-  {DMTCP_LOCAL_BARRIER_RESTART,  dmtcp_ssh_restart, "RESTART"}
+  {DMTCP_PRIVATE_BARRIER_PRE_CKPT, dmtcp_ssh_drain, "DRAIN"},
+  {DMTCP_PRIVATE_BARRIER_RESUME,   dmtcp_ssh_resume, "RESUME"},
+  {DMTCP_PRIVATE_BARRIER_RESTART,  dmtcp_ssh_restart, "RESTART"}
 };
 
 DmtcpPluginDescriptor_t sshPlugin = {
