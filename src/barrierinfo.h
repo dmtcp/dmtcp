@@ -61,6 +61,13 @@ namespace dmtcp
           type == DMTCP_GLOBAL_BARRIER_RESTART;
       }
 
+      bool isLocal() const {
+        return
+          type == DMTCP_LOCAL_BARRIER_PRE_CKPT ||
+          type == DMTCP_LOCAL_BARRIER_RESUME ||
+          type == DMTCP_LOCAL_BARRIER_RESTART;
+      }
+
       const DmtcpBarrierType type;
       const string id;
       void (*callback)();

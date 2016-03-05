@@ -121,8 +121,8 @@ static void restart()
 }
 
 static DmtcpBarrier terminalBarriers[] = {
-  {DMTCP_LOCAL_BARRIER_PRE_CKPT, checkpoint, "checkpoint"},
-  {DMTCP_LOCAL_BARRIER_RESTART, restart, "restart"}
+  {DMTCP_PRIVATE_BARRIER_PRE_CKPT, checkpoint, "checkpoint"},
+  {DMTCP_PRIVATE_BARRIER_RESTART, restart, "restart"}
 };
 
 static DmtcpPluginDescriptor_t terminalPlugin = {

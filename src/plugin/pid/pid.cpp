@@ -224,7 +224,7 @@ static void pid_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 }
 
 static DmtcpBarrier pidBarriers[] = {
-  {DMTCP_LOCAL_BARRIER_RESTART, pidVirt_PostRestart, "RESTART1"},
+  {DMTCP_PRIVATE_BARRIER_RESTART, pidVirt_PostRestart, "RESTART1"},
   {DMTCP_LOCAL_BARRIER_RESTART, pidVirt_PostRestartRefill, "RESTART2"}
 };
 

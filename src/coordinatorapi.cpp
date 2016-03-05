@@ -66,7 +66,7 @@ static void coordinatorAPI_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 }
 
 static DmtcpBarrier coordinatorAPIBarriers[] = {
-  {DMTCP_LOCAL_BARRIER_RESTART, CoordinatorAPI::restart, "restart"}
+  {DMTCP_PRIVATE_BARRIER_RESTART, CoordinatorAPI::restart, "restart"}
 };
 
 static bool _firstTime = true;
