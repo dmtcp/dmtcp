@@ -70,8 +70,26 @@
 #include "fileconnlist.h"
 #include "fileconnection.h"
 #include "filewrappers.h"
+#include "ptyconnection.h"
+#include "ptyconnlist.h"
 
 using namespace dmtcp;
+
+static void processConnection(int fd, const char *path, int flags, mode_t mode)
+{
+  Connection *c = NULL;
+
+  string device = jalib::Filesystem::ResolveSymlink(path);
+  if (device == "") {
+    device = path;
+  }
+
+  if (Util::isPseudoTty(device)) {
+    PtyConnList::instance().processPtyConnection(fd, path, flags, mode);
+  } else {
+    FileConnList::instance().processFileConnection(fd, path, flags, mode);
+  }
+}
 
 static int _open_open64_work(int(*fn) (const char *path, int flags, ...),
                              const char *path, int flags, mode_t mode)
@@ -89,7 +107,7 @@ static int _open_open64_work(int(*fn) (const char *path, int flags, ...),
   int fd = (*fn) (newpath, flags, mode);
 
   if (fd >= 0 && dmtcp_is_running_state()) {
-    FileConnList::instance().processFileConnection(fd, newpath, flags, mode);
+    processConnection(fd, newpath, flags, mode);
   }
 
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -159,8 +177,7 @@ static FILE *_fopen_fopen64_work(FILE*(*fn) (const char *path, const char *mode)
   FILE *file =(*fn) (newpath, mode);
 
   if (file != NULL && dmtcp_is_running_state()) {
-    FileConnList::instance().processFileConnection(fileno(file), newpath,
-                                                     -1, -1);
+    processConnection(fileno(file), newpath, -1, -1);
   }
 
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -193,8 +210,7 @@ extern "C" FILE *freopen(const char *path, const char *mode, FILE *stream)
   FILE *file = _real_freopen(newpath, mode, stream);
 
   if (file != NULL && dmtcp_is_running_state()) {
-    FileConnList::instance().processFileConnection(fileno(file), newpath,
-                                                   -1, -1);
+    processConnection(fileno(file), newpath, -1, -1);
   }
 
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -212,8 +228,7 @@ extern "C" int openat(int dirfd, const char *path, int flags, ...)
   if (fd >= 0 && dmtcp_is_running_state()) {
     string procpath = "/proc/self/fd/" + jalib::XToString(fd);
     string device = jalib::Filesystem::ResolveSymlink(procpath);
-    FileConnList::instance().processFileConnection(fd, device.c_str(),
-                                                     flags, mode);
+    processConnection(fd, device.c_str(), flags, mode);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return fd;
@@ -240,8 +255,7 @@ extern "C" int openat64(int dirfd, const char *path, int flags, ...)
   if (fd >= 0 && dmtcp_is_running_state()) {
     string procpath = "/proc/self/fd/" + jalib::XToString(fd);
     string device = jalib::Filesystem::ResolveSymlink(procpath);
-    FileConnList::instance().processFileConnection(fd, device.c_str(),
-                                                     flags, mode);
+    processConnection(fd, device.c_str(), flags, mode);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return fd;

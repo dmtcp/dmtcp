@@ -29,9 +29,10 @@
 #include "shareddata.h"
 #include "util.h"
 #include "jassert.h"
+#include "jfilesystem.h"
 
-#include "fileconnection.h"
 #include "filewrappers.h"
+#include "ptyconnection.h"
 #include "ptywrappers.h"
 
 using namespace dmtcp;

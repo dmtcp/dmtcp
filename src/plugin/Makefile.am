@@ -90,6 +90,9 @@ __d_libdir__libdmtcp_ipc_so_SOURCES =                                  \
 	ipc/file/openwrappers.cpp                                      \
 	ipc/file/posixipcwrappers.cpp                                  \
 	ipc/file/ptyconnection.cpp                                     \
+	ipc/file/ptyconnection.h                                       \
+	ipc/file/ptyconnlist.cpp                                       \
+	ipc/file/ptyconnlist.h                                         \
 	ipc/file/ptywrappers.cpp                                       \
 	ipc/file/ptywrappers.h                                         \
 	ipc/socket/connectionmessage.h                                 \

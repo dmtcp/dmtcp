@@ -67,7 +67,8 @@
 #include "util.h"
 #include "jassert.h"
 
-#include "fileconnlist.h"
+#include "ptyconnection.h"
+#include "ptyconnlist.h"
 #include "ptywrappers.h"
 
 using namespace dmtcp;
@@ -261,7 +262,7 @@ static int ptsname_r_work(int fd, char * buf, size_t buflen)
 {
   JTRACE("Calling ptsname_r");
 
-  Connection* c = FileConnList::instance().getConnection(fd);
+  Connection* c = PtyConnList::instance().getConnection(fd);
   PtyConnection* ptyCon =(PtyConnection*) c;
 
   string virtPtsName = ptyCon->virtPtsName();
@@ -326,7 +327,7 @@ extern "C" int ttyname_r(int fd, char *buf, size_t buflen)
   int ret = _real_ttyname_r(fd, tmpbuf, sizeof(tmpbuf));
 
   if (ret == 0 && strcmp(tmpbuf, "/dev/tty") != 0) {
-    Connection* c = FileConnList::instance().getConnection(fd);
+    Connection* c = PtyConnList::instance().getConnection(fd);
     JASSERT(c != NULL) (fd) (tmpbuf);
     PtyConnection* ptyCon =(PtyConnection*) c;
     string virtPtsName = ptyCon->virtPtsName();
@@ -365,8 +366,9 @@ extern "C" int getpt()
   DMTCP_PLUGIN_DISABLE_CKPT();
   int fd = _real_getpt();
   if (fd >= 0 && dmtcp_is_running_state()) {
-    FileConnList::instance().processFileConnection(fd, "/dev/ptmx",
-                                                     O_RDWR | O_NOCTTY, -1);
+    PtyConnection *c = new PtyConnection(fd, "/dev/ptmx", O_RDWR | O_NOCTTY,
+                                         -1, PtyConnection::PTY_MASTER);
+    PtyConnList::instance().add(fd, c);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return fd;
@@ -377,8 +379,9 @@ extern "C" int posix_openpt(int flags)
   DMTCP_PLUGIN_DISABLE_CKPT();
   int fd = _real_posix_openpt(flags);
   if (fd >= 0 && dmtcp_is_running_state()) {
-    FileConnList::instance().processFileConnection(fd, "/dev/ptmx",
-                                                     flags, -1);
+    PtyConnection *c = new PtyConnection(fd, "/dev/ptmx", flags,
+                                         -1, PtyConnection::PTY_MASTER);
+    PtyConnList::instance().add(fd, c);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return fd;

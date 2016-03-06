@@ -142,26 +142,6 @@ void FileConnList::drain()
 
 void FileConnList::postRestart()
 {
-  /* It is possible to have two different connection-ids for a pre-existing
-   * CTTY in two or more different process trees. In this case, only one of the
-   * several process trees would be able to acquire a lock on the underlying
-   * fd.  The send-receive fd logic fails in this case due to different
-   * connection-ids.  Therefore, we let every process do a postRestart to
-   * reopen the CTTY.
-   *
-   * TODO: A better fix would be to have a unique connection-id for each
-   * pre-existing CTTY that is then used by all process trees.  It can be
-   * implemented by using the SharedData area.
-   */
-  for (iterator i = begin(); i != end(); ++i) {
-    Connection* con =  i->second;
-    if (!con->hasLock() && con->conType() == Connection::PTY &&
-        con->isPreExistingCTTY()) {
-      PtyConnection *pcon = (PtyConnection*) con;
-      pcon->postRestart();
-    }
-  }
-
   /* Try to map the file as is, if it already exists on the disk.
    */
   for (size_t i = 0; i < unlinkedShmAreas.size(); i++) {
@@ -181,15 +161,6 @@ void FileConnList::postRestart()
 
 void FileConnList::refill(bool isRestart)
 {
-  // Check comments in PtyConnection::preRefill()/refill()
-  for (iterator i = begin(); i != end(); ++i) {
-    Connection* con =  i->second;
-    if (con->hasLock() && con->conType() == Connection::PTY) {
-      PtyConnection *pcon = (PtyConnection*) con;
-      pcon->preRefill(isRestart);
-    }
-  }
-
   if (isRestart) {
     // The backing file will be created as a result of restoreShmArea. We need
     // to unlink all such files in the resume() call below.
@@ -370,8 +341,6 @@ void FileConnList::scanForPreExisting()
 {
   // FIXME: Detect stdin/out/err fds to detect duplicates.
   vector<int> fds = jalib::Filesystem::ListOpenFds();
-  string ctty = jalib::Filesystem::GetControllingTerm();
-  string parentCtty = jalib::Filesystem::GetControllingTerm(getppid());
   for (size_t i = 0; i < fds.size(); ++i) {
     int fd = fds[i];
     if (!Util::isValidFd(fd)) continue;
@@ -384,29 +353,8 @@ void FileConnList::scanForPreExisting()
     string device = jalib::Filesystem::GetDeviceName(fd);
 
     JTRACE("scanning pre-existing device") (fd) (device);
-    if (device == ctty || device == parentCtty) {
-      // Search if this is duplicate connection
-      iterator conit;
-      uint32_t cttyType = (device == ctty) ? PtyConnection::PTY_CTTY
-                                      : PtyConnection::PTY_PARENT_CTTY;
-      for (conit = begin(); conit != end(); conit++) {
-        Connection *c = conit->second;
-        if (c->subType() == cttyType &&
-            ((PtyConnection*)c)->ptsName() == device) {
-          processDup(c->getFds()[0], fd);
-          break;
-        }
-      }
-      if (conit == end()) {
-        // FIXME: Merge this code with the code in processFileConnection
-        PtyConnection *con = new PtyConnection(fd, (const char*) device.c_str(),
-                                               -1, -1, cttyType);
-        // Check comments in FileConnList::postRestart() for the explanation
-        // about isPreExistingCTTY.
-        con->markPreExistingCTTY();
-        add(fd, (Connection*)con);
-      }
-    } else if(dmtcp_is_bq_file && dmtcp_is_bq_file(device.c_str())) {
+
+    if(dmtcp_is_bq_file && dmtcp_is_bq_file(device.c_str())) {
       if (isRegularFile) {
         Connection *c = findDuplication(fd, device.c_str());
         if (c != NULL) {
@@ -414,10 +362,11 @@ void FileConnList::scanForPreExisting()
           continue;
         }
       }
-      processFileConnection(fd, device.c_str(), -1, -1);
+      add(fd, new FileConnection(device.c_str(), -1, -1,
+                                 FileConnection::FILE_BATCH_QUEUE));
     } else if( fd <= 2 ){
       add(fd, new StdioConnection(fd));
-    } else if (Util::strStartsWith(device, "/")) {
+    } else if (Util::strStartsWith(device, "/") && !Util::isPseudoTty(device)) {
       if (isRegularFile) {
         Connection *c = findDuplication(fd, device.c_str());
         if (c != NULL) {
@@ -425,7 +374,7 @@ void FileConnList::scanForPreExisting()
           continue;
         }
       }
-      processFileConnection(fd, device.c_str(), -1, -1);
+      add(fd, new FileConnection(device.c_str(), -1, -1));
     }
   }
 }
@@ -448,12 +397,26 @@ Connection *FileConnList::findDuplication(int fd, const char *path)
   return NULL;
 }
 
+Connection *FileConnList::createDummyConnection(int type)
+{
+  switch (type) {
+    case Connection::FILE:
+      return new FileConnection();
+      break;
+    case Connection::FIFO:
+      return new FifoConnection();
+      break;
+    case Connection::STDIO:
+      return new StdioConnection();
+      break;
+  }
+  return NULL;
+}
+
 void FileConnList::processFileConnection(int fd, const char *path,
-                                                int flags, mode_t mode)
+                                         int flags, mode_t mode)
 {
   Connection *c = NULL;
-  struct stat statbuf;
-  JASSERT(fstat(fd, &statbuf) == 0);
 
   string device;
   if (path == NULL) {
@@ -465,29 +428,14 @@ void FileConnList::processFileConnection(int fd, const char *path,
     }
   }
 
+  struct stat statbuf;
+  JASSERT(fstat(fd, &statbuf) == 0);
+
   if (strstr(device.c_str(), "infiniband/uverbs") ||
       strstr(device.c_str(), "uverbs-event")) return;
 
   path = device.c_str();
-  if (strcmp(path, "/dev/tty") == 0) {
-    // Controlling terminal
-    c = new PtyConnection(fd, path, flags, mode, PtyConnection::PTY_DEV_TTY);
-  } else if (strcmp(path, "/dev/pty") == 0) {
-    JASSERT(false) .Text("Not Implemented");
-  } else if (Util::strStartsWith(path, "/dev/pty")) {
-    // BSD Master
-    c = new PtyConnection(fd, path, flags, mode, PtyConnection::PTY_BSD_MASTER);
-  } else if (Util::strStartsWith(path, "/dev/tty")) {
-    // BSD Slave
-    c = new PtyConnection(fd, path, flags, mode, PtyConnection::PTY_BSD_SLAVE);
-  } else if (strcmp(path, "/dev/ptmx") == 0 ||
-             strcmp(path, "/dev/pts/ptmx") == 0) {
-    // POSIX Master PTY
-    c = new PtyConnection(fd, path, flags, mode, PtyConnection::PTY_MASTER);
-  } else if (Util::strStartsWith(path, "/dev/pts/")) {
-    // POSIX Slave PTY
-    c = new PtyConnection(fd, path, flags, mode, PtyConnection::PTY_SLAVE);
-  } else if (S_ISREG(statbuf.st_mode) || S_ISCHR(statbuf.st_mode) ||
+  if (S_ISREG(statbuf.st_mode) || S_ISCHR(statbuf.st_mode) ||
              S_ISDIR(statbuf.st_mode) || S_ISBLK(statbuf.st_mode)) {
     int type = FileConnection::FILE_REGULAR;
     if (dmtcp_is_bq_file && dmtcp_is_bq_file(path)) {
@@ -505,22 +453,3 @@ void FileConnList::processFileConnection(int fd, const char *path,
   add(fd, c);
 }
 
-
-Connection *FileConnList::createDummyConnection(int type)
-{
-  switch (type) {
-    case Connection::FILE:
-      return new FileConnection();
-      break;
-    case Connection::FIFO:
-      return new FifoConnection();
-      break;
-    case Connection::PTY:
-      return new PtyConnection();
-      break;
-    case Connection::STDIO:
-      return new StdioConnection();
-      break;
-  }
-  return NULL;
-}
