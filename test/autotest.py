@@ -875,7 +875,7 @@ elif TEST_POSIX_MQ == "yes":
   runTest("posix-mq2",     2, ["./test/posix-mq2"])
 
 #Invoke this test when we drain/restore data in pty at checkpoint time.
-# runTest("pty1",   2, ["./test/pty1"])
+runTest("pty1",   2, ["./test/pty1"])
 runTest("pty2",   2, ["./test/pty2"])
 
 #Invoke this test when support for timers is added to DMTCP.

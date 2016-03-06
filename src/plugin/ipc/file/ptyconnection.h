@@ -54,8 +54,7 @@ namespace dmtcp
       string virtPtsName() { return _virtPtsName;; }
       void markPreExistingCTTY() { _preExistingCTTY = true; }
 
-      void preRefill(bool isRestart);
-
+      virtual void doLocking();
       virtual void drain();
       virtual void refill(bool isRestart);
       virtual void postRestart();

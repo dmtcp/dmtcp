@@ -73,20 +73,12 @@ static DmtcpBarrier fileBarriers[] = {
 };
 
 static DmtcpBarrier ptyBarriers[] = {
-  {DMTCP_PRIVATE_BARRIER_PRE_CKPT, PtyConnList::saveOptions, "PRE_CKPT"},
-  {DMTCP_LOCAL_BARRIER_PRE_CKPT, PtyConnList::leaderElection, "LEADER_ELECTION"},
-  {DMTCP_LOCAL_BARRIER_PRE_CKPT, PtyConnList::drainFd, "DRAIN"},
-  {DMTCP_LOCAL_BARRIER_PRE_CKPT, PtyConnList::ckpt, "WRITE_CKPT"},
+  {DMTCP_PRIVATE_BARRIER_PRE_CKPT, PtyConnList::drainFd, "DRAIN"},
 
   {DMTCP_PRIVATE_BARRIER_RESUME,   PtyConnList::resumeRefill, "RESUME_REFILL"},
-  {DMTCP_LOCAL_BARRIER_RESUME,   PtyConnList::resumeResume, "RESUME_RESUME"},
 
   {DMTCP_PRIVATE_BARRIER_RESTART,  PtyConnList::restart, "RESTART_POST_RESTART"},
-  // We might be able to mark the next barrier as PRIVATE too.
-  {DMTCP_LOCAL_BARRIER_RESTART,  PtyConnList::restartRegisterNSData, "RESTART_NS_REGISTER_DATA"},
-  {DMTCP_LOCAL_BARRIER_RESTART,  PtyConnList::restartSendQueries, "RESTART_NS_SEND_QUERIES"},
-  {DMTCP_LOCAL_BARRIER_RESTART,  PtyConnList::restartRefill, "RESTART_REFILL"},
-  {DMTCP_LOCAL_BARRIER_RESTART,  PtyConnList::restartResume, "RESTART_RESUME"}
+  {DMTCP_LOCAL_BARRIER_RESTART,  PtyConnList::restartRefill, "RESTART_REFILL"}
 };
 
 static DmtcpBarrier socketBarriers[] = {

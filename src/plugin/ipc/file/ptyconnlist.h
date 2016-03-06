@@ -46,26 +46,18 @@ namespace dmtcp
     public:
       static PtyConnList& instance();
 
-      static void saveOptions() { instance().preLockSaveOptions(); }
-      static void leaderElection() { instance().preCkptFdLeaderElection(); }
       static void drainFd() { instance().drain(); }
-      static void ckpt() { instance().preCkpt(); }
 
       static void resumeRefill() { instance().refill(false); }
-      static void resumeResume() { instance().resume(false); }
 
       static void restart() { instance().postRestart(); }
-      static void restartRegisterNSData() { instance().registerNSData(); }
-      static void restartSendQueries() { instance().sendQueries(); }
       static void restartRefill() { instance().refill(true); }
-      static void restartResume() { instance().resume(true); }
 
-      virtual void preLockSaveOptions();
       virtual void drain();
+      virtual void resume(bool isRestart) {};
       virtual void refill(bool isRestart);
-      virtual void resume(bool isRestart);
       virtual void postRestart();
-      virtual int protectedFd() { return PROTECTED_FILE_FDREWIRER_FD; }
+      virtual int protectedFd() { return -1; }
       //examine /proc/self/fd for unknown connections
       virtual void scanForPreExisting();
 

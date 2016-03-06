@@ -55,18 +55,11 @@ PtyConnList& PtyConnList::instance()
   return *fileConnList;
 }
 
-void PtyConnList::preLockSaveOptions()
-{
-  ConnectionList::preLockSaveOptions();
-}
-
 void PtyConnList::drain()
 {
-  ConnectionList::drain();
-
-  vector<SharedData::InodeConnIdMap> inodeConnIdMaps;
-  if (inodeConnIdMaps.size() > 0) {
-    SharedData::insertInodeConnIdMaps(inodeConnIdMaps);
+  for (iterator i = begin(); i != end(); ++i) {
+    PtyConnection* con =  (PtyConnection*) i->second;
+    con->drain();
   }
 }
 
@@ -84,34 +77,17 @@ void PtyConnList::postRestart()
    * implemented by using the SharedData area.
    */
   for (iterator i = begin(); i != end(); ++i) {
-    Connection* con =  i->second;
-    if (!con->hasLock() && con->conType() == Connection::PTY &&
-        con->isPreExistingCTTY()) {
-      PtyConnection *pcon = (PtyConnection*) con;
-      pcon->postRestart();
-    }
+    PtyConnection *pcon = (PtyConnection*) i->second;
+    pcon->postRestart();
   }
-
-  ConnectionList::postRestart();
 }
 
 void PtyConnList::refill(bool isRestart)
 {
-  // Check comments in PtyConnection::preRefill()/refill()
   for (iterator i = begin(); i != end(); ++i) {
-    Connection* con =  i->second;
-    if (con->hasLock() && con->conType() == Connection::PTY) {
-      PtyConnection *pcon = (PtyConnection*) con;
-      pcon->preRefill(isRestart);
-    }
+    PtyConnection *pcon = (PtyConnection*) i->second;
+    pcon->refill(isRestart);
   }
-
-  ConnectionList::refill(isRestart);
-}
-
-void PtyConnList::resume(bool isRestart)
-{
-  ConnectionList::resume(isRestart);
 }
 
 //examine /proc/self/fd for unknown connections
