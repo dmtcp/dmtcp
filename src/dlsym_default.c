@@ -21,9 +21,7 @@
 
 /* USAGE:
  * #include "dlsym_default.h"
- * ... DLSYM_DEFAULT(RTLD_NEXT, ...) ...
- * WARNING:  DLSYM_DEFAULT works within a library, but not in base executable
- * WARNING:  RTLD_DEFAULT will not work with DLSYM_DEFAULT()
+ * ... dlsym_default(RTLD_NEXT, ...) ...
  */
 
 /* THEORY:  A versioned symbol consists of multiple symbols, one for
@@ -43,7 +41,7 @@
  * then hopes for a unique versioned symbol.  (It seems that in all of
  * the above, the linker will always ignore a hidden symbol for these
  * purposes.  Unfortunately, dlsym doesn't follow the same policy as the
- * static or dynamic linker.  Hence, dlsym_default_internal tries to replicate
+ * static or dynamic linker.  Hence, dlsym_default tries to replicate
  * that policy of preferring non-hidden symbols always.)
  *     The symbol pthread_cond_broadcast is a good test case.  It seems to
  * have its base version referenced as a hidden symbol, and only a non-base
@@ -265,49 +263,16 @@ static void get_dt_tags(void *handle, dt_tag *tags) {
     }
 }
 
-//  Don't use dlsym_default_internal(); use dlsym_default.h:DLSYM_DEFAULT()
-void *dlsym_default_internal(void *handle, const char*symbol) {
+// Given a handle for a library (not RTLD_DEFAULT or RTLD_NEXT), retrieves the
+// default symbol for the given symbol if it exists in that library.
+// Also sets the tags and default_symbol_index for usage later
+void *dlsym_default_internal_library_handler(void *handle, const char*symbol,
+                                             dt_tag *tags_p,
+                                             Elf32_Word *default_symbol_index_p)
+{
   dt_tag tags;
   Elf32_Word default_symbol_index = 0;
   Elf32_Word i;
-
-#ifdef __USE_GNU
-  if (handle == RTLD_NEXT || handle == RTLD_DEFAULT) {
-    Dl_info info;
-    void *tmp_fnc = dlsym(handle, symbol);  // Hack: get symbol w/ any version
-    // printf("tmp_fnc: %p\n", tmp_fnc);
-    dladdr(tmp_fnc, &info);
-    // ... and find what library the symbol is in
-   printf("info.dli_fname: %s\n", info.dli_fname);
-#if 0
-char *tmp = info.dli_fname;
-char *basename = tmp;
-for ( ; *tmp != '\0'; tmp++ ) {
-  if (*tmp == '/')
-    basename = tmp+1;
-}
-#endif
-    // Found handle of RTLD_NEXT or RTLD_DEFAULT
-    handle = dlopen(info.dli_fname, RTLD_NOLOAD | RTLD_LAZY);
-    // symbol name is:  info.dli_sname;  Could add assert as double-check.
-    if (handle == NULL)
-      printf("ERROR:  RTLD_DEFAULT or RTLD_NEXT called; no library found.\n");
-    // Could try:  dlopen(info.dli_fname, RTLD_LOCAL|RTLD_LAZY); to get handle
-    // But if library wasn't loaded before, we shouldn't load it now.
-  }
-  // An alternative to the above code is to use dl_iterate_phdr() to walk the
-  //   list of loaded libraries, and for each one, hash on the symbol name
-  //   to see if it's contained in that one.  But dl_iterate_phdr gives you
-  //   the base address of the shared object.
-  // dlopen(NULL); provides a handle for main program.  dlinfo can then get
-  //   dynamic section (see get_dt_tags()), and also the link_map.
-  //   When we find a shared object with our symbol in it, the link_map
-  //   will give us the name, and dlopen (w/ NOLOAD?) on it gives us a handle.
-  // A better way might be to start with any library handle at all: dlopen
-  //   Then call dlinfo(handle, RTLD_DI_LINKMAP, &link_map);
-  //   for: 'struct link_map &link_map;'  and follow get_dt_tags() for find
-  //   info from dynamic section.
-#endif
 
   get_dt_tags(handle, &tags);
   assert(tags.hash != NULL || tags.gnu_hash != NULL);
@@ -335,6 +300,100 @@ if (default_symbol_index) {
       }
     }
   }
+  *tags_p = tags;
+  *default_symbol_index_p = default_symbol_index;
+
+  if (default_symbol_index)
+    return tags.base_addr + tags.symtab[default_symbol_index].st_value;
+  else
+    return NULL;
+}
+
+// Given a pseudo-handle, symbol name, and addr, returns the address of the symbol
+// with the given name of a default version found by the search order of the given
+// handle which is either RTLD_DEFAULT or RTLD_NEXT.
+void *dlsym_default_internal_flag_handler(void* handle, const char* symbol,
+                                          void* addr, dt_tag *tags_p,
+                                          Elf32_Word *default_symbol_index_p)
+{
+  Dl_info info;
+  struct link_map* map;
+  void* result;
+
+  // Retrieve the link_map for the library given by addr
+  int ret = dladdr1(addr, &info, (void**)&map, RTLD_DL_LINKMAP);
+  if (!ret) {
+    printf("dladdr1 could not find shared object for address\n");
+    return NULL;
+  }
+
+
+  // Handle RTLD_DEFAULT starts search at first loaded object
+  if (handle == RTLD_DEFAULT) {
+    while (map->l_prev) {
+      // Rewinding to search by load order
+      map = map->l_prev;
+    }
+  }
+
+  // Handle RTLD_NEXT starts search after current library
+  if (handle == RTLD_NEXT) {
+    // Skip current library
+    if (!map->l_next) {
+      printf("There are no libraries after the current library.\n");
+      return NULL;
+    }
+    map = map->l_next;
+  }
+
+  // Search through libraries until end of list is reached or symbol is found.
+  while (1) {
+    // printf("l_name: %s\n", map->l_name);
+    // Running dlsym_default_internal on the linux-vdso library will
+    // cause a segfault. Because it may have different versions on
+    // different systems, we check this way rather than a strcmp.
+    // If the library is vdso, we simply move to the next loaded,
+    // library if it exists.
+    if (map->l_name[0] == 'l' &&
+        map->l_name[1] == 'i' &&
+        map->l_name[2] == 'n' &&
+        map->l_name[3] == 'u' &&
+        map->l_name[4] == 'x' &&
+        map->l_name[5] == '-' &&
+        map->l_name[6] == 'v' &&
+        map->l_name[7] == 'd' &&
+        map->l_name[8] == 's' &&
+        map->l_name[9] == 'o') {
+      if (!map->l_next) {
+        printf("No more libraries to search.\n");
+        return NULL;
+      }
+      // Change link map to next library
+      map = map->l_next;
+      continue;
+    }
+
+    // Search current library
+    result = dlsym_default_internal_library_handler((void*) map, symbol, tags_p,
+                                                    default_symbol_index_p);
+    if (result) {
+      return result;
+    }
+
+    // Check if next library exists
+    if (!map->l_next) {
+      //printf("No more libraries to search.\n");
+      return NULL;
+    }
+    // Change link map to next library
+    map = map->l_next;
+  }
+}
+
+// Produces an error message and hard fails if no default_symbol was found.
+void print_debug_messages(dt_tag tags, Elf32_Word default_symbol_index,
+                          const char *symbol)
+{
 #ifdef VERBOSE
   if (default_symbol_index) {
     printf("** st_value: %p\n",
@@ -347,9 +406,29 @@ if (default_symbol_index) {
     printf("ERROR:  No default symbol version found for %s.\n"
            "        Extend code to look for hidden symbols?\n", symbol);
   }
-  if (default_symbol_index)
-    return tags.base_addr + tags.symtab[default_symbol_index].st_value;
-  else
-    assert(0);
-    return NULL;
+}
+
+// Like dlsym but finds the 'default' symbol of a library (the symbol that the
+// dynamic executable automatically links to) rather than the oldest version
+// which is what dlsym finds
+void *dlsym_default(void *handle, const char*symbol) {
+  dt_tag tags;
+  Elf32_Word default_symbol_index = 0;
+
+#ifdef __USE_GNU
+  if (handle == RTLD_NEXT || handle == RTLD_DEFAULT) {
+    // Determine where this function will return
+    void* return_address = __builtin_return_address(0);
+    // Search for symbol using given pseudo-handle order
+    void *result = dlsym_default_internal_flag_handler(handle, symbol, return_address,
+                                                       &tags, &default_symbol_index);
+    print_debug_messages(tags, default_symbol_index, symbol);
+    return result;
+  }
+#endif
+
+  void *result = dlsym_default_internal_library_handler(handle, symbol, &tags,
+                                                        &default_symbol_index);
+  print_debug_messages(tags, default_symbol_index, symbol);
+  return result;
 }
