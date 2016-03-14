@@ -85,8 +85,8 @@ namespace dmtcp
       uint32_t numCheckpoints() { return _numCheckpoints; }
       uint32_t numRestarts() { return _numRestarts; }
 
-      uint32_t incrementNumCheckpoints() { _numCheckpoints++; }
-      uint32_t incrementNumRestarts() { _numRestarts++; }
+      uint32_t incrementNumCheckpoints() { return _numCheckpoints++; }
+      uint32_t incrementNumRestarts() { return _numRestarts++; }
 
       void processRlimit();
       void calculateArgvAndEnvSize();
