@@ -28,6 +28,7 @@
 #include "virtualpidtable.h"
 #include "dmtcp.h"
 #include "protectedfds.h"
+#include "shareddata.h"
 
 using namespace dmtcp;
 
@@ -195,6 +196,10 @@ static void pidVirt_RefillTid() {
 extern "C" void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   switch (event) {
+    case DMTCP_EVENT_INIT:
+      SharedData::setPidMap(getpid(), _real_getpid());
+      break;
+
     case DMTCP_EVENT_ATFORK_PARENT:
       pidVirt_AtForkParent(data);
       break;
