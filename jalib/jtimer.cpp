@@ -42,9 +42,10 @@ jalib::operator-(const jalib::JTime &a, const jalib::JTime &b)
   return sec;
 }
 
-jalib::JTimeRecorder::JTimeRecorder(const jalib::string &name)
+jalib::JTimeRecorder::JTimeRecorder(const jalib::string &name, bool printToFile)
   : _name(name)
   , _isStarted(false)
+  , _printToFile(printToFile)
 {}
 
 namespace

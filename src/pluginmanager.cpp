@@ -1,10 +1,15 @@
 #include "pluginmanager.h"
 
 #include "coordinatorapi.h"
+#include "config.h"
 #include "dmtcp.h"
 #include "dmtcpalloc.h"
 #include "plugininfo.h"
 #include "util.h"
+
+#ifdef TIMING
+# include <sys/time.h>
+#endif
 
 static const char *firstRestartBarrier = "DMTCP::RESTART";
 
@@ -140,6 +145,57 @@ PluginManager::processResumeBarriers()
     pluginManager->pluginInfos[i]->processBarriers();
   }
 }
+
+#ifdef TIMING
+void
+PluginManager::logCkptResumeBarrierOverhead()
+{
+  char logFilename[5000] = {0};
+  snprintf(logFilename, sizeof(logFilename), "%s/timings.%s.csv",
+           dmtcp_get_ckpt_dir(), dmtcp_get_uniquepid_str());
+  std::ofstream lfile (logFilename, std::ios::out | std::ios::app);
+  for (int i = pluginManager->pluginInfos.size() - 1; i >= 0; i--) {
+    for (int j = 0;
+         j < pluginManager->pluginInfos[i]->preCkptBarriers.size(); j++) {
+      lfile << pluginManager->pluginInfos[i]->preCkptBarriers[j]->toString()
+            <<  ','
+            << pluginManager->pluginInfos[i]->preCkptBarriers[j]->execTime
+            << ','
+            << pluginManager->pluginInfos[i]->preCkptBarriers[j]->cbExecTime
+            << std::endl;
+    }
+    for (int j = 0;
+         j < pluginManager->pluginInfos[i]->resumeBarriers.size(); j++) {
+      lfile << pluginManager->pluginInfos[i]->resumeBarriers[j]->toString()
+            <<  ','
+            << pluginManager->pluginInfos[i]->resumeBarriers[j]->execTime
+            << ','
+            << pluginManager->pluginInfos[i]->resumeBarriers[j]->cbExecTime
+            << std::endl;
+    }
+  }
+}
+
+void
+PluginManager::logRestartBarrierOverhead()
+{
+  char logFilename[5000] = {0};
+  snprintf(logFilename, sizeof(logFilename), "%s/timings.%s.csv",
+           dmtcp_get_ckpt_dir(), dmtcp_get_uniquepid_str());
+  std::ofstream lfile (logFilename, std::ios::out | std::ios::app);
+  for (int i = pluginManager->pluginInfos.size() - 1; i >= 0; i--) {
+    for (int j = 0;
+         j < pluginManager->pluginInfos[i]->restartBarriers.size(); j++) {
+      lfile << pluginManager->pluginInfos[i]->restartBarriers[j]->toString()
+            <<  ','
+            << pluginManager->pluginInfos[i]->restartBarriers[j]->execTime
+            << ','
+            << pluginManager->pluginInfos[i]->restartBarriers[j]->cbExecTime
+            << std::endl;
+    }
+  }
+}
+#endif
 
 void
 PluginManager::processRestartBarriers()
