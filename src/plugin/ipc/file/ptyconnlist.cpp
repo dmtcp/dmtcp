@@ -46,13 +46,13 @@ void dmtcp_PtyConn_ProcessFdEvent(int event, int arg1, int arg2)
   }
 }
 
-static PtyConnList *fileConnList = NULL;
+static PtyConnList *ptyConnList = NULL;
 PtyConnList& PtyConnList::instance()
 {
-  if (fileConnList == NULL) {
-    fileConnList = new PtyConnList();
+  if (ptyConnList == NULL) {
+    ptyConnList = new PtyConnList();
   }
-  return *fileConnList;
+  return *ptyConnList;
 }
 
 void PtyConnList::drain()
