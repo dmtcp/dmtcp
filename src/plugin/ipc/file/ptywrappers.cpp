@@ -328,17 +328,30 @@ extern "C" int ttyname_r(int fd, char *buf, size_t buflen)
 
   if (ret == 0 && strcmp(tmpbuf, "/dev/tty") != 0) {
     Connection* c = PtyConnList::instance().getConnection(fd);
-    JASSERT(c != NULL) (fd) (tmpbuf);
-    PtyConnection* ptyCon =(PtyConnection*) c;
-    string virtPtsName = ptyCon->virtPtsName();
+    if (c != NULL) {
+      JASSERT(c != NULL) (fd) (tmpbuf);
+      PtyConnection* ptyCon =(PtyConnection*) c;
+      string virtPtsName = ptyCon->virtPtsName();
 
-    if (virtPtsName.length() >= buflen) {
-      JWARNING(false) (virtPtsName) (virtPtsName.length()) (buflen)
-        .Text("fake ptsname() too long for user buffer");
-      errno = ERANGE;
-      ret = -1;
+      if (virtPtsName.length() >= buflen) {
+        JWARNING(false) (virtPtsName) (virtPtsName.length()) (buflen)
+          .Text("fake ptsname() too long for user buffer");
+        errno = ERANGE;
+        ret = -1;
+      } else {
+        strncpy(buf, virtPtsName.c_str(), buflen);
+      }
     } else {
-      strncpy(buf, virtPtsName.c_str(), buflen);
+      // We probably received this terminal fd over unix-domain socket using
+      // recvmsg(). This was observed with tmux. When we run `tmux attach`, the
+      // tmux client sends its controlling terminal to the daemon process via
+      // sendmsg() over a unix domain socket. Ideally, we would create wrappers
+      // for recvmsg() and sendmsg() for handling such cases. In the meanwhile,
+      // we would create a PtyConection of type PTY_EXTERNAL and will fail on
+      // checkpoint if we still have it open.
+      PtyConnection *c = new PtyConnection(fd, tmpbuf, O_RDWR, -1,
+                                           PtyConnection::PTY_EXTERNAL);
+      PtyConnList::instance().add(fd, c);
     }
   }
   DMTCP_PLUGIN_ENABLE_CKPT();

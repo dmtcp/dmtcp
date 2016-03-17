@@ -44,7 +44,8 @@ namespace dmtcp
         PTY_MASTER,
         PTY_SLAVE,
         PTY_BSD_MASTER,
-        PTY_BSD_SLAVE
+        PTY_BSD_SLAVE,
+        PTY_EXTERNAL
       };
 
       PtyConnection() {}

@@ -245,6 +245,10 @@ PtyConnection::PtyConnection(int fd, const char *path,
       _ptsName = path;
       break;
 
+    case PTY_EXTERNAL:
+      _ptsName = path;
+      break;
+
     default:
       break;
   }
@@ -261,6 +265,7 @@ void PtyConnection::doLocking()
 
 void PtyConnection::drain()
 {
+  JASSERT (_type != PTY_EXTERNAL);
   saveOptions();
   if (_type == PTY_MASTER && getpgrp() == tcgetpgrp(_fds[0])) {
     const int maxCount = 10000;
