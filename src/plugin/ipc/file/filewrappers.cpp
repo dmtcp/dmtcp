@@ -705,6 +705,7 @@ extern "C" ssize_t __readlink_chk(const char *path, char *buf,
   return readlink(path, buf, bufsiz);
 }
 
+extern "C" void process_fd_event(int event, int arg1, int arg2 = -1);
 extern "C" int fcntl(int fd, int cmd, ...)
 {
   void *arg = NULL;
@@ -723,7 +724,7 @@ extern "C" int fcntl(int fd, int cmd, ...)
       (cmd == F_DUPFD) &&
 #endif
       dmtcp_is_running_state()) {
-    FileConnList::instance().processDup(fd, res);
+    process_fd_event(SYS_dup, fd, res);
   }
 
   DMTCP_PLUGIN_ENABLE_CKPT();
