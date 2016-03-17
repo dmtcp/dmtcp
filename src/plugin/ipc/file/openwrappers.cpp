@@ -283,6 +283,7 @@ extern "C" int creat64(const char *path, mode_t mode)
   return _open_open64_work(_real_open64, path, O_CREAT|O_WRONLY|O_TRUNC, mode);
 }
 
+extern "C" void process_fd_event(int event, int arg1, int arg2 = -1);
 extern "C" int fcntl(int fd, int cmd, ...)
 {
   void *arg = NULL;
@@ -301,7 +302,7 @@ extern "C" int fcntl(int fd, int cmd, ...)
       (cmd == F_DUPFD) &&
 #endif
       dmtcp_is_running_state()) {
-    FileConnList::instance().processDup(fd, res);
+    process_fd_event(SYS_dup, fd, res);
   }
 
   DMTCP_PLUGIN_ENABLE_CKPT();
