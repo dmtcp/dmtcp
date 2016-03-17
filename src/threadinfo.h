@@ -72,6 +72,7 @@ struct Thread {
   pid_t *ptid;
   struct user_desc *tls;
   pid_t *ctid;
+  pid_t *pidptr;
 
   pid_t virtual_tid;
   sigset_t sigblockmask; // blocked signals
