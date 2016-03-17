@@ -29,9 +29,11 @@
 #include "shareddata.h"
 #include "util.h"
 #include "jassert.h"
+#include "jfilesystem.h"
 
-#include "fileconnection.h"
 #include "filewrappers.h"
+#include "ptyconnection.h"
+#include "ptywrappers.h"
 
 using namespace dmtcp;
 
@@ -107,19 +109,19 @@ static bool readyToRead(int fd)
 // returns 0 if not ready to read; else returns -1, or size read incl. header
 static ssize_t readOnePacket(int fd, const void *buf, size_t maxCount)
 {
-  typedef int hdr;
+  typedef int PtyHdr;
   ssize_t rc = 0;
   // Read single packet:  rc > 0 will be true for at most one iteration.
   while (readyToRead(fd) && rc <= 0) {
-    rc = read(fd,(char *)buf+sizeof(hdr), maxCount-sizeof(hdr));
-    *(hdr *)buf = rc; // Record the number read in header
-    if (rc >=(ssize_t) (maxCount-sizeof(hdr))) {
+    rc = read(fd,(char *)buf+sizeof(PtyHdr), maxCount-sizeof(PtyHdr));
+    *(PtyHdr *)buf = rc; // Record the number read in header
+    if (rc >=(ssize_t) (maxCount-sizeof(PtyHdr))) {
       rc = -1; errno = E2BIG; // Invoke new errno for buf size not large enough
     }
     if (rc == -1 && errno != EAGAIN && errno != EINTR)
       break;  /* Give up; bad error */
   }
-  return(rc <= 0 ? rc : rc+sizeof(hdr));
+  return(rc <= 0 ? rc : rc+sizeof(PtyHdr));
 }
 
 // rc < 0 => error; rc == sizeof(hdr) => no data to read;
@@ -243,14 +245,29 @@ PtyConnection::PtyConnection(int fd, const char *path,
       _ptsName = path;
       break;
 
+    case PTY_EXTERNAL:
+      _ptsName = path;
+      break;
+
     default:
       break;
   }
 }
 
+void PtyConnection::doLocking()
+{
+  _hasLock = true;
+  if ((_type == PTY_MASTER || _type == PTY_BSD_MASTER) &&
+      getpgrp() != tcgetpgrp(_fds[0])) {
+    _hasLock = false;
+  }
+}
+
 void PtyConnection::drain()
 {
-  if (_type == PTY_MASTER) {
+  JASSERT (_type != PTY_EXTERNAL);
+  saveOptions();
+  if (_type == PTY_MASTER && getpgrp() == tcgetpgrp(_fds[0])) {
     const int maxCount = 10000;
     char buf[maxCount];
     int numRead, numWritten;
@@ -269,11 +286,9 @@ void PtyConnection::drain()
   }
 }
 
-void PtyConnection::preRefill(bool isRestart)
+void PtyConnection::refill(bool isRestart)
 {
-  if (!isRestart) {
-    return;
-  }
+  if (!isRestart) return;
 
   if (_type == PTY_SLAVE || _type == PTY_BSD_SLAVE) {
     JASSERT(_ptsName.compare("?") != 0);
@@ -298,13 +313,7 @@ void PtyConnection::preRefill(bool isRestart)
     JTRACE("Restoring PTS real") (_ptsName) (_virtPtsName) (_fds[0]);
     Util::dupFds(tempfd, _fds);
   }
-}
 
-void PtyConnection::refill(bool isRestart)
-{
-  if (!isRestart) {
-    return;
-  }
   if (_type ==  PTY_DEV_TTY) {
     /* If a process has called setsid(), it is possible that there is no
      * controlling terminal while in the postRestart phase as processes are
@@ -351,7 +360,7 @@ void PtyConnection::postRestart()
         if (controllingTty.length() > 0 &&
             _real_access(controllingTty.c_str(), R_OK | W_OK) == 0) {
           tempfd = _real_open(controllingTty.c_str(), _fcntlFlags);
-          JASSERT(tempfd >= 0) (tempfd) (controllingTty) (JASSERT_ERRNO)
+          JASSERT(tempfd >= 0) (tempfd) (_fcntlFlags) (controllingTty) (JASSERT_ERRNO)
             .Text("Error Opening the terminal attached with the process");
         } else {
           if (_type == PTY_CTTY) {

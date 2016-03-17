@@ -29,6 +29,7 @@
 #include "config.h"
 
 #include "file/fileconnlist.h"
+#include "file/ptyconnlist.h"
 #include "event/eventconnlist.h"
 #include "socket/socketconnlist.h"
 #include "ssh/ssh.h"
@@ -37,16 +38,19 @@ using namespace dmtcp;
 
 void dmtcp_SSH_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
 void dmtcp_FileConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
+void dmtcp_PtyConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
 void dmtcp_SocketConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
 void dmtcp_EventConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
 
 void dmtcp_FileConn_ProcessFdEvent(int event, int arg1, int arg2);
+void dmtcp_PtyConn_ProcessFdEvent(int event, int arg1, int arg2);
 void dmtcp_SocketConn_ProcessFdEvent(int event, int arg1, int arg2);
 void dmtcp_EventConn_ProcessFdEvent(int event, int arg1, int arg2);
 static void ipc_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   dmtcp_SSH_EventHook(event, data);
   dmtcp_FileConnList_EventHook(event, data);
+  dmtcp_PtyConnList_EventHook(event, data);
   dmtcp_SocketConnList_EventHook(event, data);
   dmtcp_EventConnList_EventHook(event, data);
 }
@@ -66,6 +70,15 @@ static DmtcpBarrier fileBarriers[] = {
   {DMTCP_LOCAL_BARRIER_RESTART,  FileConnList::restartSendQueries, "RESTART_NS_SEND_QUERIES"},
   {DMTCP_LOCAL_BARRIER_RESTART,  FileConnList::restartRefill, "RESTART_REFILL"},
   {DMTCP_LOCAL_BARRIER_RESTART,  FileConnList::restartResume, "RESTART_RESUME"}
+};
+
+static DmtcpBarrier ptyBarriers[] = {
+  {DMTCP_PRIVATE_BARRIER_PRE_CKPT, PtyConnList::drainFd, "DRAIN"},
+
+  {DMTCP_PRIVATE_BARRIER_RESUME,   PtyConnList::resumeRefill, "RESUME_REFILL"},
+
+  {DMTCP_PRIVATE_BARRIER_RESTART,  PtyConnList::restart, "RESTART_POST_RESTART"},
+  {DMTCP_LOCAL_BARRIER_RESTART,  PtyConnList::restartRefill, "RESTART_REFILL"}
 };
 
 static DmtcpBarrier socketBarriers[] = {
@@ -130,6 +143,17 @@ DmtcpPluginDescriptor_t filePlugin = {
   dmtcp_FileConnList_EventHook
 };
 
+DmtcpPluginDescriptor_t ptyPlugin = {
+  DMTCP_PLUGIN_API_VERSION,
+  PACKAGE_VERSION,
+  "file",
+  "DMTCP",
+  "dmtcp@ccs.neu.edu",
+  "PTY plugin",
+  DMTCP_DECL_BARRIERS(ptyBarriers),
+  dmtcp_PtyConnList_EventHook
+};
+
 DmtcpPluginDescriptor_t socketPlugin = {
   DMTCP_PLUGIN_API_VERSION,
   PACKAGE_VERSION,
@@ -167,6 +191,7 @@ EXTERNC void dmtcp_initialize_plugin()
 {
   dmtcp_register_plugin(sshPlugin);
   dmtcp_register_plugin(filePlugin);
+  dmtcp_register_plugin(ptyPlugin);
   dmtcp_register_plugin(socketPlugin);
   dmtcp_register_plugin(eventPlugin);
 
@@ -182,6 +207,7 @@ EXTERNC void dmtcp_initialize_plugin()
 extern "C" void process_fd_event(int event, int arg1, int arg2 = -1)
 {
   dmtcp_FileConn_ProcessFdEvent(event, arg1, arg2);
+  dmtcp_PtyConn_ProcessFdEvent(event, arg1, arg2);
   dmtcp_SocketConn_ProcessFdEvent(event, arg1, arg2);
   dmtcp_EventConn_ProcessFdEvent(event, arg1, arg2);
 }
