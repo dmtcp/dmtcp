@@ -88,6 +88,17 @@ example:
   experimental and unsupported.
 - Strict POSIX compliance in regards to certain error handling (in particular,
   EFAULT on invalid address) is not fully supported.
+- Path virtualization for processes that are fork-ed and exec-ed from
+  a restarted process is supported. The child process inherits the path
+  translations from its (restarted) parent.
+
+  However, note that there's no clean way to distinguish a process that's
+  fork-ed and exec-ed prior to ckpt-ing from a process that's fork-ed
+  and exec-ed after a restart, other than creating a side-effect on the
+  filesystem. And so, for now, we delegate the responsibility of error
+  checking on the user. The implication is that if a user, by accident
+  or by intention, were to set the two env. vars prior to the first
+  checkpoint, the pathvirt plugin would get activated.
 
 ## Testing
 

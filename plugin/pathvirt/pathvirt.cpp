@@ -332,6 +332,37 @@ dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
         pthread_rwlock_init(&listRwLock, NULL);
         break;
     }
+    case DMTCP_EVENT_PRE_EXEC:
+    {
+      if (newPathPrefixList) {
+          setenv(ENV_NEW_DPP, newPathPrefixList, 0);
+      }
+      break;
+    }
+    case DMTCP_EVENT_POST_EXEC:
+    {
+
+       /* We need to use getenv() here instead of dmtcp_get_restart_env()
+        * because the latter is activated only after a restart.
+        *
+        * Also, it seems like there's no clean way to distinguish a process
+        * that's fork-ed and exec-ed prior to ckpt-ing from a process
+        * that's fork-ed and exec-ed after a restart, other than
+        * creating a side-effect on the filesystem. And so, for now, we
+        * delegate the responsibility of error checking on the user. The
+        * implication is that if a user, by accident or by intention,
+        * were to set the two env. vars prior to the first checkpoint,
+        * the pathvirt plugin would get activated.
+        */
+       char *newPrefixList = getenv(ENV_NEW_DPP);
+       char *oldPrefixList = getenv(ENV_ORIG_DPP);
+       if (newPrefixList && oldPrefixList ) {
+           snprintf(oldPathPrefixList, sizeof(oldPathPrefixList), "%s", oldPrefixList);
+           snprintf(newPathPrefixList, sizeof(newPathPrefixList), "%s", newPrefixList);
+           shouldSwap = *oldPathPrefixList && *newPathPrefixList;
+       }
+       break;
+    }
     default:
     ;
     }

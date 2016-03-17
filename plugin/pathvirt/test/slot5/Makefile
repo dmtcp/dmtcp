@@ -10,6 +10,12 @@ file-test: file-test.c
 file-test2: file-test2.c
 	gcc -g3 -fPIC -I../../../../include -I${PATHVIRT}/../ $< -o file-test2
 
+file-test3: file-test3.c
+	gcc -g3 -fPIC -I../../../../include -I${PATHVIRT}/../ $< -o file-test3
+
+file-test4: file-test4.c
+	gcc -g3 -fPIC -I../../../../include -I${PATHVIRT}/../ $< -o file-test4
+
 check: clean pv-test
 	DMTCP_ORIGINAL_PATH_PREFIX=$(PATHVIRT)/slot5/bin5:$(PATHVIRT)/slot5/doc5:$(PATHVIRT)/slot5/lib5 \
 		${DMTCP_ROOT}/bin/dmtcp_launch --pathvirt -i4 ./pv-test
@@ -28,6 +34,10 @@ newtest2: clean file-test
 newtest3: clean file-test2
 	${DMTCP_ROOT}/bin/dmtcp_launch --checkpoint-open-files --pathvirt ./file-test2
 	@sleep 1
+	DMTCP_NEW_PATH_PREFIX=$(PATHVIRT) ${DMTCP_ROOT}/bin/dmtcp_restart ckpt_file-test*.dmtcp
+
+newtest4: clean file-test3 file-test4
+	DMTCP_ORIGINAL_PATH_PREFIX=/tmp ${DMTCP_ROOT}/bin/dmtcp_launch --checkpoint-open-files --pathvirt ./file-test3 ./file-test4
 	DMTCP_NEW_PATH_PREFIX=$(PATHVIRT) ${DMTCP_ROOT}/bin/dmtcp_restart ckpt_file-test*.dmtcp
 
 vi: pv-test.cpp
@@ -52,7 +62,7 @@ restart2:
 
 clean:
 	rm -rf pv-test file-test file-test2 ckpt* dmtcp*
-	rm -f /tmp/msg $(PATHVIRT)/msg
+	rm -f /tmp/msg $(PATHVIRT)/msg $(PATHVIRT)/restart_process
 	> ../misc/slot7/bin7/pv-test.txt
 	> ../misc/slot7/doc7/pv-test.txt
 	> ../misc/slot7/lib7/pv-test.txt
