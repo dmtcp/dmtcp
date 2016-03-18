@@ -35,14 +35,6 @@ using namespace dmtcp;
 extern "C" pid_t dmtcp_update_ppid();
 
 static string pidMapFile;
-map<pthread_mutex_t*, pid_t>& mapMutexVirtTid()
-{
-  static map<pthread_mutex_t*, pid_t> *instance = NULL;
-  if (instance == NULL) {
-    instance = new map<pthread_mutex_t*, pid_t>();
-  }
-  return *instance;
-}
 
 extern "C"
 pid_t dmtcp_real_to_virtual_pid(pid_t realPid)
@@ -230,7 +222,6 @@ extern "C" void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     case DMTCP_EVENT_REFILL:
       if (data->refillInfo.isRestart) {
         pidVirt_PostRestartRefill(data);
-        pidVirt_RefillTid();
       }
       break;
 

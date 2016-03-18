@@ -187,6 +187,8 @@ void ThreadList::init()
   motherofall->tls   = (struct user_desc*)(void*)pthread_self();
   motherofall->ctid  = (pid_t*)((char*)motherofall->tls + tls_tid_offset);
   motherofall->pidptr= motherofall->ctid + 1;
+
+  *motherofall->ctid = *motherofall->pidptr = getpid();
 }
 
 /*****************************************************************************
@@ -222,7 +224,7 @@ void ThreadList::initThread(Thread* th, int (*fn)(void*), void *arg, int flags,
    * The solution is to put the motherpid in the pid slot every time a new
    * thread is created to make sure that struct pthread has the correct value.
    */
-  *(th->pidptr) = motherpid;
+  //*(th->pidptr) = motherpid;
 }
 
 /*****************************************************************************
@@ -760,11 +762,10 @@ static int restarthread (void *threadv)
 {
   Thread *thread = (Thread*) threadv;
   thread->tid = THREAD_REAL_TID();
-  /* Patch 'struct user_desc' (gdtentrytls) of glibc to contain the
-   * the new pid and tid.
-   */
-  *thread->ctid = thread->tid;
-  *thread->pidptr = motherpid;
+
+  // Restore virtual_tid.
+  *thread->ctid = thread->virtual_tid;
+
   // This function and related ones are defined in src/mtcp/restore_libc.c
   TLSInfo_RestoreTLSState(&thread->tlsInfo);
 

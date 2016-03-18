@@ -10,6 +10,7 @@
 #include "jassert.h"
 #include "pidwrappers.h"
 
+#if 0
 #define __real_pthread_mutex_lock    NEXT_FNC(pthread_mutex_lock)
 #define __real_pthread_mutex_trylock  NEXT_FNC(pthread_mutex_trylock)
 #define __real_pthread_mutex_timedlock  NEXT_FNC(pthread_mutex_timedlock)
@@ -55,3 +56,4 @@ extern "C" int pthread_mutex_timedlock(pthread_mutex_t *mutex,
 
   return rc;
 }
+#endif
