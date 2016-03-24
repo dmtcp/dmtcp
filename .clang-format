@@ -1,0 +1,207 @@
+---
+BasedOnStyle: Google
+
+# Good:
+#
+#   class Foo
+#   {
+#   public:
+#
+#     Foo() = default;
+#
+#   };
+#
+# Bad:
+#
+#   class Foo
+#   {
+#    public:
+#
+#     Foo() = default;
+#
+#   };
+#
+AccessModifierOffset: -2
+
+# Good:
+#
+#   clang = Clang(); // Comment 1
+#   format = Format(); // Comment 2
+#
+# Bad:
+#   clang = Clang();   // Comment 1
+#   format = Format(); // Comment 2
+#
+AlignTrailingComments: false
+
+# Good:
+#
+#   class Foo
+#   {
+#     public:
+#
+#     Foo()
+#       : first(1), second(2) {}
+#
+#   };
+#
+# Bad:
+#   bool foo() { return true; }
+#
+AllowShortFunctionsOnASingleLine: Inline
+
+AllowShortIfStatementsOnASingleLine: false
+AllowShortLoopsOnASingleLine: false
+
+AlwaysBreakAfterDefinitionReturnType: TopLevel
+
+AlwaysBreakBeforeMultilineStrings: false
+
+Cpp11BracedListStyle: false
+
+PointerAlignment: Right
+# BreakBeforeTernaryOperators: true
+# KeepEmptyLinesAtTheStartOfBlocks: false
+
+# Good:
+#
+#   void F(int first,
+#          int second,
+#          int third,
+#          int fourth,
+#          int fifth,
+#          int sixth,
+#          int seventh,
+#          int eighth) {}
+#
+# Bad:
+#
+#   void F(int first, int second, int third, int fourth, int fifth, int sixth,
+#          int seventh, int eighth) {}
+#
+BinPackParameters: false
+
+# Like 'Attach', but break before braces on function, namespaces, class, struct
+# and union definitions.
+#
+BreakBeforeBraces: Linux
+
+# Good:
+#
+#   class Foo
+#   {
+#     public:
+#
+#     Foo()
+#       : first(1), second(2) {}
+#
+#   };
+#
+# Bad:
+#
+#   class Foo
+#   {
+#     public:
+#
+#     Foo()
+#         : first(1), second(2) {}
+#
+#   };
+#
+ConstructorInitializerIndentWidth: 2
+
+# Continuation indents such as assignment statements are indented by 2 spaces.
+ContinuationIndentWidth: 2
+
+# Don't try to guess the pointer alignment
+DerivePointerAlignment: false
+
+# List of foreach macros due to lack of range-based for loops.
+ForEachMacros: [ foreach, foreachkey, foreachvalue, foreachpair ]
+
+# Maximum number of empty lines to keep.
+MaxEmptyLinesToKeep: 2
+
+# Good:
+#
+#   x = 42; // Comment
+#
+# Bad:
+#
+#   x = 42;  // Comment
+#
+SpacesBeforeTrailingComments: 1
+
+Language:        Cpp
+AccessModifierOffset: -2
+#AlignAfterOpenBracket: AlwaysBreak
+AlignConsecutiveAssignments: false
+AlignConsecutiveDeclarations: false
+AlignEscapedNewlinesLeft: true
+AlignOperands:   true
+AlignTrailingComments: false
+AllowAllParametersOfDeclarationOnNextLine: true
+AllowShortBlocksOnASingleLine: false
+AllowShortCaseLabelsOnASingleLine: false
+AllowShortIfStatementsOnASingleLine: false
+AllowShortLoopsOnASingleLine: false
+AlwaysBreakAfterReturnType: None
+#AlwaysBreakBeforeMultilineStrings: true
+AlwaysBreakTemplateDeclarations: true
+BinPackArguments: true
+BinPackParameters: false
+BreakBeforeBinaryOperators: None
+BreakBeforeTernaryOperators: true
+BreakConstructorInitializersBeforeComma: false
+ColumnLimit:     80
+CommentPragmas:  '^ IWYU pragma:'
+ConstructorInitializerAllOnOneLineOrOnePerLine: true
+ConstructorInitializerIndentWidth: 2
+ContinuationIndentWidth: 2
+Cpp11BracedListStyle: true
+DerivePointerAlignment: false
+DisableFormat:   false
+ExperimentalAutoDetectBinPacking: false
+ForEachMacros:   [ foreach, foreachkey, foreachvalue, foreachpair ]
+IncludeCategories:
+  - Regex:           '^<.*\.h>'
+    Priority:        1
+  - Regex:           '^<.*\.hpp>'
+    Priority:        3
+  - Regex:           '^<.*>'
+    Priority:        2
+  - Regex:           '.*'
+    Priority:        4
+IndentCaseLabels: true
+IndentWidth:     2
+IndentWrappedFunctionNames: false
+KeepEmptyLinesAtTheStartOfBlocks: false
+MacroBlockBegin: ''
+MacroBlockEnd:   ''
+MaxEmptyLinesToKeep: 2
+NamespaceIndentation: None
+ObjCBlockIndentWidth: 2
+ObjCSpaceAfterProperty: false
+ObjCSpaceBeforeProtocolList: false
+PenaltyBreakBeforeFirstCallParameter: 1
+PenaltyBreakComment: 300
+PenaltyBreakFirstLessLess: 120
+PenaltyBreakString: 1000
+PenaltyExcessCharacter: 1000000
+#PenaltyReturnTypeOnItsOwnLine: 200
+ReflowComments:  true
+SortIncludes:    true
+SpaceAfterCStyleCast: false
+SpaceBeforeAssignmentOperators: true
+SpaceBeforeParens: ControlStatements
+SpaceInEmptyParentheses: false
+SpacesBeforeTrailingComments: 1
+SpacesInAngles:  false
+SpacesInContainerLiterals: true
+SpacesInCStyleCastParentheses: false
+SpacesInParentheses: false
+SpacesInSquareBrackets: false
+Standard:        Auto
+TabWidth:        8
+UseTab:          Never
+...
