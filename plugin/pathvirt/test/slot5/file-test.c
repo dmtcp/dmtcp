@@ -48,6 +48,10 @@ main(int argc, char *argv[])
     if (counter == 10) {
       printf("Exiting now!\n");
       fclose(fp);
+      if (truncate("/tmp/msg", 0) < 0) {
+         perror("truncate: ");
+         exit(-1);
+      }
       exit(0);
     }
   }

@@ -17,14 +17,17 @@ check: clean pv-test
 
 newtest: clean file-test
 	DMTCP_ORIGINAL_PATH_PREFIX=/tmp ${DMTCP_ROOT}/bin/dmtcp_launch --checkpoint-open-files --pathvirt ./file-test
+	@sleep 1
 	DMTCP_NEW_PATH_PREFIX=$(PATHVIRT) ${DMTCP_ROOT}/bin/dmtcp_restart ckpt_file-test*.dmtcp
 
 newtest2: clean file-test
 	${DMTCP_ROOT}/bin/dmtcp_launch --checkpoint-open-files --pathvirt ./file-test
+	@sleep 1
 	DMTCP_ORIGINAL_PATH_PREFIX=/tmp DMTCP_NEW_PATH_PREFIX=$(PATHVIRT) ${DMTCP_ROOT}/bin/dmtcp_restart ckpt_file-test*.dmtcp
 
 newtest3: clean file-test2
 	${DMTCP_ROOT}/bin/dmtcp_launch --checkpoint-open-files --pathvirt ./file-test2
+	@sleep 1
 	DMTCP_NEW_PATH_PREFIX=$(PATHVIRT) ${DMTCP_ROOT}/bin/dmtcp_restart ckpt_file-test*.dmtcp
 
 vi: pv-test.cpp

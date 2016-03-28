@@ -54,6 +54,7 @@
 #define _real_readlink   NEXT_FNC(readlink)
 #define _real_realpath   NEXT_FNC(realpath)
 #define _real_access     NEXT_FNC(access)
+#define _real_truncate   NEXT_FNC(truncate)
 
 /* paths should only be swapped on restarts (not on initial run), so this flag
    is set on restart */
@@ -593,4 +594,12 @@ extern "C" int access(const char *path, int mode)
   const char *phys_path = temp.c_str();
 
   return _real_access(phys_path, mode);
+}
+
+extern "C" int truncate(const char *path, off_t length)
+{
+  dmtcp::string temp = VIRTUAL_TO_PHYSICAL_PATH(path);
+  const char *phys_path = temp.c_str();
+
+  return _real_truncate(phys_path, length);
 }
