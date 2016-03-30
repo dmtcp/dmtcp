@@ -333,7 +333,15 @@ static void restore_brk(VA saved_brk, VA restore_begin, VA restore_end)
     mtcp_abort ();
   }
 
-  new_brk = mtcp_sys_brk (saved_brk);
+  if (current_brk <= saved_brk) {
+    new_brk = mtcp_sys_brk (saved_brk);
+    rinfo.saved_brk = NULL; // We no longer need the value of saved_brk.
+  } else {
+    new_brk = saved_brk;
+    // If saved_brk < current_brk, then brk() does munmap; we can lose rinfo.
+    // So, keep the value rinfo.saved_brk, and call mtcp_sys_brk() later.
+    return;
+  }
   if (new_brk == (VA)-1) {
     MTCP_PRINTF("sbrk(%p): errno: %d (bad heap)\n",
 		 saved_brk, mtcp_sys_errno );
@@ -551,6 +559,11 @@ static void restorememoryareas(RestoreInfo *rinfo_ptr)
 
   RestoreInfo restore_info;
   mtcp_memcpy(&restore_info, rinfo_ptr, sizeof (restore_info));
+  if (rinfo_ptr->saved_brk != NULL); {
+    // Now, we can do the pending mtcp_sys_brk(rinfo.saved_brk).
+    // It's now safe to do this, even though it can munmap memory holding rinfo.
+    mtcp_sys_brk(rinfo_ptr->saved_brk);
+  }
 
 #if defined(__i386__) || defined(__x86_64__)
   asm volatile (CLEAN_FOR_64_BIT(xor %%eax,%%eax ; movw %%ax,%%fs)
