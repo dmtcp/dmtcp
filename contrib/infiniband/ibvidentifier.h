@@ -14,7 +14,7 @@ typedef struct {
 } ibv_qp_pd_id_t, ibv_ud_qp_id_t;
 
 struct ibv_rkey_id {
-  int pd_id;
+  uint32_t pd_id;
   uint32_t rkey;
 };
 

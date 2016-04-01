@@ -65,7 +65,7 @@ static struct list ah_list = LIST_INITIALIZER(ah_list);
 //! This is the list of rkey pairs
 static struct list rkey_list;
 
-static int pd_id_count = 0;
+static uint32_t pd_id_count = 0;
 
 static void send_qp_info(void);
 static void query_qp_info(void);
