@@ -434,6 +434,20 @@ EXTERNC void dmtcp_unblock_ckpt_signal(void)
   JASSERT(_real_pthread_sigmask (SIG_UNBLOCK, &signals_set, NULL) == 0);
 }
 
+EXTERNC int dmtcp_send_key_val_pairs_to_coordinator(const char *id,
+                                                    size_t keyLen,
+                                                    size_t valLen,
+                                                    size_t count,
+                                                    const void *data)
+{
+  return CoordinatorAPI::instance().sendKeyValPairsToCoordinator(id,
+                                                                 keyLen,
+                                                                 valLen,
+                                                                 count,
+                                                                 data);
+}
+
+
 EXTERNC int dmtcp_send_key_val_pair_to_coordinator(const char *id,
                                                    const void *key,
                                                    uint32_t key_len,
@@ -466,6 +480,7 @@ EXTERNC int dmtcp_send_query_to_coordinator(const char *id,
   return CoordinatorAPI::instance().sendQueryToCoordinator(id, key, key_len,
                                                            val, val_len);
 }
+
 
 EXTERNC void dmtcp_get_local_ip_addr(struct in_addr *in)
 {

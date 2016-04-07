@@ -672,6 +672,33 @@ int CoordinatorAPI::sendKeyValPairToCoordinator(const char *id,
   return 1;
 }
 
+
+int CoordinatorAPI::sendKeyValPairsToCoordinator(const char *id,
+                                                 size_t keyLen,
+                                                 size_t valLen,
+                                                 size_t count,
+                                                 const void *data)
+{
+  DmtcpMessage msg (DMT_REGISTER_NAME_SERVICE_DATA_MULTI);
+
+  JWARNING(strlen(id) < sizeof(msg.nsid));
+  strncpy(msg.nsid, id, 8);
+
+  msg.numKeys = count;
+  msg.keyLen = keyLen;
+  msg.valLen = valLen;
+  msg.extraBytes = count * (keyLen + valLen);
+
+  JASSERT (!dmtcp_is_running_state());
+
+  JASSERT(Util::writeAll(_coordinatorSocket, &msg, sizeof(msg)) == sizeof(msg));
+  JASSERT(Util::writeAll(_coordinatorSocket, data, msg.extraBytes) ==
+          msg.extraBytes);
+
+  return 1;
+}
+
+
 // On input, val points to a buffer in user memory and *val_len is the maximum
 //   size of that buffer (the memory allocated by user).
 // On output, we copy data to val, and set *val_len to the actual buffer size

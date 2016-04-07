@@ -557,6 +557,13 @@ void DmtcpCoordinator::onData(CoordClient *client)
     }
     break;
 
+    case DMT_REGISTER_NAME_SERVICE_DATA_MULTI:
+    {
+      JTRACE ("received REGISTER_NAME_SERVICE_DATA msg") (client->identity());
+      lookupService.registerData(msg, (const void*) extraData);
+    }
+    break;
+
     case DMT_REGISTER_NAME_SERVICE_DATA_SYNC:
     {
       JTRACE ("received REGISTER_NAME_SERVICE_DATA_SYNC msg") (client->identity());

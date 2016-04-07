@@ -66,6 +66,7 @@ namespace dmtcp
     DMT_KILL_PEER,           // send kill message to peer
 
     DMT_REGISTER_NAME_SERVICE_DATA,
+    DMT_REGISTER_NAME_SERVICE_DATA_MULTI,
     DMT_REGISTER_NAME_SERVICE_DATA_SYNC,
     DMT_REGISTER_NAME_SERVICE_DATA_SYNC_RESPONSE,
     DMT_NAME_SERVICE_QUERY,
@@ -156,7 +157,7 @@ namespace dmtcp
     struct in_addr ipAddr;
 
     uint32_t exitAfterCkpt;
-    uint32_t padding;
+    uint32_t numKeys;
 
     DmtcpMessage ( DmtcpMessageType t = DMT_NULL );
     void assertValid() const;

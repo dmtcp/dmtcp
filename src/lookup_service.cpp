@@ -89,6 +89,21 @@ void LookupService::registerData(const DmtcpMessage& msg,
   addKeyValue(msg.nsid, key, keyLen, val, valLen);
 }
 
+void LookupService::registerDataMulti(const DmtcpMessage& msg,
+                                      const void *data)
+{
+  JASSERT(msg.extraBytes == msg.numKeys * (msg.keyLen + msg.valLen))
+    (msg.numKeys) (msg.keyLen) (msg.valLen) (msg.extraBytes);
+
+  const char *ptr = (const char*) data;
+  for (size_t i = 0; i < msg.numKeys; i++) {
+    const void *key = ptr;
+    const void *val = ptr + msg.keyLen;
+    ptr += msg.keyLen + msg.valLen;
+    addKeyValue(msg.nsid, key, msg.keyLen, val, msg.valLen);
+  }
+}
+
 void LookupService::respondToQuery(jalib::JSocket& remote,
                                           const DmtcpMessage& msg,
                                           const void *key)

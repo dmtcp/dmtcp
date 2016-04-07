@@ -60,6 +60,7 @@ DmtcpMessage::DmtcpMessage ( DmtcpMessageType t /*= DMT_NULL*/ )
     ,coordTimeStamp(0)
     ,theCheckpointInterval ( DMTCPMESSAGE_SAME_CKPT_INTERVAL )
     ,exitAfterCkpt(0)
+    ,numKeys(0)
 {
 //     struct sockaddr_storage _addr;
 //         socklen_t _addrlen;
@@ -175,6 +176,7 @@ ostream& dmtcp::operator << ( dmtcp::ostream& o, const DmtcpMessageType & s )
       OSHIFTPRINTF ( DMT_KILL_PEER )
 
       OSHIFTPRINTF ( DMT_REGISTER_NAME_SERVICE_DATA )
+      OSHIFTPRINTF ( DMT_REGISTER_NAME_SERVICE_DATA_MULTI )
       OSHIFTPRINTF ( DMT_REGISTER_NAME_SERVICE_DATA_SYNC )
       OSHIFTPRINTF ( DMT_REGISTER_NAME_SERVICE_DATA_SYNC_RESPONSE )
       OSHIFTPRINTF ( DMT_NAME_SERVICE_QUERY )
