@@ -309,6 +309,22 @@ void DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*= NULL*
         << '\n';
     }
     break;
+  case 'u': case 'U':
+  {
+    JASSERT_STDERR << "Host List:\n";
+    JASSERT_STDERR << "HOST => # connected clients \n";
+    dmtcp::map<string, int> clientHosts;
+    for (size_t i = 0; i < clients.size(); i++) {
+      if (clientHosts.find(clients[i]->hostname()) == clientHosts.end()) {
+        clientHosts[clients[i]->hostname()] = 1;
+      } else {
+        clientHosts[clients[i]->hostname()] += 1;
+      }
+    }
+    for (dmtcp::map<string,int>::iterator it=clientHosts.begin(); it!=clientHosts.end(); ++it)
+      JASSERT_STDERR << it->first << " => " << it->second << '\n';
+    break;
+  }
   case 'q': case 'Q':
   {
     JNOTE ( "killing all connected peers and quitting ..." );
