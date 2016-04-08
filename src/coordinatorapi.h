@@ -103,8 +103,7 @@ namespace dmtcp
 
       int sendKeyValPairToCoordinator(const char *id,
                                       const void *key, uint32_t key_len,
-                                      const void *val, uint32_t val_len,
-				      int sync = 0);
+                                      const void *val, uint32_t val_len);
       int sendQueryToCoordinator(const char *id,
                                  const void *key, uint32_t key_len,
                                  void *val, uint32_t *val_len);

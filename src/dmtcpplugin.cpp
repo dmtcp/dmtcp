@@ -444,17 +444,6 @@ EXTERNC int dmtcp_send_key_val_pair_to_coordinator(const char *id,
                                                                 val, val_len);
 }
 
-EXTERNC int dmtcp_send_key_val_pair_to_coordinator_sync(const char *id,
-                                                        const void *key,
-                                                        uint32_t key_len,
-                                                        const void *val,
-                                                        uint32_t val_len)
-{
-  return CoordinatorAPI::instance().sendKeyValPairToCoordinator(id, key, key_len,
-                                                                val, val_len,
-								1);
-}
-
 // On input, val points to a buffer in user memory and *val_len is the maximum
 //   size of that buffer (the memory allocated by user).
 // On output, we copy data to val, and set *val_len to the actual buffer size
