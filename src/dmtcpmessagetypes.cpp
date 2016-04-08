@@ -80,12 +80,12 @@ void DmtcpMessage::assertValid() const
 
 bool DmtcpMessage::isValid() const
 {
-  if (strcmp(DMTCP_MAGIC_STRING, _magicBits) == 0) {
+  if (strcmp(DMTCP_MAGIC_STRING, _magicBits) != 0) {
     JNOTE("read invalid message, _magicBits mismatch."
           " Closing remote connection.") (_magicBits);
     return false;
   }
-  if (_msgSize == sizeof(DmtcpMessage)) {
+  if (_msgSize != sizeof(DmtcpMessage)) {
     JNOTE("read invalid message, size mismatch. Closing remote connection.")
       (_msgSize) (sizeof(DmtcpMessage));
     return false;
@@ -175,8 +175,6 @@ ostream& dmtcp::operator << ( dmtcp::ostream& o, const DmtcpMessageType & s )
       OSHIFTPRINTF ( DMT_KILL_PEER )
 
       OSHIFTPRINTF ( DMT_REGISTER_NAME_SERVICE_DATA )
-      OSHIFTPRINTF ( DMT_REGISTER_NAME_SERVICE_DATA_SYNC )
-      OSHIFTPRINTF ( DMT_REGISTER_NAME_SERVICE_DATA_SYNC_RESPONSE )
       OSHIFTPRINTF ( DMT_NAME_SERVICE_QUERY )
       OSHIFTPRINTF ( DMT_NAME_SERVICE_QUERY_RESPONSE )
 

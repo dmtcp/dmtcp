@@ -2,6 +2,7 @@
 
 from random import randint
 from time   import sleep
+import argparse
 import subprocess
 import pty
 import socket
@@ -13,6 +14,30 @@ import resource
 import pwd
 import stat
 import re
+
+parser = argparse.ArgumentParser()
+parser.add_argument('-v', '--verbose',
+                    action='store_true',
+                    help='Print JTRACE/JLOG/JWARNING messages')
+#parser.add_argument('-l', '--list',
+#                    action='store_true',
+#                    help='List available tests')
+parser.add_argument('--retry-once',
+                    action='store_true',
+                    help='Retry the test in case of failure')
+parser.add_argument('--stress',
+                    action='store_true',
+                    help='Run 100000 ckpt-rst cycles')
+parser.add_argument('--slow',
+                    action='count',
+                    default=0,
+                    help='Add additional pause before ckpt-rst')
+parser.add_argument('tests',
+                    nargs='*',
+                    metavar='TESTNAME',
+                    help='Test to run')
+
+args = parser.parse_args()
 
 #get testconfig
 # This assumes Makefile.in in main dir, but only Makefile in test dir.
@@ -55,9 +80,6 @@ if USE_TEST_SUITE == "no":
           "***  re-configure _without_ './configure --disable-test-suite'\n"
   sys.exit()
 
-#number of checkpoint/restart cycles
-CYCLES=2
-
 #Number of times to try dmtcp_restart
 RETRIES=2
 
@@ -76,8 +98,6 @@ if uname_m in ["i386", "i486", "i586", "i686", "armv7", "armv7l", "aarch64"]:
   DEFAULT_S *= 4
 
 S=DEFAULT_S
-#Appears as S*SLOW in code.  If --slow, then SLOW=5
-SLOW=1
 
 #Max time to wait for ckpt/restart to finish (sec)
 TIMEOUT=10
@@ -93,12 +113,6 @@ INTERVAL=0.1
 #Buffers for process i/o
 BUFFER_SIZE=4096*8
 
-#False redirects process stderr
-VERBOSE=False
-
-#Should we retry on a failure?
-RETRY_ONCE=False
-
 #Run (most) tests with user default (usually with gzip enable)
 GZIP=os.getenv('DMTCP_GZIP') or "1"
 
@@ -111,31 +125,25 @@ BIN="./bin/"
 #Checkpoint command to send to coordinator
 CKPT_CMD='c'
 
-#parse program args
-args={}
-for i in sys.argv:
-  args[i]=True
-  if i=="-v" or i=="--verbose":
-    VERBOSE=True
-  if i=="--stress":
-    CYCLES=100000
-  if i=="--slow":
-    SLOW *= 5  # SLOW was initialized to 1 ; --slow --slow => SLOW==25
-    TIMEOUT *= SLOW
-  if i=="--retry-once":
-    RETRY_ONCE = True
-  #TODO:  Install SIGSEGV handler with infinite loop, and add to LD_PRELOAD
-  #In test/Makefile, build libcatchsigsegv.so
-  #Add --catchsigsegv  to usage string.
-  # if i=="--catchsigsegv":
-  #   if os.getenv('LD_PRELOAD'):
-  #     os.environ['LD_PRELOAD'] += ':libcatchsigsegv.so'
-  #   else:
-  #     os.environ['LD_PRELOAD'] = 'libcatchsigsegv.so'
-  if i=="-h" or i=="--help":
-    print ("USAGE "+sys.argv[0]+
-      " [-v] [--stress] [--slow] [testname] [testname ...]")
-    sys.exit(1)
+#Appears as S*SLOW in code.  If --slow, then SLOW=5
+SLOW = pow(5, args.slow)
+TIMEOUT *= SLOW
+
+#number of checkpoint/restart cycles
+if args.stress:
+    CYCLES = 100000
+else:
+    CYCLES=2
+
+
+#TODO:  Install SIGSEGV handler with infinite loop, and add to LD_PRELOAD
+#In test/Makefile, build libcatchsigsegv.so
+#Add --catchsigsegv  to usage string.
+# if args.catch_sigsegv:
+#   if os.getenv('LD_PRELOAD'):
+#     os.environ['LD_PRELOAD'] += ':libcatchsigsegv.so'
+#   else:
+#     os.environ['LD_PRELOAD'] = 'libcatchsigsegv.so'
 
 stats = [0, 0]
 
@@ -179,10 +187,7 @@ def splitWithQuotes(string):
   return string.split('%')
 
 def shouldRunTest(name):
-  # FIXME:  This is a hack.  We should have created var, testNaems and use here
-  if len(sys.argv) <= 1+(VERBOSE==True)+(SLOW!=1)+(CYCLES!=2)+(RETRY_ONCE==True):
-    return True
-  return name in sys.argv
+  return args.tests == [] or name in args.tests
 
 #make sure we are in svn root
 if os.system("test -d bin") != 0:
@@ -230,7 +235,7 @@ devnullFd = os.open(os.devnull, os.O_WRONLY)
 def runCmd(cmd):
   global devnullFd
   global master_read
-  if VERBOSE:
+  if args.verbose:
     print "Launching... ", cmd
   cmd = splitWithQuotes(cmd);
   # Example cmd:  dmtcp_launch screen ...
@@ -267,11 +272,11 @@ def runCmd(cmd):
     if cmd[0] == BIN+"dmtcp_coordinator":
       childStdout = subprocess.PIPE
       # Don't mix stderr in with childStdout; need to read stdout
-      if VERBOSE:
+      if args.verbose:
         childStderr = None
       else:
         childStderr = devnullFd
-    elif VERBOSE:
+    elif args.verbose:
       childStdout=None  # Inherit child stdout from parent
       childStderr=None  # Inherit child stderr from parent
     else:
@@ -294,9 +299,9 @@ os.unsetenv('DMTCP_SIGCKPT')
 os.unsetenv('MTCP_SIGCKPT')
 #No gzip by default.  (Isolate gzip failures from other test failures.)
 #But note that dmtcp3, frisbee and gzip tests below still use gzip.
-if not VERBOSE:
+if not args.verbose:
   os.environ['JALIB_STDERR_PATH'] = os.devnull
-if VERBOSE:
+if args.verbose:
   print "coordinator port:  " + os.environ['DMTCP_COORD_PORT']
 
 # We'll copy ckptdir to DMTCP_TMPDIR in case of error.
@@ -345,7 +350,7 @@ coordinator = runCmd(BIN+"dmtcp_coordinator")
 #send a command to the coordinator process
 def coordinatorCmd(cmd):
   try:
-    if VERBOSE and cmd != "s":
+    if args.verbose and cmd != "s":
       print "COORDINATORCMD(",cmd,")"
     coordinator.stdin.write(cmd+"\n")
     coordinator.stdin.flush()
@@ -416,7 +421,7 @@ def getStatus():
         continue
       raise CheckFailed("I/O error(%s): %s" % (errno, strerror))
 
-  if VERBOSE:
+  if args.verbose:
     print "STATUS: peers=%d, running=%s" % (peers,running)
 
   return (peers, (running=="yes"))
@@ -482,7 +487,7 @@ def runTestRaw(name, numProcs, cmds):
       coordinatorCmd('q')
       os.system("kill -9 %d" % coordinator.pid)
       print "Trying to kill old coordinator, and run new one on same port"
-      coordinator = runCmd(BIN+"dmtcp_coordinator")
+      coordinator = runCmd(coordinatorCmd)
     for x in procs:
       #cleanup proc
       try:
@@ -642,7 +647,7 @@ def runTestRaw(name, numProcs, cmds):
       SHUTDOWN()
       saveResultsNMI()
       sys.exit(1)
-    if RETRY_ONCE:
+    if args.retry_once:
       clearCkptDir()
       raise e
 
@@ -667,7 +672,7 @@ def runTest(name, numProcs, cmds):
         except OSError: # This happens if pid already died.
           pass
     except CheckFailed, e:
-      if not RETRY_ONCE:
+      if not args.retry_once:
         break
       if i == 0:
         stats[1]-=1

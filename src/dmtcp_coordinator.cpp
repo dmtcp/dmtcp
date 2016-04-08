@@ -309,6 +309,22 @@ void DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*= NULL*
         << '\n';
     }
     break;
+  case 'u': case 'U':
+  {
+    JASSERT_STDERR << "Host List:\n";
+    JASSERT_STDERR << "HOST => # connected clients \n";
+    dmtcp::map<string, int> clientHosts;
+    for (size_t i = 0; i < clients.size(); i++) {
+      if (clientHosts.find(clients[i]->hostname()) == clientHosts.end()) {
+        clientHosts[clients[i]->hostname()] = 1;
+      } else {
+        clientHosts[clients[i]->hostname()] += 1;
+      }
+    }
+    for (dmtcp::map<string,int>::iterator it=clientHosts.begin(); it!=clientHosts.end(); ++it)
+      JASSERT_STDERR << it->first << " => " << it->second << '\n';
+    break;
+  }
   case 'q': case 'Q':
   {
     JNOTE ( "killing all connected peers and quitting ..." );
@@ -557,15 +573,6 @@ void DmtcpCoordinator::onData(CoordClient *client)
     }
     break;
 
-    case DMT_REGISTER_NAME_SERVICE_DATA_SYNC:
-    {
-      JTRACE ("received REGISTER_NAME_SERVICE_DATA_SYNC msg") (client->identity());
-      lookupService.registerData(msg, (const void*) extraData);
-      DmtcpMessage response(DMT_REGISTER_NAME_SERVICE_DATA_SYNC_RESPONSE);
-      JTRACE("Sending NS response to the client...");
-      client->sock() << response;
-    }
-    break;
     case DMT_NAME_SERVICE_QUERY:
     {
       JTRACE ("received NAME_SERVICE_QUERY msg") (client->identity());
@@ -730,20 +737,6 @@ void DmtcpCoordinator::onConnect()
     JTRACE ("received REGISTER_NAME_SERVICE_DATA msg on running") (hello_remote.from);
     lookupService.registerData(hello_remote, (const void*) extraData);
     delete [] extraData;
-    remote.close();
-    return;
-  }
-  if (hello_remote.type == DMT_REGISTER_NAME_SERVICE_DATA_SYNC) {
-    JASSERT(hello_remote.extraBytes > 0) (hello_remote.extraBytes);
-    char *extraData = new char[hello_remote.extraBytes];
-    remote.readAll(extraData, hello_remote.extraBytes);
-
-    JTRACE ("received REGISTER_NAME_SERVICE_DATA msg on running") (hello_remote.from);
-    lookupService.registerData(hello_remote, (const void*) extraData);
-    delete [] extraData;
-    DmtcpMessage response(DMT_REGISTER_NAME_SERVICE_DATA_SYNC_RESPONSE);
-    JTRACE("Reading from incoming connection...");
-    remote << response;
     remote.close();
     return;
   }

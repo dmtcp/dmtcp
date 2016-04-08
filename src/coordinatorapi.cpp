@@ -634,13 +634,9 @@ int CoordinatorAPI::sendKeyValPairToCoordinator(const char *id,
                                                 const void *key,
                                                 uint32_t key_len,
                                                 const void *val,
-                                                uint32_t val_len,
-                                                int sync)
+                                                uint32_t val_len)
 {
   DmtcpMessage msg (DMT_REGISTER_NAME_SERVICE_DATA);
-  if (sync) {
-    msg.type = DMT_REGISTER_NAME_SERVICE_DATA_SYNC;
-  }
   JWARNING(strlen(id) < sizeof(msg.nsid));
   strncpy(msg.nsid, id, 8);
   msg.keyLen = key_len;
@@ -663,12 +659,6 @@ int CoordinatorAPI::sendKeyValPairToCoordinator(const char *id,
   JASSERT(Util::writeAll(sock, key, key_len) == key_len);
   JASSERT(Util::writeAll(sock, val, val_len) == val_len);
 
-  if (sync) {
-    msg.poison();
-    JASSERT(Util::readAll(sock, &msg, sizeof(msg)) == sizeof(msg));
-    msg.assertValid();
-    JASSERT(msg.type == DMT_REGISTER_NAME_SERVICE_DATA_SYNC_RESPONSE)(msg.type);
-  }
   return 1;
 }
 

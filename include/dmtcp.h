@@ -205,11 +205,6 @@ EXTERNC int dmtcp_send_key_val_pair_to_coordinator(const char *id,
                                                    uint32_t key_len,
                                                    const void *val,
                                                    uint32_t val_len);
-EXTERNC int dmtcp_send_key_val_pair_to_coordinator_sync(const char *id,
-                                                        const void *key,
-                                                        uint32_t key_len,
-                                                        const void *val,
-                                                        uint32_t val_len);
 EXTERNC int dmtcp_send_query_to_coordinator(const char *id,
                                             const void *key, uint32_t key_len,
                                             void *val, uint32_t *val_len);

@@ -70,7 +70,7 @@ PluginInfo *PluginInfo::create(const DmtcpPluginDescriptor_t& descr)
         break;
 
       default:
-        JASSERT("NOT REACHED");
+        JASSERT(false) .Text("NOT REACHED");
     }
   }
 
@@ -102,7 +102,7 @@ void PluginInfo::processBarriers()
       processBarrier(restartBarriers[i]);
     }
   } else {
-    JASSERT("Not Reached");
+    JASSERT(false) .Text("Not Reached");
   }
 }
 
