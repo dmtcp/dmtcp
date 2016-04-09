@@ -4,16 +4,14 @@
 #include "config.h"
 #include "dmtcp.h"
 #include "dmtcpalloc.h"
+#include "jtimer.h"
 #include "plugininfo.h"
 #include "util.h"
-
-#ifdef TIMING
-# include <sys/time.h>
-#endif
 
 static const char *firstRestartBarrier = "DMTCP::RESTART";
 
 static dmtcp::PluginManager *pluginManager = NULL;
+JTIMER_NOPRINT(ckptWriteTime);
 
 extern "C" void dmtcp_initialize();
 
@@ -136,11 +134,14 @@ PluginManager::processCkptBarriers()
   for (size_t i = 0; i < pluginManager->pluginInfos.size(); i++) {
     pluginManager->pluginInfos[i]->processBarriers();
   }
+
+  JTIMER_START(ckptWriteTime);
 }
 
 void
 PluginManager::processResumeBarriers()
 {
+  JTIMER_STOP(ckptWriteTime);
   for (int i = pluginManager->pluginInfos.size() - 1; i >= 0; i--) {
     pluginManager->pluginInfos[i]->processBarriers();
   }
@@ -154,6 +155,11 @@ PluginManager::logCkptResumeBarrierOverhead()
   snprintf(logFilename, sizeof(logFilename), "%s/timings.%s.csv",
            dmtcp_get_ckpt_dir(), dmtcp_get_uniquepid_str());
   std::ofstream lfile (logFilename, std::ios::out | std::ios::app);
+
+  double writeTime = 0.0;
+  JTIMER_GETDELTA(writeTime, ckptWriteTime);
+  lfile << "Ckpt-write time," << writeTime << std::endl;
+
   for (int i = pluginManager->pluginInfos.size() - 1; i >= 0; i--) {
     for (int j = 0;
          j < pluginManager->pluginInfos[i]->preCkptBarriers.size(); j++) {
