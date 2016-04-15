@@ -1,0 +1,3 @@
+/home/user/hello:SAVE_AND_RESTORE=1;RESTART_PATH=/mnt/media/user/hello
+/home/user/hello2:SAVE_AND_RESTORE=0;RESTART_PATH=/mnt/media/user/hello2
+/home/user/test/*:SAVE_AND_RESTORE=1;RESTART_PATH=/mnt/media/user/test/*

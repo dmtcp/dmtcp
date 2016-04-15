@@ -319,7 +319,9 @@ void TcpConnection::onListen(int backlog)
   _listenBacklog = backlog;
 }
 
-void TcpConnection::onConnect(const struct sockaddr *addr, socklen_t len)
+void TcpConnection::onConnect(const struct sockaddr *addr,
+                              socklen_t len,
+                              bool connectInProgress)
 {
   if (really_verbose) {
     JTRACE("Connecting.") (id());
@@ -331,6 +333,9 @@ void TcpConnection::onConnect(const struct sockaddr *addr, socklen_t len)
     _type = TCP_EXTERNAL_CONNECT;
     _connectAddrlen = len;
     memcpy(&_connectAddr, addr, len);
+  } else if (connectInProgress) {
+    //non blocking connect.
+    _type = TCP_CONNECT_IN_PROGRESS;
   } else {
     _type = TCP_CONNECT;
   }
@@ -379,6 +384,40 @@ void TcpConnection::drain()
 
   if (dmtcp_no_coordinator()) {
     markExternalConnect();
+  }
+
+  // Non blocking connect; need to hang around until it is writable.
+  if (_type == TCP_CONNECT_IN_PROGRESS) {
+    fd_set wfds;
+    struct timeval tv;
+    int retval;
+
+    FD_ZERO(&wfds);
+    FD_SET(_fds[0], &wfds);
+
+    tv.tv_sec = 60;
+    tv.tv_usec = 0;
+
+    // FIXME: Replace select with poll/epoll (to handle fd > 1024).
+    retval = select(_fds[0] + 1, NULL, &wfds, NULL, &tv);
+    /* Don't rely on the value of tv now! */
+
+    if (retval == -1) {
+      JTRACE("select() failed") (JASSERT_ERRNO);
+    } else if (FD_ISSET(_fds[0], &wfds)) {
+      int val = -1;
+      socklen_t sz = sizeof(val);
+      getsockopt(_fds[0], SOL_SOCKET, SO_ERROR, &val, &sz);
+      JTRACE("Connect-in-progress socket is now writable.") (_fds[0]);
+      _type = TCP_CONNECT;
+    } else {
+      JWARNING(false) (_fds[0])
+        .Text("connect() returned EINPROGRESS.  Socket still not writable\n"
+              "after 60 seconds.   The socket is probably connected to an\n"
+              "external process not under DMTCP control.\n"
+              "Marking this socket as external and continuing to checkpoint.");
+      _type = TCP_EXTERNAL_CONNECT;
+    }
   }
 
   switch (_type) {

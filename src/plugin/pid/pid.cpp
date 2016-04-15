@@ -28,12 +28,14 @@
 #include "virtualpidtable.h"
 #include "dmtcp.h"
 #include "protectedfds.h"
+#include "config.h"
 
 using namespace dmtcp;
 
 extern "C" pid_t dmtcp_update_ppid();
 
 static string pidMapFile;
+map<pthread_mutex_t*, pid_t> mapMutexVirtTid;
 
 extern "C"
 pid_t dmtcp_real_to_virtual_pid(pid_t realPid)
@@ -143,7 +145,7 @@ static void openOriginalToCurrentMappingFiles()
   }
 }
 
-static void pidVirt_PostRestart(DmtcpEventData_t *data)
+static void pidVirt_PostRestart()
 {
   if ( jalib::Filesystem::GetProgramName() == "screen" )
     send_sigwinch = 1;
@@ -163,11 +165,22 @@ static void pidVirt_PostRestart(DmtcpEventData_t *data)
   VirtualPidTable::instance().writeMapsToFile(PROTECTED_PIDMAP_FD);
 }
 
-static void pidVirt_PostRestartRefill(DmtcpEventData_t *data)
+static void pidVirt_RefillTid() {
+  map<pthread_mutex_t*, pid_t>::iterator it;
+
+  for (it = mapMutexVirtTid.begin(); it != mapMutexVirtTid.end(); it++) {
+    if (it->first->__data.__owner != 0) {
+      it->first->__data.__owner = VIRTUAL_TO_REAL_PID(it->second);
+    }
+  }
+}
+
+static void pidVirt_PostRestartRefill()
 {
   VirtualPidTable::instance().readMapsFromFile(PROTECTED_PIDMAP_FD);
   dmtcp_close_protected_fd(PROTECTED_PIDMAP_FD);
   unlink(pidMapFile.c_str());
+  pidVirt_RefillTid();
 }
 
 static void pidVirt_ThreadExit(DmtcpEventData_t *data)
@@ -181,7 +194,7 @@ static void pidVirt_ThreadExit(DmtcpEventData_t *data)
   VirtualPidTable::instance().erase(tid);
 }
 
-extern "C" void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
+static void pid_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   switch (event) {
     case DMTCP_EVENT_ATFORK_PARENT:
@@ -200,16 +213,6 @@ extern "C" void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       pidVirt_PostExec(data);
       break;
 
-    case DMTCP_EVENT_RESTART:
-      pidVirt_PostRestart(data);
-      break;
-
-    case DMTCP_EVENT_REFILL:
-      if (data->refillInfo.isRestart) {
-        pidVirt_PostRestartRefill(data);
-      }
-      break;
-
     case DMTCP_EVENT_PTHREAD_RETURN:
     case DMTCP_EVENT_PTHREAD_EXIT:
       pidVirt_ThreadExit(data);
@@ -218,7 +221,22 @@ extern "C" void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     default:
       break;
   }
-
-  DMTCP_NEXT_EVENT_HOOK(event, data);
-  return;
 }
+
+static DmtcpBarrier pidBarriers[] = {
+  {DMTCP_PRIVATE_BARRIER_RESTART, pidVirt_PostRestart, "RESTART1"},
+  {DMTCP_LOCAL_BARRIER_RESTART, pidVirt_PostRestartRefill, "RESTART2"}
+};
+
+DmtcpPluginDescriptor_t pidPlugin = {
+  DMTCP_PLUGIN_API_VERSION,
+  PACKAGE_VERSION,
+  "pid",
+  "DMTCP",
+  "dmtcp@ccs.neu.edu",
+  "PID virtualization plugin",
+  DMTCP_DECL_BARRIERS(pidBarriers),
+  pid_event_hook
+};
+
+DMTCP_DECL_PLUGIN(pidPlugin);

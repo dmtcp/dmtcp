@@ -126,7 +126,7 @@ namespace jassert_internal
 
   const char* jassert_basename ( const char* str );
   dmtcp::ostream& jassert_output_stream();
-  void jassert_safe_print ( const char*, bool noConsoleOutput = false );
+  void jassert_safe_print ( const char* );
   void jassert_init();
   void close_stderr();
 
@@ -190,12 +190,6 @@ namespace jassert_internal
 #define JASSERT_LINE JASSERT_STRINGIFY(__LINE__)
 #define JASSERT_FILE jassert_internal::jassert_basename(__FILE__)
 #define JASSERT_CONTEXT(type,reason) Print('[').Print(getpid()).Print("] " type " at ").Print(JASSERT_FILE).Print(":" JASSERT_LINE " in ").Print(JASSERT_FUNC).Print("; REASON='" reason "'\n")
-
-#ifdef DEBUG
-#define JLOG(str) jassert_internal::jassert_safe_print(str, true)
-#else
-#define JLOG(str) do { } while(0)
-#endif
 
 #ifdef DEBUG
 #define JTRACE(msg) jassert_internal::JAssert(false).JASSERT_CONTEXT("TRACE",msg).JASSERT_CONT_A

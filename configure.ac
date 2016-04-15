@@ -203,10 +203,10 @@ if test "$use_test_suite" = "yes"; then
                 char *mqname = "/dmtcp-mq-conf-test";
                 mq_unlink(mqname);
                 if (mq_open(mqname, O_RDWR | O_CREAT, 0666, 0) == (mqd_t)-1) {
-                  exit(1);
+                  return 1;
                 }
                 mq_unlink(mqname);
-                exit(0);
+                return 0;
               }
               ], [posix_mq='yes'], [posix_mq='no'])
   CFLAGS="$old_CFLAGS"
@@ -262,7 +262,7 @@ if test "$use_m32" = "yes"; then
     AC_MSG_FAILURE([[Failed to build C program with -m32
     Typically, this means that 32-bit glibc include files were not found.
     Consider installing gcc-multilib g++-multilib libc6-dev-i386 (Debian/Ubuntu)
-     or glibc-devel.i686 glibc-devel ibstdc++-devel.i686 (Red Hat/Fedora/CentOS)
+     or glibc-devel.i686 glibc-devel libstdc++-devel.i686(Red Hat/Fedora/CentOS)
      or glibc-devel-32bit (SUSE/OpenSUSE)
      or the equivalent packages for your Linux distro.]])
   fi
@@ -278,7 +278,7 @@ if test "$use_m32" = "yes"; then
   AC_LANG_POP([C++])
   AC_MSG_RESULT([$cplusplus_m32])
   if test "$cplusplus_m32" = "no"; then
-    AC_MSG_FAILURE([[Failed to build C++ program with -m32
+    AC_MSG_FAILURE([[Failed to build $CXX program with -m32
     Typically, this means that 32-bit libstdc++.so was not found
     Consider installing gcc-multilib g++-multilib libc6-dev-i386 (Debian/Ubuntu)
      or glibc-devel.i686 glibc-devel ibstdc++-devel.i686 (Red Hat/Fedora/CentOS)
@@ -287,6 +287,48 @@ if test "$use_m32" = "yes"; then
   fi
 else
   AC_SUBST([M32], [0])
+fi
+
+AC_ARG_ENABLE([static_libstdcxx],
+            [AS_HELP_STRING([--enable-static-libstdcxx],
+                            [Compile $CXX with -static-libstdc++.
+                             This allows DMTCP executables compiled on later
+                             distro to run correctly on earlier distros.)])],
+            [use_static_libstdcxx=$enableval],
+            [use_static_libstdcxx=no])
+
+if test "$use_static_libstdcxx" = "yes"; then
+  CXXFLAGS="$CXXFLAGS -static-libstdc++"
+
+  AC_MSG_CHECKING([whether $CXX compiles using -static-libstdc++])
+  AC_LANG_PUSH([C++])
+  AC_LINK_IFELSE([AC_LANG_PROGRAM([[
+  #include <stdio.h>
+  #include <features.h>  /* This often causes a problem. */
+  ]], [[
+  printf("Hello, world!\n");
+  ]])], [cplusplus_static_libstdcxx='yes'], [cplusplus_static_libstdcxx='no'])
+  AC_LANG_POP([C++])
+  AC_MSG_RESULT([$cplusplus_static_libstdcxx])
+  if test "$cplusplus_static_libstdcxx" = "no"; then
+    AC_MSG_FAILURE([[Failed to build $CXX program with -static-libstdc++
+    Typically, this means that you are missing a static package.
+    Consider installing libstdc++-static (Red Hat/Fedora/CentOS)
+     or the equivalent packages for your Linux distro.]])
+  fi
+
+  # We do this hack for cross-distro compatibility only if we already
+  #   requested the other hack, --enable-static-libstdcxx
+  OLDPATH="$PATH"
+  if test "$MKDIR_P" = "/usr/bin/mkdir -p" && \
+     test -x /bin/mkdir && test -x /usr/bin/mkdir && \
+     diff /bin/mkdir /usr/bin/mkdir > /dev/null; then
+    # Fedora prefers /usr/bin/mkdir to /bin/mkdir.  But on shared filesystems,
+    #   this creates a problem for Ubuntu, which supports only /bin/mkdir.
+    MKDIR_P="/bin/mkdir -p"
+    AC_MSG_NOTICE(
+      [--enable-static-libstdcxx: thread-safe "mkdir -p": $MKDIR_P])
+  fi
 fi
 
 #AC_ARG_ENABLE([allocator],
@@ -314,10 +356,11 @@ fi
 
 AC_MSG_CHECKING([whether GNU_HASH is supported for ELF])
 AC_TRY_RUN([
+           #include <stdio.h>
            #include <elf.h>
            int main() {
              printf("DT_GNU_HASH: %d\n", DT_GNU_HASH);
-             exit(0);
+             return 0;
            }
            ], [has_gnu_hash='yes'], [has_gnu_hash='no'])
 if test "$has_gnu_hash" == "yes"; then
@@ -331,7 +374,7 @@ AC_TRY_RUN([
            int main() {
              prctl(PR_SET_PTRACER, PR_SET_PTRACER_ANY, 0, 0, 0);
              prctl(PR_SET_PTRACER, 0, 0, 0, 0);
-             exit(0);
+             return 0;
            }
            ], [has_pr_set_ptracer='yes'], [has_pr_set_ptracer='no'])
 if test "$has_pr_set_ptracer" == "yes"; then
@@ -341,50 +384,7 @@ AC_MSG_RESULT([$has_pr_set_ptracer])
 
 dnl CMA brought in with  Linux 3.2.0 and glibc 2.15
 AC_MSG_CHECKING([if process_vm_readv/process_vm_writev (CMA) available])
-AC_TRY_RUN([
-            #include <stdio.h>
-            #include <unistd.h>
-            #include <sys/types.h>
-            #include <signal.h>
-            #include <sys/uio.h>
-            int main(void)
-            {
-              struct iovec local[2];
-              struct iovec remote[1];
-              volatile char buf1[10];
-              volatile char buf2[10];
-              ssize_t nread;
-            
-              volatile char childbuf[10] = "abc";
-              buf1[0] = 'a';
-            
-              pid_t childpid = fork();
-              if (childpid == 0) { /* if child */
-                childbuf[0] = 'x';
-                sleep(100);
-                return 0;
-              }
-            
-              /* parent continues here */
-              local[0].iov_base = (char *)buf1; // discard volatile
-              local[0].iov_len = 10;
-              local[1].iov_base = (char *)buf2; // discard volatile
-              local[1].iov_len = 10;
-              remote[0].iov_base = (void *) childbuf;
-              remote[0].iov_len = 20;
-            
-              while (buf1[0] != 'x') {
-                nread = process_vm_readv(childpid, local, 2, remote, 1, 0);
-                if (nread == -1) {
-                  perror("process_vm_readv");
-                  return 1;
-                }
-              }
-              if ( kill(childpid, SIGQUIT) == -1)
-                return 2;
-              return 0;
-            }
-           ], [has_cma='yes'], [has_cma='no'])
+AC_CHECK_FUNC(process_vm_readv, [has_cma='yes'], [has_cma='no'])
 if test "$has_cma" == "yes"; then
   AC_DEFINE([HAS_CMA],[1],[Define to 1 if you have process_vm_readv and process_vm_writev.])
   AC_SUBST([HAS_CMA], [yes])
@@ -459,14 +459,6 @@ AC_PATH_PROG([GCL],    [gcl],        [no], [$PATH:/usr/local/bin:/usr/bin])
 AC_CHECK_PROG(HAS_MATLAB, [matlab], [yes], [no], [$PATH:/usr/local/bin:/usr/bin])
 AC_PATH_PROG([MATLAB],    [matlab],        [no], [$PATH:/usr/local/bin:/usr/bin])
 
-#check for g++
-AC_CHECK_PROG(HAS_CPP, [g++], [yes], [no], [$PATH:/usr/bin:/bin])
-
-if test "$HAS_CPP" != "yes"; then
-   AC_MSG_ERROR(
-    [Executable, g++, not found:  consider adding pkg:  'g++'])
-fi
-
 #if /usr/include/linux/version.h is missing, give up on configuring.
 AC_CHECK_HEADERS([linux/version.h], [], [AC_MSG_ERROR(
      [#include: <linux/version.h> not found: consider adding linux-libc-dev pkg]
@@ -532,7 +524,7 @@ fi
 if test "$use_m32" = "yes"; then
   interp=/lib/ld-linux.so.2
 elif test -x /usr/bin/readelf -a -r /usr/bin/readelf; then
-  interp=`/usr/bin/readelf -aW /usr/bin/readelf | grep interpreter | \
+  interp=`/usr/bin/readelf -aW /usr/bin/readelf | grep 'interpreter.*]' | \
           sed -e 's^.* interpreter: \(.*\)]^\1^'`
 elif test `uname -m` == x86_64; then
   interp=/lib64/ld-linux-x86-64.so.2

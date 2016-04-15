@@ -315,13 +315,13 @@ static const char* multiHostProcessing =
   "wait\n"
 ;
 
-void writeScript(const string& ckptDir,
-                 bool uniqueCkptFilenames,
-                 const time_t& ckptTimeStamp,
-                 const uint32_t theCheckpointInterval,
-                 const int thePort,
-                 const UniquePid& compId,
-                 const map<string, vector<string> >& restartFilenames)
+string writeScript(const string& ckptDir,
+                   bool uniqueCkptFilenames,
+                   const time_t& ckptTimeStamp,
+                   const uint32_t theCheckpointInterval,
+                   const int thePort,
+                   const UniquePid& compId,
+                   const map<string, vector<string> >& restartFilenames)
 {
   ostringstream o;
   string uniqueFilename;
@@ -389,8 +389,8 @@ void writeScript(const string& ckptDir,
                 "which $dmt_rstr_cmd > /dev/null 2>&1 || exit 1\n\n",
                 jalib::Filesystem::GetProgramDir().c_str());
 
-  fprintf ( fp, "# Number of hosts in the computation = %zd\n"
-                "# Number of processes in the computation = %d\n\n",
+  fprintf ( fp, "# Number of hosts in the computation = %zu\n"
+                "# Number of processes in the computation = %zu\n\n",
                 restartFilenames.size(), numPeers );
 
   if ( isSingleHost ) {
@@ -524,9 +524,10 @@ void writeScript(const string& ckptDir,
     JTRACE("linking \"dmtcp_restart_script.sh\" filename to uniqueFilename")
       (filename) (dirname) (uniqueFilename);
     // FIXME:  Handle error case of symlink()
-    JWARNING(symlinkat(uniqueFilename.c_str(), dirfd, filename.c_str()) == 0);
+    JWARNING(symlinkat(basename(uniqueFilename.c_str()), dirfd, filename.c_str()) == 0) (JASSERT_ERRNO);
     JASSERT(close(dirfd) == 0);
   }
+  return uniqueFilename;
 }
 
 } // namespace dmtcp {

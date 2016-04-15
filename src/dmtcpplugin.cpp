@@ -27,7 +27,6 @@
 #include "processinfo.h"
 #include "shareddata.h"
 #include "threadsync.h"
-#include "mtcpinterface.h"
 #include "util.h"
 
 #undef dmtcp_is_enabled
@@ -38,12 +37,12 @@
 #undef dmtcp_get_local_status
 #undef dmtcp_get_uniquepid_str
 #undef dmtcp_get_ckpt_filename
+#undef dmtcp_set_coord_ckpt_dir
+#undef dmtcp_get_coord_ckpt_dir
+#undef dmtcp_set_ckpt_dir
+#undef dmtcp_get_ckpt_dir
 
 using namespace dmtcp;
-
-//global counters
-static int numCheckpoints = 0;
-static int numRestarts    = 0;
 
 //I wish we could use pthreads for the trickery in this file, but much of our
 //code is executed before the thread we want to wake is restored.  Thus we do
@@ -61,86 +60,59 @@ static inline void memfence(){  RMB; WMB; }
 
 EXTERNC int dmtcp_is_enabled() { return 1; }
 
-static void runCoordinatorCmd(char c,
-                              int *coordCmdStatus = NULL,
-                              int *numPeers = NULL,
-                              int *isRunning = NULL)
-{
-  _dmtcp_lock();
-  {
-    CoordinatorAPI coordinatorAPI;
-
-    dmtcp_disable_ckpt();
-    coordinatorAPI.connectAndSendUserCommand(c, coordCmdStatus, numPeers,
-                                             isRunning);
-    dmtcp_enable_ckpt();
-  }
-  _dmtcp_unlock();
-}
-
-static int dmtcpRunCommand(char command)
-{
-  int coordCmdStatus;
-  int i = 0;
-  while (i < 100) {
-    runCoordinatorCmd(command, &coordCmdStatus);
-  // if we got error result - check it
-	// There is possibility that checkpoint thread
-	// did not send state=RUNNING yet or Coordinator did not receive it
-	// -- Artem
-    if (coordCmdStatus == CoordCmdStatus::ERROR_NOT_RUNNING_STATE) {
-      struct timespec t;
-      t.tv_sec = 0;
-      t.tv_nsec = 1000000;
-      nanosleep(&t, NULL);
-      //printf("\nWAIT FOR CHECKPOINT ABLE\n\n");
-    } else {
-//      printf("\nEverything is OK - return\n");
-      break;
-    }
-    i++;
-  }
-  return coordCmdStatus == CoordCmdStatus::NOERROR;
-}
-
 EXTERNC int dmtcp_checkpoint()
 {
-  int rv = 0;
-  int oldNumRestarts    = numRestarts;
-  int oldNumCheckpoints = numCheckpoints;
-  memfence(); //make sure the reads above don't get reordered
+  int oldNumRestarts, oldNumCheckpoints;
 
-  if(dmtcpRunCommand('c')){ //request checkpoint
-    //and wait for the checkpoint
-    while(oldNumRestarts==numRestarts && oldNumCheckpoints==numCheckpoints){
-      //nanosleep should get interrupted by checkpointing with an EINTR error
-      //though there is a race to get to nanosleep() before the checkpoint
-      struct timespec t = {1,0};
-      nanosleep(&t, NULL);
-      memfence();  //make sure the loop condition doesn't get optimized
+  while (1) {
+    WRAPPER_EXECUTION_GET_EXCL_LOCK();
+
+    CoordinatorAPI coordinatorAPI;
+    int status;
+    coordinatorAPI.connectAndSendUserCommand('c', &status);
+
+    if (status != CoordCmdStatus::ERROR_NOT_RUNNING_STATE) {
+      oldNumRestarts    = ProcessInfo::instance().numRestarts();
+      oldNumCheckpoints = ProcessInfo::instance().numCheckpoints();
+      WRAPPER_EXECUTION_RELEASE_EXCL_LOCK();
+      break;
     }
-    rv = (oldNumRestarts==numRestarts ? DMTCP_AFTER_CHECKPOINT : DMTCP_AFTER_RESTART);
-  }else{
-  	/// TODO: Maybe we need to process it in some way????
-    /// EXIT????
-    /// -- Artem
-    //	printf("\n\n\nError requesting checkpoint\n\n\n");
+
+    WRAPPER_EXECUTION_RELEASE_EXCL_LOCK();
+
+    struct timespec t = {0, 100 * 1000 * 1000}; // 100ms.
+    nanosleep(&t, NULL);
   }
 
-  return rv;
+  while (oldNumRestarts == ProcessInfo::instance().numRestarts() &&
+         oldNumCheckpoints == ProcessInfo::instance().numCheckpoints()) {
+    //nanosleep should get interrupted by checkpointing with an EINTR error
+    //though there is a race to get to nanosleep() before the checkpoint
+    struct timespec t = {1,0};
+    nanosleep(&t, NULL);
+    memfence();  //make sure the loop condition doesn't get optimized
+  }
+
+  return (ProcessInfo::instance().numRestarts() == oldNumRestarts
+          ? DMTCP_AFTER_CHECKPOINT : DMTCP_AFTER_RESTART);
 }
 
 EXTERNC int dmtcp_get_coordinator_status(int *numPeers, int *isRunning)
 {
-  int coordCmdStatus;
-  runCoordinatorCmd('s', &coordCmdStatus, numPeers, isRunning);
+  WRAPPER_EXECUTION_GET_EXCL_LOCK();
+
+  int status;
+  CoordinatorAPI coordinatorAPI;
+  coordinatorAPI.connectAndSendUserCommand('s', &status, numPeers, isRunning);
+
+  WRAPPER_EXECUTION_RELEASE_EXCL_LOCK();
   return DMTCP_IS_PRESENT;;
 }
 
 EXTERNC int dmtcp_get_local_status(int *nCheckpoints, int *nRestarts)
 {
-  *nCheckpoints = numCheckpoints;
-  *nRestarts = numRestarts;
+  *nCheckpoints = ProcessInfo::instance().numCheckpoints();
+  *nRestarts = ProcessInfo::instance().numRestarts();
   return DMTCP_IS_PRESENT;;
 }
 
@@ -183,11 +155,12 @@ EXTERNC const char* dmtcp_get_ckpt_dir()
   return tmpdir.c_str();
 }
 
-EXTERNC void dmtcp_set_ckpt_dir(const char* dir)
+EXTERNC int dmtcp_set_ckpt_dir(const char* dir)
 {
   if (dir != NULL) {
     ProcessInfo::instance().setCkptDir(dir);
   }
+  return DMTCP_IS_PRESENT;
 }
 
 EXTERNC const char* dmtcp_get_coord_ckpt_dir(void)
@@ -197,11 +170,12 @@ EXTERNC const char* dmtcp_get_coord_ckpt_dir(void)
   return dir.c_str();
 }
 
-EXTERNC void dmtcp_set_coord_ckpt_dir(const char* dir)
+EXTERNC int dmtcp_set_coord_ckpt_dir(const char* dir)
 {
   if (dir != NULL) {
     CoordinatorAPI::instance().updateCoordCkptDir(dir);
   }
+  return DMTCP_IS_PRESENT;
 }
 
 EXTERNC void dmtcp_set_ckpt_file(const char *filename)
@@ -296,11 +270,6 @@ EXTERNC int dmtcp_is_running_state(void)
   return WorkerState::currentState() == WorkerState::RUNNING;
 }
 
-EXTERNC int dmtcp_is_initializing_wrappers(void)
-{
-  return dmtcp_wrappers_initializing;
-}
-
 EXTERNC int dmtcp_is_protected_fd(int fd)
 {
   return DMTCP_IS_PROTECTED_FD(fd);
@@ -317,6 +286,13 @@ EXTERNC void dmtcp_close_protected_fd(int fd)
   _real_close(fd);
 }
 
+// dmtcp_get_restart_env() will take an environment variable, name,
+//   from the current environment at the time dmtcp_restart,
+//   and return its value.  This is useful since by default,
+//   an application would see only the restored memory from checkpoint
+//   time, which includes only environment variable values that
+//   existed at the time of checkpoint.
+// The plugin modify-env uses this function intensively.
 // EXTERNC int dmtcp_get_restart_env(char *name, char *value, int maxvaluelen);
 // USAGE:
 //   char value[MAXSIZE];
@@ -342,7 +318,7 @@ dmtcp_get_restart_env(const char *name,   // IN
 #define DMTCP_BUF_TOO_SMALL -3
 #define INTERNAL_ERROR -4
 #define NULL_PTR -5
-#define MAXSIZE 3000
+#define MAXSIZE 12288
 
   int rc = NOTFOUND; // Default is -1: name not found
 
@@ -468,17 +444,6 @@ EXTERNC int dmtcp_send_key_val_pair_to_coordinator(const char *id,
                                                                 val, val_len);
 }
 
-EXTERNC int dmtcp_send_key_val_pair_to_coordinator_sync(const char *id,
-                                                        const void *key,
-                                                        uint32_t key_len,
-                                                        const void *val,
-                                                        uint32_t val_len)
-{
-  return CoordinatorAPI::instance().sendKeyValPairToCoordinator(id, key, key_len,
-                                                                val, val_len,
-								1);
-}
-
 // On input, val points to a buffer in user memory and *val_len is the maximum
 //   size of that buffer (the memory allocated by user).
 // On output, we copy data to val, and set *val_len to the actual buffer size
@@ -499,13 +464,4 @@ EXTERNC void dmtcp_get_local_ip_addr(struct in_addr *in)
 EXTERNC int dmtcp_no_coordinator(void)
 {
   return CoordinatorAPI::noCoordinator();
-}
-
-void dmtcp::increment_counters(int isRestart)
-{
-  if (isRestart) {
-    numRestarts++;
-  } else {
-    numCheckpoints++;
-  }
 }

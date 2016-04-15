@@ -26,7 +26,7 @@
 #include "protectedfds.h"
 #include "dmtcpmessagetypes.h"
 #include "shareddata.h"
-#include "../jalib/jsocket.h"
+#include "syscallwrappers.h"
 #include "../jalib/jalloc.h"
 
 namespace dmtcp
@@ -55,6 +55,10 @@ namespace dmtcp
       static void restart();
       static void resetOnFork(CoordinatorAPI& coordAPI);
 
+      static void getCoordHostAndPort(CoordinatorMode mode,
+                                      const char **host, int *port);
+      static void setCoordPort(int port);
+
       void setupVirtualCoordinator(CoordinatorInfo *coordInfo,
                                    struct in_addr  *localIP);
       void waitForCheckpointCommand();
@@ -74,16 +78,18 @@ namespace dmtcp
                                    const char *host,
                                    int port,
                                    struct in_addr  *localIP);
-      void closeConnection() { _coordinatorSocket.close(); }
+      void closeConnection() { _real_close(_coordinatorSocket); }
+      void updateSockFd();
 
-      //jalib::JSocket& coordinatorSocket() { return _coordinatorSocket; }
-      bool isValid() { return _coordinatorSocket.isValid(); }
+      bool isValid() { return _coordinatorSocket != -1; }
 
-      void sendMsgToCoordinator(const DmtcpMessage &msg,
+      void sendMsgToCoordinator(DmtcpMessage msg,
                                 const void *extraData = NULL,
                                 size_t len = 0);
+      void sendMsgToCoordinator(const DmtcpMessage &msg, const string &data);
       void recvMsgFromCoordinator(DmtcpMessage *msg,
                                   void **extraData = NULL);
+      void waitForBarrier(const string& barrierId);
       void connectAndSendUserCommand(char c,
                                      int *coordCmdStatus = NULL,
                                      int *numPeers = NULL,
@@ -97,8 +103,7 @@ namespace dmtcp
 
       int sendKeyValPairToCoordinator(const char *id,
                                       const void *key, uint32_t key_len,
-                                      const void *val, uint32_t val_len,
-				      int sync = 0);
+                                      const void *val, uint32_t val_len);
       int sendQueryToCoordinator(const char *id,
                                  const void *key, uint32_t key_len,
                                  void *val, uint32_t *val_len);
@@ -109,8 +114,8 @@ namespace dmtcp
       DmtcpMessage sendRecvHandshake(DmtcpMessage msg, string progname,
                                      UniquePid *compId = NULL);
 
-      jalib::JSocket          _coordinatorSocket;
-      jalib::JSocket          _nsSock;
+      int _coordinatorSocket;
+      int _nsSock;
   };
 }
 

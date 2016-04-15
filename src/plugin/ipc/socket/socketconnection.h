@@ -77,6 +77,7 @@ namespace dmtcp
         TCP_LISTEN,
         TCP_ACCEPT,
         TCP_CONNECT,
+        TCP_CONNECT_IN_PROGRESS,
         TCP_PREEXISTING,
         TCP_EXTERNAL_CONNECT
       };
@@ -93,7 +94,8 @@ namespace dmtcp
       void onBind(const struct sockaddr* addr, socklen_t len);
       void onListen(int backlog);
       void onConnect(const struct sockaddr *serv_addr = NULL,
-                     socklen_t addrlen = 0);
+                     socklen_t addrlen = 0,
+                     bool connectInProgress = false);
       /*onAccept*/
       TcpConnection(const TcpConnection& parent,
                     const ConnectionIdentifier& remote);

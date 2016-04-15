@@ -186,6 +186,7 @@ void jassert_internal::jassert_init()
 void jassert_internal::close_stderr()
 {
   jalib::close(errConsoleFd);
+  errConsoleFd = -1;
 }
 
 static const jalib::string writeJbacktraceMsg() {
@@ -276,9 +277,9 @@ void jassert_internal::set_log_file(const jalib::string& path,
   }
 }
 
-void jassert_internal::jassert_safe_print(const char* str, bool noConsoleOutput)
+void jassert_internal::jassert_safe_print(const char* str)
 {
-  if (errConsoleFd != -1 && !noConsoleOutput)
+  if (errConsoleFd != -1)
     jwrite(errConsoleFd, str);
 
   if (theLogFileFd != -1) {

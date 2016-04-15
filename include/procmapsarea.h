@@ -47,14 +47,14 @@
 
 #define DELETED_FILE_SUFFIX " (deleted)"
 
-/* Let MTCP_PROT_ZERO_PAGE be a unique bit mask
- * This assumes: PROT_READ == 0x1, PROT_WRITE == 0x2, and PROT_EXEC == 0x4
- */
-#define MTCP_PROT_ZERO_PAGE (PROT_EXEC << 2)
-
 #define FILENAMESIZE 1024
 
 typedef char * VA; /* VA = virtual address */
+
+typedef enum ProcMapsAreaProperties {
+  DMTCP_ZERO_PAGE = 0x0001,
+  DMTCP_SKIP_WRITING_TEXT_SEGMENTS = 0x0002
+} ProcMapsAreaProperties;
 
 typedef union ProcMapsArea {
   struct {
@@ -94,6 +94,9 @@ typedef union ProcMapsArea {
       ino_t inodenum;
       uint64_t __inodenum;
     };
+
+    uint64_t properties;
+
     char name[FILENAMESIZE];
   };
   char _padding[4096];

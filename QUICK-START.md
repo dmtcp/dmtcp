@@ -219,12 +219,22 @@ Options through environment variables:
    bin/dmtcp_launch matlab -nodisplay -nojvm
    ```
 
-6. By default in DMTCP, successive checkpoints of the same process
-   write to the same checkpoint image filename.  If you prefer that
-   successive checkpoint be written to distinct filenames, then use:
+6. For Ubuntu/Debian Linux, ensure that `build-essential` is installed.
+   For OpenSuse Linux, ensure that `linux-kernel-headers` is installed.
+
+7. By default, successive checkpoints of the same process write to the same
+   checkpoint image filename.  If you prefer that successive checkpoint be
+   written to distinct filenames, then use:
    ```
    ./configure --enable-unique-checkpoint-filenames
    ```
+
+8. Using Ctrl+C to kill a computation could leave some stale processes
+   that remain connected to the coordinator. This can affect the
+   restart. To ensure that this isn't the case, verify that there
+   are no stale processes from your computation using `dmtcp_command`
+   or `dmtcp_coordinator`. An alternative to Ctrl+C is to use the kill
+   command in `dmtcp_command` or `dmtcp_coordinator`.
 
 ## Checkpointing Open MPI
 
@@ -433,51 +443,6 @@ To enable it:
    ```
    and the `*.hbict.N` files will automaticaly be discovered and used
    by the HBICT tool.
-
-## Short notes:
-
-1. A restarted process sees the shared libraries and environment variables
-   that existed prior to checkpoint.  These are contained in the .dmtcp
-   checkpoint file.
-
-2. At restart time, one can choose either to use the original
-   `dmtcp_coordinator` or else to start a new coordinator.  Each process
-   restarted by the `dmtcp_restart` command needs to know the host and port
-   used by `dmtcp_coordinator`.  These default to `localhost` and port `7779`.
-   The coordinator can be specified to use port 0, in which case the
-   coordinator chooses arbitrary port, and prints it to stdout.  Setting
-   `DMTCP_COORD_PORT` in the environment seen by the four main commands
-   (`dmtcp_coordinator`, `dmtcp_launch`, `dmtcp_restart` and `dmtcp_command`)
-   will override the default port.  Similarly, setting `DMTCP_COORD_HOST` for
-   `dmtcp_launch` and `dmtcp_restart` is needed if they start on
-   a different host than that of the coordinator.
-
-3. It often works to migrate processes by moving the checkpoint files to
-   another host and editing `dmtcp_restart_script.sh` prior to
-   restarting.  Whether it works is affected by how different are the
-   corresponding versions for the kernel and glibc.
-
-4. Checkpoint is implemented by sending a signal to each user thread.
-   As with all well-written code, your system calls should be prepared
-   for an error return of `EINTR` (interrupted, due to a simultaneous
-   checkpoint invocation or other kernel activity), in which case you
-   can call the system call again.
-
-5. Matlab should be invoked without graphics, and to be extra safe,
-   without the JVM.  The -nodisplay and -nojvm flags for Matlab suffice:
-   ```
-   bin/dmtcp_launch matlab -nodisplay -nojvm
-   ```
-
-6. For Ubuntu/Debian Linux, ensure that `build-essential` is installed.
-   For OpenSuse Linux, ensure that `linux-kernel-headers` is installed.
-
-7. By default in DMTCP, successive checkpoints of the same process
-   write to the same checkpoint image filename.  If you prefer that
-   successive checkpoint be written to distinct filenames, then use:
-   ```
-   ./configure --enable-unique-checkpoint-filenames
-   ```
 
 ## Directory layout:
 

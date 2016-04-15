@@ -71,7 +71,10 @@ void SharedData::initializeHeader(const char *tmpDir,
   sharedDataHeader->numPtraceIdMaps = 0;
   sharedDataHeader->numPtyNameMaps = 0;
   sharedDataHeader->initialized = true;
+
   sharedDataHeader->numIncomingConMaps = 0;
+  sharedDataHeader->barrierInfo.numCkptPeers = 0;
+
   memcpy(&sharedDataHeader->compId, compId, sizeof(*compId));
   memcpy(&sharedDataHeader->coordInfo, coordInfo, sizeof (*coordInfo));
   memcpy(&sharedDataHeader->localIPAddr, localIPAddr, sizeof (*localIPAddr));
@@ -176,24 +179,46 @@ bool SharedData::isSharedDataRegion(void *addr)
   return addr == (void*) sharedDataHeader;
 }
 
+void SharedData::resetBarrierInfo()
+{
+  sharedDataHeader->barrierInfo.numCkptPeers = 0;
+}
 
 // Here we reset some counters that are used by IPC plugin for local
 // name-service database, etc. during ckpt/resume/restart phases.
 void SharedData::prepareForCkpt()
 {
+  nextVirtualPtyId = sharedDataHeader->nextVirtualPtyId;
   sharedDataHeader->numInodeConnIdMaps = 0;
   sharedDataHeader->numIncomingConMaps = 0;
-  WMB;
+
+  initializeBarrier();
 }
 
-void SharedData::writeCkpt()
+void SharedData::initializeBarrier()
 {
-  nextVirtualPtyId = sharedDataHeader->nextVirtualPtyId;
+  pthread_barrierattr_t barrierAttr;
+  pthread_barrierattr_setpshared(&barrierAttr, PTHREAD_PROCESS_SHARED);
+
+  Util::lockFile(PROTECTED_SHM_FD);
+  sharedDataHeader->barrierInfo.numCkptPeers++;
+  pthread_barrier_init(&sharedDataHeader->barrierInfo.barrier,
+                       &barrierAttr,
+                       sharedDataHeader->barrierInfo.numCkptPeers);
+  Util::unlockFile(PROTECTED_SHM_FD);
+
+  WMB;
 }
 
 void SharedData::postRestart()
 {
   initialize();
+  initializeBarrier();
+}
+
+void SharedData::waitForBarrier(const string& barrierId)
+{
+  pthread_barrier_wait(&sharedDataHeader->barrierInfo.barrier);
 }
 
 string SharedData::coordHost()

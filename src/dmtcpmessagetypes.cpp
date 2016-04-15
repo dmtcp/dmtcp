@@ -23,16 +23,24 @@
 
 using namespace dmtcp;
 
-static WorkerState theState ( WorkerState::RUNNING );
+static WorkerState *theState = NULL;
+WorkerState& WorkerState::instance()
+{
+  if (theState == NULL) {
+    theState = new WorkerState();
+  }
+  return *theState;
+}
+
 
 WorkerState WorkerState::currentState()
 {
-  return theState;
+  return instance();
 }
 
 void WorkerState::setCurrentState ( const WorkerState& theValue )
 {
-  theState = theValue;
+  instance() = theValue;
 }
 
 DmtcpMessage::DmtcpMessage ( DmtcpMessageType t /*= DMT_NULL*/ )
@@ -51,6 +59,7 @@ DmtcpMessage::DmtcpMessage ( DmtcpMessageType t /*= DMT_NULL*/ )
     ,coordCmdStatus(CoordCmdStatus::NOERROR)
     ,coordTimeStamp(0)
     ,theCheckpointInterval ( DMTCPMESSAGE_SAME_CKPT_INTERVAL )
+    ,exitAfterCkpt(0)
 {
 //     struct sockaddr_storage _addr;
 //         socklen_t _addrlen;
@@ -71,12 +80,12 @@ void DmtcpMessage::assertValid() const
 
 bool DmtcpMessage::isValid() const
 {
-  if (strcmp(DMTCP_MAGIC_STRING, _magicBits) == 0) {
+  if (strcmp(DMTCP_MAGIC_STRING, _magicBits) != 0) {
     JNOTE("read invalid message, _magicBits mismatch."
           " Closing remote connection.") (_magicBits);
     return false;
   }
-  if (_msgSize == sizeof(DmtcpMessage)) {
+  if (_msgSize != sizeof(DmtcpMessage)) {
     JNOTE("read invalid message, size mismatch. Closing remote connection.")
       (_msgSize) (sizeof(DmtcpMessage));
     return false;
@@ -103,13 +112,9 @@ ostream& dmtcp::operator << ( dmtcp::ostream& o, const WorkerState& s )
       OSHIFTPRINTF ( UNKNOWN )
       OSHIFTPRINTF ( RUNNING )
       OSHIFTPRINTF ( SUSPENDED )
-      OSHIFTPRINTF ( FD_LEADER_ELECTION )
-      OSHIFTPRINTF ( NAME_SERVICE_DATA_REGISTERED)
-      OSHIFTPRINTF ( DONE_QUERYING)
-      OSHIFTPRINTF ( DRAINED )
-      OSHIFTPRINTF ( RESTARTING )
+      OSHIFTPRINTF ( CHECKPOINTING )
       OSHIFTPRINTF ( CHECKPOINTED )
-      OSHIFTPRINTF ( REFILLED )
+      OSHIFTPRINTF ( RESTARTING )
     default:
       JASSERT ( false ) .Text ( "Invalid WorkerState" );
       o << (int)s.value();
@@ -122,13 +127,9 @@ const char* WorkerState::toString() const{
   case UNKNOWN:      return "UNKNOWN";
   case RUNNING:      return "RUNNING";
   case SUSPENDED:    return "SUSPENDED";
-  case FD_LEADER_ELECTION:  return "FD_LEADER_ELECTION";
-  case NAME_SERVICE_DATA_REGISTERED: return "NAME_SERVICE_DATA_REGISTERED";
-  case DONE_QUERYING: return "DONE_QUERYING";
-  case DRAINED:      return "DRAINED";
-  case RESTARTING:   return "RESTARTING";
   case CHECKPOINTED: return "CHECKPOINTED";
-  case REFILLED:     return "REFILLED";
+  case CHECKPOINTING: return "CHECKPOINTING";
+  case RESTARTING:   return "RESTARTING";
   default:           return "???";
   }
 }
@@ -165,24 +166,17 @@ ostream& dmtcp::operator << ( dmtcp::ostream& o, const DmtcpMessageType & s )
       //OSHIFTPRINTF ( DMT_RESTART_PROCESS_REPLY )
 
       OSHIFTPRINTF ( DMT_DO_SUSPEND )
-      OSHIFTPRINTF ( DMT_DO_FD_LEADER_ELECTION )
-      OSHIFTPRINTF ( DMT_DO_DRAIN )
       OSHIFTPRINTF ( DMT_DO_CHECKPOINT )
-#ifdef COORD_NAMESERVICE
-      OSHIFTPRINTF ( DMT_DO_REGISTER_NAME_SERVICE_DATA )
-      OSHIFTPRINTF ( DMT_DO_SEND_QUERIES )
-#endif
-      OSHIFTPRINTF ( DMT_DO_REFILL )
-      OSHIFTPRINTF ( DMT_DO_RESUME )
+      OSHIFTPRINTF ( DMT_BARRIER_RELEASED )
+      OSHIFTPRINTF ( DMT_BARRIER_LIST )
+
+      OSHIFTPRINTF ( DMT_COMPUTATION_INFO)
+
       OSHIFTPRINTF ( DMT_KILL_PEER )
 
-#ifdef COORD_NAMESERVICE
       OSHIFTPRINTF ( DMT_REGISTER_NAME_SERVICE_DATA )
-      OSHIFTPRINTF ( DMT_REGISTER_NAME_SERVICE_DATA_SYNC )
-      OSHIFTPRINTF ( DMT_REGISTER_NAME_SERVICE_DATA_SYNC_RESPONSE )
       OSHIFTPRINTF ( DMT_NAME_SERVICE_QUERY )
       OSHIFTPRINTF ( DMT_NAME_SERVICE_QUERY_RESPONSE )
-#endif
 
       OSHIFTPRINTF ( DMT_OK )
 

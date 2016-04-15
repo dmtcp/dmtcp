@@ -40,6 +40,7 @@ SocketConnList& SocketConnList::instance()
   return *socketConnList;
 }
 
+
 void SocketConnList::drain()
 {
   // First, let all the Connection prepare for drain
@@ -66,7 +67,6 @@ void SocketConnList::drain()
 
 void SocketConnList::preCkpt()
 {
-#if HANDSHAKE_ON_CHECKPOINT == 1
   //handshake is done after one barrier after drain
   JTRACE("beginning handshakes");
   DmtcpUniqueProcessId coordId = dmtcp_get_coord_id();
@@ -87,7 +87,6 @@ void SocketConnList::preCkpt()
     }
   }
   JTRACE("handshaking done");
-#endif
   _hasIPv4Sock = _hasIPv6Sock = _hasUNIXSock = false;
   // Now check if we have IPv4, IPv6, or UNIX domain sockets to restore.
   for (iterator i = begin(); i != end(); ++i) {
@@ -112,22 +111,20 @@ void SocketConnList::postRestart()
   ConnectionList::postRestart();
 }
 
-void SocketConnList::registerNSData(bool isRestart)
+void SocketConnList::registerNSData()
 {
-  if (isRestart) {
-    ConnectionRewirer::instance().registerNSData();
-  }
-  ConnectionList::registerNSData(isRestart);
+  ConnectionRewirer::instance().registerNSData();
+
+  ConnectionList::registerNSData();
 }
 
-void SocketConnList::sendQueries(bool isRestart)
+void SocketConnList::sendQueries()
 {
-  if (isRestart) {
-    ConnectionRewirer::instance().sendQueries();
-    ConnectionRewirer::instance().doReconnect();
-    ConnectionRewirer::destroy();
-  }
-  ConnectionList::sendQueries(isRestart);
+  ConnectionRewirer::instance().sendQueries();
+  ConnectionRewirer::instance().doReconnect();
+  ConnectionRewirer::destroy();
+
+  ConnectionList::sendQueries();
 }
 
 void SocketConnList::refill(bool isRestart)

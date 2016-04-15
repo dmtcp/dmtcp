@@ -141,6 +141,11 @@ class RestoreTarget
     bool isRootOfProcessTree() const {
       return _pInfo.isRootOfProcessTree();
     }
+
+    bool isOrphan() {
+        return _pInfo.isOrphan();
+    }
+
     string procname() { return _pInfo.procname(); }
     UniquePid compGroup() { return _pInfo.compGroup(); }
     int numPeers() { return _pInfo.numPeers(); }
@@ -181,6 +186,23 @@ class RestoreTarget
       }
     }
 
+    void createOrphanedProcess(bool createIndependentRootProcesses = false)
+    {
+      pid_t pid = fork();
+      JASSERT(pid != -1);
+      if (pid == 0) {
+        pid_t gchild = fork();
+        JASSERT(gchild != -1);
+        if (gchild != 0) {
+          exit(0);
+        }
+        createProcess(createIndependentRootProcesses);
+      } else {
+        JASSERT(waitpid(pid, NULL, 0) == pid);
+        exit(0);
+      }
+    }
+
     void createProcess(bool createIndependentRootProcesses = false)
     {
       UniquePid::ThisProcess() = _pInfo.upid();
@@ -198,7 +220,7 @@ class RestoreTarget
         // dmtcp_restart sets ENV_VAR_NAME_HOST/PORT, even if cmd line flag used
         const char *host = NULL;
         int port = UNINITIALIZED_PORT;
-        Util::getCoordHostAndPort(allowedModes, &host, &port);
+        CoordinatorAPI::getCoordHostAndPort(allowedModes, &host, &port);
         // FIXME:  We will use the new HOST and PORT here, but after restart,,
         //           we will use the old HOST and PORT from the ckpt image.
         CoordinatorAPI::instance().connectToCoordOnRestart(allowedModes,
@@ -210,7 +232,7 @@ class RestoreTarget
                                                            port,
                                                            &localIPAddr);
         // If port was 0, we'll get new random port when coordinator starts up.
-        Util::getCoordHostAndPort(allowedModes, &host, &port);
+        CoordinatorAPI::getCoordHostAndPort(allowedModes, &host, &port);
         Util::writeCoordPortToFile(port, thePortFile.c_str());
 
         string installDir =
@@ -316,7 +338,7 @@ class RestoreTarget
         const char *host = NULL;
         int port = UNINITIALIZED_PORT;
         int *port_p = &port;
-        Util::getCoordHostAndPort(allowedModes, &host, port_p);
+        CoordinatorAPI::getCoordHostAndPort(allowedModes, &host, port_p);
         CoordinatorAPI::instance().connectToCoordOnRestart(allowedModes,
                                                            _pInfo.procname(),
                                                            _pInfo.compGroup(),
@@ -335,6 +357,8 @@ class RestoreTarget
 #elif defined(__i386__) || defined(__arm__)
       is32bitElf = true;
 #endif
+
+
       runMtcpRestart(is32bitElf, _fd, &_pInfo);
 
       JASSERT ( false ).Text ( "unreachable" );
@@ -369,7 +393,10 @@ static void runMtcpRestart(int is32bitElf, int fd, ProcessInfo *pInfo)
 
   static string mtcprestart = Util::getPath ("mtcp_restart");
 
-#if defined(CONFIG_M32)
+#if defined(__x86_64__) || defined(__aarch64__) || defined(CONFIG_M32)
+  // FIXME: This is needed for CONFIG_M32 only because getPath("mtcp_restart")
+  //        fails to return the absolute path for mtcprestart.  We should fix
+  //        the bug in Util::getPath() and remove CONFIG_M32 condition in #if.
   if (is32bitElf) {
     mtcprestart = Util::getPath("mtcp_restart-32", is32bitElf);
   }
@@ -600,6 +627,7 @@ static void setNewCkptDir(char *path)
 int main(int argc, char** argv)
 {
   char *tmpdir_arg = NULL;
+  char *ckptdir_arg = NULL;
 
   initializeJalib();
 
@@ -609,6 +637,10 @@ int main(int argc, char** argv)
 
   if (getenv(ENV_VAR_DISABLE_STRICT_CHECKING)) {
     noStrictChecking = true;
+  }
+
+  if (getenv(ENV_VAR_CHECKPOINT_DIR)) {
+    ckptdir_arg = getenv(ENV_VAR_CHECKPOINT_DIR);
   }
 
   if (argc == 1) {
@@ -657,7 +689,7 @@ int main(int argc, char** argv)
       thePortFile = argv[1];
       shift; shift;
     } else if (argc > 1 && (s == "-c" || s == "--ckptdir")) {
-      setNewCkptDir(argv[1]);
+      ckptdir_arg = argv[1];
       shift; shift;
     } else if (argc > 1 && (s == "-t" || s == "--tmpdir")) {
       tmpdir_arg = argv[1];
@@ -680,6 +712,9 @@ int main(int argc, char** argv)
   }
 
   tmpDir = Util::calcTmpDir(tmpdir_arg);
+  if (ckptdir_arg) {
+    setNewCkptDir(ckptdir_arg);
+  }
 
   jassert_quiet = *getenv(ENV_VAR_QUIET) - '0';
 
@@ -756,12 +791,36 @@ int main(int argc, char** argv)
 
   WorkerState::setCurrentState(WorkerState::RESTARTING);
 
-  RestoreTarget *t = independentProcessTreeRoots.begin()->second;
+  /* Try to find non-orphaned process in independent procs list */
+  RestoreTarget *t;
+  bool foundNonOrphan = false;
+  RestoreTargetMap::iterator it;
+  int size = independentProcessTreeRoots.size();
+  printf("size = %d\n", size);
+  for (it = independentProcessTreeRoots.begin();
+       it != independentProcessTreeRoots.end();
+       it++) {
+    t = it->second;
+    if ( !t->isOrphan() ) {
+      foundNonOrphan = true;
+      break;
+    }
+  }
+
   JASSERT(t->pid() != 0);
   JASSERT(!t->noCoordinator() || allowedModes == COORD_ANY)
     .Text("Process had no coordinator prior to checkpoint;\n"
           "  but either --join or --new-coordinator was specified.");
-  t->createProcess(true);
+
+  if( foundNonOrphan ){
+    t->createProcess(true);
+  } else {
+      /* we were unable to find any non-orphaned procs.
+       * pick the first one and orphan it */
+      t = independentProcessTreeRoots.begin()->second;
+      t->createOrphanedProcess(true);
+  }
+
   JASSERT(false).Text("unreachable");
   return -1;
 }

@@ -12,12 +12,17 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <assert.h>
+#include <limits.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
 #ifndef STANDALONE
 # include "dmtcp.h"
+# include "config.h"
 #endif
+
+#define DMTCP_ENV_VAR "DMTCP_ENV_FILE"
+#define DMTCP_DEFAULT_ENV_FILE "dmtcp_env.txt"
 
 /* Example of dmtcp_env.txt:  spaces not allowed in VAR=VAL unless in quotes
  * # comment
@@ -30,6 +35,7 @@
 char * read_dmtcp_env_file(char *file, int size);
 int readAndSetEnv(char *buf, int size);
 int readall(int fd, char *buf, int maxCount);
+extern void warning(const char *warning_part1, const char *warning_part2);
 
 EXTERNC int dmtcp_modify_env_enabled() { return 1; }
 
@@ -42,54 +48,87 @@ int dmtcp_get_restart_env(char *envName, char *dest, size_t size) {
 #endif
 
 #ifndef STANDALONE
-void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
+
+static void restart()
 {
-  /* NOTE:  See warning in plugin/README about calls to printf here. */
-  switch (event) {
-  case DMTCP_EVENT_RESTART:
-  { int size = 4096;
-    char *buf = read_dmtcp_env_file("dmtcp_env.txt", size);
+  char env_file[PATH_MAX];
+  int retval = dmtcp_get_restart_env(DMTCP_ENV_VAR, env_file, PATH_MAX);
+  if (retval != 0) {
+    strncpy(env_file, DMTCP_DEFAULT_ENV_FILE, sizeof DMTCP_DEFAULT_ENV_FILE);
+  }
+
+  int size = 12288;
+  char *buf = read_dmtcp_env_file(env_file, size);
+  if (buf != NULL) { // If env_file exists
     readAndSetEnv(buf, size);
-    break;
+  } else { // else env_file doesn't exist (buf == NULL)
+#if 0
+    // FIXME:  This "if" condition to check environ var. always triggers,
+    //   even if environ var. was never present.  Uncomment this when fixed.
+    if (!getenv("DMTCP_QUIET") &&
+        strcmp(getenv("DMTCP_QUIET")[0], "0") != 0) {
+#endif
+      warning("modify-env plugin: Couldn't open ",
+              "\"dmtcp_env.txt\"\n");
+#if 0
+    }
+#endif
   }
-  default:
-    break;
-  }
-  DMTCP_NEXT_EVENT_HOOK(event, data);
 }
+
+static DmtcpBarrier modify_env_barriers[] = {
+  {DMTCP_GLOBAL_BARRIER_RESTART, restart, "restart"}
+};
+
+DmtcpPluginDescriptor_t modify_env_plugin = {
+  DMTCP_PLUGIN_API_VERSION,
+  PACKAGE_VERSION,
+  "modify-env",
+  "DMTCP",
+  "dmtcp@ccs.neu.edu",
+  "Modify-Environment plugin",
+  DMTCP_DECL_BARRIERS(modify_env_barriers),
+  NULL
+};
+
+DMTCP_DECL_PLUGIN(modify_env_plugin);
 #endif
 
 #define readEOF ((char)-1)
 
 char * read_dmtcp_env_file(char *file, int size) {
+  // FIXME: WHAT DOES THIS DO?
   // We avoid using malloc.
   char *buf = mmap(NULL, size, PROT_READ | PROT_WRITE,
                    MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
   if (buf == MAP_FAILED) {
-    perror("mmap");
+    warning("mmap: ", strerror(errno));
     exit(1);
   }
 #ifdef STANDALONE
   int fd = open(file, O_RDONLY);
+  if (fd < 0) {
+    warning("open: ", strerror(errno));
+    exit(1);
+  }
 #else
   char pathname[512];
   if (strlen(dmtcp_get_ckpt_dir()) > sizeof(pathname)-1-sizeof(file)) {
-    fprintf(stderr, "%s:%d : Pathname of ckpt dir is too long: %s\n",
-            __FILE__, __LINE__, dmtcp_get_ckpt_dir());
+    warning(__FILE__ ": Pathname of ckpt dir is too long: ",
+            dmtcp_get_ckpt_dir() /* , "\n" */ );
     exit(1);
   }
   strcpy(pathname, dmtcp_get_ckpt_dir());
   strcpy(pathname + strlen(dmtcp_get_ckpt_dir()), "/");
   strcpy(pathname + strlen(dmtcp_get_ckpt_dir()) + strlen("/"), file);
   int fd = open(pathname, O_RDONLY);
-#endif
   if (fd < 0) {
-    perror("open");
-    exit(1);
+    return NULL;
   }
+#endif
   int count = readall(fd, buf, size);
   if (count < 0) {
-    perror("read");
+    warning("read: ", strerror(errno));
     exit(1);
   }
   *(buf+count) = readEOF;
@@ -133,7 +172,7 @@ int readAndSetEnv(char *buf, int size) {
           strcpy(nameChanged_end, nameBuf);
           nameChanged_end += strlen(nameBuf) + 1;
         } else {
-          fprintf(stderr, "modify-env.c: Too many '$' name expansions\n");
+          warning("", "modify-env.c: Too many '$' name expansions\n");
         }
         // Get ready for next name-value pair
         isStringMode = 0;
@@ -202,7 +241,7 @@ int readall(int fd, char *buf, int maxCount) {
   int count = 0;
   while (1) {
     if (count + 100 > maxCount) {
-      fprintf(stderr, "Environment file is too large.\n");
+      warning("", "Environment file is too large.\n");
       return -1;
     }
     int numRead = read(fd, buf+count, 100); // read up to 100 char's at once

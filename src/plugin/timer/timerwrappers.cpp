@@ -32,6 +32,10 @@ extern "C" int timer_create(clockid_t clockid, struct sigevent *sevp,
   timer_t virtId;
   int ret;
   DMTCP_PLUGIN_DISABLE_CKPT();
+  // Note that clockid can be for a system-wide clock with no virtual id.
+  // An example is CLOCK_REALTIME.  By luck, VIRTUAL_TO_REAL_CLOCK_ID()
+  // return its argument if no virtual id is found.
+  // See:  virtualidtable.h: dmtcp::VirtualIdTable::virtualToReal(...)
   clockid_t realClockId = VIRTUAL_TO_REAL_CLOCK_ID(clockid);
   if (sevp != NULL && sevp->sigev_notify == SIGEV_THREAD) {
     ret = timer_create_sigev_thread(realClockId, sevp, &realId, &sevOut);
@@ -102,7 +106,7 @@ extern "C" int clock_getcpuclockid(pid_t pid, clockid_t *clock_id)
   DMTCP_PLUGIN_DISABLE_CKPT();
   int ret = _real_clock_getcpuclockid(pid, &realId);
   if (ret == 0) {
-    *clock_id = TimerList::instance().on_clock_getcpuclockid(pid, realId);
+    *clock_id = REAL_TO_VIRTUAL_CLOCK_ID(pid, realId);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return ret;
@@ -123,6 +127,7 @@ extern "C" int pthread_getcpuclockid(pthread_t thread, clockid_t *clock_id)
 extern "C" int clock_getres(clockid_t clk_id, struct timespec *res)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
+  // See comment on VIRTUAL_TO_REAL_CLOCK_ID() in timer_create()
   clockid_t realId = VIRTUAL_TO_REAL_CLOCK_ID(clk_id);
   int ret = _real_clock_getres(realId, res);
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -132,6 +137,7 @@ extern "C" int clock_getres(clockid_t clk_id, struct timespec *res)
 extern "C" int clock_gettime(clockid_t clk_id, struct timespec *tp)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
+  // See comment on VIRTUAL_TO_REAL_CLOCK_ID() in timer_create()
   clockid_t realId = VIRTUAL_TO_REAL_CLOCK_ID(clk_id);
   int ret = _real_clock_gettime(realId, tp);
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -141,13 +147,14 @@ extern "C" int clock_gettime(clockid_t clk_id, struct timespec *tp)
 extern "C" int clock_settime(clockid_t clk_id, const struct timespec *tp)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
+  // See comment on VIRTUAL_TO_REAL_CLOCK_ID() in timer_create()
   clockid_t realId = VIRTUAL_TO_REAL_CLOCK_ID(clk_id);
   int ret = _real_clock_settime(realId, tp);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return ret;
 }
 
-// FIXME: The following wrapper disable ckpt for the entire duration of
+// FIXME: The following wrapper disables ckpt for the entire duration of
 // clock_nanosleep. This is dangerous and can lead to a situation where
 // checkpointing never happens. Disabling the wrapper for now.
 #ifdef ENABLE_CLOCK_NANOSLEEP
@@ -156,6 +163,7 @@ extern "C" int clock_nanosleep(clockid_t clock_id, int flags,
                                struct timespec *remain)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
+  // See comment on VIRTUAL_TO_REAL_CLOCK_ID() in timer_create()
   clockid_t realId = VIRTUAL_TO_REAL_CLOCK_ID(clock_id);
   int ret = _real_clock_nanosleep(realId, flags, request, remain);
   DMTCP_PLUGIN_ENABLE_CKPT();

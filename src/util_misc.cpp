@@ -308,12 +308,13 @@ ssize_t Util::skipBytes(int fd, size_t count)
   return totalSkipped;
 }
 
-void Util::changeFd(int oldfd, int newfd)
+int Util::changeFd(int oldfd, int newfd)
 {
   if (oldfd != newfd) {
     JASSERT(_real_dup2(oldfd, newfd) == newfd);
     _real_close(oldfd);
   }
+  return newfd;
 }
 
 void Util::dupFds(int oldfd, const vector<int>& newfds)
@@ -540,6 +541,18 @@ bool Util::isPtraced()
 bool Util::isValidFd(int fd)
 {
   return _real_fcntl(fd, F_GETFL, 0) != -1;
+}
+
+bool Util::isPseudoTty(const string& path)
+{
+  if (Util::strStartsWith(path, "/dev/tty") ||
+      Util::strStartsWith(path, "/dev/pty") ||
+      Util::strStartsWith(path, "/dev/pts/") ||
+      path == "/dev/ptmx" ||
+      path == "/dev/pts/ptmx") {
+    return true;
+  }
+  return false;
 }
 
 size_t Util::pageSize()

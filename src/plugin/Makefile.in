@@ -151,7 +151,9 @@ am___d_libdir__libdmtcp_ipc_so_OBJECTS = i-connection.$(OBJEXT) \
 	i-eventconnlist.$(OBJEXT) i-eventwrappers.$(OBJEXT) \
 	i-util_descriptor.$(OBJEXT) i-fileconnection.$(OBJEXT) \
 	i-fileconnlist.$(OBJEXT) i-filewrappers.$(OBJEXT) \
-	i-posixipcwrappers.$(OBJEXT) i-connectionrewirer.$(OBJEXT) \
+	i-openwrappers.$(OBJEXT) i-posixipcwrappers.$(OBJEXT) \
+	i-ptyconnection.$(OBJEXT) i-ptyconnlist.$(OBJEXT) \
+	i-ptywrappers.$(OBJEXT) i-connectionrewirer.$(OBJEXT) \
 	i-kernelbufferdrainer.$(OBJEXT) i-socketconnection.$(OBJEXT) \
 	i-socketconnlist.$(OBJEXT) i-socketwrappers.$(OBJEXT) \
 	i-ssh.$(OBJEXT) i-sshdrainer.$(OBJEXT)
@@ -163,7 +165,8 @@ __d_libdir__libdmtcp_ipc_so_LINK = $(CXXLD) $(AM_CXXFLAGS) $(CXXFLAGS) \
 am___d_libdir__libdmtcp_pid_so_OBJECTS = pid.$(OBJEXT) \
 	pid_filewrappers.$(OBJEXT) pid_miscwrappers.$(OBJEXT) \
 	pid_syscallsreal.$(OBJEXT) pidwrappers.$(OBJEXT) \
-	sched_wrappers.$(OBJEXT) virtualpidtable.$(OBJEXT)
+	sched_wrappers.$(OBJEXT) virtualpidtable.$(OBJEXT) \
+	pid_mutexwrappers.$(OBJEXT)
 __d_libdir__libdmtcp_pid_so_OBJECTS =  \
 	$(am___d_libdir__libdmtcp_pid_so_OBJECTS)
 __d_libdir__libdmtcp_pid_so_LDADD = $(LDADD)
@@ -333,7 +336,7 @@ FAST_RESTART = @FAST_RESTART@
 GCL = @GCL@
 GREP = @GREP@
 HAS_CILK = @HAS_CILK@
-HAS_CPP = @HAS_CPP@
+HAS_CMA = @HAS_CMA@
 HAS_DASH = @HAS_DASH@
 HAS_EMACS = @HAS_EMACS@
 HAS_EMACS_NOX = @HAS_EMACS_NOX@
@@ -459,14 +462,16 @@ PICFLAGS = -fPIC
 AM_CFLAGS = $(PICFLAGS)
 AM_CXXFLAGS = $(PICFLAGS)
 AM_LDFLAGS = $(PICFLAGS)
+@CONFIG_M32_FALSE@d_libdir = $(top_builddir)/lib/$(PACKAGE)
+@CONFIG_M32_TRUE@d_libdir = $(top_builddir)/lib/$(PACKAGE)/32/lib/$(PACKAGE)
+@CONFIG_M32_FALSE@d_bindir = $(top_builddir)/bin
+@CONFIG_M32_TRUE@d_bindir = $(top_builddir)/lib/$(PACKAGE)/32/bin
 
 #HEADERS
 #set the include path found by configure
 AM_CPPFLAGS = -I$(top_srcdir)/include -I$(top_srcdir)/jalib
 dmtcp_ldflags = -shared -Xlinker -znow -Wl,--unresolved-symbols=ignore-all
 LDADD = -ldl -lpthread
-d_libdir = $(top_builddir)/lib/$(PACKAGE)
-d_bindir = $(top_builddir)/bin
 libdmtcpdir = $(pkglibdir)
 bin_SCRIPTS = 
 CLEANFILES = 
@@ -518,7 +523,14 @@ __d_libdir__libdmtcp_ipc_so_SOURCES = \
 	ipc/file/fileconnlist.h                                        \
 	ipc/file/filewrappers.cpp                                      \
 	ipc/file/filewrappers.h                                        \
+	ipc/file/openwrappers.cpp                                      \
 	ipc/file/posixipcwrappers.cpp                                  \
+	ipc/file/ptyconnection.cpp                                     \
+	ipc/file/ptyconnection.h                                       \
+	ipc/file/ptyconnlist.cpp                                       \
+	ipc/file/ptyconnlist.h                                         \
+	ipc/file/ptywrappers.cpp                                       \
+	ipc/file/ptywrappers.h                                         \
 	ipc/socket/connectionmessage.h                                 \
 	ipc/socket/connectionrewirer.cpp                               \
 	ipc/socket/connectionrewirer.h                                 \
@@ -561,6 +573,7 @@ __d_libdir__libdmtcp_pid_so_SOURCES = \
 	pid/pidwrappers.h                                              \
 	pid/sched_wrappers.cpp                                         \
 	pid/virtualpidtable.cpp                                        \
+	pid/pid_mutexwrappers.cpp                                 \
 	pid/virtualpidtable.h
 
 __d_libdir__libdmtcp_pid_so_LDFLAGS = $(dmtcp_ldflags)
@@ -834,7 +847,11 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/i-filewrappers.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/i-ipc.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/i-kernelbufferdrainer.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/i-openwrappers.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/i-posixipcwrappers.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/i-ptyconnection.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/i-ptyconnlist.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/i-ptywrappers.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/i-socketconnection.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/i-socketconnlist.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/i-socketwrappers.Po@am__quote@
@@ -847,6 +864,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pid.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pid_filewrappers.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pid_miscwrappers.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pid_mutexwrappers.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pid_syscallsreal.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pidwrappers.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sched_wrappers.Po@am__quote@
@@ -1137,6 +1155,20 @@ i-filewrappers.obj: ipc/file/filewrappers.cpp
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_ipc_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o i-filewrappers.obj `if test -f 'ipc/file/filewrappers.cpp'; then $(CYGPATH_W) 'ipc/file/filewrappers.cpp'; else $(CYGPATH_W) '$(srcdir)/ipc/file/filewrappers.cpp'; fi`
 
+i-openwrappers.o: ipc/file/openwrappers.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_ipc_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT i-openwrappers.o -MD -MP -MF $(DEPDIR)/i-openwrappers.Tpo -c -o i-openwrappers.o `test -f 'ipc/file/openwrappers.cpp' || echo '$(srcdir)/'`ipc/file/openwrappers.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/i-openwrappers.Tpo $(DEPDIR)/i-openwrappers.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='ipc/file/openwrappers.cpp' object='i-openwrappers.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_ipc_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o i-openwrappers.o `test -f 'ipc/file/openwrappers.cpp' || echo '$(srcdir)/'`ipc/file/openwrappers.cpp
+
+i-openwrappers.obj: ipc/file/openwrappers.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_ipc_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT i-openwrappers.obj -MD -MP -MF $(DEPDIR)/i-openwrappers.Tpo -c -o i-openwrappers.obj `if test -f 'ipc/file/openwrappers.cpp'; then $(CYGPATH_W) 'ipc/file/openwrappers.cpp'; else $(CYGPATH_W) '$(srcdir)/ipc/file/openwrappers.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/i-openwrappers.Tpo $(DEPDIR)/i-openwrappers.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='ipc/file/openwrappers.cpp' object='i-openwrappers.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_ipc_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o i-openwrappers.obj `if test -f 'ipc/file/openwrappers.cpp'; then $(CYGPATH_W) 'ipc/file/openwrappers.cpp'; else $(CYGPATH_W) '$(srcdir)/ipc/file/openwrappers.cpp'; fi`
+
 i-posixipcwrappers.o: ipc/file/posixipcwrappers.cpp
 @am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_ipc_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT i-posixipcwrappers.o -MD -MP -MF $(DEPDIR)/i-posixipcwrappers.Tpo -c -o i-posixipcwrappers.o `test -f 'ipc/file/posixipcwrappers.cpp' || echo '$(srcdir)/'`ipc/file/posixipcwrappers.cpp
 @am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/i-posixipcwrappers.Tpo $(DEPDIR)/i-posixipcwrappers.Po
@@ -1150,6 +1182,48 @@ i-posixipcwrappers.obj: ipc/file/posixipcwrappers.cpp
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='ipc/file/posixipcwrappers.cpp' object='i-posixipcwrappers.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_ipc_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o i-posixipcwrappers.obj `if test -f 'ipc/file/posixipcwrappers.cpp'; then $(CYGPATH_W) 'ipc/file/posixipcwrappers.cpp'; else $(CYGPATH_W) '$(srcdir)/ipc/file/posixipcwrappers.cpp'; fi`
+
+i-ptyconnection.o: ipc/file/ptyconnection.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_ipc_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT i-ptyconnection.o -MD -MP -MF $(DEPDIR)/i-ptyconnection.Tpo -c -o i-ptyconnection.o `test -f 'ipc/file/ptyconnection.cpp' || echo '$(srcdir)/'`ipc/file/ptyconnection.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/i-ptyconnection.Tpo $(DEPDIR)/i-ptyconnection.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='ipc/file/ptyconnection.cpp' object='i-ptyconnection.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_ipc_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o i-ptyconnection.o `test -f 'ipc/file/ptyconnection.cpp' || echo '$(srcdir)/'`ipc/file/ptyconnection.cpp
+
+i-ptyconnection.obj: ipc/file/ptyconnection.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_ipc_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT i-ptyconnection.obj -MD -MP -MF $(DEPDIR)/i-ptyconnection.Tpo -c -o i-ptyconnection.obj `if test -f 'ipc/file/ptyconnection.cpp'; then $(CYGPATH_W) 'ipc/file/ptyconnection.cpp'; else $(CYGPATH_W) '$(srcdir)/ipc/file/ptyconnection.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/i-ptyconnection.Tpo $(DEPDIR)/i-ptyconnection.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='ipc/file/ptyconnection.cpp' object='i-ptyconnection.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_ipc_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o i-ptyconnection.obj `if test -f 'ipc/file/ptyconnection.cpp'; then $(CYGPATH_W) 'ipc/file/ptyconnection.cpp'; else $(CYGPATH_W) '$(srcdir)/ipc/file/ptyconnection.cpp'; fi`
+
+i-ptyconnlist.o: ipc/file/ptyconnlist.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_ipc_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT i-ptyconnlist.o -MD -MP -MF $(DEPDIR)/i-ptyconnlist.Tpo -c -o i-ptyconnlist.o `test -f 'ipc/file/ptyconnlist.cpp' || echo '$(srcdir)/'`ipc/file/ptyconnlist.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/i-ptyconnlist.Tpo $(DEPDIR)/i-ptyconnlist.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='ipc/file/ptyconnlist.cpp' object='i-ptyconnlist.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_ipc_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o i-ptyconnlist.o `test -f 'ipc/file/ptyconnlist.cpp' || echo '$(srcdir)/'`ipc/file/ptyconnlist.cpp
+
+i-ptyconnlist.obj: ipc/file/ptyconnlist.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_ipc_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT i-ptyconnlist.obj -MD -MP -MF $(DEPDIR)/i-ptyconnlist.Tpo -c -o i-ptyconnlist.obj `if test -f 'ipc/file/ptyconnlist.cpp'; then $(CYGPATH_W) 'ipc/file/ptyconnlist.cpp'; else $(CYGPATH_W) '$(srcdir)/ipc/file/ptyconnlist.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/i-ptyconnlist.Tpo $(DEPDIR)/i-ptyconnlist.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='ipc/file/ptyconnlist.cpp' object='i-ptyconnlist.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_ipc_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o i-ptyconnlist.obj `if test -f 'ipc/file/ptyconnlist.cpp'; then $(CYGPATH_W) 'ipc/file/ptyconnlist.cpp'; else $(CYGPATH_W) '$(srcdir)/ipc/file/ptyconnlist.cpp'; fi`
+
+i-ptywrappers.o: ipc/file/ptywrappers.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_ipc_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT i-ptywrappers.o -MD -MP -MF $(DEPDIR)/i-ptywrappers.Tpo -c -o i-ptywrappers.o `test -f 'ipc/file/ptywrappers.cpp' || echo '$(srcdir)/'`ipc/file/ptywrappers.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/i-ptywrappers.Tpo $(DEPDIR)/i-ptywrappers.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='ipc/file/ptywrappers.cpp' object='i-ptywrappers.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_ipc_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o i-ptywrappers.o `test -f 'ipc/file/ptywrappers.cpp' || echo '$(srcdir)/'`ipc/file/ptywrappers.cpp
+
+i-ptywrappers.obj: ipc/file/ptywrappers.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_ipc_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT i-ptywrappers.obj -MD -MP -MF $(DEPDIR)/i-ptywrappers.Tpo -c -o i-ptywrappers.obj `if test -f 'ipc/file/ptywrappers.cpp'; then $(CYGPATH_W) 'ipc/file/ptywrappers.cpp'; else $(CYGPATH_W) '$(srcdir)/ipc/file/ptywrappers.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/i-ptywrappers.Tpo $(DEPDIR)/i-ptywrappers.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='ipc/file/ptywrappers.cpp' object='i-ptywrappers.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_ipc_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o i-ptywrappers.obj `if test -f 'ipc/file/ptywrappers.cpp'; then $(CYGPATH_W) 'ipc/file/ptywrappers.cpp'; else $(CYGPATH_W) '$(srcdir)/ipc/file/ptywrappers.cpp'; fi`
 
 i-connectionrewirer.o: ipc/socket/connectionrewirer.cpp
 @am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_ipc_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT i-connectionrewirer.o -MD -MP -MF $(DEPDIR)/i-connectionrewirer.Tpo -c -o i-connectionrewirer.o `test -f 'ipc/socket/connectionrewirer.cpp' || echo '$(srcdir)/'`ipc/socket/connectionrewirer.cpp
@@ -1332,6 +1406,20 @@ virtualpidtable.obj: pid/virtualpidtable.cpp
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='pid/virtualpidtable.cpp' object='virtualpidtable.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o virtualpidtable.obj `if test -f 'pid/virtualpidtable.cpp'; then $(CYGPATH_W) 'pid/virtualpidtable.cpp'; else $(CYGPATH_W) '$(srcdir)/pid/virtualpidtable.cpp'; fi`
+
+pid_mutexwrappers.o: pid/pid_mutexwrappers.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT pid_mutexwrappers.o -MD -MP -MF $(DEPDIR)/pid_mutexwrappers.Tpo -c -o pid_mutexwrappers.o `test -f 'pid/pid_mutexwrappers.cpp' || echo '$(srcdir)/'`pid/pid_mutexwrappers.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/pid_mutexwrappers.Tpo $(DEPDIR)/pid_mutexwrappers.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='pid/pid_mutexwrappers.cpp' object='pid_mutexwrappers.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o pid_mutexwrappers.o `test -f 'pid/pid_mutexwrappers.cpp' || echo '$(srcdir)/'`pid/pid_mutexwrappers.cpp
+
+pid_mutexwrappers.obj: pid/pid_mutexwrappers.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT pid_mutexwrappers.obj -MD -MP -MF $(DEPDIR)/pid_mutexwrappers.Tpo -c -o pid_mutexwrappers.obj `if test -f 'pid/pid_mutexwrappers.cpp'; then $(CYGPATH_W) 'pid/pid_mutexwrappers.cpp'; else $(CYGPATH_W) '$(srcdir)/pid/pid_mutexwrappers.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/pid_mutexwrappers.Tpo $(DEPDIR)/pid_mutexwrappers.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='pid/pid_mutexwrappers.cpp' object='pid_mutexwrappers.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o pid_mutexwrappers.obj `if test -f 'pid/pid_mutexwrappers.cpp'; then $(CYGPATH_W) 'pid/pid_mutexwrappers.cpp'; else $(CYGPATH_W) '$(srcdir)/pid/pid_mutexwrappers.cpp'; fi`
 
 sysvipc.o: svipc/sysvipc.cpp
 @am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT sysvipc.o -MD -MP -MF $(DEPDIR)/sysvipc.Tpo -c -o sysvipc.o `test -f 'svipc/sysvipc.cpp' || echo '$(srcdir)/'`svipc/sysvipc.cpp
@@ -1618,6 +1706,12 @@ uninstall-am: uninstall-binPROGRAMS uninstall-binSCRIPTS \
 
 .PRECIOUS: Makefile
 
+
+install-libs: install-libdmtcpPROGRAMS
+
+uninstall-libs: uninstall-libdmtcpPROGRAMS
+
+.PHONY: install-libs uninstall-libs
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

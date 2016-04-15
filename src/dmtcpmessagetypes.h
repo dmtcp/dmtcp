@@ -56,20 +56,16 @@ namespace dmtcp
     DMT_USER_CMD_RESULT,     // on reply coordinator -> dmtcp_command
 
     DMT_DO_SUSPEND,          // when coordinator wants slave to suspend        8
-    DMT_DO_RESUME,           // when coordinator wants slave to resume (after checkpoint)
-    DMT_DO_FD_LEADER_ELECTION, // when coordinator wants slaves to do leader election
-    DMT_DO_DRAIN,            // when coordinator wants slave to flush
     DMT_DO_CHECKPOINT,       // when coordinator wants slave to checkpoint
-#ifdef COORD_NAMESERVICE
-    DMT_DO_REGISTER_NAME_SERVICE_DATA,
-    DMT_DO_SEND_QUERIES,
-#endif
-    DMT_DO_REFILL,           // when coordinator wants slave to refill buffers
+
+    DMT_COMPUTATION_INFO,
+
+    DMT_BARRIER_RELEASED,
+    DMT_BARRIER_LIST,
+
     DMT_KILL_PEER,           // send kill message to peer
 
     DMT_REGISTER_NAME_SERVICE_DATA,
-    DMT_REGISTER_NAME_SERVICE_DATA_SYNC,
-    DMT_REGISTER_NAME_SERVICE_DATA_SYNC_RESPONSE,
     DMT_NAME_SERVICE_QUERY,
     DMT_NAME_SERVICE_QUERY_RESPONSE,
 
@@ -101,19 +97,15 @@ namespace dmtcp
         UNKNOWN,
         RUNNING,
         SUSPENDED,
-        FD_LEADER_ELECTION,
-        DRAINED,
-        RESTARTING,
+        CHECKPOINTING,
         CHECKPOINTED,
-#ifdef COORD_NAMESERVICE
-        NAME_SERVICE_DATA_REGISTERED,
-        DONE_QUERYING,
-#endif
-        REFILLED,
+        RESTARTING,
         _MAX
       };
+
       WorkerState ( eWorkerState s = UNKNOWN ) : _state ( s ) {}
 
+      static WorkerState& instance();
       static void setCurrentState ( const WorkerState& theValue );
       static WorkerState currentState();
 
@@ -147,11 +139,9 @@ namespace dmtcp
     pid_t       virtualPid;
     pid_t       realPid;
 
-//#ifdef COORD_NAMESERVICE
     char        nsid[8];
     uint32_t    keyLen;
     uint32_t    valLen;
-//#endif
 
     uint32_t numPeers;
     uint32_t isRunning;
@@ -163,8 +153,9 @@ namespace dmtcp
     uint32_t theCheckpointInterval;
     struct in_addr ipAddr;
 
-    static void setDefaultCoordinator ( const DmtcpUniqueProcessId& id );
-    static void setDefaultCoordinator ( const UniquePid& id );
+    uint32_t exitAfterCkpt;
+    uint32_t padding;
+
     DmtcpMessage ( DmtcpMessageType t = DMT_NULL );
     void assertValid() const;
     bool isValid() const;

@@ -1,15 +1,15 @@
 /****************************************************************************
- *   Copyright (C) 2006-2008 by Jason Ansel, Kapil Arya, and Gene Cooperman *
+ *   Copyright (C) 2006-2010 by Jason Ansel, Kapil Arya, and Gene Cooperman *
  *   jansel@csail.mit.edu, kapil@ccs.neu.edu, gene@ccs.neu.edu              *
  *                                                                          *
- *  This file is part of DMTCP.                                             *
+ *   This file is part of the dmtcp/src module of DMTCP (DMTCP:dmtcp/src).  *
  *                                                                          *
- *  DMTCP is free software: you can redistribute it and/or                  *
+ *  DMTCP:dmtcp/src is free software: you can redistribute it and/or        *
  *  modify it under the terms of the GNU Lesser General Public License as   *
  *  published by the Free Software Foundation, either version 3 of the      *
  *  License, or (at your option) any later version.                         *
  *                                                                          *
- *  DMTCP is distributed in the hope that it will be useful,                *
+ *  DMTCP:dmtcp/src is distributed in the hope that it will be useful,      *
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
  *  GNU Lesser General Public License for more details.                     *
@@ -19,26 +19,27 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#ifndef DMTCPMTCPINTERFACE_H
-#define DMTCPMTCPINTERFACE_H
+#pragma once
+#ifndef PTY_WRAPPERS_H
+#define PTY_WRAPPERS_H
 
-#include <sys/types.h>
+#include "dmtcp.h"
 
-namespace dmtcp
-{
-  void initializeMtcpEngine();
+#define _real_xstat NEXT_FNC(__xstat)
+#define _real_xstat64 NEXT_FNC(__xstat64)
+#define _real_lxstat NEXT_FNC(__lxstat)
+#define _real_lxstat64 NEXT_FNC(__lxstat64)
+#define _real_readlink NEXT_FNC(readlink)
+#define _real_ptsname_r NEXT_FNC(ptsname_r)
+#define _real_ttyname_r NEXT_FNC(ttyname_r)
+#define _real_getpt NEXT_FNC(getpt)
+#define _real_posix_openpt NEXT_FNC(posix_openpt)
+#define _real_access NEXT_FNC(access)
 
-  void callbackSleepBetweenCheckpoint(int sec);
-  void callbackPreCheckpoint();
-  void callbackPostCheckpoint(bool isRestart, char* mtcpRestoreArgvStartAddr);
-  void callbackPreSuspendUserThread();
-  void callbackPreResumeUserThread(bool isRestart);
-  void callbackHoldsAnyLocks(int *retval);
+// NOTE:  realpath is a versioned symbol, and we should be using
+//   NEXT_FNC_DEFAULT.  But that interferes with libdl.so (e.g., dlopen).
+//   and other functions that use gettid() -> __tls_get_addr()
+//   for some unknown reason.
+#define _real_realpath NEXT_FNC(realpath)
 
-  //these next two are defined in dmtcpplugin.cpp
-  void userHookTrampoline_preCkpt();
-  void userHookTrampoline_postCkpt(bool isRestart);
-
-  void increment_counters(int isRestart);
-}
-#endif
+#endif // PTY_WRAPPERS_H

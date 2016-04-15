@@ -25,9 +25,11 @@ AM_CXXFLAGS = $(PICFLAGS)
 AM_LDFLAGS = $(PICFLAGS)
 
 if CONFIG_M32
-targetdir = $(top_builddir)/lib/$(PACKAGE)/32
+d_libdir = $(top_builddir)/lib/$(PACKAGE)/32/lib/$(PACKAGE)
+d_bindir = $(top_builddir)/lib/$(PACKAGE)/32/bin
 else
-targetdir = $(top_builddir)
+d_libdir = $(top_builddir)/lib/$(PACKAGE)
+d_bindir = $(top_builddir)/bin
 endif
 
 #HEADERS
@@ -36,12 +38,12 @@ AM_CPPFLAGS= -I$(dmtcpincludedir) -I$(jalibdir)
 
 # targets:
 noinst_LIBRARIES = libdmtcpinternal.a libsyscallsreal.a libnohijack.a libjalib.a
-bin_PROGRAMS = $(targetdir)/bin/dmtcp_launch \
-	       $(targetdir)/bin/dmtcp_command \
-	       $(targetdir)/bin/dmtcp_coordinator \
-	       $(targetdir)/bin/dmtcp_restart \
-	       $(targetdir)/bin/dmtcp_nocheckpoint
-dmtcplib_PROGRAMS = $(targetdir)/lib/dmtcp/libdmtcp.so
+bin_PROGRAMS = $(d_bindir)/dmtcp_launch \
+	       $(d_bindir)/dmtcp_command \
+	       $(d_bindir)/dmtcp_coordinator \
+	       $(d_bindir)/dmtcp_restart \
+	       $(d_bindir)/dmtcp_nocheckpoint
+dmtcplib_PROGRAMS = $(d_libdir)/libdmtcp.so
 include_HEADERS = $(srcdir)/../include/dmtcp.h
 
 # headers:
@@ -57,7 +59,8 @@ nobase_noinst_HEADERS = constants.h \
 	restartscript.h \
 	dmtcp_coordinator.h dmtcpmessagetypes.h lookup_service.h \
 	dmtcpworker.h threadsync.h coordinatorapi.h \
-	mtcpinterface.h syscallwrappers.h \
+	barrierinfo.h pluginmanager.h plugininfo.h \
+	syscallwrappers.h \
 	threadlist.h threadinfo.h siginfo.h \
 	uniquepid.h processinfo.h ckptserializer.h \
 	mtcp/ldt.h mtcp/restore_libc.h mtcp/tlsutil.h
@@ -80,17 +83,17 @@ libjalib_a_SOURCES = $(jalibdir)/jalib.cpp $(jalibdir)/jassert.cpp \
 libsyscallsreal_a_SOURCES = syscallsreal.c trampolines.cpp
 libnohijack_a_SOURCES = nosyscallsreal.c dmtcpnohijackstubs.cpp
 
-__targetdir__bin_dmtcp_coordinator_SOURCES = dmtcp_coordinator.cpp lookup_service.cpp restartscript.cpp
+__d_bindir__dmtcp_coordinator_SOURCES = dmtcp_coordinator.cpp lookup_service.cpp restartscript.cpp
 
-__targetdir__bin_dmtcp_nocheckpoint_SOURCES = dmtcp_nocheckpoint.c
+__d_bindir__dmtcp_nocheckpoint_SOURCES = dmtcp_nocheckpoint.c
 
-__targetdir__bin_dmtcp_restart_SOURCES = dmtcp_restart.cpp util_exec.cpp
+__d_bindir__dmtcp_restart_SOURCES = dmtcp_restart.cpp util_exec.cpp
 
-__targetdir__bin_dmtcp_command_SOURCES = dmtcp_command.cpp
+__d_bindir__dmtcp_command_SOURCES = dmtcp_command.cpp
 
-__targetdir__lib_dmtcp_libdmtcp_so_SOURCES = dmtcpworker.cpp threadsync.cpp \
+__d_libdir__libdmtcp_so_SOURCES = dmtcpworker.cpp threadsync.cpp \
 		      coordinatorapi.cpp execwrappers.cpp \
-		      mtcpinterface.cpp signalwrappers.cpp \
+		      signalwrappers.cpp \
 		      terminal.cpp \
 		      alarm.cpp \
 		      threadwrappers.cpp \
@@ -98,35 +101,29 @@ __targetdir__lib_dmtcp_libdmtcp_so_SOURCES = dmtcpworker.cpp threadsync.cpp \
 		      glibcsystem.cpp \
 		      threadlist.cpp siginfo.cpp \
 		      dmtcpplugin.cpp popen.cpp syslogwrappers.cpp \
-		      dlsym_default.c
+		      dlsym_default.c plugininfo.cpp pluginmanager.cpp
 
-__targetdir__lib_dmtcp_libdmtcp_so_LDFLAGS = -shared -Xlinker -znow
-
-#dmtcp_nocheckpoint_LDFLAGS = -static
+__d_libdir__libdmtcp_so_LDFLAGS = -shared -Xlinker -znow
 
 # Note that an ELF object uses libsyscallsreal.a or libnohijack.a
 #  but not both.  libnohijack.a has stub definitions for same symbols.
-__targetdir__lib_dmtcp_libdmtcp_so_LDADD = libdmtcpinternal.a libjalib.a \
-					   libsyscallsreal.a mtcp/libmtcp.a \
-					   -ldl -lpthread -lrt
+__d_libdir__libdmtcp_so_LDADD = libdmtcpinternal.a libjalib.a \
+				libsyscallsreal.a mtcp/libmtcp.a \
+				-ldl -lpthread -lrt
 
-__targetdir__bin_dmtcp_coordinator_LDADD = libdmtcpinternal.a libjalib.a \
+__d_bindir__dmtcp_coordinator_LDADD = libdmtcpinternal.a libjalib.a \
 			  libnohijack.a -lpthread -lrt
-__targetdir__bin_dmtcp_launch_LDADD  = libdmtcpinternal.a libjalib.a \
-			  libnohijack.a -ldl -lpthread -lrt
-__targetdir__bin_dmtcp_restart_LDADD     = libdmtcpinternal.a libjalib.a \
+__d_bindir__dmtcp_launch_LDADD  = libdmtcpinternal.a libjalib.a \
 			  libnohijack.a -lpthread -lrt -ldl
-__targetdir__bin_dmtcp_command_LDADD     = libdmtcpinternal.a libjalib.a \
+__d_bindir__dmtcp_restart_LDADD     = libdmtcpinternal.a libjalib.a \
+			  libnohijack.a -lpthread -lrt -ldl
+__d_bindir__dmtcp_command_LDADD     = libdmtcpinternal.a libjalib.a \
 			  libnohijack.a -lpthread -lrt -ldl
 
-__targetdir__bin_dmtcp_launch_SOURCES = dmtcp_launch.cpp
+__d_bindir__dmtcp_launch_SOURCES = dmtcp_launch.cpp
 
 mtcp/libmtcp.a:
 	cd mtcp && ${MAKE} libmtcp.a
-
-libs: $(dmtcplib_PROGRAMS)
-	(cd mtcp && ${MAKE} libs)
-	(cd plugin && ${MAKE} libs)
 
 install-libs: install-dmtcplibPROGRAMS
 	(cd mtcp && ${MAKE} install-libs)
@@ -136,4 +133,4 @@ uninstall-libs: uninstall-dmtcplibPROGRAMS
 	(cd mtcp && ${MAKE} uninstall-libs)
 	(cd plugin && ${MAKE} uninstall-libs)
 
-.PHONY: libs install-libs uninstall-libs
+.PHONY: install-libs uninstall-libs

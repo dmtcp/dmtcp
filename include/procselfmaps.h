@@ -32,6 +32,7 @@ class ProcSelfMaps
     size_t numAreas;
     size_t numBytes;
     int fd;
+    int numAllocExpands;
 };
 
 }

@@ -16,6 +16,7 @@
 #include <queue>
 
 #include "dmtcp.h"
+#include "config.h"
 #include "dmtcpalloc.h"
 #include "util.h"
 #include "jsocket.h"
@@ -62,39 +63,26 @@ static void do_unlock() {
   JASSERT(pthread_mutex_unlock(&_lock) == 0);
 }
 
-void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t* data)
-{
-  switch (event) {
-  case DMTCP_EVENT_WRITE_CKPT:
-    //drainCq();
-    break;
-  case DMTCP_EVENT_RESTART:
-    isVirtIB = 1;
-    pthread_mutex_init(&_lock, NULL);
-    IB2TCP::postRestart();
-    break;
-  case DMTCP_EVENT_REGISTER_NAME_SERVICE_DATA:
-    if (isVirtIB && data->nameserviceInfo.isRestart) {
-      IB2TCP::registerNSData();
-    }
-    break;
-  case DMTCP_EVENT_SEND_QUERIES:
-    if (isVirtIB && data->nameserviceInfo.isRestart) {
-      IB2TCP::sendQueries();
-    }
-    break;
 
-  case DMTCP_EVENT_THREADS_RESUME:
-    if (isVirtIB && data->resumeInfo.isRestart) {
-      IB2TCP::createTCPConnections();
-    }
-    break;
-  default:
-    break;
-  }
+static DmtcpBarrier ib2tcpBarriers[] = {
+  {DMTCP_GLOBAL_BARRIER_RESTART, IB2TCP::postRestart, "restart"},
+  {DMTCP_GLOBAL_BARRIER_RESTART, IB2TCP::registerNSData, "register_ns_data"},
+  {DMTCP_GLOBAL_BARRIER_RESTART, IB2TCP::sendQueries, "send_queries"},
+  {DMTCP_GLOBAL_BARRIER_RESTART, IB2TCP::createTCPConnections, "restart_resume"}
+};
 
-  DMTCP_NEXT_EVENT_HOOK(event, data);
-}
+DmtcpPluginDescriptor_t ib2tcp_plugin = {
+  DMTCP_PLUGIN_API_VERSION,
+  PACKAGE_VERSION,
+  "ib2tcp",
+  "DMTCP",
+  "dmtcp@ccs.neu.edu",
+  "IB2TCP plugin",
+  DMTCP_DECL_BARRIERS(ib2tcpBarriers),
+  NULL
+};
+
+DMTCP_DECL_PLUGIN(ib2tcp_plugin);
 
 /**************************************************************/
 /**************************************************************/
@@ -184,11 +172,17 @@ void IB2TCP::init()
 
 void IB2TCP::postRestart()
 {
+  isVirtIB = 1;
+  pthread_mutex_init(&_lock, NULL);
   openListenSocket();
 }
 
 void IB2TCP::registerNSData()
 {
+  if (!isVirtIB) {
+    return;
+  }
+
   map<uint32_t, IB_QP*>::iterator it;
   for (it = queuePairs.begin(); it != queuePairs.end(); it++) {
     IB_QP *ibqp = it->second;
@@ -204,6 +198,10 @@ void IB2TCP::registerNSData()
 
 void IB2TCP::sendQueries()
 {
+  if (!isVirtIB) {
+    return;
+  }
+
   map<uint32_t, IB_QP*>::iterator it;
   for (it = queuePairs.begin(); it != queuePairs.end(); it++) {
     IB_QP *ibqp = it->second;
@@ -223,6 +221,10 @@ void IB2TCP::sendQueries()
 
 void IB2TCP::createTCPConnections()
 {
+  if (!isVirtIB) {
+    return;
+  }
+
   size_t numRemaining = 0;
   map<uint32_t, IB_QP*>::iterator it;
   //First do a connect

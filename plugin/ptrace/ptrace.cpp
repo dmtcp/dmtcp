@@ -62,7 +62,7 @@ extern "C" void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       ptraceInit();
       break;
 
-    case DMTCP_EVENT_WAIT_FOR_SUSPEND_MSG:
+    case DMTCP_EVENT_WAIT_FOR_CKPT:
       ptraceWaitForSuspendMsg(data);
       break;
 

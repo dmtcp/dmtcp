@@ -100,15 +100,13 @@ struct MtcpRestartThreadArg {
 
 #ifdef __cplusplus
 #include "dmtcpalloc.h"
-// FIXME:  util.h shouldn't depend on coordinatorapi.h
-#include "../src/coordinatorapi.h"  // for enum CoordinatorMode
 namespace dmtcp
 {
   namespace Util
   {
     void lockFile(int fd);
     void unlockFile(int fd);
-    void changeFd(int oldfd, int newfd);
+    int changeFd(int oldfd, int newfd);
     void dupFds(int oldfd, const vector<int>& newfds);
 
     bool strStartsWith(const char *str, const char *pattern);
@@ -171,6 +169,7 @@ namespace dmtcp
     pid_t getTracerPid(pid_t tid = -1);
     bool isPtraced();
     bool isValidFd(int fd);
+    bool isPseudoTty(const string& path);
     size_t pageSize();
     size_t pageMask();
     bool areZeroPages(void *addr, size_t numPages);
@@ -178,10 +177,6 @@ namespace dmtcp
     char *findExecutable(char *executable, const char* path_env,
                          char *exec_path);
     string getPath(string cmd, bool is32bit = false);
-#define UNINITIALIZED_PORT (-1) /* used with getCoordHostAndPort() */
-    void getCoordHostAndPort(CoordinatorMode mode,
-                             const char **host, int *port);
-    void setCoordPort(int port);
     void getDmtcpArgs(vector<string> &dmtcp_args);
   }
 }

@@ -17,6 +17,14 @@ AM_CFLAGS = $(PICFLAGS)
 AM_CXXFLAGS = $(PICFLAGS)
 AM_LDFLAGS = $(PICFLAGS)
 
+if CONFIG_M32
+d_libdir = $(top_builddir)/lib/$(PACKAGE)/32/lib/$(PACKAGE)
+d_bindir = $(top_builddir)/lib/$(PACKAGE)/32/bin
+else
+d_libdir = $(top_builddir)/lib/$(PACKAGE)
+d_bindir = $(top_builddir)/bin
+endif
+
 #HEADERS
 #set the include path found by configure
 AM_CPPFLAGS  = -I$(top_srcdir)/include
@@ -24,9 +32,6 @@ AM_CPPFLAGS += -I$(top_srcdir)/jalib
 
 dmtcp_ldflags = -shared -Xlinker -znow -Wl,--unresolved-symbols=ignore-all
 LDADD = -ldl -lpthread
-
-d_libdir = $(top_builddir)/lib/$(PACKAGE)
-d_bindir = $(top_builddir)/bin
 
 libdmtcpdir = $(pkglibdir)
 
@@ -71,17 +76,14 @@ __d_bindir__dmtcp_srun_helper_SOURCES =                                \
 	batch-queue/slurm_helper.h                                     \
 	batch-queue/dmtcp_srun_helper.cpp
 
-bin_SCRIPTS += $(d_bindir)/dmtcp_rm_loclaunch
-CLEANFILES += $(bin_SCRIPTS)
-$(d_bindir)/dmtcp_rm_loclaunch: batch-queue/dmtcp_rm_loclaunch
-	cp $< $(d_bindir)/$@
+dist_bin_SCRIPTS += batch-queue/dmtcp_rm_loclaunch
 
 #
 # Modify env plugin
 #
 libdmtcp_PROGRAMS += $(d_libdir)/libdmtcp_modify-env.so
 __d_libdir__libdmtcp_modify_env_so_SOURCES =                           \
-	modify-env/modify-env.c
+	modify-env/modify-env.c modify-env/warning.cpp
 __d_libdir__libdmtcp_modify_env_so_LDFLAGS = $(dmtcp_ldflags)
 __d_libdir__libdmtcp_modify_env_so_LDADD = $(LDADD)
 
@@ -112,3 +114,9 @@ __d_libdir__libdmtcp_unique_ckpt_so_SOURCES =                          \
 	unique-ckpt/unique-ckpt.cpp
 __d_libdir__libdmtcp_unique_ckpt_so_LDFLAGS = $(dmtcp_ldflags)
 __d_libdir__libdmtcp_unique_ckpt_so_LDADD = $(LDADD)
+
+install-libs: install-libdmtcpPROGRAMS
+
+uninstall-libs: uninstall-libdmtcpPROGRAMS
+
+.PHONY: install-libs uninstall-libs

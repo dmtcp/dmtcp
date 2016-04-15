@@ -47,7 +47,7 @@ DMTCP_INCLUDE_PATH = $(top_srcdir)/include
 JALIB_PATH = $(top_srcdir)/jalib
 
 INCLUDES = -I$(JALIB_PATH) -I$(DMTCP_INCLUDE_PATH)
-LIB_LDFLAGS = -shared -Wl,--unresolved-symbols=ignore-all
+LIB_LDFLAGS = -libverbs -shared -Wl,--unresolved-symbols=ignore-all
 
 override CFLAGS += -fPIC
 override CXXFLAGS += -fPIC

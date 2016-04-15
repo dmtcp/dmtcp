@@ -27,6 +27,10 @@
 #include "jalib.h"
 #include "jalloc.h"
 
+// Make highest chunk size large; avoid a raw_alloc calling mmap()
+//   during /proc/self/maps
+#define MAX_CHUNKSIZE (4*1024)
+
 using namespace jalib;
 
 extern "C" int fred_record_replay_enabled() __attribute__ ((weak));
@@ -84,7 +88,7 @@ inline void* _alloc_raw(size_t n)
 # endif
 
   if(p==MAP_FAILED)
-    perror("_alloc_raw: ");
+    perror("DMTCP(" __FILE__ "): _alloc_raw: ");
   return p;
 #endif
 }
@@ -97,7 +101,7 @@ inline void _dealloc_raw(void* ptr, size_t n)
   if(ptr==0 || n==0) return;
   int rv = munmap(ptr, n);
   if(rv!=0)
-    perror("_dealloc_raw: ");
+    perror("DMTCP(" __FILE__ "): _dealloc_raw: ");
 #endif
 }
 
@@ -107,8 +111,9 @@ public:
   enum { N=_N };
   JFixedAllocStack() {
     if (_blockSize == 0) {
-      _blockSize = 10*1024;
+      _blockSize = 4*MAX_CHUNKSIZE;
       _root = NULL;
+      _numExpands = 0;
     }
   }
 
@@ -154,9 +159,27 @@ public:
     } while (!__sync_bool_compare_and_swap(&_root, item->next, item));
   }
 
+  int numExpands() {
+    return _numExpands;
+  }
+
+  void preExpand() {
+    // Force at least numChunks chunks to become free.
+    const int numAllocs = 10;
+    void *allocatedItem[numAllocs];
+    for (int i=0; i<numAllocs; i++) {
+      allocatedItem[i] = allocate();
+    }
+    // if (_root == NULL) { expand(); }
+    for (int i=0; i<numAllocs; i++) {
+      deallocate(allocatedItem[i]);
+    }
+  }
+
 protected:
   //allocate more raw memory when stack is empty
   void expand() {
+    _numExpands++;
     if (_root != NULL &&
         fred_record_replay_enabled && fred_record_replay_enabled()) {
       // TODO: why is expand being called? If you see this message, raise lvl2
@@ -167,7 +190,7 @@ protected:
       abort();
     }
     FreeItem* bufs = static_cast<FreeItem*>(_alloc_raw(_blockSize));
-    int count= _blockSize / sizeof(FreeItem);
+    int count = _blockSize / sizeof(FreeItem);
     for(int i=0; i<count-1; ++i){
       bufs[i].next=bufs+i+1;
     }
@@ -192,6 +215,7 @@ private:
   FreeItem* volatile _root;
   size_t _blockSize;
   char padding[128];
+  int volatile _numExpands;
 };
 
 } // namespace jalib
@@ -199,7 +223,10 @@ private:
 jalib::JFixedAllocStack<64>   lvl1;
 jalib::JFixedAllocStack<256>  lvl2;
 jalib::JFixedAllocStack<1024> lvl3;
-jalib::JFixedAllocStack<2048> lvl4;
+#if MAX_CHUNKSIZE <= 1024
+# error MAX_CHUNKSIZE must be larger
+#endif
+jalib::JFixedAllocStack<MAX_CHUNKSIZE> lvl4;
 
 void jalib::JAllocDispatcher::initialize(void)
 {
@@ -243,6 +270,18 @@ void jalib::JAllocDispatcher::deallocate(void* ptr, size_t n)
   if(n <= lvl3.N) lvl3.deallocate(ptr); else
   if(n <= lvl4.N) lvl4.deallocate(ptr); else
   _dealloc_raw(ptr, n);
+}
+int jalib::JAllocDispatcher::numExpands()
+{
+  return lvl1.numExpands() + lvl2.numExpands() +
+         lvl3.numExpands() + lvl4.numExpands();
+}
+void jalib::JAllocDispatcher::preExpand()
+{
+  lvl1.preExpand();
+  lvl2.preExpand();
+  lvl3.preExpand();
+  lvl4.preExpand();
 }
 
 #else

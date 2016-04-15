@@ -32,9 +32,25 @@ ProcSelfMaps::ProcSelfMaps()
   : dataIdx(0),
     numAreas(0),
     numBytes(0),
-    fd(-1)
+    fd(-1),
+    numAllocExpands(0)
 {
   char buf[4096];
+  // NOTE: preExpand() verifies that we have at least 10 chunks pre-allocated
+  //   for each level of the allocator.  See jalib/jalloc.cpp:preExpand().
+  //   It assumes no allocation larger than jalloc.cpp:MAX_CHUNKSIZE.
+  //   Ideally, we would have followed the MTCP C code, and not allocated
+  //   any memory bewteen the constructor and destructor of ProcSelfMaps.
+  //   But since C++ is biased toward frequent mallocs (e.g., dynamic vectors),
+  //   we try to compensate here for the weaknesses of C++.
+  // If we use this /proc/self/maps for checkpointing, we must not mmap
+  //   as part of the allocator prior to writing the memory to the ckpt image.
+  jalib::JAllocDispatcher::preExpand();
+  numAllocExpands = jalib::JAllocDispatcher::numExpands();
+  // FIXME:  Also, any memory allocated and not freed since the calls to
+  //   setcontext() on the various threads will be a memory leak on restart.
+  //   We should check for that.
+
   fd = _real_open("/proc/self/maps", O_RDONLY);
   JASSERT(fd != -1) (JASSERT_ERRNO);
   ssize_t numRead = 0;
@@ -79,6 +95,13 @@ ProcSelfMaps::~ProcSelfMaps()
   dataIdx = 0;
   numAreas = 0;
   numBytes = 0;
+  // Verify that JAlloc doesn't expand memory (via mmap)
+  //   while reading /proc/self/maps.
+  // FIXME:  Change from JWARNING to JASSERT when we have confidence in this.
+  JWARNING(numAllocExpands == jalib::JAllocDispatcher::numExpands())
+          (numAllocExpands)(jalib::JAllocDispatcher::numExpands())
+          .Text("JAlloc: memory expanded through call to mmap()."
+                "  Inconsistent JAlloc will be a problem on restart");
 }
 
 bool ProcSelfMaps::isValidData()
@@ -211,6 +234,8 @@ int ProcSelfMaps::getNextArea(ProcMapsArea* area)
   if (area -> name[0] == '\0') {
     area -> flags |= MAP_ANONYMOUS;
   }
+
+  area->properties = 0;
 
   return 1;
 }

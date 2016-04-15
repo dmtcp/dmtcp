@@ -461,6 +461,39 @@ extern "C" long syscall(long sys_num, ...)
 # endif
 #endif
 
+#ifdef HAS_CMA
+    case SYS_process_vm_readv:
+    {
+      pid_t realPid;
+      DMTCP_PLUGIN_DISABLE_CKPT();
+      SYSCALL_GET_ARGS_6(pid_t, pid,
+                         const struct iovec*, local_iov,
+                         unsigned long, liovcnt,
+                         const struct iovec*, remote_iov,
+                         unsigned long, riovcnt,
+                         unsigned long, flags);
+      realPid = VIRTUAL_TO_REAL_PID(pid);
+      ret = _real_syscall(SYS_process_vm_readv, realPid, local_iov, liovcnt, remote_iov, riovcnt, flags);
+      DMTCP_PLUGIN_ENABLE_CKPT();
+      break;
+    }
+    case SYS_process_vm_writev:
+    {
+      pid_t realPid;
+      DMTCP_PLUGIN_DISABLE_CKPT();
+      SYSCALL_GET_ARGS_6(pid_t, pid,
+                         const struct iovec*, local_iov,
+                         unsigned long, liovcnt,
+                         const struct iovec*, remote_iov,
+                         unsigned long, riovcnt,
+                         unsigned long, flags);
+      realPid = VIRTUAL_TO_REAL_PID(pid);
+      ret = _real_syscall(SYS_process_vm_writev, realPid, local_iov, liovcnt, remote_iov, riovcnt, flags);
+      DMTCP_PLUGIN_ENABLE_CKPT();
+      break;
+    }
+#endif
+
     default:
     {
       SYSCALL_GET_ARGS_7(void*, arg1, void*, arg2, void*, arg3, void*, arg4,
@@ -474,12 +507,14 @@ extern "C" long syscall(long sys_num, ...)
 }
 
 #ifdef HAS_CMA
+EXTERNC
 ssize_t process_vm_readv(pid_t pid,
                          const struct iovec *local_iov,
                          unsigned long liovcnt,
                          const struct iovec *remote_iov,
                          unsigned long riovcnt,
-                         unsigned long flags) {
+                         unsigned long flags)
+{
   pid_t realPid;
   ssize_t ret;
 
@@ -492,12 +527,14 @@ ssize_t process_vm_readv(pid_t pid,
   return ret;
 }
 
+EXTERNC
 ssize_t process_vm_writev(pid_t pid,
                           const struct iovec *local_iov,
                           unsigned long liovcnt,
                           const struct iovec *remote_iov,
                           unsigned long riovcnt,
-                          unsigned long flags) {
+                          unsigned long flags)
+{
   pid_t realPid;
   ssize_t ret;
 

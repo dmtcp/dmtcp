@@ -40,8 +40,11 @@
   TimerList::instance().realToVirtualClockId(id)
 */
 
-#define VIRTUAL_TO_REAL_CLOCK_ID(id) \
-  TimerList::instance().virtualToRealClockId(id)
+#define REAL_TO_VIRTUAL_CLOCK_ID(pid, realId) \
+  TimerList::instance().on_clock_getcpuclockid(pid, realId)
+
+#define VIRTUAL_TO_REAL_CLOCK_ID(virtId) \
+  TimerList::instance().virtualToRealClockId(virtId)
 
 namespace dmtcp {
   typedef struct TimerInfo {

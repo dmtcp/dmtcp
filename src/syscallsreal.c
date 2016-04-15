@@ -220,19 +220,15 @@ LIB_PRIVATE void dmtcp_setThreadPerformingDlopenDlsym();
 LIB_PRIVATE void dmtcp_unsetThreadPerformingDlopenDlsym();
 #endif
 
-void dmtcp_prepare_wrappers();
-
-extern int dmtcp_wrappers_initializing;
 static void *_real_func_addr[numLibcWrappers];
-static int _libc_wrappers_initialized = 0;
-static int _libpthread_wrappers_initialized = 0;
+static int dmtcp_wrappers_initialized = 0;
 
 #if 1
 static char wrapper_init_buf[1024];
 static pthread_key_t dlsym_key = -1;
 void *__pthread_getspecific(pthread_key_t key)
 {
-  if (dmtcp_wrappers_initializing) {
+  if (!dmtcp_wrappers_initialized) {
     if (dlsym_key == -1) {
       dlsym_key = key;
     }
@@ -255,38 +251,22 @@ void *pthread_getspecific(pthread_key_t key)
 #define GET_FUNC_ADDR(name) \
   _real_func_addr[ENUM(name)] = _real_dlsym(RTLD_NEXT, #name);
 
-LIB_PRIVATE
-void initialize_libc_wrappers()
+static void initialize_libc_wrappers()
 {
-  const char *warn_msg =
-    "WARNING: dmtcp_wrappers_initializing is set to '0' in the call to\n"
-    "         initialize_wrappers(). This may not be a good sign. \n"
-    "         Please inform dmtcp-developers if you see this message.\n\n";
-
-  if (dmtcp_wrappers_initializing == 0) {
-    _real_write(STDERR_FILENO, warn_msg, strlen(warn_msg));
-    sleep(1);
-    abort();
-  }
-
-  if (!_libc_wrappers_initialized) {
-    FOREACH_DMTCP_WRAPPER(GET_FUNC_ADDR);
+  FOREACH_DMTCP_WRAPPER(GET_FUNC_ADDR);
 #ifdef __i386__
-    /* On i386 systems, there are two pthread_create symbols. We want the one
-     * with GLIBC_2.1 version. On 64-bit machines, there is only one
-     * pthread_create symbol (GLIBC_2.2.5), so no worries there.
-     */
-    _real_func_addr[ENUM(pthread_create)] = dlvsym(RTLD_NEXT, "pthread_create",
-                                                   "GLIBC_2.1");
+  /* On i386 systems, there are two pthread_create symbols. We want the one
+   * with GLIBC_2.1 version. On 64-bit machines, there is only one
+   * pthread_create symbol (GLIBC_2.2.5), so no worries there.
+   */
+  _real_func_addr[ENUM(pthread_create)] = dlvsym(RTLD_NEXT, "pthread_create",
+                                                 "GLIBC_2.1");
 #endif
 
-    /* On some arm machines, the newest pthread_create has version GLIBC_2.4 */
-    void *addr = dlvsym(RTLD_NEXT, "pthread_create", "GLIBC_2.4");
-    if (addr != NULL) {
-      _real_func_addr[ENUM(pthread_create)] = addr;
-    }
-
-    _libc_wrappers_initialized = 1;
+  /* On some arm machines, the newest pthread_create has version GLIBC_2.4 */
+  void *addr = dlvsym(RTLD_NEXT, "pthread_create", "GLIBC_2.4");
+  if (addr != NULL) {
+    _real_func_addr[ENUM(pthread_create)] = addr;
   }
 }
 
@@ -300,23 +280,28 @@ void initialize_libc_wrappers()
  * EDIT: On some ARM machines, the symbol version is 2.4. Try that first and
  *       fallback to 2.3.4 on failure.
  */
-LIB_PRIVATE
-void initialize_libpthread_wrappers()
+static void initialize_libpthread_wrappers()
 {
-  if (!_libpthread_wrappers_initialized) {
-    const char *ver_2_4 = "GLIBC_2.4";
-    const char *ver_2_3_2 = "GLIBC_2.3.2";
-    const char *pthread_sym_ver = NULL;
+  const char *ver_2_4 = "GLIBC_2.4";
+  const char *ver_2_3_2 = "GLIBC_2.3.2";
+  const char *pthread_sym_ver = NULL;
 
-    void *addr = dlvsym(RTLD_NEXT, "pthread_cond_signal", ver_2_4);
-    if (addr != NULL) {
-      pthread_sym_ver = ver_2_4;
-    } else {
-      pthread_sym_ver = ver_2_3_2;
-    }
+  void *addr = dlvsym(RTLD_NEXT, "pthread_cond_signal", ver_2_4);
+  if (addr != NULL) {
+    pthread_sym_ver = ver_2_4;
+  } else {
+    pthread_sym_ver = ver_2_3_2;
+  }
 
-    FOREACH_LIBPTHREAD_WRAPPERS(GET_LIBPTHREAD_FUNC_ADDR);
-    _libpthread_wrappers_initialized = 1;
+  FOREACH_LIBPTHREAD_WRAPPERS(GET_LIBPTHREAD_FUNC_ADDR);
+}
+
+void dmtcp_prepare_wrappers(void)
+{
+  if (!dmtcp_wrappers_initialized) {
+    initialize_libc_wrappers();
+    dmtcp_wrappers_initialized = 1;
+    initialize_libpthread_wrappers();
   }
 }
 

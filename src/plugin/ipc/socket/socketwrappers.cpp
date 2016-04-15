@@ -74,54 +74,21 @@ extern "C" int connect(int sockfd, const struct sockaddr *serv_addr,
                        socklen_t addrlen)
 {
   DMTCP_PLUGIN_DISABLE_CKPT(); // The lock is released inside the macro.
+
   int ret = _real_connect(sockfd,serv_addr,addrlen);
-
-  //no blocking connect... need to hang around until it is writable
-  if (ret < 0 && errno == EINPROGRESS)
-  {
-    fd_set wfds;
-    struct timeval tv;
-    int retval;
-
-    FD_ZERO(&wfds);
-    FD_SET(sockfd, &wfds);
-
-    tv.tv_sec = 15;
-    tv.tv_usec = 0;
-
-    retval = select(sockfd+1, NULL, &wfds, NULL, &tv);
-    /* Don't rely on the value of tv now! */
-
-    if (retval == -1)
-      perror("select()");
-    else if (FD_ISSET(sockfd, &wfds))
-    {
-      int val = -1;
-      socklen_t sz = sizeof(val);
-      getsockopt(sockfd,SOL_SOCKET,SO_ERROR,&val,&sz);
-      if (val==0) ret = 0;
-    }
-    else
-      JTRACE("No data within five seconds.");
-  }
-
-  if (ret != -1 && dmtcp_is_running_state() && !_doNotProcessSockets) {
+  if ((ret != -1 || errno == EINPROGRESS) &&
+      dmtcp_is_running_state() &&
+      !_doNotProcessSockets) {
     TcpConnection *con =
       (TcpConnection*) SocketConnList::instance().getConnection(sockfd);
     if (con == NULL) {
       JTRACE("Connect operation on unsupported socket type.");
     } else {
-      con->onConnect(serv_addr, addrlen);
-
-#if HANDSHAKE_ON_CONNECT == 1
-      JTRACE("connected, sending 1-way handshake") (sockfd) (con->id());
-      con->sendHandshake(sockfd, DmtcpWorker::instance().coordinatorId());
-      JTRACE("1-way handshake sent");
-#else
+      con->onConnect(serv_addr, addrlen, (ret == -1 && errno == EINPROGRESS));
       JTRACE("connected") (sockfd) (con->id());
-#endif
     }
   }
+
   DMTCP_PLUGIN_ENABLE_CKPT();
   return ret;
 }
@@ -169,6 +136,10 @@ static void process_accept(int ret, int sockfd, struct sockaddr *addr,
   JASSERT(ret != -1);
   TcpConnection *parent =
     (TcpConnection*) SocketConnList::instance().getConnection(sockfd);
+  if (parent == NULL) {
+    JTRACE("unable to get the connection.");
+    return;
+  }
   TcpConnection* con = new TcpConnection(*parent, ConnectionIdentifier::null());
   if (con == NULL) {
     JTRACE("accept operation on unsupported socket type.");
@@ -176,13 +147,7 @@ static void process_accept(int ret, int sockfd, struct sockaddr *addr,
   }
   SocketConnList::instance().add(ret, con);
 
-#if HANDSHAKE_ON_CONNECT == 1
-  JTRACE("accepted, waiting for 1-way handshake") (sockfd) (con->id());
-  con->recvHandshake(ret, DmtcpWorker::instance().coordinatorId());
-  JTRACE("1-way handshake received") (con->getRemoteId());
-#else
   JTRACE("accepted incoming connection") (sockfd) (con->id());
-#endif
 }
 
 extern "C" int accept(int sockfd, struct sockaddr *addr,

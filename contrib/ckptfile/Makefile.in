@@ -100,6 +100,26 @@ ${LIBNAME}: $(OBJS) ${HEADERS}
 	@rm -f ${LIBNAME}
 	$(CXXLINK) $(OBJS) $(LIB_LDFLAGS) $(LDADD)
 
+check: ${LIBNAME}
+	@echo "Initializing..."
+	@gcc -g -O0 test/ckpttest.c -o ./ckpttest
+	@cp test/test1 test/test2 .
+	@echo "${PWD}/test1:SAVE_AND_RESTORE=1;RESTART_PATH=/home/user/hello" >> ./test/ckptfiles.dat
+	@echo "${PWD}/test2:SAVE_AND_RESTORE=0;RESTART_PATH=/tmp/test3" >> ./test/ckptfiles.dat
+	DMTCP_CKPTFILES_DATA=./test/ckptfiles.dat ../../bin/dmtcp_launch --with-plugin ../../lib/dmtcp/libdmtcp_ckptfile.so  ./ckpttest &
+	@sleep 3
+	@echo "Checkpointing..."
+	../../bin/dmtcp_command -bc
+	../../bin/dmtcp_command -k
+	@echo "Restarting..."
+	rm -f ./test1 && cp ./test2 /tmp/test3 && rm -f ./test2
+	../../bin/dmtcp_restart ckpt*.dmtcp
+	@echo "Cleaning up..."
+	@sleep 3
+	rm -f ./ckpttest ./test1 ./test2 /tmp/test3 ./test/ckptfiles.dat
+	rm -rf dmtcp-autotest-* ckpt_*_files
+	rm -f ckpt_*.dmtcp dmtcp_restart_script*
+
 %.o: %.c ${HEADERS}
 	$(COMPILE)  $<
 

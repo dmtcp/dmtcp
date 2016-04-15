@@ -154,19 +154,23 @@ dmtcp4: dmtcp4.c
 dmtcp5: dmtcp5.c
 	-$(CC) -o $@ $< $(CFLAGS) -lpthread
 
+pthread%: pthread%.c
+	-$(CC) -o $@ $< $(CFLAGS) -lpthread
+
+mutex%: mutex%.c
+	-$(CC) -o $@ $< $(CFLAGS) -lpthread
+
 # FIXME:  We should create a test in configure.ac to see if this compiles.
 ifeq (${DO_PTHREAD_ATFORK},yes)
 libpthread_atfork1.so: pthread_atfork1.c
-	${CC} ${CFLAGS} -shared -fPIC -DLIB -o libpthread_atfork1.so $<
+	${CC} ${CFLAGS} -shared -fPIC -DLIB -o $@ $<
 pthread_atfork1: pthread_atfork1.c libpthread_atfork1.so
-	${CC} ${CFLAGS} -o pthread_atfork1 pthread_atfork1.c \
-	  -L${PWD} -lpthread_atfork1 -lpthread
+	${CC} ${CFLAGS} -o $@ $< -L${PWD} -lpthread_atfork1 -lpthread
 
 libpthread_atfork2.so: pthread_atfork2.c
-	${CC} ${CFLAGS} -shared -fPIC -DLIB -o libpthread_atfork2.so $<
+	${CC} ${CFLAGS} -shared -fPIC -DLIB -o $@ $<
 pthread_atfork2: pthread_atfork2.c libpthread_atfork2.so
-	${CC} ${CFLAGS} -o pthread_atfork2 pthread_atfork2.c \
-	  -L${PWD} -lpthread_atfork2 -lpthread
+	${CC} ${CFLAGS} -o $@ $< -L${PWD} -lpthread_atfork2 -lpthread
 else
 # FIXME:  On aarch64, gcc-4.9.2, libcg-2.19, pthread_atfork error:
 #    /usr/bin/ld: pthread_atfork: hidden symbol `pthread_atfork' in ...
@@ -179,14 +183,11 @@ endif
 
 ifeq (${HAS_CMA},yes)
 cma: cma.c
-	${CC} ${CFLAGS} -o cma cma.c
+	$(CC) -o $@ $< $(CFLAGS)
 else
 cma: cma.c
 	@ echo "#cma: Skipping test for cma.  CMA requires Linux 3.2 or later."
 endif
-
-pthread%: pthread%.c
-	-$(CC) -o $@ $< $(CFLAGS) -lpthread
 
 posix-mq%: posix-mq%.c
 	-$(CC) -o $@ $< $(CFLAGS) -lrt
@@ -194,19 +195,20 @@ posix-mq%: posix-mq%.c
 inotify%: inotify%.c
 	-$(CC) -o $@ $< $(CFLAGS) -lpthread
 
-# dlopen will dlopen/dlclose libdlopen-lib[12].so
+# dlopen1 will dlopen/dlclose libdlopen-lib[12].so
 libdlopen-lib1.so: dlopen1.c
-	${CC} ${CFLAGS} -shared -fPIC  -DLIB1 -o libdlopen-lib1.so $<
+	${CC} ${CFLAGS} -shared -fPIC  -DLIB1 -o $@ $<
 libdlopen-lib2.so: dlopen1.c
-	${CC} ${CFLAGS} -shared -fPIC  -DLIB2 -o libdlopen-lib2.so $<
-dlopen%: dlopen%.c libdlopen-lib1.so libdlopen-lib2.so
+	${CC} ${CFLAGS} -shared -fPIC  -DLIB2 -o $@ $<
+dlopen1: dlopen1.c libdlopen-lib1.so libdlopen-lib2.so
 	${CC} $(CFLAGS) -o $@ $< -ldl
 
+# dlopen2 will dlopen/dlclose libdlopen-lib[34].so
 libdlopen-lib3.so: dlopen2.cpp
-	${CXX} ${CXXFLAGS} -shared -fPIC -DLIB3 -o libdlopen-lib3.so $<
+	${CXX} ${CXXFLAGS} -shared -fPIC -DLIB3 -o $@ $<
 libdlopen-lib4.so: dlopen2.cpp
-	${CXX} ${CXXFLAGS} -shared -fPIC -DLIB4 -o libdlopen-lib4.so $<
-dlopen%: dlopen%.cpp libdlopen-lib4.so libdlopen-lib4.so
+	${CXX} ${CXXFLAGS} -shared -fPIC -DLIB4 -o $@ $<
+dlopen2: dlopen2.cpp libdlopen-lib3.so libdlopen-lib4.so
 	${CXX} ${CXXFLAGS} -o $@ $< -ldl
 
 %.class: %.java
