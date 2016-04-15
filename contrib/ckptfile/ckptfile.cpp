@@ -24,6 +24,7 @@
 struct ckptfilesdata {
   char filep[MAX_FILE_LEN];
   int  ckpt;
+  int overwrite;
   char rstrt[MAX_FILE_LEN];
 };
 
@@ -79,8 +80,8 @@ static int listlen = 0;
 
 /*
  * Expects the buffer to contain data in the following format:
- *   FILE:SAVE_AND_RESTORE={1|0};RESTART_PATH=NEW_FILE
- *   FILE_PATTERN:SAVE_AND_RESTORE={1|0};RESTART_PATH=NEW_FILE_PATTERN
+ *   FILE:SAVE_AND_RESTORE={1|2|0};RESTART_PATH=NEW_FILE
+ *   FILE_PATTERN:SAVE_AND_RESTORE={1|2|0};RESTART_PATH=NEW_FILE_PATTERN
  */
 static int
 parse_data_file()
@@ -97,7 +98,15 @@ parse_data_file()
       j++;
     }
     c += ckptoffset;
-    ckptfileslist[i].ckpt = (*c == '1') ? 1 : 0;
+    ckptfileslist[i].overwrite = 0;
+    if(*c == '0') {
+      ckptfileslist[i].ckpt = 0;
+    } else {
+      ckptfileslist[i].ckpt = 1;
+      if(*c == '2') {
+        ckptfileslist[i].overwrite = 1;
+      }
+    }
     c += rstrtoffset;
     j = 0;
     while (*c != '\n') {
@@ -123,6 +132,19 @@ is_in_ckptfileslist(const char *abspath)
   return 0;
 }
 
+static int
+is_overwrite_file(const char *abspath)
+{
+  int ret = -1;
+  for (int i = 0; i < listlen; i++) {
+    ret = fnmatch(ckptfileslist[i].filep, abspath, 0);
+    if (ret == 0) {
+      return ckptfileslist[i].overwrite;
+    }
+  }
+  return 0;
+}
+
 static void
 get_restart_path(const char *abspath, const char *cwd,
                  char *newpath)
@@ -142,6 +164,12 @@ extern "C" int
 dmtcp_must_ckpt_file(const char *abspath)
 {
   return is_in_ckptfileslist(abspath);
+}
+
+extern "C" int 
+dmtcp_overwrite_ckptfile_on_restart(const char* abspath)
+{
+ return is_overwrite_file(abspath);
 }
 
 extern "C" void

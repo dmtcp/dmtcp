@@ -649,7 +649,13 @@ void FileConnection::refill(bool isRestart)
   if (strstr(_path.c_str(), "infiniband/uverbs") ||
       strstr(_path.c_str(), "uverbs-event")) return;
 
-  if (_ckpted_file && _fileAlreadyExists) {
+  bool overwrite_file = false;
+  if(dmtcp_overwrite_ckptfile_on_restart && 
+      dmtcp_overwrite_ckptfile_on_restart(_path.c_str())) {
+    overwrite_file = true;
+  }
+
+  if (_ckpted_file && _fileAlreadyExists && !overwrite_file) {
     string savedFilePath = getSavedFilePath(_path);
     int savedFd = _real_open(savedFilePath.c_str(), O_RDONLY, 0);
     JASSERT(savedFd != -1) (JASSERT_ERRNO) (savedFilePath);
@@ -702,15 +708,17 @@ void FileConnection::refill(bool isRestart)
   }
 
   errno = 0;
-  if (jalib::Filesystem::FileExists(_path) &&
-      stat(_path.c_str() ,&statbuf) == 0 && S_ISREG(statbuf.st_mode)) {
-    if (_offset <= statbuf.st_size && _offset <= _st_size) {
-      JASSERT(lseek(_fds[0], _offset, SEEK_SET) == _offset)
-        (_path) (_offset) (JASSERT_ERRNO);
-      //JTRACE("lseek(_fds[0], _offset, SEEK_SET)") (_fds[0]) (_offset);
-    } else if (_offset > statbuf.st_size || _offset > _st_size) {
-      JWARNING(false) (_path) (_offset) (_st_size) (statbuf.st_size)
-        .Text("No lseek done:  offset is larger than min of old and new size.");
+  if(!_ckpted_file || (_ckpted_file && !overwrite_file)) {
+    if (jalib::Filesystem::FileExists(_path) &&
+        stat(_path.c_str() ,&statbuf) == 0 && S_ISREG(statbuf.st_mode)) {
+      if (_offset <= statbuf.st_size && _offset <= _st_size) {
+        JASSERT(lseek(_fds[0], _offset, SEEK_SET) == _offset)
+          (_path) (_offset) (JASSERT_ERRNO);
+        //JTRACE("lseek(_fds[0], _offset, SEEK_SET)") (_fds[0]) (_offset);
+      } else if (_offset > statbuf.st_size || _offset > _st_size) {
+        JWARNING(false) (_path) (_offset) (_st_size) (statbuf.st_size)
+          .Text("No lseek done:  offset is larger than min of old and new size.");
+      }
     }
   }
   refreshPath();
@@ -821,6 +829,20 @@ void FileConnection::postRestart()
 
     if (fd == -1) {
       _fileAlreadyExists = true;
+      bool overwrite_file = false;
+      if(dmtcp_overwrite_ckptfile_on_restart &&
+          dmtcp_overwrite_ckptfile_on_restart(_path.c_str())) {
+        overwrite_file = true;
+      }
+      if(overwrite_file) {
+        int origFd = _real_open(_path.c_str(), O_RDWR | O_TRUNC, 
+                        S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+
+        int ckptFd = _real_open(savedFilePath.c_str(), O_RDONLY, 0);
+        writeFileFromFd(ckptFd, origFd); // cp saved path
+        _real_close(origFd);
+        _real_close(ckptFd);
+      }
     } else {
       int srcFd = _real_open(savedFilePath.c_str(), O_RDONLY, 0);
       JASSERT(srcFd != -1) (_path) (savedFilePath) (JASSERT_ERRNO)
