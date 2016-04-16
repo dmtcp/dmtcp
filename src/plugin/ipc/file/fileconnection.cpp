@@ -141,6 +141,9 @@ void FileConnection::drain()
     // one after restart and if the current process wasn't the leader, it never
     // had a chance to update the _path. Update it now.
     _path = jalib::Filesystem::GetDeviceName(_fds[0]);
+    if (!jalib::Filesystem::FileExists(_path)) {
+     _type = FILE_DELETED;
+    }
   }
 
   calculateRelativePath();
