@@ -212,7 +212,7 @@ void FileConnection::preCkpt()
       JASSERT(destFd != -1) (JASSERT_ERRNO) (_path) (savedFilePath);
 
       JTRACE("Saving checkpointed copy of the file") (_path) (savedFilePath);
-      if (_flags & O_WRONLY) {
+      if (_fcntlFlags & O_WRONLY) {
         // If the file is opened() in write-only mode. Open it in readonly mode
         // to create the ckpt copy.
         int tmpfd = _real_open(_path.c_str(), O_RDONLY, 0);
