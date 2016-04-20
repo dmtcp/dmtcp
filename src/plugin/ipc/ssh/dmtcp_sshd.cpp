@@ -11,12 +11,14 @@
 #include <assert.h>
 #include <string.h>
 #include "ssh.h"
+#include "util.h"
 #include "util_ipc.h"
 
 using dmtcp::Util::sendFd;
 
 static pid_t childPid = -1;
 static int remotePeerSock = -1;
+static int isRshProcess = 0; 
 
 // Connect to dmtcp_ssh process
 static void connectToRemotePeer(char *host, int port)
@@ -92,6 +94,9 @@ static void dummySshdProcess(char *listenAddr)
   exit(0);
 }
 
+//shift args
+#define shift argc--,argv++
+
 int main(int argc, char *argv[], char *envp[])
 {
   int in[2], out[2], err[2];
@@ -103,23 +108,29 @@ int main(int argc, char *argv[], char *envp[])
     exit(1);
   }
 
-  if (strcmp(argv[1], "--listenAddr") == 0) {
-    dummySshdProcess(argv[2]);
-    printf("ERROR: Not Implemented\n");
-    assert(0);
+  shift;
+  while (true) { 
+    if ( argc > 1 && (strcmp(argv[0], "--listenAddr") == 0)) {
+      dummySshdProcess(argv[1]);
+      shift; shift;
+      printf("ERROR: Not Implemented\n");
+      assert(0);
+    } else if ( argc > 1 && (strcmp(argv[0],"--host") == 0)) {
+      host = argv[1];
+      shift; shift;
+    } else if ( argc > 1 && (strcmp(argv[0], "--port") == 0)) {
+      port = atoi(argv[1]);
+      shift; shift;
+    } else if ( strcmp(argv[0], "--rsh-slave") == 0) {
+      isRshProcess = 1;
+      shift;
+    } else if ( strcmp(argv[0], "--ssh-slave") == 0) {
+      isRshProcess = 0;
+      shift;
+    } else {
+      break;
+    }
   }
-
-  if (strcmp(argv[1], "--host") != 0) {
-    printf("Missing --host argument");
-    assert(0);
-  }
-  host = argv[2];
-
-  if (strcmp(argv[3], "--port") != 0) {
-    printf("Missing --port argument");
-    exit(0);
-  }
-  port = atoi(argv[4]);
 
   connectToRemotePeer(host, port);
 
@@ -131,6 +142,19 @@ int main(int argc, char *argv[], char *envp[])
   }
   if (pipe(err) != 0) {
     perror("Error creating pipe: ");
+  }
+
+  /* Checkpoint database should have information about which command rsh/ssh
+   * lauched the daemon orginally on remote host. This information is required
+   * at 2 places, first in restart script which will launch the user process/
+   * dmtcp_sshd on remote host using the same command. Secondly launching
+   * dummy daemon which will launched by the same command. 
+   */
+
+  if(isRshProcess) {
+    setenv(ENV_VAR_REMOTE_SHELL_CMD, "rsh", 1);
+  } else {
+    setenv(ENV_VAR_REMOTE_SHELL_CMD, "ssh", 1);
   }
 
   childPid = fork();
@@ -146,7 +170,7 @@ int main(int argc, char *argv[], char *envp[])
     close(out[1]);
     close(err[1]);
 
-    execvp(argv[5], &argv[5]);
+    execvp(argv[0], &argv[0]);
     printf("%s:%d DMTCP Error detected. Failed to exec.", __FILE__, __LINE__);
     abort();
   }
@@ -161,7 +185,7 @@ int main(int argc, char *argv[], char *envp[])
 
   assert(dmtcp_ssh_register_fds);
   dmtcp_ssh_register_fds(true, child_stdinfd, child_stdoutfd, child_stderrfd,
-                         remotePeerSock, 0);
+                         remotePeerSock, 0, isRshProcess);
 
   client_loop(child_stdinfd, child_stdoutfd, child_stderrfd, remotePeerSock);
   int status;

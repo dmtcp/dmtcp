@@ -418,7 +418,9 @@ void DmtcpCoordinator::updateMinimumState(WorkerState oldState)
                                theCheckpointInterval,
                                thePort,
                                compId,
-                               _restartFilenames);
+                               _restartFilenames,
+                               _rshCmdFileNames,
+                               _sshCmdFileNames);
 
     if (exitAfterCkpt || exitAfterCkptOnce) {
       JNOTE("Checkpoint Done. Killing all peers.");
@@ -545,11 +547,23 @@ void DmtcpCoordinator::onData(CoordClient *client)
         .Text ( "extra data expected with DMT_CKPT_FILENAME message" );
       string ckptFilename;
       string hostname;
-      ckptFilename = extraData;
-      hostname = extraData + ckptFilename.length() + 1;
+      string shellType;
 
-      JTRACE ( "recording restart info" ) ( ckptFilename ) ( hostname );
-      _restartFilenames[hostname].push_back ( ckptFilename );
+      ckptFilename = extraData;
+      shellType = extraData + ckptFilename.length() + 1;
+      hostname = extraData + shellType.length() + 1 + ckptFilename.length() + 1;
+
+      JTRACE ( "recording restart info with shellType" ) ( ckptFilename ) ( hostname ) (shellType);
+      if(shellType.empty()) {
+        _restartFilenames[hostname].push_back ( ckptFilename );
+      } else if(shellType == "rsh") {
+        _rshCmdFileNames[hostname].push_back( ckptFilename );
+      } else if(shellType == "ssh") {
+        _sshCmdFileNames[hostname].push_back( ckptFilename );
+      } else {
+        JASSERT(0)(shellType)
+          .Text("Shell command not supported. Report this to DMTCP community.");
+      }
     }
     break;
     case DMT_GET_CKPT_DIR:
@@ -1032,6 +1046,8 @@ bool DmtcpCoordinator::startCheckpoint()
     time(&ckptTimeStamp);
     JTIMER_START ( checkpoint );
     _restartFilenames.clear();
+    _rshCmdFileNames.clear();
+    _sshCmdFileNames.clear();
     JNOTE ( "starting checkpoint, suspending all nodes" )( s.numPeers );
     compId.incrementGeneration();
     JNOTE("Incremented computationGeneration") (compId.computationGeneration());
