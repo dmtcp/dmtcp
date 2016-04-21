@@ -98,6 +98,8 @@ static const char* theUsage =
   "              Directory to store temporary files (default: $TMDPIR or /tmp)\n"
   "  -q, --quiet (or set environment variable DMTCP_QUIET = 0, 1, or 2)\n"
   "              Skip NOTE messages; if given twice, also skip WARNINGs\n"
+  "  --coord-logfile PATH (environment variable DMTCP_COORD_LOG_FILENAME\n"
+  "              Coordinator will dump its logs to the given file\n"
   "  --help\n"
   "              Print this message and exit.\n"
   "  --version\n"
@@ -670,6 +672,9 @@ int main(int argc, char** argv)
       shift;
     } else if (s == "-i" || s == "--interval") {
       setenv(ENV_VAR_CKPT_INTR, argv[1], 1);
+      shift; shift;
+    } else if (s == "--coord-logfile") {
+      setenv(ENV_VAR_COORD_LOGFILE, argv[1], 1);
       shift; shift;
     } else if (argv[0][0] == '-' && argv[0][1] == 'i' &&
                isdigit(argv[0][2])) { // else if -i5, for example
