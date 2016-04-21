@@ -122,6 +122,8 @@ static const char* theUsage =
   "  -i, --interval (environment variable DMTCP_CHECKPOINT_INTERVAL):\n"
   "      Time in seconds between automatic checkpoints\n"
   "      (default: 0, disabled)\n"
+  "  --coord-logfile PATH (environment variable DMTCP_COORD_LOG_FILENAME\n"
+  "              Coordinator will dump its logs to the given file\n"
   "  -q, --quiet \n"
   "      Skip startup msg; Skip NOTE msgs; if given twice, also skip WARNINGs\n"
   "  --help:\n"
@@ -1312,9 +1314,21 @@ int main ( int argc, char** argv )
   if ( portStr != NULL ) thePort = jalib::StringToInt( portStr );
 
   bool daemon = false;
+  bool useLogFile = false;
+  string logFilename = "";
   bool quiet = false;
 
   char * tmpdir_arg = NULL;
+
+  /* NOTE: The convention is that user-specified explicit runtime arguments
+   *       get a higher priority than env. vars. The logFilename variable will
+   *       be over-written if the coordinator was invoked with
+   *       `--logfile <filename>.
+   */
+  if (getenv(ENV_VAR_COORD_LOGFILE)) {
+    useLogFile = true;
+    logFilename = getenv(ENV_VAR_COORD_LOGFILE);
+  }
 
   shift;
   while(argc > 0){
@@ -1338,6 +1352,10 @@ int main ( int argc, char** argv )
     }else if(s=="--daemon"){
       daemon = true;
       shift;
+    } else if(s=="--coord-logfile") {
+      useLogFile = true;
+      logFilename = argv[1];
+      shift; shift;
     } else if (s == "-i" || s == "--interval") {
       setenv(ENV_VAR_CKPT_INTR, argv[1], 1);
       shift; shift;
@@ -1459,8 +1477,17 @@ int main ( int argc, char** argv )
     if (!quiet) {
       JASSERT_STDERR  << "Backgrounding...\n";
     }
-    int fd = open("/dev/null", O_RDWR);
-    JASSERT(dup2(fd, STDIN_FILENO) == STDIN_FILENO);
+    int fd = -1;
+    if (!useLogFile) {
+      fd = open("/dev/null", O_RDWR);
+      JASSERT(dup2(fd, STDIN_FILENO) == STDIN_FILENO);
+    } else {
+      fd = open(logFilename.c_str(), O_CREAT|O_WRONLY|O_APPEND, 0666);
+      JASSERT_SET_LOG(logFilename, "", "");
+      int nullFd = open("/dev/null", O_RDWR);
+      JASSERT(dup2(nullFd, STDIN_FILENO) == STDIN_FILENO);
+      close(nullFd);
+    }
     JASSERT(dup2(fd, STDOUT_FILENO) == STDOUT_FILENO);
     JASSERT(dup2(fd, STDERR_FILENO) == STDERR_FILENO);
     JASSERT_CLOSE_STDERR();

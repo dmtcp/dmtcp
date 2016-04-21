@@ -137,6 +137,8 @@ static const char* usage =
   "  --interval, -i, (environment variable DMTCP_CHECKPOINT_INTERVAL):\n"
   "      Time in seconds between automatic checkpoints\n"
   "      (Default: Use pre-checkpoint value)\n"
+  "  --coord-logfile PATH (environment variable DMTCP_COORD_LOG_FILENAME\n"
+  "              Coordinator will dump its logs to the given file\n"
   "  --help:\n"
   "      Print this message and exit.\'\n"
   "\n\n"
@@ -156,6 +158,9 @@ static const char* cmdlineArgHandler =
   "          shift; shift;;\n"
   "        --coord-port|--port|-p)\n"
   "          coord_port=\"$2\"\n"
+  "          shift; shift;;\n"
+  "        --coord-logfile)\n"
+  "          coord_logfile=\"$2\"\n"
   "          shift; shift;;\n"
   "        --hostfile)\n"
   "          hostfile=\"$2\"\n"
@@ -207,7 +212,7 @@ static const char* singleHostProcessing =
   "  ckpt_files=$given_ckpt_files\n"
   "fi\n\n"
 
-  "coordinator_info=\"--coord-host $coord_host --coord-port $coord_port\"\n"
+  "coordinator_info=\"--coord-host $coord_host --coord-port $coord_port --coord-logfile $coord_logfile\"\n"
 
   "tmpdir=\n"
   "if [ ! -z \"$DMTCP_TMPDIR\" ]; then\n"
@@ -292,7 +297,7 @@ static const char* multiHostProcessing =
   "  if [ -z $maybebg ]; then\n"
   "    $maybexterm /usr/bin/ssh -t \"$worker_host\" \\\n"
   "      $dmt_rstr_cmd --coord-host \"$coord_host\""
-                                             " --cord-port \"$coord_port\"\\\n"
+                                             " --cord-port \"$coord_port\" --coord-logfile \"$coord_logfile\"\\\n"
   "      $ckpt_dir --join --interval \"$checkpoint_interval\" $tmpdir \\\n"
   "      $new_ckpt_files_group\n"
   "  else\n"
@@ -300,14 +305,14 @@ static const char* multiHostProcessing =
   // In Open MPI 1.4, without this (sh -c ...), orterun hangs at the
   // end of the computation until user presses enter key.
   "      \"/bin/sh -c \'$dmt_rstr_cmd --coord-host $coord_host"
-                                                " --coord-port $coord_port\\\n"
+                                                " --coord-port $coord_port --coord-logfile $coord_logfile\\\n"
   "      $ckpt_dir --join --interval \"$checkpoint_interval\" $tmpdir \\\n"
   "      $new_ckpt_files_group\'\" &\n"
   "  fi\n\n"
   "done\n\n"
   "if [ -n \"$localhost_ckpt_files_group\" ]; then\n"
   "exec $dmt_rstr_cmd --coord-host \"$coord_host\""
-                                           " --coord-port \"$coord_port\" \\\n"
+                                           " --coord-port \"$coord_port\" --coord-logfile \"$coord_logfile\" \\\n"
   "  $ckpt_dir $maybejoin --interval \"$checkpoint_interval\" $tmpdir $noStrictChecking $localhost_ckpt_files_group\n"
   "fi\n\n"
 
