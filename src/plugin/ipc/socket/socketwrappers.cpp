@@ -76,6 +76,7 @@ extern "C" int connect(int sockfd, const struct sockaddr *serv_addr,
   DMTCP_PLUGIN_DISABLE_CKPT(); // The lock is released inside the macro.
 
   int ret = _real_connect(sockfd,serv_addr,addrlen);
+  int savedErrno = errno; // Save errno to prevent modifications by the following code
   if ((ret != -1 || errno == EINPROGRESS) &&
       dmtcp_is_running_state() &&
       !_doNotProcessSockets) {
@@ -89,6 +90,7 @@ extern "C" int connect(int sockfd, const struct sockaddr *serv_addr,
     }
   }
 
+  errno = savedErrno;
   DMTCP_PLUGIN_ENABLE_CKPT();
   return ret;
 }
