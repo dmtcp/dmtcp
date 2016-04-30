@@ -471,7 +471,7 @@ static bool areFilesEqual(int fd, int savedFd, size_t size)
     readBytes = Util::readAll(savedFd, buf1, MIN(bufSize, size));
     JASSERT(readBytes != -1) (JASSERT_ERRNO) .Text("Read Failed");
     if (readBytes == 0) break;
-    JASSERT(Util::readAll(fd, buf2, readBytes) == readBytes);
+    if (Util::readAll(fd, buf2, readBytes) != readBytes) break;
     if (memcmp(buf1, buf2, readBytes) != 0) {
       break;
     }
