@@ -123,6 +123,7 @@ namespace dmtcp
       string _rel_path;
       string _ckptFilesDir;
       int32_t       _ckpted_file;
+      int32_t       _allow_overwrite;
       int32_t       _fileAlreadyExists;
       int32_t       _rmtype;
       int64_t       _flags;

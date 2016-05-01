@@ -119,6 +119,7 @@ void FileConnection::drain()
   JASSERT(_fds.size() > 0);
 
   _ckpted_file = false;
+  _allow_overwrite = false;
 
   // Read the current file descriptor offset
   _offset = lseek(_fds[0], 0, SEEK_CUR);
@@ -228,6 +229,15 @@ void FileConnection::preCkpt()
       JTRACE("Not checkpointing this file") (_path);
       _ckpted_file = false;
     }
+    /* The _allow_overwrite flag is clear by default; we only set
+     * it for a regular file that has its _ckpted_file flag set and
+     * only for the process that's been chosen as the fd leader.
+     */
+    if (_type == FILE_REGULAR &&
+        _ckpted_file &&
+        dmtcp_allow_overwrite_with_ckpted_files()) {
+      _allow_overwrite = true;
+    }
   }
 }
 
@@ -252,12 +262,24 @@ void FileConnection::refill(bool isRestart)
                 "   Change this function and re-compile, if you want "
                 "different behavior.");
       } else {
-        const char *errMsg =
+        char *errMsg =
           "\n**** File already exists! Checkpointed copy can't be restored.\n"
           "       The Contents of checkpointed copy differ from the "
           "contents of the existing copy.\n"
           "****Delete the existing file and try again!";
-        JASSERT(false) (_path) (savedFilePath) (errMsg);
+        bool shouldAssert = true;
+        if (_allow_overwrite) {
+          JTRACE("Copying saved checkpointed file to original location")
+            (savedFilePath) (_path);
+          writeFileFromFd(savedFd, _fds[0]);
+          errMsg =
+            "\n**** File already exists!\n"
+            "       The Contents of checkpointed copy differ from the "
+            "contents of the existing copy.\n"
+            "****Overwriting the existing copy with the checkpointed copy!";
+          shouldAssert = false;
+        }
+        JASSERT(!shouldAssert) (_path) (savedFilePath) (errMsg);
       }
     }
     _real_close(savedFd);
@@ -526,7 +548,7 @@ void FileConnection::serializeSubClass(jalib::JBinarySerializer& o)
   o & _path & _rel_path;
   o & _offset & _st_dev & _st_ino & _st_size & _ckpted_file & _rmtype;
   JTRACE("Serializing FileConn.") (_path) (_rel_path)
-    (dmtcp_get_ckpt_files_subdir()) (_ckpted_file) (_fcntlFlags);
+    (dmtcp_get_ckpt_files_subdir()) (_ckpted_file) (_allow_overwrite) (_fcntlFlags);
 }
 
 /*****************************************************************************

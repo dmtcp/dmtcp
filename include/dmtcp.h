@@ -229,6 +229,7 @@ EXTERNC int dmtcp_set_coord_ckpt_dir(const char* dir) __attribute__ ((weak));
 EXTERNC const char* dmtcp_get_ckpt_filename(void) __attribute__((weak));
 EXTERNC const char* dmtcp_get_ckpt_files_subdir(void);
 EXTERNC int dmtcp_should_ckpt_open_files(void);
+EXTERNC int dmtcp_allow_overwrite_with_ckpted_files(void);
 
 EXTERNC int dmtcp_get_ckpt_signal(void);
 EXTERNC const char* dmtcp_get_uniquepid_str(void) __attribute__((weak));
