@@ -93,6 +93,10 @@ static const char* theUsage =
   "  --checkpoint-open-files\n"
   "              Checkpoint open files and restore old working dir.\n"
   "              (default: do neither)\n"
+  "  --allow-file-overwrite\n"
+  "              If used with --checkpoint-open-files, allows a saved file\n"
+  "              to overwrite its existing copy at original location\n"
+  "              (default: file overwrites are not allowed)\n"
   "  --ckpt-signal signum\n"
   "              Signal number used internally by DMTCP for checkpointing\n"
   "              (default: SIGUSR2/12).\n"
@@ -296,6 +300,9 @@ static void processArgs(int *orig_argc, char ***orig_argv,
       shift; shift;
     } else if (s == "--checkpoint-open-files" || s == "--ckpt-open-files") {
       checkpointOpenFiles = true;
+      shift;
+    } else if (s == "--allow-file-overwrite") {
+      setenv(ENV_VAR_ALLOW_OVERWRITE_WITH_CKPTED_FILES, "1", 0);
       shift;
     } else if (s == "--ptrace") {
       enablePtracePlugin = true;

@@ -235,6 +235,11 @@ EXTERNC int dmtcp_should_ckpt_open_files(void)
   return getenv(ENV_VAR_CKPT_OPEN_FILES) != NULL;
 }
 
+EXTERNC int dmtcp_allow_overwrite_with_ckpted_files(void)
+{
+  return getenv(ENV_VAR_ALLOW_OVERWRITE_WITH_CKPTED_FILES) != NULL;
+}
+
 EXTERNC const char* dmtcp_get_executable_path(void)
 {
   return ProcessInfo::instance().procSelfExe().c_str();
