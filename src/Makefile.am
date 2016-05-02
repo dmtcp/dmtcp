@@ -57,7 +57,7 @@ nobase_noinst_HEADERS = constants.h \
 	$(dmtcpincludedir)/virtualidtable.h $(dmtcpincludedir)/procmapsarea.h \
 	$(dmtcpincludedir)/procselfmaps.h \
 	restartscript.h \
-	dmtcp_coordinator.h dmtcpmessagetypes.h lookup_service.h \
+	dmtcp_coordinator.h dmtcpmessagetypes.h workerstate.h lookup_service.h \
 	dmtcpworker.h threadsync.h coordinatorapi.h \
 	barrierinfo.h pluginmanager.h plugininfo.h \
 	syscallwrappers.h \
@@ -69,6 +69,7 @@ nobase_noinst_HEADERS = constants.h \
 # dmtcp_launch, dmtcp_command, dmtcp_coordinator, etc.
 #   should not need wrappers.
 libdmtcpinternal_a_SOURCES = dmtcpmessagetypes.cpp  coordinatorapi.cpp \
+			     workerstate.cpp \
 			     uniquepid.cpp shareddata.cpp \
 			     util_exec.cpp util_misc.cpp util_init.cpp \
 			     jalibinterface.cpp processinfo.cpp procselfmaps.cpp

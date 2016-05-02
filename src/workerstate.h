@@ -19,50 +19,32 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#ifndef DMTCPDMTCPWORKER_H
-#define DMTCPDMTCPWORKER_H
+#ifndef __WORKER_STATE_H__
+#define __WORKER_STATE_H__
 
-#include "jalloc.h"
-
-void restoreUserLDPRELOAD();
+#include "dmtcpalloc.h"
 
 namespace dmtcp
 {
-  class DmtcpWorker
+namespace WorkerState
+{
+  enum eWorkerState
   {
-    public:
-#ifdef JALIB_ALLOCATOR
-      static void* operator new(size_t nbytes, void* p) { return p; }
-      static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
-      static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
-#endif
-      DmtcpWorker();
-      ~DmtcpWorker();
-      static DmtcpWorker& instance();
-
-      static void waitForSuspendMessage();
-      static void acknowledgeSuspendMsg();
-      static void informCoordinatorOfRUNNINGState();
-
-      static void waitForCheckpointRequest();
-      static void preCheckpoint();
-      static void postCheckpoint();
-      static void postRestart();
-
-      static void resetOnFork();
-      static void cleanupWorker();
-
-      static int determineCkptSignal();
-
-      static void setExitInProgress() { _exitInProgress = true; };
-      static bool exitInProgress() { return _exitInProgress; };
-      static void interruptCkpthread();
-
-    private:
-      static DmtcpWorker theInstance;
-      static bool _exitInProgress;
-      static bool _exitAfterCkpt;
+    UNKNOWN,
+    RUNNING,
+    SUSPENDED,
+    CHECKPOINTING,
+    CHECKPOINTED,
+    RESTARTING,
+    _MAX
   };
-}
 
-#endif
+  void setCurrentState(const eWorkerState& value);
+  eWorkerState currentState();
+
+  ostream& operator << (ostream& o, const eWorkerState& s);
+
+}//namespace WorkerState
+}//namespace dmtcp
+
+#endif // #ifndef __WORKER_STATE_H__

@@ -20,28 +20,9 @@
  ****************************************************************************/
 
 #include "dmtcpmessagetypes.h"
+#include "workerstate.h"
 
 using namespace dmtcp;
-
-static WorkerState *theState = NULL;
-WorkerState& WorkerState::instance()
-{
-  if (theState == NULL) {
-    theState = new WorkerState();
-  }
-  return *theState;
-}
-
-
-WorkerState WorkerState::currentState()
-{
-  return instance();
-}
-
-void WorkerState::setCurrentState ( const WorkerState& theValue )
-{
-  instance() = theValue;
-}
 
 DmtcpMessage::DmtcpMessage ( DmtcpMessageType t /*= DMT_NULL*/ )
     :_msgSize ( sizeof ( DmtcpMessage ) )
@@ -95,44 +76,6 @@ bool DmtcpMessage::isValid() const
 
 void DmtcpMessage::poison() { memset ( _magicBits,0,sizeof ( _magicBits ) ); }
 
-
-WorkerState::eWorkerState WorkerState::value() const
-{
-  JASSERT(_state < _MAX) (_state);
-  return (eWorkerState) _state;
-}
-
-ostream& dmtcp::operator << ( dmtcp::ostream& o, const WorkerState& s )
-{
-  o << "WorkerState::";
-  switch ( s.value() )
-  {
-#define OSHIFTPRINTF(name) case WorkerState::name: o << #name; break;
-
-      OSHIFTPRINTF ( UNKNOWN )
-      OSHIFTPRINTF ( RUNNING )
-      OSHIFTPRINTF ( SUSPENDED )
-      OSHIFTPRINTF ( CHECKPOINTING )
-      OSHIFTPRINTF ( CHECKPOINTED )
-      OSHIFTPRINTF ( RESTARTING )
-    default:
-      JASSERT ( false ) .Text ( "Invalid WorkerState" );
-      o << (int)s.value();
-  }
-  return o;
-}
-
-const char* WorkerState::toString() const{
-  switch(_state){
-  case UNKNOWN:      return "UNKNOWN";
-  case RUNNING:      return "RUNNING";
-  case SUSPENDED:    return "SUSPENDED";
-  case CHECKPOINTED: return "CHECKPOINTED";
-  case CHECKPOINTING: return "CHECKPOINTING";
-  case RESTARTING:   return "RESTARTING";
-  default:           return "???";
-  }
-}
 
 ostream& dmtcp::operator << ( dmtcp::ostream& o, const DmtcpMessageType & s )
 {
