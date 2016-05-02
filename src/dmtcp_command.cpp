@@ -152,10 +152,14 @@ int main ( int argc, char** argv )
   case 's':
     coordinatorAPI.connectAndSendUserCommand(*cmd, &coordCmdStatus,
                                         &numPeers, &isRunning, &ckptInterval);
+    break;
   case 'c':
   case 'k':
   case 'q':
     coordinatorAPI.connectAndSendUserCommand(*cmd, &coordCmdStatus);
+    break;
+  default:
+    fprintf(stderr, theUsage, "");
     break;
   }
 
