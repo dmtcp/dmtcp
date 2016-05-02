@@ -23,6 +23,8 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 #include "dmtcpworker.h"
+#include "dmtcpmessagetypes.h"
+#include "workerstate.h"
 #include "mtcpinterface.h"
 #include "threadsync.h"
 #include "processinfo.h"
