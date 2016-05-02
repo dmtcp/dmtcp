@@ -27,6 +27,8 @@
 #include "threadsync.h"
 #include "dmtcpworker.h"
 #include "syscallwrappers.h"
+#include "workerstate.h"
+#include "jassert.h"
 
 using namespace dmtcp;
 

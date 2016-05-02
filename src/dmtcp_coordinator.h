@@ -42,8 +42,8 @@ namespace dmtcp
       void identity(UniquePid upid) { _identity = upid;}
       int clientNumber() const { return _clientNumber; }
       string ip() const { return _ip; }
-      WorkerState state() const { return _state; }
-      void setState ( WorkerState value ) { _state = value; }
+      WorkerState::eWorkerState state() const { return _state; }
+      void setState ( WorkerState::eWorkerState value ) { _state = value; }
       void progname(string pname){ _progname = pname; }
       string progname(void) const { return _progname; }
       void hostname(string hname){ _hostname = hname; }
@@ -60,7 +60,7 @@ namespace dmtcp
       UniquePid _identity;
       int _clientNumber;
       jalib::JSocket _sock;
-      WorkerState _state;
+      WorkerState::eWorkerState _state;
       string _hostname;
       string _progname;
       string _ip;
@@ -73,8 +73,8 @@ namespace dmtcp
   {
     public:
       typedef struct {
-        WorkerState minimumState;
-        WorkerState maximumState;
+        WorkerState::eWorkerState minimumState;
+        WorkerState::eWorkerState maximumState;
         bool minimumStateUnanimous;
         int numPeers;
       } ComputationStatus;
@@ -86,7 +86,7 @@ namespace dmtcp
 
       void addDataSocket(CoordClient *client);
       void updateCheckpointInterval(uint32_t timeout);
-      void updateMinimumState(WorkerState oldState);
+      void updateMinimumState(WorkerState::eWorkerState oldState);
       void initializeComputation();
       void broadcastMessage(DmtcpMessageType type, int numPeers = -1);
       bool startCheckpoint();
@@ -108,7 +108,9 @@ namespace dmtcp
                                            socklen_t len);
 
       ComputationStatus getStatus() const;
-      WorkerState minimumState() const { return getStatus().minimumState; }
+      WorkerState::eWorkerState minimumState() const {
+        return getStatus().minimumState;
+      }
 
       pid_t getNewVirtualPid();
 

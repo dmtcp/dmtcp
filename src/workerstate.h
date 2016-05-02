@@ -19,58 +19,36 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#ifndef DMTCPDMTCPWORKER_H
-#define DMTCPDMTCPWORKER_H
+#ifndef __WORKER_STATE_H__
+#define __WORKER_STATE_H__
 
-#include "jalloc.h"
 #include "dmtcpalloc.h"
-#include "dmtcpmessagetypes.h"
-
-void restoreUserLDPRELOAD();
 
 namespace dmtcp
 {
-  class DmtcpWorker
+namespace WorkerState
+{
+  enum eWorkerState
   {
-    public:
-#ifdef JALIB_ALLOCATOR
-      static void* operator new(size_t nbytes, void* p) { return p; }
-      static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
-      static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
-#endif
-      DmtcpWorker();
-      ~DmtcpWorker();
-      static DmtcpWorker& instance();
-
-      static void waitForCoordinatorMsg(string signalStr,
-                                        DmtcpMessageType type);
-      static void informCoordinatorOfRUNNINGState();
-      static void waitForStage1Suspend();
-      static void waitForStage2Checkpoint();
-      static void waitForStage3Refill(bool isRestart);
-      static void waitForStage4Resume(bool isRestart);
-      static void restoreVirtualPidTable();
-      static void postRestart();
-
-      static void resetOnFork();
-      static void cleanupWorker();
-
-      static int determineCkptSignal();
-
-      static void setExitInProgress() { _exitInProgress = true; };
-      static bool exitInProgress() { return _exitInProgress; };
-      static void interruptCkpthread();
-
-      static void writeCheckpointPrefix(int fd);
-
-      static void eventHook(DmtcpEvent_t id, DmtcpEventData_t *data);
-
-    protected:
-      static void sendUserCommand(char c, int* result = NULL);
-    private:
-      static DmtcpWorker theInstance;
-      static bool _exitInProgress;
+    UNKNOWN,
+    RUNNING,
+    SUSPENDED,
+    FD_LEADER_ELECTION,
+    DRAINED,
+    RESTARTING,
+    CHECKPOINTED,
+    NAME_SERVICE_DATA_REGISTERED,
+    DONE_QUERYING,
+    REFILLED,
+    _MAX
   };
-}
 
-#endif
+  void setCurrentState(const eWorkerState& value);
+  eWorkerState currentState();
+
+  ostream& operator << (ostream& o, const eWorkerState& s);
+
+}//namespace WorkerState
+}//namespace dmtcp
+
+#endif // #ifndef __WORKER_STATE_H__
