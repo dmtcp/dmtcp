@@ -20,14 +20,14 @@
  * STL map isn't thread-safe. However, if we use mutex to protect it,
  * there is still the problem where checkpoints happen between the lock
  * and the unlock function. */
-extern dmtcp::map<pthread_mutex_t*, pid_t> mapMutexVirtTid;
+dmtcp::map<pthread_mutex_t*, pid_t>& mapMutexVirtTid();
 
 extern "C" int pthread_mutex_lock(pthread_mutex_t *mutex) {
   int rc;
 
   rc = __real_pthread_mutex_lock(mutex);
   if (rc == 0 && dmtcp_is_running_state()) {
-    mapMutexVirtTid[mutex] = dmtcp_gettid();
+    mapMutexVirtTid()[mutex] = dmtcp_gettid();
   }
 
   return rc;
@@ -38,7 +38,7 @@ extern "C" int pthread_mutex_trylock(pthread_mutex_t *mutex) {
 
   rc = __real_pthread_mutex_trylock(mutex);
   if (rc == 0 && dmtcp_is_running_state()) {
-    mapMutexVirtTid[mutex] = dmtcp_gettid();
+    mapMutexVirtTid()[mutex] = dmtcp_gettid();
   }
 
   return rc;
@@ -50,7 +50,7 @@ extern "C" int pthread_mutex_timedlock(pthread_mutex_t *mutex,
 
   rc = __real_pthread_mutex_timedlock(mutex, abs_timeout);
   if (rc == 0 && dmtcp_is_running_state()) {
-    mapMutexVirtTid[mutex] = dmtcp_gettid();
+    mapMutexVirtTid()[mutex] = dmtcp_gettid();
   }
 
   return rc;
