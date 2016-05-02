@@ -97,6 +97,7 @@ namespace dmtcp
 
       void handleUserCommand(char cmd, DmtcpMessage* reply = NULL);
       void printStatus(size_t numPeers, bool isRunning);
+      string printList();
 
       void processDmtUserCmd(DmtcpMessage& hello_remote,
                              jalib::JSocket& remote);

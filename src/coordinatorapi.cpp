@@ -226,16 +226,17 @@ void CoordinatorAPI::updateSockFd()
   JASSERT(_coordinatorSocket == PROTECTED_COORD_FD);
 }
 
-void CoordinatorAPI::connectAndSendUserCommand(char c,
+char* CoordinatorAPI::connectAndSendUserCommand(char c,
                                                int *coordCmdStatus,
                                                int *numPeers,
                                                int *isRunning,
                                                int *ckptInterval)
 {
+  char *replyData = NULL;
   _coordinatorSocket = createNewSocketToCoordinator(COORD_ANY);
   if (_coordinatorSocket == -1) {
     *coordCmdStatus = CoordCmdStatus::ERROR_COORDINATOR_NOT_FOUND;
-    return;
+    return replyData;
   }
 
   //tell the coordinator to run given user command
@@ -257,11 +258,11 @@ void CoordinatorAPI::connectAndSendUserCommand(char c,
   //the coordinator will violently close our socket...
   if (c=='q' || c=='Q') {
     *coordCmdStatus = CoordCmdStatus::NOERROR;
-    return;
+    return replyData;
   }
 
   //receive REPLY
-  recvMsgFromCoordinator(&reply);
+  recvMsgFromCoordinator(&reply, (void**)&replyData);
   reply.assertValid();
   JASSERT(reply.type == DMT_USER_CMD_RESULT);
 
@@ -280,6 +281,8 @@ void CoordinatorAPI::connectAndSendUserCommand(char c,
 
   _real_close(_coordinatorSocket);
   _coordinatorSocket = -1;
+
+  return replyData;
 }
 
 string CoordinatorAPI::getCoordCkptDir(void)

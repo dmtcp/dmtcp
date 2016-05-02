@@ -257,6 +257,8 @@ pid_t DmtcpCoordinator::getNewVirtualPid()
   return pid;
 }
 
+static string replyData = "";
+
 void DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*= NULL*/)
 {
   if (reply != NULL) reply->coordCmdStatus = CoordCmdStatus::NOERROR;
@@ -294,19 +296,11 @@ void DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*= NULL*
     break;
   case 'l': case 'L':
   case 't': case 'T':
-    JASSERT_STDERR << "Client List:\n";
-    JASSERT_STDERR << "#, PROG[virtPID:realPID]@HOST, DMTCP-UNIQUEPID, STATE\n";
-    for (size_t i = 0; i < clients.size(); i++) {
-      JASSERT_STDERR << clients[i]->clientNumber()
-        << ", " << clients[i]->progname()
-        << "[" << clients[i]->identity().pid() << ":" << clients[i]->realPid()
-        << "]@" << clients[i]->hostname()
-#ifdef PRINT_REMOTE_IP
-        << "(" << clients[i]->ip() << ")"
-#endif
-        << ", " << clients[i]->identity()
-        << ", " << clients[i]->state().toString()
-        << '\n';
+    if (reply != NULL) {
+      replyData = printList();
+      reply->extraBytes = replyData.length();
+    } else {
+      JASSERT_STDERR << printList();
     }
     break;
   case 'u': case 'U':
@@ -399,6 +393,26 @@ void DmtcpCoordinator::printStatus(size_t numPeers, bool isRunning)
     << "RUNNING=" << (isRunning ? "yes" : "no") << std::endl;
   printf("%s", o.str().c_str());
   fflush(stdout);
+}
+
+string DmtcpCoordinator::printList()
+{
+  ostringstream o;
+  o << "Client List:\n";
+  o << "#, PROG[virtPID:realPID]@HOST, DMTCP-UNIQUEPID, STATE\n";
+  for (size_t i = 0; i < clients.size(); i++) {
+    o << clients[i]->clientNumber()
+      << ", " << clients[i]->progname()
+      << "[" << clients[i]->identity().pid() << ":" << clients[i]->realPid()
+      << "]@" << clients[i]->hostname()
+#ifdef PRINT_REMOTE_IP
+      << "(" << clients[i]->ip() << ")"
+#endif
+      << ", " << clients[i]->identity()
+      << ", " << clients[i]->state().toString()
+      << '\n';
+  }
+  return o.str();
 }
 
 void DmtcpCoordinator::releaseBarrier(const string& barrier)
@@ -826,6 +840,9 @@ void DmtcpCoordinator::processDmtUserCmd(DmtcpMessage& hello_remote,
   } else {
     handleUserCommand( hello_remote.coordCmd, &reply );
     remote << reply;
+    if (reply.extraBytes > 0) {
+      remote.writeAll(replyData.c_str(), reply.extraBytes);
+    }
     remote.close();
   }
   return;
