@@ -40,6 +40,8 @@ namespace dmtcp
       ~DmtcpWorker();
       static DmtcpWorker& instance();
 
+      static void initialize();
+
       static void waitForSuspendMessage();
       static void acknowledgeSuspendMsg();
       static void informCoordinatorOfRUNNINGState();
