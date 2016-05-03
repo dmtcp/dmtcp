@@ -706,6 +706,8 @@ void ThreadList::postRestart(void)
 
   restoreInProgress = true;
 
+  Util::allowGdbDebug(DEBUG_POST_RESTART);
+
   sigfillset(&tmp);
   for (thread = activeThreads; thread != NULL; thread = thread->next) {
     struct MtcpRestartThreadArg mtcpRestartThreadArg;

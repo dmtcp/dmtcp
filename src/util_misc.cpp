@@ -26,6 +26,7 @@
 #include  "membarrier.h"
 #include  "syscallwrappers.h"
 #include  "dmtcp.h"
+#include  "protectedfds.h"
 #include  "../jalib/jassert.h"
 #include  "../jalib/jfilesystem.h"
 
@@ -649,4 +650,24 @@ bool Util::isSysVShmArea(const ProcMapsArea& area)
 bool Util::isIBShmArea(const ProcMapsArea& area)
 {
   return strStartsWith(area.name, "/dev/infiniband/uverbs");
+}
+
+void Util::allowGdbDebug(int currentDebugLevel)
+{
+  if (Util::isValidFd(PROTECTED_DEBUG_SOCKET_FD)) {
+    int requestedDebugLevel = 0;
+    // Inform parent of current level
+    write(PROTECTED_DEBUG_SOCKET_FD,
+          &currentDebugLevel,
+          sizeof(currentDebugLevel));
+    // Read the requested level from the parent
+    read(PROTECTED_DEBUG_SOCKET_FD,
+         &requestedDebugLevel,
+         sizeof(requestedDebugLevel));
+    if (currentDebugLevel == requestedDebugLevel) {
+      // Wait for GDB to connect if the requested level
+      // matches the current level
+      sleep(3);
+    }
+  }
 }
