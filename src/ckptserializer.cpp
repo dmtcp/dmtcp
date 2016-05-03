@@ -362,7 +362,7 @@ open_ckpt_to_write(int fd, int pipe_fds[2], char **extcomp_args)
       ld_preload_str[0] = '\0';
     }
 
-    _real_execve(extcomp_args[0], extcomp_args, NULL);
+    _real_execvp(extcomp_args[0], extcomp_args);
 
     /* should not arrive here */
     JASSERT(false)
