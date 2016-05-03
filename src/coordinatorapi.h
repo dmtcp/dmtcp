@@ -101,9 +101,12 @@ namespace dmtcp
 
       void sendCkptFilename();
 
-      int sendKeyValPairToCoordinator(const char *id,
-                                      const void *key, uint32_t key_len,
-                                      const void *val, uint32_t val_len);
+
+      int sendKeyValPairsToCoordinator(const char *id,
+                                       size_t keyLen,
+                                       size_t valLen,
+                                       size_t count,
+                                       const void *data);
       int sendQueryToCoordinator(const char *id,
                                  const void *key, uint32_t key_len,
                                  void *val, uint32_t *val_len);

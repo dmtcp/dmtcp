@@ -633,18 +633,16 @@ void CoordinatorAPI::sendCkptFilename()
 }
 
 
-int CoordinatorAPI::sendKeyValPairToCoordinator(const char *id,
-                                                const void *key,
-                                                uint32_t key_len,
-                                                const void *val,
-                                                uint32_t val_len)
+int CoordinatorAPI::sendKeyValPairsToCoordinator(const char *id,
+                                                 size_t keyLen,
+                                                 size_t valLen,
+                                                 size_t count,
+                                                 const void *data)
 {
-  DmtcpMessage msg (DMT_REGISTER_NAME_SERVICE_DATA);
-  JWARNING(strlen(id) < sizeof(msg.nsid));
-  strncpy(msg.nsid, id, 8);
-  msg.keyLen = key_len;
-  msg.valLen = val_len;
-  msg.extraBytes = key_len + val_len;
+  if (id == NULL || keyLen == 0 || valLen == 0 || count == 0 || data == NULL) {
+    return 0;
+  }
+
   int sock = _coordinatorSocket;
   if (dmtcp_is_running_state()) {
     if (_nsSock == -1) {
@@ -658,12 +656,22 @@ int CoordinatorAPI::sendKeyValPairToCoordinator(const char *id,
     sock = _nsSock;
   }
 
+  DmtcpMessage msg (DMT_REGISTER_NAME_SERVICE_DATA);
+
+  JWARNING(strlen(id) < sizeof(msg.nsid));
+  strncpy(msg.nsid, id, 8);
+
+  msg.numKeys = count;
+  msg.keyLen = keyLen;
+  msg.valLen = valLen;
+  msg.extraBytes = count * (keyLen + valLen);
+
   JASSERT(Util::writeAll(sock, &msg, sizeof(msg)) == sizeof(msg));
-  JASSERT(Util::writeAll(sock, key, key_len) == key_len);
-  JASSERT(Util::writeAll(sock, val, val_len) == val_len);
+  JASSERT(Util::writeAll(sock, data, msg.extraBytes) == msg.extraBytes);
 
   return 1;
 }
+
 
 // On input, val points to a buffer in user memory and *val_len is the maximum
 //   size of that buffer (the memory allocated by user).

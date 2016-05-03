@@ -140,8 +140,9 @@ namespace dmtcp
     pid_t       realPid;
 
     char        nsid[8];
-    uint32_t    keyLen;
-    uint32_t    valLen;
+    uint16_t    keyLen;
+    uint16_t    valLen;
+    uint32_t    numKeys;
 
     uint32_t numPeers;
     uint32_t isRunning;
