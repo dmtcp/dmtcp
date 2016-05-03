@@ -84,11 +84,11 @@ namespace dmtcp
                                 size_t len = 0);
       void recvMsgFromCoordinator(DmtcpMessage *msg,
                                   void **extraData = NULL);
-      void connectAndSendUserCommand(char c,
-                                     int *coordCmdStatus = NULL,
-                                     int *numPeers = NULL,
-                                     int *isRunning = NULL,
-                                     int *ckptInterval = NULL);
+      char* connectAndSendUserCommand(char c,
+                                      int *coordCmdStatus = NULL,
+                                      int *numPeers = NULL,
+                                      int *isRunning = NULL,
+                                      int *ckptInterval = NULL);
 
       void updateCoordCkptDir(const char *dir);
       string getCoordCkptDir(void);

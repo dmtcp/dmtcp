@@ -46,6 +46,7 @@ static const char* theUsage =
   "\n"
   "Commands for Coordinator:\n"
   "    -s, --status:          Print status message\n"
+  "    -l, --list:            List connected clients\n"
   "    -c, --checkpoint:      Checkpoint all nodes\n"
   "    -bc, --bcheckpoint:    Checkpoint all nodes, blocking until done\n"
   //"    xc, -xc, --xcheckpoint : Checkpoint all nodes, kill all nodes when done\n"
@@ -105,7 +106,7 @@ int main ( int argc, char** argv )
         fprintf(stderr, theUsage, "");
         return 1;
       } else if (*cmd == 's' || *cmd == 'i' || *cmd == 'c' || *cmd == 'b' ||
-                 *cmd == 'x' || *cmd == 'k' || *cmd == 'q') {
+                 *cmd == 'x' || *cmd == 'k' || *cmd == 'q' || *cmd == 'l') {
         request = s;
         if (*cmd == 'i') {
 	  if (isdigit(cmd[1])) { // if -i5, for example
@@ -131,6 +132,7 @@ int main ( int argc, char** argv )
   int numPeers;
   int isRunning;
   int ckptInterval;
+  char *workerList = NULL;
   CoordinatorAPI coordinatorAPI;
   char *cmd = (char *)request.c_str();
   switch (*cmd) {
@@ -153,10 +155,13 @@ int main ( int argc, char** argv )
     coordinatorAPI.connectAndSendUserCommand(*cmd, &coordCmdStatus,
                                         &numPeers, &isRunning, &ckptInterval);
     break;
+  case 'l':
+    workerList = coordinatorAPI.connectAndSendUserCommand(*cmd, &coordCmdStatus);
+    break;
   case 'c':
   case 'k':
   case 'q':
-    coordinatorAPI.connectAndSendUserCommand(*cmd, &coordCmdStatus);
+    workerList = coordinatorAPI.connectAndSendUserCommand(*cmd, &coordCmdStatus);
     break;
   default:
     fprintf(stderr, theUsage, "");
@@ -191,7 +196,7 @@ int main ( int argc, char** argv )
 
 #define QUOTE(arg) #arg
 #define STRINGIFY(arg) QUOTE(arg)
-  if(*cmd == 's'){
+  if (*cmd == 's' || *cmd == 'l') {
     printf("Coordinator:\n");
     char *host = getenv(ENV_VAR_NAME_HOST);
     if (host == NULL) host = getenv("DMTCP_HOST"); // deprecated
@@ -200,13 +205,20 @@ int main ( int argc, char** argv )
     if (port == NULL) port = getenv("DMTCP_PORT"); // deprecated
     printf("  Port: %s\n",
            (port ? port : STRINGIFY(DEFAULT_PORT) " (default port)"));
-    printf("Status...\n");
-    printf("  NUM_PEERS=%d\n", numPeers);
-    printf("  RUNNING=%s\n", (isRunning?"yes":"no"));
-    if (ckptInterval) {
-      printf("  CKPT_INTERVAL=%d\n", ckptInterval);
+    if (*cmd == 's') {
+      printf("Status...\n");
+      printf("  NUM_PEERS=%d\n", numPeers);
+      printf("  RUNNING=%s\n", (isRunning?"yes":"no"));
+      if (ckptInterval) {
+        printf("  CKPT_INTERVAL=%d\n", ckptInterval);
+      } else {
+        printf("  CKPT_INTERVAL=0 (checkpoint manually)\n");
+      }
     } else {
-      printf("  CKPT_INTERVAL=0 (checkpoint manually)\n");
+      if (workerList) {
+        printf("%s",workerList);
+        JALLOC_HELPER_FREE(workerList);
+      }
     }
   }
 

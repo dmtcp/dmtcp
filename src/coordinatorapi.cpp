@@ -307,16 +307,17 @@ bool CoordinatorAPI::noCoordinator()
   return virtualCoordinator;
 }
 
-void CoordinatorAPI::connectAndSendUserCommand(char c,
-                                               int *coordCmdStatus,
-                                               int *numPeers,
-                                               int *isRunning,
-                                               int *ckptInterval)
+char* CoordinatorAPI::connectAndSendUserCommand(char c,
+                                                int *coordCmdStatus,
+                                                int *numPeers,
+                                                int *isRunning,
+                                                int *ckptInterval)
 {
+  char *replyData = NULL;
   _coordinatorSocket = createNewSocketToCoordinator(COORD_ANY);
   if (!_coordinatorSocket.isValid()) {
     *coordCmdStatus = CoordCmdStatus::ERROR_COORDINATOR_NOT_FOUND;
-    return;
+    return replyData;
   }
 
   //tell the coordinator to run given user command
@@ -338,12 +339,12 @@ void CoordinatorAPI::connectAndSendUserCommand(char c,
   //the coordinator will violently close our socket...
   if (c=='q' || c=='Q') {
     *coordCmdStatus = CoordCmdStatus::NOERROR;
-    return;
+    return replyData;
   }
 
   //receive REPLY
   reply.poison();
-  _coordinatorSocket >> reply;
+  recvMsgFromCoordinator(&reply, (void**)&replyData);
   reply.assertValid();
   JASSERT(reply.type == DMT_USER_CMD_RESULT);
 
@@ -361,6 +362,8 @@ void CoordinatorAPI::connectAndSendUserCommand(char c,
   }
 
   _coordinatorSocket.close();
+
+  return replyData;
 }
 
 string CoordinatorAPI::getCoordCkptDir(void)
@@ -418,9 +421,8 @@ void CoordinatorAPI::recvMsgFromCoordinator(DmtcpMessage *msg, void **extraData)
   msg->poison();
   _coordinatorSocket >> (*msg);
 
-  if (extraData != NULL) {
+  if (extraData != NULL && msg->extraBytes > 0) {
     msg->assertValid();
-    JASSERT(msg->extraBytes > 0);
     // Caller must free this buffer
     void *buf = JALLOC_HELPER_MALLOC(msg->extraBytes);
     _coordinatorSocket.readAll((char*)buf, msg->extraBytes);
