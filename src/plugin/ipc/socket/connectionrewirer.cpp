@@ -255,34 +255,49 @@ ConnectionRewirer::registerOutgoing(const ConnectionIdentifier& remote,
 
 void ConnectionRewirer::registerNSData()
 {
-  registerNSData((void*)&_ip4RestoreAddr, _ip4RestoreAddrlen,
+  registerNSData("IP4Sock", (void*)&_ip4RestoreAddr, _ip4RestoreAddrlen,
                  &_pendingIP4Incoming);
-  registerNSData((void*)&_ip6RestoreAddr, _ip6RestoreAddrlen,
+  registerNSData("IP6Sock", (void*)&_ip6RestoreAddr, _ip6RestoreAddrlen,
                  &_pendingIP6Incoming);
-  registerNSData((void*)&_udsRestoreAddr, _udsRestoreAddrlen,
+  registerNSData("UDSSock", (void*)&_udsRestoreAddr, _udsRestoreAddrlen,
                  &_pendingUDSIncoming);
 }
 
-void ConnectionRewirer::registerNSData(void *addr,
+void ConnectionRewirer::registerNSData(const char *nsid,
+                                       void *addr,
                                        socklen_t addrLen,
                                        ConnectionListT *conList)
 {
-  iterator i;
+  if (addr == NULL || addrLen == 0) {
+    return;
+  }
+
   JASSERT(theRewirer != NULL);
-  for (i = conList->begin(); i != conList->end(); ++i) {
+  size_t keyLen = sizeof(ConnectionIdentifier);
+  size_t valLen = addrLen;
+  char *buf = (char*) JALLOC_MALLOC(conList->size() * (keyLen + valLen));
+  char *ptr = buf;
+
+  for (iterator i = conList->begin(); i != conList->end(); ++i) {
     const ConnectionIdentifier& id = i->first;
-    dmtcp_send_key_val_pair_to_coordinator("Socket",
-                                           (const void *)&id,
-                                           (uint32_t) sizeof(id),
-                                           addr,
-                                           (uint32_t) addrLen);
+    memcpy(ptr, &id, sizeof(id));
+    memcpy(&ptr[sizeof(id)], addr, addrLen);
+    ptr += keyLen + addrLen;
+  }
+
+  dmtcp_send_key_val_pairs_to_coordinator(nsid,
+                                          keyLen,
+                                          valLen,
+                                          conList->size(),
+                                          buf);
+  JALLOC_FREE(buf);
+
     /*
     sockaddr_in *sn = (sockaddr_in*) &_restoreAddr;
     unsigned short port = htons(sn->sin_port);
     char *ip = inet_ntoa(sn->sin_addr);
     JTRACE("Send NS information:")(id)(sn->sin_family)(port)(ip);
     */
-  }
   //debugPrint();
 }
 
@@ -291,9 +306,21 @@ void ConnectionRewirer::sendQueries()
   iterator i;
   for (i = _pendingOutgoing.begin(); i != _pendingOutgoing.end(); ++i) {
     const ConnectionIdentifier& id = i->first;
+    TcpConnection *con = (TcpConnection*) i->second;
+
     struct RemoteAddr remote;
     uint32_t len = sizeof(remote.addr);
-    JASSERT(dmtcp_send_query_to_coordinator("Socket",
+
+    string nsid = "IP4Sock";
+    if (con->sockDomain() == AF_INET6) {
+#ifdef ENABLE_IP6_SUPPORT
+      nsid = "IP6Sock";
+#endif
+    } else if (con->sockDomain() == AF_UNIX) {
+      nsid = "UDSSock";
+    }
+
+    JASSERT(dmtcp_send_query_to_coordinator(nsid.c_str(),
                                             (const void *)&id,
                                             (uint32_t) sizeof(id),
                                             &remote.addr,
