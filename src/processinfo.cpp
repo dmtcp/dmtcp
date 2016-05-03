@@ -696,6 +696,7 @@ void ProcessInfo::serialize(jalib::JBinarySerializer& o)
   o & _isRootOfProcessTree & _pid & _sid & _ppid & _gid & _fgid & _generation;
   o & _procname & _hostname & _launchCWD & _ckptCWD & _upid & _uppid;
   o & _compGroup & _numPeers & _noCoordinator & _argvSize & _envSize;
+  o & _numChildCoordinators;
   o & _restoreBufAddr & _savedHeapStart & _savedBrk;
   o & _vdsoStart & _vdsoEnd & _vvarStart & _vvarEnd;
   o & _ckptDir & _ckptFileName & _ckptFilesSubDir;
@@ -703,7 +704,8 @@ void ProcessInfo::serialize(jalib::JBinarySerializer& o)
   JTRACE("Serialized process information")
     (_sid) (_ppid) (_gid) (_fgid) (_isRootOfProcessTree)
     (_procname) (_hostname) (_launchCWD) (_ckptCWD) (_upid) (_uppid)
-    (_compGroup) (_numPeers) (_noCoordinator) (_argvSize) (_envSize) (_elfType);
+    (_compGroup) (_numPeers) (_noCoordinator) (_argvSize) (_envSize) (_elfType)
+    (_numChildCoordinators);
 
   JASSERT(!_noCoordinator || _numPeers == 1) (_noCoordinator) (_numPeers);
 
