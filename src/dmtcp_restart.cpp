@@ -110,6 +110,8 @@ static const char *theUsage =
   HELP_AND_CONTACT_INFO
   "\n";
 
+static int requestedDebugLevel = 0;
+
 class RestoreTarget;
 
 typedef map<UniquePid, RestoreTarget *>RestoreTargetMap;
@@ -149,6 +151,8 @@ class RestoreTarget
     {
       return _pInfo.isRootOfProcessTree();
     }
+
+    const string& procSelfExe() const { return _pInfo.procSelfExe(); }
 
     bool isOrphan()
     {
@@ -421,6 +425,41 @@ runMtcpRestart(int is32bitElf, int fd, ProcessInfo *pInfo)
     mtcprestart = Util::getPath("mtcp_restart-32", is32bitElf);
   }
 #endif // if defined(__x86_64__) || defined(__aarch64__) || defined(CONFIG_M32)
+
+  if (requestedDebugLevel > 0) {
+    int debugPipe[2];
+    socketpair(AF_UNIX, SOCK_STREAM, 0, debugPipe);
+    pid_t pid = fork();
+    if (pid > 0) {
+      int currentDebugLevel = 0;
+      int rc = -1;
+      close(debugPipe[1]);
+      do {
+        rc = read(debugPipe[0], &currentDebugLevel, sizeof(currentDebugLevel));
+        if (rc < 0) break;
+        rc = write(debugPipe[0], &requestedDebugLevel, sizeof(currentDebugLevel));
+        if (rc < 0) break;
+      } while (currentDebugLevel != requestedDebugLevel);
+      if (rc < 0) {
+        JASSERT(false)
+            .Text("Unable to set up debug connection with the restarted process");
+      }
+      char cpid[10]; // XXX: Is 10 digits enough for a PID?
+      snprintf(cpid, 10, "%d", pid);
+      char* const command[] = {"gdb",
+                               const_cast<char*>(pInfo->procSelfExe().c_str()),
+                               cpid,
+                               NULL};
+      execvp(command[0], command);
+    } else if (pid == 0) {
+      close(debugPipe[0]); // child doesn't need the read end
+      JASSERT(dup2(debugPipe[1], PROTECTED_DEBUG_SOCKET_FD)
+              == PROTECTED_DEBUG_SOCKET_FD)(JASSERT_ERRNO);
+      close(debugPipe[1]);
+    } else {
+     JASSERT(false)(JASSERT_ERRNO).Text("Fork failed");
+    }
+  }
 
   char *const newArgs[] = {
     (char *)mtcprestart.c_str(),
@@ -732,6 +771,9 @@ main(int argc, char **argv)
       shift; shift;
     } else if (argc > 1 && (s == "-t" || s == "--tmpdir")) {
       tmpdir_arg = argv[1];
+      shift; shift;
+    } else if (argc > 1 && (s == "--gdb")) {
+      requestedDebugLevel = atoi(argv[1]);
       shift; shift;
     } else if (s == "-q" || s == "--quiet") {
       *getenv(ENV_VAR_QUIET) = *getenv(ENV_VAR_QUIET) + 1;

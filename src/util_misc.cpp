@@ -27,7 +27,9 @@
 #include "../jalib/jfilesystem.h"
 #include "dmtcp.h"
 #include "membarrier.h"
+#include "protectedfds.h"
 #include "syscallwrappers.h"
+#include "util.h"
 
 using namespace dmtcp;
 
@@ -757,4 +759,25 @@ bool
 Util::isIBShmArea(const ProcMapsArea &area)
 {
   return strStartsWith(area.name, "/dev/infiniband/uverbs");
+}
+
+void
+Util::allowGdbDebug(int currentDebugLevel)
+{
+  if (Util::isValidFd(PROTECTED_DEBUG_SOCKET_FD)) {
+    int requestedDebugLevel = 0;
+    // Inform parent of current level
+    write(PROTECTED_DEBUG_SOCKET_FD,
+          &currentDebugLevel,
+          sizeof(currentDebugLevel));
+    // Read the requested level from the parent
+    read(PROTECTED_DEBUG_SOCKET_FD,
+         &requestedDebugLevel,
+         sizeof(requestedDebugLevel));
+    if (currentDebugLevel == requestedDebugLevel) {
+      // Wait for GDB to connect if the requested level
+      // matches the current level
+      sleep(3);
+    }
+  }
 }

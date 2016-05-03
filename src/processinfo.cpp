@@ -457,6 +457,7 @@ void
 ProcessInfo::postExec()
 {
   _procname = jalib::Filesystem::GetProgramName();
+  _procSelfExe = jalib::Filesystem::ResolveSymlink("/proc/self/exe");
   _upid = UniquePid::ThisProcess();
   _uppid = UniquePid::ParentProcess();
   updateCkptDirFileSubdir();
@@ -710,6 +711,7 @@ ProcessInfo::refresh()
   }
 
   _procname = jalib::Filesystem::GetProgramName();
+  _procSelfExe = jalib::Filesystem::ResolveSymlink("/proc/self/exe");
   _hostname = jalib::Filesystem::GetCurrentHostname();
   _upid = UniquePid::ThisProcess();
   _noCoordinator = dmtcp_no_coordinator();
@@ -746,15 +748,15 @@ void
 ProcessInfo::serialize(jalib::JBinarySerializer &o)
 {
   JSERIALIZE_ASSERT_POINT("ProcessInfo:");
-  _savedBrk = (uint64_t)sbrk(0);
+  _savedBrk = (uint64_t) sbrk(0);
 
-  o &_elfType;
-  o&_isRootOfProcessTree&_pid&_sid&_ppid&_gid&_fgid &_generation;
-  o&_procname&_hostname&_launchCWD&_ckptCWD&_upid &_uppid;
-  o&_compGroup&_numPeers&_noCoordinator&_argvSize &_envSize;
-  o&_restoreBufAddr&_savedHeapStart &_savedBrk;
-  o&_vdsoStart&_vdsoEnd&_vvarStart &_vvarEnd;
-  o&_ckptDir&_ckptFileName &_ckptFilesSubDir;
+  o & _elfType;
+  o & _isRootOfProcessTree & _pid & _sid & _ppid & _gid & _fgid & _generation;
+  o & _procname & _procSelfExe & _hostname & _launchCWD & _ckptCWD & _upid & _uppid;
+  o & _compGroup & _numPeers & _noCoordinator & _argvSize & _envSize;
+  o & _restoreBufAddr & _savedHeapStart & _savedBrk;
+  o & _vdsoStart & _vdsoEnd & _vvarStart & _vvarEnd;
+  o & _ckptDir & _ckptFileName & _ckptFilesSubDir;
 
   JTRACE("Serialized process information")
     (_sid) (_ppid) (_gid) (_fgid) (_isRootOfProcessTree)
