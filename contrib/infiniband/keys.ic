@@ -92,7 +92,7 @@ void update_ud_send_restart(struct ibv_send_wr *wr) {
   orig_id.qpn = wr->wr.ud.remote_qpn;
   orig_id.lid = internal_ah->attr.dlid;
 
-  dmtcp_send_query_to_coordinator("qp_info",
+  dmtcp_send_query_to_coordinator("ud_qp_info",
                                   &orig_id, sizeof(orig_id),
                                   &curr_id, &size);
 
