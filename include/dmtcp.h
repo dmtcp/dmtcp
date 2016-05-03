@@ -346,6 +346,7 @@ EXTERNC int dmtcp_must_ckpt_file(const char *path) __attribute((weak));
 EXTERNC void dmtcp_get_new_file_path(const char *abspath, const char *cwd,
                                      char *newpath)
   __attribute((weak));
+EXTERNC int dmtcp_must_overwrite_file(const char *path) __attribute((weak));
 
 
 EXTERNC void dmtcp_initialize(void) __attribute((weak));

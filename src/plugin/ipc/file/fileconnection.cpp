@@ -26,6 +26,7 @@
 #include <fcntl.h>
 #include <sys/file.h>
 #include <termios.h>
+#include <time.h>
 #include <iostream>
 #include <ios>
 #include <fstream>
@@ -233,12 +234,46 @@ void FileConnection::preCkpt()
      * it for a regular file that has its _ckpted_file flag set and
      * only for the process that's been chosen as the fd leader.
      */
-    if (_type == FILE_REGULAR &&
-        _ckpted_file &&
-        dmtcp_allow_overwrite_with_ckpted_files()) {
+    if (_ckpted_file &&
+        (dmtcp_allow_overwrite_with_ckpted_files() ||
+        (dmtcp_must_overwrite_file && dmtcp_must_overwrite_file(_path.c_str())))) {
       _allow_overwrite = true;
     }
   }
+}
+
+/* Given an open file-descriptor for a saved file, saves a copy
+ * of its existing copy, and replaces the existing copy with the
+ * saved file.
+ */
+void FileConnection::overwriteFileWithBackup(int savedFd)
+{
+  char currentTimeBuff[30] = {0};
+  time_t rawtime;
+  time (&rawtime);
+  strftime(currentTimeBuff, 30, "-%F-%H-%M-%S.bk", localtime(&rawtime));
+  dmtcp::string backupPath = _path + currentTimeBuff;
+
+  // Temporarily close the file to avoid overwriting
+  _real_close(_fds[0]);
+
+  // Create a backup of user file
+  JWARNING(rename(_path.c_str(), backupPath.c_str()) == 0) (JASSERT_ERRNO)
+           .Text("Error creating a backup");
+
+  /* Overwrite the existing file with the contents of the saved
+   * file. We need to open it in WRONLY mode here because the file
+   * might have been opened originally in read-only mode.
+   */
+  int destFileFd = _real_open(_path.c_str(), O_CREAT | O_WRONLY, 0640);
+  JASSERT(destFileFd > 0)(JASSERT_ERRNO)(_path)
+         .Text("Error opening file for overwriting");
+  writeFileFromFd(savedFd, destFileFd);
+  _real_close(destFileFd);
+
+  // Re-open the (closed) file with the original flags
+  int tempfd = openFile();
+  Util::dupFds(tempfd, _fds);
 }
 
 void FileConnection::refill(bool isRestart)
@@ -253,33 +288,27 @@ void FileConnection::refill(bool isRestart)
     int savedFd = _real_open(savedFilePath.c_str(), O_RDONLY, 0);
     JASSERT(savedFd != -1) (JASSERT_ERRNO) (savedFilePath);
 
-    if (!areFilesEqual(_fds[0], savedFd, _st_size)) {
-      if (_type == FILE_SHM) {
-        JWARNING(false) (_path) (savedFilePath)
-          .Text("\n"
-                "***Mapping current version of file into memory;\n"
-                "   _not_ file as it existed at time of checkpoint.\n"
-                "   Change this function and re-compile, if you want "
-                "different behavior.");
-      } else {
-        char *errMsg =
-          "\n**** File already exists! Checkpointed copy can't be restored.\n"
-          "       The Contents of checkpointed copy differ from the "
-          "contents of the existing copy.\n"
-          "****Delete the existing file and try again!";
-        bool shouldAssert = true;
-        if (_allow_overwrite) {
-          JTRACE("Copying saved checkpointed file to original location")
-            (savedFilePath) (_path);
-          writeFileFromFd(savedFd, _fds[0]);
-          errMsg =
-            "\n**** File already exists!\n"
+    if (_allow_overwrite) {
+      JTRACE("Copying checkpointed file to original location")
+        (savedFilePath) (_path);
+      this->overwriteFileWithBackup(savedFd);
+    } else {
+      if (!areFilesEqual(_fds[0], savedFd, _st_size)) {
+        if (_type == FILE_SHM) {
+          JWARNING(false) (_path) (savedFilePath)
+            .Text("\n"
+                  "***Mapping current version of file into memory;\n"
+                  "   _not_ file as it existed at time of checkpoint.\n"
+                  "   Change this function and re-compile, if you want "
+                  "different behavior.");
+        } else {
+          char *errMsg =
+            "\n**** File already exists! Checkpointed copy can't be restored.\n"
             "       The Contents of checkpointed copy differ from the "
             "contents of the existing copy.\n"
-            "****Overwriting the existing copy with the checkpointed copy!";
-          shouldAssert = false;
+            "****Delete the existing file and try again!";
+          JASSERT(false) (_path) (savedFilePath) (errMsg);
         }
-        JASSERT(!shouldAssert) (_path) (savedFilePath) (errMsg);
       }
     }
     _real_close(savedFd);
