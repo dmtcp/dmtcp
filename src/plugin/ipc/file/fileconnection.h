@@ -159,6 +159,7 @@ namespace dmtcp
       void refreshPath();
       void calculateRelativePath();
       string getSavedFilePath(const string& path);
+      void overwriteFileWithBackup(int savedFd);
 
       string _path;
       string _rel_path;
