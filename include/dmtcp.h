@@ -324,12 +324,13 @@ EXTERNC void dmtcp_plugin_enable_ckpt(void);
 #define DMTCP_PLUGIN_ENABLE_CKPT() \
   if (__dmtcp_plugin_ckpt_disabled) dmtcp_plugin_enable_ckpt()
 
+EXTERNC void dmtcp_initialize();
 
 #define NEXT_FNC(func)                                                      \
   ({                                                                        \
      static __typeof__(&func) _real_##func = (__typeof__(&func)) -1;        \
      if (_real_##func == (__typeof__(&func)) -1) {                          \
-       if (dmtcp_prepare_wrappers) dmtcp_prepare_wrappers();                \
+       if (dmtcp_initialize) dmtcp_initialize();                            \
        __typeof__(&dlsym) dlsym_fnptr;                                      \
        dlsym_fnptr = (__typeof__(&dlsym)) dmtcp_get_libc_dlsym_addr();      \
        _real_##func = (__typeof__(&func)) (*dlsym_fnptr) (RTLD_NEXT, #func);\
