@@ -25,12 +25,10 @@ dmtcp_register_plugin(DmtcpPluginDescriptor_t descr)
 
 namespace dmtcp
 {
-DmtcpPluginDescriptor_t dmtcp_CoordinatorAPI_PluginDescr();
 DmtcpPluginDescriptor_t dmtcp_ProcessInfo_PluginDescr();
 DmtcpPluginDescriptor_t dmtcp_Syslog_PluginDescr();
 DmtcpPluginDescriptor_t dmtcp_Alarm_PluginDescr();
 DmtcpPluginDescriptor_t dmtcp_Terminal_PluginDescr();
-DmtcpPluginDescriptor_t dmtcp_CoordinatorAPI_PluginDescr();
 
 void
 PluginManager::initialize()
@@ -68,7 +66,7 @@ dmtcp_initialize_plugin()
   dmtcp_register_plugin(dmtcp_Syslog_PluginDescr());
   dmtcp_register_plugin(dmtcp_Alarm_PluginDescr());
   dmtcp_register_plugin(dmtcp_Terminal_PluginDescr());
-  dmtcp_register_plugin(dmtcp_CoordinatorAPI_PluginDescr());
+  dmtcp_register_plugin(CoordinatorAPI::pluginDescr());
   dmtcp_register_plugin(dmtcp_ProcessInfo_PluginDescr());
 
   void (*fn)() = NEXT_FNC(dmtcp_initialize_plugin);
@@ -119,13 +117,8 @@ PluginManager::registerBarriersWithCoordinator()
     Util::joinStrings(ckptBarriers, ",") + ";" +
     Util::joinStrings(restartBarriers, ",");
 
-  DmtcpMessage msg;
-  msg.type = DMT_BARRIER_LIST;
-  msg.state = WorkerState::currentState();
-  msg.extraBytes = barrierList.length() + 1;
-  CoordinatorAPI::instance().sendMsgToCoordinator(msg,
-                                                  barrierList.c_str(),
-                                                  msg.extraBytes);
+  DmtcpMessage msg(DMT_BARRIER_LIST);
+  CoordinatorAPI::sendMsgToCoordinator(msg, barrierList);
 }
 
 void
@@ -211,7 +204,7 @@ PluginManager::processRestartBarriers()
 
   Util::allowGdbDebug(DEBUG_PLUGIN_MANAGER);
 
-  CoordinatorAPI::instance().waitForBarrier(firstRestartBarrier);
+  CoordinatorAPI::waitForBarrier(firstRestartBarrier);
 
   for (int i = pluginManager->pluginInfos.size() - 1; i >= 0; i--) {
     pluginManager->pluginInfos[i]->processBarriers();

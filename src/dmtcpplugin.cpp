@@ -76,9 +76,8 @@ dmtcp_checkpoint()
   while (1) {
     WRAPPER_EXECUTION_GET_EXCL_LOCK();
 
-    CoordinatorAPI coordinatorAPI;
     int status;
-    coordinatorAPI.connectAndSendUserCommand('c', &status);
+    CoordinatorAPI::connectAndSendUserCommand('c', &status);
 
     if (status != CoordCmdStatus::ERROR_NOT_RUNNING_STATE) {
       oldNumRestarts = ProcessInfo::instance().numRestarts();
@@ -112,8 +111,7 @@ dmtcp_get_coordinator_status(int *numPeers, int *isRunning)
   WRAPPER_EXECUTION_GET_EXCL_LOCK();
 
   int status;
-  CoordinatorAPI coordinatorAPI;
-  coordinatorAPI.connectAndSendUserCommand('s', &status, numPeers, isRunning);
+  CoordinatorAPI::connectAndSendUserCommand('s', &status, numPeers, isRunning);
 
   WRAPPER_EXECUTION_RELEASE_EXCL_LOCK();
   return DMTCP_IS_PRESENT;
@@ -188,9 +186,7 @@ dmtcp_set_ckpt_dir(const char *dir)
 EXTERNC const char *
 dmtcp_get_coord_ckpt_dir(void)
 {
-  static string dir;
-
-  dir = CoordinatorAPI::instance().getCoordCkptDir();
+  static string dir = CoordinatorAPI::getCoordCkptDir();
   return dir.c_str();
 }
 
@@ -198,7 +194,7 @@ EXTERNC int
 dmtcp_set_coord_ckpt_dir(const char *dir)
 {
   if (dir != NULL) {
-    CoordinatorAPI::instance().updateCoordCkptDir(dir);
+    CoordinatorAPI::updateCoordCkptDir(dir);
   }
   return DMTCP_IS_PRESENT;
 }
@@ -509,11 +505,11 @@ dmtcp_send_key_val_pair_to_coordinator(const char *id,
                                        const void *val,
                                        uint32_t val_len)
 {
-  return CoordinatorAPI::instance().sendKeyValPairToCoordinator(id,
-                                                                key,
-                                                                key_len,
-                                                                val,
-                                                                val_len);
+  return CoordinatorAPI::sendKeyValPairToCoordinator(id,
+                                                     key,
+                                                     key_len,
+                                                     val,
+                                                     val_len);
 }
 
 // On input, val points to a buffer in user memory and *val_len is the maximum
@@ -527,8 +523,7 @@ dmtcp_send_query_to_coordinator(const char *id,
                                 void *val,
                                 uint32_t *val_len)
 {
-  return CoordinatorAPI::instance().sendQueryToCoordinator(id, key, key_len,
-                                                           val, val_len);
+  return CoordinatorAPI::sendQueryToCoordinator(id, key, key_len, val, val_len);
 }
 
 EXTERNC void

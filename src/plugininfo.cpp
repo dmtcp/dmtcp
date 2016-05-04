@@ -121,7 +121,7 @@ PluginInfo::processBarrier(BarrierInfo *barrier)
     // Do nothing.
   } else if (barrier->isGlobal()) {
     JTRACE("Waiting for global barrier") (barrier->toString());
-    CoordinatorAPI::instance().waitForBarrier(barrier->toString());
+    CoordinatorAPI::waitForBarrier(barrier->toString());
   } else if (barrier->isLocal()) {
     JTRACE("Waiting for local barrier") (barrier->toString());
     SharedData::waitForBarrier(barrier->toString());
