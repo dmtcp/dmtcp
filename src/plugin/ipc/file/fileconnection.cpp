@@ -575,14 +575,15 @@ void FileConnection::drain()
     return;
   }
 
+  if (_type == FILE_DELETED && (_flags & O_WRONLY)) {
+    return;
+  }
+
   if (dmtcp_must_ckpt_file && dmtcp_must_ckpt_file(_path.c_str())) {
     _ckpted_file = true;
     return;
   }
 
-  if (_type == FILE_DELETED && (_flags & O_WRONLY)) {
-    return;
-  }
   if (_isBlacklistedFile(_path)) {
     return;
   }
