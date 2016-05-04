@@ -251,14 +251,14 @@ class RestoreTarget
 
         // FIXME:  We will use the new HOST and PORT here, but after restart,,
         // we will use the old HOST and PORT from the ckpt image.
-        CoordinatorAPI::instance().connectToCoordOnRestart(allowedModes,
-                                                           _pInfo.procname(),
-                                                           _pInfo.compGroup(),
-                                                           _pInfo.numPeers(),
-                                                           &coordInfo,
-                                                           host.c_str(),
-                                                           port,
-                                                           &localIPAddr);
+        CoordinatorAPI::connectToCoordOnRestart(allowedModes,
+                                                _pInfo.procname(),
+                                                _pInfo.compGroup(),
+                                                _pInfo.numPeers(),
+                                                &coordInfo,
+                                                host.c_str(),
+                                                port,
+                                                &localIPAddr);
 
         // If port was 0, we'll get new random port when coordinator starts up.
         CoordinatorAPI::getCoordHostAndPort(allowedModes, host, &port);
@@ -368,14 +368,14 @@ class RestoreTarget
         int port = UNINITIALIZED_PORT;
         int *port_p = &port;
         CoordinatorAPI::getCoordHostAndPort(allowedModes, host, port_p);
-        CoordinatorAPI::instance().connectToCoordOnRestart(allowedModes,
-                                                           _pInfo.procname(),
-                                                           _pInfo.compGroup(),
-                                                           _pInfo.numPeers(),
-                                                           NULL,
-                                                           host.c_str(),
-                                                           port,
-                                                           NULL);
+        CoordinatorAPI::connectToCoordOnRestart(allowedModes,
+                                                _pInfo.procname(),
+                                                _pInfo.compGroup(),
+                                                _pInfo.numPeers(),
+                                                NULL,
+                                                host.c_str(),
+                                                port,
+                                                NULL);
       }
 
       setEnvironFd();

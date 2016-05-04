@@ -57,7 +57,7 @@ const static bool dbg = false;
 
 static bool pthread_atfork_enabled = false;
 static uint64_t child_time;
-static CoordinatorAPI coordinatorAPI;
+static int childCoordinatorSocket = -1;
 
 // Allow plugins to call fork/exec/system to perform specific tasks during
 // preCKpt/postCkpt/PostRestart etc. event.
@@ -159,7 +159,7 @@ pthread_atfork_child()
   ProcessInfo::instance().resetOnFork();
 
   JTRACE("fork()ed [CHILD]") (child) (parent);
-  CoordinatorAPI::resetOnFork(coordinatorAPI);
+  CoordinatorAPI::resetOnFork(childCoordinatorSocket);
   DmtcpWorker::resetOnFork();
 }
 
@@ -183,7 +183,8 @@ fork()
   UniquePid parent = UniquePid::ThisProcess();
   string child_name = jalib::Filesystem::GetProgramName() + "_(forked)";
 
-  coordinatorAPI.createNewConnectionBeforeFork(child_name);
+  childCoordinatorSocket =
+    CoordinatorAPI::createNewConnectionBeforeFork(child_name);
 
   // Enable the pthread_atfork child call
   pthread_atfork_enabled = true;
@@ -210,7 +211,7 @@ fork()
   pthread_atfork_enabled = false;
 
   if (childPid != 0) {
-    coordinatorAPI.closeConnection();
+    _real_close(childCoordinatorSocket);
     PluginManager::eventHook(DMTCP_EVENT_ATFORK_PARENT, NULL);
     WRAPPER_EXECUTION_RELEASE_EXCL_LOCK();
   }

@@ -576,9 +576,9 @@ main(int argc, char **argv)
 
   // Initialize host and port now.  Will be used in low-level functions.
   CoordinatorAPI::getCoordHostAndPort(allowedModes, host, &port);
-  CoordinatorAPI::instance().connectToCoordOnStartup(allowedModes, argv[0],
-                                                     &compId, &coordInfo,
-                                                     &localIPAddr);
+  CoordinatorAPI::connectToCoordOnStartup(allowedModes, argv[0],
+                                          &compId, &coordInfo,
+                                          &localIPAddr);
 
   // If port was 0, we'll get new random port when coordinator starts up.
   CoordinatorAPI::getCoordHostAndPort(allowedModes, host, &port);

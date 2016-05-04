@@ -141,7 +141,6 @@ main(int argc, char **argv)
   int isRunning;
   int ckptInterval;
   char *workerList = NULL;
-  CoordinatorAPI coordinatorAPI;
   char *cmd = (char *)request.c_str();
   switch (*cmd) {
   case 'h':
@@ -150,34 +149,34 @@ main(int argc, char **argv)
 
   case 'i':
     setenv(ENV_VAR_CKPT_INTR, interval.c_str(), 1);
-    coordinatorAPI.connectAndSendUserCommand(*cmd, &coordCmdStatus);
+    CoordinatorAPI::connectAndSendUserCommand(*cmd, &coordCmdStatus);
     printf("Interval changed to %s\n", interval.c_str());
     break;
   case 'b':
   case 'x':
 
     // blocking prefix
-    coordinatorAPI.connectAndSendUserCommand(*cmd, &coordCmdStatus);
+    CoordinatorAPI::connectAndSendUserCommand(*cmd, &coordCmdStatus);
 
     // actual command
-    coordinatorAPI.connectAndSendUserCommand(*(cmd + 1), &coordCmdStatus);
+    CoordinatorAPI::connectAndSendUserCommand(*(cmd + 1), &coordCmdStatus);
     break;
   case 's':
-    coordinatorAPI.connectAndSendUserCommand(*cmd,
-                                             &coordCmdStatus,
-                                             &numPeers,
-                                             &isRunning,
-                                             &ckptInterval);
+    CoordinatorAPI::connectAndSendUserCommand(*cmd,
+                                              &coordCmdStatus,
+                                              &numPeers,
+                                              &isRunning,
+                                              &ckptInterval);
     break;
   case 'l':
     workerList =
-      coordinatorAPI.connectAndSendUserCommand(*cmd, &coordCmdStatus);
+      CoordinatorAPI::connectAndSendUserCommand(*cmd, &coordCmdStatus);
     break;
   case 'c':
   case 'k':
   case 'q':
     workerList =
-      coordinatorAPI.connectAndSendUserCommand(*cmd, &coordCmdStatus);
+      CoordinatorAPI::connectAndSendUserCommand(*cmd, &coordCmdStatus);
     break;
   default:
     fprintf(stderr, theUsage, "");
