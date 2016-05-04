@@ -99,6 +99,11 @@ example:
   checking on the user. The implication is that if a user, by accident
   or by intention, were to set the two env. vars prior to the first
   checkpoint, the pathvirt plugin would get activated.
+- Any process that's started over ssh does not inherit the environment
+  of its parent on a remote node, by default. This requires special ssh
+  options -- ssh -o SendEnv, and PermitUserEnvironment in sshd config --
+  which are disabled by default in most cases. Consequently, the plugin
+  will not be activated for the process started over ssh.
 
 ## Testing
 
