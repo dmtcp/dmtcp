@@ -97,7 +97,7 @@ extern "C"
   ({                                                                        \
      static __typeof__(&func) _real_##func = (__typeof__(&func)) -1;        \
      if (_real_##func == (__typeof__(&func)) -1) {                          \
-       if (dmtcp_prepare_wrappers) dmtcp_prepare_wrappers();                \
+       if (dmtcp_initialize) dmtcp_initialize();                            \
        _real_##func = (__typeof__(&func)) DLSYM_DEFAULT(RTLD_NEXT, #func);  \
      }                                                                      \
    _real_##func;})

@@ -160,14 +160,15 @@ void FileConnection::drain()
     return;
   }
 
+  if (_type == FILE_DELETED && (_flags & O_WRONLY)) {
+    return;
+  }
+
   if (dmtcp_must_ckpt_file && dmtcp_must_ckpt_file(_path.c_str())) {
     _ckpted_file = true;
     return;
   }
 
-  if (_type == FILE_DELETED && (_flags & O_WRONLY)) {
-    return;
-  }
   if (_isBlacklistedFile(_path)) {
     return;
   }
@@ -264,7 +265,7 @@ void FileConnection::refill(bool isRestart)
 
   if (!_ckpted_file) {
     int tempfd;
-    if (_type == FILE_DELETED && (_flags & (O_WRONLY | O_RDWR))) {
+    if (_type == FILE_DELETED && ((_flags & O_WRONLY) || (_flags & O_RDWR))) {
       tempfd = _real_open(_path.c_str(), _fcntlFlags | O_CREAT, 0600);
       JASSERT(tempfd != -1) (_path) (JASSERT_ERRNO) .Text("open() failed");
       JASSERT(truncate(_path.c_str(), _st_size) ==  0)
@@ -306,7 +307,7 @@ void FileConnection::refill(bool isRestart)
 
 void FileConnection::resume(bool isRestart)
 {
-  if (_ckpted_file && isRestart && _type == FILE_DELETED) {
+  if (isRestart && _type == FILE_DELETED) {
     /* Here we want to unlink the file. We want to do it only at the time of
      * restart, but there is no way of finding out if we are restarting or not.
      * That is why we look for the file on disk and if it is present(it was

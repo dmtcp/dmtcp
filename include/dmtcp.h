@@ -306,7 +306,7 @@ EXTERNC int dmtcp_no_coordinator(void);
 /* If your plugin invokes wrapper functions before DMTCP is initialized,
  *   then call this prior to your first wrapper function call.
  */
-EXTERNC void dmtcp_prepare_wrappers(void) __attribute((weak));
+EXTERNC void dmtcp_initialize(void) __attribute((weak));
 
 // FOR EXPERTS ONLY:
 EXTERNC int dmtcp_is_protected_fd(int fd);
@@ -355,7 +355,7 @@ EXTERNC void dmtcp_get_new_file_path(const char *abspath, const char *cwd,
   __attribute((weak));
 
 
-EXTERNC void dmtcp_prepare_wrappers(void) __attribute((weak));
+EXTERNC void dmtcp_initialize(void) __attribute((weak));
 
 EXTERNC void dmtcp_register_plugin(DmtcpPluginDescriptor_t);
 
@@ -373,7 +373,7 @@ EXTERNC void dmtcp_plugin_enable_ckpt(void);
   ({                                                                        \
      static __typeof__(&func) _real_##func = (__typeof__(&func)) -1;        \
      if (_real_##func == (__typeof__(&func)) -1) {                          \
-       if (dmtcp_prepare_wrappers) dmtcp_prepare_wrappers();                \
+       if (dmtcp_initialize) dmtcp_initialize();                            \
        __typeof__(&dlsym) dlsym_fnptr;                                      \
        dlsym_fnptr = (__typeof__(&dlsym)) dmtcp_get_libc_dlsym_addr();      \
        _real_##func = (__typeof__(&func)) (*dlsym_fnptr) (RTLD_NEXT, #func);\

@@ -10,6 +10,8 @@ static const char *firstRestartBarrier = "DMTCP::RESTART";
 
 static dmtcp::PluginManager *pluginManager = NULL;
 
+extern "C" void dmtcp_initialize();
+
 extern "C" void dmtcp_register_plugin(DmtcpPluginDescriptor_t descr)
 {
   JASSERT(pluginManager != NULL);
@@ -160,6 +162,10 @@ void PluginManager::processRestartBarriers()
 
 void PluginManager::eventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
+  if (pluginManager == NULL) {
+    dmtcp_initialize();
+  }
+
   switch (event) {
     // case DMTCP_EVENT_WRAPPER_INIT, // Future Work :-).
     case DMTCP_EVENT_INIT:
