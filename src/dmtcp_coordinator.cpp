@@ -411,7 +411,7 @@ string DmtcpCoordinator::printList()
       << "(" << clients[i]->ip() << ")"
 #endif
       << ", " << clients[i]->identity()
-      << ", " << clients[i]->state().toString()
+      << ", " << clients[i]->state()
       << '\n';
   }
   return o.str();
@@ -1077,14 +1077,14 @@ void DmtcpCoordinator::broadcastMessage(DmtcpMessageType type,
 DmtcpCoordinator::ComputationStatus DmtcpCoordinator::getStatus() const
 {
   ComputationStatus status;
-  const static int INITIAL_MIN = WorkerState::_MAX;
-  const static int INITIAL_MAX = WorkerState::UNKNOWN;
+  const static WorkerState::eWorkerState INITIAL_MIN = WorkerState::_MAX;
+  const static WorkerState::eWorkerState INITIAL_MAX = WorkerState::UNKNOWN;
   int min = INITIAL_MIN;
   int max = INITIAL_MAX;
   int count = 0;
   bool unanimous = true;
   for (size_t i = 0; i < clients.size(); i++) {
-    int cliState = clients[i]->state().value();
+    WorkerState::eWorkerState cliState = clients[i]->state();
     count++;
     unanimous = unanimous && (min==cliState || min==INITIAL_MIN);
     if ( cliState < min ) min = cliState;

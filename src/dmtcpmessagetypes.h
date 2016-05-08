@@ -27,6 +27,7 @@
 #include "../jalib/jassert.h"
 #include "../jalib/jalloc.h"
 #include "constants.h"
+#include "workerstate.h"
 
 namespace dmtcp
 {
@@ -84,41 +85,6 @@ namespace dmtcp
 
   ostream& operator << (ostream& o, const DmtcpMessageType& s);
 
-  class WorkerState
-  {
-    public:
-#ifdef JALIB_ALLOCATOR
-      static void* operator new(size_t nbytes, void* p) { return p; }
-      static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
-      static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
-#endif
-      enum eWorkerState
-      {
-        UNKNOWN,
-        RUNNING,
-        SUSPENDED,
-        CHECKPOINTING,
-        CHECKPOINTED,
-        RESTARTING,
-        _MAX
-      };
-
-      WorkerState ( eWorkerState s = UNKNOWN ) : _state ( s ) {}
-
-      static WorkerState& instance();
-      static void setCurrentState ( const WorkerState& theValue );
-      static WorkerState currentState();
-
-      eWorkerState value() const;
-
-      bool operator== ( const WorkerState& v ) const{return _state == v.value();}
-      bool operator!= ( const WorkerState& v ) const{return _state != v.value();}
-
-      const char* toString() const;
-    private:
-      int32_t _state;
-  };
-
 #define DMTCPMESSAGE_NUM_PARAMS 2
 #define DMTCPMESSAGE_SAME_CKPT_INTERVAL (~0u) /* default value */
 
@@ -131,7 +97,7 @@ namespace dmtcp
     uint32_t extraBytes;
 
     DmtcpMessageType type;
-    WorkerState state;
+    WorkerState::eWorkerState state;
 
     UniquePid   from;
     UniquePid   compGroup;
@@ -161,11 +127,6 @@ namespace dmtcp
     bool isValid() const;
     void poison();
   };
-
-
-  dmtcp::ostream& operator << ( dmtcp::ostream& o, const WorkerState& s );
-
-
 
 }//namespace dmtcp
 

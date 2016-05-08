@@ -305,6 +305,7 @@ void dmtcp_prepare_wrappers(void)
   }
 }
 
+void dmtcp_initialize();
 //////////////////////////
 //// FIRST DEFINE REAL VERSIONS OF NEEDED FUNCTIONS
 
@@ -312,7 +313,7 @@ void dmtcp_prepare_wrappers(void)
 
 #define REAL_FUNC_PASSTHROUGH_WORK(name) \
   if (fn == NULL) { \
-    if (_real_func_addr[ENUM(name)] == NULL) dmtcp_prepare_wrappers(); \
+    if (_real_func_addr[ENUM(name)] == NULL) dmtcp_initialize(); \
     fn = _real_func_addr[ENUM(name)]; \
     if (fn == NULL) { \
       fprintf(stderr, "*** DMTCP: Error: lookup failed for %s.\n" \

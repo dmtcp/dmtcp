@@ -253,14 +253,24 @@ static jalib::JBuffer buf(0); // To force linkage of jbuffer.cpp
 
 //called before user main()
 //workerhijack.cpp initializes a static variable theInstance to DmtcpWorker obj
-DmtcpWorker::DmtcpWorker()
+extern "C" void dmtcp_initialize()
 {
-  WorkerState::setCurrentState(WorkerState::UNKNOWN);
+  static bool initialized = false;
+  if (initialized) {
+    return;
+  }
+  initialized = true;
 
+  WorkerState::setCurrentState(WorkerState::UNKNOWN);
   dmtcp_prepare_wrappers();
+
   initializeJalib();
   dmtcp_prepare_atfork();
+
+  WorkerState::setCurrentState (WorkerState::RUNNING);
+
   PluginManager::initialize();
+
   prepareLogAndProcessdDataFromSerialFile();
 
   JTRACE("libdmtcp.so:  Running ")
@@ -273,7 +283,7 @@ DmtcpWorker::DmtcpWorker()
 
   //This is called for side effect only.  Force this function to call
   // getenv(ENV_VAR_SIGCKPT) now and cache it to avoid getenv calls later.
-  determineCkptSignal();
+  DmtcpWorker::determineCkptSignal();
 
   // Also cache programName and arguments
   string programName = jalib::Filesystem::GetProgramName();
@@ -290,8 +300,6 @@ DmtcpWorker::DmtcpWorker()
   ProcessInfo::instance().calculateArgvAndEnvSize();
   restoreUserLDPRELOAD();
 
-  WorkerState::setCurrentState (WorkerState::RUNNING);
-
   if (ibv_get_device_list && !dmtcp_infiniband_enabled) {
     JNOTE("\n\n*** InfiniBand library detected."
           "  Please use dmtcp_launch --ib ***\n");
@@ -302,6 +310,13 @@ DmtcpWorker::DmtcpWorker()
 
   ThreadSync::initMotherOfAll();
   ThreadList::init();
+}
+
+//called before user main()
+//workerhijack.cpp initializes a static variable theInstance to DmtcpWorker obj
+DmtcpWorker::DmtcpWorker()
+{
+  dmtcp_initialize();
 }
 
 void DmtcpWorker::resetOnFork()
