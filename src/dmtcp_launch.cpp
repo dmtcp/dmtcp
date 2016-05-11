@@ -330,6 +330,9 @@ static void processArgs(int *orig_argc, char ***orig_argv,
     } else if (s == "--with-plugin") {
       setenv(ENV_VAR_PLUGIN, argv[1], 1);
       shift; shift;
+    } else if (s == "--with-plugin-32") {
+      setenv(ENV_VAR_PLUGIN_32, argv[1], 1);
+      shift; shift;
     } else if (s == "-q" || s == "--quiet") {
       *getenv(ENV_VAR_QUIET) = *getenv(ENV_VAR_QUIET) + 1;
       // Just in case a non-standard version of setenv is being used:
@@ -701,14 +704,25 @@ static void setLDPreloadLibs(bool is32bitElf)
   // preloadLibs are to set LD_PRELOAD:
   //   LD_PRELOAD=PLUGIN_LIBS:UTILITY_DIR/libdmtcp.so:R_LIBSR_UTILITY_DIR/
   string preloadLibs = "";
+  string preloadLibs32 = "";
   // FIXME:  If the colon-separated elements of ENV_VAR_PLUGIN are not
   //     absolute pathnames, then they must be expanded to absolute pathnames.
   //     Warn user if an absolute pathname is not valid.
   if ( getenv(ENV_VAR_PLUGIN) != NULL ) {
     preloadLibs += getenv(ENV_VAR_PLUGIN);
     preloadLibs += ":";
+    preloadLibs32 = preloadLibs;
   }
-  string preloadLibs32 = preloadLibs;
+  if ( getenv(ENV_VAR_PLUGIN_32) != NULL ) {
+    preloadLibs32 = getenv(ENV_VAR_PLUGIN_32);
+    preloadLibs32 += ":";
+  }
+
+  // In case user has only given --with-plugin-32, then set
+  // preloadLibs same as preloadLibs32 and vice-versa
+  if(preloadLibs == "") {
+    preloadLibs = preloadLibs32;
+  }
 
   //set up Alloc plugin
   if (getenv(ENV_VAR_ALLOC_PLUGIN) != NULL){
