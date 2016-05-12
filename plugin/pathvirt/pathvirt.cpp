@@ -69,6 +69,8 @@ static char newPathPrefixList[MAX_ENV_VAR_SIZE];
 static bool tmpBufferModified = false;
 static pthread_rwlock_t  listRwLock;
 
+EXTERNC int dmtcp_pathvirt_enabled() { return 1; }
+
 /*
  * Helper Functions
  */
@@ -362,6 +364,25 @@ dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
            shouldSwap = *oldPathPrefixList && *newPathPrefixList;
        }
        break;
+    }
+    case DMTCP_EVENT_RESTART:
+    {
+      char tmp[MAX_ENV_VAR_SIZE] = {0};
+
+      int ret = dmtcp_get_restart_env(ENV_ORIG_DPP, tmp, sizeof(tmp) - 1);
+      errCheckGetRestartEnv(ret);
+ 
+      if (ret == RESTART_ENV_SUCCESS) {
+        setenv(ENV_ORIG_DPP, tmp, 1);
+      }
+
+      ret = dmtcp_get_restart_env(ENV_NEW_DPP, tmp, sizeof(tmp) - 1);
+      errCheckGetRestartEnv(ret);
+ 
+      if (ret == RESTART_ENV_SUCCESS) {
+        setenv(ENV_NEW_DPP, tmp, 1);
+      }
+      break;
     }
     default:
     ;
