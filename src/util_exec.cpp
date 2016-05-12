@@ -620,6 +620,7 @@ void Util::getDmtcpArgs(vector<string> &dmtcp_args)
   const char * ckptDir              = getenv (ENV_VAR_CHECKPOINT_DIR);
   const char * tmpDir               = getenv (ENV_VAR_TMPDIR);
   const char * plugins              = getenv (ENV_VAR_PLUGIN);
+  const char * plugins_32           = getenv (ENV_VAR_PLUGIN_32);
 
   //modify the command
   dmtcp_args.clear();
@@ -656,6 +657,11 @@ void Util::getDmtcpArgs(vector<string> &dmtcp_args)
   if (plugins != NULL) {
     dmtcp_args.push_back("--with-plugin");
     dmtcp_args.push_back(plugins);
+  }
+
+  if (plugins_32 != NULL) {
+    dmtcp_args.push_back("--with-plugin-32");
+    dmtcp_args.push_back(plugins_32);
   }
 
   if (compression != NULL) {
