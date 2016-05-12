@@ -69,6 +69,8 @@ static char newPathPrefixList[MAX_ENV_VAR_SIZE];
 static bool tmpBufferModified = false;
 static pthread_rwlock_t  listRwLock;
 
+EXTERNC int dmtcp_pathvirt_enabled() { return 1; }
+
 /*
  * Helper Functions
  */
@@ -197,6 +199,9 @@ pathvirtInitialize()
     int ret = dmtcp_get_restart_env(ENV_NEW_DPP, newPathPrefixList,
                                     sizeof(newPathPrefixList) - 1);
     errCheckGetRestartEnv(ret);
+    if (ret == RESTART_ENV_SUCCESS) {
+      setenv(ENV_NEW_DPP, newPathPrefixList, 1);
+    }
 
     /* If the user had modified the original buffer prior to checkpointing,
      * we use it now.
@@ -215,6 +220,7 @@ pathvirtInitialize()
     if (ret == RESTART_ENV_SUCCESS) {
         memset(oldPathPrefixList, 0, sizeof(oldPathPrefixList));
         snprintf(oldPathPrefixList, sizeof(oldPathPrefixList), "%s", tmp);
+        setenv(ENV_ORIG_DPP, tmp, 1);
     }
 
     /* we should only swap if oldPathPrefixList contains something,

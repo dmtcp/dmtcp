@@ -74,6 +74,7 @@ EXTERNC int dmtcp_batch_queue_enabled(void) __attribute__((weak));
 EXTERNC int dmtcp_modify_env_enabled(void) __attribute__((weak));
 EXTERNC int dmtcp_ptrace_enabled(void) __attribute__((weak));
 EXTERNC int dmtcp_unique_ckpt_enabled(void) __attribute__((weak));
+EXTERNC int dmtcp_pathvirt_enabled(void) __attribute__((weak));
 
 
 /*
