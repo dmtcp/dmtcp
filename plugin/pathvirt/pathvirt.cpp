@@ -199,6 +199,9 @@ pathvirtInitialize()
     int ret = dmtcp_get_restart_env(ENV_NEW_DPP, newPathPrefixList,
                                     sizeof(newPathPrefixList) - 1);
     errCheckGetRestartEnv(ret);
+    if (ret == RESTART_ENV_SUCCESS) {
+      setenv(ENV_NEW_DPP, newPathPrefixList, 1);
+    }
 
     /* If the user had modified the original buffer prior to checkpointing,
      * we use it now.
@@ -217,6 +220,7 @@ pathvirtInitialize()
     if (ret == RESTART_ENV_SUCCESS) {
         memset(oldPathPrefixList, 0, sizeof(oldPathPrefixList));
         snprintf(oldPathPrefixList, sizeof(oldPathPrefixList), "%s", tmp);
+        setenv(ENV_ORIG_DPP, tmp, 1);
     }
 
     /* we should only swap if oldPathPrefixList contains something,
@@ -364,25 +368,6 @@ dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
            shouldSwap = *oldPathPrefixList && *newPathPrefixList;
        }
        break;
-    }
-    case DMTCP_EVENT_RESTART:
-    {
-      char tmp[MAX_ENV_VAR_SIZE] = {0};
-
-      int ret = dmtcp_get_restart_env(ENV_ORIG_DPP, tmp, sizeof(tmp) - 1);
-      errCheckGetRestartEnv(ret);
- 
-      if (ret == RESTART_ENV_SUCCESS) {
-        setenv(ENV_ORIG_DPP, tmp, 1);
-      }
-
-      ret = dmtcp_get_restart_env(ENV_NEW_DPP, tmp, sizeof(tmp) - 1);
-      errCheckGetRestartEnv(ret);
- 
-      if (ret == RESTART_ENV_SUCCESS) {
-        setenv(ENV_NEW_DPP, tmp, 1);
-      }
-      break;
     }
     default:
     ;
