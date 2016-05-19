@@ -311,6 +311,14 @@ get_new_path_prefix_list()
   pthread_rwlock_unlock(&listRwLock);
 }
 
+EXTERNC const char*
+get_virtual_to_physical_path(const char *virt_path)
+{
+  static dmtcp::string temp;
+  temp = VIRTUAL_TO_PHYSICAL_PATH(virt_path);
+  return temp.c_str();
+}
+
 /*
  * DMTCP Setup
  */
