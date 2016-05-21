@@ -51,6 +51,7 @@ extern "C" void initializeJalib()
   INIT_JALIB_FPTR(read);
   INIT_JALIB_FPTR(write);
   INIT_JALIB_FPTR(select);
+  INIT_JALIB_FPTR(poll);
 
   INIT_JALIB_FPTR(socket);
   INIT_JALIB_FPTR(connect);
