@@ -182,16 +182,6 @@ static void pidVirt_ThreadExit(DmtcpEventData_t *data)
   VirtualPidTable::instance().erase(tid);
 }
 
-static void pidVirt_RefillTid() {
-  map<pthread_mutex_t*, pid_t>::iterator it;
-
-  for (it = mapMutexVirtTid().begin(); it != mapMutexVirtTid().end(); it++) {
-    if (it->first->__data.__owner != 0) {
-      it->first->__data.__owner = VIRTUAL_TO_REAL_PID(it->second);
-    }
-  }
-}
-
 extern "C" void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   switch (event) {
