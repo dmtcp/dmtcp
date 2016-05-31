@@ -19,70 +19,77 @@
  *  <http://www.gnu.org/licenses/>.                                          *
  *****************************************************************************/
 
-#include <stdarg.h>
 #include <fcntl.h>
-#include <sys/types.h>
-#include <sys/syscall.h>
-#include <sys/stat.h>
+#include <stdarg.h>
 #include <sys/mman.h>
+#include <sys/stat.h>
+#include <sys/syscall.h>
+#include <sys/types.h>
 
-#include <linux/version.h>
-#include <linux/unistd.h>
 #include <linux/limits.h>
+#include <linux/unistd.h>
+#include <linux/version.h>
 
-#include "ptrace.h"
-#include "ptraceinfo.h"
 #include "dmtcp.h"
-#include "util.h"
 #include "jassert.h"
 #include "jfilesystem.h"
+#include "ptrace.h"
+#include "ptraceinfo.h"
+#include "util.h"
 
 using namespace dmtcp;
 
 static PtraceInfo *_ptraceInfo = NULL;
-PtraceInfo& PtraceInfo::instance()
+PtraceInfo &
+PtraceInfo::instance()
 {
-  if (_ptraceInfo == NULL) _ptraceInfo = new PtraceInfo();
+  if (_ptraceInfo == NULL) {
+    _ptraceInfo = new PtraceInfo();
+  }
   return *_ptraceInfo;
 }
 
-void PtraceInfo::createSharedFile()
+void
+PtraceInfo::createSharedFile()
 {
   struct stat statbuf;
   int fd = dmtcp_get_ptrace_fd();
+
   if (fstat(fd, &statbuf) == -1 && errno == EBADF) {
     char path[PATH_MAX];
     int ptrace_fd = dmtcp_get_ptrace_fd();
 
     sprintf(path, "%s/%s-%s.%lx", dmtcp_get_tmpdir(), "ptraceSharedInfo",
             dmtcp_get_computation_id_str(),
-            (unsigned long) dmtcp_get_coordinator_timestamp());
+            (unsigned long)dmtcp_get_coordinator_timestamp());
 
     int fd = _real_open(path, O_CREAT | O_TRUNC | O_RDWR, 0600);
-    JASSERT(fd != -1) (path) (JASSERT_ERRNO);
+    JASSERT(fd != -1)(path)(JASSERT_ERRNO);
 
-    JASSERT(_real_lseek(fd, _sharedDataSize, SEEK_SET) == (off_t)_sharedDataSize)
-      (path) (_sharedDataSize) (JASSERT_ERRNO);
+    JASSERT(_real_lseek(fd, _sharedDataSize, SEEK_SET) ==
+            (off_t)_sharedDataSize)
+    (path)(_sharedDataSize)(JASSERT_ERRNO);
     Util::writeAll(fd, "", 1);
-    JASSERT(_real_unlink(path) == 0) (path) (JASSERT_ERRNO);
-    JASSERT(_real_dup2(fd, ptrace_fd) == ptrace_fd) (fd) (ptrace_fd);
+    JASSERT(_real_unlink(path) == 0)(path)(JASSERT_ERRNO);
+    JASSERT(_real_dup2(fd, ptrace_fd) == ptrace_fd)(fd)(ptrace_fd);
     close(fd);
   }
 }
 
-void PtraceInfo::mapSharedFile()
+void
+PtraceInfo::mapSharedFile()
 {
   int fd = dmtcp_get_ptrace_fd();
 
-  _sharedData = (PtraceSharedData*) _real_mmap(0, _sharedDataSize,
-                                               PROT_READ|PROT_WRITE,
-                                               MAP_SHARED, fd, 0);
-  JASSERT(_sharedData != MAP_FAILED) (fd) (_sharedDataSize);
+  _sharedData = (PtraceSharedData *)_real_mmap(
+    0, _sharedDataSize, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+  JASSERT(_sharedData != MAP_FAILED)(fd)(_sharedDataSize);
 
   _sharedData->init();
 }
 
-bool PtraceInfo::isPtracing()
+bool
+PtraceInfo::isPtracing()
 {
   if (_sharedData == NULL) {
     mapSharedFile();
@@ -90,7 +97,8 @@ bool PtraceInfo::isPtracing()
   return _sharedData->isPtracing();
 }
 
-void PtraceInfo::markAsCkptThread()
+void
+PtraceInfo::markAsCkptThread()
 {
   if (_sharedData == NULL) {
     mapSharedFile();
@@ -101,7 +109,8 @@ void PtraceInfo::markAsCkptThread()
   }
 }
 
-vector<pid_t> PtraceInfo::getInferiorVector(pid_t tid)
+vector<pid_t>
+PtraceInfo::getInferiorVector(pid_t tid)
 {
   if (_supToInfsMap.find(tid) == _supToInfsMap.end()) {
     vector<pid_t> vec;
@@ -110,7 +119,8 @@ vector<pid_t> PtraceInfo::getInferiorVector(pid_t tid)
   return _supToInfsMap[tid];
 }
 
-void PtraceInfo::setLastCmd(pid_t tid, int lastCmd)
+void
+PtraceInfo::setLastCmd(pid_t tid, int lastCmd)
 {
   if (!isPtracing()) {
     return;
@@ -122,9 +132,11 @@ void PtraceInfo::setLastCmd(pid_t tid, int lastCmd)
   inf->setLastCmd(lastCmd);
 }
 
-void PtraceInfo::insertInferior(pid_t tid)
+void
+PtraceInfo::insertInferior(pid_t tid)
 {
   Inferior *inf = _sharedData->getInferior(tid);
+
   if (inf == NULL) {
     inf = _sharedData->insertInferior(GETTID(), tid);
   }
@@ -132,17 +144,18 @@ void PtraceInfo::insertInferior(pid_t tid)
   _infToSupMap[tid] = inf->superior();
 }
 
-void PtraceInfo::eraseInferior(pid_t tid)
+void
+PtraceInfo::eraseInferior(pid_t tid)
 {
   if (_sharedData == NULL) {
     mapSharedFile();
   }
   Inferior *inf = _sharedData->getInferior(tid);
-  JASSERT(inf != NULL) (tid);
+  JASSERT(inf != NULL)(tid);
   pid_t superior = inf->superior();
   _sharedData->eraseInferior(inf);
 
-  vector<int>& vec = _supToInfsMap[superior];
+  vector<int> &vec = _supToInfsMap[superior];
   vector<int>::iterator it;
   for (it = vec.begin(); it != vec.end(); it++) {
     if (*it == tid) {
@@ -154,18 +167,22 @@ void PtraceInfo::eraseInferior(pid_t tid)
   _infToSupMap.erase(tid);
 }
 
-bool PtraceInfo::isInferior(pid_t tid)
+bool
+PtraceInfo::isInferior(pid_t tid)
 {
   Inferior *inf = _sharedData->getInferior(tid);
+
   if (inf != NULL) {
     return inf->superior() == GETTID();
   }
   return false;
 }
 
-void PtraceInfo::setPtracing()
+void
+PtraceInfo::setPtracing()
 {
   static int markPtracing = 0;
+
   if (!markPtracing) {
     if (_sharedData == NULL) {
       mapSharedFile();
@@ -175,10 +192,14 @@ void PtraceInfo::setPtracing()
   }
 }
 
-void PtraceInfo::processSuccessfulPtraceCmd(int request, pid_t pid,
-                                                   void *addr, void *data)
+void
+PtraceInfo::processSuccessfulPtraceCmd(int request,
+                                       pid_t pid,
+                                       void *addr,
+                                       void *data)
 {
   Inferior *inf;
+
   if (pid <= 0) {
     return;
   }
@@ -192,7 +213,7 @@ void PtraceInfo::processSuccessfulPtraceCmd(int request, pid_t pid,
       break;
 
     case PTRACE_SINGLESTEP:
-      JTRACE("PTRACE_SINGLESTEP") (pid);
+      JTRACE("PTRACE_SINGLESTEP")(pid);
       break;
 
     case PTRACE_DETACH:
@@ -208,7 +229,7 @@ void PtraceInfo::processSuccessfulPtraceCmd(int request, pid_t pid,
         inf = _sharedData->insertInferior(getpid(), pid);
       }
       inf->setLastCmd(request);
-      JTRACE("PTRACE_CONT") (pid);
+      JTRACE("PTRACE_CONT")(pid);
       break;
 
     case PTRACE_SYSCALL:
@@ -217,38 +238,38 @@ void PtraceInfo::processSuccessfulPtraceCmd(int request, pid_t pid,
         inf = _sharedData->insertInferior(getpid(), pid);
       }
       inf->setLastCmd(request);
-      JTRACE("PTRACE_SYSCALL") (pid);
+      JTRACE("PTRACE_SYSCALL")(pid);
       break;
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,6)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 6)
     case PTRACE_SETOPTIONS:
       inf = _sharedData->getInferior(pid);
       if (inf == NULL) {
         inf = _sharedData->insertInferior(getpid(), pid);
       }
       inf->setPtraceOptions(data);
-      JTRACE("PTRACE_SETOPTIONS") (pid);
+      JTRACE("PTRACE_SETOPTIONS")(pid);
       break;
-#endif
+#endif // if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 6)
 
     default:
-      JTRACE("PTRACE_XXX") (pid) (request);
+      JTRACE("PTRACE_XXX")(pid)(request);
       break;
   }
 
   if (_infToSupMap.find(pid) == _infToSupMap.end()) {
     insertInferior(pid);
   }
-  return;
 }
 
-void PtraceInfo::processSetOptions(pid_t tid, void *data)
+void
+PtraceInfo::processSetOptions(pid_t tid, void *data)
 {
   // TODO:
 }
 
-pid_t PtraceInfo::getWait4Status(pid_t tid, int *status,
-                                        struct rusage *rusage)
+pid_t
+PtraceInfo::getWait4Status(pid_t tid, int *status, struct rusage *rusage)
 {
   if (!isPtracing()) {
     return -1;
@@ -261,7 +282,8 @@ pid_t PtraceInfo::getWait4Status(pid_t tid, int *status,
   return -1;
 }
 
-void PtraceInfo::waitForSuperiorAttach()
+void
+PtraceInfo::waitForSuperiorAttach()
 {
   if (_sharedData == NULL) {
     mapSharedFile();
@@ -274,10 +296,11 @@ void PtraceInfo::waitForSuperiorAttach()
   inf->semDestroy();
 }
 
-
-void PtraceInfo::processPreResumeAttach(pid_t inferior)
+void
+PtraceInfo::processPreResumeAttach(pid_t inferior)
 {
   Inferior *inf = _sharedData->getInferior(inferior);
-  JASSERT(inf != NULL) (inferior);
+
+  JASSERT(inf != NULL)(inferior);
   inf->semPost();
 }

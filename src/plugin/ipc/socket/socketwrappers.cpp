@@ -19,25 +19,25 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#include <arpa/inet.h>
 #include <dlfcn.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <pthread.h>
 #include <sys/select.h>
 #include <sys/un.h>
-#include <arpa/inet.h>
 
 /* According to earlier standards */
+#include <errno.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <errno.h>
+#include "../jalib/jassert.h"
+#include "../jalib/jfilesystem.h"
 #include "socketconnection.h"
 #include "socketconnlist.h"
 #include "socketwrappers.h"
-#include "../jalib/jassert.h"
-#include "../jalib/jfilesystem.h"
 
 using namespace dmtcp;
 
@@ -50,16 +50,17 @@ using namespace dmtcp;
  */
 static __thread bool _doNotProcessSockets = false;
 
-extern "C" int socket(int domain, int type, int protocol)
+extern "C" int
+socket(int domain, int type, int protocol)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
   int ret = _real_socket(domain, type, protocol);
   if (ret != -1 && dmtcp_is_running_state() && !_doNotProcessSockets) {
     Connection *con;
-    JTRACE("socket created") (ret) (domain) (type) (protocol);
+    JTRACE("socket created")(ret)(domain)(type)(protocol);
     if ((type & 0xff) == SOCK_RAW) {
-      JASSERT(domain == AF_NETLINK) (domain) (type)
-        .Text("Only Netlink Raw sockets supported");
+      JASSERT(domain == AF_NETLINK)
+      (domain)(type).Text("Only Netlink Raw sockets supported");
       con = new RawSocketConnection(domain, type, protocol);
     } else {
       con = new TcpConnection(domain, type, protocol);
@@ -70,23 +71,23 @@ extern "C" int socket(int domain, int type, int protocol)
   return ret;
 }
 
-extern "C" int connect(int sockfd, const struct sockaddr *serv_addr,
-                       socklen_t addrlen)
+extern "C" int
+connect(int sockfd, const struct sockaddr *serv_addr, socklen_t addrlen)
 {
   DMTCP_PLUGIN_DISABLE_CKPT(); // The lock is released inside the macro.
 
-  int ret = _real_connect(sockfd,serv_addr,addrlen);
-  int savedErrno = errno; // Save errno to prevent modifications by the following code
-  if ((ret != -1 || errno == EINPROGRESS) &&
-      dmtcp_is_running_state() &&
+  int ret = _real_connect(sockfd, serv_addr, addrlen);
+  int savedErrno = errno; // Save errno to prevent modifications by the
+  // following code
+  if ((ret != -1 || errno == EINPROGRESS) && dmtcp_is_running_state() &&
       !_doNotProcessSockets) {
     TcpConnection *con =
-      (TcpConnection*) SocketConnList::instance().getConnection(sockfd);
+      (TcpConnection *)SocketConnList::instance().getConnection(sockfd);
     if (con == NULL) {
       JTRACE("Connect operation on unsupported socket type.");
     } else {
       con->onConnect(serv_addr, addrlen, (ret == -1 && errno == EINPROGRESS));
-      JTRACE("connected") (sockfd) (con->id());
+      JTRACE("connected")(sockfd)(con->id());
     }
   }
 
@@ -95,65 +96,66 @@ extern "C" int connect(int sockfd, const struct sockaddr *serv_addr,
   return ret;
 }
 
-extern "C" int bind(int sockfd, const struct sockaddr *my_addr,
-                     socklen_t addrlen)
+extern "C" int
+bind(int sockfd, const struct sockaddr *my_addr, socklen_t addrlen)
 {
   DMTCP_PLUGIN_DISABLE_CKPT(); // The lock is released inside the macro.
   int ret = _real_bind(sockfd, my_addr, addrlen);
   if (ret != -1 && dmtcp_is_running_state() && !_doNotProcessSockets) {
     TcpConnection *con =
-      (TcpConnection*) SocketConnList::instance().getConnection(sockfd);
+      (TcpConnection *)SocketConnList::instance().getConnection(sockfd);
     if (con == NULL) {
       JTRACE("bind operation on unsupported socket type.");
     } else {
-      con->onBind((struct sockaddr*) my_addr, addrlen);
-      JTRACE("bind") (sockfd) (con->id());
+      con->onBind((struct sockaddr *)my_addr, addrlen);
+      JTRACE("bind")(sockfd)(con->id());
     }
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return ret;
 }
 
-extern "C" int listen(int sockfd, int backlog)
+extern "C" int
+listen(int sockfd, int backlog)
 {
   DMTCP_PLUGIN_DISABLE_CKPT(); // The lock is released inside the macro.
   int ret = _real_listen(sockfd, backlog);
   if (ret != -1 && dmtcp_is_running_state() && !_doNotProcessSockets) {
     TcpConnection *con =
-      (TcpConnection*) SocketConnList::instance().getConnection(sockfd);
+      (TcpConnection *)SocketConnList::instance().getConnection(sockfd);
     if (con == NULL) {
       JTRACE("listen operation on unsupported socket type.");
     } else {
       con->onListen(backlog);
-      JTRACE("listen") (sockfd) (con->id()) (backlog);
+      JTRACE("listen")(sockfd)(con->id())(backlog);
     }
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return ret;
 }
 
-static void process_accept(int ret, int sockfd, struct sockaddr *addr,
-                           socklen_t *addrlen)
+static void
+process_accept(int ret, int sockfd, struct sockaddr *addr, socklen_t *addrlen)
 {
   JASSERT(ret != -1);
   TcpConnection *parent =
-    (TcpConnection*) SocketConnList::instance().getConnection(sockfd);
+    (TcpConnection *)SocketConnList::instance().getConnection(sockfd);
   if (parent == NULL) {
     JTRACE("unable to get the connection.");
     return;
   }
-  TcpConnection* con = new TcpConnection(*parent, ConnectionIdentifier::null());
+  TcpConnection *con = new TcpConnection(*parent, ConnectionIdentifier::null());
   if (con == NULL) {
     JTRACE("accept operation on unsupported socket type.");
     return;
   }
   SocketConnList::instance().add(ret, con);
 
-  JTRACE("accepted incoming connection") (sockfd) (con->id());
+  JTRACE("accepted incoming connection")(sockfd)(con->id());
 }
 
-extern "C" int accept(int sockfd, struct sockaddr *addr,
-                      socklen_t *addrlen)
+extern "C" int
+accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
 {
   /* FIXME: accept() is a blocking call that can alter the process state(by
    * creating a new socket-fd). This can cause problems if it happens at a time
@@ -166,9 +168,10 @@ extern "C" int accept(int sockfd, struct sockaddr *addr,
    */
   struct sockaddr_storage tmp_addr;
   socklen_t tmp_len = 0;
+
   if (addr == NULL || addrlen == NULL) {
-    memset(&tmp_addr,0,sizeof(tmp_addr));
-    addr = (struct sockaddr*) &tmp_addr;
+    memset(&tmp_addr, 0, sizeof(tmp_addr));
+    addr = (struct sockaddr *)&tmp_addr;
     addrlen = &tmp_len;
   }
   int ret = _real_accept(sockfd, addr, addrlen);
@@ -178,15 +181,16 @@ extern "C" int accept(int sockfd, struct sockaddr *addr,
   return ret;
 }
 
-extern "C" int accept4(int sockfd, struct sockaddr *addr,
-                         socklen_t *addrlen, int flags)
+extern "C" int
+accept4(int sockfd, struct sockaddr *addr, socklen_t *addrlen, int flags)
 {
   // Look at the comment for accept()
   struct sockaddr_storage tmp_addr;
   socklen_t tmp_len = 0;
+
   if (addr == NULL || addrlen == NULL) {
-    memset(&tmp_addr,0,sizeof(tmp_addr));
-    addr = (struct sockaddr*) &tmp_addr;
+    memset(&tmp_addr, 0, sizeof(tmp_addr));
+    addr = (struct sockaddr *)&tmp_addr;
     addrlen = &tmp_len;
   }
   int ret = _real_accept4(sockfd, addr, addrlen, flags);
@@ -196,14 +200,16 @@ extern "C" int accept4(int sockfd, struct sockaddr *addr,
   return ret;
 }
 
-extern "C" int setsockopt(int sockfd, int level, int optname,
-                          const void *optval, socklen_t optlen)
+extern "C" int
+setsockopt(
+  int sockfd, int level, int optname, const void *optval, socklen_t optlen)
 {
   int ret = _real_setsockopt(sockfd, level, optname, optval, optlen);
+
   if (ret != -1 && dmtcp_is_running_state() && !_doNotProcessSockets) {
-    JTRACE("setsockopt") (ret) (sockfd) (optname);
+    JTRACE("setsockopt")(ret)(sockfd)(optname);
     TcpConnection *con =
-      (TcpConnection*) SocketConnList::instance().getConnection(sockfd);
+      (TcpConnection *)SocketConnList::instance().getConnection(sockfd);
     if (con == NULL) {
       JTRACE("setsockopt operation on unsupported socket type.");
       return ret;
@@ -213,8 +219,8 @@ extern "C" int setsockopt(int sockfd, int level, int optname,
 }
 
 #if 0
-extern "C" int getsockopt(int sockfd, int level, int optname,
-                          void *optval, socklen_t *optlen)
+extern "C" int
+getsockopt(int sockfd, int level, int optname, void *optval, socklen_t *optlen)
 {
   /* We don't want to acquire the lock here as this is not needed. Also,
    * aquiring the lock here might cause a deadlock when this function is called
@@ -224,18 +230,20 @@ extern "C" int getsockopt(int sockfd, int level, int optname,
    * User-thread getsockopt(): block on read lock().
    */
   int ret = _real_getsockopt(sockfd, level, optname, optval, optlen);
-  PASSTHROUGH_DMTCP_HELPER(getsockopt,sockfd,level,optname,optval,optlen);
-}
-#endif
 
-extern "C" int socketpair(int d, int type, int protocol, int sv[2])
+  PASSTHROUGH_DMTCP_HELPER(getsockopt, sockfd, level, optname, optval, optlen);
+}
+#endif // if 0
+
+extern "C" int
+socketpair(int d, int type, int protocol, int sv[2])
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
 
   JASSERT(sv != NULL);
-  int rv = _real_socketpair(d,type,protocol,sv);
+  int rv = _real_socketpair(d, type, protocol, sv);
   if (rv != -1 && dmtcp_is_running_state() && !_doNotProcessSockets) {
-    JTRACE("socketpair()") (sv[0]) (sv[1]);
+    JTRACE("socketpair()")(sv[0])(sv[1]);
 
     TcpConnection *a, *b;
 
@@ -252,11 +260,14 @@ extern "C" int socketpair(int d, int type, int protocol, int sv[2])
   return rv;
 }
 
-extern "C" int getaddrinfo(const char *node, const char *service,
-                           const struct addrinfo *hints,
-                           struct addrinfo **res)
+extern "C" int
+getaddrinfo(const char *node,
+            const char *service,
+            const struct addrinfo *hints,
+            struct addrinfo **res)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
+
   // See comment near definition of _doNotProcessSockets;
   _doNotProcessSockets = true;
   int ret = _real_getaddrinfo(node, service, hints, res);
@@ -265,9 +276,14 @@ extern "C" int getaddrinfo(const char *node, const char *service,
   return ret;
 }
 
-extern "C" int getnameinfo(const struct sockaddr *sa, socklen_t salen,
-                           char *host, size_t hostlen,
-                           char *serv, size_t servlen, int flags)
+extern "C" int
+getnameinfo(const struct sockaddr *sa,
+            socklen_t salen,
+            char *host,
+            size_t hostlen,
+            char *serv,
+            size_t servlen,
+            int flags)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
   _doNotProcessSockets = true;
@@ -277,7 +293,8 @@ extern "C" int getnameinfo(const struct sockaddr *sa, socklen_t salen,
   return ret;
 }
 
-extern "C" struct hostent *gethostbyname(const char *name)
+extern "C" struct hostent *
+gethostbyname(const char *name)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
   _doNotProcessSockets = true;
@@ -287,8 +304,8 @@ extern "C" struct hostent *gethostbyname(const char *name)
   return ret;
 }
 
-extern "C" struct hostent *gethostbyaddr(const void *addr,
-					socklen_t len, int type)
+extern "C" struct hostent *
+gethostbyaddr(const void *addr, socklen_t len, int type)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
   _doNotProcessSockets = true;

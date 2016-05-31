@@ -22,89 +22,97 @@
 #ifndef JALIB_H
 #define JALIB_H
 
-#include <sys/types.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <fcntl.h>
 #include <poll.h>
+#include <sys/stat.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #include <fstream>
 
-namespace jalib {
-  typedef struct JalibFuncPtrs {
-    int   (*open)(const char *pathname, int flags, ...);
-    FILE* (*fopen)(const char *path, const char *mode);
-    int   (*close)(int fd);
-    int   (*fclose)(FILE *fp);
-    int   (*dup)(int oldfd);
-    int   (*dup2)(int oldfd, int newfd);
-    ssize_t (*readlink)(const char *path, char *buf, size_t bufsiz);
+namespace jalib
+{
+typedef struct JalibFuncPtrs {
+  int (*open)(const char *pathname, int flags, ...);
+  FILE *(*fopen)(const char *path, const char *mode);
+  int (*close)(int fd);
+  int (*fclose)(FILE *fp);
+  int (*dup)(int oldfd);
+  int (*dup2)(int oldfd, int newfd);
+  ssize_t (*readlink)(const char *path, char *buf, size_t bufsiz);
 
-    long  (*syscall)(long sys_num, ...);
-    void*    (*mmap)(void *addr, size_t length, int prot, int flags, int fd,
-                     off_t offset);
-    int      (*munmap)(void *addr, size_t length);
+  long (*syscall)(long sys_num, ...);
+  void *(*mmap)(
+    void *addr, size_t length, int prot, int flags, int fd, off_t offset);
+  int (*munmap)(void *addr, size_t length);
 
-    ssize_t (*read)(int fd, void *buf, size_t count);
-    ssize_t (*write)(int fd, const void *buf, size_t count);
-    int   (*select)(int nfds, fd_set *readfds, fd_set *writefds,
-                    fd_set *exceptfds, struct timeval *timeout);
-    int   (*poll)(struct pollfd fds[], nfds_t nfds, int timeout);
+  ssize_t (*read)(int fd, void *buf, size_t count);
+  ssize_t (*write)(int fd, const void *buf, size_t count);
+  int (*select)(int nfds,
+                fd_set *readfds,
+                fd_set *writefds,
+                fd_set *exceptfds,
+                struct timeval *timeout);
+  int (*poll)(struct pollfd fds[], nfds_t nfds, int timeout);
 
-    int   (*socket)(int domain, int type, int protocol);
-    int   (*connect)(int sockfd, const struct sockaddr *saddr, socklen_t addrlen);
-    int   (*bind)(int sockfd, const struct sockaddr *my_addr, socklen_t addrlen);
-    int   (*listen)(int sockfd, int backlog);
-    int   (*accept)(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
-    int   (*setsockopt)(int s, int level, int optname, const void *optval,
-                        socklen_t optlen);
-    int   (*pthread_mutex_lock)(pthread_mutex_t *mutex);
-    int   (*pthread_mutex_trylock)(pthread_mutex_t *mutex);
-    int   (*pthread_mutex_unlock)(pthread_mutex_t *mutex);
+  int (*socket)(int domain, int type, int protocol);
+  int (*connect)(int sockfd, const struct sockaddr *saddr, socklen_t addrlen);
+  int (*bind)(int sockfd, const struct sockaddr *my_addr, socklen_t addrlen);
+  int (*listen)(int sockfd, int backlog);
+  int (*accept)(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
+  int (*setsockopt)(
+    int s, int level, int optname, const void *optval, socklen_t optlen);
+  int (*pthread_mutex_lock)(pthread_mutex_t *mutex);
+  int (*pthread_mutex_trylock)(pthread_mutex_t *mutex);
+  int (*pthread_mutex_unlock)(pthread_mutex_t *mutex);
 
-    ssize_t (*writeAll)(int fd, const void *buf, size_t count);
-    ssize_t (*readAll)(int fd, void *buf, size_t count);
-  } JalibFuncPtrs;
+  ssize_t (*writeAll)(int fd, const void *buf, size_t count);
+  ssize_t (*readAll)(int fd, void *buf, size_t count);
+} JalibFuncPtrs;
 
-  const char *elfInterpreter();
-  int stderrFd();
-  int logFd();
-  int dmtcp_fail_rc();
+const char *elfInterpreter();
+int stderrFd();
+int logFd();
+int dmtcp_fail_rc();
 
-  int open(const char *pathname, int flags, ...);
-  FILE* fopen(const char *path, const char *mode);
-  int close(int fd);
-  int fclose(FILE *fp);
-  int dup(int oldfd);
-  int dup2(int oldfd, int newfd);
-  ssize_t readlink(const char *path, char *buf, size_t bufsiz);
+int open(const char *pathname, int flags, ...);
+FILE *fopen(const char *path, const char *mode);
+int close(int fd);
+int fclose(FILE *fp);
+int dup(int oldfd);
+int dup2(int oldfd, int newfd);
+ssize_t readlink(const char *path, char *buf, size_t bufsiz);
 
-  long syscall(long sys_num, ...);
-  void *mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset);
-  int   munmap(void *addr, size_t length);
+long syscall(long sys_num, ...);
+void *mmap(
+  void *addr, size_t length, int prot, int flags, int fd, off_t offset);
+int munmap(void *addr, size_t length);
 
-  ssize_t read(int fd, void *buf, size_t count);
-  ssize_t write(int fd, const void *buf, size_t count);
-  int select(int nfds, fd_set *readfds, fd_set *writefds,
-             fd_set *exceptfds, struct timeval *timeout);
-  int poll(struct pollfd fds[], nfds_t nfds, int timeout);
+ssize_t read(int fd, void *buf, size_t count);
+ssize_t write(int fd, const void *buf, size_t count);
+int select(int nfds,
+           fd_set *readfds,
+           fd_set *writefds,
+           fd_set *exceptfds,
+           struct timeval *timeout);
+int poll(struct pollfd fds[], nfds_t nfds, int timeout);
 
-  int socket(int domain, int type, int protocol);
-  int connect(int sockfd, const struct sockaddr *serv_addr, socklen_t addrlen);
-  int bind(int sockfd, const struct sockaddr *my_addr, socklen_t addrlen);
-  int listen(int sockfd, int backlog);
-  int accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
-  int setsockopt(int s, int level, int optname, const void *optval,
-                 socklen_t optlen);
-  int pthread_mutex_lock(pthread_mutex_t *mutex);
-  int pthread_mutex_trylock(pthread_mutex_t *mutex);
-  int pthread_mutex_unlock(pthread_mutex_t *mutex);
+int socket(int domain, int type, int protocol);
+int connect(int sockfd, const struct sockaddr *serv_addr, socklen_t addrlen);
+int bind(int sockfd, const struct sockaddr *my_addr, socklen_t addrlen);
+int listen(int sockfd, int backlog);
+int accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
+int setsockopt(
+  int s, int level, int optname, const void *optval, socklen_t optlen);
+int pthread_mutex_lock(pthread_mutex_t *mutex);
+int pthread_mutex_trylock(pthread_mutex_t *mutex);
+int pthread_mutex_unlock(pthread_mutex_t *mutex);
 
-  ssize_t writeAll(int fd, const void *buf, size_t count);
-  ssize_t readAll(int fd, void *buf, size_t count);
+ssize_t writeAll(int fd, const void *buf, size_t count);
+ssize_t readAll(int fd, void *buf, size_t count);
 
-  bool strEndsWith(const char *str, const char *pattern);
+bool strEndsWith(const char *str, const char *pattern);
 }
 
 extern "C" void jalib_init(jalib::JalibFuncPtrs jalibFuncPtrs,
@@ -113,4 +121,4 @@ extern "C" void jalib_init(jalib::JalibFuncPtrs jalibFuncPtrs,
                            int jassertLogFd,
                            int dmtcp_fail_rc);
 
-#endif
+#endif // ifndef JALIB_H

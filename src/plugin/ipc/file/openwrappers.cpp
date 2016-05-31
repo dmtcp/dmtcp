@@ -37,23 +37,23 @@
 #define openat openat_always_inline
 #define openat64 openat64_always_inline
 
+#include <dirent.h>
+#include <fcntl.h>
+#include <limits.h>
+#include <linux/version.h>
+#include <signal.h>
 #include <stdarg.h>
 #include <stdlib.h>
-#include <vector>
-#include <list>
-#include <string>
-#include <fcntl.h>
-#include <signal.h>
+#include <sys/ioctl.h>
 #include <sys/ipc.h>
 #include <sys/shm.h>
-#include <sys/types.h>
 #include <sys/socket.h>
-#include <sys/ioctl.h>
-#include <unistd.h>
-#include <dirent.h>
 #include <sys/syscall.h>
-#include <linux/version.h>
-#include <limits.h>
+#include <sys/types.h>
+#include <unistd.h>
+#include <list>
+#include <string>
+#include <vector>
 
 #undef open
 #undef open64
@@ -61,25 +61,27 @@
 #undef openat64
 
 #include "dmtcp.h"
-#include "shareddata.h"
-#include "util.h"
 #include "jassert.h"
 #include "jconvert.h"
 #include "jfilesystem.h"
+#include "shareddata.h"
+#include "util.h"
 
-#include "fileconnlist.h"
 #include "fileconnection.h"
+#include "fileconnlist.h"
 #include "filewrappers.h"
 #include "ptyconnection.h"
 #include "ptyconnlist.h"
 
 using namespace dmtcp;
 
-static void processConnection(int fd, const char *path, int flags, mode_t mode)
+static void
+processConnection(int fd, const char *path, int flags, mode_t mode)
 {
   Connection *c = NULL;
 
   string device = jalib::Filesystem::ResolveSymlink(path);
+
   if (device == "") {
     device = path;
   }
@@ -91,8 +93,11 @@ static void processConnection(int fd, const char *path, int flags, mode_t mode)
   }
 }
 
-static int _open_open64_work(int(*fn) (const char *path, int flags, ...),
-                             const char *path, int flags, mode_t mode)
+static int
+_open_open64_work(int (*fn)(const char *path, int flags, ...),
+                  const char *path,
+                  int flags,
+                  mode_t mode)
 {
   char currPtsDevName[32];
   const char *newpath = path;
@@ -104,7 +109,7 @@ static int _open_open64_work(int(*fn) (const char *path, int flags, ...),
     newpath = currPtsDevName;
   }
 
-  int fd = (*fn) (newpath, flags, mode);
+  int fd = (*fn)(newpath, flags, mode);
 
   if (fd >= 0 && dmtcp_is_running_state()) {
     processConnection(fd, newpath, flags, mode);
@@ -117,9 +122,11 @@ static int _open_open64_work(int(*fn) (const char *path, int flags, ...),
 
 /* Used by open() wrapper to do other tracking of open apart from
    synchronization stuff. */
-extern "C" int open(const char *path, int flags, ...)
+extern "C" int
+open(const char *path, int flags, ...)
 {
   mode_t mode = 0;
+
   // Handling the variable number of arguments
   if (flags & O_CREAT) {
     va_list arg;
@@ -130,7 +137,8 @@ extern "C" int open(const char *path, int flags, ...)
   return _open_open64_work(_real_open, path, flags, mode);
 }
 
-extern "C" int __open_2(const char *path, int flags)
+extern "C" int
+__open_2(const char *path, int flags)
 {
   return _open_open64_work(_real_open, path, flags, 0);
 }
@@ -143,9 +151,11 @@ extern "C" int __open_2(const char *path, int flags)
 // properly.
 
 // FIXME: Add the 'fn64' wrapper test cases to dmtcp test suite.
-extern "C" int open64(const char *path, int flags, ...)
+extern "C" int
+open64(const char *path, int flags, ...)
 {
   mode_t mode = 0;
+
   // Handling the variable number of arguments
   if (flags & O_CREAT) {
     va_list arg;
@@ -156,13 +166,16 @@ extern "C" int open64(const char *path, int flags, ...)
   return _open_open64_work(_real_open64, path, flags, mode);
 }
 
-extern "C" int __open64_2(const char *path, int flags)
+extern "C" int
+__open64_2(const char *path, int flags)
 {
   return _open_open64_work(_real_open64, path, flags, 0);
 }
 
-static FILE *_fopen_fopen64_work(FILE*(*fn) (const char *path, const char *mode),
-                                 const char *path, const char *mode)
+static FILE *
+_fopen_fopen64_work(FILE *(*fn)(const char *path, const char *mode),
+                    const char *path,
+                    const char *mode)
 {
   char currPtsDevName[32];
   const char *newpath = path;
@@ -174,7 +187,7 @@ static FILE *_fopen_fopen64_work(FILE*(*fn) (const char *path, const char *mode)
     newpath = currPtsDevName;
   }
 
-  FILE *file =(*fn) (newpath, mode);
+  FILE *file = (*fn)(newpath, mode);
 
   if (file != NULL && dmtcp_is_running_state()) {
     processConnection(fileno(file), newpath, -1, -1);
@@ -184,17 +197,20 @@ static FILE *_fopen_fopen64_work(FILE*(*fn) (const char *path, const char *mode)
   return file;
 }
 
-extern "C" FILE *fopen(const char* path, const char* mode)
+extern "C" FILE *
+fopen(const char *path, const char *mode)
 {
   return _fopen_fopen64_work(_real_fopen, path, mode);
 }
 
-extern "C" FILE *fopen64(const char* path, const char* mode)
+extern "C" FILE *
+fopen64(const char *path, const char *mode)
 {
   return _fopen_fopen64_work(_real_fopen64, path, mode);
 }
 
-extern "C" FILE *freopen(const char *path, const char *mode, FILE *stream)
+extern "C" FILE *
+freopen(const char *path, const char *mode, FILE *stream)
 {
   char currPtsDevName[32];
   const char *newpath = path;
@@ -202,8 +218,7 @@ extern "C" FILE *freopen(const char *path, const char *mode, FILE *stream)
   DMTCP_PLUGIN_DISABLE_CKPT();
 
   if (Util::strStartsWith(path, VIRT_PTS_PREFIX_STR)) {
-    SharedData::getRealPtyName(path, currPtsDevName,
-                                      sizeof(currPtsDevName));
+    SharedData::getRealPtyName(path, currPtsDevName, sizeof(currPtsDevName));
     newpath = currPtsDevName;
   }
 
@@ -217,9 +232,11 @@ extern "C" FILE *freopen(const char *path, const char *mode, FILE *stream)
   return file;
 }
 
-extern "C" int openat(int dirfd, const char *path, int flags, ...)
+extern "C" int
+openat(int dirfd, const char *path, int flags, ...)
 {
   va_list arg;
+
   va_start(arg, flags);
   mode_t mode = va_arg(arg, int);
   va_end(arg);
@@ -234,19 +251,23 @@ extern "C" int openat(int dirfd, const char *path, int flags, ...)
   return fd;
 }
 
-extern "C" int openat_2(int dirfd, const char *path, int flags)
+extern "C" int
+openat_2(int dirfd, const char *path, int flags)
 {
   return openat(dirfd, path, flags, 0);
 }
 
-extern "C" int __openat_2(int dirfd, const char *path, int flags)
+extern "C" int
+__openat_2(int dirfd, const char *path, int flags)
 {
   return openat(dirfd, path, flags, 0);
 }
 
-extern "C" int openat64(int dirfd, const char *path, int flags, ...)
+extern "C" int
+openat64(int dirfd, const char *path, int flags, ...)
 {
   va_list arg;
+
   va_start(arg, flags);
   mode_t mode = va_arg(arg, int);
   va_end(arg);
@@ -261,33 +282,43 @@ extern "C" int openat64(int dirfd, const char *path, int flags, ...)
   return fd;
 }
 
-extern "C" int openat64_2(int dirfd, const char *path, int flags)
+extern "C" int
+openat64_2(int dirfd, const char *path, int flags)
 {
   return openat64(dirfd, path, flags, 0);
 }
 
-extern "C" int __openat64_2(int dirfd, const char *path, int flags)
+extern "C" int
+__openat64_2(int dirfd, const char *path, int flags)
 {
   return openat64(dirfd, path, flags, 0);
 }
 
-extern "C" int creat(const char *path, mode_t mode)
+extern "C" int
+creat(const char *path, mode_t mode)
 {
-  //creat() is equivalent to open() with flags equal to O_CREAT|O_WRONLY|O_TRUNC
-  return _open_open64_work(_real_open, path, O_CREAT|O_WRONLY|O_TRUNC, mode);
+  // creat() is equivalent to open() with flags equal to
+  // O_CREAT|O_WRONLY|O_TRUNC
+  return _open_open64_work(_real_open, path, O_CREAT | O_WRONLY | O_TRUNC,
+                           mode);
 }
 
-extern "C" int creat64(const char *path, mode_t mode)
+extern "C" int
+creat64(const char *path, mode_t mode)
 {
-  //creat() is equivalent to open() with flags equal to O_CREAT|O_WRONLY|O_TRUNC
-  return _open_open64_work(_real_open64, path, O_CREAT|O_WRONLY|O_TRUNC, mode);
+  // creat() is equivalent to open() with flags equal to
+  // O_CREAT|O_WRONLY|O_TRUNC
+  return _open_open64_work(_real_open64, path, O_CREAT | O_WRONLY | O_TRUNC,
+                           mode);
 }
 
 extern "C" void process_fd_event(int event, int arg1, int arg2 = -1);
-extern "C" int fcntl(int fd, int cmd, ...)
+extern "C" int
+fcntl(int fd, int cmd, ...)
 {
   void *arg = NULL;
   va_list ap;
+
   va_start(ap, cmd);
   arg = va_arg(ap, void *);
   va_end(ap);
@@ -296,11 +327,11 @@ extern "C" int fcntl(int fd, int cmd, ...)
 
   int res = _real_fcntl(fd, cmd, arg);
   if (res != -1 &&
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 24)
       (cmd == F_DUPFD || cmd == F_DUPFD_CLOEXEC) &&
-#else
+#else // if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 24)
       (cmd == F_DUPFD) &&
-#endif
+#endif // if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 24)
       dmtcp_is_running_state()) {
     process_fd_event(SYS_dup, fd, res);
   }
@@ -310,13 +341,15 @@ extern "C" int fcntl(int fd, int cmd, ...)
 }
 
 #if 0
+
 // TODO:  ioctl must use virtualized pids for request = TIOCGPGRP / TIOCSPGRP
 // These are synonyms for POSIX standard tcgetpgrp / tcsetpgrp
 extern "C" {
 int send_sigwinch = 0;
 }
 
-extern "C" int ioctl(int d,  unsigned long int request, ...)
+extern "C" int
+ioctl(int d, unsigned long int request, ...)
 {
   va_list ap;
   int retval;
@@ -326,15 +359,15 @@ extern "C" int ioctl(int d,  unsigned long int request, ...)
     va_list local_ap;
     va_copy(local_ap, ap);
     va_start(local_ap, request);
-    struct winsize * win = va_arg(local_ap, struct winsize *);
+    struct winsize *win = va_arg(local_ap, struct winsize *);
     va_end(local_ap);
     retval = _real_ioctl(d, request, win);  // This fills in win
     win->ws_col--; // Lie to application, and force it to resize window,
-		   //  reset any scroll regions, etc.
+                   // reset any scroll regions, etc.
     kill(getpid(), SIGWINCH); // Tell application to look up true winsize
-			      // and resize again.
+                              // and resize again.
   } else {
-    void * arg;
+    void *arg;
     va_start(ap, request);
     arg = va_arg(ap, void *);
     va_end(ap);
@@ -342,4 +375,4 @@ extern "C" int ioctl(int d,  unsigned long int request, ...)
   }
   return retval;
 }
-#endif
+#endif // if 0

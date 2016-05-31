@@ -19,29 +19,31 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#include "../jalib/jassert.h"
 #include "syscallwrappers.h"
 #include "threadsync.h"
-#include "../jalib/jassert.h"
 
 using namespace dmtcp;
 
-static map<FILE*, pid_t> _dmtcpPopenPidMap;
-typedef map<FILE*, pid_t>::iterator _dmtcpPopenPidMapIterator;
+static map<FILE *, pid_t> _dmtcpPopenPidMap;
+typedef map<FILE *, pid_t>::iterator _dmtcpPopenPidMapIterator;
 
 static pthread_mutex_t popen_map_lock = PTHREAD_MUTEX_INITIALIZER;
 
-static void _lock_popen_map()
+static void
+_lock_popen_map()
 {
-  JASSERT(_real_pthread_mutex_lock(&popen_map_lock) == 0) (JASSERT_ERRNO);
+  JASSERT(_real_pthread_mutex_lock(&popen_map_lock) == 0)(JASSERT_ERRNO);
 }
 
-static void _unlock_popen_map()
+static void
+_unlock_popen_map()
 {
-  JASSERT(_real_pthread_mutex_unlock(&popen_map_lock) == 0) (JASSERT_ERRNO);
+  JASSERT(_real_pthread_mutex_unlock(&popen_map_lock) == 0)(JASSERT_ERRNO);
 }
 
-extern "C"
-FILE *popen(const char *command, const char *mode)
+extern "C" FILE *
+popen(const char *command, const char *mode)
 {
   FILE *fp;
   int parent_fd, child_fd;
@@ -52,6 +54,7 @@ FILE *popen(const char *command, const char *mode)
   int do_read = 0;
   int do_write = 0;
   int do_cloexec = 0;
+
   while (*mode != '\0') {
     switch (*mode++) {
       case 'r':
@@ -79,6 +82,7 @@ FILE *popen(const char *command, const char *mode)
     if (pipe(pipe_fds) < 0) {
       return NULL;
     }
+
     // Mark the parent_end with FD_CLOEXEC so that if there is fork/exec while
     // we are inside this wrapper, these fds are closed.
     fcntl(pipe_fds[0], F_SETFD, FD_CLOEXEC);
@@ -104,12 +108,14 @@ FILE *popen(const char *command, const char *mode)
       dup2(child_fd, child_std_fd);
       close(child_fd);
     }
+
     /* POSIX.2:  "popen() shall ensure that any streams from previous
        popen() calls that remain open in the parent process are closed
        in the new child process." */
     _dmtcpPopenPidMapIterator it;
     for (it = _dmtcpPopenPidMap.begin(); it != _dmtcpPopenPidMap.end(); it++) {
       int fd = fileno(it->first);
+
       /* If any stream from previous popen() calls has fileno
          child_std_end, it has been already closed by the dup2 syscall
          above.  */
@@ -120,7 +126,7 @@ FILE *popen(const char *command, const char *mode)
     _dmtcpPopenPidMap.clear();
 
     fcntl(child_std_fd, F_SETFD, 0);
-    execl("/bin/sh", "sh", "-c", command, (char *) 0);
+    execl("/bin/sh", "sh", "-c", command, (char *)0);
     exit(127);
   }
   close(child_fd);
@@ -144,8 +150,8 @@ FILE *popen(const char *command, const char *mode)
   return fp;
 }
 
-extern "C"
-int pclose(FILE *fp)
+extern "C" int
+pclose(FILE *fp)
 {
   _dmtcpPopenPidMapIterator it;
   int wstatus;
@@ -174,9 +180,11 @@ int pclose(FILE *fp)
   return wstatus;
 }
 
-EXTERNC int dmtcp_is_popen_fp(FILE *fp)
+EXTERNC int
+dmtcp_is_popen_fp(FILE *fp)
 {
   int popen_fp = 0;
+
   _lock_popen_map();
   if (_dmtcpPopenPidMap.find(fp) != _dmtcpPopenPidMap.end()) {
     popen_fp = 1;

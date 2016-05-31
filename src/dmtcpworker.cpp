@@ -19,23 +19,23 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include <stdlib.h>
-#include <sys/time.h>
-#include <sys/resource.h>
 #include "dmtcpworker.h"
-#include "threadsync.h"
-#include "processinfo.h"
-#include "syscallwrappers.h"
-#include "util.h"
-#include "syslogwrappers.h"
+#include <stdlib.h>
+#include <sys/resource.h>
+#include <sys/time.h>
+#include "../jalib/jbuffer.h"
+#include "../jalib/jconvert.h"
+#include "../jalib/jfilesystem.h"
+#include "../jalib/jsocket.h"
 #include "coordinatorapi.h"
-#include "shareddata.h"
-#include "threadlist.h"
 #include "pluginmanager.h"
-#include  "../jalib/jsocket.h"
-#include  "../jalib/jfilesystem.h"
-#include  "../jalib/jconvert.h"
-#include  "../jalib/jbuffer.h"
+#include "processinfo.h"
+#include "shareddata.h"
+#include "syscallwrappers.h"
+#include "syslogwrappers.h"
+#include "threadlist.h"
+#include "threadsync.h"
+#include "util.h"
 
 using namespace dmtcp;
 
@@ -46,11 +46,12 @@ LIB_PRIVATE void pthread_atfork_child();
 void pidVirt_pthread_atfork_child() __attribute__((weak));
 
 /* This is defined by newer gcc version unique for each module.  */
-extern void *__dso_handle __attribute__ ((__weak__,
-					  __visibility__ ("hidden")));
+extern void *__dso_handle __attribute__((__weak__, __visibility__("hidden")));
 
-EXTERNC int __register_atfork(void (*prepare)(void), void (*parent)(void),
-                              void (*child)(void), void *dso_handle);
+EXTERNC int __register_atfork(void (*prepare)(void),
+                              void (*parent)(void),
+                              void (*child)(void),
+                              void *dso_handle);
 
 EXTERNC void *ibv_get_device_list(void *) __attribute__((weak));
 
@@ -64,7 +65,8 @@ bool DmtcpWorker::_exitAfterCkpt = 0;
 /* NOTE:  Please keep this function in sync with its copy at:
  *   dmtcp_nocheckpoint.cpp:restoreUserLDPRELOAD()
  */
-void restoreUserLDPRELOAD()
+void
+restoreUserLDPRELOAD()
 {
   /* A call to setenv() can result in a call to malloc(). The setenv() call may
    * also grab a low-level libc lock before calling malloc. The malloc()
@@ -89,54 +91,62 @@ void restoreUserLDPRELOAD()
   // Next, hide our value of LD_PRELOAD, in a global variable.
   // At checkpoint and restart time, we will no longer need our LD_PRELOAD.
   // We will need it in only one place:
-  //  when the user application makes an exec call:
-  //   If anybody calls our execwrapper, we will reset LD_PRELOAD then.
-  //   EXCEPTION:  If anybody directly calls _real_execve with env arg of NULL,
-  //   they will not be part of DMTCP computation.
+  // when the user application makes an exec call:
+  // If anybody calls our execwrapper, we will reset LD_PRELOAD then.
+  // EXCEPTION:  If anybody directly calls _real_execve with env arg of NULL,
+  // they will not be part of DMTCP computation.
   // This has the advantage that our value of LD_PRELOAD will always come
-  //   before any paths set by user application.
+  // before any paths set by user application.
   // Also, bash likes to keep its own envp, but we will interact with bash only
-  //   within the exec wrapper.
+  // within the exec wrapper.
   // NOTE:  If the user called exec("ssh ..."), we currently catch this in
-  //   src/pugin/dmtcp_ssh.cp:main(), and edit this into
-  //   exec("dmtcp_launch ... dmtcp_ssh ..."), and re-execute.
+  // src/pugin/dmtcp_ssh.cp:main(), and edit this into
+  // exec("dmtcp_launch ... dmtcp_ssh ..."), and re-execute.
   // NOTE:  If the user called exec("dmtcp_nocheckpoint ..."), we will
-  //   reset LD_PRELOAD back to ENV_VAR_ORIG_LD_PRELOAD in dmtcp_nocheckpoint
+  // reset LD_PRELOAD back to ENV_VAR_ORIG_LD_PRELOAD in dmtcp_nocheckpoint
   char *preload = getenv("LD_PRELOAD");
   char *userPreload = getenv(ENV_VAR_ORIG_LD_PRELOAD);
+
   JASSERT(userPreload == NULL || strlen(userPreload) <= strlen(preload));
+
   // Destructively modify environment variable "LD_PRELOAD" in place:
   preload[0] = '\0';
   if (userPreload == NULL) {
-    //_dmtcp_unsetenv("LD_PRELOAD");
+    // _dmtcp_unsetenv("LD_PRELOAD");
   } else {
     strcat(preload, userPreload);
-    //setenv("LD_PRELOAD", userPreload, 1);
+
+    // setenv("LD_PRELOAD", userPreload, 1);
   }
-  JTRACE("LD_PRELOAD") (preload) (userPreload) (getenv(ENV_VAR_HIJACK_LIBS))
-    (getenv(ENV_VAR_HIJACK_LIBS_M32)) (getenv("LD_PRELOAD"));
+  JTRACE("LD_PRELOAD")
+  (preload)(userPreload)(getenv(ENV_VAR_HIJACK_LIBS))(
+    getenv(ENV_VAR_HIJACK_LIBS_M32))(getenv("LD_PRELOAD"));
 }
 
 // This should be visible to library only.  DmtcpWorker will call
-//   this to initialize tmp (ckpt signal) at startup time.  This avoids
-//   any later calls to getenv(), at which time the user app may have
-//   a wrapper around getenv, modified environ, or other tricks.
-//   (Matlab needs this or else it segfaults on restart, and bash plays
-//   similar tricks with maintaining its own environment.)
+// this to initialize tmp (ckpt signal) at startup time.  This avoids
+// any later calls to getenv(), at which time the user app may have
+// a wrapper around getenv, modified environ, or other tricks.
+// (Matlab needs this or else it segfaults on restart, and bash plays
+// similar tricks with maintaining its own environment.)
 // Used in mtcpinterface.cpp and signalwrappers.cpp.
 // FIXME: DO we still want it to be library visible only?
-//__attribute__ ((visibility ("hidden")))
-int DmtcpWorker::determineCkptSignal()
+// __attribute__ ((visibility ("hidden")))
+int
+DmtcpWorker::determineCkptSignal()
 {
   int sig = CKPT_SIGNAL;
-  char* endp = NULL;
-  static const char* tmp = getenv(ENV_VAR_SIGCKPT);
+  char *endp = NULL;
+  static const char *tmp = getenv(ENV_VAR_SIGCKPT);
+
   if (tmp != NULL) {
-      sig = strtol(tmp, &endp, 0);
-      if ((errno != 0) || (tmp == endp))
-        sig = CKPT_SIGNAL;
-      if (sig < 1 || sig > 31)
-        sig = CKPT_SIGNAL;
+    sig = strtol(tmp, &endp, 0);
+    if ((errno != 0) || (tmp == endp)) {
+      sig = CKPT_SIGNAL;
+    }
+    if (sig < 1 || sig > 31) {
+      sig = CKPT_SIGNAL;
+    }
   }
   return sig;
 }
@@ -146,7 +156,8 @@ int DmtcpWorker::determineCkptSignal()
  * functions reliably. Read the comment at the top of syscallsreal.c for more
  * details.
  */
-static void dmtcp_prepare_atfork(void)
+static void
+dmtcp_prepare_atfork(void)
 {
   /* Register pidVirt_pthread_atfork_child() as the first post-fork handler
    * for the child process. This needs to be the first function that is
@@ -166,27 +177,28 @@ static void dmtcp_prepare_atfork(void)
    * To fix it, we use __register_atfork and use the __dso_handle provided by
    * the gcc compiler.
    */
-  JASSERT(__register_atfork(NULL, NULL,
-                         pidVirt_pthread_atfork_child,
-                         __dso_handle) == 0);
+  JASSERT(__register_atfork(NULL, NULL, pidVirt_pthread_atfork_child,
+                            __dso_handle) == 0);
 
-  JASSERT(pthread_atfork(pthread_atfork_prepare,
-                         pthread_atfork_parent,
+  JASSERT(pthread_atfork(pthread_atfork_prepare, pthread_atfork_parent,
                          pthread_atfork_child) == 0);
 }
 
-static string getLogFilePath()
+static string
+getLogFilePath()
 {
 #ifdef DEBUG
   ostringstream o;
   o << "/proc/self/fd/" << PROTECTED_JASSERTLOG_FD;
   return jalib::Filesystem::ResolveSymlink(o.str());
-#else
+
+#else // ifdef DEBUG
   return "";
-#endif
+#endif // ifdef DEBUG
 }
 
-static void writeCurrentLogFileNameToPrevLogFile(string& path)
+static void
+writeCurrentLogFileNameToPrevLogFile(string &path)
 {
 #ifdef DEBUG
   ostringstream o;
@@ -201,21 +213,21 @@ static void writeCurrentLogFileNameToPrevLogFile(string& path)
     Util::writeAll(fd, o.str().c_str(), o.str().length());
   }
   _real_close(fd);
-#endif
+#endif // ifdef DEBUG
 }
 
-static void prepareLogAndProcessdDataFromSerialFile()
+static void
+prepareLogAndProcessdDataFromSerialFile()
 {
-
   if (Util::isValidFd(PROTECTED_LIFEBOAT_FD)) {
     // This process was under ckpt-control and exec()'d into a new program.
     // Find out path of previous log file so that later, we can write the name
     // of the new log file into that one.
     string prevLogFilePath = getLogFilePath();
 
-    jalib::JBinarySerializeReaderRaw rd ("", PROTECTED_LIFEBOAT_FD);
+    jalib::JBinarySerializeReaderRaw rd("", PROTECTED_LIFEBOAT_FD);
     rd.rewind();
-    UniquePid::serialize (rd);
+    UniquePid::serialize(rd);
     Util::initializeLogFile(SharedData::getTmpDir(), "", prevLogFilePath);
 
     writeCurrentLogFileNameToPrevLogFile(prevLogFilePath);
@@ -234,28 +246,35 @@ static void prepareLogAndProcessdDataFromSerialFile()
   }
 }
 
-static void segFaultHandler(int sig, siginfo_t* siginfo, void* context)
+static void
+segFaultHandler(int sig, siginfo_t *siginfo, void *context)
 {
-  while (1) sleep(1);
+  while (1) {
+    sleep(1);
+  }
 }
 
-static void installSegFaultHandler()
+static void
+installSegFaultHandler()
 {
   // install SIGSEGV handler
   struct sigaction act;
+
   memset(&act, 0, sizeof(act));
   act.sa_sigaction = segFaultHandler;
   act.sa_flags = SA_SIGINFO;
-  JASSERT (sigaction(SIGSEGV, &act, NULL) == 0) (JASSERT_ERRNO);
+  JASSERT(sigaction(SIGSEGV, &act, NULL) == 0)(JASSERT_ERRNO);
 }
 
 static jalib::JBuffer buf(0); // To force linkage of jbuffer.cpp
 
-//called before user main()
-//workerhijack.cpp initializes a static variable theInstance to DmtcpWorker obj
-extern "C" void dmtcp_initialize()
+// called before user main()
+// workerhijack.cpp initializes a static variable theInstance to DmtcpWorker obj
+extern "C" void
+dmtcp_initialize()
 {
   static bool initialized = false;
+
   if (initialized) {
     return;
   }
@@ -267,35 +286,32 @@ extern "C" void dmtcp_initialize()
   initializeJalib();
   dmtcp_prepare_atfork();
 
-  WorkerState::setCurrentState (WorkerState::RUNNING);
+  WorkerState::setCurrentState(WorkerState::RUNNING);
 
   PluginManager::initialize();
 
   prepareLogAndProcessdDataFromSerialFile();
 
   JTRACE("libdmtcp.so:  Running ")
-    (jalib::Filesystem::GetProgramName()) (getenv ("LD_PRELOAD"));
+  (jalib::Filesystem::GetProgramName())(getenv("LD_PRELOAD"));
 
   if (getenv("DMTCP_SEGFAULT_HANDLER") != NULL) {
     // Install a segmentation fault handler (for debugging).
     installSegFaultHandler();
   }
 
-  //This is called for side effect only.  Force this function to call
+  // This is called for side effect only.  Force this function to call
   // getenv(ENV_VAR_SIGCKPT) now and cache it to avoid getenv calls later.
   DmtcpWorker::determineCkptSignal();
 
   // Also cache programName and arguments
   string programName = jalib::Filesystem::GetProgramName();
 
-  JASSERT(programName != "dmtcp_coordinator"  &&
-          programName != "dmtcp_launch"   &&
+  JASSERT(programName != "dmtcp_coordinator" && programName != "dmtcp_launch" &&
           programName != "dmtcp_nocheckpoint" &&
-          programName != "dmtcp_comand"       &&
-          programName != "dmtcp_restart"      &&
-          programName != "mtcp_restart"       &&
-          programName != "ssh")
-    (programName) .Text("This program should not be run under ckpt control");
+          programName != "dmtcp_comand" && programName != "dmtcp_restart" &&
+          programName != "mtcp_restart" && programName != "ssh")
+  (programName).Text("This program should not be run under ckpt control");
 
   ProcessInfo::instance().calculateArgvAndEnvSize();
   restoreUserLDPRELOAD();
@@ -312,20 +328,21 @@ extern "C" void dmtcp_initialize()
   ThreadList::init();
 }
 
-//called before user main()
-//workerhijack.cpp initializes a static variable theInstance to DmtcpWorker obj
+// called before user main()
+// workerhijack.cpp initializes a static variable theInstance to DmtcpWorker obj
 DmtcpWorker::DmtcpWorker()
 {
   dmtcp_initialize();
 }
 
-void DmtcpWorker::resetOnFork()
+void
+DmtcpWorker::resetOnFork()
 {
   PluginManager::eventHook(DMTCP_EVENT_ATFORK_CHILD, NULL);
 
   cleanupWorker();
 
-  WorkerState::setCurrentState ( WorkerState::RUNNING );
+  WorkerState::setCurrentState(WorkerState::RUNNING);
 
   /* If parent process had file connections and it fork()'d a child
    * process, the child process would consider the file connections as
@@ -337,7 +354,8 @@ void DmtcpWorker::resetOnFork()
    * in the constructor since it's not relevant. All we need to call is
    * connectToCoordinatorWithHandshake() and initializeMtcpEngine().
    */
-  //new ( &theInstance ) DmtcpWorker ( false );
+
+  // new ( &theInstance ) DmtcpWorker ( false );
 
   ThreadList::resetOnFork();
   ThreadSync::initMotherOfAll();
@@ -345,14 +363,16 @@ void DmtcpWorker::resetOnFork()
   DmtcpWorker::_exitInProgress = false;
 }
 
-void DmtcpWorker::cleanupWorker()
+void
+DmtcpWorker::cleanupWorker()
 {
   ThreadSync::resetLocks();
   WorkerState::setCurrentState(WorkerState::UNKNOWN);
   JTRACE("disconnecting from dmtcp coordinator");
 }
 
-void DmtcpWorker::interruptCkpthread()
+void
+DmtcpWorker::interruptCkpthread()
 {
   if (ThreadSync::destroyDmtcpWorkerLockTryLock() == EBUSY) {
     ThreadList::killCkpthread();
@@ -360,7 +380,7 @@ void DmtcpWorker::interruptCkpthread()
   }
 }
 
-//called after user main()
+// called after user main()
 DmtcpWorker::~DmtcpWorker()
 {
   /* If the destructor was called, we know that we are exiting
@@ -374,7 +394,8 @@ DmtcpWorker::~DmtcpWorker()
   cleanupWorker();
 }
 
-static void ckptThreadPerformExit()
+static void
+ckptThreadPerformExit()
 {
   // Ideally, we would like to perform pthread_exit(), but we are in the middle
   // of process cleanup (due to the user thread's exit() call) and as a result,
@@ -386,10 +407,13 @@ static void ckptThreadPerformExit()
   // Our approach to loop here while we wait for the process to terminate.
   // This guarantees that we never access any static objects from this point
   // forward.
-  while (1) sleep(1);
+  while (1) {
+    sleep(1);
+  }
 }
 
-void DmtcpWorker::waitForSuspendMessage()
+void
+DmtcpWorker::waitForSuspendMessage()
 {
   SharedData::resetBarrierInfo();
   if (dmtcp_no_coordinator()) {
@@ -404,7 +428,7 @@ void DmtcpWorker::waitForSuspendMessage()
 
   if (ThreadSync::destroyDmtcpWorkerLockTryLock() != 0) {
     JTRACE("User thread is performing exit()."
-        " ckpt thread exit()ing as well");
+           " ckpt thread exit()ing as well");
     ckptThreadPerformExit();
   }
   if (exitInProgress()) {
@@ -425,21 +449,22 @@ void DmtcpWorker::waitForSuspendMessage()
   msg.assertValid();
   if (msg.type == DMT_KILL_PEER) {
     JTRACE("Received KILL message from coordinator, exiting");
-    _exit (0);
+    _exit(0);
   }
 
-  JASSERT(msg.type == DMT_DO_SUSPEND) (msg.type);
+  JASSERT(msg.type == DMT_DO_SUSPEND)(msg.type);
 
   // Coordinator sends some computation information along with the SUSPEND
   // message. Extracting that.
   SharedData::updateGeneration(msg.compGroup.computationGeneration());
   JASSERT(SharedData::getCompId() == msg.compGroup.upid())
-    (SharedData::getCompId()) (msg.compGroup);
+  (SharedData::getCompId())(msg.compGroup);
 
   _exitAfterCkpt = msg.exitAfterCkpt;
 }
 
-void DmtcpWorker::acknowledgeSuspendMsg()
+void
+DmtcpWorker::acknowledgeSuspendMsg()
 {
   if (dmtcp_no_coordinator()) {
     return;
@@ -453,21 +478,21 @@ void DmtcpWorker::acknowledgeSuspendMsg()
   msg.assertValid();
   if (msg.type == DMT_KILL_PEER) {
     JTRACE("Received KILL message from coordinator, exiting");
-    _exit (0);
+    _exit(0);
   }
 
-  JASSERT(msg.type == DMT_COMPUTATION_INFO) (msg.type);
-  JTRACE("Computation information") (msg.compGroup) (msg.numPeers);
+  JASSERT(msg.type == DMT_COMPUTATION_INFO)(msg.type);
+  JTRACE("Computation information")(msg.compGroup)(msg.numPeers);
   ProcessInfo::instance().compGroup(msg.compGroup);
   ProcessInfo::instance().numPeers(msg.numPeers);
 }
 
-
-void DmtcpWorker::waitForCheckpointRequest()
+void
+DmtcpWorker::waitForCheckpointRequest()
 {
   JTRACE("running");
 
-  WorkerState::setCurrentState (WorkerState::RUNNING);
+  WorkerState::setCurrentState(WorkerState::RUNNING);
 
   waitForSuspendMessage();
 
@@ -477,10 +502,11 @@ void DmtcpWorker::waitForCheckpointRequest()
   JTRACE("Starting checkpoint, suspending...");
 }
 
-//now user threads are stopped
-void DmtcpWorker::preCheckpoint()
+// now user threads are stopped
+void
+DmtcpWorker::preCheckpoint()
 {
-  WorkerState::setCurrentState (WorkerState::SUSPENDED);
+  WorkerState::setCurrentState(WorkerState::SUSPENDED);
   JTRACE("suspended");
 
   if (exitInProgress()) {
@@ -504,24 +530,26 @@ void DmtcpWorker::preCheckpoint()
   PluginManager::processCkptBarriers();
 }
 
-void DmtcpWorker::postCheckpoint()
+void
+DmtcpWorker::postCheckpoint()
 {
   WorkerState::setCurrentState(WorkerState::CHECKPOINTED);
   CoordinatorAPI::instance().sendCkptFilename();
 
   if (_exitAfterCkpt) {
     JTRACE("Asked to exit after checkpoint. Exiting!");
-    _exit (0);
+    _exit(0);
   }
 
   PluginManager::processResumeBarriers();
 
   // Inform Coordinator of RUNNING state.
-  WorkerState::setCurrentState( WorkerState::RUNNING );
+  WorkerState::setCurrentState(WorkerState::RUNNING);
   CoordinatorAPI::instance().sendMsgToCoordinator(DmtcpMessage(DMT_OK));
 }
 
-void DmtcpWorker::postRestart()
+void
+DmtcpWorker::postRestart()
 {
   JTRACE("begin postRestart()");
   WorkerState::setCurrentState(WorkerState::RESTARTING);
@@ -530,6 +558,6 @@ void DmtcpWorker::postRestart()
   JTRACE("got resume message after restart");
 
   // Inform Coordinator of RUNNING state.
-  WorkerState::setCurrentState( WorkerState::RUNNING );
+  WorkerState::setCurrentState(WorkerState::RUNNING);
   CoordinatorAPI::instance().sendMsgToCoordinator(DmtcpMessage(DMT_OK));
 }

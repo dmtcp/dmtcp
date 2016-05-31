@@ -19,44 +19,47 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#include <dirent.h>
+#include <fcntl.h>
+#include <limits.h>
+#include <linux/version.h>
+#include <signal.h>
 #include <stdarg.h>
 #include <stdlib.h>
-#include <vector>
-#include <list>
-#include <string>
-#include <fcntl.h>
-#include <signal.h>
+#include <sys/ioctl.h>
 #include <sys/ipc.h>
 #include <sys/shm.h>
-#include <sys/types.h>
 #include <sys/socket.h>
-#include <sys/ioctl.h>
-#include <unistd.h>
-#include <dirent.h>
 #include <sys/syscall.h>
-#include <linux/version.h>
-#include <limits.h>
+#include <sys/types.h>
+#include <unistd.h>
+#include <list>
+#include <string>
+#include <vector>
 
 #include "dmtcp.h"
 
-#include "fileconnlist.h"
 #include "fileconnection.h"
+#include "fileconnlist.h"
 #include "filewrappers.h"
 
 using namespace dmtcp;
 
-extern "C" FILE *tmpfile()
+extern "C" FILE *
+tmpfile()
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
   FILE *fp = _real_tmpfile();
-  if (fp  != NULL && dmtcp_is_running_state()) {
-    FileConnList::instance().processFileConnection(fileno(fp), NULL, O_RDWR, 0600);
+  if (fp != NULL && dmtcp_is_running_state()) {
+    FileConnList::instance().processFileConnection(fileno(fp), NULL, O_RDWR,
+                                                   0600);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return fp;
 }
 
-extern "C" int mkstemp(char *ttemplate)
+extern "C" int
+mkstemp(char *ttemplate)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
   int fd = _real_mkstemp(ttemplate);
@@ -67,7 +70,8 @@ extern "C" int mkstemp(char *ttemplate)
   return fd;
 }
 
-extern "C" int mkostemp(char *ttemplate, int flags)
+extern "C" int
+mkostemp(char *ttemplate, int flags)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
   int fd = _real_mkostemp(ttemplate, flags);
@@ -78,7 +82,8 @@ extern "C" int mkostemp(char *ttemplate, int flags)
   return fd;
 }
 
-extern "C" int mkstemps(char *ttemplate, int suffixlen)
+extern "C" int
+mkstemps(char *ttemplate, int suffixlen)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
   int fd = _real_mkstemps(ttemplate, suffixlen);
@@ -89,7 +94,8 @@ extern "C" int mkstemps(char *ttemplate, int suffixlen)
   return fd;
 }
 
-extern "C" int mkostemps(char *ttemplate, int suffixlen, int flags)
+extern "C" int
+mkostemps(char *ttemplate, int suffixlen, int flags)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
   int fd = _real_mkostemps(ttemplate, suffixlen, flags);
@@ -100,7 +106,8 @@ extern "C" int mkostemps(char *ttemplate, int suffixlen, int flags)
   return fd;
 }
 
-extern "C" DIR *opendir(const char *name)
+extern "C" DIR *
+opendir(const char *name)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
   DIR *dir = _real_opendir(name);

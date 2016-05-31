@@ -19,99 +19,120 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include <stdio.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include "jalib.h"
 #include "jserialize.h"
+#include <fcntl.h>
+#include <stdio.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include "jalib.h"
 #include "jassert.h"
 
-jalib::JBinarySerializeWriterRaw::JBinarySerializeWriterRaw ( const jalib::string& path, int fd )
-    : JBinarySerializer ( path )
-    , _fd ( fd )
+jalib::JBinarySerializeWriterRaw::JBinarySerializeWriterRaw(
+  const jalib::string &path, int fd)
+  : JBinarySerializer(path), _fd(fd)
 {
-  JASSERT (_fd >= 0)(path)(JASSERT_ERRNO).Text("open(path) failed");
+  JASSERT(_fd >= 0)(path)(JASSERT_ERRNO).Text("open(path) failed");
 }
 
-jalib::JBinarySerializeWriter::JBinarySerializeWriter ( const jalib::string& path )
-  : JBinarySerializeWriterRaw ( path , jalib::open ( path.c_str(), O_CREAT|O_WRONLY|O_TRUNC, 0600) )
-{}
-
-jalib::JBinarySerializeReaderRaw::JBinarySerializeReaderRaw ( const jalib::string& path, int fd )
-  : JBinarySerializer ( path )
-  , _fd ( fd )
+jalib::JBinarySerializeWriter::JBinarySerializeWriter(const jalib::string &path)
+  : JBinarySerializeWriterRaw(
+      path, jalib::open(path.c_str(), O_CREAT | O_WRONLY | O_TRUNC, 0600))
 {
-  JASSERT (_fd >= 0)(path)(JASSERT_ERRNO).Text("open(path) failed");
 }
 
-jalib::JBinarySerializeReader::JBinarySerializeReader ( const jalib::string& path )
-  : JBinarySerializeReaderRaw ( path , jalib::open ( path.c_str(), O_RDONLY, 0 ) )
-{}
+jalib::JBinarySerializeReaderRaw::JBinarySerializeReaderRaw(
+  const jalib::string &path, int fd)
+  : JBinarySerializer(path), _fd(fd)
+{
+  JASSERT(_fd >= 0)(path)(JASSERT_ERRNO).Text("open(path) failed");
+}
+
+jalib::JBinarySerializeReader::JBinarySerializeReader(const jalib::string &path)
+  : JBinarySerializeReaderRaw(path, jalib::open(path.c_str(), O_RDONLY, 0))
+{
+}
 
 jalib::JBinarySerializeWriter::~JBinarySerializeWriter()
 {
-  close ( _fd );
+  close(_fd);
 }
 
 jalib::JBinarySerializeReader::~JBinarySerializeReader()
 {
-  close ( _fd );
+  close(_fd);
 }
 
+bool
+jalib::JBinarySerializeWriterRaw::isReader()
+{
+  return false;
+}
 
-bool jalib::JBinarySerializeWriterRaw::isReader() {return false;}
-
-bool jalib::JBinarySerializeReaderRaw::isReader() {return true;}
+bool
+jalib::JBinarySerializeReaderRaw::isReader()
+{
+  return true;
+}
 
 // Rewind file descriptor to start value
-void jalib::JBinarySerializeWriterRaw::rewind()
+void
+jalib::JBinarySerializeWriterRaw::rewind()
 {
-  JASSERT(lseek(_fd,0,SEEK_SET) == 0)(strerror(errno)).Text("Cannot rewind");
+  JASSERT(lseek(_fd, 0, SEEK_SET) == 0)(strerror(errno)).Text("Cannot rewind");
 }
 
-void jalib::JBinarySerializeReaderRaw::rewind()
+void
+jalib::JBinarySerializeReaderRaw::rewind()
 {
-  JASSERT(lseek(_fd,0,SEEK_SET) == 0)(strerror(errno)).Text("Cannot rewind");
+  JASSERT(lseek(_fd, 0, SEEK_SET) == 0)(strerror(errno)).Text("Cannot rewind");
 }
 
-bool jalib::JBinarySerializeWriterRaw::isempty()
+bool
+jalib::JBinarySerializeWriterRaw::isempty()
 {
   struct stat buf;
+
   JASSERT(fstat(_fd, &buf) == 0);
   return buf.st_size == 0;
 }
 
-bool jalib::JBinarySerializeReaderRaw::isempty()
+bool
+jalib::JBinarySerializeReaderRaw::isempty()
 {
   struct stat buf;
+
   JASSERT(fstat(_fd, &buf) == 0);
   return buf.st_size == 0;
 }
 
-bool jalib::JBinarySerializeReaderRaw::isEOF()
+bool
+jalib::JBinarySerializeReaderRaw::isEOF()
 {
   struct stat buf;
+
   JASSERT(fstat(_fd, &buf) == 0);
 
-  off_t cur = lseek(_fd,0,SEEK_CUR);
+  off_t cur = lseek(_fd, 0, SEEK_CUR);
   JASSERT(cur != -1);
 
   return cur == buf.st_size;
 }
 
-void jalib::JBinarySerializeWriterRaw::readOrWrite ( void* buffer, size_t len )
+void
+jalib::JBinarySerializeWriterRaw::readOrWrite(void *buffer, size_t len)
 {
   size_t ret = jalib::writeAll(_fd, buffer, len);
-  JASSERT(ret == len) (filename()) (len) (JASSERT_ERRNO)
-    .Text( "write() failed" );
+
+  JASSERT(ret == len)(filename())(len)(JASSERT_ERRNO).Text("write() failed");
   _bytes += len;
 }
 
-void jalib::JBinarySerializeReaderRaw::readOrWrite ( void* buffer, size_t len )
+void
+jalib::JBinarySerializeReaderRaw::readOrWrite(void *buffer, size_t len)
 {
   size_t ret = jalib::readAll(_fd, buffer, len);
-  JASSERT(ret == len) (filename()) (JASSERT_ERRNO) (ret) (len)
-    .Text("read() failed");
+
+  JASSERT(ret == len)
+  (filename())(JASSERT_ERRNO)(ret)(len).Text("read() failed");
   _bytes += len;
 }

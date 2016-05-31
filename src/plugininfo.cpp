@@ -19,34 +19,36 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include "barrierinfo.h"
 #include "plugininfo.h"
+#include "barrierinfo.h"
+#include "coordinatorapi.h"
 #include "dmtcp.h"
 #include "jassert.h"
 #include "shareddata.h"
-#include "coordinatorapi.h"
 
-namespace dmtcp {
-
-PluginInfo::PluginInfo(const DmtcpPluginDescriptor_t& descr,
-                       const vector<BarrierInfo*>& _preCkptBarriers,
-                       const vector<BarrierInfo*>& _resumeBarriers,
-                       const vector<BarrierInfo*>& _restartBarriers)
-  : pluginName (descr.pluginName),
-    authorName (descr.authorName),
-    authorEmail (descr.authorEmail),
-    description (descr.description),
-    event_hook (descr.event_hook),
-    preCkptBarriers (_preCkptBarriers),
-    resumeBarriers (_resumeBarriers),
-    restartBarriers (_restartBarriers)
-{}
-
-PluginInfo *PluginInfo::create(const DmtcpPluginDescriptor_t& descr)
+namespace dmtcp
 {
-  vector<BarrierInfo*> preCkptBarriers;
-  vector<BarrierInfo*> resumeBarriers;
-  vector<BarrierInfo*> restartBarriers;
+PluginInfo::PluginInfo(const DmtcpPluginDescriptor_t &descr,
+                       const vector<BarrierInfo *> &_preCkptBarriers,
+                       const vector<BarrierInfo *> &_resumeBarriers,
+                       const vector<BarrierInfo *> &_restartBarriers)
+  : pluginName(descr.pluginName),
+    authorName(descr.authorName),
+    authorEmail(descr.authorEmail),
+    description(descr.description),
+    event_hook(descr.event_hook),
+    preCkptBarriers(_preCkptBarriers),
+    resumeBarriers(_resumeBarriers),
+    restartBarriers(_restartBarriers)
+{
+}
+
+PluginInfo *
+PluginInfo::create(const DmtcpPluginDescriptor_t &descr)
+{
+  vector<BarrierInfo *> preCkptBarriers;
+  vector<BarrierInfo *> resumeBarriers;
+  vector<BarrierInfo *> restartBarriers;
 
   for (size_t i = 0; i < descr.numBarriers; i++) {
     BarrierInfo *barrier = new BarrierInfo(descr.pluginName, descr.barriers[i]);
@@ -70,24 +72,24 @@ PluginInfo *PluginInfo::create(const DmtcpPluginDescriptor_t& descr)
         break;
 
       default:
-        JASSERT(false) .Text("NOT REACHED");
+        JASSERT(false).Text("NOT REACHED");
     }
   }
 
-  return new PluginInfo(descr,
-      preCkptBarriers,
-      resumeBarriers,
-      restartBarriers);
+  return new PluginInfo(descr, preCkptBarriers, resumeBarriers,
+                        restartBarriers);
 }
 
-void PluginInfo::eventHook (const DmtcpEvent_t event, DmtcpEventData_t *data)
+void
+PluginInfo::eventHook(const DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   if (event_hook != NULL) {
     event_hook(event, data);
   }
 }
 
-void PluginInfo::processBarriers()
+void
+PluginInfo::processBarriers()
 {
   if (WorkerState::currentState() == WorkerState::CHECKPOINTING) {
     for (int i = 0; i < preCkptBarriers.size(); i++) {
@@ -102,24 +104,24 @@ void PluginInfo::processBarriers()
       processBarrier(restartBarriers[i]);
     }
   } else {
-    JASSERT(false) .Text("Not Reached");
+    JASSERT(false).Text("Not Reached");
   }
 }
 
-void PluginInfo::processBarrier(BarrierInfo *barrier)
+void
+PluginInfo::processBarrier(BarrierInfo *barrier)
 {
   if (dmtcp_no_coordinator()) {
     // Do nothing.
   } else if (barrier->isGlobal()) {
-    JTRACE("Waiting for global barrier") (barrier->toString());
+    JTRACE("Waiting for global barrier")(barrier->toString());
     CoordinatorAPI::instance().waitForBarrier(barrier->toString());
   } else if (barrier->isLocal()) {
-    JTRACE("Waiting for local barrier") (barrier->toString());
+    JTRACE("Waiting for local barrier")(barrier->toString());
     SharedData::waitForBarrier(barrier->toString());
   }
 
-  JTRACE("Barrier released") (barrier->toString());
+  JTRACE("Barrier released")(barrier->toString());
   barrier->callback();
 }
-
 }

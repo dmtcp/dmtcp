@@ -24,48 +24,46 @@
 #define PTYCONNLIST_H
 
 // THESE INCLUDES ARE IN RANDOM ORDER.  LET'S CLEAN IT UP AFTER RELEASE. - Gene
-#include <sys/types.h>
+#include <mqueue.h>
+#include <signal.h>
+#include <stdint.h>
+#include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <sys/socket.h>
+#include <sys/types.h>
 #include <unistd.h>
-#include <mqueue.h>
-#include <stdint.h>
-#include <signal.h>
-#include "jfilesystem.h"
+#include "connectionlist.h"
 #include "jbuffer.h"
 #include "jconvert.h"
-#include "connectionlist.h"
-#include "ptyconnection.h"
+#include "jfilesystem.h"
 #include "procmapsarea.h"
+#include "ptyconnection.h"
 
 namespace dmtcp
 {
-  class PtyConnList : public ConnectionList
+class PtyConnList : public ConnectionList
+{
+public:
+  static PtyConnList &instance();
+
+  static void drainFd() { instance().drain(); }
+  static void resumeRefill() { instance().refill(false); }
+  static void restart() { instance().postRestart(); }
+  static void restartRefill() { instance().refill(true); }
+  virtual void drain();
+  virtual void resume(bool isRestart) {}
+  virtual void refill(bool isRestart);
+  virtual void postRestart();
+  virtual int protectedFd() { return -1; }
+  // examine /proc/self/fd for unknown connections
+  virtual void scanForPreExisting();
+
+  virtual Connection *createDummyConnection(int type)
   {
-    public:
-      static PtyConnList& instance();
+    return new PtyConnection();
+  }
 
-      static void drainFd() { instance().drain(); }
-
-      static void resumeRefill() { instance().refill(false); }
-
-      static void restart() { instance().postRestart(); }
-      static void restartRefill() { instance().refill(true); }
-
-      virtual void drain();
-      virtual void resume(bool isRestart) {};
-      virtual void refill(bool isRestart);
-      virtual void postRestart();
-      virtual int protectedFd() { return -1; }
-      //examine /proc/self/fd for unknown connections
-      virtual void scanForPreExisting();
-
-      virtual Connection *createDummyConnection(int type) {
-        return new PtyConnection();
-      }
-
-      void processPtyConnection(int fd, const char *path, int flags, mode_t mode);
-  };
+  void processPtyConnection(int fd, const char *path, int flags, mode_t mode);
+};
 }
-#endif
+#endif // ifndef PTYCONNLIST_H

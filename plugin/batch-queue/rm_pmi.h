@@ -26,4 +26,4 @@
 int rm_restore_pmi();
 int rm_shutdown_pmi();
 
-#endif
+#endif // ifndef RM_PMI_H

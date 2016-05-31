@@ -19,28 +19,31 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include <fcntl.h>
 #include "connection.h"
+#include <fcntl.h>
 #include "../jalib/jassert.h"
 #include "../jalib/jserialize.h"
 
 using namespace dmtcp;
 
 Connection::Connection(uint32_t t)
-  : _id(ConnectionIdentifier::create())
-  , _type((ConnectionType) t)
-  , _fcntlFlags(-1)
-  , _fcntlOwner(-1)
-  , _fcntlSignal(-1)
-  , _hasLock(false)
-{}
+  : _id(ConnectionIdentifier::create()),
+    _type((ConnectionType)t),
+    _fcntlFlags(-1),
+    _fcntlOwner(-1),
+    _fcntlSignal(-1),
+    _hasLock(false)
+{
+}
 
-void Connection::addFd(int fd)
+void
+Connection::addFd(int fd)
 {
   _fds.push_back(fd);
 }
 
-void Connection::removeFd(int fd)
+void
+Connection::removeFd(int fd)
 {
   JASSERT(_fds.size() > 0);
   if (_fds.size() == 1) {
@@ -56,63 +59,70 @@ void Connection::removeFd(int fd)
   }
 }
 
-void Connection::saveOptions()
+void
+Connection::saveOptions()
 {
   errno = 0;
-  _fcntlFlags = fcntl(_fds[0],F_GETFL);
-  JASSERT(_fcntlFlags >= 0) (_fds[0]) (_fcntlFlags) (_type) (JASSERT_ERRNO);
+  _fcntlFlags = fcntl(_fds[0], F_GETFL);
+  JASSERT(_fcntlFlags >= 0)(_fds[0])(_fcntlFlags)(_type)(JASSERT_ERRNO);
   errno = 0;
-  _fcntlOwner = fcntl(_fds[0],F_GETOWN);
-  JASSERT(_fcntlOwner != -1) (_fcntlOwner) (JASSERT_ERRNO);
+  _fcntlOwner = fcntl(_fds[0], F_GETOWN);
+  JASSERT(_fcntlOwner != -1)(_fcntlOwner)(JASSERT_ERRNO);
   errno = 0;
-  _fcntlSignal = fcntl(_fds[0],F_GETSIG);
-  JASSERT(_fcntlSignal >= 0) (_fcntlSignal) (JASSERT_ERRNO);
+  _fcntlSignal = fcntl(_fds[0], F_GETSIG);
+  JASSERT(_fcntlSignal >= 0)(_fcntlSignal)(JASSERT_ERRNO);
 }
 
-void Connection::restoreOptions()
+void
+Connection::restoreOptions()
 {
-  //restore F_GETFL flags
-  JASSERT(_fcntlFlags >= 0) (_fcntlFlags);
-  JASSERT(_fcntlOwner != -1) (_fcntlOwner);
-  JASSERT(_fcntlSignal >= 0) (_fcntlSignal);
+  // restore F_GETFL flags
+  JASSERT(_fcntlFlags >= 0)(_fcntlFlags);
+  JASSERT(_fcntlOwner != -1)(_fcntlOwner);
+  JASSERT(_fcntlSignal >= 0)(_fcntlSignal);
   errno = 0;
   JASSERT(fcntl(_fds[0], F_SETFL, (int)_fcntlFlags) == 0)
-    (_fds[0]) (_fcntlFlags) (JASSERT_ERRNO);
+  (_fds[0])(_fcntlFlags)(JASSERT_ERRNO);
 
   errno = 0;
   JASSERT(fcntl(_fds[0], F_SETOWN, (int)_fcntlOwner) == 0)
-   (_fds[0]) (_fcntlOwner) (JASSERT_ERRNO);
+  (_fds[0])(_fcntlOwner)(JASSERT_ERRNO);
 
-  //FIXME:  The comment below seems to be obsolete now.
+  // FIXME:  The comment below seems to be obsolete now.
   // This JASSERT will almost always trigger until we fix the above mentioned
   // bug.
-  //JASSERT(fcntl(_fds[0], F_GETOWN) == _fcntlOwner)
-  //(fcntl(_fds[0], F_GETOWN)) (_fcntlOwner) (VIRTUAL_TO_REAL_PID(_fcntlOwner));
+  // JASSERT(fcntl(_fds[0], F_GETOWN) == _fcntlOwner)
+  // (fcntl(_fds[0], F_GETOWN)) (_fcntlOwner)
+  // (VIRTUAL_TO_REAL_PID(_fcntlOwner));
 
   errno = 0;
   JASSERT(fcntl(_fds[0], F_SETSIG, (int)_fcntlSignal) == 0)
-    (_fds[0]) (_fcntlSignal) (JASSERT_ERRNO);
+  (_fds[0])(_fcntlSignal)(JASSERT_ERRNO);
 }
 
-void Connection::doLocking()
+void
+Connection::doLocking()
 {
   errno = 0;
   _hasLock = false;
   JASSERT(fcntl(_fds[0], F_SETOWN, getpid()) == 0)
-   (_fds[0]) (JASSERT_ERRNO);
+  (_fds[0])(JASSERT_ERRNO);
 }
 
-void Connection::checkLocking()
+void
+Connection::checkLocking()
 {
   pid_t pid = fcntl(_fds[0], F_GETOWN);
+
   JASSERT(pid != -1);
   _hasLock = pid == getpid();
 }
 
-void Connection::serialize(jalib::JBinarySerializer& o)
+void
+Connection::serialize(jalib::JBinarySerializer &o)
 {
   JSERIALIZE_ASSERT_POINT("Connection");
-  o & _id & _type & _fcntlFlags & _fcntlOwner & _fcntlSignal;
+  o &_id &_type &_fcntlFlags &_fcntlOwner &_fcntlSignal;
   o.serializeVector(_fds);
   serializeSubClass(o);
 }

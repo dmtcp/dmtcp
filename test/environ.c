@@ -1,13 +1,17 @@
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdio.h>
 
-int main() {
+int
+main()
+{
   int counter = 0;
+
   setenv("ABC", "abc", 1);
   while (1) {
     if (counter++ % 1000000 == 0) {
-      printf("b"); fflush(stdout);
+      printf("b");
+      fflush(stdout);
     }
     if (strcmp(getenv("ABC"), "abc") != 0) {
       printf("\nEnvironment was not preserved across checkpoint/restart.\n");

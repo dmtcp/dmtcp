@@ -24,11 +24,10 @@
 #include "dmtcpalloc.h"
 #include "util.h"
 
-namespace dmtcp {
-
+namespace dmtcp
+{
 int findLib_byname(string pttrn, string &libpath);
 int findLib_byfunc(string fname, string &libpath);
-
 }
 
-#endif
+#endif // ifndef RM_UTILS_H

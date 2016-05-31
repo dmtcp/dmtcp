@@ -1,6 +1,8 @@
 #ifndef MTCP_HEADER_H
 #define MTCP_HEADER_H
 
+#include <unistd.h>
+
 #include "ldt.h"
 
 #ifdef __i386__
@@ -11,28 +13,29 @@ typedef unsigned short segreg_t;
 typedef unsigned int segreg_t;
 #elif defined(__aarch64__)
 typedef unsigned long int segreg_t;
-#endif
+#endif // ifdef __i386__
 
 /* TLS segment registers used differently in i386 and x86_64. - Gene */
 #ifdef __i386__
-# define TLSSEGREG gs
+#define TLSSEGREG gs
 #elif __x86_64__
-# define TLSSEGREG fs
+#define TLSSEGREG fs
 #elif (__arm__ || __aarch64__)
+
 /* FIXME: fs IS NOT AN arm REGISTER.  BUT THIS IS USED ONLY AS A FIELD NAME.
  *   ARM uses a register in coprocessor 15 as the thread-pointer (TLS Register)
  */
-# define TLSSEGREG fs
-#endif
+#define TLSSEGREG fs
+#endif // ifdef __i386__
 
 #if defined(__x86_64__) || defined(__aarch64__)
-# define MYINFO_GS_T unsigned long int
-#else
-# define MYINFO_GS_T unsigned int
-#endif
+#define MYINFO_GS_T unsigned long int
+#else // if defined(__x86_64__) || defined(__aarch64__)
+#define MYINFO_GS_T unsigned int
+#endif // if defined(__x86_64__) || defined(__aarch64__)
 
 typedef struct _ThreadTLSInfo {
-  segreg_t fs, gs;  // thread local storage pointers
+  segreg_t fs, gs; // thread local storage pointers
   struct user_desc gdtentrytls[1];
 } ThreadTLSInfo;
 
@@ -48,7 +51,7 @@ typedef union _MtcpHeader {
     void *vdsoEnd;
     void *vvarStart;
     void *vvarEnd;
-    void (*post_restart) ();
+    void (*post_restart)();
     ThreadTLSInfo motherofall_tls_info;
     int tls_pid_offset;
     int tls_tid_offset;
@@ -58,4 +61,4 @@ typedef union _MtcpHeader {
   char _padding[4096];
 } MtcpHeader;
 
-#endif
+#endif // ifndef MTCP_HEADER_H

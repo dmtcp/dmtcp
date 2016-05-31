@@ -49,4 +49,4 @@ enum ProtectedFds {
 #define DMTCP_IS_PROTECTED_FD(fd) \
   ((fd) > PROTECTED_FD_START && (fd) < PROTECTED_FD_END)
 
-#endif
+#endif // ifndef DMTCPPROTECTEDFDS_H

@@ -19,38 +19,43 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include <time.h>
 #include "timerlist.h"
-#include "timerwrappers.h"
+#include <time.h>
 #include "config.h"
 #include "dmtcp.h"
+#include "timerwrappers.h"
 
 using namespace dmtcp;
 
 static TimerList *_timerlist = NULL;
 
 static pthread_mutex_t timerLock = PTHREAD_MUTEX_INITIALIZER;
-static void _do_lock_tbl()
+static void
+_do_lock_tbl()
 {
-  JASSERT(_real_pthread_mutex_lock(&timerLock) == 0) (JASSERT_ERRNO);
+  JASSERT(_real_pthread_mutex_lock(&timerLock) == 0)(JASSERT_ERRNO);
 }
 
-static void _do_unlock_tbl()
+static void
+_do_unlock_tbl()
 {
-  JASSERT(_real_pthread_mutex_unlock(&timerLock) == 0) (JASSERT_ERRNO);
+  JASSERT(_real_pthread_mutex_unlock(&timerLock) == 0)(JASSERT_ERRNO);
 }
 
-static void preCheckpoint()
+static void
+preCheckpoint()
 {
   TimerList::instance().preCheckpoint();
 }
 
-static void postRestart()
+static void
+postRestart()
 {
   TimerList::instance().postRestart();
 }
 
-static void timer_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
+static void
+timer_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   if (_timerlist != NULL) {
     switch (event) {
@@ -66,27 +71,24 @@ static void timer_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 
 static DmtcpBarrier timerBarriers[] = {
   {DMTCP_PRIVATE_BARRIER_PRE_CKPT, preCheckpoint, "PRE_CKPT"},
-  {DMTCP_PRIVATE_BARRIER_RESTART, postRestart, "RESTART"}
-};
+  {DMTCP_PRIVATE_BARRIER_RESTART, postRestart, "RESTART"}};
 
-DmtcpPluginDescriptor_t timerPlugin = {
-  DMTCP_PLUGIN_API_VERSION,
-  PACKAGE_VERSION,
-  "timer",
-  "DMTCP",
-  "dmtcp@ccs.neu.edu",
-  "Timer plugin",
-  DMTCP_DECL_BARRIERS(timerBarriers),
-  timer_event_hook
-};
+DmtcpPluginDescriptor_t timerPlugin = {DMTCP_PLUGIN_API_VERSION,
+                                       PACKAGE_VERSION,
+                                       "timer",
+                                       "DMTCP",
+                                       "dmtcp@ccs.neu.edu",
+                                       "Timer plugin",
+                                       DMTCP_DECL_BARRIERS(timerBarriers),
+                                       timer_event_hook};
 
 DMTCP_DECL_PLUGIN(timerPlugin);
-
 
 /*
  *
  */
-TimerList& TimerList::instance()
+TimerList &
+TimerList::instance()
 {
   if (_timerlist == NULL) {
     _timerlist = new TimerList();
@@ -94,14 +96,14 @@ TimerList& TimerList::instance()
   return *_timerlist;
 }
 
-void TimerList::removeStaleClockIds()
+void
+TimerList::removeStaleClockIds()
 {
   // remove stale clockids
   vector<clockid_t> staleClockIds;
   map<clockid_t, pid_t>::iterator clockPidListIter;
   for (clockPidListIter = _clockPidList.begin();
-       clockPidListIter != _clockPidList.end();
-       clockPidListIter++) {
+       clockPidListIter != _clockPidList.end(); clockPidListIter++) {
     pid_t pid = clockPidListIter->second;
     clockid_t realId = VIRTUAL_TO_REAL_CLOCK_ID(clockPidListIter->first);
     clockid_t clockid;
@@ -110,7 +112,7 @@ void TimerList::removeStaleClockIds()
     }
   }
   for (size_t i = 0; i < staleClockIds.size(); i++) {
-    JTRACE("Removing stale clock") (staleClockIds[i]);
+    JTRACE("Removing stale clock")(staleClockIds[i]);
     _clockPidList.erase(staleClockIds[i]);
   }
   staleClockIds.clear();
@@ -127,36 +129,40 @@ void TimerList::removeStaleClockIds()
     }
   }
   for (size_t i = 0; i < staleClockIds.size(); i++) {
-    JNOTE("Removing stale clock") (staleClockIds[i]);
+    JNOTE("Removing stale clock")(staleClockIds[i]);
     _clockPthreadList.erase(staleClockIds[i]);
   }
 }
 
-void TimerList::resetOnFork()
+void
+TimerList::resetOnFork()
 {
   _timerInfo.clear();
-  //_clockPidList.clear();
-  //_clockPthreadList.clear();
+
+  // _clockPidList.clear();
+  // _clockPthreadList.clear();
   _timerVirtIdTable.clear();
   pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
   timerLock = lock;
-  _clockVirtIdTable.resetOnFork((clockid_t) (unsigned) getpid());
+  _clockVirtIdTable.resetOnFork((clockid_t)(unsigned)getpid());
 }
 
-void TimerList::preCheckpoint()
+void
+TimerList::preCheckpoint()
 {
   removeStaleClockIds();
   for (_iter = _timerInfo.begin(); _iter != _timerInfo.end(); _iter++) {
     timer_t virtId = _iter->first;
     timer_t realId = VIRTUAL_TO_REAL_TIMER_ID(virtId);
-    TimerInfo& tinfo = _iter->second;
+    TimerInfo &tinfo = _iter->second;
     JASSERT(_real_timer_gettime(realId, &tinfo.curr_timerspec) == 0)
-      (virtId) (realId) (JASSERT_ERRNO);
+    (virtId)(realId)(JASSERT_ERRNO);
     tinfo.overrun = _real_timer_getoverrun(realId);
   }
 }
 
-void TimerList::postRestart()
+void
+TimerList::postRestart()
 {
   // Refresh clockids
   map<clockid_t, pid_t>::iterator it1;
@@ -164,7 +170,7 @@ void TimerList::postRestart()
     pid_t pid = it1->second;
     clockid_t virtId = it1->first;
     clockid_t realId;
-    JASSERT(_real_clock_getcpuclockid(pid, &realId) == 0) (pid) (JASSERT_ERRNO);
+    JASSERT(_real_clock_getcpuclockid(pid, &realId) == 0)(pid)(JASSERT_ERRNO);
     _clockVirtIdTable.updateMapping(virtId, realId);
   }
 
@@ -173,8 +179,7 @@ void TimerList::postRestart()
     pthread_t pth = it2->second;
     clockid_t virtId = it2->first;
     clockid_t realId;
-    JASSERT(_real_pthread_getcpuclockid(pth, &realId) == 0) (pth)
-      (JASSERT_ERRNO);
+    JASSERT(_real_pthread_getcpuclockid(pth, &realId) == 0)(pth)(JASSERT_ERRNO);
     _clockVirtIdTable.updateMapping(virtId, realId);
   }
 
@@ -183,13 +188,13 @@ void TimerList::postRestart()
     timer_t realId;
     timer_t virtId = _iter->first;
     struct sigevent *sevp = NULL;
-    TimerInfo& tinfo = _iter->second;
+    TimerInfo &tinfo = _iter->second;
     clockid_t clockid = VIRTUAL_TO_REAL_CLOCK_ID(tinfo.clockid);
     if (!tinfo.sevp_null) {
       sevp = &tinfo.sevp;
     }
     JASSERT(_real_timer_create(clockid, sevp, &realId) == 0)
-      (virtId) (JASSERT_ERRNO);
+    (virtId)(JASSERT_ERRNO);
     _timerVirtIdTable.updateMapping(virtId, realId);
     if (tinfo.curr_timerspec.it_value.tv_sec != 0 ||
         tinfo.curr_timerspec.it_value.tv_nsec != 0) {
@@ -206,13 +211,14 @@ void TimerList::postRestart()
         tspec = tinfo.curr_timerspec;
       }
       JASSERT(_real_timer_settime(realId, tinfo.flags, &tspec, NULL) == 0)
-        (virtId) (JASSERT_ERRNO);
-      JTRACE("Restoring timer") (realId) (virtId);
+      (virtId)(JASSERT_ERRNO);
+      JTRACE("Restoring timer")(realId)(virtId);
     }
   }
 }
 
-int TimerList::getoverrun(timer_t id)
+int
+TimerList::getoverrun(timer_t id)
 {
   _do_lock_tbl();
   JASSERT(_timerInfo.find(id) != _timerInfo.end());
@@ -222,13 +228,16 @@ int TimerList::getoverrun(timer_t id)
   return ret;
 }
 
-timer_t TimerList::on_timer_create(timer_t realId, clockid_t clockid,
-                                struct sigevent *sevp)
+timer_t
+TimerList::on_timer_create(timer_t realId,
+                           clockid_t clockid,
+                           struct sigevent *sevp)
 {
   TimerInfo tinfo;
   timer_t virtId;
+
   _do_lock_tbl();
-  JASSERT(!_timerVirtIdTable.realIdExists(realId)) (realId);
+  JASSERT(!_timerVirtIdTable.realIdExists(realId))(realId);
 
   JASSERT(_timerVirtIdTable.getNewVirtualId(&virtId));
   _timerVirtIdTable.updateMapping(virtId, realId);
@@ -247,7 +256,8 @@ timer_t TimerList::on_timer_create(timer_t realId, clockid_t clockid,
   return virtId;
 }
 
-void TimerList::on_timer_delete(timer_t timerid)
+void
+TimerList::on_timer_delete(timer_t timerid)
 {
   _do_lock_tbl();
   _timerVirtIdTable.erase(timerid);
@@ -256,8 +266,10 @@ void TimerList::on_timer_delete(timer_t timerid)
   _do_unlock_tbl();
 }
 
-void TimerList::on_timer_settime(timer_t timerid, int flags,
-                                 const struct itimerspec *new_value)
+void
+TimerList::on_timer_settime(timer_t timerid,
+                            int flags,
+                            const struct itimerspec *new_value)
 {
   _do_lock_tbl();
   JASSERT(_timerInfo.find(timerid) != _timerInfo.end());
@@ -266,7 +278,8 @@ void TimerList::on_timer_settime(timer_t timerid, int flags,
   _do_unlock_tbl();
 }
 
-clockid_t TimerList::on_clock_getcpuclockid(pid_t pid, clockid_t realId)
+clockid_t
+TimerList::on_clock_getcpuclockid(pid_t pid, clockid_t realId)
 {
   _do_lock_tbl();
   if (_clockVirtIdTable.size() > 800) {
@@ -280,7 +293,8 @@ clockid_t TimerList::on_clock_getcpuclockid(pid_t pid, clockid_t realId)
   return virtId;
 }
 
-clockid_t TimerList::on_pthread_getcpuclockid(pthread_t thread, clockid_t realId)
+clockid_t
+TimerList::on_pthread_getcpuclockid(pthread_t thread, clockid_t realId)
 {
   _do_lock_tbl();
   _clockPthreadList[realId] = thread;

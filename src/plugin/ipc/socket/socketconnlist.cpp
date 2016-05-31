@@ -1,26 +1,28 @@
 
-#include <unistd.h>
 #include <sys/syscall.h>
+#include <unistd.h>
 
-#include "util.h"
-#include "protectedfds.h"
+#include "connectionrewirer.h"
 #include "jfilesystem.h"
+#include "kernelbufferdrainer.h"
+#include "protectedfds.h"
 #include "socketconnection.h"
 #include "socketconnlist.h"
-#include "kernelbufferdrainer.h"
-#include "connectionrewirer.h"
+#include "util.h"
 
 using namespace dmtcp;
 static bool _hasIPv4Sock = false;
 static bool _hasIPv6Sock = false;
 static bool _hasUNIXSock = false;
 
-void dmtcp_SocketConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
+void
+dmtcp_SocketConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   SocketConnList::instance().eventHook(event, data);
 }
 
-void dmtcp_SocketConn_ProcessFdEvent(int event, int arg1, int arg2)
+void
+dmtcp_SocketConn_ProcessFdEvent(int event, int arg1, int arg2)
 {
   if (event == SYS_close) {
     SocketConnList::instance().processClose(arg1);
@@ -32,7 +34,8 @@ void dmtcp_SocketConn_ProcessFdEvent(int event, int arg1, int arg2)
 }
 
 static SocketConnList *socketConnList = NULL;
-SocketConnList& SocketConnList::instance()
+SocketConnList &
+SocketConnList::instance()
 {
   if (socketConnList == NULL) {
     socketConnList = new SocketConnList();
@@ -40,59 +43,63 @@ SocketConnList& SocketConnList::instance()
   return *socketConnList;
 }
 
-
-void SocketConnList::drain()
+void
+SocketConnList::drain()
 {
   // First, let all the Connection prepare for drain
   ConnectionList::drain();
 
-  //this will block until draining is complete
+  // this will block until draining is complete
   KernelBufferDrainer::instance().monitorSockets(DRAINER_CHECK_FREQ);
-  //handle disconnected sockets
-  const map<ConnectionIdentifier, vector<char> >& discn =
+
+  // handle disconnected sockets
+  const map<ConnectionIdentifier, vector<char> > &discn =
     KernelBufferDrainer::instance().getDisconnectedSockets();
   map<ConnectionIdentifier, vector<char> >::const_iterator it;
   for (it = discn.begin(); it != discn.end(); it++) {
-    const ConnectionIdentifier& id = it->first;
+    const ConnectionIdentifier &id = it->first;
     TcpConnection *con =
-      (TcpConnection*) SocketConnList::instance().getConnection(id);
-    JTRACE("recreating disconnected socket") (id);
+      (TcpConnection *)SocketConnList::instance().getConnection(id);
+    JTRACE("recreating disconnected socket")(id);
 
-    //reading from the socket, and taking the error, resulted in an
-    //implicit close().
-    //we will create a new, broken socket that is not closed
+    // reading from the socket, and taking the error, resulted in an
+    // implicit close().
+    // we will create a new, broken socket that is not closed
     con->onError();
   }
 }
 
-void SocketConnList::preCkpt()
+void
+SocketConnList::preCkpt()
 {
-  //handshake is done after one barrier after drain
+  // handshake is done after one barrier after drain
   JTRACE("beginning handshakes");
   DmtcpUniqueProcessId coordId = dmtcp_get_coord_id();
-  //must send first to avoid deadlock
-  //we are relying on OS buffers holding our message without blocking
+
+  // must send first to avoid deadlock
+  // we are relying on OS buffers holding our message without blocking
   for (iterator i = begin(); i != end(); ++i) {
     Connection *con = i->second;
     if (con->hasLock() && con->conType() == Connection::TCP) {
-      ((TcpConnection*)con)->doSendHandshakes(coordId);
+      ((TcpConnection *)con)->doSendHandshakes(coordId);
     }
   }
 
-  //now receive
+  // now receive
   for (iterator i = begin(); i != end(); ++i) {
     Connection *con = i->second;
     if (con->hasLock() && con->conType() == Connection::TCP) {
-      ((TcpConnection*)con)->doRecvHandshakes(coordId);
+      ((TcpConnection *)con)->doRecvHandshakes(coordId);
     }
   }
   JTRACE("handshaking done");
   _hasIPv4Sock = _hasIPv6Sock = _hasUNIXSock = false;
+
   // Now check if we have IPv4, IPv6, or UNIX domain sockets to restore.
   for (iterator i = begin(); i != end(); ++i) {
     Connection *con = i->second;
     if (con->hasLock() && con->conType() == Connection::TCP) {
-      int domain = ((TcpConnection*)con)->sockDomain();
+      int domain = ((TcpConnection *)con)->sockDomain();
       if (domain == AF_INET) {
         _hasIPv4Sock = true;
       } else if (domain == AF_INET6) {
@@ -104,21 +111,24 @@ void SocketConnList::preCkpt()
   }
 }
 
-void SocketConnList::postRestart()
+void
+SocketConnList::postRestart()
 {
   ConnectionRewirer::instance().openRestoreSocket(_hasIPv4Sock, _hasIPv6Sock,
                                                   _hasUNIXSock);
   ConnectionList::postRestart();
 }
 
-void SocketConnList::registerNSData()
+void
+SocketConnList::registerNSData()
 {
   ConnectionRewirer::instance().registerNSData();
 
   ConnectionList::registerNSData();
 }
 
-void SocketConnList::sendQueries()
+void
+SocketConnList::sendQueries()
 {
   ConnectionRewirer::instance().sendQueries();
   ConnectionRewirer::instance().doReconnect();
@@ -127,13 +137,15 @@ void SocketConnList::sendQueries()
   ConnectionList::sendQueries();
 }
 
-void SocketConnList::refill(bool isRestart)
+void
+SocketConnList::refill(bool isRestart)
 {
   KernelBufferDrainer::instance().refillAllSockets();
   ConnectionList::refill(isRestart);
 }
 
-void SocketConnList::scanForPreExisting()
+void
+SocketConnList::scanForPreExisting()
 {
   // TODO: This is a hack when SLURM + MPI are used:
   // when we use command
@@ -161,31 +173,36 @@ void SocketConnList::scanForPreExisting()
   vector<int> fds = jalib::Filesystem::ListOpenFds();
   for (size_t i = 0; i < fds.size(); ++i) {
     int fd = fds[i];
-    if (!Util::isValidFd(fd)) continue;
-    if (dmtcp_is_protected_fd(fd)) continue;
+    if (!Util::isValidFd(fd)) {
+      continue;
+    }
+    if (dmtcp_is_protected_fd(fd)) {
+      continue;
+    }
 
     string device = jalib::Filesystem::GetDeviceName(fd);
 
-    JTRACE("scanning pre-existing device") (fd) (device);
+    JTRACE("scanning pre-existing device")(fd)(device);
     if (device == jalib::Filesystem::GetControllingTerm()) {
-    } else if(dmtcp_is_bq_file && dmtcp_is_bq_file(device.c_str())) {
-    } else if( fd <= 2 ){
+    } else if (dmtcp_is_bq_file && dmtcp_is_bq_file(device.c_str())) {
+    } else if (fd <= 2) {
     } else if (Util::strStartsWith(device, "/")) {
     } else {
       JNOTE("found pre-existing socket... will not be restored")
-        (fd) (device);
-      TcpConnection* con = new TcpConnection(0, 0, 0);
+      (fd)(device);
+      TcpConnection *con = new TcpConnection(0, 0, 0);
       con->markPreExisting();
       add(fd, con);
     }
   }
 }
 
-Connection *SocketConnList::createDummyConnection(int type)
+Connection *
+SocketConnList::createDummyConnection(int type)
 {
   if (type == Connection::TCP) {
     return new TcpConnection();
-  } else if (type == Connection::RAW){
+  } else if (type == Connection::RAW) {
     return new RawSocketConnection();
   }
   return NULL;

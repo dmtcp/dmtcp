@@ -24,67 +24,69 @@
 #define UNIQUEPID_H
 
 #include <sys/types.h>
-#include "dmtcp.h"
 #include "../jalib/jserialize.h"
-
+#include "dmtcp.h"
 
 namespace dmtcp
 {
-  struct UniquePid : private DmtcpUniqueProcessId
+struct UniquePid : private DmtcpUniqueProcessId {
+public:
+  static UniquePid &ParentProcess();
+  static UniquePid &ThisProcess(bool disableJTrace = false);
+  UniquePid();
+
+  UniquePid(const uint64_t &host,
+            const pid_t &pd,
+            const uint64_t &tm,
+            const int &gen = 0)
   {
-  public:
-    static UniquePid& ParentProcess();
-    static UniquePid& ThisProcess(bool disableJTrace = false);
-    UniquePid();
+    _hostid = host;
+    _pid = pd;
+    _time = tm;
+    _computation_generation = gen;
+  }
 
-    UniquePid ( const uint64_t& host, const pid_t& pd, const uint64_t& tm,
-                const int& gen = 0 ) {
-      _hostid = host;
-      _pid = pd;
-      _time = tm;
-      _computation_generation = gen;
-    }
+  UniquePid(DmtcpUniqueProcessId id)
+  {
+    _hostid = id._hostid;
+    _pid = id._pid;
+    _time = id._time;
+    _computation_generation = id._computation_generation;
+  }
 
-    UniquePid(DmtcpUniqueProcessId id) {
-      _hostid = id._hostid;
-      _pid = id._pid;
-      _time = id._time;
-      _computation_generation = id._computation_generation;
-    }
+  uint64_t hostid() const { return _hostid; }
+  pid_t pid() const { return _pid; }
+  int computationGeneration() const { return _computation_generation; }
+  uint64_t time() const { return _time; }
+  DmtcpUniqueProcessId upid() const
+  {
+    DmtcpUniqueProcessId up;
 
-    uint64_t hostid() const { return _hostid; }
-    pid_t pid() const { return _pid; }
-    int computationGeneration() const { return _computation_generation; }
-    uint64_t time() const { return _time; }
-    DmtcpUniqueProcessId upid() const {
-      DmtcpUniqueProcessId up;
-      up._hostid = _hostid;
-      up._pid = _pid;
-      up._time = _time;
-      up._computation_generation = _computation_generation;
-      return up;
-    }
+    up._hostid = _hostid;
+    up._pid = _pid;
+    up._time = _time;
+    up._computation_generation = _computation_generation;
+    return up;
+  }
 
-    void incrementGeneration();
+  void incrementGeneration();
 
-    static void serialize( jalib::JBinarySerializer& o );
+  static void serialize(jalib::JBinarySerializer &o);
 
-    bool operator< ( const UniquePid& that ) const;
-    bool operator== ( const UniquePid& that ) const;
-    bool operator!= ( const UniquePid& that ) const { return ! operator== ( that ); }
+  bool operator<(const UniquePid &that) const;
+  bool operator==(const UniquePid &that) const;
+  bool operator!=(const UniquePid &that) const { return !operator==(that); }
+  static void restart();
+  static void resetOnFork(const UniquePid &newId);
 
-    static void restart();
-    static void resetOnFork ( const UniquePid& newId );
+  string toString() const;
 
-    string toString() const;
+  bool isNull() const;
+};
 
-    bool isNull() const;
-  };
-
-  ostream& operator << ( ostream& o,const UniquePid& id );
-  ostream& operator << ( ostream& o,const DmtcpUniqueProcessId& id );
-  bool operator==(const DmtcpUniqueProcessId& a, const DmtcpUniqueProcessId& b);
-  bool operator!=(const DmtcpUniqueProcessId& a, const DmtcpUniqueProcessId& b);
+ostream &operator<<(ostream &o, const UniquePid &id);
+ostream &operator<<(ostream &o, const DmtcpUniqueProcessId &id);
+bool operator==(const DmtcpUniqueProcessId &a, const DmtcpUniqueProcessId &b);
+bool operator!=(const DmtcpUniqueProcessId &a, const DmtcpUniqueProcessId &b);
 }
-
-#endif
+#endif // ifndef UNIQUEPID_H

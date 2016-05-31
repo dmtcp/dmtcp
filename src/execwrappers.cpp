@@ -21,37 +21,39 @@
 
 #include <sys/syscall.h>
 #ifdef __aarch64__
-# define __ARCH_WANT_SYSCALL_DEPRECATED
+#define __ARCH_WANT_SYSCALL_DEPRECATED
+
 // SYS_fork is a deprecated kernel call in aarch64; in favor of SYS_clone?
-# include <asm-generic/unistd.h>
+#include <asm-generic/unistd.h>
+
 // SYS_fork undefined in aarch64, but add extra insurance
-# undef SYS_fork
-# define SYS_fork __NR_fork
-#endif
+#undef SYS_fork
+#define SYS_fork __NR_fork
+#endif // ifdef __aarch64__
+#include "../jalib/jassert.h"
+#include "../jalib/jconvert.h"
+#include "../jalib/jfilesystem.h"
 #include "constants.h"
-#include "uniquepid.h"
+#include "coordinatorapi.h"
 #include "dmtcpworker.h"
 #include "pluginmanager.h"
 #include "processinfo.h"
+#include "shareddata.h"
 #include "syscallwrappers.h"
 #include "syslogwrappers.h"
-#include "util.h"
-#include "coordinatorapi.h"
-#include "shareddata.h"
 #include "threadsync.h"
-#include  "../jalib/jconvert.h"
-#include  "../jalib/jassert.h"
-#include  "../jalib/jfilesystem.h"
+#include "uniquepid.h"
+#include "util.h"
 
 #define INITIAL_ARGV_MAX 32
 
 using namespace dmtcp;
 
 #ifdef DEBUG
-  const static bool dbg = true;
-#else
-  const static bool dbg = false;
-#endif
+const static bool dbg = true;
+#else // ifdef DEBUG
+const static bool dbg = false;
+#endif // ifdef DEBUG
 
 static bool pthread_atfork_enabled = false;
 static uint64_t child_time;
@@ -59,7 +61,8 @@ static CoordinatorAPI coordinatorAPI;
 
 // Allow plugins to call fork/exec/system to perform specific tasks during
 // preCKpt/postCkpt/PostRestart etc. event.
-static bool isPerformingCkptRestart()
+static bool
+isPerformingCkptRestart()
 {
   if (WorkerState::currentState() != WorkerState::UNKNOWN &&
       WorkerState::currentState() != WorkerState::RUNNING) {
@@ -68,15 +71,14 @@ static bool isPerformingCkptRestart()
   return false;
 }
 
-static bool isBlacklistedProgram(const char *path)
+static bool
+isBlacklistedProgram(const char *path)
 {
   string programName = jalib::Filesystem::BaseName(path);
 
-  JASSERT(programName != "dmtcp_coordinator" &&
-          programName != "dmtcp_launch"  &&
-          programName != "dmtcp_restart"     &&
-          programName != "mtcp_restart")
-    (programName) .Text("This program should not be run under ckpt control");
+  JASSERT(programName != "dmtcp_coordinator" && programName != "dmtcp_launch" &&
+          programName != "dmtcp_restart" && programName != "mtcp_restart")
+  (programName).Text("This program should not be run under ckpt control");
 
   /*
    * When running gdb or any shell which does a waitpid() on the child
@@ -86,8 +88,8 @@ static bool isBlacklistedProgram(const char *path)
    *   and it does a waitpid  (in which we block signals) ...
    */
   if (programName == "dmtcp_command") {
-    //make sure coordinator connection is closed
-    _real_close (PROTECTED_COORD_FD);
+    // make sure coordinator connection is closed
+    _real_close(PROTECTED_COORD_FD);
 
     pid_t cpid = _real_fork();
     JASSERT(cpid != -1);
@@ -103,7 +105,8 @@ static bool isBlacklistedProgram(const char *path)
   return false;
 }
 
-LIB_PRIVATE void pthread_atfork_prepare()
+LIB_PRIVATE void
+pthread_atfork_prepare()
 {
   /* FIXME: The user process might register a fork prepare handler with
    * pthread_atfork. That handler will be called _after_ we have acquired the
@@ -127,15 +130,15 @@ LIB_PRIVATE void pthread_atfork_prepare()
    * have pid-virtualization plugin, which always assigns virtual pids, to the
    * newly created processes, and thus avoiding the pid-conflict totally.
    */
-  return;
 }
 
-LIB_PRIVATE void pthread_atfork_parent()
+LIB_PRIVATE void
+pthread_atfork_parent()
 {
-  return;
 }
 
-LIB_PRIVATE void pthread_atfork_child()
+LIB_PRIVATE void
+pthread_atfork_child()
 {
   if (!pthread_atfork_enabled) {
     return;
@@ -154,12 +157,13 @@ LIB_PRIVATE void pthread_atfork_child()
 
   ProcessInfo::instance().resetOnFork();
 
-  JTRACE("fork()ed [CHILD]") (child) (parent);
+  JTRACE("fork()ed [CHILD]")(child)(parent);
   CoordinatorAPI::resetOnFork(coordinatorAPI);
   DmtcpWorker::resetOnFork();
 }
 
-extern "C" pid_t fork()
+extern "C" pid_t
+fork()
 {
   if (isPerformingCkptRestart()) {
     return _real_syscall(SYS_fork);
@@ -180,7 +184,7 @@ extern "C" pid_t fork()
 
   coordinatorAPI.createNewConnectionBeforeFork(child_name);
 
-  //Enable the pthread_atfork child call
+  // Enable the pthread_atfork child call
   pthread_atfork_enabled = true;
   pid_t childPid = _real_fork();
 
@@ -196,11 +200,11 @@ extern "C" pid_t fork()
      * registered handle.
      */
     UniquePid child = UniquePid(host, getpid(), child_time);
-    JTRACE("fork() done [CHILD]") (child) (parent);
+    JTRACE("fork() done [CHILD]")(child)(parent);
   } else if (childPid > 0) { /* Parent Process */
     UniquePid child = UniquePid(host, childPid, child_time);
     ProcessInfo::instance().insertChild(childPid, child);
-    JTRACE("fork()ed [PARENT] done") (child);;
+    JTRACE("fork()ed [PARENT] done")(child);
   }
 
   pthread_atfork_enabled = false;
@@ -213,14 +217,15 @@ extern "C" pid_t fork()
   return childPid;
 }
 
-extern "C"
-int daemon(int nochdir, int noclose)
+extern "C" int
+daemon(int nochdir, int noclose)
 {
   int fd;
 
   switch (fork()) {
     case -1:
-      return (-1);
+      return -1;
+
     case 0:
       break;
     default:
@@ -228,7 +233,7 @@ int daemon(int nochdir, int noclose)
   }
 
   if (setsid() == -1) {
-    return (-1);
+    return -1;
   }
 
   if (!nochdir) {
@@ -249,94 +254,108 @@ int daemon(int nochdir, int noclose)
       return -1;
     }
   }
-  return (0);
+  return 0;
 }
 
-extern "C" pid_t vfork()
+extern "C" pid_t
+vfork()
 {
   JTRACE("vfork wrapper calling fork");
+
   // This might not preserve the full semantics of vfork.
   // Used for checkpointing gdb.
   return fork();
 }
 
 // Special short-lived processes from executables like /lib/libc.so.6
-//   and man setuid/setgid executables cannot be loaded with LD_PRELOAD.
+// and man setuid/setgid executables cannot be loaded with LD_PRELOAD.
 // Since they're short-lived, we execute them while holding a lock
-//   delaying checkpointing.
-static void execShortLivedProcessAndExit(const char *path, char *const argv[])
+// delaying checkpointing.
+static void
+execShortLivedProcessAndExit(const char *path, char *const argv[])
 {
-  unsetenv("LD_PRELOAD"); // /lib/ld.so won't let us preload if exec'ing lib
+  unsetenv("LD_PRELOAD"); /// lib/ld.so won't let us preload if exec'ing lib
   const unsigned int bufSize = 100000;
-  char *buf = (char*)JALLOC_HELPER_MALLOC(bufSize);
+  char *buf = (char *)JALLOC_HELPER_MALLOC(bufSize);
   memset(buf, 0, bufSize);
   FILE *output;
   if (argv[0] == NULL) {
     output = _real_popen(path, "r");
   } else {
     string command = path;
-    for (int i = 1; argv[i] != NULL; i++)
+    for (int i = 1; argv[i] != NULL; i++) {
       command = command + " " + argv[i];
+    }
     output = _real_popen(command.c_str(), "r");
   }
   int numRead = fread(buf, 1, bufSize - 1, output);
   numRead++, numRead--; // suppress unused-var warning
 
-  pclose(output); // /lib/libXXX process is now done; can checkpoint now
+  pclose(output); /// lib/libXXX process is now done; can checkpoint now
   // FIXME:  code currently allows wrapper to proceed without lock if
-  //   it was busy because of a writer.  The unlock will then fail below.
+  // it was busy because of a writer.  The unlock will then fail below.
   bool __wrapperExecutionLockAcquired = true; // needed for LOCK_UNLOCK macro
   WRAPPER_EXECUTION_RELEASE_EXCL_LOCK();
-  // We  are now the new /lib/libXXX process, and it's safe for DMTCP to ckpt us.
+
+  // We  are now the new /lib/libXXX process, and it's safe for DMTCP to ckpt
+  // us.
   printf("%s", buf); // print buf, which is what /lib/libXXX would print
   JALLOC_HELPER_FREE(buf);
+
   // Avoid running exit handlers of the parent process by calling _exit.
   _exit(0);
 }
 
 // FIXME:  Unify this code with code prior to execvp in dmtcp_launch.cpp
-//   Can use argument to dmtcpPrepareForExec() or getenv("DMTCP_...")
-//   from DmtcpWorker constructor, to distinguish the two cases.
-static void dmtcpPrepareForExec(const char *path, char *const argv[],
-                                char **filename, char ***newArgv)
+// Can use argument to dmtcpPrepareForExec() or getenv("DMTCP_...")
+// from DmtcpWorker constructor, to distinguish the two cases.
+static void
+dmtcpPrepareForExec(const char *path,
+                    char *const argv[],
+                    char **filename,
+                    char ***newArgv)
 {
-  JTRACE("Preparing for Exec") (path);
+  JTRACE("Preparing for Exec")(path);
 
-  const char * libPrefix = "/lib/lib";
-  const char * lib64Prefix = "/lib64/lib";
-  if (path != NULL && Util::strStartsWith(path, libPrefix))
+  const char *libPrefix = "/lib/lib";
+  const char *lib64Prefix = "/lib64/lib";
+  if (path != NULL && Util::strStartsWith(path, libPrefix)) {
     execShortLivedProcessAndExit(path, argv);
-  if (path != NULL && Util::strStartsWith(path, lib64Prefix))
+  }
+  if (path != NULL && Util::strStartsWith(path, lib64Prefix)) {
     execShortLivedProcessAndExit(path, argv);
+  }
+
   // Needed for /usr/libexec/utempter/utempter and other short-lived
-  //  setuid/setgid processes.
+  // setuid/setgid processes.
   // FIXME:  USE THIS FOR ALL setuid/setgid PROCESSES EXCEPT ONES THAT
-  //         WE DIRECTLY HANDLE, LIKE 'screen'.  (Need to name special routine,
-  //         execScreenProcess() ??)
+  // WE DIRECTLY HANDLE, LIKE 'screen'.  (Need to name special routine,
+  // execScreenProcess() ??)
   if (path != NULL && Util::strEndsWith(path, "/utempter")) {
     JTRACE("Trying to exec: utempter")(path)(argv[0])(argv[1]);
     int oldIdx = -1;
     char *oldStr = NULL;
     string realPtsNameStr;
+
     // utempter takes a pts slave name as an argument. Since we virtualize
     // ptys, the slave name points to a virtual slave name, thus we need to
     // replace it with the real one.
     for (size_t i = 0; argv[i] != NULL; i++) {
       if (Util::strStartsWith(argv[i], VIRT_PTS_PREFIX_STR)) {
         // FIXME: Potential memory leak if exec() fails.
-        char *realPtsNameStr = (char*)JALLOC_HELPER_MALLOC(PTS_PATH_MAX);
+        char *realPtsNameStr = (char *)JALLOC_HELPER_MALLOC(PTS_PATH_MAX);
         oldStr = argv[i];
         oldIdx = i;
-        SharedData::getRealPtyName(argv[i], realPtsNameStr,
-                                          PTS_PATH_MAX);
+        SharedData::getRealPtyName(argv[i], realPtsNameStr, PTS_PATH_MAX);
+
         // Override const restriction
-        *(const char**)&argv[i] = realPtsNameStr;
+        *(const char **)&argv[i] = realPtsNameStr;
       }
     }
     execShortLivedProcessAndExit(path, argv);
     if (oldIdx != -1) {
       // Restore original argv[] if exec failed.
-      *(const char**)&argv[oldIdx] = oldStr;
+      *(const char **)&argv[oldIdx] = oldStr;
     }
   }
 
@@ -345,47 +364,50 @@ static void dmtcpPrepareForExec(const char *path, char *const argv[],
     if (Util::isScreen(path)) {
       Util::setScreenDir();
     }
+
     // THIS NEXT LINE IS DANGEROUS.  MOST setuid PROGRAMS CAN'T RUN UNPRIVILEGED
     Util::patchArgvIfSetuid(path, argv, newArgv);
+
     // BUG:  Util::patchArgvIfSetuid() DOES NOT SET newArgv WHEN COPYING
-    //   BINARY IN CODE RE-FACTORING FROM REVISION 911.
+    // BINARY IN CODE RE-FACTORING FROM REVISION 911.
     *filename = (*newArgv)[0];
   } else {
-    *filename = (char*)path;
-    *newArgv = (char**)argv;
+    *filename = (char *)path;
+    *newArgv = (char **)argv;
   }
 
   ostringstream os;
   os << dmtcp_get_tmpdir() << "/dmtcpLifeBoat." << UniquePid::ThisProcess()
      << "-XXXXXX";
-  char *buf = (char*) JALLOC_HELPER_MALLOC(os.str().length()+1);
+  char *buf = (char *)JALLOC_HELPER_MALLOC(os.str().length() + 1);
   strcpy(buf, os.str().c_str());
   int fd = _real_mkstemp(buf);
-  JASSERT(fd != -1) (JASSERT_ERRNO);
-  JASSERT(unlink(buf) == 0) (JASSERT_ERRNO);
+  JASSERT(fd != -1)(JASSERT_ERRNO);
+  JASSERT(unlink(buf) == 0)(JASSERT_ERRNO);
   Util::changeFd(fd, PROTECTED_LIFEBOAT_FD);
-  jalib::JBinarySerializeWriterRaw wr ("", PROTECTED_LIFEBOAT_FD);
-  UniquePid::serialize (wr);
+  jalib::JBinarySerializeWriterRaw wr("", PROTECTED_LIFEBOAT_FD);
+  UniquePid::serialize(wr);
   DmtcpEventData_t edata;
   edata.serializerInfo.fd = PROTECTED_LIFEBOAT_FD;
   PluginManager::eventHook(DMTCP_EVENT_PRE_EXEC, &edata);
 
-  JTRACE("Will exec filename instead of path") (path) (*filename);
+  JTRACE("Will exec filename instead of path")(path)(*filename);
 
   Util::adjustRlimitStack();
   Util::prepareDlsymWrapper();
 
   // Remove FD_CLOEXEC flag from protected file descriptors.
-  for (size_t i  = PROTECTED_FD_START; i < PROTECTED_FD_END; i++) {
+  for (size_t i = PROTECTED_FD_START; i < PROTECTED_FD_END; i++) {
     int flags = fcntl(i, F_GETFD, NULL);
     if (flags != -1) {
       fcntl(i, F_SETFD, flags & ~FD_CLOEXEC);
     }
   }
-  JTRACE("Prepared for Exec") (getenv("LD_PRELOAD"));
+  JTRACE("Prepared for Exec")(getenv("LD_PRELOAD"));
 }
 
-static void dmtcpProcessFailedExec(const char *path, char *newArgv[])
+static void
+dmtcpProcessFailedExec(const char *path, char *newArgv[])
 {
   int saved_errno = errno;
 
@@ -398,21 +420,21 @@ static void dmtcpProcessFailedExec(const char *path, char *newArgv[])
   unsetenv(ENV_VAR_DLSYM_OFFSET);
   unsetenv(ENV_VAR_DLSYM_OFFSET_M32);
 
-  JTRACE("Processed failed Exec Attempt") (path) (getenv("LD_PRELOAD"));
+  JTRACE("Processed failed Exec Attempt")(path)(getenv("LD_PRELOAD"));
   errno = saved_errno;
-  JASSERT(_real_close(PROTECTED_LIFEBOAT_FD) == 0) (JASSERT_ERRNO);
+  JASSERT(_real_close(PROTECTED_LIFEBOAT_FD) == 0)(JASSERT_ERRNO);
 }
 
-static string getUpdatedLdPreload(const char* filename,
-                                  const char* currLdPreload)
+static string
+getUpdatedLdPreload(const char *filename, const char *currLdPreload)
 {
   string preload = getenv(ENV_VAR_HIJACK_LIBS);
 
   bool isElf = false;
   bool is32bitElf = false;
+
   if (getenv(ENV_VAR_HIJACK_LIBS_M32) != NULL &&
-      Util::elfType(filename, &isElf, &is32bitElf) != -1 &&
-      isElf &&
+      Util::elfType(filename, &isElf, &is32bitElf) != -1 && isElf &&
       is32bitElf) {
     preload = getenv(ENV_VAR_HIJACK_LIBS_M32);
   }
@@ -422,9 +444,8 @@ static string getUpdatedLdPreload(const char* filename,
     // If the plugin doesn't exist, try to search it in the current install
     // directory.
     if (!jalib::Filesystem::FileExists(pluginLibraries[i])) {
-      pluginLibraries[i] =
-        Util::getPath(jalib::Filesystem::BaseName(pluginLibraries[i]),
-                                                  is32bitElf);
+      pluginLibraries[i] = Util::getPath(
+        jalib::Filesystem::BaseName(pluginLibraries[i]), is32bitElf);
     }
   }
 
@@ -441,7 +462,8 @@ static string getUpdatedLdPreload(const char* filename,
   return newPreload;
 }
 
-static vector<string> copyEnv(char *const envp[])
+static vector<string>
+copyEnv(char *const envp[])
 {
   vector<string> result;
   if (envp) {
@@ -452,9 +474,11 @@ static vector<string> copyEnv(char *const envp[])
   return result;
 }
 
-static vector<const char*> stringVectorToPointerArray(const vector<string>& s)
+static vector<const char *>
+stringVectorToPointerArray(const vector<string> &s)
 {
-  vector<const char*> result;
+  vector<const char *> result;
+
   // Now get the pointers.
   for (size_t i = 0; i < s.size(); i++) {
     result.push_back(s[i].c_str());
@@ -463,24 +487,27 @@ static vector<const char*> stringVectorToPointerArray(const vector<string>& s)
   return result;
 }
 
-static const char* ourImportantEnvs[] =
-{
-  ENV_VARS_ALL //expands to a long list
+static const char *ourImportantEnvs[] = {
+  ENV_VARS_ALL // expands to a long list
 };
-#define ourImportantEnvsCnt ((sizeof(ourImportantEnvs))/(sizeof(const char*)))
+#define ourImportantEnvsCnt \
+  ((sizeof(ourImportantEnvs)) / (sizeof(const char *)))
 
-static bool isImportantEnv (string str)
+static bool
+isImportantEnv(string str)
 {
   str = str.substr(0, str.find("="));
 
-  for (size_t i=0; i<ourImportantEnvsCnt; ++i) {
-    if (str == ourImportantEnvs[i])
+  for (size_t i = 0; i < ourImportantEnvsCnt; ++i) {
+    if (str == ourImportantEnvs[i]) {
       return true;
+    }
   }
   return false;
 }
 
-static vector<string> patchUserEnv (vector<string> env, const char* filename)
+static vector<string>
+patchUserEnv(vector<string> env, const char *filename)
 {
   vector<string> result;
   string userPreloadStr;
@@ -489,7 +516,7 @@ static vector<string> patchUserEnv (vector<string> env, const char* filename)
   out << "non-DMTCP env vars:\n";
 
   for (size_t i = 0; i < env.size(); i++) {
-    if (isImportantEnv (env[i])) {
+    if (isImportantEnv(env[i])) {
       if (dbg) {
         out << "     skipping: " << env[i] << '\n';
       }
@@ -505,17 +532,17 @@ static vector<string> patchUserEnv (vector<string> env, const char* filename)
       out << "     addenv[user]:" << result.back() << '\n';
     }
   }
-  JTRACE("Creating a copy of (non-DMTCP) user env vars...") (out.str());
+  JTRACE("Creating a copy of (non-DMTCP) user env vars...")(out.str());
 
-  //pack up our ENV into the new ENV
+  // pack up our ENV into the new ENV
   out.str("DMTCP env vars:\n");
-  for (size_t i=0; i<ourImportantEnvsCnt; ++i) {
-    const char* v = getenv(ourImportantEnvs[i]);
+  for (size_t i = 0; i < ourImportantEnvsCnt; ++i) {
+    const char *v = getenv(ourImportantEnvs[i]);
     const string e = ourImportantEnvs[i];
     if (e == ENV_VAR_ORIG_LD_PRELOAD && !userPreloadStr.empty()) {
       result.push_back(e + "=" + userPreloadStr);
     } else if (v != NULL) {
-      result.push_back (e + '=' + v);
+      result.push_back(e + '=' + v);
       if (dbg) {
         out << "     addenv[dmtcp]:" << result.back() << '\n';
       }
@@ -530,19 +557,18 @@ static vector<string> patchUserEnv (vector<string> env, const char* filename)
     out << "     addenv[dmtcp]:" << result.back() << '\n';
   }
 
-  JTRACE("Patched user envp...")  (out.str());
+  JTRACE("Patched user envp...")(out.str());
 
   return result;
 }
 
-extern "C" int execve (const char *filename, char *const argv[],
-                        char *const envp[])
+extern "C" int
+execve(const char *filename, char *const argv[], char *const envp[])
 {
-
-  if (isPerformingCkptRestart() || isBlacklistedProgram(filename) ) {
+  if (isPerformingCkptRestart() || isBlacklistedProgram(filename)) {
     return _real_execve(filename, argv, envp);
   }
-  JTRACE("execve() wrapper") (filename);
+  JTRACE("execve() wrapper")(filename);
 
   /* Acquire the wrapperExeution lock to prevent checkpoint to happen while
    * processing this system call.
@@ -556,9 +582,9 @@ extern "C" int execve (const char *filename, char *const argv[],
   dmtcpPrepareForExec(filename, argv, &newFilename, &newArgv);
 
   const vector<string> envStrings = patchUserEnv(env, filename);
-  const vector<const char*> newEnv = stringVectorToPointerArray(envStrings);
+  const vector<const char *> newEnv = stringVectorToPointerArray(envStrings);
 
-  int retVal = _real_execve (newFilename, newArgv, (char* const*)&newEnv[0]);
+  int retVal = _real_execve(newFilename, newArgv, (char *const *)&newEnv[0]);
 
   dmtcpProcessFailedExec(filename, newArgv);
 
@@ -567,24 +593,28 @@ extern "C" int execve (const char *filename, char *const argv[],
   return retVal;
 }
 
-extern "C" int execv (const char *path, char *const argv[])
+extern "C" int
+execv(const char *path, char *const argv[])
 {
-  JTRACE("execv() wrapper, calling execve with environ") (path);
+  JTRACE("execv() wrapper, calling execve with environ")(path);
 
   // Make a copy of the environ coz it might change after a setenv().
   const vector<string> envStrings = copyEnv(environ);
-  // Now get the pointers.
-  const vector<const char*> env = stringVectorToPointerArray(envStrings);
 
-  return execve(path, argv, (char* const*) &env[0]);
+  // Now get the pointers.
+  const vector<const char *> env = stringVectorToPointerArray(envStrings);
+
+  return execve(path, argv, (char *const *)&env[0]);
 }
 
-extern "C" int execvp (const char *filename, char *const argv[])
+extern "C" int
+execvp(const char *filename, char *const argv[])
 {
-  if (isPerformingCkptRestart() || isBlacklistedProgram(filename) ) {
+  if (isPerformingCkptRestart() || isBlacklistedProgram(filename)) {
     return _real_execvp(filename, argv);
   }
-  JTRACE("execvp() wrapper") (filename);
+  JTRACE("execvp() wrapper")(filename);
+
   /* Acquire the wrapperExeution lock to prevent checkpoint to happen while
    * processing this system call.
    */
@@ -595,7 +625,7 @@ extern "C" int execvp (const char *filename, char *const argv[])
   dmtcpPrepareForExec(filename, argv, &newFilename, &newArgv);
   setenv("LD_PRELOAD", getUpdatedLdPreload(filename, NULL).c_str(), 1);
 
-  int retVal = _real_execvp (newFilename, newArgv);
+  int retVal = _real_execvp(newFilename, newArgv);
 
   dmtcpProcessFailedExec(filename, newArgv);
 
@@ -605,13 +635,14 @@ extern "C" int execvp (const char *filename, char *const argv[])
 }
 
 // This function first appeared in glibc 2.11
-extern "C" int execvpe (const char *filename, char *const argv[],
-                         char *const envp[])
+extern "C" int
+execvpe(const char *filename, char *const argv[], char *const envp[])
 {
   if (isPerformingCkptRestart() || isBlacklistedProgram(filename)) {
     return _real_execvpe(filename, argv, envp);
   }
-  JTRACE("execvpe() wrapper") (filename);
+  JTRACE("execvpe() wrapper")(filename);
+
   /* Acquire the wrapperExeution lock to prevent checkpoint to happen while
    * processing this system call.
    */
@@ -625,9 +656,9 @@ extern "C" int execvpe (const char *filename, char *const argv[],
   dmtcpPrepareForExec(filename, argv, &newFilename, &newArgv);
 
   const vector<string> newEnvStrings = patchUserEnv(env, filename);
-  const vector<const char*> newEnv = stringVectorToPointerArray(newEnvStrings);
+  const vector<const char *> newEnv = stringVectorToPointerArray(newEnvStrings);
 
-  int retVal = _real_execvpe(newFilename, newArgv, (char* const*)&newEnv[0]);
+  int retVal = _real_execvpe(newFilename, newArgv, (char *const *)&newEnv[0]);
 
   dmtcpProcessFailedExec(filename, newArgv);
 
@@ -636,19 +667,21 @@ extern "C" int execvpe (const char *filename, char *const argv[],
   return retVal;
 }
 
-extern "C" int fexecve (int fd, char *const argv[], char *const envp[])
+extern "C" int
+fexecve(int fd, char *const argv[], char *const envp[])
 {
-  char buf[sizeof "/proc/self/fd/" + sizeof (int) * 3];
-  snprintf (buf, sizeof (buf), "/proc/self/fd/%d", fd);
+  char buf[sizeof "/proc/self/fd/" + sizeof(int) * 3];
 
-  JTRACE("fexecve() wrapper calling execve()") (fd) (buf);
+  snprintf(buf, sizeof(buf), "/proc/self/fd/%d", fd);
+
+  JTRACE("fexecve() wrapper calling execve()")(fd)(buf);
   return execve(buf, argv, envp);
 }
 
-
-extern "C" int execl (const char *path, const char *arg, ...)
+extern "C" int
+execl(const char *path, const char *arg, ...)
 {
-  JTRACE("execl() wrapper") (path);
+  JTRACE("execl() wrapper")(path);
 
   size_t argv_max = INITIAL_ARGV_MAX;
   const char *initial_argv[INITIAL_ARGV_MAX];
@@ -657,43 +690,43 @@ extern "C" int execl (const char *path, const char *arg, ...)
 
   argv[0] = arg;
 
-  va_start (args, arg);
+  va_start(args, arg);
   unsigned int i = 0;
-  while (argv[i++] != NULL)
-  {
-    if (i == argv_max)
-    {
+  while (argv[i++] != NULL) {
+    if (i == argv_max) {
       argv_max *= 2;
-      const char **nptr = (const char**) realloc (argv == initial_argv ? NULL : argv,
-          argv_max * sizeof (const char *));
-      if (nptr == NULL)
-      {
-        if (argv != initial_argv)
-          free (argv);
+      const char **nptr = (const char **)realloc(
+        argv == initial_argv ? NULL : argv, argv_max * sizeof(const char *));
+      if (nptr == NULL) {
+        if (argv != initial_argv) {
+          free(argv);
+        }
         return -1;
       }
-      if (argv == initial_argv)
+      if (argv == initial_argv) {
         /* We have to copy the already filled-in data ourselves.  */
-        memcpy (nptr, argv, i * sizeof (const char *));
+        memcpy(nptr, argv, i * sizeof(const char *));
+      }
 
       argv = nptr;
     }
 
-    argv[i] = va_arg (args, const char *);
+    argv[i] = va_arg(args, const char *);
   }
-  va_end (args);
+  va_end(args);
 
-  int ret = execv (path, (char *const *) argv);
-  if (argv != initial_argv)
-    free (argv);
+  int ret = execv(path, (char *const *)argv);
+  if (argv != initial_argv) {
+    free(argv);
+  }
 
   return ret;
 }
 
-
-extern "C" int execlp (const char *file, const char *arg, ...)
+extern "C" int
+execlp(const char *file, const char *arg, ...)
 {
-  JTRACE("execlp() wrapper") (file);
+  JTRACE("execlp() wrapper")(file);
 
   size_t argv_max = INITIAL_ARGV_MAX;
   const char *initial_argv[INITIAL_ARGV_MAX];
@@ -702,43 +735,43 @@ extern "C" int execlp (const char *file, const char *arg, ...)
 
   argv[0] = arg;
 
-  va_start (args, arg);
+  va_start(args, arg);
   unsigned int i = 0;
-  while (argv[i++] != NULL)
-  {
-    if (i == argv_max)
-    {
+  while (argv[i++] != NULL) {
+    if (i == argv_max) {
       argv_max *= 2;
-      const char **nptr = (const char**) realloc (argv == initial_argv ? NULL : argv,
-          argv_max * sizeof (const char *));
-      if (nptr == NULL)
-      {
-        if (argv != initial_argv)
-          free (argv);
+      const char **nptr = (const char **)realloc(
+        argv == initial_argv ? NULL : argv, argv_max * sizeof(const char *));
+      if (nptr == NULL) {
+        if (argv != initial_argv) {
+          free(argv);
+        }
         return -1;
       }
-      if (argv == initial_argv)
+      if (argv == initial_argv) {
         /* We have to copy the already filled-in data ourselves.  */
-        memcpy (nptr, argv, i * sizeof (const char *));
+        memcpy(nptr, argv, i * sizeof(const char *));
+      }
 
       argv = nptr;
     }
 
-    argv[i] = va_arg (args, const char *);
+    argv[i] = va_arg(args, const char *);
   }
-  va_end (args);
+  va_end(args);
 
-  int ret = execvp (file, (char *const *) argv);
-  if (argv != initial_argv)
-    free (argv);
+  int ret = execvp(file, (char *const *)argv);
+  if (argv != initial_argv) {
+    free(argv);
+  }
 
   return ret;
 }
 
-
-extern "C" int execle(const char *path, const char *arg, ...)
+extern "C" int
+execle(const char *path, const char *arg, ...)
 {
-  JTRACE("execle() wrapper") (path);
+  JTRACE("execle() wrapper")(path);
 
   size_t argv_max = INITIAL_ARGV_MAX;
   const char *initial_argv[INITIAL_ARGV_MAX];
@@ -746,55 +779,57 @@ extern "C" int execle(const char *path, const char *arg, ...)
   va_list args;
   argv[0] = arg;
 
-  va_start (args, arg);
+  va_start(args, arg);
   unsigned int i = 0;
-  while (argv[i++] != NULL)
-  {
-    if (i == argv_max)
-    {
+  while (argv[i++] != NULL) {
+    if (i == argv_max) {
       argv_max *= 2;
-      const char **nptr = (const char**) realloc (argv == initial_argv ? NULL : argv,
-          argv_max * sizeof (const char *));
-      if (nptr == NULL)
-      {
-        if (argv != initial_argv)
-          free (argv);
+      const char **nptr = (const char **)realloc(
+        argv == initial_argv ? NULL : argv, argv_max * sizeof(const char *));
+      if (nptr == NULL) {
+        if (argv != initial_argv) {
+          free(argv);
+        }
         return -1;
       }
-      if (argv == initial_argv)
+      if (argv == initial_argv) {
         /* We have to copy the already filled-in data ourselves.  */
-        memcpy (nptr, argv, i * sizeof (const char *));
+        memcpy(nptr, argv, i * sizeof(const char *));
+      }
 
       argv = nptr;
     }
 
-    argv[i] = va_arg (args, const char *);
+    argv[i] = va_arg(args, const char *);
   }
 
-  const char *const *envp = va_arg (args, const char *const *);
-  va_end (args);
+  const char *const *envp = va_arg(args, const char *const *);
+  va_end(args);
 
-  int ret = execve (path, (char *const *) argv, (char *const *) envp);
-  if (argv != initial_argv)
-    free (argv);
+  int ret = execve(path, (char *const *)argv, (char *const *)envp);
+  if (argv != initial_argv) {
+    free(argv);
+  }
 
   return ret;
 }
 
 // See comment in glibcsystem.cpp for why this exists and how it works.
-extern int do_system (const char *line);
+extern int do_system(const char *line);
 
-extern "C" int system (const char *line)
+extern "C" int
+system(const char *line)
 {
   JTRACE("before system(), checkpointing may not work")
-    (line) (getenv (ENV_VAR_HIJACK_LIBS)) (getenv ("LD_PRELOAD"));
+  (line)(getenv(ENV_VAR_HIJACK_LIBS))(getenv("LD_PRELOAD"));
 
-  if (line == NULL)
+  if (line == NULL) {
     /* Check that we have a command processor available.  It might
        not be available after a chroot(), for example.  */
-    return do_system ("exit 0") == 0;
+    return do_system("exit 0") == 0;
+  }
 
-  int result = do_system (line);
+  int result = do_system(line);
 
   JTRACE("after system()");
 

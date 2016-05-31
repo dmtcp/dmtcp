@@ -21,50 +21,57 @@
 
 #define __USE_BSD
 #include "jtimer.h"
-#include <iostream>
 #include <fstream>
+#include <iostream>
 #include "jassert.h"
 #include "jfilesystem.h"
 
 jalib::JTime::JTime()
 {
-  JASSERT ( gettimeofday ( &_value,NULL ) == 0 );
+  JASSERT(gettimeofday(&_value, NULL) == 0);
 }
 
-double jalib::operator- ( const jalib::JTime& a, const jalib::JTime& b )
+double
+jalib::operator-(const jalib::JTime &a, const jalib::JTime &b)
 {
   double sec = 0;
   struct timeval diff;
+
   timersub(&a._value, &b._value, &diff);
   sec = diff.tv_sec + (diff.tv_usec / 1000000.0);
   return sec;
 }
 
-jalib::JTimeRecorder::JTimeRecorder ( const jalib::string& name )
-    : _name ( name )
-    , _isStarted ( false )
-{}
+jalib::JTimeRecorder::JTimeRecorder(const jalib::string &name)
+  : _name(name), _isStarted(false)
+{
+}
 
 namespace
 {
-  static const jalib::string& _testName()
-  {
-    static const char* env = getenv ( "TESTNAME" );
-    static jalib::string tn = jalib::Filesystem::GetProgramName()
-                            + jalib::XToString ( getpid() )
-                            + ',' + jalib::string ( env == NULL ? "unamedtest" : env );
-    return tn;
-  }
+static const jalib::string &
+_testName()
+{
+  static const char *env = getenv("TESTNAME");
+  static jalib::string tn = jalib::Filesystem::GetProgramName() +
+                            jalib::XToString(getpid()) + ',' +
+                            jalib::string(env == NULL ? "unamedtest" : env);
 
-  static void _writeTimerLogLine ( const jalib::string& name, double time )
-  {
-    static std::ofstream logfile ( "jtimings.csv", std::ios::out | std::ios::app );
-    logfile << _testName() <<  ',' << name << ',' << time << std::endl;
-    JASSERT_STDERR << "JTIMER(" <<  name << ") : " << time << '\n';
-  }
+  return tn;
 }
 
-void jalib::JTimeRecorder::recordTime ( double time )
+static void
+_writeTimerLogLine(const jalib::string &name, double time)
 {
-  _writeTimerLogLine ( _name,time );
+  static std::ofstream logfile("jtimings.csv", std::ios::out | std::ios::app);
+
+  logfile << _testName() << ',' << name << ',' << time << std::endl;
+  JASSERT_STDERR << "JTIMER(" << name << ") : " << time << '\n';
+}
+}
+
+void
+jalib::JTimeRecorder::recordTime(double time)
+{
+  _writeTimerLogLine(_name, time);
 }

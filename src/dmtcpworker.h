@@ -28,43 +28,43 @@ void restoreUserLDPRELOAD();
 
 namespace dmtcp
 {
-  class DmtcpWorker
-  {
-    public:
+class DmtcpWorker
+{
+public:
 #ifdef JALIB_ALLOCATOR
-      static void* operator new(size_t nbytes, void* p) { return p; }
-      static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
-      static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
-#endif
-      DmtcpWorker();
-      ~DmtcpWorker();
-      static DmtcpWorker& instance();
+  static void *operator new(size_t nbytes, void *p) { return p; }
+  static void *operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
+  static void operator delete(void *p) { JALLOC_HELPER_DELETE(p); }
+#endif // ifdef JALIB_ALLOCATOR
+  DmtcpWorker();
+  ~DmtcpWorker();
+  static DmtcpWorker &instance();
 
-      static void initialize();
+  static void initialize();
 
-      static void waitForSuspendMessage();
-      static void acknowledgeSuspendMsg();
-      static void informCoordinatorOfRUNNINGState();
+  static void waitForSuspendMessage();
+  static void acknowledgeSuspendMsg();
+  static void informCoordinatorOfRUNNINGState();
 
-      static void waitForCheckpointRequest();
-      static void preCheckpoint();
-      static void postCheckpoint();
-      static void postRestart();
+  static void waitForCheckpointRequest();
+  static void preCheckpoint();
+  static void postCheckpoint();
+  static void postRestart();
 
-      static void resetOnFork();
-      static void cleanupWorker();
+  static void resetOnFork();
+  static void cleanupWorker();
 
-      static int determineCkptSignal();
+  static int determineCkptSignal();
 
-      static void setExitInProgress() { _exitInProgress = true; };
-      static bool exitInProgress() { return _exitInProgress; };
-      static void interruptCkpthread();
+  static void setExitInProgress() { _exitInProgress = true; }
+  static bool exitInProgress() { return _exitInProgress; }
+  static void interruptCkpthread();
 
-    private:
-      static DmtcpWorker theInstance;
-      static bool _exitInProgress;
-      static bool _exitAfterCkpt;
-  };
+private:
+  static DmtcpWorker theInstance;
+  static bool _exitInProgress;
+  static bool _exitAfterCkpt;
+};
 }
 
-#endif
+#endif // ifndef DMTCPDMTCPWORKER_H

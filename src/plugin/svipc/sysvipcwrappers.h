@@ -26,13 +26,13 @@
 #include "dmtcp.h"
 
 #define _real_shmget NEXT_FNC(shmget)
-#define _real_shmat  NEXT_FNC(shmat)
-#define _real_shmdt  NEXT_FNC(shmdt)
+#define _real_shmat NEXT_FNC(shmat)
+#define _real_shmdt NEXT_FNC(shmdt)
 #define _real_shmctl NEXT_FNC(shmctl)
 
 #define _real_semget NEXT_FNC(semget)
 #define _real_semctl NEXT_FNC(semctl)
-#define _real_semop  NEXT_FNC(semop)
+#define _real_semop NEXT_FNC(semop)
 #define _real_semtimedop NEXT_FNC(semtimedop)
 
 #define _real_msgget NEXT_FNC(msgget)
@@ -42,4 +42,4 @@
 
 #define _real_pthread_mutex_lock NEXT_FNC(pthread_mutex_lock)
 #define _real_pthread_mutex_unlock NEXT_FNC(pthread_mutex_unlock)
-#endif
+#endif // ifndef SYSVIPC_WRAPPERS_H

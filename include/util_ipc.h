@@ -24,11 +24,17 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 
-namespace dmtcp {
-namespace Util {
-
-static inline int sendFd(int restoreFd, int32_t fd, void *data, size_t len,
-                         struct sockaddr_un& addr, socklen_t addrLen)
+namespace dmtcp
+{
+namespace Util
+{
+static inline int
+sendFd(int restoreFd,
+       int32_t fd,
+       void *data,
+       size_t len,
+       struct sockaddr_un &addr,
+       socklen_t addrLen)
 {
   struct iovec iov;
   struct msghdr hdr;
@@ -50,12 +56,13 @@ static inline int sendFd(int restoreFd, int32_t fd, void *data, size_t len,
   cmsg->cmsg_len = CMSG_LEN(sizeof(int32_t));
   cmsg->cmsg_level = SOL_SOCKET;
   cmsg->cmsg_type = SCM_RIGHTS;
-  *(int32_t*)CMSG_DATA(cmsg) = fd;
+  *(int32_t *)CMSG_DATA(cmsg) = fd;
 
   return sendmsg(restoreFd, &hdr, 0);
 }
 
-static inline int32_t receiveFd(int restoreFd, void *data, size_t len)
+static inline int32_t
+receiveFd(int restoreFd, void *data, size_t len)
 {
   int32_t fd;
   struct iovec iov;
@@ -80,14 +87,13 @@ static inline int32_t receiveFd(int restoreFd, void *data, size_t len)
   }
 
   cmsg = CMSG_FIRSTHDR(&hdr);
-  if (cmsg->cmsg_level != SOL_SOCKET || cmsg->cmsg_type  != SCM_RIGHTS) {
+  if (cmsg->cmsg_level != SOL_SOCKET || cmsg->cmsg_type != SCM_RIGHTS) {
     return -1;
   }
-  fd = *(int32_t *) CMSG_DATA(cmsg);
+  fd = *(int32_t *)CMSG_DATA(cmsg);
 
   return fd;
 }
-
 }
 }
 #endif // #ifndef __DMTCP_UTIL_H__

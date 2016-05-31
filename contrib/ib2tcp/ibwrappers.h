@@ -33,4 +33,4 @@
 #define _real_ibv_dealloc_pd NEXT_FNC(ibv_dealloc_pd)
 #define _real_ibv_close_device NEXT_FNC(ibv_close_device)
 #define _real_ibv_free_device_list NEXT_FNC(ibv_free_device_list)
-#endif
+#endif // ifndef IBWRAPPERS_H

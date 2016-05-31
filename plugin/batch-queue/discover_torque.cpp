@@ -22,7 +22,8 @@
 
 using namespace std;
 
-int resources_tm::discover()
+int
+resources_tm::discover()
 {
   char buf[MAX_LINE_LEN];
   streamsize max_len = MAX_LINE_LEN;
@@ -31,21 +32,25 @@ int resources_tm::discover()
 
   /* Try to detect the default directory. */
   const char *nodefile = getenv("PBS_NODEFILE");
-  if (nodefile == NULL)
+
+  if (nodefile == NULL) {
     return -1;
+  }
 
   ifstream s(nodefile);
 
-  if (!s.is_open())
+  if (!s.is_open()) {
     return -1;
+  }
 
   s.getline(buf, max_len);
   while (!s.eof()) {
     if (s.fail() && !s.bad()) {
       // fail bit is set: string is too big.  Drop the rest.
       fprintf(stderr, "Error: reading from PE HOSTFILE: too long string\n");
-      while (s.fail() && !s.bad())
+      while (s.fail() && !s.bad()) {
         s.getline(buf, max_len);
+      }
     } else if (s.bad()) {
       return -1;
     } else {
@@ -56,12 +61,13 @@ int resources_tm::discover()
         node_id++;
         node_map[buf].app_slots = 1;
         node_map[buf].name = buf;
+
         // The first node in the list is considered as the node
         // that launches all applications.
         node_map[buf].is_launch = is_launch;
         is_launch = false;
       }
-       s.getline(buf, max_len);
+      s.getline(buf, max_len);
     }
   }
   return 0;

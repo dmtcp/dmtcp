@@ -23,36 +23,36 @@
 #define __PLUGINMANAGER_H__
 
 #include "barrierinfo.h"
-#include "plugininfo.h"
-#include "dmtcpalloc.h"
 #include "dmtcp.h"
+#include "dmtcpalloc.h"
+#include "plugininfo.h"
 
 namespace dmtcp
 {
-  class PluginManager
-  {
-    public:
+class PluginManager
+{
+public:
 #ifdef JALIB_ALLOCATOR
-      static void* operator new(size_t nbytes, void* p) { return p; }
-      static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
-      static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
-#endif
-      PluginManager();
+  static void *operator new(size_t nbytes, void *p) { return p; }
+  static void *operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
+  static void operator delete(void *p) { JALLOC_HELPER_DELETE(p); }
+#endif // ifdef JALIB_ALLOCATOR
+  PluginManager();
 
-      void registerPlugin(DmtcpPluginDescriptor_t descr);
+  void registerPlugin(DmtcpPluginDescriptor_t descr);
 
-      static void initialize();
-      static void registerBarriersWithCoordinator();
-      static void processCkptBarriers();
-      static void processResumeBarriers();
-      static void processRestartBarriers();
-      static void eventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
+  static void initialize();
+  static void registerBarriersWithCoordinator();
+  static void processCkptBarriers();
+  static void processResumeBarriers();
+  static void processRestartBarriers();
+  static void eventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
 
-    private:
-      void initializePlugins();
+private:
+  void initializePlugins();
 
-      vector<PluginInfo*> pluginInfos;
-  };
+  vector<PluginInfo *> pluginInfos;
+};
 }
 
-#endif
+#endif // ifndef __PLUGINMANAGER_H__

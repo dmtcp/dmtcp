@@ -19,80 +19,87 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <unistd.h>
-#include <dirent.h>
-#include <algorithm>
-#include <errno.h>
-#include <sys/utsname.h>
-#include <sys/syscall.h>
 #include "jfilesystem.h"
-#include "jconvert.h"
+#include <dirent.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <sys/syscall.h>
+#include <sys/types.h>
+#include <sys/utsname.h>
+#include <unistd.h>
+#include <algorithm>
 #include "jalib.h"
+#include "jconvert.h"
 
 #ifdef __aarch64__
+
 // FIXME:  We should use SYS_getdents64, and not SYS_getdents for all arch's.
 // SYS_getdents not supported in aarch64.
-# undef SYS_getdents
-# define SYS_getdents SYS_getdents64
-#endif
+#undef SYS_getdents
+#define SYS_getdents SYS_getdents64
+#endif // ifdef __aarch64__
 
 #define DELETED_FILE_SUFFIX " (deleted)"
 
 namespace
 {
-  // In Red Hat Enterprise Linux Server 5.4 (Linux kernel 2.6.18)
-  // For tests like dmtcp5, forkexec (tests with child processes),
-  //   the child process may have a name "NAME (deleted)".
-  // This is arguably a bug in the kernel.
-  jalib::string _GetProgramExe()
-  {
-    jalib::string exe = "/proc/self/exe";
-    // NOTE: ResolveSymlink is returning string on stack.  Hopefully
-    //   C++ jalib::string is smart enough to copy it.
-    jalib::string exeRes = jalib::Filesystem::ResolveSymlink ( exe );
-    JASSERT ( exe != exeRes ) ( exe ).Text ( "problem with /proc/self/exe" );
+// In Red Hat Enterprise Linux Server 5.4 (Linux kernel 2.6.18)
+// For tests like dmtcp5, forkexec (tests with child processes),
+// the child process may have a name "NAME (deleted)".
+// This is arguably a bug in the kernel.
+jalib::string
+_GetProgramExe()
+{
+  jalib::string exe = "/proc/self/exe";
 
-    // Bug fix for Linux 2.6.19
-    if (jalib::strEndsWith(exeRes.c_str(), DELETED_FILE_SUFFIX)) {
-      exeRes.erase(exeRes.length() - strlen(DELETED_FILE_SUFFIX));
-    }
+  // NOTE: ResolveSymlink is returning string on stack.  Hopefully
+  // C++ jalib::string is smart enough to copy it.
+  jalib::string exeRes = jalib::Filesystem::ResolveSymlink(exe);
+  JASSERT(exe != exeRes)(exe).Text("problem with /proc/self/exe");
 
-    return exeRes;
+  // Bug fix for Linux 2.6.19
+  if (jalib::strEndsWith(exeRes.c_str(), DELETED_FILE_SUFFIX)) {
+    exeRes.erase(exeRes.length() - strlen(DELETED_FILE_SUFFIX));
   }
 
-  // Set buf, and return length read (including all null characters)
-  int _GetProgramCmdline(char *buf, int size)
-  {
-    int fd = jalib::open("/proc/self/cmdline", O_RDONLY, 0);
-    int rc;
-    JASSERT(fd >= 0);
-    // rc == 0 means EOF, or else it means buf is full (size chars read)
-    rc = jalib::readAll(fd, buf, size);
-    jalib::close(fd);
-    return rc;
-  }
-
+  return exeRes;
 }
 
-jalib::string jalib::Filesystem::GetCWD()
+// Set buf, and return length read (including all null characters)
+int
+_GetProgramCmdline(char *buf, int size)
+{
+  int fd = jalib::open("/proc/self/cmdline", O_RDONLY, 0);
+  int rc;
+
+  JASSERT(fd >= 0);
+
+  // rc == 0 means EOF, or else it means buf is full (size chars read)
+  rc = jalib::readAll(fd, buf, size);
+  jalib::close(fd);
+  return rc;
+}
+}
+
+jalib::string
+jalib::Filesystem::GetCWD()
 {
   jalib::string cwd;
   char buf[PATH_MAX];
-  JASSERT(getcwd(buf, PATH_MAX) == buf)
-    .Text("Pathname too long");
+  JASSERT(getcwd(buf, PATH_MAX) == buf).Text("Pathname too long");
   cwd = buf;
   return cwd;
 }
 
-jalib::string jalib::Filesystem::BaseName ( const jalib::string& str )
+jalib::string
+jalib::Filesystem::BaseName(const jalib::string &str)
 {
   size_t len = str.length();
 
-  if (str == "/" || str == "." || str == ".." || str.empty())
+  if (str == "/" || str == "." || str == ".." || str.empty()) {
     return str;
+  }
 
   // Remove trailing slashes
   while (len > 0 && str[len - 1] == '/') {
@@ -101,21 +108,25 @@ jalib::string jalib::Filesystem::BaseName ( const jalib::string& str )
 
   size_t lastSlash = str.find_last_of('/', len);
 
-  if (lastSlash == string::npos)
+  if (lastSlash == string::npos) {
     return str.substr(0, len);
+  }
 
   return str.substr(lastSlash + 1, len - lastSlash);
 }
 
-jalib::string jalib::Filesystem::DirName ( const jalib::string& str )
+jalib::string
+jalib::Filesystem::DirName(const jalib::string &str)
 {
   size_t len = str.length();
 
-  if (str == "/" || str == "." || str.empty())
+  if (str == "/" || str == "." || str.empty()) {
     return str;
+  }
 
-  if (str == "..")
+  if (str == "..") {
     return ".";
+  }
 
   // Remove trailing slashes
   while (len > 0 && str[len - 1] == '/') {
@@ -124,28 +135,31 @@ jalib::string jalib::Filesystem::DirName ( const jalib::string& str )
 
   size_t lastSlash = str.find_last_of('/', len);
 
-  if (lastSlash == string::npos)
+  if (lastSlash == string::npos) {
     return ".";
+  }
 
-  if (lastSlash == 0)
+  if (lastSlash == 0) {
     return "/";
+  }
 
   return str.substr(0, lastSlash);
 }
 
-
-int jalib::Filesystem::mkdir_r( const jalib::string& dir, mode_t mode)
+int
+jalib::Filesystem::mkdir_r(const jalib::string &dir, mode_t mode)
 {
   struct stat buf;
   int ret = stat(dir.c_str(), &buf);
+
   JTRACE("Create dir")(dir);
 
-  if( ret && errno != ENOENT){
+  if (ret && errno != ENOENT) {
     JTRACE("Cannot create directory path")(dir)(errno)(strerror(errno));
     return ret;
   }
 
-  if( ret && errno == ENOENT ){
+  if (ret && errno == ENOENT) {
     jalib::string pdir = DirName(dir);
     JTRACE("Create parent dir")(pdir);
     mkdir_r(pdir, mode);
@@ -156,54 +170,62 @@ int jalib::Filesystem::mkdir_r( const jalib::string& dir, mode_t mode)
   return 0;
 }
 
-jalib::string jalib::Filesystem::GetProgramDir()
+jalib::string
+jalib::Filesystem::GetProgramDir()
 {
-  static jalib::string value = DirName ( GetProgramPath() );
+  static jalib::string value = DirName(GetProgramPath());
+
   return value;
 }
 
-jalib::string jalib::Filesystem::GetProgramName()
+jalib::string
+jalib::Filesystem::GetProgramName()
 {
   static jalib::string value = "";
+
   if (value == "") {
     size_t len;
     char cmdline[1024];
-    value = BaseName ( GetProgramPath() ); // uses /proc/self/exe
+    value = BaseName(GetProgramPath()); // uses /proc/self/exe
     // We may rewrite "a.out" to "/lib/ld-linux.so.2 a.out".  If so, find cmd.
-    if (!value.empty()
-        && jalib::elfInterpreter() != NULL
-        && value == ResolveSymlink(jalib::elfInterpreter()) // e.g. /lib/ld-linux.so.2
-	&& (len = _GetProgramCmdline(cmdline, sizeof(cmdline))) > 0
-	&& len > strlen(cmdline) + 1 // more than one word in cmdline
-	&& *(cmdline + strlen(cmdline) + 1) != '-') // second word not a flag
+    if (!value.empty() && jalib::elfInterpreter() != NULL &&
+        value == ResolveSymlink(jalib::elfInterpreter()) // e.g.
+        /// lib/ld-linux.so.2
+        && (len = _GetProgramCmdline(cmdline, sizeof(cmdline))) > 0 &&
+        len > strlen(cmdline) + 1 // more than one word in cmdline
+        && *(cmdline + strlen(cmdline) + 1) != '-') { // second word not a flag
       value = BaseName(cmdline + strlen(cmdline) + 1); // find second word
+    }
   }
   return value;
 }
 
-jalib::string jalib::Filesystem::GetProgramPath()
+jalib::string
+jalib::Filesystem::GetProgramPath()
 {
   static jalib::string value = _GetProgramExe();
+
   return value;
 }
 
 // NOTE: ResolveSymlink returns a string, buf, allocated on the stack.
-//   While this is dangerous, it avoids the use of malloc or 'new'.
-//   Finish using the result before you call a different function.
-jalib::string jalib::Filesystem::ResolveSymlink ( const jalib::string& path )
+// While this is dangerous, it avoids the use of malloc or 'new'.
+// Finish using the result before you call a different function.
+jalib::string
+jalib::Filesystem::ResolveSymlink(const jalib::string &path)
 {
   struct stat statBuf;
+
   // If path is not a symbolic link, just return it.
-  if (lstat(path.c_str(), &statBuf) == 0
-      && ! S_ISLNK(statBuf.st_mode))
+  if (lstat(path.c_str(), &statBuf) == 0 && !S_ISLNK(statBuf.st_mode)) {
     return path;
-  char buf [PATH_MAX]; // This could be passed on via call to readlink()
-  memset ( buf, 0, sizeof buf );
-  int len = readlink ( path.c_str(), buf, sizeof ( buf )-1 );
+  }
+  char buf[PATH_MAX]; // This could be passed on via call to readlink()
+  memset(buf, 0, sizeof buf);
+  int len = readlink(path.c_str(), buf, sizeof(buf) - 1);
   if (len <= 0) {
     return "";
-  } else if (len > 0 && buf[0] != '/' &&
-             path.find("/proc/") != 0) {
+  } else if (len > 0 && buf[0] != '/' && path.find("/proc/") != 0) {
     // Handle links of type "file -> dir/file2"
     string res = DirName(path).append("/").append(buf);
     return res;
@@ -211,57 +233,66 @@ jalib::string jalib::Filesystem::ResolveSymlink ( const jalib::string& path )
   return buf;
 }
 
-jalib::string jalib::Filesystem::GetDeviceName ( int fd )
+jalib::string
+jalib::Filesystem::GetDeviceName(int fd)
 {
   return ResolveSymlink("/proc/self/fd/" + jalib::XToString(fd));
 }
 
-bool jalib::Filesystem::FileExists ( const jalib::string& str )
+bool
+jalib::Filesystem::FileExists(const jalib::string &str)
 {
   struct stat st;
 
-  if( !stat(str.c_str(),&st) ){
+  if (!stat(str.c_str(), &st)) {
     return true;
-  }else {
+  } else {
     return false;
   }
 }
 
-jalib::StringVector jalib::Filesystem::GetProgramArgs()
+jalib::StringVector
+jalib::Filesystem::GetProgramArgs()
 {
   static StringVector rv;
 
   if (rv.empty()) {
     jalib::string path = "/proc/self/cmdline";
-    // FIXME: Replace fopen with open.
-    FILE* args = jalib::fopen ( path.c_str(),"r" );
 
-    JASSERT ( args != NULL ) ( path ).Text ( "failed to open command line" );
+    // FIXME: Replace fopen with open.
+    FILE *args = jalib::fopen(path.c_str(), "r");
+
+    JASSERT(args != NULL)(path).Text("failed to open command line");
 
     size_t len = 4095;
-    //getdelim will auto-grow this buffer using realloc which would fail with bad pointer.
+
+    // getdelim will auto-grow this buffer using realloc which would fail with
+    // bad pointer.
     // We should replace getdelim with our own version
-    char * lineptr = ( char* ) JALLOC_HELPER_MALLOC ( len+1 );
-    while ( getdelim ( &lineptr, &len, '\0', args ) >= 0 ) {
-      rv.push_back ( lineptr );
+    char *lineptr = (char *)JALLOC_HELPER_MALLOC(len + 1);
+    while (getdelim(&lineptr, &len, '\0', args) >= 0) {
+      rv.push_back(lineptr);
     }
 
-    JALLOC_HELPER_FREE ( lineptr );
+    JALLOC_HELPER_FREE(lineptr);
     jalib::fclose(args);
   }
 
   return rv;
 }
 
-jalib::IntVector jalib::Filesystem::ListOpenFds()
+jalib::IntVector
+jalib::Filesystem::ListOpenFds()
 {
-  int fd = jalib::open ("/proc/self/fd", O_RDONLY | O_NDELAY |
-                                        O_LARGEFILE | O_DIRECTORY, 0);
-  JASSERT(fd>=0);
+  int fd = jalib::open("/proc/self/fd",
+                       O_RDONLY | O_NDELAY | O_LARGEFILE | O_DIRECTORY, 0);
 
-  const size_t allocation = (4 * BUFSIZ < sizeof (struct dirent64)
-                             ? sizeof (struct dirent64) : 4 * BUFSIZ);
-  char *buf = (char*) JALLOC_HELPER_MALLOC(allocation);
+  JASSERT(fd >= 0);
+
+  const size_t allocation =
+    (4 * BUFSIZ < sizeof(struct dirent64) ? sizeof(struct dirent64)
+                                          : 4 * BUFSIZ);
+  char *buf = (char *)JALLOC_HELPER_MALLOC(allocation);
 
   IntVector fdVec;
 
@@ -272,12 +303,12 @@ jalib::IntVector jalib::Filesystem::ListOpenFds()
     }
     JASSERT(nread > 0);
     for (int pos = 0; pos < nread;) {
-      struct linux_dirent *d = (struct linux_dirent *) (&buf[pos]);
+      struct linux_dirent *d = (struct linux_dirent *)(&buf[pos]);
       if (d->d_ino > 0) {
         char *ch;
-        int fdnum = strtol ( d->d_name, &ch, 10 );
-        if ( *ch == 0 && fdnum >= 0 && fdnum != fd ) {
-          fdVec.push_back ( fdnum );
+        int fdnum = strtol(d->d_name, &ch, 10);
+        if (*ch == 0 && fdnum >= 0 && fdnum != fd) {
+          fdVec.push_back(fdnum);
         }
       }
       pos += d->d_reclen;
@@ -291,22 +322,27 @@ jalib::IntVector jalib::Filesystem::ListOpenFds()
   return fdVec;
 }
 
-jalib::string jalib::Filesystem::GetCurrentHostname()
+jalib::string
+jalib::Filesystem::GetCurrentHostname()
 {
   struct utsname tmp;
-  memset ( &tmp,0,sizeof ( tmp ) );
-  JASSERT(uname ( &tmp ) != -1) (JASSERT_ERRNO);
+
+  memset(&tmp, 0, sizeof(tmp));
+  JASSERT(uname(&tmp) != -1)(JASSERT_ERRNO);
   jalib::string name = "unknown";
-  if ( strlen(tmp.nodename) != 0 )
+  if (strlen(tmp.nodename) != 0) {
     name = tmp.nodename;
-//   #ifdef _GNU_SOURCE
-//   if(tmp.domainname != 0)
-//     name += jalib::string(".") + tmp.domainname;
-//   #endif
+  }
+
+  // #ifdef _GNU_SOURCE
+  // if(tmp.domainname != 0)
+  // name += jalib::string(".") + tmp.domainname;
+  // #endif
   return name;
 }
 
-jalib::string jalib::Filesystem::GetControllingTerm(pid_t pid/* = -1*/)
+jalib::string
+jalib::Filesystem::GetControllingTerm(pid_t pid /* = -1*/)
 {
   char sbuf[1024];
   char ttyName[64];
@@ -325,33 +361,32 @@ jalib::string jalib::Filesystem::GetControllingTerm(pid_t pid/* = -1*/)
   }
   fd = jalib::open(procPath, O_RDONLY, 0);
 
-  JASSERT( fd >= 0 ) (strerror(errno))
-    .Text ("Unable to open /proc/self/stat\n");
+  JASSERT(fd >= 0)(strerror(errno)).Text("Unable to open /proc/self/stat\n");
 
   num_read = read(fd, sbuf, sizeof sbuf - 1);
   close(fd);
-  if(num_read<=0) return NULL;
+  if (num_read <= 0) {
+    return NULL;
+  }
   sbuf[num_read] = '\0';
 
   S = strchr(sbuf, '(') + 1;
   tmp = strrchr(S, ')');
-  S = tmp + 2;                 // skip ") "
+  S = tmp + 2; // skip ") "
 
-  sscanf(S,
-      "%c "
-      "%d %d %d %d %d ",
-      &state,
-      &ppid, &pgrp, &session, &tty, &tpgid
-      );
+  sscanf(S, "%c "
+            "%d %d %d %d %d ",
+         &state, &ppid, &pgrp, &session, &tty, &tpgid);
 
-  int maj =  ((unsigned)(tty)>>8u) & 0xfffu;
-  int min =  ((unsigned)(tty)&0xffu) | (((unsigned)(tty)&0xfff00000u)>>12u);
+  int maj = ((unsigned)(tty) >> 8u) & 0xfffu;
+  int min = ((unsigned)(tty)&0xffu) | (((unsigned)(tty)&0xfff00000u) >> 12u);
 
   /* /dev/pts/ * has major numbers in the range 136 - 143 */
-  if ( maj >= 136 && maj <= 143)
-    sprintf(ttyName, "/dev/pts/%d", min+(maj-136)*256);
-  else
+  if (maj >= 136 && maj <= 143) {
+    sprintf(ttyName, "/dev/pts/%d", min + (maj - 136) * 256);
+  } else {
     ttyName[0] = '\0';
+  }
 
   return ttyName;
 }
