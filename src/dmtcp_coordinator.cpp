@@ -873,7 +873,7 @@ DmtcpCoordinator::processDmtUserCmd(DmtcpMessage &hello_remote,
     blockUntilDoneRemote = remote.sockfd();
     handleUserCommand(hello_remote.coordCmd, &reply);
   } else if ((hello_remote.coordCmd == 'i') &&
-             hello_remote.theCheckpointInterval >= 0) {
+             hello_remote.theCheckpointInterval > 0) {
     // theDefaultCheckpointInterval = hello_remote.theCheckpointInterval;
     // theCheckpointInterval = theDefaultCheckpointInterval;
     handleUserCommand(hello_remote.coordCmd, &reply);

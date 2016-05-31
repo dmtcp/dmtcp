@@ -116,7 +116,7 @@ struct DmtcpMessage {
 
   uint64_t coordTimeStamp;
 
-  uint32_t theCheckpointInterval;
+  int32_t theCheckpointInterval;
   struct in_addr ipAddr;
 
   uint32_t exitAfterCkpt;
