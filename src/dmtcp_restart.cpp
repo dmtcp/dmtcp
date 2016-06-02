@@ -802,8 +802,6 @@ int main(int argc, char** argv)
   RestoreTarget *t;
   bool foundNonOrphan = false;
   RestoreTargetMap::iterator it;
-  int size = independentProcessTreeRoots.size();
-  printf("size = %d\n", size);
   for (it = independentProcessTreeRoots.begin();
        it != independentProcessTreeRoots.end();
        it++) {
