@@ -664,6 +664,9 @@ HAS_CMA
 AARCH64_HOST
 AARCH64_HOST_FALSE
 AARCH64_HOST_TRUE
+ARM_HOST
+ARM_HOST_FALSE
+ARM_HOST_TRUE
 HAS_READLINE
 M32
 CONFIG_M32_FALSE
@@ -5681,6 +5684,23 @@ case "$host_cpu" in
   aarch64*) is_aarch64_host=yes ;;
   i?86) is_i486_host=yes ;;
 esac
+
+ if test "$is_arm_host" == "yes"; then
+  ARM_HOST_TRUE=
+  ARM_HOST_FALSE='#'
+else
+  ARM_HOST_TRUE='#'
+  ARM_HOST_FALSE=
+fi
+
+if test "$is_arm_host" == "yes"; then
+  ARM_HOST=yes
+
+else
+  ARM_HOST=no
+
+fi
+
  if test "$is_aarch64_host" == "yes"; then
   AARCH64_HOST_TRUE=
   AARCH64_HOST_FALSE='#'
@@ -7436,6 +7456,10 @@ Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${CONFIG_M32_TRUE}" && test -z "${CONFIG_M32_FALSE}"; then
   as_fn_error $? "conditional \"CONFIG_M32\" was never defined.
+Usually this means the macro was only invoked conditionally." "$LINENO" 5
+fi
+if test -z "${ARM_HOST_TRUE}" && test -z "${ARM_HOST_FALSE}"; then
+  as_fn_error $? "conditional \"ARM_HOST\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${AARCH64_HOST_TRUE}" && test -z "${AARCH64_HOST_FALSE}"; then
