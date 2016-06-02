@@ -305,6 +305,14 @@ case "$host_cpu" in
   aarch64*) is_aarch64_host=yes ;;
   i?86) is_i486_host=yes ;;
 esac
+
+AM_CONDITIONAL(ARM_HOST, [test "$is_arm_host" == "yes"])
+if test "$is_arm_host" == "yes"; then
+  AC_SUBST([ARM_HOST], [yes])
+else
+  AC_SUBST([ARM_HOST], [no])
+fi
+
 AM_CONDITIONAL(AARCH64_HOST, [test "$is_aarch64_host" == "yes"])
 if test "$is_aarch64_host" == "yes"; then
   AC_SUBST([AARCH64_HOST], [yes])
