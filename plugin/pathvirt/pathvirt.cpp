@@ -55,6 +55,15 @@
 #define _real_realpath   NEXT_FNC(realpath)
 #define _real_access     NEXT_FNC(access)
 #define _real_truncate   NEXT_FNC(truncate)
+#define _real_rename     NEXT_FNC(rename)
+#define _real_mkdir      NEXT_FNC(mkdir)
+#define _real_chmod      NEXT_FNC(chmod)
+#define _real_unlink     NEXT_FNC(unlink)
+#define _real_chdir      NEXT_FNC(chdir)
+#define _real_remove     NEXT_FNC(remove)
+#define _real_rmdir      NEXT_FNC(rmdir)
+#define _real_link       NEXT_FNC(link)
+#define _real_symlink    NEXT_FNC(symlink)
 
 /* paths should only be swapped on restarts (not on initial run), so this flag
    is set on restart */
@@ -647,4 +656,82 @@ extern "C" int truncate(const char *path, off_t length)
   const char *phys_path = temp.c_str();
 
   return _real_truncate(phys_path, length);
+}
+
+extern "C" int rename(const char *oldpath, const char *newpath)
+{
+  dmtcp::string temp1 = VIRTUAL_TO_PHYSICAL_PATH(oldpath);
+  dmtcp::string temp2 = VIRTUAL_TO_PHYSICAL_PATH(newpath);
+  const char *old_phys_path = temp1.c_str();
+  const char *new_phys_path = temp2.c_str();
+
+  return _real_rename(old_phys_path, new_phys_path);
+}
+
+extern "C" int mkdir(const char *path, mode_t mode)
+{
+  dmtcp::string temp = VIRTUAL_TO_PHYSICAL_PATH(path);
+  const char *phys_path = temp.c_str();
+
+  return _real_mkdir(phys_path, mode);
+}
+
+extern "C" int chmod(const char *path, mode_t mode)
+{
+  dmtcp::string temp = VIRTUAL_TO_PHYSICAL_PATH(path);
+  const char *phys_path = temp.c_str();
+
+  return _real_chmod(phys_path, mode);
+}
+
+extern "C" int unlink(const char *path)
+{
+  dmtcp::string temp = VIRTUAL_TO_PHYSICAL_PATH(path);
+  const char *phys_path = temp.c_str();
+
+  return _real_unlink(phys_path);
+}
+
+extern "C" int chdir(const char *path)
+{
+  dmtcp::string temp = VIRTUAL_TO_PHYSICAL_PATH(path);
+  const char *phys_path = temp.c_str();
+
+  return _real_chdir(phys_path);
+}
+
+extern "C" int remove(const char *path)
+{
+  dmtcp::string temp = VIRTUAL_TO_PHYSICAL_PATH(path);
+  const char *phys_path = temp.c_str();
+
+  return _real_remove(phys_path);
+}
+
+extern "C" int rmdir(const char *path)
+{
+  dmtcp::string temp = VIRTUAL_TO_PHYSICAL_PATH(path);
+  const char *phys_path = temp.c_str();
+
+  return _real_rmdir(phys_path);
+}
+
+extern "C" int link(const char *oldpath, const char *newpath)
+{
+  dmtcp::string temp1 = VIRTUAL_TO_PHYSICAL_PATH(oldpath);
+  dmtcp::string temp2 = VIRTUAL_TO_PHYSICAL_PATH(newpath);
+  const char *old_phys_path = temp1.c_str();
+  const char *new_phys_path = temp2.c_str();
+
+  return _real_link(old_phys_path, new_phys_path);
+}
+
+extern "C" int symlink(const char *oldpath, const char *newpath)
+{
+  dmtcp::string temp1 = VIRTUAL_TO_PHYSICAL_PATH(oldpath);
+  dmtcp::string temp2 = VIRTUAL_TO_PHYSICAL_PATH(newpath);
+  const char *old_phys_path = temp1.c_str();
+  const char *new_phys_path = temp2.c_str();
+
+  return _real_symlink(old_phys_path, new_phys_path);
 }
