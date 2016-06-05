@@ -80,13 +80,12 @@ extern "C" int connect(int sockfd, const struct sockaddr *serv_addr,
   if ((ret != -1 || errno == EINPROGRESS) &&
       dmtcp_is_running_state() &&
       !_doNotProcessSockets) {
-    TcpConnection *con =
-      (TcpConnection*) SocketConnList::instance().getConnection(sockfd);
+    SocketConnection *con =
+      dynamic_cast<SocketConnection*>(SocketConnList::instance().getConnection(sockfd));
     if (con == NULL) {
       JTRACE("Connect operation on unsupported socket type.");
     } else {
       con->onConnect(serv_addr, addrlen, (ret == -1 && errno == EINPROGRESS));
-      JTRACE("connected") (sockfd) (con->id());
     }
   }
 
@@ -101,13 +100,12 @@ extern "C" int bind(int sockfd, const struct sockaddr *my_addr,
   DMTCP_PLUGIN_DISABLE_CKPT(); // The lock is released inside the macro.
   int ret = _real_bind(sockfd, my_addr, addrlen);
   if (ret != -1 && dmtcp_is_running_state() && !_doNotProcessSockets) {
-    TcpConnection *con =
-      (TcpConnection*) SocketConnList::instance().getConnection(sockfd);
+    SocketConnection *con =
+      dynamic_cast<SocketConnection*>(SocketConnList::instance().getConnection(sockfd));
     if (con == NULL) {
       JTRACE("bind operation on unsupported socket type.");
     } else {
       con->onBind((struct sockaddr*) my_addr, addrlen);
-      JTRACE("bind") (sockfd) (con->id());
     }
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -119,13 +117,12 @@ extern "C" int listen(int sockfd, int backlog)
   DMTCP_PLUGIN_DISABLE_CKPT(); // The lock is released inside the macro.
   int ret = _real_listen(sockfd, backlog);
   if (ret != -1 && dmtcp_is_running_state() && !_doNotProcessSockets) {
-    TcpConnection *con =
-      (TcpConnection*) SocketConnList::instance().getConnection(sockfd);
+    SocketConnection *con =
+      dynamic_cast<SocketConnection*>(SocketConnList::instance().getConnection(sockfd));
     if (con == NULL) {
       JTRACE("listen operation on unsupported socket type.");
     } else {
       con->onListen(backlog);
-      JTRACE("listen") (sockfd) (con->id()) (backlog);
     }
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -136,20 +133,29 @@ static void process_accept(int ret, int sockfd, struct sockaddr *addr,
                            socklen_t *addrlen)
 {
   JASSERT(ret != -1);
-  TcpConnection *parent =
-    (TcpConnection*) SocketConnList::instance().getConnection(sockfd);
+  Connection *parent = SocketConnList::instance().getConnection(sockfd);
   if (parent == NULL) {
     JTRACE("unable to get the connection.");
     return;
   }
-  TcpConnection* con = new TcpConnection(*parent, ConnectionIdentifier::null());
+
+  SocketConnection *con = NULL;
+  // FIXME: Checking for conType is ugly; fix class design
+  if (parent->conType() == Connection::TCP) {
+    TcpConnection *tcpParent = dynamic_cast<TcpConnection*>(parent);
+    con = new TcpConnection(*tcpParent, ConnectionIdentifier::null());
+  } else if (parent->conType() == Connection::RAW) {
+    RawSocketConnection *rawSockParent = dynamic_cast<RawSocketConnection*>(parent);
+    con = new RawSocketConnection(*rawSockParent, ConnectionIdentifier::null());
+  }
+
   if (con == NULL) {
     JTRACE("accept operation on unsupported socket type.");
     return;
+  } else {
+    SocketConnList::instance().add(ret, dynamic_cast<Connection*>(con));
   }
-  SocketConnList::instance().add(ret, con);
 
-  JTRACE("accepted incoming connection") (sockfd) (con->id());
 }
 
 extern "C" int accept(int sockfd, struct sockaddr *addr,
@@ -202,11 +208,13 @@ extern "C" int setsockopt(int sockfd, int level, int optname,
   int ret = _real_setsockopt(sockfd, level, optname, optval, optlen);
   if (ret != -1 && dmtcp_is_running_state() && !_doNotProcessSockets) {
     JTRACE("setsockopt") (ret) (sockfd) (optname);
-    TcpConnection *con =
-      (TcpConnection*) SocketConnList::instance().getConnection(sockfd);
+    SocketConnection *con =
+      dynamic_cast<SocketConnection*>(SocketConnList::instance().getConnection(sockfd));
     if (con == NULL) {
       JTRACE("setsockopt operation on unsupported socket type.");
       return ret;
+    } else {
+      con->addSetsockopt(level, optname, optval, optlen);
     }
   }
   return ret;
