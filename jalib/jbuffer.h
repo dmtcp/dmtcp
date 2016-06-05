@@ -39,6 +39,7 @@ namespace jalib
 #endif
       JBuffer ( int size = 0 );
       JBuffer ( const char* source, int size );
+      JBuffer ( const void* source, int size );
       JBuffer ( const JBuffer& that );
       ~JBuffer();
       jalib::JBuffer& operator= ( const JBuffer& that );

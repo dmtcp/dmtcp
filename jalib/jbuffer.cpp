@@ -38,6 +38,14 @@ jalib::JBuffer::JBuffer ( const char* src, int size )
   memcpy ( _buffer, src, _size );
 }
 
+jalib::JBuffer::JBuffer ( const void* src, int size )
+    :_size ( size )
+{
+  _buffer = (char*)JALLOC_HELPER_MALLOC(size);
+  JASSERT ( size >= 0 ) ( size );
+  memcpy ( _buffer, src, _size );
+}
+
 
 jalib::JBuffer::~JBuffer()
 {

@@ -52,16 +52,34 @@ namespace dmtcp
 
       SocketConnection() {}
       SocketConnection(int domain, int type, int protocol);
-      void addSetsockopt(int level, int option, const char* value, int len);
+      SocketConnection(int domain, int type, int protocol, ConnectionIdentifier remote);
+      void addSetsockopt(int level, int option, const void* value, int len);
       void restoreSocketOptions(vector<int32_t>& fds);
       void serialize(jalib::JBinarySerializer& o);
       int sockDomain() const { return _sockDomain; }
+
+      virtual void onBind(const struct sockaddr* addr, socklen_t len);
+      virtual void onListen(int backlog);
+      virtual void onConnect(const struct sockaddr *serv_addr = NULL,
+                             socklen_t addrlen = 0,
+                             bool connectInProgress = false);
 
     protected:
       int64_t _sockDomain;
       int64_t _sockType;
       int64_t _sockProtocol;
       uint32_t _peerType;
+      int32_t                   _listenBacklog;
+      union {
+        socklen_t               _bindAddrlen;
+        socklen_t               _connectAddrlen;
+      };
+      union {
+        /* See 'man socket.h' or POSIX for 'struct sockaddr_storage' */
+        struct sockaddr_storage _bindAddr;
+        struct sockaddr_storage _connectAddr;
+      };
+      ConnectionIdentifier    _remotePeerId;
       map< int64_t, map<int64_t, jalib::JBuffer> > _sockOptions;
   };
 
@@ -119,23 +137,23 @@ namespace dmtcp
       virtual void serializeSubClass(jalib::JBinarySerializer& o);
     private:
       TcpConnection& asTcp();
-    private:
-      int32_t                   _listenBacklog;
-      union {
-        socklen_t               _bindAddrlen;
-        socklen_t               _connectAddrlen;
-      };
-      union {
-        /* See 'man socket.h' or POSIX for 'struct sockaddr_storage' */
-        struct sockaddr_storage _bindAddr;
-        struct sockaddr_storage _connectAddr;
-      };
-      ConnectionIdentifier    _remotePeerId;
   };
 
   class RawSocketConnection : public Connection, public SocketConnection
   {
     public:
+      enum RawType
+      {
+        RAW_INVALID = RAW,
+        RAW_ERROR,
+        RAW_CREATED,
+        RAW_BIND,
+        RAW_LISTEN,
+        RAW_ACCEPT,
+        RAW_CONNECT,
+        RAW_CONNECT_IN_PROGRESS,
+        RAW_PREEXISTING
+      };
       RawSocketConnection() {};
       //basic commands for updating state from wrappers
       RawSocketConnection(int domain, int type, int protocol);
@@ -145,10 +163,16 @@ namespace dmtcp
       virtual void refill(bool isRestart);
       virtual void postRestart();
 
+      virtual void onBind(const struct sockaddr* addr, socklen_t len);
+      virtual void onListen(int backlog);
+      virtual void onConnect(const struct sockaddr *serv_addr = NULL,
+                             socklen_t addrlen = 0,
+                             bool connectInProgress = false);
+      RawSocketConnection(const RawSocketConnection& parent, // FIXME: Change to SocketConnection* when we fix the class hierarchy
+                          const ConnectionIdentifier& remote);
+
       virtual void serializeSubClass(jalib::JBinarySerializer& o);
-      virtual string str() { return "<TCP Socket>"; }
-    private:
-      map< int64_t, map< int64_t, jalib::JBuffer > > _sockOptions;
+      virtual string str() { return "<Raw Socket>"; }
   };
 }
 

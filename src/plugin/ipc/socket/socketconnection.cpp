@@ -28,6 +28,7 @@
 #include <arpa/inet.h>
 #include <signal.h>
 #include <poll.h>
+#include <linux/netlink.h>
 
 #include "dmtcp.h"
 #include "shareddata.h"
@@ -75,10 +76,41 @@ SocketConnection::SocketConnection(int domain, int type, int protocol)
   , _sockType(type)
   , _sockProtocol(protocol)
   , _peerType(PEER_UNKNOWN)
+  , _listenBacklog(-1)
+  , _bindAddrlen(0)
+  , _remotePeerId(ConnectionIdentifier::null())
 { }
 
+SocketConnection::SocketConnection(int domain, int type, int protocol, ConnectionIdentifier remote)
+  : _sockDomain(domain)
+  , _sockType(type)
+  , _sockProtocol(protocol)
+  , _peerType(PEER_UNKNOWN)
+  , _listenBacklog(-1)
+  , _bindAddrlen(0)
+  , _remotePeerId(remote)
+{ }
+
+void SocketConnection::onBind(const struct sockaddr* addr, socklen_t len)
+{
+  JASSERT(false).Text("Bind called on unknown socket type");
+}
+
+void SocketConnection::onListen(int backlog)
+{
+  JASSERT(false).Text("Listen called on unknown socket type");
+}
+
+void SocketConnection::onConnect(const struct sockaddr *serv_addr,
+                                 socklen_t addrlen,
+                                 bool connectInProgress)
+{
+  JASSERT(false).Text("Connect called on unknown socket type");
+}
+
+
 void SocketConnection::addSetsockopt(int level, int option,
-                                     const char* value, int len)
+                                     const void* value, int len)
 {
   _sockOptions[level][option] = jalib::JBuffer(value, len);
 }
@@ -97,7 +129,7 @@ void SocketConnection::restoreSocketOptions(vector<int>& fds)
       int ret = _real_setsockopt(fds[0], lvl->first, opt->first,
                                  opt->second.buffer(),
                                  opt->second.size());
-      JASSERT(ret == 0) (JASSERT_ERRNO) (fds[0])
+      JWARNING(ret == 0) (JASSERT_ERRNO) (fds[0])
         (lvl->first) (opt->first) (opt->second.size())
         .Text("Restoring setsockopt failed.");
     }
@@ -180,9 +212,6 @@ void SocketConnection::serialize(jalib::JBinarySerializer& o)
   TcpConnection::TcpConnection(int domain, int type, int protocol)
   : Connection(TCP_CREATED)
   , SocketConnection(domain, type, protocol)
-  , _listenBacklog(-1)
-  , _bindAddrlen(0)
-  , _remotePeerId(ConnectionIdentifier::null())
 {
   if (domain != -1) {
     // Sometimes _sockType contains SOCK_CLOEXEC/SOCK_NONBLOCK flags.
@@ -347,10 +376,7 @@ void TcpConnection::onConnect(const struct sockaddr *addr,
 TcpConnection::TcpConnection(const TcpConnection& parent,
                              const ConnectionIdentifier& remote)
   : Connection(TCP_ACCEPT)
-  , SocketConnection(parent._sockDomain, parent._sockType, parent._sockProtocol)
-  , _listenBacklog(-1)
-  , _bindAddrlen(0)
-  , _remotePeerId(remote)
+  , SocketConnection(parent._sockDomain, parent._sockType, parent._sockProtocol, remote)
 {
   if (really_verbose) {
     JTRACE("Accepting.") (id()) (parent.id()) (remote);
@@ -673,7 +699,7 @@ void TcpConnection::serializeSubClass(jalib::JBinarySerializer& o)
  *****************************************************************************/
 /*onSocket*/
 RawSocketConnection::RawSocketConnection(int domain, int type, int protocol)
-  : Connection(RAW)
+  : Connection(RAW_CREATED)
     , SocketConnection(domain, type, protocol)
 {
   JASSERT(type == -1 ||(type & SOCK_RAW));
@@ -709,17 +735,112 @@ void RawSocketConnection::refill(bool isRestart)
 void RawSocketConnection::postRestart()
 {
   JASSERT(_fds.size() > 0);
+
   if (really_verbose) {
     JTRACE("Restoring socket.") (id()) (_fds[0]);
   }
 
-  int sockfd = _real_socket(_sockDomain,_sockType,_sockProtocol);
-  JASSERT(sockfd != -1);
-  Util::dupFds(sockfd, _fds);
+  switch(_type) {
+    case RAW_CREATED:
+    case RAW_BIND:
+    case RAW_LISTEN:
+    {
+
+      errno = 0;
+      int fd = _real_socket(_sockDomain, _sockType, _sockProtocol);
+      JASSERT(fd != -1) (JASSERT_ERRNO);
+      Util::dupFds(fd, _fds);
+      if (_type == RAW_CREATED) break;
+
+      if (_sockDomain == AF_NETLINK) {
+        JTRACE("Restoring some socket options before binding.");
+        typedef map< int64_t,
+                     map< int64_t, jalib::JBuffer > >::iterator levelIterator;
+        typedef map< int64_t, jalib::JBuffer >::iterator optionIterator;
+
+        for (levelIterator lvl = _sockOptions.begin();
+             lvl!=_sockOptions.end(); ++lvl) {
+          if (lvl->first == SOL_SOCKET) {
+            for (optionIterator opt = lvl->second.begin();
+                 opt!=lvl->second.end(); ++opt) {
+              if (opt->first == SO_ATTACH_FILTER) {
+                if (really_verbose) {
+                  JTRACE("Restoring socket option.")
+                    (_fds[0]) (opt->first) (opt->second.size());
+                }
+                int ret = _real_setsockopt(_fds[0], lvl->first, opt->first,
+                                           opt->second.buffer(),
+                                           opt->second.size());
+                JASSERT(ret == 0) (JASSERT_ERRNO) (_fds[0]) (lvl->first)
+                  (opt->first) (opt->second.buffer()) (opt->second.size())
+                  .Text("Restoring setsockopt failed.");
+              }
+            }
+          }
+        }
+      }
+
+      errno = 0;
+      JWARNING(_real_bind(_fds[0], (sockaddr*) &_bindAddr,_bindAddrlen) == 0)
+        (JASSERT_ERRNO) (id()) .Text("Bind failed.");
+      if (_type == RAW_BIND) break;
+
+      errno = 0;
+      JWARNING(_real_listen(_fds[0], _listenBacklog) == 0)
+        (JASSERT_ERRNO) (id()) (_listenBacklog) .Text("listen failed.");
+      if (_type == RAW_LISTEN) break;
+    }
+    default:
+      break;
+
+  }
 }
 
 void RawSocketConnection::serializeSubClass(jalib::JBinarySerializer& o)
 {
   JSERIALIZE_ASSERT_POINT("RawSocketConnection");
   SocketConnection::serialize(o);
+}
+
+void RawSocketConnection::onBind(const struct sockaddr* addr, socklen_t len)
+{
+  JTRACE("bind on raw socket") (_fds[0]) (this->conType()) (this->id());
+  if (addr != NULL) {
+    JASSERT(len <= sizeof _bindAddr) (len) (sizeof _bindAddr)
+      .Text("That is one huge sockaddr buddy.");
+    _bindAddrlen = len;
+    memcpy(&_bindAddr, addr, len);
+  }
+  _type = RAW_BIND;
+}
+
+void RawSocketConnection::onListen(int backlog)
+{
+  JTRACE("listen on raw socket") (_fds[0]) (this->conType()) (this->id()) (backlog);
+  _listenBacklog = backlog;
+  _type = RAW_LISTEN;
+}
+
+RawSocketConnection::RawSocketConnection(const RawSocketConnection& parent,
+                                         const ConnectionIdentifier& remote)
+  : Connection(RAW_ACCEPT)
+  , SocketConnection(parent._sockDomain, parent._sockType, parent._sockProtocol, remote)
+{
+  if (really_verbose) {
+    JTRACE("Accepting.") (id()) (parent.id()) (remote);
+  }
+
+  //     JASSERT(parent._type == RAW_LISTEN) (parent._type) (parent.id())
+  //             .Text("Accepting from a non listening socket????");
+  JWARNING(false).Text("Accept on raw socket type not supported...\n"
+                       "Socket won't be restored");
+  memset(&_bindAddr, 0, sizeof _bindAddr);
+}
+
+void RawSocketConnection::onConnect(const struct sockaddr *serv_addr,
+                                 socklen_t addrlen,
+                                 bool connectInProgress)
+{
+  JWARNING(false).Text("Connect on raw socket type not supported...\n"
+                       "Socket won't be restored");
 }
