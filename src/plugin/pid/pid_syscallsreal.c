@@ -385,6 +385,18 @@ int _real_open64(const char *path, int flags, ...) {
   REAL_FUNC_PASSTHROUGH(open64) (path, flags, mode);
 }
 
+LIB_PRIVATE
+int _real_close(int fd)
+{
+  REAL_FUNC_PASSTHROUGH(close) (fd);
+}
+
+LIB_PRIVATE
+int _real_dup2(int fd1, int fd2)
+{
+  REAL_FUNC_PASSTHROUGH(dup2) (fd1, fd2);
+}
+
 FILE* _real_fopen(const char *path, const char *mode) {
   REAL_FUNC_PASSTHROUGH_TYPED(FILE*, fopen) (path, mode);
 }
