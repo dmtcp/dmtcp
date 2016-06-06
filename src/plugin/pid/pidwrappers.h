@@ -141,6 +141,8 @@ extern "C"
   MACRO(fcntl)              \
   MACRO(open)               \
   MACRO(open64)             \
+  MACRO(close)              \
+  MACRO(dup2)               \
   MACRO(fopen64)            \
   MACRO(__xstat)            \
   MACRO(__xstat64)          \
@@ -249,6 +251,8 @@ extern "C"
 
   int _real_open(const char *pathname, int flags, ...);
   int _real_open64(const char *pathname, int flags, ...);
+  int _real_close(int fd);
+  int _real_dup2(int fd1, int fd2);
   FILE* _real_fopen(const char *path, const char *mode);
   FILE* _real_fopen64(const char *path, const char *mode);
   int _real_fclose(FILE *fp);

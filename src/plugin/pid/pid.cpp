@@ -138,9 +138,9 @@ static void openOriginalToCurrentMappingFiles()
   if (!Util::isValidFd(PROTECTED_PIDMAP_FD)) {
     fd = openSharedFile(pidMapFile, O_RDWR);
     JASSERT (fd != -1);
-    JASSERT (dup2 (fd, PROTECTED_PIDMAP_FD) == PROTECTED_PIDMAP_FD)
+    JASSERT (_real_dup2 (fd, PROTECTED_PIDMAP_FD) == PROTECTED_PIDMAP_FD)
       (pidMapFile);
-    close (fd);
+    _real_close (fd);
   }
 }
 
