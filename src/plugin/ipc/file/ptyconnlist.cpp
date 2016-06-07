@@ -21,8 +21,8 @@
 
 #include <sys/syscall.h>
 
-#include "util.h"
 #include "shareddata.h"
+#include "util.h"
 
 #include "ptyconnection.h"
 #include "ptyconnlist.h"
@@ -30,12 +30,14 @@
 
 using namespace dmtcp;
 
-void dmtcp_PtyConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
+void
+dmtcp_PtyConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   PtyConnList::instance().eventHook(event, data);
 }
 
-void dmtcp_PtyConn_ProcessFdEvent(int event, int arg1, int arg2)
+void
+dmtcp_PtyConn_ProcessFdEvent(int event, int arg1, int arg2)
 {
   if (event == SYS_close) {
     PtyConnList::instance().processClose(arg1);
@@ -47,7 +49,8 @@ void dmtcp_PtyConn_ProcessFdEvent(int event, int arg1, int arg2)
 }
 
 static PtyConnList *ptyConnList = NULL;
-PtyConnList& PtyConnList::instance()
+PtyConnList &
+PtyConnList::instance()
 {
   if (ptyConnList == NULL) {
     ptyConnList = new PtyConnList();
@@ -55,15 +58,17 @@ PtyConnList& PtyConnList::instance()
   return *ptyConnList;
 }
 
-void PtyConnList::drain()
+void
+PtyConnList::drain()
 {
   for (iterator i = begin(); i != end(); ++i) {
-    PtyConnection* con =  (PtyConnection*) i->second;
+    PtyConnection *con = (PtyConnection *)i->second;
     con->drain();
   }
 }
 
-void PtyConnList::postRestart()
+void
+PtyConnList::postRestart()
 {
   /* It is possible to have two different connection-ids for a pre-existing
    * CTTY in two or more different process trees. In this case, only one of the
@@ -77,21 +82,23 @@ void PtyConnList::postRestart()
    * implemented by using the SharedData area.
    */
   for (iterator i = begin(); i != end(); ++i) {
-    PtyConnection *pcon = (PtyConnection*) i->second;
+    PtyConnection *pcon = (PtyConnection *)i->second;
     pcon->postRestart();
   }
 }
 
-void PtyConnList::refill(bool isRestart)
+void
+PtyConnList::refill(bool isRestart)
 {
   for (iterator i = begin(); i != end(); ++i) {
-    PtyConnection *pcon = (PtyConnection*) i->second;
+    PtyConnection *pcon = (PtyConnection *)i->second;
     pcon->refill(isRestart);
   }
 }
 
-//examine /proc/self/fd for unknown connections
-void PtyConnList::scanForPreExisting()
+// examine /proc/self/fd for unknown connections
+void
+PtyConnList::scanForPreExisting()
 {
   // FIXME: Detect stdin/out/err fds to detect duplicates.
   vector<int> fds = jalib::Filesystem::ListOpenFds();
@@ -100,12 +107,16 @@ void PtyConnList::scanForPreExisting()
 
   for (size_t i = 0; i < fds.size(); ++i) {
     int fd = fds[i];
-    if (!Util::isValidFd(fd)) continue;
-    if (dmtcp_is_protected_fd(fd)) continue;
+    if (!Util::isValidFd(fd)) {
+      continue;
+    }
+    if (dmtcp_is_protected_fd(fd)) {
+      continue;
+    }
 
     string device = jalib::Filesystem::GetDeviceName(fd);
 
-    JTRACE("scanning pre-existing device") (fd) (device);
+    JTRACE("scanning pre-existing device")(fd)(device);
     if (device == ctty || device == parentCtty) {
       // Search if this is duplicate connection
       iterator conit;
@@ -114,30 +125,35 @@ void PtyConnList::scanForPreExisting()
       for (conit = begin(); conit != end(); conit++) {
         Connection *c = conit->second;
         if (c->subType() == cttyType &&
-            ((PtyConnection*)c)->ptsName() == device) {
+            ((PtyConnection *)c)->ptsName() == device) {
           processDup(c->getFds()[0], fd);
           break;
         }
       }
       if (conit == end()) {
         // FIXME: Merge this code with the code in processFileConnection
-        PtyConnection *con = new PtyConnection(fd, (const char*) device.c_str(),
-                                               -1, -1, cttyType);
+        PtyConnection *con =
+          new PtyConnection(fd, (const char *)device.c_str(), -1, -1, cttyType);
+
         // Check comments in PtyConnList::postRestart() for the explanation
         // about isPreExistingCTTY.
         con->markPreExistingCTTY();
-        add(fd, (Connection*)con);
+        add(fd, (Connection *)con);
       }
     }
   }
 }
 
-void PtyConnList::processPtyConnection(int fd, const char *path,
-                                       int flags, mode_t mode)
+void
+PtyConnList::processPtyConnection(int fd,
+                                  const char *path,
+                                  int flags,
+                                  mode_t mode)
 {
   Connection *c = NULL;
 
   string device;
+
   if (path == NULL) {
     device = jalib::Filesystem::GetDeviceName(fd);
   } else {
@@ -152,7 +168,7 @@ void PtyConnList::processPtyConnection(int fd, const char *path,
     // Controlling terminal
     c = new PtyConnection(fd, path, flags, mode, PtyConnection::PTY_DEV_TTY);
   } else if (strcmp(path, "/dev/pty") == 0) {
-    JASSERT(false) .Text("Not Implemented");
+    JASSERT(false).Text("Not Implemented");
   } else if (Util::strStartsWith(path, "/dev/pty")) {
     // BSD Master
     c = new PtyConnection(fd, path, flags, mode, PtyConnection::PTY_BSD_MASTER);
@@ -167,9 +183,8 @@ void PtyConnList::processPtyConnection(int fd, const char *path,
     // POSIX Slave PTY
     c = new PtyConnection(fd, path, flags, mode, PtyConnection::PTY_SLAVE);
   } else {
-    JASSERT(false) (path) .Text("Unimplemented file type.");
+    JASSERT(false)(path).Text("Unimplemented file type.");
   }
 
   PtyConnList::instance().add(fd, c);
 }
-

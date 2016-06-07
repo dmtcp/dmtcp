@@ -18,35 +18,35 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
-#include <getopt.h>
 #include <string.h>
-#include <string>
-#include <map>
-#include <iostream>
-#include <fstream>
-#include <vector>
+#include <unistd.h>
 #include <algorithm>
+#include <fstream>
+#include <iostream>
+#include <map>
+#include <string>
+#include <vector>
 
 #ifndef DISCOVER_SLURM_H
 #define DISCOVER_SLURM_H
 
 #include "discover_resources.h"
 
-class resources_slurm : public resources {
+class resources_slurm : public resources
+{
 public:
-
-  resources_slurm() : resources(slurm) {   }
-
+  resources_slurm() : resources(slurm) {}
   int discover();
 
   static bool probe()
   {
-    return ( ( getenv("SLURM_JOB_ID") != NULL ) || ( getenv("SLURM_JOBID") != NULL ) ) &&
-           ( ( getenv("SLURM_JOB_NODELIST") != NULL) || (getenv("SLURM_NODELIST") != NULL ) );
+    return ((getenv("SLURM_JOB_ID") != NULL) ||
+            (getenv("SLURM_JOBID") != NULL)) &&
+           ((getenv("SLURM_JOB_NODELIST") != NULL) ||
+            (getenv("SLURM_NODELIST") != NULL));
   }
 };
-
-#endif
+#endif // ifndef DISCOVER_SLURM_H

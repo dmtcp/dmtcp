@@ -22,10 +22,10 @@
 #include <signal.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
-#include <unistd.h>
 #include <sys/errno.h>
 #include <sys/syscall.h>
+#include <time.h>
+#include <unistd.h>
 
 #include "timerwrappers.h"
 
@@ -37,13 +37,12 @@
 #define SIGTIMER SIGCANCEL
 
 /* Internal representation of timer.  */
-struct timer
-{
+struct timer {
   /* Notification mechanism.  */
   int sigev_notify;
 
   /* Parameters for the thread to be started for SIGEV_THREAD.  */
-  void (*thrfunc) (sigval_t);
+  void (*thrfunc)(sigval_t);
   sigval_t sival;
   pthread_attr_t attr;
 
@@ -51,9 +50,8 @@ struct timer
   struct timer *next;
 };
 
-struct thread_start_data
-{
-  void (*thrfunc) (sigval_t);
+struct thread_start_data {
+  void (*thrfunc)(sigval_t);
   sigval_t sival;
 };
 
@@ -70,28 +68,30 @@ static pthread_once_t helper_once;
 static pid_t helper_tid = 0;
 static sem_t helper_notification;
 
-static void *timer_helper_thread (void *arg);
-static void start_helper_thread (void);
+static void *timer_helper_thread(void *arg);
+static void start_helper_thread(void);
 
 /* Reset variables so that after a fork a new helper thread gets started.  */
-static void timer_create_reset_on_fork(void)
+static void
+timer_create_reset_on_fork(void)
 {
   helper_once = PTHREAD_ONCE_INIT;
   helper_tid = 0;
 }
 
 LIB_PRIVATE
-int timer_create_sigev_thread(clockid_t clock_id,
-                              struct sigevent *evp,
-                              timer_t *timerid,
-                              struct sigevent *sevOut)
+int
+timer_create_sigev_thread(clockid_t clock_id,
+                          struct sigevent *evp,
+                          timer_t *timerid,
+                          struct sigevent *sevOut)
 {
   /* If the user wants notification via a thread we need to handle
      this special.  */
   JASSERT(evp == NULL || evp->sigev_notify == SIGEV_THREAD);
 
   /* Create the helper thread.  */
-  pthread_once (&helper_once, start_helper_thread);
+  pthread_once(&helper_once, start_helper_thread);
   sem_wait(&helper_notification);
   if (helper_tid == 0) {
     /* No resources to start the helper thread.  */
@@ -100,7 +100,7 @@ int timer_create_sigev_thread(clockid_t clock_id,
   }
 
   struct timer *newp;
-  newp = (struct timer *) JALLOC_MALLOC(sizeof (struct timer));
+  newp = (struct timer *)JALLOC_MALLOC(sizeof(struct timer));
   if (newp == NULL) {
     return -1;
   }
@@ -113,12 +113,12 @@ int timer_create_sigev_thread(clockid_t clock_id,
   /* We cannot simply copy the thread attributes since the
      implementation might keep internal information for
      each instance.  */
-  (void) pthread_attr_init (&newp->attr);
+  (void)pthread_attr_init(&newp->attr);
 
   // TODO: Copy attributes from evp->sigev_notify_attributes to newp->attr.
 
   /* In any case set the detach flag.  */
-  (void) pthread_attr_setdetachstate (&newp->attr, PTHREAD_CREATE_DETACHED);
+  (void)pthread_attr_setdetachstate(&newp->attr, PTHREAD_CREATE_DETACHED);
 
   /* Create the event structure for the kernel timer.  */
   sevOut->sigev_value.sival_ptr = newp;
@@ -130,10 +130,10 @@ int timer_create_sigev_thread(clockid_t clock_id,
   int res = _real_timer_create(clock_id, sevOut, timerid);
   if (res == 0) {
     /* Add to the queue of active timers with thread delivery.  */
-    pthread_mutex_lock (&active_timer_sigev_thread_lock);
+    pthread_mutex_lock(&active_timer_sigev_thread_lock);
     newp->next = active_timer_sigev_thread;
     active_timer_sigev_thread = newp;
-    pthread_mutex_unlock (&active_timer_sigev_thread_lock);
+    pthread_mutex_unlock(&active_timer_sigev_thread_lock);
     return 0;
   }
 
@@ -143,32 +143,34 @@ int timer_create_sigev_thread(clockid_t clock_id,
 }
 
 /* Helper thread to call the user-provided function.  */
-static void *timer_sigev_thread (void *arg)
+static void *
+timer_sigev_thread(void *arg)
 {
   /* The parent thread has all signals blocked.  This is a bit
      surprising for user code, although valid.  We unblock all
      signals.  */
   sigset_t ss;
-  sigemptyset (&ss);
+
+  sigemptyset(&ss);
   pthread_sigmask(SIG_SETMASK, &ss, NULL);
 
-  struct thread_start_data *td = (struct thread_start_data *) arg;
+  struct thread_start_data *td = (struct thread_start_data *)arg;
 
-  void (*thrfunc) (sigval_t) = td->thrfunc;
+  void (*thrfunc)(sigval_t) = td->thrfunc;
   sigval_t sival = td->sival;
 
   /* The TD object was allocated in timer_helper_thread.  */
   JALLOC_FREE(td);
 
   /* Call the user-provided function.  */
-  thrfunc (sival);
+  thrfunc(sival);
 
   return NULL;
 }
 
-
 /* Helper function to support starting threads for SIGEV_THREAD.  */
-static void *timer_helper_thread (void *arg)
+static void *
+timer_helper_thread(void *arg)
 {
   helper_tid = syscall(SYS_gettid);
   sem_post(&helper_notification);
@@ -176,8 +178,8 @@ static void *timer_helper_thread (void *arg)
   /* Wait for the SIGTIMER signal, allowing the setXid signal, and
      none else.  */
   sigset_t ss;
-  sigemptyset (&ss);
-  sigaddset (&ss, SIGTIMER);
+  sigemptyset(&ss);
+  sigaddset(&ss, SIGTIMER);
 
   /* Endless loop of waiting for signals.  The loop is only ended when
      the thread is canceled.  */
@@ -188,32 +190,35 @@ static void *timer_helper_thread (void *arg)
        SIGCANCEL == SIGTIMER from the set.  */
 
     pthread_testcancel();
-    //int oldtype = LIBC_CANCEL_ASYNC ();
+
+    // int oldtype = LIBC_CANCEL_ASYNC ();
 
     /* XXX The size argument hopefully will have to be changed to the
        real size of the user-level sigset_t.  */
     int result = sigtimedwait(&ss, &si, NULL);
 
-    //LIBC_CANCEL_RESET (oldtype);
+    // LIBC_CANCEL_RESET (oldtype);
 
     if (result > 0) {
       if (si.si_code == SI_TIMER) {
-        struct timer *tk = (struct timer *) si.si_ptr;
+        struct timer *tk = (struct timer *)si.si_ptr;
 
         /* Check the timer is still used and will not go away
            while we are reading the values here.  */
-        pthread_mutex_lock (&active_timer_sigev_thread_lock);
+        pthread_mutex_lock(&active_timer_sigev_thread_lock);
 
         struct timer *runp = active_timer_sigev_thread;
-        while (runp != NULL)
-          if (runp == tk)
+        while (runp != NULL) {
+          if (runp == tk) {
             break;
-          else
+          } else {
             runp = runp->next;
+          }
+        }
 
         if (runp != NULL) {
           struct thread_start_data *td =
-            (struct thread_start_data*) JALLOC_MALLOC(sizeof (*td));
+            (struct thread_start_data *)JALLOC_MALLOC(sizeof(*td));
 
           /* There is not much we can do if the allocation fails.  */
           if (td != NULL) {
@@ -222,28 +227,29 @@ static void *timer_helper_thread (void *arg)
             td->sival = tk->sival;
 
             pthread_t th;
-            (void) pthread_create (&th, &tk->attr, timer_sigev_thread, td);
+            (void)pthread_create(&th, &tk->attr, timer_sigev_thread, td);
           }
         }
 
-        pthread_mutex_unlock (&active_timer_sigev_thread_lock);
-      }
-      else if (si.si_code == SI_TKILL)
+        pthread_mutex_unlock(&active_timer_sigev_thread_lock);
+      } else if (si.si_code == SI_TKILL) {
         /* The thread is canceled.  */
-        pthread_exit (NULL);
+        pthread_exit(NULL);
+      }
     }
   }
 }
 
-
-static void start_helper_thread (void)
+static void
+start_helper_thread(void)
 {
   sem_init(&helper_notification, 0, 0);
+
   /* The helper thread needs only very little resources
      and should go away automatically when canceled.  */
   pthread_attr_t attr;
-  (void) pthread_attr_init (&attr);
-  (void) pthread_attr_setstacksize (&attr, 2 * 1024 * 1024);
+  (void)pthread_attr_init(&attr);
+  (void)pthread_attr_setstacksize(&attr, 2 * 1024 * 1024);
 
   /* Block all signals in the helper thread but SIGSETXID.  To do this
      thoroughly we temporarily have to block all signals here.  The
@@ -252,13 +258,13 @@ static void start_helper_thread (void)
      explicitly here.  */
   sigset_t ss;
   sigset_t oss;
-  sigfillset (&ss);
-  sigaddset (&ss, SIGCANCEL);
+  sigfillset(&ss);
+  sigaddset(&ss, SIGCANCEL);
   sigprocmask(SIG_SETMASK, &ss, &oss);
 
   /* Create the helper thread for this timer.  */
   pthread_t th;
-  int res = pthread_create (&th, &attr, timer_helper_thread, NULL);
+  int res = pthread_create(&th, &attr, timer_helper_thread, NULL);
   JASSERT(res == 0);
   if (res != 0) {
     sem_post(&helper_notification);
@@ -268,9 +274,9 @@ static void start_helper_thread (void)
   sigprocmask(SIG_SETMASK, &oss, NULL);
 
   /* No need for the attribute anymore.  */
-  (void) pthread_attr_destroy (&attr);
+  (void)pthread_attr_destroy(&attr);
 
   /* We have to make sure that after fork()ing a new helper thread can
      be created.  */
-  pthread_atfork (NULL, NULL, timer_create_reset_on_fork);
+  pthread_atfork(NULL, NULL, timer_create_reset_on_fork);
 }

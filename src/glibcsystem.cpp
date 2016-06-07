@@ -26,16 +26,16 @@
  * then call execwrappers.cpp:_real_system().
  */
 #include <errno.h>
-#include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <unistd.h>
 
-#define  SHELL_PATH  "/bin/sh"  /* Path of the shell.  */
-#define  SHELL_NAME  "sh"    /* Name to give it.  */
+#define SHELL_PATH "/bin/sh" /* Path of the shell.  */
+#define SHELL_NAME "sh" /* Name to give it.  */
 
 /* Execute LINE as a shell command, returning its status.  */
-__attribute__ ((visibility ("hidden")))
-int do_system (const char *line)
+__attribute__((visibility("hidden"))) int
+do_system(const char *line)
 {
   int status, save;
   pid_t pid;
@@ -45,36 +45,37 @@ int do_system (const char *line)
 
   sa.sa_handler = SIG_IGN;
   sa.sa_flags = 0;
-  sigemptyset (&sa.sa_mask);
+  sigemptyset(&sa.sa_mask);
 
-  if (sigaction (SIGINT, &sa, &intr) < 0) {
+  if (sigaction(SIGINT, &sa, &intr) < 0) {
     goto out;
   }
-  if (sigaction (SIGQUIT, &sa, &quit) < 0) {
+  if (sigaction(SIGQUIT, &sa, &quit) < 0) {
     save = errno;
     goto out_restore_sigint;
   }
 
   /* We reuse the bitmap in the 'sa' structure.  */
-  sigaddset (&sa.sa_mask, SIGCHLD);
+  sigaddset(&sa.sa_mask, SIGCHLD);
   save = errno;
-  if (sigprocmask (SIG_BLOCK, &sa.sa_mask, &omask) < 0) {
+  if (sigprocmask(SIG_BLOCK, &sa.sa_mask, &omask) < 0) {
     if (errno == ENOSYS) {
       errno = save;
     } else {
       save = errno;
-      (void) sigaction (SIGQUIT, &quit, (struct sigaction *) NULL);
-out_restore_sigint:
-      (void) sigaction (SIGINT, &intr, (struct sigaction *) NULL);
+      (void)sigaction(SIGQUIT, &quit, (struct sigaction *)NULL);
+    out_restore_sigint:
+      (void)sigaction(SIGINT, &intr, (struct sigaction *)NULL);
       errno = save;
-      //set_errno (save);
-out:
+
+    // set_errno (save);
+    out:
       return -1;
     }
   }
 
-  pid = fork ();
-  if (pid == (pid_t) 0) {
+  pid = fork();
+  if (pid == (pid_t)0) {
     /* Child side.  */
     const char *new_argv[4];
     new_argv[0] = SHELL_NAME;
@@ -83,39 +84,40 @@ out:
     new_argv[3] = NULL;
 
     /* Restore the signals.  */
-    (void) sigaction (SIGINT, &intr, (struct sigaction *) NULL);
-    (void) sigaction (SIGQUIT, &quit, (struct sigaction *) NULL);
-    (void) sigprocmask (SIG_SETMASK, &omask, (sigset_t *) NULL);
+    (void)sigaction(SIGINT, &intr, (struct sigaction *)NULL);
+    (void)sigaction(SIGQUIT, &quit, (struct sigaction *)NULL);
+    (void)sigprocmask(SIG_SETMASK, &omask, (sigset_t *)NULL);
 
     /* Exec the shell.  */
-    (void) execve (SHELL_PATH, (char *const *) new_argv, __environ);
-    _exit (127);
-  } else if (pid < (pid_t) 0) {
+    (void)execve(SHELL_PATH, (char *const *)new_argv, __environ);
+    _exit(127);
+  } else if (pid < (pid_t)0) {
     /* The fork failed.  */
     status = -1;
   } else {
     /* Parent side.  */
+
     /* Note that system() is a cancellation point.  But since we call
        waitpid() which itself is a cancellation point we do not
        have to do anything here.  */
     do {
-      if (TEMP_FAILURE_RETRY (waitpid (pid, &status, 0)) != pid)
+      if (TEMP_FAILURE_RETRY(waitpid(pid, &status, 0)) != pid) {
         status = -1;
-    }
-    while (WIFEXITED(status) == 0);
+      }
+    } while (WIFEXITED(status) == 0);
   }
 
   save = errno;
-  if (((sigaction (SIGINT, &intr, (struct sigaction *) NULL)
-        | sigaction (SIGQUIT, &quit, (struct sigaction *) NULL)) != 0)
-      || sigprocmask (SIG_SETMASK, &omask, (sigset_t *) NULL) != 0) {
+  if (((sigaction(SIGINT, &intr, (struct sigaction *)NULL) |
+        sigaction(SIGQUIT, &quit, (struct sigaction *)NULL)) != 0) ||
+      sigprocmask(SIG_SETMASK, &omask, (sigset_t *)NULL) != 0) {
     /* glibc cannot be used on systems without waitpid.  */
-    if (errno == ENOSYS)
+    if (errno == ENOSYS) {
       errno = save;
-    else
+    } else {
       status = -1;
+    }
   }
 
   return status;
 }
-

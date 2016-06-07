@@ -23,12 +23,12 @@
 #ifndef TIMER_LIST_H
 #define TIMER_LIST_H
 
-#include <time.h>
 #include <signal.h>
+#include <time.h>
 #include "dmtcpalloc.h"
-#include "virtualidtable.h"
 #include "jassert.h"
 #include "jconvert.h"
+#include "virtualidtable.h"
 
 #define REAL_TO_VIRTUAL_TIMER_ID(id) \
   TimerList::instance().realToVirtualTimerId(id)
@@ -46,72 +46,88 @@
 #define VIRTUAL_TO_REAL_CLOCK_ID(virtId) \
   TimerList::instance().virtualToRealClockId(virtId)
 
-namespace dmtcp {
-  typedef struct TimerInfo {
-    clockid_t clockid;
-    struct sigevent sevp;
-    bool sevp_null;
-    int flags;
-    struct itimerspec initial_timerspec;
-    struct itimerspec curr_timerspec;
-    int overrun;
-  } TimerInfo;
+namespace dmtcp
+{
+typedef struct TimerInfo {
+  clockid_t clockid;
+  struct sigevent sevp;
+  bool sevp_null;
+  int flags;
+  struct itimerspec initial_timerspec;
+  struct itimerspec curr_timerspec;
+  int overrun;
+} TimerInfo;
 
-
-  class TimerList {
-    public:
+class TimerList
+{
+public:
 #ifdef JALIB_ALLOCATOR
-      static void* operator new(size_t nbytes, void* p) { return p; }
-      static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
-      static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
-#endif
+  static void *operator new(size_t nbytes, void *p) { return p; }
+  static void *operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
+  static void operator delete(void *p) { JALLOC_HELPER_DELETE(p); }
+#endif // ifdef JALIB_ALLOCATOR
 
-      TimerList()
-        : _timerVirtIdTable("Timer", (timer_t) NULL, 999999)
-        , _clockVirtIdTable("Clock", (clockid_t) (unsigned) getpid()) {} //(clockid_t) (unsigned long) getpid()) { }
+  TimerList()
+    : _timerVirtIdTable("Timer", (timer_t)NULL, 999999),
+      _clockVirtIdTable("Clock", (clockid_t)(unsigned)getpid())
+  {
+  } // (clockid_t)
 
-      static TimerList& instance();
+  // (unsigned
+  // long)
+  // getpid())
+  // { }
 
-      void resetOnFork();
-      void preCheckpoint();
-      void postRestart();
+  static TimerList &instance();
 
-      timer_t  virtualToRealTimerId(timer_t virtId) {
-        return _timerVirtIdTable.virtualToReal(virtId);
-      }
-      timer_t  realToVirtualTimerId(timer_t realId) {
-        return _timerVirtIdTable.realToVirtual(realId);
-      }
-      clockid_t  virtualToRealClockId(clockid_t virtId) {
-        return _clockVirtIdTable.virtualToReal(virtId);
-      }
-//      timer_t  realToVirtualClockId(timer_t realId) {
-//        if (_clockVirtIdTable.realIdExists(realId)) {
-//          return _clockVirtIdTable.realToVirtual(realId);
-//        } else {
-//          return -1;
-//        }
-//      }
+  void resetOnFork();
+  void preCheckpoint();
+  void postRestart();
 
-      int getoverrun(timer_t id);
-      timer_t on_timer_create(timer_t realId, clockid_t clockid,
-                           struct sigevent *sevp);
-      void on_timer_delete(timer_t timerid);
-      void on_timer_settime(timer_t timerid, int flags,
-                            const struct itimerspec *new_value);
-      clockid_t on_clock_getcpuclockid(pid_t pid, clockid_t clock_id);
-      clockid_t on_pthread_getcpuclockid(pthread_t thread, clockid_t clock_id);
+  timer_t virtualToRealTimerId(timer_t virtId)
+  {
+    return _timerVirtIdTable.virtualToReal(virtId);
+  }
 
-    private:
-      void removeStaleClockIds();
+  timer_t realToVirtualTimerId(timer_t realId)
+  {
+    return _timerVirtIdTable.realToVirtual(realId);
+  }
 
-      map<timer_t, TimerInfo> _timerInfo;
-      map<timer_t, TimerInfo>::iterator _iter;
-      map<clockid_t, pid_t> _clockPidList;
-      map<clockid_t, pthread_t> _clockPthreadList;
+  clockid_t virtualToRealClockId(clockid_t virtId)
+  {
+    return _clockVirtIdTable.virtualToReal(virtId);
+  }
 
-      VirtualIdTable<timer_t> _timerVirtIdTable;
-      VirtualIdTable<clockid_t> _clockVirtIdTable;
-  };
+  // timer_t  realToVirtualClockId(timer_t realId) {
+  // if (_clockVirtIdTable.realIdExists(realId)) {
+  // return _clockVirtIdTable.realToVirtual(realId);
+  // } else {
+  // return -1;
+  // }
+  // }
+
+  int getoverrun(timer_t id);
+  timer_t on_timer_create(timer_t realId,
+                          clockid_t clockid,
+                          struct sigevent *sevp);
+  void on_timer_delete(timer_t timerid);
+  void on_timer_settime(timer_t timerid,
+                        int flags,
+                        const struct itimerspec *new_value);
+  clockid_t on_clock_getcpuclockid(pid_t pid, clockid_t clock_id);
+  clockid_t on_pthread_getcpuclockid(pthread_t thread, clockid_t clock_id);
+
+private:
+  void removeStaleClockIds();
+
+  map<timer_t, TimerInfo> _timerInfo;
+  map<timer_t, TimerInfo>::iterator _iter;
+  map<clockid_t, pid_t> _clockPidList;
+  map<clockid_t, pthread_t> _clockPthreadList;
+
+  VirtualIdTable<timer_t> _timerVirtIdTable;
+  VirtualIdTable<clockid_t> _clockVirtIdTable;
+};
 }
-#endif
+#endif // ifndef TIMER_LIST_H

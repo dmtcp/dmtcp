@@ -22,101 +22,105 @@
 #ifndef COORDINATORAPI_H
 #define COORDINATORAPI_H
 
+#include "../jalib/jalloc.h"
 #include "constants.h"
-#include "protectedfds.h"
 #include "dmtcpmessagetypes.h"
+#include "protectedfds.h"
 #include "shareddata.h"
 #include "syscallwrappers.h"
-#include "../jalib/jalloc.h"
 
 namespace dmtcp
 {
-  enum CoordinatorMode {
-    COORD_INVALID   = 0x0000,
-    COORD_JOIN      = 0x0001,
-    COORD_NEW       = 0x0002,
-    COORD_NONE      = 0x0004,
-    COORD_ANY       = 0x0010
-  };
+enum CoordinatorMode {
+  COORD_INVALID = 0x0000,
+  COORD_JOIN = 0x0001,
+  COORD_NEW = 0x0002,
+  COORD_NONE = 0x0004,
+  COORD_ANY = 0x0010
+};
 
-  class CoordinatorAPI
-  {
-    public:
+class CoordinatorAPI
+{
+public:
 #ifdef JALIB_ALLOCATOR
-      static void* operator new(size_t nbytes, void* p) { return p; }
-      static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
-      static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
-#endif
-      CoordinatorAPI (void) : _coordinatorSocket(-1), _nsSock(-1) {}
-      // Use default destructor
+  static void *operator new(size_t nbytes, void *p) { return p; }
+  static void *operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
+  static void operator delete(void *p) { JALLOC_HELPER_DELETE(p); }
+#endif // ifdef JALIB_ALLOCATOR
+  CoordinatorAPI(void) : _coordinatorSocket(-1), _nsSock(-1) {}
+  // Use default destructor
 
-      static CoordinatorAPI& instance();
-      static void init();
-      static void restart();
-      static void resetOnFork(CoordinatorAPI& coordAPI);
+  static CoordinatorAPI &instance();
+  static void init();
+  static void restart();
+  static void resetOnFork(CoordinatorAPI &coordAPI);
 
-      static void getCoordHostAndPort(CoordinatorMode mode,
-                                      const char **host, int *port);
-      static void setCoordPort(int port);
+  static void getCoordHostAndPort(CoordinatorMode mode,
+                                  const char **host,
+                                  int *port);
+  static void setCoordPort(int port);
 
-      void setupVirtualCoordinator(CoordinatorInfo *coordInfo,
-                                   struct in_addr  *localIP);
-      void waitForCheckpointCommand();
-      static bool noCoordinator();
+  void setupVirtualCoordinator(CoordinatorInfo *coordInfo,
+                               struct in_addr *localIP);
+  void waitForCheckpointCommand();
+  static bool noCoordinator();
 
-      void connectToCoordOnStartup(CoordinatorMode  mode,
-                                   string           progname,
-                                   DmtcpUniqueProcessId *compId,
-                                   CoordinatorInfo *coordInfo,
-                                   struct in_addr  *localIP);
-      void createNewConnectionBeforeFork(string& progname);
-      void connectToCoordOnRestart(CoordinatorMode  mode,
-                                   string progname,
-                                   UniquePid compGroup,
-                                   int np,
-                                   CoordinatorInfo *coordInfo,
-                                   const char *host,
-                                   int port,
-                                   struct in_addr  *localIP);
-      void closeConnection() { _real_close(_coordinatorSocket); }
-      void updateSockFd();
+  void connectToCoordOnStartup(CoordinatorMode mode,
+                               string progname,
+                               DmtcpUniqueProcessId *compId,
+                               CoordinatorInfo *coordInfo,
+                               struct in_addr *localIP);
+  void createNewConnectionBeforeFork(string &progname);
+  void connectToCoordOnRestart(CoordinatorMode mode,
+                               string progname,
+                               UniquePid compGroup,
+                               int np,
+                               CoordinatorInfo *coordInfo,
+                               const char *host,
+                               int port,
+                               struct in_addr *localIP);
+  void closeConnection() { _real_close(_coordinatorSocket); }
+  void updateSockFd();
 
-      bool isValid() { return _coordinatorSocket != -1; }
+  bool isValid() { return _coordinatorSocket != -1; }
+  void sendMsgToCoordinator(DmtcpMessage msg,
+                            const void *extraData = NULL,
+                            size_t len = 0);
+  void sendMsgToCoordinator(const DmtcpMessage &msg, const string &data);
+  void recvMsgFromCoordinator(DmtcpMessage *msg, void **extraData = NULL);
+  void waitForBarrier(const string &barrierId);
+  char *connectAndSendUserCommand(char c,
+                                  int *coordCmdStatus = NULL,
+                                  int *numPeers = NULL,
+                                  int *isRunning = NULL,
+                                  int *ckptInterval = NULL);
 
-      void sendMsgToCoordinator(DmtcpMessage msg,
-                                const void *extraData = NULL,
-                                size_t len = 0);
-      void sendMsgToCoordinator(const DmtcpMessage &msg, const string &data);
-      void recvMsgFromCoordinator(DmtcpMessage *msg,
-                                  void **extraData = NULL);
-      void waitForBarrier(const string& barrierId);
-      char* connectAndSendUserCommand(char c,
-                                     int *coordCmdStatus = NULL,
-                                     int *numPeers = NULL,
-                                     int *isRunning = NULL,
-                                     int *ckptInterval = NULL);
+  void updateCoordCkptDir(const char *dir);
+  string getCoordCkptDir(void);
 
-      void updateCoordCkptDir(const char *dir);
-      string getCoordCkptDir(void);
+  void sendCkptFilename();
 
-      void sendCkptFilename();
+  int sendKeyValPairToCoordinator(const char *id,
+                                  const void *key,
+                                  uint32_t key_len,
+                                  const void *val,
+                                  uint32_t val_len);
+  int sendQueryToCoordinator(const char *id,
+                             const void *key,
+                             uint32_t key_len,
+                             void *val,
+                             uint32_t *val_len);
 
-      int sendKeyValPairToCoordinator(const char *id,
-                                      const void *key, uint32_t key_len,
-                                      const void *val, uint32_t val_len);
-      int sendQueryToCoordinator(const char *id,
-                                 const void *key, uint32_t key_len,
-                                 void *val, uint32_t *val_len);
+private:
+  void startNewCoordinator(CoordinatorMode mode);
+  void createNewConnToCoord(CoordinatorMode mode);
+  DmtcpMessage sendRecvHandshake(DmtcpMessage msg,
+                                 string progname,
+                                 UniquePid *compId = NULL);
 
-    private:
-      void startNewCoordinator(CoordinatorMode mode);
-      void createNewConnToCoord(CoordinatorMode mode);
-      DmtcpMessage sendRecvHandshake(DmtcpMessage msg, string progname,
-                                     UniquePid *compId = NULL);
-
-      int _coordinatorSocket;
-      int _nsSock;
-  };
+  int _coordinatorSocket;
+  int _nsSock;
+};
 }
 
-#endif
+#endif // ifndef COORDINATORAPI_H

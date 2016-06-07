@@ -19,40 +19,37 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include <fcntl.h>
-#include "util.h"
 #include "procselfmaps.h"
-#include "syscallwrappers.h"
+#include <fcntl.h>
 #include "jassert.h"
+#include "syscallwrappers.h"
+#include "util.h"
 
 using namespace dmtcp;
 
-
 ProcSelfMaps::ProcSelfMaps()
-  : dataIdx(0),
-    numAreas(0),
-    numBytes(0),
-    fd(-1),
-    numAllocExpands(0)
+  : dataIdx(0), numAreas(0), numBytes(0), fd(-1), numAllocExpands(0)
 {
   char buf[4096];
+
   // NOTE: preExpand() verifies that we have at least 10 chunks pre-allocated
-  //   for each level of the allocator.  See jalib/jalloc.cpp:preExpand().
-  //   It assumes no allocation larger than jalloc.cpp:MAX_CHUNKSIZE.
-  //   Ideally, we would have followed the MTCP C code, and not allocated
-  //   any memory bewteen the constructor and destructor of ProcSelfMaps.
-  //   But since C++ is biased toward frequent mallocs (e.g., dynamic vectors),
-  //   we try to compensate here for the weaknesses of C++.
+  // for each level of the allocator.  See jalib/jalloc.cpp:preExpand().
+  // It assumes no allocation larger than jalloc.cpp:MAX_CHUNKSIZE.
+  // Ideally, we would have followed the MTCP C code, and not allocated
+  // any memory bewteen the constructor and destructor of ProcSelfMaps.
+  // But since C++ is biased toward frequent mallocs (e.g., dynamic vectors),
+  // we try to compensate here for the weaknesses of C++.
   // If we use this /proc/self/maps for checkpointing, we must not mmap
-  //   as part of the allocator prior to writing the memory to the ckpt image.
+  // as part of the allocator prior to writing the memory to the ckpt image.
   jalib::JAllocDispatcher::preExpand();
   numAllocExpands = jalib::JAllocDispatcher::numExpands();
+
   // FIXME:  Also, any memory allocated and not freed since the calls to
-  //   setcontext() on the various threads will be a memory leak on restart.
-  //   We should check for that.
+  // setcontext() on the various threads will be a memory leak on restart.
+  // We should check for that.
 
   fd = _real_open("/proc/self/maps", O_RDONLY);
-  JASSERT(fd != -1) (JASSERT_ERRNO);
+  JASSERT(fd != -1)(JASSERT_ERRNO);
   ssize_t numRead = 0;
 
   // Get an approximation of the required buffer size.
@@ -66,15 +63,15 @@ ProcSelfMaps::ProcSelfMaps()
   // Now allocate a buffer. Note that this will most likely change the layout
   // of /proc/self/maps, so we need to recalculate numBytes.
   size_t size = numBytes + 4096; // Add a one page buffer.
-  data = (char*) JALLOC_HELPER_MALLOC(size);
+  data = (char *)JALLOC_HELPER_MALLOC(size);
   JASSERT(lseek(fd, 0, SEEK_SET) == 0);
 
   numBytes = Util::readAll(fd, data, size);
-  JASSERT(numBytes > 0) (numBytes);
+  JASSERT(numBytes > 0)(numBytes);
 
   // TODO(kapil): Replace this assert with more robust code that would
   // reallocate the buffer with an extended size.
-  JASSERT(numBytes < size) (numBytes) (size);
+  JASSERT(numBytes < size)(numBytes)(size);
 
   // TODO(kapil): Validate the read data.
   JASSERT(isValidData());
@@ -95,22 +92,25 @@ ProcSelfMaps::~ProcSelfMaps()
   dataIdx = 0;
   numAreas = 0;
   numBytes = 0;
+
   // Verify that JAlloc doesn't expand memory (via mmap)
-  //   while reading /proc/self/maps.
+  // while reading /proc/self/maps.
   // FIXME:  Change from JWARNING to JASSERT when we have confidence in this.
   JWARNING(numAllocExpands == jalib::JAllocDispatcher::numExpands())
-          (numAllocExpands)(jalib::JAllocDispatcher::numExpands())
-          .Text("JAlloc: memory expanded through call to mmap()."
-                "  Inconsistent JAlloc will be a problem on restart");
+  (numAllocExpands)(jalib::JAllocDispatcher::numExpands())
+    .Text("JAlloc: memory expanded through call to mmap()."
+          "  Inconsistent JAlloc will be a problem on restart");
 }
 
-bool ProcSelfMaps::isValidData()
+bool
+ProcSelfMaps::isValidData()
 {
   // TODO(kapil): Add validation check.
   return true;
 }
 
-unsigned long int ProcSelfMaps::readDec()
+unsigned long int
+ProcSelfMaps::readDec()
 {
   unsigned long int v = 0;
 
@@ -127,7 +127,8 @@ unsigned long int ProcSelfMaps::readDec()
   return v;
 }
 
-unsigned long int ProcSelfMaps::readHex()
+unsigned long int
+ProcSelfMaps::readHex()
 {
   unsigned long int v = 0;
 
@@ -148,7 +149,8 @@ unsigned long int ProcSelfMaps::readHex()
   return v;
 }
 
-int ProcSelfMaps::getNextArea(ProcMapsArea* area)
+int
+ProcSelfMaps::getNextArea(ProcMapsArea *area)
 {
   char rflag, sflag, wflag, xflag;
 
@@ -156,12 +158,12 @@ int ProcSelfMaps::getNextArea(ProcMapsArea* area)
     return 0;
   }
 
-  area->addr = (VA) readHex();
+  area->addr = (VA)readHex();
   JASSERT(area->addr != NULL);
 
   JASSERT(data[dataIdx++] == '-');
 
-  area->endAddr = (VA) readHex();
+  area->endAddr = (VA)readHex();
   JASSERT(area->endAddr != NULL);
 
   JASSERT(data[dataIdx++] == ' ');
@@ -198,7 +200,7 @@ int ProcSelfMaps::getNextArea(ProcMapsArea* area)
     dataIdx++;
   }
 
-  area -> name[0] = '\0';
+  area->name[0] = '\0';
   if (data[dataIdx] == '/' || data[dataIdx] == '[' || data[dataIdx] == '(') {
     // absolute pathname, or [stack], [vdso], etc.
     // On some machines, deleted files have a " (deleted)" prefix to the
@@ -208,31 +210,31 @@ int ProcSelfMaps::getNextArea(ProcMapsArea* area)
       area->name[i++] = data[dataIdx++];
       JASSERT(i < sizeof(area->name));
     }
-    area -> name[i] = '\0';
+    area->name[i] = '\0';
   }
 
   JASSERT(data[dataIdx++] == '\n');
 
-  area -> prot = 0;
+  area->prot = 0;
   if (rflag == 'r') {
-    area -> prot |= PROT_READ;
+    area->prot |= PROT_READ;
   }
   if (wflag == 'w') {
-    area -> prot |= PROT_WRITE;
+    area->prot |= PROT_WRITE;
   }
   if (xflag == 'x') {
-    area -> prot |= PROT_EXEC;
+    area->prot |= PROT_EXEC;
   }
 
-  area -> flags = MAP_FIXED;
+  area->flags = MAP_FIXED;
   if (sflag == 's') {
-    area -> flags |= MAP_SHARED;
+    area->flags |= MAP_SHARED;
   }
   if (sflag == 'p') {
-    area -> flags |= MAP_PRIVATE;
+    area->flags |= MAP_PRIVATE;
   }
-  if (area -> name[0] == '\0') {
-    area -> flags |= MAP_ANONYMOUS;
+  if (area->name[0] == '\0') {
+    area->flags |= MAP_ANONYMOUS;
   }
 
   area->properties = 0;

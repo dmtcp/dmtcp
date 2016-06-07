@@ -25,14 +25,16 @@
 
 using namespace dmtcp;
 
-void LookupService::reset()
+void
+LookupService::reset()
 {
   MapIterator i;
+
   for (i = _maps.begin(); i != _maps.end(); i++) {
     KeyValueMap &kvmap = i->second;
     KeyValueMap::iterator it;
     for (it = kvmap.begin(); it != kvmap.end(); it++) {
-      KeyValue *k = (KeyValue*)&(it->first);
+      KeyValue *k = (KeyValue *)&(it->first);
       KeyValue *v = it->second;
       k->destroy();
       v->destroy();
@@ -43,26 +45,28 @@ void LookupService::reset()
   _maps.clear();
 }
 
-void LookupService::addKeyValue(string id,
-                                       const void *key, size_t keyLen,
-                                       const void *val, size_t valLen)
+void
+LookupService::addKeyValue(
+  string id, const void *key, size_t keyLen, const void *val, size_t valLen)
 {
   KeyValueMap &kvmap = _maps[id];
 
   KeyValue k(key, keyLen);
   KeyValue *v = new KeyValue(val, valLen);
+
   if (kvmap.find(k) != kvmap.end()) {
     JTRACE("Duplicate key");
   }
   kvmap[k] = v;
 }
 
-void LookupService::query(string id,
-                                 const void *key, size_t keyLen,
-                                 void **val, size_t *valLen)
+void
+LookupService::query(
+  string id, const void *key, size_t keyLen, void **val, size_t *valLen)
 {
   KeyValueMap &kvmap = _maps[id];
   KeyValue k(key, keyLen);
+
   if (kvmap.find(k) == kvmap.end()) {
     JTRACE("Lookup Failed, Key not found.");
     *val = NULL;
@@ -76,12 +80,12 @@ void LookupService::query(string id,
   memcpy(*val, v->data(), *valLen);
 }
 
-void LookupService::registerData(const DmtcpMessage& msg,
-                                        const void *data)
+void
+LookupService::registerData(const DmtcpMessage &msg, const void *data)
 {
-  JASSERT (msg.keyLen > 0 && msg.valLen > 0 &&
-           msg.keyLen + msg.valLen == msg.extraBytes)
-    (msg.keyLen) (msg.valLen) (msg.extraBytes);
+  JASSERT(msg.keyLen > 0 && msg.valLen > 0 &&
+          msg.keyLen + msg.valLen == msg.extraBytes)
+  (msg.keyLen)(msg.valLen)(msg.extraBytes);
   const void *key = data;
   const void *val = (char *)key + msg.keyLen;
   size_t keyLen = msg.keyLen;
@@ -89,25 +93,26 @@ void LookupService::registerData(const DmtcpMessage& msg,
   addKeyValue(msg.nsid, key, keyLen, val, valLen);
 }
 
-void LookupService::respondToQuery(jalib::JSocket& remote,
-                                          const DmtcpMessage& msg,
-                                          const void *key)
+void
+LookupService::respondToQuery(jalib::JSocket &remote,
+                              const DmtcpMessage &msg,
+                              const void *key)
 {
-  JASSERT (msg.keyLen > 0 && msg.keyLen == msg.extraBytes)
-    (msg.keyLen) (msg.extraBytes);
+  JASSERT(msg.keyLen > 0 && msg.keyLen == msg.extraBytes)
+  (msg.keyLen)(msg.extraBytes);
   void *val = NULL;
   size_t valLen = 0;
 
   query(msg.nsid, key, msg.keyLen, &val, &valLen);
 
-  DmtcpMessage reply (DMT_NAME_SERVICE_QUERY_RESPONSE);
+  DmtcpMessage reply(DMT_NAME_SERVICE_QUERY_RESPONSE);
   reply.keyLen = 0;
   reply.valLen = valLen;
   reply.extraBytes = reply.valLen;
 
   remote << reply;
   if (valLen > 0) {
-    remote.writeAll((char*)val, valLen);
+    remote.writeAll((char *)val, valLen);
   }
-  delete [] (char*)val;
+  delete[](char *) val;
 }

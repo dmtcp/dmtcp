@@ -23,15 +23,13 @@
 
 namespace dmtcp
 {
-
-  class SyslogCheckpointer
-  {
-    public:
-      static void stopService();
-      static void restoreService();
-      static void resetOnFork();
-  };
-
+class SyslogCheckpointer
+{
+public:
+  static void stopService();
+  static void restoreService();
+  static void resetOnFork();
+};
 }
 
-#endif
+#endif // ifndef DMTCPSYSLOGCHECKPOINTER_H

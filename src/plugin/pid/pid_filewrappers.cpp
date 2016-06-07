@@ -37,31 +37,32 @@
 #define readlink readlink_always_inline
 #define realpath realpath_always_inline
 
-#include <stdio.h>
 #include <stdarg.h>
-#include <sys/ioctl.h>
+#include <stdio.h>
 #include <string.h>
+#include <sys/ioctl.h>
 
 #undef open
 #undef open64
 #undef readlink
 #undef realpath
 
+#include "dmtcp.h"
 #include "jassert.h"
-#include "jfilesystem.h"
 #include "jconvert.h"
+#include "jfilesystem.h"
+#include "pid.h"
 #include "pidwrappers.h"
 #include "util.h"
 #include "virtualpidtable.h"
-#include "dmtcp.h"
-#include "pid.h"
 
 #define PROC_PREFIX "/proc/"
 
 using namespace dmtcp;
 
 // FIXME:  This function needs third argument newpathsize, or assume PATH_MAX
-static void updateProcPathVirtualToReal(const char *path, char **newpath)
+static void
+updateProcPathVirtualToReal(const char *path, char **newpath)
 {
   if (Util::strStartsWith(path, PROC_PREFIX)) {
     int index = strlen(PROC_PREFIX);
@@ -77,7 +78,8 @@ static void updateProcPathVirtualToReal(const char *path, char **newpath)
 }
 
 // FIXME:  This function needs third argument newpathsize, or assume PATH_MAX
-static void updateProcPathRealToVirtual(const char *path, char **newpath)
+static void
+updateProcPathRealToVirtual(const char *path, char **newpath)
 {
   if (Util::strStartsWith(path, PROC_PREFIX)) {
     int index = strlen(PROC_PREFIX);
@@ -90,20 +92,21 @@ static void updateProcPathRealToVirtual(const char *path, char **newpath)
     }
   }
   *newpath = (char *)path;
-  return;
 }
 
 /* Used by open() wrapper to do other tracking of open apart from
    synchronization stuff. */
-extern "C" int open (const char *path, int flags, ... )
+extern "C" int
+open(const char *path, int flags, ...)
 {
   mode_t mode = 0;
+
   // Handling the variable number of arguments
   if (flags & O_CREAT) {
     va_list arg;
-    va_start (arg, flags);
-    mode = va_arg (arg, int);
-    va_end (arg);
+    va_start(arg, flags);
+    mode = va_arg(arg, int);
+    va_end(arg);
   }
   char tmpbuf[PATH_MAX];
   char *newpath = tmpbuf;
@@ -112,15 +115,17 @@ extern "C" int open (const char *path, int flags, ... )
 }
 
 // FIXME: Add the 'fn64' wrapper test cases to dmtcp test suite.
-extern "C" int open64 (const char *path, int flags, ... )
+extern "C" int
+open64(const char *path, int flags, ...)
 {
   mode_t mode = 0;
+
   // Handling the variable number of arguments
   if (flags & O_CREAT) {
     va_list arg;
-    va_start (arg, flags);
-    mode = va_arg (arg, int);
-    va_end (arg);
+    va_start(arg, flags);
+    mode = va_arg(arg, int);
+    va_end(arg);
   }
   char tmpbuf[PATH_MAX];
   char *newpath = tmpbuf;
@@ -128,23 +133,28 @@ extern "C" int open64 (const char *path, int flags, ... )
   return _real_open64(newpath, flags, mode);
 }
 
-extern "C" FILE *fopen (const char* path, const char* mode)
+extern "C" FILE *
+fopen(const char *path, const char *mode)
 {
   char tmpbuf[PATH_MAX];
   char *newpath = tmpbuf;
+
   updateProcPathVirtualToReal(path, &newpath);
   return _real_fopen(newpath, mode);
 }
 
-extern "C" FILE *fopen64 (const char* path, const char* mode)
+extern "C" FILE *
+fopen64(const char *path, const char *mode)
 {
   char tmpbuf[PATH_MAX];
   char *newpath = tmpbuf;
+
   updateProcPathVirtualToReal(path, &newpath);
   return _real_fopen64(newpath, mode);
 }
 
-extern "C" int fclose(FILE *fp)
+extern "C" int
+fclose(FILE *fp)
 {
   // This wrapper is needed to ensure that we call the "GLIBC_2.1" version in
   // 32-bit systems.  Ideally, this should be done only in the plugin that uses
@@ -152,95 +162,114 @@ extern "C" int fclose(FILE *fp)
   return _real_fclose(fp);
 }
 
-extern "C" int __xstat(int vers, const char *path, struct stat *buf)
+extern "C" int
+__xstat(int vers, const char *path, struct stat *buf)
 {
   char tmpbuf[PATH_MAX];
   char *newpath = tmpbuf;
+
   // See filewrapper.cpp:__xstat() for comments on this code.
   int retval = _real_xstat(vers, path, buf);
+
   if (retval == -1 && errno == EFAULT) {
     // We're done.  Return.
   } else {
     updateProcPathVirtualToReal(path, &newpath);
     if (newpath != path) {
-      retval = _real_xstat(vers, newpath, buf); 
-    } 
+      retval = _real_xstat(vers, newpath, buf);
+    }
   }
   return retval;
 }
 
-extern "C" int __xstat64(int vers, const char *path, struct stat64 *buf)
+extern "C" int
+__xstat64(int vers, const char *path, struct stat64 *buf)
 {
   char tmpbuf[PATH_MAX];
   char *newpath = tmpbuf;
+
   // See filewrapper.cpp:__xstat() for comments on this code.
   int retval = _real_xstat64(vers, path, buf);
+
   if (retval == -1 && errno == EFAULT) {
     // We're done.  Return.
   } else {
     updateProcPathVirtualToReal(path, &newpath);
     if (newpath != path) {
-      retval = _real_xstat64(vers, newpath, buf); 
-    } 
+      retval = _real_xstat64(vers, newpath, buf);
+    }
   }
   return retval;
 }
 
 #if 0
-extern "C" int __fxstat(int vers, int fd, struct stat *buf)
+extern "C" int
+__fxstat(int vers, int fd, struct stat *buf)
 {
   int retval = _real_fxstat(vers, fd, buf);
+
   return retval;
 }
 
-extern "C" int __fxstat64(int vers, int fd, struct stat64 *buf)
+extern "C" int
+__fxstat64(int vers, int fd, struct stat64 *buf)
 {
   int retval = _real_fxstat64(vers, fd, buf);
+
   return retval;
 }
-#endif
+#endif // if 0
 
-extern "C" int __lxstat(int vers, const char *path, struct stat *buf)
+extern "C" int
+__lxstat(int vers, const char *path, struct stat *buf)
 {
   char tmpbuf[PATH_MAX];
   char *newpath = tmpbuf;
+
   // See filewrapper.cpp:__xstat() for comments on this code.
   int retval = _real_lxstat(vers, path, buf);
+
   if (retval == -1 && errno == EFAULT) {
     // We're done.  Return.
   } else {
     updateProcPathVirtualToReal(path, &newpath);
     if (newpath != path) {
-      retval = _real_lxstat(vers, newpath, buf); 
-    } 
+      retval = _real_lxstat(vers, newpath, buf);
+    }
   }
   return retval;
 }
 
-extern "C" int __lxstat64(int vers, const char *path, struct stat64 *buf)
+extern "C" int
+__lxstat64(int vers, const char *path, struct stat64 *buf)
 {
   char tmpbuf[PATH_MAX];
   char *newpath = tmpbuf;
+
   // See filewrapper.cpp:__xstat() for comments on this code.
   int retval = _real_lxstat64(vers, path, buf);
+
   if (retval == -1 && errno == EFAULT) {
     // We're done.  Return.
   } else {
     updateProcPathVirtualToReal(path, &newpath);
     if (newpath != path) {
-      retval = _real_lxstat64(vers, newpath, buf); 
-    } 
+      retval = _real_lxstat64(vers, newpath, buf);
+    }
   }
   return retval;
 }
 
-extern "C" ssize_t readlink(const char *path, char *buf, size_t bufsiz)
+extern "C" ssize_t
+readlink(const char *path, char *buf, size_t bufsiz)
 {
   char tmpbuf[PATH_MAX];
   char *newpath = tmpbuf;
-  //FIXME:  Suppose the real path is longer than PATH_MAX.  Do we check?
+
+  // FIXME:  Suppose the real path is longer than PATH_MAX.  Do we check?
   updateProcPathVirtualToReal(path, &newpath);
-  return NEXT_FNC(readlink) (newpath, buf, bufsiz);
+  return NEXT_FNC(readlink)(newpath, buf, bufsiz);
+
 #if 0
   if (ret != -1) {
     JASSERT(ret < bufsiz)(ret)(bufsiz)(buf)(newpath);
@@ -250,16 +279,19 @@ extern "C" ssize_t readlink(const char *path, char *buf, size_t bufsiz)
     strcpy(buf, newpath);
   }
   return ret;
-#endif
+#endif // if 0
 }
 
-extern "C" char *realpath(const char *path, char *resolved_path)
+extern "C" char *
+realpath(const char *path, char *resolved_path)
 {
   char tmpbuf[PATH_MAX];
   char *newpath = tmpbuf;
+
   updateProcPathVirtualToReal(path, &newpath);
+
   // Required for matlab-2012 and later; realpath is a versioned symbol.
-  char *retval = NEXT_FNC_DEFAULT(realpath) (newpath, resolved_path);
+  char *retval = NEXT_FNC_DEFAULT(realpath)(newpath, resolved_path);
   if (retval != NULL) {
     updateProcPathRealToVirtual(retval, &newpath);
     strcpy(retval, newpath);
@@ -267,29 +299,33 @@ extern "C" char *realpath(const char *path, char *resolved_path)
   return retval;
 }
 
-extern "C" char *__realpath(const char *path, char *resolved_path)
+extern "C" char *
+__realpath(const char *path, char *resolved_path)
 {
   return realpath(path, resolved_path);
 }
 
-extern "C" char *__realpath_chk(const char *path, char *resolved_path,
-                                size_t resolved_len)
+extern "C" char *
+__realpath_chk(const char *path, char *resolved_path, size_t resolved_len)
 {
   return realpath(path, resolved_path);
 }
 
-extern "C" char *canonicalize_file_name(const char *path)
+extern "C" char *
+canonicalize_file_name(const char *path)
 {
   return realpath(path, NULL);
 }
 
 #include <unistd.h>
-extern "C" int access(const char *path, int mode)
+extern "C" int
+access(const char *path, int mode)
 {
   char tmpbuf[PATH_MAX];
   char *newpath = tmpbuf;
+
   updateProcPathVirtualToReal(path, &newpath);
-  return NEXT_FNC(access) (newpath, mode);
+  return NEXT_FNC(access)(newpath, mode);
 }
 
 // TODO:  ioctl must use virtualized pids for request = TIOCGPGRP / TIOCSPGRP
@@ -298,8 +334,8 @@ extern "C" {
 int send_sigwinch = 0;
 }
 
-
-extern "C" int ioctl(int d,  unsigned long int request, ...)
+extern "C" int
+ioctl(int d, unsigned long int request, ...)
 {
   va_list ap;
   int retval;
@@ -309,15 +345,15 @@ extern "C" int ioctl(int d,  unsigned long int request, ...)
     va_list local_ap;
     va_copy(local_ap, ap);
     va_start(local_ap, request);
-    struct winsize * win = va_arg(local_ap, struct winsize *);
+    struct winsize *win = va_arg(local_ap, struct winsize *);
     va_end(local_ap);
-    retval = _real_ioctl(d, request, win);  // This fills in win
+    retval = _real_ioctl(d, request, win); // This fills in win
     win->ws_col--; // Lie to application, and force it to resize window,
-		   //  reset any scroll regions, etc.
+    // reset any scroll regions, etc.
     kill(getpid(), SIGWINCH); // Tell application to look up true winsize
-			      // and resize again.
+    // and resize again.
   } else {
-    void * arg;
+    void *arg;
     va_start(ap, request);
     arg = va_arg(ap, void *);
     va_end(ap);

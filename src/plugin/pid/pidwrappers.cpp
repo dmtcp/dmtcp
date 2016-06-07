@@ -19,22 +19,22 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#include <fcntl.h>
 #include <stdarg.h>
-#include <vector>
+#include <sys/ioctl.h>
+#include <sys/procfs.h>
+#include <sys/syscall.h>
 #include <list>
 #include <string>
-#include <fcntl.h>
-#include <sys/ioctl.h>
-#include <sys/syscall.h>
-#include <sys/procfs.h>
+#include <vector>
 
+#include "dmtcp.h"
 #include "jassert.h"
 #include "jconvert.h"
-#include "pidwrappers.h"
-#include "virtualpidtable.h"
-#include "dmtcp.h"
 #include "pid.h"
+#include "pidwrappers.h"
 #include "util.h"
+#include "virtualpidtable.h"
 
 using namespace dmtcp;
 
@@ -43,9 +43,11 @@ static __thread pid_t _dmtcp_thread_tid = -1;
 static pid_t _dmtcp_pid = -1;
 static pid_t _dmtcp_ppid = -1;
 
-LIB_PRIVATE pid_t getPidFromEnvVar()
+LIB_PRIVATE pid_t
+getPidFromEnvVar()
 {
   const char *pidstr = getenv(ENV_VAR_VIRTUAL_PID);
+
   if (pidstr == NULL) {
     fprintf(stderr, "ERROR at %s:%d: env var DMTCP_VIRTUAL_PID not set\n\n",
             __FILE__, __LINE__);
@@ -55,8 +57,8 @@ LIB_PRIVATE pid_t getPidFromEnvVar()
   return strtol(pidstr, NULL, 10);
 }
 
-extern "C" LIB_PRIVATE
-void dmtcpResetPidPpid()
+extern "C" LIB_PRIVATE void
+dmtcpResetPidPpid()
 {
   const char *pidstr = getenv(ENV_VAR_VIRTUAL_PID);
   char *virtPpidstr = NULL;
@@ -106,9 +108,8 @@ void dmtcpResetPidPpid()
   }
 }
 
-
-extern "C" LIB_PRIVATE
-void dmtcpResetTid(pid_t tid)
+extern "C" LIB_PRIVATE void
+dmtcpResetTid(pid_t tid)
 {
   _dmtcp_thread_tid = tid;
 }
@@ -117,16 +118,16 @@ void dmtcpResetTid(pid_t tid)
  * plugins are called in the reverse order during restart/resume phase, we can
  * call this function while processing RESTART event.
  */
-extern "C"
-void dmtcp_update_ppid()
+extern "C" void
+dmtcp_update_ppid()
 {
   if (_dmtcp_ppid != 1) {
-    VirtualPidTable::instance().updateMapping(_dmtcp_ppid,
-                                                     _real_getppid());
+    VirtualPidTable::instance().updateMapping(_dmtcp_ppid, _real_getppid());
   }
 }
 
-LIB_PRIVATE pid_t dmtcp_gettid()
+LIB_PRIVATE pid_t
+dmtcp_gettid()
 {
   /* dmtcp::ThreadList::updateTid calls gettid() before calling
    *  ThreadSync::decrementUninitializedThreadCount() and so the value is
@@ -134,13 +135,15 @@ LIB_PRIVATE pid_t dmtcp_gettid()
    */
   if (_dmtcp_thread_tid == -1) {
     _dmtcp_thread_tid = getpid();
+
     // Make sure this is the motherofall thread.
-    JASSERT(_real_gettid() == _real_getpid()) (_real_gettid()) (_real_getpid());
+    JASSERT(_real_gettid() == _real_getpid())(_real_gettid())(_real_getpid());
   }
   return _dmtcp_thread_tid;
 }
 
-extern "C" pid_t getpid()
+extern "C" pid_t
+getpid()
 {
   if (_dmtcp_pid == -1) {
     dmtcpResetPidPpid();
@@ -148,7 +151,8 @@ extern "C" pid_t getpid()
   return _dmtcp_pid;
 }
 
-extern "C" pid_t getppid()
+extern "C" pid_t
+getppid()
 {
   if (_dmtcp_ppid == -1) {
     dmtcpResetPidPpid();
@@ -164,58 +168,64 @@ extern "C" pid_t getppid()
   return _dmtcp_ppid;
 }
 
-extern "C" pid_t tcsetpgrp(int fd, pid_t pgrp)
+extern "C" pid_t
+tcsetpgrp(int fd, pid_t pgrp)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
 
   pid_t currPgrp = VIRTUAL_TO_REAL_PID(pgrp);
-//  JTRACE("Inside tcsetpgrp wrapper") (fd) (pgrp) (currPgrp);
+
+  // JTRACE("Inside tcsetpgrp wrapper") (fd) (pgrp) (currPgrp);
   pid_t realPid = _real_tcsetpgrp(fd, currPgrp);
   pid_t virtualPid = REAL_TO_VIRTUAL_PID(realPid);
 
-  //JTRACE("tcsetpgrp return value") (fd) (pgrp) (currPgrp) (retval);
+  // JTRACE("tcsetpgrp return value") (fd) (pgrp) (currPgrp) (retval);
   DMTCP_PLUGIN_ENABLE_CKPT();
 
   return virtualPid;
 }
 
-extern "C" pid_t tcgetpgrp(int fd)
+extern "C" pid_t
+tcgetpgrp(int fd)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
 
   pid_t retval = REAL_TO_VIRTUAL_PID(_real_tcgetpgrp(fd));
 
-  JTRACE("tcgetpgrp return value") (fd) (retval);
+  JTRACE("tcgetpgrp return value")(fd)(retval);
   DMTCP_PLUGIN_ENABLE_CKPT();
 
   return retval;
 }
 
-extern "C" pid_t tcgetsid(int fd)
+extern "C" pid_t
+tcgetsid(int fd)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
 
   pid_t retval = REAL_TO_VIRTUAL_PID(_real_tcgetsid(fd));
 
-  JTRACE("tcgetsid return value") (fd) (retval);
+  JTRACE("tcgetsid return value")(fd)(retval);
   DMTCP_PLUGIN_ENABLE_CKPT();
 
   return retval;
 }
 
-extern "C" pid_t getpgrp(void)
+extern "C" pid_t
+getpgrp(void)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
 
   pid_t pgrp = _real_getpgrp();
-  pid_t origPgrp =  REAL_TO_VIRTUAL_PID(pgrp);
+  pid_t origPgrp = REAL_TO_VIRTUAL_PID(pgrp);
 
   DMTCP_PLUGIN_ENABLE_CKPT();
 
   return origPgrp;
 }
 
-extern "C" int setpgrp(void)
+extern "C" int
+setpgrp(void)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
 
@@ -227,67 +237,73 @@ extern "C" int setpgrp(void)
   return virtualPid;
 }
 
-extern "C" pid_t getpgid(pid_t pid)
+extern "C" pid_t
+getpgid(pid_t pid)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
 
-  pid_t realPid = VIRTUAL_TO_REAL_PID (pid);
-  pid_t res = _real_getpgid (realPid);
-  pid_t origPgid = REAL_TO_VIRTUAL_PID (res);
+  pid_t realPid = VIRTUAL_TO_REAL_PID(pid);
+  pid_t res = _real_getpgid(realPid);
+  pid_t origPgid = REAL_TO_VIRTUAL_PID(res);
 
   DMTCP_PLUGIN_ENABLE_CKPT();
 
   return origPgid;
 }
 
-extern "C" int   setpgid(pid_t pid, pid_t pgid)
+extern "C" int
+setpgid(pid_t pid, pid_t pgid)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
 
-  pid_t currPid = VIRTUAL_TO_REAL_PID (pid);
-  pid_t currPgid = VIRTUAL_TO_REAL_PID (pgid);
+  pid_t currPid = VIRTUAL_TO_REAL_PID(pid);
+  pid_t currPgid = VIRTUAL_TO_REAL_PID(pgid);
 
-  int retVal = _real_setpgid (currPid, currPgid);
+  int retVal = _real_setpgid(currPid, currPgid);
 
   DMTCP_PLUGIN_ENABLE_CKPT();
 
   return retVal;
 }
 
-extern "C" pid_t getsid(pid_t pid)
+extern "C" pid_t
+getsid(pid_t pid)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
 
   pid_t currPid;
 
   // If !pid then we ask SID of this process
-  if (pid)
-    currPid = VIRTUAL_TO_REAL_PID (pid);
-  else
+  if (pid) {
+    currPid = VIRTUAL_TO_REAL_PID(pid);
+  } else {
     currPid = _real_getpid();
+  }
 
-  pid_t res = _real_getsid (currPid);
+  pid_t res = _real_getsid(currPid);
 
-  pid_t origSid = REAL_TO_VIRTUAL_PID (res);
+  pid_t origSid = REAL_TO_VIRTUAL_PID(res);
 
   DMTCP_PLUGIN_ENABLE_CKPT();
 
   return origSid;
 }
 
-extern "C" pid_t setsid(void)
+extern "C" pid_t
+setsid(void)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
 
   pid_t pid = _real_setsid();
-  pid_t origPid = REAL_TO_VIRTUAL_PID (pid);
+  pid_t origPid = REAL_TO_VIRTUAL_PID(pid);
 
   DMTCP_PLUGIN_ENABLE_CKPT();
 
   return origPid;
 }
 
-extern "C" int   kill(pid_t pid, int sig)
+extern "C" int
+kill(pid_t pid, int sig)
 {
   /* FIXME: When bash receives a SIGINT signal, the signal handler is
    * called to process the signal. Once the processing is done, bash
@@ -344,50 +360,52 @@ extern "C" int   kill(pid_t pid, int sig)
    * callframe like the one mentioned above.
    *
    */
-//  DMTCP_PLUGIN_DISABLE_CKPT();
 
-  pid_t currPid = VIRTUAL_TO_REAL_PID (pid);
+  // DMTCP_PLUGIN_DISABLE_CKPT();
 
-  int retVal = _real_kill (currPid, sig);
+  pid_t currPid = VIRTUAL_TO_REAL_PID(pid);
 
-//  DMTCP_PLUGIN_ENABLE_CKPT();
+  int retVal = _real_kill(currPid, sig);
 
-  return retVal;
-}
-
-LIB_PRIVATE
-int dmtcp_tkill(int tid, int sig)
-{
-  // FIXME: Check the comments in kill()
-//  DMTCP_PLUGIN_DISABLE_CKPT();
-
-  int realTid = VIRTUAL_TO_REAL_PID (tid);
-
-  int retVal = _real_tkill (realTid, sig);
-
-//  DMTCP_PLUGIN_ENABLE_CKPT();
+  // DMTCP_PLUGIN_ENABLE_CKPT();
 
   return retVal;
 }
 
 LIB_PRIVATE
-int dmtcp_tgkill(int tgid, int tid, int sig)
+int
+dmtcp_tkill(int tid, int sig)
 {
   // FIXME: Check the comments in kill()
-//  DMTCP_PLUGIN_DISABLE_CKPT();
+  // DMTCP_PLUGIN_DISABLE_CKPT();
 
-  int realTgid = VIRTUAL_TO_REAL_PID (tgid);
-  int realTid = VIRTUAL_TO_REAL_PID (tid);
+  int realTid = VIRTUAL_TO_REAL_PID(tid);
 
-  int retVal = _real_tgkill (realTgid, realTid, sig);
+  int retVal = _real_tkill(realTid, sig);
 
-//  DMTCP_PLUGIN_ENABLE_CKPT();
+  // DMTCP_PLUGIN_ENABLE_CKPT();
 
   return retVal;
 }
 
+LIB_PRIVATE
+int
+dmtcp_tgkill(int tgid, int tid, int sig)
+{
+  // FIXME: Check the comments in kill()
+  // DMTCP_PLUGIN_DISABLE_CKPT();
 
-//long sys_tgkill (int tgid, int pid, int sig)
+  int realTgid = VIRTUAL_TO_REAL_PID(tgid);
+  int realTid = VIRTUAL_TO_REAL_PID(tid);
+
+  int retVal = _real_tgkill(realTgid, realTid, sig);
+
+  // DMTCP_PLUGIN_ENABLE_CKPT();
+
+  return retVal;
+}
+
+// long sys_tgkill (int tgid, int pid, int sig)
 
 /*
  * TODO: Add the wrapper protection for wait() family of system calls.
@@ -396,22 +414,26 @@ int dmtcp_tgkill(int tgid, int tid, int sig)
  *                                                      --KAPIL
  */
 
-extern "C" pid_t wait (__WAIT_STATUS stat_loc)
+extern "C" pid_t
+wait(__WAIT_STATUS stat_loc)
 {
-  return waitpid(-1, (int*)stat_loc, 0);
+  return waitpid(-1, (int *)stat_loc, 0);
 }
 
-extern "C" pid_t waitpid(pid_t pid, int *stat_loc, int options)
+extern "C" pid_t
+waitpid(pid_t pid, int *stat_loc, int options)
 {
   return wait4(pid, stat_loc, options, NULL);
 }
 
-extern "C" int waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options)
+extern "C" int
+waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options)
 {
   int retval = 0;
   struct timespec ts = {0, 1000};
   const struct timespec maxts = {1, 0};
   siginfo_t siginfop;
+
   memset(&siginfop, 0, sizeof(siginfop));
 
   /* waitid returns 0 in case of success as well as when WNOHANG is specified
@@ -427,21 +449,20 @@ extern "C" int waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options)
    */
   while (retval == 0) {
     DMTCP_PLUGIN_DISABLE_CKPT();
-    pid_t currPid = VIRTUAL_TO_REAL_PID (id);
-    retval = _real_waitid (idtype, currPid, &siginfop, options | WNOHANG);
+    pid_t currPid = VIRTUAL_TO_REAL_PID(id);
+    retval = _real_waitid(idtype, currPid, &siginfop, options | WNOHANG);
 
     if (retval != -1) {
-      pid_t virtualPid = REAL_TO_VIRTUAL_PID (siginfop.si_pid);
+      pid_t virtualPid = REAL_TO_VIRTUAL_PID(siginfop.si_pid);
       siginfop.si_pid = virtualPid;
 
-      if (siginfop.si_code == CLD_EXITED || siginfop.si_code == CLD_KILLED)
+      if (siginfop.si_code == CLD_EXITED || siginfop.si_code == CLD_KILLED) {
         VirtualPidTable::instance().erase(virtualPid);
+      }
     }
     DMTCP_PLUGIN_ENABLE_CKPT();
 
-    if ((options & WNOHANG) ||
-        retval == -1 ||
-        siginfop.si_pid != 0) {
+    if ((options & WNOHANG) || retval == -1 || siginfop.si_pid != 0) {
       break;
     } else {
       nanosleep(&ts, NULL);
@@ -458,7 +479,8 @@ extern "C" int waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options)
   return retval;
 }
 
-extern "C" pid_t wait3(__WAIT_STATUS status, int options, struct rusage *rusage)
+extern "C" pid_t
+wait3(__WAIT_STATUS status, int options, struct rusage *rusage)
 {
   return wait4(-1, status, options, rusage);
 }
@@ -495,8 +517,8 @@ extern "C" pid_t wait3(__WAIT_STATUS status, int options, struct rusage *rusage)
  * 1 second. We hope that it would cover all the cases.
  *
  */
-extern "C"
-pid_t wait4(pid_t pid, __WAIT_STATUS status, int options, struct rusage *rusage)
+extern "C" pid_t
+wait4(pid_t pid, __WAIT_STATUS status, int options, struct rusage *rusage)
 {
   int stat;
   int saved_errno = errno;
@@ -506,8 +528,9 @@ pid_t wait4(pid_t pid, __WAIT_STATUS status, int options, struct rusage *rusage)
   struct timespec ts = {0, 1000};
   const struct timespec maxts = {1, 0};
 
-  if (status == NULL)
-    status = (__WAIT_STATUS) &stat;
+  if (status == NULL) {
+    status = (__WAIT_STATUS)&stat;
+  }
 
   while (retval == 0) {
     DMTCP_PLUGIN_DISABLE_CKPT();
@@ -517,7 +540,7 @@ pid_t wait4(pid_t pid, __WAIT_STATUS status, int options, struct rusage *rusage)
     virtualPid = REAL_TO_VIRTUAL_PID(retval);
 
     if (retval > 0 &&
-        (WIFEXITED(*(int*)status) || WIFSIGNALED(*(int*)status))) {
+        (WIFEXITED(*(int *)status) || WIFSIGNALED(*(int *)status))) {
       VirtualPidTable::instance().erase(virtualPid);
     }
     DMTCP_PLUGIN_ENABLE_CKPT();
@@ -535,7 +558,8 @@ pid_t wait4(pid_t pid, __WAIT_STATUS status, int options, struct rusage *rusage)
   return virtualPid;
 }
 
-extern "C" long ptrace (enum __ptrace_request request, ...)
+extern "C" long
+ptrace(enum __ptrace_request request, ...)
 {
   va_list ap;
   pid_t virtualPid;
@@ -550,36 +574,39 @@ extern "C" long ptrace (enum __ptrace_request request, ...)
   va_end(ap);
 
   realPid = VIRTUAL_TO_REAL_PID(virtualPid);
-  long ptrace_ret =  _real_ptrace(request, realPid, addr, data);
+  long ptrace_ret = _real_ptrace(request, realPid, addr, data);
 
-  /*
-   * PTRACE_GETEVENTMSG (since Linux 2.5.46)
-   *          Retrieve  a message (as an unsigned long) about the ptrace event
-   *          that just happened, placing it in the location data in the
-   *          parent.  For PTRACE_EVENT_EXIT this is the child's exit status.
-   *          For PTRACE_EVENT_FORK, PTRACE_EVENT_VFORK and PTRACE_EVENT_CLONE
-   *          this is the PID  of the new process.  Since Linux 2.6.18, the PID
-   *          of the new process is also available for PTRACE_EVENT_VFORK_DONE.
-   *          (addr is ignored.)
-   */
+/*
+ * PTRACE_GETEVENTMSG (since Linux 2.5.46)
+ *          Retrieve  a message (as an unsigned long) about the ptrace event
+ *          that just happened, placing it in the location data in the
+ *          parent.  For PTRACE_EVENT_EXIT this is the child's exit status.
+ *          For PTRACE_EVENT_FORK, PTRACE_EVENT_VFORK and PTRACE_EVENT_CLONE
+ *          this is the PID  of the new process.  Since Linux 2.6.18, the PID
+ *          of the new process is also available for PTRACE_EVENT_VFORK_DONE.
+ *          (addr is ignored.)
+ */
 
 #ifdef PT_GETEVENTMSG
   if (ptrace_ret == 0 && request == PTRACE_GETEVENTMSG) {
-    unsigned long *ldata = (unsigned long*) data;
-    pid_t newRealPid =  (pid_t) *ldata;
-    *ldata = (unsigned long) REAL_TO_VIRTUAL_PID(newRealPid);
+    unsigned long *ldata = (unsigned long *)data;
+    pid_t newRealPid = (pid_t)*ldata;
+    *ldata = (unsigned long)REAL_TO_VIRTUAL_PID(newRealPid);
   }
-#endif
+#endif // ifdef PT_GETEVENTMSG
 
   return ptrace_ret;
 }
 
-extern "C" int fcntl(int fd, int cmd, ...)
+extern "C" int
+fcntl(int fd, int cmd, ...)
 {
   va_list ap;
+
   // Handling the variable number of arguments
   void *arg_in = NULL;
   void *arg = NULL;
+
   va_start(ap, cmd);
   arg_in = va_arg(ap, void *);
   va_end(ap);
@@ -589,8 +616,8 @@ extern "C" int fcntl(int fd, int cmd, ...)
   DMTCP_PLUGIN_DISABLE_CKPT();
 
   if (cmd == F_SETOWN) {
-    pid_t virtualPid = VIRTUAL_TO_REAL_PID((pid_t) (unsigned long) arg_in);
-    arg = (void*) (unsigned long) virtualPid;
+    pid_t virtualPid = VIRTUAL_TO_REAL_PID((pid_t)(unsigned long)arg_in);
+    arg = (void *)(unsigned long)virtualPid;
   }
 
   int result = _real_fcntl(fd, cmd, arg);
@@ -619,13 +646,14 @@ extern "C" int setuid(uid_t uid)
 // long sys_set_tid_address(int __user *tidptr);
 // extern "C" int   sigqueue(pid_t pid, int signo, const union sigval value)
 
-
 // long sys_getuid(void);
 // long sys_geteuid(void);
 // long sys_getgid(void);
 // long sys_getegid(void);
-// long sys_getresuid(uid_t __user *ruid, uid_t __user *euid, uid_t __user *suid);
-// long sys_getresgid(gid_t __user *rgid, gid_t __user *egid, gid_t __user *sgid);
+// long sys_getresuid(uid_t __user *ruid, uid_t __user *euid, uid_t __user
+// *suid);
+// long sys_getresgid(gid_t __user *rgid, gid_t __user *egid, gid_t __user
+// *sgid);
 // long sys_getpgrp(void);
 // long sys_getgroups(int gidsetsize, gid_t __user *grouplist);
 //
@@ -650,15 +678,15 @@ extern "C" int setuid(uid_t uid)
 //
 //
 // long sys_chown(const char __user *filename,
-// 				uid_t user, gid_t group);
+// uid_t user, gid_t group);
 // long sys_lchown(const char __user *filename,
-// 				uid_t user, gid_t group);
+// uid_t user, gid_t group);
 // long sys_fchown(unsigned int fd, uid_t user, gid_t group);
 // #ifdef CONFIG_UID16
 // long sys_chown16(const char __user *filename,
-// 				old_uid_t user, old_gid_t group);
+// old_uid_t user, old_gid_t group);
 // long sys_lchown16(const char __user *filename,
-// 				old_uid_t user, old_gid_t group);
+// old_uid_t user, old_gid_t group);
 // long sys_fchown16(unsigned int fd, old_uid_t user, old_gid_t group);
 // long sys_setregid16(old_gid_t rgid, old_gid_t egid);
 // long sys_setgid16(old_gid_t gid);
@@ -666,10 +694,10 @@ extern "C" int setuid(uid_t uid)
 // long sys_setuid16(old_uid_t uid);
 // long sys_setresuid16(old_uid_t ruid, old_uid_t euid, old_uid_t suid);
 // long sys_getresuid16(old_uid_t __user *ruid,
-// 				old_uid_t __user *euid, old_uid_t __user *suid);
+// old_uid_t __user *euid, old_uid_t __user *suid);
 // long sys_setresgid16(old_gid_t rgid, old_gid_t egid, old_gid_t sgid);
 // long sys_getresgid16(old_gid_t __user *rgid,
-// 				old_gid_t __user *egid, old_gid_t __user *sgid);
+// old_gid_t __user *egid, old_gid_t __user *sgid);
 // long sys_setfsuid16(old_uid_t uid);
 // long sys_setfsgid16(old_gid_t gid);
 // long sys_getgroups16(int gidsetsize, old_gid_t __user *grouplist);
@@ -683,36 +711,35 @@ extern "C" int setuid(uid_t uid)
 //
 //
 // long sys_add_key(const char __user *_type,
-// 			    const char __user *_description,
-// 			    const void __user *_payload,
-// 			    size_t plen,
-// 			    key_serial_t destringid);
+// const char __user *_description,
+// const void __user *_payload,
+// size_t plen,
+// key_serial_t destringid);
 //
 // long sys_request_key(const char __user *_type,
-// 				const char __user *_description,
-// 				const char __user *_callout_info,
-// 				key_serial_t destringid);
+// const char __user *_description,
+// const char __user *_callout_info,
+// key_serial_t destringid);
 //
 //
 // long sys_migrate_pages(pid_t pid, unsigned long maxnode,
-// 				const unsigned long __user *from,
-// 				const unsigned long __user *to);
+// const unsigned long __user *from,
+// const unsigned long __user *to);
 // long sys_move_pages(pid_t pid, unsigned long nr_pages,
-// 				const void __user * __user *pages,
-// 				const int __user *nodes,
-// 				int __user *status,
-// 				int flags);
+// const void __user * __user *pages,
+// const int __user *nodes,
+// int __user *status,
+// int flags);
 // long compat_sys_move_pages(pid_t pid, unsigned long nr_page,
-// 				__u32 __user *pages,
-// 				const int __user *nodes,
-// 				int __user *status,
-// 				int flags);
+// __u32 __user *pages,
+// const int __user *nodes,
+// int __user *status,
+// int flags);
 //
 // long sys_fchownat(int dfd, const char __user *filename, uid_t user,
-// 			     gid_t group, int flag);
+// gid_t group, int flag);
 //
 // long sys_get_robust_list(int pid,
-// 				    struct robust_list_head __user * __user *head_ptr,
-// 				    size_t __user *len_ptr);
+// struct robust_list_head __user * __user *head_ptr,
+// size_t __user *len_ptr);
 //
-

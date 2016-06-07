@@ -1,23 +1,25 @@
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
-#include <unistd.h>
-#include <sys/types.h>
+#include <string.h>
 #include <sys/socket.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 // This example is related to a DMTCP bug found when MVAPICH is run
-//   directly under ibrun/mpirun_rsh (for example, at Stampede).
+// directly under ibrun/mpirun_rsh (for example, at Stampede).
 // The two child processes share a fd, and the leader may not realize
-//   that the fd is shared, and so it may fail to send the fd over
-//   the UNIX domain socket to the follower.
+// that the fd is shared, and so it may fail to send the fd over
+// the UNIX domain socket to the follower.
 // In the case of ibrun, the parent process is on a remote host, and it
-//   is _not_ under the control of DMTCP.  It uses ssh to spawn a process
-//   on the local host (e.g., CHILD1).  Presumably, CHILD2 is created through
-//   fork and exec, and this is how the fd ends up being shared.
+// is _not_ under the control of DMTCP.  It uses ssh to spawn a process
+// on the local host (e.g., CHILD1).  Presumably, CHILD2 is created through
+// fork and exec, and this is how the fd ends up being shared.
 
-enum proc {PARENT, CHILD1, CHILD2};
+enum proc { PARENT, CHILD1, CHILD2 };
 
-int main(int argc, char* argv[]) {
+int
+main(int argc, char *argv[])
+{
   enum proc thisProc;
   const char *me;
   int fd;
@@ -70,12 +72,16 @@ int main(int argc, char* argv[]) {
   if (thisProc == CHILD1) {
     while (1) {
       sprintf(buf, "%s(%d)", me, count++);
-      if (write(fd, buf, sizeof(buf)) != sizeof(buf)) break;
+      if (write(fd, buf, sizeof(buf)) != sizeof(buf)) {
+        break;
+      }
       sleep(2);
     }
   } else if (thisProc == CHILD2) {
     while (1) {
-      if (read(fd, buf, sizeof(buf)) != sizeof(buf)) break;
+      if (read(fd, buf, sizeof(buf)) != sizeof(buf)) {
+        break;
+      }
       printf("%s read: %s\n", me, buf);
     }
   }

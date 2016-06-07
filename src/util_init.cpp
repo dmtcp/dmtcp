@@ -19,29 +19,30 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include <string.h>
+#include "util.h"
 #include <pwd.h>
+#include <string.h>
 #include <sys/fcntl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include "constants.h"
-#include "util.h"
-#include "protectedfds.h"
-#include "uniquepid.h"
-#include "coordinatorapi.h" // for COORD_JOIN, COORD_NEW, COORD_ANY
 #include "../jalib/jassert.h"
+#include "../jalib/jconvert.h"
 #include "../jalib/jfilesystem.h"
 #include "../jalib/jsocket.h"
-#include  "../jalib/jconvert.h"
+#include "constants.h"
+#include "coordinatorapi.h" // for COORD_JOIN, COORD_NEW, COORD_ANY
+#include "protectedfds.h"
+#include "uniquepid.h"
 
 using namespace dmtcp;
 
-void Util::writeCoordPortToFile(int port, const char *portFile)
+void
+Util::writeCoordPortToFile(int port, const char *portFile)
 {
   if (portFile != NULL && strlen(portFile) > 0) {
-    int fd = open(portFile, O_CREAT|O_WRONLY|O_TRUNC, 0600);
-    JWARNING(fd != -1) (JASSERT_ERRNO) (portFile)
-      .Text("Failed to open port file.");
+    int fd = open(portFile, O_CREAT | O_WRONLY | O_TRUNC, 0600);
+    JWARNING(fd != -1)
+    (JASSERT_ERRNO)(portFile).Text("Failed to open port file.");
     char port_buf[30];
     memset(port_buf, '\0', sizeof(port_buf));
     sprintf(port_buf, "%d", port);
@@ -65,18 +66,20 @@ void Util::writeCoordPortToFile(int port, const char *portFile)
  * from dmtcp_launch and dmtcp_restart process and once the user process
  * has been exec()ed, we use SharedData::getTmpDir() only.
  */
-string Util::calcTmpDir(const char *tmpdirenv)
+string
+Util::calcTmpDir(const char *tmpdirenv)
 {
   char hostname[256];
+
   memset(hostname, 0, sizeof(hostname));
 
-  JASSERT ( gethostname(hostname, sizeof(hostname)) == 0 ||
-	    errno == ENAMETOOLONG ).Text ( "gethostname() failed" );
+  JASSERT(gethostname(hostname, sizeof(hostname)) == 0 || errno == ENAMETOOLONG)
+    .Text("gethostname() failed");
 
   char *userName = const_cast<char *>("");
-  if ( getpwuid ( getuid() ) != NULL ) {
-    userName = getpwuid ( getuid() ) -> pw_name;
-  } else if ( getenv("USER") != NULL ) {
+  if (getpwuid(getuid()) != NULL) {
+    userName = getpwuid(getuid())->pw_name;
+  } else if (getenv("USER") != NULL) {
     userName = getenv("USER");
   }
 
@@ -91,28 +94,28 @@ string Util::calcTmpDir(const char *tmpdirenv)
   }
 
   JASSERT(mkdir(tmpdirenv, S_IRWXU) == 0 || errno == EEXIST)
-          (JASSERT_ERRNO) (tmpdirenv)
-    .Text("Error creating base directory (--tmpdir/DMTCP_TMPDIR/TMPDIR)");
+  (JASSERT_ERRNO)(tmpdirenv).Text(
+    "Error creating base directory (--tmpdir/DMTCP_TMPDIR/TMPDIR)");
 
   ostringstream o;
   o << tmpdirenv << "/dmtcp-" << userName << "@" << hostname;
   string tmpDir = o.str();
 
   JASSERT(mkdir(tmpDir.c_str(), S_IRWXU) == 0 || errno == EEXIST)
-          (JASSERT_ERRNO) (tmpDir)
-    .Text("Error creating tmp directory");
+  (JASSERT_ERRNO)(tmpDir).Text("Error creating tmp directory");
 
-
-  JASSERT(0 == access(tmpDir.c_str(), X_OK|W_OK)) (tmpDir)
-    .Text("ERROR: Missing execute- or write-access to tmp dir");
+  JASSERT(0 == access(tmpDir.c_str(), X_OK | W_OK))
+  (tmpDir).Text("ERROR: Missing execute- or write-access to tmp dir");
 
   return tmpDir;
 }
 
-void Util::initializeLogFile(string tmpDir, string procname, string prevLogPath)
+void
+Util::initializeLogFile(string tmpDir, string procname, string prevLogPath)
 {
   UniquePid::ThisProcess(true);
 #ifdef DEBUG
+
   // Initialize JASSERT library here
   ostringstream o;
   o << tmpDir;
@@ -152,9 +155,9 @@ void Util::initializeLogFile(string tmpDir, string procname, string prevLogPath)
   a << "\n========================================\n";
 
   JLOG(a.str().c_str());
-#else
+#else // ifdef DEBUG
   JASSERT_SET_LOG("", tmpDir, UniquePid::ThisProcess().toString());
-#endif
+#endif // ifdef DEBUG
   if (getenv(ENV_VAR_QUIET)) {
     jassert_quiet = *getenv(ENV_VAR_QUIET) - '0';
   } else {
@@ -162,6 +165,6 @@ void Util::initializeLogFile(string tmpDir, string procname, string prevLogPath)
   }
 #ifdef QUIET
   jassert_quiet = 2;
-#endif
+#endif // ifdef QUIET
   unsetenv(ENV_VAR_STDERR_PATH);
 }

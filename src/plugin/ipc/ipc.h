@@ -24,8 +24,8 @@
 #define DMTCP_IPC_H
 
 #include <dirent.h>
-#include <sys/types.h>
 #include <linux/version.h>
+#include <sys/types.h>
 #include "dmtcp.h"
 
 #define CONNECTION_ID_START 99000
@@ -43,13 +43,13 @@
 #define _real_closedir NEXT_FNC(closedir)
 #define _real_dup NEXT_FNC(dup)
 #define _real_dup2 NEXT_FNC(dup2)
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,27)) && __GLIBC_PREREQ(2,9)
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)) && __GLIBC_PREREQ(2, 9)
 #define _real_dup3 NEXT_FNC(dup3)
-#endif
+#endif // if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)) &&
+// __GLIBC_PREREQ(2, 9)
 
 #define _real_fcntl NEXT_FNC(fcntl)
 #define _real_select NEXT_FNC(select)
 #define _real_pthread_mutex_lock NEXT_FNC(pthread_mutex_lock)
 #define _real_pthread_mutex_unlock NEXT_FNC(pthread_mutex_unlock)
-
-#endif
+#endif // ifndef DMTCP_IPC_H

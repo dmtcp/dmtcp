@@ -24,38 +24,40 @@
 
 #include "dmtcp.h"
 
-int main() {
-    int dmtcp_enabled = dmtcp_is_enabled();
-    if ( ! dmtcp_enabled ) {
-      printf("\n *** dmtcp_is_enabled: executable seems to not be running"
-             " under dmtcp_launch.\n\n");
+int
+main()
+{
+  int dmtcp_enabled = dmtcp_is_enabled();
+
+  if (!dmtcp_enabled) {
+    printf("\n *** dmtcp_is_enabled: executable seems to not be running"
+           " under dmtcp_launch.\n\n");
+  }
+
+  int original_generation;
+  if (dmtcp_enabled) {
+    original_generation = dmtcp_get_generation();
+  }
+
+  int retval = dmtcp_checkpoint();
+  if (retval == DMTCP_AFTER_CHECKPOINT) {
+    // Wait long enough for checkpoint request to be written out.
+    while (dmtcp_get_generation() == original_generation) {
+      sleep(1);
     }
 
-    int original_generation;
-    if ( dmtcp_enabled ) {
-      original_generation = dmtcp_get_generation();
-    }
+    printf("*** dmtcp_checkpoint: This program has now invoked a checkpoint.\n"
+           "      It will resume its execution next.\n");
+  } else if (retval == DMTCP_AFTER_RESTART) {
+    printf("*** dmtcp_checkpoint: This program is now restarting.\n");
+  } else if (retval == DMTCP_NOT_PRESENT) {
+    printf(" *** dmtcp_checkpoint: DMTCP is not running."
+           "  Skipping checkpoint.\n");
+  }
 
-
-    int retval = dmtcp_checkpoint();
-    if (retval == DMTCP_AFTER_CHECKPOINT) {
-      // Wait long enough for checkpoint request to be written out.
-      while (dmtcp_get_generation() == original_generation) {
-        sleep(1);
-    }
-
-      printf("*** dmtcp_checkpoint: This program has now invoked a checkpoint.\n"
-             "      It will resume its execution next.\n");
-    } else if (retval == DMTCP_AFTER_RESTART) {
-      printf("*** dmtcp_checkpoint: This program is now restarting.\n");
-    } else if (retval == DMTCP_NOT_PRESENT) {
-      printf(" *** dmtcp_checkpoint: DMTCP is not running."
-             "  Skipping checkpoint.\n");
-    }
-
-    printf("\n*** Process done executing.  Successfully exiting.\n");
-    if (retval == DMTCP_AFTER_CHECKPOINT) {
-        printf("*** Execute ./dmtcp_restart_script.sh to restart.\n");
-    }
-    return 0;
+  printf("\n*** Process done executing.  Successfully exiting.\n");
+  if (retval == DMTCP_AFTER_CHECKPOINT) {
+    printf("*** Execute ./dmtcp_restart_script.sh to restart.\n");
+  }
+  return 0;
 }

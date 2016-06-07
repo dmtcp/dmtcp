@@ -46,5 +46,4 @@ int timer_create_sigev_thread(clockid_t clock_id,
                               struct sigevent *evp,
                               timer_t *timerid,
                               struct sigevent *sevOut);
-
-#endif
+#endif // ifndef TIMER_WRAPPERS_H

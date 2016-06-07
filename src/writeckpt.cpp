@@ -25,18 +25,18 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/fcntl.h>
 #include <sys/mman.h>
 #include <sys/resource.h>
 #include <sys/stat.h>
-#include <sys/fcntl.h>
-#include "dmtcp.h"
 #include "constants.h"
+#include "dmtcp.h"
+#include "jassert.h"
 #include "processinfo.h"
 #include "procmapsarea.h"
 #include "procselfmaps.h"
-#include "jassert.h"
-#include "util.h"
 #include "shareddata.h"
+#include "util.h"
 
 #define DEV_ZERO_DELETED_STR "/dev/zero (deleted)"
 #define DEV_NULL_DELETED_STR "/dev/null (deleted)"
@@ -45,7 +45,6 @@
 #define DEV_DRI_SHMEM "/dev/dri/card"
 
 #define DELETED_FILE_SUFFIX " (deleted)"
-
 
 #define _real_open NEXT_FNC(open)
 #define _real_close NEXT_FNC(close)
@@ -58,25 +57,25 @@ static const int END_OF_NSCD_AREAS = -1;
 static bool skipWritingTextSegments = false;
 
 // FIXME:  Why do we create two global variable here?  They should at least
-//         be static (file-private), and preferably local to a function.
+// be static (file-private), and preferably local to a function.
 ProcSelfMaps *procSelfMaps = NULL;
 vector<ProcMapsArea> *nscdAreas = NULL;
-// FIXME:  If we allocate in the middle of reading
-//         /proc/self/maps, we modify the mapping.  But whenever we
-//         add to nscdAreas, we risk allocating memory.  So, we're depending
-//         on this memory being smaller than any pre-allocated memory,
-//         so that the memory allocator does not call mmap in the middle
-//         of reading /proc/self/maps.  A better design would be to create
-//         an nscdArea method of the ProcSelfMaps class, and that
-//         class can then be careful about allocating memory.
 
+// FIXME:  If we allocate in the middle of reading
+/// proc/self/maps, we modify the mapping.  But whenever we
+// add to nscdAreas, we risk allocating memory.  So, we're depending
+// on this memory being smaller than any pre-allocated memory,
+// so that the memory allocator does not call mmap in the middle
+// of reading /proc/self/maps.  A better design would be to create
+// an nscdArea method of the ProcSelfMaps class, and that
+// class can then be careful about allocating memory.
 
 /* Internal routines */
-//static void sync_shared_mem(void);
-static void writememoryarea (int fd, Area *area,
-                             int stack_was_seen);
 
-static void remap_nscd_areas(const vector<ProcMapsArea> & areas);
+// static void sync_shared_mem(void);
+static void writememoryarea(int fd, Area *area, int stack_was_seen);
+
+static void remap_nscd_areas(const vector<ProcMapsArea> &areas);
 
 /*****************************************************************************
  *
@@ -88,11 +87,12 @@ static void remap_nscd_areas(const vector<ProcMapsArea> & areas);
  *  this function which can cause memory leaks.
  *
  *****************************************************************************/
-
-void mtcp_writememoryareas(int fd)
+void
+mtcp_writememoryareas(int fd)
 {
   Area area;
-  //DeviceInfo dev_info;
+
+  // DeviceInfo dev_info;
   int stack_was_seen = 0;
 
   if (getenv(ENV_VAR_SKIP_WRITING_TEXT_SEGMENTS) != NULL) {
@@ -103,8 +103,8 @@ void mtcp_writememoryareas(int fd)
 
   // Here we want to sync the shared memory pages with the backup files
   // FIXME: Why do we need this?
-  //JTRACE("syncing shared memory with backup files");
-  //sync_shared_mem();
+  // JTRACE("syncing shared memory with backup files");
+  // sync_shared_mem();
 
   /**************************************************************************/
   /* We can't do any more mallocing at this point because malloc stuff is   */
@@ -118,9 +118,11 @@ void mtcp_writememoryareas(int fd)
       nscdAreas = new vector<ProcMapsArea>();
     }
     nscdAreas->clear();
+
     // This block is to ensure that the object is deleted as soon as we leave
     // this block.
     ProcSelfMaps procSelfMaps;
+
     // Preprocess memory regions as needed.
     while (procSelfMaps.getNextArea(&area)) {
       if (Util::isNscdArea(area)) {
@@ -129,7 +131,7 @@ void mtcp_writememoryareas(int fd)
                "  DMTCP will now try to remap this area in read/write mode as\n"
                "  private (zero pages), so that glibc will automatically\n"
                "  stop using NSCD or ask NSCD daemon for new shared area\n")
-          (area.name);
+        (area.name);
 
         nscdAreas->push_back(area);
       }
@@ -140,7 +142,7 @@ void mtcp_writememoryareas(int fd)
     // We need to explicitly delete this object here because on restart, we
     // never get back to this function and the object is never released.
     delete procSelfMaps;
-  };
+  }
 
   /* Finally comes the memory contents */
   procSelfMaps = new ProcSelfMaps();
@@ -152,7 +154,7 @@ void mtcp_writememoryareas(int fd)
 
     if ((uint64_t)area.addr == ProcessInfo::instance().restoreBufAddr()) {
       JASSERT(area.size == ProcessInfo::instance().restoreBufLen())
-        ((void*) area.addr) (area.size) (ProcessInfo::instance().restoreBufLen());
+      ((void *)area.addr)(area.size)(ProcessInfo::instance().restoreBufLen());
       continue;
     } else if (SharedData::isSharedDataRegion(area.addr)) {
       continue;
@@ -165,20 +167,24 @@ void mtcp_writememoryareas(int fd)
      *  then we simply won't copy it.  But let's try to read all areas, anyway.
      * **COMMENTED OUT:** if (area.addr >= HIGHEST_VA) continue;
      */
+
     /* If it's readable, but it's VDSO, it will be dangerous to restore it.
      * In 32-bit mode later Red Hat RHEL Linux 2.6.9 releases use 0xffffe000,
      * the last page of virtual memory.  Note 0xffffe000 >= HIGHEST_VA
      * implies we're in 32-bit mode.
      */
-    if (area.addr >= HIGHEST_VA && area.addr == (VA)0xffffe000)
+    if (area.addr >= HIGHEST_VA && area.addr == (VA)0xffffe000) {
       continue;
+    }
 #ifdef __x86_64__
+
     /* And in 64-bit mode later Red Hat RHEL Linux 2.6.9 releases
      * use 0xffffffffff600000 for VDSO.
      */
-    if (area.addr >= HIGHEST_VA && area.addr == (VA)0xffffffffff600000)
+    if (area.addr >= HIGHEST_VA && area.addr == (VA)0xffffffffff600000) {
       continue;
-#endif
+    }
+#endif // ifdef __x86_64__
 
     /* Skip anything that has no read or execute permission.  This occurs
      * on one page in a Linux 2.6.9 installation.  No idea why.  This code
@@ -225,11 +231,11 @@ void mtcp_writememoryareas(int fd)
        *
        * The above explanation also applies to "/dev/null (deleted)"
        */
-      JTRACE("saving area as Anonymous") (area.name);
+      JTRACE("saving area as Anonymous")(area.name);
       area.flags = MAP_PRIVATE | MAP_ANONYMOUS;
       area.name[0] = '\0';
     } else if (Util::isSysVShmArea(area)) {
-      JTRACE("saving area as Anonymous") (area.name);
+      JTRACE("saving area as Anonymous")(area.name);
       area.flags = MAP_PRIVATE | MAP_ANONYMOUS;
       area.name[0] = '\0';
     } else if (Util::isNscdArea(area)) {
@@ -267,8 +273,9 @@ void mtcp_writememoryareas(int fd)
      * at the beginning.
      */
 
-    if (strstr (area.name, "[stack]"))
+    if (strstr(area.name, "[stack]")) {
       stack_was_seen = 1;
+    }
 
     // the whole thing comes after the restore image
     writememoryarea(fd, &area, stack_was_seen);
@@ -286,32 +293,34 @@ void mtcp_writememoryareas(int fd)
   Util::writeAll(fd, &area, sizeof(area));
 
   /* That's all folks */
-  JASSERT(_real_close (fd) == 0);
+  JASSERT(_real_close(fd) == 0);
 }
 
-static void remap_nscd_areas(const vector<ProcMapsArea>& areas)
+static void
+remap_nscd_areas(const vector<ProcMapsArea> &areas)
 {
   for (size_t i = 0; i < areas.size(); i++) {
-    JASSERT(munmap(areas[i].addr, areas[i].size) == 0) (JASSERT_ERRNO)
-      .Text("error unmapping NSCD shared area");
+    JASSERT(munmap(areas[i].addr, areas[i].size) == 0)
+    (JASSERT_ERRNO).Text("error unmapping NSCD shared area");
     JASSERT(mmap(areas[i].addr, areas[i].size, areas[i].prot,
-            MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED, 0, 0) != MAP_FAILED)
-      (JASSERT_ERRNO) .Text("error remapping NSCD shared area.");
+                 MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED, 0, 0) != MAP_FAILED)
+    (JASSERT_ERRNO).Text("error remapping NSCD shared area.");
   }
 }
-
 
 /* This function returns a range of zero or non-zero pages. If the first page
  * is non-zero, it searches for all contiguous non-zero pages and returns them.
  * If the first page is all-zero, it searches for contiguous zero pages and
  * returns them.
  */
-static void mtcp_get_next_page_range(Area *area, size_t *size, int *is_zero)
+static void
+mtcp_get_next_page_range(Area *area, size_t *size, int *is_zero)
 {
   char *pg;
   char *prevAddr;
   size_t count = 0;
   const size_t one_MB = (1024 * 1024);
+
   if (area->size < one_MB) {
     *size = area->size;
     *is_zero = 0;
@@ -320,28 +329,28 @@ static void mtcp_get_next_page_range(Area *area, size_t *size, int *is_zero)
   *size = one_MB;
   *is_zero = Util::areZeroPages(area->addr, one_MB / MTCP_PAGE_SIZE);
   prevAddr = area->addr;
-  for (pg = area->addr + one_MB;
-       pg < area->addr + area->size;
-       pg += one_MB) {
+  for (pg = area->addr + one_MB; pg < area->addr + area->size; pg += one_MB) {
     size_t minsize = MIN(one_MB, (size_t)(area->addr + area->size - pg));
     if (*is_zero != Util::areZeroPages(pg, minsize / MTCP_PAGE_SIZE)) {
       break;
     }
     *size += minsize;
     if (*is_zero && ++count % 10 == 0) { // madvise every 10MB
-      if (madvise(prevAddr, area->addr + *size - prevAddr,
-                  MADV_DONTNEED) == -1) {
+      if (madvise(prevAddr, area->addr + *size - prevAddr, MADV_DONTNEED) ==
+          -1) {
         JNOTE("error doing madvise(..., MADV_DONTNEED)")
-          (JASSERT_ERRNO) ((void*)area->addr) ((int)*size);
+        (JASSERT_ERRNO)((void *)area->addr)((int)*size);
         prevAddr = pg;
       }
     }
   }
 }
 
-static void mtcp_write_non_rwx_and_anonymous_pages(int fd, Area *orig_area)
+static void
+mtcp_write_non_rwx_and_anonymous_pages(int fd, Area *orig_area)
 {
   Area area = *orig_area;
+
   /* Now give read permission to the anonymous pages that do not have read
    * permission. We should remove the permission as soon as we are done
    * writing the area to the checkpoint image
@@ -358,7 +367,7 @@ static void mtcp_write_non_rwx_and_anonymous_pages(int fd, Area *orig_area)
   if ((orig_area->prot & PROT_READ) == 0) {
     JASSERT(mprotect(orig_area->addr, orig_area->size,
                      orig_area->prot | PROT_READ) == 0)
-      (JASSERT_ERRNO) (orig_area->size) (orig_area->addr)
+    (JASSERT_ERRNO)(orig_area->size)(orig_area->addr)
       .Text("error adding PROT_READ to mem region");
   }
 
@@ -382,7 +391,7 @@ static void mtcp_write_non_rwx_and_anonymous_pages(int fd, Area *orig_area)
     } else {
       if (madvise(a.addr, a.size, MADV_DONTNEED) == -1) {
         JNOTE("error doing madvise(..., MADV_DONTNEED)")
-          (JASSERT_ERRNO) (a.addr) ((int)a.size);
+        (JASSERT_ERRNO)(a.addr)((int)a.size);
       }
     }
     area.addr += size;
@@ -393,42 +402,44 @@ static void mtcp_write_non_rwx_and_anonymous_pages(int fd, Area *orig_area)
   */
   if ((orig_area->prot & PROT_READ) == 0) {
     JASSERT(mprotect(orig_area->addr, orig_area->size, orig_area->prot) == 0)
-      (JASSERT_ERRNO) (orig_area->addr) (orig_area->size)
+    (JASSERT_ERRNO)(orig_area->addr)(orig_area->size)
       .Text("error removing PROT_READ from mem region.");
   }
 }
 
-static void writememoryarea (int fd, Area *area, int stack_was_seen)
+static void
+writememoryarea(int fd, Area *area, int stack_was_seen)
 {
   void *addr = area->addr;
 
-  if (!(area -> flags & MAP_ANONYMOUS))
-    JTRACE("save region") (addr) (area->size) (area->name) (area->offset);
-  else if (area -> name[0] == '\0')
-    JTRACE("save anonymous") (addr) (area->size);
-  else
-    JTRACE("save anonymous") (addr) (area->size) (area->name) (area->offset);
+  if (!(area->flags & MAP_ANONYMOUS)) {
+    JTRACE("save region")(addr)(area->size)(area->name)(area->offset);
+  } else if (area->name[0] == '\0') {
+    JTRACE("save anonymous")(addr)(area->size);
+  } else {
+    JTRACE("save anonymous")(addr)(area->size)(area->name)(area->offset);
+  }
 
-  if ((area -> name[0]) == '\0') {
-    char *brk = (char*)sbrk(0);
-    if (brk > area -> addr && brk <= area -> addr + area -> size)
-      strcpy(area -> name, "[heap]");
+  if ((area->name[0]) == '\0') {
+    char *brk = (char *)sbrk(0);
+    if (brk > area->addr && brk <= area->addr + area->size) {
+      strcpy(area->name, "[heap]");
+    }
   }
 
   if (area->size == 0) {
     /* Kernel won't let us munmap this.  But we don't need to restore it. */
     JTRACE("skipping over [stack] segment (not the orig stack)")
-      (addr) (area->size);
-  } else if (0 == strcmp(area -> name, "[vsyscall]") ||
-             0 == strcmp(area -> name, "[vectors]") ||
-             0 == strcmp(area -> name, "[vvar]") ||
-             0 == strcmp(area -> name, "[vdso]")) {
+    (addr)(area->size);
+  } else if (0 == strcmp(area->name, "[vsyscall]") ||
+             0 == strcmp(area->name, "[vectors]") ||
+             0 == strcmp(area->name, "[vvar]") ||
+             0 == strcmp(area->name, "[vdso]")) {
     JTRACE("skipping over memory special section")
-      (area->name) (addr) (area->size);
+    (area->name)(addr)(area->size);
   } else if (area->prot == 0 ||
-      (area->name[0] == '\0' &&
-       ((area->flags & MAP_ANONYMOUS) != 0) &&
-       ((area->flags & MAP_PRIVATE) != 0))) {
+             (area->name[0] == '\0' && ((area->flags & MAP_ANONYMOUS) != 0) &&
+              ((area->flags & MAP_PRIVATE) != 0))) {
     /* Detect zero pages and do not write them to ckpt image.
      * Currently, we detect zero pages in non-rwx mapping and anonymous
      * mappings only
@@ -445,7 +456,7 @@ static void writememoryarea (int fd, Area *area, int stack_was_seen)
     if (skipWritingTextSegments && (area->prot & PROT_EXEC)) {
       area->properties |= DMTCP_SKIP_WRITING_TEXT_SEGMENTS;
       Util::writeAll(fd, area, sizeof(*area));
-      JTRACE("Skipping over text segments") (area->name) ((void*)area->addr);
+      JTRACE("Skipping over text segments")(area->name)((void *)area->addr);
     } else {
       Util::writeAll(fd, area, sizeof(*area));
       Util::writeAll(fd, area->addr, area->size);

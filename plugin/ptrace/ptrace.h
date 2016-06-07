@@ -25,14 +25,14 @@
 #include "dmtcp.h"
 
 #ifndef EXTERNC
-# ifdef __cplusplus
-#  define EXTERNC extern "C"
-# else
-#  define EXTERNC
-# endif
-#endif
+#ifdef __cplusplus
+#define EXTERNC extern "C"
+#else // ifdef __cplusplus
+#define EXTERNC
+#endif // ifdef __cplusplus
+#endif // ifndef EXTERNC
 
-#define LIB_PRIVATE __attribute__ ((visibility ("hidden")))
+#define LIB_PRIVATE __attribute__((visibility("hidden")))
 
 #define _real_wait4 NEXT_FNC(wait4)
 #define _real_open NEXT_FNC(open)
@@ -42,7 +42,7 @@
 #define _real_mmap NEXT_FNC(mmap)
 
 #define _real_ptrace(request, pid, addr, data) \
-  NEXT_FNC(ptrace)((enum __ptrace_request) request, pid, addr, data)
+  NEXT_FNC(ptrace)((enum __ptrace_request)request, pid, addr, data)
 
 #define GETTID() (int)syscall(SYS_gettid)
 #define TGKILL(pid, tid, sig) (int)syscall(SYS_tgkill, pid, tid, sig)
@@ -60,4 +60,4 @@ pid_t ptrace_ckpt_thread_tid();
 void ptrace_process_pre_suspend_user_thread();
 void ptrace_process_thread_creation(pid_t clone_id);
 void ptrace_process_resume_user_thread(int isRestart);
-#endif
+#endif // ifndef PTRACE_H

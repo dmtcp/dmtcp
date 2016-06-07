@@ -19,17 +19,17 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include <fcntl.h>
-#include <unistd.h>
-#include <sys/socket.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
 #include <arpa/inet.h>
+#include <fcntl.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <sys/socket.h>
+#include <unistd.h>
 
 #include "dmtcp.h"
+#include "jsocket.h"
 #include "protectedfds.h"
 #include "util.h"
-#include "jsocket.h"
 
 #include "connectionrewirer.h"
 #include "socketconnection.h"
@@ -40,26 +40,31 @@ using namespace dmtcp;
 // FIXME: IP6 Support disabled for now. However, we do go through the exercise
 // of creating the restore socket and all.
 // #define ENABLE_IP6_SUPPORT
-static void markSocketNonBlocking(int sockfd)
+static void
+markSocketNonBlocking(int sockfd)
 {
-    // Remove O_NONBLOCK flag from listener socket
-    int flags = _real_fcntl(sockfd, F_GETFL, NULL);
-    JASSERT(flags != -1);
-    JASSERT(_real_fcntl(sockfd, F_SETFL,
-                        (void*) (long) (flags | O_NONBLOCK)) != -1);
+  // Remove O_NONBLOCK flag from listener socket
+  int flags = _real_fcntl(sockfd, F_GETFL, NULL);
+
+  JASSERT(flags != -1);
+  JASSERT(_real_fcntl(sockfd, F_SETFL, (void *)(long)(flags | O_NONBLOCK)) !=
+          -1);
 }
 
-static void markSocketBlocking(int sockfd)
+static void
+markSocketBlocking(int sockfd)
 {
-    // Remove O_NONBLOCK flag from listener socket
-    int flags = _real_fcntl(sockfd, F_GETFL, NULL);
-    JASSERT(flags != -1);
-    JASSERT(_real_fcntl(sockfd, F_SETFL,
-                        (void*) (long) (flags & ~O_NONBLOCK)) != -1);
+  // Remove O_NONBLOCK flag from listener socket
+  int flags = _real_fcntl(sockfd, F_GETFL, NULL);
+
+  JASSERT(flags != -1);
+  JASSERT(_real_fcntl(sockfd, F_SETFL, (void *)(long)(flags & ~O_NONBLOCK)) !=
+          -1);
 }
 
 static ConnectionRewirer *theRewirer = NULL;
-ConnectionRewirer& ConnectionRewirer::instance()
+ConnectionRewirer &
+ConnectionRewirer::instance()
 {
   if (theRewirer == NULL) {
     theRewirer = new ConnectionRewirer();
@@ -67,7 +72,8 @@ ConnectionRewirer& ConnectionRewirer::instance()
   return *theRewirer;
 }
 
-void ConnectionRewirer::destroy()
+void
+ConnectionRewirer::destroy()
 {
   dmtcp_close_protected_fd(PROTECTED_RESTORE_IP4_SOCK_FD);
   dmtcp_close_protected_fd(PROTECTED_RESTORE_IP6_SOCK_FD);
@@ -78,41 +84,44 @@ void ConnectionRewirer::destroy()
   theRewirer = NULL;
 }
 
-void ConnectionRewirer::checkForPendingIncoming(int restoreSockFd,
-                                                ConnectionListT *conList)
+void
+ConnectionRewirer::checkForPendingIncoming(int restoreSockFd,
+                                           ConnectionListT *conList)
 {
   while (conList->size() > 0) {
     int fd = _real_accept(restoreSockFd, NULL, NULL);
     if (fd == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
       return;
     }
-    JASSERT(fd != -1) (JASSERT_ERRNO) .Text("Accept failed.");
+    JASSERT(fd != -1)(JASSERT_ERRNO).Text("Accept failed.");
     ConnectionIdentifier id;
     JASSERT(Util::readAll(fd, &id, sizeof id) == sizeof id);
 
     iterator i = conList->find(id);
-    JASSERT(i != conList->end()) (id)
-      .Text("got unexpected incoming restore request");
+    JASSERT(i != conList->end())
+    (id).Text("got unexpected incoming restore request");
 
     Util::dupFds(fd, (i->second)->getFds());
 
-    JTRACE("restoring incoming connection") (id);
+    JTRACE("restoring incoming connection")(id);
     conList->erase(i);
   }
 }
 
-void ConnectionRewirer::doReconnect()
+void
+ConnectionRewirer::doReconnect()
 {
   iterator i;
+
   for (i = _pendingOutgoing.begin(); i != _pendingOutgoing.end(); i++) {
-    const ConnectionIdentifier& id = i->first;
+    const ConnectionIdentifier &id = i->first;
     Connection *con = i->second;
-    struct RemoteAddr& remoteAddr = _remoteInfo[id];
+    struct RemoteAddr &remoteAddr = _remoteInfo[id];
     int fd = con->getFds()[0];
     errno = 0;
-    JASSERT(_real_connect(fd, (sockaddr*) &remoteAddr.addr, remoteAddr.len)
-            == 0)
-      (id) (JASSERT_ERRNO) .Text("failed to restore connection");
+    JASSERT(_real_connect(fd, (sockaddr *)&remoteAddr.addr, remoteAddr.len) ==
+            0)
+    (id)(JASSERT_ERRNO).Text("failed to restore connection");
 
     Util::writeAll(fd, &id, sizeof id);
 
@@ -150,9 +159,10 @@ void ConnectionRewirer::doReconnect()
   JTRACE("Closed restore sockets");
 }
 
-void ConnectionRewirer::openRestoreSocket(bool hasIPv4Sock,
-                                          bool hasIPv6Sock,
-                                          bool hasUNIXSock)
+void
+ConnectionRewirer::openRestoreSocket(bool hasIPv4Sock,
+                                     bool hasIPv6Sock,
+                                     bool hasUNIXSock)
 {
   memset(&_ip4RestoreAddr, 0, sizeof(_ip4RestoreAddr));
   memset(&_ip6RestoreAddr, 0, sizeof(_ip6RestoreAddr));
@@ -170,30 +180,31 @@ void ConnectionRewirer::openRestoreSocket(bool hasIPv4Sock,
     _ip4RestoreAddr.sin_port = htons(restoreSocket.port());
     _ip4RestoreAddrlen = sizeof(_ip4RestoreAddr);
 
-    JTRACE("opened listen socket") (restoreSocket.sockfd())
-      (inet_ntoa(_ip4RestoreAddr.sin_addr)) (ntohs(_ip4RestoreAddr.sin_port));
+    JTRACE("opened listen socket")
+    (restoreSocket.sockfd())(inet_ntoa(_ip4RestoreAddr.sin_addr))(
+      ntohs(_ip4RestoreAddr.sin_port));
     markSocketNonBlocking(PROTECTED_RESTORE_IP4_SOCK_FD);
   }
 
   // Open IP6 Restore Socket
   if (hasIPv6Sock) {
     int ip6fd = _real_socket(AF_INET6, SOCK_STREAM, 0);
-    JASSERT(ip6fd != -1) (JASSERT_ERRNO);
+    JASSERT(ip6fd != -1)(JASSERT_ERRNO);
 
     _ip6RestoreAddr.sin6_family = AF_INET6;
     _ip6RestoreAddr.sin6_port = 0;
     _ip6RestoreAddr.sin6_addr = in6addr_any;
     _ip6RestoreAddrlen = sizeof(_ip6RestoreAddr);
-    JASSERT(_real_bind(ip6fd, (struct sockaddr*) &_ip6RestoreAddr,
+    JASSERT(_real_bind(ip6fd, (struct sockaddr *)&_ip6RestoreAddr,
                        _ip6RestoreAddrlen) == 0)
-      (JASSERT_ERRNO);
-    JASSERT(getsockname(ip6fd, (struct sockaddr*)&_ip6RestoreAddr,
+    (JASSERT_ERRNO);
+    JASSERT(getsockname(ip6fd, (struct sockaddr *)&_ip6RestoreAddr,
                         &_ip6RestoreAddrlen) == 0)
-      (JASSERT_ERRNO);
-    JASSERT(_real_listen(ip6fd, 32) == 0) (JASSERT_ERRNO);
+    (JASSERT_ERRNO);
+    JASSERT(_real_listen(ip6fd, 32) == 0)(JASSERT_ERRNO);
     Util::changeFd(ip6fd, PROTECTED_RESTORE_IP6_SOCK_FD);
 
-    JTRACE("opened ip6 listen socket") (PROTECTED_RESTORE_IP6_SOCK_FD);
+    JTRACE("opened ip6 listen socket")(PROTECTED_RESTORE_IP6_SOCK_FD);
     markSocketNonBlocking(PROTECTED_RESTORE_IP6_SOCK_FD);
   }
 
@@ -208,74 +219,76 @@ void ConnectionRewirer::openRestoreSocket(bool hasIPv4Sock,
     _udsRestoreAddr.sun_family = AF_UNIX;
     strncpy(&_udsRestoreAddr.sun_path[1], str.c_str(), str.length());
     _udsRestoreAddrlen = sizeof(sa_family_t) + str.length() + 1;
-    JASSERT(_real_bind(udsfd, (struct sockaddr*) &_udsRestoreAddr,
+    JASSERT(_real_bind(udsfd, (struct sockaddr *)&_udsRestoreAddr,
                        _udsRestoreAddrlen) == 0)
-      (JASSERT_ERRNO);
-    JASSERT(_real_listen(udsfd, 32) == 0) (JASSERT_ERRNO);
+    (JASSERT_ERRNO);
+    JASSERT(_real_listen(udsfd, 32) == 0)(JASSERT_ERRNO);
     Util::changeFd(udsfd, PROTECTED_RESTORE_UDS_SOCK_FD);
 
     JTRACE("opened UDS listen socket")
-      (PROTECTED_RESTORE_UDS_SOCK_FD) (&_udsRestoreAddr.sun_path[1]);
+    (PROTECTED_RESTORE_UDS_SOCK_FD)(&_udsRestoreAddr.sun_path[1]);
     markSocketNonBlocking(PROTECTED_RESTORE_UDS_SOCK_FD);
   }
 }
 
 void
-ConnectionRewirer::registerIncoming(const ConnectionIdentifier& local,
-                                    Connection* con,
+ConnectionRewirer::registerIncoming(const ConnectionIdentifier &local,
+                                    Connection *con,
                                     int domain)
 {
   JASSERT(domain == AF_INET || domain == AF_INET6 || domain == AF_UNIX)
-    (domain) .Text("Unsupported domain.");
+  (domain).Text("Unsupported domain.");
 
   if (domain == AF_INET) {
     _pendingIP4Incoming[local] = con;
   } else if (domain == AF_INET6) {
 #ifdef ENABLE_IP6_SUPPORT
     _pendingIP6Incoming[local] = con;
-#else
+#else // ifdef ENABLE_IP6_SUPPORT
     _pendingIP4Incoming[local] = con;
-#endif
+#endif // ifdef ENABLE_IP6_SUPPORT
   } else if (domain == AF_UNIX) {
     _pendingUDSIncoming[local] = con;
   } else {
-    JASSERT(false) .Text("Not implemented");
+    JASSERT(false).Text("Not implemented");
   }
 
-  JTRACE("announcing pending incoming") (local);
+  JTRACE("announcing pending incoming")(local);
 }
 
 void
-ConnectionRewirer::registerOutgoing(const ConnectionIdentifier& remote,
-                                    Connection* con)
+ConnectionRewirer::registerOutgoing(const ConnectionIdentifier &remote,
+                                    Connection *con)
 {
   _pendingOutgoing[remote] = con;
-  JTRACE("announcing pending outgoing") (remote);
+  JTRACE("announcing pending outgoing")(remote);
 }
 
-void ConnectionRewirer::registerNSData()
+void
+ConnectionRewirer::registerNSData()
 {
-  registerNSData((void*)&_ip4RestoreAddr, _ip4RestoreAddrlen,
+  registerNSData((void *)&_ip4RestoreAddr, _ip4RestoreAddrlen,
                  &_pendingIP4Incoming);
-  registerNSData((void*)&_ip6RestoreAddr, _ip6RestoreAddrlen,
+  registerNSData((void *)&_ip6RestoreAddr, _ip6RestoreAddrlen,
                  &_pendingIP6Incoming);
-  registerNSData((void*)&_udsRestoreAddr, _udsRestoreAddrlen,
+  registerNSData((void *)&_udsRestoreAddr, _udsRestoreAddrlen,
                  &_pendingUDSIncoming);
 }
 
-void ConnectionRewirer::registerNSData(void *addr,
-                                       socklen_t addrLen,
-                                       ConnectionListT *conList)
+void
+ConnectionRewirer::registerNSData(void *addr,
+                                  socklen_t addrLen,
+                                  ConnectionListT *conList)
 {
   iterator i;
+
   JASSERT(theRewirer != NULL);
   for (i = conList->begin(); i != conList->end(); ++i) {
-    const ConnectionIdentifier& id = i->first;
-    dmtcp_send_key_val_pair_to_coordinator("Socket",
-                                           (const void *)&id,
-                                           (uint32_t) sizeof(id),
-                                           addr,
-                                           (uint32_t) addrLen);
+    const ConnectionIdentifier &id = i->first;
+    dmtcp_send_key_val_pair_to_coordinator("Socket", (const void *)&id,
+                                           (uint32_t)sizeof(id), addr,
+                                           (uint32_t)addrLen);
+
     /*
     sockaddr_in *sn = (sockaddr_in*) &_restoreAddr;
     unsigned short port = htons(sn->sin_port);
@@ -283,51 +296,55 @@ void ConnectionRewirer::registerNSData(void *addr,
     JTRACE("Send NS information:")(id)(sn->sin_family)(port)(ip);
     */
   }
-  //debugPrint();
+
+  // debugPrint();
 }
 
-void ConnectionRewirer::sendQueries()
+void
+ConnectionRewirer::sendQueries()
 {
   iterator i;
+
   for (i = _pendingOutgoing.begin(); i != _pendingOutgoing.end(); ++i) {
-    const ConnectionIdentifier& id = i->first;
+    const ConnectionIdentifier &id = i->first;
     struct RemoteAddr remote;
     uint32_t len = sizeof(remote.addr);
-    JASSERT(dmtcp_send_query_to_coordinator("Socket",
-                                            (const void *)&id,
-                                            (uint32_t) sizeof(id),
-                                            &remote.addr,
+    JASSERT(dmtcp_send_query_to_coordinator("Socket", (const void *)&id,
+                                            (uint32_t)sizeof(id), &remote.addr,
                                             &len) != 0);
     remote.len = len;
+
     /*
     sockaddr_in *sn = (sockaddr_in*) &remote.addr;
     unsigned short port = htons(sn->sin_port);
     char *ip = inet_ntoa(sn->sin_addr);
-    JTRACE("Send Queries. Get remote from coordinator:")(id)(sn->sin_family)(port)(ip);
+    JTRACE("Send Queries. Get remote from
+    coordinator:")(id)(sn->sin_family)(port)(ip);
     */
     _remoteInfo[id] = remote;
   }
 }
 
 #if 0
-void ConnectionRewirer::debugPrint() const
+void
+ConnectionRewirer::debugPrint() const
 {
 #ifdef DEBUG
   ostringstream o;
   o << "Pending Incoming:\n";
   const_iterator i;
-  for (i = _pendingIncoming.begin(); i!=_pendingIncoming.end(); ++i) {
+  for (i = _pendingIncoming.begin(); i != _pendingIncoming.end(); ++i) {
     Connection *con = i->second;
     o << i->first << " numFds=" << con->getFds().size()
       << " firstFd=" << con->getFds()[0] << '\n';
   }
   o << "Pending Outgoing:\n";
-  for (i = _pendingOutgoing.begin(); i!=_pendingOutgoing.end(); ++i) {
+  for (i = _pendingOutgoing.begin(); i != _pendingOutgoing.end(); ++i) {
     Connection *con = i->second;
     o << i->first << " numFds=" << con->getFds().size()
       << " firstFd=" << con->getFds()[0] << '\n';
   }
   JNOTE("Pending connections") (o.str());
-#endif
+#endif // ifdef DEBUG
 }
-#endif
+#endif // if 0

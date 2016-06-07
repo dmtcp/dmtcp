@@ -1,13 +1,16 @@
 #define _GNU_SOURCE
-#include <stdio.h>
 #include <linux/version.h>
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,2,0)) && __GLIBC_PREREQ(2,15)
-  #include <sys/uio.h>
-#endif
-#include <unistd.h>
+#include <stdio.h>
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 2, 0)) && __GLIBC_PREREQ(2, 15)
+#include <sys/uio.h>
+#endif /* if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 2, 0)) && \
+          __GLIBC_PREREQ(2, 15) */
 #include <assert.h>
+#include <unistd.h>
 
-int main() {
+int
+main()
+{
   int i = 0;
   pid_t pid;
   void *addr = &i;
@@ -15,15 +18,13 @@ int main() {
   pid = fork();
   if (pid < 0) {
     perror("fork");
-  }
-  else if (pid == 0) {
+  } else if (pid == 0) {
     while (1) {
       sleep(1);
     }
-  }
-  else {
+  } else {
     while (1) {
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,2,0)) && __GLIBC_PREREQ(2,15)
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 2, 0)) && __GLIBC_PREREQ(2, 15)
       struct iovec local, remote;
       ssize_t ret;
 
@@ -35,7 +36,8 @@ int main() {
       assert(ret == sizeof(int));
       ret = process_vm_readv(pid, &local, 1, &remote, 1, 0);
       assert(ret == sizeof(int));
-#endif
+#endif /* if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 2, 0)) && \
+          __GLIBC_PREREQ(2, 15) */
       printf("%d ", i);
       fflush(stdout);
       sleep(1);

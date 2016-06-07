@@ -1,13 +1,13 @@
 #include <stdio.h>
 #include <unistd.h>
 
-int main(int argc, char* argv[])
+int
+main(int argc, char *argv[])
 {
   int count = 1;
 
-  while (1)
-  {
-	  printf("%2d\n",count++);
+  while (1) {
+    printf("%2d\n", count++);
   }
   return 0;
 }

@@ -21,28 +21,35 @@
 
 #include <stdlib.h>
 #include <unistd.h>
-#include "dmtcp.h"
 #include "alloc.h"
+#include "dmtcp.h"
 
-EXTERNC int dmtcp_alloc_enabled() { return 1; }
+EXTERNC int
+dmtcp_alloc_enabled()
+{
+  return 1;
+}
 
-extern "C" void *calloc(size_t nmemb, size_t size)
+extern "C" void *
+calloc(size_t nmemb, size_t size)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
-  void *retval = _real_calloc ( nmemb, size );
+  void *retval = _real_calloc(nmemb, size);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
 
-extern "C" void *malloc(size_t size)
+extern "C" void *
+malloc(size_t size)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
-  void *retval = _real_malloc ( size );
+  void *retval = _real_malloc(size);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
 
-extern "C" void *memalign(size_t boundary, size_t size)
+extern "C" void *
+memalign(size_t boundary, size_t size)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
   void *retval = _real_memalign(boundary, size);
@@ -50,7 +57,8 @@ extern "C" void *memalign(size_t boundary, size_t size)
   return retval;
 }
 
-extern "C" int posix_memalign(void **memptr, size_t alignment, size_t size)
+extern "C" int
+posix_memalign(void **memptr, size_t alignment, size_t size)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
   int retval = _real_posix_memalign(memptr, alignment, size);
@@ -58,7 +66,8 @@ extern "C" int posix_memalign(void **memptr, size_t alignment, size_t size)
   return retval;
 }
 
-extern "C" void *valloc(size_t size)
+extern "C" void *
+valloc(size_t size)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
   void *retval = _real_valloc(size);
@@ -66,18 +75,19 @@ extern "C" void *valloc(size_t size)
   return retval;
 }
 
-extern "C" void free(void *ptr)
+extern "C" void
+free(void *ptr)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
-  _real_free ( ptr );
+  _real_free(ptr);
   DMTCP_PLUGIN_ENABLE_CKPT();
 }
 
-extern "C" void *realloc(void *ptr, size_t size)
+extern "C" void *
+realloc(void *ptr, size_t size)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
-  void *retval = _real_realloc ( ptr, size );
+  void *retval = _real_realloc(ptr, size);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
-

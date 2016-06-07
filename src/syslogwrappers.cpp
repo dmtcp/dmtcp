@@ -19,25 +19,26 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include <string>
 #include <syslog.h>
-#include "syscallwrappers.h"
+#include <string>
+#include "../jalib/jassert.h"
 #include "dmtcpalloc.h"
-#include  "../jalib/jassert.h"
+#include "syscallwrappers.h"
 
-namespace dmtcp {
-
+namespace dmtcp
+{
 static bool _isSuspended = false;
 static bool _syslogEnabled = false;
 static bool _identIsNotNULL = false;
-static int  _option = -1;
-static int  _facility = -1;
+static int _option = -1;
+static int _facility = -1;
 
 static void SyslogCheckpointer_StopService();
 static void SyslogCheckpointer_RestoreService();
 static void SyslogCheckpointer_ResetOnFork();
 
-static void syslog_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
+static void
+syslog_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   switch (event) {
     case DMTCP_EVENT_ATFORK_CHILD:
@@ -50,10 +51,11 @@ static void syslog_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 }
 
 static DmtcpBarrier syslogBarriers[] = {
-  {DMTCP_PRIVATE_BARRIER_PRE_CKPT, SyslogCheckpointer_StopService, "checkpoint"},
+  {DMTCP_PRIVATE_BARRIER_PRE_CKPT, SyslogCheckpointer_StopService,
+    "checkpoint"},
   {DMTCP_PRIVATE_BARRIER_RESUME, SyslogCheckpointer_RestoreService, "resume"},
-  {DMTCP_PRIVATE_BARRIER_RESTART, SyslogCheckpointer_RestoreService, "restart"}
-};
+  {DMTCP_PRIVATE_BARRIER_RESTART, SyslogCheckpointer_RestoreService,
+    "restart"}};
 
 static DmtcpPluginDescriptor_t syslogPlugin = {
   DMTCP_PLUGIN_API_VERSION,
@@ -63,52 +65,54 @@ static DmtcpPluginDescriptor_t syslogPlugin = {
   "dmtcp@ccs.neu.edu",
   "Syslog plugin",
   DMTCP_DECL_BARRIERS(syslogBarriers),
-  syslog_event_hook
-};
+  syslog_event_hook};
 
-
-DmtcpPluginDescriptor_t dmtcp_Syslog_PluginDescr()
+DmtcpPluginDescriptor_t
+dmtcp_Syslog_PluginDescr()
 {
   return syslogPlugin;
 }
 
-static string& _ident()
+static string &
+_ident()
 {
   static string t;
+
   return t;
 }
 
-void SyslogCheckpointer_StopService()
+void
+SyslogCheckpointer_StopService()
 {
-  JASSERT ( !_isSuspended );
-  if ( _syslogEnabled )
-  {
+  JASSERT(!_isSuspended);
+  if (_syslogEnabled) {
     closelog();
     _isSuspended = true;
   }
 }
 
-void SyslogCheckpointer_RestoreService()
+void
+SyslogCheckpointer_RestoreService()
 {
-  if ( _isSuspended )
-  {
+  if (_isSuspended) {
     _isSuspended = false;
-    JASSERT ( _option>=0 && _facility>=0 ) ( _option ) ( _facility );
-    openlog ( ( _identIsNotNULL ? _ident().c_str() : NULL),
-              _option, _facility );
+    JASSERT(_option >= 0 && _facility >= 0)(_option)(_facility);
+    openlog((_identIsNotNULL ? _ident().c_str() : NULL), _option, _facility);
   }
 }
 
-void SyslogCheckpointer_ResetOnFork()
+void
+SyslogCheckpointer_ResetOnFork()
 {
   _syslogEnabled = false;
 }
 
-extern "C" void openlog ( const char *ident, int option, int facility )
+extern "C" void
+openlog(const char *ident, int option, int facility)
 {
-  JASSERT ( !_isSuspended );
-  JTRACE ( "openlog" ) ( ident );
-  _real_openlog ( ident, option, facility );
+  JASSERT(!_isSuspended);
+  JTRACE("openlog")(ident);
+  _real_openlog(ident, option, facility);
   _syslogEnabled = true;
 
   _identIsNotNULL = (ident != NULL);
@@ -119,20 +123,21 @@ extern "C" void openlog ( const char *ident, int option, int facility )
   _facility = facility;
 }
 
-extern "C" void closelog ( void )
+extern "C" void
+closelog(void)
 {
-  JASSERT ( !_isSuspended );
-  JTRACE ( "closelog" );
+  JASSERT(!_isSuspended);
+  JTRACE("closelog");
   _real_closelog();
   _syslogEnabled = false;
 }
 
 // FIXME:  Need to add wrappers for vsyslog() and setlogmask()
-//  NOTE:  openlog() is optional.  Its purpose is primarily to set default
-//         parameters.  If syslog() or vsyslog() is called without it,
-//         it will still open the log.  Hence, we need a wrapper for them
-//         that will set _syslogEnabled = true.
-//  NOTE:  We also need to save and restore the mask of setlogmask()
-//  NOTE:  Need a test/syslog.c to test this code.  How can we verify that
-//         it continues to log on restart in an automatic fashion?
+// NOTE:  openlog() is optional.  Its purpose is primarily to set default
+// parameters.  If syslog() or vsyslog() is called without it,
+// it will still open the log.  Hence, we need a wrapper for them
+// that will set _syslogEnabled = true.
+// NOTE:  We also need to save and restore the mask of setlogmask()
+// NOTE:  Need a test/syslog.c to test this code.  How can we verify that
+// it continues to log on restart in an automatic fashion?
 }

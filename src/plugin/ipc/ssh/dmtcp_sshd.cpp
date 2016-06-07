@@ -1,15 +1,15 @@
-#include <unistd.h>
-#include <sys/stat.h>
-#include <sys/fcntl.h>
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <sys/errno.h>
-#include <netinet/in.h>
 #include <arpa/inet.h>
+#include <assert.h>
+#include <netinet/in.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <assert.h>
 #include <string.h>
+#include <sys/errno.h>
+#include <sys/fcntl.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
 #include "ssh.h"
 #include "util_ipc.h"
 
@@ -19,10 +19,12 @@ static pid_t childPid = -1;
 static int remotePeerSock = -1;
 
 // Connect to dmtcp_ssh process
-static void connectToRemotePeer(char *host, int port)
+static void
+connectToRemotePeer(char *host, int port)
 {
   struct sockaddr_in saddr;
   int sock = socket(AF_INET, SOCK_STREAM, 0);
+
   if (sock == -1) {
     perror("Error creating socket: ");
     exit(0);
@@ -42,11 +44,13 @@ static void connectToRemotePeer(char *host, int port)
   remotePeerSock = sock;
 }
 
-static void dummySshdProcess(char *listenAddr)
+static void
+dummySshdProcess(char *listenAddr)
 {
   int fd;
   struct sockaddr_un addr;
   socklen_t len;
+
   addr.sun_family = AF_UNIX;
   addr.sun_path[0] = '\0';
   strcpy(&addr.sun_path[1], listenAddr);
@@ -65,22 +69,22 @@ static void dummySshdProcess(char *listenAddr)
   if (sendFd(sendfd, fd, &fd, sizeof(fd), addr, len) == -1) {
     perror("sendFd failed.");
     abort();
-  };
+  }
   fd = STDOUT_FILENO;
   if (sendFd(sendfd, fd, &fd, sizeof(fd), addr, len) == -1) {
     perror("sendFd failed.");
     abort();
-  };
+  }
   fd = STDERR_FILENO;
   if (sendFd(sendfd, fd, &fd, sizeof(fd), addr, len) == -1) {
     perror("sendFd failed.");
     abort();
-  };
+  }
   fd = pipefd[1];
   if (sendFd(sendfd, fd, &fd, sizeof(fd), addr, len) == -1) {
     perror("sendFd failed.");
     abort();
-  };
+  }
   close(sendfd);
 
   close(pipefd[1]);
@@ -92,7 +96,8 @@ static void dummySshdProcess(char *listenAddr)
   exit(0);
 }
 
-int main(int argc, char *argv[], char *envp[])
+int
+main(int argc, char *argv[], char *envp[])
 {
   int in[2], out[2], err[2];
   char *host;

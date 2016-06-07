@@ -19,75 +19,93 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include <stdlib.h>
 #include "uniquepid.h"
-#include "constants.h"
+#include <stdlib.h>
 #include "../jalib/jconvert.h"
 #include "../jalib/jfilesystem.h"
 #include "../jalib/jserialize.h"
-#include "syscallwrappers.h"
+#include "constants.h"
 #include "protectedfds.h"
 #include "shareddata.h"
+#include "syscallwrappers.h"
 
 using namespace dmtcp;
 
-inline static long theUniqueHostId()
+inline static long
+theUniqueHostId()
 {
 #ifdef USE_GETHOSTID
   return ::gethostid()
-#else
-  //gethostid() calls socket() on some systems, which we don't want
+#else // ifdef USE_GETHOSTID
+  // gethostid() calls socket() on some systems, which we don't want
   char buf[512];
-  JASSERT(::gethostname(buf, sizeof(buf))==0)(JASSERT_ERRNO);
-  //so return a bad hash of our hostname
+
+  JASSERT(::gethostname(buf, sizeof(buf)) == 0)(JASSERT_ERRNO);
+
+  // so return a bad hash of our hostname
   long h = 0;
-  for(char* i=buf; *i!='\0'; ++i)
-    h = (*i) + (331*h);
-  //make it positive for good measure
-  return h>0 ? h : -1*h;
-#endif
+  for (char *i = buf; *i != '\0'; ++i) {
+    h = (*i) + (331 * h);
+  }
+
+  // make it positive for good measure
+  return h > 0 ? h : -1 * h;
+#endif // ifdef USE_GETHOSTID
 }
 
-static UniquePid& nullProcess()
+static UniquePid &
+nullProcess()
 {
   static char buf[sizeof(UniquePid)];
-  static UniquePid* t=NULL;
-  if(t==NULL) t = new (buf) UniquePid(0,0,0);
+  static UniquePid *t = NULL;
+
+  if (t == NULL) {
+    t = new (buf) UniquePid(0, 0, 0);
+  }
   return *t;
 }
-static UniquePid& theProcess()
+
+static UniquePid &
+theProcess()
 {
   static char buf[sizeof(UniquePid)];
-  static UniquePid* t=NULL;
-  if(t==NULL) t = new (buf) UniquePid(0,0,0);
+  static UniquePid *t = NULL;
+
+  if (t == NULL) {
+    t = new (buf) UniquePid(0, 0, 0);
+  }
   return *t;
 }
-static UniquePid& parentProcess()
+
+static UniquePid &
+parentProcess()
 {
   static char buf[sizeof(UniquePid)];
-  static UniquePid* t=NULL;
-  if(t==NULL) t = new (buf) UniquePid(0,0,0);
+  static UniquePid *t = NULL;
+
+  if (t == NULL) {
+    t = new (buf) UniquePid(0, 0, 0);
+  }
   return *t;
 }
 
 // _computation_generation field of return value may later have to be modified.
 // So, it can't return a const UniquePid
-UniquePid& UniquePid::ThisProcess(bool disableJTrace /*=false*/)
+UniquePid &
+UniquePid::ThisProcess(bool disableJTrace /*=false*/)
 {
-  if ( theProcess() == nullProcess() )
-  {
-    theProcess() = UniquePid ( theUniqueHostId() ,
-                                      ::getpid(),
-                                      ::time(NULL) );
+  if (theProcess() == nullProcess()) {
+    theProcess() = UniquePid(theUniqueHostId(), ::getpid(), ::time(NULL));
     if (disableJTrace == false) {
-      JTRACE ( "recalculated process UniquePid..." ) ( theProcess() );
+      JTRACE("recalculated process UniquePid...")(theProcess());
     }
   }
 
   return theProcess();
 }
 
-UniquePid& UniquePid::ParentProcess()
+UniquePid &
+UniquePid::ParentProcess()
 {
   return parentProcess();
 }
@@ -103,7 +121,8 @@ UniquePid::UniquePid()
 }
 
 // This is called only by the DMTCP coordinator.
-void  UniquePid::incrementGeneration()
+void
+UniquePid::incrementGeneration()
 {
   _computation_generation++;
 }
@@ -111,83 +130,92 @@ void  UniquePid::incrementGeneration()
 /*!
     \fn UniquePid::operator<() const
  */
-bool UniquePid::operator< ( const UniquePid& that ) const
+bool
+UniquePid::operator<(const UniquePid &that) const
 {
-#define TRY_LEQ(param) if(this->param != that.param) return this->param < that.param;
-  TRY_LEQ ( _hostid );
-  TRY_LEQ ( _pid );
-  TRY_LEQ ( _time );
+#define TRY_LEQ(param)               \
+  if (this->param != that.param) {   \
+    return this->param < that.param; \
+  }
+  TRY_LEQ(_hostid);
+  TRY_LEQ(_pid);
+  TRY_LEQ(_time);
   return false;
 }
 
-bool UniquePid::operator== ( const UniquePid& that ) const
+bool
+UniquePid::operator==(const UniquePid &that) const
 {
-  return _hostid==that.hostid()
-         && _pid==that.pid()
-         && _time==that.time();
+  return _hostid == that.hostid() && _pid == that.pid() && _time == that.time();
 }
 
-ostream& dmtcp::operator<< ( dmtcp::ostream& o,const UniquePid& id )
+ostream &
+dmtcp::operator<<(dmtcp::ostream &o, const UniquePid &id)
 {
-  o << std::hex << id.hostid() << '-' << std::dec << id.pid() << '-' << std::hex << id.time() << std::dec;
+  o << std::hex << id.hostid() << '-' << std::dec << id.pid() << '-' << std::hex
+    << id.time() << std::dec;
   return o;
 }
 
-ostream& dmtcp::operator<< ( dmtcp::ostream& o,const DmtcpUniqueProcessId& id )
+ostream &
+dmtcp::operator<<(dmtcp::ostream &o, const DmtcpUniqueProcessId &id)
 {
-  o << std::hex << id._hostid<< '-' << std::dec << id._pid << '-' << std::hex << id._time << std::dec;
+  o << std::hex << id._hostid << '-' << std::dec << id._pid << '-' << std::hex
+    << id._time << std::dec;
   return o;
 }
 
-bool dmtcp::operator==(const DmtcpUniqueProcessId& a,
-                       const DmtcpUniqueProcessId& b)
+bool
+dmtcp::operator==(const DmtcpUniqueProcessId &a, const DmtcpUniqueProcessId &b)
 {
-  return a._hostid == b._hostid &&
-         a._pid == b._pid &&
-         a._time == b._time &&
+  return a._hostid == b._hostid && a._pid == b._pid && a._time == b._time &&
          a._computation_generation == b._computation_generation;
 }
 
-bool dmtcp::operator!=(const DmtcpUniqueProcessId& a,
-                       const DmtcpUniqueProcessId& b)
+bool
+dmtcp::operator!=(const DmtcpUniqueProcessId &a, const DmtcpUniqueProcessId &b)
 {
   return !(a == b);
 }
 
-string UniquePid::toString() const{
+string
+UniquePid::toString() const
+{
   ostringstream o;
+
   o << *this;
   return o.str();
 }
 
-void UniquePid::resetOnFork ( const UniquePid& newId )
+void
+UniquePid::resetOnFork(const UniquePid &newId)
 {
   // parentProcess() is for inspection tools
   parentProcess() = ThisProcess();
-  JTRACE ( "Explicitly setting process UniquePid" ) ( newId );
+  JTRACE("Explicitly setting process UniquePid")(newId);
   theProcess() = newId;
 }
 
-bool UniquePid::isNull() const
+bool
+UniquePid::isNull() const
 {
-  return (*this == nullProcess());
+  return *this == nullProcess();
 }
 
-void UniquePid::serialize ( jalib::JBinarySerializer& o )
+void
+UniquePid::serialize(jalib::JBinarySerializer &o)
 {
   // NOTE: Do not put JTRACE/JNOTE/JASSERT in here
   UniquePid theCurrentProcess, theParentProcess;
 
-  if ( o.isWriter() )
-  {
+  if (o.isWriter()) {
     theCurrentProcess = ThisProcess();
     theParentProcess = ParentProcess();
   }
 
-  o & theCurrentProcess & theParentProcess;
+  o &theCurrentProcess &theParentProcess;
 
-  if ( o.isReader() )
-  {
+  if (o.isReader()) {
     theProcess() = theCurrentProcess;
     parentProcess() = theParentProcess;
   }

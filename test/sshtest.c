@@ -1,11 +1,12 @@
-#include<stdio.h>
-#include<unistd.h>
-#include<stdlib.h>
-#include<errno.h>
-#include<sys/types.h>
-#include<sys/wait.h>
+#include <errno.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
-int main(int argc, char *argv[])
+int
+main(int argc, char *argv[])
 {
   char *hostname = "localhost";
 
@@ -48,16 +49,16 @@ int main(int argc, char *argv[])
     close(out[1]);
     close(err[1]);
 
-    char *argv[] = {
-                    "/usr/bin/ssh",
+    char *argv[] = {"/usr/bin/ssh",
                     "-o",
                     "StrictHostKeyChecking=no",
                     hostname,
 #ifdef USE_DMTCP1
                     "~/dmtcp/test/dmtcp1",
-#else
-                    "sleep", "100",
-#endif
+#else /* ifdef USE_DMTCP1 */
+                    "sleep",
+                    "100",
+#endif /* ifdef USE_DMTCP1 */
                     NULL};
     execv(argv[0], argv);
     perror("execv failed");
@@ -84,7 +85,7 @@ int main(int argc, char *argv[])
           perror("write failed.");
         }
       }
-#endif
+#endif /* ifndef USE_DMTCP1 */
     }
   }
   wait(NULL);

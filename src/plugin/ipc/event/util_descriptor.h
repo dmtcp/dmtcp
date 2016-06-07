@@ -18,7 +18,6 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-
 /******************************************************************
  * File:   util_descriptor.h
  *
@@ -32,69 +31,64 @@
 
 #pragma once
 #ifndef UTIL_DESCRIPTOR_H
-#define	UTIL_DESCRIPTOR_H
+#define UTIL_DESCRIPTOR_H
 
 #include <signal.h>
 
-#define SUCCESS             0
-#define FAILURE            -1
-#define MAX_DESCRIPTORS    24
-#define MAX_PATH_LEN       48
+#define SUCCESS 0
+#define FAILURE -1
+#define MAX_DESCRIPTORS 24
+#define MAX_PATH_LEN 48
 
-typedef enum
-{
-   UNUSED_DESCRIPTOR,
-   TIMER_CREATE_DECRIPTOR,
-   INOTIFY_ADD_WATCH_DESCRIPTOR,
-   MAX_NUM_OF_DESCRIPTORS
-}descriptor_type_e;
+typedef enum {
+  UNUSED_DESCRIPTOR,
+  TIMER_CREATE_DECRIPTOR,
+  INOTIFY_ADD_WATCH_DESCRIPTOR,
+  MAX_NUM_OF_DESCRIPTORS
+} descriptor_type_e;
 
-typedef struct
-{
-   descriptor_type_e type;
-   int watch_descriptor;
-   int file_descriptor;
-   unsigned int mask;
-   char pathname [ MAX_PATH_LEN ];
+typedef struct {
+  descriptor_type_e type;
+  int watch_descriptor;
+  int file_descriptor;
+  unsigned int mask;
+  char pathname[MAX_PATH_LEN];
 } inotify_add_watch_t;
 
-typedef struct
-{
-   descriptor_type_e type;
-   clockid_t clockid;
-   sigevent signal_event;
-   timer_t timerid;
+typedef struct {
+  descriptor_type_e type;
+  clockid_t clockid;
+  sigevent signal_event;
+  timer_t timerid;
 } timer_create_t;
 
-typedef union
-{
-   timer_create_t create_timer;
-   inotify_add_watch_t  add_watch;
+typedef union {
+  timer_create_t create_timer;
+  inotify_add_watch_t add_watch;
 } descriptor_types_u;
 
 namespace dmtcp
 {
-   namespace Util
-   {
-      class Descriptor
-      {
-         static descriptor_types_u* descrip_types_p[MAX_DESCRIPTORS];
-         static unsigned int descriptor_counter;
-         static bool is_initialized;
-         int remove_timer_descriptor(timer_t timer_id);
-         int remove_inotify_watch_descriptor(int watch_descriptor);
-       public:
-         Descriptor();
-         ~Descriptor();
-         unsigned int count_descriptors();
-         void add_descriptor(descriptor_types_u*  descriptor);
-         int remove_descriptor(descriptor_type_e type, void* descriptor);
-         bool get_descriptor(unsigned int index, descriptor_type_e type,
-                             descriptor_types_u*  descriptor);
-      };
-   }
+namespace Util
+{
+class Descriptor
+{
+  static descriptor_types_u *descrip_types_p[MAX_DESCRIPTORS];
+  static unsigned int descriptor_counter;
+  static bool is_initialized;
+  int remove_timer_descriptor(timer_t timer_id);
+  int remove_inotify_watch_descriptor(int watch_descriptor);
+
+public:
+  Descriptor();
+  ~Descriptor();
+  unsigned int count_descriptors();
+  void add_descriptor(descriptor_types_u *descriptor);
+  int remove_descriptor(descriptor_type_e type, void *descriptor);
+  bool get_descriptor(unsigned int index,
+                      descriptor_type_e type,
+                      descriptor_types_u *descriptor);
+};
 }
-
-#endif	/* UTIL_DESCRIPTOR_H */
-
-
+}
+#endif /* UTIL_DESCRIPTOR_H */

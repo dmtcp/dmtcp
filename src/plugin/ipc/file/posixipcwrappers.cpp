@@ -19,19 +19,19 @@
  ****************************************************************************/
 
 #include <mqueue.h>
-#include <time.h>
 #include <stdarg.h>
-#include "util.h"
+#include <time.h>
 #include "dmtcp.h"
+#include "util.h"
 
 #include "fileconnection.h"
-#include "filewrappers.h"
 #include "fileconnlist.h"
+#include "filewrappers.h"
 
 using namespace dmtcp;
 
-extern "C"
-mqd_t mq_open(const char *name, int oflag, ...)
+extern "C" mqd_t
+mq_open(const char *name, int oflag, ...)
 {
   mode_t mode = 0;
   struct mq_attr *attr = NULL;
@@ -41,29 +41,28 @@ mqd_t mq_open(const char *name, int oflag, ...)
     va_list arg;
     va_start(arg, oflag);
     mode = va_arg(arg, mode_t);
-    attr = va_arg(arg, struct mq_attr*);
+    attr = va_arg(arg, struct mq_attr *);
     va_end(arg);
   }
 
   DMTCP_PLUGIN_DISABLE_CKPT();
   int res = _real_mq_open(name, oflag, mode, attr);
   if (res != -1) {
-    PosixMQConnection *pcon = new PosixMQConnection(name, oflag,
-                                                                  mode, attr);
+    PosixMQConnection *pcon = new PosixMQConnection(name, oflag, mode, attr);
     FileConnList::instance().add(res, pcon);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return res;
 }
 
-extern "C"
-int mq_close(mqd_t mqdes)
+extern "C" int
+mq_close(mqd_t mqdes)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
   int res = _real_mq_close(mqdes);
   if (res != -1) {
-    PosixMQConnection *con =(PosixMQConnection*)
-      FileConnList::instance().getConnection(mqdes);
+    PosixMQConnection *con =
+      (PosixMQConnection *)FileConnList::instance().getConnection(mqdes);
     con->on_mq_close();
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -71,43 +70,46 @@ int mq_close(mqd_t mqdes)
 }
 
 struct mqNotifyData {
-  void(*start_routine) (union sigval);
+  void (*start_routine)(union sigval);
   union sigval sv;
   mqd_t mqdes;
 };
 
-static void mq_notify_thread_start(union sigval sv)
+static void
+mq_notify_thread_start(union sigval sv)
 {
   // FIXME: Possible race:
-  //        If some other thread in this process calls mq_notify() before we
-  //        make a call to con->on_mq_notify(NULL), the notify request won't be
-  //        restored on restart. However, this case is rather unusual.
-  struct mqNotifyData *m =(struct mqNotifyData*) sv.sival_ptr;
-  void(*start_routine) (union sigval) = m->start_routine;
+  // If some other thread in this process calls mq_notify() before we
+  // make a call to con->on_mq_notify(NULL), the notify request won't be
+  // restored on restart. However, this case is rather unusual.
+  struct mqNotifyData *m = (struct mqNotifyData *)sv.sival_ptr;
+
+  void (*start_routine)(union sigval) = m->start_routine;
   union sigval s = m->sv;
   mqd_t mqdes = m->mqdes;
 
   JALLOC_HELPER_FREE(m);
 
   DMTCP_PLUGIN_DISABLE_CKPT();
-  PosixMQConnection *con =(PosixMQConnection*)
-    FileConnList::instance().getConnection(mqdes);
+  PosixMQConnection *con =
+    (PosixMQConnection *)FileConnList::instance().getConnection(mqdes);
   con->on_mq_notify(NULL);
   DMTCP_PLUGIN_ENABLE_CKPT();
 
   start_routine(s);
 }
 
-extern "C"
-int mq_notify(mqd_t mqdes, const struct sigevent *sevp)
+extern "C" int
+mq_notify(mqd_t mqdes, const struct sigevent *sevp)
 {
   int res;
+
   DMTCP_PLUGIN_DISABLE_CKPT();
   if (sevp != NULL && sevp->sigev_notify == SIGEV_THREAD) {
     struct sigevent se;
     struct mqNotifyData *mdata;
-    mdata =(struct mqNotifyData*)
-      JALLOC_HELPER_MALLOC(sizeof(struct mqNotifyData));
+    mdata =
+      (struct mqNotifyData *)JALLOC_HELPER_MALLOC(sizeof(struct mqNotifyData));
     se = *sevp;
     mdata->start_routine = sevp->sigev_notify_function;
     mdata->sv = sevp->sigev_value;
@@ -120,19 +122,20 @@ int mq_notify(mqd_t mqdes, const struct sigevent *sevp)
   }
 
   if (res != -1) {
-    PosixMQConnection *con =(PosixMQConnection*)
-      FileConnList::instance().getConnection(mqdes);
+    PosixMQConnection *con =
+      (PosixMQConnection *)FileConnList::instance().getConnection(mqdes);
     con->on_mq_notify(sevp);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return res;
 }
 
-extern "C"
-int mq_send(mqd_t mqdes, const char *msg_ptr, size_t msg_len, unsigned msg_prio)
+extern "C" int
+mq_send(mqd_t mqdes, const char *msg_ptr, size_t msg_len, unsigned msg_prio)
 {
   int res;
   struct timespec ts;
+
   do {
     JASSERT(clock_gettime(CLOCK_REALTIME, &ts) != -1);
     ts.tv_sec += 1000;
@@ -141,12 +144,12 @@ int mq_send(mqd_t mqdes, const char *msg_ptr, size_t msg_len, unsigned msg_prio)
   return res;
 }
 
-extern "C"
-ssize_t mq_receive(mqd_t mqdes, char *msg_ptr, size_t msg_len,
-                   unsigned *msg_prio)
+extern "C" ssize_t
+mq_receive(mqd_t mqdes, char *msg_ptr, size_t msg_len, unsigned *msg_prio)
 {
   ssize_t res;
   struct timespec ts;
+
   do {
     JASSERT(clock_gettime(CLOCK_REALTIME, &ts) != -1);
     ts.tv_sec += 1000;
@@ -156,12 +159,16 @@ ssize_t mq_receive(mqd_t mqdes, char *msg_ptr, size_t msg_len,
 }
 
 static struct timespec ts_100ms = {0, 100 * 1000 * 1000};
-extern "C"
-int mq_timedsend(mqd_t mqdes, const char *msg_ptr, size_t msg_len,
-                 unsigned msg_prio, const struct timespec *abs_timeout)
+extern "C" int
+mq_timedsend(mqd_t mqdes,
+             const char *msg_ptr,
+             size_t msg_len,
+             unsigned msg_prio,
+             const struct timespec *abs_timeout)
 {
   struct timespec ts;
   int ret = -1;
+
   do {
     DMTCP_PLUGIN_DISABLE_CKPT();
     JASSERT(clock_gettime(CLOCK_REALTIME, &ts) != -1);
@@ -171,7 +178,7 @@ int mq_timedsend(mqd_t mqdes, const char *msg_ptr, size_t msg_len,
     ret = _real_mq_timedsend(mqdes, msg_ptr, msg_len, msg_prio, &ts);
     DMTCP_PLUGIN_ENABLE_CKPT();
 
-    if (ret != -1 ||(ret == -1 && errno != ETIMEDOUT)) {
+    if (ret != -1 || (ret == -1 && errno != ETIMEDOUT)) {
       return ret;
     }
   } while (TIMESPEC_CMP(&ts, abs_timeout, <));
@@ -180,13 +187,16 @@ int mq_timedsend(mqd_t mqdes, const char *msg_ptr, size_t msg_len,
   return ret;
 }
 
-extern "C"
-ssize_t mq_timedreceive(mqd_t mqdes, char *msg_ptr, size_t msg_len,
-                        unsigned *msg_prio,
-                        const struct timespec *abs_timeout)
+extern "C" ssize_t
+mq_timedreceive(mqd_t mqdes,
+                char *msg_ptr,
+                size_t msg_len,
+                unsigned *msg_prio,
+                const struct timespec *abs_timeout)
 {
   struct timespec ts;
   int ret = -1;
+
   do {
     DMTCP_PLUGIN_DISABLE_CKPT();
     JASSERT(clock_gettime(CLOCK_REALTIME, &ts) != -1);
@@ -196,7 +206,7 @@ ssize_t mq_timedreceive(mqd_t mqdes, char *msg_ptr, size_t msg_len,
     ret = _real_mq_timedreceive(mqdes, msg_ptr, msg_len, msg_prio, &ts);
     DMTCP_PLUGIN_ENABLE_CKPT();
 
-    if (ret != -1 ||(ret == -1 && errno != ETIMEDOUT)) {
+    if (ret != -1 || (ret == -1 && errno != ETIMEDOUT)) {
       return ret;
     }
   } while (TIMESPEC_CMP(&ts, abs_timeout, <));

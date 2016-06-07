@@ -21,19 +21,22 @@
 
 #include <poll.h>
 #include <sys/select.h>
+
 /* According to POSIX.1-2001 */
 #include <sys/select.h>
+
 /* Next three according to earlier standards */
 #include <sys/time.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include "dmtcpalloc.h"
-#include "eventwrappers.h"
 #include "eventconnection.h"
 #include "eventconnlist.h"
+#include "eventwrappers.h"
 #include "jassert.h"
 
 using namespace dmtcp;
+
 /* 'man 7 signal' says the following are not restarted after ckpt signal
  * even though the SA_RESTART option was used.  If we wrap these, we must
  * restart them when they are interrupted by a checkpoint signal.
@@ -67,163 +70,178 @@ using namespace dmtcp;
 // and restart the syscall only if that variable is set.
 
 /* Poll wrapper forces poll to restart after ckpt/resume or ckpt/restart */
-extern "C" int poll(struct pollfd *fds, nfds_t nfds, int timeout)
+extern "C" int
+poll(struct pollfd *fds, nfds_t nfds, int timeout)
 {
   int rc;
+
   while (1) {
     uint32_t orig_generation = dmtcp_get_generation();
     rc = _real_poll(fds, nfds, timeout);
     if (rc == -1 && errno == EINTR &&
-         dmtcp_get_generation() > orig_generation) {
-      continue;  // This was a restart or resume after checkpoint.
+        dmtcp_get_generation() > orig_generation) {
+      continue; // This was a restart or resume after checkpoint.
     } else {
-      break;  // The signal interrupting us was not our checkpoint signal.
+      break; // The signal interrupting us was not our checkpoint signal.
     }
   }
   return rc;
 }
 
-
 /* Poll wrapper forces poll to restart after ckpt/resume or ckpt/restart */
+
 // Two separate definitions for poll and __poll_chk allow us to support
 // application binaries compiled with "poll" (older libc versions) as well as
 // binaries compiled with "__poll_chk" (newer libc versions).
-extern "C" int __poll_chk(struct pollfd *fds, nfds_t nfds, int timeout,
-                          size_t fdslen)
+extern "C" int
+__poll_chk(struct pollfd *fds, nfds_t nfds, int timeout, size_t fdslen)
 {
-  JASSERT((fdslen / sizeof (*fds)) >= nfds) (nfds) (fdslen)
-    .Text("Buffer Overflow detected!");
+  JASSERT((fdslen / sizeof(*fds)) >= nfds)
+  (nfds)(fdslen).Text("Buffer Overflow detected!");
 
   int rc;
   while (1) {
     uint32_t orig_generation = dmtcp_get_generation();
-    rc = _real_poll_chk(fds, nfds, timeout,fdslen);
+    rc = _real_poll_chk(fds, nfds, timeout, fdslen);
     if (rc == -1 && errno == EINTR &&
-         dmtcp_get_generation() > orig_generation) {
-      continue;  // This was a restart or resume after checkpoint.
+        dmtcp_get_generation() > orig_generation) {
+      continue; // This was a restart or resume after checkpoint.
     } else {
-      break;  // The signal interrupting us was not our checkpoint signal.
+      break; // The signal interrupting us was not our checkpoint signal.
     }
   }
   return rc;
 }
 
-
 // pselect wrapper forces pselect to restart after ckpt/resume or ckpt/restart
-extern "C" int pselect(int nfds, fd_set *readfds, fd_set *writefds,
-                       fd_set *exceptfds, const struct timespec *timeout,
-                       const sigset_t *sigmask)
+extern "C" int
+pselect(int nfds,
+        fd_set *readfds,
+        fd_set *writefds,
+        fd_set *exceptfds,
+        const struct timespec *timeout,
+        const sigset_t *sigmask)
 {
   int rc;
+
   while (1) {
     uint32_t orig_generation = dmtcp_get_generation();
     rc = _real_pselect(nfds, readfds, writefds, exceptfds, timeout, sigmask);
     if (rc == -1 && errno == EINTR &&
-         dmtcp_get_generation() > orig_generation) {
-      continue;  // This was a restart or resume after checkpoint.
+        dmtcp_get_generation() > orig_generation) {
+      continue; // This was a restart or resume after checkpoint.
     } else {
-      break;  // The signal interrupting us was not our checkpoint signal.
+      break; // The signal interrupting us was not our checkpoint signal.
     }
   }
   return rc;
 }
 
-
-extern "C" int select(int nfds, fd_set *readfds, fd_set *writefds,
-                       fd_set *exceptfds, struct timeval *timeout)
+extern "C" int
+select(int nfds,
+       fd_set *readfds,
+       fd_set *writefds,
+       fd_set *exceptfds,
+       struct timeval *timeout)
 {
   int rc;
+
   while (1) {
     uint32_t orig_generation = dmtcp_get_generation();
     rc = _real_select(nfds, readfds, writefds, exceptfds, timeout);
     if (rc == -1 && errno == EINTR &&
-         dmtcp_get_generation() > orig_generation) {
-      continue;  // This was a restart or resume after checkpoint.
+        dmtcp_get_generation() > orig_generation) {
+      continue; // This was a restart or resume after checkpoint.
     } else {
-      break;  // The signal interrupting us was not our checkpoint signal.
+      break; // The signal interrupting us was not our checkpoint signal.
     }
   }
   return rc;
 }
-
 
 /****************************************************************************
  ****************************************************************************/
 
 #ifdef HAVE_SYS_SIGNALFD_H
-extern "C" int signalfd(int fd, const sigset_t *mask, int flags)
+extern "C" int
+signalfd(int fd, const sigset_t *mask, int flags)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
   int ret = _real_signalfd(fd, mask, flags);
   if (ret != -1) {
-    JTRACE("signalfd created") (fd) (flags);
+    JTRACE("signalfd created")(fd)(flags);
     EventConnList::instance().add(ret, new SignalFdConnection(fd, mask, flags));
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return ret;
 }
-#endif
+#endif // ifdef HAVE_SYS_SIGNALFD_H
 
 #ifdef HAVE_SYS_EVENTFD_H
-extern "C" int eventfd(EVENTFD_VAL_TYPE initval, int flags)
+extern "C" int
+eventfd(EVENTFD_VAL_TYPE initval, int flags)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
   int ret = _real_eventfd(initval, flags);
   if (ret != -1) {
-    JTRACE("eventfd created") (ret) (initval) (flags);
+    JTRACE("eventfd created")(ret)(initval)(flags);
     EventConnList::instance().add(ret, new EventFdConnection(initval, flags));
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return ret;
 }
-#endif
+#endif // ifdef HAVE_SYS_EVENTFD_H
 
 #ifdef HAVE_SYS_EPOLL_H
-extern "C" int epoll_create(int size)
+extern "C" int
+epoll_create(int size)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
   int ret = _real_epoll_create(size);
   if (ret != -1) {
-    JTRACE("epoll fd created") (ret) (size);
+    JTRACE("epoll fd created")(ret)(size);
     EventConnList::instance().add(ret, new EpollConnection(size));
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return ret;
 }
 
-extern "C" int epoll_create1(int flags)
+extern "C" int
+epoll_create1(int flags)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
   int ret = _real_epoll_create1(flags);
   if (ret != -1) {
-    JTRACE("epoll fd created1") (ret) (flags);
+    JTRACE("epoll fd created1")(ret)(flags);
     EventConnList::instance().add(ret, new EpollConnection(flags));
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return ret;
 }
 
-extern "C" int epoll_ctl(int epfd, int op, int fd, struct epoll_event *event)
+extern "C" int
+epoll_ctl(int epfd, int op, int fd, struct epoll_event *event)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
   int ret = _real_epoll_ctl(epfd, op, fd, event);
   if (ret != -1) {
-    //JTRACE("epoll fd CTL") (ret) (epfd) (fd) (op);
+    // JTRACE("epoll fd CTL") (ret) (epfd) (fd) (op);
     EpollConnection *con =
-      (EpollConnection*) EventConnList::instance().getConnection(epfd);
+      (EpollConnection *)EventConnList::instance().getConnection(epfd);
     con->onCTL(op, fd, event);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return ret;
 }
 
-extern "C" int epoll_wait(int epfd, struct epoll_event *events, int maxevents,
-                          int timeout)
+extern "C" int
+epoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout)
 {
   int readyFds = 0;
   int timeLeft = timeout;
   int mytime;
-//  JTRACE("Starting to do wait on epoll fd");
+
+  // JTRACE("Starting to do wait on epoll fd");
 
   if (timeout >= 0 && timeout < 1000) {
     // Short time intervals
@@ -251,25 +269,28 @@ extern "C" int epoll_wait(int epfd, struct epoll_event *events, int maxevents,
   } while ((timeLeft > 0 || timeout < 0) && readyFds == 0);
   return readyFds;
 }
-#endif
-
+#endif // ifdef HAVE_SYS_EPOLL_H
 
 #ifdef HAVE_SYS_INOTIFY_H
 #ifndef DMTCP_USE_INOTIFY
-EXTERNC int inotify_init()
+EXTERNC int
+inotify_init()
 {
-  JWARNING(false) .Text("Inotify not yet supported by DMTCP");
+  JWARNING(false).Text("Inotify not yet supported by DMTCP");
   errno = ENOMEM;
   return -1;
 }
 
-EXTERNC int inotify_init1(int flags)
+EXTERNC int
+inotify_init1(int flags)
 {
-  JWARNING(false) .Text("Inotify not yet supported by DMTCP");
+  JWARNING(false).Text("Inotify not yet supported by DMTCP");
   errno = ENOMEM;
   return -1;
 }
-#else
+
+#else // ifndef DMTCP_USE_INOTIFY
+
 /******************************************************************
  * function name: inotify_init()
  *
@@ -278,15 +299,18 @@ EXTERNC int inotify_init1(int flags)
  * para:          none
  * return:        fd (inotify instance)
  ******************************************************************/
-EXTERNC int inotify_init()
+EXTERNC int
+inotify_init()
 {
   int fd;
+
   DMTCP_PLUGIN_DISABLE_CKPT();
   JTRACE("Starting to create an inotify fd.");
   fd = _real_inotify_init();
   if (fd > 0) {
-    JTRACE ( "inotify fd created" ) ( ret );
-    //create the inotify object
+    JTRACE("inotify fd created")(ret);
+
+    // create the inotify object
     Connection *con = new InotifyConnection(0);
     EventConnList::instance().add(ret, con);
   }
@@ -302,12 +326,13 @@ EXTERNC int inotify_init()
  * para:          flags
  * return:        fd (inotify instance)
  ******************************************************************/
-EXTERNC int inotify_init1(int flags)
+EXTERNC int
+inotify_init1(int flags)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
   int ret = _real_inotify_init1(flags);
   if (ret != -1) {
-    JTRACE("inotify1 fd created") (ret) (flags);
+    JTRACE("inotify1 fd created")(ret)(flags);
     Connection *con = new InotifyConnection(flags);
     EventConnList::instance().add(ret, flags);
   }
@@ -325,16 +350,18 @@ EXTERNC int inotify_init1(int flags)
  * para:          mask      - events to be monitored on pathname
  * return:        watch descriptor (wd) on success, -1 on failure
  ******************************************************************/
-EXTERNC int inotify_add_watch(int fd, const char *pathname, uint32_t mask)
+EXTERNC int
+inotify_add_watch(int fd, const char *pathname, uint32_t mask)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
   int ret = _real_inotify_add_watch(fd, pathname, mask);
   if (ret != -1) {
     JTRACE("calling inotify class methods");
-    InotifyConnection& inotify_con =
-      (InotifyConnection*) EventConnList::instance().getConnection(fd);
+    InotifyConnection &inotify_con =
+      (InotifyConnection *)EventConnList::instance().getConnection(fd);
 
     inotify_con->add_watch_descriptors(ret, fd, pathname, mask);
+
     /*temp_pathname = pathname;
       inotify_con.map_inotify_fd_to_wd ( fd, ret);
       inotify_con.map_wd_to_pathname(ret, temp_pathname);
@@ -354,19 +381,21 @@ EXTERNC int inotify_add_watch(int fd, const char *pathname, uint32_t mask)
  * para:          wd        - watch descriptor to be removed
  * return:        0 on success, -1 on failure
  ******************************************************************/
-EXTERNC int inotify_rm_watch(int fd, int wd)
+EXTERNC int
+inotify_rm_watch(int fd, int wd)
 {
   DMTCP_PLUGIN_DISABLE_CKPT(); // The lock is released inside the macro.
   int ret = _real_inotify_rm_watch(fd, wd);
   if (ret != -1) {
-    JTRACE("remove inotify mapping from dmtcp") (ret) (fd) (wd);
-    InotifyConnection& inotify_con =
-      (InotifyConnection*) EventConnList::instance().getConnection(fd);
-    //inotify_con.remove_mappings(fd, wd);
+    JTRACE("remove inotify mapping from dmtcp")(ret)(fd)(wd);
+    InotifyConnection &inotify_con =
+      (InotifyConnection *)EventConnList::instance().getConnection(fd);
+
+    // inotify_con.remove_mappings(fd, wd);
     inotify_con->remove_watch_descriptors(wd);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return ret;
 }
-#endif
-#endif
+#endif // ifndef DMTCP_USE_INOTIFY
+#endif // ifdef HAVE_SYS_INOTIFY_H

@@ -28,47 +28,46 @@
 
 namespace jalib
 {
-  struct linux_dirent {
-    unsigned long  d_ino;     /* Inode number */
-    unsigned long  d_off;     /* Offset to next linux_dirent */
-    unsigned short d_reclen;  /* Length of this linux_dirent */
-    char           d_name[];  /* Filename (null-terminated) */
-                        /* length is actually (d_reclen - 2 -
-                           offsetof(struct linux_dirent, d_name) */
-    /*
-       char           pad;       // Zero padding byte
-       char           d_type;    // File type (only since Linux 2.6.4;
-                                 // offset is (d_reclen - 1))
-    */
-  };
+struct linux_dirent {
+  unsigned long d_ino; /* Inode number */
+  unsigned long d_off; /* Offset to next linux_dirent */
+  unsigned short d_reclen; /* Length of this linux_dirent */
+  char d_name[]; /* Filename (null-terminated) */
 
-  namespace Filesystem
-  {
+  /* length is actually (d_reclen - 2 -
+     offsetof(struct linux_dirent, d_name) */
 
-    //true if a given file exists
-    bool FileExists ( const jalib::string& str );
+  /*
+     char           pad;       // Zero padding byte
+     char           d_type;    // File type (only since Linux 2.6.4;
+                               // offset is (d_reclen - 1))
+  */
+};
 
-    jalib::string GetCWD();
-    jalib::string GetProgramDir();
-    jalib::string GetProgramName();
-    jalib::string GetProgramPath();
+namespace Filesystem
+{
+// true if a given file exists
+bool FileExists(const jalib::string &str);
 
-    jalib::string GetDeviceName ( int fd );
-    jalib::string ResolveSymlink ( const jalib::string& file );
-    jalib::string DirName ( const jalib::string& str );
-    jalib::string BaseName ( const jalib::string& str );
-    int mkdir_r( const jalib::string& dir, mode_t mode);
+jalib::string GetCWD();
+jalib::string GetProgramDir();
+jalib::string GetProgramName();
+jalib::string GetProgramPath();
 
-    StringVector GetProgramArgs();
+jalib::string GetDeviceName(int fd);
+jalib::string ResolveSymlink(const jalib::string &file);
+jalib::string DirName(const jalib::string &str);
+jalib::string BaseName(const jalib::string &str);
+int mkdir_r(const jalib::string &dir, mode_t mode);
 
-    IntVector ListOpenFds();
+StringVector GetProgramArgs();
 
-    jalib::string GetControllingTerm(pid_t pid = -1);
+IntVector ListOpenFds();
 
-    jalib::string GetCurrentHostname();
+jalib::string GetControllingTerm(pid_t pid = -1);
 
-  }
-
+jalib::string GetCurrentHostname();
+}
 }
 
-#endif
+#endif // ifndef JALIBJFILESYSTEM_H

@@ -1,64 +1,69 @@
-#include <unistd.h>
-#include <sys/stat.h>
-#include <sys/fcntl.h>
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <sys/errno.h>
-#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <assert.h>
 #include <linux/limits.h>
 #include <netinet/in.h>
-#include <arpa/inet.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <assert.h>
+#include <sys/errno.h>
+#include <sys/fcntl.h>
+#include <sys/socket.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
 #include "ssh.h"
 
 static int listenSock = -1;
 static int noStrictHostKeyChecking = 0;
 
-extern "C" void dmtcp_get_local_ip_addr(struct in_addr *addr) __attribute((weak));
+extern "C" void dmtcp_get_local_ip_addr(struct in_addr *addr)
+  __attribute((weak));
 
-//static bool strEndsWith(const char *str, const char *pattern)
-//{
-//  assert(str != NULL && pattern != NULL);
-//  int len1 = strlen(str);
-//  int len2 = strlen(pattern);
-//  if (len1 >= len2) {
-//    size_t idx = len1 - len2;
-//    return strncmp(str+idx, pattern, len2) == 0;
-//  }
-//  return false;
-//}
+// static bool strEndsWith(const char *str, const char *pattern)
+// {
+// assert(str != NULL && pattern != NULL);
+// int len1 = strlen(str);
+// int len2 = strlen(pattern);
+// if (len1 >= len2) {
+// size_t idx = len1 - len2;
+// return strncmp(str+idx, pattern, len2) == 0;
+// }
+// return false;
+// }
 
-static int getport(int fd)
+static int
+getport(int fd)
 {
   struct sockaddr_in addr;
   socklen_t addrlen = sizeof(addr);
+
   if (getsockname(fd, (struct sockaddr *)&addr, &addrlen) == -1) {
     return -1;
   }
   return (int)ntohs(addr.sin_port);
 }
 
-static void createStdioFds(int *in, int *out, int *err)
+static void
+createStdioFds(int *in, int *out, int *err)
 {
   struct stat buf;
-  if (fstat(STDIN_FILENO,  &buf)  == -1) {
+
+  if (fstat(STDIN_FILENO, &buf) == -1) {
     int fd = open("/dev/null", O_RDWR);
     if (fd != STDIN_FILENO) {
       dup2(fd, STDIN_FILENO);
       close(fd);
     }
   }
-  if (fstat(STDOUT_FILENO,  &buf)  == -1) {
+  if (fstat(STDOUT_FILENO, &buf) == -1) {
     int fd = open("/dev/null", O_RDWR);
     if (fd != STDOUT_FILENO) {
       dup2(fd, STDOUT_FILENO);
       close(fd);
     }
   }
-  if (fstat(STDERR_FILENO,  &buf)  == -1) {
+  if (fstat(STDERR_FILENO, &buf) == -1) {
     int fd = open("/dev/null", O_RDWR);
     if (fd != STDERR_FILENO) {
       dup2(fd, STDERR_FILENO);
@@ -83,10 +88,12 @@ static void createStdioFds(int *in, int *out, int *err)
   }
 }
 
-static int openListenSocket()
+static int
+openListenSocket()
 {
   struct sockaddr_in saddr;
   int sock = socket(AF_INET, SOCK_STREAM, 0);
+
   if (sock == -1) {
     perror("Error creating socket: ");
   }
@@ -94,7 +101,7 @@ static int openListenSocket()
   saddr.sin_family = AF_INET;
   saddr.sin_addr.s_addr = INADDR_ANY;
   saddr.sin_port = 0;
-  if (bind(sock, (struct sockaddr*) &saddr, sizeof saddr) == -1) {
+  if (bind(sock, (struct sockaddr *)&saddr, sizeof saddr) == -1) {
     perror("Error binding socket");
   }
 
@@ -104,7 +111,8 @@ static int openListenSocket()
   return sock;
 }
 
-static void signal_handler(int sig)
+static void
+signal_handler(int sig)
 {
   if (sig == SIGCHLD) {
     int status;
@@ -113,9 +121,11 @@ static void signal_handler(int sig)
   }
 }
 
-static int waitForConnection(int listenSock)
+static int
+waitForConnection(int listenSock)
 {
   int fd = accept(listenSock, NULL, NULL);
+
   if (fd == -1) {
     perror("accept failed:");
     abort();
@@ -125,7 +135,8 @@ static int waitForConnection(int listenSock)
   return fd;
 }
 
-int main(int argc, char *argv[], char *envp[])
+int
+main(int argc, char *argv[], char *envp[])
 {
   int in[2], out[2], err[2];
   int status;
@@ -181,8 +192,7 @@ int main(int argc, char *argv[], char *envp[])
           *ptr = '\0';
           ptr++;
         }
-        sprintf(buf, "%s --host %s --port %d %s",
-                argv[i], hostip, port, ptr);
+        sprintf(buf, "%s --host %s --port %d %s", argv[i], hostip, port, ptr);
         argv[i] = buf;
       }
       i++;

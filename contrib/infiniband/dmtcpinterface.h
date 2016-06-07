@@ -1,9 +1,9 @@
 #ifndef DMTCPINTERFACE_H
-# define DMTCPINTERFACE_H
+#define DMTCPINTERFACE_H
 
-# ifdef __cplusplus
-  extern "C" {
-# endif
+#ifdef __cplusplus
+extern "C" {
+#endif // ifdef __cplusplus
 
 typedef enum eDmtcpEvent {
   DMTCP_EVENT_INIT,
@@ -22,14 +22,13 @@ typedef enum eDmtcpEvent {
   nDmtcpEvents
 } DmtcpEvent_t;
 
-void process_dmtcp_event(DmtcpEvent_t event, void* data);
-int  dmtcp_get_ckpt_signal();
-const char* dmtcp_get_tmpdir();
-const char* dmtcp_get_uniquepid_str();
-int  dmtcp_is_running_state();
+void process_dmtcp_event(DmtcpEvent_t event, void *data);
+int dmtcp_get_ckpt_signal();
+const char *dmtcp_get_tmpdir();
+const char *dmtcp_get_uniquepid_str();
+int dmtcp_is_running_state();
 
-# ifdef __cplusplus
- }
-# endif
-#endif
-
+#ifdef __cplusplus
+}
+#endif // ifdef __cplusplus
+#endif // ifndef DMTCPINTERFACE_H

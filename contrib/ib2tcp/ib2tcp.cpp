@@ -1,46 +1,46 @@
+#include <arpa/inet.h>
+#include <assert.h>
+#include <errno.h>
+#include <fcntl.h>
 #include <infiniband/verbs.h>
 #include <linux/types.h>
-#include <sys/types.h>
-#include <fcntl.h>
-#include <assert.h>
-#include <stdlib.h>
+#include <netinet/in.h>
+#include <pthread.h>
+#include <semaphore.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
-#include <pthread.h>
-#include <errno.h>
-#include <semaphore.h>
 #include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
+#include <sys/types.h>
 #include <queue>
 
-#include "dmtcp.h"
 #include "config.h"
+#include "dmtcp.h"
 #include "dmtcpalloc.h"
-#include "util.h"
-#include "jsocket.h"
 #include "jassert.h"
+#include "jsocket.h"
+#include "util.h"
 
 #include "ib2tcp.h"
 #include "ibwrappers.h"
 
 using namespace dmtcp;
 
-vector<IB_WR<struct ibv_send_wr>* > sendQueue;
+vector<IB_WR<struct ibv_send_wr> *> sendQueue;
 
-map<IB_QP*, vector<IB_WR<struct ibv_recv_wr>* > > recvQueue;
-map<struct ibv_srq*, vector<IB_WR<struct ibv_recv_wr>* > > srecvQueue;
+map<IB_QP *, vector<IB_WR<struct ibv_recv_wr> *> > recvQueue;
+map<struct ibv_srq *, vector<IB_WR<struct ibv_recv_wr> *> > srecvQueue;
 
-map<IB_QP*, int> qpToFd;
-map<int, IB_QP*> fdToQP;
+map<IB_QP *, int> qpToFd;
+map<int, IB_QP *> fdToQP;
 
 vector<int> socks;
 
-map<uint32_t, IB_QP*> queuePairs;
+map<uint32_t, IB_QP *> queuePairs;
 
-map<struct ibv_cq*, vector<struct ibv_wc> > compQueue;
-map<struct ibv_cq*, sem_t *> compQueueSema;
+map<struct ibv_cq *, vector<struct ibv_wc> > compQueue;
+map<struct ibv_cq *, sem_t *> compQueueSema;
 
 sem_t sem_queue;
 
@@ -56,37 +56,40 @@ static void *recvThread(void *arg);
 int isVirtIB = 0;
 
 static pthread_mutex_t _lock;
-static void do_lock() {
+static void
+do_lock()
+{
   JASSERT(pthread_mutex_lock(&_lock) == 0);
 }
-static void do_unlock() {
+
+static void
+do_unlock()
+{
   JASSERT(pthread_mutex_unlock(&_lock) == 0);
 }
-
 
 static DmtcpBarrier ib2tcpBarriers[] = {
   {DMTCP_GLOBAL_BARRIER_RESTART, IB2TCP::postRestart, "restart"},
   {DMTCP_GLOBAL_BARRIER_RESTART, IB2TCP::registerNSData, "register_ns_data"},
   {DMTCP_GLOBAL_BARRIER_RESTART, IB2TCP::sendQueries, "send_queries"},
-  {DMTCP_GLOBAL_BARRIER_RESTART, IB2TCP::createTCPConnections, "restart_resume"}
-};
+  {DMTCP_GLOBAL_BARRIER_RESTART, IB2TCP::createTCPConnections,
+    "restart_resume"}};
 
-DmtcpPluginDescriptor_t ib2tcp_plugin = {
-  DMTCP_PLUGIN_API_VERSION,
-  PACKAGE_VERSION,
-  "ib2tcp",
-  "DMTCP",
-  "dmtcp@ccs.neu.edu",
-  "IB2TCP plugin",
-  DMTCP_DECL_BARRIERS(ib2tcpBarriers),
-  NULL
-};
+DmtcpPluginDescriptor_t ib2tcp_plugin = {DMTCP_PLUGIN_API_VERSION,
+                                         PACKAGE_VERSION,
+                                         "ib2tcp",
+                                         "DMTCP",
+                                         "dmtcp@ccs.neu.edu",
+                                         "IB2TCP plugin",
+                                         DMTCP_DECL_BARRIERS(ib2tcpBarriers),
+                                         NULL};
 
 DMTCP_DECL_PLUGIN(ib2tcp_plugin);
 
 /**************************************************************/
 /**************************************************************/
-static void *sendThread(void *arg)
+static void *
+sendThread(void *arg)
 {
   while (isVirtIB == 0) {
     sleep(1);
@@ -98,7 +101,8 @@ static void *sendThread(void *arg)
   }
 }
 
-static void *recvThread(void *arg)
+static void *
+recvThread(void *arg)
 {
   fd_set fds;
   int maxFd;
@@ -111,7 +115,7 @@ static void *recvThread(void *arg)
   while (1) {
     struct timeval timeout = {1, 0};
     maxFd = -1;
-    FD_ZERO ( &fds );
+    FD_ZERO(&fds);
 
     for (i = 0; i < socks.size(); ++i) {
       FD_SET(socks[i], &fds);
@@ -124,7 +128,7 @@ static void *recvThread(void *arg)
     }
 
     int retval = select(maxFd + 1, &fds, NULL, NULL, &timeout);
-    JWARNING(retval != -1) (JASSERT_ERRNO) (maxFd) .Text ("select failed");
+    JWARNING(retval != -1)(JASSERT_ERRNO)(maxFd).Text("select failed");
 
     if (retval > 0) {
       for (i = 0; i < socks.size(); ++i) {
@@ -139,7 +143,8 @@ static void *recvThread(void *arg)
 
 /**************************************************************/
 /**************************************************************/
-void IB2TCP::openListenSocket()
+void
+IB2TCP::openListenSocket()
 {
   if (Util::isValidFd(listenSock.sockfd())) {
     return;
@@ -157,11 +162,12 @@ void IB2TCP::openListenSocket()
   memcpy(&listenAddr, &addr_in, sizeof(addr_in));
   listenAddrLen = sizeof(addr_in);
 
-  JNOTE("opened listen socket") (listenSock.sockfd())
-    (inet_ntoa(addr_in.sin_addr)) (ntohs(addr_in.sin_port));
+  JNOTE("opened listen socket")
+  (listenSock.sockfd())(inet_ntoa(addr_in.sin_addr))(ntohs(addr_in.sin_port));
 }
 
-void IB2TCP::init()
+void
+IB2TCP::init()
 {
   if (sendTh == -1) {
     JASSERT(pthread_create(&sendTh, NULL, sendThread, NULL) == 0);
@@ -170,48 +176,47 @@ void IB2TCP::init()
   sem_init(&sem_queue, 0, 0);
 }
 
-void IB2TCP::postRestart()
+void
+IB2TCP::postRestart()
 {
   isVirtIB = 1;
   pthread_mutex_init(&_lock, NULL);
   openListenSocket();
 }
 
-void IB2TCP::registerNSData()
+void
+IB2TCP::registerNSData()
 {
   if (!isVirtIB) {
     return;
   }
 
-  map<uint32_t, IB_QP*>::iterator it;
+  map<uint32_t, IB_QP *>::iterator it;
   for (it = queuePairs.begin(); it != queuePairs.end(); it++) {
     IB_QP *ibqp = it->second;
     if (ibqp->localId < ibqp->remoteId) {
-      dmtcp_send_key_val_pair_to_coordinator("IB2TCP",
-                                             &ibqp->localId.lid,
+      dmtcp_send_key_val_pair_to_coordinator("IB2TCP", &ibqp->localId.lid,
                                              sizeof(ibqp->localId.lid),
-                                             &listenAddr,
-                                             listenAddrLen);
+                                             &listenAddr, listenAddrLen);
     }
   }
 }
 
-void IB2TCP::sendQueries()
+void
+IB2TCP::sendQueries()
 {
   if (!isVirtIB) {
     return;
   }
 
-  map<uint32_t, IB_QP*>::iterator it;
+  map<uint32_t, IB_QP *>::iterator it;
   for (it = queuePairs.begin(); it != queuePairs.end(); it++) {
     IB_QP *ibqp = it->second;
     if (ibqp->localId > ibqp->remoteId) {
       uint32_t size = sizeof(ibqp->remoteAddr);
-      dmtcp_send_query_to_coordinator("IB2TCP",
-                                      &ibqp->remoteId.lid,
+      dmtcp_send_query_to_coordinator("IB2TCP", &ibqp->remoteId.lid,
                                       sizeof(ibqp->remoteId.lid),
-                                      &ibqp->remoteAddr,
-                                      &size);
+                                      &ibqp->remoteAddr, &size);
       ibqp->remoteAddrLen = size;
     } else {
       ibqp->remoteAddrLen = -1;
@@ -219,29 +224,32 @@ void IB2TCP::sendQueries()
   }
 }
 
-void IB2TCP::createTCPConnections()
+void
+IB2TCP::createTCPConnections()
 {
   if (!isVirtIB) {
     return;
   }
 
   size_t numRemaining = 0;
-  map<uint32_t, IB_QP*>::iterator it;
-  //First do a connect
+  map<uint32_t, IB_QP *>::iterator it;
+
+  // First do a connect
   for (it = queuePairs.begin(); it != queuePairs.end(); it++) {
     IB_QP *ibqp = it->second;
     IB_QId remoteId = ibqp->getRemoteId();
     if (ibqp->localId > ibqp->remoteId) {
-      struct sockaddr_in *addr_in = (struct sockaddr_in*) &ibqp->remoteAddr;
+      struct sockaddr_in *addr_in = (struct sockaddr_in *)&ibqp->remoteAddr;
       JNOTE("connecting to remote node")
-        (inet_ntoa(addr_in->sin_addr)) (ntohs(addr_in->sin_port));
-      jalib::JSocket sock = jalib::JClientSocket((sockaddr*) &ibqp->remoteAddr,
+      (inet_ntoa(addr_in->sin_addr))(ntohs(addr_in->sin_port));
+      jalib::JSocket sock = jalib::JClientSocket((sockaddr *)&ibqp->remoteAddr,
                                                  ibqp->remoteAddrLen);
       sock.changeFd(fdCounter++);
       int fd = sock.sockfd();
       JASSERT(fd != -1);
-      JASSERT(Util::writeAll(fd, &remoteId, sizeof(remoteId)) == sizeof(remoteId))
-        (JASSERT_ERRNO);
+      JASSERT(Util::writeAll(fd, &remoteId, sizeof(remoteId)) ==
+              sizeof(remoteId))
+      (JASSERT_ERRNO);
       fdToQP[fd] = ibqp;
       qpToFd[ibqp] = fd;
       socks.push_back(fd);
@@ -256,15 +264,16 @@ void IB2TCP::createTCPConnections()
     jalib::JSocket sock = listenSock.accept();
     JASSERT(sock.isValid());
     sock.changeFd(fdCounter++);
-    JASSERT(Util::readAll(sock.sockfd(), &localId, sizeof(localId)) == sizeof(localId))
-      (JASSERT_ERRNO);
+    JASSERT(Util::readAll(sock.sockfd(), &localId, sizeof(localId)) ==
+            sizeof(localId))
+    (JASSERT_ERRNO);
 
     JASSERT(queuePairs.find(localId.qp_num) != queuePairs.end())
-      (localId.qp_num) (localId.lid);
+    (localId.qp_num)(localId.lid);
 
     IB_QP *ibqp = queuePairs[localId.qp_num];
     JASSERT(ibqp->localId < ibqp->remoteId)
-      (ibqp->localId.qp_num) (ibqp->remoteId.qp_num);
+    (ibqp->localId.qp_num)(ibqp->remoteId.qp_num);
 
     fdToQP[sock.sockfd()] = ibqp;
     qpToFd[ibqp] = sock.sockfd();
@@ -274,12 +283,15 @@ void IB2TCP::createTCPConnections()
 
 /**************************************************************/
 /**************************************************************/
-void IB2TCP::doRecvMsg(int fd)
+void
+IB2TCP::doRecvMsg(int fd)
 {
   struct msghdr msg;
   size_t nbytes = 0;
+
   JASSERT(Util::readAll(fd, &nbytes, sizeof nbytes) == sizeof nbytes);
-  //struct ibv_qp* ibqp = fdToQP[fd];
+
+  // struct ibv_qp* ibqp = fdToQP[fd];
   IB_QP *ibqp = fdToQP[fd];
   struct ibv_recv_wr *wr;
   IB_WR<struct ibv_recv_wr> *ibwr;
@@ -289,6 +301,7 @@ void IB2TCP::doRecvMsg(int fd)
     ibwr = srecvQueue[ibqp->srq].front();
     wr = &ibwr->wr;
     srecvQueue[ibqp->srq].erase(srecvQueue[ibqp->srq].begin());
+
     /* Special handling for srq
      * If a WR is being posted to a UD QP, the Global Routing Header (GRH) of
      * the incoming message will be placed in the first  40 bytes  of  the
@@ -297,9 +310,10 @@ void IB2TCP::doRecvMsg(int fd)
      * cases, the actual data of the incoming message will start at an offset
      * of 40 bytes into the buffer(s) in the scatter list.
      */
-    //JASSERT(wr->sg_list[0].length > 40);
-    //wr->sg_list[0].addr += 40;
-    //wr->sg_list[0].length -= 40;
+
+    // JASSERT(wr->sg_list[0].length > 40);
+    // wr->sg_list[0].addr += 40;
+    // wr->sg_list[0].length -= 40;
   } else {
     ibwr = recvQueue[ibqp].front();
     wr = &ibwr->wr;
@@ -312,13 +326,13 @@ void IB2TCP::doRecvMsg(int fd)
   for (size_t i = 0; i < wr->num_sge && numleft > 0; i++) {
     struct ibv_sge *sge = &wr->sg_list[i];
     if (numleft < sge->length) {
-      JASSERT(Util::readAll(fd, (void*)sge->addr, numleft) == numleft)
-        (JASSERT_ERRNO);
+      JASSERT(Util::readAll(fd, (void *)sge->addr, numleft) == numleft)
+      (JASSERT_ERRNO);
       numleft = 0;
       break;
     }
-    JASSERT(Util::readAll(fd, (void*)sge->addr, sge->length) == sge->length)
-      (JASSERT_ERRNO);
+    JASSERT(Util::readAll(fd, (void *)sge->addr, sge->length) == sge->length)
+    (JASSERT_ERRNO);
     numleft -= sge->length;
   }
 
@@ -342,7 +356,7 @@ void IB2TCP::doRecvMsg(int fd)
   do_lock();
   compQueue[cq].push_back(wc);
   if (compQueueSema.find(cq) == compQueueSema.end()) {
-    sem_t *sem = (sem_t*) malloc(sizeof( sem_t));
+    sem_t *sem = (sem_t *)malloc(sizeof(sem_t));
     JASSERT(sem != NULL);
     sem_init(sem, 0, 0);
     compQueueSema[cq] = sem;
@@ -351,7 +365,8 @@ void IB2TCP::doRecvMsg(int fd)
   do_unlock();
 }
 
-void IB2TCP::doSendMsg()
+void
+IB2TCP::doSendMsg()
 {
   do_lock();
   IB_WR<struct ibv_send_wr> *ibwr = sendQueue.front();
@@ -368,12 +383,12 @@ void IB2TCP::doSendMsg()
   }
 
   JASSERT(Util::writeAll(fd, &nbytes, sizeof nbytes) == sizeof nbytes)
-    (JASSERT_ERRNO);
+  (JASSERT_ERRNO);
 
   for (size_t i = 0; i < wr->num_sge; i++) {
     struct ibv_sge *sge = &wr->sg_list[i];
-    JASSERT(Util::writeAll(fd, (void*)sge->addr, sge->length) == sge->length)
-      (JASSERT_ERRNO);
+    JASSERT(Util::writeAll(fd, (void *)sge->addr, sge->length) == sge->length)
+    (JASSERT_ERRNO);
   }
 
   struct ibv_wc wc;
@@ -396,7 +411,7 @@ void IB2TCP::doSendMsg()
   do_lock();
   compQueue[cq].push_back(wc);
   if (compQueueSema.find(cq) == compQueueSema.end()) {
-    sem_t *sem = (sem_t*) malloc(sizeof(sem_t));
+    sem_t *sem = (sem_t *)malloc(sizeof(sem_t));
     JASSERT(sem != NULL);
     sem_init(sem, 0, 0);
     compQueueSema[cq] = sem;
@@ -408,9 +423,11 @@ void IB2TCP::doSendMsg()
 /**************************************************************/
 /**************************************************************/
 
-void IB2TCP::createQP(struct ibv_qp *qp, struct ibv_qp_init_attr *qp_init_attr)
+void
+IB2TCP::createQP(struct ibv_qp *qp, struct ibv_qp_init_attr *qp_init_attr)
 {
   IB2TCP::init();
+
   /* code to populate the ID */
   /* get the port num */
   struct ibv_qp_attr qattr;
@@ -418,17 +435,19 @@ void IB2TCP::createQP(struct ibv_qp *qp, struct ibv_qp_init_attr *qp_init_attr)
   struct ibv_qp_init_attr init_atty;
 
   JASSERT(_real_ibv_query_qp(qp, &qattr, IBV_QP_PORT, &init_atty) == 0);
+
   /* get the LID */
   JASSERT(qp->context->ops.query_port(qp->context, 1, &pattr) == 0);
 
-  //IB_QP ibqp(qp, pattr.lid);
+  // IB_QP ibqp(qp, pattr.lid);
   IB_QP *ibqp = new IB_QP(qp, pattr.lid, qp_init_attr);
   do_lock();
   queuePairs[qp->qp_num] = ibqp;
   do_unlock();
 }
 
-void IB2TCP::modifyQP(struct ibv_qp *qp, struct ibv_qp_attr *attr, int mask)
+void
+IB2TCP::modifyQP(struct ibv_qp *qp, struct ibv_qp_attr *attr, int mask)
 {
   JASSERT(queuePairs.find(qp->qp_num) != queuePairs.end());
 
@@ -446,13 +465,16 @@ void IB2TCP::modifyQP(struct ibv_qp *qp, struct ibv_qp_attr *attr, int mask)
 
   if (mask & IBV_QP_PORT) {
     struct ibv_port_attr qattr;
-    JASSERT(qp->context->ops.query_port(qp->context, attr->port_num, &qattr) == 0);
+    JASSERT(qp->context->ops.query_port(qp->context, attr->port_num, &qattr) ==
+            0);
     ibqp->localId.lid = qattr.lid;
   }
 }
 
-int IB2TCP::postSend(struct ibv_qp *qp, struct ibv_send_wr *wr,
-                     struct ibv_send_wr **bad_wr)
+int
+IB2TCP::postSend(struct ibv_qp *qp,
+                 struct ibv_send_wr *wr,
+                 struct ibv_send_wr **bad_wr)
 {
   do_lock();
   for (struct ibv_send_wr *w = wr; w != NULL; w = w->next) {
@@ -464,8 +486,10 @@ int IB2TCP::postSend(struct ibv_qp *qp, struct ibv_send_wr *wr,
   do_unlock();
 }
 
-int IB2TCP::postRecv(struct ibv_qp *qp, struct ibv_recv_wr *wr,
-                     struct ibv_recv_wr **bad_wr)
+int
+IB2TCP::postRecv(struct ibv_qp *qp,
+                 struct ibv_recv_wr *wr,
+                 struct ibv_recv_wr **bad_wr)
 {
   do_lock();
   for (struct ibv_recv_wr *w = wr; w != NULL; w = w->next) {
@@ -476,8 +500,10 @@ int IB2TCP::postRecv(struct ibv_qp *qp, struct ibv_recv_wr *wr,
   do_unlock();
 }
 
-int IB2TCP::postSrqRecv(struct ibv_srq *srq, struct ibv_recv_wr *wr,
-                        struct ibv_recv_wr **bad_wr)
+int
+IB2TCP::postSrqRecv(struct ibv_srq *srq,
+                    struct ibv_recv_wr *wr,
+                    struct ibv_recv_wr **bad_wr)
 {
   do_lock();
   for (struct ibv_recv_wr *w = wr; w != NULL; w = w->next) {
@@ -487,11 +513,13 @@ int IB2TCP::postSrqRecv(struct ibv_srq *srq, struct ibv_recv_wr *wr,
   do_unlock();
 }
 
-int IB2TCP::pollCq(struct ibv_cq *cq, int num_entries, struct ibv_wc *wc)
+int
+IB2TCP::pollCq(struct ibv_cq *cq, int num_entries, struct ibv_wc *wc)
 {
   int i;
+
   if (compQueueSema.find(cq) == compQueueSema.end()) {
-    sem_t *sem = (sem_t*) malloc(sizeof(sem_t));
+    sem_t *sem = (sem_t *)malloc(sizeof(sem_t));
     JASSERT(sem != NULL);
     sem_init(sem, 0, 0);
     compQueueSema[cq] = sem;
@@ -507,14 +535,14 @@ int IB2TCP::pollCq(struct ibv_cq *cq, int num_entries, struct ibv_wc *wc)
   return i;
 }
 
-int IB2TCP::postPollCq(struct ibv_cq *cq, int num_entries, struct ibv_wc *wc)
+int
+IB2TCP::postPollCq(struct ibv_cq *cq, int num_entries, struct ibv_wc *wc)
 {
   do_lock();
   for (int i = 0; i < num_entries; i++) {
     IB_QP *ibqp = queuePairs[wc[i].qp_num];
     enum ibv_wc_opcode opcode = wc[i].opcode;
-    if (opcode & IBV_WC_RECV ||
-        opcode == IBV_WC_RECV_RDMA_WITH_IMM) {
+    if (opcode & IBV_WC_RECV || opcode == IBV_WC_RECV_RDMA_WITH_IMM) {
       IB_WR<struct ibv_recv_wr> *ibwr;
       if (ibqp->srq != NULL) {
         ibwr = srecvQueue[ibqp->srq].front();
@@ -526,27 +554,29 @@ int IB2TCP::postPollCq(struct ibv_cq *cq, int num_entries, struct ibv_wc *wc)
       delete ibwr;
 #if 0
       if (internal_qp->user_qp.srq) {
-        struct internal_ibv_srq * internal_srq = ibv_srq_to_internal(internal_qp->user_qp.srq);
+        struct internal_ibv_srq *internal_srq = ibv_srq_to_internal(
+            internal_qp->user_qp.srq);
         internal_srq->recv_count++;
-      }
-      else {
-        struct list_elem * e = list_pop_front(&internal_qp->post_recv_log);
-        struct ibv_post_recv_log * log = list_entry(e, struct ibv_post_recv_log, elem);
+      } else {
+        struct list_elem *e = list_pop_front(&internal_qp->post_recv_log);
+        struct ibv_post_recv_log *log = list_entry(e,
+                                                   struct ibv_post_recv_log,
+                                                   elem);
         free(log);
       }
-#endif
-    } else if (opcode == IBV_WC_SEND ||
-               opcode == IBV_WC_RDMA_WRITE ||
-               opcode == IBV_WC_RDMA_READ ||
-               opcode == IBV_WC_COMP_SWAP ||
+#endif // if 0
+    } else if (opcode == IBV_WC_SEND || opcode == IBV_WC_RDMA_WRITE ||
+               opcode == IBV_WC_RDMA_READ || opcode == IBV_WC_COMP_SWAP ||
                opcode == IBV_WC_FETCH_ADD) {
-      JASSERT(opcode == IBV_WC_SEND) (opcode);
+      JASSERT(opcode == IBV_WC_SEND)(opcode);
 #if 0
-      struct list_elem * e = list_pop_front(&internal_qp->post_send_log);
-      struct ibv_post_send_log * log = list_entry(e, struct ibv_post_send_log, elem);
+      struct list_elem *e = list_pop_front(&internal_qp->post_send_log);
+      struct ibv_post_send_log *log = list_entry(e,
+                                                 struct ibv_post_send_log,
+                                                 elem);
       assert(log->magic == SEND_MAGIC);
       free(log);
-#endif
+#endif // if 0
 
       for (size_t k = 0; k < sendQueue.size(); k++) {
         IB_WR<struct ibv_send_wr> *ibwr = sendQueue[k];
@@ -557,35 +587,40 @@ int IB2TCP::postPollCq(struct ibv_cq *cq, int num_entries, struct ibv_wc *wc)
         }
       }
     } else if (opcode == IBV_WC_BIND_MW) {
-      JASSERT(false) (opcode) .Text("Opcode not supported");
+      JASSERT(false)(opcode).Text("Opcode not supported");
     } else {
-      JASSERT(false) (opcode) .Text("Unknown opcode");
+      JASSERT(false)(opcode).Text("Unknown opcode");
     }
   }
   do_unlock();
 }
 
-int IB2TCP::req_notify_cq(struct ibv_cq *cq, int solicited_only)
+int
+IB2TCP::req_notify_cq(struct ibv_cq *cq, int solicited_only)
 {
   JASSERT(false);
 }
 
-bool dmtcp::operator <(IB_QId& a, IB_QId& b)
+bool
+dmtcp::operator<(IB_QId &a, IB_QId &b)
 {
   return (a.lid < b.lid) || (a.lid == b.lid && a.qp_num < b.qp_num);
 }
 
-bool dmtcp::operator >(IB_QId& a, IB_QId& b)
+bool
+dmtcp::operator>(IB_QId &a, IB_QId &b)
 {
   return (a.lid > b.lid) || (a.lid == b.lid && a.qp_num > b.qp_num);
 }
 
-bool dmtcp::operator ==(IB_QId& a, IB_QId& b)
+bool
+dmtcp::operator==(IB_QId &a, IB_QId &b)
 {
   return a.lid == b.lid && a.qp_num == b.qp_num;
 }
 
-bool dmtcp::operator !=(IB_QId& a, IB_QId& b)
+bool
+dmtcp::operator!=(IB_QId &a, IB_QId &b)
 {
   return !(a == b);
 }

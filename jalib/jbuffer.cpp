@@ -20,24 +20,21 @@
  ****************************************************************************/
 
 #include "jbuffer.h"
-#include "jassert.h"
 #include "jalloc.h"
+#include "jassert.h"
 
-jalib::JBuffer::JBuffer ( int size )
-    :_size ( size )
+jalib::JBuffer::JBuffer(int size) : _size(size)
 {
-  _buffer = (char*) JALLOC_HELPER_MALLOC(size);
-  JASSERT ( size >= 0 ) ( size );
+  _buffer = (char *)JALLOC_HELPER_MALLOC(size);
+  JASSERT(size >= 0)(size);
 }
 
-jalib::JBuffer::JBuffer ( const char* src, int size )
-    :_size ( size )
+jalib::JBuffer::JBuffer(const char *src, int size) : _size(size)
 {
-  _buffer = (char*) JALLOC_HELPER_MALLOC(size);
-  JASSERT ( size >= 0 ) ( size );
-  memcpy ( _buffer, src, _size );
+  _buffer = (char *)JALLOC_HELPER_MALLOC(size);
+  JASSERT(size >= 0)(size);
+  memcpy(_buffer, src, _size);
 }
-
 
 jalib::JBuffer::~JBuffer()
 {
@@ -46,32 +43,36 @@ jalib::JBuffer::~JBuffer()
   _size = 0;
 }
 
-jalib::JBuffer::JBuffer ( const JBuffer& that )
-    : _size ( that._size )
+jalib::JBuffer::JBuffer(const JBuffer &that) : _size(that._size)
 {
-  _buffer = (char*) JALLOC_HELPER_MALLOC(that._size);
-  memcpy ( _buffer, that._buffer, _size );
+  _buffer = (char *)JALLOC_HELPER_MALLOC(that._size);
+  memcpy(_buffer, that._buffer, _size);
 }
 
-jalib::JBuffer& jalib::JBuffer::operator= ( const JBuffer& that )
+jalib::JBuffer &
+jalib::JBuffer::operator=(const JBuffer &that)
 {
   JALLOC_HELPER_FREE(_buffer);
   _buffer = 0;
   _size = 0;
-  new ( this ) JBuffer ( that );
+  new (this) JBuffer(that);
   return *this;
 }
 
+const char *
+jalib::JBuffer::buffer() const
+{
+  return _buffer;
+}
 
-const char* jalib::JBuffer::buffer() const
+char *
+jalib::JBuffer::buffer()
 {
   return _buffer;
 }
-char* jalib::JBuffer::buffer()
-{
-  return _buffer;
-}
-int jalib::JBuffer::size() const
+
+int
+jalib::JBuffer::size() const
 {
   return _size;
 }

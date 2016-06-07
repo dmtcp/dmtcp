@@ -25,45 +25,44 @@
 #include "procmapsarea.h"
 
 #ifndef EXTERNC
-# ifdef __cplusplus
-#  define EXTERNC extern "C"
-# else
-#  define EXTERNC
-# endif
-#endif
+#ifdef __cplusplus
+#define EXTERNC extern "C"
+#else // ifdef __cplusplus
+#define EXTERNC
+#endif // ifdef __cplusplus
+#endif // ifndef EXTERNC
 
-typedef char * VA;
+typedef char *VA;
 #define UTIL_MAX_PATH_LEN 256
 
-#define TIMESPEC_CMP(a, b, CMP) 					      \
-  (((a)->tv_sec == (b)->tv_sec) ? 					      \
-   ((a)->tv_nsec CMP (b)->tv_nsec) : 					      \
-   ((a)->tv_sec CMP (b)->tv_sec))
+#define TIMESPEC_CMP(a, b, CMP)                                  \
+  (((a)->tv_sec == (b)->tv_sec) ? ((a)->tv_nsec CMP(b)->tv_nsec) \
+                                : ((a)->tv_sec CMP(b)->tv_sec))
 
-#define TIMESPEC_ADD(a, b, result)					      \
-  do {									      \
-    (result)->tv_sec = (a)->tv_sec + (b)->tv_sec;			      \
-    (result)->tv_nsec = (a)->tv_nsec + (b)->tv_nsec;			      \
-    if ((result)->tv_nsec >= 1000 * 1000 * 1000) {			      \
-	++(result)->tv_sec;						      \
-	(result)->tv_nsec -= 1000 * 1000 * 1000;			      \
-    }									      \
+#define TIMESPEC_ADD(a, b, result)                   \
+  do {                                               \
+    (result)->tv_sec = (a)->tv_sec + (b)->tv_sec;    \
+    (result)->tv_nsec = (a)->tv_nsec + (b)->tv_nsec; \
+    if ((result)->tv_nsec >= 1000 * 1000 * 1000) {   \
+      ++(result)->tv_sec;                            \
+      (result)->tv_nsec -= 1000 * 1000 * 1000;       \
+    }                                                \
   } while (0)
 
-#define TIMESPEC_SUB(a, b, result)					      \
-  do {									      \
-    (result)->tv_sec = (a)->tv_sec - (b)->tv_sec;			      \
-    (result)->tv_nsec = (a)->tv_nsec - (b)->tv_nsec;			      \
-    if ((result)->tv_nsec < 0) {					      \
-      --(result)->tv_sec;						      \
-      (result)->tv_nsec += 1000 * 1000 * 1000;				      \
-    }									      \
+#define TIMESPEC_SUB(a, b, result)                   \
+  do {                                               \
+    (result)->tv_sec = (a)->tv_sec - (b)->tv_sec;    \
+    (result)->tv_nsec = (a)->tv_nsec - (b)->tv_nsec; \
+    if ((result)->tv_nsec < 0) {                     \
+      --(result)->tv_sec;                            \
+      (result)->tv_nsec += 1000 * 1000 * 1000;       \
+    }                                                \
   } while (0)
 
-#define MAX(a,b) ((a) > (b) ? (a) : (b))
-#define MIN(a,b) ((a) < (b) ? (a) : (b))
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
 
-#define CEIL(a,b) ((a)%(b) ? ((a) + (b) - ((a)%(b))) : (a))
+#define CEIL(a, b) ((a) % (b) ? ((a) + (b) - ((a) % (b))) : (a))
 
 EXTERNC void initializeJalib();
 
@@ -74,7 +73,6 @@ EXTERNC int dmtcp_batch_queue_enabled(void) __attribute__((weak));
 EXTERNC int dmtcp_modify_env_enabled(void) __attribute__((weak));
 EXTERNC int dmtcp_ptrace_enabled(void) __attribute__((weak));
 EXTERNC int dmtcp_unique_ckpt_enabled(void) __attribute__((weak));
-
 
 /*
  * struct MtcpRestartThreadArg
@@ -94,7 +92,7 @@ EXTERNC int dmtcp_unique_ckpt_enabled(void) __attribute__((weak));
  * finalized the code in threadlist.cpp.
  */
 struct MtcpRestartThreadArg {
-  void * arg;
+  void *arg;
   pid_t virtualTid;
 };
 
@@ -102,84 +100,84 @@ struct MtcpRestartThreadArg {
 #include "dmtcpalloc.h"
 namespace dmtcp
 {
-  namespace Util
-  {
-    void lockFile(int fd);
-    void unlockFile(int fd);
-    int changeFd(int oldfd, int newfd);
-    void dupFds(int oldfd, const vector<int>& newfds);
+namespace Util
+{
+void lockFile(int fd);
+void unlockFile(int fd);
+int changeFd(int oldfd, int newfd);
+void dupFds(int oldfd, const vector<int> &newfds);
 
-    bool strStartsWith(const char *str, const char *pattern);
-    bool strEndsWith(const char *str, const char *pattern);
-    bool strStartsWith(const string& str, const char *pattern);
-    bool strEndsWith(const string& str, const char *pattern);
-    string removeSuffix(const string& s, const string& suffix);
-    string joinStrings(vector<string> v, const string& delim);
-    vector<string> tokenizeString(const string& s, const string& delims);
-    // Add it back if needed.
+bool strStartsWith(const char *str, const char *pattern);
+bool strEndsWith(const char *str, const char *pattern);
+bool strStartsWith(const string &str, const char *pattern);
+bool strEndsWith(const string &str, const char *pattern);
+string removeSuffix(const string &s, const string &suffix);
+string joinStrings(vector<string> v, const string &delim);
+vector<string> tokenizeString(const string &s, const string &delims);
+
+// Add it back if needed.
 #if 0
-    vector<string> split(const string& s, const string& delims, size_t n = 0);
-#endif
+vector<string>split(const string &s, const string &delims, size_t n = 0);
+#endif // if 0
 
-    bool createDirectoryTree(const string& path);
-    bool isNscdArea(const ProcMapsArea& area);
-    bool isSysVShmArea(const ProcMapsArea& area);
-    bool isIBShmArea(const ProcMapsArea& area);
+bool createDirectoryTree(const string &path);
+bool isNscdArea(const ProcMapsArea &area);
+bool isSysVShmArea(const ProcMapsArea &area);
+bool isIBShmArea(const ProcMapsArea &area);
 
-    ssize_t writeAll(int fd, const void *buf, size_t count);
-    ssize_t readAll(int fd, void *buf, size_t count);
-    ssize_t skipBytes(int fd, size_t count);
+ssize_t writeAll(int fd, const void *buf, size_t count);
+ssize_t readAll(int fd, void *buf, size_t count);
+ssize_t skipBytes(int fd, size_t count);
 
-    int safeMkdir(const char *pathname, mode_t mode);
-    int safeSystem(const char *command);
+int safeMkdir(const char *pathname, mode_t mode);
+int safeSystem(const char *command);
 
-    int expandPathname(const char *inpath, char * const outpath, size_t size);
-    int elfType(const char *pathname, bool *isElf, bool *is32bitElf);
+int expandPathname(const char *inpath, char *const outpath, size_t size);
+int elfType(const char *pathname, bool *isElf, bool *is32bitElf);
 
-    bool isStaticallyLinked(const char *filename);
+bool isStaticallyLinked(const char *filename);
 
-    void setVirtualPidEnvVar(pid_t pid, pid_t virtPpid, pid_t realPpid);
-    bool isScreen(const char *filename);
-    void setScreenDir();
-    string getScreenDir();
-    bool isSetuid(const char *filename);
-    void freePatchedArgv(char **newArgv);
-    void patchArgvIfSetuid(const char* filename, char *const origArgv[],
-                           char **newArgv[]);
+void setVirtualPidEnvVar(pid_t pid, pid_t virtPpid, pid_t realPpid);
+bool isScreen(const char *filename);
+void setScreenDir();
+string getScreenDir();
+bool isSetuid(const char *filename);
+void freePatchedArgv(char **newArgv);
+void patchArgvIfSetuid(const char *filename,
+                       char *const origArgv[],
+                       char **newArgv[]);
 
-    int readLine(int fd, char *buf, int count);
+int readLine(int fd, char *buf, int count);
 
+void writeCoordPortToFile(int port, const char *portFile);
+string calcTmpDir(const char *tmpDir);
+void initializeLogFile(string tmpDir,
+                       string procname = "",
+                       string preLogPath = "");
 
-    void writeCoordPortToFile(int port, const char *portFile);
-    string calcTmpDir(const char *tmpDir);
-    void initializeLogFile(string tmpDir,
-                           string procname = "",
-                           string preLogPath = "");
+void prepareDlsymWrapper();
+void adjustRlimitStack();
+void runMtcpRestore(
+  int is32bitElf, const char *path, int fd, size_t argvSize, size_t envSize);
 
-    void prepareDlsymWrapper();
-    void adjustRlimitStack();
-    void runMtcpRestore(int is32bitElf, const char* path, int fd,
-                        size_t argvSize, size_t envSize);
+char readDec(int fd, VA *value);
+char readHex(int fd, VA *value);
+char readChar(int fd);
+int readProcMapsLine(int mapsfd, ProcMapsArea *area);
+int memProtToOpenFlags(int prot);
+pid_t getTracerPid(pid_t tid = -1);
+bool isPtraced();
+bool isValidFd(int fd);
+bool isPseudoTty(const string &path);
+size_t pageSize();
+size_t pageMask();
+bool areZeroPages(void *addr, size_t numPages);
 
-    char readDec (int fd, VA *value);
-    char readHex (int fd, VA *value);
-    char readChar (int fd);
-    int readProcMapsLine(int mapsfd, ProcMapsArea *area);
-    int memProtToOpenFlags(int prot);
-    pid_t getTracerPid(pid_t tid = -1);
-    bool isPtraced();
-    bool isValidFd(int fd);
-    bool isPseudoTty(const string& path);
-    size_t pageSize();
-    size_t pageMask();
-    bool areZeroPages(void *addr, size_t numPages);
-
-    char *findExecutable(char *executable, const char* path_env,
-                         char *exec_path);
-    string getPath(string cmd, bool is32bit = false);
-    void getDmtcpArgs(vector<string> &dmtcp_args);
-  }
+char *findExecutable(char *executable, const char *path_env, char *exec_path);
+string getPath(string cmd, bool is32bit = false);
+void getDmtcpArgs(vector<string> &dmtcp_args);
 }
-#endif
+}
+#endif // ifdef __cplusplus
 
-#endif
+#endif // ifndef UTIL_H

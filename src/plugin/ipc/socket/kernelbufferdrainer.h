@@ -26,39 +26,40 @@
 #include <map>
 #include <vector>
 
-#include "dmtcpalloc.h"
-#include "connectionidentifier.h"
 #include "../jalib/jsocket.h"
+#include "connectionidentifier.h"
+#include "dmtcpalloc.h"
 
 namespace dmtcp
 {
+class KernelBufferDrainer : public jalib::JMultiSocketProgram
+{
+public:
+  KernelBufferDrainer() : _timeoutCount(0) {}
+  static KernelBufferDrainer &instance();
 
-  class KernelBufferDrainer : public jalib::JMultiSocketProgram
+  // void drainAllSockets();
+  void beginDrainOf(int fd, const ConnectionIdentifier &id);
+  void refillAllSockets();
+  virtual void onData(jalib::JReaderInterface *sock);
+  virtual void onConnect(const jalib::JSocket &sock,
+                         const struct sockaddr *remoteAddr,
+                         socklen_t remoteLen);
+  virtual void onTimeoutInterval();
+  virtual void onDisconnect(jalib::JReaderInterface *sock);
+
+  const map<ConnectionIdentifier, vector<char> > &getDisconnectedSockets() const
   {
-    public:
-      KernelBufferDrainer() : _timeoutCount(0) {}
-      static KernelBufferDrainer& instance();
+    return _disconnectedSockets;
+  }
 
-//     void drainAllSockets();
-      void beginDrainOf(int fd , const ConnectionIdentifier& id);
-      void refillAllSockets();
-      virtual void onData(jalib::JReaderInterface* sock);
-      virtual void onConnect(const jalib::JSocket& sock, const struct sockaddr* remoteAddr,socklen_t remoteLen);
-      virtual void onTimeoutInterval();
-      virtual void onDisconnect(jalib::JReaderInterface* sock);
+  const vector<char> &getDrainedData(ConnectionIdentifier id);
 
-      const map<ConnectionIdentifier, vector<char> >&
-        getDisconnectedSockets() const { return _disconnectedSockets; }
-
-      const vector<char>& getDrainedData(ConnectionIdentifier id);
-
-    private:
-      map<int , vector<char> >    _drainedData;
-      map<int , ConnectionIdentifier > _reverseLookup;
-      map<ConnectionIdentifier, vector<char> > _disconnectedSockets;
-      int _timeoutCount;
-  };
-
+private:
+  map<int, vector<char> > _drainedData;
+  map<int, ConnectionIdentifier> _reverseLookup;
+  map<ConnectionIdentifier, vector<char> > _disconnectedSockets;
+  int _timeoutCount;
+};
 }
-
-#endif
+#endif // ifndef KERNELBUFFERDRAINER_H

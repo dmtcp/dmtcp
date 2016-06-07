@@ -22,63 +22,58 @@
 #ifndef __BARRIERINFO_H__
 #define __BARRIERINFO_H__
 
-#include "dmtcpalloc.h"
 #include "dmtcp.h"
+#include "dmtcpalloc.h"
 
 namespace dmtcp
 {
-  class BarrierInfo
-  {
-    public:
+class BarrierInfo
+{
+public:
 #ifdef JALIB_ALLOCATOR
-      static void* operator new(size_t nbytes, void* p) { return p; }
-      static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
-      static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
-#endif
-      BarrierInfo(string _pluginName, const DmtcpBarrier& barrier)
-        : type (barrier.type),
-          callback (barrier.callback),
-          id (barrier.id),
-          pluginName (_pluginName)
-      {}
-
-      string toString() const
-      {
-        return pluginName + "::" + id;
-      }
-
-      bool operator == (const BarrierInfo& that) const
-      {
-        return type == that.type &&
-               id == that.id &&
-               pluginName == that.pluginName;
-      }
-
-      bool isGlobal() const {
-        return
-          type == DMTCP_GLOBAL_BARRIER_PRE_CKPT ||
-          type == DMTCP_GLOBAL_BARRIER_RESUME ||
-          type == DMTCP_GLOBAL_BARRIER_RESTART;
-      }
-
-      bool isLocal() const {
-        return
-          type == DMTCP_LOCAL_BARRIER_PRE_CKPT ||
-          type == DMTCP_LOCAL_BARRIER_RESUME ||
-          type == DMTCP_LOCAL_BARRIER_RESTART;
-      }
-
-      const DmtcpBarrierType type;
-      const string id;
-      void (*callback)();
-      const string pluginName;
-  };
-
-  static inline ostream& operator << (ostream& o, const BarrierInfo& info)
+  static void *operator new(size_t nbytes, void *p) { return p; }
+  static void *operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
+  static void operator delete(void *p) { JALLOC_HELPER_DELETE(p); }
+#endif // ifdef JALIB_ALLOCATOR
+  BarrierInfo(string _pluginName, const DmtcpBarrier &barrier)
+    : type(barrier.type),
+      callback(barrier.callback),
+      id(barrier.id),
+      pluginName(_pluginName)
   {
-    return o << info.toString();
   }
 
+  string toString() const { return pluginName + "::" + id; }
+  bool operator==(const BarrierInfo &that) const
+  {
+    return type == that.type && id == that.id && pluginName == that.pluginName;
+  }
+
+  bool isGlobal() const
+  {
+    return type == DMTCP_GLOBAL_BARRIER_PRE_CKPT ||
+           type == DMTCP_GLOBAL_BARRIER_RESUME ||
+           type == DMTCP_GLOBAL_BARRIER_RESTART;
+  }
+
+  bool isLocal() const
+  {
+    return type == DMTCP_LOCAL_BARRIER_PRE_CKPT ||
+           type == DMTCP_LOCAL_BARRIER_RESUME ||
+           type == DMTCP_LOCAL_BARRIER_RESTART;
+  }
+
+  const DmtcpBarrierType type;
+  const string id;
+  void (*callback)();
+  const string pluginName;
+};
+
+static inline ostream &
+operator<<(ostream &o, const BarrierInfo &info)
+{
+  return o << info.toString();
+}
 }
 
-#endif
+#endif // ifndef __BARRIERINFO_H__
