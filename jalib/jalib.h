@@ -27,6 +27,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <poll.h>
 
 #include <fstream>
 
@@ -49,6 +50,7 @@ namespace jalib {
     ssize_t (*write)(int fd, const void *buf, size_t count);
     int   (*select)(int nfds, fd_set *readfds, fd_set *writefds,
                     fd_set *exceptfds, struct timeval *timeout);
+    int   (*poll)(struct pollfd fds[], nfds_t nfds, int timeout);
 
     int   (*socket)(int domain, int type, int protocol);
     int   (*connect)(int sockfd, const struct sockaddr *saddr, socklen_t addrlen);
@@ -86,6 +88,7 @@ namespace jalib {
   ssize_t write(int fd, const void *buf, size_t count);
   int select(int nfds, fd_set *readfds, fd_set *writefds,
              fd_set *exceptfds, struct timeval *timeout);
+  int poll(struct pollfd fds[], nfds_t nfds, int timeout);
 
   int socket(int domain, int type, int protocol);
   int connect(int sockfd, const struct sockaddr *serv_addr, socklen_t addrlen);

@@ -298,13 +298,15 @@ void DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*= NULL*
     break;
   case 'l': case 'L':
   case 't': case 'T':
+  {
     if (reply != NULL) {
       replyData = printList();
       reply->extraBytes = replyData.length();
     } else {
       JASSERT_STDERR << printList();
-     }
+    }
     break;
+  }
   case 'q': case 'Q':
   {
     JNOTE ( "killing all connected peers and quitting ..." );
@@ -395,15 +397,15 @@ string DmtcpCoordinator::printList()
       << "(" << clients[i]->ip() << ")"
 #endif
       << ", " << clients[i]->identity()
-      << ", " << clients[i]->state().toString()
+      << ", " << clients[i]->state()
       << '\n';
   }
   return o.str();
 }
 
-void DmtcpCoordinator::updateMinimumState(WorkerState oldState)
+void DmtcpCoordinator::updateMinimumState(WorkerState::eWorkerState oldState)
 {
-  WorkerState newState = minimumState();
+  WorkerState::eWorkerState newState = minimumState();
 
   if ( oldState == WorkerState::RUNNING
        && newState == WorkerState::SUSPENDED )
@@ -543,10 +545,10 @@ void DmtcpCoordinator::onData(CoordClient *client)
   {
     case DMT_OK:
     {
-      WorkerState oldState = client->state();
+      WorkerState::eWorkerState oldState = client->state();
       client->setState ( msg.state );
       ComputationStatus s = getStatus();
-      WorkerState newState = s.minimumState;
+      WorkerState::eWorkerState newState = s.minimumState;
 
       JTRACE ("got DMT_OK message")
         ( oldState )( msg.from )( msg.state )( newState );
@@ -1113,14 +1115,14 @@ void DmtcpCoordinator::broadcastMessage(DmtcpMessageType type, int numPeers)
 DmtcpCoordinator::ComputationStatus DmtcpCoordinator::getStatus() const
 {
   ComputationStatus status;
-  const static int INITIAL_MIN = WorkerState::_MAX;
-  const static int INITIAL_MAX = WorkerState::UNKNOWN;
+  const static WorkerState::eWorkerState INITIAL_MIN = WorkerState::_MAX;
+  const static WorkerState::eWorkerState INITIAL_MAX = WorkerState::UNKNOWN;
   int min = INITIAL_MIN;
   int max = INITIAL_MAX;
   int count = 0;
   bool unanimous = true;
   for (size_t i = 0; i < clients.size(); i++) {
-    int cliState = clients[i]->state().value();
+    WorkerState::eWorkerState cliState = clients[i]->state();
     count++;
     unanimous = unanimous && (min==cliState || min==INITIAL_MIN);
     if ( cliState < min ) min = cliState;

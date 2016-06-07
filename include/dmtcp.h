@@ -195,6 +195,7 @@ EXTERNC int dmtcp_set_coord_ckpt_dir(const char* dir) __attribute__ ((weak));
 EXTERNC const char* dmtcp_get_ckpt_filename(void) __attribute__((weak));
 EXTERNC const char* dmtcp_get_ckpt_files_subdir(void);
 EXTERNC int dmtcp_should_ckpt_open_files(void);
+EXTERNC int dmtcp_allow_overwrite_with_ckpted_files(void);
 
 EXTERNC int dmtcp_get_ckpt_signal(void);
 EXTERNC const char* dmtcp_get_uniquepid_str(void) __attribute__((weak));
@@ -311,6 +312,7 @@ EXTERNC int dmtcp_must_ckpt_file(const char *path) __attribute((weak));
 EXTERNC void dmtcp_get_new_file_path(const char *abspath, const char *cwd,
                                      char *newpath)
   __attribute((weak));
+EXTERNC int dmtcp_must_overwrite_file(const char *path) __attribute((weak));
 
 #define dmtcp_process_event(e,d) \
     __REPLACE_dmtcp_process_event_WITH_dmtcp_event_hook()__
@@ -324,12 +326,13 @@ EXTERNC void dmtcp_plugin_enable_ckpt(void);
 #define DMTCP_PLUGIN_ENABLE_CKPT() \
   if (__dmtcp_plugin_ckpt_disabled) dmtcp_plugin_enable_ckpt()
 
+EXTERNC void dmtcp_initialize();
 
 #define NEXT_FNC(func)                                                      \
   ({                                                                        \
      static __typeof__(&func) _real_##func = (__typeof__(&func)) -1;        \
      if (_real_##func == (__typeof__(&func)) -1) {                          \
-       if (dmtcp_prepare_wrappers) dmtcp_prepare_wrappers();                \
+       if (dmtcp_initialize) dmtcp_initialize();                            \
        __typeof__(&dlsym) dlsym_fnptr;                                      \
        dlsym_fnptr = (__typeof__(&dlsym)) dmtcp_get_libc_dlsym_addr();      \
        _real_##func = (__typeof__(&func)) (*dlsym_fnptr) (RTLD_NEXT, #func);\

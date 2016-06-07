@@ -23,6 +23,8 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 #include "dmtcpworker.h"
+#include "dmtcpmessagetypes.h"
+#include "workerstate.h"
 #include "mtcpinterface.h"
 #include "threadsync.h"
 #include "processinfo.h"
@@ -250,8 +252,13 @@ static void installSegFaultHandler()
 
 //called before user main()
 //workerhijack.cpp initializes a static variable theInstance to DmtcpWorker obj
-DmtcpWorker::DmtcpWorker()
+extern "C" void dmtcp_initialize()
 {
+  static bool initialized = false;
+  if (initialized) {
+    return;
+  }
+  initialized = true;
   WorkerState::setCurrentState(WorkerState::UNKNOWN);
   dmtcp_prepare_wrappers();
   initializeJalib();
@@ -268,7 +275,7 @@ DmtcpWorker::DmtcpWorker()
 
   //This is called for side effect only.  Force this function to call
   // getenv(ENV_VAR_SIGCKPT) now and cache it to avoid getenv calls later.
-  determineCkptSignal();
+  DmtcpWorker::determineCkptSignal();
 
   // Also cache programName and arguments
   string programName = jalib::Filesystem::GetProgramName();
@@ -294,10 +301,15 @@ DmtcpWorker::DmtcpWorker()
   }
 
   // In libdmtcp.so, notify this event for each plugin.
-  eventHook(DMTCP_EVENT_INIT, NULL);
+  DmtcpWorker::eventHook(DMTCP_EVENT_INIT, NULL);
 
   initializeMtcpEngine();
-  informCoordinatorOfRUNNINGState();
+  DmtcpWorker::informCoordinatorOfRUNNINGState();
+}
+
+DmtcpWorker::DmtcpWorker()
+{
+  dmtcp_initialize();
 }
 
 void DmtcpWorker::resetOnFork()

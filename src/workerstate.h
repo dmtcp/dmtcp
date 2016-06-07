@@ -1,5 +1,5 @@
 /****************************************************************************
- *   Copyright (C) 2006-2013 by Jason Ansel, Kapil Arya, and Gene Cooperman *
+ *   Copyright (C) 2006-2008 by Jason Ansel, Kapil Arya, and Gene Cooperman *
  *   jansel@csail.mit.edu, kapil@ccs.neu.edu, gene@ccs.neu.edu              *
  *                                                                          *
  *  This file is part of DMTCP.                                             *
@@ -19,54 +19,36 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include "dmtcp.h"
-#include "protectedfds.h"
-#include "util.h"
-#include "syscallwrappers.h"
-#include "../jalib/jalib.h"
+#ifndef __WORKER_STATE_H__
+#define __WORKER_STATE_H__
 
-using namespace dmtcp;
+#include "dmtcpalloc.h"
 
-extern "C" void initializeJalib()
+namespace dmtcp
 {
-  jalib::JalibFuncPtrs jalibFuncPtrs;
+namespace WorkerState
+{
+  enum eWorkerState
+  {
+    UNKNOWN,
+    RUNNING,
+    SUSPENDED,
+    FD_LEADER_ELECTION,
+    DRAINED,
+    RESTARTING,
+    CHECKPOINTED,
+    NAME_SERVICE_DATA_REGISTERED,
+    DONE_QUERYING,
+    REFILLED,
+    _MAX
+  };
 
-#define INIT_JALIB_FPTR(name) jalibFuncPtrs.name = _real_ ## name;
+  void setCurrentState(const eWorkerState& value);
+  eWorkerState currentState();
 
-  jalibFuncPtrs.writeAll = Util::writeAll;
-  jalibFuncPtrs.readAll = Util::readAll;
+  ostream& operator << (ostream& o, const eWorkerState& s);
 
-  INIT_JALIB_FPTR(open);
-  INIT_JALIB_FPTR(fopen);
-  INIT_JALIB_FPTR(close);
-  INIT_JALIB_FPTR(fclose);
-  INIT_JALIB_FPTR(dup);
-  INIT_JALIB_FPTR(dup2);
-  INIT_JALIB_FPTR(readlink);
+}//namespace WorkerState
+}//namespace dmtcp
 
-  INIT_JALIB_FPTR(syscall);
-  INIT_JALIB_FPTR(mmap);
-  INIT_JALIB_FPTR(munmap);
-
-  INIT_JALIB_FPTR(read);
-  INIT_JALIB_FPTR(write);
-  INIT_JALIB_FPTR(select);
-  INIT_JALIB_FPTR(poll);
-
-  INIT_JALIB_FPTR(socket);
-  INIT_JALIB_FPTR(connect);
-  INIT_JALIB_FPTR(bind);
-  INIT_JALIB_FPTR(listen);
-  INIT_JALIB_FPTR(accept);
-  INIT_JALIB_FPTR(setsockopt);
-
-  INIT_JALIB_FPTR(pthread_mutex_lock);
-  INIT_JALIB_FPTR(pthread_mutex_trylock);
-  INIT_JALIB_FPTR(pthread_mutex_unlock);
-
-  jalib_init(jalibFuncPtrs,
-             ELF_INTERPRETER,
-             PROTECTED_STDERR_FD,
-             PROTECTED_JASSERTLOG_FD,
-             DMTCP_FAIL_RC);
-}
+#endif // #ifndef __WORKER_STATE_H__

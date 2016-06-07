@@ -695,6 +695,10 @@ void Util::getDmtcpArgs(vector<string> &dmtcp_args)
     dmtcp_args.push_back("--batch-queue");
   }
 
+  if (dmtcp_pathvirt_enabled != NULL && dmtcp_pathvirt_enabled()) {
+    dmtcp_args.push_back("--pathvirt");
+  }
+
 #ifdef HBICT_DELTACOMP
   if (deltacompression != NULL) {
     if (strcmp(deltacompression, "0") == 0)

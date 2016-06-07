@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <fcntl.h>
+#include <sys/stat.h>
 
 int main(int argc, char* argv[])
 {
@@ -16,12 +18,14 @@ int main(int argc, char* argv[])
       perror("popen");
       exit(1);
     }
+    int fd1 = open("/dev/zero", O_RDONLY);
 
     fw = popen("sort > /dev/null", "w");
     if (fw == NULL) {
       perror("popen");
       exit(1);
     }
+    int fd2 = open("/dev/null", O_RDONLY);
 
     while ((ch = fgetc(fr)) != EOF) {
       if (fputc(ch, fw) == EOF) {
@@ -31,8 +35,10 @@ int main(int argc, char* argv[])
       putchar(ch);
     }
     pclose(fr);
+    close(fd1);
     pclose(fw);
-    sleep(1);
+    sleep(2);
+    close(fd2);
   }
   return 0;
 }

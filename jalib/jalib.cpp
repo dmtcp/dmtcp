@@ -166,6 +166,10 @@ namespace jalib {
                                         timeout);
   }
 
+  int poll(struct pollfd fds[], nfds_t nfds, int timeout) {
+    REAL_FUNC_PASSTHROUGH(int, poll) (fds, nfds, timeout);
+  }
+
   int socket(int domain, int type, int protocol) {
     REAL_FUNC_PASSTHROUGH(int, socket) (domain, type, protocol);
   }

@@ -32,6 +32,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
+#include <poll.h>
 #include <algorithm>
 #include <set>
 #include <typeinfo>
@@ -268,125 +269,11 @@ ssize_t jalib::JSocket::write ( const char* buf, size_t len )
 ssize_t jalib::JSocket::readAll ( char* buf, size_t len )
 {
   return jalib::readAll(_sockfd, buf, len);
-#if 0
-  int origLen = len;
-  while ( len > 0 )
-  {
-    fd_set rfds;
-    struct timeval tv;
-    int retval;
-
-    int tmp_sockfd = _sockfd;
-    if ( tmp_sockfd == -1 ) {
-      return -1;
-    }
-
-    /* Watch stdin (fd 0) to see when it has input. */
-    FD_ZERO ( &rfds );
-    FD_SET ( tmp_sockfd, &rfds );
-
-    tv.tv_sec = 120;
-    tv.tv_usec = 0;
-
-    retval = jalib::select ( tmp_sockfd+1, &rfds, NULL, NULL, &tv );
-    /* Don't rely on the value of tv now! */
-
-    if ( retval == -1 )
-    {
-      if ( errno == EBADF ) {
-        JWARNING (false) .Text ( "Socket already closed" );
-        return -1;
-      } else if( errno != EINTR ){
-        JWARNING ( retval >= 0 )
-          ( tmp_sockfd ) ( JASSERT_ERRNO ).Text ( "select() failed" );
-        return -1;
-      }
-    }
-    else if ( retval )
-    {
-      errno = 0;
-      ssize_t cnt = read ( buf, len );
-      if ( cnt < 0 && errno != EAGAIN && errno != EINTR )
-      {
-        JWARNING(cnt>=0)(sockfd())(cnt)(len)(JASSERT_ERRNO).Text( "JSocket read failure" );
-        return -1;
-      }
-      if (cnt == 0)
-      {
-        JWARNING(cnt!=0)(sockfd())(origLen)(len).Text( "JSocket needed to read origLen chars,\n still needs to read len chars, but EOF reached" );
-        return -1;
-      }
-      if ( cnt > 0 )
-      {
-        buf += cnt;
-        len -= cnt;
-      }
-    }
-    else
-    {
-      JTRACE ( "still waiting for data" ) ( tmp_sockfd ) ( len );
-    }
-  }
-  return origLen;
-#endif
 }
 
 ssize_t jalib::JSocket::writeAll ( const char* buf, size_t len )
 {
   return jalib::writeAll(_sockfd, buf, len);
-#if 0
-  int origLen = len;
-  while (len > 0) {
-    fd_set wfds;
-    struct timeval tv;
-    int retval;
-
-    int tmp_sockfd = _sockfd;
-    if (tmp_sockfd == -1) {
-      return -1;
-    }
-
-    /* Watch stdin (fd 0) to see when it has input. */
-    FD_ZERO(&wfds);
-    FD_SET(tmp_sockfd, &wfds);
-
-    /* Wait up to five seconds. */
-    tv.tv_sec = 30;
-    tv.tv_usec = 0;
-
-    retval = jalib::select(tmp_sockfd+1, NULL, &wfds, NULL, &tv);
-    /* Don't rely on the value of tv now! */
-
-
-    if (retval == -1) {
-      if (errno == EBADF || errno == EPIPE) {
-        JTRACE("Socket already closed");
-        return -1;
-      }
-      JWARNING(retval >= 0) (tmp_sockfd) (JASSERT_ERRNO)
-        .Text ("select() failed");
-      return -1;
-    } else if (retval) {
-      errno = 0;
-      ssize_t cnt = write(buf, len);
-      if (cnt < 0 && (errno == EBADF || errno == EPIPE)) {
-        JTRACE("Remote peer disconnected, write failed");
-        return -1;
-      } else if (cnt <= 0 && errno != EAGAIN && errno != EINTR) {
-        JWARNING(cnt > 0) (cnt) (len) (JASSERT_ERRNO)
-          .Text("JSocket write failure");
-        return -1;
-      }
-      if (cnt > 0) {
-        buf += cnt;
-        len -= cnt;
-      }
-    } else {
-      JTRACE("still waiting for data") (tmp_sockfd) (len);
-    }
-  }
-  return origLen;
-#endif
 }
 
 bool jalib::JSocket::isValid() const
@@ -559,22 +446,11 @@ void jalib::JMultiSocketProgram::setTimeoutInterval ( double dblTimeout )
 
   JASSERT ( gettimeofday ( &stoptime,NULL ) == 0 );
   timeradd ( &timeoutInterval,&stoptime,&stoptime );
+
 }
 
 void jalib::JMultiSocketProgram::monitorSockets ( double dblTimeout )
 {
-  /*
-  int tSec = ( int ) dblTimeout;
-  int tMs = ( int ) ( 1000000.0 * ( dblTimeout - tSec ) );
-  const struct timeval timeoutInterval = {tSec,tMs};
-  bool timeoutEnabled = dblTimeout > 0 && timerisset ( &timeoutInterval );
-
-  struct timeval stoptime={0,0};
-  struct timeval timeoutBuf=timeoutInterval;
-  struct timeval * timeout = timeoutEnabled ? &timeoutBuf : NULL;
-  JASSERT ( gettimeofday ( &stoptime,NULL ) == 0 );
-  timeradd ( &timeoutInterval,&stoptime,&stoptime );
-  */
   struct timeval tmptime={0,0};
   struct timeval timeoutBuf;
   struct timeval * timeout;
@@ -585,34 +461,28 @@ void jalib::JMultiSocketProgram::monitorSockets ( double dblTimeout )
   timeout = timeoutEnabled ? &timeoutBuf : NULL;
 
   IntSet closedFds;
-  fd_set rfds;
-  fd_set wfds;
-  int maxFd;
+  dmtcp::vector<struct pollfd> fds;
   size_t i;
-  for ( ;; )
-  {
+  for ( ;; ) {
     closedFds.clear();
-    maxFd = -1;
-    FD_ZERO ( &rfds );
-    FD_ZERO ( &wfds );
+    fds.clear();
 
-    if( timeout == NULL && timeoutEnabled){
+    if (timeout == NULL && timeoutEnabled) {
       timeoutBuf=timeoutInterval;
       timeout = &timeoutBuf;
-    }else if( timeout != NULL && !timeoutEnabled){
+    } else if (timeout != NULL && !timeoutEnabled) {
       timeout = NULL;
     }
 
+    struct pollfd socketFd = {0};
+
     //collect listen fds in rfds, clean up dead sockets
-    for ( i=0; i<_listenSockets.size(); ++i )
-    {
-      if ( _listenSockets[i].isValid() )
-      {
-        FD_SET ( _listenSockets[i].sockfd(), &rfds );
-        maxFd = std::max ( maxFd,_listenSockets[i].sockfd() );
-      }
-      else
-      {
+    for ( i=0; i<_listenSockets.size(); ++i ) {
+      if ( _listenSockets[i].isValid() ) {
+        socketFd.fd = _listenSockets[i].sockfd();
+        socketFd.events = POLLIN;
+        fds.push_back(socketFd);
+      } else {
         _listenSockets[i].close();
         //socket is dead... remove it
         JTRACE ( "listen socket failure" ) ( i );
@@ -624,19 +494,16 @@ void jalib::JMultiSocketProgram::monitorSockets ( double dblTimeout )
     }
 
     //collect data fds in rfds, clean up dead sockets
-    for ( i=0; i<_dataSockets.size(); ++i )
-    {
-      if ( !_dataSockets[i]->hadError() )
-      {
-        FD_SET ( _dataSockets[i]->socket().sockfd(), &rfds );
-        maxFd = std::max ( maxFd,_dataSockets[i]->socket().sockfd() );
-      }
-      else
-      {
+    for ( i=0; i<_dataSockets.size(); ++i ) {
+      if ( !_dataSockets[i]->hadError() ) {
+        socketFd.fd = _dataSockets[i]->socket().sockfd();
+        socketFd.events = POLLIN;
+        fds.push_back(socketFd);
+      } else {
         JReaderInterface* dsock = _dataSockets[i];
         closedFds.insert(dsock->socket().sockfd());
         //socket is dead... remove it
-        //JTRACE ( "disconnect" ) ( i ) ( _dataSockets[i]->socket().sockfd() );
+        JTRACE ( "disconnect" ) ( i ) ( _dataSockets[i]->socket().sockfd() );
 
         _dataSockets[i] = 0;
         //swap with last
@@ -650,17 +517,13 @@ void jalib::JMultiSocketProgram::monitorSockets ( double dblTimeout )
     }
 
     //collect all writes in wfds, cleanup finished/dead
-    for ( i=0; i<_writes.size(); ++i )
-    {
-      if (  !_writes[i]->hadError()
-         && !_writes[i]->isDone()
-         && closedFds.find(_writes[i]->socket().sockfd())==closedFds.end() )
-      {
-        FD_SET ( _writes[i]->socket().sockfd(), &wfds );
-        maxFd = std::max ( maxFd,_writes[i]->socket().sockfd() );
-      }
-      else
-      {
+    for ( i=0; i<_writes.size(); ++i ) {
+      if (  !_writes[i]->hadError() && !_writes[i]->isDone()
+         && closedFds.find(_writes[i]->socket().sockfd())==closedFds.end() ) {
+        socketFd.fd = _writes[i]->socket().sockfd();
+        socketFd.events = POLLOUT;
+        fds.push_back(socketFd);
+      } else {
         //socket is or write done... pop it
         delete _writes[i];
         _writes[i] = 0;
@@ -671,9 +534,9 @@ void jalib::JMultiSocketProgram::monitorSockets ( double dblTimeout )
       }
     }
 
-    if ( maxFd == -1 )
+    if ( fds.size() == 0 )
     {
-      //JTRACE ( "no sockets left" );
+      JTRACE ( "no sockets left" );
       return;
     }
 
@@ -685,37 +548,42 @@ void jalib::JMultiSocketProgram::monitorSockets ( double dblTimeout )
     //  completion, they then return to monitorSockets() to wait for more
     //  work to do.  dmtcp_coordinator.cpp also describes some of this logic.
     //this will block till we have some work to do
-    int retval = jalib::select ( maxFd+1, &rfds, &wfds, NULL, timeout );
+    uint64_t millis = timeout ? ((timeout->tv_sec * (uint64_t)1000) +
+                                 (timeout->tv_usec / 1000))
+                              : -1;
+    int retval = jalib::poll ((struct pollfd*)&fds[0], fds.size(), millis);
 
     if ( retval == -1 )
     {
       JWARNING ( retval != -1 )
-        ( maxFd ) ( retval ) ( JASSERT_ERRNO ).Text ( "select failed" );
+        ( fds.size() ) ( retval ) ( JASSERT_ERRNO ).Text ( "poll failed" );
       return;
     }
     else if ( retval > 0 )
     {
       //write all data
-      for ( i=0; i<_writes.size(); ++i )
-      {
+      dmtcp::vector<struct pollfd>::iterator it;
+      for ( i=0; i<_writes.size(); ++i ) {
         int fd = _writes[i]->socket().sockfd();
-        if ( fd >= 0 && FD_ISSET ( fd, &wfds ) )
-        {
-//                    JTRACE("writing data")(_writes[i]->socket().sockfd());
+        for (it = fds.begin(); it != fds.end(); it++) {
+          if (it->fd == fd && it->revents & POLLOUT) break;
+        }
+        if (fd >= 0 && it != fds.end()) {
+          JTRACE("writing data")(_writes[i]->socket().sockfd());
           _writes[i]->writeOnce();
         }
       }
 
 
       //read all new data
-      for ( i=0; i<_dataSockets.size(); ++i )
-      {
+      for ( i=0; i<_dataSockets.size(); ++i ) {
         int fd = _dataSockets[i]->socket().sockfd();
-        if ( fd >= 0 && FD_ISSET ( fd, &rfds ) )
-        {
-//                   JTRACE("receiving data")(i)(_dataSockets[i].socket().sockfd());
-          if ( _dataSockets[i]->readOnce() )
-          {
+        for (it = fds.begin(); it != fds.end(); it++) {
+          if (it->fd == fd && it->revents & POLLIN) break;
+        }
+        if ( fd >= 0 && it != fds.end() ) {
+          JTRACE("receiving data")(i)(_dataSockets[i]->socket().sockfd());
+          if ( _dataSockets[i]->readOnce() ) {
             onData ( _dataSockets[i] );
             _dataSockets[i]->reset();
           }
@@ -724,49 +592,39 @@ void jalib::JMultiSocketProgram::monitorSockets ( double dblTimeout )
 
 
       //accept all new connections
-      for ( i=0; i<_listenSockets.size(); ++i )
-      {
+      for ( i=0; i<_listenSockets.size(); ++i ) {
         int fd = _listenSockets[i].sockfd();
-        if ( fd >= 0 && FD_ISSET ( fd, &rfds ) )
-        {
+        for (it = fds.begin(); it != fds.end(); it++) {
+          if (it->fd == fd && it->revents & POLLIN) break;
+        }
+        if ( fd >= 0 && it != fds.end() ) {
           struct sockaddr_storage addr;
           socklen_t addrlen = sizeof ( addr );
           JSocket sk = _listenSockets[i].accept ( &addr,&addrlen );
           JTRACE ( "accepting new connection" ) ( i ) ( sk.sockfd() )
             ( _listenSockets[i].sockfd() ) ( JASSERT_ERRNO );
-          if ( sk.isValid() )
-          {
+          if ( sk.isValid() ) {
             onConnect ( sk, ( sockaddr* ) &addr,addrlen );
-          }
-          else if ( errno != EAGAIN && errno != EINTR )
-          {
+          } else if ( errno != EAGAIN && errno != EINTR ) {
             _listenSockets[i].close();
           }
         }
       }
     }
 
-    if ( timeoutEnabled )
-    {
+    if ( timeoutEnabled ) {
       JASSERT ( gettimeofday ( &tmptime,NULL ) == 0 );
-      if ( timercmp ( &tmptime, &stoptime, < ) )
-      {
+      if ( timercmp ( &tmptime, &stoptime, < ) ) {
         timersub ( &stoptime, &tmptime, &timeoutBuf );
-      }
-      else
-      {
+      } else {
         timeoutBuf = timeoutInterval;
         stoptime = tmptime;
         timeradd ( &timeoutInterval,&stoptime,&stoptime );
-//                 JTRACE("timeout interval")(timeoutSec);
         onTimeoutInterval();
       }
     }
   }
 }
-
-
-
 
 
 /*!

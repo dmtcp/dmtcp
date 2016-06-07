@@ -127,10 +127,11 @@ am__v_AR_1 =
 libdmtcpinternal_a_AR = $(AR) $(ARFLAGS)
 libdmtcpinternal_a_LIBADD =
 am_libdmtcpinternal_a_OBJECTS = dmtcpmessagetypes.$(OBJEXT) \
-	coordinatorapi.$(OBJEXT) uniquepid.$(OBJEXT) \
-	shareddata.$(OBJEXT) util_exec.$(OBJEXT) util_misc.$(OBJEXT) \
-	util_init.$(OBJEXT) jalibinterface.$(OBJEXT) \
-	processinfo.$(OBJEXT) procselfmaps.$(OBJEXT)
+	coordinatorapi.$(OBJEXT) workerstate.$(OBJEXT) \
+	uniquepid.$(OBJEXT) shareddata.$(OBJEXT) util_exec.$(OBJEXT) \
+	util_misc.$(OBJEXT) util_init.$(OBJEXT) \
+	jalibinterface.$(OBJEXT) processinfo.$(OBJEXT) \
+	procselfmaps.$(OBJEXT)
 libdmtcpinternal_a_OBJECTS = $(am_libdmtcpinternal_a_OBJECTS)
 libjalib_a_AR = $(AR) $(ARFLAGS)
 libjalib_a_LIBADD =
@@ -538,7 +539,7 @@ nobase_noinst_HEADERS = constants.h \
 	$(dmtcpincludedir)/virtualidtable.h $(dmtcpincludedir)/procmapsarea.h \
 	$(dmtcpincludedir)/procselfmaps.h \
 	restartscript.h \
-	dmtcp_coordinator.h dmtcpmessagetypes.h lookup_service.h \
+	dmtcp_coordinator.h dmtcpmessagetypes.h workerstate.h lookup_service.h \
 	dmtcpworker.h threadsync.h coordinatorapi.h \
 	mtcpinterface.h syscallwrappers.h \
 	threadlist.h threadinfo.h siginfo.h \
@@ -550,6 +551,7 @@ nobase_noinst_HEADERS = constants.h \
 # dmtcp_launch, dmtcp_command, dmtcp_coordinator, etc.
 #   should not need wrappers.
 libdmtcpinternal_a_SOURCES = dmtcpmessagetypes.cpp  coordinatorapi.cpp \
+			     workerstate.cpp \
 			     uniquepid.cpp shareddata.cpp \
 			     util_exec.cpp util_misc.cpp util_init.cpp \
 			     jalibinterface.cpp processinfo.cpp procselfmaps.cpp
@@ -592,7 +594,7 @@ __d_bindir__dmtcp_coordinator_LDADD = libdmtcpinternal.a libjalib.a \
 			  libnohijack.a -lpthread -lrt
 
 __d_bindir__dmtcp_launch_LDADD = libdmtcpinternal.a libjalib.a \
-			  libnohijack.a -lpthread -lrt -ldl
+			  libnohijack.a -ldl -lpthread -lrt
 
 __d_bindir__dmtcp_restart_LDADD = libdmtcpinternal.a libjalib.a \
 			  libnohijack.a -lpthread -lrt -ldl
@@ -824,6 +826,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/util_exec.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/util_init.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/util_misc.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/workerstate.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/writeckpt.Po@am__quote@
 
 .c.o:

@@ -22,6 +22,8 @@
 #ifndef DMTCPDMTCPWORKER_H
 #define DMTCPDMTCPWORKER_H
 
+#include "jalloc.h"
+#include "dmtcpalloc.h"
 #include "dmtcpmessagetypes.h"
 
 void restoreUserLDPRELOAD();
