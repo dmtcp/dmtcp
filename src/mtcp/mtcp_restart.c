@@ -487,13 +487,13 @@ static void mtcp_simulateread(int fd, MtcpHeader *mtcpHdr)
   mtcp_memcpy(buf, mtcpHdr->signature, MTCP_SIGNATURE_LEN);
   buf[MTCP_SIGNATURE_LEN] = '\0';
   mtcp_printf("\nMTCP: %s", buf);
-  mtcp_printf("**** mtcp_restart (will be copied here): %p-%p\n",
+  mtcp_printf("**** mtcp_restart (will be copied here): %p..%p\n",
             mtcpHdr->restore_addr, mtcpHdr->restore_addr + mtcpHdr->restore_size);
   mtcp_printf("**** DMTCP entry point (ThreadList::postRestart()): %p\n",
               mtcpHdr->post_restart);
   mtcp_printf("**** brk (sbrk(0)): %p\n", mtcpHdr->saved_brk);
-  mtcp_printf("**** vdso: %p-%p\n", mtcpHdr->vdsoStart, mtcpHdr->vdsoEnd);
-  mtcp_printf("**** vvar: %p-%p\n", mtcpHdr->vvarStart, mtcpHdr->vvarEnd);
+  mtcp_printf("**** vdso: %p..%p\n", mtcpHdr->vdsoStart, mtcpHdr->vdsoEnd);
+  mtcp_printf("**** vvar: %p..%p\n", mtcpHdr->vvarStart, mtcpHdr->vvarEnd);
 
   Area area;
   mtcp_printf("\n**** Listing ckpt image area:\n");
@@ -633,7 +633,7 @@ static void unmap_memory_areas_and_restore_vdso(RestoreInfo *rinfo)
       // Do not unmap vdso.
       vdsoStart = area.addr;
       vdsoEnd = area.endAddr;
-      DPRINTF("***INFO: vDSO found (%p-%p)\n orignal vDSO: (%p-%p)\n",
+      DPRINTF("***INFO: vDSO found (%p..%p)\n orignal vDSO: (%p..%p)\n",
               area.addr, area.endAddr, rinfo->vdsoStart, rinfo->vdsoEnd);
     }
 #if defined(__i386__) && LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,18)
@@ -652,9 +652,9 @@ static void unmap_memory_areas_and_restore_vdso(RestoreInfo *rinfo)
       // Do not unmap vectors.  (used in Linux 3.10 on __arm__)
     }
     else if (area.size > 0 ) {
-      DPRINTF("***INFO: munmapping (%p-%p)\n", area.addr, area.endAddr);
+      DPRINTF("***INFO: munmapping (%p..%p)\n", area.addr, area.endAddr);
       if (mtcp_sys_munmap(area.addr, area.size) == -1) {
-        MTCP_PRINTF("***WARNING: munmap(%s, %x, %p, %d) failed; errno: %d\n",
+        MTCP_PRINTF("***WARNING: %s(%x): munmap(%p, %d) failed; errno: %d\n",
                     area.name, area.flags, area.addr, area.size,
                     mtcp_sys_errno);
         mtcp_abort();
