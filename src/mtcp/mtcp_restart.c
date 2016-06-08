@@ -635,7 +635,14 @@ static void unmap_memory_areas_and_restore_vdso(RestoreInfo *rinfo)
       vdsoEnd = area.endAddr;
       DPRINTF("***INFO: vDSO found (%p-%p)\n orignal vDSO: (%p-%p)\n",
               area.addr, area.endAddr, rinfo->vdsoStart, rinfo->vdsoEnd);
-    } else if (mtcp_strcmp(area.name, "[vvar]") == 0) {
+    }
+#if defined(__i386__) && LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,18)
+    else if (area.addr == 0xfffe0000 && area.size == 4096 ) {
+      // It's a vdso page from a time before Linux displayed the annotation.
+      // Do not unmap vdso.
+    }
+#endif
+    else if (mtcp_strcmp(area.name, "[vvar]") == 0) {
       // Do not unmap vvar.
       vvarStart = area.addr;
       vvarEnd = area.endAddr;
@@ -643,7 +650,8 @@ static void unmap_memory_areas_and_restore_vdso(RestoreInfo *rinfo)
       // Do not unmap vsyscall.
     } else if (mtcp_strcmp(area.name, "[vectors]") == 0) {
       // Do not unmap vectors.  (used in Linux 3.10 on __arm__)
-    } else if (area.size > 0 ) {
+    }
+    else if (area.size > 0 ) {
       DPRINTF("***INFO: munmapping (%p-%p)\n", area.addr, area.endAddr);
       if (mtcp_sys_munmap(area.addr, area.size) == -1) {
         MTCP_PRINTF("***WARNING: munmap(%s, %x, %p, %d) failed; errno: %d\n",
