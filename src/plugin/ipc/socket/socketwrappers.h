@@ -39,5 +39,6 @@
 #define _real_getnameinfo NEXT_FNC(getnameinfo)
 #define _real_gethostbyname NEXT_FNC(gethostbyname)
 #define _real_gethostbyaddr NEXT_FNC(gethostbyaddr)
+#define _real_poll NEXT_FNC(poll)
 
 #endif // SOCKET_WRAPPERS_H
