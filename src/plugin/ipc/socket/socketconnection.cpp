@@ -26,6 +26,8 @@
 #include <fcntl.h>
 #include <linux/limits.h>
 #include <arpa/inet.h>
+#include <signal.h>
+#include <poll.h>
 
 #include "dmtcp.h"
 #include "shareddata.h"
@@ -388,23 +390,17 @@ void TcpConnection::drain()
 
   // Non blocking connect; need to hang around until it is writable.
   if (_type == TCP_CONNECT_IN_PROGRESS) {
-    fd_set wfds;
-    struct timeval tv;
     int retval;
+    struct pollfd socketFd = {0};
 
-    FD_ZERO(&wfds);
-    FD_SET(_fds[0], &wfds);
+    socketFd.fd = _fds[0];
+    socketFd.events = POLLOUT;
 
-    tv.tv_sec = 60;
-    tv.tv_usec = 0;
-
-    // FIXME: Replace select with poll/epoll (to handle fd > 1024).
-    retval = select(_fds[0] + 1, NULL, &wfds, NULL, &tv);
-    /* Don't rely on the value of tv now! */
+    retval = _real_poll (&socketFd, 1, 60*1000);
 
     if (retval == -1) {
-      JTRACE("select() failed") (JASSERT_ERRNO);
-    } else if (FD_ISSET(_fds[0], &wfds)) {
+      JTRACE("poll() failed") (JASSERT_ERRNO);
+    } else if (socketFd.revents & POLLOUT) {
       int val = -1;
       socklen_t sz = sizeof(val);
       getsockopt(_fds[0], SOL_SOCKET, SO_ERROR, &val, &sz);
