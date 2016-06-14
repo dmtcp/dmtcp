@@ -183,6 +183,7 @@ void ThreadList::init()
 
   tls_tid_offset = (char*)ckptThread->ptid - (char*)ckptThread->tls;
   tls_pid_offset = tls_tid_offset + sizeof(pid_t);
+  JASSERT(tls_tid_offset == atoi(getenv(ENV_VAR_TID_OFFSET)));
 
   motherofall->tls   = (struct user_desc*)(void*)pthread_self();
   motherofall->ctid  = (pid_t*)((char*)motherofall->tls + tls_tid_offset);

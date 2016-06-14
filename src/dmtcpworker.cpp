@@ -267,6 +267,7 @@ extern "C" void dmtcp_initialize()
 
   JTRACE("libdmtcp.so:  Running ")
     (jalib::Filesystem::GetProgramName()) (getenv ("LD_PRELOAD"));
+  JASSERT(getenv(ENV_VAR_TID_OFFSET)).Text("DMTCP_TID_OFFSET env var not set!");
 
   if (getenv("DMTCP_SEGFAULT_HANDLER") != NULL) {
     // Install a segmentation fault handler (for debugging).

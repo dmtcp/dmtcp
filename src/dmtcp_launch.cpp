@@ -43,6 +43,7 @@ static bool testSetuid(const char *filename);
 static void testStaticallyLinked(const char *filename);
 static bool testScreen(char **argv, char ***newArgv);
 static void setLDPreloadLibs(bool is32bitElf);
+static void getTIDOffset();
 
 // gcc-4.3.4 -Wformat=2 issues false positives for warnings unless the format
 // string has at least one format specifier with corresponding format argument.
@@ -571,6 +572,7 @@ int main ( int argc, char** argv )
 
   // Set DLSYM_OFFSET env var(s).
   Util::prepareDlsymWrapper();
+  getTIDOffset();
 
   setLDPreloadLibs(is32bitElf);
 
@@ -589,6 +591,28 @@ int main ( int argc, char** argv )
   //fprintf(stderr, theExecFailedMsg, argv[0], JASSERT_ERRNO);
 
   return -1;
+}
+
+static void* start_fnc(void *arg)
+{
+  pthread_exit(0);
+}
+
+extern "C" int __clone(int (*fn) (void *arg), void *child_stack, int flags,
+                       void *arg, int *ptid,
+                       struct user_desc *tls, int *ctid)
+{
+  intptr_t tidOffset = (char*)ptid - (char*)tls;
+  char value[100] = {0};
+  snprintf(value, 100, "%d", tidOffset);
+  setenv(ENV_VAR_TID_OFFSET, value, 1);
+}
+
+static void getTIDOffset()
+{
+  pthread_t t1;
+  pthread_create(&t1, NULL, start_fnc, NULL);
+  pthread_join(t1, NULL);
 }
 
 static int testMatlab(const char *filename)

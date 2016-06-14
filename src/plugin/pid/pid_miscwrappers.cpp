@@ -556,6 +556,8 @@ ssize_t process_vm_writev(pid_t pid,
 
 #define DMTCP_START_CALLS_WITH_REAL_TID() \
   DMTCP_PLUGIN_DISABLE_CKPT(); \
+  static int tid_offset = atoi(getenv(ENV_VAR_TID_OFFSET)); \
+  if (!ctid) ctid = (pid_t*)(pthread_self() + tid_offset); \
   pid_t tid = *ctid; \
   *ctid = VIRTUAL_TO_REAL_PID(tid);
 
