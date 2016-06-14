@@ -835,9 +835,9 @@ else:
   print "Skipping pthread_atfork test; doesn't build on ARM/aarch64/glibc/Linux"
 
 if not USE_M32:  # ssh (a 64-bit child process) is forked
-  if HAS_SSH == "yes":
+  if HAS_SSH_LOCALHOST == "yes":
     S=5*DEFAULT_S
-    runTest("sshtest",     4, ["./test/sshtest"])
+    runTest("ssh1",     4, ["./test/ssh1"])
     S=DEFAULT_S
 
 if not USE_M32:  # waitpid forks a 64-bit child process, /bin/sleep

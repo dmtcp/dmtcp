@@ -478,10 +478,10 @@ AC_CHECK_PROG(HAS_GZIP, [gzip], [yes], [no], [/usr/bin:/bin])
 echo -n "Checking for password-less 'ssh localhost'... "
 if ssh -o BatchMode=yes localhost true 2>/dev/null; then
   echo "yes"
-  AC_SUBST([HAS_SSH], [yes])
+  AC_SUBST([HAS_SSH_LOCALHOST], [yes])
 else
   echo "no"
-  AC_SUBST([HAS_SSH], [no])
+  AC_SUBST([HAS_SSH_LOCALHOST], [no])
 fi
 
 #check for mpich2

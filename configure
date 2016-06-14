@@ -636,7 +636,7 @@ MPICH_MPDCLEANUP
 MPICH_MPDALLEXIT
 MPICH_MPDBOOT
 MPICH_MPD
-HAS_SSH
+HAS_SSH_LOCALHOST
 HAS_GZIP
 MATLAB
 HAS_MATLAB
@@ -6835,11 +6835,11 @@ fi
 echo -n "Checking for password-less 'ssh localhost'... "
 if ssh -o BatchMode=yes localhost true 2>/dev/null; then
   echo "yes"
-  HAS_SSH=yes
+  HAS_SSH_LOCALHOST=yes
 
 else
   echo "no"
-  HAS_SSH=no
+  HAS_SSH_LOCALHOST=no
 
 fi
 
