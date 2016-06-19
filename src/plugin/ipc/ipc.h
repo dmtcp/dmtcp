@@ -26,6 +26,8 @@
 #include <dirent.h>
 #include <sys/types.h>
 #include <linux/version.h>
+#include <signal.h>
+#include <poll.h>
 #include "dmtcp.h"
 
 #define CONNECTION_ID_START 99000
@@ -49,6 +51,7 @@
 
 #define _real_fcntl NEXT_FNC(fcntl)
 #define _real_select NEXT_FNC(select)
+#define _real_poll NEXT_FNC(poll)
 #define _real_pthread_mutex_lock NEXT_FNC(pthread_mutex_lock)
 #define _real_pthread_mutex_unlock NEXT_FNC(pthread_mutex_unlock)
 

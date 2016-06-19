@@ -20,7 +20,6 @@
  ****************************************************************************/
 
 #include <sys/ioctl.h>
-#include <sys/select.h>
 #include <sys/un.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -89,8 +88,7 @@ static bool ptmxTestPacketMode(int masterFd)
 {
   char tmp_buf[100];
   int slave_fd, ioctlArg, rc;
-  fd_set read_fds;
-  struct timeval zeroTimeout = {0, 0}; /* Zero: will use to poll, not wait.*/
+  struct pollfd pollFd = {0};
 
   _real_ptsname_r(masterFd, tmp_buf, 100);
   /* permissions not used, but _real_open requires third arg */
@@ -114,10 +112,10 @@ static bool ptmxTestPacketMode(int masterFd)
   ioctlArg = 1;
   ioctl(masterFd, TIOCINQ, &ioctlArg);
   /* Now check if there's a command byte still to read. */
-  FD_ZERO(&read_fds);
-  FD_SET(masterFd, &read_fds);
-  select(masterFd + 1, &read_fds, NULL, NULL, &zeroTimeout);
-  if (FD_ISSET(masterFd, &read_fds)) {
+  pollFd.fd = masterFd;
+  pollFd.events = POLLIN;
+  _real_poll(&pollFd, 1, 0); /* Zero: will use to poll, not wait.*/
+  if (pollFd.revents & POLLIN) {
     // Clean up someone else's command byte from packet mode.
     // FIXME:  We should restore this on resume/restart.
     rc = read(masterFd, tmp_buf, 100);
@@ -142,12 +140,11 @@ static bool ptmxTestPacketMode(int masterFd)
 // Also record the count read on each iteration, in case it's packet mode
 static bool readyToRead(int fd)
 {
-  fd_set read_fds;
-  struct timeval zeroTimeout = {0, 0}; /* Zero: will use to poll, not wait.*/
-  FD_ZERO(&read_fds);
-  FD_SET(fd, &read_fds);
-  select(fd + 1, &read_fds, NULL, NULL, &zeroTimeout);
-  return FD_ISSET(fd, &read_fds);
+  struct pollfd pollFd = {0};
+  pollFd.fd = fd;
+  pollFd.events = POLLIN;
+  _real_poll(&pollFd, 1, 0); /* Zero: will use to poll, not wait.*/
+  return (pollFd.revents & POLLIN);
 }
 
 // returns 0 if not ready to read; else returns -1, or size read incl. header

@@ -7,8 +7,8 @@
 #include <signal.h>
 #include <string.h>
 #include <assert.h>
-
-#define MAX(a,b) ((a) < (b) ? (b) : (a))
+#include <poll.h>
+#include <vector>
 
 #define MAX_BUFFER_SIZE (64*1024)
 
@@ -151,82 +151,95 @@ void client_loop(int ssh_stdin, int ssh_stdout, int ssh_stderr, int sock)
     signal(SIGTERM, signal_handler);
   //signal(SIGWINCH, window_change_handler);
 
-  fd_set readset, writeset, errorset;
-  int max_fd = 0;
-
-  max_fd = MAX(ssh_stdin, ssh_stdout);
-  max_fd = MAX(max_fd, ssh_stderr);
+  std::vector<struct pollfd> fds;
 
   /* Main loop of the client for the interactive session mode. */
   while (!quit_pending) {
-    struct timeval tv = {10, 0};
-    FD_ZERO(&readset);
-    FD_ZERO(&writeset);
-    FD_ZERO(&errorset);
-    FD_SET(remoteSock, &errorset);
+    struct pollfd socketFd = {0};
+
+    fds.clear();
+    socketFd.fd = remoteSock;
+    socketFd.events = POLLRDHUP;
+    fds.push_back(socketFd);
 
     if (buffer_ready_for_read(&stdin_buffer)) {
-      FD_SET(STDIN_FILENO, &readset);
+      socketFd.fd = STDIN_FILENO;
+      socketFd.events = POLLIN;
+      fds.push_back(socketFd);
     }
     if (buffer_ready_for_read(&stdout_buffer)) {
-      FD_SET(ssh_stdout, &readset);
+      socketFd.fd = ssh_stdout;
+      socketFd.events = POLLIN;
+      fds.push_back(socketFd);
     }
     if (buffer_ready_for_read(&stderr_buffer)) {
-      FD_SET(ssh_stderr, &readset);
+      socketFd.fd = ssh_stderr;
+      socketFd.events = POLLIN;
+      fds.push_back(socketFd);
     }
 
     if (buffer_ready_for_write(&stdin_buffer)) {
-      FD_SET(ssh_stdin, &writeset);
+      socketFd.fd = ssh_stdin;
+      socketFd.events = POLLOUT;
+      fds.push_back(socketFd);
     }
     if (buffer_ready_for_write(&stdout_buffer)) {
-      FD_SET(STDOUT_FILENO, &writeset);
+      socketFd.fd = STDOUT_FILENO;
+      socketFd.events = POLLOUT;
+      fds.push_back(socketFd);
     }
     if (buffer_ready_for_write(&stderr_buffer)) {
-      FD_SET(STDERR_FILENO, &writeset);
+      socketFd.fd = STDERR_FILENO;
+      socketFd.events = POLLOUT;
+      fds.push_back(socketFd);
     }
 
-    int ret = select(max_fd, &readset, &writeset, &errorset, &tv);
+    int ret = poll((struct pollfd*)&fds[0], fds.size(), 10*1000);
     if (ret == -1 && errno == EINTR) {
       continue;
     }
     if (ret == -1) {
-      perror("select failed");
+      perror("poll failed");
       return;
     }
 
     if (quit_pending)
       break;
 
-    //Read from our STDIN or stdout/err of ssh
-    if (FD_ISSET(STDIN_FILENO, &readset)) {
-      buffer_read(&stdin_buffer, STDIN_FILENO);
-    }
-    if (FD_ISSET(ssh_stdout, &readset)) {
-      buffer_read(&stdout_buffer, ssh_stdout);
-    }
-    if (FD_ISSET(ssh_stderr, &readset)) {
-      buffer_read(&stderr_buffer, ssh_stderr);
-    }
+    std::vector<struct pollfd>::iterator it;
+    for (it = fds.begin(); it != fds.end(); it++) {
+      //Read from our STDIN or stdout/err of ssh
+      if (it->fd == STDIN_FILENO && it->revents & POLLIN) {
+        buffer_read(&stdin_buffer, STDIN_FILENO);
+      }
+      if (it->fd == ssh_stdout && it->revents & POLLIN) {
+        buffer_read(&stdout_buffer, ssh_stdout);
+      }
+      if (it->fd == ssh_stderr && it->revents & POLLIN) {
+        buffer_read(&stderr_buffer, ssh_stderr);
+      }
 
-    // Write to our stdout/err or stdin of ssh
-    if (FD_ISSET(ssh_stdin, &writeset)) {
-      buffer_write(&stdin_buffer, ssh_stdin);
-    }
-    if (FD_ISSET(STDOUT_FILENO, &writeset)) {
-      buffer_write(&stdout_buffer, STDOUT_FILENO);
-    }
-    if (FD_ISSET(STDERR_FILENO, &writeset)) {
-      buffer_write(&stderr_buffer, STDERR_FILENO);
-    }
+      // Write to our stdout/err or stdin of ssh
+      if (it->fd == ssh_stdin && it->revents & POLLOUT) {
+        buffer_write(&stdin_buffer, ssh_stdin);
+      }
+      if (it->fd == STDOUT_FILENO && it->revents & POLLOUT) {
+        buffer_write(&stdout_buffer, STDOUT_FILENO);
+      }
+      if (it->fd == STDERR_FILENO && it->revents & POLLOUT) {
+        buffer_write(&stderr_buffer, STDERR_FILENO);
+      }
 
-    if (FD_ISSET(remoteSock, &errorset)) {
-      break;
+      if (it->fd == remoteSock && (it->revents & (POLLHUP | POLLERR | POLLNVAL))) {
+        goto end;
+      }
     }
 
     if (quit_pending)
       break;
   }
 
+end:
   /* Write pending data to our stdout/stderr */
   if (buffer_ready_for_write(&stdout_buffer)) {
     buffer_write(&stdout_buffer, STDOUT_FILENO);
