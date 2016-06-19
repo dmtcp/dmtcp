@@ -25,6 +25,8 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <poll.h>
+#include <signal.h>
 
 #include "util.h"
 #include "dmtcp.h"
@@ -488,24 +490,23 @@ void ConnectionList::sendReceiveMissingFds()
     }
   }
 
-  fd_set rfds;
-  fd_set wfds;
   int restoreFd = protectedFd();
   size_t numOutgoingCons = outgoingCons.size();
   while (numOutgoingCons > 0 || numIncomingCons > 0) {
-    FD_ZERO(&wfds);
+    struct pollfd socketFd = {0};
     if (outgoingCons.size() > 0) {
-      FD_SET(restoreFd, &wfds);
+      socketFd.fd = restoreFd;
+      socketFd.events = POLLOUT;
     }
-    FD_ZERO(&rfds);
     if (numIncomingCons > 0) {
-      FD_SET(restoreFd, &rfds);
+      socketFd.fd = restoreFd;
+      socketFd.events |= POLLIN;
     }
 
-    int ret = _real_select(restoreFd+1, &rfds, &wfds, NULL, NULL);
+    int ret = _real_poll(&socketFd, 1, -1);
     JASSERT(ret != -1) (JASSERT_ERRNO);
 
-    if (numOutgoingCons > 0 && FD_ISSET(restoreFd, &wfds)) {
+    if (numOutgoingCons > 0 && (socketFd.revents & POLLOUT)) {
       size_t idx = outgoingCons.back();
       outgoingCons.pop_back();
       ConnectionIdentifier *id = (ConnectionIdentifier*) maps[idx].id;
@@ -516,7 +517,7 @@ void ConnectionList::sendReceiveMissingFds()
       numOutgoingCons--;
     }
 
-    if (numIncomingCons > 0 && FD_ISSET(restoreFd, &rfds)) {
+    if (numIncomingCons > 0 && (socketFd.revents & POLLIN)) {
       ConnectionIdentifier id;
       int fd = Util::receiveFd(restoreFd, &id, sizeof(id));
       JASSERT(fd != -1);
