@@ -633,7 +633,7 @@ static void unmap_memory_areas_and_restore_vdso(RestoreInfo *rinfo)
       // Do not unmap vdso.
       vdsoStart = area.addr;
       vdsoEnd = area.endAddr;
-      DPRINTF("***INFO: vDSO found (%p..%p)\n orignal vDSO: (%p..%p)\n",
+      DPRINTF("***INFO: vDSO found (%p..%p)\n original vDSO: (%p..%p)\n",
               area.addr, area.endAddr, rinfo->vdsoStart, rinfo->vdsoEnd);
     }
 #if defined(__i386__) && LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,18)
