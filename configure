@@ -1471,6 +1471,7 @@ Optional Features:
                           (EXPERIMENTAL)
   --enable-fast-restart   uses tricks to mmap from checkpoint image file;
                           disables all kinds of compression (EXPERIMENTAL)
+                          ( *** THIS OPTION TEMPORARILY DISABLED *** )
   --enable-delta-compression
                           enable incremental/differential checkpointing using
                           HBICT (hash-based incremental checkpointing) tool;
