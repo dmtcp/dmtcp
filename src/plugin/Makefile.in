@@ -317,6 +317,7 @@ AARCH64_HOST = @AARCH64_HOST@
 ACLOCAL = @ACLOCAL@
 AMTAR = @AMTAR@
 AM_DEFAULT_VERBOSITY = @AM_DEFAULT_VERBOSITY@
+ARM_HOST = @ARM_HOST@
 AUTOCONF = @AUTOCONF@
 AUTOHEADER = @AUTOHEADER@
 AUTOMAKE = @AUTOMAKE@
@@ -852,10 +853,10 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pid.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pid_filewrappers.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pid_miscwrappers.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pid_mutexwrappers.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pid_syscallsreal.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pidwrappers.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sched_wrappers.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pid_mutexwrappers.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sysvipc.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sysvipcwrappers.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/timer_create.Po@am__quote@
@@ -1325,20 +1326,6 @@ sched_wrappers.obj: pid/sched_wrappers.cpp
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o sched_wrappers.obj `if test -f 'pid/sched_wrappers.cpp'; then $(CYGPATH_W) 'pid/sched_wrappers.cpp'; else $(CYGPATH_W) '$(srcdir)/pid/sched_wrappers.cpp'; fi`
 
-pid_mutexwrappers.o: pid/pid_mutexwrappers.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT pid_mutexwrappers.o -MD -MP -MF $(DEPDIR)/pid_mutexwrappers.Tpo -c -o pid_mutexwrappers.o `test -f 'pid/pid_mutexwrappers.cpp' || echo '$(srcdir)/'`pid/pid_mutexwrappers.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/pid_mutexwrappers.Tpo $(DEPDIR)/pid_mutexwrappers.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='pid/pid_mutexwrappers.cpp' object='pid_mutexwrappers.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o pid_mutexwrappers.o `test -f 'pid/pid_mutexwrappers.cpp' || echo '$(srcdir)/'`pid/pid_mutexwrappers.cpp
-
-pid_mutexwrappers.obj: pid/pid_mutexwrappers.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT pid_mutexwrappers.obj -MD -MP -MF $(DEPDIR)/pid_mutexwrappers.Tpo -c -o pid_mutexwrappers.obj `if test -f 'pid/pid_mutexwrappers.cpp'; then $(CYGPATH_W) 'pid/pid_mutexwrappers.cpp'; else $(CYGPATH_W) '$(srcdir)/pid/pid_mutexwrappers.cpp'; fi`
-@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/pid_mutexwrappers.Tpo $(DEPDIR)/pid_mutexwrappers.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='pid/pid_mutexwrappers.cpp' object='pid_mutexwrappers.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o pid_mutexwrappers.obj `if test -f 'pid/pid_mutexwrappers.cpp'; then $(CYGPATH_W) 'pid/pid_mutexwrappers.cpp'; else $(CYGPATH_W) '$(srcdir)/pid/pid_mutexwrappers.cpp'; fi`
-
 virtualpidtable.o: pid/virtualpidtable.cpp
 @am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT virtualpidtable.o -MD -MP -MF $(DEPDIR)/virtualpidtable.Tpo -c -o virtualpidtable.o `test -f 'pid/virtualpidtable.cpp' || echo '$(srcdir)/'`pid/virtualpidtable.cpp
 @am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/virtualpidtable.Tpo $(DEPDIR)/virtualpidtable.Po
@@ -1352,6 +1339,20 @@ virtualpidtable.obj: pid/virtualpidtable.cpp
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='pid/virtualpidtable.cpp' object='virtualpidtable.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o virtualpidtable.obj `if test -f 'pid/virtualpidtable.cpp'; then $(CYGPATH_W) 'pid/virtualpidtable.cpp'; else $(CYGPATH_W) '$(srcdir)/pid/virtualpidtable.cpp'; fi`
+
+pid_mutexwrappers.o: pid/pid_mutexwrappers.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT pid_mutexwrappers.o -MD -MP -MF $(DEPDIR)/pid_mutexwrappers.Tpo -c -o pid_mutexwrappers.o `test -f 'pid/pid_mutexwrappers.cpp' || echo '$(srcdir)/'`pid/pid_mutexwrappers.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/pid_mutexwrappers.Tpo $(DEPDIR)/pid_mutexwrappers.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='pid/pid_mutexwrappers.cpp' object='pid_mutexwrappers.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o pid_mutexwrappers.o `test -f 'pid/pid_mutexwrappers.cpp' || echo '$(srcdir)/'`pid/pid_mutexwrappers.cpp
+
+pid_mutexwrappers.obj: pid/pid_mutexwrappers.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT pid_mutexwrappers.obj -MD -MP -MF $(DEPDIR)/pid_mutexwrappers.Tpo -c -o pid_mutexwrappers.obj `if test -f 'pid/pid_mutexwrappers.cpp'; then $(CYGPATH_W) 'pid/pid_mutexwrappers.cpp'; else $(CYGPATH_W) '$(srcdir)/pid/pid_mutexwrappers.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/pid_mutexwrappers.Tpo $(DEPDIR)/pid_mutexwrappers.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='pid/pid_mutexwrappers.cpp' object='pid_mutexwrappers.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o pid_mutexwrappers.obj `if test -f 'pid/pid_mutexwrappers.cpp'; then $(CYGPATH_W) 'pid/pid_mutexwrappers.cpp'; else $(CYGPATH_W) '$(srcdir)/pid/pid_mutexwrappers.cpp'; fi`
 
 sysvipc.o: svipc/sysvipc.cpp
 @am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT sysvipc.o -MD -MP -MF $(DEPDIR)/sysvipc.Tpo -c -o sysvipc.o `test -f 'svipc/sysvipc.cpp' || echo '$(srcdir)/'`svipc/sysvipc.cpp
