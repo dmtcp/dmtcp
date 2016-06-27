@@ -30,6 +30,7 @@
 # define SYS_getpgrp __NR_getpgrp
 #endif
 #include <linux/version.h>
+#include <assert.h>
 
 #include "config.h"  // for HAS_CMA
 #include "jassert.h"
@@ -559,12 +560,16 @@ ssize_t process_vm_writev(pid_t pid,
   static int tid_offset = atoi(getenv(ENV_VAR_TID_OFFSET)); \
   if (!ctid) ctid = (pid_t*)(pthread_self() + tid_offset); \
   pid_t tid = *ctid; \
-  *ctid = VIRTUAL_TO_REAL_PID(tid);
+  pid_t pid = *(ctid + 1); \
+  *ctid = VIRTUAL_TO_REAL_PID(tid); \
+  *(ctid + 1) = VIRTUAL_TO_REAL_PID(pid);
 
 #define DMTCP_STOP_CALLS_WITH_REAL_TID() \
   *ctid = tid; \
+  *(ctid + 1) = pid; \
   DMTCP_PLUGIN_ENABLE_CKPT();
 
+EXTERNC
 int pthread_getattr_np(pthread_t thread, pthread_attr_t *attr)
 {
   DMTCP_START_CALLS_WITH_REAL_TID();
@@ -573,6 +578,7 @@ int pthread_getattr_np(pthread_t thread, pthread_attr_t *attr)
   return ret;
 }
 
+EXTERNC
 int pthread_setaffinity_np(pthread_t thread, size_t cpusetsize,
                            const cpu_set_t *cpuset)
 {
@@ -582,6 +588,7 @@ int pthread_setaffinity_np(pthread_t thread, size_t cpusetsize,
   return ret;
 }
 
+EXTERNC
 int pthread_getaffinity_np(pthread_t thread, size_t cpusetsize,
                            cpu_set_t *cpuset)
 {
@@ -589,4 +596,30 @@ int pthread_getaffinity_np(pthread_t thread, size_t cpusetsize,
   int ret = NEXT_FNC(pthread_getaffinity_np)(thread, cpusetsize, cpuset);
   DMTCP_STOP_CALLS_WITH_REAL_TID();
   return ret;
+}
+
+EXTERNC
+void abort(void)
+{
+  DMTCP_START_CALLS_WITH_REAL_TID();
+  NEXT_FNC(abort)();
+  DMTCP_STOP_CALLS_WITH_REAL_TID();
+}
+
+EXTERNC
+int raise(int sig)
+{
+  DMTCP_START_CALLS_WITH_REAL_TID();
+  int ret = NEXT_FNC(raise)(sig);
+  DMTCP_STOP_CALLS_WITH_REAL_TID();
+  return ret;
+}
+
+EXTERNC
+void __assert_fail (const char *__assertion, const char *__file,
+                    unsigned int __line, const char *__function)
+{
+  DMTCP_START_CALLS_WITH_REAL_TID();
+  NEXT_FNC(__assert_fail)(__assertion, __file, __line, __function);
+  DMTCP_STOP_CALLS_WITH_REAL_TID();
 }
