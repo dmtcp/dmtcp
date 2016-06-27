@@ -153,7 +153,8 @@ AC_ARG_ENABLE([fast_restart],
             [AS_HELP_STRING([--enable-fast-restart],
                             [uses tricks to mmap from checkpoint image file;
                              disables all kinds of compression
-			    (EXPERIMENTAL)])],
+			    (EXPERIMENTAL)
+			    ( *** THIS OPTION TEMPORARILY DISABLED *** )])],
             [use_fast_restart=$enableval],
             [use_fast_restart=default])
 if test "$use_fast_restart" = "yes"; then
