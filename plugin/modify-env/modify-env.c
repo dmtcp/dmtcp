@@ -73,14 +73,20 @@ char * read_dmtcp_env_file(char *file, int size) {
   int fd = open(file, O_RDONLY);
 #else
   char pathname[512];
-  if (strlen(dmtcp_get_ckpt_dir()) > sizeof(pathname)-1-sizeof(file)) {
-    fprintf(stderr, "%s:%d : Pathname of ckpt dir is too long: %s\n",
-            __FILE__, __LINE__, dmtcp_get_ckpt_dir());
-    exit(1);
+  // Fix for picky compiler.  The function dmtcp_get_ckpt_dir() would only
+  //   return NULL if we were not running under DMTCP.  But the compiler
+  //   doesn't know that.
+  const char *dmtcp_ckpt_dir = dmtcp_get_ckpt_dir();
+  if (dmtcp_ckpt_dir) {
+    if (strlen(dmtcp_ckpt_dir) > sizeof(pathname)-1-sizeof(file)) {
+      fprintf(stderr, "%s:%d : Pathname of ckpt dir is too long: %s\n",
+              __FILE__, __LINE__, dmtcp_ckpt_dir);
+      exit(1);
+    }
+    strcpy(pathname, dmtcp_ckpt_dir);
+    strcpy(pathname + strlen(dmtcp_ckpt_dir), "/");
+    strcpy(pathname + strlen(dmtcp_ckpt_dir) + strlen("/"), file);
   }
-  strcpy(pathname, dmtcp_get_ckpt_dir());
-  strcpy(pathname + strlen(dmtcp_get_ckpt_dir()), "/");
-  strcpy(pathname + strlen(dmtcp_get_ckpt_dir()) + strlen("/"), file);
   int fd = open(pathname, O_RDONLY);
 #endif
   if (fd < 0) {
