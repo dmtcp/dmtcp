@@ -207,7 +207,7 @@ void mtcp_writememoryareas(int fd)
      */
 
     if (!((area.prot & PROT_READ) || (area.prot & PROT_WRITE)) &&
-        area.name[0] != '\0') {
+        (area.name[0] != '\0') && strcmp(area.name, "[heap]")) {
       continue;
     }
 
@@ -352,7 +352,7 @@ static void mtcp_write_non_rwx_and_anonymous_pages(int fd, Area *orig_area)
    * code and that should reset the /proc/self/maps files to its original
    * condition.
    */
-  JASSERT(orig_area->name[0] == '\0');
+  JASSERT(orig_area->name[0] == '\0' || (strcmp(orig_area->name, "[heap]") == 0));
 
   if ((orig_area->prot & PROT_READ) == 0) {
     JASSERT(mprotect(orig_area->addr, orig_area->size,
