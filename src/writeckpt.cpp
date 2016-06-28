@@ -205,10 +205,15 @@ void mtcp_writememoryareas(int fd)
      *
      * We suspect that libpthread is using mmap() instead of mprotect to change
      * the permission from "---p" to "rw-p".
+     *
+     * Also, on SUSE 12, if this region was part of heap, the protected region 
+     * may have the label "[heap]".  So, we also save the memory region if it 
+     * has label "[heap]", "[stack]", or  "[stack:XXX]".
      */
 
     if (!((area.prot & PROT_READ) || (area.prot & PROT_WRITE)) &&
-        area.name[0] != '\0') {
+        (area.name[0] != '\0') && strcmp(area.name, "[heap]") &&
+        strcmp(area.name, "[stack]") && (!Util::strStartsWith(area.name, "[stack:XXX]"))){
       continue;
     }
 
@@ -342,9 +347,9 @@ static void mtcp_get_next_page_range(Area *area, size_t *size, int *is_zero)
 static void mtcp_write_non_rwx_and_anonymous_pages(int fd, Area *orig_area)
 {
   Area area = *orig_area;
-  /* Now give read permission to the anonymous pages that do not have read
-   * permission. We should remove the permission as soon as we are done
-   * writing the area to the checkpoint image
+  /* Now give read permission to the anonymous/[heap]/[stack]/[stack:XXX] pages 
+   * that do not have read permission. We should remove the permission 
+   * as soon as we are done writing the area to the checkpoint image
    *
    * NOTE: Changing the permission here can results in two adjacent memory
    * areas to become one (merged), if they have similar permissions. This can
@@ -353,7 +358,10 @@ static void mtcp_write_non_rwx_and_anonymous_pages(int fd, Area *orig_area)
    * code and that should reset the /proc/self/maps files to its original
    * condition.
    */
-  JASSERT(orig_area->name[0] == '\0');
+
+  JASSERT(orig_area->name[0] == '\0' || (strcmp(orig_area->name, "[heap]") == 0) ||
+         (strcmp(orig_area->name, "[stack]") == 0) || 
+         (Util::strStartsWith(area.name, "[stack:XXX]")));
 
   if ((orig_area->prot & PROT_READ) == 0) {
     JASSERT(mprotect(orig_area->addr, orig_area->size,
