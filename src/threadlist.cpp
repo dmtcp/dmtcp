@@ -48,6 +48,8 @@ sigset_t sigpending_global;
 Thread *activeThreads = NULL;
 void *saved_sysinfo;
 MYINFO_GS_T myinfo_gs __attribute__ ((visibility ("hidden")));
+static ptrdiff_t tls_pid_offset = 0;
+static ptrdiff_t tls_tid_offset = 0;
 
 static const char* DMTCP_PRGNAME_PREFIX = "DMTCP:";
 
@@ -146,7 +148,6 @@ void ThreadList::init()
 
   /* libc/getpid can lie if we had used kernel fork() instead of libc fork(). */
   motherpid = THREAD_REAL_TID();
-  TLSInfo_VerifyPidTid(motherpid, motherpid);
 
   SigInfo::setupCkptSigHandler(&stopthisthread);
 
@@ -179,6 +180,16 @@ void ThreadList::init()
   while (-1 == sem_wait(&sem_launch) && errno == EINTR)
     errno = 0;
   sem_destroy(&sem_launch);
+
+  tls_tid_offset = (char*)ckptThread->ptid - (char*)ckptThread->tls;
+  tls_pid_offset = tls_tid_offset + sizeof(pid_t);
+  JASSERT(tls_tid_offset == atoi(getenv(ENV_VAR_TID_OFFSET)));
+
+  motherofall->tls   = (struct user_desc*)(void*)pthread_self();
+  motherofall->ctid  = (pid_t*)((char*)motherofall->tls + tls_tid_offset);
+  motherofall->pidptr= motherofall->ctid + 1;
+
+  *motherofall->ctid = *motherofall->pidptr = getpid();
 }
 
 /*****************************************************************************
@@ -186,14 +197,16 @@ void ThreadList::init()
  *****************************************************************************/
 // Called from:  threadwrappers.cpp:__clone()
 void ThreadList::initThread(Thread* th, int (*fn)(void*), void *arg, int flags,
-                            int *ptid, int *ctid)
+                            int *ptid, struct user_desc *tls, int *ctid)
 {
   /* Save exactly what the caller is supplying */
   th->fn    = fn;
   th->arg   = arg;
   th->flags = flags;
   th->ptid  = ptid;
+  th->tls   = tls;
   th->ctid  = ctid;
+  th->pidptr= (pid_t*)ctid + 1;
   th->next  = NULL;
   th->state = ST_RUNNING;
   th->procname[0] = '\0';
@@ -212,7 +225,7 @@ void ThreadList::initThread(Thread* th, int (*fn)(void*), void *arg, int flags,
    * The solution is to put the motherpid in the pid slot every time a new
    * thread is created to make sure that struct pthread has the correct value.
    */
-  TLSInfo_UpdatePid();
+  //*(th->pidptr) = motherpid;
 }
 
 /*****************************************************************************
@@ -275,8 +288,8 @@ static void prepareMtcpHeader(MtcpHeader *mtcpHdr)
   memcpy(&mtcpHdr->motherofall_tls_info,
          &motherofall->tlsInfo,
          sizeof(motherofall->tlsInfo));
-  mtcpHdr->tls_pid_offset = TLSInfo_GetPidOffset();
-  mtcpHdr->tls_tid_offset = TLSInfo_GetTidOffset();
+  mtcpHdr->tls_pid_offset = tls_pid_offset;
+  mtcpHdr->tls_tid_offset = tls_tid_offset;
   mtcpHdr->myinfo_gs = myinfo_gs;
 }
 
@@ -750,6 +763,10 @@ static int restarthread (void *threadv)
 {
   Thread *thread = (Thread*) threadv;
   thread->tid = THREAD_REAL_TID();
+
+  // Restore virtual_tid.
+  *thread->ctid = thread->virtual_tid;
+
   // This function and related ones are defined in src/mtcp/restore_libc.c
   TLSInfo_RestoreTLSState(&thread->tlsInfo);
 

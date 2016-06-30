@@ -102,7 +102,7 @@ extern "C" int __clone(int (*fn) (void *arg), void *child_stack, int flags,
   ThreadSync::incrementUninitializedThreadCount();
 
   Thread *thread = ThreadList::getNewThread();
-  ThreadList::initThread(thread, fn, arg, flags, ptid, ctid);
+  ThreadList::initThread(thread, fn, arg, flags, ptid, tls, ctid);
 //  if (ckpthread == NULL) {
 //    ckptthread = thread;
 //    thread->stateInit(ST_CKPNTHREAD);

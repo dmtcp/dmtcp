@@ -30,6 +30,7 @@
 # define SYS_getpgrp __NR_getpgrp
 #endif
 #include <linux/version.h>
+#include <assert.h>
 
 #include "config.h"  // for HAS_CMA
 #include "jassert.h"
@@ -45,6 +46,7 @@
 using namespace dmtcp;
 
 LIB_PRIVATE pid_t getPidFromEnvVar();
+__thread pid_t *ctid = NULL;
 
 void pidVirt_pthread_atfork_child()
 {
@@ -87,6 +89,7 @@ struct ThreadArg {
   int (*fn) (void *arg);  // clone() calls fn that returns int
   void *arg;
   pid_t virtualTid;
+  pid_t *ctid;
   sem_t sem;
 };
 
@@ -98,6 +101,9 @@ int clone_start(void *arg)
   int (*fn) (void *) = threadArg->fn;
   void *thread_arg = threadArg->arg;
   pid_t virtualTid = threadArg -> virtualTid;
+  *threadArg->ctid = virtualTid;
+  *(threadArg->ctid + 1) = getpid();
+  ctid = threadArg->ctid;
 
   if (dmtcp_is_running_state()) {
     dmtcpResetTid(virtualTid);
@@ -144,6 +150,7 @@ extern "C" int __clone(int (*fn) (void *arg), void *child_stack, int flags,
   threadArg->fn = fn;
   threadArg->arg = arg;
   threadArg->virtualTid = virtualTid;
+  threadArg->ctid = child_tidptr;
   sem_init(&threadArg->sem, 0, 0);
 
   JTRACE("Calling libc:__clone");
@@ -547,3 +554,72 @@ ssize_t process_vm_writev(pid_t pid,
   return ret;
 }
 #endif
+
+#define DMTCP_START_CALLS_WITH_REAL_TID() \
+  DMTCP_PLUGIN_DISABLE_CKPT(); \
+  static int tid_offset = atoi(getenv(ENV_VAR_TID_OFFSET)); \
+  if (!ctid) ctid = (pid_t*)(pthread_self() + tid_offset); \
+  pid_t tid = *ctid; \
+  pid_t pid = *(ctid + 1); \
+  *ctid = VIRTUAL_TO_REAL_PID(tid); \
+  *(ctid + 1) = VIRTUAL_TO_REAL_PID(pid);
+
+#define DMTCP_STOP_CALLS_WITH_REAL_TID() \
+  *ctid = tid; \
+  *(ctid + 1) = pid; \
+  DMTCP_PLUGIN_ENABLE_CKPT();
+
+EXTERNC
+int pthread_getattr_np(pthread_t thread, pthread_attr_t *attr)
+{
+  DMTCP_START_CALLS_WITH_REAL_TID();
+  int ret = NEXT_FNC(pthread_getattr_np)(thread, attr);
+  DMTCP_STOP_CALLS_WITH_REAL_TID();
+  return ret;
+}
+
+EXTERNC
+int pthread_setaffinity_np(pthread_t thread, size_t cpusetsize,
+                           const cpu_set_t *cpuset)
+{
+  DMTCP_START_CALLS_WITH_REAL_TID();
+  int ret = NEXT_FNC(pthread_setaffinity_np)(thread, cpusetsize, cpuset);
+  DMTCP_STOP_CALLS_WITH_REAL_TID();
+  return ret;
+}
+
+EXTERNC
+int pthread_getaffinity_np(pthread_t thread, size_t cpusetsize,
+                           cpu_set_t *cpuset)
+{
+  DMTCP_START_CALLS_WITH_REAL_TID();
+  int ret = NEXT_FNC(pthread_getaffinity_np)(thread, cpusetsize, cpuset);
+  DMTCP_STOP_CALLS_WITH_REAL_TID();
+  return ret;
+}
+
+EXTERNC
+void abort(void)
+{
+  DMTCP_START_CALLS_WITH_REAL_TID();
+  NEXT_FNC(abort)();
+  DMTCP_STOP_CALLS_WITH_REAL_TID();
+}
+
+EXTERNC
+int raise(int sig)
+{
+  DMTCP_START_CALLS_WITH_REAL_TID();
+  int ret = NEXT_FNC(raise)(sig);
+  DMTCP_STOP_CALLS_WITH_REAL_TID();
+  return ret;
+}
+
+EXTERNC
+void __assert_fail (const char *__assertion, const char *__file,
+                    unsigned int __line, const char *__function)
+{
+  DMTCP_START_CALLS_WITH_REAL_TID();
+  NEXT_FNC(__assert_fail)(__assertion, __file, __line, __function);
+  DMTCP_STOP_CALLS_WITH_REAL_TID();
+}

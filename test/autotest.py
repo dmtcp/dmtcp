@@ -809,8 +809,7 @@ runTest("pthread5",      1, ["./test/pthread5"])
 runTest("mutex1",        1, ["./test/mutex1"])
 runTest("mutex2",        1, ["./test/mutex2"])
 runTest("mutex3",        1, ["./test/mutex3"])
-# Comment out the test until pthread bug is fixed.
-#runTest("mutex4",        1, ["./test/mutex4"])
+runTest("mutex4",        1, ["./test/mutex4"])
 
 # FIXME:  pthread_atfork doesn't compile on some architectures.
 #         If we add a configure test for pthread_atfork, we can
