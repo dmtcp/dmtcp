@@ -70,6 +70,7 @@
 #endif
 
 void mtcp_check_vdso(char **environ);
+static void mmapfile(int fd, void *buf, size_t size, int prot, int flags);
 
 #define BINARY_NAME "mtcp_restart"
 #define BINARY_NAME_M32 "mtcp_restart-32"
@@ -865,6 +866,20 @@ static int read_one_memory_area(int fd)
     }
   }
 
+#ifdef FAST_RST_VIA_MMAP
+    /* CASE MAP_ANONYMOUS with FAST_RST enabled
+     * We only want to do this in the MAP_ANONYMOUS case, since we don't want
+     *   any writes to RAM to be reflected back into the underlying file.
+     * Note that in order to map from a file (ckpt image), we must turn off
+     *   anonymous (~MAP_ANONYMOUS).  It's okay, since the fd
+     *   should have been opened with read permission, only.
+     */
+    else if (area.flags & MAP_ANONYMOUS) {
+      mmapfile (fd, area.addr, area.size, area.prot,
+                area.flags & ~MAP_ANONYMOUS);
+    }
+#endif
+
   /* CASE MAP_ANONYMOUS (usually implies MAP_PRIVATE):
    * For anonymous areas, the checkpoint file contains the memory contents
    * directly.  So mmap an anonymous area and read the file into it.
@@ -1181,3 +1196,29 @@ void __intel_security_check_cookie(void)
   MTCP_PRINTF("MTCP Internal Error: %s Not Implemented.\n", __FUNCTION__);
   mtcp_abort();
 }
+
+static void mmapfile(int fd, void *buf, size_t size, int prot, int flags)
+{
+  int mtcp_sys_errno;
+  void *addr;
+  int rc;
+
+  /* Use mmap for this portion of checkpoint image. */
+  addr = mtcp_sys_mmap(buf, size, prot, flags,
+                       fd, mtcp_sys_lseek(fd, 0, SEEK_CUR));
+  if (addr != buf) {
+    if (addr == MAP_FAILED) {
+      MTCP_PRINTF("error %d reading checkpoint file\n", mtcp_sys_errno);
+    } else {
+      MTCP_PRINTF("Requested address %p, but got address %p\n", buf, addr);
+    }
+    mtcp_abort();
+  }
+  /* Now update fd so as to work the same way as readfile() */
+  rc = mtcp_sys_lseek(fd, size, SEEK_CUR);
+  if (rc == -1) {
+    MTCP_PRINTF("mtcp_sys_lseek failed with errno %d\n", mtcp_sys_errno);
+    mtcp_abort();
+  }
+}
+

@@ -356,6 +356,12 @@ static void processArgs(int *orig_argc, char ***orig_argv,
       break;
     }
   }
+ 
+#ifdef FAST_RST_VIA_MMAP
+  // In case of fast restart, we shall not use gzip. 
+  setenv(ENV_VAR_COMPRESSION, "0", 1);
+#endif
+
 #if __aarch64__
   /* FIXME:  Currently, there is a bug exposed by SIGRETURN for aarch64,
    *      when we create a SIGCHLD handler for the gzip process.
