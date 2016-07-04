@@ -100,6 +100,7 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
+@FAST_RST_VIA_MMAP_TRUE@am__append_1 = -DFAST_RST_VIA_MMAP 
 bin_PROGRAMS = $(d_bindir)/dmtcp_launch$(EXEEXT) \
 	$(d_bindir)/dmtcp_command$(EXEEXT) \
 	$(d_bindir)/dmtcp_coordinator$(EXEEXT) \
@@ -380,7 +381,7 @@ ECHO_N = @ECHO_N@
 ECHO_T = @ECHO_T@
 EGREP = @EGREP@
 EXEEXT = @EXEEXT@
-FAST_RESTART = @FAST_RESTART@
+FAST_RST_VIA_MMAP = @FAST_RST_VIA_MMAP@
 GCL = @GCL@
 GREP = @GREP@
 HAS_CILK = @HAS_CILK@
@@ -513,7 +514,7 @@ dmtcplibdir = $(pkglibdir)
 SUBDIRS = mtcp plugin
 PICFLAGS = -fPIC
 AM_CFLAGS = $(PICFLAGS)
-AM_CXXFLAGS = $(PICFLAGS)
+AM_CXXFLAGS = $(PICFLAGS) $(am__append_1)
 AM_LDFLAGS = $(PICFLAGS)
 @CONFIG_M32_FALSE@d_libdir = $(top_builddir)/lib/$(PACKAGE)
 @CONFIG_M32_TRUE@d_libdir = $(top_builddir)/lib/$(PACKAGE)/32/lib/$(PACKAGE)

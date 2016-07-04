@@ -673,8 +673,10 @@ CONFIG_M32_FALSE
 CONFIG_M32_TRUE
 TEST_POSIX_MQ
 USE_TEST_SUITE
+FAST_RST_VIA_MMAP_FALSE
+FAST_RST_VIA_MMAP_TRUE
 HBICT_DELTACOMP
-FAST_RESTART
+FAST_RST_VIA_MMAP
 INFINIBAND_SUPPORT
 EGREP
 GREP
@@ -1470,8 +1472,7 @@ Optional Features:
                           parent sees only minor delay during checkpoint.
                           (EXPERIMENTAL)
   --enable-fast-restart   uses tricks to mmap from checkpoint image file;
-                          disables all kinds of compression (EXPERIMENTAL) (
-                          *** THIS OPTION TEMPORARILY DISABLED *** )
+                          disables all kinds of compression (EXPERIMENTAL)
   --enable-delta-compression
                           enable incremental/differential checkpointing using
                           HBICT (hash-based incremental checkpointing) tool;
@@ -5342,14 +5343,22 @@ else
 fi
 
 if test "$use_fast_restart" = "yes"; then
-  FAST_RESTART=yes
+  FAST_RST_VIA_MMAP=yes
 
   HBICT_DELTACOMP=no
 
 else
-  FAST_RESTART=no
+  FAST_RST_VIA_MMAP=no
 
 fi
+ if test x$use_fast_restart = xyes; then
+  FAST_RST_VIA_MMAP_TRUE=
+  FAST_RST_VIA_MMAP_FALSE='#'
+else
+  FAST_RST_VIA_MMAP_TRUE='#'
+  FAST_RST_VIA_MMAP_FALSE=
+fi
+
 
 # Check whether --enable-delta_compression was given.
 if test "${enable_delta_compression+set}" = set; then :
@@ -7488,6 +7497,10 @@ Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${am__fastdepCXX_TRUE}" && test -z "${am__fastdepCXX_FALSE}"; then
   as_fn_error $? "conditional \"am__fastdepCXX\" was never defined.
+Usually this means the macro was only invoked conditionally." "$LINENO" 5
+fi
+if test -z "${FAST_RST_VIA_MMAP_TRUE}" && test -z "${FAST_RST_VIA_MMAP_FALSE}"; then
+  as_fn_error $? "conditional \"FAST_RST_VIA_MMAP\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${CONFIG_M32_TRUE}" && test -z "${CONFIG_M32_FALSE}"; then

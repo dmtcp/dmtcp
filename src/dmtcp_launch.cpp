@@ -357,6 +357,12 @@ processArgs(int *orig_argc,
       break;
     }
   }
+ 
+#ifdef FAST_RST_VIA_MMAP
+  // In case of fast restart, we shall not use gzip. 
+  setenv(ENV_VAR_COMPRESSION, "0", 1);
+#endif
+
 #if __aarch64__
 
   /* FIXME:  Currently, there is a bug exposed by SIGRETURN for aarch64,

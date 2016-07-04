@@ -157,16 +157,16 @@ AC_ARG_ENABLE([fast_restart],
             [AS_HELP_STRING([--enable-fast-restart],
                             [uses tricks to mmap from checkpoint image file;
                              disables all kinds of compression
-			    (EXPERIMENTAL)
-			    ( *** THIS OPTION TEMPORARILY DISABLED *** )])],
+			    (EXPERIMENTAL)])],
             [use_fast_restart=$enableval],
             [use_fast_restart=default])
 if test "$use_fast_restart" = "yes"; then
-  AC_SUBST([FAST_RESTART], [yes])
+  AC_SUBST([FAST_RST_VIA_MMAP], [yes])
   AC_SUBST([HBICT_DELTACOMP], [no])
 else
-  AC_SUBST([FAST_RESTART], [no])
+  AC_SUBST([FAST_RST_VIA_MMAP], [no])
 fi
+AM_CONDITIONAL([FAST_RST_VIA_MMAP], [test x$use_fast_restart = xyes])
 
 AC_ARG_ENABLE([delta_compression],
             [AS_HELP_STRING([--enable-delta-compression],
