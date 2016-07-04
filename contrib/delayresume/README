@@ -1,0 +1,54 @@
+# 'delayresume' plugin
+
+## Usage
+
+    $ dmtcp_launch --with-plugin /path/to/libdmtcp_delayresume.so ./a.out
+
+## Details
+
+The `dmtcp_checkpoint()` API allows a user thread (hereinafter referred
+to as the checkpoint-initiator) to request for a checkpoint at specific
+points in the program. However, the limitation with the API is that it
+does not allow a user to control when the other user threads are resumed
+after the checkpoint.
+
+A finer-grained control over resuming of user threads is useful for
+cases when a user might want to manage the open files and checkpoint
+images directly, without using any of the DMTCP's internal flags.
+
+Here's a specific motivating use-case: a user notices that at checkpoint
+time saving a copy of only some of the files used by their program is
+required because most other files are read-only files that are guaranteed
+to be present on restart. The user decides to manage the checkpointing
+of open files themselves because the in-built `--ckpt-open-files`
+option saves a copy of all open files and can result in excessive
+checkpoint/restart times if some of these read-only, persistent files
+are large.
+
+The other alternative is to use the `dmtcp_checkpoint()` API and to save a
+copy of relevant files in a tar file. This can lead to two kinds of races:
+
+ (a) One ends up saving an "updated" copy of a file because a thread,
+     resuming after checkpoint, writes some new values to it before
+     the checkpoint-initiator could read it.
+
+ (b) One ends up not saving a file because a thread, resuming after
+     checkpoint, deletes it before the checkpoint-initiator could
+     read it.
+
+Eventually, the user is bound to see the restarted process complain
+about either a file's contents that it doesn't recognize, or a file not
+being present.
+
+This plugin is an attempt at removing this limitation. The plugin exposes
+two new DMTCP APIs:
+
+ (a) `dmtcp_checkpoint_block_resume()`; and
+
+ (b) `dmtcp_checkpoint_unblock_resume()`.
+
+The first API allows a user thread  to initiate a checkpoint and prevent
+other user threads from resuming after the checkpoint until the second
+API is called by block the checkpoint-initiator.
+
+The test/ directory contains an example program demonstrating the usage.
