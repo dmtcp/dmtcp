@@ -32,6 +32,10 @@ d_libdir = $(top_builddir)/lib/$(PACKAGE)
 d_bindir = $(top_builddir)/bin
 endif
 
+if FAST_RST_VIA_MMAP
+  AM_CXXFLAGS += -DFAST_RST_VIA_MMAP 
+endif
+
 #HEADERS
 #set the include path found by configure
 AM_CPPFLAGS= -I$(dmtcpincludedir) -I$(jalibdir)
