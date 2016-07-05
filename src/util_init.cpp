@@ -211,10 +211,11 @@ void Util::initializeLogFile(string tmpDir, string procname, string prevLogPath)
   }
   a << "\n========================================\n";
 
-  JLOG(a.str().c_str());
-#else
+  // This cause an error when configure is done with --enable-debug
+  // JLOG(a.str().c_str());
+#else  // ifdef DEBUG
   JASSERT_SET_LOG("", tmpDir, UniquePid::ThisProcess().toString());
-#endif
+#endif // ifdef DEBUG
   if (getenv(ENV_VAR_QUIET)) {
     jassert_quiet = *getenv(ENV_VAR_QUIET) - '0';
   } else {
