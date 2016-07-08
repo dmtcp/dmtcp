@@ -36,11 +36,12 @@ using namespace dmtcp;
 extern "C" pid_t dmtcp_update_ppid();
 
 static string pidMapFile;
-map<pthread_mutex_t*, pid_t>& mapMutexVirtTid()
+dmtcp::map<pthread_mutex_t*, pid_t>& mapMutexVirtTid()
 {
-  static map<pthread_mutex_t*, pid_t> *instance = NULL;
+  static dmtcp::map<pthread_mutex_t*, pid_t> *instance = NULL;
   if (instance == NULL) {
-    instance = new map<pthread_mutex_t*, pid_t>();
+    void *buffer = JALLOC_MALLOC(1024*1024);
+    instance = new (buffer) dmtcp::map<pthread_mutex_t*, pid_t>();
   }
   return *instance;
 }
