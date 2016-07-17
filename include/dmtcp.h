@@ -143,6 +143,7 @@ typedef struct DmtcpUniqueProcessId {
   uint32_t _computation_generation; //computationGeneration()
 } DmtcpUniqueProcessId;
 
+
 EXTERNC int dmtcp_unique_pids_equal(DmtcpUniqueProcessId a,
                                     DmtcpUniqueProcessId b);
 
@@ -200,6 +201,13 @@ EXTERNC int dmtcp_enable_ckpt(DMTCP_VOID) __attribute__ ((weak));
 EXTERNC void dmtcp_initialize_plugin(void) __attribute((weak));
 
 // See: test/plugin/example-db dir for an example:
+EXTERNC int dmtcp_send_key_val_pairs_to_coordinator(const char *id,
+                                                    size_t keyLen,
+                                                    size_t valLen,
+                                                    size_t count,
+                                                    const void *data);
+
+
 EXTERNC int dmtcp_send_key_val_pair_to_coordinator(const char *id,
                                                    const void *key,
                                                    uint32_t key_len,

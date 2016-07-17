@@ -162,20 +162,54 @@ static void send_qp_info(void)
   char hostname[128];
 
   gethostname(hostname,128);
+  size_t count = 0;
+  for (e = list_begin(&qp_list); e != list_end(&qp_list); e = list_next(e)) {
+    struct internal_ibv_qp *internal_qp =
+      list_entry(e, struct internal_ibv_qp, elem);
+    if (internal_qp->user_qp.state != IBV_QPS_INIT) {
+      count++;
+    }
+  }
+
+  typedef struct {
+    uint16_t key;
+    uint16_t val;
+  } LidInfoKVPair;
+
+  typedef struct {
+    ibv_qp_id_t key;
+    ibv_qp_id_t val;
+  } RCQPInfoKVPair;
+
+  typedef struct {
+    ibv_ud_qp_id_t key;
+    ibv_ud_qp_id_t val;
+  } UDQPInfoKVPair;
+
+  LidInfoKVPair *lidInfoKVPairs =
+    (LidInfoKVPair*) malloc(sizeof(LidInfoKVPair) * count);
+
+  RCQPInfoKVPair *rcQPInfoKVPairs =
+    (RCQPInfoKVPair*) malloc(sizeof(RCQPInfoKVPair) * count);
+
+  UDQPInfoKVPair *udQPInfoKVPairs =
+    (UDQPInfoKVPair*) malloc(sizeof(UDQPInfoKVPair) * count);
+
+  size_t lidKVCount = 0;
+  size_t rcQPInfoKVCount = 0;
+  size_t udQPInfoKVCount = 0;
   /*
    * For RC QP, we need to send (qpn, lid, psn)
    * For UD QP, we need to send (qpn, lid)
    */
   for (e = list_begin(&qp_list); e != list_end(&qp_list); e = list_next(e)) {
-    struct internal_ibv_qp * internal_qp;
+    struct internal_ibv_qp * internal_qp =
+      list_entry(e, struct internal_ibv_qp, elem);
 
-    internal_qp = list_entry(e, struct internal_ibv_qp, elem);
     if (internal_qp->user_qp.state != IBV_QPS_INIT) {
-      dmtcp_send_key_val_pair_to_coordinator("lidInfo",
-                                             &internal_qp->original_id.lid,
-                                             sizeof(internal_qp->original_id.lid),
-                                             &internal_qp->current_id.lid,
-                                             sizeof(internal_qp->current_id.lid));
+      lidInfoKVPairs[lidKVCount].key = internal_qp->original_id.lid;
+      lidInfoKVPairs[lidKVCount].val = internal_qp->current_id.lid;
+      lidKVCount++;
 
       switch (internal_qp->user_qp.qp_type) {
         case IBV_QPT_RC:
@@ -187,37 +221,33 @@ static void send_qp_info(void)
                  internal_qp->current_id.lid, internal_qp->current_id.psn,
                  hostname);
 
-          dmtcp_send_key_val_pair_to_coordinator("qp_info",
-                                                 &internal_qp->original_id,
-            				         sizeof(internal_qp->original_id),
-                                                 &internal_qp->current_id,
-            				         sizeof(internal_qp->current_id));
+          rcQPInfoKVPairs[rcQPInfoKVCount].key = internal_qp->original_id;
+          rcQPInfoKVPairs[rcQPInfoKVCount].key = internal_qp->current_id;
+          rcQPInfoKVCount++;
+
           break;
 
         case IBV_QPT_UD:
-        {
-          // Reuse original_id and current_id structure here, excluding psn
-          ibv_ud_qp_id_t orig_id, curr_id;
-
-          orig_id.qpn = internal_qp->original_id.qpn;
-          orig_id.lid = internal_qp->original_id.lid;
-          curr_id.qpn = internal_qp->current_id.qpn;
-          curr_id.lid = internal_qp->current_id.lid;
-
           PDEBUG("UD QP: Sending over original_id: "
                  "0x%06x 0x%04x and current_id: "
                  "0x%06x 0x%04x from %s\n",
-                 orig_id.qpn, orig_id.lid,
-                 curr_id.qpn, curr_id.lid,
+                 internal_qp->original_id.qpn, internal_qp->original_id.lid,
+                 internal_qp->current_id.qpn, internal_qp->current_id.lid,
                  hostname);
 
-          dmtcp_send_key_val_pair_to_coordinator("qp_info",
-                                                 &orig_id,
-            				         sizeof(orig_id),
-                                                 &curr_id,
-            				         sizeof(curr_id));
+          // Reuse original_id and current_id structure here, excluding psn
+          udQPInfoKVPairs[udQPInfoKVCount].key.qpn =
+            internal_qp->original_id.qpn;
+          udQPInfoKVPairs[udQPInfoKVCount].key.lid =
+            internal_qp->original_id.lid;
+
+          udQPInfoKVPairs[udQPInfoKVCount].val.qpn =
+            internal_qp->current_id.qpn;
+          udQPInfoKVPairs[udQPInfoKVCount].val.lid =
+            internal_qp->current_id.lid;
+          udQPInfoKVCount++;
+
           break;
-        }
 
         default:
           fprintf(stderr, "Warning: unsupported qp type: %d\n",
@@ -226,6 +256,24 @@ static void send_qp_info(void)
       }
     }
   }
+  dmtcp_send_key_val_pairs_to_coordinator("lidInfo",
+                                          sizeof(lidInfoKVPairs->key),
+                                          sizeof(lidInfoKVPairs->val),
+                                          lidKVCount,
+                                          lidInfoKVPairs);
+  dmtcp_send_key_val_pairs_to_coordinator("rc_qp_info",
+                                          sizeof(rcQPInfoKVPairs->key),
+                                          sizeof(rcQPInfoKVPairs->val),
+                                          rcQPInfoKVCount,
+                                          rcQPInfoKVPairs);
+  dmtcp_send_key_val_pairs_to_coordinator("ud_qp_info",
+                                          sizeof(udQPInfoKVPairs->key),
+                                          sizeof(udQPInfoKVPairs->val),
+                                          udQPInfoKVCount,
+                                          udQPInfoKVPairs);
+  free(lidInfoKVPairs);
+  free(rcQPInfoKVPairs);
+  free(udQPInfoKVPairs);
 }
 
 /*! This will query the coordinator for information about the new QPs */
@@ -260,22 +308,35 @@ static void query_qp_info(void)
 
 static void send_qp_pd_info(void) {
   struct list_elem *e;
-  size_t size;
 
+  typedef struct {
+    ibv_qp_pd_id_t key;
+    uint32_t       val;
+  } PDInfoKVPair;
+
+  PDInfoKVPair *pairs =
+    (PDInfoKVPair*) malloc(list_size(&qp_list) * sizeof(PDInfoKVPair));
+
+  size_t count = 0;
   for (e = list_begin(&qp_list); e != list_end(&qp_list); e = list_next(e)) {
     struct internal_ibv_qp * internal_qp;
     struct internal_ibv_pd * internal_pd;
 
     internal_qp = list_entry(e, struct internal_ibv_qp, elem);
     internal_pd = ibv_pd_to_internal(internal_qp->user_qp.pd);
-    size = sizeof(internal_pd->pd_id);
 
-    dmtcp_send_key_val_pair_to_coordinator("pd_info",
-                                           &internal_qp->local_qp_pd_id,
-                                           sizeof(ibv_qp_pd_id_t),
-                                           &internal_pd->pd_id,
-					   size);
+    assert(sizeof(internal_qp->local_qp_pd_id) == sizeof(pairs[count].key));
+    pairs[count].key = internal_qp->local_qp_pd_id;
+    pairs[count].val = internal_pd->pd_id;
+    count++;
   }
+
+  dmtcp_send_key_val_pairs_to_coordinator("pd_info",
+                                          sizeof(pairs->key),
+                                          sizeof(pairs->val),
+                                          count,
+                                          pairs);
+  free(pairs);
 }
 
 static void query_qp_pd_info(void) {
@@ -303,22 +364,35 @@ static void query_qp_pd_info(void) {
 /*! This will populate the coordinator with information about the new rkeys */
 static void send_rkey_info(void)
 {
+  typedef struct {
+    struct ibv_rkey_id key;
+    uint32_t           val;
+  } MRInfoKVPair;
+
+  MRInfoKVPair *pairs =
+    (MRInfoKVPair*) malloc(list_size(&mr_list) * sizeof(MRInfoKVPair));
+
+  size_t count = 0;
   struct list_elem *e;
   for (e = list_begin(&mr_list); e != list_end(&mr_list); e = list_next(e)) {
       struct internal_ibv_mr * internal_mr;
       struct internal_ibv_pd * internal_pd;
-      struct ibv_rkey_id rkey_id;
 
       internal_mr = list_entry(e, struct internal_ibv_mr, elem);
       internal_pd = ibv_pd_to_internal(internal_mr->user_mr.pd);
-      rkey_id.pd_id = internal_pd->pd_id;
-      rkey_id.rkey = internal_mr->user_mr.rkey;
 
-      dmtcp_send_key_val_pair_to_coordinator("mr_info",
-                                             &rkey_id, sizeof(rkey_id),
-                                             &internal_mr->real_mr->rkey,
-                                             sizeof(internal_mr->real_mr->rkey));
+      pairs[count].key.pd_id = internal_pd->pd_id;
+      pairs[count].key.rkey = internal_mr->user_mr.rkey;
+      pairs[count].val = internal_mr->real_mr->rkey,
+      count++;
   }
+
+  dmtcp_send_key_val_pairs_to_coordinator("mr_info",
+                                          sizeof(pairs->key),
+                                          sizeof(pairs->val),
+                                          count,
+                                          pairs);
+  free(pairs);
 }
 
 /*! This will drain the given completion queue

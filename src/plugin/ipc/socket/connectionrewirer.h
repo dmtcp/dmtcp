@@ -59,7 +59,10 @@ namespace dmtcp
       void debugPrint() const;
 
     private:
-      void registerNSData(void *addr, socklen_t len, ConnectionListT *conList);
+      void registerNSData(const char *nsid,
+                          void *addr,
+                          socklen_t len,
+                          ConnectionListT *conList);
 
       struct sockaddr_in    _ip4RestoreAddr;
       socklen_t             _ip4RestoreAddrlen;
