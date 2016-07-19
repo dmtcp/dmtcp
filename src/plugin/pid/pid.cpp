@@ -137,9 +137,9 @@ static void openOriginalToCurrentMappingFiles()
   if (!Util::isValidFd(PROTECTED_PIDMAP_FD)) {
     fd = openSharedFile(pidMapFile, O_RDWR);
     JASSERT (fd != -1);
-    JASSERT (dup2 (fd, PROTECTED_PIDMAP_FD) == PROTECTED_PIDMAP_FD)
+    JASSERT (_real_dup2 (fd, PROTECTED_PIDMAP_FD) == PROTECTED_PIDMAP_FD)
       (pidMapFile);
-    close (fd);
+    _real_close (fd);
   }
 }
 
@@ -181,6 +181,21 @@ static void pidVirt_ThreadExit(DmtcpEventData_t *data)
   VirtualPidTable::instance().erase(tid);
 }
 
+#ifdef ENABLE_PTHREAD_MUTEX_WRAPPERS
+map<pthread_mutex_t*, pid_t> mapMutexVirtTid;
+static void pidVirt_RefillTid()
+{
+  map<pthread_mutex_t*, pid_t>::iterator it;
+
+  for (it = mapMutexVirtTid.begin(); it != mapMutexVirtTid.end(); it++) {
+    if (it->first->__data.__owner != 0) {
+      it->first->__data.__owner = VIRTUAL_TO_REAL_PID(it->second);
+    }
+  }
+}
+#endif
+
+
 extern "C" void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   switch (event) {
@@ -207,6 +222,9 @@ extern "C" void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     case DMTCP_EVENT_REFILL:
       if (data->refillInfo.isRestart) {
         pidVirt_PostRestartRefill(data);
+#ifdef ENABLE_PTHREAD_MUTEX_WRAPPERS
+        pidVirt_RefillTid();
+#endif
       }
       break;
 

@@ -114,7 +114,7 @@ extern "C" int __clone(int (*fn) (void *arg), void *child_stack, int flags,
   if (tid == -1) {
     JTRACE("Clone call failed")(JASSERT_ERRNO);
     ThreadSync::decrementUninitializedThreadCount();
-    delete thread;
+    JALLOC_HELPER_FREE(thread);
   } else {
     DmtcpWorker::eventHook(DMTCP_EVENT_THREAD_CREATED, NULL);
   }

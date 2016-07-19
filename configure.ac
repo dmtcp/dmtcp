@@ -153,7 +153,8 @@ AC_ARG_ENABLE([fast_restart],
             [AS_HELP_STRING([--enable-fast-restart],
                             [uses tricks to mmap from checkpoint image file;
                              disables all kinds of compression
-			    (EXPERIMENTAL)])],
+			    (EXPERIMENTAL)
+			    ( *** THIS OPTION TEMPORARILY DISABLED *** )])],
             [use_fast_restart=$enableval],
             [use_fast_restart=default])
 if test "$use_fast_restart" = "yes"; then
@@ -230,6 +231,18 @@ AC_ARG_ENABLE([experts_only],
 	    [], [])
 AC_ARG_ENABLE([experts_only_after], [AS_HELP_STRING([ ], [])], [], [])
 
+AC_ARG_ENABLE([pthread_mutex_wrappers],
+            [AS_HELP_STRING([--enable-pthread-mutex-wrappers],
+                            [Recommended when using Open MPI])],
+            [use_pthread_mutex_wrappers=$enableval],
+            [use_pthread_mutex_wrappers=no])
+AM_CONDITIONAL(ENABLE_PTHREAD_MUTEX_WRAPPERS,
+               [test "$use_pthread_mutex_wrappers" = "yes"])
+if test "$use_pthread_mutex_wrappers" = "yes"; then
+  AC_DEFINE([ENABLE_PTHREAD_MUTEX_WRAPPERS],[1],[Enable pthread_mutex_* wrappers
+             for Open MPI])
+fi
+
 AC_ARG_ENABLE([m32],
             [AS_HELP_STRING([--enable-m32],
                             [Compile in 32 bit mode on 64 bit linux. (Works on
@@ -305,6 +318,14 @@ case "$host_cpu" in
   aarch64*) is_aarch64_host=yes ;;
   i?86) is_i486_host=yes ;;
 esac
+
+AM_CONDITIONAL(ARM_HOST, [test "$is_arm_host" == "yes"])
+if test "$is_arm_host" == "yes"; then
+  AC_SUBST([ARM_HOST], [yes])
+else
+  AC_SUBST([ARM_HOST], [no])
+fi
+
 AM_CONDITIONAL(AARCH64_HOST, [test "$is_aarch64_host" == "yes"])
 if test "$is_aarch64_host" == "yes"; then
   AC_SUBST([AARCH64_HOST], [yes])
@@ -532,7 +553,7 @@ fi
 if test "$use_m32" = "yes"; then
   interp=/lib/ld-linux.so.2
 elif test -x /usr/bin/readelf -a -r /usr/bin/readelf; then
-  interp=`/usr/bin/readelf -aW /usr/bin/readelf | grep interpreter | \
+  interp=`/usr/bin/readelf -aW /usr/bin/readelf | grep 'interpreter.*]' | \
           sed -e 's^.* interpreter: \(.*\)]^\1^'`
 elif test `uname -m` == x86_64; then
   interp=/lib64/ld-linux-x86-64.so.2

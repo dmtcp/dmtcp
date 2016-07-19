@@ -43,11 +43,6 @@ static bool is_restart = false;
 //! This flag is used to trace whether ibv_fork_init is called
 static bool is_fork = false;
 
-/* ibv_get_device_list may call ibv_get_device_name internally
- * This flag is used to indicate whether ibv_get_device_name
- * is called by user, or by ibv_get_device_list() */
-static bool in_real_get_dev_list = false;
-
 /* these lists will track the resources so they can be recreated
  * at restart time */
 //! This is the list of contexts
@@ -68,12 +63,6 @@ static struct list comp_list = LIST_INITIALIZER(comp_list);
 static struct list ah_list = LIST_INITIALIZER(ah_list);
 //! This is the list of rkey pairs
 static struct list rkey_list;
-/* 
- * List of mapping from original ud qp id to current qp id
- * Used as a cache on restart, reducing the times querying
- * the coordinator
- */
-static struct list remote_ud_qp_list;
 
 static int pd_id_count = 0;
 
@@ -86,13 +75,14 @@ static void post_restart(void);
 static void post_restart2(void);
 static void refill(void);
 
-int _ibv_post_send(struct ibv_qp * qp, struct ibv_send_wr * wr, struct
-                   ibv_send_wr ** bad_wr);
-int _ibv_poll_cq(struct ibv_cq * cq, int num_entries, struct ibv_wc * wc);
-int _ibv_post_srq_recv(struct ibv_srq * srq, struct ibv_recv_wr * wr, struct
-                       ibv_recv_wr ** bad_wr);
-int _ibv_post_recv(struct ibv_qp * qp, struct ibv_recv_wr * wr, struct
-                   ibv_recv_wr ** bad_wr);
+int _ibv_post_send(struct ibv_qp * qp, struct ibv_send_wr * wr,
+                   struct ibv_send_wr ** bad_wr);
+int _ibv_poll_cq(struct ibv_cq * cq, int num_entries,
+                 struct ibv_wc * wc);
+int _ibv_post_srq_recv(struct ibv_srq * srq, struct ibv_recv_wr * wr,
+                       struct ibv_recv_wr ** bad_wr);
+int _ibv_post_recv(struct ibv_qp * qp, struct ibv_recv_wr * wr,
+                   struct ibv_recv_wr ** bad_wr);
 int _ibv_req_notify_cq(struct ibv_cq * cq, int solicited_only);
 
 #define DECL_FPTR(func) \
@@ -129,7 +119,6 @@ void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t* data)
       break;
     case DMTCP_EVENT_RESTART:
       list_init(&rkey_list);
-      list_init(&remote_ud_qp_list);
       post_restart();
       break;
     case DMTCP_EVENT_REGISTER_NAME_SERVICE_DATA:
@@ -476,10 +465,7 @@ void post_restart(void)
   // This is useful when IB is not used while the plugin is enabled.
   if (dlvsym(RTLD_NEXT, "ibv_get_device_list", "IBVERBS_1.1") != NULL) {
 
-    in_real_get_dev_list = true;
     real_dev_list = NEXT_IBV_FNC(ibv_get_device_list)(&num);
-    in_real_get_dev_list = false;
-
     if (!num)
     {
       fprintf(stderr, "Error: ibv_get_device_list returned 0 devices.\n");
@@ -997,9 +983,7 @@ struct ibv_device ** _get_device_list(int * num_devices) {
   int i;
   struct ibv_device ** user_list =  NULL;
 
-  in_real_get_dev_list = true;
   real_dev_list = NEXT_IBV_FNC(ibv_get_device_list)(&real_num_devices);
-  in_real_get_dev_list = false;
 
   if (num_devices) {
     *num_devices = real_num_devices;
@@ -1036,6 +1020,7 @@ struct ibv_device ** _get_device_list(int * num_devices) {
     }
 
     memset(dev, 0, sizeof(struct internal_ibv_dev));
+    INIT_INTERNAL_IBV_TYPE(dev);
     memcpy(&dev->user_dev, real_dev_list[i], sizeof(struct ibv_device));
     dev->real_dev = real_dev_list[i];
     user_list[i] = &dev->user_dev;
@@ -1047,19 +1032,21 @@ struct ibv_device ** _get_device_list(int * num_devices) {
 
 const char * _get_device_name(struct ibv_device * device)
 {
-  if (in_real_get_dev_list) {
+  if (!IS_INTERNAL_IBV_STRUCT(ibv_device_to_internal(device))) {
     return NEXT_IBV_FNC(ibv_get_device_name)(device);
   }
-  else {
-    return NEXT_IBV_FNC(ibv_get_device_name)
-                       (ibv_device_to_internal(device)->real_dev);
-  }
+  return NEXT_IBV_FNC(ibv_get_device_name)
+                     (ibv_device_to_internal(device)->real_dev);
 }
 
 //TODO: I think the GUID could change and need to be translated
 uint64_t _get_device_guid(struct ibv_device * dev)
 {
   struct internal_ibv_dev * internal_dev = ibv_device_to_internal(dev);
+
+  if (!IS_INTERNAL_IBV_STRUCT(internal_dev)) {
+    return NEXT_IBV_FNC(ibv_get_device_guid)(dev);
+  }
 
   return NEXT_IBV_FNC(ibv_get_device_guid)(internal_dev->real_dev);
 }
@@ -1069,6 +1056,8 @@ struct ibv_comp_channel * _create_comp_channel(struct ibv_context * ctx) {
   struct internal_ibv_comp_channel * internal_comp;
 
   internal_ctx = ibv_ctx_to_internal(ctx);
+  assert(IS_INTERNAL_IBV_STRUCT(internal_ctx));
+
   internal_comp = malloc(sizeof(struct internal_ibv_comp_channel));
 
   if (!internal_comp) {
@@ -1078,11 +1067,13 @@ struct ibv_comp_channel * _create_comp_channel(struct ibv_context * ctx) {
 
   internal_comp->real_channel =
   NEXT_IBV_COMP_CHANNEL(ibv_create_comp_channel)(internal_ctx->real_ctx);
+
   if (!internal_comp->real_channel) {
     fprintf(stderr, "Channel could not be created.");
     exit(1);
   }
 
+  INIT_INTERNAL_IBV_TYPE(internal_comp);
   memcpy(&internal_comp->user_channel,
          internal_comp->real_channel,
          sizeof(struct ibv_comp_channel));
@@ -1098,6 +1089,8 @@ int _destroy_comp_channel(struct ibv_comp_channel * channel)
   int rslt;
 
   internal_comp = ibv_comp_to_internal(channel);
+  assert(IS_INTERNAL_IBV_STRUCT(internal_comp));
+
   rslt = NEXT_IBV_COMP_CHANNEL(ibv_destroy_comp_channel)
                                 (internal_comp->real_channel);
   list_remove(&internal_comp->elem);
@@ -1106,17 +1099,25 @@ int _destroy_comp_channel(struct ibv_comp_channel * channel)
   return rslt;
 }
 
-int _get_cq_event(struct ibv_comp_channel * channel, struct ibv_cq ** cq, void ** cq_context)
+int _get_cq_event(struct ibv_comp_channel * channel,
+                  struct ibv_cq ** cq, void ** cq_context)
 {
   struct internal_ibv_comp_channel * internal_channel;
   struct internal_ibv_cq * internal_cq;
   int rslt;
 
   internal_channel = ibv_comp_to_internal(channel);
-  rslt = NEXT_IBV_FNC(ibv_get_cq_event)(internal_channel->real_channel,
-                                        cq, cq_context);
+  if (!IS_INTERNAL_IBV_STRUCT(internal_channel)) {
+    rslt = NEXT_IBV_FNC(ibv_get_cq_event)(channel, cq, cq_context);
+  }
+  else {
+    rslt = NEXT_IBV_FNC(ibv_get_cq_event)
+                       (internal_channel->real_channel,
+                        cq, cq_context);
+  }
 
   internal_cq = get_cq_from_pointer(*cq);
+  assert(internal_cq != NULL);
   *cq = &internal_cq->user_cq;
   *cq_context = internal_cq->user_cq.context;
 
@@ -1129,8 +1130,14 @@ int _get_async_event(struct ibv_context * ctx, struct ibv_async_event * event)
   struct internal_ibv_qp * internal_qp;
   struct internal_ibv_cq * internal_cq;
   struct internal_ibv_srq * internal_srq;
+  int rslt;
 
-  int rslt = NEXT_IBV_FNC(ibv_get_async_event)(internal_ctx->real_ctx, event);
+  if (!IS_INTERNAL_IBV_STRUCT(internal_ctx)) {
+    rslt = NEXT_IBV_FNC(ibv_get_async_event)(ctx, event);
+  }
+  else {
+    rslt = NEXT_IBV_FNC(ibv_get_async_event)(internal_ctx->real_ctx, event);
+  }
 
   switch (event->event_type) {
       /* QP events */
@@ -1143,17 +1150,20 @@ int _get_async_event(struct ibv_context * ctx, struct ibv_async_event * event)
     case IBV_EVENT_PATH_MIG:
     case IBV_EVENT_PATH_MIG_ERR:
       internal_qp = get_qp_from_pointer(event->element.qp);
+      assert(internal_qp != NULL);
       event->element.qp = &internal_qp->user_qp;
       break;
       /* CQ events */
     case IBV_EVENT_CQ_ERR:
       internal_cq = get_cq_from_pointer(event->element.cq);
+      assert(internal_cq != NULL);
       event->element.cq = &internal_cq->user_cq;
       break;
       /*SRQ events */
     case IBV_EVENT_SRQ_ERR:
     case IBV_EVENT_SRQ_LIMIT_REACHED:
       internal_srq = get_srq_from_pointer(event->element.srq);
+      assert(internal_srq != NULL);
       event->element.srq = &internal_srq->user_srq;
       break;
     case IBV_EVENT_PORT_ACTIVE:
@@ -1193,17 +1203,20 @@ void _ack_async_event(struct ibv_async_event * event)
     case IBV_EVENT_PATH_MIG:
     case IBV_EVENT_PATH_MIG_ERR:
       internal_qp = ibv_qp_to_internal(event->element.qp);
+      assert(internal_qp != NULL);
       event->element.qp = internal_qp->real_qp;
       break;
       /* CQ events */
     case IBV_EVENT_CQ_ERR:
       internal_cq = ibv_cq_to_internal(event->element.cq);
+      assert(internal_cq != NULL);
       event->element.cq = internal_cq->real_cq;
       break;
       /*SRQ events */
     case IBV_EVENT_SRQ_ERR:
     case IBV_EVENT_SRQ_LIMIT_REACHED:
       internal_srq = ibv_srq_to_internal(event->element.srq);
+      assert(internal_srq != NULL);
       event->element.srq = internal_srq->real_srq;
       break;
     case IBV_EVENT_PORT_ACTIVE:
@@ -1272,9 +1285,12 @@ void _free_device_list(struct ibv_device ** dev_list)
  * and not yet freed.
  */
 struct ibv_context * _open_device(struct ibv_device * device) {
-  struct internal_ibv_ctx * ctx = malloc(sizeof(struct internal_ibv_ctx));
   struct internal_ibv_dev * dev = ibv_device_to_internal(device);
+  struct internal_ibv_ctx * ctx;
 
+  assert(IS_INTERNAL_IBV_STRUCT(dev));
+
+  ctx = malloc(sizeof(struct internal_ibv_ctx));
   if (!ctx) {
     fprintf(stderr, "Couldn't allocate memory for _open_device!\n");
     exit(1);
@@ -1287,6 +1303,7 @@ struct ibv_context * _open_device(struct ibv_device * device) {
     exit(1);
   }
 
+  INIT_INTERNAL_IBV_TYPE(ctx);
   dev->in_use = true;
 
   /* setup the trampolines */
@@ -1310,6 +1327,10 @@ int _query_device(struct ibv_context *context,
 {
   struct internal_ibv_ctx *internal_ctx = ibv_ctx_to_internal(context);
 
+  if (!IS_INTERNAL_IBV_STRUCT(internal_ctx)) {
+    return NEXT_IBV_FNC(ibv_query_device)(context, device_attr);
+  }
+
   return NEXT_IBV_FNC(ibv_query_device)(internal_ctx->real_ctx,device_attr);
 }
 
@@ -1318,6 +1339,10 @@ int _query_port(struct ibv_context *context, uint8_t port_num,
                 struct ibv_port_attr *port_attr)
 {
   struct internal_ibv_ctx *internal_ctx = ibv_ctx_to_internal(context);
+
+  if (!IS_INTERNAL_IBV_STRUCT(internal_ctx)) {
+    return NEXT_IBV_FNC(ibv_query_port)(context, port_num, port_attr);
+  }
 
   return NEXT_IBV_FNC(ibv_query_port)(internal_ctx->real_ctx,
                                       port_num, port_attr);
@@ -1328,6 +1353,10 @@ int _query_pkey(struct ibv_context *context, uint8_t port_num,
 {
   struct internal_ibv_ctx *internal_ctx = ibv_ctx_to_internal(context);
 
+  if (!IS_INTERNAL_IBV_STRUCT(internal_ctx)) {
+    return NEXT_IBV_FNC(ibv_query_pkey)(context, port_num, index, pkey);
+  }
+
   return NEXT_IBV_FNC(ibv_query_pkey)(internal_ctx->real_ctx,
                                       port_num, index, pkey);
 }
@@ -1336,6 +1365,10 @@ int _query_gid(struct ibv_context *context, uint8_t port_num,
                int index, union ibv_gid *gid)
 {
   struct internal_ibv_ctx *internal_ctx = ibv_ctx_to_internal(context);
+
+  if (!IS_INTERNAL_IBV_STRUCT(internal_ctx)) {
+    return NEXT_IBV_FNC(ibv_query_gid)(context, port_num, index, gid);
+  }
 
   return NEXT_IBV_FNC(ibv_query_gid)(internal_ctx->real_ctx,
                                      port_num, index, gid);
@@ -1348,6 +1381,7 @@ int _close_device(struct ibv_context * ctx)
   struct dev_list_info * list_info;
 
   dev = ibv_device_to_internal(internal_ctx->user_ctx.device);
+  assert(IS_INTERNAL_IBV_STRUCT(dev));
   dev->in_use = false;
   list_info = dev->list_info;
 
@@ -1387,7 +1421,10 @@ int _close_device(struct ibv_context * ctx)
 
 struct ibv_pd * _alloc_pd(struct ibv_context * context) {
   struct internal_ibv_ctx * internal_ctx = ibv_ctx_to_internal(context);
-  struct internal_ibv_pd * pd = malloc(sizeof(struct internal_ibv_pd));
+  struct internal_ibv_pd * pd;
+
+  assert(IS_INTERNAL_IBV_STRUCT(internal_ctx));
+  pd = malloc(sizeof(struct internal_ibv_pd));
 
   if (!pd) {
     fprintf(stderr, "Error: I cannot allocate memory for _alloc_pd\n");
@@ -1400,6 +1437,7 @@ struct ibv_pd * _alloc_pd(struct ibv_context * context) {
     return pd->real_pd;
   }
 
+  INIT_INTERNAL_IBV_TYPE(pd);
   memcpy(&pd->user_pd, pd->real_pd, sizeof(struct ibv_pd));
   pd->user_pd.context = context;
   pd->pd_id = (int)((dmtcp_get_uniquepid())._pid) + pd_id_count;
@@ -1413,7 +1451,10 @@ struct ibv_pd * _alloc_pd(struct ibv_context * context) {
 int _dealloc_pd(struct ibv_pd * pd)
 {
   struct internal_ibv_pd * internal_pd = ibv_pd_to_internal(pd);
-  int rslt = NEXT_IBV_FNC(ibv_dealloc_pd)(internal_pd->real_pd);
+  int rslt;
+
+  assert(IS_INTERNAL_IBV_STRUCT(internal_pd));
+  rslt = NEXT_IBV_FNC(ibv_dealloc_pd)(internal_pd->real_pd);
 
   list_remove(&internal_pd->elem);
   free(internal_pd);
@@ -1424,8 +1465,10 @@ int _dealloc_pd(struct ibv_pd * pd)
 struct ibv_mr * _reg_mr(struct ibv_pd * pd, void * addr,
                         size_t length, int flag) {
   struct internal_ibv_pd * internal_pd = ibv_pd_to_internal(pd);
-  struct internal_ibv_mr * internal_mr = malloc(sizeof(struct internal_ibv_mr));
+  struct internal_ibv_mr * internal_mr;
 
+  assert(IS_INTERNAL_IBV_STRUCT(internal_pd));
+  internal_mr = malloc(sizeof(struct internal_ibv_mr));
   if (!internal_mr) {
     fprintf(stderr, "Error: Could not allocate memory for _reg_mr\n");
     exit(1);
@@ -1441,6 +1484,7 @@ struct ibv_mr * _reg_mr(struct ibv_pd * pd, void * addr,
 
   internal_mr->flags = flag;
 
+  INIT_INTERNAL_IBV_TYPE(internal_mr);
   memcpy(&internal_mr->user_mr, internal_mr->real_mr, sizeof(struct ibv_mr));
   internal_mr->user_mr.context = internal_pd->user_pd.context;
   internal_mr->user_mr.pd = &internal_pd->user_pd;
@@ -1471,6 +1515,8 @@ int _dereg_mr(struct ibv_mr * mr)
 {
   struct internal_ibv_mr * internal_mr = ibv_mr_to_internal(mr);
   struct list_elem *e;
+
+  assert(IS_INTERNAL_IBV_STRUCT(internal_mr));
   if (is_restart) {
     for (e = list_begin(&rkey_list);
          e != list_end(&rkey_list);
@@ -1495,8 +1541,10 @@ int _ibv_req_notify_cq(struct ibv_cq * cq, int solicited_only)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
   struct internal_ibv_cq * internal_cq = ibv_cq_to_internal(cq);
+  int rslt;
 
-  int rslt = _real_ibv_req_notify_cq(internal_cq->real_cq, solicited_only);
+  assert(IS_INTERNAL_IBV_STRUCT(internal_cq));
+  rslt = _real_ibv_req_notify_cq(internal_cq->real_cq, solicited_only);
 
   if (rslt == 0) {
     struct ibv_req_notify_cq_log * log;
@@ -1521,15 +1569,18 @@ struct ibv_cq * _create_cq(struct ibv_context * context,
                            struct ibv_comp_channel * channel,
                            int comp_vector) {
   struct internal_ibv_ctx * internal_ctx = ibv_ctx_to_internal(context);
-  struct internal_ibv_cq * internal_cq = malloc(sizeof(struct internal_ibv_cq));
+  struct internal_ibv_cq * internal_cq;
   struct ibv_comp_channel * real_channel;
 
+  assert(IS_INTERNAL_IBV_STRUCT(internal_ctx));
   if (channel) {
+    assert(IS_INTERNAL_IBV_STRUCT(ibv_comp_to_internal(channel)));
     real_channel = ibv_comp_to_internal(channel)->real_channel;
   } else {
     real_channel = NULL;
   }
 
+  internal_cq = malloc(sizeof(struct internal_ibv_cq));
   if (!internal_cq) {
     fprintf(stderr,"Error: could not allocate memory for _create_cq\n");
     exit(1);
@@ -1543,6 +1594,7 @@ struct ibv_cq * _create_cq(struct ibv_context * context,
                                                      cqe, cq_context,
                                                      real_channel, comp_vector);
 
+  INIT_INTERNAL_IBV_TYPE(internal_cq);
   internal_cq->comp_vector = comp_vector;
   internal_cq->channel = ibv_comp_to_internal(channel);
 
@@ -1558,8 +1610,13 @@ struct ibv_cq * _create_cq(struct ibv_context * context,
 int _resize_cq(struct ibv_cq * cq, int cqe)
 {
   struct internal_ibv_cq * internal_cq = ibv_cq_to_internal(cq);
+  int rslt;
 
-  int rslt = NEXT_IBV_FNC(ibv_resize_cq)(internal_cq->real_cq, cqe);
+  if (!IS_INTERNAL_IBV_STRUCT(internal_cq)) {
+    return NEXT_IBV_FNC(ibv_resize_cq)(cq, cqe);
+  }
+
+  rslt = NEXT_IBV_FNC(ibv_resize_cq)(internal_cq->real_cq, cqe);
   if (!rslt) {
     internal_cq->user_cq.cqe = internal_cq->real_cq->cqe;
   }
@@ -1570,8 +1627,10 @@ int _resize_cq(struct ibv_cq * cq, int cqe)
 int _destroy_cq(struct ibv_cq * cq)
 {
   struct internal_ibv_cq * internal_cq = ibv_cq_to_internal(cq);
+  int rslt;
 
-  int rslt = NEXT_IBV_FNC(ibv_destroy_cq)(internal_cq->real_cq);
+  assert(IS_INTERNAL_IBV_STRUCT(internal_cq));
+  rslt = NEXT_IBV_FNC(ibv_destroy_cq)(internal_cq->real_cq);
 
   /* destroy the four lists */
   struct list_elem * e;
@@ -1612,6 +1671,8 @@ struct ibv_qp * _create_qp(struct ibv_pd * pd,
   struct ibv_port_attr attr2;
   int rslt2;
 
+  assert(IS_INTERNAL_IBV_STRUCT(internal_pd));
+  internal_qp = malloc(sizeof(struct internal_ibv_qp));
   if (internal_qp == NULL) {
     fprintf(stderr, "Error: I cannot allocate memory for _create_qp\n");
     exit(1);
@@ -1619,9 +1680,12 @@ struct ibv_qp * _create_qp(struct ibv_pd * pd,
   memset(internal_qp, 0, sizeof(struct internal_ibv_qp));
 
   /* fix up the qp_init_attr here */
+  assert(IS_INTERNAL_IBV_STRUCT(ibv_cq_to_internal(qp_init_attr->recv_cq)));
+  assert(IS_INTERNAL_IBV_STRUCT(ibv_cq_to_internal(qp_init_attr->send_cq)));
   attr.recv_cq = ibv_cq_to_internal(qp_init_attr->recv_cq)->real_cq;
   attr.send_cq = ibv_cq_to_internal(qp_init_attr->send_cq)->real_cq;
   if (attr.srq) {
+    assert(IS_INTERNAL_IBV_STRUCT(ibv_srq_to_internal(qp_init_attr->srq)));
     attr.srq = ibv_srq_to_internal(qp_init_attr->srq)->real_srq;
   }
 
@@ -1633,6 +1697,7 @@ struct ibv_qp * _create_qp(struct ibv_pd * pd,
     return NULL;
   }
 
+  INIT_INTERNAL_IBV_TYPE(internal_qp);
   memcpy(&internal_qp->user_qp,
          internal_qp->real_qp,
          sizeof(struct ibv_qp));
@@ -1706,7 +1771,10 @@ struct ibv_qp * _create_qp(struct ibv_pd * pd,
 int _destroy_qp(struct ibv_qp * qp)
 {
   struct internal_ibv_qp * internal_qp = ibv_qp_to_internal(qp);
-  int rslt = NEXT_IBV_FNC(ibv_destroy_qp)(internal_qp->real_qp);
+  int rslt;
+
+  assert(IS_INTERNAL_IBV_STRUCT(internal_qp));
+  rslt = NEXT_IBV_FNC(ibv_destroy_qp)(internal_qp->real_qp);
   struct list_elem * e = list_begin(&internal_qp->modify_qp_log);
 
   while (e != list_end(&internal_qp->modify_qp_log)) {
@@ -1751,9 +1819,11 @@ int _destroy_qp(struct ibv_qp * qp)
 int _modify_qp(struct ibv_qp * qp, struct ibv_qp_attr * attr, int attr_mask)
 {
   struct internal_ibv_qp * internal_qp = ibv_qp_to_internal(qp);
-  struct ibv_modify_qp_log * log = malloc(sizeof(struct ibv_modify_qp_log));
+  struct ibv_modify_qp_log * log;
   int rslt;
 
+  assert(IS_INTERNAL_IBV_STRUCT(internal_qp));
+  log = malloc(sizeof(struct ibv_modify_qp_log));
   if (!log) {
     fprintf(stderr, "Error: Couldn't allocate memory for log.\n");
     exit(1);
@@ -1819,13 +1889,24 @@ int _query_qp(struct ibv_qp * qp, struct ibv_qp_attr * attr, int attr_mask,
               struct ibv_qp_init_attr * init_attr)
 {
   struct internal_ibv_qp * internal_qp = ibv_qp_to_internal(qp);
-  int rslt = NEXT_IBV_FNC(ibv_query_qp)(internal_qp->real_qp,
-                                        attr, attr_mask, init_attr);
+  int rslt;
 
-  init_attr->recv_cq = &ibv_cq_to_internal(init_attr->recv_cq)->user_cq;
-  init_attr->send_cq = &ibv_cq_to_internal(init_attr->send_cq)->user_cq;
-  if (init_attr->srq)
-    init_attr->srq = &ibv_srq_to_internal(init_attr->srq)->user_srq;
+  if (!IS_INTERNAL_IBV_STRUCT(internal_qp)) {
+    return NEXT_IBV_FNC(ibv_query_qp)(qp, attr, attr_mask, init_attr);
+  }
+  else {
+    rslt = NEXT_IBV_FNC(ibv_query_qp)(internal_qp->real_qp,
+                                      attr, attr_mask, init_attr);
+  }
+
+  assert(get_cq_from_pointer(init_attr->recv_cq) != NULL);
+  assert(get_cq_from_pointer(init_attr->send_cq) != NULL);
+  init_attr->recv_cq = &get_cq_from_pointer(init_attr->recv_cq)->user_cq;
+  init_attr->send_cq = &get_cq_from_pointer(init_attr->send_cq)->user_cq;
+  if (init_attr->srq) {
+    assert(get_srq_from_pointer(init_attr->srq) != NULL);
+    init_attr->srq = &get_srq_from_pointer(init_attr->srq)->user_srq;
+  }
 
   return rslt;
 }
@@ -1836,6 +1917,8 @@ struct ibv_srq * _create_srq(struct ibv_pd * pd,
   struct internal_ibv_srq * internal_srq;
 
   internal_pd = ibv_pd_to_internal(pd);
+
+  assert(IS_INTERNAL_IBV_STRUCT(internal_pd));
   internal_srq = malloc(sizeof(struct internal_ibv_srq));
 
   if ( internal_srq == NULL ) {
@@ -1853,6 +1936,7 @@ struct ibv_srq * _create_srq(struct ibv_pd * pd,
   }
 
   internal_srq->recv_count = 0;
+  INIT_INTERNAL_IBV_TYPE(internal_srq);
   memcpy(&internal_srq->user_srq,
          internal_srq->real_srq,
          sizeof(struct ibv_srq));
@@ -1892,9 +1976,11 @@ struct ibv_srq * _create_srq(struct ibv_pd * pd,
 int _destroy_srq(struct ibv_srq * srq)
 {
   struct internal_ibv_srq * internal_srq = ibv_srq_to_internal(srq);
-  int rslt = NEXT_IBV_FNC(ibv_destroy_srq)(internal_srq->real_srq);
+  int rslt;
   struct list_elem * e;
 
+  assert(IS_INTERNAL_IBV_STRUCT(internal_srq));
+  rslt = NEXT_IBV_FNC(ibv_destroy_srq)(internal_srq->real_srq);
   e = list_begin(&internal_srq->modify_srq_log);
   while(e != list_end(&internal_srq->modify_srq_log)) {
     struct list_elem * w = e;
@@ -1926,8 +2012,10 @@ int _destroy_srq(struct ibv_srq * srq)
 int _modify_srq(struct ibv_srq *srq, struct ibv_srq_attr *attr, int attr_mask)
 {
   struct internal_ibv_srq * internal_srq = ibv_srq_to_internal(srq);
-  struct ibv_modify_srq_log * log = malloc(sizeof(struct ibv_modify_srq_log));
+  struct ibv_modify_srq_log * log;
 
+  assert(IS_INTERNAL_IBV_STRUCT(internal_srq));
+  log = malloc(sizeof(struct ibv_modify_srq_log));
   if (!log) {
     fprintf(stderr, "Error: Couldn't allocate memory for log.\n");
     exit(1);
@@ -1946,6 +2034,10 @@ int _modify_srq(struct ibv_srq *srq, struct ibv_srq_attr *attr, int attr_mask)
 
 int _query_srq(struct ibv_srq * srq, struct ibv_srq_attr * srq_attr)
 {
+  if (!IS_INTERNAL_IBV_STRUCT(ibv_srq_to_internal(srq))) {
+    return NEXT_IBV_FNC(ibv_query_srq)(srq, srq_attr);
+  }
+
   return NEXT_IBV_FNC(ibv_query_srq)(ibv_srq_to_internal(srq)->real_srq,
                                      srq_attr);
 }
@@ -1953,13 +2045,14 @@ int _query_srq(struct ibv_srq * srq, struct ibv_srq_attr * srq_attr)
 int _ibv_post_recv(struct ibv_qp * qp, struct ibv_recv_wr * wr,
                    struct ibv_recv_wr ** bad_wr) {
   struct internal_ibv_qp * internal_qp = ibv_qp_to_internal(qp);
-  //TODO: Technically this does multiple loops, but, the code is cleaner
-  struct ibv_recv_wr * copy_wr = copy_recv_wr(wr);
-  int rslt;
+  struct ibv_recv_wr * copy_wr;
   struct ibv_recv_wr *copy_wr1;
 
   DMTCP_PLUGIN_DISABLE_CKPT();
 
+  assert(IS_INTERNAL_IBV_STRUCT(internal_qp));
+  copy_wr = copy_recv_wr(wr);
+  int rslt;
   update_lkey_recv(copy_wr);
 
   rslt = _real_ibv_post_recv(internal_qp->real_qp, copy_wr, bad_wr);
@@ -1992,13 +2085,14 @@ int _ibv_post_recv(struct ibv_qp * qp, struct ibv_recv_wr * wr,
 int _ibv_post_srq_recv(struct ibv_srq * srq, struct ibv_recv_wr * wr,
                        struct ibv_recv_wr ** bad_wr) {
   struct internal_ibv_srq * internal_srq = ibv_srq_to_internal(srq);
-  //TODO: Technically this does multiple loops, but, the code is cleaner
-  struct ibv_recv_wr * copy_wr = copy_recv_wr(wr);
+  struct ibv_recv_wr * copy_wr;
   int rslt;
   struct ibv_recv_wr *copy_wr1;
 
   DMTCP_PLUGIN_DISABLE_CKPT();
 
+  assert(IS_INTERNAL_IBV_STRUCT(internal_srq));
+  copy_wr = copy_recv_wr(wr);
   update_lkey_recv(copy_wr);
 
   rslt = _real_ibv_post_srq_recv(internal_srq->real_srq, copy_wr, bad_wr);
@@ -2038,12 +2132,14 @@ int _ibv_post_srq_recv(struct ibv_srq * srq, struct ibv_recv_wr * wr,
 int _ibv_post_send(struct ibv_qp * qp, struct ibv_send_wr * wr, struct
                    ibv_send_wr ** bad_wr) {
   struct internal_ibv_qp * internal_qp = ibv_qp_to_internal(qp);
-  struct ibv_send_wr * copy_wr = copy_send_wr(wr);
+  struct ibv_send_wr * copy_wr;
   int rslt;
   struct ibv_send_wr *copy_wr1;
 
   DMTCP_PLUGIN_DISABLE_CKPT();
 
+  assert(IS_INTERNAL_IBV_STRUCT(internal_qp));
+  copy_wr = copy_send_wr(wr);
   update_lkey_send(copy_wr);
 
   switch (internal_qp->user_qp.qp_type) {
@@ -2098,11 +2194,12 @@ int _ibv_poll_cq(struct ibv_cq * cq, int num_entries, struct ibv_wc * wc)
 {
   int rslt = 0;
   struct internal_ibv_cq * internal_cq = ibv_cq_to_internal(cq);
-  int size = list_size(&internal_cq->wc_queue);
-  int i;
+  int size, i;
 
   DMTCP_PLUGIN_DISABLE_CKPT();
 
+  assert(IS_INTERNAL_IBV_STRUCT(internal_cq));
+  size = list_size(&internal_cq->wc_queue);
   if (size > 0) {
     struct list_elem * e = list_front(&internal_cq->wc_queue);
     for (i = 0; (i < size) && (i < num_entries); i++) {
@@ -2209,6 +2306,10 @@ void _ack_cq_events(struct ibv_cq * cq, unsigned int nevents)
 {
   struct internal_ibv_cq * internal_cq = ibv_cq_to_internal(cq);
 
+  if (!IS_INTERNAL_IBV_STRUCT(internal_cq)) {
+    return NEXT_IBV_FNC(ibv_ack_cq_events)(cq, nevents);
+  }
+
   return NEXT_IBV_FNC(ibv_ack_cq_events)(internal_cq->real_cq, nevents);
 }
 
@@ -2217,6 +2318,7 @@ struct ibv_ah * _create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr) {
   struct internal_ibv_ah * internal_ah;
   struct ibv_ah_attr real_attr = *attr;
 
+  assert(IS_INTERNAL_IBV_STRUCT(internal_pd));
   internal_ah = malloc(sizeof(struct internal_ibv_ah));
   if (internal_ah == NULL) {
     fprintf(stderr, "Error: Unable to allocate memory for _create_ah\n");
@@ -2248,6 +2350,7 @@ struct ibv_ah * _create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr) {
     return NULL;
   }
 
+  INIT_INTERNAL_IBV_TYPE(internal_ah);
   memcpy(&internal_ah->user_ah,
          internal_ah->real_ah,
          sizeof(struct ibv_ah));
@@ -2264,6 +2367,7 @@ int _destroy_ah(struct ibv_ah *ah) {
   int rslt;
 
   internal_ah = ibv_ah_to_internal(ah);
+  assert(IS_INTERNAL_IBV_STRUCT(internal_ah));
   rslt = NEXT_IBV_FNC(ibv_destroy_ah)(internal_ah->real_ah);
 
   list_remove(&internal_ah->elem);

@@ -67,7 +67,8 @@ static bool _wrapperExecutionLockAcquiredByCkptThread = false;
 static bool _threadCreationLockAcquiredByCkptThread = false;
 
 static pthread_mutex_t destroyDmtcpWorkerLock = PTHREAD_MUTEX_INITIALIZER;
-static pthread_mutex_t theCkptCanStart = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
+static pthread_mutex_t theCkptCanStart = PTHREAD_MUTEX_INITIALIZER;
+static int ckptCanStartCount = 0;
 
 static pthread_mutex_t libdlLock = PTHREAD_MUTEX_INITIALIZER;
 static pid_t libdlLockOwner = 0;
@@ -303,11 +304,15 @@ void ThreadSync::destroyDmtcpWorkerLockUnlock()
 
 void ThreadSync::delayCheckpointsLock()
 {
-  JASSERT(_real_pthread_mutex_lock(&theCkptCanStart)==0)(JASSERT_ERRNO);
+  if (ckptCanStartCount++ == 0) {
+    JASSERT(_real_pthread_mutex_lock(&theCkptCanStart)==0)(JASSERT_ERRNO);
+  }
 }
 
 void ThreadSync::delayCheckpointsUnlock() {
-  JASSERT(_real_pthread_mutex_unlock(&theCkptCanStart)==0)(JASSERT_ERRNO);
+  if (--ckptCanStartCount == 0) {
+    JASSERT(_real_pthread_mutex_unlock(&theCkptCanStart)==0)(JASSERT_ERRNO);
+  }
 }
 
 static void incrementWrapperExecutionLockLockCount()

@@ -161,8 +161,8 @@
   "This is free software, and you are welcome to redistribute it\n"            \
   "under certain conditions; see COPYING file for details.\n"
 
-#define HELP_AND_CONTACT_INFO             \
-  "Report bugs to: "PACKAGE_BUGREPORT"\n" \
-  "DMTCP home page: <"PACKAGE_URL">\n"
+#define HELP_AND_CONTACT_INFO               \
+  "Report bugs to: " PACKAGE_BUGREPORT "\n" \
+  "DMTCP home page: <" PACKAGE_URL ">\n"
 
 #endif

@@ -145,6 +145,11 @@ class RestoreTarget
     bool isRootOfProcessTree() const {
       return _pInfo.isRootOfProcessTree();
     }
+
+    bool isOrphan() {
+        return _pInfo.isOrphan();
+    }
+
     string procname() { return _pInfo.procname(); }
     UniquePid compGroup() { return _pInfo.compGroup(); }
     int numPeers() { return _pInfo.numPeers(); }
@@ -182,6 +187,23 @@ class RestoreTarget
         createProcess();
       } else {
         JASSERT(waitpid(pid, NULL, 0) == pid);
+      }
+    }
+
+    void createOrphanedProcess(bool createIndependentRootProcesses = false)
+    {
+      pid_t pid = fork();
+      JASSERT(pid != -1);
+      if (pid == 0) {
+        pid_t gchild = fork();
+        JASSERT(gchild != -1);
+        if (gchild != 0) {
+          exit(0);
+        }
+        createProcess(createIndependentRootProcesses);
+      } else {
+        JASSERT(waitpid(pid, NULL, 0) == pid);
+        exit(0);
       }
     }
 
@@ -339,6 +361,8 @@ class RestoreTarget
 #elif defined(__i386__) || defined(__arm__)
       is32bitElf = true;
 #endif
+
+
       runMtcpRestart(is32bitElf, _fd, &_pInfo);
 
       JASSERT ( false ).Text ( "unreachable" );
@@ -607,6 +631,7 @@ static void setNewCkptDir(char *path)
 int main(int argc, char** argv)
 {
   char *tmpdir_arg = NULL;
+  char *ckptdir_arg = NULL;
 
   initializeJalib();
 
@@ -616,6 +641,10 @@ int main(int argc, char** argv)
 
   if (getenv(ENV_VAR_DISABLE_UID_CHECKING)) {
     noStrictUIDChecking = true;
+  }
+
+  if (getenv(ENV_VAR_CHECKPOINT_DIR)) {
+    ckptdir_arg = getenv(ENV_VAR_CHECKPOINT_DIR);
   }
 
   if (argc == 1) {
@@ -667,7 +696,7 @@ int main(int argc, char** argv)
       thePortFile = argv[1];
       shift; shift;
     } else if (argc > 1 && (s == "-c" || s == "--ckptdir")) {
-      setNewCkptDir(argv[1]);
+      ckptdir_arg = argv[1];
       shift; shift;
     } else if (argc > 1 && (s == "-t" || s == "--tmpdir")) {
       tmpdir_arg = argv[1];
@@ -690,6 +719,9 @@ int main(int argc, char** argv)
   }
 
   tmpDir = Util::calcTmpDir(tmpdir_arg);
+  if (ckptdir_arg) {
+    setNewCkptDir(ckptdir_arg);
+  }
 
   jassert_quiet = *getenv(ENV_VAR_QUIET) - '0';
 
@@ -766,12 +798,36 @@ int main(int argc, char** argv)
 
   WorkerState::setCurrentState(WorkerState::RESTARTING);
 
-  RestoreTarget *t = independentProcessTreeRoots.begin()->second;
+  /* Try to find non-orphaned process in independent procs list */
+  RestoreTarget *t;
+  bool foundNonOrphan = false;
+  RestoreTargetMap::iterator it;
+  int size = independentProcessTreeRoots.size();
+  printf("size = %d\n", size);
+  for (it = independentProcessTreeRoots.begin();
+       it != independentProcessTreeRoots.end();
+       it++) {
+    t = it->second;
+    if ( !t->isOrphan() ) {
+      foundNonOrphan = true;
+      break;
+    }
+  }
+
   JASSERT(t->pid() != 0);
   JASSERT(!t->noCoordinator() || allowedModes == COORD_ANY)
     .Text("Process had no coordinator prior to checkpoint;\n"
           "  but either --join or --new-coordinator was specified.");
-  t->createProcess(true);
+
+  if( foundNonOrphan ){
+    t->createProcess(true);
+  } else {
+      /* we were unable to find any non-orphaned procs.
+       * pick the first one and orphan it */
+      t = independentProcessTreeRoots.begin()->second;
+      t->createOrphanedProcess(true);
+  }
+
   JASSERT(false).Text("unreachable");
   return -1;
 }

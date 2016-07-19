@@ -136,6 +136,11 @@ __d_libdir__libdmtcp_pid_so_SOURCES =                                  \
 	pid/sched_wrappers.cpp                                         \
 	pid/virtualpidtable.cpp                                        \
 	pid/virtualpidtable.h
+if ENABLE_PTHREAD_MUTEX_WRAPPERS
+__d_libdir__libdmtcp_pid_so_SOURCES +=                                 \
+	pid/pid_mutexwrappers.cpp
+endif
+
 __d_libdir__libdmtcp_pid_so_LDFLAGS = $(dmtcp_ldflags)
 
 #
