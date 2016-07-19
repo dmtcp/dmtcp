@@ -671,6 +671,8 @@ HAS_READLINE
 M32
 CONFIG_M32_FALSE
 CONFIG_M32_TRUE
+ENABLE_PTHREAD_MUTEX_WRAPPERS_FALSE
+ENABLE_PTHREAD_MUTEX_WRAPPERS_TRUE
 TEST_POSIX_MQ
 USE_TEST_SUITE
 FAST_RST_VIA_MMAP_FALSE
@@ -805,6 +807,7 @@ enable_test_suite
 enable_experts_only_space1
 enable_experts_only
 enable_experts_only_after
+enable_pthread_mutex_wrappers
 enable_m32
 enable_static_libstdcxx
 with_mpich
@@ -1483,6 +1486,8 @@ Optional Features:
                  === **** NOTE:  EXPERTS ONLY BELOW HERE **** ===
                           (Use at your own risk!!)
 
+  --enable-pthread-mutex-wrappers
+                          Recommended when using Open MPI
   --enable-m32            Compile in 32 bit mode on 64 bit linux. (Works on
                           most, but not all programs, due to restrictions of
                           32-bit mode.)
@@ -4930,7 +4935,7 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 ac_config_headers="$ac_config_headers include/config.h"
 
-ac_config_files="$ac_config_files Makefile contrib/Makefile contrib/ckptfile/Makefile contrib/infiniband/Makefile contrib/delayresume/Makefile contrib/slurm-ft/Makefile plugin/Makefile src/Makefile src/mtcp/Makefile src/plugin/Makefile test/Makefile test/autotest_config.py test/plugin/Makefile"
+ac_config_files="$ac_config_files Makefile contrib/Makefile contrib/ckptfile/Makefile contrib/delayresume/Makefile contrib/infiniband/Makefile contrib/slurm-ft/Makefile plugin/Makefile src/Makefile src/mtcp/Makefile src/plugin/Makefile test/Makefile test/autotest_config.py test/plugin/Makefile"
 
 #AC_CONFIG_FILES([test/credentials/Makefile])
 
@@ -5468,6 +5473,27 @@ if test "${enable_experts_only_after+set}" = set; then :
   enableval=$enable_experts_only_after;
 fi
 
+
+# Check whether --enable-pthread_mutex_wrappers was given.
+if test "${enable_pthread_mutex_wrappers+set}" = set; then :
+  enableval=$enable_pthread_mutex_wrappers; use_pthread_mutex_wrappers=$enableval
+else
+  use_pthread_mutex_wrappers=no
+fi
+
+ if test "$use_pthread_mutex_wrappers" = "yes"; then
+  ENABLE_PTHREAD_MUTEX_WRAPPERS_TRUE=
+  ENABLE_PTHREAD_MUTEX_WRAPPERS_FALSE='#'
+else
+  ENABLE_PTHREAD_MUTEX_WRAPPERS_TRUE='#'
+  ENABLE_PTHREAD_MUTEX_WRAPPERS_FALSE=
+fi
+
+if test "$use_pthread_mutex_wrappers" = "yes"; then
+
+$as_echo "#define ENABLE_PTHREAD_MUTEX_WRAPPERS 1" >>confdefs.h
+
+fi
 
 # Check whether --enable-m32 was given.
 if test "${enable_m32+set}" = set; then :
@@ -7499,6 +7525,10 @@ if test -z "${FAST_RST_VIA_MMAP_TRUE}" && test -z "${FAST_RST_VIA_MMAP_FALSE}"; 
   as_fn_error $? "conditional \"FAST_RST_VIA_MMAP\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
+if test -z "${ENABLE_PTHREAD_MUTEX_WRAPPERS_TRUE}" && test -z "${ENABLE_PTHREAD_MUTEX_WRAPPERS_FALSE}"; then
+  as_fn_error $? "conditional \"ENABLE_PTHREAD_MUTEX_WRAPPERS\" was never defined.
+Usually this means the macro was only invoked conditionally." "$LINENO" 5
+fi
 if test -z "${CONFIG_M32_TRUE}" && test -z "${CONFIG_M32_FALSE}"; then
   as_fn_error $? "conditional \"CONFIG_M32\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
@@ -8109,6 +8139,7 @@ do
     "Makefile") CONFIG_FILES="$CONFIG_FILES Makefile" ;;
     "contrib/Makefile") CONFIG_FILES="$CONFIG_FILES contrib/Makefile" ;;
     "contrib/ckptfile/Makefile") CONFIG_FILES="$CONFIG_FILES contrib/ckptfile/Makefile" ;;
+    "contrib/delayresume/Makefile") CONFIG_FILES="$CONFIG_FILES contrib/delayresume/Makefile" ;;
     "contrib/infiniband/Makefile") CONFIG_FILES="$CONFIG_FILES contrib/infiniband/Makefile" ;;
     "contrib/slurm-ft/Makefile") CONFIG_FILES="$CONFIG_FILES contrib/slurm-ft/Makefile" ;;
     "plugin/Makefile") CONFIG_FILES="$CONFIG_FILES plugin/Makefile" ;;
