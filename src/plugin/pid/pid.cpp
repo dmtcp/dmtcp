@@ -36,6 +36,8 @@ using namespace dmtcp;
 extern "C" pid_t dmtcp_update_ppid();
 
 static string pidMapFile;
+
+#ifdef ENABLE_PTHREAD_MUTEX_WRAPPERS
 dmtcp::map<pthread_mutex_t *, pid_t>&
 mapMutexVirtTid()
 {
@@ -47,6 +49,7 @@ mapMutexVirtTid()
   }
   return *instance;
 }
+#endif
 
 extern "C"
 pid_t
@@ -197,6 +200,7 @@ pidVirt_PostRestart()
   VirtualPidTable::instance().writeMapsToFile(PROTECTED_PIDMAP_FD);
 }
 
+#ifdef ENABLE_PTHREAD_MUTEX_WRAPPERS
 static void
 pidVirt_RefillTid()
 {
@@ -208,6 +212,7 @@ pidVirt_RefillTid()
     }
   }
 }
+#endif
 
 static void
 pidVirt_PostRestartRefill()
@@ -216,7 +221,9 @@ pidVirt_PostRestartRefill()
 
   dmtcp_close_protected_fd(PROTECTED_PIDMAP_FD);
   unlink(pidMapFile.c_str());
+#ifdef ENABLE_PTHREAD_MUTEX_WRAPPERS
   pidVirt_RefillTid();
+#endif
 }
 
 static void

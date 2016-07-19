@@ -98,6 +98,9 @@ libdmtcp_PROGRAMS = $(d_libdir)/libdmtcp_alloc.so$(EXEEXT) \
 	$(d_libdir)/libdmtcp_pid.so$(EXEEXT) \
 	$(d_libdir)/libdmtcp_svipc.so$(EXEEXT) \
 	$(d_libdir)/libdmtcp_timer.so$(EXEEXT)
+@ENABLE_PTHREAD_MUTEX_WRAPPERS_TRUE@am__append_1 = \
+@ENABLE_PTHREAD_MUTEX_WRAPPERS_TRUE@	pid/pid_mutexwrappers.cpp
+
 subdir = src/plugin
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/configure.ac
@@ -161,11 +164,17 @@ __d_libdir__libdmtcp_ipc_so_OBJECTS =  \
 __d_libdir__libdmtcp_ipc_so_DEPENDENCIES = $(am__DEPENDENCIES_1)
 __d_libdir__libdmtcp_ipc_so_LINK = $(CXXLD) $(AM_CXXFLAGS) $(CXXFLAGS) \
 	$(__d_libdir__libdmtcp_ipc_so_LDFLAGS) $(LDFLAGS) -o $@
+am____d_libdir__libdmtcp_pid_so_SOURCES_DIST = pid/pid.cpp \
+	pid/pid_filewrappers.cpp pid/pid.h pid/pid_miscwrappers.cpp \
+	pid/pid_syscallsreal.c pid/pidwrappers.cpp pid/pidwrappers.h \
+	pid/sched_wrappers.cpp pid/virtualpidtable.cpp \
+	pid/virtualpidtable.h pid/pid_mutexwrappers.cpp
+@ENABLE_PTHREAD_MUTEX_WRAPPERS_TRUE@am__objects_1 = pid_mutexwrappers.$(OBJEXT)
 am___d_libdir__libdmtcp_pid_so_OBJECTS = pid.$(OBJEXT) \
 	pid_filewrappers.$(OBJEXT) pid_miscwrappers.$(OBJEXT) \
 	pid_syscallsreal.$(OBJEXT) pidwrappers.$(OBJEXT) \
 	sched_wrappers.$(OBJEXT) virtualpidtable.$(OBJEXT) \
-	pid_mutexwrappers.$(OBJEXT)
+	$(am__objects_1)
 __d_libdir__libdmtcp_pid_so_OBJECTS =  \
 	$(am___d_libdir__libdmtcp_pid_so_OBJECTS)
 __d_libdir__libdmtcp_pid_so_LDADD = $(LDADD)
@@ -276,7 +285,7 @@ DIST_SOURCES = $(libssh_a_SOURCES) $(__d_bindir__dmtcp_ssh_SOURCES) \
 	$(__d_libdir__libdmtcp_alloc_so_SOURCES) \
 	$(__d_libdir__libdmtcp_dl_so_SOURCES) \
 	$(__d_libdir__libdmtcp_ipc_so_SOURCES) \
-	$(__d_libdir__libdmtcp_pid_so_SOURCES) \
+	$(am____d_libdir__libdmtcp_pid_so_SOURCES_DIST) \
 	$(__d_libdir__libdmtcp_svipc_so_SOURCES) \
 	$(__d_libdir__libdmtcp_timer_so_SOURCES)
 am__can_run_installinfo = \
@@ -566,19 +575,11 @@ __d_bindir__dmtcp_sshd_SOURCES = \
 __d_bindir__dmtcp_sshd_CPPFLAGS = $(AM_CPPFLAGS) -I$(srcdir)/ipc
 __d_bindir__dmtcp_sshd_LDADD = libssh.a $(LDADD)
 __d_bindir__dmtcp_sshd_SHORTNAME = i
-__d_libdir__libdmtcp_pid_so_SOURCES = \
-	pid/pid.cpp                                                    \
-	pid/pid_filewrappers.cpp                                       \
-	pid/pid.h                                                      \
-	pid/pid_miscwrappers.cpp                                       \
-	pid/pid_syscallsreal.c                                         \
-	pid/pidwrappers.cpp                                            \
-	pid/pidwrappers.h                                              \
-	pid/sched_wrappers.cpp                                         \
-	pid/virtualpidtable.cpp                                        \
-	pid/pid_mutexwrappers.cpp                                 \
-	pid/virtualpidtable.h
-
+__d_libdir__libdmtcp_pid_so_SOURCES = pid/pid.cpp \
+	pid/pid_filewrappers.cpp pid/pid.h pid/pid_miscwrappers.cpp \
+	pid/pid_syscallsreal.c pid/pidwrappers.cpp pid/pidwrappers.h \
+	pid/sched_wrappers.cpp pid/virtualpidtable.cpp \
+	pid/virtualpidtable.h $(am__append_1)
 __d_libdir__libdmtcp_pid_so_LDFLAGS = $(dmtcp_ldflags)
 __d_libdir__libdmtcp_svipc_so_SOURCES = \
 	svipc/sysvipc.cpp                                              \

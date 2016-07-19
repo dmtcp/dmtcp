@@ -254,6 +254,18 @@ AC_ARG_ENABLE([experts_only],
 	    [], [])
 AC_ARG_ENABLE([experts_only_after], [AS_HELP_STRING([ ], [])], [], [])
 
+AC_ARG_ENABLE([pthread_mutex_wrappers],
+            [AS_HELP_STRING([--enable-pthread-mutex-wrappers],
+                            [Recommended when using Open MPI])],
+            [use_pthread_mutex_wrappers=$enableval],
+            [use_pthread_mutex_wrappers=no])
+AM_CONDITIONAL(ENABLE_PTHREAD_MUTEX_WRAPPERS,
+               [test "$use_pthread_mutex_wrappers" = "yes"])
+if test "$use_pthread_mutex_wrappers" = "yes"; then
+  AC_DEFINE([ENABLE_PTHREAD_MUTEX_WRAPPERS],[1],[Enable pthread_mutex_* wrappers
+             for Open MPI])
+fi
+
 AC_ARG_ENABLE([m32],
             [AS_HELP_STRING([--enable-m32],
                             [Compile in 32 bit mode on 64 bit linux. (Works on
