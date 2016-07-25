@@ -615,6 +615,8 @@ void stopthisthread (int signum)
         strncpy(curThread->procname,
                 newName.c_str(),
                 sizeof(curThread->procname));
+        // Add a NULL at the end to make sure the string terminates in all cases
+        curThread->procname[sizeof(curThread->procname) - 1] = '\0';
       }
       JASSERT(prctl(PR_SET_NAME, curThread->procname) != -1 || errno == EINVAL)
         (curThread->procname) (JASSERT_ERRNO)

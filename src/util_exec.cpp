@@ -455,7 +455,7 @@ static int32_t getDlsymOffset_m32()
   JASSERT(fread(buf, 1, sizeof(buf), fp) > 0);
   dlsym_addr = strtoull(buf, NULL, 16);
   JASSERT(base_addr != 0);
-  fclose(fp);
+  pclose(fp);
 
   offset = (int32_t) ((char *)dlsym_addr - (char *)base_addr);
   return offset;

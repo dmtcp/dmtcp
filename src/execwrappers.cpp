@@ -244,6 +244,7 @@ static void execShortLivedProcessAndExit(const char *path, char *const argv[])
   }
   int numRead = fread(buf, 1, bufSize - 1, output);
   numRead++, numRead--; // suppress unused-var warning
+  buf[bufSize - 1] = '\0'; // NULL terminate in case the last char is not null
 
   pclose(output); // /lib/libXXX process is now done; can checkpoint now
   // FIXME:  code currently allows wrapper to proceed without lock if
@@ -304,7 +305,7 @@ static void dmtcpPrepareForExec(const char *path, char *const argv[],
   }
 
   // FIXME:  SEE COMMENTS IN dmtcp_launch.cpp, rev. 1087; AND CHANGE THIS.
-  if (Util::isSetuid(path)) {
+  if (path != NULL && Util::isSetuid(path)) {
     if (Util::isScreen(path)) {
       Util::setScreenDir();
     }
@@ -633,6 +634,7 @@ extern "C" int execl (const char *path, const char *arg, ...)
       {
         if (argv != initial_argv)
           free (argv);
+        va_end (args);
         return -1;
       }
       if (argv == initial_argv)
@@ -678,6 +680,7 @@ extern "C" int execlp (const char *file, const char *arg, ...)
       {
         if (argv != initial_argv)
           free (argv);
+        va_end (args);
         return -1;
       }
       if (argv == initial_argv)
@@ -722,6 +725,7 @@ extern "C" int execle(const char *path, const char *arg, ...)
       {
         if (argv != initial_argv)
           free (argv);
+        va_end (args);
         return -1;
       }
       if (argv == initial_argv)

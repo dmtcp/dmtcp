@@ -340,8 +340,6 @@ dmtcp_get_restart_env(const char *name,   // IN
   int env_fd = dup(dmtcp_protected_environ_fd());
   JASSERT(env_fd != -1)(env_fd)(dmtcp_protected_environ_fd());
   lseek(env_fd, 0, SEEK_SET);
-  int namelen = strlen(name);
-  *value = '\0'; // Default is null string
 
   int rc = RESTART_ENV_NOTFOUND; // Default is -1: name not found
 
@@ -352,6 +350,8 @@ dmtcp_get_restart_env(const char *name,   // IN
     return RESTART_ENV_NULL_PTR;
   }
 
+  int namelen = strlen(name);
+  *value = '\0'; // Default is null string
   char *pos = NULL;
 
   while (rc == RESTART_ENV_NOTFOUND) {

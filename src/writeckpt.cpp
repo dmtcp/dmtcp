@@ -409,12 +409,13 @@ static void writememoryarea (int fd, Area *area, int stack_was_seen)
 {
   void *addr = area->addr;
 
-  if (!(area -> flags & MAP_ANONYMOUS))
+  if (!(area -> flags & MAP_ANONYMOUS)) {
     JTRACE("save region") (addr) (area->size) (area->name) (area->offset);
-  else if (area -> name[0] == '\0')
+  } else if (area -> name[0] == '\0') {
     JTRACE("save anonymous") (addr) (area->size);
-  else
+  } else {
     JTRACE("save anonymous") (addr) (area->size) (area->name) (area->offset);
+  }
 
   if ((area -> name[0]) == '\0') {
     char *brk = (char*)sbrk(0);
