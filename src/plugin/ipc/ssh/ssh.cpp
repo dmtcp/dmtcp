@@ -428,7 +428,7 @@ static void updateCoordHost() {
       }
     }
     if (!success) {
-      JWARNING("Failed to find coordinator IP address.  DMTCP may fail.") (hostname) ;
+      JWARNING(false)("Failed to find coordinator IP address.  DMTCP may fail.") (hostname) ;
     }
   } else {
     if (error == EAI_SYSTEM) {
@@ -440,6 +440,7 @@ static void updateCoordHost() {
   }
 
   SharedData::setCoordHost(&localhostIPAddr);
+  freeaddrinfo(result);
 }
 
 extern "C" int execve (const char *filename, char *const argv[],

@@ -288,7 +288,7 @@ char* CoordinatorAPI::connectAndSendUserCommand(char c,
 string CoordinatorAPI::getCoordCkptDir(void)
 {
   // FIXME: Add a test for make-check.
-  char buf[PATH_MAX];
+  char buf[PATH_MAX] = {0};
   if (noCoordinator()) return "";
   DmtcpMessage msg(DMT_GET_CKPT_DIR);
   sendMsgToCoordinator(msg);
@@ -387,8 +387,8 @@ void CoordinatorAPI::waitForBarrier(const string& barrierId)
 
 void CoordinatorAPI::startNewCoordinator(CoordinatorMode mode)
 {
-  const char *host;
-  int port;
+  const char *host = NULL;
+  int port = UNINITIALIZED_PORT;
   CoordinatorAPI::getCoordHostAndPort(mode, &host, &port);
 
   JASSERT(strcmp(host, "localhost") == 0 ||
@@ -641,7 +641,7 @@ int CoordinatorAPI::sendKeyValPairToCoordinator(const char *id,
 {
   DmtcpMessage msg (DMT_REGISTER_NAME_SERVICE_DATA);
   JWARNING(strlen(id) < sizeof(msg.nsid));
-  strncpy(msg.nsid, id, 8);
+  strncpy(msg.nsid, id, sizeof msg.nsid);
   msg.keyLen = key_len;
   msg.valLen = val_len;
   msg.extraBytes = key_len + val_len;
@@ -677,7 +677,7 @@ int CoordinatorAPI::sendQueryToCoordinator(const char *id,
 {
   DmtcpMessage msg (DMT_NAME_SERVICE_QUERY);
   JWARNING(strlen(id) < sizeof(msg.nsid));
-  strncpy(msg.nsid, id, 8);
+  strncpy(msg.nsid, id, sizeof msg.nsid);
   msg.keyLen = key_len;
   msg.valLen = 0;
   msg.extraBytes = key_len;
@@ -727,7 +727,7 @@ void CoordinatorAPI::setupVirtualCoordinator(CoordinatorInfo *coordInfo,
                                              struct in_addr  *localIP)
 {
   const char *host = NULL;
-  int port;
+  int port = UNINITIALIZED_PORT;
   CoordinatorAPI::getCoordHostAndPort(COORD_NONE, &host, &port);
   jalib::JSocket sock =
     jalib::JServerSocket(jalib::JSockAddr::ANY, port).sockfd();

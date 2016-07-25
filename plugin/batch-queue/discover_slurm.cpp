@@ -245,6 +245,7 @@ int resources_slurm::discover()
       slotnum = slots->next();
       if( slotnum < 0 ){
         fprintf(stderr, "Error: environment variables SLURM_JOB_NODELIST or SLURM_NODELIST are not set!\n");
+        delete slots;
         return -1;
       }
     }
@@ -255,5 +256,6 @@ int resources_slurm::discover()
     node_map[node].is_launch = is_launch;
     is_launch = false;
   }
+  delete slots;
   return 0;
 }

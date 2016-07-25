@@ -208,6 +208,7 @@ void SignalFdConnection::drain()
   size = read(signlfd, &_fdsi, sizeof(struct signalfd_siginfo));
   if (-1 != size) {
     // Save the value, so that it can be restored in post-checkpoint
+    // XXX: What's the purpose of memcpy here?
     memcpy(&_fdsi, &_fdsi, sizeof(struct signalfd_siginfo));
 
   } else {

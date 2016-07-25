@@ -747,7 +747,9 @@ void PosixMQConnection::on_mq_notify(const struct sigevent *sevp)
     _notifyReg = false;
   } else {
     _notifyReg = true;
-    _sevp = *sevp;
+    if (sevp) {
+      _sevp = *sevp;
+    }
   }
 }
 
