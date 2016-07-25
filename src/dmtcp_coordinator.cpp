@@ -832,8 +832,7 @@ void DmtcpCoordinator::processDmtUserCmd(DmtcpMessage& hello_remote,
     // Reply will be done in DmtcpCoordinator::onData in this file.
     blockUntilDoneRemote = remote.sockfd();
     handleUserCommand( hello_remote.coordCmd, &reply );
-  } else if ( (hello_remote.coordCmd == 'i')
-               && hello_remote.theCheckpointInterval >= 0 ) {
+  } else if ( (hello_remote.coordCmd == 'i') ) {
 //    theDefaultCheckpointInterval = hello_remote.theCheckpointInterval;
 //    theCheckpointInterval = theDefaultCheckpointInterval;
     handleUserCommand( hello_remote.coordCmd, &reply );
@@ -1172,7 +1171,7 @@ static void calcLocalAddr()
       }
     }
     if (!success) {
-      JWARNING("Failed to find coordinator IP address.  DMTCP may fail.") (hostname) ;
+      JWARNING(false)("Failed to find coordinator IP address.  DMTCP may fail.") (hostname) ;
     }
   } else {
     if (error == EAI_SYSTEM) {
@@ -1183,6 +1182,7 @@ static void calcLocalAddr()
     inet_aton("127.0.0.1", &localhostIPAddr);
   }
   coordHostname = hostname;
+  freeaddrinfo(result);
 }
 
 static void resetCkptTimer()

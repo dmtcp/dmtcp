@@ -353,7 +353,7 @@ string writeScript(const string& ckptDir,
 
   map< string, vector<string> >::const_iterator host;
 
-  size_t numPeers;
+  size_t numPeers = 0;
   for (host = restartFilenames.begin();
        host != restartFilenames.end();
        host++) {

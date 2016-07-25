@@ -560,7 +560,7 @@ static void restorememoryareas(RestoreInfo *rinfo_ptr)
 
   RestoreInfo restore_info;
   mtcp_memcpy(&restore_info, rinfo_ptr, sizeof (restore_info));
-  if (rinfo_ptr->saved_brk != NULL); {
+  if (rinfo_ptr->saved_brk != NULL) {
     // Now, we can do the pending mtcp_sys_brk(rinfo.saved_brk).
     // It's now safe to do this, even though it can munmap memory holding rinfo.
     mtcp_sys_brk(rinfo_ptr->saved_brk);
