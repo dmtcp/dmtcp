@@ -141,8 +141,8 @@ int readAndSetEnv(char *buf, int size) {
   // We call read() on env.txt in dir of getCkptDir() until readEOF==(char)-1
   char *c = buf;
   char nameBuf[1000] = {'\0'};
-  char valueBuf[1000];
-  char nameChanged[10000];
+  char valueBuf[1000] = {0};
+  char nameChanged[10000] = {0};
   char *dest = nameBuf;
   int isStringMode = 0; // isStringMode is true if in middle of string: "..."
   char *nameChanged_end = nameChanged;
@@ -221,7 +221,7 @@ int readAndSetEnv(char *buf, int size) {
           // Copy expansion of envName into dest
           int rc = 0;
           if (isNameChanged && getenv(envName)) {
-            strcpy(dest, getenv(envName));
+            strncpy(dest, getenv(envName), sizeof nameBuf);
           } else {
             rc = dmtcp_get_restart_env(envName, dest,
                                          sizeof(valueBuf) - (dest - valueBuf));

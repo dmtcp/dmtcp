@@ -137,11 +137,11 @@ EXTERNC int sigaction(int signum, const struct sigaction *act,
                       struct sigaction *oldact)
 {
   if(signum == bannedSignalNumber() && act != NULL) {
-    JWARNING("Application trying to use DMTCP's signal for it's own use.\n"
-             "  You should employ a different signal by setting the\n"
-             "  environment variable DMTCP_SIGCKPT to the number\n"
-             "  of the signal that DMTCP should use for checkpointing.")
-      (stopSignal);
+    JWARNING(false)("Application trying to use DMTCP's signal for it's own use.\n"
+                    "  You should employ a different signal by setting the\n"
+                    "  environment variable DMTCP_SIGCKPT to the number\n"
+                    "  of the signal that DMTCP should use for checkpointing.")
+                   (stopSignal);
     act = NULL;
   }
   return _real_sigaction( signum, act, oldact);
