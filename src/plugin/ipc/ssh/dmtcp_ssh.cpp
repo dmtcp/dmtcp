@@ -181,7 +181,7 @@ int main(int argc, char *argv[], char *envp[])
           *ptr = '\0';
           ptr++;
         }
-        sprintf(buf, "%s --host %s --port %d %s",
+        snprintf(buf, sizeof buf, "%s --host %s --port %d %s",
                 argv[i], hostip, port, ptr);
         argv[i] = buf;
       }

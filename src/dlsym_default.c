@@ -79,7 +79,7 @@ static unsigned long elf_hash(const char *name) {
     h = (h << 4) + *name++;
     if ((g = h & 0xf0000000))
       h ^= g >> 24;
-      h &= ~g;
+      h &= ~g; // XXX: Where does this go? Is it a part of the if clause or the while loop?
   }
   return h;
 }
