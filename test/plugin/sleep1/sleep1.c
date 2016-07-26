@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <sys/time.h>
-#include "config.h"
 #include "dmtcp.h"
 
 void
@@ -42,7 +41,7 @@ static DmtcpBarrier barriers[] = {
 
 DmtcpPluginDescriptor_t sleep1_plugin = {
   DMTCP_PLUGIN_API_VERSION,
-  PACKAGE_VERSION,
+  DMTCP_PACKAGE_VERSION,
   "sleep1",
   "DMTCP",
   "dmtcp@ccs.neu.edu",

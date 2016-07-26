@@ -1,5 +1,4 @@
 #include <stdio.h>
-#include "config.h"
 #include "dmtcp.h"
 
 
@@ -45,7 +44,7 @@ static DmtcpBarrier barriers[] = {
 
 DmtcpPluginDescriptor_t example_plugin = {
   DMTCP_PLUGIN_API_VERSION,
-  PACKAGE_VERSION,
+  DMTCP_PACKAGE_VERSION,
   "example",
   "DMTCP",
   "dmtcp@ccs.neu.edu",

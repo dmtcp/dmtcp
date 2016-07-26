@@ -38,6 +38,10 @@
 # endif // ifdef __cplusplus
 #endif // ifndef EXTERNC
 
+/* Define to the version of this package. */
+#define DMTCP_PACKAGE_VERSION "@PACKAGE_VERSION@"
+#define DMTCP_PLUGIN_API_VERSION "3"
+
 // C++ takes null arg, while C takes void arg.
 #ifdef __cplusplus
 # define DMTCP_VOID
@@ -46,8 +50,6 @@
 #endif // ifdef __cplusplus
 
 #define LIB_PRIVATE              __attribute__((visibility("hidden")))
-
-#define DMTCP_PLUGIN_API_VERSION "3"
 
 typedef enum eDmtcpEvent {
   DMTCP_EVENT_INIT,

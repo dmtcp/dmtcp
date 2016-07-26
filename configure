@@ -4930,7 +4930,7 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 ac_config_headers="$ac_config_headers include/config.h"
 
-ac_config_files="$ac_config_files Makefile contrib/Makefile contrib/ckptfile/Makefile contrib/infiniband/Makefile plugin/Makefile src/Makefile src/mtcp/Makefile src/plugin/Makefile test/Makefile test/autotest_config.py test/plugin/Makefile"
+ac_config_files="$ac_config_files Makefile contrib/Makefile contrib/ckptfile/Makefile contrib/infiniband/Makefile plugin/Makefile src/Makefile src/mtcp/Makefile src/plugin/Makefile include/dmtcp.h test/Makefile test/autotest_config.py test/plugin/Makefile"
 
 #AC_CONFIG_FILES([test/credentials/Makefile])
 
@@ -8118,6 +8118,7 @@ do
     "src/Makefile") CONFIG_FILES="$CONFIG_FILES src/Makefile" ;;
     "src/mtcp/Makefile") CONFIG_FILES="$CONFIG_FILES src/mtcp/Makefile" ;;
     "src/plugin/Makefile") CONFIG_FILES="$CONFIG_FILES src/plugin/Makefile" ;;
+    "include/dmtcp.h") CONFIG_FILES="$CONFIG_FILES include/dmtcp.h" ;;
     "test/Makefile") CONFIG_FILES="$CONFIG_FILES test/Makefile" ;;
     "test/autotest_config.py") CONFIG_FILES="$CONFIG_FILES test/autotest_config.py" ;;
     "test/plugin/Makefile") CONFIG_FILES="$CONFIG_FILES test/plugin/Makefile" ;;

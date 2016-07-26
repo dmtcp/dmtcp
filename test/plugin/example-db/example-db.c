@@ -1,3 +1,5 @@
+// This code illustrates the publish/subscribe feature of DMTCP.
+
 /* NOTE:  This code assumes that two environment variables have
  *  been set:  EXAMPLE_DB_KEY and EXAMPLE_DB_KEY_OTHER (for the other process).
  *  We will announce our (EXAMPLE_DB_KEY, <pid>) to the coordinator, and then
@@ -9,7 +11,6 @@
 #include <string.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include "config.h"
 #include "dmtcp.h"
 
 struct keyPid {
@@ -105,7 +106,7 @@ static DmtcpBarrier barriers[] = {
 
 DmtcpPluginDescriptor_t example_db_plugin = {
   DMTCP_PLUGIN_API_VERSION,
-  PACKAGE_VERSION,
+  DMTCP_PACKAGE_VERSION,
   "example_db",
   "DMTCP",
   "dmtcp@ccs.neu.edu",
