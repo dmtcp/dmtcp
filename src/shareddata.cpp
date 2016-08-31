@@ -123,6 +123,14 @@ void SharedData::initialize(const char *tmpDir = NULL,
 
     int fd = _real_open(o.str().c_str(), O_RDWR | O_CREAT | O_EXCL, 0600);
     if (fd == -1 && errno == EEXIST) {
+      /* If the shared data area already exists, it's probably a conflict
+       * and two independent computations might have been launched at the
+       * same time.
+       * FIXME: We're unlikely to hit this bug since we are using a higher
+       *        resolution timer, clock_gettime() (1 nanosecond).
+       */
+      JWARNING(false)
+              ("Internal error detected! Shared data area already exists.");
       fd = _real_open(o.str().c_str(), O_RDWR, 0600);
     } else {
       needToInitialize = true;

@@ -20,6 +20,7 @@
  ****************************************************************************/
 
 #include <stdlib.h>
+#include <time.h>
 #include "uniquepid.h"
 #include "constants.h"
 #include "../jalib/jconvert.h"
@@ -74,11 +75,15 @@ static UniquePid& parentProcess()
 // So, it can't return a const UniquePid
 UniquePid& UniquePid::ThisProcess(bool disableJTrace /*=false*/)
 {
+  struct timespec value;
+  uint64_t nsecs = 0;
   if ( theProcess() == nullProcess() )
   {
+    JASSERT(clock_gettime(CLOCK_MONOTONIC, &value) == 0);
+    nsecs = value.tv_sec*100000000L + value.tv_nsec;
     theProcess() = UniquePid ( theUniqueHostId() ,
-                                      ::getpid(),
-                                      ::time(NULL) );
+                               ::getpid(),
+                               nsecs );
     if (disableJTrace == false) {
       JTRACE ( "recalculated process UniquePid..." ) ( theProcess() );
     }
