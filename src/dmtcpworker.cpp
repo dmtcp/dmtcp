@@ -104,7 +104,18 @@ void restoreUserLDPRELOAD()
   //   reset LD_PRELOAD back to ENV_VAR_ORIG_LD_PRELOAD in dmtcp_nocheckpoint
   char *preload = getenv("LD_PRELOAD");
   char *userPreload = getenv(ENV_VAR_ORIG_LD_PRELOAD);
-  JASSERT(userPreload == NULL || strlen(userPreload) <= strlen(preload));
+  //   NOTE: Consider the following sequence of calls:
+  //   dmtcp_launch a.out
+  //     exec(a.out) --> this function gets called from DmtcpWorker(), and the LD_PRELOAD is destroyed
+  //       exec(b.out)
+  //    If the call to exec b.out fails, this function will be called from
+  //    dmtcpProcessFailedExec(). The following JASSERT could fail if the user
+  //    had a non-null preload env var. And so, we need to be less aggressive,
+  //    report this to the user, and let the user handle the failed exec.
+  //JASSERT(userPreload == NULL || strlen(userPreload) <= strlen(preload));
+  JWARNING(userPreload == NULL || strlen(userPreload) <= strlen(preload))
+          (userPreload)(preload);
+
   // Destructively modify environment variable "LD_PRELOAD" in place:
   preload[0] = '\0';
   if (userPreload == NULL) {
