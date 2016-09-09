@@ -37,7 +37,7 @@ using namespace dmtcp;
 static void processArgs(int *orig_argc,
                         char ***orig_argv,
                         string *tmpDir_p,
-                        const char **host,
+                        string &host,
                         const char **portStr);
 static int testMatlab(const char *filename);
 static int testJava(char **argv);
@@ -218,14 +218,14 @@ static void
 processArgs(int *orig_argc,
             char ***orig_argv,
             string *tmpDir_p,
-            const char **host,
+            string &host,
             const char **portStr)
 {
   int argc = *orig_argc;
   char **argv = *orig_argv;
   char *tmpdir_arg = NULL;
 
-  *host = NULL; // uninitialized
+  host = ""; // uninitialized
   *portStr = NULL; // uninitialized
 
   if (argc == 1) {
@@ -282,7 +282,7 @@ processArgs(int *orig_argc,
       shift;
     } else if (argc > 1 &&
                (s == "-h" || s == "--coord-host" || s == "--host")) {
-      *host = argv[1];
+      host = argv[1];
       shift; shift;
     } else if (argc > 1 &&
                (s == "-p" || s == "--coord-port" || s == "--port")) {
@@ -357,9 +357,9 @@ processArgs(int *orig_argc,
       break;
     }
   }
- 
+
 #ifdef FAST_RST_VIA_MMAP
-  // In case of fast restart, we shall not use gzip. 
+  // In case of fast restart, we shall not use gzip.
   setenv(ENV_VAR_COMPRESSION, "0", 1);
 #endif
 
@@ -397,11 +397,11 @@ main(int argc, char **argv)
   }
 
   string tmpDir = "tmpDir is not set";
-  const char *host;
+  string host;
   const char *portStr;
 
   // This will change argv to refer to the target application.
-  processArgs(&argc, &argv, &tmpDir, &host, &portStr);
+  processArgs(&argc, &argv, &tmpDir, host, &portStr);
 
   initializeJalib();
 
@@ -552,13 +552,13 @@ main(int argc, char **argv)
   int port = (portStr ? jalib::StringToInt(portStr) : UNINITIALIZED_PORT);
 
   // Initialize host and port now.  Will be used in low-level functions.
-  CoordinatorAPI::getCoordHostAndPort(allowedModes, &host, &port);
+  CoordinatorAPI::getCoordHostAndPort(allowedModes, host, &port);
   CoordinatorAPI::instance().connectToCoordOnStartup(allowedModes, argv[0],
                                                      &compId, &coordInfo,
                                                      &localIPAddr);
 
   // If port was 0, we'll get new random port when coordinator starts up.
-  CoordinatorAPI::getCoordHostAndPort(allowedModes, &host, &port);
+  CoordinatorAPI::getCoordHostAndPort(allowedModes, host, &port);
   Util::writeCoordPortToFile(port, thePortFile.c_str());
 
   string installDir =

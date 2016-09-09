@@ -237,9 +237,9 @@ class RestoreTarget
         }
 
         // dmtcp_restart sets ENV_VAR_NAME_HOST/PORT, even if cmd line flag used
-        const char *host = NULL;
+        string host = "";
         int port = UNINITIALIZED_PORT;
-        CoordinatorAPI::getCoordHostAndPort(allowedModes, &host, &port);
+        CoordinatorAPI::getCoordHostAndPort(allowedModes, host, &port);
 
         // FIXME:  We will use the new HOST and PORT here, but after restart,,
         // we will use the old HOST and PORT from the ckpt image.
@@ -248,12 +248,12 @@ class RestoreTarget
                                                            _pInfo.compGroup(),
                                                            _pInfo.numPeers(),
                                                            &coordInfo,
-                                                           host,
+                                                           host.c_str(),
                                                            port,
                                                            &localIPAddr);
 
         // If port was 0, we'll get new random port when coordinator starts up.
-        CoordinatorAPI::getCoordHostAndPort(allowedModes, &host, &port);
+        CoordinatorAPI::getCoordHostAndPort(allowedModes, host, &port);
         Util::writeCoordPortToFile(port, thePortFile.c_str());
 
         string installDir =
@@ -356,16 +356,16 @@ class RestoreTarget
 
       if (!createIndependentRootProcesses) {
         // dmtcp_restart sets ENV_VAR_NAME_HOST/PORT, even if cmd line flag used
-        const char *host = NULL;
+        string host = "";
         int port = UNINITIALIZED_PORT;
         int *port_p = &port;
-        CoordinatorAPI::getCoordHostAndPort(allowedModes, &host, port_p);
+        CoordinatorAPI::getCoordHostAndPort(allowedModes, host, port_p);
         CoordinatorAPI::instance().connectToCoordOnRestart(allowedModes,
                                                            _pInfo.procname(),
                                                            _pInfo.compGroup(),
                                                            _pInfo.numPeers(),
                                                            NULL,
-                                                           host,
+                                                           host.c_str(),
                                                            port,
                                                            NULL);
       }
@@ -437,12 +437,14 @@ runMtcpRestart(int is32bitElf, int fd, ProcessInfo *pInfo)
       do {
         rc = read(debugPipe[0], &currentDebugLevel, sizeof(currentDebugLevel));
         if (rc < 0) break;
-        rc = write(debugPipe[0], &requestedDebugLevel, sizeof(currentDebugLevel));
+        rc = write(debugPipe[0], &requestedDebugLevel,
+                   sizeof(currentDebugLevel));
         if (rc < 0) break;
       } while (currentDebugLevel != requestedDebugLevel);
       if (rc < 0) {
         JASSERT(false)
-            .Text("Unable to set up debug connection with the restarted process");
+               .Text("Unable to set up debug connection "
+                     "with the restarted process");
       }
       char cpid[10]; // XXX: Is 10 digits enough for a PID?
       snprintf(cpid, 10, "%d", pid);

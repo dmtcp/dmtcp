@@ -485,7 +485,7 @@ getDlsymOffset_m32()
   fp = popen(cmd1.c_str(), "r");
   JASSERT(fp != NULL);
   JASSERT(fscanf(fp, "%s", (char *)&buf) == 1);
-  fclose(fp);
+  pclose(fp);
   JASSERT(buf[0] == '/');
 
   libdl = buf;
@@ -498,7 +498,7 @@ getDlsymOffset_m32()
   JASSERT(fread(buf, 1, sizeof(buf), fp) > 0);
   base_addr = strtoull(buf, NULL, 16);
   JASSERT(base_addr != 0);
-  fclose(fp);
+  pclose(fp);
 
   cmd2 = "nm -D -g " + libdl + " | grep 'dlsym'";
   fp = popen(cmd2.c_str(), "r");

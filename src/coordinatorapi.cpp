@@ -78,24 +78,24 @@ static int _cachedPort = 0;
 
 void
 CoordinatorAPI::getCoordHostAndPort(CoordinatorMode mode,
-                                    const char **host,
+                                    string &host,
                                     int *port)
 {
   if (SharedData::initialized()) {
-    *host = SharedData::coordHost().c_str();
+    host = SharedData::coordHost();
     *port = SharedData::coordPort();
     return;
   }
 
   if (_firstTime) {
     // Set host to cmd line (if --cord-host) or env var or DEFAULT_HOST
-    if (*host == NULL) {
+    if (host == "") {
       if (getenv(ENV_VAR_NAME_HOST)) {
-        *host = getenv(ENV_VAR_NAME_HOST);
+        host = getenv(ENV_VAR_NAME_HOST);
       } else if (getenv("DMTCP_HOST")) { // deprecated
-        *host = getenv("DMTCP_HOST");
+        host = getenv("DMTCP_HOST");
       } else {
-        *host = DEFAULT_HOST;
+        host = DEFAULT_HOST;
       }
     }
 
@@ -113,7 +113,7 @@ CoordinatorAPI::getCoordHostAndPort(CoordinatorMode mode,
       }
     }
 
-    _cachedHost = *host;
+    _cachedHost = host.c_str();
     _cachedPort = *port;
     _firstTime = false;
   } else {
@@ -122,7 +122,7 @@ CoordinatorAPI::getCoordHostAndPort(CoordinatorMode mode,
     if (*port > 0 && _cachedPort == 0) {
       _cachedPort = *port;
     }
-    *host = _cachedHost;
+    host = _cachedHost;
     *port = _cachedPort;
   }
 }
@@ -178,12 +178,12 @@ getCkptInterval()
 static int
 createNewSocketToCoordinator(CoordinatorMode mode)
 {
-  const char *host = NULL;
+  string host = "";
   int port = UNINITIALIZED_PORT;
 
-  CoordinatorAPI::getCoordHostAndPort(COORD_ANY, &host, &port);
+  CoordinatorAPI::getCoordHostAndPort(COORD_ANY, host, &port);
 
-  return jalib::JClientSocket(host, port).sockfd();
+  return jalib::JClientSocket(host.c_str(), port).sockfd();
 }
 
 // CoordinatorAPI::CoordinatorAPI (int sockfd)
@@ -419,13 +419,13 @@ CoordinatorAPI::waitForBarrier(const string &barrierId)
 void
 CoordinatorAPI::startNewCoordinator(CoordinatorMode mode)
 {
-  const char *host = NULL;
+  string host = "";
   int port = UNINITIALIZED_PORT;
-  CoordinatorAPI::getCoordHostAndPort(mode, &host, &port);
+  CoordinatorAPI::getCoordHostAndPort(mode, host, &port);
 
-  JASSERT(strcmp(host, "localhost") == 0 ||
-          strcmp(host, "127.0.0.1") == 0 ||
-          jalib::Filesystem::GetCurrentHostname() == host)
+  JASSERT(strcmp(host.c_str(), "localhost") == 0 ||
+          strcmp(host.c_str(), "127.0.0.1") == 0 ||
+          jalib::Filesystem::GetCurrentHostname() == host.c_str())
     (host) (jalib::Filesystem::GetCurrentHostname())
   .Text("Won't automatically start coordinator because DMTCP_HOST"
         " is set to a remote host.");
@@ -776,9 +776,9 @@ void
 CoordinatorAPI::setupVirtualCoordinator(CoordinatorInfo *coordInfo,
                                         struct in_addr *localIP)
 {
-  const char *host = NULL;
+  string host = "";
   int port = UNINITIALIZED_PORT;
-  CoordinatorAPI::getCoordHostAndPort(COORD_NONE, &host, &port);
+  CoordinatorAPI::getCoordHostAndPort(COORD_NONE, host, &port);
   jalib::JSocket sock =
     jalib::JServerSocket(jalib::JSockAddr::ANY, port).sockfd();
 
