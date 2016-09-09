@@ -98,11 +98,11 @@ static uint32_t getCkptInterval()
 
 static jalib::JSocket createNewSocketToCoordinator(CoordinatorMode mode)
 {
-  const char*host = NULL;
+  string host = "";
   int port = UNINITIALIZED_PORT;
 
-  Util::getCoordHostAndPort(COORD_ANY, &host, &port);
-  return jalib::JClientSocket(host, port);
+  Util::getCoordHostAndPort(COORD_ANY, host, &port);
+  return jalib::JClientSocket(host.c_str(), port);
 }
 
 //CoordinatorAPI::CoordinatorAPI (int sockfd)
@@ -165,9 +165,9 @@ void CoordinatorAPI::resetOnFork(CoordinatorAPI& coordAPI)
 void CoordinatorAPI::setupVirtualCoordinator(CoordinatorInfo *coordInfo,
                                              struct in_addr  *localIP)
 {
-  const char *host = NULL;
+  string host = NULL;
   int port = UNINITIALIZED_PORT;
-  Util::getCoordHostAndPort(COORD_NONE, &host, &port);
+  Util::getCoordHostAndPort(COORD_NONE, host, &port);
   _coordinatorSocket = jalib::JServerSocket(jalib::JSockAddr::ANY, port);
   JASSERT(_coordinatorSocket.isValid()) (port) (JASSERT_ERRNO)
     .Text("Failed to create listen socket.");
@@ -433,12 +433,12 @@ void CoordinatorAPI::recvMsgFromCoordinator(DmtcpMessage *msg, void **extraData)
 
 void CoordinatorAPI::startNewCoordinator(CoordinatorMode mode)
 {
-  const char *host = NULL;
+  string host = "";
   int port = UNINITIALIZED_PORT;
-  Util::getCoordHostAndPort(mode, &host, &port);
+  Util::getCoordHostAndPort(mode, host, &port);
 
-  JASSERT(strcmp(host, "localhost") == 0 ||
-          strcmp(host, "127.0.0.1") == 0 ||
+  JASSERT(strcmp(host.c_str(), "localhost") == 0 ||
+          strcmp(host.c_str(), "127.0.0.1") == 0 ||
           jalib::Filesystem::GetCurrentHostname() == host)
     (host) (jalib::Filesystem::GetCurrentHostname())
     .Text("Won't automatically start coordinator because DMTCP_HOST"

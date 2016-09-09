@@ -184,7 +184,7 @@ namespace dmtcp
     string getPath(string cmd, bool is32bit = false);
 #define UNINITIALIZED_PORT (-1) /* used with getCoordHostAndPort() */
     void getCoordHostAndPort(CoordinatorMode mode,
-                             const char **host, int *port);
+                             string &host, int *port);
     void setCoordPort(int port);
     void getDmtcpArgs(vector<string> &dmtcp_args);
     void allowGdbDebug(int currentDebugLevel);

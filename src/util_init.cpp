@@ -37,10 +37,10 @@
 using namespace dmtcp;
 
 void Util::getCoordHostAndPort(CoordinatorMode mode,
-                               const char **host, int *port)
+                               string &host, int *port)
 {
   if (SharedData::initialized()) {
-    *host = SharedData::coordHost().c_str();
+    host = SharedData::coordHost();
     *port = SharedData::coordPort();
     return;
   }
@@ -51,13 +51,13 @@ void Util::getCoordHostAndPort(CoordinatorMode mode,
 
   if (_firstTime) {
     // Set host to cmd line (if --cord-host) or env var or DEFAULT_HOST
-    if (*host == NULL) {
+    if (host == "") {
       if (getenv(ENV_VAR_NAME_HOST)) {
-        *host = getenv(ENV_VAR_NAME_HOST);
+        host = getenv(ENV_VAR_NAME_HOST);
       } else if (getenv("DMTCP_HOST")) { // deprecated
-        *host = getenv("DMTCP_HOST");
+        host = getenv("DMTCP_HOST");
       } else {
-        *host = DEFAULT_HOST;
+        host = DEFAULT_HOST;
       }
     }
 
@@ -75,7 +75,7 @@ void Util::getCoordHostAndPort(CoordinatorMode mode,
       }
     }
 
-    _cachedHost = *host;
+    _cachedHost = host.c_str();
     _cachedPort = *port;
     _firstTime = false;
 
@@ -85,15 +85,15 @@ void Util::getCoordHostAndPort(CoordinatorMode mode,
     if (*port > 0 && _cachedPort == 0) {
       _cachedPort = *port;
     }
-    *host = _cachedHost;
+    host = _cachedHost;
     *port = _cachedPort;
   }
 }
 void Util::setCoordPort(int port)
 {
-  const char *host = NULL;
+  string host = NULL;
   // mode will be ignored, since this is not the first time we call this.
-  Util::getCoordHostAndPort(COORD_ANY, &host, &port);
+  Util::getCoordHostAndPort(COORD_ANY, host, &port);
 }
 
 void Util::writeCoordPortToFile(int port, const char *portFile)

@@ -223,9 +223,9 @@ class RestoreTarget
         }
 
         // dmtcp_restart sets ENV_VAR_NAME_HOST/PORT, even if cmd line flag used
-        const char *host = NULL;
+        string host = "";
         int port = UNINITIALIZED_PORT;
-        Util::getCoordHostAndPort(allowedModes, &host, &port);
+        Util::getCoordHostAndPort(allowedModes, host, &port);
         // FIXME:  We will use the new HOST and PORT here, but after restart,,
         //           we will use the old HOST and PORT from the ckpt image.
         CoordinatorAPI::instance().connectToCoordOnRestart(allowedModes,
@@ -233,11 +233,11 @@ class RestoreTarget
                                                            _pInfo.compGroup(),
                                                            _pInfo.numPeers(),
                                                            &coordInfo,
-                                                           host,
+                                                           host.c_str(),
                                                            port,
                                                            &localIPAddr);
         // If port was 0, we'll get new random port when coordinator starts up.
-        Util::getCoordHostAndPort(allowedModes, &host, &port);
+        Util::getCoordHostAndPort(allowedModes, host, &port);
         Util::writeCoordPortToFile(port, thePortFile.c_str());
 
         string installDir =
@@ -340,16 +340,16 @@ class RestoreTarget
 
       if (!createIndependentRootProcesses) {
         // dmtcp_restart sets ENV_VAR_NAME_HOST/PORT, even if cmd line flag used
-        const char *host = NULL;
+        string host = "";
         int port = UNINITIALIZED_PORT;
         int *port_p = &port;
-        Util::getCoordHostAndPort(allowedModes, &host, port_p);
+        Util::getCoordHostAndPort(allowedModes, host, port_p);
         CoordinatorAPI::instance().connectToCoordOnRestart(allowedModes,
                                                            _pInfo.procname(),
                                                            _pInfo.compGroup(),
                                                            _pInfo.numPeers(),
                                                            NULL,
-                                                           host,
+                                                           host.c_str(),
                                                            port,
                                                            NULL);
       }

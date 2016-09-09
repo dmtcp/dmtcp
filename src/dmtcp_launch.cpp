@@ -216,12 +216,12 @@ static CoordinatorMode allowedModes = COORD_ANY;
 #define shift argc--,argv++
 static void processArgs(int *orig_argc, char ***orig_argv,
                         string *tmpDir_p,
-                        const char **host, const char **portStr)
+                        string &host, const char **portStr)
 {
   int argc = *orig_argc;
   char **argv = *orig_argv;
   char *tmpdir_arg = NULL;
-  *host = NULL; // uninitialized
+  host = ""; // uninitialized
   *portStr = NULL; // uninitialized
 
   if (argc == 1) {
@@ -277,7 +277,7 @@ static void processArgs(int *orig_argc, char ***orig_argv,
       setenv(ENV_VAR_CKPT_INTR, argv[0]+2, 1);
       shift;
     } else if (argc>1 && (s == "-h" || s == "--coord-host" || s == "--host")) {
-      *host = argv[1];
+      host = argv[1];
       shift; shift;
     } else if (argc>1 && (s == "-p" || s == "--coord-port" || s == "--port")) {
       *portStr = argv[1];
@@ -387,10 +387,10 @@ int main ( int argc, char** argv )
     setenv(ENV_VAR_QUIET, "0", 0);
 
   string tmpDir = "tmpDir is not set";
-  const char *host;
+  string host;
   const char *portStr;
   // This will change argv to refer to the target application.
-  processArgs(&argc, &argv, &tmpDir, &host, &portStr);
+  processArgs(&argc, &argv, &tmpDir, host, &portStr);
 
   initializeJalib();
 
@@ -534,12 +534,12 @@ int main ( int argc, char** argv )
   struct in_addr localIPAddr;
   int port = (portStr ? jalib::StringToInt(portStr) : UNINITIALIZED_PORT);
   // Initialize host and port now.  Will be used in low-level functions.
-  Util::getCoordHostAndPort(allowedModes, &host, &port);
+  Util::getCoordHostAndPort(allowedModes, host, &port);
   CoordinatorAPI::instance().connectToCoordOnStartup(allowedModes, argv[0],
                                                      &compId, &coordInfo,
                                                      &localIPAddr);
   // If port was 0, we'll get new random port when coordinator starts up.
-  Util::getCoordHostAndPort(allowedModes, &host, &port);
+  Util::getCoordHostAndPort(allowedModes, host, &port);
   Util::writeCoordPortToFile(port, thePortFile.c_str());
 
   string installDir =
