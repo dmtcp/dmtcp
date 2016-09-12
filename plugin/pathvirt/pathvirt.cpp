@@ -19,6 +19,7 @@
 #include <stdarg.h>
 #include <dirent.h>
 #include <fcntl.h>
+#include <sys/vfs.h>
 
 #undef open
 #undef open64
@@ -64,6 +65,8 @@
 #define _real_rmdir      NEXT_FNC(rmdir)
 #define _real_link       NEXT_FNC(link)
 #define _real_symlink    NEXT_FNC(symlink)
+#define _real_pathconf   NEXT_FNC(pathconf)
+#define _real_statfs     NEXT_FNC(statfs)
 
 /* paths should only be swapped on restarts (not on initial run), so this flag
    is set on restart */
@@ -734,4 +737,20 @@ extern "C" int symlink(const char *oldpath, const char *newpath)
   const char *new_phys_path = temp2.c_str();
 
   return _real_symlink(old_phys_path, new_phys_path);
+}
+
+extern "C" long pathconf(const char *path, int name)
+{
+  dmtcp::string temp = VIRTUAL_TO_PHYSICAL_PATH(path);
+  const char *phys_path = temp.c_str();
+
+  return _real_pathconf(phys_path, name);
+}
+
+extern "C" int statfs(const char *path, struct statfs *buf)
+{
+  dmtcp::string temp = VIRTUAL_TO_PHYSICAL_PATH(path);
+  const char *phys_path = temp.c_str();
+
+  return _real_statfs(phys_path, buf);
 }
