@@ -4929,7 +4929,7 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 ac_config_headers="$ac_config_headers include/config.h"
 
-ac_config_files="$ac_config_files Makefile contrib/Makefile contrib/ckptfile/Makefile contrib/infiniband/Makefile plugin/Makefile src/Makefile src/mtcp/Makefile src/plugin/Makefile test/Makefile test/autotest_config.py test/plugin/Makefile"
+ac_config_files="$ac_config_files Makefile contrib/Makefile contrib/ckptfile/Makefile contrib/infiniband/Makefile contrib/delayresume/Makefile plugin/Makefile src/Makefile src/mtcp/Makefile src/plugin/Makefile test/Makefile test/autotest_config.py test/plugin/Makefile"
 
 #AC_CONFIG_FILES([test/credentials/Makefile])
 
