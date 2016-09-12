@@ -27,6 +27,7 @@ AC_CONFIG_HEADERS([include/config.h])
 AC_CONFIG_FILES([Makefile \
                  contrib/Makefile \
                  contrib/ckptfile/Makefile \
+                 contrib/delayresume/Makefile \
                  contrib/infiniband/Makefile \
                  plugin/Makefile \
                  src/Makefile \
