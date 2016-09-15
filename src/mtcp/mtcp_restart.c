@@ -98,6 +98,8 @@ typedef struct RestoreInfo {
   VA vvarStart;
   VA vvarEnd;
   fnptr_t post_restart;
+  // NOTE: Update the offset when adding fields to the RestoreInfo struct
+  // See note below in the restart_fast_path() function.
   fnptr_t restorememoryareas_fptr;
   //void (*post_restart)();
   //void (*restorememoryareas_fptr)();
@@ -394,7 +396,7 @@ static void restart_fast_path()
   void *stack_ptr = rinfo.restore_addr + rinfo.restore_size - MB;
 
 #if defined(__INTEL_COMPILER) && defined(__x86_64__)
-  memfence();
+  asm volatile ("mfence" ::: "memory"); // memfence() defined in dmtcpplugin.cpp
   asm volatile (CLEAN_FOR_64_BIT(mov %0,%%esp;)
                 CLEAN_FOR_64_BIT(xor %%ebp,%%ebp)
                 : : "g" (stack_ptr) : "memory");
@@ -402,7 +404,9 @@ static void restart_fast_path()
   //     rinfo.restorememoryareas_fptr(&rinfo);
   // Intel icc-13.1.3 output uses register rbp here.  It's no longer available.
   asm volatile(
-   "movq    64+rinfo(%%rip), %%rdx;" /* rinfo.restorememoryareas_fptr */
+   // 96 = offsetof(RestoreInfo, rinfo.restorememoryareas_fptr)
+   // NOTE: Update the offset when adding fields to the RestoreInfo struct
+   "movq    96+rinfo(%%rip), %%rdx;" /* rinfo.restorememoryareas_fptr */
    "leaq    rinfo(%%rip), %%rdi;"    /* &rinfo */
    "movl    $0, %%eax;"
    "call    *%%rdx"
