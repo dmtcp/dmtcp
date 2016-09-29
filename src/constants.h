@@ -167,7 +167,7 @@
   "under certain conditions; see COPYING file for details.\n"
 
 #define HELP_AND_CONTACT_INFO             \
-  "Report bugs to: "PACKAGE_BUGREPORT"\n" \
-  "DMTCP home page: <"PACKAGE_URL">\n"
+  "Report bugs to: " PACKAGE_BUGREPORT "\n" \
+  "DMTCP home page: <" PACKAGE_URL ">\n"
 
 #endif

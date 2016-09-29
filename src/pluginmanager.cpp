@@ -55,22 +55,6 @@ void PluginManager::registerPlugin(DmtcpPluginDescriptor_t descr)
   pluginInfos.push_back(info);
 }
 
-static DmtcpPluginDescriptor_t createPluginDescr(const char *name,
-                                                 HookFunctionPtr_t hook)
-{
-  DmtcpPluginDescriptor_t descr = {
-    DMTCP_PLUGIN_API_VERSION,
-    PACKAGE_VERSION,
-    name,
-    "DMTCP",
-    "dmtcp@ccs.neu.edu",
-    "",
-    DMTCP_NO_PLUGIN_BARRIERS,
-    hook
-  };
-  return descr;
-}
-
 extern "C" void dmtcp_initialize_plugin()
 {
   // Now register the "in-built" plugins.
@@ -138,14 +122,14 @@ void PluginManager::registerBarriersWithCoordinator()
 
 void PluginManager::processCkptBarriers()
 {
-  for (int i = 0; i < pluginManager->pluginInfos.size(); i++) {
+  for (size_t i = 0; i < pluginManager->pluginInfos.size(); i++) {
     pluginManager->pluginInfos[i]->processBarriers();
   }
 }
 
 void PluginManager::processResumeBarriers()
 {
-  for (int i = pluginManager->pluginInfos.size() - 1; i >= 0; i--) {
+  for (size_t i = pluginManager->pluginInfos.size() - 1; i >= 0; i--) {
     pluginManager->pluginInfos[i]->processBarriers();
   }
 }
@@ -155,7 +139,7 @@ void PluginManager::processRestartBarriers()
   PluginManager::registerBarriersWithCoordinator();
 
   CoordinatorAPI::instance().waitForBarrier(firstRestartBarrier);
-  for (int i = pluginManager->pluginInfos.size() - 1; i >= 0; i--) {
+  for (size_t i = pluginManager->pluginInfos.size() - 1; i >= 0; i--) {
     pluginManager->pluginInfos[i]->processBarriers();
   }
 }

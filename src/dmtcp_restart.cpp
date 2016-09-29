@@ -797,7 +797,7 @@ int main(int argc, char** argv)
   WorkerState::setCurrentState(WorkerState::RESTARTING);
 
   /* Try to find non-orphaned process in independent procs list */
-  RestoreTarget *t;
+  RestoreTarget *t = NULL;
   bool foundNonOrphan = false;
   RestoreTargetMap::iterator it;
   for (it = independentProcessTreeRoots.begin();
@@ -810,6 +810,7 @@ int main(int argc, char** argv)
     }
   }
 
+  JASSERT(t != NULL);
   JASSERT(t->pid() != 0);
   JASSERT(!t->noCoordinator() || allowedModes == COORD_ANY)
     .Text("Process had no coordinator prior to checkpoint;\n"
