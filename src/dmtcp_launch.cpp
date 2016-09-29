@@ -35,7 +35,7 @@
 using namespace dmtcp;
 
 static void processArgs(int *orig_argc, char ***orig_argv,
-                        string *tmpDir_p, const char **host,
+                        string *tmpDir_p, string &host,
                         const char **portStr);
 static int testMatlab(const char *filename);
 static int testJava(char **argv);

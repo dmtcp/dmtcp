@@ -117,7 +117,7 @@ clfind(const char *colonList,  // IN
     char *colon = NULL;
 
     /* while there is a colon present, loop */
-    while (colon = strchr(element, ':')) {
+    while ((colon = strchr(element, ':'))) {
         /* check if element is a prefix of path. here, colon - element is
            an easy way to calculate the length of the element in the list
            to use as the size parameter to strncmp */
@@ -163,7 +163,7 @@ clget(const char *colonList, int i)
     char *colon = NULL;
 
     /* iterate through elements until last one */
-    while (colon = strchr(element, ':')) {
+    while ((colon = strchr(element, ':'))) {
         /* if we are at the request index, return pointer to start of element */
         if (curr_ind == i)
             return element;
