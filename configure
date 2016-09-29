@@ -4952,14 +4952,18 @@ else
 fi
 
 
+CFLAGS="$CFLAGS -Wall -Werror"
+CPPFLAGS="$CPPFLAGS -Wall -Werror"
+CXXFLAGS="$CXXFLAGS -Wall -Werror"
+
 if test "$use_jassert" = "yes"; then
   DEBUG=yes
 
 
 $as_echo "#define DEBUG 1" >>confdefs.h
 
-  CFLAGS="-DDEBUG -g -O0 -Wall"
-  CXXFLAGS="-DDEBUG -g -O0 -Wall"
+  CFLAGS="$CFLAGS -DDEBUG -g -O0"
+  CXXFLAGS="$CFLAGS -DDEBUG -g -O0"
 else
   DEBUG=no
 
