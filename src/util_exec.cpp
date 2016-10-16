@@ -678,7 +678,7 @@ void Util::getDmtcpArgs(vector<string> &dmtcp_args)
   }
 
   if (dmtcp_modify_env_enabled != NULL && dmtcp_modify_env_enabled()) {
-    dmtcp_args.push_back("--modify_env");
+    dmtcp_args.push_back("--modify-env");
   }
 
   if (dmtcp_infiniband_enabled != NULL && dmtcp_infiniband_enabled()) {
