@@ -175,19 +175,21 @@ static void send_qp_info(void)
 
       switch (internal_qp->user_qp.qp_type) {
         case IBV_QPT_RC:
-          PDEBUG("RC QP: Sending over original_id: "
-                 "0x%06x 0x%04x 0x%06x and current_id: "
-                 "0x%06x 0x%04x 0x%06x from %s\n",
-                 internal_qp->original_id.qpn, internal_qp->original_id.lid,
-                 internal_qp->original_id.psn, internal_qp->current_id.qpn,
-                 internal_qp->current_id.lid, internal_qp->current_id.psn,
-                 hostname);
+          if (internal_qp->in_use) {
+            PDEBUG("RC QP: Sending over original_id: "
+                   "0x%06x 0x%04x 0x%06x and current_id: "
+                   "0x%06x 0x%04x 0x%06x from %s\n",
+                   internal_qp->original_id.qpn, internal_qp->original_id.lid,
+                   internal_qp->original_id.psn, internal_qp->current_id.qpn,
+                   internal_qp->current_id.lid, internal_qp->current_id.psn,
+                   hostname);
 
-          dmtcp_send_key_val_pair_to_coordinator("qp_info",
-                                                 &internal_qp->original_id,
-            				         sizeof(internal_qp->original_id),
-                                                 &internal_qp->current_id,
-            				         sizeof(internal_qp->current_id));
+            dmtcp_send_key_val_pair_to_coordinator("qp_info",
+                                                   &internal_qp->original_id,
+                                                   sizeof(internal_qp->original_id),
+                                                   &internal_qp->current_id,
+                                                   sizeof(internal_qp->current_id));
+            }
           break;
 
         case IBV_QPT_UD:
@@ -236,7 +238,8 @@ static void query_qp_info(void)
     struct internal_ibv_qp * internal_qp;
 
     internal_qp = list_entry(e, struct internal_ibv_qp, elem);
-    if (internal_qp->user_qp.qp_type == IBV_QPT_RC) {
+    if (internal_qp->user_qp.qp_type == IBV_QPT_RC &&
+        internal_qp->in_use) {
       uint32_t size = sizeof(internal_qp->current_remote);
 
       PDEBUG("Querying for remote_id: 0x%06x 0x%04x 0x%06x from %s\n",
@@ -283,7 +286,8 @@ static void query_qp_pd_info(void) {
     struct internal_ibv_qp * internal_qp;
 
     internal_qp = list_entry(e, struct internal_ibv_qp, elem);
-    if (internal_qp->user_qp.qp_type == IBV_QPT_RC) {
+    if (internal_qp->user_qp.qp_type == IBV_QPT_RC &&
+        internal_qp->in_use) {
       size = sizeof(internal_qp->remote_pd_id);
       ret = dmtcp_send_query_to_coordinator("pd_info", 
                                             &internal_qp->remote_qp_pd_id, 
@@ -1839,7 +1843,7 @@ int _modify_qp(struct ibv_qp * qp, struct ibv_qp_attr * attr, int attr_mask)
   if (attr_mask & IBV_QP_DEST_QPN) {
     internal_qp->remote_id.qpn = attr->dest_qp_num;
     internal_qp->remote_qp_pd_id.qpn = attr->dest_qp_num;
-    if (is_restart) {
+    if (is_restart && internal_qp->in_use) {
       ibv_qp_pd_id_t id = {
         .qpn = attr->dest_qp_num,
 	.lid = attr->ah_attr.dlid
@@ -2230,8 +2234,11 @@ int _ibv_poll_cq(struct ibv_cq * cq, int num_entries, struct ibv_wc * wc)
   }
 
   for (i = 0; i < rslt; i++) {
-    struct internal_ibv_qp * internal_qp = qp_num_to_qp(&qp_list, wc[i].qp_num);
     if (i >= size) {
+      struct internal_ibv_qp * internal_qp = qp_num_to_qp(&qp_list, wc[i].qp_num);
+      if (!internal_qp->in_use && wc[i].status == IBV_WC_SUCCESS) {
+        internal_qp->in_use = true;
+      }
       enum ibv_wc_opcode opcode = wc[i].opcode;
       wc[i].qp_num = internal_qp->user_qp.qp_num;
       if (opcode & IBV_WC_RECV ||
