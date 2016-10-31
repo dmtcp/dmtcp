@@ -10,6 +10,7 @@ CXXFLAGS = @CXXFLAGS@
 LDFLAGS = @LDFLAGS@
 ARM_HOST = @ARM_HOST@
 PACKAGE = @PACKAGE@
+FAST_RST_VIA_MMAP = @FAST_RST_VIA_MMAP@
 
 # Allow the user to specify the install program.
 INSTALL = @INSTALL@
@@ -71,6 +72,10 @@ ifeq ($(HOST_IS_AARCH64),aarch64)
   ARM_EXTRAS = syscall-aarch64.S
   ARM_BINARIES = syscall-aarch64.o
   CFLAGS += -DMTCP_SYS_ERRNO_ON_STACK
+endif
+
+ifeq ($(FAST_RST_VIA_MMAP),yes)
+  CFLAGS += -DFAST_RST_VIA_MMAP
 endif
 
 HEADERS = mtcp_util.ic mtcp_sys.h mtcp_util.h ldt.h \
