@@ -87,7 +87,7 @@ namespace dmtcp
         : Connection(FILE)
         , _path(path)
         , _fileAlreadyExists(false)
-        , _flags(flags)
+        //, _flags(flags)
         /* No method uses _mode yet.  Stop compiler from issuing warning. */
         /* , _mode(mode) */
       {
@@ -127,7 +127,7 @@ namespace dmtcp
       int32_t       _allow_overwrite;
       int32_t       _fileAlreadyExists;
       int32_t       _rmtype;
-      int64_t       _flags;
+      //int64_t       _flags;
       /* No method uses _mode yet.  Stop compiler from issuing warning. */
       /* int64_t       _mode; */
       int64_t       _offset;

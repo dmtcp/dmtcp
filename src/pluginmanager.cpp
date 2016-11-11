@@ -129,7 +129,7 @@ void PluginManager::processCkptBarriers()
 
 void PluginManager::processResumeBarriers()
 {
-  for (size_t i = pluginManager->pluginInfos.size() - 1; i >= 0; i--) {
+  for (int i = pluginManager->pluginInfos.size() - 1; i >= 0; i--) {
     pluginManager->pluginInfos[i]->processBarriers();
   }
 }
@@ -139,7 +139,7 @@ void PluginManager::processRestartBarriers()
   PluginManager::registerBarriersWithCoordinator();
 
   CoordinatorAPI::instance().waitForBarrier(firstRestartBarrier);
-  for (size_t i = pluginManager->pluginInfos.size() - 1; i >= 0; i--) {
+  for (int i = pluginManager->pluginInfos.size() - 1; i >= 0; i--) {
     pluginManager->pluginInfos[i]->processBarriers();
   }
 }

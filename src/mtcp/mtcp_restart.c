@@ -830,7 +830,7 @@ static int read_one_memory_area(int fd)
   mtcp_readfile(fd, &area, sizeof area);
   if (area.size == -1) return -1;
 
-  if (area.name && mtcp_strstr(area.name, "[heap]")
+  if (area.name[0] && mtcp_strstr(area.name, "[heap]")
       && mtcp_sys_brk(NULL) != area.addr + area.size) {
     DPRINTF("WARNING: break (%p) not equal to end of heap (%p)\n",
             mtcp_sys_brk(NULL), area.addr + area.size);
