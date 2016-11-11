@@ -22,6 +22,8 @@
 #include <pthread.h>
 #include <stdio.h>
 
+#include "dmtcp.h"
+
 #ifndef __USE_GNU
 # define __USE_GNU_NOT_SET
 # define __USE_GNU
@@ -42,16 +44,7 @@
 # define DLSYM_DEFAULT_DEBUG(handle, symbol, info)
 #endif // ifdef DLSYM_DEFAULT_DO_DEBUG
 
-#ifdef __cplusplus
-extern "C"
-{
-#else // ifdef __cplusplus
-#endif // ifdef __cplusplus
-void *dlsym_default(void *handle, const char *symbol);
-#ifdef __cplusplus
-}
-#else // ifdef __cplusplus
-#endif // ifdef __cplusplus
+EXTERNC void *dlsym_default(void *handle, const char *symbol);
 
 #ifndef STANDALONE
 
