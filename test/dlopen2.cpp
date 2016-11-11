@@ -81,7 +81,6 @@ extern "C" int print_constructor() {
   sleep(1);
   return 0;
 }
-static int value = print_constructor();
 
 #elif defined(LIB4)
 extern "C" int fnc(int result[2]) {
@@ -96,6 +95,5 @@ extern "C" int print_constructor() {
   sleep(1);
   return 0;
 }
-static int value = print_constructor();
 
 #endif
