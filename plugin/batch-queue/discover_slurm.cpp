@@ -144,7 +144,7 @@ private:
   string	str;
   size_t pos;
   int slots, slots_remain;
-  bool is_end, is_empty;
+  bool is_end;
 
   void set_element(string s)
   {
