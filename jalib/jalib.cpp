@@ -34,7 +34,7 @@
 #include "jalib.h"
 #include "jassert.h"
 
-static jalib::JalibFuncPtrs jalibFuncPtrs;
+static JalibFuncPtrs jalibFuncPtrs;
 static int jalib_funcptrs_initialized = 0;
 
 static struct {
@@ -46,7 +46,7 @@ static struct {
 
 extern "C" void initializeJalib();
 
-extern "C" void jalib_init(jalib::JalibFuncPtrs _jalibFuncPtrs,
+extern "C" void jalib_init(JalibFuncPtrs _jalibFuncPtrs,
                            const char *elfInterpreter,
                            int stderrFd,
                            int jassertLogFd,

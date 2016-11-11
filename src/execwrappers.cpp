@@ -232,7 +232,7 @@ int daemon(int nochdir, int noclose)
   }
 
   if (!nochdir) {
-    (void)chdir("/");
+    JASSERT(chdir("/") == 0);
   }
 
   if (!noclose) {

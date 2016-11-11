@@ -287,7 +287,7 @@ clockid_t TimerList::on_pthread_getcpuclockid(pthread_t thread, clockid_t realId
   if (_clockVirtIdTable.size() > 800) {
     removeStaleClockIds();
   }
-  clockid_t virtId;
+  clockid_t virtId = -1;
   JASSERT(_clockVirtIdTable.getNewVirtualId(&virtId));
   _clockVirtIdTable.updateMapping(virtId, realId);
   _do_unlock_tbl();

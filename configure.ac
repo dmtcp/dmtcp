@@ -59,11 +59,15 @@ AC_ARG_ENABLE([debug],
             [use_jassert=$enableval],
             [use_jassert=no])
 
+CFLAGS="$CFLAGS -Wall -Werror"
+CPPFLAGS="$CPPFLAGS -Wall -Werror"
+CXXFLAGS="$CXXFLAGS -Wall -Werror"
+
 if test "$use_jassert" = "yes"; then
   AC_SUBST([DEBUG], [yes])
   AC_DEFINE([DEBUG],[1],[Verbose debug output and log files in $DMTCP_TMPDIR])
-  CFLAGS="-DDEBUG -g -O0 -Wall"
-  CXXFLAGS="-DDEBUG -g -O0 -Wall"
+  CFLAGS="$CFLAGS -DDEBUG -g -O0"
+  CXXFLAGS="$CFLAGS -DDEBUG -g -O0"
 else
   AC_SUBST([DEBUG], [no])
 fi
@@ -569,5 +573,25 @@ if test "$gccAtomicBuiltins" = "yes"; then
             [can use __sync_bool_compare_and_swap(), etc.])
 fi
 dnl Else will use mutex implementation; see jalib/jalloc.cpp
+
+dnl Check whether __WAIT_STATUS is available.
+AC_MSG_CHECKING(for __WAIT_STATUS type)
+AC_LINK_IFELSE(
+[
+  AC_LANG_SOURCE([[
+    #include <sys/wait.h>
+    #include <stdlib.h>
+    int main() {
+      __WAIT_STATUS status __attribute__((unused));
+      return 0;
+    }
+  ]])
+], [wait_status='yes'], [wait_status='no'])
+AC_MSG_RESULT([$wait_status])
+
+if test "$wait_status" = "no"; then
+  AC_DEFINE([__WAIT_STATUS],[int *],
+            [can use __WAIT_STATUS as wait status type])
+fi
 
 AC_OUTPUT

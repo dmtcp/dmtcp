@@ -176,7 +176,8 @@ void ProcessInfo::growStack()
 
   // Find the current stack area, heap, stack, vDSO and vvar areas.
   ProcMapsArea area;
-  ProcMapsArea stackArea = {0};
+  ProcMapsArea stackArea;
+  memset(&stackArea, 0, sizeof(stackArea));
   size_t allocSize;
   void *tmpbuf;
   ProcSelfMaps procSelfMaps;

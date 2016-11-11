@@ -57,9 +57,10 @@ int main(int argc, char* argv[])
     if (++cnt1 % 1000 == 0) {
       cnt2++;
       cnt1 = 0;
-      printf("."); fflush(stdout);
+      printf(".");
       if (cnt2 % 50 == 0)
-        printf("\n%d: ", cnt2 / 50); fflush(stdout);
+        printf("\n%d: ", cnt2 / 50);
+      fflush(stdout);
     }
     lib = 3 - lib; /* switch libraries to load */
 
@@ -80,7 +81,6 @@ extern "C" int print_constructor() {
   sleep(1);
   return 0;
 }
-static int value = print_constructor();
 
 #elif defined(LIB4)
 extern "C" int fnc(int result[2]) {
@@ -95,6 +95,5 @@ extern "C" int print_constructor() {
   sleep(1);
   return 0;
 }
-static int value = print_constructor();
 
 #endif

@@ -90,15 +90,15 @@ void PluginInfo::eventHook (const DmtcpEvent_t event, DmtcpEventData_t *data)
 void PluginInfo::processBarriers()
 {
   if (WorkerState::currentState() == WorkerState::CHECKPOINTING) {
-    for (int i = 0; i < preCkptBarriers.size(); i++) {
+    for (size_t i = 0; i < preCkptBarriers.size(); i++) {
       processBarrier(preCkptBarriers[i]);
     }
   } else if (WorkerState::currentState() == WorkerState::CHECKPOINTED) {
-    for (int i = 0; i < resumeBarriers.size(); i++) {
+    for (size_t i = 0; i < resumeBarriers.size(); i++) {
       processBarrier(resumeBarriers[i]);
     }
   } else if (WorkerState::currentState() == WorkerState::RESTARTING) {
-    for (int i = 0; i < restartBarriers.size(); i++) {
+    for (size_t i = 0; i < restartBarriers.size(); i++) {
       processBarrier(restartBarriers[i]);
     }
   } else {

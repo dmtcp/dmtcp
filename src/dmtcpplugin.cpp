@@ -62,7 +62,7 @@ EXTERNC int dmtcp_is_enabled() { return 1; }
 
 EXTERNC int dmtcp_checkpoint()
 {
-  int oldNumRestarts, oldNumCheckpoints;
+  size_t oldNumRestarts, oldNumCheckpoints;
 
   while (1) {
     WRAPPER_EXECUTION_GET_EXCL_LOCK();

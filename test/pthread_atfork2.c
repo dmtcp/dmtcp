@@ -64,6 +64,8 @@ int main ( int argc, char** argv )
   else {  // else parent
     waitpid(childpid, NULL, 0);
     printf("*** ERROR: child finished early.");
+    return 1;
   }
+  return 0;
 }
 #endif

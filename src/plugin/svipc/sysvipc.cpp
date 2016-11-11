@@ -384,7 +384,7 @@ void SysVIPC::updateMapping(int virtId, int realId)
 
 int SysVIPC::getNewVirtualId()
 {
-  int32_t id;
+  int32_t id = -1;
   JASSERT(_virtIdTable.getNewVirtualId(&id)) (_virtIdTable.size())
     .Text("Exceeded maximum number of Sys V objects allowed");
 

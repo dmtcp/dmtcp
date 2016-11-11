@@ -77,8 +77,6 @@ using namespace dmtcp;
 
 static void processConnection(int fd, const char *path, int flags, mode_t mode)
 {
-  Connection *c = NULL;
-
   string device = jalib::Filesystem::ResolveSymlink(path);
   if (device == "") {
     device = path;

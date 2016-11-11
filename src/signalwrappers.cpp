@@ -226,14 +226,15 @@ EXTERNC int rt_sigprocmask(int how, const sigset_t *set, sigset_t *oldset)
 
 EXTERNC int sigsuspend(const sigset_t *mask)
 {
+  // Suppress nonnull_compare errors.
+  const sigset_t *newMask = mask;
   sigset_t tmp;
-  if (mask != NULL) {
-    tmp = patchPOSIXMask(mask);
-    mask = &tmp;
+  if (newMask != NULL) {
+    tmp = patchPOSIXMask(newMask);
+    newMask = &tmp;
   }
 
-  int ret = _real_sigsuspend(mask);
-  return ret;
+  return _real_sigsuspend(newMask);
 }
 
 /* FIXME: Reverify the logic of the following four wrappers:
@@ -317,13 +318,15 @@ EXTERNC int pthread_sigmask(int how, const sigset_t *set, sigset_t *oldmask)
  */
 EXTERNC int sigwait(const sigset_t *set, int *sig)
 {
+  // Suppress nonnull_compare errors.
+  const sigset_t *newSet = set;
   sigset_t tmp;
-  if (set != NULL) {
-    tmp = patchPOSIXMask(set);
-    set = &tmp;
+  if (newSet != NULL) {
+    tmp = patchPOSIXMask(newSet);
+    newSet = &tmp;
   }
 
-  int ret = _real_sigwait( set, sig );
+  int ret = _real_sigwait(newSet, sig);
 
   return ret;
 }

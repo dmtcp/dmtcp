@@ -216,13 +216,13 @@ EXTERNC const char* dmtcp_get_tmpdir(void);
 
 EXTERNC const char* dmtcp_get_ckpt_dir(void) __attribute ((weak));
 #define dmtcp_get_ckpt_dir() \
- (dmtcp_get_ckpt_dir ? dmtcp_get_ckpt_dir() : NULL)
+ (dmtcp_get_ckpt_dir ? dmtcp_get_ckpt_dir() : "")
 EXTERNC int dmtcp_set_ckpt_dir(const char *) __attribute ((weak));
 #define dmtcp_set_ckpt_dir(d) \
  (dmtcp_set_ckpt_dir ? dmtcp_set_ckpt_dir(d) : DMTCP_NOT_PRESENT)
 EXTERNC const char* dmtcp_get_coord_ckpt_dir(void) __attribute__ ((weak));
 #define dmtcp_get_coord_ckpt_dir() \
- (dmtcp_get_coord_ckpt_dir ? dmtcp_get_coord_ckpt_dir() : NULL)
+ (dmtcp_get_coord_ckpt_dir ? dmtcp_get_coord_ckpt_dir() : "")
 EXTERNC int dmtcp_set_coord_ckpt_dir(const char* dir) __attribute__ ((weak));
 #define dmtcp_set_coord_ckpt_dir(d) \
  (dmtcp_set_coord_ckpt_dir ? dmtcp_set_coord_ckpt_dir(d) : DMTCP_NOT_PRESENT)

@@ -79,8 +79,6 @@ static pthread_mutex_t uninitializedThreadCountLock = PTHREAD_MUTEX_INITIALIZER;
 static int _uninitializedThreadCount = 0;
 static bool _checkpointThreadInitialized = false;
 
-#define INVALID_USER_THREAD_COUNT 0
-static int preResumeThreadCount = INVALID_USER_THREAD_COUNT;
 static pthread_mutex_t preResumeThreadCountLock = PTHREAD_MUTEX_INITIALIZER;
 
 static __thread int _wrapperExecutionLockLockCount = 0;

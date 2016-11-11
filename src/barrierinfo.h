@@ -69,8 +69,8 @@ namespace dmtcp
       }
 
       const DmtcpBarrierType type;
-      const string id;
       void (*callback)();
+      const string id;
       const string pluginName;
   };
 

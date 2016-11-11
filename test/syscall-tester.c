@@ -1995,7 +1995,7 @@ int open_test(char *path, int oflags, /* mode_t mode */ ...)
 {
   va_list ap;
   int ret, save_errno;
-  mode_t mode;
+  mode_t mode = 0;
   int passed;
 
   va_start(ap, oflags);

@@ -116,3 +116,6 @@
 
 /* Version number of package */
 #undef VERSION
+
+/* can use __WAIT_STATUS as wait status type */
+#undef __WAIT_STATUS

@@ -322,7 +322,7 @@ void CoordinatorAPI::sendMsgToCoordinator(DmtcpMessage msg,
   }
   JASSERT(Util::writeAll(_coordinatorSocket, &msg, sizeof(msg)) == sizeof(msg));
   if (extraData != NULL) {
-    JASSERT(Util::writeAll(_coordinatorSocket, extraData, len) == len);
+    JASSERT(Util::writeAll(_coordinatorSocket, extraData, len) == (ssize_t)len);
   }
 }
 
