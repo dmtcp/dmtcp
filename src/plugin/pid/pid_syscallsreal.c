@@ -31,6 +31,7 @@
 #include <sys/syscall.h>
 #include <unistd.h>
 #include "pidwrappers.h"
+#include "dmtcp_dlsym.h"
 
 #include "config.h"  // for HAS_CMA
 
@@ -45,11 +46,11 @@ static int pid_wrappers_initialized = 0;
 #define GET_FUNC_ADDR(name) \
   pid_real_func_addr[PIDVIRT_ENUM(name)] = _real_dlsym(RTLD_NEXT, # name);
 
-#define GET_FUNC_ADDR_V(name, v)                                          \
-  pid_real_func_addr[PIDVIRT_ENUM(name)] = dlvsym(RTLD_NEXT, # name, v);  \
-  if (pid_real_func_addr[PIDVIRT_ENUM(name)] == NULL) {                   \
-    /* Symbol version not found, try the default and hope for the best */ \
-    GET_FUNC_ADDR(name);                                                  \
+#define GET_FUNC_ADDR_V(name, v)                                               \
+  pid_real_func_addr[PIDVIRT_ENUM(name)] = dmtcp_dlvsym(RTLD_NEXT, # name, v); \
+  if (pid_real_func_addr[PIDVIRT_ENUM(name)] == NULL) {                        \
+    /* Symbol version not found, try the default and hope for the best */      \
+    GET_FUNC_ADDR(name);                                                       \
   }
 
 #ifdef __i386__
@@ -124,7 +125,7 @@ _real_dlsym(void *handle, const char *symbol)
   static dlsym_fnptr_t _libc_dlsym_fnptr = NULL;
 
   if (_libc_dlsym_fnptr == NULL) {
-    _libc_dlsym_fnptr = (dlsym_fnptr_t)dmtcp_get_libc_dlsym_addr();
+    _libc_dlsym_fnptr = (dlsym_fnptr_t) dmtcp_dlsym;
   }
 
   return (void *)(*_libc_dlsym_fnptr)(handle, symbol);
