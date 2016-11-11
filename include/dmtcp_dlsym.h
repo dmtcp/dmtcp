@@ -45,6 +45,7 @@
 #endif // ifdef DLSYM_DEFAULT_DO_DEBUG
 
 EXTERNC void *dmtcp_dlsym(void *handle, const char *symbol);
+EXTERNC void *dmtcp_dlvsym(void *handle, char *symbol, const char *version);
 
 #ifndef STANDALONE
 
@@ -52,14 +53,26 @@ EXTERNC void *dmtcp_dlsym(void *handle, const char *symbol);
 // It uses dmtcp_dlsym to get default version, in case of symbol versioning
 # define NEXT_FNC_DEFAULT(func)                                             \
   ({                                                                        \
-    static __typeof__(&func)_real_ ## func = (__typeof__(&func)) - 1;       \
-    if (_real_ ## func == (__typeof__(&func)) - 1) {                        \
+    static __typeof__(&func) _real_##func = (__typeof__(&func)) -1;         \
+    if (_real_##func == (__typeof__(&func)) -1) {                           \
       if (dmtcp_initialize) {                                               \
         dmtcp_initialize();                                                 \
       }                                                                     \
       _real_##func = (__typeof__(&func)) dmtcp_dlsym(RTLD_NEXT, #func);     \
     }                                                                       \
-    _real_ ## func;                                                         \
+    _real_##func;                                                           \
+  })
+
+# define NEXT_FNC_DEFAULTV(func, ver)                                          \
+  ({                                                                           \
+    static __typeof__(&func) _real_##func = (__typeof__(&func)) -1;            \
+    if (_real_##func == (__typeof__(&func)) -1) {                              \
+      if (dmtcp_initialize) {                                                  \
+        dmtcp_initialize();                                                    \
+      }                                                                        \
+      _real_##func = (__typeof__(&func)) dmtcp_dlvsym(RTLD_NEXT, #func, ver);  \
+    }                                                                          \
+    _real_##func;                                                              \
   })
 #endif // ifndef STANDALONE
 
