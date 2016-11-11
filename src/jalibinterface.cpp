@@ -29,7 +29,7 @@ using namespace dmtcp;
 
 extern "C" void initializeJalib()
 {
-  jalib::JalibFuncPtrs jalibFuncPtrs;
+  JalibFuncPtrs jalibFuncPtrs;
 
 #define INIT_JALIB_FPTR(name) jalibFuncPtrs.name = _real_ ## name;
 
