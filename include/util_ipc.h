@@ -47,10 +47,11 @@ static inline int sendFd(int restoreFd, int32_t fd, void *data, size_t len,
   hdr.msg_controllen = CMSG_LEN(sizeof(int32_t));
 
   cmsg = CMSG_FIRSTHDR(&hdr);
-  cmsg->cmsg_len = CMSG_LEN(sizeof(int32_t));
+  cmsg->cmsg_len = CMSG_LEN(sizeof(fd));
   cmsg->cmsg_level = SOL_SOCKET;
   cmsg->cmsg_type = SCM_RIGHTS;
-  *(int32_t*)CMSG_DATA(cmsg) = fd;
+
+  memcpy(CMSG_DATA(cmsg), &fd, sizeof(fd));
 
   return sendmsg(restoreFd, &hdr, 0);
 }
@@ -83,7 +84,7 @@ static inline int32_t receiveFd(int restoreFd, void *data, size_t len)
   if (cmsg->cmsg_level != SOL_SOCKET || cmsg->cmsg_type  != SCM_RIGHTS) {
     return -1;
   }
-  fd = *(int32_t *) CMSG_DATA(cmsg);
+  memcpy(&fd, CMSG_DATA(cmsg), sizeof(fd));
 
   return fd;
 }
