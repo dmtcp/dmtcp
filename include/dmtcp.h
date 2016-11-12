@@ -15,37 +15,37 @@
 #ifndef DMTCP_H
 #define DMTCP_H
 
-#include <stdio.h>
-#include <sys/types.h>
-#include <sys/socket.h>
 #include <netinet/ip.h>
+#include <stdio.h>
+#include <sys/socket.h>
+#include <sys/types.h>
 
 #ifndef __USE_GNU
 # define __USE_GNU_NOT_SET
 # define __USE_GNU
-#endif
+#endif // ifndef __USE_GNU
 #include <dlfcn.h>  /* for NEXT_FNC() */
 #ifdef __USE_GNU_NOT_SET
 # undef __USE_GNU_NOT_SET
 # undef __USE_GNU
-#endif
+#endif // ifdef __USE_GNU_NOT_SET
 
 #ifndef EXTERNC
 # ifdef __cplusplus
 #  define EXTERNC extern "C"
-# else
+# else // ifdef __cplusplus
 #  define EXTERNC
-# endif
-#endif
+# endif // ifdef __cplusplus
+#endif // ifndef EXTERNC
 
 // C++ takes null arg, while C takes void arg.
 #ifdef __cplusplus
 # define DMTCP_VOID
-#else
-# define DMTCP_VOID void
-#endif
+#else // ifdef __cplusplus
+# define DMTCP_VOID              void
+#endif // ifdef __cplusplus
 
-#define LIB_PRIVATE __attribute__ ((visibility ("hidden")))
+#define LIB_PRIVATE              __attribute__((visibility("hidden")))
 
 #define DMTCP_PLUGIN_API_VERSION "3"
 
@@ -77,7 +77,7 @@ typedef union _DmtcpEventData_t {
   } resumeUserThreadInfo, nameserviceInfo;
 
   struct {
-    const char* barrierId;
+    const char *barrierId;
   } barrierInfo;
 } DmtcpEventData_t;
 
@@ -95,8 +95,7 @@ typedef enum {
   DMTCP_PRIVATE_BARRIER_RESTART
 } DmtcpBarrierType;
 
-typedef struct
-{
+typedef struct {
   DmtcpBarrierType type;
   void (*callback)();
   const char *id;
@@ -104,15 +103,14 @@ typedef struct
 
 typedef void (*HookFunctionPtr_t)(DmtcpEvent_t, DmtcpEventData_t *);
 
-typedef struct
-{
-  const char* pluginApiVersion;
-  const char* dmtcpVersion;
+typedef struct {
+  const char *pluginApiVersion;
+  const char *dmtcpVersion;
 
-  const char* pluginName;
-  const char* authorName;
-  const char* authorEmail;
-  const char* description;
+  const char *pluginName;
+  const char *authorName;
+  const char *authorEmail;
+  const char *description;
 
   size_t numBarriers;
   DmtcpBarrier *barriers;
@@ -122,31 +120,31 @@ typedef struct
 
 #define DMTCP_NO_PLUGIN_BARRIERS 0, NULL
 
-#define DMTCP_DECL_BARRIERS(barriers)                                          \
-  sizeof(barriers) / sizeof (DmtcpBarrier),                                    \
+#define DMTCP_DECL_BARRIERS(barriers)      \
+  sizeof(barriers) / sizeof(DmtcpBarrier), \
   barriers
 
-#define DMTCP_DECL_PLUGIN(descr)                                               \
-  EXTERNC void dmtcp_initialize_plugin()                                       \
-  {                                                                            \
-    dmtcp_register_plugin(descr);                                              \
-    void (*fn)() = NEXT_FNC(dmtcp_initialize_plugin);                          \
-    if (fn != NULL) {                                                          \
-      (*fn)();                                                                 \
-    }                                                                          \
+#define DMTCP_DECL_PLUGIN(descr)                      \
+  EXTERNC void dmtcp_initialize_plugin()              \
+  {                                                   \
+    dmtcp_register_plugin(descr);                     \
+    void (*fn)() = NEXT_FNC(dmtcp_initialize_plugin); \
+    if (fn != NULL) {                                 \
+      (*fn)();                                        \
+    }                                                 \
   }
 
 typedef struct DmtcpUniqueProcessId {
-  uint64_t  _hostid; //gethostid()
-  uint64_t _time; //time()
-  pid_t _pid; //getpid()
-  uint32_t _computation_generation; //computationGeneration()
+  uint64_t _hostid;  // gethostid()
+  uint64_t _time; // time()
+  pid_t _pid; // getpid()
+  uint32_t _computation_generation; // computationGeneration()
 } DmtcpUniqueProcessId;
 
 EXTERNC int dmtcp_unique_pids_equal(DmtcpUniqueProcessId a,
                                     DmtcpUniqueProcessId b);
 
-//FIXME:
+// FIXME:
 // If a plugin is not compiled with defined(__PIC__) and we can verify
 // that we're using DMTCP (environment variables), and dmtcp_is_enabled
 // or dmtcp_checkpoint expands to 0, then we should print a warning
@@ -159,7 +157,7 @@ EXTERNC int dmtcp_unique_pids_equal(DmtcpUniqueProcessId a,
  * See: test/plugin/applic-initiated-ckpt and applic-delayed-ckpt
  *      directories for exammples:
  */
-EXTERNC int dmtcp_is_enabled(DMTCP_VOID) __attribute ((weak));
+EXTERNC int dmtcp_is_enabled(DMTCP_VOID) __attribute((weak));
 #define dmtcp_is_enabled() (dmtcp_is_enabled ? dmtcp_is_enabled() : 0)
 
 /**
@@ -171,7 +169,7 @@ EXTERNC int dmtcp_is_enabled(DMTCP_VOID) __attribute ((weak));
  * + returns <=0 on error.
  * See: test/plugin/applic-initiated-ckpt directory for an exammple:
  */
-EXTERNC int dmtcp_checkpoint(DMTCP_VOID) __attribute__ ((weak));
+EXTERNC int dmtcp_checkpoint(DMTCP_VOID) __attribute__((weak));
 #define dmtcp_checkpoint() \
   (dmtcp_checkpoint ? dmtcp_checkpoint() : DMTCP_NOT_PRESENT)
 
@@ -184,18 +182,18 @@ EXTERNC int dmtcp_checkpoint(DMTCP_VOID) __attribute__ ((weak));
  * + Returns 1 on success, <=0 on error
  * See: test/plugin/applic-delayed-ckpt directory for an exammple:
  */
-EXTERNC int dmtcp_disable_ckpt(DMTCP_VOID) __attribute__ ((weak));
+EXTERNC int dmtcp_disable_ckpt(DMTCP_VOID) __attribute__((weak));
 #define dmtcp_disable_ckpt() \
- (dmtcp_disable_ckpt ? dmtcp_disable_ckpt() : DMTCP_NOT_PRESENT)
+  (dmtcp_disable_ckpt ? dmtcp_disable_ckpt() : DMTCP_NOT_PRESENT)
 
 /**
  * Re-allow checkpoints, opposite of dmtcp_disable_ckpt().
  * + Returns 1 on success, <=0 on error
  * See: test/plugin/applic-delayed-ckpt directory for an exammple:
  */
-EXTERNC int dmtcp_enable_ckpt(DMTCP_VOID) __attribute__ ((weak));
+EXTERNC int dmtcp_enable_ckpt(DMTCP_VOID) __attribute__((weak));
 #define dmtcp_enable_ckpt() \
- (dmtcp_enable_ckpt ? dmtcp_enable_ckpt() : DMTCP_NOT_PRESENT)
+  (dmtcp_enable_ckpt ? dmtcp_enable_ckpt() : DMTCP_NOT_PRESENT)
 
 EXTERNC void dmtcp_initialize_plugin(void) __attribute((weak));
 
@@ -206,33 +204,36 @@ EXTERNC int dmtcp_send_key_val_pair_to_coordinator(const char *id,
                                                    const void *val,
                                                    uint32_t val_len);
 EXTERNC int dmtcp_send_query_to_coordinator(const char *id,
-                                            const void *key, uint32_t key_len,
-                                            void *val, uint32_t *val_len);
+                                            const void *key,
+                                            uint32_t key_len,
+                                            void *val,
+                                            uint32_t *val_len);
 
 EXTERNC void dmtcp_get_local_ip_addr(struct in_addr *in);
 
-EXTERNC const char* dmtcp_get_tmpdir(void);
-//EXTERNC void dmtcp_set_tmpdir(const char *);
+EXTERNC const char *dmtcp_get_tmpdir(void);
 
-EXTERNC const char* dmtcp_get_ckpt_dir(void) __attribute ((weak));
+// EXTERNC void dmtcp_set_tmpdir(const char *);
+
+EXTERNC const char *dmtcp_get_ckpt_dir(void) __attribute((weak));
 #define dmtcp_get_ckpt_dir() \
- (dmtcp_get_ckpt_dir ? dmtcp_get_ckpt_dir() : "")
-EXTERNC int dmtcp_set_ckpt_dir(const char *) __attribute ((weak));
+  (dmtcp_get_ckpt_dir ? dmtcp_get_ckpt_dir() : "")
+EXTERNC int dmtcp_set_ckpt_dir(const char *) __attribute((weak));
 #define dmtcp_set_ckpt_dir(d) \
- (dmtcp_set_ckpt_dir ? dmtcp_set_ckpt_dir(d) : DMTCP_NOT_PRESENT)
-EXTERNC const char* dmtcp_get_coord_ckpt_dir(void) __attribute__ ((weak));
+  (dmtcp_set_ckpt_dir ? dmtcp_set_ckpt_dir(d) : DMTCP_NOT_PRESENT)
+EXTERNC const char *dmtcp_get_coord_ckpt_dir(void) __attribute__((weak));
 #define dmtcp_get_coord_ckpt_dir() \
- (dmtcp_get_coord_ckpt_dir ? dmtcp_get_coord_ckpt_dir() : "")
-EXTERNC int dmtcp_set_coord_ckpt_dir(const char* dir) __attribute__ ((weak));
+  (dmtcp_get_coord_ckpt_dir ? dmtcp_get_coord_ckpt_dir() : "")
+EXTERNC int dmtcp_set_coord_ckpt_dir(const char *dir) __attribute__((weak));
 #define dmtcp_set_coord_ckpt_dir(d) \
- (dmtcp_set_coord_ckpt_dir ? dmtcp_set_coord_ckpt_dir(d) : DMTCP_NOT_PRESENT)
-EXTERNC const char* dmtcp_get_ckpt_filename(void) __attribute__((weak));
-EXTERNC const char* dmtcp_get_ckpt_files_subdir(void);
+  (dmtcp_set_coord_ckpt_dir ? dmtcp_set_coord_ckpt_dir(d) : DMTCP_NOT_PRESENT)
+EXTERNC const char *dmtcp_get_ckpt_filename(void) __attribute__((weak));
+EXTERNC const char *dmtcp_get_ckpt_files_subdir(void);
 EXTERNC int dmtcp_should_ckpt_open_files(void);
 EXTERNC int dmtcp_allow_overwrite_with_ckpted_files(void);
 
 EXTERNC int dmtcp_get_ckpt_signal(void);
-EXTERNC const char* dmtcp_get_uniquepid_str(void) __attribute__((weak));
+EXTERNC const char *dmtcp_get_uniquepid_str(void) __attribute__((weak));
 
 /*
  * ComputationID
@@ -247,8 +248,9 @@ EXTERNC const char* dmtcp_get_uniquepid_str(void) __attribute__((weak));
  *   to sending the SUSPEND message, and it is sent to the workers as a part
  *   of the SUSPEND message.
  */
-EXTERNC const char* dmtcp_get_computation_id_str(void);
+EXTERNC const char *dmtcp_get_computation_id_str(void);
 EXTERNC uint64_t dmtcp_get_coordinator_timestamp(void);
+
 // Generation is 0 before first checkpoint, and then successively incremented.
 EXTERNC uint32_t dmtcp_get_generation(void) __attribute__((weak));
 EXTERNC int checkpoint_is_pending(void) __attribute__((weak));
@@ -265,10 +267,10 @@ EXTERNC int checkpoint_is_pending(void) __attribute__((weak));
  *              running state
  */
 EXTERNC int dmtcp_get_coordinator_status(int *numPeers, int *isRunning)
-  __attribute__((weak));
-#define dmtcp_get_coordinator_status(p,r) \
-  (dmtcp_get_coordinator_status ? dmtcp_get_coordinator_status(p,r) \
-                             : DMTCP_NOT_PRESENT)
+__attribute__((weak));
+#define dmtcp_get_coordinator_status(p, r)                           \
+  (dmtcp_get_coordinator_status ? dmtcp_get_coordinator_status(p, r) \
+   : DMTCP_NOT_PRESENT)
 
 /**
  * Queries local state of this process, not global state seen by DMTCP coord.
@@ -282,20 +284,25 @@ EXTERNC int dmtcp_get_coordinator_status(int *numPeers, int *isRunning)
  *   numRestarts: The number of times this process has been restarted
  */
 EXTERNC int dmtcp_get_local_status(int *numCheckpoints, int *numRestarts)
-  __attribute__((weak));
-#define dmtcp_get_local_status(c,r) \
-  (dmtcp_get_local_status ? dmtcp_get_local_status(c,r) : DMTCP_NOT_PRESENT)
+__attribute__((weak));
+#define dmtcp_get_local_status(c, r) \
+  (dmtcp_get_local_status ? dmtcp_get_local_status(c, r) : DMTCP_NOT_PRESENT)
 
 // Is DMTCP in the running state?
-//   (e.g., not in pre-ckpt, post-ckpt, post-restart event)?
+// (e.g., not in pre-ckpt, post-ckpt, post-restart event)?
 EXTERNC int dmtcp_is_running_state(void);
+
 // Primarily for use by the modify-env plugin.
 EXTERNC int dmtcp_get_restart_env(const char *name,
-                                  char *value, size_t maxvaluelen);
+                                  char *value,
+                                  size_t maxvaluelen);
+
 // Get pathname of target executable under DMTCP control.
-EXTERNC const char* dmtcp_get_executable_path();
+EXTERNC const char *dmtcp_get_executable_path();
+
 // True if dmtcp_launch called with --no-coordinator
 EXTERNC int dmtcp_no_coordinator(void);
+
 /* If your plugin invokes wrapper functions before DMTCP is initialized,
  *   then call this prior to your first wrapper function call.
  */
@@ -331,21 +338,24 @@ EXTERNC pid_t dmtcp_virtual_to_real_pid(pid_t virtualPid) __attribute((weak));
 
 // bq_file -> "batch queue file"; used only by batch-queue plugin
 EXTERNC int dmtcp_is_bq_file(const char *path)
-  __attribute((weak));
+__attribute((weak));
 EXTERNC int dmtcp_bq_should_ckpt_file(const char *path, int *type)
-  __attribute((weak));
-EXTERNC int dmtcp_bq_restore_file(const char *path, const char *savedFilePath,
-                                  int fcntlFlags, int type)
-  __attribute((weak));
+__attribute((weak));
+EXTERNC int dmtcp_bq_restore_file(const char *path,
+                                  const char *savedFilePath,
+                                  int fcntlFlags,
+                                  int type)
+__attribute((weak));
 
 /*  These next two functions are defined in contrib/ckptfile/ckptfile.cpp
  *  But they are currently used only in src/plugin/ipc/file/fileconnection.cpp
  *    and in a trivial fashion.  These are intended for future extensions.
  */
 EXTERNC int dmtcp_must_ckpt_file(const char *path) __attribute((weak));
-EXTERNC void dmtcp_get_new_file_path(const char *abspath, const char *cwd,
+EXTERNC void dmtcp_get_new_file_path(const char *abspath,
+                                     const char *cwd,
                                      char *newpath)
-  __attribute((weak));
+__attribute((weak));
 EXTERNC int dmtcp_must_overwrite_file(const char *path) __attribute((weak));
 
 
@@ -363,32 +373,37 @@ EXTERNC void dmtcp_plugin_enable_ckpt(void);
   if (__dmtcp_plugin_ckpt_disabled) dmtcp_plugin_enable_ckpt()
 
 
-#define NEXT_FNC(func)                                                      \
-  ({                                                                        \
-     static __typeof__(&func) _real_##func = (__typeof__(&func)) -1;        \
-     if (_real_##func == (__typeof__(&func)) -1) {                          \
-       if (dmtcp_initialize) dmtcp_initialize();                            \
-       __typeof__(&dlsym) dlsym_fnptr;                                      \
-       dlsym_fnptr = (__typeof__(&dlsym)) dmtcp_get_libc_dlsym_addr();      \
-       _real_##func = (__typeof__(&func)) (*dlsym_fnptr) (RTLD_NEXT, #func);\
-     }                                                                      \
-   _real_##func;})
+#define NEXT_FNC(func)                                                       \
+  ({                                                                         \
+    static __typeof__(&func)_real_ ## func = (__typeof__(&func)) - 1;        \
+    if (_real_ ## func == (__typeof__(&func)) - 1) {                         \
+      if (dmtcp_initialize) {                                                \
+        dmtcp_initialize();                                                  \
+      }                                                                      \
+      __typeof__(&dlsym)dlsym_fnptr;                                         \
+      dlsym_fnptr = (__typeof__(&dlsym))dmtcp_get_libc_dlsym_addr();         \
+      _real_ ## func = (__typeof__(&func))(*dlsym_fnptr)(RTLD_NEXT, # func); \
+    }                                                                        \
+    _real_ ## func;                                                          \
+  })
 
-//===================================================================
+// ===================================================================
 // DMTCP utilities
 
 #ifndef DMTCP_AFTER_CHECKPOINT
-  // Return value of dmtcp_checkpoint
+
+// Return value of dmtcp_checkpoint
 # define DMTCP_AFTER_CHECKPOINT 1
-  // Return value of dmtcp_checkpoint
+
+// Return value of dmtcp_checkpoint
 # define DMTCP_AFTER_RESTART    2
-#endif
+#endif // ifndef DMTCP_AFTER_CHECKPOINT
 #ifndef DMTCP_NOT_PRESENT
-# define DMTCP_NOT_PRESENT 3
-#endif
+# define DMTCP_NOT_PRESENT      3
+#endif // ifndef DMTCP_NOT_PRESENT
 #ifndef DMTCP_IS_PRESENT
-# define DMTCP_IS_PRESENT 4
-#endif
+# define DMTCP_IS_PRESENT       4
+#endif // ifndef DMTCP_IS_PRESENT
 
 #define dmtcp_get_ckpt_filename() \
   (dmtcp_get_ckpt_filename ? dmtcp_get_ckpt_filename() : NULL)
@@ -398,5 +413,4 @@ EXTERNC void dmtcp_plugin_enable_ckpt(void);
 
 /// Pointer to a "void foo();" function
 typedef void (*dmtcp_fnptr_t)(void);
-
-#endif
+#endif // ifndef DMTCP_H
