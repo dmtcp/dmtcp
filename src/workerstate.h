@@ -28,23 +28,20 @@ namespace dmtcp
 {
 namespace WorkerState
 {
-  enum eWorkerState
-  {
-    UNKNOWN,
-    RUNNING,
-    SUSPENDED,
-    CHECKPOINTING,
-    CHECKPOINTED,
-    RESTARTING,
-    _MAX
-  };
+enum eWorkerState {
+  UNKNOWN,
+  RUNNING,
+  SUSPENDED,
+  CHECKPOINTING,
+  CHECKPOINTED,
+  RESTARTING,
+  _MAX
+};
 
-  void setCurrentState(const eWorkerState& value);
-  eWorkerState currentState();
+void setCurrentState(const eWorkerState &value);
+eWorkerState currentState();
 
-  ostream& operator << (ostream& o, const eWorkerState& s);
-
-}//namespace WorkerState
-}//namespace dmtcp
-
+ostream&operator<<(ostream &o, const eWorkerState &s);
+}// namespace WorkerState
+}// namespace dmtcp
 #endif // #ifndef __WORKER_STATE_H__

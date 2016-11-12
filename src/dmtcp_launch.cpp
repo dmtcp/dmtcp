@@ -19,23 +19,25 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include <sys/resource.h>
 #include  "../jalib/jassert.h"
-#include  "../jalib/jfilesystem.h"
 #include  "../jalib/jconvert.h"
+#include  "../jalib/jfilesystem.h"
 #include "constants.h"
-#include "dmtcpmessagetypes.h"
-#include "syscallwrappers.h"
 #include "coordinatorapi.h"
+#include "dmtcpmessagetypes.h"
 #include "shareddata.h"
+#include "syscallwrappers.h"
 #include "util.h"
+#include <sys/resource.h>
 
 #define BINARY_NAME "dmtcp_launch"
 
 using namespace dmtcp;
 
-static void processArgs(int *orig_argc, char ***orig_argv,
-                        string *tmpDir_p, const char **host,
+static void processArgs(int *orig_argc,
+                        char ***orig_argv,
+                        string *tmpDir_p,
+                        const char **host,
                         const char **portStr);
 static int testMatlab(const char *filename);
 static int testJava(char **argv);
@@ -47,7 +49,7 @@ static void setLDPreloadLibs(bool is32bitElf);
 // gcc-4.3.4 -Wformat=2 issues false positives for warnings unless the format
 // string has at least one format specifier with corresponding format argument.
 // Ubuntu 9.01 uses -Wformat=2 by default.
-static const char* theUsage =
+static const char *theUsage =
   "Usage: dmtcp_launch [OPTIONS] <command> [args...]\n"
   "Start a process under DMTCP control.\n\n"
   "Connecting to the DMTCP Coordinator:\n"
@@ -85,7 +87,7 @@ static const char* theUsage =
 #ifdef HBICT_DELTACOMP
   "  --hbict, --no-hbict, (environment variable DMTCP_HBICT=[01])\n"
   "              Enable/disable compression of checkpoint images (default: 1)\n"
-#endif
+#endif // ifdef HBICT_DELTACOMP
   "  --ckptdir PATH (environment variable DMTCP_CHECKPOINT_DIR)\n"
   "              Directory to store checkpoint images\n"
   "              (default: curr dir at launch)\n"
@@ -144,40 +146,41 @@ static const char* theUsage =
 ;
 
 // FIXME:  The warnings below should be collected into a single function,
-//          and also called after a user exec(), not just in dmtcp_launch.
+// and also called after a user exec(), not just in dmtcp_launch.
 // static const char* theExecFailedMsg =
-//   "ERROR: Failed to exec(\"%s\"): %s\n"
-//   "Perhaps it is not in your $PATH?\n"
-//   "See `dmtcp_launch --help` for usage.\n"
+// "ERROR: Failed to exec(\"%s\"): %s\n"
+// "Perhaps it is not in your $PATH?\n"
+// "See `dmtcp_launch --help` for usage.\n"
 // ;
 
-static bool disableAllPlugins=false;
-static bool checkpointOpenFiles=false;
+static bool disableAllPlugins = false;
+static bool checkpointOpenFiles = false;
 
-static bool enablePtracePlugin=false;
-static bool enableModifyEnvPlugin=false;
-static bool enableRMPlugin=false;
+static bool enablePtracePlugin = false;
+static bool enableModifyEnvPlugin = false;
+static bool enableRMPlugin = false;
 static bool explicitSrun = false;
 
-static bool enableIB2TcpPlugin=false;
-static bool enableIBPlugin=false;
+static bool enableIB2TcpPlugin = false;
+static bool enableIBPlugin = false;
 
-static bool enableAllocPlugin=true;
-static bool enableDlPlugin=true;
-static bool enableIPCPlugin=true;
-static bool enableSvipcPlugin=true;
-static bool enableTimerPlugin=true;
+static bool enableAllocPlugin = true;
+static bool enableDlPlugin = true;
+static bool enableIPCPlugin = true;
+static bool enableSvipcPlugin = true;
+static bool enableTimerPlugin = true;
 
 #ifdef UNIQUE_CHECKPOINT_FILENAMES
-static bool enableUniqueCkptPlugin=true;
-#else
-static bool enableUniqueCkptPlugin=false;
-#endif
+static bool enableUniqueCkptPlugin = true;
+#else // ifdef UNIQUE_CHECKPOINT_FILENAMES
+static bool enableUniqueCkptPlugin = false;
+#endif // ifdef UNIQUE_CHECKPOINT_FILENAMES
+
 // This is the base library.
-static bool enableLibDMTCP=true;
+static bool enableLibDMTCP = true;
 
 // PID plugin must come last.
-static bool enablePIDPlugin=true;
+static bool enablePIDPlugin = true;
 
 static string thePortFile;
 
@@ -187,35 +190,39 @@ struct PluginInfo {
 };
 
 static struct PluginInfo pluginInfo[] = {               // Default value
-  {&enablePtracePlugin,     "libdmtcp_ptrace.so"},      // Disabled
-  {&enableModifyEnvPlugin,  "libdmtcp_modify-env.so"},  // Disabled
-  {&enableUniqueCkptPlugin, "libdmtcp_unique-ckpt.so"}, // Disabled
-  {&enableIB2TcpPlugin,     "libdmtcp_ib2tcp.so"},      // Disabled
-  {&enableIBPlugin,         "libdmtcp_infiniband.so"},  // Disabled
-  {&enableRMPlugin,         "libdmtcp_batch-queue.so"}, // Disabled
-  {&enableAllocPlugin,      "libdmtcp_alloc.so"},       // Enabled
-  {&enableDlPlugin,         "libdmtcp_dl.so"},          // Enabled
-  {&enableIPCPlugin,        "libdmtcp_ipc.so"},         // Enabled
-  {&enableSvipcPlugin,      "libdmtcp_svipc.so"},       // Enabled
-  {&enableTimerPlugin,      "libdmtcp_timer.so"},       // Enabled
-  {&enableLibDMTCP,         "libdmtcp.so"},             // Enabled
+  { &enablePtracePlugin, "libdmtcp_ptrace.so" },        // Disabled
+  { &enableModifyEnvPlugin, "libdmtcp_modify-env.so" },  // Disabled
+  { &enableUniqueCkptPlugin, "libdmtcp_unique-ckpt.so" }, // Disabled
+  { &enableIB2TcpPlugin, "libdmtcp_ib2tcp.so" },        // Disabled
+  { &enableIBPlugin, "libdmtcp_infiniband.so" },        // Disabled
+  { &enableRMPlugin, "libdmtcp_batch-queue.so" },       // Disabled
+  { &enableAllocPlugin, "libdmtcp_alloc.so" },          // Enabled
+  { &enableDlPlugin, "libdmtcp_dl.so" },                // Enabled
+  { &enableIPCPlugin, "libdmtcp_ipc.so" },              // Enabled
+  { &enableSvipcPlugin, "libdmtcp_svipc.so" },          // Enabled
+  { &enableTimerPlugin, "libdmtcp_timer.so" },          // Enabled
+  { &enableLibDMTCP, "libdmtcp.so" },                   // Enabled
   // PID plugin must come last.
-  {&enablePIDPlugin,        "libdmtcp_pid.so"}          // Enabled
+  { &enablePIDPlugin, "libdmtcp_pid.so" }               // Enabled
 };
 
-const size_t numLibs = sizeof(pluginInfo) / sizeof (struct PluginInfo);
+const size_t numLibs = sizeof(pluginInfo) / sizeof(struct PluginInfo);
 
 static CoordinatorMode allowedModes = COORD_ANY;
 
-//shift args
-#define shift argc--,argv++
-static void processArgs(int *orig_argc, char ***orig_argv,
-                        string *tmpDir_p,
-                        const char **host, const char **portStr)
+// shift args
+#define shift argc--, argv++
+static void
+processArgs(int *orig_argc,
+            char ***orig_argv,
+            string *tmpDir_p,
+            const char **host,
+            const char **portStr)
 {
   int argc = *orig_argc;
   char **argv = *orig_argv;
   char *tmpdir_arg = NULL;
+
   *host = NULL; // uninitialized
   *portStr = NULL; // uninitialized
 
@@ -225,14 +232,14 @@ static void processArgs(int *orig_argc, char ***orig_argv,
     exit(DMTCP_FAIL_RC);
   }
 
-  //process args
+  // process args
   shift;
   while (true) {
-    string s = argc>0 ? argv[0] : "--help";
-    if ((s=="--help") && argc<=1) {
+    string s = argc > 0 ? argv[0] : "--help";
+    if ((s == "--help") && argc <= 1) {
       printf("%s", theUsage);
       exit(DMTCP_FAIL_RC);
-    } else if ((s=="--version") && argc==1) {
+    } else if ((s == "--version") && argc == 1) {
       printf("%s", DMTCP_VERSION_AND_COPYRIGHT_INFO);
       exit(DMTCP_FAIL_RC);
     } else if (s == "-j" || s == "--join") {
@@ -254,7 +261,7 @@ static void processArgs(int *orig_argc, char ***orig_argv,
       setenv(ENV_VAR_DELTACOMPRESSION, "0", 1);
       shift;
     }
-#endif
+#endif // ifdef HBICT_DELTACOMP
     else if (s == "--new-coordinator") {
       allowedModes = COORD_NEW;
       shift;
@@ -269,28 +276,30 @@ static void processArgs(int *orig_argc, char ***orig_argv,
       shift; shift;
     } else if (argv[0][0] == '-' && argv[0][1] == 'i' &&
                isdigit(argv[0][2])) { // else if -i5, for example
-      setenv(ENV_VAR_CKPT_INTR, argv[0]+2, 1);
+      setenv(ENV_VAR_CKPT_INTR, argv[0] + 2, 1);
       shift;
-    } else if (argc>1 && (s == "-h" || s == "--coord-host" || s == "--host")) {
+    } else if (argc > 1 &&
+               (s == "-h" || s == "--coord-host" || s == "--host")) {
       *host = argv[1];
       shift; shift;
-    } else if (argc>1 && (s == "-p" || s == "--coord-port" || s == "--port")) {
+    } else if (argc > 1 &&
+               (s == "-p" || s == "--coord-port" || s == "--port")) {
       *portStr = argv[1];
       shift; shift;
     } else if (argv[0][0] == '-' && argv[0][1] == 'p' &&
                isdigit(argv[0][2])) { // else if -p0, for example
-      *portStr = argv[0]+2; // Must use argv[0] here, and not s
+      *portStr = argv[0] + 2; // Must use argv[0] here, and not s
       shift;
-    } else if (argc>1 && s == "--port-file"){
+    } else if (argc > 1 && s == "--port-file") {
       thePortFile = argv[1];
       shift; shift;
-    } else if (argc>1 && (s == "-c" || s == "--ckptdir")) {
+    } else if (argc > 1 && (s == "-c" || s == "--ckptdir")) {
       setenv(ENV_VAR_CHECKPOINT_DIR, argv[1], 1);
       shift; shift;
-    } else if (argc>1 && (s == "-t" || s == "--tmpdir")) {
+    } else if (argc > 1 && (s == "-t" || s == "--tmpdir")) {
       tmpdir_arg = argv[1];
       shift; shift;
-    } else if (argc>1 && s == "--ckpt-signal") {
+    } else if (argc > 1 && s == "--ckpt-signal") {
       setenv(ENV_VAR_SIGCKPT, argv[1], 1);
       shift; shift;
     } else if (s == "--checkpoint-open-files" || s == "--ckpt-open-files") {
@@ -323,7 +332,7 @@ static void processArgs(int *orig_argc, char ***orig_argv,
     } else if (s == "--rm" || s == "--batch-queue") {
       enableRMPlugin = true;
       shift;
-    } else if (s == "--explicit-srun" ) {
+    } else if (s == "--explicit-srun") {
       explicitSrun = true;
       shift;
     } else if (s == "--with-plugin") {
@@ -331,14 +340,15 @@ static void processArgs(int *orig_argc, char ***orig_argv,
       shift; shift;
     } else if (s == "-q" || s == "--quiet") {
       *getenv(ENV_VAR_QUIET) = *getenv(ENV_VAR_QUIET) + 1;
+
       // Just in case a non-standard version of setenv is being used:
       setenv(ENV_VAR_QUIET, getenv(ENV_VAR_QUIET), 1);
       shift;
-    } else if ( (s.length()>2 && s.substr(0,2)=="--") ||
-              (s.length()>1 && s.substr(0,1)=="-" ) ) {
+    } else if ((s.length() > 2 && s.substr(0, 2) == "--") ||
+               (s.length() > 1 && s.substr(0, 1) == "-")) {
       printf("Invalid Argument\n%s", theUsage);
       exit(DMTCP_FAIL_RC);
-    } else if (argc>1 && s=="--") {
+    } else if (argc > 1 && s == "--") {
       shift;
       break;
     } else {
@@ -346,6 +356,7 @@ static void processArgs(int *orig_argc, char ***orig_argv,
     }
   }
 #if __aarch64__
+
   /* FIXME:  Currently, there is a bug exposed by SIGRETURN for aarch64,
    *      when we create a SIGCHLD handler for the gzip process.
    *      So, we're temporarily disabling GZIP for aarch64.
@@ -360,24 +371,27 @@ static void processArgs(int *orig_argc, char ***orig_argv,
         " still experimental.\n*** Gzip not yet supported.\n\n";
     }
   }
-#endif
+#endif // if __aarch64__
   *tmpDir_p = Util::calcTmpDir(tmpdir_arg);
   *orig_argc = argc;
   *orig_argv = argv;
 }
 
-int main ( int argc, char** argv )
+int
+main(int argc, char **argv)
 {
   for (size_t fd = PROTECTED_FD_START; fd < PROTECTED_FD_END; fd++) {
     close(fd);
   }
 
-  if (! getenv(ENV_VAR_QUIET))
+  if (!getenv(ENV_VAR_QUIET)) {
     setenv(ENV_VAR_QUIET, "0", 0);
+  }
 
   string tmpDir = "tmpDir is not set";
   const char *host;
   const char *portStr;
+
   // This will change argv to refer to the target application.
   processArgs(&argc, &argv, &tmpDir, &host, &portStr);
 
@@ -387,18 +401,19 @@ int main ( int argc, char** argv )
   Util::initializeLogFile(tmpDir);
 
 #ifdef FORKED_CHECKPOINTING
+
   /* When this is robust, add --forked-checkpointing option on command-line,
    * with #ifdef FORKED_CHECKPOINTING around the option, change default of
    * configure.ac, dmtcp/configure.ac, to enable, and change them
    * from enable-forked... to disable-...
    */
   setenv(ENV_VAR_FORKED_CKPT, "1", 1);
-#endif
+#endif // ifdef FORKED_CHECKPOINTING
 
   // This code will go away when zero-mapped pages are implemented in MTCP.
   struct rlimit rlim;
   getrlimit(RLIMIT_STACK, &rlim);
-  if (rlim.rlim_cur > 256*1024*1024 && rlim.rlim_cur != RLIM_INFINITY)
+  if (rlim.rlim_cur > 256 * 1024 * 1024 && rlim.rlim_cur != RLIM_INFINITY) {
     JASSERT_STDERR <<
       "*** WARNING:  RLIMIT_STACK > 1/4 GB.  This causes each thread to"
       "\n***  receive a 1/4 GB stack segment.  Checkpoint/restart will be slow,"
@@ -406,7 +421,9 @@ int main ( int argc, char** argv )
       "\n*** Suggest setting (sh/bash):  ulimit -s 10000"
       "\n***                (csh/tcsh):  limit stacksize 10000"
       "\n*** prior to using DMTCP.  (This will be fixed in the future, when"
-      "\n*** DMTCP supports restoring zero-mapped pages.)\n\n\n" ;
+      "\n*** DMTCP supports restoring zero-mapped pages.)\n\n\n";
+  }
+
   // Remove this when zero-mapped pages are supported.  For segments with
   // no file backing:  Start with 4096 (page) offset and keep doubling offset
   // until finding region of memory segment with many zeroes.
@@ -424,64 +441,66 @@ int main ( int argc, char** argv )
   testJava(argv);  // Warn that -Xmx flag needed to limit virtual memory size
 
   // If libdmtcp.so is in standard search path and _also_ has setgid access,
-  //   then LD_PRELOAD will work.
+  // then LD_PRELOAD will work.
   // Otherwise, it will only work if the application does not use setuid and
-  //   setgid access.  So, we test //   if the application does not use
-  //   setuid/setgid.  (See 'man ld.so')
+  // setgid access.  So, we test //   if the application does not use
+  // setuid/setgid.  (See 'man ld.so')
   // FIXME:  ALSO DO THIS FOR execwrappers.cpp:dmtcpPrepareForExec()
-  //   Should pass libdmtcp.so path, and let testSetuid determine
-  //     if setgid is set for it.  If so, no problem:  continue.
-  //   If not, call testScreen() and adapt 'screen' to run using
-  //     Util::patchArgvIfSetuid(argv[0], argv, &newArgv) (which shouldn't
-  //     will just modify argv[0] to point to /tmp/dmtcp-USER@HOST/screen
-  //     and other modifications:  doesn't need newArgv).
-  //   If it's not 'screen' and if no setgid for libdmtcp.so, then testSetuid
-  //    should issue the warning, unset our LD_PRELOAD, and hope for the best.
-  //    A program like /usr/libexec/utempter/utempter (Fedora path)
-  //    is short-lived and can be safely run.  Ideally, we should
-  //    disable checkpoints while utempter is running, and enable checkpoints
-  //    when utempter finishes.  See possible model at
-  //    execwrappers.cpp:execLibProcessAndExit(), since the same applies
-  //    to running /lib/libXXX.so for running libraries as executables.
+  // Should pass libdmtcp.so path, and let testSetuid determine
+  // if setgid is set for it.  If so, no problem:  continue.
+  // If not, call testScreen() and adapt 'screen' to run using
+  // Util::patchArgvIfSetuid(argv[0], argv, &newArgv) (which shouldn't
+  // will just modify argv[0] to point to /tmp/dmtcp-USER@HOST/screen
+  // and other modifications:  doesn't need newArgv).
+  // If it's not 'screen' and if no setgid for libdmtcp.so, then testSetuid
+  // should issue the warning, unset our LD_PRELOAD, and hope for the best.
+  // A program like /usr/libexec/utempter/utempter (Fedora path)
+  // is short-lived and can be safely run.  Ideally, we should
+  // disable checkpoints while utempter is running, and enable checkpoints
+  // when utempter finishes.  See possible model at
+  // execwrappers.cpp:execLibProcessAndExit(), since the same applies
+  // to running /lib/libXXX.so for running libraries as executables.
   if (testSetuid(argv[0])) {
     char **newArgv;
+
     // THIS NEXT LINE IS DANGEROUS.  MOST setuid PROGRAMS CAN'T RUN UNPRIVILEGED
     Util::patchArgvIfSetuid(argv[0], argv, &newArgv);
     argv = newArgv;
-  };
+  }
 
   if (argc > 0) {
     JTRACE("dmtcp_launch starting new program:")(argv[0]);
   }
 
-  //set up CHECKPOINT_DIR
-  if(getenv(ENV_VAR_CHECKPOINT_DIR) == NULL){
-    const char* ckptDir = get_current_dir_name();
-    if(ckptDir != NULL ){
-      //copy to private buffer
+  // set up CHECKPOINT_DIR
+  if (getenv(ENV_VAR_CHECKPOINT_DIR) == NULL) {
+    const char *ckptDir = get_current_dir_name();
+    if (ckptDir != NULL) {
+      // copy to private buffer
       static string _buf = ckptDir;
       ckptDir = _buf.c_str();
-    }else{
-      ckptDir=".";
+    } else {
+      ckptDir = ".";
     }
-    setenv ( ENV_VAR_CHECKPOINT_DIR, ckptDir, 0 );
+    setenv(ENV_VAR_CHECKPOINT_DIR, ckptDir, 0);
     JTRACE("setting " ENV_VAR_CHECKPOINT_DIR)(ckptDir);
   }
 
-  if ( checkpointOpenFiles )
-    setenv( ENV_VAR_CKPT_OPEN_FILES, "1", 0 );
-  else
-    unsetenv( ENV_VAR_CKPT_OPEN_FILES);
+  if (checkpointOpenFiles) {
+    setenv(ENV_VAR_CKPT_OPEN_FILES, "1", 0);
+  } else {
+    unsetenv(ENV_VAR_CKPT_OPEN_FILES);
+  }
 
   bool isElf, is32bitElf;
-  if  (Util::elfType(argv[0], &isElf, &is32bitElf) == -1) {
+  if (Util::elfType(argv[0], &isElf, &is32bitElf) == -1) {
     // Couldn't read argv_buf
     // FIXME:  This could have been a symbolic link.  Don't issue an error,
-    //         unless we're sure that the executable is not readable.
+    // unless we're sure that the executable is not readable.
     JASSERT_STDERR <<
       "*** ERROR:  Executable to run w/ DMTCP appears not to be readable,\n"
       "***         or no such executable in path.\n\n"
-      << argv[0] << "\n";
+                   << argv[0] << "\n";
     exit(DMTCP_FAIL_RC);
   } else {
     testStaticallyLinked(argv[0]);
@@ -489,6 +508,7 @@ int main ( int argc, char** argv )
 
   if (getenv("DISPLAY") != NULL) {
     setenv("ORIG_DISPLAY", getenv("DISPLAY"), 1);
+
     // UNSET DISPLAY environment variable.
     unsetenv("DISPLAY");
   }
@@ -509,24 +529,26 @@ int main ( int argc, char** argv )
     unsetenv("SESSION_MANAGER");
   }
 
-  if( explicitSrun ){
-      setenv(ENV_VAR_EXPLICIT_SRUN, "1", 1);
+  if (explicitSrun) {
+    setenv(ENV_VAR_EXPLICIT_SRUN, "1", 1);
   }
 
-// FIXME:  Unify this code with code prior to execvp in execwrappers.cpp
-//   Can use argument to dmtcpPrepareForExec() or getenv("DMTCP_...")
-//   from DmtcpWorker constructor, to distinguish the two cases.
+  // FIXME:  Unify this code with code prior to execvp in execwrappers.cpp
+  // Can use argument to dmtcpPrepareForExec() or getenv("DMTCP_...")
+  // from DmtcpWorker constructor, to distinguish the two cases.
   Util::adjustRlimitStack();
 
   DmtcpUniqueProcessId compId;
   CoordinatorInfo coordInfo;
   struct in_addr localIPAddr;
   int port = (portStr ? jalib::StringToInt(portStr) : UNINITIALIZED_PORT);
+
   // Initialize host and port now.  Will be used in low-level functions.
   CoordinatorAPI::getCoordHostAndPort(allowedModes, &host, &port);
   CoordinatorAPI::instance().connectToCoordOnStartup(allowedModes, argv[0],
                                                      &compId, &coordInfo,
                                                      &localIPAddr);
+
   // If port was 0, we'll get new random port when coordinator starts up.
   CoordinatorAPI::getCoordHostAndPort(allowedModes, &host, &port);
   Util::writeCoordPortToFile(port, thePortFile.c_str());
@@ -538,13 +560,13 @@ int main ( int argc, char** argv )
   if (Util::strEndsWith(installDir, "/lib/dmtcp/32")) {
     // If dmtcp_launch was compiled for 32 bits in a 64-bit O/S, then note:
     // DMTCP_ROOT/bin/dmtcp_launch is a symbolic link to:
-    //    DMTCP_ROOT/bin/dmtcp_launch/lib/dmtcp/32/bin
+    // DMTCP_ROOT/bin/dmtcp_launch/lib/dmtcp/32/bin
     // GetProgramDir() followed the link.  So, we need to remove the suffix.
-    char *str = const_cast<char*>(installDir.c_str());
+    char *str = const_cast<char *>(installDir.c_str());
     str[strlen(str) - strlen("/lib/dmtcp/32")] = '\0';
     installDir = str;
   }
-#endif
+#endif // if defined(__i386__) || defined(__arm__)
 
   /* We need to initialize SharedData here to make sure that it is
    * initialized with the correct coordinator timestamp.  The coordinator
@@ -563,28 +585,31 @@ int main ( int argc, char** argv )
 
   setLDPreloadLibs(is32bitElf);
 
-  //run the user program
+  // run the user program
   char **newArgv = NULL;
-  if (testScreen(argv, &newArgv))
-    execvp ( newArgv[0], newArgv );
-  else
-    execvp ( argv[0], argv );
+  if (testScreen(argv, &newArgv)) {
+    execvp(newArgv[0], newArgv);
+  } else {
+    execvp(argv[0], argv);
+  }
 
-  //should be unreachable
+  // should be unreachable
   JASSERT_STDERR <<
     "ERROR: Failed to exec(\"" << argv[0] << "\"): " << JASSERT_ERRNO << "\n"
-    << "Perhaps it is not in your $PATH?\n"
-    << "See `dmtcp_launch --help` for usage.\n";
-  //fprintf(stderr, theExecFailedMsg, argv[0], JASSERT_ERRNO);
+                 << "Perhaps it is not in your $PATH?\n"
+                 << "See `dmtcp_launch --help` for usage.\n";
+
+  // fprintf(stderr, theExecFailedMsg, argv[0], JASSERT_ERRNO);
 
   return -1;
 }
 
-static int testMatlab(const char *filename)
+static int
+testMatlab(const char *filename)
 {
 #ifdef __GNUC__
 # if __GNUC__ == 4 && __GNUC_MINOR__ > 1
-  static const char* theMatlabWarning =
+  static const char *theMatlabWarning =
     "\n**** WARNING:  Earlier Matlab releases (e.g. release 7.4) use an\n"
     "****  older glibc.  Later releases (e.g. release 7.9) have no problem.\n"
     "****\n"
@@ -597,66 +622,72 @@ static int testMatlab(const char *filename)
     "**** [   (DMTCP does not yet checkpoint X-Windows applications.) ]\n"
     "**** [ You may see \"Not checkpointing libc-2.7.so\".  This is normal. ]\n"
     "****   (Assuming you have done the above, Will now continue"
-	    " executing.)\n\n" ;
+    " executing.)\n\n";
 
   // FIXME:  should expand filename and "matlab" before checking
-  if ( strcmp(filename, "matlab") == 0 &&
-       ( getenv(ENV_VAR_QUIET) == NULL || strcmp(getenv(ENV_VAR_QUIET), "0") ) )
-  {
+  if (strcmp(filename, "matlab") == 0 &&
+      (getenv(ENV_VAR_QUIET) == NULL || strcmp(getenv(ENV_VAR_QUIET), "0"))) {
     JASSERT_STDERR << theMatlabWarning;
     return -1;
   }
-# endif
-#endif
+# endif // if __GNUC__ == 4 && __GNUC_MINOR__ > 1
+#endif // ifdef __GNUC__
   return 0;
 }
 
 // FIXME:  Remove this when DMTCP supports zero-mapped pages
-static int testJava(char **argv)
+static int
+testJava(char **argv)
 {
-  static const char* theJavaWarning =
+  static const char *theJavaWarning =
     "\n**** WARNING:  Sun/Oracle Java claims a large amount of memory\n"
     "****  for its heap on startup.  As of DMTCP version 1.2.4, DMTCP _does_\n"
     "****  handle zero-mapped virtual memory, but it may take up to a\n"
     "****  minute.  This will be fixed to be much faster in a future\n"
     "****  version of DMTCP.  In the meantime, if your Java supports it,\n"
     "****  use the -Xmx flag for a smaller heap:  e.g.  java -Xmx64M javaApp\n"
-    "****  (Invoke dmtcp_launch with --quiet to avoid this msg.)\n\n" ;
+    "****  (Invoke dmtcp_launch with --quiet to avoid this msg.)\n\n";
 
   if (getenv(ENV_VAR_QUIET) != NULL
-      && strcmp(getenv(ENV_VAR_QUIET), "0") != 0)
+      && strcmp(getenv(ENV_VAR_QUIET), "0") != 0) {
     return 0;
-  if ( strcmp(argv[0], "java") == 0 ) {
-    while (*(++argv) != NULL)
-      if (strncmp(*argv, "-Xmx", sizeof("-Xmx")-1) == 0)
+  }
+  if (strcmp(argv[0], "java") == 0) {
+    while (*(++argv) != NULL) {
+      if (strncmp(*argv, "-Xmx", sizeof("-Xmx") - 1) == 0) {
         return 0; // The user called java with -Xmx.  No need for warning.
+      }
+    }
   }
 
   // If user has more than 4 GB of RAM, warn them that -Xmx is faster.
   int fd;
   char buf[100];
   static const char *meminfoPrefix = "MemTotal:       ";
-  if ( (fd = open("/proc/meminfo", O_RDONLY)) != -1 &&
-    read(fd, buf, sizeof(meminfoPrefix) + 16) == sizeof(meminfoPrefix) + 16 &&
-    strncmp(buf, meminfoPrefix, sizeof(meminfoPrefix)+1) == 0 &&
-    atol(buf + sizeof(meminfoPrefix)) > 17000000) /* units of kB : mem > 4 GB */
-      JASSERT_STDERR << theJavaWarning;
-  if (fd != -1)
+  if ((fd = open("/proc/meminfo", O_RDONLY)) != -1 &&
+      read(fd, buf, sizeof(meminfoPrefix) + 16) == sizeof(meminfoPrefix) + 16 &&
+      strncmp(buf, meminfoPrefix, sizeof(meminfoPrefix) + 1) == 0 &&
+      atol(buf + sizeof(meminfoPrefix)) > 17000000) { /* units of kB : mem > 4
+                                                         GB */
+    JASSERT_STDERR << theJavaWarning;
+  }
+  if (fd != -1) {
     close(fd);
+  }
   return -1;
 }
 
-static bool testSetuid(const char *filename)
+static bool
+testSetuid(const char *filename)
 {
   if (Util::isSetuid(filename) &&
       strcmp(filename, "screen") != 0 && strstr(filename, "/screen") == NULL) {
-
-    static const char* theSetuidWarning =
+    static const char *theSetuidWarning =
       "\n**** WARNING:  This process has the setuid or setgid bit set.  This is\n"
       "***  incompatible with the use by DMTCP of LD_PRELOAD.  The process\n"
       "***  will not be checkpointed by DMTCP.  Continuing and hoping\n"
       "***  for the best.  For some programs, you may wish to\n"
-      "***  compile your own private copy, without using setuid permission.\n\n" ;
+      "***  compile your own private copy, without using setuid permission.\n\n";
 
     JASSERT_STDERR << theSetuidWarning;
     sleep(3);
@@ -665,27 +696,31 @@ static bool testSetuid(const char *filename)
   return false;
 }
 
-void testStaticallyLinked(const char *pathname)
+void
+testStaticallyLinked(const char *pathname)
 {
   if (Util::isStaticallyLinked(pathname)) {
     JASSERT_STDERR <<
       "*** WARNING:  " ELF_INTERPRETER " --verify " << pathname << " returns\n"
-      << "***  nonzero status.\n"
-      << "*** This often means that " << pathname << " is\n"
-      << "*** a statically linked target.  If so, you can confirm this with\n"
-      << "*** the 'file' command.\n"
-      << "***  The standard DMTCP only supports dynamically"
-      << " linked executables.\n"
-      << "*** If you cannot recompile dynamically, please talk to the"
-      << " developers about a\n"
-      << "*** custom DMTCP version for statically linked executables.\n"
-      << "*** Proceeding for now, and hoping for the best.\n\n";
+                   << "***  nonzero status.\n"
+                   << "*** This often means that " << pathname << " is\n"
+                   <<
+      "*** a statically linked target.  If so, you can confirm this with\n"
+                   << "*** the 'file' command.\n"
+                   << "***  The standard DMTCP only supports dynamically"
+                   << " linked executables.\n"
+                   <<
+      "*** If you cannot recompile dynamically, please talk to the"
+                   << " developers about a\n"
+                   <<
+      "*** custom DMTCP version for statically linked executables.\n"
+                   << "*** Proceeding for now, and hoping for the best.\n\n";
   }
-  return;
 }
 
 // Test for 'screen' program, argvPtr is an in- and out- parameter
-static bool testScreen(char **argv, char ***newArgv)
+static bool
+testScreen(char **argv, char ***newArgv)
 {
   if (Util::isScreen(argv[0])) {
     Util::setScreenDir();
@@ -695,22 +730,24 @@ static bool testScreen(char **argv, char ***newArgv)
   return false;
 }
 
-static void setLDPreloadLibs(bool is32bitElf)
+static void
+setLDPreloadLibs(bool is32bitElf)
 {
   // preloadLibs are to set LD_PRELOAD:
-  //   LD_PRELOAD=PLUGIN_LIBS:UTILITY_DIR/libdmtcp.so:R_LIBSR_UTILITY_DIR/
+  // LD_PRELOAD=PLUGIN_LIBS:UTILITY_DIR/libdmtcp.so:R_LIBSR_UTILITY_DIR/
   string preloadLibs = "";
+
   // FIXME:  If the colon-separated elements of ENV_VAR_PLUGIN are not
-  //     absolute pathnames, then they must be expanded to absolute pathnames.
-  //     Warn user if an absolute pathname is not valid.
-  if ( getenv(ENV_VAR_PLUGIN) != NULL ) {
+  // absolute pathnames, then they must be expanded to absolute pathnames.
+  // Warn user if an absolute pathname is not valid.
+  if (getenv(ENV_VAR_PLUGIN) != NULL) {
     preloadLibs += getenv(ENV_VAR_PLUGIN);
     preloadLibs += ":";
   }
   string preloadLibs32 = preloadLibs;
 
-  //set up Alloc plugin
-  if (getenv(ENV_VAR_ALLOC_PLUGIN) != NULL){
+  // set up Alloc plugin
+  if (getenv(ENV_VAR_ALLOC_PLUGIN) != NULL) {
     const char *ptr = getenv(ENV_VAR_ALLOC_PLUGIN);
     if (strcmp(ptr, "1") == 0) {
       enableAllocPlugin = true;
@@ -718,12 +755,12 @@ static void setLDPreloadLibs(bool is32bitElf)
       enableAllocPlugin = false;
     } else {
       JASSERT(false) (getenv(ENV_VAR_ALLOC_PLUGIN))
-        .Text("Invalid value for the environment variable.");
+      .Text("Invalid value for the environment variable.");
     }
   }
 
   // Setup Dl plugin
-  if (getenv(ENV_VAR_DL_PLUGIN) != NULL){
+  if (getenv(ENV_VAR_DL_PLUGIN) != NULL) {
     const char *ptr = getenv(ENV_VAR_DL_PLUGIN);
     if (strcmp(ptr, "1") == 0) {
       enableDlPlugin = true;
@@ -731,7 +768,7 @@ static void setLDPreloadLibs(bool is32bitElf)
       enableDlPlugin = false;
     } else {
       JASSERT(false) (getenv(ENV_VAR_DL_PLUGIN))
-        .Text("Invalid value for the environment variable.");
+      .Text("Invalid value for the environment variable.");
     }
   }
 
@@ -739,15 +776,15 @@ static void setLDPreloadLibs(bool is32bitElf)
     preloadLibs = Util::getPath("libdmtcp.so");
 #if defined(__x86_64__) || defined(__aarch64__)
     preloadLibs32 = Util::getPath("libdmtcp.so", true);
-#endif
+#endif // if defined(__x86_64__) || defined(__aarch64__)
   } else {
     for (size_t i = 0; i < numLibs; i++) {
-      struct PluginInfo *p= &pluginInfo[i];
+      struct PluginInfo *p = &pluginInfo[i];
       if (*p->enabled) {
         preloadLibs += Util::getPath(p->lib, is32bitElf) + ":";
 #if defined(__x86_64__) || defined(__aarch64__)
         preloadLibs32 += Util::getPath(p->lib, true) + ":";
-#endif
+#endif // if defined(__x86_64__) || defined(__aarch64__)
       }
     }
   }
@@ -755,16 +792,16 @@ static void setLDPreloadLibs(bool is32bitElf)
   setenv(ENV_VAR_HIJACK_LIBS, preloadLibs.c_str(), 1);
 #if defined(__x86_64__) || defined(__aarch64__)
   setenv(ENV_VAR_HIJACK_LIBS_M32, preloadLibs32.c_str(), 1);
-#endif
+#endif // if defined(__x86_64__) || defined(__aarch64__)
 
   // If dmtcp_launch was called with user LD_PRELOAD, and if
-  //   dmtcp_launch survived the experience, then pass it back to user.
+  // dmtcp_launch survived the experience, then pass it back to user.
   if (getenv("LD_PRELOAD")) {
     setenv(ENV_VAR_ORIG_LD_PRELOAD, getenv("LD_PRELOAD"), 1);
     preloadLibs = preloadLibs + ":" + getenv("LD_PRELOAD");
 #if defined(__x86_64__) || defined(__aarch64__)
     preloadLibs32 = preloadLibs32 + ":" + getenv("LD_PRELOAD");
-#endif
+#endif // if defined(__x86_64__) || defined(__aarch64__)
   }
 
   setenv("LD_PRELOAD", preloadLibs.c_str(), 1);
@@ -772,14 +809,14 @@ static void setLDPreloadLibs(bool is32bitElf)
   if (is32bitElf) {
     string libdmtcp = Util::getPath("libdmtcp.so", true);
     JWARNING(libdmtcp != "libdmtcp.so") (libdmtcp)
-      .Text("You appear to be checkpointing a 32-bit target under 64-bit Linux.\n"
-            "DMTCP was unable to find the 32-bit installation.\n"
-            "See DMTCP FAQ or try:\n"
-            "  ./configure --enable-m32 && make clean && make -j && make install\n"
-            "  ./configure && make clean && make -j && make install\n");
+    .Text("You appear to be checkpointing a 32-bit target under 64-bit Linux.\n"
+          "DMTCP was unable to find the 32-bit installation.\n"
+          "See DMTCP FAQ or try:\n"
+          "  ./configure --enable-m32 && make clean && make -j && make install\n"
+          "  ./configure && make clean && make -j && make install\n");
     setenv("LD_PRELOAD", preloadLibs.c_str(), 1);
   }
-#endif
+#endif // if defined(__x86_64__) || defined(__aarch64__)
   JTRACE("getting value of LD_PRELOAD")
     (getenv("LD_PRELOAD")) (preloadLibs) (preloadLibs32);
 }

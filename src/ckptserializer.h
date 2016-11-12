@@ -28,13 +28,12 @@
 
 namespace dmtcp
 {
-  namespace CkptSerializer
-  {
-    int openCkptFileToWrite(const string& path);
-    void createCkptDir();
-    void writeCkptImage(void *mtcpHdr, size_t mtcpHdrLen);
-    void writeDmtcpHeader(int fd);
-  };
+namespace CkptSerializer
+{
+int openCkptFileToWrite(const string &path);
+void createCkptDir();
+void writeCkptImage(void *mtcpHdr, size_t mtcpHdrLen);
+void writeDmtcpHeader(int fd);
 }
-
-#endif
+}
+#endif // ifndef CKPT_SERIZLIZER_H

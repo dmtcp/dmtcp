@@ -20,74 +20,77 @@
  ****************************************************************************/
 
 #include "barrierinfo.h"
-#include "plugininfo.h"
+#include "coordinatorapi.h"
 #include "dmtcp.h"
 #include "jassert.h"
+#include "plugininfo.h"
 #include "shareddata.h"
-#include "coordinatorapi.h"
 
-namespace dmtcp {
-
-PluginInfo::PluginInfo(const DmtcpPluginDescriptor_t& descr,
-                       const vector<BarrierInfo*>& _preCkptBarriers,
-                       const vector<BarrierInfo*>& _resumeBarriers,
-                       const vector<BarrierInfo*>& _restartBarriers)
-  : pluginName (descr.pluginName),
-    authorName (descr.authorName),
-    authorEmail (descr.authorEmail),
-    description (descr.description),
-    event_hook (descr.event_hook),
-    preCkptBarriers (_preCkptBarriers),
-    resumeBarriers (_resumeBarriers),
-    restartBarriers (_restartBarriers)
+namespace dmtcp
+{
+PluginInfo::PluginInfo(const DmtcpPluginDescriptor_t &descr,
+                       const vector<BarrierInfo *> &_preCkptBarriers,
+                       const vector<BarrierInfo *> &_resumeBarriers,
+                       const vector<BarrierInfo *> &_restartBarriers)
+  : pluginName(descr.pluginName),
+  authorName(descr.authorName),
+  authorEmail(descr.authorEmail),
+  description(descr.description),
+  event_hook(descr.event_hook),
+  preCkptBarriers(_preCkptBarriers),
+  resumeBarriers(_resumeBarriers),
+  restartBarriers(_restartBarriers)
 {}
 
-PluginInfo *PluginInfo::create(const DmtcpPluginDescriptor_t& descr)
+PluginInfo *
+PluginInfo::create(const DmtcpPluginDescriptor_t &descr)
 {
-  vector<BarrierInfo*> preCkptBarriers;
-  vector<BarrierInfo*> resumeBarriers;
-  vector<BarrierInfo*> restartBarriers;
+  vector<BarrierInfo *>preCkptBarriers;
+  vector<BarrierInfo *>resumeBarriers;
+  vector<BarrierInfo *>restartBarriers;
 
   for (size_t i = 0; i < descr.numBarriers; i++) {
     BarrierInfo *barrier = new BarrierInfo(descr.pluginName, descr.barriers[i]);
     switch (barrier->type) {
-      case DMTCP_GLOBAL_BARRIER_PRE_CKPT:
-      case DMTCP_LOCAL_BARRIER_PRE_CKPT:
-      case DMTCP_PRIVATE_BARRIER_PRE_CKPT:
-        preCkptBarriers.push_back(barrier);
-        break;
+    case DMTCP_GLOBAL_BARRIER_PRE_CKPT:
+    case DMTCP_LOCAL_BARRIER_PRE_CKPT:
+    case DMTCP_PRIVATE_BARRIER_PRE_CKPT:
+      preCkptBarriers.push_back(barrier);
+      break;
 
-      case DMTCP_GLOBAL_BARRIER_RESUME:
-      case DMTCP_LOCAL_BARRIER_RESUME:
-      case DMTCP_PRIVATE_BARRIER_RESUME:
-        resumeBarriers.push_back(barrier);
-        break;
+    case DMTCP_GLOBAL_BARRIER_RESUME:
+    case DMTCP_LOCAL_BARRIER_RESUME:
+    case DMTCP_PRIVATE_BARRIER_RESUME:
+      resumeBarriers.push_back(barrier);
+      break;
 
-      case DMTCP_GLOBAL_BARRIER_RESTART:
-      case DMTCP_LOCAL_BARRIER_RESTART:
-      case DMTCP_PRIVATE_BARRIER_RESTART:
-        restartBarriers.push_back(barrier);
-        break;
+    case DMTCP_GLOBAL_BARRIER_RESTART:
+    case DMTCP_LOCAL_BARRIER_RESTART:
+    case DMTCP_PRIVATE_BARRIER_RESTART:
+      restartBarriers.push_back(barrier);
+      break;
 
-      default:
-        JASSERT(false) .Text("NOT REACHED");
+    default:
+      JASSERT(false).Text("NOT REACHED");
     }
   }
 
   return new PluginInfo(descr,
-      preCkptBarriers,
-      resumeBarriers,
-      restartBarriers);
+                        preCkptBarriers,
+                        resumeBarriers,
+                        restartBarriers);
 }
 
-void PluginInfo::eventHook (const DmtcpEvent_t event, DmtcpEventData_t *data)
+void
+PluginInfo::eventHook(const DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   if (event_hook != NULL) {
     event_hook(event, data);
   }
 }
 
-void PluginInfo::processBarriers()
+void
+PluginInfo::processBarriers()
 {
   if (WorkerState::currentState() == WorkerState::CHECKPOINTING) {
     for (size_t i = 0; i < preCkptBarriers.size(); i++) {
@@ -102,11 +105,12 @@ void PluginInfo::processBarriers()
       processBarrier(restartBarriers[i]);
     }
   } else {
-    JASSERT(false) .Text("Not Reached");
+    JASSERT(false).Text("Not Reached");
   }
 }
 
-void PluginInfo::processBarrier(BarrierInfo *barrier)
+void
+PluginInfo::processBarrier(BarrierInfo *barrier)
 {
   if (dmtcp_no_coordinator()) {
     // Do nothing.
@@ -121,5 +125,4 @@ void PluginInfo::processBarrier(BarrierInfo *barrier)
   JTRACE("Barrier released") (barrier->toString());
   barrier->callback();
 }
-
 }

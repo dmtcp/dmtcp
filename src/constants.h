@@ -22,8 +22,8 @@
 #ifndef CONSTANTS_H
 #define CONSTANTS_H
 
-#include <linux/version.h>
 #include <features.h>
+#include <linux/version.h>
 
 #include "config.h"
 
@@ -38,136 +38,140 @@
 
 #ifndef CKPT_SIGNAL
 # define CKPT_SIGNAL SIGUSR2
-#endif
+#endif // ifndef CKPT_SIGNAL
 
 // This macro (LIBC...) is also defined in ../jalib/jassert.cpp and should
 // always be kept in sync with that.
-#define LIBC_FILENAME "libc.so.6"
+#define LIBC_FILENAME            "libc.so.6"
 
-#define LIBDL_FILENAME "libdl.so.2"
-#define CKPT_FILE_PREFIX "ckpt_"
-#define CKPT_FILE_SUFFIX ".dmtcp"
-#define CKPT_FILE_SUFFIX_LEN strlen(".dmtcp")
+#define LIBDL_FILENAME           "libdl.so.2"
+#define CKPT_FILE_PREFIX         "ckpt_"
+#define CKPT_FILE_SUFFIX         ".dmtcp"
+#define CKPT_FILE_SUFFIX_LEN     strlen(".dmtcp")
 #define CKPT_FILES_SUBDIR_PREFIX "ckpt_"
 #define CKPT_FILES_SUBDIR_SUFFIX "_files"
+
 /* dmtcp_launch, dmtcp_restart return a unique rc (default: 99) */
-#define DMTCP_FAIL_RC \
-        (getenv("DMTCP_FAIL_RC") && atoi(getenv("DMTCP_FAIL_RC")) ? \
-	 atoi(getenv("DMTCP_FAIL_RC")) : 99)
+#define DMTCP_FAIL_RC                                         \
+  (getenv("DMTCP_FAIL_RC") && atoi(getenv("DMTCP_FAIL_RC")) ? \
+   atoi(getenv("DMTCP_FAIL_RC")) : 99)
 
 // Not used
-//#define X11_LISTENER_PORT_START 6000
+// #define X11_LISTENER_PORT_START 6000
 
 // Virtual pids used by coordinator.
-#define INITIAL_VIRTUAL_PID  40000
-#define MAX_VIRTUAL_PID  400000000
+#define INITIAL_VIRTUAL_PID         40000
+#define MAX_VIRTUAL_PID             400000000
 
-#define DEFAULT_HOST "127.0.0.1"
-#define DEFAULT_PORT 7779
-#define UNINITIALIZED_PORT -1 /* used with getCoordHostAndPort() */
+#define DEFAULT_HOST                "127.0.0.1"
+#define DEFAULT_PORT                7779
+#define UNINITIALIZED_PORT          -1 /* used with getCoordHostAndPort() */
 
 // Match up this definition with the one in plugin/ptrace/ptracewrappers.cpp
-#define DMTCP_FAKE_SYSCALL 1023
+#define DMTCP_FAKE_SYSCALL          1023
 
-//this next string can be at most 16 chars long
-#define DMTCP_MAGIC_STRING "DMTCP_CKPT_V0\n"
+// this next string can be at most 16 chars long
+#define DMTCP_MAGIC_STRING          "DMTCP_CKPT_V0\n"
 
-//it should be safe to change any of these names
-#define ENV_VAR_NAME_HOST "DMTCP_COORD_HOST"
-#define ENV_VAR_NAME_PORT "DMTCP_COORD_PORT"
-#define ENV_VAR_NAME_RESTART_DIR  "DMTCP_RESTART_DIR"
-#define ENV_VAR_CKPT_INTR "DMTCP_CHECKPOINT_INTERVAL"
-#define ENV_VAR_ORIG_LD_PRELOAD "DMTCP_ORIG_LD_PRELOAD"
-#define ENV_VAR_HIJACK_LIBS "DMTCP_HIJACK_LIBS"
-#define ENV_VAR_HIJACK_LIBS_M32 "DMTCP_HIJACK_LIBS_M32"
-#define ENV_VAR_CHECKPOINT_DIR "DMTCP_CHECKPOINT_DIR"
-#define ENV_VAR_TMPDIR "DMTCP_TMPDIR"
-#define ENV_VAR_CKPT_OPEN_FILES "DMTCP_CKPT_OPEN_FILES"
-#define ENV_VAR_ALLOW_OVERWRITE_WITH_CKPTED_FILES "DMTCP_ALLOW_OVERWRITE_WITH_CKPTED_FILES"
-#define ENV_VAR_PLUGIN "DMTCP_PLUGIN"
-#define ENV_VAR_QUIET "DMTCP_QUIET"
-#define ENV_VAR_DMTCP_DUMMY "DMTCP_DUMMY"
+// it should be safe to change any of these names
+#define ENV_VAR_NAME_HOST           "DMTCP_COORD_HOST"
+#define ENV_VAR_NAME_PORT           "DMTCP_COORD_PORT"
+#define ENV_VAR_NAME_RESTART_DIR    "DMTCP_RESTART_DIR"
+#define ENV_VAR_CKPT_INTR           "DMTCP_CHECKPOINT_INTERVAL"
+#define ENV_VAR_ORIG_LD_PRELOAD     "DMTCP_ORIG_LD_PRELOAD"
+#define ENV_VAR_HIJACK_LIBS         "DMTCP_HIJACK_LIBS"
+#define ENV_VAR_HIJACK_LIBS_M32     "DMTCP_HIJACK_LIBS_M32"
+#define ENV_VAR_CHECKPOINT_DIR      "DMTCP_CHECKPOINT_DIR"
+#define ENV_VAR_TMPDIR              "DMTCP_TMPDIR"
+#define ENV_VAR_CKPT_OPEN_FILES     "DMTCP_CKPT_OPEN_FILES"
+#define ENV_VAR_ALLOW_OVERWRITE_WITH_CKPTED_FILES \
+                                    "DMTCP_ALLOW_OVERWRITE_WITH_CKPTED_FILES"
+#define ENV_VAR_PLUGIN              "DMTCP_PLUGIN"
+#define ENV_VAR_QUIET               "DMTCP_QUIET"
+#define ENV_VAR_DMTCP_DUMMY         "DMTCP_DUMMY"
+
 // Keep in sync with plugin/pid/pidwrappers.h
-#define ENV_VAR_VIRTUAL_PID "DMTCP_VIRTUAL_PID"
-// Keep in sync with plugin/batch-queue/rm_pmi.h
-#define ENV_VAR_EXPLICIT_SRUN "DMTCP_EXPLICIT_SRUN"
-#define ENV_VAR_SKIP_WRITING_TEXT_SEGMENTS "DMTCP_SKIP_WRITING_TEXT_SEGMENTS"
+#define ENV_VAR_VIRTUAL_PID         "DMTCP_VIRTUAL_PID"
 
-#define ENV_VAR_COORD_LOGFILE "DMTCP_COORD_LOG_FILENAME"
+// Keep in sync with plugin/batch-queue/rm_pmi.h
+#define ENV_VAR_EXPLICIT_SRUN       "DMTCP_EXPLICIT_SRUN"
+#define ENV_VAR_SKIP_WRITING_TEXT_SEGMENTS \
+                                    "DMTCP_SKIP_WRITING_TEXT_SEGMENTS"
+
+#define ENV_VAR_COORD_LOGFILE       "DMTCP_COORD_LOG_FILENAME"
 
 // it is not yet safe to change these; these names are hard-wired in the code
-#define ENV_VAR_STDERR_PATH "JALIB_STDERR_PATH"
-#define ENV_VAR_COMPRESSION "DMTCP_GZIP"
-#define ENV_VAR_ALLOC_PLUGIN "DMTCP_ALLOC_PLUGIN"
-#define ENV_VAR_DL_PLUGIN "DMTCP_DL_PLUGIN"
+#define ENV_VAR_STDERR_PATH         "JALIB_STDERR_PATH"
+#define ENV_VAR_COMPRESSION         "DMTCP_GZIP"
+#define ENV_VAR_ALLOC_PLUGIN        "DMTCP_ALLOC_PLUGIN"
+#define ENV_VAR_DL_PLUGIN           "DMTCP_DL_PLUGIN"
 #ifdef HBICT_DELTACOMP
-  #define ENV_VAR_DELTACOMPRESSION "DMTCP_HBICT"
-  #define ENV_DELTACOMPRESSION ENV_VAR_DELTACOMPRESSION
-#else
-  #define ENV_DELTACOMPRESSION
-#endif
+  # define ENV_VAR_DELTACOMPRESSION "DMTCP_HBICT"
+  # define ENV_DELTACOMPRESSION     ENV_VAR_DELTACOMPRESSION
+#else // ifdef HBICT_DELTACOMP
+  # define ENV_DELTACOMPRESSION
+#endif // ifdef HBICT_DELTACOMP
 
-#define ENV_VAR_FORKED_CKPT "DMTCP_FORKED_CHECKPOINT"
-#define ENV_VAR_SIGCKPT "DMTCP_SIGCKPT"
-#define ENV_VAR_SCREENDIR "SCREENDIR"
+#define ENV_VAR_FORKED_CKPT             "DMTCP_FORKED_CHECKPOINT"
+#define ENV_VAR_SIGCKPT                 "DMTCP_SIGCKPT"
+#define ENV_VAR_SCREENDIR               "SCREENDIR"
 #define ENV_VAR_DISABLE_STRICT_CHECKING "DMTCP_DISABLE_STRICT_CHECKING"
 
-#define GLIBC_BASE_FUNC isalnum
+#define GLIBC_BASE_FUNC                 isalnum
 
-#define LIBDL_BASE_FUNC dlinfo
-#define LIBDL_BASE_FUNC_STR "dlinfo"
-#define ENV_VAR_DLSYM_OFFSET "DMTCP_DLSYM_OFFSET"
-#define ENV_VAR_DLSYM_OFFSET_M32 "DMTCP_DLSYM_OFFSET_M32"
+#define LIBDL_BASE_FUNC                 dlinfo
+#define LIBDL_BASE_FUNC_STR             "dlinfo"
+#define ENV_VAR_DLSYM_OFFSET            "DMTCP_DLSYM_OFFSET"
+#define ENV_VAR_DLSYM_OFFSET_M32        "DMTCP_DLSYM_OFFSET_M32"
 
-//this list should be kept up to date with all "protected" environment vars
-#define ENV_VARS_ALL \
-    ENV_VAR_NAME_HOST,\
-    ENV_VAR_NAME_PORT,\
-    ENV_VAR_CKPT_INTR,\
-    ENV_VAR_ORIG_LD_PRELOAD,\
-    ENV_VAR_HIJACK_LIBS,\
-    ENV_VAR_HIJACK_LIBS_M32,\
-    ENV_VAR_PLUGIN, \
-    ENV_VAR_CHECKPOINT_DIR,\
-    ENV_VAR_TMPDIR,\
-    ENV_VAR_CKPT_OPEN_FILES,\
-    ENV_VAR_QUIET,\
-    ENV_VAR_STDERR_PATH,\
-    ENV_VAR_COMPRESSION,\
-    ENV_VAR_ALLOC_PLUGIN,\
-    ENV_VAR_DL_PLUGIN,\
-    ENV_VAR_SIGCKPT,\
-    ENV_VAR_SCREENDIR, \
-    ENV_VAR_DLSYM_OFFSET, \
-    ENV_VAR_DLSYM_OFFSET_M32, \
-    ENV_VAR_VIRTUAL_PID, \
-    ENV_VAR_SKIP_WRITING_TEXT_SEGMENTS, \
-    ENV_DELTACOMPRESSION
+// this list should be kept up to date with all "protected" environment vars
+#define ENV_VARS_ALL                  \
+  ENV_VAR_NAME_HOST,                  \
+  ENV_VAR_NAME_PORT,                  \
+  ENV_VAR_CKPT_INTR,                  \
+  ENV_VAR_ORIG_LD_PRELOAD,            \
+  ENV_VAR_HIJACK_LIBS,                \
+  ENV_VAR_HIJACK_LIBS_M32,            \
+  ENV_VAR_PLUGIN,                     \
+  ENV_VAR_CHECKPOINT_DIR,             \
+  ENV_VAR_TMPDIR,                     \
+  ENV_VAR_CKPT_OPEN_FILES,            \
+  ENV_VAR_QUIET,                      \
+  ENV_VAR_STDERR_PATH,                \
+  ENV_VAR_COMPRESSION,                \
+  ENV_VAR_ALLOC_PLUGIN,               \
+  ENV_VAR_DL_PLUGIN,                  \
+  ENV_VAR_SIGCKPT,                    \
+  ENV_VAR_SCREENDIR,                  \
+  ENV_VAR_DLSYM_OFFSET,               \
+  ENV_VAR_DLSYM_OFFSET_M32,           \
+  ENV_VAR_VIRTUAL_PID,                \
+  ENV_VAR_SKIP_WRITING_TEXT_SEGMENTS, \
+  ENV_DELTACOMPRESSION
 
-#define DMTCP_RESTART_CMD "dmtcp_restart"
+#define DMTCP_RESTART_CMD       "dmtcp_restart"
 
 #define RESTART_SCRIPT_BASENAME "dmtcp_restart_script"
-#define RESTART_SCRIPT_EXT "sh"
+#define RESTART_SCRIPT_EXT      "sh"
 
-#define DMTCP_FILE_HEADER "DMTCP_CHECKPOINT_IMAGE_v2.0\n"
+#define DMTCP_FILE_HEADER       "DMTCP_CHECKPOINT_IMAGE_v2.0\n"
 
 // #define MIN_SIGNAL 1
 // #define MAX_SIGNAL 30
 
-#if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,9)
-#define user_desc modify_ldt_ldt_s
-#endif
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(2, 6, 9)
+# define user_desc modify_ldt_ldt_s
+#endif // if LINUX_VERSION_CODE <= KERNEL_VERSION(2, 6, 9)
 
-#define DMTCP_VERSION_AND_COPYRIGHT_INFO                                       \
-  BINARY_NAME " (DMTCP) " PACKAGE_VERSION "\n"                                 \
-  "License LGPLv3+: GNU LGPL version 3 or later\n"                             \
-  "    <http://gnu.org/licenses/lgpl.html>.\n"                                 \
-  "This program comes with ABSOLUTELY NO WARRANTY.\n"                          \
-  "This is free software, and you are welcome to redistribute it\n"            \
-  "under certain conditions; see COPYING file for details.\n"
+#define DMTCP_VERSION_AND_COPYRIGHT_INFO                                                                    \
+  BINARY_NAME " (DMTCP) " PACKAGE_VERSION "\n"                                                              \
+                                          "License LGPLv3+: GNU LGPL version 3 or later\n"                  \
+                                          "    <http://gnu.org/licenses/lgpl.html>.\n"                      \
+                                          "This program comes with ABSOLUTELY NO WARRANTY.\n"               \
+                                          "This is free software, and you are welcome to redistribute it\n" \
+                                          "under certain conditions; see COPYING file for details.\n"
 
-#define HELP_AND_CONTACT_INFO             \
+#define HELP_AND_CONTACT_INFO               \
   "Report bugs to: " PACKAGE_BUGREPORT "\n" \
-  "DMTCP home page: <" PACKAGE_URL ">\n"
-
-#endif
+                                       "DMTCP home page: <" PACKAGE_URL ">\n"
+#endif // ifndef CONSTANTS_H

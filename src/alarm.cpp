@@ -17,25 +17,28 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <stdio.h>
 
-#include "dmtcp.h"
 #include "config.h"
+#include "dmtcp.h"
 
 #include "jassert.h"
 
-namespace dmtcp {
+namespace dmtcp
+{
 static unsigned int timeLeft = 0;
 
-static void checkpoint()
+static void
+checkpoint()
 {
   timeLeft = alarm(0);
   JTRACE("*** Alarm stopped. ***") (timeLeft);
 }
 
-static void resume()
+static void
+resume()
 {
   /* Need to restart the timer on resume/restart. */
   if (timeLeft > 0) {
@@ -45,9 +48,9 @@ static void resume()
 }
 
 static DmtcpBarrier alarmBarriers[] = {
-  {DMTCP_PRIVATE_BARRIER_PRE_CKPT, checkpoint, "checkpoint"},
-  {DMTCP_PRIVATE_BARRIER_RESUME, resume, "resume"},
-  {DMTCP_PRIVATE_BARRIER_RESTART, resume, "restart"}
+  { DMTCP_PRIVATE_BARRIER_PRE_CKPT, checkpoint, "checkpoint" },
+  { DMTCP_PRIVATE_BARRIER_RESUME, resume, "resume" },
+  { DMTCP_PRIVATE_BARRIER_RESTART, resume, "restart" }
 };
 
 static DmtcpPluginDescriptor_t alarmPlugin = {
@@ -62,7 +65,8 @@ static DmtcpPluginDescriptor_t alarmPlugin = {
 };
 
 
-DmtcpPluginDescriptor_t dmtcp_Alarm_PluginDescr()
+DmtcpPluginDescriptor_t
+dmtcp_Alarm_PluginDescr()
 {
   return alarmPlugin;
 }
