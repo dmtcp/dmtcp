@@ -28,23 +28,22 @@
 #include <vector>
 
 
-namespace jalib {
+namespace jalib
+{
 #if 1
-  typedef dmtcp::string string;
-  typedef dmtcp::ostringstream ostringstream;
-  typedef dmtcp::vector<int> IntVector;
-  typedef dmtcp::set<int> IntSet;
-  typedef dmtcp::vector<string> StringVector;
-  using dmtcp::vector;
-#else
-  typedef std::string string;
-  typedef std::ostringstream ostringstream;
-  typedef std::vector<int> IntVector;
-  typedef std::set<int> IntSet;
-  typedef std::vector<string> StringVector;
-  using std::vector;
-#endif
+typedef dmtcp::string string;
+typedef dmtcp::ostringstream ostringstream;
+typedef dmtcp::vector<int>IntVector;
+typedef dmtcp::set<int>IntSet;
+typedef dmtcp::vector<string>StringVector;
+using dmtcp::vector;
+#else // if 1
+typedef std::string string;
+typedef std::ostringstream ostringstream;
+typedef std::vector<int>IntVector;
+typedef std::set<int>IntSet;
+typedef std::vector<string>StringVector;
+using std::vector;
+#endif // if 1
 }
-
-#endif
-
+#endif // ifndef STLWRAPPER_H

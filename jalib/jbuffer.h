@@ -25,37 +25,36 @@
 #include "jalloc.h"
 namespace jalib
 {
-
-  /**
-    @author Jason Ansel <jansel@ccs.neu.edu>
-  */
-  class JBuffer
-  {
-    public:
+/**
+  @author Jason Ansel <jansel@ccs.neu.edu>
+*/
+class JBuffer
+{
+  public:
 #ifdef JALIB_ALLOCATOR
-      static void* operator new(size_t nbytes, void* p) { return p; }
-      static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
-      static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
-#endif
-      JBuffer ( int size = 0 );
-      JBuffer ( const char* source, int size );
-      JBuffer ( const void* source, int size );
-      JBuffer ( const JBuffer& that );
-      ~JBuffer();
-      jalib::JBuffer& operator= ( const JBuffer& that );
+    static void *operator new(size_t nbytes, void *p) { return p; }
+
+    static void *operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
+
+    static void operator delete(void *p) { JALLOC_HELPER_DELETE(p); }
+#endif // ifdef JALIB_ALLOCATOR
+    JBuffer(int size = 0);
+    JBuffer(const char *source, int size);
+    JBuffer(const void *source, int size);
+    JBuffer(const JBuffer &that);
+    ~JBuffer();
+    jalib::JBuffer&operator=(const JBuffer &that);
 
 
-      const char* buffer() const;
-      char* buffer();
-      int size() const;
-      operator char* () {return buffer();}
-      operator const char* () {return buffer();}
+    const char *buffer() const;
+    char *buffer();
+    int size() const;
+    operator char *() { return buffer(); }
+    operator const char *() { return buffer(); }
 
-    private:
-      char * _buffer;
-      int    _size;
-  };
-
+  private:
+    char *_buffer;
+    int _size;
+};
 }
-
-#endif
+#endif // ifndef JALIBJBUFFER_H
