@@ -3,27 +3,29 @@
  */
 
 #define _GNU_SOURCE
-#include <unistd.h>
-#include <stdio.h>
 #include <assert.h>
 #include <pthread.h>
+#include <stdio.h>
 #include <sys/signal.h>
 #include <sys/time.h>
+#include <unistd.h>
 
 timer_t timer_id;
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 int counter = 0;
 
-void timer_thread (union sigval arg)
+void
+timer_thread(union sigval arg)
 {
   sleep(1);
 
-  assert_perror(pthread_mutex_lock (&mutex));
-  printf ("Timer %d\n", counter++);
-  assert_perror(pthread_mutex_unlock (&mutex));
+  assert_perror(pthread_mutex_lock(&mutex));
+  printf("Timer %d\n", counter++);
+  assert_perror(pthread_mutex_unlock(&mutex));
 }
 
-int main()
+int
+main()
 {
   int status;
   struct itimerspec ts;

@@ -45,88 +45,88 @@
 
 #pragma GCC diagnostic ignored "-Wformat"
 
+#include <assert.h>
 #include <errno.h>
+#include <fcntl.h>
+#include <limits.h>
+#include <signal.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/file.h>
-#include <sys/types.h>
-#include <sys/time.h>
 #include <sys/stat.h>
-#include <sys/utsname.h>
 #include <sys/time.h>
-#include <assert.h>
-#include <fcntl.h>
+#include <sys/time.h>
+#include <sys/types.h>
 #include <sys/uio.h>
-#include <utime.h>
-#include <signal.h>
-#include <limits.h>
+#include <sys/utsname.h>
 #include <unistd.h>
-#include <stdarg.h>
+#include <utime.h>
 
 #define LINUX
 
 #if defined(LINUX)
-#include <sys/syscall.h>
-#include <sys/uio.h>
-#include <sys/vfs.h>
-#endif
+# include <sys/syscall.h>
+# include <sys/uio.h>
+# include <sys/vfs.h>
+#endif /* if defined(LINUX) */
 
 #if defined(Solaris)
-#include <sys/statfs.h>
-#endif
+# include <sys/statfs.h>
+#endif /* if defined(Solaris) */
 
 #if defined(HPUX)
-#include <sys/vfs.h>
-#include <nfs/nfs.h>
-#endif
+# include <nfs/nfs.h>
+# include <sys/vfs.h>
+#endif /* if defined(HPUX) */
 
 #if defined(Solaris26)
-#ifdef __cplusplus
+# ifdef __cplusplus
 extern "C" int utimes(char *filename, struct timeval *tvp);
-#else
+# else /* ifdef __cplusplus */
 int utimes(char *filename, struct timeval *tvp);
-#endif
-#endif
+# endif /* ifdef __cplusplus */
+#endif /* if defined(Solaris26) */
 
 #if defined(LINUX) && defined(GLIBC)
-#define getpriority __hide_getpriority
-#define setpriority __hide_setpriority
-#define getrlimit __hide_getrlimit
-#define __getrlimit __hide__getrlimit
-#define setrlimit __hide_setrlimit
-#define getrusage __hide_getrusage
-#define __getrusage __hide___getrusage
-#endif
+# define getpriority __hide_getpriority
+# define setpriority __hide_setpriority
+# define getrlimit   __hide_getrlimit
+# define __getrlimit __hide__getrlimit
+# define setrlimit   __hide_setrlimit
+# define getrusage   __hide_getrusage
+# define __getrusage __hide___getrusage
+#endif /* if defined(LINUX) && defined(GLIBC) */
 
 #include <sys/resource.h>
 
 #if defined(LINUX) && defined(GLIBC)
-#undef getpriority
-#undef setpriority
-#undef getrlimit
-#undef __getrlimit
-#undef setrlimit
-#undef getrusage
-#undef __getrusage
-#ifdef __cplusplus
+# undef getpriority
+# undef setpriority
+# undef getrlimit
+# undef __getrlimit
+# undef setrlimit
+# undef getrusage
+# undef __getrusage
+# ifdef __cplusplus
 extern "C" int getrlimit(int, struct rlimit *);
 extern "C" int __getrlimit(int, struct rlimit *);
 extern "C" int setrlimit(int, const struct rlimit *);
 extern "C" int getpriority(int, int);
 extern "C" int setpriority(int, int, int);
-extern "C" int getrusage(int, struct rusage * );
-extern "C" int __getrusage(int, struct rusage * );
-#else
+extern "C" int getrusage(int, struct rusage *);
+extern "C" int __getrusage(int, struct rusage *);
+# else /* ifdef __cplusplus */
 int getrlimit(int, struct rlimit *);
 int __getrlimit(int, struct rlimit *);
 int setrlimit(int, const struct rlimit *);
 int getpriority(int, int);
 int setpriority(int, int, int);
-int getrusage(int, struct rusage * );
-int __getrusage(int, struct rusage * );
-#endif
-#endif
+int getrusage(int, struct rusage *);
+int __getrusage(int, struct rusage *);
+# endif /* ifdef __cplusplus */
+#endif /* if defined(LINUX) && defined(GLIBC) */
 int testall();
 
 /* this MUST be an int quantity. It is used for list termination on
@@ -135,12 +135,12 @@ const int ENDLIST = -1;
 
 /* How big certain buffers should be for names and things */
 /* XXX I should really use OS defined things for this, but I'm lazy */
-#define NAMEBUF  8192
+#define NAMEBUF   8192
 
 /* How did the block tests do? DO NOT CHANGE THESE! I use them based upon
    how the OS returns a success or failure. */
-#define SUCCESS 0
-#define FAILURE -1
+#define SUCCESS   0
+#define FAILURE   -1
 #define UNDEFINED -2
 
 /* a really generic way of spitting out analysis that isn't the important one
@@ -149,36 +149,37 @@ const int ENDLIST = -1;
    do. The expect_* call ensures that you should always get what your
    expectation resulted in. If you expect your test to fail, and it does,
    then the expected result is a success. :) */
-#define EXPECTED_RESP							\
-  if (passed != SUCCESS) {						\
-    printf("\tFailed Phase 2: This call did something unexpected.\n");	\
-    fflush(NULL);							\
-    block = FAILURE;							\
+#define EXPECTED_RESP                                                  \
+  if (passed != SUCCESS) {                                             \
+    printf("\tFailed Phase 2: This call did something unexpected.\n"); \
+    fflush(NULL);                                                      \
+    block = FAILURE;                                                   \
   }
 
 /* Some helpers for fast aborts of a block test when it blows up */
-#define IF_FAILED				\
+#define IF_FAILED \
   if (passed == FAILURE)
 
-#define ABORT_TEST							\
-  {									\
+#define ABORT_TEST                                                             \
+  {                                                                            \
     printf("\tFail Phase 2: Aborting test because of catastrophic failure\n"); \
-    fflush(NULL);							\
-    return passed;							\
+    fflush(NULL);                                                              \
+    return passed;                                                             \
   }
 
 
 /* a safe string modifer for printf, if it is null, print out that fact */
-#define STR(x)					\
-  (((x)==NULL)?"(null)":(x))
+#define STR(x) \
+  (((x) == NULL) ? "(null)" : (x))
 
 /* do not change this passage, the test program has hard coded values that
    assume the length of the passage is what you see here */
 char passage[] = "This is tedious and lonely code. There is no salvation "
-  "in writing this code.";
+                 "in writing this code.";
 
 /* Print a spacer at the debug level */
-void testbreak(void)
+void
+testbreak(void)
 {
   int i;
 
@@ -189,7 +190,8 @@ void testbreak(void)
 }
 
 /* a simple utility routine */
-void *xmalloc(size_t len)
+void *
+xmalloc(size_t len)
 {
   void *vec = NULL;
 
@@ -204,9 +206,11 @@ void *xmalloc(size_t len)
 }
 
 /* a simple wrapper around tmpnam */
-char *xtmpnam(char *space)
+char *
+xtmpnam(char *space)
 {
   char *buf = NULL;
+
   errno = 0;
   if ((buf = tmpnam(space)) == NULL) {
     printf("Could not determine unique file name.(%s)\n", strerror(errno));
@@ -221,24 +225,29 @@ char *xtmpnam(char *space)
 
 /* If result is 0 it is success, if it is -1 it is an error, anything else
    is undefined */
-int handle_zng(int ret)
+int
+handle_zng(int ret)
 {
-  switch(ret) {
+  switch (ret) {
   case -1:
     return FAILURE;
+
     break;
   case 0:
     return SUCCESS;
+
     break;
   default:
     return UNDEFINED;
+
     break;
   }
   return UNDEFINED;
 }
 
 /* return success on a non null pointer */
-int handle_ptr(void *ret)
+int
+handle_ptr(void *ret)
 {
   if (ret == NULL) {
     return FAILURE;
@@ -248,43 +257,47 @@ int handle_ptr(void *ret)
 }
 
 /* return a success if ret is >= 0, failure on -1, and undefined for ret < -1 */
-int handle_gez(int ret)
+int
+handle_gez(int ret)
 {
   if (ret >= 0) {
     return SUCCESS;
   }
 
-  if (ret == -1)
-    {
-      return FAILURE;
-    }
+  if (ret == -1) {
+    return FAILURE;
+  }
 
   return UNDEFINED;
 }
 
 /* return a success if the off_t value is NOT (off_t)-1 */
-int handle_off(off_t ret)
+int
+handle_off(off_t ret)
 {
-  if (ret == (off_t)-1)
-    {
-      return FAILURE;
-    }
+  if (ret == (off_t)-1) {
+    return FAILURE;
+  }
 
   return SUCCESS;
 }
 
 /* return a success if the ret isn't an EOF and it is a zero */
-int handle_eof(int ret)
+int
+handle_eof(int ret)
 {
-  switch(ret) {
+  switch (ret) {
   case EOF:
     return FAILURE;
+
     break;
   case 0:
     return SUCCESS;
+
     break;
   default:
     return UNDEFINED;
+
     break;
   }
 
@@ -292,7 +305,8 @@ int handle_eof(int ret)
 }
 
 /* handle a long type given that ret >= zero is success */
-int handle_lng(long ret)
+int
+handle_lng(long ret)
 {
   if (ret >= 0) {
     return SUCCESS;
@@ -309,14 +323,14 @@ int handle_lng(long ret)
   return UNDEFINED;
 }
 
-
 /* The tests of the calls */
 
 /* this makes sure that I read the number of bytes I ask for */
-int full_read(int fd, char *buf, int size)
+int
+full_read(int fd, char *buf, int size)
 {
-  int      bytes_read;
-  int      this_read;
+  int bytes_read;
+  int this_read;
 
   bytes_read = 0;
   do {
@@ -333,10 +347,11 @@ int full_read(int fd, char *buf, int size)
 }
 
 /* this makes sure I write the number of bytes I ask for */
-int full_write(int fd, char *buf, int size)
+int
+full_write(int fd, char *buf, int size)
 {
-  int      bytes_write;
-  int      this_write;
+  int bytes_write;
+  int this_write;
 
   bytes_write = 0;
   do {
@@ -351,7 +366,8 @@ int full_write(int fd, char *buf, int size)
 }
 
 /* this makes sure that I read the number of bytes I ask for */
-int full_fread(void *buf, size_t size, size_t nmemb, FILE *fp)
+int
+full_fread(void *buf, size_t size, size_t nmemb, FILE *fp)
 {
   int items_read = 0;
   int this_read = 0;
@@ -367,15 +383,14 @@ int full_fread(void *buf, size_t size, size_t nmemb, FILE *fp)
     }
 
     items_read += this_read;
-
-  } while(items_read < nmemb);
+  } while (items_read < nmemb);
 
   return items_read;
 }
 
-
 /* this makes sure I write the number of bytes I ask for */
-int full_fwrite(char *buf, size_t size, size_t nmemb, FILE *fp)
+int
+full_fwrite(char *buf, size_t size, size_t nmemb, FILE *fp)
 {
   int items_wrote = 0;
   int this_write = 0;
@@ -391,15 +406,16 @@ int full_fwrite(char *buf, size_t size, size_t nmemb, FILE *fp)
     }
 
     items_wrote += this_write;
-
-  } while(items_wrote < nmemb);
+  } while (items_wrote < nmemb);
 
   return items_wrote;
 }
 
-int getlogin_test()
+int
+getlogin_test()
 {
   char const *tmp = getlogin();
+
   return tmp == NULL;
 }
 
@@ -407,8 +423,8 @@ int getlogin_test()
    comma delimited format. You MUST use ENDLIST to dictate the end of list.
    This call only makes sense in the event of a failure by the system
    call. As far as I know, ENDLIST isn't a valid errno number. */
-
-void is_errno_valid(int err, ...)
+void
+is_errno_valid(int err, ...)
 {
   int eval;
   int found = 0;
@@ -423,7 +439,7 @@ void is_errno_valid(int err, ...)
   /* consume all of the valid errno values for this architecture, this could
      run off the end of the stack if you do not give a ENDLIST at the end
      of the call list. */
-  while(1) {
+  while (1) {
     eval = va_arg(ap, int);
     if (eval == ENDLIST) {
       /* didn't find it */
@@ -439,27 +455,28 @@ void is_errno_valid(int err, ...)
 
   if (found == 0) {
     printf("\tFailed: OS returned errno(%s) that is not in the valid "
-	   "set for function!\n", strerror(err));
+           "set for function!\n", strerror(err));
   }
 }
 
-FILE* freopen_test(char *file, char *type, FILE *stream)
+FILE *
+freopen_test(char *file, char *type, FILE *stream)
 {
   FILE *newfp = NULL;
   int save_errno;
   int passed;
 
   printf("freopen(): file=%s, type=%s, stream=0x%p\n", STR(file), STR(type),
-	 stream);
+         stream);
   fflush(NULL);
 
   passed = handle_ptr(newfp = freopen(file, type, stream));
   save_errno = errno;
 
-  switch(passed) {
+  switch (passed) {
   case FAILURE:
     printf("\tFailed Phase 1: returned 0x%p, expected 0x%pn",
-	   newfp, stream);
+           newfp, stream);
     fflush(NULL);
     break;
   case SUCCESS:
@@ -468,7 +485,7 @@ FILE* freopen_test(char *file, char *type, FILE *stream)
 
     if (newfp != stream) {
       printf("\tFailed Phase 1: returned 0x%p, expected 0x%p\n",
-	     newfp, stream);
+             newfp, stream);
       fflush(NULL);
     } else {
       printf("\tSucceeded Phase 1\n");
@@ -477,7 +494,7 @@ FILE* freopen_test(char *file, char *type, FILE *stream)
     break;
   case UNDEFINED:
     printf("\tFailed Phase 1: undefined return code 0x%p\n",
-	   newfp);
+           newfp);
     fflush(NULL);
     break;
   default:
@@ -491,7 +508,8 @@ FILE* freopen_test(char *file, char *type, FILE *stream)
   return newfp;
 }
 
-int access_test(char *file, int mode)
+int
+access_test(char *file, int mode)
 {
   int ret, save_errno;
   int passed;
@@ -502,15 +520,17 @@ int access_test(char *file, int mode)
   passed = handle_zng(ret = access(file, mode));
   save_errno = errno;
 
-  switch(passed) {
+  switch (passed) {
   case FAILURE:
 #if defined(Solaris26)
     is_errno_valid(save_errno, EACCES, EFAULT, EINTR, ELOOP, EMULTIHOP,
-		   ENAMETOOLONG, ENOENT, ENOLINK, ENOTDIR, EROFS, EINVAL,
-		   ETXTBSY, ENDLIST);
-#endif
-    /* FALL THROUGH */
+                   ENAMETOOLONG, ENOENT, ENOLINK, ENOTDIR, EROFS, EINVAL,
+                   ETXTBSY, ENDLIST);
+#endif /* if defined(Solaris26) */
+
+  /* FALL THROUGH */
   case SUCCESS:
+
     /* good return value */
     printf("\t\tret = %d\n", ret);
     printf("\tSucceeded Phase 1\n");
@@ -518,21 +538,21 @@ int access_test(char *file, int mode)
     break;
   case UNDEFINED:
     printf("\tFailed Phase 1: returned undefined value! "
-	   "ret = %d\n", ret);
+           "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
     printf("Internal syscalltester error: passed = %d\n", passed);
     fflush(NULL);
     break;
-
   }
 
   errno = save_errno;
   return ret;
 }
 
-int chmod_test(char *file, mode_t mode)
+int
+chmod_test(char *file, mode_t mode)
 {
   int ret, save_errno;
   int passed;
@@ -543,15 +563,17 @@ int chmod_test(char *file, mode_t mode)
   passed = handle_zng(ret = chmod(file, mode));
   save_errno = errno;
 
-  switch(passed) {
+  switch (passed) {
   case FAILURE:
 #if defined(Solaris26)
     is_errno_valid(save_errno, EACCES, EFAULT, EINTR, EIO, ELOOP,
-		   EMULTIHOP, ENAMETOOLONG, ENOENT, ENOLINK, ENOTDIR, EPERM,
-		   EROFS, ENDLIST);
-#endif
-    /* FALL THROUGH */
+                   EMULTIHOP, ENAMETOOLONG, ENOENT, ENOLINK, ENOTDIR, EPERM,
+                   EROFS, ENDLIST);
+#endif /* if defined(Solaris26) */
+
+  /* FALL THROUGH */
   case SUCCESS:
+
     /* good return value */
     printf("\t\tret = %d\n", ret);
     printf("\tSucceeded Phase 1\n");
@@ -559,7 +581,7 @@ int chmod_test(char *file, mode_t mode)
     break;
   case UNDEFINED:
     printf("\tFailed Phase 1: returned undefined value! "
-	   "ret = %d\n", ret);
+           "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -572,7 +594,8 @@ int chmod_test(char *file, mode_t mode)
   return ret;
 }
 
-int chown_test(char *file, uid_t owner, gid_t group)
+int
+chown_test(char *file, uid_t owner, gid_t group)
 {
   int ret, save_errno;
   int passed;
@@ -583,15 +606,17 @@ int chown_test(char *file, uid_t owner, gid_t group)
   passed = handle_zng(ret = chown(file, owner, group));
   save_errno = errno;
 
-  switch(ret) {
+  switch (ret) {
   case FAILURE:
 #if defined(Solaris26)
     is_errno_valid(save_errno, EACCES, EFAULT, EINTR, EINVAL, EIO,
-		   ELOOP, EMULTIHOP, ENAMETOOLONG, ENOLINK, ENOENT, ENOTDIR,
-		   EPERM, EROFS, ENDLIST);
-#endif
-    /* FALL THROUGH */
+                   ELOOP, EMULTIHOP, ENAMETOOLONG, ENOLINK, ENOENT, ENOTDIR,
+                   EPERM, EROFS, ENDLIST);
+#endif /* if defined(Solaris26) */
+
+  /* FALL THROUGH */
   case SUCCESS:
+
     /* good return value */
     printf("\t\tret = %d\n", ret);
     printf("\tSucceeded Phase 1\n");
@@ -599,7 +624,7 @@ int chown_test(char *file, uid_t owner, gid_t group)
     break;
   case UNDEFINED:
     printf("\tFailed Phase 1: returned undefined value! "
-	   "ret = %d\n", ret);
+           "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -612,7 +637,8 @@ int chown_test(char *file, uid_t owner, gid_t group)
   return ret;
 }
 
-int chdir_test(char *dir)
+int
+chdir_test(char *dir)
 {
   int ret, save_errno;
   int passed;
@@ -623,14 +649,16 @@ int chdir_test(char *dir)
   passed = handle_zng(ret = chdir(dir));
   save_errno = errno;
 
-  switch(passed) {
+  switch (passed) {
   case FAILURE:
 #if defined(Solaris26)
     is_errno_valid(save_errno, EACCES, EFAULT, EINTR, EIO, ELOOP,
-		   ENAMETOOLONG, ENOENT, ENOLINK, ENOTDIR, EMULTIHOP, ENDLIST);
-#endif
-    /* FALL THROUGH */
+                   ENAMETOOLONG, ENOENT, ENOLINK, ENOTDIR, EMULTIHOP, ENDLIST);
+#endif /* if defined(Solaris26) */
+
+  /* FALL THROUGH */
   case SUCCESS:
+
     /* good return value */
     printf("\t\tret = %d\n", ret);
     printf("\tSucceeded Phase 1\n");
@@ -638,7 +666,7 @@ int chdir_test(char *dir)
     break;
   case UNDEFINED:
     printf("\tFailed Phase 1: returned undefined value! "
-	   "ret = %d\n", ret);
+           "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -651,7 +679,8 @@ int chdir_test(char *dir)
   return ret;
 }
 
-int close_test(int fd)
+int
+close_test(int fd)
 {
   int ret, save_errno;
   int passed;
@@ -662,14 +691,16 @@ int close_test(int fd)
   passed = handle_zng(ret = close(fd));
   save_errno = errno;
 
-  switch(passed) {
+  switch (passed) {
   case FAILURE:
 #if defined(Solaris26)
     is_errno_valid(save_errno, EBADF, EINTR, ENOLINK, ENOSPC, EIO,
-		   ENDLIST);
-#endif
-    /* FALL THROUGH */
+                   ENDLIST);
+#endif /* if defined(Solaris26) */
+
+  /* FALL THROUGH */
   case SUCCESS:
+
     /* Good return values */
     printf("\t\tret = %d\n", ret);
     printf("\tSucceeded Phase 1\n");
@@ -677,7 +708,7 @@ int close_test(int fd)
     break;
   case UNDEFINED:
     printf("\tFailed Phase 1: returned undefined value! "
-	   "ret = %d\n", ret);
+           "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -690,7 +721,8 @@ int close_test(int fd)
   return ret;
 }
 
-int creat_test(const char *path, mode_t mode)
+int
+creat_test(const char *path, mode_t mode)
 {
   int fd;
   int save_errno;
@@ -702,15 +734,16 @@ int creat_test(const char *path, mode_t mode)
   passed = handle_gez(fd = creat(path, mode));
   save_errno = errno;
 
-  switch(passed) {
+  switch (passed) {
   case FAILURE:
 #if defined(Solaris26)
     is_errno_valid(save_errno, EACCES, EAGAIN, EDQUOT, EFAULT,
-		   EINTR, EISDIR, ELOOP, EMFILE, EMULTIHOP, ENAMETOOLONG,
-		   ENFILE, ENOENT, ENOLINK, ENOSPC, ENOTDIR, EOVERFLOW, EROFS,
-		   ENDLIST);
-#endif
-    /* FALL THROUGH */
+                   EINTR, EISDIR, ELOOP, EMFILE, EMULTIHOP, ENAMETOOLONG,
+                   ENFILE, ENOENT, ENOLINK, ENOSPC, ENOTDIR, EOVERFLOW, EROFS,
+                   ENDLIST);
+#endif /* if defined(Solaris26) */
+
+  /* FALL THROUGH */
   case SUCCESS:
     printf("\t\tfd = %d\n", fd);
     printf("\tSucceeded Phase 1\n");
@@ -718,7 +751,7 @@ int creat_test(const char *path, mode_t mode)
     break;
   case UNDEFINED:
     printf("\tFailed Phase 1: returned undefined value! "
-	   "fd = %d\n", fd);
+           "fd = %d\n", fd);
     fflush(NULL);
     break;
   default:
@@ -731,7 +764,8 @@ int creat_test(const char *path, mode_t mode)
   return fd;
 }
 
-int sync_test(void)
+int
+sync_test(void)
 {
   printf("sync():\n");
   fflush(NULL);
@@ -748,7 +782,8 @@ int sync_test(void)
   return 0;
 }
 
-int dup_test(int fd)
+int
+dup_test(int fd)
 {
   int newfd;
   int save_errno;
@@ -760,13 +795,14 @@ int dup_test(int fd)
   passed = handle_gez(newfd = dup(fd));
   save_errno = errno;
 
-  switch(passed) {
+  switch (passed) {
   case FAILURE:
 #if defined(Solaris26)
     is_errno_valid(save_errno, EBADF, EINTR, EMFILE, ENOLINK,
-		   ENDLIST);
-#endif
-    /* FALL THROUGH */
+                   ENDLIST);
+#endif /* if defined(Solaris26) */
+
+  /* FALL THROUGH */
   case SUCCESS:
     printf("\t\tnewfd = %d\n", newfd);
     printf("\tSucceeded Phase 1\n");
@@ -774,7 +810,7 @@ int dup_test(int fd)
     break;
   case UNDEFINED:
     printf("\tFailed Phase 1: returned undefined value! "
-	   "newfd = %d\n",newfd);
+           "newfd = %d\n", newfd);
     fflush(NULL);
     break;
   default:
@@ -787,7 +823,8 @@ int dup_test(int fd)
   return newfd;
 }
 
-int fchdir_test(int fd)
+int
+fchdir_test(int fd)
 {
   int ret, save_errno;
   int passed;
@@ -798,14 +835,16 @@ int fchdir_test(int fd)
   passed = handle_zng(ret = fchdir(fd));
   save_errno = errno;
 
-  switch(passed) {
+  switch (passed) {
   case FAILURE:
 #if defined(Solaris26)
     is_errno_valid(save_errno, EACCES, EBADF, EINTR, EIO, ENOLINK,
-		   ENOTDIR, ENDLIST);
-#endif
-    /* FALL THROUGH */
+                   ENOTDIR, ENDLIST);
+#endif /* if defined(Solaris26) */
+
+  /* FALL THROUGH */
   case SUCCESS:
+
     /* good return value */
     printf("\t\tret = %d\n", ret);
     printf("\tSucceeded Phase 1\n");
@@ -813,7 +852,7 @@ int fchdir_test(int fd)
     break;
   case UNDEFINED:
     printf("\tFailed Phase 1: returned undefined value! "
-	   "ret = %d\n", ret);
+           "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -826,7 +865,8 @@ int fchdir_test(int fd)
   return ret;
 }
 
-int fchmod_test(int fd, mode_t mode)
+int
+fchmod_test(int fd, mode_t mode)
 {
   int ret, save_errno;
   int passed;
@@ -837,36 +877,38 @@ int fchmod_test(int fd, mode_t mode)
   passed = handle_zng(ret = fchmod(fd, mode));
   save_errno = errno;
 
-  switch(passed)
-    {
-    case FAILURE:
+  switch (passed) {
+  case FAILURE:
 #if defined(Solaris26)
-      is_errno_valid(save_errno, EBADF, EIO, EINTR, ENOLINK, EPERM,
-		     EROFS, ENDLIST);
-#endif
-      /* FALL THROUGH */
-    case SUCCESS:
-      /* good return value */
-      printf("\t\tret = %d\n", ret);
-      printf("\tSucceeded Phase 1\n");
-      fflush(NULL);
-      break;
-    case UNDEFINED:
-      printf("\tFailed Phase 1: returned undefined value! "
-	     "ret = %d\n", ret);
-      fflush(NULL);
-      break;
-    default:
-      printf("Internal syscalltester error: passed = %d\n", passed);
-      fflush(NULL);
-      break;
-    }
+    is_errno_valid(save_errno, EBADF, EIO, EINTR, ENOLINK, EPERM,
+                   EROFS, ENDLIST);
+#endif /* if defined(Solaris26) */
+
+  /* FALL THROUGH */
+  case SUCCESS:
+
+    /* good return value */
+    printf("\t\tret = %d\n", ret);
+    printf("\tSucceeded Phase 1\n");
+    fflush(NULL);
+    break;
+  case UNDEFINED:
+    printf("\tFailed Phase 1: returned undefined value! "
+           "ret = %d\n", ret);
+    fflush(NULL);
+    break;
+  default:
+    printf("Internal syscalltester error: passed = %d\n", passed);
+    fflush(NULL);
+    break;
+  }
 
   errno = save_errno;
   return ret;
 }
 
-int fchown_test(int fd, uid_t owner, gid_t group)
+int
+fchown_test(int fd, uid_t owner, gid_t group)
 {
   int ret, save_errno;
   int passed;
@@ -877,14 +919,16 @@ int fchown_test(int fd, uid_t owner, gid_t group)
   passed = handle_zng(ret = fchown(fd, owner, group));
   save_errno = errno;
 
-  switch(passed) {
+  switch (passed) {
   case FAILURE:
 #if defined(Solaris26)
     is_errno_valid(save_errno, EBADF, EIO, EINTR, ENOLINK, EINVAL,
-		   EPERM, EROFS, ENDLIST);
-#endif
-    /* FALL THROUGH */
+                   EPERM, EROFS, ENDLIST);
+#endif /* if defined(Solaris26) */
+
+  /* FALL THROUGH */
   case SUCCESS:
+
     /* good return value */
     printf("\t\tret = %d\n", ret);
     printf("\tSucceeded Phase 1\n");
@@ -892,7 +936,7 @@ int fchown_test(int fd, uid_t owner, gid_t group)
     break;
   case UNDEFINED:
     printf("\tFailed Phase 1: returned undefined value! "
-	   "ret = %d\n", ret);
+           "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -906,18 +950,20 @@ int fchown_test(int fd, uid_t owner, gid_t group)
 }
 
 /* only test the ones we support */
-int fcntl_test(int fd, int cmd, ...)
+int
+fcntl_test(int fd, int cmd, ...)
 {
   int ret, save_errno;
   va_list ap;
   int arg;
+
 #ifdef F_FREESP
   struct flock *flp = NULL;
-#endif
+#endif /* ifdef F_FREESP */
 
   /* fcntl is really special, don't use the 'passed' construct here */
 
-  switch(cmd) {
+  switch (cmd) {
     /* these have one integer argument */
 #ifdef F_GETFD
   case F_GETFD:
@@ -931,11 +977,11 @@ int fcntl_test(int fd, int cmd, ...)
     ret = fcntl(fd, cmd, arg);
     save_errno = errno;
     if (ret < 0) {
-#if defined(Solaris26)
+# if defined(Solaris26)
       is_errno_valid(save_errno, EAGAIN, EBADF, EFAULT, EINTR,
-		     EINVAL, EMFILE, ENOLCK, ENOLINK, EOVERFLOW, EDEADLK,
-		     ENDLIST);
-#endif
+                     EINVAL, EMFILE, ENOLCK, ENOLINK, EOVERFLOW, EDEADLK,
+                     ENDLIST);
+# endif /* if defined(Solaris26) */
     }
 
     printf("\t\tret = %d\n", ret);
@@ -944,8 +990,9 @@ int fcntl_test(int fd, int cmd, ...)
 
     errno = save_errno;
     return ret;
+
     break;
-#endif
+#endif /* ifdef F_GETFD */
 
 #ifdef F_GETFL
   case F_GETFL:
@@ -959,11 +1006,11 @@ int fcntl_test(int fd, int cmd, ...)
     ret = fcntl(fd, cmd, arg);
     save_errno = errno;
     if (ret < 0) {
-#if defined(Solaris26)
+# if defined(Solaris26)
       is_errno_valid(save_errno, EAGAIN, EBADF, EFAULT, EINTR,
-		     EINVAL, EMFILE, ENOLCK, ENOLINK, EOVERFLOW, EDEADLK,
-		     ENDLIST);
-#endif
+                     EINVAL, EMFILE, ENOLCK, ENOLINK, EOVERFLOW, EDEADLK,
+                     ENDLIST);
+# endif /* if defined(Solaris26) */
     }
 
     printf("\t\tret = %d\n", ret);
@@ -972,8 +1019,9 @@ int fcntl_test(int fd, int cmd, ...)
 
     errno = save_errno;
     return ret;
+
     break;
-#endif
+#endif /* ifdef F_GETFL */
 
 #ifdef F_SETFD
   case F_SETFD:
@@ -987,11 +1035,11 @@ int fcntl_test(int fd, int cmd, ...)
     ret = fcntl(fd, cmd, arg);
     save_errno = errno;
     if (ret == -1) {
-#if defined(Solaris26)
+# if defined(Solaris26)
       is_errno_valid(save_errno, EAGAIN, EBADF, EFAULT, EINTR,
-		     EINVAL, EMFILE, ENOLCK, ENOLINK, EOVERFLOW, EDEADLK,
-		     ENDLIST);
-#endif
+                     EINVAL, EMFILE, ENOLCK, ENOLINK, EOVERFLOW, EDEADLK,
+                     ENDLIST);
+# endif /* if defined(Solaris26) */
     }
 
     printf("\t\tret = %d\n", ret);
@@ -1000,8 +1048,9 @@ int fcntl_test(int fd, int cmd, ...)
 
     errno = save_errno;
     return ret;
+
     break;
-#endif
+#endif /* ifdef F_SETFD */
 
 #ifdef F_SETFL
   case F_SETFL:
@@ -1015,11 +1064,11 @@ int fcntl_test(int fd, int cmd, ...)
     ret = fcntl(fd, cmd, arg);
     save_errno = errno;
     if (ret == -1) {
-#if defined(Solaris26)
+# if defined(Solaris26)
       is_errno_valid(save_errno, EAGAIN, EBADF, EFAULT, EINTR,
-		     EINVAL, EMFILE, ENOLCK, ENOLINK, EOVERFLOW, EDEADLK,
-		     ENDLIST);
-#endif
+                     EINVAL, EMFILE, ENOLCK, ENOLINK, EOVERFLOW, EDEADLK,
+                     ENDLIST);
+# endif /* if defined(Solaris26) */
     }
 
     printf("\t\tret = %d\n", ret);
@@ -1028,8 +1077,9 @@ int fcntl_test(int fd, int cmd, ...)
 
     errno = save_errno;
     return ret;
+
     break;
-#endif
+#endif /* ifdef F_SETFL */
 
 #ifdef F_DUPFD
   case F_DUPFD:
@@ -1043,11 +1093,11 @@ int fcntl_test(int fd, int cmd, ...)
     ret = fcntl(fd, cmd, arg);
     save_errno = errno;
     if (ret < 0) {
-#if defined(Solaris26)
+# if defined(Solaris26)
       is_errno_valid(save_errno, EAGAIN, EBADF, EFAULT, EINTR,
-		     EINVAL, EMFILE, ENOLCK, ENOLINK, EOVERFLOW, EDEADLK,
-		     ENDLIST);
-#endif
+                     EINVAL, EMFILE, ENOLCK, ENOLINK, EOVERFLOW, EDEADLK,
+                     ENDLIST);
+# endif /* if defined(Solaris26) */
 
       printf("\t\tret = %d\n", ret);
       printf("\tSucceeded Phase 1\n");
@@ -1059,7 +1109,7 @@ int fcntl_test(int fd, int cmd, ...)
 
     if (ret < arg) {
       printf("\tFailed Phase 1: returned ret less than arg! "
-	     "ret = %d, arg = %d\n", ret, arg);
+             "ret = %d, arg = %d\n", ret, arg);
       fflush(NULL);
 
       errno = save_errno;
@@ -1072,8 +1122,9 @@ int fcntl_test(int fd, int cmd, ...)
 
     errno = save_errno;
     return ret;
+
     break;
-#endif
+#endif /* ifdef F_DUPFD */
 
 #ifdef F_DUP2FD
   case F_DUP2FD:
@@ -1087,11 +1138,11 @@ int fcntl_test(int fd, int cmd, ...)
     ret = fcntl(fd, cmd, arg);
     save_errno = errno;
     if (ret < 0) {
-#if defined(Solaris26)
+# if defined(Solaris26)
       is_errno_valid(save_errno, EAGAIN, EBADF, EFAULT, EINTR,
-		     EINVAL, EMFILE, ENOLCK, ENOLINK, EOVERFLOW, EDEADLK,
-		     ENDLIST);
-#endif
+                     EINVAL, EMFILE, ENOLCK, ENOLINK, EOVERFLOW, EDEADLK,
+                     ENDLIST);
+# endif /* if defined(Solaris26) */
 
       printf("\t\tret = %d\n", ret);
       printf("\tSucceeded Phase 1\n");
@@ -1112,13 +1163,14 @@ int fcntl_test(int fd, int cmd, ...)
 
     errno = save_errno;
     return ret;
+
     break;
-#endif
+#endif /* ifdef F_DUP2FD */
 
 #ifdef F_FREESP
   case F_FREESP:
     va_start(ap, cmd);
-    flp = va_arg(ap, struct flock*);
+    flp = va_arg(ap, struct flock *);
     va_end(ap);
 
     printf("fcntl(): fd=%d, cmd=F_FREESP, flp=0x%x\n", fd, flp);
@@ -1133,15 +1185,17 @@ int fcntl_test(int fd, int cmd, ...)
     ret = fcntl(fd, cmd, flp);
     save_errno = errno;
 
-    switch(ret) {
+    switch (ret) {
     case -1:
-#if defined(Solaris26)
+# if defined(Solaris26)
       is_errno_valid(save_errno, EAGAIN, EBADF, EFAULT,
-		     EINTR, EINVAL, EMFILE, ENOLCK, ENOLINK, EOVERFLOW,
-		     EDEADLK, ENDLIST);
-#endif
-      /* FALL THROUGH */
+                     EINTR, EINVAL, EMFILE, ENOLCK, ENOLINK, EOVERFLOW,
+                     EDEADLK, ENDLIST);
+# endif /* if defined(Solaris26) */
+
+    /* FALL THROUGH */
     case 0:
+
       /* good return value */
       printf("\t\tret = %d\n", ret);
       printf("\tSucceeded Phase 1\n");
@@ -1149,25 +1203,26 @@ int fcntl_test(int fd, int cmd, ...)
       break;
     default:
       printf("\tFailed Phase 1: returned undefined value! "
-	     "ret = %d\n", ret);
+             "ret = %d\n", ret);
       fflush(NULL);
       break;
     }
 
     errno = save_errno;
     return ret;
-    break;
-#endif
 
-    /*
-      #ifdef F_FREESP64
-      case F_FREESP64:
-      break;
-      #endif
-    */
+    break;
+#endif /* ifdef F_FREESP */
+
+  /*
+    #ifdef F_FREESP64
+    case F_FREESP64:
+    break;
+    #endif
+  */
   default:
     printf("\tFailed Phase 1: Unknown fcntl command, "
-	   "returning failure with EINVAL\n");
+           "returning failure with EINVAL\n");
     errno = EINVAL;
     return -1;
   }
@@ -1178,7 +1233,8 @@ int fcntl_test(int fd, int cmd, ...)
   return -1;
 }
 
-int fstat_test(int fd, struct stat *buf)
+int
+fstat_test(int fd, struct stat *buf)
 {
   int ret, save_errno;
   int passed;
@@ -1189,22 +1245,23 @@ int fstat_test(int fd, struct stat *buf)
   passed = handle_zng(ret = fstat(fd, buf));
   save_errno = errno;
 
-  switch(passed) {
+  switch (passed) {
   case FAILURE:
 #if defined(Solaris26)
     is_errno_valid(save_errno, EOVERFLOW, EBADF, EFAULT, EINTR,
-		   ENOLINK, ENDLIST);
-#endif
+                   ENOLINK, ENDLIST);
+#endif /* if defined(Solaris26) */
     printf("\t\tret = %d\n", ret);
     printf("\tSucceeded Phase 1\n");
     fflush(NULL);
     break;
   case SUCCESS:
+
     /* good return call */
     printf("\t\tst_dev = %u\n", buf->st_dev);
     printf("\t\tst_ino = %u\n", buf->st_ino);
     printf("\t\tst_mode = 0x%x(0%o)\n",
-	   buf->st_mode,buf->st_mode);
+           buf->st_mode, buf->st_mode);
     printf("\t\tst_nlink = %u\n", buf->st_nlink);
     printf("\t\tst_uid = %u\n", buf->st_uid);
     printf("\t\tst_gid = %u\n", buf->st_gid);
@@ -1221,7 +1278,7 @@ int fstat_test(int fd, struct stat *buf)
     break;
   case UNDEFINED:
     printf("\tFailed Phase 1: returned undefined value! "
-	   "ret = %d\n", ret);
+           "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -1234,7 +1291,8 @@ int fstat_test(int fd, struct stat *buf)
   return ret;
 }
 
-int fsync_test(int fd)
+int
+fsync_test(int fd)
 {
   int ret, save_errno;
   int passed;
@@ -1245,14 +1303,16 @@ int fsync_test(int fd)
   passed = handle_zng(ret = fsync(fd));
   save_errno = errno;
 
-  switch(passed) {
+  switch (passed) {
   case FAILURE:
 #if defined(Solaris26)
     is_errno_valid(save_errno, EBADF, EINTR, EIO, ENOSPC, ETIMEDOUT,
-		   ENDLIST);
-#endif
-    /* FALL THROUGH */
+                   ENDLIST);
+#endif /* if defined(Solaris26) */
+
+  /* FALL THROUGH */
   case SUCCESS:
+
     /* good return value */
     printf("\t\tret = %d\n", ret);
     printf("\tSucceeded Phase 1\n");
@@ -1260,7 +1320,7 @@ int fsync_test(int fd)
     break;
   case UNDEFINED:
     printf("\tFailed Phase 1: returned undefined value! "
-	   "ret = %d\n", ret);
+           "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -1273,7 +1333,8 @@ int fsync_test(int fd)
   return ret;
 }
 
-int getgroups_test(int ngroups, gid_t *grouplist)
+int
+getgroups_test(int ngroups, gid_t *grouplist)
 {
   int ret, save_errno;
   int passed;
@@ -1285,11 +1346,11 @@ int getgroups_test(int ngroups, gid_t *grouplist)
   passed = handle_gez(ret = getgroups(ngroups, grouplist));
   save_errno = errno;
 
-  switch(passed) {
+  switch (passed) {
   case FAILURE:
 #if defined(Solaris26)
     is_errno_valid(save_errno, EINVAL, ENDLIST);
-#endif
+#endif /* if defined(Solaris26) */
     printf("\t\tret = %d\n", ret);
     printf("\tSucceeded Phase 1\n");
     fflush(NULL);
@@ -1297,8 +1358,8 @@ int getgroups_test(int ngroups, gid_t *grouplist)
   case SUCCESS:
     if (ngroups != 0) {
       for (i = 0; i < ret; i++) {
-	printf("\t\t\tgrouplist[%i] = %u\n", i, grouplist[i]);
-	fflush(NULL);
+        printf("\t\t\tgrouplist[%i] = %u\n", i, grouplist[i]);
+        fflush(NULL);
       }
     }
     printf("\t\tret = %d\n", ret);
@@ -1307,7 +1368,7 @@ int getgroups_test(int ngroups, gid_t *grouplist)
     break;
   case UNDEFINED:
     printf("\tFailed Phase 1: returned undefined value! "
-	   "ret = %d\n", ret);
+           "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -1320,7 +1381,6 @@ int getgroups_test(int ngroups, gid_t *grouplist)
   return ret;
 }
 
-
 /* WARNING!
  *
  * This test ONLY tests RLIMIT_CORE now; it used to be able to test more
@@ -1328,27 +1388,29 @@ int getgroups_test(int ngroups, gid_t *grouplist)
  * -Erik, May 18 2001 (A beautiful friday that I should be drinking instead of
  *                     coding on)
  */
-int getrlimit_test(struct rlimit *rlp)
+int
+getrlimit_test(struct rlimit *rlp)
 {
   int ret, save_errno;
   int passed;
 
-  printf("getrlimit(): rlimit=0x%p\n",  rlp);
+  printf("getrlimit(): rlimit=0x%p\n", rlp);
   fflush(NULL);
 
   passed = handle_zng(ret = getrlimit(RLIMIT_CORE, rlp));
   save_errno = errno;
 
-  switch(passed) {
+  switch (passed) {
   case FAILURE:
 #if defined(Solaris26)
     is_errno_valid(save_errno, EFAULT, EINVAL, EPERM, ENDLIST);
-#endif
+#endif /* if defined(Solaris26) */
     printf("\t\tret = %d\n", ret);
     printf("\tSucceeded Phase 1\n");
     fflush(NULL);
     break;
   case SUCCESS:
+
     /* good return value */
     printf("\t\trlim_cur = %u\n", rlp->rlim_cur);
     printf("\t\trlim_max = %u\n", rlp->rlim_max);
@@ -1357,7 +1419,7 @@ int getrlimit_test(struct rlimit *rlp)
     break;
   case UNDEFINED:
     printf("\tFailed Phase 1: returned undefined value! "
-	   "ret = %d\n", ret);
+           "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -1371,7 +1433,8 @@ int getrlimit_test(struct rlimit *rlp)
 }
 
 /* Any possible thing this call can return is considered valid */
-uid_t getuid_test(void)
+uid_t
+getuid_test(void)
 {
   uid_t uid;
   int save_errno;
@@ -1389,7 +1452,8 @@ uid_t getuid_test(void)
 }
 
 /* Any possible thing this call can return is considered valid */
-gid_t getgid_test(void)
+gid_t
+getgid_test(void)
 {
   gid_t gid;
   int save_errno;
@@ -1406,7 +1470,8 @@ gid_t getgid_test(void)
   return gid;
 }
 
-int rename_test(char *old, char *newf)
+int
+rename_test(char *old, char *newf)
 {
   int ret, save_errno;
   int passed;
@@ -1417,15 +1482,17 @@ int rename_test(char *old, char *newf)
   passed = handle_zng(ret = rename(old, newf));
   save_errno = errno;
 
-  switch(passed) {
+  switch (passed) {
   case FAILURE:
 #if defined(Solaris26)
     is_errno_valid(save_errno, EACCES, EBUSY, EDQUOT, EEXIST,
-		   EINVAL, EISDIR, ELOOP, ENAMETOOLONG, EMLINK, ENOENT,
-		   ENOSPC, ENOTDIR, EROFS, EXDEV, EIO, ENDLIST);
-#endif
-    /* FALL THROUGH */
+                   EINVAL, EISDIR, ELOOP, ENAMETOOLONG, EMLINK, ENOENT,
+                   ENOSPC, ENOTDIR, EROFS, EXDEV, EIO, ENDLIST);
+#endif /* if defined(Solaris26) */
+
+  /* FALL THROUGH */
   case SUCCESS:
+
     /* good return value */
     printf("\t\tret = %d\n", ret);
     printf("\tSucceeded Phase 1\n");
@@ -1433,7 +1500,7 @@ int rename_test(char *old, char *newf)
     break;
   case UNDEFINED:
     printf("\tFailed Phase 1: returned undefined value! "
-	   "ret = %d\n", ret);
+           "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -1446,7 +1513,8 @@ int rename_test(char *old, char *newf)
   return ret;
 }
 
-int statfs_test(char *path, struct statfs *buf)
+int
+statfs_test(char *path, struct statfs *buf)
 {
   int ret, save_errno;
   int passed;
@@ -1456,48 +1524,49 @@ int statfs_test(char *path, struct statfs *buf)
 
 #if defined(Solaris)
   passed = handle_zng(ret = statfs(path, buf, sizeof(struct statfs), 0));
-#else
+#else /* if defined(Solaris) */
   passed = handle_zng(ret = statfs(path, buf));
-#endif
+#endif /* if defined(Solaris) */
   save_errno = errno;
 
-  switch(passed) {
+  switch (passed) {
   case FAILURE:
 #if defined(Solaris26)
     is_errno_valid(save_errno, ENOTDIR, ENAMETOOLONG, ENOENT,
-		   EACCES, ELOOP, EFAULT, EIO, ENOMEM, ENOSYS, ENDLIST);
-#endif
+                   EACCES, ELOOP, EFAULT, EIO, ENOMEM, ENOSYS, ENDLIST);
+#endif /* if defined(Solaris26) */
     printf("\t\tret = %d\n", ret);
     printf("\tSucceeded Phase 1\n");
     fflush(NULL);
     break;
   case SUCCESS:
+
     /* good return value */
-    printf( "\t\tPath: %s\n"
-	    "\t\tFree Blocks(User): %ld\n"
-	    "\t\tFree Blocks: %ld\n"
-	    "\t\tTotal Blocks: %ld\n"
-	    "\t\tBlock Size: %ld\n"
-	    "\t\tFree Inodes: %ld\n"
-	    "\t\tTotal Inodes: %ld\n",
-	    STR(path),
+    printf("\t\tPath: %s\n"
+           "\t\tFree Blocks(User): %ld\n"
+           "\t\tFree Blocks: %ld\n"
+           "\t\tTotal Blocks: %ld\n"
+           "\t\tBlock Size: %ld\n"
+           "\t\tFree Inodes: %ld\n"
+           "\t\tTotal Inodes: %ld\n",
+           STR(path),
 #if defined(Solaris)
-	    buf->f_bfree,
-#else
-	    buf->f_bavail,
-#endif
-	    buf->f_bfree,
-	    buf->f_blocks,
-	    buf->f_bsize,
-	    buf->f_ffree,
-	    buf->f_files);
+           buf->f_bfree,
+#else /* if defined(Solaris) */
+           buf->f_bavail,
+#endif /* if defined(Solaris) */
+           buf->f_bfree,
+           buf->f_blocks,
+           buf->f_bsize,
+           buf->f_ffree,
+           buf->f_files);
     printf("\t\tret = %d\n", ret);
     printf("\tSucceeded Phase 1\n");
     fflush(NULL);
     break;
   case UNDEFINED:
     printf("\tFailed Phase 1: returned undefined value! "
-	   "ret = %d\n", ret);
+           "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -1510,7 +1579,8 @@ int statfs_test(char *path, struct statfs *buf)
   return ret;
 }
 
-int fstatfs_test(int fd, struct statfs *buf)
+int
+fstatfs_test(int fd, struct statfs *buf)
 {
   int ret, save_errno;
   int passed;
@@ -1520,47 +1590,48 @@ int fstatfs_test(int fd, struct statfs *buf)
 
 #if defined(Solaris)
   passed = handle_zng(ret = fstatfs(fd, buf, sizeof(struct statfs), 0));
-#else
+#else /* if defined(Solaris) */
   passed = handle_zng(ret = fstatfs(fd, buf));
-#endif
+#endif /* if defined(Solaris) */
   save_errno = errno;
 
-  switch(passed) {
+  switch (passed) {
   case FAILURE:
 #if defined(Solaris26)
     is_errno_valid(save_errno, EBADF, EFAULT, EIO, ENOSYS, ENDLIST);
-#endif
+#endif /* if defined(Solaris26) */
     printf("\t\tret = %d\n", ret);
     printf("\tSucceeded Phase 1\n");
     fflush(NULL);
     break;
   case SUCCESS:
+
     /* good return value */
-    printf( "\t\tFd: %d\n"
-	    "\t\tFree Blocks(User): %ld\n"
-	    "\t\tFree Blocks: %ld\n"
-	    "\t\tTotal Blocks: %ld\n"
-	    "\t\tBlock Size: %ld\n"
-	    "\t\tFree Inodes: %ld\n"
-	    "\t\tTotal Inodes: %ld\n",
-	    fd,
+    printf("\t\tFd: %d\n"
+           "\t\tFree Blocks(User): %ld\n"
+           "\t\tFree Blocks: %ld\n"
+           "\t\tTotal Blocks: %ld\n"
+           "\t\tBlock Size: %ld\n"
+           "\t\tFree Inodes: %ld\n"
+           "\t\tTotal Inodes: %ld\n",
+           fd,
 #if defined(Solaris)
-	    buf->f_bfree,
-#else
-	    buf->f_bavail,
-#endif
-	    buf->f_bfree,
-	    buf->f_blocks,
-	    buf->f_bsize,
-	    buf->f_ffree,
-	    buf->f_files);
+           buf->f_bfree,
+#else /* if defined(Solaris) */
+           buf->f_bavail,
+#endif /* if defined(Solaris) */
+           buf->f_bfree,
+           buf->f_blocks,
+           buf->f_bsize,
+           buf->f_ffree,
+           buf->f_files);
     printf("\t\tret = %d\n", ret);
     printf("\tSucceeded Phase 1\n");
     fflush(NULL);
     break;
   case UNDEFINED:
     printf("\tFailed Phase 1: returned undefined value! "
-	   "ret = %d\n", ret);
+           "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -1574,7 +1645,8 @@ int fstatfs_test(int fd, struct statfs *buf)
 }
 
 #ifndef Solaris
-int getdomainname_test(char *name, int namelen)
+int
+getdomainname_test(char *name, int namelen)
 {
   int ret, save_errno;
   int passed;
@@ -1585,10 +1657,12 @@ int getdomainname_test(char *name, int namelen)
   passed = handle_zng(ret = getdomainname(name, namelen));
   save_errno = errno;
 
-  switch(passed) {
+  switch (passed) {
   case FAILURE:
-    /* FALL THROUGH */
+
+  /* FALL THROUGH */
   case SUCCESS:
+
     /* good return value */
     printf("\t\tname = %s\n", STR(name));
     printf("\tSucceeded Phase 1\n");
@@ -1596,7 +1670,7 @@ int getdomainname_test(char *name, int namelen)
     break;
   case UNDEFINED:
     printf("\tFailed Phase 1: returned undefined value! "
-	   "ret = %d\n", ret);
+           "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -1608,9 +1682,10 @@ int getdomainname_test(char *name, int namelen)
   errno = save_errno;
   return ret;
 }
-#endif
+#endif /* ifndef Solaris */
 
-int gettimeofday_test(struct timeval *tv, struct timezone *tz)
+int
+gettimeofday_test(struct timeval *tv, struct timezone *tz)
 {
   int ret, save_errno;
   int passed;
@@ -1621,16 +1696,17 @@ int gettimeofday_test(struct timeval *tv, struct timezone *tz)
   passed = handle_zng(ret = gettimeofday(tv, tz));
   save_errno = errno;
 
-  switch(passed) {
+  switch (passed) {
   case FAILURE:
 #if defined(Solaris26)
     is_errno_valid(save_errno, EINVAL, EPERM, ENDLIST);
-#endif
+#endif /* if defined(Solaris26) */
     printf("\t\tret = %d\n", ret);
     printf("\tSucceeded Phase 1\n");
     fflush(NULL);
     break;
   case SUCCESS:
+
     /* good return value */
     printf("\t\ttv_sec = %u\n", tv->tv_sec);
     printf("\t\ttv_usec = %ld\n", tv->tv_usec);
@@ -1641,7 +1717,7 @@ int gettimeofday_test(struct timeval *tv, struct timezone *tz)
     break;
   case UNDEFINED:
     printf("\tFailed Phase 1: returned undefined value! "
-	   "ret = %d\n", ret);
+           "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -1655,7 +1731,8 @@ int gettimeofday_test(struct timeval *tv, struct timezone *tz)
 }
 
 #ifndef LINUX
-int lchown_test(char *path, uid_t owner, gid_t group) /* link chown... */
+int
+lchown_test(char *path, uid_t owner, gid_t group)     /* link chown... */
 {
   int ret, save_errno;
   int passed;
@@ -1666,15 +1743,17 @@ int lchown_test(char *path, uid_t owner, gid_t group) /* link chown... */
   passed = handle_zng(ret = lchown(path, owner, group));
   save_errno = errno;
 
-  switch(passed) {
+  switch (passed) {
   case FAILURE:
-#if defined(Solaris26)
+# if defined(Solaris26)
     is_errno_valid(save_errno, EACCES, EFAULT, EINTR, EINVAL,
-		   EIO, ELOOP, EMULTIHOP, ENAMETOOLONG, ENOLINK, ENOENT,
-		   ENOTDIR, EPERM, EROFS, ENDLIST);
-#endif
-    /* FALL THROUGH */
+                   EIO, ELOOP, EMULTIHOP, ENAMETOOLONG, ENOLINK, ENOENT,
+                   ENOTDIR, EPERM, EROFS, ENDLIST);
+# endif /* if defined(Solaris26) */
+
+  /* FALL THROUGH */
   case SUCCESS:
+
     /* good return value */
     printf("\t\tret = %d\n", ret);
     printf("\tSucceeded Phase 1\n");
@@ -1682,7 +1761,7 @@ int lchown_test(char *path, uid_t owner, gid_t group) /* link chown... */
     break;
   case UNDEFINED:
     printf("\tFailed Phase 1: returned undefined value! "
-	   "ret = %d\n", ret);
+           "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -1694,9 +1773,10 @@ int lchown_test(char *path, uid_t owner, gid_t group) /* link chown... */
   errno = save_errno;
   return ret;
 }
-#endif
+#endif /* ifndef LINUX */
 
-int link_test(char *existing, char *newf)
+int
+link_test(char *existing, char *newf)
 {
   int ret, save_errno;
   int passed;
@@ -1707,15 +1787,17 @@ int link_test(char *existing, char *newf)
   passed = handle_zng(ret = link(existing, newf));
   save_errno = errno;
 
-  switch(passed) {
+  switch (passed) {
   case FAILURE:
 #if defined(Solaris26)
     is_errno_valid(save_errno, EACCES, EDQUOT, EEXIST, EFAULT,
-		   EINTR, ELOOP, EMLINK, EMULTIHOP, ENAMETOOLONG, ENOENT,
-		   ENOLINK, ENOSPC, ENOTDIR, EPERM, EROFS, EXDEV, ENDLIST);
-#endif
-    /* FALL THROUGH */
+                   EINTR, ELOOP, EMLINK, EMULTIHOP, ENAMETOOLONG, ENOENT,
+                   ENOLINK, ENOSPC, ENOTDIR, EPERM, EROFS, EXDEV, ENDLIST);
+#endif /* if defined(Solaris26) */
+
+  /* FALL THROUGH */
   case SUCCESS:
+
     /* good return value */
     printf("\t\tret = %d\n", ret);
     printf("\tSucceeded Phase 1\n");
@@ -1723,7 +1805,7 @@ int link_test(char *existing, char *newf)
     break;
   case UNDEFINED:
     printf("\tFailed: OS returned undefined value! "
-	   "ret = %d\n", ret);
+           "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -1736,7 +1818,8 @@ int link_test(char *existing, char *newf)
   return ret;
 }
 
-off_t lseek_test(int fd, off_t off, int whence)
+off_t
+lseek_test(int fd, off_t off, int whence)
 {
   off_t ret;
   int save_errno;
@@ -1748,13 +1831,14 @@ off_t lseek_test(int fd, off_t off, int whence)
   passed = handle_off(ret = lseek(fd, off, whence));
   save_errno = errno;
 
-  switch(passed) {
+  switch (passed) {
   case FAILURE:
 #if defined(Solaris26)
     is_errno_valid(save_errno, EBADF, EINVAL, EOVERFLOW, ESPIPE,
-		   ENDLIST);
-#endif
-    /* FALL THROUGH */
+                   ENDLIST);
+#endif /* if defined(Solaris26) */
+
+  /* FALL THROUGH */
   case SUCCESS:
     printf("\t\tret = %u\n", ret);
     printf("\tSucceeded Phase 1\n");
@@ -1762,21 +1846,21 @@ off_t lseek_test(int fd, off_t off, int whence)
     break;
   case UNDEFINED:
     printf("\tFailed: OS returned undefined value! "
-	   "ret = %u\n", ret);
+           "ret = %u\n", ret);
     fflush(NULL);
     break;
   default:
     printf("Internal syscalltester error: passed = %d\n", passed);
     fflush(NULL);
     break;
-
   }
 
   errno = save_errno;
   return ret;
 }
 
-int fseek_test(FILE *fp, int off, int whence)
+int
+fseek_test(FILE *fp, int off, int whence)
 {
   int ret, save_errno;
   int passed;
@@ -1787,14 +1871,16 @@ int fseek_test(FILE *fp, int off, int whence)
   passed = handle_zng(ret = fseek(fp, off, whence));
   save_errno = errno;
 
-  switch(passed) {
+  switch (passed) {
   case FAILURE:
 #if defined(Solaris26)
     is_errno_valid(save_errno, EAGAIN, EBADF, EFBIG, EINTR,
-		   EINVAL, EIO, ENOSPC, EPIPE, ENXIO, EOVERFLOW, ENDLIST);
-#endif
-    /* FALL THROUGH */
+                   EINVAL, EIO, ENOSPC, EPIPE, ENXIO, EOVERFLOW, ENDLIST);
+#endif /* if defined(Solaris26) */
+
+  /* FALL THROUGH */
   case SUCCESS:
+
     /* good return value */
     printf("\t\tret = %d\n", ret);
     printf("\tSucceeded Phase 1\n");
@@ -1802,7 +1888,7 @@ int fseek_test(FILE *fp, int off, int whence)
     break;
   case UNDEFINED:
     printf("\tFailed Phase 1: returned undefined value! "
-	   "ret = %d\n", ret);
+           "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -1815,7 +1901,8 @@ int fseek_test(FILE *fp, int off, int whence)
   return ret;
 }
 
-int lstat_test(char *path, struct stat *buf)
+int
+lstat_test(char *path, struct stat *buf)
 {
   int ret, save_errno;
   int passed;
@@ -1826,23 +1913,24 @@ int lstat_test(char *path, struct stat *buf)
   passed = handle_zng(ret = lstat(path, buf));
   save_errno = errno;
 
-  switch(passed) {
+  switch (passed) {
   case FAILURE:
 #if defined(Solaris26)
     is_errno_valid(save_errno, EOVERFLOW, EACCES, EFAULT, EINTR,
-		   ELOOP, EMULTIHOP, ENAMETOOLONG, ENOENT, ENOLINK,
-		   ENOTDIR, EOVERFLOW, ENDLIST);
-#endif
+                   ELOOP, EMULTIHOP, ENAMETOOLONG, ENOENT, ENOLINK,
+                   ENOTDIR, EOVERFLOW, ENDLIST);
+#endif /* if defined(Solaris26) */
     printf("\t\tret = %d\n", ret);
     printf("\tSucceeded Phase 1\n");
     fflush(NULL);
     break;
   case SUCCESS:
+
     /* good return value */
     printf("\t\tst_dev = %u\n", buf->st_dev);
     printf("\t\tst_ino = %u\n", buf->st_ino);
     printf("\t\tst_mode = 0x%x(0%o)\n",
-	   buf->st_mode,buf->st_mode);
+           buf->st_mode, buf->st_mode);
     printf("\t\tst_nlink = %u\n", buf->st_nlink);
     printf("\t\tst_uid = %u\n", buf->st_uid);
     printf("\t\tst_gid = %u\n", buf->st_gid);
@@ -1858,7 +1946,7 @@ int lstat_test(char *path, struct stat *buf)
     break;
   case UNDEFINED:
     printf("\tFailed Phase 1: returned undefined value! "
-	   "ret = %d\n", ret);
+           "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -1871,7 +1959,8 @@ int lstat_test(char *path, struct stat *buf)
   return ret;
 }
 
-int mkdir_test(char *dir, mode_t mode)
+int
+mkdir_test(char *dir, mode_t mode)
 {
   int ret, save_errno;
   int passed;
@@ -1882,15 +1971,17 @@ int mkdir_test(char *dir, mode_t mode)
   passed = handle_zng(ret = mkdir(dir, mode));
   save_errno = errno;
 
-  switch(passed) {
+  switch (passed) {
   case FAILURE:
 #if defined(Solaris26)
     is_errno_valid(save_errno, EACCES, EDQUOT, EEXIST, EFAULT,
-		   EIO, ELOOP, EMLINK, EMULTIHOP, ENAMETOOLONG, ENOENT,
-		   ENOLINK, ENOSPC, ENOTDIR, EROFS, ENDLIST);
-#endif
-    /* FALL THROUGH */
+                   EIO, ELOOP, EMLINK, EMULTIHOP, ENAMETOOLONG, ENOENT,
+                   ENOLINK, ENOSPC, ENOTDIR, EROFS, ENDLIST);
+#endif /* if defined(Solaris26) */
+
+  /* FALL THROUGH */
   case SUCCESS:
+
     /* good return value */
     printf("\t\tret = %d\n", ret);
     printf("\tSucceeded Phase 1\n");
@@ -1898,7 +1989,7 @@ int mkdir_test(char *dir, mode_t mode)
     break;
   case UNDEFINED:
     printf("\tFailed Phase 1: returned undefined value! "
-	   "ret = %d\n", ret);
+           "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -1911,7 +2002,8 @@ int mkdir_test(char *dir, mode_t mode)
   return ret;
 }
 
-char *getcwd_test(char *buf, size_t size)
+char *
+getcwd_test(char *buf, size_t size)
 {
   char *ret;
   int save_errno;
@@ -1923,13 +2015,15 @@ char *getcwd_test(char *buf, size_t size)
   passed = handle_ptr(ret = getcwd(buf, size));
   save_errno = errno;
 
-  switch(passed) {
+  switch (passed) {
   case FAILURE:
 #if defined(Solaris26)
     is_errno_valid(save_errno, EACCES, EINVAL, ERANGE, ENDLIST);
-#endif
-    /* FALL THROUGH */
+#endif /* if defined(Solaris26) */
+
+  /* FALL THROUGH */
   case SUCCESS:
+
     /* good return value */
     printf("\t\tret = %s\n", STR(ret));
     printf("\tSucceeded Phase 1\n");
@@ -1937,7 +2031,7 @@ char *getcwd_test(char *buf, size_t size)
     break;
   case UNDEFINED:
     printf("\tFailed Phase 1: returned undefined value! "
-	   "ret = %p\n", ret);
+           "ret = %p\n", ret);
     fflush(NULL);
     break;
   default:
@@ -1950,27 +2044,30 @@ char *getcwd_test(char *buf, size_t size)
   return ret;
 }
 
-int mknod_test(char *path, mode_t mode, dev_t dev)
+int
+mknod_test(char *path, mode_t mode, dev_t dev)
 {
   int ret, save_errno;
   int passed;
 
   printf("mknod(): path=%s, mode=0x%x(0%o), dev=%u\n", STR(path),
-	 mode, mode, dev);
+         mode, mode, dev);
   fflush(NULL);
 
   passed = handle_zng(ret = mknod(path, mode, dev));
   save_errno = errno;
 
-  switch(passed) {
+  switch (passed) {
   case FAILURE:
 #if defined(Solaris26)
     is_errno_valid(save_errno, EACCES, EDQUOT, EEXIST, EFAULT,
-		   EINTR, EINVAL, EIO, ELOOP, EMULTIHOP, ENAMETOOLONG,
-		   ENOENT, ENOLINK, ENOSPC, ENOTDIR, EPERM, EROFS, ENDLIST);
-#endif
-    /* FALL THROUGH */
+                   EINTR, EINVAL, EIO, ELOOP, EMULTIHOP, ENAMETOOLONG,
+                   ENOENT, ENOLINK, ENOSPC, ENOTDIR, EPERM, EROFS, ENDLIST);
+#endif /* if defined(Solaris26) */
+
+  /* FALL THROUGH */
   case SUCCESS:
+
     /* good return value */
     printf("\t\tret = %d\n", ret);
     printf("\tSucceeded Phase 1\n");
@@ -1978,7 +2075,7 @@ int mknod_test(char *path, mode_t mode, dev_t dev)
     break;
   case UNDEFINED:
     printf("\tFailed Phase 1: returned undefined value! "
-	   "ret = %d\n", ret);
+           "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -1991,7 +2088,8 @@ int mknod_test(char *path, mode_t mode, dev_t dev)
   return ret;
 }
 
-int open_test(char *path, int oflags, /* mode_t mode */ ...)
+int
+open_test(char *path, int oflags, /* mode_t mode */ ...)
 {
   va_list ap;
   int ret, save_errno;
@@ -2005,11 +2103,11 @@ int open_test(char *path, int oflags, /* mode_t mode */ ...)
     mode = va_arg(ap, mode_t);
 
     printf("open(): path=%s, flags=0x%x(0%o), mode=0x%x(0%o)\n", STR(path),
-	   oflags, oflags, mode, mode);
+           oflags, oflags, mode, mode);
     fflush(NULL);
   } else {
     printf("open(): path=%s, flags=0x%x(0%o)\n", STR(path),
-	   oflags, oflags);
+           oflags, oflags);
     fflush(NULL);
   }
   va_end(ap);
@@ -2020,15 +2118,16 @@ int open_test(char *path, int oflags, /* mode_t mode */ ...)
   passed = handle_gez(ret = open(path, oflags, mode));
   save_errno = errno;
 
-  switch(passed) {
+  switch (passed) {
   case FAILURE:
 #if defined(Solaris26)
-    is_errno_valid(save_errno,EACCES, EDQUOT, EEXIST, EINTR, EFAULT,
-		   EIO, EISDIR, ELOOP, EMFILE, EMULTIHOP, ENAMETOOLONG, ENFILE,
-		   ENOENT, ENOLINK, ENOSR, ENOSPC, ENOTDIR, ENXIO, EOPNOTSUPP,
-		   EOVERFLOW, EROFS, EAGAIN, EINVAL, ENOMEM, ETXTBSY, ENDLIST);
-#endif
-    /* FALL THROUGH */
+    is_errno_valid(save_errno, EACCES, EDQUOT, EEXIST, EINTR, EFAULT,
+                   EIO, EISDIR, ELOOP, EMFILE, EMULTIHOP, ENAMETOOLONG, ENFILE,
+                   ENOENT, ENOLINK, ENOSR, ENOSPC, ENOTDIR, ENXIO, EOPNOTSUPP,
+                   EOVERFLOW, EROFS, EAGAIN, EINVAL, ENOMEM, ETXTBSY, ENDLIST);
+#endif /* if defined(Solaris26) */
+
+  /* FALL THROUGH */
   case SUCCESS:
     printf("\t\tret = %d\n", ret);
     printf("\tSucceeded Phase 1\n");
@@ -2036,7 +2135,7 @@ int open_test(char *path, int oflags, /* mode_t mode */ ...)
     break;
   case UNDEFINED:
     printf("\tFailed Phase 1: returned undefined value! "
-	   "ret = %d\n", ret);
+           "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -2049,8 +2148,8 @@ int open_test(char *path, int oflags, /* mode_t mode */ ...)
   return ret;
 }
 
-
-FILE* fopen_test(char *file, char *mode)
+FILE *
+fopen_test(char *file, char *mode)
 {
   FILE *fp;
   int save_errno;
@@ -2062,14 +2161,15 @@ FILE* fopen_test(char *file, char *mode)
   passed = handle_ptr(fp = fopen(file, mode));
   save_errno = errno;
 
-  switch(passed) {
+  switch (passed) {
   case FAILURE:
 #if defined(Solaris26)
     is_errno_valid(save_errno, EACCES, EINTR, EISDIR, ELOOP, EMFILE,
-		   ENAMETOOLONG, ENFILE, ENOENT, ENOSPC, ENOTDIR, ENXIO,
-		   EOVERFLOW, EROFS, EINVAL, ENOMEM, ETXTBSY, ENDLIST);
-#endif
-    /* FALL THROUGH */
+                   ENAMETOOLONG, ENFILE, ENOENT, ENOSPC, ENOTDIR, ENXIO,
+                   EOVERFLOW, EROFS, EINVAL, ENOMEM, ETXTBSY, ENDLIST);
+#endif /* if defined(Solaris26) */
+
+  /* FALL THROUGH */
   case SUCCESS:
     printf("\t\tfp = 0x%p\n", fp);
     printf("\tSucceeded Phase 1\n");
@@ -2077,7 +2177,7 @@ FILE* fopen_test(char *file, char *mode)
     break;
   case UNDEFINED:
     printf("\tFailed Phase 1: returned undefined value! "
-	   "fp = 0x%p\n", fp);
+           "fp = 0x%p\n", fp);
     fflush(NULL);
     break;
     break;
@@ -2091,7 +2191,8 @@ FILE* fopen_test(char *file, char *mode)
   return fp;
 }
 
-int utimes_test(char *filename, struct timeval tvp[2])
+int
+utimes_test(char *filename, struct timeval tvp[2])
 {
   int ret, save_errno;
   int passed;
@@ -2102,18 +2203,19 @@ int utimes_test(char *filename, struct timeval tvp[2])
   passed = handle_zng(ret = utimes(filename, tvp));
   save_errno = errno;
 
-  switch(passed) {
+  switch (passed) {
   case FAILURE:
 #if defined(Solaris26)
     is_errno_valid(save_errno, EACCES, EFAULT, EINTR, EINVAL,
-		   EIO, ELOOP, EMULTIHOP, ENAMETOOLONG, ENOLINK, ENOENT,
-		   ENOTDIR, EPERM, EROFS, ENDLIST);
-#endif
+                   EIO, ELOOP, EMULTIHOP, ENAMETOOLONG, ENOLINK, ENOENT,
+                   ENOTDIR, EPERM, EROFS, ENDLIST);
+#endif /* if defined(Solaris26) */
     printf("\t\tret = %d\n", ret);
     printf("\tSucceeded Phase 1\n");
     fflush(NULL);
     break;
   case SUCCESS:
+
     /* good return value */
     printf("\t\ttvp[0].tv_sec = %ld\n", tvp[0].tv_sec);
     printf("\t\ttvp[0].tv_usec = %ld\n", tvp[0].tv_usec);
@@ -2125,7 +2227,7 @@ int utimes_test(char *filename, struct timeval tvp[2])
     break;
   case UNDEFINED:
     printf("\tFailed Phase 1: returned undefined value! "
-	   "ret = %d\n", ret);
+           "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -2138,7 +2240,8 @@ int utimes_test(char *filename, struct timeval tvp[2])
   return ret;
 }
 
-int fclose_test(FILE *fp)
+int
+fclose_test(FILE *fp)
 {
   int ret, save_errno;
   int passed;
@@ -2149,14 +2252,16 @@ int fclose_test(FILE *fp)
   passed = handle_eof(ret = fclose(fp));
   save_errno = errno;
 
-  switch(passed) {
+  switch (passed) {
   case FAILURE:
 #if defined(Solaris26)
     is_errno_valid(save_errno, EAGAIN, EBADF, EFBIG, EINTR, EIO,
-		   ENOSPC, EPIPE, ENXIO, ENDLIST);
-#endif
-    /* FALL THROUGH */
+                   ENOSPC, EPIPE, ENXIO, ENDLIST);
+#endif /* if defined(Solaris26) */
+
+  /* FALL THROUGH */
   case SUCCESS:
+
     /* good return value */
     printf("\t\tret = %d\n", ret);
     printf("\tSucceeded Phase 1\n");
@@ -2164,7 +2269,7 @@ int fclose_test(FILE *fp)
     break;
   case UNDEFINED:
     printf("\tFailed Phase 1: returned undefined value! "
-	   "ret = %d\n", ret);
+           "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -2177,7 +2282,8 @@ int fclose_test(FILE *fp)
   return ret;
 }
 
-int read_test(int fd, char *buf, size_t len)
+int
+read_test(int fd, char *buf, size_t len)
 {
   int ret, save_errno;
   int passed;
@@ -2189,14 +2295,15 @@ int read_test(int fd, char *buf, size_t len)
   passed = handle_gez(ret = full_read(fd, buf, len));
   save_errno = errno;
 
-  switch(passed) {
+  switch (passed) {
   case FAILURE:
 #if defined(Solaris26)
     is_errno_valid(save_errno, EAGAIN, EBADF, EBADMSG, EDEADLK,
-		   EFAULT, EINTR, EINVAL, EIO, EISDIR, ENOLCK, ENOLINK,
-		   ENXIO, EOVERFLOW, ENDLIST);
-#endif
-    /* FALL THROUGH */
+                   EFAULT, EINTR, EINVAL, EIO, EISDIR, ENOLCK, ENOLINK,
+                   ENXIO, EOVERFLOW, ENDLIST);
+#endif /* if defined(Solaris26) */
+
+  /* FALL THROUGH */
   case SUCCESS:
     printf("\t\tRead %d blocks\n", ret);
     printf("\t\tret = %d\n", ret);
@@ -2205,27 +2312,27 @@ int read_test(int fd, char *buf, size_t len)
     break;
   case UNDEFINED:
     printf("\tFailed Phase 1: returned undefined value! "
-	   "ret = %d\n", ret);
+           "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
     printf("Internal syscalltester error: passed = %d\n", passed);
     fflush(NULL);
     break;
-
   }
 
   errno = save_errno;
   return ret;
 }
 
-int fread_test(void *ptr, size_t size, size_t nitems, FILE *stream)
+int
+fread_test(void *ptr, size_t size, size_t nitems, FILE *stream)
 {
   int ret, save_errno;
   int passed;
 
-  printf("fread(): ptr=0x%p, size=%zu, nitmes=%u, stream=0x%p\n",ptr,size,
-	 nitems, stream);
+  printf("fread(): ptr=0x%p, size=%zu, nitmes=%u, stream=0x%p\n", ptr, size,
+         nitems, stream);
   fflush(NULL);
 
   /* You may treat this as a libc call for this purpose */
@@ -2234,17 +2341,17 @@ int fread_test(void *ptr, size_t size, size_t nitems, FILE *stream)
 
   /* This test is a little different than the rest because of the really
      wierd behaviour of fread(). Notice the check in SUCCESS. */
-  switch(passed) {
+  switch (passed) {
   case FAILURE:
     printf("\tFailed Phase 1: returned undefined value! "
-	   "ret = %d\n", ret);
+           "ret = %d\n", ret);
     fflush(NULL);
     break;
   case SUCCESS:
-    if((ret == 0) && ferror(stream)) {
+    if ((ret == 0) && ferror(stream)) {
 #if defined(Solaris26)
       is_errno_valid(save_errno, EOVERFLOW, ENDLIST);
-#endif
+#endif /* if defined(Solaris26) */
 
       printf("\t\tHit end of file.\n");
       fflush(NULL);
@@ -2256,7 +2363,7 @@ int fread_test(void *ptr, size_t size, size_t nitems, FILE *stream)
     break;
   case UNDEFINED:
     printf("\tFailed Phase 1: returned undefined value! "
-	   "ret = %d\n", ret);
+           "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -2269,7 +2376,8 @@ int fread_test(void *ptr, size_t size, size_t nitems, FILE *stream)
   return ret;
 }
 
-long ftell_test(FILE *fp)
+long
+ftell_test(FILE *fp)
 {
   long ret;
   int save_errno;
@@ -2281,12 +2389,13 @@ long ftell_test(FILE *fp)
   passed = handle_lng(ret = ftell(fp));
   save_errno = errno;
 
-  switch(passed) {
+  switch (passed) {
   case FAILURE:
 #if defined(Solaris26)
     is_errno_valid(save_errno, EBADF, ESPIPE, EOVERFLOW, ENDLIST);
-#endif
-    /* FALL THROUGH */
+#endif /* if defined(Solaris26) */
+
+  /* FALL THROUGH */
   case SUCCESS:
     printf("\t\tret = %ld\n", ret);
     printf("\tSucceeded Phase 1\n");
@@ -2294,7 +2403,7 @@ long ftell_test(FILE *fp)
     break;
   case UNDEFINED:
     printf("\tFailed Phase 1: returned undefined value! "
-	   "ret = %ld\n", ret);
+           "ret = %ld\n", ret);
     fflush(NULL);
     break;
   default:
@@ -2307,33 +2416,35 @@ long ftell_test(FILE *fp)
   return ret;
 }
 
-int readlink_test(char *path, char *buf, size_t bufsiz)
+int
+readlink_test(char *path, char *buf, size_t bufsiz)
 {
   int ret, save_errno;
   int passed;
 
-  printf("readlink(): path=%s, buf=0x%p, bufsiz=%zu\n",STR(path),buf,bufsiz);
+  printf("readlink(): path=%s, buf=0x%p, bufsiz=%zu\n", STR(path), buf, bufsiz);
   fflush(NULL);
 
   /* do not assume buf will be null terminated */
   passed = handle_gez(ret = readlink(path, buf, bufsiz));
   save_errno = errno;
 
-  switch(passed) {
+  switch (passed) {
   case FAILURE:
 #if defined(Solaris26)
     is_errno_valid(save_errno, EACCES, EFAULT, EINVAL, EIO, ENOENT,
-		   ELOOP, ENAMETOOLONG, ENOTDIR, ENOSYS, ENDLIST);
-#endif
+                   ELOOP, ENAMETOOLONG, ENOTDIR, ENOSYS, ENDLIST);
+#endif /* if defined(Solaris26) */
     printf("\t\tret = %d\n", ret);
     printf("\tSucceeded Phase 1\n");
     fflush(NULL);
     break;
   case SUCCESS:
+
     /* print no more than 31 characters if buf isn't null
        terminated. */
     printf("\t\tLink contents =  [%.*s...]\n",
-	   bufsiz<31?bufsiz:31, buf);
+           bufsiz < 31 ? bufsiz : 31, buf);
 
     printf("\t\tret = %d\n", ret);
     printf("\tSucceeded Phase 1\n");
@@ -2341,7 +2452,7 @@ int readlink_test(char *path, char *buf, size_t bufsiz)
     break;
   case UNDEFINED:
     printf("\tFailed Phase 1: returned undefined value! "
-	   "ret = %d\n", ret);
+           "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -2354,7 +2465,8 @@ int readlink_test(char *path, char *buf, size_t bufsiz)
   return ret;
 }
 
-int readv_test(int fd, struct iovec *iov, int iovcnt)
+int
+readv_test(int fd, struct iovec *iov, int iovcnt)
 {
   int ret, save_errno;
   int passed;
@@ -2365,14 +2477,15 @@ int readv_test(int fd, struct iovec *iov, int iovcnt)
   passed = handle_gez(ret = readv(fd, iov, iovcnt));
   save_errno = errno;
 
-  switch(passed) {
+  switch (passed) {
   case FAILURE:
 #if defined(Solaris26)
     is_errno_valid(save_errno, EAGAIN, EBADF, EBADMSG, EDEADLK,
-		   EFAULT, EINTR, EINVAL, EIO, EISDIR, ENOLCK, ENOLINK,
-		   ENXIO, EOVERFLOW, EFAULT, EINVAL, ENDLIST);
-#endif
-    /* FALL THROUGH */
+                   EFAULT, EINTR, EINVAL, EIO, EISDIR, ENOLCK, ENOLINK,
+                   ENXIO, EOVERFLOW, EFAULT, EINVAL, ENDLIST);
+#endif /* if defined(Solaris26) */
+
+  /* FALL THROUGH */
   case SUCCESS:
     if (ret != -1) {
       printf("\t\tRead %d blocks\n", ret);
@@ -2383,7 +2496,7 @@ int readv_test(int fd, struct iovec *iov, int iovcnt)
     break;
   case UNDEFINED:
     printf("\tFailed Phase 1: returned undefined value! "
-	   "ret = %d\n", ret);
+           "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -2396,8 +2509,8 @@ int readv_test(int fd, struct iovec *iov, int iovcnt)
   return ret;
 }
 
-
-int rmdir_test(char *path)
+int
+rmdir_test(char *path)
 {
   int ret, save_errno;
   int passed;
@@ -2408,15 +2521,17 @@ int rmdir_test(char *path)
   passed = handle_zng(ret = rmdir(path));
   save_errno = errno;
 
-  switch(passed) {
+  switch (passed) {
   case FAILURE:
 #if defined(Solaris26)
     is_errno_valid(save_errno, EACCES, EBUSY, EEXIST, EFAULT,
-		   EINVAL, EIO, ELOOP, EMULTIHOP, ENAMETOOLONG, ENOENT,
-		   ENOLINK, ENOTDIR, EROFS, ENDLIST);
-#endif
-    /* FALL THROUGH */
+                   EINVAL, EIO, ELOOP, EMULTIHOP, ENAMETOOLONG, ENOENT,
+                   ENOLINK, ENOTDIR, EROFS, ENDLIST);
+#endif /* if defined(Solaris26) */
+
+  /* FALL THROUGH */
   case SUCCESS:
+
     /* good return value */
     printf("\t\tret = %d\n", ret);
     printf("\tSucceeded Phase 1\n");
@@ -2424,7 +2539,7 @@ int rmdir_test(char *path)
     break;
   case UNDEFINED:
     printf("\tFailed Phase 1: returned undefined value! "
-	   "ret = %d\n", ret);
+           "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -2437,7 +2552,8 @@ int rmdir_test(char *path)
   return ret;
 }
 
-int setregid_test(gid_t rgid, gid_t egid)
+int
+setregid_test(gid_t rgid, gid_t egid)
 {
   int ret, save_errno;
   int passed;
@@ -2448,13 +2564,15 @@ int setregid_test(gid_t rgid, gid_t egid)
   passed = handle_zng(ret = setregid(rgid, egid));
   save_errno = errno;
 
-  switch(passed) {
+  switch (passed) {
   case FAILURE:
 #if defined(Solaris26)
     is_errno_valid(save_errno, EINVAL, EPERM, ENDLIST);
-#endif
-    /* FALL THROUGH */
+#endif /* if defined(Solaris26) */
+
+  /* FALL THROUGH */
   case SUCCESS:
+
     /* good return value */
     printf("\t\tret = %d\n", ret);
     printf("\tSucceeded Phase 1\n");
@@ -2462,7 +2580,7 @@ int setregid_test(gid_t rgid, gid_t egid)
     break;
   case UNDEFINED:
     printf("\tFailed Phase 1: returned undefined value! "
-	   "ret = %d\n", ret);
+           "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -2474,7 +2592,8 @@ int setregid_test(gid_t rgid, gid_t egid)
   return ret;
 }
 
-int setreuid_test(uid_t ruid, uid_t euid)
+int
+setreuid_test(uid_t ruid, uid_t euid)
 {
   int ret, save_errno;
   int passed;
@@ -2485,13 +2604,15 @@ int setreuid_test(uid_t ruid, uid_t euid)
   passed = handle_zng(ret = setreuid(ruid, euid));
   save_errno = errno;
 
-  switch(passed) {
+  switch (passed) {
   case FAILURE:
 #if defined(Solaris26)
     is_errno_valid(save_errno, EINVAL, EPERM, ENDLIST);
-#endif
-    /* FALL THROUGH */
+#endif /* if defined(Solaris26) */
+
+  /* FALL THROUGH */
   case SUCCESS:
+
     /* good return value */
     printf("\t\tret = %d\n", ret);
     printf("\tSucceeded Phase 1\n");
@@ -2499,7 +2620,7 @@ int setreuid_test(uid_t ruid, uid_t euid)
     break;
   case UNDEFINED:
     printf("\tFailed Phase 1: returned undefined value! "
-	   "ret = %d\n", ret);
+           "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -2518,7 +2639,8 @@ int setreuid_test(uid_t ruid, uid_t euid)
  * -Erik, May 18 2001 (A beautiful friday that I should be drinking instead of
  *                     coding on)
  */
-int setrlimit_test(struct rlimit *rlp)
+int
+setrlimit_test(struct rlimit *rlp)
 {
   int ret, save_errno;
   int passed;
@@ -2531,14 +2653,16 @@ int setrlimit_test(struct rlimit *rlp)
   passed = handle_zng(ret = setrlimit(RLIMIT_CORE, rlp));
   save_errno = errno;
 
-  switch(passed) {
+  switch (passed) {
   case FAILURE:
 #if defined(Solaris26)
     is_errno_valid(save_errno, EFAULT, EINVAL, EPERM, EINVAL,
-		   ENDLIST);
-#endif
-    /* FALL THROUGH */
+                   ENDLIST);
+#endif /* if defined(Solaris26) */
+
+  /* FALL THROUGH */
   case SUCCESS:
+
     /* good return value */
     printf("\t\tret = %d\n", ret);
     printf("\tSucceeded Phase 1\n");
@@ -2546,7 +2670,7 @@ int setrlimit_test(struct rlimit *rlp)
     break;
   case UNDEFINED:
     printf("\tFailed Phase 1: returned undefined value! "
-	   "ret = %d\n", ret);
+           "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -2558,7 +2682,8 @@ int setrlimit_test(struct rlimit *rlp)
   return ret;
 }
 
-int stat_test(char *path, struct stat *buf)
+int
+stat_test(char *path, struct stat *buf)
 {
   int ret, save_errno;
   int passed;
@@ -2569,23 +2694,24 @@ int stat_test(char *path, struct stat *buf)
   passed = handle_zng(ret = stat(path, buf));
   save_errno = errno;
 
-  switch(passed) {
+  switch (passed) {
   case FAILURE:
 #if defined(Solaris26)
     is_errno_valid(save_errno, EOVERFLOW, EACCES, EFAULT, EINTR,
-		   ELOOP, EMULTIHOP, ENAMETOOLONG, ENOENT, ENOLINK, ENOTDIR,
-		   ENDLIST);
-#endif
+                   ELOOP, EMULTIHOP, ENAMETOOLONG, ENOENT, ENOLINK, ENOTDIR,
+                   ENDLIST);
+#endif /* if defined(Solaris26) */
     printf("\t\tret = %d\n", ret);
     printf("\tSucceeded Phase 1\n");
     fflush(NULL);
     break;
   case SUCCESS:
+
     /* good return value */
     printf("\t\tst_dev = %u\n", buf->st_dev);
     printf("\t\tst_ino = %u\n", buf->st_ino);
     printf("\t\tst_mode = 0x%x(0%o)\n",
-	   buf->st_mode,buf->st_mode);
+           buf->st_mode, buf->st_mode);
     printf("\t\tst_nlink = %u\n", buf->st_nlink);
     printf("\t\tst_uid = %u\n", buf->st_uid);
     printf("\t\tst_gid = %u\n", buf->st_gid);
@@ -2602,7 +2728,7 @@ int stat_test(char *path, struct stat *buf)
     break;
   case UNDEFINED:
     printf("\tFailed Phase 1: returned undefined value! "
-	   "ret = %d\n", ret);
+           "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -2614,7 +2740,8 @@ int stat_test(char *path, struct stat *buf)
   return ret;
 }
 
-int symlink_test(char *old, char *newf)
+int
+symlink_test(char *old, char *newf)
 {
   int ret, save_errno;
   int passed;
@@ -2625,56 +2752,17 @@ int symlink_test(char *old, char *newf)
   passed = handle_zng(ret = symlink(old, newf));
   save_errno = errno;
 
-  switch(passed)
-    {
-    case FAILURE:
-#if defined(Solaris26)
-      is_errno_valid(save_errno, EACCES, EDQUOT, EEXIST, EFAULT,
-		     EIO, ELOOP, ENAMETOOLONG, ENOENT, ENOSPC, ENOSYS,
-		     ENOTDIR, EROFS, ENDLIST);
-#endif
-      /* FALL THROUGH */
-    case SUCCESS:
-      /* good return value */
-      printf("\t\tret = %d\n", ret);
-      printf("\tSucceeded Phase 1\n");
-      fflush(NULL);
-      break;
-    case UNDEFINED:
-      printf("\tFailed Phase 1: returned undefined value! "
-	     "ret = %d\n", ret);
-      fflush(NULL);
-      break;
-    default:
-      printf("Internal syscalltester error: passed = %d\n", passed);
-      fflush(NULL);
-      break;
-    }
-  errno = save_errno;
-  return ret;
-}
-
-int truncate_test(char *file, size_t size)
-{
-  int ret, save_errno;
-  int passed;
-
-  printf("truncate(): file=%s, size=%zu\n", STR(file), size);
-  fflush(NULL);
-
-  passed = handle_zng(ret = truncate(file, size));
-  save_errno = errno;
-
-  switch(passed) {
+  switch (passed) {
   case FAILURE:
 #if defined(Solaris26)
-    is_errno_valid(save_errno, EINTR, EINVAL, EFBIG, EIO, EACCES,
-		   EFAULT, EINVAL, EISDIR, ELOOP, EMFILE, EMULTIHOP,
-		   ENAMETOOLONG, ENOENT, ENFILE, ENOTDIR, ENOLINK, EROFS,
-		   ENDLIST);
-#endif
-    /* FALL THROUGH */
+    is_errno_valid(save_errno, EACCES, EDQUOT, EEXIST, EFAULT,
+                   EIO, ELOOP, ENAMETOOLONG, ENOENT, ENOSPC, ENOSYS,
+                   ENOTDIR, EROFS, ENDLIST);
+#endif /* if defined(Solaris26) */
+
+  /* FALL THROUGH */
   case SUCCESS:
+
     /* good return value */
     printf("\t\tret = %d\n", ret);
     printf("\tSucceeded Phase 1\n");
@@ -2682,7 +2770,7 @@ int truncate_test(char *file, size_t size)
     break;
   case UNDEFINED:
     printf("\tFailed Phase 1: returned undefined value! "
-	   "ret = %d\n", ret);
+           "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -2694,7 +2782,51 @@ int truncate_test(char *file, size_t size)
   return ret;
 }
 
-int ftruncate_test(int fd, size_t size)
+int
+truncate_test(char *file, size_t size)
+{
+  int ret, save_errno;
+  int passed;
+
+  printf("truncate(): file=%s, size=%zu\n", STR(file), size);
+  fflush(NULL);
+
+  passed = handle_zng(ret = truncate(file, size));
+  save_errno = errno;
+
+  switch (passed) {
+  case FAILURE:
+#if defined(Solaris26)
+    is_errno_valid(save_errno, EINTR, EINVAL, EFBIG, EIO, EACCES,
+                   EFAULT, EINVAL, EISDIR, ELOOP, EMFILE, EMULTIHOP,
+                   ENAMETOOLONG, ENOENT, ENFILE, ENOTDIR, ENOLINK, EROFS,
+                   ENDLIST);
+#endif /* if defined(Solaris26) */
+
+  /* FALL THROUGH */
+  case SUCCESS:
+
+    /* good return value */
+    printf("\t\tret = %d\n", ret);
+    printf("\tSucceeded Phase 1\n");
+    fflush(NULL);
+    break;
+  case UNDEFINED:
+    printf("\tFailed Phase 1: returned undefined value! "
+           "ret = %d\n", ret);
+    fflush(NULL);
+    break;
+  default:
+    printf("Internal syscalltester error: passed = %d\n", passed);
+    fflush(NULL);
+    break;
+  }
+  errno = save_errno;
+  return ret;
+}
+
+int
+ftruncate_test(int fd, size_t size)
 {
   int ret, save_errno;
   int passed;
@@ -2705,14 +2837,16 @@ int ftruncate_test(int fd, size_t size)
   passed = handle_zng(ret = ftruncate(fd, size));
   save_errno = errno;
 
-  switch(passed) {
+  switch (passed) {
   case FAILURE:
 #if defined(Solaris26)
     is_errno_valid(save_errno, EINTR, EFBIG, EIO, EAGAIN, EBADF,
-		   EINVAL, ENOLINK, ENDLIST);
-#endif
-    /* FALL THROUGH */
+                   EINVAL, ENOLINK, ENDLIST);
+#endif /* if defined(Solaris26) */
+
+  /* FALL THROUGH */
   case SUCCESS:
+
     /* good return value */
     printf("\t\tret = %d\n", ret);
     printf("\tSucceeded Phase 1\n");
@@ -2720,7 +2854,7 @@ int ftruncate_test(int fd, size_t size)
     break;
   case UNDEFINED:
     printf("\tFailed Phase 1: returned undefined value! "
-	   "ret = %d\n", ret);
+           "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -2733,7 +2867,8 @@ int ftruncate_test(int fd, size_t size)
 }
 
 /* XXX think about how to check the return value on this one.... */
-mode_t umask_test(mode_t cmask)
+mode_t
+umask_test(mode_t cmask)
 {
   int ret;
 
@@ -2749,7 +2884,8 @@ mode_t umask_test(mode_t cmask)
   return ret;
 }
 
-int unlink_test(char *path)
+int
+unlink_test(char *path)
 {
   int ret, save_errno;
   int passed;
@@ -2760,15 +2896,17 @@ int unlink_test(char *path)
   passed = handle_zng(ret = unlink(path));
   save_errno = errno;
 
-  switch(passed) {
+  switch (passed) {
   case FAILURE:
 #if defined(Solaris26)
     is_errno_valid(save_errno, EACCES, EBUSY, EFAULT, EINTR, ELOOP,
-		   EMULTIHOP, ENAMETOOLONG, ENOENT, ENOLINK, ENOTDIR, EPERM,
-		   EROFS, ETXTBSY, ENDLIST);
-#endif
-    /* FALL THROUGH */
+                   EMULTIHOP, ENAMETOOLONG, ENOENT, ENOLINK, ENOTDIR, EPERM,
+                   EROFS, ETXTBSY, ENDLIST);
+#endif /* if defined(Solaris26) */
+
+  /* FALL THROUGH */
   case SUCCESS:
+
     /* good return value */
     printf("\t\tret = %d\n", ret);
     printf("\tSucceeded Phase 1\n");
@@ -2776,7 +2914,7 @@ int unlink_test(char *path)
     break;
   case UNDEFINED:
     printf("\tFailed Phase 1: returned undefined value! "
-	   "ret = %d\n", ret);
+           "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -2789,7 +2927,8 @@ int unlink_test(char *path)
   return ret;
 }
 
-int gethostname_test(char *name, size_t len)
+int
+gethostname_test(char *name, size_t len)
 {
   int ret, save_errno;
   int passed;
@@ -2800,16 +2939,17 @@ int gethostname_test(char *name, size_t len)
   passed = handle_zng(ret = gethostname(name, len));
   save_errno = errno;
 
-  switch(passed) {
+  switch (passed) {
   case FAILURE:
 #if defined(Solaris26)
     is_errno_valid(save_errno, EINVAL, EPERM, EFAULT, ENDLIST);
-#endif
+#endif /* if defined(Solaris26) */
     printf("\t\tret = %d\n", ret);
     printf("\tSucceeded Phase 1\n");
     fflush(NULL);
     break;
   case SUCCESS:
+
     /* good return value */
     printf("\t\tname = %.80s\n", name); /* may not be null terminated */
     printf("\t\tret = %d\n", ret);
@@ -2818,7 +2958,7 @@ int gethostname_test(char *name, size_t len)
     break;
   case UNDEFINED:
     printf("\tFailed Phase 1: returned undefined value! "
-	   "ret = %d\n", ret);
+           "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -2831,7 +2971,8 @@ int gethostname_test(char *name, size_t len)
   return ret;
 }
 
-int utime_test(char *file, struct utimbuf *times)
+int
+utime_test(char *file, struct utimbuf *times)
 {
   int ret, save_errno;
   int passed;
@@ -2842,18 +2983,19 @@ int utime_test(char *file, struct utimbuf *times)
   passed = handle_zng(ret = utime(file, times));
   save_errno = errno;
 
-  switch(passed) {
+  switch (passed) {
   case FAILURE:
 #if defined(Solaris26)
     is_errno_valid(save_errno, EACCES, EFAULT, EINTR, EIO, ELOOP,
-		   EMULTIHOP, ENAMETOOLONG, ENOENT, ENOLINK, ENOTDIR, EPERM,
-		   EROFS, ENDLIST);
-#endif
+                   EMULTIHOP, ENAMETOOLONG, ENOENT, ENOLINK, ENOTDIR, EPERM,
+                   EROFS, ENDLIST);
+#endif /* if defined(Solaris26) */
     printf("\t\tret = %d\n", ret);
     printf("\tSucceeded Phase 1\n");
     fflush(NULL);
     break;
   case SUCCESS:
+
     /* good return value */
     printf("\t\tactime = %u\n", times->actime);
     printf("\t\tmodtime = %u\n", times->modtime);
@@ -2863,7 +3005,7 @@ int utime_test(char *file, struct utimbuf *times)
     break;
   case UNDEFINED:
     printf("\tFailed Phase 1: returned undefined value! "
-	   "ret = %d\n", ret);
+           "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -2878,7 +3020,8 @@ int utime_test(char *file, struct utimbuf *times)
 
 /* This function normally returns a void, so for us it is always a success, we
    must check the semantics of rewind to see if it actually worked. */
-int rewind_test(FILE *stream)
+int
+rewind_test(FILE *stream)
 {
   printf("rewind(): stream=0x%p\n", stream);
   fflush(NULL);
@@ -2891,7 +3034,8 @@ int rewind_test(FILE *stream)
   return SUCCESS;
 }
 
-int uname_test(struct utsname *name)
+int
+uname_test(struct utsname *name)
 {
   int ret, save_errno;
   int passed;
@@ -2902,16 +3046,17 @@ int uname_test(struct utsname *name)
   passed = handle_gez(ret = uname(name));
   save_errno = errno;
 
-  switch(passed) {
+  switch (passed) {
   case FAILURE:
 #if defined(Solaris26)
     is_errno_valid(save_errno, EFAULT, ENDLIST);
-#endif
+#endif /* if defined(Solaris26) */
     printf("\t\tret = %d\n", ret);
     printf("\tSucceeded Phase 1\n");
     fflush(NULL);
     break;
   case SUCCESS:
+
     /* good return value */
     printf("\t\tsysname = %s\n", STR(name->sysname));
     printf("\t\tnodename = %s\n", STR(name->nodename));
@@ -2924,7 +3069,7 @@ int uname_test(struct utsname *name)
     break;
   case UNDEFINED:
     printf("\tFailed Phase 1: returned undefined value! "
-	   "ret = %d\n", ret);
+           "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -2937,27 +3082,29 @@ int uname_test(struct utsname *name)
   return ret;
 }
 
-int write_test(int fd, char *buf, size_t count)
+int
+write_test(int fd, char *buf, size_t count)
 {
   int ret, save_errno;
   int passed;
 
   printf("write(): fd=%d, buf=[%.31s...], count=%zu\n",
-	 fd, buf, count);
+         fd, buf, count);
   fflush(NULL);
 
   /* you can treat full_write as just a write */
   passed = handle_gez(ret = full_write(fd, buf, strlen(buf)));
   save_errno = errno;
 
-  switch(passed) {
+  switch (passed) {
   case FAILURE:
 #if defined(Solaris26)
     is_errno_valid(save_errno, EAGAIN, EBADF, EDEADLK, EDQUOT,
-		   EFAULT, EFBIG, EINTR, EIO, ENOLCK, ENOLINK, ENOSPC,
-		   ENOSR, ENXIO, EPIPE, ERANGE, EINVAL, ENDLIST);
-#endif
-    /* FALL THROUGH */
+                   EFAULT, EFBIG, EINTR, EIO, ENOLCK, ENOLINK, ENOSPC,
+                   ENOSR, ENXIO, EPIPE, ERANGE, EINVAL, ENDLIST);
+#endif /* if defined(Solaris26) */
+
+  /* FALL THROUGH */
   case SUCCESS:
     if (ret != -1) { /* check to make sure good */
       printf("\t\tWrote %d blocks\n", ret);
@@ -2968,7 +3115,7 @@ int write_test(int fd, char *buf, size_t count)
     break;
   case UNDEFINED:
     printf("\tFailed Phase 1: returned undefined value! "
-	   "ret = %d\n", ret);
+           "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -2981,29 +3128,30 @@ int write_test(int fd, char *buf, size_t count)
   return ret;
 }
 
-int fwrite_test(char *ptr, size_t size, size_t nitems, FILE *stream)
+int
+fwrite_test(char *ptr, size_t size, size_t nitems, FILE *stream)
 {
   int ret, save_errno;
   int passed;
 
-  printf("fwrite(): ptr=[%.31s...], fp=0x%p\n", (char*)ptr, stream);
+  printf("fwrite(): ptr=[%.31s...], fp=0x%p\n", (char *)ptr, stream);
   fflush(NULL);
 
   /* You may treat this as a normal fwrite */
   passed = handle_gez(ret = full_fwrite(ptr, size, nitems, stream));
   save_errno = errno;
 
-  switch(passed) {
+  switch (passed) {
   case FAILURE:
     printf("\tFailed Phase 1: returned undefined value! "
-	   "ret = %d\n", ret);
+           "ret = %d\n", ret);
     fflush(NULL);
     break;
   case SUCCESS:
     if ((ret == 0) && ferror(stream)) {
 #if defined(Solaris26)
       is_errno_valid(save_errno, EFBIG, ENDLIST);
-#endif
+#endif /* if defined(Solaris26) */
     }
     if (!ferror(stream)) {
       printf("\t\tWrote %d blocks\n", ret);
@@ -3015,7 +3163,7 @@ int fwrite_test(char *ptr, size_t size, size_t nitems, FILE *stream)
     break;
   case UNDEFINED:
     printf("\tFailed Phase 1: returned undefined value! "
-	   "ret = %d\n", ret);
+           "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -3028,7 +3176,8 @@ int fwrite_test(char *ptr, size_t size, size_t nitems, FILE *stream)
   return ret;
 }
 
-FILE *tmpfile_test(void)
+FILE *
+tmpfile_test(void)
 {
   FILE *ret;
   int save_errno;
@@ -3040,35 +3189,36 @@ FILE *tmpfile_test(void)
   passed = handle_ptr(ret = tmpfile());
   save_errno = errno;
 
-  switch(passed)
-    {
-    case FAILURE:
+  switch (passed) {
+  case FAILURE:
 #if defined(Solaris)
-      is_errno_valid(save_errno, EINTR, EMFILE, ENOSPC, ENOMEM,
-		     ENDLIST);
-#endif
-      /* FALL THROUGH */
-    case SUCCESS:
-      printf("\tret = 0x%p\n", ret);
-      printf("\tSucceeded Phase 1\n");
-      fflush(NULL);
-      break;
-    case UNDEFINED:
-      printf("\tFailed Phase 1: returned undefined value! "
-	     "ret = 0x%p\n", ret);
-      fflush(NULL);
-      break;
-    default:
-      printf("Internal syscalltester error: passed = %d\n", passed);
-      fflush(NULL);
-      break;
-    }
+    is_errno_valid(save_errno, EINTR, EMFILE, ENOSPC, ENOMEM,
+                   ENDLIST);
+#endif /* if defined(Solaris) */
+
+  /* FALL THROUGH */
+  case SUCCESS:
+    printf("\tret = 0x%p\n", ret);
+    printf("\tSucceeded Phase 1\n");
+    fflush(NULL);
+    break;
+  case UNDEFINED:
+    printf("\tFailed Phase 1: returned undefined value! "
+           "ret = 0x%p\n", ret);
+    fflush(NULL);
+    break;
+  default:
+    printf("Internal syscalltester error: passed = %d\n", passed);
+    fflush(NULL);
+    break;
+  }
 
   errno = save_errno;
   return ret;
 }
 
-int writev_test(int fd, struct iovec *iov, int iovcnt)
+int
+writev_test(int fd, struct iovec *iov, int iovcnt)
 {
   int ret, save_errno;
   int passed;
@@ -3079,13 +3229,13 @@ int writev_test(int fd, struct iovec *iov, int iovcnt)
   passed = handle_gez(ret = writev(fd, iov, iovcnt));
   save_errno = errno;
 
-  switch(passed) {
+  switch (passed) {
   case FAILURE:
 #if defined(Solaris26)
     is_errno_valid(save_errno, EAGAIN, EBADF, EDEADLK, EDQUOT,
-		   EFAULT, EFBIG, EINTR, EIO, ENOLCK, ENOLINK, ENOSPC,
-		   ENOSR, ENXIO, EPIPE, ERANGE, EINVAL, ENDLIST);
-#endif
+                   EFAULT, EFBIG, EINTR, EIO, ENOLCK, ENOLINK, ENOSPC,
+                   ENOSR, ENXIO, EPIPE, ERANGE, EINVAL, ENDLIST);
+#endif /* if defined(Solaris26) */
     printf("\t\tret = %d\n", ret);
     printf("\tSucceeded Phase 1\n");
     fflush(NULL);
@@ -3098,7 +3248,7 @@ int writev_test(int fd, struct iovec *iov, int iovcnt)
     break;
   case UNDEFINED:
     printf("\tFailed Phase 1: returned undefined value! "
-	   "ret = %d\n", ret);
+           "ret = %d\n", ret);
     fflush(NULL);
     break;
   default:
@@ -3110,12 +3260,14 @@ int writev_test(int fd, struct iovec *iov, int iovcnt)
   return ret;
 }
 
-pid_t gettid(void)
+pid_t
+gettid(void)
 {
   return syscall(SYS_gettid);
 }
 
-int gettid_test(void)
+int
+gettid_test(void)
 {
   printf("gettid():\n");
   fflush(NULL);
@@ -3149,14 +3301,15 @@ int gettid_test(void)
    depending upon what I am looking for. These are Phase 2 tests. */
 
 /* handle when something returns a -1 as failure and zero on success */
-int expect_zng(int expected, int result)
+int
+expect_zng(int expected, int result)
 {
   printf("\tZNG Expected %s, Got %s\n",
-	 expected==SUCCESS?"SUCCESS":"FAILURE",
-	 result==SUCCESS?"SUCCESS":"FAILURE");
+         expected == SUCCESS ? "SUCCESS" : "FAILURE",
+         result == SUCCESS ? "SUCCESS" : "FAILURE");
   fflush(NULL);
 
-  if(result == expected) {
+  if (result == expected) {
     return SUCCESS;
   }
   return FAILURE;
@@ -3164,56 +3317,55 @@ int expect_zng(int expected, int result)
 
 /* handle when something returns a NULL as failure */
 /* expected is SUCCESS, or FAILURE, depending upon what I am looking for */
-int expect_ptr(int expected, void *result)
+int
+expect_ptr(int expected, void *result)
 {
   printf("\tPTR Expected %s, Got %s\n",
-	 expected==SUCCESS?"NON-NULL":"NULL",
-	 result==NULL?"NULL":"NON-NULL");
+         expected == SUCCESS ? "NON-NULL" : "NULL",
+         result == NULL ? "NULL" : "NON-NULL");
   fflush(NULL);
 
-  if (expected == SUCCESS)
-    {
-      if (result == NULL)
-	{
-	  return FAILURE;
-	}
+  if (expected == SUCCESS) {
+    if (result == NULL) {
+      return FAILURE;
+    }
 
+    return SUCCESS;
+  }
+
+  if (expected == FAILURE) {
+    if (result == NULL) {
       return SUCCESS;
     }
 
-  if (expected == FAILURE)
-    {
-      if (result == NULL)
-	{
-	  return SUCCESS;
-	}
-
-      return FAILURE;
-    }
+    return FAILURE;
+  }
   return FAILURE;
 }
 
 /* handle something where result >= 0 is success */
 /* expected is SUCCESS, or FAILURE, depending upon what I am looking for */
-int expect_gez(int expected, int result)
+int
+expect_gez(int expected, int result)
 {
   printf("\tGEZ Expected %s, Got %s\n",
-	 expected==SUCCESS?"SUCCESS":"FAILURE",
-	 result>=0?"SUCCESS":"FAILURE");
+         expected == SUCCESS ? "SUCCESS" : "FAILURE",
+         result >= 0 ? "SUCCESS" : "FAILURE");
   fflush(NULL);
 
-  if((result >= 0) && (expected == SUCCESS)) {
+  if ((result >= 0) && (expected == SUCCESS)) {
     return SUCCESS;
   }
   return FAILURE;
 }
 
 /* handle something that can return an unsigned positive number */
-int expect_off(off_t expected, off_t ret)
+int
+expect_off(off_t expected, off_t ret)
 {
   printf("\tOFF Expected %s, Got %s\n",
-	 expected==SUCCESS?"SUCCESS":"FAILURE",
-	 ret>=0?"SUCCESS":"FAILURE");
+         expected == SUCCESS ? "SUCCESS" : "FAILURE",
+         ret >= 0 ? "SUCCESS" : "FAILURE");
   fflush(NULL);
 
   if ((ret == (off_t)-1) && expected == SUCCESS) {
@@ -3225,7 +3377,8 @@ int expect_off(off_t expected, off_t ret)
 
 /* this is for when I'm expecting a particular long value(or any other type of
    normal int */
-int expect_val(long expected, long ret)
+int
+expect_val(long expected, long ret)
 {
   printf("\tVAL Expected %ld, Got %ld\n", expected, ret);
   fflush(NULL);
@@ -3238,7 +3391,8 @@ int expect_val(long expected, long ret)
 }
 
 /* this is for when I'm expecting a particular off_t value */
-int expect_vao(off_t expected, off_t ret)
+int
+expect_vao(off_t expected, off_t ret)
 {
   printf("\tVAO Expected %d, Got %d\n", expected, ret);
   fflush(NULL);
@@ -3251,7 +3405,8 @@ int expect_vao(off_t expected, off_t ret)
 }
 
 /* this is for when I'm expecting a particular pointer value */
-int expect_vap(void *expected, void *ret)
+int
+expect_vap(void *expected, void *ret)
 {
   printf("\tVAP Expected 0x%p, Got 0x%p\n", expected, ret);
   fflush(NULL);
@@ -3265,11 +3420,12 @@ int expect_vap(void *expected, void *ret)
 
 /* these next two calls are kinda funky because getuid/getgid/umask
    don't have error return codes, anything can be valid */
-int expect_uid(int expected, uid_t ret)
+int
+expect_uid(int expected, uid_t ret)
 {
   printf("\tUID Expected %s, Got %u "
-	 "(Will always return expected))\n",
-	 expected==SUCCESS?"SUCCESS":"FAILURE", ret);
+         "(Will always return expected))\n",
+         expected == SUCCESS ? "SUCCESS" : "FAILURE", ret);
   fflush(NULL);
 
   if (expected == FAILURE) {
@@ -3279,11 +3435,12 @@ int expect_uid(int expected, uid_t ret)
   return SUCCESS;
 }
 
-int expect_gid(int expected, gid_t ret)
+int
+expect_gid(int expected, gid_t ret)
 {
   printf("\tGID Expected %s, Got %u "
-	 "(Will always return expected))\n",
-	 expected==SUCCESS?"SUCCESS":"FAILURE", ret);
+         "(Will always return expected))\n",
+         expected == SUCCESS ? "SUCCESS" : "FAILURE", ret);
   fflush(NULL);
 
   if (expected == FAILURE) {
@@ -3293,11 +3450,12 @@ int expect_gid(int expected, gid_t ret)
   return SUCCESS;
 }
 
-int expect_msk(int expected, mode_t ret)
+int
+expect_msk(int expected, mode_t ret)
 {
   printf("\tMSK Expected %s, Got 0x%x(0%o) "
-	 "(Will always return expected))\n",
-	 expected==SUCCESS?"SUCCESS":"FAILURE", ret, ret);
+         "(Will always return expected))\n",
+         expected == SUCCESS ? "SUCCESS" : "FAILURE", ret, ret);
   fflush(NULL);
 
   if (expected == FAILURE) {
@@ -3308,14 +3466,16 @@ int expect_msk(int expected, mode_t ret)
 }
 
 /* This is for when I'm expecting a boolean value from something */
+
 /* WARNING! This is a 'C' boolean, meaning you may not assign a SUCCESS to
    a variable and then expect_bol it to be equal to SUCCESS because SUCCESS
    is defined to be ZERO! */
-int expect_bol(int expected, int ret)
+int
+expect_bol(int expected, int ret)
 {
   printf("\tBOL Expected %s, Got %s\n",
-	 expected==SUCCESS?"TRUE(SUCCESS)":"FALSE(FAILURE)",
-	 ret?"TRUE(SUCCESS)":"FALSE(FAILURE)");
+         expected == SUCCESS ? "TRUE(SUCCESS)" : "FALSE(FAILURE)",
+         ret ? "TRUE(SUCCESS)" : "FALSE(FAILURE)");
   fflush(NULL);
 
   if ((expected == SUCCESS) && (ret == 0)) {
@@ -3328,9 +3488,10 @@ int expect_bol(int expected, int ret)
 /* Begin the actual test code */
 
 /* Do a super basic test of creat(), access(), close(), and unlink() */
-int BasicFile(void)
+int
+BasicFile(void)
 {
-  char tf[NAMEBUF] = {0};
+  char tf[NAMEBUF] = { 0 };
   int fd;
   int passed;
   int block = SUCCESS;
@@ -3362,7 +3523,7 @@ int BasicFile(void)
   testbreak();
 
   /* test open() */
-  passed = expect_gez(SUCCESS, fd = open_test(tf, O_CREAT|O_TRUNC, S_IRWXU));
+  passed = expect_gez(SUCCESS, fd = open_test(tf, O_CREAT | O_TRUNC, S_IRWXU));
   EXPECTED_RESP; IF_FAILED ABORT_TEST;
   passed = expect_zng(SUCCESS, access_test(tf, F_OK));
   EXPECTED_RESP;
@@ -3378,10 +3539,11 @@ int BasicFile(void)
 }
 
 /* can I do simple writes, reads, and seeks? */
-int BasicFileIO(void)
+int
+BasicFileIO(void)
 {
-  char tf[NAMEBUF] = {0};
-  char readbuf[sizeof(passage)] = {0};
+  char tf[NAMEBUF] = { 0 };
+  char readbuf[sizeof(passage)] = { 0 };
   int fd;
   FILE *fp;
   int passed;
@@ -3393,7 +3555,7 @@ int BasicFileIO(void)
   testbreak();
 
   passed = expect_gez(SUCCESS,
-		      fd = open_test(tf,O_RDWR|O_TRUNC|O_CREAT,S_IRWXU));
+                      fd = open_test(tf, O_RDWR | O_TRUNC | O_CREAT, S_IRWXU));
   EXPECTED_RESP; IF_FAILED ABORT_TEST;
   passed = expect_gez(SUCCESS, write_test(fd, passage, strlen(passage)));
   EXPECTED_RESP;
@@ -3416,7 +3578,7 @@ int BasicFileIO(void)
   testbreak();
 
   /* test FILE* versions */
-  passed = expect_ptr(SUCCESS, fp = fopen_test(tf,"w+"));
+  passed = expect_ptr(SUCCESS, fp = fopen_test(tf, "w+"));
   EXPECTED_RESP; IF_FAILED ABORT_TEST;
   passed = expect_gez(SUCCESS, fwrite_test(passage, strlen(passage), 1, fp));
   EXPECTED_RESP;
@@ -3441,7 +3603,7 @@ int BasicFileIO(void)
   testbreak();
 
   /* test FILE* versions specifically rewind() */
-  passed = expect_ptr(SUCCESS, fp = fopen_test(tf,"w+"));
+  passed = expect_ptr(SUCCESS, fp = fopen_test(tf, "w+"));
   EXPECTED_RESP; IF_FAILED ABORT_TEST;
   passed = expect_gez(SUCCESS, fwrite_test(passage, strlen(passage), 1, fp));
   EXPECTED_RESP;
@@ -3467,13 +3629,14 @@ int BasicFileIO(void)
   return block;
 }
 
-int BasicFreopen(void)
+int
+BasicFreopen(void)
 {
   int block = SUCCESS;
   FILE *fp;
   FILE *fp2;
   int passed;
-  char tf[NAMEBUF] = {0};
+  char tf[NAMEBUF] = { 0 };
 
   xtmpnam(tf);
 
@@ -3492,13 +3655,14 @@ int BasicFreopen(void)
   return block;
 }
 
-int BasicStat(void)
+int
+BasicStat(void)
 {
   int fd;
   FILE *fp;
   int passed;
   int block = SUCCESS;
-  char tf[NAMEBUF] = {0};
+  char tf[NAMEBUF] = { 0 };
   struct stat buf;
 
   xtmpnam(tf);
@@ -3506,7 +3670,7 @@ int BasicStat(void)
   testbreak();
 
   passed = expect_gez(SUCCESS,
-		      fd = open_test(tf,O_RDWR|O_TRUNC|O_CREAT,S_IRWXU));
+                      fd = open_test(tf, O_RDWR | O_TRUNC | O_CREAT, S_IRWXU));
   EXPECTED_RESP; IF_FAILED ABORT_TEST;
   passed = expect_gez(SUCCESS, write_test(fd, passage, strlen(passage)));
   EXPECTED_RESP;
@@ -3523,7 +3687,7 @@ int BasicStat(void)
 
   testbreak();
 
-  passed = expect_ptr(SUCCESS, fp = fopen_test(tf,"w+"));
+  passed = expect_ptr(SUCCESS, fp = fopen_test(tf, "w+"));
   EXPECTED_RESP; IF_FAILED ABORT_TEST;
   passed = expect_gez(SUCCESS, fwrite_test(passage, strlen(passage), 1, fp));
   EXPECTED_RESP;
@@ -3540,12 +3704,13 @@ int BasicStat(void)
   return block;
 }
 
-int BasicFilePerm(void)
+int
+BasicFilePerm(void)
 {
   int block = SUCCESS;
   int fd;
   int passed;
-  char tf[NAMEBUF] = {0};
+  char tf[NAMEBUF] = { 0 };
   struct stat buf;
 
   xtmpnam(tf);
@@ -3553,7 +3718,7 @@ int BasicFilePerm(void)
   testbreak();
 
   passed = expect_gez(SUCCESS,
-		      fd = open_test(tf,O_RDWR|O_TRUNC|O_CREAT,S_IRWXU));
+                      fd = open_test(tf, O_RDWR | O_TRUNC | O_CREAT, S_IRWXU));
   EXPECTED_RESP; IF_FAILED ABORT_TEST;
   passed = expect_zng(SUCCESS, fstat_test(fd, &buf));
   EXPECTED_RESP;
@@ -3579,7 +3744,7 @@ int BasicFilePerm(void)
   testbreak();
 
   passed = expect_gez(SUCCESS,
-		      fd = open_test(tf,O_RDWR|O_TRUNC|O_CREAT,S_IRWXU));
+                      fd = open_test(tf, O_RDWR | O_TRUNC | O_CREAT, S_IRWXU));
   EXPECTED_RESP; IF_FAILED ABORT_TEST;
   passed = expect_zng(SUCCESS, stat_test(tf, &buf));
   EXPECTED_RESP;
@@ -3606,9 +3771,10 @@ int BasicFilePerm(void)
   return block;
 }
 
-int BasicUid(void)
+int
+BasicUid(void)
 {
-  char tf[NAMEBUF] = {0};
+  char tf[NAMEBUF] = { 0 };
   int fd;
   int passed;
   int block = SUCCESS;
@@ -3626,7 +3792,7 @@ int BasicUid(void)
   EXPECTED_RESP;
 
   passed = expect_gez(SUCCESS,
-		      fd = open_test(tf,O_RDWR|O_TRUNC|O_CREAT,S_IRWXU));
+                      fd = open_test(tf, O_RDWR | O_TRUNC | O_CREAT, S_IRWXU));
   EXPECTED_RESP; IF_FAILED ABORT_TEST;
   passed = expect_zng(SUCCESS, stat_test(tf, &buf));
   EXPECTED_RESP;
@@ -3658,20 +3824,21 @@ int BasicUid(void)
   return block;
 }
 
-int BasicDup(void)
+int
+BasicDup(void)
 {
-  char tf[NAMEBUF] = {0};
+  char tf[NAMEBUF] = { 0 };
   int fd;
   int fd2;
   int passed;
   int block = SUCCESS;
-  char readbuf[sizeof(passage)] = {0};
+  char readbuf[sizeof(passage)] = { 0 };
 
   xtmpnam(tf);
 
   testbreak();
   passed = expect_gez(SUCCESS,
-		      fd = open_test(tf,O_RDWR|O_TRUNC|O_CREAT,S_IRWXU));
+                      fd = open_test(tf, O_RDWR | O_TRUNC | O_CREAT, S_IRWXU));
   EXPECTED_RESP; IF_FAILED ABORT_TEST;
   passed = expect_gez(SUCCESS, write_test(fd, passage, strlen(passage)));
   EXPECTED_RESP;
@@ -3719,20 +3886,21 @@ int BasicDup(void)
   return block;
 }
 
-int BasicFcntlDup(void)
+int
+BasicFcntlDup(void)
 {
-  char tf[NAMEBUF] = {0};
+  char tf[NAMEBUF] = { 0 };
   int fd;
   int fd2;
   int passed;
   int block = SUCCESS;
-  char readbuf[sizeof(passage)] = {0};
+  char readbuf[sizeof(passage)] = { 0 };
 
   xtmpnam(tf);
 
   testbreak();
   passed = expect_gez(SUCCESS,
-		      fd = open_test(tf,O_RDWR|O_TRUNC|O_CREAT,S_IRWXU));
+                      fd = open_test(tf, O_RDWR | O_TRUNC | O_CREAT, S_IRWXU));
   EXPECTED_RESP; IF_FAILED ABORT_TEST;
   passed = expect_gez(SUCCESS, write_test(fd, passage, strlen(passage)));
   EXPECTED_RESP;
@@ -3780,9 +3948,10 @@ int BasicFcntlDup(void)
   return block;
 }
 
-int BasicDir(void)
+int
+BasicDir(void)
 {
-  char tf[NAMEBUF] = {0};
+  char tf[NAMEBUF] = { 0 };
   int passed;
   int block = SUCCESS;
   struct stat buf;
@@ -3795,11 +3964,11 @@ int BasicDir(void)
   EXPECTED_RESP; IF_FAILED ABORT_TEST;
   passed = expect_zng(SUCCESS, stat_test(tf, &buf));
   EXPECTED_RESP
-    if (!(S_ISDIR(buf.st_mode))) {
-      printf("\tFailed Phase 2: mkdir() something that wasn't a directory\n");
-      fflush(NULL);
-      block = FAILURE;
-    }
+  if (!(S_ISDIR(buf.st_mode))) {
+    printf("\tFailed Phase 2: mkdir() something that wasn't a directory\n");
+    fflush(NULL);
+    block = FAILURE;
+  }
   passed = expect_zng(SUCCESS, rmdir_test(tf));
   EXPECTED_RESP;
   passed = expect_zng(FAILURE, access_test(tf, F_OK));
@@ -3809,9 +3978,10 @@ int BasicDir(void)
   return block;
 }
 
-int BasicChdir(void)
+int
+BasicChdir(void)
 {
-  char tf[NAMEBUF] = {0};
+  char tf[NAMEBUF] = { 0 };
   int fd, fd2;
   int passed;
   int block = SUCCESS;
@@ -3825,7 +3995,9 @@ int BasicChdir(void)
   passed = expect_ptr(SUCCESS, cwd = getcwd_test(NULL, NAMEBUF));
   EXPECTED_RESP; IF_FAILED ABORT_TEST;
   passed = expect_gez(SUCCESS,
-		      fd = open_test(cwdfile,O_RDWR|O_TRUNC|O_CREAT,S_IRWXU));
+                      fd =
+                        open_test(cwdfile, O_RDWR | O_TRUNC | O_CREAT,
+                                  S_IRWXU));
   EXPECTED_RESP;
   IF_FAILED {
     free(cwd);
@@ -3844,11 +4016,15 @@ int BasicChdir(void)
     fflush(NULL);
     block = FAILURE;
   }
-  if (cwd_chdir != NULL) { free(cwd_chdir); }
+  if (cwd_chdir != NULL) {
+    free(cwd_chdir);
+  }
   passed = expect_zng(FAILURE, access_test(cwdfile, F_OK));
   EXPECTED_RESP;
   passed = expect_gez(SUCCESS,
-		      fd2 = open_test(cwdfile,O_RDWR|O_TRUNC|O_CREAT,S_IRWXU));
+                      fd2 =
+                        open_test(cwdfile, O_RDWR | O_TRUNC | O_CREAT,
+                                  S_IRWXU));
   EXPECTED_RESP;
   IF_FAILED {
     free(cwd);
@@ -3870,16 +4046,19 @@ int BasicChdir(void)
   EXPECTED_RESP;
   passed = expect_zng(FAILURE, access_test(cwdfile, F_OK));
   EXPECTED_RESP;
-  if (cwd) free(cwd);
+  if (cwd) {
+    free(cwd);
+  }
 
   testbreak();
 
   return block;
 }
 
-int BasicFchdir(void)
+int
+BasicFchdir(void)
 {
-  char tf[NAMEBUF] = {0};
+  char tf[NAMEBUF] = { 0 };
   int fd, fd2;
   int passed;
   int block = SUCCESS;
@@ -3894,9 +4073,11 @@ int BasicFchdir(void)
   passed = expect_ptr(SUCCESS, cwd = getcwd_test(NULL, NAMEBUF));
   EXPECTED_RESP; IF_FAILED ABORT_TEST;
   passed = expect_gez(SUCCESS,
-		      fd = open_test(cwdfile,O_RDWR|O_TRUNC|O_CREAT,S_IRWXU));
+                      fd =
+                        open_test(cwdfile, O_RDWR | O_TRUNC | O_CREAT,
+                                  S_IRWXU));
   EXPECTED_RESP;
-  passed = expect_gez(SUCCESS, tmpfd = open_test("/tmp",O_RDONLY));
+  passed = expect_gez(SUCCESS, tmpfd = open_test("/tmp", O_RDONLY));
   EXPECTED_RESP;
   passed = expect_zng(SUCCESS, fchdir_test(tmpfd));
   EXPECTED_RESP;
@@ -3913,11 +4094,15 @@ int BasicFchdir(void)
     fflush(NULL);
     block = FAILURE;
   }
-  if (cwd_chdir != NULL) { free(cwd_chdir); }
+  if (cwd_chdir != NULL) {
+    free(cwd_chdir);
+  }
   passed = expect_zng(FAILURE, access_test(cwdfile, F_OK));
   EXPECTED_RESP;
   passed = expect_gez(SUCCESS,
-		      fd2 = open_test(cwdfile,O_RDWR|O_TRUNC|O_CREAT,S_IRWXU));
+                      fd2 =
+                        open_test(cwdfile, O_RDWR | O_TRUNC | O_CREAT,
+                                  S_IRWXU));
   EXPECTED_RESP;
   passed = expect_zng(SUCCESS, access_test(cwdfile, F_OK));
   EXPECTED_RESP;
@@ -3925,7 +4110,7 @@ int BasicFchdir(void)
   EXPECTED_RESP;
   passed = expect_zng(SUCCESS, unlink_test(cwdfile));
   EXPECTED_RESP;
-  passed = expect_gez(SUCCESS, tmpfd = open_test(cwd,O_RDONLY));
+  passed = expect_gez(SUCCESS, tmpfd = open_test(cwd, O_RDONLY));
   EXPECTED_RESP;
   passed = expect_zng(SUCCESS, fchdir_test(tmpfd));
   EXPECTED_RESP;
@@ -3947,9 +4132,10 @@ int BasicFchdir(void)
 }
 
 /* This test may not work under condor yet */
-int BasicMknod(void)
+int
+BasicMknod(void)
 {
-  char tf[NAMEBUF] = {0};
+  char tf[NAMEBUF] = { 0 };
   int passed;
   int block = SUCCESS;
 
@@ -3957,7 +4143,7 @@ int BasicMknod(void)
 
   testbreak();
 
-  passed = expect_zng(SUCCESS, mknod_test(tf, S_IFIFO|S_IRWXU, 0));
+  passed = expect_zng(SUCCESS, mknod_test(tf, S_IFIFO | S_IRWXU, 0));
   EXPECTED_RESP; IF_FAILED ABORT_TEST;
   passed = expect_zng(SUCCESS, access_test(tf, F_OK));
   EXPECTED_RESP;
@@ -3965,7 +4151,7 @@ int BasicMknod(void)
   EXPECTED_RESP;
 
   testbreak();
-  passed = expect_zng(FAILURE, mknod_test(tf, S_IFCHR|S_IRWXU, 0));
+  passed = expect_zng(FAILURE, mknod_test(tf, S_IFCHR | S_IRWXU, 0));
   EXPECTED_RESP; IF_FAILED ABORT_TEST;
   passed = expect_zng(FAILURE, access_test(tf, F_OK));
   EXPECTED_RESP;
@@ -3973,7 +4159,7 @@ int BasicMknod(void)
   EXPECTED_RESP;
 
   testbreak();
-  passed = expect_zng(FAILURE, mknod_test(tf, S_IFDIR|S_IRWXU, 0));
+  passed = expect_zng(FAILURE, mknod_test(tf, S_IFDIR | S_IRWXU, 0));
   EXPECTED_RESP; IF_FAILED ABORT_TEST;
   passed = expect_zng(FAILURE, access_test(tf, F_OK));
   EXPECTED_RESP;
@@ -3981,7 +4167,7 @@ int BasicMknod(void)
   EXPECTED_RESP;
 
   testbreak();
-  passed = expect_zng(FAILURE, mknod_test(tf, S_IFBLK|S_IRWXU, 0));
+  passed = expect_zng(FAILURE, mknod_test(tf, S_IFBLK | S_IRWXU, 0));
   EXPECTED_RESP; IF_FAILED ABORT_TEST;
   passed = expect_zng(FAILURE, access_test(tf, F_OK));
   EXPECTED_RESP;
@@ -3993,33 +4179,35 @@ int BasicMknod(void)
      have it succeed. So I'm turning it off until they fix it. -psilord */
 #if !defined(LINUX) && !(defined(GLIBC22) || defined(GLIBC23))
   testbreak();
-  passed = expect_zng(FAILURE, mknod_test(tf, S_IFREG|S_IRWXU, 0));
+  passed = expect_zng(FAILURE, mknod_test(tf, S_IFREG | S_IRWXU, 0));
   EXPECTED_RESP; IF_FAILED ABORT_TEST;
   passed = expect_zng(FAILURE, access_test(tf, F_OK));
   EXPECTED_RESP;
   passed = expect_zng(FAILURE, unlink_test(tf));
   EXPECTED_RESP;
-#endif
+#endif /* if !defined(LINUX) && !(defined(GLIBC22) || defined(GLIBC23)) */
 
   testbreak();
   return block;
 }
 
-int BasicLink(void)
+int
+BasicLink(void)
 {
-  char tf[NAMEBUF] = {0};
-  char slink[NAMEBUF] = {0};
-  char hlink[NAMEBUF] = {0};
-  char readlink[NAMEBUF] = {0};
+  char tf[NAMEBUF] = { 0 };
+  char slink[NAMEBUF] = { 0 };
+  char hlink[NAMEBUF] = { 0 };
+  char readlink[NAMEBUF] = { 0 };
   int fd;
   int passed;
   int block = SUCCESS;
   struct stat buf;
   struct stat buf2;
+
 #ifndef LINUX
   uid_t uid;
   gid_t gid;
-#endif
+#endif /* ifndef LINUX */
   int ls; /* symlink size in bytes */
 
   xtmpnam(tf);
@@ -4029,7 +4217,7 @@ int BasicLink(void)
   testbreak();
 
   passed = expect_gez(SUCCESS,
-		      fd = open_test(tf,O_RDWR|O_TRUNC|O_CREAT,S_IRWXU));
+                      fd = open_test(tf, O_RDWR | O_TRUNC | O_CREAT, S_IRWXU));
   EXPECTED_RESP; IF_FAILED ABORT_TEST;
   passed = expect_zng(SUCCESS, close_test(fd));
   EXPECTED_RESP;
@@ -4060,7 +4248,7 @@ int BasicLink(void)
   EXPECTED_RESP;
   passed = expect_val(buf.st_mode, buf2.st_mode);
   EXPECTED_RESP;
-#endif
+#endif /* ifndef LINUX */
 
   /* do redundant testing of access/lstat/and unlink with a symlink */
   passed = expect_zng(SUCCESS, unlink_test(tf));
@@ -4080,7 +4268,7 @@ int BasicLink(void)
   testbreak();
 
   passed = expect_gez(SUCCESS,
-		      fd = open_test(tf,O_RDWR|O_TRUNC|O_CREAT,S_IRWXU));
+                      fd = open_test(tf, O_RDWR | O_TRUNC | O_CREAT, S_IRWXU));
   EXPECTED_RESP; IF_FAILED ABORT_TEST;
   passed = expect_zng(SUCCESS, close_test(fd));
   EXPECTED_RESP;
@@ -4113,10 +4301,11 @@ int BasicLink(void)
   return block;
 }
 
-int BasicRename(void)
+int
+BasicRename(void)
 {
-  char tf[NAMEBUF] = {0};
-  char ntf[NAMEBUF] = {0};
+  char tf[NAMEBUF] = { 0 };
+  char ntf[NAMEBUF] = { 0 };
   int fd;
   int passed;
   int block = SUCCESS;
@@ -4127,7 +4316,7 @@ int BasicRename(void)
   testbreak();
 
   passed = expect_gez(SUCCESS,
-		      fd = open_test(tf,O_RDWR|O_TRUNC|O_CREAT,S_IRWXU));
+                      fd = open_test(tf, O_RDWR | O_TRUNC | O_CREAT, S_IRWXU));
   EXPECTED_RESP; IF_FAILED ABORT_TEST;
   passed = expect_zng(SUCCESS, close_test(fd));
   EXPECTED_RESP;
@@ -4146,9 +4335,10 @@ int BasicRename(void)
   return block;
 }
 
-int BasicTruncation(void)
+int
+BasicTruncation(void)
 {
-  char tf[NAMEBUF] = {0};
+  char tf[NAMEBUF] = { 0 };
   int fd;
   int passed;
   int block = SUCCESS;
@@ -4160,7 +4350,7 @@ int BasicTruncation(void)
   testbreak();
 
   passed = expect_gez(SUCCESS,
-		      fd = open_test(tf,O_RDWR|O_TRUNC|O_CREAT,S_IRWXU));
+                      fd = open_test(tf, O_RDWR | O_TRUNC | O_CREAT, S_IRWXU));
   EXPECTED_RESP; IF_FAILED ABORT_TEST;
   passed = expect_gez(SUCCESS, write_test(fd, passage, sizeof(passage)));
   EXPECTED_RESP;
@@ -4177,7 +4367,7 @@ int BasicTruncation(void)
 
   testbreak();
   passed = expect_gez(SUCCESS,
-		      fd = open_test(tf,O_RDWR|O_TRUNC|O_CREAT,S_IRWXU));
+                      fd = open_test(tf, O_RDWR | O_TRUNC | O_CREAT, S_IRWXU));
   EXPECTED_RESP; IF_FAILED ABORT_TEST;
   passed = expect_gez(SUCCESS, write_test(fd, passage, sizeof(passage)));
   EXPECTED_RESP;
@@ -4197,9 +4387,10 @@ int BasicTruncation(void)
 }
 
 #if defined(Solaris)
-int BasicFcntlTruncation(void)
+int
+BasicFcntlTruncation(void)
 {
-  char tf[NAMEBUF] = {0};
+  char tf[NAMEBUF] = { 0 };
   int fd;
   int passed;
   int block = SUCCESS;
@@ -4209,9 +4400,10 @@ int BasicFcntlTruncation(void)
   xtmpnam(tf);
 
   testbreak();
+
   /* fcntl truncate to zero length file */
   passed = expect_gez(SUCCESS,
-		      fd = open_test(tf,O_RDWR|O_TRUNC|O_CREAT,S_IRWXU));
+                      fd = open_test(tf, O_RDWR | O_TRUNC | O_CREAT, S_IRWXU));
   EXPECTED_RESP; IF_FAILED ABORT_TEST;
   passed = expect_gez(SUCCESS, write_test(fd, passage, sizeof(passage)));
   EXPECTED_RESP;
@@ -4236,7 +4428,7 @@ int BasicFcntlTruncation(void)
 
   /* fcntl truncate acting like an ftruncate to non zero length file */
   passed = expect_gez(SUCCESS,
-		      fd = open_test(tf,O_RDWR|O_TRUNC|O_CREAT,S_IRWXU));
+                      fd = open_test(tf, O_RDWR | O_TRUNC | O_CREAT, S_IRWXU));
   EXPECTED_RESP; IF_FAILED ABORT_TEST;
   passed = expect_gez(SUCCESS, write_test(fd, passage, sizeof(passage)));
   EXPECTED_RESP;
@@ -4260,11 +4452,12 @@ int BasicFcntlTruncation(void)
   testbreak();
   return block;
 }
-#endif
+#endif /* if defined(Solaris) */
 
-int BasicIOV(void)
+int
+BasicIOV(void)
 {
-  char tf[NAMEBUF] = {0};
+  char tf[NAMEBUF] = { 0 };
   int fd;
   int passed;
   int block = SUCCESS;
@@ -4286,7 +4479,7 @@ int BasicIOV(void)
 
   testbreak();
   passed = expect_gez(SUCCESS,
-		      fd = open_test(tf,O_RDWR|O_TRUNC|O_CREAT,S_IRWXU));
+                      fd = open_test(tf, O_RDWR | O_TRUNC | O_CREAT, S_IRWXU));
   EXPECTED_RESP; IF_FAILED ABORT_TEST;
   iov[0].iov_base = snd1;
   iov[0].iov_len = sizeof(passage);
@@ -4340,7 +4533,8 @@ int BasicIOV(void)
 }
 
 /* This is a good test to see if umask works */
-int BasicUmask(void)
+int
+BasicUmask(void)
 {
   FILE *fp;
   int passed;
@@ -4384,7 +4578,8 @@ int BasicUmask(void)
   return block;
 }
 
-int BasicGetSetlimit(void)
+int
+BasicGetSetlimit(void)
 {
   int passed;
   int block = SUCCESS;
@@ -4443,7 +4638,8 @@ int BasicGetSetlimit(void)
   return block;
 }
 
-int BasicGroups(void)
+int
+BasicGroups(void)
 {
   int size;
   gid_t *groups = NULL;
@@ -4463,7 +4659,8 @@ int BasicGroups(void)
 
   /* score some memory for them */
   if (size != 0) {
-    groups = (gid_t*)xmalloc(sizeof(gid_t) * size);
+    groups = (gid_t *)xmalloc(sizeof(gid_t) * size);
+
     /* fill the array */
     passed = expect_gez(SUCCESS, getgroups_test(size, groups));
     EXPECTED_RESP;
@@ -4471,8 +4668,8 @@ int BasicGroups(void)
     /* find my gid in it, if not, then error */
     for (i = 0; i < size; i++) {
       if (gid == groups[i]) {
-	found = gid;
-	break;
+        found = gid;
+        break;
       }
     }
 
@@ -4486,7 +4683,8 @@ int BasicGroups(void)
   return block;
 }
 
-int BasicSync(void)
+int
+BasicSync(void)
 {
   int passed;
   int block = SUCCESS;
@@ -4500,12 +4698,13 @@ int BasicSync(void)
   return block;
 }
 
-int BasicName(void)
+int
+BasicName(void)
 {
   int passed;
   int block = SUCCESS;
   struct utsname ut;
-  char name[NAMEBUF] = {0};
+  char name[NAMEBUF] = { 0 };
 
   testbreak();
 
@@ -4517,21 +4716,22 @@ int BasicName(void)
   passed = expect_zng(SUCCESS, gethostname_test(name, NAMEBUF));
   EXPECTED_RESP;
   testbreak();
-#endif
+#endif /* if !defined(LINUX) */
 
 #if !defined(Solaris)
   passed = expect_zng(SUCCESS, getdomainname_test(name, NAMEBUF));
   EXPECTED_RESP;
-#endif
+#endif /* if !defined(Solaris) */
 
   testbreak();
   return block;
 }
 
 /* This is not checked over checkpoints */
-int BasicTime(void)
+int
+BasicTime(void)
 {
-  char tf[NAMEBUF] = {0};
+  char tf[NAMEBUF] = { 0 };
   int block = SUCCESS;
   int passed;
   struct timeval tv;
@@ -4549,7 +4749,7 @@ int BasicTime(void)
 
   /* make some files and check thier timestamps */
   passed = expect_gez(SUCCESS,
-		      fd = open_test(tf,O_RDWR|O_TRUNC|O_CREAT,S_IRWXU));
+                      fd = open_test(tf, O_RDWR | O_TRUNC | O_CREAT, S_IRWXU));
   EXPECTED_RESP; IF_FAILED ABORT_TEST;
   passed = expect_gez(SUCCESS, write_test(fd, passage, strlen(passage)));
   EXPECTED_RESP;
@@ -4565,13 +4765,13 @@ int BasicTime(void)
 
   passed = expect_zng(SUCCESS, stat_test(tf, &buf));
   EXPECTED_RESP;
+
   /* be aware that gettimeofday might not be correct */
-  if (buf.st_mtime < ftv[1].tv_sec)
-    {
-      printf("\tFailed Phase 2: utimes() gave strange timestamp on file\n");
-      fflush(NULL);
-      block = FAILURE;
-    }
+  if (buf.st_mtime < ftv[1].tv_sec) {
+    printf("\tFailed Phase 2: utimes() gave strange timestamp on file\n");
+    fflush(NULL);
+    block = FAILURE;
+  }
 
   ubuf.actime = tv.tv_sec;
   ubuf.modtime = tv.tv_sec;
@@ -4580,13 +4780,13 @@ int BasicTime(void)
 
   passed = expect_zng(SUCCESS, stat_test(tf, &buf));
   EXPECTED_RESP;
+
   /* be aware that gettimeof day might not be correct */
-  if (buf.st_mtime < tv.tv_sec)
-    {
-      printf("\tFailed Phase 2: utime() gave strange timestamp on file\n");
-      fflush(NULL);
-      block = FAILURE;
-    }
+  if (buf.st_mtime < tv.tv_sec) {
+    printf("\tFailed Phase 2: utime() gave strange timestamp on file\n");
+    fflush(NULL);
+    block = FAILURE;
+  }
 
   passed = expect_zng(SUCCESS, unlink_test(tf));
   EXPECTED_RESP;
@@ -4595,7 +4795,8 @@ int BasicTime(void)
   return block;
 }
 
-int BasicGettid(void)
+int
+BasicGettid(void)
 {
   int passed;
   int block = SUCCESS;
@@ -4609,7 +4810,8 @@ int BasicGettid(void)
   return block;
 }
 
-int testall()
+int
+testall()
 {
   int ret;
   int i;
@@ -4620,84 +4822,90 @@ int testall()
     int (*func)(void);
     char *desc;
   } tests[] = {
-    {BasicFile, "BasicFile: simple open/close/access/unlink tests."},
-    {BasicFileIO, "BasicFileIO: simple write/read/seek tests."},
+    { BasicFile, "BasicFile: simple open/close/access/unlink tests." },
+    { BasicFileIO, "BasicFileIO: simple write/read/seek tests." },
+
     /*            {BasicIOV, "BasicIOV: Basic vector reads and writes"},*/
-    {BasicFreopen, "BasicFreopen: Does freopen return something sensible?"},
-    {BasicStat, "BasicStat: Does [fs]tat return correct simple info?"},
+    { BasicFreopen, "BasicFreopen: Does freopen return something sensible?" },
+    { BasicStat, "BasicStat: Does [fs]tat return correct simple info?" },
+
     // This test doesn't behave well with DMTCP as it creates files and then
     // removes permissions, causing DMTCP to fail with EPERM.
-    //{BasicFilePerm, "BasicFilePerm: stat/chmod/fchmod"},
-    {BasicUid, "BasicUid: validate uid/gid operations"},
-    {BasicDup, "BasicDup: Does dup() work?"},
-    {BasicFcntlDup, "BasicFcntlDup: Does fcntl() with F_DUPFD work?"},
-    {BasicDir, "BasicDir: Can I make and remove a directory?"},
+    // {BasicFilePerm, "BasicFilePerm: stat/chmod/fchmod"},
+    { BasicUid, "BasicUid: validate uid/gid operations" },
+    { BasicDup, "BasicDup: Does dup() work?" },
+    { BasicFcntlDup, "BasicFcntlDup: Does fcntl() with F_DUPFD work?" },
+    { BasicDir, "BasicDir: Can I make and remove a directory?" },
+
     // The chdir tests are not well written. If the file that is used for test
     // alrady exists on the disk prior to the launch of the application, the
     // test fails.  Disabling them now until we get a chance to fix it.
-    //{BasicChdir, "BasicChdir: Can I validly change directories?"},
-    //{BasicFchdir, "BasicFchdir: Can I validly change directories?"},
-    {BasicMknod, "BasicMknod: Can I make pipes and not other stuff?"},
-    {BasicLink, "BasicLink: (Sym|Hard)link testing with lchown/lstat()"},
-    {BasicRename, "BasicRename: Does rename() work?"},
-    {BasicTruncation, "BasicTruncation: Does f?truncate() work?"},
+    // {BasicChdir, "BasicChdir: Can I validly change directories?"},
+    // {BasicFchdir, "BasicFchdir: Can I validly change directories?"},
+    { BasicMknod, "BasicMknod: Can I make pipes and not other stuff?" },
+    { BasicLink, "BasicLink: (Sym|Hard)link testing with lchown/lstat()" },
+    { BasicRename, "BasicRename: Does rename() work?" },
+    { BasicTruncation, "BasicTruncation: Does f?truncate() work?" },
 
 #if defined(Solaris)
-    {BasicFcntlTruncation, "BasicFcntlTruncation: Does F_FREESP work?"},
-#endif
+    { BasicFcntlTruncation, "BasicFcntlTruncation: Does F_FREESP work?" },
+#endif /* if defined(Solaris) */
+
     // This test doesn't behave well with DMTCP as it creates files and then
     // removes permissions, causing DMTCP to fail with EPERM.
-    //{BasicUmask, "BasicUmask: Does umask() work?"},
-    {BasicGroups, "BasicGroups: Does getgroups() work?"},
-    {BasicSync, "BasicSync: Can I sync() the disk?"},
-    {BasicName, "BasicName: Do I know my own name?"},
+    // {BasicUmask, "BasicUmask: Does umask() work?"},
+    { BasicGroups, "BasicGroups: Does getgroups() work?" },
+    { BasicSync, "BasicSync: Can I sync() the disk?" },
+    { BasicName, "BasicName: Do I know my own name?" },
+
     /*            {BasicTime, "BasicTime: Do I know what time it is?"},*/
-    {BasicGetSetlimit, "BasicGetSetLimit: Can I change proc limits?"},
-    {BasicGettid, "BasicGettid: Does gettid() == getpid()?"},
+    { BasicGetSetlimit, "BasicGetSetLimit: Can I change proc limits?" },
+    { BasicGettid, "BasicGettid: Does gettid() == getpid()?" },
   };
 
   printf("Condor System Call Tester $Revision: 1.5 $\n\n");
 
   printf("The length of the string:\n'%s'\nIs: %zu\n\n",
-	 STR(passage), strlen(passage));
+         STR(passage), strlen(passage));
 
   /* perform all of the tests in the order given */
-  for (i = 0; i < sizeof tests / sizeof tests[0]; i++)
-    {
-      printf("Beginning Test: [%s]\n", STR(tests[i].desc));
+  for (i = 0; i < sizeof tests / sizeof tests[0]; i++) {
+    printf("Beginning Test: [%s]\n", STR(tests[i].desc));
+    fflush(NULL);
+
+    /* run the test block */
+    ret = tests[i].func();
+
+    /* see if the block failed or not */
+    if (ret == SUCCESS) {
+      printf("Succeeded Phase 3\n");
       fflush(NULL);
-
-      /* run the test block */
-      ret = tests[i].func();
-
-      /* see if the block failed or not */
-      if (ret == SUCCESS) {
-	printf("Succeeded Phase 3\n");
-	fflush(NULL);
-      } else {
-	printf("Failed Phase 3\n");
-	fflush(NULL);
-	whole_test = FAILURE;
-      }
-
-      printf("Ending Test: [%s]\n", STR(tests[i].desc));
-      printf("\n");
+    } else {
+      printf("Failed Phase 3\n");
       fflush(NULL);
+      whole_test = FAILURE;
     }
 
-  printf("%s Phase 4\n", whole_test==SUCCESS?"Succeeded":"Failed");
+    printf("Ending Test: [%s]\n", STR(tests[i].desc));
+    printf("\n");
+    fflush(NULL);
+  }
+
+  printf("%s Phase 4\n", whole_test == SUCCESS ? "Succeeded" : "Failed");
 
   fflush(NULL);
   return whole_test;
 }
 
-int main(int argc, char **argv)
+int
+main(int argc, char **argv)
 {
   int count = 1;
+
   while (1) {
     printf("Beginning iteration: %d\n\n", count++);
     if (testall() != SUCCESS) {
-      printf ("test failed\n");
+      printf("test failed\n");
       return FAILURE;
     }
   }

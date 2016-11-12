@@ -1,9 +1,10 @@
-#include <stdio.h>
-#include "dmtcp.h"
 #include "config.h"
+#include "dmtcp.h"
+#include <stdio.h>
 
 
-static void example_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
+static void
+example_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   /* NOTE:  See warning in plugin/README about calls to printf here. */
   switch (event) {
@@ -18,25 +19,28 @@ static void example_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
   }
 }
 
-static void checkpoint()
+static void
+checkpoint()
 {
   printf("\n*** The plugin is being called before checkpointing. ***\n");
 }
 
-static void resume()
+static void
+resume()
 {
   printf("*** The application has now been checkpointed. ***\n");
 }
 
-static void restart()
+static void
+restart()
 {
   printf("The application is now restarting from a checkpoint.\n");
 }
 
 static DmtcpBarrier barriers[] = {
-  {DMTCP_GLOBAL_BARRIER_PRE_CKPT, checkpoint, "checkpoint"},
-  {DMTCP_GLOBAL_BARRIER_RESUME, resume, "resume"},
-  {DMTCP_GLOBAL_BARRIER_RESTART, restart, "restart"}
+  { DMTCP_GLOBAL_BARRIER_PRE_CKPT, checkpoint, "checkpoint" },
+  { DMTCP_GLOBAL_BARRIER_RESUME, resume, "resume" },
+  { DMTCP_GLOBAL_BARRIER_RESTART, restart, "restart" }
 };
 
 DmtcpPluginDescriptor_t example_plugin = {

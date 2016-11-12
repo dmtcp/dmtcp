@@ -1,10 +1,11 @@
 #define _XOPEN_SOURCE 600
 #include <stdio.h>
-#include <unistd.h>
 #include <stdlib.h>
 #include <time.h>
+#include <unistd.h>
 
-int main(int argc, char *argv[])
+int
+main(int argc, char *argv[])
 {
   clockid_t id;
   struct timespec ts;
@@ -21,7 +22,7 @@ int main(int argc, char *argv[])
     }
 
     printf("CPU-time clock (%d) for PID %s is %ld.%09ld seconds\n",
-           id, argv[1], (long) ts.tv_sec, (long) ts.tv_nsec);
+           id, argv[1], (long)ts.tv_sec, (long)ts.tv_nsec);
     fflush(stdout);
     sleep(1);
   }

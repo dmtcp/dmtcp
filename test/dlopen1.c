@@ -4,25 +4,27 @@
  */
 
 #if !defined(LIB1) && !defined(LIB2)
+# include <assert.h>
 # include <dlfcn.h>
 # include <stdio.h>
 # include <stdlib.h>
-# include <assert.h>
 
 int (*fnc)(int result[2]);
 
-int main(int argc, char* argv[])
+int
+main(int argc, char *argv[])
 {
   int lib = 1;
   void *handle = NULL;
-  int result[2] = {0, 0};
+  int result[2] = { 0, 0 };
   int i, answer;
   int cnt1 = 0, cnt2 = 0;
 
   printf("0: "); fflush(stdout);
   while (1) {
-    if (handle != NULL)
+    if (handle != NULL) {
       dlclose(handle);
+    }
 
     if (lib == 1) {
       handle = dlopen("libdlopen-lib1.so", RTLD_NOW);
@@ -30,8 +32,9 @@ int main(int argc, char* argv[])
         fprintf(stderr, "dlopen failed: %s\n", dlerror());
         exit(1);
       }
+
       /* See 'man dlopen' for example:  POSIX.1-2002 prefers this workaround */
-      *(void **) (&fnc) = dlsym(handle, "fnc");
+      *(void **)(&fnc) = dlsym(handle, "fnc");
     }
 
     if (lib == 2) {
@@ -40,8 +43,9 @@ int main(int argc, char* argv[])
         fprintf(stderr, "dlopen failed: %s\n", dlerror());
         exit(1);
       }
+
       /* See 'man dlopen' for example:  POSIX.1-2002 prefers this workaround */
-      *(void **) (&fnc) = dlsym(handle, "fnc");
+      *(void **)(&fnc) = dlsym(handle, "fnc");
     }
 
     assert(lib == 1 || lib == 2);
@@ -56,8 +60,9 @@ int main(int argc, char* argv[])
       cnt2++;
       cnt1 = 0;
       printf(".");
-      if (cnt2 % 50 == 0)
+      if (cnt2 % 50 == 0) {
         printf("\n%d: ", cnt2 / 50);
+      }
       fflush(stdout);
     }
     lib = 3 - lib; /* switch libraries to load */
@@ -66,13 +71,16 @@ int main(int argc, char* argv[])
 }
 
 #elif defined(LIB1)
-int fnc(int result[2]) {
-    return ++(result[0]);
+int
+fnc(int result[2])
+{
+  return ++(result[0]);
 }
 
 #elif defined(LIB2)
-int fnc(int result[2]) {
-    return ++(result[1]);
+int
+fnc(int result[2])
+{
+  return ++(result[1]);
 }
-
-#endif
+#endif /* if !defined(LIB1) && !defined(LIB2) */
