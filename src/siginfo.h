@@ -1,6 +1,8 @@
 #ifndef SIGINFO_H
 #define SIGINFO_H
 
+#include <signal.h>
+
 namespace dmtcp
 {
 namespace SigInfo

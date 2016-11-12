@@ -245,6 +245,7 @@ stderr_setup:
     perror("Error creating pipe: ");
   }
 exit:
+  return;
 }
 
 pid_t
