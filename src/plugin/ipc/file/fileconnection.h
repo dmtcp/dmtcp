@@ -23,135 +23,148 @@
 
 #pragma once
 #ifndef FILECONNECTION_H
-#define FILECONNECTION_H
+# define FILECONNECTION_H
 
 // THESE INCLUDES ARE IN RANDOM ORDER.  LET'S CLEAN IT UP AFTER RELEASE. - Gene
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <unistd.h>
-#include <mqueue.h>
-#include <stdint.h>
-#include <signal.h>
-#include "jfilesystem.h"
-#include "jbuffer.h"
-#include "jconvert.h"
-#include "connection.h"
+# include "connection.h"
+# include "jbuffer.h"
+# include "jconvert.h"
+# include "jfilesystem.h"
+# include <mqueue.h>
+# include <signal.h>
+# include <stdint.h>
+# include <sys/socket.h>
+# include <sys/stat.h>
+# include <sys/types.h>
+# include <sys/types.h>
+# include <unistd.h>
 
 namespace dmtcp
 {
-  class StdioConnection : public Connection
-  {
-    public:
-      enum StdioType
-      {
-        STDIO_IN = STDIO,
-        STDIO_OUT,
-        STDIO_ERR,
-        STDIO_INVALID
-      };
+class StdioConnection : public Connection
+{
+  public:
+    enum StdioType {
+      STDIO_IN = STDIO,
+      STDIO_OUT,
+      STDIO_ERR,
+      STDIO_INVALID
+    };
 
-      StdioConnection(int fd): Connection(STDIO + fd) {
-        JTRACE("creating stdio connection") (fd) (id());
-        JASSERT(jalib::Between(0, fd, 2)) (fd)
-          .Text("invalid fd for StdioConnection");
-      }
+    StdioConnection(int fd) : Connection(STDIO + fd)
+    {
+      JTRACE("creating stdio connection") (fd) (id());
+      JASSERT(jalib::Between(0, fd, 2)) (fd)
+      .Text("invalid fd for StdioConnection");
+    }
 
-      StdioConnection() {}
+    StdioConnection() {}
 
-      virtual void drain() {}
-      virtual void refill(bool isRestart) {}
-      virtual void postRestart();
-      virtual void serializeSubClass(jalib::JBinarySerializer& o) {}
+    virtual void drain() {}
 
-      virtual string str() { return "<STDIO>"; };
-  };
+    virtual void refill(bool isRestart) {}
 
-  class FileConnection : public Connection
-  {
-    public:
-      enum FileType
-      {
-        FILE_INVALID = FILE,
-        FILE_REGULAR,
-        FILE_SHM,
-        FILE_PROCFS,
-        FILE_DELETED,
-        FILE_BATCH_QUEUE
-      };
+    virtual void postRestart();
+    virtual void serializeSubClass(jalib::JBinarySerializer &o) {}
 
-      FileConnection() {}
-      FileConnection(const string& path, int flags, mode_t mode,
-                     int type = FILE_REGULAR)
-        : Connection(FILE)
-        , _path(path)
-        , _fileAlreadyExists(false)
-        //, _flags(flags)
-        /* No method uses _mode yet.  Stop compiler from issuing warning. */
-        /* , _mode(mode) */
-      {
-         _type = type;
-      }
+    virtual string str() { return "<STDIO>"; }
+};
 
+class FileConnection : public Connection
+{
+  public:
+    enum FileType {
+      FILE_INVALID = FILE,
+      FILE_REGULAR,
+      FILE_SHM,
+      FILE_PROCFS,
+      FILE_DELETED,
+      FILE_BATCH_QUEUE
+    };
 
-      virtual void doLocking();
-      virtual void drain();
-      virtual void preCkpt();
-      virtual void refill(bool isRestart);
-      virtual void postRestart();
-      virtual void resume(bool isRestart);
+    FileConnection() {}
 
-      virtual void serializeSubClass(jalib::JBinarySerializer& o);
+    FileConnection(const string &path,
+                   int flags,
+                   mode_t mode,
+                   int type = FILE_REGULAR)
+      : Connection(FILE)
+      , _path(path)
+      , _fileAlreadyExists(false)
 
-      virtual string str() { return _path; }
-      string filePath() { return _path; }
-      bool checkpointed() { return _ckpted_file; }
-      void doNotRestoreCkptCopy() { _ckpted_file = false; }
+      // , _flags(flags)
 
-      dev_t devnum() const { return _st_dev; }
-      ino_t inode() const { return _st_ino; }
-
-      bool checkDup(int fd);
-    private:
-      int  openFile();
-      void refreshPath();
-      void calculateRelativePath();
-      string getSavedFilePath(const string& path);
-      void overwriteFileWithBackup(int savedFd);
-
-      string _path;
-      string _rel_path;
-      string _ckptFilesDir;
-      int32_t       _ckpted_file;
-      int32_t       _allow_overwrite;
-      int32_t       _fileAlreadyExists;
-      int32_t       _rmtype;
-      //int64_t       _flags;
       /* No method uses _mode yet.  Stop compiler from issuing warning. */
-      /* int64_t       _mode; */
-      int64_t       _offset;
-      uint64_t      _st_dev;
-      uint64_t      _st_ino;
-      int64_t       _st_size;
-  };
+      /* , _mode(mode) */
+    {
+      _type = type;
+    }
 
-  class FifoConnection : public Connection
-  {
-    public:
+    virtual void doLocking();
+    virtual void drain();
+    virtual void preCkpt();
+    virtual void refill(bool isRestart);
+    virtual void postRestart();
+    virtual void resume(bool isRestart);
 
-      FifoConnection() {}
-      FifoConnection(const string& path, int flags, mode_t mode)
-        : Connection(FIFO)
-          , _path(path)
+    virtual void serializeSubClass(jalib::JBinarySerializer &o);
+
+    virtual string str() { return _path; }
+
+    string filePath() { return _path; }
+
+    bool checkpointed() { return _ckpted_file; }
+
+    void doNotRestoreCkptCopy() { _ckpted_file = false; }
+
+    dev_t devnum() const { return _st_dev; }
+
+    ino_t inode() const { return _st_ino; }
+
+    bool checkDup(int fd);
+
+  private:
+    int openFile();
+    void refreshPath();
+    void calculateRelativePath();
+    string getSavedFilePath(const string &path);
+    void overwriteFileWithBackup(int savedFd);
+
+    string _path;
+    string _rel_path;
+    string _ckptFilesDir;
+    int32_t _ckpted_file;
+    int32_t _allow_overwrite;
+    int32_t _fileAlreadyExists;
+    int32_t _rmtype;
+
+    // int64_t       _flags;
+
+    /* No method uses _mode yet.  Stop compiler from issuing warning. */
+    /* int64_t       _mode; */
+    int64_t _offset;
+    uint64_t _st_dev;
+    uint64_t _st_ino;
+    int64_t _st_size;
+};
+
+class FifoConnection : public Connection
+{
+  public:
+    FifoConnection() {}
+
+    FifoConnection(const string &path, int flags, mode_t mode)
+      : Connection(FIFO)
+      , _path(path)
     {
       string curDir = jalib::Filesystem::GetCWD();
       int offs = _path.find(curDir);
+
       if (offs < 0) {
         _rel_path = "*";
       } else {
         offs += curDir.size();
-        offs = _path.find('/',offs);
+        offs = _path.find('/', offs);
         offs++;
         _rel_path = _path.substr(offs);
       }
@@ -159,66 +172,67 @@ namespace dmtcp
       _in_data.clear();
     }
 
-      virtual void drain();
-      virtual void refill(bool isRestart);
-      virtual void postRestart();
+    virtual void drain();
+    virtual void refill(bool isRestart);
+    virtual void postRestart();
 
-      virtual string str() { return _path; };
-      virtual void serializeSubClass(jalib::JBinarySerializer& o);
+    virtual string str() { return _path; }
 
-    private:
-      int  openFile();
-      void refreshPath();
-      string getSavedFilePath(const string& path);
-      string _path;
-      string _rel_path;
-      string _savedRelativePath;
-      int64_t       _flags;
-      int64_t       _mode;
-      vector<char> _in_data;
-      int32_t       ckptfd;
-  };
+    virtual void serializeSubClass(jalib::JBinarySerializer &o);
 
-  class PosixMQConnection: public Connection
-  {
-    public:
-      inline PosixMQConnection(const char *name, int oflag, mode_t mode,
-                               struct mq_attr *attr)
-        : Connection(POSIXMQ)
-          , _name(name)
-          , _oflag(oflag)
-          , _mode(mode)
-          , _qnum(0)
-          , _notifyReg(false)
+  private:
+    int openFile();
+    void refreshPath();
+    string getSavedFilePath(const string &path);
+    string _path;
+    string _rel_path;
+    string _savedRelativePath;
+    int64_t _flags;
+    int64_t _mode;
+    vector<char>_in_data;
+    int32_t ckptfd;
+};
+
+class PosixMQConnection : public Connection
+{
+  public:
+    inline PosixMQConnection(const char *name,
+                             int oflag,
+                             mode_t mode,
+                             struct mq_attr *attr)
+      : Connection(POSIXMQ)
+      , _name(name)
+      , _oflag(oflag)
+      , _mode(mode)
+      , _qnum(0)
+      , _notifyReg(false)
     {
       if (attr != NULL) {
         _attr = *attr;
       }
     }
 
-      virtual void drain();
-      virtual void refill(bool isRestart);
-      virtual void postRestart();
+    virtual void drain();
+    virtual void refill(bool isRestart);
+    virtual void postRestart();
 
-      virtual void serializeSubClass(jalib::JBinarySerializer& o);
+    virtual void serializeSubClass(jalib::JBinarySerializer &o);
 
-      virtual string str() { return _name; }
+    virtual string str() { return _name; }
 
-      void on_mq_close();
-      void on_mq_notify(const struct sigevent *sevp);
+    void on_mq_close();
+    void on_mq_notify(const struct sigevent *sevp);
 
-    private:
-      string  _name;
-      int64_t        _oflag;
-      int64_t        _mode;
-      struct mq_attr _attr;
-      int64_t        _qnum;
-      char           _notifyReg;
-      struct sigevent _sevp;
-      vector<jalib::JBuffer> _msgInQueue;
-      vector<uint32_t> _msgInQueuePrio;
-  };
-
+  private:
+    string _name;
+    int64_t _oflag;
+    int64_t _mode;
+    struct mq_attr _attr;
+    int64_t _qnum;
+    char _notifyReg;
+    struct sigevent _sevp;
+    vector<jalib::JBuffer>_msgInQueue;
+    vector<uint32_t>_msgInQueuePrio;
+};
 }
-
-#endif
+#endif // ifndef FILECONNECTION_H

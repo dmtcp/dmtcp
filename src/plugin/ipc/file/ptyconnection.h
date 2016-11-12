@@ -23,55 +23,58 @@
 
 #pragma once
 #ifndef PTYCONNECTION_H
-#define PTYCONNECTION_H
+# define PTYCONNECTION_H
 
-#include <sys/stat.h>
-#include <sys/types.h>
+# include <sys/stat.h>
+# include <sys/types.h>
 
-#include "connection.h"
+# include "connection.h"
 
 namespace dmtcp
 {
-  class PtyConnection : public Connection
-  {
-    public:
-      enum PtyType
-      {
-        PTY_INVALID = Connection::PTY,
-        PTY_DEV_TTY,
-        PTY_CTTY,
-        PTY_PARENT_CTTY,
-        PTY_MASTER,
-        PTY_SLAVE,
-        PTY_BSD_MASTER,
-        PTY_BSD_SLAVE,
-        PTY_EXTERNAL
-      };
+class PtyConnection : public Connection
+{
+  public:
+    enum PtyType {
+      PTY_INVALID = Connection::PTY,
+      PTY_DEV_TTY,
+      PTY_CTTY,
+      PTY_PARENT_CTTY,
+      PTY_MASTER,
+      PTY_SLAVE,
+      PTY_BSD_MASTER,
+      PTY_BSD_SLAVE,
+      PTY_EXTERNAL
+    };
 
-      PtyConnection() {}
-      PtyConnection(int fd, const char *path, int flags, mode_t mode, int type);
+    PtyConnection() {}
 
-      string ptsName() { return _ptsName;; }
-      string virtPtsName() { return _virtPtsName;; }
-      void markPreExistingCTTY() { _preExistingCTTY = true; }
+    PtyConnection(int fd, const char *path, int flags, mode_t mode, int type);
 
-      virtual void doLocking();
-      virtual void drain();
-      virtual void refill(bool isRestart);
-      virtual void postRestart();
-      virtual void serializeSubClass(jalib::JBinarySerializer& o);
-      virtual bool isPreExistingCTTY() const { return _preExistingCTTY; }
-      virtual string str() { return _masterName + ":" + _ptsName; }
-    private:
-      string _masterName;
-      string _ptsName;
-      string _virtPtsName;
-      int64_t       _flags;
-      int64_t       _mode;
-      char          _ptmxIsPacketMode;
-      char          _isControllingTTY;
-      char          _preExistingCTTY;
-  };
+    string ptsName() { return _ptsName;  }
+
+    string virtPtsName() { return _virtPtsName;  }
+
+    void markPreExistingCTTY() { _preExistingCTTY = true; }
+
+    virtual void doLocking();
+    virtual void drain();
+    virtual void refill(bool isRestart);
+    virtual void postRestart();
+    virtual void serializeSubClass(jalib::JBinarySerializer &o);
+    virtual bool isPreExistingCTTY() const { return _preExistingCTTY; }
+
+    virtual string str() { return _masterName + ":" + _ptsName; }
+
+  private:
+    string _masterName;
+    string _ptsName;
+    string _virtPtsName;
+    int64_t _flags;
+    int64_t _mode;
+    char _ptmxIsPacketMode;
+    char _isControllingTTY;
+    char _preExistingCTTY;
+};
 }
-
-#endif
+#endif // ifndef PTYCONNECTION_H

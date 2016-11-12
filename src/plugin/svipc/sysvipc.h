@@ -22,26 +22,26 @@
 #ifndef SYSVIPC_H
 #define SYSVIPC_H
 
-#include <vector>
-#include <sys/types.h>
-#include <sys/socket.h>
 #include <map>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <unistd.h>
 #include <sys/ipc.h>
-#include <sys/shm.h>
-#include <sys/sem.h>
 #include <sys/msg.h>
+#include <sys/sem.h>
+#include <sys/shm.h>
+#include <sys/socket.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/types.h>
+#include <unistd.h>
+#include <vector>
 
 #include "dmtcpalloc.h"
-#include "jbuffer.h"
-#include "jserialize.h"
-#include "jassert.h"
-#include "jconvert.h"
 #include "jalloc.h"
-#include "virtualidtable.h"
+#include "jassert.h"
+#include "jbuffer.h"
+#include "jconvert.h"
+#include "jserialize.h"
 #include "shareddata.h"
+#include "virtualidtable.h"
 
 #include "sysvipcwrappers.h"
 
@@ -55,234 +55,266 @@
 #define VIRTUAL_TO_REAL_MSQ_ID(id) SysVMsq::instance().virtualToRealId(id)
 
 union semun {
-  int              val;    /* Value for SETVAL */
+  int val;                 /* Value for SETVAL */
   struct semid_ds *buf;    /* Buffer for IPC_STAT, IPC_SET */
-  unsigned short  *array;  /* Array for GETALL, SETALL */
-  struct seminfo  *__buf;  /* Buffer for IPC_INFO (Linux-specific) */
+  unsigned short *array;   /* Array for GETALL, SETALL */
+  struct seminfo *__buf;   /* Buffer for IPC_INFO (Linux-specific) */
 };
 
 namespace dmtcp
 {
-  class SysVObj;
-  class ShmSegment;
-  class Semaphore;
-  class MsgQueue;
+class SysVObj;
+class ShmSegment;
+class Semaphore;
+class MsgQueue;
 
-  class SysVIPC
-  {
-    public:
+class SysVIPC
+{
+  public:
 #ifdef JALIB_ALLOCATOR
-      static void* operator new(size_t nbytes, void* p) { return p; }
-      static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
-      static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
-#endif
+    static void *operator new(size_t nbytes, void *p) { return p; }
 
-      SysVIPC(const char *str, int32_t id, int type);
-      void removeStaleObjects();
-      void resetOnFork();
-      void leaderElection();
-      void preCkptDrain();
-      void preCheckpoint();
-      void preResume();
-      void refill(bool isRestart);
-      void postRestart();
-      int  virtualToRealId(int virtId);
-      int  realToVirtualId(int realId);
-      void updateMapping(int virtId, int realId);
-      int getNewVirtualId();
-      void serialize(jalib::JBinarySerializer& o);
+    static void *operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
 
-      virtual void on_shmget(int shmid, key_t key, size_t size, int shmflg) {}
-      virtual void on_shmat(int shmid, const void *shmaddr, int shmflg,
-                            void* newaddr) {}
-      virtual void on_shmdt(const void *shmaddr) {}
+    static void operator delete(void *p) { JALLOC_HELPER_DELETE(p); }
+#endif // ifdef JALIB_ALLOCATOR
 
-      virtual void on_semget(int semid, key_t key, int nsems, int semflg) {}
-      virtual void on_semctl(int semid, int semnum, int cmd, union semun arg) {}
-      virtual void on_semop(int semid, struct sembuf *sops, unsigned nsops) {}
+    SysVIPC(const char *str, int32_t id, int type);
+    void removeStaleObjects();
+    void resetOnFork();
+    void leaderElection();
+    void preCkptDrain();
+    void preCheckpoint();
+    void preResume();
+    void refill(bool isRestart);
+    void postRestart();
+    int virtualToRealId(int virtId);
+    int realToVirtualId(int realId);
+    void updateMapping(int virtId, int realId);
+    int getNewVirtualId();
+    void serialize(jalib::JBinarySerializer &o);
 
-      virtual void on_msgget(int msqid, key_t key, int msgflg) {}
-      virtual void on_msgctl(int msqid, int cmd, struct msqid_ds *buf) {}
-      virtual void on_msgsnd(int msqid, const void *msgp, size_t msgsz,
-                             int msgflg) {}
-      virtual void on_msgrcv(int msqid, const void *msgp, size_t msgsz,
-                     int msgtyp, int msgflg) {}
+    virtual void on_shmget(int shmid, key_t key, size_t size, int shmflg) {}
 
-    protected:
-      map<int, SysVObj*> _map;
-      typedef map<int, SysVObj*>::iterator Iterator;
-      VirtualIdTable<int32_t> _virtIdTable;
-      int _type;
-  };
+    virtual void on_shmat(int shmid,
+                          const void *shmaddr,
+                          int shmflg,
+                          void *newaddr) {}
 
-  class SysVShm : public SysVIPC
-  {
-    public:
-      SysVShm()
-        : SysVIPC("SysVShm", getpid(), SYSV_SHM_ID) {}
+    virtual void on_shmdt(const void *shmaddr) {}
 
-      static SysVShm& instance();
+    virtual void on_semget(int semid, key_t key, int nsems, int semflg) {}
 
-      int  shmaddrToShmid(const void* shmaddr);
-      virtual void on_shmget(int shmid, key_t key, size_t size, int shmflg);
-      virtual void on_shmat(int shmid, const void *shmaddr, int shmflg,
-                            void* newaddr);
-      virtual void on_shmdt(const void *shmaddr);
-  };
+    virtual void on_semctl(int semid, int semnum, int cmd, union semun arg) {}
 
-  class SysVSem : public SysVIPC
-  {
-    public:
-      SysVSem()
-        : SysVIPC("SysVSem", getpid(), SYSV_SEM_ID) {}
+    virtual void on_semop(int semid, struct sembuf *sops, unsigned nsops) {}
 
-      static SysVSem& instance();
-      virtual void on_semget(int realSemId, key_t key, int nsems, int semflg);
-      virtual void on_semctl(int semid, int semnum, int cmd, union semun arg);
-      virtual void on_semop(int semid, struct sembuf *sops, unsigned nsops);
-  };
+    virtual void on_msgget(int msqid, key_t key, int msgflg) {}
 
-  class SysVMsq : public SysVIPC
-  {
-    public:
-      SysVMsq()
-        : SysVIPC("SysVMsq", getpid(), SYSV_MSQ_ID) {}
+    virtual void on_msgctl(int msqid, int cmd, struct msqid_ds *buf) {}
 
-      static SysVMsq& instance();
-      virtual void on_msgget(int msqid, key_t key, int msgflg);
-      virtual void on_msgctl(int msqid, int cmd, struct msqid_ds *buf);
-      virtual void on_msgsnd(int msqid, const void *msgp, size_t msgsz,
-                             int msgflg);
-      virtual void on_msgrcv(int msqid, const void *msgp, size_t msgsz,
-                     int msgtyp, int msgflg);
-  };
+    virtual void on_msgsnd(int msqid, const void *msgp, size_t msgsz,
+                           int msgflg) {}
 
-  class SysVObj
-  {
-    public:
+    virtual void on_msgrcv(int msqid,
+                           const void *msgp,
+                           size_t msgsz,
+                           int msgtyp,
+                           int msgflg) {}
+
+  protected:
+    map<int, SysVObj *>_map;
+    typedef map<int, SysVObj *>::iterator Iterator;
+    VirtualIdTable<int32_t>_virtIdTable;
+    int _type;
+};
+
+class SysVShm : public SysVIPC
+{
+  public:
+    SysVShm()
+      : SysVIPC("SysVShm", getpid(), SYSV_SHM_ID) {}
+
+    static SysVShm &instance();
+
+    int shmaddrToShmid(const void *shmaddr);
+    virtual void on_shmget(int shmid, key_t key, size_t size, int shmflg);
+    virtual void on_shmat(int shmid,
+                          const void *shmaddr,
+                          int shmflg,
+                          void *newaddr);
+    virtual void on_shmdt(const void *shmaddr);
+};
+
+class SysVSem : public SysVIPC
+{
+  public:
+    SysVSem()
+      : SysVIPC("SysVSem", getpid(), SYSV_SEM_ID) {}
+
+    static SysVSem &instance();
+    virtual void on_semget(int realSemId, key_t key, int nsems, int semflg);
+    virtual void on_semctl(int semid, int semnum, int cmd, union semun arg);
+    virtual void on_semop(int semid, struct sembuf *sops, unsigned nsops);
+};
+
+class SysVMsq : public SysVIPC
+{
+  public:
+    SysVMsq()
+      : SysVIPC("SysVMsq", getpid(), SYSV_MSQ_ID) {}
+
+    static SysVMsq &instance();
+    virtual void on_msgget(int msqid, key_t key, int msgflg);
+    virtual void on_msgctl(int msqid, int cmd, struct msqid_ds *buf);
+    virtual void on_msgsnd(int msqid, const void *msgp, size_t msgsz,
+                           int msgflg);
+    virtual void on_msgrcv(int msqid,
+                           const void *msgp,
+                           size_t msgsz,
+                           int msgtyp,
+                           int msgflg);
+};
+
+class SysVObj
+{
+  public:
 #ifdef JALIB_ALLOCATOR
-      static void* operator new(size_t nbytes, void* p) { return p; }
-      static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
-      static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
-#endif
+    static void *operator new(size_t nbytes, void *p) { return p; }
 
-      SysVObj(int id, int realId, int key, int flags) {
-        _key = key;
-        _flags = flags;
-        _id = id;
-        _realId = realId;
-        _isCkptLeader = false;
-      }
-      virtual ~SysVObj() {}
+    static void *operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
 
-      int virtualId() { return _id; }
+    static void operator delete(void *p) { JALLOC_HELPER_DELETE(p); }
+#endif // ifdef JALIB_ALLOCATOR
 
-      bool isCkptLeader() { return _isCkptLeader; }
+    SysVObj(int id, int realId, int key, int flags)
+    {
+      _key = key;
+      _flags = flags;
+      _id = id;
+      _realId = realId;
+      _isCkptLeader = false;
+    }
 
-      virtual bool isStale() = 0;
-      virtual void resetOnFork() = 0;
-      virtual void leaderElection() = 0;
-      virtual void preCkptDrain() = 0;
-      virtual void preCheckpoint() = 0;
-      virtual void postRestart() = 0;
-      virtual void refill(bool isRestart) = 0;
-      virtual void preResume() = 0;
+    virtual ~SysVObj() {}
 
-    protected:
-      int     _id;
-      int     _realId;
-      key_t   _key;
-      int     _flags;
-      bool    _isCkptLeader;
-  };
+    int virtualId() { return _id; }
 
-  class ShmSegment : public SysVObj
-  {
-    public:
+    bool isCkptLeader() { return _isCkptLeader; }
+
+    virtual bool isStale() = 0;
+    virtual void resetOnFork() = 0;
+    virtual void leaderElection() = 0;
+    virtual void preCkptDrain() = 0;
+    virtual void preCheckpoint() = 0;
+    virtual void postRestart() = 0;
+    virtual void refill(bool isRestart) = 0;
+    virtual void preResume() = 0;
+
+  protected:
+    int _id;
+    int _realId;
+    key_t _key;
+    int _flags;
+    bool _isCkptLeader;
+};
+
+class ShmSegment : public SysVObj
+{
+  public:
 #ifdef JALIB_ALLOCATOR
-      static void* operator new(size_t nbytes, void* p) { return p; }
-      static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
-      static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
-#endif
+    static void *operator new(size_t nbytes, void *p) { return p; }
 
-      ShmSegment(int shmid, int realShmid, key_t key, size_t size, int shmflg);
+    static void *operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
 
-      virtual bool isStale();
-      virtual void resetOnFork() {}
-      virtual void leaderElection();
-      virtual void preCkptDrain();
-      virtual void preCheckpoint();
-      virtual void postRestart();
-      virtual void refill(bool isRestart);
-      virtual void preResume();
+    static void operator delete(void *p) { JALLOC_HELPER_DELETE(p); }
+#endif // ifdef JALIB_ALLOCATOR
 
-      bool isValidShmaddr(const void* shmaddr);
-      void remapAll();
-      void remapFirstAddrForOwnerOnRestart();
+    ShmSegment(int shmid, int realShmid, key_t key, size_t size, int shmflg);
 
-      void on_shmat(const void *shmaddr, int shmflg);
-      void on_shmdt(const void *shmaddr);
+    virtual bool isStale();
+    virtual void resetOnFork() {}
 
-    private:
-      size_t  _size;
-      int     _dmtcpMappedAddr;
-      shmatt_t _nattch;
-      unsigned short _mode;
-      struct shmid_ds _shminfo;
-      typedef map<const void*, int> ShmaddrToFlag;
-      typedef map<const void*, int>::iterator ShmaddrToFlagIter;
-      ShmaddrToFlag _shmaddrToFlag;
-  };
+    virtual void leaderElection();
+    virtual void preCkptDrain();
+    virtual void preCheckpoint();
+    virtual void postRestart();
+    virtual void refill(bool isRestart);
+    virtual void preResume();
 
-  class Semaphore : public SysVObj
-  {
-    public:
+    bool isValidShmaddr(const void *shmaddr);
+    void remapAll();
+    void remapFirstAddrForOwnerOnRestart();
+
+    void on_shmat(const void *shmaddr, int shmflg);
+    void on_shmdt(const void *shmaddr);
+
+  private:
+    size_t _size;
+    int _dmtcpMappedAddr;
+    shmatt_t _nattch;
+    unsigned short _mode;
+    struct shmid_ds _shminfo;
+    typedef map<const void *, int>ShmaddrToFlag;
+    typedef map<const void *, int>::iterator ShmaddrToFlagIter;
+    ShmaddrToFlag _shmaddrToFlag;
+};
+
+class Semaphore : public SysVObj
+{
+  public:
 #ifdef JALIB_ALLOCATOR
-      static void* operator new(size_t nbytes, void* p) { return p; }
-      static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
-      static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
-#endif
-      Semaphore(int semid, int realSemid, key_t key, int nsems, int semflg);
-      ~Semaphore() { delete _semval; delete _semadj; }
-      void on_semop(struct sembuf *sops, unsigned nsops);
+    static void *operator new(size_t nbytes, void *p) { return p; }
 
-      virtual bool isStale();
-      virtual void resetOnFork();
-      virtual void leaderElection();
-      virtual void preCkptDrain();
-      virtual void preCheckpoint();
-      virtual void postRestart();
-      virtual void refill(bool isRestart);
-      virtual void preResume() {}
+    static void *operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
 
-    private:
-      int     _nsems;
-      unsigned short *_semval;
-      int *_semadj;
-  };
+    static void operator delete(void *p) { JALLOC_HELPER_DELETE(p); }
+#endif // ifdef JALIB_ALLOCATOR
+    Semaphore(int semid, int realSemid, key_t key, int nsems, int semflg);
+    ~Semaphore() { delete _semval; delete _semadj; }
 
-  class MsgQueue : public SysVObj
-  {
-    public:
+    void on_semop(struct sembuf *sops, unsigned nsops);
+
+    virtual bool isStale();
+    virtual void resetOnFork();
+    virtual void leaderElection();
+    virtual void preCkptDrain();
+    virtual void preCheckpoint();
+    virtual void postRestart();
+    virtual void refill(bool isRestart);
+    virtual void preResume() {}
+
+  private:
+    int _nsems;
+    unsigned short *_semval;
+    int *_semadj;
+};
+
+class MsgQueue : public SysVObj
+{
+  public:
 #ifdef JALIB_ALLOCATOR
-      static void* operator new(size_t nbytes, void* p) { return p; }
-      static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
-      static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
-#endif
-      MsgQueue(int msqid, int realMsqid, key_t key, int msgflg);
+    static void *operator new(size_t nbytes, void *p) { return p; }
 
-      virtual bool isStale();
-      virtual void resetOnFork() {}
-      virtual void leaderElection();
-      virtual void preCkptDrain();
-      virtual void preCheckpoint();
-      virtual void postRestart();
-      virtual void refill(bool isRestart);
-      virtual void preResume() {}
+    static void *operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
 
-    private:
-      vector<jalib::JBuffer> _msgInQueue;
-      msgqnum_t _qnum;
-  };
+    static void operator delete(void *p) { JALLOC_HELPER_DELETE(p); }
+#endif // ifdef JALIB_ALLOCATOR
+    MsgQueue(int msqid, int realMsqid, key_t key, int msgflg);
+
+    virtual bool isStale();
+    virtual void resetOnFork() {}
+
+    virtual void leaderElection();
+    virtual void preCkptDrain();
+    virtual void preCheckpoint();
+    virtual void postRestart();
+    virtual void refill(bool isRestart);
+    virtual void preResume() {}
+
+  private:
+    vector<jalib::JBuffer>_msgInQueue;
+    msgqnum_t _qnum;
+};
 }
-#endif
+#endif // ifndef SYSVIPC_H

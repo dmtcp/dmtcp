@@ -56,40 +56,42 @@
  */
 
 // THESE INCLUDES ARE IN RANDOM ORDER.  LET'S CLEAN IT UP AFTER RELEASE. - Gene
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <sys/syscall.h>
-#include <sys/mman.h>
-#include <unistd.h>
-#include <mqueue.h>
-#include <stdint.h>
-#include <signal.h>
-#include "procselfmaps.h"
-#include "util.h"
-#include "shareddata.h"
-#include "jfilesystem.h"
-#include "jbuffer.h"
-#include "jconvert.h"
 #include "fileconnection.h"
 #include "fileconnlist.h"
 #include "filewrappers.h"
+#include "jbuffer.h"
+#include "jconvert.h"
+#include "jfilesystem.h"
+#include "procselfmaps.h"
 #include "ptywrappers.h"
+#include "shareddata.h"
+#include "util.h"
+#include <mqueue.h>
+#include <signal.h>
+#include <stdint.h>
+#include <sys/mman.h>
+#include <sys/socket.h>
+#include <sys/stat.h>
+#include <sys/syscall.h>
+#include <sys/types.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 using namespace dmtcp;
 
-void dmtcp_FileConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
+void
+dmtcp_FileConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   FileConnList::instance().eventHook(event, data);
 }
 
-static vector<ProcMapsArea> shmAreas;
-static vector<ProcMapsArea> unlinkedShmAreas;
-static vector<ProcMapsArea> missingUnlinkedShmFiles;
-static vector<FileConnection*> shmAreaConn;
+static vector<ProcMapsArea>shmAreas;
+static vector<ProcMapsArea>unlinkedShmAreas;
+static vector<ProcMapsArea>missingUnlinkedShmFiles;
+static vector<FileConnection *>shmAreaConn;
 
-void dmtcp_FileConn_ProcessFdEvent(int event, int arg1, int arg2)
+void
+dmtcp_FileConn_ProcessFdEvent(int event, int arg1, int arg2)
 {
   if (event == SYS_close) {
     FileConnList::instance().processClose(arg1);
@@ -101,7 +103,8 @@ void dmtcp_FileConn_ProcessFdEvent(int event, int arg1, int arg2)
 }
 
 static FileConnList *fileConnList = NULL;
-FileConnList& FileConnList::instance()
+FileConnList&
+FileConnList::instance()
 {
   if (fileConnList == NULL) {
     fileConnList = new FileConnList();
@@ -109,7 +112,8 @@ FileConnList& FileConnList::instance()
   return *fileConnList;
 }
 
-void FileConnList::preLockSaveOptions()
+void
+FileConnList::preLockSaveOptions()
 {
   // Now create a list of all shared-memory areas.
   prepareShmList();
@@ -117,20 +121,21 @@ void FileConnList::preLockSaveOptions()
   ConnectionList::preLockSaveOptions();
 }
 
-void FileConnList::drain()
+void
+FileConnList::drain()
 {
   ConnectionList::drain();
 
-  vector<SharedData::InodeConnIdMap> inodeConnIdMaps;
+  vector<SharedData::InodeConnIdMap>inodeConnIdMaps;
   for (iterator i = begin(); i != end(); ++i) {
-    Connection* con =  i->second;
+    Connection *con = i->second;
     if (con->hasLock() && con->conType() == Connection::FILE) {
-      FileConnection *fileCon = (FileConnection*) con;
+      FileConnection *fileCon = (FileConnection *)con;
       if (fileCon->checkpointed() == true) {
         SharedData::InodeConnIdMap map;
         map.devnum = fileCon->devnum();
         map.inode = fileCon->inode();
-        memcpy(map.id, &i->first, sizeof (i->first));
+        memcpy(map.id, &i->first, sizeof(i->first));
         inodeConnIdMaps.push_back(map);
       }
     }
@@ -140,7 +145,8 @@ void FileConnList::drain()
   }
 }
 
-void FileConnList::postRestart()
+void
+FileConnList::postRestart()
 {
   /* Try to map the file as is, if it already exists on the disk.
    */
@@ -148,8 +154,8 @@ void FileConnList::postRestart()
     if (jalib::Filesystem::FileExists(unlinkedShmAreas[i].name)) {
       // TODO(kapil): Verify the file contents.
       JWARNING(false) (unlinkedShmAreas[i].name)
-        .Text("File was unlinked at ckpt but is currently present on disk; "
-              "remove it and try again.");
+      .Text("File was unlinked at ckpt but is currently present on disk; "
+            "remove it and try again.");
       restoreShmArea(unlinkedShmAreas[i]);
     } else {
       missingUnlinkedShmFiles.push_back(unlinkedShmAreas[i]);
@@ -159,7 +165,8 @@ void FileConnList::postRestart()
   ConnectionList::postRestart();
 }
 
-void FileConnList::refill(bool isRestart)
+void
+FileConnList::refill(bool isRestart)
 {
   if (isRestart) {
     // The backing file will be created as a result of restoreShmArea. We need
@@ -172,9 +179,11 @@ void FileConnList::refill(bool isRestart)
   ConnectionList::refill(isRestart);
 }
 
-void FileConnList::resume(bool isRestart)
+void
+FileConnList::resume(bool isRestart)
 {
   ConnectionList::resume(isRestart);
+
   remapShmMaps();
 
   if (isRestart) {
@@ -182,13 +191,14 @@ void FileConnList::resume(bool isRestart)
     for (size_t i = 0; i < missingUnlinkedShmFiles.size(); i++) {
       JWARNING(unlink(missingUnlinkedShmFiles[i].name) != -1)
         (missingUnlinkedShmFiles[i].name) (JASSERT_ERRNO)
-        .Text("The file was unlinked at the time of checkpoint. "
-              "Unlinking it after restart failed");
+      .Text("The file was unlinked at the time of checkpoint. "
+            "Unlinking it after restart failed");
     }
   }
 }
 
-void FileConnList::prepareShmList()
+void
+FileConnList::prepareShmList()
 {
   ProcSelfMaps procSelfMaps;
   ProcMapsArea area;
@@ -233,6 +243,7 @@ void FileConnList::prepareShmList()
           add(fd, fileConn);
           shmAreas.push_back(area);
           shmAreaConn.push_back(fileConn);
+
           /* Instead of unmapping the shared memory area, we make it
            * non-readable. This way mtcp will skip the region while at the same
            * time, we prevent JALLOC arena to grow over it.
@@ -256,7 +267,7 @@ void FileConnList::prepareShmList()
         if (Util::strStartsWith(area.name, DEV_ZERO_DELETED_STR) ||
             Util::strStartsWith(area.name, DEV_NULL_DELETED_STR)) {
           JWARNING(false) (area.name)
-            .Text("Ckpt/Restart of anonymous shared memory not supported.");
+          .Text("Ckpt/Restart of anonymous shared memory not supported.");
         } else {
           JTRACE("Will recreate shm file on restart.") (area.name);
 
@@ -269,13 +280,15 @@ void FileConnList::prepareShmList()
   }
 }
 
-void FileConnList::recreateShmFileAndMap(const ProcMapsArea& area)
+void
+FileConnList::recreateShmFileAndMap(const ProcMapsArea &area)
 {
   // TODO(kapil): Handle /dev/zero, /dev/random, etc.
   // Recreate file in dmtcp-tmpdir;
   string filename = Util::removeSuffix(area.name, DELETED_FILE_SUFFIX);
+
   JASSERT(Util::createDirectoryTree(area.name)) (area.name)
-    .Text("Unable to create directory in File Path");
+  .Text("Unable to create directory in File Path");
 
   /* Now try to create the file with O_EXCL. If we fail with EEXIST, there
    * are two possible scenarios:
@@ -296,13 +309,15 @@ void FileConnList::recreateShmFileAndMap(const ProcMapsArea& area)
 
   // Get to the correct offset.
   JASSERT(lseek(fd, area.offset, SEEK_SET) == area.offset) (JASSERT_ERRNO);
+
   // Now populate file contents from memory.
   JASSERT(Util::writeAll(fd, area.addr, area.size) == (ssize_t)area.size)
     (JASSERT_ERRNO);
   restoreShmArea(area, fd);
 }
 
-void FileConnList::restoreShmArea(const ProcMapsArea& area, int fd)
+void
+FileConnList::restoreShmArea(const ProcMapsArea &area, int fd)
 {
   if (fd == -1) {
     fd = _real_open(area.name, Util::memProtToOpenFlags(area.prot));
@@ -310,25 +325,27 @@ void FileConnList::restoreShmArea(const ProcMapsArea& area, int fd)
 
   JASSERT(fd != -1) (area.name) (JASSERT_ERRNO);
 
-  JTRACE("Restoring shared memory area") (area.name) ((void*)area.addr);
+  JTRACE("Restoring shared memory area") (area.name) ((void *)area.addr);
   void *addr = _real_mmap(area.addr, area.size, area.prot,
                           MAP_FIXED | area.flags, fd, area.offset);
   JASSERT(addr != MAP_FAILED) (area.flags) (area.prot) (JASSERT_ERRNO)
-    .Text("mmap failed");
+  .Text("mmap failed");
   _real_close(fd);
 }
 
-void FileConnList::remapShmMaps()
+void
+FileConnList::remapShmMaps()
 {
   for (size_t i = 0; i < shmAreas.size(); i++) {
     ProcMapsArea *area = &shmAreas[i];
     FileConnection *fileCon = shmAreaConn[i];
     int fd = fileCon->getFds()[0];
-    JTRACE("Restoring shared memory area") (area->name) ((void*)area->addr);
+    JTRACE("Restoring shared memory area") (area->name) ((void *)area->addr);
     void *addr = _real_mmap(area->addr, area->size, area->prot,
                             MAP_FIXED | area->flags,
                             fd, area->offset);
-    JASSERT(addr != MAP_FAILED) (area->flags) (area->prot) (JASSERT_ERRNO) .Text("mmap failed");
+    JASSERT(addr != MAP_FAILED) (area->flags) (area->prot) (JASSERT_ERRNO).Text(
+      "mmap failed");
     _real_close(fd);
     processClose(fd);
   }
@@ -336,41 +353,47 @@ void FileConnList::remapShmMaps()
   shmAreaConn.clear();
 }
 
-//examine /proc/self/fd for unknown connections
-void FileConnList::scanForPreExisting()
+// examine /proc/self/fd for unknown connections
+void
+FileConnList::scanForPreExisting()
 {
   // FIXME: Detect stdin/out/err fds to detect duplicates.
-  vector<int> fds = jalib::Filesystem::ListOpenFds();
+  vector<int>fds = jalib::Filesystem::ListOpenFds();
   for (size_t i = 0; i < fds.size(); ++i) {
     int fd = fds[i];
-    if (!Util::isValidFd(fd)) continue;
-    if (dmtcp_is_protected_fd(fd)) continue;
+    if (!Util::isValidFd(fd)) {
+      continue;
+    }
+    if (dmtcp_is_protected_fd(fd)) {
+      continue;
+    }
     struct stat statbuf;
     JASSERT(fstat(fd, &statbuf) == 0);
-    bool isRegularFile = (S_ISREG(statbuf.st_mode) || S_ISCHR(statbuf.st_mode) ||
-                          S_ISDIR(statbuf.st_mode) || S_ISBLK(statbuf.st_mode));
+    bool isRegularFile =
+      (S_ISREG(statbuf.st_mode) || S_ISCHR(statbuf.st_mode) ||
+       S_ISDIR(statbuf.st_mode) || S_ISBLK(statbuf.st_mode));
 
     string device = jalib::Filesystem::GetDeviceName(fd);
 
     JTRACE("scanning pre-existing device") (fd) (device);
 
-    if(dmtcp_is_bq_file && dmtcp_is_bq_file(device.c_str())) {
+    if (dmtcp_is_bq_file && dmtcp_is_bq_file(device.c_str())) {
       if (isRegularFile) {
         Connection *c = findDuplication(fd, device.c_str());
         if (c != NULL) {
-          add(fd,c);
+          add(fd, c);
           continue;
         }
       }
       add(fd, new FileConnection(device.c_str(), -1, -1,
                                  FileConnection::FILE_BATCH_QUEUE));
-    } else if( fd <= 2 ){
+    } else if (fd <= 2) {
       add(fd, new StdioConnection(fd));
     } else if (Util::strStartsWith(device, "/") && !Util::isPseudoTty(device)) {
       if (isRegularFile) {
         Connection *c = findDuplication(fd, device.c_str());
         if (c != NULL) {
-          add(fd,c);
+          add(fd, c);
           continue;
         }
       }
@@ -379,46 +402,58 @@ void FileConnList::scanForPreExisting()
   }
 }
 
-Connection *FileConnList::findDuplication(int fd, const char *path)
+Connection *
+FileConnList::findDuplication(int fd, const char *path)
 {
   string npath(path);
+
   for (iterator i = begin(); i != end(); ++i) {
     Connection *con = i->second;
 
-    if( con->conType() != Connection::FILE )
+    if (con->conType() != Connection::FILE) {
       continue;
+    }
 
-    FileConnection *fcon = (FileConnection*)con;
+    FileConnection *fcon = (FileConnection *)con;
+
     // check for duplication
-    if( fcon->filePath() == npath && fcon->checkDup(fd) ){
+    if (fcon->filePath() == npath && fcon->checkDup(fd)) {
       return con;
     }
   }
   return NULL;
 }
 
-Connection *FileConnList::createDummyConnection(int type)
+Connection *
+FileConnList::createDummyConnection(int type)
 {
   switch (type) {
-    case Connection::FILE:
-      return new FileConnection();
-      break;
-    case Connection::FIFO:
-      return new FifoConnection();
-      break;
-    case Connection::STDIO:
-      return new StdioConnection();
-      break;
+  case Connection::FILE:
+    return new FileConnection();
+
+    break;
+  case Connection::FIFO:
+    return new FifoConnection();
+
+    break;
+  case Connection::STDIO:
+    return new StdioConnection();
+
+    break;
   }
   return NULL;
 }
 
-void FileConnList::processFileConnection(int fd, const char *path,
-                                         int flags, mode_t mode)
+void
+FileConnList::processFileConnection(int fd,
+                                    const char *path,
+                                    int flags,
+                                    mode_t mode)
 {
   Connection *c = NULL;
 
   string device;
+
   if (path == NULL) {
     device = jalib::Filesystem::GetDeviceName(fd);
   } else {
@@ -432,11 +467,13 @@ void FileConnList::processFileConnection(int fd, const char *path,
   JASSERT(fstat(fd, &statbuf) == 0);
 
   if (strstr(device.c_str(), "infiniband/uverbs") ||
-      strstr(device.c_str(), "uverbs-event")) return;
+      strstr(device.c_str(), "uverbs-event")) {
+    return;
+  }
 
   path = device.c_str();
   if (S_ISREG(statbuf.st_mode) || S_ISCHR(statbuf.st_mode) ||
-             S_ISDIR(statbuf.st_mode) || S_ISBLK(statbuf.st_mode)) {
+      S_ISDIR(statbuf.st_mode) || S_ISBLK(statbuf.st_mode)) {
     int type = FileConnection::FILE_REGULAR;
     if (dmtcp_is_bq_file && dmtcp_is_bq_file(path)) {
       // Resource manager related
@@ -447,9 +484,8 @@ void FileConnList::processFileConnection(int fd, const char *path,
     // FIFO
     c = new FifoConnection(path, flags, mode);
   } else {
-    JASSERT(false) (path) .Text("Unimplemented file type.");
+    JASSERT(false) (path).Text("Unimplemented file type.");
   }
 
   add(fd, c);
 }
-

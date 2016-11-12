@@ -19,35 +19,36 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#include "../jalib/jconvert.h"
+#include "../jalib/jfilesystem.h"
+#include "dmtcp.h"
+#include "pidwrappers.h"
+#include "shareddata.h"
+#include "util.h"
+#include "virtualpidtable.h"
+#include <fcntl.h>
+#include <sstream>
 #include <stdlib.h>
 #include <string.h>
 #include <string>
-#include <sstream>
-#include <fcntl.h>
 #include <sys/syscall.h>
-#include "util.h"
-#include "pidwrappers.h"
-#include "../jalib/jconvert.h"
-#include "../jalib/jfilesystem.h"
-#include "virtualpidtable.h"
-#include "dmtcp.h"
-#include "shareddata.h"
 
 using namespace dmtcp;
 
 static int _numTids = 1;
 
 VirtualPidTable::VirtualPidTable()
-  : VirtualIdTable<pid_t> ("Pid", getpid())
+  : VirtualIdTable<pid_t>("Pid", getpid())
 {
-  //_do_lock_tbl();
-  //_idMapTable[getpid()] = _real_getpid();
-  //_idMapTable[getppid()] = _real_getppid();
-  //_do_unlock_tbl();
+  // _do_lock_tbl();
+  // _idMapTable[getpid()] = _real_getpid();
+  // _idMapTable[getppid()] = _real_getppid();
+  // _do_unlock_tbl();
 }
 
 static VirtualPidTable *virtPidTableInst = NULL;
-VirtualPidTable& VirtualPidTable::instance()
+VirtualPidTable&
+VirtualPidTable::instance()
 {
   if (virtPidTableInst == NULL) {
     virtPidTableInst = new VirtualPidTable();
@@ -55,7 +56,8 @@ VirtualPidTable& VirtualPidTable::instance()
   return *virtPidTableInst;
 }
 
-void VirtualPidTable::postRestart()
+void
+VirtualPidTable::postRestart()
 {
   VirtualIdTable<pid_t>::postRestart();
   _do_lock_tbl();
@@ -63,7 +65,8 @@ void VirtualPidTable::postRestart()
   _do_unlock_tbl();
 }
 
-void VirtualPidTable::refresh()
+void
+VirtualPidTable::refresh()
 {
   id_iterator i;
   id_iterator next;
@@ -83,20 +86,23 @@ void VirtualPidTable::refresh()
   printMaps();
 }
 
-pid_t VirtualPidTable::getNewVirtualTid()
+pid_t
+VirtualPidTable::getNewVirtualTid()
 {
   pid_t tid = -1;
+
   if (VirtualIdTable<pid_t>::getNewVirtualId(&tid) == false) {
     refresh();
   }
 
   JASSERT(VirtualIdTable<pid_t>::getNewVirtualId(&tid))
-    (_idMapTable.size()) .Text("Exceeded maximum number of threads allowed");
+    (_idMapTable.size()).Text("Exceeded maximum number of threads allowed");
 
   return tid;
 }
 
-void VirtualPidTable::resetOnFork()
+void
+VirtualPidTable::resetOnFork()
 {
   VirtualIdTable<pid_t>::resetOnFork(getpid());
   _numTids = 1;
@@ -105,7 +111,8 @@ void VirtualPidTable::resetOnFork()
   printMaps();
 }
 
-void VirtualPidTable::updateMapping(pid_t virtualId, pid_t realId)
+void
+VirtualPidTable::updateMapping(pid_t virtualId, pid_t realId)
 {
   if (virtualId > 0 && realId > 0) {
     _do_lock_tbl();
@@ -114,10 +121,11 @@ void VirtualPidTable::updateMapping(pid_t virtualId, pid_t realId)
   }
 }
 
-//to allow linking without ptrace plugin
-extern "C" int dmtcp_is_ptracing() __attribute__ ((weak));
+// to allow linking without ptrace plugin
+extern "C" int dmtcp_is_ptracing() __attribute__((weak));
 
-pid_t VirtualPidTable::realToVirtual(pid_t realPid)
+pid_t
+VirtualPidTable::realToVirtual(pid_t realPid)
 {
   if (realIdExists(realPid)) {
     return VirtualIdTable<pid_t>::realToVirtual(realPid);
@@ -133,13 +141,14 @@ pid_t VirtualPidTable::realToVirtual(pid_t realPid)
     }
   }
 
-  //JWARNING(false) (realPid)
-    //.Text("No virtual pid/tid found for the given real pid");
+  // JWARNING(false) (realPid)
+  // .Text("No virtual pid/tid found for the given real pid");
   _do_unlock_tbl();
   return realPid;
 }
 
-pid_t VirtualPidTable::virtualToReal(pid_t virtualId)
+pid_t
+VirtualPidTable::virtualToReal(pid_t virtualId)
 {
   if (virtualId == -1) {
     return virtualId;
@@ -156,7 +165,8 @@ pid_t VirtualPidTable::virtualToReal(pid_t virtualId)
   return retVal;
 }
 
-void VirtualPidTable::writeVirtualTidToFileForPtrace(pid_t pid)
+void
+VirtualPidTable::writeVirtualTidToFileForPtrace(pid_t pid)
 {
   if (!dmtcp_is_ptracing || !dmtcp_is_ptracing()) {
     return;
@@ -167,7 +177,8 @@ void VirtualPidTable::writeVirtualTidToFileForPtrace(pid_t pid)
   }
 }
 
-pid_t VirtualPidTable::readVirtualTidFromFileForPtrace(pid_t tid)
+pid_t
+VirtualPidTable::readVirtualTidFromFileForPtrace(pid_t tid)
 {
   pid_t pid;
 

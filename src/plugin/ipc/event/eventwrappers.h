@@ -21,44 +21,43 @@
 
 #pragma once
 #ifndef EVENT_WRAPPERS_H
-#define EVENT_WRAPPERS_H
+# define EVENT_WRAPPERS_H
 
-#include <features.h>
+# include <features.h>
 
-#include "config.h"
-#include "dmtcp.h"
+# include "config.h"
+# include "dmtcp.h"
 
-#if __GLIBC_PREREQ(2,21)
-# define EVENTFD_VAL_TYPE unsigned int
-#else
-# define EVENTFD_VAL_TYPE int
-#endif
+# if __GLIBC_PREREQ(2, 21)
+#  define EVENTFD_VAL_TYPE    unsigned int
+# else // if __GLIBC_PREREQ(2, 21)
+#  define EVENTFD_VAL_TYPE    int
+# endif // if __GLIBC_PREREQ(2, 21)
 
-#define _real_poll NEXT_FNC(poll)
-#define _real_poll_chk NEXT_FNC(__poll_chk)
-#define _real_pselect NEXT_FNC(pselect)
+# define _real_poll           NEXT_FNC(poll)
+# define _real_poll_chk       NEXT_FNC(__poll_chk)
+# define _real_pselect        NEXT_FNC(pselect)
 
-#ifdef HAVE_SYS_EPOLL_H
-#define _real_epoll_create NEXT_FNC(epoll_create)
-#define _real_epoll_create1 NEXT_FNC(epoll_create1)
-#define _real_epoll_ctl NEXT_FNC(epoll_ctl)
-#define _real_epoll_wait NEXT_FNC(epoll_wait)
-#define _real_epoll_pwait NEXT_FNC(epoll_pwait)
-#endif
+# ifdef HAVE_SYS_EPOLL_H
+#  define _real_epoll_create  NEXT_FNC(epoll_create)
+#  define _real_epoll_create1 NEXT_FNC(epoll_create1)
+#  define _real_epoll_ctl     NEXT_FNC(epoll_ctl)
+#  define _real_epoll_wait    NEXT_FNC(epoll_wait)
+#  define _real_epoll_pwait   NEXT_FNC(epoll_pwait)
+# endif // ifdef HAVE_SYS_EPOLL_H
 
-#ifdef HAVE_SYS_EVENTFD_H
-#define _real_eventfd NEXT_FNC(eventfd)
-#endif
+# ifdef HAVE_SYS_EVENTFD_H
+#  define _real_eventfd NEXT_FNC(eventfd)
+# endif // ifdef HAVE_SYS_EVENTFD_H
 
-#ifdef HAVE_SYS_SIGNALFD_H
-#define _real_signalfd NEXT_FNC(signalfd)
-#endif
+# ifdef HAVE_SYS_SIGNALFD_H
+#  define _real_signalfd NEXT_FNC(signalfd)
+# endif // ifdef HAVE_SYS_SIGNALFD_H
 
-#ifdef HAVE_SYS_INOTIFY_H
-#define _real_inotify_init NEXT_FNC(inotify_init)
-#define _real_inotify_init1 NEXT_FNC(inotify_init1)
-#define _real_inotify_add_watch NEXT_FNC(inotify_add_watch)
-#define _real_inotify_rm_watch NEXT_FNC(inotify_rm_watch)
-#endif
-
+# ifdef HAVE_SYS_INOTIFY_H
+#  define _real_inotify_init      NEXT_FNC(inotify_init)
+#  define _real_inotify_init1     NEXT_FNC(inotify_init1)
+#  define _real_inotify_add_watch NEXT_FNC(inotify_add_watch)
+#  define _real_inotify_rm_watch  NEXT_FNC(inotify_rm_watch)
+# endif // ifdef HAVE_SYS_INOTIFY_H
 #endif // EVENT_WRAPPERS_H

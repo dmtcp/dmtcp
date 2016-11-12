@@ -21,51 +21,55 @@
 
 #pragma once
 #ifndef PTYCONNLIST_H
-#define PTYCONNLIST_H
+# define PTYCONNLIST_H
 
 // THESE INCLUDES ARE IN RANDOM ORDER.  LET'S CLEAN IT UP AFTER RELEASE. - Gene
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <unistd.h>
-#include <mqueue.h>
-#include <stdint.h>
-#include <signal.h>
-#include "jfilesystem.h"
-#include "jbuffer.h"
-#include "jconvert.h"
-#include "connectionlist.h"
-#include "ptyconnection.h"
-#include "procmapsarea.h"
+# include "connectionlist.h"
+# include "jbuffer.h"
+# include "jconvert.h"
+# include "jfilesystem.h"
+# include "procmapsarea.h"
+# include "ptyconnection.h"
+# include <mqueue.h>
+# include <signal.h>
+# include <stdint.h>
+# include <sys/socket.h>
+# include <sys/stat.h>
+# include <sys/types.h>
+# include <sys/types.h>
+# include <unistd.h>
 
 namespace dmtcp
 {
-  class PtyConnList : public ConnectionList
-  {
-    public:
-      static PtyConnList& instance();
+class PtyConnList : public ConnectionList
+{
+  public:
+    static PtyConnList &instance();
 
-      static void drainFd() { instance().drain(); }
+    static void drainFd() { instance().drain(); }
 
-      static void resumeRefill() { instance().refill(false); }
+    static void resumeRefill() { instance().refill(false); }
 
-      static void restart() { instance().postRestart(); }
-      static void restartRefill() { instance().refill(true); }
+    static void restart() { instance().postRestart(); }
 
-      virtual void drain();
-      virtual void resume(bool isRestart) {};
-      virtual void refill(bool isRestart);
-      virtual void postRestart();
-      virtual int protectedFd() { return -1; }
-      //examine /proc/self/fd for unknown connections
-      virtual void scanForPreExisting();
+    static void restartRefill() { instance().refill(true); }
 
-      virtual Connection *createDummyConnection(int type) {
-        return new PtyConnection();
-      }
+    virtual void drain();
+    virtual void resume(bool isRestart) {}
 
-      void processPtyConnection(int fd, const char *path, int flags, mode_t mode);
-  };
+    virtual void refill(bool isRestart);
+    virtual void postRestart();
+    virtual int protectedFd() { return -1; }
+
+    // examine /proc/self/fd for unknown connections
+    virtual void scanForPreExisting();
+
+    virtual Connection *createDummyConnection(int type)
+    {
+      return new PtyConnection();
+    }
+
+    void processPtyConnection(int fd, const char *path, int flags, mode_t mode);
+};
 }
-#endif
+#endif // ifndef PTYCONNLIST_H

@@ -22,23 +22,23 @@
 #ifndef ALLOC_H
 #define ALLOC_H
 
+#include "dmtcp.h"
 #include <stdlib.h>
 #include <sys/mman.h>
-#include "dmtcp.h"
 
 extern "C" void *__libc_memalign(size_t boundary, size_t size);
 
-#define _real_malloc  NEXT_FNC(malloc)
-#define _real_calloc  NEXT_FNC(calloc)
-#define _real_valloc  NEXT_FNC(valloc)
-#define _real_realloc NEXT_FNC(realloc)
-#define _real_free    NEXT_FNC(free)
-#define _real_memalign NEXT_FNC(memalign)
+#define _real_malloc         NEXT_FNC(malloc)
+#define _real_calloc         NEXT_FNC(calloc)
+#define _real_valloc         NEXT_FNC(valloc)
+#define _real_realloc        NEXT_FNC(realloc)
+#define _real_free           NEXT_FNC(free)
+#define _real_memalign       NEXT_FNC(memalign)
 #define _real_posix_memalign NEXT_FNC(posix_memalign)
-#define _real_libc_memalign NEXT_FNC(__libc_memalign)
+#define _real_libc_memalign  NEXT_FNC(__libc_memalign)
 
-#define _real_mmap NEXT_FNC(mmap)
-#define _real_mmap64 NEXT_FNC(mmap64)
-#define _real_munmap NEXT_FNC(munmap)
-#define _real_mremap NEXT_FNC(mremap)
-#endif //ALLOC_H
+#define _real_mmap           NEXT_FNC(mmap)
+#define _real_mmap64         NEXT_FNC(mmap64)
+#define _real_munmap         NEXT_FNC(munmap)
+#define _real_mremap         NEXT_FNC(mremap)
+#endif // ALLOC_H

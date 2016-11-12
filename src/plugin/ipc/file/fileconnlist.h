@@ -21,63 +21,72 @@
 
 #pragma once
 #ifndef FILECONNLIST_H
-#define FILECONNLIST_H
+# define FILECONNLIST_H
 
 // THESE INCLUDES ARE IN RANDOM ORDER.  LET'S CLEAN IT UP AFTER RELEASE. - Gene
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <unistd.h>
-#include <mqueue.h>
-#include <stdint.h>
-#include <signal.h>
-#include "jfilesystem.h"
-#include "jbuffer.h"
-#include "jconvert.h"
-#include "connectionlist.h"
-#include "fileconnection.h"
-#include "procmapsarea.h"
+# include "connectionlist.h"
+# include "fileconnection.h"
+# include "jbuffer.h"
+# include "jconvert.h"
+# include "jfilesystem.h"
+# include "procmapsarea.h"
+# include <mqueue.h>
+# include <signal.h>
+# include <stdint.h>
+# include <sys/socket.h>
+# include <sys/stat.h>
+# include <sys/types.h>
+# include <sys/types.h>
+# include <unistd.h>
 
 namespace dmtcp
 {
-  class FileConnList : public ConnectionList
-  {
-    public:
-      static FileConnList& instance();
+class FileConnList : public ConnectionList
+{
+  public:
+    static FileConnList &instance();
 
-      static void saveOptions() { instance().preLockSaveOptions(); }
-      static void leaderElection() { instance().preCkptFdLeaderElection(); }
-      static void drainFd() { instance().drain(); }
-      static void ckpt() { instance().preCkpt(); }
+    static void saveOptions() { instance().preLockSaveOptions(); }
 
-      static void resumeRefill() { instance().refill(false); }
-      static void resumeResume() { instance().resume(false); }
+    static void leaderElection() { instance().preCkptFdLeaderElection(); }
 
-      static void restart() { instance().postRestart(); }
-      static void restartRegisterNSData() { instance().registerNSData(); }
-      static void restartSendQueries() { instance().sendQueries(); }
-      static void restartRefill() { instance().refill(true); }
-      static void restartResume() { instance().resume(true); }
+    static void drainFd() { instance().drain(); }
 
-      virtual void preLockSaveOptions();
-      virtual void drain();
-      virtual void refill(bool isRestart);
-      virtual void resume(bool isRestart);
-      virtual void postRestart();
-      virtual int protectedFd() { return PROTECTED_FILE_FDREWIRER_FD; }
-      //examine /proc/self/fd for unknown connections
-      virtual void scanForPreExisting();
-      virtual Connection *createDummyConnection(int type);
+    static void ckpt() { instance().preCkpt(); }
 
-      Connection *findDuplication(int fd, const char *path);
-      void processFileConnection(int fd, const char *path, int flags, mode_t mode);
+    static void resumeRefill() { instance().refill(false); }
 
-      void prepareShmList();
-      void remapShmMaps();
-      void recreateShmFileAndMap(const ProcMapsArea& area);
-      void restoreShmArea(const ProcMapsArea& area, int fd = -1);
+    static void resumeResume() { instance().resume(false); }
 
-  };
+    static void restart() { instance().postRestart(); }
+
+    static void restartRegisterNSData() { instance().registerNSData(); }
+
+    static void restartSendQueries() { instance().sendQueries(); }
+
+    static void restartRefill() { instance().refill(true); }
+
+    static void restartResume() { instance().resume(true); }
+
+    virtual void preLockSaveOptions();
+    virtual void drain();
+    virtual void refill(bool isRestart);
+    virtual void resume(bool isRestart);
+    virtual void postRestart();
+    virtual int protectedFd() { return PROTECTED_FILE_FDREWIRER_FD; }
+
+    // examine /proc/self/fd for unknown connections
+    virtual void scanForPreExisting();
+    virtual Connection *createDummyConnection(int type);
+
+    Connection *findDuplication(int fd, const char *path);
+    void processFileConnection(int fd, const char *path, int flags,
+                               mode_t mode);
+
+    void prepareShmList();
+    void remapShmMaps();
+    void recreateShmFileAndMap(const ProcMapsArea &area);
+    void restoreShmArea(const ProcMapsArea &area, int fd = -1);
+};
 }
-#endif
+#endif // ifndef FILECONNLIST_H
