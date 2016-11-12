@@ -1,6 +1,7 @@
-#include <unistd.h>
 #include <stdio.h>
-void main()
+#include <unistd.h>
+void
+main()
 {
   printf("%d\n", gethostid());
 }
