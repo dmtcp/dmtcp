@@ -389,15 +389,15 @@ writeScript(const string &ckptDir,
 
   fprintf(fp,
           "coord_host=$" ENV_VAR_NAME_HOST "\n"
-                                           "if test -z \"$" ENV_VAR_NAME_HOST "\"; then\n"
-                                                                              "  coord_host=%s\nfi\n\n"
-                                                                              "coord_port=$" ENV_VAR_NAME_PORT "\n"
-                                                                                                               "if test -z \"$" ENV_VAR_NAME_PORT "\"; then\n"
-                                                                                                                                                  "  coord_port=%d\nfi\n\n"
-                                                                                                                                                  "checkpoint_interval=$" ENV_VAR_CKPT_INTR "\n"
-                                                                                                                                                                                            "if test -z \"$" ENV_VAR_CKPT_INTR "\"; then\n"
-                                                                                                                                                                                                                               "  checkpoint_interval=%d\nfi\n"
-                                                                                                                                                                                                                               "export DMTCP_CHECKPOINT_INTERVAL=${checkpoint_interval}\n\n",
+          "if test -z \"$" ENV_VAR_NAME_HOST "\"; then\n"
+          "  coord_host=%s\nfi\n\n"
+          "coord_port=$" ENV_VAR_NAME_PORT "\n"
+          "if test -z \"$" ENV_VAR_NAME_PORT "\"; then\n"
+          "  coord_port=%d\nfi\n\n"
+          "checkpoint_interval=$" ENV_VAR_CKPT_INTR "\n"
+          "if test -z \"$" ENV_VAR_CKPT_INTR "\"; then\n"
+          "  checkpoint_interval=%d\nfi\n"
+          "export DMTCP_CHECKPOINT_INTERVAL=${checkpoint_interval}\n\n",
           hostname,
           thePort,
           theCheckpointInterval);
@@ -406,15 +406,15 @@ writeScript(const string &ckptDir,
 
   fprintf(fp,
           "dmt_rstr_cmd=%s/" DMTCP_RESTART_CMD "\n"
-                                               "which $dmt_rstr_cmd > /dev/null 2>&1"
-                                               " || dmt_rstr_cmd=" DMTCP_RESTART_CMD "\n"
-                                                                                     "which $dmt_rstr_cmd > /dev/null 2>&1"
-                                                                                     " || echo \"$0: $dmt_rstr_cmd not found\"\n"
-                                                                                     "which $dmt_rstr_cmd > /dev/null 2>&1 || exit 1\n\n",
+          "which $dmt_rstr_cmd > /dev/null 2>&1"
+          " || dmt_rstr_cmd=" DMTCP_RESTART_CMD "\n"
+          "which $dmt_rstr_cmd > /dev/null 2>&1"
+          " || echo \"$0: $dmt_rstr_cmd not found\"\n"
+          "which $dmt_rstr_cmd > /dev/null 2>&1 || exit 1\n\n",
           jalib::Filesystem::GetProgramDir().c_str());
 
   fprintf(fp, "# Number of hosts in the computation = %zu\n"
-              "# Number of processes in the computation = %zu\n\n",
+          "# Number of processes in the computation = %zu\n\n",
           restartFilenames.size(), numPeers);
 
   if (isSingleHost) {

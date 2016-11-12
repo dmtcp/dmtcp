@@ -454,7 +454,8 @@ dmtcp_get_libc_dlsym_addr(void)
   if (_libc_dlsym_fnptr == NULL) {
     if (getenv(evar) == NULL) {
       fprintf(stderr,
-              "%s:%d DMTCP Internal Error: Env var DMTCP_DLSYM_OFFSET not set.\n"
+              "%s:%d DMTCP Internal Error: Env var DMTCP_DLSYM_OFFSET not"
+              " set.\n"
               "      Aborting.\n\n",
               __FILE__,
               __LINE__);

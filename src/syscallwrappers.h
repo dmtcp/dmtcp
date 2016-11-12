@@ -338,8 +338,12 @@ FILE *_real_popen(const char *command, const char *mode);
 int _real_pclose(FILE *fp);
 
 pid_t _real_fork();
-int _real_clone(int (*fn)(
-                  void *arg), void *child_stack, int flags, void *arg, int *parent_tidptr, struct user_desc *newtls,
+int _real_clone(int (*fn)(void *arg),
+                void *child_stack,
+                int flags,
+                void *arg,
+                int *parent_tidptr,
+                struct user_desc *newtls,
                 int *child_tidptr);
 
 int _real_open(const char *pathname, int flags, ...);

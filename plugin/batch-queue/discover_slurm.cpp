@@ -228,7 +228,8 @@ resources_slurm::discover()
 
   if (nodelist == NULL) {
     fprintf(stderr,
-            "Error: environment variables SLURM_JOB_NODELIST or SLURM_NODELIST are not set!\n");
+            "Error: environment variables SLURM_JOB_NODELIST or "
+            "SLURM_NODELIST are not set!\n");
     return -1;
   }
   slurm_nodes nodes(nodelist);
@@ -239,7 +240,8 @@ resources_slurm::discover()
   if (slotlist == NULL) {
     // fail bit is set:  string is too big.  Drop the rest.
     fprintf(stderr,
-            "WARNING: environment variables SLURM_JOB_CPUS_PER_NODE or SLURM_TASKS_PER_NODE are not set!\n");
+            "WARNING: environment variables SLURM_JOB_CPUS_PER_NODE or "
+            "SLURM_TASKS_PER_NODE are not set!\n");
   } else {
     slots = new slurm_slots(slotlist);
   }
@@ -251,7 +253,8 @@ resources_slurm::discover()
       slotnum = slots->next();
       if (slotnum < 0) {
         fprintf(stderr,
-                "Error: environment variables SLURM_JOB_NODELIST or SLURM_NODELIST are not set!\n");
+                "Error: environment variables SLURM_JOB_NODELIST or "
+                "SLURM_NODELIST are not set!\n");
         delete slots;
         return -1;
       }

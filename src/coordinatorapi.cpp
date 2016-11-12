@@ -436,9 +436,10 @@ CoordinatorAPI::startNewCoordinator(CoordinatorMode mode)
                                                  port, 128);
   JASSERT(coordinatorListenerSocket.isValid())
     (coordinatorListenerSocket.port()) (JASSERT_ERRNO)
-  .Text("Failed to create listen socket."
-        "\nIf msg is \"Address already in use\", this may be an old coordinator."
-        "\nKill other coordinators and try again in a minute or so.");
+    .Text("Failed to create listen socket."
+          "If msg is \"Address already in use\", this may be an old"
+          "coordinator."
+          "Kill other coordinators and try again in a minute or so.");
 
   // Now dup the sockfd to
   coordinatorListenerSocket.changeFd(PROTECTED_COORD_FD);

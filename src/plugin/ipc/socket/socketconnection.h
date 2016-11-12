@@ -175,10 +175,10 @@ class RawSocketConnection : public Connection, public SocketConnection
     virtual void onConnect(const struct sockaddr *serv_addr = NULL,
                            socklen_t addrlen = 0,
                            bool connectInProgress = false);
-    RawSocketConnection(const RawSocketConnection &parent,   // FIXME: Change to
-                                                             // SocketConnection*
-                                                             // when we fix the
-                                                             // class hierarchy
+
+    // FIXME: Change to first arg to SocketConnection* when we fix the class
+    // hierarchy
+    RawSocketConnection(const RawSocketConnection &parent,
                         const ConnectionIdentifier &remote);
 
     virtual void serializeSubClass(jalib::JBinarySerializer &o);

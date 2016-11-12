@@ -94,8 +94,12 @@ clone_start(void *arg)
 
 // need to forward user clone
 extern "C" int
-__clone(int (*fn)(
-          void *arg), void *child_stack, int flags, void *arg, int *ptid, struct user_desc *tls,
+__clone(int (*fn)(void *arg),
+        void *child_stack,
+        int flags,
+        void *arg,
+        int *ptid,
+        struct user_desc *tls,
         int *ctid)
 {
   WRAPPER_EXECUTION_DISABLE_CKPT();
@@ -201,7 +205,7 @@ pthread_create(pthread_t *thread,
   /* pthread_create() should acquire the thread-creation lock. Not doing so can
    * result in a deadlock in the following scenario:
    * 1. user thread: pthread_create() - acquire wrapper-execution lock
-   * 2. ckpt-thread: SUSPEND msg received, wait on wrlock for wrapper-exection lock
+   * 2. ckpt-thread: SUSPEND msg received, wait on wrlock for wrapper-exec lock
    * 3. user thread: __clone() - try to acquire wrapper-execution lock
    *
    * We also need to increment the uninitialized-thread-count so that it is

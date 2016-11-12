@@ -5,7 +5,6 @@
 #include <sys/un.h>
 
 
-// -------------------------------------8<------------------------------------------------//
 // This is a copy of the code from src/plugin/ipc/utils_ipc.cpp and the SSH
 // plugin.
 // This code also must be shared between the ssh and batch-queue/rm plugins.

@@ -121,8 +121,7 @@ struct internal_ibv_qp {
   uint64_t magic1;
   uint64_t magic2;
   struct ibv_qp *real_qp;
-  struct ibv_qp_init_attr init_attr; /*!< The attributes used to construct the
-                                        queue */
+  struct ibv_qp_init_attr init_attr; // Attributes used to construct the queue
   ibv_qp_id_t original_id;
   ibv_qp_id_t remote_id;
   ibv_qp_id_t current_remote;
@@ -132,12 +131,18 @@ struct internal_ibv_qp {
   int remote_pd_id;
   struct list modify_qp_log;
   uint8_t port_num; // port_num is used to get the correct lid
-  struct list post_recv_log; /*!< This list contains log entries that track what recv work
-//                                                         requests were posted. As recv work requests are polled from the CQ,
-//                                                         entries in this list are deleted. */
-  struct list post_send_log; /*!< This list contains log entries that track what send work
-//                                                         requests were posted. As send work requests are polled from the CQ,
-//                                                         entries in this list are deleted. */
+
+  /* This list contains log entries that track what recv work requests were
+   * posted. As recv work requests are polled from the CQ, entries in this list
+   * are deleted.
+   */
+  struct list post_recv_log;
+
+  /* This list contains log entries that track what send work requests were
+   * posted. As send work requests are polled from the CQ, entries in this list
+   * are deleted.
+   */
+  struct list post_send_log;
   struct list_elem elem;
 };
 
@@ -168,10 +173,10 @@ struct internal_ibv_ah {
 
 // ! A log entry of a call made to ibv_modify_qp
 struct ibv_modify_qp_log {
-  struct ibv_qp_attr attr; /*!< The attr used in the original call to
-                              ibv_modify_qp */
-  int attr_mask; /*!< The attr_mask used in the original call to ibv_modify_qp
-                    */
+  /* The attr used in the original call to ibv_modify_qp */
+  struct ibv_qp_attr attr;
+  /* The attr_mask used in the original call to ibv_modify_qp */
+  int attr_mask;
   struct list_elem elem;
 };
 
@@ -259,7 +264,8 @@ ibv_device_to_internal(struct ibv_device *dev)
 // ! Function that converts an ibv_context to internal_ibv_ctx
 
 /*!
- * \param ctx a pointer to an ibv_context which is embedded in an internal_ibv_ctx
+ * \param ctx a pointer to an ibv_context which is embedded in an
+ * internal_ibv_ctx
  * \return A pointer to the internal_ibv_ctx struct which ctx is embedded in
  * */
 static inline struct internal_ibv_ctx *
@@ -295,7 +301,8 @@ ibv_mr_to_internal(struct ibv_mr *mr)
 // ! Function that converts an ibv_comp_channel to an internal_ibv_comp_channel
 
 /*!
- * \param comp a pointer to an ibv_comp_channel which is embedded in an internal_ibv_comp_channel
+ * \param comp a pointer to an ibv_comp_channel which is embedded in an
+ * internal_ibv_comp_channel
  * \return A pointer to internal_ibv_comp_channel which comp is embedded in
  */
 static inline struct internal_ibv_comp_channel *

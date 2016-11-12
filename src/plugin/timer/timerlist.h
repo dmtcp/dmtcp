@@ -72,11 +72,7 @@ class TimerList
 
     TimerList()
       : _timerVirtIdTable("Timer", (timer_t)NULL, 999999)
-      , _clockVirtIdTable("Clock", (clockid_t)(unsigned)getpid()) {}     // (clockid_t)
-                                                                         // (unsigned
-                                                                         // long)
-                                                                         // getpid())
-                                                                         // { }
+      , _clockVirtIdTable("Clock", (clockid_t)(unsigned)getpid()) {}
 
     static TimerList &instance();
 

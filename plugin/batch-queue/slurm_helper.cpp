@@ -1,7 +1,6 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 
-// -------------------------------------8<------------------------------------------------//
 // This is a copy of the code from src/plugin/ipc/utils_ipc.cpp and SSH plugin
 // This code also must be shared between ssh ans rm plugins.
 
@@ -71,6 +70,3 @@ slurm_receiveFd(int restoreFd, void *data, size_t len)
 
   return fd;
 }
-
-// FIXME
-// -------------------------------------8<------------------------------------------------//

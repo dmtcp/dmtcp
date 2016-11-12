@@ -123,8 +123,12 @@ typedef int (*clone_fptr_t)(int (*fn)(void *arg), void *child_stack, int
 
 // need to forward user clone
 extern "C" int
-__clone(int (*fn)(
-          void *arg), void *child_stack, int flags, void *arg, int *parent_tidptr, struct user_desc *newtls,
+__clone(int (*fn)(void *arg),
+        void *child_stack,
+        int flags,
+        void *arg,
+        int *parent_tidptr,
+        struct user_desc *newtls,
         int *child_tidptr)
 {
   pid_t virtualTid = -1;
@@ -278,10 +282,6 @@ mq_notify(mqd_t mqdes, const struct sigevent *sevp)
   return ret;
 }
 #endif // if 0
-
-extern "C" int __clone(int (*fn)(
-                         void *arg), void *child_stack, int flags, void *arg, int *parent_tidptr, struct user_desc *newtls,
-                       int *child_tidptr);
 
 #define SYSCALL_VA_START() \
   va_list ap;              \

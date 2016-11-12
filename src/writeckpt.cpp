@@ -62,7 +62,7 @@ ProcSelfMaps *procSelfMaps = NULL;
 vector<ProcMapsArea> *nscdAreas = NULL;
 
 // FIXME:  If we allocate in the middle of reading
-///proc/self/maps, we modify the mapping.  But whenever we
+// /proc/self/maps, we modify the mapping.  But whenever we
 // add to nscdAreas, we risk allocating memory.  So, we're depending
 // on this memory being smaller than any pre-allocated memory,
 // so that the memory allocator does not call mmap in the middle
@@ -155,7 +155,9 @@ mtcp_writememoryareas(int fd)
 
     if ((uint64_t)area.addr == ProcessInfo::instance().restoreBufAddr()) {
       JASSERT(area.size == ProcessInfo::instance().restoreBufLen())
-        ((void *)area.addr) (area.size) (ProcessInfo::instance().restoreBufLen());
+        ((void *)area.addr)
+        (area.size)
+        (ProcessInfo::instance().restoreBufLen());
       continue;
     } else if (SharedData::isSharedDataRegion(area.addr)) {
       continue;

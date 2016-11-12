@@ -417,8 +417,8 @@ unmapRestoreArgv()
   long page_mask = ~(page_size - 1);
 
   if (_mtcpRestoreArgvStartAddr != NULL) {
-    JTRACE(
-      "Unmapping previously mmap()'d pages (that were mmap()'d for restoring argv");
+    JTRACE("Unmapping previously mmap()'d pages (that were mmap()'d for "
+           "restoring argv");
     size_t len;
     len = (ProcessInfo::instance().argvSize() + page_size) & page_mask;
     JASSERT(_real_munmap(_mtcpRestoreArgvStartAddr, len) == 0)

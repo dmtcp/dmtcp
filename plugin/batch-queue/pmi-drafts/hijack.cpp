@@ -85,12 +85,15 @@ PMI_Finalize(void)
   if (!_real) {
     init_handle();
     _real = (_PMI_Finalize_t)dlsym(handle, "PMI_Finalize");
-    _kvsname_max = (_PMI_KVS_Get_name_length_max_t)dlsym(handle,
-                                                         "PMI_KVS_Get_name_length_max");
-    _key_max = (_PMI_KVS_Get_key_length_max_t)dlsym(handle,
-                                                    "PMI_KVS_Get_key_length_max");
-    _val_max = (_PMI_KVS_Get_value_length_max_t)dlsym(handle,
-                                                      "PMI_KVS_Get_value_length_max");
+    _kvsname_max =
+      (_PMI_KVS_Get_name_length_max_t) dlsym(handle,
+                                             "PMI_KVS_Get_name_length_max");
+    _key_max =
+      (_PMI_KVS_Get_key_length_max_t)dlsym(handle,
+                                           "PMI_KVS_Get_key_length_max");
+    _val_max =
+      (_PMI_KVS_Get_value_length_max_t)dlsym(handle,
+                                             "PMI_KVS_Get_value_length_max");
   }
 
   /*
@@ -180,12 +183,16 @@ PMI_Barrier(void)
   if (!_real) {
     init_handle();
     _real = (_PMI_Barrier_t)dlsym(handle, "PMI_Barrier");
-    _kvsname_max = (_PMI_KVS_Get_name_length_max_t)dlsym(handle,
-                                                         "PMI_KVS_Get_name_length_max");
-    _key_max = (_PMI_KVS_Get_key_length_max_t)dlsym(handle,
-                                                    "PMI_KVS_Get_key_length_max");
-    _val_max = (_PMI_KVS_Get_value_length_max_t)dlsym(handle,
-                                                      "PMI_KVS_Get_value_length_max");
+
+    _kvsname_max =
+      (_PMI_KVS_Get_name_length_max_t)dlsym(handle,
+                                            "PMI_KVS_Get_name_length_max");
+    _key_max =
+      (_PMI_KVS_Get_key_length_max_t)dlsym(handle,
+                                           "PMI_KVS_Get_key_length_max");
+    _val_max =
+      (_PMI_KVS_Get_value_length_max_t)dlsym(handle,
+                                             "PMI_KVS_Get_value_length_max");
   }
 
   std::fstream out;

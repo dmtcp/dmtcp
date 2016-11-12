@@ -218,8 +218,8 @@ createNewDmtcpSshdProcess()
     dup2(out[1], STDOUT_FILENO);
     dup2(err[1], STDERR_FILENO);
 
-    JTRACE("Launching ") (argv[0]) (argv[1]) (argv[2]) (argv[3]) (argv[4]) (argv
-                                                                            [5]);
+    JTRACE("Launching ")
+      (argv[0]) (argv[1]) (argv[2]) (argv[3]) (argv[4]) (argv[5]);
     _real_execvp(argv[0], argv);
     JASSERT(false);
   }
@@ -455,10 +455,9 @@ updateCoordHost()
         memcpy(&localhostIPAddr, &s->sin_addr, sizeof s->sin_addr);
       }
     }
-    if (!success) {
-      JWARNING(false)("Failed to find coordinator IP address.  DMTCP may fail.") (
-        hostname);
-    }
+
+    JWARNING(!success) (hostname)
+      .Text("Failed to find coordinator IP address.  DMTCP may fail.");
   } else {
     if (error == EAI_SYSTEM) {
       perror("getaddrinfo");

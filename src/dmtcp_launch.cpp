@@ -66,7 +66,8 @@ static const char *theUsage =
   "  --new-coordinator\n"
   "              Create a new coordinator at the given port. Fail if one\n"
   "              already exists on the given port. The port can be specified\n"
-  "              with --coord-port, or with environment variable DMTCP_COORD_PORT.\n"
+  "              with --coord-port, or with environment variable \n"
+  "              DMTCP_COORD_PORT.\n"
   "              If no port is specified, start coordinator at a random port\n"
   "              (same as specifying port '0').\n"
   "  --no-coordinator\n"
@@ -76,14 +77,15 @@ static const char *theUsage =
   "              an embedded coordinator runs in the original process only.\n"
   "  -i, --interval SECONDS (environment variable DMTCP_CHECKPOINT_INTERVAL)\n"
   "              Time in seconds between automatic checkpoints.\n"
-  "              0 implies never (manual ckpt only); if not set and no env var,\n"
-  "              use default value set in dmtcp_coordinator or dmtcp_command.\n"
+  "              0 implies never (manual ckpt only);\n"
+  "              if not set and no env var, use default value set in\n"
+  "              dmtcp_coordinator or dmtcp_command.\n"
   "              Not allowed if --join is specified\n"
   "\n"
   "Checkpoint image generation:\n"
   "  --gzip, --no-gzip, (environment variable DMTCP_GZIP=[01])\n"
   "              Enable/disable compression of checkpoint images (default: 1)\n"
-  "              WARNING:  gzip adds seconds.  Without gzip, ckpt is often < 1 s\n"
+  "              WARNING: gzip adds seconds. Without gzip, ckpt is often < 1s\n"
 #ifdef HBICT_DELTACOMP
   "  --hbict, --no-hbict, (environment variable DMTCP_HBICT=[01])\n"
   "              Enable/disable compression of checkpoint images (default: 1)\n"
@@ -105,7 +107,8 @@ static const char *theUsage =
   "\n"
   "Enable/disable plugins:\n"
   "  --with-plugin (environment variable DMTCP_PLUGIN)\n"
-  "              Colon-separated list of DMTCP plugins to be preloaded with DMTCP.\n"
+  "              Colon-separated list of DMTCP plugins to be preloaded with\n"
+  "              DMTCP.\n"
   "              (Absolute pathnames are required.)\n"
   "  --batch-queue, --rm\n"
   "              Enable support for resource managers (Torque PBS and SLURM).\n"
@@ -129,7 +132,7 @@ static const char *theUsage =
   "\n"
   "Other options:\n"
   "  --tmpdir PATH (environment variable DMTCP_TMPDIR)\n"
-  "              Directory to store temporary files (default: $TMDPIR or /tmp)\n"
+  "              Directory to store temp files (default: $TMDPIR or /tmp)\n"
   "              (Behavior is undefined if two launched processes specify\n"
   "               different tmpdirs.)\n"
   "  -q, --quiet (or set environment variable DMTCP_QUIET = 0, 1, or 2)\n"
@@ -683,11 +686,12 @@ testSetuid(const char *filename)
   if (Util::isSetuid(filename) &&
       strcmp(filename, "screen") != 0 && strstr(filename, "/screen") == NULL) {
     static const char *theSetuidWarning =
-      "\n**** WARNING:  This process has the setuid or setgid bit set.  This is\n"
+      "\n"
+      "**** WARNING:  This process has the setuid or setgid bit set.  This is\n"
       "***  incompatible with the use by DMTCP of LD_PRELOAD.  The process\n"
       "***  will not be checkpointed by DMTCP.  Continuing and hoping\n"
       "***  for the best.  For some programs, you may wish to\n"
-      "***  compile your own private copy, without using setuid permission.\n\n";
+      "***  compile your own private copy, without using setuid permission.\n";
 
     JASSERT_STDERR << theSetuidWarning;
     sleep(3);
@@ -812,7 +816,8 @@ setLDPreloadLibs(bool is32bitElf)
     .Text("You appear to be checkpointing a 32-bit target under 64-bit Linux.\n"
           "DMTCP was unable to find the 32-bit installation.\n"
           "See DMTCP FAQ or try:\n"
-          "  ./configure --enable-m32 && make clean && make -j && make install\n"
+          "  ./configure --enable-m32 && make clean && make -j && "
+          "make install\n"
           "  ./configure && make clean && make -j && make install\n");
     setenv("LD_PRELOAD", preloadLibs.c_str(), 1);
   }

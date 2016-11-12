@@ -118,8 +118,8 @@ Util::Descriptor::add_descriptor(descriptor_types_u *descriptor)
 {
   JASSERT(descriptor != NULL);
   if (descriptor_counter < MAX_DESCRIPTORS) {
-    JTRACE("Adding new descriptor") (descriptor_counter) (descrip_types_p[
-                                                            descriptor_counter]);
+    JTRACE("Adding new descriptor")
+      (descriptor_counter) (descrip_types_p[descriptor_counter]);
     memcpy(descrip_types_p[descriptor_counter],
            descriptor, sizeof(descriptor_types_u));
     descriptor_counter++;
@@ -200,11 +200,8 @@ Util::Descriptor::get_descriptor(unsigned int index,
     memcpy(descriptor, descrip_types_p[index], sizeof(descriptor_types_u));
     ret_val = true;
   } else {
-    JTRACE("descriptor type is different from type saved") (type) ((
-                                                                     descrip_types_p
-                                                                     [index])->
-                                                                   add_watch.
-    type);
+    JTRACE("descriptor type is different from type saved")
+      (type) ((descrip_types_p[index])->add_watch.type);
   }
 
   return ret_val;
@@ -278,8 +275,8 @@ Util::Descriptor::remove_inotify_watch_descriptor(int watch_descriptor)
 
   for (i = 0; i < MAX_DESCRIPTORS; i++) {
     if ((descrip_types_p[i])->add_watch.type == INOTIFY_ADD_WATCH_DESCRIPTOR) {
-      JTRACE(
-        "find the saved watch descriptor that corresponds to the one passed in");
+      JTRACE("find the saved watch descriptor that corresponds to the one "
+             "passed in");
 
       if ((descrip_types_p[i])->add_watch.watch_descriptor ==
           watch_descriptor) {

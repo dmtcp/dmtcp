@@ -126,7 +126,7 @@ closedir(DIR *dir)
 }
 
 /*
- * FIXME: Add wrapper for dup2 and dup3 to detect if the newfd is a protected fd.
+ * FIXME: Add wrapper for dup2 and dup3 to detect a protected fd.
 extern "C" int dup2(int oldfd, int newfd)
 {
   if (DMTCP_IS_PROTECTED_FD(newfd)) {
@@ -253,8 +253,12 @@ waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options)
 }
 #endif // if 1
 
-extern "C" int __clone(int (*fn)(
-                         void *arg), void *child_stack, int flags, void *arg, int *parent_tidptr, struct user_desc *newtls,
+extern "C" int __clone(int (*fn)(void *arg),
+                       void *child_stack,
+                       int flags,
+                       void *arg,
+                       int *parent_tidptr,
+                       struct user_desc *newtls,
                        int *child_tidptr);
 
 #define SYSCALL_VA_START() \
@@ -763,6 +767,8 @@ snprintf (char *s, size_t maxlen, const char *format, ...)
 }
 
 
-extern "C" int vsprintf(char *str, const char *format, va_list ap);
-extern "C" int vsnprintf(char *str, size_t size, const char *format, va_list ap);
+extern "C" int
+vsprintf(char *str, const char *format, va_list ap);
+extern "C" int
+vsnprintf(char *str, size_t size, const char *format, va_list ap);
 */

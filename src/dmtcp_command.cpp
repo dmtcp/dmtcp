@@ -192,7 +192,8 @@ main(int argc, char **argv)
         fprintf(stderr, "Coordinator not found. Please check port and host.\n");
       } else {
         fprintf(stderr,
-                "Coordinator not found. Try specifying port with \'--port\'.\n");
+                "Coordinator not found. "
+                "Try specifying port with \'--port\'.\n");
       }
       break;
     case CoordCmdStatus::ERROR_INVALID_COMMAND:

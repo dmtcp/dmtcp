@@ -151,8 +151,7 @@ ibv_free_device_list(struct ibv_device **list)
 
 extern "C"
 int
-ibv_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr, int attr_mask) // int
-                                                                          // attr_mask)
+ibv_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr, int attr_mask)
 {
   JASSERT(!isVirtIB);
   return _real_ibv_modify_qp(qp, attr, attr_mask);

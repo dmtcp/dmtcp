@@ -17,8 +17,6 @@
 static int listenSock = -1;
 static int noStrictHostKeyChecking = 0;
 
-extern "C" void dmtcp_get_local_ip_addr(struct in_addr *addr) __attribute((weak));
-
 // static bool strEndsWith(const char *str, const char *pattern)
 // {
 // assert(str != NULL && pattern != NULL);

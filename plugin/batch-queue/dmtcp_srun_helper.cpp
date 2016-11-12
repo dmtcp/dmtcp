@@ -32,7 +32,6 @@ int restart_fd = -1;
 
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 
-// -------------------------------------8<------------------------------------------------//
 // FIXME: this is exactly the same code as in src/plugin/ipc/ssh/util_ssh.cpp
 // We need to use the same code base in the future.
 // TODO: Put this in some shared location (e.g., util directory).
@@ -144,7 +143,6 @@ set_nonblock(int fd)
 }
 
 // End of FIXME
-// -------------------------------------8<------------------------------------------------//
 
 /*
  * Signal handler for signals that cause the program to terminate.  These

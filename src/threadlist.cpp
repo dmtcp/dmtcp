@@ -403,7 +403,8 @@ checkpointhread(void *dummy)
   }
 
   /* This is a sleep-checkpoint-resume loop by the checkpoint thread.
-   * On restart, we arrive back at getcontext, above, and then re-enter the loop.
+   * On restart, we arrive back at getcontext, above, and then re-enter the
+   * loop.
    */
   while (1) {
     /* Wait a while between writing checkpoint files */

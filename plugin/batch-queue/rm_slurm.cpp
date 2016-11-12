@@ -71,8 +71,8 @@ dmtcp::slurm_restore_env()
   FILE *fp = fopen(filename.c_str(), "r");
 
   if (!fp) {
-    JTRACE("Cannot open SLURM environment file. Environment won't be restored!")(
-      filename);
+    JTRACE("Cannot open SLURM environment file. Environment won't be restored!")
+      (filename);
     return;
   }
 
@@ -136,8 +136,8 @@ print_args(char *const argv[])
  * original:
  *   srun <srun-opts> <binary> <binary-opts>
  * new:
- *   dmtcp_srun_helper dmtcp_nocheckpoint | srun <srun-opts> | dmtcp_launch <dmtcp-opts> --explicit-srun |  <binary> <binary-opts>
- *   <---------- dmtcp hijack -----------> <-orig srun------> <------------- dmtcp hijack --------------> <----- orig binary----->
+ *   dmtcp_srun_helper dmtcp_nocheckpoint | srun <srun-opts> |
+ *     dmtcp_launch <dmtcp-opts> --explicit-srun |  <binary> <binary-opts>
  *
  * This complexity is because we want to launch the dmtcp srun helper that will
  * be aware that it is under checkpoint control.  The srun helper will aid in

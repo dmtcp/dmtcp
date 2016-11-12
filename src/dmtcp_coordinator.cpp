@@ -118,7 +118,8 @@ static const char *theUsage =
   "  --exit-after-ckpt\n"
   "      Kill peer processes of computation after first checkpoint is created\n"
   "  --daemon\n"
-  "      Run silently in the background after detaching from the parent process.\n"
+  "      Run silently in the background after detaching from the parent "
+  "process.\n"
   "  -i, --interval (environment variable DMTCP_CHECKPOINT_INTERVAL):\n"
   "      Time in seconds between automatic checkpoints\n"
   "      (default: 0, disabled)\n"
@@ -569,7 +570,8 @@ DmtcpCoordinator::onData(CoordClient *client)
 
   case DMT_BARRIER_LIST:
   {
-    JNOTE("got DMT_BARRIER_LIST message") (msg.from) (extraData) (client->state());
+    JNOTE("got DMT_BARRIER_LIST message")
+      (msg.from) (extraData) (client->state());
 
     // TODO(kapil): Check barrier mismatch.
     vector<string>barriers = Util::tokenizeString(extraData, ";");
@@ -1238,8 +1240,8 @@ calcLocalAddr()
       }
     }
     if (!success) {
-      JWARNING(false)("Failed to find coordinator IP address.  DMTCP may fail.") (
-        hostname);
+      JWARNING(false)("Failed to find coordinator IP address.  DMTCP may fail.")
+        (hostname);
     }
   } else {
     if (error == EAI_SYSTEM) {
@@ -1506,7 +1508,8 @@ main(int argc, char **argv)
     listenSock = new jalib::JServerSocket(jalib::JSockAddr::ANY, thePort, 128);
     JASSERT(listenSock->isValid()) (thePort) (JASSERT_ERRNO)
     .Text("Failed to create listen socket."
-          "\nIf msg is \"Address already in use\", this may be an old coordinator."
+          "\nIf msg is \"Address already in use\", "
+          "this may be an old coordinator."
           "\nKill default coordinator and try again:  dmtcp_command -q"
           "\nIf that fails, \"pkill -9 dmtcp_coord\","
           " and try again in a minute or so.");
