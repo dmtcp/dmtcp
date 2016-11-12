@@ -1,29 +1,29 @@
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/mman.h>
-#include <limits.h>
-#include <fcntl.h>
-#include <stdio.h>
-#include <unistd.h>
 #include <errno.h>
-#include <string.h>
-#include <stdlib.h>
+#include <fcntl.h>
 #include <fnmatch.h>
+#include <limits.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #ifndef STANDALONE
-# include "jassert.h"
 # include "dmtcp.h"
-#endif
+# include "jassert.h"
+#endif // ifndef STANDALONE
 
-#define DEFAULT_DATA_FILE   "./ckptfiles.dat"
-#define MAX_DATA_FILE_SIZE  12288     // Max. data file size: 12kB
-#define MAX_FILE_LEN        PATH_MAX
-#define MAX_EXPRESSIONS     1024      // Max. entries in the database
-#define readEOF ((char)-1)
+#define DEFAULT_DATA_FILE  "./ckptfiles.dat"
+#define MAX_DATA_FILE_SIZE 12288      // Max. data file size: 12kB
+#define MAX_FILE_LEN       PATH_MAX
+#define MAX_EXPRESSIONS    1024       // Max. entries in the database
+#define readEOF            ((char)-1)
 
 struct ckptfilesdata {
   char filep[MAX_FILE_LEN];
-  int  ckpt;
+  int ckpt;
   char rstrt[MAX_FILE_LEN];
 };
 
@@ -31,17 +31,25 @@ ckptfilesdata ckptfileslist[MAX_EXPRESSIONS];
 char *buff = NULL;
 
 static int
-readall(int fd, char *buf, int maxCount) {
+readall(int fd, char *buf, int maxCount)
+{
   int count = 0;
+
   while (1) {
     if (count + 100 > maxCount) {
       fprintf(stderr, "Data file is too large.\n");
       return -1;
     }
-    int numRead = read(fd, buf+count, 100); // read up to 100 char's at once
-    if (numRead == 0) return count; // Reading 0 means EOF
-    if (numRead > 0) count += numRead;
-    if (numRead < 0 && errno != EAGAIN && errno != EINVAL) return -1; // error
+    int numRead = read(fd, buf + count, 100); // read up to 100 char's at once
+    if (numRead == 0) {
+      return count;                 // Reading 0 means EOF
+    }
+    if (numRead > 0) {
+      count += numRead;
+    }
+    if (numRead < 0 && errno != EAGAIN && errno != EINVAL) {
+      return -1;                                                      // error
+    }
   }
 }
 
@@ -49,9 +57,10 @@ static int
 read_data_file()
 {
   int size = MAX_DATA_FILE_SIZE;
+
   // We avoid using malloc.
-  buff = (char*)mmap(NULL, size, PROT_READ | PROT_WRITE,
-              MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+  buff = (char *)mmap(NULL, size, PROT_READ | PROT_WRITE,
+                      MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
   if (buff == MAP_FAILED) {
     perror("mmap");
     return -1;
@@ -114,6 +123,7 @@ static int
 is_in_ckptfileslist(const char *abspath)
 {
   int ret = -1;
+
   for (int i = 0; i < listlen; i++) {
     ret = fnmatch(ckptfileslist[i].filep, abspath, 0);
     if (ret == 0) {
@@ -124,10 +134,10 @@ is_in_ckptfileslist(const char *abspath)
 }
 
 static void
-get_restart_path(const char *abspath, const char *cwd,
-                 char *newpath)
+get_restart_path(const char *abspath, const char *cwd, char *newpath)
 {
   int ret = -1;
+
   for (int i = 0; i < listlen; i++) {
     ret = fnmatch(ckptfileslist[i].filep, abspath, 0);
     if (ret == 0 && !ckptfileslist[i].ckpt) {
@@ -166,22 +176,23 @@ restart()
 }
 
 #ifndef STANDALONE
-static void ckpfile_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
-{
-  return;
-}
-#else
-int main()
+static void
+ckpfile_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
+{}
+
+#else // ifndef STANDALONE
+int
+main()
 {
   read_data_file();
   parse_data_file();
   return 0;
 }
-#endif
+#endif // ifndef STANDALONE
 
 static DmtcpBarrier ckptfileBarriers[] = {
-  {DMTCP_GLOBAL_BARRIER_PRE_CKPT, preCkpt, "checkpoint"},
-  {DMTCP_GLOBAL_BARRIER_RESTART, restart, "restart"}
+  { DMTCP_GLOBAL_BARRIER_PRE_CKPT, preCkpt, "checkpoint" },
+  { DMTCP_GLOBAL_BARRIER_RESTART, restart, "restart" }
 };
 
 DmtcpPluginDescriptor_t ckpfile_plugin = {
