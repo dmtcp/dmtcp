@@ -18,35 +18,34 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#include <algorithm>
+#include <fstream>
+#include <getopt.h>
+#include <iostream>
+#include <map>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
-#include <string>
-#include <map>
-#include <iostream>
-#include <string>
-#include <fstream>
-#include <vector>
-#include <algorithm>
-#include <getopt.h>
 #include <string.h>
+#include <string>
+#include <string>
+#include <unistd.h>
+#include <vector>
 
 #ifndef DISCOVER_TORQUE_H
-#define DISCOVER_TORQUE_H
+# define DISCOVER_TORQUE_H
 
-#include "discover_resources.h"
+# include "discover_resources.h"
 
-class resources_tm : public resources {
-public:
+class resources_tm : public resources
+{
+  public:
+    resources_tm() : resources(torque) {}
 
-  resources_tm() : resources(torque) {   }
-
-  int discover();
-  static bool probe()
-  {
-    return (getenv("PBS_ENVIRONMENT") != NULL) &&
-            (NULL != getenv("PBS_JOBID"));
-  }
+    int discover();
+    static bool probe()
+    {
+      return (getenv("PBS_ENVIRONMENT") != NULL) &&
+             (NULL != getenv("PBS_JOBID"));
+    }
 };
-
-#endif
+#endif // ifndef DISCOVER_TORQUE_H

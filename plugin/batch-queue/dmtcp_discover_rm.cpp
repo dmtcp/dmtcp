@@ -18,46 +18,52 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#include "discover_dmtcpinput.h"
+#include "discover_resources.h"
+#include "discover_slurm.h"
+#include "discover_torque.h"
+#include <algorithm>
+#include <fstream>
+#include <getopt.h>
+#include <iostream>
+#include <map>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
-#include <getopt.h>
 #include <string.h>
 #include <string>
-#include <map>
-#include <iostream>
-#include <fstream>
+#include <unistd.h>
 #include <vector>
-#include <algorithm>
-#include "discover_resources.h"
-#include "discover_dmtcpinput.h"
-#include "discover_torque.h"
-#include "discover_slurm.h"
 
 
-
-resources *discover_rm()
+resources *
+discover_rm()
 {
-  if ( resources_tm::probe() == true ) {
+  if (resources_tm::probe() == true) {
     return new resources_tm();
-  } else if ( resources_slurm::probe() == true ) {
+  } else if (resources_slurm::probe() == true) {
     return new resources_slurm();
   }
   return NULL;
 }
 
-void print_help(char *pname)
+void
+print_help(char *pname)
 {
   std::string name = pname;
   std::cout << "Usage: " + name << std::endl;
   std::cout << "--help or no arguments - print this page" << std::endl;
-  std::cout << "-t, --test-rm          - check for rm and write out allocated nodes" << std::endl;
-  std::cout << "-n, --new-output       - Output for RM remote launch utilitys" << std::endl;
-  std::cout << "no options mean read worker_ckpts content from input and do" << std::endl;
+  std::cout <<
+  "-t, --test-rm          - check for rm and write out allocated nodes" <<
+  std::endl;
+  std::cout <<
+  "-n, --new-output       - Output for RM remote launch utilitys" << std::endl;
+  std::cout << "no options mean read worker_ckpts content from input and do" <<
+  std::endl;
   std::cout << "mapping of exiting RM resources to old ones" << std::endl;
 }
 
-int main(int argc, char **argv)
+int
+main(int argc, char **argv)
 {
   resources *rm = discover_rm();
   bool new_out = false;
@@ -72,15 +78,16 @@ int main(int argc, char **argv)
     int option_index;
     static struct option long_options[] = {
       // modes
-      { "help", 0, 0, 'h'},
-      { "test-rm", 1, 0, 't'},
-      { "new-output", 1, 0, 'n'},
-      { 0, 0, 0, 0}
+      { "help", 0, 0, 'h' },
+      { "test-rm", 1, 0, 't' },
+      { "new-output", 1, 0, 'n' },
+      { 0, 0, 0, 0 }
     };
 
     c = getopt_long(argc, argv, "htn", long_options, &option_index);
-    if (c == -1)
+    if (c == -1) {
       break;
+    }
     switch (c) {
     case 'h':
       break;
@@ -93,7 +100,7 @@ int main(int argc, char **argv)
     }
   }
 
-  if(optind < argc && mode == help) {
+  if (optind < argc && mode == help) {
     mode = full;
     input_arg = argv[optind];
   }
@@ -122,10 +129,11 @@ int main(int argc, char **argv)
     }
     resources_input inp(input_arg);
     inp.output("input_config");
-    if( !new_out )
+    if (!new_out) {
       inp.writeout_old("new_worker_ckpts", *rm);
-    else
+    } else {
       inp.writeout_new("DMTCP_REMLAUNCH", *rm);
+    }
     fflush(stdout);
     break;
   }

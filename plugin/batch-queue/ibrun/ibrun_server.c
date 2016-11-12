@@ -1,17 +1,17 @@
+#include "ibrun_common.h"
+#include <arpa/inet.h>
+#include <fcntl.h>
+#include <netdb.h>
+#include <netinet/in.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
-#include <stdbool.h>
 #include <string.h>
-#include <netinet/in.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netdb.h>
-#include <arpa/inet.h>
-#include <sys/time.h>
 #include <sys/select.h>
-#include <fcntl.h>
-#include "ibrun_common.h"
+#include <sys/socket.h>
+#include <sys/time.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #define BACKLOG 128
 
@@ -24,7 +24,9 @@ typedef struct {
 static int number_of_ckpts = 0;
 static int number_of_hosts = 0;
 
-int main() {
+int
+main()
+{
   char *port = getenv("IBRUN_PORT");
 
   if (!port) {
@@ -81,9 +83,10 @@ int main() {
   size_t size;
 
   for (; next_id < number_of_ckpts; ++next_id) {
-    size = sizeof (client);
+    size = sizeof(client);
     if ((client_sd = accept(listener_sd,
-            (struct sockaddr *)&client, (socklen_t *)&size)) == -1) {
+                            (struct sockaddr *)&client,
+                            (socklen_t *)&size)) == -1) {
       perror("accept");
       continue;
     }
@@ -96,8 +99,7 @@ int main() {
         id.node_id = i;
         id.process_id = 0;
         break;
-      }
-      else if (strcmp(slots_list[i].hostname, client_name) == 0) {
+      } else if (strcmp(slots_list[i].hostname, client_name) == 0) {
         id.node_id = i;
         id.process_id = slots_list[i].cur++;
         break;
