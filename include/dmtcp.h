@@ -209,7 +209,7 @@ EXTERNC int dmtcp_send_query_to_coordinator(const char *id,
                                             void *val,
                                             uint32_t *val_len);
 
-EXTERNC void dmtcp_get_local_ip_addr(struct in_addr *in);
+EXTERNC void dmtcp_get_local_ip_addr(struct in_addr *in) __attribute((weak));
 
 EXTERNC const char *dmtcp_get_tmpdir(void);
 
