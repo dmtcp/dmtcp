@@ -21,14 +21,14 @@
 
 #pragma once
 #ifndef DMTCP_IPC_H
-# define DMTCP_IPC_H
+#define DMTCP_IPC_H
 
-# include "dmtcp.h"
-# include <dirent.h>
-# include <linux/version.h>
-# include <poll.h>
-# include <signal.h>
-# include <sys/types.h>
+#include <dirent.h>
+#include <linux/version.h>
+#include <poll.h>
+#include <signal.h>
+#include <sys/types.h>
+#include "dmtcp.h"
 
 # define CONNECTION_ID_START        99000
 

@@ -21,9 +21,9 @@
 
 #pragma once
 #ifndef FILE_WRAPPERS_H
-# define FILE_WRAPPERS_H
+#define FILE_WRAPPERS_H
 
-# include "dmtcp.h"
+#include "dmtcp.h"
 
 # define _real_open            NEXT_FNC(open)
 # define _real_open64          NEXT_FNC(open64)

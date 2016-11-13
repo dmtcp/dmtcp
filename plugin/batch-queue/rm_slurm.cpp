@@ -21,9 +21,7 @@
 /* SLURM resource manager supporting code
 */
 
-#include "rm_main.h"
 #include "rm_slurm.h"
-#include "slurm_helper.h"
 #include <assert.h>
 #include <dmtcp.h>
 #include <jalib.h>
@@ -31,16 +29,18 @@
 #include <jconvert.h>
 #include <jfilesystem.h>
 #include <linux/limits.h>
-#include <list>
 #include <pthread.h>
 #include <stdlib.h>
-#include <string>
 #include <sys/socket.h>
 #include <sys/syscall.h>
 #include <sys/types.h>
 #include <sys/un.h>
 #include <util.h>
+#include <list>
+#include <string>
 #include <vector>
+#include "rm_main.h"
+#include "slurm_helper.h"
 
 static const char *srunHelper = "dmtcp_srun_helper";
 

@@ -22,7 +22,6 @@
 #ifndef SYSVIPC_H
 #define SYSVIPC_H
 
-#include <map>
 #include <sys/ipc.h>
 #include <sys/msg.h>
 #include <sys/sem.h>
@@ -32,14 +31,15 @@
 #include <sys/types.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <map>
 #include <vector>
 
-#include "dmtcpalloc.h"
 #include "jalloc.h"
 #include "jassert.h"
 #include "jbuffer.h"
 #include "jconvert.h"
 #include "jserialize.h"
+#include "dmtcpalloc.h"
 #include "shareddata.h"
 #include "virtualidtable.h"
 

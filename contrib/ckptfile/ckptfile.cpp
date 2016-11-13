@@ -11,9 +11,9 @@
 #include <unistd.h>
 
 #ifndef STANDALONE
-# include "dmtcp.h"
-# include "jassert.h"
-#endif // ifndef STANDALONE
+#include "jassert.h"
+#include "dmtcp.h"
+#endif  // ifndef STANDALONE
 
 #define DEFAULT_DATA_FILE  "./ckptfiles.dat"
 #define MAX_DATA_FILE_SIZE 12288      // Max. data file size: 12kB

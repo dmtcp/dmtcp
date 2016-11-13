@@ -22,23 +22,23 @@
 // CAN REMOVE BOOL enableCheckpointing ARG OF DmtcpWorker WHEN WE'RE DONE.
 // DmtcpWorker CAN INHERIT THIS CLASS, CoordinatorAPI
 
-#include  "../jalib/jconvert.h"
-#include  "../jalib/jfilesystem.h"
-#include "../jalib/jsocket.h"
 #include "coordinatorapi.h"
+#include <arpa/inet.h>
+#include <fcntl.h>
+#include <netdb.h>
+#include <semaphore.h>  // for sem_post(&sem_launch)
+#include <sys/time.h>
+#include <sys/types.h>
+#include <unistd.h>
+#include "../jalib/jconvert.h"
+#include "../jalib/jfilesystem.h"
+#include "../jalib/jsocket.h"
 #include "dmtcp.h"
 #include "processinfo.h"
 #include "shareddata.h"
 #include "syscallwrappers.h"
 #include "util.h"
 #include "util.h"
-#include <arpa/inet.h>
-#include <fcntl.h>
-#include <netdb.h>
-#include <semaphore.h> // for sem_post(&sem_launch)
-#include <sys/time.h>
-#include <sys/types.h>
-#include <unistd.h>
 
 // sem_launch is used in threadlist.cpp
 // sem_launch_first_time will be set just before pthread_create(checkpointhread)

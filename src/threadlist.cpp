@@ -1,4 +1,3 @@
-#include "config.h"
 #include <linux/version.h>
 #include <pthread.h>
 #include <semaphore.h>
@@ -7,16 +6,17 @@
 #include <sys/syscall.h>
 #include <sys/types.h>
 #include <unistd.h>
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, \
-                                         11) || defined(HAS_PR_SET_PTRACER)
-# include <sys/prctl.h>
-#endif // if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 11) ||
-       // defined(HAS_PR_SET_PTRACER)
+#include "config.h"
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 11) || \
+    defined(HAS_PR_SET_PTRACER)
+#include <sys/prctl.h>
+#endif  // if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 11) ||
+// defined(HAS_PR_SET_PTRACER)
+#include "jalloc.h"
+#include "jassert.h"
 #include "ckptserializer.h"
 #include "dmtcpalloc.h"
 #include "dmtcpworker.h"
-#include "jalloc.h"
-#include "jassert.h"
 #include "mtcp/mtcp_header.h"
 #include "pluginmanager.h"
 #include "shareddata.h"
@@ -31,15 +31,14 @@
 // on for them until they are debugged.
 // Default is to use  setcontext/getcontext.
 #if defined(__arm__) || defined(__aarch64__)
-# define SETJMP /* setcontext/getcontext not defined for ARM glibc */
-#endif // if defined(__arm__) || defined(__aarch64__)
+#define SETJMP /* setcontext/getcontext not defined for ARM glibc */
+#endif         // if defined(__arm__) || defined(__aarch64__)
 
 #ifdef SETJMP
-# include <setjmp.h>
-#else // ifdef SETJMP
-# include <ucontext.h>
-#endif // ifdef SETJMP
-
+#include <setjmp.h>
+#else  // ifdef SETJMP
+#include <ucontext.h>
+#endif  // ifdef SETJMP
 
 using namespace dmtcp;
 

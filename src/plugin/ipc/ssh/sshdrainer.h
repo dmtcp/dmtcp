@@ -1,9 +1,9 @@
 #pragma once
 #ifndef SSHDRAINER_H
-# define SSHDRAINER_H
+#define SSHDRAINER_H
 
-# include "../jalib/jsocket.h"
-# include "dmtcpalloc.h"
+#include "../jalib/jsocket.h"
+#include "dmtcpalloc.h"
 
 namespace dmtcp
 {

@@ -19,16 +19,16 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include  "../jalib/jassert.h"
-#include  "../jalib/jconvert.h"
-#include  "../jalib/jfilesystem.h"
+#include <sys/resource.h>
+#include "../jalib/jassert.h"
+#include "../jalib/jconvert.h"
+#include "../jalib/jfilesystem.h"
 #include "constants.h"
 #include "coordinatorapi.h"
 #include "dmtcpmessagetypes.h"
 #include "shareddata.h"
 #include "syscallwrappers.h"
 #include "util.h"
-#include <sys/resource.h>
 
 #define BINARY_NAME "dmtcp_launch"
 

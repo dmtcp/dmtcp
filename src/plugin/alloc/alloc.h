@@ -22,9 +22,9 @@
 #ifndef ALLOC_H
 #define ALLOC_H
 
-#include "dmtcp.h"
 #include <stdlib.h>
 #include <sys/mman.h>
+#include "dmtcp.h"
 
 extern "C" void *__libc_memalign(size_t boundary, size_t size);
 

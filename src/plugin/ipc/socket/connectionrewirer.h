@@ -23,11 +23,12 @@
 #ifndef CONNECTIONREWIRER_H
 # define CONNECTIONREWIRER_H
 
+# include <sys/socket.h>
+# include <sys/un.h>
+
 # include "connection.h"
 # include "connectionidentifier.h"
 # include "dmtcpalloc.h"
-# include <sys/socket.h>
-# include <sys/un.h>
 
 namespace dmtcp
 {

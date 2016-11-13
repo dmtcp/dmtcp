@@ -22,14 +22,16 @@
 #ifndef VIRTUAL_ID_TABLE_H
 #define VIRTUAL_ID_TABLE_H
 
+#include <sys/types.h>
+
 #include "../jalib/jalloc.h"
 #include "../jalib/jassert.h"
 #include "../jalib/jconvert.h"
 #include "../jalib/jfilesystem.h"
 #include "../jalib/jserialize.h"
+
 #include "dmtcpalloc.h"
 #include "util.h"
-#include <sys/types.h>
 
 #define MAX_VIRTUAL_ID 999
 

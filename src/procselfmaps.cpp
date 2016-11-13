@@ -19,11 +19,11 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include "jassert.h"
 #include "procselfmaps.h"
+#include <fcntl.h>
+#include "jassert.h"
 #include "syscallwrappers.h"
 #include "util.h"
-#include <fcntl.h>
 
 using namespace dmtcp;
 

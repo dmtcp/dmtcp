@@ -24,8 +24,8 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "dmtcpworker.h"
 #include "jassert.h"
+#include "dmtcpworker.h"
 #include "syscallwrappers.h"
 #include "threadsync.h"
 #include "workerstate.h"

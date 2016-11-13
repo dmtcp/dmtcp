@@ -21,11 +21,11 @@
 
 #pragma once
 #ifndef TIMER_WRAPPERS_H
-# define TIMER_WRAPPERS_H
+#define TIMER_WRAPPERS_H
 
-# include "dmtcp.h"
-# include <signal.h>
-# include <time.h>
+#include <signal.h>
+#include <time.h>
+#include "dmtcp.h"
 
 # define _real_timer_create          NEXT_FNC(timer_create)
 # define _real_timer_delete          NEXT_FNC(timer_delete)

@@ -19,13 +19,13 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include  "../jalib/jassert.h"
-#include "dmtcpworker.h"
-#include "syscallwrappers.h"
-
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
+
+#include "../jalib/jassert.h"
+#include "dmtcpworker.h"
+#include "syscallwrappers.h"
 
 #ifndef EXTERNC
 # define EXTERNC extern "C"

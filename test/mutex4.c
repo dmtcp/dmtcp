@@ -1,10 +1,10 @@
-#include "dmtcp.h"
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+#include "dmtcp.h"
 
 // This code uses the attribute PTHREAD_MUTEX_ERRORCHECK.
 // An error-checking mutex must check the owner when unlocking.

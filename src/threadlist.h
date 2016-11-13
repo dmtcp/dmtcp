@@ -22,10 +22,10 @@
 #ifndef THREADLIST_H
 #define THREADLIST_H
 
-#include "threadinfo.h"
 #include <signal.h>
 #include <sys/types.h>
 #include <ucontext.h>
+#include "threadinfo.h"
 
 namespace dmtcp
 {

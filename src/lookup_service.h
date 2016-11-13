@@ -22,10 +22,10 @@
 #ifndef LOOKUP_SERVICE_H
 #define LOOKUP_SERVICE_H
 
+#include <string.h>
+#include <map>
 #include "../jalib/jsocket.h"
 #include "dmtcpmessagetypes.h"
-#include <map>
-#include <string.h>
 
 namespace dmtcp
 {

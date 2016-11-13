@@ -15,9 +15,9 @@
 
 #include <sys/ioctl.h>
 
+#include <fcntl.h>
 #include "config.h"
 #include "dmtcp.h"
-#include <fcntl.h>
 
 #define DEBUG_SIGNATURE "DEBUG [TUN Plugin]: "
 

@@ -19,10 +19,10 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include "alloc.h"
-#include "dmtcp.h"
 #include <stdarg.h>
 #include <sys/mman.h>
+#include "alloc.h"
+#include "dmtcp.h"
 
 // #define ENABLE_MMAP_WRAPPERS
 #ifdef ENABLE_MMAP_WRAPPERS

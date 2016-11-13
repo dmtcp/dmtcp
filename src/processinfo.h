@@ -22,9 +22,9 @@
 #ifndef PROCESS_INFO_H
 #define PROCESS_INFO_H
 
+#include <sys/types.h>
 #include "../jalib/jalloc.h"
 #include "uniquepid.h"
-#include <sys/types.h>
 
 #define MB                 1024 * 1024
 #define RESTORE_STACK_SIZE 5 * MB

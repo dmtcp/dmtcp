@@ -23,13 +23,8 @@
 
 #pragma once
 #ifndef FILECONNECTION_H
-# define FILECONNECTION_H
+#define FILECONNECTION_H
 
-// THESE INCLUDES ARE IN RANDOM ORDER.  LET'S CLEAN IT UP AFTER RELEASE. - Gene
-# include "connection.h"
-# include "jbuffer.h"
-# include "jconvert.h"
-# include "jfilesystem.h"
 # include <mqueue.h>
 # include <signal.h>
 # include <stdint.h>
@@ -38,6 +33,12 @@
 # include <sys/types.h>
 # include <sys/types.h>
 # include <unistd.h>
+
+# include "jbuffer.h"
+# include "jconvert.h"
+# include "jfilesystem.h"
+
+# include "connection.h"
 
 namespace dmtcp
 {

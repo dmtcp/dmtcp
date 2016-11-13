@@ -22,7 +22,6 @@
 #ifndef TRAMPOLINES_H
 #define TRAMPOLINES_H
 
-#include "constants.h"
 #include <dlfcn.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -30,6 +29,8 @@
 #include <sys/mman.h>
 #include <sys/syscall.h>
 #include <unistd.h>
+
+#include "constants.h"
 
 #ifdef __x86_64__
 static unsigned char asm_jump[] = {

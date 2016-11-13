@@ -19,8 +19,8 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include "timerlist.h"
 #include "timerwrappers.h"
+#include "timerlist.h"
 
 using namespace dmtcp;
 

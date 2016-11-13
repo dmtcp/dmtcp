@@ -22,14 +22,15 @@
 #ifndef SHARED_DATA_H
 #define SHARED_DATA_H
 
-#include "dmtcp.h"
-#include "dmtcpalloc.h"
 #include <arpa/inet.h>
 #include <linux/limits.h>
 #include <netdb.h>
 #include <semaphore.h>
 #include <sys/types.h>
 #include <sys/un.h>
+
+#include "dmtcp.h"
+#include "dmtcpalloc.h"
 
 #define PTS_PATH_MAX             32
 #define MAX_PID_MAPS             32768

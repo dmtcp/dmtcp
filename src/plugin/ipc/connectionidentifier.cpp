@@ -19,8 +19,8 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include "../jalib/jassert.h"
 #include "connectionidentifier.h"
+#include "../jalib/jassert.h"
 #include "dmtcp.h"
 
 using namespace dmtcp;

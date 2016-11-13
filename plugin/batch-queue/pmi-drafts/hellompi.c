@@ -1,7 +1,7 @@
-#include "mpi.h"
-#include "pmi.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include "mpi.h"
+#include "pmi.h"
 
 int
 get_kvs_name(char **kvs_name, int *kvs_name_l)

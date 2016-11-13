@@ -1,12 +1,12 @@
 #ifndef IB2TCP_H
 #define IB2TCP_H
 
-#include "dmtcpalloc.h"
-#include "jassert.h"
 #include <infiniband/verbs.h>
 #include <linux/types.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include "jassert.h"
+#include "dmtcpalloc.h"
 
 namespace dmtcp
 {

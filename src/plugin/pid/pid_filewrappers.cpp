@@ -47,10 +47,10 @@
 #undef readlink
 #undef realpath
 
-#include "dmtcp.h"
 #include "jassert.h"
 #include "jconvert.h"
 #include "jfilesystem.h"
+#include "dmtcp.h"
 #include "pid.h"
 #include "pidwrappers.h"
 #include "util.h"

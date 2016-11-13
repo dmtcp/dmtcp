@@ -67,18 +67,18 @@
 #define LINUX
 
 #if defined(LINUX)
-# include <sys/syscall.h>
-# include <sys/uio.h>
-# include <sys/vfs.h>
+#include <sys/syscall.h>
+#include <sys/uio.h>
+#include <sys/vfs.h>
 #endif /* if defined(LINUX) */
 
 #if defined(Solaris)
-# include <sys/statfs.h>
+#include <sys/statfs.h>
 #endif /* if defined(Solaris) */
 
 #if defined(HPUX)
-# include <nfs/nfs.h>
-# include <sys/vfs.h>
+#include <nfs/nfs.h>
+#include <sys/vfs.h>
 #endif /* if defined(HPUX) */
 
 #if defined(Solaris26)

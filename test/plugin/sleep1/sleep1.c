@@ -1,7 +1,7 @@
-#include "config.h"
-#include "dmtcp.h"
 #include <stdio.h>
 #include <sys/time.h>
+#include "config.h"
+#include "dmtcp.h"
 
 void
 print_time()

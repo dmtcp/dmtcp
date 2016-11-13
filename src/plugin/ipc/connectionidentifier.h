@@ -21,14 +21,14 @@
 
 #pragma once
 #ifndef CONNECTIONIDENTIFIER_H
-# define CONNECTIONIDENTIFIER_H
+#define CONNECTIONIDENTIFIER_H
 
-# include "dmtcp.h"
-# include "dmtcpalloc.h"
-# include "ipc.h"
-# include "jalloc.h"
-# include "jserialize.h"
-# include <stdint.h>
+#include <stdint.h>
+#include "jalloc.h"
+#include "jserialize.h"
+#include "dmtcp.h"
+#include "dmtcpalloc.h"
+#include "ipc.h"
 
 namespace dmtcp
 {

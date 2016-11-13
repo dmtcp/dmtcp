@@ -1,5 +1,3 @@
-#include "ssh.h"
-#include "util_ipc.h"
 #include <arpa/inet.h>
 #include <assert.h>
 #include <netinet/in.h>
@@ -12,6 +10,8 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include "ssh.h"
+#include "util_ipc.h"
 
 using dmtcp::Util::sendFd;
 

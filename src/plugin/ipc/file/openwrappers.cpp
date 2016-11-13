@@ -41,11 +41,9 @@
 #include <fcntl.h>
 #include <limits.h>
 #include <linux/version.h>
-#include <list>
 #include <signal.h>
 #include <stdarg.h>
 #include <stdlib.h>
-#include <string>
 #include <sys/ioctl.h>
 #include <sys/ipc.h>
 #include <sys/shm.h>
@@ -53,6 +51,8 @@
 #include <sys/syscall.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <list>
+#include <string>
 #include <vector>
 
 #undef open
@@ -60,10 +60,10 @@
 #undef openat
 #undef openat64
 
-#include "dmtcp.h"
 #include "jassert.h"
 #include "jconvert.h"
 #include "jfilesystem.h"
+#include "dmtcp.h"
 #include "shareddata.h"
 #include "util.h"
 

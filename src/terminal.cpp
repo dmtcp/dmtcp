@@ -1,10 +1,10 @@
-#include "config.h"
 #include <signal.h>
 #include <sys/ioctl.h>
 #include <termios.h>
+#include "config.h"
 #ifdef HAS_PR_SET_PTRACER
-# include <sys/prctl.h>
-#endif // ifdef HAS_PR_SET_PTRACER
+#include <sys/prctl.h>
+#endif  // ifdef HAS_PR_SET_PTRACER
 #include "../jalib/jassert.h"
 #include "config.h"
 #include "dmtcp.h"

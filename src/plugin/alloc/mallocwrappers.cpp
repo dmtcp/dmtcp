@@ -19,10 +19,10 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include "alloc.h"
-#include "dmtcp.h"
 #include <stdlib.h>
 #include <unistd.h>
+#include "alloc.h"
+#include "dmtcp.h"
 
 EXTERNC int
 dmtcp_alloc_enabled() { return 1; }

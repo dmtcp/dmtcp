@@ -31,23 +31,22 @@
    exec, ssh), we also need to wrap the tm_spawn function.
 */
 
-
+#include "rm_torque.h"
+#include <linux/limits.h>
+#include <pthread.h>
+#include <stdlib.h>
+#include <sys/wait.h>
+#include <list>
+#include <string>
+#include <vector>
 #include "jalib.h"
 #include "jassert.h"
 #include "jconvert.h"
 #include "jfilesystem.h"
 #include "procmapsarea.h"
 #include "rm_main.h"
-#include "rm_torque.h"
 #include "rm_utils.h"
 #include "util.h"
-#include <linux/limits.h>
-#include <list>
-#include <pthread.h>
-#include <stdlib.h>
-#include <string>
-#include <sys/wait.h>
-#include <vector>
 
 // -------------------- Torque PBS tm.h definitions -------------------------//
 // Keep in sync with "tm.h" file in the libtorque library of the Torque PBS

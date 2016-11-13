@@ -30,8 +30,6 @@
 // this extra declaration.
 #define FOR_SYSCALLSREAL_C
 
-#include "constants.h"
-#include "syscallwrappers.h"
 #include <assert.h>
 #include <ctype.h>
 #include <dlfcn.h>
@@ -49,8 +47,10 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include "constants.h"
+#include "syscallwrappers.h"
 #if __aarch64__
-# include "dlsym_default.h"
+#include "dlsym_default.h"
 #endif /* if __aarch64__ */
 #include "trampolines.h"
 

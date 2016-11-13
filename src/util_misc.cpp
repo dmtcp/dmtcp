@@ -19,15 +19,15 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include  "../jalib/jassert.h"
-#include  "../jalib/jfilesystem.h"
-#include  "dmtcp.h"
-#include  "membarrier.h"
-#include  "syscallwrappers.h"
-#include  "util.h"
+#include "util.h"
 #include <fcntl.h>
 #include <stdlib.h>
 #include <string.h>
+#include "../jalib/jassert.h"
+#include "../jalib/jfilesystem.h"
+#include "dmtcp.h"
+#include "membarrier.h"
+#include "syscallwrappers.h"
 
 using namespace dmtcp;
 

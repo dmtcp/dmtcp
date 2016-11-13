@@ -1,7 +1,7 @@
-#include "eventconnection.h"
 #include "eventconnlist.h"
 #include <sys/syscall.h>
 #include <unistd.h>
+#include "eventconnection.h"
 
 using namespace dmtcp;
 void

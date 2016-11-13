@@ -21,23 +21,23 @@
 
 #pragma once
 #ifndef PTYCONNLIST_H
-# define PTYCONNLIST_H
+#define PTYCONNLIST_H
 
 // THESE INCLUDES ARE IN RANDOM ORDER.  LET'S CLEAN IT UP AFTER RELEASE. - Gene
-# include "connectionlist.h"
-# include "jbuffer.h"
-# include "jconvert.h"
-# include "jfilesystem.h"
-# include "procmapsarea.h"
-# include "ptyconnection.h"
-# include <mqueue.h>
-# include <signal.h>
-# include <stdint.h>
-# include <sys/socket.h>
-# include <sys/stat.h>
-# include <sys/types.h>
-# include <sys/types.h>
-# include <unistd.h>
+#include <mqueue.h>
+#include <signal.h>
+#include <stdint.h>
+#include <sys/socket.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/types.h>
+#include <unistd.h>
+#include "jbuffer.h"
+#include "jconvert.h"
+#include "jfilesystem.h"
+#include "connectionlist.h"
+#include "procmapsarea.h"
+#include "ptyconnection.h"
 
 namespace dmtcp
 {

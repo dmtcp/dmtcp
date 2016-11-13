@@ -19,22 +19,22 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include <fstream>
-#include <ios>
-#include <iostream>
-#include <iostream>
 #include <sys/file.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <sys/sem.h>
 #include <unistd.h>
+#include <fstream>
+#include <ios>
+#include <iostream>
+#include <iostream>
 
-#include "config.h"
-#include "dmtcp.h"
 #include "jassert.h"
 #include "jconvert.h"
 #include "jfilesystem.h"
 #include "jserialize.h"
+#include "config.h"
+#include "dmtcp.h"
 #include "shareddata.h"
 #include "util.h"
 

@@ -25,16 +25,15 @@
 #ifndef CONNECTION_H
 # define CONNECTION_H
 
-// THESE INCLUDES ARE IN RANDOM ORDER.  LET'S CLEAN IT UP AFTER RELEASE. - Gene
-# include "config.h"
-# include "connectionidentifier.h"
-# include "dmtcpalloc.h"
-# include "jalloc.h"
-# include "jserialize.h"
-# include <sys/stat.h>
-# include <sys/types.h>
-# include <sys/types.h>
-# include <unistd.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/types.h>
+#include <unistd.h>
+#include "jalloc.h"
+#include "jserialize.h"
+#include "config.h"
+#include "connectionidentifier.h"
+#include "dmtcpalloc.h"
 
 namespace dmtcp
 {

@@ -20,13 +20,13 @@
  ****************************************************************************/
 
 // compile with: gcc -o dmtcp_nocheckpoint -static dmtcp_nocheckpoint.cpp
-#include "constants.h" // for ENV_VAR_ORIG_LD_PRELOAD
-#include "protectedfds.h"
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include "constants.h"  // for ENV_VAR_ORIG_LD_PRELOAD
+#include "protectedfds.h"
 
 static void restoreUserLDPRELOAD();
 

@@ -19,6 +19,9 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#include "uniquepid.h"
+#include <stdlib.h>
+#include <time.h>
 #include "../jalib/jconvert.h"
 #include "../jalib/jfilesystem.h"
 #include "../jalib/jserialize.h"
@@ -26,9 +29,6 @@
 #include "protectedfds.h"
 #include "shareddata.h"
 #include "syscallwrappers.h"
-#include "uniquepid.h"
-#include <stdlib.h>
-#include <time.h>
 
 using namespace dmtcp;
 

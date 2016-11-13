@@ -20,17 +20,17 @@
  ****************************************************************************/
 
 #include <fcntl.h>
-#include <list>
 #include <stdarg.h>
-#include <string>
 #include <sys/ioctl.h>
 #include <sys/procfs.h>
 #include <sys/syscall.h>
+#include <list>
+#include <string>
 #include <vector>
 
-#include "dmtcp.h"
 #include "jassert.h"
 #include "jconvert.h"
+#include "dmtcp.h"
 #include "pid.h"
 #include "pidwrappers.h"
 #include "util.h"

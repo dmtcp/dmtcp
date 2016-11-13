@@ -4,13 +4,13 @@
  *  query the <pid> for EXAMPLE_DB_KEY_OTHER (set by the other process).
  */
 
-#include "config.h"
-#include "dmtcp.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include "config.h"
+#include "dmtcp.h"
 
 struct keyPid {
   int key;

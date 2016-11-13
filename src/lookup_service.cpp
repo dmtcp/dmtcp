@@ -19,9 +19,9 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#include "lookup_service.h"
 #include "../jalib/jassert.h"
 #include "../jalib/jsocket.h"
-#include "lookup_service.h"
 
 using namespace dmtcp;
 

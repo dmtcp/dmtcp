@@ -22,11 +22,11 @@
 #ifndef __PLUGININFO_H__
 #define __PLUGININFO_H__
 
+#include "jassert.h"
 #include "barrierinfo.h"
 #include "dmtcp.h"
 #include "dmtcpalloc.h"
 #include "dmtcpmessagetypes.h"
-#include "jassert.h"
 
 namespace dmtcp
 {

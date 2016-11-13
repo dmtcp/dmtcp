@@ -19,11 +19,11 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#include "plugininfo.h"
+#include "jassert.h"
 #include "barrierinfo.h"
 #include "coordinatorapi.h"
 #include "dmtcp.h"
-#include "jassert.h"
-#include "plugininfo.h"
 #include "shareddata.h"
 
 namespace dmtcp

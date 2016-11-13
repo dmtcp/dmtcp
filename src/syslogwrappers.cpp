@@ -19,11 +19,11 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include  "../jalib/jassert.h"
+#include <syslog.h>
+#include <string>
+#include "../jalib/jassert.h"
 #include "dmtcpalloc.h"
 #include "syscallwrappers.h"
-#include <string>
-#include <syslog.h>
 
 namespace dmtcp
 {

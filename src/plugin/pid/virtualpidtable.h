@@ -22,17 +22,17 @@
 #ifndef VIRTUAL_PID_TABLE_H
 #define VIRTUAL_PID_TABLE_H
 
+#include <sys/time.h>
+#include <sys/types.h>
+#include <time.h>
+#include <unistd.h>
+#include <iostream>
+#include <map>
 #include "../jalib/jalloc.h"
 #include "../jalib/jserialize.h"
 #include "dmtcp.h"
 #include "dmtcpalloc.h"
 #include "virtualidtable.h"
-#include <iostream>
-#include <map>
-#include <sys/time.h>
-#include <sys/types.h>
-#include <time.h>
-#include <unistd.h>
 
 #define REAL_TO_VIRTUAL_PID(pid) \
   dmtcp::VirtualPidTable::instance().realToVirtual(pid)

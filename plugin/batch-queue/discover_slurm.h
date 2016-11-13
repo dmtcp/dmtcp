@@ -18,22 +18,22 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include <algorithm>
-#include <fstream>
+#ifndef DISCOVER_SLURM_H
+#define DISCOVER_SLURM_H
+
 #include <getopt.h>
-#include <iostream>
-#include <map>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <string>
 #include <unistd.h>
+#include <algorithm>
+#include <fstream>
+#include <iostream>
+#include <map>
+#include <string>
 #include <vector>
 
-#ifndef DISCOVER_SLURM_H
-# define DISCOVER_SLURM_H
-
-# include "discover_resources.h"
+#include "discover_resources.h"
 
 class resources_slurm : public resources
 {

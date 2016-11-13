@@ -21,14 +21,14 @@
 
 #pragma once
 #ifndef TIMER_LIST_H
-# define TIMER_LIST_H
+#define TIMER_LIST_H
 
-# include "dmtcpalloc.h"
-# include "jassert.h"
-# include "jconvert.h"
-# include "virtualidtable.h"
-# include <signal.h>
-# include <time.h>
+#include <signal.h>
+#include <time.h>
+#include "jassert.h"
+#include "jconvert.h"
+#include "dmtcpalloc.h"
+#include "virtualidtable.h"
 
 # define REAL_TO_VIRTUAL_TIMER_ID(id) \
   TimerList::instance().realToVirtualTimerId(id)

@@ -19,10 +19,10 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include "../jalib/jassert.h"
-#include "../jalib/jserialize.h"
 #include "connection.h"
 #include <fcntl.h>
+#include "../jalib/jassert.h"
+#include "../jalib/jserialize.h"
 
 using namespace dmtcp;
 

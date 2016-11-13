@@ -18,21 +18,21 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#include <getopt.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <algorithm>
+#include <fstream>
+#include <iostream>
+#include <map>
+#include <string>
+#include <vector>
 #include "discover_dmtcpinput.h"
 #include "discover_resources.h"
 #include "discover_slurm.h"
 #include "discover_torque.h"
-#include <algorithm>
-#include <fstream>
-#include <getopt.h>
-#include <iostream>
-#include <map>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <string>
-#include <unistd.h>
-#include <vector>
 
 
 resources *

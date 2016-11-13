@@ -1,6 +1,6 @@
+#include <stdio.h>
 #include "config.h"
 #include "dmtcp.h"
-#include <stdio.h>
 
 
 static void

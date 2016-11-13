@@ -23,12 +23,12 @@
 #ifndef CONNECTIONLIST_H
 # define CONNECTIONLIST_H
 
-# include "connection.h"
-# include "dmtcpalloc.h"
-# include "jalloc.h"
-# include "jserialize.h"
-# include "protectedfds.h"
-# include <pthread.h>
+#include <pthread.h>
+#include "jalloc.h"
+#include "jserialize.h"
+#include "connection.h"
+#include "dmtcpalloc.h"
+#include "protectedfds.h"
 
 namespace dmtcp
 {

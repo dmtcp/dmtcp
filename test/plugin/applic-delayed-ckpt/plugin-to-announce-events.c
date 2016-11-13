@@ -1,7 +1,6 @@
+#include <stdio.h>
 #include "config.h"
 #include "dmtcp.h"
-#include <stdio.h>
-
 
 static void
 applic_delayed_ckpt_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)

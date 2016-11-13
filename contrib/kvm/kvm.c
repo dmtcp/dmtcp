@@ -1,16 +1,16 @@
 #include <errno.h>
 #include <linux/kvm.h> /* For all the kvm data structs */
-#include <stdarg.h> /* For va_arg(), etc. */
+#include <stdarg.h>    /* For va_arg(), etc. */
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h> /* For strcmp(), etc. */
+#include <string.h>    /* For strcmp(), etc. */
 #include <sys/ioctl.h> /* For ioctl() */
-#include <sys/mman.h> /* For mmap() */
+#include <sys/mman.h>  /* For mmap() */
 #include <unistd.h>
 #if 0
-  # include <sys/utsname.h> /* For uname */
-#endif /* if 0 */
+#include <sys/utsname.h> /* For uname */
+#endif                   /* if 0 */
 
 #include "config.h"
 #include "dmtcp.h"

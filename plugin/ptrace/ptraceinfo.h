@@ -29,15 +29,15 @@
 // This was needed for:  SUSE LINUX 10.0 (i586) OSS
 // On newer systems, PT_SETOPTIONS is defined in <sys/ptrace.h>
 #ifndef PT_SETOPTIONS
-# include <linux/ptrace.h>
-#endif // ifndef PT_SETOPTIONS
+#include <linux/ptrace.h>
+#endif  // ifndef PT_SETOPTIONS
 #include <fcntl.h>
 #include <linux/unistd.h>
-#include <list>
 #include <semaphore.h>
 #include <stdarg.h>
 #include <sys/resource.h>
 #include <sys/syscall.h>
+#include <list>
 
 #include "jassert.h"
 #include "jfilesystem.h"

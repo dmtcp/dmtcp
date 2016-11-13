@@ -18,19 +18,19 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include  "../jalib/jassert.h"
-#include "config.h"
-#include "dmtcpalloc.h"
 #include "rm_main.h"
-#include "rm_pmi.h"
-#include "rm_slurm.h"
-#include "rm_torque.h"
-#include "util.h"
 #include <fcntl.h>
 #include <stdlib.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include "../jalib/jassert.h"
+#include "config.h"
+#include "dmtcpalloc.h"
+#include "rm_pmi.h"
+#include "rm_slurm.h"
+#include "rm_torque.h"
+#include "util.h"
 
 using namespace dmtcp;
 

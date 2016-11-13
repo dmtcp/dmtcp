@@ -1,11 +1,8 @@
 #pragma once
 #ifndef SOCKETCONNLIST_H
-# define SOCKETCONNLIST_H
+#define SOCKETCONNLIST_H
 
 // THESE INCLUDES ARE IN RANDOM ORDER.  LET'S CLEAN IT UP AFTER RELEASE. - Gene
-# include "connectionlist.h"
-# include "jbuffer.h"
-# include "socketconnection.h"
 # include <signal.h>
 # include <stdint.h>
 # include <sys/socket.h>
@@ -14,6 +11,10 @@
 # include <sys/types.h>
 # include <unistd.h>
 
+# include "jbuffer.h"
+
+# include "connectionlist.h"
+# include "socketconnection.h"
 namespace dmtcp
 {
 class SocketConnList : public ConnectionList

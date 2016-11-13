@@ -21,12 +21,12 @@
 
 #pragma once
 #ifndef __SOCKET_CONNECTIONMESSAGE_H__
-# define __SOCKET_CONNECTIONMESSAGE_H__
+#define __SOCKET_CONNECTIONMESSAGE_H__
 
-# include "connectionidentifier.h"
-# include "dmtcpalloc.h"
-# include "jalloc.h"
-# include <stdint.h>
+#include <stdint.h>
+#include "jalloc.h"
+#include "connectionidentifier.h"
+#include "dmtcpalloc.h"
 
 # define HANDSHAKE_SIGNATURE_MSG "DMTCP_SOCK_HANDSHAKE_V0\n"
 

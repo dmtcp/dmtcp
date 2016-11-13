@@ -30,8 +30,8 @@
 
 #undef msgrcv
 
-#include "dmtcp.h"
 #include "jassert.h"
+#include "dmtcp.h"
 #include "sysvipc.h"
 #include "sysvipcwrappers.h"
 

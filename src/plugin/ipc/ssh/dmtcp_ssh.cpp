@@ -1,4 +1,3 @@
-#include "ssh.h"
 #include <arpa/inet.h>
 #include <assert.h>
 #include <linux/limits.h>
@@ -13,6 +12,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include "ssh.h"
 
 static int listenSock = -1;
 static int noStrictHostKeyChecking = 0;

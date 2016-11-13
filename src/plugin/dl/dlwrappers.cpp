@@ -19,10 +19,10 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include "../jalib/jassert.h"
-#include "dmtcp.h"
 #include <stdlib.h>
 #include <unistd.h>
+#include "../jalib/jassert.h"
+#include "dmtcp.h"
 
 #define _real_dlopen  NEXT_FNC(dlopen)
 #define _real_dlclose NEXT_FNC(dlclose)

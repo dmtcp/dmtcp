@@ -18,7 +18,6 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-
 /******************************************************************
  * File:   util_descriptor.h
  *
@@ -32,9 +31,9 @@
 
 #pragma once
 #ifndef UTIL_DESCRIPTOR_H
-# define UTIL_DESCRIPTOR_H
+#define UTIL_DESCRIPTOR_H
 
-# include <signal.h>
+#include <signal.h>
 
 # define SUCCESS         0
 # define FAILURE         -1

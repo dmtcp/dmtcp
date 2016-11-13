@@ -22,7 +22,7 @@
 #ifndef DMTCPDMTCPCOORDINATOR_H
 #define DMTCPDMTCPCOORDINATOR_H
 
-#include  "../jalib/jsocket.h"
+#include "../jalib/jsocket.h"
 #include "dmtcpalloc.h"
 #include "dmtcpmessagetypes.h"
 

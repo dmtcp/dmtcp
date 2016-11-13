@@ -1,9 +1,6 @@
 #ifndef THREADINFO_H
 #define THREADINFO_H
 
-#include "mtcp/restore_libc.h"
-#include "protectedfds.h"
-#include "syscallwrappers.h"  /* for _real_syscall */
 #include <linux/version.h>
 #include <signal.h>
 #include <stdio.h>
@@ -11,6 +8,9 @@
 #include <sys/types.h>
 #include <ucontext.h>
 #include <unistd.h>
+#include "mtcp/restore_libc.h"
+#include "protectedfds.h"
+#include "syscallwrappers.h" /* for _real_syscall */
 
 // For i386 and x86_64, SETJMP currently has bugs.  Don't turn this
 // on for them until they are debugged.

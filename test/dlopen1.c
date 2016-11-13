@@ -4,10 +4,10 @@
  */
 
 #if !defined(LIB1) && !defined(LIB2)
-# include <assert.h>
-# include <dlfcn.h>
-# include <stdio.h>
-# include <stdlib.h>
+#include <assert.h>
+#include <dlfcn.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 int (*fnc)(int result[2]);
 

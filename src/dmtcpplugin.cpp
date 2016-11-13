@@ -19,6 +19,8 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#include <stdlib.h>
+
 #include "coordinatorapi.h"
 #include "dmtcp.h"
 #include "dmtcpworker.h"
@@ -27,7 +29,6 @@
 #include "syscallwrappers.h"
 #include "threadsync.h"
 #include "util.h"
-#include <stdlib.h>
 
 #undef dmtcp_is_enabled
 #undef dmtcp_checkpoint

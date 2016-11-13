@@ -8,15 +8,15 @@
 #include <sys/un.h>
 
 /* According to earlier standards */
-#include "dmtcp.h"
-#include "ib2tcp.h"
-#include "ib2tcp.h"
-#include "ibwrappers.h"
-#include "jassert.h"
 #include <errno.h>
 #include <infiniband/verbs.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include "jassert.h"
+#include "dmtcp.h"
+#include "ib2tcp.h"
+#include "ib2tcp.h"
+#include "ibwrappers.h"
 
 using namespace dmtcp;
 

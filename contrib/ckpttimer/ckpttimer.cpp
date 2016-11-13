@@ -23,9 +23,9 @@
 #include <time.h>
 #include <unistd.h>
 
+#include "jassert.h"
 #include "config.h"
 #include "dmtcp.h"
-#include "jassert.h"
 
 #ifdef CKPTTIMER_PLUGIN_DEBUG
 # undef JTRACE

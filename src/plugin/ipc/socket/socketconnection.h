@@ -23,11 +23,8 @@
 
 #pragma once
 #ifndef SOCKETCONNECTION_H
-# define SOCKETCONNECTION_H
+#define SOCKETCONNECTION_H
 
-// THESE INCLUDES ARE IN RANDOM ORDER.  LET'S CLEAN IT UP AFTER RELEASE. - Gene
-# include "connection.h"
-# include "jbuffer.h"
 # include <signal.h>
 # include <stdint.h>
 # include <sys/socket.h>
@@ -35,6 +32,10 @@
 # include <sys/types.h>
 # include <sys/types.h>
 # include <unistd.h>
+
+# include "jbuffer.h"
+
+# include "connection.h"
 
 namespace dmtcp
 {

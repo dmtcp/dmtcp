@@ -19,11 +19,11 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#include "kernelbufferdrainer.h"
 #include "../jalib/jassert.h"
 #include "../jalib/jbuffer.h"
 #include "connectionlist.h"
 #include "connectionmessage.h"
-#include "kernelbufferdrainer.h"
 #include "socketwrappers.h"
 #include "util.h"
 

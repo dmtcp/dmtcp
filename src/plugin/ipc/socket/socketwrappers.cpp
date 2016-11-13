@@ -29,15 +29,15 @@
 #include <sys/un.h>
 
 /* According to earlier standards */
+#include <errno.h>
+#include <sys/time.h>
+#include <sys/types.h>
+#include <unistd.h>
 #include "../jalib/jassert.h"
 #include "../jalib/jfilesystem.h"
 #include "socketconnection.h"
 #include "socketconnlist.h"
 #include "socketwrappers.h"
-#include <errno.h>
-#include <sys/time.h>
-#include <sys/types.h>
-#include <unistd.h>
 
 using namespace dmtcp;
 

@@ -23,15 +23,14 @@
 #define PIDWRAPPERS_H
 
 #ifndef _GNU_SOURCE
-# define _GNU_SOURCE
-#endif // ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif  // ifndef _GNU_SOURCE
 
 // FIXME:  Why are we adding all these includes here, if we're declaring
 // only our own _real_XXX() functions?  Some *wrappers.cpp files
 // use these includes.  But, then we should split up these includes
 // among the individual *wrappers.cpp files that actually need them,
 // and not declare every possible include in one giant .h file.
-#include "config.h"
 #include <linux/version.h>
 #include <sched.h>
 #include <signal.h>
@@ -41,22 +40,25 @@
 #include <sys/types.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include "config.h"
 
 // To support CMA (Cross Memory Attach)
 #ifdef HAS_CMA
-# include <sys/uio.h>
-#endif // ifdef HAS_CMA
+#include <sys/uio.h>
+#endif  // ifdef HAS_CMA
 
 // This was needed for 64-bit SUSE LINUX Enterprise Server 9 (Linux 2.6.5):
 #ifndef PTRACE_GETEVENTMSG
-# include <sys/ptrace.h>
-#endif // ifndef PTRACE_GETEVENTMSG
+#include <sys/ptrace.h>
+#endif  // ifndef PTRACE_GETEVENTMSG
 #include <stdarg.h>
 #if defined(__arm__) || defined(__aarch64__)
-struct user_desc { int dummy; }; /* <asm/ldt.h> is missing in Ubuntu 14.04 */
-#else // if defined(__arm__) || defined(__aarch64__)
-# include <asm/ldt.h> // Needed for 'struct user_desc' (arg 6 of __clone)
-#endif // if defined(__arm__) || defined(__aarch64__)
+struct user_desc {
+  int dummy;
+};                    /* <asm/ldt.h> is missing in Ubuntu 14.04 */
+#else                 // if defined(__arm__) || defined(__aarch64__)
+#include <asm/ldt.h>  // Needed for 'struct user_desc' (arg 6 of __clone)
+#endif                // if defined(__arm__) || defined(__aarch64__)
 #include <stdio.h>
 #include <sys/ipc.h>
 #include <sys/procfs.h>

@@ -19,7 +19,6 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-
 #define _GNU_SOURCE
 #define _XOPEN_SOURCE 500
 
@@ -35,8 +34,6 @@
 
 // We should not need dlopen/dlsym
 // #include <dlfcn.h>
-#include "constants.h"
-#include "syscallwrappers.h"
 #include <ctype.h>
 #include <fcntl.h>
 #include <stdio.h>
@@ -50,6 +47,8 @@
 #include <sys/types.h>
 #include <syslog.h>
 #include <unistd.h>
+#include "constants.h"
+#include "syscallwrappers.h"
 
 // See syscallsreal.c for original model.  In libdmtcp.so, system calls
 // for XXX() in jalib call a wrapper which modifies it and calls

@@ -21,9 +21,9 @@
 
 #pragma once
 #ifndef SYSVIPC_WRAPPERS_H
-# define SYSVIPC_WRAPPERS_H
+#define SYSVIPC_WRAPPERS_H
 
-# include "dmtcp.h"
+#include "dmtcp.h"
 
 # define _real_shmget               NEXT_FNC(shmget)
 # define _real_shmat                NEXT_FNC(shmat)

@@ -1,9 +1,9 @@
 #pragma once
 #ifndef SSH_H
-# define SSH_H
+#define SSH_H
 
-# include "ipc.h"
-# include <sys/syscall.h>
+#include <sys/syscall.h>
+#include "ipc.h"
 
 # define _real_execve    NEXT_FNC(execve)
 # define _real_execvp    NEXT_FNC(execvp)

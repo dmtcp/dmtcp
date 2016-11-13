@@ -1,10 +1,10 @@
-#include "dmtcp.h"
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+#include "dmtcp.h"
 
 // WE CAN ALTERNATELY USE trylock, and timedlock with a timeout of zerotime.
 // They do the same thing, and we can test both methods in the same code.

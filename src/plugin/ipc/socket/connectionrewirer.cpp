@@ -26,8 +26,8 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-#include "dmtcp.h"
 #include "jsocket.h"
+#include "dmtcp.h"
 #include "protectedfds.h"
 #include "util.h"
 

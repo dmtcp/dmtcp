@@ -18,7 +18,6 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-
 /******************************************************************
  * File:   util_descriptor.cpp
  *
@@ -30,14 +29,14 @@
  * Created on July 05, 2012, 11:52 PM
 ******************************************************************/
 
-#include "../jalib/jalloc.h"
-#include "../jalib/jassert.h"
 #include "util.h"
-#include "util_descriptor.h"
-#include <iostream>
 #include <stdbool.h>
 #include <stdio.h>
 #include <sys/mman.h>
+#include <iostream>
+#include "../jalib/jalloc.h"
+#include "../jalib/jassert.h"
+#include "util_descriptor.h"
 
 using namespace dmtcp;
 

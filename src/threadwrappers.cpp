@@ -19,6 +19,7 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#include <sys/syscall.h>
 #include "../jalib/jalloc.h"
 #include "../jalib/jassert.h"
 #include "constants.h"
@@ -31,7 +32,6 @@
 #include "threadsync.h"
 #include "uniquepid.h"
 #include "util.h"
-#include <sys/syscall.h>
 
 using namespace dmtcp;
 

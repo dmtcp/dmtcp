@@ -21,18 +21,18 @@
 
 #include <sys/syscall.h>
 #ifdef __aarch64__
-# define __ARCH_WANT_SYSCALL_DEPRECATED
+#define __ARCH_WANT_SYSCALL_DEPRECATED
 
 // SYS_fork is a deprecated kernel call in aarch64; in favor of SYS_clone?
-# include <asm-generic/unistd.h>
+#include <asm-generic/unistd.h>
 
 // SYS_fork undefined in aarch64, but add extra insurance
-# undef SYS_fork
-# define SYS_fork __NR_fork
-#endif // ifdef __aarch64__
-#include  "../jalib/jassert.h"
-#include  "../jalib/jconvert.h"
-#include  "../jalib/jfilesystem.h"
+#undef SYS_fork
+#define SYS_fork __NR_fork
+#endif  // ifdef __aarch64__
+#include "../jalib/jassert.h"
+#include "../jalib/jconvert.h"
+#include "../jalib/jfilesystem.h"
 #include "constants.h"
 #include "coordinatorapi.h"
 #include "dmtcpworker.h"

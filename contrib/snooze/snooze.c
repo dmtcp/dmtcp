@@ -1,9 +1,9 @@
-#include "config.h"
-#include "dmtcp.h"
 #include <inttypes.h>
 #include <stdio.h>
 #include <sys/time.h>
 #include <unistd.h>
+#include "config.h"
+#include "dmtcp.h"
 
 #define MAX_CKPT_DIR_LENGTH  256
 #define MAX_HOST_NAME_LENTGH 128

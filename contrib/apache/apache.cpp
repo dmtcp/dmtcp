@@ -17,11 +17,11 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "config.h"
-#include "dmtcp.h"
 #include <stdio.h>
 #include <sys/ipc.h>
 #include <sys/shm.h>
+#include "config.h"
+#include "dmtcp.h"
 
 #define DEBUG_SIGNATURE "[Apache Plugin]"
 #ifdef APACHE_PLUGIN_DEBUG

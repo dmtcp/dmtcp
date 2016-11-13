@@ -1,8 +1,8 @@
-#include "pmi_hijack_log.h"
 #include <dlfcn.h>
-#include <fstream>
 #include <stdio.h>
 #include <stdlib.h>
+#include <fstream>
+#include "pmi_hijack_log.h"
 
 static void *handle = NULL;
 static pmi_hijack_log *log;

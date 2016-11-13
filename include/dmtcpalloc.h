@@ -22,7 +22,6 @@
 #ifndef DMTCPALLOC_H
 #define DMTCPALLOC_H
 
-#include "../jalib/jalloc.h"
 #include <cstddef>
 #include <fstream>
 #include <iostream>
@@ -35,6 +34,8 @@
 #include <string>
 #include <utility>
 #include <vector>
+
+#include "../jalib/jalloc.h"
 
 namespace dmtcp
 {

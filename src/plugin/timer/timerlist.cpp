@@ -19,11 +19,11 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#include "timerlist.h"
+#include <time.h>
 #include "config.h"
 #include "dmtcp.h"
-#include "timerlist.h"
 #include "timerwrappers.h"
-#include <time.h>
 
 using namespace dmtcp;
 

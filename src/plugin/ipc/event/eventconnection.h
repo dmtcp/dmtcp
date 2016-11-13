@@ -23,25 +23,25 @@
 
 #pragma once
 #ifndef EVENTCONNECTION_H
-# define EVENTCONNECTION_H
+#define EVENTCONNECTION_H
 
 // THESE INCLUDES ARE IN RANDOM ORDER.  LET'S CLEAN IT UP AFTER RELEASE. - Gene
-# include "connection.h"
-# include "connectionlist.h"
-# include <signal.h>
-# include <stdint.h>
-# include <sys/stat.h>
-# include <sys/types.h>
-# include <sys/types.h>
-# include <unistd.h>
+#include <signal.h>
+#include <stdint.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/types.h>
+#include <unistd.h>
+#include "connection.h"
+#include "connectionlist.h"
 
-# ifdef HAVE_SYS_INOTIFY_H
-#  include <sys/inotify.h>
-# endif // ifdef HAVE_SYS_INOTIFY_H
+#ifdef HAVE_SYS_INOTIFY_H
+#include <sys/inotify.h>
+#endif  // ifdef HAVE_SYS_INOTIFY_H
 
-# ifdef HAVE_SYS_EPOLL_H
-#  include <sys/epoll.h>
-# else // ifdef HAVE_SYS_EPOLL_H
+#ifdef HAVE_SYS_EPOLL_H
+#include <sys/epoll.h>
+#else  // ifdef HAVE_SYS_EPOLL_H
 
 /* KEEP THIS IN SYNC WITH syscallwrappers.h */
 #  ifndef _SYS_EPOLL_H

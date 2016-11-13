@@ -1,5 +1,3 @@
-#include "rm_main.h"
-#include "slurm_helper.h"
 #include <assert.h>
 #include <assert.h>
 #include <fcntl.h>
@@ -18,6 +16,8 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #include <unistd.h>
+#include "rm_main.h"
+#include "slurm_helper.h"
 
 extern "C" void slurm_srun_handler_register(int in, int out, int err,
                                             int *pid) __attribute((weak));

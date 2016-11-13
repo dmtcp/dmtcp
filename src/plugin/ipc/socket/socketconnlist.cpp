@@ -2,8 +2,8 @@
 #include <sys/syscall.h>
 #include <unistd.h>
 
-#include "connectionrewirer.h"
 #include "jfilesystem.h"
+#include "connectionrewirer.h"
 #include "kernelbufferdrainer.h"
 #include "protectedfds.h"
 #include "socketconnection.h"

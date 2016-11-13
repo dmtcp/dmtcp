@@ -21,11 +21,11 @@
 
 #pragma once
 #ifndef UNIQUEPID_H
-# define UNIQUEPID_H
+#define UNIQUEPID_H
 
-# include "../jalib/jserialize.h"
-# include "dmtcp.h"
-# include <sys/types.h>
+#include <sys/types.h>
+#include "../jalib/jserialize.h"
+#include "dmtcp.h"
 
 
 namespace dmtcp

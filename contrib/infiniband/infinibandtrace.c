@@ -10,12 +10,11 @@
 #include <sys/un.h>
 
 /* According to earlier standards */
-#include "infinibandreals.h"
 #include <errno.h>
 #include <infiniband/verbs.h>
 #include <sys/types.h>
 #include <unistd.h>
-
+#include "infinibandreals.h"
 
 /* This macro requires a static local declaration of "next_fnc". */
 #define NEXT_FNC(symbol) \

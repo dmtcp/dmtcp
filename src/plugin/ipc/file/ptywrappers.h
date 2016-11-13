@@ -21,9 +21,9 @@
 
 #pragma once
 #ifndef PTY_WRAPPERS_H
-# define PTY_WRAPPERS_H
+#define PTY_WRAPPERS_H
 
-# include "dmtcp.h"
+#include "dmtcp.h"
 
 # define _real_xstat        NEXT_FNC(__xstat)
 # define _real_xstat64      NEXT_FNC(__xstat64)

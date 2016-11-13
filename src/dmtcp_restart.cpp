@@ -19,7 +19,6 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include "config.h"
 #include <elf.h>
 #include <limits.h>
 #include <stdio.h>
@@ -27,12 +26,13 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
+#include "config.h"
 #ifdef HAS_PR_SET_PTRACER
-# include <sys/prctl.h>
-#endif // ifdef HAS_PR_SET_PTRACER
+#include <sys/prctl.h>
+#endif  // ifdef HAS_PR_SET_PTRACER
 
-#include  "../jalib/jassert.h"
-#include  "../jalib/jfilesystem.h"
+#include "../jalib/jassert.h"
+#include "../jalib/jfilesystem.h"
 #include "constants.h"
 #include "coordinatorapi.h"
 #include "processinfo.h"

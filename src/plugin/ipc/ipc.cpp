@@ -19,14 +19,14 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include "config.h"
-#include "dmtcp.h"
 #include "ipc.h"
-#include "jassert.h"
 #include <linux/version.h>
 #include <sys/errno.h>
 #include <sys/syscall.h>
 #include <unistd.h>
+#include "jassert.h"
+#include "config.h"
+#include "dmtcp.h"
 
 #include "event/eventconnlist.h"
 #include "file/fileconnlist.h"

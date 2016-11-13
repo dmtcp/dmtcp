@@ -19,17 +19,17 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include "config.h"
-#include "dmtcp.h"
+#include <sys/types.h>
 #include "jalloc.h"
 #include "jassert.h"
 #include "jconvert.h"
 #include "jfilesystem.h"
+#include "config.h"
+#include "dmtcp.h"
 #include "pidwrappers.h"
 #include "protectedfds.h"
 #include "shareddata.h"
 #include "virtualpidtable.h"
-#include <sys/types.h>
 
 using namespace dmtcp;
 

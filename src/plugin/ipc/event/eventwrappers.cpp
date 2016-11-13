@@ -26,14 +26,14 @@
 #include <sys/select.h>
 
 /* Next three according to earlier standards */
+#include <sys/time.h>
+#include <sys/types.h>
+#include <unistd.h>
+#include "jassert.h"
 #include "dmtcpalloc.h"
 #include "eventconnection.h"
 #include "eventconnlist.h"
 #include "eventwrappers.h"
-#include "jassert.h"
-#include <sys/time.h>
-#include <sys/types.h>
-#include <unistd.h>
 
 using namespace dmtcp;
 

@@ -1,9 +1,9 @@
-#include "dmtcp.h"
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include "dmtcp.h"
 
 // This code uses dmtcp_mutex_trylock() and dmtcp_mutex_unlock().
 // We could alternatively have used pthread_mutex_locak/unlock,

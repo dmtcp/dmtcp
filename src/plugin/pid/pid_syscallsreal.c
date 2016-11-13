@@ -19,21 +19,20 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-
 #define _GNU_SOURCE
 #define _XOPEN_SOURCE 500
 
 // These next two are defined in features.h based on the user macros above.
 // #define GNU_SRC
 // #define __USE_UNIX98
-#include "pidwrappers.h"
 #include <dlfcn.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/syscall.h>
 #include <unistd.h>
+#include "pidwrappers.h"
 
-#include "config.h" // for HAS_CMA
+#include "config.h"  // for HAS_CMA
 
 typedef int ( *funcptr_t ) ();
 typedef pid_t ( *funcptr_pid_t ) ();

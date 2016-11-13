@@ -22,11 +22,7 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include "config.h"
-#include "dmtcp.h"
-#include "ibv_internal.h"
 #include "ibvctx.h"
-#include "lib/list.h"
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -38,6 +34,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
+#include "config.h"
+#include "dmtcp.h"
+#include "ibv_internal.h"
+#include "lib/list.h"
 
 static bool is_restart = false;
 

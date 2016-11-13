@@ -22,22 +22,22 @@
 #include <semaphore.h>
 #include <sys/syscall.h>
 #ifdef __aarch64__
-# define __ARCH_WANT_SYSCALL_DEPRECATED
+#define __ARCH_WANT_SYSCALL_DEPRECATED
 
 // SYS_getpgrp is a deprecated kernel call in aarch64, but in favor of what?
-# include <asm-generic/unistd.h>
+#include <asm-generic/unistd.h>
 
 // SYS_getpgrp undefined in aarch64, but add extra insurance
-# undef SYS_getpgrp
-# define SYS_getpgrp __NR_getpgrp
-#endif // ifdef __aarch64__
+#undef SYS_getpgrp
+#define SYS_getpgrp __NR_getpgrp
+#endif  // ifdef __aarch64__
 #include <linux/version.h>
 
-#include "config.h"  // for HAS_CMA
-#include "dmtcp.h"
 #include "jassert.h"
 #include "jconvert.h"
 #include "jfilesystem.h"
+#include "config.h"  // for HAS_CMA
+#include "dmtcp.h"
 #include "pid.h"
 #include "pidwrappers.h"
 #include "shareddata.h"

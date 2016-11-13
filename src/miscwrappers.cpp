@@ -19,25 +19,27 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include  "../jalib/jassert.h"
-#include  "../jalib/jconvert.h"
+#include <sys/syscall.h>
+#include "../jalib/jassert.h"
+#include "../jalib/jconvert.h"
 #include "constants.h"
 #include "dmtcpworker.h"
 #include "processinfo.h"
 #include "protectedfds.h"
 #include "syscallwrappers.h"
 #include "threadsync.h"
-#include <sys/syscall.h>
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 13) && __GLIBC_PREREQ(2, 4)
-# include <sys/inotify.h>
-#endif // if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 13) && __GLIBC_PREREQ(2,
-       // 4)
+#include <sys/inotify.h>
+#endif  // if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 13) &&
+        // __GLIBC_PREREQ(2,
+// 4)
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 22) && __GLIBC_PREREQ(2, 8)
-# include <sys/eventfd.h>
-# include <sys/signalfd.h>
-#endif // if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 22) && __GLIBC_PREREQ(2,
-       // 8)
+#include <sys/eventfd.h>
+#include <sys/signalfd.h>
+#endif  // if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 22) &&
+        // __GLIBC_PREREQ(2,
+// 8)
 
 #ifdef __aarch64__
 

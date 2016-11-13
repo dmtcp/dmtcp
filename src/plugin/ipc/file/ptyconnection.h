@@ -23,12 +23,12 @@
 
 #pragma once
 #ifndef PTYCONNECTION_H
-# define PTYCONNECTION_H
+#define PTYCONNECTION_H
 
-# include <sys/stat.h>
-# include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
-# include "connection.h"
+#include "connection.h"
 
 namespace dmtcp
 {

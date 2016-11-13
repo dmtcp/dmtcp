@@ -6,7 +6,6 @@
 #include <linux/types.h>
 #include <netinet/in.h>
 #include <pthread.h>
-#include <queue>
 #include <semaphore.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -14,12 +13,13 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <queue>
 
+#include "jassert.h"
+#include "jsocket.h"
 #include "config.h"
 #include "dmtcp.h"
 #include "dmtcpalloc.h"
-#include "jassert.h"
-#include "jsocket.h"
 #include "util.h"
 
 #include "ib2tcp.h"

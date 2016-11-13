@@ -42,11 +42,9 @@
 #include <fcntl.h>
 #include <limits.h>
 #include <linux/version.h>
-#include <list>
 #include <signal.h>
 #include <stdarg.h>
 #include <stdlib.h>
-#include <string>
 #include <sys/ioctl.h>
 #include <sys/ipc.h>
 #include <sys/shm.h>
@@ -54,6 +52,8 @@
 #include <sys/syscall.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <list>
+#include <string>
 #include <vector>
 
 #undef ptsname_r
@@ -62,8 +62,8 @@
 #undef __readlink_chk
 #undef realpath
 
-#include "dmtcp.h"
 #include "jassert.h"
+#include "dmtcp.h"
 #include "shareddata.h"
 #include "util.h"
 

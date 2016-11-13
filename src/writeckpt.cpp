@@ -18,14 +18,6 @@
  *  License along with DMTCP:dmtcp/src.  If not, see                        *
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
-#include "constants.h"
-#include "dmtcp.h"
-#include "jassert.h"
-#include "processinfo.h"
-#include "procmapsarea.h"
-#include "procselfmaps.h"
-#include "shareddata.h"
-#include "util.h"
 #include <errno.h>
 #include <sched.h>
 #include <signal.h>
@@ -37,6 +29,14 @@
 #include <sys/mman.h>
 #include <sys/resource.h>
 #include <sys/stat.h>
+#include "jassert.h"
+#include "constants.h"
+#include "dmtcp.h"
+#include "processinfo.h"
+#include "procmapsarea.h"
+#include "procselfmaps.h"
+#include "shareddata.h"
+#include "util.h"
 
 #define DEV_ZERO_DELETED_STR "/dev/zero (deleted)"
 #define DEV_NULL_DELETED_STR "/dev/null (deleted)"

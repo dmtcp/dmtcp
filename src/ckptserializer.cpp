@@ -38,15 +38,15 @@
 #else // ifdef __aarch64__
 # define _real_sys_fork() _real_syscall(SYS_fork)
 #endif // ifdef __aarch64__
+#include <fcntl.h>
+#include <signal.h>
+#include <unistd.h>
 #include "ckptserializer.h"
 #include "constants.h"
 #include "dmtcp.h"
 #include "protectedfds.h"
 #include "syscallwrappers.h"
 #include "util.h"
-#include <fcntl.h>
-#include <signal.h>
-#include <unistd.h>
 
 // aarch64 doesn't define SYS_pipe kernel call by default.
 #if defined(__aarch64__)

@@ -30,9 +30,9 @@
 #include <linux/unistd.h>
 #include <linux/version.h>
 
-#include "dmtcp.h"
 #include "jassert.h"
 #include "jfilesystem.h"
+#include "dmtcp.h"
 #include "ptrace.h"
 #include "ptraceinfo.h"
 #include "util.h"

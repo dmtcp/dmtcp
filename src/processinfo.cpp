@@ -19,20 +19,20 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include  "../jalib/jconvert.h"
-#include  "../jalib/jfilesystem.h"
-#include "coordinatorapi.h"
 #include "processinfo.h"
-#include "procselfmaps.h"
-#include "syscallwrappers.h"
-#include "uniquepid.h"
-#include "util.h"
 #include <fcntl.h>
 #include <fenv.h>
 #include <sys/resource.h>
 #include <sys/syscall.h>
 #include <sys/time.h>
 #include <unistd.h>
+#include "../jalib/jconvert.h"
+#include "../jalib/jfilesystem.h"
+#include "coordinatorapi.h"
+#include "procselfmaps.h"
+#include "syscallwrappers.h"
+#include "uniquepid.h"
+#include "util.h"
 
 namespace dmtcp
 {

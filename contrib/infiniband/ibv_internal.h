@@ -1,11 +1,10 @@
 /*! \file ibv_internal.h */
-#include "debug.h"
-#include "ibvidentifier.h"
-#include "lib/list.h"
 #include <infiniband/verbs.h>
 #include <inttypes.h>
 #include <stdbool.h>
-
+#include "debug.h"
+#include "ibvidentifier.h"
+#include "lib/list.h"
 
 /* Two 64-bit fixed, random numbers to verify whether a struct is shadowed
  * (struct internal_ibv_XXX) or real (struct ibv_XXX).  This signature

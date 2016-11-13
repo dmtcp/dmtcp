@@ -19,9 +19,9 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#include "trampolines.h"
 #include "../jalib/jassert.h"
 #include "syscallwrappers.h"
-#include "trampolines.h"
 
 static trampoline_info_t sbrk_trampoline_info;
 

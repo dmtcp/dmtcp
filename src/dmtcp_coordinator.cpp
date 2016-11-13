@@ -56,22 +56,9 @@
  *   DmtcpCoordinator::broadcastMessage					    *
  ****************************************************************************/
 
-#include "../jalib/jassert.h"
-#include "../jalib/jconvert.h"
-#include "../jalib/jfilesystem.h"
-#include "../jalib/jtimer.h"
-#include "constants.h"
 #include "dmtcp_coordinator.h"
-#include "dmtcpmessagetypes.h"
-#include "lookup_service.h"
-#include "protectedfds.h"
-#include "restartscript.h"
-#include "syscallwrappers.h"
-#include "util.h"
-#include <algorithm>
 #include <arpa/inet.h>
 #include <fcntl.h>
-#include <iomanip>
 #include <netdb.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -80,6 +67,19 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <algorithm>
+#include <iomanip>
+#include "../jalib/jassert.h"
+#include "../jalib/jconvert.h"
+#include "../jalib/jfilesystem.h"
+#include "../jalib/jtimer.h"
+#include "constants.h"
+#include "dmtcpmessagetypes.h"
+#include "lookup_service.h"
+#include "protectedfds.h"
+#include "restartscript.h"
+#include "syscallwrappers.h"
+#include "util.h"
 #undef min
 #undef max
 

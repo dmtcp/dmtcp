@@ -23,13 +23,6 @@
 #ifndef FILECONNLIST_H
 # define FILECONNLIST_H
 
-// THESE INCLUDES ARE IN RANDOM ORDER.  LET'S CLEAN IT UP AFTER RELEASE. - Gene
-# include "connectionlist.h"
-# include "fileconnection.h"
-# include "jbuffer.h"
-# include "jconvert.h"
-# include "jfilesystem.h"
-# include "procmapsarea.h"
 # include <mqueue.h>
 # include <signal.h>
 # include <stdint.h>
@@ -39,6 +32,13 @@
 # include <sys/types.h>
 # include <unistd.h>
 
+# include "jbuffer.h"
+# include "jconvert.h"
+# include "jfilesystem.h"
+
+# include "connectionlist.h"
+# include "fileconnection.h"
+# include "procmapsarea.h"
 namespace dmtcp
 {
 class FileConnList : public ConnectionList

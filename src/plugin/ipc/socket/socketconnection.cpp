@@ -30,11 +30,11 @@
 #include <sys/un.h>
 #include <unistd.h>
 
-#include "dmtcp.h"
 #include "jassert.h"
 #include "jconvert.h"
 #include "jfilesystem.h"
 #include "jsocket.h"
+#include "dmtcp.h"
 #include "shareddata.h"
 #include "util.h"
 

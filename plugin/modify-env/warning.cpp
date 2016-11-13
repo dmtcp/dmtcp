@@ -1,4 +1,4 @@
-#include  "../../jalib/jassert.h"
+#include "../../jalib/jassert.h"
 
 extern "C"
 void

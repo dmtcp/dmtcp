@@ -17,8 +17,8 @@
 #include <sys/types.h>
 #include <unistd.h>
 #ifndef STANDALONE
-# include "config.h"
-# include "dmtcp.h"
+#include "config.h"
+#include "dmtcp.h"
 #endif /* ifndef STANDALONE */
 
 #define DMTCP_ENV_VAR          "DMTCP_ENV_FILE"

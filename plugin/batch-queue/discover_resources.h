@@ -18,21 +18,21 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include <algorithm>
-#include <fstream>
+#ifndef DISCOVER_RESOURCES_H
+#define DISCOVER_RESOURCES_H
+
 #include <getopt.h>
-#include <iostream>
-#include <map>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <string>
-#include <string>
 #include <unistd.h>
+#include <algorithm>
+#include <fstream>
+#include <iostream>
+#include <map>
+#include <string>
+#include <string>
 #include <vector>
-
-#ifndef DISCOVER_RESOURCES_H
-# define DISCOVER_RESOURCES_H
 
 # define MAX_LINE_LEN 1024
 
