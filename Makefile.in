@@ -57,7 +57,7 @@ MANPAGES=dmtcp.1.gz dmtcp_coordinator.1.gz dmtcp_command.1.gz dmtcp_launch.1.gz 
 # Macros TEST and XTERM_E used on command line by check1, check2, ...:
 #   make TEST=readline XTERM_E="xterm -e" check-readline
 
-default: display-build-env build
+default: display-build-env add-git-hooks build
 
 mkdirs:
 	$(MKDIR_P) $(targetdir)/bin
@@ -100,6 +100,13 @@ display-config:
 	    echo -n 'config.log: ' ; \
 	    grep '\$$ .*configure ' config.log | sed -e 's^\$$^^'; \
 	   fi
+
+
+_hooksdir=.git/hooks
+add-git-hooks: ${_hooksdir}/pre-commit ${_hooksdir}/post-rewrite
+
+${_hooksdir}/%: util/hooks/%
+	cd ${_hooksdir} && ln -s ../../$< .
 
 # Remove any stray src/config.h files that may still exist.
 # If the developer accidentally leaves an old src/config.h in place (e.g.,
@@ -279,6 +286,6 @@ endif
 #   under control of automake.  So, we add this stub to satisfy automake.
 am--refresh:
 
-.PHONY: default all \
+.PHONY: default all add-git-hooks \
 	display-build-env display-release display-config build \
 	mkdirs dmtcp plugin contrib clean distclean am--refresh
