@@ -26,8 +26,7 @@
   } while (0)
 
 #define IS_INTERNAL_IBV_STRUCT(stru)  \
-  ((stru->magic1 == STRUCT_MAGIC1) && \
-   (stru->magic2 == STRUCT_MAGIC2))
+  ((stru->magic1 == STRUCT_MAGIC1) && (stru->magic2 == STRUCT_MAGIC2))
 
 struct dev_list_info {
   int num_devices;

@@ -45,7 +45,7 @@ int dmtcp_real_tgkill(pid_t pid, pid_t tid, int sig) __attribute((weak));
 
 #define THREAD_TGKILL(pid, tid, sig)                            \
   (dmtcp_real_tgkill != NULL ? dmtcp_real_tgkill(pid, tid, sig) \
-   : TGKILL(pid, tid, sig))
+                             : TGKILL(pid, tid, sig))
 
 typedef int (*fptr)(void *);
 
@@ -81,7 +81,7 @@ struct Thread {
 
   ThreadTLSInfo tlsInfo;
 
-  ///JA: new code ported from v54b
+  // JA: new code ported from v54b
 #ifdef SETJMP
   sigjmp_buf jmpbuf;     // sigjmp_buf saved by sigsetjmp on ckpt
 #else // ifdef SETJMP

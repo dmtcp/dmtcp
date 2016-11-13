@@ -42,6 +42,6 @@ void setCurrentState(const eWorkerState &value);
 eWorkerState currentState();
 
 ostream&operator<<(ostream &o, const eWorkerState &s);
-}// namespace WorkerState
-}// namespace dmtcp
+} // namespace WorkerState
+} // namespace dmtcp
 #endif // #ifndef __WORKER_STATE_H__

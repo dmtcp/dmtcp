@@ -72,8 +72,7 @@ isdir0700(const char *pathname)
   return S_ISDIR(st.st_mode) == 1
          && (st.st_mode & 0777) == 0700
          && st.st_uid == getuid()
-         && access(pathname, R_OK | W_OK | X_OK) == 0
-  ;
+         && access(pathname, R_OK | W_OK | X_OK) == 0;
 }
 
 int

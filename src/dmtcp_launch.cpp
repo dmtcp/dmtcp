@@ -145,8 +145,7 @@ static const char *theUsage =
   "              Print version information and exit.\n"
   "\n"
   HELP_AND_CONTACT_INFO
-  "\n"
-;
+  "\n";
 
 // FIXME:  The warnings below should be collected into a single function,
 // and also called after a user exec(), not just in dmtcp_launch.

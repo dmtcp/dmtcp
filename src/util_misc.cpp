@@ -702,7 +702,7 @@ Util::findExecutable(char *executable, const char *path_env, char *exec_path)
     if (*tmp_env == ':') { /* but if *tmp_env == '\0', will exit while loop */
       tmp_env++;
     }
-    *path++ = '/'; /* '...//... is same as .../... in POSIX */
+    *path++ = '/'; // '...//... is same as .../... in POSIX
     len++;
     *path++ = '\0';
     strncat(exec_path, executable, PATH_MAX - len - 1);

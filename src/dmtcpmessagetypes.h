@@ -127,5 +127,5 @@ struct DmtcpMessage {
   bool isValid() const;
   void poison();
 };
-}// namespace dmtcp
+} // namespace dmtcp
 #endif // ifndef DMTCPMESSAGETYPES_H

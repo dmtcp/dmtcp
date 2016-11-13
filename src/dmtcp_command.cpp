@@ -57,8 +57,7 @@ static const char *theUsage =
   "    -q, --quit             Kill all nodes and quit\n"
   "\n"
   HELP_AND_CONTACT_INFO
-  "\n"
-;
+  "\n";
 
 
 // shift args

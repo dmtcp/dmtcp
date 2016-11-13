@@ -97,8 +97,7 @@ static const char *theHelpMessage =
   "  k : Kill all nodes\n"
   "  q : Kill all nodes and quit\n"
   "  ? : Show this message\n"
-  "\n"
-;
+  "\n";
 
 static const char *theUsage =
   "Usage: dmtcp_coordinator [OPTIONS] [port]\n"
@@ -136,8 +135,7 @@ static const char *theUsage =
   "      type '?<return>' at runtime for list\n"
   "\n"
   HELP_AND_CONTACT_INFO
-  "\n"
-;
+  "\n";
 
 
 static int thePort = -1;

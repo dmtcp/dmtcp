@@ -35,10 +35,9 @@
 typedef char *VA;
 #define UTIL_MAX_PATH_LEN 256
 
-#define TIMESPEC_CMP(a, b, CMP)     \
-  (((a)->tv_sec == (b)->tv_sec) ?   \
-   ((a)->tv_nsec CMP(b)->tv_nsec) : \
-   ((a)->tv_sec CMP(b)->tv_sec))
+#define TIMESPEC_CMP(a, b, CMP)                                  \
+  (((a)->tv_sec == (b)->tv_sec) ? ((a)->tv_nsec CMP(b)->tv_nsec) \
+                                : ((a)->tv_sec CMP(b)->tv_sec))
 
 #define TIMESPEC_ADD(a, b, result)                   \
   do {                                               \

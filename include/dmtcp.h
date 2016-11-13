@@ -270,7 +270,7 @@ EXTERNC int dmtcp_get_coordinator_status(int *numPeers, int *isRunning)
 __attribute__((weak));
 #define dmtcp_get_coordinator_status(p, r)                           \
   (dmtcp_get_coordinator_status ? dmtcp_get_coordinator_status(p, r) \
-   : DMTCP_NOT_PRESENT)
+                                : DMTCP_NOT_PRESENT)
 
 /**
  * Queries local state of this process, not global state seen by DMTCP coord.

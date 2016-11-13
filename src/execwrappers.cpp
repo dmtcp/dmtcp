@@ -275,7 +275,7 @@ vfork()
 static void
 execShortLivedProcessAndExit(const char *path, char *const argv[])
 {
-  unsetenv("LD_PRELOAD"); ///lib/ld.so won't let us preload if exec'ing lib
+  unsetenv("LD_PRELOAD"); // /lib/ld.so won't let us preload if exec'ing lib
   const unsigned int bufSize = 100000;
   char *buf = (char *)JALLOC_HELPER_MALLOC(bufSize);
   memset(buf, 0, bufSize);
@@ -293,7 +293,7 @@ execShortLivedProcessAndExit(const char *path, char *const argv[])
   numRead++, numRead--; // suppress unused-var warning
   buf[bufSize - 1] = '\0'; // NULL terminate in case the last char is not null
 
-  pclose(output); ///lib/libXXX process is now done; can checkpoint now
+  pclose(output); // /lib/libXXX process is now done; can checkpoint now
   // FIXME:  code currently allows wrapper to proceed without lock if
   // it was busy because of a writer.  The unlock will then fail below.
   bool __wrapperExecutionLockAcquired = true; // needed for LOCK_UNLOCK macro
@@ -496,9 +496,7 @@ static const char *ourImportantEnvs[] =
 {
   ENV_VARS_ALL // expands to a long list
 };
-#define ourImportantEnvsCnt     \
-  ((sizeof(ourImportantEnvs)) / \
-   (sizeof(const char *)))
+#define ourImportantEnvsCnt (sizeof(ourImportantEnvs) / sizeof(const char *))
 
 static bool
 isImportantEnv(string str)

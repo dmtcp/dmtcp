@@ -333,7 +333,7 @@ PtyConnection::refill(bool isRestart)
      * we pass O_NOCTTY flag if this terminal was not the controlling terminal
      * during checkpoint phase.
      */
-    int extraFlags = 0;// _isControllingTTY ? 0 : O_NOCTTY;
+    int extraFlags = 0; // _isControllingTTY ? 0 : O_NOCTTY;
     int tempfd = _real_open(_ptsName.c_str(), _flags | extraFlags);
     JASSERT(tempfd >= 0) (_virtPtsName) (_ptsName) (JASSERT_ERRNO)
     .Text("Error Opening PTS");

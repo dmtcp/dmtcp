@@ -53,8 +53,9 @@
 
 /* dmtcp_launch, dmtcp_restart return a unique rc (default: 99) */
 #define DMTCP_FAIL_RC                                         \
-  (getenv("DMTCP_FAIL_RC") && atoi(getenv("DMTCP_FAIL_RC")) ? \
-   atoi(getenv("DMTCP_FAIL_RC")) : 99)
+  (getenv("DMTCP_FAIL_RC") && atoi(getenv("DMTCP_FAIL_RC"))   \
+     ? atoi(getenv("DMTCP_FAIL_RC"))                            \
+     : 99)
 
 // Not used
 // #define X11_LISTENER_PORT_START 6000

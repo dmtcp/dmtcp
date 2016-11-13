@@ -40,7 +40,7 @@ using namespace dmtcp;
 int
 dmtcp::findLib_byname(string pattern, string &libpath)
 {
-  ///proc/self/maps looks like: "<start addr>-<end addr> <mode> <offset>
+  // /proc/self/maps looks like: "<start addr>-<end addr> <mode> <offset>
   // <device> <inode> <libpath>
   // we need to extract libpath
   ProcMapsArea area;
@@ -74,7 +74,7 @@ dmtcp::findLib_byname(string pattern, string &libpath)
 int
 dmtcp::findLib_byfunc(string fname, string &libpath)
 {
-  ///proc/self/maps looks like: "<start addr>-<end addr> <mode> <offset>
+  // /proc/self/maps looks like: "<start addr>-<end addr> <mode> <offset>
   // <device> <inode> <libpath>
   // We need to extract libpath.
   ProcMapsArea area;
