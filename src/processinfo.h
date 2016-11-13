@@ -75,6 +75,8 @@ namespace dmtcp
       void compGroup(UniquePid cg) { _compGroup = cg; }
       uint32_t numPeers() { return _numPeers; }
       void numPeers(uint32_t np) { _numPeers = np; }
+      uint32_t numChildCoordinators() { return _numChildCoordinators; }
+      void numChildCoordinators(uint32_t np) { _numChildCoordinators = np; }
       bool noCoordinator() { return _noCoordinator; }
       void noCoordinator(bool nc) { _noCoordinator = nc; }
       pid_t pid() const { return _pid; }
@@ -148,6 +150,7 @@ namespace dmtcp
       uint32_t  _numRestarts;
 
       uint32_t  _numPeers;
+      uint32_t  _numChildCoordinators;
       uint32_t  _noCoordinator;
       uint32_t  _argvSize;
       uint32_t  _envSize;

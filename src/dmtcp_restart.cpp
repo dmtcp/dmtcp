@@ -151,6 +151,7 @@ class RestoreTarget
     string procname() { return _pInfo.procname(); }
     UniquePid compGroup() { return _pInfo.compGroup(); }
     int numPeers() { return _pInfo.numPeers(); }
+    int numChildCoordinators() { return _pInfo.numChildCoordinators(); }
     bool noCoordinator() { return _pInfo.noCoordinator(); }
 
     void restoreGroup()
@@ -229,6 +230,7 @@ class RestoreTarget
                                                            _pInfo.procname(),
                                                            _pInfo.compGroup(),
                                                            _pInfo.numPeers(),
+                                                           _pInfo.numChildCoordinators(),
                                                            &coordInfo,
                                                            host,
                                                            port,
@@ -345,6 +347,7 @@ class RestoreTarget
                                                            _pInfo.procname(),
                                                            _pInfo.compGroup(),
                                                            _pInfo.numPeers(),
+                                                           _pInfo.numChildCoordinators(),
                                                            NULL,
                                                            host,
                                                            port,
