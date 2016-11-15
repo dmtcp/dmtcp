@@ -59,9 +59,9 @@ AC_ARG_ENABLE([debug],
             [use_jassert=$enableval],
             [use_jassert=no])
 
-CFLAGS="$CFLAGS -Wall -Werror"
-CPPFLAGS="$CPPFLAGS -Wall -Werror"
-CXXFLAGS="$CXXFLAGS -Wall -Werror"
+CFLAGS="$CFLAGS -Wall"
+CPPFLAGS="$CPPFLAGS -Wall"
+CXXFLAGS="$CXXFLAGS -Wall"
 
 if test "$use_jassert" = "yes"; then
   AC_SUBST([DEBUG], [yes])
