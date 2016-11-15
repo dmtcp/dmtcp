@@ -23,91 +23,100 @@
 
 #pragma once
 #ifndef CONNECTION_H
-#define CONNECTION_H
+# define CONNECTION_H
 
-// THESE INCLUDES ARE IN RANDOM ORDER.  LET'S CLEAN IT UP AFTER RELEASE. - Gene
-#include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/types.h>
 #include <unistd.h>
-#include "config.h"
-#include "dmtcpalloc.h"
-#include "jserialize.h"
 #include "jalloc.h"
+#include "jserialize.h"
+#include "config.h"
 #include "connectionidentifier.h"
+#include "dmtcpalloc.h"
 
 namespace dmtcp
 {
+class Connection
+{
+  public:
+# ifdef JALIB_ALLOCATOR
+    static void *operator new(size_t nbytes, void *p) { return p; }
 
-  class Connection
-  {
-    public:
-#ifdef JALIB_ALLOCATOR
-      static void* operator new(size_t nbytes, void* p) { return p; }
-      static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
-      static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
-#endif
-      enum ConnectionType
-      {
-        INVALID  = 0x00000,
-        TCP      = 0x10000,
-        RAW      = 0x11000,
-        PTY      = 0x20000,
-        FILE     = 0x21000,
-        STDIO    = 0x22000,
-        FIFO     = 0x24000,
-        EPOLL    = 0x30000,
-        EVENTFD  = 0x31000,
-        SIGNALFD = 0x32000,
-        INOTIFY  = 0x34000,
-        POSIXMQ  = 0x40000,
-        TYPEMASK = TCP | RAW | PTY | FILE | STDIO | FIFO | EPOLL | EVENTFD |
-          SIGNALFD | INOTIFY | POSIXMQ
-      };
+    static void *operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
 
-      Connection() {}
-      virtual ~Connection() {}
+    static void operator delete(void *p) { JALLOC_HELPER_DELETE(p); }
+# endif // ifdef JALIB_ALLOCATOR
+    enum ConnectionType {
+      INVALID  = 0x00000,
+      TCP      = 0x10000,
+      RAW      = 0x11000,
+      PTY      = 0x20000,
+      FILE     = 0x21000,
+      STDIO    = 0x22000,
+      FIFO     = 0x24000,
+      EPOLL    = 0x30000,
+      EVENTFD  = 0x31000,
+      SIGNALFD = 0x32000,
+      INOTIFY  = 0x34000,
+      POSIXMQ  = 0x40000,
+      TYPEMASK = TCP | RAW | PTY | FILE | STDIO | FIFO | EPOLL | EVENTFD |
+        SIGNALFD | INOTIFY | POSIXMQ
+    };
 
-      void addFd(int fd);
-      void removeFd(int fd);
-      uint32_t numFds() const { return _fds.size(); }
-      const vector<int32_t>& getFds() const { return _fds; }
-      uint32_t  conType() const { return _type & TYPEMASK; }
-      uint32_t  subType() const { return _type; }
-      bool hasLock() { return _hasLock; }
-      bool isStdio() { return conType() == STDIO; }
+    Connection() {}
 
-      void  checkLocking();
-      const ConnectionIdentifier& id() const { return _id; }
+    virtual ~Connection() {}
 
-      virtual void saveOptions();
-      virtual void doLocking();
-      virtual void drain() = 0;
-      virtual void preCkpt() {}
-      virtual void refill(bool isRestart) = 0;
-      virtual void resume(bool isRestart) {};
-      virtual void postRestart() = 0;
-      virtual bool isPreExistingCTTY() const { return false; }
+    void addFd(int fd);
+    void removeFd(int fd);
+    uint32_t numFds() const { return _fds.size(); }
 
-      virtual void restoreOptions();
+    const vector<int32_t> &getFds() const { return _fds; }
 
-      virtual string str() = 0;
+    uint32_t conType() const { return _type & TYPEMASK; }
 
-      void serialize(jalib::JBinarySerializer& o);
-    protected:
-      virtual void serializeSubClass(jalib::JBinarySerializer& o) = 0;
-    protected:
-      //only child classes can construct us...
-      Connection(uint32_t t);
-    protected:
-      ConnectionIdentifier _id;
-      uint32_t             _type;
-      int64_t              _fcntlFlags;
-      int64_t              _fcntlOwner;
-      int64_t              _fcntlSignal;
-      bool                 _hasLock;
-      vector<int32_t>      _fds;
-  };
+    uint32_t subType() const { return _type; }
+
+    bool hasLock() { return _hasLock; }
+
+    bool isStdio() { return conType() == STDIO; }
+
+    void checkLocking();
+    const ConnectionIdentifier &id() const { return _id; }
+
+    virtual void saveOptions();
+    virtual void doLocking();
+    virtual void drain() = 0;
+    virtual void preCkpt() {}
+
+    virtual void refill(bool isRestart) = 0;
+    virtual void resume(bool isRestart) {}
+
+    virtual void postRestart() = 0;
+    virtual bool isPreExistingCTTY() const { return false; }
+
+    virtual void restoreOptions();
+
+    virtual string str() = 0;
+
+    void serialize(jalib::JBinarySerializer &o);
+
+  protected:
+    virtual void serializeSubClass(jalib::JBinarySerializer &o) = 0;
+
+  protected:
+    // only child classes can construct us...
+    Connection(uint32_t t);
+
+  protected:
+    ConnectionIdentifier _id;
+    uint32_t _type;
+    int64_t _fcntlFlags;
+    int64_t _fcntlOwner;
+    int64_t _fcntlSignal;
+    bool _hasLock;
+    vector<int32_t>_fds;
+};
 }
-
-#endif
+#endif // ifndef CONNECTION_H

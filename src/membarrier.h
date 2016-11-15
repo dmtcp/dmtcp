@@ -21,19 +21,24 @@
 
 #if defined(__i386__) || defined(__x86_64__)
 # if defined(__i386__) && defined(__PIC__)
+
 // FIXME:  After DMTCP-1.2.5, this can be made only case for i386/x86_64
-#  define RMB asm volatile ("lfence" \
-                           : : : "eax", "ecx", "edx", "memory")
-#  define WMB asm volatile ("sfence" \
-                           : : : "eax", "ecx", "edx", "memory")
+#  define RMB            \
+  asm volatile ("lfence" \
+                : : : "eax", "ecx", "edx", "memory")
+#  define WMB            \
+  asm volatile ("sfence" \
+                : : : "eax", "ecx", "edx", "memory")
 #  define IMB
-# else
-#  define RMB asm volatile ("xorl %%eax,%%eax ; cpuid" \
-                           : : : "eax", "ebx", "ecx", "edx", "memory")
-#  define WMB asm volatile ("xorl %%eax,%%eax ; cpuid" \
-                           : : : "eax", "ebx", "ecx", "edx", "memory")
+# else // if defined(__i386__) && defined(__PIC__)
+#  define RMB                              \
+  asm volatile ("xorl %%eax,%%eax ; cpuid" \
+                : : : "eax", "ebx", "ecx", "edx", "memory")
+#  define WMB                              \
+  asm volatile ("xorl %%eax,%%eax ; cpuid" \
+                : : : "eax", "ebx", "ecx", "edx", "memory")
 #  define IMB
-# endif
+# endif // if defined(__i386__) && defined(__PIC__)
 #elif defined(__arm__)
 # define RMB asm volatile (".arch armv7-a \n\t dsb ; dmb" : : : "memory")
 # define WMB asm volatile (".arch armv7-a \n\t dsb ; dmb" : : : "memory")
@@ -42,8 +47,7 @@
 # define RMB asm volatile ("dsb sy ; dmb sy" : : : "memory")
 # define WMB asm volatile ("dsb sy ; dmb sy" : : : "memory")
 # define IMB asm volatile ("isb" : : : "memory")
-#else
+#else // if defined(__i386__) || defined(__x86_64__)
 # error "instruction architecture not implemented"
-#endif
-
-#endif
+#endif // if defined(__i386__) || defined(__x86_64__)
+#endif // ifndef MEM_BARRIER_H

@@ -1,9 +1,9 @@
-#include <unistd.h>
-#include <stdlib.h>
+#include <pthread.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include <pthread.h>
+#include <unistd.h>
 #include "dmtcp.h"
 
 // This code uses the attribute PTHREAD_MUTEX_ERRORCHECK.
@@ -14,8 +14,11 @@
 pthread_mutex_t mutex;
 void *mutex_loop(void *arg);
 
-int main() {
+int
+main()
+{
   pthread_mutexattr_t attr;
+
   pthread_mutexattr_init(&attr);
   pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_ERRORCHECK);
   pthread_mutex_init(&mutex, &attr);
@@ -23,16 +26,20 @@ int main() {
   pthread_t thread1, thread2;
   pthread_create(&thread1, NULL, mutex_loop, NULL);
   pthread_create(&thread2, NULL, mutex_loop, NULL);
+
   // This will block forever.  mutex_loop() doesn't return.
   pthread_join(thread1, NULL);
   pthread_join(thread2, NULL);
   return 0;
 }
 
-void *mutex_loop(void *arg /* NOTUSED */) {
+void *
+mutex_loop(void *arg /* NOTUSED */)
+{
   int counter = 0;
 
   struct timespec hundredth_second;
+
   hundredth_second.tv_sec = 0;
   hundredth_second.tv_nsec = 10000000; /* 10,000,000 */
 
@@ -44,6 +51,7 @@ void *mutex_loop(void *arg /* NOTUSED */) {
              strerror(rc));
       exit(1);
     }
+
     // Wait a little to optimize chances of checkpoint occurring here.
     nanosleep(&hundredth_second, NULL);
     if (counter++ % 50 == 0) {

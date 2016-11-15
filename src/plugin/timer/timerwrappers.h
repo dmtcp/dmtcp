@@ -27,24 +27,23 @@
 #include <time.h>
 #include "dmtcp.h"
 
-#define _real_timer_create NEXT_FNC(timer_create)
-#define _real_timer_delete NEXT_FNC(timer_delete)
-#define _real_timer_gettime NEXT_FNC(timer_gettime)
-#define _real_timer_settime NEXT_FNC(timer_settime)
-#define _real_timer_getoverrun NEXT_FNC(timer_getoverrun)
+# define _real_timer_create          NEXT_FNC(timer_create)
+# define _real_timer_delete          NEXT_FNC(timer_delete)
+# define _real_timer_gettime         NEXT_FNC(timer_gettime)
+# define _real_timer_settime         NEXT_FNC(timer_settime)
+# define _real_timer_getoverrun      NEXT_FNC(timer_getoverrun)
 
-#define _real_clock_getcpuclockid NEXT_FNC(clock_getcpuclockid)
-#define _real_pthread_getcpuclockid NEXT_FNC(pthread_getcpuclockid)
-#define _real_clock_getres NEXT_FNC(clock_getres)
-#define _real_clock_gettime NEXT_FNC(clock_gettime)
-#define _real_clock_settime NEXT_FNC(clock_settime)
+# define _real_clock_getcpuclockid   NEXT_FNC(clock_getcpuclockid)
+# define _real_pthread_getcpuclockid NEXT_FNC(pthread_getcpuclockid)
+# define _real_clock_getres          NEXT_FNC(clock_getres)
+# define _real_clock_gettime         NEXT_FNC(clock_gettime)
+# define _real_clock_settime         NEXT_FNC(clock_settime)
 
-#define _real_pthread_mutex_lock NEXT_FNC(pthread_mutex_lock)
-#define _real_pthread_mutex_unlock NEXT_FNC(pthread_mutex_unlock)
+# define _real_pthread_mutex_lock    NEXT_FNC(pthread_mutex_lock)
+# define _real_pthread_mutex_unlock  NEXT_FNC(pthread_mutex_unlock)
 
 int timer_create_sigev_thread(clockid_t clock_id,
                               struct sigevent *evp,
                               timer_t *timerid,
                               struct sigevent *sevOut);
-
-#endif
+#endif // ifndef TIMER_WRAPPERS_H

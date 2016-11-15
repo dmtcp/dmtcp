@@ -3,12 +3,12 @@
  * which creates just one connection to a tap/tun interface.
  */
 
-#include <stdio.h>
-#include <unistd.h>
-#include <stdlib.h>
-#include <stdarg.h>
-#include <string.h>
 #include <linux/version.h>
+#include <stdarg.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 
 #include <linux/if_tun.h>
 #include <net/if.h>
@@ -16,8 +16,8 @@
 #include <sys/ioctl.h>
 
 #include <fcntl.h>
-#include "dmtcp.h"
 #include "config.h"
+#include "dmtcp.h"
 
 #define DEBUG_SIGNATURE "DEBUG [TUN Plugin]: "
 
@@ -26,19 +26,20 @@
  */
 
 #ifdef TUN_PLUGIN_DEBUG
-#define DPRINTF(fmt, ...) \
-    do { fprintf(stderr, DEBUG_SIGNATURE fmt, ## __VA_ARGS__); } while (0)
-#else
-#define DPRINTF(fmt, ...) \
-    do { } while (0)
-#endif
+# define DPRINTF(fmt, ...) \
+  do { fprintf(stderr, DEBUG_SIGNATURE fmt, ## __VA_ARGS__); } while (0)
+#else /* ifdef TUN_PLUGIN_DEBUG */
+# define DPRINTF(fmt, ...) \
+  do {} while (0)
+#endif /* ifdef TUN_PLUGIN_DEBUG */
 
-#define NUM_TUN_REQUEST_TYPES 14
+#define NUM_TUN_REQUEST_TYPES   14
 #define MAX_ERROR_STRING_LENGTH 50
+
 /* NOTE: This size is very specific to QEMU; need to find a more generic way */
-#define MAX_BUF_SIZE (4096 + 65536)
-#define MAX_NUM_OF_READS 50
-#define TUN_PLUGIN_COOKIE_STR "{{<<TTUUNN10"
+#define MAX_BUF_SIZE            (4096 + 65536)
+#define MAX_NUM_OF_READS        50
+#define TUN_PLUGIN_COOKIE_STR   "{{<<TTUUNN10"
 
 /*============================================================================*/
 /*============================= START GLOBAL DATA ============================*/
@@ -52,9 +53,9 @@ static int g_sndbuf;
 static int g_vnet_hdr_sz;
 static struct ifreq g_queue;
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,0,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 0, 0)
 static struct sock_fprog g_sock_fprog;
-#endif
+#endif /* if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 0, 0) */
 
 /* Stores a request type and the corresponding argument */
 struct ioctl_request {
@@ -66,11 +67,17 @@ typedef struct ioctl_request ioctl_request;
 
 /* This table stores the ioctl calls, and the corresponding arguments */
 static ioctl_request g_request_table[NUM_TUN_REQUEST_TYPES];
+
 /* Index of the last ioctl request stored on the g_request_table */
 static int g_last_req_idx = -1;
 
 /* Table of set request types on tap/tun fd */
-static char *request_names[NUM_TUN_REQUEST_TYPES] = { "TUNSETNOCSUM", /* Unimplemented as of kernel ver. 3.8 */
+static char *request_names[NUM_TUN_REQUEST_TYPES] = { "TUNSETNOCSUM", /*
+                                                                         Unimplemented
+                                                                         as of
+                                                                         kernel
+                                                                         ver.
+                                                                         3.8 */
                                                       "TUNSETDEBUG",
                                                       "TUNSETIFF",
                                                       "TUNSETPERSIST",
@@ -78,9 +85,21 @@ static char *request_names[NUM_TUN_REQUEST_TYPES] = { "TUNSETNOCSUM", /* Unimple
                                                       "TUNSETLINK",
                                                       "TUNSETGROUP",
                                                       "TUNSETOFFLOAD",
-                                                      "TUNSETTXFILTER", /* Can only be set for TAP */
+                                                      "TUNSETTXFILTER", /* Can
+                                                                           only
+                                                                           be
+                                                                           set
+                                                                           for
+                                                                           TAP
+                                                                           */
                                                       "TUNSETSNDBUF",
-                                                      "TUNATTACHFILTER", /* Can only be set for TAP */
+                                                      "TUNATTACHFILTER", /* Can
+                                                                            only
+                                                                            be
+                                                                            set
+                                                                            for
+                                                                            TAP
+                                                                            */
                                                       "TUNSETVNETHDRSZ",
                                                       "TUNSETQUEUE" };
 
@@ -99,153 +118,174 @@ static int g_bytes_read = 0;
 /* Returns the index into the request_names array for an ioctl() on g_tun_fd
  *  Useful for debugging.
  */
-static int get_request_name_idx(int request)
+static int
+get_request_name_idx(int request)
 {
   int idx = -1;
-  switch(request) {
-    case TUNSETNOCSUM:
-      idx = 0; break;
-    case TUNSETDEBUG:
-      idx = 1; break;
-    case TUNSETIFF:
-      idx = 2; break;
-    case TUNSETPERSIST:
-      idx = 3; break;
-    case TUNSETOWNER:
-      idx = 4; break;
-    case TUNSETLINK:
-      idx = 5; break;
-    case TUNSETGROUP:
-      idx = 6; break;
-    case TUNSETOFFLOAD:
-      idx = 7; break;
-    case TUNSETTXFILTER:
-      idx = 8; break;
-    case TUNSETSNDBUF:
-      idx = 9; break;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,0,0)
-    case TUNATTACHFILTER:
-      idx = 10; break;
-    case TUNSETVNETHDRSZ:
-      idx = 11; break;
-    case TUNSETQUEUE:
-      idx = 12; break;
-#endif
-    default:
-      break;
+
+  switch (request) {
+  case TUNSETNOCSUM:
+    idx = 0; break;
+  case TUNSETDEBUG:
+    idx = 1; break;
+  case TUNSETIFF:
+    idx = 2; break;
+  case TUNSETPERSIST:
+    idx = 3; break;
+  case TUNSETOWNER:
+    idx = 4; break;
+  case TUNSETLINK:
+    idx = 5; break;
+  case TUNSETGROUP:
+    idx = 6; break;
+  case TUNSETOFFLOAD:
+    idx = 7; break;
+  case TUNSETTXFILTER:
+    idx = 8; break;
+  case TUNSETSNDBUF:
+    idx = 9; break;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 0, 0)
+  case TUNATTACHFILTER:
+    idx = 10; break;
+  case TUNSETVNETHDRSZ:
+    idx = 11; break;
+  case TUNSETQUEUE:
+    idx = 12; break;
+#endif /* if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 0, 0) */
+  default:
+    break;
   }
   return idx;
 }
 
-static void inc_last_req_idx()
+static void
+inc_last_req_idx()
 {
   g_last_req_idx += 1;
 }
 
-static void dec_last_req_idx()
+static void
+dec_last_req_idx()
 {
   g_last_req_idx -= 1;
 }
 
 /* Returns 1 if the failure of an ioctl for a request type is a fatal */
-static int is_fatal(int request)
+static int
+is_fatal(int request)
 {
   int fatal = 0;
+
   /* TODO: Determine all fatal errors */
-  switch(request) {
-    case TUNSETNOCSUM:
-      fatal = 0; break;
-    case TUNSETDEBUG:
-      fatal = 0; break;
-    case TUNSETIFF:
-      fatal = 1; break;
-    case TUNSETPERSIST:
-      fatal = 0; break;
-    case TUNSETOWNER:
-      fatal = 0; break;
-    case TUNSETLINK:
-      fatal = 0; break;
-    case TUNSETGROUP:
-      fatal = 0; break;
-    case TUNSETOFFLOAD:
-      fatal = 0; break;
-    case TUNSETTXFILTER:
-      fatal = 0; break;
-    case TUNSETSNDBUF:
-      fatal = 0; break;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,0,0)
-    case TUNATTACHFILTER:
-      fatal = 0; break;
-    case TUNSETVNETHDRSZ:
-      fatal = 0; break;
-    case TUNSETQUEUE:
-      fatal = 0; break;
-#endif
-    default:
-      break;
+  switch (request) {
+  case TUNSETNOCSUM:
+    fatal = 0; break;
+  case TUNSETDEBUG:
+    fatal = 0; break;
+  case TUNSETIFF:
+    fatal = 1; break;
+  case TUNSETPERSIST:
+    fatal = 0; break;
+  case TUNSETOWNER:
+    fatal = 0; break;
+  case TUNSETLINK:
+    fatal = 0; break;
+  case TUNSETGROUP:
+    fatal = 0; break;
+  case TUNSETOFFLOAD:
+    fatal = 0; break;
+  case TUNSETTXFILTER:
+    fatal = 0; break;
+  case TUNSETSNDBUF:
+    fatal = 0; break;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 0, 0)
+  case TUNATTACHFILTER:
+    fatal = 0; break;
+  case TUNSETVNETHDRSZ:
+    fatal = 0; break;
+  case TUNSETQUEUE:
+    fatal = 0; break;
+#endif /* if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 0, 0) */
+  default:
+    break;
   }
   return fatal;
 }
 
-static void* get_arg(int request, void* arg)
+static void *
+get_arg(int request, void *arg)
 {
   void *p_arg = NULL;
-  switch(request) {
-    case TUNSETNOCSUM:
-      break; /* Disable/enable checksum: unimplemented in kernel ver. 3.8 */
-    case TUNSETDEBUG:
-      p_arg = arg; break; /* type: int. Save the debug level */
-    case TUNSETIFF:
-      p_arg = memcpy(&g_ifreq, arg, sizeof(struct ifreq)); /* type: struct ifreq */
-      break;
-    case TUNSETPERSIST:
-      p_arg = arg; break; /* type: ??. Save the persistence param */
-    case TUNSETOWNER:
-      p_arg = arg; break; /* type: int. Save the uid of the owner */
-    case TUNSETLINK:
-      p_arg = arg; break; /* type: int. Setting of link type can only be done when the if is down */
-    case TUNSETGROUP:
-      p_arg = arg; break; /* type: int. Save the gid of the owner */
-    case TUNSETOFFLOAD:
-      p_arg = arg; break; /* type: int. Save the offload param */
-    case TUNSETTXFILTER:
-      p_arg = memcpy(&g_tun_filter, arg, sizeof(struct tun_filter)); /* type: struct tun_filter */
-      break;
-    case TUNSETSNDBUF:
-      p_arg = memcpy(&g_sndbuf, arg, sizeof(g_sndbuf));
-      break;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,0,0)
-    case TUNATTACHFILTER:
-      p_arg = memcpy(&g_sock_fprog, arg, sizeof(struct sock_fprog)); /* type: struct sock_fprog */
-      break;
-    case TUNSETVNETHDRSZ:
-      p_arg = memcpy(&g_vnet_hdr_sz, arg, sizeof(g_vnet_hdr_sz));
-      break;
-    case TUNSETQUEUE:
-      p_arg = memcpy(&g_queue, arg, sizeof(struct ifreq)); /* type: struct ifreq */
-      break;
-#endif
-    default:
-      break;
+
+  switch (request) {
+  case TUNSETNOCSUM:
+    break;   /* Disable/enable checksum: unimplemented in kernel ver. 3.8 */
+  case TUNSETDEBUG:
+    p_arg = arg; break;   /* type: int. Save the debug level */
+  case TUNSETIFF:
+    p_arg = memcpy(&g_ifreq, arg, sizeof(struct ifreq));   /* type: struct ifreq
+                                                              */
+    break;
+  case TUNSETPERSIST:
+    p_arg = arg; break;   /* type: ??. Save the persistence param */
+  case TUNSETOWNER:
+    p_arg = arg; break;   /* type: int. Save the uid of the owner */
+  case TUNSETLINK:
+    p_arg = arg; break;   /* type: int. Setting of link type can only be done
+                             when the if is down */
+  case TUNSETGROUP:
+    p_arg = arg; break;   /* type: int. Save the gid of the owner */
+  case TUNSETOFFLOAD:
+    p_arg = arg; break;   /* type: int. Save the offload param */
+  case TUNSETTXFILTER:
+    p_arg = memcpy(&g_tun_filter, arg, sizeof(struct tun_filter));   /* type:
+                                                                        struct
+                                                                        tun_filter
+                                                                        */
+    break;
+  case TUNSETSNDBUF:
+    p_arg = memcpy(&g_sndbuf, arg, sizeof(g_sndbuf));
+    break;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 0, 0)
+  case TUNATTACHFILTER:
+    p_arg = memcpy(&g_sock_fprog, arg, sizeof(struct sock_fprog));   /* type:
+                                                                        struct
+                                                                        sock_fprog
+                                                                        */
+    break;
+  case TUNSETVNETHDRSZ:
+    p_arg = memcpy(&g_vnet_hdr_sz, arg, sizeof(g_vnet_hdr_sz));
+    break;
+  case TUNSETQUEUE:
+    p_arg = memcpy(&g_queue, arg, sizeof(struct ifreq));   /* type: struct ifreq
+                                                              */
+    break;
+#endif /* if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 0, 0) */
+  default:
+    break;
   }
   return p_arg;
 }
 
-static int set_non_blocking(int fd)
+static int
+set_non_blocking(int fd)
 {
-    int flags;
+  int flags;
 
-    if (-1 == (flags = fcntl(fd, F_GETFL, 0)))
-        flags = 0;
-    return fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+  if (-1 == (flags = fcntl(fd, F_GETFL, 0))) {
+    flags = 0;
+  }
+  return fcntl(fd, F_SETFL, flags | O_NONBLOCK);
 }
 
-static int get_flags(int fd)
+static int
+get_flags(int fd)
 {
   return fcntl(fd, F_GETFL);
 }
 
-static int set_flags(int fd, int flags)
+static int
+set_flags(int fd, int flags)
 {
   return fcntl(fd, F_SETFL, flags);
 }
@@ -261,8 +301,8 @@ static int set_flags(int fd, int flags)
 /* This is the wrapper for open()
  *  Used for capturing the fd to a tap/tun interface
  */
-
-int open64(const char *pathname, int flags, ...)
+int
+open64(const char *pathname, int flags, ...)
 {
   va_list argp;
   static int (*next_fnc)() = NULL; /* Same type signature as open */
@@ -285,13 +325,14 @@ int open64(const char *pathname, int flags, ...)
      */
     g_tun_fd = result;
     DPRINTF("[%s:%d]: PARAMS: pathname: %s, flags:%d; Result: %d\n",
-           __FUNCTION__, __LINE__, pathname, flags, g_tun_fd);
+            __FUNCTION__, __LINE__, pathname, flags, g_tun_fd);
   }
   return result;
 }
 
 /* TODO: Fix this duplicate */
-int open(const char *pathname, int flags, ...)
+int
+open(const char *pathname, int flags, ...)
 {
   va_list argp;
   static int (*next_fnc)() = NULL; /* Same type signature as open */
@@ -314,38 +355,40 @@ int open(const char *pathname, int flags, ...)
      */
     g_tun_fd = result;
     DPRINTF("[%s:%d]: PARAMS: pathname: %s, flags:%d; Result: %d\n",
-           __FUNCTION__, __LINE__, pathname, flags, g_tun_fd);
+            __FUNCTION__, __LINE__, pathname, flags, g_tun_fd);
   }
   return result;
 }
-
 
 /* This is the wrapper for ioctl()
  *  Used for saving the requests and the corresponding arguments
  *  Assumption: QEMU only makes three argument ioctl() calls
  */
-//int ioctl(int fd, unsigned long int request, void* arg)
-int ioctl(int fd, unsigned long int request, ...)
+
+// int ioctl(int fd, unsigned long int request, void* arg)
+int
+ioctl(int fd, unsigned long int request, ...)
 {
   va_list argp;
   static int (*next_fnc)() = NULL; /* Same type signature as ioctl */
   int idx = -1;
-  char* request_name = "NULL";
+  char *request_name = "NULL";
   int result;
   void *arg;
 
   va_start(argp, request);
-  arg = va_arg(argp, void*);
+  arg = va_arg(argp, void *);
   va_end(argp);
   result = NEXT_FNC(ioctl)(fd, request, arg);
 
   /* Check if this is the saved tun fd */
   if (fd == g_tun_fd) {
     idx = get_request_name_idx(request);
-    request_name = (idx != -1) ? request_names[idx]: "UNKNOWN";
+    request_name = (idx != -1) ? request_names[idx] : "UNKNOWN";
+
     /* Capture arguments of ioctl() */
     DPRINTF("[%s:%d]: PARAMS: fd: %d, request:%s, arg:%p; Result: %d\n",
-           __FUNCTION__, __LINE__, fd, request_name, arg, result);
+            __FUNCTION__, __LINE__, fd, request_name, arg, result);
     inc_last_req_idx();
     g_request_table[g_last_req_idx].request = request;
     g_request_table[g_last_req_idx].arg = get_arg(request, arg);
@@ -369,15 +412,16 @@ int ioctl(int fd, unsigned long int request, ...)
  *  - Replay the sequence of ioctl's
  *  - Write the saved data, if any, back to the tun fd
  */
-
-static void pre_ckpt()
+static void
+pre_ckpt()
 {
   int i, request, idx, ret, flags, count;
   char *request_name;
   char error_string[MAX_ERROR_STRING_LENGTH];
-  void* arg;
+  void *arg;
 
   DPRINTF("\n*** The plugin is being called before checkpointing. ***\n");
+
   /* TODO: flush(g_tun_fd)?? */
   fsync(g_tun_fd);
 
@@ -392,6 +436,7 @@ static void pre_ckpt()
   count = 0;
 
   DPRINTF("Draining the tunfd(%d)\n", g_tun_fd);
+
   /* NOTE: This is a heuristic, should work for now. */
   while (count < MAX_NUM_OF_READS) {
     ret = read(g_tun_fd, (g_drained_data + g_bytes_read),
@@ -407,7 +452,8 @@ static void pre_ckpt()
   ret = set_flags(g_tun_fd, g_tunfd_flags);
 }
 
-static void refill_tun_fd()
+static void
+refill_tun_fd()
 {
   if (g_bytes_read > 0) {
     /* It's time to put the captured data back on the wire */
@@ -426,19 +472,20 @@ static void refill_tun_fd()
   }
 }
 
-static void resume()
+static void
+resume()
 {
   DPRINTF("The process is now resuming after checkpoint.\n");
   refill_tun_fd();
 }
 
-
-static void restart()
+static void
+restart()
 {
   int i, request, idx, ret, flags, count;
   char *request_name;
   char error_string[MAX_ERROR_STRING_LENGTH];
-  void* arg;
+  void *arg;
 
   DPRINTF("The plugin is now restarting from checkpointing.\n");
   if (g_tun_fd != -1) {
@@ -447,7 +494,7 @@ static void restart()
     for (i = 0; i <= g_last_req_idx; i++) {
       request = g_request_table[i].request;
       idx = get_request_name_idx(request);
-      request_name = (idx != -1) ? request_names[idx]: "UNKNOWN";
+      request_name = (idx != -1) ? request_names[idx] : "UNKNOWN";
       DPRINTF("REQUEST #%d: %s\n", i, request_name);
       arg = g_request_table[i].arg;
       ret = NEXT_FNC(ioctl)(g_tun_fd, request, arg);
@@ -468,20 +515,21 @@ static void restart()
   refill_tun_fd();
 }
 
-static void tun_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
+static void
+tun_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   int i, request, idx, ret, flags, count;
   char *request_name;
   char error_string[MAX_ERROR_STRING_LENGTH];
-  void* arg;
+  void *arg;
 
   /* NOTE:  See warning in plugin/README about calls to printf here. */
   switch (event) {
   case DMTCP_EVENT_INIT:
-    {
-      DPRINTF("The plugin containing %s has been initialized.\n", __FILE__);
-      break;
-    }
+  {
+    DPRINTF("The plugin containing %s has been initialized.\n", __FILE__);
+    break;
+  }
   case DMTCP_EVENT_EXIT:
     DPRINTF("The plugin is being called before exiting.\n");
     break;
@@ -491,9 +539,9 @@ static void tun_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 }
 
 static DmtcpBarrier tunBarriers[] = {
-  {DMTCP_GLOBAL_BARRIER_PRE_CKPT, pre_ckpt, "checkpoint"},
-  {DMTCP_GLOBAL_BARRIER_RESUME, resume, "resume"},
-  {DMTCP_GLOBAL_BARRIER_RESTART, restart, "restart"}
+  { DMTCP_GLOBAL_BARRIER_PRE_CKPT, pre_ckpt, "checkpoint" },
+  { DMTCP_GLOBAL_BARRIER_RESUME, resume, "resume" },
+  { DMTCP_GLOBAL_BARRIER_RESTART, restart, "restart" }
 };
 
 DmtcpPluginDescriptor_t tun_plugin = {

@@ -1,0 +1,34 @@
+diff --git a/util/cpplint.py b/util/cpplint.py
+index 3366b39..e36cd43 100644
+--- a/util/cpplint.py
++++ b/util/cpplint.py
+@@ -2592,10 +2592,10 @@ class NestingState(object):
+       if access_match:
+         classinfo.access = access_match.group(2)
+ 
+-        # Check that access keywords are indented +1 space.  Skip this
++        # Check that access keywords are indented +2 space.  Skip this
+         # check if the keywords are not preceded by whitespaces.
+         indent = access_match.group(1)
+-        if (len(indent) != classinfo.class_indent + 1 and
++        if (len(indent) != classinfo.class_indent + 2 and
+             Match(r'^\s*$', indent)):
+           if classinfo.is_struct:
+             parent = 'struct ' + classinfo.name
+@@ -3032,13 +3032,10 @@ def CheckComment(line, filename, linenum, next_line_start, error):
+     # Check if the // may be in quotes.  If so, ignore it
+     if re.sub(r'\\.', '', line[0:commentpos]).count('"') % 2 == 0:
+       # Allow one space for new scopes, two spaces otherwise:
+-      if (not (Match(r'^.*{ *//', line) and next_line_start == commentpos) and
+-          ((commentpos >= 1 and
+-            line[commentpos-1] not in string.whitespace) or
+-           (commentpos >= 2 and
+-            line[commentpos-2] not in string.whitespace))):
++      if (commentpos >= 1 and
++            line[commentpos-1] not in string.whitespace):
+         error(filename, linenum, 'whitespace/comments', 2,
+-              'At least two spaces is best between code and comments')
++              'At least a single space is required between code and comments')
+ 
+       # Checks for common mistakes in TODO comments.
+       comment = line[commentpos:]

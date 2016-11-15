@@ -55,10 +55,10 @@
 // #define VERBOSE
 
 #define _GNU_SOURCE
+#include <assert.h>
 #include <link.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <assert.h>
 #include <string.h>
 
 #define _GNU_SOURCE
@@ -71,8 +71,11 @@
 // *****        typedef uint32_t Elf63_Word;
 
 // older sysv standard
-static unsigned long elf_hash(const char *name) {
+static unsigned long
+elf_hash(const char *name)
+{
   unsigned long h = 0, g;
+
   while (*name) {
     h = (h << 4) + *name++;
     if ((g = h & 0xf0000000)) {
@@ -84,83 +87,105 @@ static unsigned long elf_hash(const char *name) {
 }
 
 // For GNU standard, below, see:
-//   https://blogs.oracle.com/ali/entry/gnu_hash_elf_sections
-//   http://deroko.phearless.org/dt_gnu_hash.txt
-//   glibc:elf/dl-lookup.c:do_lookup_x()
-//     See:  dl_setup_hash()  and  Elf32_Word bucket = map->l_gnu_buckets  ...
+// https://blogs.oracle.com/ali/entry/gnu_hash_elf_sections
+// http://deroko.phearless.org/dt_gnu_hash.txt
+// glibc:elf/dl-lookup.c:do_lookup_x()
+// See:  dl_setup_hash()  and  Elf32_Word bucket = map->l_gnu_buckets  ...
 
 // GNU standard
 #if 0
-static uint32_t elf_gnu_hash(const char *s) {
+static uint32_t
+elf_gnu_hash(const char *s)
+{
   uint32_t h = 5381;
   unsigned char c;
-  for (c = *s; c != '\0'; c = *++s)
+
+  for (c = *s; c != '\0'; c = *++s) {
     h = h * 33 + c;
+  }
   return h;
 }
+
 #elif 0
+
 // From binutils:bfd/elf.c:bfd_elf_gnu_hash()
-unsigned long elf_gnu_hash (const char *namearg)
+unsigned long
+elf_gnu_hash(const char *namearg)
 {
-  const unsigned char *name = (const unsigned char *) namearg;
+  const unsigned char *name = (const unsigned char *)namearg;
   unsigned long h = 5381;
   unsigned char ch;
 
-  while ((ch = *name++) != '\0')
+  while ((ch = *name++) != '\0') {
     h = (h << 5) + h + ch;
+  }
   return h & 0xffffffff;
 }
-#else
+
+#else /* if 0 */
+
 // From glibc-2.19
-static uint_fast32_t elf_gnu_hash (const char *s)
+static uint_fast32_t
+elf_gnu_hash(const char *s)
 {
   uint_fast32_t h = 5381;
   unsigned char c;
-  for (c = *s; c != '\0'; c = *++s)
+
+  for (c = *s; c != '\0'; c = *++s) {
     h = h * 33 + c;
+  }
   return h & 0xffffffff;
 }
-#endif
+#endif /* if 0 */
 
-static Elf32_Word hash_first(const char *name, Elf32_Word *hash_table,
-                             int use_gnu_hash) {
+static Elf32_Word
+hash_first(const char *name, Elf32_Word *hash_table, int use_gnu_hash)
+{
   if (use_gnu_hash) {
-    uint32_t nbuckets = ((uint32_t*)hash_table)[0];
+    uint32_t nbuckets = ((uint32_t *)hash_table)[0];
+
     // uint32_t symndx = ((uint32_t*)hash_table)[1];
-    uint32_t maskwords = ((uint32_t*)hash_table)[2];
+    uint32_t maskwords = ((uint32_t *)hash_table)[2];
     uint32_t *buckets = (uint32_t *)
-      ((char *)hash_table + 4*sizeof(uint32_t) + maskwords*sizeof(long unsigned int));
+      ((char *)hash_table + 4 * sizeof(uint32_t) + maskwords *
+       sizeof(long unsigned int));
+
     // uint32_t *hashval = & buckets[nbuckets];
-    if (buckets[elf_gnu_hash(name) % nbuckets])
+    if (buckets[elf_gnu_hash(name) % nbuckets]) {
       return buckets[elf_gnu_hash(name) % nbuckets];
-    else
+    } else {
       return STN_UNDEF;
+    }
   } else {
     // http://www.sco.com/developers/gabi/latest/ch5.dynamic.html#hash
     Elf32_Word nbucket = *hash_table++;
-    hash_table++; // Elf32_Word nchain = *hash_table++; // Note: nchain same as n_symtab
+    hash_table++; // Elf32_Word nchain = *hash_table++; // Note: nchain same as
+                  // n_symtab
     Elf32_Word *bucket = hash_table;
+
     // Elf32_Word *chain = hash_table + nbucket;
     return bucket[elf_hash(name) % nbucket]; // return index into symbol table
   }
 }
 
-static Elf32_Word hash_next(Elf32_Word index, Elf32_Word *hash_table,
-                            int use_gnu_hash) {
+static Elf32_Word
+hash_next(Elf32_Word index, Elf32_Word *hash_table, int use_gnu_hash)
+{
   if (use_gnu_hash) {
-    assert( index > STN_UNDEF );
-    uint32_t nbuckets = ((uint32_t*)hash_table)[0];
-    uint32_t symndx = ((uint32_t*)hash_table)[1];
-    uint32_t maskwords = ((uint32_t*)hash_table)[2];
+    assert(index > STN_UNDEF);
+    uint32_t nbuckets = ((uint32_t *)hash_table)[0];
+    uint32_t symndx = ((uint32_t *)hash_table)[1];
+    uint32_t maskwords = ((uint32_t *)hash_table)[2];
     uint32_t *hashval = (uint32_t *)
-      ((char *)hash_table + 4*sizeof(uint32_t) /* sizeof header */
-       + maskwords*sizeof(long unsigned int) /* sizeof Bloom filter */
-       + nbuckets*sizeof(Elf32_Word) /* sizeof hash buckets */
+      ((char *)hash_table + 4 * sizeof(uint32_t) /* sizeof header */
+       + maskwords * sizeof(long unsigned int) /* sizeof Bloom filter */
+       + nbuckets * sizeof(Elf32_Word) /* sizeof hash buckets */
       );
-    if (hashval[index - symndx] & 1)
+    if (hashval[index - symndx] & 1) {
       return STN_UNDEF;  // end-of-chain indicator
-    else
-      return index+1;
+    } else {
+      return index + 1;
+    }
   } else {
     Elf32_Word nbucket = *hash_table++;
     hash_table++; // Elf32_Word nchain = *hash_table++;
@@ -170,105 +195,131 @@ static Elf32_Word hash_next(Elf32_Word index, Elf32_Word *hash_table,
   }
 }
 
-typedef struct dt_tag{
-    char *base_addr; /* Base address shared object is loaded at. */
-    // ElfW(Sym) *dynsym; // On disk, dynsym would be dynamic symbols only
-    ElfW(Sym) *symtab; // Same as dynsym, for in-memory symbol table.
-    // ElfW(Word) n_symtab;
-    ElfW(Half) *versym;
-    /* elf.h lies.  DT_VERDEF is offset from base_addr, not addr. */
-    ElfW(Verdef) *verdef;
-    ElfW(Word) verdefnum;
-    // ElfW(Word) first_ext_def;
-    char *strtab;
-    Elf32_Word *hash;
-    Elf32_Word *gnu_hash;
+typedef struct dt_tag {
+  char *base_addr;   /* Base address shared object is loaded at. */
+
+  // ElfW(Sym) *dynsym; // On disk, dynsym would be dynamic symbols only
+  ElfW(Sym) * symtab;  // Same as dynsym, for in-memory symbol table.
+  // ElfW(Word) n_symtab;
+  ElfW(Half) * versym;
+
+  /* elf.h lies.  DT_VERDEF is offset from base_addr, not addr. */
+  ElfW(Verdef) * verdef;
+  ElfW(Word) verdefnum;
+
+  // ElfW(Word) first_ext_def;
+  char *strtab;
+  Elf32_Word *hash;
+  Elf32_Word *gnu_hash;
 } dt_tag;
 
-static char *symbol_name(int i, dt_tag *tags) {
+static char *
+symbol_name(int i, dt_tag *tags)
+{
   return tags->strtab + tags->symtab[i].st_name;
 }
 
-static char *version_name(ElfW(Word) version_ndx, dt_tag *tags) {
-    ElfW(Verdef) *cur, *prev;
+static char *
+version_name(ElfW(Word)version_ndx, dt_tag *tags)
+{
+  ElfW(Verdef) * cur, *prev;
 
-    // Remove hidden bit, if it's set.
-    if (version_ndx & (1<<15))
-      version_ndx -= (1<<15);
-    // Walk the list of all versions.
-    for (prev = NULL, cur =
-          (ElfW(Verdef)*)(tags->base_addr + (unsigned long int)(tags->verdef));
-         // Could alternatively use verdefnum (DT_VERDEFNUM) here.
-         cur != prev;
-         prev = cur, cur = (ElfW(Verdef)*)(((char *)cur)+cur->vd_next))
-    {
-      assert (cur->vd_version == 1);
-      if (cur->vd_ndx == version_ndx) {
-        ElfW(Verdaux) *first = (ElfW(Verdaux) *)(((char *)cur)+cur->vd_aux);
-        return tags->strtab + first->vda_name;
-      }
+  // Remove hidden bit, if it's set.
+  if (version_ndx & (1 << 15)) {
+    version_ndx -= (1 << 15);
+  }
+
+  // Walk the list of all versions.
+  for (prev = NULL, cur =
+         (ElfW(Verdef) *)(tags->base_addr + (unsigned long int)(tags->verdef));
+
+       // Could alternatively use verdefnum (DT_VERDEFNUM) here.
+       cur != prev;
+       prev = cur, cur = (ElfW(Verdef) *)(((char *)cur) + cur->vd_next)) {
+    assert(cur->vd_version == 1);
+    if (cur->vd_ndx == version_ndx) {
+      ElfW(Verdaux) * first = (ElfW(Verdaux) *)(((char *)cur) + cur->vd_aux);
+      return tags->strtab + first->vda_name;
     }
-    return NULL;  // failed to find version name
+  }
+  return NULL;    // failed to find version name
 }
 
 // Note that the dynamic section is usually also a segment by itself.
 // [ 'readelf -l libXXX.so' to verify. ]
 // So, we don't need the object handle.  Its base address is enough,
-//   and we can then read the program header to get the right segment.
+// and we can then read the program header to get the right segment.
 // Also, the _DYNAMIC symbol in a section should also be a pointer to
-//   the address of the dynamic section.  (See comment in /usr/include/link.h)
-static void get_dt_tags(void *handle, dt_tag *tags) {
-    struct link_map *link_map;  // from /usr/include/link.h
-    if (dlinfo(handle, RTLD_DI_LINKMAP, &link_map) == -1)
-      printf("ERROR: %s\n", dlerror());
-    ElfW(Dyn) *dyn = link_map -> l_ld;  // from /usr/include/link.h
-    // http://www.sco.com/developers/gabi/latest/ch5.dynamic.html#dynamic_section
-    /* Base address shared object is loaded at. (from /usr/include/lnik.h) */
-    tags->base_addr = (char *)(link_map -> l_addr);
+// the address of the dynamic section.  (See comment in /usr/include/link.h)
+static void
+get_dt_tags(void *handle, dt_tag *tags)
+{
+  struct link_map *link_map;    // from /usr/include/link.h
 
-    tags->symtab = NULL;
-    tags->versym = NULL;
-    tags->verdef = NULL;
-    tags->strtab = NULL;
-    tags->hash = NULL;
-    tags->gnu_hash = NULL;
-    tags->verdefnum = 0;
+  if (dlinfo(handle, RTLD_DI_LINKMAP, &link_map) == -1) {
+    printf("ERROR: %s\n", dlerror());
+  }
+  ElfW(Dyn) * dyn = link_map->l_ld;     // from /usr/include/link.h
+  // http://www.sco.com/developers/gabi/latest/ch5.dynamic.html#dynamic_section
 
-    ElfW(Dyn) *cur_dyn;
-    // The _DYNAMIC symbol should be pointer to address of the dynamic section.
-    // printf("dyn: %p; _DYNAMIC: %p\n", dyn, _DYNAMIC);
-    for (cur_dyn = dyn; cur_dyn->d_tag != DT_NULL;  cur_dyn++) {
-      if (cur_dyn->d_tag == DT_VERSYM)
-        tags->versym = (void *)cur_dyn->d_un.d_ptr;
-      if (cur_dyn->d_tag == DT_VERDEF)
-        tags->verdef = (void *)cur_dyn->d_un.d_ptr;
-      if (cur_dyn->d_tag == DT_VERDEFNUM)
-        tags->verdefnum = (ElfW(Word))cur_dyn->d_un.d_val;
-      if (cur_dyn->d_tag == DT_STRTAB && tags->strtab == 0)
-        tags->strtab = (void *)cur_dyn->d_un.d_ptr;
-      // Not DT_DYNSYM, since only dynsym section loaded into RAM; not symtab.??
-      //   So, DT_SYMTAB refers to dynsym section ??
-      if (cur_dyn->d_tag == DT_SYMTAB)
-        tags->symtab = (void *)cur_dyn->d_un.d_ptr;
-      if (cur_dyn->d_tag == DT_HASH)
-        tags->hash = (void *)cur_dyn->d_un.d_ptr;
-#ifdef HAS_GNU_HASH
-      if (cur_dyn->d_tag == DT_GNU_HASH)
-        tags->gnu_hash = (void *)cur_dyn->d_un.d_ptr;
-#endif
-      //if (cur_dyn->d_tag == DT_MIPS_SYMTABNO) // Number of DYNSYM entries
-      //  n_symtab = (ElfW(Word))cur_dyn->d_un.d_val;
-      //if (cur_dyn->d_tag == DT_MIPS_UNREFEXTNO)  // First external DYNSYM
-      //  first_ext_def = (ElfW(Word))cur_dyn->d_un.d_val;  // first dynsym entry??
+  /* Base address shared object is loaded at. (from /usr/include/lnik.h) */
+  tags->base_addr = (char *)(link_map->l_addr);
+
+  tags->symtab = NULL;
+  tags->versym = NULL;
+  tags->verdef = NULL;
+  tags->strtab = NULL;
+  tags->hash = NULL;
+  tags->gnu_hash = NULL;
+  tags->verdefnum = 0;
+
+  ElfW(Dyn) * cur_dyn;
+
+  // The _DYNAMIC symbol should be pointer to address of the dynamic section.
+  // printf("dyn: %p; _DYNAMIC: %p\n", dyn, _DYNAMIC);
+  for (cur_dyn = dyn; cur_dyn->d_tag != DT_NULL; cur_dyn++) {
+    if (cur_dyn->d_tag == DT_VERSYM) {
+      tags->versym = (void *)cur_dyn->d_un.d_ptr;
     }
+    if (cur_dyn->d_tag == DT_VERDEF) {
+      tags->verdef = (void *)cur_dyn->d_un.d_ptr;
+    }
+    if (cur_dyn->d_tag == DT_VERDEFNUM) {
+      tags->verdefnum = (ElfW(Word))cur_dyn->d_un.d_val;
+    }
+    if (cur_dyn->d_tag == DT_STRTAB && tags->strtab == 0) {
+      tags->strtab = (void *)cur_dyn->d_un.d_ptr;
+    }
+
+    // Not DT_DYNSYM, since only dynsym section loaded into RAM; not symtab.??
+    // So, DT_SYMTAB refers to dynsym section ??
+    if (cur_dyn->d_tag == DT_SYMTAB) {
+      tags->symtab = (void *)cur_dyn->d_un.d_ptr;
+    }
+    if (cur_dyn->d_tag == DT_HASH) {
+      tags->hash = (void *)cur_dyn->d_un.d_ptr;
+    }
+#ifdef HAS_GNU_HASH
+    if (cur_dyn->d_tag == DT_GNU_HASH) {
+      tags->gnu_hash = (void *)cur_dyn->d_un.d_ptr;
+    }
+#endif /* ifdef HAS_GNU_HASH */
+
+    // if (cur_dyn->d_tag == DT_MIPS_SYMTABNO) // Number of DYNSYM entries
+    // n_symtab = (ElfW(Word))cur_dyn->d_un.d_val;
+    // if (cur_dyn->d_tag == DT_MIPS_UNREFEXTNO)  // First external DYNSYM
+    // first_ext_def = (ElfW(Word))cur_dyn->d_un.d_val;  // first dynsym entry??
+  }
 }
 
 // Given a handle for a library (not RTLD_DEFAULT or RTLD_NEXT), retrieves the
 // default symbol for the given symbol if it exists in that library.
 // Also sets the tags and default_symbol_index for usage later
-void *dlsym_default_internal_library_handler(void *handle, const char*symbol,
-                                             dt_tag *tags_p,
-                                             Elf32_Word *default_symbol_index_p)
+void *
+dlsym_default_internal_library_handler(void *handle,
+                                       const char *symbol,
+                                       dt_tag *tags_p,
+                                       Elf32_Word *default_symbol_index_p)
 {
   dt_tag tags;
   Elf32_Word default_symbol_index = 0;
@@ -280,19 +331,24 @@ void *dlsym_default_internal_library_handler(void *handle, const char*symbol,
   Elf32_Word *hash = (use_gnu_hash ? tags.gnu_hash : tags.hash);
   for (i = hash_first(symbol, hash, use_gnu_hash); i != STN_UNDEF;
        i = hash_next(i, hash, use_gnu_hash)) {
-    if (tags.symtab[i].st_name == 0 || tags.symtab[i].st_value == 0)
+    if (tags.symtab[i].st_name == 0 || tags.symtab[i].st_value == 0) {
       continue;
-    if (strcmp(symbol_name(i, &tags), symbol) != 0) // If different symbol name
+    }
+    if (strcmp(symbol_name(i, &tags), symbol) != 0) { // If different symbol
+                                                      // name
       continue;
+    }
+
     // We have a symbol of the same name.  Let's look at the version number.
-    if ( !(tags.versym[i] & (1<<15)) ) { // If hidden bit is not set.
+    if (!(tags.versym[i] & (1 << 15))) { // If hidden bit is not set.
       // If default symbol not set or if new version later than old one.
       // Notice that default_symbol_index will be set first to the
-      //  base definition (1 for unversioned symbols; 2 for versioned symbols)
-if (default_symbol_index) {
-  printf("WARNING:  More than one default symbol version.\n");
-}
+      // base definition (1 for unversioned symbols; 2 for versioned symbols)
+      if (default_symbol_index) {
+        printf("WARNING:  More than one default symbol version.\n");
+      }
       if (!default_symbol_index ||
+
           // Could look at version dependencies, but using strcmp instead.
           strcmp(version_name(tags.versym[i], &tags),
                  version_name(tags.versym[default_symbol_index], &tags)) > 0) {
@@ -303,25 +359,32 @@ if (default_symbol_index) {
   *tags_p = tags;
   *default_symbol_index_p = default_symbol_index;
 
-  if (default_symbol_index)
+  if (default_symbol_index) {
     return tags.base_addr + tags.symtab[default_symbol_index].st_value;
-  else
+  } else {
     return NULL;
+  }
 }
 
-// Given a pseudo-handle, symbol name, and addr, returns the address of the symbol
-// with the given name of a default version found by the search order of the given
+// Given a pseudo-handle, symbol name, and addr, returns the address of the
+// symbol
+// with the given name of a default version found by the search order of the
+// given
 // handle which is either RTLD_DEFAULT or RTLD_NEXT.
-void *dlsym_default_internal_flag_handler(void* handle, const char* symbol,
-                                          void* addr, dt_tag *tags_p,
-                                          Elf32_Word *default_symbol_index_p)
+void *
+dlsym_default_internal_flag_handler(void *handle,
+                                    const char *symbol,
+                                    void *addr,
+                                    dt_tag *tags_p,
+                                    Elf32_Word *default_symbol_index_p)
 {
   Dl_info info;
-  struct link_map* map;
-  void* result;
+  struct link_map *map;
+  void *result;
 
   // Retrieve the link_map for the library given by addr
-  int ret = dladdr1(addr, &info, (void**)&map, RTLD_DL_LINKMAP);
+  int ret = dladdr1(addr, &info, (void **)&map, RTLD_DL_LINKMAP);
+
   if (!ret) {
     printf("dladdr1 could not find shared object for address\n");
     return NULL;
@@ -368,13 +431,14 @@ void *dlsym_default_internal_flag_handler(void* handle, const char* symbol,
         printf("No more libraries to search.\n");
         return NULL;
       }
+
       // Change link map to next library
       map = map->l_next;
       continue;
     }
 
     // Search current library
-    result = dlsym_default_internal_library_handler((void*) map, symbol, tags_p,
+    result = dlsym_default_internal_library_handler((void *)map, symbol, tags_p,
                                                     default_symbol_index_p);
     if (result) {
       return result;
@@ -382,17 +446,20 @@ void *dlsym_default_internal_flag_handler(void* handle, const char* symbol,
 
     // Check if next library exists
     if (!map->l_next) {
-      //printf("No more libraries to search.\n");
+      // printf("No more libraries to search.\n");
       return NULL;
     }
+
     // Change link map to next library
     map = map->l_next;
   }
 }
 
 // Produces an error message and hard fails if no default_symbol was found.
-void print_debug_messages(dt_tag tags, Elf32_Word default_symbol_index,
-                          const char *symbol)
+void
+print_debug_messages(dt_tag tags,
+                     Elf32_Word default_symbol_index,
+                     const char *symbol)
 {
 #ifdef VERBOSE
   if (default_symbol_index) {
@@ -401,7 +468,7 @@ void print_debug_messages(dt_tag tags, Elf32_Word default_symbol_index,
     printf("** symbol version: %s\n",
            version_name(tags.versym[default_symbol_index], &tags));
   }
-#endif
+#endif /* ifdef VERBOSE */
   if (!default_symbol_index) {
     printf("ERROR:  No default symbol version found for %s.\n"
            "        Extend code to look for hidden symbols?\n", symbol);
@@ -411,21 +478,27 @@ void print_debug_messages(dt_tag tags, Elf32_Word default_symbol_index,
 // Like dlsym but finds the 'default' symbol of a library (the symbol that the
 // dynamic executable automatically links to) rather than the oldest version
 // which is what dlsym finds
-void *dlsym_default(void *handle, const char*symbol) {
+void *
+dlsym_default(void *handle, const char *symbol)
+{
   dt_tag tags;
   Elf32_Word default_symbol_index = 0;
 
 #ifdef __USE_GNU
   if (handle == RTLD_NEXT || handle == RTLD_DEFAULT) {
     // Determine where this function will return
-    void* return_address = __builtin_return_address(0);
+    void *return_address = __builtin_return_address(0);
+
     // Search for symbol using given pseudo-handle order
-    void *result = dlsym_default_internal_flag_handler(handle, symbol, return_address,
-                                                       &tags, &default_symbol_index);
+    void *result = dlsym_default_internal_flag_handler(handle,
+                                                       symbol,
+                                                       return_address,
+                                                       &tags,
+                                                       &default_symbol_index);
     print_debug_messages(tags, default_symbol_index, symbol);
     return result;
   }
-#endif
+#endif /* ifdef __USE_GNU */
 
   void *result = dlsym_default_internal_library_handler(handle, symbol, &tags,
                                                         &default_symbol_index);

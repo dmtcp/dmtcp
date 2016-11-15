@@ -24,21 +24,24 @@
 #define __SOCKET_CONNECTIONMESSAGE_H__
 
 #include <stdint.h>
-#include "dmtcpalloc.h"
 #include "jalloc.h"
 #include "connectionidentifier.h"
+#include "dmtcpalloc.h"
 
-#define HANDSHAKE_SIGNATURE_MSG "DMTCP_SOCK_HANDSHAKE_V0\n"
+# define HANDSHAKE_SIGNATURE_MSG "DMTCP_SOCK_HANDSHAKE_V0\n"
 
 namespace dmtcp
 {
-  class ConnMsg {
-    public:
-#ifdef JALIB_ALLOCATOR
-      static void* operator new(size_t nbytes, void* p) { return p; }
-      static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
-      static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
-#endif
+class ConnMsg
+{
+  public:
+# ifdef JALIB_ALLOCATOR
+    static void *operator new(size_t nbytes, void *p) { return p; }
+
+    static void *operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
+
+    static void operator delete(void *p) { JALLOC_HELPER_DELETE(p); }
+# endif // ifdef JALIB_ALLOCATOR
 
     enum MsgType {
       INVALID = -1,
@@ -47,24 +50,27 @@ namespace dmtcp
       REFILL
     };
 
-    ConnMsg(enum MsgType t = INVALID) {
+    ConnMsg(enum MsgType t = INVALID)
+    {
       strcpy(sign, HANDSHAKE_SIGNATURE_MSG);
       type = t;
       size = sizeof(ConnMsg);
       extraBytes = 0;
     }
 
-    void poison() {
+    void poison()
+    {
       sign[0] = '\0';
       type = INVALID;
     }
 
-    void assertValid(enum MsgType t) {
+    void assertValid(enum MsgType t)
+    {
       JASSERT(strcmp(sign, HANDSHAKE_SIGNATURE_MSG) == 0) (sign)
-        .Text("read invalid message, signature mismatch. (External socket?)");
+      .Text("read invalid message, signature mismatch. (External socket?)");
       JASSERT(size == sizeof(ConnMsg)) (size) (sizeof(ConnMsg))
-        .Text("read invalid message, size mismatch.");
-      JASSERT(type == t) ((int)t) ((int)type) .Text("Wrong Msg Type.");
+      .Text("read invalid message, size mismatch.");
+      JASSERT(type == t) ((int)t) ((int)type).Text("Wrong Msg Type.");
     }
 
     ConnectionIdentifier from;
@@ -74,10 +80,9 @@ namespace dmtcp
     int32_t type;
     int32_t size;
     int32_t extraBytes;
-    char    padding[4];
-  };
+    char padding[4];
+};
 
-  ostream& operator<<(ostream& o, const ConnectionIdentifier& id);
+ostream&operator<<(ostream &o, const ConnectionIdentifier &id);
 }
-
-#endif
+#endif // ifndef __SOCKET_CONNECTIONMESSAGE_H__

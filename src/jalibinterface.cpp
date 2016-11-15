@@ -19,15 +19,16 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#include "../jalib/jalib.h"
 #include "dmtcp.h"
 #include "protectedfds.h"
-#include "util.h"
 #include "syscallwrappers.h"
-#include "../jalib/jalib.h"
+#include "util.h"
 
 using namespace dmtcp;
 
-extern "C" void initializeJalib()
+extern "C" void
+initializeJalib()
 {
   JalibFuncPtrs jalibFuncPtrs;
 

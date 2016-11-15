@@ -20,12 +20,12 @@
 #define TLSINFO_H
 
 #include "ldt.h"
-#include "protectedfds.h"
 #include "mtcp_header.h"
+#include "protectedfds.h"
 
 #ifdef __cplusplus
 extern "C" {
-#endif
+#endif // ifdef __cplusplus
 
 #ifdef __x86_64__
 # define eax rax
@@ -36,63 +36,65 @@ extern "C" {
 # define esi rsi
 # define edi rdi
 # define esp rsp
-# define CLEAN_FOR_64_BIT(args...) CLEAN_FOR_64_BIT_HELPER(args)
-# define CLEAN_FOR_64_BIT_HELPER(args...) #args
+# define CLEAN_FOR_64_BIT(args ...)        CLEAN_FOR_64_BIT_HELPER(args)
+# define CLEAN_FOR_64_BIT_HELPER(args ...) # args
 #elif __i386__
-# define CLEAN_FOR_64_BIT(args...) #args
-#else
-# define CLEAN_FOR_64_BIT(args...) "CLEAN_FOR_64_BIT_undefined"
-#endif
+# define CLEAN_FOR_64_BIT(args ...)        # args
+#else // ifdef __x86_64__
+# define CLEAN_FOR_64_BIT(args ...)        "CLEAN_FOR_64_BIT_undefined"
+#endif // ifdef __x86_64__
 
-#define PRINTF(fmt, ...) \
-  do { \
-    /* In some cases, the user stack may be very small (less than 10KB). */ \
-    /* We will overrun the buffer with just two extra stack frames. */ \
-    char buf[256]; \
+#define PRINTF(fmt, ...)                                                     \
+  do {                                                                       \
+    /* In some cases, the user stack may be very small (less than 10KB). */  \
+    /* We will overrun the buffer with just two extra stack frames. */       \
+    char buf[256];                                                           \
     int c = snprintf(buf, sizeof(buf) - 1, "[%d] %s:%d in %s; REASON= " fmt, \
-                 getpid(), __FILE__, __LINE__, __FUNCTION__, ##__VA_ARGS__); \
-    if (c == sizeof(buf) - 1) buf[c] = '\n'; \
-    /* assign to rc in order to avoid 'unused result' compiler warnings */ \
-    ssize_t rc __attribute__((unused)); \
-    rc = write(PROTECTED_STDERR_FD, buf, c + 1); \
+                     getpid(), __FILE__, __LINE__, __FUNCTION__,             \
+                     ## __VA_ARGS__);                                        \
+    if (c == sizeof(buf) - 1) {                                              \
+      buf[c] = '\n';                                                         \
+    }                                                                        \
+    /* assign to rc in order to avoid 'unused result' compiler warnings */   \
+    ssize_t rc __attribute__((unused));                                      \
+    rc = write(PROTECTED_STDERR_FD, buf, c + 1);                             \
   } while (0);
 
 #ifdef DEBUG
 # define DPRINTF PRINTF
-#else
-# define DPRINTF(args...) // debug printing
-#endif
+#else // ifdef DEBUG
+# define DPRINTF(args ...) // debug printing
+#endif // ifdef DEBUG
 
-#define ASSERT(condition) \
-  do { \
-    if (! (condition)) { \
-      PRINTF("Assertion failed: %s\n", #condition); \
-      _exit(0); \
-    } \
+#define ASSERT(condition)                            \
+  do {                                               \
+    if (!(condition)) {                              \
+      PRINTF("Assertion failed: %s\n", # condition); \
+      _exit(0);                                      \
+    }                                                \
   } while (0);
 
-#define ASSERT_NOT_REACHED() \
-  do { \
+#define ASSERT_NOT_REACHED()                   \
+  do {                                         \
     PRINTF("NOT_REACHED Assertion failed.\n"); \
-    _exit(0); \
+    _exit(0);                                  \
   } while (0);
 
 
-int  TLSInfo_GetTidOffset();
-int  TLSInfo_GetPidOffset();
+int TLSInfo_GetTidOffset();
+int TLSInfo_GetPidOffset();
 void TLSInfo_PostRestart();
 void TLSInfo_VerifyPidTid(pid_t pid, pid_t tid);
 void TLSInfo_UpdatePid();
-void TLSInfo_SaveTLSState (ThreadTLSInfo *tlsInfo);
+void TLSInfo_SaveTLSState(ThreadTLSInfo *tlsInfo);
 void TLSInfo_RestoreTLSState(ThreadTLSInfo *tlsInfo);
 void TLSInfo_SetThreadSysinfo(void *sysinfo);
 void *TLSInfo_GetThreadSysinfo();
-int  TLSInfo_HaveThreadSysinfoOffset();
+int TLSInfo_HaveThreadSysinfoOffset();
 
 void Thread_RestoreAllThreads(void);
 
 #ifdef __cplusplus
 }
-#endif
-
-#endif
+#endif // ifdef __cplusplus
+#endif // ifndef TLSINFO_H

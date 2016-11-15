@@ -21,90 +21,104 @@
 
 #pragma once
 #ifndef CONNECTIONLIST_H
-#define CONNECTIONLIST_H
+# define CONNECTIONLIST_H
 
 #include <pthread.h>
+#include "jalloc.h"
+#include "jserialize.h"
+#include "connection.h"
 #include "dmtcpalloc.h"
 #include "protectedfds.h"
-#include "connection.h"
-#include "jserialize.h"
-#include "jalloc.h"
 
 namespace dmtcp
 {
-  class ConnectionList
-  {
-    public:
-#ifdef JALIB_ALLOCATOR
-      static void* operator new(size_t nbytes, void* p) { return p; }
-      static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
-      static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
-#endif
-      typedef map<ConnectionIdentifier, Connection*>::iterator iterator;
+class ConnectionList
+{
+  public:
+# ifdef JALIB_ALLOCATOR
+    static void *operator new(size_t nbytes, void *p) { return p; }
 
-      ConnectionList() {
-        numIncomingCons = 0;
-        JASSERT(pthread_mutex_init(&_lock, NULL) == 0);}
-      virtual ~ConnectionList();
+    static void *operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
 
-      void resetOnFork();
-      void deleteStaleConnections();
+    static void operator delete(void *p) { JALLOC_HELPER_DELETE(p); }
+# endif // ifdef JALIB_ALLOCATOR
+    typedef map<ConnectionIdentifier, Connection *>::iterator iterator;
 
-      void add(int fd, Connection* c);
-      void erase(iterator i);
-      void erase(ConnectionIdentifier& key);
-      Connection *getConnection(const ConnectionIdentifier &id);
-      Connection *getConnection(int fd);
-      void processClose(int fd);
-      void processDup(int oldfd, int newfd);
-      void list();
-      void serialize(jalib::JBinarySerializer& o);
+    ConnectionList()
+    {
+      numIncomingCons = 0;
+      JASSERT(pthread_mutex_init(&_lock, NULL) == 0);
+    }
 
-      void eventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
-      virtual void scanForPreExisting() {}
-      virtual void preLockSaveOptions();
-      virtual void preCkptFdLeaderElection();
-      virtual void drain();
-      virtual void preCkpt();
-      virtual void postRestart();
-      virtual void registerNSData() {}
-      virtual void sendQueries() {}
-      virtual void refill(bool isRestart);
-      virtual void resume(bool isRestart);
+    virtual ~ConnectionList();
 
-      void ckptRefill() { refill(false); }
-      void ckptResume() { resume(false); }
+    void resetOnFork();
+    void deleteStaleConnections();
 
-      void postRestartRefill() { refill(true); }
-      void postRestartResume() { resume(true); }
+    void add(int fd, Connection *c);
+    void erase(iterator i);
+    void erase(ConnectionIdentifier &key);
+    Connection *getConnection(const ConnectionIdentifier &id);
+    Connection *getConnection(int fd);
+    void processClose(int fd);
+    void processDup(int oldfd, int newfd);
+    void list();
+    void serialize(jalib::JBinarySerializer &o);
 
-      void registerIncomingCons();
-      void determineOutgoingCons();
-      void sendReceiveMissingFds();
-      virtual int protectedFd() = 0;
+    void eventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
+    virtual void scanForPreExisting() {}
 
-    protected:
-      virtual Connection *createDummyConnection(int type) = 0;
-      iterator begin() { return _connections.begin(); }
-      iterator end() { return _connections.end(); }
+    virtual void preLockSaveOptions();
+    virtual void preCkptFdLeaderElection();
+    virtual void drain();
+    virtual void preCkpt();
+    virtual void postRestart();
+    virtual void registerNSData() {}
 
-    private:
-      void processCloseWork(int fd);
-      void _lock_tbl() {
-        JASSERT(_real_pthread_mutex_lock(&_lock) == 0) (JASSERT_ERRNO);
-      }
-      void _unlock_tbl() {
-        JASSERT(_real_pthread_mutex_unlock(&_lock) == 0) (JASSERT_ERRNO);
-      }
+    virtual void sendQueries() {}
 
-      pthread_mutex_t _lock;
-      typedef map<ConnectionIdentifier, Connection*> ConnectionMapT;
-      ConnectionMapT _connections;
+    virtual void refill(bool isRestart);
+    virtual void resume(bool isRestart);
 
-      typedef map<int, Connection*> FdToConMapT;
-      FdToConMapT _fdToCon;
+    void ckptRefill() { refill(false); }
 
-      size_t numIncomingCons;
-  };
+    void ckptResume() { resume(false); }
+
+    void postRestartRefill() { refill(true); }
+
+    void postRestartResume() { resume(true); }
+
+    void registerIncomingCons();
+    void determineOutgoingCons();
+    void sendReceiveMissingFds();
+    virtual int protectedFd() = 0;
+
+  protected:
+    virtual Connection *createDummyConnection(int type) = 0;
+    iterator begin() { return _connections.begin(); }
+
+    iterator end() { return _connections.end(); }
+
+  private:
+    void processCloseWork(int fd);
+    void _lock_tbl()
+    {
+      JASSERT(_real_pthread_mutex_lock(&_lock) == 0) (JASSERT_ERRNO);
+    }
+
+    void _unlock_tbl()
+    {
+      JASSERT(_real_pthread_mutex_unlock(&_lock) == 0) (JASSERT_ERRNO);
+    }
+
+    pthread_mutex_t _lock;
+    typedef map<ConnectionIdentifier, Connection *>ConnectionMapT;
+    ConnectionMapT _connections;
+
+    typedef map<int, Connection *>FdToConMapT;
+    FdToConMapT _fdToCon;
+
+    size_t numIncomingCons;
+};
 }
-#endif
+#endif // ifndef CONNECTIONLIST_H

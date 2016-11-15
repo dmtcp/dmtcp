@@ -24,54 +24,60 @@
 #define CONNECTIONIDENTIFIER_H
 
 #include <stdint.h>
-#include "dmtcpalloc.h"
-#include "dmtcp.h"
 #include "jalloc.h"
 #include "jserialize.h"
+#include "dmtcp.h"
+#include "dmtcpalloc.h"
 #include "ipc.h"
 
 namespace dmtcp
 {
-  class ConnectionIdentifier
-  {
-    public:
-#ifdef JALIB_ALLOCATOR
-      static void* operator new(size_t nbytes, void* p) { return p; }
-      static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
-      static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
-#endif
-      static ConnectionIdentifier create();
-      static ConnectionIdentifier null();
-      static ConnectionIdentifier self();
+class ConnectionIdentifier
+{
+  public:
+# ifdef JALIB_ALLOCATOR
+    static void *operator new(size_t nbytes, void *p) { return p; }
 
-      static void serialize ( jalib::JBinarySerializer& o );
+    static void *operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
 
-      uint64_t   hostid() const { return _upid._hostid; }
-      pid_t  pid() const { return _upid._pid; }
-      uint64_t time() const { return _upid._time; }
-      int64_t   conId() const { return _id; }
-      //int conId() const;
-      //const UniquePid& pid() const;
+    static void operator delete(void *p) { JALLOC_HELPER_DELETE(p); }
+# endif // ifdef JALIB_ALLOCATOR
+    static ConnectionIdentifier create();
+    static ConnectionIdentifier null();
+    static ConnectionIdentifier self();
 
-      ConnectionIdentifier (int id = -1);
-      ConnectionIdentifier(DmtcpUniqueProcessId id) {
-        _upid = id;
-        _id = -1;
-      }
+    static void serialize(jalib::JBinarySerializer &o);
 
-      bool isNull() const { return _id < 0; }
+    uint64_t hostid() const { return _upid._hostid; }
 
-      bool operator==(const ConnectionIdentifier& that) const;
-      bool operator< (const ConnectionIdentifier& that) const;
-      bool operator!=(const ConnectionIdentifier& that) const
-      { return !(*this == that); }
+    pid_t pid() const { return _upid._pid; }
 
-    private:
-      DmtcpUniqueProcessId _upid;
-      int64_t   _id;
-  };
+    uint64_t time() const { return _upid._time; }
 
-  ostream& operator<<(ostream& o, const ConnectionIdentifier& id);
+    int64_t conId() const { return _id; }
+
+    // int conId() const;
+    // const UniquePid& pid() const;
+
+    ConnectionIdentifier(int id = -1);
+    ConnectionIdentifier(DmtcpUniqueProcessId id)
+    {
+      _upid = id;
+      _id = -1;
+    }
+
+    bool isNull() const { return _id < 0; }
+
+    bool operator==(const ConnectionIdentifier &that) const;
+    bool operator<(const ConnectionIdentifier &that) const;
+    bool operator!=(const ConnectionIdentifier &that) const
+    { return !(*this == that); }
+
+  private:
+    DmtcpUniqueProcessId _upid;
+    int64_t _id;
+};
+
+ostream&operator<<(ostream &o, const ConnectionIdentifier &id);
 }
-
-#endif
+#endif // ifndef CONNECTIONIDENTIFIER_H

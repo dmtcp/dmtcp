@@ -23,161 +23,192 @@
 #define PROCESS_INFO_H
 
 #include <sys/types.h>
-#include "uniquepid.h"
 #include "../jalib/jalloc.h"
+#include "uniquepid.h"
 
-#define MB 1024*1024
-#define RESTORE_STACK_SIZE 5*MB
-#define RESTORE_MEM_SIZE 5*MB
-#define RESTORE_TOTAL_SIZE (RESTORE_STACK_SIZE+RESTORE_MEM_SIZE)
+#define MB                 1024 * 1024
+#define RESTORE_STACK_SIZE 5 * MB
+#define RESTORE_MEM_SIZE   5 * MB
+#define RESTORE_TOTAL_SIZE (RESTORE_STACK_SIZE + RESTORE_MEM_SIZE)
 
 namespace dmtcp
 {
-  class ProcessInfo
-  {
-    public:
-      enum ElfType {
-        Elf_32,
-        Elf_64
-      };
+class ProcessInfo
+{
+  public:
+    enum ElfType {
+      Elf_32,
+      Elf_64
+    };
 
 #ifdef JALIB_ALLOCATOR
-      static void* operator new(size_t nbytes, void* p) { return p; }
-      static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
-      static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
-#endif
-      ProcessInfo();
-      static ProcessInfo& instance();
-      void init();
-      void postExec();
-      void resetOnFork();
-      void preCkpt();
-      void restart();
-      void restoreProcessGroupInfo();
-      void restoreHeap();
-      void growStack();
+    static void *operator new(size_t nbytes, void *p) { return p; }
 
-      void insertChild (pid_t virtualPid, UniquePid uniquePid);
-      void eraseChild (pid_t virtualPid);
+    static void *operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
 
-      bool beginPthreadJoin(pthread_t thread);
-      void endPthreadJoin(pthread_t thread);
-      void clearPthreadJoinState(pthread_t thread);
+    static void operator delete(void *p) { JALLOC_HELPER_DELETE(p); }
+#endif // ifdef JALIB_ALLOCATOR
+    ProcessInfo();
+    static ProcessInfo &instance();
+    void init();
+    void postExec();
+    void resetOnFork();
+    void preCkpt();
+    void restart();
+    void restoreProcessGroupInfo();
+    void restoreHeap();
+    void growStack();
 
-      void refresh();
-      void refreshChildTable();
-      void setRootOfProcessTree() { _isRootOfProcessTree = true; }
-      bool isRootOfProcessTree() const { return _isRootOfProcessTree; }
+    void insertChild(pid_t virtualPid, UniquePid uniquePid);
+    void eraseChild(pid_t virtualPid);
 
-      void serialize ( jalib::JBinarySerializer& o );
+    bool beginPthreadJoin(pthread_t thread);
+    void endPthreadJoin(pthread_t thread);
+    void clearPthreadJoinState(pthread_t thread);
 
-      UniquePid compGroup() { return _compGroup; }
-      void compGroup(UniquePid cg) { _compGroup = cg; }
-      uint32_t numPeers() { return _numPeers; }
-      void numPeers(uint32_t np) { _numPeers = np; }
-      bool noCoordinator() { return _noCoordinator; }
-      void noCoordinator(bool nc) { _noCoordinator = nc; }
-      pid_t pid() const { return _pid; }
-      pid_t sid() const { return _sid; }
-      uint32_t get_generation() { return _generation; }
-      void set_generation(uint32_t generation) { _generation = generation; }
+    void refresh();
+    void refreshChildTable();
+    void setRootOfProcessTree() { _isRootOfProcessTree = true; }
 
-      uint32_t numCheckpoints() { return _numCheckpoints; }
-      uint32_t numRestarts() { return _numRestarts; }
+    bool isRootOfProcessTree() const { return _isRootOfProcessTree; }
 
-      uint32_t incrementNumCheckpoints() { return _numCheckpoints++; }
-      uint32_t incrementNumRestarts() { return _numRestarts++; }
+    void serialize(jalib::JBinarySerializer &o);
 
-      void processRlimit();
-      void calculateArgvAndEnvSize();
+    UniquePid compGroup() { return _compGroup; }
+
+    void compGroup(UniquePid cg) { _compGroup = cg; }
+
+    uint32_t numPeers() { return _numPeers; }
+
+    void numPeers(uint32_t np) { _numPeers = np; }
+
+    bool noCoordinator() { return _noCoordinator; }
+
+    void noCoordinator(bool nc) { _noCoordinator = nc; }
+
+    pid_t pid() const { return _pid; }
+
+    pid_t sid() const { return _sid; }
+
+    uint32_t get_generation() { return _generation; }
+
+    void set_generation(uint32_t generation) { _generation = generation; }
+
+    uint32_t numCheckpoints() { return _numCheckpoints; }
+
+    uint32_t numRestarts() { return _numRestarts; }
+
+    uint32_t incrementNumCheckpoints() { return _numCheckpoints++; }
+
+    uint32_t incrementNumRestarts() { return _numRestarts++; }
+
+    void processRlimit();
+    void calculateArgvAndEnvSize();
 #ifdef RESTORE_ARGV_AFTER_RESTART
-      void restoreArgvAfterRestart(char* mtcpRestoreArgvStartAddr);
-#endif
-      size_t argvSize() { return _argvSize; }
-      size_t envSize() { return _envSize; }
+    void restoreArgvAfterRestart(char *mtcpRestoreArgvStartAddr);
+#endif // ifdef RESTORE_ARGV_AFTER_RESTART
+    size_t argvSize() { return _argvSize; }
 
-      const string& procname() const { return _procname; }
-      const string& procSelfExe() const { return _procSelfExe; }
-      const string& hostname() const { return _hostname; }
-      const UniquePid& upid() const { return _upid; }
-      const UniquePid& uppid() const { return _uppid; }
+    size_t envSize() { return _envSize; }
 
-      bool isOrphan() const { return _ppid == 1; }
-      bool isSessionLeader() const { return _pid == _sid; }
-      bool isGroupLeader() const { return _pid == _gid; }
-      bool isForegroundProcess() const { return _gid == _fgid; }
-      bool isChild(const UniquePid& upid);
+    const string &procname() const { return _procname; }
 
-      int elfType() const { return _elfType; }
-      uint64_t savedBrk(void) const { return _savedBrk;}
-      uint64_t restoreBufAddr(void) const { return _restoreBufAddr;}
-      uint64_t restoreBufLen(void) const { return RESTORE_TOTAL_SIZE;}
+    const string &procSelfExe() const { return _procSelfExe; }
 
-      uint64_t vdsoStart(void) const { return _vdsoStart;}
-      uint64_t vdsoEnd(void) const { return _vdsoEnd;}
-      uint64_t vvarStart(void) const { return _vvarStart;}
-      uint64_t vvarEnd(void) const { return _vvarEnd;}
+    const string &hostname() const { return _hostname; }
 
-      string getCkptFilename() const { return _ckptFileName; }
-      string getCkptFilesSubDir() const { return _ckptFilesSubDir; }
-      string getCkptDir() const { return _ckptDir; }
-      void setCkptDir(const char*);
-      void setCkptFilename(const char*);
-      void updateCkptDirFileSubdir(string newCkptDir = "");
+    const UniquePid &upid() const { return _upid; }
 
-    private:
-      map<pid_t, UniquePid> _childTable;
-      map<pthread_t, pthread_t> _pthreadJoinId;
-      map<pid_t, pid_t> _sessionIds;
-      typedef map<pid_t, UniquePid>::iterator iterator;
+    const UniquePid &uppid() const { return _uppid; }
 
-      uint32_t  _isRootOfProcessTree;
-      pid_t _pid;
-      pid_t _ppid;
-      pid_t _sid;
-      pid_t _gid;
-      pid_t _fgid;
+    bool isOrphan() const { return _ppid == 1; }
 
-      // _generation is per-process.  This constrasts with
-      // _computation_generation, which is shared among all processes on a host.
-      // _computation_generation is updated in shareddata.cpp by:
-      //      sharedDataHeader->compId._computation_generation = generation;
-      // _generation is updated later when this process begins its checkpoint.
-      uint32_t  _generation;
-      uint32_t  _numCheckpoints;
-      uint32_t  _numRestarts;
+    bool isSessionLeader() const { return _pid == _sid; }
 
-      uint32_t  _numPeers;
-      uint32_t  _noCoordinator;
-      uint32_t  _argvSize;
-      uint32_t  _envSize;
-      uint32_t  _elfType;
+    bool isGroupLeader() const { return _pid == _gid; }
 
-      string _procname;
-      string _procSelfExe;
-      string _hostname;
-      string _launchCWD;
-      string _ckptCWD;
+    bool isForegroundProcess() const { return _gid == _fgid; }
 
-      string _ckptDir;
-      string _ckptFileName;
-      string _ckptFilesSubDir;
+    bool isChild(const UniquePid &upid);
 
-      UniquePid     _upid;
-      UniquePid     _uppid;
-      UniquePid     _compGroup;
+    int elfType() const { return _elfType; }
 
-      uint64_t      _restoreBufAddr;
-      uint64_t      _restoreBufLen;
+    uint64_t savedBrk(void) const { return _savedBrk; }
 
-      uint64_t      _savedHeapStart;
-      uint64_t      _savedBrk;
+    uint64_t restoreBufAddr(void) const { return _restoreBufAddr; }
 
-      uint64_t      _vdsoStart;
-      uint64_t      _vdsoEnd;
-      uint64_t      _vvarStart;
-      uint64_t      _vvarEnd;
-  };
+    uint64_t restoreBufLen(void) const { return RESTORE_TOTAL_SIZE; }
 
+    uint64_t vdsoStart(void) const { return _vdsoStart; }
+
+    uint64_t vdsoEnd(void) const { return _vdsoEnd; }
+
+    uint64_t vvarStart(void) const { return _vvarStart; }
+
+    uint64_t vvarEnd(void) const { return _vvarEnd; }
+
+    string getCkptFilename() const { return _ckptFileName; }
+
+    string getCkptFilesSubDir() const { return _ckptFilesSubDir; }
+
+    string getCkptDir() const { return _ckptDir; }
+
+    void setCkptDir(const char *);
+    void setCkptFilename(const char *);
+    void updateCkptDirFileSubdir(string newCkptDir = "");
+
+  private:
+    map<pid_t, UniquePid>_childTable;
+    map<pthread_t, pthread_t>_pthreadJoinId;
+    map<pid_t, pid_t>_sessionIds;
+    typedef map<pid_t, UniquePid>::iterator iterator;
+
+    uint32_t _isRootOfProcessTree;
+    pid_t _pid;
+    pid_t _ppid;
+    pid_t _sid;
+    pid_t _gid;
+    pid_t _fgid;
+
+    // _generation is per-process.  This constrasts with
+    // _computation_generation, which is shared among all processes on a host.
+    // _computation_generation is updated in shareddata.cpp by:
+    // sharedDataHeader->compId._computation_generation = generation;
+    // _generation is updated later when this process begins its checkpoint.
+    uint32_t _generation;
+    uint32_t _numCheckpoints;
+    uint32_t _numRestarts;
+
+    uint32_t _numPeers;
+    uint32_t _noCoordinator;
+    uint32_t _argvSize;
+    uint32_t _envSize;
+    uint32_t _elfType;
+
+    string _procname;
+    string _procSelfExe;
+    string _hostname;
+    string _launchCWD;
+    string _ckptCWD;
+
+    string _ckptDir;
+    string _ckptFileName;
+    string _ckptFilesSubDir;
+
+    UniquePid _upid;
+    UniquePid _uppid;
+    UniquePid _compGroup;
+
+    uint64_t _restoreBufAddr;
+    uint64_t _restoreBufLen;
+
+    uint64_t _savedHeapStart;
+    uint64_t _savedBrk;
+
+    uint64_t _vdsoStart;
+    uint64_t _vdsoEnd;
+    uint64_t _vvarStart;
+    uint64_t _vvarEnd;
+};
 }
 #endif /* PROCESS_INFO */

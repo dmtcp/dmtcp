@@ -25,21 +25,20 @@
 
 #include "dmtcp.h"
 
-#define _real_xstat NEXT_FNC(__xstat)
-#define _real_xstat64 NEXT_FNC(__xstat64)
-#define _real_lxstat NEXT_FNC(__lxstat)
-#define _real_lxstat64 NEXT_FNC(__lxstat64)
-#define _real_readlink NEXT_FNC(readlink)
-#define _real_ptsname_r NEXT_FNC(ptsname_r)
-#define _real_ttyname_r NEXT_FNC(ttyname_r)
-#define _real_getpt NEXT_FNC(getpt)
-#define _real_posix_openpt NEXT_FNC(posix_openpt)
-#define _real_access NEXT_FNC(access)
+# define _real_xstat        NEXT_FNC(__xstat)
+# define _real_xstat64      NEXT_FNC(__xstat64)
+# define _real_lxstat       NEXT_FNC(__lxstat)
+# define _real_lxstat64     NEXT_FNC(__lxstat64)
+# define _real_readlink     NEXT_FNC(readlink)
+# define _real_ptsname_r    NEXT_FNC(ptsname_r)
+# define _real_ttyname_r    NEXT_FNC(ttyname_r)
+# define _real_getpt        NEXT_FNC(getpt)
+# define _real_posix_openpt NEXT_FNC(posix_openpt)
+# define _real_access       NEXT_FNC(access)
 
 // NOTE:  realpath is a versioned symbol, and we should be using
-//   NEXT_FNC_DEFAULT.  But that interferes with libdl.so (e.g., dlopen).
-//   and other functions that use gettid() -> __tls_get_addr()
-//   for some unknown reason.
-#define _real_realpath NEXT_FNC(realpath)
-
+// NEXT_FNC_DEFAULT.  But that interferes with libdl.so (e.g., dlopen).
+// and other functions that use gettid() -> __tls_get_addr()
+// for some unknown reason.
+# define _real_realpath NEXT_FNC(realpath)
 #endif // PTY_WRAPPERS_H

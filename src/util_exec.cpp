@@ -19,25 +19,26 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include <string.h>
+#include "util.h"
 #include <fcntl.h>
-#include <sys/time.h>
+#include <string.h>
 #include <sys/resource.h>
-#include  "util.h"
-#include  "syscallwrappers.h"
-#include  "uniquepid.h"
-#include  "protectedfds.h"
-#include  "shareddata.h"
-#include  "../jalib/jassert.h"
-#include  "../jalib/jfilesystem.h"
-#include  "../jalib/jconvert.h"
+#include <sys/time.h>
+#include "../jalib/jassert.h"
+#include "../jalib/jconvert.h"
+#include "../jalib/jfilesystem.h"
+#include "protectedfds.h"
+#include "shareddata.h"
+#include "syscallwrappers.h"
+#include "uniquepid.h"
 
 using namespace dmtcp;
 
 static int32_t getDlsymOffset();
 static int32_t getDlsymOffset_m32();
 
-void Util::setVirtualPidEnvVar(pid_t pid, pid_t virtPpid, pid_t realPpid)
+void
+Util::setVirtualPidEnvVar(pid_t pid, pid_t virtPpid, pid_t realPpid)
 {
   // We want to use setenv() only once. For all later changes, we manipulate
   // the buffer in place. This was done to avoid a bug when using Perl. Perl
@@ -46,6 +47,7 @@ void Util::setVirtualPidEnvVar(pid_t pid, pid_t virtPpid, pid_t realPpid)
   // can cause segfault.
   char buf1[80];
   char buf2[80];
+
   memset(buf2, '#', sizeof(buf2));
   buf2[sizeof(buf2) - 1] = '\0';
 
@@ -55,29 +57,33 @@ void Util::setVirtualPidEnvVar(pid_t pid, pid_t virtPpid, pid_t realPpid)
     memcpy(buf2, buf1, strlen(buf1));
     setenv(ENV_VAR_VIRTUAL_PID, buf2, 1);
   } else {
-    char *envStr = (char*) getenv(ENV_VAR_VIRTUAL_PID);
+    char *envStr = (char *)getenv(ENV_VAR_VIRTUAL_PID);
     memcpy(envStr, buf1, strlen(buf1));
   }
 }
 
 // 'screen' requires directory with permissions 0700
-static int isdir0700(const char *pathname)
+static int
+isdir0700(const char *pathname)
 {
   struct stat st;
+
   stat(pathname, &st);
-  return (S_ISDIR(st.st_mode) == 1
-          && (st.st_mode & 0777) == 0700
-          && st.st_uid == getuid()
-          && access(pathname, R_OK | W_OK | X_OK) == 0
-      );
+  return S_ISDIR(st.st_mode) == 1
+         && (st.st_mode & 0777) == 0700
+         && st.st_uid == getuid()
+         && access(pathname, R_OK | W_OK | X_OK) == 0;
 }
 
-int Util::safeMkdir(const char *pathname, mode_t mode)
+int
+Util::safeMkdir(const char *pathname, mode_t mode)
 {
   // If it exists and we can give it the right permissions, do it.
   chmod(pathname, 0700);
-  if (isdir0700(pathname))
+  if (isdir0700(pathname)) {
     return 0;
+  }
+
   // else start over
   unlink(pathname);
   rmdir(pathname); // Maybe it was an empty directory
@@ -85,23 +91,28 @@ int Util::safeMkdir(const char *pathname, mode_t mode)
   return isdir0700(pathname);
 }
 
-int Util::safeSystem(const char *command)
+int
+Util::safeSystem(const char *command)
 {
   char *str = getenv("LD_PRELOAD");
   string dmtcphjk;
-  if (str != NULL)
+
+  if (str != NULL) {
     dmtcphjk = str;
+  }
   unsetenv("LD_PRELOAD");
   int rc = _real_system(command);
-  if (str != NULL)
+  if (str != NULL) {
     setenv("LD_PRELOAD", dmtcphjk.c_str(), 1);
+  }
   return rc;
 }
 
-int Util::expandPathname(const char *inpath, char * const outpath,
-                                size_t size)
+int
+Util::expandPathname(const char *inpath, char *const outpath, size_t size)
 {
   bool success = false;
+
   if (*inpath == '/' || strstr(inpath, "/") != NULL) {
     strncpy(outpath, inpath, size);
     success = true;
@@ -113,13 +124,13 @@ int Util::expandPathname(const char *inpath, char * const outpath,
     success = true;
   } else if (strStartsWith(inpath, ".")) {
     snprintf(outpath, size, "%s/%s", jalib::Filesystem::GetCWD().c_str(),
-                                     inpath);
+             inpath);
     success = true;
   } else {
     char *pathVar = getenv("PATH");
     outpath[0] = '\0';
     if (pathVar == NULL) {
-      pathVar = (char*) ":/bin:/usr/bin";
+      pathVar = (char *)":/bin:/usr/bin";
     }
     while (*pathVar != '\0') {
       char *nextPtr;
@@ -130,30 +141,32 @@ int Util::expandPathname(const char *inpath, char * const outpath,
         strcpy(outpath, jalib::Filesystem::GetCWD().c_str());
       } else {
         strncpy(outpath, pathVar, nextPtr - pathVar);
-        outpath[nextPtr-pathVar] = '\0';
+        outpath[nextPtr - pathVar] = '\0';
       }
 
       JASSERT(size > strlen(outpath) + strlen(inpath) + 1)
         (size) (outpath) (strlen(outpath)) (inpath) (strlen(inpath))
-         .Text("Pathname too long; Use larger buffer.");
+      .Text("Pathname too long; Use larger buffer.");
 
       strcat(outpath, "/");
       strcat(outpath, inpath);
 
-      if (*nextPtr  == '\0')
+      if (*nextPtr == '\0') {
         pathVar = nextPtr;
-      else // else *nextPtr == ':'
+      } else { // else *nextPtr == ':'
         pathVar = nextPtr + 1; // prepare for next iteration
+      }
       if (access(outpath, X_OK) == 0) {
-	success = true;
-	break;
+        success = true;
+        break;
       }
     }
   }
-  return (success ? 0 : -1);
+  return success ? 0 : -1;
 }
 
-int Util::elfType(const char *pathname, bool *isElf, bool *is32bitElf)
+int
+Util::elfType(const char *pathname, bool *isElf, bool *is32bitElf)
 {
   const char *magic_elf = "\177ELF"; // Magic number for ELF
   const char *magic_elf32 = "\177ELF\001"; // Magic number for ELF 32-bit
@@ -161,13 +174,14 @@ int Util::elfType(const char *pathname, bool *isElf, bool *is32bitElf)
   const int len = strlen(magic_elf32);
   char argv_buf[len + 1];
   char full_path[PATH_MAX];
+
   expandPathname(pathname, full_path, sizeof(full_path));
   int fd = _real_open(full_path, O_RDONLY, 0);
   if (fd == -1) {
     return -1;
   }
   ssize_t ret = readAll(fd, argv_buf, len);
-  close (fd);
+  close(fd);
   if (ret != len) {
     return -1;
   }
@@ -176,27 +190,33 @@ int Util::elfType(const char *pathname, bool *isElf, bool *is32bitElf)
   return 0;
 }
 
-static string ld_linux_so_path(int version, bool is32bitElf = false)
+static string
+ld_linux_so_path(int version, bool is32bitElf = false)
 {
   char buf[80];
+
 #if (defined(__x86_64__) || defined(__aarch64__)) && !defined(CONFIG_M32)
   if (is32bitElf) {
     sprintf(buf, "/lib/ld-linux.so.%d", version);
   } else {
     sprintf(buf, ELF_INTERPRETER);
   }
-#else
+#else // if (defined(__x86_64__) || defined(__aarch64__)) &&
+      // !defined(CONFIG_M32)
   sprintf(buf, ELF_INTERPRETER);
-#endif
+#endif // if (defined(__x86_64__) || defined(__aarch64__)) &&
+       // !defined(CONFIG_M32)
 
   string cmd = buf;
   return cmd;
 }
 
-bool Util::isStaticallyLinked(const char *filename)
+bool
+Util::isStaticallyLinked(const char *filename)
 {
   bool isElf, is32bitElf;
   char pathname[PATH_MAX];
+
   expandPathname(filename, pathname, sizeof(pathname));
   elfType(pathname, &isElf, &is32bitElf);
 
@@ -217,51 +237,59 @@ bool Util::isStaticallyLinked(const char *filename)
   return false;
 }
 
-bool Util::isScreen(const char *filename)
+bool
+Util::isScreen(const char *filename)
 {
   return jalib::Filesystem::BaseName(filename) == "screen" &&
          isSetuid(filename);
 }
 
-//NOTE:  This routine is called only if 'screen' is setuid.
+// NOTE:  This routine is called only if 'screen' is setuid.
 // In Ubuntu 9.10, an unprivileged 'screen' (no setuid) will ckpt and restart
 // fine if SCREENDIR is set to the file $USER/tmp4 when $USER/tmp4 doesn't exist
 // Arguably this is a bug in screen-4.0.  Should we take advantage of it?
-void Util::setScreenDir() {
+void
+Util::setScreenDir()
+{
   if (getenv("SCREENDIR") == NULL) {
     // This will flash by, but the user will see it again on exiting screen.
-    JASSERT_STDERR <<"*** WARNING: Environment variable SCREENDIR is not set!\n"
+    JASSERT_STDERR <<
+      "*** WARNING: Environment variable SCREENDIR is not set!\n"
                    << "***  Set this to a safe location, and if restarting on\n"
                    << "***  a new host, copy your SCREENDIR directory there.\n"
                    << "***  DMTCP will use"
-                            " $DMTCP_TMPDIR/dmtcp-USER@HOST/uscreens for now,\n"
+       " $DMTCP_TMPDIR/dmtcp-USER@HOST/uscreens for now,\n"
                    << "***  but this directory may not survive a re-boot!\n"
                    << "***      As of DMTCP-1.2.3, emacs23 not yet supported\n"
                    << "***  inside screen.  Please use emacs22 for now.  This\n"
                    << "***  will be fixed in a future version of DMTCP.\n\n";
     setenv("SCREENDIR", Util::getScreenDir().c_str(), 1);
   } else {
-    if (access(getenv("SCREENDIR"), R_OK|W_OK|X_OK) != 0)
+    if (access(getenv("SCREENDIR"), R_OK | W_OK | X_OK) != 0) {
       JASSERT_STDERR << "*** WARNING: Environment variable SCREENDIR is set\n"
                      << "***  to directory with improper permissions.\n"
                      << "***  Please use a SCREENDIR with permission 700."
                      << "  [ SCREENDIR = " << getenv("SCREENDIR") << " ]\n"
                      << "***  Continuing anyway, and hoping for the best.\n";
+    }
   }
-
 }
 
-string Util::getScreenDir()
+string
+Util::getScreenDir()
 {
   string tmpdir = string(dmtcp_get_tmpdir()) + "/" + "uscreens";
+
   safeMkdir(tmpdir.c_str(), 0700);
   return tmpdir;
 }
 
-bool Util::isSetuid(const char *filename)
+bool
+Util::isSetuid(const char *filename)
 {
   char pathname[PATH_MAX];
-  if (expandPathname(filename, pathname, sizeof(pathname)) ==  0) {
+
+  if (expandPathname(filename, pathname, sizeof(pathname)) == 0) {
     struct stat buf;
     if (stat(pathname, &buf) == 0 && (buf.st_mode & S_ISUID ||
                                       buf.st_mode & S_ISGID)) {
@@ -271,39 +299,47 @@ bool Util::isSetuid(const char *filename)
   return false;
 }
 
-void Util::patchArgvIfSetuid(const char* filename, char *const origArgv[],
-                             char ***newArgv)
+void
+Util::patchArgvIfSetuid(const char *filename,
+                        char *const origArgv[],
+                        char ***newArgv)
 {
-  if (isSetuid(filename) == false) return;
+  if (isSetuid(filename) == false) {
+    return;
+  }
 
   char realFilename[PATH_MAX];
   memset(realFilename, 0, sizeof(realFilename));
-  expandPathname(filename, realFilename, sizeof (realFilename));
-  //char expandedFilename[PATH_MAX];
-//  expandPathname(filename, expandedFilename, sizeof (expandedFilename));
-//  JASSERT(readlink(expandedFilename, realFilename, PATH_MAX - 1) != -1)
-//    (filename) (expandedFilename) (realFilename) (JASSERT_ERRNO);
+  expandPathname(filename, realFilename, sizeof(realFilename));
+
+  // char expandedFilename[PATH_MAX];
+  // expandPathname(filename, expandedFilename, sizeof (expandedFilename));
+  // JASSERT(readlink(expandedFilename, realFilename, PATH_MAX - 1) != -1)
+  // (filename) (expandedFilename) (realFilename) (JASSERT_ERRNO);
 
   size_t newArgc = 0;
-  while (origArgv[newArgc] != NULL) newArgc++;
+  while (origArgv[newArgc] != NULL) {
+    newArgc++;
+  }
   newArgc += 2;
-  size_t newArgvSize = newArgc * sizeof(char*);
+  size_t newArgvSize = newArgc * sizeof(char *);
 
   // IS THIS A MEMORY LEAK?  WHEN DO WE FREE buf?  - Gene
   void *buf = JALLOC_HELPER_MALLOC(newArgvSize + 2 + PATH_MAX);
   memset(buf, 0, newArgvSize + 2 + PATH_MAX);
 
-  *newArgv = (char**) buf;
-  char *newFilename = (char*)buf + newArgvSize + 1;
+  *newArgv = (char **)buf;
+  char *newFilename = (char *)buf + newArgvSize + 1;
 
 #define COPY_BINARY
 #ifdef COPY_BINARY
+
   // cp /usr/bin/screen /tmp/dmtcp-USER@HOST/screen
   char cpCmdBuf[PATH_MAX * 2 + 8];
 
   snprintf(newFilename, PATH_MAX, "%s/%s",
-                                  dmtcp_get_tmpdir(),
-                                  jalib::Filesystem::BaseName(realFilename).c_str());
+           dmtcp_get_tmpdir(),
+           jalib::Filesystem::BaseName(realFilename).c_str());
 
   snprintf(cpCmdBuf, sizeof(cpCmdBuf),
            "/bin/cp %s %s", realFilename, newFilename);
@@ -312,61 +348,69 @@ void Util::patchArgvIfSetuid(const char* filename, char *const origArgv[],
   JASSERT(unlink(newFilename) == 0 || errno == ENOENT) (newFilename);
 
   JASSERT(safeSystem(cpCmdBuf) == 0)(cpCmdBuf)
-    .Text("call to system(cpCmdBuf) failed");
+  .Text("call to system(cpCmdBuf) failed");
 
   JASSERT(access(newFilename, X_OK) == 0) (newFilename) (JASSERT_ERRNO);
 
   (*newArgv)[0] = newFilename;
   int i;
-  for (i = 1; origArgv[i] != NULL; i++)
-    (*newArgv)[i] = (char*)origArgv[i];
+  for (i = 1; origArgv[i] != NULL; i++) {
+    (*newArgv)[i] = (char *)origArgv[i];
+  }
   (*newArgv)[i] = origArgv[i];  // copy final NULL pointer.
 
   return;
-#else
+
+#else // ifdef COPY_BINARY
+
   // FIXME : This might fail to compile. Will fix later. -- Kapil
   // Translate: screen   to: /lib/ld-linux.so /usr/bin/screen
   // This version is more general, but has a bug on restart:
-  //    memory layout is altered on restart, and so brk() doesn't match.
+  // memory layout is altered on restart, and so brk() doesn't match.
   // Switch argvPtr from ptr to input to ptr to output now.
   *argvPtr = (char **)(cmdBuf + strlen(cmdBuf) + 1); // ... + 1 for '\0'
   // Use /lib64 if 64-bit O/S and not 32-bit app:
 
   char *ldStrPtr = NULL;
-#if (defined(__x86_64__) || defined(__aarch64__)) && !defined(CONFIG_M32)
+# if (defined(__x86_64__) || defined(__aarch64__)) && !defined(CONFIG_M32)
   bool isElf, is32bitElf;
   elfType(cmdBuf, &isElf, &is32bitElf);
-  if (is32bitElf)
+  if (is32bitElf) {
     ldStrPtr = (char *)"/lib/ld-linux.so.2";
-  else
+  } else {
     ldStrPtr = (char *)ELF_INTERPRETER;
-# else
+  }
+# else // if (defined(__x86_64__) || defined(__aarch64__)) &&
+       // !defined(CONFIG_M32)
   ldStrPtr = (char *)ELF_INTERPRETER;
-# endif
+# endif // if (defined(__x86_64__) || defined(__aarch64__)) &&
+        // !defined(CONFIG_M32)
 
   JASSERT(newArgv0Len > strlen(origPath) + 1)
-    (newArgv0Len) (origPath) (strlen(origPath)) .Text("Buffer not large enough");
+    (newArgv0Len) (origPath) (strlen(origPath)).Text("Buffer not large enough");
 
   strncpy(newArgv0, origPath, newArgv0Len);
 
   size_t origArgvLen = 0;
-  while (origArgv[origArgvLen] != NULL)
+  while (origArgv[origArgvLen] != NULL) {
     origArgvLen++;
+  }
 
   JASSERT(newArgvLen >= origArgvLen + 1) (origArgvLen) (newArgvLen)
-    .Text("newArgv not large enough to hold the expanded argv");
+  .Text("newArgv not large enough to hold the expanded argv");
 
   // ISN'T THIS A BUG?  newArgv WAS DECLARED 'char ***'.
   newArgv[0] = ldStrPtr;
   newArgv[1] = newArgv0;
-  for (int i = 1; origArgv[i] != NULL; i++)
-    newArgv[i+1] = origArgv[i];
-  newArgv[i+1] = origArgv[i]; // Copy final NULL pointer.
-#endif
-  return;
+  for (int i = 1; origArgv[i] != NULL; i++) {
+    newArgv[i + 1] = origArgv[i];
+  }
+  newArgv[i + 1] = origArgv[i]; // Copy final NULL pointer.
+#endif // ifdef COPY_BINARY
 }
 
-void Util::freePatchedArgv(char **newArgv)
+void
+Util::freePatchedArgv(char **newArgv)
 {
   JALLOC_HELPER_FREE(*newArgv);
 }
@@ -375,7 +419,8 @@ void Util::freePatchedArgv(char **newArgv)
 // recalculated/reset right before returning from prepareForExec to support
 // process migration (the offset might have changed after the process had
 // migrated to a new machine with different ld.so.
-void Util::prepareDlsymWrapper()
+void
+Util::prepareDlsymWrapper()
 {
   /* For the sake of dlsym wrapper. We compute the address of _real_dlsym by
    * adding dlsym_offset to the address of dlopen after the exec into the user
@@ -389,19 +434,21 @@ void Util::prepareDlsymWrapper()
     SharedData::updateDlsymOffset(offset, offset_m32);
   }
 
-  char str[21] = {0};
+  char str[21] = { 0 };
   sprintf(str, "%d", offset);
   setenv(ENV_VAR_DLSYM_OFFSET, str, 1);
   sprintf(str, "%d", offset_m32);
   setenv(ENV_VAR_DLSYM_OFFSET_M32, str, 1);
 }
 
-static int32_t getDlsymOffset()
+static int32_t
+getDlsymOffset()
 {
-  void* base_addr = NULL;
-  void* dlsym_addr = NULL;
+  void *base_addr = NULL;
+  void *dlsym_addr = NULL;
   int32_t offset;
-  void* handle = NULL;
+  void *handle = NULL;
+
   handle = dlopen(LIBDL_FILENAME, RTLD_NOW);
   JASSERT(handle != NULL) (dlerror());
 
@@ -418,7 +465,8 @@ static int32_t getDlsymOffset()
   return offset;
 }
 
-static int32_t getDlsymOffset_m32()
+static int32_t
+getDlsymOffset_m32()
 {
   uint64_t base_addr = 0;
   uint64_t dlsym_addr = 0;
@@ -428,13 +476,15 @@ static int32_t getDlsymOffset_m32()
   string cmd1, cmd2, libdl, libdmtcp32;
 
   libdmtcp32 = Util::getPath("libdmtcp.so", true);
-  if (libdmtcp32 == "libdmtcp.so") return 0;
+  if (libdmtcp32 == "libdmtcp.so") {
+    return 0;
+  }
 
   cmd1 = "ldd " + libdmtcp32 + " | grep " + LIBDL_FILENAME
-       + " | tr '\t' ' ' | tr -s ' '| cut -d' ' -f4";
+    + " | tr '\t' ' ' | tr -s ' '| cut -d' ' -f4";
   fp = popen(cmd1.c_str(), "r");
   JASSERT(fp != NULL);
-  JASSERT(fscanf(fp, "%s", (char*) &buf) == 1);
+  JASSERT(fscanf(fp, "%s", (char *)&buf) == 1);
   fclose(fp);
   JASSERT(buf[0] == '/');
 
@@ -443,6 +493,7 @@ static int32_t getDlsymOffset_m32()
   cmd2 = "nm -D -g " + libdl + " | grep '" + LIBDL_BASE_FUNC_STR + "'";
   fp = popen(cmd2.c_str(), "r");
   JASSERT(fp != NULL);
+
   // fread returns the total number of bytes read only when 'size' is 1.
   JASSERT(fread(buf, 1, sizeof(buf), fp) > 0);
   base_addr = strtoull(buf, NULL, 16);
@@ -457,14 +508,18 @@ static int32_t getDlsymOffset_m32()
   JASSERT(base_addr != 0);
   pclose(fp);
 
-  offset = (int32_t) ((char *)dlsym_addr - (char *)base_addr);
+  offset = (int32_t)((char *)dlsym_addr - (char *)base_addr);
   return offset;
 }
 
-void Util::runMtcpRestore(int is32bitElf, const char* path, int fd,
-                                 size_t argvSize, size_t envSize)
+void
+Util::runMtcpRestore(int is32bitElf,
+                     const char *path,
+                     int fd,
+                     size_t argvSize,
+                     size_t envSize)
 {
-  static string mtcprestart = Util::getPath ("mtcp_restart");
+  static string mtcprestart = Util::getPath("mtcp_restart");
 
   if (is32bitElf) {
     mtcprestart = Util::getPath("mtcp_restart-32", is32bitElf);
@@ -479,34 +534,35 @@ void Util::runMtcpRestore(int is32bitElf, const char* path, int fd,
   char buf[64];
   sprintf(buf, "%d", fd);
 
-  char* newArgs[] = {
-    (char*) mtcprestart.c_str(),
-    (char*) "--stderr-fd",
+  char *newArgs[] = {
+    (char *)mtcprestart.c_str(),
+    (char *)"--stderr-fd",
     protected_stderr_fd_str,
-    (char*) "--fd",
+    (char *)"--fd",
     buf,
     NULL
   };
-  JTRACE ("launching mtcp_restart --fd")(fd)(path);
+  JTRACE("launching mtcp_restart --fd")(fd)(path);
 
   // Create the placeholder for "MTCP_OLDPERS" environment.
   // setenv("MTCP_OLDPERS_DUMMY", "XXXXXXXXXXXXXXXX", 1);
   // FIXME: Put an explanation of the logic below.   -- Kapil
-#define ENV_PTR(x) ((char*) (getenv(x) - strlen(x) - 1))
-  char* dummyEnviron = NULL;
+#define ENV_PTR(x) ((char *)(getenv(x) - strlen(x) - 1))
+  char *dummyEnviron = NULL;
   const int pathIndex = 0; // index in newEnv[]
   const int dummyEnvironIndex = 1; // index in newEnv[]
   // Eventually, newEnv = {ENV_PTR("MTCP_OLDPERS"), ENV_PTR("PATH"), NULL}
   // newEnv[2] = NULL; newEnv[3] and newEnv[4] are available so that
-  //    they can easily be used to modify envp inside mtcp_restart.c:main().
-  //    for debugging in GDB.  These appear _after_ final NULL  of newEnv[].
-  char* newEnv[7] = {NULL, NULL, NULL,
-                     const_cast<char *> ("MTCP_RESTART_PAUSE=1"),
-                     const_cast<char *> ("DMTCP_RESTART_PAUSE=1"),
-                     const_cast<char *> ("MTCP_RESTART_PAUSE2=1"),
-                     const_cast<char *> ("DMTCP_RESTART_PAUSE2=1")};
+  // they can easily be used to modify envp inside mtcp_restart.c:main().
+  // for debugging in GDB.  These appear _after_ final NULL  of newEnv[].
+  char *newEnv[7] = { NULL, NULL, NULL,
+                      const_cast<char *>("MTCP_RESTART_PAUSE=1"),
+                      const_cast<char *>("DMTCP_RESTART_PAUSE=1"),
+                      const_cast<char *>("MTCP_RESTART_PAUSE2=1"),
+                      const_cast<char *>("DMTCP_RESTART_PAUSE2=1") };
+
   // Will put ENV_PTR("MTCP_OLDPERS") here.
-  newEnv[dummyEnvironIndex] = (char*) dummyEnviron;
+  newEnv[dummyEnvironIndex] = (char *)dummyEnviron;
   newEnv[pathIndex] = (getenv("PATH") ? ENV_PTR("PATH") : NULL);
 
   size_t newArgsSize = 0;
@@ -521,8 +577,8 @@ void Util::runMtcpRestore(int is32bitElf, const char* path, int fd,
   size_t newArgvEnvSize = newArgsSize + newEnvSize + strlen(newArgs[0]);
   size_t argvSizeDiff = originalArgvEnvSize - newArgvEnvSize;
   if (argvSizeDiff > 0) {
-    dummyEnviron = (char*) malloc(argvSizeDiff);
-    memset(dummyEnviron, '0', argvSizeDiff - 1 );
+    dummyEnviron = (char *)malloc(argvSizeDiff);
+    memset(dummyEnviron, '0', argvSizeDiff - 1);
     strncpy(dummyEnviron,
             ENV_VAR_DMTCP_DUMMY "=",
             strlen(ENV_VAR_DMTCP_DUMMY "="));
@@ -533,28 +589,30 @@ void Util::runMtcpRestore(int is32bitElf, const char* path, int fd,
   JTRACE("Args/Env Sizes")
     (newArgsSize) (newEnvSize) (argvSize) (envSize) (argvSizeDiff);
 
-  execve (newArgs[0], newArgs, newEnv);
-  JASSERT (false) (newArgs[0]) (newArgs[1]) (JASSERT_ERRNO)
-          .Text ("exec() failed");
+  execve(newArgs[0], newArgs, newEnv);
+  JASSERT(false) (newArgs[0]) (newArgs[1]) (JASSERT_ERRNO)
+  .Text("exec() failed");
 }
 
-void Util::adjustRlimitStack()
+void
+Util::adjustRlimitStack()
 {
 #ifdef __i386__
+
   // This is needed in 32-bit Ubuntu 9.10, to fix bug with test/dmtcp5.c
   // NOTE:  Setting personality() is cleanest way to force legacy_va_layout,
-  //   but there's currently a bug on restart in the sequence:
-  //   checkpoint -> restart -> checkpoint -> restart
+  // but there's currently a bug on restart in the sequence:
+  // checkpoint -> restart -> checkpoint -> restart
 # if 0
   { unsigned long oldPersonality = personality(0xffffffffL);
-    if (! (oldPersonality & ADDR_COMPAT_LAYOUT)) {
+    if (!(oldPersonality & ADDR_COMPAT_LAYOUT)) {
       // Force ADDR_COMPAT_LAYOUT for libs in high mem, to avoid vdso conflict
       personality(oldPersonality & ADDR_COMPAT_LAYOUT);
       JTRACE("setting ADDR_COMPAT_LAYOUT");
       setenv("DMTCP_ADDR_COMPAT_LAYOUT", "temporarily is set", 1);
     }
   }
-# else
+# else // if 0
   { struct rlimit rlim;
     getrlimit(RLIMIT_STACK, &rlim);
     if (rlim.rlim_cur != RLIM_INFINITY) {
@@ -562,19 +620,23 @@ void Util::adjustRlimitStack()
       sprintf(buf, "%lu", rlim.rlim_cur); // "%llu" for BSD/Mac OS
       JTRACE("setting rlim_cur for RLIMIT_STACK") (rlim.rlim_cur);
       setenv("DMTCP_RLIMIT_STACK", buf, 1);
+
       // Force kernel's internal compat_va_layout to 0; Force libs to high mem.
       rlim.rlim_cur = rlim.rlim_max;
+
       // FIXME: if rlim.rlim_cur != RLIM_INFINITY, then we should warn the user.
       setrlimit(RLIMIT_STACK, &rlim);
+
       // After exec, process will restore DMTCP_RLIMIT_STACK in DmtcpWorker()
     }
   }
-# endif
-#endif
+# endif // if 0
+#endif // ifdef __i386__
 }
 
 // TODO(kapil): rewrite getPath to remove dependency on jalib.
-string Util::getPath(string cmd, bool is32bit)
+string
+Util::getPath(string cmd, bool is32bit)
 {
   // search relative to base dir of dmtcp installation.
   const char *p1[] = {
@@ -584,6 +646,7 @@ string Util::getPath(string cmd, bool is32bit)
   };
 
   string suffixFor32Bits;
+
 #if defined(__x86_64__) || defined(__aarch64__)
   if (is32bit) {  // if this is a multi-architecture build
     string basename = jalib::Filesystem::BaseName(cmd);
@@ -593,11 +656,11 @@ string Util::getPath(string cmd, bool is32bit)
       suffixFor32Bits = "32/lib/dmtcp/";
     }
   }
-#endif
+#endif // if defined(__x86_64__) || defined(__aarch64__)
 
   // Search relative to dir of this command (bin/dmtcp_launch), (using p1).
   string udir = SharedData::getInstallDir();
-  for (size_t i = 0; i < sizeof(p1) / sizeof(char*); i++) {
+  for (size_t i = 0; i < sizeof(p1) / sizeof(char *); i++) {
     string pth = udir + p1[i] + suffixFor32Bits + cmd;
     if (jalib::Filesystem::FileExists(pth)) {
       return pth;
@@ -607,21 +670,23 @@ string Util::getPath(string cmd, bool is32bit)
   return cmd;
 }
 
-void Util::getDmtcpArgs(vector<string> &dmtcp_args)
+void
+Util::getDmtcpArgs(vector<string> &dmtcp_args)
 {
-  const char * sigckpt              = getenv (ENV_VAR_SIGCKPT);
-  const char * compression          = getenv (ENV_VAR_COMPRESSION);
-  const char * allocPlugin          = getenv (ENV_VAR_ALLOC_PLUGIN);
-  const char * dlPlugin             = getenv (ENV_VAR_DL_PLUGIN);
-#ifdef HBICT_DELTACOMP
-  const char * deltacompression     = getenv (ENV_VAR_DELTACOMPRESSION);
-#endif
-  const char * ckptOpenFiles        = getenv (ENV_VAR_CKPT_OPEN_FILES);
-  const char * ckptDir              = getenv (ENV_VAR_CHECKPOINT_DIR);
-  const char * tmpDir               = getenv (ENV_VAR_TMPDIR);
-  const char * plugins              = getenv (ENV_VAR_PLUGIN);
+  const char *sigckpt = getenv(ENV_VAR_SIGCKPT);
+  const char *compression = getenv(ENV_VAR_COMPRESSION);
+  const char *allocPlugin = getenv(ENV_VAR_ALLOC_PLUGIN);
+  const char *dlPlugin = getenv(ENV_VAR_DL_PLUGIN);
 
-  //modify the command
+#ifdef HBICT_DELTACOMP
+  const char *deltacompression = getenv(ENV_VAR_DELTACOMPRESSION);
+#endif // ifdef HBICT_DELTACOMP
+  const char *ckptOpenFiles = getenv(ENV_VAR_CKPT_OPEN_FILES);
+  const char *ckptDir = getenv(ENV_VAR_CHECKPOINT_DIR);
+  const char *tmpDir = getenv(ENV_VAR_TMPDIR);
+  const char *plugins = getenv(ENV_VAR_PLUGIN);
+
+  // modify the command
   dmtcp_args.clear();
   dmtcp_args.push_back("--coord-host");
   dmtcp_args.push_back(SharedData::coordHost());
@@ -659,10 +724,11 @@ void Util::getDmtcpArgs(vector<string> &dmtcp_args)
   }
 
   if (compression != NULL) {
-    if (strcmp (compression, "1") == 0)
+    if (strcmp(compression, "1") == 0) {
       dmtcp_args.push_back("--no-gzip");
-    else
+    } else {
       dmtcp_args.push_back("--gzip");
+    }
   }
 
   if (allocPlugin != NULL && strcmp(allocPlugin, "0") == 0) {
@@ -691,10 +757,11 @@ void Util::getDmtcpArgs(vector<string> &dmtcp_args)
 
 #ifdef HBICT_DELTACOMP
   if (deltacompression != NULL) {
-    if (strcmp(deltacompression, "0") == 0)
+    if (strcmp(deltacompression, "0") == 0) {
       dmtcp_args.push_back("--no-hbict");
-    else
+    } else {
       dmtcp_args.push_back("--hbict");
+    }
   }
-#endif
+#endif // ifdef HBICT_DELTACOMP
 }

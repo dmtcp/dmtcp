@@ -25,91 +25,102 @@
 #include <sys/time.h>
 #include <time.h>
 
-#include "stlwrapper.h"
-#include "jconvert.h"
-#include "jassert.h"
 #include "jalloc.h"
+#include "jassert.h"
+#include "jconvert.h"
+#include "stlwrapper.h"
 
 #include "config.h"
 
 #ifdef TIMING
-#define JTIMER(name) static jalib::JTimeRecorder _jtimer_ ## name (#name);
-#define JTIMER_START(name) ( _jtimer_ ## name . start() )
-#define JTIMER_STOP(name) ( _jtimer_ ## name . stop() )
-#define JTIMER_SCOPE(name) static jalib::JTimeRecorder _jtimer_scope_tm_ ## name (#name); \
-       jalib::JScopeTimer _jtimer_scope_inst_ ## name (_jtimer_scope_tm_ ## name);
-#else
-#define JTIMER(name)
-#define JTIMER_START(name)
-#define JTIMER_STOP(name)
-#define JTIMER_SCOPE(name)
-#endif
+# define JTIMER(name)       static jalib::JTimeRecorder _jtimer_ ## name(# name);
+# define JTIMER_START(name) (_jtimer_ ## name.start())
+# define JTIMER_STOP(name)  (_jtimer_ ## name.stop())
+# define JTIMER_SCOPE(name)                                      \
+  static jalib::JTimeRecorder _jtimer_scope_tm_ ## name(# name); \
+  jalib::JScopeTimer _jtimer_scope_inst_ ## name(_jtimer_scope_tm_ ## name);
+#else // ifdef TIMING
+# define JTIMER(name)
+# define JTIMER_START(name)
+# define JTIMER_STOP(name)
+# define JTIMER_SCOPE(name)
+#endif // ifdef TIMING
 
 
 namespace jalib
 {
+class JTime;
+double operator-(const JTime &a, const JTime &b);
 
-  class JTime;
-  double operator- ( const JTime& a, const JTime& b );
-
-  class JTime
-  {
-    public:
+class JTime
+{
+  public:
 #ifdef JALIB_ALLOCATOR
-      static void* operator new(size_t nbytes, void* p) { return p; }
-      static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
-      static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
-#endif
-      JTime();
-      friend double operator- ( const JTime& a, const JTime& b );
-      static JTime Now() {return JTime();}
-    private:
-      struct timeval _value;
-  };
+    static void *operator new(size_t nbytes, void *p) { return p; }
 
-  class JTimeRecorder
-  {
-    public:
+    static void *operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
+
+    static void operator delete(void *p) { JALLOC_HELPER_DELETE(p); }
+#endif // ifdef JALIB_ALLOCATOR
+    JTime();
+    friend double operator-(const JTime &a, const JTime &b);
+    static JTime Now() { return JTime(); }
+
+  private:
+    struct timeval _value;
+};
+
+class JTimeRecorder
+{
+  public:
 #ifdef JALIB_ALLOCATOR
-      static void* operator new(size_t nbytes, void* p) { return p; }
-      static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
-      static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
-#endif
-      JTimeRecorder ( const jalib::string& name );
-      void start()
-      {
-        JWARNING ( !_isStarted ) ( _name );
-        _start = JTime::Now();
-        _isStarted = true;
-      }
-      void stop()
-      {
-        JWARNING ( _isStarted ) ( _name );
-        if ( !_isStarted ) return;
-        _isStarted = false;
-        recordTime ( JTime::Now() - _start );
-      }
-    protected:
-      void recordTime ( double time );
-    private:
-      jalib::string _name;
-      bool  _isStarted;
-      JTime _start;
-  };
+    static void *operator new(size_t nbytes, void *p) { return p; }
 
-  class JScopeTimer
-  {
-    public:
+    static void *operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
+
+    static void operator delete(void *p) { JALLOC_HELPER_DELETE(p); }
+#endif // ifdef JALIB_ALLOCATOR
+    JTimeRecorder(const jalib::string &name);
+    void start()
+    {
+      JWARNING(!_isStarted) (_name);
+      _start = JTime::Now();
+      _isStarted = true;
+    }
+
+    void stop()
+    {
+      JWARNING(_isStarted) (_name);
+      if (!_isStarted) { return; }
+      _isStarted = false;
+      recordTime(JTime::Now() - _start);
+    }
+
+  protected:
+    void recordTime(double time);
+
+  private:
+    jalib::string _name;
+    bool _isStarted;
+    JTime _start;
+};
+
+class JScopeTimer
+{
+  public:
 #ifdef JALIB_ALLOCATOR
-      static void* operator new(size_t nbytes, void* p) { return p; }
-      static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
-      static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
-#endif
-      JScopeTimer ( JTimeRecorder& tm ) :_tm ( tm ) { _tm.start(); }
-      ~JScopeTimer() { _tm.stop(); }
-    private:
-      JTimeRecorder& _tm;
-  };
+    static void *operator new(size_t nbytes, void *p) { return p; }
 
+    static void *operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
+
+    static void operator delete(void *p) { JALLOC_HELPER_DELETE(p); }
+#endif // ifdef JALIB_ALLOCATOR
+    JScopeTimer(JTimeRecorder &tm) : _tm(tm) { _tm.start(); }
+
+    ~JScopeTimer() { _tm.stop(); }
+
+  private:
+    JTimeRecorder &_tm;
+};
 }
-#endif
+#endif // ifndef JTIMER_H

@@ -27,17 +27,17 @@
 #include "dmtcpalloc.h"
 #include "uniquepid.h"
 
-namespace dmtcp {
-namespace RestartScript {
-
-  string writeScript(const string& ckptDir,
-                     bool uniqueCkptFilenames,
-                     const time_t& ckptTimeStamp,
-                     const uint32_t theCheckpointInterval,
-                     const int thePort,
-                     const UniquePid& compId,
-                     const map<string, vector<string> >& restartFilenames);
-
+namespace dmtcp
+{
+namespace RestartScript
+{
+string writeScript(const string &ckptDir,
+                   bool uniqueCkptFilenames,
+                   const time_t &ckptTimeStamp,
+                   const uint32_t theCheckpointInterval,
+                   const int thePort,
+                   const UniquePid &compId,
+                   const map<string, vector<string> > &restartFilenames);
 } // namespace dmtcp {
 } // namespace RestartScript {
 #endif // #ifndef __RESTART_SCRIPT_H__

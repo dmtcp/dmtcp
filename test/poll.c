@@ -1,14 +1,17 @@
-#include <stdio.h>
-#include <unistd.h>
-#include <stdlib.h>
-#include <sys/types.h>
-#include <sys/stat.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <poll.h>
-#include <errno.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 
-int main() {
+int
+main()
+{
   int pipefd[2];
+
   if (pipe(pipefd) == -1) {
     perror("pipe");
     exit(1);
@@ -17,6 +20,7 @@ int main() {
   struct pollfd pfd[1];
   pfd[0].fd = pipefd[0];
   pfd[0].events = POLLIN;
+
   /* poll should never return, since we can't read from /dev/in.
    * 'man 7 signal' says that any arriving signal (e.g. CKPT signal)
    *   will cause poll to return -1 with EINTR.

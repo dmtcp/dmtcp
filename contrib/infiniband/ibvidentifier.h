@@ -18,5 +18,5 @@ struct ibv_rkey_id {
   uint32_t rkey;
 };
 
-ibv_qp_id_t * create_ibv_id(int qpn, int lid, void * buffer, int size);
-#endif
+ibv_qp_id_t *create_ibv_id(int qpn, int lid, void *buffer, int size);
+#endif // ifndef IBVID_H

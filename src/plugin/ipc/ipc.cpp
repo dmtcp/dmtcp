@@ -19,18 +19,18 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include <unistd.h>
-#include <sys/syscall.h>
-#include <sys/errno.h>
-#include <linux/version.h>
-#include "dmtcp.h"
-#include "jassert.h"
 #include "ipc.h"
+#include <linux/version.h>
+#include <sys/errno.h>
+#include <sys/syscall.h>
+#include <unistd.h>
+#include "jassert.h"
 #include "config.h"
+#include "dmtcp.h"
 
+#include "event/eventconnlist.h"
 #include "file/fileconnlist.h"
 #include "file/ptyconnlist.h"
-#include "event/eventconnlist.h"
 #include "socket/socketconnlist.h"
 #include "ssh/ssh.h"
 
@@ -46,7 +46,8 @@ void dmtcp_FileConn_ProcessFdEvent(int event, int arg1, int arg2);
 void dmtcp_PtyConn_ProcessFdEvent(int event, int arg1, int arg2);
 void dmtcp_SocketConn_ProcessFdEvent(int event, int arg1, int arg2);
 void dmtcp_EventConn_ProcessFdEvent(int event, int arg1, int arg2);
-static void ipc_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
+static void
+ipc_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   dmtcp_SSH_EventHook(event, data);
   dmtcp_FileConnList_EventHook(event, data);
@@ -56,69 +57,92 @@ static void ipc_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 }
 
 static DmtcpBarrier fileBarriers[] = {
-  {DMTCP_PRIVATE_BARRIER_PRE_CKPT, FileConnList::saveOptions, "PRE_CKPT"},
-  {DMTCP_LOCAL_BARRIER_PRE_CKPT, FileConnList::leaderElection, "LEADER_ELECTION"},
-  {DMTCP_LOCAL_BARRIER_PRE_CKPT, FileConnList::drainFd, "DRAIN"},
-  {DMTCP_LOCAL_BARRIER_PRE_CKPT, FileConnList::ckpt, "WRITE_CKPT"},
+  { DMTCP_PRIVATE_BARRIER_PRE_CKPT, FileConnList::saveOptions, "PRE_CKPT" },
+  { DMTCP_LOCAL_BARRIER_PRE_CKPT, FileConnList::leaderElection,
+    "LEADER_ELECTION" },
+  { DMTCP_LOCAL_BARRIER_PRE_CKPT, FileConnList::drainFd, "DRAIN" },
+  { DMTCP_LOCAL_BARRIER_PRE_CKPT, FileConnList::ckpt, "WRITE_CKPT" },
 
-  {DMTCP_PRIVATE_BARRIER_RESUME,   FileConnList::resumeRefill, "RESUME_REFILL"},
-  {DMTCP_LOCAL_BARRIER_RESUME,   FileConnList::resumeResume, "RESUME_RESUME"},
+  { DMTCP_PRIVATE_BARRIER_RESUME, FileConnList::resumeRefill, "RESUME_REFILL" },
+  { DMTCP_LOCAL_BARRIER_RESUME, FileConnList::resumeResume, "RESUME_RESUME" },
 
-  {DMTCP_PRIVATE_BARRIER_RESTART,  FileConnList::restart, "RESTART_POST_RESTART"},
+  { DMTCP_PRIVATE_BARRIER_RESTART, FileConnList::restart,
+    "RESTART_POST_RESTART" },
+
   // We might be able to mark the next barrier as PRIVATE too.
-  {DMTCP_LOCAL_BARRIER_RESTART,  FileConnList::restartRegisterNSData, "RESTART_NS_REGISTER_DATA"},
-  {DMTCP_LOCAL_BARRIER_RESTART,  FileConnList::restartSendQueries, "RESTART_NS_SEND_QUERIES"},
-  {DMTCP_LOCAL_BARRIER_RESTART,  FileConnList::restartRefill, "RESTART_REFILL"},
-  {DMTCP_LOCAL_BARRIER_RESTART,  FileConnList::restartResume, "RESTART_RESUME"}
+  { DMTCP_LOCAL_BARRIER_RESTART, FileConnList::restartRegisterNSData,
+    "RESTART_NS_REGISTER_DATA" },
+  { DMTCP_LOCAL_BARRIER_RESTART, FileConnList::restartSendQueries,
+    "RESTART_NS_SEND_QUERIES" },
+  { DMTCP_LOCAL_BARRIER_RESTART, FileConnList::restartRefill,
+    "RESTART_REFILL" },
+  { DMTCP_LOCAL_BARRIER_RESTART, FileConnList::restartResume, "RESTART_RESUME" }
 };
 
 static DmtcpBarrier ptyBarriers[] = {
-  {DMTCP_PRIVATE_BARRIER_PRE_CKPT, PtyConnList::drainFd, "DRAIN"},
+  { DMTCP_PRIVATE_BARRIER_PRE_CKPT, PtyConnList::drainFd, "DRAIN" },
 
-  {DMTCP_PRIVATE_BARRIER_RESUME,   PtyConnList::resumeRefill, "RESUME_REFILL"},
+  { DMTCP_PRIVATE_BARRIER_RESUME, PtyConnList::resumeRefill, "RESUME_REFILL" },
 
-  {DMTCP_PRIVATE_BARRIER_RESTART,  PtyConnList::restart, "RESTART_POST_RESTART"},
-  {DMTCP_LOCAL_BARRIER_RESTART,  PtyConnList::restartRefill, "RESTART_REFILL"}
+  { DMTCP_PRIVATE_BARRIER_RESTART, PtyConnList::restart,
+    "RESTART_POST_RESTART" },
+  { DMTCP_LOCAL_BARRIER_RESTART, PtyConnList::restartRefill, "RESTART_REFILL" }
 };
 
 static DmtcpBarrier socketBarriers[] = {
-  {DMTCP_PRIVATE_BARRIER_PRE_CKPT, SocketConnList::saveOptions, "PRE_CKPT"},
-  {DMTCP_LOCAL_BARRIER_PRE_CKPT, SocketConnList::leaderElection, "LEADER_ELECTION"},
-  {DMTCP_LOCAL_BARRIER_PRE_CKPT, SocketConnList::drainFd, "DRAIN"},
-  {DMTCP_LOCAL_BARRIER_PRE_CKPT, SocketConnList::ckpt, "WRITE_CKPT"},
+  { DMTCP_PRIVATE_BARRIER_PRE_CKPT, SocketConnList::saveOptions, "PRE_CKPT" },
+  { DMTCP_LOCAL_BARRIER_PRE_CKPT, SocketConnList::leaderElection,
+    "LEADER_ELECTION" },
+  { DMTCP_LOCAL_BARRIER_PRE_CKPT, SocketConnList::drainFd, "DRAIN" },
+  { DMTCP_LOCAL_BARRIER_PRE_CKPT, SocketConnList::ckpt, "WRITE_CKPT" },
 
-  {DMTCP_PRIVATE_BARRIER_RESUME,   SocketConnList::resumeRefill, "RESUME_REFILL"},
-  {DMTCP_LOCAL_BARRIER_RESUME,   SocketConnList::resumeResume, "RESUME_RESUME"},
+  { DMTCP_PRIVATE_BARRIER_RESUME, SocketConnList::resumeRefill,
+    "RESUME_REFILL" },
+  { DMTCP_LOCAL_BARRIER_RESUME, SocketConnList::resumeResume, "RESUME_RESUME" },
 
-  {DMTCP_PRIVATE_BARRIER_RESTART,  SocketConnList::restart, "RESTART_POST_RESTART"},
+  { DMTCP_PRIVATE_BARRIER_RESTART, SocketConnList::restart,
+    "RESTART_POST_RESTART" },
+
   // We might be able to mark the next barrier as PRIVATE too.
-  {DMTCP_LOCAL_BARRIER_RESTART,  SocketConnList::restartRegisterNSData, "RESTART_NS_REGISTER_DATA"},
-  {DMTCP_GLOBAL_BARRIER_RESTART,  SocketConnList::restartSendQueries, "RESTART_NS_SEND_QUERIES"},
-  {DMTCP_LOCAL_BARRIER_RESTART,  SocketConnList::restartRefill, "RESTART_REFILL"},
-  {DMTCP_LOCAL_BARRIER_RESTART,  SocketConnList::restartResume, "RESTART_RESUME"}
+  { DMTCP_LOCAL_BARRIER_RESTART, SocketConnList::restartRegisterNSData,
+    "RESTART_NS_REGISTER_DATA" },
+  { DMTCP_GLOBAL_BARRIER_RESTART, SocketConnList::restartSendQueries,
+    "RESTART_NS_SEND_QUERIES" },
+  { DMTCP_LOCAL_BARRIER_RESTART, SocketConnList::restartRefill,
+    "RESTART_REFILL" },
+  { DMTCP_LOCAL_BARRIER_RESTART, SocketConnList::restartResume,
+    "RESTART_RESUME" }
 };
 
 static DmtcpBarrier eventBarriers[] = {
-  {DMTCP_PRIVATE_BARRIER_PRE_CKPT, EventConnList::saveOptions, "PRE_CKPT"},
-  {DMTCP_LOCAL_BARRIER_PRE_CKPT, EventConnList::leaderElection, "LEADER_ELECTION"},
-  {DMTCP_LOCAL_BARRIER_PRE_CKPT, EventConnList::drainFd, "DRAIN"},
-  {DMTCP_LOCAL_BARRIER_PRE_CKPT, EventConnList::ckpt, "WRITE_CKPT"},
+  { DMTCP_PRIVATE_BARRIER_PRE_CKPT, EventConnList::saveOptions, "PRE_CKPT" },
+  { DMTCP_LOCAL_BARRIER_PRE_CKPT, EventConnList::leaderElection,
+    "LEADER_ELECTION" },
+  { DMTCP_LOCAL_BARRIER_PRE_CKPT, EventConnList::drainFd, "DRAIN" },
+  { DMTCP_LOCAL_BARRIER_PRE_CKPT, EventConnList::ckpt, "WRITE_CKPT" },
 
-  {DMTCP_PRIVATE_BARRIER_RESUME,   EventConnList::resumeRefill, "RESUME_REFILL"},
-  {DMTCP_LOCAL_BARRIER_RESUME,   EventConnList::resumeResume, "RESUME_RESUME"},
+  { DMTCP_PRIVATE_BARRIER_RESUME, EventConnList::resumeRefill,
+    "RESUME_REFILL" },
+  { DMTCP_LOCAL_BARRIER_RESUME, EventConnList::resumeResume, "RESUME_RESUME" },
 
-  {DMTCP_PRIVATE_BARRIER_RESTART,  EventConnList::restart, "RESTART_POST_RESTART"},
+  { DMTCP_PRIVATE_BARRIER_RESTART, EventConnList::restart,
+    "RESTART_POST_RESTART" },
+
   // We might be able to mark the next barrier as PRIVATE too.
-  {DMTCP_LOCAL_BARRIER_RESTART,  EventConnList::restartRegisterNSData, "RESTART_NS_REGISTER_DATA"},
-  {DMTCP_LOCAL_BARRIER_RESTART,  EventConnList::restartSendQueries, "RESTART_NS_SEND_QUERIES"},
-  {DMTCP_LOCAL_BARRIER_RESTART,  EventConnList::restartRefill, "RESTART_REFILL"},
-  {DMTCP_LOCAL_BARRIER_RESTART,  EventConnList::restartResume, "RESTART_RESUME"}
+  { DMTCP_LOCAL_BARRIER_RESTART, EventConnList::restartRegisterNSData,
+    "RESTART_NS_REGISTER_DATA" },
+  { DMTCP_LOCAL_BARRIER_RESTART, EventConnList::restartSendQueries,
+    "RESTART_NS_SEND_QUERIES" },
+  { DMTCP_LOCAL_BARRIER_RESTART, EventConnList::restartRefill,
+    "RESTART_REFILL" },
+  { DMTCP_LOCAL_BARRIER_RESTART, EventConnList::restartResume,
+    "RESTART_RESUME" }
 };
 
 static DmtcpBarrier sshBarriers[] = {
-  {DMTCP_PRIVATE_BARRIER_PRE_CKPT, dmtcp_ssh_drain, "DRAIN"},
-  {DMTCP_PRIVATE_BARRIER_RESUME,   dmtcp_ssh_resume, "RESUME"},
-  {DMTCP_PRIVATE_BARRIER_RESTART,  dmtcp_ssh_restart, "RESTART"}
+  { DMTCP_PRIVATE_BARRIER_PRE_CKPT, dmtcp_ssh_drain, "DRAIN" },
+  { DMTCP_PRIVATE_BARRIER_RESUME, dmtcp_ssh_resume, "RESUME" },
+  { DMTCP_PRIVATE_BARRIER_RESTART, dmtcp_ssh_restart, "RESTART" }
 };
 
 DmtcpPluginDescriptor_t sshPlugin = {
@@ -187,7 +211,8 @@ DmtcpPluginDescriptor_t ipcPlugin = {
   ipc_event_hook
 };
 
-EXTERNC void dmtcp_initialize_plugin()
+EXTERNC void
+dmtcp_initialize_plugin()
 {
   dmtcp_register_plugin(sshPlugin);
   dmtcp_register_plugin(filePlugin);
@@ -204,7 +229,8 @@ EXTERNC void dmtcp_initialize_plugin()
 /*
  *
  */
-extern "C" void process_fd_event(int event, int arg1, int arg2 = -1)
+extern "C" void
+process_fd_event(int event, int arg1, int arg2 = -1)
 {
   dmtcp_FileConn_ProcessFdEvent(event, arg1, arg2);
   dmtcp_PtyConn_ProcessFdEvent(event, arg1, arg2);
@@ -212,7 +238,8 @@ extern "C" void process_fd_event(int event, int arg1, int arg2 = -1)
   dmtcp_EventConn_ProcessFdEvent(event, arg1, arg2);
 }
 
-extern "C" int close(int fd)
+extern "C" int
+close(int fd)
 {
   if (dmtcp_is_protected_fd(fd)) {
     JTRACE("blocked attempt to close protected fd") (fd);
@@ -229,9 +256,11 @@ extern "C" int close(int fd)
   return rv;
 }
 
-extern "C" int fclose(FILE *fp)
+extern "C" int
+fclose(FILE *fp)
 {
   int fd = fileno(fp);
+
   if (dmtcp_is_protected_fd(fd)) {
     JTRACE("blocked attempt to fclose protected fd") (fd);
     errno = EBADF;
@@ -248,9 +277,11 @@ extern "C" int fclose(FILE *fp)
   return rv;
 }
 
-extern "C" int closedir(DIR *dir)
+extern "C" int
+closedir(DIR *dir)
 {
   int fd = dirfd(dir);
+
   if (dmtcp_is_protected_fd(fd)) {
     JTRACE("blocked attempt to closedir protected fd") (fd);
     errno = EBADF;
@@ -267,7 +298,8 @@ extern "C" int closedir(DIR *dir)
   return rv;
 }
 
-extern "C" int dup(int oldfd)
+extern "C" int
+dup(int oldfd)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
   int newfd = _real_dup(oldfd);
@@ -278,7 +310,8 @@ extern "C" int dup(int oldfd)
   return newfd;
 }
 
-extern "C" int dup2(int oldfd, int newfd)
+extern "C" int
+dup2(int oldfd, int newfd)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
   int res = _real_dup2(oldfd, newfd);
@@ -289,9 +322,11 @@ extern "C" int dup2(int oldfd, int newfd)
   return newfd;
 }
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,27)) && __GLIBC_PREREQ(2,9)
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)) && __GLIBC_PREREQ(2, 9)
+
 // dup3 appeared in Linux 2.6.27
-extern "C" int dup3(int oldfd, int newfd, int flags)
+extern "C" int
+dup3(int oldfd, int newfd, int flags)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
   int res = _real_dup3(oldfd, newfd, flags);
@@ -301,5 +336,5 @@ extern "C" int dup3(int oldfd, int newfd, int flags)
   DMTCP_PLUGIN_ENABLE_CKPT();
   return newfd;
 }
-#endif
-
+#endif // if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)) &&
+       // __GLIBC_PREREQ(2, 9)

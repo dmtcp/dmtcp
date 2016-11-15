@@ -19,14 +19,12 @@
 
 #include <sched.h>
 
-#include "virtualpidtable.h"
-#include "pidwrappers.h"
 #include "dmtcp.h"
+#include "pidwrappers.h"
+#include "virtualpidtable.h"
 
 int
-sched_setaffinity(pid_t pid,
-                  size_t cpusetsize,
-                  const cpu_set_t *mask)
+sched_setaffinity(pid_t pid, size_t cpusetsize, const cpu_set_t *mask)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
   int result = -1;
@@ -40,9 +38,7 @@ sched_setaffinity(pid_t pid,
 }
 
 int
-sched_getaffinity(pid_t pid,
-                  size_t cpusetsize,
-                  cpu_set_t *mask)
+sched_getaffinity(pid_t pid, size_t cpusetsize, cpu_set_t *mask)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
   int result = -1;
@@ -56,9 +52,7 @@ sched_getaffinity(pid_t pid,
 }
 
 int
-sched_setscheduler(pid_t pid,
-                   int policy,
-                   const struct sched_param *param)
+sched_setscheduler(pid_t pid, int policy, const struct sched_param *param)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
   int result = -1;
@@ -86,8 +80,7 @@ sched_getscheduler(pid_t pid)
 }
 
 int
-sched_setparam(pid_t pid,
-               const struct sched_param *param)
+sched_setparam(pid_t pid, const struct sched_param *param)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
   int result = -1;
@@ -101,8 +94,7 @@ sched_setparam(pid_t pid,
 }
 
 int
-sched_getparam(pid_t pid,
-               struct sched_param *param)
+sched_getparam(pid_t pid, struct sched_param *param)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
   int result = -1;
@@ -116,11 +108,10 @@ sched_getparam(pid_t pid,
 }
 
 #if 0
+
 // TODO: Add check for the below two functions in configure
 int
-sched_setattr(pid_t pid,
-              const struct sched_attr *attr,
-              unsigned int flags)
+sched_setattr(pid_t pid, const struct sched_attr *attr, unsigned int flags)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
   int result = -1;
@@ -149,4 +140,4 @@ sched_getattr(pid_t pid,
   DMTCP_PLUGIN_ENABLE_CKPT();
   return result;
 }
-#endif
+#endif // if 0

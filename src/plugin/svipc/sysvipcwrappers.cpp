@@ -23,21 +23,22 @@
 // So, we temporarily rename it so that type declarations are not for msgrcv.
 #define msgrcv msgrcv_glibc
 
-#include <sys/ipc.h>
-#include <sys/shm.h>
 #include <stdarg.h>
+#include <sys/ipc.h>
 #include <sys/msg.h>
+#include <sys/shm.h>
 
 #undef msgrcv
 
+#include "jassert.h"
 #include "dmtcp.h"
 #include "sysvipc.h"
 #include "sysvipcwrappers.h"
-#include "jassert.h"
 
 using namespace dmtcp;
 
-static struct timespec ts_100ms = {0, 100 * 1000 * 1000};
+static struct timespec ts_100ms = { 0, 100 * 1000 * 1000 };
+
 /******************************************************************************
  *
  * SysV Shm Methods
@@ -45,16 +46,18 @@ static struct timespec ts_100ms = {0, 100 * 1000 * 1000};
  *****************************************************************************/
 
 extern "C"
-int shmget(key_t key, size_t size, int shmflg)
+int
+shmget(key_t key, size_t size, int shmflg)
 {
   int realId = -1;
   int virtId = -1;
+
   DMTCP_PLUGIN_DISABLE_CKPT();
   realId = _real_shmget(key, size, shmflg);
   if (realId != -1) {
     SysVShm::instance().on_shmget(realId, key, size, shmflg);
     virtId = REAL_TO_VIRTUAL_SHM_ID(realId);
-    JTRACE ("Creating new Shared memory segment")
+    JTRACE("Creating new Shared memory segment")
       (key) (size) (shmflg) (realId) (virtId);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -66,62 +69,69 @@ void *shmat(int shmid, const void *shmaddr, int shmflg)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
   int realShmid = VIRTUAL_TO_REAL_SHM_ID(shmid);
-  JASSERT(realShmid != -1) .Text("Not Implemented");
+  JASSERT(realShmid != -1).Text("Not Implemented");
   void *ret = _real_shmat(realShmid, shmaddr, shmflg);
 #ifdef __arm__
+
   // This is arguably a bug in Linux kernel 2.6.28, 2.6.29, 3.0 - 3.2 and others
   // See:  https://bugs.kde.org/show_bug.cgi?id=222545
-  //     On ARM, SHMLBA == 4*PAGE_SIZE instead of PAGESIZE
-  //     So, this fails:
-  //    shmaddr = shmat(shmid, NULL, 0); smdt(shmaddr); shmat(shmid, shaddr, 0);
-  //       when shmaddr % 0x4000 != 0 (when shmaddr not multiple of SMLBA)
+  // On ARM, SHMLBA == 4*PAGE_SIZE instead of PAGESIZE
+  // So, this fails:
+  // shmaddr = shmat(shmid, NULL, 0); smdt(shmaddr); shmat(shmid, shaddr, 0);
+  // when shmaddr % 0x4000 != 0 (when shmaddr not multiple of SMLBA)
   // Workaround for bug in Linux kernel for ARM follows.
   // WHEN KERNEL FIX IS AVAILABLE, DO THIS ONLY FOR BUGGY KERNEL VERSIONS.
   if (((long)ret % 0x4000 != 0) && (ret != (void *)-1)) { // if ret%SHMLBA != 0
     void *ret_addr[20];
     unsigned int i;
-    for (i = 0; i < sizeof(ret_addr) / sizeof(ret_addr[0]) ; i++) {
+    for (i = 0; i < sizeof(ret_addr) / sizeof(ret_addr[0]); i++) {
       ret_addr[i] = ret; // Save bad address for detaching later
       ret = _real_shmat(realShmid, shmaddr, shmflg); // Try again
       // if ret % SHMLBA == 0 { ... }
-      if (((long)ret % 0x4000 == 0) || (ret == (void *)-1))
+      if (((long)ret % 0x4000 == 0) || (ret == (void *)-1)) {
         break; // Good address (or error return)
+      }
     }
+
     // Detach all the bad addresses athat are not SHMLBA-aligned.
-    if (i < sizeof(ret_addr) / sizeof(ret_addr[0]))
-      for (unsigned int j = 0; j < i+1; j++)
-        _real_shmdt( ret_addr[j] );
+    if (i < sizeof(ret_addr) / sizeof(ret_addr[0])) {
+      for (unsigned int j = 0; j < i + 1; j++) {
+        _real_shmdt(ret_addr[j]);
+      }
+    }
     JASSERT((long)ret % 0x4000 == 0)
       (shmaddr) (shmflg) (getpid())
-      .Text ("Failed to get SHMLBA-aligned address after 20 tries");
+    .Text("Failed to get SHMLBA-aligned address after 20 tries");
   }
 #elif defined(__aarch64__)
 # warning "TODO: Implementation for ARM64."
-#endif
+#endif // ifdef __arm__
 
-  if (ret != (void *) -1) {
+  if (ret != (void *)-1) {
     SysVShm::instance().on_shmat(shmid, shmaddr, shmflg, ret);
-    JTRACE ("Mapping Shared memory segment") (shmid) (realShmid) (shmflg) (ret);
+    JTRACE("Mapping Shared memory segment") (shmid) (realShmid) (shmflg) (ret);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return ret;
 }
 
 extern "C"
-int shmdt(const void *shmaddr)
+int
+shmdt(const void *shmaddr)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
   int ret = _real_shmdt(shmaddr);
   if (ret != -1) {
     SysVShm::instance().on_shmdt(shmaddr);
-    JTRACE ("Unmapping Shared memory segment" ) (shmaddr);
+    JTRACE("Unmapping Shared memory segment") (shmaddr);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return ret;
 }
 
 extern "C"
-int shmctl(int shmid, int cmd, struct shmid_ds *buf)
+int
+shmctl(int shmid, int cmd, struct shmid_ds *buf)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
   int realShmid = VIRTUAL_TO_REAL_SHM_ID(shmid);
@@ -138,32 +148,38 @@ int shmctl(int shmid, int cmd, struct shmid_ds *buf)
  *****************************************************************************/
 
 extern "C"
-int semget(key_t key, int nsems, int semflg)
+int
+semget(key_t key, int nsems, int semflg)
 {
   int realId = -1;
   int virtId = -1;
+
   DMTCP_PLUGIN_DISABLE_CKPT();
-  realId = _real_semget (key, nsems, semflg);
+  realId = _real_semget(key, nsems, semflg);
   if (realId != -1) {
     SysVSem::instance().on_semget(realId, key, nsems, semflg);
     virtId = REAL_TO_VIRTUAL_SEM_ID(realId);
-    JTRACE ("Creating new SysV Semaphore" ) (key) (nsems) (semflg);
+    JTRACE("Creating new SysV Semaphore") (key) (nsems) (semflg);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return virtId;
 }
 
 extern "C"
-int semop(int semid, struct sembuf *sops, size_t nsops)
+int
+semop(int semid, struct sembuf *sops, size_t nsops)
 {
   return semtimedop(semid, sops, nsops, NULL);
 }
 
 extern "C"
-int semtimedop(int semid, struct sembuf *sops, size_t nsops,
-               const struct timespec *timeout)
+int
+semtimedop(int semid,
+           struct sembuf *sops,
+           size_t nsops,
+           const struct timespec *timeout)
 {
-  struct timespec totaltime = {0, 0};
+  struct timespec totaltime = { 0, 0 };
   int ret;
   int realId;
   bool ipc_nowait_specified = false;
@@ -216,13 +232,15 @@ int semtimedop(int semid, struct sembuf *sops, size_t nsops,
 }
 
 extern "C"
-int semctl(int semid, int semnum, int cmd, ...)
+int
+semctl(int semid, int semnum, int cmd, ...)
 {
   union semun uarg;
   va_list arg;
-  va_start (arg, cmd);
-  uarg = va_arg (arg, union semun);
-  va_end (arg);
+
+  va_start(arg, cmd);
+  uarg = va_arg(arg, union semun);
+  va_end(arg);
   int ret = -1;
 
   if (cmd == SEM_INFO || cmd == IPC_INFO) {
@@ -240,6 +258,7 @@ int semctl(int semid, int semnum, int cmd, ...)
 
   return ret;
 }
+
 /******************************************************************************
  *
  * SysV Msg Queue Methods
@@ -247,23 +266,26 @@ int semctl(int semid, int semnum, int cmd, ...)
  *****************************************************************************/
 
 extern "C"
-int msgget(key_t key, int msgflg)
+int
+msgget(key_t key, int msgflg)
 {
   int realId = -1;
   int virtId = -1;
+
   DMTCP_PLUGIN_DISABLE_CKPT();
-  realId = _real_msgget (key, msgflg);
+  realId = _real_msgget(key, msgflg);
   if (realId != -1) {
     SysVMsq::instance().on_msgget(realId, key, msgflg);
     virtId = REAL_TO_VIRTUAL_MSQ_ID(realId);
-    JTRACE ("Creating new SysV Msg Queue" ) (key) (msgflg);
+    JTRACE("Creating new SysV Msg Queue") (key) (msgflg);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return virtId;
 }
 
 extern "C"
-int msgsnd(int msqid, const void *msgp, size_t msgsz, int msgflg)
+int
+msgsnd(int msqid, const void *msgp, size_t msgsz, int msgflg)
 {
   int ret;
   int realId;
@@ -292,12 +314,13 @@ int msgsnd(int msqid, const void *msgp, size_t msgsz, int msgflg)
 
     nanosleep(&ts_100ms, NULL);
   }
-  JASSERT(false) .Text("Not Reached");
+  JASSERT(false).Text("Not Reached");
   return -1;
 }
 
 extern "C"
-ssize_t msgrcv(int msqid, void *msgp, size_t msgsz, long msgtyp, int msgflg)
+ssize_t
+msgrcv(int msqid, void *msgp, size_t msgsz, long msgtyp, int msgflg)
 {
   int ret;
   int realId;
@@ -326,13 +349,13 @@ ssize_t msgrcv(int msqid, void *msgp, size_t msgsz, long msgtyp, int msgflg)
 
     nanosleep(&ts_100ms, NULL);
   }
-  JASSERT(false) .Text("Not Reached");
+  JASSERT(false).Text("Not Reached");
   return -1;
 }
 
-
 extern "C"
-int msgctl(int msqid, int cmd, struct msqid_ds *buf)
+int
+msgctl(int msqid, int cmd, struct msqid_ds *buf)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
   int realId = VIRTUAL_TO_REAL_MSQ_ID(msqid);

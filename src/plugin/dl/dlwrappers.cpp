@@ -21,8 +21,8 @@
 
 #include <stdlib.h>
 #include <unistd.h>
-#include "dmtcp.h"
 #include "../jalib/jassert.h"
+#include "dmtcp.h"
 
 #define _real_dlopen  NEXT_FNC(dlopen)
 #define _real_dlclose NEXT_FNC(dlclose)
@@ -69,25 +69,29 @@ void *dlopen(const char *filename, int flag)
 {
   bool lockAcquired = dmtcp_libdlLockLock();
   void *ret = _real_dlopen(filename, flag);
+
   if (lockAcquired) {
     dmtcp_libdlLockUnlock();
   }
   JWARNING(ret) (filename) (flag)
-    .Text("dlopen failed.  You may also see a message 'ERROR: ld.so:'\n"
-    "from libdl.so.  If this happens only under DMTCP, then consider setting\n"
-    "the environment variable DMTCP_DL_PLUGIN to \"0\" before 'dmtcp_launch'.\n"
-    "If the problem persists, please write to the DMTCP developers.\n");
+    .Text("dlopen failed!\n"
+          "You may also see a message 'ERROR: ld.so:'\n from libdl.so.\n"
+          "If this happens only under DMTCP, then consider setting the \n"
+          "environment variable 'DMTCP_DL_PLUGIN' to \"0\" before \n"
+          "'dmtcp_launch'.\n"
+          "If the problem persists, please write to the DMTCP developers.\n");
   return ret;
 }
 
 extern "C"
-int dlclose(void *handle)
+int
+dlclose(void *handle)
 {
   bool lockAcquired = dmtcp_libdlLockLock();
   int ret = _real_dlclose(handle);
+
   if (lockAcquired) {
     dmtcp_libdlLockUnlock();
   }
   return ret;
 }
-

@@ -2,24 +2,26 @@
 #define _GNU_SOURCE
 #include <errno.h>
 #include <pthread.h>
-#include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
+#include <string.h>
 #include <sys/syscall.h>
+#include <unistd.h>
 
 #define THREAD_CNT 5
 
 int numWorkers = 0;
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
-static void *threadMain (void *_n);
+static void *threadMain(void *_n);
 
 static int maxWorkers = THREAD_CNT;
 
-int main (int argc, char* argv[])
+int
+main(int argc, char *argv[])
 {
   int count = 0;
+
   if (argc > 1) {
     int c = atoi(argv[1]);
     if (c > 1) {
@@ -29,7 +31,7 @@ int main (int argc, char* argv[])
 
   while (1) {
     pthread_mutex_lock(&mutex);
-    if (numWorkers < maxWorkers+1) {
+    if (numWorkers < maxWorkers + 1) {
       pthread_t pthread_id;
       pthread_attr_t attr;
       pthread_attr_init(&attr);
@@ -41,23 +43,25 @@ int main (int argc, char* argv[])
       int res = pthread_create(&pthread_id, &attr, &threadMain, id);
       if (res != 0) {
         fprintf(stderr, "error creating thread: %s\n", strerror(res));
-        return (-1);
+        return -1;
       } else {
         numWorkers++;
       }
     }
     pthread_mutex_unlock(&mutex);
   }
-  return (0);
+  return 0;
 }
 
-static void *threadMain (void *data)
+static void *
+threadMain(void *data)
 {
-  int id = *(int*) data;
+  int id = *(int *)data;
 
   while (1) {
     printf("Worker: %d (%ld) alive. numWorkers: %d\n",
            id, (long)syscall(SYS_gettid), numWorkers);
+
     // usleep(100*1000);
     pthread_mutex_lock(&mutex);
     if (numWorkers > maxWorkers) {

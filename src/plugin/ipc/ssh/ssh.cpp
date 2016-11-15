@@ -1,17 +1,17 @@
-#include <sys/syscall.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
+#include "ssh.h"
 #include <arpa/inet.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <sys/syscall.h>
 #include <sys/un.h>
-#include "dmtcp.h"
-#include "util.h"
-#include "util_ipc.h"
 #include "jassert.h"
 #include "jfilesystem.h"
+#include "dmtcp.h"
 #include "ipc.h"
-#include "ssh.h"
-#include "sshdrainer.h"
 #include "shareddata.h"
+#include "sshdrainer.h"
+#include "util.h"
+#include "util_ipc.h"
 
 using namespace dmtcp;
 
@@ -42,12 +42,12 @@ static void refill(bool isRestart);
 static void sshdReceiveFds();
 static void createNewDmtcpSshdProcess();
 
-void dmtcp_SSH_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
-{
-  return;
-}
+void
+dmtcp_SSH_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
+{}
 
-void dmtcp_ssh_drain()
+void
+dmtcp_ssh_drain()
 {
   if (!sshPluginEnabled) {
     return;
@@ -67,7 +67,8 @@ void dmtcp_ssh_drain()
   theDrainer->monitorSockets(DRAINER_CHECK_FREQ);
 }
 
-void dmtcp_ssh_resume()
+void
+dmtcp_ssh_resume()
 {
   if (!sshPluginEnabled) {
     return;
@@ -76,7 +77,8 @@ void dmtcp_ssh_resume()
   refill(false);
 }
 
-void dmtcp_ssh_restart()
+void
+dmtcp_ssh_restart()
 {
   if (!sshPluginEnabled) {
     return;
@@ -85,7 +87,8 @@ void dmtcp_ssh_restart()
   refill(true);
 }
 
-static void refill(bool isRestart)
+static void
+refill(bool isRestart)
 {
   if (isRestart) {
     if (isSshdProcess) { // dmtcp_sshd
@@ -96,15 +99,18 @@ static void refill(bool isRestart)
   }
 
   theDrainer->refill();
+
   // Free up the object
   delete theDrainer;
   theDrainer = NULL;
 }
 
-static void receiveFileDescr(int fd)
+static void
+receiveFileDescr(int fd)
 {
   int data;
   int ret = Util::receiveFd(SSHD_RECEIVE_FD, &data, sizeof(data));
+
   if (fd == SSHD_PIPE_FD) {
     return;
   }
@@ -116,11 +122,12 @@ static void receiveFileDescr(int fd)
   }
 }
 
-static void sshdReceiveFds()
+static void
+sshdReceiveFds()
 {
   // Add receive-fd data socket.
   static struct sockaddr_un fdReceiveAddr;
-  static socklen_t         fdReceiveAddrLen;
+  static socklen_t fdReceiveAddrLen;
 
   memset(&fdReceiveAddr, 0, sizeof(fdReceiveAddr));
   jalib::JSocket sock(_real_socket(AF_UNIX, SOCK_DGRAM, 0));
@@ -128,7 +135,7 @@ static void sshdReceiveFds()
   sock.changeFd(SSHD_RECEIVE_FD);
   fdReceiveAddr.sun_family = AF_UNIX;
   JASSERT(_real_bind(SSHD_RECEIVE_FD,
-                     (struct sockaddr*) &fdReceiveAddr,
+                     (struct sockaddr *)&fdReceiveAddr,
                      sizeof(fdReceiveAddr.sun_family)) == 0) (JASSERT_ERRNO);
 
   fdReceiveAddrLen = sizeof(fdReceiveAddr);
@@ -140,7 +147,7 @@ static void sshdReceiveFds()
   ssize_t ret = write(sshSockFd, &fdReceiveAddrLen, sizeof(fdReceiveAddrLen));
   JASSERT(ret == sizeof(fdReceiveAddrLen)) (sshSockFd) (ret) (JASSERT_ERRNO);
   ret = write(sshSockFd, &fdReceiveAddr, fdReceiveAddrLen);
-  JASSERT(ret == (ssize_t) fdReceiveAddrLen);
+  JASSERT(ret == (ssize_t)fdReceiveAddrLen);
 
   // Now receive fds
   receiveFileDescr(STDIN_FILENO);
@@ -150,25 +157,27 @@ static void sshdReceiveFds()
   _real_close(SSHD_RECEIVE_FD);
 }
 
-static void createNewDmtcpSshdProcess()
+static void
+createNewDmtcpSshdProcess()
 {
   struct sockaddr_un addr;
-  socklen_t          addrLen;
+  socklen_t addrLen;
   static char abstractSockName[20];
   int in[2], out[2], err[2];
 
   ssize_t ret = read(sshSockFd, &addrLen, sizeof(addrLen));
+
   JASSERT(ret == sizeof(addrLen));
   memset(&addr, 0, sizeof(addr));
   ret = read(sshSockFd, &addr, addrLen);
-  JASSERT(ret == (ssize_t) addrLen);
+  JASSERT(ret == (ssize_t)addrLen);
   JASSERT(strlen(&addr.sun_path[1]) < sizeof(abstractSockName));
   strcpy(abstractSockName, &addr.sun_path[1]);
 
   struct sockaddr_in sshdSockAddr;
   socklen_t sshdSockAddrLen = sizeof(sshdSockAddr);
   char remoteHost[80];
-  JASSERT(getpeername(sshSockFd, (struct sockaddr*)&sshdSockAddr,
+  JASSERT(getpeername(sshSockFd, (struct sockaddr *)&sshdSockAddr,
                       &sshdSockAddrLen) == 0);
   char *ip = inet_ntoa(sshdSockAddr.sin_addr);
   strcpy(remoteHost, ip);
@@ -189,15 +198,15 @@ static void createNewDmtcpSshdProcess()
     char *argv[16];
     int idx = 0;
 
-    argv[idx++] = (char*) dmtcp_nocheckpoint_path.c_str();
-    argv[idx++] = const_cast<char*>("ssh");
+    argv[idx++] = (char *)dmtcp_nocheckpoint_path.c_str();
+    argv[idx++] = const_cast<char *>("ssh");
     if (noStrictHostKeyChecking) {
-      argv[idx++] = const_cast<char*>("-o");
-      argv[idx++] = const_cast<char*>("StrictHostKeyChecking=no");
+      argv[idx++] = const_cast<char *>("-o");
+      argv[idx++] = const_cast<char *>("StrictHostKeyChecking=no");
     }
     argv[idx++] = remoteHost;
-    argv[idx++] = (char*) dmtcp_sshd_path.c_str();
-    argv[idx++] = const_cast<char*>("--listenAddr");
+    argv[idx++] = (char *)dmtcp_sshd_path.c_str();
+    argv[idx++] = const_cast<char *>("--listenAddr");
     argv[idx++] = abstractSockName;
     argv[idx++] = NULL;
     JASSERT(idx < max_args) (idx);
@@ -209,12 +218,13 @@ static void createNewDmtcpSshdProcess()
     dup2(out[1], STDOUT_FILENO);
     dup2(err[1], STDERR_FILENO);
 
-    JTRACE("Launching ") (argv[0]) (argv[1]) (argv[2]) (argv[3]) (argv[4]) (argv[5]);
+    JTRACE("Launching ")
+      (argv[0]) (argv[1]) (argv[2]) (argv[3]) (argv[4]) (argv[5]);
     _real_execvp(argv[0], argv);
     JASSERT(false);
   }
 
-  dup2(in[1],  500 + sshStdin);
+  dup2(in[1], 500 + sshStdin);
   dup2(out[0], 500 + sshStdout);
   dup2(err[0], 500 + sshStderr);
 
@@ -237,8 +247,13 @@ static void createNewDmtcpSshdProcess()
   process_fd_event(SYS_close, sshStderr);
 }
 
-extern "C" void dmtcp_ssh_register_fds(int isSshd, int in, int out, int err,
-                                       int sock, int noStrictChecking)
+extern "C" void
+dmtcp_ssh_register_fds(int isSshd,
+                       int in,
+                       int out,
+                       int err,
+                       int sock,
+                       int noStrictChecking)
 {
   if (isSshd) { // dmtcp_sshd
     process_fd_event(SYS_close, STDIN_FILENO);
@@ -258,25 +273,27 @@ extern "C" void dmtcp_ssh_register_fds(int isSshd, int in, int out, int err,
   noStrictHostKeyChecking = noStrictChecking;
 }
 
-static void prepareForExec(char *const argv[], char ***newArgv)
+static void
+prepareForExec(char *const argv[], char ***newArgv)
 {
   size_t nargs = 0;
   bool noStrictChecking = false;
   string precmd, postcmd, tempcmd;
-  while (argv[nargs++] != NULL);
+
+  while (argv[nargs++] != NULL) {}
 
   if (nargs < 3) {
     JNOTE("ssh with less than 3 args") (argv[0]) (argv[1]);
-    *newArgv = (char**) argv;
+    *newArgv = (char **)argv;
     return;
   }
 
-  //find command part
+  // find command part
   size_t commandStart = 2;
   for (size_t i = 1; i < nargs; ++i) {
     string s = argv[i];
     if (strcmp(argv[i], "-o") == 0) {
-      if (strcmp(argv[i+1], "StrictHostKeyChecking=no") == 0) {
+      if (strcmp(argv[i + 1], "StrictHostKeyChecking=no") == 0) {
         noStrictChecking = true;
       }
       i++;
@@ -308,9 +325,9 @@ static void prepareForExec(char *const argv[], char ***newArgv)
   }
   JASSERT(commandStart < nargs && argv[commandStart][0] != '-')
     (commandStart) (nargs) (argv[commandStart])
-    .Text("failed to parse ssh command line");
+  .Text("failed to parse ssh command line");
 
-  vector<string> dmtcp_args;
+  vector<string>dmtcp_args;
   Util::getDmtcpArgs(dmtcp_args);
 
   dmtcp_launch_path = Util::getPath("dmtcp_launch");
@@ -319,7 +336,7 @@ static void prepareForExec(char *const argv[], char ***newArgv)
   dmtcp_nocheckpoint_path = Util::getPath("dmtcp_nocheckpoint");
 
   prefix = dmtcp_launch_path + " ";
-  for(size_t i = 0; i < dmtcp_args.size(); i++){
+  for (size_t i = 0; i < dmtcp_args.size(); i++) {
     prefix += dmtcp_args[i] + " ";
   }
   prefix += dmtcp_sshd_path + " ";
@@ -329,8 +346,8 @@ static void prepareForExec(char *const argv[], char ***newArgv)
   size_t semipos, pos;
   size_t actpos = string::npos;
   tempcmd = argv[commandStart];
-  for(semipos = 0; (pos = tempcmd.find(';',semipos+1)) != string::npos;
-      semipos = pos, actpos = pos);
+  for (semipos = 0; (pos = tempcmd.find(';', semipos + 1)) != string::npos;
+       semipos = pos, actpos = pos) {}
 
   if (actpos > 0 && actpos != string::npos) {
     precmd = tempcmd.substr(0, actpos + 1);
@@ -342,6 +359,7 @@ static void prepareForExec(char *const argv[], char ***newArgv)
   }
 
   cmd = precmd;
+
   // convert "exec cmd" to "exec <dmtcp-prefix> cmd"
   if (Util::strStartsWith(postcmd, "exec")) {
     cmd += "exec " + prefix + postcmd.substr(strlen("exec"));
@@ -349,30 +367,31 @@ static void prepareForExec(char *const argv[], char ***newArgv)
     cmd += prefix + postcmd;
   }
 
-  //now repack args
-  char** new_argv = (char**) JALLOC_HELPER_MALLOC(sizeof(char*) * (nargs + 10));
-  memset(new_argv, 0, sizeof(char*) * (nargs + 10));
+  // now repack args
+  char **new_argv =
+    (char **)JALLOC_HELPER_MALLOC(sizeof(char *) * (nargs + 10));
+  memset(new_argv, 0, sizeof(char *) * (nargs + 10));
 
   size_t idx = 0;
-  new_argv[idx++] = (char*) dmtcp_ssh_path.c_str();
+  new_argv[idx++] = (char *)dmtcp_ssh_path.c_str();
   if (noStrictChecking) {
-    new_argv[idx++] = const_cast<char*>("--noStrictHostKeyChecking");
+    new_argv[idx++] = const_cast<char *>("--noStrictHostKeyChecking");
   }
-  new_argv[idx++] = (char*) dmtcp_nocheckpoint_path.c_str();
+  new_argv[idx++] = (char *)dmtcp_nocheckpoint_path.c_str();
 
   string newCommand = string(new_argv[0]) + " " + string(new_argv[1]) + " ";
   for (size_t i = 0; i < commandStart; ++i) {
-    new_argv[idx++] = ( char* ) argv[i];
+    new_argv[idx++] = (char *)argv[i];
     if (argv[i] != NULL) {
       newCommand += argv[i];
       newCommand += ' ';
     }
   }
-  new_argv[idx++] = (char*) cmd.c_str();
+  new_argv[idx++] = (char *)cmd.c_str();
   newCommand += cmd + " ";
 
   for (size_t i = commandStart + 1; i < nargs; ++i) {
-    new_argv[idx++] = (char*) argv[i];
+    new_argv[idx++] = (char *)argv[i];
     if (argv[i] != NULL) {
       newCommand += argv[i];
       newCommand += ' ';
@@ -380,12 +399,15 @@ static void prepareForExec(char *const argv[], char ***newArgv)
   }
   JNOTE("New ssh command") (newCommand);
   *newArgv = new_argv;
-  return;
 }
 
 // This code is copied from dmtcp_coordinator.cpp:calLocalAddr()
-static void updateCoordHost() {
-  if (SharedData::coordHost() != "127.0.0.1")  return;
+static void
+updateCoordHost()
+{
+  if (SharedData::coordHost() != "127.0.0.1") {
+    return;
+  }
 
   struct in_addr localhostIPAddr;
   string cmd;
@@ -413,9 +435,15 @@ static void updateCoordHost() {
     bool success = false;
     for (res = result; res != NULL; res = res->ai_next) {
       char name[NI_MAXHOST] = "";
-      struct sockaddr_in *s = (struct sockaddr_in*) res->ai_addr;
+      struct sockaddr_in *s = (struct sockaddr_in *)res->ai_addr;
 
-      error = getnameinfo(res->ai_addr, res->ai_addrlen, name, NI_MAXHOST, NULL, 0, 0);
+      error = getnameinfo(res->ai_addr,
+                          res->ai_addrlen,
+                          name,
+                          NI_MAXHOST,
+                          NULL,
+                          0,
+                          0);
       if (error != 0) {
         JTRACE("getnameinfo() failed.") (gai_strerror(error));
         continue;
@@ -427,9 +455,9 @@ static void updateCoordHost() {
         memcpy(&localhostIPAddr, &s->sin_addr, sizeof s->sin_addr);
       }
     }
-    if (!success) {
-      JWARNING(false)("Failed to find coordinator IP address.  DMTCP may fail.") (hostname) ;
-    }
+
+    JWARNING(!success) (hostname)
+      .Text("Failed to find coordinator IP address.  DMTCP may fail.");
   } else {
     if (error == EAI_SYSTEM) {
       perror("getaddrinfo");
@@ -443,8 +471,8 @@ static void updateCoordHost() {
   freeaddrinfo(result);
 }
 
-extern "C" int execve (const char *filename, char *const argv[],
-                       char *const envp[])
+extern "C" int
+execve(const char *filename, char *const argv[], char *const envp[])
 {
   if (jalib::Filesystem::BaseName(filename) != "ssh") {
     return _real_execve(filename, argv, envp);
@@ -454,12 +482,13 @@ extern "C" int execve (const char *filename, char *const argv[],
 
   char **newArgv = NULL;
   prepareForExec(argv, &newArgv);
-  int ret = _real_execve (newArgv[0], newArgv, envp);
+  int ret = _real_execve(newArgv[0], newArgv, envp);
   JALLOC_HELPER_FREE(newArgv);
   return ret;
 }
 
-extern "C" int execvp (const char *filename, char *const argv[])
+extern "C" int
+execvp(const char *filename, char *const argv[])
 {
   if (jalib::Filesystem::BaseName(filename) != "ssh") {
     return _real_execvp(filename, argv);
@@ -469,14 +498,14 @@ extern "C" int execvp (const char *filename, char *const argv[])
 
   char **newArgv;
   prepareForExec(argv, &newArgv);
-  int ret = _real_execvp (newArgv[0], newArgv);
+  int ret = _real_execvp(newArgv[0], newArgv);
   JALLOC_HELPER_FREE(newArgv);
   return ret;
 }
 
 // This function first appeared in glibc 2.11
-extern "C" int execvpe (const char *filename, char *const argv[],
-                         char *const envp[])
+extern "C" int
+execvpe(const char *filename, char *const argv[], char *const envp[])
 {
   if (jalib::Filesystem::BaseName(filename) != "ssh") {
     return _real_execvpe(filename, argv, envp);

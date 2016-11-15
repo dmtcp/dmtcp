@@ -24,35 +24,35 @@
 #define DMTCP_IPC_H
 
 #include <dirent.h>
-#include <sys/types.h>
 #include <linux/version.h>
-#include <signal.h>
 #include <poll.h>
+#include <signal.h>
+#include <sys/types.h>
 #include "dmtcp.h"
 
-#define CONNECTION_ID_START 99000
+# define CONNECTION_ID_START        99000
 
-#define DEV_ZERO_DELETED_STR "/dev/zero (deleted)"
-#define DEV_NULL_DELETED_STR "/dev/null (deleted)"
+# define DEV_ZERO_DELETED_STR       "/dev/zero (deleted)"
+# define DEV_NULL_DELETED_STR       "/dev/null (deleted)"
 
-#define DRAINER_CHECK_FREQ 0.1
-#define DRAINER_WARNING_FREQ 10
+# define DRAINER_CHECK_FREQ         0.1
+# define DRAINER_WARNING_FREQ       10
 
-#define _real_socket NEXT_FNC(socket)
-#define _real_bind NEXT_FNC(bind)
-#define _real_close NEXT_FNC(close)
-#define _real_fclose NEXT_FNC(fclose)
-#define _real_closedir NEXT_FNC(closedir)
-#define _real_dup NEXT_FNC(dup)
-#define _real_dup2 NEXT_FNC(dup2)
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,27)) && __GLIBC_PREREQ(2,9)
-#define _real_dup3 NEXT_FNC(dup3)
-#endif
+# define _real_socket               NEXT_FNC(socket)
+# define _real_bind                 NEXT_FNC(bind)
+# define _real_close                NEXT_FNC(close)
+# define _real_fclose               NEXT_FNC(fclose)
+# define _real_closedir             NEXT_FNC(closedir)
+# define _real_dup                  NEXT_FNC(dup)
+# define _real_dup2                 NEXT_FNC(dup2)
+# if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)) && __GLIBC_PREREQ(2, 9)
+#  define _real_dup3                NEXT_FNC(dup3)
+# endif // if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)) &&
+        // __GLIBC_PREREQ(2, 9)
 
-#define _real_fcntl NEXT_FNC(fcntl)
-#define _real_select NEXT_FNC(select)
-#define _real_poll NEXT_FNC(poll)
-#define _real_pthread_mutex_lock NEXT_FNC(pthread_mutex_lock)
-#define _real_pthread_mutex_unlock NEXT_FNC(pthread_mutex_unlock)
-
-#endif
+# define _real_fcntl                NEXT_FNC(fcntl)
+# define _real_select               NEXT_FNC(select)
+# define _real_poll                 NEXT_FNC(poll)
+# define _real_pthread_mutex_lock   NEXT_FNC(pthread_mutex_lock)
+# define _real_pthread_mutex_unlock NEXT_FNC(pthread_mutex_unlock)
+#endif // ifndef DMTCP_IPC_H

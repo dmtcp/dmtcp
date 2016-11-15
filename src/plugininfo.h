@@ -22,49 +22,48 @@
 #ifndef __PLUGININFO_H__
 #define __PLUGININFO_H__
 
+#include "jassert.h"
 #include "barrierinfo.h"
+#include "dmtcp.h"
 #include "dmtcpalloc.h"
 #include "dmtcpmessagetypes.h"
-#include "dmtcp.h"
-#include "jassert.h"
 
 namespace dmtcp
 {
-  class PluginInfo
-  {
-    public:
+class PluginInfo
+{
+  public:
 #ifdef JALIB_ALLOCATOR
-      static void* operator new(size_t nbytes, void* p) { return p; }
-      static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
-      static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
-#endif
-      static PluginInfo *create(const DmtcpPluginDescriptor_t& descr);
+    static void *operator new(size_t nbytes, void *p) { return p; }
 
-      void eventHook (const DmtcpEvent_t event, DmtcpEventData_t *data);
+    static void *operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
 
-      void processBarriers();
+    static void operator delete(void *p) { JALLOC_HELPER_DELETE(p); }
+#endif // ifdef JALIB_ALLOCATOR
+    static PluginInfo *create(const DmtcpPluginDescriptor_t &descr);
 
-      const string pluginName;
-      const string authorName;
-      const string authorEmail;
-      const string description;
-      void (*const event_hook)(const DmtcpEvent_t event, DmtcpEventData_t *data);
+    void eventHook(const DmtcpEvent_t event, DmtcpEventData_t *data);
 
-      const vector<BarrierInfo*> preCkptBarriers;
-      const vector<BarrierInfo*> resumeBarriers;
-      const vector<BarrierInfo*> restartBarriers;
+    void processBarriers();
 
-    private:
+    const string pluginName;
+    const string authorName;
+    const string authorEmail;
+    const string description;
+    void(*const event_hook)(const DmtcpEvent_t event, DmtcpEventData_t * data);
 
-      PluginInfo(const DmtcpPluginDescriptor_t& descr,
-                 const vector<BarrierInfo*>& _preCkptBarriers,
-                 const vector<BarrierInfo*>& _resumeBarriers,
-                 const vector<BarrierInfo*>& _restartBarriers);
+    const vector<BarrierInfo *>preCkptBarriers;
+    const vector<BarrierInfo *>resumeBarriers;
+    const vector<BarrierInfo *>restartBarriers;
 
-      void processBarrier(BarrierInfo *barrier);
-      void waitForBarrier(BarrierInfo *barrier);
+  private:
+    PluginInfo(const DmtcpPluginDescriptor_t &descr,
+               const vector<BarrierInfo *> &_preCkptBarriers,
+               const vector<BarrierInfo *> &_resumeBarriers,
+               const vector<BarrierInfo *> &_restartBarriers);
 
-  };
+    void processBarrier(BarrierInfo *barrier);
+    void waitForBarrier(BarrierInfo *barrier);
+};
 }
-
-#endif
+#endif // ifndef __PLUGININFO_H__

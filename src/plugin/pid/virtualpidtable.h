@@ -22,16 +22,16 @@
 #ifndef VIRTUAL_PID_TABLE_H
 #define VIRTUAL_PID_TABLE_H
 
-#include <sys/types.h>
-#include <unistd.h>
 #include <sys/time.h>
+#include <sys/types.h>
 #include <time.h>
+#include <unistd.h>
 #include <iostream>
 #include <map>
-#include "../jalib/jserialize.h"
 #include "../jalib/jalloc.h"
-#include "dmtcpalloc.h"
+#include "../jalib/jserialize.h"
 #include "dmtcp.h"
+#include "dmtcpalloc.h"
 #include "virtualidtable.h"
 
 #define REAL_TO_VIRTUAL_PID(pid) \
@@ -41,33 +41,33 @@
 
 namespace dmtcp
 {
-  class VirtualPidTable : public VirtualIdTable<pid_t>
-  {
-    public:
+class VirtualPidTable : public VirtualIdTable<pid_t>
+{
+  public:
 #ifdef JALIB_ALLOCATOR
-      static void* operator new(size_t nbytes, void* p) { return p; }
-      static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
-      static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
-#endif
-      VirtualPidTable();
-      static VirtualPidTable& instance();
-      static pid_t getPidFromEnvVar();
+    static void *operator new(size_t nbytes, void *p) { return p; }
 
-      virtual void postRestart();
-      virtual void resetOnFork();
+    static void *operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
 
-      void updateMapping(pid_t virtualId, pid_t realId);
-      pid_t realToVirtual(pid_t realPid);
-      pid_t virtualToReal(pid_t virtualId);
-      void refresh();
-      void writeVirtualTidToFileForPtrace(pid_t pid);
-      pid_t readVirtualTidFromFileForPtrace(pid_t realTid = -1);
+    static void operator delete(void *p) { JALLOC_HELPER_DELETE(p); }
+#endif // ifdef JALIB_ALLOCATOR
+    VirtualPidTable();
+    static VirtualPidTable &instance();
+    static pid_t getPidFromEnvVar();
 
-      pid_t getNewVirtualTid();
+    virtual void postRestart();
+    virtual void resetOnFork();
 
+    void updateMapping(pid_t virtualId, pid_t realId);
+    pid_t realToVirtual(pid_t realPid);
+    pid_t virtualToReal(pid_t virtualId);
+    void refresh();
+    void writeVirtualTidToFileForPtrace(pid_t pid);
+    pid_t readVirtualTidFromFileForPtrace(pid_t realTid = -1);
 
-    private:
-  };
+    pid_t getNewVirtualTid();
+
+  private:
+};
 }
-
-#endif
+#endif // ifndef VIRTUAL_PID_TABLE_H

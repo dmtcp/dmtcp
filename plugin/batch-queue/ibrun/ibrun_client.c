@@ -1,21 +1,23 @@
+#include <arpa/inet.h>
+#include <fcntl.h>
+#include <netdb.h>
+#include <netinet/in.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
-#include <stdbool.h>
 #include <string.h>
-#include <netinet/in.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netdb.h>
-#include <arpa/inet.h>
-#include <sys/time.h>
 #include <sys/select.h>
-#include <fcntl.h>
+#include <sys/socket.h>
+#include <sys/time.h>
+#include <sys/types.h>
+#include <unistd.h>
 #include "ibrun_common.h"
 
 #define MAX_LEN 128
 
-int main() {
+int
+main()
+{
   char *port = getenv("IBRUN_PORT");
   char *server = getenv("IBRUN_HOST");
 
@@ -27,7 +29,7 @@ int main() {
   int sockfd;
   struct addrinfo hints, *servinfo, *p;
   int ret;
-  
+
   memset(&hints, 0, sizeof hints);
   hints.ai_family = AF_INET;
   hints.ai_socktype = SOCK_STREAM;
@@ -59,7 +61,7 @@ int main() {
   }
 
   freeaddrinfo(servinfo);
-  
+
   unique_id id = {
     .node_id = 0,
     .process_id = 0
@@ -69,7 +71,7 @@ int main() {
     perror("read");
     exit(3);
   }
-  
+
   printf("export SLURM_NODEID=%d ; export SLURM_LOCALID=%d\n",
          id.node_id, id.process_id);
 

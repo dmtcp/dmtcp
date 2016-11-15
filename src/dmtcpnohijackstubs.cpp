@@ -19,8 +19,8 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include "uniquepid.h"
 #include "../jalib/jassert.h"
+#include "uniquepid.h"
 
 #undef dmtcp_is_enabled
 #undef dmtcp_checkpoint
@@ -32,64 +32,75 @@
 #undef dmtcp_get_ckpt_filename
 
 // dmtcp_launch, and dmtcp_coordinator, and dmtcp_command do not
-//   need to load dmtcpworker.cpp
+// need to load dmtcpworker.cpp
 // libdmtcpinternal.a contains code needed by dmtcpworker and the utilities
-//    alike.
+// alike.
 // libnohijack.a contains stub functions (mostly empty definitions
-//   corresponding to definitions in libdmtcp.so.  It includes
-//   nosyscallsreal.c and this file (dmtcpworkerstubs.cpp).
+// corresponding to definitions in libdmtcp.so.  It includes
+// nosyscallsreal.c and this file (dmtcpworkerstubs.cpp).
 // libdmtcp.so and libsyscallsreal.a contain the wrappers and other code
-//   that executes within the end user process
+// that executes within the end user process
 
 // libdmtcp.so defines this differently
 
 using namespace dmtcp;
 
-void _dmtcp_setup_trampolines() {}
+void
+_dmtcp_setup_trampolines() {}
 
-int  dmtcp_get_ckpt_signal()
+int
+dmtcp_get_ckpt_signal()
 {
-  JASSERT(false) .Text ("NOT REACHED");
+  JASSERT(false).Text("NOT REACHED");
   return -1;
 }
 
-const char* dmtcp_get_tmpdir()
+const char *
+dmtcp_get_tmpdir()
 {
-  JASSERT(false) .Text ("NOT REACHED");
+  JASSERT(false).Text("NOT REACHED");
   return NULL;
 }
 
-const char* dmtcp_get_uniquepid_str()
+const char *
+dmtcp_get_uniquepid_str()
 {
   static string uniquepid_str;
+
   uniquepid_str = UniquePid::ThisProcess(true).toString();
   return uniquepid_str.c_str();
 }
 
-DmtcpUniqueProcessId dmtcp_get_uniquepid()
+DmtcpUniqueProcessId
+dmtcp_get_uniquepid()
 {
-  return  UniquePid::ThisProcess(true).upid();
+  return UniquePid::ThisProcess(true).upid();
 }
 
-DmtcpUniqueProcessId dmtcp_get_computation_id()
+DmtcpUniqueProcessId
+dmtcp_get_computation_id()
 {
-  DmtcpUniqueProcessId id = {0, 0, 0, 0};
+  DmtcpUniqueProcessId id = { 0, 0, 0, 0 };
+
   return id;
 }
 
-int  dmtcp_is_running_state()
+int
+dmtcp_is_running_state()
 {
   JASSERT(false);
   return 0;
 }
 
-int  dmtcp_is_protected_fd(int fd)
+int
+dmtcp_is_protected_fd(int fd)
 {
   JASSERT(false);
   return 0;
 }
 
-int  dmtcp_no_coordinator()
+int
+dmtcp_no_coordinator()
 {
   JASSERT(false);
   return 0;

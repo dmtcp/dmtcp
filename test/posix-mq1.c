@@ -1,15 +1,17 @@
-#include <sys/types.h>
-#include <mqueue.h>
-#include <errno.h>
 #include <assert.h>
-#include <unistd.h>
-#include <string.h>
+#include <errno.h>
+#include <mqueue.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <sys/types.h>
+#include <unistd.h>
 
-void msg_snd(mqd_t mqdes, int i)
+void
+msg_snd(mqd_t mqdes, int i)
 {
   char buf[16];
+
   sprintf(buf, "%d", i);
 
   errno = 0;
@@ -21,9 +23,11 @@ void msg_snd(mqd_t mqdes, int i)
   }
 }
 
-void msg_rcv(mqd_t mqdes, int i)
+void
+msg_rcv(mqd_t mqdes, int i)
 {
   char buf[10000];
+
   errno = 0;
   if (mq_receive(mqdes, buf, sizeof(buf), NULL) == -1) {
     perror("mq_receive failed");
@@ -39,9 +43,11 @@ void msg_rcv(mqd_t mqdes, int i)
   }
 }
 
-void parent(const char *mqname)
+void
+parent(const char *mqname)
 {
   mqd_t mqdes = mq_open(mqname, O_RDWR | O_CREAT, 0666, 0);
+
   mq_unlink(mqname); /* parent and child will continue to use mqname */
   if (mqdes == -1) {
     perror("mq_open() failed");
@@ -66,9 +72,11 @@ void parent(const char *mqname)
   exit(0);
 }
 
-void child(const char *mqname)
+void
+child(const char *mqname)
 {
   mqd_t mqdes = mq_open(mqname, O_RDWR | O_CREAT, 0666, 0);
+
   // Unfortunately, DMTCP doesn't yet support unlinking in child
   // while others use it:  But this seems to work fine in the parent.
   // mq_unlink(mqname); /* parent and child will continue to use mqname */
@@ -77,7 +85,7 @@ void child(const char *mqname)
     exit(1);
   }
 
-  int i=1;
+  int i = 1;
   while (1) {
     msg_rcv(mqdes, i);
     printf("Client: %d\n", i);
@@ -87,10 +95,12 @@ void child(const char *mqname)
   exit(0);
 }
 
-int main(int argc, char **argv)
+int
+main(int argc, char **argv)
 {
   char mqname[256];
   char *user = getenv("USER");
+
   sprintf(mqname, "/dmtcp-mq-%s", user == NULL ? "" : user);
   mq_unlink(mqname);
   if (fork() == 0) {

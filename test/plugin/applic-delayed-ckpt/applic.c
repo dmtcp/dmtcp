@@ -24,36 +24,38 @@
 
 #include "dmtcp.h"
 ;
-int main() {
-    if ( ! dmtcp_is_enabled() ) {
-      printf("\n *** dmtcp_is_enabled: executable seems to not be running"
-             " under dmtcp_launch.\n");
-    }
+int
+main()
+{
+  if (!dmtcp_is_enabled()) {
+    printf("\n *** dmtcp_is_enabled: executable seems to not be running"
+           " under dmtcp_launch.\n");
+  }
 
-    int retval = dmtcp_disable_ckpt();
-    if (retval == DMTCP_NOT_PRESENT) {
-      printf("\n *** dmtcp_disable_ckpt: DMTCP_NOT_PRESENT."
-             "  Will exit.\n");
-      exit(0);
-    }
+  int retval = dmtcp_disable_ckpt();
+  if (retval == DMTCP_NOT_PRESENT) {
+    printf("\n *** dmtcp_disable_ckpt: DMTCP_NOT_PRESENT."
+           "  Will exit.\n");
+    exit(0);
+  }
 
-    // This assumes that DMTCP is present.
-    int original_generation = dmtcp_get_generation();
+  // This assumes that DMTCP is present.
+  int original_generation = dmtcp_get_generation();
 
-    printf("*** dmtcp_disable_ckpt: Checkpoints are blocked.\n");
-    printf("      But a checkpoint was requested every two seconds: '-i 2'\n");
-    printf("*** sleep: sleeping 3 seconds.\n\n");
-    sleep(3);
-    printf("*** dmtcp_enable_ckpt: Will now unblock checkpointing\n"
-           "      and write ./dmtcp_restart_script.sh.\n");
-    printf("*** Execute ./dmtcp_restart_script.sh to restart from here.\n");
-    dmtcp_enable_ckpt();
+  printf("*** dmtcp_disable_ckpt: Checkpoints are blocked.\n");
+  printf("      But a checkpoint was requested every two seconds: '-i 2'\n");
+  printf("*** sleep: sleeping 3 seconds.\n\n");
+  sleep(3);
+  printf("*** dmtcp_enable_ckpt: Will now unblock checkpointing\n"
+         "      and write ./dmtcp_restart_script.sh.\n");
+  printf("*** Execute ./dmtcp_restart_script.sh to restart from here.\n");
+  dmtcp_enable_ckpt();
 
-    // Wait long enough for checkpoint to be written.
-    while (dmtcp_get_generation() == original_generation) {
-      sleep(1);
-    }
+  // Wait long enough for checkpoint to be written.
+  while (dmtcp_get_generation() == original_generation) {
+    sleep(1);
+  }
 
-    printf("\n*** Process done executing.  Successfully exiting.\n");
-    return 0;
+  printf("\n*** Process done executing.  Successfully exiting.\n");
+  return 0;
 }
