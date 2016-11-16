@@ -578,3 +578,24 @@ bool SharedData::getCkptLeaderForFile(dev_t devnum, ino_t inode, void *id)
   }
   return false;
 }
+
+uint32_t
+SharedData::getLogMask(void)
+{
+  uint32_t logMask = jassert_internal::JTRACE;
+  if (initialized()) {
+    logMask |= sharedDataHeader->logMask;
+  }
+  return logMask;
+}
+
+void
+SharedData::setLogMask(uint32_t mask)
+{
+  if (initialized()) {
+    initialize();
+  }
+  Util::lockFile(PROTECTED_SHM_FD);
+  sharedDataHeader->logMask = mask;
+  Util::unlockFile(PROTECTED_SHM_FD);
+}

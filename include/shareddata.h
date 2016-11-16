@@ -115,6 +115,8 @@ namespace dmtcp {
       uint32_t             numIncomingConMaps;
       uint32_t             numInodeConnIdMaps;
 
+      uint32_t             logMask;
+
       struct PidMap        pidMap[MAX_PID_MAPS];
       struct IPCIdMap      sysvShmIdMap[MAX_IPC_ID_MAPS];
       struct IPCIdMap      sysvSemIdMap[MAX_IPC_ID_MAPS];
@@ -189,6 +191,8 @@ namespace dmtcp {
 
     void insertInodeConnIdMaps(vector<InodeConnIdMap>& maps);
     bool getCkptLeaderForFile(dev_t devnum, ino_t inode, void *id);
+    uint32_t getLogMask(void);
+    void setLogMask(uint32_t mask);
   }
 }
 #endif

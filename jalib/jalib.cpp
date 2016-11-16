@@ -227,4 +227,11 @@ namespace jalib {
     }
     return false;
   }
+
+  uint32_t
+  getLogMask(void)
+  {
+    REAL_FUNC_PASSTHROUGH(uint32_t, getLogMask) ();
+  }
 }
+

@@ -21,6 +21,7 @@
 
 #include "dmtcp.h"
 #include "protectedfds.h"
+#include "shareddata.h"
 #include "util.h"
 #include "syscallwrappers.h"
 #include "../jalib/jalib.h"
@@ -35,6 +36,7 @@ extern "C" void initializeJalib()
 
   jalibFuncPtrs.writeAll = Util::writeAll;
   jalibFuncPtrs.readAll = Util::readAll;
+  jalibFuncPtrs.getLogMask = SharedData::getLogMask;
 
   INIT_JALIB_FPTR(open);
   INIT_JALIB_FPTR(fopen);

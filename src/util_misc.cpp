@@ -671,3 +671,51 @@ void Util::allowGdbDebug(int currentDebugLevel)
     }
   }
 }
+
+static inline uint32_t
+stringToEnumMask(const char *s)
+{
+  uint32_t m = jassert_internal::UNKNOWN;
+  if (strcmp(s, "JTRACE") == 0) {
+    m = jassert_internal::JTRACE;
+  } else if (strcmp(s, "ALLOC") == 0) {
+    m = jassert_internal::ALLOC;
+  } else if (strcmp(s, "DL") == 0) {
+    m = jassert_internal::DL;
+  } else if (strcmp(s, "DMTCP") == 0) {
+    m = jassert_internal::DMTCP;
+  } else if (strcmp(s, "EVENT") == 0) {
+    m = jassert_internal::EVENT;
+  } else if (strcmp(s, "FILEP") == 0) {
+    m = jassert_internal::FILEP;
+  } else if (strcmp(s, "SOCKET") == 0) {
+    m = jassert_internal::SOCKET;
+  } else if (strcmp(s, "SSH") == 0) {
+    m = jassert_internal::SSH;
+  } else if (strcmp(s, "IPC") == 0) {
+    m = jassert_internal::IPC;
+  } else if (strcmp(s, "PID") == 0) {
+    m = jassert_internal::PID;
+  } else if (strcmp(s, "SYSV") == 0) {
+    m = jassert_internal::SYSV;
+  } else if (strcmp(s, "TIMER") == 0) {
+    m = jassert_internal::TIMER;
+  } else if (strcmp(s, "ALL") == 0) {
+    m = jassert_internal::ALL;
+  } else {
+    m = jassert_internal::UNKNOWN;
+  }
+  return m;
+}
+
+uint32_t
+Util::processDebugLogsArg(char *logString)
+{
+  char *logSrc = strtok(logString, ":");
+  uint32_t mask = jassert_internal::JTRACE;
+  while (logSrc) {
+    mask |= stringToEnumMask(logSrc);
+    logSrc = strtok(NULL, ":");
+  }
+  return mask;
+}

@@ -28,6 +28,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <poll.h>
+#include <stdint.h>
 
 #include <fstream>
 
@@ -65,6 +66,7 @@ namespace jalib {
 
     ssize_t (*writeAll)(int fd, const void *buf, size_t count);
     ssize_t (*readAll)(int fd, void *buf, size_t count);
+    uint32_t (*getLogMask)(void);
   } JalibFuncPtrs;
 
   const char *elfInterpreter();
@@ -105,6 +107,7 @@ namespace jalib {
   ssize_t readAll(int fd, void *buf, size_t count);
 
   bool strEndsWith(const char *str, const char *pattern);
+  uint32_t getLogMask(void);
 }
 
 extern "C" void jalib_init(jalib::JalibFuncPtrs jalibFuncPtrs,
