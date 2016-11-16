@@ -194,6 +194,6 @@ VirtualPidTable::readVirtualTidFromFileForPtrace(pid_t tid)
 
   pid = SharedData::getPtraceVirtualId(tid);
 
-  JTRACE("Read virtual Pid/Tid from shared-area") (pid);
+  JLOG(PID)("Read virtual Pid/Tid from shared-area") (pid);
   return pid;
 }
