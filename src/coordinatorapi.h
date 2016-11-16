@@ -98,7 +98,8 @@ class CoordinatorAPI
                                     int *coordCmdStatus = NULL,
                                     int *numPeers = NULL,
                                     int *isRunning = NULL,
-                                    int *ckptInterval = NULL);
+                                    int *ckptInterval = NULL,
+                                    uint32_t logMask = 0);
 
     void updateCoordCkptDir(const char *dir);
     string getCoordCkptDir(void);

@@ -166,7 +166,7 @@ static bool explicitSrun = false;
 static bool enableIB2TcpPlugin = false;
 static bool enableIBPlugin = false;
 
-static bool enableAllocPlugin = true;
+static bool enableAllocPlugin = false;
 static bool enableDlPlugin = true;
 static bool enableIPCPlugin = true;
 static bool enableSvipcPlugin = true;

@@ -444,18 +444,26 @@ DmtcpWorker::waitForSuspendMessage()
   JLOG(DMTCP)("waiting for SUSPEND message");
 
   DmtcpMessage msg;
-  CoordinatorAPI::instance().recvMsgFromCoordinator(&msg);
+  do {
+    CoordinatorAPI::instance().recvMsgFromCoordinator(&msg);
 
-  if (exitInProgress()) {
-    ThreadSync::destroyDmtcpWorkerLockUnlock();
-    ckptThreadPerformExit();
-  }
+    if (exitInProgress()) {
+      ThreadSync::destroyDmtcpWorkerLockUnlock();
+      ckptThreadPerformExit();
+    }
 
-  msg.assertValid();
-  if (msg.type == DMT_KILL_PEER) {
-    JLOG(DMTCP)("Received KILL message from coordinator, exiting");
-    _exit(0);
-  }
+    msg.assertValid();
+    if (msg.type == DMT_KILL_PEER) {
+      JLOG(DMTCP)("Received KILL message from coordinator, exiting");
+      _exit(0);
+    }
+
+    if (msg.type == DMT_UPDATE_LOGGING) {
+      SharedData::setLogMask(msg.logMask);
+    } else {
+      break;
+    }
+  } while(1);
 
   JASSERT(msg.type == DMT_DO_SUSPEND) (msg.type);
 

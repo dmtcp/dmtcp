@@ -68,6 +68,7 @@ main(int argc, char **argv)
 {
   string interval = "";
   string request = "h";
+  uint32_t mask = jassert_internal::JTRACE;
 
   initializeJalib();
 
@@ -91,6 +92,10 @@ main(int argc, char **argv)
     } else if (argc > 1 &&
                (s == "-p" || s == "--coord-port" || s == "--port")) {
       setenv(ENV_VAR_NAME_PORT, argv[1], 1);
+      shift; shift;
+    } else if (argc > 1 && (s == "--debug-logs")) {
+      mask = Util::processDebugLogsArg(argv[1]);
+      request = "d";
       shift; shift;
     } else if (argv[0][0] == '-' && argv[0][1] == 'p' &&
                isdigit(argv[0][2])) { // else if -p0, for example
@@ -146,6 +151,15 @@ main(int argc, char **argv)
   case 'h':
     fprintf(stderr, theUsage, "");
     return 1;
+
+  case 'd':
+    coordinatorAPI.connectAndSendUserCommand(*cmd,
+                                             NULL,
+                                             NULL,
+                                             NULL,
+                                             NULL,
+                                             mask);
+    break;
 
   case 'i':
     setenv(ENV_VAR_CKPT_INTR, interval.c_str(), 1);

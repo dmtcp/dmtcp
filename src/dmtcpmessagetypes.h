@@ -70,6 +70,8 @@ enum DmtcpMessageType {
   DMT_NAME_SERVICE_QUERY,
   DMT_NAME_SERVICE_QUERY_RESPONSE,
 
+  DMT_UPDATE_LOGGING,
+
   DMT_OK,                    // slave telling coordinator it is done (response
                              // to DMT_DO_*)  this means slave reached barrier
 };
@@ -120,6 +122,7 @@ struct DmtcpMessage {
   struct in_addr ipAddr;
 
   uint32_t exitAfterCkpt;
+  uint32_t logMask;
   uint32_t padding;
 
   DmtcpMessage(DmtcpMessageType t = DMT_NULL);
