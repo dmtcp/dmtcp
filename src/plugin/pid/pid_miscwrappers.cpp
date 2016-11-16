@@ -106,8 +106,8 @@ int clone_start(void *arg)
   VirtualPidTable::instance().updateMapping(virtualTid, _real_gettid());
   sem_post(&threadArg->sem);
 
-  JTRACE("Calling user function") (virtualTid);
-  return (*fn) (thread_arg);
+  JLOG(PID)("Calling user function") (virtualTid);
+  return (*fn)(thread_arg);
 }
 
 
@@ -146,7 +146,7 @@ extern "C" int __clone(int (*fn) (void *arg), void *child_stack, int flags,
   threadArg->virtualTid = virtualTid;
   sem_init(&threadArg->sem, 0, 0);
 
-  JTRACE("Calling libc:__clone");
+  JLOG(PID)("Calling libc:__clone");
   pid_t tid = _real_clone(clone_start, child_stack, flags, threadArg,
                     parent_tidptr, newtls, child_tidptr);
 
@@ -155,7 +155,7 @@ extern "C" int __clone(int (*fn) (void *arg), void *child_stack, int flags,
   }
 
   if (tid > 0) {
-    JTRACE("New thread created") (tid);
+    JLOG(PID)("New thread created") (tid);
     /* Wait for child thread to finish initializing.
      * We must let the child thread insert original->current tid in the
      * virtualpidtable. If we don't wait for the child thread and update the
@@ -315,8 +315,8 @@ extern "C" int __clone (int (*fn) (void *arg), void *child_stack, int flags, voi
  * If we discover system calls for which the 7 args strategy doesn't work,
  *  we can special case them.
  *
- * XXX: DO NOT USE JTRACE/JNOTE/JASSERT in this function; even better, do not
- *      use any STL here.  (--Kapil)
+ * XXX: DO NOT USE JLOG/JTRACE/JNOTE/JASSERT in this function; even better, do
+ *      not use any STL here.  (--Kapil)
  */
 extern "C" long syscall(long sys_num, ...)
 {
