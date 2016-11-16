@@ -117,7 +117,7 @@ restoreUserLDPRELOAD()
 
     // setenv("LD_PRELOAD", userPreload, 1);
   }
-  JTRACE("LD_PRELOAD") (preload) (userPreload) (getenv(ENV_VAR_HIJACK_LIBS))
+  JLOG(DMTCP)("LD_PRELOAD") (preload) (userPreload) (getenv(ENV_VAR_HIJACK_LIBS))
     (getenv(ENV_VAR_HIJACK_LIBS_M32)) (getenv("LD_PRELOAD"));
 }
 
@@ -241,7 +241,7 @@ prepareLogAndProcessdDataFromSerialFile()
     // Initialize the log file
     Util::initializeLogFile(SharedData::getTmpDir());
 
-    JTRACE("Root of processes tree");
+    JLOG(DMTCP)("Root of processes tree");
     ProcessInfo::instance().setRootOfProcessTree();
   }
 }
@@ -292,7 +292,7 @@ dmtcp_initialize()
 
   prepareLogAndProcessdDataFromSerialFile();
 
-  JTRACE("libdmtcp.so:  Running ")
+  JLOG(DMTCP)("libdmtcp.so:  Running ")
     (jalib::Filesystem::GetProgramName()) (getenv("LD_PRELOAD"));
 
   if (getenv("DMTCP_SEGFAULT_HANDLER") != NULL) {
@@ -372,7 +372,7 @@ DmtcpWorker::cleanupWorker()
   ThreadSync::resetLocks();
   WorkerState::setCurrentState(WorkerState::UNKNOWN);
 
-  JTRACE("disconnecting from dmtcp coordinator");
+  JLOG(DMTCP)("disconnecting from dmtcp coordinator");
 }
 
 void
@@ -432,7 +432,7 @@ DmtcpWorker::waitForSuspendMessage()
   }
 
   if (ThreadSync::destroyDmtcpWorkerLockTryLock() != 0) {
-    JTRACE("User thread is performing exit()."
+    JLOG(DMTCP)("User thread is performing exit()."
            " ckpt thread exit()ing as well");
     ckptThreadPerformExit();
   }
@@ -441,7 +441,7 @@ DmtcpWorker::waitForSuspendMessage()
     ckptThreadPerformExit();
   }
 
-  JTRACE("waiting for SUSPEND message");
+  JLOG(DMTCP)("waiting for SUSPEND message");
 
   DmtcpMessage msg;
   CoordinatorAPI::instance().recvMsgFromCoordinator(&msg);
@@ -453,7 +453,7 @@ DmtcpWorker::waitForSuspendMessage()
 
   msg.assertValid();
   if (msg.type == DMT_KILL_PEER) {
-    JTRACE("Received KILL message from coordinator, exiting");
+    JLOG(DMTCP)("Received KILL message from coordinator, exiting");
     _exit(0);
   }
 
@@ -475,19 +475,19 @@ DmtcpWorker::acknowledgeSuspendMsg()
     return;
   }
 
-  JTRACE("Waiting for DMT_DO_CHECKPOINT message");
+  JLOG(DMTCP)("Waiting for DMT_DO_CHECKPOINT message");
   CoordinatorAPI::instance().sendMsgToCoordinator(DmtcpMessage(DMT_OK));
 
   DmtcpMessage msg;
   CoordinatorAPI::instance().recvMsgFromCoordinator(&msg);
   msg.assertValid();
   if (msg.type == DMT_KILL_PEER) {
-    JTRACE("Received KILL message from coordinator, exiting");
+    JLOG(DMTCP)("Received KILL message from coordinator, exiting");
     _exit(0);
   }
 
   JASSERT(msg.type == DMT_COMPUTATION_INFO) (msg.type);
-  JTRACE("Computation information") (msg.compGroup) (msg.numPeers);
+  JLOG(DMTCP)("Computation information") (msg.compGroup) (msg.numPeers);
   ProcessInfo::instance().compGroup(msg.compGroup);
   ProcessInfo::instance().numPeers(msg.numPeers);
 }
@@ -495,16 +495,16 @@ DmtcpWorker::acknowledgeSuspendMsg()
 void
 DmtcpWorker::waitForCheckpointRequest()
 {
-  JTRACE("running");
+  JLOG(DMTCP)("running");
 
   WorkerState::setCurrentState(WorkerState::RUNNING);
 
   waitForSuspendMessage();
 
-  JTRACE("got SUSPEND message, preparing to acquire all ThreadSync locks");
+  JLOG(DMTCP)("got SUSPEND message, preparing to acquire all ThreadSync locks");
   ThreadSync::acquireLocks();
 
-  JTRACE("Starting checkpoint, suspending...");
+  JLOG(DMTCP)("Starting checkpoint, suspending...");
 }
 
 // now user threads are stopped
@@ -513,7 +513,7 @@ DmtcpWorker::preCheckpoint()
 {
   WorkerState::setCurrentState(WorkerState::SUSPENDED);
 
-  JTRACE("suspended");
+  JLOG(DMTCP)("suspended");
 
   if (exitInProgress()) {
     ThreadSync::destroyDmtcpWorkerLockUnlock();
@@ -543,7 +543,7 @@ DmtcpWorker::postCheckpoint()
   CoordinatorAPI::instance().sendCkptFilename();
 
   if (_exitAfterCkpt) {
-    JTRACE("Asked to exit after checkpoint. Exiting!");
+    JLOG(DMTCP)("Asked to exit after checkpoint. Exiting!");
     _exit(0);
   }
 
@@ -557,11 +557,11 @@ DmtcpWorker::postCheckpoint()
 void
 DmtcpWorker::postRestart()
 {
-  JTRACE("begin postRestart()");
+  JLOG(DMTCP)("begin postRestart()");
   WorkerState::setCurrentState(WorkerState::RESTARTING);
 
   PluginManager::processRestartBarriers();
-  JTRACE("got resume message after restart");
+  JLOG(DMTCP)("got resume message after restart");
 
   // Inform Coordinator of RUNNING state.
   WorkerState::setCurrentState(WorkerState::RUNNING);

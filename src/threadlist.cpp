@@ -255,7 +255,7 @@ ThreadList::updateTid(Thread *th)
   }
   th->tid = THREAD_REAL_TID();
   th->virtual_tid = dmtcp_gettid();
-  JTRACE("starting thread") (th->tid) (th->virtual_tid);
+  JLOG(DMTCP)("starting thread") (th->tid) (th->virtual_tid);
 
   // Check and remove any thread descriptor which has the same tid as ours.
   // Also, remove any dead threads from the list.
@@ -270,7 +270,7 @@ ThreadList::updateTid(Thread *th)
 void
 ThreadList::killCkpthread()
 {
-  JTRACE("Kill checkpinthread") (ckptThread->tid);
+  JLOG(DMTCP)("Kill checkpinthread") (ckptThread->tid);
   THREAD_TGKILL(motherpid, ckptThread->tid, SigInfo::ckptSignal());
 }
 
@@ -387,7 +387,7 @@ checkpointhread(void *dummy)
   JASSERT(getcontext(&ckptThread->savctx) == 0) (JASSERT_ERRNO);
 #endif // ifdef SETJMP
   save_sp(&ckptThread->saved_sp);
-  JTRACE("after sigsetjmp/getcontext")
+  JLOG(DMTCP)("after sigsetjmp/getcontext")
     (curThread->tid) (curThread->virtual_tid) (curThread->saved_sp);
 
   if (originalstartup) {
@@ -396,9 +396,9 @@ checkpointhread(void *dummy)
     /* We are being restored.  Wait for all other threads to finish being
      * restored before resuming checkpointing.
      */
-    JTRACE("waiting for other threads after restore");
+    JLOG(DMTCP)("waiting for other threads after restore");
     ThreadList::waitForAllRestored(ckptThread);
-    JTRACE("resuming after restore");
+    JLOG(DMTCP)("resuming after restore");
   }
 
   /* This is a sleep-checkpoint-resume loop by the checkpoint thread.
@@ -407,14 +407,14 @@ checkpointhread(void *dummy)
    */
   while (1) {
     /* Wait a while between writing checkpoint files */
-    JTRACE("before DmtcpWorker::waitForCheckpointRequest()");
+    JLOG(DMTCP)("before DmtcpWorker::waitForCheckpointRequest()");
     DmtcpWorker::waitForCheckpointRequest();
 
     restoreInProgress = false;
 
     suspendThreads();
 
-    JTRACE("Prepare plugin, etc. for checkpoint");
+    JLOG(DMTCP)("Prepare plugin, etc. for checkpoint");
     DmtcpWorker::preCheckpoint();
 
     /* All other threads halted in 'stopthisthread' routine (they are all
@@ -515,16 +515,16 @@ suspendThreads()
   }
 
   JASSERT(activeThreads != NULL);
-  JTRACE("everything suspended") (numUserThreads);
+  JLOG(DMTCP)("everything suspended") (numUserThreads);
 }
 
 /* Resume all threads. */
 static void
 resumeThreads()
 {
-  JTRACE("resuming everything");
+  JLOG(DMTCP)("resuming everything");
   JASSERT(_real_pthread_rwlock_unlock(&threadResumeLock) == 0) (JASSERT_ERRNO);
-  JTRACE("everything resumed");
+  JLOG(DMTCP)("everything resumed");
 }
 
 /*************************************************************************
@@ -577,7 +577,7 @@ stopthisthread(int signum)
 #endif // ifdef SETJMP
     save_sp(&curThread->saved_sp);
 
-    JTRACE("Thread after sigsetjmp/getcontext")
+    JLOG(DMTCP)("Thread after sigsetjmp/getcontext")
       (curThread->tid) (curThread->virtual_tid)
       (curThread->saved_sp) (__builtin_return_address(0));
 
@@ -591,7 +591,7 @@ stopthisthread(int signum)
       sem_post(&semNotifyCkptThread);
 
       /* Then wait for the ckpt thread to write the ckpt file then wake us up */
-      JTRACE("User thread suspended") (curThread->tid);
+      JLOG(DMTCP)("User thread suspended") (curThread->tid);
 
       // We can't use sem_wait here because sem_wait registers a cleanup
       // handler before going into blocking wait. The handler is popped before
@@ -632,7 +632,7 @@ stopthisthread(int signum)
       ThreadList::waitForAllRestored(curThread);
     }
 
-    JTRACE("User thread returning to user code")
+    JLOG(DMTCP)("User thread returning to user code")
       (curThread->tid) (__builtin_return_address(0));
   }
 }
@@ -652,9 +652,9 @@ ThreadList::waitForAllRestored(Thread *thread)
       sem_wait(&semNotifyCkptThread);
     }
 
-    JTRACE("before DmtcpWorker::postRestart()");
+    JLOG(DMTCP)("before DmtcpWorker::postRestart()");
     DmtcpWorker::postRestart(); // mtcp_restoreargv_start_addr);
-    JTRACE("after DmtcpWorker::postRestart()");
+    JLOG(DMTCP)("after DmtcpWorker::postRestart()");
 
     SigInfo::restoreSigHandlers();
 
@@ -751,7 +751,7 @@ ThreadList::postRestart(void)
                             clonearg, thread->ptid, NULL, thread->ctid);
 
     JASSERT(tid > 0);  // (JASSERT_ERRNO) .Text("Error recreating thread");
-    JTRACE("Thread recreated") (thread->tid) (tid);
+    JLOG(DMTCP)("Thread recreated") (thread->tid) (tid);
   }
   restarthread(motherofall);
 }
@@ -777,7 +777,7 @@ restarthread(void *threadv)
    * Note that if this is the restored checkpointhread, it jumps to the
    * checkpointhread routine
    */
-  JTRACE("calling siglongjmp/setcontext") (thread->tid) (thread->virtual_tid);
+  JLOG(DMTCP)("calling siglongjmp/setcontext") (thread->tid) (thread->virtual_tid);
 #ifdef SETJMP
   siglongjmp(thread->jmpbuf, 1); /* Shouldn't return */
 #else // ifdef SETJMP
@@ -829,7 +829,7 @@ Thread_RestoreSigState(Thread *th)
 {
   int i;
 
-  JTRACE("restoring signal mask for thread") (th->virtual_tid);
+  JLOG(DMTCP)("restoring signal mask for thread") (th->virtual_tid);
   JASSERT(pthread_sigmask(SIG_SETMASK, &th->sigblockmask, NULL) == 0);
 
   // Raise the signals which were pending for only this thread at the time of
@@ -890,7 +890,7 @@ ThreadList::addToActiveList(Thread *th)
   for (thread = activeThreads; thread != NULL; thread = next_thread) {
     next_thread = thread->next;
     if (thread != curThread && thread->tid == tid) {
-      JTRACE("Removing duplicate thread descriptor")
+      JLOG(DMTCP)("Removing duplicate thread descriptor")
         (thread->tid) (thread->virtual_tid);
 
       // There will be at most one duplicate descriptor.
@@ -910,7 +910,7 @@ ThreadList::addToActiveList(Thread *th)
     if (thread->state == ST_ZOMBIE) {
       /* if no thread with this tid, then we can remove zombie descriptor */
       if (-1 == THREAD_TGKILL(motherpid, thread->tid, 0)) {
-        JTRACE("Killing zombie thread") (thread->tid);
+        JLOG(DMTCP)("Killing zombie thread") (thread->tid);
         threadIsDead(thread);
       }
     }
@@ -943,7 +943,7 @@ void
 ThreadList::threadIsDead(Thread *thread)
 {
   JASSERT(thread != NULL);
-  JTRACE("Putting thread on freelist") (thread->tid);
+  JLOG(DMTCP)("Putting thread on freelist") (thread->tid);
 
   /* Remove thread block from 'threads' list */
   if (thread->prev != NULL) {

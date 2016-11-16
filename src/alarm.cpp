@@ -34,7 +34,7 @@ static void
 checkpoint()
 {
   timeLeft = alarm(0);
-  JTRACE("*** Alarm stopped. ***") (timeLeft);
+  JLOG(DMTCP)("*** Alarm stopped. ***") (timeLeft);
 }
 
 static void
@@ -42,7 +42,7 @@ resume()
 {
   /* Need to restart the timer on resume/restart. */
   if (timeLeft > 0) {
-    JTRACE("*** Resuming alarm. ***") (timeLeft);
+    JLOG(DMTCP)("*** Resuming alarm. ***") (timeLeft);
     timeLeft = alarm(timeLeft);
   }
 }

@@ -116,7 +116,7 @@ SigInfo::saveSigHandlers()
   .Text("Error setting up signal handler");
 
   /* Now save all the signal handlers */
-  JTRACE("saving signal handlers");
+  JLOG(DMTCP)("saving signal handlers");
   for (sig = SIGRTMAX; sig > 0; --sig) {
     if (_real_syscall(SYS_rt_sigaction, sig, NULL, &sigactions[sig],
                       _NSIG / 8) < 0) {
@@ -126,7 +126,7 @@ SigInfo::saveSigHandlers()
     }
 
     if (sigactions[sig].sa_handler != SIG_DFL) {
-      JTRACE("saving signal handler (non-default) for") (sig);
+      JLOG(DMTCP)("saving signal handler (non-default) for") (sig);
     }
   }
 }
@@ -141,10 +141,10 @@ SigInfo::restoreSigHandlers()
 {
   int sig;
 
-  JTRACE("restoring signal handlers");
+  JLOG(DMTCP)("restoring signal handlers");
   for (sig = SIGRTMAX; sig > 0; --sig) {
 #ifdef VERBOSE_DEBUG
-    JTRACE("restore signal handler for") (sig);
+    JLOG(DMTCP)("restore signal handler for") (sig);
 #endif // ifdef VERBOSE_DEBUG
 
     JASSERT(_real_syscall(SYS_rt_sigaction, sig, &sigactions[sig], NULL,

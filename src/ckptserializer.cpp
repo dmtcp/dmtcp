@@ -190,7 +190,7 @@ open_ckpt_to_write_hbict(int fd,
   };
 
   hbict_args[0] = hbict_path;
-  JTRACE("open_ckpt_to_write_hbict\n");
+  JLOG(DMTCP)("open_ckpt_to_write_hbict\n");
 
   if (gzip_path != NULL) {
     hbict_args[2] = const_cast<char *>("-z100");
@@ -210,7 +210,7 @@ open_ckpt_to_write_gz(int fd, int pipe_fds[2], char *gzip_path)
   };
 
   gzip_args[0] = gzip_path;
-  JTRACE("open_ckpt_to_write_gz\n");
+  JLOG(DMTCP)("open_ckpt_to_write_gz\n");
 
   return open_ckpt_to_write(fd, pipe_fds, gzip_args);
 }
@@ -247,7 +247,7 @@ perform_open_ckpt_image_fd(const char *tempCkptFilename,
 #ifdef HBICT_DELTACOMP
   char *hbict_cmd = const_cast<char *>("hbict");
   char hbict_path[PATH_MAX];
-  JTRACE("NOTICE: hbict compression is enabled\n");
+  JLOG(DMTCP)("NOTICE: hbict compression is enabled\n");
 
   use_deltacompression = test_use_compression(const_cast<char *>("HBICT"),
                                               hbict_cmd, hbict_path, 1);
@@ -319,7 +319,7 @@ test_and_prepare_for_forked_ckpt()
     return FORKED_CKPT_FAILED;
   } else if (forked_cpid > 0) {
     restore_sigchld_handler_and_wait_for_zombie(forked_cpid);
-    JTRACE("checkpoint complete\n");
+    JLOG(DMTCP)("checkpoint complete\n");
     return FORKED_CKPT_PARENT;
   } else {
     pid_t grandchild_pid = _real_sys_fork();
@@ -332,7 +332,7 @@ test_and_prepare_for_forked_ckpt()
     }
 
     /* grandchild continues; no need now to waitpid() on grandchild */
-    JTRACE("inside grandchild process");
+    JLOG(DMTCP)("inside grandchild process");
   }
   return FORKED_CKPT_CHILD;
 }
@@ -423,11 +423,11 @@ CkptSerializer::writeCkptImage(void *mtcpHdr, size_t mtcpHdrLen)
 
   tempCkptFilename += ".temp";
 
-  JTRACE("Thread performing checkpoint.") (dmtcp_gettid());
+  JLOG(DMTCP)("Thread performing checkpoint.") (dmtcp_gettid());
   createCkptDir();
   forked_ckpt_status = test_and_prepare_for_forked_ckpt();
   if (forked_ckpt_status == FORKED_CKPT_PARENT) {
-    JTRACE("*** Using forked checkpointing.\n");
+    JLOG(DMTCP)("*** Using forked checkpointing.\n");
     return;
   }
 
@@ -449,7 +449,7 @@ CkptSerializer::writeCkptImage(void *mtcpHdr, size_t mtcpHdrLen)
   // Write MTCP header
   JASSERT(Util::writeAll(fd, mtcpHdr, mtcpHdrLen) == (ssize_t)mtcpHdrLen);
 
-  JTRACE("MTCP is about to write checkpoint image.")(ckptFilename);
+  JLOG(DMTCP)("MTCP is about to write checkpoint image.")(ckptFilename);
   mtcp_writememoryareas(fd);
 
   if (use_compression) {
@@ -477,7 +477,7 @@ CkptSerializer::writeCkptImage(void *mtcpHdr, size_t mtcpHdrLen)
     _exit(0); /* grandchild exits */
   }
 
-  JTRACE("checkpoint complete");
+  JLOG(DMTCP)("checkpoint complete");
 }
 
 void
