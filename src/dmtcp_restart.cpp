@@ -111,6 +111,7 @@ static const char *theUsage =
   "\n";
 
 static int requestedDebugLevel = 0;
+static uint32_t mask = jassert_internal::UNKNOWN;
 
 class RestoreTarget;
 
@@ -282,6 +283,7 @@ class RestoreTarget
                                &compId,
                                &coordInfo,
                                &localIPAddr);
+        SharedData::setLogMask(mask);
 
         Util::prepareDlsymWrapper();
       }
@@ -746,6 +748,9 @@ main(int argc, char **argv)
       shift; shift;
     } else if (s == "--coord-logfile") {
       setenv(ENV_VAR_COORD_LOGFILE, argv[1], 1);
+      shift; shift;
+    } else if (s == "--debug-logs") {
+      mask = Util::processDebugLogsArg(argv[1]);
       shift; shift;
     } else if (argv[0][0] == '-' && argv[0][1] == 'i' &&
                isdigit(argv[0][2])) { // else if -i5, for example

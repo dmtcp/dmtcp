@@ -211,6 +211,7 @@ static struct PluginInfo pluginInfo[] = {               // Default value
 const size_t numLibs = sizeof(pluginInfo) / sizeof(struct PluginInfo);
 
 static CoordinatorMode allowedModes = COORD_ANY;
+static uint32_t mask = jassert_internal::UNKNOWN;
 
 // shift args
 #define shift argc--, argv++
@@ -275,6 +276,9 @@ processArgs(int *orig_argc,
       shift; shift;
     } else if (s == "--coord-logfile") {
       setenv(ENV_VAR_COORD_LOGFILE, argv[1], 1);
+      shift; shift;
+    } else if (s == "--debug-logs") {
+      mask = Util::processDebugLogsArg(argv[1]);
       shift; shift;
     } else if (argv[0][0] == '-' && argv[0][1] == 'i' &&
                isdigit(argv[0][2])) { // else if -i5, for example
@@ -581,6 +585,7 @@ main(int argc, char **argv)
                          &compId,
                          &coordInfo,
                          &localIPAddr);
+  SharedData::setLogMask(mask);
 
   // Set DLSYM_OFFSET env var(s).
   Util::prepareDlsymWrapper();

@@ -122,6 +122,8 @@ struct Header {
   uint32_t numIncomingConMaps;
   uint32_t numInodeConnIdMaps;
 
+  uint32_t logMask;
+
   union {
     struct BarrierInfo barrierInfo;
     char pad[128];
@@ -204,6 +206,8 @@ void getMissingConMaps(struct IncomingConMap **map, uint32_t *nmaps);
 
 void insertInodeConnIdMaps(vector<InodeConnIdMap> &maps);
 bool getCkptLeaderForFile(dev_t devnum, ino_t inode, void *id);
+uint32_t getLogMask(void);
+void setLogMask(uint32_t mask);
 }
 }
 #endif // ifndef SHARED_DATA_H

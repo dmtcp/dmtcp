@@ -79,6 +79,21 @@ extern int jassert_quiet;
  *
  */
 
+#define FOREACH_LOGSOURCE(MACRO, a, b) \
+   MACRO(JTRACE, a, b)                 \
+   MACRO(ALLOC, a, b)                  \
+   MACRO(DL, a, b)                     \
+   MACRO(DMTCP, a, b)                  \
+   MACRO(EVENT, a, b)                  \
+   MACRO(FILEP, a, b)                  \
+   MACRO(SOCKET, a, b)                 \
+   MACRO(SSH, a, b)                    \
+   MACRO(IPC, a, b)                    \
+   MACRO(PID, a, b)                    \
+   MACRO(SYSV, a, b)                   \
+   MACRO(TIMER, a, b)                  \
+   MACRO(ALL, a, b)
+
 namespace jassert_internal
 {
 
