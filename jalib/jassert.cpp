@@ -81,12 +81,19 @@ jassert_internal::JAssert& jassert_internal::JAssert::Text ( const char* msg )
   return *this;
 }
 
-jassert_internal::JAssert::JAssert ( bool exitWhenDone )
-    : JASSERT_CONT_A ( *this )
-    , JASSERT_CONT_B ( *this )
-    , _exitWhenDone ( exitWhenDone )
-{
-}
+jassert_internal::JAssert::JAssert(LogSource logSrc, bool exitWhenDone)
+  : JASSERT_CONT_A(*this)
+  , JASSERT_CONT_B(*this)
+  , _logSrc(logSrc)
+  , _exitWhenDone(exitWhenDone)
+{}
+
+jassert_internal::JAssert::JAssert(bool exitWhenDone)
+  : JASSERT_CONT_A(*this)
+  , JASSERT_CONT_B(*this)
+  , _logSrc(UNKNOWN)
+  , _exitWhenDone(exitWhenDone)
+{}
 
 jassert_internal::JAssert::~JAssert()
 {

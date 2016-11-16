@@ -82,6 +82,24 @@ extern int jassert_quiet;
 namespace jassert_internal
 {
 
+  enum LogSource
+  {
+    UNKNOWN = 0x00000000,
+    JTRACE  = 0x00000001,  // Always print JTRACE if compiled in
+    ALLOC   = 0x00000002,
+    DL      = 0x00000004,
+    DMTCP   = 0x00000008,
+    EVENT   = 0x00000010,
+    FILEP   = 0x00000020,
+    SOCKET  = 0x00000040,
+    SSH     = 0x00000080,
+    IPC     = 0x000000F0,  // (EVENT | FILEP | SOCKET | SSH)
+    PID     = 0x00000100,
+    SYSV    = 0x00000200,
+    TIMER   = 0x00000400,
+    ALL     = 0xFFFFFFFF,
+  };
+
   class JAssert
   {
     public:
@@ -104,6 +122,9 @@ namespace jassert_internal
       ///
       /// constructor: sets members
       JAssert ( bool exitWhenDone );
+
+      JAssert(LogSource logSrc, bool exitWhenDone);
+
       ///
       /// destructor: exits program if exitWhenDone is set
       ~JAssert();
@@ -117,6 +138,8 @@ namespace jassert_internal
       template < typename T > JAssert& operator << ( const T& t )
       { Print ( t ); return *this; }
     private:
+      LogSource _logSrc;
+
       ///
       /// if set true (on construction) call exit() on destruction
       bool _exitWhenDone;
@@ -192,15 +215,21 @@ namespace jassert_internal
 #define JASSERT_CONTEXT(type,reason) Print('[').Print(getpid()).Print("] " type " at ").Print(JASSERT_FILE).Print(":" JASSERT_LINE " in ").Print(JASSERT_FUNC).Print("; REASON='" reason "'\n")
 
 #ifdef DEBUG
-#define JLOG(str) jassert_internal::jassert_safe_print(str, true)
-#else
-#define JLOG(str) do { } while(0)
-#endif
-
-#ifdef DEBUG
 #define JTRACE(msg) jassert_internal::JAssert(false).JASSERT_CONTEXT("TRACE",msg).JASSERT_CONT_A
 #else
 #define JTRACE(msg) if(true){}else jassert_internal::JAssert(false).JASSERT_CONTEXT("NOTE",msg).JASSERT_CONT_A
+#endif
+
+#define JLOG_HELPER(msg) \
+  JASSERT_CONTEXT("TRACE", msg).JASSERT_CONT_A
+
+#ifdef DEBUG
+#define JLOG(src) \
+  jassert_internal::JAssert(jassert_internal::src, false).JLOG_HELPER
+#else
+#define JLOG(src) \
+  if (true){} \
+  else jassert_internal::JAssert(jassert_internal::src, false).JLOG_HELPER
 #endif
 
 #define JNOTE(msg) if(jassert_quiet >= 1){}else \
