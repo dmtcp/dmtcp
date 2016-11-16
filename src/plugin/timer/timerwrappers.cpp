@@ -45,7 +45,7 @@ extern "C" int timer_create(clockid_t clockid, struct sigevent *sevp,
   }
   if (ret != -1 && timerid != NULL) {
     virtId = TimerList::instance().on_timer_create(realId, clockid, sevp);
-    JTRACE ("Creating new timer") (clockid) (realClockId) (realId) (virtId);
+    JLOG(TIMER)("Creating new timer") (clockid) (realClockId) (realId) (virtId);
     *timerid = virtId;
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -60,7 +60,7 @@ extern "C" int timer_delete(timer_t timerid)
   int ret = _real_timer_delete(realId);
   if (ret != -1) {
     TimerList::instance().on_timer_delete(timerid);
-    JTRACE ("Deleted timer") (timerid);
+    JLOG(TIMER)("Deleted timer") (timerid);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return ret;
