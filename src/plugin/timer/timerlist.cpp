@@ -117,7 +117,7 @@ TimerList::removeStaleClockIds()
     }
   }
   for (size_t i = 0; i < staleClockIds.size(); i++) {
-    JTRACE("Removing stale clock") (staleClockIds[i]);
+    JLOG(TIMER)("Removing stale clock") (staleClockIds[i]);
     _clockPidList.erase(staleClockIds[i]);
   }
   staleClockIds.clear();
@@ -218,7 +218,7 @@ TimerList::postRestart()
       }
       JASSERT(_real_timer_settime(realId, tinfo.flags, &tspec, NULL) == 0)
         (virtId) (JASSERT_ERRNO);
-      JTRACE("Restoring timer") (realId) (virtId);
+      JLOG(TIMER)("Restoring timer") (realId) (virtId);
     }
   }
 }
