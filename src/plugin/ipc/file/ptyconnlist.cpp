@@ -116,7 +116,7 @@ PtyConnList::scanForPreExisting()
 
     string device = jalib::Filesystem::GetDeviceName(fd);
 
-    JTRACE("scanning pre-existing device") (fd) (device);
+    JLOG(FILEP)("scanning pre-existing device") (fd) (device);
     if (device == ctty || device == parentCtty) {
       // Search if this is duplicate connection
       iterator conit;

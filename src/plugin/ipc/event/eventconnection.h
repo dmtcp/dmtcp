@@ -84,7 +84,7 @@ class EpollConnection : public Connection
       _type(type),
       _size(size)
     {
-      JTRACE("new epoll connection created");
+      JLOG(EVENT)("new epoll connection created");
     }
 
     int epollType() const { return _type; }
@@ -116,7 +116,7 @@ class EventFdConnection : public Connection
       _initval(initval),
       _flags(flags)
     {
-      JTRACE("new eventfd connection created");
+      JLOG(EVENT)("new eventfd connection created");
     }
 
     virtual void drain();
@@ -148,7 +148,7 @@ class SignalFdConnection : public Connection
         sigemptyset(&_mask);
       }
       memset(&_fdsi, 0, sizeof(_fdsi));
-      JTRACE("new signalfd  connection created");
+      JLOG(EVENT)("new signalfd  connection created");
     }
 
     virtual void drain();
@@ -182,7 +182,7 @@ class InotifyConnection : public Connection
       _flags(flags),
       _state(INOTIFY_CREATE)
     {
-      JTRACE("new inotify connection created");
+      JLOG(EVENT)("new inotify connection created");
     }
 
     int inotifyState() const { return (int)_state; }

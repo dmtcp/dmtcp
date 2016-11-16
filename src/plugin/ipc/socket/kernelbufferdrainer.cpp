@@ -81,7 +81,7 @@ KernelBufferDrainer::onData(jalib::JReaderInterface *sock)
   int startIdx = buffer.size() - sock->bytesRead();
   memcpy(&buffer[startIdx], sock->buffer(), sock->bytesRead());
 
-  // JTRACE("got buffer chunk") (sock->bytesRead());
+  // JLOG(SOCKET)("got buffer chunk") (sock->bytesRead());
   sock->reset();
 }
 
@@ -97,7 +97,7 @@ KernelBufferDrainer::onDisconnect(jalib::JReaderInterface *sock)
   if (fd < 0) {
     return;
   }
-  JTRACE("found disconnected socket... marking it dead")
+  JLOG(SOCKET)("found disconnected socket... marking it dead")
     (fd) (_reverseLookup[fd]) (JASSERT_ERRNO);
   _disconnectedSockets[_reverseLookup[fd]] = _drainedData[fd];
 
@@ -122,7 +122,7 @@ KernelBufferDrainer::onTimeoutInterval()
                   theMagicDrainCookie,
                   sizeof(theMagicDrainCookie)) == 0) {
       buffer.resize(buffer.size() - sizeof(theMagicDrainCookie));
-      JTRACE("buffer drain complete") (_dataSockets[i]->socket().sockfd())
+      JLOG(SOCKET)("buffer drain complete") (_dataSockets[i]->socket().sockfd())
         (buffer.size()) ((_dataSockets.size()));
       _dataSockets[i]->socket() = -1; // poison socket
     } else {
@@ -159,7 +159,7 @@ KernelBufferDrainer::onTimeoutInterval()
         JASSERT(sp[0] >= 0 && sp[1] >= 0) (sp[0]) (sp[1])
         .Text("socketpair() failed");
         _real_close(sp[1]);
-        JTRACE("created dead socket") (sp[0]);
+        JLOG(SOCKET)("created dead socket") (sp[0]);
         _real_dup2(sp[0], _dataSockets[i]->socket().sockfd());
 #endif // ifdef CERN_CMS
       }
@@ -170,7 +170,7 @@ KernelBufferDrainer::onTimeoutInterval()
 void
 KernelBufferDrainer::beginDrainOf(int fd, const ConnectionIdentifier &id)
 {
-  // JTRACE("will drain socket") (fd);
+  // JLOG(SOCKET)("will drain socket") (fd);
   _drainedData[fd]; // create buffer
   // this is the simple way:  jalib::JSocket(fd) << theMagicDrainCookie;
   // instead used delayed write in case kernel buffer is full:
@@ -187,7 +187,7 @@ KernelBufferDrainer::beginDrainOf(int fd, const ConnectionIdentifier &id)
 void
 KernelBufferDrainer::refillAllSockets()
 {
-  JTRACE("refilling socket buffers") (_drainedData.size());
+  JLOG(SOCKET)("refilling socket buffers") (_drainedData.size());
 
   // write all buffers out
   map<int, vector<char> >::iterator i;
@@ -204,7 +204,7 @@ KernelBufferDrainer::refillAllSockets()
     msg.extraBytes = size;
     jalib::JSocket sock(i->first);
     if (size > 0) {
-      JTRACE("requesting repeat buffer...") (sock.sockfd()) (size);
+      JLOG(SOCKET)("requesting repeat buffer...") (sock.sockfd()) (size);
     }
     sock << msg;
     if (size > 0) {
@@ -213,7 +213,7 @@ KernelBufferDrainer::refillAllSockets()
     i->second.clear();
   }
 
-  // JTRACE("repeating our friends buffers...");
+  // JLOG(SOCKET)("repeating our friends buffers...");
 
   // read all buffers in
   for (i = _drainedData.begin(); i != _drainedData.end(); ++i) {
@@ -224,7 +224,7 @@ KernelBufferDrainer::refillAllSockets()
 
     msg.assertValid(ConnMsg::REFILL);
     int size = msg.extraBytes;
-    JTRACE("repeating buffer back to peer") (size);
+    JLOG(SOCKET)("repeating buffer back to peer") (size);
     if (size > 0) {
       // echo it back...
       jalib::JBuffer tmp(size);
@@ -236,7 +236,7 @@ KernelBufferDrainer::refillAllSockets()
     scaleSendBuffers(i->first, 0.5);
   }
 
-  JTRACE("buffers refilled");
+  JLOG(SOCKET)("buffers refilled");
 
   // Free up the object
   delete theDrainer;
