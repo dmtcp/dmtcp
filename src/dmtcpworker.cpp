@@ -422,17 +422,24 @@ void DmtcpWorker::waitForCoordinatorMsg(string msgStr,
   }
 
   JLOG(DMTCP)("waiting for " + msgStr + " message");
-  CoordinatorAPI::instance().recvMsgFromCoordinator(&msg);
-  if (type == DMT_DO_SUSPEND && exitInProgress()) {
-    ThreadSync::destroyDmtcpWorkerLockUnlock();
-    ckptThreadPerformExit();
-  }
+  do {
+    CoordinatorAPI::instance().recvMsgFromCoordinator(&msg);
+    if (type == DMT_DO_SUSPEND && exitInProgress()) {
+      ThreadSync::destroyDmtcpWorkerLockUnlock();
+      ckptThreadPerformExit();
+    }
 
-  msg.assertValid();
-  if (msg.type == DMT_KILL_PEER) {
-    JLOG(DMTCP)("Received KILL message from coordinator, exiting");
-    _exit (0);
-  }
+    msg.assertValid();
+    if (msg.type == DMT_KILL_PEER) {
+      JLOG(DMTCP)("Received KILL message from coordinator, exiting");
+      _exit (0);
+    }
+    if (msg.type == DMT_UPDATE_LOGGING) {
+      SharedData::setLogMask(msg.logMask);
+    } else {
+      break;
+    }
+  } while (1);
 
   JASSERT(msg.type == type) (msg.type) (type);
 

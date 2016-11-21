@@ -147,6 +147,7 @@ static bool blockUntilDone = false;
 static bool exitAfterCkpt = false;
 static bool exitAfterCkptOnce = false;
 static int blockUntilDoneRemote = -1;
+static uint32_t mask = 0;
 
 static DmtcpCoordinator prog;
 
@@ -273,6 +274,9 @@ void DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*= NULL*
   case 'x': case 'X':  // prefix exit command, prior to checkpoint command
     JTRACE ( "Will exit after creating the checkpoint..." );
     exitAfterCkptOnce = true;
+    break;
+  case 'd': case 'D':
+    broadcastMessage(DMT_UPDATE_LOGGING);
     break;
   case 'c': case 'C':
     JTRACE ( "checkpointing..." );
@@ -879,6 +883,10 @@ void DmtcpCoordinator::processDmtUserCmd(DmtcpMessage& hello_remote,
     handleUserCommand( hello_remote.coordCmd, &reply );
     remote << reply;
     remote.close();
+  } else if (hello_remote.coordCmd == 'd') {
+    mask = hello_remote.logMask;
+    handleUserCommand(hello_remote.coordCmd);
+    remote << reply;
   } else {
     handleUserCommand( hello_remote.coordCmd, &reply );
     remote << reply;
@@ -1107,6 +1115,8 @@ void DmtcpCoordinator::broadcastMessage(DmtcpMessageType type, int numPeers)
 
   if (msg.type == DMT_KILL_PEER && clients.size() > 0) {
     killInProgress = true;
+  } else if (msg.type == DMT_UPDATE_LOGGING) {
+    msg.logMask = mask;
   } else if (msg.type == DMT_DO_FD_LEADER_ELECTION) {
     // All the workers are in SUSPENDED state, now it is safe to reset
     // this flag.

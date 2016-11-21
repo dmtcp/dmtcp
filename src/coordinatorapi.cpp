@@ -324,7 +324,8 @@ char* CoordinatorAPI::connectAndSendUserCommand(char c,
                                                 int *coordCmdStatus,
                                                 int *numPeers,
                                                 int *isRunning,
-                                                int *ckptInterval)
+                                                int *ckptInterval,
+                                                uint32_t logMask)
 {
   char *replyData = NULL;
   _coordinatorSocket = createNewSocketToCoordinator(COORD_ANY);
@@ -339,6 +340,7 @@ char* CoordinatorAPI::connectAndSendUserCommand(char c,
   //send
   msg.type = DMT_USER_CMD;
   msg.coordCmd = c;
+  msg.logMask = logMask;
 
   if (c == 'i') {
     const char* interval = getenv (ENV_VAR_CKPT_INTR);

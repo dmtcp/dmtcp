@@ -40,6 +40,7 @@ DmtcpMessage::DmtcpMessage ( DmtcpMessageType t /*= DMT_NULL*/ )
     ,coordCmdStatus(CoordCmdStatus::NOERROR)
     ,coordTimeStamp(0)
     ,theCheckpointInterval ( DMTCPMESSAGE_SAME_CKPT_INTERVAL )
+    ,logMask(0)
 {
 //     struct sockaddr_storage _addr;
 //         socklen_t _addrlen;
@@ -126,6 +127,7 @@ ostream& dmtcp::operator << ( dmtcp::ostream& o, const DmtcpMessageType & s )
       OSHIFTPRINTF ( DMT_NAME_SERVICE_QUERY )
       OSHIFTPRINTF ( DMT_NAME_SERVICE_QUERY_RESPONSE )
 #endif
+      OSHIFTPRINTF ( DMT_UPDATE_LOGGING )
 
       OSHIFTPRINTF ( DMT_OK )
 
