@@ -96,7 +96,7 @@ void ConnectionRewirer::checkForPendingIncoming(int restoreSockFd,
 
     Util::dupFds(fd, (i->second)->getFds());
 
-    JTRACE("restoring incoming connection") (id);
+    JLOG(SOCKET)("restoring incoming connection") (id);
     conList->erase(i);
   }
 }
@@ -147,7 +147,7 @@ void ConnectionRewirer::doReconnect()
                             &_pendingUDSIncoming);
     _real_close(PROTECTED_RESTORE_UDS_SOCK_FD);
   }
-  JTRACE("Closed restore sockets");
+  JLOG(SOCKET)("Closed restore sockets");
 }
 
 void ConnectionRewirer::openRestoreSocket(bool hasIPv4Sock,
@@ -170,7 +170,7 @@ void ConnectionRewirer::openRestoreSocket(bool hasIPv4Sock,
     _ip4RestoreAddr.sin_port = htons(restoreSocket.port());
     _ip4RestoreAddrlen = sizeof(_ip4RestoreAddr);
 
-    JTRACE("opened listen socket") (restoreSocket.sockfd())
+    JLOG(SOCKET)("opened listen socket") (restoreSocket.sockfd())
       (inet_ntoa(_ip4RestoreAddr.sin_addr)) (ntohs(_ip4RestoreAddr.sin_port));
     markSocketNonBlocking(PROTECTED_RESTORE_IP4_SOCK_FD);
   }
@@ -193,7 +193,7 @@ void ConnectionRewirer::openRestoreSocket(bool hasIPv4Sock,
     JASSERT(_real_listen(ip6fd, 32) == 0) (JASSERT_ERRNO);
     Util::changeFd(ip6fd, PROTECTED_RESTORE_IP6_SOCK_FD);
 
-    JTRACE("opened ip6 listen socket") (PROTECTED_RESTORE_IP6_SOCK_FD);
+    JLOG(SOCKET)("opened ip6 listen socket") (PROTECTED_RESTORE_IP6_SOCK_FD);
     markSocketNonBlocking(PROTECTED_RESTORE_IP6_SOCK_FD);
   }
 
@@ -214,7 +214,7 @@ void ConnectionRewirer::openRestoreSocket(bool hasIPv4Sock,
     JASSERT(_real_listen(udsfd, 32) == 0) (JASSERT_ERRNO);
     Util::changeFd(udsfd, PROTECTED_RESTORE_UDS_SOCK_FD);
 
-    JTRACE("opened UDS listen socket")
+    JLOG(SOCKET)("opened UDS listen socket")
       (PROTECTED_RESTORE_UDS_SOCK_FD) (&_udsRestoreAddr.sun_path[1]);
     markSocketNonBlocking(PROTECTED_RESTORE_UDS_SOCK_FD);
   }
@@ -242,7 +242,7 @@ ConnectionRewirer::registerIncoming(const ConnectionIdentifier& local,
     JASSERT(false) .Text("Not implemented");
   }
 
-  JTRACE("announcing pending incoming") (local);
+  JLOG(SOCKET)("announcing pending incoming") (local);
 }
 
 void
@@ -250,7 +250,7 @@ ConnectionRewirer::registerOutgoing(const ConnectionIdentifier& remote,
                                     Connection* con)
 {
   _pendingOutgoing[remote] = con;
-  JTRACE("announcing pending outgoing") (remote);
+  JLOG(SOCKET)("announcing pending outgoing") (remote);
 }
 
 void ConnectionRewirer::registerNSData()
@@ -280,7 +280,7 @@ void ConnectionRewirer::registerNSData(void *addr,
     sockaddr_in *sn = (sockaddr_in*) &_restoreAddr;
     unsigned short port = htons(sn->sin_port);
     char *ip = inet_ntoa(sn->sin_addr);
-    JTRACE("Send NS information:")(id)(sn->sin_family)(port)(ip);
+    JLOG(SOCKET)("Send NS information:")(id)(sn->sin_family)(port)(ip);
     */
   }
   //debugPrint();
@@ -301,7 +301,7 @@ void ConnectionRewirer::sendQueries()
     sockaddr_in *sn = (sockaddr_in*) &remote.addr;
     unsigned short port = htons(sn->sin_port);
     char *ip = inet_ntoa(sn->sin_addr);
-    JTRACE("Send Queries. Get remote from coordinator:")(id)(sn->sin_family)(port)(ip);
+    JLOG(SOCKET)("Send Queries. Get remote from coordinator:")(id)(sn->sin_family)(port)(ip);
     */
     _remoteInfo[id] = remote;
   }

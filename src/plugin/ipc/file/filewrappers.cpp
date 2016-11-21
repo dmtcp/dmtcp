@@ -86,7 +86,7 @@ using namespace dmtcp;
 extern "C" int close(int fd)
 {
   if (dmtcp_is_protected_fd(fd)) {
-    JTRACE("blocked attempt to close protected fd") (fd);
+    JLOG(FILEP)("blocked attempt to close protected fd") (fd);
     errno = EBADF;
     return -1;
   }
@@ -104,7 +104,7 @@ extern "C" int fclose(FILE *fp)
 {
   int fd = fileno(fp);
   if (dmtcp_is_protected_fd(fd)) {
-    JTRACE("blocked attempt to fclose protected fd") (fd);
+    JLOG(FILEP)("blocked attempt to fclose protected fd") (fd);
     errno = EBADF;
     return -1;
   }
@@ -123,7 +123,7 @@ extern "C" int closedir(DIR *dir)
 {
   int fd = dirfd(dir);
   if (dmtcp_is_protected_fd(fd)) {
-    JTRACE("blocked attempt to closedir protected fd") (fd);
+    JLOG(FILEP)("blocked attempt to closedir protected fd") (fd);
     errno = EBADF;
     return -1;
   }
@@ -177,14 +177,14 @@ extern "C" int dup3(int oldfd, int newfd, int flags)
 
 static int ptsname_r_work(int fd, char * buf, size_t buflen)
 {
-  JTRACE("Calling ptsname_r");
+  JLOG(FILEP)("Calling ptsname_r");
 
   Connection* c = FileConnList::instance().getConnection(fd);
   PtyConnection* ptyCon =(PtyConnection*) c;
 
   string virtPtsName = ptyCon->virtPtsName();
 
-  JTRACE("ptsname_r") (virtPtsName);
+  JLOG(FILEP)("ptsname_r") (virtPtsName);
 
   if (virtPtsName.length() >= buflen)
   {
@@ -213,7 +213,7 @@ extern "C" int ptsname_r(int fd, char * buf, size_t buflen)
 extern "C" char *ptsname(int fd)
 {
   /* No need to acquire Wrapper Protection lock since it will be done in ptsname_r */
-  JTRACE("ptsname() promoted to ptsname_r()");
+  JLOG(FILEP)("ptsname() promoted to ptsname_r()");
   static char tmpbuf[PATH_MAX];
 
   if (ptsname_r(fd, tmpbuf, sizeof(tmpbuf)) != 0)

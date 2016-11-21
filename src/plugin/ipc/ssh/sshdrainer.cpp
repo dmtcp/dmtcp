@@ -23,7 +23,7 @@ void SSHDrainer::onData(jalib::JReaderInterface* sock)
   buffer.resize(buffer.size() + sock->bytesRead());
   int startIdx = buffer.size() - sock->bytesRead();
   memcpy(&buffer[startIdx],sock->buffer(),sock->bytesRead());
-  //     JTRACE("got buffer chunk") (sock->bytesRead());
+  //     JLOG(SSH)("got buffer chunk") (sock->bytesRead());
   sock->reset();
 }
 
@@ -52,7 +52,7 @@ void SSHDrainer::onTimeoutInterval()
                   theMagicDrainCookie,
                   sizeof(theMagicDrainCookie)) == 0) {
       buffer.resize(buffer.size() - sizeof(theMagicDrainCookie));
-      JTRACE("buffer drain complete") (_dataSockets[i]->socket().sockfd())
+      JLOG(SSH)("buffer drain complete") (_dataSockets[i]->socket().sockfd())
         (buffer.size()) ((_dataSockets.size()));
       _dataSockets[i]->socket() = -1; //poison socket
     } else {
@@ -96,7 +96,7 @@ void SSHDrainer::beginDrainOf(int fd, int refillFd)
 
 void SSHDrainer::refill()
 {
-  JTRACE("refilling socket buffers") (_drainedData.size());
+  JLOG(SSH)("refilling socket buffers") (_drainedData.size());
 
   //write all buffers out
   map<int, vector<char> >::iterator i;

@@ -55,7 +55,7 @@ void SocketConnList::drain()
     const ConnectionIdentifier& id = it->first;
     TcpConnection *con =
       (TcpConnection*) SocketConnList::instance().getConnection(id);
-    JTRACE("recreating disconnected socket") (id);
+    JLOG(SOCKET)("recreating disconnected socket") (id);
 
     //reading from the socket, and taking the error, resulted in an
     //implicit close().
@@ -68,7 +68,7 @@ void SocketConnList::drain()
 void SocketConnList::preCkpt()
 {
   //handshake is done after one barrier after drain
-  JTRACE("beginning handshakes");
+  JLOG(SOCKET)("beginning handshakes");
   DmtcpUniqueProcessId coordId = dmtcp_get_coord_id();
   //must send first to avoid deadlock
   //we are relying on OS buffers holding our message without blocking
@@ -86,7 +86,7 @@ void SocketConnList::preCkpt()
       ((TcpConnection*)con)->doRecvHandshakes(coordId);
     }
   }
-  JTRACE("handshaking done");
+  JLOG(SOCKET)("handshaking done");
   _hasIPv4Sock = _hasIPv6Sock = _hasUNIXSock = false;
   // Now check if we have IPv4, IPv6, or UNIX domain sockets to restore.
   for (iterator i = begin(); i != end(); ++i) {
@@ -168,7 +168,7 @@ void SocketConnList::scanForPreExisting()
 
     string device = jalib::Filesystem::GetDeviceName(fd);
 
-    JTRACE("scanning pre-existing device") (fd) (device);
+    JLOG(SOCKET)("scanning pre-existing device") (fd) (device);
     if (device == jalib::Filesystem::GetControllingTerm()) {
     } else if(dmtcp_is_bq_file && dmtcp_is_bq_file(device.c_str())) {
     } else if( fd <= 2 ){

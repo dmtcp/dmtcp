@@ -66,7 +66,7 @@ static int _makeDeadSocket(const char *refillData = NULL, ssize_t len = -1)
   }
   _real_close(sp[1]);
   if (really_verbose) {
-    JTRACE("Created dead socket.") (sp[0]);
+    JLOG(SOCKET)("Created dead socket.") (sp[0]);
   }
   return sp[0];
 }
@@ -124,7 +124,7 @@ void SocketConnection::restoreSocketOptions(vector<int>& fds)
        lvl!=_sockOptions.end(); ++lvl) {
     for (optionIterator opt = lvl->second.begin();
          opt!=lvl->second.end(); ++opt) {
-      JTRACE("Restoring socket option.")
+      JLOG(SOCKET)("Restoring socket option.")
         (fds[0]) (opt->first) (opt->second.size());
       int ret = _real_setsockopt(fds[0], lvl->first, opt->first,
                                  opt->second.buffer(),
@@ -145,7 +145,7 @@ void SocketConnection::serialize(jalib::JBinarySerializer& o)
   uint64_t numSockOpts = _sockOptions.size();
   o & numSockOpts;
   if (o.isWriter()) {
-    //JTRACE("TCP Serialize ") (_type) (_id.conId());
+    //JLOG(SOCKET)("TCP Serialize ") (_type) (_id.conId());
     typedef map< int64_t, map< int64_t, jalib::JBuffer > >::iterator levelIterator;
     typedef map< int64_t, jalib::JBuffer >::iterator optionIterator;
 
@@ -224,7 +224,7 @@ void SocketConnection::serialize(jalib::JBinarySerializer& o)
                && (type & 077) == SOCK_STREAM)
         (domain) (type) (protocol);
     }
-    JTRACE("Creating TcpConnection.") (id()) (domain) (type) (protocol);
+    JLOG(SOCKET)("Creating TcpConnection.") (id()) (domain) (type) (protocol);
   }
   memset(&_bindAddr, 0, sizeof _bindAddr);
 }
@@ -269,16 +269,16 @@ bool TcpConnection::isBlacklistedTcp(const sockaddr* saddr, socklen_t len)
                                     -1};
 #ifdef STAMPEDE_MPISPAWN_FIX
     int mpispawnPort = getMPISpawnPortNum("PMI_PORT");
-    JTRACE("PMI_PORT port") (mpispawnPort) (ntohs(addr->sin_port));
+    JLOG(SOCKET)("PMI_PORT port") (mpispawnPort) (ntohs(addr->sin_port));
     JASSERT(mpispawnPort != 0).Text("PMI_PORT not found");
     if (ntohs(addr->sin_port) == mpispawnPort) {
-      JTRACE("PMI_PORT port found") (mpispawnPort);
+      JLOG(SOCKET)("PMI_PORT port found") (mpispawnPort);
       return true;
     }
 #endif
     for (size_t i = 0; blacklistedRemotePorts[i] != -1; i++) {
       if (ntohs(addr->sin_port) == blacklistedRemotePorts[i]) {
-        JTRACE("LDAP port found") (ntohs(addr->sin_port))
+        JLOG(SOCKET)("LDAP port found") (ntohs(addr->sin_port))
           (blacklistedRemotePorts[0]) (blacklistedRemotePorts[1]);
         return true;
       }
@@ -289,7 +289,7 @@ bool TcpConnection::isBlacklistedTcp(const sockaddr* saddr, socklen_t len)
     for (size_t i = 0; blacklist[i] != ""; i++) {
       if (Util::strStartsWith(uaddr->sun_path, blacklist[i].c_str()) ||
           Util::strStartsWith(&uaddr->sun_path[1], blacklist[i].c_str())) {
-        JTRACE("Blacklisted socket address") (uaddr->sun_path);
+        JLOG(SOCKET)("Blacklisted socket address") (uaddr->sun_path);
         return true;
       }
     }
@@ -303,7 +303,7 @@ bool TcpConnection::isBlacklistedTcp(const sockaddr* saddr, socklen_t len)
 void TcpConnection::onBind(const struct sockaddr* addr, socklen_t len)
 {
   if (really_verbose) {
-    JTRACE("Binding.") (id()) (len);
+    JLOG(SOCKET)("Binding.") (id()) (len);
   }
 
   // If the bind succeeded, we do not need any additional assert.
@@ -338,7 +338,7 @@ void TcpConnection::onListen(int backlog)
   }
 
   if (really_verbose) {
-    JTRACE("Listening.") (id()) (backlog);
+    JLOG(SOCKET)("Listening.") (id()) (backlog);
   }
   JASSERT(_type == TCP_BIND) (_type) (id())
     .Text("Listening on a non-bind()ed socket????");
@@ -355,7 +355,7 @@ void TcpConnection::onConnect(const struct sockaddr *addr,
                               bool connectInProgress)
 {
   if (really_verbose) {
-    JTRACE("Connecting.") (id());
+    JLOG(SOCKET)("Connecting.") (id());
   }
   JWARNING(_type == TCP_CREATED || _type == TCP_BIND) (_type) (id())
     .Text("Connecting with an in-use socket????");
@@ -379,7 +379,7 @@ TcpConnection::TcpConnection(const TcpConnection& parent,
   , SocketConnection(parent._sockDomain, parent._sockType, parent._sockProtocol, remote)
 {
   if (really_verbose) {
-    JTRACE("Accepting.") (id()) (parent.id()) (remote);
+    JLOG(SOCKET)("Accepting.") (id()) (parent.id()) (remote);
   }
 
   //     JASSERT(parent._type == TCP_LISTEN) (parent._type) (parent.id())
@@ -389,9 +389,9 @@ TcpConnection::TcpConnection(const TcpConnection& parent,
 
 void TcpConnection::onError()
 {
-  JTRACE("Error.") (id());
+  JLOG(SOCKET)("Error.") (id());
   _type = TCP_ERROR;
-  JTRACE("Creating dead socket.") (_fds[0]) (_fds.size());
+  JLOG(SOCKET)("Creating dead socket.") (_fds[0]) (_fds.size());
   const vector<char>& buffer =
     KernelBufferDrainer::instance().getDrainedData(_id);
   Util::dupFds(_makeDeadSocket(&buffer[0], buffer.size()), _fds);
@@ -403,7 +403,7 @@ void TcpConnection::drain()
 
   if ((_fcntlFlags & O_ASYNC) != 0) {
     if (really_verbose) {
-      JTRACE("Removing O_ASYNC flag during checkpoint.") (_fds[0]) (id());
+      JLOG(SOCKET)("Removing O_ASYNC flag during checkpoint.") (_fds[0]) (id());
     }
     errno = 0;
     JASSERT(fcntl(_fds[0],F_SETFL,_fcntlFlags & ~O_ASYNC) == 0)
@@ -425,12 +425,12 @@ void TcpConnection::drain()
     retval = _real_poll (&socketFd, 1, 60*1000);
 
     if (retval == -1) {
-      JTRACE("poll() failed") (JASSERT_ERRNO);
+      JLOG(SOCKET)("poll() failed") (JASSERT_ERRNO);
     } else if (socketFd.revents & POLLOUT) {
       int val = -1;
       socklen_t sz = sizeof(val);
       getsockopt(_fds[0], SOL_SOCKET, SO_ERROR, &val, &sz);
-      JTRACE("Connect-in-progress socket is now writable.") (_fds[0]);
+      JLOG(SOCKET)("Connect-in-progress socket is now writable.") (_fds[0]);
       _type = TCP_CONNECT;
     } else {
       JWARNING(false) (_fds[0])
@@ -448,7 +448,7 @@ void TcpConnection::drain()
       // might be some stale data on it.
     case TCP_CONNECT:
     case TCP_ACCEPT:
-      JTRACE("Will drain socket") (_hasLock) (_fds[0]) (_id) (_remotePeerId);
+      JLOG(SOCKET)("Will drain socket") (_hasLock) (_fds[0]) (_id) (_remotePeerId);
       KernelBufferDrainer::instance().beginDrainOf(_fds[0], _id);
       break;
     case TCP_LISTEN:
@@ -461,7 +461,7 @@ void TcpConnection::drain()
               " it is not yet in a listen state.");
       break;
     case TCP_EXTERNAL_CONNECT:
-      JTRACE("Socket to External Process, won't be drained") (_fds[0]);
+      JLOG(SOCKET)("Socket to External Process, won't be drained") (_fds[0]);
       break;
   }
 }
@@ -471,11 +471,11 @@ void TcpConnection::doSendHandshakes(const ConnectionIdentifier& coordId)
   switch (_type) {
     case TCP_CONNECT:
     case TCP_ACCEPT:
-      JTRACE("Sending handshake ...") (id()) (_fds[0]);
+      JLOG(SOCKET)("Sending handshake ...") (id()) (_fds[0]);
       sendHandshake(_fds[0], coordId);
       break;
     case TCP_EXTERNAL_CONNECT:
-      JTRACE("Socket to External Process, skipping handshake send") (_fds[0]);
+      JLOG(SOCKET)("Socket to External Process, skipping handshake send") (_fds[0]);
       break;
   }
 }
@@ -486,10 +486,10 @@ void TcpConnection::doRecvHandshakes(const ConnectionIdentifier& coordId)
     case TCP_CONNECT:
     case TCP_ACCEPT:
       recvHandshake(_fds[0], coordId);
-      JTRACE("Received handshake.") (id()) (_remotePeerId) (_fds[0]);
+      JLOG(SOCKET)("Received handshake.") (id()) (_remotePeerId) (_fds[0]);
       break;
     case TCP_EXTERNAL_CONNECT:
-      JTRACE("Socket to External Process, skipping handshake recv") (_fds[0]);
+      JLOG(SOCKET)("Socket to External Process, skipping handshake recv") (_fds[0]);
       break;
   }
 }
@@ -497,7 +497,7 @@ void TcpConnection::doRecvHandshakes(const ConnectionIdentifier& coordId)
 void TcpConnection::refill(bool isRestart)
 {
   if ((_fcntlFlags & O_ASYNC) != 0) {
-    JTRACE("Re-adding O_ASYNC flag.") (_fds[0]) (id());
+    JLOG(SOCKET)("Re-adding O_ASYNC flag.") (_fds[0]) (id());
     restoreSocketOptions(_fds);
   } else if (isRestart && _sockDomain != AF_INET6 &&
              _type != TCP_EXTERNAL_CONNECT) {
@@ -513,7 +513,7 @@ void TcpConnection::postRestart()
     case TCP_PREEXISTING:
     case TCP_INVALID:
     case TCP_EXTERNAL_CONNECT:
-      JTRACE("Creating dead socket.") (_fds[0]) (_fds.size());
+      JLOG(SOCKET)("Creating dead socket.") (_fds[0]) (_fds.size());
       Util::dupFds(_makeDeadSocket(), _fds);
       break;
 
@@ -536,7 +536,7 @@ void TcpConnection::postRestart()
         .Text("Socket type not yet [fully] supported.");
 
       if (really_verbose) {
-        JTRACE("Restoring socket.") (id()) (_fds[0]);
+        JLOG(SOCKET)("Restoring socket.") (id()) (_fds[0]);
       }
 
       fd = _real_socket(_sockDomain, _sockType, _sockProtocol);
@@ -549,7 +549,7 @@ void TcpConnection::postRestart()
           _bindAddrlen > sizeof(_bindAddr.ss_family)) {
         struct sockaddr_un *uaddr = (sockaddr_un*) &_bindAddr;
         if (uaddr->sun_path[0] != '\0') {
-          JTRACE("Unlinking stale unix domain socket.") (uaddr->sun_path);
+          JLOG(SOCKET)("Unlinking stale unix domain socket.") (uaddr->sun_path);
           JWARNING(unlink(uaddr->sun_path) == 0) (uaddr->sun_path);
         }
       }
@@ -568,7 +568,7 @@ void TcpConnection::postRestart()
        */
 
       if (_sockDomain == AF_INET6) {
-        JTRACE("Restoring some socket options before binding.");
+        JLOG(SOCKET)("Restoring some socket options before binding.");
         typedef map< int64_t,
                      map< int64_t, jalib::JBuffer > >::iterator levelIterator;
         typedef map< int64_t, jalib::JBuffer >::iterator optionIterator;
@@ -580,7 +580,7 @@ void TcpConnection::postRestart()
                  opt!=lvl->second.end(); ++opt) {
               if (opt->first == IPV6_V6ONLY) {
                 if (really_verbose) {
-                  JTRACE("Restoring socket option.")
+                  JLOG(SOCKET)("Restoring socket option.")
                     (_fds[0]) (opt->first) (opt->second.size());
                 }
                 int ret = _real_setsockopt(_fds[0], lvl->first, opt->first,
@@ -596,7 +596,7 @@ void TcpConnection::postRestart()
       }
 
       if (really_verbose) {
-        JTRACE("Binding socket.") (id());
+        JLOG(SOCKET)("Binding socket.") (id());
       }
       errno = 0;
       JWARNING(_real_bind(_fds[0], (sockaddr*) &_bindAddr,_bindAddrlen) == 0)
@@ -604,7 +604,7 @@ void TcpConnection::postRestart()
       if (_type == TCP_BIND) break;
 
       if (really_verbose) {
-        JTRACE("Listening socket.") (id());
+        JLOG(SOCKET)("Listening socket.") (id());
       }
       errno = 0;
       JWARNING(_real_listen(_fds[0], _listenBacklog) == 0)
@@ -618,7 +618,7 @@ void TcpConnection::postRestart()
         .Text("Can't restore a TCP_ACCEPT socket with null acceptRemoteId.\n"
               "  Perhaps handshake went wrong?");
 
-      JTRACE("registerIncoming") (id()) (_remotePeerId) (_fds[0]);
+      JLOG(SOCKET)("registerIncoming") (id()) (_remotePeerId) (_fds[0]);
       ConnectionRewirer::instance().registerIncoming(id(), this, _sockDomain);
       break;
 
@@ -635,7 +635,7 @@ void TcpConnection::postRestart()
         JWARNING(_real_bind(_fds[0], (sockaddr*)&_bindAddr, _bindAddrlen) != -1)
           (JASSERT_ERRNO);
       }
-      JTRACE("registerOutgoing") (id()) (_remotePeerId) (_fds[0]);
+      JLOG(SOCKET)("registerOutgoing") (id()) (_remotePeerId) (_fds[0]);
       ConnectionRewirer::instance().registerOutgoing(_remotePeerId, this);
       break;
       //    case TCP_EXTERNAL_CONNECT:
@@ -705,7 +705,7 @@ RawSocketConnection::RawSocketConnection(int domain, int type, int protocol)
   JASSERT(type == -1 ||(type & SOCK_RAW));
   JASSERT(domain == -1 || domain == AF_NETLINK) (domain)
     .Text("Only Netlink raw socket supported");
-  JTRACE("Creating Raw socket.") (id()) (domain) (type) (protocol);
+  JLOG(SOCKET)("Creating Raw socket.") (id()) (domain) (type) (protocol);
 }
 
 void RawSocketConnection::drain()
@@ -714,7 +714,7 @@ void RawSocketConnection::drain()
 
   if ((_fcntlFlags & O_ASYNC) != 0) {
     if (really_verbose) {
-      JTRACE("Removing O_ASYNC flag during checkpoint.") (_fds[0]) (id());
+      JLOG(SOCKET)("Removing O_ASYNC flag during checkpoint.") (_fds[0]) (id());
     }
     errno = 0;
     JASSERT(fcntl(_fds[0], F_SETFL, _fcntlFlags & ~O_ASYNC) == 0)
@@ -725,7 +725,7 @@ void RawSocketConnection::drain()
 void RawSocketConnection::refill(bool isRestart)
 {
   if ((_fcntlFlags & O_ASYNC) != 0) {
-    JTRACE("Re-adding O_ASYNC flag.") (_fds[0]) (id());
+    JLOG(SOCKET)("Re-adding O_ASYNC flag.") (_fds[0]) (id());
     restoreSocketOptions(_fds);
   } else if (isRestart) {
     restoreSocketOptions(_fds);
@@ -737,7 +737,7 @@ void RawSocketConnection::postRestart()
   JASSERT(_fds.size() > 0);
 
   if (really_verbose) {
-    JTRACE("Restoring socket.") (id()) (_fds[0]);
+    JLOG(SOCKET)("Restoring socket.") (id()) (_fds[0]);
   }
 
   switch(_type) {
@@ -753,7 +753,7 @@ void RawSocketConnection::postRestart()
       if (_type == RAW_CREATED) break;
 
       if (_sockDomain == AF_NETLINK) {
-        JTRACE("Restoring some socket options before binding.");
+        JLOG(SOCKET)("Restoring some socket options before binding.");
         typedef map< int64_t,
                      map< int64_t, jalib::JBuffer > >::iterator levelIterator;
         typedef map< int64_t, jalib::JBuffer >::iterator optionIterator;
@@ -765,7 +765,7 @@ void RawSocketConnection::postRestart()
                  opt!=lvl->second.end(); ++opt) {
               if (opt->first == SO_ATTACH_FILTER) {
                 if (really_verbose) {
-                  JTRACE("Restoring socket option.")
+                  JLOG(SOCKET)("Restoring socket option.")
                     (_fds[0]) (opt->first) (opt->second.size());
                 }
                 int ret = _real_setsockopt(_fds[0], lvl->first, opt->first,
@@ -804,7 +804,7 @@ void RawSocketConnection::serializeSubClass(jalib::JBinarySerializer& o)
 
 void RawSocketConnection::onBind(const struct sockaddr* addr, socklen_t len)
 {
-  JTRACE("bind on raw socket") (_fds[0]) (this->conType()) (this->id());
+  JLOG(SOCKET)("bind on raw socket") (_fds[0]) (this->conType()) (this->id());
   if (addr != NULL) {
     JASSERT(len <= sizeof _bindAddr) (len) (sizeof _bindAddr)
       .Text("That is one huge sockaddr buddy.");
@@ -816,7 +816,7 @@ void RawSocketConnection::onBind(const struct sockaddr* addr, socklen_t len)
 
 void RawSocketConnection::onListen(int backlog)
 {
-  JTRACE("listen on raw socket") (_fds[0]) (this->conType()) (this->id()) (backlog);
+  JLOG(SOCKET)("listen on raw socket") (_fds[0]) (this->conType()) (this->id()) (backlog);
   _listenBacklog = backlog;
   _type = RAW_LISTEN;
 }
@@ -827,7 +827,7 @@ RawSocketConnection::RawSocketConnection(const RawSocketConnection& parent,
   , SocketConnection(parent._sockDomain, parent._sockType, parent._sockProtocol, remote)
 {
   if (really_verbose) {
-    JTRACE("Accepting.") (id()) (parent.id()) (remote);
+    JLOG(SOCKET)("Accepting.") (id()) (parent.id()) (remote);
   }
 
   //     JASSERT(parent._type == RAW_LISTEN) (parent._type) (parent.id())

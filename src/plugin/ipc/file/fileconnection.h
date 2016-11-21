@@ -94,7 +94,7 @@ namespace dmtcp
       };
 
       StdioConnection(int fd): Connection(STDIO + fd) {
-        JTRACE("creating stdio connection") (fd) (id());
+        JLOG(FILEP)("creating stdio connection") (fd) (id());
         JASSERT(jalib::Between(0, fd, 2)) (fd)
           .Text("invalid fd for StdioConnection");
       }
@@ -198,7 +198,7 @@ namespace dmtcp
         offs++;
         _rel_path = _path.substr(offs);
       }
-      JTRACE("New Fifo connection created") (_path) (_rel_path);
+      JLOG(FILEP)("New Fifo connection created") (_path) (_rel_path);
       _in_data.clear();
     }
 

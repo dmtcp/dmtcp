@@ -60,7 +60,7 @@ extern "C" void process_fd_event(int event, int arg1, int arg2 = -1)
 extern "C" int close(int fd)
 {
   if (dmtcp_is_protected_fd(fd)) {
-    JTRACE("blocked attempt to close protected fd") (fd);
+    JLOG(IPC)("blocked attempt to close protected fd") (fd);
     errno = EBADF;
     return -1;
   }
@@ -78,7 +78,7 @@ extern "C" int fclose(FILE *fp)
 {
   int fd = fileno(fp);
   if (dmtcp_is_protected_fd(fd)) {
-    JTRACE("blocked attempt to fclose protected fd") (fd);
+    JLOG(IPC)("blocked attempt to fclose protected fd") (fd);
     errno = EBADF;
     return -1;
   }
@@ -97,7 +97,7 @@ extern "C" int closedir(DIR *dir)
 {
   int fd = dirfd(dir);
   if (dmtcp_is_protected_fd(fd)) {
-    JTRACE("blocked attempt to closedir protected fd") (fd);
+    JLOG(IPC)("blocked attempt to closedir protected fd") (fd);
     errno = EBADF;
     return -1;
   }

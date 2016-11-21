@@ -211,7 +211,7 @@ static void createNewDmtcpSshdProcess()
     dup2(out[1], STDOUT_FILENO);
     dup2(err[1], STDERR_FILENO);
 
-    JTRACE("Launching ") (argv[0]) (argv[1]) (argv[2]) (argv[3]) (argv[4]) (argv[5]);
+    JLOG(SSH)("Launching ") (argv[0]) (argv[1]) (argv[2]) (argv[3]) (argv[4]) (argv[5]);
     _real_execvp(argv[0], argv);
     JASSERT(false);
   }
@@ -356,7 +356,7 @@ static void prepareForExec(char *const argv[], char ***newArgv)
     }
   }
 
-  JTRACE("Prefix")(prefix);
+  JLOG(SSH)("Prefix")(prefix);
 
   // process command
   size_t semipos, pos;
@@ -460,7 +460,7 @@ static void updateCoordHost() {
 
       error = getnameinfo(res->ai_addr, res->ai_addrlen, name, NI_MAXHOST, NULL, 0, 0);
       if (error != 0) {
-        JTRACE("getnameinfo() failed.") (gai_strerror(error));
+        JLOG(SSH)("getnameinfo() failed.") (gai_strerror(error));
         continue;
       }
       if (Util::strStartsWith(name, hostname) ||
@@ -477,7 +477,7 @@ static void updateCoordHost() {
     if (error == EAI_SYSTEM) {
       perror("getaddrinfo");
     } else {
-      JTRACE("Error in getaddrinfo") (gai_strerror(error));
+      JLOG(SSH)("Error in getaddrinfo") (gai_strerror(error));
     }
     inet_aton("127.0.0.1", &localhostIPAddr);
   }

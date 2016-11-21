@@ -283,7 +283,7 @@ void FileConnList::prepareShmList()
 
       if (jalib::Filesystem::FileExists(area.name)) {
         if (_real_access(area.name, W_OK) == 0) {
-          JTRACE("Will checkpoint shared memory area") (area.name);
+          JLOG(FILEP)("Will checkpoint shared memory area") (area.name);
           int flags = Util::memProtToOpenFlags(area.prot);
           int fd = _real_open(area.name, flags, 0);
           JASSERT(fd != -1) (JASSERT_ERRNO) (area.name);
@@ -307,7 +307,7 @@ void FileConnList::prepareShmList()
                              MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED,
                              -1, 0) != MAP_FAILED) (JASSERT_ERRNO);
         } else {
-          JTRACE("Will not checkpoint shared memory area") (area.name);
+          JLOG(FILEP)("Will not checkpoint shared memory area") (area.name);
         }
       } else {
         // TODO: Shared memory areas with unlinked backing files.
@@ -317,7 +317,7 @@ void FileConnList::prepareShmList()
           JWARNING(false) (area.name)
             .Text("Ckpt/Restart of anonymous shared memory not supported.");
         } else {
-          JTRACE("Will recreate shm file on restart.") (area.name);
+          JLOG(FILEP)("Will recreate shm file on restart.") (area.name);
 
           // Remove the DELETED suffix.
           area.name[strlen(area.name) - strlen(DELETED_FILE_SUFFIX)] = '\0';
@@ -369,7 +369,7 @@ void FileConnList::restoreShmArea(const ProcMapsArea& area, int fd)
 
   JASSERT(fd != -1) (area.name) (JASSERT_ERRNO);
 
-  JTRACE("Restoring shared memory area") (area.name) ((void*)area.addr);
+  JLOG(FILEP)("Restoring shared memory area") (area.name) ((void*)area.addr);
   void *addr = _real_mmap(area.addr, area.size, area.prot,
                           MAP_FIXED | area.flags, fd, area.offset);
   JASSERT(addr != MAP_FAILED) (area.flags) (area.prot) (JASSERT_ERRNO)
@@ -383,7 +383,7 @@ void FileConnList::remapShmMaps()
     ProcMapsArea *area = &shmAreas[i];
     FileConnection *fileCon = shmAreaConn[i];
     int fd = fileCon->getFds()[0];
-    JTRACE("Restoring shared memory area") (area->name) ((void*)area->addr);
+    JLOG(FILEP)("Restoring shared memory area") (area->name) ((void*)area->addr);
     void *addr = _real_mmap(area->addr, area->size, area->prot,
                             MAP_FIXED | area->flags,
                             fd, area->offset);
@@ -413,7 +413,7 @@ void FileConnList::scanForPreExisting()
 
     string device = jalib::Filesystem::GetDeviceName(fd);
 
-    JTRACE("scanning pre-existing device") (fd) (device);
+    JLOG(FILEP)("scanning pre-existing device") (fd) (device);
     if (device == ctty || device == parentCtty) {
       // Search if this is duplicate connection
       iterator conit;

@@ -126,21 +126,21 @@ void ConnectionList::eventHook(DmtcpEvent_t event,
       break;
 
     case DMTCP_EVENT_LEADER_ELECTION:
-      JTRACE("locking...");
+      JLOG(IPC)("locking...");
       preCkptFdLeaderElection();
-      JTRACE("locked");
+      JLOG(IPC)("locked");
       break;
 
     case DMTCP_EVENT_DRAIN:
-      JTRACE("draining...");
+      JLOG(IPC)("draining...");
       drain();
-      JTRACE("drained");
+      JLOG(IPC)("drained");
       break;
 
     case DMTCP_EVENT_WRITE_CKPT:
-      JTRACE("preCkpt...");
+      JLOG(IPC)("preCkpt...");
       preCkpt();
-      JTRACE("done preCkpt");
+      JLOG(IPC)("done preCkpt");
       break;
 
     case DMTCP_EVENT_REFILL:
@@ -212,7 +212,7 @@ void ConnectionList::deleteStaleConnections()
           << "\t->\t" << c->id() << "\n";
     }
     out << "==================================================\n";
-    JTRACE("Deleting Stale Connections") (out.str());
+    JLOG(IPC)("Deleting Stale Connections") (out.str());
   }
 #endif
 
@@ -282,7 +282,7 @@ void ConnectionList::list()
     o << "\t" << i->first << "\t" << c->str();
     o << "\n";
   }
-  JTRACE("ConnectionList") (dmtcp_get_uniquepid_str()) (o.str());
+  JLOG(IPC)("ConnectionList") (dmtcp_get_uniquepid_str()) (o.str());
 }
 
 Connection*
@@ -425,9 +425,9 @@ void ConnectionList::refill(bool isRestart)
     }
   }
   if (isRestart) {
-    JTRACE("Waiting for Missing Cons");
+    JLOG(IPC)("Waiting for Missing Cons");
     sendReceiveMissingFds();
-    JTRACE("Done waiting for Missing Cons");
+    JLOG(IPC)("Done waiting for Missing Cons");
   }
 }
 
@@ -511,7 +511,7 @@ void ConnectionList::registerIncomingCons()
       out << "\n\t" << con->str() << i->first;
     }
   }
-  JTRACE("Incoming/Outgoing Cons") (in.str()) (out.str());
+  JLOG(IPC)("Incoming/Outgoing Cons") (in.str()) (out.str());
   numIncomingCons = incomingCons.size();
   if (numIncomingCons > 0) {
     SharedData::registerIncomingCons(incomingCons, fdReceiveAddr,
@@ -555,7 +555,7 @@ void ConnectionList::sendReceiveMissingFds()
       outgoingCons.pop_back();
       ConnectionIdentifier *id = (ConnectionIdentifier*) maps[idx].id;
       Connection *con = getConnection(*id);
-      JTRACE("Sending Missing Con") (*id);
+      JLOG(IPC)("Sending Missing Con") (*id);
       JASSERT(Util::sendFd(restoreFd, con->getFds()[0], id, sizeof(*id),
                            maps[idx].addr, maps[idx].len) != -1);
       numOutgoingCons--;
@@ -566,7 +566,7 @@ void ConnectionList::sendReceiveMissingFds()
       int fd = Util::receiveFd(restoreFd, &id, sizeof(id));
       JASSERT(fd != -1);
       Connection *con = getConnection(id);
-      JTRACE("Received Missing Con") (id);
+      JLOG(IPC)("Received Missing Con") (id);
       JASSERT(con != NULL);
       Util::dupFds(fd, con->getFds());
       numIncomingCons--;

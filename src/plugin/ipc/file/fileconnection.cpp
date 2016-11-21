@@ -246,7 +246,7 @@ PtyConnection::PtyConnection(int fd, const char *path,
         SharedData::createVirtualPtyName(path, buf, sizeof(buf));
       }
       _virtPtsName = buf;
-      JTRACE("creating CTTY connection") (_ptsName) (_virtPtsName);
+      JLOG(FILEP)("creating CTTY connection") (_ptsName) (_virtPtsName);
 
       break;
 
@@ -267,7 +267,7 @@ PtyConnection::PtyConnection(int fd, const char *path,
       // Generate new Unique buf
       SharedData::createVirtualPtyName(_ptsName.c_str(), buf, sizeof(buf));
       _virtPtsName = buf;
-      JTRACE("creating ptmx connection") (_ptsName) (_virtPtsName);
+      JLOG(FILEP)("creating ptmx connection") (_ptsName) (_virtPtsName);
       break;
 
     case PTY_SLAVE:
@@ -275,7 +275,7 @@ PtyConnection::PtyConnection(int fd, const char *path,
       SharedData::getVirtPtyName(path, buf, sizeof(buf));
       _virtPtsName = buf;
       JASSERT(strlen(buf) != 0) (path);
-      JTRACE("creating pts connection") (_ptsName) (_virtPtsName);
+      JLOG(FILEP)("creating pts connection") (_ptsName) (_virtPtsName);
       break;
 
     case PTY_BSD_MASTER:
@@ -300,7 +300,7 @@ void PtyConnection::drain()
     // _fds[0] is master fd
     numRead = ptmxReadAll(_fds[0], buf, maxCount);
     _ptmxIsPacketMode = ptmxTestPacketMode(_fds[0]);
-    JTRACE("_fds[0] is master(/dev/ptmx)") (_fds[0]) (_ptmxIsPacketMode);
+    JLOG(FILEP)("_fds[0] is master(/dev/ptmx)") (_fds[0]) (_ptmxIsPacketMode);
     numWritten = ptmxWriteAll(_fds[0], buf, _ptmxIsPacketMode);
     JASSERT(numRead == numWritten) (numRead) (numWritten);
   }
@@ -320,7 +320,7 @@ void PtyConnection::preRefill(bool isRestart)
 
   if (_type == PTY_SLAVE || _type == PTY_BSD_SLAVE) {
     JASSERT(_ptsName.compare("?") != 0);
-    JTRACE("Restoring PTY slave") (_fds[0]) (_ptsName) (_virtPtsName);
+    JLOG(FILEP)("Restoring PTY slave") (_fds[0]) (_ptsName) (_virtPtsName);
     if (_type == PTY_SLAVE) {
       char buf[32];
       SharedData::getRealPtyName(_virtPtsName.c_str(), buf, sizeof(buf));
@@ -338,7 +338,7 @@ void PtyConnection::preRefill(bool isRestart)
     JASSERT(tempfd >= 0) (_virtPtsName) (_ptsName) (JASSERT_ERRNO)
       .Text("Error Opening PTS");
 
-    JTRACE("Restoring PTS real") (_ptsName) (_virtPtsName) (_fds[0]);
+    JLOG(FILEP)("Restoring PTS real") (_ptsName) (_virtPtsName) (_fds[0]);
     Util::dupFds(tempfd, _fds);
   }
 }
@@ -358,7 +358,7 @@ void PtyConnection::refill(bool isRestart)
     JASSERT(tempfd >= 0) (tempfd) (JASSERT_ERRNO)
       .Text("Error opening controlling terminal /dev/tty");
 
-    JTRACE("Restoring /dev/tty for the process") (_fds[0]);
+    JLOG(FILEP)("Restoring /dev/tty for the process") (_fds[0]);
     _ptsName = _virtPtsName = "/dev/tty";
     Util::dupFds(tempfd, _fds);
   }
@@ -377,7 +377,7 @@ void PtyConnection::postRestart()
   switch (_type) {
     case PTY_INVALID:
       //tempfd = _real_open("/dev/null", O_RDWR);
-      JTRACE("Restoring invalid PTY.") (id());
+      JLOG(FILEP)("Restoring invalid PTY.") (id());
       return;
 
     case PTY_CTTY:
@@ -398,7 +398,7 @@ void PtyConnection::postRestart()
             .Text("Error Opening the terminal attached with the process");
         } else {
           if (_type == PTY_CTTY) {
-            JTRACE("Unable to restore controlling terminal attached with the "
+            JLOG(FILEP)("Unable to restore controlling terminal attached with the "
                    "parent process.\n"
                    "Replacing it with current STDIN")
               (stdinDeviceName);
@@ -421,7 +421,7 @@ void PtyConnection::postRestart()
           }
         }
 
-        JTRACE("Restoring parent CTTY for the process")
+        JLOG(FILEP)("Restoring parent CTTY for the process")
           (controllingTty) (_fds[0]);
 
         _ptsName = controllingTty;
@@ -450,12 +450,12 @@ void PtyConnection::postRestart()
           ioctl(_fds[0], TIOCPKT, &packetMode); /* Restore old packet mode */
         }
 
-        JTRACE("Restoring /dev/ptmx") (_fds[0]) (_ptsName) (_virtPtsName);
+        JLOG(FILEP)("Restoring /dev/ptmx") (_fds[0]) (_ptsName) (_virtPtsName);
         break;
       }
     case PTY_BSD_MASTER:
       {
-        JTRACE("Restoring BSD Master Pty") (_masterName) (_fds[0]);
+        JLOG(FILEP)("Restoring BSD Master Pty") (_masterName) (_fds[0]);
         //string slaveDeviceName =
           //_masterName.replace(0, strlen("/dev/pty"), "/dev/tty");
 
@@ -487,7 +487,7 @@ void PtyConnection::serializeSubClass(jalib::JBinarySerializer& o)
   JSERIALIZE_ASSERT_POINT("PtyConnection");
   o & _ptsName & _virtPtsName & _masterName & _type;
   o & _flags & _mode & _preExistingCTTY;
-  JTRACE("Serializing PtyConn.") (_ptsName) (_virtPtsName);
+  JLOG(FILEP)("Serializing PtyConn.") (_ptsName) (_virtPtsName);
 }
 
 /*****************************************************************************
@@ -567,9 +567,9 @@ void FileConnection::drain()
   if (_type == FILE_BATCH_QUEUE &&
       dmtcp_bq_should_ckpt_file &&
       dmtcp_bq_should_ckpt_file(_path.c_str(), &_rmtype)) {
-    JTRACE("Pre-checkpoint Torque files") (_fds.size());
+    JLOG(FILEP)("Pre-checkpoint Torque files") (_fds.size());
     for (unsigned int i=0; i< _fds.size(); i++)
-      JTRACE("_fds[i]=") (i) (_fds[i]);
+      JLOG(FILEP)("_fds[i]=") (i) (_fds[i]);
     _ckpted_file = true;
     return;
   }
@@ -626,7 +626,8 @@ void FileConnection::preCkpt()
                               S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
       JASSERT(destFd != -1) (JASSERT_ERRNO) (_path) (_savedFilePath);
 
-      JTRACE("Saving checkpointed copy of the file") (_path) (_savedFilePath);
+      JLOG(FILEP)("Saving checkpointed copy of the file")
+                 (_path)(_savedFilePath);
       if (_fcntlFlags & O_WRONLY) {
         // If the file is opened() in write-only mode. Open it in readonly mode
         // to create the ckpt copy.
@@ -639,7 +640,7 @@ void FileConnection::preCkpt()
       }
       _real_close(destFd);
     } else {
-      JTRACE("Not checkpointing this file") (_path);
+      JLOG(FILEP)("Not checkpointing this file") (_path);
       _ckpted_file = false;
     }
     /* The _allow_overwrite flag is clear by default; we only set
@@ -700,7 +701,7 @@ void FileConnection::refill(bool isRestart)
     JASSERT(savedFd != -1) (JASSERT_ERRNO) (_savedFilePath);
 
     if (_allow_overwrite) {
-      JTRACE("Copying checkpointed file to original location")
+      JLOG(FILEP)("Copying checkpointed file to original location")
         (_savedFilePath) (_path);
       this->overwriteFileWithBackup(savedFd);
     } else {
@@ -758,7 +759,7 @@ void FileConnection::refill(bool isRestart)
     if (_offset <= statbuf.st_size && _offset <= _st_size) {
       JASSERT(lseek(_fds[0], _offset, SEEK_SET) == _offset)
         (_path) (_offset) (JASSERT_ERRNO);
-      //JTRACE("lseek(_fds[0], _offset, SEEK_SET)") (_fds[0]) (_offset);
+      //JLOG(FILEP)("lseek(_fds[0], _offset, SEEK_SET)") (_fds[0]) (_offset);
     } else if (_offset > statbuf.st_size || _offset > _st_size) {
       JWARNING(false) (_path) (_offset) (_st_size) (statbuf.st_size)
         .Text("No lseek done:  offset is larger than min of old and new size.");
@@ -791,9 +792,9 @@ void FileConnection::refreshPath()
   if (_type == FILE_BATCH_QUEUE) {
     // get new file name
     string newpath = jalib::Filesystem::GetDeviceName(_fds[0]);
-    JTRACE("This is Resource Manager file!") (_fds[0]) (newpath) (_path) (this);
+    JLOG(FILEP)("This is Resource Manager file!") (_fds[0]) (newpath) (_path) (this);
     if (newpath != _path) {
-      JTRACE("File Manager connection _path is changed => _path = newpath!")
+      JLOG(FILEP)("File Manager connection _path is changed => _path = newpath!")
         (_path) (newpath);
       _path = newpath;
     }
@@ -818,7 +819,7 @@ void FileConnection::refreshPath()
     string fullPath = cwd + "/" + _rel_path;
     if (jalib::Filesystem::FileExists(fullPath)) {
       _path = fullPath;
-      JTRACE("Change _path based on relative path")
+      JLOG(FILEP)("Change _path based on relative path")
         (oldPath) (_path) (_rel_path);
     }
   } else if (_type == FILE_PROCFS) {
@@ -844,7 +845,7 @@ void FileConnection::postRestart()
   if (!_ckpted_file) return;
   _fileAlreadyExists = false;
 
-  JTRACE("Restoring File Connection") (id()) (_path);
+  JLOG(FILEP)("Restoring File Connection") (id()) (_path);
   JASSERT(jalib::Filesystem::FileExists(_savedFilePath))
     (_savedFilePath) (_path) .Text("Unable to find checkpointed copy of file");
 
@@ -852,7 +853,7 @@ void FileConnection::postRestart()
     JASSERT(dmtcp_bq_restore_file);
     tempfd = dmtcp_bq_restore_file(_path.c_str(), _savedFilePath.c_str(),
                                    _fcntlFlags, _rmtype);
-    JTRACE("Restore Resource Manager File") (_path);
+    JLOG(FILEP)("Restore Resource Manager File") (_path);
   } else {
     refreshPath();
     JASSERT(Util::createDirectoryTree(_path)) (_path)
@@ -875,7 +876,7 @@ void FileConnection::postRestart()
       int srcFd = _real_open(_savedFilePath.c_str(), O_RDONLY, 0);
       JASSERT(srcFd != -1) (_path) (_savedFilePath) (JASSERT_ERRNO)
         .Text("Failed to open checkpointed copy of the file.");
-      JTRACE("Copying saved checkpointed file to original location")
+      JLOG(FILEP)("Copying saved checkpointed file to original location")
         (_savedFilePath) (_path);
       writeFileFromFd(srcFd, fd);
       _real_close(srcFd);
@@ -912,7 +913,7 @@ int FileConnection::openFile()
   int fd = _real_open(_path.c_str(), _fcntlFlags);
   JASSERT(fd != -1) (_path) (JASSERT_ERRNO) .Text("open() failed");
 
-  JTRACE("open(_path.c_str(), _fcntlFlags)") (fd) (_path.c_str()) (_fcntlFlags);
+  JLOG(FILEP)("open(_path.c_str(), _fcntlFlags)") (fd) (_path.c_str()) (_fcntlFlags);
   return fd;
 }
 
@@ -986,7 +987,7 @@ void FileConnection::serializeSubClass(jalib::JBinarySerializer& o)
   JSERIALIZE_ASSERT_POINT("FileConnection");
   o & _path & _rel_path;
   o & _offset & _st_dev & _st_ino & _st_size & _ckpted_file & _rmtype;
-  JTRACE("Serializing FileConn.") (_path) (_rel_path)
+  JLOG(FILEP)("Serializing FileConn.") (_path) (_rel_path)
     (dmtcp_get_ckpt_files_subdir()) (_ckpted_file) (_allow_overwrite) (_fcntlFlags);
 }
 
@@ -1000,7 +1001,7 @@ void FifoConnection::drain()
   JASSERT(_fds.size() > 0);
 
   stat(_path.c_str(),&st);
-  JTRACE("Checkpoint fifo.") (_fds[0]);
+  JLOG(FILEP)("Checkpoint fifo.") (_fds[0]);
   _mode = st.st_mode;
 
   int new_flags =(_fcntlFlags & (~(O_RDONLY|O_WRONLY))) | O_RDWR | O_NONBLOCK;
@@ -1022,7 +1023,7 @@ void FifoConnection::drain()
     }
   }
   close(ckptfd);
-  JTRACE("Checkpointing fifo:  end.") (_fds[0]) (_in_data.size());
+  JLOG(FILEP)("Checkpointing fifo:  end.") (_fds[0]) (_in_data.size());
 }
 
 void FifoConnection::refill(bool isRestart)
@@ -1048,14 +1049,14 @@ void FifoConnection::refill(bool isRestart)
   }
   errno=0;
   buf[j] ='\0';
-  JTRACE("Buf internals.") ((const char*)buf);
+  JLOG(FILEP)("Buf internals.") ((const char*)buf);
   ret = Util::writeAll(ckptfd,buf,j);
   JASSERT(ret ==(ssize_t)j) (JASSERT_ERRNO) (ret) (j) (_fds[0]);
 
   close(ckptfd);
   // unlock fifo
   flock(_fds[0],LOCK_UN);
-  JTRACE("End checkpointing fifo.") (_fds[0]);
+  JLOG(FILEP)("End checkpointing fifo.") (_fds[0]);
 }
 
 void FifoConnection::refreshPath()
@@ -1067,7 +1068,7 @@ void FifoConnection::refreshPath()
     fullPath << cwd << "/" << _rel_path;
     if (jalib::Filesystem::FileExists(fullPath.str())) {
       _path = fullPath.str();
-      JTRACE("Change _path based on relative path") (oldPath) (_path);
+      JLOG(FILEP)("Change _path based on relative path") (oldPath) (_path);
     }
   }
 }
@@ -1075,7 +1076,7 @@ void FifoConnection::refreshPath()
 void FifoConnection::postRestart()
 {
   JASSERT(_fds.size() > 0);
-  JTRACE("Restoring Fifo Connection") (id()) (_path);
+  JLOG(FILEP)("Restoring Fifo Connection") (id()) (_path);
   refreshPath();
   int tempfd = openFile();
   Util::dupFds(tempfd, _fds);
@@ -1087,16 +1088,16 @@ int FifoConnection::openFile()
   int fd;
 
   if (!jalib::Filesystem::FileExists(_path)) {
-    JTRACE("Fifo file not present, creating new one") (_path);
+    JLOG(FILEP)("Fifo file not present, creating new one") (_path);
     jalib::string dir = jalib::Filesystem::DirName(_path);
-    JTRACE("fifo dir:")(dir);
+    JLOG(FILEP)("fifo dir:")(dir);
     jalib::Filesystem::mkdir_r(dir, 0755);
     mkfifo(_path.c_str(), _mode);
-    JTRACE("mkfifo") (_path.c_str()) (errno);
+    JLOG(FILEP)("mkfifo") (_path.c_str()) (errno);
   }
 
   fd = _real_open(_path.c_str(), O_RDWR | O_NONBLOCK);
-  JTRACE("Is opened") (_path.c_str()) (fd);
+  JLOG(FILEP)("Is opened") (_path.c_str()) (fd);
 
   JASSERT(fd != -1) (_path) (JASSERT_ERRNO);
   return fd;
@@ -1106,7 +1107,7 @@ void FifoConnection::serializeSubClass(jalib::JBinarySerializer& o)
 {
   JSERIALIZE_ASSERT_POINT("FifoConnection");
   o & _path & _rel_path & _savedRelativePath & _mode & _in_data;
-  JTRACE("Serializing FifoConn.") (_path) (_rel_path) (_savedRelativePath);
+  JLOG(FILEP)("Serializing FifoConn.") (_path) (_rel_path) (_savedRelativePath);
 }
 
 /*****************************************************************************
@@ -1118,21 +1119,21 @@ void StdioConnection::postRestart()
   for (size_t i=0; i<_fds.size(); ++i) {
     int fd = _fds[i];
     if (fd <= 2) {
-      JTRACE("Skipping restore of STDIO, just inherit from parent") (fd);
+      JLOG(FILEP)("Skipping restore of STDIO, just inherit from parent") (fd);
       continue;
     }
     int oldFd = -1;
     switch (_type) {
       case STDIO_IN:
-        JTRACE("Restoring STDIN") (fd);
+        JLOG(FILEP)("Restoring STDIN") (fd);
         oldFd=0;
         break;
       case STDIO_OUT:
-        JTRACE("Restoring STDOUT") (fd);
+        JLOG(FILEP)("Restoring STDOUT") (fd);
         oldFd=1;
         break;
       case STDIO_ERR:
-        JTRACE("Restoring STDERR") (fd);
+        JLOG(FILEP)("Restoring STDERR") (fd);
         oldFd=2;
         break;
       default:
@@ -1167,7 +1168,7 @@ void PosixMQConnection::drain()
 {
   JASSERT(_fds.size() > 0);
 
-  JTRACE("Checkpoint Posix Message Queue.") (_fds[0]);
+  JLOG(FILEP)("Checkpoint Posix Message Queue.") (_fds[0]);
 
   struct stat statbuf;
   JASSERT(fstat(_fds[0], &statbuf) != -1) (JASSERT_ERRNO);

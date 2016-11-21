@@ -156,7 +156,7 @@ extern "C" int signalfd(int fd, const sigset_t *mask, int flags)
   DMTCP_PLUGIN_DISABLE_CKPT();
   int ret = _real_signalfd(fd, mask, flags);
   if (ret != -1) {
-    JTRACE("signalfd created") (fd) (flags);
+    JLOG(EVENT)("signalfd created") (fd) (flags);
     EventConnList::instance().add(ret, new SignalFdConnection(fd, mask, flags));
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -170,7 +170,7 @@ extern "C" int eventfd(EVENTFD_VAL_TYPE initval, int flags)
   DMTCP_PLUGIN_DISABLE_CKPT();
   int ret = _real_eventfd(initval, flags);
   if (ret != -1) {
-    JTRACE("eventfd created") (ret) (initval) (flags);
+    JLOG(EVENT)("eventfd created") (ret) (initval) (flags);
     EventConnList::instance().add(ret, new EventFdConnection(initval, flags));
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -184,7 +184,7 @@ extern "C" int epoll_create(int size)
   DMTCP_PLUGIN_DISABLE_CKPT();
   int ret = _real_epoll_create(size);
   if (ret != -1) {
-    JTRACE("epoll fd created") (ret) (size);
+    JLOG(EVENT)("epoll fd created") (ret) (size);
     EventConnList::instance().add(ret, new EpollConnection(size));
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -196,7 +196,7 @@ extern "C" int epoll_create1(int flags)
   DMTCP_PLUGIN_DISABLE_CKPT();
   int ret = _real_epoll_create1(flags);
   if (ret != -1) {
-    JTRACE("epoll fd created1") (ret) (flags);
+    JLOG(EVENT)("epoll fd created1") (ret) (flags);
     EventConnList::instance().add(ret, new EpollConnection(flags));
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -208,7 +208,7 @@ extern "C" int epoll_ctl(int epfd, int op, int fd, struct epoll_event *event)
   DMTCP_PLUGIN_DISABLE_CKPT();
   int ret = _real_epoll_ctl(epfd, op, fd, event);
   if (ret != -1) {
-    //JTRACE("epoll fd CTL") (ret) (epfd) (fd) (op);
+    //JLOG(EVENT)("epoll fd CTL") (ret) (epfd) (fd) (op);
     EpollConnection *con =
       (EpollConnection*) EventConnList::instance().getConnection(epfd);
     con->onCTL(op, fd, event);
@@ -223,7 +223,7 @@ extern "C" int epoll_wait(int epfd, struct epoll_event *events, int maxevents,
   int readyFds = 0;
   int timeLeft = timeout;
   int mytime;
-//  JTRACE("Starting to do wait on epoll fd");
+//  JLOG(EVENT)("Starting to do wait on epoll fd");
 
   if (timeout >= 0 && timeout < 1000) {
     // Short time intervals
@@ -282,10 +282,10 @@ EXTERNC int inotify_init()
 {
   int fd;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  JTRACE("Starting to create an inotify fd.");
+  JLOG(EVENT)("Starting to create an inotify fd.");
   fd = _real_inotify_init();
   if (fd > 0) {
-    JTRACE ( "inotify fd created" ) ( ret );
+    JLOG(EVENT) ( "inotify fd created" ) ( ret );
     //create the inotify object
     Connection *con = new InotifyConnection(0);
     EventConnList::instance().add(ret, con);
@@ -307,7 +307,7 @@ EXTERNC int inotify_init1(int flags)
   DMTCP_PLUGIN_DISABLE_CKPT();
   int ret = _real_inotify_init1(flags);
   if (ret != -1) {
-    JTRACE("inotify1 fd created") (ret) (flags);
+    JLOG(EVENT)("inotify1 fd created") (ret) (flags);
     Connection *con = new InotifyConnection(flags);
     EventConnList::instance().add(ret, flags);
   }
@@ -330,7 +330,7 @@ EXTERNC int inotify_add_watch(int fd, const char *pathname, uint32_t mask)
   DMTCP_PLUGIN_DISABLE_CKPT();
   int ret = _real_inotify_add_watch(fd, pathname, mask);
   if (ret != -1) {
-    JTRACE("calling inotify class methods");
+    JLOG(EVENT)("calling inotify class methods");
     InotifyConnection& inotify_con =
       (InotifyConnection*) EventConnList::instance().getConnection(fd);
 
@@ -359,7 +359,7 @@ EXTERNC int inotify_rm_watch(int fd, int wd)
   DMTCP_PLUGIN_DISABLE_CKPT(); // The lock is released inside the macro.
   int ret = _real_inotify_rm_watch(fd, wd);
   if (ret != -1) {
-    JTRACE("remove inotify mapping from dmtcp") (ret) (fd) (wd);
+    JLOG(EVENT)("remove inotify mapping from dmtcp") (ret) (fd) (wd);
     InotifyConnection& inotify_con =
       (InotifyConnection*) EventConnList::instance().getConnection(fd);
     //inotify_con.remove_mappings(fd, wd);
