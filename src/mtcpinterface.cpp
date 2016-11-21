@@ -77,7 +77,7 @@ void dmtcp::callbackPostCheckpoint(bool isRestart,
   if (isRestart) {
     //restoreArgvAfterRestart(mtcpRestoreArgvStartAddr);
 
-    JTRACE("begin postRestart()");
+    JLOG(DMTCP)("begin postRestart()");
     WorkerState::setCurrentState(WorkerState::RESTARTING);
     if (dmtcp_update_ppid) {
       dmtcp_update_ppid();
@@ -180,7 +180,7 @@ static void restoreArgvAfterRestart(char* mtcpRestoreArgvStartAddr)
   void *retAddr = mmap((void*) startAddr, len, PROT_READ | PROT_WRITE,
                     MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
   if (retAddr != MAP_FAILED) {
-    JTRACE("Restoring /proc/self/cmdline")
+    JLOG(DMTCP)("Restoring /proc/self/cmdline")
       (mtcpRestoreArgvStartAddr) (startAddr) (len) (JASSERT_ERRNO) ;
     vector<string> args = jalib::Filesystem::GetProgramArgs();
     char *addr = mtcpRestoreArgvStartAddr;
@@ -194,7 +194,7 @@ static void restoreArgvAfterRestart(char* mtcpRestoreArgvStartAddr)
     }
     _mtcpRestoreArgvStartAddr = startAddr;
   } else {
-    JTRACE("Unable to restore /proc/self/cmdline") (startAddr) (len) (JASSERT_ERRNO) ;
+    JLOG(DMTCP)("Unable to restore /proc/self/cmdline") (startAddr) (len) (JASSERT_ERRNO) ;
     _mtcpRestoreArgvStartAddr = NULL;
   }
   return;
@@ -206,7 +206,7 @@ static void unmapRestoreArgv()
   long page_size = sysconf(_SC_PAGESIZE);
   long page_mask = ~(page_size - 1);
   if (_mtcpRestoreArgvStartAddr != NULL) {
-    JTRACE("Unmapping previously mmap()'d pages (that were mmap()'d for restoring argv");
+    JLOG(DMTCP)("Unmapping previously mmap()'d pages (that were mmap()'d for restoring argv");
     size_t len;
     len = (ProcessInfo::instance().argvSize() + page_size) & page_mask;
     JASSERT(_real_munmap(_mtcpRestoreArgvStartAddr, len) == 0)

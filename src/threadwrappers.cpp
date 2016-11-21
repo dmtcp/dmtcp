@@ -64,7 +64,7 @@ int clone_start(void *arg)
    */
   ThreadSync::decrementUninitializedThreadCount();
 
-  JTRACE("Calling user function") (dmtcp_gettid());
+  JLOG(DMTCP)("Calling user function") (dmtcp_gettid());
   int ret = thread->fn(thread->arg);
 
   ThreadList::threadExit();
@@ -112,7 +112,7 @@ extern "C" int __clone(int (*fn) (void *arg), void *child_stack, int flags,
                           ptid, tls, ctid);
 
   if (tid == -1) {
-    JTRACE("Clone call failed")(JASSERT_ERRNO);
+    JLOG(DMTCP)("Clone call failed")(JASSERT_ERRNO);
     ThreadSync::decrementUninitializedThreadCount();
     ThreadList::threadIsDead(thread);
   } else {
@@ -157,7 +157,7 @@ static void *pthread_start(void *arg)
 
   ThreadSync::threadFinishedInitialization();
   void *result = (*pthread_fn)(thread_arg);
-  JTRACE("Thread returned") (virtualTid);
+  JLOG(DMTCP)("Thread returned") (virtualTid);
   WRAPPER_EXECUTION_DISABLE_CKPT();
   ThreadList::threadExit();
   /*

@@ -93,7 +93,7 @@ void SyslogCheckpointer_ResetOnFork()
 extern "C" void openlog ( const char *ident, int option, int facility )
 {
   JASSERT ( !_isSuspended );
-  JTRACE ( "openlog" ) ( ident );
+  JLOG(DMTCP) ( "openlog" ) ( ident );
   _real_openlog ( ident, option, facility );
   _syslogEnabled = true;
 
@@ -108,7 +108,7 @@ extern "C" void openlog ( const char *ident, int option, int facility )
 extern "C" void closelog ( void )
 {
   JASSERT ( !_isSuspended );
-  JTRACE ( "closelog" );
+  JLOG(DMTCP) ( "closelog" );
   _real_closelog();
   _syslogEnabled = false;
 }

@@ -89,7 +89,7 @@ static void restore_term_settings()
      *   warning.  If we try to call tcsetattr in background, we will hang up.
      */
     int foreground = (tcgetpgrp(STDIN_FILENO) == getpgrp());
-    JTRACE("restore terminal attributes, check foreground status first")
+    JLOG(DMTCP)("restore terminal attributes, check foreground status first")
       (foreground);
     if (foreground) {
       if ( ( ! isatty(STDIN_FILENO)
@@ -97,7 +97,7 @@ static void restore_term_settings()
         JWARNING(false) .Text("failed to restore terminal");
       else {
         struct winsize cur_win;
-        JTRACE("restored terminal");
+        JLOG(DMTCP)("restored terminal");
         ioctl (STDIN_FILENO, TIOCGWINSZ, (char *) &cur_win);
 	/* ws_row/ws_col was probably not 0/0 prior to checkpoint.  We change
 	 * it back to last known row/col prior to checkpoint, and then send a

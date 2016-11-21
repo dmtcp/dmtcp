@@ -33,14 +33,14 @@ dmtcp_Alarm_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
     case DMTCP_EVENT_WRITE_CKPT:
       {
         timeLeft = alarm(0);
-        JTRACE("*** Alarm stopped. ***") (timeLeft);
+        JLOG(DMTCP)("*** Alarm stopped. ***") (timeLeft);
         break;
       }
     case DMTCP_EVENT_THREADS_RESUME:
       {
         /* Need to restart the timer on resume/restart. */
         if (timeLeft > 0) {
-          JTRACE("*** Resuming alarm. ***") (timeLeft);
+          JLOG(DMTCP)("*** Resuming alarm. ***") (timeLeft);
           timeLeft = alarm(timeLeft);
         }
         break;

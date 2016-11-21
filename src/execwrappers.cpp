@@ -154,7 +154,7 @@ LIB_PRIVATE void pthread_atfork_child()
 
   ProcessInfo::instance().resetOnFork();
 
-  JTRACE("fork()ed [CHILD]") (child) (parent);
+  JLOG(DMTCP)("fork()ed [CHILD]") (child) (parent);
   CoordinatorAPI::resetOnFork(coordinatorAPI);
   DmtcpWorker::resetOnFork();
 }
@@ -201,13 +201,13 @@ extern "C" pid_t fork()
      * registered handle.
      */
     UniquePid child = UniquePid(host, getpid(), child_time);
-    JTRACE("fork() done [CHILD]") (child) (parent);
+    JLOG(DMTCP)("fork() done [CHILD]") (child) (parent);
 
     initializeMtcpEngine();
   } else if (childPid > 0) { /* Parent Process */
     UniquePid child = UniquePid(host, childPid, child_time);
     ProcessInfo::instance().insertChild(childPid, child);
-    JTRACE("fork()ed [PARENT] done") (child);;
+    JLOG(DMTCP)("fork()ed [PARENT] done") (child);;
   }
 
   pthread_atfork_enabled = false;
@@ -222,7 +222,7 @@ extern "C" pid_t fork()
 
 extern "C" pid_t vfork()
 {
-  JTRACE("vfork wrapper calling fork");
+  JLOG(DMTCP)("vfork wrapper calling fork");
   // This might not preserve the full semantics of vfork.
   // Used for checkpointing gdb.
   return fork();
@@ -269,7 +269,7 @@ static void execShortLivedProcessAndExit(const char *path, char *const argv[])
 static void dmtcpPrepareForExec(const char *path, char *const argv[],
                                 char **filename, char ***newArgv)
 {
-  JTRACE("Preparing for Exec") (path);
+  JLOG(DMTCP)("Preparing for Exec") (path);
 
   const char * libPrefix = "/lib/lib";
   const char * lib64Prefix = "/lib64/lib";
@@ -283,7 +283,7 @@ static void dmtcpPrepareForExec(const char *path, char *const argv[],
   //         WE DIRECTLY HANDLE, LIKE 'screen'.  (Need to name special routine,
   //         execScreenProcess() ??)
   if (path != NULL && Util::strEndsWith(path, "/utempter")) {
-    JTRACE("Trying to exec: utempter")(path)(argv[0])(argv[1]);
+    JLOG(DMTCP)("Trying to exec: utempter")(path)(argv[0])(argv[1]);
     int oldIdx = -1;
     char *oldStr = NULL;
     string realPtsNameStr;
@@ -339,7 +339,7 @@ static void dmtcpPrepareForExec(const char *path, char *const argv[],
   edata.serializerInfo.fd = PROTECTED_LIFEBOAT_FD;
   DmtcpWorker::eventHook(DMTCP_EVENT_PRE_EXEC, &edata);
 
-  JTRACE("Will exec filename instead of path") (path) (*filename);
+  JLOG(DMTCP)("Will exec filename instead of path") (path) (*filename);
 
   Util::adjustRlimitStack();
   Util::prepareDlsymWrapper();
@@ -352,7 +352,7 @@ static void dmtcpPrepareForExec(const char *path, char *const argv[],
       fcntl(i, F_SETFD, flags & ~FD_CLOEXEC);
     }
   }
-  JTRACE("Prepared for Exec") (getenv("LD_PRELOAD"));
+  JLOG(DMTCP)("Prepared for Exec") (getenv("LD_PRELOAD"));
 }
 
 static void dmtcpProcessFailedExec(const char *path, char *newArgv[])
@@ -368,7 +368,7 @@ static void dmtcpProcessFailedExec(const char *path, char *newArgv[])
   unsetenv(ENV_VAR_DLSYM_OFFSET);
   unsetenv(ENV_VAR_DLSYM_OFFSET_M32);
 
-  JTRACE("Processed failed Exec Attempt") (path) (getenv("LD_PRELOAD"));
+  JLOG(DMTCP)("Processed failed Exec Attempt") (path) (getenv("LD_PRELOAD"));
   errno = saved_errno;
   JASSERT(_real_close(PROTECTED_LIFEBOAT_FD) == 0) (JASSERT_ERRNO);
 }
@@ -475,7 +475,7 @@ static vector<string> patchUserEnv (vector<string> env, const char* filename)
       out << "     addenv[user]:" << result.back() << '\n';
     }
   }
-  JTRACE("Creating a copy of (non-DMTCP) user env vars...") (out.str());
+  JLOG(DMTCP)("Creating a copy of (non-DMTCP) user env vars...") (out.str());
 
   //pack up our ENV into the new ENV
   out.str("DMTCP env vars:\n");
@@ -500,7 +500,7 @@ static vector<string> patchUserEnv (vector<string> env, const char* filename)
     out << "     addenv[dmtcp]:" << result.back() << '\n';
   }
 
-  JTRACE("Patched user envp...")  (out.str());
+  JLOG(DMTCP)("Patched user envp...")  (out.str());
 
   return result;
 }
@@ -512,7 +512,7 @@ extern "C" int execve (const char *filename, char *const argv[],
   if (isPerformingCkptRestart() || isBlacklistedProgram(filename) ) {
     return _real_execve(filename, argv, envp);
   }
-  JTRACE("execve() wrapper") (filename);
+  JLOG(DMTCP)("execve() wrapper") (filename);
 
   /* Acquire the wrapperExeution lock to prevent checkpoint to happen while
    * processing this system call.
@@ -539,7 +539,7 @@ extern "C" int execve (const char *filename, char *const argv[],
 
 extern "C" int execv (const char *path, char *const argv[])
 {
-  JTRACE("execv() wrapper, calling execve with environ") (path);
+  JLOG(DMTCP)("execv() wrapper, calling execve with environ") (path);
 
   // Make a copy of the environ coz it might change after a setenv().
   const vector<string> envStrings = copyEnv(environ);
@@ -554,7 +554,7 @@ extern "C" int execvp (const char *filename, char *const argv[])
   if (isPerformingCkptRestart() || isBlacklistedProgram(filename) ) {
     return _real_execvp(filename, argv);
   }
-  JTRACE("execvp() wrapper") (filename);
+  JLOG(DMTCP)("execvp() wrapper") (filename);
   /* Acquire the wrapperExeution lock to prevent checkpoint to happen while
    * processing this system call.
    */
@@ -581,7 +581,7 @@ extern "C" int execvpe (const char *filename, char *const argv[],
   if (isPerformingCkptRestart() || isBlacklistedProgram(filename)) {
     return _real_execvpe(filename, argv, envp);
   }
-  JTRACE("execvpe() wrapper") (filename);
+  JLOG(DMTCP)("execvpe() wrapper") (filename);
   /* Acquire the wrapperExeution lock to prevent checkpoint to happen while
    * processing this system call.
    */
@@ -611,14 +611,14 @@ extern "C" int fexecve (int fd, char *const argv[], char *const envp[])
   char buf[sizeof "/proc/self/fd/" + sizeof (int) * 3];
   snprintf (buf, sizeof (buf), "/proc/self/fd/%d", fd);
 
-  JTRACE("fexecve() wrapper calling execve()") (fd) (buf);
+  JLOG(DMTCP)("fexecve() wrapper calling execve()") (fd) (buf);
   return execve(buf, argv, envp);
 }
 
 
 extern "C" int execl (const char *path, const char *arg, ...)
 {
-  JTRACE("execl() wrapper") (path);
+  JLOG(DMTCP)("execl() wrapper") (path);
 
   size_t argv_max = INITIAL_ARGV_MAX;
   const char *initial_argv[INITIAL_ARGV_MAX];
@@ -664,7 +664,7 @@ extern "C" int execl (const char *path, const char *arg, ...)
 
 extern "C" int execlp (const char *file, const char *arg, ...)
 {
-  JTRACE("execlp() wrapper") (file);
+  JLOG(DMTCP)("execlp() wrapper") (file);
 
   size_t argv_max = INITIAL_ARGV_MAX;
   const char *initial_argv[INITIAL_ARGV_MAX];
@@ -710,7 +710,7 @@ extern "C" int execlp (const char *file, const char *arg, ...)
 
 extern "C" int execle(const char *path, const char *arg, ...)
 {
-  JTRACE("execle() wrapper") (path);
+  JLOG(DMTCP)("execle() wrapper") (path);
 
   size_t argv_max = INITIAL_ARGV_MAX;
   const char *initial_argv[INITIAL_ARGV_MAX];
@@ -759,7 +759,7 @@ extern int do_system (const char *line);
 
 extern "C" int system (const char *line)
 {
-  JTRACE("before system(), checkpointing may not work")
+  JLOG(DMTCP)("before system(), checkpointing may not work")
     (line) (getenv (ENV_VAR_HIJACK_LIBS)) (getenv ("LD_PRELOAD"));
 
   if (line == NULL)
@@ -769,7 +769,7 @@ extern "C" int system (const char *line)
 
   int result = do_system (line);
 
-  JTRACE("after system()");
+  JLOG(DMTCP)("after system()");
 
   return result;
 }

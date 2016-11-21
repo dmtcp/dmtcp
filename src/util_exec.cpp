@@ -487,7 +487,7 @@ void Util::runMtcpRestore(int is32bitElf, const char* path, int fd,
     buf,
     NULL
   };
-  JTRACE ("launching mtcp_restart --fd")(fd)(path);
+  JLOG(DMTCP) ("launching mtcp_restart --fd")(fd)(path);
 
   // Create the placeholder for "MTCP_OLDPERS" environment.
   // setenv("MTCP_OLDPERS_DUMMY", "XXXXXXXXXXXXXXXX", 1);
@@ -530,7 +530,7 @@ void Util::runMtcpRestore(int is32bitElf, const char* path, int fd,
     newEnv[dummyEnvironIndex] = dummyEnviron;
   }
 
-  JTRACE("Args/Env Sizes")
+  JLOG(DMTCP)("Args/Env Sizes")
     (newArgsSize) (newEnvSize) (argvSize) (envSize) (argvSizeDiff);
 
   execve (newArgs[0], newArgs, newEnv);
@@ -550,7 +550,7 @@ void Util::adjustRlimitStack()
     if (! (oldPersonality & ADDR_COMPAT_LAYOUT)) {
       // Force ADDR_COMPAT_LAYOUT for libs in high mem, to avoid vdso conflict
       personality(oldPersonality & ADDR_COMPAT_LAYOUT);
-      JTRACE("setting ADDR_COMPAT_LAYOUT");
+      JLOG(DMTCP)("setting ADDR_COMPAT_LAYOUT");
       setenv("DMTCP_ADDR_COMPAT_LAYOUT", "temporarily is set", 1);
     }
   }
@@ -560,7 +560,7 @@ void Util::adjustRlimitStack()
     if (rlim.rlim_cur != RLIM_INFINITY) {
       char buf[100];
       sprintf(buf, "%lu", rlim.rlim_cur); // "%llu" for BSD/Mac OS
-      JTRACE("setting rlim_cur for RLIMIT_STACK") (rlim.rlim_cur);
+      JLOG(DMTCP)("setting rlim_cur for RLIMIT_STACK") (rlim.rlim_cur);
       setenv("DMTCP_RLIMIT_STACK", buf, 1);
       // Force kernel's internal compat_va_layout to 0; Force libs to high mem.
       rlim.rlim_cur = rlim.rlim_max;

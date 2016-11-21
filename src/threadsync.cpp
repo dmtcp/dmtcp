@@ -135,39 +135,39 @@ void ThreadSync::acquireLocks()
    * these locks to prevent future deadlocks due to rank violation.
    */
 
-  JTRACE("waiting for dmtcp_lock():"
+  JLOG(DMTCP)("waiting for dmtcp_lock():"
          " to get synchronized with _runCoordinatorCmd if we use DMTCP API");
   _dmtcp_lock();
 
-  JTRACE("Waiting for lock(&theCkptCanStart)");
+  JLOG(DMTCP)("Waiting for lock(&theCkptCanStart)");
   JASSERT(_real_pthread_mutex_lock(&theCkptCanStart) == 0)(JASSERT_ERRNO);
 
-  JTRACE("Waiting for libdlLock");
+  JLOG(DMTCP)("Waiting for libdlLock");
   JASSERT(_real_pthread_mutex_lock(&libdlLock) == 0) (JASSERT_ERRNO);
 
-  JTRACE("Waiting for threads creation lock");
+  JLOG(DMTCP)("Waiting for threads creation lock");
   JASSERT(_real_pthread_rwlock_wrlock(&_threadCreationLock) == 0)
     (JASSERT_ERRNO);
   _threadCreationLockAcquiredByCkptThread = true;
 
-  JTRACE("Waiting for other threads to exit DMTCP-Wrappers");
+  JLOG(DMTCP)("Waiting for other threads to exit DMTCP-Wrappers");
   JASSERT(_real_pthread_rwlock_wrlock(&_wrapperExecutionLock) == 0)
     (JASSERT_ERRNO);
   _wrapperExecutionLockAcquiredByCkptThread = true;
 
-  JTRACE("Waiting for newly created threads to finish initialization")
+  JLOG(DMTCP)("Waiting for newly created threads to finish initialization")
     (_uninitializedThreadCount);
   waitForThreadsToFinishInitialization();
 
   unsetOkToGrabLock();
-  JTRACE("Done acquiring all locks");
+  JLOG(DMTCP)("Done acquiring all locks");
 }
 
 void ThreadSync::releaseLocks()
 {
   JASSERT(WorkerState::currentState() == WorkerState::SUSPENDED);
 
-  JTRACE("Releasing ThreadSync locks");
+  JLOG(DMTCP)("Releasing ThreadSync locks");
   JASSERT(_real_pthread_rwlock_unlock(&_wrapperExecutionLock) == 0)
     (JASSERT_ERRNO);
   _wrapperExecutionLockAcquiredByCkptThread = false;
@@ -585,7 +585,7 @@ void ThreadSync::waitForThreadsToFinishInitialization()
 {
   while (_uninitializedThreadCount != 0) {
     struct timespec sleepTime = {0, 10*1000*1000};
-    JTRACE("sleeping")(sleepTime.tv_nsec);
+    JLOG(DMTCP)("sleeping")(sleepTime.tv_nsec);
     nanosleep(&sleepTime, NULL);
   }
 }
@@ -597,7 +597,7 @@ void ThreadSync::incrementUninitializedThreadCount()
     JASSERT(_real_pthread_mutex_lock(&uninitializedThreadCountLock) == 0)
       (JASSERT_ERRNO);
     _uninitializedThreadCount++;
-    //JTRACE(":") (_uninitializedThreadCount);
+    //JLOG(DMTCP)(":") (_uninitializedThreadCount);
     JASSERT(_real_pthread_mutex_unlock(&uninitializedThreadCountLock) == 0)
       (JASSERT_ERRNO);
   }
@@ -612,7 +612,7 @@ void ThreadSync::decrementUninitializedThreadCount()
       (JASSERT_ERRNO);
     JASSERT(_uninitializedThreadCount > 0) (_uninitializedThreadCount);
     _uninitializedThreadCount--;
-    //JTRACE(":") (_uninitializedThreadCount);
+    //JLOG(DMTCP)(":") (_uninitializedThreadCount);
     JASSERT(_real_pthread_mutex_unlock(&uninitializedThreadCountLock) == 0)
       (JASSERT_ERRNO);
   }
@@ -632,7 +632,7 @@ void ThreadSync::threadFinishedInitialization()
 void ThreadSync::incrNumUserThreads()
 {
   // This routine is called from within stopthisthread so it is not safe to
-  // call JNOTE/JTRACE etc.
+  // call JNOTE/JLOG(DMTCP) etc.
   if (_real_pthread_mutex_lock(&preResumeThreadCountLock) != 0) {
     JASSERT(false) .Text("Failed to acquire preResumeThreadCountLock");
   }
