@@ -88,6 +88,22 @@ EXTERNC int dmtcp_pathvirt_enabled() { return 1; }
  */
 
 /*
+ * Compare the input path and the path delimited by start and end.
+ * Return true if the latter is the prefix of path.
+ * */
+
+static bool
+pathsCmp(const char *path,
+         const char *start,
+         const char *end)
+{
+  return (end - start > 0 &&
+          strncmp(path, start, end - start) == 0 &&
+          (path[end - start] == '\0' || // they are equal
+           path[end - start] == '/'));  // path has additional sub dirs
+}
+
+/*
  * clfind - returns first index in colonList which is a prefix for path
  *          modifies the @listPtr to point to the element in colonList
  */
@@ -105,7 +121,7 @@ clfind(const char *colonList,  // IN
         /* check if element is a prefix of path. here, colon - element is
            an easy way to calculate the length of the element in the list
            to use as the size parameter to strncmp */
-        if (strncmp(path, element, colon - element) == 0) {
+        if (pathsCmp(path, element, colon)) {
             *listPtr = element;
             return index;
         }
@@ -117,7 +133,7 @@ clfind(const char *colonList,  // IN
     }
 
     /* process the last element in the list */
-    if (strncmp(path, element, strlen(element)) == 0) {
+    if (pathsCmp(path, element, element + strlen(element))) {
         *listPtr = element;
         return index;
     }
