@@ -15,6 +15,17 @@ __thread bool ckptInitiator = false;
 bool canResume = true;
 
 /*
+ * When the plugin is enforced, called by dmtcp core to tell whether
+ * the current thread is between post checkpointing and before resuming.
+ *
+ * See the fork() wrapper in src/execwrappers.cpp
+ */
+EXTERNC bool dmtcp_delay_resume_blocked()
+{
+  return __sync_bool_compare_and_swap(&canResume, false, false);
+}
+
+/*
  * Invoked by the user thread that initiated the checkpoint
  * to acquire the global canResume lock
  *

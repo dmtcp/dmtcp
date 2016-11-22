@@ -161,7 +161,12 @@ LIB_PRIVATE void pthread_atfork_child()
 
 extern "C" pid_t fork()
 {
-  if (isPerformingCkptRestart()) {
+  if (isPerformingCkptRestart() ||
+      /*
+       * We don't want any user program between post checkpointing and before
+       * resuming to run under dmtcp
+       */
+      (dmtcp_delay_resume_blocked != NULL && dmtcp_delay_resume_blocked())) {
     return _real_syscall(SYS_fork);
   }
 
