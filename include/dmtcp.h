@@ -314,6 +314,13 @@ EXTERNC void dmtcp_get_new_file_path(const char *abspath, const char *cwd,
   __attribute((weak));
 EXTERNC int dmtcp_must_overwrite_file(const char *path) __attribute((weak));
 
+/* This function gives direction to DMTCP infrastructure to overwrite
+ * exisiting file on restart with the checkpointed version of file.
+ * This function is defined only in contrib/ckptfile/ckptfile.cpp
+ */
+
+EXTERNC int dmtcp_overwrite_ckptfile_on_restart (const char *path) __attribute((weak));
+
 #define dmtcp_process_event(e,d) \
     __REPLACE_dmtcp_process_event_WITH_dmtcp_event_hook()__
 

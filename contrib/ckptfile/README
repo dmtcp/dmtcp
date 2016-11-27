@@ -8,25 +8,35 @@
 
 This plugin allows you to:
 
- a) specify a file that DMTCP should checkpoint; and
+ a) specify a file that DMTCP should checkpoint; 
+ b) specify a file that DMTCP should checkpoint and overwrite 
+    the existing version of file on restart with the checkpointed version
  b) specify the path on restart of a file if it wasn't checkpointed.
 
 The plugin reads a user-specified database at checkpoint time. The
 database is a simple text file that specifies the files that should
-be checkpointed, and the restart paths of files that shouldn't be
+be checkpointed, checkpointed with overwrite of existing file at restart 
+with checkpointed copy, and the restart paths of files that shouldn't be 
 checkpointed.
 
 The database file's format is described below.
 
-   FILE:SAVE_AND_RESTORE={1|0};RESTART_PATH=NEW_FILE
-   FILE_PATTERN:SAVE_AND_RESTORE={1|0};RESTART_PATH=NEW_FILE_PATTERN
+   FILE:SAVE_AND_RESTORE={1|2|0};RESTART_PATH=NEW_FILE
+   FILE_PATTERN:SAVE_AND_RESTORE={1|2|0};RESTART_PATH=NEW_FILE_PATTERN
+
+SAVE_AND_RESTORE = 1 means file will be checkpointed and in case of any 
+pre-existing file at restart, file will not be replaced with checkpointed
+copy, however error checks will come into picture for equality of file. 
+
+SAVE_AND_RESTORE = 2 means file will be checkpointed and any pre-exisitng
+file at restart will be overwritten with the checkpointed copy
 
 Here, FILE and NEW_FILE are pathnames, and FILE_PATTERN and
 NEW_FILE_PATTERN are shell wildcard patterns. The plugin uses the POSIX
 fnmatch() function for pattern matching.
 
 Note that for a file that's saved and then restored on restart
-(SAVE_AND_RESTORE=1), the restart path (RESTART_PATH=XXX) is ignored.
+(SAVE_AND_RESTORE=1|2), the restart path (RESTART_PATH=XXX) is ignored.
 
 Also, note that the plugin does *not* virtualize the paths for the target
 application. The plugin ensures that DMTCP will not assert and exit when
