@@ -122,6 +122,7 @@ clfind(const char *colonList,  // IN
            an easy way to calculate the length of the element in the list
            to use as the size parameter to strncmp */
         if (pathsCmp(path, element, colon)) {
+            JTRACE("Prefix match for path") (element) (path);
             *listPtr = element;
             return index;
         }
@@ -134,11 +135,13 @@ clfind(const char *colonList,  // IN
 
     /* process the last element in the list */
     if (pathsCmp(path, element, element + strlen(element))) {
+        JTRACE("Prefix match for path") (element) (path);
         *listPtr = element;
         return index;
     }
 
     /* not found */
+    JTRACE("No match found") (colonList) (path);
     return -1;
 }
 
@@ -226,6 +229,7 @@ pathvirtInitialize()
      * passed in on restart */
     int ret = dmtcp_get_restart_env(ENV_NEW_DPP, newPathPrefixList,
                                     sizeof(newPathPrefixList) - 1);
+    JTRACE("New prefix list") (newPathPrefixList);
     errCheckGetRestartEnv(ret);
     if (ret == RESTART_ENV_SUCCESS) {
       setenv(ENV_NEW_DPP, newPathPrefixList, 1);
@@ -244,12 +248,14 @@ pathvirtInitialize()
      * this will overrided previous calls to set the original buffer.
      */
     ret = dmtcp_get_restart_env(ENV_ORIG_DPP, tmp, sizeof(tmp) - 1);
+    JTRACE("Temp prefix list") (tmp);
     errCheckGetRestartEnv(ret);
     if (ret == RESTART_ENV_SUCCESS) {
         memset(oldPathPrefixList, 0, sizeof(oldPathPrefixList));
         snprintf(oldPathPrefixList, sizeof(oldPathPrefixList), "%s", tmp);
         setenv(ENV_ORIG_DPP, tmp, 1);
     }
+    JTRACE("Old prefix list") (oldPathPrefixList);
 
     /* we should only swap if oldPathPrefixList contains something,
      * meaning DMTCP_PATH_PREFIX was supplied on launch, and
@@ -311,6 +317,8 @@ virtual_to_physical_path(const char *virt_path)
     physPathString = physPathPtr;
     physPathString += "/";
     physPathString += (virt_path + oldElementSz);
+    JTRACE("Matching virtual path to real path")
+      (virtPathString) (physPathString);
 
     /* repair the colon list */
     physPathPtr[newElementSz] = ':';
