@@ -486,17 +486,23 @@ static void updateCoordHost() {
   freeaddrinfo(result);
 }
 
+/*
+ * Side-effect: Modifies the global isRshProcess variable
+ */
+static bool isRshOrSshProcess(const char *filename)
+{
+  bool isSshProcess = (jalib::Filesystem::BaseName(filename) == "ssh");
+  isRshProcess = (jalib::Filesystem::BaseName(filename) == "rsh");
+
+  return (isSshProcess || isRshProcess);
+}
+
 extern "C" int execve (const char *filename, char *const argv[],
                        char *const envp[])
 {
-  if ((jalib::Filesystem::BaseName(filename) != "ssh") && 
-      (jalib::Filesystem::BaseName(filename) != "rsh")) {
+  if (!isRshOrSshProcess(filename)) {
     return _real_execve(filename, argv, envp);
   }
-
- if(jalib::Filesystem::BaseName(filename) == "rsh") {
-   isRshProcess = 1;
- }
 
   updateCoordHost();
 
@@ -509,18 +515,13 @@ extern "C" int execve (const char *filename, char *const argv[],
 
 extern "C" int execvp (const char *filename, char *const argv[])
 {
-  if ((jalib::Filesystem::BaseName(filename) != "ssh") && 
-      (jalib::Filesystem::BaseName(filename) != "rsh")) {
+  if (!isRshOrSshProcess(filename)) {
     return _real_execvp(filename, argv);
   }
 
- if(jalib::Filesystem::BaseName(filename) == "rsh") {
-   isRshProcess = 1;
- }
-
   updateCoordHost();
 
-  char **newArgv;
+  char **newArgv = NULL;
   prepareForExec(argv, &newArgv);
   int ret = _real_execvp (newArgv[0], newArgv);
   JALLOC_HELPER_FREE(newArgv);
@@ -531,18 +532,13 @@ extern "C" int execvp (const char *filename, char *const argv[])
 extern "C" int execvpe (const char *filename, char *const argv[],
                          char *const envp[])
 {
-  if ((jalib::Filesystem::BaseName(filename) != "ssh") && 
-      (jalib::Filesystem::BaseName(filename) != "rsh")) {
+  if (!isRshOrSshProcess(filename)) {
     return _real_execvpe(filename, argv, envp);
   }
 
- if(jalib::Filesystem::BaseName(filename) == "rsh") { 
-   isRshProcess = 1;
- }
-
   updateCoordHost();
 
-  char **newArgv;
+  char **newArgv = NULL;
   prepareForExec(argv, &newArgv);
   int ret = _real_execvpe(newArgv[0], newArgv, envp);
   JALLOC_HELPER_FREE(newArgv);
