@@ -30,7 +30,7 @@ which will return the _default version_, which is presumably the
 desired behavior for most users calling this.
 
 These notes will help to understand the concepts and background for
-the implementations of src/dlsym_default.c.
+the implementations of src/dmtcp_dlsym.cpp.
 
 SUGGESTED READING:
   http://refspecs.linuxfoundation.org/LSB_3.2.0/LSB-Core-generic/LSB-Core-generic/symversion.html#SYMRESOLUTION
@@ -68,7 +68,7 @@ BACKGROUND DETAILS OF THE ELF LINKER:
 
 The rest of this note explains how the macro DLSYM_DEFAULT()
 (and the function dlsym_default_internal()) find the default symbol.
-This is done in src/dlsym_default.c .
+This is done in src/dmtcp_dlsym.cpp.
 
 The versym ELF section defines the symbol version strings of that file (and it
 states if a symbol version depends on a different one).  The versym ELF

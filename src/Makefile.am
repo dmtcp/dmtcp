@@ -106,7 +106,7 @@ __d_libdir__libdmtcp_so_SOURCES = dmtcpworker.cpp threadsync.cpp \
 		      glibcsystem.cpp \
 		      threadlist.cpp siginfo.cpp \
 		      dmtcpplugin.cpp popen.cpp syslogwrappers.cpp \
-		      dlsym_default.cpp plugininfo.cpp pluginmanager.cpp
+		      dmtcp_dlsym.cpp plugininfo.cpp pluginmanager.cpp
 
 __d_libdir__libdmtcp_so_LDFLAGS = -shared -Xlinker -znow
 

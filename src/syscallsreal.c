@@ -50,7 +50,7 @@
 #include "constants.h"
 #include "syscallwrappers.h"
 #if __aarch64__
-#include "dlsym_default.h"
+#include "dmtcp_dlsym.h"
 #endif /* if __aarch64__ */
 #include "trampolines.h"
 

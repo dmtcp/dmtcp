@@ -189,7 +189,7 @@ am___d_libdir__libdmtcp_so_OBJECTS = dmtcpworker.$(OBJEXT) \
 	miscwrappers.$(OBJEXT) ckptserializer.$(OBJEXT) \
 	writeckpt.$(OBJEXT) glibcsystem.$(OBJEXT) threadlist.$(OBJEXT) \
 	siginfo.$(OBJEXT) dmtcpplugin.$(OBJEXT) popen.$(OBJEXT) \
-	syslogwrappers.$(OBJEXT) dlsym_default.$(OBJEXT) \
+	syslogwrappers.$(OBJEXT) dmtcp_dlsym.$(OBJEXT) \
 	plugininfo.$(OBJEXT) pluginmanager.$(OBJEXT)
 __d_libdir__libdmtcp_so_OBJECTS =  \
 	$(am___d_libdir__libdmtcp_so_OBJECTS)
@@ -582,7 +582,7 @@ __d_libdir__libdmtcp_so_SOURCES = dmtcpworker.cpp threadsync.cpp \
 		      glibcsystem.cpp \
 		      threadlist.cpp siginfo.cpp \
 		      dmtcpplugin.cpp popen.cpp syslogwrappers.cpp \
-		      dlsym_default.cpp plugininfo.cpp pluginmanager.cpp
+		      dmtcp_dlsym.cpp plugininfo.cpp pluginmanager.cpp
 
 __d_libdir__libdmtcp_so_LDFLAGS = -shared -Xlinker -znow
 
@@ -785,7 +785,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/alarm.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ckptserializer.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/coordinatorapi.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dlsym_default.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcp_dlsym.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcp_command.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcp_coordinator.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcp_launch.Po@am__quote@

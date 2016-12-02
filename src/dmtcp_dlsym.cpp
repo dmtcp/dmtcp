@@ -20,8 +20,8 @@
  ****************************************************************************/
 
 /* USAGE:
- * #include "dlsym_default.h"
- * ... dlsym_default(RTLD_NEXT, ...) ...
+ * #include "dmtcp_dlsym.h"
+ * ... dmtcp_dlsym(RTLD_NEXT, ...) ...
  */
 
 /* THEORY:  A versioned symbol consists of multiple symbols, one for
@@ -41,7 +41,7 @@
  * then hopes for a unique versioned symbol.  (It seems that in all of
  * the above, the linker will always ignore a hidden symbol for these
  * purposes.  Unfortunately, dlsym doesn't follow the same policy as the
- * static or dynamic linker.  Hence, dlsym_default tries to replicate
+ * static or dynamic linker.  Hence, dmtcp_dlsym tries to replicate
  * that policy of preferring non-hidden symbols always.)
  *     The symbol pthread_cond_broadcast is a good test case.  It seems to
  * have its base version referenced as a hidden symbol, and only a non-base
@@ -67,7 +67,7 @@
 #endif
 #include <dlfcn.h>
 
-#include "dlsym_default.h"
+#include "dmtcp_dlsym.h"
 #include "jassert.h"
 #include "config.h"
 
@@ -487,7 +487,7 @@ print_debug_messages(dt_tag tags,
 // dynamic executable automatically links to) rather than the oldest version
 // which is what dlsym finds
 EXTERNC void *
-dlsym_default(void *handle, const char *symbol)
+dmtcp_dlsym(void *handle, const char *symbol)
 {
   dt_tag tags;
   Elf32_Word default_symbol_index = 0;
