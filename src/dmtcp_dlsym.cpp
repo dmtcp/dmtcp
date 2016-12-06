@@ -372,7 +372,15 @@ dlsym_default_internal_library_handler(void *handle,
   *default_symbol_index_p = default_symbol_index;
 
   if (default_symbol_index) {
-    return tags.base_addr + tags.symtab[default_symbol_index].st_value;
+    if (ELF64_ST_TYPE(tags.symtab[default_symbol_index].st_info) ==
+        STT_GNU_IFUNC) {
+      typedef void* (*fnc)();
+      fnc f =  (fnc)(tags.base_addr +
+                     tags.symtab[default_symbol_index].st_value);
+      return f();
+    } else {
+      return tags.base_addr + tags.symtab[default_symbol_index].st_value;
+    }
   } else {
     return NULL;
   }
