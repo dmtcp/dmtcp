@@ -60,7 +60,6 @@
 #include <link.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <assert.h>
 #include <string.h>
 
 #ifndef _GNU_SOURCE
@@ -69,6 +68,7 @@
 #include <dlfcn.h>
 
 #include "dlsym_default.h"
+#include "jassert.h"
 #include "config.h"
 
 // ***** NOTE:  link.h invokes elf.h, which:
@@ -153,7 +153,7 @@ static Elf32_Word hash_first(const char *name, Elf32_Word *hash_table,
 static Elf32_Word hash_next(Elf32_Word index, Elf32_Word *hash_table,
                             int use_gnu_hash) {
   if (use_gnu_hash) {
-    assert( index > STN_UNDEF );
+    JASSERT( index > STN_UNDEF );
     uint32_t nbuckets = ((uint32_t*)hash_table)[0];
     uint32_t symndx = ((uint32_t*)hash_table)[1];
     uint32_t maskwords = ((uint32_t*)hash_table)[2];
@@ -207,7 +207,7 @@ static char *version_name(ElfW(Word) version_ndx, dt_tag *tags) {
          cur != prev;
          prev = cur, cur = (ElfW(Verdef)*)(((char *)cur)+cur->vd_next))
     {
-      assert (cur->vd_version == 1);
+      JASSERT (cur->vd_version == 1);
       if (cur->vd_ndx == version_ndx) {
         ElfW(Verdaux) *first = (ElfW(Verdaux) *)(((char *)cur)+cur->vd_aux);
         return tags->strtab + first->vda_name;
@@ -280,7 +280,7 @@ void *dlsym_default_internal_library_handler(void *handle, const char*symbol,
   Elf32_Word i;
 
   get_dt_tags(handle, &tags);
-  assert(tags.hash != NULL || tags.gnu_hash != NULL);
+  JASSERT(tags.hash != NULL || tags.gnu_hash != NULL);
   int use_gnu_hash = (tags.hash == NULL);
   Elf32_Word *hash = (use_gnu_hash ? tags.gnu_hash : tags.hash);
   for (i = hash_first(symbol, hash, use_gnu_hash); i != STN_UNDEF;
@@ -294,9 +294,9 @@ void *dlsym_default_internal_library_handler(void *handle, const char*symbol,
       // If default symbol not set or if new version later than old one.
       // Notice that default_symbol_index will be set first to the
       //  base definition (1 for unversioned symbols; 2 for versioned symbols)
-if (default_symbol_index) {
-  printf("WARNING:  More than one default symbol version.\n");
-}
+      if (default_symbol_index) {
+        JWARNING(false)(symbol).Text("More than one default symbol version.");
+      }
       if (!default_symbol_index ||
           // Could look at version dependencies, but using strcmp instead.
           strcmp(version_name(tags.versym[i], &tags),
@@ -328,7 +328,8 @@ void *dlsym_default_internal_flag_handler(void* handle, const char* symbol,
   // Retrieve the link_map for the library given by addr
   int ret = dladdr1(addr, &info, (void**)&map, RTLD_DL_LINKMAP);
   if (!ret) {
-    printf("dladdr1 could not find shared object for address\n");
+    JWARNING(false)(symbol)
+            .Text("dladdr1 could not find shared object for address");
     return NULL;
   }
 
@@ -345,7 +346,7 @@ void *dlsym_default_internal_flag_handler(void* handle, const char* symbol,
   if (handle == RTLD_NEXT) {
     // Skip current library
     if (!map->l_next) {
-      printf("There are no libraries after the current library.\n");
+      JTRACE("There are no libraries after the current library.");
       return NULL;
     }
     map = map->l_next;
@@ -370,7 +371,7 @@ void *dlsym_default_internal_flag_handler(void* handle, const char* symbol,
         map->l_name[8] == 's' &&
         map->l_name[9] == 'o') {
       if (!map->l_next) {
-        printf("No more libraries to search.\n");
+        JTRACE("No more libraries to search.");
         return NULL;
       }
       // Change link map to next library
@@ -401,15 +402,15 @@ void print_debug_messages(dt_tag tags, Elf32_Word default_symbol_index,
 {
 #ifdef VERBOSE
   if (default_symbol_index) {
-    printf("** st_value: %p\n",
-           tags.base_addr + tags.symtab[default_symbol_index].st_value);
-    printf("** symbol version: %s\n",
-           version_name(tags.versym[default_symbol_index], &tags));
+    JTRACE("** st_value: ")
+          (tags.base_addr + tags.symtab[default_symbol_index].st_value);
+    JTRACE("** symbol version: ")
+          (version_name(tags.versym[default_symbol_index], &tags));
   }
 #endif
   if (!default_symbol_index) {
-    printf("ERROR:  No default symbol version found for %s.\n"
-           "        Extend code to look for hidden symbols?\n", symbol);
+    JTRACE("ERROR:  No default symbol version found"
+           "        Extend code to look for hidden symbols?")(symbol);
   }
 }
 
