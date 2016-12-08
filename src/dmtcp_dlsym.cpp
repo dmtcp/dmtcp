@@ -282,6 +282,7 @@ void *dlsym_default_internal_library_handler(void *handle, const char*symbol,
   dt_tag tags;
   Elf32_Word default_symbol_index = 0;
   Elf32_Word i;
+  uint32_t numNonHiddenSymbols = 0;
 
 #ifdef __USE_GNU
   if (handle == RTLD_NEXT || handle == RTLD_DEFAULT) {
@@ -336,15 +337,17 @@ for ( ; *tmp != '\0'; tmp++ ) {
       break;
     }
     // We have a symbol of the same name.  Let's look at the version number.
-    if ( version == NULL &&
-         !(tags.versym[i] & (1<<15)) ) { // If hidden bit is not set.
+    if ( version == NULL) {
+      if (!(tags.versym[i] & (1<<15)) ) { // If hidden bit is not set.
+        numNonHiddenSymbols++;
+      }
       // If default symbol not set or if new version later than old one.
       // Notice that default_symbol_index will be set first to the
       //  base definition (1 for unversioned symbols; 2 for versioned symbols)
-      if (default_symbol_index) {
+      if (default_symbol_index && numNonHiddenSymbols > 1) {
         JWARNING(false)(symbol).Text("More than one default symbol version.");
       }
-      if (!default_symbol_index ||
+      if (default_symbol_index == 0 ||
           // Could look at version dependencies, but using strcmp instead.
           strcmp(version_name(tags.versym[i], &tags),
                  version_name(tags.versym[default_symbol_index], &tags)) > 0) {
@@ -475,6 +478,27 @@ void print_debug_messages(dt_tag tags, Elf32_Word default_symbol_index,
 // Like dlsym but finds the 'default' symbol of a library (the symbol that the
 // dynamic executable automatically links to) rather than the oldest version
 // which is what dlsym finds
+
+/*
+ * This implementation tries to mimic the behavior of the linking-loader,
+ * as opposed to dlsym().  In particular, if no versioned symbol exists,
+ * then the standard symbol is returned.  If more than one versioned symbol
+ * exists, and all but one have the hidden bit set, then the version without
+ * the hidden bit is returned.  If only one versioned symbol exists, then
+ * it is returned whether the hidden bit is set or not.  From examples
+ * in various libraries, it seems that when only one versioned symbol
+ * exists, it has the hidden bit set.  If two or more versions of the
+ * symbol exist, and the hidden bit is set in all cases, then the newest
+ * version is returned.  If two or more versions of the symbol exist in
+ * which the hidden bit is not set, then the behavior is undefined. [
+ * OR DO WE HAVE A FIXED BEHAVIOR HERE? I THINK THIS CASE DOESN'T OCCUR
+ * IN THE ACTUAL LIBRARIES. ] If the unversioned symbol and the versioned
+ * symbol both exist, then the versioned symbol is preferred. [LET'S CHECK
+ * THE CORRECTNESS OF THIS LAST RULE.]  Note that dlsym() in libdl.so seems
+ * to follow the unusual rule of ignoring the hidden bit, and choosing a
+ * somewhat arbtrary version that is often the oldest version.
+ */
+
 EXTERNC void *dmtcp_dlsym(void *handle, const char*symbol) {
   dt_tag tags;
   Elf32_Word default_symbol_index = 0;
