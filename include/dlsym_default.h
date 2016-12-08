@@ -22,6 +22,8 @@
 #include <stdio.h>
 #include <pthread.h>
 
+#include "dmtcp.h"
+
 #ifndef __USE_GNU
 # define __USE_GNU_NOT_SET
 # define __USE_GNU
@@ -52,38 +54,7 @@
 # define DLSYM_DEFAULT_DEBUG(handle,symbol,info)
 #endif
 
-#define DLSYM_DEFAULT(handle,symbol)                                          \
-  ({ Dl_info info;                                                            \
-     void *handle2 = handle;                                                  \
-     if (handle == RTLD_DEFAULT || handle == RTLD_NEXT) {                     \
-       /* Hack: use dlsym()/dlopen() only to get the lib handle */            \
-       /* MUST BE MACRO:  dlsym uses stack to find curr. lib for RTLD_NEXT */ \
-       /* Logic for dlsym_fnptr is shadowing logic for dmtcp.h:NEXT_FNC() */  \
-       __typeof__(&dlsym) dlsym_fnptr;                                        \
-       dlsym_fnptr = (__typeof__(&dlsym)) dmtcp_get_libc_dlsym_addr();        \
-       void *tmp_fnc = (*dlsym_fnptr) (handle2, symbol);                      \
-       dladdr(tmp_fnc, &info);                                                \
-       DLSYM_DEFAULT_DEBUG(handle,symbol,info);                               \
-       /* Found handle of RTLD_NEXT or RTLD_DEFAULT */                        \
-       handle2 = dlopen(info.dli_fname, RTLD_NOLOAD | RTLD_LAZY);             \
-     }                                                                        \
-     /* Same signature as dlsym(): */                                         \
-     void *symbol_ptr = dlsym_default_internal(handle2, symbol);              \
-     if (handle == RTLD_DEFAULT || handle == RTLD_NEXT) {                     \
-       dlclose(handle2); /* Should verify that this returns 9. */             \
-     }                                                                        \
-     symbol_ptr; })
-
-#ifdef __cplusplus
-extern "C"
-{
-#else
-#endif
-  void *dlsym_default_internal(void *handle, const char *symbol);
-#ifdef __cplusplus
-}
-#else
-#endif
+EXTERNC void *dlsym_default(void *handle, const char *symbol);
 
 #ifndef STANDALONE
 // FIXME: DLSYM_DEFAULT() and dlsym_default_internal() should probably

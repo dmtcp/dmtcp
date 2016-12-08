@@ -21,9 +21,7 @@
 
 /* USAGE:
  * #include "dlsym_default.h"
- * ... DLSYM_DEFAULT(RTLD_NEXT, ...) ...
- * WARNING:  DLSYM_DEFAULT works within a library, but not in base executable
- * WARNING:  RTLD_DEFAULT will not work with DLSYM_DEFAULT()
+ * ... dlsym_default(RTLD_NEXT, ...) ...
  */
 
 /* THEORY:  A versioned symbol consists of multiple symbols, one for
@@ -56,16 +54,21 @@
 // Uncomment this to see what symbols and versions are chosen.
 // #define VERBOSE
 
-#define _GNU_SOURCE
+#ifndef _GNU_SOURCE
+# define _GNU_SOURCE
+#endif
 #include <link.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
 #include <string.h>
 
-#define _GNU_SOURCE
+#ifndef _GNU_SOURCE
+# define _GNU_SOURCE
+#endif
 #include <dlfcn.h>
 
+#include "dlsym_default.h"
 #include "config.h"
 
 // ***** NOTE:  link.h invokes elf.h, which:
@@ -240,22 +243,22 @@ static void get_dt_tags(void *handle, dt_tag *tags) {
     // printf("dyn: %p; _DYNAMIC: %p\n", dyn, _DYNAMIC);
     for (cur_dyn = dyn; cur_dyn->d_tag != DT_NULL;  cur_dyn++) {
       if (cur_dyn->d_tag == DT_VERSYM)
-        tags->versym = (void *)cur_dyn->d_un.d_ptr;
+        tags->versym = (ElfW(Half) *)cur_dyn->d_un.d_ptr;
       if (cur_dyn->d_tag == DT_VERDEF)
-        tags->verdef = (void *)cur_dyn->d_un.d_ptr;
+        tags->verdef = (ElfW(Verdef) *)cur_dyn->d_un.d_ptr;
       if (cur_dyn->d_tag == DT_VERDEFNUM)
         tags->verdefnum = (ElfW(Word))cur_dyn->d_un.d_val;
       if (cur_dyn->d_tag == DT_STRTAB && tags->strtab == 0)
-        tags->strtab = (void *)cur_dyn->d_un.d_ptr;
+        tags->strtab = (char *)cur_dyn->d_un.d_ptr;
       // Not DT_DYNSYM, since only dynsym section loaded into RAM; not symtab.??
       //   So, DT_SYMTAB refers to dynsym section ??
       if (cur_dyn->d_tag == DT_SYMTAB)
-        tags->symtab = (void *)cur_dyn->d_un.d_ptr;
+        tags->symtab = (ElfW(Sym) *)cur_dyn->d_un.d_ptr;
       if (cur_dyn->d_tag == DT_HASH)
-        tags->hash = (void *)cur_dyn->d_un.d_ptr;
+        tags->hash = (Elf32_Word *)cur_dyn->d_un.d_ptr;
 #ifdef HAS_GNU_HASH
       if (cur_dyn->d_tag == DT_GNU_HASH)
-        tags->gnu_hash = (void *)cur_dyn->d_un.d_ptr;
+        tags->gnu_hash = (Elf32_Word *)cur_dyn->d_un.d_ptr;
 #endif
       //if (cur_dyn->d_tag == DT_MIPS_SYMTABNO) // Number of DYNSYM entries
       //  n_symtab = (ElfW(Word))cur_dyn->d_un.d_val;
@@ -323,9 +326,9 @@ for ( ; *tmp != '\0'; tmp++ ) {
       // If default symbol not set or if new version later than old one.
       // Notice that default_symbol_index will be set first to the
       //  base definition (1 for unversioned symbols; 2 for versioned symbols)
-if (default_symbol_index) {
-  printf("WARNING:  More than one default symbol version.\n");
-}
+      if (default_symbol_index) {
+        printf("WARNING:  More than one default symbol version.\n");
+      }
       if (!default_symbol_index ||
           // Could look at version dependencies, but using strcmp instead.
           strcmp(version_name(tags.versym[i], &tags),
@@ -346,9 +349,29 @@ if (default_symbol_index) {
     printf("ERROR:  No default symbol version found for %s.\n"
            "        Extend code to look for hidden symbols?\n", symbol);
   }
-  if (default_symbol_index)
-    return tags.base_addr + tags.symtab[default_symbol_index].st_value;
-  else
-    assert(0);
-    return NULL;
+}
+
+// Like dlsym but finds the 'default' symbol of a library (the symbol that the
+// dynamic executable automatically links to) rather than the oldest version
+// which is what dlsym finds
+EXTERNC void *dlsym_default(void *handle, const char*symbol) {
+  dt_tag tags;
+  Elf32_Word default_symbol_index = 0;
+
+#ifdef __USE_GNU
+  if (handle == RTLD_NEXT || handle == RTLD_DEFAULT) {
+    // Determine where this function will return
+    void* return_address = __builtin_return_address(0);
+    // Search for symbol using given pseudo-handle order
+    void *result = dlsym_default_internal_flag_handler(handle, symbol, return_address,
+                                                       &tags, &default_symbol_index);
+    print_debug_messages(tags, default_symbol_index, symbol);
+    return result;
+  }
+#endif
+
+  void *result = dlsym_default_internal_library_handler(handle, symbol, &tags,
+                                                        &default_symbol_index);
+  print_debug_messages(tags, default_symbol_index, symbol);
+  return result;
 }
