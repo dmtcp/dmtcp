@@ -48,9 +48,7 @@
 #include <ctype.h>
 #include <assert.h>
 #include "syscallwrappers.h"
-#if __aarch64__
-# include "dmtcp_dlsym.h"
-#endif
+#include "dmtcp_dlsym.h"
 #include "trampolines.h"
 
 typedef int (*funcptr_t) ();
@@ -213,6 +211,11 @@ void _dmtcp_remutex_on_fork() {
  *   We put a wrapper around pthread_getspecific and return a static buffer to
  *   dlsym() on the very first call. This allows us to proceed further without
  *   having to worry about the calloc wrapper.
+ *
+ * Update: Using dmtcp_dlsym()
+ *   The use of dmtcp_dlsym() to resolve symbols for wrappers within DMTCP allows
+ *   us to avoid all of the problems and their workarounds as described above.
+ *
  */
 
 #if TRACK_DLOPEN_DLSYM_FOR_LOCKS
@@ -223,33 +226,8 @@ LIB_PRIVATE void dmtcp_unsetThreadPerformingDlopenDlsym();
 static void *_real_func_addr[numLibcWrappers];
 static int dmtcp_wrappers_initialized = 0;
 
-#if 1
-static char wrapper_init_buf[1024];
-static pthread_key_t dlsym_key = -1;
-void *__pthread_getspecific(pthread_key_t key)
-{
-  if (!dmtcp_wrappers_initialized) {
-    if (dlsym_key == -1) {
-      dlsym_key = key;
-    }
-    if (dlsym_key != key) {
-      fprintf(stderr, "DMTCP INTERNAL ERROR: Unable to initialize wrappers.\n");
-      abort();
-    }
-    pthread_setspecific(key, wrapper_init_buf);
-    memset(wrapper_init_buf, 0, sizeof wrapper_init_buf);
-    return (void*) wrapper_init_buf;
-  }
-  return _real_pthread_getspecific(key);
-}
-void *pthread_getspecific(pthread_key_t key)
-{
-  return __pthread_getspecific(key);
-}
-#endif
-
 #define GET_FUNC_ADDR(name) \
-  _real_func_addr[ENUM(name)] = _real_dlsym(RTLD_NEXT, #name);
+  _real_func_addr[ENUM(name)] = dmtcp_dlsym(RTLD_NEXT, #name);
 
 static void initialize_libc_wrappers()
 {
@@ -259,12 +237,13 @@ static void initialize_libc_wrappers()
    * with GLIBC_2.1 version. On 64-bit machines, there is only one
    * pthread_create symbol (GLIBC_2.2.5), so no worries there.
    */
-  _real_func_addr[ENUM(pthread_create)] = dlvsym(RTLD_NEXT, "pthread_create",
-                                                 "GLIBC_2.1");
+  _real_func_addr[ENUM(pthread_create)] = dmtcp_dlvsym(RTLD_NEXT,
+                                                       "pthread_create",
+                                                       "GLIBC_2.1");
 #endif
 
   /* On some arm machines, the newest pthread_create has version GLIBC_2.4 */
-  void *addr = dlvsym(RTLD_NEXT, "pthread_create", "GLIBC_2.4");
+  void *addr = dmtcp_dlvsym(RTLD_NEXT, "pthread_create", "GLIBC_2.4");
   if (addr != NULL) {
     _real_func_addr[ENUM(pthread_create)] = addr;
   }
@@ -286,7 +265,7 @@ static void initialize_libpthread_wrappers()
   const char *ver_2_3_2 = "GLIBC_2.3.2";
   const char *pthread_sym_ver = NULL;
 
-  void *addr = dlvsym(RTLD_NEXT, "pthread_cond_signal", ver_2_4);
+  void *addr = dmtcp_dlvsym(RTLD_NEXT, "pthread_cond_signal", ver_2_4);
   if (addr != NULL) {
     pthread_sym_ver = ver_2_4;
   } else {
@@ -345,7 +324,7 @@ LIB_PRIVATE
 void *_real_dlsym (void *handle, const char *symbol) {
   static dlsym_fnptr_t _libc_dlsym_fnptr = NULL;
   if (_libc_dlsym_fnptr == NULL) {
-    _libc_dlsym_fnptr = dmtcp_get_libc_dlsym_addr();
+    _libc_dlsym_fnptr = dmtcp_dlsym;
   }
 
 #if TRACK_DLOPEN_DLSYM_FOR_LOCKS

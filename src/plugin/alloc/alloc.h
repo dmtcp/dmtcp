@@ -25,20 +25,21 @@
 #include <stdlib.h>
 #include <sys/mman.h>
 #include "dmtcp.h"
+#include "dmtcp_dlsym.h"
 
 extern "C" void *__libc_memalign(size_t boundary, size_t size);
 
-#define _real_malloc  NEXT_FNC(malloc)
-#define _real_calloc  NEXT_FNC(calloc)
-#define _real_valloc  NEXT_FNC(valloc)
-#define _real_realloc NEXT_FNC(realloc)
-#define _real_free    NEXT_FNC(free)
-#define _real_memalign NEXT_FNC(memalign)
-#define _real_posix_memalign NEXT_FNC(posix_memalign)
-#define _real_libc_memalign NEXT_FNC(__libc_memalign)
+#define _real_malloc  NEXT_FNC_DEFAULT(malloc)
+#define _real_calloc  NEXT_FNC_DEFAULT(calloc)
+#define _real_valloc  NEXT_FNC_DEFAULT(valloc)
+#define _real_realloc NEXT_FNC_DEFAULT(realloc)
+#define _real_free    NEXT_FNC_DEFAULT(free)
+#define _real_memalign NEXT_FNC_DEFAULT(memalign)
+#define _real_posix_memalign NEXT_FNC_DEFAULT(posix_memalign)
+#define _real_libc_memalign NEXT_FNC_DEFAULT(__libc_memalign)
 
-#define _real_mmap NEXT_FNC(mmap)
-#define _real_mmap64 NEXT_FNC(mmap64)
-#define _real_munmap NEXT_FNC(munmap)
-#define _real_mremap NEXT_FNC(mremap)
+#define _real_mmap NEXT_FNC_DEFAULT(mmap)
+#define _real_mmap64 NEXT_FNC_DEFAULT(mmap64)
+#define _real_munmap NEXT_FNC_DEFAULT(munmap)
+#define _real_mremap NEXT_FNC_DEFAULT(mremap)
 #endif //ALLOC_H
