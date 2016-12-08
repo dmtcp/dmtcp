@@ -49,7 +49,7 @@
 #include <assert.h>
 #include "syscallwrappers.h"
 #if __aarch64__
-# include "dlsym_default.h"
+# include "dmtcp_dlsym.h"
 #endif
 #include "trampolines.h"
 
