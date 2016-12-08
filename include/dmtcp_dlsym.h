@@ -45,6 +45,7 @@
 #endif
 
 EXTERNC void *dmtcp_dlsym(void *handle, const char *symbol);
+EXTERNC void *dmtcp_dlvsym(void *handle, char *symbol, const char *version);
 
 #ifndef STANDALONE
 // This implementation mirrors dmtcp.h:NEXT_FNC() for DMTCP.
@@ -56,6 +57,15 @@ EXTERNC void *dmtcp_dlsym(void *handle, const char *symbol);
        if (dmtcp_initialize) dmtcp_initialize();                            \
        _real_##func = (__typeof__(&func)) dmtcp_dlsym(RTLD_NEXT, #func);    \
      }                                                                      \
+   _real_##func;})
+
+# define NEXT_FNC_DEFAULTV(func, ver)                                          \
+  ({                                                                           \
+     static __typeof__(&func) _real_##func = (__typeof__(&func)) -1;           \
+     if (_real_##func == (__typeof__(&func)) -1) {                             \
+       if (dmtcp_initialize) dmtcp_initialize();                               \
+       _real_##func = (__typeof__(&func)) dmtcp_dlsym(RTLD_NEXT, #func, ver);  \
+     }                                                                         \
    _real_##func;})
 #endif
 
