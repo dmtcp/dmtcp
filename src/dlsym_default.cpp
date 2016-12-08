@@ -60,7 +60,6 @@
 #include <link.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <assert.h>
 #include <string.h>
 
 #ifndef _GNU_SOURCE
@@ -69,6 +68,7 @@
 #include <dlfcn.h>
 
 #include "dlsym_default.h"
+#include "jassert.h"
 #include "config.h"
 
 // ***** NOTE:  link.h invokes elf.h, which:
@@ -152,7 +152,7 @@ static Elf32_Word hash_first(const char *name, Elf32_Word *hash_table,
 static Elf32_Word hash_next(Elf32_Word index, Elf32_Word *hash_table,
                             int use_gnu_hash) {
   if (use_gnu_hash) {
-    assert( index > STN_UNDEF );
+    JASSERT( index > STN_UNDEF );
     uint32_t nbuckets = ((uint32_t*)hash_table)[0];
     uint32_t symndx = ((uint32_t*)hash_table)[1];
     uint32_t maskwords = ((uint32_t*)hash_table)[2];
@@ -206,7 +206,7 @@ static char *version_name(ElfW(Word) version_ndx, dt_tag *tags) {
          cur != prev;
          prev = cur, cur = (ElfW(Verdef)*)(((char *)cur)+cur->vd_next))
     {
-      assert (cur->vd_version == 1);
+      JASSERT (cur->vd_version == 1);
       if (cur->vd_ndx == version_ndx) {
         ElfW(Verdaux) *first = (ElfW(Verdaux) *)(((char *)cur)+cur->vd_aux);
         return tags->strtab + first->vda_name;
@@ -312,7 +312,7 @@ for ( ; *tmp != '\0'; tmp++ ) {
 #endif
 
   get_dt_tags(handle, &tags);
-  assert(tags.hash != NULL || tags.gnu_hash != NULL);
+  JASSERT(tags.hash != NULL || tags.gnu_hash != NULL);
   int use_gnu_hash = (tags.hash == NULL);
   Elf32_Word *hash = (use_gnu_hash ? tags.gnu_hash : tags.hash);
   for (i = hash_first(symbol, hash, use_gnu_hash); i != STN_UNDEF;
@@ -327,7 +327,7 @@ for ( ; *tmp != '\0'; tmp++ ) {
       // Notice that default_symbol_index will be set first to the
       //  base definition (1 for unversioned symbols; 2 for versioned symbols)
       if (default_symbol_index) {
-        printf("WARNING:  More than one default symbol version.\n");
+        JWARNING(false)(symbol).Text("More than one default symbol version.");
       }
       if (!default_symbol_index ||
           // Could look at version dependencies, but using strcmp instead.
@@ -337,17 +337,112 @@ for ( ; *tmp != '\0'; tmp++ ) {
       }
     }
   }
+  *tags_p = tags;
+  *default_symbol_index_p = default_symbol_index;
+
+  if (default_symbol_index)
+    return tags.base_addr + tags.symtab[default_symbol_index].st_value;
+  else
+    return NULL;
+}
+
+// Given a pseudo-handle, symbol name, and addr, returns the address of the symbol
+// with the given name of a default version found by the search order of the given
+// handle which is either RTLD_DEFAULT or RTLD_NEXT.
+void *dlsym_default_internal_flag_handler(void* handle, const char* symbol,
+                                          void* addr, dt_tag *tags_p,
+                                          Elf32_Word *default_symbol_index_p)
+{
+  Dl_info info;
+  struct link_map* map;
+  void* result;
+
+  // Retrieve the link_map for the library given by addr
+  int ret = dladdr1(addr, &info, (void**)&map, RTLD_DL_LINKMAP);
+  if (!ret) {
+    JWARNING(false)(symbol)
+            .Text("dladdr1 could not find shared object for address");
+    return NULL;
+  }
+
+
+  // Handle RTLD_DEFAULT starts search at first loaded object
+  if (handle == RTLD_DEFAULT) {
+    while (map->l_prev) {
+      // Rewinding to search by load order
+      map = map->l_prev;
+    }
+  }
+
+  // Handle RTLD_NEXT starts search after current library
+  if (handle == RTLD_NEXT) {
+    // Skip current library
+    if (!map->l_next) {
+      JTRACE("There are no libraries after the current library.");
+      return NULL;
+    }
+    map = map->l_next;
+  }
+
+  // Search through libraries until end of list is reached or symbol is found.
+  while (1) {
+    // printf("l_name: %s\n", map->l_name);
+    // Running dlsym_default_internal on the linux-vdso library will
+    // cause a segfault. Because it may have different versions on
+    // different systems, we check this way rather than a strcmp.
+    // If the library is vdso, we simply move to the next loaded,
+    // library if it exists.
+    if (map->l_name[0] == 'l' &&
+        map->l_name[1] == 'i' &&
+        map->l_name[2] == 'n' &&
+        map->l_name[3] == 'u' &&
+        map->l_name[4] == 'x' &&
+        map->l_name[5] == '-' &&
+        map->l_name[6] == 'v' &&
+        map->l_name[7] == 'd' &&
+        map->l_name[8] == 's' &&
+        map->l_name[9] == 'o') {
+      if (!map->l_next) {
+        JTRACE("No more libraries to search.");
+        return NULL;
+      }
+      // Change link map to next library
+      map = map->l_next;
+      continue;
+    }
+
+    // Search current library
+    result = dlsym_default_internal_library_handler((void*) map, symbol, tags_p,
+                                                    default_symbol_index_p);
+    if (result) {
+      return result;
+    }
+
+    // Check if next library exists
+    if (!map->l_next) {
+      //printf("No more libraries to search.\n");
+      return NULL;
+    }
+    // Change link map to next library
+    map = map->l_next;
+  }
+}
+
+// Produces an error message and hard fails if no default_symbol was found.
+void print_debug_messages(dt_tag tags, Elf32_Word default_symbol_index,
+                          const char *symbol)
+{
 #ifdef VERBOSE
   if (default_symbol_index) {
-    printf("** st_value: %p\n",
-           tags.base_addr + tags.symtab[default_symbol_index].st_value);
-    printf("** symbol version: %s\n",
-           version_name(tags.versym[default_symbol_index], &tags));
+    JTRACE("** st_value: ")
+          (tags.base_addr + tags.symtab[default_symbol_index].st_value);
+    JTRACE("** symbol version: ")
+          (version_name(tags.versym[default_symbol_index], &tags));
   }
 #endif
   if (!default_symbol_index) {
-    printf("ERROR:  No default symbol version found for %s.\n"
-           "        Extend code to look for hidden symbols?\n", symbol);
+    JTRACE("ERROR:  No default symbol version found"
+           "        Extend code to look for hidden symbols?")(symbol);
   }
 }
 
