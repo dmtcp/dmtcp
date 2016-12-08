@@ -318,10 +318,19 @@ void *dlsym_default_internal_library_handler(void *handle, const char*symbol,
   *tags_p = tags;
   *default_symbol_index_p = default_symbol_index;
 
-  if (default_symbol_index)
-    return tags.base_addr + tags.symtab[default_symbol_index].st_value;
-  else
+  if (default_symbol_index) {
+    if (ELF64_ST_TYPE(tags.symtab[default_symbol_index].st_info) ==
+        STT_GNU_IFUNC) {
+      typedef void* (*fnc)();
+      fnc f =  (fnc)(tags.base_addr +
+                     tags.symtab[default_symbol_index].st_value);
+      return f();
+    } else {
+      return tags.base_addr + tags.symtab[default_symbol_index].st_value;
+    }
+  } else {
     return NULL;
+  }
 }
 
 // Given a pseudo-handle, symbol name, and addr, returns the address of the symbol
