@@ -54,16 +54,21 @@
 // Uncomment this to see what symbols and versions are chosen.
 // #define VERBOSE
 
-#define _GNU_SOURCE
+#ifndef _GNU_SOURCE
+# define _GNU_SOURCE
+#endif
 #include <link.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
 #include <string.h>
 
-#define _GNU_SOURCE
+#ifndef _GNU_SOURCE
+# define _GNU_SOURCE
+#endif
 #include <dlfcn.h>
 
+#include "dlsym_default.h"
 #include "config.h"
 
 // ***** NOTE:  link.h invokes elf.h, which:
@@ -239,22 +244,22 @@ static void get_dt_tags(void *handle, dt_tag *tags) {
     // printf("dyn: %p; _DYNAMIC: %p\n", dyn, _DYNAMIC);
     for (cur_dyn = dyn; cur_dyn->d_tag != DT_NULL;  cur_dyn++) {
       if (cur_dyn->d_tag == DT_VERSYM)
-        tags->versym = (void *)cur_dyn->d_un.d_ptr;
+        tags->versym = (ElfW(Half) *)cur_dyn->d_un.d_ptr;
       if (cur_dyn->d_tag == DT_VERDEF)
-        tags->verdef = (void *)cur_dyn->d_un.d_ptr;
+        tags->verdef = (ElfW(Verdef) *)cur_dyn->d_un.d_ptr;
       if (cur_dyn->d_tag == DT_VERDEFNUM)
         tags->verdefnum = (ElfW(Word))cur_dyn->d_un.d_val;
       if (cur_dyn->d_tag == DT_STRTAB && tags->strtab == 0)
-        tags->strtab = (void *)cur_dyn->d_un.d_ptr;
+        tags->strtab = (char *)cur_dyn->d_un.d_ptr;
       // Not DT_DYNSYM, since only dynsym section loaded into RAM; not symtab.??
       //   So, DT_SYMTAB refers to dynsym section ??
       if (cur_dyn->d_tag == DT_SYMTAB)
-        tags->symtab = (void *)cur_dyn->d_un.d_ptr;
+        tags->symtab = (ElfW(Sym) *)cur_dyn->d_un.d_ptr;
       if (cur_dyn->d_tag == DT_HASH)
-        tags->hash = (void *)cur_dyn->d_un.d_ptr;
+        tags->hash = (Elf32_Word *)cur_dyn->d_un.d_ptr;
 #ifdef HAS_GNU_HASH
       if (cur_dyn->d_tag == DT_GNU_HASH)
-        tags->gnu_hash = (void *)cur_dyn->d_un.d_ptr;
+        tags->gnu_hash = (Elf32_Word *)cur_dyn->d_un.d_ptr;
 #endif
       //if (cur_dyn->d_tag == DT_MIPS_SYMTABNO) // Number of DYNSYM entries
       //  n_symtab = (ElfW(Word))cur_dyn->d_un.d_val;
@@ -411,7 +416,7 @@ void print_debug_messages(dt_tag tags, Elf32_Word default_symbol_index,
 // Like dlsym but finds the 'default' symbol of a library (the symbol that the
 // dynamic executable automatically links to) rather than the oldest version
 // which is what dlsym finds
-void *dlsym_default(void *handle, const char*symbol) {
+EXTERNC void *dlsym_default(void *handle, const char*symbol) {
   dt_tag tags;
   Elf32_Word default_symbol_index = 0;
 

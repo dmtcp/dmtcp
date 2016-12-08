@@ -22,6 +22,8 @@
 #include <stdio.h>
 #include <pthread.h>
 
+#include "dmtcp.h"
+
 #ifndef __USE_GNU
 # define __USE_GNU_NOT_SET
 # define __USE_GNU
@@ -42,16 +44,7 @@
 # define DLSYM_DEFAULT_DEBUG(handle,symbol,info)
 #endif
 
-#ifdef __cplusplus
-extern "C"
-{
-#else
-#endif
- void *dlsym_default(void *handle, const char *symbol);
-#ifdef __cplusplus
-}
-#else
-#endif
+EXTERNC void *dlsym_default(void *handle, const char *symbol);
 
 #ifndef STANDALONE
 // This implementation mirrors dmtcp.h:NEXT_FNC() for DMTCP.
