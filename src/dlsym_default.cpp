@@ -222,13 +222,17 @@ static char *version_name(ElfW(Word) version_ndx, dt_tag *tags) {
 // Also, the _DYNAMIC symbol in a section should also be a pointer to
 //   the address of the dynamic section.  (See comment in /usr/include/link.h)
 static void get_dt_tags(void *handle, dt_tag *tags) {
-    struct link_map *link_map;  // from /usr/include/link.h
-    if (dlinfo(handle, RTLD_DI_LINKMAP, &link_map) == -1)
-      printf("ERROR: %s\n", dlerror());
-    ElfW(Dyn) *dyn = link_map -> l_ld;  // from /usr/include/link.h
+    struct link_map *lmap;  // from /usr/include/link.h
+
+    /* The handle we get here is either from an earlier call to
+     * dlopen(), or from a call to dladdr(). In both the cases,
+     * the handle corresponds to a link_map node.
+     */
+    lmap = (link_map *) handle;
+    ElfW(Dyn) * dyn = lmap->l_ld;     // from /usr/include/link.h
     // http://www.sco.com/developers/gabi/latest/ch5.dynamic.html#dynamic_section
     /* Base address shared object is loaded at. (from /usr/include/lnik.h) */
-    tags->base_addr = (char *)(link_map -> l_addr);
+    tags->base_addr = (char *)(lmap->l_addr);
 
     tags->symtab = NULL;
     tags->versym = NULL;
