@@ -55,6 +55,7 @@
 #endif
 
 EXTERNC void *dmtcp_dlsym(void *handle, const char *symbol);
+EXTERNC void *dmtcp_dlvsym(void *handle, char *symbol, const char *version);
 
 #ifndef STANDALONE
 // FIXME: DLSYM_DEFAULT() and dlsym_default_internal() should probably
@@ -71,6 +72,15 @@ EXTERNC void *dmtcp_dlsym(void *handle, const char *symbol);
        if (dmtcp_prepare_wrappers) dmtcp_prepare_wrappers();                \
        _real_##func = (__typeof__(&func)) dmtcp_dlsym(RTLD_NEXT, #func);    \
      }                                                                      \
+   _real_##func;})
+
+# define NEXT_FNC_DEFAULTV(func, ver)                                          \
+  ({                                                                           \
+     static __typeof__(&func) _real_##func = (__typeof__(&func)) -1;           \
+     if (_real_##func == (__typeof__(&func)) -1) {                             \
+       if (dmtcp_prepare_wrappers) dmtcp_prepare_wrappers();                               \
+       _real_##func = (__typeof__(&func)) dmtcp_dlsym(RTLD_NEXT, #func, ver);  \
+     }                                                                         \
    _real_##func;})
 #endif
 
