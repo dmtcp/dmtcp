@@ -388,7 +388,7 @@ prepareForExec(char *const argv[], char ***newArgv)
   cmd = precmd;
 
   // convert "exec cmd" to "exec <dmtcp-prefix> cmd"
-  if (Util::strStartsWith(postcmd, "exec")) {
+  if (Util::strStartsWith(postcmd.c_str(), "exec")) {
     cmd += "exec " + prefix + postcmd.substr(strlen("exec"));
   } else {
     cmd += prefix + postcmd;

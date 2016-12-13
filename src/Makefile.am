@@ -76,6 +76,7 @@ nobase_noinst_HEADERS =	barrierinfo.h				\
 			threadinfo.h				\
 			threadlist.h				\
 			threadsync.h				\
+			tokenize.h				\
 			uniquepid.h				\
 			workerstate.h				\
 			mtcp/ldt.h				\
@@ -113,6 +114,7 @@ libdmtcpinternal_a_SOURCES = coordinatorapi.cpp 		\
 			     processinfo.cpp 			\
 			     procselfmaps.cpp			\
 			     shareddata.cpp 			\
+			     tokenize.cpp			\
 			     uniquepid.cpp			\
 			     util_exec.cpp			\
 			     util_init.cpp 			\

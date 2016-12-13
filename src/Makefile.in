@@ -132,7 +132,7 @@ libdmtcpinternal_a_LIBADD =
 am_libdmtcpinternal_a_OBJECTS = coordinatorapi.$(OBJEXT) \
 	dmtcpmessagetypes.$(OBJEXT) dmtcp_dlsym.$(OBJEXT) \
 	jalibinterface.$(OBJEXT) processinfo.$(OBJEXT) \
-	procselfmaps.$(OBJEXT) shareddata.$(OBJEXT) \
+	procselfmaps.$(OBJEXT) shareddata.$(OBJEXT) tokenize.$(OBJEXT) \
 	uniquepid.$(OBJEXT) util_exec.$(OBJEXT) util_init.$(OBJEXT) \
 	util_misc.$(OBJEXT) workerstate.$(OBJEXT)
 libdmtcpinternal_a_OBJECTS = $(am_libdmtcpinternal_a_OBJECTS)
@@ -232,10 +232,10 @@ am__depfiles_remade = ./$(DEPDIR)/alarm.Po \
 	./$(DEPDIR)/syscallsreal.Po ./$(DEPDIR)/syslogwrappers.Po \
 	./$(DEPDIR)/terminal.Po ./$(DEPDIR)/threadlist.Po \
 	./$(DEPDIR)/threadsync.Po ./$(DEPDIR)/threadwrappers.Po \
-	./$(DEPDIR)/trampolines.Po ./$(DEPDIR)/uniquepid.Po \
-	./$(DEPDIR)/util_exec.Po ./$(DEPDIR)/util_init.Po \
-	./$(DEPDIR)/util_misc.Po ./$(DEPDIR)/workerstate.Po \
-	./$(DEPDIR)/writeckpt.Po
+	./$(DEPDIR)/tokenize.Po ./$(DEPDIR)/trampolines.Po \
+	./$(DEPDIR)/uniquepid.Po ./$(DEPDIR)/util_exec.Po \
+	./$(DEPDIR)/util_init.Po ./$(DEPDIR)/util_misc.Po \
+	./$(DEPDIR)/workerstate.Po ./$(DEPDIR)/writeckpt.Po
 am__mv = mv -f
 COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
@@ -568,7 +568,7 @@ nobase_noinst_HEADERS = barrierinfo.h ckptserializer.h constants.h \
 	coordinatorapi.h dmtcp_coordinator.h dmtcpmessagetypes.h \
 	dmtcpworker.h lookup_service.h plugininfo.h pluginmanager.h \
 	processinfo.h restartscript.h siginfo.h syscallwrappers.h \
-	threadinfo.h threadlist.h threadsync.h uniquepid.h \
+	threadinfo.h threadlist.h threadsync.h tokenize.h uniquepid.h \
 	workerstate.h mtcp/ldt.h mtcp/restore_libc.h mtcp/tlsutil.h \
 	$(jalibdir)/jalib.h $(jalibdir)/jalloc.h $(jalibdir)/jassert.h \
 	$(jalibdir)/jbuffer.h $(jalibdir)/jconvert.h \
@@ -593,6 +593,7 @@ libdmtcpinternal_a_SOURCES = coordinatorapi.cpp 		\
 			     processinfo.cpp 			\
 			     procselfmaps.cpp			\
 			     shareddata.cpp 			\
+			     tokenize.cpp			\
 			     uniquepid.cpp			\
 			     util_exec.cpp			\
 			     util_init.cpp 			\
@@ -893,6 +894,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/threadlist.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/threadsync.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/threadwrappers.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tokenize.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/trampolines.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/uniquepid.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/util_exec.Po@am__quote@ # am--include-marker
@@ -1313,6 +1315,7 @@ distclean: distclean-recursive
 	-rm -f ./$(DEPDIR)/threadlist.Po
 	-rm -f ./$(DEPDIR)/threadsync.Po
 	-rm -f ./$(DEPDIR)/threadwrappers.Po
+	-rm -f ./$(DEPDIR)/tokenize.Po
 	-rm -f ./$(DEPDIR)/trampolines.Po
 	-rm -f ./$(DEPDIR)/uniquepid.Po
 	-rm -f ./$(DEPDIR)/util_exec.Po
@@ -1407,6 +1410,7 @@ maintainer-clean: maintainer-clean-recursive
 	-rm -f ./$(DEPDIR)/threadlist.Po
 	-rm -f ./$(DEPDIR)/threadsync.Po
 	-rm -f ./$(DEPDIR)/threadwrappers.Po
+	-rm -f ./$(DEPDIR)/tokenize.Po
 	-rm -f ./$(DEPDIR)/trampolines.Po
 	-rm -f ./$(DEPDIR)/uniquepid.Po
 	-rm -f ./$(DEPDIR)/util_exec.Po

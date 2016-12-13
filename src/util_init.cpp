@@ -66,9 +66,10 @@ Util::writeCoordPortToFile(int port, const char *portFile)
  * from dmtcp_launch and dmtcp_restart process and once the user process
  * has been exec()ed, we use SharedData::getTmpDir() only.
  */
-string
+char *
 Util::calcTmpDir(const char *tmpdirenv)
 {
+  char *tmpDir = NULL;
   char hostname[256];
 
   memset(hostname, 0, sizeof(hostname));
@@ -99,21 +100,24 @@ Util::calcTmpDir(const char *tmpdirenv)
 
   ostringstream o;
   o << tmpdirenv << "/dmtcp-" << userName << "@" << hostname;
-  string tmpDir = o.str();
 
-  JASSERT(mkdir(tmpDir.c_str(), S_IRWXU) == 0 || errno == EEXIST)
+  tmpDir = (char *) JALLOC_MALLOC(o.str().length() + 1);
+  memcpy(tmpDir, o.str().c_str(), o.str().length() + 1);
+
+  JASSERT(mkdir(tmpDir, S_IRWXU) == 0 || errno == EEXIST)
     (JASSERT_ERRNO) (tmpDir)
   .Text("Error creating tmp directory");
 
-
-  JASSERT(0 == access(tmpDir.c_str(), X_OK | W_OK)) (tmpDir)
+  JASSERT(0 == access(tmpDir, X_OK | W_OK)) (tmpDir)
   .Text("ERROR: Missing execute- or write-access to tmp dir");
 
   return tmpDir;
 }
 
 void
-Util::initializeLogFile(string tmpDir, string procname, string prevLogPath)
+Util::initializeLogFile(const char *tmpDir,
+                        const char *procname,
+                        const char *prevLogPath)
 {
   UniquePid::ThisProcess(true);
 
@@ -125,7 +129,7 @@ Util::initializeLogFile(string tmpDir, string procname, string prevLogPath)
   o << "/jassertlog.";
   o << UniquePid::ThisProcess();
   o << "_";
-  if (procname.empty()) {
+  if (procname == NULL) {
     o << jalib::Filesystem::GetProgramName();
   } else {
     o << procname;
@@ -140,7 +144,7 @@ Util::initializeLogFile(string tmpDir, string procname, string prevLogPath)
   a << "\nThis Process: " << UniquePid::ThisProcess()
     << "\nParent Process: " << UniquePid::ParentProcess();
 
-  if (!prevLogPath.empty()) {
+  if (prevLogPath != NULL) {
     a << "\nPrev JAssertLog path: " << prevLogPath;
   }
 

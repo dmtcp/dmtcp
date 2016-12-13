@@ -102,6 +102,51 @@ dmtcp_FileConn_ProcessFdEvent(int event, int arg1, int arg2)
   }
 }
 
+
+bool
+FileConnList::createDirectoryTree(const string &path)
+{
+  size_t index = path.rfind('/');
+
+  if (index == string::npos) {
+    return true;
+  }
+
+  string dir = path.substr(0, index);
+
+  index = path.find('/');
+  while (index != string::npos) {
+    if (index > 1) {
+      string dirName = path.substr(0, index);
+
+      errno = 0;
+      int res = mkdir(dirName.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+#ifdef STAMPEDE_LUSTRE_FIX
+      if (res < 0) {
+        if (errno == EACCES) {
+          struct stat buff;
+          int ret = stat(dirName.c_str(), &buff);
+          if (ret != 0) {
+            return false;
+          }
+        } else if (errno == EEXIST) {
+          /* do nothing */
+        } else {
+          return false;
+        }
+      }
+#else // ifdef STAMPEDE_LUSTRE_FIX
+      if (res == -1 && errno != EEXIST) {
+        return false;
+      }
+#endif // ifdef STAMPEDE_LUSTRE_FIX
+    }
+    index = path.find('/', index + 1);
+  }
+  return true;
+}
+
+
 static FileConnList *fileConnList = NULL;
 FileConnList&
 FileConnList::instance()
@@ -310,14 +355,24 @@ FileConnList::prepareShmList()
   }
 }
 
+static string
+removeSuffix(const string &s, const string &suffix)
+{
+  if (dmtcp::Util::strEndsWith(s.c_str(), suffix.c_str())) {
+    string result(s, s.length() - suffix.length());
+    return result;
+  }
+  return s;
+}
+
 void
 FileConnList::recreateShmFileAndMap(const ProcMapsArea &area)
 {
   // TODO(kapil): Handle /dev/zero, /dev/random, etc.
   // Recreate file in dmtcp-tmpdir;
-  string filename = Util::removeSuffix(area.name, DELETED_FILE_SUFFIX);
+  string filename = removeSuffix(area.name, DELETED_FILE_SUFFIX);
 
-  JASSERT(Util::createDirectoryTree(area.name)) (area.name)
+  JASSERT(createDirectoryTree(area.name)) (area.name)
   .Text("Unable to create directory in File Path");
 
   /* Now try to create the file with O_EXCL. If we fail with EEXIST, there
@@ -420,8 +475,8 @@ FileConnList::scanForPreExisting()
     } else if (fd <= 2) {
       add(fd, new StdioConnection(fd));
     } else if (getenv("PBS_JOBID") &&
-               (Util::strStartsWith(device, "/proc") &&
-                Util::strEndsWith(device, "environ"))) {
+               (Util::strStartsWith(device.c_str(), "/proc") &&
+                Util::strEndsWith(device.c_str(), "environ"))) {
       /*
        * This is a workaround for an issue seen with PBS at ANU-NCI.
        *
@@ -432,7 +487,8 @@ FileConnList::scanForPreExisting()
        * a pre-existing device and ignore it for checkpoint-restart.
        */
       continue;
-    } else if (Util::strStartsWith(device, "/") && !Util::isPseudoTty(device)) {
+    } else if (Util::strStartsWith(device.c_str(), "/") &&
+               !Util::isPseudoTty(device.c_str())) {
       if (isRegularFile) {
         Connection *c = findDuplication(fd, device.c_str());
         if (c != NULL) {

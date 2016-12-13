@@ -68,6 +68,8 @@ class FileConnList : public ConnectionList
 
     static void restartResume() { instance().resume(true); }
 
+    static bool createDirectoryTree(const string &path);
+
     virtual void preLockSaveOptions();
     virtual void drain();
     virtual void preCkpt();

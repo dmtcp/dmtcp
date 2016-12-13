@@ -438,7 +438,7 @@ main(int argc, char **argv)
   initializeJalib();
 
   UniquePid::ThisProcess(true);
-  Util::initializeLogFile(tmpDir);
+  Util::initializeLogFile(tmpDir.c_str(), NULL, NULL);
 
 #ifdef FORKED_CHECKPOINTING
 
@@ -597,7 +597,7 @@ main(int argc, char **argv)
     jalib::Filesystem::DirName(jalib::Filesystem::GetProgramDir());
 
 #if defined(__i386__) || defined(__arm__)
-  if (Util::strEndsWith(installDir, "/lib/dmtcp/32")) {
+  if (Util::strEndsWith(installDir.c_str(), "/lib/dmtcp/32")) {
     // If dmtcp_launch was compiled for 32 bits in a 64-bit O/S, then note:
     // DMTCP_ROOT/bin/dmtcp_launch is a symbolic link to:
     // DMTCP_ROOT/bin/dmtcp_launch/lib/dmtcp/32/bin
@@ -822,9 +822,11 @@ setLDPreloadLibs(bool is32bitElf)
     for (size_t i = 0; i < numLibs; i++) {
       struct PluginInfo *p = &pluginInfo[i];
       if (*p->enabled) {
-        preloadLibs += Util::getPath(p->lib) + ":";
+        preloadLibs += Util::getPath(p->lib, is32bitElf);
+        preloadLibs += ":";
 #if defined(__x86_64__) || defined(__aarch64__)
-        preloadLibs32 += Util::getPath(p->lib, true) + ":";
+        preloadLibs32 += Util::getPath(p->lib, true);
+        preloadLibs += ":";
 #endif // if defined(__x86_64__) || defined(__aarch64__)
       }
     }

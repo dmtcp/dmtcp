@@ -75,6 +75,20 @@ dmtcp_initialize_plugin()
   }
 }
 
+static string
+joinStrings(vector<string>v, const string &delim)
+{
+  string result;
+
+  if (v.size() > 0) {
+    result = v[0];
+    for (size_t i = 1; i < v.size(); i++) {
+      result += delim + v[i];
+    }
+  }
+  return result;
+}
+
 void
 PluginManager::registerBarriersWithCoordinator()
 {
@@ -114,8 +128,8 @@ PluginManager::registerBarriersWithCoordinator()
 
   // TODO(kapil): Have a generic way to avoid bugs.
   string barrierList =
-    Util::joinStrings(ckptBarriers, ",") + ";" +
-    Util::joinStrings(restartBarriers, ",");
+    joinStrings(ckptBarriers, ",") + ";" +
+    joinStrings(restartBarriers, ",");
 
   DmtcpMessage msg(DMT_BARRIER_LIST);
   CoordinatorAPI::sendMsgToCoordinator(msg, barrierList);

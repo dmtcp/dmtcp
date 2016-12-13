@@ -114,18 +114,7 @@ void dupFds(int oldfd, const vector<int> &newfds);
 
 bool strStartsWith(const char *str, const char *pattern);
 bool strEndsWith(const char *str, const char *pattern);
-bool strStartsWith(const string &str, const char *pattern);
-bool strEndsWith(const string &str, const char *pattern);
-string removeSuffix(const string &s, const string &suffix);
-string joinStrings(vector<string>v, const string &delim);
-vector<string>tokenizeString(const string &s, const string &delims);
 
-// Add it back if needed.
-# if 0
-vector<string>split(const string &s, const string &delims, size_t n = 0);
-# endif // if 0
-
-bool createDirectoryTree(const string &path);
 bool isNscdArea(const ProcMapsArea &area);
 bool isSysVShmArea(const ProcMapsArea &area);
 bool isIBShmArea(const ProcMapsArea &area);
@@ -145,7 +134,6 @@ bool isStaticallyLinked(const char *filename);
 void setVirtualPidEnvVar(pid_t pid, pid_t virtPpid, pid_t realPpid);
 bool isScreen(const char *filename);
 void setScreenDir();
-string getScreenDir();
 bool isSetuid(const char *filename);
 void freePatchedArgv(char **newArgv);
 void patchArgvIfSetuid(const char *filename,
@@ -156,10 +144,10 @@ int readLine(int fd, char *buf, int count);
 
 
 void writeCoordPortToFile(int port, const char *portFile);
-string calcTmpDir(const char *tmpDir);
-void initializeLogFile(string tmpDir,
-                       string procname = "",
-                       string preLogPath = "");
+char *calcTmpDir(const char *tmpDir);
+void initializeLogFile(const char *tmpDir,
+                       const char *procname = "",
+                       const char *preLogPath = "");
 
 void prepareDlsymWrapper();
 void adjustRlimitStack();
@@ -177,13 +165,13 @@ int memProtToOpenFlags(int prot);
 pid_t getTracerPid(pid_t tid = -1);
 bool isPtraced();
 bool isValidFd(int fd);
-bool isPseudoTty(const string &path);
+bool isPseudoTty(const char *path);
 size_t pageSize();
 size_t pageMask();
 bool areZeroPages(void *addr, size_t numPages);
 
 char *findExecutable(char *executable, const char *path_env, char *exec_path);
-string getPath(string cmd, bool is32bit = false);
+char *getPath(const char *cmd, bool is32bit = false);
 void getDmtcpArgs(vector<string> &dmtcp_args);
 void allowGdbDebug(int currentDebugLevel);
 }

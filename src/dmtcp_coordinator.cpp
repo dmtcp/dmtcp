@@ -78,6 +78,7 @@
 #include "lookup_service.h"
 #include "protectedfds.h"
 #include "restartscript.h"
+#include "tokenize.h"
 #include "syscallwrappers.h"
 #include "util.h"
 #undef min
@@ -197,7 +198,7 @@ static LookupService lookupService;
 static string coordHostname;
 static struct in_addr localhostIPAddr;
 
-static string tmpDir;
+static char *tmpDir = NULL;
 static string ckptDir;
 
 #define MAX_EVENTS 10000
@@ -590,14 +591,14 @@ DmtcpCoordinator::onData(CoordClient *client)
       (msg.from) (extraData) (client->state());
 
     // TODO(kapil): Check barrier mismatch.
-    vector<string>barriers = Util::tokenizeString(extraData, ";");
+    vector<string>barriers = tokenizeString(extraData, ";");
     if (barriers.size() == 2) {
-      ckptBarriers = Util::tokenizeString(barriers[0], ",");
-      restartBarriers = Util::tokenizeString(barriers[1], ",");
+      ckptBarriers = tokenizeString(barriers[0], ",");
+      restartBarriers = tokenizeString(barriers[1], ",");
     } else if (barriers.size() == 1 && extraData[0] == ';') {
-      restartBarriers = Util::tokenizeString(barriers[0], ",");
+      restartBarriers = tokenizeString(barriers[0], ",");
     } else if (barriers.size() == 1) {
-      ckptBarriers = Util::tokenizeString(barriers[0], ",");
+      ckptBarriers = tokenizeString(barriers[0], ",");
     }
     break;
   }
@@ -1001,7 +1002,7 @@ DmtcpCoordinator::validateRestartingWorkerProcess(
     (compId) (hello_remote.compGroup) (minimumState());
 
   hello_local.coordTimeStamp = curTimeStamp;
-  if (Util::strStartsWith(remoteIP, "127.")) {
+  if (Util::strStartsWith(remoteIP.c_str(), "127.")) {
     memcpy(&hello_local.ipAddr, &localhostIPAddr, sizeof localhostIPAddr);
   } else {
     memcpy(&hello_local.ipAddr, &sin->sin_addr, sizeof localhostIPAddr);
@@ -1103,7 +1104,7 @@ DmtcpCoordinator::validateNewWorkerProcess(
     }
     hello_local.compGroup = compId;
     hello_local.coordTimeStamp = curTimeStamp;
-    if (Util::strStartsWith(remoteIP, "127.")) {
+    if (Util::strStartsWith(remoteIP.c_str(), "127.")) {
       memcpy(&hello_local.ipAddr, &localhostIPAddr, sizeof localhostIPAddr);
     } else {
       memcpy(&hello_local.ipAddr, &sin->sin_addr, sizeof localhostIPAddr);
@@ -1568,7 +1569,7 @@ main(int argc, char **argv)
   }
 
   tmpDir = Util::calcTmpDir(tmpdir_arg);
-  Util::initializeLogFile(tmpDir);
+  Util::initializeLogFile(tmpDir, NULL, NULL);
 
   JTRACE("New DMTCP coordinator starting.")
     (UniquePid::ThisProcess());

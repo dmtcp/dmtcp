@@ -216,7 +216,7 @@ SocketConnList::scanForPreExisting()
                                                                device.c_str()))
     {} else if (fd <=
                 2)
-    {} else if (Util::strStartsWith(device, "/")) {} else {
+    {} else if (Util::strStartsWith(device.c_str(), "/")) {} else {
       JNOTE("found pre-existing socket... will not be restored")
         (fd) (device);
       TcpConnection *con = new TcpConnection(0, 0, 0);

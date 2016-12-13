@@ -237,6 +237,15 @@ Util::isStaticallyLinked(const char *filename)
   return false;
 }
 
+static string
+getScreenDir()
+{
+  string tmpdir = string(dmtcp_get_tmpdir()) + "/" + "uscreens";
+
+  Util::safeMkdir(tmpdir.c_str(), 0700);
+  return tmpdir;
+}
+
 bool
 Util::isScreen(const char *filename)
 {
@@ -263,7 +272,7 @@ Util::setScreenDir()
                    << "***      As of DMTCP-1.2.3, emacs23 not yet supported\n"
                    << "***  inside screen.  Please use emacs22 for now.  This\n"
                    << "***  will be fixed in a future version of DMTCP.\n\n";
-    setenv("SCREENDIR", Util::getScreenDir().c_str(), 1);
+    setenv("SCREENDIR", getScreenDir().c_str(), 1);
   } else {
     if (access(getenv("SCREENDIR"), R_OK | W_OK | X_OK) != 0) {
       JASSERT_STDERR << "*** WARNING: Environment variable SCREENDIR is set\n"
@@ -273,15 +282,6 @@ Util::setScreenDir()
                      << "***  Continuing anyway, and hoping for the best.\n";
     }
   }
-}
-
-string
-Util::getScreenDir()
-{
-  string tmpdir = string(dmtcp_get_tmpdir()) + "/" + "uscreens";
-
-  safeMkdir(tmpdir.c_str(), 0700);
-  return tmpdir;
 }
 
 bool
@@ -633,8 +633,8 @@ Util::adjustRlimitStack()
 }
 
 // TODO(kapil): rewrite getPath to remove dependency on jalib.
-string
-Util::getPath(string cmd, bool is32bit)
+char *
+Util::getPath(const char *cmd, bool is32bit)
 {
   // search relative to base dir of dmtcp installation.
   const char *p1[] = {
@@ -648,7 +648,7 @@ Util::getPath(string cmd, bool is32bit)
 #if defined(__x86_64__) || defined(__aarch64__)
   if (is32bit) {  // if this is a multi-architecture build
     string basename = jalib::Filesystem::BaseName(cmd);
-    if (cmd == "mtcp_restart-32") {
+    if (strcmp(cmd, "mtcp_restart-32") == 0) {
       suffixFor32Bits = "32/bin/";
     } else {
       suffixFor32Bits = "32/lib/dmtcp/";
@@ -658,14 +658,18 @@ Util::getPath(string cmd, bool is32bit)
 
   // Search relative to dir of this command (bin/dmtcp_launch), (using p1).
   string udir = SharedData::getInstallDir();
+  string result = cmd;
   for (size_t i = 0; i < sizeof(p1) / sizeof(char *); i++) {
-    string pth = udir + p1[i] + suffixFor32Bits + cmd;
-    if (jalib::Filesystem::FileExists(pth)) {
-      return pth;
+    string p = udir + p1[i] + suffixFor32Bits + cmd;
+    if (jalib::Filesystem::FileExists(p)) {
+      result = p;
+      break;
     }
   }
 
-  return cmd;
+  char *buf = (char*) JALLOC_MALLOC(result.length() + 1);
+  strncpy(buf, result.c_str(), result.length() + 1);
+  return buf;
 }
 
 void

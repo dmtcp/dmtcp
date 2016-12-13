@@ -228,7 +228,9 @@ prepareLogAndProcessdDataFromSerialFile()
     jalib::JBinarySerializeReaderRaw rd("", PROTECTED_LIFEBOAT_FD);
     rd.rewind();
     UniquePid::serialize(rd);
-    Util::initializeLogFile(SharedData::getTmpDir(), "", prevLogFilePath);
+    Util::initializeLogFile(SharedData::getTmpDir().c_str(),
+                            NULL,
+                            prevLogFilePath.c_str());
 
     writeCurrentLogFileNameToPrevLogFile(prevLogFilePath);
 
@@ -239,7 +241,7 @@ prepareLogAndProcessdDataFromSerialFile()
   } else {
     // Brand new process (was never under ckpt-control),
     // Initialize the log file
-    Util::initializeLogFile(SharedData::getTmpDir());
+    Util::initializeLogFile(SharedData::getTmpDir().c_str(), NULL, NULL);
 
     JTRACE("Root of processes tree");
     ProcessInfo::instance().setRootOfProcessTree();

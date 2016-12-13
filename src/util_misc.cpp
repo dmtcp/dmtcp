@@ -112,69 +112,6 @@ Util::strEndsWith(const char *str, const char *pattern)
   return false;
 }
 
-bool
-Util::strStartsWith(const string &str, const char *pattern)
-{
-  return strStartsWith(str.c_str(), pattern);
-}
-
-bool
-Util::strEndsWith(const string &str, const char *pattern)
-{
-  return strEndsWith(str.c_str(), pattern);
-}
-
-string
-Util::joinStrings(vector<string>v, const string &delim)
-{
-  string result;
-
-  if (v.size() > 0) {
-    result = v[0];
-    for (size_t i = 1; i < v.size(); i++) {
-      result += delim + v[i];
-    }
-  }
-  return result;
-}
-
-string
-Util::removeSuffix(const string &s, const string &suffix)
-{
-  if (strEndsWith(s, suffix.c_str())) {
-    string result(s, s.length() - suffix.length());
-    return result;
-  }
-  return s;
-}
-
-// Tokenizes the string using the delimiters.
-// Empty tokens will not be included in the result.
-vector<string>Util::tokenizeString(const string &s, const string &delims)
-{
-  size_t offset = 0;
-
-  vector<string>tokens;
-
-  while (true) {
-    size_t i = s.find_first_not_of(delims, offset);
-    if (i == string::npos) {
-      break;
-    }
-
-    size_t j = s.find_first_of(delims, i);
-    if (j == string::npos) {
-      tokens.push_back(s.substr(i));
-      offset = s.length();
-      continue;
-    }
-
-    tokens.push_back(s.substr(i, j - i));
-    offset = j;
-  }
-  return tokens;
-}
-
 // Add it back if needed.
 #if 0
 
@@ -211,49 +148,6 @@ split(
   return tokens;
 }
 #endif // if 0
-
-bool
-Util::createDirectoryTree(const string &path)
-{
-  size_t index = path.rfind('/');
-
-  if (index == string::npos) {
-    return true;
-  }
-
-  string dir = path.substr(0, index);
-
-  index = path.find('/');
-  while (index != string::npos) {
-    if (index > 1) {
-      string dirName = path.substr(0, index);
-
-      errno = 0;
-      int res = mkdir(dirName.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
-#ifdef STAMPEDE_LUSTRE_FIX
-      if (res < 0) {
-        if (errno == EACCES) {
-          struct stat buff;
-          int ret = stat(dirName.c_str(), &buff);
-          if (ret != 0) {
-            return false;
-          }
-        } else if (errno == EEXIST) {
-          /* do nothing */
-        } else {
-          return false;
-        }
-      }
-#else // ifdef STAMPEDE_LUSTRE_FIX
-      if (res == -1 && errno != EEXIST) {
-        return false;
-      }
-#endif // ifdef STAMPEDE_LUSTRE_FIX
-    }
-    index = path.find('/', index + 1);
-  }
-  return true;
-}
 
 // Fails or does entire write (returns count)
 ssize_t
@@ -628,13 +522,13 @@ Util::isValidFd(int fd)
 }
 
 bool
-Util::isPseudoTty(const string &path)
+Util::isPseudoTty(const char *path)
 {
   if (Util::strStartsWith(path, "/dev/tty") ||
       Util::strStartsWith(path, "/dev/pty") ||
       Util::strStartsWith(path, "/dev/pts/") ||
-      path == "/dev/ptmx" ||
-      path == "/dev/pts/ptmx") {
+      strcmp(path, "/dev/ptmx") == 0 ||
+      strcmp(path, "/dev/pts/ptmx") == 0) {
     return true;
   }
   return false;

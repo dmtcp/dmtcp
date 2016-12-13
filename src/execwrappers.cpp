@@ -39,6 +39,7 @@
 #include "pluginmanager.h"
 #include "processinfo.h"
 #include "shareddata.h"
+#include "tokenize.h"
 #include "syscallwrappers.h"
 #include "syslogwrappers.h"
 #include "threadlist.h"
@@ -155,7 +156,7 @@ pthread_atfork_child()
   ThreadSync::resetLocks();
 
   UniquePid::resetOnFork(child);
-  Util::initializeLogFile(child_name);
+  Util::initializeLogFile(dmtcp_get_tmpdir(), child_name.c_str(), NULL);
 
   ProcessInfo::instance().resetOnFork();
 
@@ -456,13 +457,13 @@ getUpdatedLdPreload(const char *filename, const char *currLdPreload)
     preload = getenv(ENV_VAR_HIJACK_LIBS_M32);
   }
 
-  vector<string>pluginLibraries = Util::tokenizeString(preload, ":");
+  vector<string>pluginLibraries = tokenizeString(preload, ":");
   for (size_t i = 0; i < pluginLibraries.size(); i++) {
     // If the plugin doesn't exist, try to search it in the current install
     // directory.
     if (!jalib::Filesystem::FileExists(pluginLibraries[i])) {
       pluginLibraries[i] =
-        Util::getPath(jalib::Filesystem::BaseName(pluginLibraries[i]),
+        Util::getPath(jalib::Filesystem::BaseName(pluginLibraries[i]).c_str(),
                       is32bitElf);
     }
   }
@@ -476,7 +477,14 @@ getUpdatedLdPreload(const char *filename, const char *currLdPreload)
     setenv(ENV_VAR_ORIG_LD_PRELOAD, preloadEnv, 1);
   }
 
-  string newPreload = Util::joinStrings(pluginLibraries, ":");
+  string newPreload;
+  if (pluginLibraries.size() > 0) {
+    newPreload = pluginLibraries[0];
+    for (size_t i = 1; i < pluginLibraries.size(); i++) {
+      newPreload += ":" + pluginLibraries[i];
+    }
+  }
+
   return newPreload;
 }
 
@@ -540,7 +548,7 @@ patchUserEnv(vector<string>env, const char *filename)
       }
       continue;
     }
-    if (Util::strStartsWith(env[i], "LD_PRELOAD=")) {
+    if (Util::strStartsWith(env[i].c_str(), "LD_PRELOAD=")) {
       userPreloadStr = env[i].substr(strlen("LD_PRELOAD="));
       continue;
     }

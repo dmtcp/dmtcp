@@ -84,7 +84,7 @@ processConnection(int fd, const char *path, int flags, mode_t mode)
     device = path;
   }
 
-  if (Util::isPseudoTty(device)) {
+  if (Util::isPseudoTty(device.c_str())) {
     PtyConnList::instance().processPtyConnection(fd, path, flags, mode);
   } else {
     FileConnList::instance().processFileConnection(fd, path, flags, mode);
