@@ -55,7 +55,7 @@ using namespace dmtcp;
 
 static void setEnvironFd();
 
-string tmpDir = "/DMTCP/Uninitialized/Tmp/Dir";
+char *tmpDir = const_cast<char*>("/DMTCP/Uninitialized/Tmp/Dir");
 
 // gcc-4.3.4 -Wformat=2 issues false positives for warnings unless the format
 // string has at least one format specifier with corresponding format argument.
@@ -284,7 +284,7 @@ class RestoreTarget
           jalib::Filesystem::DirName(jalib::Filesystem::GetProgramDir());
 
 #if defined(__i386__) || defined(__arm__)
-        if (Util::strEndsWith(installDir, "/lib/dmtcp/32")) {
+        if (Util::strEndsWith(installDir.c_str(), "/lib/dmtcp/32")) {
           // If dmtcp_launch was compiled for 32 bits in 64-bit O/S, then note:
           // DMTCP_ROOT/bin/dmtcp_launch is a symbolic link to:
           // DMTCP_ROOT/bin/dmtcp_launch/lib/dmtcp/32/bin
@@ -301,12 +301,14 @@ class RestoreTarget
          * SharedData area may be initialized earlier (for example, while
          * recreating threads), causing it to use *older* timestamp.
          */
-        SharedData::initialize(tmpDir.c_str(),
+        SharedData::initialize(tmpDir,
                                installDir.c_str(),
                                &compId,
                                &coordInfo,
                                &localIPAddr);
-        Util::initializeLogFile(SharedData::getTmpDir(), _pInfo.procname());
+        Util::initializeLogFile(SharedData::getTmpDir().c_str(),
+                                _pInfo.procname().c_str(),
+                                NULL);
 
         Util::prepareDlsymWrapper();
       }
@@ -696,7 +698,7 @@ setEnvironFd()
 {
   char envFile[PATH_MAX];
 
-  sprintf(envFile, "%s/envFile.XXXXXX", tmpDir.c_str());
+  sprintf(envFile, "%s/envFile.XXXXXX", tmpDir);
   int fd = mkstemp(envFile);
   JASSERT(fd != -1) (envFile) (JASSERT_ERRNO);
   JASSERT(unlink(envFile) == 0) (envFile) (JASSERT_ERRNO);
@@ -858,7 +860,7 @@ main(int argc, char **argv)
   jassert_quiet = *getenv(ENV_VAR_QUIET) - '0';
 
   // make sure JASSERT initializes now, rather than during restart
-  Util::initializeLogFile(tmpDir);
+  Util::initializeLogFile(tmpDir, NULL, NULL);
 
   if (!noStrictChecking && jassert_quiet < 2 &&
       (getuid() == 0 || geteuid() == 0)) {
@@ -875,9 +877,9 @@ main(int argc, char **argv)
     string restorename(argv[0]);
     struct stat buf;
     int rc = stat(restorename.c_str(), &buf);
-    if (Util::strEndsWith(restorename, "_files")) {
+    if (Util::strEndsWith(restorename.c_str(), "_files")) {
       continue;
-    } else if (!Util::strEndsWith(restorename, ".dmtcp")) {
+    } else if (!Util::strEndsWith(restorename.c_str(), ".dmtcp")) {
       JNOTE("File doesn't have .dmtcp extension. Check Usage.") (restorename);
 
       // Don't test for --quiet here.  We're aborting.  We need to say why.

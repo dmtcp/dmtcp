@@ -39,7 +39,6 @@
 #include "shareddata.h"
 #include "syscallwrappers.h"
 #include "util.h"
-#include "util.h"
 
 // sem_launch is used in threadlist.cpp
 // sem_launch_first_time will be set just before pthread_create(checkpointhread)

@@ -42,6 +42,7 @@
 #include "util.h"
 
 #include "fileconnection.h"
+#include "fileconnlist.h"
 #include "filewrappers.h"
 
 using namespace dmtcp;
@@ -71,10 +72,10 @@ _isVimApp()
 static bool
 _isBlacklistedFile(string &path)
 {
-  if ((Util::strStartsWith(path, "/dev/") &&
-       !Util::strStartsWith(path, "/dev/shm/")) ||
-      Util::strStartsWith(path, "/proc/") ||
-      Util::strStartsWith(path, dmtcp_get_tmpdir())) {
+  if ((Util::strStartsWith(path.c_str(), "/dev/") &&
+       !Util::strStartsWith(path.c_str(), "/dev/shm/")) ||
+      Util::strStartsWith(path.c_str(), "/proc/") ||
+      Util::strStartsWith(path.c_str(), dmtcp_get_tmpdir())) {
     return true;
   }
   return false;
@@ -91,7 +92,7 @@ _isBlacklistedFile(string &path)
 void
 FileConnection::doLocking()
 {
-  if (Util::strStartsWith(_path, "/proc/")) {
+  if (Util::strStartsWith(_path.c_str(), "/proc/")) {
     int index = 6;
     char *rest;
     pid_t proc_pid = strtol(&_path[index], &rest, 0);
@@ -149,8 +150,8 @@ FileConnection::drain()
     // had a chance to update the _path. Update it now.
     _path = jalib::Filesystem::GetDeviceName(_fds[0]);
     // Files deleted on NFS have the .nfsXXXX format.
-    if (Util::strStartsWith(jalib::Filesystem::BaseName(_path), ".nfs") ||
-        !jalib::Filesystem::FileExists(_path)) {
+    if (Util::strStartsWith(jalib::Filesystem::BaseName(_path).c_str(), ".nfs")
+        || !jalib::Filesystem::FileExists(_path)) {
       _type = FILE_DELETED;
     }
   }
@@ -187,10 +188,10 @@ FileConnection::drain()
   } else if (_type == FILE_DELETED || _type == FILE_SHM) {
     _ckpted_file = true;
   } else if (_isVimApp() &&
-             (Util::strEndsWith(_path, ".swp") == 0 ||
-              Util::strEndsWith(_path, ".swo") == 0)) {
+             (Util::strEndsWith(_path.c_str(), ".swp") == 0 ||
+              Util::strEndsWith(_path.c_str(), ".swo") == 0)) {
     _ckpted_file = true;
-  } else if (Util::strStartsWith(jalib::Filesystem::GetProgramName(),
+  } else if (Util::strStartsWith(jalib::Filesystem::GetProgramName().c_str(),
                                  "emacs")) {
     _ckpted_file = true;
 #if 0
@@ -216,8 +217,9 @@ FileConnection::preCkpt()
     JASSERT(SharedData::getCkptLeaderForFile(_st_dev, _st_ino, &id));
     if (id == _id) {
       _savedFilePath = getSavedFilePath(_path);
-      JASSERT(Util::createDirectoryTree(_savedFilePath)) (_savedFilePath)
-      .Text("Unable to create directory in File Path");
+      JASSERT(FileConnList::createDirectoryTree(_savedFilePath))
+        (_savedFilePath)
+        .Text("Unable to create directory in File Path");
 
       int destFd = _real_open(
           _savedFilePath.c_str(), O_CREAT | O_WRONLY | O_TRUNC,
@@ -471,7 +473,7 @@ FileConnection::postRestart()
     JTRACE("Restore Resource Manager File") (_path);
   } else {
     refreshPath();
-    JASSERT(Util::createDirectoryTree(_path)) (_path)
+    JASSERT(FileConnList::createDirectoryTree(_path)) (_path)
     .Text("Unable to create directory in File Path");
 
     /* Now try to create the file with O_EXCL. If we fail with EEXIST, there

@@ -404,7 +404,7 @@ PtyConnection::postRestart()
               "parent process.\n"
               "Replacing it with current STDIN");
       }
-      JWARNING(Util::strStartsWith(stdinDeviceName, "/dev/pts/") ||
+      JWARNING(Util::strStartsWith(stdinDeviceName.c_str(), "/dev/pts/") ||
                stdinDeviceName == "/dev/tty") (stdinDeviceName)
       .Text("Controlling terminal not bound to a terminal device.");
 

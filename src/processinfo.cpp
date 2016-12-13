@@ -656,7 +656,7 @@ ProcessInfo::setCkptFilename(const char *filename)
     _ckptFileName = _ckptDir + "/" + filename;
   }
 
-  if (Util::strEndsWith(_ckptFileName, CKPT_FILE_SUFFIX)) {
+  if (Util::strEndsWith(_ckptFileName.c_str(), CKPT_FILE_SUFFIX)) {
     string ckptFileBaseName =
       _ckptFileName.substr(0, _ckptFileName.length() - CKPT_FILE_SUFFIX_LEN);
     _ckptFilesSubDir = ckptFileBaseName + CKPT_FILES_SUBDIR_SUFFIX;
