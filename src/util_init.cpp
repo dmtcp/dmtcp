@@ -91,7 +91,7 @@ void Util::getCoordHostAndPort(CoordinatorMode mode,
 }
 void Util::setCoordPort(int port)
 {
-  string host = NULL;
+  string host = "";
   // mode will be ignored, since this is not the first time we call this.
   Util::getCoordHostAndPort(COORD_ANY, host, &port);
 }
