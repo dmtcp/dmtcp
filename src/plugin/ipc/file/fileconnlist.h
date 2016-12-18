@@ -47,6 +47,7 @@ namespace dmtcp
 
       virtual void preLockSaveOptions();
       virtual void drain();
+      virtual void preCkpt();
       virtual void refill(bool isRestart);
       virtual void resume(bool isRestart);
       virtual void postRestart();

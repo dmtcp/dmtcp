@@ -147,6 +147,7 @@ namespace dmtcp
 
       virtual string str() { return _path; }
       string filePath() { return _path; }
+      string savedFilePath() { return _savedFilePath; }
       bool checkpointed() { return _ckpted_file; }
       void doNotRestoreCkptCopy() { _ckpted_file = false; }
 
@@ -162,6 +163,7 @@ namespace dmtcp
       void overwriteFileWithBackup(int savedFd);
 
       string _path;
+      string _savedFilePath;
       string _rel_path;
       string _ckptFilesDir;
       int32_t       _ckpted_file;

@@ -139,6 +139,36 @@ void FileConnList::drain()
   }
 }
 
+/*
+ * This function is called after preCkpt() for all FileConnection
+ * objects and is useful for writing out information about the
+ * open files saved by DMTCP.
+ */
+void FileConnList::preCkpt()
+{
+  ConnectionList::preCkpt();
+
+  string fdInfoFile = dmtcp_get_ckpt_files_subdir();
+  fdInfoFile += "/fd-info.txt";
+  int tmpfd = _real_open(fdInfoFile.c_str(),
+                         O_CREAT | O_WRONLY | O_TRUNC,
+			 0644);
+
+  for (iterator i = begin(); i != end(); ++i) {
+    Connection* con =  i->second;
+    if (con->hasLock() && con->conType() == Connection::FILE) {
+      FileConnection *fileCon = (FileConnection*) con;
+      if (fileCon->checkpointed() == true) {
+        string buf = jalib::Filesystem::BaseName(fileCon->savedFilePath()) +
+                      ":" + fileCon->filePath() + "\n";
+        JASSERT(Util::writeAll(tmpfd, buf.c_str(),
+	                       buf.length()) == buf.length());
+      }
+    }
+  }
+  _real_close(tmpfd);
+}
+
 void FileConnList::postRestart()
 {
   /* It is possible to have two different connection-ids for a pre-existing

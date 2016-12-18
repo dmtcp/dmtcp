@@ -618,15 +618,15 @@ void FileConnection::preCkpt()
     JASSERT(_type != FILE_PROCFS && _type != FILE_INVALID);
     JASSERT(SharedData::getCkptLeaderForFile(_st_dev, _st_ino, &id));
     if (id == _id) {
-      string savedFilePath = getSavedFilePath(_path);
-      JASSERT(Util::createDirectoryTree(savedFilePath)) (savedFilePath)
+      _savedFilePath = getSavedFilePath(_path);
+      JASSERT(Util::createDirectoryTree(_savedFilePath)) (_savedFilePath)
         .Text("Unable to create directory in File Path");
 
-      int destFd = _real_open(savedFilePath.c_str(), O_CREAT | O_WRONLY | O_TRUNC,
+      int destFd = _real_open(_savedFilePath.c_str(), O_CREAT | O_WRONLY | O_TRUNC,
                               S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
-      JASSERT(destFd != -1) (JASSERT_ERRNO) (_path) (savedFilePath);
+      JASSERT(destFd != -1) (JASSERT_ERRNO) (_path) (_savedFilePath);
 
-      JTRACE("Saving checkpointed copy of the file") (_path) (savedFilePath);
+      JTRACE("Saving checkpointed copy of the file") (_path) (_savedFilePath);
       if (_fcntlFlags & O_WRONLY) {
         // If the file is opened() in write-only mode. Open it in readonly mode
         // to create the ckpt copy.
@@ -696,18 +696,17 @@ void FileConnection::refill(bool isRestart)
       strstr(_path.c_str(), "uverbs-event")) return;
 
   if (_ckpted_file && _fileAlreadyExists) {
-    string savedFilePath = getSavedFilePath(_path);
-    int savedFd = _real_open(savedFilePath.c_str(), O_RDONLY, 0);
-    JASSERT(savedFd != -1) (JASSERT_ERRNO) (savedFilePath);
+    int savedFd = _real_open(_savedFilePath.c_str(), O_RDONLY, 0);
+    JASSERT(savedFd != -1) (JASSERT_ERRNO) (_savedFilePath);
 
     if (_allow_overwrite) {
       JTRACE("Copying checkpointed file to original location")
-        (savedFilePath) (_path);
+        (_savedFilePath) (_path);
       this->overwriteFileWithBackup(savedFd);
     } else {
       if (!areFilesEqual(_fds[0], savedFd, _st_size)) {
         if (_type == FILE_SHM) {
-          JWARNING(false) (_path) (savedFilePath)
+          JWARNING(false) (_path) (_savedFilePath)
             .Text("\n"
                   "***Mapping current version of file into memory;\n"
                   "   _not_ file as it existed at time of checkpoint.\n"
@@ -719,7 +718,7 @@ void FileConnection::refill(bool isRestart)
             "       The Contents of checkpointed copy differ from the "
             "contents of the existing copy.\n"
             "****Delete the existing file and try again!";
-          JASSERT(false) (_path) (savedFilePath) (errMsg);
+          JASSERT(false) (_path) (_savedFilePath) (errMsg);
         }
       }
     }
@@ -846,13 +845,12 @@ void FileConnection::postRestart()
   _fileAlreadyExists = false;
 
   JTRACE("Restoring File Connection") (id()) (_path);
-  string savedFilePath = getSavedFilePath(_path);
-  JASSERT(jalib::Filesystem::FileExists(savedFilePath))
-    (savedFilePath) (_path) .Text("Unable to find checkpointed copy of file");
+  JASSERT(jalib::Filesystem::FileExists(_savedFilePath))
+    (_savedFilePath) (_path) .Text("Unable to find checkpointed copy of file");
 
   if (_type == FILE_BATCH_QUEUE) {
     JASSERT(dmtcp_bq_restore_file);
-    tempfd = dmtcp_bq_restore_file(_path.c_str(), savedFilePath.c_str(),
+    tempfd = dmtcp_bq_restore_file(_path.c_str(), _savedFilePath.c_str(),
                                    _fcntlFlags, _rmtype);
     JTRACE("Restore Resource Manager File") (_path);
   } else {
@@ -874,11 +872,11 @@ void FileConnection::postRestart()
     if (fd == -1) {
       _fileAlreadyExists = true;
     } else {
-      int srcFd = _real_open(savedFilePath.c_str(), O_RDONLY, 0);
-      JASSERT(srcFd != -1) (_path) (savedFilePath) (JASSERT_ERRNO)
+      int srcFd = _real_open(_savedFilePath.c_str(), O_RDONLY, 0);
+      JASSERT(srcFd != -1) (_path) (_savedFilePath) (JASSERT_ERRNO)
         .Text("Failed to open checkpointed copy of the file.");
       JTRACE("Copying saved checkpointed file to original location")
-        (savedFilePath) (_path);
+        (_savedFilePath) (_path);
       writeFileFromFd(srcFd, fd);
       _real_close(srcFd);
       _real_close(fd);
