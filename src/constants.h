@@ -117,6 +117,7 @@
 #define ENV_VAR_DISABLE_STRICT_CHECKING "DMTCP_DISABLE_STRICT_CHECKING"
 
 #define ENV_VAR_REMOTE_SHELL_CMD        "DMTCP_REMOTE_SHELL_CMD"
+#define ENV_VAR_PROTECTED_FD_BASE       "DMTCP_PROTECTED_FD_BASE"
 
 // this list should be kept up to date with all "protected" environment vars
 #define ENV_VARS_ALL                  \
@@ -140,6 +141,7 @@
   ENV_VAR_SCREENDIR,                  \
   ENV_VAR_VIRTUAL_PID,                \
   ENV_VAR_SKIP_WRITING_TEXT_SEGMENTS, \
+  ENV_VAR_PROTECTED_FD_BASE,          \
   ENV_DELTACOMPRESSION
 
 #define DMTCP_RESTART_CMD       "dmtcp_restart"

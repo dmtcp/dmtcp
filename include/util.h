@@ -175,6 +175,7 @@ char *findExecutable(char *executable, const char *path_env, char *exec_path);
 char *getPath(const char *cmd, bool is32bit = false);
 char **getDmtcpArgs();
 void allowGdbDebug(int currentDebugLevel);
+void setProtectedFdBase();
 }
 }
 #endif // ifdef __cplusplus
