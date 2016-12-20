@@ -62,6 +62,7 @@ void SocketConnList::drain()
     //we will create a new, broken socket that is not closed
     con->onError();
   }
+  dmtcp_update_max_required_fd(getMaxFd());
 }
 
 void SocketConnList::preCkpt()

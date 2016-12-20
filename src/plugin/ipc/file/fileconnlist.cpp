@@ -137,6 +137,7 @@ void FileConnList::drain()
   if (inodeConnIdMaps.size() > 0) {
     SharedData::insertInodeConnIdMaps(inodeConnIdMaps);
   }
+  dmtcp_update_max_required_fd(getMaxFd());
 }
 
 /*

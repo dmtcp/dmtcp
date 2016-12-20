@@ -295,6 +295,8 @@ EXTERNC int dmtcp_protected_environ_fd(void);
 EXTERNC pid_t dmtcp_real_to_virtual_pid(pid_t realPid) __attribute((weak));
 EXTERNC pid_t dmtcp_virtual_to_real_pid(pid_t virtualPid) __attribute((weak));
 
+EXTERNC void dmtcp_update_max_required_fd(int fd) __attribute((weak));
+
 // bq_file -> "batch queue file"; used only by batch-queue plugin
 EXTERNC int dmtcp_is_bq_file(const char *path)
   __attribute((weak));

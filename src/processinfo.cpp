@@ -36,6 +36,8 @@
 
 using namespace dmtcp;
 
+EXTERNC int dmtcp_get_max_user_fd() __attribute__((weak));
+
 static pthread_mutex_t tblLock = PTHREAD_MUTEX_INITIALIZER;
 
 static int roundingMode;
@@ -121,6 +123,7 @@ ProcessInfo::ProcessInfo()
   _childTable.clear();
   _pthreadJoinId.clear();
   _procSelfExe = jalib::Filesystem::ResolveSymlink("/proc/self/exe");
+  _maxUserFd = -1;
   _uppid = UniquePid();
   JASSERT(getcwd(buf, sizeof buf) != NULL);
   _launchCWD = buf;
@@ -232,6 +235,7 @@ void ProcessInfo::init()
     _isRootOfProcessTree = true;
     _uppid = UniquePid();
     _procSelfExe = jalib::Filesystem::ResolveSymlink("/proc/self/exe");
+    _maxUserFd = -1;
   }
 
 #ifdef CONFIG_M32
@@ -335,6 +339,7 @@ void ProcessInfo::postExec()
 {
   _procname   = jalib::Filesystem::GetProgramName();
   _procSelfExe = jalib::Filesystem::ResolveSymlink("/proc/self/exe");
+  _maxUserFd = -1;
   _upid       = UniquePid::ThisProcess();
   _uppid      = UniquePid::ParentProcess();
   updateCkptDirFileSubdir();
@@ -558,6 +563,7 @@ void ProcessInfo::refresh()
 
   _procname = jalib::Filesystem::GetProgramName();
   _procSelfExe = jalib::Filesystem::ResolveSymlink("/proc/self/exe");
+  _maxUserFd = -1;
   _hostname = jalib::Filesystem::GetCurrentHostname();
   _upid = UniquePid::ThisProcess();
   _noCoordinator = dmtcp_no_coordinator();
@@ -587,6 +593,13 @@ void ProcessInfo::refreshChildTable()
   }
 }
 
+void ProcessInfo::updateMaxUserFd(int fd)
+{
+  if (fd > _maxUserFd) {
+    _maxUserFd = fd;
+  }
+}
+
 void ProcessInfo::serialize(jalib::JBinarySerializer& o)
 {
   JSERIALIZE_ASSERT_POINT("ProcessInfo:");
@@ -596,7 +609,7 @@ void ProcessInfo::serialize(jalib::JBinarySerializer& o)
   o & _isRootOfProcessTree & _pid & _sid & _ppid & _gid & _fgid & _generation;
   o & _procname & _procSelfExe & _hostname & _launchCWD & _ckptCWD & _upid & _uppid;
   o & _compGroup & _numPeers & _noCoordinator & _argvSize & _envSize;
-  o & _restoreBufAddr & _savedHeapStart & _savedBrk;
+  o & _restoreBufAddr & _maxUserFd & _savedHeapStart & _savedBrk;
   o & _vdsoStart & _vdsoEnd & _vvarStart & _vvarEnd;
   o & _ckptDir & _ckptFileName & _ckptFilesSubDir;
 

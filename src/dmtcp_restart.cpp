@@ -136,6 +136,10 @@ class RestoreTarget
 
       _fd = readCkptHeader(_path, &_pInfo);
       JTRACE("restore target") (_path) (_pInfo.numPeers()) (_pInfo.compGroup());
+      JASSERT(_pInfo.getMaxUserFd() < PROTECTED_FD_START)
+             (_pInfo.getMaxUserFd())(PROTECTED_FD_START)
+             .Text("The fd limit on the system is lower "
+	           "than required for restart");
     }
 
     int fd() const { return _fd; }
