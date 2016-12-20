@@ -67,7 +67,9 @@ static void updateProcPathVirtualToReal(const char *path, char **newpath)
     int index = strlen(PROC_PREFIX);
     char *rest;
     pid_t virtualPid = strtol(&path[index], &rest, 0);
-    if (virtualPid > 0 && *rest == '/') {
+    // WAS: if (virtualPid > 0 && *rest == '/')
+    // Removing the "*rest ..." check to handle /proc/<pid>
+    if (virtualPid > 0) {
       pid_t realPid = VIRTUAL_TO_REAL_PID(virtualPid);
       sprintf(*newpath, "/proc/%d%s", realPid, rest);
       return;
@@ -83,7 +85,9 @@ static void updateProcPathRealToVirtual(const char *path, char **newpath)
     int index = strlen(PROC_PREFIX);
     char *rest;
     pid_t realPid = strtol(&path[index], &rest, 0);
-    if (realPid > 0 && *rest == '/') {
+    // WAS: if (realPid > 0 && *rest == '/')
+    // Removing the "*rest ..." check to handle /proc/<pid>
+    if (realPid > 0) {
       pid_t virtualPid = REAL_TO_VIRTUAL_PID(realPid);
       sprintf(*newpath, "/proc/%d%s", virtualPid, rest);
       return;
@@ -150,6 +154,15 @@ extern "C" int fclose(FILE *fp)
   // 32-bit systems.  Ideally, this should be done only in the plugin that uses
   // fclose (e.g. File plugin), but doing it here will work as well.
   return _real_fclose(fp);
+}
+
+extern "C" DIR*
+opendir(const char *name)
+{
+  char tmpbuf[PATH_MAX];
+  char *newpath = tmpbuf;
+  updateProcPathVirtualToReal(name, &newpath);
+  return _real_opendir(newpath);
 }
 
 extern "C" int __xstat(int vers, const char *path, struct stat *buf)

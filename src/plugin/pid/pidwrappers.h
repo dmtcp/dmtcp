@@ -149,6 +149,7 @@ extern "C"
   MACRO(close)              \
   MACRO(dup2)               \
   MACRO(fopen64)            \
+  MACRO(opendir)            \
   MACRO(__xstat)            \
   MACRO(__xstat64)          \
   MACRO(__lxstat)           \
@@ -261,6 +262,7 @@ extern "C"
   FILE* _real_fopen(const char *path, const char *mode);
   FILE* _real_fopen64(const char *path, const char *mode);
   int _real_fclose(FILE *fp);
+  DIR* _real_opendir(const char* name);
   int _real_xstat(int vers, const char *path, struct stat *buf);
   int _real_xstat64(int vers, const char *path, struct stat64 *buf);
   int _real_lxstat(int vers, const char *path, struct stat *buf);

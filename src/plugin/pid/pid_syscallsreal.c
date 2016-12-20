@@ -410,6 +410,11 @@ int _real_fclose(FILE *fp) {
   REAL_FUNC_PASSTHROUGH(fclose) (fp);
 }
 
+LIB_PRIVATE DIR* _real_opendir(const char* name)
+{
+  REAL_FUNC_PASSTHROUGH_TYPED(DIR*, opendir) (name);
+}
+
 int _real_xstat(int vers, const char *path, struct stat *buf) {
   REAL_FUNC_PASSTHROUGH(__xstat) (vers, path, buf);
 }
