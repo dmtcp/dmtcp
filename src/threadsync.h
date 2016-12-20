@@ -24,16 +24,16 @@
 
 
 #define WRAPPER_EXECUTION_DISABLE_CKPT()           \
-  /*JTRACE("Acquiring wrapperExecutionLock");*/    \
+  /*JLOG(DMTCP)("Acquiring wrapperExecutionLock");*/    \
   bool __wrapperExecutionLockAcquired =            \
     dmtcp::ThreadSync::wrapperExecutionLockLock(); \
   if (__wrapperExecutionLockAcquired) {            \
-    /*JTRACE("Acquired wrapperExecutionLock"); */  \
+    /*JLOG(DMTCP)("Acquired wrapperExecutionLock"); */  \
   }
 
 #define WRAPPER_EXECUTION_ENABLE_CKPT()              \
   if (__wrapperExecutionLockAcquired) {              \
-    /*JTRACE("Releasing wrapperExecutionLock"); */   \
+    /*JLOG(DMTCP)("Releasing wrapperExecutionLock"); */   \
     dmtcp::ThreadSync::wrapperExecutionLockUnlock(); \
   }
 

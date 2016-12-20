@@ -86,9 +86,17 @@ jassert_internal::JAssert::Text(const char *msg)
   return *this;
 }
 
+jassert_internal::JAssert::JAssert(LogSource logSrc, bool exitWhenDone)
+  : JASSERT_CONT_A(*this)
+  , JASSERT_CONT_B(*this)
+  , _logSrc(logSrc)
+  , _exitWhenDone(exitWhenDone)
+{}
+
 jassert_internal::JAssert::JAssert(bool exitWhenDone)
   : JASSERT_CONT_A(*this)
   , JASSERT_CONT_B(*this)
+  , _logSrc(JTRACE)   // Always print the warnings, notes, and assert msgs
   , _exitWhenDone(exitWhenDone)
 {}
 
@@ -108,7 +116,7 @@ jassert_internal::JAssert::~JAssert()
 #endif // ifdef DEBUG
   }
 
-  if (!ss.str().empty()) {
+  if ((jalib::getLogMask() & _logSrc) && !ss.str().empty()) {
     jassert_safe_print(ss.str().c_str());
   }
 

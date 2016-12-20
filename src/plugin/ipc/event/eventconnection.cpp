@@ -63,7 +63,7 @@ EpollConnection::refill(bool isRestart)
     typedef map<int, struct epoll_event>::iterator fdEventIterator;
     fdEventIterator fevt = _fdToEvent.begin();
     for (; fevt != _fdToEvent.end(); fevt++) {
-      JTRACE("restore sfd options") (fevt->first);
+      JLOG(EVENT)("restore sfd options") (fevt->first);
       int ret = _real_epoll_ctl(_fds[0], EPOLL_CTL_ADD, fevt->first,
                                 &(fevt->second));
       JWARNING(ret == 0) (_fds[0]) (ret) (strerror(errno))
@@ -76,7 +76,7 @@ void
 EpollConnection::postRestart()
 {
   JASSERT(_fds.size() > 0);
-  JTRACE("Recreating epoll connection") (_fds[0]) (id());
+  JLOG(EVENT)("Recreating epoll connection") (_fds[0]) (id());
   int tempFd = _real_epoll_create(_size);
   JASSERT(tempFd >= 0);
   Util::dupFds(tempFd, _fds);
@@ -123,7 +123,7 @@ void
 EventFdConnection::drain()
 {
   JASSERT(_fds.size() > 0);
-  JTRACE("Checkpoint eventfd.") (_fds[0]);
+  JLOG(EVENT)("Checkpoint eventfd.") (_fds[0]);
 
   int new_flags = (_fcntlFlags & (~(O_RDONLY | O_WRONLY))) | O_RDWR |
     O_NONBLOCK;
@@ -140,7 +140,7 @@ EventFdConnection::drain()
   // Read whatever is there on top of evtfd
   size = read(evtfd, &u, sizeof(uint64_t));
   if (-1 != size) {
-    JTRACE("Read value u: ") (evtfd) (u);
+    JLOG(EVENT)("Read value u: ") (evtfd) (u);
 
     // EFD_SEMAPHORE flag not specified,
     // the counter value would have been reset to 0 upon read
@@ -156,27 +156,27 @@ EventFdConnection::drain()
       _initval = counter;
     }
   } else {
-    JTRACE("Nothing to be read from eventfd.")
+    JLOG(EVENT)("Nothing to be read from eventfd.")
       (evtfd) (errno) (strerror(errno));
     _initval = 0;
   }
-  JTRACE("Checkpointing eventfd:  end.") (_fds[0]) (_initval);
+  JLOG(EVENT)("Checkpointing eventfd:  end.") (_fds[0]) (_initval);
 }
 
 void
 EventFdConnection::refill(bool isRestart)
 {
-  JTRACE("Begin refill eventfd.") (_fds[0]);
+  JLOG(EVENT)("Begin refill eventfd.") (_fds[0]);
   JASSERT(_fds.size() > 0);
   evtfd = _fds[0];
   if (!isRestart) {
     uint64_t u = (unsigned long long)_initval;
-    JTRACE("Writing") (u);
+    JLOG(EVENT)("Writing") (u);
     JWARNING(write(evtfd, &u, sizeof(uint64_t)) == sizeof(uint64_t))
       (evtfd) (errno) (strerror(errno))
     .Text("Write to eventfd failed during refill");
   }
-  JTRACE("End refill eventfd.") (_fds[0]);
+  JLOG(EVENT)("End refill eventfd.") (_fds[0]);
 }
 
 void
@@ -184,7 +184,7 @@ EventFdConnection::postRestart()
 {
   JASSERT(_fds.size() > 0);
 
-  JTRACE("Restoring EventFd Connection") (id());
+  JLOG(EVENT)("Restoring EventFd Connection") (id());
   errno = 0;
   int tempfd = _real_eventfd(_initval, _flags);
   JASSERT(tempfd > 0) (tempfd) (JASSERT_ERRNO);
@@ -196,7 +196,7 @@ EventFdConnection::serializeSubClass(jalib::JBinarySerializer &o)
 {
   JSERIALIZE_ASSERT_POINT("EventFdConnection");
   o&_initval &_flags;
-  JTRACE("Serializing EvenFdConn.");
+  JLOG(EVENT)("Serializing EvenFdConn.");
 }
 #endif // ifdef HAVE_SYS_EVENTFD_H
 
@@ -209,7 +209,7 @@ SignalFdConnection::drain()
 {
   JASSERT(_fds.size() > 0);
 
-  JTRACE("Checkpoint signalfd.") (_fds[0]);
+  JLOG(EVENT)("Checkpoint signalfd.") (_fds[0]);
 
   int new_flags = (_fcntlFlags & (~(O_RDONLY | O_WRONLY))) | O_RDWR |
     O_NONBLOCK;
@@ -229,22 +229,22 @@ SignalFdConnection::drain()
     // FIXME: What's the purpose of memcpy here?
     memcpy(&_fdsi, &_fdsi, sizeof(struct signalfd_siginfo));
   } else {
-    JTRACE("Nothing to be read from signalfd.")
+    JLOG(EVENT)("Nothing to be read from signalfd.")
       (signlfd) (errno) (strerror(errno));
   }
-  JTRACE("Checkpointing signlfd:  end.") (_fds[0]);
+  JLOG(EVENT)("Checkpointing signlfd:  end.") (_fds[0]);
 }
 
 void
 SignalFdConnection::refill(bool isRestart)
 {
-  JTRACE("Begin refill signalfd.") (_fds[0]);
+  JLOG(EVENT)("Begin refill signalfd.") (_fds[0]);
   JASSERT(_fds.size() > 0);
 
   // raise the signals
-  JTRACE("Raising the signal...") (_fdsi.ssi_signo);
+  JLOG(EVENT)("Raising the signal...") (_fdsi.ssi_signo);
   raise(_fdsi.ssi_signo);
-  JTRACE("End refill signalfd.") (_fds[0]);
+  JLOG(EVENT)("End refill signalfd.") (_fds[0]);
 }
 
 void
@@ -252,7 +252,7 @@ SignalFdConnection::postRestart()
 {
   JASSERT(_fds.size() > 0);
 
-  JTRACE("Restoring SignalFd Connection") (id());
+  JLOG(EVENT)("Restoring SignalFd Connection") (id());
   errno = 0;
   int tempfd = _real_signalfd(-1, &_mask, _flags);
   JASSERT(tempfd > 0) (tempfd) (JASSERT_ERRNO);
@@ -264,7 +264,7 @@ SignalFdConnection::serializeSubClass(jalib::JBinarySerializer &o)
 {
   JSERIALIZE_ASSERT_POINT("SignalFdConnection");
   o&_flags&_mask &_fdsi;
-  JTRACE("Serializing SignalFdConn.");
+  JLOG(EVENT)("Serializing SignalFdConn.");
 }
 #endif // ifdef HAVE_SYS_SIGNALFD_H
 
@@ -291,7 +291,7 @@ InotifyConnection::refill(bool isRestart)
     // get the number of watch descriptors stored in dmtcp
     num_of_descriptors = descriptor.count_descriptors();
 
-    JTRACE("inotify restoreOptions") (_fds[0]) (id()) (num_of_descriptors);
+    JLOG(EVENT)("inotify restoreOptions") (_fds[0]) (id()) (num_of_descriptors);
 
     for (int i = 0; i < num_of_descriptors; i++) {
       if (true == descriptor.get_descriptor(i, INOTIFY_ADD_WATCH_DESCRIPTOR,
@@ -305,7 +305,7 @@ InotifyConnection::refill(bool isRestart)
 
         JWARNING(_real_dup2(new_wd, old_wd) == old_wd)
           (new_wd) (old_wd) (JASSERT_ERRNO);
-        JTRACE("restore watch descriptors")
+        JLOG(EVENT)("restore watch descriptors")
           (old_wd) (new_wd) (watch_descriptor.add_watch.file_descriptor)
           (watch_descriptor.add_watch.pathname)
           (watch_descriptor.add_watch.mask);
@@ -338,7 +338,7 @@ InotifyConnection::serializeSubClass(jalib::JBinarySerializer &o)
 InotifyConnection&
 InotifyConnection::asInotify()
 {
-  JTRACE("Return the connection as Inotify connection");
+  JLOG(EVENT)("Return the connection as Inotify connection");
   return *this;
 }
 
@@ -350,7 +350,7 @@ InotifyConnection::add_watch_descriptors(int wd,
 {
   int string_len;
 
-  JTRACE("save inotify watch descriptor within dmtcp")
+  JLOG(EVENT)("save inotify watch descriptor within dmtcp")
     (wd) (fd) (pathname) (mask);
   JASSERT(pathname != NULL).Text("pathname is NULL");
   if (NULL != pathname) {

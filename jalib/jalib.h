@@ -24,6 +24,7 @@
 
 #include <fcntl.h>
 #include <poll.h>
+#include <stdint.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/types.h>
@@ -64,6 +65,7 @@ typedef struct JalibFuncPtrs {
 
   ssize_t (*writeAll)(int fd, const void *buf, size_t count);
   ssize_t (*readAll)(int fd, void *buf, size_t count);
+  uint32_t (*getLogMask)(void);
 } JalibFuncPtrs;
 
 namespace jalib
@@ -111,7 +113,7 @@ int pthread_mutex_unlock(pthread_mutex_t *mutex);
 
 ssize_t writeAll(int fd, const void *buf, size_t count);
 ssize_t readAll(int fd, void *buf, size_t count);
-
+uint32_t getLogMask(void);
 bool strEndsWith(const char *str, const char *pattern);
 }
 

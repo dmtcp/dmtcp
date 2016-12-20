@@ -146,6 +146,7 @@ static bool blockUntilDone = false;
 static bool exitAfterCkpt = false;
 static bool exitAfterCkptOnce = false;
 static int blockUntilDoneRemote = -1;
+static uint32_t mask = 0;
 
 static DmtcpCoordinator prog;
 
@@ -279,6 +280,9 @@ DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage *reply /*= NULL*/)
   case 'x': case 'X':  // prefix exit command, prior to checkpoint command
     JTRACE("Will exit after creating the checkpoint...");
     exitAfterCkptOnce = true;
+    break;
+  case 'd': case 'D':
+    broadcastMessage(DMT_UPDATE_LOGGING);
     break;
   case 'c': case 'C':
     JTRACE("checkpointing...");
@@ -881,6 +885,10 @@ DmtcpCoordinator::processDmtUserCmd(DmtcpMessage &hello_remote,
     handleUserCommand(hello_remote.coordCmd, &reply);
     remote << reply;
     remote.close();
+  } else if (hello_remote.coordCmd == 'd') {
+    mask = hello_remote.logMask;
+    handleUserCommand(hello_remote.coordCmd);
+    remote << reply;
   } else {
     handleUserCommand(hello_remote.coordCmd, &reply);
     remote << reply;
@@ -1111,6 +1119,9 @@ DmtcpCoordinator::broadcastMessage(DmtcpMessageType type,
 
   if (msg.type == DMT_KILL_PEER && clients.size() > 0) {
     killInProgress = true;
+  }
+  if (msg.type == DMT_UPDATE_LOGGING) {
+    msg.logMask = mask;
   }
 
   JTRACE("sending message")(type);

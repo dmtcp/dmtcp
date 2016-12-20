@@ -781,3 +781,33 @@ Util::allowGdbDebug(int currentDebugLevel)
     }
   }
 }
+
+
+#define STRINGIFY_ENUM(x)   #x
+
+#define IF_START(x, a, b) \
+  if (strcmp(a, STRINGIFY_ENUM(x)) == 0) { \
+    b |= jassert_internal::x;
+
+#define STRCMP(x, a, b) \
+  } else if (strcmp(a, STRINGIFY_ENUM(x)) == 0) { \
+    b |= jassert_internal::x;
+
+#define IF_END(x, a, b) \
+  } else { \
+    b |= jassert_internal::x; \
+  }
+
+uint32_t
+Util::processDebugLogsArg(char *logString)
+{
+  char *logSrc = strtok(logString, ",");
+  uint32_t mask = jassert_internal::JTRACE;
+  while (logSrc) {
+    IF_START(UNKNOWN, logSrc, mask)
+    FOREACH_LOGSOURCE(STRCMP, logSrc, mask)
+    IF_END(UNKNOWN, logSrc, mask)
+    logSrc = strtok(NULL, ",");
+  }
+  return mask;
+}

@@ -128,7 +128,7 @@ openSharedFile(string name, int flags)
 
   jalib::string dir = jalib::Filesystem::DirName(name);
 
-  JTRACE("shared file dir:")(dir);
+  JLOG(PID)("shared file dir:")(dir);
   jalib::Filesystem::mkdir_r(dir, 0755);
 
   if ((fd =
@@ -138,7 +138,7 @@ openSharedFile(string name, int flags)
   }
   errno_bkp = errno;
 
-  JTRACE("_real_open: ")(strerror(errno))(fd)(flags);
+  JLOG(PID)("_real_open: ")(strerror(errno))(fd)(flags);
 
   if ((fd < 0) && (errno_bkp == EEXIST)) {
     errno = 0;
@@ -164,7 +164,7 @@ openOriginalToCurrentMappingFiles()
   pidMapFile = o.str();
 
   // Open and create pidMapFile if it doesn't exist.
-  JTRACE("Open dmtcpPidMapFile")(pidMapFile);
+  JLOG(PID)("Open dmtcpPidMapFile")(pidMapFile);
   if (!Util::isValidFd(PROTECTED_PIDMAP_FD)) {
     fd = openSharedFile(pidMapFile, O_RDWR);
     JASSERT(fd != -1);

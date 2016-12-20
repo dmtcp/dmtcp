@@ -106,7 +106,7 @@ UniquePid::ThisProcess(bool disableJTrace /*=false*/)
                              ::getpid(),
                              nsecs);
     if (disableJTrace == false) {
-      JTRACE("recalculated process UniquePid...") (theProcess());
+      JLOG(DMTCP)("recalculated process UniquePid...") (theProcess());
     }
   }
 
@@ -205,7 +205,7 @@ UniquePid::resetOnFork(const UniquePid &newId)
 {
   // parentProcess() is for inspection tools
   parentProcess() = ThisProcess();
-  JTRACE("Explicitly setting process UniquePid") (newId);
+  JLOG(DMTCP)("Explicitly setting process UniquePid") (newId);
   theProcess() = newId;
 }
 
@@ -218,7 +218,7 @@ UniquePid::isNull() const
 void
 UniquePid::serialize(jalib::JBinarySerializer &o)
 {
-  // NOTE: Do not put JTRACE/JNOTE/JASSERT in here
+  // NOTE: Do not put JLOG(DMTCP)/JNOTE/JASSERT in here
   UniquePid theCurrentProcess, theParentProcess;
 
   if (o.isWriter()) {

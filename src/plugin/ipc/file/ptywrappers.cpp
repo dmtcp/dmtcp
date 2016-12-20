@@ -280,14 +280,14 @@ access(const char *path, int mode)
 static int
 ptsname_r_work(int fd, char *buf, size_t buflen)
 {
-  JTRACE("Calling ptsname_r");
+  JLOG(FILEP)("Calling ptsname_r");
 
   Connection *c = PtyConnList::instance().getConnection(fd);
   PtyConnection *ptyCon = (PtyConnection *)c;
 
   string virtPtsName = ptyCon->virtPtsName();
 
-  JTRACE("ptsname_r") (virtPtsName);
+  JLOG(FILEP)("ptsname_r") (virtPtsName);
 
   if (virtPtsName.length() >= buflen) {
     JWARNING(false) (virtPtsName) (virtPtsName.length()) (buflen)
@@ -317,7 +317,7 @@ extern "C" char *ptsname(int fd)
 {
   /* No need to acquire Wrapper Protection lock since it will be done in
      ptsname_r */
-  JTRACE("ptsname() promoted to ptsname_r()");
+  JLOG(FILEP)("ptsname() promoted to ptsname_r()");
   static char tmpbuf[PATH_MAX];
 
   if (ptsname_r(fd, tmpbuf, sizeof(tmpbuf)) != 0) {

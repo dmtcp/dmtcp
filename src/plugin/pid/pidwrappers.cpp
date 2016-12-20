@@ -179,11 +179,11 @@ tcsetpgrp(int fd, pid_t pgrp)
 
   pid_t currPgrp = VIRTUAL_TO_REAL_PID(pgrp);
 
-  // JTRACE("Inside tcsetpgrp wrapper") (fd) (pgrp) (currPgrp);
+  // JLOG(PID)("Inside tcsetpgrp wrapper") (fd) (pgrp) (currPgrp);
   pid_t realPid = _real_tcsetpgrp(fd, currPgrp);
   pid_t virtualPid = REAL_TO_VIRTUAL_PID(realPid);
 
-  // JTRACE("tcsetpgrp return value") (fd) (pgrp) (currPgrp) (retval);
+  // JLOG(PID)("tcsetpgrp return value") (fd) (pgrp) (currPgrp) (retval);
   DMTCP_PLUGIN_ENABLE_CKPT();
 
   return virtualPid;
@@ -196,7 +196,7 @@ tcgetpgrp(int fd)
 
   pid_t retval = REAL_TO_VIRTUAL_PID(_real_tcgetpgrp(fd));
 
-  JTRACE("tcgetpgrp return value") (fd) (retval);
+  JLOG(PID)("tcgetpgrp return value") (fd) (retval);
   DMTCP_PLUGIN_ENABLE_CKPT();
 
   return retval;
@@ -209,7 +209,7 @@ tcgetsid(int fd)
 
   pid_t retval = REAL_TO_VIRTUAL_PID(_real_tcgetsid(fd));
 
-  JTRACE("tcgetsid return value") (fd) (retval);
+  JLOG(PID)("tcgetsid return value") (fd) (retval);
   DMTCP_PLUGIN_ENABLE_CKPT();
 
   return retval;

@@ -57,7 +57,7 @@ shmget(key_t key, size_t size, int shmflg)
   if (realId != -1) {
     SysVShm::instance().on_shmget(realId, key, size, shmflg);
     virtId = REAL_TO_VIRTUAL_SHM_ID(realId);
-    JTRACE("Creating new Shared memory segment")
+    JLOG(SYSV)("Creating new Shared memory segment")
       (key) (size) (shmflg) (realId) (virtId);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -109,7 +109,7 @@ void *shmat(int shmid, const void *shmaddr, int shmflg)
 
   if (ret != (void *)-1) {
     SysVShm::instance().on_shmat(shmid, shmaddr, shmflg, ret);
-    JTRACE("Mapping Shared memory segment") (shmid) (realShmid) (shmflg) (ret);
+    JLOG(SYSV)("Mapping Shared memory segment") (shmid) (realShmid) (shmflg) (ret);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return ret;
@@ -123,7 +123,7 @@ shmdt(const void *shmaddr)
   int ret = _real_shmdt(shmaddr);
   if (ret != -1) {
     SysVShm::instance().on_shmdt(shmaddr);
-    JTRACE("Unmapping Shared memory segment") (shmaddr);
+    JLOG(SYSV)("Unmapping Shared memory segment") (shmaddr);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return ret;
@@ -159,7 +159,7 @@ semget(key_t key, int nsems, int semflg)
   if (realId != -1) {
     SysVSem::instance().on_semget(realId, key, nsems, semflg);
     virtId = REAL_TO_VIRTUAL_SEM_ID(realId);
-    JTRACE("Creating new SysV Semaphore") (key) (nsems) (semflg);
+    JLOG(SYSV)("Creating new SysV Semaphore") (key) (nsems) (semflg);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return virtId;
@@ -277,7 +277,7 @@ msgget(key_t key, int msgflg)
   if (realId != -1) {
     SysVMsq::instance().on_msgget(realId, key, msgflg);
     virtId = REAL_TO_VIRTUAL_MSQ_ID(realId);
-    JTRACE("Creating new SysV Msg Queue") (key) (msgflg);
+    JLOG(SYSV)("Creating new SysV Msg Queue") (key) (msgflg);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return virtId;

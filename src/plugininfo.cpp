@@ -115,14 +115,14 @@ PluginInfo::processBarrier(BarrierInfo *barrier)
   if (dmtcp_no_coordinator()) {
     // Do nothing.
   } else if (barrier->isGlobal()) {
-    JTRACE("Waiting for global barrier") (barrier->toString());
+    JLOG(DMTCP)("Waiting for global barrier") (barrier->toString());
     CoordinatorAPI::instance().waitForBarrier(barrier->toString());
   } else if (barrier->isLocal()) {
-    JTRACE("Waiting for local barrier") (barrier->toString());
+    JLOG(DMTCP)("Waiting for local barrier") (barrier->toString());
     SharedData::waitForBarrier(barrier->toString());
   }
 
-  JTRACE("Barrier released") (barrier->toString());
+  JLOG(DMTCP)("Barrier released") (barrier->toString());
   barrier->callback();
 }
 }

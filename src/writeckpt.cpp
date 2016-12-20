@@ -100,11 +100,11 @@ mtcp_writememoryareas(int fd)
     skipWritingTextSegments = true;
   }
 
-  JTRACE("Performing checkpoint.");
+  JLOG(DMTCP)("Performing checkpoint.");
 
   // Here we want to sync the shared memory pages with the backup files
   // FIXME: Why do we need this?
-  // JTRACE("syncing shared memory with backup files");
+  // JLOG(DMTCP)("syncing shared memory with backup files");
   // sync_shared_mem();
 
   /**************************************************************************/
@@ -128,7 +128,7 @@ mtcp_writememoryareas(int fd)
     while (procSelfMaps.getNextArea(&area)) {
       if (Util::isNscdArea(area)) {
         /* Special Case Handling: nscd is enabled*/
-        JTRACE("NSCD daemon shared memory area present.\n"
+        JLOG(DMTCP)("NSCD daemon shared memory area present.\n"
                "  DMTCP will now try to remap this area in read/write mode as\n"
                "  private (zero pages), so that glibc will automatically\n"
                "  stop using NSCD or ask NSCD daemon for new shared area\n")
@@ -240,11 +240,11 @@ mtcp_writememoryareas(int fd)
        *
        * The above explanation also applies to "/dev/null (deleted)"
        */
-      JTRACE("saving area as Anonymous") (area.name);
+      JLOG(DMTCP)("saving area as Anonymous") (area.name);
       area.flags = MAP_PRIVATE | MAP_ANONYMOUS;
       area.name[0] = '\0';
     } else if (Util::isSysVShmArea(area)) {
-      JTRACE("saving area as Anonymous") (area.name);
+      JLOG(DMTCP)("saving area as Anonymous") (area.name);
       area.flags = MAP_PRIVATE | MAP_ANONYMOUS;
       area.name[0] = '\0';
     } else if (Util::isNscdArea(area)) {
@@ -428,11 +428,11 @@ writememoryarea(int fd, Area *area, int stack_was_seen)
   void *addr = area->addr;
 
   if (!(area->flags & MAP_ANONYMOUS)) {
-    JTRACE("save region") (addr) (area->size) (area->name) (area->offset);
+    JLOG(DMTCP)("save region") (addr) (area->size) (area->name) (area->offset);
   } else if (area->name[0] == '\0') {
-    JTRACE("save anonymous") (addr) (area->size);
+    JLOG(DMTCP)("save anonymous") (addr) (area->size);
   } else {
-    JTRACE("save anonymous") (addr) (area->size) (area->name) (area->offset);
+    JLOG(DMTCP)("save anonymous") (addr) (area->size) (area->name) (area->offset);
   }
 
   if ((area->name[0]) == '\0') {
@@ -444,13 +444,13 @@ writememoryarea(int fd, Area *area, int stack_was_seen)
 
   if (area->size == 0) {
     /* Kernel won't let us munmap this.  But we don't need to restore it. */
-    JTRACE("skipping over [stack] segment (not the orig stack)")
+    JLOG(DMTCP)("skipping over [stack] segment (not the orig stack)")
       (addr) (area->size);
   } else if (0 == strcmp(area->name, "[vsyscall]") ||
              0 == strcmp(area->name, "[vectors]") ||
              0 == strcmp(area->name, "[vvar]") ||
              0 == strcmp(area->name, "[vdso]")) {
-    JTRACE("skipping over memory special section")
+    JLOG(DMTCP)("skipping over memory special section")
       (area->name) (addr) (area->size);
   } else if (area->prot == 0 ||
              (area->name[0] == '\0' &&
@@ -472,7 +472,7 @@ writememoryarea(int fd, Area *area, int stack_was_seen)
     if (skipWritingTextSegments && (area->prot & PROT_EXEC)) {
       area->properties |= DMTCP_SKIP_WRITING_TEXT_SEGMENTS;
       Util::writeAll(fd, area, sizeof(*area));
-      JTRACE("Skipping over text segments") (area->name) ((void *)area->addr);
+      JLOG(DMTCP)("Skipping over text segments") (area->name) ((void *)area->addr);
     } else {
       Util::writeAll(fd, area, sizeof(*area));
       Util::writeAll(fd, area->addr, area->size);

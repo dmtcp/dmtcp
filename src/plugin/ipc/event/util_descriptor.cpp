@@ -69,21 +69,21 @@ Util::Descriptor::Descriptor()
     descriptor_counter = 0;
     is_initialized = true;
 
-    JTRACE(" initializing the Descriptor class object");
+    JLOG(EVENT)(" initializing the Descriptor class object");
 
     // allocate memory for MAX_DESCRIPTORS that would be stored
     for (int i = 0; i < MAX_DESCRIPTORS; i++) {
       void *mem_ptr =
         jalib::JAllocDispatcher::allocate(sizeof(descriptor_types_u));
       if (MAP_FAILED == mem_ptr) {
-        JTRACE("memory allocation failed!");
+        JLOG(EVENT)("memory allocation failed!");
         break;
       } else {
         descrip_types_p[i] = (descriptor_types_u *)mem_ptr;
       }
     }
   } else {
-    JTRACE(" object has been initialized before");
+    JLOG(EVENT)(" object has been initialized before");
   }
 }
 
@@ -99,7 +99,7 @@ Util::Descriptor::Descriptor()
 Util::Descriptor::~Descriptor()
 {
   if (true == is_initialized) {
-    JTRACE("Destructor being called");
+    JLOG(EVENT)("Destructor being called");
   }
 }
 
@@ -117,13 +117,13 @@ Util::Descriptor::add_descriptor(descriptor_types_u *descriptor)
 {
   JASSERT(descriptor != NULL);
   if (descriptor_counter < MAX_DESCRIPTORS) {
-    JTRACE("Adding new descriptor")
+    JLOG(EVENT)("Adding new descriptor")
       (descriptor_counter) (descrip_types_p[descriptor_counter]);
     memcpy(descrip_types_p[descriptor_counter],
            descriptor, sizeof(descriptor_types_u));
     descriptor_counter++;
   } else {
-    JTRACE("No more memory to store additional descriptors");
+    JLOG(EVENT)("No more memory to store additional descriptors");
   }
 }
 
@@ -166,7 +166,7 @@ Util::Descriptor::remove_descriptor(descriptor_type_e type, void *descriptor)
   }
   default:
   {
-    JTRACE("Unknown descriptor type") (type);
+    JLOG(EVENT)("Unknown descriptor type") (type);
     break;
   }
   }
@@ -194,12 +194,12 @@ Util::Descriptor::get_descriptor(unsigned int index,
   bool ret_val = false;
 
   JASSERT(descriptor != NULL).Text("descriptor is NULL");
-  JTRACE("get descriptor") (index) (type);
+  JLOG(EVENT)("get descriptor") (index) (type);
   if ((descrip_types_p[index])->add_watch.type == type) {
     memcpy(descriptor, descrip_types_p[index], sizeof(descriptor_types_u));
     ret_val = true;
   } else {
-    JTRACE("descriptor type is different from type saved")
+    JLOG(EVENT)("descriptor type is different from type saved")
       (type) ((descrip_types_p[index])->add_watch.type);
   }
 
@@ -241,9 +241,9 @@ Util::Descriptor::remove_timer_descriptor(timer_t timer_id)
 
   for (i = 0; i < MAX_DESCRIPTORS; i++) {
     if ((descrip_types_p[i])->create_timer.type == TIMER_CREATE_DECRIPTOR) {
-      JTRACE("find the saved timerid that corresponds to the one passed in");
+      JLOG(EVENT)("find the saved timerid that corresponds to the one passed in");
       if ((descrip_types_p[i])->create_timer.timerid == timer_id) {
-        JTRACE("timer id found...now delete it!");
+        JLOG(EVENT)("timer id found...now delete it!");
         memset(descrip_types_p[i], 0, sizeof(descriptor_types_u));
         (descrip_types_p[i])->create_timer.type = UNUSED_DESCRIPTOR;
 
@@ -274,12 +274,12 @@ Util::Descriptor::remove_inotify_watch_descriptor(int watch_descriptor)
 
   for (i = 0; i < MAX_DESCRIPTORS; i++) {
     if ((descrip_types_p[i])->add_watch.type == INOTIFY_ADD_WATCH_DESCRIPTOR) {
-      JTRACE("find the saved watch descriptor that corresponds to the one "
+      JLOG(EVENT)("find the saved watch descriptor that corresponds to the one "
              "passed in");
 
       if ((descrip_types_p[i])->add_watch.watch_descriptor ==
           watch_descriptor) {
-        JTRACE("watch descriptor found...now delete it!") (watch_descriptor);
+        JLOG(EVENT)("watch descriptor found...now delete it!") (watch_descriptor);
         memset((descrip_types_p[i]), 0, sizeof(descriptor_types_u));
         (descrip_types_p[i])->add_watch.type = UNUSED_DESCRIPTOR;
 

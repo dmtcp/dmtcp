@@ -91,7 +91,7 @@ extern "C" int
 close(int fd)
 {
   if (DMTCP_IS_PROTECTED_FD(fd)) {
-    JTRACE("blocked attempt to close protected fd") (fd);
+    JLOG(DMTCP)("blocked attempt to close protected fd") (fd);
     errno = EBADF;
     return -1;
   }
@@ -107,7 +107,7 @@ fclose(FILE *fp)
   }
   int fd = fileno(fp);
   if (DMTCP_IS_PROTECTED_FD(fd)) {
-    JTRACE("blocked attempt to fclose protected fd") (fd);
+    JLOG(DMTCP)("blocked attempt to fclose protected fd") (fd);
     errno = EBADF;
     return -1;
   }
@@ -120,7 +120,7 @@ closedir(DIR *dir)
   int fd = dirfd(dir);
 
   if (DMTCP_IS_PROTECTED_FD(fd)) {
-    JTRACE("blocked attempt to closedir protected fd") (fd);
+    JLOG(DMTCP)("blocked attempt to closedir protected fd") (fd);
     errno = EBADF;
     return -1;
   }
@@ -140,7 +140,7 @@ extern "C" int dup2(int oldfd, int newfd)
 extern "C" int
 pipe(int fds[2])
 {
-  JTRACE("promoting pipe() to socketpair()");
+  JLOG(DMTCP)("promoting pipe() to socketpair()");
 
   // just promote pipes to socketpairs
   return socketpair(AF_UNIX, SOCK_STREAM, 0, fds);
@@ -152,7 +152,7 @@ pipe(int fds[2])
 extern "C" int
 pipe2(int fds[2], int flags)
 {
-  JTRACE("promoting pipe2() to socketpair()");
+  JLOG(DMTCP)("promoting pipe2() to socketpair()");
 
   // just promote pipes to socketpairs
   int newFlags = 0;
@@ -312,8 +312,8 @@ extern "C" int __clone(int (*fn)(void *arg),
  * If we discover system calls for which the 7 args strategy doesn't work,
  *  we can special case them.
  *
- * XXX: DO NOT USE JTRACE/JNOTE/JASSERT in this function; even better, do not
- *      use any STL here.  (--Kapil)
+ * XXX: DO NOT USE JLOG/JTRACE/JNOTE/JASSERT in this function; even better, do
+ *      not use any STL here.  (--Kapil)
  */
 extern "C" long
 syscall(long sys_num, ...)

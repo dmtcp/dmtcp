@@ -204,7 +204,7 @@ ProcessInfo::growStack()
       _vvarStart = (unsigned long)area.addr;
       _vvarEnd = (unsigned long)area.endAddr;
     } else if ((VA)&area >= area.addr && (VA)&area < area.endAddr) {
-      JTRACE("Original stack area") ((void *)area.addr) (area.size);
+      JLOG(DMTCP)("Original stack area") ((void *)area.addr) (area.size);
       stackArea = area;
 
       /*
@@ -244,7 +244,7 @@ ProcessInfo::growStack()
     ProcSelfMaps maps;
     while (maps.getNextArea(&area)) {
       if ((VA)&area >= area.addr && (VA)&area < area.endAddr) { // Stack found
-        JTRACE("New stack size") ((void *)area.addr) (area.size);
+        JLOG(DMTCP)("New stack size") ((void *)area.addr) (area.size);
         break;
       }
     }
@@ -305,7 +305,7 @@ ProcessInfo::processRlimit()
 
     // DMTCP had set ADDR_COMPAT_LAYOUT.  Now unset it.
     personality((unsigned long)personality(0xffffffff) ^ ADDR_COMPAT_LAYOUT);
-    JTRACE("unsetting ADDR_COMPAT_LAYOUT");
+    JLOG(DMTCP)("unsetting ADDR_COMPAT_LAYOUT");
   }
 # else // if 0
   { char *rlim_cur_char = getenv("DMTCP_RLIMIT_STACK");
@@ -313,7 +313,7 @@ ProcessInfo::processRlimit()
       struct rlimit rlim;
       getrlimit(RLIMIT_STACK, &rlim);
       rlim.rlim_cur = atol(rlim_cur_char);
-      JTRACE("rlim_cur for RLIMIT_STACK being restored.") (rlim.rlim_cur);
+      JLOG(DMTCP)("rlim_cur for RLIMIT_STACK being restored.") (rlim.rlim_cur);
       setrlimit(RLIMIT_STACK, &rlim);
       _dmtcp_unsetenv("DMTCP_RLIMIT_STACK");
     }
@@ -384,7 +384,7 @@ void Process : Info::restoreArgvAfterRestart(char *mtcpRestoreArgvStartAddr)
   void *retAddr = mmap((void *)startAddr, len, PROT_READ | PROT_WRITE,
                        MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
   if (retAddr != MAP_FAILED) {
-    JTRACE("Restoring /proc/self/cmdline")
+    JLOG(DMTCP)("Restoring /proc/self/cmdline")
       (mtcpRestoreArgvStartAddr) (startAddr) (len) (JASSERT_ERRNO);
     vector<string>args = jalib::Filesystem::GetProgramArgs();
     char *addr = mtcpRestoreArgvStartAddr;
@@ -400,7 +400,7 @@ void Process : Info::restoreArgvAfterRestart(char *mtcpRestoreArgvStartAddr)
     }
     _mtcpRestoreArgvStartAddr = startAddr;
   } else {
-    JTRACE("Unable to restore /proc/self/cmdline") (startAddr) (len) (
+    JLOG(DMTCP)("Unable to restore /proc/self/cmdline") (startAddr) (len) (
       JASSERT_ERRNO);
     _mtcpRestoreArgvStartAddr = NULL;
   }
@@ -417,7 +417,7 @@ unmapRestoreArgv()
   long page_mask = ~(page_size - 1);
 
   if (_mtcpRestoreArgvStartAddr != NULL) {
-    JTRACE("Unmapping previously mmap()'d pages (that were mmap()'d for "
+    JLOG(DMTCP)("Unmapping previously mmap()'d pages (that were mmap()'d for "
            "restoring argv");
     size_t len;
     len = (ProcessInfo::instance().argvSize() + page_size) & page_mask;
@@ -529,7 +529,7 @@ ProcessInfo::restart()
       // _launchCWD = "/A/B"; _ckptCWD = "/A/B/C" -> rpath = "./c"
       rpath = "./" + _ckptCWD.substr(llen + 1);
       if (chdir(rpath.c_str()) == 0) {
-        JTRACE("Changed cwd") (_launchCWD) (_ckptCWD) (_launchCWD + rpath);
+        JLOG(DMTCP)("Changed cwd") (_launchCWD) (_ckptCWD) (_launchCWD + rpath);
       } else {
         JWARNING(chdir(_ckptCWD.c_str()) == 0) (_ckptCWD) (_launchCWD)
           (JASSERT_ERRNO).Text("Failed to change directory to _ckptCWD");
@@ -554,15 +554,15 @@ ProcessInfo::restoreProcessGroupInfo()
 
     // Group ID is known inside checkpointed processes
     if (_gid != cgid) {
-      JTRACE("Restore Group Assignment")
+      JLOG(DMTCP)("Restore Group Assignment")
         (_gid) (_fgid) (cgid) (_pid) (_ppid) (getppid());
       JWARNING(setpgid(0, _gid) == 0) (_gid) (JASSERT_ERRNO)
       .Text("Cannot change group information");
     } else {
-      JTRACE("Group is already assigned") (_gid) (cgid);
+      JLOG(DMTCP)("Group is already assigned") (_gid) (cgid);
     }
   } else {
-    JTRACE("SKIP Group information, GID unknown");
+    JLOG(DMTCP)("SKIP Group information, GID unknown");
   }
 }
 
@@ -577,7 +577,7 @@ ProcessInfo::insertChild(pid_t pid, UniquePid uniquePid)
   _childTable[pid] = uniquePid;
   _do_unlock_tbl();
 
-  JTRACE("Creating new virtualPid -> realPid mapping.") (pid) (uniquePid);
+  JLOG(DMTCP)("Creating new virtualPid -> realPid mapping.") (pid) (uniquePid);
 }
 
 void
@@ -672,7 +672,7 @@ ProcessInfo::setCkptDir(const char *dir)
   _ckptFilesSubDir = _ckptDir + "/" + jalib::Filesystem::BaseName(
       _ckptFilesSubDir);
 
-  JTRACE("setting ckptdir") (_ckptDir) (_ckptFilesSubDir);
+  JLOG(DMTCP)("setting ckptdir") (_ckptDir) (_ckptFilesSubDir);
 
   // JASSERT(access(_ckptDir.c_str(), X_OK|W_OK) == 0) (_ckptDir)
   // .Text("Missing execute- or write-access to checkpoint dir.");
@@ -723,7 +723,7 @@ ProcessInfo::refresh()
   _sessionIds.clear();
   refreshChildTable();
 
-  JTRACE("CHECK GROUP PID")(_gid)(_fgid)(_ppid)(_pid);
+  JLOG(DMTCP)("CHECK GROUP PID")(_gid)(_fgid)(_ppid)(_pid);
 }
 
 void
@@ -758,7 +758,7 @@ ProcessInfo::serialize(jalib::JBinarySerializer &o)
   o & _vdsoStart & _vdsoEnd & _vvarStart & _vvarEnd;
   o & _ckptDir & _ckptFileName & _ckptFilesSubDir;
 
-  JTRACE("Serialized process information")
+  JLOG(DMTCP)("Serialized process information")
     (_sid) (_ppid) (_gid) (_fgid) (_isRootOfProcessTree)
     (_procname) (_hostname) (_launchCWD) (_ckptCWD) (_upid) (_uppid)
     (_compGroup) (_numPeers) (_noCoordinator) (_argvSize) (_envSize) (_elfType);
@@ -766,10 +766,10 @@ ProcessInfo::serialize(jalib::JBinarySerializer &o)
   JASSERT(!_noCoordinator || _numPeers == 1) (_noCoordinator) (_numPeers);
 
   if (_isRootOfProcessTree) {
-    JTRACE("This process is Root of Process Tree");
+    JLOG(DMTCP)("This process is Root of Process Tree");
   }
 
-  JTRACE("Serializing ChildPid Table") (_childTable.size()) (o.filename());
+  JLOG(DMTCP)("Serializing ChildPid Table") (_childTable.size()) (o.filename());
   o.serializeMap(_childTable);
 
   JSERIALIZE_ASSERT_POINT("EOF");

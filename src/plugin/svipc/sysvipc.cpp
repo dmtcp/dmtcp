@@ -446,7 +446,7 @@ SysVShm::on_shmget(int shmid, key_t key, size_t size, int shmflg)
   if (!_virtIdTable.realIdExists(shmid)) {
     JASSERT(_map.find(shmid) == _map.end());
     int virtId = getNewVirtualId();
-    JTRACE("Shmid not found in table. Creating new entry")
+    JLOG(SYSV)("Shmid not found in table. Creating new entry")
       (shmid) (virtId);
     updateMapping(virtId, shmid);
     _map[virtId] = new ShmSegment(virtId, shmid, key, size, shmflg);
@@ -517,7 +517,7 @@ SysVSem::on_semget(int realSemId, key_t key, int nsems, int semflg)
   if (!_virtIdTable.realIdExists(realSemId)) {
     // JASSERT(key == IPC_PRIVATE || (semflg & IPC_CREAT) != 0) (key)
     // (realSemId);
-    JTRACE("Semid not found in table. Creating new entry") (realSemId);
+    JLOG(SYSV)("Semid not found in table. Creating new entry") (realSemId);
     int virtId = getNewVirtualId();
     JASSERT(_map.find(virtId) == _map.end());
     updateMapping(virtId, realSemId);
@@ -564,7 +564,7 @@ SysVMsq::on_msgget(int msqid, key_t key, int msgflg)
   _do_lock_tbl();
   if (!_virtIdTable.realIdExists(msqid)) {
     JASSERT(_map.find(msqid) == _map.end());
-    JTRACE("Msqid not found in table. Creating new entry") (msqid);
+    JLOG(SYSV)("Msqid not found in table. Creating new entry") (msqid);
     int virtId = getNewVirtualId();
     updateMapping(virtId, msqid);
     _map[virtId] = new MsgQueue(virtId, msqid, key, msgflg);
@@ -640,7 +640,7 @@ ShmSegment::ShmSegment(int shmid,
     _size = shminfo.shm_segsz;
     _flags = shminfo.shm_perm.mode;
   }
-  JTRACE("New Shm Segment") (_key) (_size) (_flags) (_id) (_isCkptLeader);
+  JLOG(SYSV)("New Shm Segment") (_key) (_size) (_flags) (_id) (_isCkptLeader);
 }
 
 void
@@ -729,7 +729,7 @@ ShmSegment::preCheckpoint()
     ++i;
   }
   for (; i != _shmaddrToFlag.end(); ++i) {
-    JTRACE("Unmapping shared memory segment") (_id)(i->first);
+    JLOG(SYSV)("Unmapping shared memory segment") (_id)(i->first);
     JASSERT(_real_shmdt(i->first) == 0);
 
     // We need to unmap the duplicate shared memory segments to optimize ckpt
@@ -768,7 +768,7 @@ ShmSegment::postRestart()
       (i->first) (i->second) (getpid())
     .Text("Error remapping shared memory segment on restart");
   }
-  JTRACE("Remapping shared memory segment to original address") (_id) (_realId);
+  JLOG(SYSV)("Remapping shared memory segment to original address") (_id) (_realId);
 }
 
 void
@@ -796,7 +796,7 @@ ShmSegment::preResume()
     // Unmap the reserved area.
     JASSERT(munmap((void *)i->first, _size) == 0);
 
-    JTRACE("Remapping shared memory segment")(_realId);
+    JLOG(SYSV)("Remapping shared memory segment")(_realId);
     JASSERT(_real_shmat(_realId, i->first, i->second) != (void *)-1)
       (JASSERT_ERRNO) (_realId) (_id) (_isCkptLeader)
       (i->first) (i->second) (getpid())
@@ -833,7 +833,7 @@ Semaphore::Semaphore(int semid, int realSemid, key_t key, int nsems, int semflg)
     _semval[i] = 0;
     _semadj[i] = 0;
   }
-  JTRACE("New Semaphore Segment")
+  JLOG(SYSV)("New Semaphore Segment")
     (_key) (_nsems) (_flags) (_id) (_isCkptLeader);
 }
 
@@ -967,7 +967,7 @@ MsgQueue::MsgQueue(int msqid, int realMsqid, key_t key, int msgflg)
     _key = buf.msg_perm.__key;
     _flags = buf.msg_perm.mode;
   }
-  JTRACE("New MsgQueue Created") (_key) (_flags) (_id);
+  JLOG(SYSV)("New MsgQueue Created") (_key) (_flags) (_id);
 }
 
 bool

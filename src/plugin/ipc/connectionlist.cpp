@@ -169,7 +169,7 @@ ConnectionList::deleteStaleConnections()
           << "\t->\t" << c->id() << "\n";
     }
     out << "==================================================\n";
-    JTRACE("Deleting Stale Connections") (out.str());
+    JLOG(IPC)("Deleting Stale Connections") (out.str());
   }
 #endif // ifdef DEBUG
 
@@ -243,7 +243,7 @@ ConnectionList::list()
     o << "\t" << i->first << "\t" << c->str();
     o << "\n";
   }
-  JTRACE("ConnectionList") (dmtcp_get_uniquepid_str()) (o.str());
+  JLOG(IPC)("ConnectionList") (dmtcp_get_uniquepid_str()) (o.str());
 }
 
 Connection *
@@ -400,9 +400,9 @@ ConnectionList::refill(bool isRestart)
     }
   }
   if (isRestart) {
-    JTRACE("Waiting for Missing Cons");
+    JLOG(IPC)("Waiting for Missing Cons");
     sendReceiveMissingFds();
-    JTRACE("Done waiting for Missing Cons");
+    JLOG(IPC)("Done waiting for Missing Cons");
   }
 }
 
@@ -492,7 +492,7 @@ ConnectionList::registerIncomingCons()
       out << "\n\t" << con->str() << i->first;
     }
   }
-  JTRACE("Incoming/Outgoing Cons") (in.str()) (out.str());
+  JLOG(IPC)("Incoming/Outgoing Cons") (in.str()) (out.str());
   numIncomingCons = incomingCons.size();
   if (numIncomingCons > 0) {
     SharedData::registerIncomingCons(incomingCons, fdReceiveAddr,
@@ -538,7 +538,7 @@ ConnectionList::sendReceiveMissingFds()
       outgoingCons.pop_back();
       ConnectionIdentifier *id = (ConnectionIdentifier *)maps[idx].id;
       Connection *con = getConnection(*id);
-      JTRACE("Sending Missing Con") (*id);
+      JLOG(IPC)("Sending Missing Con") (*id);
       JASSERT(Util::sendFd(restoreFd, con->getFds()[0], id, sizeof(*id),
                            maps[idx].addr, maps[idx].len) != -1);
       numOutgoingCons--;
@@ -549,7 +549,7 @@ ConnectionList::sendReceiveMissingFds()
       int fd = Util::receiveFd(restoreFd, &id, sizeof(id));
       JASSERT(fd != -1);
       Connection *con = getConnection(id);
-      JTRACE("Received Missing Con") (id);
+      JLOG(IPC)("Received Missing Con") (id);
       JASSERT(con != NULL);
       Util::dupFds(fd, con->getFds());
       numIncomingCons--;

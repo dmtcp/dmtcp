@@ -59,7 +59,7 @@ coordinatorAPI_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
     break;
 
   case DMTCP_EVENT_EXIT:
-    JTRACE("exit() in progress, disconnecting from dmtcp coordinator");
+    JLOG(DMTCP)("exit() in progress, disconnecting from dmtcp coordinator");
     CoordinatorAPI::instance().closeConnection();
     break;
 
@@ -208,7 +208,7 @@ CoordinatorAPI::instance()
 void
 CoordinatorAPI::init()
 {
-  JTRACE("Informing coordinator of new process") (UniquePid::ThisProcess());
+  JLOG(DMTCP)("Informing coordinator of new process") (UniquePid::ThisProcess());
 
   DmtcpMessage msg(DMT_UPDATE_PROCESS_INFO_AFTER_INIT_OR_EXEC);
   instance().sendMsgToCoordinator(msg, jalib::Filesystem::GetProgramName());
@@ -222,7 +222,7 @@ CoordinatorAPI::resetOnFork(CoordinatorAPI &coordAPI)
   coordAPI.updateSockFd();
   instance() = coordAPI;
 
-  JTRACE("Informing coordinator of new process") (UniquePid::ThisProcess());
+  JLOG(DMTCP)("Informing coordinator of new process") (UniquePid::ThisProcess());
 
   DmtcpMessage msg(DMT_UPDATE_PROCESS_INFO_AFTER_FORK);
   if (dmtcp_virtual_to_real_pid) {
@@ -247,7 +247,8 @@ CoordinatorAPI::connectAndSendUserCommand(char c,
                                           int *coordCmdStatus,
                                           int *numPeers,
                                           int *isRunning,
-                                          int *ckptInterval)
+                                          int *ckptInterval,
+                                          uint32_t logMask)
 {
   char *replyData = NULL;
 
@@ -263,6 +264,7 @@ CoordinatorAPI::connectAndSendUserCommand(char c,
   // send
   msg.type = DMT_USER_CMD;
   msg.coordCmd = c;
+  msg.logMask = logMask;
 
   if (c == 'i') {
     const char *interval = getenv(ENV_VAR_CKPT_INTR);
@@ -397,7 +399,7 @@ CoordinatorAPI::waitForBarrier(const string &barrierId)
 {
   instance().sendMsgToCoordinator(DmtcpMessage(DMT_OK));
 
-  JTRACE("waiting for DMT_BARRIER_RELEASED message");
+  JLOG(DMTCP)("waiting for DMT_BARRIER_RELEASED message");
 
   char *extraData = NULL;
   DmtcpMessage msg;
@@ -405,7 +407,7 @@ CoordinatorAPI::waitForBarrier(const string &barrierId)
 
   msg.assertValid();
   if (msg.type == DMT_KILL_PEER) {
-    JTRACE("Received KILL message from coordinator, exiting");
+    JLOG(DMTCP)("Received KILL message from coordinator, exiting");
     _exit(0);
   }
 
@@ -445,7 +447,7 @@ CoordinatorAPI::startNewCoordinator(CoordinatorMode mode)
   coordinatorListenerSocket.changeFd(PROTECTED_COORD_FD);
   CoordinatorAPI::setCoordPort(coordinatorListenerSocket.port());
 
-  JTRACE("Starting a new coordinator automatically.")
+  JLOG(DMTCP)("Starting a new coordinator automatically.")
     (coordinatorListenerSocket.port());
 
   if (fork() == 0) {
@@ -490,7 +492,7 @@ CoordinatorAPI::createNewConnToCoord(CoordinatorMode mode)
   } else if (mode & COORD_ANY) {
     _coordinatorSocket = createNewSocketToCoordinator(mode);
     if (_coordinatorSocket == -1) {
-      JTRACE("Coordinator not found, trying to start a new one.");
+      JLOG(DMTCP)("Coordinator not found, trying to start a new one.");
       startNewCoordinator(mode);
       _coordinatorSocket = createNewSocketToCoordinator(mode);
       JASSERT(_coordinatorSocket != -1) (JASSERT_ERRNO)
@@ -527,7 +529,7 @@ CoordinatorAPI::sendRecvHandshake(DmtcpMessage msg,
   recvMsgFromCoordinator(&msg);
   msg.assertValid();
   if (msg.type == DMT_KILL_PEER) {
-    JTRACE("Received KILL message from coordinator, exiting");
+    JLOG(DMTCP)("Received KILL message from coordinator, exiting");
     _real_exit(0);
   }
   if (msg.type == DMT_REJECT_NOT_RUNNING) {
@@ -561,14 +563,14 @@ CoordinatorAPI::connectToCoordOnStartup(CoordinatorMode mode,
   }
 
   createNewConnToCoord(mode);
-  JTRACE("sending coordinator handshake")(UniquePid::ThisProcess());
+  JLOG(DMTCP)("sending coordinator handshake")(UniquePid::ThisProcess());
   DmtcpMessage hello_local(DMT_NEW_WORKER);
   hello_local.virtualPid = -1;
 
   DmtcpMessage hello_remote = sendRecvHandshake(hello_local, progname);
 
   JASSERT(hello_remote.virtualPid != -1);
-  JTRACE("Got virtual pid from coordinator") (hello_remote.virtualPid);
+  JLOG(DMTCP)("Got virtual pid from coordinator") (hello_remote.virtualPid);
 
   pid_t ppid = getppid();
   Util::setVirtualPidEnvVar(hello_remote.virtualPid, ppid, ppid);
@@ -604,7 +606,7 @@ CoordinatorAPI::createNewConnectionBeforeFork(string &progname)
   JASSERT(hello_remote.virtualPid != -1);
 
   if (dmtcp_virtual_to_real_pid) {
-    JTRACE("Got virtual pid from coordinator") (hello_remote.virtualPid);
+    JLOG(DMTCP)("Got virtual pid from coordinator") (hello_remote.virtualPid);
     pid_t pid = getpid();
     pid_t realPid = dmtcp_virtual_to_real_pid(pid);
     Util::setVirtualPidEnvVar(hello_remote.virtualPid, pid, realPid);
@@ -627,7 +629,7 @@ CoordinatorAPI::connectToCoordOnRestart(CoordinatorMode mode,
   }
 
   createNewConnToCoord(mode);
-  JTRACE("sending coordinator handshake")(UniquePid::ThisProcess());
+  JLOG(DMTCP)("sending coordinator handshake")(UniquePid::ThisProcess());
   DmtcpMessage hello_local(DMT_RESTART_WORKER);
   hello_local.virtualPid = -1;
   hello_local.numPeers = np;
@@ -649,7 +651,7 @@ CoordinatorAPI::connectToCoordOnRestart(CoordinatorMode mode,
     memcpy(localIP, &hello_remote.ipAddr, sizeof hello_remote.ipAddr);
   }
 
-  JTRACE("Coordinator handshake RECEIVED!!!!!");
+  JLOG(DMTCP)("Coordinator handshake RECEIVED!!!!!");
 }
 
 void
@@ -662,7 +664,7 @@ CoordinatorAPI::sendCkptFilename()
   // Tell coordinator to record our filename in the restart script
   string ckptFilename = ProcessInfo::instance().getCkptFilename();
   string hostname = jalib::Filesystem::GetCurrentHostname();
-  JTRACE("recording filenames") (ckptFilename) (hostname);
+  JLOG(DMTCP)("recording filenames") (ckptFilename) (hostname);
   DmtcpMessage msg;
   if (dmtcp_unique_ckpt_enabled && dmtcp_unique_ckpt_enabled()) {
     msg.type = DMT_UNIQUE_CKPT_FILENAME;
@@ -841,11 +843,11 @@ CoordinatorAPI::waitForCheckpointCommand()
     int retval =
       select(_coordinatorSocket + 1, &rfds, NULL, NULL, timeout);
     if (retval == 0) { // timeout expired, time for checkpoint
-      JTRACE("Timeout expired, checkpointing now.");
+      JLOG(DMTCP)("Timeout expired, checkpointing now.");
       return;
     } else if (retval > 0) {
       JASSERT(FD_ISSET(_coordinatorSocket, &rfds));
-      JTRACE("Connect request on virtual coordinator socket.");
+      JLOG(DMTCP)("Connect request on virtual coordinator socket.");
       break;
     }
     JASSERT(errno == EINTR) (JASSERT_ERRNO); /* EINTR: a signal was caught */
@@ -869,7 +871,7 @@ CoordinatorAPI::waitForCheckpointCommand()
     jalib::JServerSocket sock(_coordinatorSocket);
     cmdSock = sock.accept();
     msg.poison();
-    JTRACE("Reading from incoming connection...");
+    JLOG(DMTCP)("Reading from incoming connection...");
     cmdSock >> msg;
   } while (!cmdSock.isValid());
 
@@ -882,24 +884,24 @@ CoordinatorAPI::waitForCheckpointCommand()
   switch (msg.coordCmd) {
   // case 'b': case 'B':  // prefix blocking command, prior to checkpoint
   // command
-  // JTRACE("blocking checkpoint beginning...");
+  // JLOG(DMTCP)("blocking checkpoint beginning...");
   // blockUntilDone = true;
   // break;
   case 's': case 'S':
-    JTRACE("Received status command");
+    JLOG(DMTCP)("Received status command");
     reply.numPeers = 1;
     reply.isRunning = 1;
     break;
   case 'c': case 'C':
-    JTRACE("checkpointing...");
+    JLOG(DMTCP)("checkpointing...");
     break;
   case 'k': case 'K':
   case 'q': case 'Q':
-    JTRACE("Received KILL command from user, exiting");
+    JLOG(DMTCP)("Received KILL command from user, exiting");
     exitWhenDone = true;
     break;
   default:
-    JTRACE("unhandled user command") (msg.coordCmd);
+    JLOG(DMTCP)("unhandled user command") (msg.coordCmd);
     reply.coordCmdStatus = CoordCmdStatus::ERROR_INVALID_COMMAND;
   }
   cmdSock << reply;

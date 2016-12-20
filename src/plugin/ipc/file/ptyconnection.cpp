@@ -227,7 +227,7 @@ PtyConnection::PtyConnection(int fd,
       SharedData::createVirtualPtyName(path, buf, sizeof(buf));
     }
     _virtPtsName = buf;
-    JTRACE("creating CTTY connection") (_ptsName) (_virtPtsName);
+    JLOG(FILEP)("creating CTTY connection") (_ptsName) (_virtPtsName);
 
     break;
 
@@ -248,7 +248,7 @@ PtyConnection::PtyConnection(int fd,
     // Generate new Unique buf
     SharedData::createVirtualPtyName(_ptsName.c_str(), buf, sizeof(buf));
     _virtPtsName = buf;
-    JTRACE("creating ptmx connection") (_ptsName) (_virtPtsName);
+    JLOG(FILEP)("creating ptmx connection") (_ptsName) (_virtPtsName);
     break;
 
   case PTY_SLAVE:
@@ -256,7 +256,7 @@ PtyConnection::PtyConnection(int fd,
     SharedData::getVirtPtyName(path, buf, sizeof(buf));
     _virtPtsName = buf;
     JASSERT(strlen(buf) != 0) (path);
-    JTRACE("creating pts connection") (_ptsName) (_virtPtsName);
+    JLOG(FILEP)("creating pts connection") (_ptsName) (_virtPtsName);
     break;
 
   case PTY_BSD_MASTER:
@@ -299,7 +299,7 @@ PtyConnection::drain()
     // _fds[0] is master fd
     numRead = ptmxReadAll(_fds[0], buf, maxCount);
     _ptmxIsPacketMode = ptmxTestPacketMode(_fds[0]);
-    JTRACE("_fds[0] is master(/dev/ptmx)") (_fds[0]) (_ptmxIsPacketMode);
+    JLOG(FILEP)("_fds[0] is master(/dev/ptmx)") (_fds[0]) (_ptmxIsPacketMode);
     numWritten = ptmxWriteAll(_fds[0], buf, _ptmxIsPacketMode);
     JASSERT(numRead == numWritten) (numRead) (numWritten);
   }
@@ -320,7 +320,7 @@ PtyConnection::refill(bool isRestart)
 
   if (_type == PTY_SLAVE || _type == PTY_BSD_SLAVE) {
     JASSERT(_ptsName.compare("?") != 0);
-    JTRACE("Restoring PTY slave") (_fds[0]) (_ptsName) (_virtPtsName);
+    JLOG(FILEP)("Restoring PTY slave") (_fds[0]) (_ptsName) (_virtPtsName);
     if (_type == PTY_SLAVE) {
       char buf[32];
       SharedData::getRealPtyName(_virtPtsName.c_str(), buf, sizeof(buf));
@@ -338,7 +338,7 @@ PtyConnection::refill(bool isRestart)
     JASSERT(tempfd >= 0) (_virtPtsName) (_ptsName) (JASSERT_ERRNO)
     .Text("Error Opening PTS");
 
-    JTRACE("Restoring PTS real") (_ptsName) (_virtPtsName) (_fds[0]);
+    JLOG(FILEP)("Restoring PTS real") (_ptsName) (_virtPtsName) (_fds[0]);
     Util::dupFds(tempfd, _fds);
   }
 
@@ -352,7 +352,7 @@ PtyConnection::refill(bool isRestart)
     JASSERT(tempfd >= 0) (tempfd) (JASSERT_ERRNO)
     .Text("Error opening controlling terminal /dev/tty");
 
-    JTRACE("Restoring /dev/tty for the process") (_fds[0]);
+    JLOG(FILEP)("Restoring /dev/tty for the process") (_fds[0]);
     _ptsName = _virtPtsName = "/dev/tty";
     Util::dupFds(tempfd, _fds);
   }
@@ -373,7 +373,7 @@ PtyConnection::postRestart()
   case PTY_INVALID:
 
     // tempfd = _real_open("/dev/null", O_RDWR);
-    JTRACE("Restoring invalid PTY.") (id());
+    JLOG(FILEP)("Restoring invalid PTY.") (id());
     return;
 
   case PTY_CTTY:
@@ -395,7 +395,7 @@ PtyConnection::postRestart()
       .Text("Error Opening the terminal attached with the process");
     } else {
       if (_type == PTY_CTTY) {
-        JTRACE("Unable to restore controlling terminal attached with the "
+        JLOG(FILEP)("Unable to restore controlling terminal attached with the "
                "parent process.\n"
                "Replacing it with current STDIN")
           (stdinDeviceName);
@@ -418,7 +418,7 @@ PtyConnection::postRestart()
       }
     }
 
-    JTRACE("Restoring parent CTTY for the process")
+    JLOG(FILEP)("Restoring parent CTTY for the process")
       (controllingTty) (_fds[0]);
 
     _ptsName = controllingTty;
@@ -447,12 +447,12 @@ PtyConnection::postRestart()
       ioctl(_fds[0], TIOCPKT, &packetMode);     /* Restore old packet mode */
     }
 
-    JTRACE("Restoring /dev/ptmx") (_fds[0]) (_ptsName) (_virtPtsName);
+    JLOG(FILEP)("Restoring /dev/ptmx") (_fds[0]) (_ptsName) (_virtPtsName);
     break;
   }
   case PTY_BSD_MASTER:
   {
-    JTRACE("Restoring BSD Master Pty") (_masterName) (_fds[0]);
+    JLOG(FILEP)("Restoring BSD Master Pty") (_masterName) (_fds[0]);
 
     // string slaveDeviceName =
     // _masterName.replace(0, strlen("/dev/pty"), "/dev/tty");
@@ -486,5 +486,5 @@ PtyConnection::serializeSubClass(jalib::JBinarySerializer &o)
   JSERIALIZE_ASSERT_POINT("PtyConnection");
   o&_ptsName&_virtPtsName&_masterName &_type;
   o&_flags&_mode &_preExistingCTTY;
-  JTRACE("Serializing PtyConn.") (_ptsName) (_virtPtsName);
+  JLOG(FILEP)("Serializing PtyConn.") (_ptsName) (_virtPtsName);
 }

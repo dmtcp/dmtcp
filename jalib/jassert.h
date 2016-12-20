@@ -79,8 +79,42 @@ extern int jassert_quiet;
  *
  */
 
+#define FOREACH_LOGSOURCE(MACRO, a, b) \
+   MACRO(JTRACE, a, b)                 \
+   MACRO(ALLOC, a, b)                  \
+   MACRO(DL, a, b)                     \
+   MACRO(DMTCP, a, b)                  \
+   MACRO(EVENT, a, b)                  \
+   MACRO(FILEP, a, b)                  \
+   MACRO(SOCKET, a, b)                 \
+   MACRO(SSH, a, b)                    \
+   MACRO(IPC, a, b)                    \
+   MACRO(PID, a, b)                    \
+   MACRO(SYSV, a, b)                   \
+   MACRO(TIMER, a, b)                  \
+   MACRO(ALL, a, b)
+
 namespace jassert_internal
 {
+
+enum LogSource
+{
+  UNKNOWN = 0x00000000,
+  JTRACE  = 0x00000001,  // Always print JTRACE if compiled in
+  ALLOC   = 0x00000002,
+  DL      = 0x00000004,
+  DMTCP   = 0x00000008,
+  EVENT   = 0x00000010,
+  FILEP   = 0x00000020,
+  SOCKET  = 0x00000040,
+  SSH     = 0x00000080,
+  IPC     = 0x000000F0,  // (EVENT | FILEP | SOCKET | SSH)
+  PID     = 0x00000100,
+  SYSV    = 0x00000200,
+  TIMER   = 0x00000400,
+  ALL     = 0xFFFFFFFF,
+};
+
 class JAssert
 {
   public:
@@ -112,6 +146,8 @@ class JAssert
     /// constructor: sets members
     JAssert(bool exitWhenDone);
 
+    JAssert(LogSource logSrc, bool exitWhenDone);
+
     ///
     /// destructor: exits program if exitWhenDone is set
     ~JAssert();
@@ -129,9 +165,12 @@ class JAssert
     { Print(t); return *this; }
 
   private:
+    LogSource _logSrc;
+
     ///
     /// if set true (on construction) call exit() on destruction
     bool _exitWhenDone;
+
     dmtcp::ostringstream ss;
 };
 
@@ -221,6 +260,12 @@ void set_log_file(const jalib::string &path,
   } else jassert_internal::JAssert(false).JASSERT_CONTEXT("NOTE", \
                                                           msg).JASSERT_CONT_A
 #endif // ifdef DEBUG
+
+#define JLOG_HELPER(msg) \
+  JASSERT_CONTEXT("TRACE", msg).JASSERT_CONT_A
+
+#define JLOG(src) \
+  jassert_internal::JAssert(jassert_internal::src, false).JLOG_HELPER
 
 #define JNOTE(msg)          \
   if (jassert_quiet >= 1) { \

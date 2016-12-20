@@ -273,6 +273,12 @@ readAll(int fd, void *buf, size_t count)
   REAL_FUNC_PASSTHROUGH(ssize_t, readAll) (fd, buf, count);
 }
 
+uint32_t
+getLogMask(void)
+{
+  REAL_FUNC_PASSTHROUGH(uint32_t, getLogMask) ();
+}
+
 bool
 strEndsWith(const char *str, const char *pattern)
 {
