@@ -10,6 +10,8 @@ AM_INIT_AUTOMAKE([foreign])
 AM_MAINTAINER_MODE
 AC_CANONICAL_HOST
 AC_PROG_INSTALL
+# Automake uses 'ar cru' by default.  The 'ar' program then issues a warning.
+AC_SUBST([ARFLAGS], [cr])
 AC_PROG_RANLIB
 AC_PROG_MAKE_SET
 AC_PROG_LN_S

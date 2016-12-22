@@ -80,7 +80,7 @@ ckpt_dmtcp1_test.dmtcp: ../../test/dmtcp1 restore_libc.o
 	gunzip ckpt_dmtcp1_test.dmtcp.gz
 
 libmtcp.a: restore_libc.o ${ARM_BINARIES}
-	ar cru $@ $^
+	ar cr $@ $^
 # FIXME:  This is a low-level file.  Yet it draws from two directories.
 #    Part of the problem is that restore_libc.h copies DPRINTF from mtcp_util.h
 #    and uses protectedfds.h, which is in ../../include
