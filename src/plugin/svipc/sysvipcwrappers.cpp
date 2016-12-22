@@ -38,6 +38,22 @@
 using namespace dmtcp;
 
 static struct timespec ts_100ms = {0, 100 * 1000 * 1000};
+
+/*
+ * In OpenMPI 2.0, shmdt() is intercepted by modifying libraries' global offset
+ * table, meaning that _real_shmdt() will be redirected into OpenMPI's hook
+ * function, instead of libc's shmdt(). The hook function finally calls syscall()
+ * with the corresponding syscall number. The inside_shmdt variable indicates
+ * if the code is inside our shmdt() wrapper. If so, our syscall wrapper simply
+ * calls _real_syscall(), avoiding the recursive call to the shmdt() wrapper.
+ * See the wrapper of syscall() in miscwrappers.cpp and pid_miscwrappers.cpp.
+ *
+ * FIXME: for the long term, we need to think about the case where user code
+ * modifies its own global offset table.
+ *
+ * */
+static __thread bool inside_shmdt = false;
+
 /******************************************************************************
  *
  * SysV Shm Methods
@@ -107,15 +123,23 @@ void *shmat(int shmid, const void *shmaddr, int shmflg)
   return ret;
 }
 
+EXTERNC bool
+dmtcp_svipc_inside_shmdt()
+{
+  return inside_shmdt;
+}
+
 extern "C"
 int shmdt(const void *shmaddr)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
+  inside_shmdt = true;
   int ret = _real_shmdt(shmaddr);
   if (ret != -1) {
     SysVShm::instance().on_shmdt(shmaddr);
     JTRACE ("Unmapping Shared memory segment" ) (shmaddr);
   }
+  inside_shmdt = false;
   DMTCP_PLUGIN_ENABLE_CKPT();
   return ret;
 }
