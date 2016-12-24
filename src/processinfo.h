@@ -82,6 +82,9 @@ namespace dmtcp
       uint32_t get_generation() { return _generation; }
       void set_generation(uint32_t generation) { _generation = generation; }
 
+      int getMaxUserFd() { return _maxUserFd; }
+      void updateMaxUserFd(int fd);
+
       void processRlimit();
       void calculateArgvAndEnvSize();
       size_t argvSize() { return _argvSize; }
@@ -157,6 +160,8 @@ namespace dmtcp
 
       uint64_t      _restoreBufAddr;
       uint64_t      _restoreBufLen;
+
+      int           _maxUserFd;
 
       uint64_t      _savedHeapStart;
       uint64_t      _savedBrk;

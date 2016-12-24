@@ -1,6 +1,6 @@
 // Compile with -DDEBUG for debugging failure modes.
 
-// posix_openpt() needs _XOPEN_SOURCE set to 600
+// grantpt, posix_openpt, etc., needs _XOPEN_SOURCE set to 600
 #define _XOPEN_SOURCE 600
 // Using _XOPEN_SOURCE to ensure ptsname returns 'char *' (recommended by Open Group)
 #define _DEFAULT_SOURCE
@@ -105,7 +105,7 @@ int setupslave(char *slavedevice, int orig_stdout) {
 int testslave(char *slavedevice, struct termios * orig_termios_p,
               int orig_stdout) {
   struct termios curr_termios;
-  int fd = open(slavedevice, O_RDWR);; 
+  int fd = open(slavedevice, O_RDWR);;
   if (fd == -1)
     exit(1);
 

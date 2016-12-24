@@ -85,7 +85,7 @@ void VirtualPidTable::refresh()
 
 pid_t VirtualPidTable::getNewVirtualTid()
 {
-  pid_t tid;
+  pid_t tid = -1;
   if (VirtualIdTable<pid_t>::getNewVirtualId(&tid) == false) {
     refresh();
   }

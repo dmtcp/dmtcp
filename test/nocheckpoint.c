@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
+#include <assert.h>
 
 // This program will be called as "nocheckpoint"
 //   and its child will be called as "nocheckpoint --called-as-nocheckpoint"
@@ -61,7 +62,7 @@ static void kill_parent() {
   char kill_command[100];
   snprintf(kill_command, sizeof(kill_command),
            "kill -9 %ld", (long)getppid());
-  system(kill_command);
+  assert(system(kill_command) == 0);
 }
 
 static void call_self_nocheckpoint(char *program) {

@@ -7323,6 +7323,37 @@ $as_echo "#define HAS_ATOMIC_BUILTINS 1" >>confdefs.h
 
 fi
 
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for __WAIT_STATUS type" >&5
+$as_echo_n "checking for __WAIT_STATUS type... " >&6; }
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+
+    #include <sys/wait.h>
+    #include <stdlib.h>
+    int main() {
+      __WAIT_STATUS status __attribute__((unused));
+      return 0;
+    }
+
+
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  wait_status='yes'
+else
+  wait_status='no'
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $wait_status" >&5
+$as_echo "$wait_status" >&6; }
+
+if test "$wait_status" = "no"; then
+
+$as_echo "#define __WAIT_STATUS int *" >>confdefs.h
+
+fi
+
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
 # tests run on this system so they can be shared between configure

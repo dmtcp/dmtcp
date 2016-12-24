@@ -136,6 +136,10 @@ class RestoreTarget
 
       _fd = readCkptHeader(_path, &_pInfo);
       JTRACE("restore target") (_path) (_pInfo.numPeers()) (_pInfo.compGroup());
+      JASSERT(_pInfo.getMaxUserFd() < PROTECTED_FD_START)
+             (_pInfo.getMaxUserFd())(PROTECTED_FD_START)
+             .Text("The fd limit on the system is lower "
+	           "than required for restart");
     }
 
     int fd() const { return _fd; }
@@ -416,11 +420,10 @@ static void runMtcpRestart(int is32bitElf, int fd, ProcessInfo *pInfo)
       }
       char cpid[10]; // XXX: Is 10 digits enough for a PID?
       snprintf(cpid, 10, "%d", pid);
-      char* const command[] = {"gdb",
-                               const_cast<char*>(pInfo->procSelfExe().c_str()),
+      char* const cmdArgs[] = {const_cast<char*>(pInfo->procSelfExe().c_str()),
                                cpid,
                                NULL};
-      execvp(command[0], command);
+      execvp("gdb", cmdArgs);
     } else if (pid == 0) {
       close(debugPipe[0]); // child doesn't need the read end
       JASSERT(dup2(debugPipe[1], PROTECTED_DEBUG_SOCKET_FD)
@@ -669,6 +672,8 @@ int main(int argc, char** argv)
   char *tmpdir_arg = NULL;
   char *ckptdir_arg = NULL;
 
+  Util::setProtectedFdBase();
+
   initializeJalib();
 
   if (!getenv(ENV_VAR_QUIET)) {
@@ -838,7 +843,7 @@ int main(int argc, char** argv)
   WorkerState::setCurrentState(WorkerState::RESTARTING);
 
   /* Try to find non-orphaned process in independent procs list */
-  RestoreTarget *t;
+  RestoreTarget *t = NULL;
   bool foundNonOrphan = false;
   RestoreTargetMap::iterator it;
   for (it = independentProcessTreeRoots.begin();
@@ -851,6 +856,7 @@ int main(int argc, char** argv)
     }
   }
 
+  JASSERT(t != NULL);
   JASSERT(t->pid() != 0);
   JASSERT(!t->noCoordinator() || allowedModes == COORD_ANY)
     .Text("Process had no coordinator prior to checkpoint;\n"

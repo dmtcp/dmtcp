@@ -873,7 +873,7 @@ void DmtcpCoordinator::processDmtUserCmd(DmtcpMessage& hello_remote,
     // Reply will be done in DmtcpCoordinator::onData in this file.
     blockUntilDoneRemote = remote.sockfd();
     handleUserCommand( hello_remote.coordCmd, &reply );
-  } else if ( (hello_remote.coordCmd == 'i') ) {
+  } else if (hello_remote.coordCmd == 'i') {
 //    theDefaultCheckpointInterval = hello_remote.theCheckpointInterval;
 //    theCheckpointInterval = theDefaultCheckpointInterval;
     handleUserCommand( hello_remote.coordCmd, &reply );
@@ -1343,6 +1343,7 @@ void DmtcpCoordinator::addDataSocket(CoordClient *client)
 
 int main ( int argc, char** argv )
 {
+  Util::setProtectedFdBase();
   initializeJalib();
 
   //parse port
