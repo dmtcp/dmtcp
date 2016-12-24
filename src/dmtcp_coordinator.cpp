@@ -1195,7 +1195,7 @@ calcLocalAddr()
   char hostname[HOST_NAME_MAX];
 
   JASSERT(gethostname(hostname, sizeof hostname) == 0) (JASSERT_ERRNO);
-  struct addrinfo *result;
+  struct addrinfo *result = NULL;
   struct addrinfo *res;
   int error;
   struct addrinfo hints;
@@ -1250,7 +1250,9 @@ calcLocalAddr()
     inet_aton("127.0.0.1", &localhostIPAddr);
   }
   coordHostname = hostname;
-  freeaddrinfo(result);
+  if (result) {
+    freeaddrinfo(result);
+  }
 }
 
 static void
