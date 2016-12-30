@@ -2,6 +2,67 @@ DMTCP NEWS -- history of user-visible changes.
 
 Please send DMTCP bug reports via <dmtcp-forum@lists.sourceforge.net>
 
+Version 2.4.4 release notes
+===========================
+DMTCP now supports InfiniBand UD (in addition to the more common InfiniBand RC).
+This is becoming necessary, now that many MPI implementations are typically
+configured to use both InfiniBand RC and InfiniBand UD.
+
+Other major bug fixes include:
+
+* A regression in the multi-arch installation has been fixed.  It should
+  again be possible to configure DMTCP to support a mixture of 32- and
+  64-bit applications as documented in the `doc/multi-arch.txt` and in
+  the DMTCP FAQ.
+* A race condition was fixed that could cause a failure to restart after
+  many checkpoint-restart cycles  (i.e., a restart from a checkpoint of
+  a restart from a checkpoint, etc.).  This race condition potentially
+  happened primarily for programs that were continually creating and
+  destroying many threads or continually using `mmap` to create and destroy
+  many BSD-style shared memory regions among different processes.
+* The `dmtcp_set_coord_ckpt_dir("dirname")` utility in dmtcp.h (for DMTCP
+  plugins) now also supports relative pathnames for `"dirname"`.
+* The `dmtcp.h` file now uses the macro `DMTCP_VOID` instead of the macro
+  `VOID`. This avoids name clashes with user include files that also define a
+  macro `VOID`.
+* The `modify-env` plugin has raised the maximum size of `"dmtcp_env.txt"`
+  to over 12,000 bytes (and warns if a still larger size is used).
+* Some additional utilities in `dmtcp.h` for DMTCP plugins, that were
+  labelled "FOR EXPERTS ONLY" are now directly supported without
+  modification of the DMTCP source code.
+* An improved error message is provided when a target application
+  launched with `dmtcp_launch --no-coordinator` tries to use `fork`.
+  (Fork creates a second process, and a DMTCP coordinator is needed when
+  there is more than one process.)
+
+Version 2.4.3 release notes
+===========================
+This is primarily a bug-fix release and includes the following changes:
+
+* Added support for CMA (Cross-Memory Attach):
+  `process_vm_readv`/`process_vm_writev`
+* Fixed a regression affecting dmtcp_checkpoint() [applic-initiated ckpt API].
+* Fixed a compilation error on RHEL-5.8.
+* Some smaller bug fixes.
+
+Version 2.4.2 release notes
+===========================
+This is primarily a bug fix release. The following bugs were fixed:
+
+* Fixed interval checkpoint.
+* Fix for `dmtcp_launch --no-coordinator`.
+* Support for `sched_*` functions.
+* Build fix for `--enable-debug` compilation flag.
+* Compilation fixes for Clang-3.4.
+
+Version 2.4.1 release notes
+===========================
+Several important changes and enhancements were added:
+
+* In 2.4.0, deleted backing files for mmap-style shared memory were not properly
+  supported on restart
+* Sys V SHM: fix potential interference by another plugin during ckpt
+
 Version 2.4 release notes
 =========================
 Several important changes and enhancements were added:
