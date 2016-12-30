@@ -119,6 +119,7 @@
 #define ENV_VAR_DLSYM_OFFSET "DMTCP_DLSYM_OFFSET"
 #define ENV_VAR_DLSYM_OFFSET_M32 "DMTCP_DLSYM_OFFSET_M32"
 #define ENV_VAR_REMOTE_SHELL_CMD "DMTCP_REMOTE_SHELL_CMD"
+#define ENV_VAR_PROTECTED_FD_BASE "DMTCP_PROTECTED_FD_BASE"
 
 //this list should be kept up to date with all "protected" environment vars
 #define ENV_VARS_ALL \
@@ -145,6 +146,7 @@
     ENV_VAR_DLSYM_OFFSET_M32, \
     ENV_VAR_VIRTUAL_PID, \
     ENV_VAR_SKIP_WRITING_TEXT_SEGMENTS, \
+    ENV_VAR_PROTECTED_FD_BASE, \
     ENV_DELTACOMPRESSION
 
 #define DMTCP_RESTART_CMD "dmtcp_restart"
@@ -170,7 +172,7 @@
   "under certain conditions; see COPYING file for details.\n"
 
 #define HELP_AND_CONTACT_INFO             \
-  "Report bugs to: "PACKAGE_BUGREPORT"\n" \
-  "DMTCP home page: <"PACKAGE_URL">\n"
+  "Report bugs to: " PACKAGE_BUGREPORT "\n" \
+  "DMTCP home page: <" PACKAGE_URL ">\n"
 
 #endif

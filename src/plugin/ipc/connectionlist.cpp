@@ -402,6 +402,7 @@ void ConnectionList::drain()
       con->drain();
     }
   }
+  dmtcp_update_max_required_fd(getMaxFd());
 }
 
 void ConnectionList::preCkpt()
@@ -572,4 +573,17 @@ void ConnectionList::sendReceiveMissingFds()
     }
   }
   dmtcp_close_protected_fd(restoreFd);
+}
+
+int ConnectionList::getMaxFd()
+{
+  int maxUserFd = -1;
+  for (iterator i = begin(); i != end(); ++i) {
+    Connection* con =  i->second;
+    int fd = con->getMaxFd();
+    if (maxUserFd < con->getMaxFd()) {
+      maxUserFd = fd;
+    }
+  }
+  return maxUserFd;
 }

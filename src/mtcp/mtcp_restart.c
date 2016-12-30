@@ -70,7 +70,9 @@
 #endif
 
 void mtcp_check_vdso(char **environ);
+#ifdef FAST_RST_VIA_MMAP
 static void mmapfile(int fd, void *buf, size_t size, int prot, int flags);
+#endif
 
 #define BINARY_NAME "mtcp_restart"
 #define BINARY_NAME_M32 "mtcp_restart-32"
@@ -568,7 +570,7 @@ static void restorememoryareas(RestoreInfo *rinfo_ptr)
   if (rinfo_ptr->saved_brk != NULL) {
     // Now, we can do the pending mtcp_sys_brk(rinfo.saved_brk).
     // It's now safe to do this, even though it can munmap memory holding rinfo.
-    mtcp_sys_brk(rinfo_ptr->saved_brk);
+    MTCP_ASSERT(mtcp_sys_brk(rinfo_ptr->saved_brk) == 0);
   }
 
 #if defined(__i386__) || defined(__x86_64__)
@@ -835,7 +837,7 @@ static int read_one_memory_area(int fd)
   mtcp_readfile(fd, &area, sizeof area);
   if (area.size == -1) return -1;
 
-  if (area.name && mtcp_strstr(area.name, "[heap]")
+  if (area.name && area.name[0] && mtcp_strstr(area.name, "[heap]")
       && mtcp_sys_brk(NULL) != area.addr + area.size) {
     DPRINTF("WARNING: break (%p) not equal to end of heap (%p)\n",
             mtcp_sys_brk(NULL), area.addr + area.size);
@@ -1197,6 +1199,7 @@ void __intel_security_check_cookie(void)
   mtcp_abort();
 }
 
+#ifdef FAST_RST_VIA_MMAP
 static void mmapfile(int fd, void *buf, size_t size, int prot, int flags)
 {
   int mtcp_sys_errno;
@@ -1221,4 +1224,4 @@ static void mmapfile(int fd, void *buf, size_t size, int prot, int flags)
     mtcp_abort();
   }
 }
-
+#endif

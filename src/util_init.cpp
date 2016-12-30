@@ -22,7 +22,9 @@
 #include <string.h>
 #include <pwd.h>
 #include <sys/fcntl.h>
+#include <sys/resource.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <sys/types.h>
 #include "constants.h"
 #include "util.h"
@@ -225,4 +227,20 @@ void Util::initializeLogFile(string tmpDir, string procname, string prevLogPath)
   jassert_quiet = 2;
 #endif
   unsetenv(ENV_VAR_STDERR_PATH);
+}
+
+void Util::setProtectedFdBase()
+{
+  struct rlimit rlim = {0};
+  char protectedFdBaseBuf[64] = {0};
+  uint32_t base = 0;
+  // Check the max no. of FDs supported for the process
+  if (getrlimit(RLIMIT_NOFILE, &rlim) < 0) {
+    JWARNING(false)(JASSERT_ERRNO).Text("Could not figure out the max. number of fds");
+    return;
+  }
+  base = rlim.rlim_cur - (PROTECTED_FD_END - PROTECTED_FD_START) - 1;
+  snprintf(protectedFdBaseBuf, sizeof protectedFdBaseBuf, "%u", base);
+  JASSERT(base).Text("Setting the base of protected fds to");
+  setenv(ENV_VAR_PROTECTED_FD_BASE, protectedFdBaseBuf, 1);
 }

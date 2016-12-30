@@ -343,6 +343,7 @@ static void dmtcpPrepareForExec(const char *path, char *const argv[],
 
   Util::adjustRlimitStack();
   Util::prepareDlsymWrapper();
+  Util::setProtectedFdBase();
 
   // Remove FD_CLOEXEC flag from protected file descriptors.
   for (size_t i  = PROTECTED_FD_START; i < PROTECTED_FD_END; i++) {

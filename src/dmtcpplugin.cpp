@@ -500,6 +500,11 @@ EXTERNC int dmtcp_no_coordinator(void)
   return CoordinatorAPI::noCoordinator();
 }
 
+EXTERNC void dmtcp_update_max_required_fd(int fd)
+{
+  ProcessInfo::instance().updateMaxUserFd(fd);
+}
+
 void dmtcp::increment_counters(int isRestart)
 {
   if (isRestart) {

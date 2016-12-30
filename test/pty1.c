@@ -1,4 +1,5 @@
-#define _XOPEN_SOURCE
+// grantpt, posix_openpt, etc., needs _XOPEN_SOURCE set to 600
+#define _XOPEN_SOURCE 600
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/types.h>

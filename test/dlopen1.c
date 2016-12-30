@@ -57,7 +57,8 @@ int main(int argc, char* argv[])
       cnt1 = 0;
       printf("."); fflush(stdout);
       if (cnt2 % 50 == 0)
-        printf("\n%d: ", cnt2 / 50); fflush(stdout);
+        printf("\n%d: ", cnt2 / 50);
+      fflush(stdout);
     }
     lib = 3 - lib; /* switch libraries to load */
   }

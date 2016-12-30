@@ -59,6 +59,7 @@ namespace dmtcp
       void processDup(int oldfd, int newfd);
       void list();
       void serialize(jalib::JBinarySerializer& o);
+      int getMaxFd();
 
       void eventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
       virtual void scanForPreExisting() {}

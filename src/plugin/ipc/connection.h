@@ -76,6 +76,7 @@ namespace dmtcp
       uint32_t  subType() const { return _type; }
       bool hasLock() { return _hasLock; }
       bool isStdio() { return conType() == STDIO; }
+      int32_t getMaxFd() { return _fds[0]; }
 
       void  checkLocking();
       const ConnectionIdentifier& id() const { return _id; }
