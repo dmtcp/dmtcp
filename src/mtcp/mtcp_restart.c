@@ -777,7 +777,14 @@ static void unmap_memory_areas_and_restore_vdso(RestoreInfo *rinfo)
       mtcp_abort();
     }
     MTCP_ASSERT(vvar == vvarStart);
-    mtcp_memcpy(vvarStart, rinfo->vvarStart, vvarEnd - vvarStart);
+    // On i386, only the first page is readable. Reading beyond that
+    // results in a bus error.
+    // Arguably, this is a bug in the kernel, since /proc/*/maps indicates
+    // that both pages of vvar memory have read permission.
+    // This issue arose due to a change in the Linux kernel pproximately in
+    // version 4.0
+    // TODO: Find a way to automatically detect the readable bytes.
+    mtcp_memcpy(vvarStart, rinfo->vvarStart, MTCP_PAGE_SIZE);
 #endif
   }
 }
