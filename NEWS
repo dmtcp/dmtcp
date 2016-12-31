@@ -2,6 +2,38 @@ DMTCP NEWS -- history of user-visible changes.
 
 Please send DMTCP bug reports via <dmtcp-forum@lists.sourceforge.net>
 
+Version 2.4.7 release notes
+===========================
+If you are using a recent Linux kernel or a recent GLIBC library,
+and you need to continue to use the 2.4.x branch, then you are
+recommended to upgrade to this 2.4.7 release.
+* The newest kernels (approximately Linux version 4.0 and later map
+  vDSO into memory slightly differently for _32-bit_ processes running
+  in a 64-bit Linux.  DMTCP was failing to restart for such 32-bit processes.
+  This is now fixed.
+* In recent versions of GLIBC, libdl/dlerror calls libc/malloc, creating
+  an infinite recursion when we interpose using libdl/dlsym.  We now
+  implement our own 'dlsym' and use it in most cases, thus reducing our
+  reliance on libdl.
+
+Version 2.4.6 release notes
+===========================
+* Fixed JLOG to work with '--enable-debug' configure flag.
+* A corner case in handling of InfiniBand was fixed, where two queue pairs
+  were not connected.
+
+Version 2.4.5 release notes
+===========================
+* An '--enable-pthread-mutex-wrappers' configure flag was added
+  to enable pthread_mutex_{lock,unlock} wrappers needed for Open MPI.
+* The signals SIGCANCEL (signal #32) and SIGSETXID (signal #33) used by NPTL
+  for threads were not being properly restored on restart.
+* Restart was fixed in a case where independent processes had orphaned roots
+  of trees.
+* Provides more robust handling of mutexes.
+* Provides more robust handling of InfiniBand.
+* A failure to build on SLES10 was fixed.
+
 Version 2.4.4 release notes
 ===========================
 DMTCP now supports InfiniBand UD (in addition to the more common InfiniBand RC).
