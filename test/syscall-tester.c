@@ -168,7 +168,7 @@ const int ENDLIST = -1;
   }
 
 
-/* a safe string modifer for printf, if it is null, print out that fact */
+/* a safe string modifier for printf, if it is null, print out that fact */
 #define STR(x) \
   (((x) == NULL) ? "(null)" : (x))
 
@@ -2340,7 +2340,7 @@ fread_test(void *ptr, size_t size, size_t nitems, FILE *stream)
   save_errno = errno;
 
   /* This test is a little different than the rest because of the really
-     wierd behaviour of fread(). Notice the check in SUCCESS. */
+     weird behavior of fread(). Notice the check in SUCCESS. */
   switch (passed) {
   case FAILURE:
     printf("\tFailed Phase 1: returned undefined value! "
@@ -4838,7 +4838,7 @@ testall()
     { BasicDir, "BasicDir: Can I make and remove a directory?" },
 
     // The chdir tests are not well written. If the file that is used for test
-    // alrady exists on the disk prior to the launch of the application, the
+    // already exists on the disk prior to the launch of the application, the
     // test fails.  Disabling them now until we get a chance to fix it.
     // {BasicChdir, "BasicChdir: Can I validly change directories?"},
     // {BasicFchdir, "BasicFchdir: Can I validly change directories?"},

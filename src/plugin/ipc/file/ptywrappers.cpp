@@ -96,7 +96,7 @@ __xstat(int vers, const char *path, struct stat *buf)
 
   // We want to call updateStatPath(). But if path is an invalid memory address,
   // then updateStatPath() will crash.  So, do a preliminary call to
-  // _real_xstat().  If path or buf is invalid, return with the erro.
+  // _real_xstat().  If path or buf is invalid, return with the error.
   // If path is a valid memory address, but not a valid filename,
   // there is no harm done, since xstat has no side effects outside of buf.
   int retval = _real_xstat(vers, path, buf);

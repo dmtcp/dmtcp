@@ -19,7 +19,7 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-// msgrcv has confliciting return types on some systems (e.g. SLES 10)
+// msgrcv has conflicting return types on some systems (e.g. SLES 10)
 // So, we temporarily rename it so that type declarations are not for msgrcv.
 #define msgrcv msgrcv_glibc
 
@@ -108,7 +108,7 @@ void *shmat(int shmid, const void *shmaddr, int shmflg)
       }
     }
 
-    // Detach all the bad addresses athat are not SHMLBA-aligned.
+    // Detach all the bad addresses that are not SHMLBA-aligned.
     if (i < sizeof(ret_addr) / sizeof(ret_addr[0])) {
       for (unsigned int j = 0; j < i + 1; j++) {
         _real_shmdt(ret_addr[j]);

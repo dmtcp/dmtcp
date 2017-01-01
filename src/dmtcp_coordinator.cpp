@@ -1502,7 +1502,7 @@ main(int argc, char **argv)
   if (fcntl(PROTECTED_COORD_FD, F_GETFD) != -1) {
     listenSock = new jalib::JServerSocket(PROTECTED_COORD_FD);
     JASSERT(listenSock->port() != -1).Text("Invalid listener socket");
-    JTRACE("Using already created listener socker") (listenSock->port());
+    JTRACE("Using already created listener socket") (listenSock->port());
   } else {
     errno = 0;
     listenSock = new jalib::JServerSocket(jalib::JSockAddr::ANY, thePort, 128);

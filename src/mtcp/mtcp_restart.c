@@ -78,7 +78,7 @@ static void mmapfile(int fd, void *buf, size_t size, int prot, int flags);
 /* struct RestoreInfo to pass all parameters from one function to next.
  * This must be global (not on stack) at the time that we jump from
  * original stack to copy of restorememoryareas() on new stack.
- * This is becasue we will wait until we are in the new call frame and then
+ * This is because we will wait until we are in the new call frame and then
  * copy the global data into the new call frame.
  */
 typedef void (*fnptr_t)();
@@ -425,7 +425,7 @@ restart_fast_path()
   /* For __arm__
    *    should be able to use kernel call: __ARM_NR_cacheflush(start, end, flag)
    *    followed by copying new text below, followed by DSB and ISB,
-   *    to eliminstate need for delay loop.  But this needs more testing.
+   *    to eliminate need for delay loop.  But this needs more testing.
    */
   mtcp_memcpy(rinfo.restore_addr, rinfo.text_addr, rinfo.text_size);
   mtcp_memcpy(rinfo.restore_addr + rinfo.text_size, &rinfo, sizeof(rinfo));

@@ -730,7 +730,7 @@ int main(int argc, char *argv[])
  acvsq = acksq = acesq = acecsq = acpsq = actsq = 0.0;
  flv = flk = fle = flec = flp = flt = 0.0;
 
- if(myid == 0) fprintf(fp1,"**** start of dynamcis ****\n");
+ if(myid == 0) fprintf(fp1,"**** start of dynamics ****\n");
  if(myid == 0) fprintf(fp1,"step energy cutenergy kinetic potential temperature pressure\n");
 
  for(step = 1; step <= nstep; step++)

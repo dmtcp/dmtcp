@@ -10,8 +10,8 @@
 // but in this case, it will simply hang on restart, and our
 // current autotest can't check for processes that live, but hang.
 // NOTE:  This test specializes in testing an error-checking mutex,
-// since na error-checking must check the owner when unlocking.
-// (In contrsst, a recursive mutex will check the owner when locking.)
+//   since any error-checking must check the owner when unlocking.
+//   (In contrast, a recursive mutex will check the owner when locking.)
 
 int
 main()
