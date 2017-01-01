@@ -194,7 +194,7 @@ extern "C" int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
   /* pthread_create() should acquire the thread-creation lock. Not doing so can
    * result in a deadlock in the following scenario:
    * 1. user thread: pthread_create() - acquire wrapper-execution lock
-   * 2. ckpt-thread: SUSPEND msg received, wait on wrlock for wrapper-exection lock
+   * 2. ckpt-thread: SUSPEND msg received, wait on wrlock for wrapper-execution lock
    * 3. user thread: __clone() - try to acquire wrapper-execution lock
    *
    * We also need to increment the uninitialized-thread-count so that it is

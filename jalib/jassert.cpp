@@ -193,7 +193,7 @@ static const jalib::string writeJbacktraceMsg() {
   jalib::string thisProgram = "libdmtcp.so";
   if (jalib::Filesystem::GetProgramName() == "dmtcp_coordinator")
     thisProgram = "dmtcp_coordinator";
-  if (jalib::Filesystem::GetProgramName() == "dmtcp_checkpint")
+  if (jalib::Filesystem::GetProgramName() == "dmtcp_checkpoint")
     thisProgram = "dmtcp_launch";
   if (jalib::Filesystem::GetProgramName() == "dmtcp_restart")
     thisProgram = "dmtcp_restart";

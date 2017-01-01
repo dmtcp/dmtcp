@@ -135,7 +135,7 @@ namespace dmtcp
       uint32_t  _numPeers;
       uint32_t  _noCoordinator;
       uint32_t  _generation;
-        // _generation, above, is per-process.  This constrasts with
+        // _generation, above, is per-process.  This contrasts with
         //   _computation_generation, which is shared among all processes on a host.
         // _computation_generation is updated in shareddata.cpp by:
         //      sharedDataHeader->compId._computation_generation = generation;

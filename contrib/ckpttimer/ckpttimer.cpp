@@ -202,7 +202,7 @@ dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
         }
         /* Need to stop the timer on resume/restart. */
         start_stop_timer(timerid, g_interval, STOP_TIMER);
-        JTRACE("*** Cancelled the ckpt timer! ***");
+        JTRACE("*** Canceled the ckpt timer! ***");
         break;
       }
     default:

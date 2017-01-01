@@ -31,7 +31,7 @@ void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     }
     if (getenv("EXAMPLE_DB_KEY_OTHER")) {
       mystruct_other.key = atoi(getenv("EXAMPLE_DB_KEY_OTHER"));
-      mystruct_other.pid = -1; /* -1 means unkonwn */
+      mystruct_other.pid = -1; /* -1 means unknown */
     }
     break;
   case DMTCP_EVENT_WRITE_CKPT:

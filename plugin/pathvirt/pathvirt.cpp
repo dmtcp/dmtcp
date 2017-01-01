@@ -245,7 +245,7 @@ pathvirtInitialize()
     }
 
     /* If the user specified the DMTCP_ORIGINAL_PATH_PREFIX on restart,
-     * this will overrided previous calls to set the original buffer.
+     * this will override previous calls to set the original buffer.
      */
     ret = dmtcp_get_restart_env(ENV_ORIG_DPP, tmp, sizeof(tmp) - 1);
     JTRACE("Temp prefix list") (tmp);

@@ -152,7 +152,7 @@ void resources_input::trim(string &str, string delim)
             pt = _pt;
           }else{
             if( _pt != pm_unknown && pt != _pt ){
-              warning += "WARINIG: Conflicting types of process manager detected: " +
+              warning += "WARNING: Conflicting types of process manager detected: " +
                   pmtype_to_string(pt) + " & " + pmtype_to_string(_pt) + ". Use first one\n";
             }
           }

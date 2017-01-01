@@ -247,7 +247,7 @@ void ThreadList::updateTid(Thread *th)
  *************************************************************************/
 void ThreadList::killCkpthread()
 {
-  JTRACE("Kill checkpinthread") (ckptThread->tid);
+  JTRACE("Kill checkpointhread") (ckptThread->tid);
   THREAD_TGKILL(motherpid, ckptThread->tid, SigInfo::ckptSignal());
 }
 
@@ -411,7 +411,7 @@ static void *checkpointhread (void *dummy)
      *   will call setcontext(), in order to arrive back at getcontext() here
      *   in this function, just before the 'while(1)' loop.
      * FIXME:  The 'motherofall' thread is the primary thread of the process.
-     *   On launch, 'motherofall' was the user thread exeicuting main().
+     *   On launch, 'motherofall' was the user thread executing main().
      *   and the checkpoint thread was the second thread.  But now,
      *   motherofall will be the checkpoint thread.  Why do we switch at the
      *   time of restart?  Should we fix this?

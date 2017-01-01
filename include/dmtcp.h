@@ -361,7 +361,7 @@ EXTERNC void dmtcp_initialize();
  * We don't see a problem with clang-3.4.2 under Ubuntu 14.04.  So, eventually
  *   we can deprecate this patch, when most distros use a later clang.
  * clang-3.4 declares fn and dmtcp_event_hook as weak symbols ("V")
- *   when these variables are delcared inside the function dmtcp_event_hook().
+ *   when these variables are declared inside the function dmtcp_event_hook().
  *   This workaround declares them outside of dmtcp_event_hook().
  *   If the bug in clang gets fixed, we should expand this macro inline
  *     for the non-clang case.
