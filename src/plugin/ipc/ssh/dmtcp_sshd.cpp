@@ -145,7 +145,7 @@ int main(int argc, char *argv[], char *envp[])
   }
 
   /* Checkpoint database should have information about which command rsh/ssh
-   * lauched the daemon orginally on remote host. This information is required
+   * launched the daemon originally on remote host. This information is required
    * at 2 places, first in restart script which will launch the user process/
    * dmtcp_sshd on remote host using the same command. Secondly launching
    * dummy daemon which will launched by the same command. 

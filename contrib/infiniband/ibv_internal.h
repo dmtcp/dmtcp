@@ -37,7 +37,7 @@ struct dev_list_info {
 };
 
 /*
- * On restart, the real resouces inside the internal structures below
+ * On restart, the real resources inside the internal structures below
  * are recreated. However, the old real resources are not released,
  * thus leading to a memory leak. Currenly we do not handle this memory
  * leak, because the memory leak is tiny, and destroying those resources

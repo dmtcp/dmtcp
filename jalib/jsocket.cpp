@@ -129,7 +129,7 @@ jalib::JSockAddr::JSockAddr ( const char* hostname /* == NULL*/,
     if( _count > max_count)
       _count = max_count;
 
-    // 2. array for storing all nesessary addresses
+    // 2. array for storing all necessary addresses
     int i;
     for(r = res, i = 0; r != NULL; r = r->ai_next, i++) {
       memcpy(_addr + i, r->ai_addr, r->ai_addrlen);
@@ -238,7 +238,7 @@ void jalib::JSocket::enablePortReuse()
   }
 #endif
 #ifdef SO_REUSEPORT
-  /* Setting SO_REUSEPORT can be dangeroud, multiple processes can bind
+  /* Setting SO_REUSEPORT can be dangerous, multiple processes can bind
    * to the same address. See this for more explanation:
    *   http://stackoverflow.com/a/14388707/1136967
    */

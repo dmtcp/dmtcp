@@ -301,7 +301,7 @@ static void prepareForExec(char *const argv[], char ***newArgv)
       continue;
     }
 
-    // These options have a higer probability of failure due to binding
+    // These options have a higher probability of failure due to binding
     // addresses, etc.
     if (s == "-b" || s == "-D" || s == "-L" || s == "-m" || s == "-R" ||
         s == "-W" || s == "-w") {

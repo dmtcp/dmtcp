@@ -11,7 +11,7 @@
 //   current autotest can't check for processes that live, but hang.
 // NOTE:  This test specializes in testing an error-checking mutex,
 //   since na error-checking must check the owner when unlocking.
-//   (In contrsst, a recursive mutex will check the owner when locking.)
+//   (In contrast, a recursive mutex will check the owner when locking.)
 
 int main() {
   // DMTCP and native differ when this is not initialized.  Why?

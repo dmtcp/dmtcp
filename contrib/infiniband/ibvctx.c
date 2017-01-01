@@ -842,7 +842,7 @@ void post_restart2(void)
       if (mod->attr_mask & IBV_SRQ_MAX_WR){
 	if(NEXT_IBV_FNC(ibv_modify_srq)
             (internal_srq->real_srq, &attr, IBV_SRQ_MAX_WR)){
-	  fprintf(stderr, "Error: Cound not modify srq properly.\n");
+	  fprintf(stderr, "Error: Could not modify srq properly.\n");
 //	  exit(1);
 	}
 	break;

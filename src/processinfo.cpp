@@ -117,7 +117,7 @@ ProcessInfo::ProcessInfo()
   _noCoordinator = false;
   _generation = 0;
     // _generation, above, is per-process.
-    // This constrasts with DmtcpUniqueProcessId:_computation_generation, which is
+    // This contrasts with DmtcpUniqueProcessId:_computation_generation, which is
     //   shared among all process on a node; used in variable sharedDataHeader.
     // _generation is updated when _this_ process begins its checkpoint.
   _childTable.clear();

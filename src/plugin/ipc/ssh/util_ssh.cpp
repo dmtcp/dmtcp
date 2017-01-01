@@ -139,7 +139,7 @@ void client_loop(int ssh_stdin, int ssh_stdout, int ssh_stderr, int sock)
 
   /*
    * Set signal handlers, (e.g. to restore non-blocking mode)
-   * but don't overwrite SIG_IGN, matches behaviour from rsh(1)
+   * but don't overwrite SIG_IGN, matches behavior from rsh(1)
    */
   if (signal(SIGHUP, SIG_IGN) != SIG_IGN)
     signal(SIGHUP, signal_handler);

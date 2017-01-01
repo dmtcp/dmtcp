@@ -156,7 +156,7 @@ extern "C" int __clone(int (*fn) (void *arg), void *child_stack, int flags,
 
   if (tid > 0) {
     JTRACE("New thread created") (tid);
-    /* Wait for child thread to finish intializing.
+    /* Wait for child thread to finish initializing.
      * We must let the child thread insert original->current tid in the
      * virtualpidtable. If we don't wait for the child thread and update the
      * pidtable ourselves, there is a possible race if the child thread is

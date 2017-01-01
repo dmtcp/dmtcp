@@ -465,7 +465,7 @@ static inline void mtcp_abort (void)
 
 #endif
 
-// For DMTCP-2.2, we are definining MTCP_SYS_ERRNO_ON_STACK on command line.
+// For DMTCP-2.2, we are defining MTCP_SYS_ERRNO_ON_STACK on command line.
 // After that, we will move this code to libmtcp.so, where we can again
 //   use global variables, and so will not need this defined.
 #if defined(__arm__) || defined(__aarch64__)

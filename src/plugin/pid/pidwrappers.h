@@ -67,7 +67,7 @@ struct user_desc {int dummy;}; /* <asm/ldt.h> is missing in Ubuntu 14.04 */
 //          SLES 10 declares msgrcv() one way, and others define it differently.
 //          So, we need this patch.  Do we really need msgctl() defined here?
 //          (pidwrappers.cpp doesn't use msgctl().)
-// msgrcv has confliciting return types on some systems (e.g. SLES 10)
+// msgrcv has conflicting return types on some systems (e.g. SLES 10)
 // So, we temporarily rename it so that type declarations are not for msgrcv.
 #define msgrcv msgrcv_glibc
 # include <sys/msg.h>
