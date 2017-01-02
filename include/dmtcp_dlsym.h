@@ -34,26 +34,6 @@
 # undef __USE_GNU
 #endif
 
-/************************************************************************
- * IMPORTANT CAVEATS:
- *   DLSYM_DEFAULT() is effective when called from a library, but not when
- *     called from within the base executable.
- *   Don't use dlsym_default_internal() outside of this macro.
- *   This must be a macro because dlsym() looks one level up in the stack
- *     to decide what library the caller of dlsym() is located in.
- *   RTLD_DEFAULT does not work with this macro.
- ************************************************************************/
-
-// #define DLSYM_DEFAULT_DO_DEBUG
-
-#ifdef DLSYM_DEFAULT_DO_DEBUG
-# define DLSYM_DEFAULT_DEBUG(handle,symbol,info) \
-    JNOTE("dmtcp_dlsym (RTLD_NEXT==-1l)")(symbol)(handle) \
-         (info.dli_fname)(info.dli_saddr)
-#else
-# define DLSYM_DEFAULT_DEBUG(handle,symbol,info)
-#endif
-
 EXTERNC void *dmtcp_dlsym(void *handle, const char *symbol);
 EXTERNC void *dmtcp_dlvsym(void *handle, char *symbol, const char *version);
 
