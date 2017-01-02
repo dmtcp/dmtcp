@@ -112,9 +112,9 @@ public:
   JFixedAllocStack() {
     if (_blockSize == 0) {
       _blockSize = 4*MAX_CHUNKSIZE;
-      _root = NULL;
-      _numExpands = 0;
     }
+    _root = NULL;
+    _numExpands = 0;
   }
 
   void initialize(int blockSize) {
@@ -140,7 +140,7 @@ public:
        *   _root = item->next;
        */
       item = _root;
-    } while (!_root || !__sync_bool_compare_and_swap(&_root, item, item->next));
+    } while (!item || !__sync_bool_compare_and_swap(&_root, item, item->next));
 
     item->next = NULL;
     return item;
