@@ -45,6 +45,11 @@ namespace jalib
 {
 
 #ifndef HAS_ATOMIC_BUILTINS
+/*
+ * The pthread_mutex_* wrappers need to be disabled when running with
+ * no atomic built-ins. The use of C++ STL maps from the wrapper functions
+ * can lead to a call to allocate() and hence a deadlock.
+ */
 // We'll use critical section instead of atomic builtins.
 //  Hopefully, all changes to the variables go through this critical section
 
@@ -60,6 +65,18 @@ static bool __sync_bool_compare_and_swap(
     retval = true;
   }
   jalib::pthread_mutex_unlock(&sync_mutex);
+  return retval;
+}
+
+static pthread_mutex_t expands_mutex = PTHREAD_MUTEX_INITIALIZER;
+template <typename T>
+static T __sync_fetch_and_add (T volatile *ptr, T value)
+{
+  T retval;
+  jalib::pthread_mutex_lock(&expands_mutex);
+  retval = *ptr;
+  *ptr += value;
+  jalib::pthread_mutex_unlock(&expands_mutex);
   return retval;
 }
 #endif
@@ -179,7 +196,7 @@ public:
 protected:
   //allocate more raw memory when stack is empty
   void expand() {
-    _numExpands++;
+    __sync_fetch_and_add(&_numExpands, 1);
     if (_root != NULL &&
         fred_record_replay_enabled && fred_record_replay_enabled()) {
       // TODO: why is expand being called? If you see this message, raise lvl2
