@@ -34,16 +34,6 @@
 # undef __USE_GNU
 #endif
 
-// #define DLSYM_DEFAULT_DO_DEBUG
-
-#ifdef DLSYM_DEFAULT_DO_DEBUG
-# define DLSYM_DEFAULT_DEBUG(handle,symbol,info) \
-    JNOTE("dmtcp_dlsym (RTLD_NEXT==-1l)")(symbol)(handle) \
-         (info.dli_fname)(info.dli_saddr)
-#else
-# define DLSYM_DEFAULT_DEBUG(handle,symbol,info)
-#endif
-
 EXTERNC void *dmtcp_dlsym(void *handle, const char *symbol);
 EXTERNC void *dmtcp_dlvsym(void *handle, char *symbol, const char *version);
 
