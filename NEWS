@@ -7,9 +7,15 @@ Version 2.5.0 release notes
 This release includes a few new plugins and several bug fixes for robustness.
 Some of the highlights include:
 
-* Readded `--enable-fast-restart`.
+* Support for InfiniBand UD (in addition to the more common InfiniBand RC).
+* Added support for CMA (Cross-Memory Attach):
+  `process_vm_readv` and `process_vm_writev`
+* Improved multi-arch (mixed 32-/64- bit) support.
+* Re-added `--enable-fast-restart`.
 * Added a new commandline option `--with-plugin-32` for dmtcp_launch to specify
   32-bit plugins in a 64-bit environment.
+* Added `--enable-pthread-mutex-wrappers` configure flag to enable
+  `pthread_mutex_{lock,unlock}` wrappers needed for Open MPI.
 * Added ability to specify environment file used in the `modify-env` plugin.
 * Allow `dmtcp_restart` to be invoked by root. 
 * The following new plugin were added:
