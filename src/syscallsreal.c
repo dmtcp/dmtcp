@@ -270,7 +270,7 @@ void initialize_libc_wrappers()
 }
 
 # define GET_LIBPTHREAD_FUNC_ADDR(name) \
-  _real_func_addr[ENUM(name)] = dlvsym(RTLD_NEXT, #name, pthread_sym_ver);
+  _real_func_addr[ENUM(name)] = dmtcp_dlvsym(RTLD_NEXT, #name, pthread_sym_ver);
 /*
  * WARNING: By using this method to initialize libpthread wrappers (direct
  * dlopen()/dlsym()) we are are overriding any user wrappers for these
