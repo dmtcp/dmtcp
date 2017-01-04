@@ -28,6 +28,7 @@
 #include "protectedfds.h"
 #include "syscallwrappers.h"
 #include "threadsync.h"
+#include "util.h"
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 13) && __GLIBC_PREREQ(2, 4)
 #include <sys/inotify.h>
@@ -552,7 +553,12 @@ syscall(long sys_num, ...)
   case SYS_shmdt:
   {
     SYSCALL_GET_ARG(const void *, shmaddr);
-    ret = shmdt(shmaddr);
+    if (dmtcp_svipc_inside_shmdt != NULL &&
+        dmtcp_svipc_inside_shmdt()) {
+      ret = _real_syscall(SYS_shmdt, shmaddr);
+    } else {
+      ret = shmdt(shmaddr);
+    }
     break;
   }
   case SYS_shmctl:

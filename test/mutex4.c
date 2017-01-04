@@ -8,7 +8,7 @@
 
 // This code uses the attribute PTHREAD_MUTEX_ERRORCHECK.
 // An error-checking mutex must check the owner when unlocking.
-// (In contrsst, a recursive mutex will check the owner when locking.)
+// (In contrast, a recursive mutex will check the owner when locking.)
 // This version runs with two threads instead of just one thread.
 
 pthread_mutex_t mutex;

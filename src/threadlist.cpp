@@ -270,7 +270,7 @@ ThreadList::updateTid(Thread *th)
 void
 ThreadList::killCkpthread()
 {
-  JTRACE("Kill checkpinthread") (ckptThread->tid);
+  JTRACE("Kill checkpointhread") (ckptThread->tid);
   THREAD_TGKILL(motherpid, ckptThread->tid, SigInfo::ckptSignal());
 }
 

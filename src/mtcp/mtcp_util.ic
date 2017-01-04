@@ -254,7 +254,7 @@ int mtcp_readfile(int fd, void *buf, size_t size)
   /* ARM requires DMB instruction to ensure that any store to memory
    * by a prior kernel mmap call has completed.
    * SEE ARM Information Center article:
-   *   "In what siutations might I need to insert memory barrier instructions?"
+   *   "In what situations might I need to insert memory barrier instructions?"
    *   (and especially section on "Memory Remapping"
    */
   WMB;
@@ -286,7 +286,7 @@ int mtcp_readfile(int fd, void *buf, size_t size)
   /* ARM requires DSB and ISB instructions to ensure that prior read
    * instructions complete, and prevent instructions being fetched prior to this.
    * SEE ARM Information Center article:
-   *   "In what siutations might I need to insert memory barrier instructions?"
+   *   "In what situations might I need to insert memory barrier instructions?"
    *   (and especially section on "Memory Remapping"
    */
   WMB;
@@ -496,7 +496,7 @@ skipeol:
  *   all memory regions of this library with the library filename,
  *   except for a single memory region for static vars in lib.  The
  *   latter case is handled by assuming a single region adjacent to
- *   to the labelled regions, and occuring after the labelled regions.
+ *   to the labeled regions, and occuring after the labeled regions.
  *   This assumes that all of these memory regions form a contiguous region.
  * We optionally call this only because Fedora uses eu-strip in rpmlint,
  *   and eu-strip modifies libmtcp.so in a way that libmtcp.so no longer works.

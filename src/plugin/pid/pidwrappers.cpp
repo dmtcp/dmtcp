@@ -514,7 +514,7 @@ wait3(__WAIT_STATUS status, int options, struct rusage *rusage)
  * time and retry.
  *
  * The last bit of logic is the amount of time to sleep for. Too little, and we
- * end up wasting CPU time; too large, and some application (for eg: strace)
+ * end up wasting CPU time; too large, and some application (e.g., strace)
  * might not like. We try to avoid this problem by starting with a tiny sleep
  * interval and on every failed wait(), we double the interval until we reach a
  * max. Once it reaches a max time, we don't double it, we just use it as is.

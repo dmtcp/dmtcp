@@ -175,7 +175,7 @@ resources_input::split2slots(std::string &str,
         } else {
           if (_pt != pm_unknown && pt != _pt) {
             warning +=
-              "WARINIG: Conflicting types of process manager detected: " +
+              "WARNING: Conflicting types of process manager detected: " +
               pmtype_to_string(pt) + " & " + pmtype_to_string(_pt) +
               ". Use first one\n";
           }
