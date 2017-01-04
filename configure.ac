@@ -243,6 +243,9 @@ AM_CONDITIONAL(ENABLE_PTHREAD_MUTEX_WRAPPERS,
 if test "$use_pthread_mutex_wrappers" = "yes"; then
   AC_DEFINE([ENABLE_PTHREAD_MUTEX_WRAPPERS],[1],[Enable pthread_mutex_* wrappers
              for Open MPI])
+  AC_SUBST([HAS_MUTEX_WRAPPERS], [yes])
+else
+  AC_SUBST([HAS_MUTEX_WRAPPERS], [no])
 fi
 
 AC_ARG_ENABLE([m32],
