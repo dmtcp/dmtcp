@@ -18,7 +18,7 @@ Some of the highlights include:
   `pthread_mutex_{lock,unlock}` wrappers needed for Open MPI.
 * Added ability to specify environment file used in the `modify-env` plugin.
 * Allow `dmtcp_restart` to be invoked by root. 
-* The following new plugin were added:
+* The following new plugins were added:
   * `pathvirt`: to virtualize filesystem paths.
   * `delayresume`: for finer-grained control over resuming of user threads
      during resume/restart.
