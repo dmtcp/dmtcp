@@ -167,6 +167,11 @@ TLSInfo_GetTidOffset(void)
   static int tid_offset = -1;
 
   if (tid_offset == -1) {
+    char *ptr;
+    long major = strtol(gnu_get_libc_version(), &ptr, 10);
+    long minor = strtol(ptr+1, NULL, 10);
+    ASSERT (major == 2);
+
     struct { pid_t tid; pid_t pid; } tid_pid;
 
     /* struct pthread has adjacent fields, tid and pid, in that order.
@@ -194,6 +199,14 @@ TLSInfo_GetTidOffset(void)
      * pthread_desc below is defined as 'struct pthread' in glibc:nptl/descr.h
      */
     tmp = memsubarray((char *)pthread_desc, (char *)&tid_pid, sizeof(tid_pid));
+
+    if (tmp == NULL && major == 2 && minor >= 24) {
+      // starting with glibc-2.25 (including 2.24.90 on Fedora), the pid field
+      // is deprecated and set to zero.
+      tid_pid.pid = 0;
+      tmp = memsubarray((char *)pthread_desc, (char *)&tid_pid, sizeof(tid_pid));
+    }
+
     if (tmp == NULL) {
       PRINTF("WARNING: Couldn't find offsets of tid/pid in thread_area.\n"
              "  Now relying on the value determined using the\n"
@@ -477,11 +490,21 @@ TLSInfo_SetThreadSysinfo(void *sysinfo)
 void
 TLSInfo_VerifyPidTid(pid_t pid, pid_t tid)
 {
+  char *ptr;
+  long major = strtol(gnu_get_libc_version(), &ptr, 10);
+  long minor = strtol(ptr+1, NULL, 10);
+  ASSERT (major == 2);
+
   pid_t tls_pid, tls_tid;
   char *addr = (char *)get_tls_base_addr();
 
   tls_pid = *(pid_t *)(addr + TLSInfo_GetPidOffset());
   tls_tid = *(pid_t *)(addr + TLSInfo_GetTidOffset());
+
+  // For glibc > 2.24, pid field is unused.
+  if (tls_pid == 0 && minor >= 24) {
+    tls_pid = pid;
+  }
 
   if ((tls_pid != pid) || (tls_tid != tid)) {
     PRINTF("ERROR: getpid(%d), tls pid(%d), and tls tid(%d) must all match\n",
