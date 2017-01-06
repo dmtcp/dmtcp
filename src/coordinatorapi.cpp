@@ -26,6 +26,7 @@
 #include <arpa/inet.h>
 #include <sys/time.h>
 #include <sys/types.h>
+#include <poll.h>
 #include <unistd.h>
 #include "coordinatorapi.h"
 #include "dmtcp.h"
@@ -209,7 +210,6 @@ void CoordinatorAPI::waitForCheckpointCommand()
   struct timeval tmptime={0,0};
   long remaining = ckptInterval;
   do {
-    fd_set rfds;
     struct timeval *timeout = NULL;
     struct timeval start;
     if (ckptInterval > 0) {
@@ -218,11 +218,10 @@ void CoordinatorAPI::waitForCheckpointCommand()
       JASSERT(gettimeofday(&start, NULL) == 0) (JASSERT_ERRNO);
     }
 
-    // This call to select() does nothing and returns.
-    // But we want to find address of select() using dlsym/libc before
+    // This call to poll() does nothing and returns.
+    // But we want to find address of poll() using dlsym/libc before
     //   allowing the user thread to continue.
-    struct timeval timezero = {0,0};
-    select(0, NULL, NULL, NULL, &timezero);
+    poll(NULL, 0, 0);
     if (sem_launch_first_time) {
       // Release user thread now that we've initialized the checkpoint thread.
       // This code is reached if the --no-coordinator flag is used.
@@ -230,14 +229,18 @@ void CoordinatorAPI::waitForCheckpointCommand()
       sem_launch_first_time = false;
     }
 
-    FD_ZERO(&rfds);
-    FD_SET(PROTECTED_COORD_FD, &rfds);
-    int retval = select(PROTECTED_COORD_FD+1, &rfds, NULL, NULL, timeout);
+    struct pollfd socketFd = {0};
+    socketFd.fd = PROTECTED_COORD_FD;
+    socketFd.events = POLLIN;
+    uint64_t millis = timeout ? ((timeout->tv_sec * (uint64_t)1000) +
+                                 (timeout->tv_usec / 1000))
+                              : -1;
+    int retval = poll(&socketFd, 1, millis);
     if (retval == 0) { // timeout expired, time for checkpoint
       JTRACE("Timeout expired, checkpointing now.");
       return;
     } else if (retval > 0) {
-      JASSERT(FD_ISSET(PROTECTED_COORD_FD, &rfds));
+      JASSERT(socketFd.revents & POLLIN);
       JTRACE("Connect request on virtual coordinator socket.");
       break;
     }
