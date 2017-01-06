@@ -165,7 +165,7 @@ void CoordinatorAPI::resetOnFork(CoordinatorAPI& coordAPI)
 void CoordinatorAPI::setupVirtualCoordinator(CoordinatorInfo *coordInfo,
                                              struct in_addr  *localIP)
 {
-  string host = NULL;
+  string host = "";
   int port = UNINITIALIZED_PORT;
   Util::getCoordHostAndPort(COORD_NONE, host, &port);
   _coordinatorSocket = jalib::JServerSocket(jalib::JSockAddr::ANY, port);
