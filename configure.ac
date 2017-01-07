@@ -54,6 +54,7 @@ if test -n "$ac_unrecognized_opts"; then
     *)     $as_echo "$as_me: WARNING: unrecognized options: $ac_unrecognized_opts" >&2 ;;
   esac
 fi
+
 AC_ARG_ENABLE([logging],
             [AS_HELP_STRING([--enable-logging],
                             [enable (very) verbose logging output
@@ -62,17 +63,32 @@ AC_ARG_ENABLE([logging],
             [use_logging=$enableval],
             [use_logging=no])
 
-CFLAGS="$CFLAGS -Wall"
-CPPFLAGS="$CPPFLAGS -Wall"
-CXXFLAGS="$CXXFLAGS -Wall"
-
 if test "$use_logging" = "yes"; then
   AC_SUBST([LOGGING], [yes])
   AC_DEFINE([LOGGING],[1],[Verbose trace output and log files in $DMTCP_TMPDIR])
-  CFLAGS="$CFLAGS -DLOGGING -g -O0"
-  CXXFLAGS="$CFLAGS -DLOGGING -g -O0"
+  CFLAGS="$CFLAGS -DLOGGING"
+  CPPFLAGS="$CPPFLAGS -DLOGGING"
+  CXXFLAGS="$CXXFLAGS -DLOGGING"
 else
   AC_SUBST([LOGGING], [no])
+fi
+
+AC_ARG_ENABLE([debug],
+            [AS_HELP_STRING([--enable-debug],
+                            [Use debugging flags "-Wall -g3 -O0" on DMTCP libs
+                             (default is
+                             disabled); also, see --enable-logging])],
+            [use_debug=$enableval],
+            [use_debug=no])
+
+if test "$use_debug" = "yes"; then
+  AC_SUBST([DEBUG], [yes])
+  AC_DEFINE([DEBUG],[1],[Use debugging flags "-Wall -g3 -O0"])
+  CFLAGS="$CFLAGS -Wall -g3 -O0 -DDEBUG"
+  CPPFLAGS="$CPPFLAGS -Wall -g3 -O0 -DDEBUG"
+  CXXFLAGS="$CXXFLAGS -Wall -g3 -O0 -DDEBUG"
+else
+  AC_SUBST([DEBUG], [no])
 fi
 
 AC_ARG_ENABLE([quiet],
@@ -573,7 +589,7 @@ AC_MSG_RESULT([$gccAtomicBuiltins])
 
 if test "$gccAtomicBuiltins" = "yes"; then
   AC_DEFINE([HAS_ATOMIC_BUILTINS],[1],
-            [can use __sync_bool_compare_and_swap(), etc.])
+            [Can use __sync_bool_compare_and_swap(), etc.])
 fi
 dnl Else will use mutex implementation; see jalib/jalloc.cpp
 
