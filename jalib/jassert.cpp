@@ -103,9 +103,9 @@ jassert_internal::JAssert::~JAssert()
     ss.str("");
 
     // while(1) sleep(1);
-#ifdef DEBUG
+#ifdef LOGGING
     jbacktrace();
-#endif // ifdef DEBUG
+#endif // ifdef LOGGING
   }
 
   if (!ss.str().empty()) {

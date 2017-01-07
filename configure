@@ -680,7 +680,7 @@ FAST_RST_VIA_MMAP
 INFINIBAND_SUPPORT
 EGREP
 GREP
-DEBUG
+LOGGING
 OPENMP_CXXFLAGS
 OPENMP_CFLAGS
 am__fastdepCXX_FALSE
@@ -792,7 +792,7 @@ enable_silent_rules
 enable_maintainer_mode
 enable_dependency_tracking
 enable_openmp
-enable_debug
+enable_logging
 enable_quiet
 enable_timing
 enable_realtime_ckpt_signal
@@ -1449,7 +1449,7 @@ Optional Features:
   --disable-dependency-tracking
                           speeds up one-time build
   --disable-openmp        do not use OpenMP
-  --enable-debug          enable (very) verbose debug output and write log
+  --enable-logging        enable (very) verbose logging output and write log
                           files to $DMTCP_TMPDIR (default is disabled)
   --enable-quiet          disable NOTE and WARNING (default is to print NOTE,
                           WARNING, but no TRACE)
@@ -4945,11 +4945,11 @@ if test -n "$ac_unrecognized_opts"; then
     *)     $as_echo "$as_me: WARNING: unrecognized options: $ac_unrecognized_opts" >&2 ;;
   esac
 fi
-# Check whether --enable-debug was given.
-if test "${enable_debug+set}" = set; then :
-  enableval=$enable_debug; use_jassert=$enableval
+# Check whether --enable-logging was given.
+if test "${enable_logging+set}" = set; then :
+  enableval=$enable_logging; use_logging=$enableval
 else
-  use_jassert=no
+  use_logging=no
 fi
 
 
@@ -4957,16 +4957,16 @@ CFLAGS="$CFLAGS -Wall"
 CPPFLAGS="$CPPFLAGS -Wall"
 CXXFLAGS="$CXXFLAGS -Wall"
 
-if test "$use_jassert" = "yes"; then
-  DEBUG=yes
+if test "$use_logging" = "yes"; then
+  LOGGING=yes
 
 
-$as_echo "#define DEBUG 1" >>confdefs.h
+$as_echo "#define LOGGING 1" >>confdefs.h
 
-  CFLAGS="$CFLAGS -DDEBUG -g -O0"
-  CXXFLAGS="$CFLAGS -DDEBUG -g -O0"
+  CFLAGS="$CFLAGS -DLOGGING -g -O0"
+  CXXFLAGS="$CFLAGS -DLOGGING -g -O0"
 else
-  DEBUG=no
+  LOGGING=no
 
 fi
 

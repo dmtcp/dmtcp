@@ -54,25 +54,25 @@ if test -n "$ac_unrecognized_opts"; then
     *)     $as_echo "$as_me: WARNING: unrecognized options: $ac_unrecognized_opts" >&2 ;;
   esac
 fi
-AC_ARG_ENABLE([debug],
-            [AS_HELP_STRING([--enable-debug],
-                            [enable (very) verbose debug output
+AC_ARG_ENABLE([logging],
+            [AS_HELP_STRING([--enable-logging],
+                            [enable (very) verbose logging output
                              and write log files to $DMTCP_TMPDIR (default is
                              disabled)])],
-            [use_jassert=$enableval],
-            [use_jassert=no])
+            [use_logging=$enableval],
+            [use_logging=no])
 
 CFLAGS="$CFLAGS -Wall"
 CPPFLAGS="$CPPFLAGS -Wall"
 CXXFLAGS="$CXXFLAGS -Wall"
 
-if test "$use_jassert" = "yes"; then
-  AC_SUBST([DEBUG], [yes])
-  AC_DEFINE([DEBUG],[1],[Verbose debug output and log files in $DMTCP_TMPDIR])
-  CFLAGS="$CFLAGS -DDEBUG -g -O0"
-  CXXFLAGS="$CFLAGS -DDEBUG -g -O0"
+if test "$use_logging" = "yes"; then
+  AC_SUBST([LOGGING], [yes])
+  AC_DEFINE([LOGGING],[1],[Verbose trace output and log files in $DMTCP_TMPDIR])
+  CFLAGS="$CFLAGS -DLOGGING -g -O0"
+  CXXFLAGS="$CFLAGS -DLOGGING -g -O0"
 else
-  AC_SUBST([DEBUG], [no])
+  AC_SUBST([LOGGING], [no])
 fi
 
 AC_ARG_ENABLE([quiet],

@@ -155,7 +155,7 @@ ConnectionList::deleteStaleConnections()
     }
   }
 
-#ifdef DEBUG
+#ifdef LOGGING
   if (staleFds.size() > 0) {
     ostringstream out;
     out << "\tDevice \t\t->\t File Descriptor -> ConnectionId\n";
@@ -171,7 +171,7 @@ ConnectionList::deleteStaleConnections()
     out << "==================================================\n";
     JTRACE("Deleting Stale Connections") (out.str());
   }
-#endif // ifdef DEBUG
+#endif // ifdef LOGGING
 
   // delete all the stale connections
   for (size_t i = 0; i < staleFds.size(); ++i) {

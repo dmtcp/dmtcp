@@ -211,16 +211,16 @@ void set_log_file(const jalib::string &path,
     "] " type " at ").Print(JASSERT_FILE).Print(":" JASSERT_LINE " in ").Print( \
     JASSERT_FUNC).Print("; REASON='" reason "'\n")
 
-#ifdef DEBUG
+#ifdef LOGGING
 # define JTRACE(msg)                \
   jassert_internal::JAssert(false). \
   JASSERT_CONTEXT("TRACE", msg).JASSERT_CONT_A
-#else // ifdef DEBUG
+#else // ifdef LOGGING
 # define JTRACE(msg)                                              \
   if (true) {                                                     \
   } else jassert_internal::JAssert(false).JASSERT_CONTEXT("NOTE", \
                                                           msg).JASSERT_CONT_A
-#endif // ifdef DEBUG
+#endif // ifdef LOGGING
 
 #define JNOTE(msg)          \
   if (jassert_quiet >= 1) { \
@@ -234,17 +234,17 @@ void set_log_file(const jalib::string &path,
                                                      "JWARNING(" # term ") failed") \
     .JASSERT_CONT_A
 
-#ifndef DEBUG
+#ifndef LOGGING
 # define JASSERT(term)              \
   if ((term)) {                     \
   } else                            \
     jassert_internal::JAssert(true) \
     .JASSERT_CONTEXT("ERROR", "JASSERT(" # term ") failed").JASSERT_CONT_A
-#else // ifndef DEBUG
+#else // ifndef LOGGING
 # define JASSERT(term)              \
   if ((term)) {                     \
   } else                            \
     jassert_internal::JAssert(true) \
     .JASSERT_CONTEXT("ERROR", "JASSERT(" # term ") failed").JASSERT_CONT_A
-#endif // ifndef DEBUG
+#endif // ifndef LOGGING
 #endif // ifndef JASSERT_H
