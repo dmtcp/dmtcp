@@ -129,11 +129,12 @@ void SigInfo::saveSigHandlers()
 void SigInfo::restoreSigHandlers()
 {
   int sig;
-  JLOG(DMTCP)("restoring signal handlers");
-  for(sig = SIGRTMAX; sig > 0; --sig) {
-#ifdef VERBOSE_DEBUG
-    JLOG(DMTCP)("restore signal handler for") (sig);
-#endif
+
+  JTRACE("restoring signal handlers");
+  for (sig = SIGRTMAX; sig > 0; --sig) {
+#ifdef VERBOSE_LOGGING
+    JTRACE("restore signal handler for") (sig);
+#endif // ifdef VERBOSE_LOGGING
 
     JASSERT(_real_syscall(SYS_rt_sigaction, sig, &sigactions[sig], NULL, _NSIG / 8) == 0 || errno == EINVAL)
       (sig) (JASSERT_ERRNO)

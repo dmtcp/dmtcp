@@ -214,7 +214,7 @@ namespace jassert_internal
 #define JASSERT_FILE jassert_internal::jassert_basename(__FILE__)
 #define JASSERT_CONTEXT(type,reason) Print('[').Print(getpid()).Print("] " type " at ").Print(JASSERT_FILE).Print(":" JASSERT_LINE " in ").Print(JASSERT_FUNC).Print("; REASON='" reason "'\n")
 
-#ifdef DEBUG
+#ifdef LOGGING
 #define JTRACE(msg) jassert_internal::JAssert(false).JASSERT_CONTEXT("TRACE",msg).JASSERT_CONT_A
 #else
 #define JTRACE(msg) if(true){}else jassert_internal::JAssert(false).JASSERT_CONTEXT("NOTE",msg).JASSERT_CONT_A
@@ -223,7 +223,7 @@ namespace jassert_internal
 #define JLOG_HELPER(msg) \
   JASSERT_CONTEXT("TRACE", msg).JASSERT_CONT_A
 
-#ifdef DEBUG
+#ifdef LOGGING
 #define JLOG(src) \
   jassert_internal::JAssert(jassert_internal::src, false).JLOG_HELPER
 #else
@@ -238,7 +238,7 @@ namespace jassert_internal
 #define JWARNING(term) if((term) || jassert_quiet >= 2){}else \
     jassert_internal::JAssert(false).JASSERT_CONTEXT("WARNING","JWARNING(" #term ") failed").JASSERT_CONT_A
 
-#ifndef DEBUG
+#ifndef LOGGING
 # define JASSERT(term)  if((term)){}else \
     jassert_internal::JAssert(true) \
 	.JASSERT_CONTEXT("ERROR","JASSERT(" #term ") failed").JASSERT_CONT_A

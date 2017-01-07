@@ -214,7 +214,7 @@ void ProcessInfo::growStack()
     memset(tmpbuf, 0, allocSize);
   }
 
-#ifdef DEBUG
+#ifdef LOGGING
   {
     ProcSelfMaps maps;
     while (maps.getNextArea(&area)) {
@@ -224,7 +224,7 @@ void ProcessInfo::growStack()
       }
     }
   }
-#endif
+#endif // ifdef LOGGING
 }
 
 void ProcessInfo::init()

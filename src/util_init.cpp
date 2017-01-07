@@ -174,8 +174,10 @@ string Util::calcTmpDir(const char *tmpdirenv)
 void Util::initializeLogFile(string tmpDir, string procname, string prevLogPath)
 {
   UniquePid::ThisProcess(true);
-#ifdef DEBUG
-  // Initialize JASSERT library here
+
+#ifdef LOGGING
+
+  // Initialize JTRACE logging here
   ostringstream o;
   o << tmpDir;
   o << "/jassertlog.";
@@ -215,9 +217,9 @@ void Util::initializeLogFile(string tmpDir, string procname, string prevLogPath)
 
   // This cause an error when configure is done with --enable-debug
   // JLOG(a.str().c_str());
-#else  // ifdef DEBUG
+#else // ifdef LOGGING
   JASSERT_SET_LOG("", tmpDir, UniquePid::ThisProcess().toString());
-#endif // ifdef DEBUG
+#endif // ifdef LOGGING
   if (getenv(ENV_VAR_QUIET)) {
     jassert_quiet = *getenv(ENV_VAR_QUIET) - '0';
   } else {

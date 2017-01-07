@@ -178,18 +178,19 @@ static void dmtcp_prepare_atfork(void)
 
 static string getLogFilePath()
 {
-#ifdef DEBUG
+#ifdef LOGGING
   ostringstream o;
   o << "/proc/self/fd/" << PROTECTED_JASSERTLOG_FD;
   return jalib::Filesystem::ResolveSymlink(o.str());
-#else
+
+#else // ifdef LOGGING
   return "";
-#endif
+#endif // ifdef LOGGING
 }
 
 static void writeCurrentLogFileNameToPrevLogFile(string& path)
 {
-#ifdef DEBUG
+#ifdef LOGGING
   ostringstream o;
   o << "========================================\n"
     << "This process exec()'d into a new program\n"
@@ -202,7 +203,7 @@ static void writeCurrentLogFileNameToPrevLogFile(string& path)
     Util::writeAll(fd, o.str().c_str(), o.str().length());
   }
   _real_close(fd);
-#endif
+#endif // ifdef LOGGING
 }
 
 static void prepareLogAndProcessdDataFromSerialFile()

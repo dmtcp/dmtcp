@@ -48,11 +48,11 @@
 
 using namespace dmtcp;
 
-#ifdef DEBUG
-  const static bool dbg = true;
-#else
-  const static bool dbg = false;
-#endif
+#ifdef LOGGING
+const static bool dbg = true;
+#else // ifdef LOGGING
+const static bool dbg = false;
+#endif // ifdef LOGGING
 
 static bool pthread_atfork_enabled = false;
 static uint64_t child_time;

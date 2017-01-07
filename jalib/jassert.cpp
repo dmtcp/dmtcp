@@ -123,10 +123,11 @@ jassert_internal::JAssert::~JAssert()
     Print ( "): Terminating...\n" );
     jassert_safe_print ( ss.str().c_str() );
     ss.str("");
-    //while(1) sleep(1);
-#ifdef DEBUG
+
+    // while(1) sleep(1);
+#ifdef LOGGING
     jbacktrace();
-#endif
+#endif // ifdef LOGGING
   }
 
   if ((jalib::getLogMask() & _logSrc) && !ss.str().empty()) {

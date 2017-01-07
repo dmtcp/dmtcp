@@ -310,7 +310,7 @@ void ConnectionRewirer::sendQueries()
 #if 0
 void ConnectionRewirer::debugPrint() const
 {
-#ifdef DEBUG
+# ifdef LOGGING
   ostringstream o;
   o << "Pending Incoming:\n";
   const_iterator i;
@@ -326,6 +326,6 @@ void ConnectionRewirer::debugPrint() const
       << " firstFd=" << con->getFds()[0] << '\n';
   }
   JNOTE("Pending connections") (o.str());
-#endif
+# endif // ifdef LOGGING
 }
 #endif
