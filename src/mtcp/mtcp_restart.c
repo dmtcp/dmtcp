@@ -462,6 +462,9 @@ restart_fast_path()
    *    ARM v7 (rev 3, v71), SAMSUNG EXYNOS5 (Flattened Device Tree)
    *    gcc-4.8.1 (Ubuntu pre-release for 14.04) ; Linux 3.13.0+ #54
    */
+  MTCP_PRINTF("*** WARNING: %s:%d: Delay loop on restart for older ARM CPUs\n"
+              "*** Consider removing this line for newer CPUs.\n",
+              __FILE__, __LINE__);
   { int x = 10000000;
     int y = 1000000000;
     for (; x > 0; x--) {
