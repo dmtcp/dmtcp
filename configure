@@ -684,6 +684,7 @@ FAST_RST_VIA_MMAP
 INFINIBAND_SUPPORT
 EGREP
 GREP
+DEBUG
 LOGGING
 OPENMP_CXXFLAGS
 OPENMP_CFLAGS
@@ -798,6 +799,7 @@ enable_maintainer_mode
 enable_dependency_tracking
 enable_openmp
 enable_logging
+enable_debug
 enable_quiet
 enable_timing
 enable_realtime_ckpt_signal
@@ -1457,6 +1459,8 @@ Optional Features:
   --disable-openmp        do not use OpenMP
   --enable-logging        enable (very) verbose logging output and write log
                           files to $DMTCP_TMPDIR (default is disabled)
+  --enable-debug          Use debugging flags "-Wall -g3 -O0" on DMTCP libs
+                          (default is disabled); also, see --enable-logging
   --enable-quiet          disable NOTE and WARNING (default is to print NOTE,
                           WARNING, but no TRACE)
   --enable-timing         record checkpoint/restart timing information to
@@ -5146,6 +5150,7 @@ if test -n "$ac_unrecognized_opts"; then
     *)     $as_echo "$as_me: WARNING: unrecognized options: $ac_unrecognized_opts" >&2 ;;
   esac
 fi
+
 # Check whether --enable-logging was given.
 if test "${enable_logging+set}" = set; then :
   enableval=$enable_logging; use_logging=$enableval
@@ -5154,20 +5159,39 @@ else
 fi
 
 
-CFLAGS="$CFLAGS -Wall"
-CPPFLAGS="$CPPFLAGS -Wall"
-CXXFLAGS="$CXXFLAGS -Wall"
-
 if test "$use_logging" = "yes"; then
   LOGGING=yes
 
 
 $as_echo "#define LOGGING 1" >>confdefs.h
 
-  CFLAGS="$CFLAGS -DLOGGING -g -O0"
-  CXXFLAGS="$CFLAGS -DLOGGING -g -O0"
+  CFLAGS="$CFLAGS -DLOGGING"
+  CPPFLAGS="$CPPFLAGS -DLOGGING"
+  CXXFLAGS="$CXXFLAGS -DLOGGING"
 else
   LOGGING=no
+
+fi
+
+# Check whether --enable-debug was given.
+if test "${enable_debug+set}" = set; then :
+  enableval=$enable_debug; use_debug=$enableval
+else
+  use_debug=no
+fi
+
+
+if test "$use_debug" = "yes"; then
+  DEBUG=yes
+
+
+$as_echo "#define DEBUG 1" >>confdefs.h
+
+  CFLAGS="$CFLAGS -Wall -g3 -O0 -DDEBUG"
+  CPPFLAGS="$CPPFLAGS -Wall -g3 -O0 -DDEBUG"
+  CXXFLAGS="$CXXFLAGS -Wall -g3 -O0 -DDEBUG"
+else
+  DEBUG=no
 
 fi
 
