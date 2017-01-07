@@ -420,18 +420,25 @@ static void restart_fast_path()
 #if defined(__arm__) || defined(__aarch64__)
 # if 0
   memfence();
-# else
-// FIXME: Replace this code by memfence() for __aarch64__, once it is stable.
-/* This delay loop was required for:
- *    ARM v7 (rev 3, v71), SAMSUNG EXYNOS5 (Flattened Device Tree)
- *    gcc-4.8.1 (Ubuntu pre-release for 14.04) ; Linux 3.13.0+ #54
- */
-{int x = 10000000;
-int y = 1000000000;
-for (; x>0; x--) for (; y>0; y--);
-}
-# endif
-#endif
+# else /* if 0 */
+
+  // FIXME: Replace this code by memfence() for __aarch64__, once it is stable.
+
+  /* This delay loop was required for:
+   *    ARM v7 (rev 3, v71), SAMSUNG EXYNOS5 (Flattened Device Tree)
+   *    gcc-4.8.1 (Ubuntu pre-release for 14.04) ; Linux 3.13.0+ #54
+   */
+  MTCP_PRINTF("*** WARNING: %s:%d: Delay loop on restart for older ARM CPUs\n"
+              "*** Consider removing this line for newer CPUs.\n",
+              __FILE__, __LINE__);
+  { int x = 10000000;
+    int y = 1000000000;
+    for (; x > 0; x--) {
+      for (; y > 0; y--) {}
+    }
+  }
+# endif /* if 0 */
+#endif /* if defined(__arm__) || defined(__aarch64__) */
 
 #if 0
   RMB; // refresh instruction cache, for new memory
