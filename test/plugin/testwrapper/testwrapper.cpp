@@ -1,16 +1,9 @@
 #include <stdio.h>
-#include <sys/time.h>
+#include <stdlib.h>
+#include <string.h>
 #include "config.h"
 #include "dmtcp.h"
 #include <mpi.h>
-void
-print_time()
-{
-  struct timeval val;
-
-  gettimeofday(&val, NULL);
-  printf("%ld %ld", (long)val.tv_sec, (long)val.tv_usec);
-}
 
 struct _MPISignature{
  void *buffer;
@@ -48,7 +41,7 @@ int MPI_Recv(
                 (datasz = mpiSign.count * sizeof(mpiSign.mDtype))));
 
     memcpy(_cbuf, &mpiSign, sizeof(mpiSign));
-    memcpy(_cbuf + sizeof(mpiSign), mpiSign.buffer, datasz);
+    memcpy((char*)_cbuf + sizeof(mpiSign), mpiSign.buffer, datasz);
 
     fwrite(_cbuf, 1, sz, fp);
     fclose(fp);
