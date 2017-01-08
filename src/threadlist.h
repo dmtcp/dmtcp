@@ -52,7 +52,7 @@ void suspendThreads();
 void resumeThreads();
 void waitForAllRestored(Thread *thisthread);
 void writeCkpt();
-void postRestart();
+void postRestart(double readTime = 0.0);
 }
 }
 #endif // ifndef THREADLIST_H

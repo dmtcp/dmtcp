@@ -51,7 +51,7 @@ class PluginManager
     static void eventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
 #ifdef TIMING
     static void logCkptResumeBarrierOverhead();
-    static void logRestartBarrierOverhead();
+    static void logRestartBarrierOverhead(double ckptReadTime);
 #endif
 
   private:

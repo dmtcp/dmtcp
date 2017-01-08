@@ -53,6 +53,7 @@
 #include <unistd.h>
 
 #include "../membarrier.h"
+#include "config.h"
 #include "mtcp_check_vdso.ic"
 #include "mtcp_header.h"
 #include "mtcp_sys.h"
@@ -112,6 +113,9 @@ typedef struct RestoreInfo {
   ThreadTLSInfo motherofall_tls_info;
   int tls_pid_offset;
   int tls_tid_offset;
+#ifdef TIMING
+  struct timeval startValue;
+#endif
   MYINFO_GS_T myinfo_gs;
 } RestoreInfo;
 static RestoreInfo rinfo;
@@ -267,6 +271,9 @@ main(int argc, char *argv[], char **environ)
     mtcp_abort();
   }
 
+#ifdef TIMING
+  mtcp_sys_gettimeofday(&rinfo.startValue, NULL);
+#endif
   if (rinfo.fd != -1) {
     mtcp_readfile(rinfo.fd, &mtcpHdr, sizeof mtcpHdr);
   } else {
@@ -660,6 +667,14 @@ restorememoryareas(RestoreInfo *rinfo_ptr)
 
   DPRINTF("close cpfd %d\n", restore_info.fd);
   mtcp_sys_close(restore_info.fd);
+  double readTime = 0.0;
+#ifdef TIMING
+  struct timeval endValue;
+  mtcp_sys_gettimeofday(&endValue, NULL);
+  struct timeval diff;
+  timersub(&endValue, &restore_info.startValue, &diff);
+  readTime = diff.tv_sec + (diff.tv_usec / 1000000.0);
+#endif
 
   IMB; /* flush instruction cache, since mtcp_restart.c code is now gone. */
 
@@ -673,7 +688,7 @@ restorememoryareas(RestoreInfo *rinfo_ptr)
   DPRINTF("MTCP restore is now complete.  Continuing by jumping to\n"
           "  ThreadList:postRestart() back inside libdmtcp.so: %p...\n",
           restore_info.post_restart);
-  restore_info.post_restart();
+  restore_info.post_restart(readTime);
 }
 
 NO_OPTIMIZE

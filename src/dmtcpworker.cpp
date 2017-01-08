@@ -559,14 +559,14 @@ DmtcpWorker::postCheckpoint()
 }
 
 void
-DmtcpWorker::postRestart()
+DmtcpWorker::postRestart(double ckptReadTime)
 {
   JTRACE("begin postRestart()");
   WorkerState::setCurrentState(WorkerState::RESTARTING);
 
   PluginManager::processRestartBarriers();
 #ifdef TIMING
-  PluginManager::logRestartBarrierOverhead();
+  PluginManager::logRestartBarrierOverhead(ckptReadTime);
 #endif
   JTRACE("got resume message after restart");
 

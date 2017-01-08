@@ -183,12 +183,13 @@ PluginManager::logCkptResumeBarrierOverhead()
 }
 
 void
-PluginManager::logRestartBarrierOverhead()
+PluginManager::logRestartBarrierOverhead(double ckptReadTime)
 {
   char logFilename[5000] = {0};
   snprintf(logFilename, sizeof(logFilename), "%s/timings.%s.csv",
            dmtcp_get_ckpt_dir(), dmtcp_get_uniquepid_str());
   std::ofstream lfile (logFilename, std::ios::out | std::ios::app);
+  lfile << "Ckpt-read time," << ckptReadTime << std::endl;
   for (int i = pluginManager->pluginInfos.size() - 1; i >= 0; i--) {
     for (int j = 0;
          j < pluginManager->pluginInfos[i]->restartBarriers.size(); j++) {
