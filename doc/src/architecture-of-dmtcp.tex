@@ -164,7 +164,7 @@ PRINCIPLE:  At any given moment either the user threads are active and
 \STATE   send STOPSIGNAL (SIGUSR2) to each user thread \\
   See:  {\tt THREAD\_TGKILL(motherpid, thread->tid, SigInfo::ckptSignal()}
                 in the section \\
-                ~~labelled {\tt case~ST\_RUNNING:} in src/threadlist.cpp \\
+                ~~labeled {\tt case~ST\_RUNNING:} in src/threadlist.cpp \\
   See {\tt Thread\_UpdateState(curThread, ST\_SUSPINPROG, ST\_SIGNALED)} \\
   ~~and {\tt Thread\_UpdateState(curThread, ST\_SUSPENDED, ST\_SUSPINPROG)}
 	in src/threadlist.cpp

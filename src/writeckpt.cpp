@@ -83,7 +83,7 @@ static void remap_nscd_areas(const vector<ProcMapsArea> &areas);
  *  This routine is called from time-to-time to write a new checkpoint file.
  *  It assumes all the threads are suspended.
  *
- *  NOTE: Any memory allocated in this function should be released explicitely
+ *  NOTE: Any memory allocated in this function should be released explicitly
  *  during the next ckpt cycle. Otherwise, on restart, we never come back to
  *  this function which can cause memory leaks.
  *
@@ -229,7 +229,7 @@ mtcp_writememoryareas(int fd)
 
     if (Util::strStartsWith(area.name, DEV_ZERO_DELETED_STR) ||
         Util::strStartsWith(area.name, DEV_NULL_DELETED_STR)) {
-      /* If the process has an area labelled as "/dev/zero (deleted)", we mark
+      /* If the process has an area labeled as "/dev/zero (deleted)", we mark
        *   the area as Anonymous and save the contents to the ckpt image file.
        * If this area has a MAP_SHARED attribute, it should be replaced with
        *   MAP_PRIVATE and we won't do any harm because, the /dev/zero file is

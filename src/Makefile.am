@@ -32,6 +32,10 @@ d_libdir = $(top_builddir)/lib/$(PACKAGE)
 d_bindir = $(top_builddir)/bin
 endif
 
+if FAST_RST_VIA_MMAP
+  AM_CXXFLAGS += -DFAST_RST_VIA_MMAP 
+endif
+
 #HEADERS
 #set the include path found by configure
 AM_CPPFLAGS= -I$(dmtcpincludedir) -I$(jalibdir)
@@ -102,7 +106,7 @@ __d_libdir__libdmtcp_so_SOURCES = dmtcpworker.cpp threadsync.cpp \
 		      glibcsystem.cpp \
 		      threadlist.cpp siginfo.cpp \
 		      dmtcpplugin.cpp popen.cpp syslogwrappers.cpp \
-		      dlsym_default.c plugininfo.cpp pluginmanager.cpp
+		      dmtcp_dlsym.cpp plugininfo.cpp pluginmanager.cpp
 
 __d_libdir__libdmtcp_so_LDFLAGS = -shared -Xlinker -znow
 

@@ -187,7 +187,7 @@ resume()
 
   /* Need to stop the timer on resume/restart. */
   start_stop_timer(timerid, g_interval, STOP_TIMER);
-  JTRACE("*** Cancelled the ckpt timer! ***");
+  JTRACE("*** Canceled the ckpt timer! ***");
 }
 
 static void
@@ -197,7 +197,7 @@ restart()
 
   /* Need to stop the timer on resume/restart. */
   start_stop_timer(timerid, g_interval, STOP_TIMER);
-  JTRACE("*** Cancelled the ckpt timer! ***");
+  JTRACE("*** Canceled the ckpt timer! ***");
 }
 
 static void

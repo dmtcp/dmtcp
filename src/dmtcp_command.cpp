@@ -38,7 +38,8 @@ static const char *theUsage =
   "  -h, --coord-host HOSTNAME (environment variable DMTCP_COORD_HOST)\n"
   "              Hostname where dmtcp_coordinator is run (default: localhost)\n"
   "  -p, --coord-port PORT_NUM (environment variable DMTCP_COORD_PORT)\n"
-  "              Port where dmtcp_coordinator is run (default: 7779)\n"
+  "              Port where dmtcp_coordinator is run (default: "
+                                                  STRINGIFY(DEFAULT_PORT) ")\n"
   "  --help\n"
   "              Print this message and exit.\n"
   "  --version\n"
@@ -212,9 +213,7 @@ main(int argc, char **argv)
     return 2;
   }
 
-#define QUOTE(arg)     # arg
-#define STRINGIFY(arg) QUOTE(arg)
-  if (*cmd == 's' || *cmd == 'l') {
+  if(*cmd == 's'){
     printf("Coordinator:\n");
     char *host = getenv(ENV_VAR_NAME_HOST);
     if (host == NULL) {

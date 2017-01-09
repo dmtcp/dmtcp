@@ -169,7 +169,7 @@ __clone(int (*fn)(void *arg),
   if (tid > 0) {
     JTRACE("New thread created") (tid);
 
-    /* Wait for child thread to finish intializing.
+    /* Wait for child thread to finish initializing.
      * We must let the child thread insert original->current tid in the
      * virtualpidtable. If we don't wait for the child thread and update the
      * pidtable ourselves, there is a possible race if the child thread is
@@ -468,7 +468,12 @@ syscall(long sys_num, ...)
   case SYS_shmdt:
   {
     SYSCALL_GET_ARG(const void *, shmaddr);
-    ret = shmdt(shmaddr);
+    if (dmtcp_svipc_inside_shmdt != NULL &&
+        dmtcp_svipc_inside_shmdt()) {
+      ret = _real_syscall(SYS_shmdt, shmaddr);
+    } else {
+      ret = shmdt(shmaddr);
+    }
     break;
   }
   case SYS_shmctl:

@@ -104,7 +104,7 @@ static const char *theUsage =
   "Coordinates checkpoints between multiple processes.\n\n"
   "Options:\n"
   "  -p, --coord-port PORT_NUM (environment variable DMTCP_COORD_PORT)\n"
-  "      Port to listen on (default: 7779)\n"
+  "      Port to listen on (default: " STRINGIFY(DEFAULT_PORT) ")\n"
   "  --port-file filename\n"
   "      File to write listener port number.\n"
   "      (Useful with '--port 0', which is used to assign a random port)\n"
@@ -914,9 +914,8 @@ DmtcpCoordinator::validateRestartingWorkerProcess(
     compId = hello_remote.compGroup;
     numPeers = hello_remote.numPeers;
     JASSERT(gettimeofday(&tv, NULL) == 0);
-
-    // Get the resolution down to 100 mili seconds.
-    curTimeStamp = (tv.tv_sec << 4) | (tv.tv_usec / (100 * 1000));
+    // Get the resolution down to 100 milliseconds.
+    curTimeStamp = (tv.tv_sec << 4) | (tv.tv_usec / (100*1000));
     JNOTE("FIRST dmtcp_restart connection.  Set numPeers. Generate timestamp")
       (numPeers) (curTimeStamp) (compId);
     JTIMER_START(restart);
@@ -1195,7 +1194,7 @@ calcLocalAddr()
   char hostname[HOST_NAME_MAX];
 
   JASSERT(gethostname(hostname, sizeof hostname) == 0) (JASSERT_ERRNO);
-  struct addrinfo *result;
+  struct addrinfo *result = NULL;
   struct addrinfo *res;
   int error;
   struct addrinfo hints;
@@ -1250,7 +1249,9 @@ calcLocalAddr()
     inet_aton("127.0.0.1", &localhostIPAddr);
   }
   coordHostname = hostname;
-  freeaddrinfo(result);
+  if (result) {
+    freeaddrinfo(result);
+  }
 }
 
 static void
@@ -1500,7 +1501,7 @@ main(int argc, char **argv)
   if (fcntl(PROTECTED_COORD_FD, F_GETFD) != -1) {
     listenSock = new jalib::JServerSocket(PROTECTED_COORD_FD);
     JASSERT(listenSock->port() != -1).Text("Invalid listener socket");
-    JTRACE("Using already created listener socker") (listenSock->port());
+    JTRACE("Using already created listener socket") (listenSock->port());
   } else {
     errno = 0;
     listenSock = new jalib::JServerSocket(jalib::JSockAddr::ANY, thePort, 128);

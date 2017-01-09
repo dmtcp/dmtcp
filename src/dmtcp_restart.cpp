@@ -66,11 +66,12 @@ static const char *theUsage =
   "  -h, --coord-host HOSTNAME (environment variable DMTCP_COORD_HOST)\n"
   "              Hostname where dmtcp_coordinator is run (default: localhost)\n"
   "  -p, --coord-port PORT_NUM (environment variable DMTCP_COORD_PORT)\n"
-  "              Port where dmtcp_coordinator is run (default: 7779)\n"
+  "              Port where dmtcp_coordinator is run (default: "
+                                                  STRINGIFY(DEFAULT_PORT) ")\n"
   "  --port-file FILENAME\n"
-  "              File to write listener port number. (Useful with '--port 0',\n"
-  "              which is used to assign a random port)\n"
-  "  -j, --join\n"
+  "              File to write listener port number.\n"
+  "              (Useful with '--port 0', in order to assign a random port)\n"
+  "  -j, --join-coordinator\n"
   "              Join an existing coordinator, raise error if one doesn't\n"
   "              already exist\n"
   "  --new-coordinator\n"
@@ -80,12 +81,19 @@ static const char *theUsage =
   "              DMTCP_COORD_PORT.\n"
   "              If no port is specified, start coordinator at a random port\n"
   "              (same as specifying port '0').\n"
+  "  --any-coordinator\n"
+  "              Use --join-coordinator if possible, but only if port"
+                                                            " was specified.\n"
+  "              Else use --new-coordinator with specified port (if avail.),\n"
+  "                and otherwise with the default port: --port "
+                                                  STRINGIFY(DEFAULT_PORT) ")\n"
+  "              (This is the default.)\n"
   "  -i, --interval SECONDS (environment variable DMTCP_CHECKPOINT_INTERVAL)\n"
   "              Time in seconds between automatic checkpoints.\n"
   "              0 implies never (manual ckpt only); if not set and no env\n"
   "              var, use default value set in dmtcp_coordinator or \n"
   "              dmtcp_command.\n"
-  "              Not allowed if --join is specified\n"
+  "              Not allowed if --join-coordinator is specified\n"
   "\n"
   "Other options:\n"
   "  --no-strict-checking\n"
@@ -237,9 +245,9 @@ class RestoreTarget
         }
 
         // dmtcp_restart sets ENV_VAR_NAME_HOST/PORT, even if cmd line flag used
-        const char *host = NULL;
+        string host = "";
         int port = UNINITIALIZED_PORT;
-        CoordinatorAPI::getCoordHostAndPort(allowedModes, &host, &port);
+        CoordinatorAPI::getCoordHostAndPort(allowedModes, host, &port);
 
         // FIXME:  We will use the new HOST and PORT here, but after restart,,
         // we will use the old HOST and PORT from the ckpt image.
@@ -248,12 +256,12 @@ class RestoreTarget
                                                            _pInfo.compGroup(),
                                                            _pInfo.numPeers(),
                                                            &coordInfo,
-                                                           host,
+                                                           host.c_str(),
                                                            port,
                                                            &localIPAddr);
 
         // If port was 0, we'll get new random port when coordinator starts up.
-        CoordinatorAPI::getCoordHostAndPort(allowedModes, &host, &port);
+        CoordinatorAPI::getCoordHostAndPort(allowedModes, host, &port);
         Util::writeCoordPortToFile(port, thePortFile.c_str());
 
         string installDir =
@@ -356,16 +364,16 @@ class RestoreTarget
 
       if (!createIndependentRootProcesses) {
         // dmtcp_restart sets ENV_VAR_NAME_HOST/PORT, even if cmd line flag used
-        const char *host = NULL;
+        string host = "";
         int port = UNINITIALIZED_PORT;
         int *port_p = &port;
-        CoordinatorAPI::getCoordHostAndPort(allowedModes, &host, port_p);
+        CoordinatorAPI::getCoordHostAndPort(allowedModes, host, port_p);
         CoordinatorAPI::instance().connectToCoordOnRestart(allowedModes,
                                                            _pInfo.procname(),
                                                            _pInfo.compGroup(),
                                                            _pInfo.numPeers(),
                                                            NULL,
-                                                           host,
+                                                           host.c_str(),
                                                            port,
                                                            NULL);
       }
@@ -437,12 +445,14 @@ runMtcpRestart(int is32bitElf, int fd, ProcessInfo *pInfo)
       do {
         rc = read(debugPipe[0], &currentDebugLevel, sizeof(currentDebugLevel));
         if (rc < 0) break;
-        rc = write(debugPipe[0], &requestedDebugLevel, sizeof(currentDebugLevel));
+        rc = write(debugPipe[0], &requestedDebugLevel,
+                   sizeof(currentDebugLevel));
         if (rc < 0) break;
       } while (currentDebugLevel != requestedDebugLevel);
       if (rc < 0) {
         JASSERT(false)
-            .Text("Unable to set up debug connection with the restarted process");
+               .Text("Unable to set up debug connection "
+                     "with the restarted process");
       }
       char cpid[10]; // XXX: Is 10 digits enough for a PID?
       snprintf(cpid, 10, "%d", pid);
@@ -732,11 +742,14 @@ main(int argc, char **argv)
     } else if ((s == "--version") && argc == 1) {
       printf("%s", DMTCP_VERSION_AND_COPYRIGHT_INFO);
       return DMTCP_FAIL_RC;
-    } else if (s == "-j" || s == "--join") {
+    } else if (s == "-j" || s == "--join-coordinator" || s == "--join") {
       allowedModes = COORD_JOIN;
       shift;
     } else if (s == "--new-coordinator") {
       allowedModes = COORD_NEW;
+      shift;
+    } else if (s == "--any-coordinator") {
+      allowedModes = COORD_ANY;
       shift;
     } else if (s == "--no-strict-checking") {
       noStrictChecking = true;
@@ -791,6 +804,16 @@ main(int argc, char **argv)
     } else {
       break;
     }
+  }
+
+  if ((getenv(ENV_VAR_NAME_PORT) == NULL ||
+       getenv(ENV_VAR_NAME_PORT)[0]== '\0') &&
+      allowedModes != COORD_NEW) {
+    allowedModes = COORD_NEW;
+    setenv(ENV_VAR_NAME_PORT, STRINGIFY(DEFAULT_PORT), 1);
+    JTRACE("No port specified\n"
+           "Setting mode to --new-coordinator --coord-port "
+                                                  STRINGIFY(DEFAULT_PORT));
   }
 
   tmpDir = Util::calcTmpDir(tmpdir_arg);
@@ -894,7 +917,7 @@ main(int argc, char **argv)
   JASSERT(t->pid() != 0);
   JASSERT(!t->noCoordinator() || allowedModes == COORD_ANY)
   .Text("Process had no coordinator prior to checkpoint;\n"
-        "  but either --join or --new-coordinator was specified.");
+        "  but either --join-coordinator or --new-coordinator was specified.");
 
   if (foundNonOrphan) {
     t->createProcess(true);

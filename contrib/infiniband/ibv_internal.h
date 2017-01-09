@@ -35,7 +35,7 @@ struct dev_list_info {
 };
 
 /*
- * On restart, the real resouces inside the internal structures below
+ * On restart, the real resources inside the internal structures below
  * are recreated. However, the old real resources are not released,
  * thus leading to a memory leak. Currenly we do not handle this memory
  * leak, because the memory leak is tiny, and destroying those resources
@@ -118,8 +118,13 @@ struct internal_ibv_qp {
   struct ibv_qp user_qp;
   uint64_t magic1;
   uint64_t magic2;
-  struct ibv_qp *real_qp;
+  struct ibv_qp * real_qp;
   struct ibv_qp_init_attr init_attr; // Attributes used to construct the queue
+  /*
+   * To indicate that there is at least one successful work completion generated.
+   * This field is used to handle the case where two qps are not acctually connected.
+   * */
+  bool in_use;
   ibv_qp_id_t original_id;
   ibv_qp_id_t remote_id;
   ibv_qp_id_t current_remote;

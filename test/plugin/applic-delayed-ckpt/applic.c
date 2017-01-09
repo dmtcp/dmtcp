@@ -23,7 +23,7 @@
 #include <unistd.h>
 
 #include "dmtcp.h"
-;
+
 int
 main()
 {

@@ -59,7 +59,7 @@ class CoordinatorAPI
     static void resetOnFork(CoordinatorAPI &coordAPI);
 
     static void getCoordHostAndPort(CoordinatorMode mode,
-                                    const char **host,
+                                    string &host,
                                     int *port);
     static void setCoordPort(int port);
 

@@ -143,9 +143,9 @@ SigInfo::restoreSigHandlers()
 
   JTRACE("restoring signal handlers");
   for (sig = SIGRTMAX; sig > 0; --sig) {
-#ifdef VERBOSE_DEBUG
+#ifdef VERBOSE_LOGGING
     JTRACE("restore signal handler for") (sig);
-#endif // ifdef VERBOSE_DEBUG
+#endif // ifdef VERBOSE_LOGGING
 
     JASSERT(_real_syscall(SYS_rt_sigaction, sig, &sigactions[sig], NULL,
                           _NSIG / 8) == 0 || errno == EINVAL)

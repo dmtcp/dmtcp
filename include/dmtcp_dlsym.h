@@ -22,6 +22,8 @@
 #include <pthread.h>
 #include <stdio.h>
 
+#include "dmtcp.h"
+
 #ifndef __USE_GNU
 # define __USE_GNU_NOT_SET
 # define __USE_GNU
@@ -36,37 +38,41 @@
 
 #ifdef DLSYM_DEFAULT_DO_DEBUG
 # define DLSYM_DEFAULT_DEBUG(handle, symbol, info)        \
-  JNOTE("dlsym_default (RTLD_NEXT==-1l)")(symbol)(handle) \
+  JNOTE("dmtcp_dlsym (RTLD_NEXT==-1l)")(symbol)(handle) \
   (info.dli_fname)(info.dli_saddr)
 #else // ifdef DLSYM_DEFAULT_DO_DEBUG
 # define DLSYM_DEFAULT_DEBUG(handle, symbol, info)
 #endif // ifdef DLSYM_DEFAULT_DO_DEBUG
 
-#ifdef __cplusplus
-extern "C"
-{
-#else // ifdef __cplusplus
-#endif // ifdef __cplusplus
-void *dlsym_default(void *handle, const char *symbol);
-#ifdef __cplusplus
-}
-#else // ifdef __cplusplus
-#endif // ifdef __cplusplus
+EXTERNC void *dmtcp_dlsym(void *handle, const char *symbol);
+EXTERNC void *dmtcp_dlvsym(void *handle, char *symbol, const char *version);
 
 #ifndef STANDALONE
 
 // This implementation mirrors dmtcp.h:NEXT_FNC() for DMTCP.
-// It uses dlsym_default to get default version, in case of symbol versioning
+// It uses dmtcp_dlsym to get default version, in case of symbol versioning
 # define NEXT_FNC_DEFAULT(func)                                             \
   ({                                                                        \
-    static __typeof__(&func)_real_ ## func = (__typeof__(&func)) - 1;       \
-    if (_real_ ## func == (__typeof__(&func)) - 1) {                        \
+    static __typeof__(&func) _real_##func = (__typeof__(&func)) -1;         \
+    if (_real_##func == (__typeof__(&func)) -1) {                           \
       if (dmtcp_initialize) {                                               \
         dmtcp_initialize();                                                 \
       }                                                                     \
-      _real_ ## func = (__typeof__(&func))dlsym_default(RTLD_NEXT, # func); \
+      _real_##func = (__typeof__(&func)) dmtcp_dlsym(RTLD_NEXT, #func);     \
     }                                                                       \
-    _real_ ## func;                                                         \
+    _real_##func;                                                           \
+  })
+
+# define NEXT_FNC_DEFAULTV(func, ver)                                          \
+  ({                                                                           \
+    static __typeof__(&func) _real_##func = (__typeof__(&func)) -1;            \
+    if (_real_##func == (__typeof__(&func)) -1) {                              \
+      if (dmtcp_initialize) {                                                  \
+        dmtcp_initialize();                                                    \
+      }                                                                        \
+      _real_##func = (__typeof__(&func)) dmtcp_dlvsym(RTLD_NEXT, #func, ver);  \
+    }                                                                          \
+    _real_##func;                                                              \
   })
 #endif // ifndef STANDALONE
 
@@ -74,7 +80,7 @@ void *dlsym_default(void *handle, const char *symbol);
 
 // For standalone testing.
 // Copy this .h file to tmp.c file for standalone testing, and:
-// gcc -DSTANDALONE ../src/dlsym_default.c tmp.c -ldl
+// g++ -DSTANDALONE ../src/dmtcp_dlsym.cpp tmp.c -ldl
 int
 main()
 {
@@ -89,12 +95,12 @@ main()
   fnc = dlsym(RTLD_NEXT, "pthread_cond_broadcast");
   printf("pthread_cond_broadcast (via RTLD_NEXT): %p\n", fnc);
 
-  printf("================ dlsym_default ================\n");
+  printf("================ dmtcp_dlsym ================\n");
 
   // NOTE: RTLD_DEFAULT would try to use this a.out, and fail to find a library
-  // fnc = dlsym_default(RTLD_DEFAULT, "pthread_cond_broadcast");
+  // fnc = dmtcp_dlsym(RTLD_DEFAULT, "pthread_cond_broadcast");
   // printf("pthread_cond_broadcast (via RTLD_DEFAULT): %p\n", fnc);
-  fnc = dlsym_default(RTLD_NEXT, "pthread_cond_broadcast");
+  fnc = dmtcp_dlsym(RTLD_NEXT, "pthread_cond_broadcast");
   printf("pthread_cond_broadcast (via RTLD_NEXT): %p\n", fnc);
 
   return 0;

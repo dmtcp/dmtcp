@@ -70,12 +70,12 @@ struct user_desc {
 // FIXME:   We define _real_msgctl() in terms of msgctl() here.  So,
 // we need sys/msg.h.  But sys/msg.h also declares msgrcv().
 // SLES 10 declares msgrcv() one way, and others define it differently.
-// So, we need this patch.  Do we really need msgctl() defined here?
-// (pidwrappers.cpp doesn't use msgctl().)
-// msgrcv has confliciting return types on some systems (e.g. SLES 10)
+// So, we need this hack.  (Do we really need msgctl() defined here?
+// Note that the file pidwrappers.cpp doesn't use msgctl().)
+// msgrcv has conflicting return types on some systems (e.g. SLES 10)
 // So, we temporarily rename it so that type declarations are not for msgrcv.
 #define msgrcv msgrcv_glibc
-#include <sys/msg.h>
+# include <sys/msg.h>
 #undef msgrcv
 #include <dirent.h>
 #include <grp.h>
@@ -154,6 +154,7 @@ LIB_PRIVATE int dmtcp_tgkill(int tgid, int tid, int sig);
   MACRO(close)                         \
   MACRO(dup2)                          \
   MACRO(fopen64)                       \
+  MACRO(opendir)                       \
   MACRO(__xstat)                       \
   MACRO(__xstat64)                     \
   MACRO(__lxstat)                      \
@@ -274,6 +275,7 @@ int _real_dup2(int fd1, int fd2);
 FILE *_real_fopen(const char *path, const char *mode);
 FILE *_real_fopen64(const char *path, const char *mode);
 int _real_fclose(FILE *fp);
+DIR *_real_opendir(const char *name);
 int _real_xstat(int vers, const char *path, struct stat *buf);
 int _real_xstat64(int vers, const char *path, struct stat64 *buf);
 int _real_lxstat(int vers, const char *path, struct stat *buf);

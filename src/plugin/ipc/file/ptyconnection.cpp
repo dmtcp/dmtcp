@@ -241,7 +241,7 @@ PtyConnection::PtyConnection(int fd,
     // terminal number, if not then we ASSERT here.
     JASSERT((strlen(buf) + strlen("v")) <= 20)
     .Text("string /dev/pts/<n> too long, can not be virtualized."
-          "Once possible workarong here is to replace the string"
+          "Once possible workaround here is to replace the string"
           "\"dmtcp_\" with something short like \"d_\" or even "
           "\"d\" and recompile DMTCP");
 

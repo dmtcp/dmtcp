@@ -103,9 +103,9 @@ jassert_internal::JAssert::~JAssert()
     ss.str("");
 
     // while(1) sleep(1);
-#ifdef DEBUG
+#ifdef LOGGING
     jbacktrace();
-#endif // ifdef DEBUG
+#endif // ifdef LOGGING
   }
 
   if (!ss.str().empty()) {
@@ -216,7 +216,7 @@ writeJbacktraceMsg()
   if (jalib::Filesystem::GetProgramName() == "dmtcp_coordinator") {
     thisProgram = "dmtcp_coordinator";
   }
-  if (jalib::Filesystem::GetProgramName() == "dmtcp_checkpint") {
+  if (jalib::Filesystem::GetProgramName() == "dmtcp_checkpoint") {
     thisProgram = "dmtcp_launch";
   }
   if (jalib::Filesystem::GetProgramName() == "dmtcp_restart") {

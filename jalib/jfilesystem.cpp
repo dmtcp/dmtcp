@@ -184,24 +184,23 @@ jalib::Filesystem::GetProgramDir()
 jalib::string
 jalib::Filesystem::GetProgramName()
 {
-  static jalib::string value = "";
+  static jalib::string *value = NULL;
 
-  if (value == "") {
+  if (value == NULL) {
     size_t len;
     char cmdline[1024];
-    value = BaseName(GetProgramPath());    // uses /proc/self/exe
+    value = new jalib::string(BaseName ( GetProgramPath() )); // uses /proc/self/exe
     // We may rewrite "a.out" to "/lib/ld-linux.so.2 a.out".  If so, find cmd.
-    if (!value.empty()
+    if (!value->empty()
         && jalib::elfInterpreter() != NULL
-        && value == ResolveSymlink(jalib::elfInterpreter()) // e.g.
-                                                            // /lib/ld-linux.so.2
+        && *value == ResolveSymlink(jalib::elfInterpreter()) // e.g. /lib/ld-linux.so.2
         && (len = _GetProgramCmdline(cmdline, sizeof(cmdline))) > 0
         && len > strlen(cmdline) + 1 // more than one word in cmdline
         && *(cmdline + strlen(cmdline) + 1) != '-') { // second word not a flag
-      value = BaseName(cmdline + strlen(cmdline) + 1); // find second word
+      *value = BaseName(cmdline + strlen(cmdline) + 1); // find second word
     }
   }
-  return value;
+  return *value;
 }
 
 jalib::string

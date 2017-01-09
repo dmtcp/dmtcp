@@ -156,7 +156,7 @@ static struct pcontext *init_ctx(struct ibv_device *ib_dev, int size, int port,
   		fprintf(stderr, "Couldn't create completion channel\n");
     	return NULL;
     }
-      // Completition queue
+      // Completion queue
     ctx->cq = ibv_create_cq(ctx->context, 2*BSIZE + 1, NULL,
 				ctx->channel, 0);
     if (!ctx->cq) {
@@ -164,7 +164,7 @@ static struct pcontext *init_ctx(struct ibv_device *ib_dev, int size, int port,
       return NULL;
     }
   }else{
-      // Completition queue
+      // Completion queue
     ctx->cq = ibv_create_cq(ctx->context, 100, NULL,NULL, 0);
     if (!ctx->cq) {
       fprintf(stderr, "Couldn't create CQ\n");

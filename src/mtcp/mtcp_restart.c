@@ -70,6 +70,7 @@
 #endif /* ifdef __clang__ */
 
 void mtcp_check_vdso(char **environ);
+static void mmapfile(int fd, void *buf, size_t size, int prot, int flags);
 
 #define BINARY_NAME     "mtcp_restart"
 #define BINARY_NAME_M32 "mtcp_restart-32"
@@ -77,7 +78,7 @@ void mtcp_check_vdso(char **environ);
 /* struct RestoreInfo to pass all parameters from one function to next.
  * This must be global (not on stack) at the time that we jump from
  * original stack to copy of restorememoryareas() on new stack.
- * This is becasue we will wait until we are in the new call frame and then
+ * This is because we will wait until we are in the new call frame and then
  * copy the global data into the new call frame.
  */
 typedef void (*fnptr_t)();
@@ -100,6 +101,8 @@ typedef struct RestoreInfo {
   VA vvarStart;
   VA vvarEnd;
   fnptr_t post_restart;
+  // NOTE: Update the offset when adding fields to the RestoreInfo struct
+  // See note below in the restart_fast_path() function.
   fnptr_t restorememoryareas_fptr;
 
   // void (*post_restart)();
@@ -422,14 +425,14 @@ restart_fast_path()
   /* For __arm__
    *    should be able to use kernel call: __ARM_NR_cacheflush(start, end, flag)
    *    followed by copying new text below, followed by DSB and ISB,
-   *    to eliminstate need for delay loop.  But this needs more testing.
+   *    to eliminate need for delay loop.  But this needs more testing.
    */
   mtcp_memcpy(rinfo.restore_addr, rinfo.text_addr, rinfo.text_size);
   mtcp_memcpy(rinfo.restore_addr + rinfo.text_size, &rinfo, sizeof(rinfo));
   void *stack_ptr = rinfo.restore_addr + rinfo.restore_size - MB;
 
 #if defined(__INTEL_COMPILER) && defined(__x86_64__)
-  memfence();
+  asm volatile ("mfence" ::: "memory"); // memfence() defined in dmtcpplugin.cpp
   asm volatile (CLEAN_FOR_64_BIT(mov %0, %%esp; )
                 CLEAN_FOR_64_BIT(xor %%ebp, %%ebp)
                   : : "g" (stack_ptr) : "memory");
@@ -437,13 +440,14 @@ restart_fast_path()
   // This is copied from gcc assembly output for:
   // rinfo.restorememoryareas_fptr(&rinfo);
   // Intel icc-13.1.3 output uses register rbp here.  It's no longer available.
-  asm volatile (
-    "movq    64+rinfo(%%rip), %%rdx;" /* rinfo.restorememoryareas_fptr */
-    "leaq    rinfo(%%rip), %%rdi;"   /* &rinfo */
-    "movl    $0, %%eax;"
-    "call    *%%rdx"
-    : :);
-
+  asm volatile(
+   // 96 = offsetof(RestoreInfo, rinfo.restorememoryareas_fptr)
+   // NOTE: Update the offset when adding fields to the RestoreInfo struct
+   "movq    96+rinfo(%%rip), %%rdx;" /* rinfo.restorememoryareas_fptr */
+   "leaq    rinfo(%%rip), %%rdi;"    /* &rinfo */
+   "movl    $0, %%eax;"
+   "call    *%%rdx"
+   : : );
   /* NOTREACHED */
 #endif /* if defined(__INTEL_COMPILER) && defined(__x86_64__) */
 
@@ -846,7 +850,14 @@ unmap_memory_areas_and_restore_vdso(RestoreInfo *rinfo)
       mtcp_abort();
     }
     MTCP_ASSERT(vvar == vvarStart);
-    mtcp_memcpy(vvarStart, rinfo->vvarStart, vvarEnd - vvarStart);
+    // On i386, only the first page is readable. Reading beyond that
+    // results in a bus error.
+    // Arguably, this is a bug in the kernel, since /proc/*/maps indicates
+    // that both pages of vvar memory have read permission.
+    // This issue arose due to a change in the Linux kernel pproximately in
+    // version 4.0
+    // TODO: Find a way to automatically detect the readable bytes.
+    mtcp_memcpy(vvarStart, rinfo->vvarStart, MTCP_PAGE_SIZE);
 #endif /* if defined(__i386__) */
   }
 }
@@ -942,6 +953,21 @@ read_one_memory_area(int fd)
       mtcp_abort();
     }
   }
+
+#ifdef FAST_RST_VIA_MMAP
+    /* CASE MAP_ANONYMOUS with FAST_RST enabled
+     * We only want to do this in the MAP_ANONYMOUS case, since we don't want
+     *   any writes to RAM to be reflected back into the underlying file.
+     * Note that in order to map from a file (ckpt image), we must turn off
+     *   anonymous (~MAP_ANONYMOUS).  It's okay, since the fd
+     *   should have been opened with read permission, only.
+     */
+    else if (area.flags & MAP_ANONYMOUS) {
+      mmapfile (fd, area.addr, area.size, area.prot,
+                area.flags & ~MAP_ANONYMOUS);
+    }
+#endif
+
   /* CASE MAP_ANONYMOUS (usually implies MAP_PRIVATE):
    * For anonymous areas, the checkpoint file contains the memory contents
    * directly.  So mmap an anonymous area and read the file into it.
@@ -1291,3 +1317,29 @@ __intel_security_check_cookie(void)
   MTCP_PRINTF("MTCP Internal Error: %s Not Implemented.\n", __FUNCTION__);
   mtcp_abort();
 }
+
+static void mmapfile(int fd, void *buf, size_t size, int prot, int flags)
+{
+  int mtcp_sys_errno;
+  void *addr;
+  int rc;
+
+  /* Use mmap for this portion of checkpoint image. */
+  addr = mtcp_sys_mmap(buf, size, prot, flags,
+                       fd, mtcp_sys_lseek(fd, 0, SEEK_CUR));
+  if (addr != buf) {
+    if (addr == MAP_FAILED) {
+      MTCP_PRINTF("error %d reading checkpoint file\n", mtcp_sys_errno);
+    } else {
+      MTCP_PRINTF("Requested address %p, but got address %p\n", buf, addr);
+    }
+    mtcp_abort();
+  }
+  /* Now update fd so as to work the same way as readfile() */
+  rc = mtcp_sys_lseek(fd, size, SEEK_CUR);
+  if (rc == -1) {
+    MTCP_PRINTF("mtcp_sys_lseek failed with errno %d\n", mtcp_sys_errno);
+    mtcp_abort();
+  }
+}
+

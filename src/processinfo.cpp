@@ -138,7 +138,7 @@ ProcessInfo::ProcessInfo()
   _generation = 0;
 
   // _generation, above, is per-process.
-  // This constrasts with DmtcpUniqueProcessId:_computation_generation, which is
+  // This contrasts with DmtcpUniqueProcessId:_computation_generation, which is
   // shared among all process on a node; used in variable sharedDataHeader.
   // _generation is updated when _this_ process begins its checkpoint.
   _childTable.clear();
@@ -239,7 +239,7 @@ ProcessInfo::growStack()
     memset(tmpbuf, 0, allocSize);
   }
 
-#ifdef DEBUG
+#ifdef LOGGING
   {
     ProcSelfMaps maps;
     while (maps.getNextArea(&area)) {
@@ -249,7 +249,7 @@ ProcessInfo::growStack()
       }
     }
   }
-#endif // ifdef DEBUG
+#endif // ifdef LOGGING
 }
 
 void
@@ -752,7 +752,8 @@ ProcessInfo::serialize(jalib::JBinarySerializer &o)
 
   o & _elfType;
   o & _isRootOfProcessTree & _pid & _sid & _ppid & _gid & _fgid & _generation;
-  o & _procname & _procSelfExe & _hostname & _launchCWD & _ckptCWD & _upid & _uppid;
+  o & _procname & _procSelfExe & _hostname & _launchCWD & _ckptCWD;
+  o & _upid & _uppid;
   o & _compGroup & _numPeers & _noCoordinator & _argvSize & _envSize;
   o & _restoreBufAddr & _savedHeapStart & _savedBrk;
   o & _vdsoStart & _vdsoEnd & _vvarStart & _vvarEnd;

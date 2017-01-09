@@ -10,6 +10,8 @@ AM_INIT_AUTOMAKE([foreign])
 AM_MAINTAINER_MODE
 AC_CANONICAL_HOST
 AC_PROG_INSTALL
+# Automake uses 'ar cru' by default.  The 'ar' program then issues a warning.
+AC_SUBST([ARFLAGS], [cr])
 AC_PROG_RANLIB
 AC_PROG_MAKE_SET
 AC_PROG_LN_S
@@ -32,6 +34,7 @@ AC_CONFIG_FILES([Makefile \
                  src/Makefile \
                  src/mtcp/Makefile \
                  src/plugin/Makefile \
+                 include/dmtcp.h \
                  test/Makefile \
                  test/autotest_config.py \
                  test/plugin/Makefile])
@@ -51,23 +54,39 @@ if test -n "$ac_unrecognized_opts"; then
     *)     $as_echo "$as_me: WARNING: unrecognized options: $ac_unrecognized_opts" >&2 ;;
   esac
 fi
-AC_ARG_ENABLE([debug],
-            [AS_HELP_STRING([--enable-debug],
-                            [enable (very) verbose debug output
+
+AC_ARG_ENABLE([logging],
+            [AS_HELP_STRING([--enable-logging],
+                            [enable (very) verbose logging output
                              and write log files to $DMTCP_TMPDIR (default is
                              disabled)])],
-            [use_jassert=$enableval],
-            [use_jassert=no])
+            [use_logging=$enableval],
+            [use_logging=no])
 
-CFLAGS="$CFLAGS -Wall"
-CPPFLAGS="$CPPFLAGS -Wall"
-CXXFLAGS="$CXXFLAGS -Wall"
+if test "$use_logging" = "yes"; then
+  AC_SUBST([LOGGING], [yes])
+  AC_DEFINE([LOGGING],[1],[Verbose trace output and log files in $DMTCP_TMPDIR])
+  CFLAGS="$CFLAGS -DLOGGING"
+  CPPFLAGS="$CPPFLAGS -DLOGGING"
+  CXXFLAGS="$CXXFLAGS -DLOGGING"
+else
+  AC_SUBST([LOGGING], [no])
+fi
 
-if test "$use_jassert" = "yes"; then
+AC_ARG_ENABLE([debug],
+            [AS_HELP_STRING([--enable-debug],
+                            [Use debugging flags "-Wall -g3 -O0" on DMTCP libs
+                             (default is
+                             disabled); also, see --enable-logging])],
+            [use_debug=$enableval],
+            [use_debug=no])
+
+if test "$use_debug" = "yes"; then
   AC_SUBST([DEBUG], [yes])
-  AC_DEFINE([DEBUG],[1],[Verbose debug output and log files in $DMTCP_TMPDIR])
-  CFLAGS="$CFLAGS -DDEBUG -g -O0"
-  CXXFLAGS="$CFLAGS -DDEBUG -g -O0"
+  AC_DEFINE([DEBUG],[1],[Use debugging flags "-Wall -g3 -O0"])
+  CFLAGS="$CFLAGS -Wall -g3 -O0 -DDEBUG"
+  CPPFLAGS="$CPPFLAGS -Wall -g3 -O0 -DDEBUG"
+  CXXFLAGS="$CXXFLAGS -Wall -g3 -O0 -DDEBUG"
 else
   AC_SUBST([DEBUG], [no])
 fi
@@ -157,16 +176,16 @@ AC_ARG_ENABLE([fast_restart],
             [AS_HELP_STRING([--enable-fast-restart],
                             [uses tricks to mmap from checkpoint image file;
                              disables all kinds of compression
-			    (EXPERIMENTAL)
-			    ( *** THIS OPTION TEMPORARILY DISABLED *** )])],
+			    (EXPERIMENTAL)])],
             [use_fast_restart=$enableval],
             [use_fast_restart=default])
 if test "$use_fast_restart" = "yes"; then
-  AC_SUBST([FAST_RESTART], [yes])
+  AC_SUBST([FAST_RST_VIA_MMAP], [yes])
   AC_SUBST([HBICT_DELTACOMP], [no])
 else
-  AC_SUBST([FAST_RESTART], [no])
+  AC_SUBST([FAST_RST_VIA_MMAP], [no])
 fi
+AM_CONDITIONAL([FAST_RST_VIA_MMAP], [test x$use_fast_restart = xyes])
 
 AC_ARG_ENABLE([delta_compression],
             [AS_HELP_STRING([--enable-delta-compression],
@@ -570,7 +589,7 @@ AC_MSG_RESULT([$gccAtomicBuiltins])
 
 if test "$gccAtomicBuiltins" = "yes"; then
   AC_DEFINE([HAS_ATOMIC_BUILTINS],[1],
-            [can use __sync_bool_compare_and_swap(), etc.])
+            [Can use __sync_bool_compare_and_swap(), etc.])
 fi
 dnl Else will use mutex implementation; see jalib/jalloc.cpp
 

@@ -1,5 +1,4 @@
 #include <stdio.h>
-#include "config.h"
 #include "dmtcp.h"
 
 static void
@@ -47,7 +46,7 @@ static DmtcpBarrier barriers[] = {
 
 DmtcpPluginDescriptor_t applic_delayed_ckpt_plugin = {
   DMTCP_PLUGIN_API_VERSION,
-  PACKAGE_VERSION,
+  DMTCP_PACKAGE_VERSION,
   "applic_delayed_ckpt",
   "DMTCP",
   "dmtcp@ccs.neu.edu",

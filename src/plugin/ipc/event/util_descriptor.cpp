@@ -108,7 +108,7 @@ Util::Descriptor::~Descriptor()
  *
  * Description:    Adds descriptors
  *
- * Parameters:     desctriptor
+ * Parameters:     descriptor
  *
  * Return:         NONE
  ******************************************************************/

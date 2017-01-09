@@ -28,6 +28,7 @@
 #include <fcntl.h>
 #include <infiniband/verbs.h>
 #include <linux/types.h>
+#include <poll.h>
 #include <pthread.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -195,20 +196,24 @@ send_qp_info(void)
 
       switch (internal_qp->user_qp.qp_type) {
       case IBV_QPT_RC:
-        PDEBUG("RC QP: Sending over original_id: "
-               "0x%06x 0x%04x 0x%06x and current_id: "
-               "0x%06x 0x%04x 0x%06x from %s\n",
-               internal_qp->original_id.qpn, internal_qp->original_id.lid,
-               internal_qp->original_id.psn, internal_qp->current_id.qpn,
-               internal_qp->current_id.lid, internal_qp->current_id.psn,
-               hostname);
+      {
+        if (internal_qp->in_use) {
+          PDEBUG("RC QP: Sending over original_id: "
+                 "0x%06x 0x%04x 0x%06x and current_id: "
+                 "0x%06x 0x%04x 0x%06x from %s\n",
+                 internal_qp->original_id.qpn, internal_qp->original_id.lid,
+                 internal_qp->original_id.psn, internal_qp->current_id.qpn,
+                 internal_qp->current_id.lid, internal_qp->current_id.psn,
+                 hostname);
 
-        dmtcp_send_key_val_pair_to_coordinator("qp_info",
-                                               &internal_qp->original_id,
-                                               sizeof(internal_qp->original_id),
-                                               &internal_qp->current_id,
-                                               sizeof(internal_qp->current_id));
+          dmtcp_send_key_val_pair_to_coordinator("qp_info",
+                                                 &internal_qp->original_id,
+                                                 sizeof(internal_qp->original_id),
+                                                 &internal_qp->current_id,
+                                                 sizeof(internal_qp->current_id));
+        }
         break;
+      }
 
       case IBV_QPT_UD:
       {
@@ -257,7 +262,8 @@ query_qp_info(void)
     struct internal_ibv_qp *internal_qp;
 
     internal_qp = list_entry(e, struct internal_ibv_qp, elem);
-    if (internal_qp->user_qp.qp_type == IBV_QPT_RC) {
+    if (internal_qp->user_qp.qp_type == IBV_QPT_RC &&
+        internal_qp->in_use) {
       uint32_t size = sizeof(internal_qp->current_remote);
 
       PDEBUG("Querying for remote_id: 0x%06x 0x%04x 0x%06x from %s\n",
@@ -308,7 +314,8 @@ query_qp_pd_info(void)
     struct internal_ibv_qp *internal_qp;
 
     internal_qp = list_entry(e, struct internal_ibv_qp, elem);
-    if (internal_qp->user_qp.qp_type == IBV_QPT_RC) {
+    if (internal_qp->user_qp.qp_type == IBV_QPT_RC &&
+        internal_qp->in_use) {
       size = sizeof(internal_qp->remote_pd_id);
       ret = dmtcp_send_query_to_coordinator("pd_info",
                                             &internal_qp->remote_qp_pd_id,
@@ -854,7 +861,7 @@ post_restart2(void)
       if (mod->attr_mask & IBV_SRQ_MAX_WR) {
         if (NEXT_IBV_FNC(ibv_modify_srq)
               (internal_srq->real_srq, &attr, IBV_SRQ_MAX_WR)) {
-          fprintf(stderr, "Error: Cound not modify srq properly.\n");
+          fprintf(stderr, "Error: Could not modify srq properly.\n");
 
           // exit(1);
         }
@@ -1138,9 +1145,34 @@ _get_cq_event(struct ibv_comp_channel *channel,
 {
   struct internal_ibv_comp_channel *internal_channel;
   struct internal_ibv_cq *internal_cq;
-  int rslt;
+  int rslt, flags;
 
   internal_channel = ibv_comp_to_internal(channel);
+  flags = fcntl(internal_channel->real_channel->fd, F_GETFL, NULL);
+
+  // We need to change the call to non-blocking mode
+  if (flags & O_NONBLOCK == 0) {
+    int ms_timeout = 100;
+    struct pollfd my_pollfd = {
+      .fd = internal_channel->real_channel->fd,
+      .events = POLLIN,
+      .revents = 0
+    };
+
+    fcntl(internal_channel->real_channel->fd,
+          F_SETFL, flags | O_NONBLOCK);
+    do {
+      rslt = poll(&my_pollfd, 1, ms_timeout);
+    } while (rslt == 0);
+
+    if (rslt == -1) {
+      fprintf(stderr, "poll() in ibv_get_cq_event() failed\n");
+      exit(1);
+    }
+  }
+
+  DMTCP_PLUGIN_DISABLE_CKPT();
+
   if (!IS_INTERNAL_IBV_STRUCT(internal_channel)) {
     rslt = NEXT_IBV_FNC(ibv_get_cq_event)(channel, cq, cq_context);
   } else {
@@ -1154,6 +1186,7 @@ _get_cq_event(struct ibv_comp_channel *channel,
   *cq = &internal_cq->user_cq;
   *cq_context = internal_cq->user_cq.context;
 
+  DMTCP_PLUGIN_ENABLE_CKPT();
   return rslt;
 }
 
@@ -1165,6 +1198,31 @@ _get_async_event(struct ibv_context *ctx, struct ibv_async_event *event)
   struct internal_ibv_cq *internal_cq;
   struct internal_ibv_srq *internal_srq;
   int rslt;
+
+  int flags = fcntl(internal_ctx->real_ctx->async_fd, F_GETFL, NULL);
+
+  // We need to change the call to non-blocking mode
+  if (flags & O_NONBLOCK == 0) {
+    int ms_timeout = 100;
+    struct pollfd my_pollfd = {
+      .fd = internal_ctx->real_ctx->async_fd,
+      .events = POLLIN,
+      .revents = 0
+    };
+
+    fcntl(internal_ctx->real_ctx->async_fd,
+          F_SETFL, flags | O_NONBLOCK);
+    do {
+      rslt = poll(&my_pollfd, 1, ms_timeout);
+    } while (rslt == 0);
+
+    if (rslt == -1) {
+      fprintf(stderr, "poll() in ibv_get_async_event() failed\n");
+      exit(1);
+    }
+  }
+
+  DMTCP_PLUGIN_DISABLE_CKPT();
 
   if (!IS_INTERNAL_IBV_STRUCT(internal_ctx)) {
     rslt = NEXT_IBV_FNC(ibv_get_async_event)(ctx, event);
@@ -1220,6 +1278,7 @@ _get_async_event(struct ibv_context *ctx, struct ibv_async_event *event)
     break;
   }
 
+  DMTCP_PLUGIN_ENABLE_CKPT();
   return rslt;
 }
 
@@ -1908,7 +1967,7 @@ _modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr, int attr_mask)
   if (attr_mask & IBV_QP_DEST_QPN) {
     internal_qp->remote_id.qpn = attr->dest_qp_num;
     internal_qp->remote_qp_pd_id.qpn = attr->dest_qp_num;
-    if (is_restart) {
+    if (is_restart && internal_qp->in_use) {
       ibv_qp_pd_id_t id = {
         .qpn = attr->dest_qp_num,
         .lid = attr->ah_attr.dlid
@@ -2313,8 +2372,11 @@ _ibv_poll_cq(struct ibv_cq *cq, int num_entries, struct ibv_wc *wc)
   }
 
   for (i = 0; i < rslt; i++) {
-    struct internal_ibv_qp *internal_qp = qp_num_to_qp(&qp_list, wc[i].qp_num);
     if (i >= size) {
+      struct internal_ibv_qp * internal_qp = qp_num_to_qp(&qp_list, wc[i].qp_num);
+      if (!internal_qp->in_use && wc[i].status == IBV_WC_SUCCESS) {
+        internal_qp->in_use = true;
+      }
       enum ibv_wc_opcode opcode = wc[i].opcode;
       wc[i].qp_num = internal_qp->user_qp.qp_num;
       if (opcode & IBV_WC_RECV ||

@@ -49,11 +49,11 @@
 
 using namespace dmtcp;
 
-#ifdef DEBUG
+#ifdef LOGGING
 const static bool dbg = true;
-#else // ifdef DEBUG
+#else // ifdef LOGGING
 const static bool dbg = false;
-#endif // ifdef DEBUG
+#endif // ifdef LOGGING
 
 static bool pthread_atfork_enabled = false;
 static uint64_t child_time;
