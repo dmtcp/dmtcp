@@ -25,12 +25,28 @@ default: ${LIBNAME}.so
 
 ${DMTCP_ROOT}/test/dmtcp1: ${DMTCP_ROOT}/test
 	cd ${DMTCP_ROOT}/test; make dmtcp1
-check: ${LIBNAME}.so ${DMTCP_ROOT}/test/dmtcp1
+
+tests/grid1: tests/grid1.c
+	cd tests; make
+
+check: ${LIBNAME}.so tests/grid1
 	# Kill an old coordinator on this port if present, just in case.
 	@ ${DMTCP_ROOT}/bin/dmtcp_command --quit --quiet \
 	  --coord-port ${DEMO_PORT} 2>/dev/null || true
-	${DMTCP_ROOT}/bin/dmtcp_launch --coord-port ${DEMO_PORT} --interval 5 \
-	  --with-plugin $$PWD/${LIBNAME}.so ${DMTCP_ROOT}/test/dmtcp1
+	@ ${DMTCP_ROOT}/bin/dmtcp_coordinator --quiet --daemon --port ${DEMO_PORT}
+	${DMTCP_ROOT}/bin/dmtcp_launch -j -p ${DEMO_PORT} --with-plugin $$PWD/${LIBNAME}.so  mpirun -n 2 -hosts localhost tests/grid1 2 5 10 &
+	@ sleep 3
+	# Checkpoint
+	@ ${DMTCP_ROOT}/bin/dmtcp_command -p ${DEMO_PORT} -c
+	# Kill
+	@ ${DMTCP_ROOT}/bin/dmtcp_command -p ${DEMO_PORT} -k
+	# Restart in record mode
+	DMTCP_MPI_START_RECORD=1 ${DMTCP_ROOT}/bin/dmtcp_restart -j -p ${DEMO_PORT} ckpt*.dmtcp &
+	@ sleep 3
+	@ ${DMTCP_ROOT}/bin/dmtcp_command -p ${DEMO_PORT} -k
+	# Restart in replay mode
+	DMTCP_MPI_START_REPLAY=1 ${DMTCP_ROOT}/bin/dmtcp_restart -j -p ${DEMO_PORT} ckpt_*.dmtcp
+	@ ${DMTCP_ROOT}/bin/dmtcp_command -p ${DEMO_PORT} -q
 
 ${LIBNAME}.so: ${LIBOBJS}
 	${LINK} -shared -fPIC -o $@ $^
