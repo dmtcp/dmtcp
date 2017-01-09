@@ -6,9 +6,11 @@
 #include "config.h"
 #include "dmtcp.h"
 #include "jassert.h"
+#include "util.h"
 
 #define ENV_MPI_RECORD  "DMTCP_MPI_START_RECORD"
 #define ENV_MPI_REPLAY  "DMTCP_MPI_START_REPLAY"
+#define MPI_WRAPPER_GDB 5
 
 // from dmtcpplugin.cpp
 #define SUCCESS             0
@@ -136,6 +138,8 @@ restart()
 {
   char mpiRecord[10] = {0};
   char mpiReplay[10] = {0};
+
+  dmtcp::Util::allowGdbDebug(MPI_WRAPPER_GDB);
 
   int ret = dmtcp_get_restart_env(ENV_MPI_RECORD, mpiRecord,
                                   sizeof(mpiRecord) - 1);
