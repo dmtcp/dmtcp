@@ -419,6 +419,19 @@ FileConnList::scanForPreExisting()
                                  FileConnection::FILE_BATCH_QUEUE));
     } else if (fd <= 2) {
       add(fd, new StdioConnection(fd));
+    } else if (getenv("PBS_JOBID") &&
+               (Util::strStartsWith(device, "/proc") &&
+                Util::strEndsWith(device, "environ"))) {
+      /*
+       * This is a workaround for an issue seen with PBS at ANU-NCI.
+       *
+       * Application processes would inherit a "/proc/<pid>/environ"
+       * file-descriptor when launched under PBS. As far as I can tell,
+       * the file-descriptor is inherited from the PBS launcher process
+       * on the compute node. The workaround is to recognize this fd as
+       * a pre-existing device and ignore it for checkpoint-restart.
+       */
+      continue;
     } else if (Util::strStartsWith(device, "/") && !Util::isPseudoTty(device)) {
       if (isRegularFile) {
         Connection *c = findDuplication(fd, device.c_str());
