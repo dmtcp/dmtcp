@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/types.h>
+#include <unistd.h>
 #include <mpi.h>
 
 #include "config.h"
@@ -13,7 +15,7 @@
 #define MPI_WRAPPER_GDB 5
 
 // from dmtcpplugin.cpp
-#define SUCCESS             0
+#define SUCCESS              0
 #define NOTFOUND            -1
 #define TOOLONG             -2
 #define DMTCP_BUF_TOO_SMALL -3
@@ -138,8 +140,17 @@ restart()
 {
   char mpiRecord[10] = {0};
   char mpiReplay[10] = {0};
+  char pidbuf[100] = {0};
 
   dmtcp::Util::allowGdbDebug(MPI_WRAPPER_GDB);
+  snprintf(pidbuf, sizeof(pidbuf), "%d", getpid());
+
+  dmtcp::string filename = dmtcp_get_ckpt_dir();
+
+  filename += "/dump.";
+  filename += pidbuf;
+  filename += ".log";
+  JNOTE("record-replay file:")(filename);
 
   int ret = dmtcp_get_restart_env(ENV_MPI_RECORD, mpiRecord,
                                   sizeof(mpiRecord) - 1);
@@ -163,9 +174,9 @@ restart()
 
 done:
   if (currMode == RECORD) {
-    logFile = fopen("dump.z","w");
+    logFile = fopen(filename.c_str(), "w");
   } else if (currMode = REPLAY) {
-    logFile = fopen("dump.z","r");
+    logFile = fopen(filename.c_str(), "r");
   } else {
     logFile = NULL;
   }
