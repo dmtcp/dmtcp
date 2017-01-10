@@ -91,7 +91,7 @@ UniquePid& UniquePid::ThisProcess(bool disableJTrace /*=false*/)
   if ( theProcess() == nullProcess() )
   {
     JASSERT(clock_gettime(CLOCK_MONOTONIC, &value) == 0);
-    nsecs = value.tv_sec*100000000L + value.tv_nsec;
+    nsecs = value.tv_sec*1000000000L + value.tv_nsec;
     theProcess() = UniquePid ( theUniqueHostId() ,
                                ::getpid(),
                                nsecs );
