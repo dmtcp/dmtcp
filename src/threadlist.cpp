@@ -684,14 +684,6 @@ void ThreadList::postRestart(void)
   Thread *thread;
   sigset_t tmp;
 
-  /* On restart, if the system has a different limit on open file descriptors,
-   * we need to reset the base protected fd and the coordinator socket.
-   */
-  Util::setProtectedFdBase();
-  CoordinatorAPI::instance().resetCoordSocketFd();
-
-  SharedData::postRestart();
-
   /* If DMTCP_RESTART_PAUSE set, sleep 15 seconds and allow gdb attach. */
   if (getenv("MTCP_RESTART_PAUSE") || getenv("DMTCP_RESTART_PAUSE")) {
 #ifdef HAS_PR_SET_PTRACER
@@ -705,6 +697,14 @@ void ThreadList::postRestart(void)
     prctl(PR_SET_PTRACER, 0, 0, 0, 0); ; // Revert permission to default.
 #endif
   }
+
+  /* On restart, if the system has a different limit on open file descriptors,
+   * we need to reset the base protected fd and the coordinator socket.
+   */
+  Util::setProtectedFdBase();
+  CoordinatorAPI::instance().resetCoordSocketFd();
+
+  SharedData::postRestart();
 
   /* Fill in the new mother process id */
   motherpid = THREAD_REAL_TID();
