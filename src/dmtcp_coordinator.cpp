@@ -891,6 +891,20 @@ DmtcpCoordinator::processDmtUserCmd(DmtcpMessage &hello_remote,
   }
 }
 
+/*
+ * Returns the current timestamp with nanosecond resolution
+ */
+static uint64_t
+getCurrTimestamp()
+{
+  struct timespec value;
+  uint64_t nsecs = 0;
+  JASSERT(clock_gettime(CLOCK_MONOTONIC, &value) == 0);
+  nsecs = value.tv_sec*1000000000L + value.tv_nsec;
+  return nsecs;
+}
+
+
 bool
 DmtcpCoordinator::validateRestartingWorkerProcess(
   DmtcpMessage &hello_remote,
@@ -898,7 +912,6 @@ DmtcpCoordinator::validateRestartingWorkerProcess(
   const struct sockaddr_storage *remoteAddr,
   socklen_t remoteLen)
 {
-  struct timeval tv;
   const struct sockaddr_in *sin = (const struct sockaddr_in *)remoteAddr;
   string remoteIP = inet_ntoa(sin->sin_addr);
   DmtcpMessage hello_local(DMT_ACCEPT);
@@ -913,9 +926,7 @@ DmtcpCoordinator::validateRestartingWorkerProcess(
     // Coordinator is free at this moment - set up all the things
     compId = hello_remote.compGroup;
     numPeers = hello_remote.numPeers;
-    JASSERT(gettimeofday(&tv, NULL) == 0);
-    // Get the resolution down to 100 milliseconds.
-    curTimeStamp = (tv.tv_sec << 4) | (tv.tv_usec / (100*1000));
+    curTimeStamp = getCurrTimestamp();
     JNOTE("FIRST dmtcp_restart connection.  Set numPeers. Generate timestamp")
       (numPeers) (curTimeStamp) (compId);
     JTIMER_START(restart);
@@ -1031,17 +1042,13 @@ DmtcpCoordinator::validateNewWorkerProcess(
   } else {
     // If first process, create the new computation group
     if (compId == UniquePid(0, 0, 0)) {
-      struct timeval tv;
-
       // Connection of new computation.
       compId = UniquePid(hello_remote.from.hostid(), client->virtualPid(),
                          hello_remote.from.time(),
                          hello_remote.from.computationGeneration());
 
-      JASSERT(gettimeofday(&tv, NULL) == 0);
-
       // Get the resolution down to 100 mili seconds.
-      curTimeStamp = (tv.tv_sec << 4) | (tv.tv_usec / (100 * 1000));
+      curTimeStamp = getCurrTimestamp();
       numPeers = -1;
       JTRACE("First process connected.  Creating new computation group.")
         (compId);
