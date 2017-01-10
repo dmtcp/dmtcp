@@ -51,7 +51,8 @@ namespace dmtcp
     void resumeThreads();
     void waitForAllRestored(Thread *thisthread);
     void postRestart();
+    void postRestartDebug();
 
   };
 };
-#endif
+#endif // ifndef THREADLIST_H

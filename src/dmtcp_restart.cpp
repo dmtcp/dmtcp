@@ -448,10 +448,21 @@ static void runMtcpRestart(int is32bitElf, int fd, ProcessInfo *pInfo)
   }
 #endif
 
+  /* If DMTCP_RESTART_PAUSE0 set, mtcp_restart will loop until gdb attach.*/
+  bool mtcp_restart_pause = false;
+  if (getenv("MTCP_RESTART_PAUSE0") || getenv("DMTCP_RESTART_PAUSE0")) {
+#ifdef HAS_PR_SET_PTRACER
+    prctl(PR_SET_PTRACER, PR_SET_PTRACER_ANY, 0, 0, 0); // For: gdb attach
+#endif // ifdef HAS_PR_SET_PTRACER
+    mtcp_restart_pause = true;
+  }
+
   char* const newArgs[] = {
     (char*) mtcprestart.c_str(),
     const_cast<char*> ("--fd"), fdBuf,
     const_cast<char*> ("--stderr-fd"), stderrFdBuf,
+    // This flag must be last, since it may become NULL
+    ( mtcp_restart_pause ? const_cast<char *>("--mtcp-restart-pause") : NULL ),
     NULL
   };
 

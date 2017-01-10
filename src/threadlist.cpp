@@ -272,6 +272,7 @@ static void prepareMtcpHeader(MtcpHeader *mtcpHdr)
   mtcpHdr->vvarEnd = (void*) ProcessInfo::instance().vvarEnd();
 
   mtcpHdr->post_restart = &ThreadList::postRestart;
+  mtcpHdr->post_restart_debug = &ThreadList::postRestartDebug;
   memcpy(&mtcpHdr->motherofall_tls_info,
          &motherofall->tlsInfo,
          sizeof(motherofall->tlsInfo));
@@ -685,7 +686,18 @@ void ThreadList::waitForAllRestored(Thread *thread)
 /*****************************************************************************
  *
  *****************************************************************************/
-void ThreadList::postRestart(void)
+void
+ThreadList::postRestartDebug(void)
+{ // Don't try to print before debugging.  Who knows what is working yet?
+  int dummy = 1;
+  while (dummy);
+  // User should have done GDB attach if we're here.
+  prctl(PR_SET_PTRACER, 0, 0, 0, 0); // Revert permission to default: no ptracer
+  postRestart();
+}
+
+void
+ThreadList::postRestart(void)
 {
   Thread *thread;
   sigset_t tmp;
