@@ -297,6 +297,7 @@ prepareMtcpHeader(MtcpHeader *mtcpHdr)
   mtcpHdr->vvarEnd = (void *)ProcessInfo::instance().vvarEnd();
 
   mtcpHdr->post_restart = &ThreadList::postRestart;
+  mtcpHdr->post_restart_debug = &ThreadList::postRestartDebug;
   memcpy(&mtcpHdr->motherofall_tls_info,
          &motherofall->tlsInfo,
          sizeof(motherofall->tlsInfo));
@@ -691,6 +692,21 @@ ThreadList::waitForAllRestored(Thread *thread)
 /*****************************************************************************
  *
  *****************************************************************************/
+void
+ThreadList::postRestartDebug(double readTime)
+{ // Don't try to print before debugging.  Who knows what is working yet?
+  int dummy = 1;
+#ifndef DEBUG
+  // printf may fail, but we'll risk it to let user know this:
+  printf("\n** DMTCP: It appears DMTCP not configured with '--enable-debug'\n");
+  printf("**        If GDB doesn't show source, re-configure and re-compile\n");
+#endif
+  while (dummy);
+  // User should have done GDB attach if we're here.
+  prctl(PR_SET_PTRACER, 0, 0, 0, 0); // Revert permission to default: no ptracer
+  postRestart();
+}
+
 void
 ThreadList::postRestart(double readTime)
 {

@@ -104,11 +104,13 @@ typedef struct RestoreInfo {
   VA vvarStart;
   VA vvarEnd;
   fnptr_t post_restart;
+  fnptr_t post_restart_debug;
   // NOTE: Update the offset when adding fields to the RestoreInfo struct
   // See note below in the restart_fast_path() function.
   fnptr_t restorememoryareas_fptr;
 
   // void (*post_restart)();
+  // void (*post_restart_debug)();
   // void (*restorememoryareas_fptr)();
   int use_gdb;
   int text_offset;
@@ -119,6 +121,7 @@ typedef struct RestoreInfo {
   struct timeval startValue;
 #endif
   MYINFO_GS_T myinfo_gs;
+  int mtcp_restart_pause;  // Used by env. var. DMTCP_RESTART_PAUSE0
 } RestoreInfo;
 static RestoreInfo rinfo;
 
@@ -235,17 +238,12 @@ main(int argc, char *argv[], char **environ)
 #endif /* ifdef ENABLE_VDSO_CHECK */
 
   rinfo.fd = -1;
+  rinfo.mtcp_restart_pause = 0; /* false */
   rinfo.use_gdb = 0;
   rinfo.text_offset = -1;
   shift;
   while (argc > 0) {
-    // Flags for standalone debugging
-    if (argc == 1) {
-      // We would use MTCP_PRINTF, but it's also for output of util/readdmtcp.sh
-      mtcp_printf("Considering '%s' as a ckpt image.\n", argv[0]);
-      ckptImage = argv[0];
-      break;
-    } else if (mtcp_strcmp(argv[0], "--use-gdb") == 0) {
+    if (mtcp_strcmp(argv[0], "--use-gdb") == 0) {
       rinfo.use_gdb = 1;
       shift;
     } else if (mtcp_strcmp(argv[0], "--text-offset") == 0) {
@@ -259,9 +257,17 @@ main(int argc, char *argv[], char **environ)
     } else if (mtcp_strcmp(argv[0], "--stderr-fd") == 0) {
       rinfo.stderr_fd = mtcp_strtol(argv[1]);
       shift; shift;
+    } else if (mtcp_strcmp(argv[0], "--mtcp-restart-pause") == 0) {
+      rinfo.mtcp_restart_pause = 1; /* true */
+      shift;
     } else if (mtcp_strcmp(argv[0], "--simulate") == 0) {
       simulate = 1;
       shift;
+    } else if (argc == 1) {
+      // We would use MTCP_PRINTF, but it's also for output of util/readdmtcp.sh
+      mtcp_printf("Considering '%s' as a ckpt image.\n", argv[0]);
+      ckptImage = argv[0];
+      break;
     } else {
       MTCP_PRINTF("MTCP Internal Error\n");
       return -1;
@@ -323,6 +329,7 @@ main(int argc, char *argv[], char **environ)
   rinfo.vvarStart = mtcpHdr.vvarStart;
   rinfo.vvarEnd = mtcpHdr.vvarEnd;
   rinfo.post_restart = mtcpHdr.post_restart;
+  rinfo.post_restart_debug = mtcpHdr.post_restart_debug;
   rinfo.motherofall_tls_info = mtcpHdr.motherofall_tls_info;
   rinfo.tls_pid_offset = mtcpHdr.tls_pid_offset;
   rinfo.tls_tid_offset = mtcpHdr.tls_tid_offset;
@@ -690,9 +697,27 @@ restorememoryareas(RestoreInfo *rinfo_ptr)
   /* System calls and libc library calls should now work. */
 
   DPRINTF("MTCP restore is now complete.  Continuing by jumping to\n"
-          "  ThreadList:postRestart() back inside libdmtcp.so: %p...\n",
+          "  ThreadList::postRestart() back inside libdmtcp.so: %p...\n",
           restore_info.post_restart);
-  restore_info.post_restart(readTime);
+
+  if (restore_info.mtcp_restart_pause) {
+    MTCP_PRINTF(
+      "\nStopping due to env. var DMTCP_RESTART_PAUSE0 or MTCP_RESTART_PAUSE0\n"
+      "(DMTCP_RESTART_PAUSE0 can be set after creating the checkpoint image.)\n"
+      "Attach to the computation with GDB from another window:\n"
+      "(This won't work well unless you configure DMTCP with --enable-debug)\n"
+      "  gdb PROGRAM_NAME %d\n"
+      "You should now be in 'ThreadList::postRestartDebug()'\n"
+      "  (gdb) list\n"
+      "  (gdb) p dummy = 0\n", mtcp_sys_getpid()
+    );
+    restore_info.post_restart_debug(readTime);
+    // int dummy = 1;
+    // while (dummy);
+  } else {
+    restore_info.post_restart(readTime);
+  }
+  // NOTREACHED
 }
 
 NO_OPTIMIZE
