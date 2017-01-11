@@ -26,6 +26,7 @@
 #include <arpa/inet.h>
 #include <fcntl.h>
 #include <netdb.h>
+#include <poll.h>
 #include <semaphore.h>  // for sem_post(&sem_launch)
 #include <sys/time.h>
 #include <sys/types.h>
@@ -837,7 +838,6 @@ CoordinatorAPI::waitForCheckpointCommand()
   long remaining = ckptInterval;
 
   do {
-    fd_set rfds;
     struct timeval *timeout = NULL;
     struct timeval start;
     if (ckptInterval > 0) {
@@ -846,11 +846,10 @@ CoordinatorAPI::waitForCheckpointCommand()
       JASSERT(gettimeofday(&start, NULL) == 0) (JASSERT_ERRNO);
     }
 
-    // This call to select() does nothing and returns.
-    // But we want to find address of select() using dlsym/libc before
+    // This call to poll() does nothing and returns.
+    // But we want to find address of poll() using dlsym/libc before
     // allowing the user thread to continue.
-    struct timeval timezero = { 0, 0 };
-    select(0, NULL, NULL, NULL, &timezero);
+    poll(NULL, 0, 0);
     if (sem_launch_first_time) {
       // Release user thread now that we've initialized the checkpoint thread.
       // This code is reached if the --no-coordinator flag is used.
@@ -858,15 +857,18 @@ CoordinatorAPI::waitForCheckpointCommand()
       sem_launch_first_time = false;
     }
 
-    FD_ZERO(&rfds);
-    FD_SET(_coordinatorSocket, &rfds);
-    int retval =
-      select(_coordinatorSocket + 1, &rfds, NULL, NULL, timeout);
+    struct pollfd socketFd = {0};
+    socketFd.fd = _coordinatorSocket;
+    socketFd.events = POLLIN;
+    uint64_t millis = timeout ? ((timeout->tv_sec * (uint64_t)1000) +
+                                 (timeout->tv_usec / 1000))
+                              : -1;
+    int retval = poll(&socketFd, 1, millis);
     if (retval == 0) { // timeout expired, time for checkpoint
       JTRACE("Timeout expired, checkpointing now.");
       return;
     } else if (retval > 0) {
-      JASSERT(FD_ISSET(_coordinatorSocket, &rfds));
+      JASSERT(socketFd.revents & POLLIN);
       JTRACE("Connect request on virtual coordinator socket.");
       break;
     }
