@@ -684,6 +684,12 @@ void ThreadList::postRestart(void)
   Thread *thread;
   sigset_t tmp;
 
+  /* On restart, if the system has a different limit on open file descriptors,
+   * we need to reset the base protected fd and the coordinator socket.
+   */
+  Util::setProtectedFdBase();
+  CoordinatorAPI::instance().resetCoordSocketFd();
+
   SharedData::postRestart();
 
   /* If DMTCP_RESTART_PAUSE set, sleep 15 seconds and allow gdb attach. */

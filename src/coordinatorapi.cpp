@@ -160,6 +160,16 @@ void CoordinatorAPI::resetOnFork(CoordinatorAPI& coordAPI)
   instance()._nsSock.close();
 }
 
+/* Recompute the protected coordinator fd and reset the coordiantor socket.
+ *
+ * Used to handle the case where protectedFdBase() has changed, for example,
+ * on restart.
+ * */
+void CoordinatorAPI::resetCoordSocketFd()
+{
+  _coordinatorSocket = jalib::JSocket(PROTECTED_COORD_FD);
+}
+
 // FIXME:  Does "virtual coordinator" mean coordinator built into the
 //         the current process (no separate process?)
 void CoordinatorAPI::setupVirtualCoordinator(CoordinatorInfo *coordInfo,
