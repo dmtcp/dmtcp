@@ -487,7 +487,7 @@ def runTestRaw(name, numProcs, cmds):
       coordinatorCmd('q')
       os.system("kill -9 %d" % coordinator.pid)
       print "Trying to kill old coordinator, and run new one on same port"
-      coordinator = runCmd(coordinatorCmd)
+      coordinator = runCmd(BIN+"dmtcp_coordinator")
     for x in procs:
       #cleanup proc
       try:
