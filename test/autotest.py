@@ -1,5 +1,66 @@
 #!/usr/bin/env python
 
+# TODO:  If -j flag is set, then run NUM_PARALLEL_TESTS runs at a time,
+#        NOTE:  DMTCP_COORD_PORT can be used to assign different pre-existing
+#          coordinators.  But right now, we also create a new coordinator.
+#   signal.alarm(60)  at top level.
+#   subprocess operates in background with stdout going
+#      to par-autotest-RUN_NUMBER.out
+NUM_PARALLEL_TESTS = 5  # Run this many tests in parallel
+MAX_TESTS = 150 # Must be greater than or equal to the number of actual tests
+output = [None] * MAX_TESTS
+active_tests = [{} for i in range(NUM_PARALLEL_TESTS)] # copies of {}
+def runNextTestInBackground(num_run, coord_port):
+  os.environ["DMTCP_COORD_PORT"] = str(coord_port)
+  os.environ["DMTCP_NUM_RUN"] = str(num_run)
+  os.environ["DMTCP_PARALLEL_AUTOTEST"] = str(num_run)
+  return subprocess.Popen(sys.argv[0] + " > par-autotest-" + str(num_run) +
+                          ".out", shell=True)
+def getTestOutput(test_num):
+  filename = "par-autotest-" + str(test_num) + ".out"
+  file = open(filename)
+  tmp = file.read()
+  file.close()
+  os.remove(filename)
+  tmp = tmp[ tmp.find("== Tests ==") :
+             tmp.find("== Summary ==") ]
+  tmp = tmp[ tmp.find("\n")+1 : -1 ]
+  return tmp
+
+def executeParallelTests():
+  # FIXME:  In principle, dmtcp_base_coord_port + [0..9] may be occupied.
+  #         We'll live with risk for now.  Since port is random, can do over.
+  dmtcp_base_coord_port = int(os.environ['DMTCP_COORD_PORT'])
+  num_run = 1  # Initialize test run to test number 1
+  num_completed_runs = 0
+  for i in range(NUM_PARALLEL_TESTS):
+    active_tests[i]["num_run"] = num_run
+    active_tests[i]["coord_port"] = dmtcp_base_coord_port + i
+    # Use new separate DMTCP coord. and dmtcp_coord_port for each active test
+    active_tests[i]["test"] = runNextTestInBackground(num_run,
+                                               active_tests[i]["coord_port"])
+    num_run += 1
+  while True:
+    sleep(1)
+    for i in range(NUM_PARALLEL_TESTS): # Schedule the active_tests[]
+      if active_tests[i] and active_tests[i]["test"].poll() != None:  # if done
+        this_run = active_tests[i]["num_run"]
+        output[this_run] = getTestOutput(this_run)
+        while output[num_completed_runs + 1]:
+          num_completed_runs += 1
+          print output[num_completed_runs]
+        if num_run < MAX_TESTS:
+          active_tests[i]["num_run"] = num_run
+          active_tests[i]["test"] = runNextTestInBackground(num_run,
+                                                active_tests[i]["coord_port"])
+          num_run += 1
+        else:
+          active_tests[i] = {}
+    if not any(active_tests):
+      sys.exit(0)
+
+# ==================================================================
+
 from random import randint
 from time   import sleep
 import argparse
@@ -32,6 +93,9 @@ parser.add_argument('--slow',
                     action='count',
                     default=0,
                     help='Add additional pause before ckpt-rst')
+parser.add_argument('-j', '--parallel',
+                    action='store_true',
+                    help='Run tests in parallel')
 parser.add_argument('tests',
                     nargs='*',
                     metavar='TESTNAME',
@@ -125,7 +189,7 @@ BIN="./bin/"
 #Checkpoint command to send to coordinator
 CKPT_CMD='c'
 
-#Appears as S*SLOW in code.  If --slow, then SLOW=5
+#Appears as S*SLOW in code.  --slow => SLOW=5; --slow --slow => SLOW==25
 SLOW = pow(5, args.slow)
 TIMEOUT *= SLOW
 
@@ -292,7 +356,9 @@ def runCmd(cmd):
 ckptDir="dmtcp-autotest-%d" % randint(100000000,999999999)
 os.mkdir(ckptDir);
 os.environ['DMTCP_COORD_HOST'] = "localhost"
-os.environ['DMTCP_COORD_PORT'] = str(randint(2000,10000))
+if not os.getenv('DMTCP_PARALLEL_AUTOTEST'):
+  os.environ['DMTCP_COORD_PORT'] = str(randint(2000,10000))
+  # else this is second layer of parallel autotext, and port was set earlier.
 os.environ['DMTCP_CHECKPOINT_DIR'] = os.path.abspath(ckptDir)
 #Use default SIGCKPT for test suite.
 os.unsetenv('DMTCP_SIGCKPT')
@@ -303,6 +369,17 @@ if not args.verbose:
   os.environ['JALIB_STDERR_PATH'] = os.devnull
 if args.verbose:
   print "coordinator port:  " + os.environ['DMTCP_COORD_PORT']
+
+if args.parallel:
+  executeParallelTests()
+
+# If we were called via executeParallel Tests():
+#  If this is positive, run only the n-th test for n == RUN_NUMBER
+#  If this is -1, then don't run any tests.
+if os.getenv('DMTCP_PARALLEL_AUTOTEST'):
+  RUN_NUMBER = int(os.environ["DMTCP_NUM_RUN"])
+else:
+  RUN_NUMBER = -1
 
 # We'll copy ckptdir to DMTCP_TMPDIR in case of error.
 def dmtcp_tmpdir():
@@ -453,12 +530,21 @@ def getNumCkptFiles(dir):
 # Test a given list of commands to see if they checkpoint
 # runTest() sets up a keyboard interrupt handler, and then calls this function.
 def runTestRaw(name, numProcs, cmds):
-  #the expected/correct running status
+  global RUN_NUMBER;
+  if RUN_NUMBER == 0:
+    return
+  elif RUN_NUMBER == 1:
+    RUN_NUMBER -= 1
+  elif RUN_NUMBER > 1:
+    RUN_NUMBER -= 1
+    return
+  # else RUN_NUMBER == -1:  Do it.
 #  if USE_M32:
 #    def forall(fnc, lst):
 #      return reduce(lambda x, y: x and y, map(fnc, lst))
 #    if not forall(lambda x: x.startswith("./test/"), cmds):
 #      return
+  #the expected/correct running status
   status=(numProcs, True)
   procs=[]
 
@@ -699,6 +785,7 @@ def saveResultsNMI():
                                               ") written to DMTCP_ROOT/.. ***"
 
 print "== Tests =="
+sys.stdout.flush()
 
 #tmp port
 p0=str(randint(2000,10000))
@@ -943,7 +1030,8 @@ if HAS_ZSH == "yes":
   S=DEFAULT_S
   os.environ['DMTCP_GZIP'] = GZIP
 
-if HAS_VIM == "yes":
+# FIXME: When invoked with --parallel ("DMTCP_NUM_RUN"), fails.
+if HAS_VIM == "yes" and not os.getenv("DMTCP_NUM_RUN"):
   # Wait to checkpoint until vim finishes reading its initialization files
   S=10*DEFAULT_S
   if sys.version_info[0:2] >= (2,6):
@@ -963,6 +1051,7 @@ if HAS_VIM == "yes":
     runTest("vim",       1,  ["env TERM=vt100 " + vimCommand])
     killCommand(vimCommand)
   S=DEFAULT_S
+  sleep(3) # This is a hack to avoid some race condition.  Why do we need this?
 
 if sys.version_info[0:2] >= (2,6):
   #On some systems, "emacs -nw" runs dbus-daemon processes in
@@ -1006,7 +1095,8 @@ if HAS_SCRIPT == "yes":
 # SHOULD HAVE screen RUN SOMETHING LIKE:  bash -c ./test/dmtcp1
 # FIXME: Currently fails on dekaksi due to DMTCP not honoring
 #        "Async-signal-safe functions" in signal handlers (see man 7 signal)
-if HAS_SCREEN == "yes":
+# FIXME: When invoked with --parallel ("DMTCP_NUM_RUN"), fails.
+if HAS_SCREEN == "yes" and not os.environ["DMTCP_NUM_RUN"]:
   S=3*DEFAULT_S
   if sys.version_info[0:2] >= (2,6):
     runTest("screen",    3,  ["env TERM=vt100 " + SCREEN +

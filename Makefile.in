@@ -139,6 +139,9 @@ check: tests
 	   ' python to path or build Python 2.x for x >= 3.'; \
 	  fi
 
+check-parallel: tests
+	bash -c "$(LIMIT) && $(top_srcdir)/test/autotest.py -j ${AUTOTEST} '$*'"
+
 check-%: tests
 	bash -c "$(LIMIT) && $(top_srcdir)/test/autotest.py ${AUTOTEST} '$*'"
 
