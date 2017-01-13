@@ -168,7 +168,7 @@ FileConnList::preCkpt()
         string buf = jalib::Filesystem::BaseName(fileCon->savedFilePath()) +
                      ":" + fileCon->filePath() + "\n";
         JASSERT(Util::writeAll(tmpfd, buf.c_str(),
-                               buf.length()) == buf.length());
+                               buf.length()) == (int)buf.length());
       }
     }
   }

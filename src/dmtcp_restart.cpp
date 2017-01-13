@@ -456,7 +456,7 @@ runMtcpRestart(int is32bitElf, int fd, ProcessInfo *pInfo)
       }
       char cpid[10]; // XXX: Is 10 digits enough for a PID?
       snprintf(cpid, 10, "%d", pid);
-      char* const command[] = {"gdb",
+      char* const command[] = {const_cast<char*>("gdb"),
                                const_cast<char*>(pInfo->procSelfExe().c_str()),
                                cpid,
                                NULL};

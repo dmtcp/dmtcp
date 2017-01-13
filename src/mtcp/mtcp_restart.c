@@ -71,7 +71,9 @@
 #endif /* ifdef __clang__ */
 
 void mtcp_check_vdso(char **environ);
+#ifdef FAST_RST_VIA_MMAP
 static void mmapfile(int fd, void *buf, size_t size, int prot, int flags);
+#endif
 
 #define BINARY_NAME     "mtcp_restart"
 #define BINARY_NAME_M32 "mtcp_restart-32"
@@ -1336,6 +1338,7 @@ __intel_security_check_cookie(void)
   mtcp_abort();
 }
 
+#ifdef FAST_RST_VIA_MMAP
 static void mmapfile(int fd, void *buf, size_t size, int prot, int flags)
 {
   int mtcp_sys_errno;
@@ -1360,4 +1363,4 @@ static void mmapfile(int fd, void *buf, size_t size, int prot, int flags)
     mtcp_abort();
   }
 }
-
+#endif
