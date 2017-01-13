@@ -432,6 +432,15 @@ DECLARE_TYPEOF_FNC(dmtcp_event_hook,_real_dmtcp_event_hook);
 #define dmtcp_get_uniquepid_str() \
   (dmtcp_get_uniquepid_str ? dmtcp_get_uniquepid_str() : NULL)
 
+/* dmtcp_launch, dmtcp_restart return a unique rc (default: 99)
+ * TYPICAL USAGE:  exit(DMTCP_FAIL_RC)
+ * Use this to distinguish DMTCP failing versus the target application failing.
+ */
+#define DMTCP_FAIL_RC                                         \
+  (getenv("DMTCP_FAIL_RC") && atoi(getenv("DMTCP_FAIL_RC"))   \
+     ? atoi(getenv("DMTCP_FAIL_RC"))                          \
+     : 99)
+
 /// Pointer to a "void foo();" function
 typedef void (*dmtcp_fnptr_t)(void);
 
