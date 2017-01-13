@@ -1113,10 +1113,23 @@ int _get_cq_event(struct ibv_comp_channel * channel,
   int rslt, flags;
 
   internal_channel = ibv_comp_to_internal(channel);
-  flags = fcntl(internal_channel->real_channel->fd, F_GETFL, NULL);
+  flags = NEXT_FNC(fcntl)(internal_channel->real_channel->fd,
+                          F_GETFL, NULL);
 
   // We need to change the call to non-blocking mode
-  if (flags & O_NONBLOCK == 0) {
+  // FIXME: we need to take care of the case where fd is already
+  // changed to non-blocking mode by the user.
+  if (!(flags & O_NONBLOCK)) {
+    rslt = NEXT_FNC(fcntl)(internal_channel->real_channel->fd,
+                           F_SETFL, flags | O_NONBLOCK);
+    if (rslt < 0) {
+      fprintf(stderr, "Failed to change file descriptor "
+                      "of completion event channel: %d\n", errno);
+      exit(1);
+    }
+  }
+
+  {
     int ms_timeout = 100;
     struct pollfd my_pollfd = {
       .fd = internal_channel->real_channel->fd,
@@ -1124,10 +1137,8 @@ int _get_cq_event(struct ibv_comp_channel * channel,
       .revents = 0
     };
 
-    fcntl(internal_channel->real_channel->fd,
-          F_SETFL, flags | O_NONBLOCK);
     do {
-      rslt = poll(&my_pollfd, 1, ms_timeout);
+      rslt = NEXT_FNC(poll)(&my_pollfd, 1, ms_timeout);
     } while (rslt == 0);
 
     if (rslt == -1) {
@@ -1164,10 +1175,21 @@ int _get_async_event(struct ibv_context * ctx, struct ibv_async_event * event)
   struct internal_ibv_srq * internal_srq;
   int rslt;
 
-  int flags = fcntl(internal_ctx->real_ctx->async_fd, F_GETFL, NULL);
+  int flags = NEXT_FNC(fcntl)(internal_ctx->real_ctx->async_fd,
+                              F_GETFL, NULL);
 
   // We need to change the call to non-blocking mode
-  if (flags & O_NONBLOCK == 0) {
+  if (!(flags & O_NONBLOCK)) {
+    rslt  = NEXT_FNC(fcntl)(internal_ctx->real_ctx->async_fd,
+                            F_SETFL, flags | O_NONBLOCK);
+    if (rslt < 0) {
+      fprintf(stderr, "Failed to change file descriptor "
+                      "of async event queue: %d\n", errno);
+      exit(1);
+    }
+  }
+
+  {
     int ms_timeout = 100;
     struct pollfd my_pollfd = {
       .fd = internal_ctx->real_ctx->async_fd,
@@ -1175,10 +1197,8 @@ int _get_async_event(struct ibv_context * ctx, struct ibv_async_event * event)
       .revents = 0
     };
 
-    fcntl(internal_ctx->real_ctx->async_fd,
-          F_SETFL, flags | O_NONBLOCK);
     do {
-      rslt = poll(&my_pollfd, 1, ms_timeout);
+      rslt = NEXT_FNC(poll)(&my_pollfd, 1, ms_timeout);
     } while (rslt == 0);
 
     if (rslt == -1) {
