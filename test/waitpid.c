@@ -1,4 +1,6 @@
+#include <libgen.h>
 #include <stdio.h>
+#include <string.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -11,11 +13,16 @@ main(int argc, char **argv)
   if (childpid == 0) {     /* if child */
     char *newargv[3];
 
+    char dmtcp1Path[4096];
+    strcpy (dmtcp1Path, argv[0]);
+    dirname(dmtcp1Path);
+    strcat(dmtcp1Path, "/dmtcp1");
+
     /* sleep for a long time */
-    newargv[0] = "sleep";
+    newargv[0] = "dmtcp1";
     newargv[1] = "100";
     newargv[2] = NULL;
-    execv("/bin/sleep", newargv);
+    execv(dmtcp1Path, newargv);
     perror("execv");
   } else {
     int rc;
