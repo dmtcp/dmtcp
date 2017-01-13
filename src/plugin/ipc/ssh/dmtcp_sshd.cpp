@@ -30,19 +30,19 @@ connectToRemotePeer(char *host, int port)
 
   if (sock == -1) {
     perror("Error creating socket: ");
-    exit(0);
+    exit(DMTCP_FAIL_RC);
   }
   memset(&saddr, 0, sizeof(saddr));
   saddr.sin_family = AF_INET;
   if (inet_aton(host, &saddr.sin_addr) == -1) {
     perror("inet_aton failed");
-    exit(0);
+    exit(DMTCP_FAIL_RC);
   }
   saddr.sin_port = htons(port);
 
   if (connect(sock, (sockaddr *)&saddr, sizeof saddr) == -1) {
     perror("Error connecting");
-    exit(0);
+    exit(DMTCP_FAIL_RC);
   }
   remotePeerSock = sock;
 }
@@ -110,7 +110,7 @@ int main(int argc, char *argv[], char *envp[])
 
   if (argc < 2) {
     printf("***ERROR: This program shouldn't be used directly.\n");
-    exit(1);
+    exit(DMTCP_FAIL_RC);
   }
 
   if (strcmp(argv[1], "--listenAddr") == 0) {
@@ -121,13 +121,13 @@ int main(int argc, char *argv[], char *envp[])
 
   if (strcmp(argv[1], "--host") != 0) {
     printf("Missing --host argument");
-    assert(0);
+    exit(DMTCP_FAIL_RC);
   }
   host = argv[2];
 
   if (strcmp(argv[3], "--port") != 0) {
     printf("Missing --port argument");
-    exit(0);
+    exit(DMTCP_FAIL_RC);
   }
   port = atoi(argv[4]);
 

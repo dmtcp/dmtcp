@@ -52,7 +52,7 @@ getPidFromEnvVar()
     fprintf(stderr, "ERROR at %s:%d: env var DMTCP_VIRTUAL_PID not set\n\n",
             __FILE__, __LINE__);
     sleep(5);
-    _exit(0);
+    _exit(DMTCP_FAIL_RC);
   }
   return strtol(pidstr, NULL, 10);
 }
@@ -71,7 +71,7 @@ dmtcpResetPidPpid()
     fprintf(stderr, "ERROR at %s:%d: env var DMTCP_VIRTUAL_PID not set\n\n",
             __FILE__, __LINE__);
     sleep(5);
-    _exit(0);
+    _exit(DMTCP_FAIL_RC);
   }
   _dmtcp_pid = strtol(pidstr, &virtPpidstr, 10);
   VirtualPidTable::instance().updateMapping(_dmtcp_pid, _real_getpid());
@@ -80,7 +80,7 @@ dmtcpResetPidPpid()
     fprintf(stderr, "ERROR at %s:%d: env var DMTCP_VIRTUAL_PID invalid\n\n",
             __FILE__, __LINE__);
     sleep(5);
-    _exit(0);
+    _exit(DMTCP_FAIL_RC);
   }
   virtPpid = strtol(virtPpidstr + 1, &realPpidstr, 10);
 
@@ -88,7 +88,7 @@ dmtcpResetPidPpid()
     fprintf(stderr, "ERROR at %s:%d: env var DMTCP_VIRTUAL_PID invalid\n\n",
             __FILE__, __LINE__);
     sleep(5);
-    _exit(0);
+    _exit(DMTCP_FAIL_RC);
   }
   realPpid = strtol(realPpidstr + 1, NULL, 10);
 
