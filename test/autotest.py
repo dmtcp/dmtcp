@@ -10,12 +10,16 @@ NUM_PARALLEL_TESTS = 5  # Run this many tests in parallel
 MAX_TESTS = 150 # Must be greater than or equal to the number of actual tests
 output = [None] * MAX_TESTS
 active_tests = [{} for i in range(NUM_PARALLEL_TESTS)] # copies of {}
-def runNextTestInBackground(num_run, coord_port):
+def runNextTestInBackground(num_run, coord_port, slow=1):
   os.environ["DMTCP_COORD_PORT"] = str(coord_port)
   os.environ["DMTCP_NUM_RUN"] = str(num_run)
   os.environ["DMTCP_PARALLEL_AUTOTEST"] = str(num_run)
-  return subprocess.Popen(sys.argv[0] + " > par-autotest-" + str(num_run) +
-                          ".out", shell=True)
+  if slow > 1:
+    slow_args = int(slow/5) * " --slow"
+  else:
+    slow_args = ""
+  return subprocess.Popen(sys.argv[0] + slow_args + " > par-autotest-" +
+                          str(num_run) + ".out", shell=True)
 def getTestOutput(test_num):
   filename = "par-autotest-" + str(test_num) + ".out"
   file = open(filename)
@@ -27,7 +31,7 @@ def getTestOutput(test_num):
   tmp = tmp[ tmp.find("\n")+1 : -1 ]
   return tmp
 
-def executeParallelTests():
+def executeParallelTests(slow=1):
   # FIXME:  In principle, dmtcp_base_coord_port + [0..9] may be occupied.
   #         We'll live with risk for now.  Since port is random, can do over.
   dmtcp_base_coord_port = int(os.environ['DMTCP_COORD_PORT'])
@@ -38,7 +42,7 @@ def executeParallelTests():
     active_tests[i]["coord_port"] = dmtcp_base_coord_port + i
     # Use new separate DMTCP coord. and dmtcp_coord_port for each active test
     active_tests[i]["test"] = runNextTestInBackground(num_run,
-                                               active_tests[i]["coord_port"])
+                                               active_tests[i]["coord_port"], slow=slow)
     num_run += 1
   while True:
     sleep(1)
@@ -371,7 +375,7 @@ if args.verbose:
   print "coordinator port:  " + os.environ['DMTCP_COORD_PORT']
 
 if args.parallel:
-  executeParallelTests()
+  executeParallelTests(slow=SLOW)
 
 # If we were called via executeParallel Tests():
 #  If this is positive, run only the n-th test for n == RUN_NUMBER
