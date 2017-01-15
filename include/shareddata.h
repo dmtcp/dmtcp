@@ -61,6 +61,7 @@ typedef struct CoordinatorInfo {
 
 namespace SharedData
 {
+// All structs should be 64-bit aligned.
 struct PidMap {
   pid_t virt;
   pid_t real;
@@ -95,7 +96,9 @@ typedef struct InodeConnIdMap {
 
 struct BarrierInfo {
   uint32_t numCkptPeers;
-  pthread_barrier_t barrier;
+  uint32_t numIn;
+  uint32_t curRound;
+  uint32_t _pad; // for 64-bit alignment.
 };
 
 struct Header {
@@ -122,10 +125,7 @@ struct Header {
   uint32_t numIncomingConMaps;
   uint32_t numInodeConnIdMaps;
 
-  union {
-    struct BarrierInfo barrierInfo;
-    char pad[128];
-  };
+  struct BarrierInfo barrierInfo;
 
   struct PidMap pidMap[MAX_PID_MAPS];
   struct IPCIdMap sysvShmIdMap[MAX_IPC_ID_MAPS];

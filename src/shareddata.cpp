@@ -21,9 +21,11 @@
 
 #include <fcntl.h>
 #include <stdlib.h>
+#include <syscall.h>
 #include <sys/ipc.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <linux/futex.h>
 
 #include "../jalib/jassert.h"
 #include "../jalib/jconvert.h"
@@ -75,6 +77,8 @@ SharedData::initializeHeader(const char *tmpDir,
 
   sharedDataHeader->numIncomingConMaps = 0;
   sharedDataHeader->barrierInfo.numCkptPeers = 0;
+  sharedDataHeader->barrierInfo.numIn = 0;
+  sharedDataHeader->barrierInfo.curRound = 0;
 
   memcpy(&sharedDataHeader->compId, compId, sizeof(*compId));
   memcpy(&sharedDataHeader->coordInfo, coordInfo, sizeof(*coordInfo));
@@ -197,6 +201,8 @@ void
 SharedData::resetBarrierInfo()
 {
   sharedDataHeader->barrierInfo.numCkptPeers = 0;
+  sharedDataHeader->barrierInfo.numIn = 0;
+  sharedDataHeader->barrierInfo.curRound = 0;
 }
 
 // Here we reset some counters that are used by IPC plugin for local
@@ -214,15 +220,10 @@ SharedData::prepareForCkpt()
 void
 SharedData::initializeBarrier()
 {
-  pthread_barrierattr_t barrierAttr;
-
-  pthread_barrierattr_setpshared(&barrierAttr, PTHREAD_PROCESS_SHARED);
-
   Util::lockFile(PROTECTED_SHM_FD);
   sharedDataHeader->barrierInfo.numCkptPeers++;
-  pthread_barrier_init(&sharedDataHeader->barrierInfo.barrier,
-                       &barrierAttr,
-                       sharedDataHeader->barrierInfo.numCkptPeers);
+  sharedDataHeader->barrierInfo.numIn = 0;
+  sharedDataHeader->barrierInfo.curRound = 0;
   Util::unlockFile(PROTECTED_SHM_FD);
 
   WMB;
@@ -238,7 +239,36 @@ SharedData::postRestart()
 void
 SharedData::waitForBarrier(const string &barrierId)
 {
-  pthread_barrier_wait(&sharedDataHeader->barrierInfo.barrier);
+  // TODO: Replace file locking with atomic built-ins such as
+  // __sync_fetch_and_add.
+  Util::lockFile(PROTECTED_SHM_FD);
+  size_t numIn = ++sharedDataHeader->barrierInfo.numIn;
+  size_t curRound = sharedDataHeader->barrierInfo.curRound;
+  WMB;
+  Util::unlockFile(PROTECTED_SHM_FD);
+
+  if (numIn < sharedDataHeader->barrierInfo.numCkptPeers) {
+    if (_real_syscall(SYS_futex,
+                      &sharedDataHeader->barrierInfo.curRound,
+                      FUTEX_WAIT,
+                      curRound,
+                      NULL, NULL, 0) != 0) {
+      JASSERT(errno == EAGAIN);
+      Util::lockFile(PROTECTED_SHM_FD);
+      Util::unlockFile(PROTECTED_SHM_FD);
+    }
+  } else {
+    Util::lockFile(PROTECTED_SHM_FD);
+    sharedDataHeader->barrierInfo.numIn = 0;
+    sharedDataHeader->barrierInfo.curRound++;
+    WMB;
+    _real_syscall(SYS_futex,
+                  &sharedDataHeader->barrierInfo.curRound,
+                  FUTEX_WAKE,
+                  sharedDataHeader->barrierInfo.numCkptPeers,
+                  NULL, NULL, 0);
+    Util::unlockFile(PROTECTED_SHM_FD);
+  }
 }
 
 string
