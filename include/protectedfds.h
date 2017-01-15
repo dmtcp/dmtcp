@@ -27,11 +27,11 @@
 
 #define DEFAULT_PROTECTED_FD_BASE   820
 
-uint32_t protectedFdBase();
+int protectedFdBase();
 
-inline uint32_t protectedFdBase()
+inline int protectedFdBase()
 {
-  static uint32_t base = DEFAULT_PROTECTED_FD_BASE;
+  static int base = DEFAULT_PROTECTED_FD_BASE;
   const char *buf = getenv("DMTCP_PROTECTED_FD_BASE");
 
   if (buf) {

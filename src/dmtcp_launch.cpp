@@ -391,7 +391,7 @@ static void processArgs(int *orig_argc, char ***orig_argv,
 int main ( int argc, char** argv )
 {
   Util::setProtectedFdBase();
-  for (size_t fd = PROTECTED_FD_START; fd < PROTECTED_FD_END; fd++) {
+  for (int fd = PROTECTED_FD_START; fd < PROTECTED_FD_END; fd++) {
     close(fd);
   }
 
