@@ -779,7 +779,7 @@ static void setLDPreloadLibs(bool is32bitElf)
     for (size_t i = 0; i < numLibs; i++) {
       struct PluginInfo *p= &pluginInfo[i];
       if (*p->enabled) {
-        preloadLibs += Util::getPath(p->lib, is32bitElf) + ":";
+        preloadLibs += Util::getPath(p->lib) + ":";
 #if defined(__x86_64__) || defined(__aarch64__)
         preloadLibs32 += Util::getPath(p->lib, true) + ":";
 #endif
@@ -812,7 +812,7 @@ static void setLDPreloadLibs(bool is32bitElf)
             "See DMTCP FAQ or try:\n"
             "  ./configure --enable-m32 && make clean && make -j && make install\n"
             "  ./configure && make clean && make -j && make install\n");
-    setenv("LD_PRELOAD", preloadLibs.c_str(), 1);
+    setenv("LD_PRELOAD", preloadLibs32.c_str(), 1);
   }
 #endif
   JTRACE("getting value of LD_PRELOAD")
