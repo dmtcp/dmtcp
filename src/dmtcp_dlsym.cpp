@@ -85,8 +85,8 @@ elf_hash(const char *name)
     h = (h << 4) + *name++;
     if ((g = h & 0xf0000000)) {
       h ^= g >> 24;
-      h &= ~g;
     }
+    h &= ~g;
   }
   return h;
 }
@@ -235,9 +235,7 @@ version_name(ElfW(Word)version_ndx, dt_tag *tags)
   }
 
   // Walk the list of all versions.
-  for (prev = NULL, cur =
-         (ElfW(Verdef) *)(tags->base_addr + (unsigned long int)(tags->verdef));
-
+  for (prev = NULL, cur = tags->verdef;
        // Could alternatively use verdefnum (DT_VERDEFNUM) here.
        cur != prev;
        prev = cur, cur = (ElfW(Verdef) *)(((char *)cur) + cur->vd_next)) {
@@ -282,33 +280,62 @@ get_dt_tags(void *handle, dt_tag *tags)
 
   ElfW(Dyn) * cur_dyn;
 
+/*
+ * This code extends dmtcp_dlsym to work on VDSO, while in libc, they have a
+ * separate internal vdso_dlsym function for this purpose.
+ *
+ * For libraries loaded by RTLD, the DT_* entries are patched at load time.
+ * Here's an example call trace:
+ *   _start()
+ *     ...
+ *     dl_main()
+ *       ...
+ *       _dl_map_object()
+ *         _dl_map_object_from_fd()
+ *           _dl_map_segments()
+ *           elf_get_dynamic_info()
+ *
+ * The elf_get_dynamic_info() function changes the DT_* entries from
+ * relative offsets to absolute addresses.
+ *
+ * For cases where the DSO is *not* loaded by RTLD, like vDSO (with read-only
+ * data), we need to manually adjust at access time.
+ */
+
+#define ADJUST_DYN_INFO_RO(dst, map, dyn)                   \
+  if (dyn->d_un.d_ptr > map->l_addr) {                      \
+    dst = (__typeof(dst))dyn->d_un.d_ptr;                   \
+  } else {                                                  \
+    dst = (__typeof(dst))(map->l_addr + dyn->d_un.d_ptr);   \
+  }
+
   // The _DYNAMIC symbol should be pointer to address of the dynamic section.
   // printf("dyn: %p; _DYNAMIC: %p\n", dyn, _DYNAMIC);
   for (cur_dyn = dyn; cur_dyn->d_tag != DT_NULL; cur_dyn++) {
     if (cur_dyn->d_tag == DT_VERSYM) {
-      tags->versym = (ElfW(Half) *)cur_dyn->d_un.d_ptr;
+      ADJUST_DYN_INFO_RO(tags->versym, lmap, cur_dyn);
     }
     if (cur_dyn->d_tag == DT_VERDEF) {
-      tags->verdef = (ElfW(Verdef) *)cur_dyn->d_un.d_ptr;
+      ADJUST_DYN_INFO_RO(tags->verdef, lmap, cur_dyn);
     }
     if (cur_dyn->d_tag == DT_VERDEFNUM) {
       tags->verdefnum = (ElfW(Word))cur_dyn->d_un.d_val;
     }
     if (cur_dyn->d_tag == DT_STRTAB && tags->strtab == 0) {
-      tags->strtab = (char *)cur_dyn->d_un.d_ptr;
+      ADJUST_DYN_INFO_RO(tags->strtab, lmap, cur_dyn);
     }
 
     // Not DT_DYNSYM, since only dynsym section loaded into RAM; not symtab.??
     // So, DT_SYMTAB refers to dynsym section ??
     if (cur_dyn->d_tag == DT_SYMTAB) {
-      tags->symtab = (ElfW(Sym) *)cur_dyn->d_un.d_ptr;
+      ADJUST_DYN_INFO_RO(tags->symtab, lmap, cur_dyn);
     }
     if (cur_dyn->d_tag == DT_HASH) {
-      tags->hash = (Elf32_Word *)cur_dyn->d_un.d_ptr;
+      ADJUST_DYN_INFO_RO(tags->hash, lmap, cur_dyn);
     }
 #ifdef HAS_GNU_HASH
     if (cur_dyn->d_tag == DT_GNU_HASH) {
-      tags->gnu_hash = (Elf32_Word *)cur_dyn->d_un.d_ptr;
+      ADJUST_DYN_INFO_RO(tags->gnu_hash, lmap, cur_dyn);
     }
 #endif /* ifdef HAS_GNU_HASH */
 
@@ -436,31 +463,6 @@ dlsym_default_internal_flag_handler(void *handle,
   // Search through libraries until end of list is reached or symbol is found.
   while (1) {
     // printf("l_name: %s\n", map->l_name);
-    // Running dlsym_default_internal on the linux-vdso library will
-    // cause a segfault. Because it may have different versions on
-    // different systems, we check this way rather than a strcmp.
-    // If the library is vdso, we simply move to the next loaded,
-    // library if it exists.
-    if (map->l_name[0] == 'l' &&
-        map->l_name[1] == 'i' &&
-        map->l_name[2] == 'n' &&
-        map->l_name[3] == 'u' &&
-        map->l_name[4] == 'x' &&
-        map->l_name[5] == '-' &&
-        map->l_name[6] == 'v' &&
-        map->l_name[7] == 'd' &&
-        map->l_name[8] == 's' &&
-        map->l_name[9] == 'o') {
-      if (!map->l_next) {
-        JTRACE("No more libraries to search.");
-        return NULL;
-      }
-
-      // Change link map to next library
-      map = map->l_next;
-      continue;
-    }
-
     // Search current library
     result = dlsym_default_internal_library_handler((void*) map,
                                                     symbol,
@@ -483,7 +485,7 @@ dlsym_default_internal_flag_handler(void *handle,
 }
 
 // Produces an error message and hard fails if no default_symbol was found.
-void
+static void
 print_debug_messages(dt_tag tags,
                      Elf32_Word default_symbol_index,
                      const char *symbol)
