@@ -542,7 +542,7 @@ ProcessInfo::restart()
 #endif // ifdef RESTORE_ARGV_AFTER_RESTART
 
   restoreProcessGroupInfo();
-  _real_close(PROTECTED_ENVIRON_FD);
+  // _real_close(PROTECTED_ENVIRON_FD);
 }
 
 void
