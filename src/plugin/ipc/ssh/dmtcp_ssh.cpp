@@ -126,8 +126,7 @@ waitForConnection(int listenSock)
 
   if (fd == -1) {
     perror("accept failed:");
-    abort();
-    exit(0);
+    exit(DMTCP_FAIL_RC);
   }
   close(listenSock);
   return fd;
@@ -145,7 +144,7 @@ main(int argc, char *argv[], char *envp[])
 
   if (argc < 2) {
     printf("***ERROR: This program shouldn't be used directly.\n");
-    exit(1);
+    exit(DMTCP_FAIL_RC);
   }
 
   /* command line parsing was assuming the location of arguments

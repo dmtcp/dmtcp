@@ -33,16 +33,22 @@
 #include "config.h"
 
 #ifdef TIMING
-# define JTIMER(name)       static jalib::JTimeRecorder _jtimer_ ## name(# name);
+# define JTIMER(name)                                            \
+  static jalib::JTimeRecorder _jtimer_ ## name(# name, true)
+# define JTIMER_NOPRINT(name)                                    \
+  static jalib::JTimeRecorder _jtimer_ ## name(# name, false)
 # define JTIMER_START(name) (_jtimer_ ## name.start())
 # define JTIMER_STOP(name)  (_jtimer_ ## name.stop())
+# define JTIMER_GETDELTA(var, name)  ((var) = _jtimer_ ## name.getDelta())
 # define JTIMER_SCOPE(name)                                      \
   static jalib::JTimeRecorder _jtimer_scope_tm_ ## name(# name); \
   jalib::JScopeTimer _jtimer_scope_inst_ ## name(_jtimer_scope_tm_ ## name);
 #else // ifdef TIMING
 # define JTIMER(name)
+# define JTIMER_NOPRINT(name)
 # define JTIMER_START(name)
 # define JTIMER_STOP(name)
+# define JTIMER_GETDELTA(var, name)
 # define JTIMER_SCOPE(name)
 #endif // ifdef TIMING
 
@@ -80,11 +86,12 @@ class JTimeRecorder
 
     static void operator delete(void *p) { JALLOC_HELPER_DELETE(p); }
 #endif // ifdef JALIB_ALLOCATOR
-    JTimeRecorder(const jalib::string &name);
+    JTimeRecorder(const jalib::string &name, bool printToFile);
     void start()
     {
       JWARNING(!_isStarted) (_name);
       _start = JTime::Now();
+      _end = JTime::Now();
       _isStarted = true;
     }
 
@@ -93,7 +100,19 @@ class JTimeRecorder
       JWARNING(_isStarted) (_name);
       if (!_isStarted) { return; }
       _isStarted = false;
-      recordTime(JTime::Now() - _start);
+      _end = JTime::Now();
+      if (_printToFile) {
+        recordTime(_end - _start);
+      }
+    }
+
+    /* The function returns the difference in seconds between
+     * the call to start() and stop(). It returns 0.0 if it gets
+     * called without calling stop().
+     */
+    double getDelta()
+    {
+      return _end - _start;
     }
 
   protected:
@@ -102,7 +121,9 @@ class JTimeRecorder
   private:
     jalib::string _name;
     bool _isStarted;
+    bool _printToFile;
     JTime _start;
+    JTime _end;
 };
 
 class JScopeTimer

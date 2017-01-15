@@ -653,7 +653,9 @@ ThreadList::waitForAllRestored(Thread *thread)
     }
 
     JTRACE("before DmtcpWorker::postRestart()");
-    DmtcpWorker::postRestart(); // mtcp_restoreargv_start_addr);
+
+    DmtcpWorker::postRestart(thread->ckptReadTime);
+
     JTRACE("after DmtcpWorker::postRestart()");
 
     SigInfo::restoreSigHandlers();
@@ -684,12 +686,10 @@ ThreadList::waitForAllRestored(Thread *thread)
  *
  *****************************************************************************/
 void
-ThreadList::postRestart(void)
+ThreadList::postRestart(double readTime)
 {
   Thread *thread;
   sigset_t tmp;
-
-  SharedData::postRestart();
 
   /* If DMTCP_RESTART_PAUSE set, sleep 15 seconds and allow gdb attach. */
   if (getenv("MTCP_RESTART_PAUSE") || getenv("DMTCP_RESTART_PAUSE")) {
@@ -704,6 +704,8 @@ ThreadList::postRestart(void)
     prctl(PR_SET_PTRACER, 0, 0, 0, 0);   // Revert permission to default.
 #endif // ifdef HAS_PR_SET_PTRACER
   }
+
+  SharedData::postRestart();
 
   /* Fill in the new mother process id */
   motherpid = THREAD_REAL_TID();
@@ -738,6 +740,7 @@ ThreadList::postRestart(void)
       mtcpRestartThreadArg.virtualTid = thread->virtual_tid;
       clonearg = &mtcpRestartThreadArg;
     }
+    thread->ckptReadTime = readTime;
 
     /* Create the thread so it can finish restoring itself. */
     pid_t tid = _real_clone(restarthread,

@@ -51,12 +51,6 @@
 #define CKPT_FILES_SUBDIR_PREFIX "ckpt_"
 #define CKPT_FILES_SUBDIR_SUFFIX "_files"
 
-/* dmtcp_launch, dmtcp_restart return a unique rc (default: 99) */
-#define DMTCP_FAIL_RC                                         \
-  (getenv("DMTCP_FAIL_RC") && atoi(getenv("DMTCP_FAIL_RC"))   \
-     ? atoi(getenv("DMTCP_FAIL_RC"))                            \
-     : 99)
-
 // Not used
 // #define X11_LISTENER_PORT_START 6000
 
