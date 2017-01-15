@@ -1,6 +1,9 @@
 #include <errno.h>
+#include <libgen.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -9,6 +12,12 @@ int
 main(int argc, char *argv[])
 {
   char *hostname = "localhost";
+
+  char buf[4096];
+  strcpy(buf, argv[0]);
+  dirname(buf);
+  strcat(buf, "/dmtcp1");
+  char *dmtcp1Path = realpath(buf, NULL);
 
   int in[2], out[2], err[2];
 
@@ -54,11 +63,7 @@ main(int argc, char *argv[])
       "-o",
       "StrictHostKeyChecking=no",
       hostname,
-#ifdef USE_DMTCP1
-      "~/dmtcp/test/dmtcp1",
-#else /* ifdef USE_DMTCP1 */
-      "sleep", "100",
-#endif /* ifdef USE_DMTCP1 */
+      dmtcp1Path,
       NULL
     };
     execv(argv[0], argv);
@@ -78,15 +83,6 @@ main(int argc, char *argv[])
           exit(0);
         }
       }
-#ifndef USE_DMTCP1
-      rt = read(err[0], buf, 4096);
-      if (rt > 0) {
-        wrt = write(STDERR_FILENO, buf, rt);
-        if (wrt == -1 && errno != EINTR) {
-          perror("write failed.");
-        }
-      }
-#endif /* ifndef USE_DMTCP1 */
     }
   }
   wait(NULL);
