@@ -105,31 +105,47 @@ dummySshdProcess(char *listenAddr)
 int main(int argc, char *argv[], char *envp[])
 {
   int in[2], out[2], err[2];
-  char *host;
-  int port;
+  char *host = NULL;
+  int port = 0;
 
   if (argc < 2) {
     printf("***ERROR: This program shouldn't be used directly.\n");
     exit(DMTCP_FAIL_RC);
   }
 
-  if (strcmp(argv[1], "--listenAddr") == 0) {
-    dummySshdProcess(argv[2]);
-    printf("ERROR: Not Implemented\n");
-    assert(0);
+  shift;
+  while (true) {
+    if (strcmp(argv[0], "--listenAddr") == 0) {
+      dummySshdProcess(argv[1]);
+      printf("ERROR: Not Implemented\n");
+      assert(0);
+      shift; shift;
+    } else if (strcmp(argv[0], "--host") == 0) {
+      host = argv[1];
+      shift; shift;
+    } else if (strcmp(argv[0], "--port") == 0) {
+      port = atoi(argv[1]);
+      shift; shift;
+    } else if (strcmp(argv[0], "--ssh-slave") == 0) {
+      isRshProcess = 0;
+      shift;
+    } else if (strcmp(argv[0], "--rsh-slave") == 0) {
+      isRshProcess = 1;
+      shift;
+    } else {
+      break;
+    }
   }
 
-  if (strcmp(argv[1], "--host") != 0) {
+  if (host == NULL) {
     printf("Missing --host argument");
     exit(DMTCP_FAIL_RC);
   }
-  host = argv[2];
 
-  if (strcmp(argv[3], "--port") != 0) {
+  if (port == 0) {
     printf("Missing --port argument");
     exit(DMTCP_FAIL_RC);
   }
-  port = atoi(argv[4]);
 
   connectToRemotePeer(host, port);
 
