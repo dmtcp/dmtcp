@@ -149,7 +149,9 @@ extern "C" void dmtcp_prepare_wrappers(void)
     initialize_libc_wrappers();
     //DmtcpWorker::eventHook(DMTCP_EVENT_INIT_WRAPPERS, NULL);
     dmtcp_wrappers_initializing = 0;
+#ifdef ENABLE_PTHREAD_COND_WRAPPERS
     initialize_libpthread_wrappers();
+#endif // #ifdef ENABLE_PTHREAD_COND_WRAPPERS
     dmtcpWrappersInitialized = true;
 
     /* Register pidVirt_pthread_atfork_child() as the first post-fork handler
