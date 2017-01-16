@@ -19,6 +19,7 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#include <stddef.h>
 #include <stdio.h>
 #include <pthread.h>
 
@@ -37,6 +38,12 @@
 EXTERNC void *dmtcp_dlsym(void *handle, const char *symbol);
 EXTERNC void *dmtcp_dlvsym(void *handle, char *symbol, const char *version);
 EXTERNC void *dmtcp_dlsym_lib(const char *libname, const char *symbol);
+/*
+ * Returns the offset of the given function within the given shared library
+ * or -1 if the function does not exist in the library
+ */
+EXTERNC ptrdiff_t dmtcp_dlsym_lib_fnc_offset(const char *libname,
+                                             const char *symbol);
 
 #ifndef STANDALONE
 // This implementation mirrors dmtcp.h:NEXT_FNC() for DMTCP.
