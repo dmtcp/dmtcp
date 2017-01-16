@@ -112,6 +112,9 @@ namespace dmtcp
       uint64_t vvarStart(void) const { return _vvarStart;}
       uint64_t vvarEnd(void) const { return _vvarEnd;}
 
+      bool vdsoOffsetMismatch(ptrdiff_t f1, ptrdiff_t f2,
+                              ptrdiff_t f3, ptrdiff_t f4);
+
       string getCkptFilename() const { return _ckptFileName; }
       string getCkptFilesSubDir() const { return _ckptFilesSubDir; }
       string getCkptDir() const { return _ckptDir; }
@@ -170,6 +173,11 @@ namespace dmtcp
       uint64_t      _vdsoEnd;
       uint64_t      _vvarStart;
       uint64_t      _vvarEnd;
+
+      ptrdiff_t _clock_gettime_offset;
+      ptrdiff_t _getcpu_offset;
+      ptrdiff_t _gettimeofday_offset;
+      ptrdiff_t _time_offset;
   };
 
 }

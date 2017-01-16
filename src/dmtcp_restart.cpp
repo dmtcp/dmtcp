@@ -35,6 +35,7 @@
 #include "coordinatorapi.h"
 #include "util.h"
 #include "uniquepid.h"
+#include "dmtcp_dlsym.h"
 #include "processinfo.h"
 #include "shareddata.h"
 #include  "../jalib/jassert.h"
@@ -137,6 +138,22 @@ class RestoreTarget
         .Text ( "checkpoint file missing" );
 
       _fd = readCkptHeader(_path, &_pInfo);
+      ptrdiff_t clock_gettime_offset =
+                            dmtcp_dlsym_lib_fnc_offset("linux-vdso",
+                                                       "__vdso_clock_gettime");
+      ptrdiff_t getcpu_offset = dmtcp_dlsym_lib_fnc_offset("linux-vdso",
+                                                           "__vdso_getcpu");
+      ptrdiff_t gettimeofday_offset =
+                              dmtcp_dlsym_lib_fnc_offset("linux-vdso",
+                                                         "__vdso_gettimeofday");
+      ptrdiff_t time_offset = dmtcp_dlsym_lib_fnc_offset("linux-vdso",
+                                                         "__vdso_time");
+      JWARNING(!_pInfo.vdsoOffsetMismatch(clock_gettime_offset, getcpu_offset,
+                                          gettimeofday_offset, time_offset))
+              .Text("The vDSO section on the current system is different than"
+                    " the host where the checkpoint image was generated. "
+                    "Restart may fail if the program calls a function in to"
+                    " vDSO, like, gettimeofday(), clock_gettime(), etc.");
       JTRACE("restore target") (_path) (_pInfo.numPeers()) (_pInfo.compGroup());
       JASSERT(_pInfo.getMaxUserFd() < PROTECTED_FD_START)
              (_pInfo.getMaxUserFd())(PROTECTED_FD_START)
