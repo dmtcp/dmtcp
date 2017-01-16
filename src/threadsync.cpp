@@ -396,7 +396,7 @@ ThreadSync::wrapperExecutionLockLock()
       if (retVal != 0 && retVal != EDEADLK) {
         fprintf(stderr, "ERROR %d at %s:%d %s: Failed to acquire lock\n",
                 errno, __FILE__, __LINE__, __PRETTY_FUNCTION__);
-        _exit(1);
+        _exit(DMTCP_FAIL_RC);
       }
 
       // retVal should always be 0 (success) here.
@@ -462,7 +462,7 @@ ThreadSync::wrapperExecutionLockLockExcl()
     if (retVal != 0 && retVal != EDEADLK) {
       fprintf(stderr, "ERROR %s:%d %s: Failed to acquire lock\n",
               __FILE__, __LINE__, __PRETTY_FUNCTION__);
-      _exit(1);
+      _exit(DMTCP_FAIL_RC);
     }
     lockAcquired = retVal == 0 ? true : false;
     if (!lockAcquired) {
@@ -506,7 +506,7 @@ ThreadSync::wrapperExecutionLockUnlock()
   if (_real_pthread_rwlock_unlock(&_wrapperExecutionLock) != 0) {
     fprintf(stderr, "ERROR %s:%d %s: Failed to release lock\n",
             __FILE__, __LINE__, __PRETTY_FUNCTION__);
-    _exit(1);
+    _exit(DMTCP_FAIL_RC);
   } else {
     decrementWrapperExecutionLockLockCount();
   }
@@ -532,7 +532,7 @@ ThreadSync::threadCreationLockLock()
       if (retVal != 0 && retVal != EDEADLK) {
         fprintf(stderr, "ERROR %s:%d %s: Failed to acquire lock\n",
                 __FILE__, __LINE__, __PRETTY_FUNCTION__);
-        _exit(1);
+        _exit(DMTCP_FAIL_RC);
       }
 
       // retVal should always be 0 (success) here.
@@ -564,12 +564,12 @@ ThreadSync::threadCreationLockUnlock()
             __FILE__,
             __LINE__,
             __PRETTY_FUNCTION__);
-    _exit(1);
+    _exit(DMTCP_FAIL_RC);
   }
   if (_real_pthread_rwlock_unlock(&_threadCreationLock) != 0) {
     fprintf(stderr, "ERROR %s:%d %s: Failed to release lock\n",
             __FILE__, __LINE__, __PRETTY_FUNCTION__);
-    _exit(1);
+    _exit(DMTCP_FAIL_RC);
   } else {
     decrementThreadCreationLockLockCount();
   }

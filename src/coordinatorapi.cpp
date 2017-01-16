@@ -26,6 +26,7 @@
 #include <arpa/inet.h>
 #include <fcntl.h>
 #include <netdb.h>
+#include <poll.h>
 #include <semaphore.h>  // for sem_post(&sem_launch)
 #include <sys/time.h>
 #include <sys/types.h>
@@ -435,12 +436,14 @@ CoordinatorAPI::startNewCoordinator(CoordinatorMode mode)
   jalib::JServerSocket coordinatorListenerSocket(jalib::JSockAddr::ANY,
                                                  port, 128);
   JASSERT(coordinatorListenerSocket.isValid())
-    (coordinatorListenerSocket.port()) (JASSERT_ERRNO)
-    .Text("Failed to create listen socket."
-          "If msg is \"Address already in use\", this may be an old"
-          "coordinator."
-          "Kill other coordinators and try again in a minute or so.");
-
+    (coordinatorListenerSocket.port()) (JASSERT_ERRNO) (host) (port)
+    .Text("Failed to create socket to coordinator port."
+          "\nIf msg is \"Address already in use\","
+             " this may be an old coordinator."
+          "\nEither try again a few seconds or a minute later,"
+          "\nOr kill other coordinators on this host and port:"
+          "\n    dmtcp_command ---coord-host XXX --coord-port XXX"
+          "\nOr specify --join-coordinator if joining existing computation.");
   // Now dup the sockfd to
   coordinatorListenerSocket.changeFd(PROTECTED_COORD_FD);
   CoordinatorAPI::setCoordPort(coordinatorListenerSocket.port());
@@ -480,8 +483,8 @@ CoordinatorAPI::createNewConnToCoord(CoordinatorMode mode)
 {
   if (mode & COORD_JOIN) {
     _coordinatorSocket = createNewSocketToCoordinator(mode);
-    JASSERT(_coordinatorSocket != -1) (JASSERT_ERRNO)
-    .Text("Coordinator not found, but --join was specified. Exiting.");
+    JASSERT(isValid()) (JASSERT_ERRNO)
+     .Text("Coordinator not found, but --join-coordinator specified. Exiting.");
   } else if (mode & COORD_NEW) {
     startNewCoordinator(mode);
     _coordinatorSocket = createNewSocketToCoordinator(mode);
@@ -540,6 +543,17 @@ CoordinatorAPI::sendRecvHandshake(DmtcpMessage msg,
     JASSERT(false) (*compId)
     .Text("Connection rejected by the coordinator.\n"
           " Reason: This process has a different computation group.");
+  }
+  // Coordinator also prints this, but its stderr may go to /dev/null
+  if (msg.type == DMT_REJECT_NOT_RESTARTING) {
+    string coordinatorHost = ""; // C++ magic code; "" to be invisibly replaced
+    int coordinatorPort;
+    getCoordHostAndPort(COORD_ANY, coordinatorHost, &coordinatorPort);
+    JNOTE ("\n\n*** Computation not in RESTARTING or CHECKPOINTED state."
+        "\n***Can't join the existing coordinator, as it is serving a"
+        "\n***different computation.  Consider launching a new coordinator."
+        "\n***Consider, also, checking with:  dmtcp_command --status")
+        (coordinatorPort);
   }
   JASSERT(msg.type == DMT_ACCEPT)(msg.type);
   return msg;
@@ -662,18 +676,27 @@ CoordinatorAPI::sendCkptFilename()
   // Tell coordinator to record our filename in the restart script
   string ckptFilename = ProcessInfo::instance().getCkptFilename();
   string hostname = jalib::Filesystem::GetCurrentHostname();
-  JTRACE("recording filenames") (ckptFilename) (hostname);
   DmtcpMessage msg;
   if (dmtcp_unique_ckpt_enabled && dmtcp_unique_ckpt_enabled()) {
     msg.type = DMT_UNIQUE_CKPT_FILENAME;
   } else {
     msg.type = DMT_CKPT_FILENAME;
   }
+  // Tell coordinator type of remote shell command used ssh/rsh
+  string shellType = "";
+  const char *remoteShellType = getenv(ENV_VAR_REMOTE_SHELL_CMD);
+  if (remoteShellType != NULL) {
+    shellType = remoteShellType;
+  }
+  JTRACE("recording filenames") (ckptFilename) (hostname) (shellType);
 
-  size_t buflen = hostname.length() + ckptFilename.length() + 2;
+  size_t buflen = hostname.length() + shellType.length() +
+                  ckptFilename.length() + 3;
   char buf[buflen];
   strcpy(buf, ckptFilename.c_str());
-  strcpy(&buf[ckptFilename.length() + 1], hostname.c_str());
+  strcpy(&buf[ckptFilename.length() + 1], shellType.c_str());
+  strcpy(&buf[ckptFilename.length() + 1 + shellType.length() + 1],
+         hostname.c_str());
 
   sendMsgToCoordinator(msg, buf, buflen);
 }
@@ -815,7 +838,6 @@ CoordinatorAPI::waitForCheckpointCommand()
   long remaining = ckptInterval;
 
   do {
-    fd_set rfds;
     struct timeval *timeout = NULL;
     struct timeval start;
     if (ckptInterval > 0) {
@@ -824,11 +846,10 @@ CoordinatorAPI::waitForCheckpointCommand()
       JASSERT(gettimeofday(&start, NULL) == 0) (JASSERT_ERRNO);
     }
 
-    // This call to select() does nothing and returns.
-    // But we want to find address of select() using dlsym/libc before
+    // This call to poll() does nothing and returns.
+    // But we want to find address of poll() using dlsym/libc before
     // allowing the user thread to continue.
-    struct timeval timezero = { 0, 0 };
-    select(0, NULL, NULL, NULL, &timezero);
+    poll(NULL, 0, 0);
     if (sem_launch_first_time) {
       // Release user thread now that we've initialized the checkpoint thread.
       // This code is reached if the --no-coordinator flag is used.
@@ -836,15 +857,18 @@ CoordinatorAPI::waitForCheckpointCommand()
       sem_launch_first_time = false;
     }
 
-    FD_ZERO(&rfds);
-    FD_SET(_coordinatorSocket, &rfds);
-    int retval =
-      select(_coordinatorSocket + 1, &rfds, NULL, NULL, timeout);
+    struct pollfd socketFd = {0};
+    socketFd.fd = _coordinatorSocket;
+    socketFd.events = POLLIN;
+    uint64_t millis = timeout ? ((timeout->tv_sec * (uint64_t)1000) +
+                                 (timeout->tv_usec / 1000))
+                              : -1;
+    int retval = poll(&socketFd, 1, millis);
     if (retval == 0) { // timeout expired, time for checkpoint
       JTRACE("Timeout expired, checkpointing now.");
       return;
     } else if (retval > 0) {
-      JASSERT(FD_ISSET(_coordinatorSocket, &rfds));
+      JASSERT(socketFd.revents & POLLIN);
       JTRACE("Connect request on virtual coordinator socket.");
       break;
     }

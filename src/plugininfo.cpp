@@ -21,7 +21,9 @@
 
 #include "plugininfo.h"
 #include "jassert.h"
+#include "jtimer.h"
 #include "barrierinfo.h"
+#include "config.h"
 #include "coordinatorapi.h"
 #include "dmtcp.h"
 #include "shareddata.h"
@@ -112,6 +114,9 @@ PluginInfo::processBarriers()
 void
 PluginInfo::processBarrier(BarrierInfo *barrier)
 {
+  JTIMER_NOPRINT(barrier);
+
+  JTIMER_START(barrier);
   if (dmtcp_no_coordinator()) {
     // Do nothing.
   } else if (barrier->isGlobal()) {
@@ -123,6 +128,15 @@ PluginInfo::processBarrier(BarrierInfo *barrier)
   }
 
   JTRACE("Barrier released") (barrier->toString());
+
+  JTIMER_STOP(barrier);
+  JTIMER_GETDELTA(barrier->execTime, barrier);
+
+  JTIMER_START(barrier);
+
   barrier->callback();
+
+  JTIMER_STOP(barrier);
+  JTIMER_GETDELTA(barrier->cbExecTime, barrier);
 }
 }

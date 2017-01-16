@@ -104,7 +104,7 @@ static const char *theUsage =
   "Coordinates checkpoints between multiple processes.\n\n"
   "Options:\n"
   "  -p, --coord-port PORT_NUM (environment variable DMTCP_COORD_PORT)\n"
-  "      Port to listen on (default: 7779)\n"
+  "      Port to listen on (default: " STRINGIFY(DEFAULT_PORT) ")\n"
   "  --port-file filename\n"
   "      File to write listener port number.\n"
   "      (Useful with '--port 0', which is used to assign a random port)\n"
@@ -494,9 +494,25 @@ DmtcpCoordinator::recordCkptFilename(CoordClient *client, const char *extraData)
 
   string ckptFilename = extraData;
   string hostname = extraData + ckptFilename.length() + 1;
+  string shellType;
+
+  ckptFilename = extraData;
+  shellType = extraData + ckptFilename.length() + 1;
+  hostname = extraData + shellType.length() + 1 + ckptFilename.length() + 1;
 
   JTRACE("recording restart info") (ckptFilename) (hostname);
-  _restartFilenames[hostname].push_back(ckptFilename);
+  JTRACE ( "recording restart info with shellType" )
+    ( ckptFilename ) ( hostname ) (shellType);
+  if(shellType.empty())
+    _restartFilenames[hostname].push_back ( ckptFilename );
+  else if(shellType == "rsh")
+    _rshCmdFileNames[hostname].push_back( ckptFilename );
+  else if(shellType == "ssh")
+    _sshCmdFileNames[hostname].push_back( ckptFilename );
+  else {
+    JASSERT(0)(shellType)
+      .Text("Shell command not supported. Report this to DMTCP community.");
+  }
   _numRestartFilenames++;
 
   if (_numRestartFilenames == _numCkptWorkers) {
@@ -507,7 +523,9 @@ DmtcpCoordinator::recordCkptFilename(CoordClient *client, const char *extraData)
                                  theCheckpointInterval,
                                  thePort,
                                  compId,
-                                 _restartFilenames);
+                                 _restartFilenames,
+                                 _rshCmdFileNames,
+                                 _sshCmdFileNames);
 
     JNOTE("Checkpoint complete. Wrote restart script") (restartScriptPath);
 
@@ -891,6 +909,20 @@ DmtcpCoordinator::processDmtUserCmd(DmtcpMessage &hello_remote,
   }
 }
 
+/*
+ * Returns the current timestamp with nanosecond resolution
+ */
+static uint64_t
+getCurrTimestamp()
+{
+  struct timespec value;
+  uint64_t nsecs = 0;
+  JASSERT(clock_gettime(CLOCK_MONOTONIC, &value) == 0);
+  nsecs = value.tv_sec*1000000000L + value.tv_nsec;
+  return nsecs;
+}
+
+
 bool
 DmtcpCoordinator::validateRestartingWorkerProcess(
   DmtcpMessage &hello_remote,
@@ -898,7 +930,6 @@ DmtcpCoordinator::validateRestartingWorkerProcess(
   const struct sockaddr_storage *remoteAddr,
   socklen_t remoteLen)
 {
-  struct timeval tv;
   const struct sockaddr_in *sin = (const struct sockaddr_in *)remoteAddr;
   string remoteIP = inet_ntoa(sin->sin_addr);
   DmtcpMessage hello_local(DMT_ACCEPT);
@@ -913,10 +944,7 @@ DmtcpCoordinator::validateRestartingWorkerProcess(
     // Coordinator is free at this moment - set up all the things
     compId = hello_remote.compGroup;
     numPeers = hello_remote.numPeers;
-    JASSERT(gettimeofday(&tv, NULL) == 0);
-
-    // Get the resolution down to 100 mili seconds.
-    curTimeStamp = (tv.tv_sec << 4) | (tv.tv_usec / (100 * 1000));
+    curTimeStamp = getCurrTimestamp();
     JNOTE("FIRST dmtcp_restart connection.  Set numPeers. Generate timestamp")
       (numPeers) (curTimeStamp) (compId);
     JTIMER_START(restart);
@@ -1032,17 +1060,13 @@ DmtcpCoordinator::validateNewWorkerProcess(
   } else {
     // If first process, create the new computation group
     if (compId == UniquePid(0, 0, 0)) {
-      struct timeval tv;
-
       // Connection of new computation.
       compId = UniquePid(hello_remote.from.hostid(), client->virtualPid(),
                          hello_remote.from.time(),
                          hello_remote.from.computationGeneration());
 
-      JASSERT(gettimeofday(&tv, NULL) == 0);
-
       // Get the resolution down to 100 mili seconds.
-      curTimeStamp = (tv.tv_sec << 4) | (tv.tv_usec / (100 * 1000));
+      curTimeStamp = getCurrTimestamp();
       numPeers = -1;
       JTRACE("First process connected.  Creating new computation group.")
         (compId);
@@ -1075,6 +1099,8 @@ DmtcpCoordinator::startCheckpoint()
     JTIMER_START(checkpoint);
     _numRestartFilenames = 0;
     _restartFilenames.clear();
+    _rshCmdFileNames.clear();
+    _sshCmdFileNames.clear();
     compId.incrementGeneration();
     JNOTE("starting checkpoint; incrementing generation; suspending all nodes")
       (s.numPeers) (compId.computationGeneration());

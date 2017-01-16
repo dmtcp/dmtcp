@@ -1,14 +1,17 @@
 #include "pluginmanager.h"
 
 #include "coordinatorapi.h"
+#include "config.h"
 #include "dmtcp.h"
 #include "dmtcpalloc.h"
+#include "jtimer.h"
 #include "plugininfo.h"
 #include "util.h"
 
 static const char *firstRestartBarrier = "DMTCP::RESTART";
 
 static dmtcp::PluginManager *pluginManager = NULL;
+JTIMER_NOPRINT(ckptWriteTime);
 
 extern "C" void dmtcp_initialize();
 
@@ -131,15 +134,75 @@ PluginManager::processCkptBarriers()
   for (size_t i = 0; i < pluginManager->pluginInfos.size(); i++) {
     pluginManager->pluginInfos[i]->processBarriers();
   }
+
+  JTIMER_START(ckptWriteTime);
 }
 
 void
 PluginManager::processResumeBarriers()
 {
+  JTIMER_STOP(ckptWriteTime);
   for (int i = pluginManager->pluginInfos.size() - 1; i >= 0; i--) {
     pluginManager->pluginInfos[i]->processBarriers();
   }
 }
+
+#ifdef TIMING
+void
+PluginManager::logCkptResumeBarrierOverhead()
+{
+  char logFilename[5000] = {0};
+  snprintf(logFilename, sizeof(logFilename), "%s/timings.%s.csv",
+           dmtcp_get_ckpt_dir(), dmtcp_get_uniquepid_str());
+  std::ofstream lfile (logFilename, std::ios::out | std::ios::app);
+
+  double writeTime = 0.0;
+  JTIMER_GETDELTA(writeTime, ckptWriteTime);
+  lfile << "Ckpt-write time," << writeTime << std::endl;
+
+  for (int i = pluginManager->pluginInfos.size() - 1; i >= 0; i--) {
+    for (int j = 0;
+         j < pluginManager->pluginInfos[i]->preCkptBarriers.size(); j++) {
+      lfile << pluginManager->pluginInfos[i]->preCkptBarriers[j]->toString()
+            <<  ','
+            << pluginManager->pluginInfos[i]->preCkptBarriers[j]->execTime
+            << ','
+            << pluginManager->pluginInfos[i]->preCkptBarriers[j]->cbExecTime
+            << std::endl;
+    }
+    for (int j = 0;
+         j < pluginManager->pluginInfos[i]->resumeBarriers.size(); j++) {
+      lfile << pluginManager->pluginInfos[i]->resumeBarriers[j]->toString()
+            <<  ','
+            << pluginManager->pluginInfos[i]->resumeBarriers[j]->execTime
+            << ','
+            << pluginManager->pluginInfos[i]->resumeBarriers[j]->cbExecTime
+            << std::endl;
+    }
+  }
+}
+
+void
+PluginManager::logRestartBarrierOverhead(double ckptReadTime)
+{
+  char logFilename[5000] = {0};
+  snprintf(logFilename, sizeof(logFilename), "%s/timings.%s.csv",
+           dmtcp_get_ckpt_dir(), dmtcp_get_uniquepid_str());
+  std::ofstream lfile (logFilename, std::ios::out | std::ios::app);
+  lfile << "Ckpt-read time," << ckptReadTime << std::endl;
+  for (int i = pluginManager->pluginInfos.size() - 1; i >= 0; i--) {
+    for (int j = 0;
+         j < pluginManager->pluginInfos[i]->restartBarriers.size(); j++) {
+      lfile << pluginManager->pluginInfos[i]->restartBarriers[j]->toString()
+            <<  ','
+            << pluginManager->pluginInfos[i]->restartBarriers[j]->execTime
+            << ','
+            << pluginManager->pluginInfos[i]->restartBarriers[j]->cbExecTime
+            << std::endl;
+    }
+  }
+}
+#endif
 
 void
 PluginManager::processRestartBarriers()

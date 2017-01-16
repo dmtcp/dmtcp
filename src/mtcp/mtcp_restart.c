@@ -53,6 +53,7 @@
 #include <unistd.h>
 
 #include "../membarrier.h"
+#include "config.h"
 #include "mtcp_check_vdso.ic"
 #include "mtcp_header.h"
 #include "mtcp_sys.h"
@@ -70,7 +71,9 @@
 #endif /* ifdef __clang__ */
 
 void mtcp_check_vdso(char **environ);
+#ifdef FAST_RST_VIA_MMAP
 static void mmapfile(int fd, void *buf, size_t size, int prot, int flags);
+#endif
 
 #define BINARY_NAME     "mtcp_restart"
 #define BINARY_NAME_M32 "mtcp_restart-32"
@@ -112,6 +115,9 @@ typedef struct RestoreInfo {
   ThreadTLSInfo motherofall_tls_info;
   int tls_pid_offset;
   int tls_tid_offset;
+#ifdef TIMING
+  struct timeval startValue;
+#endif
   MYINFO_GS_T myinfo_gs;
 } RestoreInfo;
 static RestoreInfo rinfo;
@@ -267,6 +273,9 @@ main(int argc, char *argv[], char **environ)
     mtcp_abort();
   }
 
+#ifdef TIMING
+  mtcp_sys_gettimeofday(&rinfo.startValue, NULL);
+#endif
   if (rinfo.fd != -1) {
     mtcp_readfile(rinfo.fd, &mtcpHdr, sizeof mtcpHdr);
   } else {
@@ -462,6 +471,9 @@ restart_fast_path()
    *    ARM v7 (rev 3, v71), SAMSUNG EXYNOS5 (Flattened Device Tree)
    *    gcc-4.8.1 (Ubuntu pre-release for 14.04) ; Linux 3.13.0+ #54
    */
+  MTCP_PRINTF("*** WARNING: %s:%d: Delay loop on restart for older ARM CPUs\n"
+              "*** Consider removing this line for newer CPUs.\n",
+              __FILE__, __LINE__);
   { int x = 10000000;
     int y = 1000000000;
     for (; x > 0; x--) {
@@ -657,6 +669,14 @@ restorememoryareas(RestoreInfo *rinfo_ptr)
 
   DPRINTF("close cpfd %d\n", restore_info.fd);
   mtcp_sys_close(restore_info.fd);
+  double readTime = 0.0;
+#ifdef TIMING
+  struct timeval endValue;
+  mtcp_sys_gettimeofday(&endValue, NULL);
+  struct timeval diff;
+  timersub(&endValue, &restore_info.startValue, &diff);
+  readTime = diff.tv_sec + (diff.tv_usec / 1000000.0);
+#endif
 
   IMB; /* flush instruction cache, since mtcp_restart.c code is now gone. */
 
@@ -670,7 +690,7 @@ restorememoryareas(RestoreInfo *rinfo_ptr)
   DPRINTF("MTCP restore is now complete.  Continuing by jumping to\n"
           "  ThreadList:postRestart() back inside libdmtcp.so: %p...\n",
           restore_info.post_restart);
-  restore_info.post_restart();
+  restore_info.post_restart(readTime);
 }
 
 NO_OPTIMIZE
@@ -1318,6 +1338,7 @@ __intel_security_check_cookie(void)
   mtcp_abort();
 }
 
+#ifdef FAST_RST_VIA_MMAP
 static void mmapfile(int fd, void *buf, size_t size, int prot, int flags)
 {
   int mtcp_sys_errno;
@@ -1342,4 +1363,4 @@ static void mmapfile(int fd, void *buf, size_t size, int prot, int flags)
     mtcp_abort();
   }
 }
-
+#endif

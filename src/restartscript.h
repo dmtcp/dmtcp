@@ -37,7 +37,9 @@ string writeScript(const string &ckptDir,
                    const uint32_t theCheckpointInterval,
                    const int thePort,
                    const UniquePid &compId,
-                   const map<string, vector<string> > &restartFilenames);
+                   const map<string, vector<string> > &restartFilenames,
+                   const map<string, vector<string> >& rshFilenames,
+                   const map<string, vector<string> >& sshFilenames);
 } // namespace dmtcp {
 } // namespace RestartScript {
 #endif // #ifndef __RESTART_SCRIPT_H__

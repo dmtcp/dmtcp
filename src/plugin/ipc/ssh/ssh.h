@@ -10,6 +10,7 @@
 # define _real_execvpe   NEXT_FNC(execvpe)
 
 # define SSHD_BINARY     "dmtcp_sshd"
+#define RSH_BINARY "rsh"
 # define SSHD_RECEIVE_FD 100
 
 extern "C" void dmtcp_ssh_register_fds(int isSshd,
@@ -17,7 +18,8 @@ extern "C" void dmtcp_ssh_register_fds(int isSshd,
                                        int out,
                                        int err,
                                        int sock,
-                                       int noStrictHostKeyChecking)
+                                       int noStrictHostKeyChecking,
+                                       int rshProcess)
 __attribute((weak));
 
 void client_loop(int ssh_stdin, int ssh_stdout, int ssh_stderr, int remoteSock);

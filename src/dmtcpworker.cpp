@@ -187,20 +187,20 @@ dmtcp_prepare_atfork(void)
 static string
 getLogFilePath()
 {
-#ifdef DEBUG
+#ifdef LOGGING
   ostringstream o;
   o << "/proc/self/fd/" << PROTECTED_JASSERTLOG_FD;
   return jalib::Filesystem::ResolveSymlink(o.str());
 
-#else // ifdef DEBUG
+#else // ifdef LOGGING
   return "";
-#endif // ifdef DEBUG
+#endif // ifdef LOGGING
 }
 
 static void
 writeCurrentLogFileNameToPrevLogFile(string &path)
 {
-#ifdef DEBUG
+#ifdef LOGGING
   ostringstream o;
   o << "========================================\n"
     << "This process exec()'d into a new program\n"
@@ -213,7 +213,7 @@ writeCurrentLogFileNameToPrevLogFile(string &path)
     Util::writeAll(fd, o.str().c_str(), o.str().length());
   }
   _real_close(fd);
-#endif // ifdef DEBUG
+#endif // ifdef LOGGING
 }
 
 static void
@@ -313,6 +313,7 @@ dmtcp_initialize()
           programName != "dmtcp_comand" &&
           programName != "dmtcp_restart" &&
           programName != "mtcp_restart" &&
+          programName != "rsh" &&
           programName != "ssh")
     (programName).Text("This program should not be run under ckpt control");
 
@@ -548,6 +549,9 @@ DmtcpWorker::postCheckpoint()
   }
 
   PluginManager::processResumeBarriers();
+#ifdef TIMING
+  PluginManager::logCkptResumeBarrierOverhead();
+#endif
 
   // Inform Coordinator of RUNNING state.
   WorkerState::setCurrentState(WorkerState::RUNNING);
@@ -555,12 +559,15 @@ DmtcpWorker::postCheckpoint()
 }
 
 void
-DmtcpWorker::postRestart()
+DmtcpWorker::postRestart(double ckptReadTime)
 {
   JTRACE("begin postRestart()");
   WorkerState::setCurrentState(WorkerState::RESTARTING);
 
   PluginManager::processRestartBarriers();
+#ifdef TIMING
+  PluginManager::logRestartBarrierOverhead(ckptReadTime);
+#endif
   JTRACE("got resume message after restart");
 
   // Inform Coordinator of RUNNING state.

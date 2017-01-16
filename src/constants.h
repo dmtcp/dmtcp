@@ -51,12 +51,6 @@
 #define CKPT_FILES_SUBDIR_PREFIX "ckpt_"
 #define CKPT_FILES_SUBDIR_SUFFIX "_files"
 
-/* dmtcp_launch, dmtcp_restart return a unique rc (default: 99) */
-#define DMTCP_FAIL_RC                                         \
-  (getenv("DMTCP_FAIL_RC") && atoi(getenv("DMTCP_FAIL_RC"))   \
-     ? atoi(getenv("DMTCP_FAIL_RC"))                            \
-     : 99)
-
 // Not used
 // #define X11_LISTENER_PORT_START 6000
 
@@ -64,8 +58,12 @@
 #define INITIAL_VIRTUAL_PID         40000
 #define MAX_VIRTUAL_PID             400000000
 
-#define DEFAULT_HOST                "127.0.0.1"
-#define DEFAULT_PORT                7779
+// NEEDED FOR STRINGIFY(DEFAULT_PORT)
+#define QUOTE(arg) #arg
+#define STRINGIFY(arg) QUOTE(arg)
+
+#define DEFAULT_HOST "127.0.0.1"
+#define DEFAULT_PORT 7779
 #define UNINITIALIZED_PORT          -1 /* used with getCoordHostAndPort() */
 
 // Match up this definition with the one in plugin/ptrace/ptracewrappers.cpp
@@ -124,12 +122,14 @@
 #define LIBDL_BASE_FUNC_STR             "dlinfo"
 #define ENV_VAR_DLSYM_OFFSET            "DMTCP_DLSYM_OFFSET"
 #define ENV_VAR_DLSYM_OFFSET_M32        "DMTCP_DLSYM_OFFSET_M32"
+#define ENV_VAR_REMOTE_SHELL_CMD        "DMTCP_REMOTE_SHELL_CMD"
 
 // this list should be kept up to date with all "protected" environment vars
 #define ENV_VARS_ALL                  \
   ENV_VAR_NAME_HOST,                  \
   ENV_VAR_NAME_PORT,                  \
   ENV_VAR_CKPT_INTR,                  \
+  ENV_VAR_REMOTE_SHELL_CMD,           \
   ENV_VAR_ORIG_LD_PRELOAD,            \
   ENV_VAR_HIJACK_LIBS,                \
   ENV_VAR_HIJACK_LIBS_M32,            \

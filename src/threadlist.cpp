@@ -652,11 +652,19 @@ ThreadList::waitForAllRestored(Thread *thread)
       sem_wait(&semNotifyCkptThread);
     }
 
-    JTRACE("before DmtcpWorker::postRestart()");
-    DmtcpWorker::postRestart(); // mtcp_restoreargv_start_addr);
-    JTRACE("after DmtcpWorker::postRestart()");
-
+    // Now that all threads have been created, restore the signal handler. We
+    // need to do it before calling DmtcpWorker::postRestart() because that
+    // routine will invoke restart hooks for all plugins. Some of the plugins
+    // might perform tasks that could potentially generate a signal. For
+    // example, the timer plugin may restore a timer which will fire right away,
+    // and not having an appropriate signal handler could kill the process.
     SigInfo::restoreSigHandlers();
+
+    JTRACE("before DmtcpWorker::postRestart()");
+
+    DmtcpWorker::postRestart(thread->ckptReadTime);
+
+    JTRACE("after DmtcpWorker::postRestart()");
 
     /* raise the signals which were pending for the entire process at the time
      * of checkpoint. It is assumed that if a signal is pending for all threads
@@ -684,12 +692,10 @@ ThreadList::waitForAllRestored(Thread *thread)
  *
  *****************************************************************************/
 void
-ThreadList::postRestart(void)
+ThreadList::postRestart(double readTime)
 {
   Thread *thread;
   sigset_t tmp;
-
-  SharedData::postRestart();
 
   /* If DMTCP_RESTART_PAUSE set, sleep 15 seconds and allow gdb attach. */
   if (getenv("MTCP_RESTART_PAUSE") || getenv("DMTCP_RESTART_PAUSE")) {
@@ -704,6 +710,8 @@ ThreadList::postRestart(void)
     prctl(PR_SET_PTRACER, 0, 0, 0, 0);   // Revert permission to default.
 #endif // ifdef HAS_PR_SET_PTRACER
   }
+
+  SharedData::postRestart();
 
   /* Fill in the new mother process id */
   motherpid = THREAD_REAL_TID();
@@ -738,6 +746,7 @@ ThreadList::postRestart(void)
       mtcpRestartThreadArg.virtualTid = thread->virtual_tid;
       clonearg = &mtcpRestartThreadArg;
     }
+    thread->ckptReadTime = readTime;
 
     /* Create the thread so it can finish restoring itself. */
     pid_t tid = _real_clone(restarthread,

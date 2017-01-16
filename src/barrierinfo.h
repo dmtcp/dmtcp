@@ -22,6 +22,7 @@
 #ifndef __BARRIERINFO_H__
 #define __BARRIERINFO_H__
 
+#include "config.h"
 #include "dmtcp.h"
 #include "dmtcpalloc.h"
 
@@ -76,6 +77,10 @@ class BarrierInfo
     void (*callback)();
     const string id;
     const string pluginName;
+#ifdef TIMING
+    double execTime;
+    double cbExecTime;
+#endif
 };
 
 static inline ostream&

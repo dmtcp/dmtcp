@@ -130,9 +130,9 @@ class JFixedAllocStack
     {
       if (_blockSize == 0) {
         _blockSize = 4 * MAX_CHUNKSIZE;
-        _root = NULL;
-        _numExpands = 0;
       }
+      _root = NULL;
+      _numExpands = 0;
     }
 
     void initialize(int blockSize)
@@ -161,7 +161,7 @@ class JFixedAllocStack
          *   _root = item->next;
          */
         item = _root;
-      } while (!_root ||
+      } while (!item ||
                !__sync_bool_compare_and_swap(&_root, item, item->next));
 
       item->next = NULL;
