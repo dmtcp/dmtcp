@@ -36,6 +36,7 @@
 
 EXTERNC void *dmtcp_dlsym(void *handle, const char *symbol);
 EXTERNC void *dmtcp_dlvsym(void *handle, char *symbol, const char *version);
+EXTERNC void *dmtcp_dlsym_lib(const char *libname, const char *symbol);
 
 #ifndef STANDALONE
 // This implementation mirrors dmtcp.h:NEXT_FNC() for DMTCP.
@@ -49,6 +50,10 @@ EXTERNC void *dmtcp_dlvsym(void *handle, char *symbol, const char *version);
      }                                                                      \
    _real_##func;})
 
+/*
+ * It uses dmtcp_dlvsym to get the function with the specified version in the
+ * next library in the library-search order.
+ */
 # define NEXT_FNC_DEFAULTV(func, ver)                                          \
   ({                                                                           \
      static __typeof__(&func) _real_##func = (__typeof__(&func)) -1;           \
@@ -57,7 +62,26 @@ EXTERNC void *dmtcp_dlvsym(void *handle, char *symbol, const char *version);
        _real_##func = (__typeof__(&func)) dmtcp_dlsym(RTLD_NEXT, #func, ver);  \
      }                                                                         \
    _real_##func;})
-#endif
+
+/*
+ * It uses dmtcp_dlsym to get the default function (in case of symbol
+ * versioning) in the library with the given name.
+ *
+ * One possible usecase could be for bypassing the plugin layers and directly
+ * jumping to a symbol in libc.
+ */
+# define NEXT_FNC_DEFAULT_LIB(lib, func)                                       \
+  ({                                                                           \
+    static __typeof__(&func) _real_##func = (__typeof__(&func)) -1;            \
+    if (_real_##func == (__typeof__(&func)) -1) {                              \
+      if (dmtcp_initialize) {                                                  \
+        dmtcp_initialize();                                                    \
+      }                                                                        \
+      _real_##func = (__typeof__(&func)) dmtcp_dlsym_lib(lib,  #func);         \
+    }                                                                          \
+    _real_##func;                                                              \
+  })
+#endif // ifndef STANDALONE
 
 #ifdef STANDALONE
 // For standalone testing.

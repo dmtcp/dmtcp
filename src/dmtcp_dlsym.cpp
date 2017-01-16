@@ -373,7 +373,8 @@ void *dlsym_default_internal_library_handler(void *handle, const char*symbol,
 // Given a pseudo-handle, symbol name, and addr, returns the address of the symbol
 // with the given name of a default version found by the search order of the given
 // handle which is either RTLD_DEFAULT or RTLD_NEXT.
-void *dlsym_default_internal_flag_handler(void* handle, const char* symbol,
+void *dlsym_default_internal_flag_handler(void* handle, const char *libname,
+                                          const char* symbol,
                                           const char *version,
                                           void* addr, dt_tag *tags_p,
                                           Elf32_Word *default_symbol_index_p)
@@ -392,7 +393,7 @@ void *dlsym_default_internal_flag_handler(void* handle, const char* symbol,
 
 
   // Handle RTLD_DEFAULT starts search at first loaded object
-  if (handle == RTLD_DEFAULT) {
+  if (handle == RTLD_DEFAULT || libname != NULL) {
     while (map->l_prev) {
       // Rewinding to search by load order
       map = map->l_prev;
@@ -410,8 +411,16 @@ void *dlsym_default_internal_flag_handler(void* handle, const char* symbol,
   }
 
   // Search through libraries until end of list is reached or symbol is found.
-  while (1) {
+  while (map) {
     // printf("l_name: %s\n", map->l_name);
+    /* If the caller specified a specific library name, only search through
+     * that.
+     */
+    if (libname != NULL && strlen(map->l_name) > 0 &&
+        !strstr(map->l_name, libname)) {
+      map = map->l_next;
+      continue;
+    }
     // Search current library
     result = dlsym_default_internal_library_handler((void*) map, symbol, version,
                                                     tags_p,
@@ -420,14 +429,10 @@ void *dlsym_default_internal_flag_handler(void* handle, const char* symbol,
       return result;
     }
 
-    // Check if next library exists
-    if (!map->l_next) {
-      //printf("No more libraries to search.\n");
-      return NULL;
-    }
     // Change link map to next library
     map = map->l_next;
   }
+  return NULL;
 }
 
 // Produces an error message and hard fails if no default_symbol was found.
@@ -481,7 +486,8 @@ EXTERNC void *dmtcp_dlsym(void *handle, const char*symbol) {
     // Determine where this function will return
     void* return_address = __builtin_return_address(0);
     // Search for symbol using given pseudo-handle order
-    void *result = dlsym_default_internal_flag_handler(handle, symbol, NULL,
+    void *result = dlsym_default_internal_flag_handler(handle, NULL, symbol,
+                                                       NULL,
                                                        return_address, &tags,
                                                        &default_symbol_index);
     print_debug_messages(tags, default_symbol_index, symbol);
@@ -489,8 +495,8 @@ EXTERNC void *dmtcp_dlsym(void *handle, const char*symbol) {
   }
 #endif
 
-  void *result = dlsym_default_internal_library_handler(handle, symbol, NULL,
-                                                        &tags,
+  void *result = dlsym_default_internal_library_handler(handle, symbol,
+                                                        NULL, &tags,
                                                         &default_symbol_index);
   print_debug_messages(tags, default_symbol_index, symbol);
   return result;
@@ -506,7 +512,8 @@ EXTERNC void * dmtcp_dlvsym(void *handle, char *symbol, const char *version)
     // Determine where this function will return
     void* return_address = __builtin_return_address(0);
     // Search for symbol using given pseudo-handle order
-    void *result = dlsym_default_internal_flag_handler(handle, symbol, version,
+    void *result = dlsym_default_internal_flag_handler(handle, NULL, symbol,
+                                                       version,
                                                        return_address, &tags,
                                                        &default_symbol_index);
     return result;
@@ -516,5 +523,20 @@ EXTERNC void * dmtcp_dlvsym(void *handle, char *symbol, const char *version)
   void *result = dlsym_default_internal_library_handler(handle, symbol, version,
                                                         &tags,
                                                         &default_symbol_index);
+  return result;
+}
+
+EXTERNC void *
+dmtcp_dlsym_lib(const char *libname, const char *symbol)
+{
+  dt_tag tags;
+  Elf32_Word default_symbol_index = 0;
+
+  // Determine where this function will return
+  void* return_address = __builtin_return_address(0);
+  void *result = dlsym_default_internal_flag_handler(NULL, libname, symbol,
+                                                     NULL,
+                                                     return_address, &tags,
+                                                     &default_symbol_index);
   return result;
 }
