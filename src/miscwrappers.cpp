@@ -653,6 +653,7 @@ syscall(long sys_num, ...)
   return ret;
 }
 
+#ifdef ENABLE_PTHREAD_COND_WRAPPERS
 // TODO: Move these to a separate pthreadwrappers.cpp file.
 extern "C" int
 pthread_cond_broadcast(pthread_cond_t *cond)
@@ -703,6 +704,7 @@ pthread_mutex_unlock(pthread_mutex_t *mutex)
 {
   return _real_pthread_mutex_unlock(mutex);
 }
+#endif // #ifdef ENABLE_PTHREAD_COND_WRAPPERS
 
 /*
 extern "C" int
