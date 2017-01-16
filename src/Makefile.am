@@ -74,6 +74,7 @@ nobase_noinst_HEADERS = constants.h \
 #   should not need wrappers.
 libdmtcpinternal_a_SOURCES = dmtcpmessagetypes.cpp  coordinatorapi.cpp \
 			     workerstate.cpp \
+			     dmtcp_dlsym.cpp \
 			     uniquepid.cpp shareddata.cpp \
 			     util_exec.cpp util_misc.cpp util_init.cpp \
 			     jalibinterface.cpp processinfo.cpp procselfmaps.cpp

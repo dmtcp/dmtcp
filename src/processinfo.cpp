@@ -29,6 +29,7 @@
 #include "../jalib/jconvert.h"
 #include "../jalib/jfilesystem.h"
 #include "coordinatorapi.h"
+#include "dmtcp_dlsym.h"
 #include "procselfmaps.h"
 #include "syscallwrappers.h"
 #include "uniquepid.h"
@@ -744,16 +745,33 @@ ProcessInfo::refreshChildTable()
   }
 }
 
+bool
+ProcessInfo::vdsoOffsetMismatch(ptrdiff_t f1, ptrdiff_t f2,
+                                ptrdiff_t f3, ptrdiff_t f4)
+{
+  return (f1 != _clock_gettime_offset) || (f2 != _getcpu_offset) ||
+         (f3 != _gettimeofday_offset) || (f4 != _time_offset);
+}
+
 void
 ProcessInfo::serialize(jalib::JBinarySerializer &o)
 {
   JSERIALIZE_ASSERT_POINT("ProcessInfo:");
   _savedBrk = (uint64_t) sbrk(0);
+  _clock_gettime_offset = dmtcp_dlsym_lib_fnc_offset("linux-vdso",
+                                                     "__vdso_clock_gettime");
+  _getcpu_offset = dmtcp_dlsym_lib_fnc_offset("linux-vdso",
+                                              "__vdso_getcpu");
+  _gettimeofday_offset = dmtcp_dlsym_lib_fnc_offset("linux-vdso",
+                                                    "__vdso_gettimeofday");
+  _time_offset = dmtcp_dlsym_lib_fnc_offset("linux-vdso", "__vdso_time");
 
   o & _elfType;
   o & _isRootOfProcessTree & _pid & _sid & _ppid & _gid & _fgid & _generation;
   o & _procname & _procSelfExe & _hostname & _launchCWD & _ckptCWD;
   o & _upid & _uppid;
+  o & _clock_gettime_offset & _getcpu_offset
+    & _gettimeofday_offset & _time_offset;
   o & _compGroup & _numPeers & _noCoordinator & _argvSize & _envSize;
   o & _restoreBufAddr & _savedHeapStart & _savedBrk;
   o & _vdsoStart & _vdsoEnd & _vvarStart & _vvarEnd;
