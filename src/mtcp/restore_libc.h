@@ -60,11 +60,11 @@ extern "C" {
     rc = write(PROTECTED_STDERR_FD, buf, c + 1);                             \
   } while (0);
 
-#ifdef DEBUG
+#ifdef LOGGING
 # define DPRINTF PRINTF
-#else // ifdef DEBUG
+#else // ifdef LOGGING
 # define DPRINTF(args ...) // debug printing
-#endif // ifdef DEBUG
+#endif // ifdef LOGGING
 
 #define ASSERT(condition)                            \
   do {                                               \
