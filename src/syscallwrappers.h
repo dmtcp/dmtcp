@@ -277,7 +277,9 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
 # define GEN_ENUM(x) ENUM(x),
   typedef enum {
     FOREACH_DMTCP_WRAPPER(GEN_ENUM)
+#ifdef ENABLE_PTHREAD_COND_WRAPPERS
     FOREACH_LIBPTHREAD_WRAPPERS(GEN_ENUM)
+#endif // #ifdef ENABLE_PTHREAD_COND_WRAPPERS
     numLibcWrappers
   } LibcWrapperOffset;
 
@@ -443,6 +445,8 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   int _real_pthread_rwlock_tryrdlock(pthread_rwlock_t *rwlock);
   int _real_pthread_rwlock_wrlock(pthread_rwlock_t *rwlock);
   int _real_pthread_rwlock_trywrlock(pthread_rwlock_t *rwlock);
+
+#ifdef ENABLE_PTHREAD_COND_WRAPPERS
   int _real_pthread_cond_broadcast(pthread_cond_t *cond);
   int _real_pthread_cond_destroy(pthread_cond_t *cond);
   int _real_pthread_cond_init(pthread_cond_t *cond,
@@ -451,6 +455,7 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   int _real_pthread_cond_timedwait(pthread_cond_t *cond, pthread_mutex_t *mutex,
                                    const struct timespec *abstime);
   int _real_pthread_cond_wait(pthread_cond_t *cond, pthread_mutex_t *mutex);
+#endif // #ifdef ENABLE_PTHREAD_COND_WRAPPERS
 
   int _real_poll(struct pollfd *fds, nfds_t nfds, int timeout);
 

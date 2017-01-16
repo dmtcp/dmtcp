@@ -249,8 +249,10 @@ static void initialize_libc_wrappers()
   }
 }
 
+#ifdef ENABLE_PTHREAD_COND_WRAPPERS
 # define GET_LIBPTHREAD_FUNC_ADDR(name) \
   _real_func_addr[ENUM(name)] = dlvsym(RTLD_NEXT, #name, pthread_sym_ver);
+
 /*
  * WARNING: By using this method to initialize libpthread wrappers (direct
  * dlopen()/dlsym()) we are are overriding any user wrappers for these
@@ -274,13 +276,16 @@ static void initialize_libpthread_wrappers()
 
   FOREACH_LIBPTHREAD_WRAPPERS(GET_LIBPTHREAD_FUNC_ADDR);
 }
+#endif // #ifdef ENABLE_PTHREAD_COND_WRAPPERS
 
 void dmtcp_prepare_wrappers(void)
 {
   if (!dmtcp_wrappers_initialized) {
     initialize_libc_wrappers();
     dmtcp_wrappers_initialized = 1;
+#ifdef ENABLE_PTHREAD_COND_WRAPPERS
     initialize_libpthread_wrappers();
+#endif // #ifdef ENABLE_PTHREAD_COND_WRAPPERS
   }
 }
 
@@ -409,6 +414,7 @@ int _real_pthread_rwlock_trywrlock(pthread_rwlock_t *rwlock) {
   REAL_FUNC_PASSTHROUGH_TYPED (int,pthread_rwlock_trywrlock) (rwlock);
 }
 
+#ifdef ENABLE_PTHREAD_COND_WRAPPERS
 LIB_PRIVATE
 int _real_pthread_cond_broadcast(pthread_cond_t *cond)
 {
@@ -476,6 +482,7 @@ int _real_pthread_cond_wait(pthread_cond_t *cond, pthread_mutex_t *mutex)
   REAL_FUNC_PASSTHROUGH_TYPED (int,pthread_cond_wait) (cond,mutex);
 #endif
 }
+#endif // #ifdef ENABLE_PTHREAD_COND_WRAPPERS
 
 LIB_PRIVATE
 ssize_t _real_read(int fd, void *buf, size_t count) {
