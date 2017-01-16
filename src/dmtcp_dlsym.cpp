@@ -599,3 +599,26 @@ dmtcp_dlsym_lib(const char *libname, const char *symbol)
                                                      &default_symbol_index);
   return result;
 }
+
+/*
+ * Returns the offset of the given function within the given shared library
+ * or -1 if the function does not exist in the library
+ */
+EXTERNC ptrdiff_t
+dmtcp_dlsym_lib_fnc_offset(const char *libname, const char *symbol)
+{
+  dt_tag tags;
+  ptrdiff_t ret = -1;
+  Elf32_Word default_symbol_index = 0;
+
+  // Determine where this function will return
+  void* return_address = __builtin_return_address(0);
+  void *result = dlsym_default_internal_flag_handler(NULL, libname, symbol,
+                                                     NULL,
+                                                     return_address, &tags,
+                                                     &default_symbol_index);
+  if (result) {
+    ret = (char*)result - tags.base_addr;
+  }
+  return ret;
+}
