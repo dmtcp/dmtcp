@@ -502,7 +502,7 @@ TLSInfo_VerifyPidTid(pid_t pid, pid_t tid)
   tls_tid = *(pid_t *)(addr + TLSInfo_GetTidOffset());
 
   // For glibc > 2.24, pid field is unused.
-  if (tls_pid == 0 && minor >= 24) {
+  if (tls_pid == 0 && major == 2 && minor >= 24) {
     tls_pid = pid;
   }
 
