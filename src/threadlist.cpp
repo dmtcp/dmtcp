@@ -648,11 +648,17 @@ void ThreadList::waitForAllRestored(Thread *thread)
       sem_wait(&semNotifyCkptThread);
     }
 
+    // Now that all threads have been created, restore the signal handler. We
+    // need to do it before calling callbackPostCheckpoint() because that
+    // routine will invoke restart hooks for all plugins. Some of the plugins
+    // might perform tasks that could potentially generate a signal. For
+    // example, the timer plugin may restore a timer which will fire right away,
+    // and not having an appropriate signal handler could kill the process.
+    SigInfo::restoreSigHandlers();
+
     JLOG(DMTCP)("before callbackPostCheckpoint(isRestart=true)");
     callbackPostCheckpoint(true, NULL); //(isRestart,mtcpRestoreArgvStartAddr);
     JLOG(DMTCP)("after callbackPostCheckpoint(isRestart=true)");
-
-    SigInfo::restoreSigHandlers();
 
     /* raise the signals which were pending for the entire process at the time
      * of checkpoint. It is assumed that if a signal is pending for all threads
