@@ -566,7 +566,12 @@ void dmtcp_Alarm_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
 
 void DmtcpWorker::eventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
-  static jalib::JBuffer buf(0); // To force linkage of jbuffer.cpp
+  static jalib::JBuffer *buf = NULL;
+  if (buf == NULL) {
+    // Technically, this is a memory leak, but buf is static and so it happens
+    // only once.
+    buf = new jalib::JBuffer(0); // To force linkage of jbuffer.cpp
+  }
   dmtcp_Syslog_EventHook(event, data);
   dmtcp_Terminal_EventHook(event, data);
   dmtcp_UniquePid_EventHook(event, data);
