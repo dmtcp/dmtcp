@@ -63,10 +63,28 @@ static int errConsoleFd = -1;
 // (as a lvalue) to modifying the underlying variable.
 
 static jalib::string&
-tmpDir() { static jalib::string s; return s; }
+tmpDir()
+{
+  static jalib::string *s = NULL;
+  if (s == NULL) {
+    // Technically, this is a memory leak, but s is static and so it happens
+    // only once.
+    s = new jalib::string();
+  }
+  return *s;
+}
 
 static jalib::string&
-uniquePidStr() { static jalib::string s; return s; }
+uniquePidStr()
+{
+  static jalib::string *s = NULL;
+  if (s == NULL) {
+    // Technically, this is a memory leak, but s is static and so it happens
+    // only once.
+    s = new jalib::string();
+  }
+  return *s;
+}
 
 static int
 jwrite(int fd, const char *str)
@@ -160,7 +178,15 @@ _open_log_safe(const jalib::string &s, int protectedFd)
 }
 
 static jalib::string&
-theLogFilePath() { static jalib::string s; return s; }
+theLogFilePath() {
+  static jalib::string *s = NULL;
+  if (s == NULL) {
+    // Technically, this is a memory leak, but s is static and so it happens
+    // only once.
+    s = new jalib::string();
+  }
+  return *s;
+}
 
 void
 jassert_internal::jassert_init()

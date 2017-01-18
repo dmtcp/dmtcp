@@ -266,7 +266,7 @@ installSegFaultHandler()
   JASSERT(sigaction(SIGSEGV, &act, NULL) == 0) (JASSERT_ERRNO);
 }
 
-static jalib::JBuffer buf(0); // To force linkage of jbuffer.cpp
+static jalib::JBuffer *buf = NULL;
 
 // called before user main()
 // workerhijack.cpp initializes a static variable theInstance to DmtcpWorker obj
@@ -276,6 +276,11 @@ dmtcp_initialize()
   static bool initialized = false;
 
   if (initialized) {
+    if (buf == NULL) {
+      // Technically, this is a memory leak, but buf is static and so it happens
+      // only once.
+      buf = new jalib::JBuffer(0); // To force linkage of jbuffer.cpp
+    }
     return;
   }
   initialized = true;
