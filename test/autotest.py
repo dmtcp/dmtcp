@@ -8,6 +8,7 @@
 #      to par-autotest-RUN_NUMBER.out
 NUM_PARALLEL_TESTS = 5  # Run this many tests in parallel
 MAX_TESTS = 150 # Must be greater than or equal to the number of actual tests
+PARALLEL_TEST_TIMEOUT = 90 # timeout for individual test in seconds
 output = [None] * MAX_TESTS
 active_tests = [{} for i in range(NUM_PARALLEL_TESTS)] # copies of {}
 def runNextTestInBackground(num_run, coord_port, slow=1):
@@ -34,6 +35,8 @@ def getTestOutput(test_num):
 def executeParallelTests(slow=1):
   # FIXME:  In principle, dmtcp_base_coord_port + [0..9] may be occupied.
   #         We'll live with risk for now.  Since port is random, can do over.
+  global PARALLEL_TEST_TIMEOUT
+  PARALLEL_TEST_TIMEOUT *= slow # Longer timeout if running slowly
   dmtcp_base_coord_port = int(os.environ['DMTCP_COORD_PORT'])
   num_run = 1  # Initialize test run to test number 1
   num_completed_runs = 0
@@ -126,6 +129,10 @@ if USE_TEST_SUITE == "no":
 PTRACE_SUPPORT="no"
 
 signal.alarm(1800)  # half hour
+def sigalrm_handler(sig, stack_frame):
+  if sig == signal.SIGALRM:
+    killChildren()
+signal.signal(signal.SIGALRM, sigalrm_handler)
 
 if sys.version_info[0] != 2 or sys.version_info[0:2] < (2,4):
   print "test/autotest.py works only with Python 2.x for 2.x greater than 2.3"
@@ -382,6 +389,7 @@ if args.parallel:
 #  If this is -1, then don't run any tests.
 if os.getenv('DMTCP_PARALLEL_AUTOTEST'):
   RUN_NUMBER = int(os.environ["DMTCP_NUM_RUN"])
+  signal.alarm(PARALLEL_TEST_TIMEOUT)
 else:
   RUN_NUMBER = -1
 
@@ -748,6 +756,12 @@ def getProcessChildren(pid):
                          stdout = subprocess.PIPE, stderr = subprocess.PIPE)
     stdout, stderr = p.communicate()
     return [int(pid) for pid in stdout.split()]
+def killChildren():
+  for pid in getProcessChildren(os.getpid()):
+    try:
+      os.kill(pid, signal.SIGKILL)
+    except OSError: # This happens if pid already died.
+      pass
 
 # If the user types ^C, then kill all child processes.
 def runTest(name, numProcs, cmds):
@@ -756,11 +770,7 @@ def runTest(name, numProcs, cmds):
       runTestRaw(name, numProcs, cmds)
       break;
     except KeyboardInterrupt:
-      for pid in getProcessChildren(os.getpid()):
-        try:
-          os.kill(pid, signal.SIGKILL)
-        except OSError: # This happens if pid already died.
-          pass
+      killChildren()
     except CheckFailed, e:
       if not args.retry_once:
         break
