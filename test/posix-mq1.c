@@ -16,7 +16,7 @@ msg_snd(mqd_t mqdes, int i)
 
   errno = 0;
   if (mq_send(mqdes, buf, strlen(buf) + 1, 0) == -1) {
-    perror("mq_send failed");
+    perror("mq_send");
     fflush(stdout);
     sleep(1);
     exit(1);
@@ -30,7 +30,7 @@ msg_rcv(mqd_t mqdes, int i)
 
   errno = 0;
   if (mq_receive(mqdes, buf, sizeof(buf), NULL) == -1) {
-    perror("mq_receive failed");
+    perror("mq_receive");
     fflush(stdout);
     sleep(1);
     exit(1);
@@ -50,7 +50,7 @@ parent(const char *mqname)
 
   mq_unlink(mqname); /* parent and child will continue to use mqname */
   if (mqdes == -1) {
-    perror("mq_open() failed");
+    perror("mq_open (in parent)");
     exit(1);
   }
 
@@ -81,7 +81,7 @@ child(const char *mqname)
   // while others use it:  But this seems to work fine in the parent.
   // mq_unlink(mqname); /* parent and child will continue to use mqname */
   if (mqdes == -1) {
-    perror("mq_open() failed");
+    perror("mq_open (in child)");
     exit(1);
   }
 
@@ -101,7 +101,7 @@ main(int argc, char **argv)
   char mqname[256];
   char *user = getenv("USER");
 
-  sprintf(mqname, "/dmtcp-mq-%s", user == NULL ? "" : user);
+  sprintf(mqname, "/dmtcp-mq1-%s", user == NULL ? "" : user);
   mq_unlink(mqname);
   if (fork() == 0) {
     child(mqname);
