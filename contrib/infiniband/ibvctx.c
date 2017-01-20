@@ -641,14 +641,20 @@ void post_restart(void)
   {
     struct internal_ibv_cq * internal_cq;
     struct internal_ibv_ctx * internal_ctx;
+    struct ibv_comp_channel * real_channel = NULL;
 
     internal_cq = list_entry(e, struct internal_ibv_cq, elem);
     internal_ctx = ibv_ctx_to_internal(internal_cq->user_cq.context);
+    if (internal_cq->user_cq.channel) {
+      real_channel =
+        ibv_comp_to_internal(internal_cq->user_cq.channel)->real_channel;
+    }
 
     internal_cq->real_cq = NEXT_IBV_FNC(ibv_create_cq)
                                          (internal_ctx->real_ctx,
                                           internal_cq->user_cq.cqe,
-                                          internal_cq->user_cq.cq_context, NULL,
+                                          internal_cq->user_cq.cq_context,
+                                          real_channel,
                                           internal_cq->comp_vector);
 
     if (!internal_cq->real_cq)
@@ -1674,7 +1680,6 @@ struct ibv_cq * _create_cq(struct ibv_context * context,
 
   INIT_INTERNAL_IBV_TYPE(internal_cq);
   internal_cq->comp_vector = comp_vector;
-  internal_cq->channel = ibv_comp_to_internal(channel);
 
   memcpy(&internal_cq->user_cq, internal_cq->real_cq, sizeof(struct ibv_cq));
 
