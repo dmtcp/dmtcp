@@ -186,6 +186,16 @@ EXTERNC const char* dmtcp_get_ckpt_dir(void) __attribute ((weak));
 EXTERNC int dmtcp_set_ckpt_dir(const char *) __attribute ((weak));
 #define dmtcp_set_ckpt_dir(d) \
  (dmtcp_set_ckpt_dir ? dmtcp_set_ckpt_dir(d) : DMTCP_NOT_PRESENT)
+
+// One peer can request a change to a global ckpt dir while another requests
+// a checkpoint. If a peer can send a global ckpt dir request before being
+// suspended, then the coordinator will recognize this request, and pass on
+// to all peers the new global ckpt dir. Upon restart, all peers will remember
+// the current ckpt dir (whether the original local one or a change to a
+// global one).
+EXTERNC int dmtcp_set_global_ckpt_dir(const char *) __attribute__ ((weak));
+#define dmtcp_set_global_ckpt_dir(d) \
+ (dmtcp_set_global_ckpt_dir ? dmtcp_set_global_ckpt_dir(d) : DMTCP_NOT_PRESENT)
 EXTERNC const char* dmtcp_get_coord_ckpt_dir(void) __attribute__ ((weak));
 #define dmtcp_get_coord_ckpt_dir() \
  (dmtcp_get_coord_ckpt_dir ? dmtcp_get_coord_ckpt_dir() : NULL)

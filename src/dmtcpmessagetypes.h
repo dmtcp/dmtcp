@@ -47,6 +47,9 @@ namespace dmtcp
     DMT_UPDATE_PROCESS_INFO_AFTER_INIT_OR_EXEC,
 
     DMT_UPDATE_CKPT_DIR,
+    DMT_UPDATE_GLOBAL_CKPT_DIR,
+    DMT_UPDATE_GLOBAL_CKPT_DIR_SUCCEED,
+    DMT_UPDATE_GLOBAL_CKPT_DIR_FAIL,
     DMT_CKPT_FILENAME,       // a slave sending it's checkpoint filename to coordinator
     DMT_UNIQUE_CKPT_FILENAME,// same as DMT_CKPT_FILENAME, except when
                              //   unique-ckpt plugin is being used.

@@ -408,6 +408,7 @@ void DmtcpWorker::waitForCoordinatorMsg(string msgStr,
   }
 
   DmtcpMessage msg;
+  char *replyData = NULL;
 
   if (type == DMT_DO_SUSPEND) {
     // Make a dummy syscall to inform superior of our status before we go into
@@ -421,7 +422,7 @@ void DmtcpWorker::waitForCoordinatorMsg(string msgStr,
 
   JLOG(DMTCP)("waiting for " + msgStr + " message");
   do {
-    CoordinatorAPI::instance().recvMsgFromCoordinator(&msg);
+    CoordinatorAPI::instance().recvMsgFromCoordinator(&msg, (void **)&replyData);
     if (type == DMT_DO_SUSPEND && exitInProgress()) {
       ThreadSync::destroyDmtcpWorkerLockUnlock();
       ckptThreadPerformExit();
@@ -447,6 +448,11 @@ void DmtcpWorker::waitForCoordinatorMsg(string msgStr,
     SharedData::updateGeneration(msg.compGroup.computationGeneration());
     JASSERT(SharedData::getCompId() == msg.compGroup.upid())
       (SharedData::getCompId()) (msg.compGroup);
+    // Coordinator sends the global checkpoint dir.
+    if (msg.extraBytes > 0) {
+      ProcessInfo::instance().setCkptDir(replyData);
+      JALLOC_HELPER_FREE(replyData);
+    }
   } else if (type == DMT_DO_FD_LEADER_ELECTION) {
     JLOG(DMTCP)("Computation information") (msg.compGroup) (msg.numPeers);
     ProcessInfo::instance().compGroup(msg.compGroup);

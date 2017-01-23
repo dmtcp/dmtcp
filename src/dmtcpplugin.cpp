@@ -43,6 +43,7 @@
 #undef dmtcp_get_coord_ckpt_dir
 #undef dmtcp_set_ckpt_dir
 #undef dmtcp_get_ckpt_dir
+#undef dmtcp_set_global_ckpt_dir
 
 using namespace dmtcp;
 
@@ -193,6 +194,22 @@ EXTERNC int dmtcp_set_ckpt_dir(const char* dir)
   if (dir != NULL) {
     ProcessInfo::instance().setCkptDir(dir);
   }
+  return DMTCP_IS_PRESENT;
+}
+
+EXTERNC int dmtcp_set_global_ckpt_dir(const char *dir)
+{
+  dmtcp_disable_ckpt();
+  if (dir != NULL) {
+    if(!CoordinatorAPI::instance().updateGlobalCkptDir(dir)) {
+      JNOTE("Failed to set global checkpoint dir. "
+            "Most probably this is because DMTCP is in the middle "
+            "of a checkpoint. Please try again later") (dir);
+      dmtcp_enable_ckpt();
+      return -1;
+    }
+  }
+  dmtcp_enable_ckpt();
   return DMTCP_IS_PRESENT;
 }
 

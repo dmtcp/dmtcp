@@ -400,6 +400,33 @@ void CoordinatorAPI::updateCoordCkptDir(const char *dir)
   _coordinatorSocket.writeAll(dir, strlen(dir) + 1);
 }
 
+// Invoked by the application or a plugin via
+// dmtcp.h:dmtcp_set_global_ckpt_dir() and
+// via dmtcpplugin.cpp:dmtcp_set_global_ckpt_dir()
+bool CoordinatorAPI::updateGlobalCkptDir(const char *dir)
+{
+  if (noCoordinator()) return false;
+  JASSERT(dir != NULL);
+  jalib::JSocket sock = createNewSocketToCoordinator(COORD_ANY);
+  JASSERT(sock.isValid());
+  DmtcpMessage msg(DMT_UPDATE_GLOBAL_CKPT_DIR);
+  msg.extraBytes = strlen(dir) + 1;
+  sock << msg;
+  sock.writeAll(dir, msg.extraBytes);
+
+  msg.poison();
+  sock >> msg;
+  sock.close();
+
+  if (msg.type == DMT_UPDATE_GLOBAL_CKPT_DIR_SUCCEED) {
+    JTRACE("Updated global checkpoint dir") (dir);
+    return true;
+  } else {
+    JTRACE("Failed to update global checkpoint dir") (dir);
+    return false;
+  }
+}
+
 void CoordinatorAPI::sendMsgToCoordinator(const DmtcpMessage &msg,
                                           const void *extraData,
                                           size_t len)

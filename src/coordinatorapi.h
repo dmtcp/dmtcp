@@ -95,6 +95,8 @@ namespace dmtcp
       void updateCoordCkptDir(const char *dir);
       string getCoordCkptDir(void);
 
+      bool updateGlobalCkptDir(const char *dir);
+
       void sendCkptFilename();
 
       int sendKeyValPairToCoordinator(const char *id,

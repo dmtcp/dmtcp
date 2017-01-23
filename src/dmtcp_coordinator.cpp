@@ -200,6 +200,7 @@ static struct in_addr localhostIPAddr;
 
 static string tmpDir;
 static string ckptDir;
+static string globalCkptDir;
 
 #define MAX_EVENTS 10000
 struct epoll_event events[MAX_EVENTS];
@@ -765,6 +766,32 @@ void DmtcpCoordinator::onConnect()
     return;
   }
 
+  if (hello_remote.type == DMT_UPDATE_GLOBAL_CKPT_DIR) {
+    JASSERT(hello_remote.extraBytes > 0) (hello_remote.extraBytes);
+    ComputationStatus s = getStatus();
+    char *extraData = new char[hello_remote.extraBytes];
+    remote.readAll(extraData, hello_remote.extraBytes);
+    DmtcpMessage reply;
+
+    if (s.minimumState == WorkerState::RUNNING && s.minimumStateUnanimous
+        && !workersRunningAndSuspendMsgSent) {
+      reply.type = DMT_UPDATE_GLOBAL_CKPT_DIR_SUCCEED;
+      globalCkptDir = extraData;
+      JTRACE("Received DMT_UPDATE_GLOBAL_CKPT_DIR msg, "
+             "updating the global checkpoint dir")
+        (hello_remote.from) (globalCkptDir);
+    } else {
+      reply.type = DMT_UPDATE_GLOBAL_CKPT_DIR_FAIL;
+      JTRACE("Received DMT_UPDATE_GLOBAL_CKPT_DIR msg during checkpointing, "
+             "will not update the global checkpoint dir") (hello_remote.from);
+    }
+
+    remote << reply;
+    delete [] extraData;
+    remote.close();
+    return;
+  }
+
 #ifdef COORD_NAMESERVICE
   if (hello_remote.type == DMT_NAME_SERVICE_WORKER) {
     CoordClient *client = new CoordClient(remote, &remoteAddr, remoteLen,
@@ -1122,6 +1149,11 @@ void DmtcpCoordinator::broadcastMessage(DmtcpMessageType type, int numPeers)
   if (numPeers > 0) {
     msg.numPeers = numPeers;
   }
+  // Coordinator broadcasts the global checkpoint dir at the beginning of
+  // a checkpoint.
+  if (msg.type == DMT_DO_SUSPEND && !globalCkptDir.empty()) {
+    msg.extraBytes = globalCkptDir.length() + 1;
+  }
 
   if (msg.type == DMT_KILL_PEER && clients.size() > 0) {
     killInProgress = true;
@@ -1135,6 +1167,9 @@ void DmtcpCoordinator::broadcastMessage(DmtcpMessageType type, int numPeers)
 
   for (size_t i = 0; i < clients.size(); i++) {
     clients[i]->sock() << msg;
+    if (msg.extraBytes > 0) {
+      clients[i]->sock().writeAll(globalCkptDir.c_str(), msg.extraBytes);
+    }
   }
   JTRACE ("sending message")( type );
 }
