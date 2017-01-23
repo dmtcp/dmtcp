@@ -46,8 +46,6 @@ namespace dmtcp
     DMT_UPDATE_PROCESS_INFO_AFTER_FORK,
     DMT_UPDATE_PROCESS_INFO_AFTER_INIT_OR_EXEC,
 
-    DMT_GET_CKPT_DIR,
-    DMT_GET_CKPT_DIR_RESULT,
     DMT_UPDATE_CKPT_DIR,
     DMT_CKPT_FILENAME,       // a slave sending it's checkpoint filename to coordinator
     DMT_UNIQUE_CKPT_FILENAME,// same as DMT_CKPT_FILENAME, except when

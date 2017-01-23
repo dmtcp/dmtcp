@@ -384,19 +384,10 @@ char* CoordinatorAPI::connectAndSendUserCommand(char c,
 string CoordinatorAPI::getCoordCkptDir(void)
 {
   // FIXME: Add a test for make-check.
-  char buf[PATH_MAX] = {0};
+  int coordCmdStatus = CoordCmdStatus::NOERROR;
   if (noCoordinator()) return "";
-  DmtcpMessage msg(DMT_GET_CKPT_DIR);
-  _coordinatorSocket << msg;
-
-  msg.poison();
-  _coordinatorSocket >> msg;
-  msg.assertValid();
-  JASSERT(msg.type == DMT_GET_CKPT_DIR_RESULT) (msg.type);
-
-  JASSERT(msg.extraBytes > 0);
-  _coordinatorSocket.readAll(buf, msg.extraBytes);
-  return buf;
+  string coordCkptDir = connectAndSendUserCommand('e', &coordCmdStatus);
+  return coordCkptDir;
 }
 
 void CoordinatorAPI::updateCoordCkptDir(const char *dir)

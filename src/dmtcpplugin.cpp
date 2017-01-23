@@ -196,10 +196,15 @@ EXTERNC int dmtcp_set_ckpt_dir(const char* dir)
   return DMTCP_IS_PRESENT;
 }
 
+// Returns a zero-length string when there's no
+// coordinator or a checkpoint is in progress.
 EXTERNC const char* dmtcp_get_coord_ckpt_dir(void)
 {
-  static string dir;
-  dir = CoordinatorAPI::instance().getCoordCkptDir();
+  string dir;
+  CoordinatorAPI coordinatorAPI;
+  dmtcp_disable_ckpt();
+  dir = coordinatorAPI.getCoordCkptDir();
+  dmtcp_enable_ckpt();
   return dir.c_str();
 }
 

@@ -278,6 +278,24 @@ void DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*= NULL*
   case 'd': case 'D':
     broadcastMessage(DMT_UPDATE_LOGGING);
     break;
+  case 'e': case 'E':
+  {
+    ComputationStatus s = getStatus();
+
+    if (s.minimumState == WorkerState::RUNNING && s.minimumStateUnanimous
+        && !workersRunningAndSuspendMsgSent) {
+      JTRACE("Received DMT_GET_COORD_CKPT_DIR msg");
+      reply->extraBytes = ckptDir.length() + 1;
+    }
+    else {
+      JTRACE("Received DMT_GET_COORD_CKPT_DIR msg during checkpointing");
+    }
+
+    if (reply->extraBytes > 0) {
+      replyData = ckptDir;
+    }
+    break;
+  }
   case 'c': case 'C':
     JTRACE ( "checkpointing..." );
     if(startCheckpoint()){
@@ -586,14 +604,6 @@ void DmtcpCoordinator::onData(CoordClient *client)
         JASSERT(0)(shellType)
           .Text("Shell command not supported. Report this to DMTCP community.");
       }
-    }
-    break;
-    case DMT_GET_CKPT_DIR:
-    {
-      DmtcpMessage reply(DMT_GET_CKPT_DIR_RESULT);
-      reply.extraBytes = ckptDir.length() + 1;
-      client->sock() << reply;
-      client->sock().writeAll(ckptDir.c_str(), reply.extraBytes);
     }
     break;
     case DMT_UPDATE_CKPT_DIR:
