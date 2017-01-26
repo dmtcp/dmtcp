@@ -14,6 +14,7 @@
 #include <stdio.h>
 #include <sys/time.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <cstring>
 #include <cstdlib>
 #include <stdarg.h>
@@ -80,6 +81,9 @@ static char newPathPrefixList[MAX_ENV_VAR_SIZE];
 
 static bool tmpBufferModified = false;
 static pthread_rwlock_t  listRwLock;
+
+static dmtcp::string
+virtual_to_physical_path(const char *virt_path);
 
 EXTERNC int dmtcp_pathvirt_enabled() { return 1; }
 
@@ -265,67 +269,6 @@ pathvirtInitialize()
      * virtual_to_physical_path can know whether to try to swap or not
      */
     shouldSwap = *oldPathPrefixList && *newPathPrefixList;
-}
-
-/*
- * virtual_to_physical_path - translate virtual to physical path
- *
- * Returns a dmtcp::string for the corresponding physical path to the given
- * virtual path. If no path translation occurred, the given virtual path
- * will simply be returned as a dmtcp::string.
- *
- * Conceptually, an original path prior to the first checkpoint is considered a
- * "virtual path".  After a restart, it will be substituted using the latest
- * list of registered paths.  Hence, a newly registered path to be substituted
- * is a "physical path".  Internally, DMTCP works with the original "virtual
- * path" as the canonical name.  But in any system calls, it must translate the
- * virtual path to the latest "physical path", which will correspond to the
- * current, post-restart filesystem.
- */
-static dmtcp::string
-virtual_to_physical_path(const char *virt_path)
-{
-    char *oldPathPtr = NULL;
-    dmtcp::string virtPathString(virt_path?virt_path:"");
-    dmtcp::string physPathString;
-
-    /* quickly return if no swap or NULL path */
-    if (!shouldSwap || !virt_path) {
-        return virtPathString;
-    }
-
-    /* yes, should swap */
-
-    pthread_rwlock_rdlock(&listRwLock);
-    /* check if path is in list of registered paths to swap out */
-    int index = clfind(oldPathPrefixList, virt_path, &oldPathPtr);
-    if (index == -1)
-        return virtPathString;
-
-    /* found it in old list, now get a pointer to the new prefix to swap in*/
-    char *physPathPtr = clget(newPathPrefixList, index);
-    if (physPathPtr == NULL)
-        return virtPathString;
-
-    size_t newElementSz = clgetsize(newPathPrefixList, physPathPtr);
-    size_t oldElementSz = clgetsize(oldPathPrefixList, oldPathPtr);
-
-    /* temporarily null terminate new element */
-    physPathPtr[newElementSz] = '\0';
-
-    /* finally, create full path with the new prefix swapped in */
-    physPathString = physPathPtr;
-    physPathString += "/";
-    physPathString += (virt_path + oldElementSz);
-    JTRACE("Matching virtual path to real path")
-      (virtPathString) (physPathString);
-
-    /* repair the colon list */
-    physPathPtr[newElementSz] = ':';
-
-    pthread_rwlock_unlock(&listRwLock);
-
-    return physPathString;
 }
 
 EXTERNC void
@@ -777,4 +720,87 @@ extern "C" int statfs(const char *path, struct statfs *buf)
   const char *phys_path = temp.c_str();
 
   return _real_statfs(phys_path, buf);
+}
+
+/*
+ * Resolve the path if path is a symbolic link
+ *
+ * path should be a physical path.
+ */
+static dmtcp::string
+resolve_symlink(const char *path)
+{
+  struct stat statBuf;
+  if (_real_lxstat(_STAT_VER, path, &statBuf) == 0
+      && S_ISLNK(statBuf.st_mode)) {
+    char buf[PATH_MAX];
+    memset(buf, 0, sizeof(buf));
+    _real_readlink(path, buf, sizeof(buf) - 1);
+    return virtual_to_physical_path(buf);
+  }
+
+  return path;
+}
+
+/*
+ * virtual_to_physical_path - translate virtual to physical path
+ *
+ * Returns a dmtcp::string for the corresponding physical path to the given
+ * virtual path. If no path translation occurred, the given virtual path
+ * will simply be returned as a dmtcp::string.
+ *
+ * Conceptually, an original path prior to the first checkpoint is considered a
+ * "virtual path".  After a restart, it will be substituted using the latest
+ * list of registered paths.  Hence, a newly registered path to be substituted
+ * is a "physical path".  Internally, DMTCP works with the original "virtual
+ * path" as the canonical name.  But in any system calls, it must translate the
+ * virtual path to the latest "physical path", which will correspond to the
+ * current, post-restart filesystem.
+ */
+dmtcp::string
+virtual_to_physical_path(const char *virt_path)
+{
+    char *oldPathPtr = NULL;
+    dmtcp::string virtPathString(virt_path?virt_path:"");
+    dmtcp::string physPathString;
+
+    /* quickly return if no swap or NULL path */
+    if (!shouldSwap || !virt_path) {
+        return virtPathString;
+    }
+
+    /* yes, should swap */
+
+    pthread_rwlock_rdlock(&listRwLock);
+    /* check if path is in list of registered paths to swap out */
+    int index = clfind(oldPathPrefixList, virt_path, &oldPathPtr);
+    if (index == -1) {
+      pthread_rwlock_unlock(&listRwLock);
+      return resolve_symlink(virtPathString.c_str());
+    }
+
+    /* found it in old list, now get a pointer to the new prefix to swap in*/
+    char *physPathPtr = clget(newPathPrefixList, index);
+    if (physPathPtr == NULL)
+        return virtPathString;
+
+    size_t newElementSz = clgetsize(newPathPrefixList, physPathPtr);
+    size_t oldElementSz = clgetsize(oldPathPrefixList, oldPathPtr);
+
+    /* temporarily null terminate new element */
+    physPathPtr[newElementSz] = '\0';
+
+    /* finally, create full path with the new prefix swapped in */
+    physPathString = physPathPtr;
+    physPathString += "/";
+    physPathString += (virt_path + oldElementSz);
+    JTRACE("Matching virtual path to real path")
+      (virtPathString) (physPathString);
+
+    /* repair the colon list */
+    physPathPtr[newElementSz] = ':';
+
+    pthread_rwlock_unlock(&listRwLock);
+
+    return resolve_symlink(physPathString.c_str());
 }
