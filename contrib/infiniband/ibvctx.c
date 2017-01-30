@@ -609,6 +609,7 @@ void post_restart(void)
   {
     struct internal_ibv_comp_channel * internal_comp;
     struct internal_ibv_ctx * internal_ctx;
+    int flags;
 
     PDEBUG("About to deal with completion channels\n");
     internal_comp = list_entry(e, struct internal_ibv_comp_channel, elem);
@@ -632,6 +633,17 @@ void post_restart(void)
       }
       close(internal_comp->real_channel->fd);
       internal_comp->real_channel->fd = internal_comp->user_channel.fd;
+    }
+
+    flags = NEXT_FNC(fcntl)(internal_comp->real_channel->fd, F_GETFL, NULL);
+    if (!(flags & O_NONBLOCK)) {
+      int rslt = NEXT_FNC(fcntl)(internal_comp->real_channel->fd,
+                             F_SETFL, flags | O_NONBLOCK);
+      if (rslt < 0) {
+        fprintf(stderr, "Failed to change file descriptor "
+                        "of completion event channel: %d\n", errno);
+        exit(1);
+      }
     }
   }
   /* end code to register the completion channel */
@@ -772,8 +784,8 @@ void post_restart2(void)
 
   // Recreate the Address Handlers
   for (e = list_begin(&ah_list); e != list_end(&ah_list); e = list_next(e)) {
-    uint32_t size;
     struct ibv_ah_attr real_attr;
+    uint32_t size = sizeof(real_attr.dlid);
     struct internal_ibv_ah *internal_ah;
 
     internal_ah = list_entry(e, struct internal_ibv_ah, elem);
@@ -2416,7 +2428,7 @@ struct ibv_ah * _create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr) {
 
   // On restart, we need to fix the lid
   if (is_restart) {
-    uint32_t size;
+    uint32_t size = sizeof(real_attr.dlid);
     dmtcp_send_query_to_coordinator("lidInfo",
                                     &attr->dlid,
                                     sizeof(attr->dlid),

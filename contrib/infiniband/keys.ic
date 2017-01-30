@@ -81,8 +81,8 @@ void update_rkey_send(struct ibv_send_wr * wr, int pd_id)
 
 void update_ud_send_restart(struct ibv_send_wr *wr) {
   struct internal_ibv_ah *internal_ah;
-  uint32_t size;
   ibv_ud_qp_id_t orig_id, curr_id;
+  uint32_t size = sizeof(curr_id);
 
   if (wr == NULL) {
     return;
