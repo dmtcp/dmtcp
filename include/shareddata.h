@@ -61,6 +61,7 @@ typedef struct CoordinatorInfo {
 
 namespace SharedData
 {
+// All structs should be 64-bit aligned.
 struct PidMap {
   pid_t virt;
   pid_t real;
@@ -94,9 +95,21 @@ typedef struct InodeConnIdMap {
 } InodeConnIdMap;
 
 struct BarrierInfo {
-  uint32_t numCkptPeers;
+  uint64_t numCkptPeers;
+
+  // Futex
+  uint32_t numIn;
+  uint32_t curRound;
+
+  // Posix Barrier
   pthread_barrier_t barrier;
 };
+
+typedef enum {
+  DMTCP_ARCH_32,
+  DMTCP_ARCH_64,
+  DMTCP_ARCH_MIXED
+} DMTCP_ARCH_MODE;
 
 struct Header {
   char tmpDir[PATH_MAX];
@@ -140,6 +153,10 @@ struct Header {
   DmtcpUniqueProcessId compId;
   CoordinatorInfo coordInfo;
 
+  union {
+    DMTCP_ARCH_MODE archMode;
+    uint64_t _pad;
+  };
   // char                 coordHost[NI_MAXHOST];
 };
 
