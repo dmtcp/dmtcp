@@ -139,6 +139,13 @@ check: tests
 	   ' python to path or build Python 2.x for x >= 3.'; \
 	  fi
 
+# Be careful.  A slow (networked) filesystem or delays due to SELinux
+#   may cause a lot of the parallel checks to fail!
+# Also, consider:  make AUTOTEST=--slow check-parallel
+check-parallel: tests
+	bash -c "$(LIMIT) && $(top_srcdir)/test/autotest.py --parallel \
+	  ${AUTOTEST} '$*'"
+
 check-%: tests
 	bash -c "$(LIMIT) && $(top_srcdir)/test/autotest.py ${AUTOTEST} '$*'"
 
@@ -176,7 +183,7 @@ icheck-%: tests
 	@ $(targetdir)/bin/dmtcp_coordinator
 
 tidy:
-	rm -rf dmtcp-autotest-* ckpt_*_files
+	rm -rf dmtcp-autotest-* ckpt_*_files par-autotest-*.out
 	rm -f ckpt_*.dmtcp dmtcp_restart_script* \
 	  dmtcp-shared-memory.* dmtcp-test-typescript.tmp core*
 	rm -rf ckpt_*
