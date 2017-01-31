@@ -105,7 +105,6 @@ struct internal_ibv_cq {
   uint64_t magic2;
   struct ibv_cq *real_cq;
   int comp_vector;
-  struct internal_ibv_comp_channel *channel;
   struct list wc_queue; /*!< This queue buffers remaining completion events at
                            checkpoint time */
   struct list req_notify_log; /*!< This list contains log entries of calls to

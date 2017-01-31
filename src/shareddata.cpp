@@ -21,9 +21,11 @@
 
 #include <fcntl.h>
 #include <stdlib.h>
+#include <syscall.h>
 #include <sys/ipc.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <linux/futex.h>
 
 #include "../jalib/jassert.h"
 #include "../jalib/jconvert.h"
@@ -42,6 +44,12 @@
 using namespace dmtcp;
 static struct SharedData::Header *sharedDataHeader = NULL;
 static uint32_t nextVirtualPtyId = (uint32_t)-1;
+
+#if defined(__x86_64__) || defined(__aarch64__)
+static const SharedData::DMTCP_ARCH_MODE archMode = SharedData::DMTCP_ARCH_32;
+#else
+static const SharedData::DMTCP_ARCH_MODE archMode = SharedData::DMTCP_ARCH_64;
+#endif
 
 void
 SharedData::initializeHeader(const char *tmpDir,
@@ -75,6 +83,10 @@ SharedData::initializeHeader(const char *tmpDir,
 
   sharedDataHeader->numIncomingConMaps = 0;
   sharedDataHeader->barrierInfo.numCkptPeers = 0;
+  sharedDataHeader->barrierInfo.numIn = 0;
+  sharedDataHeader->barrierInfo.curRound = 0;
+
+  sharedDataHeader->archMode = archMode;
 
   memcpy(&sharedDataHeader->compId, compId, sizeof(*compId));
   memcpy(&sharedDataHeader->coordInfo, coordInfo, sizeof(*coordInfo));
@@ -182,6 +194,12 @@ SharedData::initialize(const char *tmpDir = NULL,
       JASSERT(false) (sharedDataHeader->versionStr) (SHM_VERSION_STR)
       .Text("Wrong signature");
     }
+
+    // Check if the computation is running in mixed mode.
+    if (sharedDataHeader->archMode != archMode) {
+      sharedDataHeader->archMode = DMTCP_ARCH_MIXED;
+    }
+
     Util::unlockFile(PROTECTED_SHM_FD);
   }
   JTRACE("Shared area mapped") (sharedDataHeader);
@@ -197,6 +215,8 @@ void
 SharedData::resetBarrierInfo()
 {
   sharedDataHeader->barrierInfo.numCkptPeers = 0;
+  sharedDataHeader->barrierInfo.numIn = 0;
+  sharedDataHeader->barrierInfo.curRound = 0;
 }
 
 // Here we reset some counters that are used by IPC plugin for local
@@ -214,15 +234,19 @@ SharedData::prepareForCkpt()
 void
 SharedData::initializeBarrier()
 {
-  pthread_barrierattr_t barrierAttr;
-
-  pthread_barrierattr_setpshared(&barrierAttr, PTHREAD_PROCESS_SHARED);
-
   Util::lockFile(PROTECTED_SHM_FD);
   sharedDataHeader->barrierInfo.numCkptPeers++;
-  pthread_barrier_init(&sharedDataHeader->barrierInfo.barrier,
-                       &barrierAttr,
-                       sharedDataHeader->barrierInfo.numCkptPeers);
+
+  if (sharedDataHeader->archMode != DMTCP_ARCH_MIXED) {
+    pthread_barrierattr_t barrierAttr;
+    pthread_barrierattr_setpshared(&barrierAttr, PTHREAD_PROCESS_SHARED);
+    pthread_barrier_init(&sharedDataHeader->barrierInfo.barrier,
+                         &barrierAttr,
+                         sharedDataHeader->barrierInfo.numCkptPeers);
+  } else {
+    sharedDataHeader->barrierInfo.numIn = 0;
+    sharedDataHeader->barrierInfo.curRound = 0;
+  }
   Util::unlockFile(PROTECTED_SHM_FD);
 
   WMB;
@@ -238,7 +262,41 @@ SharedData::postRestart()
 void
 SharedData::waitForBarrier(const string &barrierId)
 {
-  pthread_barrier_wait(&sharedDataHeader->barrierInfo.barrier);
+  if (sharedDataHeader->archMode != DMTCP_ARCH_MIXED) {
+    pthread_barrier_wait(&sharedDataHeader->barrierInfo.barrier);
+    return;
+  }
+
+  // TODO: Replace file locking with atomic built-ins such as
+  // __sync_fetch_and_add.
+  Util::lockFile(PROTECTED_SHM_FD);
+  size_t numIn = ++sharedDataHeader->barrierInfo.numIn;
+  size_t curRound = sharedDataHeader->barrierInfo.curRound;
+  WMB;
+  Util::unlockFile(PROTECTED_SHM_FD);
+
+  if (numIn < sharedDataHeader->barrierInfo.numCkptPeers) {
+    if (_real_syscall(SYS_futex,
+                      &sharedDataHeader->barrierInfo.curRound,
+                      FUTEX_WAIT,
+                      curRound,
+                      NULL, NULL, 0) != 0) {
+      JASSERT(errno == EAGAIN);
+      Util::lockFile(PROTECTED_SHM_FD);
+      Util::unlockFile(PROTECTED_SHM_FD);
+    }
+  } else {
+    Util::lockFile(PROTECTED_SHM_FD);
+    sharedDataHeader->barrierInfo.numIn = 0;
+    sharedDataHeader->barrierInfo.curRound++;
+    WMB;
+    _real_syscall(SYS_futex,
+                  &sharedDataHeader->barrierInfo.curRound,
+                  FUTEX_WAKE,
+                  sharedDataHeader->barrierInfo.numCkptPeers,
+                  NULL, NULL, 0);
+    Util::unlockFile(PROTECTED_SHM_FD);
+  }
 }
 
 string

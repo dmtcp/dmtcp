@@ -266,7 +266,7 @@ installSegFaultHandler()
   JASSERT(sigaction(SIGSEGV, &act, NULL) == 0) (JASSERT_ERRNO);
 }
 
-static jalib::JBuffer buf(0); // To force linkage of jbuffer.cpp
+static jalib::JBuffer *buf = NULL;
 
 // called before user main()
 // workerhijack.cpp initializes a static variable theInstance to DmtcpWorker obj
@@ -276,6 +276,11 @@ dmtcp_initialize()
   static bool initialized = false;
 
   if (initialized) {
+    if (buf == NULL) {
+      // Technically, this is a memory leak, but buf is static and so it happens
+      // only once.
+      buf = new jalib::JBuffer(0); // To force linkage of jbuffer.cpp
+    }
     return;
   }
   initialized = true;
@@ -425,7 +430,7 @@ DmtcpWorker::waitForSuspendMessage()
     string shmFile = jalib::Filesystem::GetDeviceName(PROTECTED_SHM_FD);
     JASSERT(!shmFile.empty());
     unlink(shmFile.c_str());
-    CoordinatorAPI::instance().waitForCheckpointCommand();
+    CoordinatorAPI::waitForCheckpointCommand();
     ProcessInfo::instance().numPeers(1);
     ProcessInfo::instance().compGroup(SharedData::getCompId());
     return;
@@ -444,7 +449,7 @@ DmtcpWorker::waitForSuspendMessage()
   JTRACE("waiting for SUSPEND message");
 
   DmtcpMessage msg;
-  CoordinatorAPI::instance().recvMsgFromCoordinator(&msg);
+  CoordinatorAPI::recvMsgFromCoordinator(&msg);
 
   if (exitInProgress()) {
     ThreadSync::destroyDmtcpWorkerLockUnlock();
@@ -476,10 +481,10 @@ DmtcpWorker::acknowledgeSuspendMsg()
   }
 
   JTRACE("Waiting for DMT_DO_CHECKPOINT message");
-  CoordinatorAPI::instance().sendMsgToCoordinator(DmtcpMessage(DMT_OK));
+  CoordinatorAPI::sendMsgToCoordinator(DmtcpMessage(DMT_OK));
 
   DmtcpMessage msg;
-  CoordinatorAPI::instance().recvMsgFromCoordinator(&msg);
+  CoordinatorAPI::recvMsgFromCoordinator(&msg);
   msg.assertValid();
   if (msg.type == DMT_KILL_PEER) {
     JTRACE("Received KILL message from coordinator, exiting");
@@ -540,7 +545,7 @@ void
 DmtcpWorker::postCheckpoint()
 {
   WorkerState::setCurrentState(WorkerState::CHECKPOINTED);
-  CoordinatorAPI::instance().sendCkptFilename();
+  CoordinatorAPI::sendCkptFilename();
 
   if (_exitAfterCkpt) {
     JTRACE("Asked to exit after checkpoint. Exiting!");
@@ -554,7 +559,7 @@ DmtcpWorker::postCheckpoint()
 
   // Inform Coordinator of RUNNING state.
   WorkerState::setCurrentState(WorkerState::RUNNING);
-  CoordinatorAPI::instance().sendMsgToCoordinator(DmtcpMessage(DMT_OK));
+  CoordinatorAPI::sendMsgToCoordinator(DmtcpMessage(DMT_OK));
 }
 
 void
@@ -571,5 +576,5 @@ DmtcpWorker::postRestart(double ckptReadTime)
 
   // Inform Coordinator of RUNNING state.
   WorkerState::setCurrentState(WorkerState::RUNNING);
-  CoordinatorAPI::instance().sendMsgToCoordinator(DmtcpMessage(DMT_OK));
+  CoordinatorAPI::sendMsgToCoordinator(DmtcpMessage(DMT_OK));
 }

@@ -73,8 +73,6 @@ else:
   uname_p = subprocess.Popen(['uname', '-p'],
                              stdout=subprocess.PIPE).communicate()[0]
 
-# This assumes Makefile.in in main dir, but only Makefile in test dir.
-os.system("test -f Makefile || ./configure")
 if USE_TEST_SUITE == "no":
   print "\n*** DMTCP test suite is disabled. To re-enable the test suite,\n" + \
           "***  re-configure _without_ './configure --disable-test-suite'\n"
@@ -190,18 +188,12 @@ def shouldRunTest(name):
   return args.tests == [] or name in args.tests
 
 #make sure we are in svn root
-if os.system("test -d bin") != 0:
+if not os.path.isfile('./bin/dmtcp_launch'):
   os.chdir("..")
-if USE_M32:
-  assert os.system("test -d bin") == 0, \
-  "  bin/dmtcp_launch not found.  Please configure and build the\n" + \
-  "  default 64-bit mode before configuring with --enable-m32 and re-building"
-else:
-  assert os.system("test -d bin") == 0
 
-#make sure dmtcp is built
-if os.system("make -s --no-print-directory tests") != 0:
-  print "`make all tests` FAILED"
+if not os.path.isfile('./bin/dmtcp_launch'):
+  print "bin/dmtcp_launch not found.\n"
+  "Please configure and build DMTCP before invoking autotest.py."
   sys.exit(1)
 
 #pad a string and print/flush it

@@ -176,9 +176,13 @@ jalib::Filesystem::mkdir_r(const jalib::string &dir, mode_t mode)
 jalib::string
 jalib::Filesystem::GetProgramDir()
 {
-  static jalib::string value = DirName(GetProgramPath());
-
-  return value;
+  static jalib::string *value = NULL;
+  if (value == NULL) {
+    // Technically, this is a memory leak, but value is static and so it happens
+    // only once.
+    value = new jalib::string(DirName(GetProgramPath()));
+  }
+  return *value;
 }
 
 jalib::string
@@ -206,9 +210,13 @@ jalib::Filesystem::GetProgramName()
 jalib::string
 jalib::Filesystem::GetProgramPath()
 {
-  static jalib::string value = _GetProgramExe();
-
-  return value;
+  static jalib::string *value = NULL;
+  if (value == NULL) {
+    // Technically, this is a memory leak, but value is static and so it happens
+    // only once.
+    value = new jalib::string(_GetProgramExe());
+  }
+  return *value;
 }
 
 // NOTE: ResolveSymlink returns a string, buf, allocated on the stack.
@@ -259,9 +267,14 @@ jalib::Filesystem::FileExists(const jalib::string &str)
 jalib::StringVector
 jalib::Filesystem::GetProgramArgs()
 {
-  static StringVector rv;
+  static StringVector *rv = NULL;
+  if (rv == NULL) {
+    // Technically, this is a memory leak, but rv is static and so it happens
+    // only once.
+    rv = new StringVector();
+  }
 
-  if (rv.empty()) {
+  if (rv->empty()) {
     jalib::string path = "/proc/self/cmdline";
 
     // FIXME: Replace fopen with open.
@@ -276,14 +289,14 @@ jalib::Filesystem::GetProgramArgs()
     // We should replace getdelim with our own version
     char *lineptr = (char *)JALLOC_HELPER_MALLOC(len + 1);
     while (getdelim(&lineptr, &len, '\0', args) >= 0) {
-      rv.push_back(lineptr);
+      rv->push_back(lineptr);
     }
 
     JALLOC_HELPER_FREE(lineptr);
     jalib::fclose(args);
   }
 
-  return rv;
+  return *rv;
 }
 
 jalib::IntVector

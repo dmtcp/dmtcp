@@ -123,7 +123,18 @@ contrib: dmtcp
 	cd contrib && $(MAKE)
 
 tests: build
+ifeq ($(M32),0)
+	if file ./test/dmtcp1 | grep -cq "ELF 32-bit"; then \
+	  cd test && $(MAKE) clean; \
+	fi
+endif
 	cd test && $(MAKE)
+
+tests-32: build
+	if file ./test/dmtcp1 | grep -cq "ELF 64-bit"; then \
+	  cd test && $(MAKE) clean; \
+	fi
+	cd test && $(MAKE) M32=1
 
 # Prevent mtcp_restart from flying out of control
 # (but Java/IcedTea6-1.9.x/RHEL-6.1 uses lots of memory,
@@ -133,10 +144,13 @@ tests: build
 LIMIT=ulimit -v 33554432
 
 check: tests
-	@ if which id > /dev/null && test "`id -u`" = "0" ; then \
-	  echo "'make check' will fail if run as root."; \
-	  exit 1; \
-	fi
+	@ if python -c 'print "Python exits."' > /dev/null; then \
+	  bash -c "$(LIMIT) && $(top_srcdir)/test/autotest.py ${AUTOTEST} $*"; \
+	  else echo '*** No python found in your path.'; echo '*** Please add' \
+	   ' python to path or build Python 2.x for x >= 3.'; \
+	  fi
+
+check-32: tests-32
 	@ if python -c 'print "Python exits."' > /dev/null; then \
 	  bash -c "$(LIMIT) && $(top_srcdir)/test/autotest.py ${AUTOTEST} $*"; \
 	  else echo '*** No python found in your path.'; echo '*** Please add' \
@@ -146,14 +160,49 @@ check: tests
 check-%: tests
 	bash -c "$(LIMIT) && $(top_srcdir)/test/autotest.py ${AUTOTEST} '$*'"
 
+check-32-%: tests-32
+	bash -c "$(LIMIT) && $(top_srcdir)/test/autotest.py ${AUTOTEST} '$*'"
+
 check1: icheck-dmtcp1
+
+check1-32: icheck-32-dmtcp1
 
 check2: tests
 	${MAKE} XTERM_E="xterm -e" icheck-readline
 
+check2-32: tests-32
+	${MAKE} XTERM_E="xterm -e" icheck-32-readline
+
 check3: icheck-shared-memory
 
 icheck-%: tests
+	@ echo ""
+	@ echo "*** Type:"
+	@ echo "***       h<return> for Help (optional)"
+	@ echo "***       c<return> to Checkpoint"
+	@ echo "***       k<return> to Kill and observe the Restart"
+	@ echo "***       c<return> to Checkpoint again"
+	@ echo "***       k<return> to Kill and restart again"
+	@ echo "***       q<return> to Quit"
+	@ echo ""
+	@ echo "Press <return> when ready to start."
+	@ read -p "> " dummy
+	@ rm -f ckpt_$*_* && sleep 3 && \
+	  echo "" && echo "*** Starting Program" && echo "" && \
+	  ${XTERM_E} $(targetdir)/bin/dmtcp_launch --join test/$* && \
+	  echo "" && echo "*** Restarting Program from Checkpoint" \
+	  "(press q<return> to quit)" && echo "" && \
+	  until ls ckpt_$*_*.dmtcp > /dev/null 2>&1; do true; done; \
+	  ${XTERM_E} $(targetdir)/bin/dmtcp_restart --join --quiet ckpt_$*_*.dmtcp; \
+	  echo "" && echo "*** Again Restarting Program from Checkpoint" \
+	  "(press q<return> to quit)" && echo "" && \
+	  until ls ckpt_$*_*.dmtcp > /dev/null 2>&1; do true; done; \
+	  ${XTERM_E} $(targetdir)/bin/dmtcp_restart --join --quiet ckpt_$*_*.dmtcp; \
+	  &
+	@ $(targetdir)/bin/dmtcp_coordinator
+
+# TODO: Consolidate it with icheck-% target to remove duplication.
+icheck-32-%: tests-32
 	@ echo ""
 	@ echo "*** Type:"
 	@ echo "***       h<return> for Help (optional)"
@@ -288,4 +337,5 @@ am--refresh:
 
 .PHONY: default all add-git-hooks \
 	display-build-env display-release display-config build \
-	mkdirs dmtcp plugin contrib clean distclean am--refresh
+	mkdirs dmtcp plugin contrib clean distclean am--refresh \
+	tests tests-32
