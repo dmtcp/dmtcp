@@ -2,15 +2,22 @@ DMTCP NEWS -- history of user-visible changes.
 
 Please send DMTCP bug reports via <dmtcp-forum@lists.sourceforge.net>
 
+Version 2.4.8 release notes
+===========================
+* The newest kernels (approximately Linux version 4.0 and later map
+  VDSO into memory slightly differently for _32-bit_ processes running
+  in a 64-bit Linux.  DMTCP was failing to restart for such 32-bit processes.
+  This is now fixed.
+* dmtcp_dlsym() extended to provide more robust wrapper functions
+* corner case fixed: signal handlers now restored before plugins restart
+* minor bug fixes
+
 Version 2.4.7 release notes
 ===========================
 If you are using a recent Linux kernel or a recent GLIBC library,
 and you need to continue to use the 2.4.x branch, then you are
 recommended to upgrade to this 2.4.7 release.
-* The newest kernels (approximately Linux version 4.0 and later map
-  vDSO into memory slightly differently for _32-bit_ processes running
-  in a 64-bit Linux.  DMTCP was failing to restart for such 32-bit processes.
-  This is now fixed.
+* VDSO fix in 2.4.8 had accidentally been omitted from this 2.4.7 release.
 * In recent versions of GLIBC, libdl/dlerror calls libc/malloc, creating
   an infinite recursion when we interpose using libdl/dlsym.  We now
   implement our own 'dlsym' and use it in most cases, thus reducing our
