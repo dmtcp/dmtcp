@@ -330,8 +330,6 @@ void DmtcpWorker::resetOnFork()
    */
   //new ( &theInstance ) DmtcpWorker ( false );
 
-  ThreadList::resetOnFork();
-
   DmtcpWorker::_exitInProgress = false;
 
   WorkerState::setCurrentState ( WorkerState::RUNNING );

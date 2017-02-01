@@ -34,6 +34,7 @@
 #include "processinfo.h"
 #include "syscallwrappers.h"
 #include "syslogwrappers.h"
+#include "threadlist.h"
 #include "util.h"
 #include "coordinatorapi.h"
 #include "mtcpinterface.h"
@@ -191,6 +192,16 @@ extern "C" pid_t fork()
 
   if (childPid == -1) {
   } else if (childPid == 0) { /* child process */
+    // ThreadList::resetOnFork calls pthread_create which in turn calls
+    // malloc/calloc, etc. This can result in a deadlock if the parent process
+    // was holding malloc-lock while forking and might reset the lock only
+    // during atfork_child handler. Because our own atfork_child handler is
+    // called at the very beginning, the parent process won't have a chance to
+    // reset the lock. Calling ThreadList::resetOnFork here ensures that any
+    // such locks would have been reset by the caller and hence it's safe to
+    // call pthread_creat at this point.
+    ThreadList::resetOnFork();
+
     /* NOTE: Any work that needs to be done for the newly created child
      * should be put into pthread_atfork_child() function. That function is
      * hooked to the libc:fork() and will be called right after the new
