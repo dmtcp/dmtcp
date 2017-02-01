@@ -366,7 +366,6 @@ DmtcpWorker::resetOnFork()
 
   // new ( &theInstance ) DmtcpWorker ( false );
 
-  ThreadList::resetOnFork();
   ThreadSync::initMotherOfAll();
 
   DmtcpWorker::_exitInProgress = false;
