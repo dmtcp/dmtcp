@@ -45,6 +45,7 @@
 // sem_launch_first_time will be set just before pthread_create(checkpointhread)
 LIB_PRIVATE bool sem_launch_first_time = false;
 LIB_PRIVATE sem_t sem_launch;
+extern bool shouldExitAfterCkpt __attribute ((weak));
 
 namespace dmtcp {
 namespace CoordinatorAPI {
@@ -470,13 +471,15 @@ startNewCoordinator(CoordinatorMode mode)
       jalib::Filesystem::GetProgramDir() + "/dmtcp_coordinator";
 
     char *modeStr = (char *)"--daemon";
+    char *exitAfterCkpt = shouldExitAfterCkpt ?
+                          (char*)"--exit-after-ckpt" : NULL;
     char *args[] = {
       (char *)coordinator.c_str(),
       (char *)"--quiet",
-
       /* If we wish to also suppress coordinator warnings, call --quiet twice */
       (char *)"--exit-on-last",
       modeStr,
+      exitAfterCkpt,
       NULL
     };
     execv(args[0], args);

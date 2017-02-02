@@ -46,6 +46,8 @@ static void testStaticallyLinked(const char *filename);
 static bool testScreen(char **argv, char ***newArgv);
 static void setLDPreloadLibs(bool is32bitElf);
 
+bool shouldExitAfterCkpt = false;
+
 // gcc-4.3.4 -Wformat=2 issues false positives for warnings unless the format
 // string has at least one format specifier with corresponding format argument.
 // Ubuntu 9.01 uses -Wformat=2 by default.
@@ -280,6 +282,9 @@ processArgs(int *orig_argc,
       shift;
     } else if (s == "--no-coordinator") {
       allowedModes = COORD_NONE;
+      shift;
+    } else if (s == "--exit-after-ckpt") {
+      shouldExitAfterCkpt = true;
       shift;
     } else if (s == "-i" || s == "--interval") {
       setenv(ENV_VAR_CKPT_INTR, argv[1], 1);
