@@ -51,7 +51,7 @@ endif
 
 DMTCP_INCLUDE=${top_srcdir}/include
 
-CFLAGS += -I${DMTCP_INCLUDE} -DDMTCP -fPIC -g
+CFLAGS += -I${DMTCP_INCLUDE} -DDMTCP -fPIC -g -std=gnu99
 CXXFLAGS += -I${DMTCP_INCLUDE} -DDMTCP -fPIC -g
 
 
