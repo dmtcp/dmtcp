@@ -789,6 +789,9 @@ runTest("stale-fd",      2, ["./test/stale-fd"])
 
 runTest("poll",          1, ["./test/poll"])
 
+runTest("epoll1",        2, ["./test/epoll1"])
+runTest("epoll2",        2, ["./test/epoll1 --use-epoll-create1"])
+
 runTest("forkexec",      2, ["./test/forkexec"])
 
 # FIXME:  pthread_atfork doesn't compile on some architectures.
