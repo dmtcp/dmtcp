@@ -119,20 +119,6 @@ static void
 restart()
 {
   restore_term_settings();
-
-  /* If DMTCP_RESTART_PAUSE2 set, sleep 15 seconds to allow gdb attach.*/
-  if (getenv("MTCP_RESTART_PAUSE2") || getenv("DMTCP_RESTART_PAUSE2")) {
-#ifdef HAS_PR_SET_PTRACER
-    prctl(PR_SET_PTRACER, PR_SET_PTRACER_ANY, 0, 0, 0); // For: gdb attach
-#endif // ifdef HAS_PR_SET_PTRACER
-    struct timespec delay = { 15, 0 }; /* 15 seconds */
-    printf("Pausing 15 seconds. Do:  gdb <PROGNAME> %d\n",
-           dmtcp_virtual_to_real_pid(getpid()));
-    nanosleep(&delay, NULL);
-#ifdef HAS_PR_SET_PTRACER
-    prctl(PR_SET_PTRACER, 0, 0, 0, 0); // Revert permission to default.
-#endif // ifdef HAS_PR_SET_PTRACER
-  }
 }
 
 static DmtcpBarrier terminalBarriers[] = {

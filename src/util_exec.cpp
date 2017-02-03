@@ -555,22 +555,20 @@ Util::runMtcpRestore(int is32bitElf,
   // newEnv[2] = NULL; newEnv[3] and newEnv[4] are available so that
   // they can easily be used to modify envp inside mtcp_restart.c:main().
   // for debugging in GDB.  These appear _after_ final NULL  of newEnv[].
-  char *newEnv[7] = { NULL, NULL, NULL,
-                      const_cast<char *>("MTCP_RESTART_PAUSE=1"),
-                      const_cast<char *>("DMTCP_RESTART_PAUSE=1"),
-                      const_cast<char *>("MTCP_RESTART_PAUSE2=1"),
-                      const_cast<char *>("DMTCP_RESTART_PAUSE2=1") };
+  char *newEnv[] = { NULL, NULL, NULL,
+                      const_cast<char *>("MTCP_RESTART_PAUSE=0"),
+                      const_cast<char *>("DMTCP_RESTART_PAUSE=0") };
 
   // Will put ENV_PTR("MTCP_OLDPERS") here.
   newEnv[dummyEnvironIndex] = (char *)dummyEnviron;
   newEnv[pathIndex] = (getenv("PATH") ? ENV_PTR("PATH") : NULL);
 
   size_t newArgsSize = 0;
-  for (int i = 0; newArgs[i] != 0; i++) {
+  for (int i = 0; newArgs[i] != NULL; i++) {
     newArgsSize += strlen(newArgs[i]) + 1;
   }
   size_t newEnvSize = 0;
-  for (int i = 0; newEnv[i] != 0; i++) {
+  for (int i = 0; newEnv[i] != NULL; i++) {
     newEnvSize += strlen(newEnv[i]) + 1;
   }
   size_t originalArgvEnvSize = argvSize + envSize;

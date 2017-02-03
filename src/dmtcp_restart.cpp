@@ -488,13 +488,19 @@ runMtcpRestart(int is32bitElf, int fd, ProcessInfo *pInfo)
     }
   }
 
-  /* If DMTCP_RESTART_PAUSE0 set, mtcp_restart will loop until gdb attach.*/
+  /* If DMTCP_RESTART_PAUSE==1, mtcp_restart will loop until gdb attach.*/
   bool mtcp_restart_pause = false;
-  if (getenv("MTCP_RESTART_PAUSE0") || getenv("DMTCP_RESTART_PAUSE0")) {
+  char * pause_param = getenv("DMTCP_RESTART_PAUSE");
+  if (pause_param == NULL) {
+    pause_param = getenv("MTCP_RESTART_PAUSE");
+  }
+  if (pause_param != NULL && pause_param[0] == '1' && pause_param[1] == '\0') {
 #ifdef HAS_PR_SET_PTRACER
     prctl(PR_SET_PTRACER, PR_SET_PTRACER_ANY, 0, 0, 0); // For: gdb attach
 #endif // ifdef HAS_PR_SET_PTRACER
     mtcp_restart_pause = true;
+    // If mtcp_restart_pause == true, mtcp_restart will invoke
+    //     postRestartDebug() in the checkpoint image instead of postRestart().
   }
 
   char *const newArgs[] = {

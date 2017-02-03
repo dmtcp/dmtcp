@@ -457,9 +457,9 @@ restart_fast_path()
   // rinfo.restorememoryareas_fptr(&rinfo);
   // Intel icc-13.1.3 output uses register rbp here.  It's no longer available.
   asm volatile(
-   // 96 = offsetof(RestoreInfo, rinfo.restorememoryareas_fptr)
+   // 104 = offsetof(RestoreInfo, rinfo.restorememoryareas_fptr)
    // NOTE: Update the offset when adding fields to the RestoreInfo struct
-   "movq    96+rinfo(%%rip), %%rdx;" /* rinfo.restorememoryareas_fptr */
+   "movq    104+rinfo(%%rip), %%rdx;" /* rinfo.restorememoryareas_fptr */
    "leaq    rinfo(%%rip), %%rdi;"    /* &rinfo */
    "movl    $0, %%eax;"
    "call    *%%rdx"

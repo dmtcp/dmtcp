@@ -687,6 +687,27 @@ ThreadList::waitForAllRestored(Thread *thread)
     sem_wait(&semWaitForCkptThreadSignal);
   }
   Thread_RestoreSigState(thread);
+
+  if (thread == motherofall) {
+    /* If DMTCP_RESTART_PAUSE==4, sleep 15 seconds to allow gdb attach.*/
+    char * pause_param = getenv("DMTCP_RESTART_PAUSE");
+    if (pause_param == NULL) {
+      pause_param = getenv("MTCP_RESTART_PAUSE");
+    }
+    if (pause_param != NULL && pause_param[0] == '4' &&
+        pause_param[1] == '\0') {
+#ifdef HAS_PR_SET_PTRACER
+      prctl(PR_SET_PTRACER, PR_SET_PTRACER_ANY, 0, 0, 0); // For: gdb attach
+#endif // ifdef HAS_PR_SET_PTRACER
+      struct timespec delay = { 15, 0 }; /* 15 seconds */
+      printf("Pausing 15 seconds. Do:  gdb <PROGNAME> %d\n",
+             dmtcp_virtual_to_real_pid(getpid()));
+      nanosleep(&delay, NULL);
+#ifdef HAS_PR_SET_PTRACER
+      prctl(PR_SET_PTRACER, 0, 0, 0, 0); // Revert permission to default.
+#endif // ifdef HAS_PR_SET_PTRACER
+    }
+  }
 }
 
 /*****************************************************************************
@@ -701,9 +722,12 @@ ThreadList::postRestartDebug(double readTime)
   printf("\n** DMTCP: It appears DMTCP not configured with '--enable-debug'\n");
   printf("**        If GDB doesn't show source, re-configure and re-compile\n");
 #endif
+  // If we're here, user set env. to DMTCP_RESTART_PAUSE=4, & is expecting this.
   while (dummy);
   // User should have done GDB attach if we're here.
+#ifdef HAS_PR_SET_PTRACER
   prctl(PR_SET_PTRACER, 0, 0, 0, 0); // Revert permission to default: no ptracer
+#endif
   postRestart();
 }
 
@@ -713,8 +737,12 @@ ThreadList::postRestart(double readTime)
   Thread *thread;
   sigset_t tmp;
 
-  /* If DMTCP_RESTART_PAUSE set, sleep 15 seconds and allow gdb attach. */
-  if (getenv("MTCP_RESTART_PAUSE") || getenv("DMTCP_RESTART_PAUSE")) {
+  /* If DMTCP_RESTART_PAUSE==2, sleep 15 seconds and allow gdb attach. */
+  char * pause_param = getenv("DMTCP_RESTART_PAUSE");
+  if (pause_param == NULL) {
+    pause_param = getenv("MTCP_RESTART_PAUSE");
+  }
+  if (pause_param != NULL && pause_param[0] == '2' && pause_param[1] == '\0') {
 #ifdef HAS_PR_SET_PTRACER
     prctl(PR_SET_PTRACER, PR_SET_PTRACER_ANY, 0, 0, 0); // Allow 'gdb attach'
 #endif // ifdef HAS_PR_SET_PTRACER
@@ -796,6 +824,27 @@ restarthread(void *threadv)
 
   if (TLSInfo_HaveThreadSysinfoOffset()) {
     TLSInfo_SetThreadSysinfo(saved_sysinfo);
+  }
+
+  if (thread == motherofall) { // if this is a user thread
+    /* If DMTCP_RESTART_PAUSE==3, sleep 15 seconds to allow gdb attach.*/
+    char * pause_param = getenv("DMTCP_RESTART_PAUSE");
+    if (pause_param == NULL) {
+      pause_param = getenv("MTCP_RESTART_PAUSE");
+    }
+    if (pause_param != NULL && pause_param[0] == '3' &&
+        pause_param[1] == '\0') {
+#ifdef HAS_PR_SET_PTRACER
+      prctl(PR_SET_PTRACER, PR_SET_PTRACER_ANY, 0, 0, 0); // For: gdb attach
+#endif // ifdef HAS_PR_SET_PTRACER
+      struct timespec delay = { 15, 0 }; /* 15 seconds */
+      printf("Pausing 15 seconds. Do:  gdb <PROGNAME> %d\n",
+             dmtcp_virtual_to_real_pid(getpid()));
+      nanosleep(&delay, NULL);
+#ifdef HAS_PR_SET_PTRACER
+      prctl(PR_SET_PTRACER, 0, 0, 0, 0); // Revert permission to default.
+#endif // ifdef HAS_PR_SET_PTRACER
+    }
   }
 
   /* Jump to the stopthisthread routine just after sigsetjmp/getcontext call.
