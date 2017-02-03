@@ -30,7 +30,6 @@
 #include <stdint.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <sys/types.h>
 #include <unistd.h>
 #include "connection.h"
 #include "connectionlist.h"
@@ -72,22 +71,13 @@ namespace dmtcp
 class EpollConnection : public Connection
 {
   public:
-    enum EpollType {
-      EPOLL_INVALID = Connection::EPOLL,
-      EPOLL_CREATE,
-      EPOLL_CTL,
-      EPOLL_WAIT
-    };
-
-    EpollConnection(int size, int type = EPOLL_CREATE)
+    EpollConnection(int size = 0, int flags = 0)
       : Connection(EPOLL),
-      _type(type),
-      _size(size)
+      _size(size),
+      _flags(flags)
     {
       JTRACE("new epoll connection created");
     }
-
-    int epollType() const { return _type; }
 
     virtual void drain();
     virtual void refill(bool isRestart);
@@ -100,9 +90,8 @@ class EpollConnection : public Connection
 
   private:
     EpollConnection &asEpoll();
-    int64_t _type;       // current state of EPOLL
-    struct stat _stat;   // not sure if stat makes sense in case  of epfd
-    int64_t _size;       // flags
+    int64_t _size;       // for epoll_create();
+    int64_t _flags;      // for epoll_create1();
     map<int, struct epoll_event>_fdToEvent;
 };
 # endif // ifdef HAVE_SYS_EPOLL_H

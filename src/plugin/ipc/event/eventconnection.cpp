@@ -77,8 +77,13 @@ EpollConnection::postRestart()
 {
   JASSERT(_fds.size() > 0);
   JTRACE("Recreating epoll connection") (_fds[0]) (id());
-  int tempFd = _real_epoll_create(_size);
-  JASSERT(tempFd >= 0);
+  int tempFd;
+  if (_size != 0) {
+    tempFd = _real_epoll_create(_size);
+  } else {
+    tempFd = _real_epoll_create1(_flags);
+  }
+  JASSERT(tempFd >= 0) (_size) (JASSERT_ERRNO);
   Util::dupFds(tempFd, _fds);
 }
 
@@ -86,7 +91,7 @@ void
 EpollConnection::serializeSubClass(jalib::JBinarySerializer &o)
 {
   JSERIALIZE_ASSERT_POINT("EpollConnection");
-  o&_type &_stat;
+  o & _size & _flags;
   o.serializeMap(_fdToEvent);
 }
 
@@ -100,12 +105,11 @@ void
 EpollConnection::onCTL(int op, int fd, struct epoll_event *event)
 {
   JASSERT(((op == EPOLL_CTL_MOD || op == EPOLL_CTL_ADD) && event != NULL) ||
-          op == EPOLL_CTL_DEL) (epollType())
+          op == EPOLL_CTL_DEL)
     (id())
   .Text("Passing a NULL event! HUH!");
 
   struct epoll_event myEvent;
-  _type = EPOLL_CTL;
   if (op == EPOLL_CTL_DEL) {
     _fdToEvent.erase(fd);
     return;
