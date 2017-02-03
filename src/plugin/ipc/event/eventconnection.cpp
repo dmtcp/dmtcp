@@ -83,7 +83,7 @@ EpollConnection::postRestart()
   } else {
     tempFd = _real_epoll_create1(_flags);
   }
-  JASSERT(tempFd >= 0) (_size) (JASSERT_ERRNO);
+  JASSERT(tempFd >= 0) (_size) (_flags) (JASSERT_ERRNO);
   Util::dupFds(tempFd, _fds);
 }
 
@@ -106,8 +106,7 @@ EpollConnection::onCTL(int op, int fd, struct epoll_event *event)
 {
   JASSERT(((op == EPOLL_CTL_MOD || op == EPOLL_CTL_ADD) && event != NULL) ||
           op == EPOLL_CTL_DEL)
-    (id())
-  .Text("Passing a NULL event! HUH!");
+    (op) (id()) .Text("Passing a NULL event! HUH!");
 
   struct epoll_event myEvent;
   if (op == EPOLL_CTL_DEL) {
@@ -131,20 +130,17 @@ EventFdConnection::drain()
 
   int new_flags = (_fcntlFlags & (~(O_RDONLY | O_WRONLY))) | O_RDWR |
     O_NONBLOCK;
-  int evtfd = _fds[0];
-  JASSERT(evtfd >= 0) (evtfd) (JASSERT_ERRNO);
+  JASSERT(_fds[0] >= 0) (_fds[0]) (JASSERT_ERRNO);
 
   // set the new flags
-  JASSERT(fcntl(evtfd, F_SETFL, new_flags) == 0)
-    (evtfd) (new_flags) (JASSERT_ERRNO);
-  ssize_t size;
+  JASSERT(fcntl(_fds[0], F_SETFL, new_flags) == 0)
+    (_fds[0]) (new_flags) (JASSERT_ERRNO);
   uint64_t u;
-  unsigned int counter = 1;
 
-  // Read whatever is there on top of evtfd
-  size = read(evtfd, &u, sizeof(uint64_t));
+  // Read whatever is there on top of _fds[0]
+  ssize_t size = read(_fds[0], &u, sizeof(uint64_t));
   if (-1 != size) {
-    JTRACE("Read value u: ") (evtfd) (u);
+    JTRACE("Read value u: ") (_fds[0]) (u);
 
     // EFD_SEMAPHORE flag not specified,
     // the counter value would have been reset to 0 upon read
@@ -154,14 +150,15 @@ EventFdConnection::drain()
     } else {
       // EFD_SEMAPHORE specified, so can't read the current counter value
       // Keep reading till "semaphore" becomes 0.
-      while (-1 != read(evtfd, &u, sizeof(uint64_t))) {
+      unsigned int counter = 1;
+      while (-1 != read(_fds[0], &u, sizeof(uint64_t))) {
         counter++;
       }
       _initval = counter;
     }
   } else {
     JTRACE("Nothing to be read from eventfd.")
-      (evtfd) (errno) (strerror(errno));
+      (_fds[0]) (errno) (strerror(errno));
     _initval = 0;
   }
   JTRACE("Checkpointing eventfd:  end.") (_fds[0]) (_initval);
@@ -172,12 +169,11 @@ EventFdConnection::refill(bool isRestart)
 {
   JTRACE("Begin refill eventfd.") (_fds[0]);
   JASSERT(_fds.size() > 0);
-  evtfd = _fds[0];
   if (!isRestart) {
     uint64_t u = (unsigned long long)_initval;
     JTRACE("Writing") (u);
-    JWARNING(write(evtfd, &u, sizeof(uint64_t)) == sizeof(uint64_t))
-      (evtfd) (errno) (strerror(errno))
+    JWARNING(write(_fds[0], &u, sizeof(uint64_t)) == sizeof(uint64_t))
+      (_fds[0]) (errno) (strerror(errno))
     .Text("Write to eventfd failed during refill");
   }
   JTRACE("End refill eventfd.") (_fds[0]);
@@ -199,7 +195,7 @@ void
 EventFdConnection::serializeSubClass(jalib::JBinarySerializer &o)
 {
   JSERIALIZE_ASSERT_POINT("EventFdConnection");
-  o&_initval &_flags;
+  o & _initval & _flags;
   JTRACE("Serializing EvenFdConn.");
 }
 #endif // ifdef HAVE_SYS_EVENTFD_H
@@ -215,28 +211,19 @@ SignalFdConnection::drain()
 
   JTRACE("Checkpoint signalfd.") (_fds[0]);
 
-  int new_flags = (_fcntlFlags & (~(O_RDONLY | O_WRONLY))) | O_RDWR |
-    O_NONBLOCK;
-  signlfd = _fds[0];
-  JASSERT(signlfd >= 0) (signlfd) (JASSERT_ERRNO);
+  int new_flags =
+    (_fcntlFlags & (~(O_RDONLY | O_WRONLY))) | O_RDWR | O_NONBLOCK;
 
   // set the new flags
-  JASSERT(fcntl(signlfd, F_SETFL, new_flags) == 0)
-    (signlfd) (new_flags) (JASSERT_ERRNO);
-  ssize_t size;
-  struct signalfd_siginfo _fdsi;
+  JASSERT(fcntl(_fds[0], F_SETFL, new_flags) == 0)
+    (_fds[0]) (new_flags) (JASSERT_ERRNO);
 
   // Read whatever is there on top of signalfd
-  size = read(signlfd, &_fdsi, sizeof(struct signalfd_siginfo));
-  if (-1 != size) {
-    // Save the value, so that it can be restored in post-checkpoint
-    // FIXME: What's the purpose of memcpy here?
-    memcpy(&_fdsi, &_fdsi, sizeof(struct signalfd_siginfo));
-  } else {
-    JTRACE("Nothing to be read from signalfd.")
-      (signlfd) (errno) (strerror(errno));
+  ssize_t size = read(_fds[0], &_fdsi, sizeof(struct signalfd_siginfo));
+  if (size <= 0) {
+    JTRACE("Nothing to be read from signalfd.") (_fds[0]) (JASSERT_ERRNO);
+    memset(&_fdsi, 0, sizeof(_fdsi));
   }
-  JTRACE("Checkpointing signlfd:  end.") (_fds[0]);
 }
 
 void
@@ -267,7 +254,7 @@ void
 SignalFdConnection::serializeSubClass(jalib::JBinarySerializer &o)
 {
   JSERIALIZE_ASSERT_POINT("SignalFdConnection");
-  o&_flags&_mask &_fdsi;
+  o & _flags & _mask & _fdsi;
   JTRACE("Serializing SignalFdConn.");
 }
 #endif // ifdef HAVE_SYS_SIGNALFD_H
@@ -332,7 +319,7 @@ void
 InotifyConnection::serializeSubClass(jalib::JBinarySerializer &o)
 {
   JSERIALIZE_ASSERT_POINT("InotifyConnection");
-  o&_type &_stat;
+  o & _flags & _state;
 
   // o.serializeMap(_inotify_fd_to_wd);
   // o.serializeMap(_wd_to_pathname);
