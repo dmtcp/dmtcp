@@ -214,11 +214,22 @@ DmtcpPluginDescriptor_t ipcPlugin = {
 EXTERNC void
 dmtcp_initialize_plugin()
 {
+  /* A note on the ordering of plugins:
+   * 1. The file, pty, and socket plugins are independent of each other. Thus the
+   *    relative ordering doesn't matter.
+   * 2. The event plugin must be restored _after_ all other plugins that deal
+   *    with file descriptors have been restored. This is because an epoll call
+   *    would require the to-be-monitored fds to be valid at the time of calling
+   *    epoll_ctl. (See github issue #405)
+   * 3. The SSH plugin should be restored _after_ the socket plugin because it
+   *    relies on the out-of-band socket to be restored in order to determine
+   *    the current network address of the remote ssh-child.
+   */
   dmtcp_register_plugin(sshPlugin);
+  dmtcp_register_plugin(eventPlugin);
   dmtcp_register_plugin(filePlugin);
   dmtcp_register_plugin(ptyPlugin);
   dmtcp_register_plugin(socketPlugin);
-  dmtcp_register_plugin(eventPlugin);
 
   void (*fn)() = NEXT_FNC(dmtcp_initialize_plugin);
   if (fn != NULL) {
