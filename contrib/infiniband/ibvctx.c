@@ -77,6 +77,10 @@ static struct list rkey_list;
 
 static uint32_t pd_id_count = 0;
 
+static pthread_mutex_t pd_mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t qp_mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t lid_mutex = PTHREAD_MUTEX_INITIALIZER;
+
 static void send_qp_info(void);
 static void query_qp_info(void);
 static void send_qp_pd_info(void);
@@ -1583,10 +1587,14 @@ _alloc_pd(struct ibv_context *context)
   INIT_INTERNAL_IBV_TYPE(pd);
   memcpy(&pd->user_pd, pd->real_pd, sizeof(struct ibv_pd));
   pd->user_pd.context = context;
-  pd->pd_id = (int)((dmtcp_get_uniquepid())._pid) + pd_id_count;
+
+  pthread_mutex_lock(&pd_mutex);
+  pd->pd_id = (int)getpid() + pd_id_count;
   pd_id_count++;
 
   list_push_back(&pd_list, &pd->elem);
+
+  pthread_mutex_unlock(&pd_mutex);
 
   return &pd->user_pd;
 }
