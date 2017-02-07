@@ -65,6 +65,8 @@ static struct list comp_list = LIST_INITIALIZER(comp_list);
 static struct list ah_list = LIST_INITIALIZER(ah_list);
 //! This is the list of rkey pairs
 static struct list rkey_list;
+// List to store the virtual-to-real qp_num
+static struct list qp_num_list;
 
 static uint32_t pd_id_count = 0;
 static uint32_t qp_num_offset = 0;
@@ -122,6 +124,8 @@ int dmtcp_infiniband_enabled(void) { return 1; }
 void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t* data)
 {
   switch (event) {
+    case DMTCP_EVENT_INIT:
+      list_init(&qp_num_list);
     case DMTCP_EVENT_WRITE_CKPT:
       pre_checkpoint();
       break;
@@ -1770,15 +1774,16 @@ struct ibv_qp * _create_qp(struct ibv_pd * pd,
                            struct ibv_qp_init_attr * qp_init_attr) {
   struct internal_ibv_pd * internal_pd = ibv_pd_to_internal(pd);
   struct ibv_qp_init_attr attr = *qp_init_attr;
-  struct internal_ibv_qp * internal_qp = malloc(sizeof(struct internal_ibv_qp));
+  struct internal_ibv_qp * internal_qp;
+  qp_num_mapping_t *mapping;
   struct list_elem *e;
-  struct internal_ibv_ctx * rslt = NULL;
   struct ibv_port_attr attr2;
   int rslt2;
 
   assert(IS_INTERNAL_IBV_STRUCT(internal_pd));
   internal_qp = malloc(sizeof(struct internal_ibv_qp));
-  if (internal_qp == NULL) {
+  mapping = malloc(sizeof(qp_num_mapping_t));
+  if (!internal_qp || mapping) {
     fprintf(stderr, "Error: I cannot allocate memory for _create_qp\n");
     exit(1);
   }
@@ -1807,50 +1812,10 @@ struct ibv_qp * _create_qp(struct ibv_pd * pd,
          internal_qp->real_qp,
          sizeof(struct ibv_qp));
 
-  /*
-   * After restart, if a new qp is created and has the same qp_num as
-   * that of a qp created before checkpoint, there will be a conflict.
-   */
-  if (is_restart) {
-    struct list_elem *w;
-    for (w = list_begin(&qp_list);
-         w != list_end(&qp_list);
-         w = list_next(w)) {
-      struct internal_ibv_qp *qp1 = list_entry(w, struct internal_ibv_qp, elem);
-      if (qp1->user_qp.qp_num == internal_qp->user_qp.qp_num) {
-        fprintf(stderr,
-                "Error: duplicate qp_num is genereated after restart\n");
-	exit(1);
-      }
-    }
-  }
-
-  /*
-   * fix up the user_qp
-   * loop to find the right context the "dumb way"
-   * This should probably just take the context from pd
-   */
-  for (e = list_begin(&ctx_list);
-       e != list_end(&ctx_list);
-       e = list_next(e)) {
-    struct internal_ibv_ctx * ctx;
-
-    ctx = list_entry (e, struct internal_ibv_ctx, elem);
-    if (ctx->real_ctx == internal_qp->real_qp->context) {
-      rslt = ctx;
-      break;
-    }
-  }
-
-  if (!rslt) {
-    fprintf(stderr, "Error: Could not find context in _create_qp\n");
-    exit(1);
-  }
-
   list_init(&internal_qp->modify_qp_log);
   list_init(&internal_qp->post_send_log);
   list_init(&internal_qp->post_recv_log);
-  internal_qp->user_qp.context = &rslt->user_ctx;
+  internal_qp->user_qp.context = internal_pd->user_pd.context;
   internal_qp->user_qp.pd = &internal_pd->user_pd;
   internal_qp->user_qp.recv_cq = qp_init_attr->recv_cq;
   internal_qp->user_qp.send_cq = qp_init_attr->send_cq;
@@ -1869,7 +1834,33 @@ struct ibv_qp * _create_qp(struct ibv_pd * pd,
   internal_qp->local_qp_pd_id.qpn = internal_qp->real_qp->qp_num;
   internal_qp->port_num = 1;
 
+  /*
+   * We use virtual pid + offset to virtualize the qp_num, so that
+   * all qp numbers are unique across the computation (since every
+   * virtual pid is unique).
+   * */
+  pthread_mutex_lock(&qp_mutex);
+  if (qp_num_offset >= 1000) {
+    fprintf(stderr, "IB plugin does not support more than 1000 "
+                    "queue pairs per process.");
+    exit(1);
+  }
+  internal_qp->user_qp.qp_num = (uint32_t)getpid() + qp_num_offset;
+  qp_num_offset++;
+  mapping->virtual_qp_num = internal_qp->user_qp.qp_num;
+  mapping->real_qp_num = internal_qp->real_qp->qp_num;
+
   list_push_back(&qp_list, &internal_qp->elem);
+  list_push_back(&qp_num_list, &mapping->elem);
+  pthread_mutex_unlock(&qp_mutex);
+
+  // Update the key-value database before returning.
+  dmtcp_send_key_val_pair_to_coordinator("ib_qp",
+      &internal_qp->user_qp.qp_num,
+      sizeof(internal_qp->user_qp.qp_num),
+      &internal_qp->real_qp->qp_num,
+      sizeof(internal_qp->real_qp->qp_num));
+
   return &internal_qp->user_qp;
 }
 
