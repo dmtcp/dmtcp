@@ -1935,6 +1935,7 @@ int
 _destroy_qp(struct ibv_qp *qp)
 {
   struct internal_ibv_qp *internal_qp = ibv_qp_to_internal(qp);
+  qp_num_mapping_t *mapping;
   int rslt;
 
   assert(IS_INTERNAL_IBV_STRUCT(internal_qp));
@@ -1973,6 +1974,19 @@ _destroy_qp(struct ibv_qp *qp)
     list_remove(w);
     free(log);
   }
+
+  e = list_begin(&qp_num_list);
+  while (e != list_end(&qp_num_list)) {
+    mapping = list_entry(e, qp_num_mapping_t, elem);
+    if (mapping->virtual_qp_num == internal_qp->user_qp.qp_num) {
+      break;
+    }
+    e = list_next(e);
+  }
+
+  assert(e != list_end(&qp_num_list));
+  list_remove(&mapping->elem);
+  free(mapping);
 
   list_remove(&internal_qp->elem);
   free(internal_qp);
