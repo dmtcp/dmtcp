@@ -215,18 +215,6 @@ struct ibv_req_notify_cq_log {
   struct list_elem elem;
 };
 
-struct ibv_rkey_pair {
-  struct ibv_rkey_id orig_rkey;
-  uint32_t new_rkey;
-  struct list_elem elem;
-};
-
-struct ibv_ud_qp_id_pair {
-  ibv_ud_qp_id_t orig_id;
-  ibv_ud_qp_id_t curr_id;
-  struct list_elem elem;
-};
-
 /* These are the functions to cast types */
 
 // ! This function locates an ibv_qp based on qp_num */
