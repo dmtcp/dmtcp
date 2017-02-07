@@ -130,7 +130,7 @@ struct internal_ibv_qp {
   ibv_qp_id_t current_id;
   ibv_qp_pd_id_t local_qp_pd_id;
   ibv_qp_pd_id_t remote_qp_pd_id;
-  int remote_pd_id;
+  uint32_t remote_pd_id;
   struct list modify_qp_log;
   uint8_t port_num; // port_num is used to get the correct lid
 

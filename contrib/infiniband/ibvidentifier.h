@@ -10,7 +10,7 @@ typedef struct ibv_qp_id {
 
 typedef struct {
   uint32_t qpn;
-  uint32_t lid;
+  uint16_t lid;
 } ibv_qp_pd_id_t, ibv_ud_qp_id_t;
 
 struct ibv_rkey_id {

@@ -76,6 +76,8 @@ static struct list ah_list = LIST_INITIALIZER(ah_list);
 static struct list rkey_list;
 
 static uint32_t pd_id_count = 0;
+static uint32_t qp_num_offset = 0;
+static uint16_t lid_offset = 0;
 
 static pthread_mutex_t pd_mutex = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t qp_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -1589,7 +1591,7 @@ _alloc_pd(struct ibv_context *context)
   pd->user_pd.context = context;
 
   pthread_mutex_lock(&pd_mutex);
-  pd->pd_id = (int)getpid() + pd_id_count;
+  pd->pd_id = (uint32_t)getpid() + pd_id_count;
   pd_id_count++;
 
   list_push_back(&pd_list, &pd->elem);
