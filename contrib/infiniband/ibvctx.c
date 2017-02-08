@@ -95,6 +95,7 @@ static void post_restart2(void);
 static void nameservice_register_data(void);
 static void nameservice_send_queries(void);
 static void refill(void);
+static void cleanup(void);
 
 int _ibv_post_send(struct ibv_qp *qp,
                    struct ibv_send_wr *wr,
@@ -142,6 +143,9 @@ infiniband_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data) {
   switch (event) {
   case DMTCP_EVENT_INIT:
     list_init(&qp_num_list);
+    break;
+  case DMTCP_EVENT_EXIT:
+    cleanup();
     break;
   default:
     break;
@@ -1022,9 +1026,21 @@ refill(void)
   }
 }
 
-int
-_fork_init()
-{
+void cleanup() {
+  struct list_elem *e;
+  qp_num_mapping_t *mapping = NULL;
+
+  e = list_begin(&qp_num_list);
+  while (e != list_end(&qp_num_list)) {
+    struct list_elem * w = e;
+    mapping = list_entry(e, qp_num_mapping_t, elem);
+    e = list_next(e);
+    list_remove(w);
+    free(mapping);
+  }
+}
+
+int _fork_init() {
   is_fork = true;
   return NEXT_IBV_FNC(ibv_fork_init)();
 }
