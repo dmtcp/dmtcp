@@ -1850,7 +1850,7 @@ _create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *qp_init_attr)
   internal_qp = malloc(sizeof(struct internal_ibv_qp));
   mapping = malloc(sizeof(qp_num_mapping_t));
   if (!internal_qp || mapping) {
-    fprintf(stderr, "Error: I cannot allocate memory for _create_qp\n");
+    fprintf(stderr, "Error: cannot allocate memory for _create_qp\n");
     exit(1);
   }
   memset(internal_qp, 0, sizeof(struct internal_ibv_qp));
@@ -1999,6 +1999,7 @@ _modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr, int attr_mask)
 {
   struct internal_ibv_qp *internal_qp = ibv_qp_to_internal(qp);
   struct ibv_modify_qp_log *log;
+  struct ibv_qp_attr real_attr = *attr;
   int rslt;
 
   assert(IS_INTERNAL_IBV_STRUCT(internal_qp));
@@ -2012,7 +2013,50 @@ _modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr, int attr_mask)
   log->attr_mask = attr_mask;
   list_push_back(&internal_qp->modify_qp_log, &log->elem);
 
-  rslt = NEXT_IBV_FNC(ibv_modify_qp)(internal_qp->real_qp, attr, attr_mask);
+  // Translate the virtual qp_num to the real one
+  // Check the local cache first, if local cache doesn't
+  // contain the entry, query the coordinator
+  if (attr_mask & IBV_QP_DEST_QPN) {
+    struct list_elem *e;
+    qp_num_mapping_t *mapping = NULL;
+
+    for (e = list_begin(&qp_num_list);
+         e != list_end(&qp_num_list);
+         e = list_next(e)) {
+      mapping = list_entry(e, qp_num_mapping_t, elem);
+      if (mapping->virtual_qp_num == attr->dest_qp_num) {
+        real_attr.dest_qp_num = mapping->real_qp_num;
+        break;
+      }
+    }
+
+    // destination qp_num not found, query the coordinator,
+    // add the mapping to the cache
+    if (e == list_end(&qp_num_list)) {
+      uint32_t real_qp_num = 0;
+      size_t size = sizeof(real_qp_num);
+
+      dmtcp_send_query_to_coordinator("qp_info",
+          &attr->dest_qp_num, sizeof(attr->dest_qp_num),
+          &real_qp_num, &size);
+      assert(size == sizeof(real_qp_num));
+
+      real_attr.dest_qp_num = real_qp_num;
+      mapping = malloc(sizeof(qp_num_mapping_t));
+      if (!mapping) {
+        fprintf(stderr,
+            "Error: cannot allocate memory for _modify_qp\n");
+        exit(1);
+      }
+      mapping->virtual_qp_num = attr->dest_qp_num;
+      mapping->real_qp_num = real_qp_num;
+      pthread_mutex_lock(&qp_mutex);
+      list_push_back(&qp_num_list, &mapping->elem);
+      pthread_mutex_unlock(&qp_mutex);
+    }
+  }
+
+  rslt = NEXT_IBV_FNC(ibv_modify_qp)(internal_qp->real_qp, &real_attr, attr_mask);
   internal_qp->user_qp.state = internal_qp->real_qp->state;
 
   if (attr_mask & IBV_QP_DEST_QPN) {
