@@ -84,6 +84,7 @@ static void send_rkey_info(void);
 static void post_restart(void);
 static void post_restart2(void);
 static void refill(void);
+static void cleanup(void);
 
 int _ibv_post_send(struct ibv_qp * qp, struct ibv_send_wr * wr,
                    struct ibv_send_wr ** bad_wr);
@@ -151,6 +152,9 @@ void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t* data)
       if (is_restart) {
         refill();
       }
+      break;
+    case DMTCP_EVENT_EXIT:
+      cleanup();
       break;
     default:
       break;
@@ -997,6 +1001,20 @@ void refill(void)
       }
       delete_send_wr(copy_wr);
     }
+  }
+}
+
+void cleanup() {
+  struct list_elem *e;
+  qp_num_mapping_t *mapping = NULL;
+
+  e = list_begin(&qp_num_list);
+  while (e != list_end(&qp_num_list)) {
+    struct list_elem * w = e;
+    mapping = list_entry(e, qp_num_mapping_t, elem);
+    e = list_next(e);
+    list_remove(w);
+    free(mapping);
   }
 }
 
