@@ -125,39 +125,39 @@ int dmtcp_infiniband_enabled(void) { return 1; }
 void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t* data)
 {
   switch (event) {
-    case DMTCP_EVENT_INIT:
-      list_init(&qp_num_list);
-    case DMTCP_EVENT_WRITE_CKPT:
-      pre_checkpoint();
-      break;
-    case DMTCP_EVENT_RESTART:
-      list_init(&rkey_list);
-      post_restart();
-      break;
-    case DMTCP_EVENT_REGISTER_NAME_SERVICE_DATA:
-      if (data->nameserviceInfo.isRestart) {
-        send_qp_info();
-        send_qp_pd_info();
-        send_rkey_info();
-      }
-      break;
-    case DMTCP_EVENT_SEND_QUERIES:
-      if (data->nameserviceInfo.isRestart) {
-        query_qp_info();
-        query_qp_pd_info();
-        post_restart2();
-      }
-      break;
-    case DMTCP_EVENT_REFILL:
-      if (is_restart) {
-        refill();
-      }
-      break;
-    case DMTCP_EVENT_EXIT:
-      cleanup();
-      break;
-    default:
-      break;
+  case DMTCP_EVENT_INIT:
+    list_init(&qp_num_list);
+  case DMTCP_EVENT_WRITE_CKPT:
+    pre_checkpoint();
+    break;
+  case DMTCP_EVENT_RESTART:
+    list_init(&rkey_list);
+    post_restart();
+    break;
+  case DMTCP_EVENT_REGISTER_NAME_SERVICE_DATA:
+    if (data->nameserviceInfo.isRestart) {
+      send_qp_info();
+      send_qp_pd_info();
+      send_rkey_info();
+    }
+    break;
+  case DMTCP_EVENT_SEND_QUERIES:
+    if (data->nameserviceInfo.isRestart) {
+      query_qp_info();
+      query_qp_pd_info();
+      post_restart2();
+    }
+    break;
+  case DMTCP_EVENT_REFILL:
+    if (is_restart) {
+      refill();
+    }
+    break;
+  case DMTCP_EVENT_EXIT:
+    cleanup();
+    break;
+  default:
+    break;
   }
 
   DMTCP_NEXT_EVENT_HOOK(event, data);
@@ -190,53 +190,53 @@ static void send_qp_info(void)
                                              sizeof(internal_qp->current_id.lid));
 
       switch (internal_qp->user_qp.qp_type) {
-        case IBV_QPT_RC:
-          if (internal_qp->in_use) {
-            PDEBUG("RC QP: Sending over original_id: "
-                   "0x%06x 0x%04x 0x%06x and current_id: "
-                   "0x%06x 0x%04x 0x%06x from %s\n",
-                   internal_qp->original_id.qpn, internal_qp->original_id.lid,
-                   internal_qp->original_id.psn, internal_qp->current_id.qpn,
-                   internal_qp->current_id.lid, internal_qp->current_id.psn,
-                   hostname);
-
-            dmtcp_send_key_val_pair_to_coordinator("qp_info",
-                                                   &internal_qp->original_id,
-                                                   sizeof(internal_qp->original_id),
-                                                   &internal_qp->current_id,
-                                                   sizeof(internal_qp->current_id));
-            }
-          break;
-
-        case IBV_QPT_UD:
-        {
-          // Reuse original_id and current_id structure here, excluding psn
-          ibv_ud_qp_id_t orig_id, curr_id;
-
-          orig_id.qpn = internal_qp->original_id.qpn;
-          orig_id.lid = internal_qp->original_id.lid;
-          curr_id.qpn = internal_qp->current_id.qpn;
-          curr_id.lid = internal_qp->current_id.lid;
-
-          PDEBUG("UD QP: Sending over original_id: "
-                 "0x%06x 0x%04x and current_id: "
-                 "0x%06x 0x%04x from %s\n",
-                 orig_id.qpn, orig_id.lid,
-                 curr_id.qpn, curr_id.lid,
+      case IBV_QPT_RC:
+        if (internal_qp->in_use) {
+          PDEBUG("RC QP: Sending over original_id: "
+                 "0x%06x 0x%04x 0x%06x and current_id: "
+                 "0x%06x 0x%04x 0x%06x from %s\n",
+                 internal_qp->original_id.qpn, internal_qp->original_id.lid,
+                 internal_qp->original_id.psn, internal_qp->current_id.qpn,
+                 internal_qp->current_id.lid, internal_qp->current_id.psn,
                  hostname);
 
           dmtcp_send_key_val_pair_to_coordinator("qp_info",
-                                                 &orig_id,
-            				         sizeof(orig_id),
-                                                 &curr_id,
-            				         sizeof(curr_id));
-          break;
-        }
+                                                 &internal_qp->original_id,
+                                                 sizeof(internal_qp->original_id),
+                                                 &internal_qp->current_id,
+                                                 sizeof(internal_qp->current_id));
+          }
+        break;
 
-        default:
-          fprintf(stderr, "Warning: unsupported qp type: %d\n",
-                  internal_qp->user_qp.qp_type);
-          exit(1);
+      case IBV_QPT_UD:
+      {
+        // Reuse original_id and current_id structure here, excluding psn
+        ibv_ud_qp_id_t orig_id, curr_id;
+
+        orig_id.qpn = internal_qp->original_id.qpn;
+        orig_id.lid = internal_qp->original_id.lid;
+        curr_id.qpn = internal_qp->current_id.qpn;
+        curr_id.lid = internal_qp->current_id.lid;
+
+        PDEBUG("UD QP: Sending over original_id: "
+               "0x%06x 0x%04x and current_id: "
+               "0x%06x 0x%04x from %s\n",
+               orig_id.qpn, orig_id.lid,
+               curr_id.qpn, curr_id.lid,
+               hostname);
+
+        dmtcp_send_key_val_pair_to_coordinator("qp_info",
+                                               &orig_id,
+                                               sizeof(orig_id),
+                                               &curr_id,
+                                               sizeof(curr_id));
+        break;
+      }
+
+      default:
+        fprintf(stderr, "Warning: unsupported qp type: %d\n",
+                internal_qp->user_qp.qp_type);
+        exit(1);
       }
     }
   }
@@ -980,17 +980,17 @@ void refill(void)
       copy_wr = copy_send_wr(&log->wr);
       update_lkey_send(copy_wr);
       switch (internal_qp->user_qp.qp_type) {
-        case IBV_QPT_RC:
-          update_rkey_send(copy_wr, internal_qp->remote_pd_id);
-          break;
-        case IBV_QPT_UD:
-          assert(copy_wr->opcode == IBV_WR_SEND);
-          update_ud_send_restart(copy_wr);
-          break;
-        default:
-          fprintf(stderr, "Warning: unsupported qp type: %d\n",
-                  internal_qp->user_qp.qp_type);
-          exit(1);
+      case IBV_QPT_RC:
+        update_rkey_send(copy_wr, internal_qp->remote_pd_id);
+        break;
+      case IBV_QPT_UD:
+        assert(copy_wr->opcode == IBV_WR_SEND);
+        update_ud_send_restart(copy_wr);
+        break;
+      default:
+        fprintf(stderr, "Warning: unsupported qp type: %d\n",
+                internal_qp->user_qp.qp_type);
+        exit(1);
       }
 
       PDEBUG("About to repost send.\n");
@@ -1263,48 +1263,48 @@ int _get_async_event(struct ibv_context * ctx, struct ibv_async_event * event)
   }
 
   switch (event->event_type) {
-      /* QP events */
-    case IBV_EVENT_QP_FATAL:
-    case IBV_EVENT_QP_REQ_ERR:
-    case IBV_EVENT_QP_ACCESS_ERR:
-    case IBV_EVENT_QP_LAST_WQE_REACHED:
-    case IBV_EVENT_SQ_DRAINED:
-    case IBV_EVENT_COMM_EST:
-    case IBV_EVENT_PATH_MIG:
-    case IBV_EVENT_PATH_MIG_ERR:
-      internal_qp = get_qp_from_pointer(event->element.qp);
-      assert(internal_qp != NULL);
-      event->element.qp = &internal_qp->user_qp;
-      break;
-      /* CQ events */
-    case IBV_EVENT_CQ_ERR:
-      internal_cq = get_cq_from_pointer(event->element.cq);
-      assert(internal_cq != NULL);
-      event->element.cq = &internal_cq->user_cq;
-      break;
-      /*SRQ events */
-    case IBV_EVENT_SRQ_ERR:
-    case IBV_EVENT_SRQ_LIMIT_REACHED:
-      internal_srq = get_srq_from_pointer(event->element.srq);
-      assert(internal_srq != NULL);
-      event->element.srq = &internal_srq->user_srq;
-      break;
-    case IBV_EVENT_PORT_ACTIVE:
-    case IBV_EVENT_PORT_ERR:
-    case IBV_EVENT_LID_CHANGE:
-    case IBV_EVENT_PKEY_CHANGE:
-    case IBV_EVENT_SM_CHANGE:
-    case IBV_EVENT_CLIENT_REREGISTER:
-    case IBV_EVENT_GID_CHANGE:
-      break;
-      /* CA events */
-    case IBV_EVENT_DEVICE_FATAL:
-      return rslt;
-      break;
-    default:
-      fprintf(stderr, "Warning: Could not identify the ibv_event_type\n");
-      break;
-    }
+    /* QP events */
+  case IBV_EVENT_QP_FATAL:
+  case IBV_EVENT_QP_REQ_ERR:
+  case IBV_EVENT_QP_ACCESS_ERR:
+  case IBV_EVENT_QP_LAST_WQE_REACHED:
+  case IBV_EVENT_SQ_DRAINED:
+  case IBV_EVENT_COMM_EST:
+  case IBV_EVENT_PATH_MIG:
+  case IBV_EVENT_PATH_MIG_ERR:
+    internal_qp = get_qp_from_pointer(event->element.qp);
+    assert(internal_qp != NULL);
+    event->element.qp = &internal_qp->user_qp;
+    break;
+    /* CQ events */
+  case IBV_EVENT_CQ_ERR:
+    internal_cq = get_cq_from_pointer(event->element.cq);
+    assert(internal_cq != NULL);
+    event->element.cq = &internal_cq->user_cq;
+    break;
+    /*SRQ events */
+  case IBV_EVENT_SRQ_ERR:
+  case IBV_EVENT_SRQ_LIMIT_REACHED:
+    internal_srq = get_srq_from_pointer(event->element.srq);
+    assert(internal_srq != NULL);
+    event->element.srq = &internal_srq->user_srq;
+    break;
+  case IBV_EVENT_PORT_ACTIVE:
+  case IBV_EVENT_PORT_ERR:
+  case IBV_EVENT_LID_CHANGE:
+  case IBV_EVENT_PKEY_CHANGE:
+  case IBV_EVENT_SM_CHANGE:
+  case IBV_EVENT_CLIENT_REREGISTER:
+  case IBV_EVENT_GID_CHANGE:
+    break;
+    /* CA events */
+  case IBV_EVENT_DEVICE_FATAL:
+    return rslt;
+    break;
+  default:
+    fprintf(stderr, "Warning: Could not identify the ibv_event_type\n");
+    break;
+  }
 
   DMTCP_PLUGIN_ENABLE_CKPT();
   return rslt;
@@ -1317,46 +1317,46 @@ void _ack_async_event(struct ibv_async_event * event)
   struct internal_ibv_srq * internal_srq;
 
   switch (event->event_type) {
-      /* QP events */
-    case IBV_EVENT_QP_FATAL:
-    case IBV_EVENT_QP_REQ_ERR:
-    case IBV_EVENT_QP_ACCESS_ERR:
-    case IBV_EVENT_QP_LAST_WQE_REACHED:
-    case IBV_EVENT_SQ_DRAINED:
-    case IBV_EVENT_COMM_EST:
-    case IBV_EVENT_PATH_MIG:
-    case IBV_EVENT_PATH_MIG_ERR:
-      internal_qp = ibv_qp_to_internal(event->element.qp);
-      assert(internal_qp != NULL);
-      event->element.qp = internal_qp->real_qp;
-      break;
-      /* CQ events */
-    case IBV_EVENT_CQ_ERR:
-      internal_cq = ibv_cq_to_internal(event->element.cq);
-      assert(internal_cq != NULL);
-      event->element.cq = internal_cq->real_cq;
-      break;
-      /*SRQ events */
-    case IBV_EVENT_SRQ_ERR:
-    case IBV_EVENT_SRQ_LIMIT_REACHED:
-      internal_srq = ibv_srq_to_internal(event->element.srq);
-      assert(internal_srq != NULL);
-      event->element.srq = internal_srq->real_srq;
-      break;
-    case IBV_EVENT_PORT_ACTIVE:
-    case IBV_EVENT_PORT_ERR:
-    case IBV_EVENT_LID_CHANGE:
-    case IBV_EVENT_PKEY_CHANGE:
-    case IBV_EVENT_SM_CHANGE:
-    case IBV_EVENT_CLIENT_REREGISTER:
-    case IBV_EVENT_GID_CHANGE:
-      break;
-      /* CA events */
-    case IBV_EVENT_DEVICE_FATAL:
-      break;
-    default:
-      fprintf(stderr, "Warning: Could not identify the ibv_event_type\n");
-      break;
+    /* QP events */
+  case IBV_EVENT_QP_FATAL:
+  case IBV_EVENT_QP_REQ_ERR:
+  case IBV_EVENT_QP_ACCESS_ERR:
+  case IBV_EVENT_QP_LAST_WQE_REACHED:
+  case IBV_EVENT_SQ_DRAINED:
+  case IBV_EVENT_COMM_EST:
+  case IBV_EVENT_PATH_MIG:
+  case IBV_EVENT_PATH_MIG_ERR:
+    internal_qp = ibv_qp_to_internal(event->element.qp);
+    assert(internal_qp != NULL);
+    event->element.qp = internal_qp->real_qp;
+    break;
+    /* CQ events */
+  case IBV_EVENT_CQ_ERR:
+    internal_cq = ibv_cq_to_internal(event->element.cq);
+    assert(internal_cq != NULL);
+    event->element.cq = internal_cq->real_cq;
+    break;
+    /*SRQ events */
+  case IBV_EVENT_SRQ_ERR:
+  case IBV_EVENT_SRQ_LIMIT_REACHED:
+    internal_srq = ibv_srq_to_internal(event->element.srq);
+    assert(internal_srq != NULL);
+    event->element.srq = internal_srq->real_srq;
+    break;
+  case IBV_EVENT_PORT_ACTIVE:
+  case IBV_EVENT_PORT_ERR:
+  case IBV_EVENT_LID_CHANGE:
+  case IBV_EVENT_PKEY_CHANGE:
+  case IBV_EVENT_SM_CHANGE:
+  case IBV_EVENT_CLIENT_REREGISTER:
+  case IBV_EVENT_GID_CHANGE:
+    break;
+    /* CA events */
+  case IBV_EVENT_DEVICE_FATAL:
+    break;
+  default:
+    fprintf(stderr, "Warning: Could not identify the ibv_event_type\n");
+    break;
   }
 
   NEXT_IBV_FNC(ibv_ack_async_event)(event);
@@ -2315,24 +2315,24 @@ int _ibv_post_send(struct ibv_qp * qp, struct ibv_send_wr * wr, struct
   update_lkey_send(copy_wr);
 
   switch (internal_qp->user_qp.qp_type) {
-    case IBV_QPT_RC:
-      if (is_restart) {
-        update_rkey_send(copy_wr, internal_qp->remote_pd_id);
-      }
-      break;
-    case IBV_QPT_UD:
-      assert(copy_wr->opcode == IBV_WR_SEND);
-      if (is_restart) {
-        update_ud_send_restart(copy_wr);
-      }
-      else {
-        update_ud_send(copy_wr);
-      }
-      break;
-    default:
-      fprintf(stderr, "Warning: unsupported qp type: %d\n",
-              internal_qp->user_qp.qp_type);
-      exit(1);
+  case IBV_QPT_RC:
+    if (is_restart) {
+      update_rkey_send(copy_wr, internal_qp->remote_pd_id);
+    }
+    break;
+  case IBV_QPT_UD:
+    assert(copy_wr->opcode == IBV_WR_SEND);
+    if (is_restart) {
+      update_ud_send_restart(copy_wr);
+    }
+    else {
+      update_ud_send(copy_wr);
+    }
+    break;
+  default:
+    fprintf(stderr, "Warning: unsupported qp type: %d\n",
+            internal_qp->user_qp.qp_type);
+    exit(1);
   }
 
   rslt = _real_ibv_post_send(internal_qp->real_qp, copy_wr, bad_wr);
