@@ -221,7 +221,6 @@ send_qp_info(void)
 
       switch (internal_qp->user_qp.qp_type) {
       case IBV_QPT_RC:
-      {
         if (internal_qp->in_use) {
           PDEBUG("RC QP: Sending over original_id: "
                  "0x%06x 0x%04x 0x%06x and current_id: "
@@ -238,7 +237,6 @@ send_qp_info(void)
                                                  sizeof(internal_qp->current_id));
         }
         break;
-      }
 
       case IBV_QPT_UD:
       {
@@ -1334,7 +1332,6 @@ _get_async_event(struct ibv_context *ctx, struct ibv_async_event *event)
   /* CA events */
   case IBV_EVENT_DEVICE_FATAL:
     return rslt;
-
     break;
   default:
     fprintf(stderr, "Warning: Could not identify the ibv_event_type\n");
