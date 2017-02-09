@@ -86,6 +86,12 @@ class LookupService
     void respondToQuery(jalib::JSocket &remote,
                         const DmtcpMessage &msg,
                         const void *data);
+    void getUniqueId(const char *id,    // DB name
+                     const void *key,   // Key: can be hostid, pid, etc.
+                     size_t key_len,  // Length of the key
+                     void **val,        // Result
+                     uint32_t offset,   // Difference in two unique ids
+                     size_t val_len); // Expected value length
 
   private:
     typedef map<KeyValue, KeyValue *>KeyValueMap;
@@ -103,6 +109,8 @@ class LookupService
 
   private:
     map<string, KeyValueMap>_maps;
+    map<string, uint64_t>_lastUniqueIds;
+    map<string, uint64_t>_offsets;
 };
 }
 #endif // ifndef LOOKUP_SERVICE_H

@@ -43,6 +43,8 @@ LookupService::reset()
     kvmap.clear();
   }
   _maps.clear();
+  _lastUniqueIds.clear();
+  _offsets.clear();
 }
 
 void
@@ -108,10 +110,18 @@ LookupService::respondToQuery(jalib::JSocket &remote,
     (msg.keyLen) (msg.extraBytes);
   void *val = NULL;
   size_t valLen = 0;
+  DmtcpMessage reply;
 
-  query(msg.nsid, key, msg.keyLen, &val, &valLen);
+  if (msg.type == DMT_NAME_SERVICE_GET_UNIQUE_ID) {
+    reply.type = DMT_NAME_SERVICE_GET_UNIQUE_ID_RESPONSE;
+    getUniqueId(msg.nsid, key, msg.keyLen, &val,
+                msg.uniqueIdOffset, msg.valLen);
+    valLen = msg.valLen;
+  } else {
+    reply.type = DMT_NAME_SERVICE_QUERY_RESPONSE;
+    query(msg.nsid, key, msg.keyLen, &val, &valLen);
+  }
 
-  DmtcpMessage reply(DMT_NAME_SERVICE_QUERY_RESPONSE);
   reply.keyLen = 0;
   reply.valLen = valLen;
   reply.extraBytes = reply.valLen;
@@ -121,4 +131,34 @@ LookupService::respondToQuery(jalib::JSocket &remote,
     remote.writeAll((char *)val, valLen);
   }
   delete[] (char *)val;
+}
+
+void
+LookupService::getUniqueId(const char *id,    // DB name
+                           const void *key,   // Key: can be hostid, pid, etc.
+                           size_t key_len,    // Length of the key
+                           void **val,        // Result
+                           uint32_t offset,   // Difference in two unique ids
+                           size_t val_len)    // Expected value length
+{
+  KeyValueMap &kvmap = _maps[id];
+  KeyValue k(key, key_len);
+
+  // if key does not exist in the key-value map, add it
+  if (kvmap.find(k) == kvmap.end()) {
+    if (_lastUniqueIds.find(id) == _lastUniqueIds.end()) {
+      _lastUniqueIds[id] = 1;
+      _offsets[id] = offset;
+    }
+    JTRACE("Assigning a new unique id to client request")
+       (id) (_lastUniqueIds[id]);
+    KeyValue *v = new KeyValue(&_lastUniqueIds[id], val_len);
+    _lastUniqueIds[id] += _offsets[id];
+    kvmap[k] = v;
+  }
+
+  KeyValue *v = kvmap[k];
+  JASSERT(v->len() == val_len);
+  *val = new char[v->len()];
+  memcpy(*val, v->data(), val_len);
 }

@@ -809,6 +809,57 @@ sendQueryToCoordinator(const char *id,
   return *val_len;
 }
 
+int getUniqueIdFromCoordinator(const char *id,
+                               const void *key,
+                               uint32_t key_len,
+                               void *val,
+                               uint32_t *val_len,
+                               uint32_t offset /* = 1 */)
+{
+  DmtcpMessage msg(DMT_NAME_SERVICE_GET_UNIQUE_ID);
+
+  JWARNING(strlen(id) < sizeof(msg.nsid));
+  strncpy(msg.nsid, id, sizeof msg.nsid);
+  msg.keyLen = key_len;
+  msg.valLen = 0;
+  msg.extraBytes = key_len;
+  msg.uniqueIdOffset = offset;
+  msg.valLen = *val_len;
+  int sock = coordinatorSocket;
+
+  if (key == NULL || key_len == 0 || val == NULL || val_len == 0) {
+    return 0;
+  }
+
+  if (dmtcp_is_running_state()) {
+    if (nsSock == -1) {
+      nsSock = createNewSocketToCoordinator(COORD_ANY);
+      JASSERT(nsSock != -1);
+      nsSock = Util::changeFd(nsSock, PROTECTED_NS_FD);
+      JASSERT(nsSock == PROTECTED_NS_FD);
+      DmtcpMessage m(DMT_NAME_SERVICE_WORKER);
+      JASSERT(Util::writeAll(nsSock, &m, sizeof(m)) == sizeof(m));
+    }
+    sock = nsSock;
+  }
+
+  JASSERT(Util::writeAll(sock, &msg, sizeof(msg)) == sizeof(msg));
+  JASSERT(Util::writeAll(sock, key, key_len) == key_len);
+
+  msg.poison();
+
+  JASSERT(Util::readAll(sock, &msg, sizeof(msg)) == sizeof(msg));
+  msg.assertValid();
+  JASSERT(msg.type == DMT_NAME_SERVICE_GET_UNIQUE_ID_RESPONSE &&
+          msg.extraBytes == msg.valLen);
+
+  JASSERT(*val_len >= msg.valLen);
+  *val_len = msg.valLen;
+  JASSERT(Util::readAll(sock, val, *val_len) == *val_len);
+
+  return *val_len;
+}
+
 /*
  * Setup a virtual coordinator. It's part of the running process (i.e., no
  * separate process is created).
