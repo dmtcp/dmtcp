@@ -93,7 +93,7 @@ namespace dmtcp
         STDIO_INVALID
       };
 
-      StdioConnection(int fd): Connection(STDIO + fd) {
+      StdioConnection(int fd): Connection(STDIO_IN + fd) {
         JTRACE("creating stdio connection") (fd) (id());
         JASSERT(jalib::Between(0, fd, 2)) (fd)
           .Text("invalid fd for StdioConnection");
@@ -125,15 +125,11 @@ namespace dmtcp
       FileConnection() {}
       FileConnection(const string& path, int flags, mode_t mode,
                      int type = FILE_REGULAR)
-        : Connection(FILE)
+        : Connection(type)
         , _path(path)
         , _fileAlreadyExists(false)
         , _flags(flags)
-        /* No method uses _mode yet.  Stop compiler from issuing warning. */
-        /* , _mode(mode) */
-      {
-         _type = type;
-      }
+      { }
 
 
       virtual void doLocking();

@@ -227,13 +227,12 @@ static ssize_t ptmxWriteAll(int fd, const void *buf, bool isPacketMode)
 
 PtyConnection::PtyConnection(int fd, const char *path,
                                     int flags, mode_t mode, int type)
-  : Connection (PTY)
+  : Connection (type)
   , _flags(flags)
   , _mode(mode)
   , _preExistingCTTY(false)
 {
   char buf[PTS_PATH_MAX];
-  _type = type;
   switch (_type) {
 
     case PTY_DEV_TTY:

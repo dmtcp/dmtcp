@@ -28,7 +28,6 @@
 // THESE INCLUDES ARE IN RANDOM ORDER.  LET'S CLEAN IT UP AFTER RELEASE. - Gene
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 #include <unistd.h>
 #include "config.h"
 #include "dmtcpalloc.h"
