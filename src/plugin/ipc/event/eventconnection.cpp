@@ -79,7 +79,7 @@ void EpollConnection::postRestart()
   } else {
     tempFd = _real_epoll_create1(_flags);
   }
-  JASSERT(tempFd >= 0) (_size) (JASSERT_ERRNO);
+  JASSERT(tempFd >= 0) (_size) (_flags) (JASSERT_ERRNO);
   Util::dupFds(tempFd, _fds);
 }
 
@@ -121,19 +121,17 @@ void EventFdConnection::drain()
   JTRACE("Checkpoint eventfd.") (_fds[0]);
 
   int new_flags =(_fcntlFlags &(~(O_RDONLY|O_WRONLY))) | O_RDWR | O_NONBLOCK;
-  int evtfd = _fds[0];
-  JASSERT(evtfd >= 0) (evtfd) (JASSERT_ERRNO);
+  JASSERT(_fds[0] >= 0) (_fds[0]) (JASSERT_ERRNO);
   // set the new flags
-  JASSERT(fcntl(evtfd, F_SETFL, new_flags) == 0)
-   (evtfd) (new_flags) (JASSERT_ERRNO);
+  JASSERT(fcntl(_fds[0], F_SETFL, new_flags) == 0)
+   (_fds[0]) (new_flags) (JASSERT_ERRNO);
   ssize_t size;
   uint64_t u;
-  unsigned int counter = 1;
 
-  // Read whatever is there on top of evtfd
-  size = read(evtfd, &u, sizeof(uint64_t));
+  // Read whatever is there on top of _fds[0]
+  size = read(_fds[0], &u, sizeof(uint64_t));
   if (-1 != size) {
-    JTRACE("Read value u: ") (evtfd) (u);
+    JTRACE("Read value u: ") (_fds[0]) (u);
     // EFD_SEMAPHORE flag not specified,
     // the counter value would have been reset to 0 upon read
     // Save the value, so that it can be restored in post-checkpoint
@@ -142,13 +140,14 @@ void EventFdConnection::drain()
     } else {
       // EFD_SEMAPHORE specified, so can't read the current counter value
       // Keep reading till "semaphore" becomes 0.
-      while (-1 != read(evtfd, &u, sizeof(uint64_t)))
+      unsigned int counter = 1;
+      while (-1 != read(_fds[0], &u, sizeof(uint64_t)))
         counter++;
       _initval = counter;
     }
   } else {
     JTRACE("Nothing to be read from eventfd.")
-      (evtfd) (errno) (strerror(errno));
+      (_fds[0]) (errno) (strerror(errno));
     _initval = 0;
   }
   JTRACE("Checkpointing eventfd:  end.") (_fds[0]) (_initval);
@@ -158,12 +157,11 @@ void EventFdConnection::refill(bool isRestart)
 {
   JTRACE("Begin refill eventfd.") (_fds[0]);
   JASSERT(_fds.size() > 0);
-  evtfd = _fds[0];
   if (!isRestart) {
     uint64_t u =(unsigned long long) _initval;
     JTRACE("Writing") (u);
-    JWARNING(write(evtfd, &u, sizeof(uint64_t)) == sizeof(uint64_t))
-      (evtfd) (errno) (strerror(errno))
+    JWARNING(write(_fds[0], &u, sizeof(uint64_t)) == sizeof(uint64_t))
+      (_fds[0]) (errno) (strerror(errno))
       .Text("Write to eventfd failed during refill");
   }
   JTRACE("End refill eventfd.") (_fds[0]);
@@ -199,23 +197,16 @@ void SignalFdConnection::drain()
   JTRACE("Checkpoint signalfd.") (_fds[0]);
 
   int new_flags =(_fcntlFlags &(~(O_RDONLY|O_WRONLY))) | O_RDWR | O_NONBLOCK;
-  signlfd = _fds[0];
-  JASSERT(signlfd >= 0) (signlfd) (JASSERT_ERRNO);
+  JASSERT(_fds[0] >= 0) (_fds[0]) (JASSERT_ERRNO);
   // set the new flags
-  JASSERT(fcntl(signlfd, F_SETFL, new_flags) == 0)
-   (signlfd) (new_flags) (JASSERT_ERRNO);
-  ssize_t size;
-  struct signalfd_siginfo _fdsi;
+  JASSERT(fcntl(_fds[0], F_SETFL, new_flags) == 0)
+   (_fds[0]) (new_flags) (JASSERT_ERRNO);
 
   // Read whatever is there on top of signalfd
-  size = read(signlfd, &_fdsi, sizeof(struct signalfd_siginfo));
-  if (-1 != size) {
-    // Save the value, so that it can be restored in post-checkpoint
-    memcpy(&_fdsi, &_fdsi, sizeof(struct signalfd_siginfo));
-
-  } else {
+  ssize_t size = read(_fds[0], &_fdsi, sizeof(struct signalfd_siginfo));
+  if (size <= 0) {
     JTRACE("Nothing to be read from signalfd.")
-      (signlfd) (errno) (strerror(errno));
+      (_fds[0]) (errno) (strerror(errno));
   }
   JTRACE("Checkpointing signlfd:  end.") (_fds[0]) ;
 }

@@ -118,7 +118,6 @@ namespace dmtcp
     private:
       uint64_t _initval; // initial counter value
       int64_t _flags; // flags
-      int64_t evtfd;
   };
 #endif
 
@@ -128,15 +127,12 @@ namespace dmtcp
     public:
       inline SignalFdConnection(int signalfd, const sigset_t* mask, int flags)
         :Connection(SIGNALFD),
-        signlfd(signalfd),
         _flags(flags)
     {
       if (mask!=NULL)
         _mask = *mask;
       else
         sigemptyset(&_mask);
-      memset(&_fdsi, 0, sizeof(_fdsi));
-      JTRACE("new signalfd  connection created");
     }
 
       virtual void drain();
@@ -147,7 +143,6 @@ namespace dmtcp
       virtual string str() { return "SIGNAL-FD: <Not-a-File>"; };
 
     private:
-      int64_t signlfd;
       int64_t  _flags; // flags
       sigset_t _mask; // mask for signals
       struct signalfd_siginfo _fdsi;
@@ -190,7 +185,6 @@ namespace dmtcp
     private:
       int64_t  _flags; // flags
       int64_t  _state; // current state of INOTIFY
-      struct stat _stat; // not sure if stat makes sense in case  of epfd
   };
 #endif
 #endif
