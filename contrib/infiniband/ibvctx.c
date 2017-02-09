@@ -189,6 +189,12 @@ static void send_qp_info(void)
                                              &internal_qp->current_id.lid,
                                              sizeof(internal_qp->current_id.lid));
 
+      dmtcp_send_key_val_pair_to_coordinator("ib_qp",
+          &internal_qp->user_qp.qp_num,
+          sizeof(internal_qp->user_qp.qp_num),
+          &internal_qp->real_qp->qp_num,
+          sizeof(internal_qp->real_qp->qp_num));
+
       switch (internal_qp->user_qp.qp_type) {
       case IBV_QPT_RC:
         if (internal_qp->in_use) {
@@ -250,10 +256,48 @@ static void query_qp_info(void)
 
   gethostname(hostname, 128);
 
+  for (e = list_begin(&qp_num_list);
+       e != list_end(&qp_num_list);
+       e = list_next(e)) {
+    qp_num_mapping_t *mapping = list_entry(e, qp_num_mapping_t, elem);
+
+    // First, check the local qp list, update the local cache
+    for (w = list_begin(&qp_list);
+         w != list_end(&qp_list);
+         w = list_next(w)) {
+      struct internal_ibv_qp * internal_qp =
+        list_entry(w, struct internal_ibv_qp, elem);
+
+      if (mapping->virtual_qp_num == internal_qp->user_qp.qp_num) {
+        PDEBUG("Querying local qp: virtual qp_num: 0x%08x, ""
+            real qp_num: 0x%08x from %s\n",
+            mapping->virtual_qp_num,
+            internal_qp->real_qp->qp_num,
+            hostname);
+        mapping->real_qp_num = internal_qp->real_qp->qp_num;
+        break;
+      }
+    }
+
+    // For remote qps, query the coordinator
+    if (w == list_end(&qp_list)) {
+      size_t size = sizeof(mapping->real_qp_num);
+
+      PDEBUG("Querying remote qp: virtual qp_num: 0x%08x from %s\n",
+          mapping->virtual_qp_num,
+          hostname);
+      dmtcp_send_query_to_coordinator("ib_qp",
+          &mapping->virtual_qp_num, sizeof(mapping->virtual_qp_num),
+          &mapping->real_qp_num, &size);
+      assert(size == sizeof(mapping->real_qp_num));
+    }
+  }
+
   for (e = list_begin(&qp_list); e != list_end(&qp_list); e = list_next(e)) {
     struct internal_ibv_qp * internal_qp;
 
     internal_qp = list_entry(e, struct internal_ibv_qp, elem);
+
     if (internal_qp->user_qp.qp_type == IBV_QPT_RC &&
         internal_qp->in_use) {
       uint32_t size = sizeof(internal_qp->current_remote);
@@ -896,8 +940,9 @@ void post_restart2(void)
       mod = list_entry(w, struct ibv_modify_qp_log, elem);
       attr = mod->attr;
 
+      // Use the translation table
       if (mod->attr_mask & IBV_QP_DEST_QPN) {
-        attr.dest_qp_num = internal_qp->current_remote.qpn;
+        attr.dest_qp_num = translate_qp_num(attr.dest_qp_num);
       }
       if (mod->attr_mask & IBV_QP_SQ_PSN) {
         attr.sq_psn = internal_qp->current_id.psn;
@@ -2536,7 +2581,7 @@ uint32_t translate_qp_num(uint32_t virtual_qp_num) {
     size_t size = sizeof(real_qp_num);
 
     pthread_mutex_unlock(&qp_mutex);
-    dmtcp_send_query_to_coordinator("qp_info",
+    dmtcp_send_query_to_coordinator("ib_qp",
         &virtual_qp_num, sizeof(virtual_qp_num),
         &real_qp_num, &size);
     assert(size == sizeof(real_qp_num));
