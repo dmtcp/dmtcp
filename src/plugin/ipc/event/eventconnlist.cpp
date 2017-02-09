@@ -35,7 +35,7 @@ Connection *EventConnList::createDummyConnection(int type)
   switch (type) {
 #ifdef HAVE_SYS_EPOLL_H
     case Connection::EPOLL:
-      return new EpollConnection(5); //dummy val
+      return new EpollConnection(); //dummy val
       break;
 #endif
 

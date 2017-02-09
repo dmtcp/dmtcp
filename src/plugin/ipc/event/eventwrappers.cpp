@@ -185,7 +185,7 @@ extern "C" int epoll_create(int size)
   int ret = _real_epoll_create(size);
   if (ret != -1) {
     JLOG(EVENT)("epoll fd created") (ret) (size);
-    EventConnList::instance().add(ret, new EpollConnection(size));
+    EventConnList::instance().add(ret, new EpollConnection(size, 0));
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return ret;
@@ -197,7 +197,7 @@ extern "C" int epoll_create1(int flags)
   int ret = _real_epoll_create1(flags);
   if (ret != -1) {
     JLOG(EVENT)("epoll fd created1") (ret) (flags);
-    EventConnList::instance().add(ret, new EpollConnection(flags));
+    EventConnList::instance().add(ret, new EpollConnection(0, flags));
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return ret;
