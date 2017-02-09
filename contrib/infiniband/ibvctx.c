@@ -75,7 +75,7 @@ static struct list ah_list = LIST_INITIALIZER(ah_list);
 // ! This is the list of rkey pairs
 static struct list rkey_list;
 // List to store the virtual-to-real qp_num
-static struct list qp_num_list;
+static struct list qp_num_list = LIST_INITIALIZER(qp_num_list);
 
 static uint32_t pd_id_count = 0;
 static uint32_t qp_num_offset = 0;
@@ -96,6 +96,11 @@ static void nameservice_register_data(void);
 static void nameservice_send_queries(void);
 static void refill(void);
 static void cleanup(void);
+
+// Translate virtual qp_num to real qp_num, first look up the local
+// cache, if doesn't exist, query the coordinator, store the result
+// in the cache.
+static uint32_t translate_qp_num(uint32_t virtual_qp_num);
 
 int _ibv_post_send(struct ibv_qp *qp,
                    struct ibv_send_wr *wr,
@@ -196,9 +201,6 @@ nameservice_send_queries(void)
 static void
 send_qp_info(void)
 {
-  // TODO: BREAK REPLAYING OF MODIFY_QP LOG INTO TWO STAGES.
-  // GO AHEAD AND MOVE QP INTO INIT STATE BEFORE DOING THIS.
-  // IF A QP WAS NEVER MOVED INTO RTR THEN IT WON'T HAVE A CORRESPONDING QP
   struct list_elem *e;
   char hostname[128];
 
@@ -1988,6 +1990,7 @@ _destroy_qp(struct ibv_qp *qp)
     free(log);
   }
 
+  pthread_mutex_lock(&qp_mutex);
   e = list_begin(&qp_num_list);
   while (e != list_end(&qp_num_list)) {
     mapping = list_entry(e, qp_num_mapping_t, elem);
@@ -1999,9 +2002,10 @@ _destroy_qp(struct ibv_qp *qp)
 
   assert(e != list_end(&qp_num_list));
   list_remove(&mapping->elem);
-  free(mapping);
-
   list_remove(&internal_qp->elem);
+
+  pthread_mutex_unlock(&qp_mutex);
+  free(mapping);
   free(internal_qp);
 
   return rslt;
@@ -2026,47 +2030,8 @@ _modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr, int attr_mask)
   log->attr_mask = attr_mask;
   list_push_back(&internal_qp->modify_qp_log, &log->elem);
 
-  // Translate the virtual qp_num to the real one
-  // Check the local cache first, if local cache doesn't
-  // contain the entry, query the coordinator
   if (attr_mask & IBV_QP_DEST_QPN) {
-    struct list_elem *e;
-    qp_num_mapping_t *mapping = NULL;
-
-    for (e = list_begin(&qp_num_list);
-         e != list_end(&qp_num_list);
-         e = list_next(e)) {
-      mapping = list_entry(e, qp_num_mapping_t, elem);
-      if (mapping->virtual_qp_num == attr->dest_qp_num) {
-        real_attr.dest_qp_num = mapping->real_qp_num;
-        break;
-      }
-    }
-
-    // destination qp_num not found, query the coordinator,
-    // add the mapping to the cache
-    if (e == list_end(&qp_num_list)) {
-      uint32_t real_qp_num = 0;
-      size_t size = sizeof(real_qp_num);
-
-      dmtcp_send_query_to_coordinator("qp_info",
-          &attr->dest_qp_num, sizeof(attr->dest_qp_num),
-          &real_qp_num, &size);
-      assert(size == sizeof(real_qp_num));
-
-      real_attr.dest_qp_num = real_qp_num;
-      mapping = malloc(sizeof(qp_num_mapping_t));
-      if (!mapping) {
-        fprintf(stderr,
-            "Error: cannot allocate memory for _modify_qp\n");
-        exit(1);
-      }
-      mapping->virtual_qp_num = attr->dest_qp_num;
-      mapping->real_qp_num = real_qp_num;
-      pthread_mutex_lock(&qp_mutex);
-      list_push_back(&qp_num_list, &mapping->elem);
-      pthread_mutex_unlock(&qp_mutex);
-    }
+    real_attr.dest_qp_num = translate_qp_num(attr->dest_qp_num);
   }
 
   rslt = NEXT_IBV_FNC(ibv_modify_qp)(internal_qp->real_qp, &real_attr, attr_mask);
@@ -2629,4 +2594,47 @@ _destroy_ah(struct ibv_ah *ah)
   free(internal_ah);
 
   return rslt;
+}
+
+uint32_t translate_qp_num(uint32_t virtual_qp_num) {
+  struct list_elem *e;
+  qp_num_mapping_t *mapping = NULL;
+  uint32_t real_qp_num;
+
+  pthread_mutex_lock(&qp_mutex);
+  for (e = list_begin(&qp_num_list);
+       e != list_end(&qp_num_list);
+       e = list_next(e)) {
+    mapping = list_entry(e, qp_num_mapping_t, elem);
+    if (mapping->virtual_qp_num == virtual_qp_num) {
+      real_qp_num = mapping->real_qp_num;
+      break;
+    }
+  }
+
+  // destination qp_num not found, query the coordinator,
+  // add the mapping to the cache
+  if (e == list_end(&qp_num_list)) {
+    size_t size = sizeof(real_qp_num);
+
+    pthread_mutex_unlock(&qp_mutex);
+    dmtcp_send_query_to_coordinator("qp_info",
+        &virtual_qp_num, sizeof(virtual_qp_num),
+        &real_qp_num, &size);
+    assert(size == sizeof(real_qp_num));
+
+    mapping = malloc(sizeof(qp_num_mapping_t));
+    if (!mapping) {
+      fprintf(stderr,
+          "Error: cannot allocate memory for translate_qp_num\n");
+      exit(1);
+    }
+    mapping->virtual_qp_num = virtual_qp_num;
+    mapping->real_qp_num = real_qp_num;
+    pthread_mutex_lock(&qp_mutex);
+    list_push_back(&qp_num_list, &mapping->elem);
+  }
+
+  pthread_mutex_unlock(&qp_mutex);
+  return real_qp_num;
 }
