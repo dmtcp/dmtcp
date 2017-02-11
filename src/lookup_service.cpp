@@ -162,3 +162,41 @@ LookupService::getUniqueId(const char *id,    // DB name
   *val = new char[v->len()];
   memcpy(*val, v->data(), val_len);
 }
+
+void
+LookupService::sendAllMappings(jalib::JSocket &remote,
+                               const DmtcpMessage &msg)
+{
+  void *val = NULL;
+  size_t valLen = 0;
+  ostringstream o;
+
+  DmtcpMessage reply(DMT_NAME_SERVICE_QUERY_ALL_RESPONSE);
+
+  map<KeyValue, KeyValue *>::iterator i;
+  KeyValueMap &kvmap = _maps[msg.nsid];
+
+  for (i = kvmap.begin(); i != kvmap.end(); i++) {
+    KeyValue *k = (KeyValue *)&(i->first);
+    KeyValue *v = i->second;
+    // insert the key length and key
+    o << k->len();
+    o.write((const char*)k->data(), k->len());
+    // insert the value length and value
+    o << v->len();
+    o.write((const char*)v->data(), v->len());
+  }
+
+  reply.keyLen = 0;
+  valLen = o.tellp();
+  reply.valLen = valLen;
+  reply.extraBytes = reply.valLen;
+  val = new char[reply.extraBytes];
+  memcpy(val, o.str().c_str(), reply.extraBytes);
+
+  remote << reply;
+  if (valLen > 0) {
+    remote.writeAll((char *)val, valLen);
+  }
+  delete[] (char *)val;
+}

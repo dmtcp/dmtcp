@@ -860,6 +860,66 @@ int getUniqueIdFromCoordinator(const char *id,
   return *val_len;
 }
 
+int
+sendQueryAllToCoordinator(const char *id, void **buf, int *len)
+{
+  DmtcpMessage msg(DMT_NAME_SERVICE_QUERY_ALL);
+
+  JWARNING(strlen(id) < sizeof(msg.nsid));
+  strncpy(msg.nsid, id, sizeof msg.nsid);
+  int sock = coordinatorSocket;
+  if (dmtcp_is_running_state()) {
+    if (nsSock == -1) {
+      nsSock = createNewSocketToCoordinator(COORD_ANY);
+      JASSERT(nsSock != -1);
+      nsSock = Util::changeFd(nsSock, PROTECTED_NS_FD);
+      JASSERT(nsSock == PROTECTED_NS_FD);
+      DmtcpMessage m(DMT_NAME_SERVICE_WORKER);
+      JASSERT(Util::writeAll(nsSock, &m, sizeof(m)) == sizeof(m));
+    }
+    sock = nsSock;
+  }
+
+  JASSERT(Util::writeAll(sock, &msg, sizeof(msg)) == sizeof(msg));
+  msg.poison();
+
+  JASSERT(Util::readAll(sock, &msg, sizeof(msg)) == sizeof(msg));
+  msg.assertValid();
+
+  JASSERT(msg.type == DMT_NAME_SERVICE_QUERY_ALL_RESPONSE &&
+          msg.extraBytes == msg.valLen);
+
+  /*
+   * We can't assume anything about the size of the user-specified buffer,
+   * so we read in in a safe, temporary buffer. This way there's no stale
+   * data on the socket for the next reader.
+   */
+  void *tmp = JALLOC_HELPER_MALLOC(msg.extraBytes);
+  JASSERT (Util::readAll(sock, tmp, msg.extraBytes) == msg.extraBytes);
+
+  if (*len > 0) {
+    if (*len < msg.extraBytes) {
+      JALLOC_HELPER_FREE(tmp);
+      errno = ERANGE;
+      return -1;
+    } else {
+      memcpy(*buf, tmp, msg.extraBytes);
+      *len = msg.extraBytes;
+      JALLOC_HELPER_FREE(tmp);
+      return 0;
+    }
+  } else if (*len == 0) {
+    // Caller must free this buffer
+    *buf = tmp;
+    *len = msg.extraBytes;
+    return 0;
+  }
+
+  JALLOC_HELPER_FREE(tmp);
+  errno = EINVAL;
+  return -1;
+}
+
 /*
  * Setup a virtual coordinator. It's part of the running process (i.e., no
  * separate process is created).

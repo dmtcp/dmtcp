@@ -652,6 +652,13 @@ DmtcpCoordinator::onData(CoordClient *client)
     break;
   }
 
+  case DMT_NAME_SERVICE_QUERY_ALL:
+  {
+    JTRACE("received NAME_SERVICE_QUERY_ALL msg") (client->identity());
+    lookupService.sendAllMappings(client->sock(), msg);
+    break;
+  }
+
   case DMT_UPDATE_PROCESS_INFO_AFTER_FORK:
   {
     JNOTE("Updating process Information after fork()")

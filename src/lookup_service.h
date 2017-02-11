@@ -93,6 +93,9 @@ class LookupService
                      uint32_t offset,   // Difference in two unique ids
                      size_t val_len); // Expected value length
 
+    void sendAllMappings(jalib::JSocket &remote,
+                         const DmtcpMessage &msg);
+
   private:
     typedef map<KeyValue, KeyValue *>KeyValueMap;
     typedef map<string, KeyValueMap>::iterator MapIterator;

@@ -538,6 +538,12 @@ dmtcp_get_unique_id_from_coordinator(const char *id,    // DB name
                                                     val, &val_len, offset);
 }
 
+EXTERNC int
+dmtcp_send_query_all_to_coordinator(const char *id, void **buf, int *len)
+{
+  return CoordinatorAPI::sendQueryAllToCoordinator(id, buf, len);
+}
+
 EXTERNC void
 dmtcp_get_local_ip_addr(struct in_addr *in)
 {
