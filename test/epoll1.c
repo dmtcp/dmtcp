@@ -26,7 +26,11 @@ void server()
   int conn_sock, nfds, epollfd;
 
   if (use_epoll_create1 == 1) {
+#if __GLIBC_PREREQ(2, 9)
     epollfd = epoll_create1(EPOLL_CLOEXEC);
+#else
+    epollfd = epoll_create(5);
+#endif
   } else {
     epollfd = epoll_create(5);
   }

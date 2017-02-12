@@ -21,6 +21,9 @@
 /* Define to 1 if you have process_vm_readv and process_vm_writev. */
 #undef HAS_CMA
 
+/* Define to 1 if you have epoll_create1. */
+#undef HAS_EPOLL_CREATE1
+
 /* DT_GNU_HASH is defined (e.g., in elf.h). */
 #undef HAS_GNU_HASH
 
