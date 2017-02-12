@@ -191,6 +191,7 @@ extern "C" int epoll_create(int size)
   return ret;
 }
 
+#if HAS_EPOLL_CREATE1
 extern "C" int epoll_create1(int flags)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -202,6 +203,7 @@ extern "C" int epoll_create1(int flags)
   DMTCP_PLUGIN_ENABLE_CKPT();
   return ret;
 }
+#endif
 
 extern "C" int epoll_ctl(int epfd, int op, int fd, struct epoll_event *event)
 {

@@ -414,6 +414,16 @@ else
 fi
 AC_MSG_RESULT([$has_cma])
 
+AC_MSG_CHECKING([if epoll_create1 available])
+AC_CHECK_FUNC(epoll_create1, [has_epoll_create1='yes'], [has_epoll_create1='no'])
+if test "$has_epoll_create1" == "yes"; then
+  AC_DEFINE([HAS_EPOLL_CREATE1],[1],[Define to 1 if you have epoll_create1.])
+  AC_SUBST([HAS_EPOLL_CREATE1], [yes])
+else
+  AC_SUBST([HAS_EPOLL_CREATE1], [no])
+fi
+AC_MSG_RESULT([$epoll_create1])
+
 #check for -lreadline -lhistory v5; does not require curses
 AC_CHECK_LIB([readline], [readline], [linksReadline=yes], [linksReadline=no], [-lhistory -lcurses])
 includeReadline=yes

@@ -393,15 +393,17 @@ for ( ; *tmp != '\0'; tmp++ ) {
   *default_symbol_index_p = default_symbol_index;
 
   if (default_symbol_index) {
+#if __GLIBC_PREREQ(2, 11)
+    // See https://gcc.gnu.org/onlinedocs/gcc-4.9.2/gcc/Function-Attributes.html
     if (ELF64_ST_TYPE(tags.symtab[default_symbol_index].st_info) ==
         STT_GNU_IFUNC) {
       typedef void* (*fnc)();
       fnc f =  (fnc)(tags.base_addr +
                      tags.symtab[default_symbol_index].st_value);
       return f();
-    } else {
-      return tags.base_addr + tags.symtab[default_symbol_index].st_value;
     }
+#endif
+    return tags.base_addr + tags.symtab[default_symbol_index].st_value;
   } else {
     return NULL;
   }
