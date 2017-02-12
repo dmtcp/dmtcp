@@ -77,7 +77,11 @@ void EpollConnection::postRestart()
   if (_size != 0) {
     tempFd = _real_epoll_create(_size);
   } else {
+#if HAS_EPOLL_CREATE1
     tempFd = _real_epoll_create1(_flags);
+#else
+    tempFd = -1;
+#endif
   }
   JASSERT(tempFd >= 0) (_size) (_flags) (JASSERT_ERRNO);
   Util::dupFds(tempFd, _fds);

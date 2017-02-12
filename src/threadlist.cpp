@@ -691,8 +691,10 @@ ThreadList::postRestartDebug(void)
 { // Don't try to print before debugging.  Who knows what is working yet?
   int dummy = 1;
   while (dummy);
+#ifdef HAS_PR_SET_PTRACER
   // User should have done GDB attach if we're here.
   prctl(PR_SET_PTRACER, 0, 0, 0, 0); // Revert permission to default: no ptracer
+#endif
   postRestart();
 }
 

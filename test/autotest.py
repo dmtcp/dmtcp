@@ -794,7 +794,9 @@ runTest("popen1",          [1,2], ["./test/popen1"])
 runTest("poll",          1, ["./test/poll"])
 
 runTest("epoll1",        2, ["./test/epoll1"])
-runTest("epoll2",        2, ["./test/epoll1 --use-epoll-create1"])
+
+if HAS_EPOLL_CREATE1 == "yes":
+  runTest("epoll2",        2, ["./test/epoll1 --use-epoll-create1"])
 
 runTest("environ",       1, ["./test/environ"])
 
