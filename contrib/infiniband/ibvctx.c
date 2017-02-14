@@ -63,14 +63,24 @@ static struct list srq_list = LIST_INITIALIZER(srq_list);
 static struct list comp_list = LIST_INITIALIZER(comp_list);
 // Address Handler list
 static struct list ah_list = LIST_INITIALIZER(ah_list);
+
 //! This is the list of rkey pairs
 static struct list rkey_list;
+
 // List to store the virtual-to-real qp_num
 static struct list qp_num_list = LIST_INITIALIZER(qp_num_list);
+static struct list lid_list = LIST_INITIALIZER(lid_list);
 
-static uint32_t pd_id_count = 0;
+// Offsets used to generate unique ids
+static uint32_t pd_id_offset = 0;
 static uint32_t qp_num_offset = 0;
 static uint16_t lid_offset = 0;
+
+// Base lid, unique per node, initilized during launching and restart
+static uint16_t base_lid = 0;
+static bool lid_mapping_initialized = false;
+
+#define LID_QUOTA 10 // Max number of virtual LIDs per node
 
 static pthread_mutex_t pd_mutex = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t qp_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -85,6 +95,15 @@ static void post_restart(void);
 static void post_restart2(void);
 static void refill(void);
 static void cleanup(void);
+
+extern int dmtcp_get_unique_id_from_coordinator(const char *id,    // DB name
+                                                 const void *key,   // Key: can be hostid, pid, etc.
+                                                 uint32_t key_len,  // Length of the key
+                                                 void *val,         // Result
+                                                 uint32_t offset,   // unique id offset
+                                                 uint32_t val_len); // Expected value length
+
+extern int dmtcp_send_query_all_to_coordinator(const char *id, void **buf);
 
 // Translate virtual qp_num to real qp_num, first look up the local
 // cache, if doesn't exist, query the coordinator, store the result
@@ -130,6 +149,10 @@ int dmtcp_infiniband_enabled(void) { return 1; }
 void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t* data)
 {
   switch (event) {
+  case DMTCP_EVENT_INIT:
+    dmtcp_get_unique_id_from_coordinator("ib_blid",
+        &gethostid(), sizeof(long),
+        &base_lid, LID_QUOTA, sizeof(base_lid));
   case DMTCP_EVENT_WRITE_CKPT:
     pre_checkpoint();
     break;
@@ -1051,12 +1074,22 @@ void refill(void)
 
 void cleanup() {
   struct list_elem *e;
-  qp_num_mapping_t *mapping = NULL;
 
   e = list_begin(&qp_num_list);
   while (e != list_end(&qp_num_list)) {
+    qp_num_mapping_t *mapping;
     struct list_elem * w = e;
     mapping = list_entry(e, qp_num_mapping_t, elem);
+    e = list_next(e);
+    list_remove(w);
+    free(mapping);
+  }
+
+  e = list_begin(&lid_list);
+  while (e != list_end(&lid_list)) {
+    lid_mapping_t *mapping;
+    struct list_elem * w = e;
+    mapping = list_entry(e, lid_mapping_t, elem);
     e = list_next(e);
     list_remove(w);
     free(mapping);
@@ -1081,6 +1114,12 @@ struct ibv_device ** _get_device_list(int * num_devices) {
   struct ibv_device ** user_list =  NULL;
 
   real_dev_list = NEXT_IBV_FNC(ibv_get_device_list)(&real_num_devices);
+
+  if (real_num_devices > 1) {
+    fprintf(stderr, "IB plugin currently does not "
+                    "support more than one HCA\n");
+    exit(1);
+  }
 
   if (num_devices) {
     *num_devices = real_num_devices;
@@ -1456,6 +1495,9 @@ void _free_device_list(struct ibv_device ** dev_list)
 struct ibv_context * _open_device(struct ibv_device * device) {
   struct internal_ibv_dev * dev = ibv_device_to_internal(device);
   struct internal_ibv_ctx * ctx;
+  struct ibv_device_attr device_attr;
+  int ret;
+  uint8_t port;
 
   assert(IS_INTERNAL_IBV_STRUCT(dev));
 
@@ -1481,6 +1523,54 @@ struct ibv_context * _open_device(struct ibv_device * device) {
   UPDATE_FUNC_ADDR(post_send, ctx->real_ctx->ops.post_send);
   UPDATE_FUNC_ADDR(poll_cq, ctx->real_ctx->ops.poll_cq);
   UPDATE_FUNC_ADDR(req_notify_cq, ctx->real_ctx->ops.req_notify_cq);
+
+  // Initilizae local virtual-to-real lid mapping
+  pthread_mutex_lock(&lid_mutex);
+  if (!lid_mapping_initialized) {
+    lid_mapping_initialized = true;
+    pthread_mutex_unlock(&lid_mutex);
+    ret = NEXT_IBV_FNC(ibv_query_device)(ctx->real_ctx, &device_attr);
+    if (ret != 0) {
+      fprintf(stderr, "Error getting device attributes.\n");
+      exit(1);
+    }
+    for (port = 1; port <= device_attr.phys_port_cnt; port++) {
+      struct ibv_port_attr port_attr;
+
+      ret = NEXT_IBV_FNC(ibv_query_port)(ctx->real_ctx, port, &port_attr);
+      if (ret != 0) {
+        fprintf(stderr, "Error getting port attributes.\n");
+        exit(1);
+      }
+
+      if (port_attr.state == IBV_PORT_ARMED ||
+          port_attr.state == IBV_PORT_ACTIVE) {
+        lid_mapping_t *mapping = malloc(sizeof(lid_mapping_t));
+
+        if (!mapping) {
+          fprintf(stderr, "Unable to allocate memory for lid mapping.\n");
+          exit(1);
+        }
+
+        mapping->port = port;
+        mapping->real_lid = port_attr.lid;
+        pthread_mutex_lock(&lid_mutex);
+        mapping->virtual_lid = base_lid + lid_offset;
+        lid_offset++;
+        if (lid_offset >= LID_QUOTA) {
+          fprintf(stderr, "Lid exceeds quota!\n");
+          exit(1);
+        }
+        list_push_back(&lid_list, &mapping->elem);
+        pthread_mutex_unlock(&lid_mutex);
+
+        // Send the mapping to the coordinator.
+        dmtcp_send_key_val_pair_to_coordinator("ib_lid",
+            &mapping->virtual_lid, sizeof(mapping->virtual_lid),
+            &mapping->real_lid, sizeof(mapping->real_lid));
+      }
+    }
+  }
 
   memcpy(&ctx->user_ctx, ctx->real_ctx, sizeof(struct ibv_context));
 
@@ -1508,13 +1598,33 @@ int _query_port(struct ibv_context *context, uint8_t port_num,
                 struct ibv_port_attr *port_attr)
 {
   struct internal_ibv_ctx *internal_ctx = ibv_ctx_to_internal(context);
+  int ret;
 
-  if (!IS_INTERNAL_IBV_STRUCT(internal_ctx)) {
-    return NEXT_IBV_FNC(ibv_query_port)(context, port_num, port_attr);
+  assert(IS_INTERNAL_IBV_STRUCT(internal_ctx));
+
+  ret = NEXT_IBV_FNC(ibv_query_port)(internal_ctx->real_ctx,
+                                     port_num, port_attr);
+  if (ret == 0 &&
+      (port_attr->state == IBV_PORT_ARMED ||
+       port_attr->state == IBV_PORT_ACTIVE)) {
+    struct list_elem *e;
+
+    pthread_mutex_lock(lid_mutex);
+    for (e = list_begin(&lid_list);
+         e != list_end(&lid_list);
+         e = list_next(e)) {
+      lid_mapping_t *mapping = list_entry(e, lid_mapping_t, elem);
+
+      if (mapping->port == port_num) {
+        port_attr->lid == mapping->virtual_lid;
+        break;
+      }
+      assert(e != list_end(&lid_list));
+      pthread_mutex_unlock(&lid_mutex);
+    }
   }
 
-  return NEXT_IBV_FNC(ibv_query_port)(internal_ctx->real_ctx,
-                                      port_num, port_attr);
+  return ret;
 }
 
 int _query_pkey(struct ibv_context *context, uint8_t port_num,
@@ -1611,8 +1721,8 @@ struct ibv_pd * _alloc_pd(struct ibv_context * context) {
   pd->user_pd.context = context;
 
   pthread_mutex_lock(&pd_mutex);
-  pd->pd_id = (uint32_t)getpid() + pd_id_count;
-  pd_id_count++;
+  pd->pd_id = (uint32_t)getpid() + pd_id_offset;
+  pd_id_offset++;
 
   list_push_back(&pd_list, &pd->elem);
 
