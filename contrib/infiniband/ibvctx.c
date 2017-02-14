@@ -115,10 +115,11 @@ extern int dmtcp_get_unique_id_from_coordinator(const char *id,    // DB name
 
 extern int dmtcp_send_query_all_to_coordinator(const char *id, void **buf);
 
-// Translate virtual qp_num to real qp_num, first look up the local
+// Translate virtual IDs to real ones, first look up the local
 // cache, if doesn't exist, query the coordinator, store the result
 // in the cache.
 static uint32_t translate_qp_num(uint32_t virtual_qp_num);
+static uint16_t translate_lid(uint16_t virtual_lid);
 
 int _ibv_post_send(struct ibv_qp *qp,
                    struct ibv_send_wr *wr,
@@ -2186,6 +2187,10 @@ _modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr, int attr_mask)
     real_attr.dest_qp_num = translate_qp_num(attr->dest_qp_num);
   }
 
+  if (attr_mask & IBV_QP_AV) {
+    real_attr.ah_attr.dlid = translate_lid(attr->ah_attr.dlid);
+  }
+
   rslt = NEXT_IBV_FNC(ibv_modify_qp)(internal_qp->real_qp, &real_attr, attr_mask);
   internal_qp->user_qp.state = internal_qp->real_qp->state;
 
@@ -2789,4 +2794,48 @@ uint32_t translate_qp_num(uint32_t virtual_qp_num) {
 
   pthread_mutex_unlock(&qp_mutex);
   return real_qp_num;
+}
+
+uint16_t translate_lid(uint16_t virtual_lid) {
+  struct list_elem *e;
+  lid_mapping_t *mapping = NULL;
+  uint16_t real_lid;
+
+  pthread_mutex_lock(&lid_mutex);
+  for (e = list_begin(&lid_list);
+       e != list_end(&lid_list);
+       e = list_next(e)) {
+    mapping = list_entry(e, lid_mapping_t, elem);
+    if (mapping->virtual_lid == virtual_lid) {
+      real_lid = mapping->real_lid;
+      break;
+    }
+  }
+  // translation not found, query the coordinator,
+  // add the mapping to the local cache
+  if (e == list_end(&lid_list)) {
+    size_t = sizeof(real_lid);
+
+    pthread_mutex_unlock(&lid_mutex);
+    dmtcp_send_query_to_coordinator("ib_lid",
+        &virtual_lid, sizeof(virtual_lid),
+        &real_lid, sizeof(real_lid));
+    assert(size == sizeof(real_lid));
+
+    mapping = malloc(sizeof(lid_mapping_t));
+    if (!mapping) {
+      fprintf(stderr,
+          "Error: cannot allocate memory for translate_lid\n");
+      exit(1);
+    }
+    mapping->port = 0;
+    mapping->virtual_lid = virtual_lid;
+    mapping->real_lid = real_lid;
+
+    pthread_mutex_lock(&lid_mutex);
+    list_push_back(&lid_list, &mapping->elem);
+  }
+
+  pthread_mutex_unlock(&lid_mutex);
+  return real_lid;
 }
