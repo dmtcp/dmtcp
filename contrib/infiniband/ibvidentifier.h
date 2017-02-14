@@ -81,5 +81,28 @@ typedef struct qp_num_mapping {
   struct list_elem elem;
 } qp_num_mapping_t;
 
+/*
+ * Virtulization of lid assumes it's a homogenous cluster, i.e.,
+ * all nodes are equipped with the same type of HCA, with the
+ * same amount of ports. In addition, each node cannot have more
+ * than one HCA. If it's not the case, checkpoint won't work.
+ *
+ * A triplet is used to virtualize the lid: the physical port,
+ * the virtual lid, and the real lid. The mapping from physical
+ * port to virtual lid and the mapping from virtual lid to real
+ * lid are both built during initilization. The former is consistent
+ * accross the computation (before checkpoint and after restart),
+ * while the latter may change after restart.
+ *
+ * port is meaningful only for local mapping, for remote mapping,
+ * we only record the virtual-to-real lid mapping.
+ * */
+typedef struct lid_mapping {
+  uint8_t port;
+  uint16_t virtual_lid;
+  uint16_t real_lid;
+  struct list_elem elem;
+} lid_mapping_t;
+
 ibv_qp_id_t * create_ibv_id(int qpn, int lid, void * buffer, int size);
 #endif // ifndef IBVID_H
