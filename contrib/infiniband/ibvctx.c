@@ -1158,8 +1158,8 @@ _get_cq_event(struct ibv_comp_channel *channel,
                           F_GETFL, NULL);
 
   // We need to change the call to non-blocking mode
-+ // FIXME: we need to take care of the case where fd is already
-+ // changed to non-blocking mode by the user.
+  // FIXME: we need to take care of the case where fd is already
+  // changed to non-blocking mode by the user.
   if (!(flags & O_NONBLOCK)) {
     rslt = NEXT_FNC(fcntl)(internal_channel->real_channel->fd,
                            F_SETFL, flags | O_NONBLOCK);
