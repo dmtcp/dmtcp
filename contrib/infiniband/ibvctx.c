@@ -2701,20 +2701,8 @@ _create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
   }
   memset(internal_ah, 0, sizeof(struct internal_ibv_ah));
   internal_ah->attr = *attr;
-  internal_ah->is_restart = false;
 
-  // On restart, we need to fix the lid
-  if (is_restart) {
-    uint32_t size;
-    dmtcp_send_query_to_coordinator("lidInfo",
-                                    &attr->dlid,
-                                    sizeof(attr->dlid),
-                                    &real_attr.dlid,
-                                    &size);
-    assert(size == sizeof(attr->dlid));
-
-    internal_ah->is_restart = true;
-  }
+  real_attr.dlid = translate_lid(attr->dlid);
 
   internal_ah->real_ah = NEXT_IBV_FNC(ibv_create_ah)(internal_pd->real_pd,
                                                      &real_attr);
