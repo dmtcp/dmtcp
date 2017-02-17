@@ -103,22 +103,28 @@ char * read_dmtcp_env_file(char *file, int size) {
     exit(1);
   }
 #else
-  char pathname[512] = {0};
-  // Fix for picky compiler.  The function dmtcp_get_ckpt_dir() would only
-  //   return NULL if we were not running under DMTCP.  But the compiler
-  //   doesn't know that.
-  const char *ckptDir = dmtcp_get_ckpt_dir();
-  if (ckptDir) {
-    if (strlen(ckptDir) > sizeof(pathname)-1-sizeof(file)) {
-      warning(__FILE__ ": Pathname of ckpt dir is too long: ",
-              dmtcp_get_ckpt_dir() /* , "\n" */ );
-      exit(1);
+  int fd;
+  // file is an absolute path, do not patch ckpt dir.
+  if (file[0] == '/') {
+    fd = open(file, O_RDONLY);
+  } else {
+    char pathname[512] = {0};
+    // Fix for picky compiler.  The function dmtcp_get_ckpt_dir() would only
+    //   return NULL if we were not running under DMTCP.  But the compiler
+    //   doesn't know that.
+    const char *ckptDir = dmtcp_get_ckpt_dir();
+    if (ckptDir) {
+      if (strlen(ckptDir) > sizeof(pathname)-1-sizeof(file)) {
+        warning(__FILE__ ": Pathname of ckpt dir is too long: ",
+                dmtcp_get_ckpt_dir() /* , "\n" */ );
+        exit(1);
+      }
+      strcpy(pathname, ckptDir);
+      strcpy(pathname + strlen(ckptDir), "/");
+      strcpy(pathname + strlen(ckptDir) + strlen("/"), file);
     }
-    strcpy(pathname, ckptDir);
-    strcpy(pathname + strlen(ckptDir), "/");
-    strcpy(pathname + strlen(ckptDir) + strlen("/"), file);
+    fd = open(pathname, O_RDONLY);
   }
-  int fd = open(pathname, O_RDONLY);
   if (fd < 0) {
     return NULL;
   }

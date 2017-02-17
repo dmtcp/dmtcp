@@ -4,8 +4,9 @@ one wishes to update the environment variables based on their values
 within the parent process of the restarted process.  These updates
 can be specified in a file:
   dmtcp_env.txt
-The file dmtcp_env.txt must be in the same checkpoint directory as
-the checkpoint image files ( ckpt_*.dmtcp ).
+The file dmtcp_env.txt must be either in the same checkpoint directory as
+the checkpoint image files ( ckpt_*.dmtcp ), or be specified as an absolute
+path by the environment variable DMTCP_ENV_FILE.
 
 For example, one might wish to update $DISPLAY, based on the environment
 at the time of restart.  To do this, add a file, dmtcp_env.txt, in the
