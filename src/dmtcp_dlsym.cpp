@@ -472,17 +472,15 @@ dlsym_default_internal_flag_handler(void *handle,
     /* If the caller specified a specific library name, only search through
      * that.
      */
-    if (libname != NULL && strlen(map->l_name) > 0 &&
-        !strstr(map->l_name, libname)) {
-      map = map->l_next;
-      continue;
+    if (libname == NULL ||
+        (strlen(map->l_name) > 0 && strstr(map->l_name, libname)))  {
+      // Search current library
+      result = dlsym_default_internal_library_handler((void*) map,
+                                                      symbol,
+                                                      version,
+                                                      tags_p,
+                                                      default_symbol_index_p);
     }
-    // Search current library
-    result = dlsym_default_internal_library_handler((void*) map,
-                                                    symbol,
-                                                    version,
-                                                    tags_p,
-                                                    default_symbol_index_p);
     if (result) {
       return result;
     }
