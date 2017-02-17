@@ -153,9 +153,12 @@ void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t* data)
 {
   switch (event) {
   case DMTCP_EVENT_INIT:
-    dmtcp_get_unique_id_from_coordinator("ib_blid",
-        &gethostid(), sizeof(long),
-        &base_lid, LID_QUOTA, sizeof(base_lid));
+    {
+      long hostid = gethostid();
+      dmtcp_get_unique_id_from_coordinator("ib_blid",
+          &hostid, sizeof(long),
+          &base_lid, LID_QUOTA, sizeof(base_lid));
+    }
   case DMTCP_EVENT_WRITE_CKPT:
     pre_checkpoint();
     break;
@@ -210,8 +213,8 @@ void send_qp_info()
 
     internal_qp = list_entry(e, struct internal_ibv_qp, elem);
 
-    PDEBUG("Sending virtual qp_num: 0x%08x, ""
-        real qp_num: 0x%08x from %s\n",
+    PDEBUG("Sending virtual qp_num: 0x%08x, "
+        "real qp_num: 0x%08x from %s\n",
         internal_qp->user_qp.qp_num,
         internal_qp->real_qp->qp_num,
         hostname);
@@ -221,6 +224,7 @@ void send_qp_info()
         sizeof(internal_qp->user_qp.qp_num),
         &internal_qp->real_qp->qp_num,
         sizeof(internal_qp->real_qp->qp_num));
+  }
 }
 
 /*! This will query the coordinator for information about the new QPs */
@@ -234,6 +238,7 @@ void query_qp_info()
   for (e = list_begin(&qp_num_list);
        e != list_end(&qp_num_list);
        e = list_next(e)) {
+    struct list_elem *w;
     qp_num_mapping_t *mapping = list_entry(e, qp_num_mapping_t, elem);
 
     // First, check the local qp list, update the local cache
@@ -244,8 +249,8 @@ void query_qp_info()
         list_entry(w, struct internal_ibv_qp, elem);
 
       if (mapping->virtual_qp_num == internal_qp->user_qp.qp_num) {
-        PDEBUG("Querying local qp: virtual qp_num: 0x%08x, ""
-            real qp_num: 0x%08x from %s\n",
+        PDEBUG("Querying local qp: virtual qp_num: 0x%08x, "
+            "real qp_num: 0x%08x from %s\n",
             mapping->virtual_qp_num,
             internal_qp->real_qp->qp_num,
             hostname);
@@ -256,7 +261,7 @@ void query_qp_info()
 
     // For remote qps, query the coordinator
     if (w == list_end(&qp_list)) {
-      size_t size = sizeof(mapping->real_qp_num);
+      uint32_t size = sizeof(mapping->real_qp_num);
 
       PDEBUG("Querying remote qp: virtual qp_num: 0x%08x from %s\n",
           mapping->virtual_qp_num,
@@ -282,8 +287,8 @@ void send_lid_info() {
 
     // Local lids
     if (mapping->port != 0) {
-      PDEBUG("Sending virtual lid: 0x%04x, ""
-          real lid: 0x%04x from %s\n",
+      PDEBUG("Sending virtual lid: 0x%04x, "
+          "real lid: 0x%04x from %s\n",
           mapping->virtual_lid,
           mapping->real_lid,
           hostname);
@@ -310,7 +315,7 @@ void query_lid_info() {
 
     // Remote lids
     if (mapping->port == 0) {
-      size_t size = sizeof(mapping->real_lid);
+      uint32_t size = sizeof(mapping->real_lid);
 
       PDEBUG("Querying remote lid: virtual lid: 0x%04x from %s\n",
           mapping->virtual_lid,
@@ -321,7 +326,7 @@ void query_lid_info() {
           sizeof(mapping->virtual_lid),
           &mapping->real_lid,
           &size);
-      assert(size == sizeof(maping->real_lid);
+      assert(size == sizeof(mapping->real_lid));
     }
   }
 }
@@ -532,6 +537,7 @@ void post_restart(void)
       exit(1);
     }
   }
+
   /* code to re-open device */
   int num = 0;
   struct ibv_device ** real_dev_list;
@@ -630,9 +636,7 @@ void post_restart(void)
     }
 
     if (!lid_mapping_initialized) {
-      struct ibv_device_attr device_attr;
       int ret;
-      uint8_t port;
       struct list_elem *w;
 
       lid_mapping_initialized = true;
@@ -658,6 +662,7 @@ void post_restart(void)
       }
     }
   }
+
   NEXT_IBV_FNC(ibv_free_device_list)(real_dev_list);
   /* end code to re-open device */
 
@@ -883,21 +888,14 @@ void post_restart2(void)
   struct list_elem * e;
 
   // Recreate the Address Handlers
-  for (e = list_begin(&ah_list); e != list_end(&ah_list); e = list_next(e)) {
+  for (e = list_begin(&ah_list);
+       e != list_end(&ah_list);
+       e = list_next(e)) {
     struct ibv_ah_attr real_attr;
-    uint32_t size = sizeof(real_attr.dlid);
     struct internal_ibv_ah *internal_ah;
 
     internal_ah = list_entry(e, struct internal_ibv_ah, elem);
-    real_attr = internal_ah->attr;
-
-    dmtcp_send_query_to_coordinator("lidInfo",
-                                    &internal_ah->attr.dlid,
-                                    sizeof(internal_ah->attr.dlid),
-                                    &real_attr.dlid,
-                                    &size);
-
-    assert(size == sizeof(internal_ah->attr.dlid));
+    real_attr.dlid = translate_lid(internal_ah->attr.dlid);
 
     internal_ah->real_ah =
       NEXT_IBV_FNC(ibv_create_ah)
@@ -1628,14 +1626,14 @@ int _query_port(struct ibv_context *context, uint8_t port_num,
        port_attr->state == IBV_PORT_ACTIVE)) {
     struct list_elem *e;
 
-    pthread_mutex_lock(lid_mutex);
+    pthread_mutex_lock(&lid_mutex);
     for (e = list_begin(&lid_list);
          e != list_end(&lid_list);
          e = list_next(e)) {
       lid_mapping_t *mapping = list_entry(e, lid_mapping_t, elem);
 
       if (mapping->port == port_num) {
-        port_attr->lid == mapping->virtual_lid;
+        port_attr->lid = mapping->virtual_lid;
         break;
       }
       assert(e != list_end(&lid_list));
@@ -1968,7 +1966,6 @@ struct ibv_qp * _create_qp(struct ibv_pd * pd,
   struct ibv_qp_init_attr attr = *qp_init_attr;
   struct internal_ibv_qp * internal_qp;
   qp_num_mapping_t *mapping;
-  struct list_elem *e;
   struct ibv_port_attr attr2;
   int rslt2;
 
@@ -2699,7 +2696,7 @@ uint32_t translate_qp_num(uint32_t virtual_qp_num) {
   // destination qp_num not found, query the coordinator,
   // add the mapping to the cache
   if (e == list_end(&qp_num_list)) {
-    size_t size = sizeof(real_qp_num);
+    uint32_t size = sizeof(real_qp_num);
 
     pthread_mutex_unlock(&qp_mutex);
     dmtcp_send_query_to_coordinator("ib_qp",
@@ -2741,12 +2738,12 @@ uint16_t translate_lid(uint16_t virtual_lid) {
   // translation not found, query the coordinator,
   // add the mapping to the local cache
   if (e == list_end(&lid_list)) {
-    size_t = sizeof(real_lid);
+    uint32_t size = sizeof(real_lid);
 
     pthread_mutex_unlock(&lid_mutex);
     dmtcp_send_query_to_coordinator("ib_lid",
         &virtual_lid, sizeof(virtual_lid),
-        &real_lid, sizeof(real_lid));
+        &real_lid, &size);
     assert(size == sizeof(real_lid));
 
     mapping = malloc(sizeof(lid_mapping_t));
