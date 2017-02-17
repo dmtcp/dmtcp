@@ -88,6 +88,8 @@ static pthread_mutex_t lid_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 static void send_qp_info(void);
 static void query_qp_info(void);
+static void send_lid_info(void);
+static void query_lid_info(void);
 static void send_qp_pd_info(void);
 static void query_qp_pd_info(void);
 static void send_rkey_info(void);
@@ -192,88 +194,35 @@ void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t* data)
 
 
 /*! This will populate the coordinator with information about the new QPs */
-static void send_qp_info(void)
+void send_qp_info()
 {
   struct list_elem *e;
   char hostname[128];
 
   gethostname(hostname,128);
-  /*
-   * For RC QP, we need to send (qpn, lid, psn)
-   * For UD QP, we need to send (qpn, lid)
-   */
-  for (e = list_begin(&qp_list); e != list_end(&qp_list); e = list_next(e)) {
+
+  for (e = list_begin(&qp_list);
+       e != list_end(&qp_list);
+       e = list_next(e)) {
     struct internal_ibv_qp * internal_qp;
 
     internal_qp = list_entry(e, struct internal_ibv_qp, elem);
-    if (internal_qp->user_qp.state != IBV_QPS_INIT) {
-      dmtcp_send_key_val_pair_to_coordinator("lidInfo",
-                                             &internal_qp->original_id.lid,
-                                             sizeof(internal_qp->original_id.lid),
-                                             &internal_qp->current_id.lid,
-                                             sizeof(internal_qp->current_id.lid));
 
-      dmtcp_send_key_val_pair_to_coordinator("ib_qp",
-          &internal_qp->user_qp.qp_num,
-          sizeof(internal_qp->user_qp.qp_num),
-          &internal_qp->real_qp->qp_num,
-          sizeof(internal_qp->real_qp->qp_num));
+    PDEBUG("Sending virtual qp_num: 0x%08x, ""
+        real qp_num: 0x%08x from %s\n",
+        internal_qp->user_qp.qp_num,
+        internal_qp->real_qp->qp_num,
+        hostname);
 
-      switch (internal_qp->user_qp.qp_type) {
-      case IBV_QPT_RC:
-        if (internal_qp->in_use) {
-          PDEBUG("RC QP: Sending over original_id: "
-                 "0x%06x 0x%04x 0x%06x and current_id: "
-                 "0x%06x 0x%04x 0x%06x from %s\n",
-                 internal_qp->original_id.qpn, internal_qp->original_id.lid,
-                 internal_qp->original_id.psn, internal_qp->current_id.qpn,
-                 internal_qp->current_id.lid, internal_qp->current_id.psn,
-                 hostname);
-
-          dmtcp_send_key_val_pair_to_coordinator("qp_info",
-                                                 &internal_qp->original_id,
-                                                 sizeof(internal_qp->original_id),
-                                                 &internal_qp->current_id,
-                                                 sizeof(internal_qp->current_id));
-          }
-        break;
-
-      case IBV_QPT_UD:
-      {
-        // Reuse original_id and current_id structure here, excluding psn
-        ibv_ud_qp_id_t orig_id, curr_id;
-
-        orig_id.qpn = internal_qp->original_id.qpn;
-        orig_id.lid = internal_qp->original_id.lid;
-        curr_id.qpn = internal_qp->current_id.qpn;
-        curr_id.lid = internal_qp->current_id.lid;
-
-        PDEBUG("UD QP: Sending over original_id: "
-               "0x%06x 0x%04x and current_id: "
-               "0x%06x 0x%04x from %s\n",
-               orig_id.qpn, orig_id.lid,
-               curr_id.qpn, curr_id.lid,
-               hostname);
-
-        dmtcp_send_key_val_pair_to_coordinator("qp_info",
-                                               &orig_id,
-                                               sizeof(orig_id),
-                                               &curr_id,
-                                               sizeof(curr_id));
-        break;
-      }
-
-      default:
-        fprintf(stderr, "Warning: unsupported qp type: %d\n",
-                internal_qp->user_qp.qp_type);
-        exit(1);
-      }
-    }
-  }
+    dmtcp_send_key_val_pair_to_coordinator("ib_qp",
+        &internal_qp->user_qp.qp_num,
+        sizeof(internal_qp->user_qp.qp_num),
+        &internal_qp->real_qp->qp_num,
+        sizeof(internal_qp->real_qp->qp_num));
 }
 
 /*! This will query the coordinator for information about the new QPs */
-static void query_qp_info(void)
+void query_qp_info()
 {
   char hostname[128];
   struct list_elem *e;
@@ -316,32 +265,9 @@ static void query_qp_info(void)
       assert(size == sizeof(mapping->real_qp_num));
     }
   }
-
-  for (e = list_begin(&qp_list); e != list_end(&qp_list); e = list_next(e)) {
-    struct internal_ibv_qp * internal_qp;
-
-    internal_qp = list_entry(e, struct internal_ibv_qp, elem);
-
-    if (internal_qp->user_qp.qp_type == IBV_QPT_RC &&
-        internal_qp->in_use) {
-      uint32_t size = sizeof(internal_qp->current_remote);
-
-      PDEBUG("Querying for remote_id: 0x%06x 0x%04x 0x%06x from %s\n",
-             internal_qp->remote_id.qpn, internal_qp->remote_id.lid,
-             internal_qp->remote_id.psn, hostname);
-
-      dmtcp_send_query_to_coordinator("qp_info", 
-                                      &internal_qp->remote_id, 
-                                      sizeof(internal_qp->remote_id),
-                                      &internal_qp->current_remote, 
-          			      &size);
-
-      assert(size == sizeof(ibv_qp_id_t));
-    }
-  }
 }
 
-static void send_qp_pd_info(void) {
+void send_qp_pd_info() {
   struct list_elem *e;
   size_t size;
 
@@ -361,7 +287,7 @@ static void send_qp_pd_info(void) {
   }
 }
 
-static void query_qp_pd_info(void) {
+void query_qp_pd_info() {
   struct list_elem *e;
   uint32_t size;
   int ret;
@@ -385,7 +311,7 @@ static void query_qp_pd_info(void) {
 }
 
 /*! This will populate the coordinator with information about the new rkeys */
-static void send_rkey_info(void)
+void send_rkey_info()
 {
   struct list_elem *e;
   for (e = list_begin(&mr_list); e != list_end(&mr_list); e = list_next(e)) {
@@ -540,6 +466,7 @@ void pre_checkpoint(void)
 void post_restart(void)
 {
   is_restart = true;
+  lid_mapping_initialized = false;
   if (is_fork) {
     if (NEXT_IBV_FNC(ibv_fork_init)()) {
       fprintf(stderr, "ibv_fork_init fails.\n");
@@ -549,19 +476,23 @@ void post_restart(void)
   /* code to re-open device */
   int num = 0;
   struct ibv_device ** real_dev_list;
+  struct list_elem *e;
 
   // This is useful when IB is not used while the plugin is enabled.
   if (dlvsym(RTLD_NEXT, "ibv_get_device_list", "IBVERBS_1.1") != NULL) {
 
     real_dev_list = NEXT_IBV_FNC(ibv_get_device_list)(&num);
-    if (!num)
-    {
+    if (!num) {
       fprintf(stderr, "Error: ibv_get_device_list returned 0 devices.\n");
+      exit(1);
+    }
+    if (num > 1) {
+      fprintf(stderr, "IB plugin currently does not "
+                      "support more than one HCA\n");
       exit(1);
     }
   }
 
-  struct list_elem *e;
   for (e = list_begin(&ctx_list); e != list_end(&ctx_list); e = list_next(e))
   {
     struct internal_ibv_ctx * internal_ctx;
@@ -635,8 +566,36 @@ void post_restart(void)
 	      internal_ctx->real_ctx->async_fd = internal_ctx->user_ctx.async_fd;
 	    }
 	  }
-
           break;
+      }
+    }
+
+    if (!lid_mapping_initialized) {
+      struct ibv_device_attr device_attr;
+      int ret;
+      uint8_t port;
+      struct list_elem *w;
+
+      lid_mapping_initialized = true;
+
+      for (w = list_begin(&lid_list);
+           w != list_end(&lid_list);
+           w = list_next(w)) {
+        lid_mapping_t *mapping = list_entry(w, lid_mapping_t, elem);
+        struct ibv_port_attr port_attr;
+
+        // Update local real lid
+        if (mapping->port != 0) {
+          ret = NEXT_IBV_FNC(ibv_query_port)(internal_ctx->real_ctx,
+                                             mapping->port, &port_attr);
+          if (ret != 0) {
+            fprintf(stderr, "Error getting device attributes.\n");
+            exit(1);
+          }
+          assert(port_attr.state == IBV_PORT_ARMED ||
+                 port_attr.state == IBV_PORT_ACTIVE);
+          mapping->real_lid = port_attr.lid;
+        }
       }
     }
   }
