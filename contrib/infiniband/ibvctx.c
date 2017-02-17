@@ -208,6 +208,7 @@ static void
 nameservice_register_data(void)
 {
   send_qp_info();
+  send_lid_info();
   send_qp_pd_info();
   send_rkey_info();
 }
@@ -216,6 +217,7 @@ static void
 nameservice_send_queries(void)
 {
   query_qp_info();
+  query_lid_info();
   query_qp_pd_info();
   post_restart2();
 }
@@ -290,6 +292,63 @@ void query_qp_info()
           &mapping->virtual_qp_num, sizeof(mapping->virtual_qp_num),
           &mapping->real_qp_num, &size);
       assert(size == sizeof(mapping->real_qp_num));
+    }
+  }
+}
+
+void send_lid_info() {
+  struct list_elem *e;
+  char hostname[128];
+
+  gethostname(hostname,128);
+
+  for (e = list_begin(&lid_list);
+       e != list_end(&lid_list);
+       e = list_next(e)) {
+    lid_mapping_t *mapping = list_entry(e, lid_mapping_t, elem);
+
+    // Local lids
+    if (mapping->port != 0) {
+      PDEBUG("Sending virtual lid: 0x%04x, ""
+          real lid: 0x%04x from %s\n",
+          mapping->virtual_lid,
+          mapping->real_lid,
+          hostname);
+
+      dmtcp_send_key_val_pair_to_coordinator("ib_lid",
+          &mapping->virtual_lid,
+          sizeof(mapping->virtual_lid),
+          &mapping->real_lid,
+          sizeof(mapping->real_lid));
+    }
+  }
+}
+
+void query_lid_info() {
+  struct list_elem *e;
+  char hostname[128];
+
+  gethostname(hostname,128);
+
+  for (e = list_begin(&lid_list);
+       e != list_end(&lid_list);
+       e = list_next(e)) {
+    lid_mapping_t *mapping = list_entry(e, lid_mapping_t, elem);
+
+    // Remote lids
+    if (mapping->port == 0) {
+      size_t size = sizeof(mapping->real_lid);
+
+      PDEBUG("Querying remote lid: virtual lid: 0x%04x from %s\n",
+          mapping->virtual_lid,
+          hostname);
+
+      dmtcp_send_query_to_coordinator("ib_lid",
+          &mapping->virtual_lid,
+          sizeof(mapping->virtual_lid),
+          &mapping->real_lid,
+          &size);
+      assert(size == sizeof(maping->real_lid);
     }
   }
 }
