@@ -243,6 +243,23 @@ void mtcp_mkdir(const char *dir)
   mtcp_sys_mkdir(tmp, S_IRWXU);
 }
 
+int mtcp_readvfile(int fd, struct iovec *iov, int iovcnt)
+{
+  int i = 0;
+  int count = 0;
+  int readC = 0;
+
+  while (i < iovcnt) {
+    readC = mtcp_readfile(fd, iov[i].iov_base, iov[i].iov_len);
+    if (readC != iov[i].iov_len) {
+      return count + readC;
+    }
+    count += readC;
+    i++;
+  }
+  return 0;
+}
+
 int mtcp_readfile(int fd, void *buf, size_t size)
 {
   int mtcp_sys_errno;

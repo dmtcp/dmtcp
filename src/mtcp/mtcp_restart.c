@@ -986,8 +986,21 @@ read_one_memory_area(int fd)
 
   /* Now mmap the data of the area into memory. */
 
+  /* CASE: managed by a plugin */
+  if ((area.properties & DMTCP_AREA_WITH_PLUGIN_SPECIFIED_HOLES) != 0) {
+    mmappedat = mtcp_sys_mmap(area.addr, area.size,
+                              area.prot,
+                              area.flags | MAP_FIXED, -1, 0);
+
+    if (mmappedat != area.addr) {
+      DPRINTF("error %d mapping %p bytes at %p\n",
+              mtcp_sys_errno, area.size, area.addr);
+      mtcp_abort();
+    }
+    mtcp_readvfile(fd, area.writeRegions, area.numWriteRegions);
+  }
   /* CASE MAPPED AS ZERO PAGE: */
-  if ((area.properties & DMTCP_ZERO_PAGE) != 0) {
+  else if ((area.properties & DMTCP_ZERO_PAGE) != 0) {
     DPRINTF("restoring non-rwx anonymous area, %p bytes at %p\n",
             area.size, area.addr);
     mmappedat = mtcp_sys_mmap(area.addr, area.size,
