@@ -45,6 +45,7 @@
 #include <sys/syscall.h>
 #include <sys/time.h>
 #include <sys/types.h>
+#include <sys/uio.h>
 #include <syslog.h>
 #include <unistd.h>
 #include "constants.h"
@@ -152,6 +153,12 @@ ssize_t
 _real_write(int fd, const void *buf, size_t count)
 {
   REAL_FUNC_PASSTHROUGH_TYPED(ssize_t, write) (fd, buf, count);
+}
+
+ssize_t
+_real_writev(int fd, const struct iovec *iov, int iovcnt)
+{
+  REAL_FUNC_PASSTHROUGH_TYPED(ssize_t, writev) (fd, iov, iovcnt);
 }
 
 int

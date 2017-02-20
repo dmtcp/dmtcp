@@ -131,6 +131,7 @@ bool isSysVShmArea(const ProcMapsArea &area);
 bool isIBShmArea(const ProcMapsArea &area);
 
 ssize_t writeAll(int fd, const void *buf, size_t count);
+ssize_t writevAll(int fd, const struct iovec *iov, int iovcnt);
 ssize_t readAll(int fd, void *buf, size_t count);
 ssize_t skipBytes(int fd, size_t count);
 

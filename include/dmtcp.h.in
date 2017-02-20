@@ -19,6 +19,7 @@
 #include <stdio.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include "procmapsarea.h"
 
 #ifndef __USE_GNU
 # define __USE_GNU_NOT_SET
@@ -360,6 +361,22 @@ EXTERNC void dmtcp_get_new_file_path(const char *abspath,
 __attribute((weak));
 EXTERNC int dmtcp_must_overwrite_file(const char *path) __attribute((weak));
 
+/*
+ * This callback can be used by plugins to inform the DMTCP core memory
+ * checkpointing engine that the specified region of memory has cutouts
+ * ("holes"). The cutouts are not written out to the checkpoint image.
+ *
+ * The callback should return 1 if the region contains cutouts, 0 otherwise.
+ * If the plugin determines that the region has cutouts, i.e., if it returns 1,
+ * it's the responsibility of the plugin to fill the `writeRegions` iovec array
+ * in the `area` argument appropriately. The regions specified in the iovec
+ * array are written out to the checkpoint image using the writev() system call.
+ */
+EXTERNC int dmtcp_skip_memory_region_ckpting(ProcMapsArea *area)
+__attribute((weak));
+#define dmtcp_skip_memory_region_ckpting(r) \
+  (dmtcp_skip_memory_region_ckpting ? \
+   dmtcp_skip_memory_region_ckpting(r) : DMTCP_NOT_PRESENT)
 
 EXTERNC void dmtcp_initialize(void) __attribute((weak));
 

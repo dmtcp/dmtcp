@@ -23,12 +23,14 @@
 #define PROCMAPSAREA_H
 #include <stdint.h>
 #include <sys/types.h>
+#include <sys/uio.h>
 
 // MTCP_PAGE_SIZE must be page-aligned:  multiple of sysconf(_SC_PAGESIZE).
 #define MTCP_PAGE_SIZE        4096
 #define MTCP_PAGE_MASK        (~(MTCP_PAGE_SIZE - 1))
 #define MTCP_PAGE_OFFSET_MASK (MTCP_PAGE_SIZE - 1)
 #define FILENAMESIZE          1024
+#define MAX_NUM_HOLES         180
 
 #ifndef HIGHEST_VA
 
@@ -56,7 +58,8 @@ typedef char *VA;  /* VA = virtual address */
 
 typedef enum ProcMapsAreaProperties {
   DMTCP_ZERO_PAGE = 0x0001,
-  DMTCP_SKIP_WRITING_TEXT_SEGMENTS = 0x0002
+  DMTCP_SKIP_WRITING_TEXT_SEGMENTS = 0x0002,
+  DMTCP_AREA_WITH_PLUGIN_SPECIFIED_HOLES = 0x0004,
 } ProcMapsAreaProperties;
 
 typedef union ProcMapsArea {
@@ -101,6 +104,9 @@ typedef union ProcMapsArea {
     uint64_t properties;
 
     char name[FILENAMESIZE];
+
+    uint64_t numWriteRegions;
+    struct iovec writeRegions[MAX_NUM_HOLES];
   };
   char _padding[4096];
 } ProcMapsArea;

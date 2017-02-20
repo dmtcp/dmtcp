@@ -263,6 +263,12 @@ mtcp_writememoryareas(int fd)
       /* If an absolute pathname
        * Posix and SysV shared memory segments can be mapped as /XYZ
        */
+    } else if (dmtcp_skip_memory_region_ckpting(&area) == 1) {
+       JTRACE("Skipping region as requested by the plugin");
+       area.properties |= DMTCP_AREA_WITH_PLUGIN_SPECIFIED_HOLES;
+       Util::writeAll(fd, &area, sizeof(area));
+       Util::writevAll(fd, area.writeRegions, area.numWriteRegions);
+       continue;
     }
 
     /* Force the anonymous flag if it's a private writeable section, as the
