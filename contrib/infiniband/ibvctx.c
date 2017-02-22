@@ -120,9 +120,11 @@ DECL_FPTR(req_notify_cq);
 #include "get_cq_from_pointer.ic"
 #include "get_qp_from_pointer.ic"
 #include "get_srq_from_pointer.ic"
+/* keys.ic should be included before ibv_wr_ops_recv.ic, because it declares
+ * a function sqe_update_lkey, which is used inside ibv_wr_ops_recv.ic. */
+#include "keys.ic"
 #include "ibv_wr_ops_recv.ic"
 #include "ibv_wr_ops_send.ic"
-#include "keys.ic"
 
 int
 dmtcp_infiniband_enabled(void) { return 1; }
