@@ -329,7 +329,8 @@ void *dlsym_default_internal_library_handler(void *handle, const char*symbol,
       continue;
     if (strcmp(symbol_name(i, &tags), symbol) != 0) // If different symbol name
       continue;
-    if (version && strcmp(version_name(tags.versym[i], &tags), version) == 0) {
+    char *symversion = version_name(tags.versym[i], &tags);
+    if (version && symversion && strcmp(symversion, version) == 0) {
       default_symbol_index = i;
       break;
     }
@@ -344,10 +345,12 @@ void *dlsym_default_internal_library_handler(void *handle, const char*symbol,
       if (default_symbol_index && numNonHiddenSymbols > 1) {
         JWARNING(false)(symbol).Text("More than one default symbol version.");
       }
+      char *defaultSymVersion = version_name(tags.versym[default_symbol_index],
+                                             &tags);
       if (default_symbol_index == 0 ||
           // Could look at version dependencies, but using strcmp instead.
-          strcmp(version_name(tags.versym[i], &tags),
-                 version_name(tags.versym[default_symbol_index], &tags)) > 0) {
+          (symversion && defaultSymVersion &&
+           strcmp(symversion, defaultSymVersion) > 0)) {
         default_symbol_index = i;
       }
     }
