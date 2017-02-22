@@ -89,6 +89,7 @@ static uint16_t base_lid = 0;
 static bool lid_mapping_initialized = false;
 
 #define LID_QUOTA 10 // Max number of virtual LIDs per node
+#define DEFAULT_PSN 0
 
 static pthread_mutex_t pd_mutex = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t qp_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -833,7 +834,6 @@ post_restart(void)
   for (e = list_begin(&qp_list); e != list_end(&qp_list); e = list_next(e)) {
     struct internal_ibv_qp *internal_qp;
     struct ibv_qp_init_attr new_attr;
-    uint32_t psn;
 
     internal_qp = list_entry(e, struct internal_ibv_qp, elem);
     new_attr = internal_qp->init_attr;
@@ -855,42 +855,7 @@ post_restart(void)
       fprintf(stderr, "Error: Could not recreate the qp.\n");
       exit(1);
     }
-
-    // SETTING PORT NUM TO 1 IN THIS CALL IS POTENTIALLY UNSAFE
-    // THIS CAN BE FIXED IN THE CALL TO IBV_MODIFY_QP
-
-    /* get the LID */
-    struct ibv_port_attr attr2;
-    if (NEXT_IBV_FNC(ibv_query_port)
-          (internal_qp->real_qp->context, internal_qp->port_num, &attr2)) {
-      fprintf(stderr, "Call to ibv_query_port failed.\n");
-      exit(1);
-    }
-
-    /* generate the new PSN */
-    srand48(getpid() * time(NULL));
-    psn = lrand48() & 0xffffff;
-
-    internal_qp->current_id.qpn = internal_qp->real_qp->qp_num;
-    internal_qp->current_id.lid = attr2.lid;
-
-    /* must handle LMC*/
-    struct list_elem *w;
-    for (w = list_begin(&internal_qp->modify_qp_log);
-         w != list_end(&internal_qp->modify_qp_log);
-         w = list_next(w)) {
-      struct ibv_modify_qp_log *mod;
-
-      mod = list_entry(w, struct ibv_modify_qp_log, elem);
-      if (mod->attr_mask & IBV_QP_AV) {
-        internal_qp->current_id.lid |= mod->attr.ah_attr.src_path_bits;
-      }
-    }
-    internal_qp->current_id.psn = psn;
-
-    /* end code to populate the ID */
   }
-
   /* end code to re-create the queue pairs */
 }
 
@@ -996,13 +961,13 @@ post_restart2(void)
         attr.dest_qp_num = translate_qp_num(attr.dest_qp_num);
       }
       if (mod->attr_mask & IBV_QP_SQ_PSN) {
-        attr.sq_psn = internal_qp->current_id.psn;
+        attr.sq_psn = DEFAULT_PSN;
       }
       if (mod->attr_mask & IBV_QP_RQ_PSN) {
-        attr.rq_psn = internal_qp->current_remote.psn;
+        attr.rq_psn = DEFAULT_PSN;
       }
       if (mod->attr_mask & IBV_QP_AV) {
-        attr.ah_attr.dlid = internal_qp->current_remote.lid;
+        attr.ah_attr.dlid = translate_lid(attr.ah_attr.dlid);
       }
 
       if (NEXT_IBV_FNC(ibv_modify_qp)
@@ -2073,11 +2038,8 @@ _create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *qp_init_attr)
     fprintf(stderr, "Call to ibv_query_port failed %d.\n", rslt2);
     exit(1);
   }
-  internal_qp->original_id.lid = attr2.lid;
   internal_qp->local_qp_pd_id.lid = attr2.lid;
-  internal_qp->original_id.qpn = internal_qp->real_qp->qp_num;
   internal_qp->local_qp_pd_id.qpn = internal_qp->real_qp->qp_num;
-  internal_qp->port_num = 1;
 
   /*
    * We use virtual pid + offset to virtualize the qp_num, so that
@@ -2201,11 +2163,19 @@ _modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr, int attr_mask)
     real_attr.ah_attr.dlid = translate_lid(attr->ah_attr.dlid);
   }
 
+  if (attr_mask & IBV_QP_SQ_PSN) {
+    real_attr.sq_psn = DEFAULT_PSN;
+  }
+
+  if (attr_mask & IBV_QP_RQ_PSN) {
+    real_attr.rq_psn = DEFAULT_PSN;
+  }
+
+
   rslt = NEXT_IBV_FNC(ibv_modify_qp)(internal_qp->real_qp, &real_attr, attr_mask);
   internal_qp->user_qp.state = internal_qp->real_qp->state;
 
   if (attr_mask & IBV_QP_DEST_QPN) {
-    internal_qp->remote_id.qpn = attr->dest_qp_num;
     internal_qp->remote_qp_pd_id.qpn = attr->dest_qp_num;
     if (is_restart && internal_qp->in_use) {
       ibv_qp_pd_id_t id = {
@@ -2220,35 +2190,6 @@ _modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr, int attr_mask)
       assert(size == sizeof(int));
       assert(ret != 0);
     }
-  }
-
-  if (attr_mask & IBV_QP_SQ_PSN) {
-    internal_qp->original_id.psn = attr->sq_psn & 0xffffff;
-  }
-
-  if (attr_mask & IBV_QP_RQ_PSN) {
-    internal_qp->remote_id.psn = attr->rq_psn & 0xffffff;
-  }
-
-  if (attr_mask & IBV_QP_AV) {
-    internal_qp->remote_id.lid = attr->ah_attr.dlid;
-    internal_qp->remote_qp_pd_id.lid = attr->ah_attr.dlid;
-
-    // must OR src_path_bits to support LMC
-    internal_qp->original_id.lid |= attr->ah_attr.src_path_bits;
-    internal_qp->local_qp_pd_id.lid |= attr->ah_attr.src_path_bits;
-  }
-
-  if (attr_mask & IBV_QP_PORT) {
-    struct ibv_port_attr attr2;
-    if (NEXT_IBV_FNC(ibv_query_port)(internal_qp->real_qp->context,
-                                     attr->port_num, &attr2) != 0) {
-      fprintf(stderr, "Call to ibv_query_port failed\n");
-      exit(1);
-    }
-    internal_qp->original_id.lid = attr2.lid;
-    internal_qp->local_qp_pd_id.lid = attr2.lid;
-    internal_qp->port_num = attr->port_num;
   }
 
   return rslt;
