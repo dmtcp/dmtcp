@@ -30,6 +30,9 @@ includedir = @includedir@
 infodir = @infodir@
 libdir = @libdir@
 pkglibdir = $(libdir)/@PACKAGE@
+ifeq ($(M32),1)
+  pkglibdir = $(libdir)/$(PACKAGE)/32/lib/$(PACKAGE)
+endif
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 srcdir = @srcdir@
