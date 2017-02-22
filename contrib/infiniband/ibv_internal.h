@@ -124,15 +124,10 @@ struct internal_ibv_qp {
    * This field is used to handle the case where two qps are not acctually connected.
    * */
   bool in_use;
-  ibv_qp_id_t original_id;
-  ibv_qp_id_t remote_id;
-  ibv_qp_id_t current_remote;
-  ibv_qp_id_t current_id;
   ibv_qp_pd_id_t local_qp_pd_id;
   ibv_qp_pd_id_t remote_qp_pd_id;
   uint32_t remote_pd_id;
   struct list modify_qp_log;
-  uint8_t port_num; // port_num is used to get the correct lid
 
   /* This list contains log entries that track what recv work requests were
    * posted. As recv work requests are polled from the CQ, entries in this list
