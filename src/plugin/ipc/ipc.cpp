@@ -93,6 +93,10 @@ static DmtcpBarrier socketBarriers[] = {
   { DMTCP_PRIVATE_BARRIER_PRE_CKPT, SocketConnList::saveOptions, "PRE_CKPT" },
   { DMTCP_LOCAL_BARRIER_PRE_CKPT, SocketConnList::leaderElection,
     "LEADER_ELECTION" },
+  { DMTCP_GLOBAL_BARRIER_PRE_CKPT, SocketConnList::ckptRegisterNSData,
+    "CKPT_REGISTER_PEER_INFO" },
+  { DMTCP_GLOBAL_BARRIER_PRE_CKPT, SocketConnList::ckptSendQueries,
+    "CKPT_RETRIEVE_PEER_INFO" },
   { DMTCP_LOCAL_BARRIER_PRE_CKPT, SocketConnList::drainFd, "DRAIN" },
   { DMTCP_LOCAL_BARRIER_PRE_CKPT, SocketConnList::ckpt, "WRITE_CKPT" },
 

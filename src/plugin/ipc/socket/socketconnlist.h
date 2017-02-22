@@ -26,6 +26,11 @@ class SocketConnList : public ConnectionList
 
     static void leaderElection() { instance().preCkptFdLeaderElection(); }
 
+    // NS = Name Service
+    static void ckptRegisterNSData() { instance().preCkptRegisterNSData(); }
+
+    static void ckptSendQueries() { instance().preCkptSendQueries(); }
+
     static void drainFd() { instance().drain(); }
 
     static void ckpt() { instance().preCkpt(); }
@@ -50,6 +55,9 @@ class SocketConnList : public ConnectionList
     virtual void registerNSData();
     virtual void sendQueries();
     virtual void refill(bool isRestart);
+
+    void preCkptRegisterNSData();
+    void preCkptSendQueries();
 
     virtual int protectedFd() { return PROTECTED_SOCKET_FDREWIRER_FD; }
 

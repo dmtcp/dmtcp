@@ -44,6 +44,32 @@ SocketConnList::instance()
 }
 
 void
+SocketConnList::preCkptRegisterNSData()
+{
+  for (iterator i = begin(); i != end(); ++i) {
+    Connection *con = i->second;
+    /* NOTE: We need to explicitly call checkLocking() here because
+     * _hasLock is set only in this function.
+     */
+    con->checkLocking();
+    if (con->hasLock() && con->conType() == Connection::TCP) {
+      ((TcpConnection *)con)->sendPeerInformation();
+    }
+  }
+}
+
+void
+SocketConnList::preCkptSendQueries()
+{
+  for (iterator i = begin(); i != end(); ++i) {
+    Connection *con = i->second;
+    if (con->hasLock() && con->conType() == Connection::TCP) {
+      ((TcpConnection *)con)->recvPeerInformation();
+    }
+  }
+}
+
+void
 SocketConnList::drain()
 {
   // First, let all the Connection prepare for drain

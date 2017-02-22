@@ -110,6 +110,10 @@ class TcpConnection : public Connection, public SocketConnection
 
     bool isBlacklistedTcp(const sockaddr *saddr, socklen_t len);
 
+    void sendPeerInformation();
+
+    void recvPeerInformation();
+
     // basic commands for updating state from wrappers
 
     /*onSocket*/
