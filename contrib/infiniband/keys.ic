@@ -10,8 +10,7 @@ uint32_t retrieve_lkey_mapping(uint32_t orig_key)
     }
   }
 
-//  fprintf(stderr, "Lkey not found... %u\n", orig_key);
-//  exit(1);
+  IBV_WARNING("Lkey not found... %u\n", orig_key);
 }
 
 void sge_update_lkey(struct ibv_sge * list, int len)
@@ -36,8 +35,7 @@ uint32_t update_rkey_restart(uint32_t rkey, uint32_t pd_id)
     }
   }
   if (!(pair = malloc(sizeof(struct ibv_rkey_pair)))) {
-    fprintf(stderr, "Could not allocate memory for pair.\n");
-    exit(1);
+    IBV_ERROR("Could not allocate memory for pair.\n");
   }
   pair->orig_rkey.pd_id = pd_id;
   pair->orig_rkey.rkey = rkey;
