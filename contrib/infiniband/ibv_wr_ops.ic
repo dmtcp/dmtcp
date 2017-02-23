@@ -18,8 +18,7 @@ struct ibv_SENDRECV_wr * copy_SENDRECV_wr(struct ibv_SENDRECV_wr *  wr)
   struct ibv_SENDRECV_wr * wr_copy = malloc(sizeof(struct ibv_SENDRECV_wr));
 
   if (!wr_copy) {
-    fprintf(stderr, "Error: Couldn't allocate memory for work request.\n");
-    exit(1);
+    IBV_ERROR("Couldn't allocate memory for work request.\n");
   }
 
   memcpy(wr_copy, wr, sizeof(struct ibv_SENDRECV_wr));
@@ -27,8 +26,7 @@ struct ibv_SENDRECV_wr * copy_SENDRECV_wr(struct ibv_SENDRECV_wr *  wr)
   wr_copy->sg_list = malloc(sizeof(struct ibv_sge) * wr->num_sge);
 
   if (!wr_copy->sg_list) {
-    fprintf(stderr, "Error: couldn't allocate memory for sg_list\n");
-    exit(1);
+    IBV_ERROR("Couldn't allocate memory for sg_list\n");
   }
 
   memcpy(wr_copy->sg_list, wr->sg_list, sizeof(struct ibv_sge) * wr->num_sge);
