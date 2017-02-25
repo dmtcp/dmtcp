@@ -68,9 +68,13 @@ shmget(key_t key, size_t size, int shmflg)
   int virtId = -1;
 
   DMTCP_PLUGIN_DISABLE_CKPT();
-  realId = _real_shmget(key, size, shmflg);
+  key_t realKey = VIRTUAL_TO_REAL_SHM_KEY(key);
+  if (realKey == -1) {
+    realKey = key + dmtcp_virtual_to_real_pid(getpid());
+  }
+  realId = _real_shmget(realKey, size, shmflg);
   if (realId != -1) {
-    SysVShm::instance().on_shmget(realId, key, size, shmflg);
+    SysVShm::instance().on_shmget(realId, realKey, key, size, shmflg);
     virtId = REAL_TO_VIRTUAL_SHM_ID(realId);
     JTRACE("Creating new Shared memory segment")
       (key) (size) (shmflg) (realId) (virtId);

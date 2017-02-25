@@ -48,6 +48,9 @@
 #define REAL_TO_VIRTUAL_SHM_ID(id) SysVShm::instance().realToVirtualId(id)
 #define VIRTUAL_TO_REAL_SHM_ID(id) SysVShm::instance().virtualToRealId(id)
 
+#define REAL_TO_VIRTUAL_SHM_KEY(key) SysVShm::instance().realToVirtualKey(key)
+#define VIRTUAL_TO_REAL_SHM_KEY(key) SysVShm::instance().virtualToRealKey(key)
+
 #define REAL_TO_VIRTUAL_SEM_ID(id) SysVSem::instance().realToVirtualId(id)
 #define VIRTUAL_TO_REAL_SEM_ID(id) SysVSem::instance().virtualToRealId(id)
 
@@ -138,12 +141,19 @@ class SysVShm : public SysVIPC
     static SysVShm &instance();
 
     int shmaddrToShmid(const void *shmaddr);
-    virtual void on_shmget(int shmid, key_t key, size_t size, int shmflg);
+    virtual void on_shmget(int shmid, key_t realKey, key_t key,
+                           size_t size, int shmflg);
     virtual void on_shmat(int shmid,
                           const void *shmaddr,
                           int shmflg,
                           void *newaddr);
     virtual void on_shmdt(const void *shmaddr);
+    key_t virtualToRealKey(key_t key);
+    key_t realToVirtualKey(key_t key);
+    void updateKeyMapping(key_t v, key_t r);
+  protected:
+    map<key_t, key_t>_keyMap;
+    typedef map<key_t, key_t>::iterator KIterator;
 };
 
 class SysVSem : public SysVIPC
