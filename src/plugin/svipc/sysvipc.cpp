@@ -636,7 +636,8 @@ void ShmSegment::postRestart()
 {
   if (!_isCkptLeader) return;
 
-  _realId = _real_shmget(_key, _size, _flags);
+  int tmpShmFlags = (_flags & IPC_CREAT) ? _flags : (_flags | IPC_CREAT);
+  _realId = _real_shmget(_key, _size, tmpShmFlags);
   JASSERT(_realId != -1);
   SysVShm::instance().updateMapping(_id, _realId);
 
