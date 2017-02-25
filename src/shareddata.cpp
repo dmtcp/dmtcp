@@ -68,6 +68,7 @@ void SharedData::initializeHeader(const char *tmpDir,
   sharedDataHeader->numSysVShmIdMaps = 0;
   sharedDataHeader->numSysVSemIdMaps = 0;
   sharedDataHeader->numSysVMsqIdMaps = 0;
+  sharedDataHeader->numSysVShmKeyMaps = 0;
   sharedDataHeader->numPtraceIdMaps = 0;
   sharedDataHeader->numPtyNameMaps = 0;
   sharedDataHeader->initialized = true;
@@ -374,6 +375,11 @@ int32_t SharedData::getRealIPCId(int type, int32_t virt)
       map = sharedDataHeader->sysvMsqIdMap;
       break;
 
+    case SYSV_SHM_KEY:
+      nmaps = sharedDataHeader->numSysVShmKeyMaps;
+      map = sharedDataHeader->sysvShmKeyMap;
+      break;
+
     default:
       JASSERT(false) (type) .Text("Unknown IPC-Id type.");
       break;
@@ -408,6 +414,11 @@ void SharedData::setIPCIdMap(int type, int32_t virt, int32_t real)
     case SYSV_MSQ_ID:
       nmaps = &sharedDataHeader->numSysVMsqIdMaps;
       map = sharedDataHeader->sysvMsqIdMap;
+      break;
+
+    case SYSV_SHM_KEY:
+      nmaps = &sharedDataHeader->numSysVShmKeyMaps;
+      map = sharedDataHeader->sysvShmKeyMap;
       break;
 
     default:

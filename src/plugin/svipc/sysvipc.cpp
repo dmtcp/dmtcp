@@ -347,6 +347,40 @@ void SysVIPC::serialize(jalib::JBinarySerializer& o)
 {
   _virtIdTable.serialize(o);
 }
+
+int
+SysVShm::virtualToRealKey(key_t k)
+{
+  if (_keyMap.find(k) != _keyMap.end()) {
+    return _keyMap[k];
+  } else {
+    int realId = SharedData::getRealIPCId(SYSV_SHM_KEY, k);
+    if (realId != -1) {
+      updateKeyMapping(k, realId);
+    }
+    return realId;
+  }
+}
+
+int
+SysVShm::realToVirtualKey(key_t k)
+{
+  for (KIterator i = _keyMap.begin(); i != _keyMap.end(); ++i) {
+    key_t realKey = i->second;
+    if (realKey == k) {
+      return i->first;
+    }
+  }
+  return -1;
+}
+
+void
+SysVShm::updateKeyMapping(key_t v, key_t r)
+{
+  _keyMap[v] = r;
+  SharedData::setIPCIdMap(SYSV_SHM_KEY, v, r);
+}
+
 /******************************************************************************
  *
  * SysVIPC Subclasses
@@ -356,7 +390,8 @@ void SysVIPC::serialize(jalib::JBinarySerializer& o)
 /*
  * Shared Memory
  */
-void SysVShm::on_shmget(int shmid, key_t key, size_t size, int shmflg)
+void SysVShm::on_shmget(int shmid, key_t realKey, key_t key,
+                        size_t size, int shmflg)
 {
   _do_lock_tbl();
   if (!_virtIdTable.realIdExists(shmid)) {
@@ -365,6 +400,7 @@ void SysVShm::on_shmget(int shmid, key_t key, size_t size, int shmflg)
     JLOG(SYSV)("Shmid not found in table. Creating new entry")
       (shmid) (virtId);
     updateMapping(virtId, shmid);
+    updateKeyMapping(key, realKey);
     _map[virtId] = new ShmSegment(virtId, shmid, key, size, shmflg);
   } else {
     JASSERT(_map.find(shmid) != _map.end());
@@ -637,9 +673,11 @@ void ShmSegment::postRestart()
   if (!_isCkptLeader) return;
 
   int tmpShmFlags = (_flags & IPC_CREAT) ? _flags : (_flags | IPC_CREAT);
-  _realId = _real_shmget(_key, _size, tmpShmFlags);
+  key_t realKey = dmtcp_virtual_to_real_pid(getpid());
+  _realId = _real_shmget(realKey, _size, tmpShmFlags);
   JASSERT(_realId != -1);
   SysVShm::instance().updateMapping(_id, _realId);
+  SysVShm::instance().updateKeyMapping(_key, realKey);
 
   // Re-map first address for owner on restart
   JASSERT(_isCkptLeader);
