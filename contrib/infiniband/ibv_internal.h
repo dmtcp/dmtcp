@@ -78,7 +78,7 @@ struct internal_ibv_pd {
   struct ibv_pd *real_pd;
   struct list_elem elem;
 
-  // an id defined in the plugin, for use of rdma identification
+  // global unique id defined in the plugin, for use of rdma identification
   uint32_t pd_id;
 };
 
