@@ -44,16 +44,16 @@
  *   maximumState for states of all workers, accessed through getStatus()   *
  *   or through minimumState()                                              *
  * The states for a worker (client) are:                                    *
- * Checkpoint: RUNNING -> SUSPENDED -> FD_LEADER_ELECTION -> DRAINED        *
- *                -> CHECKPOINTED -> NAME_SERVICE_DATA_REGISTERED           *
- *                -> DONE_QUERYING -> REFILLED -> RUNNING		    *
- * Restart:    RESTARTING -> NAME_SERVICE_DATA_REGISTERED                   *
- *                -> DONE_QUERYING -> REFILLED -> RUNNING	            *
- * If debugging, set gdb breakpoint on:					    *
- *   DmtcpCoordinator::onConnect					    *
- *   DmtcpCoordinator::onData						    *
- *   DmtcpCoordinator::handleUserCommand				    *
- *   DmtcpCoordinator::broadcastMessage					    *
+ * Checkpoint: RUNNING -> SUSPENDED -> CHECKPOINTING                        *
+ *                     -> (Checkpoint barriers) -> CHECKPOINTED             *
+ *                     -> (Resume barriers) -> RUNNING                      *
+ *                                                                          *
+ * Restart:    RESTARTING -> (Restart barriers) -> RUNNING                  *
+ * If debugging, set gdb breakpoint on:                                     *
+ *   DmtcpCoordinator::onConnect                                            *
+ *   DmtcpCoordinator::onData                                               *
+ *   DmtcpCoordinator::handleUserCommand                                    *
+ *   DmtcpCoordinator::broadcastMessage                                     *
  ****************************************************************************/
 
 #include "dmtcp_coordinator.h"
