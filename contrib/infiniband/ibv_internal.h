@@ -74,12 +74,12 @@ struct internal_ibv_comp_channel {
 
 //! A wrapper around a protection domain
 struct internal_ibv_pd {
-  struct ibv_pd   user_pd;
+  struct ibv_pd user_pd;
   uint64_t magic1;
   uint64_t magic2;
   struct ibv_pd * real_pd;
   struct list_elem elem;
-  // an id defined in the plugin, for use of rdma identification
+  // global unique id defined in the plugin, for use of rdma identification
   uint32_t pd_id;
 };
 

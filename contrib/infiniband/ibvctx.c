@@ -91,8 +91,6 @@ static void send_qp_info(void);
 static void query_qp_info(void);
 static void send_lid_info(void);
 static void query_lid_info(void);
-static void send_qp_pd_info(void);
-static void query_qp_pd_info(void);
 static void send_rkey_info(void);
 static void post_restart(void);
 static void post_restart2(void);
@@ -111,7 +109,8 @@ extern int dmtcp_send_query_all_to_coordinator(const char *id, void **buf);
 // Translate virtual IDs to real ones, first look up the local
 // cache, if doesn't exist, query the coordinator, store the result
 // in the cache.
-static uint32_t translate_qp_num(uint32_t virtual_qp_num);
+
+qp_id_t translate_qp_num(uint32_t virtual_qp_num);
 static uint16_t translate_lid(uint16_t virtual_lid);
 
 int _ibv_post_send(struct ibv_qp * qp, struct ibv_send_wr * wr,
@@ -211,20 +210,24 @@ void send_qp_info()
        e != list_end(&qp_list);
        e = list_next(e)) {
     struct internal_ibv_qp * internal_qp;
+    qp_id_t cur_qp_id;
 
     internal_qp = list_entry(e, struct internal_ibv_qp, elem);
+    cur_qp_id.qp_id = internal_qp->real_qp->qp_num;
+    cur_qp_id.pd_id =
+      ibv_pd_to_internal(internal_qp->user_qp.pd)->pd_id;
 
-    IBV_DEBUG("Sending virtual qp_num: 0x%08x, "
-        "real qp_num: 0x%08x from %s\n",
-        internal_qp->user_qp.qp_num,
-        internal_qp->real_qp->qp_num,
+    IBV_DEBUG("Sending virtual qp_num: %lu, "
+        "real qp_num: %lu, pd_id: %lu from %s\n",
+        (unsigned long)internal_qp->user_qp.qp_num,
+        (unsigned long)cur_qp_id.qp_id,
+        (unsigned long)cur_qp_id.pd_id,
         hostname);
 
     dmtcp_send_key_val_pair_to_coordinator("ib_qp",
         &internal_qp->user_qp.qp_num,
         sizeof(internal_qp->user_qp.qp_num),
-        &internal_qp->real_qp->qp_num,
-        sizeof(internal_qp->real_qp->qp_num));
+        &cur_qp_id, sizeof(cur_qp_id));
   }
 }
 
@@ -250,27 +253,31 @@ void query_qp_info()
         list_entry(w, struct internal_ibv_qp, elem);
 
       if (mapping->virtual_qp_num == internal_qp->user_qp.qp_num) {
-        IBV_DEBUG("Querying local qp: virtual qp_num: 0x%08x, "
-            "real qp_num: 0x%08x from %s\n",
-            mapping->virtual_qp_num,
-            internal_qp->real_qp->qp_num,
+        IBV_DEBUG("Querying local qp: virtual qp_num: %lu, "
+            "real qp_num: %lu from %s\n",
+            (unsigned long)mapping->virtual_qp_num,
+            (unsigned long)internal_qp->real_qp->qp_num,
             hostname);
         mapping->real_qp_num = internal_qp->real_qp->qp_num;
+        assert(mapping->pd_id ==
+               ibv_pd_to_internal(internal_qp->user_qp.pd)->pd_id);
         break;
       }
     }
 
     // For remote qps, query the coordinator
     if (w == list_end(&qp_list)) {
-      uint32_t size = sizeof(mapping->real_qp_num);
+      qp_id_t cur_qp_id;
+      uint32_t size = sizeof(cur_qp_id);
 
-      IBV_DEBUG("Querying remote qp: virtual qp_num: 0x%08x from %s\n",
-          mapping->virtual_qp_num,
-          hostname);
+      IBV_DEBUG("Querying remote qp: virtual qp_num: %lu from %s\n",
+          (unsigned long)mapping->virtual_qp_num, hostname);
       dmtcp_send_query_to_coordinator("ib_qp",
           &mapping->virtual_qp_num, sizeof(mapping->virtual_qp_num),
-          &mapping->real_qp_num, &size);
-      assert(size == sizeof(mapping->real_qp_num));
+          &cur_qp_id, &size);
+      assert(size == sizeof(cur_qp_id));
+      mapping->real_qp_num = cur_qp_id.qp_id;
+      assert(mapping->pd_id == cur_qp_id.pd_id);
     }
   }
 }
@@ -328,49 +335,6 @@ void query_lid_info() {
           &mapping->real_lid,
           &size);
       assert(size == sizeof(mapping->real_lid));
-    }
-  }
-}
-
-void send_qp_pd_info() {
-  struct list_elem *e;
-  size_t size;
-
-  for (e = list_begin(&qp_list); e != list_end(&qp_list); e = list_next(e)) {
-    struct internal_ibv_qp * internal_qp;
-    struct internal_ibv_pd * internal_pd;
-
-    internal_qp = list_entry(e, struct internal_ibv_qp, elem);
-    internal_pd = ibv_pd_to_internal(internal_qp->user_qp.pd);
-    size = sizeof(internal_pd->pd_id);
-
-    dmtcp_send_key_val_pair_to_coordinator("pd_info", 
-                                           &internal_qp->local_qp_pd_id, 
-                                           sizeof(ibv_qp_pd_id_t),
-                                           &internal_pd->pd_id, 
-					   size);
-  }
-}
-
-void query_qp_pd_info() {
-  struct list_elem *e;
-  uint32_t size;
-  int ret;
-
-  for (e = list_begin(&qp_list); e != list_end(&qp_list); e = list_next(e)) {
-    struct internal_ibv_qp * internal_qp;
-
-    internal_qp = list_entry(e, struct internal_ibv_qp, elem);
-    if (internal_qp->user_qp.qp_type == IBV_QPT_RC &&
-        internal_qp->in_use) {
-      size = sizeof(internal_qp->remote_pd_id);
-      ret = dmtcp_send_query_to_coordinator("pd_info", 
-                                            &internal_qp->remote_qp_pd_id, 
-                                            sizeof(ibv_qp_pd_id_t),
-                                            &internal_qp->remote_pd_id,
-          			            &size);
-      assert(size == sizeof(int));
-      assert(ret != 0);
     }
   }
 }
@@ -917,7 +881,9 @@ void post_restart2(void)
 
       // Use the translation table
       if (mod->attr_mask & IBV_QP_DEST_QPN) {
-        attr.dest_qp_num = translate_qp_num(attr.dest_qp_num);
+        qp_id_t rem_qp_id = translate_qp_num(attr.dest_qp_num);
+        attr.dest_qp_num = rem_qp_id.qp_num;
+        internal_qp->remote_pd_id = rem_qp_id.pd_id;
       }
       if (mod->attr_mask & IBV_QP_SQ_PSN) {
         attr.sq_psn = DEFAULT_PSN;
@@ -1633,7 +1599,7 @@ struct ibv_pd * _alloc_pd(struct ibv_context * context) {
   pd->real_pd = NEXT_IBV_FNC(ibv_alloc_pd)(internal_ctx->real_ctx);
 
   if (!pd->real_pd) {
-    return pd->real_pd;
+    IBV_ERROR("Cannot allocate pd\n");
   }
 
   INIT_INTERNAL_IBV_TYPE(pd);
@@ -1685,21 +1651,25 @@ struct ibv_mr * _reg_mr(struct ibv_pd * pd, void * addr,
   internal_mr->flags = flag;
 
   INIT_INTERNAL_IBV_TYPE(internal_mr);
-  memcpy(&internal_mr->user_mr, internal_mr->real_mr, sizeof(struct ibv_mr));
+  memcpy(&internal_mr->user_mr, internal_mr->real_mr,
+         sizeof(struct ibv_mr));
   internal_mr->user_mr.context = internal_pd->user_pd.context;
   internal_mr->user_mr.pd = &internal_pd->user_pd;
 
   /*
   *  We need to check that memery regions created
   *  before checkpointing and after restarting will not
-  *  have the same lkey. 
+  *  have the same lkey/rkey.
   */
   if (is_restart) {
     struct list_elem * e;
-    for (e = list_begin(&mr_list); e != list_end(&mr_list); e = list_next(e))
-    {
-      struct internal_ibv_mr * mr = list_entry(e, struct internal_ibv_mr, elem);
-      if (mr->user_mr.lkey == internal_mr->user_mr.lkey) {
+    for (e = list_begin(&mr_list);
+         e != list_end(&mr_list);
+         e = list_next(e)) {
+      struct internal_ibv_mr *mr;
+      mr = list_entry(e, struct internal_ibv_mr, elem);
+      if (mr->user_mr.lkey == internal_mr->user_mr.lkey ||
+          mr->user_mr.rkey == internal_mr->user_mr.rkey) {
         IBV_ERROR("Duplicate lkey/rkey genereated after restart\n");
       }
     }
@@ -1872,6 +1842,7 @@ struct ibv_qp * _create_qp(struct ibv_pd * pd,
     IBV_ERROR("Cannot allocate memory for _create_qp\n");
   }
   memset(internal_qp, 0, sizeof(struct internal_ibv_qp));
+  memset(mapping, 0, sizeof(qp_num_mapping_t));
 
   /* fix up the qp_init_attr here */
   assert(IS_INTERNAL_IBV_STRUCT(ibv_cq_to_internal(qp_init_attr->recv_cq)));
@@ -1928,17 +1899,23 @@ struct ibv_qp * _create_qp(struct ibv_pd * pd,
   qp_num_offset++;
   mapping->virtual_qp_num = internal_qp->user_qp.qp_num;
   mapping->real_qp_num = internal_qp->real_qp->qp_num;
+  mapping->pd_id = internal_pd->pd_id;
 
   list_push_back(&qp_list, &internal_qp->elem);
   list_push_back(&qp_num_list, &mapping->elem);
   pthread_mutex_unlock(&qp_mutex);
 
   // Update the key-value database before returning.
-  dmtcp_send_key_val_pair_to_coordinator("ib_qp",
-      &internal_qp->user_qp.qp_num,
-      sizeof(internal_qp->user_qp.qp_num),
-      &internal_qp->real_qp->qp_num,
-      sizeof(internal_qp->real_qp->qp_num));
+  {
+    qp_id_t cur_qp_id = {
+      .qp_num = mapping->real_qp_num,
+      .pd_id = mapping->pd_id
+    };
+    dmtcp_send_key_val_pair_to_coordinator("ib_qp",
+        &internal_qp->user_qp.qp_num,
+        sizeof(internal_qp->user_qp.qp_num),
+        &cur_qp_id, sizeof(cur_qp_id));
+  }
 
   return &internal_qp->user_qp;
 }
@@ -2025,7 +2002,9 @@ int _modify_qp(struct ibv_qp * qp, struct ibv_qp_attr * attr, int attr_mask)
   list_push_back(&internal_qp->modify_qp_log, &log->elem);
 
   if (attr_mask & IBV_QP_DEST_QPN) {
-    real_attr.dest_qp_num = translate_qp_num(attr->dest_qp_num);
+    qp_id_t rem_qp_id = translate_qp_num(attr->dest_qp_num);
+    real_attr.dest_qp_num = rem_qp_id.qp_num;
+    internal_qp->remote_pd_id = rem_qp_id.pd_id;
   }
 
   if (attr_mask & IBV_QP_AV) {
@@ -2040,27 +2019,8 @@ int _modify_qp(struct ibv_qp * qp, struct ibv_qp_attr * attr, int attr_mask)
     real_attr.rq_psn = DEFAULT_PSN;
   }
 
-
   rslt = NEXT_IBV_FNC(ibv_modify_qp)(internal_qp->real_qp, &real_attr, attr_mask);
   internal_qp->user_qp.state = internal_qp->real_qp->state;
-
-  if (attr_mask & IBV_QP_DEST_QPN) {
-    internal_qp->remote_qp_pd_id.qpn = attr->dest_qp_num;
-    if (is_restart && internal_qp->in_use) {
-      ibv_qp_pd_id_t id = {
-        .qpn = attr->dest_qp_num,
-	.lid = attr->ah_attr.dlid
-      };
-      uint32_t size = sizeof(internal_qp->remote_pd_id);
-      int ret = dmtcp_send_query_to_coordinator("pd_info",
-                                                &id, sizeof(id),
-                                                &internal_qp->remote_pd_id,
-                                                &size);
-      assert(size == sizeof(int));
-      assert(ret != 0);
-    }
-  }
-
 
   return rslt;
 }
@@ -2530,10 +2490,10 @@ int _destroy_ah(struct ibv_ah *ah) {
   return rslt;
 }
 
-uint32_t translate_qp_num(uint32_t virtual_qp_num) {
+qp_id_t translate_qp_num(uint32_t virtual_qp_num) {
   struct list_elem *e;
   qp_num_mapping_t *mapping = NULL;
-  uint32_t real_qp_num;
+  qp_id_t rslt;
 
   pthread_mutex_lock(&qp_mutex);
   for (e = list_begin(&qp_num_list);
@@ -2541,7 +2501,8 @@ uint32_t translate_qp_num(uint32_t virtual_qp_num) {
        e = list_next(e)) {
     mapping = list_entry(e, qp_num_mapping_t, elem);
     if (mapping->virtual_qp_num == virtual_qp_num) {
-      real_qp_num = mapping->real_qp_num;
+      rslt.qp_num = mapping->real_qp_num;
+      rslt.pd_id = mapping->pd_id;
       break;
     }
   }
@@ -2549,26 +2510,27 @@ uint32_t translate_qp_num(uint32_t virtual_qp_num) {
   // destination qp_num not found, query the coordinator,
   // add the mapping to the cache
   if (e == list_end(&qp_num_list)) {
-    uint32_t size = sizeof(real_qp_num);
+    uint32_t size = sizeof(rslt);
 
     pthread_mutex_unlock(&qp_mutex);
     dmtcp_send_query_to_coordinator("ib_qp",
         &virtual_qp_num, sizeof(virtual_qp_num),
-        &real_qp_num, &size);
-    assert(size == sizeof(real_qp_num));
+        &rslt, &size);
+    assert(size == sizeof(rslt));
 
     mapping = malloc(sizeof(qp_num_mapping_t));
     if (!mapping) {
       IBV_ERROR("Cannot allocate memory for translate_qp_num\n");
     }
     mapping->virtual_qp_num = virtual_qp_num;
-    mapping->real_qp_num = real_qp_num;
+    mapping->real_qp_num = rslt.qp_num;
+    mapping->pd_id = rslt.pd_id;
     pthread_mutex_lock(&qp_mutex);
     list_push_back(&qp_num_list, &mapping->elem);
   }
 
   pthread_mutex_unlock(&qp_mutex);
-  return real_qp_num;
+  return rslt;
 }
 
 uint16_t translate_lid(uint16_t virtual_lid) {

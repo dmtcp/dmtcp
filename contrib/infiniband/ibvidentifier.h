@@ -47,37 +47,35 @@
  *
  * */
 
-typedef struct ibv_qp_id {
-  uint32_t qpn;
-  uint16_t lid;
-  uint32_t psn;
-} ibv_qp_id_t;
-
-typedef struct {
-  uint32_t qpn;
-  uint16_t lid;
-} ibv_qp_pd_id_t, ibv_ud_qp_id_t;
-
-struct ibv_rkey_id {
+// The internal pd id and rkey can globally identify a mr.
+typedef struct rkey_id {
   uint32_t pd_id;
   uint32_t rkey;
-};
+} rkey_id_t;
 
-struct ibv_rkey_pair {
-  struct ibv_rkey_id orig_rkey;
-  uint32_t new_rkey;
-  struct list_elem elem;
-};
+// The internal pd id and qp_num can globally identify a qp.
+// This is mainly used for identifying remote rkeys when
+// handling RDMA operations.
+//
+// For normal qp connections, only qp_num and lid are used.
+typedef struct qp_id {
+  uint32_t qp_num;
+  uint32_t pd_id;
+} qp_id_t;
 
-struct ibv_ud_qp_id_pair {
-  ibv_ud_qp_id_t orig_id;
-  ibv_ud_qp_id_t curr_id;
+// rkey is still not fully virtualized for performance concern
+// See the comments above
+typedef struct rkey_mapping {
+  uint32_t virtual_rkey;
+  uint32_t real_rkey;
+  uint32_t pd_id; // internal pd id, used only on restart
   struct list_elem elem;
-};
+} rkey_mapping_t;
 
 typedef struct qp_num_mapping {
   uint32_t virtual_qp_num;
   uint32_t real_qp_num;
+  uint32_t pd_id; // internal pd id, used only on restart
   struct list_elem elem;
 } qp_num_mapping_t;
 
@@ -104,5 +102,4 @@ typedef struct lid_mapping {
   struct list_elem elem;
 } lid_mapping_t;
 
-ibv_qp_id_t * create_ibv_id(int qpn, int lid, void * buffer, int size);
 #endif
