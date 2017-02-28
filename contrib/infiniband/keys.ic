@@ -11,6 +11,7 @@ uint32_t retrieve_lkey_mapping(uint32_t orig_key)
   }
 
   IBV_WARNING("Lkey not found... %u\n", orig_key);
+  return 0;
 }
 
 void sge_update_lkey(struct ibv_sge * list, int len)
