@@ -265,6 +265,88 @@ jalib::Filesystem::FileExists(const dmtcp::string &str)
   }
 }
 
+jalib::StringVector
+jalib::Filesystem::GetProgramArgs()
+{
+  // FIXME:  This static StringVector can be de-allocated during cleanup,
+  //     If the base executable or libc called a DMTCP wrapper as a utility,
+  //     it would be bad.
+  static StringVector *rv = NULL;
+  if (rv == NULL) {
+    // Technically, this is a memory leak, but rv is static and so it happens
+    // only once.
+    rv = new StringVector();
+  }
+
+  if (rv->empty()) {
+    int fd = open("/proc/self/cmdline", O_RDONLY);
+    JASSERT(fd != -1) (JASSERT_ERRNO).Text("failed to open command line");
+
+    jalib::string longword;
+    bool is_longword = false;
+    bool is_end_of_file = false;
+    const int buflen = 4096;
+    char buf[buflen];
+    int bufchars = 0;
+    do {
+      buf[buflen-1] = '\0'; // Ensure that return value of strlen() is bounded.
+      int tmpchars = read(fd, buf+bufchars, buflen-bufchars-1);
+      if (tmpchars == 0) is_end_of_file = true;
+      JASSERT(tmpchars != -1 || errno == EAGAIN || errno == EINTR)
+        .Text("Bad read from /proc/self/cmdlin");
+      if (tmpchars == -1) continue;
+      // Keep reading until end-of-file or until buf is full
+      bufchars += tmpchars;
+      if (bufchars < buflen-1 && ! is_end_of_file) continue;
+      JASSERT(bufchars == buflen-1 || is_end_of_file).Text("Internal error");
+
+      int wordlen = strlen(buf);
+      while (wordlen > 0) {
+        wordlen = strlen(buf);
+        if (is_longword) { // If this word is continuation of previous iteration
+          // Note that C++ can call its allocator here.
+          longword += buf; // concatenate first string/word in buf
+          if (wordlen < bufchars) { // If we read in a '\0' from /proc/*/cmdline
+            rv->push_back(longword); // Push in as C++ string
+            is_longword = false;
+          }
+        } else if (wordlen < bufchars) { // A string, including '\0', was read.
+          rv->push_back(buf);
+        } else if (wordlen >= bufchars) { // read() stopped before '\0' char
+          // Process as C++ string, Could be bufchars==buflen or bufchars<buflen
+          is_longword = true;
+          longword = buf;
+        } else {
+          JASSERT(false)(wordlen)(buflen).Text("Internal error");
+        }
+        // Copy rest of buffer to beginning
+        if (is_longword) {
+          memmove(buf, buf+wordlen, buflen - wordlen); // No final '\0' avail.
+          bufchars -= buflen - wordlen;
+        } else { // else we did a push_back of a word as a string
+          memmove(buf, buf+wordlen+1, buflen - (wordlen+1)); // Final '\0' avail
+          bufchars -= buflen - (wordlen+1);
+        }
+      }
+    } while ( ! is_end_of_file );
+    close(fd);
+
+    // See github.com/dmtcp/dmtcp/pull/576 for discussion
+    // getdelim will auto-grow this buffer using realloc which would fail with
+    // bad pointer.
+    // We should replace getdelim with our own version
+    // WAS: size_t len = 4095;
+    // WAS: char *lineptr = (char *)JALLOC_HELPER_MALLOC(len + 1);
+    // WAS:
+    //while (getdelim(&lineptr, &len, '\0', args) >= 0) {
+    //  rv->push_back(lineptr);
+    //}
+    // WAS: JALLOC_HELPER_FREE(lineptr);
+  }
+
+  return *rv;
+}
+
 dmtcp::vector<int>
 jalib::Filesystem::ListOpenFds()
 {
