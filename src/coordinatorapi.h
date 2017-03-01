@@ -106,6 +106,12 @@ namespace dmtcp
       int sendQueryToCoordinator(const char *id,
                                  const void *key, uint32_t key_len,
                                  void *val, uint32_t *val_len);
+      int getUniqueIdFromCoordinator(const char *id,
+                                     const void *key,
+                                     uint32_t key_len,
+                                     void *val,
+                                     uint32_t *val_len,
+                                     uint32_t offset = 1);
 
     private:
       void startNewCoordinator(CoordinatorMode mode);

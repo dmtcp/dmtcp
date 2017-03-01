@@ -74,6 +74,8 @@ namespace dmtcp
     DMT_REGISTER_NAME_SERVICE_DATA_SYNC_RESPONSE,
     DMT_NAME_SERVICE_QUERY,
     DMT_NAME_SERVICE_QUERY_RESPONSE,
+    DMT_NAME_SERVICE_GET_UNIQUE_ID,
+    DMT_NAME_SERVICE_GET_UNIQUE_ID_RESPONSE,
 
     DMT_UPDATE_LOGGING,
 
@@ -127,6 +129,8 @@ namespace dmtcp
 
     uint32_t theCheckpointInterval;
     struct in_addr ipAddr;
+
+    uint32_t uniqueIdOffset;
 
     uint32_t logMask;
 

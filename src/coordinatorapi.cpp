@@ -823,3 +823,54 @@ int CoordinatorAPI::sendQueryToCoordinator(const char *id,
 
   return *val_len;
 }
+
+int CoordinatorAPI::getUniqueIdFromCoordinator(const char *id,
+                                               const void *key,
+                                               uint32_t key_len,
+                                               void *val,
+                                               uint32_t *val_len,
+                                               uint32_t offset /* = 1 */)
+{
+  DmtcpMessage msg(DMT_NAME_SERVICE_GET_UNIQUE_ID);
+
+  JWARNING(strlen(id) < sizeof(msg.nsid));
+  strncpy(msg.nsid, id, sizeof msg.nsid);
+  msg.keyLen = key_len;
+  msg.valLen = 0;
+  msg.extraBytes = key_len;
+  msg.uniqueIdOffset = offset;
+  msg.valLen = *val_len;
+  jalib::JSocket sock = _coordinatorSocket;
+
+  if (key == NULL || key_len == 0 || val == NULL || val_len == 0) {
+    return 0;
+  }
+
+  if (dmtcp_is_running_state()) {
+    if (!_nsSock.isValid()) {
+      _nsSock = createNewSocketToCoordinator(COORD_ANY);
+      JASSERT(_nsSock.isValid());
+      _nsSock.changeFd(PROTECTED_NS_FD);
+      DmtcpMessage m(DMT_NAME_SERVICE_WORKER);
+      _nsSock << m;
+    }
+    sock = _nsSock;
+    JASSERT(sock.isValid());
+  }
+
+  JASSERT(Util::writeAll(sock, &msg, sizeof(msg)) == sizeof(msg));
+  JASSERT(Util::writeAll(sock, key, key_len) == key_len);
+
+  msg.poison();
+
+  JASSERT(Util::readAll(sock, &msg, sizeof(msg)) == sizeof(msg));
+  msg.assertValid();
+  JASSERT(msg.type == DMT_NAME_SERVICE_GET_UNIQUE_ID_RESPONSE &&
+          msg.extraBytes == msg.valLen);
+
+  JASSERT(*val_len >= msg.valLen);
+  *val_len = msg.valLen;
+  JASSERT(Util::readAll(sock, val, *val_len) == *val_len);
+
+  return *val_len;
+}

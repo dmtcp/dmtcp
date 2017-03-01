@@ -642,6 +642,14 @@ void DmtcpCoordinator::onData(CoordClient *client)
                                    (const void*) extraData);
     }
     break;
+    case DMT_NAME_SERVICE_GET_UNIQUE_ID:
+    {
+      JTRACE("received NAME_SERVICE_GET_UNIQUE_ID msg") (client->identity());
+      lookupService.respondToQuery(client->sock(), msg,
+                                   (const void *)extraData);
+    }
+    break;
+  
 #endif
 
     case DMT_UPDATE_PROCESS_INFO_AFTER_FORK:
@@ -808,6 +816,18 @@ void DmtcpCoordinator::onConnect()
     JTRACE ("received NAME_SERVICE_QUERY msg on running") (hello_remote.from);
     lookupService.respondToQuery(remote, hello_remote, extraData);
     delete [] extraData;
+    remote.close();
+    return;
+  }
+  if (hello_remote.type == DMT_NAME_SERVICE_GET_UNIQUE_ID) {
+    JASSERT(hello_remote.extraBytes > 0) (hello_remote.extraBytes);
+    char *extraData = new char[hello_remote.extraBytes];
+    remote.readAll(extraData, hello_remote.extraBytes);
+
+    JTRACE("received NAME_SERVICE_GET_UNIQUE_ID msg on running")
+          (hello_remote.from);
+    lookupService.respondToQuery(remote, hello_remote, extraData);
+    delete[] extraData;
     remote.close();
     return;
   }

@@ -512,6 +512,18 @@ EXTERNC int dmtcp_send_query_to_coordinator(const char *id,
                                                            val, val_len);
 }
 
+EXTERNC int dmtcp_get_unique_id_from_coordinator(const char *id,    // DB name
+                                                 const void *key,   // hostid, pid, etc.
+                                                 uint32_t key_len,  // Length of the key
+                                                 void *val,         // Result
+                                                 uint32_t offset,   // unique id offset
+                                                 uint32_t val_len)  // Expected val length
+{
+  return CoordinatorAPI::instance().getUniqueIdFromCoordinator(id, key, key_len,
+                                                               val, &val_len,
+                                                               offset);
+}
+
 EXTERNC void dmtcp_get_local_ip_addr(struct in_addr *in)
 {
   SharedData::getLocalIPAddr(in);
