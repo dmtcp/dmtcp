@@ -212,7 +212,6 @@ nameservice_register_data(void)
 {
   send_qp_info();
   send_lid_info();
-  send_qp_pd_info();
   send_rkey_info();
 }
 
@@ -221,7 +220,6 @@ nameservice_send_queries(void)
 {
   query_qp_info();
   query_lid_info();
-  query_qp_pd_info();
   post_restart2();
 }
 
@@ -366,25 +364,30 @@ void query_lid_info() {
   }
 }
 
-/*! This will populate the coordinator with information about the new rkeys */
+// Send the rkey info to the coordinator
+// A tuple (virtual rkey, pd id) is used as the key, and the real rkey
+// created after restart is used as the value.
+// Virtual rkey combined with the pd id can globally identify a mr.
 void send_rkey_info()
 {
   struct list_elem *e;
 
-  for (e = list_begin(&mr_list); e != list_end(&mr_list); e = list_next(e)) {
+  for (e = list_begin(&mr_list);
+       e != list_end(&mr_list);
+       e = list_next(e)) {
     struct internal_ibv_mr *internal_mr;
     struct internal_ibv_pd *internal_pd;
-    struct ibv_rkey_id rkey_id;
+    struct rkey_id_t rkey_id;
 
     internal_mr = list_entry(e, struct internal_ibv_mr, elem);
     internal_pd = ibv_pd_to_internal(internal_mr->user_mr.pd);
     rkey_id.pd_id = internal_pd->pd_id;
     rkey_id.rkey = internal_mr->user_mr.rkey;
 
-    dmtcp_send_key_val_pair_to_coordinator("mr_info",
-                                           &rkey_id, sizeof(rkey_id),
-                                           &internal_mr->real_mr->rkey,
-                                           sizeof(internal_mr->real_mr->rkey));
+    dmtcp_send_key_val_pair_to_coordinator("ib_rkey",
+        &rkey_id, sizeof(rkey_id),
+        &internal_mr->real_mr->rkey,
+        sizeof(internal_mr->real_mr->rkey));
   }
 }
 
@@ -1004,11 +1007,13 @@ refill(void)
 
 void cleanup() {
   struct list_elem *e;
+  struct list_elem *w;
 
   e = list_begin(&qp_num_list);
   while (e != list_end(&qp_num_list)) {
     qp_num_mapping_t *mapping;
-    struct list_elem * w = e;
+
+    w = e;
     mapping = list_entry(e, qp_num_mapping_t, elem);
     e = list_next(e);
     list_remove(w);
@@ -1018,8 +1023,31 @@ void cleanup() {
   e = list_begin(&lid_list);
   while (e != list_end(&lid_list)) {
     lid_mapping_t *mapping;
-    struct list_elem * w = e;
+
+    w = e;
     mapping = list_entry(e, lid_mapping_t, elem);
+    e = list_next(e);
+    list_remove(w);
+    free(mapping);
+  }
+
+  e = list_begin(&mr_list);
+  while (e != list_end(&mr_list)) {
+    struct internal_ibv_mr *internal_mr;
+
+    w = e;
+    internal_mr = list_entry(w, struct internal_ibv_mr, elem);
+    e = list_next(e);
+    list_remove(w);
+    free(internal_mr);
+  }
+
+  e = list_begin(&rkey_list);
+  while (e != list_end(&rkey_list)) {
+    rkey_mapping_t *mapping;
+
+    w = e;
+    mapping = list_entry(e, rkey_mapping_t, elem);
     e = list_next(e);
     list_remove(w);
     free(mapping);
@@ -1727,9 +1755,10 @@ _reg_mr(struct ibv_pd *pd, void *addr, size_t length, int flag)
          e != list_end(&mr_list);
          e = list_next(e)) {
       struct internal_ibv_mr *mr;
+
       mr = list_entry(e, struct internal_ibv_mr, elem);
-      if (mr->user_mr.lkey == internal_mr->user_mr.lkey ||
-          mr->user_mr.rkey == internal_mr->user_mr.rkey) {
+      if (mr->user_mr.rkey == internal_mr->user_mr.rkey ||
+          mr->user_mr.lkey == internal_mr->user_mr.lkey) {
         IBV_ERROR("Duplicate lkey/rkey genereated after restart\n");
       }
     }
@@ -1747,22 +1776,30 @@ _dereg_mr(struct ibv_mr *mr)
   struct list_elem *e;
 
   assert(IS_INTERNAL_IBV_STRUCT(internal_mr));
-  if (is_restart) {
-    for (e = list_begin(&rkey_list);
-         e != list_end(&rkey_list);
-         e = list_next(e)) {
-      struct ibv_rkey_pair *pair = list_entry(e, struct ibv_rkey_pair, elem);
-      if (pair->orig_rkey.rkey == internal_mr->user_mr.rkey) {
-        list_remove(&pair->elem);
-        free(pair);
-        break;
-      }
-    }
-  }
   int rslt = NEXT_IBV_FNC(ibv_dereg_mr)(internal_mr->real_mr);
 
-  list_remove(&internal_mr->elem);
-  free(internal_mr);
+  /*
+   * The destruction of the internal mr structure is delayed till
+   * the end of the application to handle the following case:
+   *
+   * - A mr is created before checkpoint.
+   * - On restart, it's rkey mapping is propogated to the coordinator.
+   * - The mr is deregistered after restart.
+   * - A new mr is created. It is possible that this mr has the same
+   *   lkey/rkey. We'd have to update the mapping to the coordinator,
+   *   which will incur runtime overhead.
+   *
+   * Most applications tend to register mrs during initialization,
+   * and to register them during finalization. Therefore, currently
+   * we simply terminate the application if there's any duplication.
+   * See the check in _reg_mr().
+   *
+   * TODO: we should update the mapping instead of terminating the
+   * application.
+   *
+   */
+  // list_remove(&internal_mr->elem);
+  // free(internal_mr);
 
   return rslt;
 }
@@ -2358,21 +2395,21 @@ _ibv_post_send(struct ibv_qp *qp, struct ibv_send_wr *wr, struct
 
   assert(IS_INTERNAL_IBV_STRUCT(internal_qp));
   copy_wr = copy_send_wr(wr);
-  update_lkey_send(copy_wr);
+
+  if (is_restart) {
+    update_lkey_send(copy_wr);
+  }
 
   switch (internal_qp->user_qp.qp_type) {
   case IBV_QPT_RC:
     if (is_restart) {
+      assert(internal_qp->remote_pd_id != 0);
       update_rkey_send(copy_wr, internal_qp->remote_pd_id);
     }
     break;
   case IBV_QPT_UD:
     assert(copy_wr->opcode == IBV_WR_SEND);
-    if (is_restart) {
-      update_ud_send_restart(copy_wr);
-    } else {
-      update_ud_send(copy_wr);
-    }
+    update_ud_send(copy_wr);
     break;
   default:
     IBV_ERROR("Unsupported qp type: %d\n",
@@ -2445,8 +2482,10 @@ _ibv_poll_cq(struct ibv_cq *cq, int num_entries, struct ibv_wc *wc)
 
   for (i = 0; i < rslt; i++) {
     if (i >= size) {
-      struct internal_ibv_qp * internal_qp = qp_num_to_qp(&qp_list, wc[i].qp_num);
-      if (!internal_qp->in_use && wc[i].status == IBV_WC_SUCCESS) {
+      struct internal_ibv_qp * internal_qp =
+        qp_num_to_qp(&qp_list, wc[i].qp_num);
+      if (!internal_qp->in_use &&
+          wc[i].status == IBV_WC_SUCCESS) {
         internal_qp->in_use = true;
       }
       enum ibv_wc_opcode opcode = wc[i].opcode;

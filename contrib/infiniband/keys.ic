@@ -1,9 +1,11 @@
 uint32_t retrieve_lkey_mapping(uint32_t orig_key)
 {
   struct list_elem * e;
-  for (e = list_begin(&mr_list); e != list_end(&mr_list); e = list_next(e))
-  {
-    struct internal_ibv_mr * mr = list_entry(e, struct internal_ibv_mr, elem);
+  for (e = list_begin(&mr_list);
+       e != list_end(&mr_list);
+       e = list_next(e)) {
+    struct internal_ibv_mr *mr =
+      list_entry(e, struct internal_ibv_mr, elem);
 
     if (mr->user_mr.lkey == orig_key) {
       return mr->real_mr->lkey;
@@ -23,43 +25,56 @@ void sge_update_lkey(struct ibv_sge * list, int len)
   }
 }
 
-uint32_t update_rkey_restart(uint32_t rkey, uint32_t pd_id)
+uint32_t update_rkey_restart(uint32_t rkey, uint32_t remote_pd_id)
 {
-  struct list_elem * e;
-  struct ibv_rkey_pair *pair;
-  uint32_t new_rkey;
-  uint32_t size = sizeof(new_rkey);
-  for (e = list_begin(&rkey_list); e != list_end(&rkey_list); e = list_next(e)){
-    pair = list_entry(e, struct ibv_rkey_pair, elem);
-    if (pair->orig_rkey.rkey == rkey && pair->orig_rkey.pd_id == pd_id){
-      return pair->new_rkey;
+  struct list_elem *e;
+  rkey_mapping_t *mapping;
+  uint32_t real_rkey;
+  uint32_t size = sizeof(real_rkey);
+  rkey_id_t v_rkey_id = {
+    .rkey = rkey,
+    .pd_id = remote_pd_id
+  };
+  int ret;
+
+  // First, check the local cache.
+  for (e = list_begin(&rkey_list);
+       e != list_end(&rkey_list);
+       e = list_next(e)) {
+    mapping = list_entry(e, rkey_mapping_t, elem);
+    if (mapping->virtual_rkey == rkey &&
+        mapping->pd_id == remote_pd_id) {
+      return mapping->real_rkey;
     }
   }
-  if (!(pair = malloc(sizeof(struct ibv_rkey_pair)))) {
+
+  // Cache doesn't contain the mapping, query the coordinator,
+  // and add the new entry to the cache.
+  mapping = malloc(sizeof(rkey_mapping_t));
+  if (!mapping) {
     IBV_ERROR("Could not allocate memory for pair.\n");
   }
-  pair->orig_rkey.pd_id = pd_id;
-  pair->orig_rkey.rkey = rkey;
-  pair->new_rkey = 0;
-  if (dmtcp_send_query_to_coordinator("mr_info",
-                                      &pair->orig_rkey,
-                                      sizeof(pair->orig_rkey),
-                                      &new_rkey,
-                                      &size)) {
-    assert(size == sizeof(uint32_t));
-    pair->new_rkey = new_rkey;
-    list_push_back(&rkey_list, &pair->elem);
-    return new_rkey;
+  mapping->virtual_rkey = rkey;
+  mapping->pd_id = remote_pd_id;
+
+  real_rkey = rkey;
+  ret = dmtcp_send_query_to_coordinator("ib_rkey",
+            &v_rkey_id, sizeof(v_rkey_id),
+            &real_rkey, &size);
+
+  if (ret != 0) { // The mapping exists
+    assert(size == sizeof(real_rkey));
+  } else { // The mapping doesn't exist: a mr created after restart
+    assert(size == 0);
   }
-  else 
-  {
-    pair->new_rkey = rkey;
-    list_push_back(&rkey_list, &pair->elem);
-    return rkey;
-  }
+
+  mapping->real_rkey = real_rkey;
+  list_push_back(&rkey_list, &mapping->elem);
+
+  return real_rkey;
 }
 
-void update_rkey_send(struct ibv_send_wr * wr, uint32_t pd_id)
+void update_rkey_send(struct ibv_send_wr *wr, uint32_t remote_pd_id)
 {
   if (wr == NULL) {
     return;
@@ -68,42 +83,17 @@ void update_rkey_send(struct ibv_send_wr * wr, uint32_t pd_id)
   if (wr->opcode == IBV_WR_RDMA_WRITE ||
       wr->opcode == IBV_WR_RDMA_WRITE_WITH_IMM ||
       wr->opcode == IBV_WR_RDMA_READ) {
-    wr->wr.rdma.rkey = update_rkey_restart(wr->wr.rdma.rkey, pd_id);
+    wr->wr.rdma.rkey =
+      update_rkey_restart(wr->wr.rdma.rkey, remote_pd_id);
   }
 
   if (wr->opcode == IBV_WR_ATOMIC_CMP_AND_SWP ||
       wr->opcode == IBV_WR_ATOMIC_FETCH_AND_ADD) {
-    wr->wr.atomic.rkey = update_rkey_restart(wr->wr.atomic.rkey, pd_id);
-  }
-  update_rkey_send(wr->next, pd_id);
-}
-
-void update_ud_send_restart(struct ibv_send_wr *wr) {
-  struct internal_ibv_ah *internal_ah;
-  uint32_t size;
-  ibv_ud_qp_id_t orig_id, curr_id;
-
-  if (wr == NULL) {
-    return;
+    wr->wr.atomic.rkey =
+      update_rkey_restart(wr->wr.atomic.rkey, remote_pd_id);
   }
 
-  internal_ah = ibv_ah_to_internal(wr->wr.ud.ah);
-  orig_id.qpn = wr->wr.ud.remote_qpn;
-  orig_id.lid = internal_ah->attr.dlid;
-
-  dmtcp_send_query_to_coordinator("qp_info",
-                                  &orig_id, sizeof(orig_id),
-                                  &curr_id, &size);
-
-  // If the key in the query does not exist, size == 0.
-  if (size == sizeof(ibv_ud_qp_id_t)) {
-    // The qp is created before checkpoint, qp_num changes
-    wr->wr.ud.remote_qpn = curr_id.qpn;
-  }
-
-  wr->wr.ud.ah = internal_ah->real_ah;
-
-  update_ud_send_restart(wr->next);
+  update_rkey_send(wr->next, remote_pd_id);
 }
 
 void update_ud_send(struct ibv_send_wr *wr) {
@@ -114,6 +104,10 @@ void update_ud_send(struct ibv_send_wr *wr) {
   }
 
   internal_ah = ibv_ah_to_internal(wr->wr.ud.ah);
+
+  wr->wr.ud.remote_qpn =
+    translate_qp_num(wr->wr.ud.remote_qpn).qp_num;
+
   wr->wr.ud.ah = internal_ah->real_ah;
 
   update_ud_send(wr->next);
