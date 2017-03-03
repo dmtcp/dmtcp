@@ -49,8 +49,8 @@
 
 // The internal pd id and rkey can globally identify a mr.
 typedef struct rkey_id {
-  uint32_t pd_id;
   uint32_t rkey;
+  uint32_t pd_id;
 } rkey_id_t;
 
 // The internal pd id and qp_num can globally identify a qp.
