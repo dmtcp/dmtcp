@@ -58,12 +58,10 @@ using namespace dmtcp;
  *  8. Non ckptLeader processes unmap all shmat() addresses corresponding to
  *     the shm-object.
  *  9. BARRIER -- CHECKPOINTED
- * 10. At this point, the contents of the memory-segment have been saved.
- * 11. BARRIER -- REFILLED
- * 12. Re-map the memory-segment into each process's memory as it existed prior
+ * 10. Re-map the memory-segment into each process's memory as it existed prior
  *     to checkpoint.
- * 13. TODO: Unmap the memory that was mapped in step 4.
- * 14. BARRIER -- RESUME
+ * 11. TODO: Unmap the memory that was mapped in step 4.
+ * 12. BARRIER -- RESUME
  *
  * Steps involved in Restart
  *  0. BARRIER -- RESTARTING
@@ -78,12 +76,13 @@ using namespace dmtcp;
  *     to this address. Now unmap the area where the checkpointed contents were
  *     stored and map the shm-segment on that address. Unmap the temp addr now.
  *     Remap the shm-segment to the original location.
- *  7. Write original->current mappings for all shmids which we got from
+ *  7. BARRIER -- RESTART
+ *  8. Write original->current mappings for all shmids which we got from
  *     shmget() in previous step.
- *  8. BARRIER -- REFILLED
- *  9. Re-map the memory-segment into each process's memory as it existed prior
+ *  9. BARRIER -- REFILLED
+ * 10. Re-map the memory-segment into each process's memory as it existed prior
  *     to checkpoint.
- * 10. BARRIER -- RESUME
+ * 11. BARRIER -- RESUME
  */
 
 /* TODO: Handle the case when the segment is marked for removal at ckpt time.
@@ -116,14 +115,6 @@ preCkptDrain()
 }
 
 static void
-resumeRefill()
-{
-  SysVShm::instance().refill(false);
-  SysVSem::instance().refill(false);
-  SysVMsq::instance().refill(false);
-}
-
-static void
 resumeResume()
 {
   SysVShm::instance().preResume();
@@ -142,9 +133,9 @@ postRestart()
 static void
 restartRefill()
 {
-  SysVShm::instance().refill(true);
-  SysVSem::instance().refill(true);
-  SysVMsq::instance().refill(true);
+  SysVShm::instance().refill();
+  SysVSem::instance().refill();
+  SysVMsq::instance().refill();
 }
 
 static void
@@ -193,7 +184,6 @@ static DmtcpBarrier sysvipcBarriers[] = {
   { DMTCP_LOCAL_BARRIER_PRE_CKPT, preCkptDrain, "DRAIN" },
   { DMTCP_LOCAL_BARRIER_PRE_CKPT, preCheckpoint, "PRE_CKPT" },
 
-  { DMTCP_LOCAL_BARRIER_RESUME, resumeRefill, "RESUME_REFILL" },
   { DMTCP_LOCAL_BARRIER_RESUME, resumeResume, "RESUME" },
 
   { DMTCP_LOCAL_BARRIER_RESTART, postRestart, "RESTART" },
@@ -363,14 +353,10 @@ SysVIPC::preResume()
 }
 
 void
-SysVIPC::refill(bool isRestart)
+SysVIPC::refill()
 {
-  if (!isRestart) {
-    return;
-  }
-
   for (Iterator i = _map.begin(); i != _map.end(); ++i) {
-    i->second->refill(isRestart);
+    i->second->refill();
   }
 }
 
@@ -809,9 +795,9 @@ ShmSegment::postRestart()
 }
 
 void
-ShmSegment::refill(bool isRestart)
+ShmSegment::refill()
 {
-  if (!isRestart || _isCkptLeader) {
+  if (_isCkptLeader) {
     return;
   }
 
@@ -957,12 +943,8 @@ Semaphore::postRestart()
 }
 
 void
-Semaphore::refill(bool isRestart)
+Semaphore::refill()
 {
-  if (!isRestart) {
-    return;
-  }
-
   /* Update the semadj value for this process.
    * The way we do it is by calling semop twice as follows:
    * semop(id, {semid, abs(semadj-value), flag1}*, nsems)
@@ -1089,20 +1071,16 @@ MsgQueue::postRestart()
 }
 
 void
-MsgQueue::refill(bool isRestart)
+MsgQueue::refill()
 {
   if (_isCkptLeader) {
     struct msqid_ds buf;
     JASSERT(_real_msgctl(_realId, IPC_STAT, &buf) == 0) (_id) (JASSERT_ERRNO);
-    if (isRestart) {
-      // Now remove all the messages that were sent during preCkptDrain phase.
-      size_t size = buf.__msg_cbytes;
-      void *msgBuf = JALLOC_HELPER_MALLOC(size);
-      while (_real_msgrcv(_realId, msgBuf, size, 0, IPC_NOWAIT) != -1) {}
-      JALLOC_HELPER_FREE(msgBuf);
-    } else {
-      JASSERT(buf.msg_qnum == 0);
-    }
+    // Now remove all the messages that were sent during preCkptDrain phase.
+    size_t size = buf.__msg_cbytes;
+    void *msgBuf = JALLOC_HELPER_MALLOC(size);
+    while (_real_msgrcv(_realId, msgBuf, size, 0, IPC_NOWAIT) != -1) {}
+    JALLOC_HELPER_FREE(msgBuf);
 
     for (size_t i = 0; i < _qnum; i++) {
       JASSERT(_real_msgsnd(_realId, _msgInQueue[i].buffer(),
