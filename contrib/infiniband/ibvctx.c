@@ -234,7 +234,7 @@ void send_qp_info()
   for (e = list_begin(&qp_list);
        e != list_end(&qp_list);
        e = list_next(e)) {
-    struct internal_ibv_qp * internal_qp;
+    struct internal_ibv_qp *internal_qp;
     qp_id_t cur_qp_id;
 
     internal_qp = list_entry(e, struct internal_ibv_qp, elem);
@@ -274,7 +274,7 @@ void query_qp_info()
     for (w = list_begin(&qp_list);
          w != list_end(&qp_list);
          w = list_next(w)) {
-      struct internal_ibv_qp * internal_qp =
+      struct internal_ibv_qp *internal_qp =
         list_entry(w, struct internal_ibv_qp, elem);
 
       if (mapping->virtual_qp_num == internal_qp->user_qp.qp_num) {
@@ -552,7 +552,7 @@ post_restart(void)
 
   for (e = list_begin(&ctx_list); e != list_end(&ctx_list); e = list_next(e))
   {
-    struct internal_ibv_ctx * internal_ctx;
+    struct internal_ibv_ctx *internal_ctx;
     int i;
 
     internal_ctx = list_entry(e, struct internal_ibv_ctx, elem);
@@ -693,6 +693,7 @@ post_restart(void)
        e = list_next(e)) {
     struct internal_ibv_comp_channel *internal_comp;
     struct internal_ibv_ctx *internal_ctx;
+    int flags;
 
     IBV_DEBUG("Recreating completion channel\n");
     internal_comp = list_entry(e, struct internal_ibv_comp_channel, elem);
@@ -1107,7 +1108,6 @@ _get_device_list(int *num_devices)
     struct internal_ibv_dev *dev;
 
     dev = (struct internal_ibv_dev *)malloc(sizeof(struct internal_ibv_dev));
-
     if (!dev) {
       IBV_ERROR("Could not allocate memory for _get_device_list.\n");
     }
@@ -1750,7 +1750,7 @@ _reg_mr(struct ibv_pd *pd, void *addr, size_t length, int flag)
   *  have the same lkey/rkey.
   */
   if (is_restart) {
-    struct list_elem * e;
+    struct list_elem *e;
     for (e = list_begin(&mr_list);
          e != list_end(&mr_list);
          e = list_next(e)) {
@@ -1936,7 +1936,7 @@ _create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *qp_init_attr)
 {
   struct internal_ibv_pd *internal_pd = ibv_pd_to_internal(pd);
   struct ibv_qp_init_attr attr = *qp_init_attr;
-  struct internal_ibv_qp * internal_qp;
+  struct internal_ibv_qp *internal_qp;
   qp_num_mapping_t *mapping;
   struct ibv_port_attr attr2;
   int rslt2;
@@ -1982,15 +1982,6 @@ _create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *qp_init_attr)
   internal_qp->user_qp.send_cq = qp_init_attr->send_cq;
   internal_qp->user_qp.srq = qp_init_attr->srq;
   internal_qp->init_attr = *qp_init_attr;
-
-  /* get the LID */
-  rslt2 =
-    NEXT_IBV_FNC(ibv_query_port)(internal_qp->real_qp->context, 1, &attr2);
-  if (rslt2 != 0) {
-    IBV_ERROR("Call to ibv_query_port failed\n");
-  }
-  internal_qp->local_qp_pd_id.lid = attr2.lid;
-  internal_qp->local_qp_pd_id.qpn = internal_qp->real_qp->qp_num;
 
   /*
    * We use virtual pid + offset to virtualize the qp_num, so that
@@ -2482,12 +2473,8 @@ _ibv_poll_cq(struct ibv_cq *cq, int num_entries, struct ibv_wc *wc)
 
   for (i = 0; i < rslt; i++) {
     if (i >= size) {
-      struct internal_ibv_qp * internal_qp =
+      struct internal_ibv_qp *internal_qp =
         qp_num_to_qp(&qp_list, wc[i].qp_num);
-      if (!internal_qp->in_use &&
-          wc[i].status == IBV_WC_SUCCESS) {
-        internal_qp->in_use = true;
-      }
       enum ibv_wc_opcode opcode = wc[i].opcode;
       wc[i].qp_num = internal_qp->user_qp.qp_num;
       if (opcode & IBV_WC_RECV ||
