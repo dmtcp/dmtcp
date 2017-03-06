@@ -42,18 +42,18 @@ struct ibv_device **ibv_get_device_list(int *num_devices)
   DMTCP_PLUGIN_DISABLE_CKPT();
   IBV_DEBUG("****** WRAPPER for ibv_get_device_list\n");
 
-  struct ibv_device ** result = _get_device_list(num_devices);
+  struct ibv_device **result = _get_device_list(num_devices);
 
   DMTCP_PLUGIN_ENABLE_CKPT();
   return result;
 }
 
-const char *ibv_get_device_name(struct ibv_device * dev)
+const char *ibv_get_device_name(struct ibv_device *dev)
 {
 //  DMTCP_PLUGIN_DISABLE_CKPT();
   IBV_DEBUG("****** WRAPPER for ibv_get_device_name\n");
 
-  const char * rslt = _get_device_name(dev);
+  const char *rslt = _get_device_name(dev);
 
 //  DMTCP_PLUGIN_ENABLE_CKPT();
   return rslt;
@@ -64,7 +64,7 @@ struct ibv_context *ibv_open_device(struct ibv_device *dev)
   DMTCP_PLUGIN_DISABLE_CKPT();
   IBV_DEBUG("******* WRAPPER for begin of ibv_open_device\n");
 
-  struct ibv_context * user_copy = _open_device(dev);
+  struct ibv_context *user_copy = _open_device(dev);
 
   DMTCP_PLUGIN_ENABLE_CKPT();
   return user_copy;
@@ -117,18 +117,18 @@ uint64_t ibv_get_device_guid(struct ibv_device *device)
   return rslt;
 }
 
-struct ibv_comp_channel * ibv_create_comp_channel(struct ibv_context *context)
+struct ibv_comp_channel *ibv_create_comp_channel(struct ibv_context *context)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
   IBV_DEBUG("******* WRAPPER for ibv_create_comp_channel\n");
 
-  struct ibv_comp_channel * rslt = _create_comp_channel(context);
+  struct ibv_comp_channel *rslt = _create_comp_channel(context);
 
   DMTCP_PLUGIN_ENABLE_CKPT();
   return rslt;
 }
 
-int ibv_destroy_comp_channel(struct ibv_comp_channel * channel)
+int ibv_destroy_comp_channel(struct ibv_comp_channel *channel)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
   IBV_DEBUG("****** WRAPPER for ibv_destroy_comp_channel\n");
@@ -144,7 +144,7 @@ struct ibv_pd *ibv_alloc_pd(struct ibv_context *context)
   DMTCP_PLUGIN_DISABLE_CKPT();
   IBV_DEBUG("******* WRAPPER FOR ibv_alloc_pd\n");
 
-  struct ibv_pd * user_copy = _alloc_pd(context);
+  struct ibv_pd *user_copy = _alloc_pd(context);
 
   DMTCP_PLUGIN_ENABLE_CKPT();
   return user_copy;
@@ -157,7 +157,7 @@ struct ibv_mr *ibv_reg_mr(struct ibv_pd *pd, void *addr,
   DMTCP_PLUGIN_DISABLE_CKPT();
   IBV_DEBUG("******** WRAPPER for ibv_reg_mr\n");
 
-  struct ibv_mr * user_copy = _reg_mr(pd, addr, length, access);
+  struct ibv_mr *user_copy = _reg_mr(pd, addr, length, access);
 
   DMTCP_PLUGIN_ENABLE_CKPT();
   return user_copy;
@@ -171,20 +171,20 @@ struct ibv_cq *ibv_create_cq(struct ibv_context *context, int cqe,
   DMTCP_PLUGIN_DISABLE_CKPT();
   IBV_DEBUG("******** WRAPPER for ibv_create_cq\n");
 
-  struct ibv_cq * user_copy = _create_cq(context, cqe, cq_context,
+  struct ibv_cq *user_copy = _create_cq(context, cqe, cq_context,
                                          channel, comp_vector);
 
   DMTCP_PLUGIN_ENABLE_CKPT();
   return user_copy;
 }
 
-struct ibv_srq *ibv_create_srq(struct ibv_pd * pd,
-                               struct ibv_srq_init_attr * srq_init_attr)
+struct ibv_srq *ibv_create_srq(struct ibv_pd *pd,
+                               struct ibv_srq_init_attr *srq_init_attr)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
   IBV_DEBUG("******** WRAPPER for ibv_create_srq\n");
 
-  struct ibv_srq * user_copy = _create_srq(pd, srq_init_attr);
+  struct ibv_srq *user_copy = _create_srq(pd, srq_init_attr);
 
   DMTCP_PLUGIN_ENABLE_CKPT();
   return user_copy;
@@ -225,7 +225,7 @@ struct ibv_qp *ibv_create_qp(struct ibv_pd *pd,
   DMTCP_PLUGIN_DISABLE_CKPT();
   IBV_DEBUG("******** WRAPPER for ibv_create_qp\n");
 
-  struct ibv_qp * user_copy = _create_qp(pd, qp_init_attr);
+  struct ibv_qp *user_copy = _create_qp(pd, qp_init_attr);
 
   DMTCP_PLUGIN_ENABLE_CKPT();
   return user_copy;
@@ -253,7 +253,7 @@ int ibv_get_cq_event(struct ibv_comp_channel *channel, struct ibv_cq **cq,
   return rslt;
 }
 
-int ibv_query_qp(struct ibv_qp * qp, struct ibv_qp_attr * attr,
+int ibv_query_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
                  int attr_mask, struct ibv_qp_init_attr *init_attr)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -362,7 +362,7 @@ void ibv_free_device_list(struct ibv_device **list)
   DMTCP_PLUGIN_ENABLE_CKPT();
 }
 
-void ibv_ack_cq_events(struct ibv_cq * cq, unsigned int nevents)
+void ibv_ack_cq_events(struct ibv_cq *cq, unsigned int nevents)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
   IBV_DEBUG("******** WRAPPER for ibv_ack_cq_events\n");
@@ -372,7 +372,7 @@ void ibv_ack_cq_events(struct ibv_cq * cq, unsigned int nevents)
   DMTCP_PLUGIN_ENABLE_CKPT();
 }
 
-struct ibv_ah * ibv_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr){
+struct ibv_ah *ibv_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr){
   DMTCP_PLUGIN_DISABLE_CKPT();
   IBV_DEBUG("******** WRAPPER for ibv_create_ah\n");
 
@@ -382,7 +382,7 @@ struct ibv_ah * ibv_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr){
   return rslt;
 }
 
-int ibv_destroy_ah(struct ibv_ah * ah) {
+int ibv_destroy_ah(struct ibv_ah *ah) {
   int rslt;
 
   IBV_DEBUG("******** WRAPPER for ibv_destroy_ah\n");

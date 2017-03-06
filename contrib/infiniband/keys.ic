@@ -1,6 +1,6 @@
 uint32_t retrieve_lkey_mapping(uint32_t orig_key)
 {
-  struct list_elem * e;
+  struct list_elem *e;
   for (e = list_begin(&mr_list);
        e != list_end(&mr_list);
        e = list_next(e)) {
@@ -16,7 +16,7 @@ uint32_t retrieve_lkey_mapping(uint32_t orig_key)
   return 0;
 }
 
-void sge_update_lkey(struct ibv_sge * list, int len)
+void sge_update_lkey(struct ibv_sge *list, int len)
 {
   int i;
   for (i = 0; i < len; i++)
