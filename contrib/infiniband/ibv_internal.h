@@ -32,8 +32,8 @@
 struct dev_list_info {
   int num_devices;
   bool in_free;
-  struct ibv_device ** user_dev_list;
-  struct ibv_device ** real_dev_list;
+  struct ibv_device **user_dev_list;
+  struct ibv_device **real_dev_list;
 };
 
 /*
@@ -49,9 +49,9 @@ struct internal_ibv_dev {
   struct ibv_device user_dev;
   uint64_t magic1;
   uint64_t magic2;
-  struct ibv_device * real_dev;
+  struct ibv_device *real_dev;
   bool in_use;
-  struct dev_list_info * list_info;
+  struct dev_list_info *list_info;
 };
 
 //! A wrapper around a context
@@ -59,7 +59,7 @@ struct internal_ibv_ctx {
   struct ibv_context user_ctx;
   uint64_t magic1;
   uint64_t magic2;
-  struct ibv_context * real_ctx;
+  struct ibv_context *real_ctx;
   struct list_elem elem;
 };
 
@@ -68,7 +68,7 @@ struct internal_ibv_comp_channel {
   struct ibv_comp_channel user_channel;
   uint64_t magic1;
   uint64_t magic2;
-  struct ibv_comp_channel * real_channel;
+  struct ibv_comp_channel *real_channel;
   struct list_elem elem;
 };
 
@@ -77,7 +77,7 @@ struct internal_ibv_pd {
   struct ibv_pd user_pd;
   uint64_t magic1;
   uint64_t magic2;
-  struct ibv_pd * real_pd;
+  struct ibv_pd *real_pd;
   struct list_elem elem;
   // global unique id defined in the plugin, for use of rdma identification
   uint32_t pd_id;
@@ -85,10 +85,10 @@ struct internal_ibv_pd {
 
 //! A wrapper around a memory region
 struct internal_ibv_mr {
-  struct ibv_mr   user_mr;
+  struct ibv_mr user_mr;
   uint64_t magic1;
   uint64_t magic2;
-  struct ibv_mr * real_mr;
+  struct ibv_mr *real_mr;
   int flags; /*!< The flags used to create the memory region */
   struct list_elem elem;
 };
@@ -104,7 +104,7 @@ struct internal_ibv_cq {
   struct ibv_cq user_cq;
   uint64_t magic1;
   uint64_t magic2;
-  struct ibv_cq * real_cq;
+  struct ibv_cq *real_cq;
   int comp_vector;
   struct list wc_queue; /*!< This queue buffers remaining completion events at checkpoint time */
   struct list req_notify_log; /*!< This list contains log entries of calls to ibv_req_notify_cq */
@@ -113,18 +113,11 @@ struct internal_ibv_cq {
 
 //! A wrapper around a queue pair
 struct internal_ibv_qp {
-  struct ibv_qp   user_qp;
+  struct ibv_qp user_qp;
   uint64_t magic1;
   uint64_t magic2;
-  struct ibv_qp * real_qp;
+  struct ibv_qp *real_qp;
   struct ibv_qp_init_attr init_attr; /*!< The attributes used to construct the queue */
-  /*
-   * To indicate that there is at least one successful work completion generated.
-   * This field is used to handle the case where two qps are not acctually connected.
-   * */
-  bool in_use;
-  ibv_qp_pd_id_t local_qp_pd_id;
-  ibv_qp_pd_id_t remote_qp_pd_id;
   uint32_t remote_pd_id;
   struct list modify_qp_log;
   struct list post_recv_log; /*!< This list contains log entries that track what recv work
@@ -139,7 +132,7 @@ struct internal_ibv_qp {
 //! A wrapper around a shared receive queue
 struct internal_ibv_srq {
   struct ibv_srq   user_srq;
-  struct ibv_srq * real_srq;
+  struct ibv_srq *real_srq;
   uint64_t magic1;
   uint64_t magic2;
   struct ibv_srq_init_attr init_attr;
@@ -153,7 +146,7 @@ struct internal_ibv_ah {
   struct ibv_ah user_ah;
   uint64_t magic1;
   uint64_t magic2;
-  struct ibv_ah * real_ah;
+  struct ibv_ah *real_ah;
   struct ibv_ah_attr attr;
   // This is to indicate whether the ah is created after restart.
   bool is_restart;
@@ -207,10 +200,10 @@ struct ibv_req_notify_cq_log {
  \return A pointer to the internal_ibv_qp
  */
 static inline struct internal_ibv_qp *
-qp_num_to_qp(struct list * l, uint32_t qp_num) {
+qp_num_to_qp(struct list *l, uint32_t qp_num) {
   struct list_elem *e;
   for (e = list_begin(l); e != list_end(l); e = list_next(e)) {
-    struct internal_ibv_qp * internal_qp;
+    struct internal_ibv_qp *internal_qp;
 
     internal_qp = list_entry(e, struct internal_ibv_qp, elem);
     if (internal_qp->real_qp->qp_num == qp_num) {
@@ -226,7 +219,7 @@ qp_num_to_qp(struct list * l, uint32_t qp_num) {
  \return A pointer to the internal_ibv_dev struct which dev is embedded in
  */
 static inline struct internal_ibv_dev *
-ibv_device_to_internal(struct ibv_device * dev) {
+ibv_device_to_internal(struct ibv_device *dev) {
   return (struct internal_ibv_dev *) dev;
 }
 
@@ -236,7 +229,7 @@ ibv_device_to_internal(struct ibv_device * dev) {
  * \return A pointer to the internal_ibv_ctx struct which ctx is embedded in
  * */
 static inline struct internal_ibv_ctx *
-ibv_ctx_to_internal(struct ibv_context * ctx) {
+ibv_ctx_to_internal(struct ibv_context *ctx) {
   return (struct internal_ibv_ctx *) ctx;
 }
 
@@ -246,7 +239,7 @@ ibv_ctx_to_internal(struct ibv_context * ctx) {
  * \return A pointer to the internal_ibv_pd struct which pd is embedded in
  * */
 static inline struct internal_ibv_pd *
-ibv_pd_to_internal(struct ibv_pd * pd) {
+ibv_pd_to_internal(struct ibv_pd *pd) {
   return (struct internal_ibv_pd *) pd;
 }
 
@@ -256,7 +249,7 @@ ibv_pd_to_internal(struct ibv_pd * pd) {
  * \return A pointer to the internal_ibv_mr which mr is embedded in
  */
 static inline struct internal_ibv_mr *
-ibv_mr_to_internal(struct ibv_mr * mr) {
+ibv_mr_to_internal(struct ibv_mr *mr) {
   return (struct internal_ibv_mr *) mr;
 }
 
@@ -266,7 +259,7 @@ ibv_mr_to_internal(struct ibv_mr * mr) {
  * \return A pointer to internal_ibv_comp_channel which comp is embedded in
  */
 static inline struct internal_ibv_comp_channel *
-ibv_comp_to_internal(struct ibv_comp_channel * comp) {
+ibv_comp_to_internal(struct ibv_comp_channel *comp) {
   return (struct internal_ibv_comp_channel *) comp;
 }
 
@@ -276,7 +269,7 @@ ibv_comp_to_internal(struct ibv_comp_channel * comp) {
  * \return A pointer to the internal_ibv_cq which cq is embedded in
  */
 static inline struct internal_ibv_cq *
-ibv_cq_to_internal(struct ibv_cq * cq) {
+ibv_cq_to_internal(struct ibv_cq *cq) {
   return (struct internal_ibv_cq *) cq;
 }
 
@@ -286,7 +279,7 @@ ibv_cq_to_internal(struct ibv_cq * cq) {
  * \return A pointer to the internal_ibv_qp which qp is embedded in
  */
 static inline struct internal_ibv_qp *
-ibv_qp_to_internal(struct ibv_qp * qp) {
+ibv_qp_to_internal(struct ibv_qp *qp) {
   return (struct internal_ibv_qp *) qp;
 }
 
@@ -296,11 +289,11 @@ ibv_qp_to_internal(struct ibv_qp * qp) {
  * \return A pointer to the internal_ibv_srq which srq is embedded in
  */
 static inline struct internal_ibv_srq *
-ibv_srq_to_internal(struct ibv_srq * srq) {
+ibv_srq_to_internal(struct ibv_srq *srq) {
   return (struct internal_ibv_srq *) srq;
 }
 
 static inline struct internal_ibv_ah *
-ibv_ah_to_internal(struct ibv_ah * ah) {
+ibv_ah_to_internal(struct ibv_ah *ah) {
   return (struct internal_ibv_ah *) ah;
 }

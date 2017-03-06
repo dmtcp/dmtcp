@@ -33,7 +33,7 @@ struct ibv_device **ibv_get_device_list(int *num_devices)
   return _real_ibv_get_device_list(num_devices);
 }
 
-const char *ibv_get_device_name(struct ibv_device * dev)
+const char *ibv_get_device_name(struct ibv_device *dev)
 {
   JNOTE("****** WRAPPER for ibv_get_device_name");
 
@@ -76,7 +76,7 @@ uint64_t ibv_get_device_guid(struct ibv_device *device)
 }
 
 
-struct ibv_comp_channel * ibv_create_comp_channel(struct ibv_context
+struct ibv_comp_channel *ibv_create_comp_channel(struct ibv_context
                                                                 *context)
 {
   JNOTE("******* WRAPPER for ibv_create_comp_channel");
@@ -84,7 +84,7 @@ struct ibv_comp_channel * ibv_create_comp_channel(struct ibv_context
   return _real_ibv_create_comp_channel(context);
 }
 
-int ibv_destroy_comp_channel(struct ibv_comp_channel * channel)
+int ibv_destroy_comp_channel(struct ibv_comp_channel *channel)
 {
   JNOTE("****** WRAPPER for ibv_destroy_comp_channel");
 
@@ -177,7 +177,7 @@ int ibv_get_cq_event(struct ibv_comp_channel *channel, struct ibv_cq **cq,
   return _real_ibv_get_cq_event(channel, cq, cq_context);
 }
 
-int ibv_query_qp(struct ibv_qp * qp, struct ibv_qp_attr * attr,
+int ibv_query_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
                  int attr_mask, struct ibv_qp_init_attr *init_attr)
 {
   JNOTE("******** WRAPPER FOR ibv_query_qp");
@@ -248,7 +248,7 @@ void ibv_free_device_list(struct ibv_device **list)
   _real_ibv_free_device_list(list);
 }
 
-void ibv_ack_cq_events(struct ibv_cq * cq, unsigned int nevents)
+void ibv_ack_cq_events(struct ibv_cq *cq, unsigned int nevents)
 {
   JNOTE("******** WRAPPER for ibv_ack_cq_events");
 
