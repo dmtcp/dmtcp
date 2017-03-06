@@ -1,4 +1,4 @@
-void update_lkey_SENDRECV(struct ibv_SENDRECV_wr * wr)
+void update_lkey_SENDRECV(struct ibv_SENDRECV_wr *wr)
 {
   if (wr == NULL) {
     return;
@@ -9,13 +9,13 @@ void update_lkey_SENDRECV(struct ibv_SENDRECV_wr * wr)
   update_lkey_SENDRECV(wr->next);
 }
 
-struct ibv_SENDRECV_wr * copy_SENDRECV_wr(struct ibv_SENDRECV_wr *  wr)
+struct ibv_SENDRECV_wr *copy_SENDRECV_wr(struct ibv_SENDRECV_wr *wr)
 {
   if (wr == NULL) {
     return NULL;
   }
 
-  struct ibv_SENDRECV_wr * wr_copy = malloc(sizeof(struct ibv_SENDRECV_wr));
+  struct ibv_SENDRECV_wr *wr_copy = malloc(sizeof(struct ibv_SENDRECV_wr));
 
   if (!wr_copy) {
     IBV_ERROR("Couldn't allocate memory for work request.\n");
@@ -36,7 +36,7 @@ struct ibv_SENDRECV_wr * copy_SENDRECV_wr(struct ibv_SENDRECV_wr *  wr)
   return wr_copy;
 }
 
-void delete_SENDRECV_wr(struct ibv_SENDRECV_wr * wr)
+void delete_SENDRECV_wr(struct ibv_SENDRECV_wr *wr)
 {
   if (wr == NULL) {
     return;
