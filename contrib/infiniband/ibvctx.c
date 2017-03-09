@@ -238,14 +238,14 @@ void send_qp_info()
     qp_id_t cur_qp_id;
 
     internal_qp = list_entry(e, struct internal_ibv_qp, elem);
-    cur_qp_id.qp_id = internal_qp->real_qp->qp_num;
+    cur_qp_id.qp_num = internal_qp->real_qp->qp_num;
     cur_qp_id.pd_id =
       ibv_pd_to_internal(internal_qp->user_qp.pd)->pd_id;
 
     IBV_DEBUG("Sending virtual qp_num: %lu, "
         "real qp_num: %lu, pd_id: %lu from %s\n",
         (unsigned long)internal_qp->user_qp.qp_num,
-        (unsigned long)cur_qp_id.qp_id,
+        (unsigned long)cur_qp_id.qp_num,
         (unsigned long)cur_qp_id.pd_id,
         hostname);
 
@@ -301,7 +301,7 @@ void query_qp_info()
           &mapping->virtual_qp_num, sizeof(mapping->virtual_qp_num),
           &cur_qp_id, &size);
       assert(size == sizeof(cur_qp_id));
-      mapping->real_qp_num = cur_qp_id.qp_id;
+      mapping->real_qp_num = cur_qp_id.qp_num;
       assert(mapping->pd_id == cur_qp_id.pd_id);
     }
   }
@@ -377,15 +377,15 @@ void send_rkey_info()
        e = list_next(e)) {
     struct internal_ibv_mr *internal_mr;
     struct internal_ibv_pd *internal_pd;
-    struct rkey_id_t rkey_id;
+    rkey_id_t cur_rkey_id;
 
     internal_mr = list_entry(e, struct internal_ibv_mr, elem);
     internal_pd = ibv_pd_to_internal(internal_mr->user_mr.pd);
-    rkey_id.pd_id = internal_pd->pd_id;
-    rkey_id.rkey = internal_mr->user_mr.rkey;
+    cur_rkey_id.pd_id = internal_pd->pd_id;
+    cur_rkey_id.rkey = internal_mr->user_mr.rkey;
 
     dmtcp_send_key_val_pair_to_coordinator("ib_rkey",
-        &rkey_id, sizeof(rkey_id),
+        &cur_rkey_id, sizeof(cur_rkey_id),
         &internal_mr->real_mr->rkey,
         sizeof(internal_mr->real_mr->rkey));
   }
@@ -1497,14 +1497,14 @@ _open_device(struct ibv_device *device)
     lid_mapping_initialized = true;
     pthread_mutex_unlock(&lid_mutex);
     ret = NEXT_IBV_FNC(ibv_query_device)(ctx->real_ctx, &device_attr);
-    if (ret != 0) {
+    if (ret) {
       IBV_ERROR("Error getting device attributes.\n");
     }
     for (port = 1; port <= device_attr.phys_port_cnt; port++) {
       struct ibv_port_attr port_attr;
 
       ret = NEXT_IBV_FNC(ibv_query_port)(ctx->real_ctx, port, &port_attr);
-      if (ret != 0) {
+      if (ret) {
         IBV_ERROR("Error getting port attributes.\n");
       }
 
@@ -1583,9 +1583,9 @@ _query_port(struct ibv_context *context,
         port_attr->lid = mapping->virtual_lid;
         break;
       }
-      assert(e != list_end(&lid_list));
-      pthread_mutex_unlock(&lid_mutex);
     }
+    assert(e != list_end(&lid_list));
+    pthread_mutex_unlock(&lid_mutex);
   }
 
   return ret;
@@ -1938,13 +1938,11 @@ _create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *qp_init_attr)
   struct ibv_qp_init_attr attr = *qp_init_attr;
   struct internal_ibv_qp *internal_qp;
   qp_num_mapping_t *mapping;
-  struct ibv_port_attr attr2;
-  int rslt2;
 
   assert(IS_INTERNAL_IBV_STRUCT(internal_pd));
   internal_qp = malloc(sizeof(struct internal_ibv_qp));
   mapping = malloc(sizeof(qp_num_mapping_t));
-  if (!internal_qp || mapping) {
+  if (!internal_qp || !mapping) {
     IBV_ERROR("Cannot allocate memory for _create_qp\n");
   }
   memset(internal_qp, 0, sizeof(struct internal_ibv_qp));
@@ -1960,10 +1958,10 @@ _create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *qp_init_attr)
     attr.srq = ibv_srq_to_internal(qp_init_attr->srq)->real_srq;
   }
 
-  internal_qp->real_qp = NEXT_IBV_FNC(ibv_create_qp)(internal_pd->real_pd,
-                                                     &attr);
-  if (internal_qp->real_qp == NULL) {
-    IBV_WARNING("Failed to create qp \n");
+  internal_qp->real_qp = NEXT_IBV_FNC(ibv_create_qp)
+                             (internal_pd->real_pd, &attr);
+  if (!internal_qp->real_qp) {
+    IBV_WARNING("Failed to create qp\n");
     free(internal_qp);
     return NULL;
   }
@@ -2009,6 +2007,7 @@ _create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *qp_init_attr)
       .qp_num = mapping->real_qp_num,
       .pd_id = mapping->pd_id
     };
+
     dmtcp_send_key_val_pair_to_coordinator("ib_qp",
         &internal_qp->user_qp.qp_num,
         sizeof(internal_qp->user_qp.qp_num),
@@ -2119,7 +2118,12 @@ _modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr, int attr_mask)
     real_attr.rq_psn = DEFAULT_PSN;
   }
 
-  rslt = NEXT_IBV_FNC(ibv_modify_qp)(internal_qp->real_qp, &real_attr, attr_mask);
+  rslt = NEXT_IBV_FNC(ibv_modify_qp)
+             (internal_qp->real_qp, &real_attr, attr_mask);
+  if (rslt) {
+    IBV_WARNING("Failed to modify qp\n");
+  }
+
   internal_qp->user_qp.state = internal_qp->real_qp->state;
 
   return rslt;
@@ -2133,13 +2137,11 @@ _query_qp(struct ibv_qp *qp,
 {
   struct internal_ibv_qp *internal_qp = ibv_qp_to_internal(qp);
   int rslt;
+  struct list_elem *e;
 
-  if (!IS_INTERNAL_IBV_STRUCT(internal_qp)) {
-    return NEXT_IBV_FNC(ibv_query_qp)(qp, attr, attr_mask, init_attr);
-  } else {
-    rslt = NEXT_IBV_FNC(ibv_query_qp)(internal_qp->real_qp,
-                                      attr, attr_mask, init_attr);
-  }
+  assert(IS_INTERNAL_IBV_STRUCT(internal_qp));
+  rslt = NEXT_IBV_FNC(ibv_query_qp)(internal_qp->real_qp,
+                                    attr, attr_mask, init_attr);
 
   assert(get_cq_from_pointer(init_attr->recv_cq) != NULL);
   assert(get_cq_from_pointer(init_attr->send_cq) != NULL);
@@ -2148,6 +2150,35 @@ _query_qp(struct ibv_qp *qp,
   if (init_attr->srq) {
     assert(get_srq_from_pointer(init_attr->srq) != NULL);
     init_attr->srq = &get_srq_from_pointer(init_attr->srq)->user_srq;
+  }
+
+  if (attr_mask & IBV_QP_AV) {
+    for (e = list_begin(&lid_list);
+         e != list_end(&lid_list);
+         e = list_next(e)) {
+      lid_mapping_t *mapping = list_entry(e, lid_mapping_t, elem);
+
+      if (mapping->real_lid == attr->ah_attr.dlid) {
+        attr->ah_attr.dlid = mapping->virtual_lid;
+        break;
+      }
+    }
+    assert(e != list_end(&lid_list));
+  }
+
+  if (attr_mask & IBV_QP_DEST_QPN) {
+    for (e = list_begin(&qp_num_list);
+         e != list_end(&qp_num_list);
+         e = list_next(e)) {
+      qp_num_mapping_t *mapping =
+        list_entry(e, qp_num_mapping_t, elem);
+
+      if (mapping->real_qp_num == attr->dest_qp_num) {
+        attr->dest_qp_num = mapping->virtual_qp_num;
+        break;
+      }
+    }
+    assert(e != list_end(&lid_list));
   }
 
   return rslt;
