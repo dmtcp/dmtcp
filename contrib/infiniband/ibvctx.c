@@ -158,6 +158,7 @@ void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       dmtcp_get_unique_id_from_coordinator("ib_blid",
           &hostid, sizeof(long),
           &base_lid, LID_QUOTA, sizeof(base_lid));
+      break;
     }
   case DMTCP_EVENT_WRITE_CKPT:
     pre_checkpoint();
@@ -1480,6 +1481,12 @@ struct ibv_context *_open_device(struct ibv_device *device) {
         pthread_mutex_unlock(&lid_mutex);
 
         // Send the mapping to the coordinator.
+
+        IBV_DEBUG("Sending virtual lid: 0x%04x, "
+            "real lid: 0x%04x\n",
+            mapping->virtual_lid,
+            mapping->real_lid);
+
         dmtcp_send_key_val_pair_to_coordinator("ib_lid",
             &mapping->virtual_lid, sizeof(mapping->virtual_lid),
             &mapping->real_lid, sizeof(mapping->real_lid));
@@ -1938,6 +1945,12 @@ struct ibv_qp *_create_qp(struct ibv_pd *pd,
       .qp_num = mapping->real_qp_num,
       .pd_id = mapping->pd_id
     };
+
+    IBV_DEBUG("Sending virtual qp_num: %lu, "
+        "real qp_num: %lu, pd_id: %lu\n",
+        (unsigned long)internal_qp->user_qp.qp_num,
+        (unsigned long)cur_qp_id.qp_num,
+        (unsigned long)cur_qp_id.pd_id);
 
     dmtcp_send_key_val_pair_to_coordinator("ib_qp",
         &internal_qp->user_qp.qp_num,
@@ -2569,6 +2582,10 @@ qp_id_t translate_qp_num(uint32_t virtual_qp_num) {
     uint32_t size = sizeof(rslt);
 
     pthread_mutex_unlock(&qp_mutex);
+
+    IBV_DEBUG("Querying remote qp: virtual qp_num: %lu\n",
+        (unsigned long)virtual_qp_num);
+
     dmtcp_send_query_to_coordinator("ib_qp",
         &virtual_qp_num, sizeof(virtual_qp_num),
         &rslt, &size);
@@ -2610,6 +2627,10 @@ uint16_t translate_lid(uint16_t virtual_lid) {
     uint32_t size = sizeof(real_lid);
 
     pthread_mutex_unlock(&lid_mutex);
+
+    IBV_DEBUG("Querying remote lid: virtual lid: 0x%04x\n",
+        virtual_lid);
+
     dmtcp_send_query_to_coordinator("ib_lid",
         &virtual_lid, sizeof(virtual_lid),
         &real_lid, &size);
