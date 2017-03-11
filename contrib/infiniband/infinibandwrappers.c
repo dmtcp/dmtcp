@@ -68,7 +68,7 @@ struct ibv_context *
 ibv_open_device(struct ibv_device *dev)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
-  IBV_DEBUG("******* WRAPPER for begin of ibv_open_device\n");
+  IBV_DEBUG("******* WRAPPER for ibv_open_device\n");
 
   struct ibv_context *user_copy = _open_device(dev);
 
@@ -81,9 +81,23 @@ ibv_query_device(struct ibv_context *context,
                  struct ibv_device_attr *device_attr)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
-  IBV_DEBUG("******* WRAPPER for begin of ibv_query_device\n");
+  IBV_DEBUG("******* WRAPPER for ibv_query_device\n");
 
   int rslt = _query_device(context, device_attr);
+
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  return rslt;
+}
+
+// ibv_query_port is defined as a macro in verbs.h
+#undef ibv_query_port
+int ibv_query_port(struct ibv_context *context, uint8_t port_num,
+                   struct ibv_port_attr *port_attr)
+{
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  IBV_DEBUG("******* WRAPPER for ibv_query_port\n");
+
+  int rslt = _query_port(context, port_num, port_attr);
 
   DMTCP_PLUGIN_ENABLE_CKPT();
   return rslt;
@@ -96,7 +110,7 @@ ibv_query_pkey(struct ibv_context *context,
                uint16_t *pkey)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
-  IBV_DEBUG("******* WRAPPER for begin of ibv_query_pkey\n");
+  IBV_DEBUG("******* WRAPPER for ibv_query_pkey\n");
 
   int rslt = _query_pkey(context, port_num, index, pkey);
 
@@ -111,7 +125,7 @@ ibv_query_gid(struct ibv_context *context,
               union ibv_gid *gid)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
-  IBV_DEBUG("******* WRAPPER for begin of ibv_query_gid\n");
+  IBV_DEBUG("******* WRAPPER for ibv_query_gid\n");
 
   int rslt = _query_gid(context, port_num, index, gid);
 

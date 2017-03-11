@@ -1206,6 +1206,8 @@ _get_cq_event(struct ibv_comp_channel *channel,
   int rslt, flags;
 
   internal_channel = ibv_comp_to_internal(channel);
+  assert(IS_INTERNAL_IBV_STRUCT(internal_channel));
+
   flags = NEXT_FNC(fcntl)(internal_channel->real_channel->fd,
                           F_GETFL, NULL);
 
@@ -1240,13 +1242,9 @@ _get_cq_event(struct ibv_comp_channel *channel,
 
   DMTCP_PLUGIN_DISABLE_CKPT();
 
-  if (!IS_INTERNAL_IBV_STRUCT(internal_channel)) {
-    rslt = NEXT_IBV_FNC(ibv_get_cq_event)(channel, cq, cq_context);
-  } else {
-    rslt = NEXT_IBV_FNC(ibv_get_cq_event)
-        (internal_channel->real_channel,
-        cq, cq_context);
-  }
+  rslt = NEXT_IBV_FNC(ibv_get_cq_event)
+                     (internal_channel->real_channel,
+                      cq, cq_context);
 
   internal_cq = get_cq_from_pointer(*cq);
   assert(internal_cq != NULL);
@@ -1265,6 +1263,8 @@ _get_async_event(struct ibv_context *ctx, struct ibv_async_event *event)
   struct internal_ibv_cq *internal_cq;
   struct internal_ibv_srq *internal_srq;
   int rslt;
+
+  assert(IS_INTERNAL_IBV_STRUCT(internal_ctx));
 
   int flags = NEXT_FNC(fcntl)(internal_ctx->real_ctx->async_fd,
                               F_GETFL, NULL);
@@ -1298,11 +1298,7 @@ _get_async_event(struct ibv_context *ctx, struct ibv_async_event *event)
 
   DMTCP_PLUGIN_DISABLE_CKPT();
 
-  if (!IS_INTERNAL_IBV_STRUCT(internal_ctx)) {
-    rslt = NEXT_IBV_FNC(ibv_get_async_event)(ctx, event);
-  } else {
-    rslt = NEXT_IBV_FNC(ibv_get_async_event)(internal_ctx->real_ctx, event);
-  }
+  rslt = NEXT_IBV_FNC(ibv_get_async_event)(internal_ctx->real_ctx, event);
 
   switch (event->event_type) {
   /* QP events */
@@ -1571,7 +1567,11 @@ _query_port(struct ibv_context *context,
   struct internal_ibv_ctx *internal_ctx = ibv_ctx_to_internal(context);
   int ret;
 
-  assert(IS_INTERNAL_IBV_STRUCT(internal_ctx));
+  // This is found in some mellanox drivers, where ibv_modify_qp() calls
+  // ibv_query_port() internally
+  if (!IS_INTERNAL_IBV_STRUCT(internal_ctx)) {
+    return NEXT_IBV_FNC(ibv_query_port)(context, port_num, port_attr);
+  }
 
   ret = NEXT_IBV_FNC(ibv_query_port)(internal_ctx->real_ctx,
                                      port_num, port_attr);
@@ -2589,9 +2589,7 @@ _ack_cq_events(struct ibv_cq *cq, unsigned int nevents)
 {
   struct internal_ibv_cq *internal_cq = ibv_cq_to_internal(cq);
 
-  if (!IS_INTERNAL_IBV_STRUCT(internal_cq)) {
-    return NEXT_IBV_FNC(ibv_ack_cq_events)(cq, nevents);
-  }
+  assert(IS_INTERNAL_IBV_STRUCT(internal_cq));
 
   return NEXT_IBV_FNC(ibv_ack_cq_events)(internal_cq->real_cq, nevents);
 }
