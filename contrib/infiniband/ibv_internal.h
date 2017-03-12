@@ -156,8 +156,6 @@ struct internal_ibv_ah {
   struct ibv_ah *real_ah;
   struct ibv_ah_attr attr;
 
-  // This is to indicate whether the ah is created after restart.
-  bool is_restart;
   struct list_elem elem;
 };
 
