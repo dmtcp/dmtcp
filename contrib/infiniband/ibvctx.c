@@ -65,7 +65,7 @@ static struct list comp_list = LIST_INITIALIZER(comp_list);
 static struct list ah_list = LIST_INITIALIZER(ah_list);
 
 //! This is the list of rkey pairs
-static struct list rkey_list;
+static struct list rkey_list = LIST_INITIALIZER(rkey_list);
 
 // List to store the virtual-to-real qp_num
 static struct list qp_num_list = LIST_INITIALIZER(qp_num_list);
@@ -164,7 +164,6 @@ void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     pre_checkpoint();
     break;
   case DMTCP_EVENT_RESTART:
-    list_init(&rkey_list);
     post_restart();
     break;
   case DMTCP_EVENT_REGISTER_NAME_SERVICE_DATA:
@@ -802,6 +801,7 @@ void post_restart2(void)
     struct internal_ibv_ah *internal_ah;
 
     internal_ah = list_entry(e, struct internal_ibv_ah, elem);
+    real_attr = internal_ah->attr;
     real_attr.dlid = translate_lid(internal_ah->attr.dlid);
 
     internal_ah->real_ah =
