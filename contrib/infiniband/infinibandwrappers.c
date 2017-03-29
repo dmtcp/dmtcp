@@ -95,7 +95,6 @@ int ibv_query_port(struct ibv_context *context, uint8_t port_num,
                    struct ibv_port_attr *port_attr)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
-  IBV_DEBUG("******* WRAPPER for ibv_query_port\n");
 
   int rslt = _query_port(context, port_num, port_attr);
 
