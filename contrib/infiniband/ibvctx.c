@@ -113,16 +113,6 @@ extern int dmtcp_send_query_all_to_coordinator(const char *id, void **buf);
 qp_id_t translate_qp_num(uint32_t virtual_qp_num);
 static uint16_t translate_lid(uint16_t virtual_lid);
 
-int _ibv_post_send(struct ibv_qp *qp, struct ibv_send_wr *wr,
-                   struct ibv_send_wr **bad_wr);
-int _ibv_poll_cq(struct ibv_cq *cq, int num_entries,
-                 struct ibv_wc *wc);
-int _ibv_post_srq_recv(struct ibv_srq *srq, struct ibv_recv_wr *wr,
-                       struct ibv_recv_wr **bad_wr);
-int _ibv_post_recv(struct ibv_qp *qp, struct ibv_recv_wr *wr,
-                   struct ibv_recv_wr **bad_wr);
-int _ibv_req_notify_cq(struct ibv_cq *cq, int solicited_only);
-
 #define DECL_FPTR(func) \
     static __typeof__(&ibv_##func) _real_ibv_##func = \
                                    (__typeof__(&ibv_##func)) NULL
@@ -130,7 +120,7 @@ int _ibv_req_notify_cq(struct ibv_cq *cq, int solicited_only);
 #define UPDATE_FUNC_ADDR(func, addr) \
   do {                               \
     _real_ibv_##func = addr;         \
-    addr = _ibv_##func;              \
+    addr = _##func;              \
   } while (0)
 
 DECL_FPTR(post_recv);
@@ -138,6 +128,26 @@ DECL_FPTR(post_srq_recv);
 DECL_FPTR(post_send);
 DECL_FPTR(poll_cq);
 DECL_FPTR(req_notify_cq);
+
+DECL_FPTR(query_device);
+DECL_FPTR(query_port);
+DECL_FPTR(alloc_pd);
+DECL_FPTR(dealloc_pd);
+DECL_FPTR(reg_mr);
+DECL_FPTR(dereg_mr);
+DECL_FPTR(create_cq);
+DECL_FPTR(resize_cq);
+DECL_FPTR(destroy_cq);
+DECL_FPTR(create_srq);
+DECL_FPTR(modify_srq);
+DECL_FPTR(query_srq);
+DECL_FPTR(destroy_srq);
+DECL_FPTR(create_qp);
+DECL_FPTR(query_qp);
+DECL_FPTR(modify_qp);
+DECL_FPTR(destroy_qp);
+DECL_FPTR(create_ah);
+DECL_FPTR(destroy_ah);
 
 /* These files are processed by sed at compile time */
 #include "keys.ic"
@@ -1431,13 +1441,6 @@ struct ibv_context *_open_device(struct ibv_device *device) {
   INIT_INTERNAL_IBV_TYPE(ctx);
   dev->in_use = true;
 
-  /* setup the trampolines */
-  UPDATE_FUNC_ADDR(post_recv, ctx->real_ctx->ops.post_recv);
-  UPDATE_FUNC_ADDR(post_srq_recv, ctx->real_ctx->ops.post_srq_recv);
-  UPDATE_FUNC_ADDR(post_send, ctx->real_ctx->ops.post_send);
-  UPDATE_FUNC_ADDR(poll_cq, ctx->real_ctx->ops.poll_cq);
-  UPDATE_FUNC_ADDR(req_notify_cq, ctx->real_ctx->ops.req_notify_cq);
-
   // Initilizae local virtual-to-real lid mapping
   pthread_mutex_lock(&lid_mutex);
   if (!lid_mapping_initialized) {
@@ -1490,6 +1493,33 @@ struct ibv_context *_open_device(struct ibv_device *device) {
 
   memcpy(&ctx->user_ctx, ctx->real_ctx, sizeof(struct ibv_context));
 
+  /* setup the trampolines */
+  UPDATE_FUNC_ADDR(post_recv, ctx->user_ctx.ops.post_recv);
+  UPDATE_FUNC_ADDR(post_srq_recv, ctx->user_ctx.ops.post_srq_recv);
+  UPDATE_FUNC_ADDR(post_send, ctx->user_ctx.ops.post_send);
+  UPDATE_FUNC_ADDR(poll_cq, ctx->user_ctx.ops.poll_cq);
+  UPDATE_FUNC_ADDR(req_notify_cq, ctx->user_ctx.ops.req_notify_cq);
+
+  UPDATE_FUNC_ADDR(query_device, ctx->user_ctx.ops.query_device);
+  UPDATE_FUNC_ADDR(query_port, ctx->user_ctx.ops.query_port);
+  UPDATE_FUNC_ADDR(alloc_pd, ctx->user_ctx.ops.alloc_pd);
+  UPDATE_FUNC_ADDR(dealloc_pd, ctx->user_ctx.ops.dealloc_pd);
+  UPDATE_FUNC_ADDR(reg_mr, ctx->user_ctx.ops.reg_mr);
+  UPDATE_FUNC_ADDR(dereg_mr, ctx->user_ctx.ops.dereg_mr);
+  UPDATE_FUNC_ADDR(create_cq, ctx->user_ctx.ops.create_cq);
+  UPDATE_FUNC_ADDR(resize_cq, ctx->user_ctx.ops.resize_cq);
+  UPDATE_FUNC_ADDR(destroy_cq, ctx->user_ctx.ops.destroy_cq);
+  UPDATE_FUNC_ADDR(create_srq, ctx->user_ctx.ops.create_srq);
+  UPDATE_FUNC_ADDR(modify_srq, ctx->user_ctx.ops.modify_srq);
+  UPDATE_FUNC_ADDR(query_srq, ctx->user_ctx.ops.query_srq);
+  UPDATE_FUNC_ADDR(destroy_srq, ctx->user_ctx.ops.destroy_srq);
+  UPDATE_FUNC_ADDR(create_qp, ctx->user_ctx.ops.create_qp);
+  UPDATE_FUNC_ADDR(query_qp, ctx->user_ctx.ops.query_qp);
+  UPDATE_FUNC_ADDR(modify_qp, ctx->user_ctx.ops.modify_qp);
+  UPDATE_FUNC_ADDR(destroy_qp, ctx->user_ctx.ops.destroy_qp);
+  UPDATE_FUNC_ADDR(create_ah, ctx->user_ctx.ops.create_ah);
+  UPDATE_FUNC_ADDR(destroy_ah, ctx->user_ctx.ops.destroy_ah);
+
   ctx->user_ctx.device = device;
 
   list_push_back(&ctx_list, &ctx->elem);
@@ -1515,6 +1545,8 @@ int _query_port(struct ibv_context *context, uint8_t port_num,
 {
   struct internal_ibv_ctx *internal_ctx = ibv_ctx_to_internal(context);
   int ret;
+
+  IBV_DEBUG("******* WRAPPER for ibv_query_port\n");
 
   // This is found in some mellanox drivers, where ibv_modify_qp() calls
   // ibv_query_port() internally
@@ -1748,7 +1780,7 @@ int _dereg_mr(struct ibv_mr *mr)
   return rslt;
 }
 
-int _ibv_req_notify_cq(struct ibv_cq *cq, int solicited_only)
+int _req_notify_cq(struct ibv_cq *cq, int solicited_only)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
   struct internal_ibv_cq *internal_cq = ibv_cq_to_internal(cq);
@@ -2247,7 +2279,7 @@ int _query_srq(struct ibv_srq *srq, struct ibv_srq_attr *srq_attr)
                                      srq_attr);
 }
 
-int _ibv_post_recv(struct ibv_qp *qp, struct ibv_recv_wr *wr,
+int _post_recv(struct ibv_qp *qp, struct ibv_recv_wr *wr,
                    struct ibv_recv_wr **bad_wr) {
   struct internal_ibv_qp *internal_qp = ibv_qp_to_internal(qp);
   struct ibv_recv_wr *copy_wr;
@@ -2286,7 +2318,7 @@ int _ibv_post_recv(struct ibv_qp *qp, struct ibv_recv_wr *wr,
   return rslt;
 }
 
-int _ibv_post_srq_recv(struct ibv_srq *srq, struct ibv_recv_wr *wr,
+int _post_srq_recv(struct ibv_srq *srq, struct ibv_recv_wr *wr,
                        struct ibv_recv_wr **bad_wr) {
   struct internal_ibv_srq *internal_srq = ibv_srq_to_internal(srq);
   struct ibv_recv_wr *copy_wr;
@@ -2331,7 +2363,7 @@ int _ibv_post_srq_recv(struct ibv_srq *srq, struct ibv_recv_wr *wr,
   return rslt;
 }
 
-int _ibv_post_send(struct ibv_qp *qp, struct ibv_send_wr *wr, struct
+int _post_send(struct ibv_qp *qp, struct ibv_send_wr *wr, struct
                    ibv_send_wr **bad_wr) {
   struct internal_ibv_qp *internal_qp = ibv_qp_to_internal(qp);
   struct ibv_send_wr *copy_wr;
@@ -2389,7 +2421,7 @@ int _ibv_post_send(struct ibv_qp *qp, struct ibv_send_wr *wr, struct
   return rslt;
 }
 
-int _ibv_poll_cq(struct ibv_cq *cq, int num_entries, struct ibv_wc *wc)
+int _poll_cq(struct ibv_cq *cq, int num_entries, struct ibv_wc *wc)
 {
   int rslt = 0;
   struct internal_ibv_cq *internal_cq = ibv_cq_to_internal(cq);
