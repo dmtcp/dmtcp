@@ -447,3 +447,38 @@ ibv_destroy_ah(struct ibv_ah *ah)
 
   return rslt;
 }
+
+/*
+ * The following are some unimplemented functionalities, including:
+ *
+ * Reregistering memory regions
+ *
+ * Multicast support
+ *
+ * TODO: Adding XRC (eXtended Reliable Connected) functionalities
+ *
+ */
+
+int ibv_rereg_mr(struct ibv_mr *mr, int flags,
+                 struct ibv_pd *pd, void *addr,
+                 size_t length, int access)
+{
+  IBV_WARNING("Not implemented.\n");
+  return NEXT_IBV_FNC(ibv_rereg_mr)(mr, flags,
+                                    pd, addr,
+                                    length, access);
+}
+
+int ibv_attach_mcast(struct ibv_qp *qp, const union ibv_gid *gid,
+                     uint16_t lid)
+{
+  IBV_WARNING("Not implemented.\n");
+  return NEXT_IBV_FNC(ibv_attach_mcast)(qp, gid, lid);
+}
+
+int ibv_detach_mcast(struct ibv_qp *qp, const union ibv_gid *gid,
+                     uint16_t lid)
+{
+  IBV_WARNING("Not implemented.\n");
+  return NEXT_IBV_FNC(ibv_detach_mcast)(qp, gid, lid);
+}

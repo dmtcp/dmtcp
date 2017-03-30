@@ -145,7 +145,8 @@ DECL_FPTR(alloc_pd);
 DECL_FPTR(dealloc_pd);
 DECL_FPTR(reg_mr);
 DECL_FPTR(dereg_mr);
-DECL_FPTR(create_cq);
+// the function prototype is different the one in ibv_context_ops
+// DECL_FPTR(create_cq);
 DECL_FPTR(resize_cq);
 DECL_FPTR(destroy_cq);
 DECL_FPTR(create_srq);
@@ -158,6 +159,11 @@ DECL_FPTR(modify_qp);
 DECL_FPTR(destroy_qp);
 DECL_FPTR(create_ah);
 DECL_FPTR(destroy_ah);
+
+// Memory window operations are not supported
+DECL_FPTR(alloc_mw);
+DECL_FPTR(dealloc_mw);
+DECL_FPTR(bind_mw);
 
 /* These files are processed by sed at compile time */
 #include "get_cq_from_pointer.ic"
@@ -1554,7 +1560,7 @@ _open_device(struct ibv_device *device)
   UPDATE_FUNC_ADDR(dealloc_pd, ctx->user_ctx.ops.dealloc_pd);
   UPDATE_FUNC_ADDR(reg_mr, ctx->user_ctx.ops.reg_mr);
   UPDATE_FUNC_ADDR(dereg_mr, ctx->user_ctx.ops.dereg_mr);
-  UPDATE_FUNC_ADDR(create_cq, ctx->user_ctx.ops.create_cq);
+  // UPDATE_FUNC_ADDR(create_cq, ctx->user_ctx.ops.create_cq);
   UPDATE_FUNC_ADDR(resize_cq, ctx->user_ctx.ops.resize_cq);
   UPDATE_FUNC_ADDR(destroy_cq, ctx->user_ctx.ops.destroy_cq);
   UPDATE_FUNC_ADDR(create_srq, ctx->user_ctx.ops.create_srq);
@@ -1567,6 +1573,10 @@ _open_device(struct ibv_device *device)
   UPDATE_FUNC_ADDR(destroy_qp, ctx->user_ctx.ops.destroy_qp);
   UPDATE_FUNC_ADDR(create_ah, ctx->user_ctx.ops.create_ah);
   UPDATE_FUNC_ADDR(destroy_ah, ctx->user_ctx.ops.destroy_ah);
+
+  UPDATE_FUNC_ADDR(alloc_mw, ctx->user_ctx.ops.alloc_mw);
+  UPDATE_FUNC_ADDR(bind_mw, ctx->user_ctx.ops.bind_mw);
+  UPDATE_FUNC_ADDR(dealloc_mw, ctx->user_ctx.ops.dealloc_mw);
 
   ctx->user_ctx.device = device;
 
@@ -2664,6 +2674,26 @@ _destroy_ah(struct ibv_ah *ah)
   free(internal_ah);
 
   return rslt;
+}
+
+struct ibv_mw *_alloc_mw(struct ibv_pd *pd,
+                            enum ibv_mw_type type)
+{
+  IBV_WARNING("Not implemented.\n");
+  return NEXT_IBV_FNC(ibv_alloc_mw)(pd, type);
+}
+
+int _bind_mw(struct ibv_qp *qp, struct ibv_mw *mw,
+                struct ibv_mw_bind *mw_bind)
+{
+  IBV_WARNING("Not implemented.\n");
+  return NEXT_IBV_FNC(ibv_bind_mw)(qp, mw, mw_bind);
+}
+
+int _dealloc_mw(struct ibv_mw *mw)
+{
+  IBV_WARNING("Not implemented.\n");
+  return NEXT_IBV_FNC(ibv_dealloc_mw)(mw);
 }
 
 qp_id_t translate_qp_num(uint32_t virtual_qp_num) {
