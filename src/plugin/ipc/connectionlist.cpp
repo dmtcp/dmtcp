@@ -306,6 +306,7 @@ void ConnectionList::add(int fd, Connection* c)
 {
   _lock_tbl();
 
+  JASSERT(c != NULL)(fd);
   if (_fdToCon.find(fd) != _fdToCon.end()) {
     /* In ordinary situations, we never exercise this path since we already
      * capture close() and remove the connection. However, there is one

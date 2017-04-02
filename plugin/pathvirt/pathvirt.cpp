@@ -283,17 +283,21 @@ set_original_path_prefix_list(const char* oldPathPrefix)
 EXTERNC const char*
 get_original_path_prefix_list()
 {
+  const char *tmp = NULL;
   pthread_rwlock_rdlock(&listRwLock);
-  return oldPathPrefixList;
+  tmp = oldPathPrefixList;
   pthread_rwlock_unlock(&listRwLock);
+  return tmp;
 }
 
 EXTERNC const char*
 get_new_path_prefix_list()
 {
+  const char *tmp = NULL;
   pthread_rwlock_rdlock(&listRwLock);
-  return newPathPrefixList;
+  tmp = newPathPrefixList;
   pthread_rwlock_unlock(&listRwLock);
+  return tmp;
 }
 
 EXTERNC const char*
@@ -327,7 +331,9 @@ dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     }
     case DMTCP_EVENT_PRE_EXEC:
     {
-      setenv(ENV_NEW_DPP, newPathPrefixList, 0);
+      if (shouldSwap) {
+          setenv(ENV_NEW_DPP, newPathPrefixList, 0);
+      }
       break;
     }
     case DMTCP_EVENT_POST_EXEC:
@@ -779,8 +785,10 @@ virtual_to_physical_path(const char *virt_path)
 
     /* found it in old list, now get a pointer to the new prefix to swap in*/
     char *physPathPtr = clget(newPathPrefixList, index);
-    if (physPathPtr == NULL)
+    if (physPathPtr == NULL) {
+        pthread_rwlock_unlock(&listRwLock);
         return virtPathString;
+    }
 
     size_t newElementSz = clgetsize(newPathPrefixList, physPathPtr);
     size_t oldElementSz = clgetsize(oldPathPrefixList, oldPathPtr);

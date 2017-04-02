@@ -143,9 +143,11 @@ static void process_accept(int ret, int sockfd, struct sockaddr *addr,
   // FIXME: Checking for conType is ugly; fix class design
   if (parent->conType() == Connection::TCP) {
     TcpConnection *tcpParent = dynamic_cast<TcpConnection*>(parent);
+    JASSERT(tcpParent != NULL)(ret)(sockfd);
     con = new TcpConnection(*tcpParent, ConnectionIdentifier::null());
   } else if (parent->conType() == Connection::RAW) {
     RawSocketConnection *rawSockParent = dynamic_cast<RawSocketConnection*>(parent);
+    JASSERT(rawSockParent != NULL)(ret)(sockfd);
     con = new RawSocketConnection(*rawSockParent, ConnectionIdentifier::null());
   }
 

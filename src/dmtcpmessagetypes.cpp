@@ -40,6 +40,7 @@ DmtcpMessage::DmtcpMessage ( DmtcpMessageType t /*= DMT_NULL*/ )
     ,coordCmdStatus(CoordCmdStatus::NOERROR)
     ,coordTimeStamp(0)
     ,theCheckpointInterval ( DMTCPMESSAGE_SAME_CKPT_INTERVAL )
+    ,uniqueIdOffset(0)
     ,logMask(0)
 {
 //     struct sockaddr_storage _addr;

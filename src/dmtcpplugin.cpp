@@ -217,7 +217,7 @@ EXTERNC int dmtcp_set_global_ckpt_dir(const char *dir)
 // coordinator or a checkpoint is in progress.
 EXTERNC const char* dmtcp_get_coord_ckpt_dir(void)
 {
-  string dir;
+  static string dir;
   CoordinatorAPI coordinatorAPI;
   dmtcp_disable_ckpt();
   dir = coordinatorAPI.getCoordCkptDir();

@@ -227,6 +227,7 @@ CoordClient::CoordClient(const jalib::JSocket& sock,
   _clientNumber = theNextClientNumber++;
   _identity = hello_remote.from;
   _state = hello_remote.state;
+  _virtualPid = 0;
   struct sockaddr_in *in = (struct sockaddr_in*) addr;
   _ip = inet_ntoa(in->sin_addr);
 }
@@ -292,7 +293,7 @@ void DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*= NULL*
       JTRACE("Received DMT_GET_COORD_CKPT_DIR msg during checkpointing");
     }
 
-    if (reply->extraBytes > 0) {
+    if (reply && reply->extraBytes > 0) {
       replyData = ckptDir;
     }
     break;
