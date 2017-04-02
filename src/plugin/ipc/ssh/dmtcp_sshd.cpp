@@ -100,8 +100,8 @@ static void dummySshdProcess(char *listenAddr)
 int main(int argc, char *argv[], char *envp[])
 {
   int in[2], out[2], err[2];
-  char *host;
-  int port;
+  char *host = NULL;
+  int port = 0;
 
   if (argc < 2) {
     printf("***ERROR: This program shouldn't be used directly.\n");
@@ -131,6 +131,8 @@ int main(int argc, char *argv[], char *envp[])
       break;
     }
   }
+
+  assert(host != NULL && port != 0);
 
   connectToRemotePeer(host, port);
 

@@ -127,7 +127,13 @@ namespace dmtcp
                      int type = FILE_REGULAR)
         : Connection(type)
         , _path(path)
+        , _ckpted_file(false)
+        , _allow_overwrite(false)
         , _fileAlreadyExists(false)
+        , _rmtype(0)
+        , _st_dev(0)
+        , _st_ino(0)
+        , _st_size(0)
       { }
 
 
@@ -182,6 +188,9 @@ namespace dmtcp
       FifoConnection(const string& path, int flags, mode_t mode)
         : Connection(FIFO)
           , _path(path)
+          , _flags(0)
+          , _mode(0)
+          , ckptfd(-1)
     {
       string curDir = jalib::Filesystem::GetCWD();
       int offs = _path.find(curDir);

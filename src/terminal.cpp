@@ -93,8 +93,9 @@ static void restore_term_settings()
       (foreground);
     if (foreground) {
       if ( ( ! isatty(STDIN_FILENO)
-             || safe_tcsetattr(STDIN_FILENO, TCSANOW, &saved_termios) == -1) )
+             || safe_tcsetattr(STDIN_FILENO, TCSANOW, &saved_termios) == -1) ) {
         JWARNING(false) .Text("failed to restore terminal");
+      }
       else {
         struct winsize cur_win;
         JLOG(DMTCP)("restored terminal");

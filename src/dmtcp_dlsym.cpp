@@ -386,7 +386,7 @@ void *dlsym_default_internal_flag_handler(void* handle, const char *libname,
 {
   Dl_info info;
   struct link_map* map;
-  void* result;
+  void* result = NULL;
 
   // Retrieve the link_map for the library given by addr
   int ret = dladdr1(addr, &info, (void**)&map, RTLD_DL_LINKMAP);

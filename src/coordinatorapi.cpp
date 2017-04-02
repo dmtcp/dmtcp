@@ -586,7 +586,7 @@ DmtcpMessage CoordinatorAPI::sendRecvHandshake(DmtcpMessage msg,
   // Coordinator also prints this, but its stderr may go to /dev/null
   if (msg.type == DMT_REJECT_NOT_RESTARTING) {
     string coordinatorHost = ""; // C++ magic code; "" to be invisibly replaced
-    int coordinatorPort;
+    int coordinatorPort = 0;
     Util::getCoordHostAndPort(COORD_ANY, coordinatorHost, &coordinatorPort);
     JNOTE ("\n\n*** Computation not in RESTARTING or CHECKPOINTED state."
         "\n***Can't join the existing coordinator, as it is serving a"
@@ -839,12 +839,13 @@ int CoordinatorAPI::getUniqueIdFromCoordinator(const char *id,
   msg.valLen = 0;
   msg.extraBytes = key_len;
   msg.uniqueIdOffset = offset;
-  msg.valLen = *val_len;
   jalib::JSocket sock = _coordinatorSocket;
 
   if (key == NULL || key_len == 0 || val == NULL || val_len == 0) {
     return 0;
   }
+
+  msg.valLen = *val_len;
 
   if (dmtcp_is_running_state()) {
     if (!_nsSock.isValid()) {
