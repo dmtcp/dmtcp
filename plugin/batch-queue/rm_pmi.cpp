@@ -100,18 +100,18 @@ void rm_init_pmi(){
         JASSERT( findLib_byfunc("PMI_Init",libpath) == 0);
       }
       JTRACE("")(libpath);
-      handle = dlopen(libpath.c_str(),RTLD_LAZY);
+      handle = _real_dlopen(libpath.c_str(),RTLD_LAZY);
       JASSERT( handle != NULL );
-      _real_PMI_Init = (_PMI_Init_t)dlsym(handle,"PMI_Init");
+      _real_PMI_Init = (_PMI_Init_t)_real_dlsym(handle,"PMI_Init");
       JASSERT( _real_PMI_Init != NULL );
-      _real_PMI_Fini = (_PMI_Fini_t)dlsym(handle,"PMI_Finalize");
+      _real_PMI_Fini = (_PMI_Fini_t)_real_dlsym(handle,"PMI_Finalize");
       JASSERT( _real_PMI_Fini != NULL );
-      _real_PMI_Barrier = (_PMI_Barrier_t)dlsym(handle,"PMI_Barrier");
+      _real_PMI_Barrier = (_PMI_Barrier_t)_real_dlsym(handle,"PMI_Barrier");
       JASSERT( _real_PMI_Barrier != NULL );
-      _real_PMI_Initialized = (_PMI_Initialized_t)dlsym(handle,"PMI_Initialized");
+      _real_PMI_Initialized = (_PMI_Initialized_t)_real_dlsym(handle,"PMI_Initialized");
       if( _real_PMI_Initialized == NULL ){
         // eventually smpd of MPICH2 and Intel-MPI uses iPMI_Initialized function
-        _real_PMI_Initialized = (_PMI_Initialized_t)dlsym(handle,"iPMI_Initialized");
+        _real_PMI_Initialized = (_PMI_Initialized_t)_real_dlsym(handle,"iPMI_Initialized");
       }
       JASSERT( _real_PMI_Initialized != NULL );
       if (getenv( ENV_VAR_EXPLICIT_SRUN ) != NULL) {
@@ -136,6 +136,17 @@ extern "C" int PMI_Init( int *spawned )
     int ret = _real_PMI_Init(spawned);
     JTRACE("")(_real_PMI_Init)(ret);
     return ret;
+}
+
+// Intel MPI uses dlopen() and dlsym() to find pmi functions.
+// We need to redirect PMI_Init() to our wrapper, so that
+// pmi is correctly initialized.
+extern "C" void *dlsym(void *handle, const char *symbol)
+{
+  if (strcmp(symbol, "PMI_Init") == 0) {
+    return (void *)PMI_Init;
+  }
+  return _real_dlsym(handle, symbol);
 }
 
 int rm_shutdown_pmi()

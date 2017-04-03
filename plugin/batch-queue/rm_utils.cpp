@@ -87,12 +87,12 @@ int dmtcp::findLib_byfunc(string fname, string &libpath)
       continue;
     }
 
-    void *handle = dlopen(libpath.c_str(),RTLD_LAZY);
+    void *handle = _real_dlopen(libpath.c_str(),RTLD_LAZY);
     if( handle == NULL ){
       //JTRACE("Cannot open libpath, skip")(libpath);
       continue;
     }
-    void *fptr = dlsym(handle,fname.c_str());
+    void *fptr = _real_dlsym(handle,fname.c_str());
     if( fptr != NULL ){
       // Able to find the requested symbol.
       //JTRACE("Found libpath by content:")(fname)(libpath);
