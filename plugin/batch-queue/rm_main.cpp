@@ -40,8 +40,17 @@ void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t* data)
   JTRACE("Start");
 
   switch (event) {
-  case DMTCP_EVENT_THREADS_SUSPEND:
-    JTRACE("DMTCP_EVENT_THREADS_SUSPEND");
+  // DMTCP_EVENT_LEADER_ELECTION is used here instead of
+  // DMTCP_EVENT_THREADS_SUSPEND is because rm_shutdown_pmi()
+  // will close the PMI socket. close() will not remove the socket
+  // from the socket connection list if it is called when DMTCP is
+  // not in running state. The socket plugin will still treat the
+  // fd as a socket, while it may already be opened as another file
+  // type by other plugins. Here if we close the socket in the leader election
+  // event, the ipc plugin will remove it as a stale connection
+  // immediately in the same phase.
+  case DMTCP_EVENT_LEADER_ELECTION:
+    JTRACE("DMTCP_EVENT_LEADER_ELECTION");
     runUnderRMgr();
     rm_shutdown_pmi();
     break;
