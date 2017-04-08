@@ -43,6 +43,27 @@ int mtcp_sys_errno;
 
 extern MYINFO_GS_T myinfo_gs;
 
+static int glibcMajorVersion()
+{
+  static int major = 0;
+  if (major == 0) {
+    major = (int) strtol(gnu_get_libc_version(), NULL, 10);
+    ASSERT (major == 2);
+  }
+  return major;
+}
+
+static int glibcMinorVersion()
+{
+  static long minor = 0;
+  if (minor == 0) {
+    char *ptr;
+    int major = (int) strtol(gnu_get_libc_version(), &ptr, 10);
+    ASSERT (major == 2);
+    minor = (int) strtol(ptr+1, NULL, 10);
+  }
+  return minor;
+}
 
 /* Offset computed (&x.pid - &x) for
  *   struct pthread x;
@@ -95,19 +116,14 @@ static int STATIC_TLS_TID_OFFSET()
   if (offset != -1)
     return offset;
 
-  char *ptr;
-  long major = strtol(gnu_get_libc_version(), &ptr, 10);
-  long minor = strtol(ptr+1, NULL, 10);
-  ASSERT (major == 2);
-
-  if (minor >= 11) {
+  if (glibcMinorVersion() >= 11) {
 #ifdef __x86_64__
-    offset = 26*sizeof(void *) + 512;
-#else
-    offset = 26*sizeof(void *);
-#endif
-  } else if (minor == 10) {
-    offset = 26*sizeof(void *);
+    offset = 26 * sizeof(void *) + 512;
+#else /* ifdef __x86_64__ */
+    offset = 26 * sizeof(void *);
+#endif /* ifdef __x86_64__ */
+  } else if (glibcMinorVersion() == 10) {
+    offset = 26 * sizeof(void *);
   } else {
     offset = 18*sizeof(void *);
   }
@@ -160,12 +176,7 @@ int TLSInfo_GetTidOffset(void)
 {
   static int tid_offset = -1;
   if (tid_offset == -1) {
-    char *ptr;
-    long major = strtol(gnu_get_libc_version(), &ptr, 10);
-    long minor = strtol(ptr+1, NULL, 10);
-    ASSERT (major == 2);
-
-    struct {pid_t tid; pid_t pid;} tid_pid;
+    struct { pid_t tid; pid_t pid; } tid_pid;
 
     /* struct pthread has adjacent fields, tid and pid, in that order.
      * Try to find at what offset that bit patttern occurs in struct pthread.
@@ -191,7 +202,7 @@ int TLSInfo_GetTidOffset(void)
      */
     tmp = memsubarray((char *)pthread_desc, (char *)&tid_pid, sizeof(tid_pid));
 
-    if (tmp == NULL && major == 2 && minor >= 24) {
+    if (tmp == NULL && glibcMajorVersion() == 2 && glibcMinorVersion() >= 24) {
       // starting with glibc-2.25 (including 2.24.90 on Fedora), the pid field
       // is deprecated and set to zero.
       tid_pid.pid = 0;
@@ -455,33 +466,33 @@ void TLSInfo_SetThreadSysinfo(void *sysinfo) {
  *****************************************************************************/
 void TLSInfo_VerifyPidTid(pid_t pid, pid_t tid)
 {
-  char *ptr;
-  long major = strtol(gnu_get_libc_version(), &ptr, 10);
-  long minor = strtol(ptr+1, NULL, 10);
-  ASSERT (major == 2);
-
   pid_t tls_pid, tls_tid;
   char *addr = (char*)get_tls_base_addr();
   tls_pid = *(pid_t *) (addr + TLSInfo_GetPidOffset());
   tls_tid = *(pid_t *) (addr + TLSInfo_GetTidOffset());
 
-  // For glibc > 2.24, pid field is unused.
-  if (tls_pid == 0 && major == 2 && minor >= 24) {
-    tls_pid = pid;
+  if (tls_tid != tid) {
+    PRINTF("ERROR: tls tid(%d) doesn't match the thread tid (%d)\n",
+           tls_tid, tid);
+    _exit(0);
   }
 
-  if ((tls_pid != pid) || (tls_tid != tid)) {
-    PRINTF("ERROR: getpid(%d), tls pid(%d), and tls tid(%d) must all match\n",
-           (int)mtcp_sys_getpid(), tls_pid, tls_tid);
+  // For glibc > 2.24, pid field is unused.
+  if (glibcMajorVersion() == 2 && glibcMinorVersion() <= 24 && tls_pid != pid) {
+    PRINTF("ERROR: tls pid (%d) doesn't match getpid (%d)\n",
+           tls_pid, (int)mtcp_sys_getpid());
     _exit(0);
   }
 }
 
 void TLSInfo_UpdatePid()
 {
-  pid_t  *tls_pid = (pid_t *) ((char*)get_tls_base_addr() +
-                               TLSInfo_GetPidOffset());
-  *tls_pid = mtcp_sys_getpid();
+  // For glibc > 2.24, pid field is unused.
+  if (glibcMajorVersion() == 2 && glibcMinorVersion() <= 24) {
+    pid_t *tls_pid =
+      (pid_t *)((char *)get_tls_base_addr() + TLSInfo_GetPidOffset());
+    *tls_pid = mtcp_sys_getpid();
+  }
 }
 
 /*****************************************************************************
@@ -538,8 +549,12 @@ void TLSInfo_RestoreTLSState(ThreadTLSInfo *tlsInfo)
   /* Patch 'struct user_desc' (gdtentrytls) of glibc to contain the
    * the new pid and tid.
    */
-  *(pid_t *)(*(unsigned long *)&(tlsInfo->gdtentrytls[0].base_addr)
-             + TLSInfo_GetPidOffset()) = mtcp_sys_getpid();
+
+  if (glibcMajorVersion() == 2 && glibcMinorVersion() <= 24) {
+    *(pid_t *)(*(unsigned long *)&(tlsInfo->gdtentrytls[0].base_addr)
+               + TLSInfo_GetPidOffset()) = mtcp_sys_getpid();
+  }
+
   if (mtcp_sys_kernel_gettid() == mtcp_sys_getpid()) {
     *(pid_t *)(*(unsigned long *)&(tlsInfo->gdtentrytls[0].base_addr)
                + TLSInfo_GetTidOffset()) = mtcp_sys_getpid();
