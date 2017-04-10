@@ -283,20 +283,25 @@ ptsname_r_work(int fd, char *buf, size_t buflen)
   JTRACE("Calling ptsname_r");
 
   Connection *c = PtyConnList::instance().getConnection(fd);
-  PtyConnection *ptyCon = (PtyConnection *)c;
 
-  string virtPtsName = ptyCon->virtPtsName();
+  PtyConnection *ptyCon = dynamic_cast<PtyConnection*>(c);
 
-  JTRACE("ptsname_r") (virtPtsName);
+  if (c->conType() != Connection::PTY || ptyCon == NULL) {
+    errno = ENOTTY;
+  } else {
+    string virtPtsName = ptyCon->virtPtsName();
 
-  if (virtPtsName.length() >= buflen) {
-    JWARNING(false) (virtPtsName) (virtPtsName.length()) (buflen)
-    .Text("fake ptsname() too long for user buffer");
-    errno = ERANGE;
-    return -1;
+    JTRACE("ptsname_r") (virtPtsName);
+
+    if (virtPtsName.length() >= buflen) {
+      JWARNING(false) (virtPtsName) (virtPtsName.length()) (buflen)
+      .Text("fake ptsname() too long for user buffer");
+      errno = ERANGE;
+      return -1;
+    }
+
+    strcpy(buf, virtPtsName.c_str());
   }
-
-  strcpy(buf, virtPtsName.c_str());
 
   return 0;
 }
@@ -352,8 +357,12 @@ ttyname_r(int fd, char *buf, size_t buflen)
   if (ret == 0 && strcmp(tmpbuf, "/dev/tty") != 0) {
     Connection *c = PtyConnList::instance().getConnection(fd);
     if (c != NULL) {
-      JASSERT(c != NULL) (fd) (tmpbuf);
-      PtyConnection *ptyCon = (PtyConnection *)c;
+      PtyConnection *ptyCon = dynamic_cast<PtyConnection*>(c);
+      if (c->conType() != Connection::PTY || ptyCon == NULL) {
+        errno = ENOTTY;
+        goto done;
+      }
+
       string virtPtsName = ptyCon->virtPtsName();
 
       if (virtPtsName.length() >= buflen) {
@@ -377,6 +386,7 @@ ttyname_r(int fd, char *buf, size_t buflen)
       PtyConnList::instance().add(fd, c);
     }
   }
+done:
   DMTCP_PLUGIN_ENABLE_CKPT();
 
   return ret;
