@@ -792,8 +792,20 @@ void post_restart(void)
       IBV_ERROR("Could not recreate the qp.\n");
     }
   }
-
   /* end code to re-create the queue pairs */
+
+  // Reset the rkey list at each restart.
+  e = list_begin(&rkey_list);
+  while (e != list_end(&rkey_list)) {
+    rkey_mapping_t *mapping;
+    struct list_elem *w;
+
+    w = e;
+    mapping = list_entry(e, rkey_mapping_t, elem);
+    e = list_next(e);
+    list_remove(w);
+    free(mapping);
+  }
 }
 
 void post_restart2(void)
