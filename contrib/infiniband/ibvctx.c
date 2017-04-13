@@ -1481,7 +1481,7 @@ struct ibv_context *_open_device(struct ibv_device *device) {
             mapping->virtual_lid,
             mapping->real_lid);
 
-        dmtcp_send_key_val_pair_to_coordinator("ib_lid",
+        dmtcp_send_key_val_pair_to_coordinator_sync("ib_lid",
             &mapping->virtual_lid, sizeof(mapping->virtual_lid),
             &mapping->real_lid, sizeof(mapping->real_lid));
       }
@@ -1983,7 +1983,7 @@ struct ibv_qp *_create_qp(struct ibv_pd *pd,
         (unsigned long)cur_qp_id.qp_num,
         (unsigned long)cur_qp_id.pd_id);
 
-    dmtcp_send_key_val_pair_to_coordinator("ib_qp",
+    dmtcp_send_key_val_pair_to_coordinator_sync("ib_qp",
         &internal_qp->user_qp.qp_num,
         sizeof(internal_qp->user_qp.qp_num),
         &cur_qp_id, sizeof(cur_qp_id));
