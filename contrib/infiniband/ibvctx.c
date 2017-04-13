@@ -820,6 +820,19 @@ post_restart(void)
     }
   }
   /* end code to re-create the queue pairs */
+
+  // Reset the rkey list at each restart.
+  e = list_begin(&rkey_list);
+  while (e != list_end(&rkey_list)) {
+    rkey_mapping_t *mapping;
+    struct list_elem *w;
+
+    w = e;
+    mapping = list_entry(e, rkey_mapping_t, elem);
+    e = list_next(e);
+    list_remove(w);
+    free(mapping);
+  }
 }
 
 void
