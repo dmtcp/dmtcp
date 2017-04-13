@@ -13,6 +13,8 @@
 #ifdef IBV_ENABLE_DEBUG
 #define IBV_DEBUG(args...) \
   do { \
+    fprintf(stderr, "[%d] %s:%d %s:\n", getpid(), \
+            __FILE__, __LINE__, __FUNCTION__); \
     fprintf(stderr, args); \
   } while (0)
 #else
