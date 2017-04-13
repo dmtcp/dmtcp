@@ -97,15 +97,6 @@ static void post_restart2(void);
 static void refill(void);
 static void cleanup(void);
 
-extern int dmtcp_get_unique_id_from_coordinator(const char *id,    // DB name
-                                                 const void *key,   // Key: can be hostid, pid, etc.
-                                                 uint32_t key_len,  // Length of the key
-                                                 void *val,         // Result
-                                                 uint32_t offset,   // unique id offset
-                                                 uint32_t val_len); // Expected value length
-
-extern int dmtcp_send_query_all_to_coordinator(const char *id, void **buf);
-
 // Translate virtual IDs to real ones, first look up the local
 // cache, if doesn't exist, query the coordinator, store the result
 // in the cache.
