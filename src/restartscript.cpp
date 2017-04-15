@@ -296,7 +296,7 @@ static const char* rstrtCmdProcessing =
   "done\n\n"
   "if [ -n \"$localhost_ckpt_files_group\" ]; then\n"
   "exec $dmt_rstr_cmd --coord-host \"$coord_host\""
-                                           " --coord-port \"$coord_port\" \"$coord_logfile\" \\\n"
+                                           " --coord-port \"$coord_port\" $coord_logfile \\\n"
   "  $ckpt_dir $maybejoin --interval \"$checkpoint_interval\" $tmpdir $noStrictChecking $localhost_ckpt_files_group\n"
   "fi\n\n"
 
