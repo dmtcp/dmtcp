@@ -315,6 +315,23 @@ void ConnectionList::add(int fd, Connection* c)
      * bypassing our close wrapper. This behavior is observed when dealing with
      * getaddrinfo().
      */
+    Connection *con = _fdToCon[fd];
+    /*
+     * The incoming Connection object pointer, c, and the one
+     * present in our existing lists (local variable, con)
+     * *must* point to different objects in order for us
+     * to be able to execute the code later in the function. So
+     * we just return here if the two pointers point to the
+     * same object.
+     *
+     * In particular, the object might get deleted in the call to
+     * processCloseWork() in the next step, and trying to use the
+     * object after freeing it will result in alloc arena corruption.
+     */
+    if (con == c) {
+      _unlock_tbl();
+      return;
+    }
     processCloseWork(fd);
   }
 
@@ -327,6 +344,7 @@ void ConnectionList::add(int fd, Connection* c)
 
 void ConnectionList::processCloseWork(int fd)
 {
+  JASSERT(_fdToCon.find(fd) != _fdToCon.end());
   Connection *con = _fdToCon[fd];
   _fdToCon.erase(fd);
   con->removeFd(fd);
@@ -351,6 +369,27 @@ void ConnectionList::processDup(int oldfd, int newfd)
 
   _lock_tbl();
   if (_fdToCon.find(newfd) != _fdToCon.end()) {
+    Connection *newFdCon = _fdToCon[newfd];
+    Connection *oldFdCon = NULL;
+    if (_fdToCon.find(oldfd) != _fdToCon.end()) {
+      oldFdCon = _fdToCon[oldfd];
+    }
+    /*
+     * The Connection object pointer corresponding to oldfd,
+     * oldFdCon, and the one corresponding to the newfd, newFdCon,
+     * *must* point to different objects in order for us to be
+     * able to execute the code later in the function. So we just
+     * return here if the two pointers point to the same object.
+     *
+     * In particular, the newfd object might get deleted in the call to
+     * processCloseWork() in the next step, and trying to use the
+     * object after freeing it will result in alloc arena corruption.
+     */
+    if (oldFdCon == newFdCon) {
+      _unlock_tbl();
+      return;
+    }
+
     processCloseWork(newfd);
   }
 
