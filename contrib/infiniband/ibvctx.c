@@ -182,7 +182,7 @@ void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     break;
   case DMTCP_EVENT_SEND_QUERIES:
     if (data->nameserviceInfo.isRestart) {
-      query_qp_info();
+      //query_qp_info();
       query_lid_info();
       post_restart2();
     }
@@ -805,6 +805,38 @@ void post_restart(void)
     e = list_next(e);
     list_remove(w);
     free(mapping);
+  }
+
+  // Reset the qp local cache on restart, keep only the local qp info.
+  e = list_begin(&qp_num_list);
+  while (e != list_end(&qp_num_list)) {
+    qp_num_mapping_t *mapping;
+    struct list_elem *w;
+
+    mapping = list_entry(e, qp_num_mapping_t, elem);
+    for (w = list_begin(&qp_list);
+         w != list_end(&qp_list);
+         w = list_next(w)) {
+      struct internal_ibv_qp *internal_qp;
+
+      internal_qp = list_entry(w, struct internal_ibv_qp, elem);
+      // Local qp, update the mapping
+      if (mapping->virtual_qp_num == internal_qp->user_qp.qp_num) {
+        mapping->real_qp_num = internal_qp->real_qp->qp_num;
+        break;
+      }
+    }
+
+    // Remote qp, remove the mapping
+    if (w == list_end(&qp_list)) {
+      w = e;
+      e = list_next(e);
+      list_remove(w);
+      free(mapping);
+    }
+    else {
+      e = list_next(e);
+    }
   }
 }
 
