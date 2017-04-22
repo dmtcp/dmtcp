@@ -2,6 +2,13 @@ DMTCP NEWS -- history of user-visible changes.
 
 Please send DMTCP bug reports via <dmtcp-forum@lists.sourceforge.net>
 
+Version 2.5.1 release notes
+===========================
+* Extended InfiniBand plugin to use new virtual LIDs and virtual QP #s
+  This was needed for a corner case affecting MVAPICH 2.2.
+  Without this, MVAPICH 2.2 crashes inside MPI_Finalize if a restart was done
+* FILL IN WITH OTHER NEWS
+
 Version 2.5.0 release notes
 ===========================
 This release includes a few new plugins and several bug fixes for robustness.
