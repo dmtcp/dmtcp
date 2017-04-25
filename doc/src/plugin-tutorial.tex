@@ -334,7 +334,7 @@ with {\tt dmtcp\_launch} and without.:
 #include <stdio.h>
 #include "dmtcp.h"
 int main() {
-  if (dmtcpCheckpoint() == DMTCP_NOT_PRESENT) {
+  if (dmtcp_checkpoint() == DMTCP_NOT_PRESENT) {
     printf("dmtcpcheckpoint:  DMTCP not present.  No checkpoint is taken.\n");
   }
   return 0;
