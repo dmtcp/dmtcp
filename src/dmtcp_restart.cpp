@@ -843,7 +843,7 @@ main(int argc, char **argv)
   if ((getenv(ENV_VAR_NAME_PORT) == NULL ||
        getenv(ENV_VAR_NAME_PORT)[0]== '\0') &&
       allowedModes != COORD_NEW) {
-    allowedModes = COORD_NEW;
+    allowedModes = (allowedModes == COORD_ANY) ? COORD_NEW : allowedModes;
     setenv(ENV_VAR_NAME_PORT, STRINGIFY(DEFAULT_PORT), 1);
     JTRACE("No port specified\n"
            "Setting mode to --new-coordinator --coord-port "
