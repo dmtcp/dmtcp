@@ -395,7 +395,7 @@ processArgs(int *orig_argc,
       (getenv(ENV_VAR_NAME_PORT) == NULL ||
        getenv(ENV_VAR_NAME_PORT)[0]== '\0') &&
       allowedModes != COORD_NEW) {
-    allowedModes = COORD_NEW;
+    allowedModes = (allowedModes == COORD_ANY) ? COORD_NEW : allowedModes;
     // Use static; some compilers save string const on local stack otherwise.
     static const char *default_port = STRINGIFY(DEFAULT_PORT);
     setenv(ENV_VAR_NAME_PORT, default_port, 1);
