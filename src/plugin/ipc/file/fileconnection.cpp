@@ -143,15 +143,14 @@ FileConnection::drain()
 
   if (statbuf.st_nlink == 0) {
     _type = FILE_DELETED;
-  } else if (Util::strStartsWith(jalib::Filesystem::BaseName(_path), ".nfs")) {
-    // Files deleted on NFS have the .nfsXXXX format.
-    _type = FILE_DELETED;
   } else {
     // Update _path to reflect the current state. The file path might be a new
     // one after restart and if the current process wasn't the leader, it never
     // had a chance to update the _path. Update it now.
     _path = jalib::Filesystem::GetDeviceName(_fds[0]);
-    if (!jalib::Filesystem::FileExists(_path)) {
+    // Files deleted on NFS have the .nfsXXXX format.
+    if (Util::strStartsWith(jalib::Filesystem::BaseName(_path), ".nfs") ||
+        !jalib::Filesystem::FileExists(_path)) {
       _type = FILE_DELETED;
     }
   }
