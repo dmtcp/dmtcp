@@ -470,7 +470,7 @@ void DmtcpCoordinator::updateMinimumState(WorkerState::eWorkerState oldState)
       exitAfterCkptOnce = false;
     } else {
       JNOTE ( "building name service database" );
-      lookupService.reset();
+      // lookupService.reset();
       broadcastMessage ( DMT_DO_REGISTER_NAME_SERVICE_DATA );
     }
   }
