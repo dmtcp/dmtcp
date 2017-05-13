@@ -562,7 +562,9 @@ DmtcpCoordinator::recordCkptFilename(CoordClient *client, const char *extraData)
       broadcastMessage(DMT_KILL_PEER);
       exitAfterCkptOnce = false;
     } else {
-      lookupService.reset();
+      // On checkpoint/resume, we should not be resetting the lookup service.
+      //   This is absolutely required by the InfiniBand plugin.
+      // lookupService.reset();
     }
     _numRestartFilenames = 0;
     _numCkptWorkers = 0;
