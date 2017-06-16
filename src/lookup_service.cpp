@@ -179,12 +179,16 @@ LookupService::sendAllMappings(jalib::JSocket &remote,
   for (i = kvmap.begin(); i != kvmap.end(); i++) {
     KeyValue *k = (KeyValue *)&(i->first);
     KeyValue *v = i->second;
+    size_t len;
+
     // insert the key length and key
-    o << k->len();
-    o.write((const char*)k->data(), k->len());
+    len = k->len();
+    o.write((const char*)(&len), sizeof(len));
+    o.write((const char*)k->data(), len);
     // insert the value length and value
-    o << v->len();
-    o.write((const char*)v->data(), v->len());
+    len = v->len();
+    o.write((const char*)(&len), sizeof(len));
+    o.write((const char*)v->data(), len);
   }
 
   reply.keyLen = 0;
