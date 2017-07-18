@@ -35,6 +35,7 @@ using namespace dmtcp;
 extern "C" pid_t dmtcp_update_ppid();
 
 static string pidMapFile;
+static __thread cpu_set_t threadCpuMask = {0};
 
 extern "C"
 pid_t dmtcp_real_to_virtual_pid(pid_t realPid)
@@ -205,7 +206,6 @@ static void pidVirt_RefillTid()
 }
 #endif
 
-
 extern "C" void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   switch (event) {
@@ -242,6 +242,20 @@ extern "C" void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       }
       break;
 
+    case DMTCP_EVENT_PRE_SUSPEND_USER_THREAD:
+    {
+       int ret = _real_sched_getaffinity(0, sizeof(threadCpuMask), &threadCpuMask);
+       JTRACE("getaffinity returned ")(ret)(CPU_COUNT(&threadCpuMask));
+       break;
+    }
+    case DMTCP_EVENT_RESUME_USER_THREAD:
+    {
+      if (data->refillInfo.isRestart) {
+        int ret = _real_sched_setaffinity(0, sizeof(threadCpuMask), &threadCpuMask);
+        JTRACE("setaffinity returned")(ret)(CPU_COUNT(&threadCpuMask));
+      }
+      break;
+    }
     case DMTCP_EVENT_PTHREAD_RETURN:
     case DMTCP_EVENT_PTHREAD_EXIT:
       pidVirt_ThreadExit(data);
