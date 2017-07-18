@@ -49,7 +49,8 @@ main()
         perror("Error getting CPU affinity for child");
         //return -1;
       } else {
-        //assert(CPU_ISSET(i, &cset));
+        // Turning this off for Travis containers
+        //assert(CPU_ISSET(i, &cset) && CPU_COUNT(&cset) == 1);
         printf("CPU affinity for (%d) is (%d)\n", ret, i);
       }
       sleep(1);
