@@ -1100,7 +1100,7 @@ void restore_libc(ThreadTLSInfo *tlsInfo, int tls_pid_offset,
 
   /* Now pass this to the kernel, so it can adjust the segment descriptor.
    * This will make different kernel calls according to the CPU architecture. */
-  if (tls_set_thread_area (&(tlsInfo->gdtentrytls[0]), myinfo_gs) != 0) {
+  if (tls_set_thread_area (&(tlsInfo->gdtentrytls[0]), &(tlsInfo->gdtentrytls[1])) != 0) {
     MTCP_PRINTF("Error restoring GDT TLS entry; errno: %d\n", mtcp_sys_errno);
     mtcp_abort();
   }
