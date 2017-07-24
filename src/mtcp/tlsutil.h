@@ -23,21 +23,21 @@ int arch_prctl();
 
 // These calls need to be made from both DMTCP and mtcp_restart
 
-/* ARE THE _GS OPERATIONS NECESSARY? */
-#  define tls_get_thread_area(uinfo, myinfo_gs)                            \
-  (mtcp_inline_syscall(arch_prctl, 2, ARCH_GET_FS,                         \
+//   uinfo2 is for the gs register (only used for special programs)
+#  define tls_get_thread_area(uinfo, uinfo2)                               \
+  (mtcp_inline_syscall(arch_prctl,2,ARCH_GET_FS,                           \
                        (unsigned long int)(&(((struct user_desc *)uinfo)-> \
                                              base_addr))),                 \
-   mtcp_inline_syscall(arch_prctl, 2, ARCH_GET_GS, &myinfo_gs)             \
+   mtcp_inline_syscall(arch_prctl,2,ARCH_GET_GS,                           \
+         (unsigned long int)(&(((struct user_desc *)uinfo2)->base_addr)))  \
   )
-#  define tls_set_thread_area(uinfo, myinfo_gs)                              \
-  (mtcp_inline_syscall(arch_prctl, 2, ARCH_SET_FS,                           \
-                       *(unsigned long int *)&(((struct user_desc *)uinfo)-> \
-                                               base_addr)),                  \
-   mtcp_inline_syscall(arch_prctl, 2, ARCH_SET_GS, myinfo_gs)                \
+#  define tls_set_thread_area(uinfo, uinfo2)                               \
+  (mtcp_inline_syscall(arch_prctl,2,ARCH_SET_FS,                           \
+	*(unsigned long int *)&(((struct user_desc *)uinfo)->base_addr)),  \
+   mtcp_inline_syscall(arch_prctl,2,ARCH_SET_GS,                           \
+	*(unsigned long int *)&(((struct user_desc *)uinfo2)->base_addr))  \
   )
-# else // if 1
-
+# else
 /* ARE THE _GS OPERATIONS NECESSARY? */
 #  define tls_get_thread_area(uinfo, myinfo_gs)                                \
   (arch_prctl(ARCH_GET_FS,                                                     \
