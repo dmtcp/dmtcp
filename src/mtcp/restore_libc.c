@@ -374,10 +374,10 @@ tls_set_thread_area(void *uinfo, MYINFO_GS_T dummy)
 static void *
 get_tls_base_addr()
 {
-  struct user_desc gdtentrytls;
+  struct user_desc gdtentrytls[2];
 
-  gdtentrytls.entry_number = get_tls_segreg() / 8;
-  if (tls_get_thread_area(&gdtentrytls, myinfo_gs) == -1) {
+  gdtentrytls[0].entry_number = get_tls_segreg() / 8;
+  if (tls_get_thread_area(&gdtentrytls[0], &gdtentrytls[1]) == -1) {
     PRINTF("Error getting GDT TLS entry: %d\n", errno);
     _exit(0);
   }
@@ -390,7 +390,7 @@ get_tls_base_addr()
   //   Probably, this is because Windows is also using the $fs register.
   return (void *)pthread_self();
 #endif
-  return (void *)(*(unsigned long *)&(gdtentrytls.base_addr));
+  return (void *)(*(unsigned long *)&(gdtentrytls[0].base_addr));
 }
 
 // Returns value for AT_SYSINFO in kernel's auxv
@@ -612,7 +612,8 @@ TLSInfo_SaveTLSState(ThreadTLSInfo *tlsInfo)
    */
   i = tlsInfo->TLSSEGREG / 8;
   tlsInfo->gdtentrytls[0].entry_number = i;
-  if (tls_get_thread_area(&(tlsInfo->gdtentrytls[0]), myinfo_gs) == -1) {
+  if (tls_get_thread_area(&(tlsInfo->gdtentrytls[0]),
+      &(tlsInfo->gdtentrytls[1])) == -1) {
     PRINTF("Error saving GDT TLS entry: %d\n", errno);
     _exit(0);
   }
@@ -651,9 +652,11 @@ TLSInfo_RestoreTLSState(ThreadTLSInfo *tlsInfo)
                + TLSInfo_GetTidOffset()) = mtcp_sys_getpid();
   }
 
-  /* Now pass this to the kernel, so it can adjust the segment descriptor.
+  /* Now pass this to the kernel, so it can adjust the segment descriptors:
+   *   tls_set_thread_areaa() uses arg1 for fs and arg2 for gs.
    * This will make different kernel calls according to the CPU architecture. */
-  if (tls_set_thread_area(&(tlsInfo->gdtentrytls[0]), myinfo_gs) != 0) {
+  if (tls_set_thread_area(&(tlsInfo->gdtentrytls[0]),
+                          &(tlsInfo->gdtentrytls[1])) != 0) {
     PRINTF("Error restoring GDT TLS entry: %d\n", errno);
     mtcp_abort();
   }
