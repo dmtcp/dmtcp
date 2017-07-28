@@ -148,6 +148,19 @@ int shmdt(const void *shmaddr)
   return ret;
 }
 
+// Open MPI 2.x uses dlsym() to locate the address of certain functions
+// in order to install its own hooks. For us, shmdt() is the only interesting
+// one. Instead of giving the address of our wrapper to the hook library, we
+// want to return the address in libc. See PR #472 for details.
+extern "C"
+void *dlsym(void *handle, const char *symbol)
+{
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  void *ret = _real_dlsym(handle, symbol);
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  return ret;
+}
+
 extern "C"
 int shmctl(int shmid, int cmd, struct shmid_ds *buf)
 {
