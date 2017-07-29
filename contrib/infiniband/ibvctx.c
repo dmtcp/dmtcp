@@ -1484,7 +1484,9 @@ struct ibv_context *_open_device(struct ibv_device *device) {
 
   // Initilizae local virtual-to-real lid mapping
   pthread_mutex_lock(&lid_mutex);
-  if (!lid_mapping_initialized) {
+  if (lid_mapping_initialized) {
+    pthread_mutex_unlock(&lid_mutex);
+  } else {
     lid_mapping_initialized = true;
     pthread_mutex_unlock(&lid_mutex);
     ret = NEXT_IBV_FNC(ibv_query_device)(ctx->real_ctx, &device_attr);
@@ -2566,7 +2568,7 @@ int _poll_cq(struct ibv_cq *cq, int num_entries, struct ibv_wc *wc)
         IBV_ERROR("opcode %d specifies unsupported operation.\n",
                   opcode);
       } else {
-        IBV_ERROR("Unknown or invalid opcode.\n");
+        IBV_ERROR("Unknown or invalid opcode: %d\n", opcode);
       }
     }
   }
