@@ -532,8 +532,8 @@ void writeScript(const string& ckptDir,
 
   fclose ( fp );
   {
-    string filename = RESTART_SCRIPT_BASENAME "." RESTART_SCRIPT_EXT;
     string dirname = jalib::Filesystem::DirName(uniqueFilename);
+    string filename = dirname + "/" RESTART_SCRIPT_BASENAME "." RESTART_SCRIPT_EXT;
     int dirfd = open(dirname.c_str(), O_DIRECTORY | O_RDONLY);
     JASSERT(dirfd != -1) (dirname) (JASSERT_ERRNO);
 
