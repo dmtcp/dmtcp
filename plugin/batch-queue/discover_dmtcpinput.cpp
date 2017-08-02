@@ -367,7 +367,7 @@ void resources_input::writeout_new(string env_var, resources &r)
           std::cout << "\'" << std::endl;
       }
     }else{
-        cout << env_var + "_" << r[i].id << "_SLOTS=0";
+        cout << env_var + "_" << r[i].id << "_SLOTS=0" << std::endl;
     }
   }
 }
