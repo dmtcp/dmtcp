@@ -30,6 +30,8 @@
 
 using namespace dmtcp;
 
+static uint32_t virtPtyId = 0;
+
 void
 dmtcp_PtyConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
@@ -61,6 +63,7 @@ PtyConnList::instance()
 void
 PtyConnList::drain()
 {
+  virtPtyId = SharedData::getVirtualPtyId();
   for (iterator i = begin(); i != end(); ++i) {
     PtyConnection *con = (PtyConnection *)i->second;
     con->drain();
@@ -70,6 +73,7 @@ PtyConnList::drain()
 void
 PtyConnList::postRestart()
 {
+  SharedData::setVirtualPtyId(virtPtyId);
   /* It is possible to have two different connection-ids for a pre-existing
    * CTTY in two or more different process trees. In this case, only one of the
    * several process trees would be able to acquire a lock on the underlying
