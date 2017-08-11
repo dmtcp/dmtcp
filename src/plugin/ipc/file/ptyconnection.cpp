@@ -302,7 +302,7 @@ PtyConnection::drain()
     numWritten = ptmxWriteAll(_fds[0], buf, _ptmxIsPacketMode);
     JASSERT(numRead == numWritten) (numRead) (numWritten);
   }
-  JASSERT((_type == PTY_CTTY || _type == PTY_PARENT_CTTY) || _flags != -1);
+  JASSERT((_type == PTY_CTTY || _type == PTY_PARENT_CTTY) || _fcntlFlags != -1);
   if (tcgetpgrp(_fds[0]) != -1) {
     _isControllingTTY = true;
   } else {
@@ -333,7 +333,7 @@ PtyConnection::refill(bool isRestart)
      * during checkpoint phase.
      */
     int extraFlags = 0; // _isControllingTTY ? 0 : O_NOCTTY;
-    int tempfd = _real_open(_ptsName.c_str(), _flags | extraFlags);
+    int tempfd = _real_open(_ptsName.c_str(), _fcntlFlags | extraFlags);
     JASSERT(tempfd >= 0) (_virtPtsName) (_ptsName) (JASSERT_ERRNO)
     .Text("Error Opening PTS");
 
@@ -429,7 +429,7 @@ PtyConnection::postRestart()
   {
     char pts_name[80];
 
-    tempfd = _real_open("/dev/ptmx", _flags | extraFlags);
+    tempfd = _real_open("/dev/ptmx", _fcntlFlags | extraFlags);
     JASSERT(tempfd >= 0) (tempfd) (JASSERT_ERRNO)
     .Text("Error Opening /dev/ptmx");
 
@@ -456,7 +456,7 @@ PtyConnection::postRestart()
     // string slaveDeviceName =
     // _masterName.replace(0, strlen("/dev/pty"), "/dev/tty");
 
-    tempfd = _real_open(_masterName.c_str(), _flags | extraFlags);
+    tempfd = _real_open(_masterName.c_str(), _fcntlFlags | extraFlags);
 
     // FIXME: If unable to open the original BSD Master Pty, we should try to
     // open another one until we succeed and then open slave device
