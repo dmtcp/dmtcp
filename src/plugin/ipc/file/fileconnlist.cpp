@@ -448,8 +448,6 @@ FileConnList::scanForPreExisting()
 Connection *
 FileConnList::findDuplication(int fd, const char *path)
 {
-  string npath(path);
-
   for (iterator i = begin(); i != end(); ++i) {
     Connection *con = i->second;
 
@@ -460,7 +458,7 @@ FileConnList::findDuplication(int fd, const char *path)
     FileConnection *fcon = (FileConnection *)con;
 
     // check for duplication
-    if (fcon->filePath() == npath && fcon->checkDup(fd)) {
+    if( fcon->checkDup(fd, path) ){
       return con;
     }
   }

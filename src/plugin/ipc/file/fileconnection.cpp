@@ -504,13 +504,16 @@ FileConnection::postRestart()
 }
 
 bool
-FileConnection::checkDup(int fd)
+FileConnection::checkDup(int fd, const char *npath)
 {
   bool retVal = false;
 
   int myfd = _fds[0];
 
-  if (lseek(myfd, 0, SEEK_CUR) == lseek(fd, 0, SEEK_CUR)) {
+  string fullPath = jalib::Filesystem::GetDeviceName(myfd);
+  string fpath = string(npath);
+  if (fullPath != fpath &&
+       lseek(myfd, 0, SEEK_CUR) == lseek(fd, 0, SEEK_CUR)) {
     off_t newOffset = lseek(myfd, 1, SEEK_CUR);
     JASSERT(newOffset != -1) (JASSERT_ERRNO).Text("lseek failed");
 
