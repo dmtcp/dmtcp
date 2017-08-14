@@ -117,7 +117,7 @@ class FileConnection : public Connection
 
     ino_t inode() const { return _st_ino; }
 
-    bool checkDup(int fd);
+    bool checkDup(int fd, const char *npath);
 
   private:
     int openFile();
