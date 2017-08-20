@@ -48,7 +48,7 @@ void Util::getCoordHostAndPort(CoordinatorMode mode,
   }
 
   static bool _firstTime = true;
-  static const char *_cachedHost;
+  static string _cachedHost;
   static int _cachedPort;
 
   if (_firstTime) {
@@ -77,7 +77,7 @@ void Util::getCoordHostAndPort(CoordinatorMode mode,
       }
     }
 
-    _cachedHost = host.c_str();
+    _cachedHost = host;
     _cachedPort = *port;
     _firstTime = false;
 
