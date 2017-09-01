@@ -2,6 +2,35 @@ DMTCP NEWS -- history of user-visible changes.
 
 Please send DMTCP bug reports via <dmtcp-forum@lists.sourceforge.net>
 
+Version 2.5.1 release notes
+===========================
+This release mostly provides added robustness.  Two notable items of
+added functionality are:
+ i. DMTCP_RESTART_PAUSE and DMTCP_RESTART_PAUSE0 environment variables
+    for easier debugging upon initial restart
+ ii. The --debug-logs flag was added to dmtcp_launch/dmtcp_restart.
+     One can now turn on logging individually for separate plugins,
+     instead of only turning it on globally.
+
+* Fixed an issue when starting multiple DMTCP coordinators on same host
+  at approximately the same time
+* Fixed issue with PBS scheduler for HPC
+* Fixed issue when restarting on a different host with a larger
+  limit on the number of open file descriptors
+* dmtcp_launch/dmtcp_restart now accept '--debug-logs' flag to specify
+  which DMTCP plugins should produce logging information
+  (It used to be all or nothing.)
+* Improved robustness for IB (InfiniBand) plugin
+* Fixed DMTCP_RESTART_PAUSE and DMTCP_RESTART_PAUSE0 environment variables
+   for debugging upon restart
+* The brk() call was failing on restart on Debian due to overly strict assert
+* dmtcp_launch was hanging on some RHEL5 and RHEL6 due to deadlock with
+    libc low-level locks.  Fixed now.
+* Updated tls_pid_offset in DMTCP to handle newer GLIBc (versions > 2.24)
+* Fixed launch of 32-bit binary when forking/execing from a 64-bit executable
+* Fixed issue that can affect a parent holding a malloc-lock while forking
+* Fixed issue when a user thread calls 'dmtcp_get_coord_ckpt_dir()'
+
 Version 2.5.0 release notes
 ===========================
 This release includes a few new plugins and several bug fixes for robustness.
