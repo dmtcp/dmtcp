@@ -735,7 +735,7 @@ resolve_symlink(const char *path)
       && S_ISLNK(statBuf.st_mode)) {
     char buf[PATH_MAX];
     memset(buf, 0, sizeof(buf));
-    _real_readlink(path, buf, sizeof(buf) - 1);
+    JASSERT(_real_readlink(path, buf, sizeof(buf) - 1) != -1);
     return virtual_to_physical_path(buf);
   }
 
