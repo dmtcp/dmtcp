@@ -364,7 +364,7 @@ EXTERNC void dmtcp_plugin_enable_ckpt(void);
 #define DMTCP_PLUGIN_ENABLE_CKPT() \
   if (__dmtcp_plugin_ckpt_disabled) dmtcp_plugin_enable_ckpt()
 
-EXTERNC void dmtcp_initialize();
+EXTERNC void dmtcp_initialize() __attribute ((weak));
 
 #define NEXT_FNC(func)                                                      \
   ({                                                                        \

@@ -327,9 +327,7 @@ dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     }
     case DMTCP_EVENT_PRE_EXEC:
     {
-      if (newPathPrefixList) {
-          setenv(ENV_NEW_DPP, newPathPrefixList, 0);
-      }
+      setenv(ENV_NEW_DPP, newPathPrefixList, 0);
       break;
     }
     case DMTCP_EVENT_POST_EXEC:
