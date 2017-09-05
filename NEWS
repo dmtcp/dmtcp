@@ -12,6 +12,10 @@ added functionality are:
      One can now turn on logging individually for separate plugins,
      instead of only turning it on globally.
 
+An incompatibility of DMTCP with Open MPI 1.10 when using orterun (mpirun)
+was discovered.  This may also affect some other versions of Open MPI 1.10.
+This bug will be fixed in a future release.
+
 * Fixed an issue when starting multiple DMTCP coordinators on same host
   at approximately the same time
 * Fixed issue with PBS scheduler for HPC
