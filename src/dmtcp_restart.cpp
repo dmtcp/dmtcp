@@ -58,6 +58,7 @@ static void setEnvironFd();
 string tmpDir = "/DMTCP/Uninitialized/Tmp/Dir";
 
 bool shouldExitAfterCkpt = false;
+char *exitAfterNCkpts = NULL;
 
 // gcc-4.3.4 -Wformat=2 issues false positives for warnings unless the format
 // string has at least one format specifier with corresponding format argument.
@@ -97,9 +98,9 @@ static const char *theUsage =
   "              var, use default value set in dmtcp_coordinator or \n"
   "              dmtcp_command.\n"
   "              Not allowed if --join-coordinator is specified\n"
-  "  --exit-after-ckpt\n"
-  "              Kill peer processes of computation after first checkpoint\n"
-  "              is created.\n"
+  " --exit-after-ckpt N\n"
+  "              Kill peer processes of the computation after first N\n"
+  "              checkpoints have been created\n"
   "\n"
   "Other options:\n"
   "  --no-strict-checking\n"
@@ -791,7 +792,8 @@ main(int argc, char **argv)
       allowedModes = COORD_ANY;
     } else if (s == "--exit-after-ckpt") {
       shouldExitAfterCkpt = true;
-      shift;
+      exitAfterNCkpts = argv[1];
+      shift; shift;
     } else if (s == "--no-strict-checking") {
       noStrictChecking = true;
       shift;

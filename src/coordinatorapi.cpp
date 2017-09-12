@@ -46,6 +46,7 @@
 LIB_PRIVATE bool sem_launch_first_time = false;
 LIB_PRIVATE sem_t sem_launch;
 extern bool shouldExitAfterCkpt __attribute ((weak));
+extern char* exitAfterNCkpts __attribute ((weak));
 
 namespace dmtcp {
 namespace CoordinatorAPI {
@@ -480,6 +481,7 @@ startNewCoordinator(CoordinatorMode mode)
       (char *)"--exit-on-last",
       modeStr,
       exitAfterCkpt,
+      exitAfterNCkpts,
       NULL
     };
     execv(args[0], args);
@@ -597,6 +599,7 @@ connectToCoordOnStartup(CoordinatorMode mode,
   JTRACE("sending coordinator handshake")(UniquePid::ThisProcess());
   DmtcpMessage hello_local(DMT_NEW_WORKER);
   hello_local.virtualPid = -1;
+  hello_local.exitAfterCkpt = shouldExitAfterCkpt ? atoi(exitAfterNCkpts) : 0;
 
   DmtcpMessage hello_remote = sendRecvHandshake(coordinatorSocket,
                                                 hello_local,
@@ -668,6 +671,7 @@ connectToCoordOnRestart(CoordinatorMode  mode,
   hello_local.virtualPid = -1;
   hello_local.numPeers = np;
   hello_local.compGroup = compGroup;
+  hello_local.exitAfterCkpt = shouldExitAfterCkpt ? atoi(exitAfterNCkpts) : 0;
 
   DmtcpMessage hello_remote = sendRecvHandshake(coordinatorSocket,
                                                 hello_local,

@@ -114,8 +114,8 @@ static const char *theUsage =
   "      Directory to store temporary files (default: env var TMDPIR or /tmp)\n"
   "  --exit-on-last\n"
   "      Exit automatically when last client disconnects\n"
-  "  --exit-after-ckpt\n"
-  "      Kill peer processes of computation after first checkpoint is created\n"
+  "  --exit-after-ckpt N\n"
+  "      Kill peer processes of computation after first N checkpoints\n"
   "  --daemon\n"
   "      Run silently in the background after detaching from the parent "
   "process.\n"
@@ -146,6 +146,9 @@ static bool blockUntilDone = false;
 static bool exitAfterCkpt = false;
 static bool exitAfterCkptOnce = false;
 static int blockUntilDoneRemote = -1;
+
+static int ckptsInThisSession = 0;
+static int exitAfterNCkpts = 0;
 
 static DmtcpCoordinator prog;
 
@@ -543,11 +546,14 @@ DmtcpCoordinator::recordCkptFilename(CoordClient *client, const char *extraData)
       blockUntilDone = false;
       blockUntilDoneRemote = -1;
     }
+    ckptsInThisSession++;
 
-    if (exitAfterCkpt || exitAfterCkptOnce) {
+    if ((exitAfterCkpt || exitAfterCkptOnce) &&
+        (ckptsInThisSession == exitAfterNCkpts)) {
       JNOTE("Checkpoint Done. Killing all peers.");
       broadcastMessage(DMT_KILL_PEER);
       exitAfterCkptOnce = false;
+      ckptsInThisSession = 0;
     } else {
       lookupService.reset();
     }
@@ -880,6 +886,10 @@ DmtcpCoordinator::onConnect()
       return;
     }
     client->virtualPid(hello_remote.from.pid());
+    if (hello_remote.exitAfterCkpt > 0) {
+      exitAfterCkpt = true;
+      exitAfterNCkpts = hello_remote.exitAfterCkpt;
+    }
     _virtualPidToClientMap[client->virtualPid()] = client;
   } else if (hello_remote.type == DMT_NEW_WORKER) {
     JASSERT(hello_remote.state == WorkerState::RUNNING ||
@@ -889,6 +899,10 @@ DmtcpCoordinator::onConnect()
     if (!validateNewWorkerProcess(hello_remote, remote, client,
                                   &remoteAddr, remoteLen)) {
       return;
+    }
+    if (hello_remote.exitAfterCkpt > 0) {
+      exitAfterCkpt = true;
+      exitAfterNCkpts = hello_remote.exitAfterCkpt;
     }
     _virtualPidToClientMap[client->virtualPid()] = client;
   } else {
@@ -1159,7 +1173,8 @@ DmtcpCoordinator::broadcastMessage(DmtcpMessageType type,
   msg.type = type;
   msg.compGroup = compId;
   msg.numPeers = clients.size();
-  msg.exitAfterCkpt = exitAfterCkpt || exitAfterCkptOnce;
+  msg.exitAfterCkpt = (exitAfterCkpt || exitAfterCkptOnce) &&
+                      (ckptsInThisSession == exitAfterNCkpts);
   msg.extraBytes = extraBytes;
 
   if (msg.type == DMT_KILL_PEER && clients.size() > 0) {
@@ -1483,7 +1498,8 @@ main(int argc, char **argv)
       shift;
     } else if (s == "--exit-after-ckpt") {
       exitAfterCkpt = true;
-      shift;
+      exitAfterNCkpts = atoi(argv[1]);
+      shift; shift;
     } else if (s == "--daemon") {
       daemon = true;
       shift;
