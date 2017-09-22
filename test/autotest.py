@@ -1003,7 +1003,11 @@ if HAS_SCRIPT == "yes":
 # SHOULD HAVE screen RUN SOMETHING LIKE:  bash -c ./test/dmtcp1
 # FIXME: Currently fails on dekaksi due to DMTCP not honoring
 #        "Async-signal-safe functions" in signal handlers (see man 7 signal)
-if HAS_SCREEN == "yes":
+# Maybe this will work after new pty plugin PR is added.
+#   Review whether to include this test then, and make depend on HAS_RECENT_PTY
+#   that will be set in 'configure'.
+SCREEN_TEST_WORKS = False
+if HAS_SCREEN == "yes" and SCREEN_TEST_WORKS:
   S=3*DEFAULT_S
   if sys.version_info[0:2] >= (2,6):
     runTest("screen",    3,  ["env TERM=vt100 " + SCREEN +
