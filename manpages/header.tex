@@ -27,6 +27,13 @@
 \rcsInfo $Id: latex2man.tex,v 1.191 2010/12/22 11:54:49 vollmer Exp $
 \setDate{\rcsInfoLongDate}
 }{
-\setDate{March 2014}    %%%% must be manually set, if rcsinfo is not present
+\setDate{September, 2017 (or later)}    %%%% must be manually set, if rcsinfo is not present
 \message{package rcsinfo not present, discard it}
 }
+
+%% Define macros expanded by latex2man:
+\newcommand{\myProg}[1]{{\bf #1}}
+\newcommand{\myCmd}[2]{{\bf #1}(#2)}
+\newcommand{\OptSArg}[2]{{\bf #1}{\it #2}}
+
+\begin{document}
