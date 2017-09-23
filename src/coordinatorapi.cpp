@@ -132,25 +132,23 @@ restart()
 }
 
 void
-getCoordHostAndPort(CoordinatorMode mode,
-                                    string &host,
-                                    int *port)
+getCoordHostAndPort(CoordinatorMode mode, string *host, int *port)
 {
   if (SharedData::initialized()) {
-    host = SharedData::coordHost();
+    *host = SharedData::coordHost();
     *port = SharedData::coordPort();
     return;
   }
 
   if (_firstTime) {
     // Set host to cmd line (if --cord-host) or env var or DEFAULT_HOST
-    if (host == "") {
+    if (*host == "") {
       if (getenv(ENV_VAR_NAME_HOST)) {
-        host = getenv(ENV_VAR_NAME_HOST);
+        *host = getenv(ENV_VAR_NAME_HOST);
       } else if (getenv("DMTCP_HOST")) { // deprecated
-        host = getenv("DMTCP_HOST");
+        *host = getenv("DMTCP_HOST");
       } else {
-        host = DEFAULT_HOST;
+        *host = DEFAULT_HOST;
       }
     }
 
@@ -168,7 +166,7 @@ getCoordHostAndPort(CoordinatorMode mode,
       }
     }
 
-    _cachedHost = host.c_str();
+    _cachedHost = host->c_str();
     _cachedPort = *port;
     _firstTime = false;
   } else {
@@ -177,7 +175,7 @@ getCoordHostAndPort(CoordinatorMode mode,
     if (*port > 0 && _cachedPort == 0) {
       _cachedPort = *port;
     }
-    host = _cachedHost;
+    *host = _cachedHost;
     *port = _cachedPort;
   }
 }
@@ -212,7 +210,7 @@ createNewSocketToCoordinator(CoordinatorMode mode)
   string host = "";
   int port = UNINITIALIZED_PORT;
 
-  getCoordHostAndPort(COORD_ANY, host, &port);
+  getCoordHostAndPort(COORD_ANY, &host, &port);
   return jalib::JClientSocket(host.c_str(), port).sockfd();
 }
 
@@ -433,7 +431,7 @@ startNewCoordinator(CoordinatorMode mode)
 {
   string host;
   int port;
-  getCoordHostAndPort(mode, host, &port);
+  getCoordHostAndPort(mode, &host, &port);
 
   JASSERT(strcmp(host.c_str(), "localhost") == 0 ||
           strcmp(host.c_str(), "127.0.0.1") == 0 ||
@@ -570,7 +568,7 @@ sendRecvHandshake(int fd,
   if (msg.type == DMT_REJECT_NOT_RESTARTING) {
     string coordinatorHost = ""; // C++ magic code; "" to be invisibly replaced
     int coordinatorPort;
-    getCoordHostAndPort(COORD_ANY, coordinatorHost, &coordinatorPort);
+    getCoordHostAndPort(COORD_ANY, &coordinatorHost, &coordinatorPort);
     JNOTE ("\n\n*** Computation not in RESTARTING or CHECKPOINTED state."
         "\n***Can't join the existing coordinator, as it is serving a"
         "\n***different computation.  Consider launching a new coordinator."
@@ -938,7 +936,7 @@ setupVirtualCoordinator(CoordinatorInfo *coordInfo, struct in_addr *localIP)
 {
   string host = "";
   int port;
-  getCoordHostAndPort(COORD_NONE, host, &port);
+  getCoordHostAndPort(COORD_NONE, &host, &port);
   jalib::JSocket sock =
     jalib::JServerSocket(jalib::JSockAddr::ANY, port).sockfd();
   JASSERT(sock.isValid()) (port) (JASSERT_ERRNO)
