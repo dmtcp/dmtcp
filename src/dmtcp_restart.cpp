@@ -55,8 +55,6 @@ using namespace dmtcp;
 
 static void setEnvironFd();
 
-char *tmpDir = const_cast<char*>("/DMTCP/Uninitialized/Tmp/Dir");
-
 // gcc-4.3.4 -Wformat=2 issues false positives for warnings unless the format
 // string has at least one format specifier with corresponding format argument.
 // Ubuntu 9.01 uses -Wformat=2 by default.
@@ -129,7 +127,12 @@ typedef map<UniquePid, RestoreTarget *>RestoreTargetMap;
 RestoreTargetMap targets;
 RestoreTargetMap independentProcessTreeRoots;
 bool noStrictChecking = false;
-static string thePortFile;
+
+string tmpDir = "/DMTCP/Uninitialized/Tmp/Dir";
+string coord_host = "";
+int coord_port = UNINITIALIZED_PORT;
+string thePortFile;
+
 CoordinatorMode allowedModes = COORD_ANY;
 
 static void setEnvironFd();
@@ -262,10 +265,9 @@ class RestoreTarget
           allowedModes = COORD_NONE;
         }
 
-        // dmtcp_restart sets ENV_VAR_NAME_HOST/PORT, even if cmd line flag used
-        string host = "";
-        int port = UNINITIALIZED_PORT;
-        CoordinatorAPI::getCoordHostAndPort(allowedModes, host, &port);
+        CoordinatorAPI::getCoordHostAndPort(allowedModes,
+                                            &coord_host,
+                                            &coord_port);
 
         // FIXME:  We will use the new HOST and PORT here, but after restart,,
         // we will use the old HOST and PORT from the ckpt image.
@@ -274,13 +276,15 @@ class RestoreTarget
                                                 _pInfo.compGroup(),
                                                 _pInfo.numPeers(),
                                                 &coordInfo,
-                                                host.c_str(),
-                                                port,
+                                                coord_host.c_str(),
+                                                coord_port,
                                                 &localIPAddr);
 
         // If port was 0, we'll get new random port when coordinator starts up.
-        CoordinatorAPI::getCoordHostAndPort(allowedModes, host, &port);
-        Util::writeCoordPortToFile(port, thePortFile.c_str());
+        CoordinatorAPI::getCoordHostAndPort(allowedModes,
+                                            &coord_host,
+                                            &coord_port);
+        Util::writeCoordPortToFile(coord_port, thePortFile.c_str());
 
         string installDir =
           jalib::Filesystem::DirName(jalib::Filesystem::GetProgramDir());
@@ -303,7 +307,7 @@ class RestoreTarget
          * SharedData area may be initialized earlier (for example, while
          * recreating threads), causing it to use *older* timestamp.
          */
-        SharedData::initialize(tmpDir,
+        SharedData::initialize(tmpDir.c_str(),
                                installDir.c_str(),
                                &compId,
                                &coordInfo,
@@ -384,18 +388,16 @@ class RestoreTarget
       }
 
       if (!createIndependentRootProcesses) {
-        // dmtcp_restart sets ENV_VAR_NAME_HOST/PORT, even if cmd line flag used
-        string host = "";
-        int port = UNINITIALIZED_PORT;
-        int *port_p = &port;
-        CoordinatorAPI::getCoordHostAndPort(allowedModes, host, port_p);
+        CoordinatorAPI::getCoordHostAndPort(allowedModes,
+                                            &coord_host,
+                                            &coord_port);
         CoordinatorAPI::connectToCoordOnRestart(allowedModes,
                                                 _pInfo.procname(),
                                                 _pInfo.compGroup(),
                                                 _pInfo.numPeers(),
                                                 NULL,
-                                                host.c_str(),
-                                                port,
+                                                coord_host.c_str(),
+                                                coord_port,
                                                 NULL);
       }
 
@@ -702,7 +704,7 @@ setEnvironFd()
 {
   char envFile[PATH_MAX];
 
-  sprintf(envFile, "%s/envFile.XXXXXX", tmpDir);
+  sprintf(envFile, "%s/envFile.XXXXXX", tmpDir.c_str());
   int fd = mkstemp(envFile);
   JASSERT(fd != -1) (envFile) (JASSERT_ERRNO);
   JASSERT(unlink(envFile) == 0) (envFile) (JASSERT_ERRNO);
@@ -870,7 +872,7 @@ main(int argc, char **argv)
   jassert_quiet = *getenv(ENV_VAR_QUIET) - '0';
 
   // make sure JASSERT initializes now, rather than during restart
-  Util::initializeLogFile(tmpDir, NULL, NULL);
+  Util::initializeLogFile(tmpDir.c_str(), NULL, NULL);
 
   if (!noStrictChecking && jassert_quiet < 2 &&
       (getuid() == 0 || geteuid() == 0)) {

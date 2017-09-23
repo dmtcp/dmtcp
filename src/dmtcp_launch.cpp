@@ -34,11 +34,7 @@
 
 using namespace dmtcp;
 
-static void processArgs(int *orig_argc,
-                        char ***orig_argv,
-                        string *tmpDir_p,
-                        string &host,
-                        const char **portStr);
+static void processArgs(int *orig_argc, char ***orig_argv);
 static int testMatlab(const char *filename);
 static int testJava(char **argv);
 static bool testSetuid(const char *filename);
@@ -196,8 +192,6 @@ static bool enableLibDMTCP = true;
 // PID plugin must come last.
 static bool enablePIDPlugin = true;
 
-static string thePortFile;
-
 struct PluginInfo {
   bool *enabled;
   const char *lib;
@@ -224,22 +218,19 @@ static struct PluginInfo pluginInfo[] = {               // Default value
 const size_t numLibs = sizeof(pluginInfo) / sizeof(struct PluginInfo);
 
 static CoordinatorMode allowedModes = COORD_ANY;
+string tmpDir = "tmpDir is not set";
+string coord_host = "";
+int coord_port = UNINITIALIZED_PORT;
+static string thePortFile;
 
 // shift args
 #define shift argc--, argv++
 static void
-processArgs(int *orig_argc,
-            char ***orig_argv,
-            string *tmpDir_p,
-            string &host,
-            const char **portStr)
+processArgs(int *orig_argc, char ***orig_argv)
 {
   int argc = *orig_argc;
   char **argv = *orig_argv;
   char *tmpdir_arg = NULL;
-
-  host = ""; // uninitialized
-  *portStr = NULL; // uninitialized
 
   if (argc == 1) {
     printf("%s", DMTCP_VERSION_AND_COPYRIGHT_INFO);
@@ -298,15 +289,15 @@ processArgs(int *orig_argc,
       shift;
     } else if (argc > 1 &&
                (s == "-h" || s == "--coord-host" || s == "--host")) {
-      host = argv[1];
+      coord_host = argv[1];
       shift; shift;
     } else if (argc > 1 &&
                (s == "-p" || s == "--coord-port" || s == "--port")) {
-      *portStr = argv[1];
+      coord_port = jalib::StringToInt(argv[1]);
       shift; shift;
     } else if (argv[0][0] == '-' && argv[0][1] == 'p' &&
                isdigit(argv[0][2])) { // else if -p0, for example
-      *portStr = argv[0] + 2; // Must use argv[0] here, and not s
+      coord_port = jalib::StringToInt(&argv[0][2]);
       shift;
     } else if (argc > 1 && s == "--port-file") {
       thePortFile = argv[1];
@@ -400,7 +391,7 @@ processArgs(int *orig_argc,
     }
   }
 #endif // if __aarch64__
-  if (*portStr == NULL &&
+  if (coord_port == UNINITIALIZED_PORT &&
       (getenv(ENV_VAR_NAME_PORT) == NULL ||
        getenv(ENV_VAR_NAME_PORT)[0]== '\0') &&
       allowedModes != COORD_NEW) {
@@ -412,7 +403,7 @@ processArgs(int *orig_argc,
            "Setting mode to --new-coordinator --coord-port "
            STRINGIFY(DEFAULT_PORT));
   }
-  *tmpDir_p = Util::calcTmpDir(tmpdir_arg);
+  tmpDir = Util::calcTmpDir(tmpdir_arg);
   *orig_argc = argc;
   *orig_argv = argv;
 }
@@ -428,12 +419,8 @@ main(int argc, char **argv)
     setenv(ENV_VAR_QUIET, "0", 0);
   }
 
-  string tmpDir = "tmpDir is not set";
-  string host;
-  const char *portStr;
-
   // This will change argv to refer to the target application.
-  processArgs(&argc, &argv, &tmpDir, host, &portStr);
+  processArgs(&argc, &argv);
 
   initializeJalib();
 
@@ -581,17 +568,16 @@ main(int argc, char **argv)
   DmtcpUniqueProcessId compId;
   CoordinatorInfo coordInfo;
   struct in_addr localIPAddr;
-  int port = (portStr ? jalib::StringToInt(portStr) : UNINITIALIZED_PORT);
 
   // Initialize host and port now.  Will be used in low-level functions.
-  CoordinatorAPI::getCoordHostAndPort(allowedModes, host, &port);
+  CoordinatorAPI::getCoordHostAndPort(allowedModes, &coord_host, &coord_port);
   CoordinatorAPI::connectToCoordOnStartup(allowedModes, argv[0],
                                           &compId, &coordInfo,
                                           &localIPAddr);
 
   // If port was 0, we'll get new random port when coordinator starts up.
-  CoordinatorAPI::getCoordHostAndPort(allowedModes, host, &port);
-  Util::writeCoordPortToFile(port, thePortFile.c_str());
+  CoordinatorAPI::getCoordHostAndPort(allowedModes, &coord_host, &coord_port);
+  Util::writeCoordPortToFile(coord_port, thePortFile.c_str());
 
   string installDir =
     jalib::Filesystem::DirName(jalib::Filesystem::GetProgramDir());
