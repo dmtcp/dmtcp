@@ -140,7 +140,6 @@ static const char *usage =
   "      (Default: Use pre-checkpoint value)\n"
   "  --exit-after-ckpt:\n"
   "      The ckpt after which the program should exit\n"
-  "      (Default: Use pre-checkpoint value)\n"
   "  --coord-logfile PATH (environment variable DMTCP_COORD_LOG_FILENAME\n"
   "              Coordinator will dump its logs to the given file\n"
   "  --help:\n"
@@ -236,8 +235,13 @@ static const char *singleHostProcessing =
   "  coord_logfile=\"--coord-logfile $DMTCP_COORD_LOGFILE\"\n"
   "fi\n\n"
 
+  "exit_aftr_ckpt=\n"
+  "if [ ! -z \"$exit_after_ckpt\" ]; then\n"
+  "  exit_aftr_ckpt=\"--exit-after-ckpt $exit_after_ckpt\"\n"
+  "fi\n\n"
+
   "exec $dmt_rstr_cmd $coordinator_info $ckpt_dir \\\n"
-  "  $maybejoin --interval \"$checkpoint_interval\" --exit-after-ckpt \"$exit_after_ckpt\" $tmpdir $noStrictChecking $coord_logfile\\\n"
+  "  $maybejoin --interval \"$checkpoint_interval\" $exit_aftr_ckpt $tmpdir $noStrictChecking $coord_logfile\\\n"
   "  $ckpt_files\n"
 ;
 
