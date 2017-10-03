@@ -313,6 +313,11 @@ static const char *multiHostProcessing =
   "  coord_logfile=\"--coord-logfile $DMTCP_COORD_LOGFILE\"\n"
   "fi\n\n"
 
+  "exit_aftr_ckpt=\n"
+  "if [ ! -z \"$exit_after_ckpt\" ]; then\n"
+  "  exit_aftr_ckpt=\"--exit-after-ckpt $exit_after_ckpt\"\n"
+  "fi\n\n"
+
   "  check_local $worker_host\n"
   "  if [ \"$is_local_node\" -eq 1 -o \"$num_worker_hosts\" == \"1\" ]; then\n"
   "    localhost_ckpt_files_group=\"$new_ckpt_files_group $localhost_ckpt_files_group\"\n"
@@ -323,7 +328,7 @@ static const char *multiHostProcessing =
   "    $maybexterm /usr/bin/$remote_shell_cmd -t \"$worker_host\" \\\n"
   "      $dmt_rstr_cmd --coord-host \"$coord_host\""
                                              " --cord-port \"$coord_port\"\\\n"
-  "      $ckpt_dir --join-coordinator --interval \"$checkpoint_interval\" --exit-after-ckpt \"$exit_after_ckpt\""
+  "      $ckpt_dir --join-coordinator --interval \"$checkpoint_interval\" $exit_aftr_ckpt"
                                              " $tmpdir \\\n"
   "      $new_ckpt_files_group\n"
   "  else\n"
@@ -332,7 +337,7 @@ static const char *multiHostProcessing =
   // end of the computation until user presses enter key.
   "      \"/bin/sh -c \'$dmt_rstr_cmd --coord-host $coord_host"
                                                 " --coord-port $coord_port\\\n"
-  "      $ckpt_dir --join-coordinator --interval \"$checkpoint_interval\" --exit-after-ckpt \"$exit_after_ckpt\""
+  "      $ckpt_dir --join-coordinator --interval \"$checkpoint_interval\" $exit_aftr_ckpt"
                                                 " $tmpdir \\\n"
   "      $new_ckpt_files_group\'\" &\n"
   "  fi\n\n"
@@ -340,7 +345,7 @@ static const char *multiHostProcessing =
   "if [ -n \"$localhost_ckpt_files_group\" ]; then\n"
   "exec $dmt_rstr_cmd --coord-host \"$coord_host\""
   " --coord-port \"$coord_port\" $coord_logfile \\\n"
-  "  $ckpt_dir $maybejoin --interval \"$checkpoint_interval\" --exit-after-ckpt \"$exit_after_ckpt\" $tmpdir $noStrictChecking $localhost_ckpt_files_group\n"
+  "  $ckpt_dir $maybejoin --interval \"$checkpoint_interval\" $exit_aftr_ckpt $tmpdir $noStrictChecking $localhost_ckpt_files_group\n"
   "fi\n\n"
 
   "#wait for them all to finish\n"
