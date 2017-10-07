@@ -484,7 +484,7 @@ Connection *FileConnList::findDuplication(int fd, const char *path)
 
     FileConnection *fcon = (FileConnection*)con;
     // check for duplication
-    if( fcon->filePath() == npath && fcon->checkDup(fd) ){
+    if( fcon->checkDup(fd, path) ){
       return con;
     }
   }

@@ -155,7 +155,7 @@ namespace dmtcp
       dev_t devnum() const { return _st_dev; }
       ino_t inode() const { return _st_ino; }
 
-      bool checkDup(int fd);
+      bool checkDup(int fd, const char *npath);
     private:
       int  openFile();
       void refreshPath();
