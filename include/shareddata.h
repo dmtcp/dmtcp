@@ -185,6 +185,8 @@ namespace dmtcp {
     void getRealPtyName(const char* virt, char* out, uint32_t len);
     void getVirtPtyName(const char* real, char *out, uint32_t len);
     void createVirtualPtyName(const char* real, char *out, uint32_t len);
+    void setVirtualPtyId(uint32_t id);
+    uint32_t getVirtualPtyId();
     void insertPtyNameMap(const char* virt, const char* real);
 
     void registerIncomingCons(vector<const char*>& ids,

@@ -87,6 +87,7 @@ static vector<ProcMapsArea> shmAreas;
 static vector<ProcMapsArea> unlinkedShmAreas;
 static vector<ProcMapsArea> missingUnlinkedShmFiles;
 static vector<FileConnection*> shmAreaConn;
+static uint32_t virtPtyId = 0;
 
 void dmtcp_FileConn_ProcessFdEvent(int event, int arg1, int arg2)
 {
@@ -119,6 +120,7 @@ void FileConnList::preLockSaveOptions()
 void FileConnList::drain()
 {
   ConnectionList::drain();
+  virtPtyId = SharedData::getVirtualPtyId();
 
   vector<SharedData::InodeConnIdMap> inodeConnIdMaps;
   for (iterator i = begin(); i != end(); ++i) {
@@ -172,6 +174,7 @@ void FileConnList::preCkpt()
 
 void FileConnList::postRestart()
 {
+  SharedData::setVirtualPtyId(virtPtyId);
   /* It is possible to have two different connection-ids for a pre-existing
    * CTTY in two or more different process trees. In this case, only one of the
    * several process trees would be able to acquire a lock on the underlying

@@ -497,6 +497,20 @@ void SharedData::createVirtualPtyName(const char* real, char *out, uint32_t len)
   Util::unlockFile(PROTECTED_SHM_FD);
 }
 
+uint32_t SharedData::getVirtualPtyId()
+{
+  return sharedDataHeader->nextVirtualPtyId;
+}
+
+void SharedData::setVirtualPtyId(uint32_t id)
+{
+  Util::lockFile(PROTECTED_SHM_FD);
+  if (id != (uint32_t)-1 && id > sharedDataHeader->nextVirtualPtyId) {
+    sharedDataHeader->nextVirtualPtyId = id;
+  }
+  Util::unlockFile(PROTECTED_SHM_FD);
+}
+
 void SharedData::getRealPtyName(const char* virt, char *out, uint32_t len)
 {
   if (sharedDataHeader == NULL) initialize();
