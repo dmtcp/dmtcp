@@ -46,6 +46,9 @@ static void testStaticallyLinked(const char *filename);
 static bool testScreen(char **argv, char ***newArgv);
 static void setLDPreloadLibs(bool is32bitElf);
 
+bool shouldExitAfterCkpt = false;
+char *exitAfterNCkpts = NULL;
+
 // gcc-4.3.4 -Wformat=2 issues false positives for warnings unless the format
 // string has at least one format specifier with corresponding format argument.
 // Ubuntu 9.01 uses -Wformat=2 by default.
@@ -112,6 +115,9 @@ static const char *theUsage =
   "  --ckpt-signal signum\n"
   "              Signal number used internally by DMTCP for checkpointing\n"
   "              (default: SIGUSR2/12).\n"
+  " --exit-after-ckpt N\n"
+  "              Kill peer processes of the computation after first N\n"
+  "              checkpoints have been created\n"
   "\n"
   "Enable/disable plugins:\n"
   "  --with-plugin (environment variable DMTCP_PLUGIN)\n"
@@ -281,6 +287,10 @@ processArgs(int *orig_argc,
     } else if (s == "--no-coordinator") {
       allowedModes = COORD_NONE;
       shift;
+    } else if (s == "--exit-after-ckpt") {
+      shouldExitAfterCkpt = true;
+      exitAfterNCkpts = argv[1];
+      shift; shift;
     } else if (s == "-i" || s == "--interval") {
       setenv(ENV_VAR_CKPT_INTR, argv[1], 1);
       shift; shift;
@@ -391,7 +401,7 @@ processArgs(int *orig_argc,
     }
   }
 #endif // if __aarch64__
-  if ((portStr == NULL || portStr[0] == '\0') &&
+  if ((portStr == NULL || portStr[0] == "\0") &&
       (getenv(ENV_VAR_NAME_PORT) == NULL ||
        getenv(ENV_VAR_NAME_PORT)[0]== '\0') &&
       allowedModes != COORD_NEW) {
