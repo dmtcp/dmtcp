@@ -634,7 +634,8 @@ bool Util::isNscdArea(const ProcMapsArea& area)
   if (strStartsWith(area.name, "/run/nscd") || // OpenSUSE (newer)
       strStartsWith(area.name, "/var/run/nscd") || // OpenSUSE (older)
       strStartsWith(area.name, "/var/cache/nscd") || // Debian/Ubuntu
-      strStartsWith(area.name, "/var/db/nscd")) { // RedHat/Fedora
+      strStartsWith(area.name, "/var/db/nscd") || // RedHat/Fedora
+      strStartsWith(area.name, "/ram/var/run/nscd")) {  // CentOS
     return true;
   }
   return false;
