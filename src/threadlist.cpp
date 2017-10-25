@@ -195,22 +195,6 @@ void ThreadList::initThread(Thread* th, int (*fn)(void*), void *arg, int flags,
   th->ctid  = ctid;
   th->next  = NULL;
   th->state = ST_RUNNING;
-
-  /* libpthread may recycle the thread stacks after the thread exits (due to
-   * return, pthread_exit, or pthread_cancel) by reusing them for a different
-   * thread created by a subsequent call to pthread_create().
-   *
-   * Part of thread-stack also contains the "struct pthread" with pid and tid
-   * as member fields. While reusing the stack for the new thread, the tid
-   * field is reset but the pid field is left unchanged (under the assumption
-   * that pid never changes). This causes a problem if the thread exited before
-   * checkpoint and the new thread is created after restart and hence the pid
-   * field contains the wrong value (pre-ckpt pid as opposed to current-pid).
-   *
-   * The solution is to put the motherpid in the pid slot every time a new
-   * thread is created to make sure that struct pthread has the correct value.
-   */
-  TLSInfo_UpdatePid();
 }
 
 /*****************************************************************************
@@ -232,6 +216,23 @@ void ThreadList::updateTid(Thread *th)
     curThread = th;
   th->tid = THREAD_REAL_TID();
   th->virtual_tid = dmtcp_gettid();
+
+  /* libpthread may recycle the thread stacks after the thread exits (due to
+   * return, pthread_exit, or pthread_cancel) by reusing them for a different
+   * thread created by a subsequent call to pthread_create().
+   *
+   * Part of thread-stack also contains the "struct pthread" with pid and tid
+   * as member fields. While reusing the stack for the new thread, the tid
+   * field is reset but the pid field is left unchanged (under the assumption
+   * that pid never changes). This causes a problem if the thread exited before
+   * checkpoint and the new thread is created after restart and hence the pid
+   * field contains the wrong value (pre-ckpt pid as opposed to current-pid).
+   *
+   * The solution is to put the motherpid in the pid slot every time a new
+   * thread is created to make sure that struct pthread has the correct value.
+   */
+  TLSInfo_UpdatePid();
+
   JTRACE("starting thread") (th->tid) (th->virtual_tid);
   // Check and remove any thread descriptor which has the same tid as ours.
   // Also, remove any dead threads from the list.
