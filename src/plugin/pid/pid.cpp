@@ -20,6 +20,12 @@
  ****************************************************************************/
 
 #include <sys/types.h>
+
+#ifndef _GNU_SOURCE
+# define _GNU_SOURCE
+#endif // ifndef _GNU_SOURCE
+#include <sched.h>
+
 #include "jalloc.h"
 #include "jassert.h"
 #include "jconvert.h"
