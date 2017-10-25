@@ -448,17 +448,18 @@ updateCoordHost()
   }
 
   struct in_addr localhostIPAddr;
-  string cmd;
   char hostname[HOST_NAME_MAX];
+
   JASSERT(gethostname(hostname, sizeof hostname) == 0) (JASSERT_ERRNO);
-  struct addrinfo *result;
+
+  struct addrinfo *result = NULL;
   struct addrinfo *res;
   int error;
   struct addrinfo hints;
 
   memset(&localhostIPAddr, 0, sizeof localhostIPAddr);
   memset(&hints, 0, sizeof(struct addrinfo));
-  hints.ai_family = AF_INET;
+  hints.ai_family = AF_UNSPEC; // accept AF_INET and AF_INET6
   hints.ai_socktype = SOCK_STREAM;
   hints.ai_flags = AI_PASSIVE;
   hints.ai_protocol = 0;
@@ -466,13 +467,14 @@ updateCoordHost()
   hints.ai_addr = NULL;
   hints.ai_next = NULL;
 
-  /* resolve the domain name into a list of addresses */
+  /* resolve the hostname into a list of addresses */
   error = getaddrinfo(hostname, NULL, &hints, &result);
   if (error == 0) {
     /* loop over all returned results and do inverse lookup */
     bool success = false;
+    bool at_least_one_match = false;
+    char name[NI_MAXHOST] = "";
     for (res = result; res != NULL; res = res->ai_next) {
-      char name[NI_MAXHOST] = "";
       struct sockaddr_in *s = (struct sockaddr_in *)res->ai_addr;
 
       error = getnameinfo(res->ai_addr,
@@ -485,16 +487,30 @@ updateCoordHost()
       if (error != 0) {
         JTRACE("getnameinfo() failed.") (gai_strerror(error));
         continue;
-      }
-      if (Util::strStartsWith(name, hostname) ||
-          Util::strStartsWith(hostname, name)) {
+      } else {
         JASSERT(sizeof localhostIPAddr == sizeof s->sin_addr);
-        success = true;
-        memcpy(&localhostIPAddr, &s->sin_addr, sizeof s->sin_addr);
+        if ( strncmp( name, hostname, sizeof hostname ) == 0 ) {
+          success = true;
+          break; // Stop here.  We found a matching hostname.
+        }
+        if (!at_least_one_match) { // Prefer the first match over later ones.
+          at_least_one_match = true;
+          memcpy(&localhostIPAddr, &s->sin_addr, sizeof s->sin_addr);
+        }
+      }
+    }
+    if (result) {
+      freeaddrinfo(result);
+    }
+    if (at_least_one_match) {
+      success = true;  // Call it a success even if hostname != name
+      if ( strncmp( name, hostname, sizeof hostname ) != 0 ) {
+        JTRACE("Canonical hostname different from original hostname")
+              (name)(hostname);
       }
     }
 
-    JWARNING(!success) (hostname)
+    JWARNING(success) (hostname)
       .Text("Failed to find coordinator IP address.  DMTCP may fail.");
   } else {
     if (error == EAI_SYSTEM) {
@@ -506,7 +522,6 @@ updateCoordHost()
   }
 
   SharedData::setCoordHost(&localhostIPAddr);
-  freeaddrinfo(result);
 }
 
 /*
