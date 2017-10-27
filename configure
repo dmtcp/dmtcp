@@ -713,6 +713,7 @@ CFLAGS
 CC
 LN_S
 RANLIB
+ARFLAGS
 host_os
 host_vendor
 host_cpu
@@ -3070,6 +3071,10 @@ build_os=$*
 IFS=$ac_save_IFS
 case $build_os in *\ *) build_os=`echo "$build_os" | sed 's/ /-/g'`;; esac
 
+
+
+# Automake uses 'ar cru' by default.  The 'ar' program then issues a warning.
+ARFLAGS=cr
 
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking host system type" >&5
 $as_echo_n "checking host system type... " >&6; }
