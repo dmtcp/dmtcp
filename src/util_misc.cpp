@@ -660,11 +660,13 @@ void Util::allowGdbDebug(int currentDebugLevel)
     // Inform parent of current level
     JASSERT(write(PROTECTED_DEBUG_SOCKET_FD,
                   &currentDebugLevel,
-                  sizeof(currentDebugLevel)) != -1);
+                  sizeof(currentDebugLevel))
+            == sizeof(currentDebugLevel));
     // Read the requested level from the parent
     JASSERT(read(PROTECTED_DEBUG_SOCKET_FD,
                  &requestedDebugLevel,
-                 sizeof(requestedDebugLevel)) != -1);
+                 sizeof(requestedDebugLevel))
+            == sizeof(requestedDebugLevel));
     if (currentDebugLevel == requestedDebugLevel) {
       // Wait for GDB to connect if the requested level
       // matches the current level
