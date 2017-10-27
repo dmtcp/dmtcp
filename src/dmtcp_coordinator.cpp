@@ -1271,6 +1271,28 @@ static void calcLocalAddr()
   hints.ai_addr = NULL;
   hints.ai_next = NULL;
 
+  // FROM: Wikipedia:CNAME_record:
+  //  When a DNS resolver encounters a CNAME record while looking for a regular
+  //  resource record, it will restart the query using the canonical name
+  //  instead of the original name. (If the resolver is specifically told to
+  //  look for CNAME records, the canonical name (right-hand side) is returned,
+  //  rather than restarting the query.)
+  hints.ai_flags |= AI_CANONNAME;
+  error = getaddrinfo(hostname, NULL, &hints, &result);
+  hints.ai_flags ^= AI_CANONNAME;
+  if (error == 0 && result) {
+    // if hostname was not fully qualified with domainname, replace it with
+    // canonname.  Otherwise, keep current alias returned from gethostname().
+    if ( Util::strStartsWith(result->ai_canonname, hostname) &&
+         result->ai_canonname[strlen(hostname)] == '.' &&
+         strlen(result->ai_canonname) < sizeof(hostname) ) {
+      strncpy(hostname, result->ai_canonname, sizeof hostname);
+    }
+    freeaddrinfo(result);
+  }
+  // OPTIONAL:  If we still don't have a domainname, we could resolve with DNS
+  //   (similar to 'man 1 host'), but we ont't know if Internet is present.
+
   /* resolve the hostname into a list of addresses */
   error = getaddrinfo(hostname, NULL, &hints, &result);
   if (error == 0) {
