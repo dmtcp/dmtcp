@@ -185,7 +185,24 @@ PtyConnList::processPtyConnection(int fd,
     c = new PtyConnection(fd, path, flags, mode, PtyConnection::PTY_MASTER);
   } else if (Util::strStartsWith(path, "/dev/pts/")) {
     // POSIX Slave PTY
-    c = new PtyConnection(fd, path, flags, mode, PtyConnection::PTY_SLAVE);
+    PtyConnection *con = new PtyConnection(fd,
+                                           path,
+                                           flags,
+                                           mode,
+                                           PtyConnection::PTY_SLAVE);
+    /*
+     * '/dev/pts/_' can also point to controlling terminal,
+     *  especially when program tries to open controlling terminal
+     *  with open system call.
+     */
+    string ctty = jalib::Filesystem::GetControllingTerm();
+    string parentCtty = jalib::Filesystem::GetControllingTerm(getppid());
+    if (device == parentCtty) {
+        con -> markPreExistingPCTTY();
+    } else if (device == ctty) {
+        con -> markPreExistingCTTY();
+    }
+    c = (Connection *)con;
   } else {
     JASSERT(false) (path).Text("Unimplemented file type.");
   }
