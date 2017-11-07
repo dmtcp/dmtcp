@@ -219,6 +219,7 @@ PtyConnection::PtyConnection(int fd,
   , _flags(flags)
   , _mode(mode)
   , _preExistingCTTY(false)
+  , _preExistingPCTTY(false)
 {
   char buf[PTS_PATH_MAX];
   memset(&_termios_p, 0, sizeof(_termios_p));
@@ -378,6 +379,22 @@ PtyConnection::refill(bool isRestart)
     if (_type == PTY_SLAVE) {
       char buf[32];
       SharedData::getRealPtyName(_virtPtsName.c_str(), buf, sizeof(buf));
+      /*
+       * Insert a mapping for pre existing controlling terminal if a mapping
+       * not exist already
+       */
+      if ((_preExistingCTTY || _preExistingPCTTY) && (strlen(buf) == 0)) {
+        string controllingTty;
+        if (_preExistingCTTY) {
+          controllingTty = jalib::Filesystem::GetControllingTerm();
+        } else {
+          controllingTty = jalib::Filesystem::GetControllingTerm(getppid());
+        }
+        JASSERT(controllingTty.length() > 0 ) (controllingTty);
+        SharedData::insertPtyNameMap(_virtPtsName.c_str(),
+                                     controllingTty.c_str());
+        SharedData::getRealPtyName(_virtPtsName.c_str(), buf, sizeof(buf));
+      }
       JASSERT(strlen(buf) > 0) (_virtPtsName) (_ptsName);
       _ptsName = buf;
     }
@@ -413,7 +430,9 @@ PtyConnection::refill(bool isRestart)
   /* Store terminal settings only if current process is in foreground.
      If we try to call tcsetattr in background, the process will hang up.
    */
-  if(tcgetpgrp(STDIN_FILENO) == getpgrp()) {
+  if((tcgetpgrp(STDIN_FILENO) == getpgrp()) &&
+     !_preExistingCTTY &&
+     !_preExistingPCTTY) {
     JASSERT(tcsetattr(_fds[0], TCSANOW, &_termios_p) == 0)(JASSERT_ERRNO);
   }
 }
@@ -446,6 +465,7 @@ PtyConnection::postRestart()
     } else {
       controllingTty = jalib::Filesystem::GetControllingTerm(getppid());
     }
+
     stdinDeviceName = (jalib::Filesystem::GetDeviceName(STDIN_FILENO));
     if (controllingTty.length() > 0 &&
         _real_access(controllingTty.c_str(), R_OK | W_OK) == 0) {
@@ -453,6 +473,14 @@ PtyConnection::postRestart()
       JASSERT(tempfd >=
               0) (tempfd) (_fcntlFlags) (controllingTty) (JASSERT_ERRNO)
       .Text("Error Opening the terminal attached with the process");
+
+      // restore only if process have a valid controlling terminal
+      JTRACE("Restoring parent CTTY for the process")
+        (controllingTty) (_fds[0]);
+
+      _ptsName = controllingTty;
+      JASSERT(_ptsName.length() > 0 ) (_ptsName);
+      SharedData::insertPtyNameMap(_virtPtsName.c_str(), _ptsName.c_str());
     } else {
       if (_type == PTY_CTTY) {
         JTRACE("Unable to restore controlling terminal attached with the "
@@ -477,12 +505,6 @@ PtyConnection::postRestart()
         JASSERT("Controlling terminal and STDIN/OUT not found.");
       }
     }
-
-    JTRACE("Restoring parent CTTY for the process")
-      (controllingTty) (_fds[0]);
-
-    _ptsName = controllingTty;
-    SharedData::insertPtyNameMap(_virtPtsName.c_str(), _ptsName.c_str());
     break;
   }
 
@@ -499,6 +521,7 @@ PtyConnection::postRestart()
       (tempfd) (JASSERT_ERRNO);
 
     _ptsName = slavePtsName;
+    JASSERT(_ptsName.length() > 0 ) (_ptsName);
     SharedData::insertPtyNameMap(_virtPtsName.c_str(), _ptsName.c_str());
 
     if (_type == PTY_MASTER) {

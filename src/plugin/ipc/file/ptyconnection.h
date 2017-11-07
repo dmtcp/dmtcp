@@ -59,6 +59,7 @@ class PtyConnection : public Connection
     string virtPtsName() { return _virtPtsName;  }
 
     void markPreExistingCTTY() { _preExistingCTTY = true; }
+    void markPreExistingPCTTY() { _preExistingPCTTY = true; }
 
     virtual void doLocking();
     virtual void drain();
@@ -78,6 +79,7 @@ class PtyConnection : public Connection
     char _ptmxIsPacketMode;
     char _isControllingTTY;
     char _preExistingCTTY;
+    char _preExistingPCTTY;
     struct termios _termios_p;
     int masterDataSize;
     int slaveDataSize;
