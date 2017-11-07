@@ -44,10 +44,18 @@ static ssize_t ptmxWriteAll(int fd, const void *buf, bool isPacketMode);
 static bool
 ptmxTestPacketMode(int masterFd)
 {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 8, 0)
+  int isPacketMode = 0;
+  /*
+   * Apparently the tty_ioctl man page has a typo: the command is
+   * actually TIOCGPKT and not TIOGCPKT.
+   */
+  ioctl(masterFd, TIOCGPKT, &isPacketMode);
+  return isPacketMode;
+#else
   char tmp_buf[100];
   int slave_fd, ioctlArg, rc;
   struct pollfd pollFd = { 0 };
-
   _real_ptsname_r(masterFd, tmp_buf, 100);
 
   /* permissions not used, but _real_open requires third arg */
@@ -99,6 +107,7 @@ ptmxTestPacketMode(int masterFd)
 
   /* D. Check if command byte packet exists, and chars rec'd is longer by 1. */
   return rc == 2 && tmp_buf[0] == TIOCPKT_DATA && tmp_buf[1] == 'x';
+#endif // LINUX_VERSION_CODE >= KERNEL_VERSION(3, 8)
 }
 
 // Also record the count read on each iteration, in case it's packet mode
@@ -210,8 +219,10 @@ PtyConnection::PtyConnection(int fd,
   , _flags(flags)
   , _mode(mode)
   , _preExistingCTTY(false)
+  , _preExistingPCTTY(false)
 {
   char buf[PTS_PATH_MAX];
+  memset(&_termios_p, 0, sizeof(_termios_p));
 
   switch (_type) {
   case PTY_DEV_TTY:
@@ -285,22 +296,63 @@ PtyConnection::doLocking()
   }
 }
 
+ /*
+  * A. Drain master and slave buffer data into _buf and _slave_buf
+  * B. Refill data again both buffers; since both device are paired
+  *    so to refill master-buffer, write on slave-fd and vice versa.
+  */
 void
 PtyConnection::drain()
 {
   JASSERT(_type != PTY_EXTERNAL);
   saveOptions();
-  if (_type == PTY_MASTER && getpgrp() == tcgetpgrp(_fds[0])) {
-    const int maxCount = 10000;
-    char buf[maxCount];
-    int numRead, numWritten;
-
-    // _fds[0] is master fd
-    numRead = ptmxReadAll(_fds[0], buf, maxCount);
+  /* TODO: why tcgetattr fails for background process in 'screen' test?
+   */
+  if(tcgetpgrp(STDIN_FILENO) == getpgrp()) {
+    JASSERT(tcgetattr(_fds[0], &_termios_p) == 0) (JASSERT_ERRNO);
+  }
+  /* The previous additional check "getpgrp() == tcgetpgrp(_fds[0])" was not
+   * satisfied, since tcgetpgrp returns 0 for the master_fd. This behavior of
+   * is not documented in the man page, an arguably is either a bug in the
+   * documentation or in the kernel as version 4.4 and glibc-2.21
+   */
+  if (_type == PTY_MASTER) {
+    int numRead = 0, numWritten = 0, slaveFd;
+    char slavePtsName[100];
     _ptmxIsPacketMode = ptmxTestPacketMode(_fds[0]);
-    JTRACE("_fds[0] is master(/dev/ptmx)") (_fds[0]) (_ptmxIsPacketMode);
-    numWritten = ptmxWriteAll(_fds[0], buf, _ptmxIsPacketMode);
-    JASSERT(numRead == numWritten) (numRead) (numWritten);
+    JASSERT(_real_ptsname_r(_fds[0], slavePtsName, sizeof(slavePtsName)) == 0)
+      (_fds[0]) (JASSERT_ERRNO);
+
+    int numSlaveRead = 0, numSlaveWritten = 0;
+    numRead = ptmxReadAll(_fds[0], _buf, PTY_KERNEL_BUF_LEN);
+    /* permissions not used, but _real_open requires third arg */
+    slaveFd = _real_open(slavePtsName, O_RDWR, 0666);
+    JASSERT(slaveFd >= 0) (JASSERT_ERRNO);
+    ioctl(slaveFd, TIOCOUTQ, &numSlaveRead);
+    if (numSlaveRead > 0) {
+      numSlaveRead = Util::readAll(slaveFd, _slave_buf, numSlaveRead);
+    }
+    masterDataSize = numRead;
+    slaveDataSize = numSlaveRead;
+    /* Refill the data again into both master and slave buffer only if there
+     * was some data in the kernel buffer at checkpoint time.
+     */
+    if (numSlaveRead > 0) {
+      numWritten = ptmxWriteAll(_fds[0], _slave_buf, _ptmxIsPacketMode);
+      JTRACE("Resume-refill slave pty buffer")
+        (_fds[0]) (_ptsName) (numWritten);
+    }
+
+    /* In the readAll function, the _buf buffer is incremented by the size of
+     * header, which is int type. So, even if there is no data in the buffer,
+     * numRead will have a value equal to sizeof(int)
+     */
+    if (numRead > (int)sizeof(int)) {
+      numSlaveWritten = Util::writeAll(slaveFd, _buf, numRead);
+      JTRACE("Resume-refill master pty buffer")
+        (slaveFd) (slavePtsName) (numSlaveWritten);
+      _real_close(slaveFd);
+    }
   }
   JASSERT((_type == PTY_CTTY || _type == PTY_PARENT_CTTY) || _fcntlFlags != -1);
   if (tcgetpgrp(_fds[0]) != -1) {
@@ -310,6 +362,10 @@ PtyConnection::drain()
   }
 }
 
+ /* restart-refill is done already in postRestart. Due to the postRestart
+  * barrier, the child process will wait until restart-refill is completed
+  * in the parent process. Now we can restore slave pty here in child process.
+  */
 void
 PtyConnection::refill(bool isRestart)
 {
@@ -323,6 +379,22 @@ PtyConnection::refill(bool isRestart)
     if (_type == PTY_SLAVE) {
       char buf[32];
       SharedData::getRealPtyName(_virtPtsName.c_str(), buf, sizeof(buf));
+      /*
+       * Insert a mapping for pre existing controlling terminal if a mapping
+       * not exist already
+       */
+      if ((_preExistingCTTY || _preExistingPCTTY) && (strlen(buf) == 0)) {
+        string controllingTty;
+        if (_preExistingCTTY) {
+          controllingTty = jalib::Filesystem::GetControllingTerm();
+        } else {
+          controllingTty = jalib::Filesystem::GetControllingTerm(getppid());
+        }
+        JASSERT(controllingTty.length() > 0 ) (controllingTty);
+        SharedData::insertPtyNameMap(_virtPtsName.c_str(),
+                                     controllingTty.c_str());
+        SharedData::getRealPtyName(_virtPtsName.c_str(), buf, sizeof(buf));
+      }
       JASSERT(strlen(buf) > 0) (_virtPtsName) (_ptsName);
       _ptsName = buf;
     }
@@ -355,6 +427,14 @@ PtyConnection::refill(bool isRestart)
     _ptsName = _virtPtsName = "/dev/tty";
     Util::dupFds(tempfd, _fds);
   }
+  /* Store terminal settings only if current process is in foreground.
+     If we try to call tcsetattr in background, the process will hang up.
+   */
+  if((tcgetpgrp(STDIN_FILENO) == getpgrp()) &&
+     !_preExistingCTTY &&
+     !_preExistingPCTTY) {
+    JASSERT(tcsetattr(_fds[0], TCSANOW, &_termios_p) == 0)(JASSERT_ERRNO);
+  }
 }
 
 void
@@ -385,6 +465,7 @@ PtyConnection::postRestart()
     } else {
       controllingTty = jalib::Filesystem::GetControllingTerm(getppid());
     }
+
     stdinDeviceName = (jalib::Filesystem::GetDeviceName(STDIN_FILENO));
     if (controllingTty.length() > 0 &&
         _real_access(controllingTty.c_str(), R_OK | W_OK) == 0) {
@@ -392,6 +473,14 @@ PtyConnection::postRestart()
       JASSERT(tempfd >=
               0) (tempfd) (_fcntlFlags) (controllingTty) (JASSERT_ERRNO)
       .Text("Error Opening the terminal attached with the process");
+
+      // restore only if process have a valid controlling terminal
+      JTRACE("Restoring parent CTTY for the process")
+        (controllingTty) (_fds[0]);
+
+      _ptsName = controllingTty;
+      JASSERT(_ptsName.length() > 0 ) (_ptsName);
+      SharedData::insertPtyNameMap(_virtPtsName.c_str(), _ptsName.c_str());
     } else {
       if (_type == PTY_CTTY) {
         JTRACE("Unable to restore controlling terminal attached with the "
@@ -416,37 +505,48 @@ PtyConnection::postRestart()
         JASSERT("Controlling terminal and STDIN/OUT not found.");
       }
     }
-
-    JTRACE("Restoring parent CTTY for the process")
-      (controllingTty) (_fds[0]);
-
-    _ptsName = controllingTty;
-    SharedData::insertPtyNameMap(_virtPtsName.c_str(), _ptsName.c_str());
     break;
   }
 
   case PTY_MASTER:
   {
-    char pts_name[80];
-
+    char slavePtsName[100];
     tempfd = _real_open("/dev/ptmx", _fcntlFlags | extraFlags);
     JASSERT(tempfd >= 0) (tempfd) (JASSERT_ERRNO)
     .Text("Error Opening /dev/ptmx");
 
     JASSERT(grantpt(tempfd) >= 0) (tempfd) (JASSERT_ERRNO);
     JASSERT(unlockpt(tempfd) >= 0) (tempfd) (JASSERT_ERRNO);
-    JASSERT(_real_ptsname_r(tempfd, pts_name, 80) == 0)
+    JASSERT(_real_ptsname_r(tempfd, slavePtsName, sizeof(slavePtsName)) == 0)
       (tempfd) (JASSERT_ERRNO);
 
-    _ptsName = pts_name;
+    _ptsName = slavePtsName;
+    JASSERT(_ptsName.length() > 0 ) (_ptsName);
     SharedData::insertPtyNameMap(_virtPtsName.c_str(), _ptsName.c_str());
 
     if (_type == PTY_MASTER) {
       int packetMode = _ptmxIsPacketMode;
       ioctl(_fds[0], TIOCPKT, &packetMode);     /* Restore old packet mode */
     }
-
     JTRACE("Restoring /dev/ptmx") (_fds[0]) (_ptsName) (_virtPtsName);
+
+    // restart-refill here
+    int numWritten, numSlaveWritten, slaveFd;
+    _ptmxIsPacketMode = ptmxTestPacketMode(_fds[0]);
+    if (slaveDataSize > 0) {
+      numWritten = ptmxWriteAll(_fds[0], _slave_buf, _ptmxIsPacketMode);
+      JTRACE("Restart-refill slave pty buffer")
+        (_fds[0]) (_ptsName) (numWritten);
+    }
+    if (masterDataSize > (int)sizeof(int)) {
+      /* permissions not used, but _real_open requires third arg */
+      slaveFd = _real_open(slavePtsName, O_RDWR, 0666);
+      JASSERT(slaveFd >= 0) (slaveFd) (JASSERT_ERRNO);
+      numSlaveWritten = Util::writeAll(slaveFd, _buf, masterDataSize);
+      JTRACE("Restart-refill master pty buffer")
+        (slaveFd) (slavePtsName) (numSlaveWritten);
+      _real_close(slaveFd);
+    }
     break;
   }
   case PTY_BSD_MASTER:
