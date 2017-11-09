@@ -395,60 +395,64 @@ static void drain_completion_queue(struct internal_ibv_cq *internal_cq)
       wc->wc.qp_num = internal_qp->user_qp.qp_num;
       opcode = wc->wc.opcode;
 
-      if (opcode & IBV_WC_RECV ||
-          opcode == IBV_WC_RECV_RDMA_WITH_IMM) {
-	if (internal_qp->user_qp.srq) {
-	  struct internal_ibv_srq *internal_srq;
+      if (wc->wc.status != IBV_WC_SUCCESS) {
+        IBV_WARNING("Unsuccessful completion: %d.\n", opcode);
+      } else {
+        if (opcode & IBV_WC_RECV ||
+            opcode == IBV_WC_RECV_RDMA_WITH_IMM) {
+          if (internal_qp->user_qp.srq) {
+            struct internal_ibv_srq *internal_srq;
 
-	  internal_srq = ibv_srq_to_internal(internal_qp->user_qp.srq);
-	  internal_srq->recv_count++;
-	}
-	else {
-          struct list_elem *e;
-          struct ibv_post_recv_log *log;
+            internal_srq = ibv_srq_to_internal(internal_qp->user_qp.srq);
+            internal_srq->recv_count++;
+          }
+          else {
+            struct list_elem *e;
+            struct ibv_post_recv_log *log;
 
-          e = list_pop_front(&internal_qp->post_recv_log);
-          log = list_entry(e, struct ibv_post_recv_log, elem);
-          free(log);
-	}
-      } else if (opcode == IBV_WC_SEND ||
-                 opcode == IBV_WC_RDMA_WRITE ||
-                 opcode == IBV_WC_RDMA_READ ||
-                 opcode == IBV_WC_COMP_SWAP ||
-                 opcode == IBV_WC_FETCH_ADD) {
-	if (internal_qp->init_attr.sq_sig_all) {
-          struct list_elem *e;
-          struct ibv_post_send_log *log;
-
-          e = list_pop_front(&internal_qp->post_send_log);
-          log = list_entry(e, struct ibv_post_send_log, elem);
-          assert(log->magic == SEND_MAGIC);
-          free(log);
-	}
-	else {
-	  while(1) {
+            e = list_pop_front(&internal_qp->post_recv_log);
+            log = list_entry(e, struct ibv_post_recv_log, elem);
+            free(log);
+          }
+        } else if (opcode == IBV_WC_SEND ||
+                   opcode == IBV_WC_RDMA_WRITE ||
+                   opcode == IBV_WC_RDMA_READ ||
+                   opcode == IBV_WC_COMP_SWAP ||
+                   opcode == IBV_WC_FETCH_ADD) {
+          if (internal_qp->init_attr.sq_sig_all) {
             struct list_elem *e;
             struct ibv_post_send_log *log;
 
             e = list_pop_front(&internal_qp->post_send_log);
             log = list_entry(e, struct ibv_post_send_log, elem);
+            assert(log->magic == SEND_MAGIC);
+            free(log);
+          }
+          else {
+            while(1) {
+              struct list_elem *e;
+              struct ibv_post_send_log *log;
 
-	    if (log->wr.send_flags & IBV_SEND_SIGNALED) {
-              assert(log->magic == SEND_MAGIC);
-              free(log);
-	      break;
-	    }
-	    else {
-              assert(log->magic == SEND_MAGIC);
-              free(log);
-	    }
-	  }
-	}
-      } else if (opcode == IBV_WC_BIND_MW) {
-        IBV_ERROR("opcode %d specifies unsupported operation.\n",
-                  opcode);
-      } else {
-        IBV_ERROR("Unknown or invalid opcode.\n");
+              e = list_pop_front(&internal_qp->post_send_log);
+              log = list_entry(e, struct ibv_post_send_log, elem);
+
+              if (log->wr.send_flags & IBV_SEND_SIGNALED) {
+                assert(log->magic == SEND_MAGIC);
+                free(log);
+                break;
+              }
+              else {
+                assert(log->magic == SEND_MAGIC);
+                free(log);
+              }
+            }
+          }
+        } else if (opcode == IBV_WC_BIND_MW) {
+          IBV_ERROR("opcode %d specifies unsupported operation.\n",
+                    opcode);
+        } else {
+          IBV_ERROR("Unknown or invalid opcode.\n");
+        }
       }
     } else {
       free(wc);
@@ -2481,8 +2485,10 @@ int _poll_cq(struct ibv_cq *cq, int num_entries, struct ibv_wc *wc)
   size = list_size(&internal_cq->wc_queue);
   if (size > 0) {
     struct list_elem *e = list_front(&internal_cq->wc_queue);
+
     for (i = 0; (i < size) && (i < num_entries); i++) {
       struct list_elem *w = e;
+
       IBV_DEBUG("Polling completion from internal buffer\n");
       wc[i] = list_entry(e, struct ibv_wc_wrapper, elem)->wc;
       e = list_next(e);
@@ -2493,6 +2499,7 @@ int _poll_cq(struct ibv_cq *cq, int num_entries, struct ibv_wc *wc)
     if (size < num_entries) {
       int ne = _real_ibv_poll_cq(internal_cq->real_cq,
                                  num_entries - size, wc + size);
+
       if (ne < 0) {
 	IBV_ERROR("poll_cq() error!\n");
       }
@@ -2508,68 +2515,73 @@ int _poll_cq(struct ibv_cq *cq, int num_entries, struct ibv_wc *wc)
 
   for (i = 0; i < rslt; i++) {
     if (i >= size) {
-      struct internal_ibv_qp *internal_qp =
-        qp_num_to_qp(&qp_list, wc[i].qp_num);
-      enum ibv_wc_opcode opcode = wc[i].opcode;
-      wc[i].qp_num = internal_qp->user_qp.qp_num;
-      if (opcode & IBV_WC_RECV ||
-          opcode == IBV_WC_RECV_RDMA_WITH_IMM) {
-	if (internal_qp->user_qp.srq) {
-	  struct internal_ibv_srq *internal_srq;
-	  internal_srq = ibv_srq_to_internal(internal_qp->user_qp.srq);
-	  internal_srq->recv_count++;
-	}
-	else {
-          struct list_elem *e;
-          struct ibv_post_recv_log *log;
+      if (wc[i].status != IBV_WC_SUCCESS) {
+        IBV_WARNING("Unsuccessful completion: %d.\n", wc[i].opcode);
+      } else {
+        struct internal_ibv_qp *internal_qp =
+          qp_num_to_qp(&qp_list, wc[i].qp_num);
+        enum ibv_wc_opcode opcode = wc[i].opcode;
 
-          e = list_pop_front(&internal_qp->post_recv_log);
-          log = list_entry(e, struct ibv_post_recv_log, elem);
+        wc[i].qp_num = internal_qp->user_qp.qp_num;
+        if (opcode & IBV_WC_RECV ||
+            opcode == IBV_WC_RECV_RDMA_WITH_IMM) {
+          if (internal_qp->user_qp.srq) {
+            struct internal_ibv_srq *internal_srq;
+            internal_srq = ibv_srq_to_internal(internal_qp->user_qp.srq);
+            internal_srq->recv_count++;
+          }
+          else {
+            struct list_elem *e;
+            struct ibv_post_recv_log *log;
 
-          free(log->wr.sg_list);
-          free(log);
-	}
-      } else if (opcode == IBV_WC_SEND ||
-                 opcode == IBV_WC_RDMA_WRITE ||
-                 opcode == IBV_WC_RDMA_READ ||
-                 opcode == IBV_WC_COMP_SWAP ||
-                 opcode == IBV_WC_FETCH_ADD) {
-	if (internal_qp->init_attr.sq_sig_all) {
-          struct list_elem *e;
-          struct ibv_post_send_log *log;
+            e = list_pop_front(&internal_qp->post_recv_log);
+            log = list_entry(e, struct ibv_post_recv_log, elem);
 
-          e = list_pop_front(&internal_qp->post_send_log);
-          log = list_entry(e, struct ibv_post_send_log, elem);
-
-          assert(log->magic == SEND_MAGIC);
-          free(log);
-	}
-	else {
-	  while(1) {
+            free(log->wr.sg_list);
+            free(log);
+          }
+        } else if (opcode == IBV_WC_SEND ||
+                   opcode == IBV_WC_RDMA_WRITE ||
+                   opcode == IBV_WC_RDMA_READ ||
+                   opcode == IBV_WC_COMP_SWAP ||
+                   opcode == IBV_WC_FETCH_ADD) {
+          if (internal_qp->init_attr.sq_sig_all) {
             struct list_elem *e;
             struct ibv_post_send_log *log;
 
             e = list_pop_front(&internal_qp->post_send_log);
             log = list_entry(e, struct ibv_post_send_log, elem);
 
-	    if (log->wr.send_flags & IBV_SEND_SIGNALED) {
-              assert(log->magic == SEND_MAGIC);
-              free(log->wr.sg_list);
-              free(log);
-	      break;
-	    }
-	    else {
-              assert(log->magic == SEND_MAGIC);
-              free(log->wr.sg_list);
-              free(log);
-	    }
-	  }
-	}
-      } else if (opcode == IBV_WC_BIND_MW) {
-        IBV_ERROR("opcode %d specifies unsupported operation.\n",
-                  opcode);
-      } else {
-        IBV_ERROR("Unknown or invalid opcode: %d\n", opcode);
+            assert(log->magic == SEND_MAGIC);
+            free(log);
+          }
+          else {
+            while(1) {
+              struct list_elem *e;
+              struct ibv_post_send_log *log;
+
+              e = list_pop_front(&internal_qp->post_send_log);
+              log = list_entry(e, struct ibv_post_send_log, elem);
+
+              if (log->wr.send_flags & IBV_SEND_SIGNALED) {
+                assert(log->magic == SEND_MAGIC);
+                free(log->wr.sg_list);
+                free(log);
+                break;
+              }
+              else {
+                assert(log->magic == SEND_MAGIC);
+                free(log->wr.sg_list);
+                free(log);
+              }
+            }
+          }
+        } else if (opcode == IBV_WC_BIND_MW) {
+          IBV_ERROR("opcode %d specifies unsupported operation.\n",
+                    opcode);
+        } else {
+          IBV_ERROR("Unknown or invalid opcode: %d\n", opcode);
+        }
       }
     }
   }
