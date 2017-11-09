@@ -144,7 +144,8 @@ DECL_FPTR(destroy_ah);
 // Memory window operations are not supported
 DECL_FPTR(alloc_mw);
 DECL_FPTR(dealloc_mw);
-DECL_FPTR(bind_mw);
+// On some versions of Mellanox OFED, ibv_bind_mw() is not implemented
+// DECL_FPTR(bind_mw);
 
 /* These files are processed by sed at compile time */
 #include "keys.ic"
@@ -1564,7 +1565,7 @@ struct ibv_context *_open_device(struct ibv_device *device) {
   UPDATE_FUNC_ADDR(destroy_ah, ctx->user_ctx.ops.destroy_ah);
 
   UPDATE_FUNC_ADDR(alloc_mw, ctx->user_ctx.ops.alloc_mw);
-  UPDATE_FUNC_ADDR(bind_mw, ctx->user_ctx.ops.bind_mw);
+  // UPDATE_FUNC_ADDR(bind_mw, ctx->user_ctx.ops.bind_mw);
   UPDATE_FUNC_ADDR(dealloc_mw, ctx->user_ctx.ops.dealloc_mw);
 
   ctx->user_ctx.device = device;
@@ -2641,12 +2642,14 @@ struct ibv_mw *_alloc_mw(struct ibv_pd *pd,
   return NEXT_IBV_FNC(ibv_alloc_mw)(pd, type);
 }
 
+/*
 int _bind_mw(struct ibv_qp *qp, struct ibv_mw *mw,
                 struct ibv_mw_bind *mw_bind)
 {
   IBV_WARNING("Not implemented.\n");
   return NEXT_IBV_FNC(ibv_bind_mw)(qp, mw, mw_bind);
 }
+*/
 
 int _dealloc_mw(struct ibv_mw *mw)
 {
