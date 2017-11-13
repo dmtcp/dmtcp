@@ -251,7 +251,6 @@ class RestoreTarget
     {
       UniquePid::ThisProcess() = _pInfo.upid();
       UniquePid::ParentProcess() = _pInfo.uppid();
-      Util::initializeLogFile(_pInfo.procname());
 
       if (createIndependentRootProcesses) {
         DmtcpUniqueProcessId compId = _pInfo.compGroup().upid();
@@ -307,6 +306,7 @@ class RestoreTarget
                                &compId,
                                &coordInfo,
                                &localIPAddr);
+        Util::initializeLogFile(SharedData::getTmpDir(), _pInfo.procname());
 
         Util::prepareDlsymWrapper();
       }
