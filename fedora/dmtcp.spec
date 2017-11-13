@@ -1,7 +1,7 @@
 %{!?_pkgdocdir: %global _pkgdocdir %{_docdir}/%{name}-%{version}}
 
 Name:		dmtcp
-Version:	2.5.1
+Version:	2.4
 Release:	0%{?dist}
 Summary:	Checkpoint/Restart functionality for Linux processes
 Group:		Applications/System
