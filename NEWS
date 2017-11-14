@@ -2,6 +2,14 @@ DMTCP NEWS -- history of user-visible changes.
 
 Please send DMTCP bug reports via <dmtcp-forum@lists.sourceforge.net>
 
+Version 2.4.9 release notes
+===========================
+* Fixed a regression causing deleted NFS files to be handled incorrectly
+* Fixed handling of glibc for versions greater than glibc-2.24
+* Errors and warnings with gcc-7.x are fixed
+* A rare bug affecting pthread_cancel, etc., created incorrect pid on restart
+* man pages fixed:  Description section was always describing dmtcp_command
+
 Version 2.4.8 release notes
 ===========================
 * The newest kernels (approximately Linux version 4.0 and later map
