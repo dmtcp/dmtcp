@@ -8,3 +8,14 @@ $manMacro2a{'myCmd'} 		= '\fB';
 $manMacro2a{'OptSArg'} 		= '\fB';
 	$manMacro2b{'OptSArg'} 	= '\fP \fI';
 	$manMacro2c{'OptSArg'} 	= '\fP';
+
+$htmlMacro1a{'myProg'}           = '<b>';
+	$htmlMacro1b{'myProg'} 	= '</b>';
+
+$htmlMacro2a{'myCmd'} 		= '<b>';
+	$htmlMacro2b{'myCmd'} 	= '</b>(';
+	$htmlMacro2c{'myCmd'} 	= ')';
+
+$htmlMacro2a{'OptSArg'} 		= '<b>';
+	$htmlMacro2b{'OptSArg'} 	= '</b> <it>';
+	$htmlMacro2c{'OptSArg'} 	= '</it>';

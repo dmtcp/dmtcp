@@ -1244,10 +1244,10 @@ setupSignalHandlers()
 static void
 calcLocalAddr()
 {
-  string cmd;
   char hostname[HOST_NAME_MAX];
 
   JASSERT(gethostname(hostname, sizeof hostname) == 0) (JASSERT_ERRNO);
+
   struct addrinfo *result = NULL;
   struct addrinfo *res;
   int error;
@@ -1255,7 +1255,7 @@ calcLocalAddr()
 
   memset(&localhostIPAddr, 0, sizeof localhostIPAddr);
   memset(&hints, 0, sizeof(struct addrinfo));
-  hints.ai_family = AF_INET;
+  hints.ai_family = AF_UNSPEC; // accept AF_INET and AF_INET6
   hints.ai_socktype = SOCK_STREAM;
   hints.ai_flags = AI_PASSIVE;
   hints.ai_protocol = 0;
@@ -1263,13 +1263,36 @@ calcLocalAddr()
   hints.ai_addr = NULL;
   hints.ai_next = NULL;
 
-  /* resolve the domain name into a list of addresses */
+  // FROM: Wikipedia:CNAME_record:
+  //  When a DNS resolver encounters a CNAME record while looking for a regular
+  //  resource record, it will restart the query using the canonical name
+  //  instead of the original name. (If the resolver is specifically told to
+  //  look for CNAME records, the canonical name (right-hand side) is returned,
+  //  rather than restarting the query.)
+  hints.ai_flags |= AI_CANONNAME;
+  error = getaddrinfo(hostname, NULL, &hints, &result);
+  hints.ai_flags ^= AI_CANONNAME;
+  if (error == 0 && result) {
+    // if hostname was not fully qualified with domainname, replace it with
+    // canonname.  Otherwise, keep current alias returned from gethostname().
+    if ( Util::strStartsWith(result->ai_canonname, hostname) &&
+         result->ai_canonname[strlen(hostname)] == '.' &&
+         strlen(result->ai_canonname) < sizeof(hostname) ) {
+      strncpy(hostname, result->ai_canonname, sizeof hostname);
+    }
+    freeaddrinfo(result);
+  }
+  // OPTIONAL:  If we still don't have a domainname, we could resolve with DNS
+  //   (similar to 'man 1 host'), but we ont't know if Internet is present.
+
+  /* resolve the hostname into a list of addresses */
   error = getaddrinfo(hostname, NULL, &hints, &result);
   if (error == 0) {
     /* loop over all returned results and do inverse lookup */
     bool success = false;
+    bool at_least_one_match = false;
+    char name[NI_MAXHOST] = "";
     for (res = result; res != NULL; res = res->ai_next) {
-      char name[NI_MAXHOST] = "";
       struct sockaddr_in *s = (struct sockaddr_in *)res->ai_addr;
 
       error = getnameinfo(res->ai_addr,
@@ -1282,18 +1305,31 @@ calcLocalAddr()
       if (error != 0) {
         JTRACE("getnameinfo() failed.") (gai_strerror(error));
         continue;
-      }
-      if (Util::strStartsWith(name, hostname) ||
-          Util::strStartsWith(hostname, name)) {
+      } else {
         JASSERT(sizeof localhostIPAddr == sizeof s->sin_addr);
-        success = true;
-        memcpy(&localhostIPAddr, &s->sin_addr, sizeof s->sin_addr);
+        if ( strncmp( name, hostname, sizeof hostname ) == 0 ) {
+          success = true;
+          break; // Stop here.  We found a matching hostname.
+        }
+        if (!at_least_one_match) { // Prefer the first match over later ones.
+          at_least_one_match = true;
+          memcpy(&localhostIPAddr, &s->sin_addr, sizeof s->sin_addr);
+        }
       }
     }
-    if (!success) {
-      JWARNING(false)("Failed to find coordinator IP address.  DMTCP may fail.")
-        (hostname);
+    if (result) {
+      freeaddrinfo(result);
     }
+    if (at_least_one_match) {
+      success = true;  // Call it a success even if hostname != name
+      if ( strncmp( name, hostname, sizeof hostname ) != 0 ) {
+        JTRACE("Canonical hostname different from original hostname")
+              (name)(hostname);
+      }
+    }
+
+    JWARNING(success) (hostname)
+      .Text("Failed to find coordinator IP address.  DMTCP may fail.");
   } else {
     if (error == EAI_SYSTEM) {
       perror("getaddrinfo");
@@ -1302,10 +1338,8 @@ calcLocalAddr()
     }
     inet_aton("127.0.0.1", &localhostIPAddr);
   }
+
   coordHostname = hostname;
-  if (result) {
-    freeaddrinfo(result);
-  }
 }
 
 static void

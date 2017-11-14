@@ -768,13 +768,15 @@ Util::allowGdbDebug(int currentDebugLevel)
   if (Util::isValidFd(PROTECTED_DEBUG_SOCKET_FD)) {
     int requestedDebugLevel = 0;
     // Inform parent of current level
-    write(PROTECTED_DEBUG_SOCKET_FD,
-          &currentDebugLevel,
-          sizeof(currentDebugLevel));
+    JASSERT(write(PROTECTED_DEBUG_SOCKET_FD,
+                  &currentDebugLevel,
+                  sizeof(currentDebugLevel))
+            == sizeof(currentDebugLevel));
     // Read the requested level from the parent
-    read(PROTECTED_DEBUG_SOCKET_FD,
-         &requestedDebugLevel,
-         sizeof(requestedDebugLevel));
+    JASSERT(read(PROTECTED_DEBUG_SOCKET_FD,
+                 &requestedDebugLevel,
+                 sizeof(requestedDebugLevel))
+            == sizeof(requestedDebugLevel));
     if (currentDebugLevel == requestedDebugLevel) {
       // Wait for GDB to connect if the requested level
       // matches the current level

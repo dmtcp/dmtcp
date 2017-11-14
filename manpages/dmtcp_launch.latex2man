@@ -1,30 +1,31 @@
-\begin{document}
-
-\begin{Name}{1}{dmtcp\_launch}{Kapil Arya}{Distributed MultiThreaded CheckPointing}{dmtcp\_launch -- start a process under DMTCP control}
-  \myProg{dmtcp_launch} -- start a process under DMTCP control.
+\begin{Name}{1}{dmtcp\_launch}{Kapil Arya, Gene Cooperman, Rohan Garg, et al.}{Distributed MultiThreaded CheckPointing}{dmtcp\_launch -- launch a process under DMTCP control}
+  \myProg{dmtcp\_launch} -- launch a process under DMTCP control.
 \end{Name}
 
 \section{Synopsis}
 %%%%%%%%%%%%%%%%%%
 
-\myProg{dmtcp_launch} \oArg{OPTIONS} \Arg{<command>} \oArg{args...}
+\myProg{dmtcp\_launch} \oArg{OPTIONS} \Arg{<command>} \oArg{args...}
 
 \section{Description}
 %%%%%%%%%%%%%%%%%%
 
-\myProg{dmtcp_command} is a tool to send user commands to the
-\myProg{dmtcp_coordinator} remotely.
+\myProg{dmtcp\_launch} launches a process under DMTCP control.
+
+%%% latex2man-1.24 requires that the call to \texttt{} be on a single line.
+A typical usage is:\\
+\texttt{rm ckpt\_a.out\_*.dmtcp \# Remove any stale copies of ckpt image\\ dmtcp\_launch --interval 5 a.out\\ dmtcp\_command --checkpoint \# Execute this in another window\\ \# Kill the currently running a.out process\\ dmtcp\_restart ckpt\_a.out\_*.dmtcp}
 
 \section{Options}
 %%%%%%%%%%%%%%%%%%
 
 \subsubsection{Connecting to the DMTCP Coordinator}
 \begin{Description}
-  \item[\Opt{-h}, \Opt{--coord-host} \Arg{hostname} (environment variable DMTCP_COORD_HOST)]
-    Hostname where dmtcp_coordinator is run (default: localhost)
+  \item[\Opt{-h}, \Opt{--coord-host} \Arg{hostname} (environment variable DMTCP\_COORD\_HOST)]
+    Hostname where dmtcp\_coordinator is run (default: localhost)
 
-  \item[\Opt{-p}, \Opt{--coord-port} \Arg{port} (environment variable DMTCP_COORD_PORT)]
-    Port where dmtcp_coordinator is run (default: 7779)
+  \item[\Opt{-p}, \Opt{--coord-port} \Arg{port} (environment variable DMTCP\_COORD\_PORT)]
+    Port where dmtcp\_coordinator is run (default: 7779)
 
   \item[\OptSArg{--port-file}{filename}]
     File to write listener port number.
@@ -37,28 +38,28 @@
   \item[\Opt{--new-coordinator}]
     Create a new coordinator at the given port. Fail if one
     already exists on the given port. The port can be specified
-    with \Opt{--coord-port}, or with environment variable DMTCP_COORD_PORT.
+    with \Opt{--coord-port}, or with environment variable DMTCP\_COORD\_PORT.
     If no port is specified, start coordinator at a random port (same
     as specifying port '0').
 
   \item[\Opt{--no-coordinator}]
     Execute the process in stand-alone coordinator-less mode.\\
-    Use \myProg{dmtcp_command} or \Opt{--interval} to request checkpoints.
+    Use \myProg{dmtcp\_command} or \Opt{--interval} to request checkpoints.
 
-  \item[\Opt{-i}, \Opt{-interval} \Arg{seconds} (environment variable DMTCP_CHECKPOINT_INTERVAL)]
+  \item[\Opt{-i}, \Opt{-interval} \Arg{seconds} (environment variable DMTCP\_CHECKPOINT\_INTERVAL)]
     Time in seconds between automatic checkpoints.
     0 implies never (manual ckpt only); if not set and no env var,
-    use default value set in dmtcp_coordinator or dmtcp_command.
+    use default value set in dmtcp\_coordinator or dmtcp\_command.
     Not allowed if \Opt{--join} is specified
 \end{Description}
 
 \subsubsection{Checkpoint image generation}
 \begin{Description}
-  \item[\Opt{--gzip}, \Opt{--no-gzip} (environment variable DMTCP_GZIP=\Lbr01\Rbr)]
+  \item[\Opt{--gzip}, \Opt{--no-gzip} (environment variable DMTCP\_GZIP=\Lbr01\Rbr)]
     Enable/disable compression of checkpoint images (default: 1 (enabled))\\
     WARNING:  gzip adds seconds.  Without gzip, ckpt is often $<$ 1s
 
-  \item[\OptSArg{--ckptdir}{path} (environment variable DMTCP_CHECKPOINT_DIR)]
+  \item[\OptSArg{--ckptdir}{path} (environment variable DMTCP\_CHECKPOINT\_DIR)]
     Directory to store checkpoint images (default: curr dir at launch)
 
   \item[\Opt{--ckpt-open-files}]
@@ -77,7 +78,7 @@
 
 \subsubsection{Enable/disable plugins}
 \begin{Description}
-  \item[\OptSArg{--with-plugin}{plugins} (environment variable DMTCP_PLUGIN)]
+  \item[\OptSArg{--with-plugin}{plugins} (environment variable DMTCP\_PLUGIN)]
     Colon-separated list of DMTCP plugins to be preloaded with DMTCP.
     (Absolute pathnames are required.)
 
@@ -90,16 +91,16 @@
 
   \item[\Opt{--modify-env}]
     Update environment variables based on the environment on the restart host
-    (e.g., DISPLAY=\$DISPLAY).  This can be set in a file dmtcp_env.txt.
+    (e.g., DISPLAY=\$DISPLAY).  This can be set in a file dmtcp\_env.txt.
     (default: disabled)
 
   \item[\Opt{--ib}, \Opt{--infiniband}]
     Enable InfiniBand plugin. (default: disabled)
 
-  \item[\Opt{--disable-alloc-plugin} (environment variable DMTCP_ALLOC_PLUGIN=\Lbr01\Rbr)]
+  \item[\Opt{--disable-alloc-plugin} (environment variable DMTCP\_ALLOC\_PLUGIN=\Lbr01\Rbr)]
     Disable alloc plugin (default: enabled).
 
-  \item[\Opt{--disable-dl-plugin} (environment variable DMTCP_DL_PLUGIN=\Lbr01\Rbr)]
+  \item[\Opt{--disable-dl-plugin} (environment variable DMTCP\_DL\_PLUGIN=\Lbr01\Rbr)]
     Disable dl plugin (default: enabled).
 
   \item[\Opt{--disable-all-plugins} (EXPERTS ONLY, FOR DEBUGGING)]
@@ -111,11 +112,11 @@
   \item[\OptSArg{--prefix}{path}]
     Prefix where DMTCP is installed on remote nodes.
 
-  \item[\OptSArg{--tmpdir}{path} (environment variable DMTCP_TMPDIR)]
+  \item[\OptSArg{--tmpdir}{path} (environment variable DMTCP\_TMPDIR)]
     Directory to store temporary files
     (default: \$TMDPIR/dmtcp-\$USER@\$HOST or /tmp/dmtcp-\$USER@\$HOST)
 
-  \item[\Opt{-q}, \Opt{--quiet} (or set environment variable DMTCP_QUIET = 0, 1, or 2)]
+  \item[\Opt{-q}, \Opt{--quiet} (or set environment variable DMTCP\_QUIET = 0, 1, or 2)]
     Skip NOTE messages; if given twice, also skip WARNINGs
 
   \item[\Opt{--help}] Print this message and exit.
