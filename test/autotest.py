@@ -853,7 +853,7 @@ runTest("frisbee",       3, ["./test/frisbee "+p1+" localhost "+p2,
                              "./test/frisbee "+p2+" localhost "+p3,
                              "./test/frisbee "+p3+" localhost "+p1+" starter"])
 POST_LAUNCH_SLEEP=DEFAULT_POST_LAUNCH_SLEEP
-os.environ['DMTCP_GZIP'] = "0"
+os.environ['DMTCP_GZIP'] = GZIP
 
 # On an NFS filesystem, a race can manifest late on the second restart,
 # due to a slow coordinator.
@@ -920,7 +920,7 @@ runTest("perl",          1, ["/usr/bin/perl"])
 if HAS_PYTHON == "yes":
   runTest("python",      1, ["/usr/bin/python"])
 
-os.environ['DMTCP_GZIP'] = "0"
+os.environ['DMTCP_GZIP'] = "1"
 runTest("bash",        2, ["/bin/bash --norc -c 'ls; sleep 30; ls'"])
 os.environ['DMTCP_GZIP'] = GZIP
 
@@ -931,7 +931,7 @@ if HAS_DASH == "yes":
   os.environ['DMTCP_GZIP'] = GZIP
 
 if HAS_TCSH == "yes":
-  os.environ['DMTCP_GZIP'] = "0"
+  os.environ['DMTCP_GZIP'] = "1"
   runTest("tcsh",        2, ["/bin/tcsh -f -c 'ls; sleep 30; ls'"])
   os.environ['DMTCP_GZIP'] = GZIP
 
