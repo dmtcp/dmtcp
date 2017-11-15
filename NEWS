@@ -2,6 +2,31 @@ DMTCP NEWS -- history of user-visible changes.
 
 Please send DMTCP bug reports via <dmtcp-forum@lists.sourceforge.net>
 
+Version 2.5.2 release notes
+===========================
+* All fixes in Release DMTCP-2.4.9 are incorporated in this release.
+* An incompatibility of DMTCP with Open MPI 1.10 when using orterun (mpirun)
+  was discovered.  This does not affect recent versions, such as Open MPI 2.x.
+* In some rare cases, open files were not properly restored due to
+  a use-after-free bug.  This is now fixed.
+* In some rare cases, one process had created a SysV shared memory object,
+  and a different process was assigned to restore it on restart.  This
+  was not handled correctly, and is now fixed.
+* Correctly restore CPU affinities of threads
+* Virtualized SysV shared memory keys to avoid race condition on restart
+* Fixed logic for checking if relative path to file was a duplicate
+  of another existing path
+* The NSCD area for name service caching daemon was not handled correctly
+  in CentOS 6.8 and later correctly.  Fixed now.
+* The Linux sched.h include file for scheduling of cores was added to
+  satisfy some older Linux distros that needed it for compiling DMTCP.
+* Fixed a regression in which --enable-debug (for verbose debug logs)
+  was not being properly written.
+* The DMTCP coordinator was displaying a spurious warning, "Failed to find
+  coordinator IP address", because it did not check for a canoncial hostname.
+  A related issue prevented DMTCP from working properly on some
+  SUSE/openSUSE distros.
+
 Version 2.5.1 release notes
 ===========================
 This release mostly provides added robustness.  Two notable items of
