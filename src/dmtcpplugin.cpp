@@ -361,23 +361,30 @@ dmtcp_get_restart_env(const char *name,   // IN
 
   DmtcpGetRestartEnvErr_t rc = RESTART_ENV_NOTFOUND;
 
-  char env_buf[RESTART_ENV_MAXSIZE] = { 0 }; // All "name=val" strings must be
-                                             // shorter than this.
-
   if (name == NULL || value == NULL) {
     close(env_fd);
     return RESTART_ENV_NULL_PTR;
   }
+
+  struct stat statbuf;
+  size_t size = RESTART_ENV_MAXSIZE;
+  char *env_buf = NULL;
+
+  if (fstat(env_fd, &statbuf) == 0) {
+    size = statbuf.st_size + 1;
+  }
+
+  env_buf = (char*) JALLOC_HELPER_MALLOC(size);
 
   int namelen = strlen(name);
   *value = '\0'; // Default is null string
   char *pos = NULL;
 
   while (rc == RESTART_ENV_NOTFOUND) {
-    memset(env_buf, 0, RESTART_ENV_MAXSIZE);
+    memset(env_buf, 0, size);
 
     // read a flattened name-value pairs list
-    int count = Util::readLine(env_fd, env_buf, RESTART_ENV_MAXSIZE);
+    int count = Util::readLine(env_fd, env_buf, size);
     if (count == 0) {
       break;
     } else if (count == -1) {
@@ -412,6 +419,7 @@ dmtcp_get_restart_env(const char *name,   // IN
   close(env_fd);
   JWARNING(rc != RESTART_ENV_DMTCP_BUF_TOO_SMALL)
     (name) (sizeof(env_buf)).Text("Resize env_buf[]");
+  JALLOC_HELPER_FREE(env_buf);
   return rc;
 }
 
