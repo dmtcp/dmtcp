@@ -122,8 +122,7 @@ fi
 
 AC_ARG_ENABLE([infiniband_support],
             [AS_HELP_STRING([--enable-infiniband-support],
-                            [Turn on flags needed to support Infiniband.
-			    (EXPERIMENTAL)])],
+                            [Turn on flags needed to support Infiniband.])],
             [use_infiniband_support=$enableval],
             [use_infiniband_support=no])
 

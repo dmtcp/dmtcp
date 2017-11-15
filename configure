@@ -1484,7 +1484,6 @@ Optional Features:
                           checkpoint should be a unique filename.
   --enable-infiniband-support
                           Turn on flags needed to support Infiniband.
-                          (EXPERIMENTAL)
   --enable-forked-checkpointing
                           fork a child process to do checkpointing, so that
                           parent sees only minor delay during checkpoint.
