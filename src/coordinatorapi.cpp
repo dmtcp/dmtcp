@@ -52,7 +52,7 @@ const int coordinatorSocket = PROTECTED_COORD_FD;
 int nsSock = -1;
 
 static bool _firstTime = true;
-static const char *_cachedHost = NULL;
+static string _cachedHost;
 static int _cachedPort = 0;
 
 void init();
@@ -161,7 +161,7 @@ getCoordHostAndPort(CoordinatorMode mode, string *host, int *port)
       }
     }
 
-    _cachedHost = host->c_str();
+    _cachedHost = *host;
     _cachedPort = *port;
     _firstTime = false;
   } else {
