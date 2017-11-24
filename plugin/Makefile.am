@@ -94,6 +94,15 @@ __d_libdir__libdmtcp_modify_env_so_SOURCES =                           \
 __d_libdir__libdmtcp_modify_env_so_LDFLAGS = $(dmtcp_ldflags)
 __d_libdir__libdmtcp_modify_env_so_LDADD = $(LDADD)
 
+#
+# Pathvirt plugin
+#
+libdmtcp_PROGRAMS += $(d_libdir)/libdmtcp_pathvirt.so
+__d_libdir__libdmtcp_pathvirt_so_SOURCES =                           \
+	pathvirt/pathvirt.cpp
+__d_libdir__libdmtcp_pathvirt_so_LDFLAGS = $(dmtcp_ldflags)
+__d_libdir__libdmtcp_pathvirt_so_LDADD = $(LDADD)
+
 # TODO(kapil): Re-enable Ptrace plugin after reworking the logic for new plugin
 # API.
 #

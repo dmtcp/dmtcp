@@ -57,9 +57,9 @@ static void
 restart()
 {
   char env_file[PATH_MAX];
-  int retval = dmtcp_get_restart_env(DMTCP_ENV_VAR, env_file, PATH_MAX);
+  DmtcpGetRestartEnvErr_t retval = dmtcp_get_restart_env(DMTCP_ENV_VAR, env_file, PATH_MAX);
 
-  if (retval != 0) {
+  if (retval != RESTART_ENV_SUCCESS) {
     strncpy(env_file, DMTCP_DEFAULT_ENV_FILE, sizeof DMTCP_DEFAULT_ENV_FILE);
   }
 
@@ -241,14 +241,14 @@ readAndSetEnv(char *buf, int size)
       }
 
       // Copy expansion of envName into dest
-      int rc = 0;
+      DmtcpGetRestartEnvErr_t rc = RESTART_ENV_SUCCESS;
       if (isNameChanged && getenv(envName)) {
         strncpy(dest, getenv(envName), sizeof nameBuf);
       } else {
         rc = dmtcp_get_restart_env(envName, dest,
                                    sizeof(valueBuf) - (dest - valueBuf));
       }
-      if (rc == 0) {
+      if (rc == RESTART_ENV_SUCCESS) {
         dest += strlen(dest);      // Move dest ptr to end of expanded string
       }
       break; }

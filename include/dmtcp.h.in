@@ -120,6 +120,18 @@ typedef struct {
   void (*event_hook)(const DmtcpEvent_t event, DmtcpEventData_t *data);
 } DmtcpPluginDescriptor_t;
 
+// Used by dmtcp_get_restart_env()
+typedef enum eDmtcpGetRestartEnvErr {
+  RESTART_ENV_SUCCESS = 0,
+  RESTART_ENV_NOTFOUND = -1,
+  RESTART_ENV_TOOLONG = -2,
+  RESTART_ENV_DMTCP_BUF_TOO_SMALL = -3,
+  RESTART_ENV_INTERNAL_ERROR = -4,
+  RESTART_ENV_NULL_PTR = -5,
+} DmtcpGetRestartEnvErr_t;
+
+#define   RESTART_ENV_MAXSIZE               12288*10
+
 #define DMTCP_NO_PLUGIN_BARRIERS 0, NULL
 
 #define DMTCP_DECL_BARRIERS(barriers)      \
@@ -343,9 +355,9 @@ __attribute__((weak));
 EXTERNC int dmtcp_is_running_state(void);
 
 // Primarily for use by the modify-env plugin.
-EXTERNC int dmtcp_get_restart_env(const char *name,
-                                  char *value,
-                                  size_t maxvaluelen);
+EXTERNC DmtcpGetRestartEnvErr_t dmtcp_get_restart_env(const char *name,
+                                                      char *value,
+                                                      size_t maxvaluelen);
 
 // Get pathname of target executable under DMTCP control.
 EXTERNC const char *dmtcp_get_executable_path();
