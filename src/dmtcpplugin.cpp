@@ -349,7 +349,7 @@ dmtcp_close_protected_fd(int fd)
 // NOTE: This implementation assumes that a "name=value" string will be
 // no more than MAXSIZE bytes.
 
-EXTERNC int
+EXTERNC DmtcpGetRestartEnvErr_t
 dmtcp_get_restart_env(const char *name,   // IN
                       char *value,        // OUT
                       size_t maxvaluelen)
@@ -359,39 +359,31 @@ dmtcp_get_restart_env(const char *name,   // IN
   JASSERT(env_fd != -1)(env_fd)(dmtcp_protected_environ_fd());
   lseek(env_fd, 0, SEEK_SET);
 
-#define SUCCESS             0
-#define NOTFOUND            -1
-#define TOOLONG             -2
-#define DMTCP_BUF_TOO_SMALL -3
-#define INTERNAL_ERROR      -4
-#define NULL_PTR            -5
-#define MAXSIZE             12288 * 10
+  DmtcpGetRestartEnvErr_t rc = RESTART_ENV_NOTFOUND;
 
-  int rc = NOTFOUND; // Default is -1: name not found
-
-  char env_buf[MAXSIZE] = { 0 }; // All "name=val" strings must be shorter than
-                                 // this.
+  char env_buf[RESTART_ENV_MAXSIZE] = { 0 }; // All "name=val" strings must be
+                                             // shorter than this.
 
   if (name == NULL || value == NULL) {
     close(env_fd);
-    return NULL_PTR;
+    return RESTART_ENV_NULL_PTR;
   }
 
   int namelen = strlen(name);
   *value = '\0'; // Default is null string
   char *pos = NULL;
 
-  while (rc == NOTFOUND) {
-    memset(env_buf, 0, MAXSIZE);
+  while (rc == RESTART_ENV_NOTFOUND) {
+    memset(env_buf, 0, RESTART_ENV_MAXSIZE);
 
     // read a flattened name-value pairs list
-    int count = Util::readLine(env_fd, env_buf, MAXSIZE);
+    int count = Util::readLine(env_fd, env_buf, RESTART_ENV_MAXSIZE);
     if (count == 0) {
       break;
     } else if (count == -1) {
-      rc = INTERNAL_ERROR;
+      rc = RESTART_ENV_INTERNAL_ERROR;
     } else if (count == -2) {
-      rc = DMTCP_BUF_TOO_SMALL;
+      rc = RESTART_ENV_DMTCP_BUF_TOO_SMALL;
     } else {
       char *start_ptr = env_buf;
 
@@ -402,12 +394,12 @@ dmtcp_get_restart_env(const char *name,   // IN
           if ((pos = strchr(start_ptr, '='))) {
             strncpy(value, pos + 1, maxvaluelen);
             if (strlen(pos + 1) >= maxvaluelen) {
-              rc = TOOLONG; // value does not fit in the user-provided value
-                            // buffer
+              rc = RESTART_ENV_TOOLONG; // value does not fit in the
+                                        // user-provided value buffer
               break;
             }
           }
-          rc = SUCCESS;
+          rc = RESTART_ENV_SUCCESS;
           break;
         }
 
@@ -418,7 +410,7 @@ dmtcp_get_restart_env(const char *name,   // IN
   }
 
   close(env_fd);
-  JWARNING(rc != DMTCP_BUF_TOO_SMALL)
+  JWARNING(rc != RESTART_ENV_DMTCP_BUF_TOO_SMALL)
     (name) (sizeof(env_buf)).Text("Resize env_buf[]");
   return rc;
 }
