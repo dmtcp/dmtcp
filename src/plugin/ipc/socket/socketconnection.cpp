@@ -300,6 +300,80 @@ bool TcpConnection::isBlacklistedTcp(const sockaddr* saddr, socklen_t len)
   return false;
 }
 
+void TcpConnection::sendPeerInformation()
+{
+  struct sockaddr key = {0}, value = {0};
+  socklen_t keysz = 0, valuesz = 0;
+  bool sendPeerInfo = false;
+
+  if (!(_sockDomain == AF_INET || _sockDomain == AF_INET6) ||
+      _sockType != SOCK_STREAM) {
+    return;
+  }
+
+  switch (_type) {
+  case TCP_CONNECT:
+  case TCP_CONNECT_IN_PROGRESS:
+  {
+    // Local connect socket information
+    keysz = sizeof(key);
+    JASSERT(getsockname(_fds[0], &key, &keysz) == 0);
+    // Information about the accept socket on the server
+    valuesz = sizeof(value);
+    JASSERT(getpeername(_fds[0], &value, &valuesz) == 0);
+    sendPeerInfo = true;
+    break;
+  }
+  case TCP_ACCEPT:
+  {
+    // Local accept socket information
+    keysz = sizeof(key);
+    JASSERT(getsockname(_fds[0], &key, &keysz) == 0);
+    // Information about the client connect socket
+    valuesz = sizeof(value);
+    JASSERT(getpeername(_fds[0], &value, &valuesz) == 0);
+    sendPeerInfo = true;
+    break;
+  }
+  default:
+    break;
+  }
+  if (sendPeerInfo) {
+    dmtcp_send_key_val_pair_to_coordinator("SCons",
+                                           &key, keysz,
+                                           &value, valuesz);
+  }
+}
+
+void TcpConnection::recvPeerInformation()
+{
+  struct sockaddr key = {0}, value = {0};
+  socklen_t keylen = 0, vallen = 0;
+
+  if (!(_sockDomain == AF_INET || _sockDomain == AF_INET6) ||
+      _sockType != SOCK_STREAM) {
+    return;
+  }
+
+  if (_type == TCP_CONNECT || _type == TCP_ACCEPT ||
+      _type == TCP_CONNECT_IN_PROGRESS) {
+    keylen = sizeof(key);
+    JASSERT(getpeername(_fds[0], &key, &keylen) == 0);
+    vallen = sizeof(value);
+    int ret = dmtcp_send_query_to_coordinator("SCons",
+                                              &key, keylen,
+                                              &value, &vallen);
+    if (ret != 0) {
+      JASSERT(vallen == sizeof(value))(vallen)(sizeof(value));
+    } else {
+      JWARNING(false) (_fds[0])
+       .Text("DMTCP detected an \"external\" connect socket."
+             "The socket will be restored as a dead socket.");
+      markExternalConnect();
+    }
+  }
+}
+
 void TcpConnection::onBind(const struct sockaddr* addr, socklen_t len)
 {
   if (really_verbose) {

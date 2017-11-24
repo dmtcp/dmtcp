@@ -19,6 +19,10 @@ namespace dmtcp
   class SocketConnList : public ConnectionList
   {
     public:
+      // NS = Name Service
+      virtual void preCkptRegisterNSData();
+      virtual void preCkptSendQueries();
+ 
       virtual void drain();
       virtual void preCkpt();
       virtual void postRestart();

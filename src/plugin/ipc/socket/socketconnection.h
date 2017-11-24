@@ -106,6 +106,9 @@ namespace dmtcp
       void markExternalConnect() { _type = TCP_EXTERNAL_CONNECT; }
       bool isBlacklistedTcp(const sockaddr* saddr, socklen_t len);
 
+      void sendPeerInformation();
+      void recvPeerInformation();
+
       //basic commands for updating state from wrappers
       /*onSocket*/
       TcpConnection(int domain, int type, int protocol);

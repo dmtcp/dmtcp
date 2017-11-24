@@ -60,6 +60,10 @@ namespace dmtcp
     DMT_DO_SUSPEND,          // when coordinator wants slave to suspend        8
     DMT_DO_RESUME,           // when coordinator wants slave to resume (after checkpoint)
     DMT_DO_FD_LEADER_ELECTION, // when coordinator wants slaves to do leader election
+#ifdef COORD_NAMESERVICE
+    DMT_DO_PRE_CKPT_NAME_SERVICE_DATA_REGISTER,
+    DMT_DO_PRE_CKPT_NAME_SERVICE_DATA_QUERY,
+#endif
     DMT_DO_DRAIN,            // when coordinator wants slave to flush
     DMT_DO_CHECKPOINT,       // when coordinator wants slave to checkpoint
 #ifdef COORD_NAMESERVICE

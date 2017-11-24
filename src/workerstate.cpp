@@ -30,6 +30,8 @@ ostream& operator << (ostream& o, const eWorkerState& s)
     case WorkerState::RUNNING:      o << "RUNNING"; break;
     case WorkerState::SUSPENDED:    o << "SUSPENDED"; break;
     case WorkerState::FD_LEADER_ELECTION:  o << "FD_LEADER_ELECTION"; break;
+    case WorkerState::PRE_CKPT_NAME_SERVICE_DATA_REGISTER:  o << "PRE_CKPT_NAME_SERVICE_DATA_REGISTER"; break;
+    case WorkerState::PRE_CKPT_NAME_SERVICE_DATA_QUERY:  o << "PRE_CKPT_NAME_SERVICE_DATA_QUERY"; break;
     case WorkerState::NAME_SERVICE_DATA_REGISTERED: o << "NAME_SERVICE_DATA_REGISTERED"; break;
     case WorkerState::DONE_QUERYING: o << "DONE_QUERYING"; break;
     case WorkerState::DRAINED:      o << "DRAINED"; break;
