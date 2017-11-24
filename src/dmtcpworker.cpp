@@ -509,6 +509,18 @@ void DmtcpWorker::waitForStage2Checkpoint()
 
   WorkerState::setCurrentState (WorkerState::FD_LEADER_ELECTION);
 
+  waitForCoordinatorMsg ("PRE_CKPT_NAME_SERVICE_DATA_REGISTER", DMT_DO_PRE_CKPT_NAME_SERVICE_DATA_REGISTER);
+
+  eventHook(DMTCP_EVENT_PRE_CKPT_NAME_SERVICE_DATA_REGISTER, NULL);
+
+  WorkerState::setCurrentState (WorkerState::PRE_CKPT_NAME_SERVICE_DATA_REGISTER);
+
+  waitForCoordinatorMsg ("PRE_CKPT_NAME_SERVICE_DATA_QUERY", DMT_DO_PRE_CKPT_NAME_SERVICE_DATA_QUERY);
+
+  eventHook(DMTCP_EVENT_PRE_CKPT_NAME_SERVICE_DATA_QUERY, NULL);
+
+  WorkerState::setCurrentState (WorkerState::PRE_CKPT_NAME_SERVICE_DATA_QUERY);
+
   waitForCoordinatorMsg ("DRAIN", DMT_DO_DRAIN);
 
   WorkerState::setCurrentState (WorkerState::DRAINED);

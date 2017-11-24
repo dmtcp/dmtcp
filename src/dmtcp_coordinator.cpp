@@ -440,10 +440,22 @@ void DmtcpCoordinator::updateMinimumState(WorkerState::eWorkerState oldState)
   if ( oldState == WorkerState::SUSPENDED
        && newState == WorkerState::FD_LEADER_ELECTION )
   {
+    JNOTE ( "registering peer info pre ckpt" );
+    broadcastMessage ( DMT_DO_PRE_CKPT_NAME_SERVICE_DATA_REGISTER );
+  }
+  if ( oldState == WorkerState::FD_LEADER_ELECTION
+       && newState == WorkerState::PRE_CKPT_NAME_SERVICE_DATA_REGISTER )
+  {
+    JNOTE ( "querying peer info pre ckpt" );
+    broadcastMessage ( DMT_DO_PRE_CKPT_NAME_SERVICE_DATA_QUERY );
+  }
+  if ( oldState == WorkerState::PRE_CKPT_NAME_SERVICE_DATA_REGISTER
+       && newState == WorkerState::PRE_CKPT_NAME_SERVICE_DATA_QUERY )
+  {
     JNOTE ( "draining all nodes" );
     broadcastMessage ( DMT_DO_DRAIN );
   }
-  if ( oldState == WorkerState::FD_LEADER_ELECTION
+  if ( oldState == WorkerState::PRE_CKPT_NAME_SERVICE_DATA_QUERY
        && newState == WorkerState::DRAINED )
   {
     JNOTE ( "checkpointing all nodes" );

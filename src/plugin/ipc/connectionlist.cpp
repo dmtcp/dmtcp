@@ -131,6 +131,14 @@ void ConnectionList::eventHook(DmtcpEvent_t event,
       JLOG(IPC)("locked");
       break;
 
+    case DMTCP_EVENT_PRE_CKPT_NAME_SERVICE_DATA_REGISTER:
+      preCkptRegisterNSData();
+      break;
+
+    case DMTCP_EVENT_PRE_CKPT_NAME_SERVICE_DATA_QUERY:
+      preCkptSendQueries();
+      break;
+
     case DMTCP_EVENT_DRAIN:
       JLOG(IPC)("draining...");
       drain();
