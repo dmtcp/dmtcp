@@ -257,7 +257,7 @@ class VirtualIdTable
     void serialize(jalib::JBinarySerializer &o)
     {
       JSERIALIZE_ASSERT_POINT("VirtualIdTable:");
-      o.serializeMap(_idMapTable);
+      o & _idMapTable;
       JSERIALIZE_ASSERT_POINT("EOF");
       printMaps();
     }
@@ -276,7 +276,7 @@ class VirtualIdTable
       JASSERT(lseek(fd, 0, SEEK_END) != -1);
 
       jalib::JBinarySerializeWriterRaw mapwr(mapFile, fd);
-      mapwr.serializeMap(_idMapTable);
+      mapwr & _idMapTable;
 
       _do_unlock_tbl();
       Util::unlockFile(fd);
@@ -298,7 +298,7 @@ class VirtualIdTable
       maprd.rewind();
 
       while (!maprd.isEOF()) {
-        maprd.serializeMap(_idMapTable);
+        maprd & _idMapTable;
       }
 
       _do_unlock_tbl();

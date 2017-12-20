@@ -121,7 +121,6 @@ void
 Connection::serialize(jalib::JBinarySerializer &o)
 {
   JSERIALIZE_ASSERT_POINT("Connection");
-  o&_id&_type&_fcntlFlags&_fcntlOwner &_fcntlSignal;
-  o.serializeVector(_fds);
+  o&_id&_type&_fcntlFlags&_fcntlOwner &_fcntlSignal & _fds;
   serializeSubClass(o);
 }

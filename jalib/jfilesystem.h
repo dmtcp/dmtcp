@@ -62,7 +62,7 @@ int mkdir_r(const jalib::string &dir, mode_t mode);
 
 StringVector GetProgramArgs();
 
-IntVector ListOpenFds();
+dmtcp::vector<int> ListOpenFds();
 
 jalib::string GetControllingTerm(pid_t pid = -1);
 

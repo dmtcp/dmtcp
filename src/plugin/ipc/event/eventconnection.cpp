@@ -95,8 +95,7 @@ void
 EpollConnection::serializeSubClass(jalib::JBinarySerializer &o)
 {
   JSERIALIZE_ASSERT_POINT("EpollConnection");
-  o & _size & _flags;
-  o.serializeMap(_fdToEvent);
+  o & _size & _flags & _fdToEvent;
 }
 
 EpollConnection&

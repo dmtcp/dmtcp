@@ -73,12 +73,12 @@ class JBinarySerializer
       return *this;
     }
 
-    template<typename T, typename A>
-    void serializeVector(std::vector<T, A> &t)
+    template<typename T>
+    void serialize(dmtcp::vector<T> &t)
     {
       JBinarySerializer &o = *this;
 
-      JSERIALIZE_ASSERT_POINT("std::vector:");
+      JSERIALIZE_ASSERT_POINT("dmtcp::vector:");
 
       // establish the size
       uint32_t len = t.size();
@@ -110,7 +110,7 @@ class JBinarySerializer
     }
 
     template<typename K, typename V>
-    void serializeMap(dmtcp::map<K, V> &t)
+    void serialize(dmtcp::map<K, V> &t)
     {
       JBinarySerializer &o = *this;
 
@@ -159,13 +159,6 @@ JBinarySerializer::serialize<jalib::string>(jalib::string &t)
   serialize(len);
   t.resize(len, '?');
   readOrWrite(&t[0], len);
-}
-
-template<>
-inline void
-JBinarySerializer::serialize<jalib::IntVector>(jalib::IntVector &t)
-{
-  serializeVector(t);
 }
 
 class JBinarySerializeWriterRaw : public JBinarySerializer

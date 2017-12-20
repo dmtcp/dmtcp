@@ -33,8 +33,6 @@ namespace jalib
 #if 1
 typedef dmtcp::string string;
 typedef dmtcp::ostringstream ostringstream;
-typedef dmtcp::vector<int>IntVector;
-typedef dmtcp::set<int>IntSet;
 typedef dmtcp::vector<string>StringVector;
 using dmtcp::vector;
 #else // if 1

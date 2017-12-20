@@ -789,7 +789,7 @@ ProcessInfo::serialize(jalib::JBinarySerializer &o)
   }
 
   JTRACE("Serializing ChildPid Table") (_childTable.size()) (o.filename());
-  o.serializeMap(_childTable);
+  o & _childTable;
 
   JSERIALIZE_ASSERT_POINT("EOF");
 }

@@ -299,7 +299,7 @@ jalib::Filesystem::GetProgramArgs()
   return *rv;
 }
 
-jalib::IntVector
+dmtcp::vector<int>
 jalib::Filesystem::ListOpenFds()
 {
   int fd = jalib::open("/proc/self/fd", O_RDONLY | O_NDELAY |
@@ -311,7 +311,7 @@ jalib::Filesystem::ListOpenFds()
                              ? sizeof(struct dirent64) : 4 * BUFSIZ);
   char *buf = (char *)JALLOC_HELPER_MALLOC(allocation);
 
-  IntVector fdVec;
+  dmtcp::vector<int> fdVec;
 
   while (true) {
     int nread = jalib::syscall(SYS_getdents, fd, buf, allocation);
