@@ -22,11 +22,12 @@
 #ifndef JCONVERT_H
 #define JCONVERT_H
 
-#include "jassert.h"
-#include "stlwrapper.h"
 #include <sstream>
 #include <stdlib.h>
 #include <string>
+
+#include "dmtcpalloc.h"
+#include "jassert.h"
 
 namespace jalib
 {
@@ -35,7 +36,7 @@ namespace jconvert_internal
 // about 15x faster than sringstream method
 template<typename T, T(strtoT) (const char *, char **, int)>
 inline T
-StdLibEC(const jalib::string &s, bool strict)
+StdLibEC(const dmtcp::string &s, bool strict)
 {
   const char *begin = s.c_str();
   char *end = 0;
@@ -50,7 +51,7 @@ StdLibEC(const jalib::string &s, bool strict)
 // about 15x faster than sringstream method
 template<typename T, T(strtoT) (const char *, char **)>
 inline T
-StdLibEC(const jalib::string &s, bool strict)
+StdLibEC(const dmtcp::string &s, bool strict)
 {
   const char *begin = s.c_str();
   char *end = 0;
@@ -64,17 +65,17 @@ StdLibEC(const jalib::string &s, bool strict)
 }
 
 template<typename X>
-inline jalib::string
+inline dmtcp::string
 XToString(const X &x)
 {
-  jalib::ostringstream tmp;
+  dmtcp::ostringstream tmp;
 
   tmp << x;
   return tmp.str();
 }
 
 template<typename X>
-inline X StringToX(const jalib::string &s, bool strict = true);
+inline X StringToX(const dmtcp::string &s, bool strict = true);
 
 // this is too slow
 // {
@@ -85,15 +86,15 @@ inline X StringToX(const jalib::string &s, bool strict = true);
 // }
 
 template<>
-inline jalib::string
-StringToX<jalib::string>(const jalib::string &s, bool strict)
+inline dmtcp::string
+StringToX<dmtcp::string>(const dmtcp::string &s, bool strict)
 {
   return s;
 }
 
 #define JCONVERT_DECLARE_StringToX(T, TFunc, Function)              \
   template<>                                                        \
-  inline T StringToX<T>(const jalib::string & s, bool strict) {     \
+  inline T StringToX<T>(const dmtcp::string & s, bool strict) {     \
     return jconvert_internal::StdLibEC<TFunc, Function>(s, strict); \
   }
 

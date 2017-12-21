@@ -48,14 +48,14 @@ namespace
 // For tests like dmtcp5, forkexec (tests with child processes),
 // the child process may have a name "NAME (deleted)".
 // This is arguably a bug in the kernel.
-jalib::string
+dmtcp::string
 _GetProgramExe()
 {
-  jalib::string exe = "/proc/self/exe";
+  dmtcp::string exe = "/proc/self/exe";
 
   // NOTE: ResolveSymlink is returning string on stack.  Hopefully
-  // C++ jalib::string is smart enough to copy it.
-  jalib::string exeRes = jalib::Filesystem::ResolveSymlink(exe);
+  // C++ dmtcp::string is smart enough to copy it.
+  dmtcp::string exeRes = jalib::Filesystem::ResolveSymlink(exe);
 
   JASSERT(exe != exeRes) (exe).Text("problem with /proc/self/exe");
 
@@ -83,10 +83,10 @@ _GetProgramCmdline(char *buf, int size)
 }
 }
 
-jalib::string
+dmtcp::string
 jalib::Filesystem::GetCWD()
 {
-  jalib::string cwd;
+  dmtcp::string cwd;
   char buf[PATH_MAX];
 
   JASSERT(getcwd(buf, PATH_MAX) == buf)
@@ -95,8 +95,8 @@ jalib::Filesystem::GetCWD()
   return cwd;
 }
 
-jalib::string
-jalib::Filesystem::BaseName(const jalib::string &str)
+dmtcp::string
+jalib::Filesystem::BaseName(const dmtcp::string &str)
 {
   size_t len = str.length();
 
@@ -111,15 +111,15 @@ jalib::Filesystem::BaseName(const jalib::string &str)
 
   size_t lastSlash = str.find_last_of('/', len);
 
-  if (lastSlash == string::npos) {
+  if (lastSlash == dmtcp::string::npos) {
     return str.substr(0, len);
   }
 
   return str.substr(lastSlash + 1, len - lastSlash);
 }
 
-jalib::string
-jalib::Filesystem::DirName(const jalib::string &str)
+dmtcp::string
+jalib::Filesystem::DirName(const dmtcp::string &str)
 {
   size_t len = str.length();
 
@@ -138,7 +138,7 @@ jalib::Filesystem::DirName(const jalib::string &str)
 
   size_t lastSlash = str.find_last_of('/', len);
 
-  if (lastSlash == string::npos) {
+  if (lastSlash == dmtcp::string::npos) {
     return ".";
   }
 
@@ -150,7 +150,7 @@ jalib::Filesystem::DirName(const jalib::string &str)
 }
 
 int
-jalib::Filesystem::mkdir_r(const jalib::string &dir, mode_t mode)
+jalib::Filesystem::mkdir_r(const dmtcp::string &dir, mode_t mode)
 {
   struct stat buf;
   int ret = stat(dir.c_str(), &buf);
@@ -163,7 +163,7 @@ jalib::Filesystem::mkdir_r(const jalib::string &dir, mode_t mode)
   }
 
   if (ret && errno == ENOENT) {
-    jalib::string pdir = DirName(dir);
+    dmtcp::string pdir = DirName(dir);
     JTRACE("Create parent dir")(pdir);
     mkdir_r(pdir, mode);
     return mkdir(dir.c_str(), mode);
@@ -173,27 +173,27 @@ jalib::Filesystem::mkdir_r(const jalib::string &dir, mode_t mode)
   return 0;
 }
 
-jalib::string
+dmtcp::string
 jalib::Filesystem::GetProgramDir()
 {
-  static jalib::string *value = NULL;
+  static dmtcp::string *value = NULL;
   if (value == NULL) {
     // Technically, this is a memory leak, but value is static and so it happens
     // only once.
-    value = new jalib::string(DirName(GetProgramPath()));
+    value = new dmtcp::string(DirName(GetProgramPath()));
   }
   return *value;
 }
 
-jalib::string
+dmtcp::string
 jalib::Filesystem::GetProgramName()
 {
-  static jalib::string *value = NULL;
+  static dmtcp::string *value = NULL;
 
   if (value == NULL) {
     size_t len;
     char cmdline[1024];
-    value = new jalib::string(BaseName ( GetProgramPath() )); // uses /proc/self/exe
+    value = new dmtcp::string(BaseName ( GetProgramPath() )); // uses /proc/self/exe
     // We may rewrite "a.out" to "/lib/ld-linux.so.2 a.out".  If so, find cmd.
     if (!value->empty()
         && jalib::elfInterpreter() != NULL
@@ -207,14 +207,14 @@ jalib::Filesystem::GetProgramName()
   return *value;
 }
 
-jalib::string
+dmtcp::string
 jalib::Filesystem::GetProgramPath()
 {
-  static jalib::string *value = NULL;
+  static dmtcp::string *value = NULL;
   if (value == NULL) {
     // Technically, this is a memory leak, but value is static and so it happens
     // only once.
-    value = new jalib::string(_GetProgramExe());
+    value = new dmtcp::string(_GetProgramExe());
   }
   return *value;
 }
@@ -222,8 +222,8 @@ jalib::Filesystem::GetProgramPath()
 // NOTE: ResolveSymlink returns a string, buf, allocated on the stack.
 // While this is dangerous, it avoids the use of malloc or 'new'.
 // Finish using the result before you call a different function.
-jalib::string
-jalib::Filesystem::ResolveSymlink(const jalib::string &path)
+dmtcp::string
+jalib::Filesystem::ResolveSymlink(const dmtcp::string &path)
 {
   struct stat statBuf;
 
@@ -240,20 +240,20 @@ jalib::Filesystem::ResolveSymlink(const jalib::string &path)
   } else if (len > 0 && buf[0] != '/' &&
              path.find("/proc/") != 0) {
     // Handle links of type "file -> dir/file2"
-    string res = DirName(path).append("/").append(buf);
+    dmtcp::string res = DirName(path).append("/").append(buf);
     return res;
   }
   return buf;
 }
 
-jalib::string
+dmtcp::string
 jalib::Filesystem::GetDeviceName(int fd)
 {
   return ResolveSymlink("/proc/self/fd/" + jalib::XToString(fd));
 }
 
 bool
-jalib::Filesystem::FileExists(const jalib::string &str)
+jalib::Filesystem::FileExists(const dmtcp::string &str)
 {
   struct stat st;
 
@@ -264,18 +264,18 @@ jalib::Filesystem::FileExists(const jalib::string &str)
   }
 }
 
-jalib::StringVector
+dmtcp::vector<dmtcp::string>
 jalib::Filesystem::GetProgramArgs()
 {
-  static StringVector *rv = NULL;
+  static dmtcp::vector<dmtcp::string> *rv = NULL;
   if (rv == NULL) {
     // Technically, this is a memory leak, but rv is static and so it happens
     // only once.
-    rv = new StringVector();
+    rv = new dmtcp::vector<dmtcp::string>();
   }
 
   if (rv->empty()) {
-    jalib::string path = "/proc/self/cmdline";
+    dmtcp::string path = "/proc/self/cmdline";
 
     // FIXME: Replace fopen with open.
     FILE *args = jalib::fopen(path.c_str(), "r");
@@ -339,26 +339,26 @@ jalib::Filesystem::ListOpenFds()
   return fdVec;
 }
 
-jalib::string
+dmtcp::string
 jalib::Filesystem::GetCurrentHostname()
 {
   struct utsname tmp;
 
   memset(&tmp, 0, sizeof(tmp));
   JASSERT(uname(&tmp) != -1) (JASSERT_ERRNO);
-  jalib::string name = "unknown";
+  dmtcp::string name = "unknown";
   if (strlen(tmp.nodename) != 0) {
     name = tmp.nodename;
   }
 
   // #ifdef _GNU_SOURCE
   // if(tmp.domainname != 0)
-  // name += jalib::string(".") + tmp.domainname;
+  // name += dmtcp::string(".") + tmp.domainname;
   // #endif
   return name;
 }
 
-jalib::string
+dmtcp::string
 jalib::Filesystem::GetControllingTerm(pid_t pid /* = -1*/)
 {
   char sbuf[1024];

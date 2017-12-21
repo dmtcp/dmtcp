@@ -25,10 +25,11 @@
 #include <sys/time.h>
 #include <time.h>
 
+#include "dmtcpalloc.h"
+
 #include "jalloc.h"
 #include "jassert.h"
 #include "jconvert.h"
-#include "stlwrapper.h"
 
 #include "config.h"
 
@@ -86,7 +87,7 @@ class JTimeRecorder
 
     static void operator delete(void *p) { JALLOC_HELPER_DELETE(p); }
 #endif // ifdef JALIB_ALLOCATOR
-    JTimeRecorder(const jalib::string &name, bool printToFile);
+    JTimeRecorder(const dmtcp::string &name, bool printToFile);
     void start()
     {
       JWARNING(!_isStarted) (_name);
@@ -119,7 +120,7 @@ class JTimeRecorder
     void recordTime(double time);
 
   private:
-    jalib::string _name;
+    dmtcp::string _name;
     bool _isStarted;
     bool _printToFile;
     JTime _start;

@@ -22,9 +22,6 @@
 #ifndef JALIBJSOCKET_H
 #define JALIBJSOCKET_H
 
-#include "jalloc.h"
-#include "jassert.h"
-#include "stlwrapper.h"
 #include <errno.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
@@ -32,6 +29,10 @@
 #include <sys/types.h>
 #include <time.h>
 #include <vector>
+
+#include "dmtcpalloc.h"
+#include "jalloc.h"
+#include "jassert.h"
 
 namespace jalib
 {
@@ -328,9 +329,9 @@ class JMultiSocketProgram
     void addWrite(JWriterInterface *write);
 
   protected:
-    jalib::vector<JReaderInterface *>_dataSockets;
-    jalib::vector<JSocket>_listenSockets;
-    jalib::vector<JWriterInterface *>_writes;
+    dmtcp::vector<JReaderInterface *>_dataSockets;
+    dmtcp::vector<JSocket>_listenSockets;
+    dmtcp::vector<JWriterInterface *>_writes;
 
   private:
     bool timeoutEnabled;

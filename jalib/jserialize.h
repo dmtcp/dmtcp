@@ -22,18 +22,17 @@
 #ifndef JALIBJSERIALIZE_H
 #define JALIBJSERIALIZE_H
 
-
+#include "dmtcpalloc.h"
 #include "jalloc.h"
 #include "jassert.h"
 
-#include "stlwrapper.h"
 #include <stdint.h>
 #include <string>
 #include <vector>
 
 #define JSERIALIZE_ASSERT_POINT(str)                                \
   { char versionCheck[] = str;                                      \
-    jalib::string correctValue = versionCheck;                      \
+    dmtcp::string correctValue = versionCheck;                      \
     o &versionCheck;                                                \
     JASSERT(versionCheck ==                                         \
             correctValue)(versionCheck)(correctValue)(o.filename()) \
@@ -51,7 +50,7 @@ class JBinarySerializer
 
     static void operator delete(void *p) { JALLOC_HELPER_DELETE(p); }
 #endif // ifdef JALIB_ALLOCATOR
-    JBinarySerializer(const jalib::string &filename) : _filename(filename),
+    JBinarySerializer(const dmtcp::string &filename) : _filename(filename),
       _bytes(0) {}
 
     virtual ~JBinarySerializer() {}
@@ -139,12 +138,12 @@ class JBinarySerializer
       JSERIALIZE_ASSERT_POINT("endmap");
     }
 
-    const jalib::string &filename() const { return _filename; }
+    const dmtcp::string &filename() const { return _filename; }
 
     size_t bytes() const { return _bytes; }
 
   private:
-    jalib::string _filename;
+    dmtcp::string _filename;
 
   protected:
     size_t _bytes;
@@ -152,7 +151,7 @@ class JBinarySerializer
 
 template<>
 inline void
-JBinarySerializer::serialize<jalib::string>(jalib::string &t)
+JBinarySerializer::serialize<dmtcp::string>(dmtcp::string &t)
 {
   uint32_t len = t.length();
 
@@ -164,7 +163,7 @@ JBinarySerializer::serialize<jalib::string>(jalib::string &t)
 class JBinarySerializeWriterRaw : public JBinarySerializer
 {
   public:
-    JBinarySerializeWriterRaw(const jalib::string &file, int fd);
+    JBinarySerializeWriterRaw(const dmtcp::string &file, int fd);
     void readOrWrite(void *buffer, size_t len);
     bool isReader();
     void rewind();
@@ -178,14 +177,14 @@ class JBinarySerializeWriterRaw : public JBinarySerializer
 class JBinarySerializeWriter : public JBinarySerializeWriterRaw
 {
   public:
-    JBinarySerializeWriter(const jalib::string &path);
+    JBinarySerializeWriter(const dmtcp::string &path);
     ~JBinarySerializeWriter();
 };
 
 class JBinarySerializeReaderRaw : public JBinarySerializer
 {
   public:
-    JBinarySerializeReaderRaw(const jalib::string &file, int fd);
+    JBinarySerializeReaderRaw(const dmtcp::string &file, int fd);
     void readOrWrite(void *buffer, size_t len);
     bool isReader();
     void rewind();
@@ -200,7 +199,7 @@ class JBinarySerializeReaderRaw : public JBinarySerializer
 class JBinarySerializeReader : public JBinarySerializeReaderRaw
 {
   public:
-    JBinarySerializeReader(const jalib::string &path);
+    JBinarySerializeReader(const dmtcp::string &path);
     ~JBinarySerializeReader();
 };
 }

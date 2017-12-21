@@ -62,26 +62,26 @@ static int errConsoleFd = -1;
 // and return a reference. Thus, we can use the function on the left-hand side
 // (as a lvalue) to modifying the underlying variable.
 
-static jalib::string&
+static dmtcp::string&
 tmpDir()
 {
-  static jalib::string *s = NULL;
+  static dmtcp::string *s = NULL;
   if (s == NULL) {
     // Technically, this is a memory leak, but s is static and so it happens
     // only once.
-    s = new jalib::string();
+    s = new dmtcp::string();
   }
   return *s;
 }
 
-static jalib::string&
+static dmtcp::string&
 uniquePidStr()
 {
-  static jalib::string *s = NULL;
+  static dmtcp::string *s = NULL;
   if (s == NULL) {
     // Technically, this is a memory leak, but s is static and so it happens
     // only once.
-    s = new jalib::string();
+    s = new dmtcp::string();
   }
   return *s;
 }
@@ -172,18 +172,18 @@ _open_log_safe(const char *filename, int protectedFd)
 }
 
 static int
-_open_log_safe(const jalib::string &s, int protectedFd)
+_open_log_safe(const dmtcp::string &s, int protectedFd)
 {
   return _open_log_safe(s.c_str(), protectedFd);
 }
 
-static jalib::string&
+static dmtcp::string&
 theLogFilePath() {
-  static jalib::string *s = NULL;
+  static dmtcp::string *s = NULL;
   if (s == NULL) {
     // Technically, this is a memory leak, but s is static and so it happens
     // only once.
-    s = new jalib::string();
+    s = new dmtcp::string();
   }
   return *s;
 }
@@ -204,7 +204,7 @@ jassert_internal::jassert_init()
        * will cause problems in programs that use FD 2 (stderr) for non stderr
        * purposes.
        */
-      jalib::string stderrProcPath, stderrDevice;
+      dmtcp::string stderrProcPath, stderrDevice;
       stderrProcPath = "/proc/self/fd/" + jalib::XToString(fileno(stderr));
       stderrDevice = jalib::Filesystem::ResolveSymlink(stderrProcPath);
 
@@ -233,11 +233,11 @@ jassert_internal::close_stderr()
   errConsoleFd = -1;
 }
 
-static const jalib::string
+static const dmtcp::string
 writeJbacktraceMsg()
 {
-  jalib::ostringstream o;
-  jalib::string thisProgram = "libdmtcp.so";
+  dmtcp::ostringstream o;
+  dmtcp::string thisProgram = "libdmtcp.so";
 
   if (jalib::Filesystem::GetProgramName() == "dmtcp_coordinator") {
     thisProgram = "dmtcp_coordinator";
@@ -248,7 +248,7 @@ writeJbacktraceMsg()
   if (jalib::Filesystem::GetProgramName() == "dmtcp_restart") {
     thisProgram = "dmtcp_restart";
   }
-  jalib::string msg = jalib::string("")
+  dmtcp::string msg = dmtcp::string("")
     + "\n   *** Stack trace is available ***\n"                         \
       "   Try using:  util/dmtcp_backtrace.py  (found in DMTCP_ROOT)\n" \
       "   Try the following command line:\n"                            \
@@ -271,7 +271,7 @@ writeBacktrace()
 {
   void *buffer[BT_SIZE];
   int nptrs = backtrace(buffer, BT_SIZE);
-  jalib::string path = tmpDir() + "/backtrace." + uniquePidStr();
+  dmtcp::string path = tmpDir() + "/backtrace." + uniquePidStr();
   int fd = jalib::open(
       path.c_str(), O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
 
@@ -297,7 +297,7 @@ writeProcMaps()
   count = jalib::readAll(fd, mapsBuf, sizeof(mapsBuf) - 1);
   jalib::close(fd);
 
-  jalib::string path = tmpDir() + "/proc-maps." + uniquePidStr();
+  dmtcp::string path = tmpDir() + "/proc-maps." + uniquePidStr();
   fd =
     jalib::open(path.c_str(), O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
   if (fd == -1) {
@@ -319,9 +319,9 @@ jassert_internal::JAssert::jbacktrace()
 }
 
 void
-jassert_internal::set_log_file(const jalib::string &path,
-                               const jalib::string _tmpDir,
-                               const jalib::string &_uniquePidStr)
+jassert_internal::set_log_file(const dmtcp::string &path,
+                               const dmtcp::string _tmpDir,
+                               const dmtcp::string &_uniquePidStr)
 {
   tmpDir() = _tmpDir;
   uniquePidStr() = _uniquePidStr;
