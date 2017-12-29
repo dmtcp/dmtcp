@@ -29,7 +29,6 @@ child_thread(void *arg)
   for (i = 0; i < NUM_THREADS_2; i++) {
     pthread_t my_child;
     int rc = pthread_create(&my_child, NULL, child_thread_2, NULL);
-    printf("b"); fflush(stdout);
     if (rc == 0) {
       pthread_join(my_child, NULL);
     }

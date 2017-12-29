@@ -73,11 +73,14 @@ main()
   }
 
   while (1) {
-    if (count % (int)1e6 == 0) {
+    // Print count every second.
+    if (count % 1000 == 0) {
       printf("%ld ", count);
       fflush(stdout);
     }
     fprintf(fp, "%ld", count++);
+    // Sleep for a millisecond so we don't fill up the disk too quickly.
+    usleep(1000);
   }
 
   return 0;

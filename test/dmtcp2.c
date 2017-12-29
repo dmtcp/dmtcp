@@ -5,9 +5,14 @@ int
 main(int argc, char *argv[])
 {
   int count = 1;
+  FILE *fp = fopen("/dev/null", "w");
+  if (fp == NULL) {
+    printf("fopen(/dev/null, ...) failed! \n");
+    exit(1);
+  }
 
   while (1) {
-    printf("%2d\n", count++);
+    fprintf(fp, "%d\n", count++);
   }
   return 0;
 }

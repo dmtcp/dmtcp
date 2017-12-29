@@ -52,8 +52,8 @@ threadMain(void *_n)
     numWaiting--;
     pthread_mutex_unlock(&mutex);
 
-    if (count++ % 1000 == 0) {
-      printf("thread%3d: %8d\n", *n, count / 1000);
+    if (count++ % 10000 == 0) {
+      printf("thread%3d: %8d\n", *n, count / 10000);
     }
   }
 
