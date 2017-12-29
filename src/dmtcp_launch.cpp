@@ -400,7 +400,7 @@ processArgs(int *orig_argc,
     }
   }
 #endif // if __aarch64__
-  if ((portStr == NULL || portStr[0] == NULL) &&
+  if (*portStr == NULL &&
       (getenv(ENV_VAR_NAME_PORT) == NULL ||
        getenv(ENV_VAR_NAME_PORT)[0]== '\0') &&
       allowedModes != COORD_NEW) {

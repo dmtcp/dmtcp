@@ -347,8 +347,7 @@ prepareForExec(char *const argv[], char ***newArgv)
     (commandStart) (nargs) (argv[commandStart])
   .Text("failed to parse ssh command line");
 
-  vector<string>dmtcp_args;
-  Util::getDmtcpArgs(dmtcp_args);
+  char **dmtcp_args = Util::getDmtcpArgs();
 
   dmtcp_launch_path = Util::getPath("dmtcp_launch");
   dmtcp_ssh_path = Util::getPath("dmtcp_ssh");
@@ -356,8 +355,8 @@ prepareForExec(char *const argv[], char ***newArgv)
   dmtcp_nocheckpoint_path = Util::getPath("dmtcp_nocheckpoint");
 
   prefix = dmtcp_launch_path + " ";
-  for (size_t i = 0; i < dmtcp_args.size(); i++) {
-    prefix += dmtcp_args[i] + " ";
+  for (size_t i = 0; dmtcp_args[i] != NULL; i++) {
+    prefix.append(dmtcp_args[i]).append(" ");
   }
   prefix += dmtcp_sshd_path + " ";
 

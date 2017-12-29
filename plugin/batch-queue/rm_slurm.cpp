@@ -159,14 +159,16 @@ patch_srun_cmdline(char *const argv_old[], char ***_argv_new)
 
   JTRACE("Expand dmtcp_launch path")(dmtcpCkptPath);
 
-  vector<string>dmtcp_args;
-  Util::getDmtcpArgs(dmtcp_args);
-  unsigned int dsize = dmtcp_args.size();
+  char **dmtcp_args = Util::getDmtcpArgs();
+  size_t num_dmtcp_args = 0;
+  while (dmtcp_args[num_dmtcp_args] != NULL) {
+    num_dmtcp_args++;
+  }
 
   // Prepare the final command line of length:
   // 1 /*end NULL*/ + 2 /* helper prefix*/ + dsize + 2 /* dmtcpCkptPath and
   // --explicit-srun */
-  int vect_size = sizeof(char *) * (argc_old + 5 + dsize);
+  int vect_size = sizeof(char *) * (argc_old + 5 + num_dmtcp_args);
   *_argv_new = (char **)JALLOC_HELPER_MALLOC(vect_size);
   char **argv_new = *_argv_new;
   memset(argv_new, 0, vect_size);
@@ -213,8 +215,8 @@ patch_srun_cmdline(char *const argv_old[], char ***_argv_new)
   // Copy the dmtcp part so that the final command looks like:
   // srun <opts> dmtcp_launch <dmtcp_options> orted <orted_options>
   argv_new[new_pos++] = strdup(dmtcpCkptPath);
-  for (i = 0; i < dsize; i++, new_pos++) {
-    argv_new[new_pos] = strdup(dmtcp_args[i].c_str());
+  for (i = 0; i < num_dmtcp_args; i++, new_pos++) {
+    argv_new[new_pos] = strdup(dmtcp_args[i]);
   }
   argv_new[new_pos++] = strdup("--explicit-srun");
 
