@@ -22,8 +22,6 @@
 #ifndef JASSERT_H
 #define JASSERT_H
 
-
-#include "stlwrapper.h"
 #include <errno.h>
 #include <execinfo.h> /* For backtrace() */
 #include <iostream>
@@ -33,6 +31,7 @@
 #include <unistd.h>
 #define BT_SIZE 50 /* Maximum size backtrace of stack */
 
+#include "dmtcpalloc.h"
 #include "jalloc.h"
 
 extern int jassert_quiet;
@@ -177,9 +176,9 @@ JAssert::Print(const dmtcp::vector<T> &t)
   return *this;
 }
 
-void set_log_file(const jalib::string &path,
-                  const jalib::string tmpDir,
-                  const jalib::string &uniquePidStr);
+void set_log_file(const dmtcp::string &path,
+                  const dmtcp::string tmpDir,
+                  const dmtcp::string &uniquePidStr);
 }// jassert_internal
 
 #define JASSERT_INIT(p) (jassert_internal::jassert_init());

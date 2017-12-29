@@ -28,28 +28,28 @@
 #include <sys/types.h>
 
 jalib::JBinarySerializeWriterRaw::JBinarySerializeWriterRaw(
-  const jalib::string &path, int fd)
+  const dmtcp::string &path, int fd)
   : JBinarySerializer(path)
   , _fd(fd)
 {
   JASSERT(_fd >= 0)(path)(JASSERT_ERRNO).Text("open(path) failed");
 }
 
-jalib::JBinarySerializeWriter::JBinarySerializeWriter(const jalib::string &path)
+jalib::JBinarySerializeWriter::JBinarySerializeWriter(const dmtcp::string &path)
   : JBinarySerializeWriterRaw(path,
                               jalib::open(path.c_str(),
                                           O_CREAT | O_WRONLY | O_TRUNC, 0600))
 {}
 
 jalib::JBinarySerializeReaderRaw::JBinarySerializeReaderRaw(
-  const jalib::string &path, int fd)
+  const dmtcp::string &path, int fd)
   : JBinarySerializer(path)
   , _fd(fd)
 {
   JASSERT(_fd >= 0)(path)(JASSERT_ERRNO).Text("open(path) failed");
 }
 
-jalib::JBinarySerializeReader::JBinarySerializeReader(const jalib::string &path)
+jalib::JBinarySerializeReader::JBinarySerializeReader(const dmtcp::string &path)
   : JBinarySerializeReaderRaw(path, jalib::open(path.c_str(), O_RDONLY, 0))
 {}
 

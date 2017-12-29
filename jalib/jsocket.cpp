@@ -498,7 +498,7 @@ jalib::JMultiSocketProgram::monitorSockets(double dblTimeout)
   timeoutBuf = timeoutInterval;
   timeout = timeoutEnabled ? &timeoutBuf : NULL;
 
-  IntSet closedFds;
+  dmtcp::set<int> closedFds;
   dmtcp::vector<struct pollfd>fds;
   size_t i;
   for (;;) {

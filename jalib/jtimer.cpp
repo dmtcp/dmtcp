@@ -42,7 +42,7 @@ jalib::operator-(const jalib::JTime &a, const jalib::JTime &b)
   return sec;
 }
 
-jalib::JTimeRecorder::JTimeRecorder(const jalib::string &name, bool printToFile)
+jalib::JTimeRecorder::JTimeRecorder(const dmtcp::string &name, bool printToFile)
   : _name(name)
   , _isStarted(false)
   , _printToFile(printToFile)
@@ -50,19 +50,19 @@ jalib::JTimeRecorder::JTimeRecorder(const jalib::string &name, bool printToFile)
 
 namespace
 {
-static const jalib::string&
+static const dmtcp::string&
 _testName()
 {
   static const char *env = getenv("TESTNAME");
-  static jalib::string tn = jalib::Filesystem::GetProgramName()
+  static dmtcp::string tn = jalib::Filesystem::GetProgramName()
     + jalib::XToString(getpid())
-    + ',' + jalib::string(env == NULL ? "unamedtest" : env);
+    + ',' + dmtcp::string(env == NULL ? "unamedtest" : env);
 
   return tn;
 }
 
 static void
-_writeTimerLogLine(const jalib::string &name, double time)
+_writeTimerLogLine(const dmtcp::string &name, double time)
 {
   static std::ofstream logfile("jtimings.csv", std::ios::out | std::ios::app);
 

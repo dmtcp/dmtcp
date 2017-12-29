@@ -22,7 +22,7 @@
 #ifndef JALIBJFILESYSTEM_H
 #define JALIBJFILESYSTEM_H
 
-#include "stlwrapper.h"
+#include "dmtcpalloc.h"
 #include <string>
 #include <vector>
 
@@ -47,26 +47,26 @@ struct linux_dirent {
 namespace Filesystem
 {
 // true if a given file exists
-bool FileExists(const jalib::string &str);
+bool FileExists(const dmtcp::string &str);
 
-jalib::string GetCWD();
-jalib::string GetProgramDir();
-jalib::string GetProgramName();
-jalib::string GetProgramPath();
+dmtcp::string GetCWD();
+dmtcp::string GetProgramDir();
+dmtcp::string GetProgramName();
+dmtcp::string GetProgramPath();
 
-jalib::string GetDeviceName(int fd);
-jalib::string ResolveSymlink(const jalib::string &file);
-jalib::string DirName(const jalib::string &str);
-jalib::string BaseName(const jalib::string &str);
-int mkdir_r(const jalib::string &dir, mode_t mode);
+dmtcp::string GetDeviceName(int fd);
+dmtcp::string ResolveSymlink(const dmtcp::string &file);
+dmtcp::string DirName(const dmtcp::string &str);
+dmtcp::string BaseName(const dmtcp::string &str);
+int mkdir_r(const dmtcp::string &dir, mode_t mode);
 
-StringVector GetProgramArgs();
+dmtcp::vector<dmtcp::string> GetProgramArgs();
 
-IntVector ListOpenFds();
+dmtcp::vector<int> ListOpenFds();
 
-jalib::string GetControllingTerm(pid_t pid = -1);
+dmtcp::string GetControllingTerm(pid_t pid = -1);
 
-jalib::string GetCurrentHostname();
+dmtcp::string GetCurrentHostname();
 }
 }
 #endif // ifndef JALIBJFILESYSTEM_H

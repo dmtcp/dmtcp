@@ -129,7 +129,7 @@ openSharedFile(string name, int flags)
 
   // try to create, truncate & open file
 
-  jalib::string dir = jalib::Filesystem::DirName(name);
+  dmtcp::string dir = jalib::Filesystem::DirName(name);
 
   JTRACE("shared file dir:")(dir);
   jalib::Filesystem::mkdir_r(dir, 0755);

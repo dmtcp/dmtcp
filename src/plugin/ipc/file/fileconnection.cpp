@@ -735,7 +735,7 @@ FifoConnection::openFile()
 
   if (!jalib::Filesystem::FileExists(_path)) {
     JTRACE("Fifo file not present, creating new one") (_path);
-    jalib::string dir = jalib::Filesystem::DirName(_path);
+    dmtcp::string dir = jalib::Filesystem::DirName(_path);
     JTRACE("fifo dir:")(dir);
     jalib::Filesystem::mkdir_r(dir, 0755);
     mkfifo(_path.c_str(), _mode);
