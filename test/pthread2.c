@@ -57,17 +57,22 @@ static void *
 threadMain(void *data)
 {
   int id = *(int *)data;
+  int count = 0;
 
-  while (1) {
+  if (id % 1000 == 0) {
     printf("Worker: %d (%ld) alive. numWorkers: %d\n",
            id, (long)syscall(SYS_gettid), numWorkers);
+  }
 
+  while (1) {
     // usleep(100*1000);
     pthread_mutex_lock(&mutex);
     if (numWorkers > maxWorkers) {
       numWorkers--;
-      printf("Worker: %d (%ld) exiting: numWorkers: %d\n",
-             id, (long)syscall(SYS_gettid), numWorkers);
+      if (id % 1000 == 0) {
+        printf("Worker: %d (%ld) exiting: numWorkers: %d\n",
+               id, (long)syscall(SYS_gettid), numWorkers);
+      }
       pthread_mutex_unlock(&mutex);
       free(data);
       pthread_exit(NULL);

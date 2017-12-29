@@ -39,7 +39,6 @@ run()
         printf("Thread %d doing section 1\n", tid);
         for (i = 0; i < N; i++) {
           c[i] = a[i] + b[i];
-          printf("Thread %d: c[%d]= %f\n", tid, i, c[i]);
         }
       }
 
@@ -48,7 +47,6 @@ run()
         printf("Thread %d doing section 2\n", tid);
         for (i = 0; i < N; i++) {
           d[i] = a[i] * b[i];
-          printf("Thread %d: d[%d]= %f\n", tid, i, d[i]);
         }
       }
     }  /* end of sections */
