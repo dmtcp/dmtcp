@@ -672,9 +672,20 @@ Util::getPath(const char *cmd, bool is32bit)
   return buf;
 }
 
-void
-Util::getDmtcpArgs(vector<string> &dmtcp_args)
+static const char *dmtcpArgs[128] = {
+  const_cast<const char *>("--coord-host"),
+};
+
+static size_t numDmtcpArgs = 0;
+
+// Buffer to hold all arg strings.
+static char dmtcpArgBuf[10*1024] = {0};
+
+char **
+Util::getDmtcpArgs(void)
 {
+  size_t ret = 0;
+
   const char *sigckpt = getenv(ENV_VAR_SIGCKPT);
   const char *compression = getenv(ENV_VAR_COMPRESSION);
   const char *allocPlugin = getenv(ENV_VAR_ALLOC_PLUGIN);
@@ -688,82 +699,103 @@ Util::getDmtcpArgs(vector<string> &dmtcp_args)
   const char *tmpDir = getenv(ENV_VAR_TMPDIR);
   const char *plugins = getenv(ENV_VAR_PLUGIN);
 
+  vector<string> argVector;
   // modify the command
-  dmtcp_args.clear();
-  dmtcp_args.push_back("--coord-host");
-  dmtcp_args.push_back(SharedData::coordHost());
-  dmtcp_args.push_back("--coord-port");
-  dmtcp_args.push_back(jalib::XToString(SharedData::coordPort()));
+  argVector.push_back("--coord-host");
+  argVector.push_back(SharedData::coordHost());
+  argVector.push_back("--coord-port");
+  argVector.push_back(jalib::XToString(SharedData::coordPort()));
 
   if (jassert_quiet == 1) {
-    dmtcp_args.push_back("-q");
+    argVector.push_back("-q");
   } else if (jassert_quiet == 2) {
-    dmtcp_args.push_back("-q -q");
+    argVector.push_back("-q -q");
   }
 
   if (sigckpt != NULL) {
-    dmtcp_args.push_back("--ckpt-signal");
-    dmtcp_args.push_back(sigckpt);
+    argVector.push_back("--ckpt-signal");
+    argVector.push_back(sigckpt);
   }
 
   if (ckptDir != NULL) {
-    dmtcp_args.push_back("--ckptdir");
-    dmtcp_args.push_back(ckptDir);
+    argVector.push_back("--ckptdir");
+    argVector.push_back(ckptDir);
   }
 
   if (tmpDir != NULL) {
-    dmtcp_args.push_back("--tmpdir");
-    dmtcp_args.push_back(tmpDir);
+    argVector.push_back("--tmpdir");
+    argVector.push_back(tmpDir);
   }
 
   if (ckptOpenFiles != NULL) {
-    dmtcp_args.push_back("--checkpoint-open-files");
+    argVector.push_back("--checkpoint-open-files");
   }
 
   if (plugins != NULL) {
-    dmtcp_args.push_back("--with-plugin");
-    dmtcp_args.push_back(plugins);
+    argVector.push_back("--with-plugin");
+    argVector.push_back(plugins);
   }
 
   if (compression != NULL) {
     if (strcmp(compression, "1") == 0) {
-      dmtcp_args.push_back("--no-gzip");
+      argVector.push_back("--no-gzip");
     } else {
-      dmtcp_args.push_back("--gzip");
+      argVector.push_back("--gzip");
     }
   }
 
   if (allocPlugin != NULL && strcmp(allocPlugin, "0") == 0) {
-    dmtcp_args.push_back("--disable-alloc-plugin");
+    argVector.push_back("--disable-alloc-plugin");
   }
 
   if (dlPlugin != NULL && strcmp(dlPlugin, "0") == 0) {
-    dmtcp_args.push_back("--disable-dl-plugin");
+    argVector.push_back("--disable-dl-plugin");
   }
 
   if (dmtcp_ptrace_enabled != NULL && dmtcp_ptrace_enabled()) {
-    dmtcp_args.push_back("--ptrace");
+    argVector.push_back("--ptrace");
   }
 
   if (dmtcp_modify_env_enabled != NULL && dmtcp_modify_env_enabled()) {
-    dmtcp_args.push_back("--modify-env");
+    argVector.push_back("--modify-env");
   }
 
   if (dmtcp_infiniband_enabled != NULL && dmtcp_infiniband_enabled()) {
-    dmtcp_args.push_back("--infiniband");
+    argVector.push_back("--infiniband");
   }
 
   if (dmtcp_batch_queue_enabled != NULL && dmtcp_batch_queue_enabled()) {
-    dmtcp_args.push_back("--batch-queue");
+    argVector.push_back("--batch-queue");
   }
 
 #ifdef HBICT_DELTACOMP
   if (deltacompression != NULL) {
     if (strcmp(deltacompression, "0") == 0) {
-      dmtcp_args.push_back("--no-hbict");
+      argVector.push_back("--no-hbict");
     } else {
-      dmtcp_args.push_back("--hbict");
+      argVector.push_back("--hbict");
     }
   }
 #endif // ifdef HBICT_DELTACOMP
+  int totalBytes = 0;
+  int num_args = argVector.size();
+  for (size_t i = 0; i < argVector.size(); i++) {
+    totalBytes += argVector[i].length() + 1;
+  }
+
+  char **args = (char**) JALLOC_MALLOC((num_args + 1) * sizeof(char*));
+  JASSERT(args != NULL);
+
+  char *buffer = (char*) JALLOC_MALLOC(totalBytes);
+  JASSERT(buffer != NULL);
+  memset(buffer, 0, totalBytes);
+
+  char *ptr = buffer;
+  for (size_t i = 0; i < argVector.size(); i++) {
+    strcpy(ptr, argVector[i].c_str());
+    args[i] = ptr;
+    ptr += argVector[i].length() + 1;
+  }
+  args[argVector.size()] = NULL;
+  return args;
 }

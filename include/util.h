@@ -172,7 +172,7 @@ bool areZeroPages(void *addr, size_t numPages);
 
 char *findExecutable(char *executable, const char *path_env, char *exec_path);
 char *getPath(const char *cmd, bool is32bit = false);
-void getDmtcpArgs(vector<string> &dmtcp_args);
+char **getDmtcpArgs();
 void allowGdbDebug(int currentDebugLevel);
 }
 }

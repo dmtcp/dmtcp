@@ -548,11 +548,14 @@ tm_spawn(int argc,
 
   JTRACE("Expand dmtcp_launch path")(dmtcpCkptPath);
 
-  vector<string>dmtcp_args;
-  Util::getDmtcpArgs(dmtcp_args);
-  unsigned int dsize = dmtcp_args.size();
-  const char *new_argv[argc + (dsize + 1)];  // (dsize+1) args are for DMTCP,
-                                             // including dmtcpCkptPath.
+  char **dmtcp_args = Util::getDmtcpArgs();
+  size_t num_dmtcp_args = 0;
+  while (dmtcp_args[num_dmtcp_args] != NULL) {
+    num_dmtcp_args++;
+  }
+
+  // (num_dmtcp_args + 1) args are for DMTCP, including dmtcpCkptPath.
+  const char *new_argv[argc + (num_dmtcp_args + 1)];
   string cmdline;
   size_t i;
 
@@ -561,20 +564,20 @@ tm_spawn(int argc,
   }
 
   new_argv[0] = dmtcpCkptPath;
-  for (i = 0; i < dsize; i++) {
-    new_argv[1 + i] = dmtcp_args[i].c_str();
+  for (i = 0; i < num_dmtcp_args; i++) {
+    new_argv[1 + i] = dmtcp_args[i];
   }
   for (int j = 0; j < argc; j++) {
-    new_argv[(1 + dsize) + j] = argv[j];
+    new_argv[(1 + num_dmtcp_args) + j] = argv[j];
   }
-  for (i = 0; i < dsize + argc + 1; i++) {
+  for (i = 0; i < num_dmtcp_args + argc + 1; i++) {
     cmdline += string() + new_argv[i] + " ";
   }
 
   JTRACE("call Torque PBS tm_spawn API to run command on remote host")
     (argv[0]) (where);
   JTRACE("CMD:")(cmdline);
-  ret = tm_spawn_ptr(argc + dsize + 1,
+  ret = tm_spawn_ptr(argc + num_dmtcp_args + 1,
                      (char **)new_argv,
                      envp,
                      where,
