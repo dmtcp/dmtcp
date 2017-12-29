@@ -1110,7 +1110,8 @@ int FifoConnection::openFile()
 void FifoConnection::serializeSubClass(jalib::JBinarySerializer& o)
 {
   JSERIALIZE_ASSERT_POINT("FifoConnection");
-  o & _path & _rel_path & _savedRelativePath & _mode & _in_data;
+  o & _path & _rel_path & _savedRelativePath & _mode;
+  o.serializeVector(_in_data);
   JLOG(FILEP)("Serializing FifoConn.") (_path) (_rel_path) (_savedRelativePath);
 }
 
