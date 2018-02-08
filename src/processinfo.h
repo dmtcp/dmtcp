@@ -149,6 +149,7 @@ class ProcessInfo
 
     bool vdsoOffsetMismatch(uint64_t f1, uint64_t f2,
                             uint64_t f3, uint64_t f4);
+    uint64_t endOfStack(void) const { return _endOfStack; }
 
     string getCkptFilename() const { return _ckptFileName; }
 
@@ -212,6 +213,7 @@ class ProcessInfo
     uint64_t _vdsoEnd;
     uint64_t _vvarStart;
     uint64_t _vvarEnd;
+    uint64_t _endOfStack;
 
     uint64_t _clock_gettime_offset;
     uint64_t _getcpu_offset;
