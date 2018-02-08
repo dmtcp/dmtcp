@@ -290,7 +290,7 @@ prepareMtcpHeader(MtcpHeader *mtcpHdr)
   memset(mtcpHdr, 0, sizeof(*mtcpHdr));
   strncpy(mtcpHdr->signature, MTCP_SIGNATURE, strlen(MTCP_SIGNATURE) + 1);
   mtcpHdr->saved_brk = sbrk(0);
-
+  mtcpHdr->end_of_stack = (void *)ProcessInfo::instance().endOfStack();
   // TODO: Now that we have a separate mtcp dir, the code dealing with
   // restoreBuf should go in there.
   mtcpHdr->restore_addr = (void *)ProcessInfo::instance().restoreBufAddr();

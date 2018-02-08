@@ -212,7 +212,7 @@ ProcessInfo::growStack()
     } else if ((VA)&area >= area.addr && (VA)&area < area.endAddr) {
       JTRACE("Original stack area") ((void *)area.addr) (area.size);
       stackArea = area;
-
+      _endOfStack = (uintptr_t) area.endAddr;
       /*
        * When using Matlab with dmtcp_launch, sometimes the bottom most
        * page of stack (the page with highest address) which contains the
@@ -276,7 +276,7 @@ ProcessInfo::init()
   _elfType = Elf_64;
 #endif // ifdef CONFIG_M32
 
-  _vdsoStart = _vdsoEnd = _vvarStart = _vvarEnd = 0;
+  _vdsoStart = _vdsoEnd = _vvarStart = _vvarEnd = _endOfStack = 0;
 
   processRlimit();
 
@@ -781,7 +781,7 @@ ProcessInfo::serialize(jalib::JBinarySerializer &o)
     & _gettimeofday_offset & _time_offset;
   o & _compGroup & _numPeers & _noCoordinator & _argvSize & _envSize;
   o & _restoreBufAddr & _savedHeapStart & _savedBrk;
-  o & _vdsoStart & _vdsoEnd & _vvarStart & _vvarEnd;
+  o & _vdsoStart & _vdsoEnd & _vvarStart & _vvarEnd & _endOfStack;
   o & _ckptDir & _ckptFileName & _ckptFilesSubDir;
 
   JTRACE("Serialized process information")
