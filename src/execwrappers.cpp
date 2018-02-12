@@ -478,7 +478,9 @@ getUpdatedLdPreload(const char *filename, const char *currLdPreload)
   bool is32bitElf = false;
 
   if (getenv(ENV_VAR_HIJACK_LIBS_M32) != NULL &&
-      Util::elfType(filename, &isElf, &is32bitElf) != -1 &&
+      // It should either be a valid script or a valid ELF executable
+      (Util::getInterpreterType(filename, &isElf, &is32bitElf) != -1 ||
+       Util::elfType(filename, &isElf, &is32bitElf) != -1) &&
       isElf &&
       is32bitElf) {
     preload = getenv(ENV_VAR_HIJACK_LIBS_M32);
