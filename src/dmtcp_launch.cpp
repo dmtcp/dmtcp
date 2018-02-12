@@ -520,7 +520,8 @@ main(int argc, const char **argv)
   }
 
   bool isElf, is32bitElf;
-  if (Util::elfType(argv[0], &isElf, &is32bitElf) == -1) {
+  if (Util::getInterpreterType(argv[0], &isElf, &is32bitElf) == -1 &&
+      Util::elfType(argv[0], &isElf, &is32bitElf) == -1) {
     // Couldn't read argv_buf
     // FIXME:  This could have been a symbolic link.  Don't issue an error,
     // unless we're sure that the executable is not readable.

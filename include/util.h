@@ -126,6 +126,7 @@ int safeMkdir(const char *pathname, mode_t mode);
 int safeSystem(const char *command);
 
 int expandPathname(const char *inpath, char *const outpath, size_t size);
+int getInterpreterType(const char *pathname, bool *isElf, bool *is32bitElf);
 int elfType(const char *pathname, bool *isElf, bool *is32bitElf);
 
 bool isStaticallyLinked(const char *filename);
