@@ -1,12 +1,23 @@
 This plugin causes the application applic.c to invoke DMTCP
 to checkpoint itself.
 
-The plugin is not needed here.  It's used only to generate printing of events.
+In this example, the target application applic.c contains:
+  #include "dmtcp.h"
+and also:
+  dmtcp_checkpoint()
+
+Note that the Makefile compiles applic.c into ./applic, and that this same
+executable can be run with or without DMTCP:
+  dmtcp_launch ./applic # dmtcp_checkpoint() invokes DMTCP to checkpoint
+  ./applic  # dmtcp_checkpoint() returns the constant, DMTCP_NOT_PRESENT
+
+The plugin libplugin-to-announce-events.so is not needed here.
+It's used only to generate printing of events for the demonstration.
 
 Note the need to compile the target application with -fPIC, due to the use
-of dmtcpCheckpoint().  The '-fPIC' is needed so that the same binary
-can used both with and without DMTCP.
+of dmtcp_checkpoint().  The '-fPIC' is needed so that the same binary
+can be used both with and without DMTCP.
 
 
-This example is sufficient for most application, but more advanced
+This example is sufficient for most applications, but more advanced
 hooks to DMTCP are also listed in applic.c .
