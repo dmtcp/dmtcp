@@ -430,8 +430,37 @@ fi
 AC_MSG_RESULT([$has_pr_set_ptracer])
 
 dnl CMA brought in with  Linux 3.2.0 and glibc 2.15
+dnl Around Feb., 2018, docker forbids process_vm_readv even though it's in
+dnl   libc.so.  So, AC_CHECK_FUNC is not sufficient.  Use AC_TRY_RUN.
 AC_MSG_CHECKING([if process_vm_readv/process_vm_writev (CMA) available])
-AC_CHECK_FUNC(process_vm_readv, [has_cma='yes'], [has_cma='no'])
+dnl AC_CHECK_FUNC(process_vm_readv, [has_cma='yes'], [has_cma='no'])
+AC_TRY_RUN([
+       #include <sys/uio.h>
+
+       int
+       main(void)
+       {
+           struct iovec local[2];
+           struct iovec remote[1];
+           char buf1[10];
+           char buf2[10];
+           ssize_t nread;
+           pid_t pid = 10;             /* PID of remote process */
+
+           local[0].iov_base = buf1;
+           local[0].iov_len = 10;
+           local[1].iov_base = buf2;
+           local[1].iov_len = 10;
+           remote[0].iov_base = (void *) 0x10000;
+           remote[0].iov_len = 20;
+
+           nread = process_vm_writev(pid, local, 2, remote, 1, 0);
+           if (nread != 20)
+               return 1;
+           else
+               return 0;
+       }
+       ], [has_cma='yes'], [has_cma='no'])
 if test "$has_cma" == "yes"; then
   AC_DEFINE([HAS_CMA],[1],[Define to 1 if you have process_vm_readv and process_vm_writev.])
   AC_SUBST([HAS_CMA], [yes])
