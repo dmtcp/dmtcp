@@ -435,6 +435,10 @@ dnl   libc.so.  So, AC_CHECK_FUNC is not sufficient.  Use AC_TRY_RUN.
 AC_MSG_CHECKING([if process_vm_readv/process_vm_writev (CMA) available])
 dnl AC_CHECK_FUNC(process_vm_readv, [has_cma='yes'], [has_cma='no'])
 AC_TRY_RUN([
+       #define _GNU_SOURCE 
+       #include <sys/types.h>
+       #include <unistd.h>
+       #include <sys/wait.h>
        #include <sys/uio.h>
 
        int
@@ -444,14 +448,22 @@ AC_TRY_RUN([
            struct iovec remote[1];
            char buf1[10];
            char buf2[10];
+           char remote_buf[100];
            ssize_t nread;
-           pid_t pid = 10;             /* PID of remote process */
+           pid_t childpid = fork();             /* PID of remote process */
+           if (childpid > 0) { // if parent
+             int status;
+             int rc = waitpid(childpid, &status, 0);
+             return WEXITSTATUS(status); // return child's return status
+           }
+           // else child
+           int pid = getppid();
 
            local[0].iov_base = buf1;
            local[0].iov_len = 10;
            local[1].iov_base = buf2;
            local[1].iov_len = 10;
-           remote[0].iov_base = (void *) 0x10000;
+           remote[0].iov_base = (void *) remote_buf;
            remote[0].iov_len = 20;
 
            nread = process_vm_writev(pid, local, 2, remote, 1, 0);
