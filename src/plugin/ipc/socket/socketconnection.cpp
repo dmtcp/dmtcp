@@ -424,7 +424,7 @@ TcpConnection::sendPeerInformation()
   socklen_t keysz = 0, valuesz = 0;
   bool sendPeerInfo = false;
 
-  if ((_sockDomain != AF_INET && _sockDomain != AF_INET6) ||
+  if (!(_sockDomain == AF_INET || _sockDomain == AF_INET6) ||
       _sockType != SOCK_STREAM) {
     return;
   }
@@ -469,12 +469,12 @@ TcpConnection::recvPeerInformation()
   struct sockaddr key = {0}, value = {0};
   socklen_t keylen = 0, vallen = 0;
 
-  if ((_sockDomain != AF_INET && _sockDomain != AF_INET6) ||
+  if (!(_sockDomain == AF_INET || _sockDomain == AF_INET6) ||
       _sockType != SOCK_STREAM) {
     return;
   }
 
-  if (_type == TCP_CONNECT ||
+  if (_type == TCP_CONNECT || _type == TCP_ACCEPT ||
       _type == TCP_CONNECT_IN_PROGRESS) {
     keylen = sizeof(key);
     JASSERT(getpeername(_fds[0], &key, &keylen) == 0);
