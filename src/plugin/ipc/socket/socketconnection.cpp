@@ -29,6 +29,9 @@
 #include <signal.h>
 #include <poll.h>
 #include <linux/netlink.h>
+#include <linux/rtnetlink.h>
+#include <linux/sock_diag.h>
+#include <linux/unix_diag.h>
 
 #include "dmtcp.h"
 #include "shareddata.h"
@@ -227,6 +230,8 @@ void SocketConnection::serialize(jalib::JBinarySerializer& o)
     JLOG(SOCKET)("Creating TcpConnection.") (id()) (domain) (type) (protocol);
   }
   memset(&_bindAddr, 0, sizeof _bindAddr);
+  _localInode = 0;
+  _remoteInode = 0;
 }
 
 TcpConnection& TcpConnection::asTcp()
@@ -300,13 +305,190 @@ bool TcpConnection::isBlacklistedTcp(const sockaddr* saddr, socklen_t len)
   return false;
 }
 
+// Queries the kernel for information about a Unix-domain socket with the given
+// inode number. Returns the file-descriptor of the SOCK_DIAG netlink socket
+// that can be used for receiving the socket information later.
+// Returns -1, in case of failure
+// The following three functions: setupNetlink(), parseResponse() and getPeerInfo()
+// are based on the example in `man 7 sock_diag`.
+static int
+setupNetlink(ino_t ino)
+{
+  struct sockaddr_nl nladdr = {
+    .nl_family = AF_NETLINK
+  };
+  struct req_t
+  {
+    struct nlmsghdr nlh;
+    struct unix_diag_req udr;
+  } req;
+  req.nlh.nlmsg_len = sizeof(req);
+  req.nlh.nlmsg_type = SOCK_DIAG_BY_FAMILY;
+  req.nlh.nlmsg_flags = NLM_F_REQUEST;
+  req.udr.sdiag_family = AF_UNIX;
+  req.udr.sdiag_protocol = 0;
+  req.udr.pad = 0;
+  req.udr.udiag_states = -1;
+  req.udr.udiag_ino = ino;
+  req.udr.udiag_show = UDIAG_SHOW_PEER;
+  req.udr.udiag_cookie[0] = -1;
+  req.udr.udiag_cookie[1] = -1;
+  struct iovec iov = {
+    .iov_base = &req,
+    .iov_len = sizeof(req)
+  };
+  struct msghdr msg = {
+    .msg_name = (void *) &nladdr,
+    .msg_namelen = sizeof(nladdr),
+    .msg_iov = &iov,
+    .msg_iovlen = 1
+  };
+
+  int sock = _real_socket(AF_NETLINK, SOCK_RAW, NETLINK_SOCK_DIAG);
+  if (sock < 0) {
+    JWARNING(false)(JASSERT_ERRNO)
+            .Text("Could not open netlink socket for querying socket info");
+    return -1;
+  }
+
+  if (sendmsg(sock, &msg, 0) < 0) {
+    _real_close(sock);
+    return -1;
+  }
+  return sock;
+}
+
+// Parses the response from sock_diag netlink and returns the
+// inode number in the response.
+static ino_t
+parseResponse(const struct unix_diag_msg *diag, unsigned int len)
+{
+  if (len < NLMSG_LENGTH(sizeof(*diag))) {
+    JWARNING(false).Text("short response");
+    return 0;
+  }
+  if (diag->udiag_family != AF_UNIX) {
+    JWARNING(false)(diag->udiag_family).Text("unexpected family");
+    return 0;
+  }
+
+  struct rtattr *attr;
+  unsigned int rta_len = len - NLMSG_LENGTH(sizeof(*diag));
+  unsigned int peer = 0;
+
+  for (attr = (struct rtattr *) (diag + 1); RTA_OK(attr, rta_len);
+       attr = RTA_NEXT(attr, rta_len)) {
+    switch (attr->rta_type) {
+      case UNIX_DIAG_PEER:
+        // NOTE: Although the function returns an `ino_t` type, which is an 8-Byte
+        // object, the payload is a maximum of 4-Bytes. So, we cast it to a 4-Byte
+        // value and return.
+        if (RTA_PAYLOAD(attr) >= sizeof(peer))
+          peer = *(unsigned int *) RTA_DATA(attr);
+        break;
+      default: break;
+    }
+  }
+  return peer;
+}
+
+// Returns the inode number of the peer of the socket with the
+// given inode number
+static ino_t
+getPeerInfo(ino_t localIno)
+{
+  ino_t peerIno = 0;
+  long buf[1024] = {0};
+  int sock = -1;
+  const struct nlmsghdr *h = NULL;
+  ssize_t ret = 0;
+  int flags = 0;
+
+  if ((sock = setupNetlink(localIno)) == -1) {
+    return 0;
+  }
+
+  struct sockaddr_nl nladdr = {
+    .nl_family = AF_NETLINK
+  };
+  struct iovec iov = {
+    .iov_base = buf,
+    .iov_len = sizeof(buf)
+  };
+
+  struct msghdr msg = {
+    .msg_name = (void *) &nladdr,
+    .msg_namelen = sizeof(nladdr),
+    .msg_iov = &iov,
+    .msg_iovlen = 1
+  };
+
+  ret = recvmsg(sock, &msg, flags);
+  if (ret <= 0) {
+    goto done;
+  }
+
+  h = (struct nlmsghdr *) buf;
+  if (!NLMSG_OK(h, ret)) {
+    goto done;
+  }
+  for (; NLMSG_OK(h, ret); h = NLMSG_NEXT(h, ret)) {
+    if (h->nlmsg_type == NLMSG_DONE) {
+      goto done;
+    }
+    if (h->nlmsg_type == NLMSG_ERROR) {
+      const struct nlmsgerr *err = (const struct nlmsgerr *)NLMSG_DATA(h);
+      if (h->nlmsg_len < NLMSG_LENGTH(sizeof(*err))) {
+        JWARNING(false).Text("NLMSG_ERROR");
+      } else {
+        errno = -err->error;
+        JWARNING(false)(JASSERT_ERRNO).Text("NLMSG_ERROR");
+      }
+      goto done;
+    }
+    if (h->nlmsg_type != SOCK_DIAG_BY_FAMILY) {
+      JWARNING(false)((unsigned)h->nlmsg_type).Text("unexpected nlmsg_type");
+      goto done;
+    }
+    peerIno = parseResponse((const unix_diag_msg*)NLMSG_DATA(h), h->nlmsg_len);
+    break;
+  }
+
+done:
+  _real_close(sock);
+  return peerIno;
+}
+
+// Returns 1 and sets the _localInode and _remoteInode for the current
+// (Unix-domain) socket fd, 0 otherwise.
+int TcpConnection::getUdSocketInfo()
+{
+  struct stat buf;
+  int ret = fstat(_fds[0], &buf);
+  if (ret < 0) {
+    JWARNING(false)(JASSERT_ERRNO)(_fds[0])
+            .Text("Failed to fstat socket");
+    return 0;
+  }
+  ino_t localIno = buf.st_ino;
+  ino_t peerIno = getPeerInfo(localIno);
+  if (localIno > 0 && peerIno > 0) {
+    _localInode = localIno;
+    _remoteInode = peerIno;
+    return 1;
+  }
+  return 0;
+}
+
 void TcpConnection::sendPeerInformation()
 {
   struct sockaddr key = {0}, value = {0};
   socklen_t keysz = 0, valuesz = 0;
   bool sendPeerInfo = false;
 
-  if (!(_sockDomain == AF_INET || _sockDomain == AF_INET6) ||
+  // We don't handle datagram sockets; only TCP/IP and Local
+  if (!(_sockDomain == AF_INET || _sockDomain == AF_INET6 ||
+        _sockDomain == AF_LOCAL) ||
       _sockType != SOCK_STREAM) {
     return;
   }
@@ -314,25 +496,27 @@ void TcpConnection::sendPeerInformation()
   switch (_type) {
   case TCP_CONNECT:
   case TCP_CONNECT_IN_PROGRESS:
-  {
-    // Local connect socket information
-    keysz = sizeof(key);
-    JASSERT(getsockname(_fds[0], &key, &keysz) == 0);
-    // Information about the accept socket on the server
-    valuesz = sizeof(value);
-    JASSERT(getpeername(_fds[0], &value, &valuesz) == 0);
-    sendPeerInfo = true;
-    break;
-  }
   case TCP_ACCEPT:
   {
-    // Local accept socket information
-    keysz = sizeof(key);
-    JASSERT(getsockname(_fds[0], &key, &keysz) == 0);
-    // Information about the client connect socket
-    valuesz = sizeof(value);
-    JASSERT(getpeername(_fds[0], &value, &valuesz) == 0);
-    sendPeerInfo = true;
+    if (_sockDomain == AF_LOCAL) {
+      if (getUdSocketInfo()) {
+        if (_localInode > 0 && _remoteInode > 0) {
+          keysz = sizeof(_localInode);
+          valuesz = sizeof(_remoteInode);
+          memcpy(&key, &_localInode, keysz);
+          memcpy(&value, &_remoteInode, valuesz);
+          sendPeerInfo = true;
+        }
+      }
+    } else {
+      // Local accept/connect socket information
+      keysz = sizeof(key);
+      JASSERT(getsockname(_fds[0], &key, &keysz) == 0);
+      // Information about the accept/connect socket
+      valuesz = sizeof(value);
+      JASSERT(getpeername(_fds[0], &value, &valuesz) == 0);
+      sendPeerInfo = true;
+    }
     break;
   }
   default:
@@ -350,25 +534,40 @@ void TcpConnection::recvPeerInformation()
   struct sockaddr key = {0}, value = {0};
   socklen_t keylen = 0, vallen = 0;
 
-  if (!(_sockDomain == AF_INET || _sockDomain == AF_INET6) ||
+  // We don't handle datagram sockets; only TCP/IP and Local
+  if (!(_sockDomain == AF_INET || _sockDomain == AF_INET6 ||
+        _sockDomain == AF_LOCAL) ||
       _sockType != SOCK_STREAM) {
+    return;
+  }
+  if (_sockDomain == AF_LOCAL &&
+      (_remoteInode == 0 || _localInode == 0)) {
     return;
   }
 
   if (_type == TCP_CONNECT || _type == TCP_ACCEPT ||
       _type == TCP_CONNECT_IN_PROGRESS) {
-    keylen = sizeof(key);
-    JASSERT(getpeername(_fds[0], &key, &keylen) == 0);
-    vallen = sizeof(value);
+    if (_sockDomain == AF_LOCAL) {
+      keylen = sizeof(_remoteInode);
+      vallen = sizeof(_localInode);
+      memcpy(&key, &_remoteInode, keylen);
+    } else {
+      keylen = sizeof(key);
+      JASSERT(getpeername(_fds[0], &key, &keylen) == 0);
+      vallen = sizeof(value);
+    }
     int ret = dmtcp_send_query_to_coordinator("SCons",
                                               &key, keylen,
                                               &value, &vallen);
     if (ret != 0) {
-      JASSERT(vallen == sizeof(value))(vallen)(sizeof(value));
+      JASSERT(vallen == sizeof(value) || vallen == sizeof(_localInode))(vallen)(sizeof(value));
     } else {
-      JWARNING(false) (_fds[0])
+      JWARNING(false) (_fds[0]) (_localInode) (_remoteInode)
        .Text("DMTCP detected an \"external\" connect socket."
-             "The socket will be restored as a dead socket.");
+             "The socket will be restored as a dead socket. Try\n"
+             "searching for the \"external\" process with _remoteInode using\n"
+             "\"netstat -pae | grep <_remoteInode>\" or\n"
+             "\"ss -axp | grep <_remoteInode>\".");
       markExternalConnect();
     }
   }
@@ -459,6 +658,8 @@ TcpConnection::TcpConnection(const TcpConnection& parent,
   //     JASSERT(parent._type == TCP_LISTEN) (parent._type) (parent.id())
   //             .Text("Accepting from a non listening socket????");
   memset(&_bindAddr, 0, sizeof _bindAddr);
+  _localInode = 0;
+  _remoteInode = 0;
 }
 
 void TcpConnection::onError()

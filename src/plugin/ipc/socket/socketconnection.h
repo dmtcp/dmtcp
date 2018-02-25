@@ -138,8 +138,13 @@ namespace dmtcp
 
       virtual string str() { return "<TCP Socket>"; }
       virtual void serializeSubClass(jalib::JBinarySerializer& o);
+
+      int getUdSocketInfo();
     private:
       TcpConnection& asTcp();
+      // Only used for Unix-domain sockets
+      ino_t _localInode;
+      ino_t _remoteInode;
   };
 
   class RawSocketConnection : public Connection, public SocketConnection
