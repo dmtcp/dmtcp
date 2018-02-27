@@ -276,11 +276,13 @@ dmtcp_initialize()
   static bool initialized = false;
 
   if (initialized) {
+#ifndef STATIC_DMTCP
     if (buf == NULL) {
       // Technically, this is a memory leak, but buf is static and so it happens
       // only once.
       buf = new jalib::JBuffer(0); // To force linkage of jbuffer.cpp
     }
+#endif // STATIC_DMTCP
     return;
   }
   initialized = true;

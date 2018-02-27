@@ -53,3 +53,6 @@ test/testconfig.py
 
 ckpt_*.dmtcp
 dmtcp_restart_script*
+
+static-util/glibc-build
+static-util/glibc-2.26

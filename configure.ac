@@ -30,6 +30,7 @@ AC_CONFIG_FILES([Makefile \
                  contrib/Makefile \
                  contrib/ckptfile/Makefile \
                  contrib/infiniband/Makefile \
+                 static-util/Makefile \
                  plugin/Makefile \
                  src/Makefile \
                  src/mtcp/Makefile \
@@ -38,6 +39,11 @@ AC_CONFIG_FILES([Makefile \
                  test/Makefile \
                  test/autotest_config.py \
                  test/plugin/Makefile])
+AC_CONFIG_LINKS([bin/dmtcp_wrapper_symbols:static-util/dmtcp_wrapper_symbols])
+#AC_CONFIG_LINKS([bin/dmtcp_static_gen:static-util/dmtcp_static_gen])
+AC_CONFIG_LINKS([bin/dmtcp_lib_symbols:static-util/dmtcp_lib_symbols])
+#AC_CONFIG_LINKS([bin/dmtcp_ld:static-util/dmtcp_ld])
+AC_CONFIG_LINKS([bin/dmtcp_ld_NORUNTIME:static-util/dmtcp_ld_NORUNTIME])
 #AC_CONFIG_FILES([test/credentials/Makefile])
 
 #AC_CONFIG_SUBDIRS([dmtcp])
@@ -112,6 +118,16 @@ AC_ARG_ENABLE([timing],
 
 if test "$use_jtiming" = "yes"; then
   AC_DEFINE([TIMING],[1],[Record timing information to stderr and jtimings.csv])
+fi
+
+AC_ARG_ENABLE([static],
+            [AS_HELP_STRING([--enable-static-dmtcp],
+                            [compile dmtcp for static linking])],
+            [use_static=$enableval],
+            [use_static=no])
+
+if test "$use_static" = "yes"; then
+  AC_DEFINE([STATIC_DMTCP],[1],[Compile DMTCP for static linking])
 fi
 
 AC_ARG_ENABLE([realtime_ckpt_signal],

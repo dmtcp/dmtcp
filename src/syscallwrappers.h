@@ -110,6 +110,18 @@ extern int dmtcp_wrappers_initializing;
 
 LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
 
+#ifdef STATIC_DMTCP
+#define FOREACH_GLIBC_MALLOC_FAMILY_WRAPPERS(MACRO) \
+  MACRO(calloc)                                     \
+  MACRO(malloc)                                     \
+  MACRO(free)                                       \
+  /*MACRO(__libc_memalign) STATIC_DMTCP*/                            \
+  MACRO(realloc)                                    \
+  MACRO(mmap)                                       \
+  MACRO(mmap64)                                     \
+  MACRO(mremap)                                     \
+  MACRO(munmap)
+#else
 #define FOREACH_GLIBC_MALLOC_FAMILY_WRAPPERS(MACRO) \
   MACRO(calloc)                                     \
   MACRO(malloc)                                     \
@@ -120,7 +132,152 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   MACRO(mmap64)                                     \
   MACRO(mremap)                                     \
   MACRO(munmap)
+#endif // STATIC_DMTCP
 
+#ifdef STATIC_DMTCP
+#define FOREACH_GLIBC_WRAPPERS(MACRO) \
+  MACRO(dlopen)                       \
+  MACRO(dlclose)                      \
+  MACRO(getpid)                       \
+  MACRO(getppid)                      \
+  MACRO(kill)                         \
+                                      \
+  MACRO(tcgetpgrp)                    \
+  MACRO(tcsetpgrp)                    \
+  MACRO(getpgrp)                      \
+  MACRO(setpgrp)                      \
+                                      \
+  MACRO(getpgid)                      \
+  MACRO(setpgid)                      \
+  MACRO(getsid)                       \
+  MACRO(setsid)                       \
+  MACRO(setgid)                       \
+  MACRO(setuid)                       \
+                                      \
+  MACRO(wait)                         \
+  MACRO(waitpid)                      \
+  MACRO(waitid)                       \
+  MACRO(wait3)                        \
+  MACRO(wait4)                        \
+  /*MACRO(ioctl) STATIC_DMTCP*/                        \
+  MACRO(fcntl)                        \
+                                      \
+  MACRO(socket)                       \
+  MACRO(connect)                      \
+  MACRO(bind)                         \
+  MACRO(listen)                       \
+  MACRO(accept)                       \
+  MACRO(accept4)                      \
+  MACRO(setsockopt)                   \
+  MACRO(getsockopt)                   \
+  MACRO(socketpair)                   \
+                                      \
+  MACRO(fexecve)                      \
+  MACRO(execve)                       \
+  MACRO(execv)                        \
+  MACRO(execvp)                       \
+  MACRO(execvpe)                      \
+  MACRO(execl)                        \
+  MACRO(execlp)                       \
+  MACRO(execle)                       \
+  MACRO(system)                       \
+  MACRO(popen)                        \
+  MACRO(pclose)                       \
+                                      \
+  MACRO(signal)                       \
+  MACRO(sigaction)                    \
+  /*MACRO(sigvec) STATIC_DMTCP*/                       \
+                                      \
+  MACRO(sigset)                       \
+  MACRO(sigblock)                     \
+  MACRO(sigsetmask)                   \
+  MACRO(siggetmask)                   \
+  MACRO(sigprocmask)                  \
+                                      \
+  MACRO(sigsuspend)                   \
+  MACRO(sighold)                      \
+  MACRO(sigignore)                    \
+  /*MACRO(__sigpause) STATIC_DMTCP*/                   \
+  MACRO(sigpause)                     \
+  MACRO(sigrelse)                     \
+                                      \
+  MACRO(sigwait)                      \
+  MACRO(sigwaitinfo)                  \
+  MACRO(sigtimedwait)                 \
+                                      \
+  MACRO(fork)                         \
+  /*MACRO(__clone) STATIC_DMTCP*/                      \
+  MACRO(open)                         \
+  MACRO(open64)                       \
+  MACRO(fopen)                        \
+  MACRO(fopen64)                      \
+  MACRO(openat)                       \
+  MACRO(openat64)                     \
+  MACRO(opendir)                      \
+  MACRO(mkstemp)                      \
+  MACRO(close)                        \
+  MACRO(fclose)                       \
+  MACRO(closedir)                     \
+  MACRO(dup)                          \
+  MACRO(dup2)                         \
+  MACRO(dup3)                         \
+  /*MACRO(__xstat)    STATIC_DMTCP*/                   \
+  /*MACRO(__xstat64)  STATIC_DMTCP*/                   \
+  /*MACRO(__lxstat)   STATIC_DMTCP*/                   \
+  /*MACRO(__lxstat64) STATIC_DMTCP*/                   \
+  MACRO(readlink)                     \
+  MACRO(exit)                         \
+  MACRO(syscall)                      \
+  MACRO(unsetenv)                     \
+  MACRO(ptsname_r)                    \
+  MACRO(ttyname_r)                    \
+  MACRO(getpt)                        \
+  MACRO(posix_openpt)                 \
+  /*MACRO(openlog)   STATIC_DMTCP*/                    \
+  /*MACRO(closelog)  STATIC_DMTCP*/                    \
+                                      \
+  MACRO(shmget)                       \
+  MACRO(shmat)                        \
+  MACRO(shmdt)                        \
+  MACRO(shmctl)                       \
+                                      \
+  MACRO(semget)                       \
+  MACRO(semctl)                       \
+  MACRO(semop)                        \
+  MACRO(semtimedop)                   \
+                                      \
+  MACRO(msgget)                       \
+  MACRO(msgctl)                       \
+  MACRO(msgsnd)                       \
+  MACRO(msgrcv)                       \
+                                      \
+  MACRO(mq_open)                      \
+  MACRO(mq_close)                     \
+  MACRO(mq_timedsend)                 \
+  MACRO(mq_timedreceive)              \
+  MACRO(mq_notify)                    \
+                                      \
+  MACRO(read)                         \
+  MACRO(write)                        \
+                                      \
+  MACRO(select)                       \
+  MACRO(poll)                         \
+                                      \
+  MACRO(pthread_create)               \
+  MACRO(pthread_exit)                 \
+  MACRO(pthread_tryjoin_np)           \
+  MACRO(pthread_timedjoin_np)         \
+  MACRO(pthread_sigmask)              \
+  MACRO(pthread_getspecific)          \
+  MACRO(pthread_mutex_lock)           \
+  MACRO(pthread_mutex_trylock)        \
+  MACRO(pthread_mutex_unlock)         \
+  MACRO(pthread_rwlock_unlock)        \
+  MACRO(pthread_rwlock_rdlock)        \
+  MACRO(pthread_rwlock_tryrdlock)     \
+  MACRO(pthread_rwlock_wrlock)        \
+  MACRO(pthread_rwlock_trywrlock)
+#else
 #define FOREACH_GLIBC_WRAPPERS(MACRO) \
   MACRO(dlopen)                       \
   MACRO(dlclose)                      \
@@ -219,8 +376,8 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   MACRO(ttyname_r)                    \
   MACRO(getpt)                        \
   MACRO(posix_openpt)                 \
-  MACRO(openlog)                      \
-  MACRO(closelog)                     \
+  MACRO(openlog)                    \
+  MACRO(closelog)                   \
                                       \
   MACRO(shmget)                       \
   MACRO(shmat)                        \
@@ -263,6 +420,7 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   MACRO(pthread_rwlock_tryrdlock)     \
   MACRO(pthread_rwlock_wrlock)        \
   MACRO(pthread_rwlock_trywrlock)
+#endif // STATIC_DMTCP
 
 #define FOREACH_LIBPTHREAD_WRAPPERS(MACRO) \
   MACRO(pthread_cond_broadcast)            \

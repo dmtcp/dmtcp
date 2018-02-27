@@ -1,0 +1,161 @@
+#!/usr/bin/python3
+import os, tempfile, shutil
+import sys
+import argparse
+
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+# HELPERS
+
+def create_dir_str(l):
+    print('Create dir str():', '/'.join([x for x in l]))
+
+def extract_archives_dir(d):
+    os.system('cd {0} && ar -xvf *.a > /dev/null'.format(d))
+
+def remove_archives_dir(d):
+    os.system('cd {0} && rm *.a *.o'.format(d))
+
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+# PARSE THE ARGUMENTS
+
+parser = argparse.ArgumentParser()
+
+#parser.add_argument("-v", "--verbosity", help="increase output verbosity")
+parser.add_argument('--objs', nargs='+')
+parser.add_argument('--libs', nargs='+')
+parser.add_argument('--dmtcp', nargs='+')
+
+# Parse
+args = parser.parse_args()
+
+# Save the arguments in this dictionary
+arg_dict = {'objs':[], 'libs':[], 'dmtcp':[]}
+
+# Print args
+for key, value in parser.parse_args()._get_kwargs():
+    if key in arg_dict:
+        arg_dict[key] = value
+    else:
+        sys.exit('*** *** *** Need Argument(s): --{} {} !!!'.format(key, value))
+
+print ('Given Options and Args:')
+for opt, arg in arg_dict.items():
+    # print ('Arguments', arg_dict)
+    print ('\t{0}: {1}'.format(opt, arg))
+
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+# Set some directory variables
+if arg_dict['dmtcp'] is None:
+    sys.exit('*** *** *** Please provide --dmtcp_directory')
+dir_dmtcp           = os.path.abspath(arg_dict['dmtcp'][0])
+dir_dmtcp_su        = os.path.join(dir_dmtcp, 'static-util')
+dir_dmtcp_bin       = '{}/{}'.format(dir_dmtcp, 'bin')
+dir_dmtcp_lib       = '{}/{}'.format(dir_dmtcp, 'lib/dmtcp')
+glibc               = 'glibc-2.26'
+dir_dmtcp_su_glibc  = '{}/{}'.format(dir_dmtcp_su, glibc)
+gbuild              = 'glibc-build'
+dir_dmtcp_su_gbuild = '{}/{}'.format(dir_dmtcp_su, gbuild)
+
+user_dir = os.path.abspath(os.curdir)
+
+create_dir_str([dir_dmtcp, 'bin'])
+print('dir_dmtcp:', dir_dmtcp)
+
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+# BUILD GLIBC WITH --enable-static-nss
+
+if not os.path.isdir(dir_dmtcp_su_glibc):
+    os.system('cd {0} && tar -xvzf {0}/{1}.tar.gz'.format(dir_dmtcp_su, glibc))
+
+if not os.path.isdir(dir_dmtcp_su_gbuild):
+    os.mkdir(dir_dmtcp_su_gbuild)
+    os.system('cd {1} && {0}/configure --prefix={1} --enable-static-nss && make -j -C {1}'.format(dir_dmtcp_su_glibc, dir_dmtcp_su_gbuild))
+    print ('Made custom glibc')
+
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+# Automate this later - REPLACING THE LIBRARY AND OBJECT SYMBOLS
+
+# Create dir_tmp, which is a temporary directory in /tmp
+# *** *** Use 'with' instead of try/except
+# try:
+#     dir_tmp = tempfile.mkdtemp()
+#     print ('Created dir_tmp:', dir_tmp)
+# except OSError as e:
+#     sys.exit(e)
+
+# # Close dir_tmp
+# print ('Closing dir_tmp:', dir_tmp)
+# shutil.rmtree(dir_tmp)
+
+
+with tempfile.TemporaryDirectory() as dir_tmp:
+    print ('Created SAFE dir_tmp:', dir_tmp)
+
+    # Generate symbols that need WRAPPING
+    os.system('cd {0} && {1}/dmtcp_wrapper_symbols {2} && ls'.format(dir_tmp, dir_dmtcp_bin, dir_dmtcp))
+
+    # Copy over archives from glibc build : modify to call `symbol`_dmtcp_wrap_1
+    dmtcp_plugin_num = 0
+    plugin_num = 1
+    for libxxx in ['libc.a', 'nptl/libpthread.a']:
+
+        # Copy the neccessary archives to dir_tmp
+        os.system('cp {0}/{1} {2}/'.format(dir_dmtcp_su_gbuild, libxxx, dir_tmp))
+
+        # Extract the archives
+        extract_archives_dir(dir_tmp)
+
+        # Run RSE on each .o's
+        # __dmtcp_wrap_0 (only_undef)
+        os.system('cd {0} && {1}/dmtcp_replace_symbols_elf -o {0}/*.o -s `cat {0}/dmtcp.wrapper.sym` __sigpause __xpg_sigpause --singlestr=_wrap__dmtcp_{2} --only_undef;'.format(dir_tmp,
+                                                                                                                                                                                  dir_dmtcp_bin,
+                                                                                                                                                                                  dmtcp_plugin_num))
+        # Create MOD archive with modified .o's
+        libname = libxxx.split('/')[-1]
+        os.system('cd {0} && ar cru {0}/{1}.MOD {0}/*.o'.format( dir_tmp, libname ) )
+
+        # Remove the archives
+        remove_archives_dir( dir_tmp)
+    # END FOR
+
+    # DMTCP now
+    for libxxx in ['libdmtcp.a']:
+        os.system('cp {0}/{1} {2}/'.format(dir_dmtcp_lib, libxxx, dir_tmp))
+        extract_archives_dir(dir_tmp)
+
+        # ONLY FOR DMTCP WRAPPERS
+        # _wrap__dmtcp_? (only_def)
+        os.system('cd {0} && {1}/dmtcp_replace_symbols_elf -o {0}/*.o -s `cat {0}/dmtcp.wrapper.sym` __sigpause __xpg_sigpause --singlestr=_wrap__dmtcp_{2} --only_def;'.format(dir_tmp,
+                                                                                                                                                                                dir_dmtcp_bin,
+                                                                                                                                                                                dmtcp_plugin_num))
+        # dmtcp_ special cases
+            #os.system('cd {1}; {0}/dmtcp_replace_symbols_elf -o {1}/*.o -c _real__sigpause --completestr=__sigpause --only_undef;'.format(d_bin_dir, bad_cache_dir, tmp_dir, lib_name, plugin_num))
+            #os.system('cd {1}; {0}/dmtcp_replace_symbols_elf -o {1}/*.o -c _real_sigpause --completestr=__xpg_sigpause --only_undef;'.format(d_bin_dir, bad_cache_dir, tmp_dir, lib_name, plugin_num))
+
+        # __dmtcp_wrap_0 (only_undef)
+        #os.system('cd {0} && {1}/dmtcp_replace_symbols_elf -o {0}/*.o -s `cat {0}/dmtcp.wrapper.sym` __sigpause __xpg_sigpause --singlestr=_wrap__dmtcp_{2} --only_undef;'.format(dir_tmp,
+        #                                                                                                                                                                          dir_dmtcp_bin,
+        #                                                                                                                                                                          dmtcp_plugin_num))
+
+        libname = libxxx.split('/')[-1]
+        os.system('cd {0} && ar cru {0}/{1}.MOD {0}/*.o'.format( dir_tmp, libname ) )
+        remove_archives_dir( dir_tmp)
+    # END FOR
+
+    # User's .o's
+    for user_obj in arg_dict['objs']:
+        os.system('cp {0}/{1} {2}/'.format(user_dir, user_obj, dir_tmp))
+        os.system('cd {0} && {1}/dmtcp_replace_symbols_elf -o {0}/*.o -s `cat {0}/dmtcp.wrapper.sym` __sigpause __xpg_sigpause --singlestr=_wrap__dmtcp_{2} --only_undef;'.format(dir_tmp,
+                                                                                                                                                                                  dir_dmtcp_bin,
+                                                                                                                                                                                  dmtcp_plugin_num))
+        os.system('cp {0}/*.o {1}/'.format(dir_tmp, user_dir))
+        remove_archives_dir( dir_tmp)
+    # END FOR
+
+    # FOR DEBUGGING *** *** ***
+    os.system('cp {0}/*.MOD {1}/'.format(dir_tmp, user_dir))

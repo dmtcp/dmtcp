@@ -114,6 +114,9 @@
 /* No output, not even NOTE and WARNING */
 #undef QUIET
 
+/* Compile DMTCP for static linking */
+#undef STATIC_DMTCP
+
 /* Define to 1 if you have the ANSI C header files. */
 #undef STDC_HEADERS
 

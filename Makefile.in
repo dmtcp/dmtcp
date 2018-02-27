@@ -63,7 +63,7 @@ mkdirs:
 	$(MKDIR_P) $(targetdir)/bin
 	$(MKDIR_P) $(targetdir)/lib/dmtcp
 
-build: mkdirs dmtcp plugin contrib
+build: mkdirs dmtcp plugin contrib static-util
 ifeq ($(M32),1)
 	cd lib/dmtcp && $(LN_S) 32/lib/dmtcp/* ./
 	mkdir -p bin && cd bin && $(LN_S) ../lib/dmtcp/32/bin/* ./
@@ -121,6 +121,9 @@ plugin: dmtcp
 
 contrib: dmtcp
 	cd contrib && $(MAKE)
+
+static-util:
+	cd static-util && $(MAKE)
 
 tests: build
 ifeq ($(M32),0)
@@ -238,6 +241,7 @@ clean: tidy
 	- cd src && $(MAKE) clean
 	- cd plugin && $(MAKE) clean
 	- cd contrib && $(MAKE) clean
+	- cd static-util && $(MAKE) clean
 	- cd test  && $(MAKE) clean
 	- if test -z "$$DMTCP_TMPDIR"; then \
 	   if test -z "$$TMPDIR"; then \
@@ -255,6 +259,7 @@ distclean: clean
 	- cd src && $(MAKE) distclean
 	- cd plugin && $(MAKE) distclean
 	- cd contrib && $(MAKE) distclean
+	- cd static-util && $(MAKE) distclean
 	- cd test && $(MAKE) distclean
 	rm -f Makefile test/Makefile test/autotest_config.py \
 	  include/config.h include/stamp-h1 \
@@ -337,5 +342,5 @@ am--refresh:
 
 .PHONY: default all add-git-hooks \
 	display-build-env display-release display-config build \
-	mkdirs dmtcp plugin contrib clean distclean am--refresh \
+	mkdirs dmtcp plugin contrib static-util clean distclean am--refresh \
 	tests tests-32

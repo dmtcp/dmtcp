@@ -242,8 +242,13 @@ LIB_PRIVATE void dmtcp_unsetThreadPerformingDlopenDlsym();
 static void *_real_func_addr[numLibcWrappers];
 static int dmtcp_wrappers_initialized = 0;
 
+#ifdef STATIC_DMTCP
+#define GET_FUNC_ADDR(name) \
+  _real_func_addr[ENUM(name)] = (void *)&name;
+#else
 #define GET_FUNC_ADDR(name) \
   _real_func_addr[ENUM(name)] = dmtcp_dlsym(RTLD_NEXT, #name);
+#endif // STATIC_DMTCP
 
 static void
 initialize_libc_wrappers()
@@ -261,7 +266,11 @@ initialize_libc_wrappers()
 #endif
 
   /* On some arm machines, the newest pthread_create has version GLIBC_2.4 */
+#ifndef STATIC_DMTCP
   void *addr = dmtcp_dlvsym(RTLD_NEXT, "pthread_create", "GLIBC_2.4");
+#else
+  void *addr = (void *)&pthread_create;
+#endif // STATIC_DMTCP
   if (addr != NULL) {
     _real_func_addr[ENUM(pthread_create)] = addr;
   }
@@ -780,6 +789,7 @@ _real_socketpair(int d, int type, int protocol, int sv[2])
   REAL_FUNC_PASSTHROUGH(socketpair) (d, type, protocol, sv);
 }
 
+#ifndef STATIC_DMTCP
 LIB_PRIVATE
 void
 _real_openlog(const char *ident, int option, int facility)
@@ -793,6 +803,7 @@ _real_closelog(void)
 {
   REAL_FUNC_PASSTHROUGH_VOID(closelog) ();
 }
+#endif // STATIC_DMTCP
 
 // set the handler
 LIB_PRIVATE
@@ -811,6 +822,7 @@ _real_sigaction(int signum,
   REAL_FUNC_PASSTHROUGH(sigaction) (signum, act, oldact);
 }
 
+#ifndef STATIC_DMTCP
 #if !__GLIBC_PREREQ(2, 21)
 LIB_PRIVATE
 int
@@ -819,6 +831,7 @@ _real_sigvec(int signum, const struct sigvec *vec, struct sigvec *ovec)
   REAL_FUNC_PASSTHROUGH(sigvec) (signum, vec, ovec);
 }
 #endif /* if !__GLIBC_PREREQ(2, 21) */
+#endif // STATIC_DMTCP
 
 // set the mask
 LIB_PRIVATE
@@ -891,6 +904,7 @@ _real_sigignore(int sig)
   REAL_FUNC_PASSTHROUGH(sigignore) (sig);
 }
 
+#ifndef STATIC_DMTCP
 // See 'man sigpause':  signal.h defines two possible versions for sigpause.
 LIB_PRIVATE
 int
@@ -905,6 +919,7 @@ _real_sigpause(int sig)
 {
   REAL_FUNC_PASSTHROUGH(sigpause) (sig);
 }
+#endif // STATIC_DMTCP
 
 LIB_PRIVATE
 int
@@ -1052,6 +1067,7 @@ _real_syscall(long sys_num, ...)
                                               arg[5], arg[6]);
 }
 
+#ifndef STATIC_DMTCP
 LIB_PRIVATE
 int
 _real_xstat(int vers, const char *path, struct stat *buf)
@@ -1079,6 +1095,7 @@ _real_lxstat64(int vers, const char *path, struct stat64 *buf)
 {
   REAL_FUNC_PASSTHROUGH(__lxstat64) (vers, path, buf);
 }
+#endif // STATIC_DMTCP
 
 LIB_PRIVATE
 ssize_t
@@ -1087,6 +1104,7 @@ _real_readlink(const char *path, char *buf, size_t bufsiz)
   REAL_FUNC_PASSTHROUGH_TYPED(ssize_t, readlink) (path, buf, bufsiz);
 }
 
+#ifndef STATIC_DMTCP
 LIB_PRIVATE
 int
 _real_clone(int (*function)(
@@ -1096,6 +1114,7 @@ _real_clone(int (*function)(
   REAL_FUNC_PASSTHROUGH(__clone) (function, child_stack, flags, arg,
                                   parent_tidptr, newtls, child_tidptr);
 }
+#endif // STATIC_DMTCP
 
 LIB_PRIVATE
 int
