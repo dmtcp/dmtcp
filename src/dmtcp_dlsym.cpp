@@ -434,6 +434,7 @@ dlsym_default_internal_flag_handler(void *handle,
                                     dt_tag *tags_p,
                                     Elf32_Word *default_symbol_index_p)
 {
+#ifndef STATIC_DMTCP
   Dl_info info;
   struct link_map *map;
   void *result = NULL;
@@ -488,6 +489,7 @@ dlsym_default_internal_flag_handler(void *handle,
     // Change link map to next library
     map = map->l_next;
   }
+#endif // STATIC_DMTCP
   return NULL;
 }
 

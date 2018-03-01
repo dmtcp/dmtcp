@@ -98,6 +98,17 @@ extern "C"
 {
 #endif // ifdef __cplusplus
 
+#ifdef STATIC_DMTCP
+int
+__clone(int (*fn)(void *arg),
+        void *child_stack,
+        int flags,
+        void *arg,
+        int *ptid,
+        struct user_desc *tls,
+        int *ctid);
+#endif // STATIC_DMTCP
+
 #if defined(__arm__) || defined(__aarch64__)
 # define DISABLE_PTHREAD_GETSPECIFIC_TRICK
 #endif // if defined(__arm__) || defined(__aarch64__)
@@ -206,7 +217,7 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   MACRO(sigtimedwait)                 \
                                       \
   MACRO(fork)                         \
-  /*MACRO(__clone) STATIC_DMTCP*/                      \
+  MACRO(__clone)                      \
   MACRO(open)                         \
   MACRO(open64)                       \
   MACRO(fopen)                        \
@@ -251,11 +262,11 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   MACRO(msgsnd)                       \
   MACRO(msgrcv)                       \
                                       \
-  MACRO(mq_open)                      \
-  MACRO(mq_close)                     \
-  MACRO(mq_timedsend)                 \
-  MACRO(mq_timedreceive)              \
-  MACRO(mq_notify)                    \
+  /*MACRO(mq_open)         STATIC_DMTCP*/             \
+  /*MACRO(mq_close)        STATIC_DMTCP*/             \
+  /*MACRO(mq_timedsend)    STATIC_DMTCP*/             \
+  /*MACRO(mq_timedreceive) STATIC_DMTCP*/             \
+  /*MACRO(mq_notify)       STATIC_DMTCP*/             \
                                       \
   MACRO(read)                         \
   MACRO(write)                        \

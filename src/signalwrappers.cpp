@@ -295,6 +295,7 @@ sigrelse(int sig)
 // signal.h can define sigpause as a macro expanding into __sigpause
 // That takes an extra arg to handle sigmask (BSD) or signal (System V)
 // So, we wrap both version.
+#ifndef STATIC_DMTCP
 EXTERNC int
 __sigpause(int __sig_or_mask, int __is_sig)
 {
@@ -315,6 +316,7 @@ sigpause(int sig)
         "  The DMTCP wrappers for this function may not be fully tested");
   return _real_sigpause(sig);
 }
+#endif // STATIC_DMTCP
 
 /*
  * This wrapper should be thread safe so we use the multithreaded version of

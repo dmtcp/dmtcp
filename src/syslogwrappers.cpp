@@ -111,6 +111,7 @@ SyslogCheckpointer_ResetOnFork()
   _syslogEnabled = false;
 }
 
+#ifndef STATIC_DMTCP
 extern "C" void
 openlog(const char *ident, int option, int facility)
 {
@@ -135,6 +136,7 @@ closelog(void)
   _real_closelog();
   _syslogEnabled = false;
 }
+#endif // STATIC_DMTCP
 
 // FIXME:  Need to add wrappers for vsyslog() and setlogmask()
 // NOTE:  openlog() is optional.  Its purpose is primarily to set default

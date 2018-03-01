@@ -1104,7 +1104,6 @@ _real_readlink(const char *path, char *buf, size_t bufsiz)
   REAL_FUNC_PASSTHROUGH_TYPED(ssize_t, readlink) (path, buf, bufsiz);
 }
 
-#ifndef STATIC_DMTCP
 LIB_PRIVATE
 int
 _real_clone(int (*function)(
@@ -1114,7 +1113,6 @@ _real_clone(int (*function)(
   REAL_FUNC_PASSTHROUGH(__clone) (function, child_stack, flags, arg,
                                   parent_tidptr, newtls, child_tidptr);
 }
-#endif // STATIC_DMTCP
 
 LIB_PRIVATE
 int
@@ -1263,6 +1261,7 @@ _real_msgctl(int msqid, int cmd, struct msqid_ds *buf)
   REAL_FUNC_PASSTHROUGH(msgctl) (msqid, cmd | IPC64_FLAG, buf);
 }
 
+#ifndef STATIC_DMTCP
 LIB_PRIVATE
 mqd_t
 _real_mq_open(const char *name, int oflag, mode_t mode, struct mq_attr *attr)
@@ -1308,6 +1307,7 @@ _real_mq_timedsend(mqd_t mqdes,
   REAL_FUNC_PASSTHROUGH(mq_timedsend) (mqdes, msg_ptr, msg_len, msg_prio,
                                        abs_timeout);
 }
+#endif // STATIC_DMTCP
 
 LIB_PRIVATE
 void *
