@@ -101,6 +101,9 @@ libdmtcp_PROGRAMS = $(d_libdir)/libdmtcp_alloc.so$(EXEEXT) \
 @ENABLE_PTHREAD_MUTEX_WRAPPERS_TRUE@am__append_1 = \
 @ENABLE_PTHREAD_MUTEX_WRAPPERS_TRUE@	pid/pid_mutexwrappers.cpp
 
+@ENABLE_PTHREAD_MUTEX_WRAPPERS_TRUE@am__append_2 = \
+@ENABLE_PTHREAD_MUTEX_WRAPPERS_TRUE@	pid/pid_mutexwrappers.cpp
+
 subdir = src/plugin
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/configure.ac
@@ -112,24 +115,67 @@ mkinstalldirs = $(install_sh) -d
 CONFIG_HEADER = $(top_builddir)/include/config.h
 CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
-LIBRARIES = $(noinst_LIBRARIES)
+am__vpath_adj_setup = srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`;
+am__vpath_adj = case $$p in \
+    $(srcdir)/*) f=`echo "$$p" | sed "s|^$$srcdirstrip/||"`;; \
+    *) f=$$p;; \
+  esac;
+am__strip_dir = f=`echo $$p | sed -e 's|^.*/||'`;
+am__install_max = 40
+am__nobase_strip_setup = \
+  srcdirstrip=`echo "$(srcdir)" | sed 's/[].[^$$\\*|]/\\\\&/g'`
+am__nobase_strip = \
+  for p in $$list; do echo "$$p"; done | sed -e "s|$$srcdirstrip/||"
+am__nobase_list = $(am__nobase_strip_setup); \
+  for p in $$list; do echo "$$p $$p"; done | \
+  sed "s| $$srcdirstrip/| |;"' / .*\//!s/ .*/ ./; s,\( .*\)/[^/]*$$,\1,' | \
+  $(AWK) 'BEGIN { files["."] = "" } { files[$$2] = files[$$2] " " $$1; \
+    if (++n[$$2] == $(am__install_max)) \
+      { print $$2, files[$$2]; n[$$2] = 0; files[$$2] = "" } } \
+    END { for (dir in files) print dir, files[dir] }'
+am__base_list = \
+  sed '$$!N;$$!N;$$!N;$$!N;$$!N;$$!N;$$!N;s/\n/ /g' | \
+  sed '$$!N;$$!N;$$!N;$$!N;s/\n/ /g'
+am__uninstall_files_from_dir = { \
+  test -z "$$files" \
+    || { test ! -d "$$dir" && test ! -f "$$dir" && test ! -r "$$dir"; } \
+    || { echo " ( cd '$$dir' && rm -f" $$files ")"; \
+         $(am__cd) "$$dir" && rm -f $$files; }; \
+  }
+am__installdirs = "$(DESTDIR)$(libdmtcpdir)" "$(DESTDIR)$(bindir)" \
+	"$(DESTDIR)$(libdmtcpdir)" "$(DESTDIR)$(bindir)" \
+	"$(DESTDIR)$(bindir)"
+LIBRARIES = $(libdmtcp_LIBRARIES) $(noinst_LIBRARIES)
 AR = ar
 AM_V_AR = $(am__v_AR_@AM_V@)
 am__v_AR_ = $(am__v_AR_@AM_DEFAULT_V@)
 am__v_AR_0 = @echo "  AR      " $@;
 am__v_AR_1 = 
+__d_libdir__libdmtcp_pid_a_AR = $(AR) $(ARFLAGS)
+__d_libdir__libdmtcp_pid_a_LIBADD =
+am____d_libdir__libdmtcp_pid_a_SOURCES_DIST = pid/pid.cpp \
+	pid/pid_filewrappers.cpp pid/pid.h pid/pid_miscwrappers.cpp \
+	pid/pid_syscallsreal.c pid/pidwrappers.cpp pid/pidwrappers.h \
+	pid/sched_wrappers.cpp pid/virtualpidtable.cpp \
+	pid/virtualpidtable.h pid/pid_mutexwrappers.cpp
+@ENABLE_PTHREAD_MUTEX_WRAPPERS_TRUE@am__objects_1 = pid_mutexwrappers.$(OBJEXT)
+am___d_libdir__libdmtcp_pid_a_OBJECTS = pid.$(OBJEXT) \
+	pid_filewrappers.$(OBJEXT) pid_miscwrappers.$(OBJEXT) \
+	pid_syscallsreal.$(OBJEXT) pidwrappers.$(OBJEXT) \
+	sched_wrappers.$(OBJEXT) virtualpidtable.$(OBJEXT) \
+	$(am__objects_1)
+__d_libdir__libdmtcp_pid_a_OBJECTS =  \
+	$(am___d_libdir__libdmtcp_pid_a_OBJECTS)
+am__dirstamp = $(am__leading_dot)dirstamp
 libssh_a_AR = $(AR) $(ARFLAGS)
 libssh_a_LIBADD =
 am_libssh_a_OBJECTS = i-util_ssh.$(OBJEXT)
 libssh_a_OBJECTS = $(am_libssh_a_OBJECTS)
-am__installdirs = "$(DESTDIR)$(bindir)" "$(DESTDIR)$(libdmtcpdir)" \
-	"$(DESTDIR)$(bindir)" "$(DESTDIR)$(bindir)"
 PROGRAMS = $(bin_PROGRAMS) $(libdmtcp_PROGRAMS)
 am___d_bindir__dmtcp_ssh_OBJECTS = i-dmtcp_ssh.$(OBJEXT)
 __d_bindir__dmtcp_ssh_OBJECTS = $(am___d_bindir__dmtcp_ssh_OBJECTS)
 am__DEPENDENCIES_1 =
 __d_bindir__dmtcp_ssh_DEPENDENCIES = libssh.a $(am__DEPENDENCIES_1)
-am__dirstamp = $(am__leading_dot)dirstamp
 am___d_bindir__dmtcp_sshd_OBJECTS = i-dmtcp_sshd.$(OBJEXT)
 __d_bindir__dmtcp_sshd_OBJECTS = $(am___d_bindir__dmtcp_sshd_OBJECTS)
 __d_bindir__dmtcp_sshd_DEPENDENCIES = libssh.a $(am__DEPENDENCIES_1)
@@ -169,7 +215,6 @@ am____d_libdir__libdmtcp_pid_so_SOURCES_DIST = pid/pid.cpp \
 	pid/pid_syscallsreal.c pid/pidwrappers.cpp pid/pidwrappers.h \
 	pid/sched_wrappers.cpp pid/virtualpidtable.cpp \
 	pid/virtualpidtable.h pid/pid_mutexwrappers.cpp
-@ENABLE_PTHREAD_MUTEX_WRAPPERS_TRUE@am__objects_1 = pid_mutexwrappers.$(OBJEXT)
 am___d_libdir__libdmtcp_pid_so_OBJECTS = pid.$(OBJEXT) \
 	pid_filewrappers.$(OBJEXT) pid_miscwrappers.$(OBJEXT) \
 	pid_syscallsreal.$(OBJEXT) pidwrappers.$(OBJEXT) \
@@ -199,33 +244,6 @@ __d_libdir__libdmtcp_timer_so_DEPENDENCIES =
 __d_libdir__libdmtcp_timer_so_LINK = $(CXXLD) $(AM_CXXFLAGS) \
 	$(CXXFLAGS) $(__d_libdir__libdmtcp_timer_so_LDFLAGS) \
 	$(LDFLAGS) -o $@
-am__vpath_adj_setup = srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`;
-am__vpath_adj = case $$p in \
-    $(srcdir)/*) f=`echo "$$p" | sed "s|^$$srcdirstrip/||"`;; \
-    *) f=$$p;; \
-  esac;
-am__strip_dir = f=`echo $$p | sed -e 's|^.*/||'`;
-am__install_max = 40
-am__nobase_strip_setup = \
-  srcdirstrip=`echo "$(srcdir)" | sed 's/[].[^$$\\*|]/\\\\&/g'`
-am__nobase_strip = \
-  for p in $$list; do echo "$$p"; done | sed -e "s|$$srcdirstrip/||"
-am__nobase_list = $(am__nobase_strip_setup); \
-  for p in $$list; do echo "$$p $$p"; done | \
-  sed "s| $$srcdirstrip/| |;"' / .*\//!s/ .*/ ./; s,\( .*\)/[^/]*$$,\1,' | \
-  $(AWK) 'BEGIN { files["."] = "" } { files[$$2] = files[$$2] " " $$1; \
-    if (++n[$$2] == $(am__install_max)) \
-      { print $$2, files[$$2]; n[$$2] = 0; files[$$2] = "" } } \
-    END { for (dir in files) print dir, files[dir] }'
-am__base_list = \
-  sed '$$!N;$$!N;$$!N;$$!N;$$!N;$$!N;$$!N;s/\n/ /g' | \
-  sed '$$!N;$$!N;$$!N;$$!N;s/\n/ /g'
-am__uninstall_files_from_dir = { \
-  test -z "$$files" \
-    || { test ! -d "$$dir" && test ! -f "$$dir" && test ! -r "$$dir"; } \
-    || { echo " ( cd '$$dir' && rm -f" $$files ")"; \
-         $(am__cd) "$$dir" && rm -f $$files; }; \
-  }
 SCRIPTS = $(bin_SCRIPTS) $(dist_bin_SCRIPTS)
 AM_V_P = $(am__v_P_@AM_V@)
 am__v_P_ = $(am__v_P_@AM_DEFAULT_V@)
@@ -272,7 +290,8 @@ AM_V_CXXLD = $(am__v_CXXLD_@AM_V@)
 am__v_CXXLD_ = $(am__v_CXXLD_@AM_DEFAULT_V@)
 am__v_CXXLD_0 = @echo "  CXXLD   " $@;
 am__v_CXXLD_1 = 
-SOURCES = $(libssh_a_SOURCES) $(__d_bindir__dmtcp_ssh_SOURCES) \
+SOURCES = $(__d_libdir__libdmtcp_pid_a_SOURCES) $(libssh_a_SOURCES) \
+	$(__d_bindir__dmtcp_ssh_SOURCES) \
 	$(__d_bindir__dmtcp_sshd_SOURCES) \
 	$(__d_libdir__libdmtcp_alloc_so_SOURCES) \
 	$(__d_libdir__libdmtcp_dl_so_SOURCES) \
@@ -280,7 +299,8 @@ SOURCES = $(libssh_a_SOURCES) $(__d_bindir__dmtcp_ssh_SOURCES) \
 	$(__d_libdir__libdmtcp_pid_so_SOURCES) \
 	$(__d_libdir__libdmtcp_svipc_so_SOURCES) \
 	$(__d_libdir__libdmtcp_timer_so_SOURCES)
-DIST_SOURCES = $(libssh_a_SOURCES) $(__d_bindir__dmtcp_ssh_SOURCES) \
+DIST_SOURCES = $(am____d_libdir__libdmtcp_pid_a_SOURCES_DIST) \
+	$(libssh_a_SOURCES) $(__d_bindir__dmtcp_ssh_SOURCES) \
 	$(__d_bindir__dmtcp_sshd_SOURCES) \
 	$(__d_libdir__libdmtcp_alloc_so_SOURCES) \
 	$(__d_libdir__libdmtcp_dl_so_SOURCES) \
@@ -490,6 +510,10 @@ libdmtcpdir = $(pkglibdir)
 bin_SCRIPTS = 
 CLEANFILES = 
 dist_bin_SCRIPTS = 
+#
+# STATIC_DMTCP Pid plugin
+#
+libdmtcp_LIBRARIES = $(d_libdir)/libdmtcp_pid.a
 
 #
 # IPC plugin
@@ -583,6 +607,12 @@ __d_libdir__libdmtcp_pid_so_SOURCES = pid/pid.cpp \
 	pid/sched_wrappers.cpp pid/virtualpidtable.cpp \
 	pid/virtualpidtable.h $(am__append_1)
 __d_libdir__libdmtcp_pid_so_LDFLAGS = $(dmtcp_ldflags)
+__d_libdir__libdmtcp_pid_a_SOURCES = pid/pid.cpp \
+	pid/pid_filewrappers.cpp pid/pid.h pid/pid_miscwrappers.cpp \
+	pid/pid_syscallsreal.c pid/pidwrappers.cpp pid/pidwrappers.h \
+	pid/sched_wrappers.cpp pid/virtualpidtable.cpp \
+	pid/virtualpidtable.h $(am__append_2)
+__d_libdir__libdmtcp_pid_a_LDFLAGS = $(dmtcp_ldflags)
 __d_libdir__libdmtcp_svipc_so_SOURCES = \
 	svipc/sysvipc.cpp                                              \
 	svipc/sysvipc.h                                                \
@@ -631,9 +661,48 @@ $(top_srcdir)/configure: @MAINTAINER_MODE_TRUE@ $(am__configure_deps)
 $(ACLOCAL_M4): @MAINTAINER_MODE_TRUE@ $(am__aclocal_m4_deps)
 	cd $(top_builddir) && $(MAKE) $(AM_MAKEFLAGS) am--refresh
 $(am__aclocal_m4_deps):
+install-libdmtcpLIBRARIES: $(libdmtcp_LIBRARIES)
+	@$(NORMAL_INSTALL)
+	@list='$(libdmtcp_LIBRARIES)'; test -n "$(libdmtcpdir)" || list=; \
+	list2=; for p in $$list; do \
+	  if test -f $$p; then \
+	    list2="$$list2 $$p"; \
+	  else :; fi; \
+	done; \
+	test -z "$$list2" || { \
+	  echo " $(MKDIR_P) '$(DESTDIR)$(libdmtcpdir)'"; \
+	  $(MKDIR_P) "$(DESTDIR)$(libdmtcpdir)" || exit 1; \
+	  echo " $(INSTALL_DATA) $$list2 '$(DESTDIR)$(libdmtcpdir)'"; \
+	  $(INSTALL_DATA) $$list2 "$(DESTDIR)$(libdmtcpdir)" || exit $$?; }
+	@$(POST_INSTALL)
+	@list='$(libdmtcp_LIBRARIES)'; test -n "$(libdmtcpdir)" || list=; \
+	for p in $$list; do \
+	  if test -f $$p; then \
+	    $(am__strip_dir) \
+	    echo " ( cd '$(DESTDIR)$(libdmtcpdir)' && $(RANLIB) $$f )"; \
+	    ( cd "$(DESTDIR)$(libdmtcpdir)" && $(RANLIB) $$f ) || exit $$?; \
+	  else :; fi; \
+	done
+
+uninstall-libdmtcpLIBRARIES:
+	@$(NORMAL_UNINSTALL)
+	@list='$(libdmtcp_LIBRARIES)'; test -n "$(libdmtcpdir)" || list=; \
+	files=`for p in $$list; do echo $$p; done | sed -e 's|^.*/||'`; \
+	dir='$(DESTDIR)$(libdmtcpdir)'; $(am__uninstall_files_from_dir)
+
+clean-libdmtcpLIBRARIES:
+	-test -z "$(libdmtcp_LIBRARIES)" || rm -f $(libdmtcp_LIBRARIES)
 
 clean-noinstLIBRARIES:
 	-test -z "$(noinst_LIBRARIES)" || rm -f $(noinst_LIBRARIES)
+$(d_libdir)/$(am__dirstamp):
+	@$(MKDIR_P) $(d_libdir)
+	@: > $(d_libdir)/$(am__dirstamp)
+
+$(d_libdir)/libdmtcp_pid.a: $(__d_libdir__libdmtcp_pid_a_OBJECTS) $(__d_libdir__libdmtcp_pid_a_DEPENDENCIES) $(EXTRA___d_libdir__libdmtcp_pid_a_DEPENDENCIES) $(d_libdir)/$(am__dirstamp)
+	$(AM_V_at)-rm -f $(d_libdir)/libdmtcp_pid.a
+	$(AM_V_AR)$(__d_libdir__libdmtcp_pid_a_AR) $(d_libdir)/libdmtcp_pid.a $(__d_libdir__libdmtcp_pid_a_OBJECTS) $(__d_libdir__libdmtcp_pid_a_LIBADD)
+	$(AM_V_at)$(RANLIB) $(d_libdir)/libdmtcp_pid.a
 
 libssh.a: $(libssh_a_OBJECTS) $(libssh_a_DEPENDENCIES) $(EXTRA_libssh_a_DEPENDENCIES) 
 	$(AM_V_at)-rm -f libssh.a
@@ -734,9 +803,6 @@ $(d_bindir)/dmtcp_ssh$(EXEEXT): $(__d_bindir__dmtcp_ssh_OBJECTS) $(__d_bindir__d
 $(d_bindir)/dmtcp_sshd$(EXEEXT): $(__d_bindir__dmtcp_sshd_OBJECTS) $(__d_bindir__dmtcp_sshd_DEPENDENCIES) $(EXTRA___d_bindir__dmtcp_sshd_DEPENDENCIES) $(d_bindir)/$(am__dirstamp)
 	@rm -f $(d_bindir)/dmtcp_sshd$(EXEEXT)
 	$(AM_V_CXXLD)$(CXXLINK) $(__d_bindir__dmtcp_sshd_OBJECTS) $(__d_bindir__dmtcp_sshd_LDADD) $(LIBS)
-$(d_libdir)/$(am__dirstamp):
-	@$(MKDIR_P) $(d_libdir)
-	@: > $(d_libdir)/$(am__dirstamp)
 
 $(d_libdir)/libdmtcp_alloc.so$(EXEEXT): $(__d_libdir__libdmtcp_alloc_so_OBJECTS) $(__d_libdir__libdmtcp_alloc_so_DEPENDENCIES) $(EXTRA___d_libdir__libdmtcp_alloc_so_DEPENDENCIES) $(d_libdir)/$(am__dirstamp)
 	@rm -f $(d_libdir)/libdmtcp_alloc.so$(EXEEXT)
@@ -922,6 +988,104 @@ pid_syscallsreal.obj: pid/pid_syscallsreal.c
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXXCOMPILE) -c -o $@ `$(CYGPATH_W) '$<'`
+
+pid.o: pid/pid.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT pid.o -MD -MP -MF $(DEPDIR)/pid.Tpo -c -o pid.o `test -f 'pid/pid.cpp' || echo '$(srcdir)/'`pid/pid.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/pid.Tpo $(DEPDIR)/pid.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='pid/pid.cpp' object='pid.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o pid.o `test -f 'pid/pid.cpp' || echo '$(srcdir)/'`pid/pid.cpp
+
+pid.obj: pid/pid.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT pid.obj -MD -MP -MF $(DEPDIR)/pid.Tpo -c -o pid.obj `if test -f 'pid/pid.cpp'; then $(CYGPATH_W) 'pid/pid.cpp'; else $(CYGPATH_W) '$(srcdir)/pid/pid.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/pid.Tpo $(DEPDIR)/pid.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='pid/pid.cpp' object='pid.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o pid.obj `if test -f 'pid/pid.cpp'; then $(CYGPATH_W) 'pid/pid.cpp'; else $(CYGPATH_W) '$(srcdir)/pid/pid.cpp'; fi`
+
+pid_filewrappers.o: pid/pid_filewrappers.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT pid_filewrappers.o -MD -MP -MF $(DEPDIR)/pid_filewrappers.Tpo -c -o pid_filewrappers.o `test -f 'pid/pid_filewrappers.cpp' || echo '$(srcdir)/'`pid/pid_filewrappers.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/pid_filewrappers.Tpo $(DEPDIR)/pid_filewrappers.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='pid/pid_filewrappers.cpp' object='pid_filewrappers.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o pid_filewrappers.o `test -f 'pid/pid_filewrappers.cpp' || echo '$(srcdir)/'`pid/pid_filewrappers.cpp
+
+pid_filewrappers.obj: pid/pid_filewrappers.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT pid_filewrappers.obj -MD -MP -MF $(DEPDIR)/pid_filewrappers.Tpo -c -o pid_filewrappers.obj `if test -f 'pid/pid_filewrappers.cpp'; then $(CYGPATH_W) 'pid/pid_filewrappers.cpp'; else $(CYGPATH_W) '$(srcdir)/pid/pid_filewrappers.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/pid_filewrappers.Tpo $(DEPDIR)/pid_filewrappers.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='pid/pid_filewrappers.cpp' object='pid_filewrappers.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o pid_filewrappers.obj `if test -f 'pid/pid_filewrappers.cpp'; then $(CYGPATH_W) 'pid/pid_filewrappers.cpp'; else $(CYGPATH_W) '$(srcdir)/pid/pid_filewrappers.cpp'; fi`
+
+pid_miscwrappers.o: pid/pid_miscwrappers.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT pid_miscwrappers.o -MD -MP -MF $(DEPDIR)/pid_miscwrappers.Tpo -c -o pid_miscwrappers.o `test -f 'pid/pid_miscwrappers.cpp' || echo '$(srcdir)/'`pid/pid_miscwrappers.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/pid_miscwrappers.Tpo $(DEPDIR)/pid_miscwrappers.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='pid/pid_miscwrappers.cpp' object='pid_miscwrappers.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o pid_miscwrappers.o `test -f 'pid/pid_miscwrappers.cpp' || echo '$(srcdir)/'`pid/pid_miscwrappers.cpp
+
+pid_miscwrappers.obj: pid/pid_miscwrappers.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT pid_miscwrappers.obj -MD -MP -MF $(DEPDIR)/pid_miscwrappers.Tpo -c -o pid_miscwrappers.obj `if test -f 'pid/pid_miscwrappers.cpp'; then $(CYGPATH_W) 'pid/pid_miscwrappers.cpp'; else $(CYGPATH_W) '$(srcdir)/pid/pid_miscwrappers.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/pid_miscwrappers.Tpo $(DEPDIR)/pid_miscwrappers.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='pid/pid_miscwrappers.cpp' object='pid_miscwrappers.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o pid_miscwrappers.obj `if test -f 'pid/pid_miscwrappers.cpp'; then $(CYGPATH_W) 'pid/pid_miscwrappers.cpp'; else $(CYGPATH_W) '$(srcdir)/pid/pid_miscwrappers.cpp'; fi`
+
+pidwrappers.o: pid/pidwrappers.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT pidwrappers.o -MD -MP -MF $(DEPDIR)/pidwrappers.Tpo -c -o pidwrappers.o `test -f 'pid/pidwrappers.cpp' || echo '$(srcdir)/'`pid/pidwrappers.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/pidwrappers.Tpo $(DEPDIR)/pidwrappers.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='pid/pidwrappers.cpp' object='pidwrappers.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o pidwrappers.o `test -f 'pid/pidwrappers.cpp' || echo '$(srcdir)/'`pid/pidwrappers.cpp
+
+pidwrappers.obj: pid/pidwrappers.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT pidwrappers.obj -MD -MP -MF $(DEPDIR)/pidwrappers.Tpo -c -o pidwrappers.obj `if test -f 'pid/pidwrappers.cpp'; then $(CYGPATH_W) 'pid/pidwrappers.cpp'; else $(CYGPATH_W) '$(srcdir)/pid/pidwrappers.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/pidwrappers.Tpo $(DEPDIR)/pidwrappers.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='pid/pidwrappers.cpp' object='pidwrappers.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o pidwrappers.obj `if test -f 'pid/pidwrappers.cpp'; then $(CYGPATH_W) 'pid/pidwrappers.cpp'; else $(CYGPATH_W) '$(srcdir)/pid/pidwrappers.cpp'; fi`
+
+sched_wrappers.o: pid/sched_wrappers.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT sched_wrappers.o -MD -MP -MF $(DEPDIR)/sched_wrappers.Tpo -c -o sched_wrappers.o `test -f 'pid/sched_wrappers.cpp' || echo '$(srcdir)/'`pid/sched_wrappers.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/sched_wrappers.Tpo $(DEPDIR)/sched_wrappers.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='pid/sched_wrappers.cpp' object='sched_wrappers.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o sched_wrappers.o `test -f 'pid/sched_wrappers.cpp' || echo '$(srcdir)/'`pid/sched_wrappers.cpp
+
+sched_wrappers.obj: pid/sched_wrappers.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT sched_wrappers.obj -MD -MP -MF $(DEPDIR)/sched_wrappers.Tpo -c -o sched_wrappers.obj `if test -f 'pid/sched_wrappers.cpp'; then $(CYGPATH_W) 'pid/sched_wrappers.cpp'; else $(CYGPATH_W) '$(srcdir)/pid/sched_wrappers.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/sched_wrappers.Tpo $(DEPDIR)/sched_wrappers.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='pid/sched_wrappers.cpp' object='sched_wrappers.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o sched_wrappers.obj `if test -f 'pid/sched_wrappers.cpp'; then $(CYGPATH_W) 'pid/sched_wrappers.cpp'; else $(CYGPATH_W) '$(srcdir)/pid/sched_wrappers.cpp'; fi`
+
+virtualpidtable.o: pid/virtualpidtable.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT virtualpidtable.o -MD -MP -MF $(DEPDIR)/virtualpidtable.Tpo -c -o virtualpidtable.o `test -f 'pid/virtualpidtable.cpp' || echo '$(srcdir)/'`pid/virtualpidtable.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/virtualpidtable.Tpo $(DEPDIR)/virtualpidtable.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='pid/virtualpidtable.cpp' object='virtualpidtable.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o virtualpidtable.o `test -f 'pid/virtualpidtable.cpp' || echo '$(srcdir)/'`pid/virtualpidtable.cpp
+
+virtualpidtable.obj: pid/virtualpidtable.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT virtualpidtable.obj -MD -MP -MF $(DEPDIR)/virtualpidtable.Tpo -c -o virtualpidtable.obj `if test -f 'pid/virtualpidtable.cpp'; then $(CYGPATH_W) 'pid/virtualpidtable.cpp'; else $(CYGPATH_W) '$(srcdir)/pid/virtualpidtable.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/virtualpidtable.Tpo $(DEPDIR)/virtualpidtable.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='pid/virtualpidtable.cpp' object='virtualpidtable.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o virtualpidtable.obj `if test -f 'pid/virtualpidtable.cpp'; then $(CYGPATH_W) 'pid/virtualpidtable.cpp'; else $(CYGPATH_W) '$(srcdir)/pid/virtualpidtable.cpp'; fi`
+
+pid_mutexwrappers.o: pid/pid_mutexwrappers.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT pid_mutexwrappers.o -MD -MP -MF $(DEPDIR)/pid_mutexwrappers.Tpo -c -o pid_mutexwrappers.o `test -f 'pid/pid_mutexwrappers.cpp' || echo '$(srcdir)/'`pid/pid_mutexwrappers.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/pid_mutexwrappers.Tpo $(DEPDIR)/pid_mutexwrappers.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='pid/pid_mutexwrappers.cpp' object='pid_mutexwrappers.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o pid_mutexwrappers.o `test -f 'pid/pid_mutexwrappers.cpp' || echo '$(srcdir)/'`pid/pid_mutexwrappers.cpp
+
+pid_mutexwrappers.obj: pid/pid_mutexwrappers.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT pid_mutexwrappers.obj -MD -MP -MF $(DEPDIR)/pid_mutexwrappers.Tpo -c -o pid_mutexwrappers.obj `if test -f 'pid/pid_mutexwrappers.cpp'; then $(CYGPATH_W) 'pid/pid_mutexwrappers.cpp'; else $(CYGPATH_W) '$(srcdir)/pid/pid_mutexwrappers.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/pid_mutexwrappers.Tpo $(DEPDIR)/pid_mutexwrappers.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='pid/pid_mutexwrappers.cpp' object='pid_mutexwrappers.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o pid_mutexwrappers.obj `if test -f 'pid/pid_mutexwrappers.cpp'; then $(CYGPATH_W) 'pid/pid_mutexwrappers.cpp'; else $(CYGPATH_W) '$(srcdir)/pid/pid_mutexwrappers.cpp'; fi`
 
 i-util_ssh.o: ipc/ssh/util_ssh.cpp
 @am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libssh_a_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT i-util_ssh.o -MD -MP -MF $(DEPDIR)/i-util_ssh.Tpo -c -o i-util_ssh.o `test -f 'ipc/ssh/util_ssh.cpp' || echo '$(srcdir)/'`ipc/ssh/util_ssh.cpp
@@ -1329,104 +1493,6 @@ i-sshdrainer.obj: ipc/ssh/sshdrainer.cpp
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(__d_libdir__libdmtcp_ipc_so_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o i-sshdrainer.obj `if test -f 'ipc/ssh/sshdrainer.cpp'; then $(CYGPATH_W) 'ipc/ssh/sshdrainer.cpp'; else $(CYGPATH_W) '$(srcdir)/ipc/ssh/sshdrainer.cpp'; fi`
 
-pid.o: pid/pid.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT pid.o -MD -MP -MF $(DEPDIR)/pid.Tpo -c -o pid.o `test -f 'pid/pid.cpp' || echo '$(srcdir)/'`pid/pid.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/pid.Tpo $(DEPDIR)/pid.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='pid/pid.cpp' object='pid.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o pid.o `test -f 'pid/pid.cpp' || echo '$(srcdir)/'`pid/pid.cpp
-
-pid.obj: pid/pid.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT pid.obj -MD -MP -MF $(DEPDIR)/pid.Tpo -c -o pid.obj `if test -f 'pid/pid.cpp'; then $(CYGPATH_W) 'pid/pid.cpp'; else $(CYGPATH_W) '$(srcdir)/pid/pid.cpp'; fi`
-@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/pid.Tpo $(DEPDIR)/pid.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='pid/pid.cpp' object='pid.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o pid.obj `if test -f 'pid/pid.cpp'; then $(CYGPATH_W) 'pid/pid.cpp'; else $(CYGPATH_W) '$(srcdir)/pid/pid.cpp'; fi`
-
-pid_filewrappers.o: pid/pid_filewrappers.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT pid_filewrappers.o -MD -MP -MF $(DEPDIR)/pid_filewrappers.Tpo -c -o pid_filewrappers.o `test -f 'pid/pid_filewrappers.cpp' || echo '$(srcdir)/'`pid/pid_filewrappers.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/pid_filewrappers.Tpo $(DEPDIR)/pid_filewrappers.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='pid/pid_filewrappers.cpp' object='pid_filewrappers.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o pid_filewrappers.o `test -f 'pid/pid_filewrappers.cpp' || echo '$(srcdir)/'`pid/pid_filewrappers.cpp
-
-pid_filewrappers.obj: pid/pid_filewrappers.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT pid_filewrappers.obj -MD -MP -MF $(DEPDIR)/pid_filewrappers.Tpo -c -o pid_filewrappers.obj `if test -f 'pid/pid_filewrappers.cpp'; then $(CYGPATH_W) 'pid/pid_filewrappers.cpp'; else $(CYGPATH_W) '$(srcdir)/pid/pid_filewrappers.cpp'; fi`
-@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/pid_filewrappers.Tpo $(DEPDIR)/pid_filewrappers.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='pid/pid_filewrappers.cpp' object='pid_filewrappers.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o pid_filewrappers.obj `if test -f 'pid/pid_filewrappers.cpp'; then $(CYGPATH_W) 'pid/pid_filewrappers.cpp'; else $(CYGPATH_W) '$(srcdir)/pid/pid_filewrappers.cpp'; fi`
-
-pid_miscwrappers.o: pid/pid_miscwrappers.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT pid_miscwrappers.o -MD -MP -MF $(DEPDIR)/pid_miscwrappers.Tpo -c -o pid_miscwrappers.o `test -f 'pid/pid_miscwrappers.cpp' || echo '$(srcdir)/'`pid/pid_miscwrappers.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/pid_miscwrappers.Tpo $(DEPDIR)/pid_miscwrappers.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='pid/pid_miscwrappers.cpp' object='pid_miscwrappers.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o pid_miscwrappers.o `test -f 'pid/pid_miscwrappers.cpp' || echo '$(srcdir)/'`pid/pid_miscwrappers.cpp
-
-pid_miscwrappers.obj: pid/pid_miscwrappers.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT pid_miscwrappers.obj -MD -MP -MF $(DEPDIR)/pid_miscwrappers.Tpo -c -o pid_miscwrappers.obj `if test -f 'pid/pid_miscwrappers.cpp'; then $(CYGPATH_W) 'pid/pid_miscwrappers.cpp'; else $(CYGPATH_W) '$(srcdir)/pid/pid_miscwrappers.cpp'; fi`
-@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/pid_miscwrappers.Tpo $(DEPDIR)/pid_miscwrappers.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='pid/pid_miscwrappers.cpp' object='pid_miscwrappers.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o pid_miscwrappers.obj `if test -f 'pid/pid_miscwrappers.cpp'; then $(CYGPATH_W) 'pid/pid_miscwrappers.cpp'; else $(CYGPATH_W) '$(srcdir)/pid/pid_miscwrappers.cpp'; fi`
-
-pidwrappers.o: pid/pidwrappers.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT pidwrappers.o -MD -MP -MF $(DEPDIR)/pidwrappers.Tpo -c -o pidwrappers.o `test -f 'pid/pidwrappers.cpp' || echo '$(srcdir)/'`pid/pidwrappers.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/pidwrappers.Tpo $(DEPDIR)/pidwrappers.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='pid/pidwrappers.cpp' object='pidwrappers.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o pidwrappers.o `test -f 'pid/pidwrappers.cpp' || echo '$(srcdir)/'`pid/pidwrappers.cpp
-
-pidwrappers.obj: pid/pidwrappers.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT pidwrappers.obj -MD -MP -MF $(DEPDIR)/pidwrappers.Tpo -c -o pidwrappers.obj `if test -f 'pid/pidwrappers.cpp'; then $(CYGPATH_W) 'pid/pidwrappers.cpp'; else $(CYGPATH_W) '$(srcdir)/pid/pidwrappers.cpp'; fi`
-@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/pidwrappers.Tpo $(DEPDIR)/pidwrappers.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='pid/pidwrappers.cpp' object='pidwrappers.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o pidwrappers.obj `if test -f 'pid/pidwrappers.cpp'; then $(CYGPATH_W) 'pid/pidwrappers.cpp'; else $(CYGPATH_W) '$(srcdir)/pid/pidwrappers.cpp'; fi`
-
-sched_wrappers.o: pid/sched_wrappers.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT sched_wrappers.o -MD -MP -MF $(DEPDIR)/sched_wrappers.Tpo -c -o sched_wrappers.o `test -f 'pid/sched_wrappers.cpp' || echo '$(srcdir)/'`pid/sched_wrappers.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/sched_wrappers.Tpo $(DEPDIR)/sched_wrappers.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='pid/sched_wrappers.cpp' object='sched_wrappers.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o sched_wrappers.o `test -f 'pid/sched_wrappers.cpp' || echo '$(srcdir)/'`pid/sched_wrappers.cpp
-
-sched_wrappers.obj: pid/sched_wrappers.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT sched_wrappers.obj -MD -MP -MF $(DEPDIR)/sched_wrappers.Tpo -c -o sched_wrappers.obj `if test -f 'pid/sched_wrappers.cpp'; then $(CYGPATH_W) 'pid/sched_wrappers.cpp'; else $(CYGPATH_W) '$(srcdir)/pid/sched_wrappers.cpp'; fi`
-@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/sched_wrappers.Tpo $(DEPDIR)/sched_wrappers.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='pid/sched_wrappers.cpp' object='sched_wrappers.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o sched_wrappers.obj `if test -f 'pid/sched_wrappers.cpp'; then $(CYGPATH_W) 'pid/sched_wrappers.cpp'; else $(CYGPATH_W) '$(srcdir)/pid/sched_wrappers.cpp'; fi`
-
-virtualpidtable.o: pid/virtualpidtable.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT virtualpidtable.o -MD -MP -MF $(DEPDIR)/virtualpidtable.Tpo -c -o virtualpidtable.o `test -f 'pid/virtualpidtable.cpp' || echo '$(srcdir)/'`pid/virtualpidtable.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/virtualpidtable.Tpo $(DEPDIR)/virtualpidtable.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='pid/virtualpidtable.cpp' object='virtualpidtable.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o virtualpidtable.o `test -f 'pid/virtualpidtable.cpp' || echo '$(srcdir)/'`pid/virtualpidtable.cpp
-
-virtualpidtable.obj: pid/virtualpidtable.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT virtualpidtable.obj -MD -MP -MF $(DEPDIR)/virtualpidtable.Tpo -c -o virtualpidtable.obj `if test -f 'pid/virtualpidtable.cpp'; then $(CYGPATH_W) 'pid/virtualpidtable.cpp'; else $(CYGPATH_W) '$(srcdir)/pid/virtualpidtable.cpp'; fi`
-@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/virtualpidtable.Tpo $(DEPDIR)/virtualpidtable.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='pid/virtualpidtable.cpp' object='virtualpidtable.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o virtualpidtable.obj `if test -f 'pid/virtualpidtable.cpp'; then $(CYGPATH_W) 'pid/virtualpidtable.cpp'; else $(CYGPATH_W) '$(srcdir)/pid/virtualpidtable.cpp'; fi`
-
-pid_mutexwrappers.o: pid/pid_mutexwrappers.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT pid_mutexwrappers.o -MD -MP -MF $(DEPDIR)/pid_mutexwrappers.Tpo -c -o pid_mutexwrappers.o `test -f 'pid/pid_mutexwrappers.cpp' || echo '$(srcdir)/'`pid/pid_mutexwrappers.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/pid_mutexwrappers.Tpo $(DEPDIR)/pid_mutexwrappers.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='pid/pid_mutexwrappers.cpp' object='pid_mutexwrappers.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o pid_mutexwrappers.o `test -f 'pid/pid_mutexwrappers.cpp' || echo '$(srcdir)/'`pid/pid_mutexwrappers.cpp
-
-pid_mutexwrappers.obj: pid/pid_mutexwrappers.cpp
-@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT pid_mutexwrappers.obj -MD -MP -MF $(DEPDIR)/pid_mutexwrappers.Tpo -c -o pid_mutexwrappers.obj `if test -f 'pid/pid_mutexwrappers.cpp'; then $(CYGPATH_W) 'pid/pid_mutexwrappers.cpp'; else $(CYGPATH_W) '$(srcdir)/pid/pid_mutexwrappers.cpp'; fi`
-@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/pid_mutexwrappers.Tpo $(DEPDIR)/pid_mutexwrappers.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='pid/pid_mutexwrappers.cpp' object='pid_mutexwrappers.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o pid_mutexwrappers.obj `if test -f 'pid/pid_mutexwrappers.cpp'; then $(CYGPATH_W) 'pid/pid_mutexwrappers.cpp'; else $(CYGPATH_W) '$(srcdir)/pid/pid_mutexwrappers.cpp'; fi`
-
 sysvipc.o: svipc/sysvipc.cpp
 @am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT sysvipc.o -MD -MP -MF $(DEPDIR)/sysvipc.Tpo -c -o sysvipc.o `test -f 'svipc/sysvipc.cpp' || echo '$(srcdir)/'`svipc/sysvipc.cpp
 @am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/sysvipc.Tpo $(DEPDIR)/sysvipc.Po
@@ -1583,7 +1649,7 @@ check-am: all-am
 check: check-am
 all-am: Makefile $(LIBRARIES) $(PROGRAMS) $(SCRIPTS)
 installdirs:
-	for dir in "$(DESTDIR)$(bindir)" "$(DESTDIR)$(libdmtcpdir)" "$(DESTDIR)$(bindir)" "$(DESTDIR)$(bindir)"; do \
+	for dir in "$(DESTDIR)$(libdmtcpdir)" "$(DESTDIR)$(bindir)" "$(DESTDIR)$(libdmtcpdir)" "$(DESTDIR)$(bindir)" "$(DESTDIR)$(bindir)"; do \
 	  test -z "$$dir" || $(MKDIR_P) "$$dir"; \
 	done
 install: install-am
@@ -1621,8 +1687,8 @@ maintainer-clean-generic:
 	@echo "it deletes files that may require special tools to rebuild."
 clean: clean-am
 
-clean-am: clean-binPROGRAMS clean-generic clean-libdmtcpPROGRAMS \
-	clean-noinstLIBRARIES mostlyclean-am
+clean-am: clean-binPROGRAMS clean-generic clean-libdmtcpLIBRARIES \
+	clean-libdmtcpPROGRAMS clean-noinstLIBRARIES mostlyclean-am
 
 distclean: distclean-am
 	-rm -rf ./$(DEPDIR)
@@ -1642,7 +1708,7 @@ info: info-am
 
 info-am:
 
-install-data-am: install-libdmtcpPROGRAMS
+install-data-am: install-libdmtcpLIBRARIES install-libdmtcpPROGRAMS
 
 install-dvi: install-dvi-am
 
@@ -1689,26 +1755,28 @@ ps: ps-am
 ps-am:
 
 uninstall-am: uninstall-binPROGRAMS uninstall-binSCRIPTS \
-	uninstall-dist_binSCRIPTS uninstall-libdmtcpPROGRAMS
+	uninstall-dist_binSCRIPTS uninstall-libdmtcpLIBRARIES \
+	uninstall-libdmtcpPROGRAMS
 
 .MAKE: install-am install-strip
 
 .PHONY: CTAGS GTAGS TAGS all all-am check check-am clean \
-	clean-binPROGRAMS clean-generic clean-libdmtcpPROGRAMS \
-	clean-noinstLIBRARIES cscopelist-am ctags ctags-am distclean \
-	distclean-compile distclean-generic distclean-tags distdir dvi \
-	dvi-am html html-am info info-am install install-am \
-	install-binPROGRAMS install-binSCRIPTS install-data \
-	install-data-am install-dist_binSCRIPTS install-dvi \
-	install-dvi-am install-exec install-exec-am install-html \
-	install-html-am install-info install-info-am \
-	install-libdmtcpPROGRAMS install-man install-pdf \
-	install-pdf-am install-ps install-ps-am install-strip \
-	installcheck installcheck-am installdirs maintainer-clean \
-	maintainer-clean-generic mostlyclean mostlyclean-compile \
-	mostlyclean-generic pdf pdf-am ps ps-am tags tags-am uninstall \
-	uninstall-am uninstall-binPROGRAMS uninstall-binSCRIPTS \
-	uninstall-dist_binSCRIPTS uninstall-libdmtcpPROGRAMS
+	clean-binPROGRAMS clean-generic clean-libdmtcpLIBRARIES \
+	clean-libdmtcpPROGRAMS clean-noinstLIBRARIES cscopelist-am \
+	ctags ctags-am distclean distclean-compile distclean-generic \
+	distclean-tags distdir dvi dvi-am html html-am info info-am \
+	install install-am install-binPROGRAMS install-binSCRIPTS \
+	install-data install-data-am install-dist_binSCRIPTS \
+	install-dvi install-dvi-am install-exec install-exec-am \
+	install-html install-html-am install-info install-info-am \
+	install-libdmtcpLIBRARIES install-libdmtcpPROGRAMS install-man \
+	install-pdf install-pdf-am install-ps install-ps-am \
+	install-strip installcheck installcheck-am installdirs \
+	maintainer-clean maintainer-clean-generic mostlyclean \
+	mostlyclean-compile mostlyclean-generic pdf pdf-am ps ps-am \
+	tags tags-am uninstall uninstall-am uninstall-binPROGRAMS \
+	uninstall-binSCRIPTS uninstall-dist_binSCRIPTS \
+	uninstall-libdmtcpLIBRARIES uninstall-libdmtcpPROGRAMS
 
 .PRECIOUS: Makefile
 

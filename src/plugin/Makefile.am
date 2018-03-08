@@ -30,6 +30,7 @@ bin_SCRIPTS =
 CLEANFILES =
 dist_bin_SCRIPTS =
 libdmtcp_PROGRAMS =
+libdmtcp_LIBRARIES =
 noinst_LIBRARIES =
 
 #
@@ -150,6 +151,27 @@ __d_libdir__libdmtcp_pid_so_SOURCES +=                                 \
 endif
 
 __d_libdir__libdmtcp_pid_so_LDFLAGS = $(dmtcp_ldflags)
+#
+# STATIC_DMTCP Pid plugin
+#
+libdmtcp_LIBRARIES += $(d_libdir)/libdmtcp_pid.a
+__d_libdir__libdmtcp_pid_a_SOURCES =                                  \
+	pid/pid.cpp                                                    \
+	pid/pid_filewrappers.cpp                                       \
+	pid/pid.h                                                      \
+	pid/pid_miscwrappers.cpp                                       \
+	pid/pid_syscallsreal.c                                         \
+	pid/pidwrappers.cpp                                            \
+	pid/pidwrappers.h                                              \
+	pid/sched_wrappers.cpp                                         \
+	pid/virtualpidtable.cpp                                        \
+	pid/virtualpidtable.h
+if ENABLE_PTHREAD_MUTEX_WRAPPERS
+__d_libdir__libdmtcp_pid_a_SOURCES +=                                 \
+	pid/pid_mutexwrappers.cpp
+endif
+
+__d_libdir__libdmtcp_pid_a_LDFLAGS = $(dmtcp_ldflags)
 
 #
 # SysV Plugin
