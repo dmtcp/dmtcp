@@ -89,6 +89,8 @@
 #define ENV_VAR_QUIET               "DMTCP_QUIET"
 #define ENV_VAR_DMTCP_DUMMY         "DMTCP_DUMMY"
 
+#define ENV_VAR_DMTCP_FILE_SOCKET_PATH         "DMTCP_FILE_SOCKET_PATH"
+
 // Keep in sync with plugin/pid/pidwrappers.h
 #define ENV_VAR_VIRTUAL_PID         "DMTCP_VIRTUAL_PID"
 

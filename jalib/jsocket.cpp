@@ -41,6 +41,8 @@
 #include "jassert.h"
 #include "jsocket.h"
 
+#include "../src/constants.h"
+
 const jalib::JSockAddr jalib::JSockAddr::ANY(NULL);
 
 jalib::JSockAddr::JSockAddr(const char *hostname /* == NULL*/,
@@ -152,25 +154,52 @@ jalib::JSockAddr::JSockAddr(const char *hostname /* == NULL*/,
 
 jalib::JSocket::JSocket()
 {
-  _sockfd = jalib::socket(AF_INET, SOCK_STREAM, 0);
+
+	if( jalib::JSocket::isFileSocketDefined() ) {
+
+		memset( &FILE_SOCKET_ADDR, 0, sizeof(struct sockaddr_un) );
+		FILE_SOCKET_ADDR.sun_family = AF_UNIX;
+		strncpy( FILE_SOCKET_ADDR.sun_path, getenv(ENV_VAR_DMTCP_FILE_SOCKET_PATH), sizeof(FILE_SOCKET_ADDR.sun_path) - 1 );
+		_sockfd = jalib::socket(AF_UNIX, SOCK_STREAM, 0);
+	} else {
+    _sockfd = jalib::socket(AF_INET, SOCK_STREAM, 0);
+	}
 }
+
+bool jalib::JSocket::isFileSocketDefined() {
+  bool isDefined = false;
+  if ( getenv( ENV_VAR_DMTCP_FILE_SOCKET_PATH ) != NULL ) {
+        isDefined = true;
+  }
+  return isDefined;
+}
+
+char * jalib::JSocket::getFileSocketPath() {
+  return getenv( ENV_VAR_DMTCP_FILE_SOCKET_PATH ); // requires #include "../src/constants.h"
+}
+
 
 bool
 jalib::JSocket::connect(const JSockAddr &addr, int port)
 {
   bool ret = false;
 
-  // jalib::JSockAddr::JSockAddr used -2 to poison port (invalid host)
-  if (addr._addr->sin_port == (unsigned short)-2) {
-    return false;
-  }
-  for (unsigned int i = 0; i < addr._count; i++) {
-    ret = JSocket::connect((sockaddr *)(addr._addr + i),
-                           sizeof(addr._addr[0]),
-                           port);
-    if (ret || errno != ECONNREFUSED) {
-      break;
-    }
+  if( !jalib::JSocket::isFileSocketDefined() ) {
+		// jalib::JSockAddr::JSockAddr used -2 to poison port (invalid host)
+		if (addr._addr->sin_port == (unsigned short)-2) {
+			return false;
+		}
+		for (unsigned int i = 0; i < addr._count; i++) {
+			ret = JSocket::connect((sockaddr *)(addr._addr + i),
+														 sizeof(addr._addr[0]),
+														 port);
+			if (ret || errno != ECONNREFUSED) {
+				break;
+			}
+		}
+		return ret;
+  } else {
+  	return ::connect(_sockfd, (const struct sockaddr *) &FILE_SOCKET_ADDR, sizeof(struct sockaddr_un));
   }
   return ret;
 }
@@ -182,28 +211,33 @@ jalib::JSocket::connect(const struct  sockaddr *addr,
 {
   struct sockaddr_storage addrbuf;
 
-  memset(&addrbuf, 0, sizeof(addrbuf));
-  JASSERT(addrlen <= sizeof(addrbuf)) (addrlen) (sizeof(addrbuf));
-  memcpy(&addrbuf, addr, addrlen);
-  JWARNING(addrlen == sizeof(sockaddr_in)) (addrlen)
-    (sizeof(sockaddr_in)).Text("may not be correct socket type");
-  if (port != -1) {
-    ((sockaddr_in *)&addrbuf)->sin_port = htons(port);
+  if( !jalib::JSocket::isFileSocketDefined() ) {
+		memset(&addrbuf, 0, sizeof(addrbuf));
+		JASSERT(addrlen <= sizeof(addrbuf)) (addrlen) (sizeof(addrbuf));
+		memcpy(&addrbuf, addr, addrlen);
+		JWARNING(addrlen == sizeof(sockaddr_in)) (addrlen)
+			(sizeof(sockaddr_in)).Text("may not be correct socket type");
+		if (port != -1) {
+			((sockaddr_in *)&addrbuf)->sin_port = htons(port);
+		}
+		int count = 0;
+		int ret;
+		while (count++ < 10) {
+			ret = jalib::connect(_sockfd, (sockaddr *)&addrbuf, addrlen);
+			if (ret == 0 ||
+					(ret == -1 && errno != ECONNREFUSED && errno != ETIMEDOUT)) {
+				break;
+			}
+			if (ret == -1 && (errno == ECONNREFUSED || errno == ETIMEDOUT)) {
+				struct timespec ts = { 0, 100 * 1000 * 1000 };
+				nanosleep(&ts, NULL);
+			}
+		}
+		return ret == 0;
+  } else {
+  	return ::connect(_sockfd, (const struct sockaddr *) &FILE_SOCKET_ADDR, sizeof(struct sockaddr_un)) == 0;
   }
-  int count = 0;
-  int ret;
-  while (count++ < 10) {
-    ret = jalib::connect(_sockfd, (sockaddr *)&addrbuf, addrlen);
-    if (ret == 0 ||
-        (ret == -1 && errno != ECONNREFUSED && errno != ETIMEDOUT)) {
-      break;
-    }
-    if (ret == -1 && (errno == ECONNREFUSED || errno == ETIMEDOUT)) {
-      struct timespec ts = { 0, 100 * 1000 * 1000 };
-      nanosleep(&ts, NULL);
-    }
-  }
-  return ret == 0;
+  //return ret == 0;
 }
 
 bool
@@ -211,11 +245,15 @@ jalib::JSocket::bind(const JSockAddr &addr, int port)
 {
   bool ret = false;
 
-  for (unsigned int i = 0; i < addr._count; i++) {
-    struct sockaddr_in addrbuf = addr._addr[i];
-    addrbuf.sin_port = htons(port);
-    int retval = bind((sockaddr *)&addrbuf, sizeof(addrbuf));
-    ret = ret || retval;
+  if( !jalib::JSocket::isFileSocketDefined() ) {
+		for (unsigned int i = 0; i < addr._count; i++) {
+			struct sockaddr_in addrbuf = addr._addr[i];
+			addrbuf.sin_port = htons(port);
+			int retval = bind((sockaddr *)&addrbuf, sizeof(addrbuf));
+			ret = ret || retval;
+		}
+  } else {
+  	return ::bind(_sockfd, (const struct sockaddr *) &FILE_SOCKET_ADDR, sizeof(struct sockaddr_un));
   }
   return ret;
 }
@@ -223,24 +261,41 @@ jalib::JSocket::bind(const JSockAddr &addr, int port)
 bool
 jalib::JSocket::bind(const struct  sockaddr *addr, socklen_t addrlen)
 {
-  return jalib::bind(_sockfd, addr, addrlen) == 0;
+
+	if( !jalib::JSocket::isFileSocketDefined() ) {
+		return jalib::bind(_sockfd, addr, addrlen) == 0;
+	} else {
+		return ::bind(_sockfd, (const struct sockaddr *) &FILE_SOCKET_ADDR, sizeof(struct sockaddr_un));
+	}
 }
 
 bool
 jalib::JSocket::listen(int backlog /* = 32*/)
 {
-  return jalib::listen(_sockfd, backlog) == 0;
+
+	if( !jalib::JSocket::isFileSocketDefined() ) {
+		return jalib::listen(_sockfd, backlog) == 0;
+	} else {
+		return ::listen(_sockfd, jalib::JSocket::BUFFER_SIZE) == 0;
+	}
+
 }
 
 jalib::JSocket
 jalib::JSocket::accept(struct sockaddr_storage *remoteAddr,
                        socklen_t *remoteLen)
 {
-  if (remoteAddr == NULL || remoteLen == NULL) {
-    return JSocket(jalib::accept(_sockfd, NULL, NULL));
-  } else {
-    return JSocket(jalib::accept(_sockfd, (sockaddr *)remoteAddr, remoteLen));
-  }
+
+	if( !jalib::JSocket::isFileSocketDefined() ) {
+		if (remoteAddr == NULL || remoteLen == NULL) {
+			return JSocket(jalib::accept(_sockfd, NULL, NULL));
+		} else {
+			return JSocket(jalib::accept(_sockfd, (sockaddr *)remoteAddr, remoteLen));
+		}
+	} else {
+		return JSocket(::accept(_sockfd, NULL, NULL));
+	}
+
 }
 
 void
@@ -253,9 +308,11 @@ jalib::JSocket::enablePortReuse()
   // This option will hopefully reduce address already in use errors. More
   // details here:
   // http://stackoverflow.com/a/14388707/1136967
-  if (jalib::setsockopt(_sockfd, SOL_SOCKET, SO_REUSEADDR, &one,
-                        sizeof(one)) < 0) {
-    JWARNING(false)(JASSERT_ERRNO).Text("setsockopt(SO_REUSEADDR) failed");
+  if( !jalib::JSocket::isFileSocketDefined() ) {
+		if (jalib::setsockopt(_sockfd, SOL_SOCKET, SO_REUSEADDR, &one,
+													sizeof(one)) < 0) {
+			JWARNING(false)(JASSERT_ERRNO).Text("setsockopt(SO_REUSEADDR) failed");
+		}
   }
 #endif // ifdef SO_REUSEADDR
 #ifdef SO_REUSEPORT
@@ -448,6 +505,7 @@ jalib::JSocket::changeFd(int newFd)
   if (_sockfd == newFd) {
     return;
   }
+
   JASSERT(newFd == jalib::dup2(_sockfd, newFd))
     (_sockfd) (newFd).Text("dup2 failed");
   close();

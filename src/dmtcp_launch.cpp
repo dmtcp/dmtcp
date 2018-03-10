@@ -272,7 +272,11 @@ processArgs(int *orig_argc,
       shift;
     }
 #endif // ifdef HBICT_DELTACOMP
-    else if (s == "--new-coordinator") {
+    else if (s == "--file-socket-path") {
+      setenv(ENV_VAR_DMTCP_FILE_SOCKET_PATH, argv[1], 1);
+      unlink( getenv(ENV_VAR_DMTCP_FILE_SOCKET_PATH) );
+      shift; shift;
+    } else if (s == "--new-coordinator") {
       allowedModes = COORD_NEW;
       shift;
     } else if (s == "--any-coordinator") {
@@ -411,6 +415,7 @@ processArgs(int *orig_argc,
 int
 main(int argc, char **argv)
 {
+
   for (size_t fd = PROTECTED_FD_START; fd < PROTECTED_FD_END; fd++) {
     close(fd);
   }
