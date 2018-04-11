@@ -72,7 +72,7 @@ dmtcp_initialize_plugin()
 #ifndef STATIC_DMTCP
   void (*fn)() = NEXT_FNC(dmtcp_initialize_plugin);
 #else
-    void (*fn)() = NULL;
+  void (*fn)() = NULL;
 #endif // STATIC_DMTCP
   if (fn != NULL) {
     (*fn)();

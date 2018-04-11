@@ -16,6 +16,13 @@ def extract_archives_dir(d):
 def remove_archives_dir(d):
     os.system('cd {0} && rm *.a *.o'.format(d))
 
+def readfileintolist(filename, l):
+    with open(filename) as f:
+        tmp_l = f.readlines()
+        tmp_l = [x.strip() for x in tmp_l]
+        tmp_l.sort()
+        l.extend(tmp_l)
+
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 # PARSE THE ARGUMENTS
@@ -99,6 +106,34 @@ with tempfile.TemporaryDirectory() as dir_tmp:
     # Generate symbols that need WRAPPING
     os.system('cd {0} && {1}/dmtcp_wrapper_symbols {2} && ls'.format(dir_tmp, dir_dmtcp_bin, dir_dmtcp))
 
+    # TODO
+    # Pickup symbols per archives (*.a)
+    # Create ordering of calling scheme
+    # Replace symbols in ELF
+    # TODO
+
+    # Symbols per archives DICTIONARY ---> {archive name : [list of symbols]}
+    dict_symbols = {}
+
+    # Gather the symbols from each archive
+    libs_in_order = arg_dict['libs'] + ['libc.a', 'nptl/libpthread.a']
+    # DMTCP libs
+    for libxxx in arg_dict['libs']:
+        pass
+    # standard libs
+    for libxxx in ['libc.a', 'nptl/libpthread.a']:
+        # USE `nm` on `T`+`t` and `U`
+        pass
+
+    # TEMPORARY TODO
+    dmtcp_reals = []
+    dmtcp_pid_reals = []
+    readfileintolist('dmtcp_reals', dmtcp_reals)
+    readfileintolist('dmtcp_pid_reals', dmtcp_pid_reals)
+
+    intersect_of_reals = set(dmtcp_reals) & set(dmtcp_pid_reals)
+    intersect_of_reals_symbols = [x.split('_real_')[1] for x in intersect_of_reals]
+
     # Copy over archives from glibc build : modify to call `symbol`_dmtcp_wrap_1
     dmtcp_plugin_num = 0
     plugin_num = 1
@@ -125,7 +160,7 @@ with tempfile.TemporaryDirectory() as dir_tmp:
 
     # DMTCP now
     #for libxxx in ['libdmtcp.a']:
-    for libxxx in arg_dict['libs']:
+    for index, libxxx in enumerate(arg_dict['libs']):
         os.system('cp {0}/{1} {2}/'.format(dir_dmtcp_lib, libxxx, dir_tmp))
         extract_archives_dir(dir_tmp)
 
@@ -133,10 +168,16 @@ with tempfile.TemporaryDirectory() as dir_tmp:
         # _wrap__dmtcp_? (only_def)
         os.system('cd {0} && {1}/dmtcp_replace_symbols_elf -o {0}/*.o -s `cat {0}/dmtcp.wrapper.sym` __sigpause __xpg_sigpause --singlestr=_wrap__dmtcp_{2} --only_def;'.format(dir_tmp,
                                                                                                                                                                                 dir_dmtcp_bin,
-                                                                                                                                                                                dmtcp_plugin_num))
+                                                                                                                                                                                index))
         # dmtcp_ special cases
-            #os.system('cd {1}; {0}/dmtcp_replace_symbols_elf -o {1}/*.o -c _real__sigpause --completestr=__sigpause --only_undef;'.format(d_bin_dir, bad_cache_dir, tmp_dir, lib_name, plugin_num))
-            #os.system('cd {1}; {0}/dmtcp_replace_symbols_elf -o {1}/*.o -c _real_sigpause --completestr=__xpg_sigpause --only_undef;'.format(d_bin_dir, bad_cache_dir, tmp_dir, lib_name, plugin_num))
+        os.system('cd {0} && {1}/dmtcp_replace_symbols_elf -o {0}/*.o -f _real_ --startwithstr={2} --only_def;'.format(dir_tmp, dir_dmtcp, index))
+        if False:
+            #os.system('{0}/dmtcp_replace_symbols_elf -o {1}/*.o -c _real__sigpause --completestr=__sigpause --only_undef;'.format(d_bin_dir, bad_cache_dir, tmp_dir, lib_name, plugin_num))
+            #os.system('{0}/dmtcp_replace_symbols_elf -o {1}/*.o -c _real_sigpause --completestr=__xpg_sigpause --only_undef;'.format(d_bin_dir, bad_cache_dir, tmp_dir, lib_name, plugin_num))
+            pass
+        #if index == 0:
+        #    for symbol in intersect_of_reals_symbols:
+        #        os.system('cd {0} && {1}/dmtcp_replace_symbols_elf -o {0}/*.o -c {3} --completestr=_real_{3}_{2} --only_undef;'.format(dir_tmp, dir_dmtcp, index, symbol))
 
         # __dmtcp_wrap_0 (only_undef)
         #os.system('cd {0} && {1}/dmtcp_replace_symbols_elf -o {0}/*.o -s `cat {0}/dmtcp.wrapper.sym` __sigpause __xpg_sigpause --singlestr=_wrap__dmtcp_{2} --only_undef;'.format(dir_tmp,

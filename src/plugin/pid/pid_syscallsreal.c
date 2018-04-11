@@ -43,15 +43,25 @@ typedef void * (*dlsym_fnptr_t) (void *handle, const char *symbol);
 static void *pid_real_func_addr[numPidVirtWrappers];
 static int pid_wrappers_initialized = 0;
 
+#ifndef STATIC_DMTCP
 #define GET_FUNC_ADDR(name) \
   pid_real_func_addr[PIDVIRT_ENUM(name)] = _real_dlsym(RTLD_NEXT, # name);
+#else
+#define GET_FUNC_ADDR(name) \
+  pid_real_func_addr[PIDVIRT_ENUM(name)] = (void *)&name; // DO SYMBOL REPLACEMENT LATER TO THE NEXT LIBRARY
+#endif // STATIC_DMTCP
 
+#ifndef STATIC_DMTCP
 #define GET_FUNC_ADDR_V(name, v)                                               \
   pid_real_func_addr[PIDVIRT_ENUM(name)] = dmtcp_dlvsym(RTLD_NEXT, # name, v); \
   if (pid_real_func_addr[PIDVIRT_ENUM(name)] == NULL) {                        \
     /* Symbol version not found, try the default and hope for the best */      \
     GET_FUNC_ADDR(name);                                                       \
   }
+#else
+#define GET_FUNC_ADDR_V(name, v)                                               \
+  GET_FUNC_ADDR(name);
+#endif // STATIC_DMTCP
 
 #ifdef __i386__
 

@@ -1,0 +1,11 @@
+NEXT_FNC:
+Need to use in order for the libraries to intialize itself and then chain the call to the next library.
+
+NEXT_FNC_DEFAULT:
+Handles versioned symbols for dynamic linking; for static linking call NEXT_FNC. (Currently NOT doing this because NEXT_FNC calls dlsym)
+
+GET_FUNC_ADDR:
+This is the deepest into from dmtcp_initialize, so no need to make changes to REAL_FUNC_PASSTHROUGH_WORK and others.
+The array _real_func_addr is initialized in dmtcp_initialize.
+In the static version of GET_FUNC_ADDR (in syscallsreal.c of libdmtcp.a) we just return the & of the symbol, not calling dlsym.
+    _real_func_addr[enum(name)] = (void *)&name;
