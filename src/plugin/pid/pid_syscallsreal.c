@@ -562,6 +562,7 @@ _real_sched_getaffinity(pid_t pid, size_t cpusetsize, cpu_set_t *mask)
   REAL_FUNC_PASSTHROUGH(sched_getaffinity) (pid, cpusetsize, mask);
 }
 
+#ifndef STATIC_DMTCP
 LIB_PRIVATE
 int
 _real_sched_setscheduler(pid_t pid, int policy, const struct sched_param *param)
@@ -575,6 +576,7 @@ _real_sched_getscheduler(pid_t pid)
 {
   REAL_FUNC_PASSTHROUGH(sched_getscheduler) (pid);
 }
+#endif // STATIC_DMTCP
 
 LIB_PRIVATE
 int

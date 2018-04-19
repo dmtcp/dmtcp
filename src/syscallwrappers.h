@@ -99,14 +99,13 @@ extern "C"
 #endif // ifdef __cplusplus
 
 #ifdef STATIC_DMTCP
-int
-__clone(int (*fn)(void *arg),
-        void *child_stack,
-        int flags,
-        void *arg,
-        int *ptid,
-        struct user_desc *tls,
-        int *ctid);
+int __clone(int (*fn)(void *arg),
+                       void *child_stack,
+                       int flags,
+                       void *arg,
+                       int *parent_tidptr,
+                       struct user_desc *newtls,
+                       int *child_tidptr);
 #endif // STATIC_DMTCP
 
 #if defined(__arm__) || defined(__aarch64__)

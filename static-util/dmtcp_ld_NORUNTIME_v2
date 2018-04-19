@@ -166,11 +166,23 @@ with tempfile.TemporaryDirectory() as dir_tmp:
 
         # ONLY FOR DMTCP WRAPPERS
         # _wrap__dmtcp_? (only_def)
-        os.system('cd {0} && {1}/dmtcp_replace_symbols_elf -o {0}/*.o -s `cat {0}/dmtcp.wrapper.sym` __sigpause __xpg_sigpause --singlestr=_wrap__dmtcp_{2} --only_def;'.format(dir_tmp,
-                                                                                                                                                                                dir_dmtcp_bin,
-                                                                                                                                                                                index))
+        os.system('cd {0} && {1}/dmtcp_replace_symbols_elf -o {0}/*.o -s `cat {0}/dmtcp.wrapper.sym` __sigpause __xpg_sigpause --singlestr=_wrap__dmtcp_{2} --only_def;'.format(dir_tmp, dir_dmtcp_bin, index))
+
+        #os.system('cd {0} && {1}/dmtcp_replace_symbols_elf -o {0}/*.o -s dmtcp_gettid dmtcp_tkill dmtcp_tgkill __register_atfork clone_start --singlestr=_wrap__dmtcp_{2} --only_def;'.format(dir_tmp, dir_dmtcp_bin, index))
+        os.system('cd {0} && {1}/dmtcp_replace_symbols_elf -o {0}/*.o -s dmtcp_gettid dmtcp_tkill dmtcp_tgkill clone_start --singlestr=_wrap__dmtcp_{2};'.format(dir_tmp, dir_dmtcp_bin, index))
+        os.system('cd {0} && {1}/dmtcp_replace_symbols_elf -o {0}/*.o -s __register_atfork --singlestr=_wrap__dmtcp_{2} --only_def;'.format(dir_tmp, dir_dmtcp_bin, index))
+
+# gettid tkill tgkill mq_notify sched_setattr sched_getattr
+
         # dmtcp_ special cases
-        os.system('cd {0} && {1}/dmtcp_replace_symbols_elf -o {0}/*.o -f _real_ --startwithstr={2} --only_def;'.format(dir_tmp, dir_dmtcp, index))
+        # os.system('cd {0} && {1}/dmtcp_replace_symbols_elf -o {0}/*.o -f _real_ --startwithstr={2} --only_def;'.format(dir_tmp, dir_dmtcp_bin, index))
+        os.system('cd {0} && {1}/dmtcp_replace_symbols_elf -o {0}/*.o -f _real_ --startwithstr={2};'.format(dir_tmp, dir_dmtcp_bin, index))
+
+        if index == 0:
+            special_pid_symbols = ['gettid', 'tkill', 'tgkill', 'mq_notify', 'sched_setattr', 'sched_getattr']
+            for sym in special_pid_symbols:
+                os.system('cd {0} && {1}/dmtcp_replace_symbols_elf -o {0}/*.o -c {2} --completestr=_real_{2}0;'.format(dir_tmp, dir_dmtcp_bin, sym))
+
         if False:
             #os.system('{0}/dmtcp_replace_symbols_elf -o {1}/*.o -c _real__sigpause --completestr=__sigpause --only_undef;'.format(d_bin_dir, bad_cache_dir, tmp_dir, lib_name, plugin_num))
             #os.system('{0}/dmtcp_replace_symbols_elf -o {1}/*.o -c _real_sigpause --completestr=__xpg_sigpause --only_undef;'.format(d_bin_dir, bad_cache_dir, tmp_dir, lib_name, plugin_num))

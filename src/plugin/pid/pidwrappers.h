@@ -89,6 +89,17 @@ struct user_desc {
 
 #include "dmtcp.h"
 
+#ifdef STATIC_DMTCP
+int __clone();
+int gettid();
+int tkill();
+int tgkill();
+int tcgetsid();
+int ioctl();
+int sched_setattr();
+int sched_getattr();
+#endif // STATIC_DMTCP
+
 // Keep in sync with dmtcp/src/constants.h
 #define ENV_VAR_VIRTUAL_PID "DMTCP_VIRTUAL_PID"
 
@@ -170,6 +181,7 @@ LIB_PRIVATE int dmtcp_tgkill(int tgid, int tid, int sig);
   MACRO(fopen)                       \
   MACRO(fclose)
 
+#ifndef STATIC_DMTCP
 #define FOREACH_SCHED_WRAPPER(MACRO) \
   MACRO(sched_setaffinity)           \
   MACRO(sched_getaffinity)           \
@@ -179,6 +191,13 @@ LIB_PRIVATE int dmtcp_tgkill(int tgid, int tid, int sig);
   MACRO(sched_getparam)              \
   MACRO(sched_setattr)               \
   MACRO(sched_getattr)
+#else
+#define FOREACH_SCHED_WRAPPER(MACRO) \
+  MACRO(sched_setaffinity)           \
+  MACRO(sched_getaffinity)           \
+  MACRO(sched_setparam)              \
+  MACRO(sched_getparam)
+#endif // STATIC_DMTCP
 
 #ifdef HAS_CMA
 # define FOREACH_CMA_WRAPPER(MACRO) \

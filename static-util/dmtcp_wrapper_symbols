@@ -6,7 +6,7 @@ TMP_DMTCP_DIR_TMP=$1
 grep -sh MACRO\( ${TMP_DMTCP_DIR_TMP}/src/* |
   egrep -o 'MACRO\([A-Za-z0-9_]+\)' |
   sed 's/MACRO(\(.*\)).*/\1/' |
-  grep -v -E '^(ioctl|__xstat|__lxstat|read|connect|socket|fopen|__xstat64|__lxstat64|exit|realloc|malloc|calloc|free|dlopen|dlclose|__libc_memalign|sigvec|__sigpause)$' |
+  grep -v -E '^(ioctl|__xstat|__lxstat|read|connect|socket|fopen|__xstat64|__lxstat64|exit|realloc|malloc|calloc|free|dlopen|dlclose|__libc_memalign|sigvec|__sigpause|execl|close)$' |
   sort | uniq > dmtcp.wrapper.sym
 
 # libdmtcppid

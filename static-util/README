@@ -9,3 +9,8 @@ This is the deepest into from dmtcp_initialize, so no need to make changes to RE
 The array _real_func_addr is initialized in dmtcp_initialize.
 In the static version of GET_FUNC_ADDR (in syscallsreal.c of libdmtcp.a) we just return the & of the symbol, not calling dlsym.
     _real_func_addr[enum(name)] = (void *)&name;
+
+### clone_start(void*) --> This is C++, need to be a C
+./libdmtcp.a.MOD(threadwrappers.o): In function `jassert_internal::JAssert& jassert_internal::JAssert::Print<int>(int const&)':
+/home/kimjae95/a/dmtcp/src/threadwrappers.cpp:52: multiple definition of `clone_start(void*)'
+./libdmtcp_pid.a.MOD(pid_miscwrappers.o):/home/kimjae95/a/dmtcp/src/plugin/pid/pid_miscwrappers.cpp:102: first defined here

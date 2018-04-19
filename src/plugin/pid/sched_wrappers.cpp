@@ -51,6 +51,7 @@ sched_getaffinity(pid_t pid, size_t cpusetsize, cpu_set_t *mask)
   return result;
 }
 
+#ifndef STATIC_DMTCP
 int
 sched_setscheduler(pid_t pid, int policy, const struct sched_param *param)
 {
@@ -78,6 +79,7 @@ sched_getscheduler(pid_t pid)
   DMTCP_PLUGIN_ENABLE_CKPT();
   return result;
 }
+#endif // STATIC_DMTCP
 
 int
 sched_setparam(pid_t pid, const struct sched_param *param)

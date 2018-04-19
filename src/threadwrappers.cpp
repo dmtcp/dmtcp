@@ -46,6 +46,7 @@ struct ThreadArg {
 };
 
 // Invoked via __clone
+#ifndef STATIC_DMTCP
 LIB_PRIVATE
 int
 clone_start(void *arg)
@@ -68,6 +69,29 @@ clone_start(void *arg)
   ThreadList::threadExit();
   return ret;
 }
+#else
+extern "C" int
+clone_start(void *arg)
+{
+  Thread *thread = (Thread *)arg;
+
+  ThreadSync::initThread();
+
+  ThreadList::updateTid(thread);
+
+  /* Thread finished initialization.  It's now safe for this thread to
+   * participate in checkpoint.  Decrement the uninitializedThreadCount in
+   * DmtcpWorker.
+   */
+  ThreadSync::decrementUninitializedThreadCount();
+
+  JTRACE("Calling user function") (dmtcp_gettid());
+  int ret = thread->fn(thread->arg);
+
+  ThreadList::threadExit();
+  return ret;
+}
+#endif // STATIC_DMTCP
 
 /*****************************************************************************
  *
