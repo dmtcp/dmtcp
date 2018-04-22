@@ -477,8 +477,9 @@ void TLSInfo_VerifyPidTid(pid_t pid, pid_t tid)
     _exit(0);
   }
 
-  // For glibc > 2.24, pid field is unused.
-  if (glibcMajorVersion() == 2 && glibcMinorVersion() <= 24 && tls_pid != pid) {
+  // For glibc > 2.24, pid field is unused. Here we do the <24 check to ensure
+  // that distros with glibc 2.24-NNN are covered as well.
+  if (glibcMajorVersion() == 2 && glibcMinorVersion() < 24 && tls_pid != pid) {
     PRINTF("ERROR: tls pid (%d) doesn't match getpid (%d)\n",
            tls_pid, (int)mtcp_sys_getpid());
     _exit(0);
