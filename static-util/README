@@ -14,3 +14,11 @@ In the static version of GET_FUNC_ADDR (in syscallsreal.c of libdmtcp.a) we just
 ./libdmtcp.a.MOD(threadwrappers.o): In function `jassert_internal::JAssert& jassert_internal::JAssert::Print<int>(int const&)':
 /home/kimjae95/a/dmtcp/src/threadwrappers.cpp:52: multiple definition of `clone_start(void*)'
 ./libdmtcp_pid.a.MOD(pid_miscwrappers.o):/home/kimjae95/a/dmtcp/src/plugin/pid/pid_miscwrappers.cpp:102: first defined here
+
+
+### April 23rd:
+This should not be called in static linked: dmtcp_get_libc_dlsym_addr()
+Leads into from following:
+#2  0x000000000040209c in dmtcp_initialize_plugin () at pid/pid.cpp:291
+#3  0x000000000043d286 in dmtcp::PluginManager::initialize () at pluginmanager.cpp:43
+#4  0x0000000000421162 in dmtcp_initialize () at dmtcpworker.cpp:298

@@ -1,5 +1,6 @@
 DIR=~/a/dmtcp
 #DIR=~/dmtcp
+PT=12345
 
 ### VERSION 2
 default:
@@ -11,16 +12,16 @@ default:
 	g++ -g -O0 -static -static-libgcc -Wl,-u,dmtcp_initialize -I. main.o -Wl,--whole-archive ./libdmtcp_pid.a.MOD ./libdmtcp.a.MOD -Wl,--no-whole-archive -L. -lpthread.MOD -lc.MOD  -ldl
 
 run:
-	$(DIR)/bin/dmtcp_launch -p 7779 ./a.out
+	$(DIR)/bin/dmtcp_launch -p $(PT) ./a.out
 
 restart:
-	$(DIR)/bin/dmtcp_restart -p 7779 ckpt*.dmtcp
+	$(DIR)/bin/dmtcp_restart -p $(PT) ckpt*.dmtcp
 
 tidy:
 	rm -f ckpt*.dmtcp ckpt*.temp
 
 gdb:
-	gdb --args $(DIR)/bin/dmtcp_launch -p 7779 ./a.out
+	gdb --args $(DIR)/bin/dmtcp_launch -p $(PT) ./a.out
 
 
 clean:

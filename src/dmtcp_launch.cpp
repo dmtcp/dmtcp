@@ -199,7 +199,7 @@ static bool enableLibDMTCP = true;
 
 // PID plugin must come last.
 #ifdef STATIC_DMTCP
-static bool enablePIDPlugin = false;
+static bool enablePIDPlugin = true; // PID PLUGIN !!! STATIC_DMTCP
 #else
 static bool enablePIDPlugin = true;
 #endif // STATIC_DMTCP
