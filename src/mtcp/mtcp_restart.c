@@ -509,16 +509,14 @@ mtcp_simulateread(int fd, MtcpHeader *mtcpHdr)
     }
     if ((area.properties & DMTCP_ZERO_PAGE) == 0 &&
         (area.properties & DMTCP_SKIP_WRITING_TEXT_SEGMENTS) == 0) {
-      void *addr = mtcp_sys_mmap(0, area.size, PROT_WRITE | PROT_READ,
-                                 MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-      if (addr == MAP_FAILED) {
-        MTCP_PRINTF("***Error: mmap failed; errno: %d\n", mtcp_sys_errno);
-        mtcp_abort();
+
+      off_t seekLen = area.size;
+      if (!(area.flags & MAP_ANONYMOUS) && area.mmapFileSize > 0) {
+        seekLen =  area.mmapFileSize;
       }
-      mtcp_readfile(fd, addr, area.size);
-      if (mtcp_sys_munmap(addr, area.size) == -1) {
-        MTCP_PRINTF("***Error: munmap failed; errno: %d\n", mtcp_sys_errno);
-        mtcp_abort();
+      if (mtcp_sys_lseek(fd, seekLen, SEEK_CUR) < 0) {
+         mtcp_printf("Could not seek!\n");
+         break;
       }
     }
 
@@ -526,7 +524,7 @@ mtcp_simulateread(int fd, MtcpHeader *mtcpHdr)
 
                 // "%x %u:%u %u"
                 "          %s\n",
-                area.addr, area.addr + area.size,
+                area.addr, area.endAddr,
                 (area.prot & PROT_READ  ? 'r' : '-'),
                 (area.prot & PROT_WRITE ? 'w' : '-'),
                 (area.prot & PROT_EXEC  ? 'x' : '-'),
@@ -1103,7 +1101,13 @@ read_one_memory_area(int fd, VA endOfStack)
        */
 
       /* ANALYZE THE CONDITION FOR DOING mmapfile MORE CAREFULLY. */
-      mtcp_readfile(fd, area.addr, area.size);
+      if (area.mmapFileSize > 0 && area.name[0] == '/') {
+        MTCP_PRINTF("restoring shared-memory region %p of %p bytes at %p\n",
+                    area.mmapFileSize, area.size, area.addr);
+        mtcp_readfile(fd, area.addr, area.mmapFileSize);
+      } else {
+        mtcp_readfile(fd, area.addr, area.size);
+      }
       if (!(area.prot & PROT_WRITE)) {
         if (mtcp_sys_mprotect(area.addr, area.size, area.prot) < 0) {
           MTCP_PRINTF("error %d write-protecting %p bytes at %p\n",

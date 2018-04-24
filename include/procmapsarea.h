@@ -107,6 +107,7 @@ typedef union ProcMapsArea {
       uint64_t __inodenum;
     };
 
+    off_t    mmapFileSize;
     uint64_t properties;
 
     char name[FILENAMESIZE];
