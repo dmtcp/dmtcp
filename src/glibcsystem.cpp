@@ -99,8 +99,12 @@ out:
        waitpid() which itself is a cancellation point we do not
        have to do anything here.  */
     do {
-      if (TEMP_FAILURE_RETRY (waitpid (pid, &status, 0)) != pid)
+      if (TEMP_FAILURE_RETRY (waitpid (pid, &status, 0)) != pid) {
         status = -1;
+        if (status == -1 && errno == ECHILD) {
+          break;
+        }
+      }
     }
     while (WIFEXITED(status) == 0);
   }
