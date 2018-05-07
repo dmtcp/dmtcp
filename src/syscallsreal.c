@@ -244,7 +244,7 @@ static int dmtcp_wrappers_initialized = 0;
 
 #ifdef STATIC_DMTCP
 #define GET_FUNC_ADDR(name) \
-  _real_func_addr[ENUM(name)] = (void *)&name;
+  _real_func_addr[ENUM(name)] = (void *)&name##_next;
 #else
 #define GET_FUNC_ADDR(name) \
   _real_func_addr[ENUM(name)] = dmtcp_dlsym(RTLD_NEXT, #name);

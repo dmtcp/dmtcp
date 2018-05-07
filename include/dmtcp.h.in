@@ -20,6 +20,10 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 
+#ifdef STATIC_DMTCP
+#include "static_dmtcp.h"
+#endif // STATIC_DMTCP
+
 #ifndef __USE_GNU
 # define __USE_GNU_NOT_SET
 # define __USE_GNU
@@ -422,7 +426,7 @@ EXTERNC void dmtcp_plugin_enable_ckpt(void);
 #define DMTCP_PLUGIN_ENABLE_CKPT() \
   if (__dmtcp_plugin_ckpt_disabled) dmtcp_plugin_enable_ckpt()
 
-
+#ifndef STATIC_DMTCP
 #define NEXT_FNC(func)                                                       \
   ({                                                                         \
     static __typeof__(&func)_real_ ## func = (__typeof__(&func)) - 1;        \
@@ -436,6 +440,20 @@ EXTERNC void dmtcp_plugin_enable_ckpt(void);
     }                                                                        \
     _real_ ## func;                                                          \
   })
+#else
+// This will get replaces later to mimic dlsym call.
+#define NEXT_FNC(func)                                                       \
+  ({                                                                         \
+    static __typeof__(&func)_real_ ## func = (__typeof__(&func)) - 1;        \
+    if (_real_ ## func == (__typeof__(&func)) - 1) {                         \
+      if (dmtcp_initialize) {                                                \
+        dmtcp_initialize();                                                  \
+      }                                                                      \
+      _real_ ## func = func ## _next;                                        \
+    }                                                                        \
+    _real_ ## func;                                                          \
+  })
+#endif // STATIC_DMTCP
 
 // ===================================================================
 // DMTCP utilities

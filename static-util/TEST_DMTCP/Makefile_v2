@@ -1,14 +1,11 @@
 DIR=~/a/dmtcp
-#DIR=~/dmtcp
 PT=12345
 
 ### VERSION 2
 default:
 	gcc -g -O0 -c main.c
-	#$(DIR)/bin/dmtcp_ld_NORUNTIME_v2 --dmtcp $(DIR) --objs main.o --libs libdmtcp.a libdmtcp_pid.a
-	../dmtcp_ld_NORUNTIME_v2 --dmtcp $(DIR) --objs main.o --libs libdmtcp_pid.a libdmtcp.a
-	mv -f libc.a.MOD libc.MOD.a
-	mv -f libpthread.a.MOD libpthread.MOD.a
+	../dmtcp_ld_NORUNTIME_v2 --dmtcp $(DIR) --objs main.o --libs libdmtcp.a libdmtcp_pid.a
+	mv -f libc.a.MOD libc.MOD.a && mv -f libpthread.a.MOD libpthread.MOD.a
 	g++ -g -O0 -static -static-libgcc -Wl,-u,dmtcp_initialize -I. main.o -Wl,--whole-archive ./libdmtcp_pid.a.MOD ./libdmtcp.a.MOD -Wl,--no-whole-archive -L. -lpthread.MOD -lc.MOD  -ldl
 
 run:

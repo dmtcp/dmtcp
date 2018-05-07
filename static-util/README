@@ -1,3 +1,11 @@
+TO TEST:
+1) Just libdmtcp.a
+  $> cd ./TEST_DMTCP
+  $> make
+  .. start coordinator ..
+  $> make run
+
+
 NEXT_FNC:
 Need to use in order for the libraries to intialize itself and then chain the call to the next library.
 

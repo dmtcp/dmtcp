@@ -23,6 +23,11 @@ def readfileintolist(filename, l):
         tmp_l.sort()
         l.extend(tmp_l)
 
+def replace_symbols_elf(dir_tmp, dir_dmtcp_bin, index, s_c_k_f):
+    # example: generalize later...
+    # os.system('cd {0} && {1}/dmtcp_replace_symbols_elf -o {0}/*.o -s `cat {0}/dmtcp.wrapper.sym` __sigpause __xpg_sigpause --singlestr=_wrap__dmtcp_{2} --only_def;'.format(dir_tmp, dir_dmtcp_bin, index))
+    pass
+
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 # PARSE THE ARGUMENTS
@@ -103,8 +108,10 @@ if not os.path.isdir(dir_dmtcp_su_gbuild):
 with tempfile.TemporaryDirectory() as dir_tmp:
     print ('Created SAFE dir_tmp:', dir_tmp)
 
-    # Generate symbols that need WRAPPING
+    # Generate symbols that need WRAPPING (Creates dmtcp.wrapper.sym file)
     os.system('cd {0} && {1}/dmtcp_wrapper_symbols {2} && ls'.format(dir_tmp, dir_dmtcp_bin, dir_dmtcp))
+    # MAYBE APPEND TO MORE HERE, Currently use hardcoded wrappers for ease
+    #os.system('cd {0} &&
 
     # TODO
     # Pickup symbols per archives (*.a)
@@ -147,15 +154,16 @@ with tempfile.TemporaryDirectory() as dir_tmp:
 
         # Run RSE on each .o's
         # __dmtcp_wrap_0 (only_undef)
-        os.system('cd {0} && {1}/dmtcp_replace_symbols_elf -o {0}/*.o -s `cat {0}/dmtcp.wrapper.sym` __sigpause __xpg_sigpause --singlestr=_wrap__dmtcp_{2} --only_undef;'.format(dir_tmp,
-                                                                                                                                                                                  dir_dmtcp_bin,
-                                                                                                                                                                                  dmtcp_plugin_num))
+        os.system('cd {0} && {1}/dmtcp_replace_symbols_elf -o {0}/*.o
+                   -s `cat {0}/dmtcp.wrapper.sym` __sigpause __xpg_sigpause --singlestr=_wrap__dmtcp_{2} --only_undef;'.format(dir_tmp, dir_dmtcp_bin, dmtcp_plugin_num))
+
         # Create MOD archive with modified .o's
         libname = libxxx.split('/')[-1]
         os.system('cd {0} && ar cru {0}/{1}.MOD {0}/*.o'.format( dir_tmp, libname ) )
 
         # Remove the archives
         remove_archives_dir( dir_tmp)
+        dmtcp_plugin_num += 1
     # END FOR
 
     # DMTCP now
@@ -166,16 +174,18 @@ with tempfile.TemporaryDirectory() as dir_tmp:
 
         # ONLY FOR DMTCP WRAPPERS
         # _wrap__dmtcp_? (only_def)
-        os.system('cd {0} && {1}/dmtcp_replace_symbols_elf -o {0}/*.o -s `cat {0}/dmtcp.wrapper.sym` __sigpause __xpg_sigpause --singlestr=_wrap__dmtcp_{2} --only_def;'.format(dir_tmp, dir_dmtcp_bin, index))
+        os.system('cd {0} && {1}/dmtcp_replace_symbols_elf -o {0}/*.o
+                   -s `cat {0}/dmtcp.wrapper.sym` __sigpause __xpg_sigpause --singlestr=_wrap__dmtcp_{2} --only_def;'.format(dir_tmp, dir_dmtcp_bin, index))
 
-        #os.system('cd {0} && {1}/dmtcp_replace_symbols_elf -o {0}/*.o -s dmtcp_gettid dmtcp_tkill dmtcp_tgkill __register_atfork clone_start --singlestr=_wrap__dmtcp_{2} --only_def;'.format(dir_tmp, dir_dmtcp_bin, index))
-        os.system('cd {0} && {1}/dmtcp_replace_symbols_elf -o {0}/*.o -s dmtcp_gettid dmtcp_tkill dmtcp_tgkill clone_start --singlestr=_wrap__dmtcp_{2};'.format(dir_tmp, dir_dmtcp_bin, index))
-        os.system('cd {0} && {1}/dmtcp_replace_symbols_elf -o {0}/*.o -s __register_atfork --singlestr=_wrap__dmtcp_{2} --only_def;'.format(dir_tmp, dir_dmtcp_bin, index))
+        os.system('cd {0} && {1}/dmtcp_replace_symbols_elf -o {0}/*.o
+                   -s dmtcp_gettid dmtcp_tkill dmtcp_tgkill clone_start --singlestr=_wrap__dmtcp_{2};'.format(dir_tmp, dir_dmtcp_bin, index))
 
-# gettid tkill tgkill mq_notify sched_setattr sched_getattr
+        os.system('cd {0} && {1}/dmtcp_replace_symbols_elf -o {0}/*.o
+                   -s __register_atfork --singlestr=_wrap__dmtcp_{2} --only_def;'.format(dir_tmp, dir_dmtcp_bin, index))
+
+        # gettid tkill tgkill mq_notify sched_setattr sched_getattr
 
         # dmtcp_ special cases
-        # os.system('cd {0} && {1}/dmtcp_replace_symbols_elf -o {0}/*.o -f _real_ --startwithstr={2} --only_def;'.format(dir_tmp, dir_dmtcp_bin, index))
         os.system('cd {0} && {1}/dmtcp_replace_symbols_elf -o {0}/*.o -f _real_ --startwithstr={2};'.format(dir_tmp, dir_dmtcp_bin, index))
 
         if index == 0:
@@ -187,14 +197,6 @@ with tempfile.TemporaryDirectory() as dir_tmp:
             #os.system('{0}/dmtcp_replace_symbols_elf -o {1}/*.o -c _real__sigpause --completestr=__sigpause --only_undef;'.format(d_bin_dir, bad_cache_dir, tmp_dir, lib_name, plugin_num))
             #os.system('{0}/dmtcp_replace_symbols_elf -o {1}/*.o -c _real_sigpause --completestr=__xpg_sigpause --only_undef;'.format(d_bin_dir, bad_cache_dir, tmp_dir, lib_name, plugin_num))
             pass
-        #if index == 0:
-        #    for symbol in intersect_of_reals_symbols:
-        #        os.system('cd {0} && {1}/dmtcp_replace_symbols_elf -o {0}/*.o -c {3} --completestr=_real_{3}_{2} --only_undef;'.format(dir_tmp, dir_dmtcp, index, symbol))
-
-        # __dmtcp_wrap_0 (only_undef)
-        #os.system('cd {0} && {1}/dmtcp_replace_symbols_elf -o {0}/*.o -s `cat {0}/dmtcp.wrapper.sym` __sigpause __xpg_sigpause --singlestr=_wrap__dmtcp_{2} --only_undef;'.format(dir_tmp,
-        #                                                                                                                                                                          dir_dmtcp_bin,
-        #                                                                                                                                                                          dmtcp_plugin_num))
 
         libname = libxxx.split('/')[-1]
         os.system('cd {0} && ar cru {0}/{1}.MOD {0}/*.o'.format( dir_tmp, libname ) )
@@ -204,9 +206,12 @@ with tempfile.TemporaryDirectory() as dir_tmp:
     # User's .o's
     for user_obj in arg_dict['objs']:
         os.system('cp {0}/{1} {2}/'.format(user_dir, user_obj, dir_tmp))
-        os.system('cd {0} && {1}/dmtcp_replace_symbols_elf -o {0}/*.o -s `cat {0}/dmtcp.wrapper.sym` __sigpause __xpg_sigpause --singlestr=_wrap__dmtcp_{2} --only_undef;'.format(dir_tmp,
-                                                                                                                                                                                  dir_dmtcp_bin,
-                                                                                                                                                                                  dmtcp_plugin_num))
+        os.system('cd {0} && {1}/dmtcp_replace_symbols_elf -o {0}/*.o
+                   -s `cat {0}/dmtcp.wrapper.sym` __sigpause __xpg_sigpause --singlestr=_wrap__dmtcp_{2} --only_undef;'.format(dir_tmp, dir_dmtcp_bin, 0))
+        #  TEMPORARY PATCH FOR CLOSE (since only wrapper in libdmtcp and not libdmtcp_pid
+        os.system('cd {0} && {1}/dmtcp_replace_symbols_elf -o {0}/*.o
+                   -c close_wrap__dmtcp_0 --completestr=close_wrap__dmtcp_1 --only_undef;'.format(dir_tmp, dir_dmtcp_bin))
+
         os.system('cp {0}/*.o {1}/'.format(dir_tmp, user_dir))
         remove_archives_dir( dir_tmp)
     # END FOR
