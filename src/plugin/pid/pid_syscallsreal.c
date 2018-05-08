@@ -48,7 +48,8 @@ static int pid_wrappers_initialized = 0;
   pid_real_func_addr[PIDVIRT_ENUM(name)] = _real_dlsym(RTLD_NEXT, # name);
 #else
 #define GET_FUNC_ADDR(name) \
-  pid_real_func_addr[PIDVIRT_ENUM(name)] = (void *)&name; // DO SYMBOL REPLACEMENT LATER TO THE NEXT LIBRARY
+  pid_real_func_addr[PIDVIRT_ENUM(name)] = (void *)&name##_next;
+  // DO SYMBOL REPLACEMENT LATER TO THE NEXT LIBRARY
 #endif // STATIC_DMTCP
 
 #ifndef STATIC_DMTCP

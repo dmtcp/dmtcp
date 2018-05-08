@@ -8,6 +8,10 @@
 #include <sys/socket.h>
 #include <poll.h>
 #include <sys/wait.h>
+#include <sys/ptrace.h>
+#include <sched.h>
+
+typedef void (*sighandler_t)(int); // for signal(2)
 
 int accept_next(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
 int accept4_next(int sockfd, struct sockaddr *addr,
@@ -59,7 +63,7 @@ void * mmap_next(void *addr, size_t length, int prot, int flags,
 void * mmap64_next(void *addr, size_t length, int prot,
                    int flags, int fd, __off64_t offset);
 int mq_close_next(mqd_t mqdes);
-int mq_notify(mqd_t mqdes, const struct sigevent *sevp);
+int mq_notify_next(mqd_t mqdes, const struct sigevent *sevp);
 mqd_t mq_open_next(const char *name, int oflag, ...);
 ssize_t mq_timedreceive_next(mqd_t mqdes, char *msg_ptr, size_t msg_len,
                        unsigned *msg_prio, const struct timespec *abs_timeout);
@@ -78,10 +82,10 @@ int open64_next(const char *pathname, int flags, mode_t mode);
 int openat_next(int dirfd, const char *pathname, int flags, ...);
 int openat64_next(int dirfd, const char *pathname, int flags, mode_t mode);
 DIR *opendir_next(const char *name);
-// openlog
-// pclose
+void openlog_next(const char *ident, int option, int facility);
+int pclose_next(FILE *stream);
 int poll_next(struct pollfd*, nfds_t, int);
-// popen
+FILE *popen_next(const char *command, const char *type);
 int posix_openpt_next(int flags);
 // process_vm_readv
 // process_vm_writev
@@ -108,16 +112,21 @@ int pthread_mutex_unlock_next(pthread_mutex_t *mutex);
 // pthread_timedjoin_np
 // pthread_tryjoin_np
 // ptrace
+long ptrace_next(enum __ptrace_request request, pid_t pid,
+                 void *addr, void *data);
 int ptsname_r_next(int fd, char *buf, size_t buflen);
 ssize_t read_next(int fd, void *buf, size_t count);
 ssize_t readlink_next(const char *pathname, char *buf, size_t bufsiz);
-// sched_getaffinity
+int sched_getaffinity_next(pid_t pid, size_t cpusetsize,
+                           cpu_set_t *mask);
 // sched_getattr
-// sched_getparam
+int sched_getparam_next(pid_t pid, struct sched_param *param);
 // sched_getscheduler
 // sched_setaffinity
+int sched_setaffinity_next(pid_t pid, size_t cpusetsize,
+                           cpu_set_t *mask);
 // sched_setattr
-// sched_setparam
+int sched_setparam_next(pid_t pid, const struct sched_param *param);
 // sched_setscheduler
 int select_next(int, fd_set*, fd_set*, fd_set*, struct timeval*);
 int semctl_next(int semid, int semnum, int cmd, ...);
@@ -125,13 +134,13 @@ int semget_next(key_t key, int nsems, int semflg);
 int semop_next(int semid, struct sembuf *sops, size_t nsops);
 int semtimedop_next(int semid, struct sembuf *sops, size_t nsops,
                     const struct timespec *timeout);
-// setgid
+int setgid_next(gid_t gid);
 int setpgid_next(pid_t pid, pid_t pgid);
 int setpgrp_next(void);
-// setsid
+pid_t setsid_next(void);
 int setsockopt_next(int sockfd, int level, int optname,
                     const void *optval, socklen_t optlen);
-// setuid
+int setuid_next(uid_t uid);
 void * shmat_next(int shmid, const void *shmaddr, int shmflg);
 int shmctl_next(int shmid, int cmd, struct shmid_ds *buf);
 int shmdt_next(const void *shmaddr);
@@ -159,18 +168,18 @@ int socket_next(int domain, int type, int protocol);
 int socketpair_next(int d, int type, int protocol, int sv[2]);
 long syscall_next(long sys_num, ...);
 int system_next(const char *cmd);
-// tcgetpgrp
-// tcgetsid
-// tcsetpgrp
+pid_t tcgetpgrp_next(int fd);
+pid_t tcgetsid_next(int fd);
+int tcsetpgrp_next(int fd, pid_t pgrp);
 int tgkill_next(int tgid, int tid, int sig);
 // timer_create
 int tkill_next(int tid, int sig);
 int ttyname_r_next(int fd, char *buf, size_t buflen);
-// wait
-// wait3
+pid_t wait_next(int *status);
+pid_t wait3_next(int *status, int options, struct rusage *rusage);
 pid_t wait4_next(pid_t pid, int * status, int options, struct rusage *rusage);
 int waitid_next(idtype_t idtype, id_t id, siginfo_t *infop, int options);
-// waitpid
+pid_t waitpid_next(pid_t pid, int *status, int options);
 ssize_t write_next(int fd, const void *buf, size_t count);
 int xstat_next(int vers, const char *path, struct stat *buf);
 int xstat64_next(int vers, const char *path, struct stat64 *buf);
@@ -213,4 +222,40 @@ int pthread_tryjoin_np_next(pthread_t thread, void **retval);
 int pthread_timedjoin_np_next(pthread_t thread, void **retval,
                          const struct timespec *abstime);
 int unsetenv_next(const char *name);
+int execle_next(const char *path, const char *arg, ...);
+int execlp_next(const char *file, const char *arg, ...);
+int execl_next(const char *path, const char *arg, ...);
+
+int __clone_next(int (*fn)(void *arg),
+                       void *child_stack,
+                       int flags,
+                       void *arg,
+                       int *parent_tidptr,
+                       struct user_desc *newtls,
+                       int *child_tidptr);
+int pthread_getcpuclockid_next(pthread_t thread, clockid_t *clock_id);
+int timer_gettime_next(timer_t timerid, struct itimerspec *curr_value);
+int timer_settime_next(timer_t timerid, int flags,
+                       const struct itimerspec *new_value,
+                       struct itimerspec * old_value);
+int timer_getoverrun_next(timer_t timerid);
+int timer_create_next(clockid_t clockid, struct sigevent *sevp,
+                      timer_t *timerid);
+
+ssize_t process_vm_readv_next(pid_t pid,
+    const struct iovec *local_iov,
+    unsigned long liovcnt,
+    const struct iovec *remote_iov,
+    unsigned long riovcnt,
+    unsigned long flags);
+ssize_t process_vm_writev_next(pid_t pid,
+    const struct iovec *local_iov,
+    unsigned long liovcnt,
+    const struct iovec *remote_iov,
+    unsigned long riovcnt,
+    unsigned long flags);
+int __xstat_next(int vers, const char *path, struct stat *buf);
+int __xstat64_next(int vers, const char *path, struct stat64 *buf);
+int __lxstat_next(int vers, const char *path, struct stat *buf);
+int __lxstat64_next(int vers, const char *path, struct stat64 *buf);
 #endif

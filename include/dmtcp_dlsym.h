@@ -49,6 +49,7 @@ EXTERNC ptrdiff_t dmtcp_dlsym_lib_fnc_offset(const char *libname,
 
 // This implementation mirrors dmtcp.h:NEXT_FNC() for DMTCP.
 // It uses dmtcp_dlsym to get default version, in case of symbol versioning
+#ifndef STATIC_DMTCP
 # define NEXT_FNC_DEFAULT(func)                                             \
   ({                                                                        \
     static __typeof__(&func) _real_##func = (__typeof__(&func)) -1;         \
@@ -60,6 +61,19 @@ EXTERNC ptrdiff_t dmtcp_dlsym_lib_fnc_offset(const char *libname,
     }                                                                       \
     _real_##func;                                                           \
   })
+#else
+# define NEXT_FNC_DEFAULT(func)                                             \
+  ({                                                                        \
+    static __typeof__(&func) _real_##func = (__typeof__(&func)) -1;         \
+    if (_real_##func == (__typeof__(&func)) -1) {                           \
+      if (dmtcp_initialize) {                                               \
+        dmtcp_initialize();                                                 \
+      }                                                                     \
+      _real_##func = func ## _next;                                         \
+    }                                                                       \
+    _real_##func;                                                           \
+  })
+#endif
 
 /*
  * It uses dmtcp_dlvsym to get the function with the specified version in the
