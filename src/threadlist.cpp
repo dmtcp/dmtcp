@@ -77,6 +77,22 @@ static int Thread_UpdateState(Thread *th,
 static void Thread_SaveSigState(Thread *th);
 static void Thread_RestoreSigState(Thread *th);
 
+// Copied from src/plugin/pid/pid_syscallsreal.c
+// Without this, libdmtcp.so will depend on libdmtcp_plugin.so being loaded
+static pid_t _real_getpid(void)
+{
+  // libc caches pid of the process and hence after restart, libc:getpid()
+  // returns the pre-ckpt value.
+  return (pid_t)_real_syscall(SYS_getpid);
+}
+// Copied from src/plugin/pid/pid.c and .../pid/pid_syscallsreal.c
+// Without this, libdmtcp.so will depend on libdmtcp_plugin.so being loaded
+LIB_PRIVATE
+pid_t dmtcp_get_real_pid()
+{
+  return _real_getpid();
+}
+
 /*****************************************************************************
  *
  * Lock and unlock the 'activeThreads' list

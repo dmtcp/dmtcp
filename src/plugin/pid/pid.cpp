@@ -55,6 +55,8 @@ pid_t dmtcp_virtual_to_real_pid(pid_t virtualPid)
   return VIRTUAL_TO_REAL_PID(virtualPid);
 }
 
+// Also copied into src/threadlist.cpp, so that libdmtcp.sp
+//   won't depend on libdmtcp_pid.sp
 extern "C"
 pid_t dmtcp_get_real_pid()
 {
