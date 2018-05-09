@@ -131,6 +131,8 @@ _real_dlsym(void *handle, const char *symbol)
   return (void *)(*_libc_dlsym_fnptr)(handle, symbol);
 }
 
+// Also copied into src/threadlist.cpp, so that libdmtcp.sp
+//   won't depend on libdmtcp_pid.sp
 LIB_PRIVATE
 pid_t
 _real_getpid(void)
