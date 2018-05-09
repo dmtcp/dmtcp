@@ -3,6 +3,10 @@ import os, tempfile, shutil
 import sys
 import argparse
 
+from elftools.elf.elffile import ELFFile
+from elftools.elf.sections import Section
+from elftools.elf.sections import SymbolTableSection
+
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 # HELPERS
@@ -22,6 +26,25 @@ def readfileintolist(filename, l):
         tmp_l = [x.strip() for x in tmp_l]
         tmp_l.sort()
         l.extend(tmp_l)
+
+def find_symbols_dmtcp(object_file, sub_str):
+    listToWrite = []
+    with open(object_file, 'rb') as f:
+        elffile = ELFFile(f)
+        for section in elffile.iter_sections():
+            if not isinstance(section, SymbolTableSection):
+                continue
+            if section['sh_entsize'] == 0:
+                print('No Symbol Table!!!')
+                continue
+            for nsym, symbol in enumerate(section.iter_symbols()):
+                #if sub_str in str(symbol.name):
+                if True:
+                    symbol_string = symbol.name  #.decode("utf-8")
+                    listToWrite.append(symbol_string)
+
+    print(object_file, listToWrite)
+    return listToWrite
 
 def replace_symbols_elf(dir_tmp, dir_dmtcp_bin, index, s_c_k_f):
     # example: generalize later...
@@ -109,9 +132,9 @@ with tempfile.TemporaryDirectory() as dir_tmp:
     print ('Created SAFE dir_tmp:', dir_tmp)
 
     # Generate symbols that need WRAPPING (Creates dmtcp.wrapper.sym file)
-    os.system('cd {0} && {1}/dmtcp_wrapper_symbols {2} && ls'.format(dir_tmp, dir_dmtcp_bin, dir_dmtcp))
+    # os.system('cd {0} && {1}/dmtcp_wrapper_symbols {2} && ls'.format(dir_tmp, dir_dmtcp_bin, dir_dmtcp))
     # MAYBE APPEND TO MORE HERE, Currently use hardcoded wrappers for ease
-    #os.system('cd {0} &&
+    os.system('cp {1}/complete_wrapper_list {0}/dmtcp.wrapper.sym'.format(dir_tmp, dir_dmtcp_su))
 
     # TODO
     # Pickup symbols per archives (*.a)
@@ -151,6 +174,10 @@ with tempfile.TemporaryDirectory() as dir_tmp:
 
         # Extract the archives
         extract_archives_dir(dir_tmp)
+
+#        print('\nfind_symbols_dmtcp')
+#        find_symbols_dmtcp('{}/abs.o'.format(dir_tmp), '')
+#        print('\n  \n')
 
         # Run RSE on each .o's
         # __dmtcp_wrap_0 (only_undef)

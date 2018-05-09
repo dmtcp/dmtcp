@@ -1,0 +1,26 @@
+DIR=~/a/dmtcp
+PT=12345
+
+### VERSION 3
+default:
+	gcc -g -O0 -c main.c
+	../dmtcp_ld_NORUNTIME_v3 --dmtcp $(DIR) --objs main.o --libs libdmtcp.a libdmtcp_pid.a
+	mv -f libc.a.MOD libc.MOD.a && mv -f libpthread.a.MOD libpthread.MOD.a # FOR DEBUGGING
+	g++ -g -O0 -static -static-libgcc -Wl,-u,dmtcp_initialize -I. main.o -Wl,--whole-archive ./libdmtcp_pid.a.MOD ./libdmtcp.a.MOD -Wl,--no-whole-archive -L. -lpthread.MOD -lc.MOD  -ldl
+
+run:
+	$(DIR)/bin/dmtcp_launch -p $(PT) ./a.out
+
+restart:
+	$(DIR)/bin/dmtcp_restart -p $(PT) ckpt*.dmtcp
+
+tidy:
+	rm -f ckpt*.dmtcp ckpt*.temp
+
+gdb:
+	gdb --args $(DIR)/bin/dmtcp_launch -p $(PT) ./a.out
+
+
+clean:
+	rm -f *.o a.out *.nz core.* *.dmtcp *.MOD* *.temp
+	rm -rf ./addrs

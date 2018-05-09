@@ -1,3 +1,12 @@
+TODO
+- Implement logic for dmtcp_ld_NORUNTIME (for symbol replacement = mimic dlsym)
+    - Will fix the symbol conflicts for multiple wrappers with the same symbol (fixing wrappers: _wrap__dmtcp_#)
+    - Will patch the `symbol`_next already set by the MACRO expansions in the source
+    - Will fix the undefined references to symbols that were fixed due to existing wrappers
+    - side note: utilizing dmtcp_replace_symbols_elf (C program)
+
+// ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
 TO TEST:
 1) Just libdmtcp.a
   $> cd ./TEST_DMTCP
