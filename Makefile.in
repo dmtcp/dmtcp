@@ -106,7 +106,9 @@ _hooksdir=.git/hooks
 add-git-hooks: ${_hooksdir}/pre-commit ${_hooksdir}/post-rewrite
 
 ${_hooksdir}/%: util/hooks/%
-	cd ${_hooksdir} && ln -s ../../$< .
+	if test -d ${_hooksdir}; then \
+	  cd ${_hooksdir} && ln -s ../../$< . ; \
+	fi
 
 # Remove any stray src/config.h files that may still exist.
 # If the developer accidentally leaves an old src/config.h in place (e.g.,
