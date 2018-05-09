@@ -16,9 +16,13 @@ AC_PROG_RANLIB
 AC_PROG_MAKE_SET
 AC_PROG_LN_S
 AC_PROG_MKDIR_P
+dnl Due to a strange misfeature in autotools, AC_PROG_CXX will succeed if there
+dnl is no CXX compiler and if AC_PROG_CXX is invoked _after_ AC_PROG_CC.
+dnl So, we are invoking AC_PROG_CXX _before_ AC_PROG_CC, to take advantage
+dnl of an undocumented autotools feature.
+AC_PROG_CXX
 AC_PROG_CC
 AC_PROG_CPP
-AC_PROG_CXX
 dnl This sets OPENMP_CFLAGS
 AC_OPENMP
 dnl This sets OPENMP_CXXFLAGS
@@ -400,6 +404,18 @@ if test "$is_aarch64_host" == "yes"; then
 else
   AC_SUBST([AARCH64_HOST], [no])
 fi
+
+AC_MSG_CHECKING([if this is WSL (Windows Subystem for Linux)])
+if uname -r | grep Microsoft > /dev/null; then
+  is_wsl='yes'
+  wsl_version=`uname -r`
+else
+  is_wsl='no'
+fi
+if test "$is_wsl" == "yes"; then
+  AC_DEFINE([WSL],[$wsl_version],[This is WSL (Windows Subsystem for Linux.])
+fi
+AC_MSG_RESULT([$is_wsl])
 
 AC_MSG_CHECKING([whether GNU_HASH is supported for ELF])
 AC_TRY_RUN([

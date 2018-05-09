@@ -126,5 +126,8 @@
 /* Version number of package */
 #undef VERSION
 
+/* This is WSL (Windows Subsystem for Linux. */
+#undef WSL
+
 /* can use __WAIT_STATUS as wait status type */
 #undef __WAIT_STATUS
