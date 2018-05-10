@@ -497,6 +497,13 @@ void CoordinatorAPI::startNewCoordinator(CoordinatorMode mode)
         (coordinatorListenerSocket.port());
 
   if (fork() == 0) {
+    /* NOTE:  This code assumes that dmtcp_launch (the current program)
+     *  and dmtcp_coordinator are in the same directory.  Namely,
+     *  GetProgramDir() gets the dir of the current program (dmtcp_launch).
+     *  Hence, if dmtcp_coordinator is in a different directory, then
+     *     jalib::Filesystem::GetProgramDir() + "/dmtcp_coordinator"
+     *  will not exist, and the child will fail.
+     */
     // We can't use Util::getPath() here since the SharedData has not been
     // initialized yet.
     string coordinator =
@@ -514,11 +521,10 @@ void CoordinatorAPI::startNewCoordinator(CoordinatorMode mode)
     execv(args[0], args);
     JASSERT(false)(coordinator)(JASSERT_ERRNO) .Text("exec(dmtcp_coordinator) failed");
   } else {
-    _real_close (PROTECTED_COORD_FD);
+    int status;
+    _real_close(PROTECTED_COORD_FD);
+    JASSERT(wait(&status) > 0) (JASSERT_ERRNO);
   }
-
-  int status;
-  JASSERT(wait(&status) > 0) (JASSERT_ERRNO);
 }
 
 void CoordinatorAPI::createNewConnToCoord(CoordinatorMode mode)
