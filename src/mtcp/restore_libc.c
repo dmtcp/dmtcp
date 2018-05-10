@@ -29,6 +29,9 @@
 #include "mtcp_sys.h"
 #include "restore_libc.h"
 #include "tlsutil.h"
+#include "config.h" // define WSL if present
+#include <pthread.h> // for pthread_self(), needed for WSL
+                     //    or for alternate way to verify thread descriptor
 
 int mtcp_sys_errno;
 
@@ -110,11 +113,49 @@ static int glibcMinorVersion()
 //     of cached tid to clone, and MTCP grabs it; But MTCP is still missing
 //     the address where pthread cached the tid of motherofall.  So, it can't
 //     update.
+/*
+ * For those who want to dig deeper into glibc and its thread descriptor,
+ *   see below.  Note that pthread_self returns a pthread_t, which is a
+ *   pointer to the 'struct pthread' below.
+ * FROM: glibc-2.23/sysdeps/x86_64/nptl/tls.h
+ * // Return the thread descriptor for the current thread.
+ * # define THREAD_SELF \
+ *   ({ struct pthread *__self;                                                  \
+ *      asm ("mov %%fs:%c1,%0" : "=r" (__self)                                   \
+ *           : "i" (offsetof (struct pthread, header.self)));                    \
+ *      __self;})
+ * // struct pthread is defined in glibc-2.23/nptl/descr.h
+ * // type = struct pthread {
+ * //     union {
+ * //         tcbhead_t header;
+ * //         void *__padding[24];
+ * //     };
+ * //     list_t list; // 2*sizeof(void *)
+ * //     pid_t tid;
+ * //     pid_t pid;
+ * // NOTE: sizeof(tcbhead_t) + 2*sizeof(void *) == 720
+ * //       where:  sizeof(tcbhead_t) == 704
+ */
+
+/* NOTE:  For future reference, the STATIC_TLS_TID_OFFSET() for a glibc version
+ *  can be easily discvoered as long as a debug version of glibc is present:
+ *  (gdb) p (char *)&(((struct pthread *)pthread_self())->tid) - \
+ *                                                      (char *)pthread_self()
+ *  $14 = 720  # So, 720 is the correct offset in this example.
+ */
 static int STATIC_TLS_TID_OFFSET()
 {
   static int offset = -1;
   if (offset != -1)
     return offset;
+
+#ifdef __x86_64__
+  // NEEDED FOR WSL
+  if (glibcMinorVersion() >= 23) {
+    offset = 720;
+    return offset;
+  }
+#endif
 
   if (glibcMinorVersion() >= 11) {
 #ifdef __x86_64__
@@ -172,7 +213,6 @@ extern ThreadTLSInfo *motherofall_tlsInfo;
  *
  *****************************************************************************/
 int TLSInfo_GetTidOffset(void)
-
 {
   static int tid_offset = -1;
   if (tid_offset == -1) {
@@ -193,7 +233,7 @@ int TLSInfo_GetTidOffset(void)
      * Then fill in the entry_number field of an empty 'struct user_desc', and
      * get_thread_area(struct user_desc *uinfo) will fill in the rest.
      * Then use the filled in base_address field to get the 'struct pthread'.
-     * The function tcp_get_tls_base_addr() returns this 'struct pthread' addr.
+     * The function get_tls_base_addr() returns this 'struct pthread' addr.
      */
     void * pthread_desc = get_tls_base_addr();
     /* A false hit for tid_offset probably can't happen since a new
@@ -320,6 +360,15 @@ static void* get_tls_base_addr()
     PRINTF("Error getting GDT TLS entry: %d\n", errno);
     _exit(0);
   }
+#ifdef WSL
+  // This could be used for regular non-WSL also, although it depends on
+  //   the GNU implementation.  pthread_self() returns thread area.
+  // NOTE:  The syscall arch_prctl(ARCH_GET_FS,...) discovers the base
+  //   address of the thread descriptor for non-WSL, but it returns
+  //   different values when invoked at different call sites in WSL.
+  //   Probably, this is because Windows is also using the $fs register.
+  return (void *)pthread_self();
+#endif
   return (void *)(*(unsigned long *)&(gdtentrytls.base_addr));
 }
 
