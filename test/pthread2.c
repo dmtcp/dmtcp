@@ -57,7 +57,6 @@ static void *
 threadMain(void *data)
 {
   int id = *(int *)data;
-  int count = 0;
 
   if (id % 1000 == 0) {
     printf("Worker: %d (%ld) alive. numWorkers: %d\n",

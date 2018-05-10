@@ -356,7 +356,7 @@ sendMsgToCoordinatorRaw(int fd,
   }
   JASSERT(Util::writeAll(fd, &msg, sizeof(msg)) == sizeof(msg));
   if (extraData != NULL) {
-    JASSERT(Util::writeAll(fd, extraData, len) == len);
+    JASSERT(Util::writeAll(fd, extraData, len) == (ssize_t)len);
   }
 }
 
@@ -898,7 +898,7 @@ sendQueryAllToCoordinator(const char *id, void **buf, int *len)
   JASSERT (Util::readAll(sock, tmp, msg.extraBytes) == msg.extraBytes);
 
   if (*len > 0) {
-    if (*len < msg.extraBytes) {
+    if ((size_t)*len < msg.extraBytes) {
       JALLOC_HELPER_FREE(tmp);
       errno = ERANGE;
       return -1;
