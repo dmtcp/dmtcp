@@ -206,8 +206,8 @@ void ProcessInfo::growStack()
   }
   JASSERT(stackArea.addr != NULL);
 
-  // Grow the stack
-  {
+  if (stackSize > stackArea.size + 4095) {
+    // Grow the stack, if possible
     allocSize = stackSize - stackArea.size - 4095;
     tmpbuf = alloca(allocSize);
     JASSERT(tmpbuf != NULL) (JASSERT_ERRNO);
