@@ -95,8 +95,11 @@ Connection::restoreOptions()
   // (VIRTUAL_TO_REAL_PID(_fcntlOwner));
 
   errno = 0;
+#ifndef WSL
+  // WSL doesn't seem to support this yet (as of Windows 10 build 1803)
   JASSERT(fcntl(_fds[0], F_SETSIG, (int)_fcntlSignal) == 0)
     (_fds[0]) (_fcntlSignal) (JASSERT_ERRNO);
+#endif
 }
 
 void
