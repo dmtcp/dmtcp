@@ -413,7 +413,7 @@ else
   is_wsl='no'
 fi
 if test "$is_wsl" == "yes"; then
-  AC_DEFINE([WSL],[$wsl_version],[This is WSL (Windows Subsystem for Linux.])
+  AC_DEFINE_UNQUOTED([WSL],[$wsl_version],[This is WSL (Windows Subsystem for Linux.])
 fi
 AC_MSG_RESULT([$is_wsl])
 

@@ -5803,7 +5803,9 @@ else
 fi
 if test "$is_wsl" == "yes"; then
 
-$as_echo "#define WSL \$wsl_version" >>confdefs.h
+cat >>confdefs.h <<_ACEOF
+#define WSL $wsl_version
+_ACEOF
 
 fi
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $is_wsl" >&5
