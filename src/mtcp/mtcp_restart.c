@@ -645,7 +645,7 @@ restorememoryareas(RestoreInfo *rinfo_ptr)
   if (rinfo_ptr->saved_brk != NULL) {
     // Now, we can do the pending mtcp_sys_brk(rinfo.saved_brk).
     // It's now safe to do this, even though it can munmap memory holding rinfo.
-    if (mtcp_sys_brk(rinfo_ptr->saved_brk) != 0) {
+    if ((intptr_t)mtcp_sys_brk(rinfo_ptr->saved_brk) == -1) {
        MTCP_PRINTF("error restoring brk: %d\n", mtcp_sys_errno);
     }
   }
