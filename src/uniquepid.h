@@ -74,6 +74,14 @@ struct UniquePid : private DmtcpUniqueProcessId {
       return up;
     }
 
+    void clear()
+    {
+      _hostid = 0;
+      _pid = 0;
+      _time = 0;
+      _computation_generation = 0;
+    }
+
     void incrementGeneration();
 
     static void serialize(jalib::JBinarySerializer &o);

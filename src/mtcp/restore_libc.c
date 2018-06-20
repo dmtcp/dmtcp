@@ -268,11 +268,13 @@ TLSInfo_GetTidOffset(void)
 
     tid_offset = tmp - (char *)pthread_desc;
     if (tid_offset != STATIC_TLS_TID_OFFSET()) {
+      // NOTE: PRINTF can only handle strings upto 256 chars
       PRINTF("WARNING: tid_offset (%d) different from expected.\n"
              "  It is possible that DMTCP was compiled with a different\n"
              "  glibc version than the one it's dynamically linking to.\n"
-             "  Continuing anyway.  If this fails, please try again.",
+             "  Continuing anyway. ",
              tid_offset);
+      PRINTF("If this fails, please try again.");
     }
     DPRINTF("DEBUGGING INFO: tid_offset: %d\n", tid_offset);
     if (tid_offset % sizeof(int) != 0) {
