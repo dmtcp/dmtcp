@@ -77,18 +77,18 @@ EpollConnection::postRestart()
 {
   JASSERT(_fds.size() > 0);
   JTRACE("Recreating epoll connection") (_fds[0]) (id());
-  int tempFd;
+  int tempfd;
   if (_size != 0) {
-    tempFd = _real_epoll_create(_size);
+    tempfd = _real_epoll_create(_size);
   } else {
 #if HAS_EPOLL_CREATE1
-    tempFd = _real_epoll_create1(_flags);
+    tempfd = _real_epoll_create1(_flags);
 #else
-    tempFd = -1;
+    tempfd = -1;
 #endif
   }
-  JASSERT(tempFd >= 0) (_size) (_flags) (JASSERT_ERRNO);
-  Util::dupFds(tempFd, _fds);
+  JASSERT(tempfd >= 0) (_size) (_flags) (JASSERT_ERRNO);
+  restoreDupFds(tempfd);
 }
 
 void
@@ -191,7 +191,7 @@ EventFdConnection::postRestart()
   errno = 0;
   int tempfd = _real_eventfd(_initval, _flags);
   JASSERT(tempfd > 0) (tempfd) (JASSERT_ERRNO);
-  Util::dupFds(tempfd, _fds);
+  restoreDupFds(tempfd);
 }
 
 void
@@ -250,7 +250,7 @@ SignalFdConnection::postRestart()
   errno = 0;
   int tempfd = _real_signalfd(-1, &_mask, _flags);
   JASSERT(tempfd > 0) (tempfd) (JASSERT_ERRNO);
-  Util::dupFds(tempfd, _fds);
+  restoreDupFds(tempfd);
 }
 
 void
@@ -315,7 +315,7 @@ InotifyConnection::postRestart()
   int tempfd = _real_inotify_init1(_flags);
 
   JASSERT(tempfd >= 0);
-  Util::dupFds(tempfd, _fds);
+  restoreDupFds(tempfd);
 }
 
 void

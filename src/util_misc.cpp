@@ -231,15 +231,6 @@ Util::changeFd(int oldfd, int newfd)
   return newfd;
 }
 
-void
-Util::dupFds(int oldfd, const vector<int> &newfds)
-{
-  changeFd(oldfd, newfds[0]);
-  for (size_t i = 1; i < newfds.size(); i++) {
-    JASSERT(_real_dup2(newfds[0], newfds[i]) == newfds[i]);
-  }
-}
-
 /* Begin miscellaneous/helper functions. */
 
 /* Reads from fd until count bytes are read, or

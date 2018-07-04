@@ -69,6 +69,8 @@ class Connection
 
     void addFd(int fd);
     void removeFd(int fd);
+    void restoreDupFds(int fd);
+
     uint32_t numFds() const { return _fds.size(); }
 
     const vector<int32_t> &getFds() const { return _fds; }
@@ -115,7 +117,7 @@ class Connection
     int64_t _fcntlOwner;
     int64_t _fcntlSignal;
     bool _hasLock;
-    vector<int32_t>_fds;
+    vector<int32_t> _fds;
 };
 }
 #endif // ifndef CONNECTION_H

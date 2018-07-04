@@ -110,7 +110,6 @@ namespace Util
 void lockFile(int fd);
 void unlockFile(int fd);
 int changeFd(int oldfd, int newfd);
-void dupFds(int oldfd, const vector<int> &newfds);
 
 bool strStartsWith(const char *str, const char *pattern);
 bool strEndsWith(const char *str, const char *pattern);

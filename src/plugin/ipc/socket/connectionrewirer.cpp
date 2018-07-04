@@ -101,7 +101,7 @@ ConnectionRewirer::checkForPendingIncoming(int restoreSockFd,
     JASSERT(i != conList->end()) (id)
     .Text("got unexpected incoming restore request");
 
-    Util::dupFds(fd, (i->second)->getFds());
+    (i->second)->restoreDupFds(fd);
 
     JTRACE("restoring incoming connection") (id);
     conList->erase(i);
