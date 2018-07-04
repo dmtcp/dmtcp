@@ -590,7 +590,7 @@ ConnectionList::sendReceiveMissingFds()
       Connection *con = getConnection(id);
       JTRACE("Received Missing Con") (id);
       JASSERT(con != NULL);
-      Util::dupFds(fd, con->getFds());
+      con->restoreDupFds(fd);
       numIncomingCons--;
     }
   }

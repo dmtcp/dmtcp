@@ -338,7 +338,7 @@ PtyConnection::refill(bool isRestart)
     .Text("Error Opening PTS");
 
     JTRACE("Restoring PTS real") (_ptsName) (_virtPtsName) (_fds[0]);
-    Util::dupFds(tempfd, _fds);
+    restoreDupFds(tempfd);
   }
 
   if (_type == PTY_DEV_TTY) {
@@ -353,7 +353,7 @@ PtyConnection::refill(bool isRestart)
 
     JTRACE("Restoring /dev/tty for the process") (_fds[0]);
     _ptsName = _virtPtsName = "/dev/tty";
-    Util::dupFds(tempfd, _fds);
+    restoreDupFds(tempfd);
   }
 }
 
@@ -369,114 +369,115 @@ PtyConnection::postRestart()
   int extraFlags = _isControllingTTY ? 0 : O_NOCTTY;
 
   switch (_type) {
-  case PTY_INVALID:
+    case PTY_INVALID:
 
-    // tempfd = _real_open("/dev/null", O_RDWR);
-    JTRACE("Restoring invalid PTY.") (id());
-    return;
+      // tempfd = _real_open("/dev/null", O_RDWR);
+      JTRACE("Restoring invalid PTY.") (id());
+      return;
 
-  case PTY_CTTY:
-  case PTY_PARENT_CTTY:
-  {
-    string controllingTty;
-    string stdinDeviceName;
-    if (_type == PTY_CTTY) {
-      controllingTty = jalib::Filesystem::GetControllingTerm();
-    } else {
-      controllingTty = jalib::Filesystem::GetControllingTerm(getppid());
-    }
-    stdinDeviceName = (jalib::Filesystem::GetDeviceName(STDIN_FILENO));
-    if (controllingTty.length() > 0 &&
-        _real_access(controllingTty.c_str(), R_OK | W_OK) == 0) {
-      tempfd = _real_open(controllingTty.c_str(), _fcntlFlags);
-      JASSERT(tempfd >=
-              0) (tempfd) (_fcntlFlags) (controllingTty) (JASSERT_ERRNO)
-      .Text("Error Opening the terminal attached with the process");
-    } else {
+    case PTY_CTTY:
+    case PTY_PARENT_CTTY:
+    {
+      string controllingTty;
+      string stdinDeviceName;
       if (_type == PTY_CTTY) {
-        JTRACE("Unable to restore controlling terminal attached with the "
-               "parent process.\n"
-               "Replacing it with current STDIN")
-          (stdinDeviceName);
+        controllingTty = jalib::Filesystem::GetControllingTerm();
       } else {
-        JWARNING(false) (stdinDeviceName)
-        .Text("Unable to restore controlling terminal attached with the "
-              "parent process.\n"
-              "Replacing it with current STDIN");
+        controllingTty = jalib::Filesystem::GetControllingTerm(getppid());
       }
-      JWARNING(Util::strStartsWith(stdinDeviceName.c_str(), "/dev/pts/") ||
-               stdinDeviceName == "/dev/tty") (stdinDeviceName)
-      .Text("Controlling terminal not bound to a terminal device.");
+      stdinDeviceName = (jalib::Filesystem::GetDeviceName(STDIN_FILENO));
+      if (controllingTty.length() > 0 &&
+          _real_access(controllingTty.c_str(), R_OK | W_OK) == 0) {
+        tempfd = _real_open(controllingTty.c_str(), _fcntlFlags);
+        JASSERT(tempfd >=
+                0) (tempfd) (_fcntlFlags) (controllingTty) (JASSERT_ERRNO)
+        .Text("Error Opening the terminal attached with the process");
+      } else {
+        if (_type == PTY_CTTY) {
+          JTRACE("Unable to restore controlling terminal attached with the "
+                 "parent process.\n"
+                 "Replacing it with current STDIN")
+            (stdinDeviceName);
+        } else {
+          JWARNING(false) (stdinDeviceName)
+          .Text("Unable to restore controlling terminal attached with the "
+                "parent process.\n"
+                "Replacing it with current STDIN");
+        }
+        JWARNING(Util::strStartsWith(stdinDeviceName.c_str(), "/dev/pts/") ||
+                 stdinDeviceName == "/dev/tty") (stdinDeviceName)
+        .Text("Controlling terminal not bound to a terminal device.");
 
-      if (Util::isValidFd(STDIN_FILENO)) {
-        tempfd = _real_dup(STDIN_FILENO);
-      } else if (Util::isValidFd(STDOUT_FILENO)) {
-        tempfd = _real_dup(STDOUT_FILENO);
-      } else {
-        JASSERT("Controlling terminal and STDIN/OUT not found.");
+        if (Util::isValidFd(STDIN_FILENO)) {
+          tempfd = _real_dup(STDIN_FILENO);
+        } else if (Util::isValidFd(STDOUT_FILENO)) {
+          tempfd = _real_dup(STDOUT_FILENO);
+        } else {
+          JASSERT("Controlling terminal and STDIN/OUT not found.");
+        }
       }
+
+      JTRACE("Restoring parent CTTY for the process")
+        (controllingTty) (_fds[0]);
+
+      _ptsName = controllingTty;
+      SharedData::insertPtyNameMap(_virtPtsName.c_str(), _ptsName.c_str());
+      break;
     }
 
-    JTRACE("Restoring parent CTTY for the process")
-      (controllingTty) (_fds[0]);
+    case PTY_MASTER:
+    {
+      char pts_name[80];
 
-    _ptsName = controllingTty;
-    SharedData::insertPtyNameMap(_virtPtsName.c_str(), _ptsName.c_str());
-    break;
-  }
+      tempfd = _real_open("/dev/ptmx", _fcntlFlags | extraFlags);
+      JASSERT(tempfd >= 0) (tempfd) (JASSERT_ERRNO)
+      .Text("Error Opening /dev/ptmx");
 
-  case PTY_MASTER:
-  {
-    char pts_name[80];
+      JASSERT(grantpt(tempfd) >= 0) (tempfd) (JASSERT_ERRNO);
+      JASSERT(unlockpt(tempfd) >= 0) (tempfd) (JASSERT_ERRNO);
+      JASSERT(_real_ptsname_r(tempfd, pts_name, 80) == 0)
+        (tempfd) (JASSERT_ERRNO);
 
-    tempfd = _real_open("/dev/ptmx", _fcntlFlags | extraFlags);
-    JASSERT(tempfd >= 0) (tempfd) (JASSERT_ERRNO)
-    .Text("Error Opening /dev/ptmx");
+      _ptsName = pts_name;
+      SharedData::insertPtyNameMap(_virtPtsName.c_str(), _ptsName.c_str());
 
-    JASSERT(grantpt(tempfd) >= 0) (tempfd) (JASSERT_ERRNO);
-    JASSERT(unlockpt(tempfd) >= 0) (tempfd) (JASSERT_ERRNO);
-    JASSERT(_real_ptsname_r(tempfd, pts_name, 80) == 0)
-      (tempfd) (JASSERT_ERRNO);
+      if (_type == PTY_MASTER) {
+        int packetMode = _ptmxIsPacketMode;
+        ioctl(_fds[0], TIOCPKT, &packetMode);     /* Restore old packet mode */
+      }
 
-    _ptsName = pts_name;
-    SharedData::insertPtyNameMap(_virtPtsName.c_str(), _ptsName.c_str());
-
-    if (_type == PTY_MASTER) {
-      int packetMode = _ptmxIsPacketMode;
-      ioctl(_fds[0], TIOCPKT, &packetMode);     /* Restore old packet mode */
+      JTRACE("Restoring /dev/ptmx") (_fds[0]) (_ptsName) (_virtPtsName);
+      break;
     }
+    case PTY_BSD_MASTER:
+    {
+      JTRACE("Restoring BSD Master Pty") (_masterName) (_fds[0]);
 
-    JTRACE("Restoring /dev/ptmx") (_fds[0]) (_ptsName) (_virtPtsName);
-    break;
-  }
-  case PTY_BSD_MASTER:
-  {
-    JTRACE("Restoring BSD Master Pty") (_masterName) (_fds[0]);
+      // string slaveDeviceName =
+      // _masterName.replace(0, strlen("/dev/pty"), "/dev/tty");
 
-    // string slaveDeviceName =
-    // _masterName.replace(0, strlen("/dev/pty"), "/dev/tty");
+      tempfd = _real_open(_masterName.c_str(), _fcntlFlags | extraFlags);
 
-    tempfd = _real_open(_masterName.c_str(), _fcntlFlags | extraFlags);
+      // FIXME: If unable to open the original BSD Master Pty, we should try to
+      // open another one until we succeed and then open slave device
+      // accordingly.
+      // This can be done by creating a function openBSDMaster, which will try
+      // to open the original master device, but if unable to do so, it would
+      // keep on trying all the possible BSD Master devices until one is
+      // opened. It should then create a mapping between original Master/Slave
+      // device name and current Master/Slave device name.
+      JASSERT(tempfd >= 0) (tempfd) (JASSERT_ERRNO)
+      .Text("Error Opening BSD Master Pty.(Already in use?)");
+      break;
+    }
+    default:
+    {
+      // should never reach here
+      JASSERT(false).Text("Should never reach here.");
+    }
+  }
 
-    // FIXME: If unable to open the original BSD Master Pty, we should try to
-    // open another one until we succeed and then open slave device
-    // accordingly.
-    // This can be done by creating a function openBSDMaster, which will try
-    // to open the original master device, but if unable to do so, it would
-    // keep on trying all the possible BSD Master devices until one is
-    // opened. It should then create a mapping between original Master/Slave
-    // device name and current Master/Slave device name.
-    JASSERT(tempfd >= 0) (tempfd) (JASSERT_ERRNO)
-    .Text("Error Opening BSD Master Pty.(Already in use?)");
-    break;
-  }
-  default:
-  {
-    // should never reach here
-    JASSERT(false).Text("Should never reach here.");
-  }
-  }
-  Util::dupFds(tempfd, _fds);
+  restoreDupFds(tempfd);
 }
 
 void

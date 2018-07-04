@@ -501,7 +501,7 @@ TcpConnection::onError()
   JTRACE("Creating dead socket.") (_fds[0]) (_fds.size());
   const vector<char> &buffer =
     KernelBufferDrainer::instance().getDrainedData(_id);
-  Util::dupFds(_makeDeadSocket(&buffer[0], buffer.size()), _fds);
+  restoreDupFds(_makeDeadSocket(&buffer[0], buffer.size()));
 }
 
 void
@@ -628,7 +628,7 @@ TcpConnection::postRestart()
   case TCP_INVALID:
   case TCP_EXTERNAL_CONNECT:
     JTRACE("Creating dead socket.") (_fds[0]) (_fds.size());
-    Util::dupFds(_makeDeadSocket(), _fds);
+    restoreDupFds(_makeDeadSocket());
     break;
 
   case TCP_ERROR:
@@ -637,7 +637,7 @@ TcpConnection::postRestart()
   {
     const vector<char> &buffer =
       KernelBufferDrainer::instance().getDrainedData(_id);
-    Util::dupFds(_makeDeadSocket(&buffer[0], buffer.size()), _fds);
+    restoreDupFds(_makeDeadSocket(&buffer[0], buffer.size()));
     break;
   }
 
@@ -657,7 +657,7 @@ TcpConnection::postRestart()
 
     fd = _real_socket(_sockDomain, _sockType, _sockProtocol);
     JASSERT(fd != -1) (JASSERT_ERRNO);
-    Util::dupFds(fd, _fds);
+    restoreDupFds(fd);
 
     if (_type == TCP_CREATED) {
       break;
@@ -752,7 +752,7 @@ TcpConnection::postRestart()
                       _sockType, _sockProtocol);
 #endif // ifdef ENABLE_IP6_SUPPORT
     JASSERT(fd != -1) (JASSERT_ERRNO);
-    Util::dupFds(fd, _fds);
+    restoreDupFds(fd);
     if (_bindAddrlen != 0) {
       JWARNING(_real_bind(_fds[0], (sockaddr *)&_bindAddr, _bindAddrlen) != -1)
         (JASSERT_ERRNO);
@@ -878,7 +878,7 @@ RawSocketConnection::postRestart()
     errno = 0;
     int fd = _real_socket(_sockDomain, _sockType, _sockProtocol);
     JASSERT(fd != -1) (JASSERT_ERRNO);
-    Util::dupFds(fd, _fds);
+    restoreDupFds(fd);
     if (_type == RAW_CREATED) {
       break;
     }

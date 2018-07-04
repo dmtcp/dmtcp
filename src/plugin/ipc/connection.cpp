@@ -24,6 +24,8 @@
 #include "../jalib/jassert.h"
 #include "../jalib/jserialize.h"
 
+#include "util.h"
+
 using namespace dmtcp;
 
 Connection::Connection(uint32_t t)
@@ -55,6 +57,15 @@ Connection::removeFd(int fd)
         break;
       }
     }
+  }
+}
+
+void
+Connection::restoreDupFds(int fd)
+{
+  Util::changeFd(fd, _fds[0]);
+  for (size_t i = 1; i < _fds.size(); i++) {
+    JASSERT(_real_dup2(_fds[0], _fds[i]) == _fds[i]);
   }
 }
 

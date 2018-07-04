@@ -289,7 +289,7 @@ FileConnection::overwriteFileWithBackup(int savedFd)
 
   // Re-open the (closed) file with the original flags
   int tempfd = openFile();
-  Util::dupFds(tempfd, _fds);
+  restoreDupFds(tempfd);
 }
 
 void
@@ -359,7 +359,7 @@ FileConnection::refill(bool isRestart)
       }
       tempfd = openFile();
     }
-    Util::dupFds(tempfd, _fds);
+    restoreDupFds(tempfd);
   }
 
   errno = 0;
@@ -502,7 +502,7 @@ FileConnection::postRestart()
     }
     tempfd = openFile();
   }
-  Util::dupFds(tempfd, _fds);
+  restoreDupFds(tempfd);
 }
 
 bool
@@ -726,7 +726,7 @@ FifoConnection::postRestart()
   JTRACE("Restoring Fifo Connection") (id()) (_path);
   refreshPath();
   int tempfd = openFile();
-  Util::dupFds(tempfd, _fds);
+  restoreDupFds(tempfd);
   refreshPath();
 }
 
@@ -872,7 +872,7 @@ PosixMQConnection::postRestart()
 
   int tempfd = _real_mq_open(_name.c_str(), _oflag, _mode, &_attr);
   JASSERT(tempfd != -1) (JASSERT_ERRNO);
-  Util::dupFds(tempfd, _fds);
+  restoreDupFds(tempfd);
 }
 
 void
