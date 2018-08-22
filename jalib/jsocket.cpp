@@ -504,6 +504,10 @@ void jalib::JMultiSocketProgram::monitorSockets ( double dblTimeout )
         closedFds.insert(dsock->socket().sockfd());
         //socket is dead... remove it
         JTRACE ( "disconnect" ) ( i ) ( _dataSockets[i]->socket().sockfd() );
+        JWARNING(_dataSockets[i]->socket().sockfd() < 0)
+                (_dataSockets[i]->socket().sockfd())
+                .Text("Socket closed by (external?) peer after draining began."
+                      " Resume/restart may fail.");
 
         _dataSockets[i] = 0;
         //swap with last
