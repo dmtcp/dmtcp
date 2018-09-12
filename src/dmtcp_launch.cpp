@@ -387,6 +387,7 @@ processArgs(int *orig_argc,
   /* FIXME:  Currently, there is a bug exposed by SIGRETURN for aarch64,
    *      when we create a SIGCHLD handler for the gzip process.
    *      So, we're temporarily disabling GZIP for aarch64.
+   * NOTE:  This occurs _only_ on second CKPT of 'make check' tests.
    */
   if (getenv(ENV_VAR_COMPRESSION) == NULL /* NULL default => --gzip */ ||
       strcmp(getenv(ENV_VAR_COMPRESSION), "1") == 0) {
@@ -394,8 +395,8 @@ processArgs(int *orig_argc,
     if (getenv(ENV_VAR_QUIET) != NULL &&
         strcmp(getenv(ENV_VAR_QUIET), "0") == 0) {
       JASSERT_STDERR <<
-        "\n*** Turning off gzip compression.  The armvv8 CPU support is"
-        " still experimental.\n*** Gzip not yet supported.\n\n";
+        "\n*** Turning off gzip compression.  The armv8 CPU support is"
+        " still in beta testing.\n*** Gzip not yet supported.\n\n";
     }
   }
 #endif // if __aarch64__

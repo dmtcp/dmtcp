@@ -326,6 +326,7 @@ struct linux_dirent {
                               5,                                          \
                               args)
 # define mtcp_sys_munmap(args ...)    mtcp_inline_syscall(munmap, 2, args)
+# define mtcp_sys_msync(args ...)    mtcp_inline_syscall(msync, 3, args)
 # define mtcp_sys_mprotect(args ...)  mtcp_inline_syscall(mprotect, 3, args)
 # define mtcp_sys_nanosleep(args ...) mtcp_inline_syscall(nanosleep, 2, args)
 # define mtcp_sys_brk(args ...)                                            \
@@ -482,6 +483,13 @@ static unsigned int myinfo_gs;
 #  define mtcp_sys_kernel_set_tls(args ...) \
   INLINE_SYSCALL_RAW(__ARM_NR_set_tls, 1, args)
 # endif // if defined(__arm__)
+
+# ifdef __arm__
+// https://elixir.bootlin.com/linux/v3.1/source/arch/arm/include/asm/unistd.h#L411
+#  define __ARM_NR_cacheflush 0x0f0002
+#  define mtcp_sys_kernel_cacheflush(args ...) \
+  INLINE_SYSCALL_RAW(__ARM_NR_cacheflush, 3, args)
+# endif
 
 // ==================================================================
 
