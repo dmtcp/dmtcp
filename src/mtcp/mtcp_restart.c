@@ -383,6 +383,62 @@ static void restore_brk(VA saved_brk, VA restore_begin, VA restore_end)
   }
 }
 
+#ifdef __aarch64__
+// From Dynamo RIO, file:  dr_helper.c
+// See https://github.com/DynamoRIO/dynamorio/wiki/AArch64-Port
+//   (self-modifying code) for background.
+# define ALIGN_FORWARD(addr,align) (void *)(((unsigned long)addr + align - 1) & ~(unsigned long)(align-1))
+# define ALIGN_BACKWARD(addr,align) (void *)((unsigned long)addr & ~(unsigned long)(align-1))
+void
+clear_icache(void *beg, void *end)
+{
+    static size_t cache_info = 0;
+    size_t dcache_line_size;
+    size_t icache_line_size;
+    typedef unsigned int* ptr_uint_t;
+    ptr_uint_t beg_uint = (ptr_uint_t)beg;
+    ptr_uint_t end_uint = (ptr_uint_t)end;
+    ptr_uint_t addr;
+
+    if (beg_uint >= end_uint)
+        return;
+
+    /* "Cache Type Register" contains:
+     * CTR_EL0 [31]    : 1
+     * CTR_EL0 [19:16] : Log2 of number of 4-byte words in smallest dcache line
+     * CTR_EL0 [3:0]   : Log2 of number of 4-byte words in smallest icache line
+     */
+    if (cache_info == 0)
+        __asm__ __volatile__("mrs %0, ctr_el0" : "=r"(cache_info));
+    dcache_line_size = 4 << (cache_info >> 16 & 0xf);
+    icache_line_size = 4 << (cache_info & 0xf);
+
+    /* Flush data cache to point of unification, one line at a time. */
+    addr = ALIGN_BACKWARD(beg_uint, dcache_line_size);
+if ((unsigned long)addr > (unsigned long)beg_uint) { while(1); }
+    do {
+        __asm__ __volatile__("dc cvau, %0" : : "r"(addr) : "memory");
+        addr += dcache_line_size;
+    } while (addr != ALIGN_FORWARD(end_uint, dcache_line_size));
+
+    /* Data Synchronization Barrier */
+    __asm__ __volatile__("dsb ish" : : : "memory");
+
+    /* Invalidate instruction cache to point of unification, one line at a time. */
+    addr = ALIGN_BACKWARD(beg_uint, icache_line_size);
+    do {
+        __asm__ __volatile__("ic ivau, %0" : : "r"(addr) : "memory");
+        addr += icache_line_size;
+    } while (addr != ALIGN_FORWARD(end_uint, icache_line_size));
+
+    /* Data Synchronization Barrier */
+    __asm__ __volatile__("dsb ish" : : : "memory");
+
+    /* Instruction Synchronization Barrier */
+    __asm__ __volatile__("isb" : : : "memory");
+}
+#endif
+
 NO_OPTIMIZE
 static void restart_fast_path()
 {
@@ -397,14 +453,28 @@ static void restart_fast_path()
 
   size_t offset = (char*)&restorememoryareas - rinfo.text_addr;
   rinfo.restorememoryareas_fptr = (fnptr_t)(rinfo.restore_addr + offset);
-/* For __arm__
- *    should be able to use kernel call: __ARM_NR_cacheflush(start, end, flag)
- *    followed by copying new text below, followed by DSB and ISB,
- *    to eliminate need for delay loop.  But this needs more testing.
- */
+
+  /* For __arm__ and __aarch64__ will need to invalidate cache after this.
+   */
   mtcp_memcpy(rinfo.restore_addr, rinfo.text_addr, rinfo.text_size);
   mtcp_memcpy(rinfo.restore_addr + rinfo.text_size, &rinfo, sizeof(rinfo));
   void *stack_ptr = rinfo.restore_addr + rinfo.restore_size - MB;
+
+  // The kernel call, __ARM_NR_cacheflush is avail. for __arm__, which
+  //   requires kernel privilege to flush cache.  For __aarch64__  user-space suffices
+  //   (and glibc clear_cache() is not available in most distros)
+/*
+  // Not avail. for __aarch64__, but should try this for __arm__:
+  mtcp_sys_errno = 0;
+  int rc1 = mtcp_sys_kernel_cacheflush(rinfo.restore_addr, rinfo.restore_addr + rinfo.text_size, 0);
+  if (rc1 !=0) { MTCP_PRINTF("mtcp_sys_kernel_cacheflush failed; errno: %d\n", mtcp_sys_errno); }
+  mtcp_sys_errno = 0;
+  int rc2 = mtcp_sys_kernel_cacheflush(rinfo.restore_addr + rinfo.text_size,
+                                       rinfo.restore_addr + rinfo.text_size + sizeof(rinfo), 0);
+  if (rc2 !=0) { MTCP_PRINTF("mtcp_sys_kernel_cacheflush failed\n"); }
+  mtcp_sys_mprotect(rinfo.restore_addr, rinfo.restore_size,
+                             PROT_READ | PROT_EXEC);
+*/
 
 #if defined(__INTEL_COMPILER) && defined(__x86_64__)
   asm volatile ("mfence" ::: "memory"); // memfence() defined in dmtcpplugin.cpp
@@ -426,11 +496,31 @@ static void restart_fast_path()
 #endif
 
 #if defined(__arm__) || defined(__aarch64__)
-# if 0
-  memfence();
-# else /* if 0 */
-
-  // FIXME: Replace this code by memfence() for __aarch64__, once it is stable.
+# if defined(__aarch64__)
+  // We would like to use the GCC builtin, __sync_synchronize()
+  //  but it doesn't appear to be portable to arm/aarch64 as of Aug., 2018
+  RMB; WMB; IMB;
+  // The call to clear_icache() wasn't effective:
+  //   clear_icache(rinfo.restore_addr, rinfo.restore_addr + rinfo.restore_size);
+  // So, now we're using the loop to read memory into dummy, below, as a hack.
+  // Apparently, this assembly instruction for "invalidate cache" requires
+  //   kernel privilege:
+  //   asm volatile (".arch armv8.1-a\n\t ic iallu\n\t" : : : "memory");
+  // This logic is a hack to make sure that the cache recognizes new mmap region
+  // Why can't gcc or glibc provide a working 'man 2 cacheflush' to correspond
+  //   to the man page in Ubuntu 16.04?  (Or maybe clear_cache()?)
+  char dummy;
+  for (char *ptr = rinfo.restore_addr; ptr < rinfo.restore_addr + rinfo.restore_size; ptr++) {
+    dummy = dummy ^ *ptr;
+  }
+  asm volatile("dsb ish" : : : "memory");
+  RMB; WMB; IMB;
+# else /* else if 0 */
+  // FIXME:  Test if this delay loop is no longer needed for __arm__.
+  //     We should be able to replace this by:
+  //     mtcp_sys_kernel_cacheflush(rinfo.restore_addr,
+  //                                rinfo.restore_addr + rinfo.text_size, 0);
+  //     If that works, then delete this delay loop code.
 
   /* This delay loop was required for:
    *    ARM v7 (rev 3, v71), SAMSUNG EXYNOS5 (Flattened Device Tree)
@@ -445,14 +535,8 @@ static void restart_fast_path()
       for (; y > 0; y--) {}
     }
   }
-# endif /* if 0 */
+# endif /* if defined(__aarch64__) */
 #endif /* if defined(__arm__) || defined(__aarch64__) */
-
-#if 0
-  RMB; // refresh instruction cache, for new memory
-  WMB; // refresh instruction cache, for new memory
-  IMB; // refresh instruction cache, for new memory
-#endif
 
   DPRINTF("We have copied mtcp_restart to higher address.  We will now\n"
           "    jump into a copy of restorememoryareas().\n");

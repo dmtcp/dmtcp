@@ -39,10 +39,11 @@
 # define WMB asm volatile (".arch armv7-a \n\t dsb ; dmb" : : : "memory")
 # define IMB asm volatile (".arch armv7-a \n\t isb" : : : "memory")
 #elif defined(__aarch64__)
-# define RMB asm volatile ("dsb sy ; dmb sy" : : : "memory")
-# define WMB asm volatile ("dsb sy ; dmb sy" : : : "memory")
-# define IMB asm volatile ("isb" : : : "memory")
-#else
+// Can we merge __arm__ and __aarch64__ for recent distros?
+# define RMB asm volatile (".arch armv8.1-a \n\t dsb sy\n" : : : "memory")
+# define WMB asm volatile (".arch armv8.1-a \n\t dsb sy\n" : : : "memory")
+# define IMB asm volatile (".arch armv8.1-a \n\t isb" : : : "memory")
+#else // if defined(__i386__) || defined(__x86_64__)
 # error "instruction architecture not implemented"
 #endif
 
