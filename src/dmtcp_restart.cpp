@@ -111,6 +111,8 @@ static const char *theUsage =
   "              Skip NOTE messages; if given twice, also skip WARNINGs\n"
   "  --coord-logfile PATH (environment variable DMTCP_COORD_LOG_FILENAME\n"
   "              Coordinator will dump its logs to the given file\n"
+  "  --debug-restart-pause (or set env. var. DMTCP_RESTART_PAUSE =1,2,3 or 4)\n"
+  "              dmtcp_restart will pause early to debug with:  GDB attach\n"
   "  --help\n"
   "              Print this message and exit.\n"
   "  --version\n"
@@ -488,17 +490,18 @@ runMtcpRestart(int is32bitElf, int fd, ProcessInfo *pInfo)
     }
   }
 
-  /* If DMTCP_RESTART_PAUSE==1, mtcp_restart will loop until gdb attach.*/
-  bool mtcp_restart_pause = false;
+  /* If DMTCP_RESTART_PAUSE>1, mtcp_restart will loop until gdb attach.*/
+  int mtcp_restart_pause = 0;
   char * pause_param = getenv("DMTCP_RESTART_PAUSE");
   if (pause_param == NULL) {
     pause_param = getenv("MTCP_RESTART_PAUSE");
   }
-  if (pause_param != NULL && pause_param[0] == '1' && pause_param[1] == '\0') {
+  if (pause_param != NULL && pause_param[0] >= '1' && pause_param[0] <= '4'
+                          && pause_param[1] == '\0') {
 #ifdef HAS_PR_SET_PTRACER
     prctl(PR_SET_PTRACER, PR_SET_PTRACER_ANY, 0, 0, 0); // For: gdb attach
 #endif // ifdef HAS_PR_SET_PTRACER
-    mtcp_restart_pause = true;
+    mtcp_restart_pause = pause_param[0] - '0';
     // If mtcp_restart_pause == true, mtcp_restart will invoke
     //     postRestartDebug() in the checkpoint image instead of postRestart().
   }
@@ -507,8 +510,9 @@ runMtcpRestart(int is32bitElf, int fd, ProcessInfo *pInfo)
     (char *)mtcprestart.c_str(),
     const_cast<char *>("--fd"), fdBuf,
     const_cast<char *>("--stderr-fd"), stderrFdBuf,
-    // This flag must be last, since it may become NULL
+    // These two flag must be last, since they may become NULL
     ( mtcp_restart_pause ? const_cast<char *>("--mtcp-restart-pause") : NULL ),
+    ( mtcp_restart_pause ? pause_param : NULL ),
     NULL
   };
 
@@ -793,6 +797,12 @@ main(int argc, char **argv)
       shift; shift;
     } else if (s == "--coord-logfile") {
       setenv(ENV_VAR_COORD_LOGFILE, argv[1], 1);
+      shift; shift;
+    } else if (s == "--debug-restart-pause") {
+      JASSERT(argv[1] && argv[1][0] >= '1' && argv[1][0] <= '4'
+                      && argv[1][1] == '\0')
+        .Text("--debug-restart-pause requires arg. of '1', '2', '3' or '4'");
+      setenv("DMTCP_RESTART_PAUSE", argv[1], 1);
       shift; shift;
     } else if (argv[0][0] == '-' && argv[0][1] == 'i' &&
                isdigit(argv[0][2])) { // else if -i5, for example

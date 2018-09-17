@@ -53,7 +53,7 @@ void resumeThreads();
 void waitForAllRestored(Thread *thisthread);
 void writeCkpt();
 void postRestart(double readTime = 0.0);
-void postRestartDebug(double readTime = 0.0);
+void postRestartDebug(double readTime, int restartPause);
 }
 }
 #endif // ifndef THREADLIST_H
