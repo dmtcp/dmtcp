@@ -51,7 +51,7 @@ namespace dmtcp
     void resumeThreads();
     void waitForAllRestored(Thread *thisthread);
     void postRestart();
-    void postRestartDebug();
+    void postRestartDebug(int restartPause);
 
   };
 };

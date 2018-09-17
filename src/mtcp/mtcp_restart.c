@@ -119,7 +119,7 @@ typedef struct RestoreInfo {
   int tls_pid_offset;
   int tls_tid_offset;
   MYINFO_GS_T myinfo_gs;
-  int mtcp_restart_pause;  // Used by env. var. DMTCP_RESTART_PAUSE0
+  int mtcp_restart_pause;  // Used by env. var. DMTCP_RESTART_PAUSE
 } RestoreInfo;
 static RestoreInfo rinfo;
 
@@ -229,8 +229,8 @@ MTCP_PRINTF("Attach for debugging.");
       rinfo.stderr_fd = mtcp_strtol(argv[1]);
       shift; shift;
     } else if (mtcp_strcmp(argv[0], "--mtcp-restart-pause") == 0) {
-      rinfo.mtcp_restart_pause = 1; /* true */
-      shift;
+      rinfo.mtcp_restart_pause = argv[1][0] - '0'; /* true */
+      shift; shift;
     } else if (mtcp_strcmp(argv[0], "--simulate") == 0) {
       simulate = 1;
       shift;
@@ -618,8 +618,8 @@ static void restorememoryareas(RestoreInfo *rinfo_ptr)
 
   if (restore_info.mtcp_restart_pause) {
     MTCP_PRINTF(
-      "\nStopping due to env. var DMTCP_RESTART_PAUSE0 or MTCP_RESTART_PAUSE0\n"
-      "(DMTCP_RESTART_PAUSE0 can be set after creating the checkpoint image.)\n"
+      "\nStopping due to env. var DMTCP_RESTART_PAUSE or MTCP_RESTART_PAUSE\n"
+      "(DMTCP_RESTART_PAUSE can be set after creating the checkpoint image.)\n"
       "Attach to the computation with GDB from another window:\n"
       "(This won't work well unless you configure DMTCP with --enable-debug)\n"
       "  gdb PROGRAM_NAME %d\n"
@@ -627,7 +627,9 @@ static void restorememoryareas(RestoreInfo *rinfo_ptr)
       "  (gdb) list\n"
       "  (gdb) p dummy = 0\n", mtcp_sys_getpid()
     );
-    restore_info.post_restart_debug();
+    restore_info.post_restart_debug(restore_info.mtcp_restart_pause);
+    // int dummy = 1;
+    // while (dummy);
   } else {
     restore_info.post_restart();
   }
@@ -1201,7 +1203,7 @@ remapMtcpRestartToReservedArea(RestoreInfo *rinfo)
     mtcp_abort();
   }
 
-  VA target_addr = rinfo->restore_addr;
+  VA target_addr = rinfo->restore_addr; // FIXME: Unused: delete this line.
   for (size_t i = 0; i < num_regions; i++) {
     void *addr = mtcp_sys_mmap(mem_regions[i].addr + restore_region_offset,
                                mem_regions[i].size,

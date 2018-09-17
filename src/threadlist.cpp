@@ -81,6 +81,8 @@ static void Thread_RestoreSigState(Thread *th);
 // Without this, libdmtcp.so will depend on libdmtcp_plugin.so being loaded
 static pid_t _real_getpid(void)
 {
+  JWARNING("_real_getpid")
+          .Text("FIXME: _real_getpid returning virtual pid, not real pid.");
   // libc caches pid of the process and hence after restart, libc:getpid()
   // returns the pre-ckpt value.
   return (pid_t)_real_syscall(SYS_getpid);
@@ -698,38 +700,74 @@ void ThreadList::waitForAllRestored(Thread *thread)
     sem_wait(&semWaitForCkptThreadSignal);
     Thread_RestoreSigState(thread);
   }
+
+  if (thread == motherofall) {
+    /* If DMTCP_RESTART_PAUSE==4, wait for gdb attach.*/
+    char * pause_param = getenv("DMTCP_RESTART_PAUSE");
+    if (pause_param == NULL) {
+      pause_param = getenv("MTCP_RESTART_PAUSE");
+    }
+    if (pause_param != NULL && pause_param[0] == '4' &&
+        pause_param[1] == '\0') {
+#ifdef HAS_PR_SET_PTRACER
+      prctl(PR_SET_PTRACER, PR_SET_PTRACER_ANY, 0, 0, 0); // For: gdb attach
+#endif // ifdef HAS_PR_SET_PTRACER
+      int dummy = 1;
+      while (dummy);
+#ifdef HAS_PR_SET_PTRACER
+      prctl(PR_SET_PTRACER, 0, 0, 0, 0); // Revert permission to default.
+#endif // ifdef HAS_PR_SET_PTRACER
+    }
+  }
 }
 
 /*****************************************************************************
  *
  *****************************************************************************/
 void
-ThreadList::postRestartDebug(void)
+ThreadList::postRestartDebug(int restartPause)
 { // Don't try to print before debugging.  Who knows what is working yet?
   int dummy = 1;
-  while (dummy);
-#ifdef HAS_PR_SET_PTRACER
-  // User should have done GDB attach if we're here.
-  prctl(PR_SET_PTRACER, 0, 0, 0, 0); // Revert permission to default: no ptracer
+#ifndef DEBUG
+  // printf may fail, but we'll risk it to let user know this:
+  printf("\n** DMTCP: It appears DMTCP not configured with '--enable-debug'\n");
+  printf("**        If GDB doesn't show source, re-configure and re-compile\n");
 #endif
+  if (restartPause == 1) {
+    // If we're here, user set env. to DMTCP_RESTART_PAUSE==0; is expecting this
+    while (dummy);
+    // User should have done GDB attach if we're here.
+#ifdef HAS_PR_SET_PTRACER
+    prctl(PR_SET_PTRACER, 0, 0, 0, 0); // Revert to default: no ptracer
+  }
+#endif
+  static char restartPauseStr[2];
+  restartPauseStr[0] = '0' + restartPause;
+  restartPauseStr[1] = '\0';
+  setenv("DMTCP_RESTART_PAUSE", restartPauseStr, 1);
   postRestart();
 }
 
+// threadlist.h sets these as defaulkt arguments: restartPause=0
 void
 ThreadList::postRestart(void)
 {
   Thread *thread;
   sigset_t tmp;
 
-  /* If DMTCP_RESTART_PAUSE set, sleep 15 seconds and allow gdb attach. */
-  if (getenv("MTCP_RESTART_PAUSE") || getenv("DMTCP_RESTART_PAUSE")) {
+  /* If DMTCP_RESTART_PAUSE==2, wait for gdb attach. */
+  char * pause_param = getenv("DMTCP_RESTART_PAUSE");
+  if (pause_param == NULL) {
+    pause_param = getenv("MTCP_RESTART_PAUSE");
+  }
+  if (pause_param != NULL && pause_param[0] == '2' && pause_param[1] == '\0') {
 #ifdef HAS_PR_SET_PTRACER
     prctl(PR_SET_PTRACER, PR_SET_PTRACER_ANY, 0, 0, 0); // Allow 'gdb attach'
-#endif
-    struct timespec delay = {15, 0}; /* 15 seconds */
-    printf("Pausing 15 seconds. Do:  gdb <PROGNAME> %ld\n",
-    	   (long)THREAD_REAL_TID());
-    nanosleep(&delay, NULL);
+#endif // ifdef HAS_PR_SET_PTRACER
+    // In src/mtcp_restart.c, we printed to user:
+    // "Stopping due to env. var DMTCP_RESTART_PAUSE or MTCP_RESTART_PAUSE ..."
+    int dummy = 1;
+    while (dummy);
 #ifdef HAS_PR_SET_PTRACER
     prctl(PR_SET_PTRACER, 0, 0, 0, 0); ; // Revert permission to default.
 #endif
@@ -802,6 +840,27 @@ static int restarthread (void *threadv)
 
   if (TLSInfo_HaveThreadSysinfoOffset())
     TLSInfo_SetThreadSysinfo(saved_sysinfo);
+
+  if (thread == motherofall) { // if this is a user thread
+    /* If DMTCP_RESTART_PAUSE==3, wait for gdb attach.*/
+    char * pause_param = getenv("DMTCP_RESTART_PAUSE");
+    if (pause_param == NULL) {
+      pause_param = getenv("MTCP_RESTART_PAUSE");
+    }
+    if (pause_param != NULL && pause_param[0] == '3' &&
+        pause_param[1] == '\0') {
+#ifdef HAS_PR_SET_PTRACER
+      prctl(PR_SET_PTRACER, PR_SET_PTRACER_ANY, 0, 0, 0); // For: gdb attach
+#endif // ifdef HAS_PR_SET_PTRACER
+      // In src/mtcp_restart.c, we printed to user:
+      // "Stopping due to env. var DMTCP_RESTART_PAUSE or MTCP_RESTART_PAUSE .."
+      int dummy = 1;
+      while (dummy);
+#ifdef HAS_PR_SET_PTRACER
+      prctl(PR_SET_PTRACER, 0, 0, 0, 0); // Revert permission to default.
+#endif // ifdef HAS_PR_SET_PTRACER
+    }
+  }
 
   /* Jump to the stopthisthread routine just after sigsetjmp/getcontext call.
    * Note that if this is the restored checkpointhread, it jumps to the
