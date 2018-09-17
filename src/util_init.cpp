@@ -157,8 +157,8 @@ Util::initializeLogFile(string tmpDir, string procname, string prevLogPath)
   }
   a << "\n========================================\n";
 
-  // This cause an error when configure is done with --enable-debug
-  // JLOG(a.str().c_str());
+  // This causes an error when configure is done with --enable-logging
+  //   JLOG(a.str().c_str());
 #else // ifdef LOGGING
   JASSERT_SET_LOG("", tmpDir, UniquePid::ThisProcess().toString());
 #endif // ifdef LOGGING

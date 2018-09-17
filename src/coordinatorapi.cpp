@@ -450,11 +450,12 @@ startNewCoordinator(CoordinatorMode mode)
   JASSERT(coordinatorListenerSocket.isValid())
     (coordinatorListenerSocket.port()) (JASSERT_ERRNO) (host) (port)
     .Text("Failed to create socket to coordinator port."
-          "\nIf msg is \"Address already in use\","
-             " this may be an old coordinator."
+          "\nIf the above message (sterror) is:"
+          "\n           \"Address already in use\" or \"Bad file descriptor\","
+          "\n  then this may be an old coordinator."
           "\nEither try again a few seconds or a minute later,"
-          "\nOr kill other coordinators on this host and port:"
-          "\n    dmtcp_command ---coord-host XXX --coord-port XXX"
+          "\nOr kill other coordinator (using same host and port):"
+          "\n    dmtcp_command ---coord-host XXX --coord-port YYY --quit"
           "\nOr specify --join-coordinator if joining existing computation.");
   // Now dup the sockfd to
   coordinatorListenerSocket.changeFd(PROTECTED_COORD_FD);
