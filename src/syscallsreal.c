@@ -29,26 +29,25 @@
 //         this extra declaration.
 #define FOR_SYSCALLSREAL_C
 
-#include <malloc.h>
-#include <pthread.h>
+#include <assert.h>
+#include <ctype.h>
 #include <dlfcn.h>
+#include <fcntl.h>
+#include <malloc.h>
+#include <poll.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <pthread.h>
-#include <poll.h>
-#include <fcntl.h>
-#include "constants.h"
 #include <sys/select.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/syscall.h>
 #include <sys/mman.h>
 #include <unistd.h>
-#include <ctype.h>
-#include <assert.h>
-#include "syscallwrappers.h"
+#include "constants.h"
 #include "dmtcp_dlsym.h"
+#include "syscallwrappers.h"
 #include "trampolines.h"
 
 typedef int (*funcptr_t) ();
