@@ -54,7 +54,7 @@ void server()
       exit(EXIT_FAILURE);
     }
 
-    socklen_t addrlen;
+    socklen_t addrlen = sizeof(struct sockaddr);
     for (size_t n = 0; n < nfds; ++n) {
       if (events[n].data.fd == listen_sock) {
         conn_sock = accept(listen_sock,
