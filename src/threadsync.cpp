@@ -200,6 +200,7 @@ void ThreadSync::resetLocks()
   uninitializedThreadCountLock = newCountLock;
   pthread_mutex_t newPreResumeThreadCountLock = PTHREAD_MUTEX_INITIALIZER;
   preResumeThreadCountLock = newPreResumeThreadCountLock;
+  preResumeThreadCount = 0; // Reset the thread count post fork
 
   pthread_mutex_t newDestroyDmtcpWorker = PTHREAD_MUTEX_INITIALIZER;
   destroyDmtcpWorkerLock = newDestroyDmtcpWorker;
