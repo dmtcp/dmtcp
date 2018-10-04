@@ -23,6 +23,7 @@
 #include <fcntl.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/uio.h>
 #include "../jalib/jassert.h"
 #include "../jalib/jfilesystem.h"
 #include "dmtcp.h"
@@ -277,6 +278,34 @@ Util::writeAll(int fd, const void *buf, size_t count)
     }
   } while (num_written < count);
   JASSERT(num_written == count) (num_written) (count);
+  return num_written;
+}
+
+ssize_t
+Util::writevAll(int fd, const iovec *iov, int iovcnt)
+{
+  size_t num_written = 0;
+  size_t count = 0;
+
+  for (int i = 0; i < iovcnt; i++) {
+    count += iov[i].iov_len;
+  }
+
+  do {
+    ssize_t rc = _real_writev(fd, iov, iovcnt);
+    if (rc == -1) {
+      if (errno == EINTR || errno == EAGAIN) {
+        continue;
+      } else {
+        return rc;
+      }
+    } else if (rc == 0) {
+      break;
+    } else { // else rc > 0
+      num_written += rc;
+    }
+  } while (num_written < count);
+  JASSERT(num_written == count) (iovcnt) (num_written) (count);
   return num_written;
 }
 

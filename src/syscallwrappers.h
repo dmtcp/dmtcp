@@ -245,6 +245,7 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
                                       \
   MACRO(read)                         \
   MACRO(write)                        \
+  MACRO(writev)                       \
                                       \
   MACRO(select)                       \
   MACRO(poll)                         \
@@ -469,6 +470,7 @@ int _real_munmap(void *addr, size_t length);
 
 ssize_t _real_read(int fd, void *buf, size_t count);
 ssize_t _real_write(int fd, const void *buf, size_t count);
+ssize_t _real_writev(int fd, const struct iovec *iov, int iovcnt);
 int _real_select(int nfds,
                  fd_set *readfds,
                  fd_set *writefds,

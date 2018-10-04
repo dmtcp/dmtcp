@@ -245,5 +245,10 @@ ProcSelfMaps::getNextArea(ProcMapsArea *area)
 
   area->properties = 0;
 
+  memset(area->writeRegions, 0, sizeof(area->writeRegions));
+  area->numWriteRegions = 1;
+  area->writeRegions[0].iov_base = area->addr;
+  area->writeRegions[0].iov_len = area->size;
+
   return 1;
 }
