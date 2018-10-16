@@ -34,6 +34,11 @@
 #include "jalloc.h"
 #include "jassert.h"
 
+#include <sys/un.h>
+#include <unistd.h>
+
+#include "../src/constants.h"
+
 namespace jalib
 {
 class JSocket;
@@ -103,6 +108,9 @@ class JSocket
     /// Use existing socket
     JSocket(int fd) : _sockfd(fd) {}
 
+    static bool isFileSocketDefined();
+    static char * getFileSocketPath();
+
     bool connect(const JSockAddr &addr, int port);
     bool connect(const struct  sockaddr *addr, socklen_t addrlen,
                  int port = -1);
@@ -135,15 +143,20 @@ class JSocket
     // If socket originally bound to port 0, we need this to find actual port
     int port() const
     {
-      struct sockaddr_in addr;
-      socklen_t addrlen = sizeof(addr);
 
-      if (-1 == getsockname(_sockfd,
-                            (struct sockaddr *)&addr, &addrlen)) {
-        return -1;
-      } else {
-        return (int)ntohs(addr.sin_port);
-      }
+    	if( !jalib::JSocket::isFileSocketDefined() ) {
+				struct sockaddr_in addr;
+				socklen_t addrlen = sizeof(addr);
+
+				if (-1 == getsockname(_sockfd,
+															(struct sockaddr *)&addr, &addrlen)) {
+					return -1;
+				} else {
+					return (int)ntohs(addr.sin_port);
+				}
+    	} else {
+    		return DEFAULT_PORT;
+    	}
     }
 
     operator int() { return _sockfd; }
@@ -151,6 +164,10 @@ class JSocket
 
   protected:
     int _sockfd;
+    struct sockaddr_un FILE_SOCKET_ADDR;
+    static const int BUFFER_SIZE = 200;
+    char FILE_SOCKET_BUFFER[BUFFER_SIZE];
+
 };
 
 class JClientSocket : public JSocket
@@ -158,16 +175,24 @@ class JClientSocket : public JSocket
   public:
     JClientSocket(const struct sockaddr *addr, socklen_t addrlen, int port = -1)
     {
-      if (!connect(addr, addrlen, port)) {
-        close();
-      }
+    	if( !jalib::JSocket::isFileSocketDefined() ) {
+        if (!connect(addr, addrlen, port)) {
+          close();
+        }
+    	} else {
+    		::connect(_sockfd, (const struct sockaddr *) &FILE_SOCKET_ADDR, sizeof(struct sockaddr_un));
+    	}
     }
 
     JClientSocket(const JSockAddr &addr, int port)
     {
-      if (!connect(addr, port)) {
-        close();
-      }
+    	if( !jalib::JSocket::isFileSocketDefined() ) {
+        if (!connect(addr, port)) {
+          close();
+        }
+    	} else {
+    		::connect(_sockfd, (const struct sockaddr *) &FILE_SOCKET_ADDR, sizeof(struct sockaddr_un));
+    	}
     }
 };
 
@@ -183,8 +208,16 @@ class JServerSocket : public JSocket
     JServerSocket(const JSockAddr &addr, int port, int backlog = 32)
     {
       enablePortReuse();
-      if (!bind(addr, port) || !listen(backlog)) {
-        close();
+
+      if( !jalib::JSocket::isFileSocketDefined() ) {
+        if (!bind(addr, port) || !listen(backlog)) {
+          close();
+        }
+      } else {
+
+      	::bind(_sockfd, (const struct sockaddr *) &FILE_SOCKET_ADDR, sizeof(struct sockaddr_un));
+      	::listen(_sockfd, jalib::JSocket::BUFFER_SIZE);
+
       }
     }
 };

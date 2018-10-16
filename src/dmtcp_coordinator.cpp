@@ -1630,6 +1630,7 @@ main(int argc, char **argv)
       "\n    Exit on last client: " << exitOnLast << "\n";
   }
 #else // if 0
+
   if (!quiet) {
     fprintf(stderr, "dmtcp_coordinator starting..."
                     "\n    Host: %s (%s)"
@@ -1646,6 +1647,7 @@ main(int argc, char **argv)
 #endif // if 0
 
   if (daemon) {
+
     if (!quiet) {
       JASSERT_STDERR << "Backgrounding...\n";
     }

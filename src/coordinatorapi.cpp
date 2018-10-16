@@ -348,6 +348,7 @@ sendMsgToCoordinatorRaw(int fd,
                         const void *extraData,
                         size_t len)
 {
+
   if (noCoordinator()) {
     return;
   }
@@ -358,6 +359,7 @@ sendMsgToCoordinatorRaw(int fd,
   if (extraData != NULL) {
     JASSERT(Util::writeAll(fd, extraData, len) == (ssize_t)len);
   }
+
 }
 
 void
@@ -445,18 +447,21 @@ startNewCoordinator(CoordinatorMode mode)
 
   // Create a socket and bind it to an unused port.
   errno = 0;
+  //JNOTE("socket fd value")(jalib::JSocket::sockfd());
   jalib::JServerSocket coordinatorListenerSocket(jalib::JSockAddr::ANY,
                                                  port, 128);
+
   JASSERT(coordinatorListenerSocket.isValid())
-    (coordinatorListenerSocket.port()) (JASSERT_ERRNO) (host) (port)
-    .Text("Failed to create socket to coordinator port."
-          "\nIf msg is \"Address already in use\","
-             " this may be an old coordinator."
-          "\nEither try again a few seconds or a minute later,"
-          "\nOr kill other coordinators on this host and port:"
-          "\n    dmtcp_command ---coord-host XXX --coord-port XXX"
-          "\nOr specify --join-coordinator if joining existing computation.");
-  // Now dup the sockfd to
+		(coordinatorListenerSocket.port()) (JASSERT_ERRNO) (host) (port)
+		.Text("Failed to create socket to coordinator port."
+					"\nIf msg is \"Address already in use\","
+						 " this may be an old coordinator."
+					"\nEither try again a few seconds or a minute later,"
+					"\nOr kill other coordinators on this host and port:"
+					"\n    dmtcp_command ---coord-host XXX --coord-port XXX"
+					"\nOr specify --join-coordinator if joining existing computation.");
+
+	// Now dup the sockfd to
   coordinatorListenerSocket.changeFd(PROTECTED_COORD_FD);
   setCoordPort(coordinatorListenerSocket.port());
 
@@ -521,6 +526,7 @@ createNewConnToCoord(CoordinatorMode mode)
   } else {
     JASSERT(false).Text("Not Reached");
   }
+
 
   Util::changeFd(sockfd, PROTECTED_COORD_FD);
   JASSERT(Util::isValidFd(coordinatorSocket));
