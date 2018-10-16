@@ -513,6 +513,7 @@ updateCoordHost()
         JASSERT(sizeof localhostIPAddr == sizeof s->sin_addr);
         if ( strncmp( name, hostname, sizeof hostname ) == 0 ) {
           success = true;
+          memcpy(&localhostIPAddr, &s->sin_addr, sizeof s->sin_addr);
           break; // Stop here.  We found a matching hostname.
         }
         if (!at_least_one_match) { // Prefer the first match over later ones.
