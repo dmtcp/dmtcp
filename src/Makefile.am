@@ -33,7 +33,7 @@ d_bindir = $(top_builddir)/bin
 endif
 
 if FAST_RST_VIA_MMAP
-  AM_CXXFLAGS += -DFAST_RST_VIA_MMAP 
+  AM_CXXFLAGS += -DFAST_RST_VIA_MMAP
 endif
 
 #HEADERS
@@ -41,92 +41,162 @@ endif
 AM_CPPFLAGS= -I$(dmtcpincludedir) -I$(jalibdir)
 
 # targets:
-noinst_LIBRARIES = libdmtcpinternal.a libsyscallsreal.a libnohijack.a libjalib.a
-bin_PROGRAMS = $(d_bindir)/dmtcp_launch \
-	       $(d_bindir)/dmtcp_command \
-	       $(d_bindir)/dmtcp_coordinator \
-	       $(d_bindir)/dmtcp_restart \
-	       $(d_bindir)/dmtcp_nocheckpoint
+noinst_LIBRARIES = libdmtcpinternal.a 				\
+		   libsyscallsreal.a 				\
+		   libnohijack.a 				\
+		   libjalib.a
+
+bin_PROGRAMS = $(d_bindir)/dmtcp_command 			\
+	       $(d_bindir)/dmtcp_coordinator 			\
+	       $(d_bindir)/dmtcp_launch 			\
+	       $(d_bindir)/dmtcp_nocheckpoint			\
+	       $(d_bindir)/dmtcp_restart
+
 dmtcplib_PROGRAMS = $(d_libdir)/libdmtcp.so
 include_HEADERS = $(srcdir)/../include/dmtcp.h
 
 # headers:
-nobase_noinst_HEADERS = constants.h \
-	$(jalibdir)/jassert.h $(jalibdir)/jalloc.h $(jalibdir)/jalib.h \
-	$(jalibdir)/jbuffer.h $(jalibdir)/jconvert.h $(jalibdir)/jfilesystem.h \
-	$(jalibdir)/jserialize.h $(jalibdir)/jsocket.h $(jalibdir)/jtimer.h \
-	$(dmtcpincludedir)/dmtcpalloc.h $(dmtcpincludedir)/dmtcp.h \
-	$(dmtcpincludedir)/protectedfds.h $(dmtcpincludedir)/shareddata.h \
-	$(dmtcpincludedir)/trampolines.h $(dmtcpincludedir)/util.h \
-	$(dmtcpincludedir)/virtualidtable.h $(dmtcpincludedir)/procmapsarea.h \
-	$(dmtcpincludedir)/procselfmaps.h \
-	restartscript.h \
-	dmtcp_coordinator.h dmtcpmessagetypes.h workerstate.h lookup_service.h \
-	dmtcpworker.h threadsync.h coordinatorapi.h \
-	barrierinfo.h pluginmanager.h plugininfo.h \
-	syscallwrappers.h \
-	threadlist.h threadinfo.h siginfo.h \
-	uniquepid.h processinfo.h ckptserializer.h \
-	mtcp/ldt.h mtcp/restore_libc.h mtcp/tlsutil.h
+nobase_noinst_HEADERS =	barrierinfo.h				\
+			ckptserializer.h			\
+			constants.h 				\
+			coordinatorapi.h			\
+			dmtcp_coordinator.h			\
+			dmtcpmessagetypes.h			\
+			dmtcpworker.h				\
+			lookup_service.h			\
+			plugininfo.h				\
+			pluginmanager.h				\
+			processinfo.h				\
+			restartscript.h				\
+			siginfo.h				\
+			syscallwrappers.h			\
+			threadinfo.h				\
+			threadlist.h				\
+			threadsync.h				\
+			uniquepid.h				\
+			workerstate.h				\
+			mtcp/ldt.h				\
+			mtcp/restore_libc.h			\
+			mtcp/tlsutil.h
+
+nobase_noinst_HEADERS += $(jalibdir)/jalib.h			\
+			 $(jalibdir)/jalloc.h			\
+			 $(jalibdir)/jassert.h			\
+			 $(jalibdir)/jbuffer.h			\
+			 $(jalibdir)/jconvert.h			\
+			 $(jalibdir)/jfilesystem.h		\
+			 $(jalibdir)/jserialize.h		\
+			 $(jalibdir)/jsocket.h			\
+			 $(jalibdir)/jtimer.h
+
+nobase_noinst_HEADERS += $(dmtcpincludedir)/dmtcp.h		\
+			 $(dmtcpincludedir)/dmtcpalloc.h	\
+			 $(dmtcpincludedir)/procmapsarea.h	\
+			 $(dmtcpincludedir)/procselfmaps.h	\
+			 $(dmtcpincludedir)/protectedfds.h	\
+			 $(dmtcpincludedir)/shareddata.h	\
+			 $(dmtcpincludedir)/trampolines.h	\
+			 $(dmtcpincludedir)/util.h		\
+			 $(dmtcpincludedir)/virtualidtable.h
 
 # Note that libdmtcpinternal.a does not include wrappers.
 # dmtcp_launch, dmtcp_command, dmtcp_coordinator, etc.
 #   should not need wrappers.
-libdmtcpinternal_a_SOURCES = dmtcpmessagetypes.cpp  coordinatorapi.cpp \
-			     workerstate.cpp \
-			     dmtcp_dlsym.cpp \
-			     uniquepid.cpp shareddata.cpp \
-			     util_exec.cpp util_misc.cpp util_init.cpp \
-			     jalibinterface.cpp processinfo.cpp procselfmaps.cpp
+libdmtcpinternal_a_SOURCES = coordinatorapi.cpp 		\
+			     dmtcp_dlsym.cpp 			\
+			     dmtcpmessagetypes.cpp		\
+			     jalibinterface.cpp			\
+			     processinfo.cpp 			\
+			     procselfmaps.cpp			\
+			     shareddata.cpp 			\
+			     uniquepid.cpp			\
+			     util_exec.cpp			\
+			     util_init.cpp 			\
+			     util_misc.cpp 			\
+			     workerstate.cpp
 
-libjalib_a_SOURCES = $(jalibdir)/jalib.cpp $(jalibdir)/jassert.cpp \
-		     $(jalibdir)/jbuffer.cpp $(jalibdir)/jfilesystem.cpp \
-		     $(jalibdir)/jserialize.cpp $(jalibdir)/jsocket.cpp \
-		     $(jalibdir)/jtimer.cpp $(jalibdir)/jalloc.cpp
+libjalib_a_SOURCES = $(jalibdir)/jalib.cpp			\
+		     $(jalibdir)/jalloc.cpp			\
+		     $(jalibdir)/jassert.cpp 			\
+		     $(jalibdir)/jbuffer.cpp			\
+		     $(jalibdir)/jfilesystem.cpp 		\
+		     $(jalibdir)/jserialize.cpp			\
+		     $(jalibdir)/jsocket.cpp 			\
+		     $(jalibdir)/jtimer.cpp
 
 # FIXME:  Rename libsyscallsreal.a to libhijack.a
 # An executable should use either libsyscallsreal.a or libnohijack.a -- not both
-libsyscallsreal_a_SOURCES = syscallsreal.c trampolines.cpp
-libnohijack_a_SOURCES = nosyscallsreal.c dmtcpnohijackstubs.cpp
+libsyscallsreal_a_SOURCES = syscallsreal.c 			\
+			    trampolines.cpp
 
-__d_bindir__dmtcp_coordinator_SOURCES = dmtcp_coordinator.cpp lookup_service.cpp restartscript.cpp
+libnohijack_a_SOURCES = dmtcpnohijackstubs.cpp			\
+			nosyscallsreal.c
 
-__d_bindir__dmtcp_nocheckpoint_SOURCES = dmtcp_nocheckpoint.c
-
-__d_bindir__dmtcp_restart_SOURCES = dmtcp_restart.cpp util_exec.cpp
-
-__d_bindir__dmtcp_command_SOURCES = dmtcp_command.cpp
-
-__d_libdir__libdmtcp_so_SOURCES = dmtcpworker.cpp threadsync.cpp \
-		      coordinatorapi.cpp execwrappers.cpp \
-		      signalwrappers.cpp \
-		      terminal.cpp \
-		      alarm.cpp \
-		      threadwrappers.cpp \
-		      miscwrappers.cpp ckptserializer.cpp writeckpt.cpp \
-		      glibcsystem.cpp \
-		      threadlist.cpp siginfo.cpp \
-		      dmtcpplugin.cpp popen.cpp syslogwrappers.cpp \
-		      dmtcp_dlsym.cpp plugininfo.cpp pluginmanager.cpp
+__d_libdir__libdmtcp_so_SOURCES = alarm.cpp			\
+				  ckptserializer.cpp 		\
+				  coordinatorapi.cpp		\
+				  dmtcp_dlsym.cpp 		\
+				  dmtcpplugin.cpp 		\
+				  dmtcpworker.cpp 		\
+				  execwrappers.cpp 		\
+				  glibcsystem.cpp 		\
+				  miscwrappers.cpp 		\
+				  plugininfo.cpp 		\
+				  pluginmanager.cpp		\
+				  popen.cpp 			\
+				  signalwrappers.cpp 		\
+				  siginfo.cpp 			\
+				  syslogwrappers.cpp 		\
+				  terminal.cpp 			\
+				  threadlist.cpp 		\
+				  threadsync.cpp 		\
+				  threadwrappers.cpp 		\
+				  writeckpt.cpp
 
 __d_libdir__libdmtcp_so_LDFLAGS = -shared -Xlinker -znow
 
 # Note that an ELF object uses libsyscallsreal.a or libnohijack.a
 #  but not both.  libnohijack.a has stub definitions for same symbols.
-__d_libdir__libdmtcp_so_LDADD = libdmtcpinternal.a libjalib.a \
-				libsyscallsreal.a mtcp/libmtcp.a \
-				-ldl -lpthread -lrt
+__d_libdir__libdmtcp_so_LDADD = libdmtcpinternal.a 		\
+				 libjalib.a 			\
+				 libsyscallsreal.a 		\
+				 mtcp/libmtcp.a			\
+				 -ldl -lpthread -lrt
 
-__d_bindir__dmtcp_coordinator_LDADD = libdmtcpinternal.a libjalib.a \
-			  libnohijack.a -lpthread -lrt
-__d_bindir__dmtcp_launch_LDADD  = libdmtcpinternal.a libjalib.a \
-			  libnohijack.a -lpthread -lrt -ldl
-__d_bindir__dmtcp_restart_LDADD     = libdmtcpinternal.a libjalib.a \
-			  libnohijack.a -lpthread -lrt -ldl
-__d_bindir__dmtcp_command_LDADD     = libdmtcpinternal.a libjalib.a \
-			  libnohijack.a -lpthread -lrt -ldl
+
+__d_bindir__dmtcp_nocheckpoint_SOURCES = dmtcp_nocheckpoint.c
+
+__d_bindir__dmtcp_coordinator_SOURCES = dmtcp_coordinator.cpp 	\
+					lookup_service.cpp 	\
+					restartscript.cpp
+
+__d_bindir__dmtcp_coordinator_LDADD = libdmtcpinternal.a 	\
+				      libjalib.a 		\
+				      libnohijack.a		\
+				      -lpthread -lrt
 
 __d_bindir__dmtcp_launch_SOURCES = dmtcp_launch.cpp
+
+__d_bindir__dmtcp_launch_LDADD  = libdmtcpinternal.a 		\
+				  libjalib.a			\
+				  libnohijack.a			\
+				  -lpthread -lrt -ldl
+
+__d_bindir__dmtcp_restart_SOURCES = dmtcp_restart.cpp 		\
+				    util_exec.cpp
+
+__d_bindir__dmtcp_restart_LDADD  = libdmtcpinternal.a 		\
+				   libjalib.a 			\
+				   libnohijack.a		\
+				   -lpthread -lrt -ldl
+
+__d_bindir__dmtcp_command_SOURCES = dmtcp_command.cpp
+
+__d_bindir__dmtcp_command_LDADD = libdmtcpinternal.a 		\
+				  libjalib.a 			\
+				  libnohijack.a			\
+				  -lpthread -lrt -ldl
+
 
 mtcp/libmtcp.a:
 	cd mtcp && ${MAKE} libmtcp.a
