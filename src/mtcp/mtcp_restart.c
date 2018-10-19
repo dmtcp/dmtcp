@@ -109,11 +109,7 @@ typedef struct RestoreInfo {
   size_t old_stack_size;
   VA new_stack_addr;
   size_t new_stack_size;
-
-  VA old_sp;
-  VA new_sp;
-  VA old_bp;
-  VA new_bp;
+  size_t stack_offset;
 
   // void (*post_restart)();
   // void (*post_restart_debug)();
@@ -446,13 +442,6 @@ static void restart_fast_path()
    */
   remapMtcpRestartToReservedArea(&rinfo);
 
-  size_t stack_offset = rinfo.old_stack_addr - rinfo.new_stack_addr;
-
-  rinfo.old_sp = NULL;
-  rinfo.new_sp = NULL;
-  rinfo.old_bp = NULL;
-  rinfo.new_bp = NULL;
-
   // Copy over old stack to new location;
   mtcp_memcpy(rinfo.new_stack_addr, rinfo.old_stack_addr, rinfo.old_stack_size);
 
@@ -466,36 +455,13 @@ static void restart_fast_path()
   // compute the new sp and bp values. We have already all the bits from old
   // stack to the new one and so any one referring to stack data using sp/bp
   // should be fine.
-  asm volatile (CLEAN_FOR_64_BIT(mov %%esp, %0; )
-                CLEAN_FOR_64_BIT(mov %%ebp, %1; )
-                : "=r" (rinfo.old_sp), "=r" (rinfo.old_bp) : : "memory");
+  asm volatile (CLEAN_FOR_64_BIT(sub %0, %%esp; )
+                CLEAN_FOR_64_BIT(sub %0, %%ebp; )
+                : : "r" (rinfo.stack_offset) : "memory");
 
-  rinfo.new_sp = rinfo.old_sp - stack_offset;
-  rinfo.new_bp = rinfo.old_bp - stack_offset;
-
-  asm volatile (CLEAN_FOR_64_BIT(mov %0, %%esp; )
-                CLEAN_FOR_64_BIT(mov %1, %%ebp; )
-                : : "g" (rinfo.new_sp), "g" (rinfo.new_bp) : "memory");
-
-#elif defined(__arm__)
-  asm volatile ("mov %0, sp; mov %1, fp\n\t"
-                : "=r" (rinfo.old_sp), "=r" (rinfo.old_bp) : : "memory");
-
-  rinfo.new_sp = rinfo.old_sp - stack_offset;
-  rinfo.new_bp = rinfo.old_bp - stack_offset;
-
-  asm volatile ("mov sp, %0; mov fp, %1 \n\t"
-                : : "r" (rinfo.new_sp), "r" (rinfo.new_bp) : "memory");
-
-#elif defined(__aarch64__)
-  asm volatile ("mov %0, sp; mov %1, fp\n\t"
-                : "=r" (rinfo.old_sp), "=r" (rinfo.old_bp) : : "memory");
-
-  rinfo.new_sp = rinfo.old_sp - stack_offset;
-  rinfo.new_bp = rinfo.old_bp - stack_offset;
-
-  asm volatile ("mov sp, %0; mov fp, %1 \n\t"
-                : : "r" (rinfo.new_sp), "r" (rinfo.new_bp) : "memory");
+#elif defined(__arm__) || defined(__aarch64__)
+  asm volatile ("sub sp, sp, %0; mov fp, fp, %0 \n\t"
+                : : "r" (rinfo.stack_offset) : "memory");
 
 #else /* if defined(__i386__) || defined(__x86_64__) */
 
@@ -1276,6 +1242,8 @@ remapMtcpRestartToReservedArea(RestoreInfo *rinfo)
                                         -1,
                                         0);
   MTCP_ASSERT(rinfo->new_stack_addr != MAP_FAILED);
+
+  rinfo->stack_offset = rinfo->old_stack_addr - rinfo->new_stack_addr;
 
   size_t offset = (char *)&restorememoryareas - mem_regions[0].addr;
   rinfo->restorememoryareas_fptr = (fnptr_t)(rinfo->restore_addr + offset);
