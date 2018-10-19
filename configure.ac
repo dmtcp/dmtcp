@@ -38,7 +38,7 @@ AC_CONFIG_FILES([Makefile \
                  src/Makefile \
                  src/mtcp/Makefile \
                  src/plugin/Makefile \
-                 include/dmtcp.h \
+                 include/dmtcp/version.h \
                  test/Makefile \
                  test/autotest_config.py \
                  test/plugin/Makefile])

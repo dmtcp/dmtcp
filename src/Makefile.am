@@ -53,7 +53,10 @@ bin_PROGRAMS = $(d_bindir)/dmtcp_command 			\
 	       $(d_bindir)/dmtcp_restart
 
 dmtcplib_PROGRAMS = $(d_libdir)/libdmtcp.so
-include_HEADERS = $(srcdir)/../include/dmtcp.h
+
+include_HEADERS = $(srcdir)/../include/dmtcp.h 			\
+		  $(srcdir)/../include/dmtcp/version.h
+
 
 # headers:
 nobase_noinst_HEADERS =	barrierinfo.h				\
@@ -97,7 +100,8 @@ nobase_noinst_HEADERS += $(dmtcpincludedir)/dmtcp.h		\
 			 $(dmtcpincludedir)/shareddata.h	\
 			 $(dmtcpincludedir)/trampolines.h	\
 			 $(dmtcpincludedir)/util.h		\
-			 $(dmtcpincludedir)/virtualidtable.h
+			 $(dmtcpincludedir)/virtualidtable.h	\
+			 $(dmtcpincludedir)/dmtcp/version.h
 
 # Note that libdmtcpinternal.a does not include wrappers.
 # dmtcp_launch, dmtcp_command, dmtcp_coordinator, etc.

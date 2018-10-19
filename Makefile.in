@@ -259,7 +259,7 @@ distclean: clean
 	- cd contrib && $(MAKE) distclean
 	- cd test && $(MAKE) distclean
 	rm -f Makefile test/Makefile test/autotest_config.py \
-	  include/config.h include/stamp-h1 \
+	  include/config.h include/dmtcp/version.h include/stamp-h1 \
 	  config.log config.status config.cache
 	rm -rf autom4te.cache
 	rm -rf $(top_builddir)/lib $(top_builddir)/bin

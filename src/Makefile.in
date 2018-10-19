@@ -559,7 +559,9 @@ noinst_LIBRARIES = libdmtcpinternal.a 				\
 		   libnohijack.a 				\
 		   libjalib.a
 
-include_HEADERS = $(srcdir)/../include/dmtcp.h
+include_HEADERS = $(srcdir)/../include/dmtcp.h 			\
+		  $(srcdir)/../include/dmtcp/version.h
+
 
 # headers:
 nobase_noinst_HEADERS = barrierinfo.h ckptserializer.h constants.h \
@@ -578,7 +580,8 @@ nobase_noinst_HEADERS = barrierinfo.h ckptserializer.h constants.h \
 	$(dmtcpincludedir)/protectedfds.h \
 	$(dmtcpincludedir)/shareddata.h \
 	$(dmtcpincludedir)/trampolines.h $(dmtcpincludedir)/util.h \
-	$(dmtcpincludedir)/virtualidtable.h
+	$(dmtcpincludedir)/virtualidtable.h \
+	$(dmtcpincludedir)/dmtcp/version.h
 
 # Note that libdmtcpinternal.a does not include wrappers.
 # dmtcp_launch, dmtcp_command, dmtcp_coordinator, etc.
