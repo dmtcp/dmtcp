@@ -105,6 +105,16 @@ typedef struct RestoreInfo {
   // See note below in the restart_fast_path() function.
   fnptr_t restorememoryareas_fptr;
 
+  VA old_stack_addr;
+  size_t old_stack_size;
+  VA new_stack_addr;
+  size_t new_stack_size;
+
+  VA old_sp;
+  VA new_sp;
+  VA old_bp;
+  VA new_bp;
+
   // void (*post_restart)();
   // void (*post_restart_debug)();
   // void (*restorememoryareas_fptr)();
@@ -436,113 +446,62 @@ static void restart_fast_path()
    */
   remapMtcpRestartToReservedArea(&rinfo);
 
-  void *stack_ptr = rinfo.restore_addr + rinfo.restore_size;
+  size_t stack_offset = rinfo.old_stack_addr - rinfo.new_stack_addr;
 
-  // The kernel call, __ARM_NR_cacheflush is avail. for __arm__, which
-  //   requires kernel privilege to flush cache.  For __aarch64__  user-space suffices
-  //   (and glibc clear_cache() is not available in most distros)
-/*
-  // Not avail. for __aarch64__, but should try this for __arm__:
-  mtcp_sys_errno = 0;
-  int rc1 = mtcp_sys_kernel_cacheflush(rinfo.restore_addr, rinfo.restore_addr + rinfo.text_size, 0);
-  if (rc1 !=0) { MTCP_PRINTF("mtcp_sys_kernel_cacheflush failed; errno: %d\n", mtcp_sys_errno); }
-  mtcp_sys_errno = 0;
-  int rc2 = mtcp_sys_kernel_cacheflush(rinfo.restore_addr + rinfo.text_size,
-                                       rinfo.restore_addr + rinfo.text_size + sizeof(rinfo), 0);
-  if (rc2 !=0) { MTCP_PRINTF("mtcp_sys_kernel_cacheflush failed\n"); }
-  mtcp_sys_mprotect(rinfo.restore_addr, rinfo.restore_size,
-                             PROT_READ | PROT_EXEC);
-*/
+  rinfo.old_sp = NULL;
+  rinfo.new_sp = NULL;
+  rinfo.old_bp = NULL;
+  rinfo.new_bp = NULL;
 
-#if defined(__INTEL_COMPILER) && defined(__x86_64__)
-  asm volatile ("mfence" ::: "memory"); // memfence() defined in dmtcpplugin.cpp
-  asm volatile (CLEAN_FOR_64_BIT(mov %0,%%esp;)
-                CLEAN_FOR_64_BIT(xor %%ebp,%%ebp)
-                : : "g" (stack_ptr) : "memory");
-  // This is copied from gcc assembly output for:
-  //     rinfo.restorememoryareas_fptr(&rinfo);
-  // Intel icc-13.1.3 output uses register rbp here.  It's no longer available.
-  asm volatile(
-   // 104 = offsetof(RestoreInfo, rinfo.restorememoryareas_fptr)
-   // NOTE: Update the offset when adding fields to the RestoreInfo struct
-   "movq    104+rinfo(%%rip), %%rdx;" /* rinfo.restorememoryareas_fptr */
-   "leaq    rinfo(%%rip), %%rdi;"    /* &rinfo */
-   "movl    $0, %%eax;"
-   "call    *%%rdx"
-   : : );
-  /* NOTREACHED */
-#endif
-
-#if defined(__arm__) || defined(__aarch64__)
-# if defined(__aarch64__)
-  // We would like to use the GCC builtin, __sync_synchronize()
-  //  but it doesn't appear to be portable to arm/aarch64 as of Aug., 2018
-  RMB; WMB; IMB;
-  // The call to clear_icache() wasn't effective:
-  //   clear_icache(rinfo.restore_addr, rinfo.restore_addr + rinfo.restore_size);
-  // So, now we're using the loop to read memory into dummy, below, as a hack.
-  // Apparently, this assembly instruction for "invalidate cache" requires
-  //   kernel privilege:
-  //   asm volatile (".arch armv8.1-a\n\t ic iallu\n\t" : : : "memory");
-  // This logic is a hack to make sure that the cache recognizes new mmap region
-  // Why can't gcc or glibc provide a working 'man 2 cacheflush' to correspond
-  //   to the man page in Ubuntu 16.04?  (Or maybe clear_cache()?)
-  char dummy;
-  for (char *ptr = rinfo.restore_addr; ptr < rinfo.restore_addr + rinfo.restore_size; ptr++) {
-    dummy = dummy ^ *ptr;
-  }
-  asm volatile("dsb ish" : : : "memory");
-  RMB; WMB; IMB;
-# else /* else if 0 */
-  // FIXME:  Test if this delay loop is no longer needed for __arm__.
-  //     We should be able to replace this by:
-  //     mtcp_sys_kernel_cacheflush(rinfo.restore_addr,
-  //                                rinfo.restore_addr + rinfo.text_size, 0);
-  //     If that works, then delete this delay loop code.
-
-  /* This delay loop was required for:
-   *    ARM v7 (rev 3, v71), SAMSUNG EXYNOS5 (Flattened Device Tree)
-   *    gcc-4.8.1 (Ubuntu pre-release for 14.04) ; Linux 3.13.0+ #54
-   */
-  MTCP_PRINTF("*** WARNING: %s:%d: Delay loop on restart for older ARM CPUs\n"
-              "*** Consider removing this line for newer CPUs.\n",
-              __FILE__, __LINE__);
-  { int x = 10000000;
-    int y = 1000000000;
-    for (; x > 0; x--) {
-      for (; y > 0; y--) {}
-    }
-  }
-# endif /* if defined(__aarch64__) */
-#endif /* if defined(__arm__) || defined(__aarch64__) */
+  // Copy over old stack to new location;
+  mtcp_memcpy(rinfo.new_stack_addr, rinfo.old_stack_addr, rinfo.old_stack_size);
 
   DPRINTF("We have copied mtcp_restart to higher address.  We will now\n"
           "    jump into a copy of restorememoryareas().\n");
 
 #if defined(__i386__) || defined(__x86_64__)
-  asm volatile (CLEAN_FOR_64_BIT(mov %0,%%esp;)
-#ifndef __clang__
-                /* This next assembly language confuses gdb.  Set a future
-                   future breakpoint, or attach after this point, if in gdb.
-                   It's here to force a hard error early, in case of a bug.*/
-                CLEAN_FOR_64_BIT(xor %%ebp,%%ebp)
-#else
-                /* Even with -O0, clang-3.4 uses register ebp after this statement. */
-#endif
-                : : "g" (stack_ptr) : "memory");
+  asm volatile ("mfence" ::: "memory");
+
+  // Read the current value of sp and bp registers and add the stack_offset to
+  // compute the new sp and bp values. We have already all the bits from old
+  // stack to the new one and so any one referring to stack data using sp/bp
+  // should be fine.
+  asm volatile (CLEAN_FOR_64_BIT(mov %%esp, %0; )
+                CLEAN_FOR_64_BIT(mov %%ebp, %1; )
+                : "=r" (rinfo.old_sp), "=r" (rinfo.old_bp) : : "memory");
+
+  rinfo.new_sp = rinfo.old_sp - stack_offset;
+  rinfo.new_bp = rinfo.old_bp - stack_offset;
+
+  asm volatile (CLEAN_FOR_64_BIT(mov %0, %%esp; )
+                CLEAN_FOR_64_BIT(mov %1, %%ebp; )
+                : : "g" (rinfo.new_sp), "g" (rinfo.new_bp) : "memory");
+
 #elif defined(__arm__)
-  asm volatile ("mov sp,%0\n\t"
-                : : "r" (stack_ptr) : "memory");
-  /* If we're going to have an error, force a hard error early, to debug. */
-  asm volatile ("mov fp,#0\n\tmov ip,#0\n\tmov lr,#0" : : );
+  asm volatile ("mov %0, sp; mov %1, fp\n\t"
+                : "=r" (rinfo.old_sp), "=r" (rinfo.old_bp) : : "memory");
+
+  rinfo.new_sp = rinfo.old_sp - stack_offset;
+  rinfo.new_bp = rinfo.old_bp - stack_offset;
+
+  asm volatile ("mov sp, %0; mov fp, %1 \n\t"
+                : : "r" (rinfo.new_sp), "r" (rinfo.new_bp) : "memory");
+
 #elif defined(__aarch64__)
-  asm volatile ("mov sp,%0\n\t"
-                : : "r" (stack_ptr) : "memory");
-  /* If we're going to have an error, force a hard error early, to debug. */
-  // FIXME:  Add a hard error here in assembly.
-#else
+  asm volatile ("mov %0, sp; mov %1, fp\n\t"
+                : "=r" (rinfo.old_sp), "=r" (rinfo.old_bp) : : "memory");
+
+  rinfo.new_sp = rinfo.old_sp - stack_offset;
+  rinfo.new_bp = rinfo.old_bp - stack_offset;
+
+  asm volatile ("mov sp, %0; mov fp, %1 \n\t"
+                : : "r" (rinfo.new_sp), "r" (rinfo.new_bp) : "memory");
+
+#else /* if defined(__i386__) || defined(__x86_64__) */
+
 # error "assembly instruction not translated"
-#endif
+
+#endif /* if defined(__i386__) || defined(__x86_64__) */
 
   /* IMPORTANT:  We just changed to a new stack.  The call frame for this
    * function on the old stack is no longer available.  The only way to pass
@@ -1245,6 +1204,13 @@ remapMtcpRestartToReservedArea(RestoreInfo *rinfo)
       MTCP_ASSERT(num_regions < MAX_MTCP_RESTART_MEM_REGIONS);
       mem_regions[num_regions++] = area;
     }
+
+    // Also compute the stack location.
+    if (area.addr < (VA) &area && area.endAddr > (VA) &area) {
+      // We've found stack.
+      rinfo->old_stack_addr = area.addr;
+      rinfo->old_stack_size = area.size;
+    }
   }
 
   mtcp_sys_close(mapsfd);
@@ -1299,14 +1265,17 @@ remapMtcpRestartToReservedArea(RestoreInfo *rinfo)
   MTCP_ASSERT(guard_page != MAP_FAILED);
   target_addr += MTCP_PAGE_SIZE;
 
-  size_t stack_size = rinfo->restore_addr + rinfo->restore_size - target_addr;
-  void *stack = mtcp_sys_mmap(target_addr,
-                              stack_size,
-                              PROT_READ | PROT_WRITE,
-                              MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED,
-                              -1,
-                              0);
-  MTCP_ASSERT(stack != MAP_FAILED);
+  rinfo->new_stack_size =
+    rinfo->restore_addr + rinfo->restore_size - target_addr;
+  MTCP_ASSERT(rinfo->new_stack_size >= rinfo->old_stack_size);
+
+  rinfo->new_stack_addr = mtcp_sys_mmap(target_addr,
+                                        rinfo->new_stack_size,
+                                        PROT_READ | PROT_WRITE,
+                                        MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED,
+                                        -1,
+                                        0);
+  MTCP_ASSERT(rinfo->new_stack_addr != MAP_FAILED);
 
   size_t offset = (char *)&restorememoryareas - mem_regions[0].addr;
   rinfo->restorememoryareas_fptr = (fnptr_t)(rinfo->restore_addr + offset);
