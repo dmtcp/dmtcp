@@ -108,7 +108,6 @@ typedef struct RestoreInfo {
   VA old_stack_addr;
   size_t old_stack_size;
   VA new_stack_addr;
-  size_t new_stack_size;
   size_t stack_offset;
 
   // void (*post_restart)();
@@ -1220,7 +1219,7 @@ remapMtcpRestartToReservedArea(RestoreInfo *rinfo)
     target_addr += mem_regions[i].size;
   }
 
-  // Create a guard page without read permissions and map the remaining region
+  // Create a guard page without read permissions and use the remaining region
   // for the stack.
   void *guard_page = mtcp_sys_mmap(target_addr,
                                    MTCP_PAGE_SIZE,
@@ -1231,22 +1230,27 @@ remapMtcpRestartToReservedArea(RestoreInfo *rinfo)
   MTCP_ASSERT(guard_page != MAP_FAILED);
   target_addr += MTCP_PAGE_SIZE;
 
-  rinfo->new_stack_size =
+  size_t remaining_restore_area =
     rinfo->restore_addr + rinfo->restore_size - target_addr;
-  MTCP_ASSERT(rinfo->new_stack_size >= rinfo->old_stack_size);
 
-  rinfo->new_stack_addr = mtcp_sys_mmap(target_addr,
-                                        rinfo->new_stack_size,
-                                        PROT_READ | PROT_WRITE,
-                                        MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED,
-                                        -1,
-                                        0);
+  MTCP_ASSERT(remaining_restore_area >= rinfo->old_stack_size);
+
+  void *new_stack_end_addr = rinfo->restore_addr + rinfo->restore_size;
+  void *new_stack_start_addr = new_stack_end_addr - rinfo->old_stack_size;
+
+  rinfo->new_stack_addr =
+    mtcp_sys_mmap(new_stack_start_addr,
+                  rinfo->old_stack_size,
+                  PROT_READ | PROT_WRITE,
+                  MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED | MAP_GROWSDOWN,
+                  -1,
+                  0);
   MTCP_ASSERT(rinfo->new_stack_addr != MAP_FAILED);
 
   rinfo->stack_offset = rinfo->old_stack_addr - rinfo->new_stack_addr;
 
-  size_t offset = (char *)&restorememoryareas - mem_regions[0].addr;
-  rinfo->restorememoryareas_fptr = (fnptr_t)(rinfo->restore_addr + offset);
+  size_t text_offset = rinfo->restore_addr - mem_regions[0].addr;
+  rinfo->restorememoryareas_fptr = (fnptr_t)(&restorememoryareas + text_offset);
 
   DPRINTF("For debugging:\n"
           "    (gdb) add-symbol-file ../../bin/mtcp_restart %p\n",
