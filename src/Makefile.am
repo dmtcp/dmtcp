@@ -180,8 +180,7 @@ __d_bindir__dmtcp_launch_LDADD  = libdmtcpinternal.a 		\
 				  libnohijack.a			\
 				  -lpthread -lrt -ldl
 
-__d_bindir__dmtcp_restart_SOURCES = dmtcp_restart.cpp 		\
-				    util_exec.cpp
+__d_bindir__dmtcp_restart_SOURCES = dmtcp_restart.cpp
 
 __d_bindir__dmtcp_restart_LDADD  = libdmtcpinternal.a 		\
 				   libjalib.a 			\
