@@ -103,8 +103,8 @@ nobase_noinst_HEADERS += $(dmtcpincludedir)/dmtcp.h		\
 # dmtcp_launch, dmtcp_command, dmtcp_coordinator, etc.
 #   should not need wrappers.
 libdmtcpinternal_a_SOURCES = coordinatorapi.cpp 		\
-			     dmtcp_dlsym.cpp 			\
 			     dmtcpmessagetypes.cpp		\
+			     dmtcp_dlsym.cpp 			\
 			     jalibinterface.cpp			\
 			     processinfo.cpp 			\
 			     procselfmaps.cpp			\
@@ -134,8 +134,6 @@ libnohijack_a_SOURCES = dmtcpnohijackstubs.cpp			\
 
 __d_libdir__libdmtcp_so_SOURCES = alarm.cpp			\
 				  ckptserializer.cpp 		\
-				  coordinatorapi.cpp		\
-				  dmtcp_dlsym.cpp 		\
 				  dmtcpplugin.cpp 		\
 				  dmtcpworker.cpp 		\
 				  execwrappers.cpp 		\

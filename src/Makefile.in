@@ -130,7 +130,7 @@ am__v_AR_1 =
 libdmtcpinternal_a_AR = $(AR) $(ARFLAGS)
 libdmtcpinternal_a_LIBADD =
 am_libdmtcpinternal_a_OBJECTS = coordinatorapi.$(OBJEXT) \
-	dmtcp_dlsym.$(OBJEXT) dmtcpmessagetypes.$(OBJEXT) \
+	dmtcpmessagetypes.$(OBJEXT) dmtcp_dlsym.$(OBJEXT) \
 	jalibinterface.$(OBJEXT) processinfo.$(OBJEXT) \
 	procselfmaps.$(OBJEXT) shareddata.$(OBJEXT) \
 	uniquepid.$(OBJEXT) util_exec.$(OBJEXT) util_init.$(OBJEXT) \
@@ -182,8 +182,7 @@ __d_bindir__dmtcp_restart_OBJECTS =  \
 __d_bindir__dmtcp_restart_DEPENDENCIES = libdmtcpinternal.a libjalib.a \
 	libnohijack.a
 am___d_libdir__libdmtcp_so_OBJECTS = alarm.$(OBJEXT) \
-	ckptserializer.$(OBJEXT) coordinatorapi.$(OBJEXT) \
-	dmtcp_dlsym.$(OBJEXT) dmtcpplugin.$(OBJEXT) \
+	ckptserializer.$(OBJEXT) dmtcpplugin.$(OBJEXT) \
 	dmtcpworker.$(OBJEXT) execwrappers.$(OBJEXT) \
 	glibcsystem.$(OBJEXT) miscwrappers.$(OBJEXT) \
 	plugininfo.$(OBJEXT) pluginmanager.$(OBJEXT) popen.$(OBJEXT) \
@@ -586,8 +585,8 @@ nobase_noinst_HEADERS = barrierinfo.h ckptserializer.h constants.h \
 # dmtcp_launch, dmtcp_command, dmtcp_coordinator, etc.
 #   should not need wrappers.
 libdmtcpinternal_a_SOURCES = coordinatorapi.cpp 		\
-			     dmtcp_dlsym.cpp 			\
 			     dmtcpmessagetypes.cpp		\
+			     dmtcp_dlsym.cpp 			\
 			     jalibinterface.cpp			\
 			     processinfo.cpp 			\
 			     procselfmaps.cpp			\
@@ -618,8 +617,6 @@ libnohijack_a_SOURCES = dmtcpnohijackstubs.cpp			\
 
 __d_libdir__libdmtcp_so_SOURCES = alarm.cpp			\
 				  ckptserializer.cpp 		\
-				  coordinatorapi.cpp		\
-				  dmtcp_dlsym.cpp 		\
 				  dmtcpplugin.cpp 		\
 				  dmtcpworker.cpp 		\
 				  execwrappers.cpp 		\
