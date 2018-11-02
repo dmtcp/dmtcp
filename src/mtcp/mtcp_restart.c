@@ -1276,6 +1276,8 @@ remapMtcpRestartToReservedArea(RestoreInfo *rinfo)
 
   mtcp_sys_close(mapsfd);
 
+  size_t restore_region_offset = rinfo->restore_addr - mem_regions[0].addr;
+
   // TODO: _start can sometimes be different than text_offset. The foolproof
   // method would be to read the elf headers for the mtcp_restart binary and
   // compute text offset from there.
@@ -1297,7 +1299,7 @@ remapMtcpRestartToReservedArea(RestoreInfo *rinfo)
 
   VA target_addr = rinfo->restore_addr;
   for (size_t i = 0; i < num_regions; i++) {
-    void *addr = mtcp_sys_mmap(target_addr,
+    void *addr = mtcp_sys_mmap(mem_regions[i].addr + restore_region_offset,
                                mem_regions[i].size,
                                mem_regions[i].prot,
                                MAP_PRIVATE | MAP_FIXED,
@@ -1312,25 +1314,28 @@ remapMtcpRestartToReservedArea(RestoreInfo *rinfo)
     // This probably is some memory that was initialized by the loader; let's
     // copy over the bits.
     if (mem_regions[i].prot & PROT_WRITE) {
-      mtcp_memcpy(target_addr, mem_regions[i].addr, mem_regions[i].size);
+      mtcp_memcpy(addr, mem_regions[i].addr, mem_regions[i].size);
     }
-
-    target_addr += mem_regions[i].size;
   }
 
   // Create a guard page without read permissions and use the remaining region
   // for the stack.
-  void *guard_page = mtcp_sys_mmap(target_addr,
-                                   MTCP_PAGE_SIZE,
-                                   PROT_NONE,
-                                   MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED,
-                                   -1,
-                                   0);
+
+  VA guard_page =
+    mem_regions[num_regions - 1].endAddr + restore_region_offset;
+
+  MTCP_ASSERT(mtcp_sys_mmap(guard_page,
+                            MTCP_PAGE_SIZE,
+                            PROT_NONE,
+                            MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED,
+                            -1,
+                            0) == guard_page);
   MTCP_ASSERT(guard_page != MAP_FAILED);
-  target_addr += MTCP_PAGE_SIZE;
+
+  VA guard_page_end_addr = guard_page + MTCP_PAGE_SIZE;
 
   size_t remaining_restore_area =
-    rinfo->restore_addr + rinfo->restore_size - target_addr;
+    rinfo->restore_addr + rinfo->restore_size - guard_page_end_addr;
 
   MTCP_ASSERT(remaining_restore_area >= rinfo->old_stack_size);
 
@@ -1348,8 +1353,8 @@ remapMtcpRestartToReservedArea(RestoreInfo *rinfo)
 
   rinfo->stack_offset = rinfo->old_stack_addr - rinfo->new_stack_addr;
 
-  size_t text_offset = rinfo->restore_addr - mem_regions[0].addr;
-  rinfo->restorememoryareas_fptr = (fnptr_t)(&restorememoryareas + text_offset);
+  rinfo->restorememoryareas_fptr =
+    (fnptr_t)(&restorememoryareas + restore_region_offset);
 
   DPRINTF("For debugging:\n"
           "    (gdb) add-symbol-file ../../bin/mtcp_restart %p\n",
