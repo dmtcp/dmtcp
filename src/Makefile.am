@@ -33,7 +33,7 @@ d_bindir = $(top_builddir)/bin
 endif
 
 if FAST_RST_VIA_MMAP
-  AM_CXXFLAGS += -DFAST_RST_VIA_MMAP 
+  AM_CXXFLAGS += -DFAST_RST_VIA_MMAP
 endif
 
 #HEADERS
@@ -41,12 +41,17 @@ endif
 AM_CPPFLAGS= -I$(dmtcpincludedir) -I$(jalibdir)
 
 # targets:
-noinst_LIBRARIES = libdmtcpinternal.a libsyscallsreal.a libnohijack.a libjalib.a
-bin_PROGRAMS = $(d_bindir)/dmtcp_launch \
-	       $(d_bindir)/dmtcp_command \
-	       $(d_bindir)/dmtcp_coordinator \
-	       $(d_bindir)/dmtcp_restart \
+noinst_LIBRARIES = libdmtcpinternal.a				\
+		   libsyscallsreal.a				\
+		   libnohijack.a				\
+		   libjalib.a
+
+bin_PROGRAMS = $(d_bindir)/dmtcp_launch				\
+	       $(d_bindir)/dmtcp_command			\
+	       $(d_bindir)/dmtcp_coordinator			\
+	       $(d_bindir)/dmtcp_restart			\
 	       $(d_bindir)/dmtcp_nocheckpoint
+
 dmtcplib_PROGRAMS = $(d_libdir)/libdmtcp.so
 include_HEADERS = $(srcdir)/../include/dmtcp.h
 
@@ -120,7 +125,7 @@ __d_libdir__libdmtcp_so_LDADD = libdmtcpinternal.a libjalib.a \
 __d_bindir__dmtcp_coordinator_LDADD = libdmtcpinternal.a libjalib.a \
 			  libnohijack.a -lpthread -lrt
 __d_bindir__dmtcp_launch_LDADD  = libdmtcpinternal.a libjalib.a \
-			  libnohijack.a -ldl -lpthread -lrt
+			  libnohijack.a -lpthread -lrt -ldl
 __d_bindir__dmtcp_restart_LDADD     = libdmtcpinternal.a libjalib.a \
 			  libnohijack.a -lpthread -lrt -ldl
 __d_bindir__dmtcp_command_LDADD     = libdmtcpinternal.a libjalib.a \
