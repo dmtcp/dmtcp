@@ -1180,6 +1180,9 @@ remapMtcpRestartToReservedArea(RestoreInfo *rinfo)
 
   mtcp_sys_close(mapsfd);
 
+  // TODO: _start can sometimes be different than text_offset. The foolproof
+  // method would be to read the elf headers for the mtcp_restart binary and
+  // compute text offset from there.
   size_t entrypoint_offset = (VA)&_start - (VA) mem_regions[0].addr;
   rinfo->mtcp_restart_text_addr = rinfo->restore_addr + entrypoint_offset;
 

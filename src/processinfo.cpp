@@ -384,7 +384,8 @@ void ProcessInfo::restoreHeap()
 void ProcessInfo::restart()
 {
   fesetround(roundingMode);
-  // Unmap the restore buffer and remap it with PROT_NONE;
+  // Unmap the restore buffer and remap it with PROT_NONE. We do munmap followed
+  // mmap to ensure that the kernel releases the backing physical pages.
   JASSERT(munmap((void *)_restoreBufAddr, _restoreBufLen) == 0)
     ((void *)_restoreBufAddr) (_restoreBufLen) (JASSERT_ERRNO);
 
