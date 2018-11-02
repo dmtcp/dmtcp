@@ -280,14 +280,9 @@ ProcessInfo::init()
   // Reserve space for restoreBuf
   _restoreBufLen = RESTORE_TOTAL_SIZE;
 
-  // Allocate two extra pages -- one at the start, one at the end -- to work as
-  // guard pages for the restore area.
-  void *addr = mmap(NULL, _restoreBufLen + (2 * 4096), PROT_READ,
+  _restoreBufAddr = (uint64_t) mmap(NULL, _restoreBufLen, PROT_NONE,
                     MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-  JASSERT(addr != MAP_FAILED) (JASSERT_ERRNO);
-  _restoreBufAddr = (uint64_t)addr + 4096;
-  JASSERT(mprotect((void *)_restoreBufAddr, _restoreBufLen, PROT_NONE) == 0)
-    ((void *)_restoreBufAddr) (_restoreBufLen) (JASSERT_ERRNO);
+  JASSERT(_restoreBufLen != (uint64_t) MAP_FAILED) (JASSERT_ERRNO);
 
   if (_ckptDir.empty()) {
     updateCkptDirFileSubdir();
@@ -511,7 +506,13 @@ void
 ProcessInfo::restart()
 {
   fesetround(roundingMode);
-  JASSERT(mprotect((void *)_restoreBufAddr, _restoreBufLen, PROT_NONE) == 0)
+  // Unmap the restore buffer and remap it with PROT_NONE. We do munmap followed
+  // mmap to ensure that the kernel releases the backing physical pages.
+  JASSERT(munmap((void *)_restoreBufAddr, _restoreBufLen) == 0)
+    ((void *)_restoreBufAddr) (_restoreBufLen) (JASSERT_ERRNO);
+
+  JASSERT(mmap((void*) _restoreBufAddr , _restoreBufLen, PROT_NONE,
+               MAP_PRIVATE | MAP_ANONYMOUS, -1, 0) != MAP_FAILED)
     ((void *)_restoreBufAddr) (_restoreBufLen) (JASSERT_ERRNO);
 
   restoreHeap();

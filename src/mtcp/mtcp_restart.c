@@ -93,8 +93,7 @@ typedef struct RestoreInfo {
   int stderr_fd;  /* FIXME:  This is never used. */
 
   // int mtcp_sys_errno;
-  VA text_addr;
-  size_t text_size;
+
   VA saved_brk;
   VA restore_addr;
   VA restore_end;
@@ -109,11 +108,16 @@ typedef struct RestoreInfo {
   // See note below in the restart_fast_path() function.
   fnptr_t restorememoryareas_fptr;
 
+  VA old_stack_addr;
+  size_t old_stack_size;
+  VA new_stack_addr;
+  size_t stack_offset;
+
   // void (*post_restart)();
   // void (*post_restart_debug)();
   // void (*restorememoryareas_fptr)();
   int use_gdb;
-  int text_offset;
+  VA mtcp_restart_text_addr;
   ThreadTLSInfo motherofall_tls_info;
   int tls_pid_offset;
   int tls_tid_offset;
@@ -137,7 +141,7 @@ static void restart_fast_path(void);
 static void restart_slow_path(void);
 static int doAreasOverlap(VA addr1, size_t size1, VA addr2, size_t size2);
 static int hasOverlappingMapping(VA addr, size_t size);
-static void getTextAddr(VA *textAddr, size_t *size);
+static void remapMtcpRestartToReservedArea(RestoreInfo *rinfo);
 static void mtcp_simulateread(int fd, MtcpHeader *mtcpHdr);
 void restore_libc(ThreadTLSInfo *tlsInfo,
                   int tls_pid_offset,
@@ -240,16 +244,11 @@ main(int argc, char *argv[], char **environ)
   rinfo.fd = -1;
   rinfo.mtcp_restart_pause = 0; /* false */
   rinfo.use_gdb = 0;
-  rinfo.text_offset = -1;
   shift;
   while (argc > 0) {
     if (mtcp_strcmp(argv[0], "--use-gdb") == 0) {
       rinfo.use_gdb = 1;
       shift;
-    } else if (mtcp_strcmp(argv[0], "--text-offset") == 0) {
-      rinfo.text_offset = mtcp_strtol(argv[1]);
-      shift; shift;
-
       // Flags for call by dmtcp_restart follow here:
     } else if (mtcp_strcmp(argv[0], "--fd") == 0) {
       rinfo.fd = mtcp_strtol(argv[1]);
@@ -307,14 +306,6 @@ main(int argc, char *argv[], char **environ)
     }
   }
 
-  DPRINTF("For debugging:\n"
-          "    (gdb) add-symbol-file ../../bin/mtcp_restart %p\n",
-          mtcpHdr.restore_addr + rinfo.text_offset);
-  if (rinfo.text_offset == -1) {
-    DPRINTF("... but add to the above the result, 1 +"
-            " `text_offset.sh mtcp_restart`\n    in the mtcp subdirectory.\n");
-  }
-
   if (simulate) {
     mtcp_simulateread(rinfo.fd, &mtcpHdr);
     return 0;
@@ -337,7 +328,7 @@ main(int argc, char *argv[], char **environ)
 
   restore_brk(rinfo.saved_brk, rinfo.restore_addr,
               rinfo.restore_addr + rinfo.restore_size);
-  getTextAddr(&rinfo.text_addr, &rinfo.text_size);
+
   if (hasOverlappingMapping(rinfo.restore_addr, rinfo.restore_size)) {
     MTCP_PRINTF("*** Not Implemented.\n\n");
     mtcp_abort();
@@ -482,135 +473,36 @@ static void
 restart_fast_path()
 {
   int mtcp_sys_errno;
-  void *addr = mtcp_sys_mmap(rinfo.restore_addr, rinfo.restore_size,
-                             PROT_READ | PROT_WRITE | PROT_EXEC,
-                             MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-
-  if (addr == MAP_FAILED) {
-    MTCP_PRINTF("mmap failed with error; errno: %d\n", mtcp_sys_errno);
-    mtcp_abort();
-  }
-
-  size_t offset = (char *)&restorememoryareas - rinfo.text_addr;
-  rinfo.restorememoryareas_fptr = (fnptr_t)(rinfo.restore_addr + offset);
 
   /* For __arm__ and __aarch64__ will need to invalidate cache after this.
    */
-  mtcp_memcpy(rinfo.restore_addr, rinfo.text_addr, rinfo.text_size);
-  mtcp_memcpy(rinfo.restore_addr + rinfo.text_size, &rinfo, sizeof(rinfo));
-  void *stack_ptr = rinfo.restore_addr + rinfo.restore_size - MB;
+  remapMtcpRestartToReservedArea(&rinfo);
 
-  // The kernel call, __ARM_NR_cacheflush is avail. for __arm__, which
-  //   requires kernel privilege to flush cache.  For __aarch64__  user-space suffices
-  //   (and glibc clear_cache() is not available in most distros)
-/*
-  // Not avail. for __aarch64__, but should try this for __arm__:
-  mtcp_sys_errno = 0;
-  int rc1 = mtcp_sys_kernel_cacheflush(rinfo.restore_addr, rinfo.restore_addr + rinfo.text_size, 0);
-  if (rc1 !=0) { MTCP_PRINTF("mtcp_sys_kernel_cacheflush failed; errno: %d\n", mtcp_sys_errno); }
-  mtcp_sys_errno = 0;
-  int rc2 = mtcp_sys_kernel_cacheflush(rinfo.restore_addr + rinfo.text_size,
-                                       rinfo.restore_addr + rinfo.text_size + sizeof(rinfo), 0);
-  if (rc2 !=0) { MTCP_PRINTF("mtcp_sys_kernel_cacheflush failed\n"); }
-  mtcp_sys_mprotect(rinfo.restore_addr, rinfo.restore_size,
-                             PROT_READ | PROT_EXEC);
-*/
-
-#if defined(__INTEL_COMPILER) && defined(__x86_64__)
-  asm volatile ("mfence" ::: "memory"); // memfence() defined in dmtcpplugin.cpp
-  asm volatile (CLEAN_FOR_64_BIT(mov %0, %%esp; )
-                CLEAN_FOR_64_BIT(xor %%ebp, %%ebp)
-                  : : "g" (stack_ptr) : "memory");
-
-  // This is copied from gcc assembly output for:
-  // rinfo.restorememoryareas_fptr(&rinfo);
-  // Intel icc-13.1.3 output uses register rbp here.  It's no longer available.
-  asm volatile(
-   // 104 = offsetof(RestoreInfo, rinfo.restorememoryareas_fptr)
-   // NOTE: Update the offset when adding fields to the RestoreInfo struct
-   "movq    104+rinfo(%%rip), %%rdx;" /* rinfo.restorememoryareas_fptr */
-   "leaq    rinfo(%%rip), %%rdi;"    /* &rinfo */
-   "movl    $0, %%eax;"
-   "call    *%%rdx"
-   : : );
-  /* NOTREACHED */
-#endif /* if defined(__INTEL_COMPILER) && defined(__x86_64__) */
-
-#if defined(__arm__) || defined(__aarch64__)
-# if defined(__aarch64__)
-  // We would like to use the GCC builtin, __sync_synchronize()
-  //  but it doesn't appear to be portable to arm/aarch64 as of Aug., 2018
-  RMB; WMB; IMB;
-  // The call to clear_icache() wasn't effective:
-  //   clear_icache(rinfo.restore_addr, rinfo.restore_addr + rinfo.restore_size);
-  // So, now we're using the loop to read memory into dummy, below, as a hack.
-  // Apparently, this assembly instruction for "invalidate cache" requires
-  //   kernel privilege:
-  //   asm volatile (".arch armv8.1-a\n\t ic iallu\n\t" : : : "memory");
-  // This logic is a hack to make sure that the cache recognizes new mmap region
-  // Why can't gcc or glibc provide a working 'man 2 cacheflush' to correspond
-  //   to the man page in Ubuntu 16.04?  (Or maybe clear_cache()?)
-  char dummy;
-  for (char *ptr = rinfo.restore_addr; ptr < rinfo.restore_addr + rinfo.restore_size; ptr++) {
-    dummy = dummy ^ *ptr;
-  }
-  asm volatile("dsb ish" : : : "memory");
-  RMB; WMB; IMB;
-# else /* else if 0 */
-  // FIXME:  Test if this delay loop is no longer needed for __arm__.
-  //     We should be able to replace this by:
-  //     mtcp_sys_kernel_cacheflush(rinfo.restore_addr,
-  //                                rinfo.restore_addr + rinfo.text_size, 0);
-  //     If that works, then delete this delay loop code.
-
-  /* This delay loop was required for:
-   *    ARM v7 (rev 3, v71), SAMSUNG EXYNOS5 (Flattened Device Tree)
-   *    gcc-4.8.1 (Ubuntu pre-release for 14.04) ; Linux 3.13.0+ #54
-   */
-  MTCP_PRINTF("*** WARNING: %s:%d: Delay loop on restart for older ARM CPUs\n"
-              "*** Consider removing this line for newer CPUs.\n",
-              __FILE__, __LINE__);
-  { int x = 10000000;
-    int y = 1000000000;
-    for (; x > 0; x--) {
-      for (; y > 0; y--) {}
-    }
-  }
-# endif /* if defined(__aarch64__) */
-#endif /* if defined(__arm__) || defined(__aarch64__) */
+  // Copy over old stack to new location;
+  mtcp_memcpy(rinfo.new_stack_addr, rinfo.old_stack_addr, rinfo.old_stack_size);
 
   DPRINTF("We have copied mtcp_restart to higher address.  We will now\n"
           "    jump into a copy of restorememoryareas().\n");
 
 #if defined(__i386__) || defined(__x86_64__)
-  asm volatile (CLEAN_FOR_64_BIT(mov %0, %%esp; )
-# ifndef __clang__
+  asm volatile ("mfence" ::: "memory");
 
-                /* This next assembly language confuses gdb.  Set a future
-                   future breakpoint, or attach after this point, if in gdb.
-                   It's here to force a hard error early, in case of a bug.*/
-                CLEAN_FOR_64_BIT(xor %%ebp, %%ebp)
-# else /* ifndef __clang__ */
+  // Read the current value of sp and bp registers and add the stack_offset to
+  // compute the new sp and bp values. We have already all the bits from old
+  // stack to the new one and so any one referring to stack data using sp/bp
+  // should be fine.
+  asm volatile (CLEAN_FOR_64_BIT(sub %0, %%esp; )
+                CLEAN_FOR_64_BIT(sub %0, %%ebp; )
+                : : "r" (rinfo.stack_offset) : "memory");
 
-                /* Even with -O0, clang-3.4 uses register ebp after this
-                   statement. */
-# endif /* ifndef __clang__ */
-                : : "g" (stack_ptr) : "memory");
-#elif defined(__arm__)
-  asm volatile ("mov sp,%0\n\t"
-                : : "r" (stack_ptr) : "memory");
+#elif defined(__arm__) || defined(__aarch64__)
+  asm volatile ("sub sp, sp, %0; mov fp, fp, %0 \n\t"
+                : : "r" (rinfo.stack_offset) : "memory");
 
-  /* If we're going to have an error, force a hard error early, to debug. */
-  asm volatile ("mov fp,#0\n\tmov ip,#0\n\tmov lr,#0" : :);
-#elif defined(__aarch64__)
-  asm volatile ("mov sp,%0\n\t"
-                : : "r" (stack_ptr) : "memory");
-
-  /* If we're going to have an error, force a hard error early, to debug. */
-
-  // FIXME:  Add a hard error here in assembly.
 #else /* if defined(__i386__) || defined(__x86_64__) */
+
 # error "assembly instruction not translated"
+
 #endif /* if defined(__i386__) || defined(__x86_64__) */
 
   /* IMPORTANT:  We just changed to a new stack.  The call frame for this
@@ -706,21 +598,18 @@ restorememoryareas(RestoreInfo *rinfo_ptr)
 
   if (rinfo_ptr->use_gdb) {
     MTCP_PRINTF("Called with --use-gdb.  A useful command is:\n"
-                "    (gdb) info proc mapping");
-    if (rinfo_ptr->text_offset != -1) {
-      MTCP_PRINTF("Called with --text-offset 0x%x.  A useful command is:\n"
-                  "(gdb) add-symbol-file ../../bin/mtcp_restart %p\n",
-                  rinfo_ptr->text_offset,
-                  rinfo_ptr->restore_addr + rinfo_ptr->text_offset);
+                "    (gdb) info proc mapping\n"
+                "    (gdb) add-symbol-file ../../bin/mtcp_restart %p\n",
+                rinfo_ptr->mtcp_restart_text_addr);
+
 #if defined(__i386__) || defined(__x86_64__)
-      asm volatile ("int3"); // Do breakpoint; send SIGTRAP, caught by gdb
+    asm volatile ("int3"); // Do breakpoint; send SIGTRAP, caught by gdb
 #else /* if defined(__i386__) || defined(__x86_64__) */
-      MTCP_PRINTF(
-        "IN GDB: interrupt (^C); add-symbol-file ...; (gdb) print x=0\n");
-      { int x = 1; while (x) {}
-      }                         // Stop execution for user to type command.
+    MTCP_PRINTF(
+      "IN GDB: interrupt (^C); add-symbol-file ...; (gdb) print x=0\n");
+    { int x = 1; while (x) {}
+    }                         // Stop execution for user to type command.
 #endif /* if defined(__i386__) || defined(__x86_64__) */
-    }
   }
 
   RestoreInfo restore_info;
@@ -1347,40 +1236,129 @@ hasOverlappingMapping(VA addr, size_t size)
   return ret;
 }
 
+// This is the entrypoint to the binary. We'll need it for adding symbol file.
+int _start();
+
 NO_OPTIMIZE
 static void
-getTextAddr(VA *text_addr, size_t *size)
+remapMtcpRestartToReservedArea(RestoreInfo *rinfo)
 {
   int mtcp_sys_errno;
-  Area area;
-  VA this_fn = (VA)&getTextAddr;
-  int mapsfd = mtcp_sys_open2("/proc/self/maps", O_RDONLY);
 
+  const size_t MAX_MTCP_RESTART_MEM_REGIONS = 16;
+
+  Area mem_regions[MAX_MTCP_RESTART_MEM_REGIONS];
+
+  size_t num_regions = 0;
+
+  // First figure out mtcp_restart memory regions.
+  int mapsfd = mtcp_sys_open2("/proc/self/maps", O_RDONLY);
   if (mapsfd < 0) {
     MTCP_PRINTF("error opening /proc/self/maps: errno: %d\n", mtcp_sys_errno);
     mtcp_abort();
   }
 
+  Area area;
   while (mtcp_readmapsline(mapsfd, &area)) {
     if ((mtcp_strendswith(area.name, BINARY_NAME) ||
-         mtcp_strendswith(area.name, BINARY_NAME_M32)) &&
-        (area.prot & PROT_EXEC) &&
+         mtcp_strendswith(area.name, BINARY_NAME_M32))) {
+      MTCP_ASSERT(num_regions < MAX_MTCP_RESTART_MEM_REGIONS);
+      mem_regions[num_regions++] = area;
+    }
 
-        /* On ARM/Ubuntu 14.04, mtcp_restart is mapped twice with RWX
-         * permissions. Not sure why? Here is an example:
-         *
-         * 00008000-00010000 r-xp 00000000 b3:02 144874     .../bin/mtcp_restart
-         * 00017000-00019000 rwxp 00007000 b3:02 144874     .../bin/mtcp_restart
-         * befdf000-bf000000 rwxp 00000000 00:00 0          [stack]
-         * ffff0000-ffff1000 r-xp 00000000 00:00 0          [vectors]
-         */
-        (area.addr < this_fn && (area.addr + area.size) > this_fn)) {
-      *text_addr = area.addr;
-      *size = area.size;
-      break;
+    // Also compute the stack location.
+    if (area.addr < (VA) &area && area.endAddr > (VA) &area) {
+      // We've found stack.
+      rinfo->old_stack_addr = area.addr;
+      rinfo->old_stack_size = area.size;
     }
   }
+
   mtcp_sys_close(mapsfd);
+
+  size_t restore_region_offset = rinfo->restore_addr - mem_regions[0].addr;
+
+  // TODO: _start can sometimes be different than text_offset. The foolproof
+  // method would be to read the elf headers for the mtcp_restart binary and
+  // compute text offset from there.
+  size_t entrypoint_offset = (VA)&_start - (VA) mem_regions[0].addr;
+  rinfo->mtcp_restart_text_addr = rinfo->restore_addr + entrypoint_offset;
+
+  // Make sure we can fit all mtcp_restart regions in the restore area.
+  MTCP_ASSERT(mem_regions[num_regions - 1].endAddr - mem_regions[0].addr <=
+                rinfo->restore_size);
+
+  // Now remap mtcp_restart at the restore location. Note that for memory
+  // regions with write permissions, we copy over the bits from the original
+  // location.
+  int mtcp_restart_fd = mtcp_sys_open2("/proc/self/exe", O_RDONLY);
+  if (mtcp_restart_fd < 0) {
+    MTCP_PRINTF("error opening /proc/self/exe: errno: %d\n", mtcp_sys_errno);
+    mtcp_abort();
+  }
+
+  VA target_addr = rinfo->restore_addr;
+  for (size_t i = 0; i < num_regions; i++) {
+    void *addr = mtcp_sys_mmap(mem_regions[i].addr + restore_region_offset,
+                               mem_regions[i].size,
+                               mem_regions[i].prot,
+                               MAP_PRIVATE | MAP_FIXED,
+                               mtcp_restart_fd,
+                               mem_regions[i].offset);
+
+    if (addr == MAP_FAILED) {
+      MTCP_PRINTF("mmap failed with error; errno: %d\n", mtcp_sys_errno);
+      mtcp_abort();
+    }
+
+    // This probably is some memory that was initialized by the loader; let's
+    // copy over the bits.
+    if (mem_regions[i].prot & PROT_WRITE) {
+      mtcp_memcpy(addr, mem_regions[i].addr, mem_regions[i].size);
+    }
+  }
+
+  // Create a guard page without read permissions and use the remaining region
+  // for the stack.
+
+  VA guard_page =
+    mem_regions[num_regions - 1].endAddr + restore_region_offset;
+
+  MTCP_ASSERT(mtcp_sys_mmap(guard_page,
+                            MTCP_PAGE_SIZE,
+                            PROT_NONE,
+                            MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED,
+                            -1,
+                            0) == guard_page);
+  MTCP_ASSERT(guard_page != MAP_FAILED);
+
+  VA guard_page_end_addr = guard_page + MTCP_PAGE_SIZE;
+
+  size_t remaining_restore_area =
+    rinfo->restore_addr + rinfo->restore_size - guard_page_end_addr;
+
+  MTCP_ASSERT(remaining_restore_area >= rinfo->old_stack_size);
+
+  void *new_stack_end_addr = rinfo->restore_addr + rinfo->restore_size;
+  void *new_stack_start_addr = new_stack_end_addr - rinfo->old_stack_size;
+
+  rinfo->new_stack_addr =
+    mtcp_sys_mmap(new_stack_start_addr,
+                  rinfo->old_stack_size,
+                  PROT_READ | PROT_WRITE,
+                  MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED | MAP_GROWSDOWN,
+                  -1,
+                  0);
+  MTCP_ASSERT(rinfo->new_stack_addr != MAP_FAILED);
+
+  rinfo->stack_offset = rinfo->old_stack_addr - rinfo->new_stack_addr;
+
+  rinfo->restorememoryareas_fptr =
+    (fnptr_t)(&restorememoryareas + restore_region_offset);
+
+  DPRINTF("For debugging:\n"
+          "    (gdb) add-symbol-file ../../bin/mtcp_restart %p\n",
+          rinfo->mtcp_restart_text_addr);
 }
 
 // gcc can generate calls to these.
