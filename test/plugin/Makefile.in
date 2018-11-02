@@ -1,6 +1,6 @@
 CC=@CC@
 CXX=@CXX@
-EXTRAMAKEFLAGS=CC=${CC} CXX=${CXX}
+EXTRAMAKEFLAGS=CC="${CC}" CXX="${CXX}"
 
 PLUGINS=$(dir $(wildcard */Makefile))
 

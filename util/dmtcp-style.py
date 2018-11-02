@@ -138,7 +138,7 @@ class CppLinter(LinterBase):
                    'plugin',
                    'contrib']
 
-    exclude_files = '(restartscript.cpp|infiniband\/examples|src\/mtcp\/|test-suite)'
+    exclude_files = '(restartscript.cpp|infiniband\/examples|src\/mtcp\/|test-suite|Makefile.in)'
 
     source_files = '\.(cpp|h)$'
 

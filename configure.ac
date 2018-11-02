@@ -22,6 +22,7 @@ dnl So, we are invoking AC_PROG_CXX _before_ AC_PROG_CC, to take advantage
 dnl of an undocumented autotools feature.
 AC_PROG_CXX
 AC_PROG_CC
+AC_PROG_CC_STDC
 AC_PROG_CPP
 dnl This sets OPENMP_CFLAGS
 AC_OPENMP
@@ -38,7 +39,7 @@ AC_CONFIG_FILES([Makefile \
                  src/Makefile \
                  src/mtcp/Makefile \
                  src/plugin/Makefile \
-                 include/dmtcp.h \
+                 include/dmtcp/version.h \
                  test/Makefile \
                  test/autotest_config.py \
                  test/plugin/Makefile])

@@ -20,9 +20,6 @@ fi
 # Redirect output to stderr.
 exec 1>&2
 
-# If there are whitespace errors, print the offending file names and fail.
-git diff-index --check --cached $against -- || exit 1
-
 # Check DMTCP style.
 ADDED_OR_MODIFIED=$(git diff --cached --name-only --diff-filter=AM)
 if [ -n "$ADDED_OR_MODIFIED" ]; then

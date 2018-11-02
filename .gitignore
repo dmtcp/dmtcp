@@ -23,7 +23,7 @@ bin/
 lib/
 local/
 include/config.h
-include/dmtcp.h
+include/dmtcp/version.h
 include/stamp-h1
 dmtcp/src/dmtcp_checkpoint
 dmtcp/src/dmtcp_launch
