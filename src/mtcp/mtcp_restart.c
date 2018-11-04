@@ -484,19 +484,31 @@ restart_fast_path()
   DPRINTF("We have copied mtcp_restart to higher address.  We will now\n"
           "    jump into a copy of restorememoryareas().\n");
 
+  // Read the current value of sp and bp/fp registers and subtract the
+  // stack_offset to compute the new sp and bp values. We have already copied
+  // all the bits from old stack to the new one and so any one referring to
+  // stack data using sp/bp should be fine.
+  // NOTE: changing the value of bp/fp register is optional and only useful for
+  // doing a return from this function or to access any local variables. Since
+  // we don't use any local variables from here on, we can ignore bp/fp
+  // registers.
+  // NOTE: 32-bit ARM doesn't have an fp register.
+
 #if defined(__i386__) || defined(__x86_64__)
   asm volatile ("mfence" ::: "memory");
 
-  // Read the current value of sp and bp registers and add the stack_offset to
-  // compute the new sp and bp values. We have already all the bits from old
-  // stack to the new one and so any one referring to stack data using sp/bp
-  // should be fine.
   asm volatile (CLEAN_FOR_64_BIT(sub %0, %%esp; )
                 CLEAN_FOR_64_BIT(sub %0, %%ebp; )
                 : : "r" (rinfo.stack_offset) : "memory");
 
-#elif defined(__arm__) || defined(__aarch64__)
-  asm volatile ("sub sp, sp, %0; mov fp, fp, %0 \n\t"
+#elif defined(__arm__)
+  asm volatile ("sub sp, sp, %0"
+                : : "r" (rinfo.stack_offset) : "memory");
+
+#elif defined(__aarch64__)
+  // Use x29 instead of fp because GCC's inline assembler does not recognize fp.
+  asm volatile ("sub sp, sp, %0\n\t"
+                "sub x29, x29, %0"
                 : : "r" (rinfo.stack_offset) : "memory");
 
 #else /* if defined(__i386__) || defined(__x86_64__) */
