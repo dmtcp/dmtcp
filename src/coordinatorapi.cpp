@@ -371,20 +371,29 @@ recvMsgFromCoordinatorRaw(int fd, DmtcpMessage *msg, void **extraData)
     sem_launch_first_time = false;
   }
 
-  if (Util::readAll(fd, msg, sizeof(*msg)) != sizeof(*msg)) {
+  // Read into a temporary buffer in case the process exits after reading the
+  // message but before receiving the extradata.
+  DmtcpMessage tmpMsg;
+  if (Util::readAll(fd, &tmpMsg, sizeof(tmpMsg)) != sizeof(tmpMsg)) {
     // Perhaps the process is exit()'ing.
     return;
   }
 
-  if (msg->extraBytes > 0) {
+  if (tmpMsg.extraBytes > 0) {
     JASSERT(extraData != NULL);
 
     // Caller must free this buffer
-    void *buf = JALLOC_HELPER_MALLOC(msg->extraBytes);
-    JASSERT(Util::readAll(fd, (char*) buf, msg->extraBytes) == msg->extraBytes);
-    JASSERT(extraData != NULL);
+    void *buf = JALLOC_HELPER_MALLOC(tmpMsg.extraBytes);
+    if (Util::readAll(fd, buf, tmpMsg.extraBytes) != tmpMsg.extraBytes) {
+      JALLOC_HELPER_FREE(buf);
+      return;
+    }
+
     *extraData = buf;
   }
+
+  // All is well, return the received message.
+  *msg = tmpMsg;
 }
 
 void sendMsgToCoordinator(DmtcpMessage msg, const void *extraData, size_t len)
