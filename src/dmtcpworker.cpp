@@ -57,9 +57,8 @@ EXTERNC void *ibv_get_device_list(void *) __attribute__((weak));
 /* The following instance of the DmtcpWorker is just to trigger the constructor
  * to allow us to hijack the process
  */
-DmtcpWorker DmtcpWorker::theInstance;
-bool DmtcpWorker::_exitInProgress = false;
-bool DmtcpWorker::_exitAfterCkpt = 0;
+static volatile bool exitInProgress = false;
+static bool exitAfterCkpt = 0;
 
 /* NOTE:  Please keep this function in sync with its copy at:
  *   dmtcp_nocheckpoint.cpp:restoreUserLDPRELOAD()
@@ -272,7 +271,7 @@ static jalib::JBuffer *buf = NULL;
 
 // called before user main()
 // workerhijack.cpp initializes a static variable theInstance to DmtcpWorker obj
-extern "C" void
+extern "C" void __attribute__((constructor(101)))
 dmtcp_initialize()
 {
   static bool initialized = false;
@@ -339,13 +338,6 @@ dmtcp_initialize()
   ThreadList::init();
 }
 
-// called before user main()
-// workerhijack.cpp initializes a static variable theInstance to DmtcpWorker obj
-DmtcpWorker::DmtcpWorker()
-{
-  dmtcp_initialize();
-}
-
 void
 DmtcpWorker::resetOnFork()
 {
@@ -355,22 +347,9 @@ DmtcpWorker::resetOnFork()
 
   WorkerState::setCurrentState(WorkerState::RUNNING);
 
-  /* If parent process had file connections and it fork()'d a child
-   * process, the child process would consider the file connections as
-   * pre-existing and hence wouldn't restore them. This is fixed by making sure
-   * that when a child process is forked, it shouldn't be looking for
-   * pre-existing connections because the parent has already done that.
-   *
-   * So, here while creating the instance, we do not want to execute everything
-   * in the constructor since it's not relevant. All we need to call is
-   * connectToCoordinatorWithHandshake() and initializeMtcpEngine().
-   */
-
-  // new ( &theInstance ) DmtcpWorker ( false );
-
   ThreadSync::initMotherOfAll();
 
-  DmtcpWorker::_exitInProgress = false;
+  exitInProgress = false;
 }
 
 void
@@ -391,18 +370,29 @@ DmtcpWorker::interruptCkpthread()
   }
 }
 
-// called after user main()
-DmtcpWorker::~DmtcpWorker()
+// called after user main() by user thread or during exit() processing.
+void __attribute__((destructor))
+dmtcp_finalize()
 {
   /* If the destructor was called, we know that we are exiting
    * After setting this, the wrapper execution locks will be ignored.
    * FIXME:  A better solution is to add a ZOMBIE state to DmtcpWorker,
    *         instead of using a separate variable, _exitInProgress.
    */
-  setExitInProgress();
+  DmtcpWorker::setExitInProgress();
   PluginManager::eventHook(DMTCP_EVENT_EXIT, NULL);
-  interruptCkpthread();
-  cleanupWorker();
+  DmtcpWorker::interruptCkpthread();
+  DmtcpWorker::cleanupWorker();
+}
+
+void DmtcpWorker::setExitInProgress()
+{
+  exitInProgress = true;
+}
+
+bool DmtcpWorker::isExitInProgress()
+{
+  return exitInProgress;
 }
 
 static void
@@ -443,7 +433,7 @@ DmtcpWorker::waitForSuspendMessage()
            " ckpt thread exit()ing as well");
     ckptThreadPerformExit();
   }
-  if (exitInProgress()) {
+  if (exitInProgress) {
     ThreadSync::destroyDmtcpWorkerLockUnlock();
     ckptThreadPerformExit();
   }
@@ -453,8 +443,9 @@ DmtcpWorker::waitForSuspendMessage()
   DmtcpMessage msg;
   CoordinatorAPI::recvMsgFromCoordinator(&msg);
 
-  if (exitInProgress()) {
-    ThreadSync::destroyDmtcpWorkerLockUnlock();
+  // Before validating message; make sure we are not exiting.
+  if (exitInProgress) {
+    JTRACE("User thread is performing exit(). ckpt thread exit()ing as well");
     ckptThreadPerformExit();
   }
 
@@ -468,7 +459,7 @@ DmtcpWorker::waitForSuspendMessage()
   JASSERT(SharedData::getCompId() == msg.compGroup.upid())
     (SharedData::getCompId()) (msg.compGroup);
 
-  _exitAfterCkpt = msg.exitAfterCkpt;
+  exitAfterCkpt = msg.exitAfterCkpt;
 }
 
 void
@@ -514,7 +505,7 @@ DmtcpWorker::preCheckpoint()
 
   JTRACE("suspended");
 
-  if (exitInProgress()) {
+  if (exitInProgress) {
     ThreadSync::destroyDmtcpWorkerLockUnlock();
     ckptThreadPerformExit();
   }
@@ -541,7 +532,7 @@ DmtcpWorker::postCheckpoint()
   WorkerState::setCurrentState(WorkerState::CHECKPOINTED);
   CoordinatorAPI::sendCkptFilename();
 
-  if (_exitAfterCkpt) {
+  if (exitAfterCkpt) {
     JTRACE("Asked to exit after checkpoint. Exiting!");
     _exit(0);
   }

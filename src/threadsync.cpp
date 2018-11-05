@@ -375,7 +375,7 @@ ThreadSync::wrapperExecutionLockLock()
   bool lockAcquired = false;
 
   // Ignore locks if we are about to exit
-  if (DmtcpWorker::exitInProgress()) {
+  if (DmtcpWorker::isExitInProgress()) {
     return false;
   }
   while (1) {
@@ -453,7 +453,7 @@ ThreadSync::wrapperExecutionLockLockExcl()
   bool lockAcquired = false;
 
   // Ignore locks if we are about to exit
-  if (DmtcpWorker::exitInProgress()) {
+  if (DmtcpWorker::isExitInProgress()) {
     return false;
   }
   if (WorkerState::currentState() == WorkerState::RUNNING) {
@@ -500,7 +500,7 @@ ThreadSync::wrapperExecutionLockUnlock()
    *
    */
 
-  if (DmtcpWorker::exitInProgress()) {
+  if (DmtcpWorker::isExitInProgress()) {
     return;
   }
   if (_real_pthread_rwlock_unlock(&_wrapperExecutionLock) != 0) {

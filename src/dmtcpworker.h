@@ -28,46 +28,27 @@ void restoreUserLDPRELOAD();
 
 namespace dmtcp
 {
-class DmtcpWorker
+namespace DmtcpWorker
 {
-  public:
-#ifdef JALIB_ALLOCATOR
-    static void *operator new(size_t nbytes, void *p) { return p; }
+  void waitForSuspendMessage();
+  void acknowledgeSuspendMsg();
+  void informCoordinatorOfRUNNINGState();
 
-    static void *operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
+  void waitForCheckpointRequest();
+  void preCheckpoint();
+  void postCheckpoint();
+  void postRestart(double ckptReadTime = 0.0);
 
-    static void operator delete(void *p) { JALLOC_HELPER_DELETE(p); }
-#endif // ifdef JALIB_ALLOCATOR
-    DmtcpWorker();
-    ~DmtcpWorker();
-    static DmtcpWorker &instance();
+  void resetOnFork();
+  void cleanupWorker();
 
-    static void initialize();
+  int determineCkptSignal();
 
-    static void waitForSuspendMessage();
-    static void acknowledgeSuspendMsg();
-    static void informCoordinatorOfRUNNINGState();
+  void setExitInProgress();
 
-    static void waitForCheckpointRequest();
-    static void preCheckpoint();
-    static void postCheckpoint();
-    static void postRestart(double ckptReadTime = 0.0);
+  bool isExitInProgress();
 
-    static void resetOnFork();
-    static void cleanupWorker();
-
-    static int determineCkptSignal();
-
-    static void setExitInProgress() { _exitInProgress = true; }
-
-    static bool exitInProgress() { return _exitInProgress; }
-
-    static void interruptCkpthread();
-
-  private:
-    static DmtcpWorker theInstance;
-    static bool _exitInProgress;
-    static bool _exitAfterCkpt;
+  void interruptCkpthread();
 };
 }
 #endif // ifndef DMTCPDMTCPWORKER_H
