@@ -372,14 +372,9 @@ dmtcp_finalize()
    * FIXME:  A better solution is to add a ZOMBIE state to DmtcpWorker,
    *         instead of using a separate variable, _exitInProgress.
    */
-  DmtcpWorker::setExitInProgress();
+  exitInProgress = true;
   PluginManager::eventHook(DMTCP_EVENT_EXIT, NULL);
   DmtcpWorker::cleanupWorker();
-}
-
-void DmtcpWorker::setExitInProgress()
-{
-  exitInProgress = true;
 }
 
 bool DmtcpWorker::isExitInProgress()

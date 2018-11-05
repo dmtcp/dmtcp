@@ -44,8 +44,6 @@ namespace DmtcpWorker
 
   int determineCkptSignal();
 
-  void setExitInProgress();
-
   bool isExitInProgress();
 };
 }
