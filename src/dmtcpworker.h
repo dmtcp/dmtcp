@@ -32,7 +32,6 @@ namespace DmtcpWorker
 {
   void waitForSuspendMessage();
   void acknowledgeSuspendMsg();
-  void informCoordinatorOfRUNNINGState();
 
   void waitForCheckpointRequest();
   void preCheckpoint();
