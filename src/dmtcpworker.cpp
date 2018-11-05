@@ -383,11 +383,6 @@ dmtcp_finalize()
   JTRACE("Process exiting.");
 }
 
-bool DmtcpWorker::isExitInProgress()
-{
-  return exitInProgress;
-}
-
 static void
 ckptThreadPerformExit()
 {

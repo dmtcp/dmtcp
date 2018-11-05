@@ -42,8 +42,6 @@ namespace DmtcpWorker
   void resetOnFork();
 
   int determineCkptSignal();
-
-  bool isExitInProgress();
 };
 }
 #endif // ifndef DMTCPDMTCPWORKER_H
