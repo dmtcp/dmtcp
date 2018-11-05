@@ -480,15 +480,16 @@ DmtcpWorker::waitForCheckpointRequest()
 void
 DmtcpWorker::preCheckpoint()
 {
+  JTRACE("suspended");
   WorkerState::setCurrentState(WorkerState::SUSPENDED);
 
-  JTRACE("suspended");
+  ThreadSync::releaseLocks();
 
   if (exitInProgress) {
+    // Release user threads from ckpt signal handler.
+    ThreadList::resumeThreads();
     ckptThreadPerformExit();
   }
-
-  ThreadSync::releaseLocks();
 
   // Update generation, in case user callback calls dmtcp_get_generation().
   uint32_t computationGeneration =
