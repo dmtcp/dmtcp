@@ -341,7 +341,7 @@ dmtcp_initialize()
 void
 DmtcpWorker::resetOnFork()
 {
-  PluginManager::eventHook(DMTCP_EVENT_ATFORK_CHILD, NULL);
+  exitInProgress = false;
 
   cleanupWorker();
 
@@ -349,7 +349,9 @@ DmtcpWorker::resetOnFork()
 
   ThreadSync::initMotherOfAll();
 
-  exitInProgress = false;
+  // Some plugins might make calls that require wrapper locks, etc.
+  // Therefore, it is better to call this hook after we reset all locks.
+  PluginManager::eventHook(DMTCP_EVENT_ATFORK_CHILD, NULL);
 }
 
 void
