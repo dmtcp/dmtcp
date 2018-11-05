@@ -93,11 +93,6 @@ eventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
       init();
       break;
 
-    case DMTCP_EVENT_EXIT:
-      JTRACE("exit() in progress, disconnecting from dmtcp coordinator");
-      closeConnection();
-      break;
-
   default:
     break;
   }
