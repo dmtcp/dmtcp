@@ -72,8 +72,6 @@ static sem_t semNotifyCkptThread;
 static sem_t semWaitForCkptThreadSignal;
 
 static void *checkpointhread(void *dummy);
-static void suspendThreads();
-static void resumeThreads();
 static void stopthisthread(int sig);
 static int restarthread(void *threadv);
 static int Thread_UpdateState(Thread *th, ThreadState newval,
@@ -420,7 +418,7 @@ checkpointhread(void *dummy)
 
     restoreInProgress = false;
 
-    suspendThreads();
+    ThreadList::suspendThreads();
 
     JTRACE("Prepare plugin, etc. for checkpoint");
     DmtcpWorker::preCheckpoint();
@@ -432,14 +430,14 @@ checkpointhread(void *dummy)
 
     DmtcpWorker::postCheckpoint();
 
-    resumeThreads();
+    ThreadList::resumeThreads();
   }
 
   return NULL;
 }
 
-static void
-suspendThreads()
+void
+ThreadList::suspendThreads()
 {
   int needrescan;
   Thread *thread;
@@ -527,12 +525,11 @@ suspendThreads()
 }
 
 /* Resume all threads. */
-static void
-resumeThreads()
+void
+ThreadList::resumeThreads()
 {
-  JTRACE("resuming everything");
+  JTRACE("resuming user threads");
   JASSERT(_real_pthread_rwlock_unlock(&threadResumeLock) == 0) (JASSERT_ERRNO);
-  JTRACE("everything resumed");
 }
 
 /*************************************************************************
