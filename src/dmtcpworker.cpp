@@ -363,15 +363,6 @@ DmtcpWorker::cleanupWorker()
   JTRACE("disconnecting from dmtcp coordinator");
 }
 
-void
-DmtcpWorker::interruptCkpthread()
-{
-  if (ThreadSync::destroyDmtcpWorkerLockTryLock() == EBUSY) {
-    ThreadList::killCkpthread();
-    ThreadSync::destroyDmtcpWorkerLockLock();
-  }
-}
-
 // called after user main() by user thread or during exit() processing.
 void __attribute__((destructor))
 dmtcp_finalize()
@@ -383,7 +374,6 @@ dmtcp_finalize()
    */
   DmtcpWorker::setExitInProgress();
   PluginManager::eventHook(DMTCP_EVENT_EXIT, NULL);
-  DmtcpWorker::interruptCkpthread();
   DmtcpWorker::cleanupWorker();
 }
 
@@ -400,6 +390,8 @@ bool DmtcpWorker::isExitInProgress()
 static void
 ckptThreadPerformExit()
 {
+  JTRACE("User thread is performing exit(). Ckpt thread exit()ing as well");
+
   // Ideally, we would like to perform pthread_exit(), but we are in the middle
   // of process cleanup (due to the user thread's exit() call) and as a result,
   // the static objects are being destroyed.  A call to pthread_exit() also
@@ -430,13 +422,7 @@ DmtcpWorker::waitForSuspendMessage()
     return;
   }
 
-  if (ThreadSync::destroyDmtcpWorkerLockTryLock() != 0) {
-    JTRACE("User thread is performing exit()."
-           " ckpt thread exit()ing as well");
-    ckptThreadPerformExit();
-  }
   if (exitInProgress) {
-    ThreadSync::destroyDmtcpWorkerLockUnlock();
     ckptThreadPerformExit();
   }
 
@@ -447,7 +433,6 @@ DmtcpWorker::waitForSuspendMessage()
 
   // Before validating message; make sure we are not exiting.
   if (exitInProgress) {
-    JTRACE("User thread is performing exit(). ckpt thread exit()ing as well");
     ckptThreadPerformExit();
   }
 
@@ -508,10 +493,8 @@ DmtcpWorker::preCheckpoint()
   JTRACE("suspended");
 
   if (exitInProgress) {
-    ThreadSync::destroyDmtcpWorkerLockUnlock();
     ckptThreadPerformExit();
   }
-  ThreadSync::destroyDmtcpWorkerLockUnlock();
 
   ThreadSync::releaseLocks();
 

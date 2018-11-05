@@ -40,7 +40,6 @@ void initThread(Thread *th, int (*fn)(
                   void *), void *arg, int flags, int *ptid, int *ctid);
 void updateTid(Thread *);
 void resetOnFork();
-void killCkpthread();
 void threadExit();
 
 Thread *getNewThread();

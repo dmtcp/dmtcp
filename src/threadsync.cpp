@@ -69,7 +69,6 @@ static pthread_rwlock_t
 static bool _wrapperExecutionLockAcquiredByCkptThread = false;
 static bool _threadCreationLockAcquiredByCkptThread = false;
 
-static pthread_mutex_t destroyDmtcpWorkerLock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t theCkptCanStart = PTHREAD_MUTEX_INITIALIZER;
 static int ckptCanStartCount = 0;
 
@@ -208,9 +207,6 @@ ThreadSync::resetLocks()
   pthread_mutex_t newPreResumeThreadCountLock = PTHREAD_MUTEX_INITIALIZER;
   preResumeThreadCountLock = newPreResumeThreadCountLock;
 
-  pthread_mutex_t newDestroyDmtcpWorker = PTHREAD_MUTEX_INITIALIZER;
-  destroyDmtcpWorkerLock = newDestroyDmtcpWorker;
-
   pthread_mutex_t newLibdlLock = PTHREAD_MUTEX_INITIALIZER;
   libdlLock = newLibdlLock;
   libdlLockOwner = 0;
@@ -271,26 +267,6 @@ ThreadSync::unsetThreadPerformingDlopenDlsym()
   _threadPerformingDlopenDlsym = false;
 }
 #endif // if TRACK_DLOPEN_DLSYM_FOR_LOCKS
-
-void
-ThreadSync::destroyDmtcpWorkerLockLock()
-{
-  JASSERT(_real_pthread_mutex_lock(&destroyDmtcpWorkerLock) == 0)
-    (JASSERT_ERRNO);
-}
-
-int
-ThreadSync::destroyDmtcpWorkerLockTryLock()
-{
-  return _real_pthread_mutex_trylock(&destroyDmtcpWorkerLock);
-}
-
-void
-ThreadSync::destroyDmtcpWorkerLockUnlock()
-{
-  JASSERT(_real_pthread_mutex_unlock(&destroyDmtcpWorkerLock) == 0)
-    (JASSERT_ERRNO);
-}
 
 void
 ThreadSync::delayCheckpointsLock()

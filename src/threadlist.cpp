@@ -283,18 +283,6 @@ ThreadList::updateTid(Thread *th)
 
 /*************************************************************************
  *
- *  Send a signal to ckpt-thread to wake it up from select call and exit.
- *
- *************************************************************************/
-void
-ThreadList::killCkpthread()
-{
-  JTRACE("Kill checkpointhread") (ckptThread->tid);
-  THREAD_TGKILL(motherpid, ckptThread->tid, SigInfo::ckptSignal());
-}
-
-/*************************************************************************
- *
  *  Prepare MTCP Header
  *
  *************************************************************************/
@@ -555,11 +543,6 @@ resumeThreads()
 void
 stopthisthread(int signum)
 {
-  // If this is checkpoint thread, exit immediately
-  if (curThread == ckptThread) {
-    return;
-  }
-
   /* Possible state change scenarios:
    * 1. STOPSIGNAL received from ckpt-thread. In this case, the ckpt-thread
    * already changed the state to ST_SIGNALED. No need to check for locks.

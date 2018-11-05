@@ -47,8 +47,6 @@ namespace DmtcpWorker
   void setExitInProgress();
 
   bool isExitInProgress();
-
-  void interruptCkpthread();
 };
 }
 #endif // ifndef DMTCPDMTCPWORKER_H
