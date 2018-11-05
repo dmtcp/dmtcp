@@ -40,7 +40,6 @@ namespace DmtcpWorker
   void postRestart(double ckptReadTime = 0.0);
 
   void resetOnFork();
-  void cleanupWorker();
 
   int determineCkptSignal();
 

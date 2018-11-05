@@ -343,7 +343,7 @@ DmtcpWorker::resetOnFork()
 {
   exitInProgress = false;
 
-  cleanupWorker();
+  ThreadSync::resetLocks();
 
   WorkerState::setCurrentState(WorkerState::RUNNING);
 
@@ -352,15 +352,6 @@ DmtcpWorker::resetOnFork()
   // Some plugins might make calls that require wrapper locks, etc.
   // Therefore, it is better to call this hook after we reset all locks.
   PluginManager::eventHook(DMTCP_EVENT_ATFORK_CHILD, NULL);
-}
-
-void
-DmtcpWorker::cleanupWorker()
-{
-  ThreadSync::resetLocks();
-  WorkerState::setCurrentState(WorkerState::UNKNOWN);
-
-  JTRACE("disconnecting from dmtcp coordinator");
 }
 
 // called after user main() by user thread or during exit() processing.
@@ -374,7 +365,11 @@ dmtcp_finalize()
    */
   exitInProgress = true;
   PluginManager::eventHook(DMTCP_EVENT_EXIT, NULL);
-  DmtcpWorker::cleanupWorker();
+
+  ThreadSync::resetLocks();
+  WorkerState::setCurrentState(WorkerState::UNKNOWN);
+
+  JTRACE("Process exiting.");
 }
 
 bool DmtcpWorker::isExitInProgress()
