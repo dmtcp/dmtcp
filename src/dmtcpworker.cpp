@@ -459,10 +459,6 @@ DmtcpWorker::waitForSuspendMessage()
   }
 
   msg.assertValid();
-  if (msg.type == DMT_KILL_PEER) {
-    JTRACE("Received KILL message from coordinator, exiting");
-    _exit(0);
-  }
 
   JASSERT(msg.type == DMT_DO_SUSPEND) (msg.type);
 
@@ -488,10 +484,6 @@ DmtcpWorker::acknowledgeSuspendMsg()
   DmtcpMessage msg;
   CoordinatorAPI::recvMsgFromCoordinator(&msg);
   msg.assertValid();
-  if (msg.type == DMT_KILL_PEER) {
-    JTRACE("Received KILL message from coordinator, exiting");
-    _exit(0);
-  }
 
   JASSERT(msg.type == DMT_COMPUTATION_INFO) (msg.type);
   JTRACE("Computation information") (msg.compGroup) (msg.numPeers);

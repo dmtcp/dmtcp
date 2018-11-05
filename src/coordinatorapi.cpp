@@ -394,6 +394,15 @@ recvMsgFromCoordinatorRaw(int fd, DmtcpMessage *msg, void **extraData)
 
   // All is well, return the received message.
   *msg = tmpMsg;
+
+  // TODO(Kapil): Distinguish between DMT_KILL_PEER that arrives during
+  // checkpoint-phase (potentially due to a stuck computation that the user
+  // wants to kill) vs. normal runtime.
+  // TODO(Kapil): Consider generating an EXIT event for plugins.
+  if (msg->isValid() && msg->type == DMT_KILL_PEER) {
+    JTRACE("Received KILL message from coordinator, exiting");
+    _exit(0);
+  }
 }
 
 void sendMsgToCoordinator(DmtcpMessage msg, const void *extraData, size_t len)
@@ -423,10 +432,6 @@ void waitForBarrier(const string& barrierId)
   recvMsgFromCoordinator(&msg, (void**)&extraData);
 
   msg.assertValid();
-  if (msg.type == DMT_KILL_PEER) {
-    JTRACE("Received KILL message from coordinator, exiting");
-    _exit(0);
-  }
 
   JASSERT(msg.type == DMT_BARRIER_RELEASED) (msg.type);
   JASSERT(extraData != NULL);
@@ -558,10 +563,7 @@ sendRecvHandshake(int fd,
 
   recvMsgFromCoordinatorRaw(fd, &msg);
   msg.assertValid();
-  if (msg.type == DMT_KILL_PEER) {
-    JTRACE("Received KILL message from coordinator, exiting");
-    _real_exit(0);
-  }
+
   if (msg.type == DMT_REJECT_NOT_RUNNING) {
     JASSERT(false)
     .Text("Connection rejected by the coordinator.\n"
