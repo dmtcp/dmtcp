@@ -354,8 +354,19 @@ DmtcpWorker::resetOnFork()
   PluginManager::eventHook(DMTCP_EVENT_ATFORK_CHILD, NULL);
 }
 
-// called after user main() by user thread or during exit() processing.
-void __attribute__((destructor))
+// Called after user main() by user thread or during exit() processing.
+// With a high priority, we are hoping to be called first. This would allow us
+// to set the exitInProgress flag for the ckpt thread to process later on.
+// There is a potential race here. If the ckpt-thread suspends the user thread
+// after the user thread has called exit() but before it is able to set
+// `exitInProgress` to true, the ckpt thread will go about business as usual.
+// This could be problematic if the exit() handlers had destroyed some
+// resources.
+// A potential solution is to not rely on user-destroyable resources. That way,
+// we would have everything we need in order to perform a checkpoint. On
+// restart, the process will then continue through the rest of the exit
+// process.
+void __attribute__((destructor(65535)))
 dmtcp_finalize()
 {
   /* If the destructor was called, we know that we are exiting
