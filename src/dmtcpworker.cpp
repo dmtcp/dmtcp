@@ -414,10 +414,6 @@ DmtcpWorker::waitForSuspendMessage()
     return;
   }
 
-  if (exitInProgress) {
-    ckptThreadPerformExit();
-  }
-
   JTRACE("waiting for SUSPEND message");
 
   DmtcpMessage msg;
@@ -486,6 +482,8 @@ DmtcpWorker::preCheckpoint()
   ThreadSync::releaseLocks();
 
   if (exitInProgress) {
+    // There is no reason to continue checkpointing this process as it would
+    // simply die right after resume/restore.
     // Release user threads from ckpt signal handler.
     ThreadList::resumeThreads();
     ckptThreadPerformExit();
