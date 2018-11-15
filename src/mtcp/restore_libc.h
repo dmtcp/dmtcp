@@ -49,15 +49,16 @@ extern "C" {
     /* In some cases, the user stack may be very small (less than 10KB). */  \
     /* We will overrun the buffer with just two extra stack frames. */       \
     char buf[256];                                                           \
-    int c = snprintf(buf, sizeof(buf) - 1, "[%d] %s:%d in %s; REASON= " fmt, \
+    int c = snprintf(buf, sizeof(buf), "[%d] %s:%d in %s; REASON= " fmt,     \
                      getpid(), __FILE__, __LINE__, __FUNCTION__,             \
                      ## __VA_ARGS__);                                        \
-    if (c == sizeof(buf) - 1) {                                              \
-      buf[c] = '\n';                                                         \
+    if (c >= sizeof(buf)) {                                                  \
+      c = sizeof(buf)-1;                                                     \
     }                                                                        \
+    buf[c] = '\n'; /* c is number of chars written (excl. null char.) */     \
     /* assign to rc in order to avoid 'unused result' compiler warnings */   \
     ssize_t rc __attribute__((unused));                                      \
-    rc = write(PROTECTED_STDERR_FD, buf, c + 1);                             \
+    rc = write(PROTECTED_STDERR_FD, buf, c+1);                               \
   } while (0);
 
 #ifdef LOGGING
