@@ -173,11 +173,14 @@ bool jalib::JSocket::connect ( const  struct  sockaddr  *addr,
                                socklen_t addrlen, int port )
 {
   struct sockaddr_storage addrbuf;
-  memset ( &addrbuf,0,sizeof ( addrbuf ) );
-  JASSERT ( addrlen <= sizeof ( addrbuf ) ) ( addrlen ) ( sizeof ( addrbuf ) );
-  memcpy ( &addrbuf,addr,addrlen );
-  JWARNING ( addrlen == sizeof ( sockaddr_in ) ) ( addrlen )
-          ( sizeof ( sockaddr_in ) ).Text ( "may not be correct socket type" );
+
+  memset(&addrbuf, 0, sizeof(addrbuf));
+  JASSERT(addrlen <= sizeof(addrbuf)) (addrlen) (sizeof(addrbuf));
+  // if condition needed to stop gcc-7.x warning: -Wstringop-overflow=
+  if (addrlen <= sizeof(addrbuf))
+    memcpy ( &addrbuf, addr, addrlen );
+  JWARNING(addrlen == sizeof(sockaddr_in)) (addrlen)
+          (sizeof(sockaddr_in)).Text("may not be correct socket type");
   if (port != -1) {
     ( (sockaddr_in*)&addrbuf )->sin_port = htons ( port );
   }
