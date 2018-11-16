@@ -184,7 +184,9 @@ jalib::JSocket::connect(const struct  sockaddr *addr,
 
   memset(&addrbuf, 0, sizeof(addrbuf));
   JASSERT(addrlen <= sizeof(addrbuf)) (addrlen) (sizeof(addrbuf));
-  memcpy(&addrbuf, addr, addrlen);
+  // if condition needed to stop gcc-7.x warning: -Wstringop-overflow=
+  if (addrlen <= sizeof(addrbuf))
+    memcpy ( &addrbuf, addr, addrlen );
   JWARNING(addrlen == sizeof(sockaddr_in)) (addrlen)
     (sizeof(sockaddr_in)).Text("may not be correct socket type");
   if (port != -1) {
