@@ -85,9 +85,17 @@ dmtcp_setup_trampoline_by_addr(void *addr,
 
   /* Base address of page where func resides. */
   page_base = (void *)((unsigned long)info->addr & pagemask);
+  int pagecount = 1;
 
+  /* Increase the pagecount if number of bytes that needs to be written
+   * for the trampoline happens to fall in the next page.
+   */
+  if (((unsigned long)page_base + pagesize) - (unsigned long)info->addr
+        < ASM_JUMP_LEN) {
+    pagecount += 1;
+  }
   /* Give that whole page RWX permissions. */
-  int retval = mprotect(page_base, pagesize,
+  int retval = mprotect(page_base, pagecount * pagesize,
                         PROT_READ | PROT_WRITE | PROT_EXEC);
   if (retval == -1) {
     fprintf(stderr, "*** %s:%d DMTCP Internal Error: mprotect() failed.\n",
