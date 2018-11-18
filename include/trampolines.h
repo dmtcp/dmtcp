@@ -77,14 +77,6 @@ dmtcp_setup_trampoline_by_addr(void *addr,
                                void *trampoline_fn,
                                trampoline_info_t *info)
 {
-  /* Trick to get "free" conversion of a long value to the
-     character-array representation of that value. Different sizes of
-     long and endian-ness are handled automatically. */
-  union u {
-    void *val;
-    char bytes[sizeof(void *)];
-  } data;
-
   unsigned long pagesize = sysconf(_SC_PAGESIZE);
   unsigned long pagemask = ~(pagesize - 1);
   void *page_base;
@@ -95,11 +87,11 @@ dmtcp_setup_trampoline_by_addr(void *addr,
   page_base = (void *)((unsigned long)info->addr & pagemask);
   int pagecount = 1;
 
-  /* Increase the pagecount if number of bytes needs to be wriiten
-   * to set a trampoline falls in the next page.
+  /* Increase the pagecount if number of bytes that needs to be written
+   * for the trampoline happens to fall in the next page.
    */
   if (((unsigned long)page_base + pagesize) - (unsigned long)info->addr
-        < sizeof(data.bytes)) {
+        < ASM_JUMP_LEN) {
     pagecount += 1;
   }
   /* Give that whole page RWX permissions. */
@@ -112,6 +104,14 @@ dmtcp_setup_trampoline_by_addr(void *addr,
   }
 
   /************ Set up trampoline injection code. ***********/
+
+  /* Trick to get "free" conversion of a long value to the
+     character-array representation of that value. Different sizes of
+     long and endian-ness are handled automatically. */
+  union u {
+    void *val;
+    char bytes[sizeof(void *)];
+  } data;
 
   data.val = trampoline_fn;
   memcpy(info->jump, asm_jump, ASM_JUMP_LEN);
