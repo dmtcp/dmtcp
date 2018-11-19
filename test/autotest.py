@@ -1008,7 +1008,7 @@ if HAS_SCRIPT == "yes":
 # Maybe this will work after new pty plugin PR is added.
 #   Review whether to include this test then, and make depend on HAS_RECENT_PTY
 #   that will be set in 'configure'.
-SCREEN_TEST_WORKS = False
+SCREEN_TEST_WORKS = True
 if HAS_SCREEN == "yes" and SCREEN_TEST_WORKS:
   S=3*DEFAULT_S
   if sys.version_info[0:2] >= (2,6):

@@ -5,4 +5,4 @@ language: cpp
 compiler:
   - gcc
 
-script: ./configure && make -j4 && make tests && ./test/autotest.py --retry-once
+script: ./configure && make -j4 && make tests && mkdir -p $HOME/.screen; chmod 700 $HOME/.screen; export SCREENDIR=$HOME/.screen; ./test/autotest.py --retry-once

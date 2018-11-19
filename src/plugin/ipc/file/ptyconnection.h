@@ -27,8 +27,11 @@
 
 #include <sys/stat.h>
 #include <sys/types.h>
-
+#include <termios.h>
+#include <unistd.h>
 #include "connection.h"
+
+#define PTY_KERNEL_BUF_LEN  4*1024
 
 namespace dmtcp
 {
@@ -56,6 +59,7 @@ class PtyConnection : public Connection
     string virtPtsName() { return _virtPtsName;  }
 
     void markPreExistingCTTY() { _preExistingCTTY = true; }
+    void markPreExistingPCTTY() { _preExistingPCTTY = true; }
 
     virtual void doLocking();
     virtual void drain();
@@ -75,6 +79,12 @@ class PtyConnection : public Connection
     char _ptmxIsPacketMode;
     char _isControllingTTY;
     char _preExistingCTTY;
+    char _preExistingPCTTY;
+    struct termios _termios_p;
+    int masterDataSize;
+    int slaveDataSize;
+    char _buf[PTY_KERNEL_BUF_LEN];
+    char _slave_buf[PTY_KERNEL_BUF_LEN];
 };
 }
 #endif // ifndef PTYCONNECTION_H
