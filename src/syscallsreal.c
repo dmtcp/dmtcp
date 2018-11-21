@@ -309,8 +309,6 @@ dmtcp_prepare_wrappers(void)
   }
 }
 
-void dmtcp_initialize();
-
 //////////////////////////
 //// FIRST DEFINE REAL VERSIONS OF NEEDED FUNCTIONS
 
@@ -319,7 +317,7 @@ void dmtcp_initialize();
 #define REAL_FUNC_PASSTHROUGH_WORK(name)                                      \
   if (fn == NULL) {                                                           \
     if (_real_func_addr[ENUM(name)] == NULL) {                                \
-      dmtcp_initialize();                                                     \
+      dmtcp_prepare_wrappers();                                               \
     }                                                                         \
     fn = _real_func_addr[ENUM(name)];                                         \
     if (fn == NULL) {                                                         \
