@@ -275,11 +275,9 @@ dmtcp_initialize()
   static bool initialized = false;
 
   if (initialized) {
-    // To force linkage of jbuffer.cpp
-    static jalib::JBuffer *buf = new jalib::JBuffer(0);
-
     return;
   }
+
   initialized = true;
 
   WorkerState::setCurrentState(WorkerState::UNKNOWN);
