@@ -23,6 +23,7 @@
 
 #include "coordinatorapi.h"
 #include "dmtcp.h"
+#include "dmtcp_dlsym.h"
 #include "dmtcpworker.h"
 #include "processinfo.h"
 #include "shareddata.h"
@@ -432,6 +433,10 @@ typedef void * (*dlsym_fnptr_t) (void *handle, const char *symbol);
 EXTERNC void *
 dmtcp_get_libc_dlsym_addr(void)
 {
+#ifndef USE_LIBC_DLSYM
+  return (void*) &dmtcp_dlsym;
+#else
+
   static dlsym_fnptr_t _libc_dlsym_fnptr = NULL;
 
 #ifndef CONFIG_M32
@@ -458,6 +463,7 @@ dmtcp_get_libc_dlsym_addr(void)
   }
 
   return (void *)_libc_dlsym_fnptr;
+#endif
 }
 
 EXTERNC void
