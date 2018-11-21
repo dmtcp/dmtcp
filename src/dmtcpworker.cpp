@@ -267,10 +267,16 @@ installSegFaultHandler()
   JASSERT(sigaction(SIGSEGV, &act, NULL) == 0) (JASSERT_ERRNO);
 }
 
-// called before user main()
-// workerhijack.cpp initializes a static variable theInstance to DmtcpWorker obj
-extern "C" void __attribute__((constructor(101)))
+// Initialize wrappers, etc.
+extern "C" void
 dmtcp_initialize()
+{
+  dmtcp_prepare_wrappers();
+}
+
+// Initialize remaining components.
+static void __attribute__((constructor(101)))
+dmtcp_initialize_entry_point()
 {
   static bool initialized = false;
 
@@ -280,8 +286,7 @@ dmtcp_initialize()
 
   initialized = true;
 
-  WorkerState::setCurrentState(WorkerState::UNKNOWN);
-  dmtcp_prepare_wrappers();
+  dmtcp_initialize();
 
   initializeJalib();
   dmtcp_prepare_atfork();
