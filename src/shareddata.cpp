@@ -138,7 +138,8 @@ SharedData::initialize(const char *tmpDir = NULL,
     ostringstream o;
     o << tmpDir << "/dmtcpSharedArea."
       << *compId << "." << std::hex << coordInfo->timeStamp;
-    // THIS IS A DUP OF initializeHeader AND OF size, below; Pass this in as an argument to it.
+    // THIS IS A DUP OF initializeHeader AND OF size, below; Pass this in as
+    // an argument to it.
     off_t size = CEIL(SHM_MAX_SIZE, Util::pageSize());
 
     int fd = _real_open(o.str().c_str(), O_RDWR | O_CREAT | O_EXCL, 0600);
@@ -153,7 +154,8 @@ SharedData::initialize(const char *tmpDir = NULL,
         ("Internal error detected! Shared data area already exists.");
       fd = _real_open(o.str().c_str(), O_RDWR, 0600);
     } else {
-      JASSERT( truncate(o.str().c_str(), size) == 0); // extend file to size before 'mmap'
+      // Extend file to size before 'mmap'
+      JASSERT( truncate(o.str().c_str(), size) == 0);
       needToInitialize = true;
     }
     JASSERT(fd != -1) (JASSERT_ERRNO);
@@ -182,10 +184,17 @@ SharedData::initialize(const char *tmpDir = NULL,
   } else {
     struct stat statbuf;
     while (1) {
+      bool initialized = false;
       Util::lockFile(PROTECTED_SHM_FD);
       JASSERT(fstat(PROTECTED_SHM_FD, &statbuf) != -1) (JASSERT_ERRNO);
+      initialized = sharedDataHeader->initialized;
       Util::unlockFile(PROTECTED_SHM_FD);
-      if (statbuf.st_size > 0) {
+      // If we got here, it implies that some other peer won the race
+      // and is initializing the shared data area header. So, we wait
+      // for the peer to complete its work of initializing the shared
+      // data area. Perhaps we should replace this with a SysV
+      // semaphore/condition variable?
+      if (statbuf.st_size > 0 && initialized) {
         break;
       }
       struct timespec sleepTime = { 0, 100 * 1000 * 1000 };
