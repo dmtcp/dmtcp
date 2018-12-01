@@ -126,7 +126,7 @@ void SharedData::initialize(const char *tmpDir = NULL,
     if (fd == -1 && errno == EEXIST) {
       fd = _real_open(o.str().c_str(), O_RDWR, 0600);
     } else {
-      // extend file to size before 'mmap'
+      // Extend file to size before 'mmap'
       JASSERT( truncate(o.str().c_str(), size) == 0);
       needToInitialize = true;
     }
@@ -156,10 +156,23 @@ void SharedData::initialize(const char *tmpDir = NULL,
   } else {
     struct stat statbuf;
     while (1) {
+      bool initialized = false;
       Util::lockFile(PROTECTED_SHM_FD);
       JASSERT(fstat(PROTECTED_SHM_FD, &statbuf) != -1) (JASSERT_ERRNO);
+      initialized = sharedDataHeader->initialized;
       Util::unlockFile(PROTECTED_SHM_FD);
-      if (statbuf.st_size > 0) {
+      // If we got here, it implies that needtoinitialize was false, and
+      // so some other peer won the race and is initializing the shared data
+      // area header. The peer will set initialized last.  If initialized
+      // is true, then we're ready to go.  If initialized is false,
+      // then we will sleep a little longer and then test again inside the
+      // while loop to see if the peer has now set 'initialized'.  As a
+      // performance optimization, we could use a SysV // semaphore/condition
+      // variable, instead of sleeping and re-trying inside the loop.
+      // NOTE:  This code is correct under total store order or seq. consist.
+      //   But the relaxed consstency model, partial store order, ouuld create a
+      //   theoretically possible bug if initialized does not reach memory last.
+      if (statbuf.st_size > 0 && initialized) {
         break;
       }
       struct timespec sleepTime = {0, 100*1000*1000};
