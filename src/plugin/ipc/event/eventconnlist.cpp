@@ -46,6 +46,23 @@ dmtcp_EventConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
   }
 }
 
+
+DmtcpPluginDescriptor_t eventPlugin = {
+  DMTCP_PLUGIN_API_VERSION,
+  PACKAGE_VERSION,
+  "event",
+  "DMTCP",
+  "dmtcp@ccs.neu.edu",
+  "Event plugin",
+  dmtcp_EventConnList_EventHook
+};
+
+void
+ipc_initialize_plugin_event()
+{
+  dmtcp_register_plugin(eventPlugin);
+}
+
 void
 dmtcp_EventConn_ProcessFdEvent(int event, int arg1, int arg2)
 {

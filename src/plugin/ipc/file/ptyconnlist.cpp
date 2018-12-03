@@ -60,6 +60,23 @@ dmtcp_PtyConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
   }
 }
 
+
+DmtcpPluginDescriptor_t ptyPlugin = {
+  DMTCP_PLUGIN_API_VERSION,
+  PACKAGE_VERSION,
+  "pty",
+  "DMTCP",
+  "dmtcp@ccs.neu.edu",
+  "PTY plugin",
+  dmtcp_PtyConnList_EventHook
+};
+
+void
+ipc_initialize_plugin_pty()
+{
+  dmtcp_register_plugin(ptyPlugin);
+}
+
 void
 dmtcp_PtyConn_ProcessFdEvent(int event, int arg1, int arg2)
 {

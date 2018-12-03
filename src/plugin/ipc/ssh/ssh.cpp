@@ -68,6 +68,22 @@ dmtcp_SSH_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 }
 
 
+DmtcpPluginDescriptor_t sshPlugin = {
+  DMTCP_PLUGIN_API_VERSION,
+  DMTCP_PACKAGE_VERSION,
+  "ssh",
+  "DMTCP",
+  "dmtcp@ccs.neu.edu",
+  "SSH plugin",
+  dmtcp_SSH_EventHook
+};
+
+void
+ipc_initialize_plugin_ssh()
+{
+  dmtcp_register_plugin(sshPlugin);
+}
+
 void
 dmtcp_ssh_drain()
 {
