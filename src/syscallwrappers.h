@@ -110,18 +110,7 @@ extern int dmtcp_wrappers_initializing;
 
 LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
 
-#define FOREACH_GLIBC_MALLOC_FAMILY_WRAPPERS(MACRO) \
-  MACRO(calloc)                                     \
-  MACRO(malloc)                                     \
-  MACRO(free)                                       \
-  MACRO(__libc_memalign)                            \
-  MACRO(realloc)                                    \
-  MACRO(mmap)                                       \
-  MACRO(mmap64)                                     \
-  MACRO(mremap)                                     \
-  MACRO(munmap)
-
-#define FOREACH_GLIBC_WRAPPERS(MACRO) \
+#define FOREACH_DMTCP_WRAPPER(MACRO)  \
   MACRO(dlopen)                       \
   MACRO(dlclose)                      \
   MACRO(getpid)                       \
@@ -256,10 +245,6 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   MACRO(pthread_timedjoin_np)         \
   MACRO(pthread_sigmask)              \
   MACRO(pthread_getspecific)
-
-#define FOREACH_DMTCP_WRAPPER(MACRO) \
-  FOREACH_GLIBC_WRAPPERS(MACRO)      \
-  FOREACH_GLIBC_MALLOC_FAMILY_WRAPPERS(MACRO)
 
 #define ENUM(x)     enum_ ## x
 #define GEN_ENUM(x) ENUM(x),
@@ -414,37 +399,6 @@ void *_real_dlsym(void *handle, const char *symbol);
 
 void *_real_dlopen(const char *filename, int flag);
 int _real_dlclose(void *handle);
-
-void *_real_calloc(size_t nmemb, size_t size);
-void *_real_malloc(size_t size);
-void _real_free(void *ptr);
-void *_real_realloc(void *ptr, size_t size);
-void *_real_libc_memalign(size_t boundary, size_t size);
-void *_real_mmap(void *addr,
-                 size_t length,
-                 int prot,
-                 int flags,
-                 int fd,
-                 off_t offset);
-void *_real_mmap64(void *addr,
-                   size_t length,
-                   int prot,
-                   int flags,
-                   int fd,
-                   __off64_t offset);
-#if __GLIBC_PREREQ(2, 4)
-void *_real_mremap(void *old_address,
-                   size_t old_size,
-                   size_t new_size,
-                   int flags,
-                   ... /* void *new_address */);
-#else // if __GLIBC_PREREQ(2, 4)
-void *_real_mremap(void *old_address,
-                   size_t old_size,
-                   size_t new_size,
-                   int flags);
-#endif // if __GLIBC_PREREQ(2, 4)
-int _real_munmap(void *addr, size_t length);
 
 ssize_t _real_read(int fd, void *buf, size_t count);
 ssize_t _real_write(int fd, const void *buf, size_t count);

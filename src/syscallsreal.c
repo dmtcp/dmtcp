@@ -1097,63 +1097,6 @@ _real_mq_timedsend(mqd_t mqdes,
 }
 
 LIB_PRIVATE
-void *
-_real_mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset)
-{
-  REAL_FUNC_PASSTHROUGH_TYPED(void *, mmap) (addr, length, prot, flags, fd,
-                                             offset);
-}
-
-LIB_PRIVATE
-void *
-_real_mmap64(void *addr,
-             size_t length,
-             int prot,
-             int flags,
-             int fd,
-             __off64_t offset)
-{
-  REAL_FUNC_PASSTHROUGH_TYPED(void *, mmap64) (addr, length, prot, flags, fd,
-                                               offset);
-}
-
-#if __GLIBC_PREREQ(2, 4)
-LIB_PRIVATE
-void *
-_real_mremap(void *old_address, size_t old_size, size_t new_size, int flags,
-             ... /* void *new_address*/)
-{
-  if (flags == MREMAP_FIXED) {
-    va_list ap;
-    va_start(ap, flags);
-    void *new_address = va_arg(ap, void *);
-    va_end(ap);
-    REAL_FUNC_PASSTHROUGH_TYPED(void *, mremap)
-      (old_address, old_size, new_size, flags, new_address);
-  } else {
-    REAL_FUNC_PASSTHROUGH_TYPED(void *, mremap)
-      (old_address, old_size, new_size, flags);
-  }
-}
-
-#else /* if __GLIBC_PREREQ(2, 4) */
-LIB_PRIVATE
-void *
-_real_mremap(void *old_address, size_t old_size, size_t new_size, int flags)
-{
-  REAL_FUNC_PASSTHROUGH_TYPED(void *, mremap)
-    (old_address, old_size, new_size, flags);
-}
-#endif /* if __GLIBC_PREREQ(2, 4) */
-
-LIB_PRIVATE
-int
-_real_munmap(void *addr, size_t length)
-{
-  REAL_FUNC_PASSTHROUGH_TYPED(int, munmap) (addr, length);
-}
-
-LIB_PRIVATE
 int
 _real_poll(struct pollfd *fds, nfds_t nfds, int timeout)
 {

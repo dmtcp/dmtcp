@@ -392,21 +392,6 @@ _real_ioctl(int d, unsigned long int request, ...)
   REAL_FUNC_PASSTHROUGH_TYPED(int, ioctl) (d, request, arg);
 }
 
-LIB_PRIVATE
-void *
-_real_mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset)
-{
-  REAL_FUNC_PASSTHROUGH_TYPED(void *, mmap) (addr, length, prot, flags, fd,
-                                             offset);
-}
-
-LIB_PRIVATE
-int
-_real_munmap(void *addr, size_t length)
-{
-  REAL_FUNC_PASSTHROUGH_TYPED(int, munmap) (addr, length);
-}
-
 // Needed for _real_gettid, etc.
 long
 _real_syscall(long sys_num, ...)
