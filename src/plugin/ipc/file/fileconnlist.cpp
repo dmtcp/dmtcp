@@ -125,6 +125,23 @@ dmtcp_FileConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
   }
 }
 
+
+DmtcpPluginDescriptor_t filePlugin = {
+  DMTCP_PLUGIN_API_VERSION,
+  PACKAGE_VERSION,
+  "file",
+  "DMTCP",
+  "dmtcp@ccs.neu.edu",
+  "File plugin",
+  dmtcp_FileConnList_EventHook
+};
+
+void
+ipc_initialize_plugin_file()
+{
+  dmtcp_register_plugin(filePlugin);
+}
+
 static vector<ProcMapsArea>shmAreas;
 static vector<ProcMapsArea>unlinkedShmAreas;
 static vector<ProcMapsArea>missingUnlinkedShmFiles;
