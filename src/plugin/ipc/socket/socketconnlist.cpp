@@ -11,6 +11,7 @@
 #include "util.h"
 
 using namespace dmtcp;
+
 static bool _hasIPv4Sock = false;
 static bool _hasIPv6Sock = false;
 static bool _hasUNIXSock = false;
@@ -66,6 +67,21 @@ dmtcp_SocketConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
   }
 }
 
+DmtcpPluginDescriptor_t socketPlugin = {
+  DMTCP_PLUGIN_API_VERSION,
+  PACKAGE_VERSION,
+  "socket",
+  "DMTCP",
+  "dmtcp@ccs.neu.edu",
+  "Socket plugin",
+  dmtcp_SocketConnList_EventHook
+};
+
+void
+ipc_initialize_plugin_socket()
+{
+  dmtcp_register_plugin(socketPlugin);
+}
 
 void
 dmtcp_SocketConn_ProcessFdEvent(int event, int arg1, int arg2)

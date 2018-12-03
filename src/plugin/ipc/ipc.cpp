@@ -30,72 +30,23 @@
 
 #include "event/eventconnlist.h"
 #include "file/fileconnlist.h"
+#include "file/filewrappers.h"
 #include "file/ptyconnlist.h"
 #include "socket/socketconnlist.h"
 #include "ssh/ssh.h"
 
 using namespace dmtcp;
 
-void dmtcp_SSH_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
-void dmtcp_FileConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
-void dmtcp_PtyConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
-void dmtcp_SocketConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
-void dmtcp_EventConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
+void ipc_initialize_plugin_socket();
+void ipc_initialize_plugin_file();
+void ipc_initialize_plugin_pty();
+void ipc_initialize_plugin_event();
+void ipc_initialize_plugin_ssh();
 
 void dmtcp_FileConn_ProcessFdEvent(int event, int arg1, int arg2);
 void dmtcp_PtyConn_ProcessFdEvent(int event, int arg1, int arg2);
 void dmtcp_SocketConn_ProcessFdEvent(int event, int arg1, int arg2);
 void dmtcp_EventConn_ProcessFdEvent(int event, int arg1, int arg2);
-
-DmtcpPluginDescriptor_t sshPlugin = {
-  DMTCP_PLUGIN_API_VERSION,
-  PACKAGE_VERSION,
-  "ssh",
-  "DMTCP",
-  "dmtcp@ccs.neu.edu",
-  "SSH plugin",
-  dmtcp_SSH_EventHook
-};
-
-DmtcpPluginDescriptor_t filePlugin = {
-  DMTCP_PLUGIN_API_VERSION,
-  PACKAGE_VERSION,
-  "file",
-  "DMTCP",
-  "dmtcp@ccs.neu.edu",
-  "File plugin",
-  dmtcp_FileConnList_EventHook
-};
-
-DmtcpPluginDescriptor_t ptyPlugin = {
-  DMTCP_PLUGIN_API_VERSION,
-  PACKAGE_VERSION,
-  "pty",
-  "DMTCP",
-  "dmtcp@ccs.neu.edu",
-  "PTY plugin",
-  dmtcp_PtyConnList_EventHook
-};
-
-DmtcpPluginDescriptor_t socketPlugin = {
-  DMTCP_PLUGIN_API_VERSION,
-  PACKAGE_VERSION,
-  "socket",
-  "DMTCP",
-  "dmtcp@ccs.neu.edu",
-  "Socket plugin",
-  dmtcp_SocketConnList_EventHook
-};
-
-DmtcpPluginDescriptor_t eventPlugin = {
-  DMTCP_PLUGIN_API_VERSION,
-  PACKAGE_VERSION,
-  "event",
-  "DMTCP",
-  "dmtcp@ccs.neu.edu",
-  "Event plugin",
-  dmtcp_EventConnList_EventHook
-};
 
 EXTERNC void
 dmtcp_initialize_plugin()
@@ -111,11 +62,12 @@ dmtcp_initialize_plugin()
    *    relies on the out-of-band socket to be restored in order to determine
    *    the current network address of the remote ssh-child.
    */
-  dmtcp_register_plugin(sshPlugin);
-  dmtcp_register_plugin(eventPlugin);
-  dmtcp_register_plugin(filePlugin);
-  dmtcp_register_plugin(ptyPlugin);
-  dmtcp_register_plugin(socketPlugin);
+
+  ipc_initialize_plugin_ssh();
+  ipc_initialize_plugin_event();
+  ipc_initialize_plugin_file();
+  ipc_initialize_plugin_pty();
+  ipc_initialize_plugin_socket();
 
   void (*fn)() = NEXT_FNC(dmtcp_initialize_plugin);
   if (fn != NULL) {
