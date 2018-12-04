@@ -35,7 +35,6 @@
 #include <dlfcn.h>
 #include <fcntl.h>
 #include <malloc.h>
-#include <poll.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -349,31 +348,6 @@ int
 _real_dlclose(void *handle)
 {
   REAL_FUNC_PASSTHROUGH_TYPED(int, dlclose) (handle);
-}
-
-LIB_PRIVATE
-ssize_t
-_real_read(int fd, void *buf, size_t count)
-{
-  REAL_FUNC_PASSTHROUGH(read) (fd, buf, count);
-}
-
-LIB_PRIVATE
-ssize_t
-_real_write(int fd, const void *buf, size_t count)
-{
-  REAL_FUNC_PASSTHROUGH_TYPED(ssize_t, write) (fd, buf, count);
-}
-
-LIB_PRIVATE
-int
-_real_select(int nfds,
-             fd_set *readfds,
-             fd_set *writefds,
-             fd_set *exceptfds,
-             struct timeval *timeout)
-{
-  REAL_FUNC_PASSTHROUGH(select) (nfds, readfds, writefds, exceptfds, timeout);
 }
 
 LIB_PRIVATE
@@ -1094,11 +1068,4 @@ _real_mq_timedsend(mqd_t mqdes,
 {
   REAL_FUNC_PASSTHROUGH(mq_timedsend) (mqdes, msg_ptr, msg_len, msg_prio,
                                        abs_timeout);
-}
-
-LIB_PRIVATE
-int
-_real_poll(struct pollfd *fds, nfds_t nfds, int timeout)
-{
-  REAL_FUNC_PASSTHROUGH(poll) (fds, nfds, timeout);
 }
