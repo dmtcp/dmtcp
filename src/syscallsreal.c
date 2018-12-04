@@ -47,7 +47,6 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include "constants.h"
-#include "dmtcp_dlsym.h"
 #include "syscallwrappers.h"
 #include "trampolines.h"
 

@@ -35,7 +35,6 @@
 #include "../jalib/jfilesystem.h"
 #include "constants.h"
 #include "coordinatorapi.h"
-#include "dmtcp_dlsym.h"
 #include "processinfo.h"
 #include "shareddata.h"
 #include "uniquepid.h"

@@ -30,8 +30,8 @@
 #include <stdlib.h>
 #include <sys/syscall.h>
 #include <unistd.h>
+#include "dmtcp.h"
 #include "pidwrappers.h"
-#include "dmtcp_dlsym.h"
 
 #include "config.h"  // for HAS_CMA
 

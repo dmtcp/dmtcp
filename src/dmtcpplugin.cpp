@@ -23,7 +23,6 @@
 
 #include "coordinatorapi.h"
 #include "dmtcp.h"
-#include "dmtcp_dlsym.h"
 #include "dmtcpworker.h"
 #include "processinfo.h"
 #include "shareddata.h"

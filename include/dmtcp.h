@@ -16,6 +16,7 @@
 #define DMTCP_H
 
 #include <netinet/ip.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -243,12 +244,12 @@ EXTERNC int dmtcp_send_query_to_coordinator(const char *id,
  *  - val_len, which is the max. length in bytes for the unique id
  *    (e.g., 2 bytes for a lid).
  */
-EXTERNC int dmtcp_get_unique_id_from_coordinator(const char *id,    // DB name
-                                                 const void *key,   // Key: can be hostid, pid, etc.
-                                                 uint32_t key_len,  // Length of the key
-                                                 void *val,         // Result
-                                                 uint32_t offset,   // unique id offset
-                                                 uint32_t val_len); // Expected value length
+EXTERNC int dmtcp_get_unique_id_from_coordinator(const char *id,
+                                                 const void *key,
+                                                 uint32_t key_len,
+                                                 void *val,
+                                                 uint32_t offset,
+                                                 uint32_t val_len);
 
 /*
  * This function can be used to query all mappings in the given nameservice
@@ -435,6 +436,17 @@ EXTERNC void dmtcp_plugin_enable_ckpt(void);
   if (__dmtcp_plugin_ckpt_disabled) dmtcp_plugin_enable_ckpt()
 
 
+EXTERNC void *dmtcp_dlsym(void *handle, const char *symbol);
+EXTERNC void *dmtcp_dlvsym(void *handle, char *symbol, const char *version);
+EXTERNC void *dmtcp_dlsym_lib(const char *libname, const char *symbol);
+
+/*
+ * Returns the offset of the given function within the given shared library
+ * or -1 if the function does not exist in the library
+ */
+EXTERNC ptrdiff_t dmtcp_dlsym_lib_fnc_offset(const char *libname,
+                                             const char *symbol);
+
 #define NEXT_FNC(func)                                                       \
   ({                                                                         \
     static __typeof__(&func)_real_ ## func = (__typeof__(&func)) - 1;        \
@@ -448,6 +460,44 @@ EXTERNC void dmtcp_plugin_enable_ckpt(void);
     }                                                                        \
     _real_ ## func;                                                          \
   })
+
+/*
+ * It uses dmtcp_dlvsym to get the function with the specified version in the
+ * next library in the library-search order.
+ */
+# define NEXT_FNC_V(func, ver)                                                 \
+  ({                                                                           \
+    static __typeof__(&func) _real_##func = (__typeof__(&func)) -1;            \
+    if (_real_##func == (__typeof__(&func)) -1) {                              \
+      if (dmtcp_initialize) {                                                  \
+        dmtcp_initialize();                                                    \
+      }                                                                        \
+      _real_##func = (__typeof__(&func)) dmtcp_dlvsym(RTLD_NEXT, #func, ver);  \
+    }                                                                          \
+    _real_##func;                                                              \
+  })
+
+/*
+ * It uses dmtcp_dlsym to get the default function (in case of symbol
+ * versioning) in the library with the given name.
+ *
+ * One possible usecase could be for bypassing the plugin layers and directly
+ * jumping to a symbol in libc.
+ */
+# define NEXT_FNC_DEFAULT_LIB(lib, func)                                       \
+  ({                                                                           \
+    static __typeof__(&func) _real_##func = (__typeof__(&func)) -1;            \
+    if (_real_##func == (__typeof__(&func)) -1) {                              \
+      if (dmtcp_initialize) {                                                  \
+        dmtcp_initialize();                                                    \
+      }                                                                        \
+      _real_##func = (__typeof__(&func)) dmtcp_dlsym_lib(lib,  #func);         \
+    }                                                                          \
+    _real_##func;                                                              \
+  })
+
+// TODO: Remove this legacy code.
+# define NEXT_FNC_DEFAULT NEXT_FNC
 
 // ===================================================================
 // DMTCP utilities

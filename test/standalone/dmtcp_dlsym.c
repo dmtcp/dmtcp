@@ -24,7 +24,6 @@
 #include <stdio.h>
 
 #include "dmtcp.h"
-#include "dmtcp_dlsym.h"
 
 // Compile using:
 //   g++ -I../../include ../../src/dmtcp_dlsym.cpp dmtcp_dlsym.c -ldl
