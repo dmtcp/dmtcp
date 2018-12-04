@@ -467,7 +467,7 @@ int
 _real_pthread_cond_broadcast(pthread_cond_t *cond)
 {
 #if __aarch64__
-  int result = NEXT_FNC_DEFAULT(pthread_cond_broadcast)(cond);
+  int result = NEXT_FNC(pthread_cond_broadcast)(cond);
   return result;
 
 #else /* if __aarch64__ */
@@ -480,7 +480,7 @@ int
 _real_pthread_cond_destroy(pthread_cond_t *cond)
 {
 #if __aarch64__
-  int result = NEXT_FNC_DEFAULT(pthread_cond_destroy)(cond);
+  int result = NEXT_FNC(pthread_cond_destroy)(cond);
   return result;
 
 #else /* if __aarch64__ */
@@ -493,7 +493,7 @@ int
 _real_pthread_cond_init(pthread_cond_t *cond, const pthread_condattr_t *attr)
 {
 #if __aarch64__
-  int result = NEXT_FNC_DEFAULT(pthread_cond_init)(cond, attr);
+  int result = NEXT_FNC(pthread_cond_init)(cond, attr);
   return result;
 
 #else /* if __aarch64__ */
@@ -506,7 +506,7 @@ int
 _real_pthread_cond_signal(pthread_cond_t *cond)
 {
 #if __aarch64__
-  int result = NEXT_FNC_DEFAULT(pthread_cond_signal)(cond);
+  int result = NEXT_FNC(pthread_cond_signal)(cond);
   return result;
 
 #else /* if __aarch64__ */
@@ -521,7 +521,7 @@ _real_pthread_cond_timedwait(pthread_cond_t *cond,
                              const struct timespec *abstime)
 {
 #if __aarch64__
-  int result = NEXT_FNC_DEFAULT(pthread_cond_timedwait)(cond, mutex, abstime);
+  int result = NEXT_FNC(pthread_cond_timedwait)(cond, mutex, abstime);
   return result;
 
 #else /* if __aarch64__ */
@@ -535,7 +535,7 @@ int
 _real_pthread_cond_wait(pthread_cond_t *cond, pthread_mutex_t *mutex)
 {
 #if __aarch64__
-  int result = NEXT_FNC_DEFAULT(pthread_cond_wait)(cond, mutex);
+  int result = NEXT_FNC(pthread_cond_wait)(cond, mutex);
   return result;
 
 #else /* if __aarch64__ */

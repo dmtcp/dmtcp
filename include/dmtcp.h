@@ -481,7 +481,7 @@ EXTERNC ptrdiff_t dmtcp_dlsym_lib_fnc_offset(const char *libname,
  * One possible usecase could be for bypassing the plugin layers and directly
  * jumping to a symbol in libc.
  */
-# define NEXT_FNC_DEFAULT_LIB(lib, func)                                       \
+# define NEXT_FNC_LIB(lib, func)                                               \
   ({                                                                           \
     static __typeof__(&func) _real_##func = (__typeof__(&func)) -1;            \
     if (_real_##func == (__typeof__(&func)) -1) {                              \
@@ -492,9 +492,6 @@ EXTERNC ptrdiff_t dmtcp_dlsym_lib_fnc_offset(const char *libname,
     }                                                                          \
     _real_##func;                                                              \
   })
-
-// TODO: Remove this legacy code.
-# define NEXT_FNC_DEFAULT NEXT_FNC
 
 // ===================================================================
 // DMTCP utilities
