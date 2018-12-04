@@ -411,7 +411,6 @@ dmtcpPrepareForExec(const char *path,
   JTRACE("Will exec filename instead of path") (path) (*filename);
 
   Util::adjustRlimitStack();
-  Util::prepareDlsymWrapper();
 
   // Remove FD_CLOEXEC flag from protected file descriptors.
   for (size_t i = PROTECTED_FD_START; i < PROTECTED_FD_END; i++) {
@@ -433,9 +432,6 @@ dmtcpProcessFailedExec(const char *path, char *newArgv[])
   }
 
   restoreUserLDPRELOAD();
-
-  unsetenv(ENV_VAR_DLSYM_OFFSET);
-  unsetenv(ENV_VAR_DLSYM_OFFSET_M32);
 
   JTRACE("Processed failed Exec Attempt") (path) (getenv("LD_PRELOAD"));
   errno = saved_errno;

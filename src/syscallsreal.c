@@ -344,7 +344,6 @@ dmtcp_prepare_wrappers(void)
   (*fn)
 
 typedef void * (*dlsym_fnptr_t) (void *handle, const char *symbol);
-void *dmtcp_get_libc_dlsym_addr(void);
 
 LIB_PRIVATE
 void *

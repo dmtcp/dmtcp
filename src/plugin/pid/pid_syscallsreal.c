@@ -116,8 +116,6 @@ pid_initialize_wrappers()
   REAL_FUNC_PASSTHROUGH_WORK(name)                          \
   (*fn)
 
-void *dmtcp_get_libc_dlsym_addr();
-
 LIB_PRIVATE
 void *
 _real_dlsym(void *handle, const char *symbol)

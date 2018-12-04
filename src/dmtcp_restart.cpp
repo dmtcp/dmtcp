@@ -311,11 +311,10 @@ class RestoreTarget
                                &compId,
                                &coordInfo,
                                &localIPAddr);
+
         Util::initializeLogFile(SharedData::getTmpDir().c_str(),
                                 _pInfo.procname().c_str(),
                                 NULL);
-
-        Util::prepareDlsymWrapper();
       }
 
       JTRACE("Creating process during restart") (upid()) (_pInfo.procname());

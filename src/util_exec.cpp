@@ -34,9 +34,6 @@
 
 using namespace dmtcp;
 
-static int32_t getDlsymOffset();
-static int32_t getDlsymOffset_m32();
-
 void
 Util::setVirtualPidEnvVar(pid_t pid, pid_t virtPpid, pid_t realPpid)
 {
@@ -413,103 +410,6 @@ void
 Util::freePatchedArgv(char **newArgv)
 {
   JALLOC_HELPER_FREE(*newArgv);
-}
-
-// FIXME: ENV_VAR_DLSYM_OFFSET should be reset in _real_dlsym and it should be
-// recalculated/reset right before returning from prepareForExec to support
-// process migration (the offset might have changed after the process had
-// migrated to a new machine with different ld.so.
-void
-Util::prepareDlsymWrapper()
-{
-  /* For the sake of dlsym wrapper. We compute the address of _real_dlsym by
-   * adding dlsym_offset to the address of dlopen after the exec into the user
-   * application. */
-  uint32_t offset = SharedData::getDlsymOffset();
-  uint32_t offset_m32 = SharedData::getDlsymOffset_m32();
-
-  if (offset == 0) {
-    offset = getDlsymOffset();
-    offset_m32 = getDlsymOffset_m32();
-    SharedData::updateDlsymOffset(offset, offset_m32);
-  }
-
-  char str[21] = { 0 };
-  sprintf(str, "%d", offset);
-  setenv(ENV_VAR_DLSYM_OFFSET, str, 1);
-  sprintf(str, "%d", offset_m32);
-  setenv(ENV_VAR_DLSYM_OFFSET_M32, str, 1);
-}
-
-static int32_t
-getDlsymOffset()
-{
-  void *base_addr = NULL;
-  void *dlsym_addr = NULL;
-  int32_t offset;
-  void *handle = NULL;
-
-  handle = dlopen(LIBDL_FILENAME, RTLD_NOW);
-  JASSERT(handle != NULL) (dlerror());
-
-  /* Earlier, we used to compute the offset of "dlsym" from "dlerror" by
-   * computing the address of the two symbols using '&' operator. However, in
-   * some distros (for ex. SLES 9), '&dlsym' might give the address of the
-   * symbol defined in binary's PLT. Thus, to compute the correct offset, we
-   * use dlopen/dlsym.
-   */
-  base_addr = dlsym(handle, LIBDL_BASE_FUNC_STR);
-  dlsym_addr = dlsym(handle, "dlsym");
-  dlclose(handle);
-  offset = (char *)dlsym_addr - (char *)base_addr;
-  return offset;
-}
-
-static int32_t
-getDlsymOffset_m32()
-{
-  uint64_t base_addr = 0;
-  uint64_t dlsym_addr = 0;
-  int32_t offset;
-  FILE *fp;
-  char buf[PATH_MAX];
-  string cmd1, cmd2, libdl, libdmtcp32;
-
-  libdmtcp32 = Util::getPath("libdmtcp.so", true);
-  if (libdmtcp32 == "libdmtcp.so") {
-    return 0;
-  }
-
-  cmd1 = "ldd " + libdmtcp32 + " | grep " + LIBDL_FILENAME
-    + " | tr '\t' ' ' | tr -s ' '| cut -d' ' -f4";
-  fp = popen(cmd1.c_str(), "r");
-  JASSERT(fp != NULL);
-  JASSERT(fscanf(fp, "%s", (char *)&buf) == 1);
-  pclose(fp);
-  JASSERT(buf[0] == '/');
-
-  libdl = buf;
-
-  cmd2 = "nm -D -g " + libdl + " | grep '" + LIBDL_BASE_FUNC_STR + "'";
-  fp = popen(cmd2.c_str(), "r");
-  JASSERT(fp != NULL);
-
-  // fread returns the total number of bytes read only when 'size' is 1.
-  JASSERT(fread(buf, 1, sizeof(buf), fp) > 0);
-  base_addr = strtoull(buf, NULL, 16);
-  JASSERT(base_addr != 0);
-  pclose(fp);
-
-  cmd2 = "nm -D -g " + libdl + " | grep 'dlsym'";
-  fp = popen(cmd2.c_str(), "r");
-  JASSERT(fp != NULL);
-  JASSERT(fread(buf, 1, sizeof(buf), fp) > 0);
-  dlsym_addr = strtoull(buf, NULL, 16);
-  JASSERT(base_addr != 0);
-  pclose(fp);
-
-  offset = (int32_t)((char *)dlsym_addr - (char *)base_addr);
-  return offset;
 }
 
 void

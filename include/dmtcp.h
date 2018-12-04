@@ -384,7 +384,6 @@ EXTERNC void dmtcp_block_ckpt_signal(void);
 EXTERNC void dmtcp_unblock_ckpt_signal(void);
 
 // FOR EXPERTS ONLY:
-EXTERNC void *dmtcp_get_libc_dlsym_addr(void);
 EXTERNC void dmtcp_close_protected_fd(int fd);
 EXTERNC int dmtcp_protected_environ_fd(void);
 
@@ -454,9 +453,7 @@ EXTERNC ptrdiff_t dmtcp_dlsym_lib_fnc_offset(const char *libname,
       if (dmtcp_initialize) {                                                \
         dmtcp_initialize();                                                  \
       }                                                                      \
-      __typeof__(&dlsym)dlsym_fnptr;                                         \
-      dlsym_fnptr = (__typeof__(&dlsym))dmtcp_get_libc_dlsym_addr();         \
-      _real_ ## func = (__typeof__(&func))(*dlsym_fnptr)(RTLD_NEXT, # func); \
+      _real_ ## func = (__typeof__(&func))dmtcp_dlsym(RTLD_NEXT, # func); \
     }                                                                        \
     _real_ ## func;                                                          \
   })
