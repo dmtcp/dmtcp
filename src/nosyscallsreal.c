@@ -97,28 +97,6 @@
 void
 initialize_wrappers() {}
 
-ssize_t
-_real_read(int fd, void *buf, size_t count)
-{
-  REAL_FUNC_PASSTHROUGH(read) (fd, buf, count);
-}
-
-ssize_t
-_real_write(int fd, const void *buf, size_t count)
-{
-  REAL_FUNC_PASSTHROUGH_TYPED(ssize_t, write) (fd, buf, count);
-}
-
-int
-_real_select(int nfds,
-             fd_set *readfds,
-             fd_set *writefds,
-             fd_set *exceptfds,
-             struct timeval *timeout)
-{
-  REAL_FUNC_PASSTHROUGH(select) (nfds, readfds, writefds, exceptfds, timeout);
-}
-
 /// call the libc version of this function via dlopen/dlsym
 int
 _real_socket(int domain, int type, int protocol)
@@ -495,13 +473,6 @@ int
 _real_shmctl(int shmid, int cmd, struct shmid_ds *buf)
 {
   REAL_FUNC_PASSTHROUGH(shmctl) (shmid, cmd, buf);
-}
-
-LIB_PRIVATE
-int
-_real_poll(struct pollfd *fds, nfds_t nfds, int timeout)
-{
-  REAL_FUNC_PASSTHROUGH(poll) (fds, nfds, timeout);
 }
 
 ssize_t

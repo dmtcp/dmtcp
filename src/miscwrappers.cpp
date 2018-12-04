@@ -22,6 +22,7 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 #include <sys/syscall.h>
+#include <sys/poll.h>
 #include "../jalib/jassert.h"
 #include "../jalib/jconvert.h"
 #include "constants.h"

@@ -189,7 +189,7 @@ class JFixedAllocStack
         // TODO: why is expand being called? If you see this message, raise lvl2
         // allocation level.
         char expand_msg[] = "\n\n\n******* EXPAND IS CALLED *******\n\n\n";
-        jalib::write(2, expand_msg, sizeof(expand_msg));
+        write(2, expand_msg, sizeof(expand_msg));
 
         // jalib::fflush(stderr);
         abort();
@@ -279,7 +279,7 @@ jalib::JAllocDispatcher::deallocate(void *ptr, size_t n)
 {
   if (!_initialized) {
     char msg[] = "***DMTCP INTERNAL ERROR: Free called before init\n";
-    jalib::write(2, msg, sizeof(msg));
+    write(2, msg, sizeof(msg));
     abort();
   }
   if (n <= lvl1.N) {
