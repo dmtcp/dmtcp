@@ -171,35 +171,6 @@ syscall(long sys_num, ...)
                                         arg[3], arg[4], arg[5], arg[6]);
 }
 
-ssize_t
-read(int fd, void *buf, size_t count)
-{
-  REAL_FUNC_PASSTHROUGH(ssize_t, read) (fd, buf, count);
-}
-
-ssize_t
-write(int fd, const void *buf, size_t count)
-{
-  REAL_FUNC_PASSTHROUGH(ssize_t, write) (fd, buf, count);
-}
-
-int
-select(int nfds,
-       fd_set *readfds,
-       fd_set *writefds,
-       fd_set *exceptfds,
-       struct timeval *timeout)
-{
-  REAL_FUNC_PASSTHROUGH(int, select) (nfds, readfds, writefds, exceptfds,
-                                      timeout);
-}
-
-int
-poll(struct pollfd fds[], nfds_t nfds, int timeout)
-{
-  REAL_FUNC_PASSTHROUGH(int, poll) (fds, nfds, timeout);
-}
-
 int
 socket(int domain, int type, int protocol)
 {

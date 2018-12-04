@@ -23,7 +23,6 @@
 #define JALIB_H
 
 #include <fcntl.h>
-#include <poll.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/types.h>
@@ -41,12 +40,6 @@ typedef struct JalibFuncPtrs {
   ssize_t (*readlink)(const char *path, char *buf, size_t bufsiz);
 
   long (*syscall)(long sys_num, ...);
-
-  ssize_t (*read)(int fd, void *buf, size_t count);
-  ssize_t (*write)(int fd, const void *buf, size_t count);
-  int (*select)(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds,
-                struct timeval *timeout);
-  int (*poll)(struct pollfd fds[], nfds_t nfds, int timeout);
 
   int (*socket)(int domain, int type, int protocol);
   int (*connect)(int sockfd, const struct sockaddr *saddr, socklen_t addrlen);
@@ -75,15 +68,6 @@ int dup2(int oldfd, int newfd);
 ssize_t readlink(const char *path, char *buf, size_t bufsiz);
 
 long syscall(long sys_num, ...);
-
-ssize_t read(int fd, void *buf, size_t count);
-ssize_t write(int fd, const void *buf, size_t count);
-int select(int nfds,
-           fd_set *readfds,
-           fd_set *writefds,
-           fd_set *exceptfds,
-           struct timeval *timeout);
-int poll(struct pollfd fds[], nfds_t nfds, int timeout);
 
 int socket(int domain, int type, int protocol);
 int connect(int sockfd, const struct sockaddr *serv_addr, socklen_t addrlen);

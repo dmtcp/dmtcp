@@ -28,7 +28,6 @@
 // among the individual *wrappers.cpp files that actually need them,
 // and not declare every possible include in one giant .h file.
 #include <features.h>
-#include <poll.h>
 #include <pthread.h>
 #include <signal.h>
 #include <stdarg.h>
@@ -233,12 +232,6 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   MACRO(mq_timedreceive)              \
   MACRO(mq_notify)                    \
                                       \
-  MACRO(read)                         \
-  MACRO(write)                        \
-                                      \
-  MACRO(select)                       \
-  MACRO(poll)                         \
-                                      \
   MACRO(pthread_create)               \
   MACRO(pthread_exit)                 \
   MACRO(pthread_tryjoin_np)           \
@@ -400,17 +393,8 @@ void *_real_dlsym(void *handle, const char *symbol);
 void *_real_dlopen(const char *filename, int flag);
 int _real_dlclose(void *handle);
 
-ssize_t _real_read(int fd, void *buf, size_t count);
-ssize_t _real_write(int fd, const void *buf, size_t count);
-int _real_select(int nfds,
-                 fd_set *readfds,
-                 fd_set *writefds,
-                 fd_set *exceptfds,
-                 struct timeval *timeout);
 off_t _real_lseek(int fd, off_t offset, int whence);
 int _real_unlink(const char *pathname);
-
-int _real_poll(struct pollfd *fds, nfds_t nfds, int timeout);
 
 int _real_waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options);
 pid_t _real_wait4(pid_t pid,

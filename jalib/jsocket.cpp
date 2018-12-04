@@ -288,7 +288,7 @@ jalib::JSocket::close()
 ssize_t
 jalib::JSocket::read(char *buf, size_t len)
 {
-  return jalib::read(_sockfd, buf, len);
+  return ::read(_sockfd, buf, len);
 }
 
 ssize_t
@@ -595,7 +595,7 @@ jalib::JMultiSocketProgram::monitorSockets(double dblTimeout)
     uint64_t millis = timeout ? ((timeout->tv_sec * (uint64_t)1000) +
                                  (timeout->tv_usec / 1000))
       : -1;
-    int retval = jalib::poll((struct pollfd *)&fds[0], fds.size(), millis);
+    int retval = poll((struct pollfd *)&fds[0], fds.size(), millis);
 
     if (retval == -1) {
       JWARNING(retval != -1)
