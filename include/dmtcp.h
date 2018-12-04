@@ -31,6 +31,8 @@
 # undef __USE_GNU
 #endif // ifdef __USE_GNU_NOT_SET
 
+#include "dmtcp/version.h"
+
 #ifndef EXTERNC
 # ifdef __cplusplus
 #  define EXTERNC extern "C"
@@ -40,7 +42,6 @@
 #endif // ifndef EXTERNC
 
 /* Define to the version of this package. */
-#define DMTCP_PACKAGE_VERSION "3.0.0"
 #define DMTCP_PLUGIN_API_VERSION "3"
 
 // C++ takes null arg, while C takes void arg.
