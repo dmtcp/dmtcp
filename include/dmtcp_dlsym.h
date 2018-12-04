@@ -45,8 +45,6 @@ EXTERNC void *dmtcp_dlsym_lib(const char *libname, const char *symbol);
 EXTERNC ptrdiff_t dmtcp_dlsym_lib_fnc_offset(const char *libname,
                                              const char *symbol);
 
-#ifndef STANDALONE
-
 // This implementation mirrors dmtcp.h:NEXT_FNC() for DMTCP.
 // It uses dmtcp_dlsym to get default version, in case of symbol versioning
 # define NEXT_FNC_DEFAULT(func)                                             \
@@ -95,35 +93,3 @@ EXTERNC ptrdiff_t dmtcp_dlsym_lib_fnc_offset(const char *libname,
     }                                                                          \
     _real_##func;                                                              \
   })
-#endif // ifndef STANDALONE
-
-#ifdef STANDALONE
-
-// For standalone testing.
-// Copy this .h file to tmp.c file for standalone testing, and:
-// g++ -DSTANDALONE ../src/dmtcp_dlsym.cpp tmp.c -ldl
-int
-main()
-{
-  void *fnc;
-
-  printf("pthread_cond_broadcast (via normal linker): %p\n",
-         pthread_cond_broadcast);
-
-  printf("================ dlsym ================\n");
-  fnc = dlsym(RTLD_DEFAULT, "pthread_cond_broadcast");
-  printf("pthread_cond_broadcast (via RTLD_DEFAULT): %p\n", fnc);
-  fnc = dlsym(RTLD_NEXT, "pthread_cond_broadcast");
-  printf("pthread_cond_broadcast (via RTLD_NEXT): %p\n", fnc);
-
-  printf("================ dmtcp_dlsym ================\n");
-
-  // NOTE: RTLD_DEFAULT would try to use this a.out, and fail to find a library
-  // fnc = dmtcp_dlsym(RTLD_DEFAULT, "pthread_cond_broadcast");
-  // printf("pthread_cond_broadcast (via RTLD_DEFAULT): %p\n", fnc);
-  fnc = dmtcp_dlsym(RTLD_NEXT, "pthread_cond_broadcast");
-  printf("pthread_cond_broadcast (via RTLD_NEXT): %p\n", fnc);
-
-  return 0;
-}
-#endif // ifdef STANDALONE
