@@ -72,8 +72,6 @@ static sem_t semNotifyCkptThread;
 static sem_t semWaitForCkptThreadSignal;
 
 static void *checkpointhread(void *dummy);
-static void suspendThreads();
-static void resumeThreads();
 static void stopthisthread(int sig);
 static int restarthread(void *threadv);
 static int Thread_UpdateState(Thread *th, ThreadState newval,
@@ -283,18 +281,6 @@ ThreadList::updateTid(Thread *th)
 
 /*************************************************************************
  *
- *  Send a signal to ckpt-thread to wake it up from select call and exit.
- *
- *************************************************************************/
-void
-ThreadList::killCkpthread()
-{
-  JTRACE("Kill checkpointhread") (ckptThread->tid);
-  THREAD_TGKILL(motherpid, ckptThread->tid, SigInfo::ckptSignal());
-}
-
-/*************************************************************************
- *
  *  Prepare MTCP Header
  *
  *************************************************************************/
@@ -432,7 +418,7 @@ checkpointhread(void *dummy)
 
     restoreInProgress = false;
 
-    suspendThreads();
+    ThreadList::suspendThreads();
 
     JTRACE("Prepare plugin, etc. for checkpoint");
     DmtcpWorker::preCheckpoint();
@@ -444,14 +430,14 @@ checkpointhread(void *dummy)
 
     DmtcpWorker::postCheckpoint();
 
-    resumeThreads();
+    ThreadList::resumeThreads();
   }
 
   return NULL;
 }
 
-static void
-suspendThreads()
+void
+ThreadList::suspendThreads()
 {
   int needrescan;
   Thread *thread;
@@ -539,12 +525,11 @@ suspendThreads()
 }
 
 /* Resume all threads. */
-static void
-resumeThreads()
+void
+ThreadList::resumeThreads()
 {
-  JTRACE("resuming everything");
+  JTRACE("resuming user threads");
   JASSERT(_real_pthread_rwlock_unlock(&threadResumeLock) == 0) (JASSERT_ERRNO);
-  JTRACE("everything resumed");
 }
 
 /*************************************************************************
@@ -555,11 +540,6 @@ resumeThreads()
 void
 stopthisthread(int signum)
 {
-  // If this is checkpoint thread, exit immediately
-  if (curThread == ckptThread) {
-    return;
-  }
-
   /* Possible state change scenarios:
    * 1. STOPSIGNAL received from ckpt-thread. In this case, the ckpt-thread
    * already changed the state to ST_SIGNALED. No need to check for locks.

@@ -57,9 +57,8 @@ EXTERNC void *ibv_get_device_list(void *) __attribute__((weak));
 /* The following instance of the DmtcpWorker is just to trigger the constructor
  * to allow us to hijack the process
  */
-DmtcpWorker DmtcpWorker::theInstance;
-bool DmtcpWorker::_exitInProgress = false;
-bool DmtcpWorker::_exitAfterCkpt = 0;
+static volatile bool exitInProgress = false;
+static bool exitAfterCkpt = 0;
 
 /* NOTE:  Please keep this function in sync with its copy at:
  *   dmtcp_nocheckpoint.cpp:restoreUserLDPRELOAD()
@@ -268,27 +267,26 @@ installSegFaultHandler()
   JASSERT(sigaction(SIGSEGV, &act, NULL) == 0) (JASSERT_ERRNO);
 }
 
-static jalib::JBuffer *buf = NULL;
-
-// called before user main()
-// workerhijack.cpp initializes a static variable theInstance to DmtcpWorker obj
+// Initialize wrappers, etc.
 extern "C" void
 dmtcp_initialize()
+{
+  dmtcp_prepare_wrappers();
+}
+
+// Initialize remaining components.
+static void __attribute__((constructor(101)))
+dmtcp_initialize_entry_point()
 {
   static bool initialized = false;
 
   if (initialized) {
-    if (buf == NULL) {
-      // Technically, this is a memory leak, but buf is static and so it happens
-      // only once.
-      buf = new jalib::JBuffer(0); // To force linkage of jbuffer.cpp
-    }
     return;
   }
+
   initialized = true;
 
-  WorkerState::setCurrentState(WorkerState::UNKNOWN);
-  dmtcp_prepare_wrappers();
+  dmtcp_initialize();
 
   initializeJalib();
   dmtcp_prepare_atfork();
@@ -339,75 +337,56 @@ dmtcp_initialize()
   ThreadList::init();
 }
 
-// called before user main()
-// workerhijack.cpp initializes a static variable theInstance to DmtcpWorker obj
-DmtcpWorker::DmtcpWorker()
-{
-  dmtcp_initialize();
-}
-
 void
 DmtcpWorker::resetOnFork()
 {
-  PluginManager::eventHook(DMTCP_EVENT_ATFORK_CHILD, NULL);
+  exitInProgress = false;
 
-  cleanupWorker();
+  ThreadSync::resetLocks();
 
   WorkerState::setCurrentState(WorkerState::RUNNING);
 
-  /* If parent process had file connections and it fork()'d a child
-   * process, the child process would consider the file connections as
-   * pre-existing and hence wouldn't restore them. This is fixed by making sure
-   * that when a child process is forked, it shouldn't be looking for
-   * pre-existing connections because the parent has already done that.
-   *
-   * So, here while creating the instance, we do not want to execute everything
-   * in the constructor since it's not relevant. All we need to call is
-   * connectToCoordinatorWithHandshake() and initializeMtcpEngine().
-   */
-
-  // new ( &theInstance ) DmtcpWorker ( false );
-
   ThreadSync::initMotherOfAll();
 
-  DmtcpWorker::_exitInProgress = false;
+  // Some plugins might make calls that require wrapper locks, etc.
+  // Therefore, it is better to call this hook after we reset all locks.
+  PluginManager::eventHook(DMTCP_EVENT_ATFORK_CHILD, NULL);
 }
 
-void
-DmtcpWorker::cleanupWorker()
-{
-  ThreadSync::resetLocks();
-  WorkerState::setCurrentState(WorkerState::UNKNOWN);
-
-  JTRACE("disconnecting from dmtcp coordinator");
-}
-
-void
-DmtcpWorker::interruptCkpthread()
-{
-  if (ThreadSync::destroyDmtcpWorkerLockTryLock() == EBUSY) {
-    ThreadList::killCkpthread();
-    ThreadSync::destroyDmtcpWorkerLockLock();
-  }
-}
-
-// called after user main()
-DmtcpWorker::~DmtcpWorker()
+// Called after user main() by user thread or during exit() processing.
+// With a high priority, we are hoping to be called first. This would allow us
+// to set the exitInProgress flag for the ckpt thread to process later on.
+// There is a potential race here. If the ckpt-thread suspends the user thread
+// after the user thread has called exit() but before it is able to set
+// `exitInProgress` to true, the ckpt thread will go about business as usual.
+// This could be problematic if the exit() handlers had destroyed some
+// resources.
+// A potential solution is to not rely on user-destroyable resources. That way,
+// we would have everything we need in order to perform a checkpoint. On
+// restart, the process will then continue through the rest of the exit
+// process.
+void __attribute__((destructor(65535)))
+dmtcp_finalize()
 {
   /* If the destructor was called, we know that we are exiting
    * After setting this, the wrapper execution locks will be ignored.
    * FIXME:  A better solution is to add a ZOMBIE state to DmtcpWorker,
    *         instead of using a separate variable, _exitInProgress.
    */
-  setExitInProgress();
+  exitInProgress = true;
   PluginManager::eventHook(DMTCP_EVENT_EXIT, NULL);
-  interruptCkpthread();
-  cleanupWorker();
+
+  ThreadSync::resetLocks();
+  WorkerState::setCurrentState(WorkerState::UNKNOWN);
+
+  JTRACE("Process exiting.");
 }
 
 static void
 ckptThreadPerformExit()
 {
+  JTRACE("User thread is performing exit(). Ckpt thread exit()ing as well");
+
   // Ideally, we would like to perform pthread_exit(), but we are in the middle
   // of process cleanup (due to the user thread's exit() call) and as a result,
   // the static objects are being destroyed.  A call to pthread_exit() also
@@ -438,31 +417,17 @@ DmtcpWorker::waitForSuspendMessage()
     return;
   }
 
-  if (ThreadSync::destroyDmtcpWorkerLockTryLock() != 0) {
-    JTRACE("User thread is performing exit()."
-           " ckpt thread exit()ing as well");
-    ckptThreadPerformExit();
-  }
-  if (exitInProgress()) {
-    ThreadSync::destroyDmtcpWorkerLockUnlock();
-    ckptThreadPerformExit();
-  }
-
   JTRACE("waiting for SUSPEND message");
 
   DmtcpMessage msg;
   CoordinatorAPI::recvMsgFromCoordinator(&msg);
 
-  if (exitInProgress()) {
-    ThreadSync::destroyDmtcpWorkerLockUnlock();
+  // Before validating message; make sure we are not exiting.
+  if (exitInProgress) {
     ckptThreadPerformExit();
   }
 
   msg.assertValid();
-  if (msg.type == DMT_KILL_PEER) {
-    JTRACE("Received KILL message from coordinator, exiting");
-    _exit(0);
-  }
 
   JASSERT(msg.type == DMT_DO_SUSPEND) (msg.type);
 
@@ -472,7 +437,7 @@ DmtcpWorker::waitForSuspendMessage()
   JASSERT(SharedData::getCompId() == msg.compGroup.upid())
     (SharedData::getCompId()) (msg.compGroup);
 
-  _exitAfterCkpt = msg.exitAfterCkpt;
+  exitAfterCkpt = msg.exitAfterCkpt;
 }
 
 void
@@ -488,10 +453,6 @@ DmtcpWorker::acknowledgeSuspendMsg()
   DmtcpMessage msg;
   CoordinatorAPI::recvMsgFromCoordinator(&msg);
   msg.assertValid();
-  if (msg.type == DMT_KILL_PEER) {
-    JTRACE("Received KILL message from coordinator, exiting");
-    _exit(0);
-  }
 
   JASSERT(msg.type == DMT_COMPUTATION_INFO) (msg.type);
   JTRACE("Computation information") (msg.compGroup) (msg.numPeers);
@@ -518,17 +479,18 @@ DmtcpWorker::waitForCheckpointRequest()
 void
 DmtcpWorker::preCheckpoint()
 {
+  JTRACE("suspended");
   WorkerState::setCurrentState(WorkerState::SUSPENDED);
 
-  JTRACE("suspended");
+  ThreadSync::releaseLocks();
 
-  if (exitInProgress()) {
-    ThreadSync::destroyDmtcpWorkerLockUnlock();
+  if (exitInProgress) {
+    // There is no reason to continue checkpointing this process as it would
+    // simply die right after resume/restore.
+    // Release user threads from ckpt signal handler.
+    ThreadList::resumeThreads();
     ckptThreadPerformExit();
   }
-  ThreadSync::destroyDmtcpWorkerLockUnlock();
-
-  ThreadSync::releaseLocks();
 
   // Update generation, in case user callback calls dmtcp_get_generation().
   uint32_t computationGeneration =
@@ -549,7 +511,7 @@ DmtcpWorker::postCheckpoint()
   WorkerState::setCurrentState(WorkerState::CHECKPOINTED);
   CoordinatorAPI::sendCkptFilename();
 
-  if (_exitAfterCkpt) {
+  if (exitAfterCkpt) {
     JTRACE("Asked to exit after checkpoint. Exiting!");
     _exit(0);
   }

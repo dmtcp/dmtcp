@@ -1,6 +1,6 @@
 /****************************************************************************
- *   Copyright (C) 2006-2012 by Jason Ansel, Kapil Arya, and Gene Cooperman *
- *   jansel@csail.mit.edu, kapil@ccs.neu.edu, gene@ccs.neu.edu              *
+ *   Copyright (C) 2014 by Gene Cooperman                                   *
+ *   gene@ccs.neu.edu                                                       *
  *                                                                          *
  *  This file is part of DMTCP.                                             *
  *                                                                          *
@@ -19,40 +19,35 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#ifndef THREADLIST_H
-#define THREADLIST_H
+#include <pthread.h>
+#include <stddef.h>
+#include <stdio.h>
 
-#include <signal.h>
-#include <sys/types.h>
-#include <ucontext.h>
-#include "threadinfo.h"
+#include "dmtcp.h"
 
-namespace dmtcp
+// Compile using:
+//   g++ -I../../include ../../src/dmtcp_dlsym.cpp dmtcp_dlsym.c -ldl
+int
+main()
 {
-namespace ThreadList
-{
-pid_t _real_pid();
-pid_t _real_tid();
-int _real_tgkill(pid_t tgid, pid_t tid, int sig);
+  void *fnc;
 
-void init();
-void initThread(Thread *th, int (*fn)(
-                  void *), void *arg, int flags, int *ptid, int *ctid);
-void updateTid(Thread *);
-void resetOnFork();
-void threadExit();
+  printf("pthread_cond_broadcast (via normal linker): %p\n",
+         pthread_cond_broadcast);
 
-Thread *getNewThread();
-void addToActiveList(Thread *th);
-void threadIsDead(Thread *thread);
-void emptyFreeList();
+  printf("================ dlsym ================\n");
+  fnc = dlsym(RTLD_DEFAULT, "pthread_cond_broadcast");
+  printf("pthread_cond_broadcast (via RTLD_DEFAULT): %p\n", fnc);
+  fnc = dlsym(RTLD_NEXT, "pthread_cond_broadcast");
+  printf("pthread_cond_broadcast (via RTLD_NEXT): %p\n", fnc);
 
-void suspendThreads();
-void resumeThreads();
-void waitForAllRestored(Thread *thisthread);
-void writeCkpt();
-void postRestart(double readTime = 0.0);
-void postRestartDebug(double readTime, int restartPause);
+  printf("================ dmtcp_dlsym ================\n");
+
+  // NOTE: RTLD_DEFAULT would try to use this a.out, and fail to find a library
+  // fnc = dmtcp_dlsym(RTLD_DEFAULT, "pthread_cond_broadcast");
+  // printf("pthread_cond_broadcast (via RTLD_DEFAULT): %p\n", fnc);
+  fnc = dmtcp_dlsym(RTLD_NEXT, "pthread_cond_broadcast");
+  printf("pthread_cond_broadcast (via RTLD_NEXT): %p\n", fnc);
+
+  return 0;
 }
-}
-#endif // ifndef THREADLIST_H

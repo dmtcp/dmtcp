@@ -37,7 +37,7 @@
 # define _real_access       NEXT_FNC(access)
 
 // NOTE:  realpath is a versioned symbol, and we should be using
-// NEXT_FNC_DEFAULT.  But that interferes with libdl.so (e.g., dlopen).
+// NEXT_FNC.  But that interferes with libdl.so (e.g., dlopen).
 // and other functions that use gettid() -> __tls_get_addr()
 // for some unknown reason.
 # define _real_realpath NEXT_FNC(realpath)

@@ -25,7 +25,6 @@
 #include <unistd.h>
 
 #include "jassert.h"
-#include "dmtcpworker.h"
 #include "syscallwrappers.h"
 #include "threadsync.h"
 #include "workerstate.h"
@@ -69,7 +68,6 @@ static pthread_rwlock_t
 static bool _wrapperExecutionLockAcquiredByCkptThread = false;
 static bool _threadCreationLockAcquiredByCkptThread = false;
 
-static pthread_mutex_t destroyDmtcpWorkerLock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t theCkptCanStart = PTHREAD_MUTEX_INITIALIZER;
 static int ckptCanStartCount = 0;
 
@@ -208,9 +206,6 @@ ThreadSync::resetLocks()
   pthread_mutex_t newPreResumeThreadCountLock = PTHREAD_MUTEX_INITIALIZER;
   preResumeThreadCountLock = newPreResumeThreadCountLock;
 
-  pthread_mutex_t newDestroyDmtcpWorker = PTHREAD_MUTEX_INITIALIZER;
-  destroyDmtcpWorkerLock = newDestroyDmtcpWorker;
-
   pthread_mutex_t newLibdlLock = PTHREAD_MUTEX_INITIALIZER;
   libdlLock = newLibdlLock;
   libdlLockOwner = 0;
@@ -271,26 +266,6 @@ ThreadSync::unsetThreadPerformingDlopenDlsym()
   _threadPerformingDlopenDlsym = false;
 }
 #endif // if TRACK_DLOPEN_DLSYM_FOR_LOCKS
-
-void
-ThreadSync::destroyDmtcpWorkerLockLock()
-{
-  JASSERT(_real_pthread_mutex_lock(&destroyDmtcpWorkerLock) == 0)
-    (JASSERT_ERRNO);
-}
-
-int
-ThreadSync::destroyDmtcpWorkerLockTryLock()
-{
-  return _real_pthread_mutex_trylock(&destroyDmtcpWorkerLock);
-}
-
-void
-ThreadSync::destroyDmtcpWorkerLockUnlock()
-{
-  JASSERT(_real_pthread_mutex_unlock(&destroyDmtcpWorkerLock) == 0)
-    (JASSERT_ERRNO);
-}
 
 void
 ThreadSync::delayCheckpointsLock()
@@ -374,10 +349,6 @@ ThreadSync::wrapperExecutionLockLock()
   int saved_errno = errno;
   bool lockAcquired = false;
 
-  // Ignore locks if we are about to exit
-  if (DmtcpWorker::exitInProgress()) {
-    return false;
-  }
   while (1) {
     if (WorkerState::currentState() == WorkerState::RUNNING &&
 #if TRACK_DLOPEN_DLSYM_FOR_LOCKS
@@ -452,10 +423,6 @@ ThreadSync::wrapperExecutionLockLockExcl()
   int saved_errno = errno;
   bool lockAcquired = false;
 
-  // Ignore locks if we are about to exit
-  if (DmtcpWorker::exitInProgress()) {
-    return false;
-  }
   if (WorkerState::currentState() == WorkerState::RUNNING) {
     incrementWrapperExecutionLockLockCount();
     int retVal = _real_pthread_rwlock_wrlock(&_wrapperExecutionLock);
@@ -480,29 +447,6 @@ ThreadSync::wrapperExecutionLockUnlock()
 {
   int saved_errno = errno;
 
-  // Ignore locks if we are about to exit
-
-  /*
-   * NOTE: Ideally, this function should never be called from a wrapper if
-   *       exitInProgress is set, but there are two cases when it gets
-   *       called despite the flag being set:
-   *       1) The exitInProgress flag is set, and then an incorrectly
-   *          implemented wrapper calls this function even though the
-   *          lock function returned false. See commit:
-   *          f2d2a7c6feba38ab0b0cb8e09a4ad6cc37d9f330 for an example.
-   *       2) A correctly implemented wrapper calls this but the exitInProgress
-   *          is set after having acquired the wrapperExecution lock. This can
-   *          occur if a user thread called exit while another was
-   *          in the middle of the wrapper.
-   *       The following if clause guards against both the scenarios.
-   * TODO: Add a message that warns the user if any of the above
-   *       two cases are seen.
-   *
-   */
-
-  if (DmtcpWorker::exitInProgress()) {
-    return;
-  }
   if (_real_pthread_rwlock_unlock(&_wrapperExecutionLock) != 0) {
     fprintf(stderr, "ERROR %s:%d %s: Failed to release lock\n",
             __FILE__, __LINE__, __PRETTY_FUNCTION__);

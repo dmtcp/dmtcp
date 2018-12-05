@@ -29,7 +29,6 @@
 #include "../jalib/jconvert.h"
 #include "../jalib/jfilesystem.h"
 #include "coordinatorapi.h"
-#include "dmtcp_dlsym.h"
 #include "procselfmaps.h"
 #include "syscallwrappers.h"
 #include "uniquepid.h"

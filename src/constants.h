@@ -116,12 +116,6 @@
 #define ENV_VAR_SCREENDIR               "SCREENDIR"
 #define ENV_VAR_DISABLE_STRICT_CHECKING "DMTCP_DISABLE_STRICT_CHECKING"
 
-#define GLIBC_BASE_FUNC                 isalnum
-
-#define LIBDL_BASE_FUNC                 dlinfo
-#define LIBDL_BASE_FUNC_STR             "dlinfo"
-#define ENV_VAR_DLSYM_OFFSET            "DMTCP_DLSYM_OFFSET"
-#define ENV_VAR_DLSYM_OFFSET_M32        "DMTCP_DLSYM_OFFSET_M32"
 #define ENV_VAR_REMOTE_SHELL_CMD        "DMTCP_REMOTE_SHELL_CMD"
 
 // this list should be kept up to date with all "protected" environment vars
@@ -144,8 +138,6 @@
   ENV_VAR_DL_PLUGIN,                  \
   ENV_VAR_SIGCKPT,                    \
   ENV_VAR_SCREENDIR,                  \
-  ENV_VAR_DLSYM_OFFSET,               \
-  ENV_VAR_DLSYM_OFFSET_M32,           \
   ENV_VAR_VIRTUAL_PID,                \
   ENV_VAR_SKIP_WRITING_TEXT_SEGMENTS, \
   ENV_DELTACOMPRESSION

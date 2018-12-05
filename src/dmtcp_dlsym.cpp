@@ -67,7 +67,7 @@
 #endif
 #include <dlfcn.h>
 
-#include "dmtcp_dlsym.h"
+#include "dmtcp.h"
 #include "jassert.h"
 #include "config.h"
 

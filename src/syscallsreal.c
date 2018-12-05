@@ -47,7 +47,6 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include "constants.h"
-#include "dmtcp_dlsym.h"
 #include "syscallwrappers.h"
 #include "trampolines.h"
 
@@ -309,8 +308,6 @@ dmtcp_prepare_wrappers(void)
   }
 }
 
-void dmtcp_initialize();
-
 //////////////////////////
 //// FIRST DEFINE REAL VERSIONS OF NEEDED FUNCTIONS
 
@@ -319,7 +316,7 @@ void dmtcp_initialize();
 #define REAL_FUNC_PASSTHROUGH_WORK(name)                                      \
   if (fn == NULL) {                                                           \
     if (_real_func_addr[ENUM(name)] == NULL) {                                \
-      dmtcp_initialize();                                                     \
+      dmtcp_prepare_wrappers();                                               \
     }                                                                         \
     fn = _real_func_addr[ENUM(name)];                                         \
     if (fn == NULL) {                                                         \
@@ -347,7 +344,6 @@ void dmtcp_initialize();
   (*fn)
 
 typedef void * (*dlsym_fnptr_t) (void *handle, const char *symbol);
-void *dmtcp_get_libc_dlsym_addr(void);
 
 LIB_PRIVATE
 void *
@@ -471,7 +467,7 @@ int
 _real_pthread_cond_broadcast(pthread_cond_t *cond)
 {
 #if __aarch64__
-  int result = NEXT_FNC_DEFAULT(pthread_cond_broadcast)(cond);
+  int result = NEXT_FNC(pthread_cond_broadcast)(cond);
   return result;
 
 #else /* if __aarch64__ */
@@ -484,7 +480,7 @@ int
 _real_pthread_cond_destroy(pthread_cond_t *cond)
 {
 #if __aarch64__
-  int result = NEXT_FNC_DEFAULT(pthread_cond_destroy)(cond);
+  int result = NEXT_FNC(pthread_cond_destroy)(cond);
   return result;
 
 #else /* if __aarch64__ */
@@ -497,7 +493,7 @@ int
 _real_pthread_cond_init(pthread_cond_t *cond, const pthread_condattr_t *attr)
 {
 #if __aarch64__
-  int result = NEXT_FNC_DEFAULT(pthread_cond_init)(cond, attr);
+  int result = NEXT_FNC(pthread_cond_init)(cond, attr);
   return result;
 
 #else /* if __aarch64__ */
@@ -510,7 +506,7 @@ int
 _real_pthread_cond_signal(pthread_cond_t *cond)
 {
 #if __aarch64__
-  int result = NEXT_FNC_DEFAULT(pthread_cond_signal)(cond);
+  int result = NEXT_FNC(pthread_cond_signal)(cond);
   return result;
 
 #else /* if __aarch64__ */
@@ -525,7 +521,7 @@ _real_pthread_cond_timedwait(pthread_cond_t *cond,
                              const struct timespec *abstime)
 {
 #if __aarch64__
-  int result = NEXT_FNC_DEFAULT(pthread_cond_timedwait)(cond, mutex, abstime);
+  int result = NEXT_FNC(pthread_cond_timedwait)(cond, mutex, abstime);
   return result;
 
 #else /* if __aarch64__ */
@@ -539,7 +535,7 @@ int
 _real_pthread_cond_wait(pthread_cond_t *cond, pthread_mutex_t *mutex)
 {
 #if __aarch64__
-  int result = NEXT_FNC_DEFAULT(pthread_cond_wait)(cond, mutex);
+  int result = NEXT_FNC(pthread_cond_wait)(cond, mutex);
   return result;
 
 #else /* if __aarch64__ */

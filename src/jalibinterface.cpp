@@ -20,6 +20,7 @@
  ****************************************************************************/
 
 #include "../jalib/jalib.h"
+#include "../jalib/jbuffer.h"
 #include "dmtcp.h"
 #include "protectedfds.h"
 #include "syscallwrappers.h"
@@ -70,4 +71,7 @@ initializeJalib()
              PROTECTED_STDERR_FD,
              PROTECTED_JASSERTLOG_FD,
              DMTCP_FAIL_RC);
+
+  // To force linkage of jbuffer.cpp
+  static jalib::JBuffer *buf = new jalib::JBuffer(0);
 }

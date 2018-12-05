@@ -30,8 +30,8 @@
 #include <stdlib.h>
 #include <sys/syscall.h>
 #include <unistd.h>
+#include "dmtcp.h"
 #include "pidwrappers.h"
-#include "dmtcp_dlsym.h"
 
 #include "config.h"  // for HAS_CMA
 
@@ -115,8 +115,6 @@ pid_initialize_wrappers()
   static void (*fn)() __attribute__((__noreturn__)) = NULL; \
   REAL_FUNC_PASSTHROUGH_WORK(name)                          \
   (*fn)
-
-void *dmtcp_get_libc_dlsym_addr();
 
 LIB_PRIVATE
 void *

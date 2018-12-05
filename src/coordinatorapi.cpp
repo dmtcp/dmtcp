@@ -93,11 +93,6 @@ eventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
       init();
       break;
 
-    case DMTCP_EVENT_EXIT:
-      JTRACE("exit() in progress, disconnecting from dmtcp coordinator");
-      closeConnection();
-      break;
-
   default:
     break;
   }
@@ -371,19 +366,37 @@ recvMsgFromCoordinatorRaw(int fd, DmtcpMessage *msg, void **extraData)
     sem_launch_first_time = false;
   }
 
-  if (Util::readAll(fd, msg, sizeof(*msg)) != sizeof(*msg)) {
+  // Read into a temporary buffer in case the process exits after reading the
+  // message but before receiving the extradata.
+  DmtcpMessage tmpMsg;
+  if (Util::readAll(fd, &tmpMsg, sizeof(tmpMsg)) != sizeof(tmpMsg)) {
     // Perhaps the process is exit()'ing.
     return;
   }
 
-  if (msg->extraBytes > 0) {
+  if (tmpMsg.extraBytes > 0) {
     JASSERT(extraData != NULL);
 
     // Caller must free this buffer
-    void *buf = JALLOC_HELPER_MALLOC(msg->extraBytes);
-    JASSERT(Util::readAll(fd, (char*) buf, msg->extraBytes) == msg->extraBytes);
-    JASSERT(extraData != NULL);
+    void *buf = JALLOC_HELPER_MALLOC(tmpMsg.extraBytes);
+    if (Util::readAll(fd, buf, tmpMsg.extraBytes) != tmpMsg.extraBytes) {
+      JALLOC_HELPER_FREE(buf);
+      return;
+    }
+
     *extraData = buf;
+  }
+
+  // All is well, return the received message.
+  *msg = tmpMsg;
+
+  // TODO(Kapil): Distinguish between DMT_KILL_PEER that arrives during
+  // checkpoint-phase (potentially due to a stuck computation that the user
+  // wants to kill) vs. normal runtime.
+  // TODO(Kapil): Consider generating an EXIT event for plugins.
+  if (msg->isValid() && msg->type == DMT_KILL_PEER) {
+    JTRACE("Received KILL message from coordinator, exiting");
+    _exit(0);
   }
 }
 
@@ -414,10 +427,6 @@ void waitForBarrier(const string& barrierId)
   recvMsgFromCoordinator(&msg, (void**)&extraData);
 
   msg.assertValid();
-  if (msg.type == DMT_KILL_PEER) {
-    JTRACE("Received KILL message from coordinator, exiting");
-    _exit(0);
-  }
 
   JASSERT(msg.type == DMT_BARRIER_RELEASED) (msg.type);
   JASSERT(extraData != NULL);
@@ -549,10 +558,7 @@ sendRecvHandshake(int fd,
 
   recvMsgFromCoordinatorRaw(fd, &msg);
   msg.assertValid();
-  if (msg.type == DMT_KILL_PEER) {
-    JTRACE("Received KILL message from coordinator, exiting");
-    _real_exit(0);
-  }
+
   if (msg.type == DMT_REJECT_NOT_RUNNING) {
     JASSERT(false)
     .Text("Connection rejected by the coordinator.\n"

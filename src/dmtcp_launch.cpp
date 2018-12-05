@@ -606,9 +606,6 @@ main(int argc, char **argv)
                          &coordInfo,
                          &localIPAddr);
 
-  // Set DLSYM_OFFSET env var(s).
-  Util::prepareDlsymWrapper();
-
   setLDPreloadLibs(is32bitElf);
 
   // run the user program

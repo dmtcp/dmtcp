@@ -148,7 +148,6 @@ void initializeLogFile(const char *tmpDir,
                        const char *procname = "",
                        const char *preLogPath = "");
 
-void prepareDlsymWrapper();
 void adjustRlimitStack();
 void runMtcpRestore(int is32bitElf,
                     const char *path,
