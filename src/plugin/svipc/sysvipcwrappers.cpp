@@ -68,7 +68,30 @@ shmget(key_t key, size_t size, int shmflg)
   int virtId = -1;
 
   DMTCP_PLUGIN_DISABLE_CKPT();
-  key_t realKey = VIRTUAL_TO_REAL_SHM_KEY(key);
+  key_t realKey = -1;
+
+  // If multiple clients try to simultaneously create shm regions with
+  // (IPC_PRIVATE | IPC_EXCL), there is a race condition that can cause the
+  // shmget call to fail.
+  //
+  // The code relies on the `VIRTUAL_TO_REAL_SHM_KEY` API, which, in turn,
+  // uses the DMTCP shared data area to share and assign unique keys for SysV
+  // shm regions. The API returns -1 if the key does not exist in the DMTCP
+  // mapping. Now, if one client raced ahead and managed to create the region,
+  // it'd end up populating the DMTCP shared area with a "IPC_PRIVATE ->
+  // realKey" mapping. Later, when the other client would try to create its
+  // own shared memory region, the `VIRTUAL_TO_REAL_SHM_KEY` API would return
+  // the key corresponding the earlier created entry and the `shmget(IPC_EXCL)`
+  // call would fail with an `EEXIST` error.
+  //
+  // Therefore, we detect this special case of `IPC_PRIVATE` and use
+  // a process's real pid to create the shared memory region. This also
+  // preserves the semantics of `IPC_PRIVATE`
+  if (key == IPC_PRIVATE) {
+    realKey = dmtcp_virtual_to_real_pid(getpid());
+  } else {
+    realKey = VIRTUAL_TO_REAL_SHM_KEY(key);
+  }
   if (realKey == -1) {
     realKey = key + dmtcp_virtual_to_real_pid(getpid());
   }
