@@ -81,6 +81,8 @@ typedef union _DmtcpEventData_t {
 } DmtcpEventData_t;
 
 typedef enum {
+  DMTCP_INVALID_BARRIER,
+
   DMTCP_GLOBAL_BARRIER_PRE_CKPT,
   DMTCP_LOCAL_BARRIER_PRE_CKPT,
   DMTCP_PRIVATE_BARRIER_PRE_CKPT,
