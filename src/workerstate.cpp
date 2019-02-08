@@ -28,6 +28,7 @@ operator<<(ostream &o, const eWorkerState &s)
   switch (s) {
   case WorkerState::UNKNOWN:       o << "UNKNOWN"; break;
   case WorkerState::RUNNING:       o << "RUNNING"; break;
+  case WorkerState::SUSPENDING:    o << "SUSPENDING"; break;
   case WorkerState::SUSPENDED:     o << "SUSPENDED"; break;
   case WorkerState::CHECKPOINTING: o << "CHECKPOINTING"; break;
   case WorkerState::CHECKPOINTED:  o << "CHECKPOINTED"; break;
