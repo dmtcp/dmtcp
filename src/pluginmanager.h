@@ -45,6 +45,7 @@ class PluginManager
 
     static void initialize();
     static void registerBarriersWithCoordinator();
+    static void processPreSuspendBarriers();
     static void processCkptBarriers();
     static void processResumeBarriers();
     static void processRestartBarriers();

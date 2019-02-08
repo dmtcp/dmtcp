@@ -60,6 +60,7 @@ class BarrierInfo
     bool isGlobal() const
     {
       return
+        type == DMTCP_GLOBAL_BARRIER_PRE_SUSPEND ||
         type == DMTCP_GLOBAL_BARRIER_PRE_CKPT ||
         type == DMTCP_GLOBAL_BARRIER_RESUME ||
         type == DMTCP_GLOBAL_BARRIER_RESTART;
@@ -68,6 +69,7 @@ class BarrierInfo
     bool isLocal() const
     {
       return
+        type == DMTCP_LOCAL_BARRIER_PRE_SUSPEND ||
         type == DMTCP_LOCAL_BARRIER_PRE_CKPT ||
         type == DMTCP_LOCAL_BARRIER_RESUME ||
         type == DMTCP_LOCAL_BARRIER_RESTART;

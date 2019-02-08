@@ -52,12 +52,14 @@ class PluginInfo
     const string description;
     void(*const event_hook)(const DmtcpEvent_t event, DmtcpEventData_t * data);
 
+    const vector<BarrierInfo *>preSuspendBarriers;
     const vector<BarrierInfo *>preCkptBarriers;
     const vector<BarrierInfo *>resumeBarriers;
     const vector<BarrierInfo *>restartBarriers;
 
   private:
     PluginInfo(const DmtcpPluginDescriptor_t &descr,
+               const vector<BarrierInfo *> &_preSuspendBarriers,
                const vector<BarrierInfo *> &_preCkptBarriers,
                const vector<BarrierInfo *> &_resumeBarriers,
                const vector<BarrierInfo *> &_restartBarriers);

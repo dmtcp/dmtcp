@@ -31,6 +31,7 @@
 namespace dmtcp
 {
 PluginInfo::PluginInfo(const DmtcpPluginDescriptor_t &descr,
+                       const vector<BarrierInfo *> &_preSuspendBarriers,
                        const vector<BarrierInfo *> &_preCkptBarriers,
                        const vector<BarrierInfo *> &_resumeBarriers,
                        const vector<BarrierInfo *> &_restartBarriers)
@@ -39,6 +40,7 @@ PluginInfo::PluginInfo(const DmtcpPluginDescriptor_t &descr,
   authorEmail(descr.authorEmail),
   description(descr.description),
   event_hook(descr.event_hook),
+  preSuspendBarriers(_preSuspendBarriers),
   preCkptBarriers(_preCkptBarriers),
   resumeBarriers(_resumeBarriers),
   restartBarriers(_restartBarriers)
@@ -47,6 +49,7 @@ PluginInfo::PluginInfo(const DmtcpPluginDescriptor_t &descr,
 PluginInfo *
 PluginInfo::create(const DmtcpPluginDescriptor_t &descr)
 {
+  vector<BarrierInfo *>preSuspendBarriers;
   vector<BarrierInfo *>preCkptBarriers;
   vector<BarrierInfo *>resumeBarriers;
   vector<BarrierInfo *>restartBarriers;
@@ -54,6 +57,12 @@ PluginInfo::create(const DmtcpPluginDescriptor_t &descr)
   for (size_t i = 0; i < descr.numBarriers; i++) {
     BarrierInfo *barrier = new BarrierInfo(descr.pluginName, descr.barriers[i]);
     switch (barrier->type) {
+    case DMTCP_GLOBAL_BARRIER_PRE_SUSPEND:
+    case DMTCP_LOCAL_BARRIER_PRE_SUSPEND:
+    case DMTCP_PRIVATE_BARRIER_PRE_SUSPEND:
+      preSuspendBarriers.push_back(barrier);
+      break;
+
     case DMTCP_GLOBAL_BARRIER_PRE_CKPT:
     case DMTCP_LOCAL_BARRIER_PRE_CKPT:
     case DMTCP_PRIVATE_BARRIER_PRE_CKPT:
@@ -78,6 +87,7 @@ PluginInfo::create(const DmtcpPluginDescriptor_t &descr)
   }
 
   return new PluginInfo(descr,
+                        preSuspendBarriers,
                         preCkptBarriers,
                         resumeBarriers,
                         restartBarriers);
@@ -94,7 +104,11 @@ PluginInfo::eventHook(const DmtcpEvent_t event, DmtcpEventData_t *data)
 void
 PluginInfo::processBarriers()
 {
-  if (WorkerState::currentState() == WorkerState::CHECKPOINTING) {
+  if (WorkerState::currentState() == WorkerState::SUSPENDING) {
+    for (size_t i = 0; i < preSuspendBarriers.size(); i++) {
+      processBarrier(preSuspendBarriers[i]);
+    }
+  } else if (WorkerState::currentState() == WorkerState::CHECKPOINTING) {
     for (size_t i = 0; i < preCkptBarriers.size(); i++) {
       processBarrier(preCkptBarriers[i]);
     }
