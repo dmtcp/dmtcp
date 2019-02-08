@@ -95,6 +95,16 @@ PluginManager::registerBarriersWithCoordinator()
 
   for (size_t i = 0; i < pluginManager->pluginInfos.size(); i++) {
     const vector<BarrierInfo *>barriers =
+      pluginManager->pluginInfos[i]->preSuspendBarriers;
+    for (size_t j = 0; j < barriers.size(); j++) {
+      if (barriers[j]->isGlobal()) {
+        ckptBarriers.push_back(barriers[j]->toString());
+      }
+    }
+  }
+
+  for (size_t i = 0; i < pluginManager->pluginInfos.size(); i++) {
+    const vector<BarrierInfo *>barriers =
       pluginManager->pluginInfos[i]->preCkptBarriers;
     for (size_t j = 0; j < barriers.size(); j++) {
       if (barriers[j]->isGlobal()) {
@@ -134,6 +144,14 @@ PluginManager::registerBarriersWithCoordinator()
 }
 
 void
+PluginManager::processPreSuspendBarriers()
+{
+  for (size_t i = 0; i < pluginManager->pluginInfos.size(); i++) {
+    pluginManager->pluginInfos[i]->processBarriers();
+  }
+}
+
+void
 PluginManager::processCkptBarriers()
 {
   for (size_t i = 0; i < pluginManager->pluginInfos.size(); i++) {
@@ -167,6 +185,16 @@ PluginManager::logCkptResumeBarrierOverhead()
 
   for (int i = pluginManager->pluginInfos.size() - 1; i >= 0; i--) {
     for (int j = 0;
+         j < pluginManager->pluginInfos[i]->preSuspendBarriers.size(); j++) {
+      lfile << pluginManager->pluginInfos[i]->preSuspendBarriers[j]->toString()
+            <<  ','
+            << pluginManager->pluginInfos[i]->preSuspendBarriers[j]->execTime
+            << ','
+            << pluginManager->pluginInfos[i]->preSuspendBarriers[j]->cbExecTime
+            << std::endl;
+    }
+
+    for (int j = 0;
          j < pluginManager->pluginInfos[i]->preCkptBarriers.size(); j++) {
       lfile << pluginManager->pluginInfos[i]->preCkptBarriers[j]->toString()
             <<  ','
@@ -175,6 +203,7 @@ PluginManager::logCkptResumeBarrierOverhead()
             << pluginManager->pluginInfos[i]->preCkptBarriers[j]->cbExecTime
             << std::endl;
     }
+
     for (int j = 0;
          j < pluginManager->pluginInfos[i]->resumeBarriers.size(); j++) {
       lfile << pluginManager->pluginInfos[i]->resumeBarriers[j]->toString()
