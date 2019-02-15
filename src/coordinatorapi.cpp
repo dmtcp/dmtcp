@@ -51,8 +51,7 @@ namespace CoordinatorAPI {
 const int coordinatorSocket = PROTECTED_COORD_FD;
 int nsSock = -1;
 
-static bool _firstTime = true;
-static string _cachedHost;
+// Shared between getCoordHostAndPort() and setCoordPort()
 static int _cachedPort = 0;
 
 void init();
@@ -128,6 +127,13 @@ restart()
 void
 getCoordHostAndPort(CoordinatorMode mode, string *host, int *port)
 {
+  static bool _firstTime = true;
+  // FIXME:  Could make _cachedHost a 'char[]'.  But then, would
+  //         "*host = _cachedHost;"  replace the string inside *host as needed?
+  //         In particular, if the _cachedHost string object gets destroyed,
+  //         e.g., by a destructor during exit, then this could be a problem.
+  static string _cachedHost;
+
   if (SharedData::initialized()) {
     *host = SharedData::coordHost();
     *port = SharedData::coordPort();
@@ -139,11 +145,19 @@ getCoordHostAndPort(CoordinatorMode mode, string *host, int *port)
     if (*host == "") {
       if (getenv(ENV_VAR_NAME_HOST)) {
         *host = getenv(ENV_VAR_NAME_HOST);
+        _cachedHost = getenv(ENV_VAR_NAME_HOST);
       } else if (getenv("DMTCP_HOST")) { // deprecated
         *host = getenv("DMTCP_HOST");
+        _cachedHost = getenv("DMTCP_HOST");
       } else {
         *host = DEFAULT_HOST;
+        _cachedHost = DEFAULT_HOST;
       }
+    } else {
+      // The caller's string object needs to be valid across
+      // multiple calls to this function, or else, the _cachedHost
+      // pointer will become a dangling pointer.
+      _cachedHost = host->c_str();
     }
 
     // Set port to cmd line (if --coord-port) or env var
@@ -160,7 +174,6 @@ getCoordHostAndPort(CoordinatorMode mode, string *host, int *port)
       }
     }
 
-    _cachedHost = *host;
     _cachedPort = *port;
     _firstTime = false;
   } else {
