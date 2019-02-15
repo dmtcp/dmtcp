@@ -140,11 +140,19 @@ getCoordHostAndPort(CoordinatorMode mode, string *host, int *port)
     if (*host == "") {
       if (getenv(ENV_VAR_NAME_HOST)) {
         *host = getenv(ENV_VAR_NAME_HOST);
+        _cachedHost = getenv(ENV_VAR_NAME_HOST);
       } else if (getenv("DMTCP_HOST")) { // deprecated
         *host = getenv("DMTCP_HOST");
+        _cachedHost = getenv("DMTCP_HOST");
       } else {
         *host = DEFAULT_HOST;
+        _cachedHost = DEFAULT_HOST;
       }
+    } else {
+      // The caller's string object needs to be valid across
+      // multiple calls to this function, or else, the _cachedHost
+      // pointer will become a dangling pointer.
+      _cachedHost = host->c_str();
     }
 
     // Set port to cmd line (if --coord-port) or env var
@@ -161,7 +169,6 @@ getCoordHostAndPort(CoordinatorMode mode, string *host, int *port)
       }
     }
 
-    _cachedHost = host->c_str();
     _cachedPort = *port;
     _firstTime = false;
   } else {
