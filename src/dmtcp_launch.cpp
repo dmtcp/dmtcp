@@ -809,7 +809,7 @@ setLDPreloadLibs(bool is32bitElf)
         preloadLibs += ":";
 #if defined(__x86_64__) || defined(__aarch64__)
         preloadLibs32 += Util::getPath(p->lib, true);
-        preloadLibs += ":";
+        preloadLibs32 += ":";
 #endif // if defined(__x86_64__) || defined(__aarch64__)
       }
     }
