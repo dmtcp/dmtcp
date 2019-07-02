@@ -1,10 +1,10 @@
 Source: dmtcp
 Section: utils
 Priority: optional
-Maintainer: Kapil Arya <kapil@ccs.neu.edu>
-Uploaders: Yaroslav Halchenko <debian@onerussian.com>
-Build-Depends: debhelper (>= 7), python
-Standards-Version: 3.9.5
+Maintainer: Paul Grosu <pgrosu@gmail.com>
+Uploaders: Yaroslav Halchenko <debian@onerussian.com>, Kapil Arya <kapil@ccs.neu.edu>
+Build-Depends: debhelper (>= 11), python
+Standards-Version: 4.2.1
 Vcs-git: https://github.com/dmtcp/dmtcp.git
 Vcs-browser: https://github.com/dmtcp/dmtcp
 Homepage: http://dmtcp.sourceforge.net
@@ -31,7 +31,7 @@ Description: Checkpoint/Restart functionality for Linux processes
 Package: dmtcp-dbg
 Architecture: i386 amd64 armhf arm64
 Section: debug
-Priority: extra
+Priority: optional 
 Depends: dmtcp, ${misc:Depends}
 Description: Debug package for dmtcp
  DMTCP (Distributed MultiThreaded Checkpointing) is a tool to
