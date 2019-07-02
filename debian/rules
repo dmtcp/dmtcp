@@ -24,7 +24,7 @@ DPKG_BUILD_VERSION= $(shell dpkg-buildflags --version | sed -ne '1s,.*version *,
 ifeq ($(shell dpkg --compare-versions 1.16.1 lt $(DPKG_BUILD_VERSION) && echo TRUE), TRUE)
 DPKG_BUILDFLAGS= $(shell dpkg-buildflags --export=configure)
 else
-DPKG_BUILDFLAGS= CFLAGS="$(CFLAGS)" CXXFLAGS="$(CXXFLAGS)" LDFLAGS="-Wl,-z,defs"
+DPKG_BUILDFLAGS= CFLAGS="$(CFLAGS)" CXXFLAGS="$(CXXFLAGS) -pie" LDFLAGS="-Wl,-z,defs"
 endif
 
 BUILDDIR = debian/tmp
@@ -51,6 +51,7 @@ ifneq ($(shell dpkg-architecture -qDEB_BUILD_ARCH_CPU),arm)
 	env PWD=`pwd` ./test/autotest.py
 endif
 endif
+	#$(MAKE) check
 
 	touch $@
 

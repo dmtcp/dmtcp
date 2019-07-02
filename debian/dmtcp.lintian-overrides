@@ -1,4 +1,8 @@
 # mtcp_restart plays tricks with its memory layout
 dmtcp binary: statically-linked-binary *usr/bin/mtcp_restart
+# mtcp_restart is a static binary
+dmtcp binary: shared-lib-without-dependency-information *usr/bin/mtcp_restart
+# This is a library with no dependencies at the start
+dmtcp binary: shared-lib-without-dependency-information *usr/lib/dmtcp/libdmtcp_alloc.so
 # dmtcp_nocheckpoint does not make use of character arrays on stack
 dmtcp binary: hardening-no-stackprotector *usr/bin/dmtcp_nocheckpoint
