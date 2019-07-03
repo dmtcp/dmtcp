@@ -143,7 +143,9 @@ extern "C" int PMI_Init( int *spawned )
 // pmi is correctly initialized.
 extern "C" void *dlsym(void *handle, const char *symbol)
 {
-  if (symbol && strcmp(symbol, "PMI_Init") == 0) {
+  // Suppress nonnull_compare errors, by using new_symbol.
+  const char* new_symbol = symbol;
+  if (new_symbol && strcmp(symbol, "PMI_Init") == 0) {
     return (void *)PMI_Init;
   }
   return _real_dlsym(handle, symbol);

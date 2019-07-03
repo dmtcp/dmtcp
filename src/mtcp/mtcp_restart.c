@@ -1203,7 +1203,6 @@ remapMtcpRestartToReservedArea(RestoreInfo *rinfo)
     mtcp_abort();
   }
 
-  VA target_addr = rinfo->restore_addr; // FIXME: Unused: delete this line.
   for (size_t i = 0; i < num_regions; i++) {
     void *addr = mtcp_sys_mmap(mem_regions[i].addr + restore_region_offset,
                                mem_regions[i].size,
