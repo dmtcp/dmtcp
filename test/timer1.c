@@ -1,7 +1,8 @@
 // Compile as follows for debugging failure modes: gcc -DDEBUG <THIS_FILE> -lrt
 
-// NOTE: man timer_create: "The timer IDs presented at user level are maintained
-//       by glibc, which maps these IDs to the timer IDs employed by the kernel.
+// NOTE: man timer_create:
+//       "The timer IDs presented at user level are maintained by glibc,
+//        which maps these IDs to the timer IDs employed by the kernel."
 //       Therefore, one should delete the timers at ckpt time and restore
 //       them at resume/restart time.  This requires virtualizing the timerid.
 

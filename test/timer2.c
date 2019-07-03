@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <assert.h>
+#include <errno.h>
 #include <pthread.h>
 #include <sys/signal.h>
 #include <sys/time.h>
@@ -37,8 +38,7 @@ int main()
   se.sigev_notify_function = timer_thread;
   se.sigev_notify_attributes = NULL;
 
-  /* Specify a repeating timer that fires each 5 seconds.
-  */
+  /* Specify a repeating timer that fires every 1 seconds. */
   ts.it_value.tv_sec = 1;
   ts.it_value.tv_nsec = 0;
   ts.it_interval.tv_sec = 1;
@@ -46,11 +46,15 @@ int main()
 
   printf("Creating timer\n");
   status = timer_create(CLOCK_REALTIME, &se, &timer_id);
-  assert_perror(status);
+  if (status == -1) {
+    assert_perror(errno);
+  }
 
   printf("Setting timer %p for 1-second expiration...\n", (void *)timer_id);
   status = timer_settime(timer_id, 0, &ts, 0);
-  assert_perror(status);
+  if (status == -1) {
+    assert_perror(errno);
+  }
 
   while (1) {
     sleep(1);
