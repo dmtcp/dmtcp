@@ -8,7 +8,7 @@ macros=macros.trans
 tmp=tmp.tex
 vtmp=vtmp.tex
 
-targets = dmtcp_command dmtcp_coordinator dmtcp_launch dmtcp_restart
+targets = dmtcp_command dmtcp_coordinator dmtcp_launch dmtcp_restart dmtcp_srun_helper
 
 default:
 	echo "\setVersion{`cat ../VERSION`}" > $(vtmp)

@@ -1,0 +1,22 @@
+\begin{Name}{1}{dmtcp\_srun\_helper}{Kapil Arya, Gene Cooperman, Rohan Garg, et al.}{Distributed MultiThreaded CheckPointing}{dmtcp\_srun\_helper -- This is a helper program that should not be run by the user.}
+  \myProg{dmtcp\_srun\_helper} -- This is a helper program that should not be run by the user.
+\end{Name}
+
+\section{Synopsis}
+%%%%%%%%%%%%%%%%%%
+
+\myProg{dmtcp\_srun\_helper} \oArg{OPTIONS} \Arg{command} \oArg{command...}
+
+\section{Description}
+
+\myProg{dmtcp\_srun\_helper} shouldn't be used directly.
+
+\section{Options}
+%%%%%%%%%%%%%%%%%%
+
+\begin{Description}
+    \item[\Opt{no options}]
+This is a helper program.  Please do not try to run this program directly.
+
+\end{Description}
+
