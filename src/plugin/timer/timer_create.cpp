@@ -16,10 +16,13 @@
    License along with the GNU C Library; see the file COPYING.LIB.  If
    not, see <http://www.gnu.org/licenses/>.  */
 
+#define _POSIX_C_SOURCE 199309L
 #include <errno.h>
 #include <pthread.h>
 #include <semaphore.h>
 #include <signal.h>
+// HACK:  How should we use sigev_notify_thread_id as in 'man timer_create'?
+#define sigev_notify_thread_id _sigev_un._tid
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
@@ -32,8 +35,21 @@
 #include "jalloc.h"
 #include "jassert.h"
 
-// As defined in libc.
-#define SIGCANCEL SIGRTMIN
+// Much of this code is based on unix/sysv/linux/timer_routines.c in glibc.
+// We create and virtualize our own manager thread, instead of using glibc.
+
+// We use SIGRTMIN+2 instead of SIGRTMIN, to avoid conflict with glibc.
+//   when using glibc-2.24.  Note comment from nptl/pt-allocrtsig.c:
+//       We reserve __SIGRTMIN for use as the cancellation signal and
+//       __SIGRTMIN+1 to handle setuid et.al.  These signals are used
+//       internally.
+// Note:  SIGRTMIN = 34 (to hide the glibc internal SIGSETXID and SIGCANCEL)
+// FIXME:  We could use SIGRTMIN+3 as the ckpt signal instead of SIGUSR2.
+//         But since that's a real-time signal, multiple instances would be 
+//         queued.  Also, singals are sent with lowest signals at highest
+//         priority.  Must evaluate this change in functionality.
+// Almost as defined in libc (but using SIGRTMIN+2).
+#define SIGCANCEL SIGRTMIN+2
 #define SIGTIMER SIGCANCEL
 
 /* Internal representation of timer.  */
@@ -87,7 +103,7 @@ int timer_create_sigev_thread(clockid_t clock_id,
                               struct sigevent *sevOut)
 {
   /* If the user wants notification via a thread we need to handle
-     this special.  */
+     this specially.  */
   JASSERT(evp == NULL || evp->sigev_notify == SIGEV_THREAD);
 
   /* Create the helper thread.  */
@@ -123,8 +139,8 @@ int timer_create_sigev_thread(clockid_t clock_id,
   /* Create the event structure for the kernel timer.  */
   sevOut->sigev_value.sival_ptr = newp;
   sevOut->sigev_signo = SIGTIMER;
-  sevOut->sigev_notify = SIGEV_SIGNAL | SIGEV_THREAD_ID;
-  sevOut->_sigev_un._tid = helper_tid;
+  sevOut->sigev_notify = SIGEV_THREAD_ID;
+  sevOut->sigev_notify_thread_id = helper_tid;
 
   /* Create the timer.  */
   int res = _real_timer_create(clock_id, sevOut, timerid);
@@ -170,11 +186,17 @@ static void *timer_sigev_thread (void *arg)
 /* Helper function to support starting threads for SIGEV_THREAD.  */
 static void *timer_helper_thread (void *arg)
 {
+  /* IMPORTANT:  This static (file-local) tid will be passed directly
+   *   to timer_create.  But we are passing the _virtual_ tid.
+   *   Apparently, we can pass the virtual tid returned by syscall(SYS_gettid),
+   *   and it must be that at the time of notify, one of our other
+   *   syscalls converts the virtual tid to a real tid.
+   */
   helper_tid = syscall(SYS_gettid);
   sem_post(&helper_notification);
 
   /* Wait for the SIGTIMER signal, allowing the setXid signal, and
-     none else.  */
+     nothing else.  */
   sigset_t ss;
   sigemptyset (&ss);
   sigaddset (&ss, SIGTIMER);
@@ -184,14 +206,14 @@ static void *timer_helper_thread (void *arg)
   while (1) {
     siginfo_t si;
 
-    /* sigwaitinfo cannot be used here, since it deletes
-       SIGCANCEL == SIGTIMER from the set.  */
-
     pthread_testcancel();
     //int oldtype = LIBC_CANCEL_ASYNC ();
 
-    /* XXX The size argument hopefully will have to be changed to the
-       real size of the user-level sigset_t.  */
+    /* glibc: .../ unix/sysv/linux/timer_routines.c:
+     *   "sigwaitinfo cannot be used here, since it deletes
+     *    SIGCANCEL == SIGTIMER from the set."  ??
+     * But 'man sigtimedwait' says they both would do that.
+     */
     int result = sigtimedwait(&ss, &si, NULL);
 
     //LIBC_CANCEL_RESET (oldtype);
@@ -228,9 +250,10 @@ static void *timer_helper_thread (void *arg)
 
         pthread_mutex_unlock (&active_timer_sigev_thread_lock);
       }
-      else if (si.si_code == SI_TKILL)
+      else if (si.si_code == SI_TKILL) {
         /* The thread is canceled.  */
         pthread_exit (NULL);
+      }
     }
   }
 }
@@ -248,7 +271,7 @@ static void start_helper_thread (void)
   /* Block all signals in the helper thread but SIGSETXID.  To do this
      thoroughly we temporarily have to block all signals here.  The
      helper can lose wakeups if SIGCANCEL is not blocked throughout,
-     but sigfillset omits it SIGSETXID.  So, we add SIGCANCEL back
+     but sigfillset omits it.  So, we add SIGCANCEL back
      explicitly here.  */
   sigset_t ss;
   sigset_t oss;
