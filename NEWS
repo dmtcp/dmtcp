@@ -2,6 +2,38 @@ DMTCP NEWS -- history of user-visible changes.
 
 Please send DMTCP bug reports via <dmtcp-forum@lists.sourceforge.net>
 
+Version 2.6.0 release notes
+===========================
+Newer flags for configure:
+  * Rename --enable-debug to --enable-logging
+  * Add --enable-debug: "-Wall -g3 -O0"  (for debugging DMTCP)
+Newer flags for dmtcp_restart:
+  * Add --debug-restart-pause flag to dmtcp_restart
+Bug fixes and enhancements:
+* Fixes for glibc versions greater than or equal to 2.24
+* Fix deadlock in system() wrapper when the child crashes
+* Fix deadlock when a process is forked in the resume phase (issue #691)
+* jsocket: Warn user if peer closes socket while draining (issue #701)
+* Fix epoll1 test (initialize addrlen for accept()) (#705)
+* Fix to correctly calculate Coordinator/Host IP:
+    Affects some distributed applications
+* Allow restored stack to grow if needed.
+* Fix bug in POSIX timer: race condition manifested in test/timer.c/Ubuntu-18.04
+* Modified InfiniBand plugin for more robust support
+    (primarily of interest for MPI)
+* The floating point environment (fegetenv()) is now restored on restart.
+    (Formerly, only the rounding mode (fegetround()) was restored.)
+* The current resource limits (rlim_cur) for RLIMIT_NOFILE and RLIMIT_STACK
+    are restored if possible.
+* Mutex ownership and robust mutexes are now supported if DMTCP is configured
+    with --enable-mutex-wrappers.  (However, this configuration can also
+    add runtime overhead if mutex operations are called very frequently.)
+    [Thanks to Johannes Stoelp, Laurent Buchard, Pankaj Mehta of Synopsys, Inc.]
+* Fix bug if stack grows a lot after a restart.
+* Improved support for pty's
+* util/gdbinit-example added for those who wish to debug DMTCP internals.
+* Many bug fixes
+
 Version 2.5.2 release notes
 ===========================
 * All fixes in Release DMTCP-2.4.9 are incorporated in this release.
@@ -23,7 +55,7 @@ Version 2.5.2 release notes
 * Fixed a regression in which --enable-debug (for verbose debug logs)
   was not being properly written.
 * The DMTCP coordinator was displaying a spurious warning, "Failed to find
-  coordinator IP address", because it did not check for a canoncial hostname.
+  coordinator IP address", because it did not check for a canonical hostname.
   A related issue prevented DMTCP from working properly on some
   SUSE/openSUSE distros.
 
@@ -413,7 +445,7 @@ Important changes include:
    execution for newer ARM CPUs.
 * On restart, gzip zombie processes associated with compressed checkpoint
    images were not always reaped properly.  This is now handled correctly.
-* Peliminary support for using C++11 compilers to compile DMTCP (but
+* Preliminary support for using C++11 compilers to compile DMTCP (but
    not yet intensively tested).
 * Minor bug fixes.
 
@@ -472,7 +504,7 @@ Version 1.2.4 release notes
   compatible with DMTCP.
 - Zero-mapped pages are no longer expanded and saved to the DMTCP checkpoint
   image.  For Java programs (and other programs using zero-mapped pages for
-  their allocation arena or garbage collecotr), the checkpoint image will now
+  their allocation arena or garbage collector), the checkpoint image will now
   be much smaller.  Checkpoint and restart times will also be faster.
 - DMTCP_ROOT/dmtcp/doc directory added with documentation of some DMTCP
   internals.  architecture-of-dmtcp.pdf is a good place to start reading for
@@ -638,7 +670,7 @@ Version 1.1.4 release notes
 * Improved support for Pid-Virtualization.
 * Some users reported compilation error in previous release, fixed in this
   release.
-* dmtcp_nocheckpoing command added.
+* dmtcp_nocheckpoint command added.
 * dmtcp_command supports multiple commands.
 * Fix for not checkpointing dmtcp_* commands.
 * Several other bug fixes and improvements.
