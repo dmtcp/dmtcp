@@ -239,7 +239,8 @@ def runCmd(cmd):
     # Checkpoint image can be emacs23_x, or whatever emacs is a link to.
     # vim can be vim.gnome, etc.
     if re.search("(_|/|^)(screen|script|vim.*|emacs.*|pty)(_|$)", str):
-      ptyMode = True
+      # ptyMode = True
+      pass # Using ptyMode creates bug in restart for vim, etc.
   try:
     os.stat(cmd[0])
   except:
@@ -948,10 +949,10 @@ if HAS_ZSH == "yes":
 
 if HAS_VIM == "yes":
   # Wait to checkpoint until vim finishes reading its initialization files
-  S=10*DEFAULT_S
+  S=5*DEFAULT_S
   if sys.version_info[0:2] >= (2,6):
     # Delete previous vim processes.  Vim behaves poorly with stale processes.
-    vimCommand = VIM + " /etc/passwd +3" # +3 makes cmd line unique
+    vimCommand = VIM + " -X /etc/passwd +3" # +3 makes cmd line unique
     def killCommand(cmdToKill):
       if os.getenv('USER') == None or HAS_PS == 'no':
         return
