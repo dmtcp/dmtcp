@@ -739,8 +739,8 @@ ThreadList::postRestartDebug(int restartPause)
     // User should have done GDB attach if we're here.
 #ifdef HAS_PR_SET_PTRACER
     prctl(PR_SET_PTRACER, 0, 0, 0, 0); // Revert to default: no ptracer
-  }
 #endif
+  }
   static char restartPauseStr[2];
   restartPauseStr[0] = '0' + restartPause;
   restartPauseStr[1] = '\0';
