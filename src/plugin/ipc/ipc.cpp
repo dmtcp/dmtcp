@@ -131,7 +131,7 @@ extern "C" int dup2(int oldfd, int newfd)
     process_fd_event(SYS_dup, oldfd, newfd);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
-  return newfd;
+  return res;
 }
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,27)) && __GLIBC_PREREQ(2,9)
