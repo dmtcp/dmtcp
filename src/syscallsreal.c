@@ -41,6 +41,7 @@
 #include <string.h>
 #include <sys/select.h>
 #include <sys/time.h>
+#include <sys/resource.h>
 #include <sys/types.h>
 #include <sys/syscall.h>
 #include <sys/mman.h>
@@ -841,6 +842,11 @@ DIR* _real_opendir(const char *name) {
 LIB_PRIVATE
 int _real_closedir(DIR *dir) {
   REAL_FUNC_PASSTHROUGH (closedir) (dir);
+}
+
+LIB_PRIVATE
+int _real_setrlimit(int resource, const struct rlimit *rlim) {
+  REAL_FUNC_PASSTHROUGH (setrlimit) (resource, rlim);
 }
 
 LIB_PRIVATE

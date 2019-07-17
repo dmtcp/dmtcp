@@ -241,7 +241,15 @@ void Util::setProtectedFdBase()
     JWARNING(false)(JASSERT_ERRNO).Text("Could not figure out the max. number of fds");
     return;
   }
-  base = rlim.rlim_cur - (PROTECTED_FD_END - PROTECTED_FD_START) - 1;
+  // Important:  We must not use a different 'protected fd base' within a child
+  //   process, since the child will inherit some of the 'protected fd'
+  //   values in 'protectedfds.h'.  In particular,
+  //   'Util::isValidFd(PROTECTED_SHM_FD)' in shareddata.cpp expects
+  //   PROTECTED_SHM_FD to be unchanged between parent and child.
+  base = protectedFdBase();
+  JASSERT(base < rlim.rlim_cur - (PROTECTED_FD_END - PROTECTED_FD_START) - 1)
+	 (base)(rlim.rlim_cur)
+	 .Text("RLIMIT_NOFILE was changed.  base fd is no longer valid");
   snprintf(protectedFdBaseBuf, sizeof protectedFdBaseBuf, "%u", base);
   JASSERT(base).Text("Setting the base of protected fds to");
   setenv(ENV_VAR_PROTECTED_FD_BASE, protectedFdBaseBuf, 1);
