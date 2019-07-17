@@ -790,6 +790,8 @@ runTest("shared-fd2",     2, ["./test/shared-fd2"])
 
 runTest("stale-fd",      2, ["./test/stale-fd"])
 
+runTest("rlimit-nofile",      2, ["./test/rlimit-nofile"])
+
 # Disable procfd1 until we fix readlink
 #runTest("procfd1",       2, ["./test/procfd1"])
 
