@@ -890,7 +890,7 @@ DmtcpCoordinator::processDmtUserCmd(DmtcpMessage &hello_remote,
                                     jalib::JSocket &remote)
 {
   // dmtcp_command doesn't handshake (it is antisocial)
-  JTRACE("got user command from dmtcp_command")(hello_remote.coordCmd);
+  JTRACE("got user command from dmtcp_command")((char)hello_remote.coordCmd);
   DmtcpMessage reply;
   reply.type = DMT_USER_CMD_RESULT;
 
@@ -1382,7 +1382,10 @@ DmtcpCoordinator::eventLoop(bool daemon)
   while (true) {
     // Wait until either there is some activity on client sockets, or the timer
     // has expired.
-    int nfds = epoll_wait(epollFd, events, MAX_EVENTS, -1);
+    int nfds;
+    do {
+      nfds = epoll_wait(epollFd, events, MAX_EVENTS, -1);
+    } while (nfds < 0 && errno == EINTR && !timerExpired);
 
     // The ckpt timer has expired; it's time to checkpoint.
     if (nfds == -1 && errno == EINTR && timerExpired) {
@@ -1589,6 +1592,7 @@ main(int argc, char **argv)
   if (!thePortFile.empty()) {
     Util::writeCoordPortToFile(thePort, thePortFile.c_str());
   }
+  JTRACE("Listening on port")(thePort);
 
   // parse checkpoint interval
   const char *interval = getenv(ENV_VAR_CKPT_INTR);

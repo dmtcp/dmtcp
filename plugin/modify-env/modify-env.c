@@ -60,6 +60,10 @@ restart()
   DmtcpGetRestartEnvErr_t retval = dmtcp_get_restart_env(DMTCP_ENV_VAR, env_file, PATH_MAX);
 
   if (retval != RESTART_ENV_SUCCESS) {
+    if (sizeof DMTCP_DEFAULT_ENV_FILE > sizeof env_file) {
+      printf("***** WARNING: pathname of DMTCP_DEFAULT_ENV_FILE"
+             " exceeds PATH_MAX *****\n");
+    }
     strncpy(env_file, DMTCP_DEFAULT_ENV_FILE, sizeof DMTCP_DEFAULT_ENV_FILE);
   }
 

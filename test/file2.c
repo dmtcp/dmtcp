@@ -42,11 +42,11 @@ main()
   if (mkdtemp(dir1) == NULL) {
     abort();
   }
-  strncpy(dir2, dir1, strlen(dir1));    // Update new prefix
+  memcpy(dir2, dir1, strlen(dir1));      // Update prefix, only, for dir2 path
   if (mkdtemp(dir2) == NULL) {
     abort();
   }
-  strncpy(filename, dir2, strlen(dir2));    // Update new prefix
+  memcpy(filename, dir2, strlen(dir2));  // Update prefix; dest: char[]
   fd = mkstemp(filename);
   if (fd == -1) {
     abort();

@@ -10,6 +10,7 @@ CPPFLAGS = @CPPFLAGS@
 LDFLAGS = @LDFLAGS@
 M32=@M32@
 HAS_JAVA=@HAS_JAVA@
+HAS_JAVAC=@HAS_JAVAC@
 PACKAGE=@PACKAGE_TARNAME@
 PACKAGE_TARNAME=@PACKAGE_TARNAME@-@PACKAGE_VERSION@
 VERSION=@PACKAGE_VERSION@
@@ -81,7 +82,10 @@ display-build-env: display-config display-release
 	@- echo 'CPPFLAGS: ${CPPFLAGS}'
 	@- echo 'LDFLAGS: ${LDFLAGS}'
 	@- if test "$(HAS_JAVA)" = "yes" ; then \
-	     java -showversion 2>&1 | head -3 ; \
+	     java -version ; \
+	   fi
+	@- if test "$(HAS_JAVAC)" = "yes" ; then \
+	     javac -version ; \
 	   fi
 	@ ls -ld /var/*/nscd/* 2> /dev/null || true
 	@ echo ""
