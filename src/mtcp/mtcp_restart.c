@@ -472,7 +472,9 @@ NO_OPTIMIZE
 static void
 restart_fast_path()
 {
-  int mtcp_sys_errno;
+#ifdef DEBUG
+  int mtcp_sys_errno;  // for sake of DPRINTF()
+#endif
 
   /* For __arm__ and __aarch64__ will need to invalidate cache after this.
    */

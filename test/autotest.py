@@ -769,8 +769,6 @@ S=DEFAULT_S
 # Test for normal file, /dev/tty, proc file, and illegal pathname
 runTest("stat",         1, ["./test/stat"])
 
-runTest("rlimit-restore",         1, ["./test/rlimit-restore"])
-
 PWD=os.getcwd()
 runTest("plugin-sleep2", 1, ["--with-plugin "+
                              PWD+"/test/plugin/sleep1/dmtcp_sleep1hijack.so:"+
@@ -800,6 +798,8 @@ runTest("shared-fd1",     2, ["./test/shared-fd1"])
 runTest("shared-fd2",     2, ["./test/shared-fd2"])
 
 runTest("stale-fd",      2, ["./test/stale-fd"])
+
+runTest("rlimit-restore",         1, ["./test/rlimit-restore"])
 
 runTest("rlimit-nofile",      2, ["./test/rlimit-nofile"])
 
