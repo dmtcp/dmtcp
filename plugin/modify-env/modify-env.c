@@ -56,7 +56,11 @@ void dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     char env_file[PATH_MAX];
     int retval = dmtcp_get_restart_env(DMTCP_ENV_VAR, env_file, PATH_MAX);
     if (retval != 0) {
-      strncpy(env_file, DMTCP_DEFAULT_ENV_FILE, sizeof DMTCP_DEFAULT_ENV_FILE);
+      if (sizeof DMTCP_DEFAULT_ENV_FILE > sizeof env_file) {
+        printf("***** WARNING: pathname of DMTCP_DEFAULT_ENV_FILE"
+               " exceeds PATH_MAX *****\n");
+      }
+      strncpy(env_file, DMTCP_DEFAULT_ENV_FILE, sizeof env_file);
     }
 
     int size = 12288;

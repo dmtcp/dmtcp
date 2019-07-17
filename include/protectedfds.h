@@ -29,13 +29,15 @@
 
 int protectedFdBase();
 
+// FIXME:  This should be unsigned short, and we should use "%lud" to print it.
+//         Then, "protectedFdBase() + XXX" fits inside unsigned long.
 inline int protectedFdBase()
 {
   static int base = DEFAULT_PROTECTED_FD_BASE;
   const char *buf = getenv("DMTCP_PROTECTED_FD_BASE");
 
   if (buf) {
-    base = atol(buf);
+    base = atoi(buf);
   }
   return base;
 }

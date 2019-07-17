@@ -20,7 +20,7 @@
 int arch_prctl();
 #if 1
 // These calls need to be made from both DMTCP and mtcp_restart
-//   unifo2 is for the gs register (only used for special programs)
+//   uinfo2 is for the gs register (only used for special programs)
 #  define tls_get_thread_area(uinfo, uinfo2) \
     ( mtcp_inline_syscall(arch_prctl,2,ARCH_GET_FS, \
          (unsigned long int)(&(((struct user_desc *)uinfo)->base_addr))), \

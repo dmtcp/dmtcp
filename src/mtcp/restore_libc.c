@@ -265,7 +265,7 @@ int TLSInfo_GetTidOffset(void)
              "  Continuing anyway.  If this fails, please try again.",
              tid_offset);
     }
-    DPRINTF("tid_offset: %d\n", tid_offset);
+    DPRINTF("DEBUGGING INFO: tid_offset: %d\n", tid_offset);
     if (tid_offset % sizeof(int) != 0) {
       PRINTF("WARNING: tid_offset is not divisible by sizeof(int).\n"
              "  Now relying on the value determined using the\n"
@@ -291,7 +291,7 @@ int TLSInfo_GetPidOffset(void)
   if (pid_offset == -1) {
     int tid_offset = TLSInfo_GetTidOffset();
     pid_offset = tid_offset + (char *)&(tid_pid.pid) - (char *)&tid_pid;
-    DPRINTF("pid_offset: %d\n", pid_offset);
+    DPRINTF("DEBUGGING_INFO: pid_offset: %d\n", pid_offset);
   }
   return pid_offset;
 }

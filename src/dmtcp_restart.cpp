@@ -407,7 +407,7 @@ static void runMtcpRestart(int is32bitElf, int fd, ProcessInfo *pInfo)
   char fdBuf[8];
   char stderrFdBuf[8];
   sprintf(fdBuf, "%d", fd);
-  sprintf(stderrFdBuf, "%d", PROTECTED_STDERR_FD);
+  sprintf(stderrFdBuf, "%u", (unsigned int)PROTECTED_STDERR_FD);
 
 #ifdef HAS_PR_SET_PTRACER
   if (getenv("DMTCP_GDB_ATTACH_ON_RESTART")) {
@@ -441,8 +441,8 @@ static void runMtcpRestart(int is32bitElf, int fd, ProcessInfo *pInfo)
         int status;
         waitpid(pid, &status, 0);
       }
-      char cpid[10]; // XXX: Is 10 digits enough for a PID?
-      snprintf(cpid, 10, "%d", pid);
+      char cpid[11]; // XXX: Is 10 digits for long PID plus a terminating null
+      snprintf(cpid, 11, "%ld", (long unsigned)pid);
       char* const cmdArgs[] = {const_cast<char*>(pInfo->procSelfExe().c_str()),
                                cpid,
                                NULL};

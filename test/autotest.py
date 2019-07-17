@@ -636,8 +636,9 @@ def runTestRaw(name, numProcs, cmds):
                     printFixed(" (" + coredump + " copied to DMTCP_TMPDIR:" +
                                dmtcp_tmpdir() + "/)")
             else:
-              printFixed("(First process didn't die.  This has been also" +
-                         " observed due to a slow NFS-based filesystem)")
+              printFixed("(Either first process didn't die, or sle this long" +
+                         " delay has been observed due to a slow" +
+                         " NFS-based filesystem.)")
             printFixed(" retry:")
             testKill()
       if i != CYCLES - 1:
@@ -775,8 +776,6 @@ S=DEFAULT_S
 # Test for normal file, /dev/tty, proc file, and illegal pathname
 runTest("stat",         1, ["./test/stat"])
 
-runTest("rlimit-restore",         1, ["./test/rlimit-restore"])
-
 # Test for stack grow works on restart
 runTest("stack-growsdown",         1, ["./test/stack-growsdown"])
 
@@ -809,6 +808,8 @@ runTest("shared-fd1",     2, ["./test/shared-fd1"])
 runTest("shared-fd2",     2, ["./test/shared-fd2"])
 
 runTest("stale-fd",      2, ["./test/stale-fd"])
+
+runTest("rlimit-restore",         1, ["./test/rlimit-restore"])
 
 runTest("rlimit-nofile",      2, ["./test/rlimit-nofile"])
 
