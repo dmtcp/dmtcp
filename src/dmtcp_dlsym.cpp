@@ -266,12 +266,20 @@ static void get_dt_tags(void *handle, dt_tag *tags) {
  * data), we need to manually adjust at access time.
  */
 
+// Note that the dynamic tags for the sections of the virtual
+//   library, linux-vdso.so, have to be handled specially, since their d_ptr
+//   is an offset, and not an absolute address.
+// QUESTION:
+//   Since we handle linux-vdso.so directly, what is the "else" condition for?
 #define ADJUST_DYN_INFO_RO(dst, map, dyn)                   \
-  if (dyn->d_un.d_ptr > map->l_addr) {                      \
+  if ( strstr(map->l_name, "linux-vdso.so") ) {             \
+    dst = (__typeof(dst))(map->l_addr + dyn->d_un.d_ptr);   \
+  } else if (dyn->d_un.d_ptr > map->l_addr) {               \
     dst = (__typeof(dst))dyn->d_un.d_ptr;                   \
   } else {                                                  \
     dst = (__typeof(dst))(map->l_addr + dyn->d_un.d_ptr);   \
   }
+
     // The _DYNAMIC symbol should be pointer to address of the dynamic section.
     // printf("dyn: %p; _DYNAMIC: %p\n", dyn, _DYNAMIC);
     for (cur_dyn = dyn; cur_dyn->d_tag != DT_NULL;  cur_dyn++) {
