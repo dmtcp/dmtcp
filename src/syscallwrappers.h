@@ -33,10 +33,10 @@
 #include <signal.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <sys/resource.h>
 #include <sys/sem.h>
 #include <sys/shm.h>
 #include <sys/socket.h>
-#include <sys/types.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 
@@ -204,6 +204,7 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   MACRO(close)                        \
   MACRO(fclose)                       \
   MACRO(closedir)                     \
+  MACRO(setrlimit)                    \
   MACRO(dup)                          \
   MACRO(dup2)                         \
   MACRO(dup3)                         \
@@ -359,6 +360,7 @@ int _real_mkstemp(char *ttemplate);
 int _real_close(int fd);
 int _real_fclose(FILE *fp);
 int _real_closedir(DIR *dir);
+int _real_setrlimit(int resource, const struct rlimit *rlim);
 void _real_exit(int status);
 int _real_dup(int oldfd);
 int _real_dup2(int oldfd, int newfd);

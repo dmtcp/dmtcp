@@ -1019,6 +1019,10 @@ _real_closedir(DIR *dir)
   REAL_FUNC_PASSTHROUGH(closedir) (dir);
 }
 
+int _real_setrlimit(int resource, const struct rlimit *rlim) {
+  REAL_FUNC_PASSTHROUGH (setrlimit) (resource, rlim);
+}
+
 LIB_PRIVATE
 int
 _real_mkstemp(char *template)

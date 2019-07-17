@@ -19,6 +19,8 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#include <sys/time.h>
+#include <sys/resource.h>
 #include <sys/syscall.h>
 #include "../jalib/jassert.h"
 #include "../jalib/jconvert.h"
@@ -122,6 +124,21 @@ extern "C" int dup2(int oldfd, int newfd)
   return _real_dup2(oldfd, newfd);
 }
 */
+
+// Linux prlimit() could also be wrapped for protected fd, but it's a rare case.
+extern "C" int setrlimit (int resource, const struct rlimit *rlim) {
+  if ( resource == RLIMIT_NOFILE &&
+       (rlim->rlim_cur < 1024 || rlim->rlim_max < 1024) ) {
+    JNOTE("Blocked attempt to lower RLIMIT_NOFILE\n"
+                 "  below 1024 (needed for DMTCP protected fd)")
+         (rlim->rlim_cur) (rlim->rlim_max);
+    struct rlimit rlim2 = {0};
+    if (rlim->rlim_cur < 1024) { rlim2.rlim_cur = 1024; }
+    if (rlim->rlim_max < 1024) { rlim2.rlim_max = 1024; }
+    return _real_setrlimit(resource, &rlim2);
+  }
+  return _real_setrlimit(resource, rlim);
+}
 
 extern "C" int
 pipe(int fds[2])
