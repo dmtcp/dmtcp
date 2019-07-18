@@ -97,6 +97,12 @@ distclean: clean
 	#${MAKE} -C credentials distclean
 	rm -f Makefile
 
+# plugin-init will call the INIT event in libdmtcp_plugin-init.so
+libdmtcp_plugin-init.so: plugin-init.cpp
+	${CXX} ${CXXFLAGS} -shared -fPIC -o $@ $<
+plugin-init: libdmtcp_plugin-init.so
+	# Don't create executable.  Only the library, above, used on test/sleep1
+
 readline: readline.c
 ifeq ($(HAS_READLINE),yes)
 	$(CC) -o $@ $< $(CFLAGS) $(READLINE_LIBS)
