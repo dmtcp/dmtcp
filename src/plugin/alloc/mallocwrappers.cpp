@@ -34,11 +34,15 @@ extern "C" void *calloc(size_t nmemb, size_t size)
   return retval;
 }
 
+extern "C" int dmtcpInMalloc;
+int dmtcpInMalloc = 0;
 extern "C" void *malloc(size_t size)
 {
+  dmtcpInMalloc = 1;
   DMTCP_PLUGIN_DISABLE_CKPT();
   void *retval = _real_malloc ( size );
   DMTCP_PLUGIN_ENABLE_CKPT();
+  dmtcpInMalloc = 0;
   return retval;
 }
 
