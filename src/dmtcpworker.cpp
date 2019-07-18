@@ -251,12 +251,15 @@ static void installSegFaultHandler()
   JASSERT (sigaction(SIGSEGV, &act, NULL) == 0) (JASSERT_ERRNO);
 }
 
-//called before user main()
-//workerhijack.cpp initializes a static variable theInstance to DmtcpWorker obj
+static bool inDmtcpWorker = false;
+// A weak symbol will have default value 0 (same as false)
+extern "C" int dmtcpInMalloc __attribute__((weak));
+
+//called before user main() to initialize DMTCP
 extern "C" void dmtcp_initialize()
 {
   static bool initialized = false;
-  if (initialized) {
+  if ( initialized || (! inDmtcpWorker && dmtcpInMalloc) ) {
     return;
   }
   initialized = true;
@@ -310,7 +313,9 @@ extern "C" void dmtcp_initialize()
 
 DmtcpWorker::DmtcpWorker()
 {
+  inDmtcpWorker = true;
   dmtcp_initialize();
+  inDmtcpWorker = false;
 }
 
 void DmtcpWorker::resetOnFork()
