@@ -771,6 +771,10 @@ runTest("plugin-example-db", 2, ["--with-plugin "+
                              "env EXAMPLE_DB_KEY=2 EXAMPLE_DB_KEY_OTHER=1 "+
                              "./test/dmtcp1"])
 
+runTest("plugin-init", 1, ["--with-plugin "+
+                             PWD+"/test/libdmtcp_plugin-init.so "+
+                             "./test/dmtcp1"])
+
 # Test special case:  gettimeofday can be handled within VDSO segment.
 runTest("gettimeofday",  1, ["./test/gettimeofday"])
 
