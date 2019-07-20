@@ -23,10 +23,11 @@ dmtcp_register_plugin(DmtcpPluginDescriptor_t descr)
 
 namespace dmtcp
 {
-DmtcpPluginDescriptor_t dmtcp_ProcessInfo_PluginDescr();
 DmtcpPluginDescriptor_t dmtcp_Syslog_PluginDescr();
+DmtcpPluginDescriptor_t dmtcp_Rlimit_Float_PluginDescr();
 DmtcpPluginDescriptor_t dmtcp_Alarm_PluginDescr();
 DmtcpPluginDescriptor_t dmtcp_Terminal_PluginDescr();
+DmtcpPluginDescriptor_t dmtcp_ProcessInfo_PluginDescr();
 
 void
 PluginManager::initialize()
@@ -62,6 +63,7 @@ dmtcp_initialize_plugin()
 {
   // Now register the "in-built" plugins.
   dmtcp_register_plugin(dmtcp_Syslog_PluginDescr());
+  dmtcp_register_plugin(dmtcp_Rlimit_Float_PluginDescr());
   dmtcp_register_plugin(dmtcp_Alarm_PluginDescr());
   dmtcp_register_plugin(dmtcp_Terminal_PluginDescr());
   dmtcp_register_plugin(CoordinatorAPI::pluginDescr());

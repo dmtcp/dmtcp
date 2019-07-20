@@ -148,6 +148,7 @@ __d_libdir__libdmtcp_so_SOURCES = alarm.cpp			\
 				  plugininfo.cpp 		\
 				  pluginmanager.cpp		\
 				  popen.cpp 			\
+				  rlimitfloat.cpp 		\
 				  signalwrappers.cpp 		\
 				  siginfo.cpp 			\
 				  syslogwrappers.cpp 		\

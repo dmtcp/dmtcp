@@ -38,8 +38,6 @@ namespace dmtcp
 {
 static pthread_mutex_t tblLock = PTHREAD_MUTEX_INITIALIZER;
 
-static int roundingMode;
-
 static void
 _do_lock_tbl()
 {
@@ -55,7 +53,7 @@ _do_unlock_tbl()
 static void
 checkpoint()
 {
-  ProcessInfo::instance().refresh();
+  ProcessInfo::instance().getState();
 }
 
 static void
@@ -82,7 +80,7 @@ processInfo_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
   case DMTCP_EVENT_PRE_EXEC:
   {
     jalib::JBinarySerializeWriterRaw wr("", data->serializerInfo.fd);
-    ProcessInfo::instance().refresh();
+    ProcessInfo::instance().getState();
     ProcessInfo::instance().serialize(wr);
     break;
   }
@@ -504,7 +502,6 @@ ProcessInfo::restoreHeap()
 void
 ProcessInfo::restart()
 {
-  fesetround(roundingMode);
   // Unmap the restore buffer and remap it with PROT_NONE. We do munmap followed
   // mmap to ensure that the kernel releases the backing physical pages.
   JASSERT(munmap((void *)_restoreBufAddr, _restoreBufLen) == 0)
@@ -680,11 +677,9 @@ ProcessInfo::setCkptDir(const char *dir)
 }
 
 void
-ProcessInfo::refresh()
+ProcessInfo::getState()
 {
   JASSERT(_pid == getpid()) (_pid) (getpid());
-
-  roundingMode = fegetround();
 
   _gid = getpgid(0);
   _sid = getsid(0);
