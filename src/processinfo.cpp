@@ -41,7 +41,10 @@ EXTERNC int dmtcp_get_max_user_fd() __attribute__((weak));
 
 static pthread_mutex_t tblLock = PTHREAD_MUTEX_INITIALIZER;
 
-static int roundingMode;
+static int roundingMode = -1;
+static fenv_t envp;
+static rlim_t rlim_cur_nofile = 0;
+static rlim_t rlim_cur_stack = 0;
 
 static void _do_lock_tbl()
 {
@@ -81,7 +84,17 @@ void dmtcp_ProcessInfo_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
       break;
 
     case DMTCP_EVENT_RESTART:
+      fesetenv(&envp);
       fesetround(roundingMode);
+      { struct rlimit rlim = {0, 0};
+        getrlimit(RLIMIT_NOFILE, &rlim);
+        rlim.rlim_cur = rlim_cur_nofile;
+        setrlimit(RLIMIT_NOFILE, &rlim);
+        getrlimit(RLIMIT_STACK, &rlim);
+        rlim.rlim_cur = rlim_cur_stack;
+        setrlimit(RLIMIT_STACK, &rlim);
+      }
+
       ProcessInfo::instance().restart();
       break;
 
@@ -93,6 +106,14 @@ void dmtcp_ProcessInfo_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 
     case DMTCP_EVENT_THREADS_SUSPEND:
       roundingMode = fegetround();
+      fegetenv(&envp);
+      { struct rlimit rlim = {0, 0};
+        getrlimit(RLIMIT_NOFILE, &rlim);
+        rlim_cur_nofile = rlim.rlim_cur;
+        getrlimit(RLIMIT_STACK, &rlim);
+        rlim_cur_stack = rlim.rlim_cur;
+      }
+
       break;
 
     case DMTCP_EVENT_THREADS_RESUME:
@@ -383,7 +404,6 @@ void ProcessInfo::restoreHeap()
 
 void ProcessInfo::restart()
 {
-  fesetround(roundingMode);
   // Unmap the restore buffer and remap it with PROT_NONE. We do munmap followed
   // mmap to ensure that the kernel releases the backing physical pages.
   JASSERT(munmap((void *)_restoreBufAddr, _restoreBufLen) == 0)
