@@ -756,6 +756,8 @@ S=DEFAULT_S
 # Test for normal file, /dev/tty, proc file, and illegal pathname
 runTest("stat",         1, ["./test/stat"])
 
+runTest("rlimit-restore",         1, ["./test/rlimit-restore"])
+
 PWD=os.getcwd()
 runTest("plugin-sleep2", 1, ["--with-plugin "+
                              PWD+"/test/plugin/sleep1/dmtcp_sleep1hijack.so:"+
