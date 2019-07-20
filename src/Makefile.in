@@ -185,6 +185,7 @@ am___d_libdir__libdmtcp_so_OBJECTS = alarm.$(OBJEXT) \
 	dmtcpworker.$(OBJEXT) execwrappers.$(OBJEXT) \
 	glibcsystem.$(OBJEXT) miscwrappers.$(OBJEXT) \
 	plugininfo.$(OBJEXT) pluginmanager.$(OBJEXT) popen.$(OBJEXT) \
+	rlimitfloatenv.$(OBJEXT) \
 	signalwrappers.$(OBJEXT) siginfo.$(OBJEXT) \
 	syslogwrappers.$(OBJEXT) terminal.$(OBJEXT) \
 	threadlist.$(OBJEXT) threadsync.$(OBJEXT) \
@@ -227,7 +228,8 @@ am__depfiles_remade = ./$(DEPDIR)/alarm.Po \
 	./$(DEPDIR)/nosyscallsreal.Po ./$(DEPDIR)/plugininfo.Po \
 	./$(DEPDIR)/pluginmanager.Po ./$(DEPDIR)/popen.Po \
 	./$(DEPDIR)/processinfo.Po ./$(DEPDIR)/procselfmaps.Po \
-	./$(DEPDIR)/restartscript.Po ./$(DEPDIR)/shareddata.Po \
+	./$(DEPDIR)/restartscript.Po \
+	./$(DEPDIR)/rlimitfloatenv.Po ./$(DEPDIR)/shareddata.Po \
 	./$(DEPDIR)/siginfo.Po ./$(DEPDIR)/signalwrappers.Po \
 	./$(DEPDIR)/syscallsreal.Po ./$(DEPDIR)/syslogwrappers.Po \
 	./$(DEPDIR)/terminal.Po ./$(DEPDIR)/threadlist.Po \
@@ -628,6 +630,7 @@ __d_libdir__libdmtcp_so_SOURCES = alarm.cpp			\
 				  plugininfo.cpp 		\
 				  pluginmanager.cpp		\
 				  popen.cpp 			\
+				  rlimitfloatenv.cpp 			\
 				  signalwrappers.cpp 		\
 				  siginfo.cpp 			\
 				  syslogwrappers.cpp 		\
@@ -885,6 +888,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/processinfo.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/procselfmaps.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/restartscript.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/rlimitfloatenv.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/shareddata.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/siginfo.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/signalwrappers.Po@am__quote@ # am--include-marker
@@ -1306,6 +1310,7 @@ distclean: distclean-recursive
 	-rm -f ./$(DEPDIR)/processinfo.Po
 	-rm -f ./$(DEPDIR)/procselfmaps.Po
 	-rm -f ./$(DEPDIR)/restartscript.Po
+	-rm -f ./$(DEPDIR)/rlimitfloatenv.Po
 	-rm -f ./$(DEPDIR)/shareddata.Po
 	-rm -f ./$(DEPDIR)/siginfo.Po
 	-rm -f ./$(DEPDIR)/signalwrappers.Po
@@ -1401,6 +1406,7 @@ maintainer-clean: maintainer-clean-recursive
 	-rm -f ./$(DEPDIR)/processinfo.Po
 	-rm -f ./$(DEPDIR)/procselfmaps.Po
 	-rm -f ./$(DEPDIR)/restartscript.Po
+	-rm -f ./$(DEPDIR)/rlimitfloatenv.Po
 	-rm -f ./$(DEPDIR)/shareddata.Po
 	-rm -f ./$(DEPDIR)/siginfo.Po
 	-rm -f ./$(DEPDIR)/signalwrappers.Po

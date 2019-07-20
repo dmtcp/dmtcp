@@ -66,7 +66,7 @@ class ProcessInfo
     void endPthreadJoin(pthread_t thread);
     void clearPthreadJoinState(pthread_t thread);
 
-    void refresh();
+    void getState();
     void refreshChildTable();
     void setRootOfProcessTree() { _isRootOfProcessTree = true; }
 
