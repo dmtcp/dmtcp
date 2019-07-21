@@ -113,29 +113,30 @@ typedef enum {
 } DMTCP_ARCH_MODE;
 
 struct Header {
+  uint64_t initialized;
+
   char tmpDir[PATH_MAX];
   char installDir[PATH_MAX];
 
-  uint32_t initialized;
-  struct in_addr localIPAddr;
+  struct sockaddr_storage localIPAddr;
 
-  int32_t dlsymOffset;
-  int32_t dlsymOffset_m32;
+  int64_t dlsymOffset;
+  int64_t dlsymOffset_m32;
 
-  uint32_t numPidMaps;
-  uint32_t numPtraceIdMaps;
+  uint64_t numPidMaps;
+  uint64_t numPtraceIdMaps;
 
-  uint32_t numSysVShmIdMaps;
-  uint32_t numSysVSemIdMaps;
-  uint32_t numSysVMsqIdMaps;
-  uint32_t numSysVShmKeyMaps;
+  uint64_t numSysVShmIdMaps;
+  uint64_t numSysVSemIdMaps;
+  uint64_t numSysVMsqIdMaps;
+  uint64_t numSysVShmKeyMaps;
 
-  uint32_t numPtyNameMaps;
-  uint32_t nextPtyName;
-  uint32_t nextVirtualPtyId;
+  uint64_t numPtyNameMaps;
+  uint64_t nextPtyName;
+  uint64_t nextVirtualPtyId;
 
-  uint32_t numIncomingConMaps;
-  uint32_t numInodeConnIdMaps;
+  uint64_t numIncomingConMaps;
+  uint64_t numInodeConnIdMaps;
 
   union {
     struct BarrierInfo barrierInfo;
@@ -161,7 +162,7 @@ struct Header {
     uint64_t _pad;
   };
   // char                 coordHost[NI_MAXHOST];
-} __attribute__((packed));
+};
 
 bool initialized();
 
