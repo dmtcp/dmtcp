@@ -96,28 +96,28 @@ namespace dmtcp {
       char                 tmpDir[PATH_MAX];
       char                 installDir[PATH_MAX];
 
-      uint32_t             initialized;
+      uint64_t             initialized;
       struct in_addr       localIPAddr;
 
-      int32_t              dlsymOffset;
-      int32_t              dlsymOffset_m32;
+      int64_t              dlsymOffset;
+      int64_t              dlsymOffset_m32;
 
-      uint32_t             numPidMaps;
-      uint32_t             numPtraceIdMaps;
+      uint64_t             numPidMaps;
+      uint64_t             numPtraceIdMaps;
 
-      uint32_t             numSysVShmIdMaps;
-      uint32_t             numSysVSemIdMaps;
-      uint32_t             numSysVMsqIdMaps;
-      uint32_t             numSysVShmKeyMaps;
+      uint64_t             numSysVShmIdMaps;
+      uint64_t             numSysVSemIdMaps;
+      uint64_t             numSysVMsqIdMaps;
+      uint64_t             numSysVShmKeyMaps;
 
-      uint32_t             numPtyNameMaps;
-      uint32_t             nextPtyName;
-      uint32_t             nextVirtualPtyId;
+      uint64_t             numPtyNameMaps;
+      uint64_t             nextPtyName;
+      uint64_t             nextVirtualPtyId;
 
-      uint32_t             numIncomingConMaps;
-      uint32_t             numInodeConnIdMaps;
+      uint64_t             numIncomingConMaps;
+      uint64_t             numInodeConnIdMaps;
 
-      uint32_t             logMask;
+      uint64_t             logMask;
 
       struct PidMap        pidMap[MAX_PID_MAPS];
       struct IPCIdMap      sysvShmIdMap[MAX_IPC_ID_MAPS];
@@ -133,7 +133,7 @@ namespace dmtcp {
       DmtcpUniqueProcessId compId;
       CoordinatorInfo      coordInfo;
       //char                 coordHost[NI_MAXHOST];
-    } __attribute__((packed));
+    };
 
     bool initialized();
 
