@@ -147,9 +147,11 @@ class DmtcpCoordinator
     map<string, vector<string> >_restartFilenames;
     map<pid_t, CoordClient *>_virtualPidToClientMap;
 
+    vector<string>preSuspendBarriers;
     vector<string>ckptBarriers;
     vector<string>restartBarriers;
 
+    size_t nextPreSuspendBarrier;
     size_t nextCkptBarrier;
     size_t nextRestartBarrier;
 };

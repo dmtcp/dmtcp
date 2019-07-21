@@ -455,6 +455,18 @@ DmtcpCoordinator::updateMinimumState()
     return;
   }
 
+  if (status.minimumState == WorkerState::PRESUSPEND) {
+    if (nextPreSuspendBarrier < preSuspendBarriers.size()) {
+      JNOTE("Releasing next pre-suspend barrier")
+        (preSuspendBarriers[nextPreSuspendBarrier]);
+      releaseBarrier(preSuspendBarriers[nextPreSuspendBarrier]);
+      nextPreSuspendBarrier++;
+    } else {
+      JNOTE("Suspending all nodes");
+      broadcastMessage(DMT_DO_SUSPEND);
+    }
+  }
+
   if (status.minimumState == WorkerState::SUSPENDED) {
     broadcastMessage(DMT_COMPUTATION_INFO);
     _numCkptWorkers = status.numPeers;
@@ -770,7 +782,7 @@ DmtcpCoordinator::initializeComputation()
   blockUntilDone = false;
   exitAfterCkptOnce = false;
   workersAtCurrentBarrier = 0;
-  nextCkptBarrier = nextRestartBarrier = 0;
+  nextPreSuspendBarrier = nextCkptBarrier = nextRestartBarrier = 0;
 
   // exitAfterCkpt = false;
 
@@ -1059,9 +1071,11 @@ DmtcpCoordinator::validateNewWorkerProcess(
     hello_local.compGroup = compId;
     remote << hello_local;
 
-    // Now send DMT_DO_SUSPEND message so that this process can also
+    // Now send DMT_DO_PRESUSPEND message so that this process can also
     // participate in the current checkpoint
-    DmtcpMessage suspendMsg(DMT_DO_SUSPEND);
+    // TODO(Kapil): Make sure to walk the new worker through all the
+    // already-processed pre-suspend barriers.
+    DmtcpMessage suspendMsg(DMT_DO_PRESUSPEND);
     suspendMsg.compGroup = compId;
     remote << suspendMsg;
   } else if (s.numPeers > 0 && s.minimumState != WorkerState::RUNNING &&
@@ -1117,7 +1131,7 @@ DmtcpCoordinator::validateNewWorkerProcess(
 bool
 DmtcpCoordinator::startCheckpoint()
 {
-  nextCkptBarrier = nextRestartBarrier = 0;
+  nextPreSuspendBarrier = nextCkptBarrier = nextRestartBarrier = 0;
 
   uniqueCkptFilenames = false;
   ComputationStatus s = getStatus();
@@ -1134,7 +1148,7 @@ DmtcpCoordinator::startCheckpoint()
       (s.numPeers) (compId.computationGeneration());
 
     // Pass number of connected peers to all clients
-    broadcastMessage(DMT_DO_SUSPEND);
+    broadcastMessage(DMT_DO_PRESUSPEND);
 
     // Suspend Message has been sent but the workers are still in running
     // state.  If the coordinator receives another checkpoint request from user

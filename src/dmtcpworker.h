@@ -30,6 +30,8 @@ namespace dmtcp
 {
 namespace DmtcpWorker
 {
+
+  void waitForPreSuspendMessage();
   void waitForSuspendMessage();
   void acknowledgeSuspendMsg();
 

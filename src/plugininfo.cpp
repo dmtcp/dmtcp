@@ -104,7 +104,7 @@ PluginInfo::eventHook(const DmtcpEvent_t event, DmtcpEventData_t *data)
 void
 PluginInfo::processBarriers()
 {
-  if (WorkerState::currentState() == WorkerState::SUSPENDING) {
+  if (WorkerState::currentState() == WorkerState::PRESUSPEND) {
     for (size_t i = 0; i < preSuspendBarriers.size(); i++) {
       processBarrier(preSuspendBarriers[i]);
     }

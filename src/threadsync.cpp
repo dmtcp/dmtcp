@@ -132,7 +132,7 @@ ThreadSync::initMotherOfAll()
 void
 ThreadSync::acquireLocks()
 {
-  JASSERT(WorkerState::currentState() == WorkerState::RUNNING);
+  JASSERT(WorkerState::currentState() == WorkerState::PRESUSPEND);
 
   /* TODO: We should introduce the notion of lock ranks/priorities for all
    * these locks to prevent future deadlocks due to rank violation.
@@ -317,7 +317,8 @@ ThreadSync::libdlLockLock()
   int saved_errno = errno;
   bool lockAcquired = false;
 
-  if (WorkerState::currentState() == WorkerState::RUNNING &&
+  if ((WorkerState::currentState() == WorkerState::RUNNING ||
+       WorkerState::currentState() == WorkerState::PRESUSPEND) &&
       libdlLockOwner != dmtcp_gettid()) {
     JASSERT(_real_pthread_mutex_lock(&libdlLock) == 0);
     libdlLockOwner = dmtcp_gettid();
@@ -334,7 +335,8 @@ ThreadSync::libdlLockUnlock()
 
   JASSERT(libdlLockOwner == 0 || libdlLockOwner == dmtcp_gettid())
     (libdlLockOwner) (dmtcp_gettid());
-  JASSERT(WorkerState::currentState() == WorkerState::RUNNING);
+  JASSERT(WorkerState::currentState() == WorkerState::RUNNING ||
+          WorkerState::currentState() == WorkerState::PRESUSPEND);
   libdlLockOwner = 0;
   JASSERT(_real_pthread_mutex_unlock(&libdlLock) == 0);
   errno = saved_errno;
@@ -350,7 +352,8 @@ ThreadSync::wrapperExecutionLockLock()
   bool lockAcquired = false;
 
   while (1) {
-    if (WorkerState::currentState() == WorkerState::RUNNING &&
+    if ((WorkerState::currentState() == WorkerState::RUNNING ||
+         WorkerState::currentState() == WorkerState::PRESUSPEND) &&
 #if TRACK_DLOPEN_DLSYM_FOR_LOCKS
         isThreadPerformingDlopenDlsym() == false &&
 #endif // if TRACK_DLOPEN_DLSYM_FOR_LOCKS
@@ -423,7 +426,8 @@ ThreadSync::wrapperExecutionLockLockExcl()
   int saved_errno = errno;
   bool lockAcquired = false;
 
-  if (WorkerState::currentState() == WorkerState::RUNNING) {
+  if (WorkerState::currentState() == WorkerState::RUNNING ||
+      WorkerState::currentState() == WorkerState::PRESUSPEND) {
     incrementWrapperExecutionLockLockCount();
     int retVal = _real_pthread_rwlock_wrlock(&_wrapperExecutionLock);
     if (retVal != 0 && retVal != EDEADLK) {
@@ -464,7 +468,8 @@ ThreadSync::threadCreationLockLock()
   bool lockAcquired = false;
 
   while (1) {
-    if (WorkerState::currentState() == WorkerState::RUNNING) {
+    if (WorkerState::currentState() == WorkerState::RUNNING ||
+        WorkerState::currentState() == WorkerState::PRESUSPEND) {
       incrementThreadCreationLockLockCount();
       int retVal = _real_pthread_rwlock_tryrdlock(&_threadCreationLock);
       if (retVal != 1 && retVal == EBUSY) {
@@ -499,7 +504,8 @@ ThreadSync::threadCreationLockUnlock()
 {
   int saved_errno = errno;
 
-  if (WorkerState::currentState() != WorkerState::RUNNING) {
+  if (WorkerState::currentState() != WorkerState::RUNNING &&
+      WorkerState::currentState() != WorkerState::PRESUSPEND) {
     fprintf(stderr,
             "DMTCP INTERNAL ERROR: %s:%d %s:\n"
             "       This process is not in RUNNING state and yet this thread\n"
@@ -554,7 +560,8 @@ ThreadSync::incrementUninitializedThreadCount()
 {
   int saved_errno = errno;
 
-  if (WorkerState::currentState() == WorkerState::RUNNING) {
+  if (WorkerState::currentState() == WorkerState::RUNNING ||
+      WorkerState::currentState() == WorkerState::PRESUSPEND) {
     JASSERT(_real_pthread_mutex_lock(&uninitializedThreadCountLock) == 0)
       (JASSERT_ERRNO);
     _uninitializedThreadCount++;
@@ -571,7 +578,8 @@ ThreadSync::decrementUninitializedThreadCount()
 {
   int saved_errno = errno;
 
-  if (WorkerState::currentState() == WorkerState::RUNNING) {
+  if (WorkerState::currentState() == WorkerState::RUNNING ||
+      WorkerState::currentState() == WorkerState::PRESUSPEND) {
     JASSERT(_real_pthread_mutex_lock(&uninitializedThreadCountLock) == 0)
       (JASSERT_ERRNO);
     JASSERT(_uninitializedThreadCount > 0) (_uninitializedThreadCount);
