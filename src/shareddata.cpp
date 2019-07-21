@@ -126,7 +126,7 @@ void SharedData::initialize(const char *tmpDir = NULL,
     if (fd == -1 && errno == EEXIST) {
       fd = _real_open(o.str().c_str(), O_RDWR, 0600);
     } else {
-      // Extend file to size before 'mmap'
+      // extend file to size before 'mmap'
       JASSERT( truncate(o.str().c_str(), size) == 0);
       needToInitialize = true;
     }

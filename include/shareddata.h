@@ -102,7 +102,7 @@ struct Header {
   char tmpDir[PATH_MAX];
   char installDir[PATH_MAX];
 
-  struct in_addr localIPAddr;
+  struct sockaddr_storage localIPAddr;
 
   int64_t dlsymOffset;
   int64_t dlsymOffset_m32;

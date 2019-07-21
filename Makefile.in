@@ -94,7 +94,7 @@ config.status-multilib-m32: config.status
 	chmod a+x ./config.status-multilib-m32
 
 # buld-multilib-m{32,64} were delcared .PHONY targets
-# Adding build-multi-m32 as prerequisite allows use of 'make -j'
+# Adding build-multilib-m32 as prerequisite allows use of 'make -j'
 build-multilib-m64: config.status-multilib-m64 build-multilib-m32
 	./config.status-multilib-m64 # Restore non-m32 configuration
 	${MAKE} -f Makefile clean # Makefile changed; use '-f'
