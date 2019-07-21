@@ -138,7 +138,8 @@ SharedData::initialize(const char *tmpDir = NULL,
     ostringstream o;
     o << tmpDir << "/dmtcpSharedArea."
       << *compId << "." << std::hex << coordInfo->timeStamp;
-    // THIS IS A DUP OF initializeHeader AND OF size, below; Pass this in as an argument to it.
+    // THIS IS A DUP OF initializeHeader AND OF size, below; Pass this in as an
+    // argument to it.
     off_t size = CEIL(SHM_MAX_SIZE, Util::pageSize());
 
     int fd = _real_open(o.str().c_str(), O_RDWR | O_CREAT | O_EXCL, 0600);
@@ -153,7 +154,8 @@ SharedData::initialize(const char *tmpDir = NULL,
         ("Internal error detected! Shared data area already exists.");
       fd = _real_open(o.str().c_str(), O_RDWR, 0600);
     } else {
-      JASSERT( truncate(o.str().c_str(), size) == 0); // extend file to size before 'mmap'
+      // extend file to size before 'mmap'
+      JASSERT( truncate(o.str().c_str(), size) == 0);
       needToInitialize = true;
     }
     JASSERT(fd != -1) (JASSERT_ERRNO);
@@ -563,7 +565,7 @@ void
 SharedData::setIPCIdMap(int type, int32_t virt, int32_t real)
 {
   size_t i;
-  uint32_t *nmaps = NULL;
+  uint64_t *nmaps = NULL;
   IPCIdMap *map = NULL;
 
   if (sharedDataHeader == NULL) {
