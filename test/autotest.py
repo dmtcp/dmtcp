@@ -762,6 +762,9 @@ runTest("stat",         1, ["./test/stat"])
 
 runTest("rlimit-restore",         1, ["./test/rlimit-restore"])
 
+# Test for stack grow works on restart
+runTest("stack-growsdown",         1, ["./test/stack-growsdown"])
+
 PWD=os.getcwd()
 runTest("plugin-sleep2", 1, ["--with-plugin "+
                              PWD+"/test/plugin/sleep1/dmtcp_sleep1hijack.so:"+
