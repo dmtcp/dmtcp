@@ -99,6 +99,7 @@ typedef struct RestoreInfo {
   VA vdsoEnd;
   VA vvarStart;
   VA vvarEnd;
+  VA stackEnd;
   fnptr_t post_restart;
   fnptr_t post_restart_debug;
   // NOTE: Update the offset when adding fields to the RestoreInfo struct
@@ -124,8 +125,8 @@ typedef struct RestoreInfo {
 static RestoreInfo rinfo;
 
 /* Internal routines */
-static void readmemoryareas(int fd);
-static int read_one_memory_area(int fd);
+static void readmemoryareas(int fd, VA stackEnd);
+static int read_one_memory_area(int fd, VA stackEnd);
 #if 0
 static void adjust_for_smaller_file_size(Area *area, int fd);
 #endif
@@ -287,6 +288,7 @@ MTCP_PRINTF("Attach for debugging.");
   rinfo.vdsoEnd = mtcpHdr.vdsoEnd;
   rinfo.vvarStart = mtcpHdr.vvarStart;
   rinfo.vvarEnd = mtcpHdr.vvarEnd;
+  rinfo.stackEnd = mtcpHdr.stackEnd;
   rinfo.post_restart = mtcpHdr.post_restart;
   rinfo.post_restart_debug = mtcpHdr.post_restart_debug;
   rinfo.motherofall_tls_info = mtcpHdr.motherofall_tls_info;
@@ -502,6 +504,7 @@ static void mtcp_simulateread(int fd, MtcpHeader *mtcpHdr)
   mtcp_printf("**** brk (sbrk(0)): %p\n", mtcpHdr->saved_brk);
   mtcp_printf("**** vdso: %p..%p\n", mtcpHdr->vdsoStart, mtcpHdr->vdsoEnd);
   mtcp_printf("**** vvar: %p..%p\n", mtcpHdr->vvarStart, mtcpHdr->vvarEnd);
+  mtcp_printf("**** end of stack: %p\n", mtcpHdr->stackEnd);
 
   Area area;
   mtcp_printf("\n**** Listing ckpt image area:\n");
@@ -597,7 +600,7 @@ static void restorememoryareas(RestoreInfo *rinfo_ptr)
 
   /* Restore memory areas */
   DPRINTF("restoring memory areas\n");
-  readmemoryareas (restore_info.fd);
+  readmemoryareas (restore_info.fd, restore_info.stackEnd);
 
   /* Everything restored, close file and finish up */
 
@@ -836,9 +839,9 @@ static void unmap_memory_areas_and_restore_vdso(RestoreInfo *rinfo)
  *
  **************************************************************************/
 
-static void readmemoryareas(int fd)
+static void readmemoryareas(int fd, VA stackEnd)
 { while (1) {
-    if (read_one_memory_area(fd) == -1) {
+    if (read_one_memory_area(fd, stackEnd) == -1) {
       break; /* error */
     }
   }
@@ -852,7 +855,7 @@ static void readmemoryareas(int fd)
 }
 
 NO_OPTIMIZE
-static int read_one_memory_area(int fd)
+static int read_one_memory_area(int fd, VA stackEnd)
 {
   int mtcp_sys_errno;
   int imagefd;
@@ -868,6 +871,33 @@ static int read_one_memory_area(int fd)
       && mtcp_sys_brk(NULL) != area.addr + area.size) {
     DPRINTF("WARNING: break (%p) not equal to end of heap (%p)\n",
             mtcp_sys_brk(NULL), area.addr + area.size);
+  }
+  /* FIXME:  If the original thread has exited or been killed, then there is
+   * no memory area corresponding to the original stack.
+   * to test for this, we can maintain a variable 'originalThreadPid'
+   * in src/processinfo.{cpp,h}, similar to 'stackEnd', which keeps
+   * the original _virtual_ tid.
+   * After restart, in the SIGUSR2 signal handler and then in
+   * src/threadlist.cpp (in ThreadList::waitForAllRestored()), just after
+   * each thread is created, check if that thread has the virtual pid equal
+   * to 'originalThreadPid' (and also check motherofall).  If no thread is
+   * 'originalThreadPid', then we should remove the MAP_GROWSDOWN attribute.
+   * (Alternatively, if some thread has the 'originalThreadPid', then
+   *  we could add the MAP_GROWSDOWN attribute within src/threadlist.cpp.)
+   *  - Gene
+   */
+  /* MAP_GROWSDOWN flag is required for stack region on restart to make
+   * stack grow automatically when application touches any address within the
+   * guard page region(usually, one page less then stack's start address).
+   *
+   * The end of stack is detected dynamically at checkpoint time. See
+   * prepareMtcpHeader() in threadlist.cpp and ProcessInfo::findMiscAreas()
+   * in processinfo.cpp.
+   */
+  if (area.endAddr == stackEnd) {
+	  area.flags = area.flags | MAP_GROWSDOWN;
+	  DPRINTF("Detected stack area. End of stack (%p); Area end address (%p)\n",
+			  stackEnd, area.endAddr);
   }
 
   // We could have replaced MAP_SHARED with MAP_PRIVATE in writeckpt.cpp

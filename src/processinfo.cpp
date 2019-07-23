@@ -168,28 +168,10 @@ ProcessInfo& ProcessInfo::instance()
   return *pInfo;
 }
 
-void ProcessInfo::growStack()
+void ProcessInfo::findMiscAreas()
 {
-  /* Grow the stack to the stack limit */
-  struct rlimit rlim;
-  size_t stackSize;
-  const rlim_t eightMB = 8 * MB;
-  JASSERT(getrlimit(RLIMIT_STACK, &rlim) == 0) (JASSERT_ERRNO);
-  if (rlim.rlim_cur == RLIM_INFINITY) {
-    if (rlim.rlim_max == RLIM_INFINITY) {
-      stackSize = 8 * 1024 * 1024;
-    } else {
-      stackSize = MIN(rlim.rlim_max, eightMB);
-    }
-  } else {
-    stackSize = rlim.rlim_cur;
-  }
-
   // Find the current stack area, heap, stack, vDSO and vvar areas.
   ProcMapsArea area;
-  ProcMapsArea stackArea = {0};
-  size_t allocSize;
-  void *tmpbuf;
   ProcSelfMaps procSelfMaps;
   while (procSelfMaps.getNextArea(&area)) {
     if (strcmp(area.name, "[heap]") == 0) {
@@ -202,8 +184,15 @@ void ProcessInfo::growStack()
       _vvarStart = (unsigned long) area.addr;
       _vvarEnd = (unsigned long) area.endAddr;
     } else if ((VA) &area >= area.addr && (VA) &area < area.endAddr) {
+      /* Modern kernels label this '[stack]', but testing '&area' is more
+       * reliable.
+       */
       JLOG(DMTCP)("Original stack area") ((void*)area.addr) (area.size);
-      stackArea = area;
+       /*
+       * Record only end address (higher) of stack as it can grow downwards and
+       * start address will then changed.
+       */
+      _stackEnd = (uintptr_t) area.endAddr;
       /*
        * When using Matlab with dmtcp_launch, sometimes the bottom most
        * page of stack (the page with highest address) which contains the
@@ -225,27 +214,6 @@ void ProcessInfo::growStack()
       }
     }
   }
-  JASSERT(stackArea.addr != NULL);
-
-  if (stackSize > stackArea.size + 4095) {
-    // Grow the stack, if possible
-    allocSize = stackSize - stackArea.size - 4095;
-    tmpbuf = alloca(allocSize);
-    JASSERT(tmpbuf != NULL) (JASSERT_ERRNO);
-    memset(tmpbuf, 0, allocSize);
-  }
-
-#ifdef LOGGING
-  {
-    ProcSelfMaps maps;
-    while (maps.getNextArea(&area)) {
-      if ((VA)&area >= area.addr && (VA)&area < area.endAddr) { // Stack found
-        JLOG(DMTCP)("New stack size") ((void*)area.addr) (area.size);
-        break;
-      }
-    }
-  }
-#endif // ifdef LOGGING
 }
 
 void ProcessInfo::init()
@@ -266,11 +234,11 @@ void ProcessInfo::init()
   _elfType = Elf_64;
 #endif
 
-  _vdsoStart = _vdsoEnd = _vvarStart = _vvarEnd = 0;
+  _vdsoStart = _vdsoEnd = _vvarStart = _vvarEnd = _stackEnd = 0;
 
   processRlimit();
 
-  growStack();
+  findMiscAreas();
 
   // Reserve space for restoreBuf
   _restoreBufLen = RESTORE_TOTAL_SIZE;
@@ -650,7 +618,7 @@ void ProcessInfo::serialize(jalib::JBinarySerializer& o)
     & _gettimeofday_offset & _time_offset;
   o & _compGroup & _numPeers & _noCoordinator & _argvSize & _envSize;
   o & _restoreBufAddr & _maxUserFd & _savedHeapStart & _savedBrk;
-  o & _vdsoStart & _vdsoEnd & _vvarStart & _vvarEnd;
+  o & _vdsoStart & _vdsoEnd & _vvarStart & _vvarEnd & _stackEnd;
   o & _ckptDir & _ckptFileName & _ckptFilesSubDir;
 
   JLOG(DMTCP)("Serialized process information")

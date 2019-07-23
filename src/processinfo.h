@@ -55,7 +55,7 @@ namespace dmtcp
       void postRestartRefill();
       void restoreProcessGroupInfo();
       void restoreHeap();
-      void growStack();
+      void findMiscAreas();
 
       void insertChild (pid_t virtualPid, UniquePid uniquePid);
       void eraseChild (pid_t virtualPid);
@@ -111,6 +111,7 @@ namespace dmtcp
       uint64_t vdsoEnd(void) const { return _vdsoEnd;}
       uint64_t vvarStart(void) const { return _vvarStart;}
       uint64_t vvarEnd(void) const { return _vvarEnd;}
+      uint64_t stackEnd(void) const { return _stackEnd;}
 
       bool vdsoOffsetMismatch(ptrdiff_t f1, ptrdiff_t f2,
                               ptrdiff_t f3, ptrdiff_t f4);
@@ -173,6 +174,7 @@ namespace dmtcp
       uint64_t      _vdsoEnd;
       uint64_t      _vvarStart;
       uint64_t      _vvarEnd;
+      uint64_t      _stackEnd;
 
       ptrdiff_t _clock_gettime_offset;
       ptrdiff_t _getcpu_offset;

@@ -48,6 +48,7 @@ typedef union _MtcpHeader {
     void *vdsoEnd;
     void *vvarStart;
     void *vvarEnd;
+    void *stackEnd;
     void (*post_restart)();
     void (*post_restart_debug)(int);
     ThreadTLSInfo motherofall_tls_info;

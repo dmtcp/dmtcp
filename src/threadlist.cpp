@@ -289,6 +289,7 @@ static void prepareMtcpHeader(MtcpHeader *mtcpHdr)
   mtcpHdr->vdsoEnd = (void*) ProcessInfo::instance().vdsoEnd();
   mtcpHdr->vvarStart = (void*) ProcessInfo::instance().vvarStart();
   mtcpHdr->vvarEnd = (void*) ProcessInfo::instance().vvarEnd();
+  mtcpHdr->stackEnd = (void*) ProcessInfo::instance().stackEnd();
 
   mtcpHdr->post_restart = &ThreadList::postRestart;
   mtcpHdr->post_restart_debug = &ThreadList::postRestartDebug;
