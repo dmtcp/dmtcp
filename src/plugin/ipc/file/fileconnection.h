@@ -34,10 +34,14 @@
 #include <mqueue.h>
 #include <stdint.h>
 #include <signal.h>
+#include <termios.h>
+#include <unistd.h>
 #include "jfilesystem.h"
 #include "jbuffer.h"
 #include "jconvert.h"
 #include "connection.h"
+
+#define PTY_KERNEL_BUF_LEN  4*1024
 
 namespace dmtcp
 {
@@ -53,7 +57,8 @@ namespace dmtcp
         PTY_MASTER,
         PTY_SLAVE,
         PTY_BSD_MASTER,
-        PTY_BSD_SLAVE
+        PTY_BSD_SLAVE,
+        PTY_EXTERNAL
       };
 
       PtyConnection() {}
@@ -62,6 +67,7 @@ namespace dmtcp
       string ptsName() { return _ptsName;; }
       string virtPtsName() { return _virtPtsName;; }
       void markPreExistingCTTY() { _preExistingCTTY = true; }
+      void markPreExistingPCTTY() { _preExistingPCTTY = true; }
 
       void preRefill(bool isRestart);
 
@@ -80,6 +86,12 @@ namespace dmtcp
       char          _ptmxIsPacketMode;
       char          _isControllingTTY;
       char          _preExistingCTTY;
+      char          _preExistingPCTTY;
+      struct termios _termios_p;
+      int masterDataSize;
+      int slaveDataSize;
+      char _buf[PTY_KERNEL_BUF_LEN];
+      char _slave_buf[PTY_KERNEL_BUF_LEN];
   };
 
   class StdioConnection : public Connection

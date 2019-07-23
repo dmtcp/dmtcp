@@ -252,7 +252,7 @@ extern "C" int ttyname_r(int fd, char *buf, size_t buflen)
   if (ret == 0 && strcmp(tmpbuf, "/dev/tty") != 0) {
     Connection* c = FileConnList::instance().getConnection(fd);
     JASSERT(c != NULL) (fd) (tmpbuf);
-
+  if (c != NULL) {
     PtyConnection *ptyCon = dynamic_cast<PtyConnection*>(c);
     if (c->conType() != Connection::PTY || ptyCon == NULL) {
       errno = ENOTTY;
@@ -269,7 +269,19 @@ extern "C" int ttyname_r(int fd, char *buf, size_t buflen)
     } else {
       strncpy(buf, virtPtsName.c_str(), buflen);
     }
-  }
+  } else {
+    // We probably received this terminal fd over unix-domain socket using
+    // recvmsg(). This was observed with tmux. When we run `tmux attach`, the
+    // tmux client sends its controlling terminal to the daemon process via
+    // sendmsg() over a unix domain socket. Ideally, we would create wrappers
+    // for recvmsg() and sendmsg() for handling such cases. In the meanwhile,
+    // we would create a PtyConection of type PTY_EXTERNAL and will fail on
+    // checkpoint if we still have it open.
+    PtyConnection *c = new PtyConnection(fd, tmpbuf, O_RDWR, -1,
+                                         PtyConnection::PTY_EXTERNAL);
+    FileConnList::instance().add(fd, c);
+   }
+ }
 done:
   DMTCP_PLUGIN_ENABLE_CKPT();
 
