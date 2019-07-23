@@ -11,7 +11,6 @@
 int main(int argc, char* argv[])
 {
   if (argc == 2 && strcmp(argv[1], CHILD) == 0) {
-    char line_buff[1024] ;
     printf("Second process pid: %d\n", getppid());
     while (1);
   }
@@ -21,7 +20,7 @@ int main(int argc, char* argv[])
   if( retStatus == -1 )
   {
     printf("Error setrlimit...\n") ;
-    exit(1) ;
+    exit(1);
   }
   int childpid = fork();
   if (childpid == 0) {
