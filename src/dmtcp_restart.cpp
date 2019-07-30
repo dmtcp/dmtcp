@@ -196,8 +196,6 @@ class RestoreTarget
       pid_t pid = fork();
       JASSERT(pid != -1);
       if (pid != 0) {
-JNOTE("dmtcp_restart:  parent will sleep first, while child executes")(pid);
-//sleep(30);
         return;
       }
       createProcess();
