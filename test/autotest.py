@@ -622,7 +622,8 @@ def runTestRaw(name, numProcs, cmds):
                     printFixed(" (" + coredump + " copied to DMTCP_TMPDIR:" +
                                dmtcp_tmpdir() + "/)")
             else:
-              printFixed("(first process didn't die)")
+              printFixed("(First process didn't die.  This has been also" +
+                         " observed due to a slow NFS-based filesystem)")
             printFixed(" retry:")
             testKill()
       if i != CYCLES - 1:

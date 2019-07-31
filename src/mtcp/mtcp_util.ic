@@ -261,7 +261,13 @@ int mtcp_readfile(int fd, void *buf, size_t size)
 #endif
 
   while(ar != size) {
-    rc = mtcp_sys_read(fd, buf + ar, size - ar);
+    /* We replace 'size-ar' by MIN(size - ar, 65536) in this variation on
+     * readall(), so that we will not hog access to the filesystem.  In the
+     * case of an ANF-based filesystem, a single, large read was observed
+     * to monopolize use of the filesystem.  So, we'll be a good citizen here.
+     */
+#   define MIN(x,y) (x<y ? x : y)
+    rc = mtcp_sys_read(fd, buf + ar, MIN(size - ar, 65536));
     if (rc < 0 && rc > -4096) { /* kernel could return large unsigned int */
       if (rc == -1 && (mtcp_sys_errno == EAGAIN || mtcp_sys_errno == EINTR)) {
         tries++;
