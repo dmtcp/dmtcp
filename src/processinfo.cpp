@@ -86,15 +86,22 @@ void dmtcp_ProcessInfo_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
     case DMTCP_EVENT_RESTART:
       fesetenv(&envp);
       fesetround(roundingMode);
+
       { struct rlimit rlim = {0, 0};
         getrlimit(RLIMIT_NOFILE, &rlim);
+        JWARNING(rlim_cur_nofile <= rlim.rlim_max)
+          (rlim_cur_nofile) (rlim.rlim_max)
+          .Text("Prev. soft limit of RLIMIT_NOFILE lowered to new hard limit");
         rlim.rlim_cur = rlim_cur_nofile;
-        setrlimit(RLIMIT_NOFILE, &rlim);
-        getrlimit(RLIMIT_STACK, &rlim);
-        rlim.rlim_cur = rlim_cur_stack;
-        setrlimit(RLIMIT_STACK, &rlim);
-      }
+        JASSERT(setrlimit(RLIMIT_NOFILE, &rlim) == 0);
 
+        getrlimit(RLIMIT_STACK, &rlim);
+        JWARNING(rlim_cur_stack <= rlim.rlim_max)
+          (rlim_cur_stack) (rlim.rlim_max)
+          .Text("Prev. soft limit of RLIMIT_STACK lowered to new hard limit");
+        rlim.rlim_cur = rlim_cur_stack;
+        JASSERT(setrlimit(RLIMIT_STACK, &rlim) == 0);
+      }
       ProcessInfo::instance().restart();
       break;
 
@@ -107,13 +114,14 @@ void dmtcp_ProcessInfo_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
     case DMTCP_EVENT_THREADS_SUSPEND:
       roundingMode = fegetround();
       fegetenv(&envp);
+
       { struct rlimit rlim = {0, 0};
         getrlimit(RLIMIT_NOFILE, &rlim);
         rlim_cur_nofile = rlim.rlim_cur;
+
         getrlimit(RLIMIT_STACK, &rlim);
         rlim_cur_stack = rlim.rlim_cur;
       }
-
       break;
 
     case DMTCP_EVENT_THREADS_RESUME:
