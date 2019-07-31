@@ -14,6 +14,20 @@ import pwd
 import stat
 import re
 
+
+# FIX for bad path for Java:  Travis prepended
+#     "/usr/bin:/opt/pyenv/libexec:/opt/pyenv/plugins/python-build/bin:/"
+# to os.environ['PATH'] on July 31, 2019.  It does this, even though
+# "/usr/bin" occurs later in the path.  /usr/bin/java exists as Java-8.
+# So, it never finds java (version Java-11) in
+#   "/usr/local/lib/jvm/openjdk11/bin", which occurs later in path.
+# Unfortunately, 'Makefile' finds javac as verion Javac-11,
+# and so the 'java1' test fails, using java (Java-8).
+if os.environ.has_key('PATH') and os.environ['PATH'].startswith('/usr/bin:') \
+     and ':/usr/bin:' in os.environ['PATH']:
+  os.environ['PATH'] = os.environ['PATH'][len('/usr/bin:'):]
+
+
 #get testconfig
 # This assumes Makefile.in in main dir, but only Makefile in test dir.
 try:
