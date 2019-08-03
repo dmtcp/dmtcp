@@ -312,7 +312,8 @@ checkpoint_is_pending(void)
 EXTERNC int
 dmtcp_is_running_state(void)
 {
-  return WorkerState::currentState() == WorkerState::RUNNING;
+  return WorkerState::currentState() == WorkerState::RUNNING ||
+         WorkerState::currentState() == WorkerState::PRESUSPEND;
 }
 
 EXTERNC int

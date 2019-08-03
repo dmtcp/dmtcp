@@ -31,7 +31,7 @@ namespace WorkerState
 enum eWorkerState {
   UNKNOWN,
   RUNNING,
-  SUSPENDING,
+  PRESUSPEND,
   SUSPENDED,
   CHECKPOINTING,
   CHECKPOINTED,

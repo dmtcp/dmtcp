@@ -403,7 +403,7 @@ ckptThreadPerformExit()
 }
 
 void
-DmtcpWorker::waitForSuspendMessage()
+DmtcpWorker::waitForPreSuspendMessage()
 {
   SharedData::resetBarrierInfo();
 
@@ -414,6 +414,36 @@ DmtcpWorker::waitForSuspendMessage()
     CoordinatorAPI::waitForCheckpointCommand();
     ProcessInfo::instance().numPeers(1);
     ProcessInfo::instance().compGroup(SharedData::getCompId());
+    return;
+  }
+
+  JTRACE("waiting for PRESUSPEND message");
+
+  DmtcpMessage msg;
+  CoordinatorAPI::recvMsgFromCoordinator(&msg);
+
+  // Before validating message; make sure we are not exiting.
+  if (exitInProgress) {
+    ckptThreadPerformExit();
+  }
+
+  msg.assertValid();
+
+  JASSERT(msg.type == DMT_DO_PRESUSPEND) (msg.type);
+
+  // Coordinator sends some computation information along with the SUSPEND
+  // message. Extracting that.
+  SharedData::updateGeneration(msg.compGroup.computationGeneration());
+  JASSERT(SharedData::getCompId() == msg.compGroup.upid())
+    (SharedData::getCompId()) (msg.compGroup);
+
+  exitAfterCkpt = msg.exitAfterCkpt;
+}
+
+void
+DmtcpWorker::waitForSuspendMessage()
+{
+  if (dmtcp_no_coordinator()) {
     return;
   }
 
@@ -430,14 +460,6 @@ DmtcpWorker::waitForSuspendMessage()
   msg.assertValid();
 
   JASSERT(msg.type == DMT_DO_SUSPEND) (msg.type);
-
-  // Coordinator sends some computation information along with the SUSPEND
-  // message. Extracting that.
-  SharedData::updateGeneration(msg.compGroup.computationGeneration());
-  JASSERT(SharedData::getCompId() == msg.compGroup.upid())
-    (SharedData::getCompId()) (msg.compGroup);
-
-  exitAfterCkpt = msg.exitAfterCkpt;
 }
 
 void
@@ -466,6 +488,16 @@ DmtcpWorker::waitForCheckpointRequest()
   JTRACE("running");
 
   WorkerState::setCurrentState(WorkerState::RUNNING);
+
+  waitForPreSuspendMessage();
+
+  JTRACE("Procesing pre-suspend");
+  WorkerState::setCurrentState(WorkerState::PRESUSPEND);
+
+  PluginManager::processPreSuspendBarriers();
+
+  JTRACE("Waiting for DMT_DO_SUSPEND message");
+  CoordinatorAPI::sendMsgToCoordinator(DmtcpMessage(DMT_OK));
 
   waitForSuspendMessage();
 
