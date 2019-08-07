@@ -1,0 +1,46 @@
+# USAGE:  gdb -x THIS_FILE
+#   Conventional filename for THIS_FILE:  gdbinit
+#   This file is an example.  Modify the commands below for your situation.
+
+# This file is part of the DMTCP  distribution:  http://dmtcp.sourceforge.net/
+#   DMTCP: Distributed MultiThreaded CheckPointing
+# THE SOFTWARE IN THIS FILE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+# EXPRESS OR IMPLIED.
+
+# Force any existing DMTCP coordinator to quit
+shell bin/dmtcp_command -q
+
+exec bin/dmtcp_launch
+set args -i5 test/pthread1
+
+handle SIGUSR2 stop print pass
+handle SIGUSR2
+
+set breakpoint pending on
+# Stop if about to exit:
+break _exit
+
+# Convenient point to stop and look, just after a checkpoint
+break 'dmtcp::resume()'
+# Define convenience command for later debugging: procmaps
+def procmaps
+  python gdb.execute("shell cat /proc/" + \
+    str(gdb.selected_inferior().pid) + "/maps")
+end
+# Define convenience command for later debugging: procfd
+def procfd
+  python gdb.execute("shell ls -l /proc/" + \
+    str(gdb.selected_inferior().pid) + "/fd")
+end
+
+break execvp
+run
+
+break main
+cont
+# Example of setting a breakpoint.
+# Use:  'info functions updateTid' to discover full method signature.
+break 'dmtcp::ThreadList::updateTid(Thread*)'
+
+# Change comment into command, to continue automatically
+# cont
