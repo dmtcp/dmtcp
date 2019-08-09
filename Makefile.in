@@ -126,10 +126,6 @@ tests: build
 LIMIT=ulimit -v 33554432
 
 check: tests
-	@ if which id > /dev/null && test "`id -u`" = "0" ; then \
-	  echo "'make check' will fail if run as root."; \
-	  exit 1; \
-	fi
 	@ if python -c 'print "Python exits."' > /dev/null; then \
 	  bash -c "$(LIMIT) && $(top_srcdir)/test/autotest.py ${AUTOTEST} $*"; \
 	  else echo '*** No python found in your path.'; echo '*** Please add' \
