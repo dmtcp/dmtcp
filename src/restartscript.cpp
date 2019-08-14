@@ -505,7 +505,7 @@ writeScript(const string &ckptDir,
             "# Check for resource manager\n"
             "ibrun_path=$(which ibrun 2> /dev/null)\n"
             "if [ ! -n \"$ibrun_path\" ]; then\n"
-            "  discover_rm_path=$(which dmtcp_discover_rm)\n"
+            "  discover_rm_path=$(which dmtcp_discover_rm 2> /dev/null)\n"
             "  if [ -n \"$discover_rm_path\" ]; then\n"
             "    eval $(dmtcp_discover_rm -t)\n"
             "    srun_path=$(which srun 2> /dev/null)\n"
