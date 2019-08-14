@@ -90,7 +90,7 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
-@FAST_RST_VIA_MMAP_TRUE@am__append_1 = -DFAST_RST_VIA_MMAP 
+@FAST_RST_VIA_MMAP_TRUE@am__append_1 = -DFAST_RST_VIA_MMAP
 bin_PROGRAMS = $(d_bindir)/dmtcp_launch$(EXEEXT) \
 	$(d_bindir)/dmtcp_command$(EXEEXT) \
 	$(d_bindir)/dmtcp_coordinator$(EXEEXT) \
@@ -519,7 +519,11 @@ AM_LDFLAGS = $(PICFLAGS)
 AM_CPPFLAGS = -I$(dmtcpincludedir) -I$(jalibdir)
 
 # targets:
-noinst_LIBRARIES = libdmtcpinternal.a libsyscallsreal.a libnohijack.a libjalib.a
+noinst_LIBRARIES = libdmtcpinternal.a				\
+		   libsyscallsreal.a				\
+		   libnohijack.a				\
+		   libjalib.a
+
 include_HEADERS = $(srcdir)/../include/dmtcp.h
 
 # headers:
@@ -590,7 +594,7 @@ __d_bindir__dmtcp_coordinator_LDADD = libdmtcpinternal.a libjalib.a \
 			  libnohijack.a -lpthread -lrt
 
 __d_bindir__dmtcp_launch_LDADD = libdmtcpinternal.a libjalib.a \
-			  libnohijack.a -ldl -lpthread -lrt
+			  libnohijack.a -lpthread -lrt -ldl
 
 __d_bindir__dmtcp_restart_LDADD = libdmtcpinternal.a libjalib.a \
 			  libnohijack.a -lpthread -lrt -ldl
