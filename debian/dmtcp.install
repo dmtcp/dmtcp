@@ -15,7 +15,7 @@ usr/lib/dmtcp/libdmtcp_alloc.so
 usr/lib/dmtcp/libdmtcp_dl.so
 usr/lib/dmtcp/libdmtcp_ipc.so
 usr/lib/dmtcp/libdmtcp_pid.so
-usr/lib/dmtcp/libdmtcp_pathvirt.so 
+usr/lib/dmtcp/libdmtcp_pathvirt.so
 usr/lib/dmtcp/libdmtcp_svipc.so
 usr/lib/dmtcp/libdmtcp_modify-env.so
 usr/lib/dmtcp/libdmtcp_batch-queue.so

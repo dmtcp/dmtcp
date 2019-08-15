@@ -73,7 +73,20 @@ install: build
 	# Add here commands to install the package into debian/dmtcp.
 	$(MAKE) DESTDIR=$(DESTDIR) install
 
+	# For compat 10
 	dh_install -XCOPYING --fail-missing --sourcedir=$(BUILDDIR)
+
+	# For compat 12 (We tried this:):
+	#dh_install -XCOPYING --list-missing --sourcedir=$(BUILDDIR)
+	#dh_missing -XCOPYING --fail-missing --sourcedir=$(BUILDDIR)
+	# (And if fails with:)
+	## # For compat 12
+	## dh_install -XCOPYING --list-missing --sourcedir=debian/tmp
+	## dh_install: Please use dh_missing --list-missing/--fail-missing instead
+	## dh_install: This feature was removed in compat 12.
+	## debian/rules:67: recipe for target 'install' failed
+	## make: *** [install] Error 25
+	## dpkg-buildpackage: error: fakeroot debian/rules binary subprocess returned exit status 2
 
 
 # Build architecture-independent files here.

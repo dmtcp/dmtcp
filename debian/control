@@ -33,7 +33,7 @@ Description: Checkpoint/Restart functionality for Linux processes
 Package: dmtcp-dbg
 Architecture: amd64 armhf arm64
 Section: debug
-Priority: optional 
+Priority: optional
 Depends: dmtcp, ${misc:Depends}
 Description: Debug package for dmtcp
  DMTCP (Distributed MultiThreaded Checkpointing) is a tool to

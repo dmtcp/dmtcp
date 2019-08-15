@@ -1,7 +1,7 @@
 dmtcp (2.6.0-1) unstable; urgency=low
 
   * New upstream release. (Closes: #791940)
-  * Boosted the debian/compat for debhelper to 9.
+  * Boosted the debian/compat for debhelper to 10.
   * Added manpage of dmtcp_srun_helper.
   * Compiled binaries with position-independent executable flag.
   * Upload sponsored by Yaroslav Halchenko <debian@onerussian.com>
