@@ -1,20 +1,12 @@
-dmtcp (2.6.0-1) testing; urgency=high
+dmtcp (2.6-1) testing; urgency=high
 
-  * New upstream release 2.6.0.
+  * New upstream release. (Closes: #791940)
   * Boosted the debian/compat for debhelper to 9.
   * Added manpage of dmtcp_srun_helper.
   * Compiled binaries with position-independent executable flag.
   * Upload sponsored by Yaroslav Halchenko <debian@onerussian.com>
 
  -- Paul Grosu <pgrosu@gmail.com>  Sat, 4 Jul 2019 23:00:00 -0400
-
-dmtcp (2.4.0-1) UNRELEASED; urgency=medium
-
-  * New upstream release 2.4.0.
-  * Support for ARM64 (closes: #791940).
-  * Upload sponsored by Yaroslav Halchenko <debian@onerussian.com>
-
- -- Kapil Arya <kapil@ccs.neu.edu>  Wed, 15 Jul 2015 10:01:42 -0400
 
 dmtcp (2.3.1-5) unstable; urgency=low
 
