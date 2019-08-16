@@ -1,4 +1,4 @@
-dmtcp (2.6-1) testing; urgency=high
+dmtcp (2.6.0-1) unstable; urgency=low
 
   * New upstream release. (Closes: #791940)
   * Boosted the debian/compat for debhelper to 9.
@@ -6,7 +6,7 @@ dmtcp (2.6-1) testing; urgency=high
   * Compiled binaries with position-independent executable flag.
   * Upload sponsored by Yaroslav Halchenko <debian@onerussian.com>
 
- -- Paul Grosu <pgrosu@gmail.com>  Sat, 4 Jul 2019 23:00:00 -0400
+ -- Paul Grosu <pgrosu@gmail.com>  Thu, 4 Jul 2019 23:00:00 -0400
 
 dmtcp (2.3.1-5) unstable; urgency=low
 
