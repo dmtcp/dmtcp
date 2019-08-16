@@ -9,8 +9,9 @@ Vcs-git: https://github.com/dmtcp/dmtcp.git
 Vcs-browser: https://github.com/dmtcp/dmtcp
 Homepage: http://dmtcp.sourceforge.net
 
+# Later, we want to go back and support i386 for Debian.
 Package: dmtcp
-Architecture: i386 amd64 armhf arm64
+Architecture: amd64 armhf arm64
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: Checkpoint/Restart functionality for Linux processes
  DMTCP (Distributed MultiThreaded Checkpointing) is a tool to
@@ -28,8 +29,9 @@ Description: Checkpoint/Restart functionality for Linux processes
  .
  This package contains DMTCP binaries.
 
+# Later, we want to go back and support i386 for Debian.
 Package: dmtcp-dbg
-Architecture: i386 amd64 armhf arm64
+Architecture: amd64 armhf arm64
 Section: debug
 Priority: optional 
 Depends: dmtcp, ${misc:Depends}
