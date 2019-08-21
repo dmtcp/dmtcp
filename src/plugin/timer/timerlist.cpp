@@ -29,17 +29,17 @@ using namespace dmtcp;
 
 static TimerList *_timerlist = NULL;
 
-static pthread_mutex_t timerLock = PTHREAD_MUTEX_INITIALIZER;
+static DmtcpMutex timerLock = DMTCP_MUTEX_INITIALIZER;
 static void
 _do_lock_tbl()
 {
-  JASSERT(_real_pthread_mutex_lock(&timerLock) == 0) (JASSERT_ERRNO);
+  JASSERT(DmtcpMutexLock(&timerLock) == 0) (JASSERT_ERRNO);
 }
 
 static void
 _do_unlock_tbl()
 {
-  JASSERT(_real_pthread_mutex_unlock(&timerLock) == 0) (JASSERT_ERRNO);
+  JASSERT(DmtcpMutexUnlock(&timerLock) == 0) (JASSERT_ERRNO);
 }
 
 static void
@@ -147,8 +147,7 @@ TimerList::resetOnFork()
   // _clockPidList.clear();
   // _clockPthreadList.clear();
   _timerVirtIdTable.clear();
-  pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
-  timerLock = lock;
+  DmtcpMutexInit(&timerLock, DMTCP_MUTEX_NORMAL);
   _clockVirtIdTable.resetOnFork((clockid_t)(unsigned)getpid());
 }
 

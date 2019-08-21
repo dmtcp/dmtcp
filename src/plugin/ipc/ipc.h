@@ -53,6 +53,4 @@
 # define _real_fcntl                NEXT_FNC(fcntl)
 # define _real_select               NEXT_FNC(select)
 # define _real_poll                 NEXT_FNC(poll)
-# define _real_pthread_mutex_lock   NEXT_FNC(pthread_mutex_lock)
-# define _real_pthread_mutex_unlock NEXT_FNC(pthread_mutex_unlock)
 #endif // ifndef DMTCP_IPC_H

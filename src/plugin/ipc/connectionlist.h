@@ -23,7 +23,6 @@
 #ifndef CONNECTIONLIST_H
 # define CONNECTIONLIST_H
 
-#include <pthread.h>
 #include "jalloc.h"
 #include "jserialize.h"
 #include "connection.h"
@@ -47,7 +46,7 @@ class ConnectionList
     ConnectionList()
     {
       numIncomingCons = 0;
-      JASSERT(pthread_mutex_init(&_lock, NULL) == 0);
+      DmtcpMutexInit(&_lock, DMTCP_MUTEX_NORMAL);
     }
 
     virtual ~ConnectionList();
@@ -103,15 +102,15 @@ class ConnectionList
     void processCloseWork(int fd);
     void _lock_tbl()
     {
-      JASSERT(_real_pthread_mutex_lock(&_lock) == 0) (JASSERT_ERRNO);
+      JASSERT(DmtcpMutexLock(&_lock) == 0);
     }
 
     void _unlock_tbl()
     {
-      JASSERT(_real_pthread_mutex_unlock(&_lock) == 0) (JASSERT_ERRNO);
+      JASSERT(DmtcpMutexUnlock(&_lock) == 0);
     }
 
-    pthread_mutex_t _lock;
+    DmtcpMutex _lock;
     typedef map<ConnectionIdentifier, Connection *>ConnectionMapT;
     ConnectionMapT _connections;
 
