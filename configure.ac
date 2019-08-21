@@ -670,9 +670,9 @@ AC_LINK_IFELSE(
 AC_LANG_POP([C++])
 AC_MSG_RESULT([$gccAtomicBuiltins])
 
-if test "$gccAtomicBuiltins" = "yes"; then
-  AC_DEFINE([HAS_ATOMIC_BUILTINS],[1],
-            [Can use __sync_bool_compare_and_swap(), etc.])
+if test "$gccAtomicBuiltins" = "no"; then
+  AC_MSG_FAILURE([Support for atomic built-ins is required to build DMTCP.
+                  Consider using GCC 4.1 or newer.])
 fi
 dnl Else will use mutex implementation; see jalib/jalloc.cpp
 
