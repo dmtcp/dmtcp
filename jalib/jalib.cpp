@@ -248,24 +248,6 @@ setsockopt(int s, int level, int optname, const void *optval, socklen_t optlen)
   REAL_FUNC_PASSTHROUGH(int, setsockopt) (s, level, optname, optval, optlen);
 }
 
-int
-pthread_mutex_lock(pthread_mutex_t *mutex)
-{
-  REAL_FUNC_PASSTHROUGH(int, pthread_mutex_lock) (mutex);
-}
-
-int
-pthread_mutex_trylock(pthread_mutex_t *mutex)
-{
-  REAL_FUNC_PASSTHROUGH(int, pthread_mutex_trylock) (mutex);
-}
-
-int
-pthread_mutex_unlock(pthread_mutex_t *mutex)
-{
-  REAL_FUNC_PASSTHROUGH(int, pthread_mutex_unlock) (mutex);
-}
-
 ssize_t
 writeAll(int fd, const void *buf, size_t count)
 {
