@@ -95,6 +95,7 @@ nobase_noinst_HEADERS += $(jalibdir)/jalib.h			\
 
 nobase_noinst_HEADERS += $(dmtcpincludedir)/dmtcp.h		\
 			 $(dmtcpincludedir)/dmtcpalloc.h	\
+			 $(dmtcpincludedir)/futex.h		\
 			 $(dmtcpincludedir)/procmapsarea.h	\
 			 $(dmtcpincludedir)/procselfmaps.h	\
 			 $(dmtcpincludedir)/protectedfds.h	\
@@ -111,8 +112,10 @@ libdmtcpinternal_a_SOURCES = coordinatorapi.cpp 		\
 			     dmtcpmessagetypes.cpp		\
 			     dmtcp_dlsym.cpp 			\
 			     jalibinterface.cpp			\
+			     mutex.cpp 				\
 			     processinfo.cpp 			\
 			     procselfmaps.cpp			\
+			     rwlock.cpp 			\
 			     shareddata.cpp 			\
 			     tokenize.cpp			\
 			     uniquepid.cpp			\
