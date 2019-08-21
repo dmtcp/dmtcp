@@ -58,10 +58,6 @@ typedef struct JalibFuncPtrs {
   int (*accept)(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
   int (*setsockopt)(int s, int level, int optname, const void *optval,
                     socklen_t optlen);
-  int (*pthread_mutex_lock)(pthread_mutex_t *mutex);
-  int (*pthread_mutex_trylock)(pthread_mutex_t *mutex);
-  int (*pthread_mutex_unlock)(pthread_mutex_t *mutex);
-
   ssize_t (*writeAll)(int fd, const void *buf, size_t count);
   ssize_t (*readAll)(int fd, void *buf, size_t count);
 } JalibFuncPtrs;
@@ -105,9 +101,6 @@ int setsockopt(int s,
                int optname,
                const void *optval,
                socklen_t optlen);
-int pthread_mutex_lock(pthread_mutex_t *mutex);
-int pthread_mutex_trylock(pthread_mutex_t *mutex);
-int pthread_mutex_unlock(pthread_mutex_t *mutex);
 
 ssize_t writeAll(int fd, const void *buf, size_t count);
 ssize_t readAll(int fd, void *buf, size_t count);

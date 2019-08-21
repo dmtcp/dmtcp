@@ -62,10 +62,6 @@ initializeJalib()
   INIT_JALIB_FPTR(accept);
   INIT_JALIB_FPTR(setsockopt);
 
-  INIT_JALIB_FPTR(pthread_mutex_lock);
-  INIT_JALIB_FPTR(pthread_mutex_trylock);
-  INIT_JALIB_FPTR(pthread_mutex_unlock);
-
   jalib_init(jalibFuncPtrs,
              ELF_INTERPRETER,
              PROTECTED_STDERR_FD,
