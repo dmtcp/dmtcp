@@ -39,9 +39,6 @@
 # define _real_clock_gettime         NEXT_FNC(clock_gettime)
 # define _real_clock_settime         NEXT_FNC(clock_settime)
 
-# define _real_pthread_mutex_lock    NEXT_FNC(pthread_mutex_lock)
-# define _real_pthread_mutex_unlock  NEXT_FNC(pthread_mutex_unlock)
-
 int timer_create_sigev_thread(clockid_t clock_id,
                               struct sigevent *evp,
                               timer_t *timerid,
