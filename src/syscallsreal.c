@@ -54,8 +54,6 @@ typedef int (*funcptr_t) ();
 typedef pid_t (*funcptr_pid_t) ();
 typedef funcptr_t (*signal_funcptr_t) ();
 
-static pthread_mutex_t theMutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
-
 // gettid / tkill / tgkill are not defined in libc.
 LIB_PRIVATE pid_t
 dmtcp_gettid()
@@ -73,24 +71,6 @@ LIB_PRIVATE int
 dmtcp_tgkill(int tgid, int tid, int sig)
 {
   return _real_syscall(SYS_tgkill, tgid, tid, sig);
-}
-
-// FIXME: Are these primitives (_dmtcp_lock, _dmtcp_unlock) required anymore?
-void
-_dmtcp_lock() { _real_pthread_mutex_lock(&theMutex); }
-
-void
-_dmtcp_unlock() { _real_pthread_mutex_unlock(&theMutex); }
-
-void
-_dmtcp_remutex_on_fork()
-{
-  pthread_mutexattr_t attr;
-
-  pthread_mutexattr_init(&attr);
-  pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE_NP);
-  pthread_mutex_init(&theMutex, &attr);
-  pthread_mutexattr_destroy(&attr);
 }
 
 /*

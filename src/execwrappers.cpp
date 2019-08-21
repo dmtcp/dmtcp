@@ -152,7 +152,6 @@ pthread_atfork_child()
   UniquePid parent = UniquePid::ThisProcess();
   UniquePid child = UniquePid(host, getpid(), child_time);
   string child_name = jalib::Filesystem::GetProgramName() + "_(forked)";
-  _dmtcp_remutex_on_fork();
   ThreadSync::resetLocks();
 
   UniquePid::resetOnFork(child);

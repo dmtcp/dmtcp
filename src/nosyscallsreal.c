@@ -77,8 +77,6 @@
 //// DEFINE REAL VERSIONS OF NEEDED FUNCTIONS (based on syscallsreal.cpp)
 //// (Define only functions needed for dmtcp_launch, dmtcp_restart, etc.
 
-static pthread_mutex_t theMutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
-
 #define REAL_FUNC_PASSTHROUGH(name)       return name
 
 #define REAL_FUNC_PASSTHROUGH_TYPED(type, \
@@ -97,12 +95,6 @@ static pthread_mutex_t theMutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
                   "  Symbol %s not found!\n", # name); \
   abort();                                             \
   return -1;
-
-void
-_dmtcp_lock() { pthread_mutex_lock(&theMutex); }
-
-void
-_dmtcp_unlock() { pthread_mutex_unlock(&theMutex); }
 
 void
 initialize_wrappers() {}

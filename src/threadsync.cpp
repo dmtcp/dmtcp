@@ -138,10 +138,6 @@ ThreadSync::acquireLocks()
    * these locks to prevent future deadlocks due to rank violation.
    */
 
-  JTRACE("waiting for dmtcp_lock():"
-         " to get synchronized with _runCoordinatorCmd if we use DMTCP API");
-  _dmtcp_lock();
-
   JTRACE("Waiting for lock(&theCkptCanStart)");
   JASSERT(_real_pthread_mutex_lock(&theCkptCanStart) == 0)(JASSERT_ERRNO);
 
@@ -181,7 +177,6 @@ ThreadSync::releaseLocks()
   JASSERT(_real_pthread_mutex_unlock(&libdlLock) == 0) (JASSERT_ERRNO);
   JASSERT(_real_pthread_mutex_unlock(&theCkptCanStart) == 0) (JASSERT_ERRNO);
 
-  _dmtcp_unlock();
   setOkToGrabLock();
 }
 
