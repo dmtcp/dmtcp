@@ -245,46 +245,12 @@ initialize_libc_wrappers()
   }
 }
 
-#ifdef ENABLE_PTHREAD_COND_WRAPPERS
-#define GET_LIBPTHREAD_FUNC_ADDR(name) \
-  _real_func_addr[ENUM(name)] = dmtcp_dlvsym(RTLD_NEXT, # name,\
-                                             pthread_sym_ver);
-
-/*
- * WARNING: By using this method to initialize libpthread wrappers (direct
- * dlopen()/dlsym()) we are are overriding any user wrappers for these
- * functions. If this is a problem in the future we need to think of a new way
- * to do this.
- * EDIT: On some ARM machines, the symbol version is 2.4. Try that first and
- *       fallback to 2.3.4 on failure.
- */
-static void
-initialize_libpthread_wrappers()
-{
-  const char *ver_2_4 = "GLIBC_2.4";
-  const char *ver_2_3_2 = "GLIBC_2.3.2";
-  const char *pthread_sym_ver = NULL;
-
-  void *addr = dmtcp_dlvsym(RTLD_NEXT, "pthread_cond_signal", (char*)ver_2_4);
-  if (addr != NULL) {
-    pthread_sym_ver = ver_2_4;
-  } else {
-    pthread_sym_ver = ver_2_3_2;
-  }
-
-  FOREACH_LIBPTHREAD_WRAPPERS(GET_LIBPTHREAD_FUNC_ADDR);
-}
-#endif // #ifdef ENABLE_PTHREAD_COND_WRAPPERS
-
 void
 dmtcp_prepare_wrappers(void)
 {
   if (!dmtcp_wrappers_initialized) {
     initialize_libc_wrappers();
     dmtcp_wrappers_initialized = 1;
-#ifdef ENABLE_PTHREAD_COND_WRAPPERS
-    initialize_libpthread_wrappers();
-#endif // #ifdef ENABLE_PTHREAD_COND_WRAPPERS
   }
 }
 
@@ -384,145 +350,6 @@ _real_dlclose(void *handle)
 {
   REAL_FUNC_PASSTHROUGH_TYPED(int, dlclose) (handle);
 }
-
-LIB_PRIVATE
-int
-_real_pthread_mutex_lock(pthread_mutex_t *mutex)
-{
-  REAL_FUNC_PASSTHROUGH_TYPED(int, pthread_mutex_lock) (mutex);
-}
-
-LIB_PRIVATE
-int
-_real_pthread_mutex_trylock(pthread_mutex_t *mutex)
-{
-  REAL_FUNC_PASSTHROUGH_TYPED(int, pthread_mutex_trylock) (mutex);
-}
-
-LIB_PRIVATE
-int
-_real_pthread_mutex_unlock(pthread_mutex_t *mutex)
-{
-  REAL_FUNC_PASSTHROUGH_TYPED(int, pthread_mutex_unlock) (mutex);
-}
-
-LIB_PRIVATE
-int
-_real_pthread_rwlock_unlock(pthread_rwlock_t *rwlock)
-{
-  REAL_FUNC_PASSTHROUGH_TYPED(int, pthread_rwlock_unlock) (rwlock);
-}
-
-LIB_PRIVATE
-int
-_real_pthread_rwlock_rdlock(pthread_rwlock_t *rwlock)
-{
-  REAL_FUNC_PASSTHROUGH_TYPED(int, pthread_rwlock_rdlock) (rwlock);
-}
-
-LIB_PRIVATE
-int
-_real_pthread_rwlock_tryrdlock(pthread_rwlock_t *rwlock)
-{
-  REAL_FUNC_PASSTHROUGH_TYPED(int, pthread_rwlock_tryrdlock) (rwlock);
-}
-
-LIB_PRIVATE
-int
-_real_pthread_rwlock_wrlock(pthread_rwlock_t *rwlock)
-{
-  REAL_FUNC_PASSTHROUGH_TYPED(int, pthread_rwlock_wrlock) (rwlock);
-}
-
-LIB_PRIVATE
-int
-_real_pthread_rwlock_trywrlock(pthread_rwlock_t *rwlock)
-{
-  REAL_FUNC_PASSTHROUGH_TYPED(int, pthread_rwlock_trywrlock) (rwlock);
-}
-
-#ifdef ENABLE_PTHREAD_COND_WRAPPERS
-LIB_PRIVATE
-int
-_real_pthread_cond_broadcast(pthread_cond_t *cond)
-{
-#if __aarch64__
-  int result = NEXT_FNC(pthread_cond_broadcast)(cond);
-  return result;
-
-#else /* if __aarch64__ */
-  REAL_FUNC_PASSTHROUGH_TYPED(int, pthread_cond_broadcast) (cond);
-#endif /* if __aarch64__ */
-}
-
-LIB_PRIVATE
-int
-_real_pthread_cond_destroy(pthread_cond_t *cond)
-{
-#if __aarch64__
-  int result = NEXT_FNC(pthread_cond_destroy)(cond);
-  return result;
-
-#else /* if __aarch64__ */
-  REAL_FUNC_PASSTHROUGH_TYPED(int, pthread_cond_destroy) (cond);
-#endif /* if __aarch64__ */
-}
-
-LIB_PRIVATE
-int
-_real_pthread_cond_init(pthread_cond_t *cond, const pthread_condattr_t *attr)
-{
-#if __aarch64__
-  int result = NEXT_FNC(pthread_cond_init)(cond, attr);
-  return result;
-
-#else /* if __aarch64__ */
-  REAL_FUNC_PASSTHROUGH_TYPED(int, pthread_cond_init) (cond, attr);
-#endif /* if __aarch64__ */
-}
-
-LIB_PRIVATE
-int
-_real_pthread_cond_signal(pthread_cond_t *cond)
-{
-#if __aarch64__
-  int result = NEXT_FNC(pthread_cond_signal)(cond);
-  return result;
-
-#else /* if __aarch64__ */
-  REAL_FUNC_PASSTHROUGH_TYPED(int, pthread_cond_signal) (cond);
-#endif /* if __aarch64__ */
-}
-
-LIB_PRIVATE
-int
-_real_pthread_cond_timedwait(pthread_cond_t *cond,
-                             pthread_mutex_t *mutex,
-                             const struct timespec *abstime)
-{
-#if __aarch64__
-  int result = NEXT_FNC(pthread_cond_timedwait)(cond, mutex, abstime);
-  return result;
-
-#else /* if __aarch64__ */
-  REAL_FUNC_PASSTHROUGH_TYPED(int, pthread_cond_timedwait) (cond, mutex,
-                                                            abstime);
-#endif /* if __aarch64__ */
-}
-
-LIB_PRIVATE
-int
-_real_pthread_cond_wait(pthread_cond_t *cond, pthread_mutex_t *mutex)
-{
-#if __aarch64__
-  int result = NEXT_FNC(pthread_cond_wait)(cond, mutex);
-  return result;
-
-#else /* if __aarch64__ */
-  REAL_FUNC_PASSTHROUGH_TYPED(int, pthread_cond_wait) (cond, mutex);
-#endif /* if __aarch64__ */
-}
-#endif // #ifdef ENABLE_PTHREAD_COND_WRAPPERS
 
 LIB_PRIVATE
 ssize_t

@@ -30,8 +30,6 @@
 // this extra declaration.
 #define FOR_SYSCALLSREAL_C
 
-#include <pthread.h>
-
 // We should not need dlopen/dlsym
 // #include <dlfcn.h>
 #include <ctype.h>
@@ -98,42 +96,6 @@
 
 void
 initialize_wrappers() {}
-
-int
-_real_pthread_mutex_lock(pthread_mutex_t *mutex)
-{
-  REAL_FUNC_PASSTHROUGH_TYPED(int, pthread_mutex_lock) (mutex);
-}
-
-int
-_real_pthread_mutex_trylock(pthread_mutex_t *mutex)
-{
-  REAL_FUNC_PASSTHROUGH_TYPED(int, pthread_mutex_trylock) (mutex);
-}
-
-int
-_real_pthread_mutex_unlock(pthread_mutex_t *mutex)
-{
-  REAL_FUNC_PASSTHROUGH_TYPED(int, pthread_mutex_unlock) (mutex);
-}
-
-int
-_real_pthread_rwlock_unlock(pthread_rwlock_t *rwlock)
-{
-  REAL_FUNC_PASSTHROUGH_TYPED(int, pthread_rwlock_unlock) (rwlock);
-}
-
-int
-_real_pthread_rwlock_rdlock(pthread_rwlock_t *rwlock)
-{
-  REAL_FUNC_PASSTHROUGH_TYPED(int, pthread_rwlock_rdlock) (rwlock);
-}
-
-int
-_real_pthread_rwlock_wrlock(pthread_rwlock_t *rwlock)
-{
-  REAL_FUNC_PASSTHROUGH_TYPED(int, pthread_rwlock_wrlock) (rwlock);
-}
 
 ssize_t
 _real_read(int fd, void *buf, size_t count)
