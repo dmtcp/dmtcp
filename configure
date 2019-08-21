@@ -7764,10 +7764,12 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $gccAtomicBuiltins" >&5
 $as_echo "$gccAtomicBuiltins" >&6; }
 
-if test "$gccAtomicBuiltins" = "yes"; then
-
-$as_echo "#define HAS_ATOMIC_BUILTINS 1" >>confdefs.h
-
+if test "$gccAtomicBuiltins" = "no"; then
+  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "Support for atomic built-ins is required to build DMTCP.
+                  Consider using GCC 4.1 or newer.
+See \`config.log' for more details" "$LINENO" 5; }
 fi
 
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for __WAIT_STATUS type" >&5
