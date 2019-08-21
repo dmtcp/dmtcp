@@ -185,9 +185,8 @@ am___d_libdir__libdmtcp_so_OBJECTS = alarm.$(OBJEXT) \
 	dmtcpworker.$(OBJEXT) execwrappers.$(OBJEXT) \
 	glibcsystem.$(OBJEXT) miscwrappers.$(OBJEXT) \
 	plugininfo.$(OBJEXT) pluginmanager.$(OBJEXT) popen.$(OBJEXT) \
-	rlimitfloatenv.$(OBJEXT) \
-	signalwrappers.$(OBJEXT) siginfo.$(OBJEXT) \
-	syslogwrappers.$(OBJEXT) terminal.$(OBJEXT) \
+	rlimitfloatenv.$(OBJEXT) signalwrappers.$(OBJEXT) \
+	siginfo.$(OBJEXT) syslogwrappers.$(OBJEXT) terminal.$(OBJEXT) \
 	threadlist.$(OBJEXT) threadsync.$(OBJEXT) \
 	threadwrappers.$(OBJEXT) writeckpt.$(OBJEXT)
 __d_libdir__libdmtcp_so_OBJECTS =  \
@@ -228,16 +227,16 @@ am__depfiles_remade = ./$(DEPDIR)/alarm.Po \
 	./$(DEPDIR)/nosyscallsreal.Po ./$(DEPDIR)/plugininfo.Po \
 	./$(DEPDIR)/pluginmanager.Po ./$(DEPDIR)/popen.Po \
 	./$(DEPDIR)/processinfo.Po ./$(DEPDIR)/procselfmaps.Po \
-	./$(DEPDIR)/restartscript.Po \
-	./$(DEPDIR)/rlimitfloatenv.Po ./$(DEPDIR)/shareddata.Po \
-	./$(DEPDIR)/siginfo.Po ./$(DEPDIR)/signalwrappers.Po \
-	./$(DEPDIR)/syscallsreal.Po ./$(DEPDIR)/syslogwrappers.Po \
-	./$(DEPDIR)/terminal.Po ./$(DEPDIR)/threadlist.Po \
-	./$(DEPDIR)/threadsync.Po ./$(DEPDIR)/threadwrappers.Po \
-	./$(DEPDIR)/tokenize.Po ./$(DEPDIR)/trampolines.Po \
-	./$(DEPDIR)/uniquepid.Po ./$(DEPDIR)/util_exec.Po \
-	./$(DEPDIR)/util_init.Po ./$(DEPDIR)/util_misc.Po \
-	./$(DEPDIR)/workerstate.Po ./$(DEPDIR)/writeckpt.Po
+	./$(DEPDIR)/restartscript.Po ./$(DEPDIR)/rlimitfloatenv.Po \
+	./$(DEPDIR)/shareddata.Po ./$(DEPDIR)/siginfo.Po \
+	./$(DEPDIR)/signalwrappers.Po ./$(DEPDIR)/syscallsreal.Po \
+	./$(DEPDIR)/syslogwrappers.Po ./$(DEPDIR)/terminal.Po \
+	./$(DEPDIR)/threadlist.Po ./$(DEPDIR)/threadsync.Po \
+	./$(DEPDIR)/threadwrappers.Po ./$(DEPDIR)/tokenize.Po \
+	./$(DEPDIR)/trampolines.Po ./$(DEPDIR)/uniquepid.Po \
+	./$(DEPDIR)/util_exec.Po ./$(DEPDIR)/util_init.Po \
+	./$(DEPDIR)/util_misc.Po ./$(DEPDIR)/workerstate.Po \
+	./$(DEPDIR)/writeckpt.Po
 am__mv = mv -f
 COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
@@ -630,7 +629,7 @@ __d_libdir__libdmtcp_so_SOURCES = alarm.cpp			\
 				  plugininfo.cpp 		\
 				  pluginmanager.cpp		\
 				  popen.cpp 			\
-				  rlimitfloatenv.cpp 			\
+				  rlimitfloatenv.cpp 		\
 				  signalwrappers.cpp 		\
 				  siginfo.cpp 			\
 				  syslogwrappers.cpp 		\
