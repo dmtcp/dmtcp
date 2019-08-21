@@ -133,6 +133,46 @@ typedef enum eDmtcpGetRestartEnvErr {
   RESTART_ENV_NULL_PTR = -5,
 } DmtcpGetRestartEnvErr_t;
 
+typedef enum eDmtcpMutexType
+{
+  DMTCP_MUTEX_NORMAL,
+  DMTCP_MUTEX_RECURSIVE
+} DmtcpMutexType;
+
+typedef struct
+{
+  DmtcpMutexType type;
+  int32_t owner;
+  uint32_t count;
+} DmtcpMutex;
+
+#define DMTCP_MUTEX_INITIALIZER {DMTCP_MUTEX_NORMAL, 0, 0}
+#define DMTCP_MUTEX_INITIALIZER_RECURSIVE {DMTCP_MUTEX_RECURSIVE, 0, 0}
+
+typedef struct
+{
+  int32_t writer;
+  uint32_t nReaders;
+  uint32_t nWritersQueued;
+  uint32_t nReadersQueued;
+  uint32_t writersFutex;
+  uint32_t readersFutex;
+
+  DmtcpMutex xLock;
+} DmtcpRWLock;
+
+void DmtcpMutexInit(DmtcpMutex *mutex, DmtcpMutexType type);
+int DmtcpMutexLock(DmtcpMutex *mutex);
+int DmtcpMutexTryLock(DmtcpMutex *mutex);
+int DmtcpMutexUnlock(DmtcpMutex *mutex);
+
+void DmtcpRWLockInit(DmtcpRWLock *rwlock);
+int DmtcpRWLockRdLock(DmtcpRWLock *rwlock);
+int DmtcpRWLockTryRdLock(DmtcpRWLock *rwlock);
+int DmtcpRWLockWrLock(DmtcpRWLock *rwlock);
+int DmtcpRWLockUnlock(DmtcpRWLock *rwlock);
+
+
 #define   RESTART_ENV_MAXSIZE               12288*10
 
 #define DMTCP_NO_PLUGIN_BARRIERS 0, NULL
