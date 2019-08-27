@@ -275,7 +275,7 @@ dmtcp_initialize()
 }
 
 // Initialize remaining components.
-static void __attribute__((constructor(101)))
+extern "C" void __attribute__((constructor(101)))
 dmtcp_initialize_entry_point()
 {
   static bool initialized = false;
