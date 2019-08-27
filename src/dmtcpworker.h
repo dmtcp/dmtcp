@@ -26,6 +26,9 @@
 
 void restoreUserLDPRELOAD();
 
+extern "C" void __attribute__((constructor(101)))
+dmtcp_initialize_entry_point();
+
 namespace dmtcp
 {
 namespace DmtcpWorker

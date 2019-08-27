@@ -22,6 +22,7 @@
 #ifndef THREADSYNC_H
 #define THREADSYNC_H
 
+#include "dmtcpworker.h"
 
 #define WRAPPER_EXECUTION_DISABLE_CKPT()           \
   /*JTRACE("Acquiring wrapperExecutionLock");*/    \
@@ -90,5 +91,46 @@ void setThreadPerformingDlopenDlsym();
 void unsetThreadPerformingDlopenDlsym();
 #endif // if TRACK_DLOPEN_DLSYM_FOR_LOCKS
 }
+
+class WrapperLock
+{
+  public:
+    WrapperLock(bool _exclusiveLock = false)
+      : exclusiveLock(_exclusiveLock)
+    {
+      dmtcp_initialize_entry_point();
+
+      if (exclusiveLock) {
+        lockAcquired = ThreadSync::wrapperExecutionLockLockExcl();
+        dmtcp::ThreadSync::unsetOkToGrabLock();
+      } else {
+        lockAcquired = ThreadSync::wrapperExecutionLockLock();
+      }
+    }
+
+    virtual ~WrapperLock()
+    {
+      if (lockAcquired) {
+        dmtcp::ThreadSync::wrapperExecutionLockUnlock();
+        if (exclusiveLock) {
+          dmtcp::ThreadSync::setOkToGrabLock();
+        }
+      }
+    }
+
+  private:
+    bool lockAcquired;
+    bool exclusiveLock;
+};
+
+class WrapperLockExcl : public WrapperLock
+{
+  public:
+    WrapperLockExcl()
+      : WrapperLock(true)
+    {
+    }
+};
+
 }
 #endif // ifndef THREADSYNC_H
