@@ -92,6 +92,7 @@ joinStrings(vector<string>v, const string &delim)
 void
 PluginManager::registerBarriersWithCoordinator()
 {
+  vector<string>preSuspendBarriers;
   vector<string>ckptBarriers;
   vector<string>restartBarriers;
 
@@ -100,7 +101,7 @@ PluginManager::registerBarriersWithCoordinator()
       pluginManager->pluginInfos[i]->preSuspendBarriers;
     for (size_t j = 0; j < barriers.size(); j++) {
       if (barriers[j]->isGlobal()) {
-        ckptBarriers.push_back(barriers[j]->toString());
+        preSuspendBarriers.push_back(barriers[j]->toString());
       }
     }
   }
@@ -138,6 +139,7 @@ PluginManager::registerBarriersWithCoordinator()
 
   // TODO(kapil): Have a generic way to avoid bugs.
   string barrierList =
+    joinStrings(preSuspendBarriers, ",") + ";" +
     joinStrings(ckptBarriers, ",") + ";" +
     joinStrings(restartBarriers, ",");
 
