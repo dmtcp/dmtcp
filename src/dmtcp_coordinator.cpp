@@ -603,15 +603,12 @@ DmtcpCoordinator::onData(CoordClient *client)
       (msg.from) (extraData) (client->state());
 
     // TODO(kapil): Check barrier mismatch.
-    vector<string>barriers = tokenizeString(extraData, ";");
-    if (barriers.size() == 2) {
-      ckptBarriers = tokenizeString(barriers[0], ",");
-      restartBarriers = tokenizeString(barriers[1], ",");
-    } else if (barriers.size() == 1 && extraData[0] == ';') {
-      restartBarriers = tokenizeString(barriers[0], ",");
-    } else if (barriers.size() == 1) {
-      ckptBarriers = tokenizeString(barriers[0], ",");
-    }
+    vector<string>barriers = tokenizeString(extraData, ";", true);
+    JASSERT(barriers.size() == 3) (barriers.size()) (extraData);
+
+    preSuspendBarriers = tokenizeString(barriers[0], ",");
+    ckptBarriers = tokenizeString(barriers[1], ",");
+    restartBarriers = tokenizeString(barriers[2], ",");
     break;
   }
 
