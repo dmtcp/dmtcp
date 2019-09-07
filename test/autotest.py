@@ -823,11 +823,11 @@ runTest("forkexec",      2, ["./test/forkexec"])
 runTest("realpath",      1, ["./test/realpath"])
 runTest("pthread1",      1, ["./test/pthread1"])
 runTest("pthread2",      1, ["./test/pthread2"])
-if HAS_MUTEX_WRAPPERS == "no":
-  # This is failing under CentOS 7.5 when --enable-mutex-wrappers is configured.
-  S=10*DEFAULT_S
-  runTest("pthread3",      1, ["./test/pthread2 80"])
-  S=DEFAULT_S
+
+S=10*DEFAULT_S
+runTest("pthread3",      1, ["./test/pthread2 80"])
+S=DEFAULT_S
+
 runTest("pthread4",      1, ["./test/pthread4"])
 runTest("pthread5",      1, ["./test/pthread5"])
 
