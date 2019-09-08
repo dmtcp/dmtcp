@@ -11,7 +11,7 @@ Homepage: http://dmtcp.sourceforge.net
 
 # Later, we want to go back and support i386 for Debian.
 Package: dmtcp
-Architecture: amd64 armhf arm64
+Architecture: amd64
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: Checkpoint/Restart functionality for Linux processes
  DMTCP (Distributed MultiThreaded Checkpointing) is a tool to
