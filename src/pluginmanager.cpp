@@ -142,9 +142,6 @@ PluginManager::registerBarriersWithCoordinator()
     joinStrings(preSuspendBarriers, ",") + ";" +
     joinStrings(ckptBarriers, ",") + ";" +
     joinStrings(restartBarriers, ",");
-
-  DmtcpMessage msg(DMT_BARRIER_LIST);
-  CoordinatorAPI::sendMsgToCoordinator(msg, barrierList);
 }
 
 void

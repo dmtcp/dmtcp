@@ -187,9 +187,12 @@ const int STDIN_FD = fileno(stdin);
 JTIMER(checkpoint);
 JTIMER(restart);
 
+static int workersAtCurrentBarrier = 0;
+static string currentBarrier;
+static string prevBarrier;
+
 static UniquePid compId;
 static int numPeers = -1;
-static int workersAtCurrentBarrier = 0;
 static time_t curTimeStamp = -1;
 static time_t ckptTimeStamp = -1;
 
@@ -219,7 +222,8 @@ CoordClient::CoordClient(const jalib::JSocket &sock,
                          socklen_t len,
                          DmtcpMessage &hello_remote,
                          int isNSWorker)
-  : _sock(sock)
+  : _sock(sock),
+    _barrier("")
 {
   _isNSWorker = isNSWorker;
   _realPid = hello_remote.realPid;
@@ -423,7 +427,7 @@ DmtcpCoordinator::printList()
   ostringstream o;
 
   o << "Client List:\n";
-  o << "#, PROG[virtPID:realPID]@HOST, DMTCP-UNIQUEPID, STATE\n";
+  o << "#, PROG[virtPID:realPID]@HOST, DMTCP-UNIQUEPID, STATE, BARRIER\n";
   for (size_t i = 0; i < clients.size(); i++) {
     o << clients[i]->clientNumber()
       << ", " << clients[i]->progname()
@@ -434,6 +438,7 @@ DmtcpCoordinator::printList()
 #endif // ifdef PRINT_REMOTE_IP
       << ", " << clients[i]->identity()
       << ", " << clients[i]->state()
+      << ", " << clients[i]->barrier()
       << '\n';
   }
   return o.str();
@@ -442,61 +447,39 @@ DmtcpCoordinator::printList()
 void
 DmtcpCoordinator::releaseBarrier(const string &barrier)
 {
-  broadcastMessage(DMT_BARRIER_RELEASED, barrier.length() + 1, barrier.c_str());
+  ComputationStatus status = getStatus();
+
+  if (workersAtCurrentBarrier == status.numPeers) {
+    JTRACE("Releasing barrier") (barrier);
+    prevBarrier = currentBarrier;
+    currentBarrier.clear();
+    workersAtCurrentBarrier = 0;
+    releaseBarrier(barrier);
+
+    _numCkptWorkers = status.numPeers;
+    broadcastMessage(DMT_BARRIER_RELEASED,
+                     barrier.length() + 1,
+                     barrier.c_str());
+  }
 }
 
 void
-DmtcpCoordinator::updateMinimumState()
+DmtcpCoordinator::processBarrier(const string &barrier)
 {
-  ComputationStatus status = getStatus();
-
-  if (!status.minimumStateUnanimous ||
-      workersAtCurrentBarrier < status.numPeers) {
-    return;
+  // Check if this is the first process to reach barrier.
+  if (currentBarrier.empty()) {
+    currentBarrier = barrier;
+    // Warn if we have two consequtive barriers of the same name.
+    JWARNING(currentBarrier != prevBarrier) (currentBarrier) (prevBarrier);
+  } else {
+    JASSERT(barrier == currentBarrier);
   }
 
-  if (status.minimumState == WorkerState::PRESUSPEND) {
-    if (nextPreSuspendBarrier < preSuspendBarriers.size()) {
-      JNOTE("Releasing next pre-suspend barrier")
-        (preSuspendBarriers[nextPreSuspendBarrier]);
-      releaseBarrier(preSuspendBarriers[nextPreSuspendBarrier]);
-      nextPreSuspendBarrier++;
-    } else {
-      JNOTE("Suspending all nodes");
-      broadcastMessage(DMT_DO_SUSPEND);
-    }
-  }
+  ++workersAtCurrentBarrier;
 
-  if (status.minimumState == WorkerState::SUSPENDED) {
-    broadcastMessage(DMT_COMPUTATION_INFO);
-    _numCkptWorkers = status.numPeers;
-  }
-
-  if (status.minimumState == WorkerState::CHECKPOINTING ||
-      status.minimumState == WorkerState::CHECKPOINTED) {
-    if (nextCkptBarrier < ckptBarriers.size()) {
-      JNOTE("Releasing next ckpt barrier")
-        (ckptBarriers[nextCkptBarrier]);
-      releaseBarrier(ckptBarriers[nextCkptBarrier]);
-      nextCkptBarrier++;
-    } else {
-      JNOTE("resuming all nodes after checkpoint");
-    }
-  }
-
-  if (status.minimumState == WorkerState::RESTARTING) {
-    if (nextRestartBarrier < restartBarriers.size()) {
-      JNOTE("Releasing next restart barrier")
-        (restartBarriers[nextRestartBarrier]);
-      releaseBarrier(restartBarriers[nextRestartBarrier]);
-      nextRestartBarrier++;
-    }
-    if (nextRestartBarrier == restartBarriers.size()) {
-      JTIMER_STOP(restart);
-      JNOTE("Resuming all nodes after restart");
-    }
-  }
+  releaseBarrier(barrier);
 }
+
 
 void
 DmtcpCoordinator::recordCkptFilename(CoordClient *client, const char *extraData)
@@ -590,27 +573,15 @@ DmtcpCoordinator::onData(CoordClient *client)
   }
 
   switch (msg.type) {
-  case DMT_OK:
+  case DMT_BARRIER:
   {
-    JTRACE("got DMT_OK message") (client->state()) (msg.from) (msg.state);
+    string barrier = extraData;
+    JTRACE("got DMT_BARRIER message")
+      (msg.from) (client->state()) (msg.state) (barrier);
+
     client->setState(msg.state);
-    workersAtCurrentBarrier++;
-    updateMinimumState();
-    break;
-  }
-
-  case DMT_BARRIER_LIST:
-  {
-    JNOTE("got DMT_BARRIER_LIST message")
-      (msg.from) (extraData) (client->state());
-
-    // TODO(kapil): Check barrier mismatch.
-    vector<string>barriers = tokenizeString(extraData, ";", true);
-    JASSERT(barriers.size() == 3) (barriers.size()) (extraData);
-
-    preSuspendBarriers = tokenizeString(barriers[0], ",");
-    ckptBarriers = tokenizeString(barriers[1], ",");
-    restartBarriers = tokenizeString(barriers[2], ",");
+    client->setBarrier(barrier);
+    processBarrier(barrier);
     break;
   }
 
@@ -759,8 +730,11 @@ DmtcpCoordinator::onDisconnect(CoordClient *client)
         (theCheckpointInterval);
     }
   } else {
-    updateMinimumState();
+    // TODO(Kapil): Release only if this process was still at prevBarrier.
+    releaseBarrier(currentBarrier);
   }
+
+  delete client;
 }
 
 void
@@ -782,11 +756,6 @@ DmtcpCoordinator::initializeComputation()
   exitAfterCkptOnce = false;
   workersAtCurrentBarrier = 0;
   nextPreSuspendBarrier = nextCkptBarrier = nextRestartBarrier = 0;
-
-  // exitAfterCkpt = false;
-
-  ckptBarriers.clear();
-  restartBarriers.clear();
 }
 
 void
@@ -1070,11 +1039,11 @@ DmtcpCoordinator::validateNewWorkerProcess(
     hello_local.compGroup = compId;
     remote << hello_local;
 
-    // Now send DMT_DO_PRESUSPEND message so that this process can also
+    // Now send DMT_DO_CHECKPOINT message so that this process can also
     // participate in the current checkpoint
     // TODO(Kapil): Make sure to walk the new worker through all the
     // already-processed pre-suspend barriers.
-    DmtcpMessage suspendMsg(DMT_DO_PRESUSPEND);
+    DmtcpMessage suspendMsg(DMT_DO_CHECKPOINT);
     suspendMsg.compGroup = compId;
     remote << suspendMsg;
   } else if (s.numPeers > 0 && s.minimumState != WorkerState::RUNNING &&
@@ -1147,7 +1116,7 @@ DmtcpCoordinator::startCheckpoint()
       (s.numPeers) (compId.computationGeneration());
 
     // Pass number of connected peers to all clients
-    broadcastMessage(DMT_DO_PRESUSPEND);
+    broadcastMessage(DMT_DO_CHECKPOINT);
 
     // Suspend Message has been sent but the workers are still in running
     // state.  If the coordinator receives another checkpoint request from user

@@ -416,9 +416,10 @@ void recvMsgFromCoordinator(DmtcpMessage *msg, void **extraData)
   recvMsgFromCoordinatorRaw(coordinatorSocket, msg, extraData);
 }
 
-void waitForBarrier(const string& barrierId)
+bool waitForBarrier(const string& barrier,
+                    uint32_t *numPeers)
 {
-  sendMsgToCoordinator(DmtcpMessage(DMT_OK));
+  sendMsgToCoordinator(DmtcpMessage(DMT_BARRIER), barrier);
 
   JTRACE("waiting for DMT_BARRIER_RELEASED message");
 
@@ -426,13 +427,24 @@ void waitForBarrier(const string& barrierId)
   DmtcpMessage msg;
   recvMsgFromCoordinator(&msg, (void**)&extraData);
 
+  // Before validating message; make sure we are not exiting.
+  if (!msg.isValid()) {
+    return false;
+  }
+
   msg.assertValid();
 
   JASSERT(msg.type == DMT_BARRIER_RELEASED) (msg.type);
   JASSERT(extraData != NULL);
-  JASSERT(barrierId == extraData) (barrierId) (extraData);
+  JASSERT(barrier == extraData) (barrier) (extraData);
 
   JALLOC_FREE(extraData);
+
+  if (numPeers != nullptr) {
+    *numPeers = msg.numPeers;
+  }
+
+  return true;
 }
 
 void
