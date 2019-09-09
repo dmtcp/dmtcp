@@ -31,7 +31,7 @@ Description: Checkpoint/Restart functionality for Linux processes
 
 # Later, we want to go back and support i386 for Debian.
 Package: dmtcp-dbg
-Architecture: amd64 armhf arm64
+Architecture: amd64
 Section: debug
 Priority: optional
 Depends: dmtcp, ${misc:Depends}
