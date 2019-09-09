@@ -382,8 +382,8 @@ dmtcp_finalize()
   JTRACE("Process exiting.");
 }
 
-static void
-ckptThreadPerformExit()
+void
+DmtcpWorker::ckptThreadPerformExit()
 {
   JTRACE("User thread is performing exit(). Ckpt thread exit()ing as well");
 
@@ -400,6 +400,12 @@ ckptThreadPerformExit()
   while (1) {
     sleep(1);
   }
+}
+
+bool
+DmtcpWorker::isExitInProgress()
+{
+  return exitInProgress;
 }
 
 void
