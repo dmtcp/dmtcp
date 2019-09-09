@@ -419,6 +419,11 @@ void recvMsgFromCoordinator(DmtcpMessage *msg, void **extraData)
 bool waitForBarrier(const string& barrier,
                     uint32_t *numPeers)
 {
+  if (noCoordinator())
+  {
+    return true;
+  }
+
   sendMsgToCoordinator(DmtcpMessage(DMT_BARRIER), barrier);
 
   JTRACE("waiting for DMT_BARRIER_RELEASED message");

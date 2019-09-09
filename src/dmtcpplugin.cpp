@@ -515,3 +515,15 @@ dmtcp_no_coordinator(void)
 {
   return CoordinatorAPI::noCoordinator();
 }
+
+EXTERNC void
+dmtcp_barrier(const char *barrier)
+{
+  JTRACE("Waiting for barrier") (barrier);
+  if (!CoordinatorAPI::waitForBarrier(barrier)) {
+    JTRACE("Failed to read message from coordinator; process exiting?");
+    JASSERT(DmtcpWorker::isExitInProgress());
+    DmtcpWorker::ckptThreadPerformExit();
+  }
+  JTRACE("Barrier Released") (barrier);
+}
