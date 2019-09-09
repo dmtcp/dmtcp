@@ -444,7 +444,6 @@ clear_icache(void *beg, void *end)
 
     /* Flush data cache to point of unification, one line at a time. */
     addr = ALIGN_BACKWARD(beg_uint, dcache_line_size);
-if ((unsigned long)addr > (unsigned long)beg_uint) { while(1); }
     do {
         __asm__ __volatile__("dc cvau, %0" : : "r"(addr) : "memory");
         addr += dcache_line_size;
