@@ -63,6 +63,11 @@ typedef enum eDmtcpEvent {
   DMTCP_EVENT_PTHREAD_EXIT,
   DMTCP_EVENT_PTHREAD_RETURN,
 
+  DMTCP_EVENT_PRE_SUSPEND,
+  DMTCP_EVENT_PRE_CHECKPOINT,
+  DMTCP_EVENT_RESUME,
+  DMTCP_EVENT_RESTART,
+
   nDmtcpEvents
 } DmtcpEvent_t;
 
@@ -74,37 +79,7 @@ typedef union _DmtcpEventData_t {
   struct {
     int isRestart;
   } resumeUserThreadInfo, nameserviceInfo;
-
-  struct {
-    const char *barrierId;
-  } barrierInfo;
 } DmtcpEventData_t;
-
-typedef enum {
-  DMTCP_INVALID_BARRIER,
-
-  DMTCP_GLOBAL_BARRIER_PRE_SUSPEND,
-  DMTCP_LOCAL_BARRIER_PRE_SUSPEND,
-  DMTCP_PRIVATE_BARRIER_PRE_SUSPEND,
-
-  DMTCP_GLOBAL_BARRIER_PRE_CKPT,
-  DMTCP_LOCAL_BARRIER_PRE_CKPT,
-  DMTCP_PRIVATE_BARRIER_PRE_CKPT,
-
-  DMTCP_GLOBAL_BARRIER_RESUME,
-  DMTCP_LOCAL_BARRIER_RESUME,
-  DMTCP_PRIVATE_BARRIER_RESUME,
-
-  DMTCP_GLOBAL_BARRIER_RESTART,
-  DMTCP_LOCAL_BARRIER_RESTART,
-  DMTCP_PRIVATE_BARRIER_RESTART
-} DmtcpBarrierType;
-
-typedef struct {
-  DmtcpBarrierType type;
-  void (*callback)();
-  const char *id;
-} DmtcpBarrier;
 
 typedef void (*HookFunctionPtr_t)(DmtcpEvent_t, DmtcpEventData_t *);
 
@@ -116,9 +91,6 @@ typedef struct {
   const char *authorName;
   const char *authorEmail;
   const char *description;
-
-  size_t numBarriers;
-  DmtcpBarrier *barriers;
 
   void (*event_hook)(const DmtcpEvent_t event, DmtcpEventData_t *data);
 } DmtcpPluginDescriptor_t;
@@ -174,12 +146,6 @@ int DmtcpRWLockUnlock(DmtcpRWLock *rwlock);
 
 
 #define   RESTART_ENV_MAXSIZE               12288*10
-
-#define DMTCP_NO_PLUGIN_BARRIERS 0, NULL
-
-#define DMTCP_DECL_BARRIERS(barriers)      \
-  sizeof(barriers) / sizeof(DmtcpBarrier), \
-  barriers
 
 #define DMTCP_DECL_PLUGIN(descr)                      \
   EXTERNC void dmtcp_initialize_plugin()              \

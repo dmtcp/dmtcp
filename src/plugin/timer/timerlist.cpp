@@ -63,16 +63,25 @@ timer_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       TimerList::instance().resetOnFork();
       break;
 
+  case DMTCP_EVENT_PRE_SUSPEND:
+    break;
+
+  case DMTCP_EVENT_PRE_CHECKPOINT:
+    preCheckpoint();
+    break;
+
+  case DMTCP_EVENT_RESUME:
+    break;
+
+  case DMTCP_EVENT_RESTART:
+    postRestart();
+    break;
+
     default:
       break;
     }
   }
 }
-
-static DmtcpBarrier timerBarriers[] = {
-  { DMTCP_PRIVATE_BARRIER_PRE_CKPT, preCheckpoint, "PRE_CKPT" },
-  { DMTCP_PRIVATE_BARRIER_RESTART, postRestart, "RESTART" }
-};
 
 DmtcpPluginDescriptor_t timerPlugin = {
   DMTCP_PLUGIN_API_VERSION,
@@ -81,7 +90,6 @@ DmtcpPluginDescriptor_t timerPlugin = {
   "DMTCP",
   "dmtcp@ccs.neu.edu",
   "Timer plugin",
-  DMTCP_DECL_BARRIERS(timerBarriers),
   timer_event_hook
 };
 

@@ -174,22 +174,33 @@ sysvipc_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     break;
   }
 
+  case DMTCP_EVENT_PRE_SUSPEND:
+    break;
+
+  case DMTCP_EVENT_PRE_CHECKPOINT:
+    leaderElection();
+    dmtcp_barrier("SVIPC:Leader_Election");
+    preCkptDrain();
+    dmtcp_barrier("SVIPC:Drain");
+    preCheckpoint();
+    break;
+
+  case DMTCP_EVENT_RESUME:
+    resumeResume();
+    break;
+
+  case DMTCP_EVENT_RESTART:
+    postRestart();
+    dmtcp_barrier("SVIPC:Restart");
+    restartRefill();
+    dmtcp_barrier("SVIPC:Refill");
+    restartResume();
+    break;
+
   default:
     break;
   }
 }
-
-static DmtcpBarrier sysvipcBarriers[] = {
-  { DMTCP_LOCAL_BARRIER_PRE_CKPT, leaderElection, "LEADER_ELECTION" },
-  { DMTCP_LOCAL_BARRIER_PRE_CKPT, preCkptDrain, "DRAIN" },
-  { DMTCP_LOCAL_BARRIER_PRE_CKPT, preCheckpoint, "PRE_CKPT" },
-
-  { DMTCP_LOCAL_BARRIER_RESUME, resumeResume, "RESUME" },
-
-  { DMTCP_LOCAL_BARRIER_RESTART, postRestart, "RESTART" },
-  { DMTCP_LOCAL_BARRIER_RESTART, restartRefill, "RESTART_REFILL" },
-  { DMTCP_LOCAL_BARRIER_RESTART, restartResume, "RESTART_RESUME" }
-};
 
 DmtcpPluginDescriptor_t sysvipcPlugin = {
   DMTCP_PLUGIN_API_VERSION,
@@ -198,7 +209,6 @@ DmtcpPluginDescriptor_t sysvipcPlugin = {
   "DMTCP",
   "dmtcp@ccs.neu.edu",
   "Sys V IPC virtualization plugin",
-  DMTCP_DECL_BARRIERS(sysvipcBarriers),
   sysvipc_event_hook
 };
 

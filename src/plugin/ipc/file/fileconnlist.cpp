@@ -83,6 +83,43 @@ void
 dmtcp_FileConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   FileConnList::instance().eventHook(event, data);
+
+  switch (event) {
+  case DMTCP_EVENT_PRE_SUSPEND:
+    break;
+
+  case DMTCP_EVENT_PRE_CHECKPOINT:
+    FileConnList::saveOptions;
+    dmtcp_barrier("File::PRE_CKPT");
+    FileConnList::leaderElection;
+    dmtcp_barrier("File::LEADER_ELECTION");
+    FileConnList::drainFd;
+    dmtcp_barrier("File::DRAIN");
+    FileConnList::ckpt;
+    dmtcp_barrier("File::WRITE_CKPT");
+
+    break;
+
+  case DMTCP_EVENT_RESUME:
+    FileConnList::resumeRefill;
+    dmtcp_barrier("File::RESUME_REFILL");
+    FileConnList::resumeResume;
+    dmtcp_barrier("File::RESUME_RESUME");
+    break;
+
+  case DMTCP_EVENT_RESTART:
+    FileConnList::restart;
+    dmtcp_barrier("File::RESTART_POST_RESTART");
+    FileConnList::restartRegisterNSData;
+    dmtcp_barrier("File::RESTART_NS_REGISTER_DATA");
+    FileConnList::restartSendQueries;
+    dmtcp_barrier("File::RESTART_NS_SEND_QUERIES");
+    FileConnList::restartRefill;
+    dmtcp_barrier("File::RESTART_REFILL");
+    FileConnList::restartResume;
+    dmtcp_barrier("File::RESTART_RESUME");
+    break;
+  }
 }
 
 static vector<ProcMapsArea>shmAreas;

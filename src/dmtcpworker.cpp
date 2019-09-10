@@ -459,7 +459,7 @@ DmtcpWorker::waitForCheckpointRequest()
   WorkerState::setCurrentState(WorkerState::PRESUSPEND);
 
   JTRACE("Procesing pre-suspend barriers");
-  PluginManager::processPreSuspendBarriers();
+  PluginManager::eventHook(DMTCP_EVENT_PRE_SUSPEND);
 
   JTRACE("Waiting for DMT:SUSPEND barrier");
   if (!CoordinatorAPI::waitForBarrier("DMT:SUSPEND")) {
@@ -505,7 +505,7 @@ DmtcpWorker::preCheckpoint()
   ProcessInfo::instance().numPeers(numPeers);
 
   WorkerState::setCurrentState(WorkerState::CHECKPOINTING);
-  PluginManager::processCkptBarriers();
+  PluginManager::eventHook(DMTCP_EVENT_PRE_CHECKPOINT);
 }
 
 void
@@ -519,10 +519,7 @@ DmtcpWorker::postCheckpoint()
     _exit(0);
   }
 
-  PluginManager::processResumeBarriers();
-#ifdef TIMING
-  PluginManager::logCkptResumeBarrierOverhead();
-#endif
+  PluginManager::eventHook(DMTCP_EVENT_RESUME);
 
   // Inform Coordinator of RUNNING state.
   WorkerState::setCurrentState(WorkerState::RUNNING);
@@ -537,10 +534,8 @@ DmtcpWorker::postRestart(double ckptReadTime)
   JTRACE("begin postRestart()");
   WorkerState::setCurrentState(WorkerState::RESTARTING);
 
-  PluginManager::processRestartBarriers();
-#ifdef TIMING
-  PluginManager::logRestartBarrierOverhead(ckptReadTime);
-#endif
+  PluginManager::eventHook(DMTCP_EVENT_RESTART);
+
   JTRACE("got resume message after restart");
 
   // Inform Coordinator of RUNNING state.

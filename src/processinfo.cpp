@@ -93,16 +93,25 @@ processInfo_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
     break;
   }
 
+  case DMTCP_EVENT_PRE_SUSPEND:
+    break;
+
+  case DMTCP_EVENT_PRE_CHECKPOINT:
+    checkpoint();
+    break;
+
+  case DMTCP_EVENT_RESUME:
+    resume();
+    break;
+
+  case DMTCP_EVENT_RESTART:
+    restart();
+    break;
+
   default:
     break;
   }
 }
-
-static DmtcpBarrier processInfoBarriers[] = {
-  { DMTCP_PRIVATE_BARRIER_PRE_CKPT, checkpoint, "checkpoint" },
-  { DMTCP_PRIVATE_BARRIER_RESUME, resume, "resume" },
-  { DMTCP_PRIVATE_BARRIER_RESTART, restart, "restart" }
-};
 
 static DmtcpPluginDescriptor_t processInfoPlugin = {
   DMTCP_PLUGIN_API_VERSION,
@@ -111,7 +120,6 @@ static DmtcpPluginDescriptor_t processInfoPlugin = {
   "DMTCP",
   "dmtcp@ccs.neu.edu",
   "processInfo plugin",
-  DMTCP_DECL_BARRIERS(processInfoBarriers),
   processInfo_EventHook
 };
 

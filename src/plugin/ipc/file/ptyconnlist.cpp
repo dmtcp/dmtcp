@@ -36,6 +36,25 @@ void
 dmtcp_PtyConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   PtyConnList::instance().eventHook(event, data);
+
+  switch (event) {
+  case DMTCP_EVENT_PRE_SUSPEND:
+    break;
+
+  case DMTCP_EVENT_PRE_CHECKPOINT:
+    PtyConnList::drainFd();
+    break;
+
+  case DMTCP_EVENT_RESUME:
+    PtyConnList::resumeRefill();
+    break;
+
+  case DMTCP_EVENT_RESTART:
+    PtyConnList::restart();
+    dmtcp_barrier("Pty::RESTART_POST_RESTART");
+    PtyConnList::restartRefill();
+    break;
+  }
 }
 
 void

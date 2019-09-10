@@ -93,14 +93,14 @@ eventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
       init();
       break;
 
+    case DMTCP_EVENT_RESTART:
+      restart();
+      break;
+
   default:
     break;
   }
 }
-
-static DmtcpBarrier coordinatorAPIBarriers[] = {
-  { DMTCP_PRIVATE_BARRIER_RESTART, restart, "restart" }
-};
 
 static DmtcpPluginDescriptor_t coordinatorAPIPlugin = {
   DMTCP_PLUGIN_API_VERSION,
@@ -109,7 +109,6 @@ static DmtcpPluginDescriptor_t coordinatorAPIPlugin = {
   "DMTCP",
   "dmtcp@ccs.neu.edu",
   "Coordinator API plugin",
-  DMTCP_DECL_BARRIERS(coordinatorAPIBarriers),
   eventHook
 };
 
