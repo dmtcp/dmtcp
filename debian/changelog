@@ -1,3 +1,11 @@
+dmtcp (2.6.0-2) unstable; urgency=low
+  
+  * Does not include i386 or armhf or aarch64.
+  * This is a source-only package.
+  * Upload sponsored by Yaroslav Halchenko <debian@onerussian.com>
+
+ -- Paul Grosu <pgrosu@gmail.com>  Tue Sep 10 17:47:11 EDT 2019 -0400
+
 dmtcp (2.6.0-1) unstable; urgency=low
 
   * New upstream release. (Closes: #791940)
