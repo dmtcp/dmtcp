@@ -30,6 +30,7 @@
 #include "../jalib/jfilesystem.h"
 #include "../jalib/jserialize.h"
 
+#include "dmtcp.h"
 #include "dmtcpalloc.h"
 #include "util.h"
 
@@ -43,12 +44,12 @@ class VirtualIdTable
   protected:
     void _do_lock_tbl()
     {
-      JASSERT(pthread_mutex_lock(&tblLock) == 0) (JASSERT_ERRNO);
+      JASSERT(DmtcpMutexLock(&tblLock) == 0) (JASSERT_ERRNO);
     }
 
     void _do_unlock_tbl()
     {
-      JASSERT(pthread_mutex_unlock(&tblLock) == 0) (JASSERT_ERRNO);
+      JASSERT(DmtcpMutexUnlock(&tblLock) == 0) (JASSERT_ERRNO);
     }
 
   public:
@@ -61,9 +62,7 @@ class VirtualIdTable
 #endif // ifdef JALIB_ALLOCATOR
     VirtualIdTable(string typeStr, IdType base, size_t max = MAX_VIRTUAL_ID)
     {
-      pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
-
-      tblLock = lock;
+      DmtcpMutexInit(&tblLock, DMTCP_MUTEX_NORMAL);
       _do_lock_tbl();
       _idMapTable.clear();
       _do_unlock_tbl();
@@ -116,8 +115,7 @@ class VirtualIdTable
     void resetOnFork(IdType newBase)
     {
       _base = newBase;
-      pthread_mutex_t newlock = PTHREAD_MUTEX_INITIALIZER;
-      tblLock = newlock;
+      DmtcpMutexInit(&tblLock, DMTCP_MUTEX_NORMAL);
       resetNextVirtualId();
     }
 
@@ -310,7 +308,7 @@ class VirtualIdTable
 
   private:
     string _typeStr;
-    pthread_mutex_t tblLock;
+    DmtcpMutex tblLock;
 
   protected:
     typedef typename map<IdType, IdType>::iterator id_iterator;

@@ -60,6 +60,4 @@
 # define _real_fcntl           NEXT_FNC(fcntl)
 
 # define _real_system          NEXT_FNC(system)
-# define _real_mmap            NEXT_FNC(mmap)
-# define _real_munmap          NEXT_FNC(munmap)
 #endif // FILE_WRAPPERS_H

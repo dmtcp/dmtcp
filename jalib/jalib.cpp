@@ -171,18 +171,6 @@ syscall(long sys_num, ...)
                                         arg[3], arg[4], arg[5], arg[6]);
 }
 
-void *
-mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset)
-{
-  REAL_FUNC_PASSTHROUGH(void *, mmap) (addr, length, prot, flags, fd, offset);
-}
-
-int
-munmap(void *addr, size_t length)
-{
-  REAL_FUNC_PASSTHROUGH(int, munmap) (addr, length);
-}
-
 ssize_t
 read(int fd, void *buf, size_t count)
 {
@@ -246,24 +234,6 @@ int
 setsockopt(int s, int level, int optname, const void *optval, socklen_t optlen)
 {
   REAL_FUNC_PASSTHROUGH(int, setsockopt) (s, level, optname, optval, optlen);
-}
-
-int
-pthread_mutex_lock(pthread_mutex_t *mutex)
-{
-  REAL_FUNC_PASSTHROUGH(int, pthread_mutex_lock) (mutex);
-}
-
-int
-pthread_mutex_trylock(pthread_mutex_t *mutex)
-{
-  REAL_FUNC_PASSTHROUGH(int, pthread_mutex_trylock) (mutex);
-}
-
-int
-pthread_mutex_unlock(pthread_mutex_t *mutex)
-{
-  REAL_FUNC_PASSTHROUGH(int, pthread_mutex_unlock) (mutex);
 }
 
 ssize_t

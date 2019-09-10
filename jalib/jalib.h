@@ -41,9 +41,6 @@ typedef struct JalibFuncPtrs {
   ssize_t (*readlink)(const char *path, char *buf, size_t bufsiz);
 
   long (*syscall)(long sys_num, ...);
-  void *    (*mmap)(void *addr, size_t length, int prot, int flags, int fd,
-                    off_t offset);
-  int (*munmap)(void *addr, size_t length);
 
   ssize_t (*read)(int fd, void *buf, size_t count);
   ssize_t (*write)(int fd, const void *buf, size_t count);
@@ -58,10 +55,6 @@ typedef struct JalibFuncPtrs {
   int (*accept)(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
   int (*setsockopt)(int s, int level, int optname, const void *optval,
                     socklen_t optlen);
-  int (*pthread_mutex_lock)(pthread_mutex_t *mutex);
-  int (*pthread_mutex_trylock)(pthread_mutex_t *mutex);
-  int (*pthread_mutex_unlock)(pthread_mutex_t *mutex);
-
   ssize_t (*writeAll)(int fd, const void *buf, size_t count);
   ssize_t (*readAll)(int fd, void *buf, size_t count);
 } JalibFuncPtrs;
@@ -82,9 +75,6 @@ int dup2(int oldfd, int newfd);
 ssize_t readlink(const char *path, char *buf, size_t bufsiz);
 
 long syscall(long sys_num, ...);
-void *mmap(void *addr, size_t length, int prot, int flags, int fd,
-           off_t offset);
-int munmap(void *addr, size_t length);
 
 ssize_t read(int fd, void *buf, size_t count);
 ssize_t write(int fd, const void *buf, size_t count);
@@ -105,9 +95,6 @@ int setsockopt(int s,
                int optname,
                const void *optval,
                socklen_t optlen);
-int pthread_mutex_lock(pthread_mutex_t *mutex);
-int pthread_mutex_trylock(pthread_mutex_t *mutex);
-int pthread_mutex_unlock(pthread_mutex_t *mutex);
 
 ssize_t writeAll(int fd, const void *buf, size_t count);
 ssize_t readAll(int fd, void *buf, size_t count);

@@ -18,9 +18,6 @@
 /* Child process does checkpointing */
 #undef FORKED_CHECKPOINTING
 
-/* Can use __sync_bool_compare_and_swap(), etc. */
-#undef HAS_ATOMIC_BUILTINS
-
 /* Define to 1 if you have process_vm_readv and process_vm_writev. */
 #undef HAS_CMA
 
