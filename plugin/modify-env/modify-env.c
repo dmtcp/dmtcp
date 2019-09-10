@@ -83,9 +83,15 @@ restart()
   }
 }
 
-static DmtcpBarrier modify_env_barriers[] = {
-  { DMTCP_GLOBAL_BARRIER_RESTART, restart, "restart" }
-};
+static void
+modifyenv_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
+{
+  switch (event) {
+  case DMTCP_EVENT_RESTART:
+    restart();
+    break;
+  }
+}
 
 DmtcpPluginDescriptor_t modify_env_plugin = {
   DMTCP_PLUGIN_API_VERSION,
@@ -94,8 +100,7 @@ DmtcpPluginDescriptor_t modify_env_plugin = {
   "DMTCP",
   "dmtcp@ccs.neu.edu",
   "Modify-Environment plugin",
-  DMTCP_DECL_BARRIERS(modify_env_barriers),
-  NULL
+  modifyenv_EventHook
 };
 
 DMTCP_DECL_PLUGIN(modify_env_plugin);

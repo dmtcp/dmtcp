@@ -45,7 +45,25 @@ static void createNewDmtcpSshdProcess();
 
 void
 dmtcp_SSH_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
-{}
+{
+  switch (event) {
+  case DMTCP_EVENT_PRE_SUSPEND:
+    break;
+
+  case DMTCP_EVENT_PRE_CHECKPOINT:
+    dmtcp_ssh_drain();
+    break;
+
+  case DMTCP_EVENT_RESUME:
+    dmtcp_ssh_resume();
+    break;
+
+  case DMTCP_EVENT_RESTART:
+    dmtcp_ssh_restart();
+    break;
+  }
+}
+
 
 void
 dmtcp_ssh_drain()

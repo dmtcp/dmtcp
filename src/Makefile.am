@@ -59,7 +59,7 @@ include_HEADERS = $(srcdir)/../include/dmtcp.h 			\
 
 
 # headers:
-nobase_noinst_HEADERS =	barrierinfo.h				\
+nobase_noinst_HEADERS =						\
 			ckptserializer.h			\
 			constants.h 				\
 			coordinatorapi.h			\

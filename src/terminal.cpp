@@ -110,21 +110,18 @@ restore_term_settings()
 }
 
 static void
-checkpoint()
+terminal_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
-  save_term_settings();
-}
+  switch (event) {
+  case DMTCP_EVENT_PRE_CHECKPOINT:
+    save_term_settings();
+    break;
 
-static void
-restart()
-{
-  restore_term_settings();
+  case DMTCP_EVENT_RESTART:
+    restore_term_settings();
+    break;
+  }
 }
-
-static DmtcpBarrier terminalBarriers[] = {
-  { DMTCP_PRIVATE_BARRIER_PRE_CKPT, checkpoint, "checkpoint" },
-  { DMTCP_PRIVATE_BARRIER_RESTART, restart, "restart" }
-};
 
 static DmtcpPluginDescriptor_t terminalPlugin = {
   DMTCP_PLUGIN_API_VERSION,
@@ -133,8 +130,7 @@ static DmtcpPluginDescriptor_t terminalPlugin = {
   "DMTCP",
   "dmtcp@ccs.neu.edu",
   "Terminal plugin",
-  DMTCP_DECL_BARRIERS(terminalBarriers),
-  NULL
+  terminal_EventHook
 };
 
 
