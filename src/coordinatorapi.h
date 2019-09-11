@@ -70,7 +70,7 @@ void sendMsgToCoordinator(DmtcpMessage msg,
                           size_t len = 0);
 void sendMsgToCoordinator(const DmtcpMessage &msg, const string &data);
 void recvMsgFromCoordinator(DmtcpMessage *msg, void **extraData = NULL);
-bool waitForBarrier(const string& barrier, uint32_t *numPeers = nullptr);
+bool waitForBarrier(const string& barrier, uint32_t *numPeers = NULL);
 char *connectAndSendUserCommand(char c,
                                 int *coordCmdStatus = NULL,
                                 int *numPeers = NULL,
