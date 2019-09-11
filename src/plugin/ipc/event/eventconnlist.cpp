@@ -10,34 +10,34 @@ dmtcp_EventConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
   EventConnList::instance().eventHook(event, data);
 
   switch (event) {
-  case DMTCP_EVENT_PRE_SUSPEND:
+  case DMTCP_EVENT_PRESUSPEND:
     break;
 
-  case DMTCP_EVENT_PRE_CHECKPOINT:
+  case DMTCP_EVENT_PRECHECKPOINT:
     EventConnList::saveOptions();
-    dmtcp_barrier("Event::PRE_CKPT");
+    dmtcp_global_barrier("Event::PRE_CKPT");
     EventConnList::leaderElection();
-    dmtcp_barrier("Event::LEADER_ELECTION");
+    dmtcp_global_barrier("Event::LEADER_ELECTION");
     EventConnList::drainFd();
-    dmtcp_barrier("Event::DRAIN");
+    dmtcp_global_barrier("Event::DRAIN");
     EventConnList::ckpt();
     break;
 
   case DMTCP_EVENT_RESUME:
     EventConnList::resumeRefill();
-    dmtcp_barrier("Event::RESUME_REFILL");
+    dmtcp_global_barrier("Event::RESUME_REFILL");
     EventConnList::resumeResume();
     break;
 
   case DMTCP_EVENT_RESTART:
     EventConnList::restart();
-    dmtcp_barrier("Event::RESTART_POST_RESTART");
+    dmtcp_global_barrier("Event::RESTART_POST_RESTART");
     EventConnList::restartRegisterNSData();
-    dmtcp_barrier("Event::RESTART_NS_REGISTER_DATA");
+    dmtcp_global_barrier("Event::RESTART_NS_REGISTER_DATA");
     EventConnList::restartSendQueries();
-    dmtcp_barrier("Event::RESTART_NS_SEND_QUERIES");
+    dmtcp_global_barrier("Event::RESTART_NS_SEND_QUERIES");
     EventConnList::restartRefill();
-    dmtcp_barrier("Event::RESTART_REFILL");
+    dmtcp_global_barrier("Event::RESTART_REFILL");
     EventConnList::restartResume();
     break;
   }

@@ -47,10 +47,10 @@ void
 dmtcp_SSH_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   switch (event) {
-  case DMTCP_EVENT_PRE_SUSPEND:
+  case DMTCP_EVENT_PRESUSPEND:
     break;
 
-  case DMTCP_EVENT_PRE_CHECKPOINT:
+  case DMTCP_EVENT_PRECHECKPOINT:
     dmtcp_ssh_drain();
     break;
 

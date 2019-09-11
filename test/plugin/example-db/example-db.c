@@ -90,19 +90,19 @@ example_db_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     }
     break;
 
-  case DMTCP_EVENT_PRE_CHECKPOINT:
+  case DMTCP_EVENT_PRECHECKPOINT:
     checkpoint();
     break;
 
   case DMTCP_EVENT_RESUME:
     registerNSData();
-    dmtcp_barrier("ExampleDb::Resume");
+    dmtcp_global_barrier("ExampleDb::Resume");
     sendQueries();
     break;
 
   case DMTCP_EVENT_RESTART:
     registerNSData();
-    dmtcp_barrier("ExampleDb::Restart");
+    dmtcp_global_barrier("ExampleDb::Restart");
     sendQueries();
     break;
 

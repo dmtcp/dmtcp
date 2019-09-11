@@ -222,7 +222,7 @@ ckpttimer_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     break;
   }
 
-  case DMTCP_EVENT_PRE_CHECKPOINT:
+  case DMTCP_EVENT_PRECHECKPOINT:
     pre_ckpt();
     break;
 

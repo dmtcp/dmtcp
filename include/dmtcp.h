@@ -63,8 +63,8 @@ typedef enum eDmtcpEvent {
   DMTCP_EVENT_PTHREAD_EXIT,
   DMTCP_EVENT_PTHREAD_RETURN,
 
-  DMTCP_EVENT_PRE_SUSPEND,
-  DMTCP_EVENT_PRE_CHECKPOINT,
+  DMTCP_EVENT_PRESUSPEND,
+  DMTCP_EVENT_PRECHECKPOINT,
   DMTCP_EVENT_RESUME,
   DMTCP_EVENT_RESTART,
 
@@ -219,7 +219,7 @@ int dmtcp_enable_ckpt(void) __attribute__((weak));
 
 void dmtcp_initialize_plugin(void) __attribute((weak));
 
-void dmtcp_barrier(const char *barrier);
+void dmtcp_global_barrier(const char *barrier);
 
 // See: test/plugin/example-db dir for an example:
 int dmtcp_send_key_val_pair_to_coordinator(const char *id,

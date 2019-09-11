@@ -39,7 +39,7 @@ static void
 sleep1_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   switch (event) {
-  case DMTCP_EVENT_PRE_CHECKPOINT:
+  case DMTCP_EVENT_PRECHECKPOINT:
     checkpoint();
     break;
 

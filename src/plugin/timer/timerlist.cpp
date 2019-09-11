@@ -63,10 +63,10 @@ timer_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       TimerList::instance().resetOnFork();
       break;
 
-  case DMTCP_EVENT_PRE_SUSPEND:
+  case DMTCP_EVENT_PRESUSPEND:
     break;
 
-  case DMTCP_EVENT_PRE_CHECKPOINT:
+  case DMTCP_EVENT_PRECHECKPOINT:
     preCheckpoint();
     break;
 

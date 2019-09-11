@@ -72,7 +72,7 @@ dmtcp_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     ptraceWaitForSuspendMsg(data);
     break;
 
-  case DMTCP_EVENT_PRE_SUSPEND_USER_THREAD:
+  case DMTCP_EVENT_PRESUSPEND_USER_THREAD:
     ptrace_process_pre_suspend_user_thread();
     break;
 

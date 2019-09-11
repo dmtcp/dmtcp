@@ -269,10 +269,10 @@ pid_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     pidVirt_ThreadExit(data);
     break;
 
-  case DMTCP_EVENT_PRE_SUSPEND:
+  case DMTCP_EVENT_PRESUSPEND:
     break;
 
-  case DMTCP_EVENT_PRE_CHECKPOINT:
+  case DMTCP_EVENT_PRECHECKPOINT:
     break;
 
   case DMTCP_EVENT_RESUME:
@@ -280,7 +280,7 @@ pid_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 
   case DMTCP_EVENT_RESTART:
     pidVirt_PostRestart();
-    dmtcp_barrier("PID:RESTART");
+    dmtcp_global_barrier("PID:RESTART");
     pidVirt_PostRestartRefill();
     break;
 

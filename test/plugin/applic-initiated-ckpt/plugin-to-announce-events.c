@@ -33,7 +33,7 @@ applic_initiated_ckpt_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     printf("Plugin(%s:%d): exiting.\n", __FILE__, __LINE__);
     break;
 
-  case DMTCP_EVENT_PRE_CHECKPOINT:
+  case DMTCP_EVENT_PRECHECKPOINT:
     checkpoint();
     break;
 
