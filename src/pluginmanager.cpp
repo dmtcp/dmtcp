@@ -104,7 +104,7 @@ PluginManager::eventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
     break;
 
   // Process ckpt barriers.
-  case DMTCP_EVENT_PRE_SUSPEND:
+  case DMTCP_EVENT_PRESUSPEND:
     for (size_t i = 0; i < pluginManager->pluginInfos.size(); i++) {
       CoordinatorAPI::waitForBarrier(
           "PreSuspend:" + pluginManager->pluginInfos[i]->pluginName);
@@ -114,7 +114,7 @@ PluginManager::eventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
     }
     break;
 
-  case DMTCP_EVENT_PRE_CHECKPOINT:
+  case DMTCP_EVENT_PRECHECKPOINT:
     for (size_t i = 0; i < pluginManager->pluginInfos.size(); i++) {
       CoordinatorAPI::waitForBarrier(
           "PreCkpt:" + pluginManager->pluginInfos[i]->pluginName);

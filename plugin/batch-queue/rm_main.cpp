@@ -74,7 +74,7 @@ static void
 rm_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   switch (event) {
-  case DMTCP_EVENT_PRE_CHECKPOINT:
+  case DMTCP_EVENT_PRECHECKPOINT:
     pre_ckpt();
     break;
 
@@ -84,7 +84,7 @@ rm_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 
   case DMTCP_EVENT_RESTART:
     restart();
-    dmtcp_barrier("RM::Restart");
+    dmtcp_global_barrier("RM::Restart");
     restart_resume();
     break;
   }

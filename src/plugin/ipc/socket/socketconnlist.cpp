@@ -21,45 +21,45 @@ dmtcp_SocketConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
   SocketConnList::instance().eventHook(event, data);
 
   switch (event) {
-  case DMTCP_EVENT_PRE_SUSPEND:
+  case DMTCP_EVENT_PRESUSPEND:
     break;
 
-  case DMTCP_EVENT_PRE_CHECKPOINT:
+  case DMTCP_EVENT_PRECHECKPOINT:
     SocketConnList::saveOptions();
-    dmtcp_barrier("Socket::Pre_Ckpt");
+    dmtcp_global_barrier("Socket::Pre_Ckpt");
     SocketConnList::leaderElection();
-    dmtcp_barrier("Socket::Leader_Election");
+    dmtcp_global_barrier("Socket::Leader_Election");
     SocketConnList::ckptRegisterNSData();
-    dmtcp_barrier("Socket::Ckpt_Register_Peer_Info");
+    dmtcp_global_barrier("Socket::Ckpt_Register_Peer_Info");
     SocketConnList::ckptSendQueries();
-    dmtcp_barrier("Socket::Ckpt_Retrieve_Peer_Info");
+    dmtcp_global_barrier("Socket::Ckpt_Retrieve_Peer_Info");
     SocketConnList::drainFd();
-    dmtcp_barrier("Socket::Drain");
+    dmtcp_global_barrier("Socket::Drain");
     SocketConnList::ckpt();
-    dmtcp_barrier("Socket::Write_Ckpt");
+    dmtcp_global_barrier("Socket::Write_Ckpt");
     break;
 
   case DMTCP_EVENT_RESUME:
     SocketConnList::resumeRefill();
-    dmtcp_barrier("Socket::Resume_Refill");
+    dmtcp_global_barrier("Socket::Resume_Refill");
     SocketConnList::resumeResume();
-    dmtcp_barrier("Socket::Resume_Resume");
+    dmtcp_global_barrier("Socket::Resume_Resume");
 
     break;
 
   case DMTCP_EVENT_RESTART:
     SocketConnList::restart();
-    dmtcp_barrier("Socket::Restart_Post_Restart");
+    dmtcp_global_barrier("Socket::Restart_Post_Restart");
 
     // We might be able to mark the next barrier as PRIVATE too.
     SocketConnList::restartRegisterNSData();
-    dmtcp_barrier("Socket::Restart_Ns_Register_Data");
+    dmtcp_global_barrier("Socket::Restart_Ns_Register_Data");
     SocketConnList::restartSendQueries();
-    dmtcp_barrier("Socket::Restart_Ns_Send_Queries");
+    dmtcp_global_barrier("Socket::Restart_Ns_Send_Queries");
     SocketConnList::restartRefill();
-    dmtcp_barrier("Socket::Restart_Refill");
+    dmtcp_global_barrier("Socket::Restart_Refill");
     SocketConnList::restartResume();
-    dmtcp_barrier("Socket::Restart_Resume");
+    dmtcp_global_barrier("Socket::Restart_Resume");
     break;
   }
 }

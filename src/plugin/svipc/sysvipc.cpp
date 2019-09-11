@@ -174,14 +174,14 @@ sysvipc_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     break;
   }
 
-  case DMTCP_EVENT_PRE_SUSPEND:
+  case DMTCP_EVENT_PRESUSPEND:
     break;
 
-  case DMTCP_EVENT_PRE_CHECKPOINT:
+  case DMTCP_EVENT_PRECHECKPOINT:
     leaderElection();
-    dmtcp_barrier("SVIPC:Leader_Election");
+    dmtcp_global_barrier("SVIPC:Leader_Election");
     preCkptDrain();
-    dmtcp_barrier("SVIPC:Drain");
+    dmtcp_global_barrier("SVIPC:Drain");
     preCheckpoint();
     break;
 
@@ -191,9 +191,9 @@ sysvipc_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 
   case DMTCP_EVENT_RESTART:
     postRestart();
-    dmtcp_barrier("SVIPC:Restart");
+    dmtcp_global_barrier("SVIPC:Restart");
     restartRefill();
-    dmtcp_barrier("SVIPC:Refill");
+    dmtcp_global_barrier("SVIPC:Refill");
     restartResume();
     break;
 

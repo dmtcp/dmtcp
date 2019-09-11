@@ -517,7 +517,7 @@ dmtcp_no_coordinator(void)
 }
 
 EXTERNC void
-dmtcp_barrier(const char *barrier)
+dmtcp_global_barrier(const char *barrier)
 {
   JTRACE("Waiting for barrier") (barrier);
   if (!CoordinatorAPI::waitForBarrier(barrier)) {

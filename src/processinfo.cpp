@@ -93,10 +93,10 @@ processInfo_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
     break;
   }
 
-  case DMTCP_EVENT_PRE_SUSPEND:
+  case DMTCP_EVENT_PRESUSPEND:
     break;
 
-  case DMTCP_EVENT_PRE_CHECKPOINT:
+  case DMTCP_EVENT_PRECHECKPOINT:
     checkpoint();
     break;
 

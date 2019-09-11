@@ -186,17 +186,17 @@ infiniband_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data) {
     cleanup();
     break;
 
-  case DMTCP_EVENT_PRE_CHECKPOINT:
+  case DMTCP_EVENT_PRECHECKPOINT:
     pre_checkpoint();
     break;
 
   case DMTCP_EVENT_RESTART:
     post_restart();
-    dmtcp_barrier("IB::restart");
+    dmtcp_global_barrier("IB::restart");
     nameservice_register_data();
-    dmtcp_barrier("IB::restart_nameservice_register_data");
+    dmtcp_global_barrier("IB::restart_nameservice_register_data");
     nameservice_send_queries();
-    dmtcp_barrier("IB::restart_nameservice_send_queries");
+    dmtcp_global_barrier("IB::restart_nameservice_send_queries");
     refill();
     break;
 

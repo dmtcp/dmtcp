@@ -71,17 +71,17 @@ static void
 ib2tcp_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   switch (event) {
-  case DMTCP_EVENT_PRE_CHECKPOINT:
+  case DMTCP_EVENT_PRECHECKPOINT:
     save_term_settings();
     break;
 
   case DMTCP_EVENT_RESTART:
     IB2TCP::postRestart();
-    dmtcp_barrier("IB2TCP::restart");
+    dmtcp_global_barrier("IB2TCP::restart");
     IB2TCP::registerNSData();
-    dmtcp_barrier("IB2TCP::register_ns_data");
+    dmtcp_global_barrier("IB2TCP::register_ns_data");
     IB2TCP::sendQueries();
-    dmtcp_barrier("IB2TCP::send_queries");
+    dmtcp_global_barrier("IB2TCP::send_queries");
     IB2TCP::createTCPConnections();
     break;
   }

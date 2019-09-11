@@ -459,7 +459,7 @@ DmtcpWorker::waitForCheckpointRequest()
   WorkerState::setCurrentState(WorkerState::PRESUSPEND);
 
   JTRACE("Procesing pre-suspend barriers");
-  PluginManager::eventHook(DMTCP_EVENT_PRE_SUSPEND);
+  PluginManager::eventHook(DMTCP_EVENT_PRESUSPEND);
 
   JTRACE("Waiting for DMT:SUSPEND barrier");
   if (!CoordinatorAPI::waitForBarrier("DMT:SUSPEND")) {
@@ -505,7 +505,7 @@ DmtcpWorker::preCheckpoint()
   ProcessInfo::instance().numPeers(numPeers);
 
   WorkerState::setCurrentState(WorkerState::CHECKPOINTING);
-  PluginManager::eventHook(DMTCP_EVENT_PRE_CHECKPOINT);
+  PluginManager::eventHook(DMTCP_EVENT_PRECHECKPOINT);
 }
 
 void

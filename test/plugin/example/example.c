@@ -32,7 +32,7 @@ example_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     printf("The plugin is being called before exiting.\n");
     break;
 
-  case DMTCP_EVENT_PRE_CHECKPOINT:
+  case DMTCP_EVENT_PRECHECKPOINT:
     checkpoint();
     break;
 

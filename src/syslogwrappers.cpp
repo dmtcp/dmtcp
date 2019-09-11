@@ -45,10 +45,10 @@ syslog_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     SyslogCheckpointer_ResetOnFork();
     break;
 
-  case DMTCP_EVENT_PRE_SUSPEND:
+  case DMTCP_EVENT_PRESUSPEND:
     break;
 
-  case DMTCP_EVENT_PRE_CHECKPOINT:
+  case DMTCP_EVENT_PRECHECKPOINT:
     SyslogCheckpointer_StopService();
     break;
 

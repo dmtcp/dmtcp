@@ -113,7 +113,7 @@ static void
 terminal_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   switch (event) {
-  case DMTCP_EVENT_PRE_CHECKPOINT:
+  case DMTCP_EVENT_PRECHECKPOINT:
     save_term_settings();
     break;
 

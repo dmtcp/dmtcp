@@ -180,7 +180,7 @@ static void
 ckpfile_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   switch (event) {
-  case DMTCP_EVENT_PRE_CHECKPOINT:
+  case DMTCP_EVENT_PRECHECKPOINT:
     preCkpt();
     break;
 
