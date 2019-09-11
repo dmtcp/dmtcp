@@ -444,7 +444,7 @@ bool waitForBarrier(const string& barrier,
 
   JALLOC_FREE(extraData);
 
-  if (numPeers != nullptr) {
+  if (numPeers != NULL) {
     *numPeers = msg.numPeers;
   }
 
