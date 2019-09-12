@@ -221,16 +221,23 @@ ckpttimer_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     JTRACE("The plugin has been initialized.");
     break;
   }
+
+  case DMTCP_EVENT_PRECHECKPOINT:
+    pre_ckpt();
+    break;
+
+  case DMTCP_EVENT_RESTART:
+    resume();
+    break;
+
+  case DMTCP_EVENT_RESTART:
+    restart();
+    break;
+
   default:
     break;
   }
 }
-
-static DmtcpBarrier ckpttimerBarriers[] = {
-  { DMTCP_GLOBAL_BARRIER_PRE_CKPT, pre_ckpt, "checkpoint" },
-  { DMTCP_GLOBAL_BARRIER_RESUME, resume, "resume" },
-  { DMTCP_GLOBAL_BARRIER_RESTART, restart, "restart" }
-};
 
 DmtcpPluginDescriptor_t ckpttimer_plugin = {
   DMTCP_PLUGIN_API_VERSION,
@@ -239,7 +246,6 @@ DmtcpPluginDescriptor_t ckpttimer_plugin = {
   "DMTCP",
   "dmtcp@ccs.neu.edu",
   "Ckpttimer plugin",
-  DMTCP_DECL_BARRIERS(ckpttimerBarriers),
   ckpttimer_event_hook
 };
 

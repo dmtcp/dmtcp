@@ -47,11 +47,23 @@ resume()
   }
 }
 
-static DmtcpBarrier alarmBarriers[] = {
-  { DMTCP_PRIVATE_BARRIER_PRE_CKPT, checkpoint, "checkpoint" },
-  { DMTCP_PRIVATE_BARRIER_RESUME, resume, "resume" },
-  { DMTCP_PRIVATE_BARRIER_RESTART, resume, "restart" }
-};
+static void
+alarm_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
+{
+  switch (event) {
+  case DMTCP_EVENT_PRECHECKPOINT:
+    checkpoint();
+    break;
+
+  case DMTCP_EVENT_RESUME:
+  case DMTCP_EVENT_RESTART:
+    resume();
+    break;
+
+  default:
+    break;
+  }
+}
 
 static DmtcpPluginDescriptor_t alarmPlugin = {
   DMTCP_PLUGIN_API_VERSION,
@@ -60,8 +72,7 @@ static DmtcpPluginDescriptor_t alarmPlugin = {
   "DMTCP",
   "dmtcp@ccs.neu.edu",
   "Alarm plugin",
-  DMTCP_DECL_BARRIERS(alarmBarriers),
-  NULL
+  alarm_EventHook
 };
 
 

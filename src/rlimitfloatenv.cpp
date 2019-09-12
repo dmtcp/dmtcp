@@ -58,21 +58,21 @@ restore_rlimit_float_settings()
 }
 
 static void
-checkpoint()
+rlimitfloat_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
-  save_rlimit_float_settings();
-}
+  switch (event) {
+  case DMTCP_EVENT_PRECHECKPOINT:
+    save_rlimit_float_settings();
+    break;
 
-static void
-restart()
-{
-  restore_rlimit_float_settings();
-}
+  case DMTCP_EVENT_RESTART:
+    restore_rlimit_float_settings();
+    break;
 
-static DmtcpBarrier rlimitFloatBarriers[] = {
-  { DMTCP_PRIVATE_BARRIER_PRE_CKPT, checkpoint, "checkpoint" },
-  { DMTCP_PRIVATE_BARRIER_RESTART, restart, "restart" }
-};
+  default:
+    break;
+  }
+}
 
 static DmtcpPluginDescriptor_t rlimitFloatPlugin = {
   DMTCP_PLUGIN_API_VERSION,
@@ -81,8 +81,7 @@ static DmtcpPluginDescriptor_t rlimitFloatPlugin = {
   "DMTCP",
   "dmtcp@ccs.neu.edu",
   "Rlimit/floating point plugin",
-  DMTCP_DECL_BARRIERS(rlimitFloatBarriers),
-  NULL
+  rlimitfloat_EventHook
 };
 
 

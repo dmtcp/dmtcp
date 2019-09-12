@@ -93,14 +93,14 @@ eventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
       init();
       break;
 
+    case DMTCP_EVENT_RESTART:
+      restart();
+      break;
+
   default:
     break;
   }
 }
-
-static DmtcpBarrier coordinatorAPIBarriers[] = {
-  { DMTCP_PRIVATE_BARRIER_RESTART, restart, "restart" }
-};
 
 static DmtcpPluginDescriptor_t coordinatorAPIPlugin = {
   DMTCP_PLUGIN_API_VERSION,
@@ -109,7 +109,6 @@ static DmtcpPluginDescriptor_t coordinatorAPIPlugin = {
   "DMTCP",
   "dmtcp@ccs.neu.edu",
   "Coordinator API plugin",
-  DMTCP_DECL_BARRIERS(coordinatorAPIBarriers),
   eventHook
 };
 
@@ -416,9 +415,15 @@ void recvMsgFromCoordinator(DmtcpMessage *msg, void **extraData)
   recvMsgFromCoordinatorRaw(coordinatorSocket, msg, extraData);
 }
 
-void waitForBarrier(const string& barrierId)
+bool waitForBarrier(const string& barrier,
+                    uint32_t *numPeers)
 {
-  sendMsgToCoordinator(DmtcpMessage(DMT_OK));
+  if (noCoordinator())
+  {
+    return true;
+  }
+
+  sendMsgToCoordinator(DmtcpMessage(DMT_BARRIER), barrier);
 
   JTRACE("waiting for DMT_BARRIER_RELEASED message");
 
@@ -426,13 +431,24 @@ void waitForBarrier(const string& barrierId)
   DmtcpMessage msg;
   recvMsgFromCoordinator(&msg, (void**)&extraData);
 
+  // Before validating message; make sure we are not exiting.
+  if (!msg.isValid()) {
+    return false;
+  }
+
   msg.assertValid();
 
   JASSERT(msg.type == DMT_BARRIER_RELEASED) (msg.type);
   JASSERT(extraData != NULL);
-  JASSERT(barrierId == extraData) (barrierId) (extraData);
+  JASSERT(barrier == extraData) (barrier) (extraData);
 
   JALLOC_FREE(extraData);
+
+  if (numPeers != NULL) {
+    *numPeers = msg.numPeers;
+  }
+
+  return true;
 }
 
 void

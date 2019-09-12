@@ -533,16 +533,23 @@ tun_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
   case DMTCP_EVENT_EXIT:
     DPRINTF("The plugin is being called before exiting.\n");
     break;
+
+  case DMTCP_EVENT_PRECHECKPOINT:
+    pre_ckpt()
+    break;
+
+  case DMTCP_EVENT_RESUME:
+    resume();
+    break;
+
+  case DMTCP_EVENT_RESTART:
+    restart();
+    break;
+
   default:
     break;
   }
 }
-
-static DmtcpBarrier tunBarriers[] = {
-  { DMTCP_GLOBAL_BARRIER_PRE_CKPT, pre_ckpt, "checkpoint" },
-  { DMTCP_GLOBAL_BARRIER_RESUME, resume, "resume" },
-  { DMTCP_GLOBAL_BARRIER_RESTART, restart, "restart" }
-};
 
 DmtcpPluginDescriptor_t tun_plugin = {
   DMTCP_PLUGIN_API_VERSION,
@@ -551,7 +558,6 @@ DmtcpPluginDescriptor_t tun_plugin = {
   "DMTCP",
   "dmtcp@ccs.neu.edu",
   "TUN plugin",
-  DMTCP_DECL_BARRIERS(tunBarriers),
   tun_event_hook
 };
 

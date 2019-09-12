@@ -67,14 +67,25 @@ do_unlock()
 {
   JASSERT(pthread_mutex_unlock(&_lock) == 0);
 }
+static void
+ib2tcp_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
+{
+  switch (event) {
+  case DMTCP_EVENT_PRECHECKPOINT:
+    save_term_settings();
+    break;
 
-static DmtcpBarrier ib2tcpBarriers[] = {
-  { DMTCP_GLOBAL_BARRIER_RESTART, IB2TCP::postRestart, "restart" },
-  { DMTCP_GLOBAL_BARRIER_RESTART, IB2TCP::registerNSData, "register_ns_data" },
-  { DMTCP_GLOBAL_BARRIER_RESTART, IB2TCP::sendQueries, "send_queries" },
-  { DMTCP_GLOBAL_BARRIER_RESTART, IB2TCP::createTCPConnections,
-    "restart_resume" }
-};
+  case DMTCP_EVENT_RESTART:
+    IB2TCP::postRestart();
+    dmtcp_global_barrier("IB2TCP::restart");
+    IB2TCP::registerNSData();
+    dmtcp_global_barrier("IB2TCP::register_ns_data");
+    IB2TCP::sendQueries();
+    dmtcp_global_barrier("IB2TCP::send_queries");
+    IB2TCP::createTCPConnections();
+    break;
+  }
+}
 
 DmtcpPluginDescriptor_t ib2tcp_plugin = {
   DMTCP_PLUGIN_API_VERSION,
@@ -83,8 +94,7 @@ DmtcpPluginDescriptor_t ib2tcp_plugin = {
   "DMTCP",
   "dmtcp@ccs.neu.edu",
   "IB2TCP plugin",
-  DMTCP_DECL_BARRIERS(ib2tcpBarriers),
-  NULL
+  ib2tcp_EventHook
 };
 
 DMTCP_DECL_PLUGIN(ib2tcp_plugin);

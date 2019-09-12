@@ -185,21 +185,25 @@ infiniband_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data) {
   case DMTCP_EVENT_EXIT:
     cleanup();
     break;
+
+  case DMTCP_EVENT_PRECHECKPOINT:
+    pre_checkpoint();
+    break;
+
+  case DMTCP_EVENT_RESTART:
+    post_restart();
+    dmtcp_global_barrier("IB::restart");
+    nameservice_register_data();
+    dmtcp_global_barrier("IB::restart_nameservice_register_data");
+    nameservice_send_queries();
+    dmtcp_global_barrier("IB::restart_nameservice_send_queries");
+    refill();
+    break;
+
   default:
     break;
   }
 }
-
-static DmtcpBarrier infinibandBarriers[] = {
-  { DMTCP_GLOBAL_BARRIER_PRE_CKPT, pre_checkpoint, "checkpoint" },
-
-  { DMTCP_GLOBAL_BARRIER_RESTART, post_restart, "restart" },
-  { DMTCP_GLOBAL_BARRIER_RESTART, nameservice_register_data,
-    "restart_nameservice_register_data" },
-  { DMTCP_GLOBAL_BARRIER_RESTART, nameservice_send_queries,
-    "restart_nameservice_send_queries" },
-  { DMTCP_GLOBAL_BARRIER_RESTART, refill, "restart_refill" }
-};
 
 DmtcpPluginDescriptor_t infiniband_plugin = {
   DMTCP_PLUGIN_API_VERSION,
@@ -208,7 +212,6 @@ DmtcpPluginDescriptor_t infiniband_plugin = {
   "DMTCP",
   "dmtcp@ccs.neu.edu",
   "InfiniBand plugin",
-  DMTCP_DECL_BARRIERS(infinibandBarriers),
   infiniband_event_hook
 };
 

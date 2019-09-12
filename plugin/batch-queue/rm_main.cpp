@@ -70,13 +70,25 @@ restart_resume()
   rm_restore_pmi();
   slurmRestoreHelper(true);
 }
+static void
+rm_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
+{
+  switch (event) {
+  case DMTCP_EVENT_PRECHECKPOINT:
+    pre_ckpt();
+    break;
 
-static DmtcpBarrier rmBarriers[] = {
-  { DMTCP_GLOBAL_BARRIER_PRE_CKPT, pre_ckpt, "checkpoint" },
-  { DMTCP_GLOBAL_BARRIER_RESUME, resume, "resume" },
-  { DMTCP_GLOBAL_BARRIER_RESTART, restart, "restart" },
-  { DMTCP_GLOBAL_BARRIER_RESTART, restart_resume, "restart_resume" }
-};
+  case DMTCP_EVENT_RESUME:
+    resume();
+    break;
+
+  case DMTCP_EVENT_RESTART:
+    restart();
+    dmtcp_global_barrier("RM::Restart");
+    restart_resume();
+    break;
+  }
+}
 
 DmtcpPluginDescriptor_t batch_queue_plugin = {
   DMTCP_PLUGIN_API_VERSION,
@@ -85,8 +97,7 @@ DmtcpPluginDescriptor_t batch_queue_plugin = {
   "DMTCP",
   "dmtcp@ccs.neu.edu",
   "Batch-queue plugin",
-  DMTCP_DECL_BARRIERS(rmBarriers),
-  NULL
+  rm_EventHook
 };
 
 DMTCP_DECL_PLUGIN(batch_queue_plugin);

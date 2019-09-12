@@ -269,15 +269,26 @@ pid_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     pidVirt_ThreadExit(data);
     break;
 
+  case DMTCP_EVENT_PRESUSPEND:
+    break;
+
+  case DMTCP_EVENT_PRECHECKPOINT:
+    break;
+
+  case DMTCP_EVENT_RESUME:
+    break;
+
+  case DMTCP_EVENT_RESTART:
+    pidVirt_PostRestart();
+    dmtcp_global_barrier("PID:RESTART");
+    pidVirt_PostRestartRefill();
+    break;
+
   default:
     break;
   }
 }
 
-static DmtcpBarrier pidBarriers[] = {
-  { DMTCP_PRIVATE_BARRIER_RESTART, pidVirt_PostRestart, "RESTART1" },
-  { DMTCP_LOCAL_BARRIER_RESTART, pidVirt_PostRestartRefill, "RESTART2" }
-};
 
 DmtcpPluginDescriptor_t pidPlugin = {
   DMTCP_PLUGIN_API_VERSION,
@@ -286,7 +297,6 @@ DmtcpPluginDescriptor_t pidPlugin = {
   "DMTCP",
   "dmtcp@ccs.neu.edu",
   "PID virtualization plugin",
-  DMTCP_DECL_BARRIERS(pidBarriers),
   pid_event_hook
 };
 

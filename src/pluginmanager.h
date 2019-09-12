@@ -22,7 +22,6 @@
 #ifndef __PLUGINMANAGER_H__
 #define __PLUGINMANAGER_H__
 
-#include "barrierinfo.h"
 #include "dmtcp.h"
 #include "dmtcpalloc.h"
 #include "plugininfo.h"
@@ -49,7 +48,7 @@ class PluginManager
     static void processCkptBarriers();
     static void processResumeBarriers();
     static void processRestartBarriers();
-    static void eventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
+    static void eventHook(DmtcpEvent_t event, DmtcpEventData_t *data = NULL);
 #ifdef TIMING
     static void logCkptResumeBarrierOverhead();
     static void logRestartBarrierOverhead(double ckptReadTime);
