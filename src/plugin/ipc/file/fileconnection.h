@@ -209,6 +209,7 @@ class PosixMQConnection : public Connection
       }
     }
 
+    virtual void doLocking();
     virtual void drain();
     virtual void refill(bool isRestart);
     virtual void postRestart();

@@ -814,6 +814,15 @@ PosixMQConnection::on_mq_notify(const struct sigevent *sevp)
 }
 
 void
+PosixMQConnection::doLocking()
+{
+  if (!(_oflag & O_RDWR) && !(_oflag & O_RDONLY)) {
+    return;
+  }
+  Connection::doLocking();
+}
+
+void
 PosixMQConnection::drain()
 {
   JASSERT(_fds.size() > 0);
@@ -833,9 +842,6 @@ PosixMQConnection::drain()
     return;
   }
 
-  int fd = _real_mq_open(_name.c_str(), O_RDWR, 0, NULL);
-  JASSERT(fd != -1) (_name) (JASSERT_ERRNO);
-
   _qnum = attr.mq_curmsgs;
   char *buf = (char *)JALLOC_HELPER_MALLOC(attr.mq_msgsize);
   for (long i = 0; i < _qnum; i++) {
@@ -846,7 +852,6 @@ PosixMQConnection::drain()
     _msgInQueuePrio.push_back(prio);
   }
   JALLOC_HELPER_FREE(buf);
-  _real_mq_close(fd);
 }
 
 void
