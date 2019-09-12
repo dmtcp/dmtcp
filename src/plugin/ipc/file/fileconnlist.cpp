@@ -89,34 +89,34 @@ dmtcp_FileConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
     break;
 
   case DMTCP_EVENT_PRECHECKPOINT:
-    FileConnList::saveOptions;
+    FileConnList::saveOptions();
     dmtcp_global_barrier("File::PRE_CKPT");
-    FileConnList::leaderElection;
+    FileConnList::leaderElection();
     dmtcp_global_barrier("File::LEADER_ELECTION");
-    FileConnList::drainFd;
+    FileConnList::drainFd();
     dmtcp_global_barrier("File::DRAIN");
-    FileConnList::ckpt;
+    FileConnList::ckpt();
     dmtcp_global_barrier("File::WRITE_CKPT");
 
     break;
 
   case DMTCP_EVENT_RESUME:
-    FileConnList::resumeRefill;
+    FileConnList::resumeRefill();
     dmtcp_global_barrier("File::RESUME_REFILL");
-    FileConnList::resumeResume;
+    FileConnList::resumeResume();
     dmtcp_global_barrier("File::RESUME_RESUME");
     break;
 
   case DMTCP_EVENT_RESTART:
-    FileConnList::restart;
+    FileConnList::restart();
     dmtcp_global_barrier("File::RESTART_POST_RESTART");
-    FileConnList::restartRegisterNSData;
+    FileConnList::restartRegisterNSData();
     dmtcp_global_barrier("File::RESTART_NS_REGISTER_DATA");
-    FileConnList::restartSendQueries;
+    FileConnList::restartSendQueries();
     dmtcp_global_barrier("File::RESTART_NS_SEND_QUERIES");
-    FileConnList::restartRefill;
+    FileConnList::restartRefill();
     dmtcp_global_barrier("File::RESTART_REFILL");
-    FileConnList::restartResume;
+    FileConnList::restartResume();
     dmtcp_global_barrier("File::RESTART_RESUME");
     break;
   }
