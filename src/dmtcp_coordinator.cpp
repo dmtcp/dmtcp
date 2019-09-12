@@ -454,7 +454,6 @@ DmtcpCoordinator::releaseBarrier(const string &barrier)
     prevBarrier = currentBarrier;
     currentBarrier.clear();
     workersAtCurrentBarrier = 0;
-    releaseBarrier(barrier);
 
     _numCkptWorkers = status.numPeers;
     broadcastMessage(DMT_BARRIER_RELEASED,
