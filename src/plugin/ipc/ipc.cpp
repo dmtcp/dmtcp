@@ -70,7 +70,7 @@ DmtcpPluginDescriptor_t filePlugin = {
 DmtcpPluginDescriptor_t ptyPlugin = {
   DMTCP_PLUGIN_API_VERSION,
   PACKAGE_VERSION,
-  "file",
+  "pty",
   "DMTCP",
   "dmtcp@ccs.neu.edu",
   "PTY plugin",
