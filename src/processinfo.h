@@ -27,8 +27,8 @@
 #include "uniquepid.h"
 
 #define MB                 1024 * 1024
-#define RESTORE_STACK_SIZE 5 * MB
-#define RESTORE_MEM_SIZE   5 * MB
+#define RESTORE_STACK_SIZE 16 * MB
+#define RESTORE_MEM_SIZE   16 * MB
 #define RESTORE_TOTAL_SIZE (RESTORE_STACK_SIZE + RESTORE_MEM_SIZE)
 
 namespace dmtcp
