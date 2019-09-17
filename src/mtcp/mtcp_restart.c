@@ -1360,7 +1360,7 @@ remapMtcpRestartToReservedArea(RestoreInfo *rinfo)
     mtcp_sys_mmap(new_stack_start_addr,
                   rinfo->old_stack_size,
                   PROT_READ | PROT_WRITE,
-                  MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED | MAP_GROWSDOWN,
+                  MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED,
                   -1,
                   0);
   MTCP_ASSERT(rinfo->new_stack_addr != MAP_FAILED);
