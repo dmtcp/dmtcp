@@ -1311,7 +1311,8 @@ remapMtcpRestartToReservedArea(RestoreInfo *rinfo)
   }
 
   VA target_addr = rinfo->restore_addr;
-  for (size_t i = 0; i < num_regions; i++) {
+  size_t i;
+  for (i = 0; i < num_regions; i++) {
     void *addr = mtcp_sys_mmap(mem_regions[i].addr + restore_region_offset,
                                mem_regions[i].size,
                                mem_regions[i].prot,
