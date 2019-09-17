@@ -121,8 +121,22 @@ Connection::doLocking()
 {
   errno = 0;
   _hasLock = false;
+#ifdef WSL
+  int rc = fcntl(_fds[0], F_SETOWN, getpid());
+  // FIXME:
+  // As of Windows build 1903, fcntl fails with EINVAL if _fds[0] is a
+  //   pipe.  We could test on _fds[1] instead, but that seems fragile.
+  //   For now, DMTCP will fail on 'make check' on tests that use
+  //   multiple processes, but at least 'make check' works now.
+  //   Later, I'll come back to this and consider something narrow for _fds[1].
+  if (rc == -1 && errno != EINVAL) {
+    JASSERT(fcntl(_fds[0], F_SETOWN, getpid()) == 0)
+      (_fds[0]) (JASSERT_ERRNO);
+  }
+#else
   JASSERT(fcntl(_fds[0], F_SETOWN, getpid()) == 0)
     (_fds[0]) (JASSERT_ERRNO);
+#endif
 }
 
 void
