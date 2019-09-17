@@ -10,9 +10,6 @@ ifeq ($(M32),1)
   CFLAGS_M32 = -m32 -march=i386 -Wa,--32
 endif
 
-# Set gnu99 as set for the rest of DMTCP in configure.ac (AC_PROG_CC_STDC).
-CFLAGS += -std=gnu99
-
 # We need to integrate HOST_IS_ARM and HOST_IS_ARM64
 HOST_IS_ARM=${shell uname -m | grep '^arm' | sed -e 's^\(...\).*^\1^'}
 ifeq ($(HOST_IS_ARM),arm)
