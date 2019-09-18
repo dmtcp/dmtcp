@@ -219,7 +219,7 @@ int dmtcp_enable_ckpt(void) __attribute__((weak));
 
 void dmtcp_initialize_plugin(void) __attribute((weak));
 
-void dmtcp_global_barrier(const char *barrier);
+void dmtcp_global_barrier(const char *barrier) __attribute((weak));
 
 // See: test/plugin/example-db dir for an example:
 int dmtcp_send_key_val_pair_to_coordinator(const char *id,
@@ -427,7 +427,7 @@ int dmtcp_must_overwrite_file(const char *path) __attribute((weak));
 
 void dmtcp_initialize(void) __attribute((weak));
 
-void dmtcp_register_plugin(DmtcpPluginDescriptor_t);
+void dmtcp_register_plugin(DmtcpPluginDescriptor_t) __attribute((weak));
 
 // These are part of the internal implementation of DMTCP plugins
 int dmtcp_plugin_disable_ckpt(void);
@@ -439,7 +439,7 @@ void dmtcp_plugin_enable_ckpt(void);
   if (__dmtcp_plugin_ckpt_disabled) dmtcp_plugin_enable_ckpt()
 
 
-void *dmtcp_dlsym(void *handle, const char *symbol);
+void *dmtcp_dlsym(void *handle, const char *symbol) __attribute((weak));
 void *dmtcp_dlvsym(void *handle, char *symbol, const char *version);
 void *dmtcp_dlsym_lib(const char *libname, const char *symbol);
 

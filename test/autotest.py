@@ -771,6 +771,8 @@ runTest("stat",         1, ["./test/stat"])
 
 runTest("rlimit-restore",         1, ["./test/rlimit-restore"])
 
+runTest("presuspend",   [1, 2], ["./test/presuspend"])
+
 PWD=os.getcwd()
 runTest("plugin-sleep2", 1, ["--with-plugin "+
                              PWD+"/test/plugin/sleep1/dmtcp_sleep1hijack.so:"+
