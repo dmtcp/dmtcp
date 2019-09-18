@@ -577,7 +577,7 @@ DmtcpCoordinator::onData(CoordClient *client)
       (msg.from) (client->state()) (msg.state) (barrier);
 
     client->setState(msg.state);
-    // Warn if we have two consequtive barriers of the same name.
+    // Warn if we have two consecutive barriers of the same name.
     JWARNING(barrier != client->barrier()) (barrier) (client->barrier());
     client->setBarrier(barrier);
     processBarrier(barrier);
