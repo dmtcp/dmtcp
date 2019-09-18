@@ -457,8 +457,8 @@ DmtcpCoordinator::releaseBarrier(const string &barrier)
 
     _numCkptWorkers = status.numPeers;
     broadcastMessage(DMT_BARRIER_RELEASED,
-                     barrier.length() + 1,
-                     barrier.c_str());
+                     prevBarrier.length() + 1,
+                     prevBarrier.c_str());
   }
 }
 
@@ -468,8 +468,6 @@ DmtcpCoordinator::processBarrier(const string &barrier)
   // Check if this is the first process to reach barrier.
   if (currentBarrier.empty()) {
     currentBarrier = barrier;
-    // Warn if we have two consequtive barriers of the same name.
-    JWARNING(currentBarrier != prevBarrier) (currentBarrier) (prevBarrier);
   } else {
     JASSERT(barrier == currentBarrier);
   }
@@ -579,6 +577,8 @@ DmtcpCoordinator::onData(CoordClient *client)
       (msg.from) (client->state()) (msg.state) (barrier);
 
     client->setState(msg.state);
+    // Warn if we have two consequtive barriers of the same name.
+    JWARNING(barrier != client->barrier()) (barrier) (client->barrier());
     client->setBarrier(barrier);
     processBarrier(barrier);
     break;
@@ -729,8 +729,11 @@ DmtcpCoordinator::onDisconnect(CoordClient *client)
         (theCheckpointInterval);
     }
   } else {
-    // TODO(Kapil): Release only if this process was still at prevBarrier.
-    releaseBarrier(currentBarrier);
+    // If all other workers are at currentBarrier, release it.
+    if (client->barrier() == currentBarrier) {
+      --workersAtCurrentBarrier;
+      releaseBarrier(currentBarrier);
+    }
   }
 
   delete client;

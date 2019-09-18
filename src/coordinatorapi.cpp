@@ -425,7 +425,7 @@ bool waitForBarrier(const string& barrier,
 
   sendMsgToCoordinator(DmtcpMessage(DMT_BARRIER), barrier);
 
-  JTRACE("waiting for DMT_BARRIER_RELEASED message");
+  JTRACE("waiting for DMT_BARRIER_RELEASED message") (barrier);
 
   char *extraData = NULL;
   DmtcpMessage msg;
