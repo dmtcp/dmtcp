@@ -31,7 +31,9 @@
 # undef __USE_GNU
 #endif // ifdef __USE_GNU_NOT_SET
 
-#include "dmtcp/version.h"
+#ifndef DMTCP_PACKAGE_VERSION
+# include "dmtcp/version.h"
+#endif
 
 #ifdef __cplusplus
 # define EXTERNC extern "C"

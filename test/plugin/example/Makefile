@@ -19,6 +19,11 @@ override CFLAGS += -fPIC -I${DMTCP_INCLUDE}
 override CXXFLAGS += -fPIC -I${DMTCP_INCLUDE}
 LINK = ${CC}
 
+# if version.h not found:
+ifeq (,$(wildcard ${DMTCP_INCLUDE}/dmtcp/version.h))
+  override CFLAGS += -DDMTCP_PACKAGE_VERSION='"3.0.0"'
+endif
+
 DEMO_PORT=7781
 
 default: ${LIBNAME}.so
