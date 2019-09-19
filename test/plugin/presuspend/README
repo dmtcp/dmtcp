@@ -1,0 +1,37 @@
+In this example, 'dmtcp_launch --interval 5' invokes checkpoint
+every 5 seconds.  This plugin causes the application applic.c to
+respond to the DMTCP PRESUSPEND event by:
+  (a) killing the child process;
+  (b) reporting the total number of tasks completed by all user threads
+        since the previous checkpoint; and
+  (c) killing all helper threads (secondary user threads).
+
+The motivation is that we imagine that the child process and helper
+threads are using external resources that cannot be easily checkpointed.
+In particular, they may have invoked a setuid process requiring root privilege.
+So, we kill the child process and helper threads during the presuspend event,
+and we recreate the child process and helper threads during the resume event.
+
+In this example, the target application applic.c contains:
+  #include "dmtcp.h"
+and it checks if the weak function check_if_doing_checkpoint() exists,
+and it calls it if it is defined. The function check_if_doing_checkpoint()
+is defined in the presuspend plugin.
+
+To understand the program logic of the plugin, read the comment at the
+top of:
+  presuspend.c
+
+You can watch several presuspend-checkpoint-resume cycles by executing:
+  make check
+Separately, on your own, you can execute:
+  ./applic  # running standalone, without DMTCP
+  ./dmtcp_restart_script.sh  # run this after 'make check', to see a restart.
+
+If you wish to see the helper threads being created and destroyed in gdb, do:
+then do:
+  make clean
+  make CFLAGS=-g3
+  make -n check
+and copy the last command and do:
+  gdb --args PASTED_LAST_COMMAND
