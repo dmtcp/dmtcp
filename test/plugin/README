@@ -30,6 +30,11 @@ applic-initiated-ckpt:  demonstrates how an application can initiate
 applic-delayed-ckpt:  demonstrates how an application can delay
          a checkpoint during a critical section using:
          dmtcp_disable_ckpt()/dmtcp_enable_ckpt().
+presuspend:  ADVANCED USE:  demonstrates use of DMTCP_EVENT_PRESUSPEND
+         (the presuspend event).  This allows user threads and processes
+         to clean up something before the precheckpoint event.  At the
+         precheckpoint event, user threads and processes are suspended,
+         and only the DMTCP checkpoint thread will be active.
 
 SELF-GUIDED TOUR:
 For a self-guided tour of plugins, try the commands below.  Be sure to stop
@@ -56,3 +61,5 @@ for checkpointing:
     ./applic      # Notice that there is no DMTCP when running in this mode.
     ../../../bin/dmtcp_launch ./applic
     ../../../bin/dmtcp_restart ckpt_applic_*.dmtcp
+
+    Then choose other subdirectories according to your interest.
