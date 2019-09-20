@@ -38,7 +38,6 @@
 #include <sys/ptrace.h>
 #include <sys/socket.h>
 #include <sys/types.h>
-#include <sys/types.h>
 #include <sys/wait.h>
 #include "config.h"
 
