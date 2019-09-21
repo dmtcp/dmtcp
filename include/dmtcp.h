@@ -63,6 +63,11 @@ typedef enum eDmtcpEvent {
   DMTCP_EVENT_PTHREAD_EXIT,
   DMTCP_EVENT_PTHREAD_RETURN,
 
+  DMTCP_EVENT_PRESUSPEND,
+  DMTCP_EVENT_PRECHECKPOINT,
+  DMTCP_EVENT_RESUME,
+  DMTCP_EVENT_RESTART,
+
   nDmtcpEvents
 } DmtcpEvent_t;
 
@@ -74,37 +79,7 @@ typedef union _DmtcpEventData_t {
   struct {
     int isRestart;
   } resumeUserThreadInfo, nameserviceInfo;
-
-  struct {
-    const char *barrierId;
-  } barrierInfo;
 } DmtcpEventData_t;
-
-typedef enum {
-  DMTCP_INVALID_BARRIER,
-
-  DMTCP_GLOBAL_BARRIER_PRE_SUSPEND,
-  DMTCP_LOCAL_BARRIER_PRE_SUSPEND,
-  DMTCP_PRIVATE_BARRIER_PRE_SUSPEND,
-
-  DMTCP_GLOBAL_BARRIER_PRE_CKPT,
-  DMTCP_LOCAL_BARRIER_PRE_CKPT,
-  DMTCP_PRIVATE_BARRIER_PRE_CKPT,
-
-  DMTCP_GLOBAL_BARRIER_RESUME,
-  DMTCP_LOCAL_BARRIER_RESUME,
-  DMTCP_PRIVATE_BARRIER_RESUME,
-
-  DMTCP_GLOBAL_BARRIER_RESTART,
-  DMTCP_LOCAL_BARRIER_RESTART,
-  DMTCP_PRIVATE_BARRIER_RESTART
-} DmtcpBarrierType;
-
-typedef struct {
-  DmtcpBarrierType type;
-  void (*callback)();
-  const char *id;
-} DmtcpBarrier;
 
 typedef void (*HookFunctionPtr_t)(DmtcpEvent_t, DmtcpEventData_t *);
 
@@ -116,9 +91,6 @@ typedef struct {
   const char *authorName;
   const char *authorEmail;
   const char *description;
-
-  size_t numBarriers;
-  DmtcpBarrier *barriers;
 
   void (*event_hook)(const DmtcpEvent_t event, DmtcpEventData_t *data);
 } DmtcpPluginDescriptor_t;
@@ -133,13 +105,47 @@ typedef enum eDmtcpGetRestartEnvErr {
   RESTART_ENV_NULL_PTR = -5,
 } DmtcpGetRestartEnvErr_t;
 
+typedef enum eDmtcpMutexType
+{
+  DMTCP_MUTEX_NORMAL,
+  DMTCP_MUTEX_RECURSIVE
+} DmtcpMutexType;
+
+typedef struct
+{
+  DmtcpMutexType type;
+  int32_t owner;
+  uint32_t count;
+} DmtcpMutex;
+
+#define DMTCP_MUTEX_INITIALIZER {DMTCP_MUTEX_NORMAL, 0, 0}
+#define DMTCP_MUTEX_INITIALIZER_RECURSIVE {DMTCP_MUTEX_RECURSIVE, 0, 0}
+
+typedef struct
+{
+  int32_t writer;
+  uint32_t nReaders;
+  uint32_t nWritersQueued;
+  uint32_t nReadersQueued;
+  uint32_t writersFutex;
+  uint32_t readersFutex;
+
+  DmtcpMutex xLock;
+} DmtcpRWLock;
+
+void DmtcpMutexInit(DmtcpMutex *mutex, DmtcpMutexType type);
+int DmtcpMutexLock(DmtcpMutex *mutex);
+int DmtcpMutexTryLock(DmtcpMutex *mutex);
+int DmtcpMutexUnlock(DmtcpMutex *mutex);
+
+void DmtcpRWLockInit(DmtcpRWLock *rwlock);
+int DmtcpRWLockRdLock(DmtcpRWLock *rwlock);
+int DmtcpRWLockTryRdLock(DmtcpRWLock *rwlock);
+int DmtcpRWLockWrLock(DmtcpRWLock *rwlock);
+int DmtcpRWLockUnlock(DmtcpRWLock *rwlock);
+
+
 #define   RESTART_ENV_MAXSIZE               12288*10
-
-#define DMTCP_NO_PLUGIN_BARRIERS 0, NULL
-
-#define DMTCP_DECL_BARRIERS(barriers)      \
-  sizeof(barriers) / sizeof(DmtcpBarrier), \
-  barriers
 
 #define DMTCP_DECL_PLUGIN(descr)                      \
   EXTERNC void dmtcp_initialize_plugin()              \
@@ -212,6 +218,8 @@ int dmtcp_enable_ckpt(void) __attribute__((weak));
   (dmtcp_enable_ckpt ? dmtcp_enable_ckpt() : DMTCP_NOT_PRESENT)
 
 void dmtcp_initialize_plugin(void) __attribute((weak));
+
+void dmtcp_global_barrier(const char *barrier) __attribute((weak));
 
 // See: test/plugin/example-db dir for an example:
 int dmtcp_send_key_val_pair_to_coordinator(const char *id,
@@ -419,7 +427,7 @@ int dmtcp_must_overwrite_file(const char *path) __attribute((weak));
 
 void dmtcp_initialize(void) __attribute((weak));
 
-void dmtcp_register_plugin(DmtcpPluginDescriptor_t);
+void dmtcp_register_plugin(DmtcpPluginDescriptor_t) __attribute((weak));
 
 // These are part of the internal implementation of DMTCP plugins
 int dmtcp_plugin_disable_ckpt(void);
@@ -431,7 +439,7 @@ void dmtcp_plugin_enable_ckpt(void);
   if (__dmtcp_plugin_ckpt_disabled) dmtcp_plugin_enable_ckpt()
 
 
-void *dmtcp_dlsym(void *handle, const char *symbol);
+void *dmtcp_dlsym(void *handle, const char *symbol) __attribute((weak));
 void *dmtcp_dlvsym(void *handle, char *symbol, const char *version);
 void *dmtcp_dlsym_lib(const char *libname, const char *symbol);
 

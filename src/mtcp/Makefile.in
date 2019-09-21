@@ -124,8 +124,7 @@ syscall-aarch64.o: syscall-aarch64.S
 #   available in the case of 'make check' dumping core.
 check: $(targetdir)/bin/$(MTCP_RESTART) ckpt_dmtcp1_test.dmtcp
         @echo 'Expected result: "Error 99" (MTCP transfered to DMTCP correctly)'
-	$(targetdir)/bin/$(MTCP_RESTART) --text-offset `./text_offset.sh \
-	  $(targetdir)/bin/$(MTCP_RESTART)` ckpt_dmtcp1_test.dmtcp
+	$(targetdir)/bin/$(MTCP_RESTART) ckpt_dmtcp1_test.dmtcp
 
 ckpt_dmtcp1_test.dmtcp: ../../test/dmtcp1 restore_libc.o
 	../../bin/dmtcp_launch -i3 ../../test/dmtcp1 &

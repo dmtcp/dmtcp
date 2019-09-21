@@ -89,7 +89,7 @@ class SysVIPC
     void preCkptDrain();
     void preCheckpoint();
     void preResume();
-    void refill(bool isRestart);
+    void refill();
     void postRestart();
     int virtualToRealId(int virtId);
     int realToVirtualId(int realId);
@@ -218,7 +218,7 @@ class SysVObj
     virtual void preCkptDrain() = 0;
     virtual void preCheckpoint() = 0;
     virtual void postRestart() = 0;
-    virtual void refill(bool isRestart) = 0;
+    virtual void refill() = 0;
     virtual void preResume() = 0;
 
   protected:
@@ -249,7 +249,7 @@ class ShmSegment : public SysVObj
     virtual void preCkptDrain();
     virtual void preCheckpoint();
     virtual void postRestart();
-    virtual void refill(bool isRestart);
+    virtual void refill();
     virtual void preResume();
 
     bool isValidShmaddr(const void *shmaddr);
@@ -291,7 +291,7 @@ class Semaphore : public SysVObj
     virtual void preCkptDrain();
     virtual void preCheckpoint();
     virtual void postRestart();
-    virtual void refill(bool isRestart);
+    virtual void refill();
     virtual void preResume() {}
 
   private:
@@ -319,7 +319,7 @@ class MsgQueue : public SysVObj
     virtual void preCkptDrain();
     virtual void preCheckpoint();
     virtual void postRestart();
-    virtual void refill(bool isRestart);
+    virtual void refill();
     virtual void preResume() {}
 
   private:

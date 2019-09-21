@@ -140,8 +140,7 @@ _isBadFd(int fd)
 void
 ConnectionList::resetOnFork()
 {
-  JASSERT(pthread_mutex_destroy(&_lock) == 0) (JASSERT_ERRNO);
-  JASSERT(pthread_mutex_init(&_lock, NULL) == 0) (JASSERT_ERRNO);
+  DmtcpMutexInit(&_lock, DMTCP_MUTEX_NORMAL);
 }
 
 void

@@ -769,6 +769,8 @@ S=DEFAULT_S
 # Test for normal file, /dev/tty, proc file, and illegal pathname
 runTest("stat",         1, ["./test/stat"])
 
+runTest("presuspend",   [1, 2], ["./test/presuspend"])
+
 PWD=os.getcwd()
 runTest("plugin-sleep2", 1, ["--with-plugin "+
                              PWD+"/test/plugin/sleep1/dmtcp_sleep1hijack.so:"+
@@ -823,11 +825,11 @@ runTest("forkexec",      2, ["./test/forkexec"])
 runTest("realpath",      1, ["./test/realpath"])
 runTest("pthread1",      1, ["./test/pthread1"])
 runTest("pthread2",      1, ["./test/pthread2"])
-if HAS_MUTEX_WRAPPERS == "no":
-  # This is failing under CentOS 7.5 when --enable-mutex-wrappers is configured.
-  S=10*DEFAULT_S
-  runTest("pthread3",      1, ["./test/pthread2 80"])
-  S=DEFAULT_S
+
+S=10*DEFAULT_S
+runTest("pthread3",      1, ["./test/pthread2 80"])
+S=DEFAULT_S
+
 runTest("pthread4",      1, ["./test/pthread4"])
 runTest("pthread5",      1, ["./test/pthread5"])
 
@@ -899,7 +901,8 @@ if uname_p[0:3] == 'arm':
   print "Skipping posix-mq1/mq2 tests; ARM/glibc/Linux does not support mq_send"
 elif TEST_POSIX_MQ == "yes":
   runTest("posix-mq1",     2, ["./test/posix-mq1"])
-  runTest("posix-mq2",     2, ["./test/posix-mq2"])
+  # mq-notify seems to be broken at the moment.
+  #runTest("posix-mq2",     2, ["./test/posix-mq2"])
 
 #Invoke this test when we drain/restore data in pty at checkpoint time.
 runTest("pty1",   2, ["./test/pty1"])

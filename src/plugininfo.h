@@ -23,7 +23,6 @@
 #define __PLUGININFO_H__
 
 #include "jassert.h"
-#include "barrierinfo.h"
 #include "dmtcp.h"
 #include "dmtcpalloc.h"
 #include "dmtcpmessagetypes.h"
@@ -40,32 +39,20 @@ class PluginInfo
 
     static void operator delete(void *p) { JALLOC_HELPER_DELETE(p); }
 #endif // ifdef JALIB_ALLOCATOR
-    static PluginInfo *create(const DmtcpPluginDescriptor_t &descr);
 
-    void eventHook(const DmtcpEvent_t event, DmtcpEventData_t *data);
-
-    void processBarriers();
+    PluginInfo(const DmtcpPluginDescriptor_t &descr)
+      : pluginName(descr.pluginName),
+        authorName(descr.authorName),
+        authorEmail(descr.authorEmail),
+        description(descr.description),
+        event_hook(descr.event_hook)
+    {}
 
     const string pluginName;
     const string authorName;
     const string authorEmail;
     const string description;
     void(*const event_hook)(const DmtcpEvent_t event, DmtcpEventData_t * data);
-
-    const vector<BarrierInfo *>preSuspendBarriers;
-    const vector<BarrierInfo *>preCkptBarriers;
-    const vector<BarrierInfo *>resumeBarriers;
-    const vector<BarrierInfo *>restartBarriers;
-
-  private:
-    PluginInfo(const DmtcpPluginDescriptor_t &descr,
-               const vector<BarrierInfo *> &_preSuspendBarriers,
-               const vector<BarrierInfo *> &_preCkptBarriers,
-               const vector<BarrierInfo *> &_resumeBarriers,
-               const vector<BarrierInfo *> &_restartBarriers);
-
-    void processBarrier(BarrierInfo *barrier);
-    void waitForBarrier(BarrierInfo *barrier);
 };
 }
 #endif // ifndef __PLUGININFO_H__

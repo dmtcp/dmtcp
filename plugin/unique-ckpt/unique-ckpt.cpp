@@ -33,9 +33,15 @@ updateCkptDir()
   dmtcp_set_ckpt_dir(o.str().c_str());
 }
 
-static DmtcpBarrier unique_ckpt_barriers[] = {
-  { DMTCP_GLOBAL_BARRIER_PRE_CKPT, updateCkptDir, "checkpoint" }
-};
+static void
+uniqueckpt_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
+{
+  switch (event) {
+  case DMTCP_EVENT_PRECHECKPOINT:
+    updateCkptDir();
+    break;
+  }
+}
 
 DmtcpPluginDescriptor_t unique_ckpt_plugin = {
   DMTCP_PLUGIN_API_VERSION,
@@ -44,8 +50,7 @@ DmtcpPluginDescriptor_t unique_ckpt_plugin = {
   "DMTCP",
   "dmtcp@ccs.neu.edu",
   "Unique-ckpt filename plugin",
-  DMTCP_DECL_BARRIERS(unique_ckpt_barriers),
-  NULL
+  uniqueckpt_EventHook
 };
 
 DMTCP_DECL_PLUGIN(unique_ckpt_plugin);

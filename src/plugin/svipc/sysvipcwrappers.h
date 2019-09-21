@@ -40,6 +40,5 @@
 # define _real_msgsnd               NEXT_FNC(msgsnd)
 # define _real_msgrcv               NEXT_FNC(msgrcv)
 
-# define _real_pthread_mutex_lock   NEXT_FNC(pthread_mutex_lock)
-# define _real_pthread_mutex_unlock NEXT_FNC(pthread_mutex_unlock)
+# define _real_dlsym                NEXT_FNC(dlsym)
 #endif // ifndef SYSVIPC_WRAPPERS_H

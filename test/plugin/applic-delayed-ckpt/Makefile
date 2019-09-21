@@ -15,8 +15,8 @@ ifndef DMTCP_ROOT
 endif
 DMTCP_INCLUDE=${DMTCP_ROOT}/include
 
-override CFLAGS += -fPIC -I${DMTCP_INCLUDE}
-override CXXFLAGS += -fPIC -I${DMTCP_INCLUDE}
+override CFLAGS += -I${DMTCP_INCLUDE}
+override CXXFLAGS += -I${DMTCP_INCLUDE}
 LINK = ${CC}
 
 DEMO_PORT=7781
@@ -26,7 +26,7 @@ default: ${LIBNAME}.so applic
 # NOTE:  ${CFLAGS} expands to invoke '-fPIC -I${DMTCP_INCLUDE}'
 #        This is required for use with DMTCP.
 applic: applic.c
-	${CC} ${CFLAGS} -o $@ $< -ldl
+	${CC} -fPIC ${CFLAGS} -o $@ $<
 
 check: ${LIBNAME}.so applic
 	@ echo ""
@@ -53,6 +53,8 @@ check: ${LIBNAME}.so applic
 ${LIBNAME}.so: ${LIBOBJS}
 	${LINK} -shared -fPIC -o $@ $^
 
+${LIBOBJS}: plugin-to-announce-events.c
+	${CC} -fPIC ${CFLAGS} -c -o $@ $<
 .c.o:
 	${CC} ${CFLAGS} -c -o $@ $<
 .cpp.o:

@@ -382,8 +382,8 @@ dmtcp_finalize()
   JTRACE("Process exiting.");
 }
 
-static void
-ckptThreadPerformExit()
+void
+DmtcpWorker::ckptThreadPerformExit()
 {
   JTRACE("User thread is performing exit(). Ckpt thread exit()ing as well");
 
@@ -402,6 +402,12 @@ ckptThreadPerformExit()
   }
 }
 
+bool
+DmtcpWorker::isExitInProgress()
+{
+  return exitInProgress;
+}
+
 void
 DmtcpWorker::waitForPreSuspendMessage()
 {
@@ -417,7 +423,7 @@ DmtcpWorker::waitForPreSuspendMessage()
     return;
   }
 
-  JTRACE("waiting for PRESUSPEND message");
+  JTRACE("waiting for CHECKPOINT message");
 
   DmtcpMessage msg;
   CoordinatorAPI::recvMsgFromCoordinator(&msg);
@@ -429,7 +435,7 @@ DmtcpWorker::waitForPreSuspendMessage()
 
   msg.assertValid();
 
-  JASSERT(msg.type == DMT_DO_PRESUSPEND) (msg.type);
+  JASSERT(msg.type == DMT_DO_CHECKPOINT) (msg.type);
 
   // Coordinator sends some computation information along with the SUSPEND
   // message. Extracting that.
@@ -437,49 +443,8 @@ DmtcpWorker::waitForPreSuspendMessage()
   JASSERT(SharedData::getCompId() == msg.compGroup.upid())
     (SharedData::getCompId()) (msg.compGroup);
 
+  ProcessInfo::instance().compGroup(SharedData::getCompId());
   exitAfterCkpt = msg.exitAfterCkpt;
-}
-
-void
-DmtcpWorker::waitForSuspendMessage()
-{
-  if (dmtcp_no_coordinator()) {
-    return;
-  }
-
-  JTRACE("waiting for SUSPEND message");
-
-  DmtcpMessage msg;
-  CoordinatorAPI::recvMsgFromCoordinator(&msg);
-
-  // Before validating message; make sure we are not exiting.
-  if (exitInProgress) {
-    ckptThreadPerformExit();
-  }
-
-  msg.assertValid();
-
-  JASSERT(msg.type == DMT_DO_SUSPEND) (msg.type);
-}
-
-void
-DmtcpWorker::acknowledgeSuspendMsg()
-{
-  if (dmtcp_no_coordinator()) {
-    return;
-  }
-
-  JTRACE("Waiting for DMT_DO_CHECKPOINT message");
-  CoordinatorAPI::sendMsgToCoordinator(DmtcpMessage(DMT_OK));
-
-  DmtcpMessage msg;
-  CoordinatorAPI::recvMsgFromCoordinator(&msg);
-  msg.assertValid();
-
-  JASSERT(msg.type == DMT_COMPUTATION_INFO) (msg.type);
-  JTRACE("Computation information") (msg.compGroup) (msg.numPeers);
-  ProcessInfo::instance().compGroup(msg.compGroup);
-  ProcessInfo::instance().numPeers(msg.numPeers);
 }
 
 void
@@ -491,27 +456,28 @@ DmtcpWorker::waitForCheckpointRequest()
 
   waitForPreSuspendMessage();
 
-  JTRACE("Procesing pre-suspend");
   WorkerState::setCurrentState(WorkerState::PRESUSPEND);
 
-  PluginManager::processPreSuspendBarriers();
+  JTRACE("Procesing pre-suspend barriers");
+  PluginManager::eventHook(DMTCP_EVENT_PRESUSPEND);
 
-  JTRACE("Waiting for DMT_DO_SUSPEND message");
-  CoordinatorAPI::sendMsgToCoordinator(DmtcpMessage(DMT_OK));
+  JTRACE("Waiting for DMT:SUSPEND barrier");
+  if (!CoordinatorAPI::waitForBarrier("DMT:SUSPEND")) {
+    JASSERT(exitInProgress);
+    ckptThreadPerformExit();
+  }
 
-  waitForSuspendMessage();
-
-  JTRACE("got SUSPEND message, preparing to acquire all ThreadSync locks");
+  JTRACE("DMT:SUSPEND barrier lifted, preparing to acquire locks");
   ThreadSync::acquireLocks();
 
-  JTRACE("Starting checkpoint, suspending...");
+  JTRACE("Starting checkpoint, suspending threads...");
 }
 
 // now user threads are stopped
 void
 DmtcpWorker::preCheckpoint()
 {
-  JTRACE("suspended");
+  JTRACE("Threads suspended");
   WorkerState::setCurrentState(WorkerState::SUSPENDED);
 
   ThreadSync::releaseLocks();
@@ -531,10 +497,15 @@ DmtcpWorker::preCheckpoint()
 
   SharedData::prepareForCkpt();
 
-  acknowledgeSuspendMsg();
+  uint32_t numPeers;
+  JTRACE("Waiting for DMT_CHECKPOINT barrier");
+  CoordinatorAPI::waitForBarrier("DMT:CHECKPOINT", &numPeers);
+  JTRACE("Computation information") (numPeers);
+
+  ProcessInfo::instance().numPeers(numPeers);
 
   WorkerState::setCurrentState(WorkerState::CHECKPOINTING);
-  PluginManager::processCkptBarriers();
+  PluginManager::eventHook(DMTCP_EVENT_PRECHECKPOINT);
 }
 
 void
@@ -548,14 +519,13 @@ DmtcpWorker::postCheckpoint()
     _exit(0);
   }
 
-  PluginManager::processResumeBarriers();
-#ifdef TIMING
-  PluginManager::logCkptResumeBarrierOverhead();
-#endif
+  PluginManager::eventHook(DMTCP_EVENT_RESUME);
 
   // Inform Coordinator of RUNNING state.
   WorkerState::setCurrentState(WorkerState::RUNNING);
-  CoordinatorAPI::sendMsgToCoordinator(DmtcpMessage(DMT_OK));
+
+  JTRACE("Waiting for DMT:RESUME barrier");
+  CoordinatorAPI::waitForBarrier("DMT::RESUME");
 }
 
 void
@@ -564,13 +534,12 @@ DmtcpWorker::postRestart(double ckptReadTime)
   JTRACE("begin postRestart()");
   WorkerState::setCurrentState(WorkerState::RESTARTING);
 
-  PluginManager::processRestartBarriers();
-#ifdef TIMING
-  PluginManager::logRestartBarrierOverhead(ckptReadTime);
-#endif
+  PluginManager::eventHook(DMTCP_EVENT_RESTART);
+
   JTRACE("got resume message after restart");
 
   // Inform Coordinator of RUNNING state.
   WorkerState::setCurrentState(WorkerState::RUNNING);
-  CoordinatorAPI::sendMsgToCoordinator(DmtcpMessage(DMT_OK));
+  JTRACE("Waiting for DMT:RESUME barrier");
+  CoordinatorAPI::waitForBarrier("DMT::RESUME");
 }

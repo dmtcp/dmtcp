@@ -35,7 +35,6 @@
 #include <dlfcn.h>
 #include <fcntl.h>
 #include <malloc.h>
-#include <poll.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -54,8 +53,6 @@ typedef int (*funcptr_t) ();
 typedef pid_t (*funcptr_pid_t) ();
 typedef funcptr_t (*signal_funcptr_t) ();
 
-static pthread_mutex_t theMutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
-
 // gettid / tkill / tgkill are not defined in libc.
 LIB_PRIVATE pid_t
 dmtcp_gettid()
@@ -73,24 +70,6 @@ LIB_PRIVATE int
 dmtcp_tgkill(int tgid, int tid, int sig)
 {
   return _real_syscall(SYS_tgkill, tgid, tid, sig);
-}
-
-// FIXME: Are these primitives (_dmtcp_lock, _dmtcp_unlock) required anymore?
-void
-_dmtcp_lock() { _real_pthread_mutex_lock(&theMutex); }
-
-void
-_dmtcp_unlock() { _real_pthread_mutex_unlock(&theMutex); }
-
-void
-_dmtcp_remutex_on_fork()
-{
-  pthread_mutexattr_t attr;
-
-  pthread_mutexattr_init(&attr);
-  pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE_NP);
-  pthread_mutex_init(&theMutex, &attr);
-  pthread_mutexattr_destroy(&attr);
 }
 
 /*
@@ -265,46 +244,12 @@ initialize_libc_wrappers()
   }
 }
 
-#ifdef ENABLE_PTHREAD_COND_WRAPPERS
-#define GET_LIBPTHREAD_FUNC_ADDR(name) \
-  _real_func_addr[ENUM(name)] = dmtcp_dlvsym(RTLD_NEXT, # name,\
-                                             pthread_sym_ver);
-
-/*
- * WARNING: By using this method to initialize libpthread wrappers (direct
- * dlopen()/dlsym()) we are are overriding any user wrappers for these
- * functions. If this is a problem in the future we need to think of a new way
- * to do this.
- * EDIT: On some ARM machines, the symbol version is 2.4. Try that first and
- *       fallback to 2.3.4 on failure.
- */
-static void
-initialize_libpthread_wrappers()
-{
-  const char *ver_2_4 = "GLIBC_2.4";
-  const char *ver_2_3_2 = "GLIBC_2.3.2";
-  const char *pthread_sym_ver = NULL;
-
-  void *addr = dmtcp_dlvsym(RTLD_NEXT, "pthread_cond_signal", (char*)ver_2_4);
-  if (addr != NULL) {
-    pthread_sym_ver = ver_2_4;
-  } else {
-    pthread_sym_ver = ver_2_3_2;
-  }
-
-  FOREACH_LIBPTHREAD_WRAPPERS(GET_LIBPTHREAD_FUNC_ADDR);
-}
-#endif // #ifdef ENABLE_PTHREAD_COND_WRAPPERS
-
 void
 dmtcp_prepare_wrappers(void)
 {
   if (!dmtcp_wrappers_initialized) {
     initialize_libc_wrappers();
     dmtcp_wrappers_initialized = 1;
-#ifdef ENABLE_PTHREAD_COND_WRAPPERS
-    initialize_libpthread_wrappers();
-#endif // #ifdef ENABLE_PTHREAD_COND_WRAPPERS
   }
 }
 
@@ -403,170 +348,6 @@ int
 _real_dlclose(void *handle)
 {
   REAL_FUNC_PASSTHROUGH_TYPED(int, dlclose) (handle);
-}
-
-LIB_PRIVATE
-int
-_real_pthread_mutex_lock(pthread_mutex_t *mutex)
-{
-  REAL_FUNC_PASSTHROUGH_TYPED(int, pthread_mutex_lock) (mutex);
-}
-
-LIB_PRIVATE
-int
-_real_pthread_mutex_trylock(pthread_mutex_t *mutex)
-{
-  REAL_FUNC_PASSTHROUGH_TYPED(int, pthread_mutex_trylock) (mutex);
-}
-
-LIB_PRIVATE
-int
-_real_pthread_mutex_unlock(pthread_mutex_t *mutex)
-{
-  REAL_FUNC_PASSTHROUGH_TYPED(int, pthread_mutex_unlock) (mutex);
-}
-
-LIB_PRIVATE
-int
-_real_pthread_rwlock_unlock(pthread_rwlock_t *rwlock)
-{
-  REAL_FUNC_PASSTHROUGH_TYPED(int, pthread_rwlock_unlock) (rwlock);
-}
-
-LIB_PRIVATE
-int
-_real_pthread_rwlock_rdlock(pthread_rwlock_t *rwlock)
-{
-  REAL_FUNC_PASSTHROUGH_TYPED(int, pthread_rwlock_rdlock) (rwlock);
-}
-
-LIB_PRIVATE
-int
-_real_pthread_rwlock_tryrdlock(pthread_rwlock_t *rwlock)
-{
-  REAL_FUNC_PASSTHROUGH_TYPED(int, pthread_rwlock_tryrdlock) (rwlock);
-}
-
-LIB_PRIVATE
-int
-_real_pthread_rwlock_wrlock(pthread_rwlock_t *rwlock)
-{
-  REAL_FUNC_PASSTHROUGH_TYPED(int, pthread_rwlock_wrlock) (rwlock);
-}
-
-LIB_PRIVATE
-int
-_real_pthread_rwlock_trywrlock(pthread_rwlock_t *rwlock)
-{
-  REAL_FUNC_PASSTHROUGH_TYPED(int, pthread_rwlock_trywrlock) (rwlock);
-}
-
-#ifdef ENABLE_PTHREAD_COND_WRAPPERS
-LIB_PRIVATE
-int
-_real_pthread_cond_broadcast(pthread_cond_t *cond)
-{
-#if __aarch64__
-  int result = NEXT_FNC(pthread_cond_broadcast)(cond);
-  return result;
-
-#else /* if __aarch64__ */
-  REAL_FUNC_PASSTHROUGH_TYPED(int, pthread_cond_broadcast) (cond);
-#endif /* if __aarch64__ */
-}
-
-LIB_PRIVATE
-int
-_real_pthread_cond_destroy(pthread_cond_t *cond)
-{
-#if __aarch64__
-  int result = NEXT_FNC(pthread_cond_destroy)(cond);
-  return result;
-
-#else /* if __aarch64__ */
-  REAL_FUNC_PASSTHROUGH_TYPED(int, pthread_cond_destroy) (cond);
-#endif /* if __aarch64__ */
-}
-
-LIB_PRIVATE
-int
-_real_pthread_cond_init(pthread_cond_t *cond, const pthread_condattr_t *attr)
-{
-#if __aarch64__
-  int result = NEXT_FNC(pthread_cond_init)(cond, attr);
-  return result;
-
-#else /* if __aarch64__ */
-  REAL_FUNC_PASSTHROUGH_TYPED(int, pthread_cond_init) (cond, attr);
-#endif /* if __aarch64__ */
-}
-
-LIB_PRIVATE
-int
-_real_pthread_cond_signal(pthread_cond_t *cond)
-{
-#if __aarch64__
-  int result = NEXT_FNC(pthread_cond_signal)(cond);
-  return result;
-
-#else /* if __aarch64__ */
-  REAL_FUNC_PASSTHROUGH_TYPED(int, pthread_cond_signal) (cond);
-#endif /* if __aarch64__ */
-}
-
-LIB_PRIVATE
-int
-_real_pthread_cond_timedwait(pthread_cond_t *cond,
-                             pthread_mutex_t *mutex,
-                             const struct timespec *abstime)
-{
-#if __aarch64__
-  int result = NEXT_FNC(pthread_cond_timedwait)(cond, mutex, abstime);
-  return result;
-
-#else /* if __aarch64__ */
-  REAL_FUNC_PASSTHROUGH_TYPED(int, pthread_cond_timedwait) (cond, mutex,
-                                                            abstime);
-#endif /* if __aarch64__ */
-}
-
-LIB_PRIVATE
-int
-_real_pthread_cond_wait(pthread_cond_t *cond, pthread_mutex_t *mutex)
-{
-#if __aarch64__
-  int result = NEXT_FNC(pthread_cond_wait)(cond, mutex);
-  return result;
-
-#else /* if __aarch64__ */
-  REAL_FUNC_PASSTHROUGH_TYPED(int, pthread_cond_wait) (cond, mutex);
-#endif /* if __aarch64__ */
-}
-#endif // #ifdef ENABLE_PTHREAD_COND_WRAPPERS
-
-LIB_PRIVATE
-ssize_t
-_real_read(int fd, void *buf, size_t count)
-{
-  REAL_FUNC_PASSTHROUGH(read) (fd, buf, count);
-}
-
-LIB_PRIVATE
-ssize_t
-_real_write(int fd, const void *buf, size_t count)
-{
-  REAL_FUNC_PASSTHROUGH_TYPED(ssize_t, write) (fd, buf, count);
-}
-
-LIB_PRIVATE
-int
-_real_select(int nfds,
-             fd_set *readfds,
-             fd_set *writefds,
-             fd_set *exceptfds,
-             struct timeval *timeout)
-{
-  REAL_FUNC_PASSTHROUGH(select) (nfds, readfds, writefds, exceptfds, timeout);
 }
 
 LIB_PRIVATE
@@ -1287,68 +1068,4 @@ _real_mq_timedsend(mqd_t mqdes,
 {
   REAL_FUNC_PASSTHROUGH(mq_timedsend) (mqdes, msg_ptr, msg_len, msg_prio,
                                        abs_timeout);
-}
-
-LIB_PRIVATE
-void *
-_real_mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset)
-{
-  REAL_FUNC_PASSTHROUGH_TYPED(void *, mmap) (addr, length, prot, flags, fd,
-                                             offset);
-}
-
-LIB_PRIVATE
-void *
-_real_mmap64(void *addr,
-             size_t length,
-             int prot,
-             int flags,
-             int fd,
-             __off64_t offset)
-{
-  REAL_FUNC_PASSTHROUGH_TYPED(void *, mmap64) (addr, length, prot, flags, fd,
-                                               offset);
-}
-
-#if __GLIBC_PREREQ(2, 4)
-LIB_PRIVATE
-void *
-_real_mremap(void *old_address, size_t old_size, size_t new_size, int flags,
-             ... /* void *new_address*/)
-{
-  if (flags == MREMAP_FIXED) {
-    va_list ap;
-    va_start(ap, flags);
-    void *new_address = va_arg(ap, void *);
-    va_end(ap);
-    REAL_FUNC_PASSTHROUGH_TYPED(void *, mremap)
-      (old_address, old_size, new_size, flags, new_address);
-  } else {
-    REAL_FUNC_PASSTHROUGH_TYPED(void *, mremap)
-      (old_address, old_size, new_size, flags);
-  }
-}
-
-#else /* if __GLIBC_PREREQ(2, 4) */
-LIB_PRIVATE
-void *
-_real_mremap(void *old_address, size_t old_size, size_t new_size, int flags)
-{
-  REAL_FUNC_PASSTHROUGH_TYPED(void *, mremap)
-    (old_address, old_size, new_size, flags);
-}
-#endif /* if __GLIBC_PREREQ(2, 4) */
-
-LIB_PRIVATE
-int
-_real_munmap(void *addr, size_t length)
-{
-  REAL_FUNC_PASSTHROUGH_TYPED(int, munmap) (addr, length);
-}
-
-LIB_PRIVATE
-int
-_real_poll(struct pollfd *fds, nfds_t nfds, int timeout)
-{
-  REAL_FUNC_PASSTHROUGH(poll) (fds, nfds, timeout);
 }

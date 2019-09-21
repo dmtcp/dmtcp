@@ -6,28 +6,25 @@ namespace dmtcp
 // Empty tokens will not be included in the result.
 
 vector<string>
-tokenizeString(const string &s, const string &delims)
+tokenizeString(const string &s, const string &delims, bool allowEmptyTokens)
 {
-  size_t offset = 0;
+  size_t offset = -1;
 
   vector<string>tokens;
 
-  while (true) {
-    size_t i = s.find_first_not_of(delims, offset);
-    if (i == string::npos) {
-      break;
+  do {
+    offset += 1;
+    size_t j = s.find_first_of(delims, offset);
+
+    string token = s.substr(offset, j - offset);
+
+    if (allowEmptyTokens || token.length() > 0) {
+      tokens.push_back(token);
     }
 
-    size_t j = s.find_first_of(delims, i);
-    if (j == string::npos) {
-      tokens.push_back(s.substr(i));
-      offset = s.length();
-      continue;
-    }
-
-    tokens.push_back(s.substr(i, j - i));
     offset = j;
-  }
+  } while (offset != string::npos);
+
   return tokens;
 }
 } // namespace dmtcp

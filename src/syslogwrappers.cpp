@@ -45,18 +45,25 @@ syslog_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     SyslogCheckpointer_ResetOnFork();
     break;
 
+  case DMTCP_EVENT_PRESUSPEND:
+    break;
+
+  case DMTCP_EVENT_PRECHECKPOINT:
+    SyslogCheckpointer_StopService();
+    break;
+
+  case DMTCP_EVENT_RESUME:
+    SyslogCheckpointer_RestoreService();
+    break;
+
+  case DMTCP_EVENT_RESTART:
+    SyslogCheckpointer_RestoreService();
+    break;
+
   default:
     break;
   }
 }
-
-static DmtcpBarrier syslogBarriers[] = {
-  { DMTCP_PRIVATE_BARRIER_PRE_CKPT, SyslogCheckpointer_StopService,
-    "checkpoint" },
-  { DMTCP_PRIVATE_BARRIER_RESUME, SyslogCheckpointer_RestoreService, "resume" },
-  { DMTCP_PRIVATE_BARRIER_RESTART, SyslogCheckpointer_RestoreService,
-    "restart" }
-};
 
 static DmtcpPluginDescriptor_t syslogPlugin = {
   DMTCP_PLUGIN_API_VERSION,
@@ -65,7 +72,6 @@ static DmtcpPluginDescriptor_t syslogPlugin = {
   "DMTCP",
   "dmtcp@ccs.neu.edu",
   "Syslog plugin",
-  DMTCP_DECL_BARRIERS(syslogBarriers),
   syslog_event_hook
 };
 

@@ -51,8 +51,7 @@ namespace CoordinatorAPI {
 const int coordinatorSocket = PROTECTED_COORD_FD;
 int nsSock = -1;
 
-static bool _firstTime = true;
-static const char *_cachedHost = NULL;
+// Shared between getCoordHostAndPort() and setCoordPort()
 static int _cachedPort = 0;
 
 void init();
@@ -93,14 +92,14 @@ eventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
       init();
       break;
 
+    case DMTCP_EVENT_RESTART:
+      restart();
+      break;
+
   default:
     break;
   }
 }
-
-static DmtcpBarrier coordinatorAPIBarriers[] = {
-  { DMTCP_PRIVATE_BARRIER_RESTART, restart, "restart" }
-};
 
 static DmtcpPluginDescriptor_t coordinatorAPIPlugin = {
   DMTCP_PLUGIN_API_VERSION,
@@ -109,7 +108,6 @@ static DmtcpPluginDescriptor_t coordinatorAPIPlugin = {
   "DMTCP",
   "dmtcp@ccs.neu.edu",
   "Coordinator API plugin",
-  DMTCP_DECL_BARRIERS(coordinatorAPIBarriers),
   eventHook
 };
 
@@ -129,6 +127,13 @@ restart()
 void
 getCoordHostAndPort(CoordinatorMode mode, string *host, int *port)
 {
+  static bool _firstTime = true;
+  // FIXME:  Could make _cachedHost a 'char[]'.  But then, would
+  //         "*host = _cachedHost;"  replace the string inside *host as needed?
+  //         In particular, if the _cachedHost string object gets destroyed,
+  //         e.g., by a destructor during exit, then this could be a problem.
+  static string _cachedHost;
+
   if (SharedData::initialized()) {
     *host = SharedData::coordHost();
     *port = SharedData::coordPort();
@@ -140,11 +145,19 @@ getCoordHostAndPort(CoordinatorMode mode, string *host, int *port)
     if (*host == "") {
       if (getenv(ENV_VAR_NAME_HOST)) {
         *host = getenv(ENV_VAR_NAME_HOST);
+        _cachedHost = getenv(ENV_VAR_NAME_HOST);
       } else if (getenv("DMTCP_HOST")) { // deprecated
         *host = getenv("DMTCP_HOST");
+        _cachedHost = getenv("DMTCP_HOST");
       } else {
         *host = DEFAULT_HOST;
+        _cachedHost = DEFAULT_HOST;
       }
+    } else {
+      // The caller's string object needs to be valid across
+      // multiple calls to this function, or else, the _cachedHost
+      // pointer will become a dangling pointer.
+      _cachedHost = host->c_str();
     }
 
     // Set port to cmd line (if --coord-port) or env var
@@ -161,7 +174,6 @@ getCoordHostAndPort(CoordinatorMode mode, string *host, int *port)
       }
     }
 
-    _cachedHost = host->c_str();
     _cachedPort = *port;
     _firstTime = false;
   } else {
@@ -416,23 +428,40 @@ void recvMsgFromCoordinator(DmtcpMessage *msg, void **extraData)
   recvMsgFromCoordinatorRaw(coordinatorSocket, msg, extraData);
 }
 
-void waitForBarrier(const string& barrierId)
+bool waitForBarrier(const string& barrier,
+                    uint32_t *numPeers)
 {
-  sendMsgToCoordinator(DmtcpMessage(DMT_OK));
+  if (noCoordinator())
+  {
+    return true;
+  }
 
-  JTRACE("waiting for DMT_BARRIER_RELEASED message");
+  sendMsgToCoordinator(DmtcpMessage(DMT_BARRIER), barrier);
+
+  JTRACE("waiting for DMT_BARRIER_RELEASED message") (barrier);
 
   char *extraData = NULL;
   DmtcpMessage msg;
   recvMsgFromCoordinator(&msg, (void**)&extraData);
 
+  // Before validating message; make sure we are not exiting.
+  if (!msg.isValid()) {
+    return false;
+  }
+
   msg.assertValid();
 
   JASSERT(msg.type == DMT_BARRIER_RELEASED) (msg.type);
   JASSERT(extraData != NULL);
-  JASSERT(barrierId == extraData) (barrierId) (extraData);
+  JASSERT(barrier == extraData) (barrier) (extraData);
 
   JALLOC_FREE(extraData);
+
+  if (numPeers != NULL) {
+    *numPeers = msg.numPeers;
+  }
+
+  return true;
 }
 
 void

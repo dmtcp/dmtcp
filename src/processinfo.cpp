@@ -36,18 +36,18 @@
 
 namespace dmtcp
 {
-static pthread_mutex_t tblLock = PTHREAD_MUTEX_INITIALIZER;
+static DmtcpMutex tblLock = DMTCP_MUTEX_INITIALIZER;
 
 static void
 _do_lock_tbl()
 {
-  JASSERT(_real_pthread_mutex_lock(&tblLock) == 0) (JASSERT_ERRNO);
+  JASSERT(DmtcpMutexLock(&tblLock) == 0);
 }
 
 static void
 _do_unlock_tbl()
 {
-  JASSERT(_real_pthread_mutex_unlock(&tblLock) == 0) (JASSERT_ERRNO);
+  JASSERT(DmtcpMutexUnlock(&tblLock) == 0);
 }
 
 static void
@@ -93,16 +93,25 @@ processInfo_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
     break;
   }
 
+  case DMTCP_EVENT_PRESUSPEND:
+    break;
+
+  case DMTCP_EVENT_PRECHECKPOINT:
+    checkpoint();
+    break;
+
+  case DMTCP_EVENT_RESUME:
+    resume();
+    break;
+
+  case DMTCP_EVENT_RESTART:
+    restart();
+    break;
+
   default:
     break;
   }
 }
-
-static DmtcpBarrier processInfoBarriers[] = {
-  { DMTCP_PRIVATE_BARRIER_PRE_CKPT, checkpoint, "checkpoint" },
-  { DMTCP_PRIVATE_BARRIER_RESUME, resume, "resume" },
-  { DMTCP_PRIVATE_BARRIER_RESTART, restart, "restart" }
-};
 
 static DmtcpPluginDescriptor_t processInfoPlugin = {
   DMTCP_PLUGIN_API_VERSION,
@@ -111,7 +120,6 @@ static DmtcpPluginDescriptor_t processInfoPlugin = {
   "DMTCP",
   "dmtcp@ccs.neu.edu",
   "processInfo plugin",
-  DMTCP_DECL_BARRIERS(processInfoBarriers),
   processInfo_EventHook
 };
 
@@ -459,9 +467,7 @@ ProcessInfo::postExec()
 void
 ProcessInfo::resetOnFork()
 {
-  pthread_mutex_t newlock = PTHREAD_MUTEX_INITIALIZER;
-
-  tblLock = newlock;
+  DmtcpMutexInit(&tblLock, DMTCP_MUTEX_NORMAL);
   _ppid = _pid;
   _pid = getpid();
   _isRootOfProcessTree = false;

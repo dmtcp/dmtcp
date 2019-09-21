@@ -19,7 +19,6 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include "config.h" /* For HAS_ATOMIC_BUILTINS */
 #include "jalib.h"
 #include "jalloc.h"
 #include <pthread.h>
@@ -43,29 +42,6 @@ static bool _initialized = false;
 
 namespace jalib
 {
-# ifndef HAS_ATOMIC_BUILTINS
-
-// We'll use critical section instead of atomic builtins.
-// Hopefully, all changes to the variables go through this critical section
-
-static pthread_mutex_t sync_mutex = PTHREAD_MUTEX_INITIALIZER;
-
-template<typename T>
-static bool
-__sync_bool_compare_and_swap(
-  T volatile *ptr, T oldval, T newval)
-{
-  bool retval = false;
-  jalib::pthread_mutex_lock(&sync_mutex);
-
-  if (*ptr == oldval) {
-    *ptr = newval;
-    retval = true;
-  }
-  jalib::pthread_mutex_unlock(&sync_mutex);
-  return retval;
-}
-# endif // ifndef HAS_ATOMIC_BUILTINS
 
 inline void *
 _alloc_raw(size_t n)
@@ -213,7 +189,7 @@ class JFixedAllocStack
         // TODO: why is expand being called? If you see this message, raise lvl2
         // allocation level.
         char expand_msg[] = "\n\n\n******* EXPAND IS CALLED *******\n\n\n";
-        jalib::write(2, expand_msg, sizeof(expand_msg));
+        write(2, expand_msg, sizeof(expand_msg));
 
         // jalib::fflush(stderr);
         abort();
@@ -303,7 +279,7 @@ jalib::JAllocDispatcher::deallocate(void *ptr, size_t n)
 {
   if (!_initialized) {
     char msg[] = "***DMTCP INTERNAL ERROR: Free called before init\n";
-    jalib::write(2, msg, sizeof(msg));
+    write(2, msg, sizeof(msg));
     abort();
   }
   if (n <= lvl1.N) {

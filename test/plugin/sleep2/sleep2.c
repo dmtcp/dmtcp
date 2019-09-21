@@ -52,10 +52,20 @@ resume()
   printf("*** The plugin %s has now been checkpointed. ***\n", __FILE__);
 }
 
-static DmtcpBarrier barriers[] = {
-  { DMTCP_GLOBAL_BARRIER_PRE_CKPT, checkpoint, "checkpoint" },
-  { DMTCP_GLOBAL_BARRIER_RESUME, resume, "resume" }
-};
+
+static void
+sleep2_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
+{
+  switch (event) {
+  case DMTCP_EVENT_PRECHECKPOINT:
+    checkpoint();
+    break;
+
+  case DMTCP_EVENT_RESUME:
+    resume();
+    break;
+  }
+}
 
 DmtcpPluginDescriptor_t sleep2_plugin = {
   DMTCP_PLUGIN_API_VERSION,
@@ -64,8 +74,7 @@ DmtcpPluginDescriptor_t sleep2_plugin = {
   "DMTCP",
   "dmtcp@ccs.neu.edu",
   "Sleep2 plugin",
-  DMTCP_DECL_BARRIERS(barriers),
-  NULL
+  sleep2_EventHook
 };
 
 DMTCP_DECL_PLUGIN(sleep2_plugin);

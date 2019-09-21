@@ -56,10 +56,10 @@ MYINFO_GS_T myinfo_gs __attribute__((visibility("hidden")));
 static const char *DMTCP_PRGNAME_PREFIX = "DMTCP:";
 
 static Thread *threads_freelist = NULL;
-static pthread_mutex_t threadlistLock = PTHREAD_MUTEX_INITIALIZER;
-static pthread_mutex_t threadStateLock = PTHREAD_MUTEX_INITIALIZER;
+static DmtcpMutex threadlistLock = DMTCP_MUTEX_INITIALIZER;
+static DmtcpMutex threadStateLock = DMTCP_MUTEX_INITIALIZER;
 
-static pthread_rwlock_t threadResumeLock = PTHREAD_RWLOCK_INITIALIZER;
+static DmtcpRWLock threadResumeLock;
 
 static __thread Thread *curThread = NULL;
 static Thread *ckptThread = NULL;
@@ -105,13 +105,13 @@ pid_t dmtcp_get_real_pid()
 static void
 lock_threads(void)
 {
-  JASSERT(_real_pthread_mutex_lock(&threadlistLock) == 0) (JASSERT_ERRNO);
+  JASSERT(DmtcpMutexLock(&threadlistLock) == 0) (JASSERT_ERRNO);
 }
 
 static void
 unlk_threads(void)
 {
-  JASSERT(_real_pthread_mutex_unlock(&threadlistLock) == 0) (JASSERT_ERRNO);
+  JASSERT(DmtcpMutexUnlock(&threadlistLock) == 0) (JASSERT_ERRNO);
 }
 
 /*****************************************************************************
@@ -443,10 +443,8 @@ ThreadList::suspendThreads()
   Thread *thread;
   Thread *next;
 
-  JASSERT(pthread_rwlock_destroy(&threadResumeLock) == 0) (JASSERT_ERRNO);
-  JASSERT(pthread_rwlock_init(&threadResumeLock, NULL) == 0)
-    (JASSERT_ERRNO);
-  JASSERT(_real_pthread_rwlock_wrlock(&threadResumeLock) == 0) (JASSERT_ERRNO);
+  DmtcpRWLockInit(&threadResumeLock);
+  JASSERT(DmtcpRWLockWrLock(&threadResumeLock) == 0);
 
   /* Halt all other threads - force them to call stopthisthread
    * If any have blocked checkpointing, wait for them to unblock before
@@ -529,7 +527,7 @@ void
 ThreadList::resumeThreads()
 {
   JTRACE("resuming user threads");
-  JASSERT(_real_pthread_rwlock_unlock(&threadResumeLock) == 0) (JASSERT_ERRNO);
+  JASSERT(DmtcpRWLockUnlock(&threadResumeLock) == 0) (JASSERT_ERRNO);
 }
 
 /*************************************************************************
@@ -602,13 +600,11 @@ stopthisthread(int signum)
       // However, the sem_wait cleanup handler is now invalid and thus we get a
       // segfault.
       // The change in sem_wait behavior was first introduce in glibc 2.21.
-      JASSERT(_real_pthread_rwlock_rdlock(&threadResumeLock) == 0)
-        (JASSERT_ERRNO);
+      JASSERT(DmtcpRWLockRdLock(&threadResumeLock) == 0);
 
       JASSERT(Thread_UpdateState(curThread, ST_RUNNING, ST_SUSPENDED));
 
-      JASSERT(_real_pthread_rwlock_unlock(&threadResumeLock) == 0)
-        (JASSERT_ERRNO);
+      JASSERT(DmtcpRWLockUnlock(&threadResumeLock) == 0);
     } else {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 11)
       if (!Util::strStartsWith(curThread->procname, DMTCP_PRGNAME_PREFIX)) {
@@ -873,12 +869,12 @@ Thread_UpdateState(Thread *th, ThreadState newval, ThreadState oldval)
 {
   int res = 0;
 
-  JASSERT(_real_pthread_mutex_lock(&threadStateLock) == 0);
+  JASSERT(DmtcpMutexLock(&threadStateLock) == 0);
   if (oldval == th->state) {
     th->state = newval;
     res = 1;
   }
-  JASSERT(_real_pthread_mutex_unlock(&threadStateLock) == 0);
+  JASSERT(DmtcpMutexUnlock(&threadStateLock) == 0);
   return res;
 }
 

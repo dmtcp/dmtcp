@@ -8,6 +8,8 @@
 
 namespace dmtcp
 {
-vector<string> tokenizeString(const string &s, const string &delims);
+vector<string> tokenizeString(const string &s,
+                              const string &delims,
+                              bool allowEmptyTokens = false);
 } // namespace dmtcp
 #endif // #ifndef __DMTCP_TOKENIZE_CPP__

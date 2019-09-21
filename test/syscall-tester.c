@@ -4150,13 +4150,16 @@ BasicMknod(void)
   passed = expect_zng(SUCCESS, unlink_test(tf));
   EXPECTED_RESP;
 
-  testbreak();
-  passed = expect_zng(FAILURE, mknod_test(tf, S_IFCHR | S_IRWXU, 0));
-  EXPECTED_RESP; IF_FAILED ABORT_TEST;
-  passed = expect_zng(FAILURE, access_test(tf, F_OK));
-  EXPECTED_RESP;
-  passed = expect_zng(FAILURE, unlink_test(tf));
-  EXPECTED_RESP;
+  // This fails when run as root:
+  if (getuid() != 0) {
+    testbreak();
+    passed = expect_zng(FAILURE, mknod_test(tf, S_IFCHR | S_IRWXU, 0));
+    EXPECTED_RESP; IF_FAILED ABORT_TEST;
+    passed = expect_zng(FAILURE, access_test(tf, F_OK));
+    EXPECTED_RESP;
+    passed = expect_zng(FAILURE, unlink_test(tf));
+    EXPECTED_RESP;
+  }
 
   testbreak();
   passed = expect_zng(FAILURE, mknod_test(tf, S_IFDIR | S_IRWXU, 0));
@@ -4166,13 +4169,16 @@ BasicMknod(void)
   passed = expect_zng(FAILURE, unlink_test(tf));
   EXPECTED_RESP;
 
-  testbreak();
-  passed = expect_zng(FAILURE, mknod_test(tf, S_IFBLK | S_IRWXU, 0));
-  EXPECTED_RESP; IF_FAILED ABORT_TEST;
-  passed = expect_zng(FAILURE, access_test(tf, F_OK));
-  EXPECTED_RESP;
-  passed = expect_zng(FAILURE, unlink_test(tf));
-  EXPECTED_RESP;
+  // This fails when run as root:
+  if (getuid() != 0) {
+    testbreak();
+    passed = expect_zng(FAILURE, mknod_test(tf, S_IFBLK | S_IRWXU, 0));
+    EXPECTED_RESP; IF_FAILED ABORT_TEST;
+    passed = expect_zng(FAILURE, access_test(tf, F_OK));
+    EXPECTED_RESP;
+    passed = expect_zng(FAILURE, unlink_test(tf));
+    EXPECTED_RESP;
+  }
 
   /* It should be that only root can perform this test and have it succeed.
      However glibc 2.2.2 will let a normal user use this function and

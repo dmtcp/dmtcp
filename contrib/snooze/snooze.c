@@ -30,9 +30,15 @@ pre_ckpt()
   dmtcp_set_coord_ckpt_dir(newCkptDir);
 }
 
-static DmtcpBarrier snoozeBarriers[] = {
-  { DMTCP_GLOBAL_BARRIER_PRE_CKPT, pre_ckpt, "checkpoint" }
-};
+static void
+snooze_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
+{
+  switch (event) {
+  case DMTCP_EVENT_PRECHECKPOINT:
+    pre_ckpt();
+    break;
+  }
+}
 
 DmtcpPluginDescriptor_t snooze_plugin = {
   DMTCP_PLUGIN_API_VERSION,
@@ -41,8 +47,7 @@ DmtcpPluginDescriptor_t snooze_plugin = {
   "DMTCP",
   "dmtcp@ccs.neu.edu",
   "Snooze plugin",
-  DMTCP_DECL_BARRIERS(snoozeBarriers),
-  NULL
+  snooze_EventHook
 };
 
 DMTCP_DECL_PLUGIN(snooze_plugin);

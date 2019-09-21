@@ -56,14 +56,10 @@ enum DmtcpMessageType {
                              // coordinator
   DMT_USER_CMD_RESULT,       // on reply coordinator -> dmtcp_command
 
-  DMT_DO_PRESUSPEND,         // when coordinator wants slave to suspend
-  DMT_DO_SUSPEND,            // when coordinator wants slave to suspend
   DMT_DO_CHECKPOINT,         // when coordinator wants slave to checkpoint
 
-  DMT_COMPUTATION_INFO,
-
+  DMT_BARRIER,
   DMT_BARRIER_RELEASED,
-  DMT_BARRIER_LIST,
 
   DMT_KILL_PEER,             // send kill message to peer
 
@@ -75,9 +71,6 @@ enum DmtcpMessageType {
 
   DMT_NAME_SERVICE_GET_UNIQUE_ID,
   DMT_NAME_SERVICE_GET_UNIQUE_ID_RESPONSE,
-
-  DMT_OK,                    // slave telling coordinator it is done (response
-                             // to DMT_DO_*)  this means slave reached barrier
 };
 
 namespace CoordCmdStatus

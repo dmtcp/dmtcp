@@ -51,6 +51,10 @@ class CoordClient
 
     void setState(WorkerState::eWorkerState value) { _state = value; }
 
+    string barrier() const { return _barrier; }
+
+    void setBarrier(const string &value) { _barrier = value; }
+
     void progname(string pname) { _progname = pname; }
 
     string progname(void) const { return _progname; }
@@ -79,6 +83,7 @@ class CoordClient
     string _hostname;
     string _progname;
     string _ip;
+    string _barrier;
     pid_t _realPid;
     pid_t _virtualPid;
     int _isNSWorker;
@@ -106,7 +111,10 @@ class DmtcpCoordinator
     void broadcastMessage(DmtcpMessageType type,
                           size_t extraBytes = 0,
                           const void *extraData = NULL);
+
+    void processBarrier(const string &barrier);
     void releaseBarrier(const string &barrier);
+
     bool startCheckpoint();
     void recordCkptFilename(CoordClient *client, const char *barrierList);
 

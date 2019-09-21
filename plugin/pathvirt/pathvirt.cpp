@@ -317,7 +317,7 @@ get_virtual_to_physical_path(const char *virt_path)
  */
 
 void
-dmtcp_pathvirt_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
+pathvirt_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
     /* NOTE:  See warning in plugin/README about calls to printf here. */
     switch (event) {
@@ -366,14 +366,15 @@ dmtcp_pathvirt_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
        }
        break;
     }
+
+    case DMTCP_EVENT_RESTART:
+      pathvirtInitialize();
+      break;
+
     default:
        break;
     }
 }
-
-static DmtcpBarrier pathvirt_barriers[] = {
-  { DMTCP_GLOBAL_BARRIER_RESTART, pathvirtInitialize, "restart" }
-};
 
 DmtcpPluginDescriptor_t pathvirt_plugin = {
   DMTCP_PLUGIN_API_VERSION,
@@ -382,8 +383,7 @@ DmtcpPluginDescriptor_t pathvirt_plugin = {
   "DMTCP",
   "dmtcp@ccs.neu.edu",
   "Pathvirt plugin",
-  DMTCP_DECL_BARRIERS(pathvirt_barriers),
-  NULL
+  pathvirt_EventHook
 };
 
 DMTCP_DECL_PLUGIN(pathvirt_plugin);

@@ -83,6 +83,43 @@ void
 dmtcp_FileConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   FileConnList::instance().eventHook(event, data);
+
+  switch (event) {
+  case DMTCP_EVENT_PRESUSPEND:
+    break;
+
+  case DMTCP_EVENT_PRECHECKPOINT:
+    FileConnList::saveOptions();
+    dmtcp_global_barrier("File::PRE_CKPT");
+    FileConnList::leaderElection();
+    dmtcp_global_barrier("File::LEADER_ELECTION");
+    FileConnList::drainFd();
+    dmtcp_global_barrier("File::DRAIN");
+    FileConnList::ckpt();
+    dmtcp_global_barrier("File::WRITE_CKPT");
+
+    break;
+
+  case DMTCP_EVENT_RESUME:
+    FileConnList::resumeRefill();
+    dmtcp_global_barrier("File::RESUME_REFILL");
+    FileConnList::resumeResume();
+    dmtcp_global_barrier("File::RESUME_RESUME");
+    break;
+
+  case DMTCP_EVENT_RESTART:
+    FileConnList::restart();
+    dmtcp_global_barrier("File::RESTART_POST_RESTART");
+    FileConnList::restartRegisterNSData();
+    dmtcp_global_barrier("File::RESTART_NS_REGISTER_DATA");
+    FileConnList::restartSendQueries();
+    dmtcp_global_barrier("File::RESTART_NS_SEND_QUERIES");
+    FileConnList::restartRefill();
+    dmtcp_global_barrier("File::RESTART_REFILL");
+    FileConnList::restartResume();
+    dmtcp_global_barrier("File::RESTART_RESUME");
+    break;
+  }
 }
 
 static vector<ProcMapsArea>shmAreas;
@@ -330,9 +367,9 @@ FileConnList::prepareShmList()
            * the second checkpoint cycle, the area was again unmapped and later
            * JALLOC tried to access it, causing a SIGSEGV.
            */
-          JASSERT(_real_mmap(area.addr, area.size, PROT_NONE,
-                             MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED,
-                             -1, 0) != MAP_FAILED) (JASSERT_ERRNO);
+          JASSERT(mmap(area.addr, area.size, PROT_NONE,
+                       MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED,
+                       -1, 0) != MAP_FAILED) (JASSERT_ERRNO);
         } else {
           JTRACE("Will not checkpoint shared memory area") (area.name);
         }
@@ -411,8 +448,8 @@ FileConnList::restoreShmArea(const ProcMapsArea &area, int fd)
   JASSERT(fd != -1) (area.name) (JASSERT_ERRNO);
 
   JTRACE("Restoring shared memory area") (area.name) ((void *)area.addr);
-  void *addr = _real_mmap(area.addr, area.size, area.prot,
-                          MAP_FIXED | area.flags, fd, area.offset);
+  void *addr = mmap(area.addr, area.size, area.prot,
+                    MAP_FIXED | area.flags, fd, area.offset);
   JASSERT(addr != MAP_FAILED) (area.flags) (area.prot) (JASSERT_ERRNO)
   .Text("mmap failed");
   _real_close(fd);
@@ -426,9 +463,8 @@ FileConnList::remapShmMaps()
     FileConnection *fileCon = shmAreaConn[i];
     int fd = fileCon->getFds()[0];
     JTRACE("Restoring shared memory area") (area->name) ((void *)area->addr);
-    void *addr = _real_mmap(area->addr, area->size, area->prot,
-                            MAP_FIXED | area->flags,
-                            fd, area->offset);
+    void *addr = mmap(area->addr, area->size, area->prot,
+                      MAP_FIXED | area->flags, fd, area->offset);
     JASSERT(addr != MAP_FAILED) (area->flags) (area->prot) (JASSERT_ERRNO).Text(
       "mmap failed");
     _real_close(fd);

@@ -28,7 +28,6 @@
 // among the individual *wrappers.cpp files that actually need them,
 // and not declare every possible include in one giant .h file.
 #include <features.h>
-#include <poll.h>
 #include <pthread.h>
 #include <signal.h>
 #include <stdarg.h>
@@ -110,18 +109,7 @@ extern int dmtcp_wrappers_initializing;
 
 LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
 
-#define FOREACH_GLIBC_MALLOC_FAMILY_WRAPPERS(MACRO) \
-  MACRO(calloc)                                     \
-  MACRO(malloc)                                     \
-  MACRO(free)                                       \
-  MACRO(__libc_memalign)                            \
-  MACRO(realloc)                                    \
-  MACRO(mmap)                                       \
-  MACRO(mmap64)                                     \
-  MACRO(mremap)                                     \
-  MACRO(munmap)
-
-#define FOREACH_GLIBC_WRAPPERS(MACRO) \
+#define FOREACH_DMTCP_WRAPPER(MACRO)  \
   MACRO(dlopen)                       \
   MACRO(dlclose)                      \
   MACRO(getpid)                       \
@@ -244,46 +232,17 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   MACRO(mq_timedreceive)              \
   MACRO(mq_notify)                    \
                                       \
-  MACRO(read)                         \
-  MACRO(write)                        \
-                                      \
-  MACRO(select)                       \
-  MACRO(poll)                         \
-                                      \
   MACRO(pthread_create)               \
   MACRO(pthread_exit)                 \
   MACRO(pthread_tryjoin_np)           \
   MACRO(pthread_timedjoin_np)         \
   MACRO(pthread_sigmask)              \
-  MACRO(pthread_getspecific)          \
-  MACRO(pthread_mutex_lock)           \
-  MACRO(pthread_mutex_trylock)        \
-  MACRO(pthread_mutex_unlock)         \
-  MACRO(pthread_rwlock_unlock)        \
-  MACRO(pthread_rwlock_rdlock)        \
-  MACRO(pthread_rwlock_tryrdlock)     \
-  MACRO(pthread_rwlock_wrlock)        \
-  MACRO(pthread_rwlock_trywrlock)
-
-#define FOREACH_LIBPTHREAD_WRAPPERS(MACRO) \
-  MACRO(pthread_cond_broadcast)            \
-  MACRO(pthread_cond_destroy)              \
-  MACRO(pthread_cond_init)                 \
-  MACRO(pthread_cond_signal)               \
-  MACRO(pthread_cond_timedwait)            \
-  MACRO(pthread_cond_wait)
-
-#define FOREACH_DMTCP_WRAPPER(MACRO) \
-  FOREACH_GLIBC_WRAPPERS(MACRO)      \
-  FOREACH_GLIBC_MALLOC_FAMILY_WRAPPERS(MACRO)
+  MACRO(pthread_getspecific)
 
 #define ENUM(x)     enum_ ## x
 #define GEN_ENUM(x) ENUM(x),
 typedef enum {
   FOREACH_DMTCP_WRAPPER(GEN_ENUM)
-#ifdef ENABLE_PTHREAD_COND_WRAPPERS
-  FOREACH_LIBPTHREAD_WRAPPERS(GEN_ENUM)
-#endif // #ifdef ENABLE_PTHREAD_COND_WRAPPERS
   numLibcWrappers
 } LibcWrapperOffset;
 
@@ -294,10 +253,6 @@ union semun {
   struct seminfo *__buf;     /* Buffer for IPC_INFO (Linux-specific) */
 };
 
-void _dmtcp_lock();
-void _dmtcp_unlock();
-
-void _dmtcp_remutex_on_fork();
 LIB_PRIVATE void dmtcpResetTid(pid_t tid);
 LIB_PRIVATE void dmtcpResetPidPpid();
 
@@ -438,69 +393,8 @@ void *_real_dlsym(void *handle, const char *symbol);
 void *_real_dlopen(const char *filename, int flag);
 int _real_dlclose(void *handle);
 
-void *_real_calloc(size_t nmemb, size_t size);
-void *_real_malloc(size_t size);
-void _real_free(void *ptr);
-void *_real_realloc(void *ptr, size_t size);
-void *_real_libc_memalign(size_t boundary, size_t size);
-void *_real_mmap(void *addr,
-                 size_t length,
-                 int prot,
-                 int flags,
-                 int fd,
-                 off_t offset);
-void *_real_mmap64(void *addr,
-                   size_t length,
-                   int prot,
-                   int flags,
-                   int fd,
-                   __off64_t offset);
-#if __GLIBC_PREREQ(2, 4)
-void *_real_mremap(void *old_address,
-                   size_t old_size,
-                   size_t new_size,
-                   int flags,
-                   ... /* void *new_address */);
-#else // if __GLIBC_PREREQ(2, 4)
-void *_real_mremap(void *old_address,
-                   size_t old_size,
-                   size_t new_size,
-                   int flags);
-#endif // if __GLIBC_PREREQ(2, 4)
-int _real_munmap(void *addr, size_t length);
-
-ssize_t _real_read(int fd, void *buf, size_t count);
-ssize_t _real_write(int fd, const void *buf, size_t count);
-int _real_select(int nfds,
-                 fd_set *readfds,
-                 fd_set *writefds,
-                 fd_set *exceptfds,
-                 struct timeval *timeout);
 off_t _real_lseek(int fd, off_t offset, int whence);
 int _real_unlink(const char *pathname);
-
-int _real_pthread_mutex_lock(pthread_mutex_t *mutex);
-int _real_pthread_mutex_trylock(pthread_mutex_t *mutex);
-int _real_pthread_mutex_unlock(pthread_mutex_t *mutex);
-int _real_pthread_rwlock_unlock(pthread_rwlock_t *rwlock);
-int _real_pthread_rwlock_rdlock(pthread_rwlock_t *rwlock);
-int _real_pthread_rwlock_tryrdlock(pthread_rwlock_t *rwlock);
-int _real_pthread_rwlock_wrlock(pthread_rwlock_t *rwlock);
-int _real_pthread_rwlock_trywrlock(pthread_rwlock_t *rwlock);
-
-#ifdef ENABLE_PTHREAD_COND_WRAPPERS
-int _real_pthread_cond_broadcast(pthread_cond_t *cond);
-int _real_pthread_cond_destroy(pthread_cond_t *cond);
-int _real_pthread_cond_init(pthread_cond_t *cond,
-                            const pthread_condattr_t *attr);
-int _real_pthread_cond_signal(pthread_cond_t *cond);
-int _real_pthread_cond_timedwait(pthread_cond_t *cond,
-                                 pthread_mutex_t *mutex,
-                                 const struct timespec *abstime);
-int _real_pthread_cond_wait(pthread_cond_t *cond, pthread_mutex_t *mutex);
-#endif // #ifdef ENABLE_PTHREAD_COND_WRAPPERS
-
-int _real_poll(struct pollfd *fds, nfds_t nfds, int timeout);
 
 int _real_waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options);
 pid_t _real_wait4(pid_t pid,

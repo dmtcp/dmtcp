@@ -30,8 +30,6 @@
 // this extra declaration.
 #define FOR_SYSCALLSREAL_C
 
-#include <pthread.h>
-
 // We should not need dlopen/dlsym
 // #include <dlfcn.h>
 #include <ctype.h>
@@ -77,8 +75,6 @@
 //// DEFINE REAL VERSIONS OF NEEDED FUNCTIONS (based on syscallsreal.cpp)
 //// (Define only functions needed for dmtcp_launch, dmtcp_restart, etc.
 
-static pthread_mutex_t theMutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
-
 #define REAL_FUNC_PASSTHROUGH(name)       return name
 
 #define REAL_FUNC_PASSTHROUGH_TYPED(type, \
@@ -99,71 +95,7 @@ static pthread_mutex_t theMutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
   return -1;
 
 void
-_dmtcp_lock() { pthread_mutex_lock(&theMutex); }
-
-void
-_dmtcp_unlock() { pthread_mutex_unlock(&theMutex); }
-
-void
 initialize_wrappers() {}
-
-int
-_real_pthread_mutex_lock(pthread_mutex_t *mutex)
-{
-  REAL_FUNC_PASSTHROUGH_TYPED(int, pthread_mutex_lock) (mutex);
-}
-
-int
-_real_pthread_mutex_trylock(pthread_mutex_t *mutex)
-{
-  REAL_FUNC_PASSTHROUGH_TYPED(int, pthread_mutex_trylock) (mutex);
-}
-
-int
-_real_pthread_mutex_unlock(pthread_mutex_t *mutex)
-{
-  REAL_FUNC_PASSTHROUGH_TYPED(int, pthread_mutex_unlock) (mutex);
-}
-
-int
-_real_pthread_rwlock_unlock(pthread_rwlock_t *rwlock)
-{
-  REAL_FUNC_PASSTHROUGH_TYPED(int, pthread_rwlock_unlock) (rwlock);
-}
-
-int
-_real_pthread_rwlock_rdlock(pthread_rwlock_t *rwlock)
-{
-  REAL_FUNC_PASSTHROUGH_TYPED(int, pthread_rwlock_rdlock) (rwlock);
-}
-
-int
-_real_pthread_rwlock_wrlock(pthread_rwlock_t *rwlock)
-{
-  REAL_FUNC_PASSTHROUGH_TYPED(int, pthread_rwlock_wrlock) (rwlock);
-}
-
-ssize_t
-_real_read(int fd, void *buf, size_t count)
-{
-  REAL_FUNC_PASSTHROUGH(read) (fd, buf, count);
-}
-
-ssize_t
-_real_write(int fd, const void *buf, size_t count)
-{
-  REAL_FUNC_PASSTHROUGH_TYPED(ssize_t, write) (fd, buf, count);
-}
-
-int
-_real_select(int nfds,
-             fd_set *readfds,
-             fd_set *writefds,
-             fd_set *exceptfds,
-             struct timeval *timeout)
-{
-  REAL_FUNC_PASSTHROUGH(select) (nfds, readfds, writefds, exceptfds, timeout);
-}
 
 /// call the libc version of this function via dlopen/dlsym
 int
@@ -438,21 +370,6 @@ _real_ioctl(int d, unsigned long int request, ...)
   REAL_FUNC_PASSTHROUGH_TYPED(int, ioctl) (d, request, arg);
 }
 
-LIB_PRIVATE
-void *
-_real_mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset)
-{
-  REAL_FUNC_PASSTHROUGH_TYPED(void *, mmap) (addr, length, prot, flags, fd,
-                                             offset);
-}
-
-LIB_PRIVATE
-int
-_real_munmap(void *addr, size_t length)
-{
-  REAL_FUNC_PASSTHROUGH_TYPED(int, munmap) (addr, length);
-}
-
 // Needed for _real_gettid, etc.
 long
 _real_syscall(long sys_num, ...)
@@ -556,13 +473,6 @@ int
 _real_shmctl(int shmid, int cmd, struct shmid_ds *buf)
 {
   REAL_FUNC_PASSTHROUGH(shmctl) (shmid, cmd, buf);
-}
-
-LIB_PRIVATE
-int
-_real_poll(struct pollfd *fds, nfds_t nfds, int timeout)
-{
-  REAL_FUNC_PASSTHROUGH(poll) (fds, nfds, timeout);
 }
 
 ssize_t
