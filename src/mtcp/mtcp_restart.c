@@ -151,8 +151,8 @@ static void unmap_memory_areas_and_restore_vdso(RestoreInfo *rinfo);
 
 
 #define MB                 1024 * 1024
-#define RESTORE_STACK_SIZE 5 * MB
-#define RESTORE_MEM_SIZE   5 * MB
+#define RESTORE_STACK_SIZE 16 * MB
+#define RESTORE_MEM_SIZE   16 * MB
 #define RESTORE_TOTAL_SIZE (RESTORE_STACK_SIZE + RESTORE_MEM_SIZE)
 
 // const char service_interp[] __attribute__((section(".interp"))) =
@@ -1353,6 +1353,22 @@ remapMtcpRestartToReservedArea(RestoreInfo *rinfo)
   size_t remaining_restore_area =
     rinfo->restore_addr + rinfo->restore_size - guard_page_end_addr;
 
+#ifdef WSL
+  // FIXME:  The assert below used to fail on WSL.  (Still a work in progress.)
+  //   NOTE that PR #774 raises the following also in src/processinfo.h
+  //     #define RESTORE_STACK_SIZE 16 * MB
+  //     #define RESTORE_MEM_SIZE   16 * MB
+  //   The new values seem to allow the assert below to pass now on WSL.
+  //   Maybe this must correspond between processinfo.h and mtcp_restart.c.
+  //   Maybe it must be a multiple of 2 MB to support HUGEPAGES for WSL ???
+  //   Maybe WSL needs a larger stack, since they don't support MAP_GROWSDOWN
+  // These debugging prints were to catch a failed asserg when
+  //   processinfo.h was set to only 5 MB earlier.  Let's see if the
+  //   assert fails in the future on WSL.  (work in progress)
+  // DPRINTF("remaining_restore_area: %x\na", remaining_restore_area);
+  // DPRINTF("rinfo->old_stack_size: %x\na", rinfo->old_stack_size);
+  // REMOVE ALL OF THESE COMMENTS WHEN THIS CODE IS MATURE.
+#endif
   MTCP_ASSERT(remaining_restore_area >= rinfo->old_stack_size);
 
   void *new_stack_end_addr = rinfo->restore_addr + rinfo->restore_size;

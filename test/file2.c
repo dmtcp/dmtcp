@@ -42,6 +42,7 @@ main()
   if (mkdtemp(dir1) == NULL) {
     abort();
   }
+
   memcpy(dir2, dir1, strlen(dir1));      // Update prefix, only, for dir2 path
   if (mkdtemp(dir2) == NULL) {
     abort();
