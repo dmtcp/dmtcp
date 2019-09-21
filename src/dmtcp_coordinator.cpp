@@ -1418,7 +1418,8 @@ void DmtcpCoordinator::eventLoop(bool daemon)
     int nfds;
     do {
       nfds = epoll_wait(epollFd, events, MAX_EVENTS, -1);
-    } while (nfds < 0 && errno == EINTR && ! timerExpired);
+    } while (nfds < 0 && errno == EINTR && !timerExpired);
+
 
     // The ckpt timer has expired; it's time to checkpoint.
     if (nfds == -1 && errno == EINTR && timerExpired) {

@@ -636,7 +636,7 @@ def runTestRaw(name, numProcs, cmds):
                     printFixed(" (" + coredump + " copied to DMTCP_TMPDIR:" +
                                dmtcp_tmpdir() + "/)")
             else:
-              printFixed("(Either first process didn't die, or sle this long" +
+              printFixed("(Either first process didn't die, or else this long" +
                          " delay has been observed due to a slow" +
                          " NFS-based filesystem.)")
             printFixed(" retry:")
@@ -799,19 +799,19 @@ runTest("plugin-init", 1, ["--with-plugin "+
                              "./test/dmtcp1"])
 
 # Test special case:  gettimeofday can be handled within VDSO segment.
-runTest("gettimeofday",  1, ["./test/gettimeofday"])
+runTest("gettimeofday",   1, ["./test/gettimeofday"])
 
-runTest("sigchild",      1, ["./test/sigchild"])
+runTest("sigchild",       1, ["./test/sigchild"])
 
 runTest("shared-fd1",     2, ["./test/shared-fd1"])
 
 runTest("shared-fd2",     2, ["./test/shared-fd2"])
 
-runTest("stale-fd",      2, ["./test/stale-fd"])
+runTest("stale-fd",       2, ["./test/stale-fd"])
 
-runTest("rlimit-restore",         1, ["./test/rlimit-restore"])
+runTest("rlimit-restore", 1, ["./test/rlimit-restore"])
 
-runTest("rlimit-nofile",      2, ["./test/rlimit-nofile"])
+runTest("rlimit-nofile",  2, ["./test/rlimit-nofile"])
 
 # Disable procfd1 until we fix readlink
 #runTest("procfd1",       2, ["./test/procfd1"])
