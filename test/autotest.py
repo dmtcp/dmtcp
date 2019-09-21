@@ -769,8 +769,6 @@ S=DEFAULT_S
 # Test for normal file, /dev/tty, proc file, and illegal pathname
 runTest("stat",         1, ["./test/stat"])
 
-runTest("rlimit-restore",         1, ["./test/rlimit-restore"])
-
 runTest("presuspend",   [1, 2], ["./test/presuspend"])
 
 PWD=os.getcwd()
@@ -802,6 +800,8 @@ runTest("shared-fd1",     2, ["./test/shared-fd1"])
 runTest("shared-fd2",     2, ["./test/shared-fd2"])
 
 runTest("stale-fd",      2, ["./test/stale-fd"])
+
+runTest("rlimit-restore",         1, ["./test/rlimit-restore"])
 
 runTest("rlimit-nofile",      2, ["./test/rlimit-nofile"])
 
