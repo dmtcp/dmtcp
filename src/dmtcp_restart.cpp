@@ -429,7 +429,6 @@ runMtcpRestart(int is32bitElf, int fd, ProcessInfo *pInfo)
   sprintf(fdBuf, "%d", fd);
   sprintf(stderrFdBuf, "%u", (unsigned int)PROTECTED_STDERR_FD);
 
-
 #ifdef HAS_PR_SET_PTRACER
   if (getenv("DMTCP_GDB_ATTACH_ON_RESTART")) {
     JNOTE("\n     *******************************************************\n"

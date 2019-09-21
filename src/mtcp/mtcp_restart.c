@@ -471,7 +471,7 @@ NO_OPTIMIZE
 static void
 restart_fast_path()
 {
-#ifdef DEBUG
+#ifdef LOGGING
   int mtcp_sys_errno;  // for sake of DPRINTF()
 #endif
 

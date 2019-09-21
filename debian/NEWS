@@ -1,11 +1,8 @@
-dmtcp (2.2-1) unstable; urgency=low
+dmtcp (2.6.0-1) unstable; urgency=low
 
-    libdmtcpaware was deprecated in 2.0 released and completely removed in the
-    2.1 release. The corresponding packages are thus removed. Similarly,
-    libmtcp has been removed. The functionality was merged in the core DMTCP
-    package.  dmtcp_checkpoint is deprecated in favor of dmtcp_launch.
+    This reflects the 2.6.0 upstream release.  The last Debian package
+    (2.3.1) is obsolete, and this package has many robustness fixes and
+    enhancements since the previous Debian package.
 
-    Pick manpages and docs from the installed location. Removed dmtcp.manpages
-    and doc files and incorporated the changes into dmtcp.install file.
+ -- Paul Grosu <pgrosu@gmail.com>  Sat, 4 Jul 2019 23:00:00 -0400
 
- -- Kapil Arya <kapil@ccs.neu.edu>  Tue, 11 Mar 2014 13:18:10 -0400
