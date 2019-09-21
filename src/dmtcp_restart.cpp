@@ -443,7 +443,8 @@ static void runMtcpRestart(int is32bitElf, int fd, ProcessInfo *pInfo)
       }
       char cpid[11]; // XXX: Is 10 digits for long PID plus a terminating null
       snprintf(cpid, 11, "%ld", (long unsigned)pid);
-      char* const cmdArgs[] = {const_cast<char*>(pInfo->procSelfExe().c_str()),
+      char* const cmdArgs[] = {const_cast<char*>("gdb"),
+                               const_cast<char*>(pInfo->procSelfExe().c_str()),
                                cpid,
                                NULL};
       execvp("gdb", cmdArgs);
