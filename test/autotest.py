@@ -631,7 +631,9 @@ def runTestRaw(name, numProcs, cmds):
                     printFixed(" (" + coredump + " copied to DMTCP_TMPDIR:" +
                                dmtcp_tmpdir() + "/)")
             else:
-              printFixed("(first process didn't die)")
+              printFixed("(Either first process didn't die, or else this long" +
+                         " delay has been observed due to a slow" +
+                         " NFS-based filesystem.)")
             printFixed(" retry:")
             testKill()
       if i != CYCLES - 1:
@@ -769,7 +771,9 @@ S=DEFAULT_S
 # Test for normal file, /dev/tty, proc file, and illegal pathname
 runTest("stat",         1, ["./test/stat"])
 
-runTest("rlimit-restore",         1, ["./test/rlimit-restore"])
+# FIXME:  Copy test/stack-growsdown from DMTCP-2.6 when PR is ready.
+# # Test if it works for stack growing on restart
+# runTest("stack-growsdown",         1, ["./test/stack-growsdown"])
 
 runTest("presuspend",   [1, 2], ["./test/presuspend"])
 
@@ -793,17 +797,19 @@ runTest("plugin-init", 1, ["--with-plugin "+
                              "./test/dmtcp1"])
 
 # Test special case:  gettimeofday can be handled within VDSO segment.
-runTest("gettimeofday",  1, ["./test/gettimeofday"])
+runTest("gettimeofday",   1, ["./test/gettimeofday"])
 
-runTest("sigchild",      1, ["./test/sigchild"])
+runTest("sigchild",       1, ["./test/sigchild"])
 
 runTest("shared-fd1",     2, ["./test/shared-fd1"])
 
 runTest("shared-fd2",     2, ["./test/shared-fd2"])
 
-runTest("stale-fd",      2, ["./test/stale-fd"])
+runTest("stale-fd",       2, ["./test/stale-fd"])
 
-runTest("rlimit-nofile",      2, ["./test/rlimit-nofile"])
+runTest("rlimit-restore", 1, ["./test/rlimit-restore"])
+
+runTest("rlimit-nofile",  2, ["./test/rlimit-nofile"])
 
 # Disable procfd1 until we fix readlink
 #runTest("procfd1",       2, ["./test/procfd1"])

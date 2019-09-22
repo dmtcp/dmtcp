@@ -427,7 +427,7 @@ runMtcpRestart(int is32bitElf, int fd, ProcessInfo *pInfo)
   char stderrFdBuf[8];
 
   sprintf(fdBuf, "%d", fd);
-  sprintf(stderrFdBuf, "%d", PROTECTED_STDERR_FD);
+  sprintf(stderrFdBuf, "%u", (unsigned int)PROTECTED_STDERR_FD);
 
 #ifdef HAS_PR_SET_PTRACER
   if (getenv("DMTCP_GDB_ATTACH_ON_RESTART")) {
@@ -475,8 +475,8 @@ runMtcpRestart(int is32bitElf, int fd, ProcessInfo *pInfo)
                .Text("Unable to set up debug connection "
                      "with the restarted process");
       }
-      char cpid[10]; // XXX: Is 10 digits enough for a PID?
-      snprintf(cpid, 10, "%d", pid);
+      char cpid[11]; // XXX: Is 10 digits for long PID plus a terminating null
+      snprintf(cpid, 11, "%ld", (long unsigned)pid);
       char* const command[] = {const_cast<char*>("gdb"),
                                const_cast<char*>(pInfo->procSelfExe().c_str()),
                                cpid,
