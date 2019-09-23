@@ -668,6 +668,9 @@ AARCH64_HOST_TRUE
 ARM_HOST
 ARM_HOST_FALSE
 ARM_HOST_TRUE
+MULTILIB
+CONFIG_MULTILIB_FALSE
+CONFIG_MULTILIB_TRUE
 HAS_READLINE
 M32
 CONFIG_M32_FALSE
@@ -814,6 +817,7 @@ enable_experts_only
 enable_experts_only_after
 enable_pthread_mutex_wrappers
 enable_m32
+enable_multilib
 enable_static_libstdcxx
 with_mpich
 '
@@ -1494,9 +1498,11 @@ Optional Features:
 
   --enable-pthread-mutex-wrappers
                           Recommended when using Open MPI
-  --enable-m32            Compile in 32 bit mode on 64 bit linux. (Works on
+  --enable-m32            Compile in 32-bit mode on 64-bit Linux. (Works on
                           most, but not all programs, due to restrictions of
                           32-bit mode.)
+  --enable-multilib       Compile for mixed 32-bit and 64-bit mode. (Requires
+                          gcc-multilib and g++-multilib pkg's.)
   --enable-static-libstdcxx
                           Compile $CXX with -static-libstdc++. This allows
                           DMTCP executables compiled on later distro to run
@@ -5750,7 +5756,7 @@ $as_echo "#define CONFIG_M32 1" >>confdefs.h
 
 
   CFLAGS="$CFLAGS -m32 -march=i686 -Wa,--32"
-  CXXFLAGS="$CXXFLAGS -march=i686 -m32 -Wa,--32"
+  CXXFLAGS="$CXXFLAGS -m32 -march=i686 -Wa,--32"
   LDFLAGS="$LDFLAGS -m32 -march=i686 -Wl,-m32 -Wl,-melf_i386 -Wa,--32"
 
   { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether multilib $CC compiles using -m32" >&5
@@ -5856,6 +5862,35 @@ See \`config.log' for more details" "$LINENO" 5; }
   fi
 else
   M32=0
+
+fi
+
+# Check whether --enable-multilib was given.
+if test "${enable_multilib+set}" = set; then :
+  enableval=$enable_multilib; use_multilib=$enableval
+else
+  use_multilibno
+fi
+
+
+ if test "$use_multilib" = "yes"; then
+  CONFIG_MULTILIB_TRUE=
+  CONFIG_MULTILIB_FALSE='#'
+else
+  CONFIG_MULTILIB_TRUE='#'
+  CONFIG_MULTILIB_FALSE=
+fi
+
+if test "$use_multilib" = "yes"; then
+  MULTILIB=1
+
+  HAS_READLINE=no
+
+
+$as_echo "#define CONFIG_MULTILIB 1" >>confdefs.h
+
+else
+  MULTILIB=0
 
 fi
 
@@ -7832,6 +7867,10 @@ Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${CONFIG_M32_TRUE}" && test -z "${CONFIG_M32_FALSE}"; then
   as_fn_error $? "conditional \"CONFIG_M32\" was never defined.
+Usually this means the macro was only invoked conditionally." "$LINENO" 5
+fi
+if test -z "${CONFIG_MULTILIB_TRUE}" && test -z "${CONFIG_MULTILIB_FALSE}"; then
+  as_fn_error $? "conditional \"CONFIG_MULTILIB\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${ARM_HOST_TRUE}" && test -z "${ARM_HOST_FALSE}"; then
