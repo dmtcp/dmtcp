@@ -276,7 +276,7 @@ fi
 
 AC_ARG_ENABLE([m32],
             [AS_HELP_STRING([--enable-m32],
-                            [Compile in 32 bit mode on 64 bit linux. (Works on
+                            [Compile in 320bit mode on 64-bit Linux. (Works on
                              most, but not all programs, due to restrictions of
                              32-bit mode.)])],
             [use_m32=$enableval],
@@ -286,10 +286,10 @@ AM_CONDITIONAL(CONFIG_M32, [test "$use_m32" = "yes"])
 if test "$use_m32" = "yes"; then
   AC_SUBST([M32], [1])
   AC_SUBST([HAS_READLINE], [no])
-  AC_DEFINE([CONFIG_M32],[1],[Compiling in 32 bit mode on 64 bit linux.])
+  AC_DEFINE([CONFIG_M32],[1],[Compiling in 32-bit mode on 64-bit Linux.])
 
   CFLAGS="$CFLAGS -m32 -march=i686 -Wa,--32"
-  CXXFLAGS="$CXXFLAGS -march=i686 -m32 -Wa,--32"
+  CXXFLAGS="$CXXFLAGS -m32 -march=i686 -Wa,--32"
   LDFLAGS="$LDFLAGS -m32 -march=i686 -Wl,-m32 -Wl,-melf_i386 -Wa,--32"
 
   AC_MSG_CHECKING([whether multilib $CC compiles using -m32])
@@ -331,6 +331,26 @@ if test "$use_m32" = "yes"; then
   fi
 else
   AC_SUBST([M32], [0])
+fi
+
+dnl If --enable-multilib is invoked, then the top-level 'Makefile' will
+dnl   create config.status-multilib-m32.
+dnl Invoking ./config.status-multilib-m32 configures as if --enable-m32 called.
+dnl Invoking ./config.status configures as if --enable-m32 was not called.
+AC_ARG_ENABLE([multilib],
+            [AS_HELP_STRING([--enable-multilib],
+                            [Compile for mixed 320bit and 64-bit mode.
+                             (Requires gcc-multilib and g++-multilib pkg's.)])],
+            [use_multilib=$enableval],
+            [use_multilibno])
+
+AM_CONDITIONAL(CONFIG_MULTILIB, [test "$use_multilib" = "yes"])
+if test "$use_multilib" = "yes"; then
+  AC_SUBST([MULTILIB], [1])
+  AC_SUBST([HAS_READLINE], [no])
+  AC_DEFINE([CONFIG_MULTILIB],[1],[Compiling in 32-bit/64-bit mixed mode.])
+else
+  AC_SUBST([MULTILIB], [0])
 fi
 
 AC_ARG_ENABLE([static_libstdcxx],
