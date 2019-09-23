@@ -1259,7 +1259,7 @@ uninstall-am: uninstall-binPROGRAMS uninstall-binSCRIPTS \
 
 
 build_rm_loclaunch:
-	cp batch-queue/dmtcp_rm_loclaunch $(top_builddir)/bin
+	cp batch-queue/dmtcp_rm_loclaunch $(top_builddir)/bin/
 
 clean_rm_loclaunch:
 	rm $(top_builddir)/bin/dmtcp_rm_loclaunch

@@ -3,8 +3,11 @@
 /* Checkpoint signal to be used */
 #undef CKPT_SIGNAL
 
-/* Compiling in 32 bit mode on 64 bit linux. */
+/* Compiling in 32-bit mode on 64-bit Linux. */
 #undef CONFIG_M32
+
+/* Compiling in 32-bit/64-bit mixed mode. */
+#undef CONFIG_MULTILIB
 
 /* Use debugging flags "-Wall -g3 -O0" */
 #undef DEBUG
