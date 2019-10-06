@@ -459,6 +459,10 @@ DmtcpCoordinator::releaseBarrier(const string &barrier)
     broadcastMessage(DMT_BARRIER_RELEASED,
                      prevBarrier.length() + 1,
                      prevBarrier.c_str());
+    if (status.minimumState == WorkerState::RUNNING) {
+      JNOTE("Checkpoint complete; all workers running");
+      resetCkptTimer();
+    }
   }
 }
 
@@ -523,7 +527,6 @@ DmtcpCoordinator::recordCkptFilename(CoordClient *client, const char *extraData)
     JNOTE("Checkpoint complete. Wrote restart script") (restartScriptPath);
 
     JTIMER_STOP(checkpoint);
-    resetCkptTimer();
 
     if (blockUntilDone) {
       DmtcpMessage blockUntilDoneReply(DMT_USER_CMD_RESULT);
