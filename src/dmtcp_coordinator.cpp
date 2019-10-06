@@ -760,7 +760,6 @@ DmtcpCoordinator::initializeComputation()
   blockUntilDone = false;
   exitAfterCkptOnce = false;
   workersAtCurrentBarrier = 0;
-  nextPreSuspendBarrier = nextCkptBarrier = nextRestartBarrier = 0;
 }
 
 void
@@ -1104,12 +1103,10 @@ DmtcpCoordinator::validateNewWorkerProcess(
 bool
 DmtcpCoordinator::startCheckpoint()
 {
-  nextPreSuspendBarrier = nextCkptBarrier = nextRestartBarrier = 0;
-
-  uniqueCkptFilenames = false;
   ComputationStatus s = getStatus();
   if (s.minimumState == WorkerState::RUNNING && s.minimumStateUnanimous
       && !workersRunningAndSuspendMsgSent) {
+    uniqueCkptFilenames = false;
     time(&ckptTimeStamp);
     JTIMER_START(checkpoint);
     _numRestartFilenames = 0;
