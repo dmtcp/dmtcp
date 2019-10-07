@@ -119,9 +119,9 @@ struct DmtcpMessage {
   struct in_addr ipAddr;
 
   uint32_t uniqueIdOffset;
-
   uint32_t exitAfterCkpt;
-  uint32_t padding;
+
+  // uint32_t padding;
 
   DmtcpMessage(DmtcpMessageType t = DMT_NULL);
   void assertValid() const;
