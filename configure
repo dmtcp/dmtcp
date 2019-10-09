@@ -1502,8 +1502,8 @@ Optional Features:
   --enable-m32            Compile in 320bit mode on 64-bit Linux. (Works on
                           most, but not all programs, due to restrictions of
                           32-bit mode.)
-  --enable-multilib       Compile for mixed 320bit and 64-bit mode. (Requires
-                          gcc-multilib and g++-multilib pkg's.)
+  --enable-multilib       Compile for mixed 32-bit and 64-bit mode. (Requires
+                          gcc-multilib/g++-multilib packages.)
   --enable-static-libstdcxx
                           Compile $CXX with -static-libstdc++. This allows
                           DMTCP executables compiled on later distro to run
@@ -5870,7 +5870,7 @@ fi
 if test "${enable_multilib+set}" = set; then :
   enableval=$enable_multilib; use_multilib=$enableval
 else
-  use_multilibno
+  use_multilib=no
 fi
 
 
