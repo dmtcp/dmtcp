@@ -339,10 +339,10 @@ dnl Invoking ./config.status-multilib-m32 configures as if --enable-m32 called.
 dnl Invoking ./config.status configures as if --enable-m32 was not called.
 AC_ARG_ENABLE([multilib],
             [AS_HELP_STRING([--enable-multilib],
-                            [Compile for mixed 320bit and 64-bit mode.
-                             (Requires gcc-multilib and g++-multilib pkg's.)])],
+                            [Compile for mixed 32-bit and 64-bit mode.
+                             (Requires gcc-multilib/g++-multilib packages.)])],
             [use_multilib=$enableval],
-            [use_multilibno])
+            [use_multilib=no])
 
 AM_CONDITIONAL(CONFIG_MULTILIB, [test "$use_multilib" = "yes"])
 if test "$use_multilib" = "yes"; then

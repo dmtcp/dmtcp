@@ -4,6 +4,7 @@ OPENMP_CFLAGS=@OPENMP_CFLAGS@
 OPENMP_CXXFLAGS=@OPENMP_CXXFLAGS@
 CC = @CC@
 M32=@M32@
+MULTILIB=@MULTILIB@
 # Unfortunately, there is a name clash for 'DEBUG'.
 # --enable-debug intends to set 'DEBUG' in src, but sets it everywhere.
 # Here in 'test', we use 'DEBUG' for one-off tests.  So, we unset 'DEBUG'.
@@ -71,13 +72,18 @@ else
   CILKC=@CILKC@
 endif
 
+# If MULTILIB, then test if we can ckpt/restart a 32-bit app
+ifeq ($(MULTILIB),1)
+  TESTS_MULTILIB = dmtcp1-m32
+endif
+
 PWD=$(shell pwd)
 
 TESTS=${notdir ${basename ${shell ls $(srcdir)/*.c $(srcdir)/*.cpp $(srcdir)/*.cilk | grep -v 'hellompi.c'}}} \
 	${addsuffix .class,${notdir ${basename ${shell ls $(srcdir)/java*.java}}}} \
 	hellompich openmpi
 
-tests: $(TESTS)
+tests: $(TESTS) $(TESTS_MULTILIB)
 	cd plugin && ${MAKE}
 	#${MAKE} -C credentials
 
@@ -88,7 +94,7 @@ tidy:
 	cd plugin && $(MAKE) tidy > /dev/null
 
 clean: tidy
-	rm -f $(TESTS) *.pyc *.so
+	rm -f $(TESTS) $(TESTS_MULTILIB) *.pyc *.so
 	#${MAKE} -C credentials clean
 	cd plugin && $(MAKE) clean
 
@@ -150,6 +156,9 @@ else
 endif
 
 DMTCPPLUGIN_HEADER=$(DMTCP_INCLUDE)/dmtcp.h
+
+%-m32: %.c
+	-$(CC) -m32 -o $@ $< $(CFLAGS)
 
 dmtcp3: dmtcp3.c
 	-$(CC) -o $@ $< $(CFLAGS) -lpthread
