@@ -9,8 +9,8 @@ Among the applications supported by DMTCP are MPI (various implementations),
 OpenMP, MATLAB, Python, Perl, R, and many programming languages and shell
 scripting languages. DMTCP also supports GNU screen sessions, including
 vim/cscope and emacs. With the use of TightVNC, it can also checkpoint
-and restart X Window applications.  The OpenGL library for 3D graphics
-is supported through a special plugin.
+and restart X Window applications.  For a multilib (mixture of 32-
+and 64-bit processes), see "./configure --enable-multilib".
 
 DMTCP supports the commonly used OFED API for InfiniBand, as well as its
 integration with various implementations of MPI, and resource managers
