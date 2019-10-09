@@ -63,6 +63,9 @@ default: display-build-env add-git-hooks build
 mkdirs:
 	$(MKDIR_P) $(targetdir)/bin
 	$(MKDIR_P) $(targetdir)/lib/dmtcp
+ifeq ($(M32),1)
+	$(MKDIR_P) $(top_builddir)/bin
+endif
 
 build: mkdirs dmtcp plugin contrib
 ifeq ($(M32),1)
