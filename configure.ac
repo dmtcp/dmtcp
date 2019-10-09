@@ -16,10 +16,14 @@ AC_PROG_RANLIB
 AC_PROG_MAKE_SET
 AC_PROG_LN_S
 AC_PROG_MKDIR_P
+dnl Due to a strange misfeature in autotools, AC_PROG_CXX will succeed if there
+dnl is no CXX compiler and if AC_PROG_CXX is invoked _after_ AC_PROG_CC.
+dnl So, we are invoking AC_PROG_CXX _before_ AC_PROG_CC, to take advantage
+dnl of an undocumented autotools feature.
+AC_PROG_CXX
 AC_PROG_CC
 AC_PROG_CC_STDC
 AC_PROG_CPP
-AC_PROG_CXX
 dnl This sets OPENMP_CFLAGS
 AC_OPENMP
 dnl This sets OPENMP_CXXFLAGS
@@ -30,13 +34,12 @@ AC_CONFIG_HEADERS([include/config.h])
 AC_CONFIG_FILES([Makefile \
                  contrib/Makefile \
                  contrib/ckptfile/Makefile \
-                 contrib/delayresume/Makefile \
                  contrib/infiniband/Makefile \
-                 contrib/slurm-ft/Makefile \
                  plugin/Makefile \
                  src/Makefile \
                  src/mtcp/Makefile \
                  src/plugin/Makefile \
+                 include/dmtcp/version.h \
                  test/Makefile \
                  test/autotest_config.py \
                  test/plugin/Makefile])
@@ -143,7 +146,8 @@ fi
 
 AC_ARG_ENABLE([infiniband_support],
             [AS_HELP_STRING([--enable-infiniband-support],
-                            [Turn on flags needed to support Infiniband.])],
+                            [Turn on flags needed to support Infiniband.
+			    (EXPERIMENTAL)])],
             [use_infiniband_support=$enableval],
             [use_infiniband_support=no])
 
@@ -272,7 +276,7 @@ fi
 
 AC_ARG_ENABLE([m32],
             [AS_HELP_STRING([--enable-m32],
-                            [Compile in 32-bit mode on 64-bit Linux. (Works on
+                            [Compile in 320bit mode on 64-bit Linux. (Works on
                              most, but not all programs, due to restrictions of
                              32-bit mode.)])],
             [use_m32=$enableval],
@@ -336,9 +340,9 @@ dnl Invoking ./config.status configures as if --enable-m32 was not called.
 AC_ARG_ENABLE([multilib],
             [AS_HELP_STRING([--enable-multilib],
                             [Compile for mixed 32-bit and 64-bit mode.
-                             (Requires gcc-multilib and g++-multilib pkg's.)])],
+                             (Requires gcc-multilib/g++-multilib packages.)])],
             [use_multilib=$enableval],
-            [use_multilibno])
+            [use_multilib=no])
 
 AM_CONDITIONAL(CONFIG_MULTILIB, [test "$use_multilib" = "yes"])
 if test "$use_multilib" = "yes"; then
@@ -421,6 +425,18 @@ if test "$is_aarch64_host" == "yes"; then
 else
   AC_SUBST([AARCH64_HOST], [no])
 fi
+
+AC_MSG_CHECKING([if this is WSL (Windows Subystem for Linux)])
+if uname -r | grep Microsoft > /dev/null; then
+  is_wsl='yes'
+  wsl_version=`uname -r`
+else
+  is_wsl='no'
+fi
+if test "$is_wsl" == "yes"; then
+  AC_DEFINE_UNQUOTED([WSL],[$wsl_version],[This is WSL (Windows Subsystem for Linux.])
+fi
+AC_MSG_RESULT([$is_wsl])
 
 AC_MSG_CHECKING([whether GNU_HASH is supported for ELF])
 AC_TRY_RUN([
@@ -674,9 +690,9 @@ AC_LINK_IFELSE(
 AC_LANG_POP([C++])
 AC_MSG_RESULT([$gccAtomicBuiltins])
 
-if test "$gccAtomicBuiltins" = "yes"; then
-  AC_DEFINE([HAS_ATOMIC_BUILTINS],[1],
-            [Can use __sync_bool_compare_and_swap(), etc.])
+if test "$gccAtomicBuiltins" = "no"; then
+  AC_MSG_FAILURE([Support for atomic built-ins is required to build DMTCP.
+                  Consider using GCC 4.1 or newer.])
 fi
 dnl Else will use mutex implementation; see jalib/jalloc.cpp
 
