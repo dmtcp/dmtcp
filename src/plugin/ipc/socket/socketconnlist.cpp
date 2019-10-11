@@ -44,7 +44,6 @@ dmtcp_SocketConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
     dmtcp_global_barrier("Socket::Resume_Refill");
     SocketConnList::resumeResume();
     dmtcp_global_barrier("Socket::Resume_Resume");
-
     break;
 
   case DMTCP_EVENT_RESTART:
@@ -60,6 +59,9 @@ dmtcp_SocketConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
     dmtcp_global_barrier("Socket::Restart_Refill");
     SocketConnList::restartResume();
     dmtcp_global_barrier("Socket::Restart_Resume");
+    break;
+
+  default:  // other events are not registered
     break;
   }
 }

@@ -40,6 +40,9 @@ uniqueckpt_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
   case DMTCP_EVENT_PRECHECKPOINT:
     updateCkptDir();
     break;
+
+  default:  // other events are not registered
+    break;
   }
 }
 

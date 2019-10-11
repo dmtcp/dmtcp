@@ -61,6 +61,9 @@ dmtcp_SSH_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
   case DMTCP_EVENT_RESTART:
     dmtcp_ssh_restart();
     break;
+
+  default:  // other events are not registered
+    break;
   }
 }
 
