@@ -54,6 +54,9 @@ dmtcp_PtyConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
     dmtcp_global_barrier("Pty::RESTART_POST_RESTART");
     PtyConnList::restartRefill();
     break;
+
+  default:  // other events are not registered
+    break;
   }
 }
 
