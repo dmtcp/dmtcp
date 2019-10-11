@@ -87,6 +87,9 @@ rm_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
     dmtcp_global_barrier("RM::Restart");
     restart_resume();
     break;
+
+  default:  // other events are not registered
+    break;
   }
 }
 

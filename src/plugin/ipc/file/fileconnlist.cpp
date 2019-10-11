@@ -119,6 +119,9 @@ dmtcp_FileConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
     FileConnList::restartResume();
     dmtcp_global_barrier("File::RESTART_RESUME");
     break;
+
+  default:  // other events are not registered
+    break;
   }
 }
 

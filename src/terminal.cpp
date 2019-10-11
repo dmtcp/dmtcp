@@ -120,6 +120,9 @@ terminal_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
   case DMTCP_EVENT_RESTART:
     restore_term_settings();
     break;
+
+  default:  // other events are not registered
+    break;
   }
 }
 

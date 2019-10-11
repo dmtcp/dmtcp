@@ -40,6 +40,9 @@ dmtcp_EventConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
     dmtcp_global_barrier("Event::RESTART_REFILL");
     EventConnList::restartResume();
     break;
+
+  default:  // other events are not registered
+    break;
   }
 }
 

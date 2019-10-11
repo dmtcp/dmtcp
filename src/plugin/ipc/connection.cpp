@@ -110,7 +110,7 @@ Connection::restoreOptions()
 
   errno = 0;
 #ifndef WSL
-  // WSL doesn't seem to support this yet (as of Windows 10 build 1803)
+  // WSL doesn't seem to support this yet (as of Windows 10 build 1903)
   JASSERT(fcntl(_fds[0], F_SETSIG, (int)_fcntlSignal) == 0)
     (_fds[0]) (_fcntlSignal) (JASSERT_ERRNO);
 #endif
