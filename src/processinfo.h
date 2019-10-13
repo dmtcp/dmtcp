@@ -213,10 +213,10 @@ class ProcessInfo
     uint64_t _vvarStart;
     uint64_t _vvarEnd;
 
-    ptrdiff_t _clock_gettime_offset;
-    ptrdiff_t _getcpu_offset;
-    ptrdiff_t _gettimeofday_offset;
-    ptrdiff_t _time_offset;
+    uint64_t _clock_gettime_offset;
+    uint64_t _getcpu_offset;
+    uint64_t _gettimeofday_offset;
+    uint64_t _time_offset;
 };
 }
 #endif /* PROCESS_INFO */
