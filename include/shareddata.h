@@ -78,7 +78,10 @@ namespace dmtcp {
     struct IncomingConMap {
       char                 id[CON_ID_LEN];
       struct sockaddr_un   addr;
-      socklen_t            len;
+      union {
+        socklen_t len;
+        uint64_t _pad;
+      };
     };
 
     struct PtraceIdMaps {

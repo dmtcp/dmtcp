@@ -176,10 +176,10 @@ namespace dmtcp
       uint64_t      _vvarEnd;
       uint64_t      _stackEnd;
 
-      ptrdiff_t _clock_gettime_offset;
-      ptrdiff_t _getcpu_offset;
-      ptrdiff_t _gettimeofday_offset;
-      ptrdiff_t _time_offset;
+      uint64_t _clock_gettime_offset;
+      uint64_t _getcpu_offset;
+      uint64_t _gettimeofday_offset;
+      uint64_t _time_offset;
   };
 
 }
