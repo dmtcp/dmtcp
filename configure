@@ -5729,6 +5729,13 @@ else
 
 fi
 
+CFLAGS_64="$CFLAGS"
+CXXFLAGS_64="$CXXFLAGS"
+LDFLAGS_64="$LDFLAGS"
+CFLAGS_32="$CFLAGS -m32 -march=i686 -Wa,--32"
+CXXFLAGS_32="$CXXFLAGS -m32 -march=i686 -Wa,--32"
+LDFLAGS_32="$LDFLAGS -m32 -march=i686 -Wl,-m32 -Wl,-melf_i386 -Wa,--32"
+
 # Check whether --enable-m32 was given.
 if test "${enable_m32+set}" = set; then :
   enableval=$enable_m32; use_m32=$enableval
@@ -5754,12 +5761,50 @@ if test "$use_m32" = "yes"; then
 $as_echo "#define CONFIG_M32 1" >>confdefs.h
 
 
-  CFLAGS="$CFLAGS -m32 -march=i686 -Wa,--32"
-  CXXFLAGS="$CXXFLAGS -m32 -march=i686 -Wa,--32"
-  LDFLAGS="$LDFLAGS -m32 -march=i686 -Wl,-m32 -Wl,-melf_i386 -Wa,--32"
+  CFLAGS="$CFLAGS_32"
+  CXXFLAGS="$CXXFLAGS_32"
+  LDFLAGS="$LDFLAGS_32"
+else
+  M32=0
 
+fi
+
+# Check whether --enable-multilib was given.
+if test "${enable_multilib+set}" = set; then :
+  enableval=$enable_multilib; use_multilib=$enableval
+else
+  use_multilib=no
+fi
+
+
+ if test "$use_multilib" = "yes"; then
+  CONFIG_MULTILIB_TRUE=
+  CONFIG_MULTILIB_FALSE='#'
+else
+  CONFIG_MULTILIB_TRUE='#'
+  CONFIG_MULTILIB_FALSE=
+fi
+
+if test "$use_multilib" = "yes"; then
+  MULTILIB=1
+
+  HAS_READLINE=no
+
+
+$as_echo "#define CONFIG_MULTILIB 1" >>confdefs.h
+
+else
+  MULTILIB=0
+
+fi
+
+if test "$use_m32" = "yes" -o "$use_multilib" = "yes"; then
   { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether multilib $CC compiles using -m32" >&5
 $as_echo_n "checking whether multilib $CC compiles using -m32... " >&6; }
+  CFLAGS="$CFLAGS_32"
+  CXXFLAGS="$CXXFLAGS_32"
+  LDFLAGS="$LDFLAGS_32"
+
   ac_ext=c
 ac_cpp='$CPP $CPPFLAGS'
 ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
@@ -5859,38 +5904,11 @@ as_fn_error $? "Failed to build $CXX program with -m32
      or the equivalent packages for your Linux distro.
 See \`config.log' for more details" "$LINENO" 5; }
   fi
-else
-  M32=0
-
-fi
-
-# Check whether --enable-multilib was given.
-if test "${enable_multilib+set}" = set; then :
-  enableval=$enable_multilib; use_multilib=$enableval
-else
-  use_multilib=no
-fi
-
-
- if test "$use_multilib" = "yes"; then
-  CONFIG_MULTILIB_TRUE=
-  CONFIG_MULTILIB_FALSE='#'
-else
-  CONFIG_MULTILIB_TRUE='#'
-  CONFIG_MULTILIB_FALSE=
-fi
-
-if test "$use_multilib" = "yes"; then
-  MULTILIB=1
-
-  HAS_READLINE=no
-
-
-$as_echo "#define CONFIG_MULTILIB 1" >>confdefs.h
-
-else
-  MULTILIB=0
-
+  if test "$use_multilib" = "yes"; then
+    CFLAGS="$CFLAGS_64"
+    CXXFLAGS="$CXXFLAGS_64"
+    LDFLAGS="$LDFLAGS_64"
+  fi
 fi
 
 # Check whether --enable-static_libstdcxx was given.
