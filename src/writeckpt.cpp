@@ -146,7 +146,11 @@ mtcp_writememoryareas(int fd)
   }
 
   /* Finally comes the memory contents */
+  JTRACE("addr and len of restoreBuf (to hold mtcp_restart code)")
+    ((void *)ProcessInfo::instance().restoreBufAddr())
+    (ProcessInfo::instance().restoreBufLen());
   procSelfMaps = new ProcSelfMaps();
+  // We must not cause an mmap() here, or the mem regions will not be correct.
   while (procSelfMaps->getNextArea(&area)) {
     // TODO(kapil): Verify that we are not doing any operation that might
     // result in a change of memory layout. For example, a call to JALLOC_NEW
@@ -454,7 +458,7 @@ writememoryarea(int fd, Area *area, int stack_was_seen)
     JTRACE("skipping over memory special section")
       (area->name) (addr) (area->size);
   } else if ( area->__addr == ProcessInfo::instance().vdsoStart() ) {
-    //vDSO issue:
+    //  vDSO issue:
     //    As always, we never want to save the vdso section.  We will use
     //  the vdso section code provided by the kernel on restart.  Further,
     //  the user code on restart has already been initialized and so it
@@ -475,7 +479,7 @@ writememoryarea(int fd, Area *area, int stack_was_seen)
     //  be saving the original vdso section (which is wrong), and we would
     //  be failing to save the user's memory that was restored into the
     //  location labelled by the kernel's "[vdso]" label.  This last
-    //  case is even worse, since we have now failed to restore some user data. 
+    //  case is even worse, since we have now failed to restore some user data.
     //    This was observed to happen in RHEL 6.6.  The solution is to
     //  trust DMTCP for the vdso location (as in the if condition above),
     //  and not to trust the kernel's "[vdso]" label.
