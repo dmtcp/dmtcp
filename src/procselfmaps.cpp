@@ -73,7 +73,7 @@ ProcSelfMaps::ProcSelfMaps()
   JASSERT(lseek(fd, 0, SEEK_SET) == 0);
 
   numBytes = Util::readAll(fd, data, size);
-  JASSERT(numBytes > 0) (numBytes);
+  JASSERT(numBytes > 0 && numBytes < size) (numBytes);
 
   // TODO(kapil): Replace this assert with more robust code that would
   // reallocate the buffer with an extended size.
