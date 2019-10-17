@@ -841,6 +841,7 @@ S=DEFAULT_S
 
 runTest("pthread4",      1, ["./test/pthread4"])
 runTest("pthread5",      1, ["./test/pthread5"])
+runTest("pthread6",      1, ["./test/pthread6"])
 
 if HAS_MUTEX_WRAPPERS == "yes":
   runTest("mutex1",        1, ["./test/mutex1"])

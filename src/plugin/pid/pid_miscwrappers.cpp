@@ -344,6 +344,23 @@ syscall(long sys_num, ...)
   va_start(ap, sys_num);
 
   switch (sys_num) {
+  case SYS_arch_prctl:
+  {
+    SYSCALL_GET_ARGS_2(int, code, void *, addr);
+    ret = _real_syscall(sys_num, code, addr);
+    if (ret == 0 && code == ARCH_SET_FS) {
+      /*
+        DMTCP saves each thread's tid in a thread local variable called
+        _dmtcp_thread_tid. It may be possible that one thread sets its FS base-
+        register to another thread. If so, dmtcp_gettid() will point to another
+        thread's _dmtcp_thread_tid. Note that glibc don't have any wrapper for
+        gettid().
+      */
+      // reset the tid after calling __real_syscall
+      dmtcpResetTid(REAL_TO_VIRTUAL_PID(_real_syscall(SYS_gettid)));
+    }
+    break;
+  }
   case SYS_gettid:
   {
     ret = dmtcp_gettid();
