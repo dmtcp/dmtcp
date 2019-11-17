@@ -13,11 +13,11 @@
 #include <stdio.h>
 
 #define MAX_EVENTS 10
-/* Code to set up listening socket, 'listen_sock',
+/* Code to set up listening socket, with 'listen_sockfd',
    (socket(), bind(), listen()) omitted */
 
 struct sockaddr_in sockaddr;
-int listen_sock;
+int listen_sockfd;
 int use_epoll_create1 = 0;
 
 void server()
@@ -41,9 +41,9 @@ void server()
   }
 
   ev.events = EPOLLIN;
-  ev.data.fd = listen_sock;
-  if (epoll_ctl(epollfd, EPOLL_CTL_ADD, listen_sock, &ev) == -1) {
-    perror("epoll_ctl: listen_sock");
+  ev.data.fd = listen_sockfd;
+  if (epoll_ctl(epollfd, EPOLL_CTL_ADD, listen_sockfd, &ev) == -1) {
+    perror("epoll_ctl: listen_sockfd");
     exit(EXIT_FAILURE);
   }
 
@@ -56,8 +56,8 @@ void server()
 
     socklen_t addrlen = sizeof(struct sockaddr);
     for (size_t n = 0; n < nfds; ++n) {
-      if (events[n].data.fd == listen_sock) {
-        conn_sock = accept(listen_sock,
+      if (events[n].data.fd == listen_sockfd) {
+        conn_sock = accept(listen_sockfd,
                            (struct sockaddr *) &sockaddr, &addrlen);
         if (conn_sock == -1) {
           perror("accept");
@@ -85,7 +85,7 @@ void client()
   int sd;
   int i = 0;
   char byte;
-  close(listen_sock);
+  close(listen_sockfd);
   sd = socket(AF_INET, SOCK_STREAM, 0); /* create connection socket */
   connect(sd, (struct sockaddr *)&sockaddr, sizeof(sockaddr));
   while (1) { /* client writes and then reads */
@@ -103,7 +103,7 @@ void client()
 int
 main(int argc, char *argv[])
 {
-  int port = (argc == 2 ? atoi(argv[1]) : 6500);
+  int port = 6500; // We will search for a free port, starting here.
   int rc;
   pid_t pid;
 
@@ -118,15 +118,26 @@ main(int argc, char *argv[])
   // sockaddr.sin_addr.s_addr = INADDR_LOOPBACK;
   sockaddr.sin_port = htons(port);
 
-  listen_sock = socket(AF_INET, SOCK_STREAM, 0);
+  listen_sockfd = socket(AF_INET, SOCK_STREAM, 0);
   do {
     sockaddr.sin_port = htons(ntohs(sockaddr.sin_port) + 1);
-    rc = bind(listen_sock, (struct sockaddr *)&sockaddr, sizeof(sockaddr));
+    rc = bind(listen_sockfd, (struct sockaddr *)&sockaddr, sizeof(sockaddr));
   } while (rc == -1 && errno == EADDRINUSE);
   if (rc == -1) {
     perror("bind");
+    exit(1);
   }
-  listen(listen_sock, 5);
+  listen(listen_sockfd, 5);
+
+  // This is informational only; it could be deleted.
+  struct sockaddr_in sockaddr_tmp;
+  socklen_t addrlen;
+  rc = getsockname(listen_sockfd, (struct sockaddr *)&sockaddr_tmp, &addrlen);
+  if (rc == -1) {
+    perror("getsockname");
+    exit(1);
+  }
+  printf("Listening on port:  %d\n", (int)ntohs(sockaddr.sin_port));
 
   pid = fork();
   if (pid) { /* if parent process */
