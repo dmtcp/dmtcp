@@ -342,7 +342,7 @@ pthread_sigmask(int how, const sigset_t *set, sigset_t *oldmask)
 }
 
 /*
- * TODO: man page says that sigwait is implemented via sigtimedwait, however
+ * TODO: man page says that sigwait is implemented via sigtimedwait. However,
  * sigtimedwait can return EINTR (acc. to man page) whereas sigwait won't.
  * Should we make the wrappers for sigwait/sigtimedwait homogeneous??
  *                                                          -- Kapil
@@ -366,8 +366,8 @@ sigwait(const sigset_t *set, int *sig)
 
 /*
  * In sigwaitinfo and sigtimedwait, it is not possible to differentiate between
- * a DMTCP_SIGCKPT and any other signal (that is outside the given signal set)
- * that might have occurred while executing the system call. These system call
+ * a DMTCP_SIGCKPT and any other signal (that is outside the given signal set),
+ * which might have occurred while executing the system call. These system calls
  * will return -1 with errno set to EINTR.
  * To deal with the situation, we do not remove the DMTCP_SIGCKPT from the
  * signal set (if it is present); instead, we check the return value and if it
@@ -383,7 +383,7 @@ sigwait(const sigset_t *set, int *sig)
  * user supplied 'set' and then call sigwaitinfo and then we won't need to
  * raise the STOPSIGNAL ourselves. However, there is a catch. sigwaitinfo will
  * return 'EINTR' if the wait was interrupted by a signal handler (STOPSIGNAL
- * in our case), thus we can either call sigwaitinfo again or return the error
+ * in our case). Thus, we can either call sigwaitinfo again or return the error
  * to the user code; I would like to do the former.
  *                                                              -- Kapil
  */

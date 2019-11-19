@@ -211,7 +211,6 @@ if not os.path.isfile('./bin/dmtcp_launch'):
 
 #pad a string and print/flush it
 def printFixed(str, w=1):
-  # The comma at end of print prevents a "newline", but still adds space.
   os.write(sys.stdout.fileno(), str.ljust(w).encode("ascii"))
   sys.stdout.flush()
 
@@ -585,7 +584,7 @@ def runTestRaw(name, numProcs, cmds):
 
     for i in range(CYCLES):
       if i!=0 and i%2==0:
-        print() #newline
+        printFixed("\n")
         printFixed("",15)
       printFixed("ckpt:")
       # NOTE:  If this faile, it will throw an exception to CheckFailed
@@ -638,7 +637,7 @@ def runTestRaw(name, numProcs, cmds):
         printFixed("; ")
 
     testKill()
-    print() #newline
+    printFixed("\n")
     stats[0]+=1
 
   except CheckFailed as e:
