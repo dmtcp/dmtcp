@@ -259,7 +259,7 @@ pthread_exit(void *retval)
  *   while !succeeded
  *     futex(&pd->tid, FUTEX_WAIT, 0, _tid, ...)
  * As we can see, if the checkpoint is issued during pthread_join(), on
- * restart, the tid would have changed, but the call to futex would still used
+ * restart, the tid would have changed, but the call to futex would still use
  * the previously cached tid. This causes the caller to spin with 100% cpu
  * usage.
  *
