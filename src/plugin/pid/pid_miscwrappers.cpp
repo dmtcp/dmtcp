@@ -21,16 +21,6 @@
 
 #include <semaphore.h>
 #include <sys/syscall.h>
-#ifdef __aarch64__
-#define __ARCH_WANT_SYSCALL_DEPRECATED
-
-// SYS_getpgrp is a deprecated kernel call in aarch64, but in favor of what?
-#include <asm-generic/unistd.h>
-
-// SYS_getpgrp undefined in aarch64, but add extra insurance
-#undef SYS_getpgrp
-#define SYS_getpgrp __NR_getpgrp
-#endif  // ifdef __aarch64__
 #include <linux/version.h>
 
 #include "jassert.h"
@@ -373,11 +363,16 @@ syscall(long sys_num, ...)
     break;
   }
 
+// SYS_getpgrp undefined in aarch64.
+// Presumably, it's handled by libc, and is not a kernel call
+//   in AARCH64 (e.g., v5.01).
+#ifndef __aarch64__
   case SYS_getpgrp:
   {
     ret = getpgrp();
     break;
   }
+#endif
 
   case SYS_getpgid:
   {
