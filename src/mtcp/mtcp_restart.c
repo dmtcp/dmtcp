@@ -462,11 +462,13 @@ static void restart_fast_path()
                 CLEAN_FOR_64_BIT(sub %0, %%ebp; )
                 : : "r" (rinfo.stack_offset) : "memory");
 
-#elif defined(__arm__) || defined(__aarch64__)
-  asm volatile ("sub sp, sp, %0; mov fp, fp, %0 \n\t"
+#elif defined(__aarch64__)
+  // Use x29 instead of fp because GCC's inline assembler does not recognize fp.
+  asm volatile ("sub sp, sp, %0\n\t"
+                "sub x29, x29, %0"
                 : : "r" (rinfo.stack_offset) : "memory");
 
-#else /* if defined(__i386__) || defined(__x86_64__) */
+#else /* if defined(__i386__) || defined(__x86_64__) || ... */
 
 # error "assembly instruction not translated"
 

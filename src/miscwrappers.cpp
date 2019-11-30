@@ -47,21 +47,20 @@
 # define __ARCH_WANT_SYSCALL_NO_FLAGS
 // SYS_fork is a deprecated kernel call in aarch64; in favor of SYS_clone?
 # include <asm-generic/unistd.h>
-// SYS_fork undefined in aarch64, but add extra insurance
-# undef SYS_fork
-# undef SYS_open
-# undef SYS_pipe
-# undef SYS_poll
-# define SYS_fork __NR_fork
-# define SYS_open __NR_open
-# define SYS_pipe __NR_pipe
-# define SYS_poll __NR_poll
-// These kernel calls are not deprecated.  But SYS_XXX is not defined for them.
-# define SYS_epoll_create __NR_epoll_create
-# define SYS_inotify_init __NR_inotify_init
-# define SYS_signalfd __NR_signalfd
-# define SYS_eventfd __NR_eventfd
-#endif
+// SYS_fork, etc., are undefined in aarch64
+// Presumably, libc translates the POSIX syscalls into later kernel calls.
+// # define SYS_fork         __NR_fork
+// # define SYS_open         __NR_open
+// # define SYS_pipe         __NR_pipe
+// # define SYS_poll         __NR_poll
+
+// These kernel calls are now often gone on aarch64.  SYS_XXX should not be
+//   defined for them.
+// # define SYS_epoll_create __NR_epoll_create
+// # define SYS_inotify_init __NR_inotify_init
+// # define SYS_signalfd     __NR_signalfd
+// # define SYS_eventfd      __NR_eventfd
+#endif // ifdef __aarch64__
 
 using namespace dmtcp;
 
@@ -321,24 +320,28 @@ extern "C" long syscall(long sys_num, ... )
       break;
     }
 
-    case SYS_fork:
+#ifndef __aarch64__
+  case SYS_fork:
     {
       ret = fork();
       break;
     }
+#endif // ifndef __aarch64__
     case SYS_exit:
     {
       SYSCALL_GET_ARG(int,status);
       exit(status);
       break;
     }
-    case SYS_open:
+#ifndef __aarch64__
+  case SYS_open:
     {
       SYSCALL_GET_ARGS_3(const char*,pathname,int,flags,mode_t,mode);
       ret = open(pathname, flags, mode);
       break;
     }
-    case SYS_close:
+#endif // ifndef __aarch64__
+  case SYS_close:
     {
       SYSCALL_GET_ARG(int,fd);
       ret = close(fd);
@@ -443,12 +446,14 @@ extern "C" long syscall(long sys_num, ... )
     }
 #endif
 
-    case SYS_pipe:
+#ifndef __aarch64__
+  case SYS_pipe:
     {
       SYSCALL_GET_ARG(int*,fds);
       ret = pipe(fds);
       break;
     }
+#endif // ifndef __aarch64__
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,27)) && __GLIBC_PREREQ(2,9)
     case SYS_pipe2:
     {
@@ -498,32 +503,40 @@ extern "C" long syscall(long sys_num, ... )
     }
 # endif
 #endif
-    case SYS_poll:
+#ifndef __aarch64__
+  case SYS_poll:
     {
       SYSCALL_GET_ARGS_3(struct pollfd *,fds,nfds_t,nfds,int,timeout);
       ret = poll(fds, nfds, timeout);
       break;
     }
-    case SYS_epoll_create:
+#endif // ifndef __aarch64__
+#ifndef __aarch64__
+  case SYS_epoll_create:
     {
       SYSCALL_GET_ARG(int,size);
       ret = epoll_create(size);
       break;
     }
+#endif // ifndef __aarch64__
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,13) && __GLIBC_PREREQ(2,4)
-    case SYS_inotify_init:
+# ifndef __aarch64__
+  case SYS_inotify_init:
     {
       ret = inotify_init();
       break;
     }
+# endif // ifndef __aarch64__
 #endif
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22) && __GLIBC_PREREQ(2,8)
-    case SYS_signalfd:
+# ifndef __aarch64__
+  case SYS_signalfd:
     {
       SYSCALL_GET_ARGS_3(int,fd,sigset_t *,mask,int,flags);
       ret = signalfd(fd, mask, flags);
       break;
     }
+# endif // ifndef __aarch64__
 #endif
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,27) && __GLIBC_PREREQ(2,8)
     case SYS_signalfd4:
@@ -534,12 +547,14 @@ extern "C" long syscall(long sys_num, ... )
     }
 #endif
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22) && __GLIBC_PREREQ(2,8)
-    case SYS_eventfd:
+# ifndef __aarch64__
+  case SYS_eventfd:
     {
       SYSCALL_GET_ARGS_2(unsigned int,initval,int,flags);
       ret = eventfd(initval, flags);
       break;
     }
+# endif // ifndef __aarch64__
 #endif
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,27) && __GLIBC_PREREQ(2,8)
     case SYS_eventfd2:
@@ -553,7 +568,7 @@ extern "C" long syscall(long sys_num, ... )
     case SYS_epoll_create1:
     {
       SYSCALL_GET_ARG(int,flags);
-      ret = epoll_create(flags);
+      ret = epoll_create1(flags);
       break;
     }
     case SYS_inotify_init1:
