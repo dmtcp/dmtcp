@@ -21,7 +21,6 @@
 
 #include <semaphore.h>
 #include <sys/syscall.h>
-#include <asm-generic/unistd.h>
 #include <linux/version.h>
 
 #include "config.h"  // for HAS_CMA
