@@ -437,7 +437,7 @@ if ((unsigned long)addr > (unsigned long)beg_uint) { while(1); }
 NO_OPTIMIZE
 static void restart_fast_path()
 {
-#ifdef LOGGING
+#ifdef DEBUG
   int mtcp_sys_errno;  // for sake of DPRINTF()
 #endif
 
