@@ -206,14 +206,20 @@ void *xmalloc(size_t len)
 /* a simple wrapper around tmpnam */
 char *xtmpnam(char *space)
 {
-  char *buf = NULL;
   errno = 0;
-  if ((buf = tmpnam(space)) == NULL) {
+  char *template = "/tmp/dmtcp-syscall-tester-XXXXXX";
+  assert(strlen(template)+1 <= NAMEBUF);
+  strncpy(space, template, strlen(template)+1);
+  int tmpfd = mkstemp(space);
+  if (tmpfd == -1) {
+    // Original used deprecated tmpnam(): if ((buf = tmpnam(space)) == NULL)
     printf("Could not determine unique file name.(%s)\n", strerror(errno));
     fflush(NULL);
     exit(EXIT_FAILURE);
   }
-  return buf;
+  close(tmpfd);
+  unlink(space); // Ensure that this name is available for creation.
+  return space;
 }
 
 /* These few calls are to translate what the OS tells us about certain call
