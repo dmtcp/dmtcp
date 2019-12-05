@@ -523,9 +523,9 @@ void Util::runMtcpRestore(int is32bitElf, const char* path, int fd,
   if (argvSizeDiff > 0) {
     dummyEnviron = (char*) malloc(argvSizeDiff);
     memset(dummyEnviron, '0', argvSizeDiff - 1 );
-    strncpy(dummyEnviron,
-            ENV_VAR_DMTCP_DUMMY "=",
-            strlen(ENV_VAR_DMTCP_DUMMY "="));
+    memcpy(dummyEnviron,
+           ENV_VAR_DMTCP_DUMMY "=",
+           strlen(ENV_VAR_DMTCP_DUMMY "="));
     dummyEnviron[argvSizeDiff - 1] = '\0';
     newEnv[dummyEnvironIndex] = dummyEnviron;
   }
