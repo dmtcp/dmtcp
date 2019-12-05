@@ -758,7 +758,7 @@ resource.setrlimit(resource.RLIMIT_STACK, oldLimit)
 # program will try to unlink the file once again, but the unlink operation will
 # fail, causing the test to fail.
 old_ckpt_cmd = CKPT_CMD
-CKPT_CMD = 'xc'
+CKPT_CMD = b'xc'
 runTest("syscall-tester",  1, ["./test/syscall-tester"])
 CKPT_CMD = old_ckpt_cmd
 
