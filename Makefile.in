@@ -187,7 +187,7 @@ tests: build
 LIMIT=ulimit -v 33554432
 
 check: tests
-	@ if python -c 'print "Python exits."' > /dev/null; then \
+	@ if python -c 'print("Python exits.")' > /dev/null; then \
 	  bash -c "$(LIMIT) && $(top_srcdir)/test/autotest.py ${AUTOTEST} $*"; \
 	  else echo '*** No python found in your path.'; echo '*** Please add' \
 	   ' python to path or build Python 2.x for x >= 3.'; \
