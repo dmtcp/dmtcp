@@ -477,9 +477,9 @@ Util::runMtcpRestore(int is32bitElf,
   if (argvSizeDiff > 0) {
     dummyEnviron = (char *)malloc(argvSizeDiff);
     memset(dummyEnviron, '0', argvSizeDiff - 1);
-    strncpy(dummyEnviron,
-            ENV_VAR_DMTCP_DUMMY "=",
-            strlen(ENV_VAR_DMTCP_DUMMY "="));
+    memcpy(dummyEnviron,
+           ENV_VAR_DMTCP_DUMMY "=",
+           strlen(ENV_VAR_DMTCP_DUMMY "="));
     dummyEnviron[argvSizeDiff - 1] = '\0';
     newEnv[dummyEnvironIndex] = dummyEnviron;
   }
@@ -572,20 +572,9 @@ Util::getPath(const char *cmd, bool is32bit)
   return buf;
 }
 
-static const char *dmtcpArgs[128] = {
-  const_cast<const char *>("--coord-host"),
-};
-
-static size_t numDmtcpArgs = 0;
-
-// Buffer to hold all arg strings.
-static char dmtcpArgBuf[10*1024] = {0};
-
 char **
 Util::getDmtcpArgs(void)
 {
-  size_t ret = 0;
-
   const char *sigckpt = getenv(ENV_VAR_SIGCKPT);
   const char *compression = getenv(ENV_VAR_COMPRESSION);
   const char *allocPlugin = getenv(ENV_VAR_ALLOC_PLUGIN);
