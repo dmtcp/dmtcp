@@ -694,7 +694,7 @@ ThreadList::waitForAllRestored(Thread *thread)
 #ifdef HAS_PR_SET_PTRACER
       prctl(PR_SET_PTRACER, PR_SET_PTRACER_ANY, 0, 0, 0); // For: gdb attach
 #endif // ifdef HAS_PR_SET_PTRACER
-      int dummy = 1;
+      volatile int dummy = 1;
       while (dummy);
 #ifdef HAS_PR_SET_PTRACER
       prctl(PR_SET_PTRACER, 0, 0, 0, 0); // Revert permission to default.
@@ -709,7 +709,6 @@ ThreadList::waitForAllRestored(Thread *thread)
 void
 ThreadList::postRestartDebug(double readTime, int restartPause)
 { // Don't try to print before debugging.  Who knows what is working yet?
-  int dummy = 1;
 #ifndef DEBUG
   // printf may fail, but we'll risk it to let user know this:
   printf("\n** DMTCP: It appears DMTCP not configured with '--enable-debug'\n");
@@ -717,6 +716,7 @@ ThreadList::postRestartDebug(double readTime, int restartPause)
 #endif
   if (restartPause == 1) {
     // If we're here, user set env. to DMTCP_RESTART_PAUSE==0; is expecting this
+    volatile int dummy = 1;
     while (dummy);
     // User should have done GDB attach if we're here.
 #ifdef HAS_PR_SET_PTRACER
@@ -749,7 +749,7 @@ ThreadList::postRestart(double readTime)
 #endif // ifdef HAS_PR_SET_PTRACER
     // In src/mtcp_restart.c, we printed to user:
     // "Stopping due to env. var DMTCP_RESTART_PAUSE or MTCP_RESTART_PAUSE ..."
-    int dummy = 1;
+    volatile int dummy = 1;
     while (dummy);
 #ifdef HAS_PR_SET_PTRACER
     prctl(PR_SET_PTRACER, 0, 0, 0, 0);   // Revert permission to default.
@@ -840,7 +840,7 @@ restarthread(void *threadv)
 #endif // ifdef HAS_PR_SET_PTRACER
       // In src/mtcp_restart.c, we printed to user:
       // "Stopping due to env. var DMTCP_RESTART_PAUSE or MTCP_RESTART_PAUSE .."
-      int dummy = 1;
+      volatile int dummy = 1;
       while (dummy);
 #ifdef HAS_PR_SET_PTRACER
       prctl(PR_SET_PTRACER, 0, 0, 0, 0); // Revert permission to default.
