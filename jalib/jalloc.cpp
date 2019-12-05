@@ -220,7 +220,7 @@ class JFixedAllocStack
 
   private:
     FreeItem *volatile _root;
-    size_t _blockSize;
+    size_t _blockSize = 0;
     char padding[128];
     int volatile _numExpands;
 };
