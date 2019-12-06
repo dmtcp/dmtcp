@@ -730,7 +730,8 @@ ThreadList::postRestartDebug(double readTime, int restartPause)
   postRestart(readTime);
 }
 
-// threadlist.h sets these as defaulkt arguments: readTime=0.0, restartPause=0
+// FIXME:  Is this comment still true?
+//   threadlist.h sets these as default arguments: readTime=0.0, restartPause=0
 void
 ThreadList::postRestart(double readTime)
 {
