@@ -318,7 +318,7 @@ void ConnectionList::add(int fd, Connection* c)
   if (_fdToCon.find(fd) != _fdToCon.end()) {
     /* In ordinary situations, we never exercise this path since we already
      * capture close() and remove the connection. However, there is one
-     * particular case where this assumption fails -- when gblic opens a socket
+     * particular case where this assumption fails -- when glibc opens a socket
      * using socket() but closes it using the internal close_not_cancel() thus
      * bypassing our close wrapper. This behavior is observed when dealing with
      * getaddrinfo().

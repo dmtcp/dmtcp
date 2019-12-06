@@ -749,7 +749,8 @@ ThreadList::postRestartDebug(int restartPause)
   postRestart();
 }
 
-// threadlist.h sets these as defaulkt arguments: restartPause=0
+// FIXME:  Is this comment still true?
+//   threadlist.h sets these as default arguments: restartPause=0
 void
 ThreadList::postRestart(void)
 {

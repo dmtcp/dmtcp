@@ -590,8 +590,8 @@ extern "C" int fcntl(int fd, int cmd, ...)
   DMTCP_PLUGIN_DISABLE_CKPT();
 
   if (cmd == F_SETOWN) {
-    pid_t virtualPid = VIRTUAL_TO_REAL_PID((pid_t) (unsigned long) arg_in);
-    arg = (void*) (unsigned long) virtualPid;
+    pid_t realPid = VIRTUAL_TO_REAL_PID((pid_t) (unsigned long) arg_in);
+    arg = (void*) (unsigned long) realPid;
   }
 
   int result = _real_fcntl(fd, cmd, arg);
