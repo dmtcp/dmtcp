@@ -1120,9 +1120,18 @@ void restore_libc(ThreadTLSInfo *tlsInfo, int tls_pid_offset,
   }
 
   /* Now pass this to the kernel, so it can adjust the segment descriptor.
-   *   tls_set_thread_areaa() uses arg1 for fs and arg2 for gs.
+   *   i386, x86_65: tls_set_thread_areaa() uses arg1 for fs and arg2 for gs.
    * This will make different kernel calls according to the CPU architecture. */
-  if (tls_set_thread_area (&(tlsInfo->gdtentrytls[0]), &(tlsInfo->gdtentrytls[1])) != 0) {
+#if defined(__i386__) || defined(__x86_64__)
+  if (tls_set_thread_area (&(tlsInfo->gdtentrytls[0]), &(tlsInfo->gdtentrytls[1])) != 0)
+#elif defined(__arm__) || defined(__aarch64__)
+  // FIXME: ARM uses tls_get_thread_area with incompatible syntax,
+  //        setting global variable myinfo_gs.  Fix this to work
+  //        for per-thread storage (multiple threads).
+  //        See commit 591a1631 (2.6.0), 7d02a2e0 (3.0):  PR #609
+  if (tls_set_thread_area (&(tlsInfo->gdtentrytls[0]), myinfo_gs) != 0)
+#endif
+  {
     MTCP_PRINTF("Error restoring GDT TLS entry; errno: %d\n", mtcp_sys_errno);
     mtcp_abort();
   }
