@@ -597,7 +597,7 @@ def runTestRaw(name, numProcs, cmds):
       #wait for launched processes to settle down, before we try to checkpoint
       sleep(S*SLOW)
       testCheckpoint()
-      printFixed("PASSED ")
+      printFixed("PASSED; ")
       testKill()
 
       printFixed("rstr:")
@@ -636,10 +636,12 @@ def runTestRaw(name, numProcs, cmds):
               printFixed("(Either first process didn't die, or else this long" +
                          " delay has been observed due to a slow" +
                          " NFS-based filesystem.)")
-            printFixed(" retry:")
+            printFixed("; retry:")
             testKill()
       if i != CYCLES - 1:
-        printFixed("; ")
+        printFixed(" -> ")
+        if i % 2 == 1:
+          printFixed("(cont.)")
 
     testKill()
     printFixed("\n")
