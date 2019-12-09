@@ -43,7 +43,14 @@ static pthread_mutex_t tblLock = PTHREAD_MUTEX_INITIALIZER;
 
 static int roundingMode = -1;
 static fenv_t envp;
+static rlim_t rlim_cur_as = 0;
+static rlim_t rlim_cur_core = 0;
+static rlim_t rlim_cur_cpu = 0;
+static rlim_t rlim_cur_data = 0;
+static rlim_t rlim_cur_fsize = 0;
+static rlim_t rlim_cur_nice = 0;
 static rlim_t rlim_cur_nofile = 0;
+static rlim_t rlim_cur_nproc = 0;
 static rlim_t rlim_cur_stack = 0;
 
 static void _do_lock_tbl()
@@ -88,19 +95,23 @@ void dmtcp_ProcessInfo_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
       fesetround(roundingMode);
 
       { struct rlimit rlim = {0, 0};
-        getrlimit(RLIMIT_NOFILE, &rlim);
-        JWARNING(rlim_cur_nofile <= rlim.rlim_max)
-          (rlim_cur_nofile) (rlim.rlim_max)
-          .Text("Prev. soft limit of RLIMIT_NOFILE lowered to new hard limit");
-        rlim.rlim_cur = rlim_cur_nofile;
-        JASSERT(setrlimit(RLIMIT_NOFILE, &rlim) == 0);
 
-        getrlimit(RLIMIT_STACK, &rlim);
-        JWARNING(rlim_cur_stack <= rlim.rlim_max)
-          (rlim_cur_stack) (rlim.rlim_max)
-          .Text("Prev. soft limit of RLIMIT_STACK lowered to new hard limit");
-        rlim.rlim_cur = rlim_cur_stack;
-        JASSERT(setrlimit(RLIMIT_STACK, &rlim) == 0);
+#define RESTORE_RLIMIT(_RLIMIT,_rlim_cur) \
+        getrlimit(_RLIMIT, &rlim); \
+        JWARNING(_rlim_cur <= rlim.rlim_max) (_rlim_cur) (rlim.rlim_max) \
+          .Text("Prev. soft limit of " #_RLIMIT " lowered to new hard limit"); \
+        rlim.rlim_cur = _rlim_cur; \
+        JASSERT(setrlimit(_RLIMIT, &rlim) == 0);
+
+        RESTORE_RLIMIT(RLIMIT_AS, rlim_cur_as);
+        RESTORE_RLIMIT(RLIMIT_CORE, rlim_cur_core);
+        RESTORE_RLIMIT(RLIMIT_CPU, rlim_cur_cpu);
+        RESTORE_RLIMIT(RLIMIT_DATA, rlim_cur_data);
+        RESTORE_RLIMIT(RLIMIT_FSIZE, rlim_cur_fsize);
+        RESTORE_RLIMIT(RLIMIT_NICE, rlim_cur_nice);
+        RESTORE_RLIMIT(RLIMIT_NOFILE, rlim_cur_nofile);
+        RESTORE_RLIMIT(RLIMIT_NPROC, rlim_cur_nproc);
+        RESTORE_RLIMIT(RLIMIT_STACK, rlim_cur_stack);
       }
       ProcessInfo::instance().restart();
       break;
@@ -116,11 +127,19 @@ void dmtcp_ProcessInfo_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
       fegetenv(&envp);
 
       { struct rlimit rlim = {0, 0};
-        getrlimit(RLIMIT_NOFILE, &rlim);
-        rlim_cur_nofile = rlim.rlim_cur;
+#define SAVE_RLIMIT(_RLIMIT,_rlim_cur) \
+        getrlimit(_RLIMIT, &rlim); \
+        _rlim_cur = rlim.rlim_cur;
 
-        getrlimit(RLIMIT_STACK, &rlim);
-        rlim_cur_stack = rlim.rlim_cur;
+        SAVE_RLIMIT(RLIMIT_AS, rlim_cur_as);
+        SAVE_RLIMIT(RLIMIT_CORE, rlim_cur_core);
+        SAVE_RLIMIT(RLIMIT_CPU, rlim_cur_cpu);
+        SAVE_RLIMIT(RLIMIT_DATA, rlim_cur_data);
+        SAVE_RLIMIT(RLIMIT_FSIZE, rlim_cur_fsize);
+        SAVE_RLIMIT(RLIMIT_NICE, rlim_cur_nice);
+        SAVE_RLIMIT(RLIMIT_NOFILE, rlim_cur_nofile);
+        SAVE_RLIMIT(RLIMIT_NPROC, rlim_cur_nproc);
+        SAVE_RLIMIT(RLIMIT_STACK, rlim_cur_stack);
       }
       break;
 

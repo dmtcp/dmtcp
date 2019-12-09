@@ -4438,8 +4438,10 @@ int BasicGetSetlimit(void)
   EXPECTED_RESP;
   passed = expect_val(nrlim.rlim_cur, crlim.rlim_cur);
   EXPECTED_RESP;
-  passed = expect_val(nrlim.rlim_max, crlim.rlim_max);
-  EXPECTED_RESP;
+  /* NOTE: Skipping test; DMTCP allows a larger max on a new, restart machine.
+   * passed = expect_val(nrlim.rlim_max, crlim.rlim_max);
+   * EXPECTED_RESP;
+   */
 
   /* This can't be done by a non-super user */
   /*    passed = expect_zng(SUCCESS, setrlimit_test(&orlim));*/
