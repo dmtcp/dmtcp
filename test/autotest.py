@@ -1114,18 +1114,11 @@ if HAS_MATLAB == "yes" and sys.version_info[0:2] >= (2,6):
   S=DEFAULT_S
 
 if HAS_MPICH == "yes":
-  runTest("mpd",         1, [MPICH_MPD])
+  runTest("hellompich-n1", 3,
+          [MPICH_PATH + "/mpirun" + " -np 1 ./test/hellompich"])
 
-  runTest("hellompich-n1", 4,
-          [MPICH_MPD, MPICH_MPIEXEC + " -n 1 ./test/hellompich"])
-
-  runTest("hellompich-n2", 6,
-          [MPICH_MPD, MPICH_MPIEXEC + " -n 2 ./test/hellompich"])
-
-  runTest("mpdboot",     1, [MPICH_MPDBOOT+" -n 1"])
-
-  #os.system(MPICH_MPDCLEANUP)
-
+  runTest("hellompich-n2", 4,
+          [MPICH_PATH + "/mpirun" + " -np 2 ./test/hellompich"])
 
 if HAS_OPENMPI == "yes":
   # Compute:  USES_OPENMPI_ORTED

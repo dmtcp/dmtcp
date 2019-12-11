@@ -629,13 +629,11 @@ LIBOBJS
 HAS_OPENMPI
 OPENMPI_MPIRUN
 OPENMPI_MPICC
+MPICH_PATH
 HAS_MPICH
 MPICH_MPIEXEC
+MPICH_MPIRUN
 MPICH_MPICC
-MPICH_MPDCLEANUP
-MPICH_MPDALLEXIT
-MPICH_MPDBOOT
-MPICH_MPD
 HAS_SSH_LOCALHOST
 HAS_GZIP
 MATLAB
@@ -1511,7 +1509,8 @@ Optional Features:
 Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
   --without-PACKAGE       do not use PACKAGE (same as --with-PACKAGE=no)
-  --with-mpich=path       Compile mpich2 tests in `make check`
+  --with-mpich=mpich_path_prefix
+                          Compile mpich3 tests in `make check`
 
 Some influential environment variables:
   CC          C compiler command
@@ -7215,182 +7214,28 @@ else
 
 fi
 
-#check for mpich2
+#check for mpich3
 
 # Check whether --with-mpich was given.
 if test "${with_mpich+set}" = set; then :
-  withval=$with_mpich; mpich=$withval
+  withval=$with_mpich; mpich_path_prefix=$withval
 else
-  mpich=no
+  mpich_path_prefix=no
 fi
 
 
-if test "$mpich" != "no"; then
-  mpich_path="$mpich:$mpich/bin"
-  # Extract the first word of "mpd", so it can be a program name with args.
-set dummy mpd; ac_word=$2
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
-$as_echo_n "checking for $ac_word... " >&6; }
-if ${ac_cv_path_MPICH_MPD+:} false; then :
-  $as_echo_n "(cached) " >&6
+mpich_path="no"
+if test "$mpich_path_prefix" != "no"; then
+  mpich_path="$mpich_path_prefix:$mpich_path_prefix/bin"
 else
-  case $MPICH_MPD in
-  [\\/]* | ?:[\\/]*)
-  ac_cv_path_MPICH_MPD="$MPICH_MPD" # Let the user override the test with a path.
-  ;;
-  *)
-  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-for as_dir in $mpich_path
-do
-  IFS=$as_save_IFS
-  test -z "$as_dir" && as_dir=.
-    for ac_exec_ext in '' $ac_executable_extensions; do
-  if as_fn_executable_p "$as_dir/$ac_word$ac_exec_ext"; then
-    ac_cv_path_MPICH_MPD="$as_dir/$ac_word$ac_exec_ext"
-    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
-    break 2
+  # Let's see if we can find mpicc in the default path
+  mpiccpath=`which mpicc`
+  mpicclink=`readlink -f $mpiccpath`
+  if test "`basename $mpicclink`" = mpicc.mpich; then
+    mpich_path=`dirname $mpiccpath`
   fi
-done
-  done
-IFS=$as_save_IFS
-
-  test -z "$ac_cv_path_MPICH_MPD" && ac_cv_path_MPICH_MPD="no"
-  ;;
-esac
 fi
-MPICH_MPD=$ac_cv_path_MPICH_MPD
-if test -n "$MPICH_MPD"; then
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $MPICH_MPD" >&5
-$as_echo "$MPICH_MPD" >&6; }
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-fi
-
-
-  # Extract the first word of "mpdboot", so it can be a program name with args.
-set dummy mpdboot; ac_word=$2
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
-$as_echo_n "checking for $ac_word... " >&6; }
-if ${ac_cv_path_MPICH_MPDBOOT+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  case $MPICH_MPDBOOT in
-  [\\/]* | ?:[\\/]*)
-  ac_cv_path_MPICH_MPDBOOT="$MPICH_MPDBOOT" # Let the user override the test with a path.
-  ;;
-  *)
-  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-for as_dir in $mpich_path
-do
-  IFS=$as_save_IFS
-  test -z "$as_dir" && as_dir=.
-    for ac_exec_ext in '' $ac_executable_extensions; do
-  if as_fn_executable_p "$as_dir/$ac_word$ac_exec_ext"; then
-    ac_cv_path_MPICH_MPDBOOT="$as_dir/$ac_word$ac_exec_ext"
-    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
-    break 2
-  fi
-done
-  done
-IFS=$as_save_IFS
-
-  test -z "$ac_cv_path_MPICH_MPDBOOT" && ac_cv_path_MPICH_MPDBOOT="no"
-  ;;
-esac
-fi
-MPICH_MPDBOOT=$ac_cv_path_MPICH_MPDBOOT
-if test -n "$MPICH_MPDBOOT"; then
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $MPICH_MPDBOOT" >&5
-$as_echo "$MPICH_MPDBOOT" >&6; }
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-fi
-
-
-  # Extract the first word of "mpdallexit", so it can be a program name with args.
-set dummy mpdallexit; ac_word=$2
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
-$as_echo_n "checking for $ac_word... " >&6; }
-if ${ac_cv_path_MPICH_MPDALLEXIT+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  case $MPICH_MPDALLEXIT in
-  [\\/]* | ?:[\\/]*)
-  ac_cv_path_MPICH_MPDALLEXIT="$MPICH_MPDALLEXIT" # Let the user override the test with a path.
-  ;;
-  *)
-  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-for as_dir in $mpich_path
-do
-  IFS=$as_save_IFS
-  test -z "$as_dir" && as_dir=.
-    for ac_exec_ext in '' $ac_executable_extensions; do
-  if as_fn_executable_p "$as_dir/$ac_word$ac_exec_ext"; then
-    ac_cv_path_MPICH_MPDALLEXIT="$as_dir/$ac_word$ac_exec_ext"
-    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
-    break 2
-  fi
-done
-  done
-IFS=$as_save_IFS
-
-  test -z "$ac_cv_path_MPICH_MPDALLEXIT" && ac_cv_path_MPICH_MPDALLEXIT="no"
-  ;;
-esac
-fi
-MPICH_MPDALLEXIT=$ac_cv_path_MPICH_MPDALLEXIT
-if test -n "$MPICH_MPDALLEXIT"; then
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $MPICH_MPDALLEXIT" >&5
-$as_echo "$MPICH_MPDALLEXIT" >&6; }
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-fi
-
-
-  # Extract the first word of "mpdcleanup", so it can be a program name with args.
-set dummy mpdcleanup; ac_word=$2
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
-$as_echo_n "checking for $ac_word... " >&6; }
-if ${ac_cv_path_MPICH_MPDCLEANUP+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  case $MPICH_MPDCLEANUP in
-  [\\/]* | ?:[\\/]*)
-  ac_cv_path_MPICH_MPDCLEANUP="$MPICH_MPDCLEANUP" # Let the user override the test with a path.
-  ;;
-  *)
-  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-for as_dir in $mpich_path
-do
-  IFS=$as_save_IFS
-  test -z "$as_dir" && as_dir=.
-    for ac_exec_ext in '' $ac_executable_extensions; do
-  if as_fn_executable_p "$as_dir/$ac_word$ac_exec_ext"; then
-    ac_cv_path_MPICH_MPDCLEANUP="$as_dir/$ac_word$ac_exec_ext"
-    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
-    break 2
-  fi
-done
-  done
-IFS=$as_save_IFS
-
-  test -z "$ac_cv_path_MPICH_MPDCLEANUP" && ac_cv_path_MPICH_MPDCLEANUP="no"
-  ;;
-esac
-fi
-MPICH_MPDCLEANUP=$ac_cv_path_MPICH_MPDCLEANUP
-if test -n "$MPICH_MPDCLEANUP"; then
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $MPICH_MPDCLEANUP" >&5
-$as_echo "$MPICH_MPDCLEANUP" >&6; }
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-fi
-
-
+if test "mpich_path" != "no"; then
   # Extract the first word of "mpicc", so it can be a program name with args.
 set dummy mpicc; ac_word=$2
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
@@ -7404,7 +7249,7 @@ else
   ;;
   *)
   as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-for as_dir in $mpich_path
+for as_dir in no
 do
   IFS=$as_save_IFS
   test -z "$as_dir" && as_dir=.
@@ -7418,7 +7263,7 @@ done
   done
 IFS=$as_save_IFS
 
-  test -z "$ac_cv_path_MPICH_MPICC" && ac_cv_path_MPICH_MPICC="no"
+  test -z "$ac_cv_path_MPICH_MPICC" && ac_cv_path_MPICH_MPICC="yes"
   ;;
 esac
 fi
@@ -7426,6 +7271,47 @@ MPICH_MPICC=$ac_cv_path_MPICH_MPICC
 if test -n "$MPICH_MPICC"; then
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: $MPICH_MPICC" >&5
 $as_echo "$MPICH_MPICC" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+fi
+
+
+  # Extract the first word of "mpirun", so it can be a program name with args.
+set dummy mpirun; ac_word=$2
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+$as_echo_n "checking for $ac_word... " >&6; }
+if ${ac_cv_path_MPICH_MPIRUN+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  case $MPICH_MPIRUN in
+  [\\/]* | ?:[\\/]*)
+  ac_cv_path_MPICH_MPIRUN="$MPICH_MPIRUN" # Let the user override the test with a path.
+  ;;
+  *)
+  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in no
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if as_fn_executable_p "$as_dir/$ac_word$ac_exec_ext"; then
+    ac_cv_path_MPICH_MPIRUN="$as_dir/$ac_word$ac_exec_ext"
+    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+  test -z "$ac_cv_path_MPICH_MPIRUN" && ac_cv_path_MPICH_MPIRUN="yes"
+  ;;
+esac
+fi
+MPICH_MPIRUN=$ac_cv_path_MPICH_MPIRUN
+if test -n "$MPICH_MPIRUN"; then
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $MPICH_MPIRUN" >&5
+$as_echo "$MPICH_MPIRUN" >&6; }
 else
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
 $as_echo "no" >&6; }
@@ -7445,7 +7331,7 @@ else
   ;;
   *)
   as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-for as_dir in $mpich_path
+for as_dir in no
 do
   IFS=$as_save_IFS
   test -z "$as_dir" && as_dir=.
@@ -7459,7 +7345,7 @@ done
   done
 IFS=$as_save_IFS
 
-  test -z "$ac_cv_path_MPICH_MPIEXEC" && ac_cv_path_MPICH_MPIEXEC="no"
+  test -z "$ac_cv_path_MPICH_MPIEXEC" && ac_cv_path_MPICH_MPIEXEC="yes"
   ;;
 esac
 fi
@@ -7473,19 +7359,30 @@ $as_echo "no" >&6; }
 fi
 
 
-  if test "$MPICH_MPD" = "no"        ||\
-     test "$MPICH_MPDBOOT" = "no"    ||\
-     test "$MPICH_MPDALLEXIT" = "no" ||\
-     test "$MPICH_MPDCLEANUP" = "no" ||\
+  if test "$MPICH_MPIRUN" = "no"     ||\
      test "$MPICH_MPICC" = "no"      ||\
      test "$MPICH_MPIEXEC" = "no";
   then
-    as_fn_error $? "Invalid mpich path, use --with-mpich=<path>" "$LINENO" 5
+    mpich_path="no"
   fi
+fi
+if test "$mpich_path" = "no"; then
+  if test "$mpich_path_prefix" = "no"; then
+    HAS_MPICH=no
+
+  else
+    as_fn_error $? "Invalid mpich path, use --with-mpich=<mpich_path_prefix>" "$LINENO" 5
+  fi
+else
   HAS_MPICH=yes
 
-else
-  HAS_MPICH=no
+  if test "$mpich_path_prefix" = "no"; then
+    mpiccpath=`which mpicc`
+  else
+    PATH=$mpich_path mpiccpath=`which mpicc`
+  fi
+  mpich_path=`dirname $mpiccpath`
+  MPICH_PATH=$mpich_path
 
 fi
 

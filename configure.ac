@@ -611,33 +611,50 @@ else
   AC_SUBST([HAS_SSH_LOCALHOST], [no])
 fi
 
-#check for mpich2
+#check for mpich3
 AC_ARG_WITH([mpich],
-            [AS_HELP_STRING([--with-mpich=path],
-                            [Compile mpich2 tests in `make check`])],
-            [mpich=$withval],
-            [mpich=no])
+            [AS_HELP_STRING([--with-mpich=mpich_path_prefix],
+                            [Compile mpich3 tests in `make check`])],
+            [mpich_path_prefix=$withval],
+            [mpich_path_prefix=no])
 
-if test "$mpich" != "no"; then
-  mpich_path="$mpich:$mpich/bin"
-  AC_PATH_PROG([MPICH_MPD],        [mpd],        [no], [$mpich_path])
-  AC_PATH_PROG([MPICH_MPDBOOT],    [mpdboot],    [no], [$mpich_path])
-  AC_PATH_PROG([MPICH_MPDALLEXIT], [mpdallexit], [no], [$mpich_path])
-  AC_PATH_PROG([MPICH_MPDCLEANUP], [mpdcleanup], [no], [$mpich_path])
-  AC_PATH_PROG([MPICH_MPICC],      [mpicc],      [no], [$mpich_path])
-  AC_PATH_PROG([MPICH_MPIEXEC],    [mpiexec],    [no], [$mpich_path])
-  if test "$MPICH_MPD" = "no"        ||\
-     test "$MPICH_MPDBOOT" = "no"    ||\
-     test "$MPICH_MPDALLEXIT" = "no" ||\
-     test "$MPICH_MPDCLEANUP" = "no" ||\
+mpich_path="no"
+if test "$mpich_path_prefix" != "no"; then
+  mpich_path="$mpich_path_prefix:$mpich_path_prefix/bin"
+else
+  # Let's see if we can find mpicc in the default path
+  mpiccpath=`which mpicc`
+  mpicclink=`readlink -f $mpiccpath`
+  if test "`basename $mpicclink`" = mpicc.mpich; then
+    mpich_path=`dirname $mpiccpath`
+  fi
+fi
+if test "mpich_path" != "no"; then
+  AC_PATH_PROG([MPICH_MPICC],      [mpicc],      [yes], [no], [$mpich_path])
+  AC_PATH_PROG([MPICH_MPIRUN],     [mpirun],     [yes], [no], [$mpich_path])
+  AC_PATH_PROG([MPICH_MPIEXEC],    [mpiexec],    [yes], [no], [$mpich_path])
+  if test "$MPICH_MPIRUN" = "no"     ||\
      test "$MPICH_MPICC" = "no"      ||\
      test "$MPICH_MPIEXEC" = "no";
   then
-    AC_MSG_ERROR([Invalid mpich path, use --with-mpich=<path>])
+    mpich_path="no"
   fi
-  AC_SUBST(HAS_MPICH, [yes])
+fi
+if test "$mpich_path" = "no"; then
+  if test "$mpich_path_prefix" = "no"; then
+    AC_SUBST(HAS_MPICH,[no])
+  else
+    AC_MSG_ERROR([Invalid mpich path, use --with-mpich=<mpich_path_prefix>])
+  fi
 else
-  AC_SUBST(HAS_MPICH,[no])
+  AC_SUBST(HAS_MPICH, [yes])
+  if test "$mpich_path_prefix" = "no"; then
+    mpiccpath=`which mpicc`
+  else
+    PATH=$mpich_path mpiccpath=`which mpicc`
+  fi
+  mpich_path=`dirname $mpiccpath`
+  AC_SUBST(MPICH_PATH, [$mpich_path])
 fi
 
 #check for Open MPI
