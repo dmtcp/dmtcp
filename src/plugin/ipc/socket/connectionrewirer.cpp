@@ -170,13 +170,17 @@ ConnectionRewirer::openRestoreSocket(bool hasIPv4Sock,
 
   // Open IP4 Restore Socket
   if (hasIPv4Sock) {
-    jalib::JServerSocket restoreSocket(jalib::JSockAddr::ANY, 0);
+    // Bind and listen on all local interfaces
+    jalib::JSockAddr sockAddr(jalib::JSockAddr::ANY);
+    jalib::JServerSocket restoreSocket(sockAddr, 0);
     JASSERT(restoreSocket.isValid());
     restoreSocket.changeFd(PROTECTED_RESTORE_IP4_SOCK_FD);
 
     // Setup restore socket for name service
     _ip4RestoreAddr.sin_family = AF_INET;
-    dmtcp_get_local_ip_addr(&_ip4RestoreAddr.sin_addr);
+    memcpy(&_ip4RestoreAddr.sin_addr,
+           &sockAddr.addr()->sin_addr,
+           sizeof(_ip4RestoreAddr.sin_addr));
     _ip4RestoreAddr.sin_port = htons(restoreSocket.port());
     _ip4RestoreAddrlen = sizeof(_ip4RestoreAddr);
 
