@@ -1,17 +1,17 @@
 %{!?_pkgdocdir: %global _pkgdocdir %{_docdir}/%{name}-%{version}}
 
 Name:		dmtcp
-Version:	2.5.1
-Release:	0%{?dist}
+Version:	2.6.1~rc1
+Release:	0.1%{?dist}
 Summary:	Checkpoint/Restart functionality for Linux processes
 Group:		Applications/System
 License:	LGPLv3+
 URL:		http://dmtcp.sourceforge.net
 Source0:	http://downloads.sourceforge.net/%{name}/%{name}-%{version}.tar.gz
-BuildRequires:	python
+BuildRequires:	python3, gcc-c++
 
-# This package is functional only on i386 and x86_64 architectures.
-ExclusiveArch:	%ix86 x86_64
+# This package is functional only on i386, x86_64 and aarch64 architectures.
+ExclusiveArch:	%ix86 x86_64 aarch64
 
 %description
 DMTCP (Distributed MultiThreaded Checkpointing) is a tool to
@@ -51,6 +51,7 @@ make %{?_smp_mflags}
 make install DESTDIR=%{buildroot}
 
 %files
+%license COPYING
 %{_bindir}/dmtcp_*
 %{_bindir}/mtcp_restart
 %{_libdir}/%{name}
