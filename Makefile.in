@@ -67,7 +67,7 @@ endif
 
 build-multilib: build-multilib-m32 build-multilib-m64
 
-build-multilib-m32: config.status-multilib-m32
+build-multilib-m32: display-build-env config.status-multilib-m32
 	./config.status-multilib-m32
 	${MAKE} -f Makefile clean # Makefile changed; use '-f'
 	${MAKE} -f Makefile build # Makefile changed; use '-f'
@@ -108,7 +108,7 @@ config.status-multilib-m64: config.status
 	> config.status-multilib-m64
 	chmod a+x ./config.status-multilib-m64
 
-mkdirs:
+mkdirs: display-build-env
 	$(MKDIR_P) $(targetdir)/bin
 	$(MKDIR_P) $(targetdir)/lib/dmtcp
 ifeq ($(M32),1)
@@ -175,7 +175,7 @@ ${_hooksdir}/%: util/hooks/%
 # If the developer accidentally leaves an old src/config.h in place (e.g.,
 #   after examining an old revision when this really existed), then some
 #   source code would pull in src/config.h in preference to include/config.h
-dmtcp:
+dmtcp: mkdirs
 	rm -f src/config.h
 	cd src && $(MAKE)
 
