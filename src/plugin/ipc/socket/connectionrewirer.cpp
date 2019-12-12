@@ -160,13 +160,24 @@ void ConnectionRewirer::openRestoreSocket(bool hasIPv4Sock,
 
   // Open IP4 Restore Socket
   if (hasIPv4Sock) {
-    jalib::JServerSocket restoreSocket(jalib::JSockAddr::ANY, 0);
+    // Bind and listen on all local interfaces
+    //
+    // In order to initialize _ip4RestoreAddr.sin_addr, we'd like to access the
+    // socket address of the restoreSocket object (line 181). Unfortunately,
+    // the jalib::JServerSocket class does not provide any interface that can
+    // allow us to access the socket address being used by the socket. So,
+    // sockAddr is introducted to create the JServerSock and also to initialize
+    // _ip4RestoreAddr later.
+    jalib::JSockAddr sockAddr(jalib::JSockAddr::ANY);
+    jalib::JServerSocket restoreSocket(sockAddr, 0);
     JASSERT(restoreSocket.isValid());
     restoreSocket.changeFd(PROTECTED_RESTORE_IP4_SOCK_FD);
 
     // Setup restore socket for name service
     _ip4RestoreAddr.sin_family = AF_INET;
-    dmtcp_get_local_ip_addr(&_ip4RestoreAddr.sin_addr);
+    memcpy(&_ip4RestoreAddr.sin_addr,
+           &sockAddr.addr()->sin_addr,
+           sizeof(_ip4RestoreAddr.sin_addr));
     _ip4RestoreAddr.sin_port = htons(restoreSocket.port());
     _ip4RestoreAddrlen = sizeof(_ip4RestoreAddr);
 
