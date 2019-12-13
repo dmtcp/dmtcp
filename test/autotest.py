@@ -540,8 +540,9 @@ def runTestRaw(name, numProcs, cmds):
           "unexpected number of checkpoint files, %s procs, %d files"
           % (str(status[0]), numFiles))
 
-    if SLOW > 1:
+    if SLOW > 1 and CKPT_CMD != b'xc':
       #wait and see if some processes will die shortly after checkpointing
+      #but if b'xc' was requested, processes should die (not resume)
       sleep(S*SLOW)
       CHECK(doesStatusSatisfy(getStatus(), status),
             "error: processes checkpointed, but died upon resume")
@@ -748,7 +749,8 @@ resource.setrlimit(resource.RLIMIT_STACK, [newCurrLimit, oldLimit[1]])
 runTest("dmtcp5",        2, ["./test/dmtcp5"])
 resource.setrlimit(resource.RLIMIT_STACK, oldLimit)
 
-# Test for a bunch of system calls. We want to use the 'xc' mode for
+# Test for a bunch of system calls. We want to use the 'xc' mode
+# (sets exitAfterCkptOnce in src/dmtcp_coordinator.cpp) for
 # checkpointing so that the process is killed right after checkpoint. Otherwise
 # the syscall-tester could fail in the following case:
 #   1. create and open temp file
