@@ -49,10 +49,10 @@ static const char *theUsage =
   "    -s, --status:          Print status message\n"
   "    -l, --list:            List connected clients\n"
   "    -c, --checkpoint:      Checkpoint all nodes\n"
-  "    -bc, --bcheckpoint:    Checkpoint all nodes, blocking until done\n"
-
-// "    xc, -xc, --xcheckpoint : Checkpoint all nodes, kill all nodes when
-// done\n"
+  "    -bc, --bcheckpoint:    Checkpoint all nodes, dmtcp_command blocks until"
+                                                                      " done\n"
+  "    -kc, --kcheckpoint     Checkpoint all nodes, kill all nodes when done\n"
+// "    -xc, --xcheckpoint  deprecated synonym for '-kc': kill nodes if done\n"
   "    -i, --interval <val>   Update ckpt interval to <val> seconds (0=never)\n"
   "    -k, --kill             Kill all nodes\n"
   "    -q, --quit             Kill all nodes and quit\n"
@@ -107,14 +107,18 @@ main(int argc, char **argv)
       while (*cmd == '-') {
         cmd++;
       }
+      if (*cmd == 'k' && *(cmd+1) == 'c') { // if this is "-kc":
+        *cmd = 'K';  // Need to disambiguate '-k' from '-kc' (now '-Kc')
+      }
       s = cmd;
 
-      if ((*cmd == 'b' || *cmd == 'x') && *(cmd + 1) != 'c') {
+      if ((*cmd == 'b' || *cmd == 'K' || *cmd == 'x') && *(cmd + 1) != 'c') {
         // If blocking ckpt, next letter must be 'c'; else print the usage
         fprintf(stderr, theUsage, "");
         return 1;
       } else if (*cmd == 's' || *cmd == 'i' || *cmd == 'c' || *cmd == 'b' ||
-                 *cmd == 'x' || *cmd == 'k' || *cmd == 'q' || *cmd == 'l') {
+                 *cmd == 'K' || *cmd == 'x' /* deprecated */ || *cmd == 'k' ||
+                 *cmd == 'q' || *cmd == 'l') {
         request = s;
         if (*cmd == 'i') {
           if (isdigit(cmd[1])) { // if -i5, for example
@@ -152,8 +156,8 @@ main(int argc, char **argv)
     CoordinatorAPI::connectAndSendUserCommand(*cmd, &coordCmdStatus);
     printf("Interval changed to %s\n", interval.c_str());
     break;
-  case 'b':
-  case 'x':
+  case 'b': case 'B':
+  case 'K':
 
     // blocking prefix
     CoordinatorAPI::connectAndSendUserCommand(*cmd, &coordCmdStatus);
