@@ -92,6 +92,7 @@ static const char* theHelpMessage =
   "  l : List connected nodes\n"
   "  s : Print status message\n"
   "  c : Checkpoint all nodes\n"
+  "  Kc : Checkpoint and then kill all nodes\n"
   "  i : Print current checkpoint interval\n"
   "      (To change checkpoint interval, use dmtcp_command)\n"
   "  k : Kill all nodes\n"
@@ -115,7 +116,7 @@ static const char* theUsage =
   "      Directory to store temporary files (default: env var TMDPIR or /tmp)\n"
   "  --exit-on-last\n"
   "      Exit automatically when last client disconnects\n"
-  "  --exit-after-ckpt\n"
+  "  --kill-after-ckpt\n"
   "      Kill peer processes of computation after first checkpoint is created\n"
   "  --daemon\n"
   "      Run silently in the background after detaching from the parent process.\n"
@@ -144,8 +145,8 @@ static string thePortFile;
 
 static bool exitOnLast = false;
 static bool blockUntilDone = false;
-static bool exitAfterCkpt = false;
-static bool exitAfterCkptOnce = false;
+static bool killAfterCkpt = false;
+static bool killAfterCkptOnce = false;
 static int blockUntilDoneRemote = -1;
 static uint32_t mask = 0;
 
@@ -268,14 +269,14 @@ void DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*= NULL*
 {
   if (reply != NULL) reply->coordCmdStatus = CoordCmdStatus::NOERROR;
 
-  switch ( cmd ){
+  switch (cmd) {
   case 'b': case 'B':  // prefix blocking command, prior to checkpoint command
-    JTRACE ( "blocking checkpoint beginning..." );
+    JTRACE("blocking checkpoint beginning...");
     blockUntilDone = true;
     break;
-  case 'x': case 'X':  // prefix exit command, prior to checkpoint command
-    JTRACE ( "Will exit after creating the checkpoint..." );
-    exitAfterCkptOnce = true;
+  case 'K': case 'x':  // prefix kill command, after ckpt cmd ('x' deprecated)
+    JTRACE("Will kill peers after creating the checkpoint...");
+    killAfterCkptOnce = true;
     break;
   case 'd': case 'D':
     broadcastMessage(DMT_UPDATE_LOGGING);
@@ -300,10 +301,11 @@ void DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*= NULL*
   }
   case 'c': case 'C':
     JTRACE ( "checkpointing..." );
-    if(startCheckpoint()){
+    if (startCheckpoint()) {
       if (reply != NULL) reply->numPeers = getStatus().numPeers;
-    }else{
-      if (reply != NULL) reply->coordCmdStatus = CoordCmdStatus::ERROR_NOT_RUNNING_STATE;
+    } else {
+      if (reply != NULL)
+        reply->coordCmdStatus = CoordCmdStatus::ERROR_NOT_RUNNING_STATE;
     }
     break;
   case 'i': case 'I':
@@ -345,11 +347,9 @@ void DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*= NULL*
     exit ( 0 );
     break;
   }
-  case 'k': case 'K':
-    JNOTE ( "Killing all connected Peers..." );
-    //FIXME: What happens if a 'k' command is followed by a 'c' command before
-    //       the *real* broadcast takes place?         --Kapil
-    broadcastMessage ( DMT_KILL_PEER );
+  case 'k':
+    JNOTE("Killing all connected peers...");
+    broadcastMessage(DMT_KILL_PEER);
     break;
   case 'h': case 'H': case '?':
     JASSERT_STDERR << theHelpMessage;
@@ -372,8 +372,8 @@ void DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*= NULL*
     //ignore whitespace
     break;
   default:
-    JTRACE("unhandled user command")(cmd);
-    if (reply != NULL){
+    JNOTE("unhandled user command")(cmd);
+    if (reply != NULL) {
       reply->coordCmdStatus = CoordCmdStatus::ERROR_INVALID_COMMAND;
     }
   }
@@ -396,9 +396,10 @@ void DmtcpCoordinator::printStatus(size_t numPeers, bool isRunning)
   }
 
   o << "Exit on last client: " << exitOnLast << std::endl
-    << "Exit after checkpoint: " << exitAfterCkpt << std::endl
-    // << "Exit after checkpoint (first time only): " << exitAfterCkptOnce
-    //    << std::endl
+    << "Kill after checkpoint: " << killAfterCkpt << std::endl
+
+    // << "Kill after checkpoint (first time only): " << killAfterCkptOnce
+    // << std::endl
     << "Computation Id: " << compId << std::endl
     << "Checkpoint Dir: " << ckptDir << std::endl
     << "NUM_PEERS=" << numPeers << std::endl
@@ -477,11 +478,11 @@ void DmtcpCoordinator::updateMinimumState(WorkerState::eWorkerState oldState)
                                _rshCmdFileNames,
                                _sshCmdFileNames);
 
-    if (exitAfterCkpt || exitAfterCkptOnce) {
+    if (killAfterCkpt || killAfterCkptOnce) {
       JNOTE("Checkpoint Done. Killing all peers.");
       JTIMER_STOP ( checkpoint );
       broadcastMessage(DMT_KILL_PEER);
-      exitAfterCkptOnce = false;
+      killAfterCkptOnce = false;
     } else {
       JNOTE ( "building name service database" );
       // lookupService.reset();
@@ -522,11 +523,11 @@ void DmtcpCoordinator::updateMinimumState(WorkerState::eWorkerState oldState)
                                compId,
                                _restartFilenames);
 
-    if (exitAfterCkpt || exitAfterCkptOnce) {
+    if (killAfterCkpt || killAfterCkptOnce) {
       JNOTE("Checkpoint Done. Killing all peers.");
       JTIMER_STOP ( checkpoint );
       broadcastMessage(DMT_KILL_PEER);
-      exitAfterCkptOnce = false;
+      killAfterCkptOnce = false;
     } else {
       JNOTE ( "refilling all nodes" );
       broadcastMessage ( DMT_DO_REFILL );
@@ -764,7 +765,7 @@ void DmtcpCoordinator::initializeComputation()
   curTimeStamp = 0; // Drop timestamp to 0
   numPeers = -1; // Drop number of peers to unknown
   blockUntilDone = false;
-  exitAfterCkptOnce = false;
+  killAfterCkptOnce = false;
 }
 
 void DmtcpCoordinator::onConnect()
@@ -1530,8 +1531,8 @@ int main ( int argc, char** argv )
     }else if(s=="--exit-on-last"){
       exitOnLast = true;
       shift;
-    }else if(s=="--exit-after-ckpt"){
-      exitAfterCkpt = true;
+    } else if (s == "--kill-after-ckpt") {
+      killAfterCkpt = true;
       shift;
     }else if(s=="--daemon"){
       daemon = true;

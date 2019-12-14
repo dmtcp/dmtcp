@@ -286,7 +286,8 @@ void CoordinatorAPI::waitForCheckpointCommand()
     case 'c': case 'C':
       JLOG(DMTCP)("checkpointing...");
       break;
-    case 'k': case 'K':
+    case 'k':
+    case 'K':
     case 'q': case 'Q':
       JLOG(DMTCP)("Received KILL command from user, exiting");
       exitWhenDone = true;

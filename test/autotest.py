@@ -524,8 +524,9 @@ def runTestRaw(name, numProcs, cmds):
     coordinatorCmd(CKPT_CMD)
 
     #wait for files to appear and status to return to original
+    # b'Kc' input to dmtcp_coordinator is equivalent to 'dmtcp_command -kc'
     WAITFOR(lambda: getNumCkptFiles(ckptDir)>0 and \
-                 (CKPT_CMD == b'xc' or doesStatusSatisfy(getStatus(), status)),
+                 (CKPT_CMD == b'Kc' or doesStatusSatisfy(getStatus(), status)),
             wfMsg("checkpoint error"))
     #we now know there was at least one checkpoint file, and the correct number
     #  of processes have restarted;  but they may fail quickly after restert
@@ -540,9 +541,9 @@ def runTestRaw(name, numProcs, cmds):
           "unexpected number of checkpoint files, %s procs, %d files"
           % (str(status[0]), numFiles))
 
-    if SLOW > 1 and CKPT_CMD != b'xc':
+    if SLOW > 1 and CKPT_CMD != b'Kc':
       #wait and see if some processes will die shortly after checkpointing
-      #but if b'xc' was requested, processes should die (not resume)
+      #but if b'Kc' was requested, processes should die (not resume)
       sleep(S*SLOW)
       CHECK(doesStatusSatisfy(getStatus(), status),
             "error: processes checkpointed, but died upon resume")
@@ -749,7 +750,7 @@ resource.setrlimit(resource.RLIMIT_STACK, [newCurrLimit, oldLimit[1]])
 runTest("dmtcp5",        2, ["./test/dmtcp5"])
 resource.setrlimit(resource.RLIMIT_STACK, oldLimit)
 
-# Test for a bunch of system calls. We want to use the 'xc' mode
+# Test for a bunch of system calls. We want to use the 'kc' mode for
 # (sets exitAfterCkptOnce in src/dmtcp_coordinator.cpp) for
 # checkpointing so that the process is killed right after checkpoint. Otherwise
 # the syscall-tester could fail in the following case:
@@ -762,7 +763,7 @@ resource.setrlimit(resource.RLIMIT_STACK, oldLimit)
 # program will try to unlink the file once again, but the unlink operation will
 # fail, causing the test to fail.
 old_ckpt_cmd = CKPT_CMD
-CKPT_CMD = b'xc'
+CKPT_CMD = b'Kc' # Equivalent to 'dmtcp_command -kc'
 runTest("syscall-tester",  1, ["./test/syscall-tester"])
 CKPT_CMD = old_ckpt_cmd
 
