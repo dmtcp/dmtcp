@@ -1089,7 +1089,8 @@ waitForCheckpointCommand()
   case 'c': case 'C':
     JTRACE("checkpointing...");
     break;
-  case 'k': case 'K':
+  case 'k':
+  case 'K':
   case 'q': case 'Q':
     JTRACE("Received KILL command from user, exiting");
     exitWhenDone = true;

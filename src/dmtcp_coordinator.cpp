@@ -93,6 +93,7 @@ static const char *theHelpMessage =
   "  l : List connected nodes\n"
   "  s : Print status message\n"
   "  c : Checkpoint all nodes\n"
+  "  Kc : Checkpoint and then kill all nodes\n"
   "  i : Print current checkpoint interval\n"
   "      (To change checkpoint interval, use dmtcp_command)\n"
   "  k : Kill all nodes\n"
@@ -115,7 +116,7 @@ static const char *theUsage =
   "      Directory to store temporary files (default: env var TMDPIR or /tmp)\n"
   "  --exit-on-last\n"
   "      Exit automatically when last client disconnects\n"
-  "  --exit-after-ckpt\n"
+  "  --kill-after-ckpt\n"
   "      Kill peer processes of computation after first checkpoint is created\n"
   "  --daemon\n"
   "      Run silently in the background after detaching from the parent "
@@ -144,8 +145,8 @@ static string thePortFile;
 
 static bool exitOnLast = false;
 static bool blockUntilDone = false;
-static bool exitAfterCkpt = false;
-static bool exitAfterCkptOnce = false;
+static bool killAfterCkpt = false;
+static bool killAfterCkptOnce = false;
 static int blockUntilDoneRemote = -1;
 
 static DmtcpCoordinator prog;
@@ -281,9 +282,9 @@ DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage *reply /*= NULL*/)
     JTRACE("blocking checkpoint beginning...");
     blockUntilDone = true;
     break;
-  case 'x': case 'X':  // prefix exit command, prior to checkpoint command
-    JTRACE("Will exit after creating the checkpoint...");
-    exitAfterCkptOnce = true;
+  case 'K': case 'x':  // prefix kill command, after ckpt cmd ('x' deprecated)
+    JTRACE("Will kill peers after creating the checkpoint...");
+    killAfterCkptOnce = true;
     break;
   case 'c': case 'C':
     JTRACE("checkpointing...");
@@ -355,11 +356,8 @@ DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage *reply /*= NULL*/)
     exit(0);
     break;
   }
-  case 'k': case 'K':
-    JNOTE("Killing all connected Peers...");
-
-    // FIXME: What happens if a 'k' command is followed by a 'c' command before
-    // the *real* broadcast takes place?         --Kapil
+  case 'k':
+    JNOTE("Killing all connected peers...");
     broadcastMessage(DMT_KILL_PEER);
     break;
   case 'h': case 'H': case '?':
@@ -384,7 +382,7 @@ DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage *reply /*= NULL*/)
     // ignore whitespace
     break;
   default:
-    JTRACE("unhandled user command")(cmd);
+    JNOTE("unhandled user command")(cmd);
     if (reply != NULL) {
       reply->coordCmdStatus = CoordCmdStatus::ERROR_INVALID_COMMAND;
     }
@@ -409,9 +407,9 @@ DmtcpCoordinator::printStatus(size_t numPeers, bool isRunning)
   }
 
   o << "Exit on last client: " << exitOnLast << std::endl
-    << "Exit after checkpoint: " << exitAfterCkpt << std::endl
+    << "Kill after checkpoint: " << killAfterCkpt << std::endl
 
-    // << "Exit after checkpoint (first time only): " << exitAfterCkptOnce
+    // << "Kill after checkpoint (first time only): " << killAfterCkptOnce
     // << std::endl
     << "Computation Id: " << compId << std::endl
     << "Checkpoint Dir: " << ckptDir << std::endl
@@ -540,10 +538,10 @@ DmtcpCoordinator::recordCkptFilename(CoordClient *client, const char *extraData)
       blockUntilDoneRemote = -1;
     }
 
-    if (exitAfterCkpt || exitAfterCkptOnce) {
+    if (killAfterCkpt || killAfterCkptOnce) {
       JNOTE("Checkpoint Done. Killing all peers.");
       broadcastMessage(DMT_KILL_PEER);
-      exitAfterCkptOnce = false;
+      killAfterCkptOnce = false;
     } else {
       // On checkpoint/resume, we should not be resetting the lookup service.
       //   This is absolutely required by the InfiniBand plugin.
@@ -758,7 +756,7 @@ DmtcpCoordinator::initializeComputation()
   curTimeStamp = 0; // Drop timestamp to 0
   numPeers = -1; // Drop number of peers to unknown
   blockUntilDone = false;
-  exitAfterCkptOnce = false;
+  killAfterCkptOnce = false;
   workersAtCurrentBarrier = 0;
 }
 
@@ -1144,7 +1142,9 @@ DmtcpCoordinator::broadcastMessage(DmtcpMessageType type,
   msg.type = type;
   msg.compGroup = compId;
   msg.numPeers = clients.size();
-  msg.exitAfterCkpt = exitAfterCkpt || exitAfterCkptOnce;
+  // From DMTCP coord viewpoint, we are killing peers after ckpt.
+  // From DMTCP peer viewpoint, we will exit after ckpt.
+  msg.exitAfterCkpt = killAfterCkpt || killAfterCkptOnce;
   msg.extraBytes = extraBytes;
 
   if (msg.type == DMT_KILL_PEER && clients.size() > 0) {
@@ -1505,8 +1505,8 @@ main(int argc, char **argv)
     } else if (s == "--exit-on-last") {
       exitOnLast = true;
       shift;
-    } else if (s == "--exit-after-ckpt") {
-      exitAfterCkpt = true;
+    } else if (s == "--kill-after-ckpt") {
+      killAfterCkpt = true;
       shift;
     } else if (s == "--daemon") {
       daemon = true;
