@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 import os, sys, time
 
@@ -13,7 +13,7 @@ docpath = '{}/doc{}/{}'.format(cwd, last_digit, fil)
 libpath = '{}/lib{}/{}'.format(cwd, last_digit, fil)
 
 while True:
-    print '[{}] Appending...'.format(count)
+    print('[{}] Appending...'.format(count))
     try:
         with open(binpath, 'a+') as f:
             f.write('{} appending\n'.format(count))
@@ -24,5 +24,5 @@ while True:
         count += 1
         time.sleep(1)
     except IOError:
-        print 'could not open file'
+        print('could not open file')
         sys.exit(1)

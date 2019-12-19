@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 # Here are some gdb commands written in python using the gdb Python API
 # described here:
@@ -18,8 +18,8 @@ class ProcSelfFd(gdb.Command):
 
     def invoke(self, arg, from_tty):
         pid = str(gdb.inferiors()[0].pid)
-        print "ls -l /proc/" + pid + "/fd"
-        print gdb.execute("shell ls -l /proc/" + pid + "/fd", True, True)
+        print("ls -l /proc/" + pid + "/fd")
+        print(gdb.execute("shell ls -l /proc/" + pid + "/fd", True, True))
 
 ProcSelfFd()
 
@@ -31,8 +31,8 @@ class ProcSelfMaps(gdb.Command):
 
     def invoke(self, arg, from_tty):
         pid = str(gdb.inferiors()[0].pid)
-        print "cat /proc/" + pid + "/maps"
-        print gdb.execute("shell cat /proc/" + pid + "/maps", True, True)
+        print("cat /proc/" + pid + "/maps")
+        print(gdb.execute("shell cat /proc/" + pid + "/maps", True, True))
 
 ProcSelfMaps()
 
@@ -70,8 +70,8 @@ class AddSymbolFile(gdb.Command):
         res = subprocess.Popen(cmd + arg,
                                shell=True, stdout=subprocess.PIPE).communicate()[0]
         if (len(res) == 0):
-            print '**** Library %s not found. ' % arg
-            print '  Do:  cat /proc/%d/maps to see all libs.' % pid
+            print('**** Library %s not found. ' % arg)
+            print('  Do:  cat /proc/%d/maps to see all libs.' % pid)
             return
 
         lib=subprocess.Popen(cmd + arg + " | head -1 | sed -e 's%[^/]*\\(/.*\\)%\\1%'",

@@ -91,8 +91,8 @@ class LinterBase(object):
         # (possibly nested) paths.
         for source_dir in self.source_dirs:
             if not os.path.exists(source_dir):
-                print "Could not find '{dir}'".format(dir=source_dir)
-                print 'Please run from the root of the DMTCP source directory'
+                print("Could not find '{dir}'".format(dir=source_dir))
+                print('Please run from the root of the DMTCP source directory')
                 exit(1)
 
         # Add all source file candidates to candidates list.
@@ -114,10 +114,10 @@ class LinterBase(object):
 
         if filtered_candidates_set:
             plural = '' if len(filtered_candidates_set) == 1 else 's'
-            print 'Checking {num_files} {linter} file{plural}'.\
+            print('Checking {num_files} {linter} file{plural}'.
                     format(num_files=len(filtered_candidates_set),
                            linter=self.linter_type,
-                           plural=plural)
+                           plural=plural))
 
             total_errors = self.run_lint(list(filtered_candidates_set))
 
@@ -126,7 +126,7 @@ class LinterBase(object):
 
             return total_errors
         else:
-            print "No {linter} files to lint".format(linter=self.linter_type)
+            print("No {linter} files to lint".format(linter=self.linter_type))
             return 0
 
 
