@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 import sys, time
 
@@ -8,8 +8,8 @@ def increment():
 
 def print_i():
     global num
-    print num
-    print "Hello World! %d" % (num)
+    print(num)
+    print("Hello World! %d" % (num))
     sys.stdout.flush()
 
 def rest():
@@ -22,4 +22,4 @@ while True:
     print_i()
     #rest()
     if num == 10:
-        print "put breakpoint here."
+        print("put breakpoint here.")
