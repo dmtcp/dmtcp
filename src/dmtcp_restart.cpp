@@ -149,15 +149,15 @@ class RestoreTarget
       .Text("checkpoint file missing");
 
       _fd = readCkptHeader(_path, &_pInfo);
-      ptrdiff_t clock_gettime_offset =
+      uint64_t clock_gettime_offset =
                             dmtcp_dlsym_lib_fnc_offset("linux-vdso",
                                                        "__vdso_clock_gettime");
-      ptrdiff_t getcpu_offset = dmtcp_dlsym_lib_fnc_offset("linux-vdso",
+      uint64_t getcpu_offset = dmtcp_dlsym_lib_fnc_offset("linux-vdso",
                                                            "__vdso_getcpu");
-      ptrdiff_t gettimeofday_offset =
+      uint64_t gettimeofday_offset =
                               dmtcp_dlsym_lib_fnc_offset("linux-vdso",
                                                          "__vdso_gettimeofday");
-      ptrdiff_t time_offset = dmtcp_dlsym_lib_fnc_offset("linux-vdso",
+      uint64_t time_offset = dmtcp_dlsym_lib_fnc_offset("linux-vdso",
                                                          "__vdso_time");
       JWARNING(!_pInfo.vdsoOffsetMismatch(clock_gettime_offset, getcpu_offset,
                                           gettimeofday_offset, time_offset))
