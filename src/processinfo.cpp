@@ -621,8 +621,8 @@ void ProcessInfo::updateMaxUserFd(int fd)
   }
 }
 
-bool ProcessInfo::vdsoOffsetMismatch(ptrdiff_t f1, ptrdiff_t f2,
-                                     ptrdiff_t f3, ptrdiff_t f4)
+bool ProcessInfo::vdsoOffsetMismatch(uint64_t f1, uint64_t f2,
+                                     uint64_t f3, uint64_t f4)
 {
   return (f1 != _clock_gettime_offset) || (f2 != _getcpu_offset) ||
          (f3 != _gettimeofday_offset) || (f4 != _time_offset);

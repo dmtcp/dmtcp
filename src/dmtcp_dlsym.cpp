@@ -556,13 +556,13 @@ dmtcp_dlsym_lib(const char *libname, const char *symbol)
 
 /*
  * Returns the offset of the given function within the given shared library
- * or -1 if the function does not exist in the library
+ * or LIB_FNC_OFFSET_FAILED if the function does not exist in the library
  */
-EXTERNC ptrdiff_t
+EXTERNC uint64_t
 dmtcp_dlsym_lib_fnc_offset(const char *libname, const char *symbol)
 {
   dt_tag tags;
-  ptrdiff_t ret = -1;
+  uint64_t ret = LIB_FNC_OFFSET_FAILED;
   Elf32_Word default_symbol_index = 0;
 
   // Determine where this function will return
