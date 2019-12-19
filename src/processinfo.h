@@ -147,8 +147,8 @@ class ProcessInfo
 
     uint64_t vvarEnd(void) const { return _vvarEnd; }
 
-    bool vdsoOffsetMismatch(ptrdiff_t f1, ptrdiff_t f2,
-                            ptrdiff_t f3, ptrdiff_t f4);
+    bool vdsoOffsetMismatch(uint64_t f1, uint64_t f2,
+                            uint64_t f3, uint64_t f4);
 
     string getCkptFilename() const { return _ckptFileName; }
 

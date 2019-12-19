@@ -447,9 +447,10 @@ void *dmtcp_dlsym_lib(const char *libname, const char *symbol);
 
 /*
  * Returns the offset of the given function within the given shared library
- * or -1 if the function does not exist in the library
+ * or LIB_FNC_OFFSET_FAILED if the function does not exist in the library
  */
-ptrdiff_t dmtcp_dlsym_lib_fnc_offset(const char *libname, const char *symbol);
+#define LIB_FNC_OFFSET_FAILED ((uint64_t)-1)
+uint64_t dmtcp_dlsym_lib_fnc_offset(const char *libname, const char *symbol);
 
 #define NEXT_FNC(func)                                                       \
   ({                                                                         \
