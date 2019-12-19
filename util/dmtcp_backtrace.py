@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 import sys
 import os
@@ -12,10 +12,10 @@ dmtcpTmpDir = "/tmp/dmtcp-" + os.environ['USER'] + '@' + host + '/'
   ('libdmtcp.so', dmtcpTmpDir+'backtrace', dmtcpTmpDir+'proc-maps')
 
 if len(sys.argv) > 1 and (sys.argv[1] == '--help' or sys.argv[1] == '-h'):
-  print "USAGE:  dmtcp_backtrace.py [filename [backtrace [proc-maps]]]\n" \
-  + "  Default:  filename = libdmtcp.so\n" \
-  + "            backtrace = " + tmpBacktrace + "\n" \
-  + "            proc-maps = " + tmpProcMaps + "\n"
+  print("USAGE:  dmtcp_backtrace.py [filename [backtrace [proc-maps]]]\n"
+        + "  Default:  filename = libdmtcp.so\n"
+        + "            backtrace = " + tmpBacktrace + "\n"
+        + "            proc-maps = " + tmpProcMaps + "\n")
   sys.exit(1)
 
 # Override defaults
@@ -35,12 +35,12 @@ if libdmtcp.find('/') == -1:
 else:
   pathname = libdmtcp
 if pathname.find("CAN'T FIND FILE") != -1:
-  print pathname
-  print "Please check " + tmpProcMaps + " to see if the process that crashed"
-  print "  was really using:  " + libdmtcp
+  print(pathname)
+  print("Please check " + tmpProcMaps + " to see if the process that crashed")
+  print("  was really using:  " + libdmtcp)
   sys.exit(1)
-print "Examing stack for call frames from:\n  " + pathname + "\n" \
-      + "FORMAT:  FNC: ..., followed by file:line_number (most recent first).\n"
+print("Examing stack for call frames from:\n  " + pathname + "\n"
+      + "FORMAT:  FNC: ..., followed by file:line_number (most recent first).\n")
 
 def getOrigOffset(pathname,procMaps):
   # The text segment in memory must always start at a page boundary.
@@ -54,7 +54,7 @@ def getOrigOffset(pathname,procMaps):
       textOffset = '0x' + segment[:segment.find('-')]
       break
   if textOffset == 0:
-    print os.path.basename(pathname) + " not found in proc maps: " + procMaps
+    print(os.path.basename(pathname) + " not found in proc maps: " + procMaps)
     sys.exit(1)
   # Now we get the offset of the text section in the file.  When the text
   #   section was mapped to memory, in fact all the program header table
@@ -79,14 +79,14 @@ for callFrame in backtrace:
     if hexOffset[0] == '-':
       # This happens because backtrace() can ascribe to libdmtcp
       #  what came from /lib/ld-2.10.1.so
-      print callFrame
+      print(callFrame)
     else: # This subprocess prints to stdout
-      # print callFrame
-      # print addr2line + hexOffset
-      print "** FNC: ",
+      # print(callFrame)
+      # print(addr2line + hexOffset)
+      print("** FNC: ", end="")
       sys.stdout.flush()
       subprocess.call(addr2line + hexOffset, shell=True)
   else:
-    print callFrame
+    print(callFrame)
 
 # That's it.  We're done.

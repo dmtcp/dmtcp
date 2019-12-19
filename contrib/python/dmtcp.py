@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 # The contents of this file are inspired from the python script dmtcp_ctypes.py
 # originally supplied by Neal Becker.
@@ -92,12 +92,12 @@ def restore(sessionId = 0):
         if len(sessionList) == 0:
             createSessionList()
         if len(sessionList) == 0:
-            print 'No checkpoint session found'
+            print('No checkpoint session found')
             return
-        print 'Restoring the latest session'
+        print('Restoring the latest session')
     else:
         if len(sessionList) == 0:
-            print 'Please do a listSession to see the list of available sessions'
+            print('Please do a listSession to see the list of available sessions')
             return
         if sessionId < 1 or sessionId > len(sessionList):
             return 'Invalid session id'
@@ -123,15 +123,15 @@ def listSessions():
         createSessionList()
     count = 1;
     for session in sessionList:
-        print '[%d]' %(count),
+        print('[%d]' %(count), end="")
         count += 1
-        print session
+        print(session)
 
     if len(sessionList) == 0:
-        print 'No checkpoint sessions found'
+        print('No checkpoint sessions found')
 
 def removeSession(sessionId = 0):
-    print "TODO"
+    print("TODO")
 ########################################################################
 # VNC handling
 ########################################################################
@@ -140,7 +140,7 @@ def startGraphics():
     global vncserver_addr
 
     if vncserver_addr != -1:
-        print 'VNC server already running at: ' + vncserver_addr
+        print('VNC server already running at: ' + vncserver_addr)
         return
 
     addr = 0
@@ -159,7 +159,7 @@ def showGraphics():
     global vncserver_addr
 
     if vncserver_addr == -1:
-        print "VNC server not running."
+        print("VNC server not running.")
         return
     fnull = open(os.devnull, "w")
     saved_display = os.environ['DISPLAY']
@@ -175,7 +175,7 @@ def stopGraphics():
     global vncserver_addr
 
     if vncserver_addr == -1:
-        print "VNC server not running."
+        print("VNC server not running.")
         return
 
     try:
@@ -184,20 +184,20 @@ def stopGraphics():
                                       stderr=subprocess.STDOUT)
         del os.environ['DISPLAY']
     except subprocess.CalledProcessError:
-        print 'Error killing vncserver: ' + out
+        print('Error killing vncserver: ' + out)
 
 
 
 if __name__ == '__main__':
     if isEnabled:
-        print 'DMTCP Status: Enabled'
+        print('DMTCP Status: Enabled')
         if isRunning():
-            print '    isRunning: YES'
+            print('    isRunning: YES')
         else:
-            print '    isRunning: NO'
-        print '    numProcesses: ', numProcesses()
-        print '    numCheckpoints: ', numCheckpoints()
-        print '    numRestarts: ', numRestarts()
-        print '    checkpointFilename: ', checkpointFilename()
+            print('    isRunning: NO')
+        print('    numProcesses: ', numProcesses())
+        print('    numCheckpoints: ', numCheckpoints())
+        print('    numRestarts: ', numRestarts())
+        print('    checkpointFilename: ', checkpointFilename())
     else:
-        print 'DMTCP Status: Disabled'
+        print('DMTCP Status: Disabled')
