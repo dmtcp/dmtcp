@@ -226,7 +226,7 @@ ckpttimer_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     pre_ckpt();
     break;
 
-  case DMTCP_EVENT_RESTART:
+  case DMTCP_EVENT_RESUME:
     resume();
     break;
 
