@@ -44,7 +44,7 @@
  *   maximumState for states of all workers, accessed through getStatus()   *
  *   or through minimumState()                                              *
  * The states for a worker (client) are:                                    *
- * Checkpoint: RUNNING -> SUSPENDED -> CHECKPOINTING                        *
+ * Checkpoint: RUNNING -> PRESUSPEND -> SUSPENDED -> CHECKPOINTING          *
  *                     -> (Checkpoint barriers) -> CHECKPOINTED             *
  *                     -> (Resume barriers) -> RUNNING                      *
  *                                                                          *
