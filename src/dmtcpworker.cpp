@@ -137,6 +137,7 @@ DmtcpWorker::determineCkptSignal()
   static const char *tmp = getenv(ENV_VAR_SIGCKPT);
 
   if (tmp != NULL) {
+    errno = 0;
     sig = strtol(tmp, &endp, 0);
     if ((errno != 0) || (tmp == endp)) {
       sig = CKPT_SIGNAL;

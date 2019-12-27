@@ -174,6 +174,7 @@ pclose(FILE *fp)
   }
 
   do {
+    errno = 0;
     wait_pid = waitpid(pid, &wstatus, 0);
   } while (wait_pid == -1 && errno == EINTR);
   if (wait_pid == -1) {

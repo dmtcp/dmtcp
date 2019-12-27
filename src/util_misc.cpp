@@ -45,8 +45,8 @@ Util::lockFile(int fd)
   // fl.l_pid    = _real_getpid(); // our PID
 
   int result = -1;
-  errno = 0;
   do {
+    errno = 0; // reset errno to 0 in case of EINTR on previous iteration
     result = _real_fcntl(fd, F_SETLKW, &fl);  /* F_GETLK, F_SETLK, F_SETLKW */
   } while (result == -1 && errno == EINTR);
 
@@ -157,6 +157,7 @@ Util::writeAll(int fd, const void *buf, size_t count)
   size_t num_written = 0;
 
   do {
+    errno = 0; // reset errno to 0 in case of EINTR on previous iteration
     ssize_t rc = write(fd, ptr + num_written, count - num_written);
     if (rc == -1) {
       if (errno == EINTR || errno == EAGAIN) {
@@ -186,6 +187,7 @@ Util::readAll(int fd, void *buf, size_t count)
   size_t num_read = 0;
 
   for (num_read = 0; num_read < count;) {
+    errno = 0; // reset errno to 0 in case of EINTR on previous iteration
     rc = read(fd, ptr + num_read, count - num_read);
     if (rc == -1) {
       if (errno == EINTR || errno == EAGAIN) {
@@ -326,6 +328,7 @@ Util::readChar(int fd)
   int rc;
 
   do {
+    errno = 0; // reset errno to 0 in case of EINTR on previous iteration
     rc = read(fd, &c, 1);
   } while (rc == -1 && errno == EINTR);
   if (rc <= 0) {

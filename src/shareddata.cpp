@@ -152,6 +152,7 @@ SharedData::initialize(const char *tmpDir = NULL,
        */
       JWARNING(false)
         ("Internal error detected! Shared data area already exists.");
+      errno = 0;
       fd = _real_open(o.str().c_str(), O_RDWR, 0600);
     } else {
       // Extend file to size before 'mmap'
@@ -301,6 +302,7 @@ SharedData::waitForBarrier(const string &barrierId)
                       curRound,
                       NULL, NULL, 0) != 0) {
       JASSERT(errno == EAGAIN);
+      errno = 0;
       Util::lockFile(PROTECTED_SHM_FD);
       Util::unlockFile(PROTECTED_SHM_FD);
     }

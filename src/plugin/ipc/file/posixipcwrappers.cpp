@@ -144,6 +144,7 @@ mq_send(mqd_t mqdes, const char *msg_ptr, size_t msg_len, unsigned msg_prio)
   do {
     JASSERT(clock_gettime(CLOCK_REALTIME, &ts) != -1);
     ts.tv_sec += 1000;
+    errno = 0;
     res = mq_timedsend(mqdes, msg_ptr, msg_len, msg_prio, &ts);
   } while (res == -1 && errno == ETIMEDOUT);
   return res;
@@ -159,6 +160,7 @@ mq_receive(mqd_t mqdes, char *msg_ptr, size_t msg_len, unsigned *msg_prio)
   do {
     JASSERT(clock_gettime(CLOCK_REALTIME, &ts) != -1);
     ts.tv_sec += 1000;
+    errno = 0;
     res = mq_timedreceive(mqdes, msg_ptr, msg_len, msg_prio, &ts);
   } while (res == -1 && errno == ETIMEDOUT);
   return res;
