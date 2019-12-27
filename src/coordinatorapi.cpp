@@ -484,14 +484,19 @@ startNewCoordinator(CoordinatorMode mode)
                                                  port, 128);
   JASSERT(coordinatorListenerSocket.isValid())
     (coordinatorListenerSocket.port()) (JASSERT_ERRNO) (host) (port)
-    .Text("Failed to create socket to coordinator port."
-          "\nIf the above message (sterror) is:"
-          "\n           \"Address already in use\" or \"Bad file descriptor\","
-          "\n  then this may be an old coordinator."
-          "\nEither try again a few seconds or a minute later,"
-          "\nOr kill other coordinator (using same host and port):"
-          "\n    dmtcp_command ---coord-host XXX --coord-port YYY --quit"
-          "\nOr specify --join-coordinator if joining existing computation.");
+    .Text("Failed to create socket to connect to coordinator port."
+          "\n  If the above message (sterror) is:"
+          "\n            \"Address already in use\" or \"Bad file descriptor\","
+          "\n    then this may be an old coordinator."
+          "\n    Or maybe you're joining an existing coordinator, and forgot"
+          "\n      to use 'dmtcp_launch --join-coordinator'."
+          "\n  Either:"
+          "\n    (a) use '--join-coordinator; or"
+          "\n    (b) kill the old coordinator with 'pkill -9 dmtcp_coord' or"
+          "\n        (while using same host and port):"
+          "\n        dmtcp_command ---coord-host XX --coord-port YY --quit; or"
+          "\n    (c) if the old coordinator is already gone, wait a few seconds"
+          "\n        or a minute for the O/S to free up that port again.\n");
   // Now dup the sockfd to
   coordinatorListenerSocket.changeFd(PROTECTED_COORD_FD);
   setCoordPort(coordinatorListenerSocket.port());
