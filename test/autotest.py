@@ -245,7 +245,7 @@ def runCmd(cmd):
   for str in cmd:
     # Checkpoint image can be emacs23_x, or whatever emacs is a link to.
     # vim can be vim.gnome, etc.
-    if re.search("(_|/|^)(screen|script|vim.*|emacs.*|pty)(_|$)", str):
+    if re.search("(_|/|^)(screen|script|vim.*|emacs.*|pty|tcsh|zsh)(_|$)", str):
       ptyMode = True
   try:
     os.stat(cmd[0])
