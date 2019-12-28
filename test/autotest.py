@@ -987,7 +987,7 @@ if HAS_VIM == "yes":
   S=10*DEFAULT_S
   if sys.version_info[0:2] >= (2,6):
     # Delete previous vim processes.  Vim behaves poorly with stale processes.
-    vimCommand = VIM + " /etc/passwd +3" # +3 makes cmd line unique
+    vimCommand = VIM + " -X -u DEFAULTS -i NONE /etc/passwd +3" # +3 makes cmd line unique
     def killCommand(cmdToKill):
       if os.getenv('USER') == None or HAS_PS == 'no':
         return
