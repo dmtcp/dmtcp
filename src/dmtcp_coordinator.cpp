@@ -47,6 +47,7 @@
  * Checkpoint: RUNNING -> SUSPENDED -> CHECKPOINTING                        *
  *                     -> (Checkpoint barriers) -> CHECKPOINTED             *
  *                     -> (Resume barriers) -> RUNNING                      *
+ *             [State returns to UNKNOWN if no active workers.]
  *                                                                          *
  * Restart:    RESTARTING -> (Restart barriers) -> RUNNING                  *
  * If debugging, set gdb breakpoint on:                                     *
@@ -878,6 +879,7 @@ DmtcpCoordinator::onConnect()
     client->virtualPid(hello_remote.from.pid());
     _virtualPidToClientMap[client->virtualPid()] = client;
   } else if (hello_remote.type == DMT_NEW_WORKER) {
+    // Comping from dmtcp_launch or fork(), ssh(), etc.
     JASSERT(hello_remote.state == WorkerState::RUNNING ||
             hello_remote.state == WorkerState::UNKNOWN);
     JASSERT(hello_remote.virtualPid == -1);
@@ -1403,7 +1405,13 @@ DmtcpCoordinator::eventLoop(bool daemon)
 
 
     // The ckpt timer has expired; it's time to checkpoint.
-    if (nfds == -1 && errno == EINTR && timerExpired) {
+    //   NOTE:  We need minimumStateUnanimous and RUNNING, in case
+    //   worker had reached 'main()' of application and paused (e.g.,
+    //   under GDB), while the ckpt interval timer went off.  We want
+    //   startCheckpoint() to be deferred until the worker is RUNNING.
+    ComputationStatus s = getStatus();
+    if (timerExpired &&
+        s.minimumStateUnanimous && s.minimumState == WorkerState::RUNNING) {
       timerExpired = false;
       startCheckpoint();
       continue;
