@@ -79,7 +79,7 @@ FILE * popen(const char *command, const char *mode)
   }
 
   {
-    WRAPPER_EXECUTION_DISABLE_CKPT();
+    WrapperLock wrapperLock;
     if (pipe(pipe_fds) < 0) {
       return NULL;
     }
@@ -98,7 +98,6 @@ FILE * popen(const char *command, const char *mode)
       child_fd = pipe_fds[0];
       strcpy(new_mode, "w");
     }
-    WRAPPER_EXECUTION_ENABLE_CKPT();
   }
 
   child_pid = fork();
@@ -137,7 +136,8 @@ FILE * popen(const char *command, const char *mode)
   }
 
   {
-    WRAPPER_EXECUTION_DISABLE_CKPT();
+    WrapperLock wrapperLock;
+
     fp = fdopen(parent_fd, new_mode);
     if (!do_cloexec) {
       fcntl(parent_fd, F_SETFD, 0);
@@ -145,7 +145,6 @@ FILE * popen(const char *command, const char *mode)
     _lock_popen_map();
     _dmtcpPopenPidMap[fp] = child_pid;
     _unlock_popen_map();
-    WRAPPER_EXECUTION_ENABLE_CKPT();
   }
 
   return fp;
