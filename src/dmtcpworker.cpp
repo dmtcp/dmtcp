@@ -523,9 +523,8 @@ DmtcpWorker::postCheckpoint()
 
   // Inform Coordinator of RUNNING state.
   WorkerState::setCurrentState(WorkerState::RUNNING);
-
-  JTRACE("Waiting for DMT:RESUME barrier");
-  CoordinatorAPI::waitForBarrier("DMT::RESUME");
+  JTRACE("Informing coordinator of RUNNING status") (UniquePid::ThisProcess());
+  CoordinatorAPI::sendMsgToCoordinator(DMT_WORKER_RESUMING);
 }
 
 void
@@ -540,6 +539,6 @@ DmtcpWorker::postRestart(double ckptReadTime)
 
   // Inform Coordinator of RUNNING state.
   WorkerState::setCurrentState(WorkerState::RUNNING);
-  JTRACE("Waiting for DMT:RESUME barrier");
-  CoordinatorAPI::waitForBarrier("DMT::RESUME");
+  JTRACE("Informing coordinator of RUNNING status") (UniquePid::ThisProcess());
+  CoordinatorAPI::sendMsgToCoordinator(DMT_WORKER_RESUMING);
 }

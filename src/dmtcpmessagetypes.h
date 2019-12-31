@@ -61,6 +61,8 @@ enum DmtcpMessageType {
   DMT_BARRIER,
   DMT_BARRIER_RELEASED,
 
+  DMT_WORKER_RESUMING,
+
   DMT_KILL_PEER,             // send kill message to peer
 
   DMT_REGISTER_NAME_SERVICE_DATA,
