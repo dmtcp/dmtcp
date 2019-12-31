@@ -96,12 +96,14 @@ void dmtcp_ProcessInfo_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 
       { struct rlimit rlim = {0, 0};
 
-#define RESTORE_RLIMIT(_RLIMIT,_rlim_cur) \
-        getrlimit(_RLIMIT, &rlim); \
-        JWARNING(_rlim_cur <= rlim.rlim_max) (_rlim_cur) (rlim.rlim_max) \
-          .Text("Prev. soft limit of " #_RLIMIT " lowered to new hard limit"); \
-        rlim.rlim_cur = _rlim_cur; \
-        JASSERT(setrlimit(_RLIMIT, &rlim) == 0);
+#define RESTORE_RLIMIT(_RLIMIT, _rlim_cur) \
+        if (_rlim_cur != RLIM_INFINITY) { \
+          getrlimit(_RLIMIT, &rlim); \
+          JWARNING(_rlim_cur <= rlim.rlim_max) (_rlim_cur) (rlim.rlim_max) \
+            .Text("Prev. soft limit of " #_RLIMIT " lowered to new hard limit"); \
+          rlim.rlim_cur = _rlim_cur; \
+          JASSERT(setrlimit(_RLIMIT, &rlim) == 0)(JASSERT_ERRNO); \
+        }
 
         RESTORE_RLIMIT(RLIMIT_AS, rlim_cur_as);
         RESTORE_RLIMIT(RLIMIT_CORE, rlim_cur_core);
