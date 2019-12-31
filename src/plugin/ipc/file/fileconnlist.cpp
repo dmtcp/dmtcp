@@ -96,7 +96,6 @@ dmtcp_FileConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
     FileConnList::drainFd();
     dmtcp_global_barrier("File::DRAIN");
     FileConnList::ckpt();
-    dmtcp_global_barrier("File::WRITE_CKPT");
 
     break;
 
@@ -104,7 +103,6 @@ dmtcp_FileConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
     FileConnList::resumeRefill();
     dmtcp_global_barrier("File::RESUME_REFILL");
     FileConnList::resumeResume();
-    dmtcp_global_barrier("File::RESUME_RESUME");
     break;
 
   case DMTCP_EVENT_RESTART:
@@ -117,7 +115,6 @@ dmtcp_FileConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
     FileConnList::restartRefill();
     dmtcp_global_barrier("File::RESTART_REFILL");
     FileConnList::restartResume();
-    dmtcp_global_barrier("File::RESTART_RESUME");
     break;
 
   default:  // other events are not registered
