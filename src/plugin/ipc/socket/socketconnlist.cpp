@@ -36,14 +36,12 @@ dmtcp_SocketConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
     SocketConnList::drainFd();
     dmtcp_global_barrier("Socket::Drain");
     SocketConnList::ckpt();
-    dmtcp_global_barrier("Socket::Write_Ckpt");
     break;
 
   case DMTCP_EVENT_RESUME:
     SocketConnList::resumeRefill();
     dmtcp_global_barrier("Socket::Resume_Refill");
     SocketConnList::resumeResume();
-    dmtcp_global_barrier("Socket::Resume_Resume");
     break;
 
   case DMTCP_EVENT_RESTART:
@@ -58,7 +56,6 @@ dmtcp_SocketConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
     SocketConnList::restartRefill();
     dmtcp_global_barrier("Socket::Restart_Refill");
     SocketConnList::restartResume();
-    dmtcp_global_barrier("Socket::Restart_Resume");
     break;
 
   default:  // other events are not registered
