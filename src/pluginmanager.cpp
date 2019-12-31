@@ -106,8 +106,6 @@ PluginManager::eventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
   // Process ckpt barriers.
   case DMTCP_EVENT_PRESUSPEND:
     for (size_t i = 0; i < pluginManager->pluginInfos.size(); i++) {
-      CoordinatorAPI::waitForBarrier(
-          "PreSuspend:" + pluginManager->pluginInfos[i]->pluginName);
       if (pluginManager->pluginInfos[i]->event_hook) {
         pluginManager->pluginInfos[i]->event_hook(event, data);
       }
@@ -116,8 +114,6 @@ PluginManager::eventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 
   case DMTCP_EVENT_PRECHECKPOINT:
     for (size_t i = 0; i < pluginManager->pluginInfos.size(); i++) {
-      CoordinatorAPI::waitForBarrier(
-          "PreCkpt:" + pluginManager->pluginInfos[i]->pluginName);
       if (pluginManager->pluginInfos[i]->event_hook) {
         pluginManager->pluginInfos[i]->event_hook(event, data);
       }
@@ -127,8 +123,6 @@ PluginManager::eventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
   // Process resume/restart barriers in reverse-order.
   case DMTCP_EVENT_RESUME:
     for (int i = pluginManager->pluginInfos.size() - 1; i >= 0; i--) {
-      CoordinatorAPI::waitForBarrier(
-          "Resume:" + pluginManager->pluginInfos[i]->pluginName);
       if (pluginManager->pluginInfos[i]->event_hook) {
         pluginManager->pluginInfos[i]->event_hook(event, data);
       }
@@ -137,8 +131,6 @@ PluginManager::eventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 
   case DMTCP_EVENT_RESTART:
     for (int i = pluginManager->pluginInfos.size() - 1; i >= 0; i--) {
-      CoordinatorAPI::waitForBarrier(
-          "Restart:" + pluginManager->pluginInfos[i]->pluginName);
       if (pluginManager->pluginInfos[i]->event_hook) {
         pluginManager->pluginInfos[i]->event_hook(event, data);
       }
