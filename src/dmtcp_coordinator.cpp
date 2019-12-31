@@ -473,7 +473,7 @@ DmtcpCoordinator::processBarrier(const string &barrier)
   if (currentBarrier.empty()) {
     currentBarrier = barrier;
   } else {
-    JASSERT(barrier == currentBarrier);
+    JASSERT(barrier == currentBarrier) (barrier) (currentBarrier);
   }
 
   ++workersAtCurrentBarrier;
@@ -575,7 +575,7 @@ DmtcpCoordinator::onData(CoordClient *client)
   switch (msg.type) {
   case DMT_BARRIER:
   {
-    string barrier = extraData;
+    string barrier = msg.barrier;
     JTRACE("got DMT_BARRIER message")
       (msg.from) (client->state()) (msg.state) (barrier);
 
