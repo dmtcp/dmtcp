@@ -572,14 +572,25 @@ DmtcpCoordinator::onData(CoordClient *client)
     client->sock().readAll(extraData, msg.extraBytes);
   }
 
+  WorkerState::eWorkerState prevClientState = client->state();
+  client->setState(msg.state);
+
   switch (msg.type) {
+  case DMT_WORKER_RESUMING:
+  {
+    JTRACE("Worker resuming execution")
+      (msg.from) (prevClientState) (msg.state);
+
+    client->setBarrier("");
+    break;
+  }
+
   case DMT_BARRIER:
   {
     string barrier = msg.barrier;
     JTRACE("got DMT_BARRIER message")
-      (msg.from) (client->state()) (msg.state) (barrier);
+      (msg.from) (prevClientState) (msg.state) (barrier);
 
-    client->setState(msg.state);
     // Warn if we have two consecutive barriers of the same name.
     JWARNING(barrier != client->barrier()) (barrier) (client->barrier());
     client->setBarrier(barrier);
