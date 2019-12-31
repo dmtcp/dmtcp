@@ -79,7 +79,7 @@ FILE * popen(const char *command, const char *mode)
   }
 
   {
-    WrapperLock wrapperLock;
+    WrapperLock disableCheckpoint;
     if (pipe(pipe_fds) < 0) {
       return NULL;
     }
@@ -136,7 +136,7 @@ FILE * popen(const char *command, const char *mode)
   }
 
   {
-    WrapperLock wrapperLock;
+    WrapperLock disableCheckpoint;
 
     fp = fdopen(parent_fd, new_mode);
     if (!do_cloexec) {
