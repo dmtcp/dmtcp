@@ -92,6 +92,8 @@ ostream&operator<<(ostream &o, const DmtcpMessageType &s);
 struct DmtcpMessage {
   char _magicBits[16];
 
+  char barrier[64];
+
   uint32_t _msgSize;
   uint32_t extraBytes;
 
