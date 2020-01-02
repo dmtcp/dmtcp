@@ -519,11 +519,18 @@ dmtcp_no_coordinator(void)
 EXTERNC void
 dmtcp_global_barrier(const char *barrier)
 {
-  JTRACE("Waiting for barrier") (barrier);
+  JTRACE("Waiting for global barrier") (barrier);
   if (!CoordinatorAPI::waitForBarrier(barrier)) {
     JTRACE("Failed to read message from coordinator; process exiting?");
     JASSERT(DmtcpWorker::isExitInProgress());
     DmtcpWorker::ckptThreadPerformExit();
   }
   JTRACE("Barrier Released") (barrier);
+}
+
+EXTERNC void
+dmtcp_local_barrier(const char *barrier)
+{
+  JTRACE("Waiting for local barrier") (barrier);
+  SharedData::waitForBarrier(barrier);
 }
