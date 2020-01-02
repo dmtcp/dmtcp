@@ -97,7 +97,7 @@ typedef struct RestoreInfo {
   VA saved_brk;
   VA restore_addr;
   VA restore_end;
-  size_t restore_size;
+  uint64_t restore_size;
   VA vdsoStart;
   VA vdsoEnd;
   VA vvarStart;
