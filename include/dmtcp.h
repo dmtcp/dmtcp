@@ -222,6 +222,7 @@ int dmtcp_enable_ckpt(void) __attribute__((weak));
 void dmtcp_initialize_plugin(void) __attribute((weak));
 
 void dmtcp_global_barrier(const char *barrier) __attribute((weak));
+void dmtcp_local_barrier(const char *barrier) __attribute((weak));
 
 // See: test/plugin/example-db dir for an example:
 int dmtcp_send_key_val_pair_to_coordinator(const char *id,
