@@ -19,26 +19,16 @@ dmtcp_EventConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
     EventConnList::leaderElection();
     dmtcp_global_barrier("Event::LEADER_ELECTION");
     EventConnList::drainFd();
-    dmtcp_global_barrier("Event::DRAIN");
-    EventConnList::ckpt();
     break;
 
   case DMTCP_EVENT_RESUME:
     EventConnList::resumeRefill();
-    dmtcp_global_barrier("Event::RESUME_REFILL");
-    EventConnList::resumeResume();
     break;
 
   case DMTCP_EVENT_RESTART:
     EventConnList::restart();
     dmtcp_global_barrier("Event::RESTART_POST_RESTART");
-    EventConnList::restartRegisterNSData();
-    dmtcp_global_barrier("Event::RESTART_NS_REGISTER_DATA");
-    EventConnList::restartSendQueries();
-    dmtcp_global_barrier("Event::RESTART_NS_SEND_QUERIES");
     EventConnList::restartRefill();
-    dmtcp_global_barrier("Event::RESTART_REFILL");
-    EventConnList::restartResume();
     break;
 
   default:  // other events are not registered
