@@ -27,35 +27,35 @@ dmtcp_SocketConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 
   case DMTCP_EVENT_PRECHECKPOINT:
     SocketConnList::saveOptions();
-    dmtcp_global_barrier("Socket::Pre_Ckpt");
+    dmtcp_local_barrier("Socket::Pre_Ckpt");
     SocketConnList::leaderElection();
-    dmtcp_global_barrier("Socket::Leader_Election");
+    dmtcp_local_barrier("Socket::Leader_Election");
     SocketConnList::ckptRegisterNSData();
     dmtcp_global_barrier("Socket::Ckpt_Register_Peer_Info");
     SocketConnList::ckptSendQueries();
-    dmtcp_global_barrier("Socket::Ckpt_Retrieve_Peer_Info");
+    dmtcp_local_barrier("Socket::Ckpt_Retrieve_Peer_Info");
     SocketConnList::drainFd();
-    dmtcp_global_barrier("Socket::Drain");
+    dmtcp_local_barrier("Socket::Drain");
     SocketConnList::ckpt();
     break;
 
   case DMTCP_EVENT_RESUME:
     SocketConnList::resumeRefill();
-    dmtcp_global_barrier("Socket::Resume_Refill");
+    dmtcp_local_barrier("Socket::Resume_Refill");
     SocketConnList::resumeResume();
     break;
 
   case DMTCP_EVENT_RESTART:
     SocketConnList::restart();
-    dmtcp_global_barrier("Socket::Restart_Post_Restart");
+    dmtcp_local_barrier("Socket::Restart_Post_Restart");
 
     // We might be able to mark the next barrier as PRIVATE too.
     SocketConnList::restartRegisterNSData();
     dmtcp_global_barrier("Socket::Restart_Ns_Register_Data");
     SocketConnList::restartSendQueries();
-    dmtcp_global_barrier("Socket::Restart_Ns_Send_Queries");
+    dmtcp_local_barrier("Socket::Restart_Ns_Send_Queries");
     SocketConnList::restartRefill();
-    dmtcp_global_barrier("Socket::Restart_Refill");
+    dmtcp_local_barrier("Socket::Restart_Refill");
     SocketConnList::restartResume();
     break;
 

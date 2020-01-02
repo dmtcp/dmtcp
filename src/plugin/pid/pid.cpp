@@ -280,7 +280,7 @@ pid_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 
   case DMTCP_EVENT_RESTART:
     pidVirt_PostRestart();
-    dmtcp_global_barrier("PID:RESTART");
+    dmtcp_local_barrier("PID:RESTART");
     pidVirt_PostRestartRefill();
     break;
 
