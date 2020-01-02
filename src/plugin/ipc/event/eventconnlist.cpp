@@ -15,9 +15,9 @@ dmtcp_EventConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 
   case DMTCP_EVENT_PRECHECKPOINT:
     EventConnList::saveOptions();
-    dmtcp_global_barrier("Event::PRE_CKPT");
+    dmtcp_local_barrier("Event::PRE_CKPT");
     EventConnList::leaderElection();
-    dmtcp_global_barrier("Event::LEADER_ELECTION");
+    dmtcp_local_barrier("Event::LEADER_ELECTION");
     EventConnList::drainFd();
     break;
 
@@ -27,7 +27,7 @@ dmtcp_EventConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 
   case DMTCP_EVENT_RESTART:
     EventConnList::restart();
-    dmtcp_global_barrier("Event::RESTART_POST_RESTART");
+    dmtcp_local_barrier("Event::RESTART_POST_RESTART");
     EventConnList::restartRefill();
     break;
 

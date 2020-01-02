@@ -519,6 +519,10 @@ DmtcpWorker::postCheckpoint()
     _exit(0);
   }
 
+  // TODO: Merge this barrier with the previous `sendCkptFilename` msg.
+  JTRACE("Waiting for Write-Ckpt barrier");
+  CoordinatorAPI::waitForBarrier("DMT:WriteCkpt");
+
   PluginManager::eventHook(DMTCP_EVENT_RESUME);
 
   // Inform Coordinator of RUNNING state.
@@ -532,6 +536,9 @@ DmtcpWorker::postRestart(double ckptReadTime)
 {
   JTRACE("begin postRestart()");
   WorkerState::setCurrentState(WorkerState::RESTARTING);
+
+  JTRACE("Waiting for Restart barrier");
+  CoordinatorAPI::waitForBarrier("DMT:Restart");
 
   PluginManager::eventHook(DMTCP_EVENT_RESTART);
 
