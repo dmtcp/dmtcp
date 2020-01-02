@@ -44,6 +44,7 @@ DmtcpMessage::DmtcpMessage(DmtcpMessageType t /*= DMT_NULL*/)
 {
   // struct sockaddr_storage _addr;
   // socklen_t _addrlen;
+  memset(&barrier, 0, sizeof(barrier));
   memset(&compGroup, 0, sizeof(compGroup));
   memset(&ipAddr, 0, sizeof ipAddr);
   memset(nsid, 0, sizeof nsid);
@@ -115,6 +116,8 @@ dmtcp::operator<<(dmtcp::ostream &o, const DmtcpMessageType &s)
 
     OSHIFTPRINTF(DMT_BARRIER)
     OSHIFTPRINTF(DMT_BARRIER_RELEASED)
+
+    OSHIFTPRINTF(DMT_WORKER_RESUMING)
 
     OSHIFTPRINTF(DMT_KILL_PEER)
 

@@ -61,6 +61,8 @@ enum DmtcpMessageType {
   DMT_BARRIER,
   DMT_BARRIER_RELEASED,
 
+  DMT_WORKER_RESUMING,
+
   DMT_KILL_PEER,             // send kill message to peer
 
   DMT_REGISTER_NAME_SERVICE_DATA,
@@ -91,6 +93,8 @@ ostream&operator<<(ostream &o, const DmtcpMessageType &s);
 // Make sure the struct is of same size on 32-bit and 64-bit systems.
 struct DmtcpMessage {
   char _magicBits[16];
+
+  char barrier[64];
 
   uint32_t _msgSize;
   uint32_t extraBytes;

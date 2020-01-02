@@ -473,7 +473,7 @@ DmtcpCoordinator::processBarrier(const string &barrier)
   if (currentBarrier.empty()) {
     currentBarrier = barrier;
   } else {
-    JASSERT(barrier == currentBarrier);
+    JASSERT(barrier == currentBarrier) (barrier) (currentBarrier);
   }
 
   ++workersAtCurrentBarrier;
@@ -572,14 +572,25 @@ DmtcpCoordinator::onData(CoordClient *client)
     client->sock().readAll(extraData, msg.extraBytes);
   }
 
+  WorkerState::eWorkerState prevClientState = client->state();
+  client->setState(msg.state);
+
   switch (msg.type) {
+  case DMT_WORKER_RESUMING:
+  {
+    JTRACE("Worker resuming execution")
+      (msg.from) (prevClientState) (msg.state);
+
+    client->setBarrier("");
+    break;
+  }
+
   case DMT_BARRIER:
   {
-    string barrier = extraData;
+    string barrier = msg.barrier;
     JTRACE("got DMT_BARRIER message")
-      (msg.from) (client->state()) (msg.state) (barrier);
+      (msg.from) (prevClientState) (msg.state) (barrier);
 
-    client->setState(msg.state);
     // Warn if we have two consecutive barriers of the same name.
     JWARNING(barrier != client->barrier()) (barrier) (client->barrier());
     client->setBarrier(barrier);
@@ -733,7 +744,7 @@ DmtcpCoordinator::onDisconnect(CoordClient *client)
     }
   } else {
     // If all other workers are at currentBarrier, release it.
-    if (client->barrier() == currentBarrier) {
+    if (!currentBarrier.empty() && client->barrier() == currentBarrier) {
       --workersAtCurrentBarrier;
       releaseBarrier(currentBarrier);
     }
