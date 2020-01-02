@@ -294,7 +294,7 @@ prepareMtcpHeader(MtcpHeader *mtcpHdr)
   // TODO: Now that we have a separate mtcp dir, the code dealing with
   // restoreBuf should go in there.
   mtcpHdr->restore_addr = (void *)ProcessInfo::instance().restoreBufAddr();
-  mtcpHdr->restore_size = ProcessInfo::instance().restoreBufLen();
+  mtcpHdr->restore_len = ProcessInfo::instance().restoreBufLen();
 
   mtcpHdr->vdsoStart = (void *)ProcessInfo::instance().vdsoStart();
   mtcpHdr->vdsoEnd = (void *)ProcessInfo::instance().vdsoEnd();
