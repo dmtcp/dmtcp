@@ -61,10 +61,10 @@ extern "C" {
     rc = write(PROTECTED_STDERR_FD, buf, c+1);                               \
   } while (0);
 
-#ifdef DEBUG
+#ifdef LOGGING
 # define DPRINTF PRINTF
 #else
-# define DPRINTF(args...) // debug printing
+# define DPRINTF(args...) // debug printing if: ./configure --enable-logging
 #endif
 
 #define ASSERT(condition) \

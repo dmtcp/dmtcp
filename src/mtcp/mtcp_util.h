@@ -35,10 +35,10 @@
     mtcp_abort(); \
   }
 
-#ifdef DEBUG
+#ifdef LOGGING
 # define DPRINTF MTCP_PRINTF
 #else
-# define DPRINTF(args...) // debug printing
+# define DPRINTF(args...) // debug printing if: ./configure --enable-logging
 #endif
 
 #if 0
