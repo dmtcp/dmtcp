@@ -44,7 +44,7 @@ typedef union _MtcpHeader {
     void *saved_brk;
     void *restore_addr;
     // uint64_t processinfo.h:_restoreBufLen; 64-bit aligned for 32-64-bit
-    uint64_t restore_size; /* must be 64-bit aligned */
+    uint64_t restore_len; /* must be 64-bit aligned */
     void *vdsoStart;
     void *vdsoEnd;
     void *vvarStart;

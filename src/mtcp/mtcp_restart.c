@@ -94,7 +94,7 @@ typedef struct RestoreInfo {
   VA saved_brk;
   VA restore_addr;
   VA restore_end;
-  uint64_t restore_size;
+  uint64_t restore_len;
   VA vdsoStart;
   VA vdsoEnd;
   VA vvarStart;
@@ -282,8 +282,8 @@ MTCP_PRINTF("Attach for debugging.");
 
   rinfo.saved_brk = mtcpHdr.saved_brk;
   rinfo.restore_addr = mtcpHdr.restore_addr;
-  rinfo.restore_end = mtcpHdr.restore_addr + mtcpHdr.restore_size;
-  rinfo.restore_size = mtcpHdr.restore_size;
+  rinfo.restore_end = mtcpHdr.restore_addr + mtcpHdr.restore_len;
+  rinfo.restore_len = mtcpHdr.restore_len;
   rinfo.vdsoStart = mtcpHdr.vdsoStart;
   rinfo.vdsoEnd = mtcpHdr.vdsoEnd;
   rinfo.vvarStart = mtcpHdr.vvarStart;
@@ -297,9 +297,9 @@ MTCP_PRINTF("Attach for debugging.");
   rinfo.myinfo_gs = mtcpHdr.myinfo_gs;
 
   restore_brk(rinfo.saved_brk, rinfo.restore_addr,
-              rinfo.restore_addr + rinfo.restore_size);
+              rinfo.restore_addr + rinfo.restore_len);
 
-  if (hasOverlappingMapping(rinfo.restore_addr, rinfo.restore_size)) {
+  if (hasOverlappingMapping(rinfo.restore_addr, rinfo.restore_len)) {
     MTCP_PRINTF("*** Not Implemented.\n\n");
     mtcp_abort();
     restart_slow_path();
@@ -502,7 +502,7 @@ static void mtcp_simulateread(int fd, MtcpHeader *mtcpHdr)
   buf[MTCP_SIGNATURE_LEN] = '\0';
   mtcp_printf("\nMTCP: %s", buf);
   mtcp_printf("**** mtcp_restart (will be copied here): %p..%p\n",
-            mtcpHdr->restore_addr, mtcpHdr->restore_addr + mtcpHdr->restore_size);
+            mtcpHdr->restore_addr, mtcpHdr->restore_addr + mtcpHdr->restore_len);
   mtcp_printf("**** DMTCP entry point (ThreadList::postRestart()): %p\n",
               mtcpHdr->post_restart);
   mtcp_printf("**** brk (sbrk(0)): %p\n", mtcpHdr->saved_brk);
@@ -1236,7 +1236,7 @@ remapMtcpRestartToReservedArea(RestoreInfo *rinfo)
 
   // Make sure we can fit all mtcp_restart regions in the restore area.
   MTCP_ASSERT(mem_regions[num_regions - 1].endAddr - mem_regions[0].addr <=
-                rinfo->restore_size);
+                rinfo->restore_len);
 
   // Now remap mtcp_restart at the restore location. Note that for memory
   // regions with write permissions, we copy over the bits from the original
@@ -1284,11 +1284,11 @@ remapMtcpRestartToReservedArea(RestoreInfo *rinfo)
   VA guard_page_end_addr = guard_page + MTCP_PAGE_SIZE;
 
   size_t remaining_restore_area =
-    rinfo->restore_addr + rinfo->restore_size - guard_page_end_addr;
+    rinfo->restore_addr + rinfo->restore_len - guard_page_end_addr;
 
   MTCP_ASSERT(remaining_restore_area >= rinfo->old_stack_size);
 
-  void *new_stack_end_addr = rinfo->restore_addr + rinfo->restore_size;
+  void *new_stack_end_addr = rinfo->restore_addr + rinfo->restore_len;
   void *new_stack_start_addr = new_stack_end_addr - rinfo->old_stack_size;
 
   rinfo->new_stack_addr =
