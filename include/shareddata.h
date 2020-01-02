@@ -24,183 +24,185 @@
 
 #include <sys/types.h>
 #include <sys/un.h>
-#include <netdb.h>
 #include <arpa/inet.h>
 #include <linux/limits.h>
+#include <netdb.h>
 #include "dmtcp.h"
 #include "dmtcpalloc.h"
 
-#define PTS_PATH_MAX 32
-#define MAX_PID_MAPS 32768
-#define MAX_IPC_ID_MAPS 256
-#define MAX_PTY_NAME_MAPS 256
-#define MAX_PTRACE_ID_MAPS 256
+#define PTS_PATH_MAX             32
+#define MAX_PID_MAPS             32768
+#define MAX_IPC_ID_MAPS          256
+#define MAX_PTY_NAME_MAPS        256
+#define MAX_PTRACE_ID_MAPS       256
 #define MAX_INCOMING_CONNECTIONS 10240
-#define MAX_INODE_PID_MAPS 10240
+#define MAX_INODE_PID_MAPS       10240
 #define CON_ID_LEN \
   (sizeof(DmtcpUniqueProcessId) + sizeof(int64_t))
 
-#define SHM_VERSION_STR "DMTCP_GLOBAL_AREA_V0.99"
-#define VIRT_PTS_PREFIX_STR "/dev/pts/v"
+#define SHM_VERSION_STR          "DMTCP_GLOBAL_AREA_V0.99"
+#define VIRT_PTS_PREFIX_STR      "/dev/pts/v"
 
-#define SYSV_SHM_ID 1
-#define SYSV_SEM_ID 2
-#define SYSV_MSQ_ID 3
-#define SYSV_SHM_KEY 4
+#define SYSV_SHM_ID              1
+#define SYSV_SEM_ID              2
+#define SYSV_MSQ_ID              3
+#define SYSV_SHM_KEY             4
 
-namespace dmtcp {
+namespace dmtcp
+{
+typedef struct CoordinatorInfo {
+  DmtcpUniqueProcessId id;
+  uint64_t timeStamp;
+  uint32_t interval;
+  uint32_t addrLen;
+  struct sockaddr_storage addr;
+} CoordinatorInfo;
 
-  typedef struct CoordinatorInfo {
-    DmtcpUniqueProcessId     id;
-    uint64_t                 timeStamp;
-    uint32_t                 interval;
-    uint32_t                 addrLen;
-    struct sockaddr_storage  addr;
-  } CoordinatorInfo;
+namespace SharedData
+{
+// All structs should be 64-bit aligned.
+struct PidMap {
+  pid_t virt;
+  pid_t real;
+};
 
-  namespace SharedData {
+struct IPCIdMap {
+  int32_t virt;
+  int32_t real;
+};
 
-    struct PidMap {
-      pid_t virt;
-      pid_t real;
-    };
+struct PtyNameMap {
+  char virt[PTS_PATH_MAX];
+  char real[PTS_PATH_MAX];
+};
 
-    struct IPCIdMap {
-      int32_t virt;
-      int32_t real;
-    };
+struct IncomingConMap {
+  char id[CON_ID_LEN];
+  struct sockaddr_un addr;
+  union {
+    socklen_t len;
+    uint64_t _pad;
+  };
+};
 
-    struct PtyNameMap {
-      char virt[PTS_PATH_MAX];
-      char real[PTS_PATH_MAX];
-    };
+struct PtraceIdMaps {
+  pid_t tracerId;
+  pid_t childId;
+};
 
-    struct IncomingConMap {
-      char                 id[CON_ID_LEN];
-      struct sockaddr_un   addr;
-      union {
-        socklen_t len;
-        uint64_t _pad;
-      };
-    };
+typedef struct InodeConnIdMap {
+  uint64_t devnum;
+  uint64_t inode;
+  char id[CON_ID_LEN];
+} InodeConnIdMap;
 
-    struct PtraceIdMaps {
-      pid_t tracerId;
-      pid_t childId;
-    };
+struct Header {
+  uint64_t initialized;
 
-    typedef struct InodeConnIdMap {
-      uint64_t devnum;
-      uint64_t inode;
-      char  id[CON_ID_LEN];
-    } InodeConnIdMap;
+  char tmpDir[PATH_MAX];
+  char installDir[PATH_MAX];
 
-    struct Header {
-      char                 tmpDir[PATH_MAX];
-      char                 installDir[PATH_MAX];
+  struct in_addr localIPAddr;
 
-      uint64_t             initialized;
-      struct in_addr       localIPAddr;
+  int64_t dlsymOffset;
+  int64_t dlsymOffset_m32;
 
-      int64_t              dlsymOffset;
-      int64_t              dlsymOffset_m32;
+  uint64_t numPidMaps;
+  uint64_t numPtraceIdMaps;
 
-      uint64_t             numPidMaps;
-      uint64_t             numPtraceIdMaps;
+  uint64_t numSysVShmIdMaps;
+  uint64_t numSysVSemIdMaps;
+  uint64_t numSysVMsqIdMaps;
+  uint64_t numSysVShmKeyMaps;
 
-      uint64_t             numSysVShmIdMaps;
-      uint64_t             numSysVSemIdMaps;
-      uint64_t             numSysVMsqIdMaps;
-      uint64_t             numSysVShmKeyMaps;
+  uint64_t numPtyNameMaps;
+  uint64_t nextPtyName;
+  uint64_t nextVirtualPtyId;
 
-      uint64_t             numPtyNameMaps;
-      uint64_t             nextPtyName;
-      uint64_t             nextVirtualPtyId;
+  uint64_t numIncomingConMaps;
+  uint64_t numInodeConnIdMaps;
 
-      uint64_t             numIncomingConMaps;
-      uint64_t             numInodeConnIdMaps;
+  uint64_t logMask;
 
-      uint64_t             logMask;
+  struct PidMap pidMap[MAX_PID_MAPS];
+  struct IPCIdMap sysvShmIdMap[MAX_IPC_ID_MAPS];
+  struct IPCIdMap sysvSemIdMap[MAX_IPC_ID_MAPS];
+  struct IPCIdMap sysvMsqIdMap[MAX_IPC_ID_MAPS];
+  struct IPCIdMap sysvShmKeyMap[MAX_IPC_ID_MAPS];
+  struct PtraceIdMaps ptraceIdMap[MAX_PTRACE_ID_MAPS];
+  struct PtyNameMap ptyNameMap[MAX_PTY_NAME_MAPS];
+  struct IncomingConMap incomingConMap[MAX_INCOMING_CONNECTIONS];
+  InodeConnIdMap inodeConnIdMap[MAX_INODE_PID_MAPS];
 
-      struct PidMap        pidMap[MAX_PID_MAPS];
-      struct IPCIdMap      sysvShmIdMap[MAX_IPC_ID_MAPS];
-      struct IPCIdMap      sysvSemIdMap[MAX_IPC_ID_MAPS];
-      struct IPCIdMap      sysvMsqIdMap[MAX_IPC_ID_MAPS];
-      struct IPCIdMap      sysvShmKeyMap[MAX_IPC_ID_MAPS];
-      struct PtraceIdMaps  ptraceIdMap[MAX_PTRACE_ID_MAPS];
-      struct PtyNameMap    ptyNameMap[MAX_PTY_NAME_MAPS];
-      struct IncomingConMap incomingConMap[MAX_INCOMING_CONNECTIONS];
-      InodeConnIdMap       inodeConnIdMap[MAX_INODE_PID_MAPS];
+  char versionStr[32];
+  DmtcpUniqueProcessId compId;
+  CoordinatorInfo coordInfo;
+  // char                 coordHost[NI_MAXHOST];
+};
 
-      char                 versionStr[32];
-      DmtcpUniqueProcessId compId;
-      CoordinatorInfo      coordInfo;
-      //char                 coordHost[NI_MAXHOST];
-    };
+bool initialized();
 
-    bool initialized();
+void initialize(const char *tmpDir,
+                const char *installDir,
+                DmtcpUniqueProcessId *compId,
+                CoordinatorInfo *coordInfo,
+                struct in_addr *localIP);
+void initializeHeader(const char *tmpDir,
+                      const char *installDir,
+                      DmtcpUniqueProcessId *compId,
+                      CoordinatorInfo *coordInfo,
+                      struct in_addr *localIP);
 
-    void initialize(const char *tmpDir,
-                    const char *installDir,
-                    DmtcpUniqueProcessId *compId,
-                    CoordinatorInfo *coordInfo,
-                    struct in_addr *localIP);
-    void initializeHeader(const char *tmpDir,
-                          const char *installDir,
-                          DmtcpUniqueProcessId *compId,
-                          CoordinatorInfo *coordInfo,
-                          struct in_addr *localIP);
+bool isSharedDataRegion(void *addr);
+void prepareForCkpt();
+void writeCkpt();
+void postRestart();
 
-    bool isSharedDataRegion(void *addr);
-    void prepareForCkpt();
-    void writeCkpt();
-    void postRestart();
+string coordHost();
+uint32_t coordPort();
+void getCoordAddr(struct sockaddr *addr, uint32_t *len);
+void setCoordHost(struct in_addr *in);
+uint64_t getCoordTimeStamp();
 
-    string coordHost();
-    uint32_t coordPort();
-    void getCoordAddr(struct sockaddr *addr, uint32_t *len);
-    void setCoordHost(struct in_addr *in);
-    uint64_t getCoordTimeStamp();
+string getTmpDir();
+char *getTmpDir(char *buf, uint32_t len);
+string getInstallDir();
+uint32_t getCkptInterval();
+void updateGeneration(uint32_t generation);
+DmtcpUniqueProcessId getCompId();
+DmtcpUniqueProcessId getCoordId();
 
-    string getTmpDir();
-    char *getTmpDir(char *buf, uint32_t len);
-    string getInstallDir();
-    uint32_t getCkptInterval();
-    void updateGeneration(uint32_t generation);
-    DmtcpUniqueProcessId getCompId();
-    DmtcpUniqueProcessId getCoordId();
+void getLocalIPAddr(struct in_addr *in);
 
-    void getLocalIPAddr(struct in_addr *in);
+void updateDlsymOffset(int32_t dlsymOffset, int32_t dlsymOffset_m32 = 0);
+int32_t getDlsymOffset(void);
+int32_t getDlsymOffset_m32(void);
 
-    void updateDlsymOffset(int32_t dlsymOffset, int32_t dlsymOffset_m32 = 0);
-    int32_t getDlsymOffset(void);
-    int32_t getDlsymOffset_m32(void);
+int32_t getRealIPCId(int type, int32_t virt);
+void setIPCIdMap(int type, int32_t virt, int32_t real);
 
-    int32_t  getRealIPCId(int type, int32_t virt);
-    void setIPCIdMap(int type, int32_t virt, int32_t real);
+pid_t getRealPid(pid_t virt);
+void setPidMap(pid_t virt, pid_t real);
 
-    pid_t  getRealPid(pid_t virt);
-    void setPidMap(pid_t virt, pid_t real);
+pid_t getPtraceVirtualId(pid_t tracerId);
+void setPtraceVirtualId(pid_t tracerId, pid_t childId);
 
-    pid_t getPtraceVirtualId(pid_t tracerId);
-    void setPtraceVirtualId(pid_t tracerId, pid_t childId);
+void getRealPtyName(const char *virt, char *out, uint32_t len);
+void getVirtPtyName(const char *real, char *out, uint32_t len);
+void createVirtualPtyName(const char *real, char *out, uint32_t len);
+void setVirtualPtyId(uint32_t id);
+uint32_t getVirtualPtyId();
+void insertPtyNameMap(const char *virt, const char *real);
 
-    void getRealPtyName(const char* virt, char* out, uint32_t len);
-    void getVirtPtyName(const char* real, char *out, uint32_t len);
-    void createVirtualPtyName(const char* real, char *out, uint32_t len);
-    void setVirtualPtyId(uint32_t id);
-    uint32_t getVirtualPtyId();
-    void insertPtyNameMap(const char* virt, const char* real);
+void registerIncomingCons(vector<const char *> &ids,
+                          struct sockaddr_un receiverAddr,
+                          socklen_t len);
+void getMissingConMaps(struct IncomingConMap **map, uint32_t *nmaps);
 
-    void registerIncomingCons(vector<const char*>& ids,
-                             struct sockaddr_un receiverAddr,
-                             socklen_t len);
-    void getMissingConMaps(struct IncomingConMap **map, uint32_t *nmaps);
-
-    void insertInodeConnIdMaps(vector<InodeConnIdMap>& maps);
-    bool getCkptLeaderForFile(dev_t devnum, ino_t inode, void *id);
-    uint32_t getLogMask(void);
-    void setLogMask(uint32_t mask);
-  }
+void insertInodeConnIdMaps(vector<InodeConnIdMap> &maps);
+bool getCkptLeaderForFile(dev_t devnum, ino_t inode, void *id);
+uint32_t getLogMask(void);
+void setLogMask(uint32_t mask);
 }
-#endif
+}
+#endif // ifndef SHARED_DATA_H
