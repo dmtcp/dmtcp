@@ -470,6 +470,7 @@ ThreadList::suspendThreads()
                             SigInfo::ckptSignal()) < 0) {
             JASSERT(errno == ESRCH) (JASSERT_ERRNO) (thread->tid)
             .Text("error signalling thread");
+            errno = 0;
             ThreadList::threadIsDead(thread);
           } else {
             needrescan = 1;
@@ -481,12 +482,14 @@ ThreadList::suspendThreads()
         ret = THREAD_TGKILL(motherpid, thread->tid, 0);
         JASSERT(ret == 0 || errno == ESRCH);
         if (ret == -1 && errno == ESRCH) {
+          errno = 0;
           ThreadList::threadIsDead(thread);
         }
         break;
 
       case ST_SIGNALED:
         if (THREAD_TGKILL(motherpid, thread->tid, 0) == -1 && errno == ESRCH) {
+          errno = 0;
           ThreadList::threadIsDead(thread);
         } else {
           needrescan = 1;
@@ -986,6 +989,7 @@ ThreadList::addToActiveList(Thread *th)
       /* if no thread with this tid, then we can remove zombie descriptor */
       if (-1 == THREAD_TGKILL(motherpid, thread->tid, 0)) {
         JTRACE("Killing zombie thread") (thread->tid);
+        errno = 0;
         threadIsDead(thread);
       }
     }

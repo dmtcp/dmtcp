@@ -74,6 +74,7 @@ int DmtcpRWLockRdLock(DmtcpRWLock *rwlock)
     // Wait for futex.
     int s = futex_wait(&rwlock->readersFutex, waitVal);
     JASSERT (s != -1 || errno == EAGAIN) (JASSERT_ERRNO);
+    errno = 0;
 
     // Reacquire the exclusive lock.
     JASSERT(DmtcpMutexLock(&rwlock->xLock) == 0);
@@ -118,6 +119,7 @@ int DmtcpRWLockWrLock(DmtcpRWLock *rwlock)
     // Wait for futex.
     int s = futex_wait(&rwlock->writersFutex, waitVal);
     JASSERT (s != -1 || errno == EAGAIN) (JASSERT_ERRNO);
+    errno = 0;
 
     // Reacquire the exclusive lock.
     JASSERT(DmtcpMutexLock(&rwlock->xLock) == 0);

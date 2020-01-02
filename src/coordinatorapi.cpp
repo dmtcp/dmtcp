@@ -1050,6 +1050,7 @@ waitForCheckpointCommand()
       break;
     }
     JASSERT(errno == EINTR) (JASSERT_ERRNO); /* EINTR: a signal was caught */
+    errno = 0;
     if (ckptInterval > 0) {
       struct timeval end;
       JASSERT(gettimeofday(&end, NULL) == 0) (JASSERT_ERRNO);

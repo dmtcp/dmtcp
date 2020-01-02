@@ -44,7 +44,7 @@
  *   maximumState for states of all workers, accessed through getStatus()   *
  *   or through minimumState()                                              *
  * The states for a worker (client) are:                                    *
- * Checkpoint: RUNNING -> SUSPENDED -> CHECKPOINTING                        *
+ * Checkpoint: RUNNING -> PRESUSPEND -> SUSPENDED -> CHECKPOINTING          *
  *                     -> (Checkpoint barriers) -> CHECKPOINTED             *
  *                     -> (Resume barriers) -> RUNNING                      *
  *                                                                          *
@@ -1396,14 +1396,17 @@ DmtcpCoordinator::eventLoop(bool daemon)
   while (true) {
     // Wait until either there is some activity on client sockets, or the timer
     // has expired.
+    // If epoll_wait errors out due to signal, and timer not expired, retry.
     int nfds;
     do {
+      errno = 0;
       nfds = epoll_wait(epollFd, events, MAX_EVENTS, -1);
     } while (nfds < 0 && errno == EINTR && !timerExpired);
 
 
-    // The ckpt timer has expired; it's time to checkpoint.
+    // The ckpt timer expired and interrupted epoll_wait; time to checkpoint.
     if (nfds == -1 && errno == EINTR && timerExpired) {
+      errno = 0;
       timerExpired = false;
       startCheckpoint();
       continue;
@@ -1411,7 +1414,7 @@ DmtcpCoordinator::eventLoop(bool daemon)
 
     // alarm() is not always the only source of interrupts.
     // For example, any signal, including signal 0 or SIGWINCH can cause this.
-    JASSERT(nfds != -1 || errno == EINTR) (JASSERT_ERRNO);
+    JASSERT(nfds != -1 && errno == 0) (JASSERT_ERRNO);
 
     for (int n = 0; n < nfds; ++n) {
       void *ptr = events[n].data.ptr;

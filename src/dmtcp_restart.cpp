@@ -728,6 +728,7 @@ setNewCkptDir(char *path)
     JASSERT(mkdir(path, S_IRWXU) == 0 || errno == EEXIST)
       (JASSERT_ERRNO) (path)
     .Text("Error creating checkpoint directory");
+    errno = 0;
     JASSERT(0 == access(path, X_OK | W_OK)) (path)
     .Text("ERROR: Missing execute- or write-access to checkpoint dir");
   } else {

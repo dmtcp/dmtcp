@@ -55,6 +55,7 @@ SigInfo::setupCkptSigHandler(sighandler_t handler)
         JWARNING(false) (getenv("DMTCP_SIGCKPT")) (CKPT_SIGNAL)
         .Text("Your chosen SIGCKPT does not translate to a number, and cannot "
               "be used.  Default signal will be used instead");
+        errno = 0;
         STOPSIGNAL = CKPT_SIGNAL;
       } else if (STOPSIGNAL < 1 || STOPSIGNAL > 31) {
         JNOTE("Your chosen SIGCKPT is not a valid signal, and cannot be used."

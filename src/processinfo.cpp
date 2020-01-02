@@ -377,6 +377,7 @@ void Process : Info::restoreArgvAfterRestart(char *mtcpRestoreArgvStartAddr)
                        PROT_READ | PROT_WRITE);
     if (ret != -1 || errno != ENOMEM) {
       _mtcpRestoreArgvStartAddr = NULL;
+      errno = 0;
       return;
     }
   }
@@ -740,6 +741,7 @@ ProcessInfo::refreshChildTable()
     /* Check to see if the child process is alive*/
     if (kill(pid, 0) == -1 && errno == ESRCH) {
       _childTable.erase(j);
+      errno = 0;
     } else {
       _sessionIds[pid] = getsid(pid);
     }
