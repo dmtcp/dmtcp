@@ -867,7 +867,7 @@ int CoordinatorAPI::getUniqueIdFromCoordinator(const char *id,
   }
 
   JASSERT(Util::writeAll(sock, &msg, sizeof(msg)) == sizeof(msg));
-  JASSERT(Util::writeAll(sock, key, key_len) == key_len);
+  JASSERT(Util::writeAll(sock, key, key_len) == (ssize_t)key_len);
 
   msg.poison();
 
