@@ -60,10 +60,6 @@ class FileConnList : public ConnectionList
 
     static void restart() { instance().postRestart(); }
 
-    static void restartRegisterNSData() { instance().registerNSData(); }
-
-    static void restartSendQueries() { instance().sendQueries(); }
-
     static void restartRefill() { instance().refill(true); }
 
     static void restartResume() { instance().resume(true); }
