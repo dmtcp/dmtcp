@@ -108,10 +108,6 @@ dmtcp_FileConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
   case DMTCP_EVENT_RESTART:
     FileConnList::restart();
     dmtcp_local_barrier("File::RESTART_POST_RESTART");
-    FileConnList::restartRegisterNSData();
-    dmtcp_global_barrier("File::RESTART_NS_REGISTER_DATA");
-    FileConnList::restartSendQueries();
-    dmtcp_local_barrier("File::RESTART_NS_SEND_QUERIES");
     FileConnList::restartRefill();
     dmtcp_local_barrier("File::RESTART_REFILL");
     FileConnList::restartResume();
