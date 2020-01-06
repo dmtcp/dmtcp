@@ -213,8 +213,6 @@ void
 SocketConnList::registerNSData()
 {
   ConnectionRewirer::instance().registerNSData();
-
-  ConnectionList::registerNSData();
 }
 
 void
@@ -223,8 +221,6 @@ SocketConnList::sendQueries()
   ConnectionRewirer::instance().sendQueries();
   ConnectionRewirer::instance().doReconnect();
   ConnectionRewirer::destroy();
-
-  ConnectionList::sendQueries();
 }
 
 void

@@ -52,10 +52,10 @@ class SocketConnList : public ConnectionList
     virtual void drain();
     virtual void preCkpt();
     virtual void postRestart();
-    virtual void registerNSData();
-    virtual void sendQueries();
     virtual void refill(bool isRestart);
 
+    void registerNSData();
+    void sendQueries();
     void preCkptRegisterNSData();
     void preCkptSendQueries();
 
