@@ -30,9 +30,13 @@ dmtcp_SocketConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
     dmtcp_local_barrier("Socket::Pre_Ckpt");
     SocketConnList::leaderElection();
     dmtcp_local_barrier("Socket::Leader_Election");
+
+    // We need a global barrier after registering name-service data so that all
+    // our peers have registered their info before we start sending queries.
     SocketConnList::ckptRegisterNSData();
     dmtcp_global_barrier("Socket::Ckpt_Register_Peer_Info");
     SocketConnList::ckptSendQueries();
+
     dmtcp_local_barrier("Socket::Ckpt_Retrieve_Peer_Info");
     SocketConnList::drainFd();
     dmtcp_local_barrier("Socket::Drain");
