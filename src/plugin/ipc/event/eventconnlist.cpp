@@ -10,6 +10,14 @@ dmtcp_EventConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
   EventConnList::instance().eventHook(event, data);
 
   switch (event) {
+  case DMTCP_EVENT_CLOSE_FD:
+    EventConnList::instance().processClose(data->closeFd.fd);
+    break;
+
+  case DMTCP_EVENT_DUP_FD:
+    EventConnList::instance().processDup(data->dupFd.oldFd, data->dupFd.newFd);
+    break;
+
   case DMTCP_EVENT_PRESUSPEND:
     break;
 
@@ -51,18 +59,6 @@ void
 ipc_initialize_plugin_event()
 {
   dmtcp_register_plugin(eventPlugin);
-}
-
-void
-dmtcp_EventConn_ProcessFdEvent(int event, int arg1, int arg2)
-{
-  if (event == SYS_close) {
-    EventConnList::instance().processClose(arg1);
-  } else if (event == SYS_dup) {
-    EventConnList::instance().processDup(arg1, arg2);
-  } else {
-    JASSERT(false);
-  }
 }
 
 static EventConnList *eventConnList = NULL;

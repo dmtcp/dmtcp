@@ -35,13 +35,23 @@ static int isRshProcess = 0;
 
 static bool sshPluginEnabled = false;
 
-extern "C" void process_fd_event(int event, int arg1, int arg2 = -1);
 void dmtcp_ssh_drain();
 void dmtcp_ssh_resume();
 void dmtcp_ssh_restart();
 static void refill(bool isRestart);
 static void sshdReceiveFds();
 static void createNewDmtcpSshdProcess();
+
+void dmtcp_SocketConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
+
+static void
+process_close_fd_event(int fd)
+{
+  DmtcpEventData_t data;
+  data.closeFd.fd = fd;
+  dmtcp_SocketConnList_EventHook(DMTCP_EVENT_CLOSE_FD, &data);
+}
+
 
 void
 dmtcp_SSH_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
@@ -260,9 +270,12 @@ createNewDmtcpSshdProcess()
     argv[idx++] = NULL;
     JASSERT(idx < max_args) (idx);
 
-    process_fd_event(SYS_close, in[1]);
-    process_fd_event(SYS_close, out[0]);
-    process_fd_event(SYS_close, err[0]);
+    DmtcpEventData_t data;
+
+    // TODO: Hack until we improve the plugin design to remove these calls.
+    process_close_fd_event(in[1]);
+    process_close_fd_event(out[0]);
+    process_close_fd_event(err[0]);
     dup2(in[0], STDIN_FILENO);
     dup2(out[1], STDOUT_FILENO);
     dup2(err[1], STDERR_FILENO);
@@ -291,9 +304,9 @@ createNewDmtcpSshdProcess()
   close(500 + sshStdout);
   close(500 + sshStderr);
 
-  process_fd_event(SYS_close, sshStdin);
-  process_fd_event(SYS_close, sshStdout);
-  process_fd_event(SYS_close, sshStderr);
+  process_close_fd_event(sshStdin);
+  process_close_fd_event(sshStdout);
+  process_close_fd_event(sshStderr);
 }
 
 extern "C" void
@@ -306,13 +319,13 @@ dmtcp_ssh_register_fds(int isSshd,
                        int rshProcess)
 {
   if (isSshd) { // dmtcp_sshd
-    process_fd_event(SYS_close, STDIN_FILENO);
-    process_fd_event(SYS_close, STDOUT_FILENO);
-    process_fd_event(SYS_close, STDERR_FILENO);
+    process_close_fd_event(STDIN_FILENO);
+    process_close_fd_event(STDOUT_FILENO);
+    process_close_fd_event(STDERR_FILENO);
   } else { // dmtcp_ssh
-    process_fd_event(SYS_close, in);
-    process_fd_event(SYS_close, out);
-    process_fd_event(SYS_close, err);
+    process_close_fd_event(in);
+    process_close_fd_event(out);
+    process_close_fd_event(err);
     isRshProcess = rshProcess;
   }
   sshStdin = in;

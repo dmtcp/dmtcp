@@ -82,6 +82,8 @@ class FileConnList : public ConnectionList
     void processFileConnection(int fd, const char *path, int flags,
                                mode_t mode);
 
+    void processReopen(int fd, const char *newPath);
+
     void prepareShmList();
     void remapShmMaps();
     void recreateShmFileAndMap(const ProcMapsArea &area);

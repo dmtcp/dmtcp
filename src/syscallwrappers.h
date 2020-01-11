@@ -185,13 +185,17 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   MACRO(open64)                       \
   MACRO(fopen)                        \
   MACRO(fopen64)                      \
+  MACRO(freopen)                      \
+  MACRO(freopen64)                    \
   MACRO(openat)                       \
   MACRO(openat64)                     \
   MACRO(opendir)                      \
-  MACRO(mkstemp)                      \
   MACRO(close)                        \
   MACRO(fclose)                       \
   MACRO(closedir)                     \
+                                      \
+  MACRO(tmpfile)                      \
+  MACRO(mkostemps)                    \
   MACRO(setrlimit)                    \
   MACRO(dup)                          \
   MACRO(dup2)                         \
@@ -201,6 +205,8 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   MACRO(__lxstat)                     \
   MACRO(__lxstat64)                   \
   MACRO(readlink)                     \
+  MACRO(realpath)                     \
+  MACRO(access)                       \
   MACRO(exit)                         \
   MACRO(syscall)                      \
   MACRO(unsetenv)                     \
@@ -308,10 +314,11 @@ int _real_open(const char *pathname, int flags, ...);
 int _real_open64(const char *pathname, int flags, ...);
 FILE *_real_fopen(const char *path, const char *mode);
 FILE *_real_fopen64(const char *path, const char *mode);
-int _real_openat(int dirfd, const char *pathname, int flags, mode_t mode);
-int _real_openat64(int dirfd, const char *pathname, int flags, mode_t mode);
+FILE *_real_freopen(const char *path, const char *mode, FILE *fp);
+FILE *_real_freopen64(const char *path, const char *mode, FILE *fp);
+int _real_openat(int dirfd, const char *pathname, int flags, ...);
+int _real_openat64(int dirfd, const char *pathname, int flags, ...);
 DIR *_real_opendir(const char *name);
-int _real_mkstemp(char *ttemplate);
 int _real_close(int fd);
 int _real_fclose(FILE *fp);
 int _real_closedir(DIR *dir);
@@ -320,7 +327,14 @@ void _real_exit(int status);
 int _real_dup(int oldfd);
 int _real_dup2(int oldfd, int newfd);
 int _real_dup3(int oldfd, int newfd, int flags);
-int _real_fcntl(int fd, int cmd, void *arg);
+int _real_fcntl(int fd, int cmd, ...);
+
+ssize_t _real_readlink(const char *path, char *buf, size_t bufsiz);
+char * _real_realpath(const char *path, char *resolved_path);
+int _real_access(const char *path, int mode);
+
+FILE *_real_tmpfile();
+int _real_mkostemps(char *ttemplate, int suffixlen, int flags);
 
 int _real_ttyname_r(int fd, char *buf, size_t buflen);
 int _real_ptsname_r(int fd, char *buf, size_t buflen);
@@ -383,11 +397,10 @@ int _real_pthread_timedjoin_np(pthread_t thread,
                                void **retval,
                                const struct timespec *abstime);
 
-int _real_xstat(int vers, const char *path, struct stat *buf);
-int _real_xstat64(int vers, const char *path, struct stat64 *buf);
-int _real_lxstat(int vers, const char *path, struct stat *buf);
-int _real_lxstat64(int vers, const char *path, struct stat64 *buf);
-ssize_t _real_readlink(const char *path, char *buf, size_t bufsiz);
+int _real___xstat(int vers, const char *path, struct stat *buf);
+int _real___xstat64(int vers, const char *path, struct stat64 *buf);
+int _real___lxstat(int vers, const char *path, struct stat *buf);
+int _real___lxstat64(int vers, const char *path, struct stat64 *buf);
 void *_real_dlsym(void *handle, const char *symbol);
 
 void *_real_dlopen(const char *filename, int flag);

@@ -119,6 +119,8 @@ class FileConnection : public Connection
 
     bool checkDup(int fd, const char *npath);
 
+    void updatePath(string newPath) { _path = newPath; }
+
   private:
     int openFile();
     void refreshPath();

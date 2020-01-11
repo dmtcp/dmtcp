@@ -33,11 +33,24 @@ using namespace dmtcp;
 static uint32_t virtPtyId = 0;
 
 void
+pty_virtual_to_real_filepath(DmtcpEventData_t *data);
+void
+pty_real_to_virtual_filepath(DmtcpEventData_t *data);
+
+void
 dmtcp_PtyConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   PtyConnList::instance().eventHook(event, data);
 
   switch (event) {
+  case DMTCP_EVENT_CLOSE_FD:
+    PtyConnList::instance().processClose(data->closeFd.fd);
+    break;
+
+  case DMTCP_EVENT_DUP_FD:
+    PtyConnList::instance().processDup(data->dupFd.oldFd, data->dupFd.newFd);
+    break;
+
   case DMTCP_EVENT_PRESUSPEND:
     break;
 
@@ -54,6 +67,14 @@ dmtcp_PtyConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
     dmtcp_local_barrier("Pty::RESTART_POST_RESTART");
     PtyConnList::restartRefill();
     break;
+
+  case DMTCP_EVENT_VIRTUAL_TO_REAL_PATH:
+    pty_virtual_to_real_filepath(data);
+  break;
+
+  case DMTCP_EVENT_REAL_TO_VIRTUAL_PATH:
+    pty_virtual_to_real_filepath(data);
+  break;
 
   default:  // other events are not registered
     break;
@@ -78,15 +99,44 @@ ipc_initialize_plugin_pty()
 }
 
 void
-dmtcp_PtyConn_ProcessFdEvent(int event, int arg1, int arg2)
+pty_virtual_to_real_filepath(DmtcpEventData_t *data)
 {
-  if (event == SYS_close) {
-    PtyConnList::instance().processClose(arg1);
-  } else if (event == SYS_dup) {
-    PtyConnList::instance().processDup(arg1, arg2);
-  } else {
-    JASSERT(false);
+  if (!Util::strStartsWith(data->virtualToRealPath.path, VIRT_PTS_PREFIX_STR)) {
+    return;
   }
+
+  char newPath[PATH_MAX] = {0};
+  SharedData::getRealPtyName(data->virtualToRealPath.path,
+                             newPath,
+                             sizeof(newPath));
+
+  strncpy(data->virtualToRealPath.path, newPath, PATH_MAX);
+}
+
+void
+pty_real_to_virtual_filepath(DmtcpEventData_t *data)
+{
+  if (!Util::strStartsWith(data->realToVirtualPath.path, VIRT_PTS_PREFIX_STR)) {
+    return;
+  }
+
+  char newPath[PATH_MAX] = {0};
+  SharedData::getRealPtyName(data->realToVirtualPath.path,
+                             newPath,
+                             sizeof(newPath));
+
+  strncpy(data->realToVirtualPath.path, newPath, PATH_MAX);
+
+  // TODO:
+  // We probably received this terminal fd over unix-domain socket using
+  // recvmsg(). This was observed with tmux. When we run `tmux attach`, the
+  // tmux client sends its controlling terminal to the daemon process via
+  // sendmsg() over a unix domain socket. Ideally, we would create wrappers
+  // for recvmsg() and sendmsg() for handling such cases. In the meanwhile,
+  // we would create a PtyConection of type PTY_EXTERNAL and will fail on
+  // checkpoint if we still have it open.
+  // PtyConnection *c =
+  //   new PtyConnection(fd, tmpbuf, O_RDWR, -1, PtyConnection::PTY_EXTERNAL);
 }
 
 static PtyConnList *ptyConnList = NULL;
