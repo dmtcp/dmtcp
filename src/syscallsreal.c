@@ -517,9 +517,31 @@ _real_exit(int status)
 
 LIB_PRIVATE
 int
-_real_fcntl(int fd, int cmd, void *arg)
+_real_fcntl(int fd, int cmd, ...)
 {
+  void *arg = NULL;
+
+  va_list varg;
+  va_start(varg, cmd);
+  arg = va_arg(varg, void*);
+  va_end(varg);
+
   REAL_FUNC_PASSTHROUGH(fcntl) (fd, cmd, arg);
+}
+
+
+LIB_PRIVATE
+ FILE *
+_real_tmpfile()
+{
+  REAL_FUNC_PASSTHROUGH_TYPED(FILE *, tmpfile) ();
+}
+
+LIB_PRIVATE
+int
+_real_mkostemps(char *ttemplate, int suffixlen, int flags)
+{
+  REAL_FUNC_PASSTHROUGH(mkostemps)(ttemplate, suffixlen, flags);
 }
 
 LIB_PRIVATE
@@ -543,10 +565,32 @@ _real_ptsname_r(int fd, char *buf, size_t buflen)
   REAL_FUNC_PASSTHROUGH(ptsname_r) (fd, buf, buflen);
 }
 
+LIB_PRIVATE
 int
 _real_ttyname_r(int fd, char *buf, size_t buflen)
 {
   REAL_FUNC_PASSTHROUGH(ttyname_r) (fd, buf, buflen);
+}
+
+LIB_PRIVATE
+ssize_t
+_real_readlink(const char *path, char *buf, size_t bufsiz)
+{
+  REAL_FUNC_PASSTHROUGH_TYPED(ssize_t, readlink) (path, buf, bufsiz);
+}
+
+LIB_PRIVATE
+char *
+_real_realpath(const char *path, char *resolved_path)
+{
+  REAL_FUNC_PASSTHROUGH_TYPED(char*, realpath) (path, resolved_path);
+}
+
+LIB_PRIVATE
+int
+_real_access(const char *path, int mode)
+{
+  REAL_FUNC_PASSTHROUGH(access) (path, mode);
 }
 
 LIB_PRIVATE
@@ -773,17 +817,34 @@ _real_fopen64(const char *path, const char *mode)
 }
 
 LIB_PRIVATE
-int
-_real_openat(int dirfd, const char *pathname, int flags, mode_t mode)
+FILE *
+_real_freopen(const char *path, const char *mode, FILE *fp)
 {
-  REAL_FUNC_PASSTHROUGH(openat) (dirfd, pathname, flags, mode);
+  REAL_FUNC_PASSTHROUGH_TYPED(FILE *, freopen) (path, mode, fp);
+}
+
+LIB_PRIVATE
+FILE *
+_real_freopen64(const char *path, const char *mode, FILE *fp)
+{
+  REAL_FUNC_PASSTHROUGH_TYPED(FILE *, freopen64) (path, mode, fp);
 }
 
 LIB_PRIVATE
 int
-_real_openat64(int dirfd, const char *pathname, int flags, mode_t mode)
+_real_openat(int dirfd, const char *pathname, int flags, ...)
 {
-  REAL_FUNC_PASSTHROUGH(openat64) (dirfd, pathname, flags, mode);
+  mode_t mode = 0;
+
+  // Handling the variable number of arguments
+  if (flags & O_CREAT) {
+    va_list arg;
+    va_start(arg, flags);
+    mode = va_arg(arg, int);
+    va_end(arg);
+  }
+
+  REAL_FUNC_PASSTHROUGH(openat) (dirfd, pathname, flags, mode);
 }
 
 LIB_PRIVATE
@@ -802,13 +863,6 @@ _real_closedir(DIR *dir)
 
 int _real_setrlimit(int resource, const struct rlimit *rlim) {
   REAL_FUNC_PASSTHROUGH (setrlimit) (resource, rlim);
-}
-
-LIB_PRIVATE
-int
-_real_mkstemp(char *template)
-{
-  REAL_FUNC_PASSTHROUGH(mkstemp) (template);
 }
 
 /* See comments for syscall wrapper */
@@ -834,37 +888,30 @@ _real_syscall(long sys_num, ...)
 
 LIB_PRIVATE
 int
-_real_xstat(int vers, const char *path, struct stat *buf)
+_real___xstat(int vers, const char *path, struct stat *buf)
 {
   REAL_FUNC_PASSTHROUGH(__xstat) (vers, path, buf);
 }
 
 LIB_PRIVATE
 int
-_real_xstat64(int vers, const char *path, struct stat64 *buf)
+_real___xstat64(int vers, const char *path, struct stat64 *buf)
 {
   REAL_FUNC_PASSTHROUGH(__xstat64) (vers, path, buf);
 }
 
 LIB_PRIVATE
 int
-_real_lxstat(int vers, const char *path, struct stat *buf)
+_real___lxstat(int vers, const char *path, struct stat *buf)
 {
   REAL_FUNC_PASSTHROUGH(__lxstat) (vers, path, buf);
 }
 
 LIB_PRIVATE
 int
-_real_lxstat64(int vers, const char *path, struct stat64 *buf)
+_real___lxstat64(int vers, const char *path, struct stat64 *buf)
 {
   REAL_FUNC_PASSTHROUGH(__lxstat64) (vers, path, buf);
-}
-
-LIB_PRIVATE
-ssize_t
-_real_readlink(const char *path, char *buf, size_t bufsiz)
-{
-  REAL_FUNC_PASSTHROUGH_TYPED(ssize_t, readlink) (path, buf, bufsiz);
 }
 
 LIB_PRIVATE

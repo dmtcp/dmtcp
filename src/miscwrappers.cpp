@@ -75,46 +75,6 @@ using namespace dmtcp;
 
 EXTERNC int dmtcp_is_popen_fp(FILE *fp) __attribute((weak));
 
-extern "C" int
-close(int fd)
-{
-  if (DMTCP_IS_PROTECTED_FD(fd)) {
-    JTRACE("blocked attempt to close protected fd") (fd);
-    errno = EBADF;
-    return -1;
-  }
-  return _real_close(fd);
-}
-
-extern "C" int
-fclose(FILE *fp)
-{
-  // If this fp was obtained using popen(), we must pclose it
-  if (dmtcp_is_popen_fp(fp)) {
-    return pclose(fp);
-  }
-  int fd = fileno(fp);
-  if (DMTCP_IS_PROTECTED_FD(fd)) {
-    JTRACE("blocked attempt to fclose protected fd") (fd);
-    errno = EBADF;
-    return -1;
-  }
-  return _real_fclose(fp);
-}
-
-extern "C" int
-closedir(DIR *dir)
-{
-  int fd = dirfd(dir);
-
-  if (DMTCP_IS_PROTECTED_FD(fd)) {
-    JTRACE("blocked attempt to closedir protected fd") (fd);
-    errno = EBADF;
-    return -1;
-  }
-  return _real_closedir(dir);
-}
-
 /*
  * FIXME: Add wrapper for dup2 and dup3 to detect a protected fd.
 extern "C" int dup2(int oldfd, int newfd)
