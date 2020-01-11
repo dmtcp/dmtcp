@@ -41,7 +41,6 @@
 # define _real_close           NEXT_FNC(close)
 # define _real_fclose          NEXT_FNC(fclose)
 # define _real_closedir        NEXT_FNC(closedir)
-# define _real_lseek           NEXT_FNC(lseek)
 # define _real_dup             NEXT_FNC(dup)
 # define _real_dup2            NEXT_FNC(dup2)
 # define _real_dup3            NEXT_FNC(dup3)
