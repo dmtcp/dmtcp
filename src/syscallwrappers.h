@@ -393,7 +393,6 @@ void *_real_dlsym(void *handle, const char *symbol);
 void *_real_dlopen(const char *filename, int flag);
 int _real_dlclose(void *handle);
 
-off_t _real_lseek(int fd, off_t offset, int whence);
 int _real_unlink(const char *pathname);
 
 int _real_waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options);
