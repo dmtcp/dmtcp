@@ -70,6 +70,14 @@ typedef enum eDmtcpEvent {
   DMTCP_EVENT_RESUME,
   DMTCP_EVENT_RESTART,
 
+  DMTCP_EVENT_OPEN_FD,
+  DMTCP_EVENT_REOPEN_FD,
+  DMTCP_EVENT_CLOSE_FD,
+  DMTCP_EVENT_DUP_FD,
+
+  DMTCP_EVENT_VIRTUAL_TO_REAL_PATH,
+  DMTCP_EVENT_REAL_TO_VIRTUAL_PATH,
+
   nDmtcpEvents
 } DmtcpEvent_t;
 
@@ -81,6 +89,32 @@ typedef union _DmtcpEventData_t {
   struct {
     int isRestart;
   } resumeUserThreadInfo, nameserviceInfo;
+
+  struct {
+    int fd;
+    const char *path;
+    int flags;
+    mode_t mode;
+  } openFd;
+
+  struct {
+    int fd;
+    const char *path;
+    int flags;
+  } reopenFd;
+
+  struct {
+    int fd;
+  } closeFd;
+
+  struct {
+    int oldFd;
+    int newFd;
+  } dupFd;
+
+  struct {
+    char *path;
+  } realToVirtualPath, virtualToRealPath;
 } DmtcpEventData_t;
 
 typedef void (*HookFunctionPtr_t)(DmtcpEvent_t, DmtcpEventData_t *);

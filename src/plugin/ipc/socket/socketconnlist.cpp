@@ -1,4 +1,3 @@
-
 #include <sys/syscall.h>
 #include <unistd.h>
 
@@ -22,6 +21,14 @@ dmtcp_SocketConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
   SocketConnList::instance().eventHook(event, data);
 
   switch (event) {
+  case DMTCP_EVENT_CLOSE_FD:
+    SocketConnList::instance().processClose(data->closeFd.fd);
+    break;
+
+  case DMTCP_EVENT_DUP_FD:
+    SocketConnList::instance().processDup(data->dupFd.oldFd, data->dupFd.newFd);
+    break;
+
   case DMTCP_EVENT_PRESUSPEND:
     break;
 
@@ -82,18 +89,6 @@ void
 ipc_initialize_plugin_socket()
 {
   dmtcp_register_plugin(socketPlugin);
-}
-
-void
-dmtcp_SocketConn_ProcessFdEvent(int event, int arg1, int arg2)
-{
-  if (event == SYS_close) {
-    SocketConnList::instance().processClose(arg1);
-  } else if (event == SYS_dup) {
-    SocketConnList::instance().processDup(arg1, arg2);
-  } else {
-    JASSERT(false);
-  }
 }
 
 static SocketConnList *socketConnList = NULL;

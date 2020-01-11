@@ -80,9 +80,18 @@ PluginManager::eventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
   case DMTCP_EVENT_INIT:
   case DMTCP_EVENT_PRE_EXEC:
   case DMTCP_EVENT_POST_EXEC:
+
   case DMTCP_EVENT_ATFORK_PARENT:
   case DMTCP_EVENT_ATFORK_CHILD:
   case DMTCP_EVENT_PTHREAD_START:
+
+  case DMTCP_EVENT_OPEN_FD:
+  case DMTCP_EVENT_REOPEN_FD:
+  case DMTCP_EVENT_CLOSE_FD:
+  case DMTCP_EVENT_DUP_FD:
+
+  case DMTCP_EVENT_VIRTUAL_TO_REAL_PATH:
+
     for (size_t i = 0; i < pluginManager->pluginInfos.size(); i++) {
       if (pluginManager->pluginInfos[i]->event_hook) {
         pluginManager->pluginInfos[i]->event_hook(event, data);
@@ -96,6 +105,9 @@ PluginManager::eventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
   case DMTCP_EVENT_PTHREAD_EXIT:
   case DMTCP_EVENT_PTHREAD_RETURN:
   case DMTCP_EVENT_ATFORK_PREPARE:
+
+  case DMTCP_EVENT_REAL_TO_VIRTUAL_PATH:
+
     for (int i = pluginManager->pluginInfos.size() - 1; i >= 0; i--) {
       if (pluginManager->pluginInfos[i]->event_hook) {
         pluginManager->pluginInfos[i]->event_hook(event, data);

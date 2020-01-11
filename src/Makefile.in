@@ -188,7 +188,8 @@ am___d_libdir__libdmtcp_so_OBJECTS = alarm.$(OBJEXT) \
 	rlimitfloatenv.$(OBJEXT) signalwrappers.$(OBJEXT) \
 	siginfo.$(OBJEXT) syslogwrappers.$(OBJEXT) terminal.$(OBJEXT) \
 	threadlist.$(OBJEXT) threadsync.$(OBJEXT) \
-	threadwrappers.$(OBJEXT) writeckpt.$(OBJEXT)
+	threadwrappers.$(OBJEXT) wrappers.$(OBJEXT) \
+	writeckpt.$(OBJEXT)
 __d_libdir__libdmtcp_so_OBJECTS =  \
 	$(am___d_libdir__libdmtcp_so_OBJECTS)
 __d_libdir__libdmtcp_so_DEPENDENCIES = libdmtcpinternal.a libjalib.a \
@@ -237,7 +238,7 @@ am__depfiles_remade = ./$(DEPDIR)/alarm.Po \
 	./$(DEPDIR)/trampolines.Po ./$(DEPDIR)/uniquepid.Po \
 	./$(DEPDIR)/util_exec.Po ./$(DEPDIR)/util_init.Po \
 	./$(DEPDIR)/util_misc.Po ./$(DEPDIR)/workerstate.Po \
-	./$(DEPDIR)/writeckpt.Po
+	./$(DEPDIR)/wrappers.Po ./$(DEPDIR)/writeckpt.Po
 am__mv = mv -f
 COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
@@ -640,6 +641,7 @@ __d_libdir__libdmtcp_so_SOURCES = alarm.cpp			\
 				  threadlist.cpp 		\
 				  threadsync.cpp 		\
 				  threadwrappers.cpp 		\
+				  wrappers.cpp 			\
 				  writeckpt.cpp
 
 __d_libdir__libdmtcp_so_LDFLAGS = -shared -Xlinker -znow
@@ -909,6 +911,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/util_init.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/util_misc.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/workerstate.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/wrappers.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/writeckpt.Po@am__quote@ # am--include-marker
 
 $(am__depfiles_remade):
@@ -1333,6 +1336,7 @@ distclean: distclean-recursive
 	-rm -f ./$(DEPDIR)/util_init.Po
 	-rm -f ./$(DEPDIR)/util_misc.Po
 	-rm -f ./$(DEPDIR)/workerstate.Po
+	-rm -f ./$(DEPDIR)/wrappers.Po
 	-rm -f ./$(DEPDIR)/writeckpt.Po
 	-rm -f Makefile
 distclean-am: clean-am distclean-compile distclean-generic \
@@ -1431,6 +1435,7 @@ maintainer-clean: maintainer-clean-recursive
 	-rm -f ./$(DEPDIR)/util_init.Po
 	-rm -f ./$(DEPDIR)/util_misc.Po
 	-rm -f ./$(DEPDIR)/workerstate.Po
+	-rm -f ./$(DEPDIR)/wrappers.Po
 	-rm -f ./$(DEPDIR)/writeckpt.Po
 	-rm -f Makefile
 maintainer-clean-am: distclean-am maintainer-clean-generic

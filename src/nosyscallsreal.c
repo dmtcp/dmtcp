@@ -216,8 +216,15 @@ _real_exit(int status)
 
 LIB_PRIVATE
 int
-_real_fcntl(int fd, int cmd, void *arg)
+_real_fcntl(int fd, int cmd, ...)
 {
+  void *arg = NULL;
+
+  va_list varg;
+  va_start(varg, cmd);
+  arg = va_arg(varg, void*);
+  va_end(varg);
+
   REAL_FUNC_PASSTHROUGH(fcntl) (fd, cmd, arg);
 }
 

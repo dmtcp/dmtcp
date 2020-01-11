@@ -74,6 +74,7 @@
 #include "filewrappers.h"
 #include "procselfmaps.h"
 #include "ptywrappers.h"
+#include "ptyconnlist.h"
 #include "shareddata.h"
 #include "util.h"
 
@@ -85,6 +86,42 @@ dmtcp_FileConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
   FileConnList::instance().eventHook(event, data);
 
   switch (event) {
+  case DMTCP_EVENT_OPEN_FD:
+    // TODO: Handle the following:
+    // if (Util::strStartsWith(path, "/dev/ptmx")) {
+    //   // Force O_RDWR flag here.
+    //   flags &= ~(O_RDONLY | O_WRONLY);
+    //   flags |= O_RDWR;
+    // }
+
+    if (Util::isPseudoTty(
+            jalib::Filesystem::GetDeviceName(data->openFd.fd).c_str())) {
+      PtyConnList::instance().processPtyConnection(data->openFd.fd,
+                                                   data->openFd.path,
+                                                   data->openFd.flags,
+                                                   data->openFd.mode);
+    } else {
+      FileConnList::instance().processFileConnection(data->openFd.fd,
+                                                     data->openFd.path,
+                                                     data->openFd.flags,
+                                                     data->openFd.mode);
+    }
+    break;
+
+  case DMTCP_EVENT_CLOSE_FD:
+    FileConnList::instance().processClose(data->closeFd.fd);
+    break;
+
+  case DMTCP_EVENT_DUP_FD:
+    FileConnList::instance().processDup(data->dupFd.oldFd, data->dupFd.newFd);
+    break;
+
+  case DMTCP_EVENT_REOPEN_FD:
+    FileConnList::instance().processReopen(data->reopenFd.fd,
+                                           data->reopenFd.path);
+
+     break;
+
   case DMTCP_EVENT_PRESUSPEND:
     break;
 
@@ -140,18 +177,13 @@ static vector<ProcMapsArea>unlinkedShmAreas;
 static vector<ProcMapsArea>missingUnlinkedShmFiles;
 static vector<FileConnection *>shmAreaConn;
 
-void
-dmtcp_FileConn_ProcessFdEvent(int event, int arg1, int arg2)
+void FileConnList::processReopen(int fd, const char *newPath)
 {
-  if (event == SYS_close) {
-    FileConnList::instance().processClose(arg1);
-  } else if (event == SYS_dup) {
-    FileConnList::instance().processDup(arg1, arg2);
-  } else {
-    JASSERT(false);
+  FileConnection *con = (FileConnection*) getConnection(fd);
+  if (con != NULL) {
+    con->updatePath(newPath);
   }
 }
-
 
 bool
 FileConnList::createDirectoryTree(const string &path)
