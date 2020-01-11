@@ -66,7 +66,7 @@ PtraceInfo::createSharedFile()
     int fd = _real_open(path, O_CREAT | O_TRUNC | O_RDWR, 0600);
     JASSERT(fd != -1) (path) (JASSERT_ERRNO);
 
-    JASSERT(_real_lseek(fd, _sharedDataSize,
+    JASSERT(lseek(fd, _sharedDataSize,
                         SEEK_SET) == (off_t)_sharedDataSize)
       (path) (_sharedDataSize) (JASSERT_ERRNO);
     Util::writeAll(fd, "", 1);

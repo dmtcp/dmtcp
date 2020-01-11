@@ -36,7 +36,6 @@
 
 #define _real_wait4  NEXT_FNC(wait4)
 #define _real_open   NEXT_FNC(open)
-#define _real_lseek  NEXT_FNC(lseek)
 #define _real_unlink NEXT_FNC(unlink)
 #define _real_dup2   NEXT_FNC(dup2)
 #define _real_mmap   NEXT_FNC(mmap)
