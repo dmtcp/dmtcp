@@ -772,6 +772,9 @@ DmtcpCoordinator::initializeComputation()
   blockUntilDone = false;
   exitAfterCkptOnce = false;
   workersAtCurrentBarrier = 0;
+
+  prevBarrier.clear();
+  currentBarrier.clear();
 }
 
 void
