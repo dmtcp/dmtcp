@@ -19,6 +19,7 @@
 #include <sys/ioctl.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include "protectedfds.h"
 
 #undef open
 #undef open64
@@ -434,11 +435,19 @@ dup2(int oldfd, int newfd)
 {
   WrapperLock wrapperLock;
 
+  // FIXME:  The meaning of PROTECTED_FD_START/PROTECTED_FD_END
+  //         can change if we adopt a dynamic protected fd base.
+  JASSERT( !DMTCP_IS_PROTECTED_FD(newfd) )
+         ("\n*** Blocked attempt to dup2 into a protected fd;\n"
+          "    If you must use larger fd's in range of protected fd's, then\n"
+          "    please let the developers know that you need the option:\n"
+          "      'dmtcp_launch --protected-fd <NEW_PROT_FD_START>'")
+         (PROTECTED_FD_START)(PROTECTED_FD_END)
+         (oldfd)(newfd);
   int ret = _real_dup2(oldfd, newfd);
   if (ret != -1) {
     processDupFd(oldfd, ret);
   }
-
   return ret;
 }
 
@@ -448,11 +457,19 @@ dup3(int oldfd, int newfd, int flags)
 {
   WrapperLock wrapperLock;
 
+  // FIXME:  The meaning of PROTECTED_FD_START/PROTECTED_FD_END
+  //         can change if we adopt a dynamic protected fd base.
+  JASSERT( !DMTCP_IS_PROTECTED_FD(newfd) )
+         ("\n*** Blocked attempt to dup3 into a protected fd;\n"
+          "    If you must use larger fd's in range of protected fd's, then\n"
+          "    please let the developers know that you need the option:\n"
+          "      'dmtcp_launch --protected-fd <NEW_PROT_FD_START>'")
+         (PROTECTED_FD_START)(PROTECTED_FD_END)
+         (oldfd)(newfd);
   int ret = _real_dup3(oldfd, newfd, flags);
   if (ret != -1) {
     processDupFd(oldfd, ret);
   }
-
   return ret;
 }
 
