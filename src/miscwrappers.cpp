@@ -28,7 +28,6 @@
 #include "constants.h"
 #include "dmtcpworker.h"
 #include "processinfo.h"
-#include "protectedfds.h"
 #include "syscallwrappers.h"
 #include "threadsync.h"
 #include "util.h"
@@ -75,18 +74,9 @@ using namespace dmtcp;
 
 EXTERNC int dmtcp_is_popen_fp(FILE *fp) __attribute((weak));
 
-/*
- * FIXME: Add wrapper for dup2 and dup3 to detect a protected fd.
-extern "C" int dup2(int oldfd, int newfd)
-{
-  if (DMTCP_IS_PROTECTED_FD(newfd)) {
-  }
-  return _real_dup2(oldfd, newfd);
-}
-*/
-
 // Linux prlimit() could also be wrapped for protected fd, but it's a rare case.
-extern "C" int setrlimit (int resource, const struct rlimit *rlim) {
+extern "C" int
+setrlimit (int resource, const struct rlimit *rlim) {
   if ( resource == RLIMIT_NOFILE &&
        (rlim->rlim_cur < 1024 || rlim->rlim_max < 1024) ) {
     JNOTE("Blocked attempt to lower RLIMIT_NOFILE\n"
