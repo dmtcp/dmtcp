@@ -114,18 +114,40 @@ extern "C" int closedir(DIR *dir)
   return _real_closedir(dir);
 }
 
-/*
- * FIXME: Add wrapper for dup2 and dup3 to detect if the newfd is a protected fd.
-extern "C" int dup2(int oldfd, int newfd)
+extern "C" int
+dup2(int oldfd, int newfd)
 {
-  if (DMTCP_IS_PROTECTED_FD(newfd)) {
-  }
+  // FIXME:  The meaning of PROTECTED_FD_START/PROTECTED_FD_END
+  //         can change if we adopt a dynamic protected fd base.
+  JASSERT( !DMTCP_IS_PROTECTED_FD(newfd) )
+         ("\n*** Blocked attempt to dup2 into a protected fd;\n"
+          "    If you must use larger fd's in range of protected fd's, then\n"
+          "    please let the developers know that you need the option:\n"
+          "      'dmtcp_launch --protected-fd <NEW_PROT_FD_START>'")
+         (PROTECTED_FD_START)(PROTECTED_FD_END)
+         (oldfd)(newfd);
   return _real_dup2(oldfd, newfd);
 }
-*/
+
+// dup3 appeared in Linux 2.6.27
+extern "C" int
+dup3(int oldfd, int newfd, int flags)
+{
+  // FIXME:  The meaning of PROTECTED_FD_START/PROTECTED_FD_END
+  //         can change if we adopt a dynamic protected fd base.
+  JASSERT( !DMTCP_IS_PROTECTED_FD(newfd) )
+         ("\n*** Blocked attempt to dup3 into a protected fd;\n"
+          "    If you must use larger fd's in range of protected fd's, then\n"
+          "    please let the developers know that you need the option:\n"
+          "      'dmtcp_launch --protected-fd <NEW_PROT_FD_START>'")
+         (PROTECTED_FD_START)(PROTECTED_FD_END)
+         (oldfd)(newfd);
+  return _real_dup3(oldfd, newfd, flags);
+}
 
 // Linux prlimit() could also be wrapped for protected fd, but it's a rare case.
-extern "C" int setrlimit (int resource, const struct rlimit *rlim) {
+extern "C" int
+setrlimit (int resource, const struct rlimit *rlim) {
   if ( resource == RLIMIT_NOFILE &&
        (rlim->rlim_cur < 1024 || rlim->rlim_max < 1024) ) {
     JNOTE("Blocked attempt to lower RLIMIT_NOFILE\n"
