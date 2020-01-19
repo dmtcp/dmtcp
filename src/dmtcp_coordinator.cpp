@@ -745,7 +745,8 @@ DmtcpCoordinator::onDisconnect(CoordClient *client)
     }
   } else {
     // If all other workers are at currentBarrier, release it.
-    if (!currentBarrier.empty() && client->barrier() == currentBarrier) {
+    if (!currentBarrier.empty() &&
+        (client->barrier().empty() || client->barrier() == currentBarrier)) {
       --workersAtCurrentBarrier;
       releaseBarrier(currentBarrier);
     }
