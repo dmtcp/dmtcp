@@ -270,8 +270,6 @@ createNewDmtcpSshdProcess()
     argv[idx++] = NULL;
     JASSERT(idx < max_args) (idx);
 
-    DmtcpEventData_t data;
-
     // TODO: Hack until we improve the plugin design to remove these calls.
     process_close_fd_event(in[1]);
     process_close_fd_event(out[0]);
@@ -607,6 +605,11 @@ static bool isRshOrSshProcess(const char *filename)
   return (isSshProcess || isRshProcess);
 }
 
+extern "C" int execv (const char *filename, char *const argv[])
+{
+  return execve(filename, argv, environ);
+}
+
 extern "C" int execve (const char *filename, char *const argv[],
                        char *const envp[])
 {
@@ -626,17 +629,7 @@ extern "C" int execve (const char *filename, char *const argv[],
 extern "C" int
 execvp(const char *filename, char *const argv[])
 {
-  if (!isRshOrSshProcess(filename)) {
-    return _real_execvp(filename, argv);
-  }
-
-  updateCoordHost();
-
-  char **newArgv = NULL;
-  prepareForExec(argv, &newArgv);
-  int ret = _real_execvp(newArgv[0], newArgv);
-  JALLOC_HELPER_FREE(newArgv);
-  return ret;
+  return execvpe(filename, argv, environ);
 }
 
 // This function first appeared in glibc 2.11
