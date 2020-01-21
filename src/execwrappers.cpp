@@ -37,7 +37,7 @@
 #include "uniquepid.h"
 #include "util.h"
 
-#define INITIAL_ARGV_MAX 32
+#define INITIAL_ARGV_MAX 128
 
 using namespace dmtcp;
 
@@ -50,6 +50,15 @@ const static bool dbg = false;
 static bool pthread_atfork_enabled = false;
 static uint64_t child_time;
 static int childCoordinatorSocket = -1;
+
+extern "C" int
+dmtcp_execlpe(const char *filename,
+              const char *arg,
+              va_list args,
+              char *const envp[]);
+
+extern "C" int
+dmtcp_execvpe(const char *filename, char *const argv[], char *const envp[]);
 
 // Allow plugins to call fork/exec/system to perform specific tasks during
 // preCKpt/postCkpt/PostRestart etc. event.
@@ -580,117 +589,34 @@ patchUserEnv(vector<string>env, const char *filename)
 extern "C" int
 execve(const char *filename, char *const argv[], char *const envp[])
 {
-  if (isPerformingCkptRestart() || isBlacklistedProgram(filename)) {
-    return _real_execve(filename, argv, envp);
-  }
-  JTRACE("execve() wrapper") (filename);
-
-  /* Acquire the wrapperExeution lock to prevent checkpoint to happen while
-   * processing this system call.
-   */
-  WRAPPER_EXECUTION_GET_EXCL_LOCK();
-
-  const vector<string>env = copyEnv(envp);
-
-  char *newFilename;
-  char **newArgv;
-  dmtcpPrepareForExec(filename, argv, &newFilename, &newArgv);
-
-  const vector<string>envStrings = patchUserEnv(env, filename);
-  const vector<const char *>newEnv = stringVectorToPointerArray(envStrings);
-
-  int retVal = _real_execve(newFilename, newArgv, (char *const *)&newEnv[0]);
-
-  dmtcpProcessFailedExec(filename, newArgv);
-
-  WRAPPER_EXECUTION_RELEASE_EXCL_LOCK();
-
-  return retVal;
+  return dmtcp_execvpe(filename, argv, envp);
 }
 
 extern "C" int
 execv(const char *path, char *const argv[])
 {
-  JTRACE("execv() wrapper, calling execve with environ") (path);
-
-  // Make a copy of the environ coz it might change after a setenv().
-  const vector<string>envStrings = copyEnv(environ);
-
-  // Now get the pointers.
-  const vector<const char *>env = stringVectorToPointerArray(envStrings);
-
-  return execve(path, argv, (char *const *)&env[0]);
+  return dmtcp_execvpe(path, argv, environ);
 }
 
 extern "C" int
 execvp(const char *filename, char *const argv[])
 {
-  if (isPerformingCkptRestart() || isBlacklistedProgram(filename)) {
-    return _real_execvp(filename, argv);
-  }
-  JTRACE("execvp() wrapper") (filename);
+  return dmtcp_execvpe(filename, argv, environ);
+}
 
-  /* Acquire the wrapperExeution lock to prevent checkpoint to happen while
-   * processing this system call.
-   */
-  WRAPPER_EXECUTION_GET_EXCL_LOCK();
-
-  char *newFilename;
-  char **newArgv;
-  dmtcpPrepareForExec(filename, argv, &newFilename, &newArgv);
-  setenv("LD_PRELOAD", getUpdatedLdPreload(filename, NULL).c_str(), 1);
-
-  int retVal = _real_execvp(newFilename, newArgv);
-
-  dmtcpProcessFailedExec(filename, newArgv);
-
-  WRAPPER_EXECUTION_RELEASE_EXCL_LOCK();
-
-  return retVal;
+extern "C" int
+fexecve(int fd, char *const argv[], char *const envp[])
+{
+  // TODO: Add dmtcp_execveat and use that.
+  JASSERT(false) .Text("Not Implemented");
+  return -1;
 }
 
 // This function first appeared in glibc 2.11
 extern "C" int
 execvpe(const char *filename, char *const argv[], char *const envp[])
 {
-  if (isPerformingCkptRestart() || isBlacklistedProgram(filename)) {
-    return _real_execvpe(filename, argv, envp);
-  }
-  JTRACE("execvpe() wrapper") (filename);
-
-  /* Acquire the wrapperExeution lock to prevent checkpoint to happen while
-   * processing this system call.
-   */
-  WRAPPER_EXECUTION_GET_EXCL_LOCK();
-
-  // Make a copy of the environ coz it might change after a setenv().
-  const vector<string>env = copyEnv(envp);
-
-  char *newFilename;
-  char **newArgv;
-  dmtcpPrepareForExec(filename, argv, &newFilename, &newArgv);
-
-  const vector<string>newEnvStrings = patchUserEnv(env, filename);
-  const vector<const char *>newEnv = stringVectorToPointerArray(newEnvStrings);
-
-  int retVal = _real_execvpe(newFilename, newArgv, (char *const *)&newEnv[0]);
-
-  dmtcpProcessFailedExec(filename, newArgv);
-
-  WRAPPER_EXECUTION_RELEASE_EXCL_LOCK();
-
-  return retVal;
-}
-
-extern "C" int
-fexecve(int fd, char *const argv[], char *const envp[])
-{
-  char buf[sizeof "/proc/self/fd/" + sizeof(int) * 3];
-
-  snprintf(buf, sizeof(buf), "/proc/self/fd/%d", fd);
-
-  JTRACE("fexecve() wrapper calling execve()") (fd) (buf);
-  return execve(buf, argv, envp);
+  return dmtcp_execvpe(filename, argv, envp);
 }
 
 extern "C" int
@@ -698,45 +624,10 @@ execl(const char *path, const char *arg, ...)
 {
   JTRACE("execl() wrapper") (path);
 
-  size_t argv_max = INITIAL_ARGV_MAX;
-  const char *initial_argv[INITIAL_ARGV_MAX];
-  const char **argv = initial_argv;
   va_list args;
-
-  argv[0] = arg;
-
   va_start(args, arg);
-  unsigned int i = 0;
-  while (argv[i++] != NULL) {
-    if (i == argv_max) {
-      argv_max *= 2;
-      const char **nptr = (const char **)realloc(
-          argv == initial_argv ? NULL : argv,
-          argv_max *
-          sizeof(const char *));
-      if (nptr == NULL) {
-        if (argv != initial_argv) {
-          free(argv);
-        }
-        va_end(args);
-        return -1;
-      }
-      if (argv == initial_argv) {
-        /* We have to copy the already filled-in data ourselves.  */
-        memcpy(nptr, argv, i * sizeof(const char *));
-      }
-
-      argv = nptr;
-    }
-
-    argv[i] = va_arg(args, const char *);
-  }
+  int ret = dmtcp_execlpe(path, arg, args, environ);
   va_end(args);
-
-  int ret = execv(path, (char *const *)argv);
-  if (argv != initial_argv) {
-    free(argv);
-  }
 
   return ret;
 }
@@ -746,45 +637,10 @@ execlp(const char *file, const char *arg, ...)
 {
   JTRACE("execlp() wrapper") (file);
 
-  size_t argv_max = INITIAL_ARGV_MAX;
-  const char *initial_argv[INITIAL_ARGV_MAX];
-  const char **argv = initial_argv;
   va_list args;
-
-  argv[0] = arg;
-
   va_start(args, arg);
-  unsigned int i = 0;
-  while (argv[i++] != NULL) {
-    if (i == argv_max) {
-      argv_max *= 2;
-      const char **nptr = (const char **)realloc(
-          argv == initial_argv ? NULL : argv,
-          argv_max *
-          sizeof(const char *));
-      if (nptr == NULL) {
-        if (argv != initial_argv) {
-          free(argv);
-        }
-        va_end(args);
-        return -1;
-      }
-      if (argv == initial_argv) {
-        /* We have to copy the already filled-in data ourselves.  */
-        memcpy(nptr, argv, i * sizeof(const char *));
-      }
-
-      argv = nptr;
-    }
-
-    argv[i] = va_arg(args, const char *);
-  }
+  int ret = dmtcp_execlpe(file, arg, args, environ);
   va_end(args);
-
-  int ret = execvp(file, (char *const *)argv);
-  if (argv != initial_argv) {
-    free(argv);
-  }
 
   return ret;
 }
@@ -794,47 +650,10 @@ execle(const char *path, const char *arg, ...)
 {
   JTRACE("execle() wrapper") (path);
 
-  size_t argv_max = INITIAL_ARGV_MAX;
-  const char *initial_argv[INITIAL_ARGV_MAX];
-  const char **argv = initial_argv;
   va_list args;
-  argv[0] = arg;
-
   va_start(args, arg);
-  unsigned int i = 0;
-  while (argv[i++] != NULL) {
-    if (i == argv_max) {
-      argv_max *= 2;
-      const char **nptr = (const char **)realloc(
-          argv == initial_argv ? NULL : argv,
-          argv_max *
-          sizeof(const char *));
-      if (nptr == NULL) {
-        if (argv != initial_argv) {
-          free(argv);
-        }
-        va_end(args);
-        return -1;
-      }
-      if (argv == initial_argv) {
-        /* We have to copy the already filled-in data ourselves.  */
-        memcpy(nptr, argv, i * sizeof(const char *));
-      }
-
-      argv = nptr;
-    }
-
-    argv[i] = va_arg(args, const char *);
-  }
-
-  const char *const *envp = va_arg(args, const char *const *);
+  int ret = dmtcp_execlpe(path, arg, args, NULL);
   va_end(args);
-
-  int ret = execve(path, (char *const *)argv, (char *const *)envp);
-  if (argv != initial_argv) {
-    free(argv);
-  }
-
   return ret;
 }
 
@@ -858,4 +677,83 @@ system(const char *line)
   JTRACE("after system()");
 
   return result;
+}
+
+extern "C" int
+dmtcp_execlpe(const char *filename,
+              const char *arg,
+              va_list args,
+              char *const envp[])
+{
+  size_t argv_max = INITIAL_ARGV_MAX;
+  const char *initial_argv[INITIAL_ARGV_MAX];
+  const char **argv = initial_argv;
+  argv[0] = arg;
+
+  unsigned int i = 0;
+  while (argv[i++] != NULL) {
+    if (i == argv_max) {
+      argv_max *= 2;
+      const char **nptr = (const char **)realloc(
+          argv == initial_argv ? NULL : argv,
+          argv_max *
+          sizeof(const char *));
+      if (nptr == NULL) {
+        if (argv != initial_argv) {
+          free(argv);
+        }
+        return -1;
+      }
+      if (argv == initial_argv) {
+        /* We have to copy the already filled-in data ourselves.  */
+        memcpy(nptr, argv, i * sizeof(const char *));
+      }
+
+      argv = nptr;
+    }
+
+    argv[i] = va_arg(args, const char *);
+  }
+
+  if (envp == NULL) {
+    const char *const *envp = va_arg(args, const char *const *);
+  }
+
+  int ret = dmtcp_execvpe(filename, (char *const *)argv, (char *const *)envp);
+  if (argv != initial_argv) {
+    free(argv);
+  }
+
+  return ret;
+}
+
+extern "C" int
+dmtcp_execvpe(const char *filename, char *const argv[], char *const envp[])
+{
+  if (isPerformingCkptRestart() || isBlacklistedProgram(filename)) {
+    return _real_execvpe(filename, argv, envp);
+  }
+
+  /* Acquire the wrapperExeution lock to prevent checkpoint to happen while
+   * processing this system call.
+   */
+  WRAPPER_EXECUTION_GET_EXCL_LOCK();
+
+  // Make a copy of the environ coz it might change after a setenv().
+  const vector<string>env = copyEnv(envp);
+
+  char *newFilename;
+  char **newArgv;
+  dmtcpPrepareForExec(filename, argv, &newFilename, &newArgv);
+
+  const vector<string>newEnvStrings = patchUserEnv(env, filename);
+  const vector<const char *>newEnv = stringVectorToPointerArray(newEnvStrings);
+
+  int retVal = _real_execvpe(newFilename, newArgv, (char *const *)&newEnv[0]);
+
+  dmtcpProcessFailedExec(filename, newArgv);
+
+  WRAPPER_EXECUTION_RELEASE_EXCL_LOCK();
+
+  return retVal;
 }

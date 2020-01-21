@@ -83,6 +83,14 @@ typedef enum eDmtcpEvent {
 
 typedef union _DmtcpEventData_t {
   struct {
+    int serializerFd;
+    size_t maxArgs;
+    const char **args;
+    size_t maxEnv;
+    const char **environ;
+  } preExec;
+
+  struct {
     int fd;
   } serializerInfo;
 
