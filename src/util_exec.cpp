@@ -298,8 +298,8 @@ Util::isSetuid(const char *filename)
 
 void
 Util::patchArgvIfSetuid(const char *filename,
-                        char *const origArgv[],
-                        char ***newArgv)
+                        const char *origArgv[],
+                        const char ***newArgv)
 {
   if (isSetuid(filename) == false) {
     return;
@@ -325,7 +325,7 @@ Util::patchArgvIfSetuid(const char *filename,
   void *buf = JALLOC_HELPER_MALLOC(newArgvSize + 2 + PATH_MAX);
   memset(buf, 0, newArgvSize + 2 + PATH_MAX);
 
-  *newArgv = (char **)buf;
+  *newArgv = (const char **)buf;
   char *newFilename = (char *)buf + newArgvSize + 1;
 
 #define COPY_BINARY
@@ -407,9 +407,9 @@ Util::patchArgvIfSetuid(const char *filename,
 }
 
 void
-Util::freePatchedArgv(char **newArgv)
+Util::freePatchedArgv(void *ptr)
 {
-  JALLOC_HELPER_FREE(*newArgv);
+  JALLOC_HELPER_FREE(ptr);
 }
 
 void
@@ -537,7 +537,7 @@ char *
 Util::getPath(const char *cmd, bool is32bit)
 {
   // search relative to base dir of dmtcp installation.
-  const char *p1[] = {
+  char * const p1[] = {
     "/bin/",
     "/lib64/dmtcp/",
     "/lib/dmtcp/",
