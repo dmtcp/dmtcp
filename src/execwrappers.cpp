@@ -38,6 +38,8 @@
 #include "util.h"
 
 #define INITIAL_ARGV_MAX 128
+#define MAX_EXTRA_ARGS 32
+#define MAX_EXTRA_ENV 32
 
 using namespace dmtcp;
 
@@ -289,7 +291,7 @@ vfork()
 // Since they're short-lived, we execute them while holding a lock
 // delaying checkpointing.
 static void
-execShortLivedProcessAndExit(const char *path, char *const argv[])
+execShortLivedProcessAndExit(const char *path, const char *argv[])
 {
   unsetenv("LD_PRELOAD"); // /lib/ld.so won't let us preload if exec'ing lib
   const unsigned int bufSize = 100000;
@@ -329,9 +331,9 @@ execShortLivedProcessAndExit(const char *path, char *const argv[])
 // from DmtcpWorker constructor, to distinguish the two cases.
 static void
 dmtcpPrepareForExec(const char *path,
-                    char *const argv[],
-                    char **filename,
-                    char ***newArgv)
+                    const char *argv[],
+                    const char **filename,
+                    const char ***newArgv)
 {
   JTRACE("Preparing for Exec") (path);
 
@@ -351,8 +353,6 @@ dmtcpPrepareForExec(const char *path,
   // execScreenProcess() ??)
   if (path != NULL && Util::strEndsWith(path, "/utempter")) {
     JTRACE("Trying to exec: utempter")(path)(argv[0])(argv[1]);
-    int oldIdx = -1;
-    char *oldStr = NULL;
     string realPtsNameStr;
 
     // utempter takes a pts slave name as an argument. Since we virtualize
@@ -362,20 +362,14 @@ dmtcpPrepareForExec(const char *path,
       if (Util::strStartsWith(argv[i], VIRT_PTS_PREFIX_STR)) {
         // FIXME: Potential memory leak if exec() fails.
         char *realPtsNameStr = (char *)JALLOC_HELPER_MALLOC(PTS_PATH_MAX);
-        oldStr = argv[i];
-        oldIdx = i;
         SharedData::getRealPtyName(argv[i], realPtsNameStr,
                                    PTS_PATH_MAX);
 
         // Override const restriction
-        *(const char **)&argv[i] = realPtsNameStr;
+        argv[i] = realPtsNameStr;
       }
     }
     execShortLivedProcessAndExit(path, argv);
-    if (oldIdx != -1) {
-      // Restore original argv[] if exec failed.
-      *(const char **)&argv[oldIdx] = oldStr;
-    }
   }
 
   // FIXME:  SEE COMMENTS IN dmtcp_launch.cpp, rev. 1087; AND CHANGE THIS.
@@ -385,16 +379,14 @@ dmtcpPrepareForExec(const char *path,
     }
 
     // THIS NEXT LINE IS DANGEROUS.  MOST setuid PROGRAMS CAN'T RUN UNPRIVILEGED
-    Util::patchArgvIfSetuid(path,
-                            (const char**) argv,
-                            (const char***) newArgv);
+    Util::patchArgvIfSetuid(path, argv, newArgv);
 
     // BUG:  Util::patchArgvIfSetuid() DOES NOT SET newArgv WHEN COPYING
     // BINARY IN CODE RE-FACTORING FROM REVISION 911.
     *filename = (*newArgv)[0];
   } else {
     *filename = (char *)path;
-    *newArgv = (char **)argv;
+    *newArgv = argv;
   }
 
   ostringstream os;
@@ -427,7 +419,7 @@ dmtcpPrepareForExec(const char *path,
 }
 
 static void
-dmtcpProcessFailedExec(const char *path, char *newArgv[])
+dmtcpProcessFailedExec(const char *path, const char *newArgv[])
 {
   int saved_errno = errno;
 
@@ -500,16 +492,21 @@ copyEnv(char *const envp[])
   return result;
 }
 
-static vector<const char *>
-stringVectorToPointerArray(const vector<string> &s)
+static const char **
+stringVectorToPointerArray(const vector<string> &s, size_t len)
 {
-  vector<const char *>result;
+  JASSERT(len >= s.size());
+
+  const char **result = (const char **) JALLOC_MALLOC(len * sizeof (char*));
+  JASSERT(result != NULL);
 
   // Now get the pointers.
   for (size_t i = 0; i < s.size(); i++) {
-    result.push_back(s[i].c_str());
+    result[i] = s[i].c_str();
   }
-  result.push_back(NULL);
+
+  result[s.size()] = NULL;
+
   return result;
 }
 
@@ -517,7 +514,7 @@ static const char *ourImportantEnvs[] =
 {
   ENV_VARS_ALL // expands to a long list
 };
-#define ourImportantEnvsCnt (sizeof(ourImportantEnvs) / sizeof(const char *))
+#define ourImportantEnvsCnt (sizeof(ourImportantEnvs) / sizeof(char *))
 
 static bool
 isImportantEnv(string str)
@@ -533,7 +530,7 @@ isImportantEnv(string str)
 }
 
 static vector<string>
-patchUserEnv(vector<string>env, const char *filename)
+patchUserEnv(const char *env[], const char *filename)
 {
   vector<string>result;
   string userPreloadStr;
@@ -541,15 +538,15 @@ patchUserEnv(vector<string>env, const char *filename)
   ostringstream out;
   out << "non-DMTCP env vars:\n";
 
-  for (size_t i = 0; i < env.size(); i++) {
+  for (size_t i = 0; env[i] != NULL; i++) {
     if (isImportantEnv(env[i])) {
       if (dbg) {
         out << "     skipping: " << env[i] << '\n';
       }
       continue;
     }
-    if (Util::strStartsWith(env[i].c_str(), "LD_PRELOAD=")) {
-      userPreloadStr = env[i].substr(strlen("LD_PRELOAD="));
+    if (Util::strStartsWith(env[i], "LD_PRELOAD=")) {
+      userPreloadStr = &env[i][strlen("LD_PRELOAD=")];
       continue;
     }
 
@@ -699,7 +696,7 @@ dmtcp_execlpe(const char *filename,
       const char **nptr = (const char **)realloc(
           argv == initial_argv ? NULL : argv,
           argv_max *
-          sizeof(const char *));
+          sizeof(char *));
       if (nptr == NULL) {
         if (argv != initial_argv) {
           free(argv);
@@ -708,7 +705,7 @@ dmtcp_execlpe(const char *filename,
       }
       if (argv == initial_argv) {
         /* We have to copy the already filled-in data ourselves.  */
-        memcpy(nptr, argv, i * sizeof(const char *));
+        memcpy(nptr, argv, i * sizeof(char *));
       }
 
       argv = nptr;
@@ -718,7 +715,7 @@ dmtcp_execlpe(const char *filename,
   }
 
   if (envp == NULL) {
-    const char *const *envp = va_arg(args, const char *const *);
+    envp = va_arg(args, char *const *);
   }
 
   int ret = dmtcp_execvpe(filename, (char *const *)argv, (char *const *)envp);
@@ -732,26 +729,37 @@ dmtcp_execlpe(const char *filename,
 extern "C" int
 dmtcp_execvpe(const char *filename, char *const argv[], char *const envp[])
 {
-  if (isPerformingCkptRestart() || isBlacklistedProgram(filename)) {
+  if (isPerformingCkptRestart()) {
     return _real_execvpe(filename, argv, envp);
   }
+
+  JASSERT(!isBlacklistedProgram(filename));
 
   /* Acquire the wrapperExeution lock to prevent checkpoint to happen while
    * processing this system call.
    */
   WRAPPER_EXECUTION_GET_EXCL_LOCK();
 
-  // Make a copy of the environ coz it might change after a setenv().
-  const vector<string>env = copyEnv(envp);
+  // Make a copy of the argv and environ coz it might change after a setenv().
+  const vector<string>argvCopy = copyEnv(argv);
+  size_t maxArgs = argvCopy.size() + MAX_EXTRA_ARGS;
+  const char **argvCopyCStr = stringVectorToPointerArray(argvCopy, maxArgs);
 
-  char *newFilename;
-  char **newArgv;
-  dmtcpPrepareForExec(filename, argv, &newFilename, &newArgv);
+  const vector<string>envpCopy = copyEnv(envp);
+  size_t maxEnv = envpCopy.size() + MAX_EXTRA_ENV;
+  const char **envpCopyCStr = stringVectorToPointerArray(envpCopy, maxEnv);
 
-  const vector<string>newEnvStrings = patchUserEnv(env, filename);
-  const vector<const char *>newEnv = stringVectorToPointerArray(newEnvStrings);
+  const char *newFilename;
+  const char **newArgv;
+  dmtcpPrepareForExec(filename, argvCopyCStr, &newFilename, &newArgv);
 
-  int retVal = _real_execvpe(newFilename, newArgv, (char *const *)&newEnv[0]);
+  const vector<string>newEnvStrings = patchUserEnv(envpCopyCStr, filename);
+
+  const char **newEnv = stringVectorToPointerArray(newEnvStrings, maxEnv);
+
+  int retVal = _real_execvpe(newFilename,
+                             (char* const*) newArgv,
+                             (char*const*) newEnv);
 
   dmtcpProcessFailedExec(filename, newArgv);
 
