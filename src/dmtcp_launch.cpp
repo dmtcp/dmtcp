@@ -34,12 +34,12 @@
 
 using namespace dmtcp;
 
-static void processArgs(int *orig_argc, char ***orig_argv);
+static void processArgs(int *orig_argc, const char ***orig_argv);
 static int testMatlab(const char *filename);
-static int testJava(char **argv);
+static int testJava(const char **argv);
 static bool testSetuid(const char *filename);
 static void testStaticallyLinked(const char *filename);
-static bool testScreen(char **argv, char ***newArgv);
+static bool testScreen(const char **argv, const char ***newArgv);
 static void setLDPreloadLibs(bool is32bitElf);
 
 // gcc-4.3.4 -Wformat=2 issues false positives for warnings unless the format
@@ -226,11 +226,11 @@ static string thePortFile;
 // shift args
 #define shift argc--, argv++
 static void
-processArgs(int *orig_argc, char ***orig_argv)
+processArgs(int *orig_argc, const char ***orig_argv)
 {
   int argc = *orig_argc;
-  char **argv = *orig_argv;
-  char *tmpdir_arg = NULL;
+  const char **argv = *orig_argv;
+  const char *tmpdir_arg = NULL;
 
   if (argc == 1) {
     printf("%s", DMTCP_VERSION_AND_COPYRIGHT_INFO);
@@ -409,7 +409,7 @@ processArgs(int *orig_argc, char ***orig_argv)
 }
 
 int
-main(int argc, char **argv)
+main(int argc, const char **argv)
 {
   for (size_t fd = PROTECTED_FD_START; fd < PROTECTED_FD_END; fd++) {
     close(fd);
@@ -488,10 +488,10 @@ main(int argc, char **argv)
   // execwrappers.cpp:execLibProcessAndExit(), since the same applies
   // to running /lib/libXXX.so for running libraries as executables.
   if (testSetuid(argv[0])) {
-    char **newArgv;
+    const char **newArgv;
 
     // THIS NEXT LINE IS DANGEROUS.  MOST setuid PROGRAMS CAN'T RUN UNPRIVILEGED
-    Util::patchArgvIfSetuid(argv[0], argv, &newArgv);
+    Util::patchArgvIfSetuid(argv[0], (const char **)argv, &newArgv);
     argv = newArgv;
   }
 
@@ -609,11 +609,11 @@ main(int argc, char **argv)
   setLDPreloadLibs(is32bitElf);
 
   // run the user program
-  char **newArgv = NULL;
+  const char **newArgv = NULL;
   if (testScreen(argv, &newArgv)) {
-    execvp(newArgv[0], newArgv);
+    execvp(newArgv[0], (char* const*) newArgv);
   } else {
-    execvp(argv[0], argv);
+    execvp(argv[0], (char* const*) argv);
   }
 
   // should be unreachable
@@ -660,7 +660,7 @@ testMatlab(const char *filename)
 
 // FIXME:  Remove this when DMTCP supports zero-mapped pages
 static int
-testJava(char **argv)
+testJava(const char **argv)
 {
   static const char *theJavaWarning =
     "\n**** WARNING:  Sun/Oracle Java claims a large amount of memory\n"
@@ -744,7 +744,7 @@ testStaticallyLinked(const char *pathname)
 
 // Test for 'screen' program, argvPtr is an in- and out- parameter
 static bool
-testScreen(char **argv, char ***newArgv)
+testScreen(const char **argv, const char ***newArgv)
 {
   if (Util::isScreen(argv[0])) {
     Util::setScreenDir();

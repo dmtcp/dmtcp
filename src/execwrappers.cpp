@@ -385,7 +385,9 @@ dmtcpPrepareForExec(const char *path,
     }
 
     // THIS NEXT LINE IS DANGEROUS.  MOST setuid PROGRAMS CAN'T RUN UNPRIVILEGED
-    Util::patchArgvIfSetuid(path, argv, newArgv);
+    Util::patchArgvIfSetuid(path,
+                            (const char**) argv,
+                            (const char***) newArgv);
 
     // BUG:  Util::patchArgvIfSetuid() DOES NOT SET newArgv WHEN COPYING
     // BINARY IN CODE RE-FACTORING FROM REVISION 911.
