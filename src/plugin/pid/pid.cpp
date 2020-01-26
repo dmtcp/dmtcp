@@ -112,7 +112,7 @@ pidVirt_PrepareForExec(DmtcpEventData_t *data)
   Util::setVirtualPidEnvVar(getpid(), virtPpid, realPpid);
 
   JASSERT(data != NULL);
-  jalib::JBinarySerializeWriterRaw wr("", data->serializerInfo.fd);
+  jalib::JBinarySerializeWriterRaw wr("", data->preExec.serializationFd);
   VirtualPidTable::instance().serialize(wr);
 }
 
@@ -120,7 +120,7 @@ static void
 pidVirt_PostExec(DmtcpEventData_t *data)
 {
   JASSERT(data != NULL);
-  jalib::JBinarySerializeReaderRaw rd("", data->serializerInfo.fd);
+  jalib::JBinarySerializeReaderRaw rd("", data->postExec.serializationFd);
   VirtualPidTable::instance().serialize(rd);
   VirtualPidTable::instance().refresh();
 }

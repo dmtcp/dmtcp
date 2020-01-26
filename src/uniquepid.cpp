@@ -233,3 +233,10 @@ UniquePid::serialize(jalib::JBinarySerializer &o)
     parentProcess() = theParentProcess;
   }
 }
+
+void
+UniquePid::serialize(int fd)
+{
+  jalib::JBinarySerializeWriterRaw s("", fd);
+  serialize(s);
+}
