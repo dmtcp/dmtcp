@@ -74,42 +74,6 @@ isPerformingCkptRestart()
   return false;
 }
 
-static bool
-isBlacklistedProgram(const char *path)
-{
-  string programName = jalib::Filesystem::BaseName(path);
-
-  JASSERT(programName != "dmtcp_coordinator" &&
-          programName != "dmtcp_launch" &&
-          programName != "dmtcp_restart" &&
-          programName != "mtcp_restart")
-    (programName).Text("This program should not be run under ckpt control");
-
-  /*
-   * When running gdb or any shell which does a waitpid() on the child
-   * processes, executing dmtcp_command from within gdb session / shell results
-   * in process getting hung up because:
-   *   gdb shell dmtcp_command -c => hangs because gdb forks off a new process
-   *   and it does a waitpid  (in which we block signals) ...
-   */
-  if (programName == "dmtcp_command") {
-    // make sure coordinator connection is closed
-    _real_close(PROTECTED_COORD_FD);
-
-    pid_t cpid = _real_fork();
-    JASSERT(cpid != -1);
-    if (cpid != 0) {
-      _real_exit(0);
-    }
-  }
-
-  if (programName == "dmtcp_nocheckpoint" || programName == "dmtcp_command" ||
-      programName == "ssh" || programName == "rsh" ) {
-    return true;
-  }
-  return false;
-}
-
 LIB_PRIVATE void
 pthread_atfork_prepare()
 {
@@ -389,21 +353,6 @@ dmtcpPrepareForExec(const char *path,
     *newArgv = argv;
   }
 
-  ostringstream os;
-  os << dmtcp_get_tmpdir() << "/dmtcpLifeBoat." << UniquePid::ThisProcess()
-     << "-XXXXXX";
-  char *buf = (char *)JALLOC_HELPER_MALLOC(os.str().length() + 1);
-  strcpy(buf, os.str().c_str());
-  int fd = _real_mkostemps(buf, 0, 0);
-  JASSERT(fd != -1) (JASSERT_ERRNO);
-  JASSERT(unlink(buf) == 0) (JASSERT_ERRNO);
-  Util::changeFd(fd, PROTECTED_LIFEBOAT_FD);
-  jalib::JBinarySerializeWriterRaw wr("", PROTECTED_LIFEBOAT_FD);
-  UniquePid::serialize(wr);
-  DmtcpEventData_t edata;
-  edata.serializerInfo.fd = PROTECTED_LIFEBOAT_FD;
-  PluginManager::eventHook(DMTCP_EVENT_PRE_EXEC, &edata);
-
   JTRACE("Will exec filename instead of path") (path) (*filename);
 
   Util::adjustRlimitStack();
@@ -585,6 +534,18 @@ patchUserEnv(const char *env[], const char *filename)
   return result;
 }
 
+static
+int getLifeboatFd()
+{
+  char buf[PATH_MAX] = {0};
+  snprintf(buf, sizeof(buf) - 1, "%s/LifeBoat.XXXXXX", dmtcp_get_tmpdir());
+  int fd = _real_mkostemps(buf, 0, 0);
+  JASSERT(fd != -1) (JASSERT_ERRNO);
+  JASSERT(unlink(buf) == 0) (JASSERT_ERRNO);
+  Util::changeFd(fd, PROTECTED_LIFEBOAT_FD);
+  return PROTECTED_LIFEBOAT_FD;
+}
+
 extern "C" int
 execve(const char *filename, char *const argv[], char *const envp[])
 {
@@ -733,7 +694,25 @@ dmtcp_execvpe(const char *filename, char *const argv[], char *const envp[])
     return _real_execvpe(filename, argv, envp);
   }
 
-  JASSERT(!isBlacklistedProgram(filename));
+  string programName = jalib::Filesystem::BaseName(filename);
+
+  JASSERT(programName != "dmtcp_coordinator" &&
+          programName != "dmtcp_launch" &&
+          programName != "dmtcp_restart" &&
+          programName != "mtcp_restart")
+    (programName).Text("This program should not be run under ckpt control");
+
+  if (programName == "dmtcp_command") {
+    // make sure coordinator connection is closed
+    _real_close(PROTECTED_COORD_FD);
+
+    pid_t cpid = _real_fork();
+    JASSERT(cpid != -1);
+    if (cpid != 0) {
+      _real_exit(0);
+    }
+    return _real_execvpe(filename, argv, envp);
+  }
 
   /* Acquire the wrapperExeution lock to prevent checkpoint to happen while
    * processing this system call.
@@ -741,6 +720,9 @@ dmtcp_execvpe(const char *filename, char *const argv[], char *const envp[])
   WRAPPER_EXECUTION_GET_EXCL_LOCK();
 
   // Make a copy of the argv and environ coz it might change after a setenv().
+  char filenameCopy[PATH_MAX] = {0};
+  strncpy(filenameCopy, filename, sizeof(filenameCopy));
+
   const vector<string>argvCopy = copyEnv(argv);
   size_t maxArgs = argvCopy.size() + MAX_EXTRA_ARGS;
   const char **argvCopyCStr = stringVectorToPointerArray(argvCopy, maxArgs);
@@ -749,11 +731,37 @@ dmtcp_execvpe(const char *filename, char *const argv[], char *const envp[])
   size_t maxEnv = envpCopy.size() + MAX_EXTRA_ENV;
   const char **envpCopyCStr = stringVectorToPointerArray(envpCopy, maxEnv);
 
+  DmtcpEventData_t data;
+
+  data.preExec.filename = filenameCopy;
+  data.preExec.maxArgs = maxArgs;
+  data.preExec.argv = argvCopyCStr;
+  data.preExec.maxEnv = maxEnv;
+  data.preExec.envp = envpCopyCStr;
+  data.preExec.serializationFd = getLifeboatFd();
+
+  UniquePid::serialize(data.preExec.serializationFd);
+
+  PluginManager::eventHook(DMTCP_EVENT_PRE_EXEC, &data);
+
+  programName = jalib::Filesystem::BaseName(data.preExec.filename);
+
+  if (programName == "dmtcp_nocheckpoint" || programName == "dmtcp_command" ||
+      programName == "ssh" || programName == "rsh" ) {
+    return _real_execvpe(data.preExec.filename,
+                         (char* const*) data.preExec.argv,
+                         (char* const*) data.preExec.envp);
+  }
+
   const char *newFilename;
   const char **newArgv;
-  dmtcpPrepareForExec(filename, argvCopyCStr, &newFilename, &newArgv);
+  dmtcpPrepareForExec(data.preExec.filename,
+                      data.preExec.argv,
+                      &newFilename,
+                      &newArgv);
 
-  const vector<string>newEnvStrings = patchUserEnv(envpCopyCStr, filename);
+  const vector<string>newEnvStrings =
+    patchUserEnv(data.preExec.envp, data.preExec.filename);
 
   const char **newEnv = stringVectorToPointerArray(newEnvStrings, maxEnv);
 
@@ -761,7 +769,7 @@ dmtcp_execvpe(const char *filename, char *const argv[], char *const envp[])
                              (char* const*) newArgv,
                              (char*const*) newEnv);
 
-  dmtcpProcessFailedExec(filename, newArgv);
+  dmtcpProcessFailedExec(data.preExec.filename, newArgv);
 
   WRAPPER_EXECUTION_RELEASE_EXCL_LOCK();
 

@@ -77,6 +77,7 @@ struct UniquePid : private DmtcpUniqueProcessId {
     void incrementGeneration();
 
     static void serialize(jalib::JBinarySerializer &o);
+    static void serialize(int fd);
 
     bool operator<(const UniquePid &that) const;
     bool operator==(const UniquePid &that) const;

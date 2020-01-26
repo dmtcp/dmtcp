@@ -79,7 +79,7 @@ processInfo_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 
   case DMTCP_EVENT_PRE_EXEC:
   {
-    jalib::JBinarySerializeWriterRaw wr("", data->serializerInfo.fd);
+    jalib::JBinarySerializeWriterRaw wr("", data->preExec.serializationFd);
     ProcessInfo::instance().getState();
     ProcessInfo::instance().serialize(wr);
     break;
@@ -87,7 +87,7 @@ processInfo_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 
   case DMTCP_EVENT_POST_EXEC:
   {
-    jalib::JBinarySerializeReaderRaw rd("", data->serializerInfo.fd);
+    jalib::JBinarySerializeReaderRaw rd("", data->postExec.serializationFd);
     ProcessInfo::instance().serialize(rd);
     ProcessInfo::instance().postExec();
     break;
