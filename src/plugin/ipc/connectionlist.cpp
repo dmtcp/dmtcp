@@ -102,7 +102,7 @@ ConnectionList::eventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 
   case DMTCP_EVENT_PRE_EXEC:
   {
-    jalib::JBinarySerializeWriterRaw wr("", data->serializerInfo.fd);
+    jalib::JBinarySerializeWriterRaw wr("", data->preExec.serializationFd);
     serialize(wr);
     break;
   }
@@ -110,7 +110,7 @@ ConnectionList::eventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
   case DMTCP_EVENT_POST_EXEC:
   {
     freshProcess = false;
-    jalib::JBinarySerializeReaderRaw rd("", data->serializerInfo.fd);
+    jalib::JBinarySerializeReaderRaw rd("", data->postExec.serializationFd);
     serialize(rd);
     deleteStaleConnections();
     break;
