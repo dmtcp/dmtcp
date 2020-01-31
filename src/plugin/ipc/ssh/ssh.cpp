@@ -32,6 +32,7 @@ static int sshSockFd = -1;
 static bool isSshdProcess = false;
 static int noStrictHostKeyChecking = 0;
 static int isRshProcess = 0;
+static int isSshProcess = 0;
 
 static bool sshPluginEnabled = false;
 
@@ -41,6 +42,8 @@ void dmtcp_ssh_restart();
 static void refill(bool isRestart);
 static void sshdReceiveFds();
 static void createNewDmtcpSshdProcess();
+static void updateCoordHost();
+static void prepareForExec(DmtcpEventData_t *data);
 
 void dmtcp_SocketConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
 
@@ -57,7 +60,9 @@ void
 dmtcp_SSH_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   switch (event) {
-  case DMTCP_EVENT_PRESUSPEND:
+  case DMTCP_EVENT_PRE_EXEC:
+    prepareForExec(data);
+
     break;
 
   case DMTCP_EVENT_PRECHECKPOINT:
@@ -336,8 +341,20 @@ dmtcp_ssh_register_fds(int isSshd,
 }
 
 static void
-prepareForExec(char *const argv[], char ***newArgv)
+prepareForExec(DmtcpEventData_t *data)
 {
+  const char **argv = data->preExec.argv;
+  size_t maxArgs = data->preExec.maxArgs;
+
+  isSshProcess = (jalib::Filesystem::BaseName(data->preExec.filename) == "ssh");
+  isRshProcess = (jalib::Filesystem::BaseName(data->preExec.filename) == "rsh");
+
+  if (!isSshProcess && !isRshProcess) {
+    return;
+  }
+
+  updateCoordHost();
+
   size_t nargs = 0;
   bool noStrictChecking = false;
   string precmd, postcmd, tempcmd;
@@ -347,11 +364,9 @@ prepareForExec(char *const argv[], char ***newArgv)
   if (nargs < 3) {
     if (!isRshProcess) {
     JNOTE("ssh with less than 3 args") (argv[0]) (argv[1]);
-    *newArgv = (char **)argv;
     return;
     } else if (nargs < 2) {
         JNOTE("rsh with less than 2 args") (argv[0]);
-        *newArgv = (char**) argv;
         return;
       }
   }
@@ -442,8 +457,11 @@ prepareForExec(char *const argv[], char ***newArgv)
   }
 
   // now repack args
+  size_t numNewArgs = nargs + 11;
+  JASSERT(numNewArgs < maxArgs);
+
   char **new_argv =
-    (char **)JALLOC_HELPER_MALLOC(sizeof(char *) * (nargs + 11));
+    (char **)JALLOC_HELPER_MALLOC(sizeof(char *) * (numNewArgs));
   memset(new_argv, 0, sizeof(char *) * (nargs + 11));
 
   size_t idx = 0;
@@ -478,12 +496,23 @@ prepareForExec(char *const argv[], char ***newArgv)
       newCommand += ' ';
     }
   }
+
+  JASSERT(idx < maxArgs);
+
+  for (size_t i = 0; i <= idx; i++) {
+    data->preExec.argv[i] = new_argv[i];
+  }
+  argv[idx] = NULL;
+
+  strncpy(data->preExec.filename, data->preExec.argv[0], PATH_MAX - 1);
+
+  JALLOC_FREE(new_argv);
+
   if (isRshProcess) {
     JNOTE("New rsh command") (newCommand);
   } else {
     JNOTE("New ssh command") (newCommand);
   }
-  *newArgv = new_argv;
 }
 
 // This code is copied from dmtcp_coordinator.cpp:calLocalAddr()
@@ -592,59 +621,4 @@ updateCoordHost()
   }
 
   SharedData::setCoordHost(&localhostIPAddr);
-}
-
-/*
- * Side-effect: Modifies the global isRshProcess variable
- */
-static bool isRshOrSshProcess(const char *filename)
-{
-  bool isSshProcess = (jalib::Filesystem::BaseName(filename) == "ssh");
-  isRshProcess = (jalib::Filesystem::BaseName(filename) == "rsh");
-
-  return (isSshProcess || isRshProcess);
-}
-
-extern "C" int execv (const char *filename, char *const argv[])
-{
-  return execve(filename, argv, environ);
-}
-
-extern "C" int execve (const char *filename, char *const argv[],
-                       char *const envp[])
-{
-  if (!isRshOrSshProcess(filename)) {
-    return _real_execve(filename, argv, envp);
-  }
-
-  updateCoordHost();
-
-  char **newArgv = NULL;
-  prepareForExec(argv, &newArgv);
-  int ret = _real_execve(newArgv[0], newArgv, envp);
-  JALLOC_HELPER_FREE(newArgv);
-  return ret;
-}
-
-extern "C" int
-execvp(const char *filename, char *const argv[])
-{
-  return execvpe(filename, argv, environ);
-}
-
-// This function first appeared in glibc 2.11
-extern "C" int
-execvpe(const char *filename, char *const argv[], char *const envp[])
-{
-  if (!isRshOrSshProcess(filename)) {
-    return _real_execvpe(filename, argv, envp);
-  }
-
-  updateCoordHost();
-
-  char **newArgv = NULL;
-  prepareForExec(argv, &newArgv);
-  int ret = _real_execvpe(newArgv[0], newArgv, envp);
-  JALLOC_HELPER_FREE(newArgv);
-  return ret;
 }
