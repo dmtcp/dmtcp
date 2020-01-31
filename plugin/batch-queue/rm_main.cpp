@@ -37,6 +37,9 @@ using namespace dmtcp;
 EXTERNC int
 dmtcp_batch_queue_enabled(void) { return 1; }
 
+int
+patch_srun_cmdline(DmtcpEventData_t *data);
+
 static void
 pre_ckpt()
 {
@@ -70,10 +73,15 @@ restart_resume()
   rm_restore_pmi();
   slurmRestoreHelper(true);
 }
+
 static void
 rm_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   switch (event) {
+  case DMTCP_EVENT_PRE_EXEC:
+    patch_srun_cmdline(data);
+    break;
+
   case DMTCP_EVENT_PRECHECKPOINT:
     pre_ckpt();
     break;

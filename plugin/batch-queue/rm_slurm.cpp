@@ -119,7 +119,7 @@ dmtcp::slurm_restore_env()
 }
 
 static void
-print_args(char *const argv[])
+print_args(const char *argv[])
 {
   int i;
   string cmdline;
@@ -129,6 +129,16 @@ print_args(char *const argv[])
   }
 
   JTRACE("Init CMD:")(cmdline);
+}
+
+static void
+occupate_stdio()
+{
+  int fd;
+
+  for (fd = 0; fd < 3; fd++) {
+    CHECK_FWD_TO_DEV_NULL(fd);
+  }
 }
 
 /*
@@ -144,19 +154,26 @@ print_args(char *const argv[])
  * correctly redirecting the srun I/O after restart.
  * This idea is derived from the DMTCP ssh plugin.
  */
-static int
-patch_srun_cmdline(char *const argv_old[], char ***_argv_new)
+char dmtcpNoCkptPath[] = "dmtcp_nocheckpoint";
+char dmtcpCkptPath[] = "dmtcp_launch";
+
+void
+patch_srun_cmdline(DmtcpEventData_t *data)
 {
+  if (jalib::Filesystem::BaseName(data->preExec.filename) != "srun") {
+    return;
+  }
+
+  const char **argv_old = data->preExec.argv;
+
+  print_args(argv_old);
+
   // Calculate the initial argc
   size_t argc_old;
 
   for (argc_old = 0; argv_old[argc_old] != NULL; argc_old++) {}
 
   // Prepare the DMTCP part of exec* string
-  char dmtcpNoCkptPath[] = "dmtcp_nocheckpoint";
-  char dmtcpCkptPath[] = "dmtcp_launch";
-  int ret = 0;
-
   JTRACE("Expand dmtcp_launch path")(dmtcpCkptPath);
 
   char **dmtcp_args = Util::getDmtcpArgs();
@@ -169,8 +186,7 @@ patch_srun_cmdline(char *const argv_old[], char ***_argv_new)
   // 1 /*end NULL*/ + 2 /* helper prefix*/ + dsize + 2 /* dmtcpCkptPath and
   // --explicit-srun */
   int vect_size = sizeof(char *) * (argc_old + 5 + num_dmtcp_args);
-  *_argv_new = (char **)JALLOC_HELPER_MALLOC(vect_size);
-  char **argv_new = *_argv_new;
+  const char **argv_new = (const char **)JALLOC_HELPER_MALLOC(vect_size);
   memset(argv_new, 0, vect_size);
 
   // Form the DMTCP command to launch dmtcp_srun_helper
@@ -223,97 +239,25 @@ patch_srun_cmdline(char *const argv_old[], char ***_argv_new)
   for (; old_pos < argc_old;) {
     argv_new[new_pos++] = argv_old[old_pos++];
   }
+  argv_new[new_pos] = NULL;
 
-  return ret;
-}
+  JASSERT(new_pos < data->preExec.maxArgs);
 
-static void
-occupate_stdio()
-{
-  int fd;
-
-  for (fd = 0; fd < 3; fd++) {
-    CHECK_FWD_TO_DEV_NULL(fd);
-  }
-}
-
-extern "C" int
-execve(const char *filename, char *const argv[], char *const envp[])
-{
-  if (jalib::Filesystem::BaseName(filename) != "srun") {
-    return _real_execve(filename, argv, envp);
+  for (size_t i = 0; i <= new_pos; i++) {
+    data->preExec.argv[i] = argv_new[i];
   }
 
-  print_args(argv);
-  char **argv_new;
-  patch_srun_cmdline(argv, &argv_new);
+  print_args(argv_new);
 
-  string cmdline;
-  for (int i = 0; argv_new[i] != NULL; i++) {
-    cmdline += string() + argv_new[i] + " ";
-  }
-  JTRACE("How command looks from exec*:");
-  JTRACE("CMD:")(cmdline);
+  JASSERT(dmtcp::Util::expandPathname(srunHelper,
+                                      data->preExec.filename,
+                                      PATH_MAX) == 0);
 
-  char helper_path[PATH_MAX];
-  JASSERT(dmtcp::Util::expandPathname(srunHelper, helper_path,
-                                      sizeof(helper_path)) == 0);
+  JALLOC_FREE(argv_new);
 
   // We need this step to protect the stdio fd's from being opened for other
   // purposes.
   occupate_stdio();
-  return _real_execve(helper_path, argv_new, envp);
-}
-
-extern "C" int
-execvp(const char *filename, char *const argv[])
-{
-  if (jalib::Filesystem::BaseName(filename) != "srun") {
-    return _real_execvp(filename, argv);
-  }
-
-  print_args(argv);
-  char **argv_new;
-  patch_srun_cmdline(argv, &argv_new);
-
-  string cmdline;
-  for (int i = 0; argv_new[i] != NULL; i++) {
-    cmdline += string() + argv_new[i] + " ";
-  }
-
-  JTRACE("How command looks from exec*:");
-  JTRACE("CMD:")(cmdline);
-
-  // We need this step to protect the stdio fd's from being opened for other
-  // purposes.
-  occupate_stdio();
-  return _real_execvp(srunHelper, argv_new);
-}
-
-// This function first appeared in glibc 2.11
-extern "C" int
-execvpe(const char *filename, char *const argv[], char *const envp[])
-{
-  if (jalib::Filesystem::BaseName(filename) != "srun") {
-    return _real_execvpe(filename, argv, envp);
-  }
-
-  print_args(argv);
-
-  char **argv_new;
-  patch_srun_cmdline(argv, &argv_new);
-
-  string cmdline;
-  for (int i = 0; argv_new[i] != NULL; i++) {
-    cmdline += string() + argv_new[i] + " ";
-  }
-  JTRACE("How command looks from exec*:");
-  JTRACE("CMD:")(cmdline);
-
-  // We need this step to protect the stdio fd's from being opened for other
-  // purposes.
-  occupate_stdio();
-  return _real_execvpe(srunHelper, argv_new, envp);
 }
 
 bool
