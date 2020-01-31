@@ -62,7 +62,6 @@ dmtcp_SSH_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
   switch (event) {
   case DMTCP_EVENT_PRE_EXEC:
     prepareForExec(data);
-
     break;
 
   case DMTCP_EVENT_PRECHECKPOINT:
@@ -285,7 +284,7 @@ createNewDmtcpSshdProcess()
 
     JTRACE("Launching ")
       (argv[0]) (argv[1]) (argv[2]) (argv[3]) (argv[4]) (argv[5]);
-    _real_execvp(argv[0], argv);
+    execvp(argv[0], argv);
     JASSERT(false);
   }
 
