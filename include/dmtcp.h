@@ -153,7 +153,8 @@ typedef enum eDmtcpGetRestartEnvErr {
 typedef enum eDmtcpMutexType
 {
   DMTCP_MUTEX_NORMAL,
-  DMTCP_MUTEX_RECURSIVE
+  DMTCP_MUTEX_RECURSIVE,
+  DMTCP_MUTEX_LLL
 } DmtcpMutexType;
 
 typedef struct
