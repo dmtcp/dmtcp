@@ -10,8 +10,8 @@ static const int zero = 0;
  * Mutex
  */
 
-extern "C"
-void DmtcpMutexInit(DmtcpMutex *mutex, DmtcpMutexType type)
+extern "C" void
+DmtcpMutexInit(DmtcpMutex *mutex, DmtcpMutexType type)
 {
   mutex->type = type;
   mutex->owner = 0;
@@ -19,54 +19,64 @@ void DmtcpMutexInit(DmtcpMutex *mutex, DmtcpMutexType type)
 }
 
 
-extern "C"
-int DmtcpMutexLock(DmtcpMutex *mutex)
+extern "C" int
+DmtcpMutexLock(DmtcpMutex *mutex)
 {
-  if (mutex->owner == dmtcp_gettid()) {
-    if (mutex->type == DMTCP_MUTEX_RECURSIVE) {
-      JASSERT(mutex->count + 1 != 0);
-      mutex->count++;
-      return 0;
+  pid_t owner = 1;
+
+  if (mutex->type != DMTCP_MUTEX_LLL) {
+    owner = dmtcp_gettid();
+
+    if (mutex->owner == owner) {
+      if (mutex->type == DMTCP_MUTEX_RECURSIVE) {
+        JASSERT(mutex->count + 1 != 0);
+        mutex->count++;
+        return 0;
+      }
+      return EDEADLK;
     }
-    return EDEADLK;
   }
 
   while (1) {
-    uint32_t waitVal = __sync_val_compare_and_swap((uint32_t*) &mutex->owner,
-                                                   0,
-                                                   dmtcp_gettid());
+    uint32_t waitVal =
+      __sync_val_compare_and_swap((uint32_t *)&mutex->owner, 0, owner);
+
     if (waitVal == 0) {
       // We successfully acquired the lock.
       break;
     }
 
-    int s = futex_wait((uint32_t*) &mutex->owner, waitVal);
-    JASSERT (s != -1 || errno == EAGAIN) (JASSERT_ERRNO);
+    int s = futex_wait((uint32_t *)&mutex->owner, waitVal);
+    JASSERT(s != -1 || errno == EAGAIN)(JASSERT_ERRNO);
   }
 
-  JASSERT(mutex->owner == dmtcp_gettid());
+  JASSERT(mutex->owner == owner);
   mutex->count = 1;
 
   return 0;
 }
 
 
-extern "C"
-int DmtcpMutexTryLock(DmtcpMutex *mutex)
+extern "C" int
+DmtcpMutexTryLock(DmtcpMutex *mutex)
 {
-  if (mutex->owner == dmtcp_gettid()) {
-    if (mutex->type == DMTCP_MUTEX_RECURSIVE) {
-      JASSERT(mutex->count + 1 != 0);
-      mutex->count++;
-      return 0;
+  pid_t owner = 1;
+
+  if (mutex->type != DMTCP_MUTEX_LLL) {
+    owner = dmtcp_gettid();
+
+    if (mutex->owner == dmtcp_gettid()) {
+      if (mutex->type == DMTCP_MUTEX_RECURSIVE) {
+        JASSERT(mutex->count + 1 != 0);
+        mutex->count++;
+        return 0;
+      }
+      return EDEADLK;
     }
-    return EDEADLK;
   }
 
-  if (__sync_bool_compare_and_swap((uint32_t*) &mutex->owner,
-                                   0,
-                                   dmtcp_gettid())) {
-    JASSERT(mutex->owner == dmtcp_gettid());
+  if (__sync_bool_compare_and_swap((uint32_t *)&mutex->owner, 0, owner)) {
+    JASSERT(mutex->owner == owner);
     mutex->count = 1;
     return 0;
   }
@@ -75,10 +85,16 @@ int DmtcpMutexTryLock(DmtcpMutex *mutex)
 }
 
 
-extern "C"
-int DmtcpMutexUnlock(DmtcpMutex *mutex)
+extern "C" int
+DmtcpMutexUnlock(DmtcpMutex *mutex)
 {
-  JASSERT(mutex->owner == dmtcp_gettid());
+  pid_t owner = 1;
+
+  if (mutex->type != DMTCP_MUTEX_LLL) {
+    owner = dmtcp_gettid();
+  }
+
+  JASSERT(mutex->owner == owner);
 
   mutex->count--;
 
