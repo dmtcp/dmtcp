@@ -127,24 +127,7 @@ extern "C" int dmtcp_is_ptracing() __attribute__((weak));
 pid_t
 VirtualPidTable::realToVirtual(pid_t realPid)
 {
-  if (realIdExists(realPid)) {
-    return VirtualIdTable<pid_t>::realToVirtual(realPid);
-  }
-
-  _do_lock_tbl();
-  if (dmtcp_is_ptracing != 0 && dmtcp_is_ptracing() && realPid > 0) {
-    pid_t virtualPid = readVirtualTidFromFileForPtrace(dmtcp_gettid());
-    if (virtualPid != -1) {
-      _do_unlock_tbl();
-      updateMapping(virtualPid, realPid);
-      return virtualPid;
-    }
-  }
-
-  // JWARNING(false) (realPid)
-  // .Text("No virtual pid/tid found for the given real pid");
-  _do_unlock_tbl();
-  return realPid;
+  return VirtualIdTable<pid_t>::realToVirtual(realPid);
 }
 
 pid_t
@@ -163,37 +146,4 @@ VirtualPidTable::virtualToReal(pid_t virtualId)
   }
   retVal = virtualId < -1 ? -retVal : retVal;
   return retVal;
-}
-
-void
-VirtualPidTable::writeVirtualTidToFileForPtrace(pid_t pid)
-{
-  if (!dmtcp_is_ptracing || !dmtcp_is_ptracing()) {
-    return;
-  }
-  pid_t tracerPid = Util::getTracerPid();
-  if (tracerPid != 0) {
-    SharedData::setPtraceVirtualId(tracerPid, pid);
-  }
-}
-
-pid_t
-VirtualPidTable::readVirtualTidFromFileForPtrace(pid_t tid)
-{
-  pid_t pid;
-
-  if (!dmtcp_is_ptracing || !dmtcp_is_ptracing()) {
-    return -1;
-  }
-  if (tid == -1) {
-    tid = Util::getTracerPid();
-    if (tid == 0) {
-      return -1;
-    }
-  }
-
-  pid = SharedData::getPtraceVirtualId(tid);
-
-  JTRACE("Read virtual Pid/Tid from shared-area") (pid);
-  return pid;
 }

@@ -36,7 +36,6 @@
 #define MAX_PID_MAPS             32768
 #define MAX_IPC_ID_MAPS          256
 #define MAX_PTY_NAME_MAPS        256
-#define MAX_PTRACE_ID_MAPS       256
 #define MAX_INCOMING_CONNECTIONS 10240
 #define MAX_INODE_PID_MAPS       10240
 #define CON_ID_LEN \
@@ -87,11 +86,6 @@ struct IncomingConMap {
   };
 };
 
-struct PtraceIdMaps {
-  pid_t tracerId;
-  pid_t childId;
-};
-
 typedef struct InodeConnIdMap {
   uint64_t devnum;
   uint64_t inode;
@@ -127,7 +121,6 @@ struct Header {
   int64_t dlsymOffset_m32;
 
   uint64_t numPidMaps;
-  uint64_t numPtraceIdMaps;
 
   uint64_t numSysVShmIdMaps;
   uint64_t numSysVSemIdMaps;
@@ -151,7 +144,6 @@ struct Header {
   struct IPCIdMap sysvSemIdMap[MAX_IPC_ID_MAPS];
   struct IPCIdMap sysvMsqIdMap[MAX_IPC_ID_MAPS];
   struct IPCIdMap sysvShmKeyMap[MAX_IPC_ID_MAPS];
-  struct PtraceIdMaps ptraceIdMap[MAX_PTRACE_ID_MAPS];
   struct PtyNameMap ptyNameMap[MAX_PTY_NAME_MAPS];
   struct IncomingConMap incomingConMap[MAX_INCOMING_CONNECTIONS];
   InodeConnIdMap inodeConnIdMap[MAX_INODE_PID_MAPS];
@@ -212,9 +204,6 @@ void setIPCIdMap(int type, int32_t virt, int32_t real);
 
 pid_t getRealPid(pid_t virt);
 void setPidMap(pid_t virt, pid_t real);
-
-pid_t getPtraceVirtualId(pid_t tracerId);
-void setPtraceVirtualId(pid_t tracerId, pid_t childId);
 
 void getRealPtyName(const char *virt, char *out, uint32_t len);
 void getVirtPtyName(const char *real, char *out, uint32_t len);

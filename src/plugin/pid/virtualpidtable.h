@@ -62,12 +62,8 @@ class VirtualPidTable : public VirtualIdTable<pid_t>
     pid_t realToVirtual(pid_t realPid);
     pid_t virtualToReal(pid_t virtualId);
     void refresh();
-    void writeVirtualTidToFileForPtrace(pid_t pid);
-    pid_t readVirtualTidFromFileForPtrace(pid_t realTid = -1);
 
     pid_t getNewVirtualTid();
-
-  private:
 };
 }
 #endif // ifndef VIRTUAL_PID_TABLE_H

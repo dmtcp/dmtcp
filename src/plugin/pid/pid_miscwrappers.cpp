@@ -62,8 +62,6 @@ fork()
   pid_t retval = 0;
   pid_t virtualPid = getPidFromEnvVar();
 
-  VirtualPidTable::instance().writeVirtualTidToFileForPtrace(virtualPid);
-
   pid_t realPid = _real_fork();
 
   if (realPid > 0) { /* Parent Process */
@@ -72,7 +70,6 @@ fork()
     SharedData::setPidMap(virtualPid, realPid);
   } else {
     retval = realPid;
-    VirtualPidTable::instance().readVirtualTidFromFileForPtrace();
   }
 
   return retval;
@@ -133,7 +130,6 @@ __clone(int (*fn)(void *arg),
     }
   } else {
     virtualTid = VirtualPidTable::instance().getNewVirtualTid();
-    VirtualPidTable::instance().writeVirtualTidToFileForPtrace(virtualTid);
   }
 
   // We have to use DMTCP-specific memory allocator because using glibc:malloc
@@ -151,10 +147,6 @@ __clone(int (*fn)(void *arg),
   JTRACE("Calling libc:__clone");
   pid_t tid = _real_clone(clone_start, child_stack, flags, threadArg,
                           parent_tidptr, newtls, child_tidptr);
-
-  if (dmtcp_is_running_state()) {
-    VirtualPidTable::instance().readVirtualTidFromFileForPtrace();
-  }
 
   if (tid > 0) {
     JTRACE("New thread created") (tid);
