@@ -201,12 +201,15 @@ UniquePid::toString() const
 }
 
 void
-UniquePid::resetOnFork(const UniquePid &newId)
+UniquePid::resetOnFork()
 {
+  uint64_t host = UniquePid::ThisProcess().hostid();
+  UniquePid parent = UniquePid::ThisProcess();
+
   // parentProcess() is for inspection tools
   parentProcess() = ThisProcess();
-  JTRACE("Explicitly setting process UniquePid") (newId);
-  theProcess() = newId;
+  theProcess() = UniquePid(host, getpid(), ::time(NULL));
+  JTRACE("Explicitly setting process UniquePid") (ThisProcess());
 }
 
 bool
@@ -239,4 +242,34 @@ UniquePid::serialize(int fd)
 {
   jalib::JBinarySerializeWriterRaw s("", fd);
   serialize(s);
+}
+
+static void
+UniquePid_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
+{
+  switch (event) {
+  case DMTCP_EVENT_ATFORK_CHILD:
+    UniquePid::resetOnFork();
+    break;
+
+  default:
+    break;
+  }
+}
+
+static DmtcpPluginDescriptor_t UniquePidPlugin = {
+  DMTCP_PLUGIN_API_VERSION,
+  PACKAGE_VERSION,
+  "UniquePid",
+  "DMTCP",
+  "dmtcp@ccs.neu.edu",
+  "processInfo plugin",
+  UniquePid_EventHook
+};
+
+
+DmtcpPluginDescriptor_t
+UniquePid::pluginDescr()
+{
+  return UniquePidPlugin;
 }

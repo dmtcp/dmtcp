@@ -50,7 +50,6 @@ const static bool dbg = false;
 #endif // ifdef LOGGING
 
 static bool pthread_atfork_enabled = false;
-static uint64_t child_time;
 static int childCoordinatorSocket = -1;
 
 extern "C" int
@@ -113,20 +112,21 @@ pthread_atfork_child()
   }
   pthread_atfork_enabled = false;
 
-  uint64_t host = UniquePid::ThisProcess().hostid();
-  UniquePid parent = UniquePid::ThisProcess();
-  UniquePid child = UniquePid(host, getpid(), child_time);
-  string child_name = jalib::Filesystem::GetProgramName() + "_(forked)";
   ThreadSync::resetLocks();
 
-  UniquePid::resetOnFork(child);
+  UniquePid::resetOnFork();
+
+  string child_name = jalib::Filesystem::GetProgramName() + "_(forked)";
   Util::initializeLogFile(dmtcp_get_tmpdir(), child_name.c_str(), NULL);
 
   ProcessInfo::instance().resetOnFork();
 
-  JTRACE("fork()ed [CHILD]") (child) (parent);
   CoordinatorAPI::resetOnFork(childCoordinatorSocket);
   DmtcpWorker::resetOnFork();
+
+  JTRACE("fork()ed [CHILD]")
+    (UniquePid::ThisProcess())
+    (UniquePid::ParentProcess());
 }
 
 // We re-factor to have fork() call dmtcp_fork().
@@ -149,11 +149,6 @@ dmtcp_fork()
   WRAPPER_EXECUTION_GET_EXCL_LOCK();
   PluginManager::eventHook(DMTCP_EVENT_ATFORK_PREPARE, NULL);
 
-  /* Little bit cheating here: child_time should be same for both parent and
-   * child, thus we compute it before forking the child. */
-  child_time = time(NULL);
-  uint64_t host = UniquePid::ThisProcess().hostid();
-  UniquePid parent = UniquePid::ThisProcess();
   string child_name = jalib::Filesystem::GetProgramName() + "_(forked)";
 
   childCoordinatorSocket =
@@ -185,11 +180,10 @@ dmtcp_fork()
      * within the DmtcpWorker constructor to make sure that this is the first
      * registered handle.
      */
-    UniquePid child = UniquePid(host, getpid(), child_time);
-    JTRACE("fork() done [CHILD]") (child) (parent);
+    JTRACE("fork() done [CHILD]")
+      (UniquePid::ThisProcess()) (UniquePid::ParentProcess());
   } else if (childPid > 0) { /* Parent Process */
-    UniquePid child = UniquePid(host, childPid, child_time);
-    JTRACE("fork()ed [PARENT] done") (child);
+    JTRACE("fork()ed [PARENT] done") (childPid);
   }
 
   pthread_atfork_enabled = false;
