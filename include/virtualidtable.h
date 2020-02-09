@@ -145,8 +145,8 @@ class VirtualIdTable
 
     bool isIdCreatedByCurrentProcess(IdType id)
     {
-      return (size_t)id > (size_t)getpid() &&
-             (size_t)id <= (size_t)getpid() + _max;
+      return (size_t)id > (size_t)_base &&
+             (size_t)id <= (size_t)_base + _max;
     }
 
     bool virtualIdExists(IdType id)
