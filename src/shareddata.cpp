@@ -78,7 +78,6 @@ SharedData::initializeHeader(const char *tmpDir,
   sharedDataHeader->numSysVSemIdMaps = 0;
   sharedDataHeader->numSysVMsqIdMaps = 0;
   sharedDataHeader->numSysVShmKeyMaps = 0;
-  sharedDataHeader->numPtraceIdMaps = 0;
   sharedDataHeader->numPtyNameMaps = 0;
   sharedDataHeader->initialized = true;
 
@@ -622,51 +621,6 @@ SharedData::setIPCIdMap(int type, int32_t virt, int32_t real)
     map[i].real = real;
     *nmaps += 1;
   }
-  Util::unlockFile(PROTECTED_SHM_FD);
-}
-
-pid_t
-SharedData::getPtraceVirtualId(pid_t tracerId)
-{
-  pid_t childId = -1;
-
-  if (sharedDataHeader == NULL) {
-    initialize();
-  }
-  Util::lockFile(PROTECTED_SHM_FD);
-  for (size_t i = 0; i < sharedDataHeader->numPtraceIdMaps; i++) {
-    if (sharedDataHeader->ptraceIdMap[i].tracerId == tracerId) {
-      childId = sharedDataHeader->ptraceIdMap[i].childId;
-      sharedDataHeader->ptraceIdMap[i] =
-        sharedDataHeader->ptraceIdMap[sharedDataHeader->numPtraceIdMaps];
-      sharedDataHeader->numPtraceIdMaps--;
-    }
-  }
-  Util::unlockFile(PROTECTED_SHM_FD);
-  return childId;
-}
-
-void
-SharedData::setPtraceVirtualId(pid_t tracerId, pid_t childId)
-{
-  size_t i;
-
-  if (sharedDataHeader == NULL) {
-    initialize();
-  }
-  Util::lockFile(PROTECTED_SHM_FD);
-  for (i = 0; i < sharedDataHeader->numPtraceIdMaps; i++) {
-    if (sharedDataHeader->ptraceIdMap[i].tracerId == tracerId) {
-      break;
-    }
-  }
-
-  if (i == sharedDataHeader->numPtraceIdMaps) {
-    JASSERT(sharedDataHeader->numPtraceIdMaps < MAX_PTRACE_ID_MAPS);
-    sharedDataHeader->numPtraceIdMaps++;
-  }
-  sharedDataHeader->ptraceIdMap[i].tracerId = tracerId;
-  sharedDataHeader->ptraceIdMap[i].childId = childId;
   Util::unlockFile(PROTECTED_SHM_FD);
 }
 
