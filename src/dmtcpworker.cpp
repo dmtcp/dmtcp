@@ -342,8 +342,6 @@ DmtcpWorker::resetOnFork()
 {
   exitInProgress = false;
 
-  ThreadSync::resetLocks();
-
   WorkerState::setCurrentState(WorkerState::RUNNING);
 
   ThreadSync::initMotherOfAll();
