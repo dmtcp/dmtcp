@@ -259,9 +259,6 @@ union semun {
   struct seminfo *__buf;     /* Buffer for IPC_INFO (Linux-specific) */
 };
 
-LIB_PRIVATE void dmtcpResetTid(pid_t tid);
-LIB_PRIVATE void dmtcpResetPidPpid();
-
 int _dmtcp_unsetenv(const char *name);
 void dmtcp_prepare_wrappers();
 
