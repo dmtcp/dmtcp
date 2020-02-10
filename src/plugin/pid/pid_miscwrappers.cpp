@@ -36,43 +36,34 @@
 
 using namespace dmtcp;
 
-LIB_PRIVATE pid_t getPidFromEnvVar();
+static pid_t childVirtualPid;
 
-void
-pidVirt_pthread_atfork_child()
+LIB_PRIVATE void
+pidVirt_atfork_prepare()
+{
+  Util::getVirtualPidFromEnvVar(&childVirtualPid, NULL, NULL);
+}
+
+LIB_PRIVATE void
+pidVirt_atfork_child()
 {
   dmtcpResetPidPpid();
   dmtcpResetTid(getpid());
   VirtualPidTable::instance().resetOnFork();
 }
 
-extern "C" int
-__register_atfork(void (*prepare)(void), void (*parent)(void), void (*child)(
-                    void), void *dso_handle)
-{
-  /* dmtcp_initialize() must be called before __register_atfork().
-   * NEXT_FNC() guarantees that dmtcp_initialize() is called if
-   * it was not called earlier. */
-  return NEXT_FNC(__register_atfork)(prepare, parent, child, dso_handle);
-}
-
 extern "C" pid_t
 fork()
 {
-  pid_t retval = 0;
-  pid_t virtualPid = getPidFromEnvVar();
-
   pid_t realPid = _real_fork();
 
   if (realPid > 0) { /* Parent Process */
-    retval = virtualPid;
-    VirtualPidTable::instance().updateMapping(virtualPid, realPid);
-    SharedData::setPidMap(virtualPid, realPid);
-  } else {
-    retval = realPid;
+    VirtualPidTable::instance().updateMapping(childVirtualPid, realPid);
+    SharedData::setPidMap(childVirtualPid, realPid);
+    return childVirtualPid;
   }
 
-  return retval;
+  return realPid;
 }
 
 struct ThreadArg {

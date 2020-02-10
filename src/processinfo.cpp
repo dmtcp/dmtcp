@@ -93,6 +93,10 @@ processInfo_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
     break;
   }
 
+  case DMTCP_EVENT_ATFORK_CHILD:
+    ProcessInfo::instance().resetOnFork();
+    break;
+
   case DMTCP_EVENT_PRESUSPEND:
     break;
 

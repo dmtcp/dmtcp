@@ -91,20 +91,6 @@ dmtcp_real_tgkill(pid_t tgid, pid_t tid, int sig)
 }
 
 static void
-pidVirt_AtForkParent(DmtcpEventData_t *data)
-{
-  pid_t virtPpid = getppid();
-  pid_t realPpid = VIRTUAL_TO_REAL_PID(virtPpid);
-  Util::setVirtualPidEnvVar(getpid(), virtPpid, realPpid);
-}
-
-static void
-pidVirt_ResetOnFork(DmtcpEventData_t *data)
-{
-  VirtualPidTable::instance().resetOnFork();
-}
-
-static void
 pidVirt_PrepareForExec(DmtcpEventData_t *data)
 {
   pid_t virtPpid = getppid();
@@ -295,12 +281,12 @@ pid_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     SharedData::setPidMap(getpid(), _real_getpid());
     break;
 
-  case DMTCP_EVENT_ATFORK_PARENT:
-    pidVirt_AtForkParent(data);
+  case DMTCP_EVENT_ATFORK_PREPARE:
+    pidVirt_atfork_prepare();
     break;
 
   case DMTCP_EVENT_ATFORK_CHILD:
-    pidVirt_ResetOnFork(data);
+    pidVirt_atfork_child();
     break;
 
   case DMTCP_EVENT_PRE_EXEC:
