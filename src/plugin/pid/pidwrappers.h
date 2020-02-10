@@ -106,6 +106,9 @@ union semun {
 void dmtcpResetPidPpid();
 void dmtcpResetTid(pid_t tid);
 
+LIB_PRIVATE void pidVirt_atfork_prepare();
+LIB_PRIVATE void pidVirt_atfork_child();
+
 LIB_PRIVATE void *_real_dlsym(void *handle, const char *symbol);
 
 /* The following function are defined in pidwrappers.cpp */

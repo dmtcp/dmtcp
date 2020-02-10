@@ -59,6 +59,48 @@ Util::setVirtualPidEnvVar(pid_t pid, pid_t virtPpid, pid_t realPpid)
   }
 }
 
+void
+Util::getVirtualPidFromEnvVar(pid_t *virtPid, pid_t *virtPpid, pid_t *realPpid)
+{
+  pid_t pid;
+  const char *pidstr = getenv(ENV_VAR_VIRTUAL_PID);
+  char *virtPpidstr = NULL;
+  char *realPpidstr = NULL;
+
+  if (pidstr == NULL) {
+    fprintf(stderr, "ERROR at %s:%d: env var DMTCP_VIRTUAL_PID not set\n\n",
+            __FILE__, __LINE__);
+    _exit(DMTCP_FAIL_RC);
+  }
+
+  pid = strtol(pidstr, &virtPpidstr, 10);
+  if (virtPid) {
+    *virtPid = pid;
+  }
+
+  if (virtPpidstr[0] != ':' && !isdigit(virtPpidstr[1])) {
+    fprintf(stderr, "ERROR at %s:%d: env var DMTCP_VIRTUAL_PID invalid\n\n",
+            __FILE__, __LINE__);
+    _exit(DMTCP_FAIL_RC);
+  }
+
+  pid = strtol(virtPpidstr + 1, &realPpidstr, 10);
+  if (virtPpid) {
+    *virtPpid = pid;
+  }
+
+  if (realPpidstr[0] != ':' && !isdigit(realPpidstr[1])) {
+    fprintf(stderr, "ERROR at %s:%d: env var DMTCP_VIRTUAL_PID invalid\n\n",
+            __FILE__, __LINE__);
+    _exit(DMTCP_FAIL_RC);
+  }
+
+  pid = strtol(realPpidstr + 1, NULL, 10);
+  if (realPpid) {
+    *realPpid = pid;
+  }
+}
+
 // 'screen' requires directory with permissions 0700
 static int
 isdir0700(const char *pathname)

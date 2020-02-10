@@ -63,6 +63,7 @@ dmtcp_initialize_plugin()
   dmtcp_register_plugin(dmtcp_Terminal_PluginDescr());
   dmtcp_register_plugin(CoordinatorAPI::pluginDescr());
   dmtcp_register_plugin(dmtcp_ProcessInfo_PluginDescr());
+  dmtcp_register_plugin(UniquePid::pluginDescr());
 
   void (*fn)() = NEXT_FNC(dmtcp_initialize_plugin);
   if (fn != NULL) {

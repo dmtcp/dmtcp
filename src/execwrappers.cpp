@@ -49,8 +49,15 @@ const static bool dbg = true;
 const static bool dbg = false;
 #endif // ifdef LOGGING
 
-static bool pthread_atfork_enabled = false;
-static int childCoordinatorSocket = -1;
+void pidVirt_pthread_atfork_child() __attribute__((weak));
+
+/* This is defined by newer gcc version unique for each module.  */
+extern void *__dso_handle __attribute__((__weak__,
+                                         __visibility__("hidden")));
+
+EXTERNC int __register_atfork(void (*prepare)(void), void (*parent)(
+                                void), void (*child)(void), void *dso_handle);
+
 
 extern "C" int
 dmtcp_execlpe(const char *filename,
@@ -74,7 +81,7 @@ isPerformingCkptRestart()
 }
 
 LIB_PRIVATE void
-pthread_atfork_prepare()
+dmtcp_atfork_prepare()
 {
   /* FIXME: The user process might register a fork prepare handler with
    * pthread_atfork. That handler will be called _after_ we have acquired the
@@ -88,45 +95,72 @@ pthread_atfork_prepare()
    * are called in reverse order or registration (as opposed to parent and
    * child handlers which are called in the order of registration), thus our
    * prepare handle will be called at the very last.
-   *
-   * FIXME: PID-conflict detection poses yet another serious problem. On a
-   * pid-conflict, _real_fork() will be called more than once, resulting in
-   * multiple calls of user-defined prepare handlers. This is undesired and can
-   * cause several issues. One solution to this problem is to call the fork
-   * system call directly whenever a tid-conflict is detected, however, it
-   * might have some other side-effects.  Another possible solution would be to
-   * have pid-virtualization plugin, which always assigns virtual pids, to the
-   * newly created processes, and thus avoiding the pid-conflict totally.
    */
+
+  PluginManager::eventHook(DMTCP_EVENT_ATFORK_PREPARE, NULL);
 }
 
 LIB_PRIVATE void
-pthread_atfork_parent()
-{}
+dmtcp_atfork_parent()
+{
+  PluginManager::eventHook(DMTCP_EVENT_ATFORK_PARENT, NULL);
+}
 
 LIB_PRIVATE void
-pthread_atfork_child()
+dmtcp_atfork_child()
 {
-  if (!pthread_atfork_enabled) {
-    return;
-  }
-  pthread_atfork_enabled = false;
-
   ThreadSync::resetLocks();
 
-  UniquePid::resetOnFork();
+  // Some plugins might make calls that require wrapper locks, etc.
+  // Therefore, it is better to call this hook after we reset all locks.
+  PluginManager::eventHook(DMTCP_EVENT_ATFORK_CHILD, NULL);
 
   string child_name = jalib::Filesystem::GetProgramName() + "_(forked)";
   Util::initializeLogFile(dmtcp_get_tmpdir(), child_name.c_str(), NULL);
 
-  ProcessInfo::instance().resetOnFork();
-
-  CoordinatorAPI::resetOnFork(childCoordinatorSocket);
   DmtcpWorker::resetOnFork();
+}
 
-  JTRACE("fork()ed [CHILD]")
-    (UniquePid::ThisProcess())
-    (UniquePid::ParentProcess());
+extern "C" int
+__register_atfork(void (*prepare)(void), void (*parent)(void), void (*child)(
+                    void), void *dso_handle)
+{
+  /* dmtcp_initialize() must be called before __register_atfork().
+   * NEXT_FNC() guarantees that dmtcp_initialize() is called if
+   * it was not called earlier. */
+  return NEXT_FNC(__register_atfork)(prepare, parent, child, dso_handle);
+}
+
+LIB_PRIVATE void
+dmtcp_prepare_atfork(void)
+{
+  /* Register pidVirt_pthread_atfork_child() as the first post-fork handler
+   * for the child process. This needs to be the first function that is
+   * called by libc:fork() after the child process is created.
+   *
+   * pthread_atfork_child() needs to be the second post-fork handler for the
+   * child process.
+   *
+   * Some dmtcp plugin might also call pthread_atfork and so we call it right
+   * here before initializing the wrappers.
+   *
+   * NOTE: If this doesn't work and someone is able to call pthread_atfork
+   * before this call, we might want to install a pthread_atfork() wrapper.
+   */
+
+  /* If we use pthread_atfork here, it fails for Ubuntu 14.04 on ARM.
+   * To fix it, we use __register_atfork and use the __dso_handle provided by
+   * the gcc compiler.
+   */
+#if 0
+  JASSERT(__register_atfork(NULL, NULL,
+                            pidVirt_pthread_atfork_child,
+                            __dso_handle) == 0);
+#endif
+
+  JASSERT(pthread_atfork(dmtcp_atfork_prepare,
+                         dmtcp_atfork_parent,
+                         dmtcp_atfork_child) == 0);
 }
 
 // We re-factor to have fork() call dmtcp_fork().
@@ -147,15 +181,7 @@ dmtcp_fork()
    * processing this system call.
    */
   WRAPPER_EXECUTION_GET_EXCL_LOCK();
-  PluginManager::eventHook(DMTCP_EVENT_ATFORK_PREPARE, NULL);
 
-  string child_name = jalib::Filesystem::GetProgramName() + "_(forked)";
-
-  childCoordinatorSocket =
-    CoordinatorAPI::createNewConnectionBeforeFork(child_name);
-
-  // Enable the pthread_atfork child call
-  pthread_atfork_enabled = true;
   pid_t childPid = _real_fork();
 
   if (childPid == -1) {
@@ -186,11 +212,7 @@ dmtcp_fork()
     JTRACE("fork()ed [PARENT] done") (childPid);
   }
 
-  pthread_atfork_enabled = false;
-
   if (childPid != 0) {
-    _real_close(childCoordinatorSocket);
-    PluginManager::eventHook(DMTCP_EVENT_ATFORK_PARENT, NULL);
     WRAPPER_EXECUTION_RELEASE_EXCL_LOCK();
   }
   return childPid;
