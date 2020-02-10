@@ -131,6 +131,8 @@ int elfType(const char *pathname, bool *isElf, bool *is32bitElf);
 bool isStaticallyLinked(const char *filename);
 
 void setVirtualPidEnvVar(pid_t pid, pid_t virtPpid, pid_t realPpid);
+void getVirtualPidFromEnvVar(pid_t *pid, pid_t *virtPpid, pid_t *realPpid);
+
 bool isScreen(const char *filename);
 void setScreenDir();
 bool isSetuid(const char *filename);
