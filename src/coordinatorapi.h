@@ -45,7 +45,9 @@ namespace CoordinatorAPI
 void eventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
 DmtcpPluginDescriptor_t pluginDescr();
 
-void resetOnFork(int sock);
+void atForkPrepare();
+void atForkParent();
+void atForkChild();
 void getCoordHostAndPort(CoordinatorMode mode, string *host, int *port);
 void waitForCheckpointCommand();
 bool noCoordinator();
