@@ -105,6 +105,7 @@ PluginManager::eventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
   case DMTCP_EVENT_PTHREAD_RETURN:
   case DMTCP_EVENT_ATFORK_PARENT:
   case DMTCP_EVENT_ATFORK_CHILD:
+  case DMTCP_EVENT_ATFORK_FAILED:
 
   case DMTCP_EVENT_REAL_TO_VIRTUAL_PATH:
 
