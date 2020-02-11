@@ -109,6 +109,9 @@ void dmtcpResetTid(pid_t tid);
 LIB_PRIVATE void pidVirt_atfork_prepare();
 LIB_PRIVATE void pidVirt_atfork_child();
 
+LIB_PRIVATE void pidVirt_vfork_prepare();
+LIB_PRIVATE void pidVirt_vfork_child();
+
 LIB_PRIVATE void *_real_dlsym(void *handle, const char *symbol);
 
 /* The following function are defined in pidwrappers.cpp */
@@ -118,6 +121,7 @@ LIB_PRIVATE int dmtcp_tgkill(int tgid, int tid, int sig);
 
 #define FOREACH_PIDVIRT_WRAPPER(MACRO) \
   MACRO(fork)                          \
+  MACRO(vfork)                         \
   MACRO(__clone)                       \
   MACRO(gettid)                        \
   MACRO(tkill)                         \
@@ -201,7 +205,10 @@ typedef enum {
   numPidVirtWrappers
 } PidVirtWrapperOffset;
 
+void *_real_func_addr(PidVirtWrapperOffset func);
+
 pid_t _real_fork();
+pid_t _real_vfork();
 int _real_clone(int (*fn)(void *arg),
                 void *child_stack,
                 int flags,

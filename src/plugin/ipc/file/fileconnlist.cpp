@@ -80,6 +80,9 @@
 
 using namespace dmtcp;
 
+static FileConnList *fileConnList = NULL;
+static FileConnList *vfork_fileConnList = NULL;
+
 void
 dmtcp_FileConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
@@ -121,6 +124,16 @@ dmtcp_FileConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
                                            data->reopenFd.path);
 
      break;
+
+  case DMTCP_EVENT_VFORK_PREPARE:
+    vfork_fileConnList = (FileConnList*) FileConnList::instance().clone();
+    break;
+
+  case DMTCP_EVENT_VFORK_PARENT:
+  case DMTCP_EVENT_VFORK_FAILED:
+    delete fileConnList;
+    fileConnList = vfork_fileConnList;
+    break;
 
   case DMTCP_EVENT_PRESUSPEND:
     break;
@@ -229,7 +242,6 @@ FileConnList::createDirectoryTree(const string &path)
 }
 
 
-static FileConnList *fileConnList = NULL;
 FileConnList&
 FileConnList::instance()
 {

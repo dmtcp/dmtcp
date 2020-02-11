@@ -36,6 +36,9 @@
 
 namespace dmtcp
 {
+static ProcessInfo *pInfo = NULL;
+static ProcessInfo *vforkBackup = NULL;
+
 static DmtcpMutex tblLock = DMTCP_MUTEX_INITIALIZER;
 
 static void
@@ -94,7 +97,19 @@ processInfo_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
   }
 
   case DMTCP_EVENT_ATFORK_CHILD:
+  case DMTCP_EVENT_VFORK_CHILD:
     ProcessInfo::instance().resetOnFork();
+    break;
+
+  case DMTCP_EVENT_VFORK_PREPARE:
+    vforkBackup = pInfo;
+    pInfo = NULL;
+    break;
+
+  case DMTCP_EVENT_VFORK_PARENT:
+  case DMTCP_EVENT_VFORK_FAILED:
+    delete pInfo;
+    pInfo = vforkBackup;
     break;
 
   case DMTCP_EVENT_PRESUSPEND:
@@ -166,7 +181,6 @@ ProcessInfo::ProcessInfo()
   _do_unlock_tbl();
 }
 
-static ProcessInfo *pInfo = NULL;
 ProcessInfo&
 ProcessInfo::instance()
 {

@@ -89,6 +89,13 @@ using namespace dmtcp;
  */
 
 static DmtcpMutex tblLock = DMTCP_MUTEX_INITIALIZER;
+static SysVShm *sysvShmInst = NULL;
+static SysVSem *sysvSemInst = NULL;
+static SysVMsq *sysvMsqInst = NULL;
+
+static SysVShm *vfork_sysvShmInst = NULL;
+static SysVSem *vfork_sysvSemInst = NULL;
+static SysVMsq *vfork_sysvMsqInst = NULL;
 
 static void
 preCheckpoint()
@@ -151,9 +158,27 @@ sysvipc_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   switch (event) {
   case DMTCP_EVENT_ATFORK_CHILD:
+  case DMTCP_EVENT_VFORK_CHILD:
     SysVShm::instance().resetOnFork();
     SysVSem::instance().resetOnFork();
     SysVMsq::instance().resetOnFork();
+    break;
+
+  case DMTCP_EVENT_VFORK_PREPARE:
+    vfork_sysvShmInst = (SysVShm*) SysVShm::instance().clone();
+    vfork_sysvSemInst = (SysVSem*) SysVSem::instance().clone();
+    vfork_sysvMsqInst = (SysVMsq*) SysVMsq::instance().clone();
+    break;
+
+  case DMTCP_EVENT_VFORK_PARENT:
+  case DMTCP_EVENT_VFORK_FAILED:
+    delete sysvShmInst;
+    delete sysvSemInst;
+    delete sysvMsqInst;
+
+    sysvShmInst = vfork_sysvShmInst;
+    sysvSemInst = vfork_sysvSemInst;
+    sysvMsqInst = vfork_sysvMsqInst;
     break;
 
   case DMTCP_EVENT_PRE_EXEC:
@@ -253,9 +278,6 @@ huge_memcpy(char *dest, char *src, size_t size)
   memcpy(dest, src, size);
 }
 
-static SysVShm *sysvShmInst = NULL;
-static SysVSem *sysvSemInst = NULL;
-static SysVMsq *sysvMsqInst = NULL;
 SysVShm&
 SysVShm::instance()
 {

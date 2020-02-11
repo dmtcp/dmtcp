@@ -32,6 +32,9 @@
 
 using namespace dmtcp;
 
+static UniquePid vforkThisProcess;
+static UniquePid vforkParentProcess;
+
 inline static long
 theUniqueHostId()
 {
@@ -249,6 +252,19 @@ UniquePid_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   switch (event) {
   case DMTCP_EVENT_ATFORK_CHILD:
+  case DMTCP_EVENT_VFORK_CHILD:
+    UniquePid::resetOnFork();
+    break;
+
+  case DMTCP_EVENT_VFORK_PREPARE:
+    vforkThisProcess = UniquePid::ThisProcess();
+    vforkParentProcess = UniquePid::ParentProcess();
+    break;
+
+  case DMTCP_EVENT_VFORK_PARENT:
+  case DMTCP_EVENT_VFORK_FAILED:
+    UniquePid::ThisProcess() = vforkThisProcess;
+    UniquePid::ParentProcess() = vforkParentProcess;
     UniquePid::resetOnFork();
     break;
 

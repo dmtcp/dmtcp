@@ -32,6 +32,9 @@ using namespace dmtcp;
 
 static uint32_t virtPtyId = 0;
 
+static PtyConnList *ptyConnList = NULL;
+static PtyConnList *vfork_ptyConnList = NULL;
+
 void
 pty_virtual_to_real_filepath(DmtcpEventData_t *data);
 void
@@ -49,6 +52,16 @@ dmtcp_PtyConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 
   case DMTCP_EVENT_DUP_FD:
     PtyConnList::instance().processDup(data->dupFd.oldFd, data->dupFd.newFd);
+    break;
+
+  case DMTCP_EVENT_VFORK_PREPARE:
+    vfork_ptyConnList = (PtyConnList*) PtyConnList::instance().clone();
+    break;
+
+  case DMTCP_EVENT_VFORK_PARENT:
+  case DMTCP_EVENT_VFORK_FAILED:
+    delete ptyConnList;
+    ptyConnList = vfork_ptyConnList;
     break;
 
   case DMTCP_EVENT_PRESUSPEND:
@@ -139,7 +152,6 @@ pty_real_to_virtual_filepath(DmtcpEventData_t *data)
   //   new PtyConnection(fd, tmpbuf, O_RDWR, -1, PtyConnection::PTY_EXTERNAL);
 }
 
-static PtyConnList *ptyConnList = NULL;
 PtyConnList&
 PtyConnList::instance()
 {

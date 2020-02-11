@@ -15,6 +15,9 @@ static bool _hasIPv4Sock = false;
 static bool _hasIPv6Sock = false;
 static bool _hasUNIXSock = false;
 
+static SocketConnList *socketConnList = NULL;
+static SocketConnList *vfork_socketConnList = NULL;
+
 void
 dmtcp_SocketConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
@@ -29,7 +32,14 @@ dmtcp_SocketConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
     SocketConnList::instance().processDup(data->dupFd.oldFd, data->dupFd.newFd);
     break;
 
-  case DMTCP_EVENT_PRESUSPEND:
+  case DMTCP_EVENT_VFORK_PREPARE:
+    vfork_socketConnList = (SocketConnList*) SocketConnList::instance().clone();
+    break;
+
+  case DMTCP_EVENT_VFORK_PARENT:
+  case DMTCP_EVENT_VFORK_FAILED:
+    delete socketConnList;
+    socketConnList = vfork_socketConnList;
     break;
 
   case DMTCP_EVENT_PRECHECKPOINT:
@@ -91,7 +101,6 @@ ipc_initialize_plugin_socket()
   dmtcp_register_plugin(socketPlugin);
 }
 
-static SocketConnList *socketConnList = NULL;
 SocketConnList&
 SocketConnList::instance()
 {

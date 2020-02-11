@@ -49,6 +49,10 @@ void emptyFreeList();
 
 void suspendThreads();
 void resumeThreads();
+
+void vforkSuspendThreads();
+void vforkResumeThreads();
+
 void waitForAllRestored(Thread *thisthread);
 void writeCkpt();
 void postRestart(double readTime = 0.0);
