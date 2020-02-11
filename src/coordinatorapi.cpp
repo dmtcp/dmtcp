@@ -50,6 +50,7 @@ namespace CoordinatorAPI {
 
 const int coordinatorSocket = PROTECTED_COORD_FD;
 int nsSock = -1;
+static int childCoordinatorSocket = -1;
 
 // Shared between getCoordHostAndPort() and setCoordPort()
 static int _cachedPort = 0;
@@ -90,6 +91,19 @@ eventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
   switch (event) {
     case DMTCP_EVENT_INIT:
       init();
+      break;
+
+    case DMTCP_EVENT_ATFORK_PREPARE:
+      CoordinatorAPI::atForkPrepare();
+      break;
+
+    case DMTCP_EVENT_ATFORK_PARENT:
+    case DMTCP_EVENT_ATFORK_FAILED:
+      CoordinatorAPI::atForkParent();
+      break;
+
+    case DMTCP_EVENT_ATFORK_CHILD:
+      CoordinatorAPI::atForkChild();
       break;
 
     case DMTCP_EVENT_RESTART:
@@ -229,7 +243,7 @@ void init()
   sendMsgToCoordinator(msg, jalib::Filesystem::GetProgramName());
 }
 
-void resetOnFork(int sock)
+void resetCoordinatorSocket(int sock)
 {
   JASSERT(Util::isValidFd(sock));
   JASSERT(sock != PROTECTED_COORD_FD);
@@ -245,6 +259,25 @@ void resetOnFork(int sock)
     msg.realPid = getpid();
   }
   sendMsgToCoordinator(msg);
+}
+
+void atForkPrepare()
+{
+  string child_name = jalib::Filesystem::GetProgramName() + "_(forked)";
+
+  childCoordinatorSocket =
+    CoordinatorAPI::createNewConnectionBeforeFork(child_name);
+}
+
+void atForkParent()
+{
+  _real_close(childCoordinatorSocket);
+}
+
+void atForkChild()
+{
+  resetCoordinatorSocket(childCoordinatorSocket);
+
   _real_close(nsSock);
   nsSock = -1;
 }
