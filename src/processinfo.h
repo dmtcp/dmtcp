@@ -59,15 +59,11 @@ class ProcessInfo
     void restoreHeap();
     void growStack();
 
-    void insertChild(pid_t virtualPid, UniquePid uniquePid);
-    void eraseChild(pid_t virtualPid);
-
     bool beginPthreadJoin(pthread_t thread);
     void endPthreadJoin(pthread_t thread);
     void clearPthreadJoinState(pthread_t thread);
 
     void getState();
-    void refreshChildTable();
     void setRootOfProcessTree() { _isRootOfProcessTree = true; }
 
     bool isRootOfProcessTree() const { return _isRootOfProcessTree; }
@@ -122,8 +118,6 @@ class ProcessInfo
 
     bool isForegroundProcess() const { return _gid == _fgid; }
 
-    bool isChild(const UniquePid &upid);
-
     int elfType() const { return _elfType; }
 
     uint64_t savedBrk(void) const { return _savedBrk; }
@@ -155,9 +149,7 @@ class ProcessInfo
     void updateCkptDirFileSubdir(string newCkptDir = "");
 
   private:
-    map<pid_t, UniquePid>_childTable;
     map<pthread_t, pthread_t>_pthreadJoinId;
-    map<pid_t, pid_t>_sessionIds;
     typedef map<pid_t, UniquePid>::iterator iterator;
 
     uint32_t _isRootOfProcessTree;

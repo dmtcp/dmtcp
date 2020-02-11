@@ -147,7 +147,6 @@ ProcessInfo::ProcessInfo()
   // This contrasts with DmtcpUniqueProcessId:_computation_generation, which is
   // shared among all process on a node; used in variable sharedDataHeader.
   // _generation is updated when _this_ process begins its checkpoint.
-  _childTable.clear();
   _pthreadJoinId.clear();
   _procSelfExe = jalib::Filesystem::ResolveSymlink("/proc/self/exe");
   _uppid = UniquePid();
@@ -371,7 +370,6 @@ ProcessInfo::resetOnFork()
   _ppid = _pid;
   _pid = getpid();
   _isRootOfProcessTree = false;
-  _childTable.clear();
   _pthreadJoinId.clear();
   _ckptFileName.clear();
   _ckptFilesSubDir.clear();
@@ -464,47 +462,6 @@ ProcessInfo::restoreProcessGroupInfo()
   } else {
     JTRACE("SKIP Group information, GID unknown");
   }
-}
-
-void
-ProcessInfo::insertChild(pid_t pid, UniquePid uniquePid)
-{
-  _do_lock_tbl();
-  iterator i = _childTable.find(pid);
-  JWARNING(i == _childTable.end()) (pid) (uniquePid) (i->second)
-  .Text("child pid already exists!");
-
-  _childTable[pid] = uniquePid;
-  _do_unlock_tbl();
-
-  JTRACE("Creating new virtualPid -> realPid mapping.") (pid) (uniquePid);
-}
-
-void
-ProcessInfo::eraseChild(pid_t virtualPid)
-{
-  _do_lock_tbl();
-  iterator i = _childTable.find(virtualPid);
-  if (i != _childTable.end()) {
-    _childTable.erase(virtualPid);
-  }
-  _do_unlock_tbl();
-}
-
-bool
-ProcessInfo::isChild(const UniquePid &upid)
-{
-  bool res = false;
-
-  _do_lock_tbl();
-  for (iterator i = _childTable.begin(); i != _childTable.end(); i++) {
-    if (i->second == upid) {
-      res = true;
-      break;
-    }
-  }
-  _do_unlock_tbl();
-  return res;
 }
 
 bool
@@ -618,28 +575,7 @@ ProcessInfo::getState()
   JASSERT(getcwd(buf, sizeof buf) != NULL);
   _ckptCWD = buf;
 
-  _sessionIds.clear();
-  refreshChildTable();
-
   JTRACE("CHECK GROUP PID")(_gid)(_fgid)(_ppid)(_pid);
-}
-
-void
-ProcessInfo::refreshChildTable()
-{
-  iterator i = _childTable.begin();
-
-  while (i != _childTable.end()) {
-    pid_t pid = i->first;
-    iterator j = i++;
-
-    /* Check to see if the child process is alive*/
-    if (kill(pid, 0) == -1 && errno == ESRCH) {
-      _childTable.erase(j);
-    } else {
-      _sessionIds[pid] = getsid(pid);
-    }
-  }
 }
 
 bool
@@ -684,9 +620,6 @@ ProcessInfo::serialize(jalib::JBinarySerializer &o)
   if (_isRootOfProcessTree) {
     JTRACE("This process is Root of Process Tree");
   }
-
-  JTRACE("Serializing ChildPid Table") (_childTable.size()) (o.filename());
-  o & _childTable;
 
   JSERIALIZE_ASSERT_POINT("EOF");
 }

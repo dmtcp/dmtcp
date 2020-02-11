@@ -189,7 +189,6 @@ dmtcp_fork()
     JTRACE("fork() done [CHILD]") (child) (parent);
   } else if (childPid > 0) { /* Parent Process */
     UniquePid child = UniquePid(host, childPid, child_time);
-    ProcessInfo::instance().insertChild(childPid, child);
     JTRACE("fork()ed [PARENT] done") (child);
   }
 

@@ -171,6 +171,7 @@ class RestoreTarget
     int fd() const { return _fd; }
 
     const UniquePid &upid() const { return _pInfo.upid(); }
+    const UniquePid &uppid() const { return _pInfo.uppid(); }
 
     pid_t pid() const { return _pInfo.pid(); }
 
@@ -324,7 +325,7 @@ class RestoreTarget
         RestoreTarget *t = it->second;
         if (_pInfo.upid() == t->_pInfo.upid()) {
           continue;
-        } else if (_pInfo.isChild(t->upid()) &&
+        } else if (t->uppid() == _pInfo.upid() &&
                    t->_pInfo.sid() != _pInfo.pid()) {
           t->createDependentChildProcess();
         }
@@ -356,7 +357,7 @@ class RestoreTarget
         if (_pInfo.upid() == t->_pInfo.upid()) {
           continue;
         } else if (t->_pInfo.sid() == _pInfo.pid()) {
-          if (_pInfo.isChild(t->upid())) {
+          if (t->uppid() == _pInfo.upid()) {
             t->createDependentChildProcess();
           } else if (t->isRootOfProcessTree()) {
             t->createDependentNonChildProcess();
