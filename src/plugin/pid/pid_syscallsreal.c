@@ -118,6 +118,14 @@ pid_initialize_wrappers()
 
 LIB_PRIVATE
 void *
+_real_func_addr(PidVirtWrapperOffset func)
+{
+  pid_initialize_wrappers();
+  return pid_real_func_addr[func];
+}
+
+LIB_PRIVATE
+void *
 _real_dlsym(void *handle, const char *symbol)
 {
   static dlsym_fnptr_t _libc_dlsym_fnptr = NULL;
@@ -345,6 +353,13 @@ pid_t
 _real_fork()
 {
   REAL_FUNC_PASSTHROUGH_TYPED(pid_t, fork) ();
+}
+
+LIB_PRIVATE
+pid_t
+_real_vfork()
+{
+  REAL_FUNC_PASSTHROUGH_TYPED(pid_t, vfork) ();
 }
 
 LIB_PRIVATE

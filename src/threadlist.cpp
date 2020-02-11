@@ -458,6 +458,10 @@ ThreadList::suspendThreads()
       next = thread->next;
       int ret;
 
+      if (thread == curThread) {
+        continue;
+      }
+
       /* Do various things based on thread's state */
       switch (thread->state) {
       case ST_RUNNING:
@@ -520,6 +524,16 @@ ThreadList::suspendThreads()
 
   JASSERT(activeThreads != NULL);
   JTRACE("everything suspended") (numUserThreads);
+}
+
+void ThreadList::vforkSuspendThreads()
+{
+  ThreadList::suspendThreads();
+}
+
+void ThreadList::vforkResumeThreads()
+{
+  ThreadList::resumeThreads();
 }
 
 /* Resume all threads. */

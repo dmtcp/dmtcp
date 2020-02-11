@@ -48,6 +48,8 @@ DmtcpPluginDescriptor_t pluginDescr();
 void atForkPrepare();
 void atForkParent();
 void atForkChild();
+void vforkChild();
+
 void getCoordHostAndPort(CoordinatorMode mode, string *host, int *port);
 void waitForCheckpointCommand();
 bool noCoordinator();

@@ -474,6 +474,13 @@ _real_fork(void)
 }
 
 LIB_PRIVATE
+pid_t
+_real_vfork(void)
+{
+  REAL_FUNC_PASSTHROUGH_TYPED(pid_t, vfork) ();
+}
+
+LIB_PRIVATE
 int
 _real_close(int fd)
 {

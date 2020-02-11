@@ -46,7 +46,8 @@ VirtualPidTable::VirtualPidTable()
   // _do_unlock_tbl();
 }
 
-static VirtualPidTable *virtPidTableInst = NULL;
+VirtualPidTable *virtPidTableInst = NULL;
+
 VirtualPidTable&
 VirtualPidTable::instance()
 {

@@ -49,8 +49,6 @@ const static bool dbg = true;
 const static bool dbg = false;
 #endif // ifdef LOGGING
 
-void pidVirt_pthread_atfork_child() __attribute__((weak));
-
 /* This is defined by newer gcc version unique for each module.  */
 extern void *__dso_handle __attribute__((__weak__,
                                          __visibility__("hidden")));
@@ -215,7 +213,75 @@ dmtcp_fork()
   if (childPid != 0) {
     WRAPPER_EXECUTION_RELEASE_EXCL_LOCK();
   }
+
   return childPid;
+}
+
+static pid_t vforkPid;
+static char* stackStart;
+static size_t stackSize;
+static void* newStackAddr;
+
+extern "C" pid_t
+vfork()
+{
+  char dummy;
+  static __typeof__(&vfork) vforkPtr =
+    (__typeof__(&vfork)) dmtcp_dlsym(RTLD_NEXT, "vfork");
+
+  JASSERT (!isPerformingCkptRestart());
+
+  /* Acquire all locks here. */
+  ThreadSync::acquireLocks();
+
+  ThreadList::vforkSuspendThreads();
+
+  PluginManager::eventHook(DMTCP_EVENT_VFORK_PREPARE, NULL);
+
+  // Save contents of the current call frame. We need it mostly for doing a
+  // return.
+  // TODO: Deduplicate stack save/restore with similar code in PID plugin's
+  // vfork wrapper.
+  stackStart = &dummy;
+  // Return address is stored at $rbp + sizeof($rbp) + sizeof(void*)
+  stackSize =
+    (char*) __builtin_frame_address(0) + (2 * sizeof(void*)) - stackStart;
+  newStackAddr = JALLOC_MALLOC(stackSize);
+  JASSERT(newStackAddr);
+  memcpy(newStackAddr, stackStart, stackSize);
+
+  vforkPid = vforkPtr();
+
+  // Restore parent stack.
+  if (vforkPid > 0) {
+    memcpy(stackStart, newStackAddr, stackSize);
+    JALLOC_FREE(newStackAddr);
+  }
+
+  ThreadSync::resetLocks();
+
+  if (vforkPid == -1) {
+    PluginManager::eventHook(DMTCP_EVENT_VFORK_FAILED, NULL);
+    JTRACE("vfork failed") (vforkPid);
+  } else if (vforkPid == 0) { /* child process */
+    PluginManager::eventHook(DMTCP_EVENT_VFORK_CHILD, NULL);
+
+    static string child_name =
+      jalib::Filesystem::GetProgramName() + "_(forked)";
+    Util::initializeLogFile(dmtcp_get_tmpdir(), child_name.c_str(), NULL);
+
+    WorkerState::setCurrentState(WorkerState::RUNNING);
+
+    JTRACE("vfork() done [CHILD]") (UniquePid::ThisProcess());
+  } else if (vforkPid > 0) { /* Parent Process */
+    PluginManager::eventHook(DMTCP_EVENT_VFORK_PARENT, NULL);
+    JTRACE("vfork()ed [PARENT] done") (vforkPid);
+  }
+
+  if (vforkPid != 0) {
+    ThreadList::vforkResumeThreads();
+  }
+  return vforkPid;
 }
 
 extern "C"
@@ -257,16 +323,6 @@ daemon(int nochdir, int noclose)
     }
   }
   return 0;
-}
-
-extern "C" pid_t
-vfork()
-{
-  JTRACE("vfork wrapper calling fork");
-
-  // This might not preserve the full semantics of vfork.
-  // Used for checkpointing gdb.
-  return fork();
 }
 
 // Special short-lived processes from executables like /lib/libc.so.6

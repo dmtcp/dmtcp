@@ -180,6 +180,7 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   MACRO(sigtimedwait)                 \
                                       \
   MACRO(fork)                         \
+  MACRO(vfork)                        \
   MACRO(__clone)                      \
   MACRO(open)                         \
   MACRO(open64)                       \
@@ -299,6 +300,7 @@ FILE *_real_popen(const char *command, const char *mode);
 int _real_pclose(FILE *fp);
 
 pid_t _real_fork();
+pid_t _real_vfork();
 int _real_clone(int (*fn)(void *arg),
                 void *child_stack,
                 int flags,
