@@ -175,13 +175,7 @@ wait4(pid_t pid, __WAIT_STATUS status, int options, struct rusage *rusage)
   }
 
   retval = _real_wait4(pid, status, options, rusage);
-  saved_errno = errno;
 
-  if (retval > 0 &&
-      (WIFEXITED(*(int *)status) || WIFSIGNALED(*(int *)status))) {
-    ProcessInfo::instance().eraseChild(retval);
-  }
-  errno = saved_errno;
   return retval;
 }
 
@@ -193,12 +187,6 @@ waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options)
   memset(&siginfop, 0, sizeof(siginfop));
 
   int retval = _real_waitid(idtype, id, &siginfop, options);
-
-  if (retval != -1) {
-    if (siginfop.si_code == CLD_EXITED || siginfop.si_code == CLD_KILLED) {
-      ProcessInfo::instance().eraseChild(siginfop.si_pid);
-    }
-  }
 
   if (retval == 0 && infop != NULL) {
     *infop = siginfop;
