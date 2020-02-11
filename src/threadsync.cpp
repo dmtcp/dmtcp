@@ -67,7 +67,7 @@ static DmtcpRWLock _threadCreationLock;
 static bool _wrapperExecutionLockAcquiredByCkptThread = false;
 static bool _threadCreationLockAcquiredByCkptThread = false;
 
-static DmtcpMutex theCkptCanStart = DMTCP_MUTEX_INITIALIZER;
+static DmtcpMutex theCkptCanStart = DMTCP_MUTEX_INITIALIZER_RECURSIVE;
 static int ckptCanStartCount = 0;
 
 static DmtcpMutex libdlLock = DMTCP_MUTEX_INITIALIZER;
@@ -134,7 +134,7 @@ ThreadSync::initMotherOfAll()
 void
 ThreadSync::acquireLocks()
 {
-  JASSERT(WorkerState::currentState() == WorkerState::PRESUSPEND);
+  // JASSERT(WorkerState::currentState() == WorkerState::PRESUSPEND);
 
   /* TODO: We should introduce the notion of lock ranks/priorities for all
    * these locks to prevent future deadlocks due to rank violation.

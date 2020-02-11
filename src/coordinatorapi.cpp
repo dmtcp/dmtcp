@@ -94,11 +94,14 @@ eventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
       break;
 
     case DMTCP_EVENT_ATFORK_PREPARE:
+    case DMTCP_EVENT_VFORK_PREPARE:
       CoordinatorAPI::atForkPrepare();
       break;
 
     case DMTCP_EVENT_ATFORK_PARENT:
     case DMTCP_EVENT_ATFORK_FAILED:
+    case DMTCP_EVENT_VFORK_PARENT:
+    case DMTCP_EVENT_VFORK_FAILED:
       CoordinatorAPI::atForkParent();
       break;
 
@@ -106,6 +109,9 @@ eventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
       CoordinatorAPI::atForkChild();
       break;
 
+    case DMTCP_EVENT_VFORK_CHILD:
+      CoordinatorAPI::vforkChild();
+      break;
     case DMTCP_EVENT_RESTART:
       restart();
       break;
@@ -280,6 +286,12 @@ void atForkChild()
 
   _real_close(nsSock);
   nsSock = -1;
+}
+
+void vforkChild()
+{
+  resetCoordinatorSocket(childCoordinatorSocket);
+  JASSERT(nsSock == -1) .Text("Not Implemented");
 }
 
 void

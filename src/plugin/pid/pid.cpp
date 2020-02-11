@@ -286,7 +286,12 @@ pid_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     break;
 
   case DMTCP_EVENT_ATFORK_CHILD:
+  case DMTCP_EVENT_VFORK_CHILD:
     pidVirt_atfork_child();
+    break;
+
+  case DMTCP_EVENT_VFORK_PREPARE:
+    pidVirt_vfork_prepare();
     break;
 
   case DMTCP_EVENT_PRE_EXEC:

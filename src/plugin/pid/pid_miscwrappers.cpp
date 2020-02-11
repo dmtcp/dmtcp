@@ -30,6 +30,7 @@
 #include "dmtcp.h"
 #include "pid.h"
 #include "pidwrappers.h"
+#include "procselfmaps.h"
 #include "shareddata.h"
 #include "util.h"
 #include "virtualpidtable.h"
@@ -37,6 +38,10 @@
 using namespace dmtcp;
 
 static pid_t childVirtualPid;
+
+static pid_t vfork_saved_pid;
+static pid_t vfork_saved_ppid;
+static pid_t vfork_saved_tid;
 
 LIB_PRIVATE void
 pidVirt_atfork_prepare()
@@ -52,6 +57,7 @@ pidVirt_atfork_child()
   VirtualPidTable::instance().resetOnFork();
 }
 
+
 extern "C" pid_t
 fork()
 {
@@ -64,6 +70,82 @@ fork()
   }
 
   return realPid;
+}
+
+extern VirtualPidTable *virtPidTableInst;
+VirtualPidTable vfork_saved_virtPidTableInst;
+
+LIB_PRIVATE void
+pidVirt_vfork_prepare()
+{
+  vfork_saved_pid = getpid();
+  vfork_saved_ppid = getppid();
+  vfork_saved_tid = dmtcp_gettid();
+  vfork_saved_virtPidTableInst = *virtPidTableInst;
+
+  Util::getVirtualPidFromEnvVar(&childVirtualPid, NULL, NULL);
+}
+
+static pid_t vforkPid = 0;
+static char* stackStart;
+static size_t stackSize;
+static void* newStackAddr;
+
+static void postVforkRestoreStack()
+{
+}
+
+extern "C" pid_t
+vfork()
+{
+  char dummy = 0;
+  //
+  // TODO: Add more comments before committing the code.
+  //
+
+  static __typeof__(&vfork) vforkPtr =
+    (__typeof__(&vfork)) dmtcp_dlsym(RTLD_NEXT, "vfork");
+
+  // Save contents of the current call frame. We need it mostly for doing a
+  // return.
+  // TODO: Deduplicate stack save/restore with similar code in
+  // execwrappers.cpp's vfork wrapper.
+  stackStart = &dummy;
+  // Return address is stored at $rbp + sizeof(void*)
+  stackSize =
+    (char*) __builtin_frame_address(0) + (2 * sizeof(void*)) - stackStart;
+  newStackAddr = JALLOC_MALLOC(stackSize);
+  JASSERT(newStackAddr);
+  memcpy(newStackAddr, stackStart, stackSize);
+
+  vforkPid = vforkPtr();
+
+  // Restore parent stack.
+  if (vforkPid > 0) {
+    memcpy(stackStart, newStackAddr, stackSize);
+    JALLOC_FREE(newStackAddr);
+  }
+
+  if (vforkPid == 0) {
+    pidVirt_atfork_child();
+  } else { /* Parent Process */
+    *virtPidTableInst = vfork_saved_virtPidTableInst;
+
+    Util::setVirtualPidEnvVar(vfork_saved_pid, vfork_saved_ppid,
+                              _real_getppid());
+    dmtcpResetPidPpid();
+    dmtcpResetTid(getpid());
+
+    if (vforkPid > 0) {
+      VirtualPidTable::instance().updateMapping(childVirtualPid, vforkPid);
+      SharedData::setPidMap(childVirtualPid, vforkPid);
+      return childVirtualPid;
+    }
+
+    munmap(newStackAddr, stackSize);
+  }
+
+  return vforkPid;
 }
 
 struct ThreadArg {

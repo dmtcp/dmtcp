@@ -83,6 +83,7 @@ PluginManager::eventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
   case DMTCP_EVENT_POST_EXEC:
 
   case DMTCP_EVENT_ATFORK_PREPARE:
+  case DMTCP_EVENT_VFORK_PREPARE:
   case DMTCP_EVENT_PTHREAD_START:
 
   case DMTCP_EVENT_OPEN_FD:
@@ -107,6 +108,9 @@ PluginManager::eventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
   case DMTCP_EVENT_ATFORK_PARENT:
   case DMTCP_EVENT_ATFORK_CHILD:
   case DMTCP_EVENT_ATFORK_FAILED:
+  case DMTCP_EVENT_VFORK_PARENT:
+  case DMTCP_EVENT_VFORK_CHILD:
+  case DMTCP_EVENT_VFORK_FAILED:
 
   case DMTCP_EVENT_REAL_TO_VIRTUAL_PATH:
 

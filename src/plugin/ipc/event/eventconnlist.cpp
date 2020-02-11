@@ -4,6 +4,10 @@
 #include "eventconnection.h"
 
 using namespace dmtcp;
+
+static EventConnList *eventConnList = NULL;
+static EventConnList *vfork_eventConnList = NULL;
+
 void
 dmtcp_EventConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
@@ -16,6 +20,16 @@ dmtcp_EventConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 
   case DMTCP_EVENT_DUP_FD:
     EventConnList::instance().processDup(data->dupFd.oldFd, data->dupFd.newFd);
+    break;
+
+  case DMTCP_EVENT_VFORK_PREPARE:
+    vfork_eventConnList = (EventConnList*) EventConnList::instance().clone();
+    break;
+
+  case DMTCP_EVENT_VFORK_PARENT:
+  case DMTCP_EVENT_VFORK_FAILED:
+    delete eventConnList;
+    eventConnList = vfork_eventConnList;
     break;
 
   case DMTCP_EVENT_PRESUSPEND:
@@ -61,7 +75,6 @@ ipc_initialize_plugin_event()
   dmtcp_register_plugin(eventPlugin);
 }
 
-static EventConnList *eventConnList = NULL;
 EventConnList&
 EventConnList::instance()
 {
