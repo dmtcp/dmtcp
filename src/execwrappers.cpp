@@ -164,6 +164,7 @@ dmtcp_fork()
   pid_t childPid = _real_fork();
 
   if (childPid == -1) {
+    PluginManager::eventHook(DMTCP_EVENT_ATFORK_FAILED, NULL);
   } else if (childPid == 0) { /* child process */
     // ThreadList::resetOnFork calls pthread_create which in turn calls
     // malloc/calloc, etc. This can result in a deadlock if the parent process
