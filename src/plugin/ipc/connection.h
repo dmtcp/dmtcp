@@ -101,6 +101,8 @@ class Connection
 
     virtual string str() = 0;
 
+    virtual Connection* clone() = 0;
+
     void serialize(jalib::JBinarySerializer &o);
 
   protected:

@@ -145,6 +145,10 @@ class TcpConnection : public Connection, public SocketConnection
 
     virtual string str() { return "<TCP Socket>"; }
 
+    virtual TcpConnection* clone() override {
+      return new TcpConnection(*this);
+    }
+
     virtual void serializeSubClass(jalib::JBinarySerializer &o);
 
   private:
@@ -188,6 +192,10 @@ class RawSocketConnection : public Connection, public SocketConnection
 
     virtual void serializeSubClass(jalib::JBinarySerializer &o);
     virtual string str() { return "<Raw Socket>"; }
+
+    virtual RawSocketConnection* clone() override {
+      return new RawSocketConnection(*this);
+    }
 };
 }
 #endif // ifndef SOCKETCONNECTION_H

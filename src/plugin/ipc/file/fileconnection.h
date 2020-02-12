@@ -69,6 +69,10 @@ class StdioConnection : public Connection
     virtual void serializeSubClass(jalib::JBinarySerializer &o) {}
 
     virtual string str() { return "<STDIO>"; }
+
+    virtual StdioConnection* clone() override {
+      return new StdioConnection(*this);
+    }
 };
 
 class FileConnection : public Connection
@@ -104,6 +108,10 @@ class FileConnection : public Connection
     virtual void serializeSubClass(jalib::JBinarySerializer &o);
 
     virtual string str() { return _path; }
+
+    virtual FileConnection* clone() override {
+      return new FileConnection(*this);
+    }
 
     string filePath() { return _path; }
 
@@ -177,6 +185,10 @@ class FifoConnection : public Connection
 
     virtual string str() { return _path; }
 
+    virtual FifoConnection* clone() override {
+      return new FifoConnection(*this);
+    }
+
     virtual void serializeSubClass(jalib::JBinarySerializer &o);
 
   private:
@@ -219,6 +231,10 @@ class PosixMQConnection : public Connection
     virtual void serializeSubClass(jalib::JBinarySerializer &o);
 
     virtual string str() { return _name; }
+
+    virtual PosixMQConnection* clone() override {
+      return new PosixMQConnection(*this);
+    }
 
     void on_mq_close();
     void on_mq_notify(const struct sigevent *sevp);

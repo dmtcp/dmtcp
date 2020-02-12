@@ -26,6 +26,11 @@ class EventConnList : public ConnectionList
     virtual int protectedFd() { return PROTECTED_EVENT_FDREWIRER_FD; }
 
     virtual Connection *createDummyConnection(int type);
+
+    virtual ConnectionList *cloneInstance() override
+    {
+      return new EventConnList(*this);
+    }
 };
 }
 #endif // ifndef EVENT_CONN_LIST_H
