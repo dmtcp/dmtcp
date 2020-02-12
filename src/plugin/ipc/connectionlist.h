@@ -41,7 +41,11 @@ class ConnectionList
 
     static void operator delete(void *p) { JALLOC_HELPER_DELETE(p); }
 # endif // ifdef JALIB_ALLOCATOR
-    typedef map<ConnectionIdentifier, Connection *>::iterator iterator;
+    typedef map<ConnectionIdentifier, Connection *>ConnectionMapT;
+    typedef ConnectionMapT::iterator iterator;
+    typedef ConnectionMapT::const_iterator citerator;
+
+    typedef map<int, Connection *>FdToConMapT;
 
     ConnectionList()
     {
@@ -50,6 +54,9 @@ class ConnectionList
     }
 
     virtual ~ConnectionList();
+
+    virtual ConnectionList* cloneInstance() = 0;
+    virtual ConnectionList* clone();
 
     void resetOnFork();
     void deleteStaleConnections();
@@ -108,10 +115,8 @@ class ConnectionList
     }
 
     DmtcpMutex _lock;
-    typedef map<ConnectionIdentifier, Connection *>ConnectionMapT;
     ConnectionMapT _connections;
 
-    typedef map<int, Connection *>FdToConMapT;
     FdToConMapT _fdToCon;
 
     size_t numIncomingCons;

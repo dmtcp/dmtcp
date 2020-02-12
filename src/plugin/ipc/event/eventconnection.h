@@ -86,6 +86,10 @@ class EpollConnection : public Connection
 
     virtual string str() { return "EPOLL-FD: <Not-a-File>"; }
 
+    virtual EpollConnection* clone() override {
+      return new EpollConnection(*this);
+    }
+
     void onCTL(int op, int fd, struct epoll_event *event);
 
   private:
@@ -115,6 +119,10 @@ class EventFdConnection : public Connection
 
     virtual string str() { return "EVENT-FD: <Not-a-File>"; }
 
+    virtual EventFdConnection* clone() override {
+      return new EventFdConnection(*this);
+    }
+
   private:
     uint64_t _initval;   // initial counter value
     int64_t _flags;   // flags
@@ -142,6 +150,10 @@ class SignalFdConnection : public Connection
     virtual void serializeSubClass(jalib::JBinarySerializer &o);
 
     virtual string str() { return "SIGNAL-FD: <Not-a-File>"; }
+
+    virtual SignalFdConnection* clone() override {
+      return new SignalFdConnection(*this);
+    }
 
   private:
     int64_t _flags;    // flags
@@ -179,6 +191,10 @@ class InotifyConnection : public Connection
     virtual void serializeSubClass(jalib::JBinarySerializer &o);
 
     virtual string str() { return "INOTIFY-FD: <Not-a-File>"; }
+
+    virtual InotifyConnection* clone() override {
+      return new InotifyConnection(*this);
+    }
 
     void map_inotify_fd_to_wd(int fd, int wd);
     void add_watch_descriptors(int wd,

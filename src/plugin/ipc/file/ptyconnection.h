@@ -66,6 +66,10 @@ class PtyConnection : public Connection
 
     virtual string str() { return _masterName + ":" + _ptsName; }
 
+    virtual PtyConnection* clone() override {
+      return new PtyConnection(*this);
+    }
+
   private:
     string _masterName;
     string _ptsName;

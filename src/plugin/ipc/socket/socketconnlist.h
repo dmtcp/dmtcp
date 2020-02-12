@@ -63,6 +63,11 @@ class SocketConnList : public ConnectionList
 
     virtual void scanForPreExisting();
     virtual Connection *createDummyConnection(int type);
+
+    virtual ConnectionList *cloneInstance() override
+    {
+      return new SocketConnList(*this);
+    }
 };
 }
 #endif // ifndef SOCKETCONNLIST_H
