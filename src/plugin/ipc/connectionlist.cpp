@@ -84,8 +84,33 @@ using namespace dmtcp;
 // This is the first program after dmtcp_launch
 static bool freshProcess = true;
 
+ConnectionList *
+ConnectionList::clone()
+{
+  ConnectionList *list = cloneInstance();
+
+  list->numIncomingCons = numIncomingCons;
+  DmtcpMutexInit(&list->_lock, DMTCP_MUTEX_NORMAL);
+
+  for (const auto &kv : _connections) {
+    Connection *con = kv.second->clone();
+    list->_connections[con->id()] = con;
+
+    const vector<int32_t> fds = con->getFds();
+    for (size_t i = 0; i < fds.size(); i++) {
+      list->_fdToCon[fds[i]] = con;
+    }
+  }
+
+  return list;
+}
+
 ConnectionList::~ConnectionList()
-{}
+{
+  for (const auto &kv : _connections) {
+    delete kv.second;
+  }
+}
 
 void
 ConnectionList::eventHook(DmtcpEvent_t event, DmtcpEventData_t *data)

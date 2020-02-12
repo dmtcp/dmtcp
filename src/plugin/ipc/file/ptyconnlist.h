@@ -70,6 +70,11 @@ class PtyConnList : public ConnectionList
     }
 
     void processPtyConnection(int fd, const char *path, int flags, mode_t mode);
+
+    virtual ConnectionList *cloneInstance() override
+    {
+      return new PtyConnList(*this);
+    }
 };
 }
 #endif // ifndef PTYCONNLIST_H

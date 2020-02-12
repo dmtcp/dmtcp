@@ -88,6 +88,11 @@ class FileConnList : public ConnectionList
     void remapShmMaps();
     void recreateShmFileAndMap(const ProcMapsArea &area);
     void restoreShmArea(const ProcMapsArea &area, int fd = -1);
+
+    virtual ConnectionList *cloneInstance() override
+    {
+      return new FileConnList(*this);
+    }
 };
 }
 #endif // ifndef FILECONNLIST_H
