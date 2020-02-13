@@ -638,7 +638,7 @@ def runTestRaw(name, numProcs, cmds):
       if i != CYCLES - 1:
         printFixed(" -> ")
         if i % 2 == 1:
-          printFixed("(cont.)") 
+          printFixed("(cont.)")
 
     testKill()
     printFixed("\n")
@@ -832,6 +832,9 @@ if HAS_EPOLL_CREATE1 == "yes":
 runTest("environ",       1, ["./test/environ"])
 
 runTest("forkexec",      2, ["./test/forkexec"])
+
+runTest("vfork1",        [1,2,3] , ["./test/vfork1"])
+runTest("vfork2",        [2,3,4] , ["./test/vfork1 \"sh -c 'while true; do date; sleep 1; done'\" "])
 
 runTest("realpath",      1, ["./test/realpath"])
 runTest("pthread1",      1, ["./test/pthread1"])
