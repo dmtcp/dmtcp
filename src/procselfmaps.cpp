@@ -247,3 +247,17 @@ ProcSelfMaps::getNextArea(ProcMapsArea *area)
 
   return 1;
 }
+
+void
+ProcSelfMaps::getStackInfo(ProcMapsArea *area)
+{
+  JASSERT(dataIdx == 0) (dataIdx);
+
+  void *stackFrameAddr = __builtin_frame_address(0);
+  while (getNextArea(area)) {
+    if (area->addr < stackFrameAddr && area->endAddr > stackFrameAddr) {
+      return;
+    }
+  }
+  JASSERT(false) .Text("NOT REACHABLE");
+}
