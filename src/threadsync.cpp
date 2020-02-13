@@ -195,6 +195,7 @@ ThreadSync::resetLocks()
   DmtcpMutexInit(&uninitializedThreadCountLock, DMTCP_MUTEX_NORMAL);
   DmtcpMutexInit(&preResumeThreadCountLock, DMTCP_MUTEX_NORMAL);
   DmtcpMutexInit(&libdlLock, DMTCP_MUTEX_NORMAL);
+  DmtcpMutexInit(&theCkptCanStart, DMTCP_MUTEX_NORMAL);
 
   libdlLockOwner = 0;
 
