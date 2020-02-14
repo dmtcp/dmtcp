@@ -91,10 +91,6 @@ static char* stackStart;
 static size_t stackSize;
 static void* newStackAddr;
 
-static void postVforkRestoreStack()
-{
-}
-
 extern "C" pid_t
 vfork()
 {

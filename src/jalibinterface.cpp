@@ -19,6 +19,8 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#include <assert.h>
+
 #include "../jalib/jalib.h"
 #include "../jalib/jassert.h"
 #include "../jalib/jbuffer.h"
