@@ -167,7 +167,6 @@ pid_t
 wait4(pid_t pid, __WAIT_STATUS status, int options, struct rusage *rusage)
 {
   int stat;
-  int saved_errno = errno;
   pid_t retval = 0;
 
   if (status == NULL) {
