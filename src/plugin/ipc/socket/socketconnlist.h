@@ -49,20 +49,20 @@ class SocketConnList : public ConnectionList
 
     static void restartResume() { instance().resume(true); }
 
-    virtual void drain();
-    virtual void preCkpt();
-    virtual void postRestart();
-    virtual void refill(bool isRestart);
+    virtual void drain() override;
+    virtual void preCkpt() override;
+    virtual void postRestart() override;
+    virtual void refill(bool isRestart) override;
 
     void registerNSData();
     void sendQueries();
     void preCkptRegisterNSData();
     void preCkptSendQueries();
 
-    virtual int protectedFd() { return PROTECTED_SOCKET_FDREWIRER_FD; }
+    virtual int protectedFd() override { return PROTECTED_SOCKET_FDREWIRER_FD; }
 
-    virtual void scanForPreExisting();
-    virtual Connection *createDummyConnection(int type);
+    virtual void scanForPreExisting() override;
+    virtual Connection *createDummyConnection(int type) override;
 
     virtual ConnectionList *cloneInstance() override
     {

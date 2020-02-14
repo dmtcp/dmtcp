@@ -57,14 +57,14 @@ class PtyConnection : public Connection
 
     void markPreExistingCTTY() { _preExistingCTTY = true; }
 
-    virtual void doLocking();
-    virtual void drain();
-    virtual void refill(bool isRestart);
-    virtual void postRestart();
-    virtual void serializeSubClass(jalib::JBinarySerializer &o);
-    virtual bool isPreExistingCTTY() const { return _preExistingCTTY; }
+    virtual void doLocking() override;
+    virtual void drain() override;
+    virtual void refill(bool isRestart) override;
+    virtual void postRestart() override;
+    virtual void serializeSubClass(jalib::JBinarySerializer &o) override;
+    virtual bool isPreExistingCTTY() const override { return _preExistingCTTY; }
 
-    virtual string str() { return _masterName + ":" + _ptsName; }
+    virtual string str() override { return _masterName + ":" + _ptsName; }
 
     virtual PtyConnection* clone() override {
       return new PtyConnection(*this);

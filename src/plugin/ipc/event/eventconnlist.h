@@ -23,9 +23,9 @@ class EventConnList : public ConnectionList
 
     static void restartRefill() { instance().refill(true); }
 
-    virtual int protectedFd() { return PROTECTED_EVENT_FDREWIRER_FD; }
+    virtual int protectedFd() override { return PROTECTED_EVENT_FDREWIRER_FD; }
 
-    virtual Connection *createDummyConnection(int type);
+    virtual Connection *createDummyConnection(int type) override;
 
     virtual ConnectionList *cloneInstance() override
     {

@@ -66,17 +66,17 @@ class FileConnList : public ConnectionList
 
     static bool createDirectoryTree(const string &path);
 
-    virtual void preLockSaveOptions();
-    virtual void drain();
-    virtual void preCkpt();
-    virtual void refill(bool isRestart);
-    virtual void resume(bool isRestart);
-    virtual void postRestart();
-    virtual int protectedFd() { return PROTECTED_FILE_FDREWIRER_FD; }
+    virtual void preLockSaveOptions() override;
+    virtual void drain() override;
+    virtual void preCkpt() override;
+    virtual void refill(bool isRestart) override;
+    virtual void resume(bool isRestart) override;
+    virtual void postRestart() override;
+    virtual int protectedFd() override { return PROTECTED_FILE_FDREWIRER_FD; }
 
     // examine /proc/self/fd for unknown connections
-    virtual void scanForPreExisting();
-    virtual Connection *createDummyConnection(int type);
+    virtual void scanForPreExisting() override;
+    virtual Connection *createDummyConnection(int type) override;
 
     Connection *findDuplication(int fd, const char *path);
     void processFileConnection(int fd, const char *path, int flags,

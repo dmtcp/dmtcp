@@ -88,13 +88,14 @@ class Connection
 
     virtual void saveOptions();
     virtual void doLocking();
-    virtual void drain() = 0;
+
+    virtual void drain() {}
     virtual void preCkpt() {}
 
-    virtual void refill(bool isRestart) = 0;
+    virtual void refill(bool isRestart) {}
     virtual void resume(bool isRestart) {}
 
-    virtual void postRestart() = 0;
+    virtual void postRestart() {}
     virtual bool isPreExistingCTTY() const { return false; }
 
     virtual void restoreOptions();
@@ -106,7 +107,7 @@ class Connection
     void serialize(jalib::JBinarySerializer &o);
 
   protected:
-    virtual void serializeSubClass(jalib::JBinarySerializer &o) = 0;
+    virtual void serializeSubClass(jalib::JBinarySerializer &o) {}
 
   protected:
     // only child classes can construct us...
