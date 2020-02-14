@@ -207,7 +207,6 @@ void
 UniquePid::resetOnFork()
 {
   uint64_t host = UniquePid::ThisProcess().hostid();
-  UniquePid parent = UniquePid::ThisProcess();
 
   // parentProcess() is for inspection tools
   parentProcess() = ThisProcess();
