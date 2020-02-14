@@ -107,7 +107,8 @@ libdmtcp_PROGRAMS = $(d_libdir)/libdmtcp_batch-queue.so$(EXEEXT) \
 	$(d_libdir)/libdmtcp_unique-ckpt.so$(EXEEXT)
 subdir = plugin
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
-am__aclocal_m4_deps = $(top_srcdir)/configure.ac
+am__aclocal_m4_deps = $(top_srcdir)/m4/ax_cxx_compile_stdcxx.m4 \
+	$(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 DIST_COMMON = $(srcdir)/Makefile.am $(dist_bin_SCRIPTS) \
@@ -347,6 +348,7 @@ HAS_STRACE = @HAS_STRACE@
 HAS_TCSH = @HAS_TCSH@
 HAS_VIM = @HAS_VIM@
 HAS_ZSH = @HAS_ZSH@
+HAVE_CXX11 = @HAVE_CXX11@
 HBICT_DELTACOMP = @HBICT_DELTACOMP@
 INFINIBAND_SUPPORT = @INFINIBAND_SUPPORT@
 INSTALL = @INSTALL@
@@ -365,12 +367,11 @@ MAINT = @MAINT@
 MAKEINFO = @MAKEINFO@
 MATLAB = @MATLAB@
 MKDIR_P = @MKDIR_P@
-MPICH_MPD = @MPICH_MPD@
-MPICH_MPDALLEXIT = @MPICH_MPDALLEXIT@
-MPICH_MPDBOOT = @MPICH_MPDBOOT@
-MPICH_MPDCLEANUP = @MPICH_MPDCLEANUP@
 MPICH_MPICC = @MPICH_MPICC@
 MPICH_MPIEXEC = @MPICH_MPIEXEC@
+MPICH_MPIRUN = @MPICH_MPIRUN@
+MPICH_PATH = @MPICH_PATH@
+MULTILIB = @MULTILIB@
 OBJEXT = @OBJEXT@
 OPENMPI_MPICC = @OPENMPI_MPICC@
 OPENMPI_MPIRUN = @OPENMPI_MPIRUN@
