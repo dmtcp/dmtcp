@@ -33,6 +33,9 @@
 /* Allow 'gdb attach' when DMTCP_RESTART_PAUSE is defined. */
 #undef HAS_PR_SET_PTRACER
 
+/* define if the compiler supports basic C++11 syntax */
+#undef HAVE_CXX11
+
 /* Define to 1 if you have the <infiniband/verbs.h> header file. */
 #undef HAVE_INFINIBAND_VERBS_H
 
