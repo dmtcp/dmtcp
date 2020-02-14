@@ -102,7 +102,11 @@ class SysVIPC
     int getNewVirtualId();
     void serialize(jalib::JBinarySerializer &o);
 
-    virtual void on_shmget(int shmid, key_t key, size_t size, int shmflg) {}
+    virtual void on_shmget(int shmid,
+                           key_t realKey,
+                           key_t key,
+                           size_t size,
+                           int shmflg) {}
 
     virtual void on_shmat(int shmid,
                           const void *shmaddr,
@@ -147,12 +151,12 @@ class SysVShm : public SysVIPC
 
     int shmaddrToShmid(const void *shmaddr);
     virtual void on_shmget(int shmid, key_t realKey, key_t key,
-                           size_t size, int shmflg);
+                           size_t size, int shmflg) override;
     virtual void on_shmat(int shmid,
                           const void *shmaddr,
                           int shmflg,
-                          void *newaddr);
-    virtual void on_shmdt(const void *shmaddr);
+                          void *newaddr) override;
+    virtual void on_shmdt(const void *shmaddr) override;
 
     virtual SysVIPC* cloneInstance() override { return new SysVShm(*this); }
 
@@ -172,9 +176,12 @@ class SysVSem : public SysVIPC
       : SysVIPC("SysVSem", getpid(), SYSV_SEM_ID) {}
 
     static SysVSem &instance();
-    virtual void on_semget(int realSemId, key_t key, int nsems, int semflg);
-    virtual void on_semctl(int semid, int semnum, int cmd, union semun arg);
-    virtual void on_semop(int semid, struct sembuf *sops, unsigned nsops);
+    virtual void on_semget(int realSemId, key_t key, int nsems, int semflg)
+      override;
+    virtual void on_semctl(int semid, int semnum, int cmd, union semun arg)
+      override;
+    virtual void on_semop(int semid, struct sembuf *sops, unsigned nsops)
+      override;
 
     virtual SysVIPC* cloneInstance() override { return new SysVSem(*this); }
 };
@@ -186,15 +193,15 @@ class SysVMsq : public SysVIPC
       : SysVIPC("SysVMsq", getpid(), SYSV_MSQ_ID) {}
 
     static SysVMsq &instance();
-    virtual void on_msgget(int msqid, key_t key, int msgflg);
-    virtual void on_msgctl(int msqid, int cmd, struct msqid_ds *buf);
+    virtual void on_msgget(int msqid, key_t key, int msgflg) override;
+    virtual void on_msgctl(int msqid, int cmd, struct msqid_ds *buf) override;
     virtual void on_msgsnd(int msqid, const void *msgp, size_t msgsz,
-                           int msgflg);
+                           int msgflg) override;
     virtual void on_msgrcv(int msqid,
                            const void *msgp,
                            size_t msgsz,
                            int msgtyp,
-                           int msgflg);
+                           int msgflg) override;
 
     virtual SysVIPC* cloneInstance() override { return new SysVMsq(*this); }
 };
@@ -257,15 +264,15 @@ class ShmSegment : public SysVObj
 
     ShmSegment(int shmid, int realShmid, key_t key, size_t size, int shmflg);
 
-    virtual bool isStale();
-    virtual void resetOnFork() {}
+    virtual bool isStale() override;
+    virtual void resetOnFork() override {}
 
-    virtual void leaderElection();
-    virtual void preCkptDrain();
-    virtual void preCheckpoint();
-    virtual void postRestart();
-    virtual void refill();
-    virtual void preResume();
+    virtual void leaderElection() override;
+    virtual void preCkptDrain() override;
+    virtual void preCheckpoint() override;
+    virtual void postRestart() override;
+    virtual void refill() override;
+    virtual void preResume() override;
 
     virtual SysVObj* clone() override
     {
@@ -305,14 +312,14 @@ class Semaphore : public SysVObj
 
     void on_semop(struct sembuf *sops, unsigned nsops);
 
-    virtual bool isStale();
-    virtual void resetOnFork();
-    virtual void leaderElection();
-    virtual void preCkptDrain();
-    virtual void preCheckpoint();
-    virtual void postRestart();
-    virtual void refill();
-    virtual void preResume() {}
+    virtual bool isStale() override;
+    virtual void resetOnFork() override;
+    virtual void leaderElection() override;
+    virtual void preCkptDrain() override;
+    virtual void preCheckpoint() override;
+    virtual void postRestart() override;
+    virtual void refill() override;
+    virtual void preResume() override {}
 
     virtual SysVObj* clone() override
     {
@@ -346,15 +353,15 @@ class MsgQueue : public SysVObj
 #endif // ifdef JALIB_ALLOCATOR
     MsgQueue(int msqid, int realMsqid, key_t key, int msgflg);
 
-    virtual bool isStale();
-    virtual void resetOnFork() {}
+    virtual bool isStale() override;
+    virtual void resetOnFork() override {}
 
-    virtual void leaderElection();
-    virtual void preCkptDrain();
-    virtual void preCheckpoint();
-    virtual void postRestart();
-    virtual void refill();
-    virtual void preResume() {}
+    virtual void leaderElection() override;
+    virtual void preCkptDrain() override;
+    virtual void preCheckpoint() override;
+    virtual void postRestart() override;
+    virtual void refill() override;
+    virtual void preResume() override {}
 
     virtual SysVObj* clone() override
     {

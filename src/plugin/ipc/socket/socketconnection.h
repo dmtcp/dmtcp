@@ -118,11 +118,11 @@ class TcpConnection : public Connection, public SocketConnection
 
     /*onSocket*/
     TcpConnection(int domain, int type, int protocol);
-    void onBind(const struct sockaddr *addr, socklen_t len);
-    void onListen(int backlog);
+    void onBind(const struct sockaddr *addr, socklen_t len) override;
+    void onListen(int backlog) override;
     void onConnect(const struct sockaddr *serv_addr = NULL,
                    socklen_t addrlen = 0,
-                   bool connectInProgress = false);
+                   bool connectInProgress = false) override;
 
     /*onAccept*/
     TcpConnection(const TcpConnection &parent,
@@ -133,9 +133,9 @@ class TcpConnection : public Connection, public SocketConnection
     void markPreExisting() { _type = TCP_PREEXISTING; }
 
     // basic checkpointing commands
-    virtual void drain();
-    virtual void refill(bool isRestart);
-    virtual void postRestart();
+    virtual void drain() override;
+    virtual void refill(bool isRestart) override;
+    virtual void postRestart() override;
 
     void doSendHandshakes(const ConnectionIdentifier &coordId);
     void doRecvHandshakes(const ConnectionIdentifier &coordId);
@@ -143,13 +143,13 @@ class TcpConnection : public Connection, public SocketConnection
     void sendHandshake(int remotefd, const ConnectionIdentifier &coordId);
     void recvHandshake(int remotefd, const ConnectionIdentifier &coordId);
 
-    virtual string str() { return "<TCP Socket>"; }
+    virtual string str() override { return "<TCP Socket>"; }
 
     virtual TcpConnection* clone() override {
       return new TcpConnection(*this);
     }
 
-    virtual void serializeSubClass(jalib::JBinarySerializer &o);
+    virtual void serializeSubClass(jalib::JBinarySerializer &o) override;
 
   private:
     TcpConnection &asTcp();
@@ -175,23 +175,23 @@ class RawSocketConnection : public Connection, public SocketConnection
     RawSocketConnection(int domain, int type, int protocol);
 
     // basic checkpointing commands
-    virtual void drain();
-    virtual void refill(bool isRestart);
-    virtual void postRestart();
+    virtual void drain() override;
+    virtual void refill(bool isRestart) override;
+    virtual void postRestart() override;
 
-    virtual void onBind(const struct sockaddr *addr, socklen_t len);
-    virtual void onListen(int backlog);
+    virtual void onBind(const struct sockaddr *addr, socklen_t len) override;
+    virtual void onListen(int backlog) override;
     virtual void onConnect(const struct sockaddr *serv_addr = NULL,
                            socklen_t addrlen = 0,
-                           bool connectInProgress = false);
+                           bool connectInProgress = false) override;
 
     // FIXME: Change to first arg to SocketConnection* when we fix the class
     // hierarchy
     RawSocketConnection(const RawSocketConnection &parent,
                         const ConnectionIdentifier &remote);
 
-    virtual void serializeSubClass(jalib::JBinarySerializer &o);
-    virtual string str() { return "<Raw Socket>"; }
+    virtual void serializeSubClass(jalib::JBinarySerializer &o) override;
+    virtual string str() override { return "<Raw Socket>"; }
 
     virtual RawSocketConnection* clone() override {
       return new RawSocketConnection(*this);
