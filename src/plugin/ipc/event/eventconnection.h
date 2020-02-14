@@ -79,12 +79,12 @@ class EpollConnection : public Connection
       JTRACE("new epoll connection created");
     }
 
-    virtual void drain();
-    virtual void refill(bool isRestart);
-    virtual void postRestart();
-    virtual void serializeSubClass(jalib::JBinarySerializer &o);
+    virtual void drain() override;
+    virtual void refill(bool isRestart) override;
+    virtual void postRestart() override;
+    virtual void serializeSubClass(jalib::JBinarySerializer &o) override;
 
-    virtual string str() { return "EPOLL-FD: <Not-a-File>"; }
+    virtual string str() override { return "EPOLL-FD: <Not-a-File>"; }
 
     virtual EpollConnection* clone() override {
       return new EpollConnection(*this);
@@ -112,12 +112,12 @@ class EventFdConnection : public Connection
       JTRACE("new eventfd connection created");
     }
 
-    virtual void drain();
-    virtual void refill(bool isRestart);
-    virtual void postRestart();
-    virtual void serializeSubClass(jalib::JBinarySerializer &o);
+    virtual void drain() override;
+    virtual void refill(bool isRestart) override;
+    virtual void postRestart() override;
+    virtual void serializeSubClass(jalib::JBinarySerializer &o) override;
 
-    virtual string str() { return "EVENT-FD: <Not-a-File>"; }
+    virtual string str() override { return "EVENT-FD: <Not-a-File>"; }
 
     virtual EventFdConnection* clone() override {
       return new EventFdConnection(*this);
@@ -144,12 +144,12 @@ class SignalFdConnection : public Connection
       }
     }
 
-    virtual void drain();
-    virtual void refill(bool isRestart);
-    virtual void postRestart();
-    virtual void serializeSubClass(jalib::JBinarySerializer &o);
+    virtual void drain() override;
+    virtual void refill(bool isRestart) override;
+    virtual void postRestart() override;
+    virtual void serializeSubClass(jalib::JBinarySerializer &o) override;
 
-    virtual string str() { return "SIGNAL-FD: <Not-a-File>"; }
+    virtual string str() override { return "SIGNAL-FD: <Not-a-File>"; }
 
     virtual SignalFdConnection* clone() override {
       return new SignalFdConnection(*this);
@@ -185,12 +185,12 @@ class InotifyConnection : public Connection
 
     InotifyConnection &asInotify();
 
-    virtual void drain();
-    virtual void refill(bool isRestart);
-    virtual void postRestart();
-    virtual void serializeSubClass(jalib::JBinarySerializer &o);
+    virtual void drain() override;
+    virtual void refill(bool isRestart) override;
+    virtual void postRestart() override;
+    virtual void serializeSubClass(jalib::JBinarySerializer &o) override;
 
-    virtual string str() { return "INOTIFY-FD: <Not-a-File>"; }
+    virtual string str() override { return "INOTIFY-FD: <Not-a-File>"; }
 
     virtual InotifyConnection* clone() override {
       return new InotifyConnection(*this);

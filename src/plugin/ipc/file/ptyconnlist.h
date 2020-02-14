@@ -54,17 +54,16 @@ class PtyConnList : public ConnectionList
 
     static void restartRefill() { instance().refill(true); }
 
-    virtual void drain();
-    virtual void resume(bool isRestart) {}
+    virtual void drain() override;
 
-    virtual void refill(bool isRestart);
-    virtual void postRestart();
-    virtual int protectedFd() { return -1; }
+    virtual void refill(bool isRestart) override;
+    virtual void postRestart() override;
+    virtual int protectedFd() override { return -1; }
 
     // examine /proc/self/fd for unknown connections
-    virtual void scanForPreExisting();
+    virtual void scanForPreExisting() override;
 
-    virtual Connection *createDummyConnection(int type)
+    virtual Connection *createDummyConnection(int type) override
     {
       return new PtyConnection();
     }
