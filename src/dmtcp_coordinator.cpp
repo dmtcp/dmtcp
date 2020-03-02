@@ -1485,6 +1485,61 @@ void DmtcpCoordinator::addDataSocket(CoordClient *client)
     (JASSERT_ERRNO);
 }
 
+#define min(x,y) ((x)<(y) ? (x) : (y))
+
+// Copy name+suffix into short_buf of length len, and truncate name to fit.
+// This keeps only the last component of name (after last '/')
+char *short_name(char short_buf[], char *name, unsigned int len, char *suffix) {
+  // char *name_copy = malloc(strlen(name)+1);
+  char name_copy[strlen(name)+1];
+  strncpy(name_copy, name, strlen(name)+1);
+  char *base_name = strrchr(name_copy, '/') == NULL ?
+                    name_copy : strrchr(name_copy, '/') + 1;
+  if (6 + strlen(suffix) > len) {
+    return NULL;
+  }
+  memset(short_buf, '\0', len);
+  int cmd_len = min(strlen(base_name)+1, len);
+  memcpy(short_buf, base_name, cmd_len);
+  int suffix_len = strlen(suffix);
+  int short_buf_len = min(strlen(base_name), len - suffix_len);
+  strncpy(short_buf + short_buf_len, suffix, suffix_len);
+  return short_buf;
+}
+
+void set_short_cmdline(char *argv0, const char *port) {
+  char buf[16] = "               ";
+  char port_str[16] =":";
+  strncpy(port_str+1, port, sizeof(port_str)+1-strlen(port));
+  short_name(buf, argv0, sizeof buf, port_str);
+  // For debugging
+  // printf("buf: %s\n", buf);
+  prctl(PR_SET_NAME, buf); // set /proc/self/comm
+}
+
+void set_long_cmdline(char *argv0, const char *port) {
+  char *argv0_copy = (char *)malloc(strlen(argv0) + 1);
+  strcpy(argv0_copy, argv0);
+  char *base_argv0 = strrchr(argv0_copy, '/') + 1 == NULL ?
+                     argv0_copy : strrchr(argv0_copy, '/') + 1;
+  char port_flag_long[100];
+  char port_flag_short[100];
+  snprintf(port_flag_long, sizeof(port_flag_long), " --port %s", port);
+  snprintf(port_flag_short, sizeof(port_flag_short), " -p%s", port);
+  if (strlen(base_argv0)+strlen(port_flag_long) <= strlen(argv0) &&
+      short_name(argv0, argv0, strlen(argv0), port_flag_long) != NULL) {
+  // For debugging
+  // printf("base_argv0-1: %s\n", argv0);
+  } else if (short_name(argv0, argv0, strlen(argv0), port_flag_short) != NULL) {
+  // For debugging
+  // printf("base_argv0-2: %s\n", argv0);
+  } else {
+  // For debugging
+  // printf("base_argv0-3: %s\n", argv0);
+  }
+  free(argv0_copy);
+}
+
 #define shift argc--; argv++
 
 int main ( int argc, char** argv )
@@ -1497,6 +1552,15 @@ int main ( int argc, char** argv )
   const char* portStr = getenv( ENV_VAR_NAME_PORT );
   if ( portStr == NULL ) portStr = getenv("DMTCP_PORT"); // deprecated
   if ( portStr != NULL ) thePort = jalib::StringToInt( portStr );
+
+  // Change command line to: dmtcp_coordinator -p<portStr>
+  char portStrBuf[10];
+  if (portStr == NULL) {
+    sprintf(portStrBuf, "%d", thePort);
+    portStr = portStrBuf;
+  }
+  set_short_cmdline(argv[0], portStr);
+  set_long_cmdline(argv[0], portStr);
 
   bool daemon = false;
   bool useLogFile = false;
