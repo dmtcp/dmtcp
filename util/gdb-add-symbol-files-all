@@ -1,0 +1,184 @@
+python
+import subprocess
+import re
+
+# This adds a GDB command:  add-symbol-files-all    (no arguments)
+# To use it, either do:
+#     gdb -x gdb-add-symbol-files-all TARGET_PROGRAM PID
+#     (gdb) add-symbol-files-all
+# OR:
+#     gdb attach PID
+#     (gdb) source gdb-add-symbol-files-all
+#     (gdb) add-symbol-files-all
+#     WARNING:  On dmtcp_restart, add-symbol-files-all doesn't always work.
+#               In that case, use add-symbol-file-substring/-at-address, below.
+# This also adds GDB commands:
+#     (gdb) procmaps
+#     (gdb) show-filename-at-address MEMORY_ADDRESS
+#     (gdb) add-symbol-file-substring FILENAME_SUBSTRING
+#                                   (e.g., add-symbol-file-substring libc)
+#     (gdb) add-symbol-file-at-address MEMORY_ADDRESS
+#                                   (e.g., add-symbol-file-at-address 0x400000)
+
+def is_executable(filename):
+  # 16 bytes for ELF magic number; then 2 bytes (short) for ELF type
+  header = open(filename, "rb")
+  elf_magic_number = header.read(16)
+  elf_type = header.read(2)
+  # Is it little-endian or big-endian
+  elf_type = elf_type[0] if sys.byteorder == "little" else elf_type[1]
+  # Handle both Python2.7 and Python3: type 2 is executable; type 3 is .so file
+  elf_type = elf_type if isinstance(elf_type, int) else ord(elf_type)
+  return elf_type == 2
+
+# FROM: https://stackoverflow.com/questions/33049201/gdb-add-symbol-file-all-sections-and-load-address
+def relocatesections(filename):
+  p = subprocess.Popen(["readelf", "-S", filename], stdout = subprocess.PIPE)
+
+  sections = []
+  textaddr = '0'
+  for line in p.stdout.readlines():
+    line = line.decode("utf-8").strip()
+    if not line.startswith('['):
+      continue
+    if line.startswith('[ 0]') or line.startswith('[Nr]'):
+      continue
+    line = line.replace("[ ", "[", 1)
+
+    fieldsvalue = line.split()
+    fieldsname = ['number', 'name', 'type', 'addr', 'offset', 'size',
+                  'entsize', 'flags', 'link', 'info', 'addralign']
+    sec = dict(zip(fieldsname, fieldsvalue))
+
+    if not sec['name'].startswith("."):
+      continue
+    if ".note" in sec['name']:
+      continue
+
+    sections.append(sec)
+
+    if sec['name'] == '.text':
+      textaddr = sec['addr']
+
+  return (textaddr, sections)
+
+
+class AddSymbolFileSubstring(gdb.Command):
+  """add-symbol-file-substring FILENAME_SUBSTRING"""
+
+  def __init__(self):
+    super(AddSymbolFileSubstring,
+          self).__init__("add-symbol-file-substring", gdb.COMMAND_USER)
+    self.dont_repeat()
+
+  def invoke(self, filename_substring, from_tty):
+    (filename, base_addr, _) = memory_region(filename_substring)
+    add_symbol_files_from_filename(filename, base_addr)
+# This will add the new gdb command: add-symbol-file-substring FILENAME
+AddSymbolFileSubstring()
+
+
+class ShowFilenameAtAddress(gdb.Command):
+    """show-filename-at-address MEMORY_ADDRESS"""
+
+    def __init__(self):
+        super(ShowFilenameAtAddress,
+              self).__init__("show-filename-at-address", gdb.COMMAND_USER)
+        self.dont_repeat()
+
+    def invoke(self, memory_address, from_tty):
+        # Remove existing symbol files
+        memory_region = "%s (r-x): 0x%x-0x%x" % \
+                        memory_region_at_address(memory_address)
+        gdb.execute('print "' + memory_region + '"', False, False)
+# This will add the new gdb command: add-symbol-file-substring FILENAME
+ShowFilenameAtAddress()
+
+
+class AddSymbolFileAtAddress(gdb.Command):
+  """add-symbol-file-at-address MEMORY_ADDRESS"""
+
+  def __init__(self):
+    super(AddSymbolFileAtAddress,
+          self).__init__("add-symbol-file-at-address", gdb.COMMAND_USER)
+    self.dont_repeat()
+
+  def invoke(self, filename_substring, from_tty):
+    (filename, base_addr, _) = memory_region_at_address(filename_substring)
+    add_symbol_files_from_filename(filename, base_addr)
+# This will add the new gdb command: add-symbol-file-substring FILENAME
+AddSymbolFileAtAddress()
+
+
+class AddSymbolFilesAll(gdb.Command):
+    """add-symbol-files-all (adds all symbol files of files in /proc/self/maps)"""
+
+    def __init__(self):
+        super(AddSymbolFilesAll,
+              self).__init__("add-symbol-files-all", gdb.COMMAND_USER)
+        self.dont_repeat()
+
+    def invoke(self, filename_substring, from_tty):
+        # Remove existing symbol files
+        gdb.execute("symbol-file", False, True)
+        for (filename, _, _) in memory_regions():
+          gdb.execute("add-symbol-file-substring " + filename)
+# This will add the new gdb command: add-symbol-file-substring FILENAME
+AddSymbolFilesAll()
+
+
+def add_symbol_files_from_filename(filename, base_addr):
+  if is_executable(filename):
+    base_addr = 0  # ELF executables already hard-wired absolute address
+  (textaddr, sections) = relocatesections(filename)
+  cmd = "add-symbol-file %s 0x%x" % (filename, int(textaddr, 16) + base_addr)
+  for s in sections:
+    addr = int(s['addr'], 16)
+    if s['name'] == '.text' or addr == 0:
+      continue
+    cmd += " -s %s 0x%x" % (s['name'], addr + base_addr)
+  gdb.execute(cmd)
+
+# Helper functions for AddSymbolFileSubstring
+def getpid():
+  return gdb.selected_inferior().pid
+
+class Procmaps(gdb.Command):
+  """procmaps (cat /proc/INFERIOR_PID/maps)"""
+  def __init__(self):
+    super(Procmaps,
+          self).__init__("procmaps", gdb.COMMAND_USER)
+    self.dont_repeat()
+  def invoke(self, filename_substring, from_tty):
+    gdb.execute("shell cat /proc/" + str(getpid()) + "/maps | less",
+                False, True)
+Procmaps()
+
+# For /proc/*/maps line: ADDR1-ADDR2 ... FILE; returns (FILE, ADDR1, ADDR2)
+def procmap_filename_address(line):
+  triple = line.split()
+  return (triple[-1],) + \
+         tuple([int("0x"+elt, 16) for elt in triple[0].split("-")])
+def memory_regions():
+  if getpid() == 0:
+    sys.write.stderr("\n*** Process not running! ***\n")
+    sys.exit(1)
+  p = subprocess.Popen(["cat", "/proc/"+str(getpid())+"/maps"],
+                       stdout = subprocess.PIPE)
+  procmap_lines = [line.decode("utf-8").strip()
+                   for line in p.stdout.readlines()]
+  return [procmap_filename_address(memory) for memory in procmap_lines
+                                          if " /" in memory and "r-x" in memory]
+
+# Returns triple:  (filename, base_address, end_address)
+def memory_region(filename_substring):
+  regions = memory_regions()
+  return [region for region in regions if filename_substring in region[0]][0]
+
+def memory_region_at_address(memory_address):
+  memory_address = int(memory_address, 0)
+  regions = memory_regions()
+  return [region for region in regions
+          if memory_address >= region[1] and memory_address < region[2]][0]
+
+end
