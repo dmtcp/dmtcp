@@ -221,6 +221,15 @@ int dmtcp_enable_ckpt(void) __attribute__((weak));
 
 void dmtcp_initialize_plugin(void) __attribute((weak));
 
+/*
+ * Global barriers are required when a plugin needs inter-node synchronization,
+ * such as using the coordinator name-service database. Currently, only the
+ * socket, RM, and InfiniBand plugins need global barriers. All other plugins
+ * handle node-local resources such as files, pids, etc., and are fine with
+ * using local barriers.
+ * A simple thumb rule is to always insert a global-barrier between registering
+ * and querying the coordinator name-service database.
+ */
 void dmtcp_global_barrier(const char *barrier) __attribute((weak));
 void dmtcp_local_barrier(const char *barrier) __attribute((weak));
 
