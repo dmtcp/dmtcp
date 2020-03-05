@@ -83,6 +83,11 @@ class SysVIPC
 #endif // ifdef JALIB_ALLOCATOR
 
     SysVIPC(const char *str, int32_t id, int type);
+    virtual ~SysVIPC();
+
+    virtual SysVIPC* cloneInstance() = 0;
+    virtual SysVIPC *clone();
+
     void removeStaleObjects();
     void resetOnFork();
     void leaderElection();
@@ -148,10 +153,14 @@ class SysVShm : public SysVIPC
                           int shmflg,
                           void *newaddr);
     virtual void on_shmdt(const void *shmaddr);
+
+    virtual SysVIPC* cloneInstance() override { return new SysVShm(*this); }
+
     key_t virtualToRealKey(key_t key);
     key_t realToVirtualKey(key_t key);
     void updateKeyMapping(key_t v, key_t r);
-  protected:
+
+    // Only used by SysVShm.
     map<key_t, key_t>_keyMap;
     typedef map<key_t, key_t>::iterator KIterator;
 };
@@ -166,6 +175,8 @@ class SysVSem : public SysVIPC
     virtual void on_semget(int realSemId, key_t key, int nsems, int semflg);
     virtual void on_semctl(int semid, int semnum, int cmd, union semun arg);
     virtual void on_semop(int semid, struct sembuf *sops, unsigned nsops);
+
+    virtual SysVIPC* cloneInstance() override { return new SysVSem(*this); }
 };
 
 class SysVMsq : public SysVIPC
@@ -184,6 +195,8 @@ class SysVMsq : public SysVIPC
                            size_t msgsz,
                            int msgtyp,
                            int msgflg);
+
+    virtual SysVIPC* cloneInstance() override { return new SysVMsq(*this); }
 };
 
 class SysVObj
@@ -221,6 +234,8 @@ class SysVObj
     virtual void refill() = 0;
     virtual void preResume() = 0;
 
+    virtual SysVObj* clone() = 0;
+
   protected:
     int _id;
     int _realId;
@@ -251,6 +266,11 @@ class ShmSegment : public SysVObj
     virtual void postRestart();
     virtual void refill();
     virtual void preResume();
+
+    virtual SysVObj* clone() override
+    {
+      return new ShmSegment(*this);
+    }
 
     bool isValidShmaddr(const void *shmaddr);
     void remapAll();
@@ -294,6 +314,20 @@ class Semaphore : public SysVObj
     virtual void refill();
     virtual void preResume() {}
 
+    virtual SysVObj* clone() override
+    {
+      Semaphore *obj = new Semaphore(*this);
+
+      obj->_semval =
+          (unsigned short *) JALLOC_MALLOC(_nsems * sizeof(unsigned short));
+      memcpy(obj->_semval, _semval, _nsems * sizeof(unsigned short *));
+
+      obj->_semadj = (int*)JALLOC_MALLOC(_nsems * sizeof(int));
+      memcpy(obj->_semadj, _semadj, _nsems * sizeof(int *));
+
+      return obj;
+    }
+
   private:
     int _nsems;
     unsigned short *_semval;
@@ -321,6 +355,11 @@ class MsgQueue : public SysVObj
     virtual void postRestart();
     virtual void refill();
     virtual void preResume() {}
+
+    virtual SysVObj* clone() override
+    {
+      return new MsgQueue(*this);
+    }
 
   private:
     vector<jalib::JBuffer>_msgInQueue;
