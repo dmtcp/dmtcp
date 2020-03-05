@@ -299,6 +299,25 @@ SysVIPC::SysVIPC(const char *str, int32_t id, int type)
   _do_unlock_tbl();
 }
 
+SysVIPC::~SysVIPC()
+{
+  for (const auto &kv : _map) {
+    delete kv.second;
+  }
+}
+
+SysVIPC *
+SysVIPC::clone()
+{
+  SysVIPC *obj = cloneInstance();
+
+  for (const auto &kv : _map) {
+    obj->_map[kv.first] = kv.second->clone();
+  }
+
+  return obj;
+}
+
 void
 SysVIPC::removeStaleObjects()
 {
