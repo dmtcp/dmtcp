@@ -231,6 +231,11 @@ int dmtcp_is_enabled(void) __attribute((weak));
  * Checkpoint the entire distributed computation
  *   (Does not necessarily block until checkpoint is complete.
  *    Use dmtcp_get_generation() to test if checkpoint is complete.)
+ * NOTE:  This macro is blocking.  dmtcp_checkpoint() will not return
+ *        until a checkpoint is taken.  This guarantees that the
+ *        current _thread_ blocks until the current process has been
+ *        checkpointed.  It guarantees nothing about other threads or
+ *        other processes.
  * + returns DMTCP_AFTER_CHECKPOINT if the checkpoint succeeded.
  * + returns DMTCP_AFTER_RESTART    after a restart.
  * + returns <=0 on error.
