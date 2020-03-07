@@ -20,6 +20,7 @@
  ****************************************************************************/
 
 #include <stdlib.h>
+#include <dlfcn.h>
 #include "dmtcp.h"
 #include "dmtcpplugin.h"
 #include "dmtcpworker.h"
