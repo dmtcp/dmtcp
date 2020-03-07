@@ -129,8 +129,11 @@ pthread_atfork_child()
   DmtcpWorker::resetOnFork();
 }
 
+// We re-factor to have fork() call dmtcp_fork().
+// This is needed by dmtcpplugin.cpp:dmtcp_get_libc_addr() in case it is
+//   called on 'fork':  dmtcp_get_libc_addr("fork")
 extern "C" pid_t
-fork()
+dmtcp_fork()
 {
   if (isPerformingCkptRestart()) {
 #ifndef __aarch64__
@@ -547,6 +550,12 @@ int getLifeboatFd()
 }
 
 extern "C" int
+fork()
+{
+  return dmtcp_fork();
+}
+
+extern "C" int
 execve(const char *filename, char *const argv[], char *const envp[])
 {
   return dmtcp_execvpe(filename, argv, envp);
@@ -746,8 +755,17 @@ dmtcp_execvpe(const char *filename, char *const argv[], char *const envp[])
 
   programName = jalib::Filesystem::BaseName(data.preExec.filename);
 
+  // I have no idea why we need to exec to "dmtcp_get_libc_offset" here,
+  // instead of lower down.  But if we allow it to be exec'ed by execvpe
+  // lower down, then 'patchUserEnv()' forces the C++ magic to re-execute
+  //   const vector<string>argvCopy = copyEnv(argv);
+  // It then fails with a typically unreadable C++ error:
+  //   > terminate called after throwing an instance of 'std::logic_error'
+  //   >   what():  basic_string::_S_construct null not valid
+  // Does anybody know the reason?
   if (programName == "dmtcp_nocheckpoint" || programName == "dmtcp_command" ||
-      programName == "ssh" || programName == "rsh" ) {
+      programName == "ssh" || programName == "rsh" ||
+      programName == "dmtcp_get_libc_offset" ) {
     return _real_execvpe(data.preExec.filename,
                          (char* const*) data.preExec.argv,
                          (char* const*) data.preExec.envp);

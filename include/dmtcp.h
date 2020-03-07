@@ -267,6 +267,39 @@ int dmtcp_enable_ckpt(void) __attribute__((weak));
 #define dmtcp_enable_ckpt() \
   (dmtcp_enable_ckpt ? dmtcp_enable_ckpt() : DMTCP_NOT_PRESENT)
 
+/**
+ * Example:  dmtcp_get_libc_addr("fork") returns the address of "fork"
+ *           in libc at runtime (when loaded in memory).
+ * NOTE:  dmtcp_get_libc_addr(fnc) skips any DMTCP wrapper functions around
+ *        fnc, and directly calls its definition in libc.  In contrast, the
+ *        _real_XX() functions found in DMTCP_ROOT/src are pointers to the
+ *        next definition of fnc in library search order.  (This may be in the
+ *        next libdmctp_YY.so library in search order, or in libc.so istelf.)
+ * EXAMPLE USAGE 1:
+ *   static typeof(fork) *libc_fork_ptr = NULL;
+ *   if (libc_fork_ptr == NULL) {libc_fork_ptr = dmtcp_get_libc_addr("fork");}
+ *   if (libc_fork_ptr != DMTCP_NOT_PRESENT) {
+ *     // Skip DMTCP interposition on fork; child doesn't coonect to coord.
+ *     (*libc_fork_ptr)();
+ *   }
+ * EXAMPLE USAGE 2:
+ *   static typeof(execvp) *libc_execvp_ptr = NULL;
+ *   if (libc_execvp_ptr == NULL) {
+ *     libc_execvp_ptr = dmtcp_get_libc_addr("execvp");
+ *   }
+ *   if (libc_execvp_ptr != DMTCP_NOT_PRESENT) {
+ *     // Don't preload DMTCP libraries when you exec to a new program.
+ *     char *ld_preload = getenv("LD_PRELOAD");
+ *     ld_preload[0] = '\0';
+ *     (*libc_execvp_ptr)(...);
+ *   }
+ */
+void * dmtcp_get_libc_addr(const char* libc_fnc) __attribute__((weak));
+#define dmtcp_get_libc_addr(libc_fnc) \
+  (dmtcp_get_libc_addr? dmtcp_get_libc_addr(libc_fnc) : \
+                        (void *)DMTCP_NOT_PRESENT)
+
+/* FIXME:  Usage: ?? */
 void dmtcp_initialize_plugin(void) __attribute((weak));
 
 /*
