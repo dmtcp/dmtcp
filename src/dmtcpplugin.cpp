@@ -20,6 +20,7 @@
  ****************************************************************************/
 
 #include <stdlib.h>
+#include <dlfcn.h>
 
 #include "coordinatorapi.h"
 #include "dmtcp.h"
@@ -221,6 +222,70 @@ dmtcp_get_ckpt_files_subdir(void)
 
   tmpdir = ProcessInfo::instance().getCkptFilesSubDir();
   return tmpdir.c_str();
+}
+
+EXTERNC void
+dmtcp_get_bin_dir(char dmtcp_bin_dir[]) {
+  char *lib = getenv("DMTCP_HIJACK_LIBS");
+  JASSERT(lib != NULL && *lib != '\0')(lib).Text("Bad DMTCP_HIJACK_LIB");
+
+  char *dmtcp_lib = strstr(lib, "/lib/dmtcp/libdmtcp_");
+  dmtcp_lib[0] = '\0'; // temporarily set to '\0' for sake of strrchr()
+  if (strrchr(lib, ':') != NULL) { // If DMTCP lib is not the first one
+    lib = strrchr(lib, ':') + 1;
+  }
+  dmtcp_lib[0] = '/'; // restore changed character
+
+  // If 'strstr(...) == NULL, then there is only one library.
+  char *lib_end = strchr(lib, ':') ? strchr(lib, ':') : lib;
+  dmtcp_bin_dir[0] = '\0';
+  strncpy(dmtcp_bin_dir, lib, lib_end - lib);
+  dmtcp_bin_dir[lib_end - lib] = '\0';
+  int i = 3;
+  for (i = 3; i > 0; i--) {
+    strrchr(dmtcp_bin_dir, '/')[0] = '\0';
+  }
+  strcat(dmtcp_bin_dir, "/bin");
+}
+
+/* See include/dmtcp.h for examples of using this function.
+ */
+#undef dmtcp_get_libc_addr
+EXTERNC void *
+dmtcp_get_libc_addr(const char*libc_fnc) {
+  char dmtcp_bin_dir[10000];
+  JASSERT(strlen(getenv("DMTCP_HIJACK_LIBS")) < sizeof(dmtcp_bin_dir));
+  dmtcp_get_bin_dir(dmtcp_bin_dir);
+  strcat(dmtcp_bin_dir, "/dmtcp_get_libc_offset");
+  char *dmtcp_get_libc_offset = dmtcp_bin_dir;
+
+  int pipefd[2];
+  pipe(pipefd);
+  // Use dmtcp_fork() instead of fork() in case a plugin is redefining
+  //   fork() to call:  (*dmtcp_get_libc_addr("fork"))().
+  extern int dmtcp_fork();
+  int childpid = dmtcp_fork();
+  if (childpid) { // if parent
+    long int offset;
+    while (read(pipefd[0], &offset, sizeof(offset)) != sizeof(offset)) {};
+    waitpid(childpid, NULL, 0);
+    // This assumes DMTCP does not wrap "read".  dlsym() returns ptr in libc.
+    return (char *)dlsym(RTLD_NEXT, "read") + offset;
+  } else { // else child
+    // get offset of 'execv' in libc, and write it to parent
+    char *command[] = {NULL, NULL, NULL};
+    command[0] = dmtcp_get_libc_offset;
+    command[1] = const_cast<char*>(libc_fnc);
+    close(0);
+    dup2(pipefd[1], 1); // command will write offset to stdout (fd: 1)
+    // char *ld_preload = getenv("LD_PRELOAD");
+    // char ld_preload_first_char = ld_preload[0]; // Unused; see below;
+    // ld_preload[0] = '\0'; // No LD_PRELOAD on next program.
+    environ[0] = NULL;
+    execvpe(command[0], command, environ);
+    // ld_preload[0] = ld_preload_first_char; // Not needed; never reached.
+    exit(0); // to satisfy the compiler
+  }
 }
 
 EXTERNC int
