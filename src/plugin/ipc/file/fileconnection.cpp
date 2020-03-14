@@ -474,6 +474,17 @@ void PtyConnection::postRestart()
           controllingTty = jalib::Filesystem::GetControllingTerm(getppid());
         }
         stdinDeviceName = (jalib::Filesystem::GetDeviceName(STDIN_FILENO));
+        if (controllingTty.c_str() == stdinDeviceName ||
+             (Util::strStartsWith(controllingTty.c_str(), "/dev/pts/") &&
+              Util::strStartsWith(stdinDeviceName.c_str(), "pipe:")) ||
+             (Util::strStartsWith(controllingTty.c_str(), "/dev/pts/") &&
+              Util::strStartsWith(stdinDeviceName.c_str(), "socket:"))
+           ) {
+          // We should inherit the controlling terminal, /dev/tty, and session
+          //   id of our caller.
+          // We should not open a new session by opening /dev/tty, below.
+          return;
+        }
         if (controllingTty.length() > 0 &&
             _real_access(controllingTty.c_str(), R_OK | W_OK) == 0) {
           tempfd = _real_open(controllingTty.c_str(), _fcntlFlags);
@@ -989,6 +1000,14 @@ void FileConnection::postRestart()
     }
     tempfd = openFile();
   }
+  // Apparently, the PtyConnection object has a private vector of _fds
+  //   such that the _fds[i] for each i is a dup of the other i's.
+  // The function below seems to copy tempfd to each of these
+  //   duplicated fd's, and then close tempfd.
+  // In DMTCP-3.0, this use of Util::dupFds() was replaced by:
+  //   restoreDupFds(tempfd);
+  // in order to hide "_fds" from the reader, and make this extra hard to
+  // understand!
   Util::dupFds(tempfd, _fds);
 }
 
