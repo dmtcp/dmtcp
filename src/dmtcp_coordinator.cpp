@@ -278,15 +278,15 @@ DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage *reply /*= NULL*/)
   }
 
   switch (cmd) {
-  case 'b': case 'B':  // prefix blocking command, prior to checkpoint command
+  case 'b':  // prefix blocking command, prior to checkpoint command
     JTRACE("blocking checkpoint beginning...");
     blockUntilDone = true;
     break;
-  case 'K': case 'x':  // prefix kill command, after ckpt cmd ('x' deprecated)
+  case 'K':  // prefix kill command, after ckpt cmd
     JTRACE("Will kill peers after creating the checkpoint...");
     killAfterCkptOnce = true;
     break;
-  case 'c': case 'C':
+  case 'c':
     JTRACE("checkpointing...");
     if (startCheckpoint()) {
       if (reply != NULL) {
@@ -298,7 +298,7 @@ DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage *reply /*= NULL*/)
       }
     }
     break;
-  case 'i': case 'I':
+  case 'i':
     JTRACE("setting checkpoint interval...");
     updateCheckpointInterval(theCheckpointInterval);
     if (theCheckpointInterval == 0) {
@@ -314,8 +314,8 @@ DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage *reply /*= NULL*/)
       printf("Default Checkpoint Interval: %d\n", theDefaultCheckpointInterval);
     }
     break;
-  case 'l': case 'L':
-  case 't': case 'T':
+  case 'l':
+  case 't':
     if (reply != NULL) {
       replyData = printList();
       reply->extraBytes = replyData.length();
@@ -323,7 +323,7 @@ DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage *reply /*= NULL*/)
       JASSERT_STDERR << printList();
     }
     break;
-  case 'u': case 'U':
+  case 'u':
   {
     JASSERT_STDERR << "Host List:\n";
     JASSERT_STDERR << "HOST => # connected clients \n";
@@ -342,7 +342,7 @@ DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage *reply /*= NULL*/)
     }
     break;
   }
-  case 'q': case 'Q':
+  case 'q':
   {
     JNOTE("killing all connected peers and quitting ...");
     broadcastMessage(DMT_KILL_PEER);
@@ -360,10 +360,10 @@ DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage *reply /*= NULL*/)
     JNOTE("Killing all connected peers...");
     broadcastMessage(DMT_KILL_PEER);
     break;
-  case 'h': case 'H': case '?':
+  case 'h': case '?':
     JASSERT_STDERR << theHelpMessage;
     break;
-  case 's': case 'S':
+  case 's':
   {
     ComputationStatus s = getStatus();
     bool running = (s.minimumStateUnanimous &&
