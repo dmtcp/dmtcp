@@ -270,18 +270,18 @@ void DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*= NULL*
   if (reply != NULL) reply->coordCmdStatus = CoordCmdStatus::NOERROR;
 
   switch (cmd) {
-  case 'b': case 'B':  // prefix blocking command, prior to checkpoint command
+  case 'b':  // prefix blocking command, prior to checkpoint command
     JTRACE("blocking checkpoint beginning...");
     blockUntilDone = true;
     break;
-  case 'K': case 'x':  // prefix kill command, after ckpt cmd ('x' deprecated)
+  case 'K':  // prefix kill command, after ckpt cmd
     JTRACE("Will kill peers after creating the checkpoint...");
     killAfterCkptOnce = true;
     break;
-  case 'd': case 'D':
+  case 'd':
     broadcastMessage(DMT_UPDATE_LOGGING);
     break;
-  case 'e': case 'E':
+  case 'e':
   {
     ComputationStatus s = getStatus();
 
@@ -299,7 +299,7 @@ void DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*= NULL*
     }
     break;
   }
-  case 'c': case 'C':
+  case 'c':
     JTRACE ( "checkpointing..." );
     if (startCheckpoint()) {
       if (reply != NULL) reply->numPeers = getStatus().numPeers;
@@ -308,7 +308,7 @@ void DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*= NULL*
         reply->coordCmdStatus = CoordCmdStatus::ERROR_NOT_RUNNING_STATE;
     }
     break;
-  case 'i': case 'I':
+  case 'i':
     JTRACE("setting checkpoint interval...");
     updateCheckpointInterval ( theCheckpointInterval );
     if (theCheckpointInterval == 0)
@@ -322,8 +322,8 @@ void DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*= NULL*
     else
       printf("Default Checkpoint Interval: %d\n", theDefaultCheckpointInterval);
     break;
-  case 'l': case 'L':
-  case 't': case 'T':
+  case 'l':
+  case 't':
   {
     if (reply != NULL) {
       replyData = printList();
@@ -333,7 +333,7 @@ void DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*= NULL*
     }
     break;
   }
-  case 'q': case 'Q':
+  case 'q':
   {
     JNOTE ( "killing all connected peers and quitting ..." );
     broadcastMessage ( DMT_KILL_PEER );
@@ -351,10 +351,10 @@ void DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage* reply /*= NULL*
     JNOTE("Killing all connected peers...");
     broadcastMessage(DMT_KILL_PEER);
     break;
-  case 'h': case 'H': case '?':
+  case 'h': case '?':
     JASSERT_STDERR << theHelpMessage;
     break;
-  case 's': case 'S':
+  case 's':
   {
     ComputationStatus s = getStatus();
     bool running = (s.minimumStateUnanimous &&

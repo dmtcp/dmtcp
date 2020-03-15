@@ -278,17 +278,16 @@ void CoordinatorAPI::waitForCheckpointCommand()
 //      JLOG(DMTCP)("blocking checkpoint beginning...");
 //      blockUntilDone = true;
 //      break;
-    case 's': case 'S':
+    case 's':
       JLOG(DMTCP)("Received status command");
       reply.numPeers = 1;
       reply.isRunning = 1;
       break;
-    case 'c': case 'C':
+    case 'c':
       JLOG(DMTCP)("checkpointing...");
       break;
     case 'k':
-    case 'K':
-    case 'q': case 'Q':
+    case 'q':
       JLOG(DMTCP)("Received KILL command from user, exiting");
       exitWhenDone = true;
       break;
