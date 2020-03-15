@@ -1087,22 +1087,21 @@ waitForCheckpointCommand()
 
   bool exitWhenDone = false;
   switch (msg.coordCmd) {
-  // case 'b': case 'B':  // prefix blocking command, prior to checkpoint
+  // case 'b':  // prefix blocking command, prior to checkpoint
   // command
   // JTRACE("blocking checkpoint beginning...");
   // blockUntilDone = true;
   // break;
-  case 's': case 'S':
+  case 's':
     JTRACE("Received status command");
     reply.numPeers = 1;
     reply.isRunning = 1;
     break;
-  case 'c': case 'C':
+  case 'c':
     JTRACE("checkpointing...");
     break;
   case 'k':
-  case 'K':
-  case 'q': case 'Q':
+  case 'q':
     JTRACE("Received KILL command from user, exiting");
     exitWhenDone = true;
     break;

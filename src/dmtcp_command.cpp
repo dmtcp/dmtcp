@@ -49,8 +49,10 @@ static const char *theUsage =
   "    -s, --status:          Print status message\n"
   "    -l, --list:            List connected clients\n"
   "    -c, --checkpoint:      Checkpoint all nodes\n"
+// Could add -B as synonym for -bc
   "    -bc, --bcheckpoint:    Checkpoint all nodes, dmtcp_command blocks until"
                                                                       " done\n"
+// Could add -K as synonym for -kc
   "    -kc, --kcheckpoint     Checkpoint all nodes, kill all nodes when done\n"
 // "    -xc, --xcheckpoint  deprecated synonym for '-kc': kill nodes if done\n"
   "    -i, --interval <val>   Update ckpt interval to <val> seconds (0=never)\n"
@@ -112,12 +114,12 @@ main(int argc, char **argv)
       }
       s = cmd;
 
-      if ((*cmd == 'b' || *cmd == 'K' || *cmd == 'x') && *(cmd + 1) != 'c') {
+      if ((*cmd == 'b' || *cmd == 'K') && *(cmd + 1) != 'c') {
         // If blocking ckpt, next letter must be 'c'; else print the usage
         fprintf(stderr, theUsage, "");
         return 1;
       } else if (*cmd == 's' || *cmd == 'i' || *cmd == 'c' || *cmd == 'b' ||
-                 *cmd == 'K' || *cmd == 'x' /* deprecated */ || *cmd == 'k' ||
+                 *cmd == 'K' || *cmd == 'k' ||
                  *cmd == 'q' || *cmd == 'l') {
         request = s;
         if (*cmd == 'i') {
@@ -156,7 +158,7 @@ main(int argc, char **argv)
     CoordinatorAPI::connectAndSendUserCommand(*cmd, &coordCmdStatus);
     printf("Interval changed to %s\n", interval.c_str());
     break;
-  case 'b': case 'B':
+  case 'b':
   case 'K':
 
     // blocking prefix
