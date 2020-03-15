@@ -7,7 +7,7 @@ Summary:	Checkpoint/Restart functionality for Linux processes
 Group:		Applications/System
 License:	LGPLv3+
 URL:		http://dmtcp.sourceforge.net
-Source0:	http://downloads.sourceforge.net/%{name}/%{name}-%{version}.tar.gz
+Source0:	http://downloads.sourceforge.net/%{name}/file/2.6.1/%{name}-%{version}.tar.gz
 BuildRequires:	python3, gcc-c++
 
 # This package is functional only on i386, x86_64 and aarch64 architectures.
