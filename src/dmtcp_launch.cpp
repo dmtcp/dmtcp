@@ -130,6 +130,9 @@ static const char *theUsage =
   "              (default: disabled)\n"
   "  --ib, --infiniband\n"
   "              Enable InfiniBand plugin. (default: disabled)\n"
+  "  --spades    Enable support for spades.py\n"
+  "              (-o <output-dir> spades.py option is required)\n"
+  "              (default: disabled).\n"
   "  --disable-alloc-plugin: (environment variable DMTCP_ALLOC_PLUGIN=[01])\n"
   "              Disable alloc plugin (default: enabled).\n"
   "  --disable-dl-plugin: (environment variable DMTCP_DL_PLUGIN=[01])\n"
@@ -179,6 +182,7 @@ static bool enableIPCPlugin = true;
 static bool enableSvipcPlugin = true;
 static bool enablePathVirtPlugin = false;
 static bool enableTimerPlugin = true;
+static bool enableSpadesPlugin = false;
 
 #ifdef UNIQUE_CHECKPOINT_FILENAMES
 static bool enableUniqueCkptPlugin = true;
@@ -210,6 +214,7 @@ static struct PluginInfo pluginInfo[] = {               // Default value
   { &enableSvipcPlugin, "libdmtcp_svipc.so" },          // Enabled
   { &enablePathVirtPlugin,  "libdmtcp_pathvirt.so"},    // Disabled
   { &enableTimerPlugin, "libdmtcp_timer.so" },          // Enabled
+  { &enableSpadesPlugin, "libdmtcp_spades.so" },        // Disabled
   { &enableLibDMTCP, "libdmtcp.so" },                   // Enabled
   // PID plugin must come last.
   { &enablePIDPlugin, "libdmtcp_pid.so" }               // Enabled
@@ -331,6 +336,9 @@ processArgs(int *orig_argc, const char ***orig_argv)
       shift;
     } else if (s == "--ib2tcp") {
       enableIB2TcpPlugin = true;
+      shift;
+    } else if (s == "--spades") {
+      enableSpadesPlugin = true;
       shift;
     } else if (s == "--disable-alloc-plugin") {
       setenv(ENV_VAR_ALLOC_PLUGIN, "0", 1);
@@ -608,7 +616,23 @@ main(int argc, const char **argv)
                          &localIPAddr);
 
   setLDPreloadLibs(is32bitElf);
-
+  if (enableSpadesPlugin) {
+    // default value
+    setenv(ENV_VAR_SPADES_TMPDIR, "", 1);
+    for (int i = 0; argc > 0 && i < argc; i++)
+    {
+      string s = argv[i];
+      if (s == "--test") {
+        setenv(ENV_VAR_SPADES_OUTDIR, Util::abspath("spades_test"), 1);
+      }
+      if ((i < argc -1) && (s == "-o")) {
+        setenv(ENV_VAR_SPADES_OUTDIR, Util::abspath(argv[i+1]), 1);
+      }
+      if ((i < argc -1) && (s == "--tmpdir")) {
+        setenv(ENV_VAR_SPADES_TMPDIR, Util::abspath(argv[i+1]), 1);
+      }
+    }
+  }
   // run the user program
   const char **newArgv = NULL;
   if (testScreen(argv, &newArgv)) {
