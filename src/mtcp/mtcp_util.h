@@ -184,4 +184,8 @@ int mtcp_strstartswith (const char *s1, const char *s2);
 int mtcp_strendswith (const char *s1, const char *s2);
 int mtcp_readmapsline (int mapsfd, Area *area);
 void mtcp_sys_memcpy (void *dstpp, const void *srcpp, size_t len);
-#endif
+int mtcp_strstartswith(const char *s1, const char *s2);
+int mtcp_strendswith(const char *s1, const char *s2);
+int mtcp_readmapsline(int mapsfd, Area *area);
+void mtcp_sys_memcpy(void *dstpp, const void *srcpp, size_t len);
+#endif // ifndef _MTCP_UTIL_H
