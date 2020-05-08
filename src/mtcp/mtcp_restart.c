@@ -1091,10 +1091,9 @@ read_one_memory_area(int fd, VA endOfStack)
 
     /*
      * The function is not used but is truer to maintaining the user's
-     * view of /proc/*/
-    maps.It can be enabled again in the future after
-    *we fix the logic to handle zero - sized files.
-    * /
+     * view of /proc/ * /maps. It can be enabled again in the future after
+     * we fix the logic to handle zero-sized files.
+     */
     if (imagefd >= 0) {
       adjust_for_smaller_file_size(&area, imagefd);
     }

@@ -175,6 +175,7 @@ void mtcp_strncat(char *dest, const char *src, size_t n);
 int mtcp_strncmp(const char *s1, const char *s2, size_t n);
 int mtcp_strcmp(const char *s1, const char *s2);
 char *mtcp_strchr(const char *s, int c);
+char *mtcp_strrchr(const char *s, int c);
 int mtcp_strstartswith(const char *s1, const char *s2);
 int mtcp_strendswith(const char *s1, const char *s2);
 int mtcp_readmapsline(int mapsfd, Area *area);
