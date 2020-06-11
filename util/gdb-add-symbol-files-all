@@ -161,7 +161,7 @@ def procmap_filename_address(line):
          tuple([int("0x"+elt, 16) for elt in triple[0].split("-")])
 def memory_regions():
   if getpid() == 0:
-    sys.write.stderr("\n*** Process not running! ***\n")
+    sys.stderr.write("\n*** Process not running! ***\n")
     sys.exit(1)
   p = subprocess.Popen(["cat", "/proc/"+str(getpid())+"/maps"],
                        stdout = subprocess.PIPE)
