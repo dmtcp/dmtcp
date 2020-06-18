@@ -1,9 +1,14 @@
 #!/usr/bin/env python
-# This file is a hack, meant to overcome the disabling of the logic for
+# This file is deprecated.  It is a hack, to augment the logic for
 #   'add-symbol-file libdmtcp.so' in mtcp/mtcp_restart.c
-# If that logic is restored, this file should be deleted. 
-# Without this file or that logic, it is almost impossible to use
-#   gdb in debugging mtcp_restart.c and the related functions.
+# A better version is util/gdb-add-symbol-files-all.  Read heading for info.
+# If /proc/PID/maps contains a memory region labelled by libdmtcp.so,
+#   then a simpler alternative is:
+#    (gdb) source gdb-add-symbol-files-all
+#    (gdb) add-symbol-files-all
+# Else if the libdmtcp.so label is missing then:
+#    (gdb) source gdb-add-symbol-files-all
+#    (gdb) add-symbol-file-from-filename-and-address .../libdmtcp.so ADDR
 
 import os
 import sys
@@ -42,7 +47,7 @@ file = open("/proc/"+str(pid)+"/maps")
 gdbCmd = ""
 for line in file:
   fields = line.split()[0:2]
-  fields = map(lambda(x):int(x,16), fields[0].split("-")) + [fields[1]]
+  fields = [int(x,16) for x in fields[0].split("-")] + [fields[1]]
   if fields[0] <= pc and pc < fields[1] and re.match("r.x.", fields[2]):
     readelf = subprocess.Popen(
         "/usr/bin/readelf -S "+libdmtcp+" | grep '\.text'",

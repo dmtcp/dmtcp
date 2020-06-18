@@ -632,7 +632,11 @@ static void restorememoryareas(RestoreInfo *rinfo_ptr)
       "  gdb PROGRAM_NAME %d\n"
       "You should now be in 'ThreadList::postRestartDebug()'\n"
       "  (gdb) list\n"
-      "  (gdb) p dummy = 0\n", mtcp_sys_getpid()
+      "  (gdb) p dummy = 0\n"
+      "  # Since Linux 3.10 (prctl:PR_SET_MM), you will also need to do:\n"
+      "  (gdb) source DMTCP_ROOT/util/gdb-add-symbol-files-all\n",
+      "  (gdb) add-symbol-files-all\n",
+      mtcp_sys_getpid()
     );
     restore_info.post_restart_debug(restore_info.mtcp_restart_pause);
     // int dummy = 1;
