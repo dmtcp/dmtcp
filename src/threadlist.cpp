@@ -715,7 +715,7 @@ ThreadList::postRestartDebug(double readTime, int restartPause)
   printf("**        If GDB doesn't show source, re-configure and re-compile\n");
 #endif
   if (restartPause == 1) {
-    // If we're here, user set env. to DMTCP_RESTART_PAUSE==0; is expecting this
+    // If we're here, user set env. to DMTCP_RESTART_PAUSE==1; is expecting this
     volatile int dummy = 1;
     while (dummy);
     // User should have done GDB attach if we're here.
