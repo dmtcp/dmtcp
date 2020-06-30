@@ -667,6 +667,9 @@ AARCH64_HOST_TRUE
 ARM_HOST
 ARM_HOST_FALSE
 ARM_HOST_TRUE
+X64_HOST
+X64_HOST_FALSE
+X64_HOST_TRUE
 MULTILIB
 CONFIG_MULTILIB_FALSE
 CONFIG_MULTILIB_TRUE
@@ -6467,7 +6470,24 @@ case "$host_cpu" in
   arm*) is_arm_host=yes ;;
   aarch64*) is_aarch64_host=yes ;;
   i?86) is_i486_host=yes ;;
+  x86_64) is_x64_host=yes ;;
 esac
+
+ if test "$is_x64_host" == "yes"; then
+  X64_HOST_TRUE=
+  X64_HOST_FALSE='#'
+else
+  X64_HOST_TRUE='#'
+  X64_HOST_FALSE=
+fi
+
+if test "$is_x64_host" == "yes"; then
+  X64_HOST=yes
+
+else
+  X64_HOST=no
+
+fi
 
  if test "$is_arm_host" == "yes"; then
   ARM_HOST_TRUE=
@@ -8315,6 +8335,10 @@ Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${CONFIG_MULTILIB_TRUE}" && test -z "${CONFIG_MULTILIB_FALSE}"; then
   as_fn_error $? "conditional \"CONFIG_MULTILIB\" was never defined.
+Usually this means the macro was only invoked conditionally." "$LINENO" 5
+fi
+if test -z "${X64_HOST_TRUE}" && test -z "${X64_HOST_FALSE}"; then
+  as_fn_error $? "conditional \"X64_HOST\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${ARM_HOST_TRUE}" && test -z "${ARM_HOST_FALSE}"; then
