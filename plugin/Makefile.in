@@ -394,6 +394,7 @@ TEST_POSIX_MQ = @TEST_POSIX_MQ@
 USE_TEST_SUITE = @USE_TEST_SUITE@
 VERSION = @VERSION@
 VIM = @VIM@
+X64_HOST = @X64_HOST@
 abs_builddir = @abs_builddir@
 abs_srcdir = @abs_srcdir@
 abs_top_builddir = @abs_top_builddir@

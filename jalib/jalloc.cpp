@@ -103,56 +103,31 @@ _dealloc_raw(void *ptr, size_t n)
  * Atomically compares the word at the given 'oldValue' address with the
  * word at the given 'dst' address. If the two words are equal, the word
  * at 'dst' address is changed to the word at 'newValue' address.
- * The function returns a non-zero value if the exchange was successful.
- * If the exchange is not successfully, the function returns 0.
+ * The function returns true if the exchange was successful.
+ * If the exchange is not successfully, the function returns false.
  */
-static inline uint8_t
+static inline bool
 bool_atomic_dwcas(void volatile *dst, void *oldValue, void *newValue)
 {
   uint8_t result = 0;
 #ifdef __x86_64__
-  /*
-   * Pointers are 64-bits and so we can't really use the built-in
-   * __sync_bool_compare_and_swap here because gcc only supports 8
-   * Byte compare-and-swap. So, we need to hand roll a version of
-   * compare-and-swap using "cmpxchg16b" that can handle 16 Bytes at a
-   * time. For 32-bit systems, we can continue to use the built-in 64-bit
-   * (8 Byte) compare-and-swap.
-   */
-
-  // Useful type definition for inline assembly below
-  struct uint128_t {
-    uint64_t low_word;
-    uint64_t high_word;
-  };
-  asm volatile (
-    "lock cmpxchg16b %1;"       // cmpxchg16b compares RDX:RAX with m128,
-                                //   if equal,
-                                //     sets ZF and loads RCX:RBX into m128
-                                //   else,
-                                //     clears ZF and loads RDX:RAX into m128
-    "setz %0"                   // Set result to 1, if ZF is set
-    : // output
-      "=q" (result), // Use any register with addressable lower byte
-      "+m" (*(uint128_t*)dst),  // Output goes to memory
-      "+d" (((uint128_t*)oldValue)->high_word), // Use D register for higher 64 bits
-      "+a" (((uint128_t*)oldValue)->low_word)   // Use A register for lower 64 bits
-    : // input
-      "c" (((uint128_t*)newValue)->high_word),  // Use C register for higher 64 bits
-      "b" (((uint128_t*)newValue)->low_word)    // Use B register for lower 64 bits
-    : // clobber
-  );
+  typedef unsigned __int128 uint128_t;
+  // This requires compiling with -mcx16
+  result = __sync_bool_compare_and_swap((uint128_t volatile *)dst,
+                                        *(uint128_t*)oldValue,
+                                        *(uint128_t*)newValue);
 #elif __arm__ || __i386__
   result = __sync_bool_compare_and_swap((uint64_t volatile *)dst,
                                         *(uint64_t*)oldValue,
                                         *(uint64_t*)newValue);
 #elif __aarch64__
-  result = __atomic_compare_exchange((__int128*)dst,
-                                     (__int128*)oldValue,
-                                     (__int128*)newValue, 0,
+  typedef unsigned __int128 uint128_t;
+  result = __atomic_compare_exchange((uint128_t*)dst,
+                                     (uint128_t*)oldValue,
+                                     (uint128_t*)newValue, 0,
                                       __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
 #endif /* if __x86_64__ */
-  return result;
+  return result != 0;
 }
 
 template<size_t _N>
