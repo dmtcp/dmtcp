@@ -642,10 +642,12 @@ if test "$mpich_path_prefix" != "no"; then
   mpich_path="$mpich_path_prefix:$mpich_path_prefix/bin"
 else
   # Let's see if we can find mpicc in the default path
-  mpiccpath=`which mpicc`
-  mpicclink=`readlink -f $mpiccpath`
-  if test "`basename $mpicclink`" = mpicc.mpich; then
-    mpich_path=`dirname $mpiccpath`
+  mpiccpath=`which mpicc 2>/dev/null`
+  if test ! -z "$mpiccpath"; then
+    mpicclink=`readlink -f $mpiccpath`
+    if test "`basename $mpicclink`" = mpicc.mpich; then
+      mpich_path=`dirname $mpiccpath`
+    fi
   fi
 fi
 if test "mpich_path" != "no"; then
