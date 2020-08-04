@@ -148,15 +148,8 @@ Util::initializeLogFile(const char *tmpDir,
     a << "\nPrev JAssertLog path: " << prevLogPath;
   }
 
-  a << "\nArgv: ";
-  vector<string>args = jalib::Filesystem::GetProgramArgs();
-  size_t i;
-  for (i = 0; i < args.size(); i++) {
-    a << " " << args[i];
-  }
-
   a << "\nEnvironment: ";
-  for (i = 0; environ[i] != NULL; i++) {
+  for (size_t i = 0; environ[i] != NULL; i++) {
     a << " " << environ[i] << ";";
   }
   a << "\n========================================\n";

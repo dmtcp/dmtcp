@@ -330,112 +330,6 @@ ProcessInfo::processRlimit()
 }
 
 void
-ProcessInfo::calculateArgvAndEnvSize()
-{
-  vector<string>args = jalib::Filesystem::GetProgramArgs();
-  _argvSize = 0;
-  for (size_t i = 0; i < args.size(); i++) {
-    _argvSize += args[i].length() + 1;
-  }
-
-  _envSize = 0;
-  if (environ != NULL) {
-    char *ptr = environ[0];
-    while (*ptr != '\0' && args[0].compare(ptr) != 0) {
-      _envSize += strlen(ptr) + 1;
-      ptr += strlen(ptr) + 1;
-    }
-  }
-  _envSize += args[0].length();
-}
-
-#ifdef RESTORE_ARGV_AFTER_RESTART
-void Process : Info::restoreArgvAfterRestart(char *mtcpRestoreArgvStartAddr)
-{
-  /*
-   * The addresses where argv of mtcp_restart process starts. /proc/PID/cmdline
-   * information is looked up from these addresses.  We observed that the
-   * stack base for mtcp_restart is always 0x7ffffffff000 in 64-bit system and
-   * 0xc0000000 in case of 32-bit systems.  Once we restore the checkpointed
-   * process's memory, we will map the pages ending in these address into the
-   * process's memory if they are unused i.e. not mapped by the process (which
-   * is true for most processes running with ASLR).  Once we map them, we can
-   * put the argv of the checkpointed process in there so that
-   * /proc/self/cmdline shows the correct values.
-   * Note that if compiled in 32-bit mode '-m32', the stack base address
-   * is in still a different location, and so this logic is not valid.
-   */
-  JASSERT(mtcpRestoreArgvStartAddr != NULL);
-
-  long page_size = sysconf(_SC_PAGESIZE);
-  long page_mask = ~(page_size - 1);
-  char *startAddr =
-    (char *)((unsigned long)mtcpRestoreArgvStartAddr & page_mask);
-
-  size_t len;
-  len = (ProcessInfo::instance().argvSize() + page_size) & page_mask;
-
-  // Check to verify if any page in the given range is already mmap()'d.
-  // It assumes that the given addresses may belong to stack only, and if
-  // mapped, will have read+write permissions.
-  for (size_t i = 0; i < len; i += page_size) {
-    int ret = mprotect((char *)startAddr + i, page_size,
-                       PROT_READ | PROT_WRITE);
-    if (ret != -1 || errno != ENOMEM) {
-      _mtcpRestoreArgvStartAddr = NULL;
-      return;
-    }
-  }
-
-  // None of the pages are mapped -- it is safe to mmap() them
-  void *retAddr = mmap((void *)startAddr, len, PROT_READ | PROT_WRITE,
-                       MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
-  if (retAddr != MAP_FAILED) {
-    JTRACE("Restoring /proc/self/cmdline")
-      (mtcpRestoreArgvStartAddr) (startAddr) (len) (JASSERT_ERRNO);
-    vector<string>args = jalib::Filesystem::GetProgramArgs();
-    char *addr = mtcpRestoreArgvStartAddr;
-
-    // Do NOT change restarted process's /proc/self/cmdline.
-    // args[0] = DMTCP_PRGNAME_PREFIX + args[0];
-    for (size_t i = 0; i < args.size(); ++i) {
-      if (addr + args[i].length() >= startAddr + len) {
-        break;
-      }
-      strcpy(addr, args[i].c_str());
-      addr += args[i].length() + 1;
-    }
-    _mtcpRestoreArgvStartAddr = startAddr;
-  } else {
-    JTRACE("Unable to restore /proc/self/cmdline") (startAddr) (len) (
-      JASSERT_ERRNO);
-    _mtcpRestoreArgvStartAddr = NULL;
-  }
-  return;
-}
-
-static char *_mtcpRestoreArgvStartAddr = NULL;
-
-// FIXME(kapil): Call this after restart has finished.
-static void
-unmapRestoreArgv()
-{
-  long page_size = sysconf(_SC_PAGESIZE);
-  long page_mask = ~(page_size - 1);
-
-  if (_mtcpRestoreArgvStartAddr != NULL) {
-    JTRACE("Unmapping previously mmap()'d pages (that were mmap()'d for "
-           "restoring argv");
-    size_t len;
-    len = (ProcessInfo::instance().argvSize() + page_size) & page_mask;
-    JASSERT(_real_munmap(_mtcpRestoreArgvStartAddr, len) == 0)
-      (_mtcpRestoreArgvStartAddr) (len)
-    .Text("Failed to munmap extra pages that were mapped during restart");
-  }
-}
-#endif // ifdef RESTORE_ARGV_AFTER_RESTART
-
-void
 ProcessInfo::updateCkptDirFileSubdir(string newCkptDir)
 {
   if (newCkptDir != "") {
@@ -546,10 +440,6 @@ ProcessInfo::restart()
       }
     }
   }
-
-#ifdef RESTORE_ARGV_AFTER_RESTART
-  restoreArgvAfterRestart(char *mtcpRestoreArgvStartAddr);
-#endif // ifdef RESTORE_ARGV_AFTER_RESTART
 
   restoreProcessGroupInfo();
   _real_close(PROTECTED_ENVIRON_FD);
@@ -779,7 +669,7 @@ ProcessInfo::serialize(jalib::JBinarySerializer &o)
   o & _upid & _uppid;
   o & _clock_gettime_offset & _getcpu_offset
     & _gettimeofday_offset & _time_offset;
-  o & _compGroup & _numPeers & _noCoordinator & _argvSize & _envSize;
+  o & _compGroup & _numPeers & _noCoordinator;
   o & _restoreBufAddr & _savedHeapStart & _savedBrk;
   o & _vdsoStart & _vdsoEnd & _vvarStart & _vvarEnd & _endOfStack;
   o & _ckptDir & _ckptFileName & _ckptFilesSubDir;
@@ -787,7 +677,7 @@ ProcessInfo::serialize(jalib::JBinarySerializer &o)
   JTRACE("Serialized process information")
     (_sid) (_ppid) (_gid) (_fgid) (_isRootOfProcessTree)
     (_procname) (_hostname) (_launchCWD) (_ckptCWD) (_upid) (_uppid)
-    (_compGroup) (_numPeers) (_noCoordinator) (_argvSize) (_envSize) (_elfType);
+    (_compGroup) (_numPeers) (_noCoordinator) (_elfType);
 
   JASSERT(!_noCoordinator || _numPeers == 1) (_noCoordinator) (_numPeers);
 
