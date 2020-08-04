@@ -55,8 +55,6 @@ class PluginManager
 #endif
 
   private:
-    void initializePlugins();
-
     vector<PluginInfo *>pluginInfos;
 };
 }
