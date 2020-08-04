@@ -98,8 +98,6 @@ class WrapperLock
     WrapperLock(bool _exclusiveLock = false)
       : exclusiveLock(_exclusiveLock)
     {
-      dmtcp_initialize_entry_point();
-
       if (exclusiveLock) {
         lockAcquired = ThreadSync::wrapperExecutionLockLockExcl();
         dmtcp::ThreadSync::unsetOkToGrabLock();
