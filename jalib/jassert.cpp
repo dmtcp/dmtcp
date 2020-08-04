@@ -69,7 +69,7 @@ tmpDir()
   if (s == NULL) {
     // Technically, this is a memory leak, but s is static and so it happens
     // only once.
-    s = new dmtcp::string();
+    s = new (JALLOC_MALLOC(sizeof(dmtcp::string))) dmtcp::string();
   }
   return *s;
 }
@@ -81,7 +81,7 @@ uniquePidStr()
   if (s == NULL) {
     // Technically, this is a memory leak, but s is static and so it happens
     // only once.
-    s = new dmtcp::string();
+    s = new (JALLOC_MALLOC(sizeof(dmtcp::string))) dmtcp::string();
   }
   return *s;
 }
@@ -183,7 +183,7 @@ theLogFilePath() {
   if (s == NULL) {
     // Technically, this is a memory leak, but s is static and so it happens
     // only once.
-    s = new dmtcp::string();
+    s = new (JALLOC_MALLOC(sizeof(dmtcp::string))) dmtcp::string();
   }
   return *s;
 }

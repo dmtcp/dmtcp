@@ -322,7 +322,6 @@ dmtcp_initialize_entry_point()
           programName != "ssh")
     (programName).Text("This program should not be run under ckpt control");
 
-  ProcessInfo::instance().calculateArgvAndEnvSize();
   restoreUserLDPRELOAD();
 
   if (ibv_get_device_list && !dmtcp_infiniband_enabled) {

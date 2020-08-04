@@ -103,13 +103,6 @@ class ProcessInfo
     uint32_t incrementNumRestarts() { return _numRestarts++; }
 
     void processRlimit();
-    void calculateArgvAndEnvSize();
-#ifdef RESTORE_ARGV_AFTER_RESTART
-    void restoreArgvAfterRestart(char *mtcpRestoreArgvStartAddr);
-#endif // ifdef RESTORE_ARGV_AFTER_RESTART
-    size_t argvSize() { return _argvSize; }
-
-    size_t envSize() { return _envSize; }
 
     const string &procname() const { return _procname; }
 
@@ -185,8 +178,6 @@ class ProcessInfo
 
     uint32_t _numPeers;
     uint32_t _noCoordinator;
-    uint32_t _argvSize;
-    uint32_t _envSize;
     uint32_t _elfType;
 
     string _procname;
