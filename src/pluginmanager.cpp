@@ -32,12 +32,12 @@ PluginManager::initialize()
 {
   if (pluginManager == NULL) {
     pluginManager = new PluginManager();
-  }
 
-  // Now initialize plugins.
-  // Call into other plugins to have them register with us.
-  if (dmtcp_initialize_plugin != NULL) {
-    dmtcp_initialize_plugin();
+    // Now initialize plugins.
+    // Call into other plugins to have them register with us.
+    if (dmtcp_initialize_plugin != NULL) {
+      dmtcp_initialize_plugin();
+    }
   }
 }
 
@@ -73,7 +73,7 @@ dmtcp_initialize_plugin()
 void
 PluginManager::eventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
-  JASSERT(pluginManager != NULL);
+  PluginManager::initialize();
 
   switch (event) {
   // case DMTCP_EVENT_WRAPPER_INIT, // Future Work :-).
