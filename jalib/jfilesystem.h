@@ -60,8 +60,6 @@ dmtcp::string DirName(const dmtcp::string &str);
 dmtcp::string BaseName(const dmtcp::string &str);
 int mkdir_r(const dmtcp::string &dir, mode_t mode);
 
-dmtcp::vector<dmtcp::string> GetProgramArgs();
-
 dmtcp::vector<int> ListOpenFds();
 
 dmtcp::string GetControllingTerm(pid_t pid = -1);
