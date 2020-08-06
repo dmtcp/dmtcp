@@ -92,8 +92,8 @@ ConnectionList::clone()
   list->numIncomingCons = numIncomingCons;
   DmtcpMutexInit(&list->_lock, DMTCP_MUTEX_NORMAL);
 
-  for (const auto &kv : _connections) {
-    Connection *con = kv.second->clone();
+  for (iterator it = _connections.begin(); it != _connections.end(); it++) {
+    Connection *con = it->second->clone();
     list->_connections[con->id()] = con;
 
     const vector<int32_t> fds = con->getFds();
@@ -107,8 +107,8 @@ ConnectionList::clone()
 
 ConnectionList::~ConnectionList()
 {
-  for (const auto &kv : _connections) {
-    delete kv.second;
+  for (iterator it = _connections.begin(); it != _connections.end(); it++) {
+    delete it->second;
   }
 }
 

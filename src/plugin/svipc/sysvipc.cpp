@@ -301,8 +301,8 @@ SysVIPC::SysVIPC(const char *str, int32_t id, int type)
 
 SysVIPC::~SysVIPC()
 {
-  for (const auto &kv : _map) {
-    delete kv.second;
+  for (Iterator it = _map.begin(); it != _map.end(); it++) {
+    delete it->second;
   }
 }
 
@@ -311,8 +311,8 @@ SysVIPC::clone()
 {
   SysVIPC *obj = cloneInstance();
 
-  for (const auto &kv : _map) {
-    obj->_map[kv.first] = kv.second->clone();
+  for (Iterator it = _map.begin(); it != _map.end(); it++) {
+    obj->_map[it->first] = it->second->clone();
   }
 
   return obj;
