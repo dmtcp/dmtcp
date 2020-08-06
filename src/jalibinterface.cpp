@@ -20,6 +20,7 @@
  ****************************************************************************/
 
 #include "../jalib/jalib.h"
+#include "../jalib/jassert.h"
 #include "../jalib/jbuffer.h"
 #include "dmtcp.h"
 #include "protectedfds.h"
@@ -63,4 +64,5 @@ initializeJalib()
 
   // To force linkage of jbuffer.cpp
   static jalib::JBuffer *buf = new jalib::JBuffer(0);
+  JASSERT(buf != nullptr);
 }

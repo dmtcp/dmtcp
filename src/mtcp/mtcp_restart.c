@@ -974,7 +974,7 @@ read_one_memory_area(int fd, VA endOfStack)
    * prepareMtcpHeader() in threadlist.cpp and ProcessInfo::growStack()
    * in processinfo.cpp.
    */
-  if (area.name[0] && mtcp_strstr(area.name, "stack")
+  if ((area.name[0] && mtcp_strstr(area.name, "stack"))
       || (area.endAddr == endOfStack)) {
     area.flags = area.flags | MAP_GROWSDOWN;
     DPRINTF("Detected stack area. End of stack (%p); Area end address (%p)\n",
@@ -1340,7 +1340,6 @@ remapMtcpRestartToReservedArea(RestoreInfo *rinfo)
     mtcp_abort();
   }
 
-  VA target_addr = rinfo->restore_addr;
   size_t i;
   for (i = 0; i < num_regions; i++) {
     void *addr = mtcp_sys_mmap(mem_regions[i].addr + restore_region_offset,
