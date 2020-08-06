@@ -1,6 +1,12 @@
 # Allow containerized builds.
 sudo: false
 
+addons:
+  apt:
+    packages:
+    - tcsh
+    - zsh
+    
 language: cpp
 compiler:
   - gcc
