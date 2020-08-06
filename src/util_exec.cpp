@@ -537,7 +537,7 @@ char *
 Util::getPath(const char *cmd, bool is32bit)
 {
   // search relative to base dir of dmtcp installation.
-  char * const p1[] = {
+  const char * const p1[] = {
     "/bin/",
     "/lib64/dmtcp/",
     "/lib/dmtcp/",

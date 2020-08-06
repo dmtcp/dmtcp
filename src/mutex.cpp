@@ -4,8 +4,6 @@
 #include "syscallwrappers.h"
 
 
-static const int zero = 0;
-
 /*
  * Mutex
  */

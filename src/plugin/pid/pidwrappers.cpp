@@ -565,6 +565,7 @@ wait4(pid_t pid, __WAIT_STATUS status, int options, struct rusage *rusage)
   return virtualPid;
 }
 
+#if 0
 extern "C" long
 ptrace(enum __ptrace_request request, ...)
 {
@@ -604,6 +605,7 @@ ptrace(enum __ptrace_request request, ...)
 
   return ptrace_ret;
 }
+#endif
 
 extern "C" int
 fcntl(int fd, int cmd, ...)
