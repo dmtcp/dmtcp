@@ -386,11 +386,11 @@ PtyConnection::postRestart()
         controllingTty = jalib::Filesystem::GetControllingTerm(getppid());
       }
       stdinDeviceName = (jalib::Filesystem::GetDeviceName(STDIN_FILENO));
-      if (controllingTty.c_str() == stdinDeviceName ||
-           (Util::strStartsWith(controllingTty.c_str(), "/dev/pts/") &&
+      if (controllingTty.c_str() == stdinDeviceName &&
+           ((Util::strStartsWith(controllingTty.c_str(), "/dev/pts/") &&
             Util::strStartsWith(stdinDeviceName.c_str(), "pipe:")) ||
            (Util::strStartsWith(controllingTty.c_str(), "/dev/pts/") &&
-            Util::strStartsWith(stdinDeviceName.c_str(), "socket:"))
+            Util::strStartsWith(stdinDeviceName.c_str(), "socket:")))
          ) {
         // We should inherit the controlling terminal, /dev/tty, and session
         //   id of our caller.
