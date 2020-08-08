@@ -141,7 +141,7 @@ int dup2(int oldfd, int newfd) {
   struct rlimit file_limit;
   getrlimit(RLIMIT_NOFILE, &file_limit);
   JASSERT ( (unsigned int)newfd < file_limit.rlim_cur )
-          (newfd)(file_limit.rlim_cur)
+          (oldfd)(newfd)(file_limit.rlim_cur)
           .Text("dup2: newfd is >= current limit on number of files");
   REAL_FUNC_PASSTHROUGH(int, dup2) (oldfd, newfd);
 }

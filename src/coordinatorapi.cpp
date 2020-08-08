@@ -256,7 +256,7 @@ void init()
 void resetCoordinatorSocket(int sock)
 {
   JASSERT(Util::isValidFd(sock));
-  JASSERT(sock != PROTECTED_COORD_FD);
+  JASSERT(sock != (int)PROTECTED_COORD_FD);
   Util::changeFd(sock, PROTECTED_COORD_FD);
   JASSERT(Util::isValidFd(coordinatorSocket()));
 
@@ -884,7 +884,7 @@ sendQueryToCoordinator(const char *id,
       nsSock = createNewSocketToCoordinator(COORD_ANY);
       JASSERT(nsSock != -1);
       nsSock = Util::changeFd(nsSock, PROTECTED_NS_FD);
-      JASSERT(nsSock == PROTECTED_NS_FD);
+      JASSERT(nsSock == (int)PROTECTED_NS_FD);
       DmtcpMessage m(DMT_NAME_SERVICE_WORKER);
       JASSERT(Util::writeAll(nsSock, &m, sizeof(m)) == sizeof(m));
     }
@@ -935,7 +935,7 @@ int getUniqueIdFromCoordinator(const char *id,
       nsSock = createNewSocketToCoordinator(COORD_ANY);
       JASSERT(nsSock != -1);
       nsSock = Util::changeFd(nsSock, PROTECTED_NS_FD);
-      JASSERT(nsSock == PROTECTED_NS_FD);
+      JASSERT(nsSock == (int)PROTECTED_NS_FD);
       DmtcpMessage m(DMT_NAME_SERVICE_WORKER);
       JASSERT(Util::writeAll(nsSock, &m, sizeof(m)) == sizeof(m));
     }
@@ -972,7 +972,7 @@ sendQueryAllToCoordinator(const char *id, void **buf, int *len)
       nsSock = createNewSocketToCoordinator(COORD_ANY);
       JASSERT(nsSock != -1);
       nsSock = Util::changeFd(nsSock, PROTECTED_NS_FD);
-      JASSERT(nsSock == PROTECTED_NS_FD);
+      JASSERT(nsSock == (int)PROTECTED_NS_FD);
       DmtcpMessage m(DMT_NAME_SERVICE_WORKER);
       JASSERT(Util::writeAll(nsSock, &m, sizeof(m)) == sizeof(m));
     }
