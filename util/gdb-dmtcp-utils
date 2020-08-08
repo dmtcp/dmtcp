@@ -18,6 +18,8 @@
 python
 import subprocess
 import re
+import os
+import textwrap
 
 # This adds a GDB command:  add-symbol-files-all    (no arguments)
 # To use it, either do:
@@ -27,8 +29,16 @@ import re
 #     gdb attach PID
 #     (gdb) source gdb-add-symbol-files-all
 #     (gdb) add-symbol-files-all
+#       [ TIP: You can also add 'source gdb-add-symbol-files-all' to ~/gdbinit ]
 # This also adds GDB commands:
+#     (gdb) dmtcp [or DMTCP]  # Prints out a list of available GDB commands for DMTCP.
 #     (gdb) procmaps
+#     (gdb) procfd
+#     (gdb) procfdinfo
+#     (gdb) procenviron
+#     (gdb) pstree
+#     (gdb) lsof
+#     (gdb) rlimit
 #     (gdb) add-symbol-file-from-filename-and-address FILENAME ADDRESS
 #         (Needed if FILENAME not listed in procmaps;
 #          Better version of add-symbol-file; ADDRESS anywhere in memory range)
@@ -38,6 +48,19 @@ import re
 #     (gdb) add-symbol-file-at-address MEMORY_ADDRESS
 #                                   (e.g., add-symbol-file-at-address 0x400000)
 
+dmtcp_commands = "dmtcp add-symbol-files-all " +\
+  "add-symbol-file-from-filename-and-address " +\
+  "add-symbol-file-from-substring add-symbol-file-at-address " +\
+  "show-filename-at-address " +\
+  "procmaps procfd procfdinfo procenviron pstree lsof rlimit"
+
+def print_dmtcp_commands():
+  print("GDB commands available for DMTCP:")
+  print("  ** ( NOTE:  help works:  (gdb) help <COMMAND> )")
+  print(textwrap.fill(dmtcp_commands, break_on_hyphens=False,
+                      initial_indent="    ", subsequent_indent="    "))
+
+  
 def is_executable(filename):
   # 16 bytes for ELF magic number; then 2 bytes (short) for ELF type
   header = open(filename, "rb")
@@ -80,6 +103,30 @@ def relocatesections(filename):
 
   return (textaddr, sections)
 
+
+class DMTCP(gdb.Command):
+  """DMTCP [prints list of GDB commands for DMTCP]"""
+
+  def __init__(self):
+    super(DMTCP,
+          self).__init__("DMTCP", gdb.COMMAND_FILES, gdb.COMPLETE_FILENAME)
+    self.dont_repeat()
+
+  def invoke(self, dummy_args, from_tty):
+    print_dmtcp_commands()
+DMTCP()
+
+class dmtcp(gdb.Command):
+  """dmtcp [prints list of GDB commands for DMTCP]"""
+
+  def __init__(self):
+    super(dmtcp,
+          self).__init__("dmtcp", gdb.COMMAND_FILES, gdb.COMPLETE_FILENAME)
+    self.dont_repeat()
+
+  def invoke(self, dummy_args, from_tty):
+    print_dmtcp_commands()
+dmtcp()
 
 class AddSymbolFileFromSubstring(gdb.Command):
   """add-symbol-file-from-substring FILENAME_SUBSTRING"""
@@ -193,13 +240,99 @@ class Procmaps(gdb.Command):
     super(Procmaps,
           self).__init__("procmaps", gdb.COMMAND_STATUS)
     self.dont_repeat()
-  def invoke(self, filename_substring, from_tty):
+  def invoke(self, dummy_args, from_tty):
     if getpid() == 0:
       gdb.execute('print "Process not yet started; type \'run\'"', False, False)
     else:
       gdb.execute("shell cat /proc/" + str(getpid()) + "/maps | less",
                   False, True)
 Procmaps()
+
+class Procfd(gdb.Command):
+  """procfd (same as:  shell ls -l /proc/INFERIOR_PID/fd)"""
+  def __init__(self):
+    super(Procfd,
+          self).__init__("procfd", gdb.COMMAND_STATUS)
+    self.dont_repeat()
+  def invoke(self, dummy_args, from_tty):
+    if getpid() == 0:
+      gdb.execute('print "Process not yet started; type \'run\'"', False, False)
+    else:
+      gdb.execute("shell ls -l /proc/" + str(getpid()) + "/fd", False, True)
+Procfd()
+
+class Procfdinfo(gdb.Command):
+  """procfdinfo (same as:  shell ls -l /proc/INFERIOR_PID/fdinfo/FD)"""
+  def __init__(self):
+    super(Procfdinfo,
+          self).__init__("procfdinfo", gdb.COMMAND_STATUS)
+    self.dont_repeat()
+  def invoke(self, fd_number, from_tty):
+    if getpid() == 0:
+      gdb.execute('print "Process not yet started; type \'run\'"', False, False)
+    else:
+      gdb.execute("shell ls -l /proc/" + str(getpid()) + "/fd/" + fd_number,
+                  False, True)
+      gdb.execute("shell cat /proc/" + str(getpid()) + "/fdinfo/" + fd_number,
+                  False, True)
+Procfdinfo()
+
+class Procenviron(gdb.Command):
+  """procenviron (same as:  cat /proc/INFERIOR_PID/environ | tr '\\0' '\\n' | less)"""
+  def __init__(self):
+    super(Procenviron,
+          self).__init__("procenviron", gdb.COMMAND_STATUS)
+    self.dont_repeat()
+  def invoke(self, dummy_args, from_tty):
+    if getpid() == 0:
+      gdb.execute('print "Process not yet started; type \'run\'"', False, False)
+    else:
+      gdb.execute("shell cat /proc/" + str(getpid()) + "/environ | tr '\\0' '\\n' | less",
+                  False, True)
+Procenviron()
+
+class Pstree(gdb.Command):
+  """pstree (same as:  shell pstree -plnu <$USER>)"""
+  def __init__(self):
+    super(Pstree,
+          self).__init__("pstree", gdb.COMMAND_STATUS)
+    self.dont_repeat()
+  def invoke(self, dummy_args, from_tty):
+    if getpid() == 0:
+      gdb.execute('print "Process not yet started; type \'run\'"', False, False)
+    else:
+      gdb.execute("shell pstree -plnu " + str(os.getenv("USER")), False, True)
+Pstree()
+
+class Lsof(gdb.Command):
+  """pstree (same as:  shell shell lsof -w [for this username])"""
+  def __init__(self):
+    super(Lsof,
+          self).__init__("lsof", gdb.COMMAND_STATUS)
+    self.dont_repeat()
+  def invoke(self, dummy_args, from_tty):
+    if getpid() == 0:
+      gdb.execute('print "Process not yet started; type \'run\'"', False, False)
+    else:
+      gdb.execute("shell lsof -w | grep '^[^ ]*  *[0-9][0-9]*  *" + str(os.getenv("USER")) +
+                  "  *[0-9]' | grep -v ^lsof | grep -v ^less | grep -v ^grep | less",
+                  False, True)
+Lsof()
+
+class Rlimit(gdb.Command):
+  """rlimit (info on rlimit/ulimit)"""
+  def __init__(self):
+    super(Rlimit,
+          self).__init__("rlimit", gdb.COMMAND_STATUS)
+    self.dont_repeat()
+  def invoke(self, dummy_args, from_tty):
+    if getpid() == 0:
+      gdb.execute('print "Process not yet started; type \'run\'"', False, False)
+    else:
+      gdb.execute("shell sh -c '(echo +++ Soft resource limits +++; ulimit -S -a;" +
+                  " echo \"\"; echo +++ Hard resource limits +++; ulimit -H -a)' | less",
+                  False, True)
+Rlimit()
 
 # For /proc/*/maps line: ADDR1-ADDR2 ... FILE; returns (FILE, ADDR1, ADDR2)
 def procmap_filename_address(line):
@@ -226,6 +359,9 @@ def memory_region(filename_substring):
   return [region for region in regions if filename_substring in region[0]][0]
 
 def memory_region_at_address(memory_address):
+  if "0x" not in memory_address and (set(str(memory_address)) & set("abcdef")):
+    print("Assuming " + memory_address + " is hexadecimal.")
+    memory_address = "0x" + memory_address
   memory_address = int(memory_address, 0)
   regions = memory_regions()
   match = [region for region in regions
@@ -233,5 +369,5 @@ def memory_region_at_address(memory_address):
   if match:
     return match[0]
   else:
-    return ("NOT_FOUND", 0, 0)
+    return ("NOT_FOUND (Did you intend the address in hex?)", 0, 0)
 end
