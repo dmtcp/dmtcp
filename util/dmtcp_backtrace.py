@@ -6,7 +6,7 @@ import subprocess
 
 # Set defaults
 host = subprocess.Popen("hostname", shell=True, stdout=subprocess.PIPE)
-host = host.stdout.read().rstrip()
+host = str(host.stdout.read().rstrip())
 dmtcpTmpDir = "/tmp/dmtcp-" + os.environ['USER'] + '@' + host + '/'
 (libdmtcp, tmpBacktrace, tmpProcMaps) = \
   ('libdmtcp.so', dmtcpTmpDir+'backtrace', dmtcpTmpDir+'proc-maps')
@@ -83,7 +83,7 @@ for callFrame in backtrace:
     else: # This subprocess prints to stdout
       # print(callFrame)
       # print(addr2line + hexOffset)
-      print("** FNC: ", end="")
+      os.write(sys.stdout.fileno(), "** FNC: ")
       sys.stdout.flush()
       subprocess.call(addr2line + hexOffset, shell=True)
   else:
