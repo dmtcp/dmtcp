@@ -6,3 +6,10 @@ compiler:
   - gcc
 
 script: ./configure && make -j4 && make tests && ./test/autotest.py --retry-once
+
+# NOTE: https://docs.travis-ci.com/user/running-build-in-debug-mode/
+# NOTE: https://docs.travis-ci.com/user/environment-variables/
+# NOTE: some environment vars available: /${TRAVIS_REPO_SLUG}/${TRAVIS_BUILD_NUMBER}/${TRAVIS_JOB_NUMBER}
+# NOTE: The after_script retrieves files suitable for util/dmtcp_backtrace.py; but we should
+#       call the utility in travis since our local libdmtcp.so binary is probably different.
+after_script: FILES=`ls -t /tmp/dmtcp-travis@travis-job-*/{proc-maps.*,backtrace.*} | head -6` && for file in $FILES; do echo ""; echo '*********' $file '*********'; cat $file; done
