@@ -1,5 +1,6 @@
 # Allow containerized builds.
 sudo: false
+dist: bionic
 
 addons:
   apt:
