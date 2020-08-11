@@ -62,6 +62,18 @@ static int errConsoleFd = -1;
 // and return a reference. Thus, we can use the function on the left-hand side
 // (as a lvalue) to modifying the underlying variable.
 
+  // FIXME:
+  // *******************************************************************
+  // * The next function is unmaintainable.  The function has zero     *
+  // * code related to its name (tmpDir, but see, tmpDir, uniquePidStr,*
+  // * theLogFilePath.  Each function has a hidden malloc() inside.    *
+  // * Each function has a static local variable with the name 's'.    *
+  // * It is almost impossible in GDB to print the value of the        *
+  // * variable 's'.  Instead,  in GDB, one should risk executing      *
+  // * application code, and possibly malloc(), in order to discover   *
+  // * the value of the hidden variable that a maintainer is not       *
+  // * allowed to look at directly in GDB.                             *
+  // *******************************************************************
 static dmtcp::string&
 tmpDir()
 {
@@ -74,6 +86,18 @@ tmpDir()
   return *s;
 }
 
+  // FIXME:
+  // *******************************************************************
+  // * The next function is unmaintainable.  The function has zero     *
+  // * code related to its name (tmpDir, but see, tmpDir, uniquePidStr,*
+  // * theLogFilePath.  Each function has a hidden malloc() inside.    *
+  // * Each function has a static local variable with the name 's'.    *
+  // * It is almost impossible in GDB to print the value of the        *
+  // * variable 's'.  Instead,  in GDB, one should risk executing      *
+  // * application code, and possibly malloc(), in order to discover   *
+  // * the value of the hidden variable that a maintainer is not       *
+  // * allowed to look at directly in GDB.                             *
+  // *******************************************************************
 static dmtcp::string&
 uniquePidStr()
 {
@@ -177,6 +201,18 @@ _open_log_safe(const dmtcp::string &s, int protectedFd)
   return _open_log_safe(s.c_str(), protectedFd);
 }
 
+  // FIXME:
+  // *******************************************************************
+  // * The next function is unmaintainable.  The function has zero     *
+  // * code related to its name (tmpDir, but see, tmpDir, uniquePidStr,*
+  // * theLogFilePath.  Each function has a hidden malloc() inside.    *
+  // * Each function has a static local variable with the name 's'.    *
+  // * It is almost impossible in GDB to print the value of the        *
+  // * variable 's'.  Instead,  in GDB, one should risk executing      *
+  // * application code, and possibly malloc(), in order to discover   *
+  // * the value of the hidden variable that a maintainer is not       *
+  // * allowed to look at directly in GDB.                             *
+  // *******************************************************************
 static dmtcp::string&
 theLogFilePath() {
   static dmtcp::string *s = NULL;
@@ -323,6 +359,18 @@ jassert_internal::set_log_file(const dmtcp::string &path,
                                const dmtcp::string _tmpDir,
                                const dmtcp::string &_uniquePidStr)
 {
+  // FIXME:
+  // *******************************************************************
+  // * The next three lines of code are unmaintainable.  Each function *
+  // * has zero code related to its name (tmpDir, uniquePidStr,        *
+  // * theLogFilePath.  Each function has a hidden malloc() inside.    *
+  // * Each function has a static local variable with the name 's'.    *
+  // * It is almost impossible in GDB to print the value of the        *
+  // * variable 's'.  Instead,  in GDB, one should risk executing      *
+  // * application code, and possibly malloc(), in order to discover   *
+  // * the value of the hidden variable that a maintainer is not       *
+  // * allowed to look at directly in GDB.                             *
+  // *******************************************************************
   tmpDir() = _tmpDir;
   uniquePidStr() = _uniquePidStr;
 
