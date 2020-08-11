@@ -95,15 +95,23 @@ extern "C" pid_t
 vfork()
 {
   char dummy = 0;
-  //
-  // TODO: Add more comments before committing the code.
-  //
 
   static __typeof__(&vfork) vforkPtr =
     (__typeof__(&vfork)) dmtcp_dlsym(RTLD_NEXT, "vfork");
 
-  // Save contents of the current call frame. We need it mostly for doing a
-  // return.
+  // Save the contents of the current call frame before calling libc:vfork. The
+  // vfork syscall won't return in the parent until the child process has either
+  // exited or exec'd. In both cases, the current call frame on stack will
+  // most-likely get overwritten by the child process. (The call frames below
+  // the current call-frame are expected to be safe as the child process is not
+  // expected to return from the current call frame).
+  // Failure to restore the current call frame in the parent might result in
+  // lost $RBP data that include the return address.
+  //
+  // NOTE: The vfork wrapper in execwrappers.cpp performs similar save/restore
+  // of the current call frame. This duplication is required in case we decide
+  // to not use the PID plugin.
+  //
   // TODO: Deduplicate stack save/restore with similar code in
   // execwrappers.cpp's vfork wrapper.
   stackStart = &dummy;
