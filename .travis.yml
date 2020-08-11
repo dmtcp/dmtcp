@@ -1,6 +1,6 @@
 # Allow containerized builds.
 sudo: false
-dist: bionic
+dist: focal
 
 addons:
   apt:
