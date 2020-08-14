@@ -369,6 +369,7 @@ static void mtcp_write_non_rwx_and_anonymous_pages(int fd, Area *orig_area)
   }
 
   while (area.size > 0) {
+    int rc = 0;
     size_t size;
     int is_zero;
     Area a = area;
@@ -382,9 +383,11 @@ static void mtcp_write_non_rwx_and_anonymous_pages(int fd, Area *orig_area)
     a.properties = is_zero ? DMTCP_ZERO_PAGE : 0;
     a.size = size;
 
-    Util::writeAll(fd, &a, sizeof(a));
+    rc = Util::writeAll(fd, &a, sizeof(a));
+    JASSERT(rc != -1)(JASSERT_ERRNO).Text("writeAll failed at ckpt");
     if (!is_zero) {
-      Util::writeAll(fd, a.addr, a.size);
+      rc = Util::writeAll(fd, a.addr, a.size);
+      JASSERT(rc != -1)(JASSERT_ERRNO).Text("writeAll failed at ckpt");
     } else {
       if (madvise(a.addr, a.size, MADV_DONTNEED) == -1) {
         JNOTE("error doing madvise(..., MADV_DONTNEED)")
@@ -406,6 +409,7 @@ static void mtcp_write_non_rwx_and_anonymous_pages(int fd, Area *orig_area)
 
 static void writememoryarea (int fd, Area *area, int stack_was_seen)
 {
+  int rc = 0;
   void *addr = area->addr;
 
   if (!(area -> flags & MAP_ANONYMOUS)) {
@@ -479,11 +483,14 @@ static void writememoryarea (int fd, Area *area, int stack_was_seen)
 
     if (skipWritingTextSegments && (area->prot & PROT_EXEC)) {
       area->properties |= DMTCP_SKIP_WRITING_TEXT_SEGMENTS;
-      Util::writeAll(fd, area, sizeof(*area));
+      rc = Util::writeAll(fd, area, sizeof(*area));
+      JASSERT(rc != -1)(JASSERT_ERRNO).Text("writeAll failed at ckpt");
       JLOG(DMTCP)("Skipping over text segments") (area->name) ((void*)area->addr);
     } else {
-      Util::writeAll(fd, area, sizeof(*area));
-      Util::writeAll(fd, area->addr, area->size);
+      rc = Util::writeAll(fd, area, sizeof(*area));
+      JASSERT(rc != -1)(JASSERT_ERRNO).Text("writeAll failed at ckpt");
+      rc = Util::writeAll(fd, area->addr, area->size);
+      JASSERT(rc != -1)(JASSERT_ERRNO).Text("writeAll failed at ckpt");
     }
   }
 }
