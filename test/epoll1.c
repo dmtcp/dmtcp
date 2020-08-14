@@ -127,11 +127,15 @@ main(int argc, char *argv[])
     perror("bind");
     exit(1);
   }
-  listen(listen_sockfd, 5);
+  rc = listen(listen_sockfd, 5);
+  if (rc == -1) {
+    perror("listen");
+    exit(1);
+  }
 
   // This is informational only; it could be deleted.
   struct sockaddr_in sockaddr_tmp;
-  socklen_t addrlen;
+  socklen_t addrlen = sizeof(sockaddr_tmp);
   rc = getsockname(listen_sockfd, (struct sockaddr *)&sockaddr_tmp, &addrlen);
   if (rc == -1) {
     perror("getsockname");
