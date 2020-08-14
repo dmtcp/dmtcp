@@ -406,10 +406,10 @@ mtcp_write_non_rwx_and_anonymous_pages(int fd, Area *orig_area)
     a.size = size;
 
     rc = Util::writeAll(fd, &a, sizeof(a));
-    JASSERT(rc != -1)(JASSERT_ERRNO).Text("writeAll failed at ckpt");
+    JASSERT(rc != -1)(JASSERT_ERRNO).Text("writeAll failed during ckpt");
     if (!is_zero) {
       rc = Util::writeAll(fd, a.addr, a.size);
-      JASSERT(rc != -1)(JASSERT_ERRNO).Text("writeAll failed at ckpt");
+      JASSERT(rc != -1)(JASSERT_ERRNO).Text("writeAll failed during ckpt");
     } else {
       if (madvise(a.addr, a.size, MADV_DONTNEED) == -1) {
         JNOTE("error doing madvise(..., MADV_DONTNEED)")
@@ -509,13 +509,13 @@ writememoryarea(int fd, Area *area, int stack_was_seen)
     if (skipWritingTextSegments && (area->prot & PROT_EXEC)) {
       area->properties |= DMTCP_SKIP_WRITING_TEXT_SEGMENTS;
       rc = Util::writeAll(fd, area, sizeof(*area));
-      JASSERT(rc != -1)(JASSERT_ERRNO).Text("writeAll failed at ckpt");
+      JASSERT(rc != -1)(JASSERT_ERRNO).Text("writeAll failed during ckpt");
       JTRACE("Skipping over text segments") (area->name) ((void *)area->addr);
     } else {
       rc = Util::writeAll(fd, area, sizeof(*area));
-      JASSERT(rc != -1)(JASSERT_ERRNO).Text("writeAll failed at ckpt");
+      JASSERT(rc != -1)(JASSERT_ERRNO).Text("writeAll failed during ckpt");
       rc = Util::writeAll(fd, area->addr, area->size);
-      JASSERT(rc != -1)(JASSERT_ERRNO).Text("writeAll failed at ckpt");
+      JASSERT(rc != -1)(JASSERT_ERRNO).Text("writeAll failed during ckpt");
     }
   }
 }

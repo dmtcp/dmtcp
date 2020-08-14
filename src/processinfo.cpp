@@ -308,9 +308,20 @@ ProcessInfo::init()
   JASSERT(_restoreBufAddr != (uint64_t) MAP_FAILED) (JASSERT_ERRNO);
   _restoreBufAddr = (uint64_t)(_restoreBufAddr + pagesize);
   // Guard page _restoreBufAddr; prevent kernel from merging regions
-  mprotect((char *)_restoreBufAddr - pagesize, pagesize, PROT_EXEC);
+  // Note that PROT_READ was added to 'mprotect' on the guard pages.
+  //   Before adding this, test/{dmtcp5,sched_test,shared-fd1}, and others
+  //   were failing during the _first_ checkpoint, only.  The checkpoint
+  //   image was malformed because write() of these guard pages
+  //   was failing with EFAULT (although no SEGFAULT occurred) when trying to
+  //   read the guard pages and write them to the checkpoint image.
+  //   This occurred in Linux 3.10.0-1062.9.1.el7.x86_64 in CentOS 7.7.1908.
+  //   (But it did not occur in Ubuntu 18.04 with Linux 4.15.)
+  //   This is arguably a bug in the Linux 3.10 kernel.
+  mprotect((char *)_restoreBufAddr - pagesize, pagesize,
+           PROT_READ | PROT_EXEC);
   JASSERT(_restoreBufLen % pagesize == 0) (_restoreBufLen) (pagesize);
-  mprotect((char *)_restoreBufAddr + _restoreBufLen, pagesize, PROT_EXEC);
+  mprotect((char *)_restoreBufAddr + _restoreBufLen, pagesize,
+           PROT_READ | PROT_EXEC);
 
   if (_ckptDir.empty()) {
     updateCkptDirFileSubdir();
