@@ -416,13 +416,10 @@ CkptSerializer::createCkptDir()
 
 // See comments above for open_ckpt_to_read()
 void
-CkptSerializer::writeCkptImage(void *mtcpHdr, size_t mtcpHdrLen)
+CkptSerializer::writeCkptImage(void *mtcpHdr,
+                               size_t mtcpHdrLen,
+                               const string& ckptFilename)
 {
-  string ckptFilename = ProcessInfo::instance().getCkptFilename();
-  string tempCkptFilename = ckptFilename;
-
-  tempCkptFilename += ".temp";
-
   JTRACE("Thread performing checkpoint.") (dmtcp_gettid());
   createCkptDir();
   forked_ckpt_status = test_and_prepare_for_forked_ckpt();
@@ -438,7 +435,7 @@ CkptSerializer::writeCkptImage(void *mtcpHdr, size_t mtcpHdrLen)
   int fdCkptFileOnDisk = -1;
   int fd = -1;
 
-  fd = perform_open_ckpt_image_fd(tempCkptFilename.c_str(), &use_compression,
+  fd = perform_open_ckpt_image_fd(ckptFilename.c_str(), &use_compression,
                                   &fdCkptFileOnDisk);
   JASSERT(fdCkptFileOnDisk >= 0);
   JASSERT(use_compression || fd == fdCkptFileOnDisk);
@@ -464,12 +461,6 @@ CkptSerializer::writeCkptImage(void *mtcpHdr, size_t mtcpHdrLen)
     JASSERT(_real_close(fdCkptFileOnDisk) == 0) (JASSERT_ERRNO)
     .Text("(compression): error closing checkpoint file.");
   }
-
-  /* Now that temp checkpoint file is complete, rename it over old permanent
-   * checkpoint file.  Uses rename() syscall, which doesn't change i-nodes.
-   * So, gzip process can continue to write to file even after renaming.
-   */
-  JASSERT(rename(tempCkptFilename.c_str(), ckptFilename.c_str()) == 0);
 
   if (forked_ckpt_status == FORKED_CKPT_CHILD) {
     // Use _exit() instead of exit() to avoid popping atexit() handlers

@@ -464,16 +464,26 @@ void
 DmtcpWorker::postCheckpoint()
 {
   WorkerState::setCurrentState(WorkerState::CHECKPOINTED);
+
+  // TODO: Merge this barrier with the previous `sendCkptFilename` msg.
+  JTRACE("Waiting for Write-Ckpt barrier");
+  CoordinatorAPI::waitForBarrier("DMT:WriteCkpt");
+
+
+  /* Now that temp checkpoint file is complete, rename it over old permanent
+   * checkpoint file.  Uses rename() syscall, which doesn't change i-nodes.
+   * So, gzip process can continue to write to file even after renaming.
+   */
+  JASSERT(rename(ProcessInfo::instance().getTempCkptFilename().c_str(),
+                 ProcessInfo::instance().getCkptFilename().c_str()) == 0);
+
+
   CoordinatorAPI::sendCkptFilename();
 
   if (exitAfterCkpt) {
     JTRACE("Asked to exit after checkpoint. Exiting!");
     _exit(0);
   }
-
-  // TODO: Merge this barrier with the previous `sendCkptFilename` msg.
-  JTRACE("Waiting for Write-Ckpt barrier");
-  CoordinatorAPI::waitForBarrier("DMT:WriteCkpt");
 
   PluginManager::eventHook(DMTCP_EVENT_RESUME);
 
