@@ -330,7 +330,10 @@ ThreadList::writeCkpt()
 
   MtcpHeader mtcpHdr;
   prepareMtcpHeader(&mtcpHdr);
-  CkptSerializer::writeCkptImage(&mtcpHdr, sizeof(mtcpHdr));
+
+  string ckptFilename = ProcessInfo::instance().getTempCkptFilename();
+
+  CkptSerializer::writeCkptImage(&mtcpHdr, sizeof(mtcpHdr), ckptFilename);
 }
 
 /*************************************************************************
