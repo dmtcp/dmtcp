@@ -23,13 +23,13 @@ import textwrap
 
 # This adds a GDB command:  add-symbol-files-all    (no arguments)
 # To use it, either do:
-#     gdb -x gdb-add-symbol-files-all TARGET_PROGRAM PID
+#     gdb -x gdb-dmtcp-utils TARGET_PROGRAM PID
 #     (gdb) add-symbol-files-all
 # OR:
 #     gdb attach PID
-#     (gdb) source gdb-add-symbol-files-all
+#     (gdb) source gdb-dmtcp-utils
 #     (gdb) add-symbol-files-all
-#       [ TIP: You can also add 'source gdb-add-symbol-files-all' to ~/gdbinit ]
+#       [ TIP: You can also add 'source gdb-dmtcp-utils' to ~/gdbinit ]
 # This also adds GDB commands:
 #     (gdb) dmtcp [or DMTCP]  # Prints out a list of available GDB commands for DMTCP.
 #     (gdb) procmaps
@@ -39,20 +39,21 @@ import textwrap
 #     (gdb) pstree
 #     (gdb) lsof
 #     (gdb) rlimit
+#     (gdb) signals
 #     (gdb) add-symbol-file-from-filename-and-address FILENAME ADDRESS
 #         (Needed if FILENAME not listed in procmaps;
 #          Better version of add-symbol-file; ADDRESS anywhere in memory range)
-#     (gdb) show-filename-at-address MEMORY_ADDRESS
+#     (gdb) show-filename-at-address MEMORY_ADDRESS (or whereis-address)
 #     (gdb) add-symbol-file-from-substring FILENAME_SUBSTRING
 #                                   (e.g., add-symbol-file-from-substring libc)
 #     (gdb) add-symbol-file-at-address MEMORY_ADDRESS
 #                                   (e.g., add-symbol-file-at-address 0x400000)
 
-dmtcp_commands = "dmtcp add-symbol-files-all " +\
-  "add-symbol-file-from-filename-and-address " +\
-  "add-symbol-file-from-substring add-symbol-file-at-address " +\
-  "show-filename-at-address " +\
-  "procmaps procfd procfdinfo procenviron pstree lsof rlimit"
+dmtcp_commands = "dmtcp add-symbol-files-all, " +\
+  "add-symbol-file-from-filename-and-address, " +\
+  "add-symbol-file-from-substring, add-symbol-file-at-address, " +\
+  "show-filename-at-address (OR: whereis-address), " +\
+  "procmaps, procfd, procfdinfo, procenviron, pstree, lsof, rlimit, signals"
 
 def print_dmtcp_commands():
   print("GDB commands available for DMTCP:")
@@ -60,7 +61,7 @@ def print_dmtcp_commands():
   print(textwrap.fill(dmtcp_commands, break_on_hyphens=False,
                       initial_indent="    ", subsequent_indent="    "))
 
-  
+
 def is_executable(filename):
   # 16 bytes for ELF magic number; then 2 bytes (short) for ELF type
   header = open(filename, "rb")
@@ -104,18 +105,6 @@ def relocatesections(filename):
   return (textaddr, sections)
 
 
-class DMTCP(gdb.Command):
-  """DMTCP [prints list of GDB commands for DMTCP]"""
-
-  def __init__(self):
-    super(DMTCP,
-          self).__init__("DMTCP", gdb.COMMAND_FILES, gdb.COMPLETE_FILENAME)
-    self.dont_repeat()
-
-  def invoke(self, dummy_args, from_tty):
-    print_dmtcp_commands()
-DMTCP()
-
 class dmtcp(gdb.Command):
   """dmtcp [prints list of GDB commands for DMTCP]"""
 
@@ -127,6 +116,10 @@ class dmtcp(gdb.Command):
   def invoke(self, dummy_args, from_tty):
     print_dmtcp_commands()
 dmtcp()
+try:
+  gdb.execute("DMTCP")
+except gdb.error:
+  gdb.execute("alias DMTCP=dmtcp")
 
 class AddSymbolFileFromSubstring(gdb.Command):
   """add-symbol-file-from-substring FILENAME_SUBSTRING"""
@@ -173,11 +166,18 @@ class ShowFilenameAtAddress(gdb.Command):
 
     def invoke(self, memory_address, from_tty):
         # Remove existing symbol files
-        memory_region = "%s (r-x): 0x%x-0x%x" % \
-                        memory_region_at_address(memory_address)
-        gdb.execute('print "' + memory_region + '"', False, False)
+        if getpid() == 0:
+          gdb.execute('print "Process not yet started"', False, False)
+        else:
+          memory_region = "%s (r-x): 0x%x-0x%x" % \
+                          memory_region_at_address(memory_address)
+          gdb.execute('print "' + memory_region + '"', False, False)
 # This will add the new gdb command: show-filename-at-address MEMORY_ADDRESS
 ShowFilenameAtAddress()
+try:
+  gdb.execute("whereis-address 0x0")
+except gdb.error:
+  gdb.execute("alias whereis-address=show-filename-at-address")
 
 
 class AddSymbolFileAtAddress(gdb.Command):
@@ -189,11 +189,14 @@ class AddSymbolFileAtAddress(gdb.Command):
     self.dont_repeat()
 
   def invoke(self, address, from_tty):
-    (filename, base_addr, _) = memory_region_at_address(address)
-    if filename == "NOT_FOUND":
-      gdb.execute('print "Memory address not found"', False, False)
+    if getpid() == 0:
+      gdb.execute('print "Process not yet started"', False, False)
     else:
-      add_symbol_files_from_filename(filename, base_addr)
+      (filename, base_addr, _) = memory_region_at_address(address)
+      if filename == "NOT_FOUND":
+        gdb.execute('print "Memory address not found"', False, False)
+      else:
+        add_symbol_files_from_filename(filename, base_addr)
 # This will add the new gdb command: add-symbol-file-at-address MEMORY_ADDRESS
 AddSymbolFileAtAddress()
 
@@ -298,10 +301,7 @@ class Pstree(gdb.Command):
           self).__init__("pstree", gdb.COMMAND_STATUS)
     self.dont_repeat()
   def invoke(self, dummy_args, from_tty):
-    if getpid() == 0:
-      gdb.execute('print "Process not yet started; type \'run\'"', False, False)
-    else:
-      gdb.execute("shell pstree -plnu " + str(os.getenv("USER")), False, True)
+    gdb.execute("shell pstree -plnu " + str(os.getenv("USER")), False, True)
 Pstree()
 
 class Lsof(gdb.Command):
@@ -311,12 +311,9 @@ class Lsof(gdb.Command):
           self).__init__("lsof", gdb.COMMAND_STATUS)
     self.dont_repeat()
   def invoke(self, dummy_args, from_tty):
-    if getpid() == 0:
-      gdb.execute('print "Process not yet started; type \'run\'"', False, False)
-    else:
-      gdb.execute("shell lsof -w | grep '^[^ ]*  *[0-9][0-9]*  *" + str(os.getenv("USER")) +
-                  "  *[0-9]' | grep -v ^lsof | grep -v ^less | grep -v ^grep | less",
-                  False, True)
+    gdb.execute("shell lsof -w | grep '^[^ ]*  *[0-9][0-9]*  *" + str(os.getenv("USER")) +
+                "  *[0-9]' | grep -v ^lsof | grep -v ^less | grep -v ^grep | less",
+                False, True)
 Lsof()
 
 class Rlimit(gdb.Command):
@@ -334,9 +331,24 @@ class Rlimit(gdb.Command):
                   False, True)
 Rlimit()
 
+class Signals(gdb.Command):
+  """signals (info from /proc/self/status: SigPnd, SigBlk, SigIgn, SigCgt)"""
+  def __init__(self):
+    super(Signals,
+          self).__init__("signals", gdb.COMMAND_STATUS)
+    self.dont_repeat()
+  def invoke(self, dummy_args, from_tty):
+    if getpid() == 0:
+      gdb.execute('print "Process not yet started; type \'run\'"', False, False)
+    else:
+      print_signals()
+Signals()
+
 # For /proc/*/maps line: ADDR1-ADDR2 ... FILE; returns (FILE, ADDR1, ADDR2)
 def procmap_filename_address(line):
   triple = line.split()
+  if '/' in triple[-2]:  # if procmaps line ends in "/tmp/a.out (deleted)"
+    triple[-1] = triple[-2] + ' ' + triple[-1]
   return (triple[-1],) + \
          tuple([int("0x"+elt, 16) for elt in triple[0].split("-")])
 def is_text_segment(procmap_line):
@@ -358,8 +370,14 @@ def memory_region(filename_substring):
   regions = memory_regions()
   return [region for region in regions if filename_substring in region[0]][0]
 
+
 def memory_region_at_address(memory_address):
-  if "0x" not in memory_address and (set(str(memory_address)) & set("abcdef")):
+  if "0x" in hex(int(str(gdb.parse_and_eval(memory_address)))): 
+    memory_address = hex(int(str(gdb.parse_and_eval(memory_address))))
+    memory_address = "0x" + memory_address.split("0x")[1]
+    memory_address = memory_address.split(" ")[0]
+  elif "0x" not in str(memory_address) and \
+     set(str(memory_address)).issubset("0123456789abcdef"):
     print("Assuming " + memory_address + " is hexadecimal.")
     memory_address = "0x" + memory_address
   memory_address = int(memory_address, 0)
@@ -370,4 +388,35 @@ def memory_region_at_address(memory_address):
     return match[0]
   else:
     return ("NOT_FOUND (Did you intend the address in hex?)", 0, 0)
-end
+
+def print_signals():
+  signals_x86_arm = [
+    "SIGNONE", "SIGHUP", "SIGINT", "SIGQUIT", "SIGILL", "SIGTRAP",
+    "SIGABRT/SIGIOT", "SIGBUS", "SIGFPE", "SIGKILL", "SIGUSR1", "SIGSEGV",
+    "SIGUSR2", "SIGPIPE", "SIGALRM", "SIGTERM", "SIGSTKFLT", "SIGCHLD",
+    "SIGCONT", "SIGSTOP", "SIGTSTP", "SIGTTIN", "SIGTTOU", "SIGURG",
+    "SIGXCPU", "SIGXFSZ", "SIGVTALRM", "SIGPROF", "SIGWINCH", "SIGIO/SIGPPOLL",
+    "SIGPWR", "SIGSYS/SIGUNUSED"
+  ]
+  procfile = open("/proc/" + str(getpid()) + "/status", "r")
+  status = [line.strip().split(":\t") for line in procfile.readlines()
+                        if line.startswith("Sig") or line.startswith("ShdPnd")]
+  signals = dict(status)
+  del signals["SigQ"]
+  for item in signals:  # Convert hex to bits
+    signals[item] = bin(int("0x1" + signals[item], 0))[3:]
+  def sigbits(sigset):  # Convert bit string to signal names
+    # reversed and '0' added: e.g., "000111"->"0111000"
+    bits = zip( "0" + signals[sigset][::-1],
+                signals_x86_arm + ["SIGRT_"+str(i) for i in range(0,32)] )
+    return [b[1] for b in bits if b[0] == '1']
+  gdb.execute('print "' + "pending per-thread signals: " +
+              str(sigbits("SigPnd")) + '"', False, False)
+  gdb.execute('print "' + "pending per-process signals: " +
+              str(sigbits("ShdPnd")) + '"', False, False)
+  gdb.execute('print "' + "blocked signals: " + str(sigbits("SigBlk")) + '"',
+              False, False)
+  gdb.execute('print "' + "ignored signals: " + str(sigbits("SigIgn")) + '"',
+              False, False)
+  gdb.execute('print "' + "signals w/ handlers: " +
+              str(sigbits("SigCgt")) + '"', False, False)
