@@ -477,13 +477,32 @@ static void writememoryarea (int fd, Area *area, int stack_was_seen)
      */
     JASSERT((area->flags & MAP_ANONYMOUS) || (area->flags & MAP_SHARED));
 
+    if (!(area->flags & MAP_ANONYMOUS) &&
+        strlen(area->name) > 0) {
+      // FIXME: If the file was opened and deleted, we cannot handle that here.
+      struct stat statbuf = {0};
+      if (stat(area->name, &statbuf) == 0) {
+        area->mmapFileSize = ((statbuf.st_size - area->offset) > area->size) ?
+                             area->size : (statbuf.st_size - area->offset);
+      } else {
+        JWARNING(false)(JASSERT_ERRNO)(area->name).Text("Error getting file info");
+      }
+    }
+
     if (skipWritingTextSegments && (area->prot & PROT_EXEC)) {
       area->properties |= DMTCP_SKIP_WRITING_TEXT_SEGMENTS;
       Util::writeAll(fd, area, sizeof(*area));
       JLOG(DMTCP)("Skipping over text segments") (area->name) ((void*)area->addr);
     } else {
       Util::writeAll(fd, area, sizeof(*area));
-      Util::writeAll(fd, area->addr, area->size);
+      // NOTE: We cannot use lseek(SEEK_CUR) to detect how much data was
+      // actually written here. This is because fd might be a pipe to gzip.
+      if (!(area->flags & MAP_ANONYMOUS) &&
+          area->mmapFileSize > 0) {
+        Util::writeAll(fd, area->addr, area->mmapFileSize);
+      } else {
+        Util::writeAll(fd, area->addr, area->size);
+      }
     }
   }
 }
