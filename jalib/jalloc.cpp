@@ -104,9 +104,7 @@ class JFixedAllocStack
     enum { N = _N };
     JFixedAllocStack()
     {
-      if (_blockSize == 0) {
-        _blockSize = 4 * MAX_CHUNKSIZE;
-      }
+      _blockSize = 4 * MAX_CHUNKSIZE; // This will be reset in initialize()
       _root = NULL;
       _numExpands = 0;
     }
