@@ -452,6 +452,12 @@ DmtcpCoordinator::releaseBarrier(const string &barrier)
   ComputationStatus status = getStatus();
 
   if (workersAtCurrentBarrier == status.numPeers) {
+    if (numPeers > 0 && status.numPeers != numPeers) {
+      JNOTE("Waiting for all restarting processes to connect.")
+        (numPeers) (status.numPeers);
+      return;
+    }
+
     JTRACE("Releasing barrier") (barrier);
     prevBarrier = currentBarrier;
     currentBarrier.clear();
