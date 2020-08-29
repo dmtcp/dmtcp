@@ -447,12 +447,12 @@ DmtcpWorker::preCheckpoint()
     SharedData::getCompId()._computation_generation;
   ProcessInfo::instance().set_generation(computationGeneration);
 
-  SharedData::prepareForCkpt();
-
   uint32_t numPeers;
   JTRACE("Waiting for DMT_CHECKPOINT barrier");
   CoordinatorAPI::waitForBarrier("DMT:CHECKPOINT", &numPeers);
   JTRACE("Computation information") (numPeers);
+
+  SharedData::prepareForCkpt(numPeers);
 
   ProcessInfo::instance().numPeers(numPeers);
 
