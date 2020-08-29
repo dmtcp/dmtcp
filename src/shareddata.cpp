@@ -56,7 +56,8 @@ SharedData::initializeHeader(const char *tmpDir,
                              const char *installDir,
                              DmtcpUniqueProcessId *compId,
                              CoordinatorInfo *coordInfo,
-                             struct in_addr *localIPAddr)
+                             struct in_addr *localIPAddr,
+                             uint32_t numPeers)
 {
   JASSERT(tmpDir && installDir && compId && coordInfo && localIPAddr);
 
@@ -82,11 +83,10 @@ SharedData::initializeHeader(const char *tmpDir,
   sharedDataHeader->initialized = true;
 
   sharedDataHeader->numIncomingConMaps = 0;
-  sharedDataHeader->barrierInfo.numCkptPeers = 0;
-  sharedDataHeader->barrierInfo.numIn = 0;
-  sharedDataHeader->barrierInfo.curRound = 0;
 
   sharedDataHeader->archMode = archMode;
+
+  initializeBarrier(numPeers);
 
   memcpy(&sharedDataHeader->compId, compId, sizeof(*compId));
   memcpy(&sharedDataHeader->coordInfo, coordInfo, sizeof(*coordInfo));
@@ -116,11 +116,12 @@ SharedData::initialized()
 }
 
 void
-SharedData::initialize(const char *tmpDir = NULL,
-                       const char *installDir = NULL,
-                       DmtcpUniqueProcessId *compId = NULL,
-                       CoordinatorInfo *coordInfo = NULL,
-                       struct in_addr *localIPAddr = NULL)
+SharedData::initialize(const char *tmpDir,
+                       const char *installDir,
+                       DmtcpUniqueProcessId *compId,
+                       CoordinatorInfo *coordInfo,
+                       struct in_addr *localIPAddr,
+                       uint32_t numPeers)
 {
   /* FIXME: If the coordinator timestamp resolution is 1 second, during
    * subsequent restart, the coordinator timestamp may have the same value
@@ -149,8 +150,7 @@ SharedData::initialize(const char *tmpDir = NULL,
        * FIXME: We're unlikely to hit this bug since we are using a higher
        *        resolution timer, clock_gettime() (1 nanosecond).
        */
-      JWARNING(false)
-        ("Internal error detected! Shared data area already exists.");
+      JTRACE("Internal error detected! Shared data area already exists.");
       fd = _real_open(o.str().c_str(), O_RDWR, 0600);
     } else {
       // Extend file to size before 'mmap'
@@ -178,7 +178,8 @@ SharedData::initialize(const char *tmpDir = NULL,
 
   if (needToInitialize) {
     Util::lockFile(PROTECTED_SHM_FD);
-    initializeHeader(tmpDir, installDir, compId, coordInfo, localIPAddr);
+    initializeHeader(
+      tmpDir, installDir, compId, coordInfo, localIPAddr, numPeers);
     Util::unlockFile(PROTECTED_SHM_FD);
   } else {
     struct stat statbuf;
@@ -240,30 +241,31 @@ SharedData::resetBarrierInfo()
 // Here we reset some counters that are used by IPC plugin for local
 // name-service database, etc. during ckpt/resume/restart phases.
 void
-SharedData::prepareForCkpt()
+SharedData::prepareForCkpt(uint32_t numPeers)
 {
   nextVirtualPtyId = sharedDataHeader->nextVirtualPtyId;
   sharedDataHeader->numInodeConnIdMaps = 0;
   sharedDataHeader->numIncomingConMaps = 0;
 
-  initializeBarrier();
+  initializeBarrier(numPeers);
 }
 
 void
-SharedData::initializeBarrier()
+SharedData::initializeBarrier(uint32_t numPeers)
 {
   Util::lockFile(PROTECTED_SHM_FD);
-  sharedDataHeader->barrierInfo.numCkptPeers++;
+  if (sharedDataHeader->barrierInfo.numCkptPeers != numPeers) {
+    sharedDataHeader->barrierInfo.numCkptPeers = numPeers;
 
-  if (sharedDataHeader->archMode != DMTCP_ARCH_MIXED) {
-    pthread_barrierattr_t barrierAttr;
-    pthread_barrierattr_setpshared(&barrierAttr, PTHREAD_PROCESS_SHARED);
-    pthread_barrier_init(&sharedDataHeader->barrierInfo.barrier,
-                         &barrierAttr,
-                         sharedDataHeader->barrierInfo.numCkptPeers);
-  } else {
-    sharedDataHeader->barrierInfo.numIn = 0;
-    sharedDataHeader->barrierInfo.curRound = 0;
+    if (sharedDataHeader->archMode != DMTCP_ARCH_MIXED) {
+      pthread_barrierattr_t barrierAttr;
+      pthread_barrierattr_setpshared(&barrierAttr, PTHREAD_PROCESS_SHARED);
+      pthread_barrier_init(&sharedDataHeader->barrierInfo.barrier, &barrierAttr,
+                           sharedDataHeader->barrierInfo.numCkptPeers);
+    } else {
+      sharedDataHeader->barrierInfo.numIn = 0;
+      sharedDataHeader->barrierInfo.curRound = 0;
+    }
   }
   Util::unlockFile(PROTECTED_SHM_FD);
 
@@ -274,7 +276,6 @@ void
 SharedData::postRestart()
 {
   initialize();
-  initializeBarrier();
 }
 
 void
