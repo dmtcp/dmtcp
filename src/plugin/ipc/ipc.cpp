@@ -21,7 +21,7 @@
 
 #include "ipc.h"
 #include <linux/version.h>
-#include <sys/errno.h>
+#include <errno.h>
 #include <sys/syscall.h>
 #include <unistd.h>
 #include "jassert.h"
