@@ -15,6 +15,7 @@
 #define open64   open64_always_inline
 
 #include <fcntl.h>
+#include <limits.h>  // for PATH_MAX
 #include <stdarg.h>
 #include <sys/ioctl.h>
 #include <sys/types.h>

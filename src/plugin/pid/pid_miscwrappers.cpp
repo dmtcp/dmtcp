@@ -20,6 +20,7 @@
  ****************************************************************************/
 
 #include <semaphore.h>
+#include <signal.h>  // needed for SIGEV_THREAD_ID
 #include <sys/syscall.h>
 #include <linux/version.h>
 

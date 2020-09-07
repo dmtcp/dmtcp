@@ -23,6 +23,7 @@
 #define JALIB_H
 
 #include <fcntl.h>
+#include <sys/socket.h> // for socklen_t
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/types.h>
