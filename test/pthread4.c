@@ -46,12 +46,12 @@ main(int argc, char *argv[])
   for (i = 0; i < NUM_THREADS; i++) {
     rc = pthread_create(&child_thread_id[i], NULL, child_thread, NULL);
     if (rc < 0) {
-      child_thread_id[i] = -1;
+      child_thread_id[i] = (pthread_t)-1;
     }
   }
   printf("\nJoining threads...\n");
   for (i = 0; i < NUM_THREADS; i++) {
-    if (child_thread_id[i] == -1) {
+    if (child_thread_id[i] == (pthread_t)-1) {
       continue;
     }
     int ret = pthread_join(child_thread_id[i], NULL);
