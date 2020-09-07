@@ -60,6 +60,7 @@
 #include "dmtcp_coordinator.h"
 #include <arpa/inet.h>
 #include <fcntl.h>
+#include <limits.h>  // for HOST_NAME_MAX
 #include <netdb.h>
 #include <stdio.h>
 #include <stdlib.h>

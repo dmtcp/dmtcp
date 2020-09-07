@@ -22,7 +22,6 @@
 #include <elf.h>
 #include <limits.h>
 #include <stdio.h>
-#include <sys/fcntl.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/wait.h>

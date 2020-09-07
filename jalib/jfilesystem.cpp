@@ -26,6 +26,7 @@
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <limits.h>  // for PATH_MAX
 #include <sys/stat.h>
 #include <sys/syscall.h>
 #include <sys/types.h>

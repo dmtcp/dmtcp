@@ -1,4 +1,6 @@
+#include <string.h>
 #include <sys/socket.h>
+#include <sys/types.h>
 #include <sys/un.h>
 
 // This is a copy of the code from src/plugin/ipc/utils_ipc.cpp and SSH plugin

@@ -21,6 +21,7 @@
 #include <mqueue.h>
 #include <stdarg.h>
 #include <time.h>
+#include <fcntl.h>
 #include "dmtcp.h"
 #include "util.h"
 

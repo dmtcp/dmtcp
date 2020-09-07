@@ -26,6 +26,7 @@
 #include <string>
 
 #include <fcntl.h>
+#include <libgen.h>  // for basename()
 #include <stdio.h>
 
 #include <sys/stat.h>
@@ -605,7 +606,9 @@ writeScript(const string &ckptDir,
       (filename) (dirname) (uniqueFilename);
 
     // FIXME:  Handle error case of symlink()
-    JWARNING(symlinkat(basename(uniqueFilename.c_str()), dirfd,
+    // FIXME:  basename() modifies uniqueFilename.c_str()
+    //         Is there a cleaner way to do this?
+    JWARNING(symlinkat(basename((char *)uniqueFilename.c_str()), dirfd,
                        filename.c_str()) == 0) (JASSERT_ERRNO);
     JASSERT(close(dirfd) == 0);
   }
