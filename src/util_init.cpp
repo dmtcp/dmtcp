@@ -20,9 +20,9 @@
  ****************************************************************************/
 
 #include "util.h"
+#include <fcntl.h>
 #include <pwd.h>
 #include <string.h>
-#include <sys/fcntl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include "../jalib/jassert.h"

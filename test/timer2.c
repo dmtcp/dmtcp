@@ -6,7 +6,7 @@
 #include <assert.h>
 #include <pthread.h>
 #include <stdio.h>
-#include <sys/signal.h>
+#include <signal.h>
 #include <sys/time.h>
 #include <unistd.h>
 
@@ -48,11 +48,17 @@ main()
 
   printf("Creating timer\n");
   status = timer_create(CLOCK_REALTIME, &se, &timer_id);
-  assert_perror(status);
+  if (status == -1) {
+    perror("timer_create");
+    assert(0);
+  }
 
   printf("Setting timer %p for 1-second expiration...\n", (void *)timer_id);
   status = timer_settime(timer_id, 0, &ts, 0);
-  assert_perror(status);
+  if (status == -1) {
+    perror("timer_settime");
+    assert(0);
+  }
 
   while (1) {
     sleep(1);
