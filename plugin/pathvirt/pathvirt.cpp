@@ -13,6 +13,7 @@
 
 #include <dirent.h>
 #include <fcntl.h>
+#include <limits.h>  // for PATH_MAX
 #include <stdarg.h>
 #include <stdio.h>
 #include <sys/time.h>

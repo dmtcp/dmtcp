@@ -21,6 +21,7 @@
 
 #include "util.h"
 #include <fcntl.h>
+#include <limits.h>  // for PATH_MAX
 #include <stdlib.h>
 #include <string.h>
 #include "../jalib/jassert.h"
