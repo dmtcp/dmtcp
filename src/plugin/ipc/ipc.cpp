@@ -21,7 +21,7 @@
 
 #include <unistd.h>
 #include <sys/syscall.h>
-#include <sys/errno.h>
+#include <errno.h>
 #include <linux/version.h>
 #include "dmtcp.h"
 #include "jassert.h"

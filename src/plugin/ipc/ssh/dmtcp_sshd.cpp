@@ -3,7 +3,7 @@
 #include <sys/fcntl.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-#include <sys/errno.h>
+#include <errno.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <stdio.h>

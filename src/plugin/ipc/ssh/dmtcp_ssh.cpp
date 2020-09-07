@@ -3,7 +3,7 @@
 #include <sys/fcntl.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-#include <sys/errno.h>
+#include <errno.h>
 #include <sys/socket.h>
 #include <linux/limits.h>
 #include <netinet/in.h>

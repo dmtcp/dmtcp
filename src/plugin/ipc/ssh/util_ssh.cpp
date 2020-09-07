@@ -1,5 +1,5 @@
 #include <unistd.h>
-#include <sys/errno.h>
+#include <errno.h>
 #include <sys/fcntl.h>
 #include <sys/types.h>
 #include <stdio.h>
