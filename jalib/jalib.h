@@ -26,6 +26,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/socket.h> // for socklen_t
 #include <fcntl.h>
 #include <poll.h>
 #include <stdint.h>

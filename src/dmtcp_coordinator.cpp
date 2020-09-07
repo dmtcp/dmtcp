@@ -80,6 +80,7 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 #include <fcntl.h>
+#include <limits.h>  // for HOST_NAME_MAX
 #include <sys/prctl.h>
 #undef min
 #undef max

@@ -22,6 +22,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <fcntl.h>
+#include <limits.h>  // for PATH_MAX
 #include  "util.h"
 #include  "membarrier.h"
 #include  "syscallwrappers.h"

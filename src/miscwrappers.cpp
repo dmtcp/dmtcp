@@ -26,6 +26,7 @@
 #include "syscallwrappers.h"
 #include  "../jalib/jassert.h"
 #include  "../jalib/jconvert.h"
+#include <poll.h>
 #include "processinfo.h"
 #include "util.h"
 #include <sys/syscall.h>

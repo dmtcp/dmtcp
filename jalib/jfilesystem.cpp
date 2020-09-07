@@ -22,6 +22,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <limits.h>  // for PATH_MAX
 #include <unistd.h>
 #include <dirent.h>
 #include <algorithm>

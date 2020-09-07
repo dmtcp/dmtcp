@@ -1,3 +1,4 @@
+#include <limits.h> // for HOST_NAME_MAX
 #include <sys/syscall.h>
 #include <sys/socket.h>
 #include <netinet/in.h>

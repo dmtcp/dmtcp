@@ -20,6 +20,7 @@
 #include <stdarg.h>
 #include <dirent.h>
 #include <fcntl.h>
+#include <limits.h>  // for PATH_MAX
 #include <sys/vfs.h>
 
 // glibc version 2.33 and later stopped defining _STAT_VER (for the 'vers'

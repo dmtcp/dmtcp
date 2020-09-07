@@ -27,6 +27,9 @@
 
 #include <stdio.h>
 #include <fcntl.h>
+// for basename(): forces POSIX version w/ 'char *' arg; can't pass in const
+#include <libgen.h>
+#include <limits.h>  // for PATH_MAX
 
 #include <sys/stat.h>
 
@@ -552,8 +555,12 @@ void writeScript(const string& ckptDir,
     unlink(filename.c_str());
     JTRACE("linking \"dmtcp_restart_script.sh\" filename to uniqueFilename")
       (filename) (dirname) (uniqueFilename);
+    char uniq_fname_str[PATH_MAX];
+    strncpy(uniq_fname_str, uniqueFilename.c_str(), PATH_MAX);
+    JASSERT(uniq_fname_str[PATH_MAX-1] == '\0'); // orig str less than PATH_MAX
     // FIXME:  Handle error case of symlink()
-    JWARNING(symlinkat(basename(uniqueFilename.c_str()), dirfd, filename.c_str()) == 0) (JASSERT_ERRNO);
+    JWARNING(symlinkat(basename(uniq_fname_str), dirfd, filename.c_str()) == 0)
+            (JASSERT_ERRNO);
     JASSERT(close(dirfd) == 0);
   }
 }

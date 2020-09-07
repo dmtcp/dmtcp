@@ -22,6 +22,7 @@
 #ifndef JALIBJFILESYSTEM_H
 #define JALIBJFILESYSTEM_H
 
+#include <sys/stat.h> // for mode_t
 #include <string>
 #include <vector>
 #include "stlwrapper.h"
