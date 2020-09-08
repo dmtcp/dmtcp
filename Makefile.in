@@ -207,21 +207,27 @@ tests-32: build
 LIMIT=ulimit -v 33554432
 
 check: tests
-	@ if python -c 'print("Python exits.")' > /dev/null; then \
-	  bash -c "$(LIMIT) && $(top_srcdir)/test/autotest.py ${AUTOTEST} $*"; \
-	  else echo '*** No python found in your path.'; echo '*** Please add' \
-	   ' python to path or build Python 2.x for x >= 3.'; \
-	  fi
+	@ if test "@HAS_PYTHON3@" = yes; then \
+	 bash -c "$(LIMIT) && python3 $(top_srcdir)/test/autotest.py ${AUTOTEST} $*";\
+	elif test "@HAS_PYTHON@" = yes; then \
+	 bash -c "$(LIMIT) && python $(top_srcdir)/test/autotest.py ${AUTOTEST} $*";\
+	else echo '*** No python found in your path.'; \
+	 echo '*** Please add python to path'; \
+	fi
 
 check-32: tests-32
 	@ if python -c 'print("Python exits.")' > /dev/null; then \
 	  bash -c "$(LIMIT) && $(top_srcdir)/test/autotest.py ${AUTOTEST} $*"; \
 	  else echo '*** No python found in your path.'; echo '*** Please add' \
-	   ' python to path or build Python 2.x for x >= 3.'; \
+	   ' python to path or build Python 2 or use python3.'; \
 	  fi
 
 check-%: tests
-	bash -c "$(LIMIT) && $(top_srcdir)/test/autotest.py ${AUTOTEST} '$*'"
+	@ if test "@HAS_PYTHON3@" = yes; then \
+	bash -c "$(LIMIT) && python3 $(top_srcdir)/test/autotest.py ${AUTOTEST} '$*'";\
+	elif test "@HAS_PYTHON@" = yes; then \
+	bash -c "$(LIMIT) && python $(top_srcdir)/test/autotest.py ${AUTOTEST} '$*'";\
+	fi
 
 check-32-%: tests-32
 	bash -c "$(LIMIT) && $(top_srcdir)/test/autotest.py ${AUTOTEST} '$*'"

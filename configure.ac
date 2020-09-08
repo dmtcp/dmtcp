@@ -567,6 +567,9 @@ AC_CHECK_PROG(HAS_PS, [ps], [yes], [no], [/usr/bin:/bin])
 #check for python
 AC_CHECK_PROG(HAS_PYTHON, [python], [yes], [no], [/usr/bin])
 
+#check for python3
+AC_CHECK_PROG(HAS_PYTHON3, [python3], [yes], [no], [/usr/bin])
+
 #check for dash
 AC_CHECK_PROG(HAS_DASH, [dash], [yes], [no], [/bin])
 
