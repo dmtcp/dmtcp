@@ -30,5 +30,11 @@ if [ -n "$ADDED_OR_MODIFIED" ]; then
     # many implementations do not support the `-r` flag, (which instructs
     # `xargs` to not run the script if the arguments are empty), so we also
     # cannot use that.
-    ./util/dmtcp-style.py $ADDED_OR_MODIFIED || exit 1
+    if command -v python; then \
+      python ./util/dmtcp-style.py $ADDED_OR_MODIFIED || exit 1; \
+    elif command -v python3; then \
+      python3 ./util/dmtcp-style.py $ADDED_OR_MODIFIED || exit 1; \
+    else \
+      exit 1; \
+    fi;
 fi

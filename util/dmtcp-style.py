@@ -175,8 +175,9 @@ class CppLinter(LinterBase):
             'whitespace/todo']
 
         rules_filter = '--filter=-,+' + ',+'.join(active_rules)
+        python_version = 'python3' if sys.version_info[0] == 3 else 'python'
         p = subprocess.Popen(
-            ['python', 'util/cpplint.py', rules_filter] + source_paths,
+            [python_version, 'util/cpplint.py', rules_filter] + source_paths,
             stderr=subprocess.PIPE,
             close_fds=True)
 
