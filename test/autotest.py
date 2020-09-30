@@ -998,11 +998,11 @@ if HAS_VIM == "yes":
       if os.getenv('USER') == None or HAS_PS == 'no':
         return
       ps = subprocess.Popen(['ps', '-u', os.environ['USER'], '-o',
-                             'pid,command'],
+                             'pid,args'],
                             stdout=subprocess.PIPE).communicate()[0]
       for row in ps.split(b'\n')[1:]:
         cmd = row.split(None, 1) # maxsplit=1
-        if len(cmd) > 1 and cmd[1] == cmdToKill:
+        if len(cmd) > 1 and cmdToKill.startswith(str(cmd[1])):
           os.kill(int(cmd[0]), signal.SIGKILL)
     killCommand(vimCommand)
     runTest("vim",       1,  ["env TERM=vt100 " + vimCommand])
