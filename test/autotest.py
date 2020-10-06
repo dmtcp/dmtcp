@@ -1014,7 +1014,8 @@ if sys.version_info[0:2] >= (2,6):
   #background throwing off the number of processes in the computation. The
   #test thus fails. The fix is to run emacs-nox, if found. emacs-nox
   #doesn't run any background processes.
-  S=15*DEFAULT_S
+  S=10*DEFAULT_S
+  POST_LAUNCH_SLEEP=3
   if HAS_EMACS_NOX == "yes":
     # Wait to checkpoint until emacs finishes reading its initialization files
     # Under emacs23, it opens /dev/tty directly in a new fd.
@@ -1030,6 +1031,7 @@ if sys.version_info[0:2] >= (2,6):
     runTest("emacs",     1,  ["env TERM=vt100 /usr/bin/emacs -nw" +
                               " --no-init-file /etc/passwd"])
   S=DEFAULT_S
+  POST_LAUNCH_SLEEP=DEFAULT_POST_LAUNCH_SLEEP
 
 if HAS_SCRIPT == "yes":
   S=7*DEFAULT_S
