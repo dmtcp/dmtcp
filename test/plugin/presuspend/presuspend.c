@@ -59,13 +59,8 @@ int is_child() {
   return (plugin_childpid == -1 || plugin_childpid == 0);
 }
 
-int is_alive(pid_t tid) {
-  int rc;
-  if (tid == plugin_childpid) {
-    rc = kill(tid, 0);
-  } else {
-    rc = pthread_kill(tid, 0);
-  }
+int is_alive(pid_t pid) {
+  int rc = kill(pid, 0);
   return (rc == -1 && errno == ESRCH ? 0 : 1);
 }
 
