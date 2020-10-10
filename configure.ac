@@ -666,9 +666,9 @@ else
   fi
 fi
 if test "mpich_path" != "no"; then
-  AC_PATH_PROG([MPICH_MPICC],      [mpicc],      [yes], [no], [$mpich_path])
-  AC_PATH_PROG([MPICH_MPIRUN],     [mpirun],     [yes], [no], [$mpich_path])
-  AC_PATH_PROG([MPICH_MPIEXEC],    [mpiexec],    [yes], [no], [$mpich_path])
+  AC_PATH_PROG([MPICH_MPICC],      [mpicc],      [no], [$mpich_path])
+  AC_PATH_PROG([MPICH_MPIRUN],     [mpirun],     [no], [$mpich_path])
+  AC_PATH_PROG([MPICH_MPIEXEC],    [mpiexec],    [no], [$mpich_path])
   if test "$MPICH_MPIRUN" = "no"     ||\
      test "$MPICH_MPICC" = "no"      ||\
      test "$MPICH_MPIEXEC" = "no";
