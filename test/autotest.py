@@ -1107,8 +1107,12 @@ if HAS_GCL == "yes":
   S=DEFAULT_S
 
 if HAS_OPENMP == "yes":
+  S=2*DEFAULT_S
   runTest("openmp-1",         1,  ["./test/openmp-1"])
+  POST_LAUNCH_SLEEP=2
   runTest("openmp-2",         1,  ["./test/openmp-2"])
+  POST_LAUNCH_SLEEP=DEFAULT_POST_LAUNCH_SLEEP
+  S=DEFAULT_S
 
 # SHOULD HAVE matlab RUN LARGE FACTORIAL OR SOMETHING.
 if HAS_MATLAB == "yes" and sys.version_info[0:2] >= (2,6):
