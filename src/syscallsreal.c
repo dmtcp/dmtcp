@@ -46,7 +46,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include "constants.h"
-#include "syscallwrappers.h"
+#include "syscallwrappers.h"  /* glibc > ver. 2.33: redefines xstat to stat */
 #include "trampolines.h"
 
 typedef int (*funcptr_t) ();
@@ -893,6 +893,7 @@ _real_syscall(long sys_num, ...)
                                               arg[5], arg[6]);
 }
 
+#ifdef _STAT_VER
 LIB_PRIVATE
 int
 _real___xstat(int vers, const char *path, struct stat *buf)
@@ -920,6 +921,31 @@ _real___lxstat64(int vers, const char *path, struct stat64 *buf)
 {
   REAL_FUNC_PASSTHROUGH(__lxstat64) (vers, path, buf);
 }
+#else
+LIB_PRIVATE
+int
+_real_stat(const char *path, struct stat *buf) {
+  REAL_FUNC_PASSTHROUGH(stat) (path, buf);
+}
+
+LIB_PRIVATE
+int
+_real_stat64(const char *path, struct stat64 *buf) {
+  REAL_FUNC_PASSTHROUGH(stat64) (path, buf);
+}
+
+LIB_PRIVATE
+int
+_real_lstat(const char *path, struct stat *buf) {
+  REAL_FUNC_PASSTHROUGH(lstat) (path, buf);
+}
+
+LIB_PRIVATE
+int
+_real_lstat64(const char *path, struct stat64 *buf) {
+  REAL_FUNC_PASSTHROUGH(lstat64) (path, buf);
+}
+#endif
 
 LIB_PRIVATE
 int
