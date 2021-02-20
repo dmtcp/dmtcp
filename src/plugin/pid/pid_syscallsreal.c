@@ -416,6 +416,7 @@ LIB_PRIVATE DIR* _real_opendir(const char* name)
   REAL_FUNC_PASSTHROUGH_TYPED(DIR*, opendir) (name);
 }
 
+#ifdef _STAT_VER
 int _real_xstat(int vers, const char *path, struct stat *buf) {
   REAL_FUNC_PASSTHROUGH(__xstat) (vers, path, buf);
 }
@@ -431,6 +432,23 @@ int _real_lxstat(int vers, const char *path, struct stat *buf) {
 int _real_lxstat64(int vers, const char *path, struct stat64 *buf) {
   REAL_FUNC_PASSTHROUGH(__lxstat64) (vers, path, buf);
 }
+#else
+int _real_stat(const char *path, struct stat *buf) {
+  REAL_FUNC_PASSTHROUGH(stat) (path, buf);
+}
+
+int _real_stat64(const char *path, struct stat64 *buf) {
+  REAL_FUNC_PASSTHROUGH(stat64) (path, buf);
+}
+
+int _real_lstat(const char *path, struct stat *buf) {
+  REAL_FUNC_PASSTHROUGH(lstat) (path, buf);
+}
+
+int _real_lstat64(const char *path, struct stat64 *buf) {
+  REAL_FUNC_PASSTHROUGH(lstat64) (path, buf);
+}
+#endif
 
 ssize_t _real_readlink(const char *path, char *buf, size_t bufsiz) {
   REAL_FUNC_PASSTHROUGH(readlink) (path, buf, bufsiz);

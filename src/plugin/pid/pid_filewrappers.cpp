@@ -199,20 +199,6 @@ extern "C" int __xstat64(int vers, const char *path, struct stat64 *buf)
   return retval;
 }
 
-#if 0
-extern "C" int __fxstat(int vers, int fd, struct stat *buf)
-{
-  int retval = _real_fxstat(vers, fd, buf);
-  return retval;
-}
-
-extern "C" int __fxstat64(int vers, int fd, struct stat64 *buf)
-{
-  int retval = _real_fxstat64(vers, fd, buf);
-  return retval;
-}
-#endif
-
 extern "C" int __lxstat(int vers, const char *path, struct stat *buf)
 {
   char tmpbuf[PATH_MAX];
