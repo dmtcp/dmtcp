@@ -113,6 +113,10 @@ VERBOSE=False
 #Should we retry on a failure?
 RETRY_ONCE=False
 
+#Should we run with parallel tests in background?
+PARALLEL=False
+PARALLEL_JOBS = 0
+
 #Run (most) tests with user default (usually with gzip enable)
 GZIP=os.getenv('DMTCP_GZIP') or "1"
 
@@ -125,10 +129,7 @@ BIN="./bin/"
 #Checkpoint command to send to coordinator
 CKPT_CMD=b'c'
 
-#parse program args
-args={}
 for i in sys.argv:
-  args[i]=True
   if i=="-v" or i=="--verbose":
     VERBOSE=True
   if i=="--stress":
@@ -138,6 +139,9 @@ for i in sys.argv:
     TIMEOUT *= SLOW
   if i=="--retry-once":
     RETRY_ONCE = True
+  if i=="--parallel":
+    PARALLEL_JOBS = 5
+    PARALLEL = True
   #TODO:  Install SIGSEGV handler with infinite loop, and add to LD_PRELOAD
   #In test/Makefile, build libcatchsigsegv.so
   #Add --catchsigsegv  to usage string.
@@ -148,10 +152,58 @@ for i in sys.argv:
   #     os.environ['LD_PRELOAD'] = 'libcatchsigsegv.so'
   if i=="-h" or i=="--help":
     print ("USAGE "+sys.argv[0]+
-      " [-v] [--stress] [--slow] [testname] [testname ...]")
+      " [-v] [--stress] [--slow] [--parallel] [testname] [testname ...]")
     sys.exit(1)
 
 stats = [0, 0]
+
+
+# if 'autotest.py --parallel', then initialize tests and test_dict.
+# If '--slow' was also used, background parallel jobs will be in fast
+#  mode, but if they fail, they will be tried again in foreground in slow mode.
+if PARALLEL:
+  autotest_path = os.getcwd() + '/' + sys.argv[0]
+  all_tests = subprocess.Popen(
+    sys.executable + " " + autotest_path + " NO_SUCH_TEST | grep SKIPPED$",
+    shell=True, stdout=subprocess.PIPE)
+  all_tests = str(all_tests.communicate()[0].decode("UTF-8"))
+  all_tests = all_tests.replace('SKIPPED', '').split()
+  if sys.argv[-1] not in all_tests:  # if autotest is doing all tests:
+    tests = [test for test in all_tests]
+    test_dict = {tests[i]:i for i in range(len(tests))}
+  else:
+    PARALLEL = False
+    print("\n*** autotest.py: '--parallel' ignored;" +
+          " requires Python 3.5 or later. ***\n")
+
+def parallel_test(name):
+  global tests, test_dict, autotest_path
+  num_jobs = 0
+  for i in range(test_dict[name]+1, len(tests)):
+    if num_jobs >= PARALLEL_JOBS:
+      break;
+    if isinstance(tests[i], subprocess.Popen) and tests[i].poll() == None:
+      num_jobs += 1  # job still executing
+    elif isinstance(tests[i], str):
+      tests[i] = subprocess.Popen( # Example: exec python autotest.py dmtcp1
+                   "exec " + sys.executable + " " + autotest_path + " " +
+                     tests[i] + " > /dev/null 2>&1",
+                   shell=True)
+      num_jobs += 1  # new job to execute
+  if isinstance(tests[test_dict[name]], subprocess.Popen):
+    if tests[test_dict[name]].poll() == 0:
+      printFixed(name,15)
+      print("ckpt:PASSED; rstr:PASSED -> ckpt:PASSED; rstr:PASSED")
+      stats[1] += 1 # one more job done in parallel
+      stats[0] += 1 # and this parallel job has passed
+      return True  # Test succeeded
+    else:
+      try:
+        tests[test_dict[name]].kill()
+        tests[test_dict[name]].wait()
+      except OSError:
+        pass
+  return False  # Test failed
 
 def xor(bool1, bool2):
   return (bool1 or bool2) and (not bool1 or not bool2)
@@ -194,7 +246,8 @@ def splitWithQuotes(string):
 
 def shouldRunTest(name):
   # FIXME:  This is a hack.  We should have created var, testNaems and use here
-  if len(sys.argv) <= 1+(VERBOSE==True)+(SLOW!=1)+(CYCLES!=2)+(RETRY_ONCE==True):
+  if len(sys.argv) <= \
+      1+(VERBOSE==True)+(SLOW!=1)+(CYCLES!=2)+(RETRY_ONCE==True)+PARALLEL:
     return True
   return name in sys.argv
 
@@ -567,6 +620,7 @@ def runTestRaw(name, numProcs, cmds):
       clearCkptDir()
 
   try:
+    sys.stdout.flush()
     printFixed(name,15)
 
     if not shouldRunTest(name):
@@ -674,6 +728,8 @@ def getProcessChildren(pid):
 
 # If the user types ^C, then kill all child processes.
 def runTest(name, numProcs, cmds):
+  if PARALLEL and parallel_test(name):
+    return
   for i in range(2):
     try:
       runTestRaw(name, numProcs, cmds)
