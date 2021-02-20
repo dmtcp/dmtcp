@@ -48,7 +48,7 @@
 #include <unistd.h>
 #include "constants.h"
 #include "dmtcp_dlsym.h"
-#include "syscallwrappers.h"
+#include "syscallwrappers.h"  /* glibc > ver. 2.33: redefines xstat to stat */
 #include "trampolines.h"
 
 typedef int (*funcptr_t) ();
@@ -872,25 +872,47 @@ long _real_syscall(long sys_num, ...) {
                                                arg[5], arg[6]);
 }
 
+#ifdef _STAT_VER
 LIB_PRIVATE
 int _real_xstat(int vers, const char *path, struct stat *buf) {
-  REAL_FUNC_PASSTHROUGH (__xstat) (vers, path, buf);
+  REAL_FUNC_PASSTHROUGH(__xstat) (vers, path, buf);
 }
 
 LIB_PRIVATE
 int _real_xstat64(int vers, const char *path, struct stat64 *buf) {
-  REAL_FUNC_PASSTHROUGH (__xstat64) (vers, path, buf);
+  REAL_FUNC_PASSTHROUGH(__xstat64) (vers, path, buf);
 }
 
 LIB_PRIVATE
 int _real_lxstat(int vers, const char *path, struct stat *buf) {
-  REAL_FUNC_PASSTHROUGH (__lxstat) (vers, path, buf);
+  REAL_FUNC_PASSTHROUGH(__lxstat) (vers, path, buf);
 }
 
 LIB_PRIVATE
 int _real_lxstat64(int vers, const char *path, struct stat64 *buf) {
-  REAL_FUNC_PASSTHROUGH (__lxstat64) (vers, path, buf);
+  REAL_FUNC_PASSTHROUGH(__lxstat64) (vers, path, buf);
 }
+#else
+LIB_PRIVATE
+int stat(const char *path, struct stat *buf) {
+  REAL_FUNC_PASSTHROUGH(stat) (path, buf);
+}
+
+LIB_PRIVATE
+int stat64(const char *path, struct stat64 *buf) {
+  REAL_FUNC_PASSTHROUGH(stat64) (path, buf);
+}
+
+LIB_PRIVATE
+int lstat(const char *path, struct stat *buf) {
+  REAL_FUNC_PASSTHROUGH(lstat) (path, buf);
+}
+
+LIB_PRIVATE
+int lstat64(const char *path, struct stat64 *buf) {
+  REAL_FUNC_PASSTHROUGH(lstat64) (path, buf);
+}
+#endif
 
 LIB_PRIVATE
 ssize_t _real_readlink(const char *path, char *buf, size_t bufsiz) {
