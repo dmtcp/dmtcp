@@ -152,11 +152,7 @@ LIB_PRIVATE void pthread_atfork_child()
   DmtcpWorker::resetOnFork();
 }
 
-// We re-factor to have fork() call dmtcp_fork().
-// This is needed by dmtcpplugin.cpp:dmtcp_get_libc_addr() in case it is
-//   called on 'fork':  dmtcp_get_libc_addr("fork")
-extern "C" pid_t
-dmtcp_fork()
+extern "C" pid_t fork()
 {
   if (isPerformingCkptRestart() ||
       /*
@@ -229,12 +225,6 @@ dmtcp_fork()
     WRAPPER_EXECUTION_RELEASE_EXCL_LOCK();
   }
   return childPid;
-}
-
-extern "C" int
-fork()
-{
-  return dmtcp_fork();
 }
 
 extern "C" pid_t vfork()
@@ -535,9 +525,10 @@ static vector<string> patchUserEnv (vector<string> env, const char* filename)
   return result;
 }
 
-extern "C" int dmtcp_execve (const char *filename, char *const argv[],
+extern "C" int execve (const char *filename, char *const argv[],
                         char *const envp[])
 {
+
   if (isPerformingCkptRestart() || isBlacklistedProgram(filename) ) {
     return _real_execve(filename, argv, envp);
   }
@@ -564,12 +555,6 @@ extern "C" int dmtcp_execve (const char *filename, char *const argv[],
   WRAPPER_EXECUTION_RELEASE_EXCL_LOCK();
 
   return retVal;
-}
-
-extern "C" int
-execve(const char *filename, char *const argv[], char *const envp[])
-{
-  return dmtcp_execvpe(filename, argv, envp);
 }
 
 extern "C" int execv (const char *path, char *const argv[])
@@ -746,22 +731,6 @@ extern "C" int execlp (const char *file, const char *arg, ...)
 extern "C" int execle(const char *path, const char *arg, ...)
 {
   JLOG(DMTCP)("execle() wrapper") (path);
-
-  // I have no idea why we need to exec to "dmtcp_get_libc_offset" here,
-  // instead of lower down.  But if we allow it to be exec'ed by execvpe
-  // lower down, then 'patchUserEnv()' forces the C++ magic to re-execute
-  //   const vector<string>argvCopy = copyEnv(argv);
-  // It then fails with a typically unreadable C++ error:
-  //   > terminate called after throwing an instance of 'std::logic_error'
-  //   >   what():  basic_string::_S_construct null not valid
-  // Does anybody know the reason?
-  if (programName == "dmtcp_nocheckpoint" || programName == "dmtcp_command" ||
-      programName == "ssh" || programName == "rsh" ||
-      programName == "dmtcp_get_libc_offset" ) {
-    return _real_execvpe(data.preExec.filename,
-                         (char* const*) data.preExec.argv,
-                         (char* const*) data.preExec.envp);
-  }
 
   size_t argv_max = INITIAL_ARGV_MAX;
   const char *initial_argv[INITIAL_ARGV_MAX];

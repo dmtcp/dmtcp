@@ -96,7 +96,6 @@ bin_PROGRAMS = $(d_bindir)/dmtcp_launch$(EXEEXT) \
 	$(d_bindir)/dmtcp_coordinator$(EXEEXT) \
 	$(d_bindir)/dmtcp_restart$(EXEEXT) \
 	$(d_bindir)/dmtcp_nocheckpoint$(EXEEXT)
-	$(d_bindir)/dmtcp_get_libc_offset$(EXEEXT) \
 dmtcplib_PROGRAMS = $(d_libdir)/libdmtcp.so$(EXEEXT)
 subdir = src
 DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/Makefile.am \
@@ -157,11 +156,6 @@ __d_bindir__dmtcp_coordinator_OBJECTS =  \
 	$(am___d_bindir__dmtcp_coordinator_OBJECTS)
 __d_bindir__dmtcp_coordinator_DEPENDENCIES = libdmtcpinternal.a \
 	libjalib.a libnohijack.a
-am___d_bindir__dmtcp_get_libc_offset_OBJECTS =  \
-	dmtcp_get_libc_offset.$(OBJEXT)
-__d_bindir__dmtcp_get_libc_offset_OBJECTS =  \
-	$(am___d_bindir__dmtcp_get_libc_offset_OBJECTS)
-__d_bindir__dmtcp_get_libc_offset_DEPENDENCIES =
 am___d_bindir__dmtcp_launch_OBJECTS = dmtcp_launch.$(OBJEXT)
 __d_bindir__dmtcp_launch_OBJECTS =  \
 	$(am___d_bindir__dmtcp_launch_OBJECTS)
@@ -242,7 +236,6 @@ SOURCES = $(libdmtcpinternal_a_SOURCES) $(libjalib_a_SOURCES) \
 	$(libnohijack_a_SOURCES) $(libsyscallsreal_a_SOURCES) \
 	$(__d_bindir__dmtcp_command_SOURCES) \
 	$(__d_bindir__dmtcp_coordinator_SOURCES) \
-	$(__d_bindir__dmtcp_get_libc_offset_SOURCES) \
 	$(__d_bindir__dmtcp_launch_SOURCES) \
 	$(__d_bindir__dmtcp_nocheckpoint_SOURCES) \
 	$(__d_bindir__dmtcp_restart_SOURCES) \
@@ -251,7 +244,6 @@ DIST_SOURCES = $(libdmtcpinternal_a_SOURCES) $(libjalib_a_SOURCES) \
 	$(libnohijack_a_SOURCES) $(libsyscallsreal_a_SOURCES) \
 	$(__d_bindir__dmtcp_command_SOURCES) \
 	$(__d_bindir__dmtcp_coordinator_SOURCES) \
-	$(__d_bindir__dmtcp_get_libc_offset_SOURCES) \
 	$(__d_bindir__dmtcp_launch_SOURCES) \
 	$(__d_bindir__dmtcp_nocheckpoint_SOURCES) \
 	$(__d_bindir__dmtcp_restart_SOURCES) \
@@ -496,7 +488,6 @@ pdfdir = @pdfdir@
 prefix = @prefix@
 program_transform_name = @program_transform_name@
 psdir = @psdir@
-runstatedir = @runstatedir@
 sbindir = @sbindir@
 sharedstatedir = @sharedstatedir@
 srcdir = @srcdir@
@@ -595,11 +586,9 @@ __d_libdir__libdmtcp_so_LDFLAGS = -shared -Xlinker -znow
 
 # Note that an ELF object uses libsyscallsreal.a or libnohijack.a
 #  but not both.  libnohijack.a has stub definitions for same symbols.
-__d_libdir__libdmtcp_so_LDADD = libdmtcpinternal.a 		\
-				 libjalib.a 			\
-				 libsyscallsreal.a 		\
-				 mtcp/libmtcp.a			\
-				 -ldl -lpthread -lrt
+__d_libdir__libdmtcp_so_LDADD = libdmtcpinternal.a libjalib.a \
+				libsyscallsreal.a mtcp/libmtcp.a \
+				-ldl -lpthread -lrt
 
 __d_bindir__dmtcp_coordinator_LDADD = libdmtcpinternal.a libjalib.a \
 			  libnohijack.a -lpthread -lrt
@@ -767,10 +756,6 @@ $(d_bindir)/dmtcp_coordinator$(EXEEXT): $(__d_bindir__dmtcp_coordinator_OBJECTS)
 	@rm -f $(d_bindir)/dmtcp_coordinator$(EXEEXT)
 	$(AM_V_CXXLD)$(CXXLINK) $(__d_bindir__dmtcp_coordinator_OBJECTS) $(__d_bindir__dmtcp_coordinator_LDADD) $(LIBS)
 
-$(d_bindir)/dmtcp_get_libc_offset$(EXEEXT): $(__d_bindir__dmtcp_get_libc_offset_OBJECTS) $(__d_bindir__dmtcp_get_libc_offset_DEPENDENCIES) $(EXTRA___d_bindir__dmtcp_get_libc_offset_DEPENDENCIES) $(d_bindir)/$(am__dirstamp)
-	@rm -f $(d_bindir)/dmtcp_get_libc_offset$(EXEEXT)
-	$(AM_V_CCLD)$(LINK) $(__d_bindir__dmtcp_get_libc_offset_OBJECTS) $(__d_bindir__dmtcp_get_libc_offset_LDADD) $(LIBS)
-
 $(d_bindir)/dmtcp_launch$(EXEEXT): $(__d_bindir__dmtcp_launch_OBJECTS) $(__d_bindir__dmtcp_launch_DEPENDENCIES) $(EXTRA___d_bindir__dmtcp_launch_DEPENDENCIES) $(d_bindir)/$(am__dirstamp)
 	@rm -f $(d_bindir)/dmtcp_launch$(EXEEXT)
 	$(AM_V_CXXLD)$(CXXLINK) $(__d_bindir__dmtcp_launch_OBJECTS) $(__d_bindir__dmtcp_launch_LDADD) $(LIBS)
@@ -802,7 +787,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcp_command.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcp_coordinator.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcp_dlsym.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcp_get_libc_offset.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcp_launch.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcp_nocheckpoint.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcp_restart.Po@am__quote@
@@ -1290,8 +1274,6 @@ uninstall-am: uninstall-binPROGRAMS uninstall-dmtcplibPROGRAMS \
 	mostlyclean-generic pdf pdf-am ps ps-am tags tags-am uninstall \
 	uninstall-am uninstall-binPROGRAMS uninstall-dmtcplibPROGRAMS \
 	uninstall-includeHEADERS
-
-.PRECIOUS: Makefile
 
 
 mtcp/libmtcp.a:

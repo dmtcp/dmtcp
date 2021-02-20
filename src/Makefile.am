@@ -51,7 +51,6 @@ bin_PROGRAMS = $(d_bindir)/dmtcp_launch				\
 	       $(d_bindir)/dmtcp_coordinator			\
 	       $(d_bindir)/dmtcp_restart			\
 	       $(d_bindir)/dmtcp_nocheckpoint
-	       $(d_bindir)/dmtcp_get_libc_offset		\
 
 dmtcplib_PROGRAMS = $(d_libdir)/libdmtcp.so
 include_HEADERS = $(srcdir)/../include/dmtcp.h
@@ -100,8 +99,6 @@ __d_bindir__dmtcp_coordinator_SOURCES = dmtcp_coordinator.cpp lookup_service.cpp
 __d_bindir__dmtcp_nocheckpoint_SOURCES = dmtcp_nocheckpoint.c
 
 __d_bindir__dmtcp_restart_SOURCES = dmtcp_restart.cpp util_exec.cpp
-
-__d_bindir__dmtcp_get_libc_offset_SOURCES = dmtcp_get_libc_offset.c
 
 __d_bindir__dmtcp_command_SOURCES = dmtcp_command.cpp
 
