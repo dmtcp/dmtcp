@@ -2,7 +2,7 @@
 
 Name:		dmtcp
 Version:	3.0.0
-Release:	0.1%{?dist}
+Release:	0.0%{?dist}
 Summary:	Checkpoint/Restart functionality for Linux processes
 Group:		Applications/System
 # dmtcp.h is ASL-2.0
