@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+# NOTE: .travis.yml at DMTCP_ROOT calls autotest.py for github/travis
+
 from random import randint
 from time   import sleep
 import argparse
@@ -45,12 +47,69 @@ parser.add_argument('--slow',
                     action='count',
                     default=0,
                     help='Add additional pause before ckpt-rst')
+PARALLEL_JOBS = 5
+parser.add_argument('--parallel',
+                    action='store_true',
+                    default=0,
+                    help='Run ' + str(PARALLEL_JOBS) +
+                                          ' tests at a time in parallel')
 parser.add_argument('tests',
                     nargs='*',
                     metavar='TESTNAME',
                     help='Test to run')
 
 args = parser.parse_args()
+
+# stats[0] is number passed; stats[1] is total number
+stats = [0, 0]
+
+
+# if 'autotest.py --parallel', then initialize tests and test_dict.
+# If '--slow' was also used, background parallel jobs will be in fast
+#  mode, but if they fail, they will be tried again in foreground in slow mode.
+if args.parallel:
+  autotest_path = os.getcwd() + '/' + sys.argv[0]
+  if args.tests == []:
+    all_tests = subprocess.Popen(
+      sys.executable + " " + autotest_path + " NO_SUCH_TEST | grep SKIPPED$",
+      shell=True, stdout=subprocess.PIPE)
+    all_tests = str(all_tests.communicate()[0].decode("UTF-8"))
+    all_tests = all_tests.replace('SKIPPED', '').split()
+    tests = [test for test in all_tests]
+    test_dict = {tests[i]:i for i in range(len(tests))}
+  else:
+    args.parallel = False
+    print("\n*** autotest.py: '--parallel' ignored;" +
+          " requires Python 3.5 or later. ***\n")
+
+def parallel_test(name):
+  global tests, test_dict, autotest_path
+  num_jobs = 0
+  for i in range(test_dict[name]+1, len(tests)):
+    if num_jobs >= PARALLEL_JOBS:
+      break;
+    if isinstance(tests[i], subprocess.Popen) and tests[i].poll() == None:
+      num_jobs += 1  # job still executing
+    elif isinstance(tests[i], str):
+      tests[i] = subprocess.Popen( # Example: exec python autotest.py dmtcp1
+                   "exec " + sys.executable + " " + autotest_path + " " +
+                     tests[i] + " > /dev/null 2>&1",
+                   shell=True)
+      num_jobs += 1  # new job to execute
+  if isinstance(tests[test_dict[name]], subprocess.Popen):
+    if tests[test_dict[name]].poll() == 0:
+      printFixed(name,15)
+      print("ckpt:PASSED; rstr:PASSED -> ckpt:PASSED; rstr:PASSED")
+      stats[1] += 1 # one more job done in parallel
+      stats[0] += 1 # and this parallel job has passed
+      return True  # Test succeeded
+    else:
+      try:
+        tests[test_dict[name]].kill()
+        tests[test_dict[name]].wait()
+      except OSError:
+        pass
+  return False  # Test failed
 
 #get testconfig
 # This assumes Makefile.in in main dir, but only Makefile in test dir.
@@ -155,8 +214,6 @@ else:
 #     os.environ['LD_PRELOAD'] += ':libcatchsigsegv.so'
 #   else:
 #     os.environ['LD_PRELOAD'] = 'libcatchsigsegv.so'
-
-stats = [0, 0]
 
 def xor(bool1, bool2):
   return (bool1 or bool2) and (not bool1 or not bool2)
@@ -562,6 +619,7 @@ def runTestRaw(name, numProcs, cmds):
       clearCkptDir()
 
   try:
+    sys.stdout.flush()
     printFixed(name,15)
 
     if not shouldRunTest(name):
@@ -669,6 +727,9 @@ def getProcessChildren(pid):
 
 # If the user types ^C, then kill all child processes.
 def runTest(name, numProcs, cmds):
+  # if --parallel and this test already passed, return
+  if args.parallel and parallel_test(name):
+    return
   for i in range(2):
     try:
       runTestRaw(name, numProcs, cmds)
@@ -998,11 +1059,11 @@ if HAS_VIM == "yes":
       if os.getenv('USER') == None or HAS_PS == 'no':
         return
       ps = subprocess.Popen(['ps', '-u', os.environ['USER'], '-o',
-                             'pid,args'],
+                             'pid,command'],
                             stdout=subprocess.PIPE).communicate()[0]
       for row in ps.split(b'\n')[1:]:
         cmd = row.split(None, 1) # maxsplit=1
-        if len(cmd) > 1 and cmdToKill.startswith(str(cmd[1])):
+        if len(cmd) > 1 and cmd[1] == cmdToKill:
           os.kill(int(cmd[0]), signal.SIGKILL)
     killCommand(vimCommand)
     runTest("vim",       1,  ["env TERM=vt100 " + vimCommand])
@@ -1014,8 +1075,7 @@ if sys.version_info[0:2] >= (2,6):
   #background throwing off the number of processes in the computation. The
   #test thus fails. The fix is to run emacs-nox, if found. emacs-nox
   #doesn't run any background processes.
-  S=10*DEFAULT_S
-  POST_LAUNCH_SLEEP=3
+  S=15*DEFAULT_S
   if HAS_EMACS_NOX == "yes":
     # Wait to checkpoint until emacs finishes reading its initialization files
     # Under emacs23, it opens /dev/tty directly in a new fd.
@@ -1031,7 +1091,6 @@ if sys.version_info[0:2] >= (2,6):
     runTest("emacs",     1,  ["env TERM=vt100 /usr/bin/emacs -nw" +
                               " --no-init-file /etc/passwd"])
   S=DEFAULT_S
-  POST_LAUNCH_SLEEP=DEFAULT_POST_LAUNCH_SLEEP
 
 if HAS_SCRIPT == "yes":
   S=7*DEFAULT_S
@@ -1112,9 +1171,7 @@ if HAS_GCL == "yes":
 if HAS_OPENMP == "yes":
   S=3*DEFAULT_S
   runTest("openmp-1",         1,  ["./test/openmp-1"])
-  POST_LAUNCH_SLEEP=2
   runTest("openmp-2",         1,  ["./test/openmp-2"])
-  POST_LAUNCH_SLEEP=DEFAULT_POST_LAUNCH_SLEEP
   S=DEFAULT_S
 
 # SHOULD HAVE matlab RUN LARGE FACTORIAL OR SOMETHING.
