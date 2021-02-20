@@ -45,10 +45,17 @@
 #define _real_dup NEXT_FNC(dup)
 #define _real_dup2 NEXT_FNC(dup2)
 #define _real_dup3 NEXT_FNC(dup3)
-#define _real_xstat NEXT_FNC(__xstat)
-#define _real_xstat64 NEXT_FNC(__xstat64)
-#define _real_lxstat NEXT_FNC(__lxstat)
-#define _real_lxstat64 NEXT_FNC(__lxstat64)
+#ifdef _STAT_VER
+# define _real_xstat NEXT_FNC(__xstat)
+# define _real_xstat64 NEXT_FNC(__xstat64)
+# define _real_lxstat NEXT_FNC(__lxstat)
+# define _real_lxstat64 NEXT_FNC(__lxstat64)
+#else
+# define _real_stat NEXT_FNC(stat)
+# define _real_stat64 NEXT_FNC(stat64)
+# define _real_lstat NEXT_FNC(lstat)
+# define _real_lstat64 NEXT_FNC(lstat64)
+#endif
 #define _real_readlink NEXT_FNC(readlink)
 #define _real_exit NEXT_FNC(exit)
 #define _real_syscall NEXT_FNC(syscall)

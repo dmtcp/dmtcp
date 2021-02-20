@@ -603,6 +603,7 @@ static void updateStatPath(const char *path, char **newpath)
   }
 }
 
+#ifdef _STAT_VER
 extern "C" int __xstat(int vers, const char *path, struct stat *buf)
 {
   char tmpbuf [ PATH_MAX ] = {0} ;
@@ -646,24 +647,6 @@ extern "C" int __xstat64(int vers, const char *path, struct stat64 *buf)
   return retval;
 }
 
-#if 0
-extern "C" int __fxstat(int vers, int fd, struct stat *buf)
-{
-  DMTCP_PLUGIN_DISABLE_CKPT();
-  int retval = _real_fxstat(vers, fd, buf);
-  DMTCP_PLUGIN_ENABLE_CKPT();
-  return retval;
-}
-
-extern "C" int __fxstat64(int vers, int fd, struct stat64 *buf)
-{
-  DMTCP_PLUGIN_DISABLE_CKPT();
-  int retval = _real_fxstat64(vers, fd, buf);
-  DMTCP_PLUGIN_ENABLE_CKPT();
-  return retval;
-}
-#endif
-
 extern "C" int __lxstat(int vers, const char *path, struct stat *buf)
 {
   char tmpbuf [ PATH_MAX ] = {0} ;
@@ -685,7 +668,7 @@ extern "C" int __lxstat(int vers, const char *path, struct stat *buf)
 
 extern "C" int __lxstat64(int vers, const char *path, struct stat64 *buf)
 {
-  char tmpbuf [ PATH_MAX ] = {0} ;
+  char tmpbuf [ PATH_MAX ] = {0};
   char *newpath = tmpbuf;
   DMTCP_PLUGIN_DISABLE_CKPT();
   // See filewrapper.cpp:__xstat() for comments on this code.
@@ -701,6 +684,88 @@ extern "C" int __lxstat64(int vers, const char *path, struct stat64 *buf)
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
+#else
+extern "C" int stat(const char *path, struct stat *buf)
+{
+  char tmpbuf [ PATH_MAX ] = {0} ;
+  char *newpath = tmpbuf;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  // We want to call updateStatPath(). But if path is an invalid memory address,
+  //   then updateStatPath() will crash.  So, do a preliminary call to
+  //   _real_stat().  If path or buf is invalid, return with the error.
+  //   If path is a valid memory address, but not a valid filename,
+  //   there is no harm done, since stat has no side effects outside of buf.
+  int retval = _real_stat(path, buf);
+  if (retval == -1 && errno == EFAULT) {
+    // EFAULT means path or buf was a bad address.  So, we're done.  Return.
+    // And don't call updateStatPath().  If path is bad, it will crash.
+  } else {
+    updateStatPath(path, &newpath);
+    if (newpath != path) {
+      retval = _real_stat(newpath, buf); // Re-do it with correct path.
+    } // else use answer from previous call to _real_stat(), and save time.
+  }
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  return retval;
+}
+
+extern "C" int stat64(const char *path, struct stat64 *buf)
+{
+  char tmpbuf [ PATH_MAX ] = {0};
+  char *newpath = tmpbuf;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  // See filewrapper.cpp:__stat() for comments on this code.
+  int retval = _real_stat64(path, buf);
+  if (retval == -1 && errno == EFAULT) {
+    // We're done.  Return.
+  } else {
+    updateStatPath(path, &newpath);
+    if (newpath != path) {
+      retval = _real_stat64(newpath, buf);
+    }
+  }
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  return retval;
+}
+
+extern "C" int lstat(const char *path, struct stat *buf)
+{
+  char tmpbuf [ PATH_MAX ] = {0} ;
+  char *newpath = tmpbuf;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  // See filewrapper.cpp:stat() for comments on this code.
+  int retval = _real_lstat(path, buf);
+  if (retval == -1 && errno == EFAULT) {
+    // We're done.  Return.
+  } else {
+    updateStatPath(path, &newpath);
+    if (newpath != path) {
+      retval = _real_lstat(newpath, buf);
+    }
+  }
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  return retval;
+}
+
+extern "C" int __lstat64(const char *path, struct stat64 *buf)
+{
+  char tmpbuf [ PATH_MAX ] = {0} ;
+  char *newpath = tmpbuf;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  // See filewrapper.cpp:stat() for comments on this code.
+  int retval = _real_lstat64(path, buf);
+  if (retval == -1 && errno == EFAULT) {
+    // We're done.  Return.
+  } else {
+    updateStatPath(path, &newpath);
+    if (newpath != path) {
+      retval = _real_lstat64(newpath, buf);
+    }
+  }
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  return retval;
+}
+#endif
 
 //FIXME: Add wrapper for readlinkat
 // NOTE:  If you see a compiler error: "declaration of C function ... conflicts
