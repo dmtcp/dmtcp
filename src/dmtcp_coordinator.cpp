@@ -81,6 +81,7 @@
 #include <arpa/inet.h>
 #include <fcntl.h>
 #include <limits.h>  // for HOST_NAME_MAX
+#include <time.h>
 #include <sys/prctl.h>
 #undef min
 #undef max
@@ -120,6 +121,9 @@ static const char* theUsage =
   "      Exit automatically when last client disconnects\n"
   "  --kill-after-ckpt\n"
   "      Kill peer processes of computation after first checkpoint is created\n"
+  "  --timeout seconds\n"
+  "      Coordinator exits after <seconds> even if jobs are active\n"
+  "      (Useful during testing to prevent runaway coordinator processes)\n"
   "  --daemon\n"
   "      Run silently in the background after detaching from the parent process.\n"
   "  -i, --interval (environment variable DMTCP_CHECKPOINT_INTERVAL):\n"
@@ -151,6 +155,8 @@ static bool killAfterCkpt = false;
 static bool killAfterCkptOnce = false;
 static int blockUntilDoneRemote = -1;
 static uint32_t mask = 0;
+static int timeout = 0;
+static size_t start_time; // used with timeout
 
 static DmtcpCoordinator prog;
 
@@ -902,7 +908,7 @@ void DmtcpCoordinator::onConnect()
   CoordClient *client = new CoordClient(remote, &remoteAddr, remoteLen,
                                         hello_remote);
 
-  if ( hello_remote.extraBytes > 0 ) {
+  if (hello_remote.extraBytes > 0) {
     client->readProcessInfo(hello_remote);
   }
 
@@ -1250,6 +1256,9 @@ static void signalHandler(int signum)
     prog.handleUserCommand('q');
   } else if (signum == SIGALRM) {
     timerExpired = true;
+    if (timeout && time(NULL) - start_time >= timeout - 1) { // -1 for roundoff
+      exit(1);
+    }
   } else {
     JASSERT(false) .Text("Not reached");
   }
@@ -1369,7 +1378,11 @@ static void calcLocalAddr()
 
 static void resetCkptTimer()
 {
-  alarm(theCheckpointInterval);
+  if (theCheckpointInterval > 0) {
+    alarm(theCheckpointInterval);
+  } else {
+    alarm(timeout);
+  }
 }
 
 void DmtcpCoordinator::updateCheckpointInterval(uint32_t interval)
@@ -1600,7 +1613,12 @@ int main ( int argc, char** argv )
     } else if (s == "--kill-after-ckpt") {
       killAfterCkpt = true;
       shift;
-    } else if (s=="--daemon") {
+    } else if (argc > 1 && s == "--timeout") {
+      timeout = atol(argv[1]);
+      start_time = time(NULL);
+      alarm(timeout);  // and resetCkptTimer() will also set this.
+      shift; shift;
+    } else if (s == "--daemon") {
       daemon = true;
       shift;
     } else if (s=="--coord-logfile") {

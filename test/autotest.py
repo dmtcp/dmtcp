@@ -126,6 +126,9 @@ REQUIRE_MB=50
 #Binaries
 BIN="./bin/"
 
+# cmdline string to launch coord: times out after 3 hours to prevent runaways
+coordinator_cmdline = BIN+"dmtcp_coordinator --timeout 10800"
+
 #Checkpoint command to send to coordinator
 CKPT_CMD=b'c'
 
@@ -405,7 +408,7 @@ else:
     os.environ['LD_LIBRARY_PATH'] = os.getenv("PWD")+"/lib"
 
 #run the coordinator
-coordinator = runCmd(BIN+"dmtcp_coordinator")
+coordinator = runCmd(coordinator_cmdline)
 
 #send a command to the coordinator process
 def coordinatorCmd(cmd):
@@ -547,7 +550,7 @@ def runTestRaw(name, numProcs, cmds):
       coordinatorCmd(b'q')
       os.system("kill -9 %d" % coordinator.pid)
       print("Trying to kill old coordinator, and run new one on same port")
-      coordinator = runCmd(BIN+"dmtcp_coordinator")
+      coordinator = runCmd(coordinator_cmdline)
     for x in procs:
       #cleanup proc
       try:
