@@ -69,6 +69,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <time.h>
 #include <unistd.h>
 #include <algorithm>
 #include <iomanip>
@@ -122,6 +123,9 @@ static const char *theUsage =
   "      Exit automatically when last client disconnects\n"
   "  --kill-after-ckpt\n"
   "      Kill peer processes of computation after first checkpoint is created\n"
+  "  --timeout seconds\n"
+  "      Coordinator exits after <seconds> even if jobs are active\n"
+  "      (Useful during testing to prevent runaway coordinator processes)\n"
   "  --daemon\n"
   "      Run silently in the background after detaching from the parent "
   "process.\n"
@@ -152,6 +156,8 @@ static bool blockUntilDone = false;
 static bool killAfterCkpt = false;
 static bool killAfterCkptOnce = false;
 static int blockUntilDoneRemote = -1;
+static int timeout = 0;
+static size_t start_time; // used with timeout
 
 static DmtcpCoordinator prog;
 
@@ -1233,6 +1239,9 @@ signalHandler(int signum)
     prog.handleUserCommand('q');
   } else if (signum == SIGALRM) {
     timerExpired = true;
+    if (timeout && time(NULL) - start_time >= timeout - 1) { // -1 for roundoff
+      exit(1);
+    }
   } else {
     JASSERT(false).Text("Not reached");
   }
@@ -1357,7 +1366,11 @@ calcLocalAddr()
 static void
 resetCkptTimer()
 {
-  alarm(theCheckpointInterval);
+  if (theCheckpointInterval > 0) {
+    alarm(theCheckpointInterval);
+  } else {
+    alarm(timeout);
+  }
 }
 
 void
@@ -1604,6 +1617,11 @@ main(int argc, char **argv)
     } else if (s == "--kill-after-ckpt") {
       killAfterCkpt = true;
       shift;
+    } else if (argc > 1 && s == "--timeout") {
+      timeout = atol(argv[1]);
+      start_time = time(NULL);
+      alarm(timeout);  // and resetCkptTimer() will also set this.
+      shift; shift;
     } else if (s == "--daemon") {
       daemon = true;
       shift;
