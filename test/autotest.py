@@ -957,19 +957,27 @@ os.environ['DMTCP_GZIP'] = GZIP
 if HAS_READLINE == "yes":
   runTest("readline",    1,  ["./test/readline"])
 
+POST_LAUNCH_SLEEP = 2  # Don't checkpoint until perl cmd has launched
 runTest("perl",          1, ["/usr/bin/perl"])
+POST_LAUNCH_SLEEP=DEFAULT_POST_LAUNCH_SLEEP
 
 if HAS_PYTHON == "yes":
+  POST_LAUNCH_SLEEP = 2  # Don't checkpoint until python cmd has launched
   runTest("python",      1, ["/usr/bin/python"])
+  POST_LAUNCH_SLEEP=DEFAULT_POST_LAUNCH_SLEEP
 
 os.environ['DMTCP_GZIP'] = "1"
+POST_LAUNCH_SLEEP = 2  # Don't checkpoint until bash cmd has launched
 runTest("bash",        2, ["/bin/bash --norc -c 'ls; sleep 30; ls'"])
+POST_LAUNCH_SLEEP=DEFAULT_POST_LAUNCH_SLEEP
 os.environ['DMTCP_GZIP'] = GZIP
 
 if HAS_DASH == "yes":
   os.environ['DMTCP_GZIP'] = "0"
   os.unsetenv('ENV')  # Delete reference to dash initialization file
+  POST_LAUNCH_SLEEP = 2  # Don't checkpoint until dash cmd has launched
   runTest("dash",        2, ["/bin/dash -c 'ls; sleep 30; ls'"])
+  POST_LAUNCH_SLEEP=DEFAULT_POST_LAUNCH_SLEEP
   os.environ['DMTCP_GZIP'] = GZIP
 
 if HAS_TCSH == "yes":
@@ -980,7 +988,9 @@ if HAS_TCSH == "yes":
 if HAS_ZSH == "yes":
   os.environ['DMTCP_GZIP'] = "0"
   S=3*DEFAULT_S
+  POST_LAUNCH_SLEEP = 2  # Don't checkpoint until zsh cmd has launched
   runTest("zsh",         2, ["/bin/zsh -f -c 'ls; sleep 30; ls'"])
+  POST_LAUNCH_SLEEP=DEFAULT_POST_LAUNCH_SLEEP
   S=DEFAULT_S
   os.environ['DMTCP_GZIP'] = GZIP
 
@@ -1045,9 +1055,11 @@ if HAS_SCRIPT == "yes":
     #  to 25 MB _per process_ under gzip, but this can be slow at ckpt time.
     # On some systems, the script test has two `script` processes, while on some
     # other systems, there is only a single `script` process.
+    POST_LAUNCH_SLEEP = 2  # Don't checkpoint until script cmd has launched
     runTest("script",    [3,4],  ["/usr/bin/script -f" +
                               " -c 'bash -c \"ls; sleep 30\"'" +
                               " dmtcp-test-typescript.tmp"])
+    POST_LAUNCH_SLEEP = DEFAULT_POST_LAUNCH_SLEEP
   os.system("rm -f dmtcp-test-typescript.tmp")
   S=DEFAULT_S
 
