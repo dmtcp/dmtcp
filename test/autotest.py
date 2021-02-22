@@ -84,6 +84,10 @@ if uname_p[0:3] == 'arm':
 DEFAULT_POST_LAUNCH_SLEEP = 0.0
 POST_LAUNCH_SLEEP = 0.0
 
+# Sleep after launching restart, but before checking it
+DEFAULT_POST_RESTART_SLEEP = 0.0
+POST_RESTART_SLEEP = 0.0
+
 uname_m = uname_m.strip() # strip off any whitespace characters
 #Allow extra time for slower CPUs
 if uname_m in ["i386", "i486", "i586", "i686", "armv7", "armv7l", "aarch64"]:
@@ -122,6 +126,7 @@ GZIP=os.getenv('DMTCP_GZIP') or "1"
 
 #Warn if can't create a file of size:
 REQUIRE_MB=50
+REQUIRE_TMP_MB=10
 
 #Binaries
 BIN="./bin/"
@@ -387,7 +392,7 @@ if free_diskspace(ckptDir) > 20*1024*1024:
 
 # This can be slow.
 print("Verifying there is enough disk space ...")
-tmpfile=ckptDir + "/freeSpaceTest.tmp"
+tmpfile=ckptDir + "/dmtcp-freeSpaceTest.tmp"
 if os.system("dd if=/dev/zero of=" + tmpfile + " bs=1MB count=" +
              str(REQUIRE_MB) + " 2>/dev/null") != 0:
   GZIP="1"
@@ -396,6 +401,20 @@ if os.system("dd if=/dev/zero of=" + tmpfile + " bs=1MB count=" +
 !!!WARNING!!!
 Fewer than '''+str(REQUIRE_MB)+'''MB are available on the current volume.
 Many of the tests below may fail due to insufficient space.
+!!!WARNING!!!
+
+''')
+os.system("rm -f "+tmpfile)
+
+tmpfile="/tmp" + "/dmtcp-freeSpaceTest.tmp" # Needed by file2 test and others
+if os.system("dd if=/dev/zero of=" + tmpfile + " bs=1MB count=" +
+             str(REQUIRE_TMP_MB) + " 2>/dev/null") != 0:
+  GZIP="1"
+  print('''
+
+!!!WARNING!!!
+Fewer than '''+str(REQUIRE_TMP_MB)+'''MB are available in /tmp.
+Many of the tests below (e.g., file2) may fail due to insufficient space.
 !!!WARNING!!!
 
 ''')
@@ -612,6 +631,7 @@ def runTestRaw(name, numProcs, cmds):
         cmd+= " "+ckptDir+"/"+i
     #run restart and test if it worked
     procs.append(runCmd(cmd))
+    sleep(POST_RESTART_SLEEP)
     WAITFOR(lambda: doesStatusSatisfy(getStatus(), status),
             wfMsg("restart error"))
     if SLOW > 1:
