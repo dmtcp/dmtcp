@@ -501,12 +501,12 @@ void DmtcpCoordinator::updateMinimumState(WorkerState::eWorkerState oldState)
     broadcastMessage ( DMT_DO_REGISTER_NAME_SERVICE_DATA );
   }
   if ( oldState == WorkerState::CHECKPOINTED
-       && newState == WorkerState::NAME_SERVICE_DATA_REGISTERED ){
+       && newState == WorkerState::NAME_SERVICE_DATA_REGISTERED ) {
     JNOTE ( "entertaining queries now" );
     broadcastMessage ( DMT_DO_SEND_QUERIES );
   }
   if ( oldState == WorkerState::NAME_SERVICE_DATA_REGISTERED
-       && newState == WorkerState::DONE_QUERYING ){
+       && newState == WorkerState::DONE_QUERYING ) {
     JNOTE ( "refilling all nodes" );
     broadcastMessage ( DMT_DO_REFILL );
   }
@@ -612,11 +612,11 @@ void DmtcpCoordinator::onData(CoordClient *client)
       hostname = extraData + shellType.length() + 1 + ckptFilename.length() + 1;
 
       JTRACE ( "recording restart info with shellType" ) ( ckptFilename ) ( hostname ) (shellType);
-      if(shellType.empty()) {
+      if (shellType.empty()) {
         _restartFilenames[hostname].push_back ( ckptFilename );
-      } else if(shellType == "rsh") {
+      } else if (shellType == "rsh") {
         _rshCmdFileNames[hostname].push_back( ckptFilename );
-      } else if(shellType == "ssh") {
+      } else if (shellType == "ssh") {
         _sshCmdFileNames[hostname].push_back( ckptFilename );
       } else {
         JASSERT(0)(shellType)
@@ -902,7 +902,7 @@ void DmtcpCoordinator::onConnect()
   CoordClient *client = new CoordClient(remote, &remoteAddr, remoteLen,
                                         hello_remote);
 
-  if( hello_remote.extraBytes > 0 ){
+  if ( hello_remote.extraBytes > 0 ) {
     client->readProcessInfo(hello_remote);
   }
 
@@ -1230,8 +1230,8 @@ DmtcpCoordinator::ComputationStatus DmtcpCoordinator::getStatus() const
 
   status.minimumState = ( min==INITIAL_MIN ? WorkerState::UNKNOWN
 			  : (WorkerState::eWorkerState)min );
-  if( status.minimumState == WorkerState::CHECKPOINTED &&
-      isRestarting && count < numPeers ){
+  if ( status.minimumState == WorkerState::CHECKPOINTED &&
+      isRestarting && count < numPeers ) {
     JTRACE("minimal state counted as CHECKPOINTED but not all processes"
 	   " are connected yet.  So we wait.") ( numPeers ) ( count );
     status.minimumState = WorkerState::RESTARTING;
@@ -1582,28 +1582,28 @@ int main ( int argc, char** argv )
   }
 
   shift;
-  while(argc > 0){
+  while (argc > 0) {
     string s = argv[0];
-    if(s=="-h" || s=="--help"){
+    if (s=="-h" || s=="--help") {
       printf("%s", theUsage);
       return 1;
-    } else if ((s=="--version") && argc==1){
+    } else if ((s=="--version") && argc==1) {
       printf("%s", DMTCP_VERSION_AND_COPYRIGHT_INFO);
       return 1;
-    }else if(s == "-q" || s == "--quiet"){
+    } else if (s == "-q" || s == "--quiet") {
       quiet = true;
       jassert_quiet++;
       shift;
-    }else if(s=="--exit-on-last"){
+    } else if (s=="--exit-on-last") {
       exitOnLast = true;
       shift;
     } else if (s == "--kill-after-ckpt") {
       killAfterCkpt = true;
       shift;
-    }else if(s=="--daemon"){
+    } else if (s=="--daemon") {
       daemon = true;
       shift;
-    } else if(s=="--coord-logfile") {
+    } else if (s=="--coord-logfile") {
       useLogFile = true;
       logFilename = argv[1];
       shift; shift;
@@ -1621,16 +1621,16 @@ int main ( int argc, char** argv )
                isdigit(argv[0][2])) { // else if -p0, for example
       thePort = jalib::StringToInt( argv[0]+2 );
       shift;
-    }else if(argc>1 && s == "--port-file"){
+    } else if (argc>1 && s == "--port-file") {
       thePortFile = argv[1];
       shift; shift;
-    }else if(argc>1 && (s == "-c" || s == "--ckptdir")){
+    } else if (argc>1 && (s == "-c" || s == "--ckptdir")) {
       setenv(ENV_VAR_CHECKPOINT_DIR, argv[1], 1);
       shift; shift;
-    }else if(argc>1 && (s == "-t" || s == "--tmpdir")){
+    } else if (argc>1 && (s == "-t" || s == "--tmpdir")) {
       tmpdir_arg = argv[1];
       shift; shift;
-    }else if(argc == 1){ //last arg can be port
+    } else if (argc == 1) { //last arg can be port
       char *endptr;
       long x = strtol(argv[0], &endptr, 10);
       if ((ssize_t)strlen(argv[0]) != endptr - argv[0]) {
@@ -1641,7 +1641,7 @@ int main ( int argc, char** argv )
         shift;
       }
       x++, x--; // to suppress unused variable warning
-    }else{
+    } else {
       fprintf(stderr, theUsage, DEFAULT_PORT);
       return 1;
     }
@@ -1703,7 +1703,7 @@ int main ( int argc, char** argv )
       "dmtcp_coordinator starting..." <<
       "\n    Port: " << thePort <<
       "\n    Checkpoint Interval: ";
-    if(theCheckpointInterval==0)
+    if (theCheckpointInterval==0)
       JASSERT_STDERR << "disabled (checkpoint manually instead)";
     else
       JASSERT_STDERR << theCheckpointInterval;
