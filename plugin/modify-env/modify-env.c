@@ -37,18 +37,26 @@ int readAndSetEnv(char *buf, int size);
 int readall(int fd, char *buf, int maxCount);
 extern void warning(const char *warning_part1, const char *warning_part2);
 
+#ifdef STANDALONE
+int
+dmtcp_modify_env_enabled() { return 1; }
+#else
 EXTERNC int
 dmtcp_modify_env_enabled() { return 1; }
+#endif
 
 #ifdef STANDALONE
 int
-dmtcp_get_restart_env(char *envName, char *dest, size_t size)
+dmtcp_get_restart_env(char *envName, char dest[PATH_MAX], size_t size)
 {
   if (getenv(envName)) {
-    strncpy(dest, getenv(envName), size);
+    strncpy(dest, getenv(envName), PATH_MAX);
   }
   return getenv(envName) ? 0 : -1;
 }
+typedef int DmtcpGetRestartEnvErr_t;
+#define RESTART_ENV_SUCCESS 0
+#define EXTERNC 0
 #endif /* ifdef STANDALONE */
 
 #ifndef STANDALONE
