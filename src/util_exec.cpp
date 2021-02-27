@@ -228,7 +228,7 @@ Util::getInterpreterType(const char *pathname, bool *isElf, bool *is32bitElf)
   }
 
   ssize_t ret = readLine(fd, argv_buf, sizeof(argv_buf));
-  if (ret < sizeof(magic_script)) {
+  if (ret < (int)sizeof(magic_script)) {
     close(fd);
     return -1;
   }

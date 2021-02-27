@@ -37,7 +37,7 @@ using namespace dmtcp;
 EXTERNC int
 dmtcp_batch_queue_enabled(void) { return 1; }
 
-int
+void
 patch_srun_cmdline(DmtcpEventData_t *data);
 
 static void

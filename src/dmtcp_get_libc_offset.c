@@ -1,9 +1,8 @@
-#define _GNU_SOURCE 
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <assert.h>
 #include <dlfcn.h>
 #include <assert.h>
 
@@ -57,6 +56,6 @@ int main(int argc, char *argv[]) {
 #ifdef STANDALONE
   printf("Offset of %s from 'read': %ld", argv[1], fnc_offset);
 #endif
-  write(1, &fnc_offset, sizeof(fnc_offset));
+  assert(write(1, &fnc_offset, sizeof(fnc_offset)) == sizeof(fnc_offset));
   return 0;
 }
