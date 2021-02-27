@@ -260,7 +260,7 @@ dmtcp_get_libc_addr(const char*libc_fnc) {
   char *dmtcp_get_libc_offset = dmtcp_bin_dir;
 
   int pipefd[2];
-  pipe(pipefd);
+  JASSERT(pipe(pipefd) == 0)(JASSERT_ERRNO);
   // Use dmtcp_fork() instead of fork() in case a plugin is redefining
   //   fork() to call:  (*dmtcp_get_libc_addr("fork"))().
   extern int dmtcp_fork();

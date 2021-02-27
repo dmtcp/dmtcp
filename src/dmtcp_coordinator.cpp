@@ -156,7 +156,7 @@ static bool blockUntilDone = false;
 static bool killAfterCkpt = false;
 static bool killAfterCkptOnce = false;
 static int blockUntilDoneRemote = -1;
-static int timeout = 0;
+static time_t timeout = 0;
 static size_t start_time; // used with timeout
 
 static DmtcpCoordinator prog;
@@ -1507,16 +1507,19 @@ DmtcpCoordinator::addDataSocket(CoordClient *client)
 char *short_name(char short_buf[], char *name, unsigned int len, char *suffix) {
   // char *name_copy = malloc(strlen(name)+1);
   char name_copy[strlen(name)+1];
-  strncpy(name_copy, name, strlen(name)+1);
+#pragma GCC diagnostic ignored "-Wstringop-overflow"
+  // gcc bad warning: complains 'sizeof(name_copy)' depends on 'strlen(name)'
+  strncpy(name_copy, name, sizeof(name_copy));
+#pragma GCC diagnostic pop
   char *base_name = strrchr(name_copy, '/') == NULL ?
                     name_copy : strrchr(name_copy, '/') + 1;
+  int suffix_len = strlen(suffix);
   if (6 + strlen(suffix) > len) {
     return NULL;
   }
   memset(short_buf, '\0', len);
   int cmd_len = min(strlen(base_name)+1, len);
   memcpy(short_buf, base_name, cmd_len);
-  int suffix_len = strlen(suffix);
   int short_buf_len = min(strlen(base_name), len - suffix_len);
   strncpy(short_buf + short_buf_len, suffix, suffix_len);
   return short_buf;
