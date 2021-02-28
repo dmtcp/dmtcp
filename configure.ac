@@ -433,14 +433,14 @@ case "$host_cpu" in
   arm*) is_arm_host=yes ;;
   aarch64*) is_aarch64_host=yes ;;
   i?86) is_i486_host=yes ;;
-  x86_64) is_x64_host=yes ;;
+  x86_64) is_x86_64_host=yes ;;
 esac
 
-AM_CONDITIONAL(X64_HOST, [test "$is_x64_host" == "yes"])
-if test "$is_x64_host" == "yes"; then
-  AC_SUBST([X64_HOST], [yes])
+AM_CONDITIONAL(X86_64_HOST, [test "$is_x86_64_host" == "yes"])
+if test "$is_x86_64_host" == "yes"; then
+  AC_SUBST([X86_64_HOST], [yes])
 else
-  AC_SUBST([X64_HOST], [no])
+  AC_SUBST([X86_64_HOST], [no])
 fi
 
 AM_CONDITIONAL(ARM_HOST, [test "$is_arm_host" == "yes"])
