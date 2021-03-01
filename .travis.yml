@@ -12,7 +12,9 @@ language: cpp
 compiler:
   - gcc
 
-script: ./configure && make -j4 && make tests && ./test/autotest.py --retry-once
+# script: ./configure && make -j4 && make tests && ./test/autotest.py --retry-once
+# Force re-build
+script: ./configure --enable-debug --enable-logging && make -j4 && make tests && MALLOC_CHECK_=3 ./test/autotest.py -v --retry-once openmp-2 
 
 # NOTE: https://docs.travis-ci.com/user/running-build-in-debug-mode/
 # NOTE: https://docs.travis-ci.com/user/environment-variables/
