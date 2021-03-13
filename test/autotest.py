@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+# NOTE: .travis.yml at DMTCP_ROOT calls autotest.py for github/travis
+
 from random import randint
 from time   import sleep
 import argparse
@@ -24,7 +26,7 @@ import re
 #   "/usr/local/lib/jvm/openjdk11/bin", which occurs later in path.
 # Unfortunately, 'Makefile' finds javac as verion Javac-11,
 # and so the 'java1' test fails, using java (Java-8).
-if os.environ.has_key('PATH') and os.environ['PATH'].startswith('/usr/bin:') \
+if 'PATH' in os.environ and os.environ['PATH'].startswith('/usr/bin:') \
      and ':/usr/bin:' in os.environ['PATH']:
   os.environ['PATH'] = os.environ['PATH'][len('/usr/bin:'):]
 
@@ -45,12 +47,69 @@ parser.add_argument('--slow',
                     action='count',
                     default=0,
                     help='Add additional pause before ckpt-rst')
+PARALLEL_JOBS = 5
+parser.add_argument('--parallel',
+                    action='store_true',
+                    default=0,
+                    help='Run ' + str(PARALLEL_JOBS) +
+                                          ' tests at a time in parallel')
 parser.add_argument('tests',
                     nargs='*',
                     metavar='TESTNAME',
                     help='Test to run')
 
 args = parser.parse_args()
+
+# stats[0] is number passed; stats[1] is total number
+stats = [0, 0]
+
+
+# if 'autotest.py --parallel', then initialize tests and test_dict.
+# If '--slow' was also used, background parallel jobs will be in fast
+#  mode, but if they fail, they will be tried again in foreground in slow mode.
+if args.parallel:
+  autotest_path = os.getcwd() + '/' + sys.argv[0]
+  if args.tests == []:
+    all_tests = subprocess.Popen(
+      sys.executable + " " + autotest_path + " NO_SUCH_TEST | grep SKIPPED$",
+      shell=True, stdout=subprocess.PIPE)
+    all_tests = str(all_tests.communicate()[0].decode("UTF-8"))
+    all_tests = all_tests.replace('SKIPPED', '').split()
+    tests = [test for test in all_tests]
+    test_dict = {tests[i]:i for i in range(len(tests))}
+  else:
+    args.parallel = False
+    print("\n*** autotest.py: '--parallel' ignored;" +
+          " requires Python 3.5 or later. ***\n")
+
+def parallel_test(name):
+  global tests, test_dict, autotest_path
+  num_jobs = 0
+  for i in range(test_dict[name]+1, len(tests)):
+    if num_jobs >= PARALLEL_JOBS:
+      break;
+    if isinstance(tests[i], subprocess.Popen) and tests[i].poll() == None:
+      num_jobs += 1  # job still executing
+    elif isinstance(tests[i], str):
+      tests[i] = subprocess.Popen( # Example: exec python autotest.py dmtcp1
+                   "exec " + sys.executable + " " + autotest_path + " " +
+                     tests[i] + " > /dev/null 2>&1",
+                   shell=True)
+      num_jobs += 1  # new job to execute
+  if isinstance(tests[test_dict[name]], subprocess.Popen):
+    if tests[test_dict[name]].poll() == 0:
+      printFixed(name,15)
+      print("ckpt:PASSED; rstr:PASSED -> ckpt:PASSED; rstr:PASSED")
+      stats[1] += 1 # one more job done in parallel
+      stats[0] += 1 # and this parallel job has passed
+      return True  # Test succeeded
+    else:
+      try:
+        tests[test_dict[name]].kill()
+        tests[test_dict[name]].wait()
+      except OSError:
+        pass
+  return False  # Test failed
 
 #get testconfig
 # This assumes Makefile.in in main dir, but only Makefile in test dir.
@@ -59,12 +118,12 @@ try:
   from autotest_config import *
 
 except ImportError:
-  print "\n*** Error importing autotest_config.py: "
+  print("\n*** Error importing autotest_config.py: ")
   sys.exit()
 
 if USE_TEST_SUITE == "no":
-  print "\n*** DMTCP test suite is disabled. To re-enable the test suite,\n" + \
-        "***  re-configure _without_ './configure --disable-test-suite'\n"
+  print("\n*** DMTCP test suite is disabled. To re-enable the test suite,\n" +
+        "***  re-configure _without_ './configure --disable-test-suite'\n")
   sys.exit()
 
 # Disable ptrace tests for now.
@@ -72,9 +131,9 @@ PTRACE_SUPPORT="no"
 
 signal.alarm(1800)  # half hour
 
-if sys.version_info[0] != 2 or sys.version_info[0:2] < (2,4):
-  print "test/autotest.py works only with Python 2.x for 2.x greater than 2.3"
-  print "Change the beginning of test/autotest.py if you believe you can run."
+if sys.version_info[0] not in (2,3) or sys.version_info[0:2] < (2,4):
+  print("test/autotest.py works only with Python 2.x for 2.x greater than 2.3")
+  print("Change the beginning of test/autotest.py if you believe you can run.")
   sys.exit(1)
 
 if sys.version_info[0] == 2 and sys.version_info[1] >= 7:
@@ -87,8 +146,8 @@ else:
                              stdout=subprocess.PIPE).communicate()[0]
 
 if USE_TEST_SUITE == "no":
-  print "\n*** DMTCP test suite is disabled. To re-enable the test suite,\n" + \
-          "***  re-configure _without_ './configure --disable-test-suite'\n"
+  print("\n*** DMTCP test suite is disabled. To re-enable the test suite,\n" +
+          "***  re-configure _without_ './configure --disable-test-suite'\n")
   sys.exit()
 
 #Number of times to try dmtcp_restart
@@ -102,6 +161,10 @@ if uname_p[0:3] == 'arm':
 # Sleep before the first ckpt _only_.
 DEFAULT_POST_LAUNCH_SLEEP = 0.0
 POST_LAUNCH_SLEEP = 0.0
+
+# Sleep after launching restart, but before checking it
+DEFAULT_POST_RESTART_SLEEP = 0.0
+POST_RESTART_SLEEP = 0.0
 
 uname_m = uname_m.strip() # strip off any whitespace characters
 #Allow extra time for slower CPUs
@@ -129,12 +192,16 @@ GZIP=os.getenv('DMTCP_GZIP') or "1"
 
 #Warn if can't create a file of size:
 REQUIRE_MB=50
+REQUIRE_TMP_MB=10
 
 #Binaries
 BIN="./bin/"
 
+# cmdline string to launch coord: times out after 3 hours to prevent runaways
+coordinator_cmdline = BIN+"dmtcp_coordinator --timeout 10800"
+
 #Checkpoint command to send to coordinator
-CKPT_CMD='c'
+CKPT_CMD=b'c'
 
 #Appears as S*SLOW in code.  If --slow, then SLOW=5
 SLOW = pow(5, args.slow)
@@ -155,8 +222,6 @@ else:
 #     os.environ['LD_PRELOAD'] += ':libcatchsigsegv.so'
 #   else:
 #     os.environ['LD_PRELOAD'] = 'libcatchsigsegv.so'
-
-stats = [0, 0]
 
 def xor(bool1, bool2):
   return (bool1 or bool2) and (not bool1 or not bool2)
@@ -205,16 +270,13 @@ if not os.path.isfile('./bin/dmtcp_launch'):
   os.chdir("..")
 
 if not os.path.isfile('./bin/dmtcp_launch'):
-  print "bin/dmtcp_launch not found.\n"
-  "Please configure and build DMTCP before invoking autotest.py."
+  print("bin/dmtcp_launch not found.\n"
+        "Please configure and build DMTCP before invoking autotest.py.")
   sys.exit(1)
 
 #pad a string and print/flush it
 def printFixed(str, w=1):
-  # The comma at end of print prevents a "newline", but still adds space.
-  if sys.version_info[0] == 2:
-    # Replace "print str.ljust(w),"  by version compatible w/ python3:
-    os.write(sys.stdout.fileno(), str.ljust(w).encode("ascii"))
+  os.write(sys.stdout.fileno(), str.ljust(w).encode("ascii"))
   sys.stdout.flush()
 
 #exception on failed check
@@ -241,14 +303,14 @@ def runCmd(cmd):
   global devnullFd
   global master_read
   if args.verbose:
-    print "Launching... ", cmd
+    print("Launching... ", cmd)
   cmd = splitWithQuotes(cmd);
   # Example cmd:  dmtcp_launch screen ...
   ptyMode = False
   for str in cmd:
     # Checkpoint image can be emacs23_x, or whatever emacs is a link to.
     # vim can be vim.gnome, etc.
-    if re.search("(_|/|^)(screen|script|vim.*|emacs.*|pty)(_|$)", str):
+    if re.search("(_|/|^)(screen|script|vim.*|emacs.*|pty|tcsh|zsh)(_|$)", str):
       ptyMode = True
   try:
     os.stat(cmd[0])
@@ -258,8 +320,8 @@ def runCmd(cmd):
     # FOR DEBUGGING:  This can mysteriously fail, causing pty.fork() to fail
     try:
       (fd1, fd2) = os.openpty()
-    except OSError, e:
-      print "\n\n/dev/ptmx:"; os.system("ls -l /dev/ptmx /dev/pts")
+    except OSError as e:
+      print("\n\n/dev/ptmx:"); os.system("ls -l /dev/ptmx /dev/pts")
       raise e
     else:
       os.close(fd1); os.close(fd2)
@@ -307,7 +369,7 @@ os.unsetenv('MTCP_SIGCKPT')
 if not args.verbose:
   os.environ['JALIB_STDERR_PATH'] = os.devnull
 if args.verbose:
-  print "coordinator port:  " + os.environ['DMTCP_COORD_PORT']
+  print("coordinator port:  " + os.environ['DMTCP_COORD_PORT'])
 
 # We'll copy ckptdir to DMTCP_TMPDIR in case of error.
 def dmtcp_tmpdir():
@@ -329,18 +391,32 @@ if free_diskspace(ckptDir) > 20*1024*1024:
 
 # This can be slow.
 print("Verifying there is enough disk space ...")
-tmpfile=ckptDir + "/freeSpaceTest.tmp"
+tmpfile=ckptDir + "/dmtcp-freeSpaceTest.tmp"
 if os.system("dd if=/dev/zero of=" + tmpfile + " bs=1MB count=" +
              str(REQUIRE_MB) + " 2>/dev/null") != 0:
   GZIP="1"
-  print '''
+  print('''
 
 !!!WARNING!!!
 Fewer than '''+str(REQUIRE_MB)+'''MB are available on the current volume.
 Many of the tests below may fail due to insufficient space.
 !!!WARNING!!!
 
-'''
+''')
+os.system("rm -f "+tmpfile)
+
+tmpfile="/tmp" + "/dmtcp-freeSpaceTest.tmp" # Needed by file2 test and others
+if os.system("dd if=/dev/zero of=" + tmpfile + " bs=1MB count=" +
+             str(REQUIRE_TMP_MB) + " 2>/dev/null") != 0:
+  GZIP="1"
+  print('''
+
+!!!WARNING!!!
+Fewer than '''+str(REQUIRE_TMP_MB)+'''MB are available in /tmp.
+Many of the tests below (e.g., file2) may fail due to insufficient space.
+!!!WARNING!!!
+
+''')
 os.system("rm -f "+tmpfile)
 
 os.environ['DMTCP_GZIP'] = GZIP
@@ -350,26 +426,26 @@ else:
     os.environ['LD_LIBRARY_PATH'] = os.getenv("PWD")+"/lib"
 
 #run the coordinator
-coordinator = runCmd(BIN+"dmtcp_coordinator")
+coordinator = runCmd(coordinator_cmdline)
 
 #send a command to the coordinator process
 def coordinatorCmd(cmd):
   try:
-    if args.verbose and cmd != "s":
-      print "COORDINATORCMD(",cmd,")"
-    coordinator.stdin.write(cmd+"\n")
+    if args.verbose and cmd != b"s":
+      print("COORDINATORCMD(",cmd,")")
+    coordinator.stdin.write(cmd+b"\n")
     coordinator.stdin.flush()
   except:
-    raise CheckFailed("failed to write '%s' to coordinator (pid: %d)" % \
+    raise CheckFailed("failed to write '%s' to coordinator (pid: %d)" %
                       (cmd, coordinator.pid))
 
 #clean up after ourselves
 def SHUTDOWN():
   try:
-    coordinatorCmd('q')
+    coordinatorCmd(b'q')
     sleep(S*SLOW)
   except:
-    print "SHUTDOWN() failed"
+    print("SHUTDOWN() failed")
   os.system("kill -9 %d" % coordinator.pid)
   os.system("rm -rf  %s" % ckptDir)
   os.close(devnullFd)
@@ -390,18 +466,18 @@ def WAITFOR(test, msg):
 
 #extract (NUM_PEERS, RUNNING) from coordinator
 def getStatus():
-  coordinatorCmd('s')
+  coordinatorCmd(b's')
 
   returncode = coordinator.poll()
   if returncode:
     if returncode < 0:
-      print "Coordinator terminated by signal ", str(-returncode)
+      print("Coordinator terminated by signal ", str(-returncode))
     CHECK(False, "coordinator died unexpectedly")
     return (-1, False)
 
   while True:
     try:
-      line=coordinator.stdout.readline().strip()
+      line=str(coordinator.stdout.readline().strip().decode("ascii"))
       if not line:  # Immediate empty string on stdout means EOF
         CHECK(False, "coordinator died unexpectedly")
         return (-1, False)
@@ -416,18 +492,18 @@ def getStatus():
         running = m.group(1)
         break
 
-    except IOError, (errno, strerror):
+    except IOError as e:
       if coordinator.poll():
         if coordinator.poll() < 0:
-          print "Coordinator terminated by signal ", str(-returncode)
+          print("Coordinator terminated by signal ", str(-returncode))
         CHECK(False, "coordinator died unexpectedly")
         return (-1, False)
-      if errno==4: #Interrupted system call
+      if e.errno==4: #Interrupted system call
         continue
-      raise CheckFailed("I/O error(%s): %s" % (errno, strerror))
+      raise CheckFailed("I/O error(%s): %s" % (e.errno, e.strerror))
 
   if args.verbose:
-    print "STATUS: peers=%d, running=%s" % (peers,running)
+    print("STATUS: peers=%d, running=%s" % (peers,running))
 
   return (peers, (running=="yes"))
 
@@ -444,15 +520,15 @@ def clearCkptDir():
           # else:
           #   os.remove(os.path.join(root, name))
           os.remove(os.path.join(root, name))
-        except OSError, e:
+        except OSError as e:
           if e.errno != errno.ENOENT:  # Maybe ckpt_*_dmtcp.temp was renamed.
             raise e
       for name in dirs:
         os.rmdir(os.path.join(root, name))
 
 def getNumCkptFiles(dir):
-  return len(filter(lambda f: f.startswith("ckpt_") and f.endswith(".dmtcp"),\
-                              os.listdir(dir)))
+  return len([f for f in os.listdir(dir)
+                if f.startswith("ckpt_") and f.endswith(".dmtcp")])
 
 
 # Test a given list of commands to see if they checkpoint
@@ -483,16 +559,16 @@ def runTestRaw(name, numProcs, cmds):
 
   def testKill():
     #kill all processes
-    coordinatorCmd('k')
+    coordinatorCmd(b'k')
     try:
       WAITFOR(lambda: getStatus()==(0, False),
               lambda:"coordinator kill command failed")
     except CheckFailed:
       global coordinator
-      coordinatorCmd('q')
+      coordinatorCmd(b'q')
       os.system("kill -9 %d" % coordinator.pid)
-      print "Trying to kill old coordinator, and run new one on same port"
-      coordinator = runCmd(BIN+"dmtcp_coordinator")
+      print("Trying to kill old coordinator, and run new one on same port")
+      coordinator = runCmd(coordinator_cmdline)
     for x in procs:
       #cleanup proc
       try:
@@ -512,7 +588,7 @@ def runTestRaw(name, numProcs, cmds):
         None
       try:
         os.waitpid(x.pid, os.WNOHANG)
-      except OSError, e:
+      except OSError as e:
         if e.errno != errno.ECHILD:
           raise e
       procs.remove(x)
@@ -522,8 +598,9 @@ def runTestRaw(name, numProcs, cmds):
     coordinatorCmd(CKPT_CMD)
 
     #wait for files to appear and status to return to original
+    # b'Kc' input to dmtcp_coordinator is equivalent to 'dmtcp_command -kc'
     WAITFOR(lambda: getNumCkptFiles(ckptDir)>0 and \
-                   (CKPT_CMD == 'xc' or doesStatusSatisfy(getStatus(), status)),
+                 (CKPT_CMD == b'Kc' or doesStatusSatisfy(getStatus(), status)),
             wfMsg("checkpoint error"))
     #we now know there was at least one checkpoint file, and the correct number
     #  of processes have restarted;  but they may fail quickly after restert
@@ -538,8 +615,9 @@ def runTestRaw(name, numProcs, cmds):
           "unexpected number of checkpoint files, %s procs, %d files"
           % (str(status[0]), numFiles))
 
-    if SLOW > 1:
+    if SLOW > 1 and CKPT_CMD != b'Kc':
       #wait and see if some processes will die shortly after checkpointing
+      #but if b'Kc' was requested, processes should die (not resume)
       sleep(S*SLOW)
       CHECK(doesStatusSatisfy(getStatus(), status),
             "error: processes checkpointed, but died upon resume")
@@ -552,6 +630,7 @@ def runTestRaw(name, numProcs, cmds):
         cmd+= " "+ckptDir+"/"+i
     #run restart and test if it worked
     procs.append(runCmd(cmd))
+    sleep(POST_RESTART_SLEEP)
     WAITFOR(lambda: doesStatusSatisfy(getStatus(), status),
             wfMsg("restart error"))
     if SLOW > 1:
@@ -563,10 +642,11 @@ def runTestRaw(name, numProcs, cmds):
       clearCkptDir()
 
   try:
+    sys.stdout.flush()
     printFixed(name,15)
 
     if not shouldRunTest(name):
-      print "SKIPPED"
+      print("SKIPPED")
       return
 
     stats[1]+=1
@@ -587,7 +667,7 @@ def runTestRaw(name, numProcs, cmds):
 
     for i in range(CYCLES):
       if i!=0 and i%2==0:
-        print #newline
+        printFixed("\n")
         printFixed("",15)
       printFixed("ckpt:")
       # NOTE:  If this faile, it will throw an exception to CheckFailed
@@ -595,7 +675,7 @@ def runTestRaw(name, numProcs, cmds):
       #wait for launched processes to settle down, before we try to checkpoint
       sleep(S*SLOW)
       testCheckpoint()
-      printFixed("PASSED ")
+      printFixed("PASSED; ")
       testKill()
 
       printFixed("rstr:")
@@ -604,14 +684,14 @@ def runTestRaw(name, numProcs, cmds):
           testRestart()
           printFixed("PASSED")
           break
-        except CheckFailed, e:
+        except CheckFailed as e:
           if j == RETRIES-1:
             # Save checkpoint images for later diagnosis.
             if os.path.isdir(dmtcp_tmpdir()) and os.path.isdir(ckptDir):
               if subprocess.call( ("cp -pr " + ckptDir + ' '
                                    + dmtcp_tmpdir()).split() ) == 0:
-                print "\n***** Copied checkpoint images to " + dmtcp_tmpdir() \
-                      + "/" + ckptDir
+                print("\n***** Copied checkpoint images to " + dmtcp_tmpdir() +
+                      "/" + ckptDir)
             raise e
           else:
             printFixed("FAILED ")
@@ -634,23 +714,25 @@ def runTestRaw(name, numProcs, cmds):
               printFixed("(Either first process didn't die, or else this long" +
                          " delay has been observed due to a slow" +
                          " NFS-based filesystem.)")
-            printFixed(" retry:")
+            printFixed("; retry:")
             testKill()
       if i != CYCLES - 1:
-        printFixed("; ")
+        printFixed(" -> ")
+        if i % 2 == 1:
+          printFixed("(cont.)")
 
     testKill()
-    print #newline
+    printFixed("\n")
     stats[0]+=1
 
-  except CheckFailed, e:
-    print "FAILED"
+  except CheckFailed as e:
+    print("FAILED")
     printFixed("",15)
-    print "root-pids:", map(lambda x: x.pid, procs), "msg:", e.value
+    print("root-pids:", [x.pid for x in procs], "msg:", e.value)
     try:
       testKill()
-    except CheckFailed, e:
-      print "CLEANUP ERROR:", e.value
+    except CheckFailed as e:
+      print("CLEANUP ERROR:", e.value)
       SHUTDOWN()
       saveResultsNMI()
       sys.exit(1)
@@ -668,6 +750,9 @@ def getProcessChildren(pid):
 
 # If the user types ^C, then kill all child processes.
 def runTest(name, numProcs, cmds):
+  # if --parallel and this test already passed, return
+  if args.parallel and parallel_test(name):
+    return
   for i in range(2):
     try:
       runTestRaw(name, numProcs, cmds)
@@ -678,12 +763,12 @@ def runTest(name, numProcs, cmds):
           os.kill(pid, signal.SIGKILL)
         except OSError: # This happens if pid already died.
           pass
-    except CheckFailed, e:
+    except CheckFailed as e:
       if not args.retry_once:
         break
       if i == 0:
         stats[1]-=1
-        print "Trying once again"
+        print("Trying once again")
 
 def saveResultsNMI():
   if DEBUG == "yes":
@@ -702,10 +787,10 @@ def saveResultsNMI():
       os.system(cmd)
       cmd = "tar zcf ../results.tar.gz ./results; rm -rf results"
       os.system(cmd)
-      print "\n*** results.tar.gz ("+tmpdir+"/"+target+ \
-                                              ") written to DMTCP_ROOT/.. ***"
+      print("\n*** results.tar.gz ("+tmpdir+"/"+target+
+                                   ") written to DMTCP_ROOT/.. ***")
 
-print "== Tests =="
+print("== Tests ==")
 
 #tmp port
 p0=str(randint(2000,10000))
@@ -715,6 +800,9 @@ p3=str(randint(2000,10000))
 
 # Use uniform user shell.  Else apps like script have different subprocesses.
 os.environ["SHELL"]="/bin/bash"
+
+if USE_MULTILIB:
+  runTest("dmtcp1-m32",  1, ["./test/dmtcp1-m32"])
 
 runTest("dmtcp1",        1, ["./test/dmtcp1"])
 
@@ -734,14 +822,15 @@ runTest("sched_test",    2, ["./test/sched_test"])
 oldLimit = resource.getrlimit(resource.RLIMIT_STACK)
 # oldLimit[1] is old hard limit
 if oldLimit[1] == resource.RLIM_INFINITY:
-  newCurrLimit = 8L*1024*1024
+  newCurrLimit = 8*1024*1024
 else:
-  newCurrLimit = min(8L*1024*1024, oldLimit[1])
+  newCurrLimit = min(8*1024*1024, oldLimit[1])
 resource.setrlimit(resource.RLIMIT_STACK, [newCurrLimit, oldLimit[1]])
 runTest("dmtcp5",        2, ["./test/dmtcp5"])
 resource.setrlimit(resource.RLIMIT_STACK, oldLimit)
 
-# Test for a bunch of system calls. We want to use the 'xc' mode for
+# Test for a bunch of system calls. We want to use the 'Kc' mode for
+# (sets exitAfterCkptOnce in src/dmtcp_coordinator.cpp) for
 # checkpointing so that the process is killed right after checkpoint. Otherwise
 # the syscall-tester could fail in the following case:
 #   1. create and open temp file
@@ -753,7 +842,7 @@ resource.setrlimit(resource.RLIMIT_STACK, oldLimit)
 # program will try to unlink the file once again, but the unlink operation will
 # fail, causing the test to fail.
 old_ckpt_cmd = CKPT_CMD
-CKPT_CMD = 'xc'
+CKPT_CMD = b'Kc' # Equivalent to 'dmtcp_command -kc'
 runTest("syscall-tester",  1, ["./test/syscall-tester"])
 CKPT_CMD = old_ckpt_cmd
 
@@ -828,6 +917,9 @@ runTest("environ",       1, ["./test/environ"])
 
 runTest("forkexec",      2, ["./test/forkexec"])
 
+runTest("vfork1",        [1,2,3] , ["./test/vfork1"])
+runTest("vfork2",        [2,3,4] , ["./test/vfork1 \"sh -c 'while true; do date; sleep 1; done'\" "])
+
 runTest("realpath",      1, ["./test/realpath"])
 runTest("pthread1",      1, ["./test/pthread1"])
 runTest("pthread2",      1, ["./test/pthread2"])
@@ -862,7 +954,7 @@ if uname_m != "armv7" and uname_m != "armv7l" and uname_m != "aarch64":
     os.environ["LD_LIBRARY_PATH"] = \
       os.getenv("LD_LIBRARY_PATH")[:-len(":./test")]
 else:
-  print "Skipping pthread_atfork test; doesn't build on ARM/aarch64/glibc/Linux"
+  print("Skipping pthread_atfork test; doesn't build on ARM/aarch64/glibc/Linux")
 
 if not USE_M32:  # ssh (a 64-bit child process) is forked
   if HAS_SSH_LOCALHOST == "yes":
@@ -904,7 +996,7 @@ if HAS_CMA == "yes":
 
 # ARM glibc 2.16 with Linux kernel 3.0 doesn't support mq_send, etc.
 if uname_p[0:3] == 'arm':
-  print "Skipping posix-mq1/mq2 tests; ARM/glibc/Linux does not support mq_send"
+  print("Skipping posix-mq1/mq2 tests; ARM/glibc/Linux does not support mq_send")
 elif TEST_POSIX_MQ == "yes":
   runTest("posix-mq1",     2, ["./test/posix-mq1"])
   # mq-notify seems to be broken at the moment.
@@ -916,7 +1008,13 @@ runTest("pty2",   2, ["./test/pty2"])
 
 #Invoke this test when support for timers is added to DMTCP.
 runTest("timer1",   1, ["./test/timer1"])
-runTest("timer2",   1, ["./test/timer2"])
+##########################################################
+# In Ubuntu 18.0, bin/dmtcp_launch test/timer2 exits early
+# In contrast, gdb --args bin/dmtcp_launch test/timer2 does not fail.
+# And the bug is not observed on CentOS 7.6
+# Let's omit this test, until we can fix the bug with timer2
+##########################################################
+## runTest("timer2",   1, ["./test/timer2"])
 runTest("clock",   1, ["./test/clock"])
 
 old_ld_library_path = os.getenv("LD_LIBRARY_PATH")
@@ -947,19 +1045,27 @@ os.environ['DMTCP_GZIP'] = GZIP
 if HAS_READLINE == "yes":
   runTest("readline",    1,  ["./test/readline"])
 
+POST_LAUNCH_SLEEP = 2  # Don't checkpoint until perl cmd has launched
 runTest("perl",          1, ["/usr/bin/perl"])
+POST_LAUNCH_SLEEP=DEFAULT_POST_LAUNCH_SLEEP
 
 if HAS_PYTHON == "yes":
+  POST_LAUNCH_SLEEP = 2  # Don't checkpoint until python cmd has launched
   runTest("python",      1, ["/usr/bin/python"])
+  POST_LAUNCH_SLEEP=DEFAULT_POST_LAUNCH_SLEEP
 
 os.environ['DMTCP_GZIP'] = "1"
+POST_LAUNCH_SLEEP = 2  # Don't checkpoint until bash cmd has launched
 runTest("bash",        2, ["/bin/bash --norc -c 'ls; sleep 30; ls'"])
+POST_LAUNCH_SLEEP=DEFAULT_POST_LAUNCH_SLEEP
 os.environ['DMTCP_GZIP'] = GZIP
 
 if HAS_DASH == "yes":
   os.environ['DMTCP_GZIP'] = "0"
   os.unsetenv('ENV')  # Delete reference to dash initialization file
+  POST_LAUNCH_SLEEP = 2  # Don't checkpoint until dash cmd has launched
   runTest("dash",        2, ["/bin/dash -c 'ls; sleep 30; ls'"])
+  POST_LAUNCH_SLEEP=DEFAULT_POST_LAUNCH_SLEEP
   os.environ['DMTCP_GZIP'] = GZIP
 
 if HAS_TCSH == "yes":
@@ -970,7 +1076,9 @@ if HAS_TCSH == "yes":
 if HAS_ZSH == "yes":
   os.environ['DMTCP_GZIP'] = "0"
   S=3*DEFAULT_S
+  POST_LAUNCH_SLEEP = 2  # Don't checkpoint until zsh cmd has launched
   runTest("zsh",         2, ["/bin/zsh -f -c 'ls; sleep 30; ls'"])
+  POST_LAUNCH_SLEEP=DEFAULT_POST_LAUNCH_SLEEP
   S=DEFAULT_S
   os.environ['DMTCP_GZIP'] = GZIP
 
@@ -979,14 +1087,14 @@ if HAS_VIM == "yes":
   S=10*DEFAULT_S
   if sys.version_info[0:2] >= (2,6):
     # Delete previous vim processes.  Vim behaves poorly with stale processes.
-    vimCommand = VIM + " /etc/passwd +3" # +3 makes cmd line unique
+    vimCommand = VIM + " -X -u DEFAULTS -i NONE /etc/passwd +3" # +3 makes cmd line unique
     def killCommand(cmdToKill):
       if os.getenv('USER') == None or HAS_PS == 'no':
         return
       ps = subprocess.Popen(['ps', '-u', os.environ['USER'], '-o',
                              'pid,command'],
                             stdout=subprocess.PIPE).communicate()[0]
-      for row in ps.split('\n')[1:]:
+      for row in ps.split(b'\n')[1:]:
         cmd = row.split(None, 1) # maxsplit=1
         if len(cmd) > 1 and cmd[1] == cmdToKill:
           os.kill(int(cmd[0]), signal.SIGKILL)
@@ -1028,9 +1136,11 @@ if HAS_SCRIPT == "yes":
     #  to 25 MB _per process_ under gzip, but this can be slow at ckpt time.
     # On some systems, the script test has two `script` processes, while on some
     # other systems, there is only a single `script` process.
+    POST_LAUNCH_SLEEP = 2  # Don't checkpoint until script cmd has launched
     runTest("script",    [3,4],  ["/usr/bin/script -f" +
                               " -c 'bash -c \"ls; sleep 30\"'" +
                               " dmtcp-test-typescript.tmp"])
+    POST_LAUNCH_SLEEP = DEFAULT_POST_LAUNCH_SLEEP
   os.system("rm -f dmtcp-test-typescript.tmp")
   S=DEFAULT_S
 
@@ -1057,8 +1167,8 @@ if PTRACE_SUPPORT == "yes" and ARM_HOST == "no" and \
 
   if HAS_GDB == "yes":
     if uname_p[0:3] == 'arm':
-      print "On ARM, there is a known issue with DMTCP for gdb-* test." + \
-            "  Not running it."
+      print("On ARM, there is a known issue with DMTCP for gdb-* test." +
+            "  Not running it.")
     else:
       os.system("echo 'run' > dmtcp-gdbinit.tmp")
       S=10*DEFAULT_S
@@ -1094,8 +1204,10 @@ if HAS_GCL == "yes":
   S=DEFAULT_S
 
 if HAS_OPENMP == "yes":
+  S=3*DEFAULT_S
   runTest("openmp-1",         1,  ["./test/openmp-1"])
   runTest("openmp-2",         1,  ["./test/openmp-2"])
+  S=DEFAULT_S
 
 # SHOULD HAVE matlab RUN LARGE FACTORIAL OR SOMETHING.
 if HAS_MATLAB == "yes" and sys.version_info[0:2] >= (2,6):
@@ -1104,18 +1216,11 @@ if HAS_MATLAB == "yes" and sys.version_info[0:2] >= (2,6):
   S=DEFAULT_S
 
 if HAS_MPICH == "yes":
-  runTest("mpd",         1, [MPICH_MPD])
+  runTest("hellompich-n1", 3,
+          [MPICH_PATH + "/mpirun" + " -np 1 ./test/hellompich"])
 
-  runTest("hellompich-n1", 4,
-          [MPICH_MPD, MPICH_MPIEXEC + " -n 1 ./test/hellompich"])
-
-  runTest("hellompich-n2", 6,
-          [MPICH_MPD, MPICH_MPIEXEC + " -n 2 ./test/hellompich"])
-
-  runTest("mpdboot",     1, [MPICH_MPDBOOT+" -n 1"])
-
-  #os.system(MPICH_MPDCLEANUP)
-
+  runTest("hellompich-n2", 4,
+          [MPICH_PATH + "/mpirun" + " -np 2 ./test/hellompich"])
 
 if HAS_OPENMPI == "yes":
   # Compute:  USES_OPENMPI_ORTED
@@ -1146,7 +1251,7 @@ if HAS_OPENMPI == "yes":
   # FIXME: Replace "[5,6]" by numProcesses when bug in configure is fixed.
   # /usr/bin/openmpi does not work if /usr/bin is not also in user's PATH
   oldPath = ""
-  if not os.environ.has_key('PATH'):
+  if 'PATH' not in os.environ:
     oldPath = None
     os.environ['PATH'] = os.path.dirname(OPENMPI_MPIRUN)
   elif (not re.search(os.path.dirname(OPENMPI_MPIRUN),
@@ -1165,16 +1270,16 @@ if HAS_OPENMPI == "yes":
 # Test DMTCP utilities:
 runTest("nocheckpoint",        1, ["./test/nocheckpoint"])
 
-print "== Summary =="
-print "%s: %d of %d tests passed" % (socket.gethostname(), stats[0], stats[1])
+print("== Summary ==")
+print("%s: %d of %d tests passed" % (socket.gethostname(), stats[0], stats[1]))
 
 saveResultsNMI()
 
 try:
   SHUTDOWN()
-except CheckFailed, e:
-  print "Error in SHUTDOWN():", e.value
+except CheckFailed as e:
+  print("Error in SHUTDOWN():", e.value)
 except:
-  print "Error in SHUTDOWN()"
+  print("Error in SHUTDOWN()")
 
 sys.exit( stats[1] - stats[0] )  # Return code is number of failing tests.

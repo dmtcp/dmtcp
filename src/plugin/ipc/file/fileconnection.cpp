@@ -550,11 +550,11 @@ areFilesEqual(int fd, int savedFd, size_t size)
   char *buf1 = (char *)JALLOC_HELPER_MALLOC(bufSize);
   char *buf2 = (char *)JALLOC_HELPER_MALLOC(bufSize);
 
-  off_t offset1 = _real_lseek(fd, 0, SEEK_CUR);
-  off_t offset2 = _real_lseek(savedFd, 0, SEEK_CUR);
+  off_t offset1 = lseek(fd, 0, SEEK_CUR);
+  off_t offset2 = lseek(savedFd, 0, SEEK_CUR);
 
-  JASSERT(_real_lseek(fd, 0, SEEK_SET) == 0) (fd) (JASSERT_ERRNO);
-  JASSERT(_real_lseek(savedFd, 0, SEEK_SET) == 0) (savedFd) (JASSERT_ERRNO);
+  JASSERT(lseek(fd, 0, SEEK_SET) == 0) (fd) (JASSERT_ERRNO);
+  JASSERT(lseek(savedFd, 0, SEEK_SET) == 0) (savedFd) (JASSERT_ERRNO);
 
   int readBytes;
   while (size > 0) {
@@ -573,8 +573,8 @@ areFilesEqual(int fd, int savedFd, size_t size)
   }
   JALLOC_HELPER_FREE(buf1);
   JALLOC_HELPER_FREE(buf2);
-  JASSERT(_real_lseek(fd, offset1, SEEK_SET) != -1);
-  JASSERT(_real_lseek(savedFd, offset2, SEEK_SET) != -1);
+  JASSERT(lseek(fd, offset1, SEEK_SET) != -1);
+  JASSERT(lseek(savedFd, offset2, SEEK_SET) != -1);
   return size == 0;
 }
 
@@ -589,9 +589,10 @@ writeFileFromFd(int fd, int destFd)
   // On some Linux kernels, the shared-memory test will fail without this.
   fsync(fd);
 
-  off_t offset = _real_lseek(fd, 0, SEEK_CUR);
-  JASSERT(_real_lseek(fd, 0, SEEK_SET) == 0) (fd) (JASSERT_ERRNO);
-  JASSERT(_real_lseek(destFd, 0, SEEK_SET) == 0) (destFd) (JASSERT_ERRNO);
+  off_t offset = lseek(fd, 0, SEEK_CUR);
+  JASSERT(lseek(fd, 0, SEEK_SET) == 0)
+    (fd) (JASSERT_ERRNO) (jalib::Filesystem::GetDeviceName(fd));
+  JASSERT(lseek(destFd, 0, SEEK_SET) == 0) (destFd) (JASSERT_ERRNO);
 
   int readBytes, writtenBytes;
   while (1) {
@@ -604,7 +605,7 @@ writeFileFromFd(int fd, int destFd)
     JASSERT(writtenBytes != -1) (JASSERT_ERRNO).Text("Write failed.");
   }
   JALLOC_HELPER_FREE(buf);
-  JASSERT(_real_lseek(fd, offset, SEEK_SET) != -1);
+  JASSERT(lseek(fd, offset, SEEK_SET) != -1);
 }
 
 string

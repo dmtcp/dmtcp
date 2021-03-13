@@ -19,9 +19,14 @@ dmtcplibdir = $(pkglibdir)
 
 SUBDIRS = mtcp plugin
 
+JALLOC_ATOMIC_128_CXXFLAG =
+if X86_64_HOST
+ JALLOC_ATOMIC_128_CXXFLAG = -mcx16
+endif
+
 PICFLAGS=-fPIC
 AM_CFLAGS = $(PICFLAGS)
-AM_CXXFLAGS = $(PICFLAGS)
+AM_CXXFLAGS = $(PICFLAGS) $(JALLOC_ATOMIC_128_CXXFLAG)
 AM_LDFLAGS = $(PICFLAGS)
 
 if CONFIG_M32
@@ -50,6 +55,7 @@ bin_PROGRAMS = $(d_bindir)/dmtcp_command 			\
 	       $(d_bindir)/dmtcp_coordinator 			\
 	       $(d_bindir)/dmtcp_launch 			\
 	       $(d_bindir)/dmtcp_nocheckpoint			\
+	       $(d_bindir)/dmtcp_get_libc_offset		\
 	       $(d_bindir)/dmtcp_restart
 
 dmtcplib_PROGRAMS = $(d_libdir)/libdmtcp.so
@@ -159,6 +165,7 @@ __d_libdir__libdmtcp_so_SOURCES = alarm.cpp			\
 				  threadlist.cpp 		\
 				  threadsync.cpp 		\
 				  threadwrappers.cpp 		\
+				  wrappers.cpp 			\
 				  writeckpt.cpp
 
 __d_libdir__libdmtcp_so_LDFLAGS = -shared -Xlinker -znow
@@ -173,6 +180,10 @@ __d_libdir__libdmtcp_so_LDADD = libdmtcpinternal.a 		\
 
 
 __d_bindir__dmtcp_nocheckpoint_SOURCES = dmtcp_nocheckpoint.c
+
+__d_bindir__dmtcp_get_libc_offset_SOURCES = dmtcp_get_libc_offset.c
+
+__d_bindir__dmtcp_get_libc_offset_LDADD = -ldl
 
 __d_bindir__dmtcp_coordinator_SOURCES = dmtcp_coordinator.cpp 	\
 					lookup_service.cpp 	\

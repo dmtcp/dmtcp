@@ -9,6 +9,7 @@ CPP=@CPP@
 CPPFLAGS = @CPPFLAGS@
 LDFLAGS = @LDFLAGS@
 M32=@M32@
+MULTILIB=@MULTILIB@
 HAS_JAVA=@HAS_JAVA@
 HAS_JAVAC=@HAS_JAVAC@
 PACKAGE=@PACKAGE_TARNAME@
@@ -58,16 +59,67 @@ MANPAGES=dmtcp.1.gz dmtcp_coordinator.1.gz dmtcp_command.1.gz dmtcp_launch.1.gz 
 # Macros TEST and XTERM_E used on command line by check1, check2, ...:
 #   make TEST=readline XTERM_E="xterm -e" check-readline
 
+ifeq ($(MULTILIB),1)
+default: display-build-env add-git-hooks build-multilib
+else
 default: display-build-env add-git-hooks build
+endif
 
-mkdirs:
+build-multilib: build-multilib-m32 build-multilib-m64
+
+build-multilib-m32: display-build-env config.status-multilib-m32
+	./config.status-multilib-m32
+	${MAKE} -f Makefile clean # Makefile changed; use '-f'
+	${MAKE} -f Makefile build # Makefile changed; use '-f'
+	# ${MAKE} -f Makefile install # Makefile changed; use '-f'
+	@ echo "******************************************************"
+	@ echo "*" && echo "*" && echo "*" && echo "*" && echo "*" && echo "*"
+	@ echo "* FINISHED COMPILING 32-bit MODE. DO 'make -j' FOR 64-bit MODE."
+	@ echo "*" && echo "*" && echo "*" && echo "*" && echo "*" && echo "*"
+	@ echo "******************************************************"
+
+config.status-multilib-m32: config.status
+	cat config.status | \
+	  sed -e s'%S\["M32"\]=.*%S["M32"]="1"%' \
+	      -e s'%D\["CONFIG_MULTILIB"\]="\(.*\)"%D["CONFIG_MULTILIB"]="\1"\nD["CONFIG_M32"]="\1"%' \
+	      -e s'%S\["CONFIG_M32_TRUE"\]=.*%S["CONFIG_M32_TRUE"]=""%' \
+	      -e s'%S\["CONFIG_M32_FALSE"\]=.*%S["CONFIG_M32_FALSE"]="#"%' \
+	      -e s'%S\["CFLAGS"\]="\(.*\)"%S["CFLAGS"]="\1 -m32 -march=i686 -Wa,--32"%' \
+	      -e s'%S\["CXXFLAGS"\]="\(.*\)"%S["CXXFLAGS"]="\1 -m32 -march=i686 -Wa,--32"%' \
+	      -e s'%S\["LDFLAGS"\]="\(.*\)"%S["LDFLAGS"]="\1 -m32 -march=i686 -Wl,-m32 -Wl,-melf_i386 -Wa,--32"%' \
+	      -e s'%D\["ELF_INTERPRETER"\]=.*"%D["ELF_INTERPRETER"]=" \\"/lib/ld-linux.so.2\\""%' \
+	      -e s'%S\["prefix"\]=".*"%S["prefix"]="'$$PWD'/build"%' \
+	  - \
+	> config.status-multilib-m32
+	chmod a+x ./config.status-multilib-m32
+
+# buld-multilib-m{32,64} were delcared .PHONY targets
+# Adding build-multilib-m32 as prerequisite allows use of 'make -j'
+build-multilib-m64: config.status-multilib-m64 build-multilib-m32
+	./config.status-multilib-m64 # Restore non-m32 configuration
+	${MAKE} -f Makefile clean # Makefile changed; use '-f'
+	${MAKE} -f Makefile build # Makefile changed; use '-f'
+	# ${MAKE} -f Makefile install # Makefile changed; use '-f'
+
+config.status-multilib-m64: config.status
+	cat config.status | \
+	  sed -e s'%S\["prefix"\]=".*"%S["prefix"]="'$$PWD'/build"%' \
+	  - \
+	> config.status-multilib-m64
+	chmod a+x ./config.status-multilib-m64
+
+mkdirs: display-build-env
 	$(MKDIR_P) $(targetdir)/bin
 	$(MKDIR_P) $(targetdir)/lib/dmtcp
+ifeq ($(M32),1)
+	$(MKDIR_P) $(top_builddir)/bin
+endif
 
 build: mkdirs dmtcp plugin contrib
 ifeq ($(M32),1)
-	cd lib/dmtcp && $(LN_S) 32/lib/dmtcp/* ./
-	mkdir -p bin && cd bin && $(LN_S) ../lib/dmtcp/32/bin/* ./
+	cd lib/dmtcp && $(LN_S) 32/lib/dmtcp/* ./ || true
+	mkdir -p bin || true
+	cd bin && $(LN_S) ../lib/dmtcp/32/bin/* ./ || true
 endif
 
 all: default
@@ -104,6 +156,11 @@ display-config:
 	    echo -n 'config.log: ' ; \
 	    grep '\$$ .*configure ' config.log | sed -e 's^\$$^^'; \
 	   fi
+ifeq ($(M32),0)
+	@ echo "32-bit build:  gcc -m32"
+else
+	@ echo "64-bit build:  gcc (standard)"
+endif
 
 
 _hooksdir=.git/hooks
@@ -118,7 +175,7 @@ ${_hooksdir}/%: util/hooks/%
 # If the developer accidentally leaves an old src/config.h in place (e.g.,
 #   after examining an old revision when this really existed), then some
 #   source code would pull in src/config.h in preference to include/config.h
-dmtcp:
+dmtcp: mkdirs
 	rm -f src/config.h
 	cd src && $(MAKE)
 
@@ -150,21 +207,27 @@ tests-32: build
 LIMIT=ulimit -v 33554432
 
 check: tests
-	@ if python -c 'print "Python exits."' > /dev/null; then \
-	  bash -c "$(LIMIT) && $(top_srcdir)/test/autotest.py ${AUTOTEST} $*"; \
-	  else echo '*** No python found in your path.'; echo '*** Please add' \
-	   ' python to path or build Python 2.x for x >= 3.'; \
-	  fi
+	@ if test "@HAS_PYTHON3@" = yes; then \
+	 bash -c "$(LIMIT) && python3 $(top_srcdir)/test/autotest.py ${AUTOTEST} $*";\
+	elif test "@HAS_PYTHON@" = yes; then \
+	 bash -c "$(LIMIT) && python $(top_srcdir)/test/autotest.py ${AUTOTEST} $*";\
+	else echo '*** No python found in your path.'; \
+	 echo '*** Please add python to path'; \
+	fi
 
 check-32: tests-32
-	@ if python -c 'print "Python exits."' > /dev/null; then \
+	@ if python -c 'print("Python exits.")' > /dev/null; then \
 	  bash -c "$(LIMIT) && $(top_srcdir)/test/autotest.py ${AUTOTEST} $*"; \
 	  else echo '*** No python found in your path.'; echo '*** Please add' \
-	   ' python to path or build Python 2.x for x >= 3.'; \
+	   ' python to path or build Python 2 or use python3.'; \
 	  fi
 
 check-%: tests
-	bash -c "$(LIMIT) && $(top_srcdir)/test/autotest.py ${AUTOTEST} '$*'"
+	@ if test "@HAS_PYTHON3@" = yes; then \
+	bash -c "$(LIMIT) && python3 $(top_srcdir)/test/autotest.py ${AUTOTEST} '$*'";\
+	elif test "@HAS_PYTHON@" = yes; then \
+	bash -c "$(LIMIT) && python $(top_srcdir)/test/autotest.py ${AUTOTEST} '$*'";\
+	fi
 
 check-32-%: tests-32
 	bash -c "$(LIMIT) && $(top_srcdir)/test/autotest.py ${AUTOTEST} '$*'"
@@ -254,9 +317,6 @@ clean: tidy
 	 fi; \
 	 rm -rf $$DMTCP_TMPDIR
 
-# Obsolete, remove in 2.5.0.
-clean-64: clean
-
 distclean: clean
 	- cd src && $(MAKE) distclean
 	- cd plugin && $(MAKE) distclean
@@ -264,7 +324,7 @@ distclean: clean
 	- cd test && $(MAKE) distclean
 	rm -f Makefile test/Makefile test/autotest_config.py \
 	  include/config.h include/dmtcp/version.h include/stamp-h1 \
-	  config.log config.status config.cache
+	  config.log config.status config.status-* config.cache
 	rm -rf autom4te.cache
 	rm -rf $(top_builddir)/lib $(top_builddir)/bin
 
@@ -343,5 +403,6 @@ am--refresh:
 
 .PHONY: default all add-git-hooks \
 	display-build-env display-release display-config build \
+	build-multilib build-multilib-m32 build-multilib-m64 \
 	mkdirs dmtcp plugin contrib clean distclean am--refresh \
 	tests tests-32

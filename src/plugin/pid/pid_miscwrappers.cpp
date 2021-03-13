@@ -20,17 +20,8 @@
  ****************************************************************************/
 
 #include <semaphore.h>
+#include <signal.h>  // needed for SIGEV_THREAD_ID
 #include <sys/syscall.h>
-#ifdef __aarch64__
-#define __ARCH_WANT_SYSCALL_DEPRECATED
-
-// SYS_getpgrp is a deprecated kernel call in aarch64, but in favor of what?
-#include <asm-generic/unistd.h>
-
-// SYS_getpgrp undefined in aarch64, but add extra insurance
-#undef SYS_getpgrp
-#define SYS_getpgrp __NR_getpgrp
-#endif  // ifdef __aarch64__
 #include <linux/version.h>
 
 #include "jassert.h"
@@ -40,52 +31,126 @@
 #include "dmtcp.h"
 #include "pid.h"
 #include "pidwrappers.h"
+#include "procselfmaps.h"
 #include "shareddata.h"
 #include "util.h"
 #include "virtualpidtable.h"
 
 using namespace dmtcp;
 
-LIB_PRIVATE pid_t getPidFromEnvVar();
+static pid_t childVirtualPid;
 
-void
-pidVirt_pthread_atfork_child()
+static pid_t vfork_saved_pid;
+static pid_t vfork_saved_ppid;
+static pid_t vfork_saved_tid;
+
+LIB_PRIVATE void
+pidVirt_atfork_prepare()
+{
+  Util::getVirtualPidFromEnvVar(&childVirtualPid, NULL, NULL);
+}
+
+LIB_PRIVATE void
+pidVirt_atfork_child()
 {
   dmtcpResetPidPpid();
   dmtcpResetTid(getpid());
   VirtualPidTable::instance().resetOnFork();
 }
 
-extern "C" int
-__register_atfork(void (*prepare)(void), void (*parent)(void), void (*child)(
-                    void), void *dso_handle)
-{
-  /* dmtcp_initialize() must be called before __register_atfork().
-   * NEXT_FNC() guarantees that dmtcp_initialize() is called if
-   * it was not called earlier. */
-  return NEXT_FNC(__register_atfork)(prepare, parent, child, dso_handle);
-}
 
 extern "C" pid_t
 fork()
 {
-  pid_t retval = 0;
-  pid_t virtualPid = getPidFromEnvVar();
-
-  VirtualPidTable::instance().writeVirtualTidToFileForPtrace(virtualPid);
-
   pid_t realPid = _real_fork();
 
   if (realPid > 0) { /* Parent Process */
-    retval = virtualPid;
-    VirtualPidTable::instance().updateMapping(virtualPid, realPid);
-    SharedData::setPidMap(virtualPid, realPid);
-  } else {
-    retval = realPid;
-    VirtualPidTable::instance().readVirtualTidFromFileForPtrace();
+    VirtualPidTable::instance().updateMapping(childVirtualPid, realPid);
+    SharedData::setPidMap(childVirtualPid, realPid);
+    return childVirtualPid;
   }
 
-  return retval;
+  return realPid;
+}
+
+extern VirtualPidTable *virtPidTableInst;
+VirtualPidTable vfork_saved_virtPidTableInst;
+
+LIB_PRIVATE void
+pidVirt_vfork_prepare()
+{
+  vfork_saved_pid = getpid();
+  vfork_saved_ppid = getppid();
+  vfork_saved_tid = dmtcp_gettid();
+  vfork_saved_virtPidTableInst = *virtPidTableInst;
+
+  Util::getVirtualPidFromEnvVar(&childVirtualPid, NULL, NULL);
+}
+
+static pid_t vforkPid = 0;
+static char* stackStart;
+static size_t stackSize;
+static void* newStackAddr;
+
+extern "C" pid_t
+vfork()
+{
+  char dummy = 0;
+
+  static __typeof__(&vfork) vforkPtr =
+    (__typeof__(&vfork)) dmtcp_dlsym(RTLD_NEXT, "vfork");
+
+  // Save the contents of the current call frame before calling libc:vfork. The
+  // vfork syscall won't return in the parent until the child process has either
+  // exited or exec'd. In both cases, the current call frame on stack will
+  // most-likely get overwritten by the child process. (The call frames below
+  // the current call-frame are expected to be safe as the child process is not
+  // expected to return from the current call frame).
+  // Failure to restore the current call frame in the parent might result in
+  // lost $RBP data that include the return address.
+  //
+  // NOTE: The vfork wrapper in execwrappers.cpp performs similar save/restore
+  // of the current call frame. This duplication is required in case we decide
+  // to not use the PID plugin.
+  //
+  // TODO: Deduplicate stack save/restore with similar code in
+  // execwrappers.cpp's vfork wrapper.
+  stackStart = &dummy;
+  // Return address is stored at $rbp + sizeof(void*)
+  stackSize =
+    (char*) __builtin_frame_address(0) + (2 * sizeof(void*)) - stackStart;
+  newStackAddr = JALLOC_MALLOC(stackSize);
+  JASSERT(newStackAddr);
+  memcpy(newStackAddr, stackStart, stackSize);
+
+  vforkPid = vforkPtr();
+
+  // Restore parent stack.
+  if (vforkPid > 0) {
+    memcpy(stackStart, newStackAddr, stackSize);
+    JALLOC_FREE(newStackAddr);
+  }
+
+  if (vforkPid == 0) {
+    pidVirt_atfork_child();
+  } else { /* Parent Process */
+    *virtPidTableInst = vfork_saved_virtPidTableInst;
+
+    Util::setVirtualPidEnvVar(vfork_saved_pid, vfork_saved_ppid,
+                              _real_getppid());
+    dmtcpResetPidPpid();
+    dmtcpResetTid(getpid());
+
+    if (vforkPid > 0) {
+      VirtualPidTable::instance().updateMapping(childVirtualPid, vforkPid);
+      SharedData::setPidMap(childVirtualPid, vforkPid);
+      return childVirtualPid;
+    }
+
+    munmap(newStackAddr, stackSize);
+  }
+
+  return vforkPid;
 }
 
 struct ThreadArg {
@@ -143,7 +208,6 @@ __clone(int (*fn)(void *arg),
     }
   } else {
     virtualTid = VirtualPidTable::instance().getNewVirtualTid();
-    VirtualPidTable::instance().writeVirtualTidToFileForPtrace(virtualTid);
   }
 
   // We have to use DMTCP-specific memory allocator because using glibc:malloc
@@ -161,10 +225,6 @@ __clone(int (*fn)(void *arg),
   JTRACE("Calling libc:__clone");
   pid_t tid = _real_clone(clone_start, child_stack, flags, threadArg,
                           parent_tidptr, newtls, child_tidptr);
-
-  if (dmtcp_is_running_state()) {
-    VirtualPidTable::instance().readVirtualTidFromFileForPtrace();
-  }
 
   if (tid > 0) {
     JTRACE("New thread created") (tid);
@@ -373,11 +433,16 @@ syscall(long sys_num, ...)
     break;
   }
 
+// SYS_getpgrp undefined in aarch64.
+// Presumably, it's handled by libc, and is not a kernel call
+//   in AARCH64 (e.g., v5.01).
+#ifndef __aarch64__
   case SYS_getpgrp:
   {
     ret = getpgrp();
     break;
   }
+#endif
 
   case SYS_getpgid:
   {

@@ -61,14 +61,13 @@ class StdioConnection : public Connection
 
     StdioConnection() {}
 
-    virtual void drain() {}
+    virtual void postRestart() override;
 
-    virtual void refill(bool isRestart) {}
+    virtual string str() override { return "<STDIO>"; }
 
-    virtual void postRestart();
-    virtual void serializeSubClass(jalib::JBinarySerializer &o) {}
-
-    virtual string str() { return "<STDIO>"; }
+    virtual StdioConnection* clone() override {
+      return new StdioConnection(*this);
+    }
 };
 
 class FileConnection : public Connection
@@ -94,16 +93,20 @@ class FileConnection : public Connection
       , _fileAlreadyExists(false)
     { }
 
-    virtual void doLocking();
-    virtual void drain();
-    virtual void preCkpt();
-    virtual void refill(bool isRestart);
-    virtual void postRestart();
-    virtual void resume(bool isRestart);
+    virtual void doLocking() override;
+    virtual void drain() override;
+    virtual void preCkpt() override;
+    virtual void refill(bool isRestart) override;
+    virtual void postRestart() override;
+    virtual void resume(bool isRestart) override;
 
-    virtual void serializeSubClass(jalib::JBinarySerializer &o);
+    virtual void serializeSubClass(jalib::JBinarySerializer &o) override;
 
-    virtual string str() { return _path; }
+    virtual string str() override { return _path; }
+
+    virtual FileConnection* clone() override {
+      return new FileConnection(*this);
+    }
 
     string filePath() { return _path; }
 
@@ -118,6 +121,8 @@ class FileConnection : public Connection
     ino_t inode() const { return _st_ino; }
 
     bool checkDup(int fd, const char *npath);
+
+    void updatePath(string newPath) { _path = newPath; }
 
   private:
     int openFile();
@@ -169,13 +174,17 @@ class FifoConnection : public Connection
       _in_data.clear();
     }
 
-    virtual void drain();
-    virtual void refill(bool isRestart);
-    virtual void postRestart();
+    virtual void drain() override;
+    virtual void refill(bool isRestart) override;
+    virtual void postRestart() override;
 
-    virtual string str() { return _path; }
+    virtual string str() override { return _path; }
 
-    virtual void serializeSubClass(jalib::JBinarySerializer &o);
+    virtual FifoConnection* clone() override {
+      return new FifoConnection(*this);
+    }
+
+    virtual void serializeSubClass(jalib::JBinarySerializer &o) override;
 
   private:
     int openFile();
@@ -209,14 +218,18 @@ class PosixMQConnection : public Connection
       }
     }
 
-    virtual void doLocking();
-    virtual void drain();
-    virtual void refill(bool isRestart);
-    virtual void postRestart();
+    virtual void doLocking() override;
+    virtual void drain() override;
+    virtual void refill(bool isRestart) override;
+    virtual void postRestart() override;
 
-    virtual void serializeSubClass(jalib::JBinarySerializer &o);
+    virtual void serializeSubClass(jalib::JBinarySerializer &o) override;
 
-    virtual string str() { return _name; }
+    virtual string str() override { return _name; }
+
+    virtual PosixMQConnection* clone() override {
+      return new PosixMQConnection(*this);
+    }
 
     void on_mq_close();
     void on_mq_notify(const struct sigevent *sevp);

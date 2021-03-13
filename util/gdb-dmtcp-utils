@@ -1,0 +1,422 @@
+#/*****************************************************************************
+# * Copyright (C) 2020 Gene Cooperman <gene@ccs.neu.edu>                      *
+# *                                                                           *
+# * DMTCP is free software: you can redistribute it and/or                    *
+# * modify it under the terms of the GNU Lesser General Public License as     *
+# * published by the Free Software Foundation, either version 3 of the        *
+# * License, or (at your option) any later version.                           *
+# *                                                                           *
+# * DMTCP is distributed in the hope that it will be useful,                  *
+# * but WITHOUT ANY WARRANTY; without even the implied warranty of            *
+# * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the             *
+# * GNU Lesser General Public License for more details.                       *
+# *                                                                           *
+# * You should have received a copy of the GNU Lesser General Public          *
+# * License along with DMTCP.  If not, see <http://www.gnu.org/licenses/>.    *
+# *****************************************************************************/
+
+python
+import subprocess
+import re
+import os
+import textwrap
+
+# This adds a GDB command:  add-symbol-files-all    (no arguments)
+# To use it, either do:
+#     gdb -x gdb-dmtcp-utils TARGET_PROGRAM PID
+#     (gdb) add-symbol-files-all
+# OR:
+#     gdb attach PID
+#     (gdb) source gdb-dmtcp-utils
+#     (gdb) add-symbol-files-all
+#       [ TIP: You can also add 'source gdb-dmtcp-utils' to ~/gdbinit ]
+# This also adds GDB commands:
+#     (gdb) dmtcp [or DMTCP]  # Prints out a list of available GDB commands for DMTCP.
+#     (gdb) procmaps
+#     (gdb) procfd
+#     (gdb) procfdinfo
+#     (gdb) procenviron
+#     (gdb) pstree
+#     (gdb) lsof
+#     (gdb) rlimit
+#     (gdb) signals
+#     (gdb) add-symbol-file-from-filename-and-address FILENAME ADDRESS
+#         (Needed if FILENAME not listed in procmaps;
+#          Better version of add-symbol-file; ADDRESS anywhere in memory range)
+#     (gdb) show-filename-at-address MEMORY_ADDRESS (or whereis-address)
+#     (gdb) add-symbol-file-from-substring FILENAME_SUBSTRING
+#                                   (e.g., add-symbol-file-from-substring libc)
+#     (gdb) add-symbol-file-at-address MEMORY_ADDRESS
+#                                   (e.g., add-symbol-file-at-address 0x400000)
+
+dmtcp_commands = "dmtcp add-symbol-files-all, " +\
+  "add-symbol-file-from-filename-and-address, " +\
+  "add-symbol-file-from-substring, add-symbol-file-at-address, " +\
+  "show-filename-at-address (OR: whereis-address), " +\
+  "procmaps, procfd, procfdinfo, procenviron, pstree, lsof, rlimit, signals"
+
+def print_dmtcp_commands():
+  print("GDB commands available for DMTCP:")
+  print("  ** ( NOTE:  help works:  (gdb) help <COMMAND> )")
+  print(textwrap.fill(dmtcp_commands, break_on_hyphens=False,
+                      initial_indent="    ", subsequent_indent="    "))
+
+
+def is_executable(filename):
+  # 16 bytes for ELF magic number; then 2 bytes (short) for ELF type
+  header = open(filename, "rb")
+  elf_magic_number = header.read(16)
+  elf_type = header.read(2)
+  # Is it little-endian or big-endian
+  elf_type = elf_type[0] if sys.byteorder == "little" else elf_type[1]
+  # Handle both Python2.7 and Python3: type 2 is executable; type 3 is .so file
+  elf_type = elf_type if isinstance(elf_type, int) else ord(elf_type)
+  return elf_type == 2
+
+# FROM: https://stackoverflow.com/questions/33049201/gdb-add-symbol-file-all-sections-and-load-address
+def relocatesections(filename):
+  p = subprocess.Popen(["readelf", "-S", filename], stdout = subprocess.PIPE)
+
+  sections = []
+  textaddr = '0'
+  for line in p.stdout.readlines():
+    line = line.decode("utf-8").strip()
+    if not line.startswith('['):
+      continue
+    if line.startswith('[ 0]') or line.startswith('[Nr]'):
+      continue
+    line = line.replace("[ ", "[", 1)
+
+    fieldsvalue = line.split()
+    fieldsname = ['number', 'name', 'type', 'addr', 'offset', 'size',
+                  'entsize', 'flags', 'link', 'info', 'addralign']
+    sec = dict(zip(fieldsname, fieldsvalue))
+
+    if not sec['name'].startswith("."):
+      continue
+    if ".note" in sec['name']:
+      continue
+
+    sections.append(sec)
+
+    if sec['name'] == '.text':
+      textaddr = sec['addr']
+
+  return (textaddr, sections)
+
+
+class dmtcp(gdb.Command):
+  """dmtcp [prints list of GDB commands for DMTCP]"""
+
+  def __init__(self):
+    super(dmtcp,
+          self).__init__("dmtcp", gdb.COMMAND_FILES, gdb.COMPLETE_FILENAME)
+    self.dont_repeat()
+
+  def invoke(self, dummy_args, from_tty):
+    print_dmtcp_commands()
+dmtcp()
+try:
+  gdb.execute("DMTCP")
+except gdb.error:
+  gdb.execute("alias DMTCP=dmtcp")
+
+class AddSymbolFileFromSubstring(gdb.Command):
+  """add-symbol-file-from-substring FILENAME_SUBSTRING"""
+
+  def __init__(self):
+    super(AddSymbolFileFromSubstring,
+          self).__init__("add-symbol-file-from-substring",
+                         gdb.COMMAND_FILES, gdb.COMPLETE_FILENAME)
+    self.dont_repeat()
+
+  def invoke(self, filename_substring, from_tty):
+    (filename, base_addr, _) = memory_region(filename_substring)
+    add_symbol_files_from_filename(filename, base_addr)
+# This will add the new gdb command: add-symbol-file-from-substring FILENAME
+AddSymbolFileFromSubstring()
+
+
+class AddSymbolFileFromFilenameAndAddress(gdb.Command):
+  """add-symbol-file-from-filename-and-address FILENAME ADDRESS
+     Better version of add-symbol-file; ADDRESS is anywhere in memory range"""
+
+  def __init__(self):
+    super(AddSymbolFileFromFilenameAndAddress,
+          self).__init__("add-symbol-file-from-filename-and-address",
+                         gdb.COMMAND_FILES, gdb.COMPLETE_FILENAME)
+    self.dont_repeat()
+
+  def invoke(self, filename_and_address, from_tty):
+    (filename, address) = filename_and_address.split()
+    (_, base_addr, _) = memory_region_at_address(address)
+    add_symbol_files_from_filename(filename, base_addr)
+# This will add the new gdb command:
+#   add-symbol-file-from-filename-base-address FILENAME BASE_ADDRESS
+AddSymbolFileFromFilenameAndAddress()
+
+
+class ShowFilenameAtAddress(gdb.Command):
+    """show-filename-at-address MEMORY_ADDRESS"""
+
+    def __init__(self):
+        super(ShowFilenameAtAddress,
+              self).__init__("show-filename-at-address", gdb.COMMAND_STATUS)
+        self.dont_repeat()
+
+    def invoke(self, memory_address, from_tty):
+        # Remove existing symbol files
+        if getpid() == 0:
+          gdb.execute('print "Process not yet started"', False, False)
+        else:
+          memory_region = "%s (r-x): 0x%x-0x%x" % \
+                          memory_region_at_address(memory_address)
+          gdb.execute('print "' + memory_region + '"', False, False)
+# This will add the new gdb command: show-filename-at-address MEMORY_ADDRESS
+ShowFilenameAtAddress()
+try:
+  gdb.execute("whereis-address 0x0")
+except gdb.error:
+  gdb.execute("alias whereis-address=show-filename-at-address")
+
+
+class AddSymbolFileAtAddress(gdb.Command):
+  """add-symbol-file-at-address MEMORY_ADDRESS"""
+
+  def __init__(self):
+    super(AddSymbolFileAtAddress,
+          self).__init__("add-symbol-file-at-address", gdb.COMMAND_FILES)
+    self.dont_repeat()
+
+  def invoke(self, address, from_tty):
+    if getpid() == 0:
+      gdb.execute('print "Process not yet started"', False, False)
+    else:
+      (filename, base_addr, _) = memory_region_at_address(address)
+      if filename == "NOT_FOUND":
+        gdb.execute('print "Memory address not found"', False, False)
+      else:
+        add_symbol_files_from_filename(filename, base_addr)
+# This will add the new gdb command: add-symbol-file-at-address MEMORY_ADDRESS
+AddSymbolFileAtAddress()
+
+
+class AddSymbolFilesAll(gdb.Command):
+    """add-symbol-files-all (adds all symbols of files in /proc/self/maps)"""
+
+    def __init__(self):
+        super(AddSymbolFilesAll,
+              self).__init__("add-symbol-files-all", gdb.COMMAND_FILES)
+        self.dont_repeat()
+
+    def invoke(self, dummy_args, from_tty):
+        # Remove existing symbol files
+        gdb.execute("symbol-file", False, True)
+        # for (filename, _, _) in memory_regions():
+        #   gdb.execute("add-symbol-file-from-substring " + filename)
+        # This form preferred, in case the same filename appears more than once
+        for (filename, address, _) in memory_regions():
+          gdb.execute("add-symbol-file-at-address " + str(address))
+# This will add the new gdb command: add-symbol-files-all
+AddSymbolFilesAll()
+
+
+def add_symbol_files_from_filename(filename, base_addr):
+  if is_executable(filename):
+    base_addr = 0  # ELF executables already hard-wired absolute address
+  (textaddr, sections) = relocatesections(filename)
+  cmd = "add-symbol-file %s 0x%x" % (filename, int(textaddr, 16) + base_addr)
+  for s in sections:
+    addr = int(s['addr'], 16)
+    if s['name'] == '.text' or addr == 0:
+      continue
+    cmd += " -s %s 0x%x" % (s['name'], addr + base_addr)
+  gdb.execute(cmd)
+
+# Helper functions for AddSymbolFileFromSubstring
+def getpid():
+  return gdb.selected_inferior().pid
+
+class Procmaps(gdb.Command):
+  """procmaps (same as:  shell cat /proc/INFERIOR_PID/maps)"""
+  def __init__(self):
+    super(Procmaps,
+          self).__init__("procmaps", gdb.COMMAND_STATUS)
+    self.dont_repeat()
+  def invoke(self, dummy_args, from_tty):
+    if getpid() == 0:
+      gdb.execute('print "Process not yet started; type \'run\'"', False, False)
+    else:
+      gdb.execute("shell cat /proc/" + str(getpid()) + "/maps | less",
+                  False, True)
+Procmaps()
+
+class Procfd(gdb.Command):
+  """procfd (same as:  shell ls -l /proc/INFERIOR_PID/fd)"""
+  def __init__(self):
+    super(Procfd,
+          self).__init__("procfd", gdb.COMMAND_STATUS)
+    self.dont_repeat()
+  def invoke(self, dummy_args, from_tty):
+    if getpid() == 0:
+      gdb.execute('print "Process not yet started; type \'run\'"', False, False)
+    else:
+      gdb.execute("shell ls -l /proc/" + str(getpid()) + "/fd", False, True)
+Procfd()
+
+class Procfdinfo(gdb.Command):
+  """procfdinfo (same as:  shell ls -l /proc/INFERIOR_PID/fdinfo/FD)"""
+  def __init__(self):
+    super(Procfdinfo,
+          self).__init__("procfdinfo", gdb.COMMAND_STATUS)
+    self.dont_repeat()
+  def invoke(self, fd_number, from_tty):
+    if getpid() == 0:
+      gdb.execute('print "Process not yet started; type \'run\'"', False, False)
+    else:
+      gdb.execute("shell ls -l /proc/" + str(getpid()) + "/fd/" + fd_number,
+                  False, True)
+      gdb.execute("shell cat /proc/" + str(getpid()) + "/fdinfo/" + fd_number,
+                  False, True)
+Procfdinfo()
+
+class Procenviron(gdb.Command):
+  """procenviron (same as:  cat /proc/INFERIOR_PID/environ | tr '\\0' '\\n' | less)"""
+  def __init__(self):
+    super(Procenviron,
+          self).__init__("procenviron", gdb.COMMAND_STATUS)
+    self.dont_repeat()
+  def invoke(self, dummy_args, from_tty):
+    if getpid() == 0:
+      gdb.execute('print "Process not yet started; type \'run\'"', False, False)
+    else:
+      gdb.execute("shell cat /proc/" + str(getpid()) + "/environ | tr '\\0' '\\n' | less",
+                  False, True)
+Procenviron()
+
+class Pstree(gdb.Command):
+  """pstree (same as:  shell pstree -plnu <$USER>)"""
+  def __init__(self):
+    super(Pstree,
+          self).__init__("pstree", gdb.COMMAND_STATUS)
+    self.dont_repeat()
+  def invoke(self, dummy_args, from_tty):
+    gdb.execute("shell pstree -plnu " + str(os.getenv("USER")), False, True)
+Pstree()
+
+class Lsof(gdb.Command):
+  """pstree (same as:  shell shell lsof -w [for this username])"""
+  def __init__(self):
+    super(Lsof,
+          self).__init__("lsof", gdb.COMMAND_STATUS)
+    self.dont_repeat()
+  def invoke(self, dummy_args, from_tty):
+    gdb.execute("shell lsof -w | grep '^[^ ]*  *[0-9][0-9]*  *" + str(os.getenv("USER")) +
+                "  *[0-9]' | grep -v ^lsof | grep -v ^less | grep -v ^grep | less",
+                False, True)
+Lsof()
+
+class Rlimit(gdb.Command):
+  """rlimit (info on rlimit/ulimit)"""
+  def __init__(self):
+    super(Rlimit,
+          self).__init__("rlimit", gdb.COMMAND_STATUS)
+    self.dont_repeat()
+  def invoke(self, dummy_args, from_tty):
+    if getpid() == 0:
+      gdb.execute('print "Process not yet started; type \'run\'"', False, False)
+    else:
+      gdb.execute("shell sh -c '(echo +++ Soft resource limits +++; ulimit -S -a;" +
+                  " echo \"\"; echo +++ Hard resource limits +++; ulimit -H -a)' | less",
+                  False, True)
+Rlimit()
+
+class Signals(gdb.Command):
+  """signals (info from /proc/self/status: SigPnd, SigBlk, SigIgn, SigCgt)"""
+  def __init__(self):
+    super(Signals,
+          self).__init__("signals", gdb.COMMAND_STATUS)
+    self.dont_repeat()
+  def invoke(self, dummy_args, from_tty):
+    if getpid() == 0:
+      gdb.execute('print "Process not yet started; type \'run\'"', False, False)
+    else:
+      print_signals()
+Signals()
+
+# For /proc/*/maps line: ADDR1-ADDR2 ... FILE; returns (FILE, ADDR1, ADDR2)
+def procmap_filename_address(line):
+  triple = line.split()
+  if '/' in triple[-2]:  # if procmaps line ends in "/tmp/a.out (deleted)"
+    triple[-1] = triple[-2] + ' ' + triple[-1]
+  return (triple[-1],) + \
+         tuple([int("0x"+elt, 16) for elt in triple[0].split("-")])
+def is_text_segment(procmap_line):
+  return "r-x" in procmap_line and \
+         (procmap_line == "" or procmap_line.isspace() or '/' in procmap_line)
+def memory_regions():
+  if getpid() == 0:
+    sys.stderr.write("\n*** Process not running! ***\n")
+    sys.exit(1)
+  p = subprocess.Popen(["cat", "/proc/"+str(getpid())+"/maps"],
+                       stdout = subprocess.PIPE)
+  procmap_lines = [line.decode("utf-8").strip()
+                   for line in p.stdout.readlines()]
+  return [procmap_filename_address(memory) for memory in procmap_lines
+                                           if is_text_segment(memory)]
+
+# Returns triple:  (filename, base_address, end_address)
+def memory_region(filename_substring):
+  regions = memory_regions()
+  return [region for region in regions if filename_substring in region[0]][0]
+
+
+def memory_region_at_address(memory_address):
+  if "0x" in hex(int(str(gdb.parse_and_eval(memory_address)))): 
+    memory_address = hex(int(str(gdb.parse_and_eval(memory_address))))
+    memory_address = "0x" + memory_address.split("0x")[1]
+    memory_address = memory_address.split(" ")[0]
+  elif "0x" not in str(memory_address) and \
+     set(str(memory_address)).issubset("0123456789abcdef"):
+    print("Assuming " + memory_address + " is hexadecimal.")
+    memory_address = "0x" + memory_address
+  memory_address = int(memory_address, 0)
+  regions = memory_regions()
+  match = [region for region in regions
+           if memory_address >= region[1] and memory_address < region[2]]
+  if match:
+    return match[0]
+  else:
+    return ("NOT_FOUND (Did you intend the address in hex?)", 0, 0)
+
+def print_signals():
+  signals_x86_arm = [
+    "SIGNONE", "SIGHUP", "SIGINT", "SIGQUIT", "SIGILL", "SIGTRAP",
+    "SIGABRT/SIGIOT", "SIGBUS", "SIGFPE", "SIGKILL", "SIGUSR1", "SIGSEGV",
+    "SIGUSR2", "SIGPIPE", "SIGALRM", "SIGTERM", "SIGSTKFLT", "SIGCHLD",
+    "SIGCONT", "SIGSTOP", "SIGTSTP", "SIGTTIN", "SIGTTOU", "SIGURG",
+    "SIGXCPU", "SIGXFSZ", "SIGVTALRM", "SIGPROF", "SIGWINCH", "SIGIO/SIGPPOLL",
+    "SIGPWR", "SIGSYS/SIGUNUSED"
+  ]
+  procfile = open("/proc/" + str(getpid()) + "/status", "r")
+  status = [line.strip().split(":\t") for line in procfile.readlines()
+                        if line.startswith("Sig") or line.startswith("ShdPnd")]
+  signals = dict(status)
+  del signals["SigQ"]
+  for item in signals:  # Convert hex to bits
+    signals[item] = bin(int("0x1" + signals[item], 0))[3:]
+  def sigbits(sigset):  # Convert bit string to signal names
+    # reversed and '0' added: e.g., "000111"->"0111000"
+    bits = zip( "0" + signals[sigset][::-1],
+                signals_x86_arm + ["SIGRT_"+str(i) for i in range(0,32)] )
+    return [b[1] for b in bits if b[0] == '1']
+  gdb.execute('print "' + "pending per-thread signals: " +
+              str(sigbits("SigPnd")) + '"', False, False)
+  gdb.execute('print "' + "pending per-process signals: " +
+              str(sigbits("ShdPnd")) + '"', False, False)
+  gdb.execute('print "' + "blocked signals: " + str(sigbits("SigBlk")) + '"',
+              False, False)
+  gdb.execute('print "' + "ignored signals: " + str(sigbits("SigIgn")) + '"',
+              False, False)
+  gdb.execute('print "' + "signals w/ handlers: " +
+              str(sigbits("SigCgt")) + '"', False, False)

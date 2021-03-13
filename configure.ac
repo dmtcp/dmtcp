@@ -24,6 +24,10 @@ AC_PROG_CXX
 AC_PROG_CC
 AC_PROG_CC_STDC
 AC_PROG_CPP
+
+AC_CONFIG_MACRO_DIR([m4])
+AX_CXX_COMPILE_STDCXX([11], [noext], [mandatory])
+
 dnl This sets OPENMP_CFLAGS
 AC_OPENMP
 dnl This sets OPENMP_CXXFLAGS
@@ -274,9 +278,17 @@ else
   AC_SUBST([HAS_MUTEX_WRAPPERS], [no])
 fi
 
+dnl --enable-m32 will use _32 variant, but --enable_multilib uses _64 variant
+CFLAGS_64="$CFLAGS"
+CXXFLAGS_64="$CXXFLAGS"
+LDFLAGS_64="$LDFLAGS"
+CFLAGS_32="$CFLAGS -m32 -march=i686 -Wa,--32"
+CXXFLAGS_32="$CXXFLAGS -m32 -march=i686 -Wa,--32"
+LDFLAGS_32="$LDFLAGS -m32 -march=i686 -Wl,-m32 -Wl,-melf_i386 -Wa,--32"
+
 AC_ARG_ENABLE([m32],
             [AS_HELP_STRING([--enable-m32],
-                            [Compile in 32 bit mode on 64 bit linux. (Works on
+                            [Compile in 320bit mode on 64-bit Linux. (Works on
                              most, but not all programs, due to restrictions of
                              32-bit mode.)])],
             [use_m32=$enableval],
@@ -286,13 +298,41 @@ AM_CONDITIONAL(CONFIG_M32, [test "$use_m32" = "yes"])
 if test "$use_m32" = "yes"; then
   AC_SUBST([M32], [1])
   AC_SUBST([HAS_READLINE], [no])
-  AC_DEFINE([CONFIG_M32],[1],[Compiling in 32 bit mode on 64 bit linux.])
+  AC_DEFINE([CONFIG_M32],[1],[Compiling in 32-bit mode on 64-bit Linux.])
 
-  CFLAGS="$CFLAGS -m32 -march=i686 -Wa,--32"
-  CXXFLAGS="$CXXFLAGS -march=i686 -m32 -Wa,--32"
-  LDFLAGS="$LDFLAGS -m32 -march=i686 -Wl,-m32 -Wl,-melf_i386 -Wa,--32"
+  CFLAGS="$CFLAGS_32"
+  CXXFLAGS="$CXXFLAGS_32"
+  LDFLAGS="$LDFLAGS_32"
+else
+  AC_SUBST([M32], [0])
+fi
 
+dnl If --enable-multilib is invoked, then the top-level 'Makefile' will
+dnl   create config.status-multilib-m32.
+dnl Invoking ./config.status-multilib-m32 configures as if --enable-m32 called.
+dnl Invoking ./config.status configures as if --enable-m32 was not called.
+AC_ARG_ENABLE([multilib],
+            [AS_HELP_STRING([--enable-multilib],
+                            [Compile for mixed 32-bit and 64-bit mode.
+                             (Requires gcc-multilib/g++-multilib packages.)])],
+            [use_multilib=$enableval],
+            [use_multilib=no])
+
+AM_CONDITIONAL(CONFIG_MULTILIB, [test "$use_multilib" = "yes"])
+if test "$use_multilib" = "yes"; then
+  AC_SUBST([MULTILIB], [1])
+  AC_SUBST([HAS_READLINE], [no])
+  AC_DEFINE([CONFIG_MULTILIB],[1],[Compiling in 32-bit/64-bit mixed mode.])
+else
+  AC_SUBST([MULTILIB], [0])
+fi
+
+if test "$use_m32" = "yes" -o "$use_multilib" = "yes"; then
   AC_MSG_CHECKING([whether multilib $CC compiles using -m32])
+  CFLAGS="$CFLAGS_32"
+  CXXFLAGS="$CXXFLAGS_32"
+  LDFLAGS="$LDFLAGS_32"
+
   AC_LANG_PUSH([C])
   AC_LINK_IFELSE([AC_LANG_PROGRAM([[
   #include <stdio.h>
@@ -329,8 +369,11 @@ if test "$use_m32" = "yes"; then
      or glibc-devel-32bit (SUSE/OpenSUSE)
      or the equivalent packages for your Linux distro.]])
   fi
-else
-  AC_SUBST([M32], [0])
+  if test "$use_multilib" = "yes"; then
+    CFLAGS="$CFLAGS_64"
+    CXXFLAGS="$CXXFLAGS_64"
+    LDFLAGS="$LDFLAGS_64"
+  fi
 fi
 
 AC_ARG_ENABLE([static_libstdcxx],
@@ -390,7 +433,15 @@ case "$host_cpu" in
   arm*) is_arm_host=yes ;;
   aarch64*) is_aarch64_host=yes ;;
   i?86) is_i486_host=yes ;;
+  x86_64) is_x86_64_host=yes ;;
 esac
+
+AM_CONDITIONAL(X86_64_HOST, [test "$is_x86_64_host" == "yes"])
+if test "$is_x86_64_host" == "yes"; then
+  AC_SUBST([X86_64_HOST], [yes])
+else
+  AC_SUBST([X86_64_HOST], [no])
+fi
 
 AM_CONDITIONAL(ARM_HOST, [test "$is_arm_host" == "yes"])
 if test "$is_arm_host" == "yes"; then
@@ -524,6 +575,9 @@ AC_CHECK_PROG(HAS_PS, [ps], [yes], [no], [/usr/bin:/bin])
 #check for python
 AC_CHECK_PROG(HAS_PYTHON, [python], [yes], [no], [/usr/bin])
 
+#check for python3
+AC_CHECK_PROG(HAS_PYTHON3, [python3], [yes], [no], [/usr/bin])
+
 #check for dash
 AC_CHECK_PROG(HAS_DASH, [dash], [yes], [no], [/bin])
 
@@ -591,33 +645,52 @@ else
   AC_SUBST([HAS_SSH_LOCALHOST], [no])
 fi
 
-#check for mpich2
+#check for mpich3
 AC_ARG_WITH([mpich],
-            [AS_HELP_STRING([--with-mpich=path],
-                            [Compile mpich2 tests in `make check`])],
-            [mpich=$withval],
-            [mpich=no])
+            [AS_HELP_STRING([--with-mpich=mpich_path_prefix],
+                            [Compile mpich3 tests in `make check`])],
+            [mpich_path_prefix=$withval],
+            [mpich_path_prefix=no])
 
-if test "$mpich" != "no"; then
-  mpich_path="$mpich:$mpich/bin"
-  AC_PATH_PROG([MPICH_MPD],        [mpd],        [no], [$mpich_path])
-  AC_PATH_PROG([MPICH_MPDBOOT],    [mpdboot],    [no], [$mpich_path])
-  AC_PATH_PROG([MPICH_MPDALLEXIT], [mpdallexit], [no], [$mpich_path])
-  AC_PATH_PROG([MPICH_MPDCLEANUP], [mpdcleanup], [no], [$mpich_path])
+mpich_path="no"
+if test "$mpich_path_prefix" != "no"; then
+  mpich_path="$mpich_path_prefix:$mpich_path_prefix/bin"
+else
+  # Let's see if we can find mpicc in the default path
+  mpiccpath=`which mpicc 2>/dev/null`
+  if test ! -z "$mpiccpath"; then
+    mpicclink=`readlink -f $mpiccpath`
+    if test "`basename $mpicclink`" = mpicc.mpich; then
+      mpich_path=`dirname $mpiccpath`
+    fi
+  fi
+fi
+if test "mpich_path" != "no"; then
   AC_PATH_PROG([MPICH_MPICC],      [mpicc],      [no], [$mpich_path])
+  AC_PATH_PROG([MPICH_MPIRUN],     [mpirun],     [no], [$mpich_path])
   AC_PATH_PROG([MPICH_MPIEXEC],    [mpiexec],    [no], [$mpich_path])
-  if test "$MPICH_MPD" = "no"        ||\
-     test "$MPICH_MPDBOOT" = "no"    ||\
-     test "$MPICH_MPDALLEXIT" = "no" ||\
-     test "$MPICH_MPDCLEANUP" = "no" ||\
+  if test "$MPICH_MPIRUN" = "no"     ||\
      test "$MPICH_MPICC" = "no"      ||\
      test "$MPICH_MPIEXEC" = "no";
   then
-    AC_MSG_ERROR([Invalid mpich path, use --with-mpich=<path>])
+    mpich_path="no"
   fi
-  AC_SUBST(HAS_MPICH, [yes])
+fi
+if test "$mpich_path" = "no"; then
+  if test "$mpich_path_prefix" = "no"; then
+    AC_SUBST(HAS_MPICH,[no])
+  else
+    AC_MSG_ERROR([Invalid mpich path, use --with-mpich=<mpich_path_prefix>])
+  fi
 else
-  AC_SUBST(HAS_MPICH,[no])
+  AC_SUBST(HAS_MPICH, [yes])
+  if test "$mpich_path_prefix" = "no"; then
+    mpiccpath=`which mpicc`
+  else
+    PATH=$mpich_path mpiccpath=`which mpicc`
+  fi
+  mpich_path=`dirname $mpiccpath`
+  AC_SUBST(MPICH_PATH, [$mpich_path])
 fi
 
 #check for Open MPI

@@ -20,9 +20,9 @@
  ****************************************************************************/
 
 #include <elf.h>
+#include <fcntl.h>
 #include <limits.h>
 #include <stdio.h>
-#include <sys/fcntl.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
@@ -149,15 +149,15 @@ class RestoreTarget
       .Text("checkpoint file missing");
 
       _fd = readCkptHeader(_path, &_pInfo);
-      ptrdiff_t clock_gettime_offset =
+      uint64_t clock_gettime_offset =
                             dmtcp_dlsym_lib_fnc_offset("linux-vdso",
                                                        "__vdso_clock_gettime");
-      ptrdiff_t getcpu_offset = dmtcp_dlsym_lib_fnc_offset("linux-vdso",
+      uint64_t getcpu_offset = dmtcp_dlsym_lib_fnc_offset("linux-vdso",
                                                            "__vdso_getcpu");
-      ptrdiff_t gettimeofday_offset =
+      uint64_t gettimeofday_offset =
                               dmtcp_dlsym_lib_fnc_offset("linux-vdso",
                                                          "__vdso_gettimeofday");
-      ptrdiff_t time_offset = dmtcp_dlsym_lib_fnc_offset("linux-vdso",
+      uint64_t time_offset = dmtcp_dlsym_lib_fnc_offset("linux-vdso",
                                                          "__vdso_time");
       JWARNING(!_pInfo.vdsoOffsetMismatch(clock_gettime_offset, getcpu_offset,
                                           gettimeofday_offset, time_offset))
@@ -171,6 +171,7 @@ class RestoreTarget
     int fd() const { return _fd; }
 
     const UniquePid &upid() const { return _pInfo.upid(); }
+    const UniquePid &uppid() const { return _pInfo.uppid(); }
 
     pid_t pid() const { return _pInfo.pid(); }
 
@@ -310,7 +311,8 @@ class RestoreTarget
                                installDir.c_str(),
                                &compId,
                                &coordInfo,
-                               &localIPAddr);
+                               &localIPAddr,
+                               _pInfo.numPeers());
 
         Util::initializeLogFile(SharedData::getTmpDir().c_str(),
                                 _pInfo.procname().c_str(),
@@ -324,7 +326,7 @@ class RestoreTarget
         RestoreTarget *t = it->second;
         if (_pInfo.upid() == t->_pInfo.upid()) {
           continue;
-        } else if (_pInfo.isChild(t->upid()) &&
+        } else if (t->uppid() == _pInfo.upid() &&
                    t->_pInfo.sid() != _pInfo.pid()) {
           t->createDependentChildProcess();
         }
@@ -356,7 +358,7 @@ class RestoreTarget
         if (_pInfo.upid() == t->_pInfo.upid()) {
           continue;
         } else if (t->_pInfo.sid() == _pInfo.pid()) {
-          if (_pInfo.isChild(t->upid())) {
+          if (t->uppid() == _pInfo.upid()) {
             t->createDependentChildProcess();
           } else if (t->isRootOfProcessTree()) {
             t->createDependentNonChildProcess();

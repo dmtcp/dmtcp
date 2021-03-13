@@ -59,15 +59,11 @@ class ProcessInfo
     void restoreHeap();
     void growStack();
 
-    void insertChild(pid_t virtualPid, UniquePid uniquePid);
-    void eraseChild(pid_t virtualPid);
-
     bool beginPthreadJoin(pthread_t thread);
     void endPthreadJoin(pthread_t thread);
     void clearPthreadJoinState(pthread_t thread);
 
     void getState();
-    void refreshChildTable();
     void setRootOfProcessTree() { _isRootOfProcessTree = true; }
 
     bool isRootOfProcessTree() const { return _isRootOfProcessTree; }
@@ -103,13 +99,6 @@ class ProcessInfo
     uint32_t incrementNumRestarts() { return _numRestarts++; }
 
     void processRlimit();
-    void calculateArgvAndEnvSize();
-#ifdef RESTORE_ARGV_AFTER_RESTART
-    void restoreArgvAfterRestart(char *mtcpRestoreArgvStartAddr);
-#endif // ifdef RESTORE_ARGV_AFTER_RESTART
-    size_t argvSize() { return _argvSize; }
-
-    size_t envSize() { return _envSize; }
 
     const string &procname() const { return _procname; }
 
@@ -129,8 +118,6 @@ class ProcessInfo
 
     bool isForegroundProcess() const { return _gid == _fgid; }
 
-    bool isChild(const UniquePid &upid);
-
     int elfType() const { return _elfType; }
 
     uint64_t savedBrk(void) const { return _savedBrk; }
@@ -147,10 +134,12 @@ class ProcessInfo
 
     uint64_t vvarEnd(void) const { return _vvarEnd; }
 
-    bool vdsoOffsetMismatch(ptrdiff_t f1, ptrdiff_t f2,
-                            ptrdiff_t f3, ptrdiff_t f4);
+    bool vdsoOffsetMismatch(uint64_t f1, uint64_t f2,
+                            uint64_t f3, uint64_t f4);
+    uint64_t endOfStack(void) const { return _endOfStack; }
 
     string getCkptFilename() const { return _ckptFileName; }
+    string getTempCkptFilename() const { return _ckptFileName + ".temp"; }
 
     string getCkptFilesSubDir() const { return _ckptFilesSubDir; }
 
@@ -161,9 +150,7 @@ class ProcessInfo
     void updateCkptDirFileSubdir(string newCkptDir = "");
 
   private:
-    map<pid_t, UniquePid>_childTable;
     map<pthread_t, pthread_t>_pthreadJoinId;
-    map<pid_t, pid_t>_sessionIds;
     typedef map<pid_t, UniquePid>::iterator iterator;
 
     uint32_t _isRootOfProcessTree;
@@ -184,8 +171,6 @@ class ProcessInfo
 
     uint32_t _numPeers;
     uint32_t _noCoordinator;
-    uint32_t _argvSize;
-    uint32_t _envSize;
     uint32_t _elfType;
 
     string _procname;
@@ -212,11 +197,12 @@ class ProcessInfo
     uint64_t _vdsoEnd;
     uint64_t _vvarStart;
     uint64_t _vvarEnd;
+    uint64_t _endOfStack;
 
-    ptrdiff_t _clock_gettime_offset;
-    ptrdiff_t _getcpu_offset;
-    ptrdiff_t _gettimeofday_offset;
-    ptrdiff_t _time_offset;
+    uint64_t _clock_gettime_offset;
+    uint64_t _getcpu_offset;
+    uint64_t _gettimeofday_offset;
+    uint64_t _time_offset;
 };
 }
 #endif /* PROCESS_INFO */

@@ -61,6 +61,8 @@ enum DmtcpMessageType {
   DMT_BARRIER,
   DMT_BARRIER_RELEASED,
 
+  DMT_WORKER_RESUMING,
+
   DMT_KILL_PEER,             // send kill message to peer
 
   DMT_REGISTER_NAME_SERVICE_DATA,
@@ -92,6 +94,11 @@ ostream&operator<<(ostream &o, const DmtcpMessageType &s);
 struct DmtcpMessage {
   char _magicBits[16];
 
+  union {
+    char barrier[64];
+    char nsid[64];
+  };
+
   uint32_t _msgSize;
   uint32_t extraBytes;
 
@@ -104,7 +111,6 @@ struct DmtcpMessage {
   pid_t virtualPid;
   pid_t realPid;
 
-  char nsid[8];
   uint32_t keyLen;
   uint32_t valLen;
 
@@ -119,9 +125,9 @@ struct DmtcpMessage {
   struct in_addr ipAddr;
 
   uint32_t uniqueIdOffset;
-
   uint32_t exitAfterCkpt;
-  uint32_t padding;
+
+  // uint32_t padding;
 
   DmtcpMessage(DmtcpMessageType t = DMT_NULL);
   void assertValid() const;

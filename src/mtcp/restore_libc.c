@@ -377,7 +377,17 @@ get_tls_base_addr()
   struct user_desc gdtentrytls[2];
 
   gdtentrytls[0].entry_number = get_tls_segreg() / 8;
-  if (tls_get_thread_area(&gdtentrytls[0], &gdtentrytls[1]) == -1) {
+
+#if defined(__i386__) || defined(__x86_64__)
+  if (tls_get_thread_area(&gdtentrytls[0], &gdtentrytls[1]) == -1)
+#elif defined(__arm__) || defined(__aarch64__)
+  // FIXME: ARM uses tls_get_thread_area with incompatible syntax,
+  //        setting global variable myinfo_gs.  Fix this to work
+  //        for per-thread storage (multiple threads).
+  //        See commit 591a1631 (2.6.0), 7d02a2e0 (3.0):  PR #609
+  if (tls_get_thread_area(&gdtentrytls[0], myinfo_gs) == -1)
+#endif
+  {
     PRINTF("Error getting GDT TLS entry: %d\n", errno);
     _exit(0);
   }
@@ -592,17 +602,15 @@ TLSInfo_SaveTLSState(ThreadTLSInfo *tlsInfo)
 {
   int i;
 
-#ifdef __i386__
+#if defined(__i386__)
   asm volatile ("movw %%fs,%0" : "=m" (tlsInfo->fs));
   asm volatile ("movw %%gs,%0" : "=m" (tlsInfo->gs));
-#elif __x86_64__
-
-  // asm volatile ("movl %%fs,%0" : "=m" (tlsInfo->fs));
-  // asm volatile ("movl %%gs,%0" : "=m" (tlsInfo->gs));
-#elif __arm__ || __aarch64__
-
+#elif defined(__x86_64__)
+  //asm volatile ("movl %%fs,%0" : "=m" (tlsInfo->fs));
+  //asm volatile ("movl %%gs,%0" : "=m" (tlsInfo->gs));
+#elif defined(__arm__) || defined(__aarch64__)
   // Follow x86_64 for arm.
-#endif /* ifdef __i386__ */
+#endif /* if defined(__i386__) */
 
   memset(tlsInfo->gdtentrytls, 0, sizeof tlsInfo->gdtentrytls);
 
@@ -612,8 +620,17 @@ TLSInfo_SaveTLSState(ThreadTLSInfo *tlsInfo)
    */
   i = tlsInfo->TLSSEGREG / 8;
   tlsInfo->gdtentrytls[0].entry_number = i;
+#if defined(__i386__) || defined(__x86_64__)
   if (tls_get_thread_area(&(tlsInfo->gdtentrytls[0]),
-      &(tlsInfo->gdtentrytls[1])) == -1) {
+			  &(tlsInfo->gdtentrytls[1])) == -1)
+#elif defined(__arm__) || defined(__aarch64__)
+  // FIXME: ARM uses tls_get_thread_area with incompatible syntax,
+  //        setting global variable myinfo_gs.  Fix this to work
+  //        for per-thread storage (multiple threads).
+  //        See commit 591a1631 (2.6.0), 7d02a2e0 (3.0):  PR #609
+  if (tls_get_thread_area (&(tlsInfo->gdtentrytls[0]), myinfo_gs) == -1)
+#endif
+  {
     PRINTF("Error saving GDT TLS entry: %d\n", errno);
     _exit(0);
   }
@@ -653,10 +670,15 @@ TLSInfo_RestoreTLSState(ThreadTLSInfo *tlsInfo)
   }
 
   /* Now pass this to the kernel, so it can adjust the segment descriptors:
-   *   tls_set_thread_areaa() uses arg1 for fs and arg2 for gs.
+   *   i386, x86_64: tls_set_thread_areaa() uses arg1 for fs and arg2 for gs.
    * This will make different kernel calls according to the CPU architecture. */
+#if defined(__i386__) || defined(__x86_64__)
   if (tls_set_thread_area(&(tlsInfo->gdtentrytls[0]),
-                          &(tlsInfo->gdtentrytls[1])) != 0) {
+                          &(tlsInfo->gdtentrytls[1])) != 0)
+#elif defined(__arm__) || defined(__aarch64__)
+  if (tls_set_thread_area (&(tlsInfo->gdtentrytls[0]), myinfo_gs) != 0)
+#endif
+  {
     PRINTF("Error restoring GDT TLS entry: %d\n", errno);
     mtcp_abort();
   }

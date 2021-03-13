@@ -62,7 +62,7 @@ class VirtualIdTable
 #endif // ifdef JALIB_ALLOCATOR
     VirtualIdTable(string typeStr, IdType base, size_t max = MAX_VIRTUAL_ID)
     {
-      DmtcpMutexInit(&tblLock, DMTCP_MUTEX_NORMAL);
+      DmtcpMutexInit(&tblLock, DMTCP_MUTEX_LLL);
       _do_lock_tbl();
       _idMapTable.clear();
       _do_unlock_tbl();
@@ -115,7 +115,7 @@ class VirtualIdTable
     void resetOnFork(IdType newBase)
     {
       _base = newBase;
-      DmtcpMutexInit(&tblLock, DMTCP_MUTEX_NORMAL);
+      DmtcpMutexInit(&tblLock, DMTCP_MUTEX_LLL);
       resetNextVirtualId();
     }
 
@@ -145,8 +145,8 @@ class VirtualIdTable
 
     bool isIdCreatedByCurrentProcess(IdType id)
     {
-      return (size_t)id > (size_t)getpid() &&
-             (size_t)id <= (size_t)getpid() + _max;
+      return (size_t)id > (size_t)_base &&
+             (size_t)id <= (size_t)_base + _max;
     }
 
     bool virtualIdExists(IdType id)

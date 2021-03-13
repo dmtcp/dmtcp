@@ -105,11 +105,13 @@ bin_PROGRAMS = $(d_bindir)/dmtcp_command$(EXEEXT) \
 	$(d_bindir)/dmtcp_coordinator$(EXEEXT) \
 	$(d_bindir)/dmtcp_launch$(EXEEXT) \
 	$(d_bindir)/dmtcp_nocheckpoint$(EXEEXT) \
+	$(d_bindir)/dmtcp_get_libc_offset$(EXEEXT) \
 	$(d_bindir)/dmtcp_restart$(EXEEXT)
 dmtcplib_PROGRAMS = $(d_libdir)/libdmtcp.so$(EXEEXT)
 subdir = src
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
-am__aclocal_m4_deps = $(top_srcdir)/configure.ac
+am__aclocal_m4_deps = $(top_srcdir)/m4/ax_cxx_compile_stdcxx.m4 \
+	$(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 DIST_COMMON = $(srcdir)/Makefile.am $(include_HEADERS) \
@@ -165,6 +167,11 @@ __d_bindir__dmtcp_coordinator_OBJECTS =  \
 	$(am___d_bindir__dmtcp_coordinator_OBJECTS)
 __d_bindir__dmtcp_coordinator_DEPENDENCIES = libdmtcpinternal.a \
 	libjalib.a libnohijack.a
+am___d_bindir__dmtcp_get_libc_offset_OBJECTS =  \
+	dmtcp_get_libc_offset.$(OBJEXT)
+__d_bindir__dmtcp_get_libc_offset_OBJECTS =  \
+	$(am___d_bindir__dmtcp_get_libc_offset_OBJECTS)
+__d_bindir__dmtcp_get_libc_offset_DEPENDENCIES =
 am___d_bindir__dmtcp_launch_OBJECTS = dmtcp_launch.$(OBJEXT)
 __d_bindir__dmtcp_launch_OBJECTS =  \
 	$(am___d_bindir__dmtcp_launch_OBJECTS)
@@ -188,7 +195,8 @@ am___d_libdir__libdmtcp_so_OBJECTS = alarm.$(OBJEXT) \
 	rlimitfloatenv.$(OBJEXT) signalwrappers.$(OBJEXT) \
 	siginfo.$(OBJEXT) syslogwrappers.$(OBJEXT) terminal.$(OBJEXT) \
 	threadlist.$(OBJEXT) threadsync.$(OBJEXT) \
-	threadwrappers.$(OBJEXT) writeckpt.$(OBJEXT)
+	threadwrappers.$(OBJEXT) wrappers.$(OBJEXT) \
+	writeckpt.$(OBJEXT)
 __d_libdir__libdmtcp_so_OBJECTS =  \
 	$(am___d_libdir__libdmtcp_so_OBJECTS)
 __d_libdir__libdmtcp_so_DEPENDENCIES = libdmtcpinternal.a libjalib.a \
@@ -213,9 +221,10 @@ am__maybe_remake_depfiles = depfiles
 am__depfiles_remade = ./$(DEPDIR)/alarm.Po \
 	./$(DEPDIR)/ckptserializer.Po ./$(DEPDIR)/coordinatorapi.Po \
 	./$(DEPDIR)/dmtcp_command.Po ./$(DEPDIR)/dmtcp_coordinator.Po \
-	./$(DEPDIR)/dmtcp_dlsym.Po ./$(DEPDIR)/dmtcp_launch.Po \
-	./$(DEPDIR)/dmtcp_nocheckpoint.Po ./$(DEPDIR)/dmtcp_restart.Po \
-	./$(DEPDIR)/dmtcpmessagetypes.Po \
+	./$(DEPDIR)/dmtcp_dlsym.Po \
+	./$(DEPDIR)/dmtcp_get_libc_offset.Po \
+	./$(DEPDIR)/dmtcp_launch.Po ./$(DEPDIR)/dmtcp_nocheckpoint.Po \
+	./$(DEPDIR)/dmtcp_restart.Po ./$(DEPDIR)/dmtcpmessagetypes.Po \
 	./$(DEPDIR)/dmtcpnohijackstubs.Po ./$(DEPDIR)/dmtcpplugin.Po \
 	./$(DEPDIR)/dmtcpworker.Po ./$(DEPDIR)/execwrappers.Po \
 	./$(DEPDIR)/glibcsystem.Po ./$(DEPDIR)/jalib.Po \
@@ -237,7 +246,7 @@ am__depfiles_remade = ./$(DEPDIR)/alarm.Po \
 	./$(DEPDIR)/trampolines.Po ./$(DEPDIR)/uniquepid.Po \
 	./$(DEPDIR)/util_exec.Po ./$(DEPDIR)/util_init.Po \
 	./$(DEPDIR)/util_misc.Po ./$(DEPDIR)/workerstate.Po \
-	./$(DEPDIR)/writeckpt.Po
+	./$(DEPDIR)/wrappers.Po ./$(DEPDIR)/writeckpt.Po
 am__mv = mv -f
 COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
@@ -272,6 +281,7 @@ SOURCES = $(libdmtcpinternal_a_SOURCES) $(libjalib_a_SOURCES) \
 	$(libnohijack_a_SOURCES) $(libsyscallsreal_a_SOURCES) \
 	$(__d_bindir__dmtcp_command_SOURCES) \
 	$(__d_bindir__dmtcp_coordinator_SOURCES) \
+	$(__d_bindir__dmtcp_get_libc_offset_SOURCES) \
 	$(__d_bindir__dmtcp_launch_SOURCES) \
 	$(__d_bindir__dmtcp_nocheckpoint_SOURCES) \
 	$(__d_bindir__dmtcp_restart_SOURCES) \
@@ -280,6 +290,7 @@ DIST_SOURCES = $(libdmtcpinternal_a_SOURCES) $(libjalib_a_SOURCES) \
 	$(libnohijack_a_SOURCES) $(libsyscallsreal_a_SOURCES) \
 	$(__d_bindir__dmtcp_command_SOURCES) \
 	$(__d_bindir__dmtcp_coordinator_SOURCES) \
+	$(__d_bindir__dmtcp_get_libc_offset_SOURCES) \
 	$(__d_bindir__dmtcp_launch_SOURCES) \
 	$(__d_bindir__dmtcp_nocheckpoint_SOURCES) \
 	$(__d_bindir__dmtcp_restart_SOURCES) \
@@ -436,6 +447,7 @@ HAS_STRACE = @HAS_STRACE@
 HAS_TCSH = @HAS_TCSH@
 HAS_VIM = @HAS_VIM@
 HAS_ZSH = @HAS_ZSH@
+HAVE_CXX11 = @HAVE_CXX11@
 HBICT_DELTACOMP = @HBICT_DELTACOMP@
 INFINIBAND_SUPPORT = @INFINIBAND_SUPPORT@
 INSTALL = @INSTALL@
@@ -454,12 +466,11 @@ MAINT = @MAINT@
 MAKEINFO = @MAKEINFO@
 MATLAB = @MATLAB@
 MKDIR_P = @MKDIR_P@
-MPICH_MPD = @MPICH_MPD@
-MPICH_MPDALLEXIT = @MPICH_MPDALLEXIT@
-MPICH_MPDBOOT = @MPICH_MPDBOOT@
-MPICH_MPDCLEANUP = @MPICH_MPDCLEANUP@
 MPICH_MPICC = @MPICH_MPICC@
 MPICH_MPIEXEC = @MPICH_MPIEXEC@
+MPICH_MPIRUN = @MPICH_MPIRUN@
+MPICH_PATH = @MPICH_PATH@
+MULTILIB = @MULTILIB@
 OBJEXT = @OBJEXT@
 OPENMPI_MPICC = @OPENMPI_MPICC@
 OPENMPI_MPIRUN = @OPENMPI_MPIRUN@
@@ -482,6 +493,7 @@ TEST_POSIX_MQ = @TEST_POSIX_MQ@
 USE_TEST_SUITE = @USE_TEST_SUITE@
 VERSION = @VERSION@
 VIM = @VIM@
+X86_64_HOST = @X86_64_HOST@
 abs_builddir = @abs_builddir@
 abs_srcdir = @abs_srcdir@
 abs_top_builddir = @abs_top_builddir@
@@ -542,9 +554,11 @@ jalibdir = $(top_srcdir)/jalib
 dmtcpincludedir = $(top_srcdir)/include
 dmtcplibdir = $(pkglibdir)
 SUBDIRS = mtcp plugin
+JALLOC_ATOMIC_128_CXXFLAG =
+@X86_64_HOST_TRUE@JALLOC_ATOMIC_128_CXXFLAG = -mcx16
 PICFLAGS = -fPIC
 AM_CFLAGS = $(PICFLAGS)
-AM_CXXFLAGS = $(PICFLAGS) $(am__append_1)
+AM_CXXFLAGS = $(PICFLAGS) $(JALLOC_ATOMIC_128_CXXFLAG) $(am__append_1)
 AM_LDFLAGS = $(PICFLAGS)
 @CONFIG_M32_FALSE@d_libdir = $(top_builddir)/lib/$(PACKAGE)
 @CONFIG_M32_TRUE@d_libdir = $(top_builddir)/lib/$(PACKAGE)/32/lib/$(PACKAGE)
@@ -640,6 +654,7 @@ __d_libdir__libdmtcp_so_SOURCES = alarm.cpp			\
 				  threadlist.cpp 		\
 				  threadsync.cpp 		\
 				  threadwrappers.cpp 		\
+				  wrappers.cpp 			\
 				  writeckpt.cpp
 
 __d_libdir__libdmtcp_so_LDFLAGS = -shared -Xlinker -znow
@@ -653,6 +668,8 @@ __d_libdir__libdmtcp_so_LDADD = libdmtcpinternal.a 		\
 				 -ldl -lpthread -lrt
 
 __d_bindir__dmtcp_nocheckpoint_SOURCES = dmtcp_nocheckpoint.c
+__d_bindir__dmtcp_get_libc_offset_SOURCES = dmtcp_get_libc_offset.c
+__d_bindir__dmtcp_get_libc_offset_LDADD = -ldl
 __d_bindir__dmtcp_coordinator_SOURCES = dmtcp_coordinator.cpp 	\
 					lookup_service.cpp 	\
 					restartscript.cpp
@@ -832,6 +849,10 @@ $(d_bindir)/dmtcp_coordinator$(EXEEXT): $(__d_bindir__dmtcp_coordinator_OBJECTS)
 	@rm -f $(d_bindir)/dmtcp_coordinator$(EXEEXT)
 	$(AM_V_CXXLD)$(CXXLINK) $(__d_bindir__dmtcp_coordinator_OBJECTS) $(__d_bindir__dmtcp_coordinator_LDADD) $(LIBS)
 
+$(d_bindir)/dmtcp_get_libc_offset$(EXEEXT): $(__d_bindir__dmtcp_get_libc_offset_OBJECTS) $(__d_bindir__dmtcp_get_libc_offset_DEPENDENCIES) $(EXTRA___d_bindir__dmtcp_get_libc_offset_DEPENDENCIES) $(d_bindir)/$(am__dirstamp)
+	@rm -f $(d_bindir)/dmtcp_get_libc_offset$(EXEEXT)
+	$(AM_V_CCLD)$(LINK) $(__d_bindir__dmtcp_get_libc_offset_OBJECTS) $(__d_bindir__dmtcp_get_libc_offset_LDADD) $(LIBS)
+
 $(d_bindir)/dmtcp_launch$(EXEEXT): $(__d_bindir__dmtcp_launch_OBJECTS) $(__d_bindir__dmtcp_launch_DEPENDENCIES) $(EXTRA___d_bindir__dmtcp_launch_DEPENDENCIES) $(d_bindir)/$(am__dirstamp)
 	@rm -f $(d_bindir)/dmtcp_launch$(EXEEXT)
 	$(AM_V_CXXLD)$(CXXLINK) $(__d_bindir__dmtcp_launch_OBJECTS) $(__d_bindir__dmtcp_launch_LDADD) $(LIBS)
@@ -863,6 +884,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcp_command.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcp_coordinator.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcp_dlsym.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcp_get_libc_offset.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcp_launch.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcp_nocheckpoint.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dmtcp_restart.Po@am__quote@ # am--include-marker
@@ -909,6 +931,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/util_init.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/util_misc.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/workerstate.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/wrappers.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/writeckpt.Po@am__quote@ # am--include-marker
 
 $(am__depfiles_remade):
@@ -1287,6 +1310,7 @@ distclean: distclean-recursive
 	-rm -f ./$(DEPDIR)/dmtcp_command.Po
 	-rm -f ./$(DEPDIR)/dmtcp_coordinator.Po
 	-rm -f ./$(DEPDIR)/dmtcp_dlsym.Po
+	-rm -f ./$(DEPDIR)/dmtcp_get_libc_offset.Po
 	-rm -f ./$(DEPDIR)/dmtcp_launch.Po
 	-rm -f ./$(DEPDIR)/dmtcp_nocheckpoint.Po
 	-rm -f ./$(DEPDIR)/dmtcp_restart.Po
@@ -1333,6 +1357,7 @@ distclean: distclean-recursive
 	-rm -f ./$(DEPDIR)/util_init.Po
 	-rm -f ./$(DEPDIR)/util_misc.Po
 	-rm -f ./$(DEPDIR)/workerstate.Po
+	-rm -f ./$(DEPDIR)/wrappers.Po
 	-rm -f ./$(DEPDIR)/writeckpt.Po
 	-rm -f Makefile
 distclean-am: clean-am distclean-compile distclean-generic \
@@ -1385,6 +1410,7 @@ maintainer-clean: maintainer-clean-recursive
 	-rm -f ./$(DEPDIR)/dmtcp_command.Po
 	-rm -f ./$(DEPDIR)/dmtcp_coordinator.Po
 	-rm -f ./$(DEPDIR)/dmtcp_dlsym.Po
+	-rm -f ./$(DEPDIR)/dmtcp_get_libc_offset.Po
 	-rm -f ./$(DEPDIR)/dmtcp_launch.Po
 	-rm -f ./$(DEPDIR)/dmtcp_nocheckpoint.Po
 	-rm -f ./$(DEPDIR)/dmtcp_restart.Po
@@ -1431,6 +1457,7 @@ maintainer-clean: maintainer-clean-recursive
 	-rm -f ./$(DEPDIR)/util_init.Po
 	-rm -f ./$(DEPDIR)/util_misc.Po
 	-rm -f ./$(DEPDIR)/workerstate.Po
+	-rm -f ./$(DEPDIR)/wrappers.Po
 	-rm -f ./$(DEPDIR)/writeckpt.Po
 	-rm -f Makefile
 maintainer-clean-am: distclean-am maintainer-clean-generic

@@ -49,7 +49,7 @@ static pthread_barrier_t exit_presuspend_barrier; // For primary and ckpt thread
 static pthread_barrier_t resume_barrier;// Primary & ckpt thread: resume/restart
 
 // The base executable can call this to set our childpid and barrier info.
-export_childpid_and_num_threads(pid_t childpid, int num_threads) {
+void export_childpid_and_num_threads(pid_t childpid, int num_threads) {
   plugin_childpid = childpid;
   pthread_barrier_init(&presuspend_barrier, NULL, num_threads);
   // TO AVOID RACE:  Guarantee initializing barrier before PRESUSPEND event.
@@ -59,13 +59,8 @@ int is_child() {
   return (plugin_childpid == -1 || plugin_childpid == 0);
 }
 
-int is_alive(pid_t tid) {
-  int rc;
-  if (tid == plugin_childpid) {
-    rc = kill(tid, 0);
-  } else {
-    rc = pthread_kill(tid, 0);
-  }
+int is_alive(pid_t pid) {
+  int rc = kill(pid, 0);
   return (rc == -1 && errno == ESRCH ? 0 : 1);
 }
 

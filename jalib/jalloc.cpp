@@ -23,7 +23,9 @@
 #include "jalloc.h"
 #include <pthread.h>
 #include <signal.h>
+#include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 #include <unistd.h>
 
 // Make highest chunk size large; avoid a raw_alloc calling mmap()
@@ -97,6 +99,37 @@ _dealloc_raw(void *ptr, size_t n)
 # endif // ifdef JALIB_USE_MALLOC
 }
 
+/*
+ * Atomically compares the word at the given 'oldValue' address with the
+ * word at the given 'dst' address. If the two words are equal, the word
+ * at 'dst' address is changed to the word at 'newValue' address.
+ * The function returns true if the exchange was successful.
+ * If the exchange is not successfully, the function returns false.
+ */
+static inline bool
+bool_atomic_dwcas(void volatile *dst, void *oldValue, void *newValue)
+{
+  uint8_t result = 0;
+#ifdef __x86_64__
+  typedef unsigned __int128 uint128_t;
+  // This requires compiling with -mcx16
+  result = __sync_bool_compare_and_swap((uint128_t volatile *)dst,
+                                        *(uint128_t*)oldValue,
+                                        *(uint128_t*)newValue);
+#elif __arm__ || __i386__
+  result = __sync_bool_compare_and_swap((uint64_t volatile *)dst,
+                                        *(uint64_t*)oldValue,
+                                        *(uint64_t*)newValue);
+#elif __aarch64__
+  typedef unsigned __int128 uint128_t;
+  result = __atomic_compare_exchange((uint128_t*)dst,
+                                     (uint128_t*)oldValue,
+                                     (uint128_t*)newValue, 0,
+                                      __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
+#endif /* if __x86_64__ */
+  return result != 0;
+}
+
 template<size_t _N>
 class JFixedAllocStack
 {
@@ -107,7 +140,7 @@ class JFixedAllocStack
       if (_blockSize == 0) {
         _blockSize = 4 * MAX_CHUNKSIZE;
       }
-      _root = NULL;
+      memset(&_top, 0, sizeof(_top));
       _numExpands = 0;
     }
 
@@ -121,11 +154,14 @@ class JFixedAllocStack
     // allocate a chunk of size N
     void *allocate()
     {
-      FreeItem *item = NULL;
+      StackHead origHead = {0};
+      StackHead newHead = {0};
 
       do {
-        if (_root == NULL) {
+        origHead = _top;
+        if (origHead.node == NULL) {
           expand();
+          origHead = _top;
         }
 
         // NOTE: _root could still be NULL (if other threads consumed all
@@ -133,15 +169,17 @@ class JFixedAllocStack
         // loop once again.
 
         /* Atomically does the following operation:
-         *   item = _root;
-         *   _root = item->next;
+         *   origHead = _top;
+         *   _top = origHead.node->next;
          */
-        item = _root;
-      } while (!item ||
-               !__sync_bool_compare_and_swap(&_root, item, item->next));
+        // origHead.node is guaranteed to be a valid value if we get here
+        newHead.node = origHead.node->next;
+        newHead.counter = origHead.counter + 1;
+      } while (!origHead.node ||
+               !bool_atomic_dwcas(&_top, &origHead, &newHead));
 
-      item->next = NULL;
-      return item;
+      origHead.node->next = NULL;
+      return origHead.node;
     }
 
     // deallocate a chunk of size N
@@ -149,13 +187,18 @@ class JFixedAllocStack
     {
       if (ptr == NULL) { return; }
       FreeItem *item = static_cast<FreeItem *>(ptr);
+      StackHead origHead = {0};
+      StackHead newHead = {0};
       do {
         /* Atomically does the following operation:
-         *   item->next = _root;
-         *   _root = item;
+         *   item->next = _top.node;
+         *   _top = newHead;
          */
-        item->next = _root;
-      } while (!__sync_bool_compare_and_swap(&_root, item->next, item));
+        origHead = _top;
+        item->next = origHead.node;
+        newHead.counter = origHead.counter + 1;
+        newHead.node = item;
+      } while (!bool_atomic_dwcas(&_top, &origHead, &newHead));
     }
 
     int numExpands()
@@ -183,13 +226,18 @@ class JFixedAllocStack
     // allocate more raw memory when stack is empty
     void expand()
     {
+      StackHead origHead = {0};
+      StackHead newHead = {0};
       _numExpands++;
-      if (_root != NULL &&
+      if (_top.node != NULL &&
           fred_record_replay_enabled && fred_record_replay_enabled()) {
         // TODO: why is expand being called? If you see this message, raise lvl2
         // allocation level.
         char expand_msg[] = "\n\n\n******* EXPAND IS CALLED *******\n\n\n";
-        write(2, expand_msg, sizeof(expand_msg));
+        int rc = write(2, expand_msg, sizeof(expand_msg));
+        if (rc != sizeof(expand_msg)) {
+          perror("DMTCP(" __FILE__ "): write: ");
+        }
 
         // jalib::fflush(stderr);
         abort();
@@ -202,12 +250,14 @@ class JFixedAllocStack
 
       do {
         /* Atomically does the following operation:
-         *   bufs[count-1].next = _root;
-         *   _root = bufs;
+         *   bufs[count - 1].next = _top.node;
+         *   _top = bufs;
          */
-        bufs[count - 1].next = _root;
-      } while (!__sync_bool_compare_and_swap(&_root, bufs[count - 1].next,
-                                             bufs));
+        origHead = _top;
+        bufs[count - 1].next = origHead.node;
+        newHead.node = bufs;
+        newHead.counter = origHead.counter + 1;
+      } while (!bool_atomic_dwcas(&_top, &origHead, &newHead));
     }
 
   protected:
@@ -217,10 +267,14 @@ class JFixedAllocStack
         char buf[N];
       };
     };
+    struct StackHead {
+      uintptr_t counter;
+      FreeItem* volatile node;
+    };
 
   private:
-    FreeItem *volatile _root;
-    size_t _blockSize;
+    StackHead _top;
+    size_t _blockSize = 0;
     char padding[128];
     int volatile _numExpands;
 };
@@ -279,7 +333,10 @@ jalib::JAllocDispatcher::deallocate(void *ptr, size_t n)
 {
   if (!_initialized) {
     char msg[] = "***DMTCP INTERNAL ERROR: Free called before init\n";
-    write(2, msg, sizeof(msg));
+    int rc = write(2, msg, sizeof(msg));
+    if (rc != sizeof(msg)) {
+      perror("DMTCP(" __FILE__ "): write: ");
+    }
     abort();
   }
   if (n <= lvl1.N) {

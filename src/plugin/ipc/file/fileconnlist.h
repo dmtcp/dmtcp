@@ -60,36 +60,39 @@ class FileConnList : public ConnectionList
 
     static void restart() { instance().postRestart(); }
 
-    static void restartRegisterNSData() { instance().registerNSData(); }
-
-    static void restartSendQueries() { instance().sendQueries(); }
-
     static void restartRefill() { instance().refill(true); }
 
     static void restartResume() { instance().resume(true); }
 
     static bool createDirectoryTree(const string &path);
 
-    virtual void preLockSaveOptions();
-    virtual void drain();
-    virtual void preCkpt();
-    virtual void refill(bool isRestart);
-    virtual void resume(bool isRestart);
-    virtual void postRestart();
-    virtual int protectedFd() { return PROTECTED_FILE_FDREWIRER_FD; }
+    virtual void preLockSaveOptions() override;
+    virtual void drain() override;
+    virtual void preCkpt() override;
+    virtual void refill(bool isRestart) override;
+    virtual void resume(bool isRestart) override;
+    virtual void postRestart() override;
+    virtual int protectedFd() override { return PROTECTED_FILE_FDREWIRER_FD; }
 
     // examine /proc/self/fd for unknown connections
-    virtual void scanForPreExisting();
-    virtual Connection *createDummyConnection(int type);
+    virtual void scanForPreExisting() override;
+    virtual Connection *createDummyConnection(int type) override;
 
     Connection *findDuplication(int fd, const char *path);
     void processFileConnection(int fd, const char *path, int flags,
                                mode_t mode);
 
+    void processReopen(int fd, const char *newPath);
+
     void prepareShmList();
     void remapShmMaps();
     void recreateShmFileAndMap(const ProcMapsArea &area);
     void restoreShmArea(const ProcMapsArea &area, int fd = -1);
+
+    virtual ConnectionList *cloneInstance() override
+    {
+      return new FileConnList(*this);
+    }
 };
 }
 #endif // ifndef FILECONNLIST_H

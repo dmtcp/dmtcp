@@ -74,6 +74,30 @@
 #include "dmtcp.h"
 #include "mtcp/ldt.h"
 
+// glibc version 2.33 stopped defining _STAT_VER, which was the 'vers'
+// argument to the xtat family of function.  Now, glibc-2.33 is defining
+// lstat directly, instead of defining lstat as a macro that expands
+// to __lxstat.  We are macro expanding the xstat family to the stat family,
+// whenever _STAT_VER not defined.
+#ifndef _STAT_VER
+# undef __xstat
+# undef __xstat64
+# undef __lxstat
+# undef __lxstat64
+# undef _real_xstat
+# undef _real_xstat64
+# undef _real_lxstat
+# undef _real_lxstat64
+# define __xstat(vers,path,buf)          stat(path, buf)
+# define __xstat64(vers,path,buf)        stat64(path, buf)
+# define __lxstat(vers,path,buf)         lstat(path, buf)
+# define __lxstat64(vers,path,buf)       lstat64(path, buf)
+# define _real___xstat(vers,path,buf)    _real_stat(path, buf)
+# define _real___xstat64(vers,path,buf)  _real_stat64(path, buf)
+# define _real___lxstat(vers,path,buf)   _real_lstat(path, buf)
+# define _real___lxstat64(vers,path,buf) _real_lstat64(path, buf)
+#endif
+
 #ifdef HAVE_SYS_EPOLL_H
 # include <sys/epoll.h>
 #else // ifdef HAVE_SYS_EPOLL_H
@@ -108,6 +132,20 @@ LIB_PRIVATE int dmtcp_tgkill(int tgid, int tid, int sig);
 extern int dmtcp_wrappers_initializing;
 
 LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
+
+#ifdef _STAT_VER
+# define FOREACH_DMTCP_STAT_WRAPPER(MACRO)  \
+  MACRO(__xstat)                            \
+  MACRO(__xstat64)                          \
+  MACRO(__lxstat)                           \
+  MACRO(__lxstat64)
+#else
+# define FOREACH_DMTCP_STAT_WRAPPER(MACRO) \
+  MACRO(stat)                               \
+  MACRO(stat64)                             \
+  MACRO(lstat)                              \
+  MACRO(lstat64)
+#endif
 
 #define FOREACH_DMTCP_WRAPPER(MACRO)  \
   MACRO(dlopen)                       \
@@ -180,27 +218,30 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   MACRO(sigtimedwait)                 \
                                       \
   MACRO(fork)                         \
+  MACRO(vfork)                        \
   MACRO(__clone)                      \
   MACRO(open)                         \
   MACRO(open64)                       \
   MACRO(fopen)                        \
   MACRO(fopen64)                      \
+  MACRO(freopen)                      \
+  MACRO(freopen64)                    \
   MACRO(openat)                       \
   MACRO(openat64)                     \
   MACRO(opendir)                      \
-  MACRO(mkstemp)                      \
   MACRO(close)                        \
   MACRO(fclose)                       \
   MACRO(closedir)                     \
+                                      \
+  MACRO(tmpfile)                      \
+  MACRO(mkostemps)                    \
   MACRO(setrlimit)                    \
   MACRO(dup)                          \
   MACRO(dup2)                         \
   MACRO(dup3)                         \
-  MACRO(__xstat)                      \
-  MACRO(__xstat64)                    \
-  MACRO(__lxstat)                     \
-  MACRO(__lxstat64)                   \
   MACRO(readlink)                     \
+  MACRO(realpath)                     \
+  MACRO(access)                       \
   MACRO(exit)                         \
   MACRO(syscall)                      \
   MACRO(unsetenv)                     \
@@ -237,7 +278,8 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   MACRO(pthread_tryjoin_np)           \
   MACRO(pthread_timedjoin_np)         \
   MACRO(pthread_sigmask)              \
-  MACRO(pthread_getspecific)
+  MACRO(pthread_getspecific)          \
+  FOREACH_DMTCP_STAT_WRAPPER(MACRO)
 
 #define ENUM(x)     enum_ ## x
 #define GEN_ENUM(x) ENUM(x),
@@ -252,9 +294,6 @@ union semun {
   unsigned short *array;     /* Array for GETALL, SETALL */
   struct seminfo *__buf;     /* Buffer for IPC_INFO (Linux-specific) */
 };
-
-LIB_PRIVATE void dmtcpResetTid(pid_t tid);
-LIB_PRIVATE void dmtcpResetPidPpid();
 
 int _dmtcp_unsetenv(const char *name);
 void dmtcp_prepare_wrappers();
@@ -296,6 +335,7 @@ FILE *_real_popen(const char *command, const char *mode);
 int _real_pclose(FILE *fp);
 
 pid_t _real_fork();
+pid_t _real_vfork();
 int _real_clone(int (*fn)(void *arg),
                 void *child_stack,
                 int flags,
@@ -308,10 +348,11 @@ int _real_open(const char *pathname, int flags, ...);
 int _real_open64(const char *pathname, int flags, ...);
 FILE *_real_fopen(const char *path, const char *mode);
 FILE *_real_fopen64(const char *path, const char *mode);
-int _real_openat(int dirfd, const char *pathname, int flags, mode_t mode);
-int _real_openat64(int dirfd, const char *pathname, int flags, mode_t mode);
+FILE *_real_freopen(const char *path, const char *mode, FILE *fp);
+FILE *_real_freopen64(const char *path, const char *mode, FILE *fp);
+int _real_openat(int dirfd, const char *pathname, int flags, ...);
+int _real_openat64(int dirfd, const char *pathname, int flags, ...);
 DIR *_real_opendir(const char *name);
-int _real_mkstemp(char *ttemplate);
 int _real_close(int fd);
 int _real_fclose(FILE *fp);
 int _real_closedir(DIR *dir);
@@ -320,7 +361,14 @@ void _real_exit(int status);
 int _real_dup(int oldfd);
 int _real_dup2(int oldfd, int newfd);
 int _real_dup3(int oldfd, int newfd, int flags);
-int _real_fcntl(int fd, int cmd, void *arg);
+int _real_fcntl(int fd, int cmd, ...);
+
+ssize_t _real_readlink(const char *path, char *buf, size_t bufsiz);
+char * _real_realpath(const char *path, char *resolved_path);
+int _real_access(const char *path, int mode);
+
+FILE *_real_tmpfile();
+int _real_mkostemps(char *ttemplate, int suffixlen, int flags);
 
 int _real_ttyname_r(int fd, char *buf, size_t buflen);
 int _real_ptsname_r(int fd, char *buf, size_t buflen);
@@ -383,17 +431,15 @@ int _real_pthread_timedjoin_np(pthread_t thread,
                                void **retval,
                                const struct timespec *abstime);
 
-int _real_xstat(int vers, const char *path, struct stat *buf);
-int _real_xstat64(int vers, const char *path, struct stat64 *buf);
-int _real_lxstat(int vers, const char *path, struct stat *buf);
-int _real_lxstat64(int vers, const char *path, struct stat64 *buf);
-ssize_t _real_readlink(const char *path, char *buf, size_t bufsiz);
+int _real___xstat(int vers, const char *path, struct stat *buf);
+int _real___xstat64(int vers, const char *path, struct stat64 *buf);
+int _real___lxstat(int vers, const char *path, struct stat *buf);
+int _real___lxstat64(int vers, const char *path, struct stat64 *buf);
 void *_real_dlsym(void *handle, const char *symbol);
 
 void *_real_dlopen(const char *filename, int flag);
 int _real_dlclose(void *handle);
 
-off_t _real_lseek(int fd, off_t offset, int whence);
 int _real_unlink(const char *pathname);
 
 int _real_waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options);

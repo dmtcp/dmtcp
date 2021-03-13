@@ -7,7 +7,7 @@
 //
 // Malloc-based allocator. Uses standard malloc and free.
 //
-// Copyright © 2002 Pete Isensee (PKIsensee@msn.com).
+// Copyright ï¿½ 2002 Pete Isensee (PKIsensee@msn.com).
 // All rights reserved worldwide.
 //
 // Permission to copy, modify, reproduce or redistribute this source code is
@@ -229,7 +229,10 @@ class list : public std::list<T, DmtcpAlloc<T> >
 {};
 
 template<typename K, typename V>
-class map : public std::map<K, V, std::less<K>, DmtcpAlloc<std::pair<K, V> > >
+class map : public std::map<K,
+                            V,
+                            std::less<K>,
+                            DmtcpAlloc<std::pair<const K, V>>>
 {};
 
 template<typename K>

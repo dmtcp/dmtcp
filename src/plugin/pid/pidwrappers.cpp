@@ -61,36 +61,11 @@ extern "C" LIB_PRIVATE
 void
 dmtcpResetPidPpid()
 {
-  const char *pidstr = getenv(ENV_VAR_VIRTUAL_PID);
-  char *virtPpidstr = NULL;
-  char *realPpidstr = NULL;
-  pid_t virtPpid;
   pid_t realPpid;
 
-  if (pidstr == NULL) {
-    fprintf(stderr, "ERROR at %s:%d: env var DMTCP_VIRTUAL_PID not set\n\n",
-            __FILE__, __LINE__);
-    sleep(5);
-    _exit(DMTCP_FAIL_RC);
-  }
-  _dmtcp_pid = strtol(pidstr, &virtPpidstr, 10);
+  Util::getVirtualPidFromEnvVar(&_dmtcp_pid, &_dmtcp_ppid, &realPpid);
+
   VirtualPidTable::instance().updateMapping(_dmtcp_pid, _real_getpid());
-
-  if (virtPpidstr[0] != ':' && !isdigit(virtPpidstr[1])) {
-    fprintf(stderr, "ERROR at %s:%d: env var DMTCP_VIRTUAL_PID invalid\n\n",
-            __FILE__, __LINE__);
-    sleep(5);
-    _exit(DMTCP_FAIL_RC);
-  }
-  virtPpid = strtol(virtPpidstr + 1, &realPpidstr, 10);
-
-  if (realPpidstr[0] != ':' && !isdigit(realPpidstr[1])) {
-    fprintf(stderr, "ERROR at %s:%d: env var DMTCP_VIRTUAL_PID invalid\n\n",
-            __FILE__, __LINE__);
-    sleep(5);
-    _exit(DMTCP_FAIL_RC);
-  }
-  realPpid = strtol(realPpidstr + 1, NULL, 10);
 
   pid_t curRealPpid = _real_getppid();
   if (realPpid != curRealPpid) {
@@ -104,7 +79,6 @@ dmtcpResetPidPpid()
     // the memory maps. However, if we did an exec after a fork, we might not
     // have had a chance to serialize the maps yet, so we better insert the
     // mapping here.
-    _dmtcp_ppid = virtPpid;
     VirtualPidTable::instance().updateMapping(_dmtcp_ppid, curRealPpid);
   }
 }
@@ -565,6 +539,7 @@ wait4(pid_t pid, __WAIT_STATUS status, int options, struct rusage *rusage)
   return virtualPid;
 }
 
+#if 0
 extern "C" long
 ptrace(enum __ptrace_request request, ...)
 {
@@ -604,6 +579,7 @@ ptrace(enum __ptrace_request request, ...)
 
   return ptrace_ret;
 }
+#endif
 
 extern "C" int
 fcntl(int fd, int cmd, ...)
@@ -623,8 +599,8 @@ fcntl(int fd, int cmd, ...)
   DMTCP_PLUGIN_DISABLE_CKPT();
 
   if (cmd == F_SETOWN) {
-    pid_t virtualPid = VIRTUAL_TO_REAL_PID((pid_t)(unsigned long)arg_in);
-    arg = (void *)(unsigned long)virtualPid;
+    pid_t realPid = VIRTUAL_TO_REAL_PID((pid_t)(unsigned long)arg_in);
+    arg = (void *)(unsigned long)realPid;
   }
 
   int result = _real_fcntl(fd, cmd, arg);

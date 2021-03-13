@@ -31,7 +31,9 @@
 # undef __USE_GNU
 #endif // ifdef __USE_GNU_NOT_SET
 
-#include "dmtcp/version.h"
+#ifndef DMTCP_PACKAGE_VERSION
+# include "dmtcp/version.h"
+#endif
 
 #ifdef __cplusplus
 # define EXTERNC extern "C"
@@ -58,6 +60,12 @@ typedef enum eDmtcpEvent {
   DMTCP_EVENT_ATFORK_PREPARE,
   DMTCP_EVENT_ATFORK_PARENT,
   DMTCP_EVENT_ATFORK_CHILD,
+  DMTCP_EVENT_ATFORK_FAILED,
+
+  DMTCP_EVENT_VFORK_PREPARE,
+  DMTCP_EVENT_VFORK_PARENT,
+  DMTCP_EVENT_VFORK_CHILD,
+  DMTCP_EVENT_VFORK_FAILED,
 
   DMTCP_EVENT_PTHREAD_START,
   DMTCP_EVENT_PTHREAD_EXIT,
@@ -68,17 +76,60 @@ typedef enum eDmtcpEvent {
   DMTCP_EVENT_RESUME,
   DMTCP_EVENT_RESTART,
 
+  DMTCP_EVENT_OPEN_FD,
+  DMTCP_EVENT_REOPEN_FD,
+  DMTCP_EVENT_CLOSE_FD,
+  DMTCP_EVENT_DUP_FD,
+
+  DMTCP_EVENT_VIRTUAL_TO_REAL_PATH,
+  DMTCP_EVENT_REAL_TO_VIRTUAL_PATH,
+
   nDmtcpEvents
 } DmtcpEvent_t;
 
 typedef union _DmtcpEventData_t {
   struct {
-    int fd;
-  } serializerInfo;
+    int serializationFd;
+    char *filename;
+    size_t maxArgs;
+    const char **argv;
+    size_t maxEnv;
+    const char **envp;
+  } preExec;
+
+  struct {
+    int serializationFd;
+  } postExec;
 
   struct {
     int isRestart;
   } resumeUserThreadInfo, nameserviceInfo;
+
+  struct {
+    int fd;
+    const char *path;
+    int flags;
+    mode_t mode;
+  } openFd;
+
+  struct {
+    int fd;
+    const char *path;
+    int flags;
+  } reopenFd;
+
+  struct {
+    int fd;
+  } closeFd;
+
+  struct {
+    int oldFd;
+    int newFd;
+  } dupFd;
+
+  struct {
+    char *path;
+  } realToVirtualPath, virtualToRealPath;
 } DmtcpEventData_t;
 
 typedef void (*HookFunctionPtr_t)(DmtcpEvent_t, DmtcpEventData_t *);
@@ -108,7 +159,8 @@ typedef enum eDmtcpGetRestartEnvErr {
 typedef enum eDmtcpMutexType
 {
   DMTCP_MUTEX_NORMAL,
-  DMTCP_MUTEX_RECURSIVE
+  DMTCP_MUTEX_RECURSIVE,
+  DMTCP_MUTEX_LLL
 } DmtcpMutexType;
 
 typedef struct
@@ -186,6 +238,11 @@ int dmtcp_is_enabled(void) __attribute((weak));
  * Checkpoint the entire distributed computation
  *   (Does not necessarily block until checkpoint is complete.
  *    Use dmtcp_get_generation() to test if checkpoint is complete.)
+ * NOTE:  This macro is blocking.  dmtcp_checkpoint() will not return
+ *        until a checkpoint is taken.  This guarantees that the
+ *        current _thread_ blocks until the current process has been
+ *        checkpointed.  It guarantees nothing about other threads or
+ *        other processes.
  * + returns DMTCP_AFTER_CHECKPOINT if the checkpoint succeeded.
  * + returns DMTCP_AFTER_RESTART    after a restart.
  * + returns <=0 on error.
@@ -217,9 +274,52 @@ int dmtcp_enable_ckpt(void) __attribute__((weak));
 #define dmtcp_enable_ckpt() \
   (dmtcp_enable_ckpt ? dmtcp_enable_ckpt() : DMTCP_NOT_PRESENT)
 
+/**
+ * Example:  dmtcp_get_libc_addr("fork") returns the address of "fork"
+ *           in libc at runtime (when loaded in memory).
+ * NOTE:  dmtcp_get_libc_addr(fnc) skips any DMTCP wrapper functions around
+ *        fnc, and directly calls its definition in libc.  In contrast, the
+ *        _real_XX() functions found in DMTCP_ROOT/src are pointers to the
+ *        next definition of fnc in library search order.  (This may be in the
+ *        next libdmctp_YY.so library in search order, or in libc.so istelf.)
+ * EXAMPLE USAGE 1:
+ *   static typeof(fork) *libc_fork_ptr = NULL;
+ *   if (libc_fork_ptr == NULL) {libc_fork_ptr = dmtcp_get_libc_addr("fork");}
+ *   if (libc_fork_ptr != DMTCP_NOT_PRESENT) {
+ *     // Skip DMTCP interposition on fork; child doesn't coonect to coord.
+ *     (*libc_fork_ptr)();
+ *   }
+ * EXAMPLE USAGE 2:
+ *   static typeof(execvp) *libc_execvp_ptr = NULL;
+ *   if (libc_execvp_ptr == NULL) {
+ *     libc_execvp_ptr = dmtcp_get_libc_addr("execvp");
+ *   }
+ *   if (libc_execvp_ptr != DMTCP_NOT_PRESENT) {
+ *     // Don't preload DMTCP libraries when you exec to a new program.
+ *     char *ld_preload = getenv("LD_PRELOAD");
+ *     ld_preload[0] = '\0';
+ *     (*libc_execvp_ptr)(...);
+ *   }
+ */
+void * dmtcp_get_libc_addr(const char* libc_fnc) __attribute__((weak));
+#define dmtcp_get_libc_addr(libc_fnc) \
+  (dmtcp_get_libc_addr? dmtcp_get_libc_addr(libc_fnc) : \
+                        (void *)DMTCP_NOT_PRESENT)
+
+/* FIXME:  Usage: ?? */
 void dmtcp_initialize_plugin(void) __attribute((weak));
 
+/*
+ * Global barriers are required when a plugin needs inter-node synchronization,
+ * such as using the coordinator name-service database. Currently, only the
+ * socket, RM, and InfiniBand plugins need global barriers. All other plugins
+ * handle node-local resources such as files, pids, etc., and are fine with
+ * using local barriers.
+ * A simple thumb rule is to always insert a global-barrier between registering
+ * and querying the coordinator name-service database.
+ */
 void dmtcp_global_barrier(const char *barrier) __attribute((weak));
+void dmtcp_local_barrier(const char *barrier) __attribute((weak));
 
 // See: test/plugin/example-db dir for an example:
 int dmtcp_send_key_val_pair_to_coordinator(const char *id,
@@ -445,9 +545,10 @@ void *dmtcp_dlsym_lib(const char *libname, const char *symbol);
 
 /*
  * Returns the offset of the given function within the given shared library
- * or -1 if the function does not exist in the library
+ * or LIB_FNC_OFFSET_FAILED if the function does not exist in the library
  */
-ptrdiff_t dmtcp_dlsym_lib_fnc_offset(const char *libname, const char *symbol);
+#define LIB_FNC_OFFSET_FAILED ((uint64_t)-1)
+uint64_t dmtcp_dlsym_lib_fnc_offset(const char *libname, const char *symbol);
 
 #define NEXT_FNC(func)                                                       \
   ({                                                                         \

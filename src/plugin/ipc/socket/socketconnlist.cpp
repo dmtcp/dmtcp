@@ -1,4 +1,3 @@
-
 #include <sys/syscall.h>
 #include <unistd.h>
 
@@ -11,9 +10,13 @@
 #include "util.h"
 
 using namespace dmtcp;
+
 static bool _hasIPv4Sock = false;
 static bool _hasIPv6Sock = false;
 static bool _hasUNIXSock = false;
+
+static SocketConnList *socketConnList = NULL;
+static SocketConnList *vfork_socketConnList = NULL;
 
 void
 dmtcp_SocketConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
@@ -21,63 +24,83 @@ dmtcp_SocketConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
   SocketConnList::instance().eventHook(event, data);
 
   switch (event) {
-  case DMTCP_EVENT_PRESUSPEND:
+  case DMTCP_EVENT_CLOSE_FD:
+    SocketConnList::instance().processClose(data->closeFd.fd);
+    break;
+
+  case DMTCP_EVENT_DUP_FD:
+    SocketConnList::instance().processDup(data->dupFd.oldFd, data->dupFd.newFd);
+    break;
+
+  case DMTCP_EVENT_VFORK_PREPARE:
+    vfork_socketConnList = (SocketConnList*) SocketConnList::instance().clone();
+    break;
+
+  case DMTCP_EVENT_VFORK_PARENT:
+  case DMTCP_EVENT_VFORK_FAILED:
+    delete socketConnList;
+    socketConnList = vfork_socketConnList;
     break;
 
   case DMTCP_EVENT_PRECHECKPOINT:
     SocketConnList::saveOptions();
-    dmtcp_global_barrier("Socket::Pre_Ckpt");
+    dmtcp_local_barrier("Socket::Pre_Ckpt");
     SocketConnList::leaderElection();
-    dmtcp_global_barrier("Socket::Leader_Election");
+    dmtcp_local_barrier("Socket::Leader_Election");
+
+    // We need a global barrier after registering name-service data so that all
+    // our peers have registered their info before we start sending queries.
     SocketConnList::ckptRegisterNSData();
     dmtcp_global_barrier("Socket::Ckpt_Register_Peer_Info");
     SocketConnList::ckptSendQueries();
-    dmtcp_global_barrier("Socket::Ckpt_Retrieve_Peer_Info");
+
+    dmtcp_local_barrier("Socket::Ckpt_Retrieve_Peer_Info");
     SocketConnList::drainFd();
-    dmtcp_global_barrier("Socket::Drain");
+    dmtcp_local_barrier("Socket::Drain");
     SocketConnList::ckpt();
-    dmtcp_global_barrier("Socket::Write_Ckpt");
     break;
 
   case DMTCP_EVENT_RESUME:
     SocketConnList::resumeRefill();
-    dmtcp_global_barrier("Socket::Resume_Refill");
+    dmtcp_local_barrier("Socket::Resume_Refill");
     SocketConnList::resumeResume();
-    dmtcp_global_barrier("Socket::Resume_Resume");
-
     break;
 
   case DMTCP_EVENT_RESTART:
     SocketConnList::restart();
-    dmtcp_global_barrier("Socket::Restart_Post_Restart");
+    dmtcp_local_barrier("Socket::Restart_Post_Restart");
 
     // We might be able to mark the next barrier as PRIVATE too.
     SocketConnList::restartRegisterNSData();
     dmtcp_global_barrier("Socket::Restart_Ns_Register_Data");
     SocketConnList::restartSendQueries();
-    dmtcp_global_barrier("Socket::Restart_Ns_Send_Queries");
+    dmtcp_local_barrier("Socket::Restart_Ns_Send_Queries");
     SocketConnList::restartRefill();
-    dmtcp_global_barrier("Socket::Restart_Refill");
+    dmtcp_local_barrier("Socket::Restart_Refill");
     SocketConnList::restartResume();
-    dmtcp_global_barrier("Socket::Restart_Resume");
+    break;
+
+  default:  // other events are not registered
     break;
   }
 }
 
+DmtcpPluginDescriptor_t socketPlugin = {
+  DMTCP_PLUGIN_API_VERSION,
+  PACKAGE_VERSION,
+  "socket",
+  "DMTCP",
+  "dmtcp@ccs.neu.edu",
+  "Socket plugin",
+  dmtcp_SocketConnList_EventHook
+};
 
 void
-dmtcp_SocketConn_ProcessFdEvent(int event, int arg1, int arg2)
+ipc_initialize_plugin_socket()
 {
-  if (event == SYS_close) {
-    SocketConnList::instance().processClose(arg1);
-  } else if (event == SYS_dup) {
-    SocketConnList::instance().processDup(arg1, arg2);
-  } else {
-    JASSERT(false);
-  }
+  dmtcp_register_plugin(socketPlugin);
 }
 
-static SocketConnList *socketConnList = NULL;
 SocketConnList&
 SocketConnList::instance()
 {
@@ -194,8 +217,6 @@ void
 SocketConnList::registerNSData()
 {
   ConnectionRewirer::instance().registerNSData();
-
-  ConnectionList::registerNSData();
 }
 
 void
@@ -204,8 +225,6 @@ SocketConnList::sendQueries()
   ConnectionRewirer::instance().sendQueries();
   ConnectionRewirer::instance().doReconnect();
   ConnectionRewirer::destroy();
-
-  ConnectionList::sendQueries();
 }
 
 void

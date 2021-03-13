@@ -290,7 +290,7 @@ prepareMtcpHeader(MtcpHeader *mtcpHdr)
   memset(mtcpHdr, 0, sizeof(*mtcpHdr));
   strncpy(mtcpHdr->signature, MTCP_SIGNATURE, strlen(MTCP_SIGNATURE) + 1);
   mtcpHdr->saved_brk = sbrk(0);
-
+  mtcpHdr->end_of_stack = (void *)ProcessInfo::instance().endOfStack();
   // TODO: Now that we have a separate mtcp dir, the code dealing with
   // restoreBuf should go in there.
   mtcpHdr->restore_addr = (void *)ProcessInfo::instance().restoreBufAddr();
@@ -330,7 +330,10 @@ ThreadList::writeCkpt()
 
   MtcpHeader mtcpHdr;
   prepareMtcpHeader(&mtcpHdr);
-  CkptSerializer::writeCkptImage(&mtcpHdr, sizeof(mtcpHdr));
+
+  string ckptFilename = ProcessInfo::instance().getTempCkptFilename();
+
+  CkptSerializer::writeCkptImage(&mtcpHdr, sizeof(mtcpHdr), ckptFilename);
 }
 
 /*************************************************************************
@@ -458,6 +461,10 @@ ThreadList::suspendThreads()
       next = thread->next;
       int ret;
 
+      if (thread == curThread) {
+        continue;
+      }
+
       /* Do various things based on thread's state */
       switch (thread->state) {
       case ST_RUNNING:
@@ -520,6 +527,16 @@ ThreadList::suspendThreads()
 
   JASSERT(activeThreads != NULL);
   JTRACE("everything suspended") (numUserThreads);
+}
+
+void ThreadList::vforkSuspendThreads()
+{
+  ThreadList::suspendThreads();
+}
+
+void ThreadList::vforkResumeThreads()
+{
+  ThreadList::resumeThreads();
 }
 
 /* Resume all threads. */
@@ -694,7 +711,7 @@ ThreadList::waitForAllRestored(Thread *thread)
 #ifdef HAS_PR_SET_PTRACER
       prctl(PR_SET_PTRACER, PR_SET_PTRACER_ANY, 0, 0, 0); // For: gdb attach
 #endif // ifdef HAS_PR_SET_PTRACER
-      int dummy = 1;
+      volatile int dummy = 1;
       while (dummy);
 #ifdef HAS_PR_SET_PTRACER
       prctl(PR_SET_PTRACER, 0, 0, 0, 0); // Revert permission to default.
@@ -709,14 +726,14 @@ ThreadList::waitForAllRestored(Thread *thread)
 void
 ThreadList::postRestartDebug(double readTime, int restartPause)
 { // Don't try to print before debugging.  Who knows what is working yet?
-  int dummy = 1;
 #ifndef DEBUG
   // printf may fail, but we'll risk it to let user know this:
   printf("\n** DMTCP: It appears DMTCP not configured with '--enable-debug'\n");
   printf("**        If GDB doesn't show source, re-configure and re-compile\n");
 #endif
   if (restartPause == 1) {
-    // If we're here, user set env. to DMTCP_RESTART_PAUSE==0; is expecting this
+    // If we're here, user set env. to DMTCP_RESTART_PAUSE==1; is expecting this
+    volatile int dummy = 1;
     while (dummy);
     // User should have done GDB attach if we're here.
 #ifdef HAS_PR_SET_PTRACER
@@ -730,7 +747,8 @@ ThreadList::postRestartDebug(double readTime, int restartPause)
   postRestart(readTime);
 }
 
-// threadlist.h sets these as defaulkt arguments: readTime=0.0, restartPause=0
+// FIXME:  Is this comment still true?
+//   threadlist.h sets these as default arguments: readTime=0.0, restartPause=0
 void
 ThreadList::postRestart(double readTime)
 {
@@ -748,7 +766,7 @@ ThreadList::postRestart(double readTime)
 #endif // ifdef HAS_PR_SET_PTRACER
     // In src/mtcp_restart.c, we printed to user:
     // "Stopping due to env. var DMTCP_RESTART_PAUSE or MTCP_RESTART_PAUSE ..."
-    int dummy = 1;
+    volatile int dummy = 1;
     while (dummy);
 #ifdef HAS_PR_SET_PTRACER
     prctl(PR_SET_PTRACER, 0, 0, 0, 0);   // Revert permission to default.
@@ -839,7 +857,7 @@ restarthread(void *threadv)
 #endif // ifdef HAS_PR_SET_PTRACER
       // In src/mtcp_restart.c, we printed to user:
       // "Stopping due to env. var DMTCP_RESTART_PAUSE or MTCP_RESTART_PAUSE .."
-      int dummy = 1;
+      volatile int dummy = 1;
       while (dummy);
 #ifdef HAS_PR_SET_PTRACER
       prctl(PR_SET_PTRACER, 0, 0, 0, 0); // Revert permission to default.

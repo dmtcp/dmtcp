@@ -22,13 +22,12 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 #include <sys/syscall.h>
-#include <sys/poll.h>
+#include <poll.h>
 #include "../jalib/jassert.h"
 #include "../jalib/jconvert.h"
 #include "constants.h"
 #include "dmtcpworker.h"
 #include "processinfo.h"
-#include "protectedfds.h"
 #include "syscallwrappers.h"
 #include "threadsync.h"
 #include "util.h"
@@ -55,79 +54,29 @@
 // SYS_fork is a deprecated kernel call in aarch64; in favor of SYS_clone?
 # include <asm-generic/unistd.h>
 
-// SYS_fork undefined in aarch64, but add extra insurance
-# undef SYS_fork
-# undef SYS_open
-# undef SYS_pipe
-# undef SYS_poll
-# define SYS_fork         __NR_fork
-# define SYS_open         __NR_open
-# define SYS_pipe         __NR_pipe
-# define SYS_poll         __NR_poll
+// SYS_fork, etc., are undefined in aarch64
+// Presumably, libc translates the POSIX syscalls into later kernel calls.
+// # define SYS_fork         __NR_fork
+// # define SYS_open         __NR_open
+// # define SYS_pipe         __NR_pipe
+// # define SYS_poll         __NR_poll
 
-// These kernel calls are not deprecated.  But SYS_XXX is not defined for them.
-# define SYS_epoll_create __NR_epoll_create
-# define SYS_inotify_init __NR_inotify_init
-# define SYS_signalfd     __NR_signalfd
-# define SYS_eventfd      __NR_eventfd
+// These kernel calls are now often gone on aarch64.  SYS_XXX should not be
+//   defined for them.
+// # define SYS_epoll_create __NR_epoll_create
+// # define SYS_inotify_init __NR_inotify_init
+// # define SYS_signalfd     __NR_signalfd
+// # define SYS_eventfd      __NR_eventfd
 #endif // ifdef __aarch64__
+
 
 using namespace dmtcp;
 
 EXTERNC int dmtcp_is_popen_fp(FILE *fp) __attribute((weak));
 
-extern "C" int
-close(int fd)
-{
-  if (DMTCP_IS_PROTECTED_FD(fd)) {
-    JTRACE("blocked attempt to close protected fd") (fd);
-    errno = EBADF;
-    return -1;
-  }
-  return _real_close(fd);
-}
-
-extern "C" int
-fclose(FILE *fp)
-{
-  // If this fp was obtained using popen(), we must pclose it
-  if (dmtcp_is_popen_fp(fp)) {
-    return pclose(fp);
-  }
-  int fd = fileno(fp);
-  if (DMTCP_IS_PROTECTED_FD(fd)) {
-    JTRACE("blocked attempt to fclose protected fd") (fd);
-    errno = EBADF;
-    return -1;
-  }
-  return _real_fclose(fp);
-}
-
-extern "C" int
-closedir(DIR *dir)
-{
-  int fd = dirfd(dir);
-
-  if (DMTCP_IS_PROTECTED_FD(fd)) {
-    JTRACE("blocked attempt to closedir protected fd") (fd);
-    errno = EBADF;
-    return -1;
-  }
-  return _real_closedir(dir);
-}
-
-/*
- * FIXME: Add wrapper for dup2 and dup3 to detect a protected fd.
-extern "C" int dup2(int oldfd, int newfd)
-{
-  if (DMTCP_IS_PROTECTED_FD(newfd)) {
-  }
-  return _real_dup2(oldfd, newfd);
-}
-*/
-
 // Linux prlimit() could also be wrapped for protected fd, but it's a rare case.
-extern "C" int setrlimit (int resource, const struct rlimit *rlim) {
+extern "C" int
+setrlimit (int resource, const struct rlimit *rlim) {
   if ( resource == RLIMIT_NOFILE &&
        (rlim->rlim_cur < 1024 || rlim->rlim_max < 1024) ) {
     JNOTE("Blocked attempt to lower RLIMIT_NOFILE\n"
@@ -218,7 +167,6 @@ pid_t
 wait4(pid_t pid, __WAIT_STATUS status, int options, struct rusage *rusage)
 {
   int stat;
-  int saved_errno = errno;
   pid_t retval = 0;
 
   if (status == NULL) {
@@ -226,13 +174,7 @@ wait4(pid_t pid, __WAIT_STATUS status, int options, struct rusage *rusage)
   }
 
   retval = _real_wait4(pid, status, options, rusage);
-  saved_errno = errno;
 
-  if (retval > 0 &&
-      (WIFEXITED(*(int *)status) || WIFSIGNALED(*(int *)status))) {
-    ProcessInfo::instance().eraseChild(retval);
-  }
-  errno = saved_errno;
   return retval;
 }
 
@@ -244,12 +186,6 @@ waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options)
   memset(&siginfop, 0, sizeof(siginfop));
 
   int retval = _real_waitid(idtype, id, &siginfop, options);
-
-  if (retval != -1) {
-    if (siginfop.si_code == CLD_EXITED || siginfop.si_code == CLD_KILLED) {
-      ProcessInfo::instance().eraseChild(siginfop.si_pid);
-    }
-  }
 
   if (retval == 0 && infop != NULL) {
     *infop = siginfop;
@@ -349,23 +285,27 @@ syscall(long sys_num, ...)
     break;
   }
 
+# ifndef __aarch64__
   case SYS_fork:
   {
     ret = fork();
     break;
   }
+# endif // ifndef __aarch64__
   case SYS_exit:
   {
     SYSCALL_GET_ARG(int, status);
     exit(status);
     break;
   }
+# ifndef __aarch64__
   case SYS_open:
   {
     SYSCALL_GET_ARGS_3(const char *, pathname, int, flags, mode_t, mode);
     ret = open(pathname, flags, mode);
     break;
   }
+# endif // ifndef __aarch64__
   case SYS_close:
   {
     SYSCALL_GET_ARG(int, fd);
@@ -515,12 +455,14 @@ syscall(long sys_num, ...)
   }
 #endif // ifdef __x86_64__
 
+# ifndef __aarch64__
   case SYS_pipe:
   {
     SYSCALL_GET_ARG(int *, fds);
     ret = pipe(fds);
     break;
   }
+# endif // ifdef __aarch64__
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)) && __GLIBC_PREREQ(2, 9)
   case SYS_pipe2:
   {
@@ -572,33 +514,42 @@ syscall(long sys_num, ...)
   }
 # endif // ifdef __x86_64__
 #endif // ifndef DISABLE_SYS_V_IPC
+# ifndef __aarch64__
   case SYS_poll:
   {
     SYSCALL_GET_ARGS_3(struct pollfd *, fds, nfds_t, nfds, int, timeout);
     ret = poll(fds, nfds, timeout);
     break;
   }
+# endif // ifdef __aarch64__
+# ifndef __aarch64__
   case SYS_epoll_create:
   {
     SYSCALL_GET_ARG(int, size);
     ret = epoll_create(size);
     break;
   }
+# endif // ifdef __aarch64__
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 13) && __GLIBC_PREREQ(2, 4)
+# ifndef __aarch64__
   case SYS_inotify_init:
   {
     ret = inotify_init();
     break;
   }
+# endif // ifdef __aarch64__
 #endif // if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 13) && __GLIBC_PREREQ(2,
        // 4)
+
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 22) && __GLIBC_PREREQ(2, 8)
+# ifndef __aarch64__
   case SYS_signalfd:
   {
     SYSCALL_GET_ARGS_3(int, fd, sigset_t *, mask, int, flags);
     ret = signalfd(fd, mask, flags);
     break;
   }
+# endif // ifndef __aarch64__
 #endif // if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 22) && __GLIBC_PREREQ(2,
        // 8)
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27) && __GLIBC_PREREQ(2, 8)
@@ -611,12 +562,14 @@ syscall(long sys_num, ...)
 #endif // if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27) && __GLIBC_PREREQ(2,
        // 8)
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 22) && __GLIBC_PREREQ(2, 8)
+# ifndef __aarch64__
   case SYS_eventfd:
   {
     SYSCALL_GET_ARGS_2(unsigned int, initval, int, flags);
     ret = eventfd(initval, flags);
     break;
   }
+# endif // ifndef __aarch64__
 #endif // if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 22) && __GLIBC_PREREQ(2,
        // 8)
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27) && __GLIBC_PREREQ(2, 8)
@@ -632,7 +585,7 @@ syscall(long sys_num, ...)
   case SYS_epoll_create1:
   {
     SYSCALL_GET_ARG(int, flags);
-    ret = epoll_create(flags);
+    ret = epoll_create1(flags);
     break;
   }
   case SYS_inotify_init1:

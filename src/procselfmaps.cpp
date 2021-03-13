@@ -73,7 +73,7 @@ ProcSelfMaps::ProcSelfMaps()
   JASSERT(lseek(fd, 0, SEEK_SET) == 0);
 
   numBytes = Util::readAll(fd, data, size);
-  JASSERT(numBytes > 0) (numBytes);
+  JASSERT(numBytes > 0 && numBytes < size) (numBytes);
 
   // TODO(kapil): Replace this assert with more robust code that would
   // reallocate the buffer with an extended size.
@@ -246,4 +246,18 @@ ProcSelfMaps::getNextArea(ProcMapsArea *area)
   area->properties = 0;
 
   return 1;
+}
+
+void
+ProcSelfMaps::getStackInfo(ProcMapsArea *area)
+{
+  JASSERT(dataIdx == 0) (dataIdx);
+
+  void *stackFrameAddr = __builtin_frame_address(0);
+  while (getNextArea(area)) {
+    if (area->addr < stackFrameAddr && area->endAddr > stackFrameAddr) {
+      return;
+    }
+  }
+  JASSERT(false) .Text("NOT REACHABLE");
 }

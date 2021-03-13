@@ -39,18 +39,7 @@
 
 using namespace dmtcp;
 
-LIB_PRIVATE void pthread_atfork_prepare();
-LIB_PRIVATE void pthread_atfork_parent();
-LIB_PRIVATE void pthread_atfork_child();
-
-void pidVirt_pthread_atfork_child() __attribute__((weak));
-
-/* This is defined by newer gcc version unique for each module.  */
-extern void *__dso_handle __attribute__((__weak__,
-                                         __visibility__("hidden")));
-
-EXTERNC int __register_atfork(void (*prepare)(void), void (*parent)(
-                                void), void (*child)(void), void *dso_handle);
+LIB_PRIVATE void dmtcp_prepare_atfork(void);
 
 EXTERNC void *ibv_get_device_list(void *) __attribute__((weak));
 
@@ -148,41 +137,6 @@ DmtcpWorker::determineCkptSignal()
   return sig;
 }
 
-/* This function is called at the very beginning of the DmtcpWorker constructor
- * to do some initialization work so that DMTCP can later use _real_XXX
- * functions reliably. Read the comment at the top of syscallsreal.c for more
- * details.
- */
-static void
-dmtcp_prepare_atfork(void)
-{
-  /* Register pidVirt_pthread_atfork_child() as the first post-fork handler
-   * for the child process. This needs to be the first function that is
-   * called by libc:fork() after the child process is created.
-   *
-   * pthread_atfork_child() needs to be the second post-fork handler for the
-   * child process.
-   *
-   * Some dmtcp plugin might also call pthread_atfork and so we call it right
-   * here before initializing the wrappers.
-   *
-   * NOTE: If this doesn't work and someone is able to call pthread_atfork
-   * before this call, we might want to install a pthread_atfork() wrapper.
-   */
-
-  /* If we use pthread_atfork here, it fails for Ubuntu 14.04 on ARM.
-   * To fix it, we use __register_atfork and use the __dso_handle provided by
-   * the gcc compiler.
-   */
-  JASSERT(__register_atfork(NULL, NULL,
-                            pidVirt_pthread_atfork_child,
-                            __dso_handle) == 0);
-
-  JASSERT(pthread_atfork(pthread_atfork_prepare,
-                         pthread_atfork_parent,
-                         pthread_atfork_child) == 0);
-}
-
 static string
 getLogFilePath()
 {
@@ -234,7 +188,7 @@ prepareLogAndProcessdDataFromSerialFile()
     writeCurrentLogFileNameToPrevLogFile(prevLogFilePath);
 
     DmtcpEventData_t edata;
-    edata.serializerInfo.fd = PROTECTED_LIFEBOAT_FD;
+    edata.postExec.serializationFd = PROTECTED_LIFEBOAT_FD;
     PluginManager::eventHook(DMTCP_EVENT_POST_EXEC, &edata);
     _real_close(PROTECTED_LIFEBOAT_FD);
   } else {
@@ -267,6 +221,11 @@ installSegFaultHandler()
   JASSERT(sigaction(SIGSEGV, &act, NULL) == 0) (JASSERT_ERRNO);
 }
 
+/* This function is called at the very beginning of the DmtcpWorker constructor
+ * to do some initialization work so that DMTCP can later use _real_XXX
+ * functions reliably. Read the comment at the top of syscallsreal.c for more
+ * details.
+ */
 // Initialize wrappers, etc.
 extern "C" void
 dmtcp_initialize()
@@ -275,7 +234,7 @@ dmtcp_initialize()
 }
 
 // Initialize remaining components.
-static void __attribute__((constructor(101)))
+extern "C" void __attribute__((constructor(101)))
 dmtcp_initialize_entry_point()
 {
   static bool initialized = false;
@@ -322,7 +281,6 @@ dmtcp_initialize_entry_point()
           programName != "ssh")
     (programName).Text("This program should not be run under ckpt control");
 
-  ProcessInfo::instance().calculateArgvAndEnvSize();
   restoreUserLDPRELOAD();
 
   if (ibv_get_device_list && !dmtcp_infiniband_enabled) {
@@ -342,15 +300,9 @@ DmtcpWorker::resetOnFork()
 {
   exitInProgress = false;
 
-  ThreadSync::resetLocks();
-
   WorkerState::setCurrentState(WorkerState::RUNNING);
 
   ThreadSync::initMotherOfAll();
-
-  // Some plugins might make calls that require wrapper locks, etc.
-  // Therefore, it is better to call this hook after we reset all locks.
-  PluginManager::eventHook(DMTCP_EVENT_ATFORK_CHILD, NULL);
 }
 
 // Called after user main() by user thread or during exit() processing.
@@ -495,12 +447,12 @@ DmtcpWorker::preCheckpoint()
     SharedData::getCompId()._computation_generation;
   ProcessInfo::instance().set_generation(computationGeneration);
 
-  SharedData::prepareForCkpt();
-
   uint32_t numPeers;
   JTRACE("Waiting for DMT_CHECKPOINT barrier");
   CoordinatorAPI::waitForBarrier("DMT:CHECKPOINT", &numPeers);
   JTRACE("Computation information") (numPeers);
+
+  SharedData::prepareForCkpt(numPeers);
 
   ProcessInfo::instance().numPeers(numPeers);
 
@@ -512,6 +464,20 @@ void
 DmtcpWorker::postCheckpoint()
 {
   WorkerState::setCurrentState(WorkerState::CHECKPOINTED);
+
+  // TODO: Merge this barrier with the previous `sendCkptFilename` msg.
+  JTRACE("Waiting for Write-Ckpt barrier");
+  CoordinatorAPI::waitForBarrier("DMT:WriteCkpt");
+
+
+  /* Now that temp checkpoint file is complete, rename it over old permanent
+   * checkpoint file.  Uses rename() syscall, which doesn't change i-nodes.
+   * So, gzip process can continue to write to file even after renaming.
+   */
+  JASSERT(rename(ProcessInfo::instance().getTempCkptFilename().c_str(),
+                 ProcessInfo::instance().getCkptFilename().c_str()) == 0);
+
+
   CoordinatorAPI::sendCkptFilename();
 
   if (exitAfterCkpt) {
@@ -523,9 +489,8 @@ DmtcpWorker::postCheckpoint()
 
   // Inform Coordinator of RUNNING state.
   WorkerState::setCurrentState(WorkerState::RUNNING);
-
-  JTRACE("Waiting for DMT:RESUME barrier");
-  CoordinatorAPI::waitForBarrier("DMT::RESUME");
+  JTRACE("Informing coordinator of RUNNING status") (UniquePid::ThisProcess());
+  CoordinatorAPI::sendMsgToCoordinator(DMT_WORKER_RESUMING);
 }
 
 void
@@ -534,12 +499,15 @@ DmtcpWorker::postRestart(double ckptReadTime)
   JTRACE("begin postRestart()");
   WorkerState::setCurrentState(WorkerState::RESTARTING);
 
+  JTRACE("Waiting for Restart barrier");
+  CoordinatorAPI::waitForBarrier("DMT:Restart");
+
   PluginManager::eventHook(DMTCP_EVENT_RESTART);
 
   JTRACE("got resume message after restart");
 
   // Inform Coordinator of RUNNING state.
   WorkerState::setCurrentState(WorkerState::RUNNING);
-  JTRACE("Waiting for DMT:RESUME barrier");
-  CoordinatorAPI::waitForBarrier("DMT::RESUME");
+  JTRACE("Informing coordinator of RUNNING status") (UniquePid::ThisProcess());
+  CoordinatorAPI::sendMsgToCoordinator(DMT_WORKER_RESUMING);
 }

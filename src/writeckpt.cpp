@@ -19,13 +19,13 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 #include <errno.h>
+#include <fcntl.h>
 #include <sched.h>
 #include <signal.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/fcntl.h>
 #include <sys/mman.h>
 #include <sys/resource.h>
 #include <sys/stat.h>
@@ -146,7 +146,11 @@ mtcp_writememoryareas(int fd)
   }
 
   /* Finally comes the memory contents */
+  JTRACE("addr and len of restoreBuf (to hold mtcp_restart code)")
+    ((void *)ProcessInfo::instance().restoreBufAddr())
+    (ProcessInfo::instance().restoreBufLen());
   procSelfMaps = new ProcSelfMaps();
+  // We must not cause an mmap() here, or the mem regions will not be correct.
   while (procSelfMaps->getNextArea(&area)) {
     // TODO(kapil): Verify that we are not doing any operation that might
     // result in a change of memory layout. For example, a call to JALLOC_NEW
@@ -387,6 +391,7 @@ mtcp_write_non_rwx_and_anonymous_pages(int fd, Area *orig_area)
   }
 
   while (area.size > 0) {
+    int rc = 0;
     size_t size;
     int is_zero;
     Area a = area;
@@ -400,9 +405,11 @@ mtcp_write_non_rwx_and_anonymous_pages(int fd, Area *orig_area)
     a.properties = is_zero ? DMTCP_ZERO_PAGE : 0;
     a.size = size;
 
-    Util::writeAll(fd, &a, sizeof(a));
+    rc = Util::writeAll(fd, &a, sizeof(a));
+    JASSERT(rc != -1)(JASSERT_ERRNO).Text("writeAll failed during ckpt");
     if (!is_zero) {
-      Util::writeAll(fd, a.addr, a.size);
+      rc = Util::writeAll(fd, a.addr, a.size);
+      JASSERT(rc != -1)(JASSERT_ERRNO).Text("writeAll failed during ckpt");
     } else {
       if (madvise(a.addr, a.size, MADV_DONTNEED) == -1) {
         JNOTE("error doing madvise(..., MADV_DONTNEED)")
@@ -425,6 +432,7 @@ mtcp_write_non_rwx_and_anonymous_pages(int fd, Area *orig_area)
 static void
 writememoryarea(int fd, Area *area, int stack_was_seen)
 {
+  int rc = 0;
   void *addr = area->addr;
 
   if (!(area->flags & MAP_ANONYMOUS)) {
@@ -454,7 +462,7 @@ writememoryarea(int fd, Area *area, int stack_was_seen)
     JTRACE("skipping over memory special section")
       (area->name) (addr) (area->size);
   } else if ( area->__addr == ProcessInfo::instance().vdsoStart() ) {
-    //vDSO issue:
+    //  vDSO issue:
     //    As always, we never want to save the vdso section.  We will use
     //  the vdso section code provided by the kernel on restart.  Further,
     //  the user code on restart has already been initialized and so it
@@ -475,7 +483,7 @@ writememoryarea(int fd, Area *area, int stack_was_seen)
     //  be saving the original vdso section (which is wrong), and we would
     //  be failing to save the user's memory that was restored into the
     //  location labelled by the kernel's "[vdso]" label.  This last
-    //  case is even worse, since we have now failed to restore some user data. 
+    //  case is even worse, since we have now failed to restore some user data.
     //    This was observed to happen in RHEL 6.6.  The solution is to
     //  trust DMTCP for the vdso location (as in the if condition above),
     //  and not to trust the kernel's "[vdso]" label.
@@ -500,11 +508,14 @@ writememoryarea(int fd, Area *area, int stack_was_seen)
 
     if (skipWritingTextSegments && (area->prot & PROT_EXEC)) {
       area->properties |= DMTCP_SKIP_WRITING_TEXT_SEGMENTS;
-      Util::writeAll(fd, area, sizeof(*area));
+      rc = Util::writeAll(fd, area, sizeof(*area));
+      JASSERT(rc != -1)(JASSERT_ERRNO).Text("writeAll failed during ckpt");
       JTRACE("Skipping over text segments") (area->name) ((void *)area->addr);
     } else {
-      Util::writeAll(fd, area, sizeof(*area));
-      Util::writeAll(fd, area->addr, area->size);
+      rc = Util::writeAll(fd, area, sizeof(*area));
+      JASSERT(rc != -1)(JASSERT_ERRNO).Text("writeAll failed during ckpt");
+      rc = Util::writeAll(fd, area->addr, area->size);
+      JASSERT(rc != -1)(JASSERT_ERRNO).Text("writeAll failed during ckpt");
     }
   }
 }

@@ -36,6 +36,9 @@
 
 namespace dmtcp
 {
+static ProcessInfo *pInfo = NULL;
+static ProcessInfo *vforkBackup = NULL;
+
 static DmtcpMutex tblLock = DMTCP_MUTEX_INITIALIZER;
 
 static void
@@ -79,7 +82,7 @@ processInfo_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 
   case DMTCP_EVENT_PRE_EXEC:
   {
-    jalib::JBinarySerializeWriterRaw wr("", data->serializerInfo.fd);
+    jalib::JBinarySerializeWriterRaw wr("", data->preExec.serializationFd);
     ProcessInfo::instance().getState();
     ProcessInfo::instance().serialize(wr);
     break;
@@ -87,11 +90,27 @@ processInfo_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 
   case DMTCP_EVENT_POST_EXEC:
   {
-    jalib::JBinarySerializeReaderRaw rd("", data->serializerInfo.fd);
+    jalib::JBinarySerializeReaderRaw rd("", data->postExec.serializationFd);
     ProcessInfo::instance().serialize(rd);
     ProcessInfo::instance().postExec();
     break;
   }
+
+  case DMTCP_EVENT_ATFORK_CHILD:
+  case DMTCP_EVENT_VFORK_CHILD:
+    ProcessInfo::instance().resetOnFork();
+    break;
+
+  case DMTCP_EVENT_VFORK_PREPARE:
+    vforkBackup = pInfo;
+    pInfo = NULL;
+    break;
+
+  case DMTCP_EVENT_VFORK_PARENT:
+  case DMTCP_EVENT_VFORK_FAILED:
+    delete pInfo;
+    pInfo = vforkBackup;
+    break;
 
   case DMTCP_EVENT_PRESUSPEND:
     break;
@@ -147,7 +166,6 @@ ProcessInfo::ProcessInfo()
   // This contrasts with DmtcpUniqueProcessId:_computation_generation, which is
   // shared among all process on a node; used in variable sharedDataHeader.
   // _generation is updated when _this_ process begins its checkpoint.
-  _childTable.clear();
   _pthreadJoinId.clear();
   _procSelfExe = jalib::Filesystem::ResolveSymlink("/proc/self/exe");
   _uppid = UniquePid();
@@ -163,7 +181,6 @@ ProcessInfo::ProcessInfo()
   _do_unlock_tbl();
 }
 
-static ProcessInfo *pInfo = NULL;
 ProcessInfo&
 ProcessInfo::instance()
 {
@@ -212,7 +229,7 @@ ProcessInfo::growStack()
     } else if ((VA)&area >= area.addr && (VA)&area < area.endAddr) {
       JTRACE("Original stack area") ((void *)area.addr) (area.size);
       stackArea = area;
-
+      _endOfStack = (uintptr_t) area.endAddr;
       /*
        * When using Matlab with dmtcp_launch, sometimes the bottom most
        * page of stack (the page with highest address) which contains the
@@ -276,7 +293,7 @@ ProcessInfo::init()
   _elfType = Elf_64;
 #endif // ifdef CONFIG_M32
 
-  _vdsoStart = _vdsoEnd = _vvarStart = _vvarEnd = 0;
+  _vdsoStart = _vdsoEnd = _vvarStart = _vvarEnd = _endOfStack = 0;
 
   processRlimit();
 
@@ -285,9 +302,26 @@ ProcessInfo::init()
   // Reserve space for restoreBuf
   _restoreBufLen = RESTORE_TOTAL_SIZE;
 
-  _restoreBufAddr = (uint64_t) mmap(NULL, _restoreBufLen, PROT_NONE,
-                    MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-  JASSERT(_restoreBufLen != (uint64_t) MAP_FAILED) (JASSERT_ERRNO);
+  int pagesize = getpagesize();
+  _restoreBufAddr = (uint64_t) mmap(NULL, _restoreBufLen + 2*pagesize,
+                    PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+  JASSERT(_restoreBufAddr != (uint64_t) MAP_FAILED) (JASSERT_ERRNO);
+  _restoreBufAddr = (uint64_t)(_restoreBufAddr + pagesize);
+  // Guard page _restoreBufAddr; prevent kernel from merging regions
+  // Note that PROT_READ was added to 'mprotect' on the guard pages.
+  //   Before adding this, test/{dmtcp5,sched_test,shared-fd1}, and others
+  //   were failing during the _first_ checkpoint, only.  The checkpoint
+  //   image was malformed because write() of these guard pages
+  //   was failing with EFAULT (although no SEGFAULT occurred) when trying to
+  //   read the guard pages and write them to the checkpoint image.
+  //   This occurred in Linux 3.10.0-1062.9.1.el7.x86_64 in CentOS 7.7.1908.
+  //   (But it did not occur in Ubuntu 18.04 with Linux 4.15.)
+  //   This is arguably a bug in the Linux 3.10 kernel.
+  mprotect((char *)_restoreBufAddr - pagesize, pagesize,
+           PROT_READ | PROT_EXEC);
+  JASSERT(_restoreBufLen % pagesize == 0) (_restoreBufLen) (pagesize);
+  mprotect((char *)_restoreBufAddr + _restoreBufLen, pagesize,
+           PROT_READ | PROT_EXEC);
 
   if (_ckptDir.empty()) {
     updateCkptDirFileSubdir();
@@ -322,112 +356,6 @@ ProcessInfo::processRlimit()
 # endif // if 0
 #endif // ifdef __i386__
 }
-
-void
-ProcessInfo::calculateArgvAndEnvSize()
-{
-  vector<string>args = jalib::Filesystem::GetProgramArgs();
-  _argvSize = 0;
-  for (size_t i = 0; i < args.size(); i++) {
-    _argvSize += args[i].length() + 1;
-  }
-
-  _envSize = 0;
-  if (environ != NULL) {
-    char *ptr = environ[0];
-    while (*ptr != '\0' && args[0].compare(ptr) != 0) {
-      _envSize += strlen(ptr) + 1;
-      ptr += strlen(ptr) + 1;
-    }
-  }
-  _envSize += args[0].length();
-}
-
-#ifdef RESTORE_ARGV_AFTER_RESTART
-void Process : Info::restoreArgvAfterRestart(char *mtcpRestoreArgvStartAddr)
-{
-  /*
-   * The addresses where argv of mtcp_restart process starts. /proc/PID/cmdline
-   * information is looked up from these addresses.  We observed that the
-   * stack base for mtcp_restart is always 0x7ffffffff000 in 64-bit system and
-   * 0xc0000000 in case of 32-bit systems.  Once we restore the checkpointed
-   * process's memory, we will map the pages ending in these address into the
-   * process's memory if they are unused i.e. not mapped by the process (which
-   * is true for most processes running with ASLR).  Once we map them, we can
-   * put the argv of the checkpointed process in there so that
-   * /proc/self/cmdline shows the correct values.
-   * Note that if compiled in 32-bit mode '-m32', the stack base address
-   * is in still a different location, and so this logic is not valid.
-   */
-  JASSERT(mtcpRestoreArgvStartAddr != NULL);
-
-  long page_size = sysconf(_SC_PAGESIZE);
-  long page_mask = ~(page_size - 1);
-  char *startAddr =
-    (char *)((unsigned long)mtcpRestoreArgvStartAddr & page_mask);
-
-  size_t len;
-  len = (ProcessInfo::instance().argvSize() + page_size) & page_mask;
-
-  // Check to verify if any page in the given range is already mmap()'d.
-  // It assumes that the given addresses may belong to stack only, and if
-  // mapped, will have read+write permissions.
-  for (size_t i = 0; i < len; i += page_size) {
-    int ret = mprotect((char *)startAddr + i, page_size,
-                       PROT_READ | PROT_WRITE);
-    if (ret != -1 || errno != ENOMEM) {
-      _mtcpRestoreArgvStartAddr = NULL;
-      return;
-    }
-  }
-
-  // None of the pages are mapped -- it is safe to mmap() them
-  void *retAddr = mmap((void *)startAddr, len, PROT_READ | PROT_WRITE,
-                       MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
-  if (retAddr != MAP_FAILED) {
-    JTRACE("Restoring /proc/self/cmdline")
-      (mtcpRestoreArgvStartAddr) (startAddr) (len) (JASSERT_ERRNO);
-    vector<string>args = jalib::Filesystem::GetProgramArgs();
-    char *addr = mtcpRestoreArgvStartAddr;
-
-    // Do NOT change restarted process's /proc/self/cmdline.
-    // args[0] = DMTCP_PRGNAME_PREFIX + args[0];
-    for (size_t i = 0; i < args.size(); ++i) {
-      if (addr + args[i].length() >= startAddr + len) {
-        break;
-      }
-      strcpy(addr, args[i].c_str());
-      addr += args[i].length() + 1;
-    }
-    _mtcpRestoreArgvStartAddr = startAddr;
-  } else {
-    JTRACE("Unable to restore /proc/self/cmdline") (startAddr) (len) (
-      JASSERT_ERRNO);
-    _mtcpRestoreArgvStartAddr = NULL;
-  }
-  return;
-}
-
-static char *_mtcpRestoreArgvStartAddr = NULL;
-
-// FIXME(kapil): Call this after restart has finished.
-static void
-unmapRestoreArgv()
-{
-  long page_size = sysconf(_SC_PAGESIZE);
-  long page_mask = ~(page_size - 1);
-
-  if (_mtcpRestoreArgvStartAddr != NULL) {
-    JTRACE("Unmapping previously mmap()'d pages (that were mmap()'d for "
-           "restoring argv");
-    size_t len;
-    len = (ProcessInfo::instance().argvSize() + page_size) & page_mask;
-    JASSERT(_real_munmap(_mtcpRestoreArgvStartAddr, len) == 0)
-      (_mtcpRestoreArgvStartAddr) (len)
-    .Text("Failed to munmap extra pages that were mapped during restart");
-  }
-}
-#endif // ifdef RESTORE_ARGV_AFTER_RESTART
 
 void
 ProcessInfo::updateCkptDirFileSubdir(string newCkptDir)
@@ -471,7 +399,6 @@ ProcessInfo::resetOnFork()
   _ppid = _pid;
   _pid = getpid();
   _isRootOfProcessTree = false;
-  _childTable.clear();
   _pthreadJoinId.clear();
   _ckptFileName.clear();
   _ckptFilesSubDir.clear();
@@ -509,7 +436,7 @@ void
 ProcessInfo::restart()
 {
   // Unmap the restore buffer and remap it with PROT_NONE. We do munmap followed
-  // mmap to ensure that the kernel releases the backing physical pages.
+  // by mmap to ensure that the kernel releases the backing physical pages.
   JASSERT(munmap((void *)_restoreBufAddr, _restoreBufLen) == 0)
     ((void *)_restoreBufAddr) (_restoreBufLen) (JASSERT_ERRNO);
 
@@ -541,10 +468,6 @@ ProcessInfo::restart()
     }
   }
 
-#ifdef RESTORE_ARGV_AFTER_RESTART
-  restoreArgvAfterRestart(char *mtcpRestoreArgvStartAddr);
-#endif // ifdef RESTORE_ARGV_AFTER_RESTART
-
   restoreProcessGroupInfo();
   _real_close(PROTECTED_ENVIRON_FD);
 }
@@ -568,47 +491,6 @@ ProcessInfo::restoreProcessGroupInfo()
   } else {
     JTRACE("SKIP Group information, GID unknown");
   }
-}
-
-void
-ProcessInfo::insertChild(pid_t pid, UniquePid uniquePid)
-{
-  _do_lock_tbl();
-  iterator i = _childTable.find(pid);
-  JWARNING(i == _childTable.end()) (pid) (uniquePid) (i->second)
-  .Text("child pid already exists!");
-
-  _childTable[pid] = uniquePid;
-  _do_unlock_tbl();
-
-  JTRACE("Creating new virtualPid -> realPid mapping.") (pid) (uniquePid);
-}
-
-void
-ProcessInfo::eraseChild(pid_t virtualPid)
-{
-  _do_lock_tbl();
-  iterator i = _childTable.find(virtualPid);
-  if (i != _childTable.end()) {
-    _childTable.erase(virtualPid);
-  }
-  _do_unlock_tbl();
-}
-
-bool
-ProcessInfo::isChild(const UniquePid &upid)
-{
-  bool res = false;
-
-  _do_lock_tbl();
-  for (iterator i = _childTable.begin(); i != _childTable.end(); i++) {
-    if (i->second == upid) {
-      res = true;
-      break;
-    }
-  }
-  _do_unlock_tbl();
-  return res;
 }
 
 bool
@@ -722,33 +604,12 @@ ProcessInfo::getState()
   JASSERT(getcwd(buf, sizeof buf) != NULL);
   _ckptCWD = buf;
 
-  _sessionIds.clear();
-  refreshChildTable();
-
   JTRACE("CHECK GROUP PID")(_gid)(_fgid)(_ppid)(_pid);
 }
 
-void
-ProcessInfo::refreshChildTable()
-{
-  iterator i = _childTable.begin();
-
-  while (i != _childTable.end()) {
-    pid_t pid = i->first;
-    iterator j = i++;
-
-    /* Check to see if the child process is alive*/
-    if (kill(pid, 0) == -1 && errno == ESRCH) {
-      _childTable.erase(j);
-    } else {
-      _sessionIds[pid] = getsid(pid);
-    }
-  }
-}
-
 bool
-ProcessInfo::vdsoOffsetMismatch(ptrdiff_t f1, ptrdiff_t f2,
-                                ptrdiff_t f3, ptrdiff_t f4)
+ProcessInfo::vdsoOffsetMismatch(uint64_t f1, uint64_t f2,
+                                uint64_t f3, uint64_t f4)
 {
   return (f1 != _clock_gettime_offset) || (f2 != _getcpu_offset) ||
          (f3 != _gettimeofday_offset) || (f4 != _time_offset);
@@ -773,24 +634,21 @@ ProcessInfo::serialize(jalib::JBinarySerializer &o)
   o & _upid & _uppid;
   o & _clock_gettime_offset & _getcpu_offset
     & _gettimeofday_offset & _time_offset;
-  o & _compGroup & _numPeers & _noCoordinator & _argvSize & _envSize;
+  o & _compGroup & _numPeers & _noCoordinator;
   o & _restoreBufAddr & _savedHeapStart & _savedBrk;
-  o & _vdsoStart & _vdsoEnd & _vvarStart & _vvarEnd;
+  o & _vdsoStart & _vdsoEnd & _vvarStart & _vvarEnd & _endOfStack;
   o & _ckptDir & _ckptFileName & _ckptFilesSubDir;
 
   JTRACE("Serialized process information")
     (_sid) (_ppid) (_gid) (_fgid) (_isRootOfProcessTree)
     (_procname) (_hostname) (_launchCWD) (_ckptCWD) (_upid) (_uppid)
-    (_compGroup) (_numPeers) (_noCoordinator) (_argvSize) (_envSize) (_elfType);
+    (_compGroup) (_numPeers) (_noCoordinator) (_elfType);
 
   JASSERT(!_noCoordinator || _numPeers == 1) (_noCoordinator) (_numPeers);
 
   if (_isRootOfProcessTree) {
     JTRACE("This process is Root of Process Tree");
   }
-
-  JTRACE("Serializing ChildPid Table") (_childTable.size()) (o.filename());
-  o & _childTable;
 
   JSERIALIZE_ASSERT_POINT("EOF");
 }

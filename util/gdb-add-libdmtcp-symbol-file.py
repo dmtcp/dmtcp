@@ -1,20 +1,25 @@
-#!/usr/bin/python
-# This file is a hack, meant to overcome the disabling of the logic for
+#!/usr/bin/env python
+# This file is deprecated.  It is a hack, to augment the logic for
 #   'add-symbol-file libdmtcp.so' in mtcp/mtcp_restart.c
-# If that logic is restored, this file should be deleted. 
-# Without this file or that logic, it is almost impossible to use
-#   gdb in debugging mtcp_restart.c and the related functions.
+# A better version is util/gdb-add-symbol-files-all.  Read heading for info.
+# If /proc/PID/maps contains a memory region labelled by libdmtcp.so,
+#   then a simpler alternative is:
+#    (gdb) source gdb-add-symbol-files-all
+#    (gdb) add-symbol-files-all
+# Else if the libdmtcp.so label is missing then:
+#    (gdb) source gdb-add-symbol-files-all
+#    (gdb) add-symbol-file-from-filename-and-address .../libdmtcp.so ADDR
 
 import os
 import sys
 import re
 import subprocess
 
-print "Usage:  "+sys.argv[0]+" <PID> <ADDR> [<LIBMTCP=lib/dmtcp/libdmtcp.so>]"
-print "  This assumes that ADDR is in libdmtcp.so."
-print "  In gdb: 'info proc' will provide <PID>; and  'print $pc' will"
-print "    provide <ADDR>, providing that PC is currently in libdmtcp.so."
-# print "OR Usage:  "+sys.argv[0]+" <PID> <LIB>"
+print("Usage:  "+sys.argv[0]+" <PID> <ADDR> [<LIBMTCP=lib/dmtcp/libdmtcp.so>]")
+print("  This assumes that ADDR is in libdmtcp.so.")
+print("  In gdb: 'info proc' will provide <PID>; and  'print $pc' will")
+print("    provide <ADDR>, providing that PC is currently in libdmtcp.so.")
+# print("OR Usage:  "+sys.argv[0]+" <PID> <LIB>")
 
 if len(sys.argv) == 1:
   sys.exit(0)
@@ -42,7 +47,7 @@ file = open("/proc/"+str(pid)+"/maps")
 gdbCmd = ""
 for line in file:
   fields = line.split()[0:2]
-  fields = map(lambda(x):int(x,16), fields[0].split("-")) + [fields[1]]
+  fields = [int(x,16) for x in fields[0].split("-")] + [fields[1]]
   if fields[0] <= pc and pc < fields[1] and re.match("r.x.", fields[2]):
     readelf = subprocess.Popen(
         "/usr/bin/readelf -S "+libdmtcp+" | grep '\.text'",
@@ -52,11 +57,11 @@ for line in file:
     readelf.stdout.close()
     readelf.stdout.close()
     gdbCmd = "add-symbol-file "+libdmtcp+" "+hex(fields[0]+int(textOffset,16))
-    print "Type this in gdb:"
-    print gdbCmd
+    print("Type this in gdb:")
+    print(gdbCmd)
     break
 if not gdbCmd:
-  print "Couldn't find libdmtcp.so in", "/proc/"+str(pid)+"/maps"
+  print("Couldn't find libdmtcp.so in", "/proc/"+str(pid)+"/maps")
 file.close()
 sys.exit(0)
 
@@ -67,16 +72,16 @@ for line in file:
   fields = map(lambda(x):int(x,16), fields[0].split("-")) + [fields[1]]
   # ACTUALLY, THIS SHOULD BE LINE AFTER text SEGMENT
   if fields[0] < pc and pc < fields[1] and fields[2] == "rw-p":
-    print int(fields[0])
+    print(int(fields[0]))
     readelf = subprocess.Popen(
         "/usr/bin/readelf -S "+libnmtcp+" | grep '\.data'",
         shell=True, stdout=subprocess.PIPE)
     dataOffset = readelf.stdout.read().split()[4]
     readelf.stdout.close()
-    print dataOffset
+    print(dataOffset)
     readelf.stdout.close()
     gdbCmd += " -s "+hex(fields[0]+int(dataOffset,16))
-    print gdbCmd
+    print(gdbCmd)
     break
 file.close()
 

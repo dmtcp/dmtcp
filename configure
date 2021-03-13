@@ -629,13 +629,11 @@ LIBOBJS
 HAS_OPENMPI
 OPENMPI_MPIRUN
 OPENMPI_MPICC
+MPICH_PATH
 HAS_MPICH
 MPICH_MPIEXEC
+MPICH_MPIRUN
 MPICH_MPICC
-MPICH_MPDCLEANUP
-MPICH_MPDALLEXIT
-MPICH_MPDBOOT
-MPICH_MPD
 HAS_SSH_LOCALHOST
 HAS_GZIP
 MATLAB
@@ -659,6 +657,7 @@ HAS_ZSH
 HAS_TCSH
 HAS_DASH
 HAS_PYTHON
+HAS_PYTHON3
 HAS_PS
 HAS_EPOLL_CREATE1
 HAS_CMA
@@ -668,6 +667,12 @@ AARCH64_HOST_TRUE
 ARM_HOST
 ARM_HOST_FALSE
 ARM_HOST_TRUE
+X86_64_HOST
+X86_64_HOST_FALSE
+X86_64_HOST_TRUE
+MULTILIB
+CONFIG_MULTILIB_FALSE
+CONFIG_MULTILIB_TRUE
 HAS_READLINE
 M32
 CONFIG_M32_FALSE
@@ -688,6 +693,7 @@ DEBUG
 LOGGING
 OPENMP_CXXFLAGS
 OPENMP_CFLAGS
+HAVE_CXX11
 CPP
 am__fastdepCC_FALSE
 am__fastdepCC_TRUE
@@ -702,6 +708,7 @@ am__nodep
 AMDEPBACKSLASH
 AMDEP_FALSE
 AMDEP_TRUE
+am__quote
 am__include
 DEPDIR
 OBJEXT
@@ -771,6 +778,7 @@ infodir
 docdir
 oldincludedir
 includedir
+runstatedir
 localstatedir
 sharedstatedir
 sysconfdir
@@ -789,8 +797,7 @@ PACKAGE_VERSION
 PACKAGE_TARNAME
 PACKAGE_NAME
 PATH_SEPARATOR
-SHELL
-am__quote'
+SHELL'
 ac_subst_files=''
 ac_user_opts='
 enable_option_checking
@@ -814,6 +821,7 @@ enable_experts_only
 enable_experts_only_after
 enable_pthread_mutex_wrappers
 enable_m32
+enable_multilib
 enable_static_libstdcxx
 with_mpich
 '
@@ -867,6 +875,7 @@ datadir='${datarootdir}'
 sysconfdir='${prefix}/etc'
 sharedstatedir='${prefix}/com'
 localstatedir='${prefix}/var'
+runstatedir='${localstatedir}/run'
 includedir='${prefix}/include'
 oldincludedir='/usr/include'
 docdir='${datarootdir}/doc/${PACKAGE_TARNAME}'
@@ -1119,6 +1128,15 @@ do
   | -silent | --silent | --silen | --sile | --sil)
     silent=yes ;;
 
+  -runstatedir | --runstatedir | --runstatedi | --runstated \
+  | --runstate | --runstat | --runsta | --runst | --runs \
+  | --run | --ru | --r)
+    ac_prev=runstatedir ;;
+  -runstatedir=* | --runstatedir=* | --runstatedi=* | --runstated=* \
+  | --runstate=* | --runstat=* | --runsta=* | --runst=* | --runs=* \
+  | --run=* | --ru=* | --r=*)
+    runstatedir=$ac_optarg ;;
+
   -sbindir | --sbindir | --sbindi | --sbind | --sbin | --sbi | --sb)
     ac_prev=sbindir ;;
   -sbindir=* | --sbindir=* | --sbindi=* | --sbind=* | --sbin=* \
@@ -1256,7 +1274,7 @@ fi
 for ac_var in	exec_prefix prefix bindir sbindir libexecdir datarootdir \
 		datadir sysconfdir sharedstatedir localstatedir includedir \
 		oldincludedir docdir infodir htmldir dvidir pdfdir psdir \
-		libdir localedir mandir
+		libdir localedir mandir runstatedir
 do
   eval ac_val=\$$ac_var
   # Remove trailing slashes.
@@ -1409,6 +1427,7 @@ Fine tuning of the installation directories:
   --sysconfdir=DIR        read-only single-machine data [PREFIX/etc]
   --sharedstatedir=DIR    modifiable architecture-independent data [PREFIX/com]
   --localstatedir=DIR     modifiable single-machine data [PREFIX/var]
+  --runstatedir=DIR       modifiable per-process data [LOCALSTATEDIR/run]
   --libdir=DIR            object code libraries [EPREFIX/lib]
   --includedir=DIR        C header files [PREFIX/include]
   --oldincludedir=DIR     C header files for non-gcc [/usr/include]
@@ -1495,9 +1514,11 @@ Optional Features:
 
   --enable-pthread-mutex-wrappers
                           Recommended when using Open MPI
-  --enable-m32            Compile in 32 bit mode on 64 bit linux. (Works on
+  --enable-m32            Compile in 320bit mode on 64-bit Linux. (Works on
                           most, but not all programs, due to restrictions of
                           32-bit mode.)
+  --enable-multilib       Compile for mixed 32-bit and 64-bit mode. (Requires
+                          gcc-multilib/g++-multilib packages.)
   --enable-static-libstdcxx
                           Compile $CXX with -static-libstdc++. This allows
                           DMTCP executables compiled on later distro to run
@@ -1506,7 +1527,8 @@ Optional Features:
 Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
   --without-PACKAGE       do not use PACKAGE (same as --with-PACKAGE=no)
-  --with-mpich=path       Compile mpich2 tests in `make check`
+  --with-mpich=mpich_path_prefix
+                          Compile mpich3 tests in `make check`
 
 Some influential environment variables:
   CXX         C++ compiler command
@@ -2395,7 +2417,7 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
 # TODO(kapil): Add 'subdir-objects after automake 1.16 has been released.
-am__api_version='1.16'
+am__api_version='1.15'
 
 ac_aux_dir=
 for ac_dir in "$srcdir" "$srcdir/.." "$srcdir/../.."; do
@@ -2940,8 +2962,8 @@ MAKEINFO=${MAKEINFO-"${am_missing_run}makeinfo"}
 
 # For better backward compatibility.  To be removed once Automake 1.9.x
 # dies out for good.  For more background, see:
-# <https://lists.gnu.org/archive/html/automake/2012-07/msg00001.html>
-# <https://lists.gnu.org/archive/html/automake/2012-07/msg00014.html>
+# <http://lists.gnu.org/archive/html/automake/2012-07/msg00001.html>
+# <http://lists.gnu.org/archive/html/automake/2012-07/msg00014.html>
 mkdir_p='$(MKDIR_P)'
 
 # We need awk for the "check" target (and possibly the TAP driver).  The
@@ -2992,7 +3014,7 @@ END
 Aborting the configuration process, to ensure you take notice of the issue.
 
 You can download and install GNU coreutils to get an 'rm' implementation
-that behaves properly: <https://www.gnu.org/software/coreutils/>.
+that behaves properly: <http://www.gnu.org/software/coreutils/>.
 
 If you want to complete the configuration process using your problematic
 'rm' anyway, export the environment variable ACCEPT_INFERIOR_RM_PROGRAM
@@ -3746,45 +3768,45 @@ DEPDIR="${am__leading_dot}deps"
 
 ac_config_commands="$ac_config_commands depfiles"
 
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking whether ${MAKE-make} supports the include directive" >&5
-$as_echo_n "checking whether ${MAKE-make} supports the include directive... " >&6; }
-cat > confinc.mk << 'END'
+
+am_make=${MAKE-make}
+cat > confinc << 'END'
 am__doit:
-	@echo this is the am__doit target >confinc.out
+	@echo this is the am__doit target
 .PHONY: am__doit
 END
+# If we don't find an include directive, just comment out the code.
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for style of include used by $am_make" >&5
+$as_echo_n "checking for style of include used by $am_make... " >&6; }
 am__include="#"
 am__quote=
-# BSD make does it like this.
-echo '.include "confinc.mk" # ignored' > confmf.BSD
-# Other make implementations (GNU, Solaris 10, AIX) do it like this.
-echo 'include confinc.mk # ignored' > confmf.GNU
-_am_result=no
-for s in GNU BSD; do
-  { echo "$as_me:$LINENO: ${MAKE-make} -f confmf.$s && cat confinc.out" >&5
-   (${MAKE-make} -f confmf.$s && cat confinc.out) >&5 2>&5
-   ac_status=$?
-   echo "$as_me:$LINENO: \$? = $ac_status" >&5
-   (exit $ac_status); }
-  case $?:`cat confinc.out 2>/dev/null` in #(
-  '0:this is the am__doit target') :
-    case $s in #(
-  BSD) :
-    am__include='.include' am__quote='"' ;; #(
-  *) :
-    am__include='include' am__quote='' ;;
-esac ;; #(
-  *) :
-     ;;
+_am_result=none
+# First try GNU make style include.
+echo "include confinc" > confmf
+# Ignore all kinds of additional output from 'make'.
+case `$am_make -s -f confmf 2> /dev/null` in #(
+*the\ am__doit\ target*)
+  am__include=include
+  am__quote=
+  _am_result=GNU
+  ;;
 esac
-  if test "$am__include" != "#"; then
-    _am_result="yes ($s style)"
-    break
-  fi
-done
-rm -f confinc.* confmf.*
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: ${_am_result}" >&5
-$as_echo "${_am_result}" >&6; }
+# Now try BSD make style include.
+if test "$am__include" = "#"; then
+   echo '.include "confinc"' > confmf
+   case `$am_make -s -f confmf 2> /dev/null` in #(
+   *the\ am__doit\ target*)
+     am__include=.include
+     am__quote="\""
+     _am_result=BSD
+     ;;
+   esac
+fi
+
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $_am_result" >&5
+$as_echo "$_am_result" >&6; }
+rm -f confinc confmf
 
 # Check whether --enable-dependency-tracking was given.
 if test "${enable_dependency_tracking+set}" = set; then :
@@ -5091,6 +5113,370 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
 
+
+  ax_cxx_compile_alternatives="11 0x"    ax_cxx_compile_cxx11_required=true
+  ac_ext=cpp
+ac_cpp='$CXXCPP $CPPFLAGS'
+ac_compile='$CXX -c $CXXFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CXX -o conftest$ac_exeext $CXXFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_cxx_compiler_gnu
+  ac_success=no
+
+
+
+    if test x$ac_success = xno; then
+                for alternative in ${ax_cxx_compile_alternatives}; do
+      for switch in -std=c++${alternative} +std=c++${alternative} "-h std=c++${alternative}"; do
+        cachevar=`$as_echo "ax_cv_cxx_compile_cxx11_$switch" | $as_tr_sh`
+        { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether $CXX supports C++11 features with $switch" >&5
+$as_echo_n "checking whether $CXX supports C++11 features with $switch... " >&6; }
+if eval \${$cachevar+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_save_CXX="$CXX"
+           CXX="$CXX $switch"
+           cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+
+// If the compiler admits that it is not ready for C++11, why torture it?
+// Hopefully, this will speed up the test.
+
+#ifndef __cplusplus
+
+#error "This is not a C++ compiler"
+
+#elif __cplusplus < 201103L
+
+#error "This is not a C++11 compiler"
+
+#else
+
+namespace cxx11
+{
+
+  namespace test_static_assert
+  {
+
+    template <typename T>
+    struct check
+    {
+      static_assert(sizeof(int) <= sizeof(T), "not big enough");
+    };
+
+  }
+
+  namespace test_final_override
+  {
+
+    struct Base
+    {
+      virtual ~Base() {}
+      virtual void f() {}
+    };
+
+    struct Derived : public Base
+    {
+      virtual ~Derived() override {}
+      virtual void f() override {}
+    };
+
+  }
+
+  namespace test_double_right_angle_brackets
+  {
+
+    template < typename T >
+    struct check {};
+
+    typedef check<void> single_type;
+    typedef check<check<void>> double_type;
+    typedef check<check<check<void>>> triple_type;
+    typedef check<check<check<check<void>>>> quadruple_type;
+
+  }
+
+  namespace test_decltype
+  {
+
+    int
+    f()
+    {
+      int a = 1;
+      decltype(a) b = 2;
+      return a + b;
+    }
+
+  }
+
+  namespace test_type_deduction
+  {
+
+    template < typename T1, typename T2 >
+    struct is_same
+    {
+      static const bool value = false;
+    };
+
+    template < typename T >
+    struct is_same<T, T>
+    {
+      static const bool value = true;
+    };
+
+    template < typename T1, typename T2 >
+    auto
+    add(T1 a1, T2 a2) -> decltype(a1 + a2)
+    {
+      return a1 + a2;
+    }
+
+    int
+    test(const int c, volatile int v)
+    {
+      static_assert(is_same<int, decltype(0)>::value == true, "");
+      static_assert(is_same<int, decltype(c)>::value == false, "");
+      static_assert(is_same<int, decltype(v)>::value == false, "");
+      auto ac = c;
+      auto av = v;
+      auto sumi = ac + av + 'x';
+      auto sumf = ac + av + 1.0;
+      static_assert(is_same<int, decltype(ac)>::value == true, "");
+      static_assert(is_same<int, decltype(av)>::value == true, "");
+      static_assert(is_same<int, decltype(sumi)>::value == true, "");
+      static_assert(is_same<int, decltype(sumf)>::value == false, "");
+      static_assert(is_same<int, decltype(add(c, v))>::value == true, "");
+      return (sumf > 0.0) ? sumi : add(c, v);
+    }
+
+  }
+
+  namespace test_noexcept
+  {
+
+    int f() { return 0; }
+    int g() noexcept { return 0; }
+
+    static_assert(noexcept(f()) == false, "");
+    static_assert(noexcept(g()) == true, "");
+
+  }
+
+  namespace test_constexpr
+  {
+
+    template < typename CharT >
+    unsigned long constexpr
+    strlen_c_r(const CharT *const s, const unsigned long acc) noexcept
+    {
+      return *s ? strlen_c_r(s + 1, acc + 1) : acc;
+    }
+
+    template < typename CharT >
+    unsigned long constexpr
+    strlen_c(const CharT *const s) noexcept
+    {
+      return strlen_c_r(s, 0UL);
+    }
+
+    static_assert(strlen_c("") == 0UL, "");
+    static_assert(strlen_c("1") == 1UL, "");
+    static_assert(strlen_c("example") == 7UL, "");
+    static_assert(strlen_c("another\0example") == 7UL, "");
+
+  }
+
+  namespace test_rvalue_references
+  {
+
+    template < int N >
+    struct answer
+    {
+      static constexpr int value = N;
+    };
+
+    answer<1> f(int&)       { return answer<1>(); }
+    answer<2> f(const int&) { return answer<2>(); }
+    answer<3> f(int&&)      { return answer<3>(); }
+
+    void
+    test()
+    {
+      int i = 0;
+      const int c = 0;
+      static_assert(decltype(f(i))::value == 1, "");
+      static_assert(decltype(f(c))::value == 2, "");
+      static_assert(decltype(f(0))::value == 3, "");
+    }
+
+  }
+
+  namespace test_uniform_initialization
+  {
+
+    struct test
+    {
+      static const int zero {};
+      static const int one {1};
+    };
+
+    static_assert(test::zero == 0, "");
+    static_assert(test::one == 1, "");
+
+  }
+
+  namespace test_lambdas
+  {
+
+    void
+    test1()
+    {
+      auto lambda1 = [](){};
+      auto lambda2 = lambda1;
+      lambda1();
+      lambda2();
+    }
+
+    int
+    test2()
+    {
+      auto a = [](int i, int j){ return i + j; }(1, 2);
+      auto b = []() -> int { return '0'; }();
+      auto c = [=](){ return a + b; }();
+      auto d = [&](){ return c; }();
+      auto e = [a, &b](int x) mutable {
+        const auto identity = [](int y){ return y; };
+        for (auto i = 0; i < a; ++i)
+          a += b--;
+        return x + identity(a + b);
+      }(0);
+      return a + b + c + d + e;
+    }
+
+    int
+    test3()
+    {
+      const auto nullary = [](){ return 0; };
+      const auto unary = [](int x){ return x; };
+      using nullary_t = decltype(nullary);
+      using unary_t = decltype(unary);
+      const auto higher1st = [](nullary_t f){ return f(); };
+      const auto higher2nd = [unary](nullary_t f1){
+        return [unary, f1](unary_t f2){ return f2(unary(f1())); };
+      };
+      return higher1st(nullary) + higher2nd(nullary)(unary);
+    }
+
+  }
+
+  namespace test_variadic_templates
+  {
+
+    template <int...>
+    struct sum;
+
+    template <int N0, int... N1toN>
+    struct sum<N0, N1toN...>
+    {
+      static constexpr auto value = N0 + sum<N1toN...>::value;
+    };
+
+    template <>
+    struct sum<>
+    {
+      static constexpr auto value = 0;
+    };
+
+    static_assert(sum<>::value == 0, "");
+    static_assert(sum<1>::value == 1, "");
+    static_assert(sum<23>::value == 23, "");
+    static_assert(sum<1, 2>::value == 3, "");
+    static_assert(sum<5, 5, 11>::value == 21, "");
+    static_assert(sum<2, 3, 5, 7, 11, 13>::value == 41, "");
+
+  }
+
+  // http://stackoverflow.com/questions/13728184/template-aliases-and-sfinae
+  // Clang 3.1 fails with headers of libstd++ 4.8.3 when using std::function
+  // because of this.
+  namespace test_template_alias_sfinae
+  {
+
+    struct foo {};
+
+    template<typename T>
+    using member = typename T::member_type;
+
+    template<typename T>
+    void func(...) {}
+
+    template<typename T>
+    void func(member<T>*) {}
+
+    void test();
+
+    void test() { func<foo>(0); }
+
+  }
+
+}  // namespace cxx11
+
+#endif  // __cplusplus >= 201103L
+
+
+
+_ACEOF
+if ac_fn_cxx_try_compile "$LINENO"; then :
+  eval $cachevar=yes
+else
+  eval $cachevar=no
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+           CXX="$ac_save_CXX"
+fi
+eval ac_res=\$$cachevar
+	       { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_res" >&5
+$as_echo "$ac_res" >&6; }
+        if eval test x\$$cachevar = xyes; then
+          CXX="$CXX $switch"
+          if test -n "$CXXCPP" ; then
+            CXXCPP="$CXXCPP $switch"
+          fi
+          ac_success=yes
+          break
+        fi
+      done
+      if test x$ac_success = xyes; then
+        break
+      fi
+    done
+  fi
+  ac_ext=c
+ac_cpp='$CPP $CPPFLAGS'
+ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
+  if test x$ax_cxx_compile_cxx11_required = xtrue; then
+    if test x$ac_success = xno; then
+      as_fn_error $? "*** A compiler with support for C++11 language features is required." "$LINENO" 5
+    fi
+  fi
+  if test x$ac_success = xno; then
+    HAVE_CXX11=0
+    { $as_echo "$as_me:${as_lineno-$LINENO}: No compiler with C++11 support was found" >&5
+$as_echo "$as_me: No compiler with C++11 support was found" >&6;}
+  else
+    HAVE_CXX11=1
+
+$as_echo "#define HAVE_CXX11 1" >>confdefs.h
+
+  fi
+
+
+
+
+
   OPENMP_CFLAGS=
   # Check whether --enable-openmp was given.
 if test "${enable_openmp+set}" = set; then :
@@ -5161,7 +5547,6 @@ ac_cpp='$CXXCPP $CPPFLAGS'
 ac_compile='$CXX -c $CXXFLAGS $CPPFLAGS conftest.$ac_ext >&5'
 ac_link='$CXX -o conftest$ac_exeext $CXXFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
 ac_compiler_gnu=$ac_cv_cxx_compiler_gnu
-
 
 
   OPENMP_CXXFLAGS=
@@ -5826,6 +6211,13 @@ else
 
 fi
 
+CFLAGS_64="$CFLAGS"
+CXXFLAGS_64="$CXXFLAGS"
+LDFLAGS_64="$LDFLAGS"
+CFLAGS_32="$CFLAGS -m32 -march=i686 -Wa,--32"
+CXXFLAGS_32="$CXXFLAGS -m32 -march=i686 -Wa,--32"
+LDFLAGS_32="$LDFLAGS -m32 -march=i686 -Wl,-m32 -Wl,-melf_i386 -Wa,--32"
+
 # Check whether --enable-m32 was given.
 if test "${enable_m32+set}" = set; then :
   enableval=$enable_m32; use_m32=$enableval
@@ -5851,12 +6243,50 @@ if test "$use_m32" = "yes"; then
 $as_echo "#define CONFIG_M32 1" >>confdefs.h
 
 
-  CFLAGS="$CFLAGS -m32 -march=i686 -Wa,--32"
-  CXXFLAGS="$CXXFLAGS -march=i686 -m32 -Wa,--32"
-  LDFLAGS="$LDFLAGS -m32 -march=i686 -Wl,-m32 -Wl,-melf_i386 -Wa,--32"
+  CFLAGS="$CFLAGS_32"
+  CXXFLAGS="$CXXFLAGS_32"
+  LDFLAGS="$LDFLAGS_32"
+else
+  M32=0
 
+fi
+
+# Check whether --enable-multilib was given.
+if test "${enable_multilib+set}" = set; then :
+  enableval=$enable_multilib; use_multilib=$enableval
+else
+  use_multilib=no
+fi
+
+
+ if test "$use_multilib" = "yes"; then
+  CONFIG_MULTILIB_TRUE=
+  CONFIG_MULTILIB_FALSE='#'
+else
+  CONFIG_MULTILIB_TRUE='#'
+  CONFIG_MULTILIB_FALSE=
+fi
+
+if test "$use_multilib" = "yes"; then
+  MULTILIB=1
+
+  HAS_READLINE=no
+
+
+$as_echo "#define CONFIG_MULTILIB 1" >>confdefs.h
+
+else
+  MULTILIB=0
+
+fi
+
+if test "$use_m32" = "yes" -o "$use_multilib" = "yes"; then
   { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether multilib $CC compiles using -m32" >&5
 $as_echo_n "checking whether multilib $CC compiles using -m32... " >&6; }
+  CFLAGS="$CFLAGS_32"
+  CXXFLAGS="$CXXFLAGS_32"
+  LDFLAGS="$LDFLAGS_32"
+
   ac_ext=c
 ac_cpp='$CPP $CPPFLAGS'
 ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
@@ -5956,9 +6386,11 @@ as_fn_error $? "Failed to build $CXX program with -m32
      or the equivalent packages for your Linux distro.
 See \`config.log' for more details" "$LINENO" 5; }
   fi
-else
-  M32=0
-
+  if test "$use_multilib" = "yes"; then
+    CFLAGS="$CFLAGS_64"
+    CXXFLAGS="$CXXFLAGS_64"
+    LDFLAGS="$LDFLAGS_64"
+  fi
 fi
 
 # Check whether --enable-static_libstdcxx was given.
@@ -6050,7 +6482,24 @@ case "$host_cpu" in
   arm*) is_arm_host=yes ;;
   aarch64*) is_aarch64_host=yes ;;
   i?86) is_i486_host=yes ;;
+  x86_64) is_x86_64_host=yes ;;
 esac
+
+ if test "$is_x86_64_host" == "yes"; then
+  X86_64_HOST_TRUE=
+  X86_64_HOST_FALSE='#'
+else
+  X86_64_HOST_TRUE='#'
+  X86_64_HOST_FALSE=
+fi
+
+if test "$is_x86_64_host" == "yes"; then
+  X86_64_HOST=yes
+
+else
+  X86_64_HOST=no
+
+fi
 
  if test "$is_arm_host" == "yes"; then
   ARM_HOST_TRUE=
@@ -6409,6 +6858,46 @@ HAS_PYTHON=$ac_cv_prog_HAS_PYTHON
 if test -n "$HAS_PYTHON"; then
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: $HAS_PYTHON" >&5
 $as_echo "$HAS_PYTHON" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+fi
+
+
+
+#check for python3
+# Extract the first word of "python3", so it can be a program name with args.
+set dummy python3; ac_word=$2
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+$as_echo_n "checking for $ac_word... " >&6; }
+if ${ac_cv_prog_HAS_PYTHON3+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  if test -n "$HAS_PYTHON3"; then
+  ac_cv_prog_HAS_PYTHON3="$HAS_PYTHON3" # Let the user override the test.
+else
+as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in /usr/bin
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if as_fn_executable_p "$as_dir/$ac_word$ac_exec_ext"; then
+    ac_cv_prog_HAS_PYTHON3="yes"
+    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+  test -z "$ac_cv_prog_HAS_PYTHON3" && ac_cv_prog_HAS_PYTHON3="no"
+fi
+fi
+HAS_PYTHON3=$ac_cv_prog_HAS_PYTHON3
+if test -n "$HAS_PYTHON3"; then
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $HAS_PYTHON3" >&5
+$as_echo "$HAS_PYTHON3" >&6; }
 else
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
 $as_echo "no" >&6; }
@@ -7300,182 +7789,30 @@ else
 
 fi
 
-#check for mpich2
+#check for mpich3
 
 # Check whether --with-mpich was given.
 if test "${with_mpich+set}" = set; then :
-  withval=$with_mpich; mpich=$withval
+  withval=$with_mpich; mpich_path_prefix=$withval
 else
-  mpich=no
+  mpich_path_prefix=no
 fi
 
 
-if test "$mpich" != "no"; then
-  mpich_path="$mpich:$mpich/bin"
-  # Extract the first word of "mpd", so it can be a program name with args.
-set dummy mpd; ac_word=$2
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
-$as_echo_n "checking for $ac_word... " >&6; }
-if ${ac_cv_path_MPICH_MPD+:} false; then :
-  $as_echo_n "(cached) " >&6
+mpich_path="no"
+if test "$mpich_path_prefix" != "no"; then
+  mpich_path="$mpich_path_prefix:$mpich_path_prefix/bin"
 else
-  case $MPICH_MPD in
-  [\\/]* | ?:[\\/]*)
-  ac_cv_path_MPICH_MPD="$MPICH_MPD" # Let the user override the test with a path.
-  ;;
-  *)
-  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-for as_dir in $mpich_path
-do
-  IFS=$as_save_IFS
-  test -z "$as_dir" && as_dir=.
-    for ac_exec_ext in '' $ac_executable_extensions; do
-  if as_fn_executable_p "$as_dir/$ac_word$ac_exec_ext"; then
-    ac_cv_path_MPICH_MPD="$as_dir/$ac_word$ac_exec_ext"
-    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
-    break 2
+  # Let's see if we can find mpicc in the default path
+  mpiccpath=`which mpicc 2>/dev/null`
+  if test ! -z "$mpiccpath"; then
+    mpicclink=`readlink -f $mpiccpath`
+    if test "`basename $mpicclink`" = mpicc.mpich; then
+      mpich_path=`dirname $mpiccpath`
+    fi
   fi
-done
-  done
-IFS=$as_save_IFS
-
-  test -z "$ac_cv_path_MPICH_MPD" && ac_cv_path_MPICH_MPD="no"
-  ;;
-esac
 fi
-MPICH_MPD=$ac_cv_path_MPICH_MPD
-if test -n "$MPICH_MPD"; then
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $MPICH_MPD" >&5
-$as_echo "$MPICH_MPD" >&6; }
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-fi
-
-
-  # Extract the first word of "mpdboot", so it can be a program name with args.
-set dummy mpdboot; ac_word=$2
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
-$as_echo_n "checking for $ac_word... " >&6; }
-if ${ac_cv_path_MPICH_MPDBOOT+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  case $MPICH_MPDBOOT in
-  [\\/]* | ?:[\\/]*)
-  ac_cv_path_MPICH_MPDBOOT="$MPICH_MPDBOOT" # Let the user override the test with a path.
-  ;;
-  *)
-  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-for as_dir in $mpich_path
-do
-  IFS=$as_save_IFS
-  test -z "$as_dir" && as_dir=.
-    for ac_exec_ext in '' $ac_executable_extensions; do
-  if as_fn_executable_p "$as_dir/$ac_word$ac_exec_ext"; then
-    ac_cv_path_MPICH_MPDBOOT="$as_dir/$ac_word$ac_exec_ext"
-    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
-    break 2
-  fi
-done
-  done
-IFS=$as_save_IFS
-
-  test -z "$ac_cv_path_MPICH_MPDBOOT" && ac_cv_path_MPICH_MPDBOOT="no"
-  ;;
-esac
-fi
-MPICH_MPDBOOT=$ac_cv_path_MPICH_MPDBOOT
-if test -n "$MPICH_MPDBOOT"; then
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $MPICH_MPDBOOT" >&5
-$as_echo "$MPICH_MPDBOOT" >&6; }
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-fi
-
-
-  # Extract the first word of "mpdallexit", so it can be a program name with args.
-set dummy mpdallexit; ac_word=$2
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
-$as_echo_n "checking for $ac_word... " >&6; }
-if ${ac_cv_path_MPICH_MPDALLEXIT+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  case $MPICH_MPDALLEXIT in
-  [\\/]* | ?:[\\/]*)
-  ac_cv_path_MPICH_MPDALLEXIT="$MPICH_MPDALLEXIT" # Let the user override the test with a path.
-  ;;
-  *)
-  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-for as_dir in $mpich_path
-do
-  IFS=$as_save_IFS
-  test -z "$as_dir" && as_dir=.
-    for ac_exec_ext in '' $ac_executable_extensions; do
-  if as_fn_executable_p "$as_dir/$ac_word$ac_exec_ext"; then
-    ac_cv_path_MPICH_MPDALLEXIT="$as_dir/$ac_word$ac_exec_ext"
-    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
-    break 2
-  fi
-done
-  done
-IFS=$as_save_IFS
-
-  test -z "$ac_cv_path_MPICH_MPDALLEXIT" && ac_cv_path_MPICH_MPDALLEXIT="no"
-  ;;
-esac
-fi
-MPICH_MPDALLEXIT=$ac_cv_path_MPICH_MPDALLEXIT
-if test -n "$MPICH_MPDALLEXIT"; then
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $MPICH_MPDALLEXIT" >&5
-$as_echo "$MPICH_MPDALLEXIT" >&6; }
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-fi
-
-
-  # Extract the first word of "mpdcleanup", so it can be a program name with args.
-set dummy mpdcleanup; ac_word=$2
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
-$as_echo_n "checking for $ac_word... " >&6; }
-if ${ac_cv_path_MPICH_MPDCLEANUP+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  case $MPICH_MPDCLEANUP in
-  [\\/]* | ?:[\\/]*)
-  ac_cv_path_MPICH_MPDCLEANUP="$MPICH_MPDCLEANUP" # Let the user override the test with a path.
-  ;;
-  *)
-  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-for as_dir in $mpich_path
-do
-  IFS=$as_save_IFS
-  test -z "$as_dir" && as_dir=.
-    for ac_exec_ext in '' $ac_executable_extensions; do
-  if as_fn_executable_p "$as_dir/$ac_word$ac_exec_ext"; then
-    ac_cv_path_MPICH_MPDCLEANUP="$as_dir/$ac_word$ac_exec_ext"
-    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
-    break 2
-  fi
-done
-  done
-IFS=$as_save_IFS
-
-  test -z "$ac_cv_path_MPICH_MPDCLEANUP" && ac_cv_path_MPICH_MPDCLEANUP="no"
-  ;;
-esac
-fi
-MPICH_MPDCLEANUP=$ac_cv_path_MPICH_MPDCLEANUP
-if test -n "$MPICH_MPDCLEANUP"; then
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $MPICH_MPDCLEANUP" >&5
-$as_echo "$MPICH_MPDCLEANUP" >&6; }
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-fi
-
-
+if test "mpich_path" != "no"; then
   # Extract the first word of "mpicc", so it can be a program name with args.
 set dummy mpicc; ac_word=$2
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
@@ -7511,6 +7848,47 @@ MPICH_MPICC=$ac_cv_path_MPICH_MPICC
 if test -n "$MPICH_MPICC"; then
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: $MPICH_MPICC" >&5
 $as_echo "$MPICH_MPICC" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+fi
+
+
+  # Extract the first word of "mpirun", so it can be a program name with args.
+set dummy mpirun; ac_word=$2
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+$as_echo_n "checking for $ac_word... " >&6; }
+if ${ac_cv_path_MPICH_MPIRUN+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  case $MPICH_MPIRUN in
+  [\\/]* | ?:[\\/]*)
+  ac_cv_path_MPICH_MPIRUN="$MPICH_MPIRUN" # Let the user override the test with a path.
+  ;;
+  *)
+  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $mpich_path
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if as_fn_executable_p "$as_dir/$ac_word$ac_exec_ext"; then
+    ac_cv_path_MPICH_MPIRUN="$as_dir/$ac_word$ac_exec_ext"
+    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+  test -z "$ac_cv_path_MPICH_MPIRUN" && ac_cv_path_MPICH_MPIRUN="no"
+  ;;
+esac
+fi
+MPICH_MPIRUN=$ac_cv_path_MPICH_MPIRUN
+if test -n "$MPICH_MPIRUN"; then
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $MPICH_MPIRUN" >&5
+$as_echo "$MPICH_MPIRUN" >&6; }
 else
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
 $as_echo "no" >&6; }
@@ -7558,19 +7936,30 @@ $as_echo "no" >&6; }
 fi
 
 
-  if test "$MPICH_MPD" = "no"        ||\
-     test "$MPICH_MPDBOOT" = "no"    ||\
-     test "$MPICH_MPDALLEXIT" = "no" ||\
-     test "$MPICH_MPDCLEANUP" = "no" ||\
+  if test "$MPICH_MPIRUN" = "no"     ||\
      test "$MPICH_MPICC" = "no"      ||\
      test "$MPICH_MPIEXEC" = "no";
   then
-    as_fn_error $? "Invalid mpich path, use --with-mpich=<path>" "$LINENO" 5
+    mpich_path="no"
   fi
+fi
+if test "$mpich_path" = "no"; then
+  if test "$mpich_path_prefix" = "no"; then
+    HAS_MPICH=no
+
+  else
+    as_fn_error $? "Invalid mpich path, use --with-mpich=<mpich_path_prefix>" "$LINENO" 5
+  fi
+else
   HAS_MPICH=yes
 
-else
-  HAS_MPICH=no
+  if test "$mpich_path_prefix" = "no"; then
+    mpiccpath=`which mpicc`
+  else
+    PATH=$mpich_path mpiccpath=`which mpicc`
+  fi
+  mpich_path=`dirname $mpiccpath`
+  MPICH_PATH=$mpich_path
 
 fi
 
@@ -7954,6 +8343,14 @@ Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${CONFIG_M32_TRUE}" && test -z "${CONFIG_M32_FALSE}"; then
   as_fn_error $? "conditional \"CONFIG_M32\" was never defined.
+Usually this means the macro was only invoked conditionally." "$LINENO" 5
+fi
+if test -z "${CONFIG_MULTILIB_TRUE}" && test -z "${CONFIG_MULTILIB_FALSE}"; then
+  as_fn_error $? "conditional \"CONFIG_MULTILIB\" was never defined.
+Usually this means the macro was only invoked conditionally." "$LINENO" 5
+fi
+if test -z "${X86_64_HOST_TRUE}" && test -z "${X86_64_HOST_FALSE}"; then
+  as_fn_error $? "conditional \"X86_64_HOST\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${ARM_HOST_TRUE}" && test -z "${ARM_HOST_FALSE}"; then
@@ -8547,7 +8944,7 @@ cat >>$CONFIG_STATUS <<_ACEOF || ac_write_fail=1
 #
 # INIT-COMMANDS
 #
-AMDEP_TRUE="$AMDEP_TRUE" MAKE="${MAKE-make}"
+AMDEP_TRUE="$AMDEP_TRUE" ac_aux_dir="$ac_aux_dir"
 
 _ACEOF
 
@@ -9170,35 +9567,29 @@ $as_echo "$as_me: executing $ac_file commands" >&6;}
   # Older Autoconf quotes --file arguments for eval, but not when files
   # are listed without --file.  Let's play safe and only enable the eval
   # if we detect the quoting.
-  # TODO: see whether this extra hack can be removed once we start
-  # requiring Autoconf 2.70 or later.
-  case $CONFIG_FILES in #(
-  *\'*) :
-    eval set x "$CONFIG_FILES" ;; #(
-  *) :
-    set x $CONFIG_FILES ;; #(
-  *) :
-     ;;
-esac
+  case $CONFIG_FILES in
+  *\'*) eval set x "$CONFIG_FILES" ;;
+  *)   set x $CONFIG_FILES ;;
+  esac
   shift
-  # Used to flag and report bootstrapping failures.
-  am_rc=0
-  for am_mf
+  for mf
   do
     # Strip MF so we end up with the name of the file.
-    am_mf=`$as_echo "$am_mf" | sed -e 's/:.*$//'`
-    # Check whether this is an Automake generated Makefile which includes
-    # dependency-tracking related rules and includes.
-    # Grep'ing the whole file directly is not great: AIX grep has a line
+    mf=`echo "$mf" | sed -e 's/:.*$//'`
+    # Check whether this is an Automake generated Makefile or not.
+    # We used to match only the files named 'Makefile.in', but
+    # some people rename them; so instead we look at the file content.
+    # Grep'ing the first line is not enough: some people post-process
+    # each Makefile.in and add a new line on top of each file to say so.
+    # Grep'ing the whole file is not good either: AIX grep has a line
     # limit of 2048, but all sed's we know have understand at least 4000.
-    sed -n 's,^am--depfiles:.*,X,p' "$am_mf" | grep X >/dev/null 2>&1 \
-      || continue
-    am_dirpart=`$as_dirname -- "$am_mf" ||
-$as_expr X"$am_mf" : 'X\(.*[^/]\)//*[^/][^/]*/*$' \| \
-	 X"$am_mf" : 'X\(//\)[^/]' \| \
-	 X"$am_mf" : 'X\(//\)$' \| \
-	 X"$am_mf" : 'X\(/\)' \| . 2>/dev/null ||
-$as_echo X"$am_mf" |
+    if sed -n 's,^#.*generated by automake.*,X,p' "$mf" | grep X >/dev/null 2>&1; then
+      dirpart=`$as_dirname -- "$mf" ||
+$as_expr X"$mf" : 'X\(.*[^/]\)//*[^/][^/]*/*$' \| \
+	 X"$mf" : 'X\(//\)[^/]' \| \
+	 X"$mf" : 'X\(//\)$' \| \
+	 X"$mf" : 'X\(/\)' \| . 2>/dev/null ||
+$as_echo X"$mf" |
     sed '/^X\(.*[^/]\)\/\/*[^/][^/]*\/*$/{
 	    s//\1/
 	    q
@@ -9216,48 +9607,53 @@ $as_echo X"$am_mf" |
 	    q
 	  }
 	  s/.*/./; q'`
-    am_filepart=`$as_basename -- "$am_mf" ||
-$as_expr X/"$am_mf" : '.*/\([^/][^/]*\)/*$' \| \
-	 X"$am_mf" : 'X\(//\)$' \| \
-	 X"$am_mf" : 'X\(/\)' \| . 2>/dev/null ||
-$as_echo X/"$am_mf" |
-    sed '/^.*\/\([^/][^/]*\)\/*$/{
+    else
+      continue
+    fi
+    # Extract the definition of DEPDIR, am__include, and am__quote
+    # from the Makefile without running 'make'.
+    DEPDIR=`sed -n 's/^DEPDIR = //p' < "$mf"`
+    test -z "$DEPDIR" && continue
+    am__include=`sed -n 's/^am__include = //p' < "$mf"`
+    test -z "$am__include" && continue
+    am__quote=`sed -n 's/^am__quote = //p' < "$mf"`
+    # Find all dependency output files, they are included files with
+    # $(DEPDIR) in their names.  We invoke sed twice because it is the
+    # simplest approach to changing $(DEPDIR) to its actual value in the
+    # expansion.
+    for file in `sed -n "
+      s/^$am__include $am__quote\(.*(DEPDIR).*\)$am__quote"'$/\1/p' <"$mf" | \
+	 sed -e 's/\$(DEPDIR)/'"$DEPDIR"'/g'`; do
+      # Make sure the directory exists.
+      test -f "$dirpart/$file" && continue
+      fdir=`$as_dirname -- "$file" ||
+$as_expr X"$file" : 'X\(.*[^/]\)//*[^/][^/]*/*$' \| \
+	 X"$file" : 'X\(//\)[^/]' \| \
+	 X"$file" : 'X\(//\)$' \| \
+	 X"$file" : 'X\(/\)' \| . 2>/dev/null ||
+$as_echo X"$file" |
+    sed '/^X\(.*[^/]\)\/\/*[^/][^/]*\/*$/{
 	    s//\1/
 	    q
 	  }
-	  /^X\/\(\/\/\)$/{
+	  /^X\(\/\/\)[^/].*/{
 	    s//\1/
 	    q
 	  }
-	  /^X\/\(\/\).*/{
+	  /^X\(\/\/\)$/{
+	    s//\1/
+	    q
+	  }
+	  /^X\(\/\).*/{
 	    s//\1/
 	    q
 	  }
 	  s/.*/./; q'`
-    { echo "$as_me:$LINENO: cd "$am_dirpart" \
-      && sed -e '/# am--include-marker/d' "$am_filepart" \
-        | $MAKE -f - am--depfiles" >&5
-   (cd "$am_dirpart" \
-      && sed -e '/# am--include-marker/d' "$am_filepart" \
-        | $MAKE -f - am--depfiles) >&5 2>&5
-   ac_status=$?
-   echo "$as_me:$LINENO: \$? = $ac_status" >&5
-   (exit $ac_status); } || am_rc=$?
+      as_dir=$dirpart/$fdir; as_fn_mkdir_p
+      # echo "creating $dirpart/$file"
+      echo '# dummy' > "$dirpart/$file"
+    done
   done
-  if test $am_rc -ne 0; then
-    { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
-$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "Something went wrong bootstrapping makefile fragments
-    for automatic dependency tracking.  Try re-running configure with the
-    '--disable-dependency-tracking' option to at least be able to build
-    the package (albeit without support for automatic dependency tracking).
-See \`config.log' for more details" "$LINENO" 5; }
-  fi
-  { am_dirpart=; unset am_dirpart;}
-  { am_filepart=; unset am_filepart;}
-  { am_mf=; unset am_mf;}
-  { am_rc=; unset am_rc;}
-  rm -f conftest-deps.mk
 }
  ;;
 

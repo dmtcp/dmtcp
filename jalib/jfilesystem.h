@@ -22,6 +22,7 @@
 #ifndef JALIBJFILESYSTEM_H
 #define JALIBJFILESYSTEM_H
 
+#include <sys/stat.h> // for mode_t
 #include "dmtcpalloc.h"
 #include <string>
 #include <vector>
@@ -59,8 +60,6 @@ dmtcp::string ResolveSymlink(const dmtcp::string &file);
 dmtcp::string DirName(const dmtcp::string &str);
 dmtcp::string BaseName(const dmtcp::string &str);
 int mkdir_r(const dmtcp::string &dir, mode_t mode);
-
-dmtcp::vector<dmtcp::string> GetProgramArgs();
 
 dmtcp::vector<int> ListOpenFds();
 

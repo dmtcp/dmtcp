@@ -84,8 +84,33 @@ using namespace dmtcp;
 // This is the first program after dmtcp_launch
 static bool freshProcess = true;
 
+ConnectionList *
+ConnectionList::clone()
+{
+  ConnectionList *list = cloneInstance();
+
+  list->numIncomingCons = numIncomingCons;
+  DmtcpMutexInit(&list->_lock, DMTCP_MUTEX_NORMAL);
+
+  for (iterator it = _connections.begin(); it != _connections.end(); it++) {
+    Connection *con = it->second->clone();
+    list->_connections[con->id()] = con;
+
+    const vector<int32_t> fds = con->getFds();
+    for (size_t i = 0; i < fds.size(); i++) {
+      list->_fdToCon[fds[i]] = con;
+    }
+  }
+
+  return list;
+}
+
 ConnectionList::~ConnectionList()
-{}
+{
+  for (iterator it = _connections.begin(); it != _connections.end(); it++) {
+    delete it->second;
+  }
+}
 
 void
 ConnectionList::eventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
@@ -102,7 +127,7 @@ ConnectionList::eventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 
   case DMTCP_EVENT_PRE_EXEC:
   {
-    jalib::JBinarySerializeWriterRaw wr("", data->serializerInfo.fd);
+    jalib::JBinarySerializeWriterRaw wr("", data->preExec.serializationFd);
     serialize(wr);
     break;
   }
@@ -110,7 +135,7 @@ ConnectionList::eventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
   case DMTCP_EVENT_POST_EXEC:
   {
     freshProcess = false;
-    jalib::JBinarySerializeReaderRaw rd("", data->serializerInfo.fd);
+    jalib::JBinarySerializeReaderRaw rd("", data->postExec.serializationFd);
     serialize(rd);
     deleteStaleConnections();
     break;
@@ -271,7 +296,7 @@ ConnectionList::add(int fd, Connection *c)
   if (_fdToCon.find(fd) != _fdToCon.end()) {
     /* In ordinary situations, we never exercise this path since we already
      * capture close() and remove the connection. However, there is one
-     * particular case where this assumption fails -- when gblic opens a socket
+     * particular case where this assumption fails -- when glibc opens a socket
      * using socket() but closes it using the internal close_not_cancel() thus
      * bypassing our close wrapper. This behavior is observed when dealing with
      * getaddrinfo().

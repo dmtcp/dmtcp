@@ -94,7 +94,7 @@ jalib::JSockAddr::JSockAddr(const char *hostname /* == NULL*/,
 #else // if 0
   struct addrinfo hints;
   struct addrinfo *res;
-  bzero(&hints, sizeof hints);
+  memset(&hints, '\0', sizeof hints);
   hints.ai_family = AF_INET;
   hints.ai_socktype = SOCK_STREAM;
   hints.ai_flags = AI_ADDRCONFIG;

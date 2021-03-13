@@ -50,7 +50,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <unistd.h>
+#include <stddef.h>
 
 #include "../membarrier.h"
 #include "config.h"
@@ -102,6 +102,7 @@ typedef struct RestoreInfo {
   VA vdsoEnd;
   VA vvarStart;
   VA vvarEnd;
+  VA endOfStack;
   fnptr_t post_restart;
   fnptr_t post_restart_debug;
   // NOTE: Update the offset when adding fields to the RestoreInfo struct
@@ -130,8 +131,8 @@ typedef struct RestoreInfo {
 static RestoreInfo rinfo;
 
 /* Internal routines */
-static void readmemoryareas(int fd);
-static int read_one_memory_area(int fd);
+static void readmemoryareas(int fd, VA endOfStack);
+static int read_one_memory_area(int fd, VA endOfStack);
 #if 0
 static void adjust_for_smaller_file_size(Area *area, int fd);
 #endif /* if 0 */
@@ -319,6 +320,7 @@ main(int argc, char *argv[], char **environ)
   rinfo.vdsoEnd = mtcpHdr.vdsoEnd;
   rinfo.vvarStart = mtcpHdr.vvarStart;
   rinfo.vvarEnd = mtcpHdr.vvarEnd;
+  rinfo.endOfStack = mtcpHdr.end_of_stack;
   rinfo.post_restart = mtcpHdr.post_restart;
   rinfo.post_restart_debug = mtcpHdr.post_restart_debug;
   rinfo.motherofall_tls_info = mtcpHdr.motherofall_tls_info;
@@ -557,6 +559,7 @@ mtcp_simulateread(int fd, MtcpHeader *mtcpHdr)
   mtcp_printf("**** brk (sbrk(0)): %p\n", mtcpHdr->saved_brk);
   mtcp_printf("**** vdso: %p..%p\n", mtcpHdr->vdsoStart, mtcpHdr->vdsoEnd);
   mtcp_printf("**** vvar: %p..%p\n", mtcpHdr->vvarStart, mtcpHdr->vvarEnd);
+  mtcp_printf("**** end of stack: %p\n", mtcpHdr->end_of_stack);
 
   Area area;
   mtcp_printf("\n**** Listing ckpt image area:\n");
@@ -654,10 +657,9 @@ restorememoryareas(RestoreInfo *rinfo_ptr)
    *   Similarly for vvar.
    */
   unmap_memory_areas_and_restore_vdso(&restore_info);
-
   /* Restore memory areas */
   DPRINTF("restoring memory areas\n");
-  readmemoryareas(restore_info.fd);
+  readmemoryareas(restore_info.fd, restore_info.endOfStack);
 
   /* Everything restored, close file and finish up */
 
@@ -694,7 +696,11 @@ restorememoryareas(RestoreInfo *rinfo_ptr)
       "  gdb PROGRAM_NAME %d\n"
       "You should now be in 'ThreadList::postRestartDebug()'\n"
       "  (gdb) list\n"
-      "  (gdb) p dummy = 0\n", mtcp_sys_getpid()
+      "  (gdb) p dummy = 0\n"
+      "  # In some recent Linuxes/glibc/gdb, you may also need to do:\n"
+      "  (gdb) source DMTCP_ROOT/util/gdb-add-symbol-files-all\n"
+      "  (gdb) add-symbol-files-all\n",
+      mtcp_sys_getpid()
     );
     restore_info.post_restart_debug(readTime, restore_info.mtcp_restart_pause);
     // int dummy = 1;
@@ -921,10 +927,10 @@ unmap_memory_areas_and_restore_vdso(RestoreInfo *rinfo)
  *
  **************************************************************************/
 static void
-readmemoryareas(int fd)
+readmemoryareas(int fd, VA endOfStack)
 {
   while (1) {
-    if (read_one_memory_area(fd) == -1) {
+    if (read_one_memory_area(fd, endOfStack) == -1) {
       break; /* error */
     }
   }
@@ -940,7 +946,7 @@ readmemoryareas(int fd)
 
 NO_OPTIMIZE
 static int
-read_one_memory_area(int fd)
+read_one_memory_area(int fd, VA endOfStack)
 {
   int mtcp_sys_errno;
   int imagefd;
@@ -959,6 +965,20 @@ read_one_memory_area(int fd)
       && mtcp_sys_brk(NULL) != area.addr + area.size) {
     DPRINTF("WARNING: break (%p) not equal to end of heap (%p)\n",
             mtcp_sys_brk(NULL), area.addr + area.size);
+  }
+  /* MAP_GROWSDOWN flag is required for stack region on restart to make
+   * stack grow automatically when application touches any address within the
+   * guard page region(usually, one page less then stack's start address).
+   *
+   * The end of stack is detected dynamically at checkpoint time. See
+   * prepareMtcpHeader() in threadlist.cpp and ProcessInfo::growStack()
+   * in processinfo.cpp.
+   */
+  if ((area.name[0] && area.name[0] != '/' && mtcp_strstr(area.name, "stack"))
+      || (area.endAddr == endOfStack)) {
+    area.flags = area.flags | MAP_GROWSDOWN;
+    DPRINTF("Detected stack area. End of stack (%p); Area end address (%p)\n",
+            endOfStack, area.endAddr);
   }
 
   // We could have replaced MAP_SHARED with MAP_PRIVATE in writeckpt.cpp
@@ -1071,10 +1091,9 @@ read_one_memory_area(int fd)
 
     /*
      * The function is not used but is truer to maintaining the user's
-     * view of /proc/*/
-    maps.It can be enabled again in the future after
-    *we fix the logic to handle zero - sized files.
-    * /
+     * view of /proc/ * /maps. It can be enabled again in the future after
+     * we fix the logic to handle zero-sized files.
+     */
     if (imagefd >= 0) {
       adjust_for_smaller_file_size(&area, imagefd);
     }
@@ -1187,10 +1206,19 @@ restore_libc(ThreadTLSInfo *tlsInfo,
   }
 
   /* Now pass this to the kernel, so it can adjust the segment descriptor.
-   *   tls_set_thread_areaa() uses arg1 for fs and arg2 for gs.
+   *   i386, x86_65: tls_set_thread_areaa() uses arg1 for fs and arg2 for gs.
    * This will make different kernel calls according to the CPU architecture. */
+#if defined(__i386__) || defined(__x86_64__)
   if (tls_set_thread_area(&(tlsInfo->gdtentrytls[0]),
-                          &(tlsInfo->gdtentrytls[1])) != 0) {
+                          &(tlsInfo->gdtentrytls[1])) != 0)
+#elif defined(__arm__) || defined(__aarch64__)
+  // FIXME: ARM uses tls_get_thread_area with incompatible syntax,
+  //        setting global variable myinfo_gs.  Fix this to work
+  //        for per-thread storage (multiple threads).
+  //        See commit 591a1631 (2.6.0), 7d02a2e0 (3.0):  PR #609
+  if (tls_set_thread_area (&(tlsInfo->gdtentrytls[0]), myinfo_gs) != 0)
+#endif
+  {
     MTCP_PRINTF("Error restoring GDT TLS entry; errno: %d\n", mtcp_sys_errno);
     mtcp_abort();
   }
@@ -1312,7 +1340,6 @@ remapMtcpRestartToReservedArea(RestoreInfo *rinfo)
     mtcp_abort();
   }
 
-  VA target_addr = rinfo->restore_addr;
   size_t i;
   for (i = 0; i < num_regions; i++) {
     void *addr = mtcp_sys_mmap(mem_regions[i].addr + restore_region_offset,

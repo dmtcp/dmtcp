@@ -26,6 +26,7 @@
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <limits.h>  // for PATH_MAX
 #include <sys/stat.h>
 #include <sys/syscall.h>
 #include <sys/types.h>
@@ -177,10 +178,11 @@ dmtcp::string
 jalib::Filesystem::GetProgramDir()
 {
   static dmtcp::string *value = NULL;
+
   if (value == NULL) {
     // Technically, this is a memory leak, but value is static and so it happens
     // only once.
-    value = new dmtcp::string(DirName(GetProgramPath()));
+    value = new (JALLOC_MALLOC(sizeof(dmtcp::string))) dmtcp::string(DirName(GetProgramPath()));
   }
   return *value;
 }
@@ -193,7 +195,7 @@ jalib::Filesystem::GetProgramName()
   if (value == NULL) {
     size_t len;
     char cmdline[1024];
-    value = new dmtcp::string(BaseName ( GetProgramPath() )); // uses /proc/self/exe
+    value = new (JALLOC_MALLOC(sizeof(dmtcp::string))) dmtcp::string(BaseName ( GetProgramPath() )); // uses /proc/self/exe
     // We may rewrite "a.out" to "/lib/ld-linux.so.2 a.out".  If so, find cmd.
     if (!value->empty()
         && jalib::elfInterpreter() != NULL
@@ -214,7 +216,7 @@ jalib::Filesystem::GetProgramPath()
   if (value == NULL) {
     // Technically, this is a memory leak, but value is static and so it happens
     // only once.
-    value = new dmtcp::string(_GetProgramExe());
+    value = new (JALLOC_MALLOC(sizeof(dmtcp::string))) dmtcp::string(_GetProgramExe());
   }
   return *value;
 }
@@ -262,41 +264,6 @@ jalib::Filesystem::FileExists(const dmtcp::string &str)
   } else {
     return false;
   }
-}
-
-dmtcp::vector<dmtcp::string>
-jalib::Filesystem::GetProgramArgs()
-{
-  static dmtcp::vector<dmtcp::string> *rv = NULL;
-  if (rv == NULL) {
-    // Technically, this is a memory leak, but rv is static and so it happens
-    // only once.
-    rv = new dmtcp::vector<dmtcp::string>();
-  }
-
-  if (rv->empty()) {
-    dmtcp::string path = "/proc/self/cmdline";
-
-    // FIXME: Replace fopen with open.
-    FILE *args = jalib::fopen(path.c_str(), "r");
-
-    JASSERT(args != NULL) (path).Text("failed to open command line");
-
-    size_t len = 4095;
-
-    // getdelim will auto-grow this buffer using realloc which would fail with
-    // bad pointer.
-    // We should replace getdelim with our own version
-    char *lineptr = (char *)JALLOC_HELPER_MALLOC(len + 1);
-    while (getdelim(&lineptr, &len, '\0', args) >= 0) {
-      rv->push_back(lineptr);
-    }
-
-    JALLOC_HELPER_FREE(lineptr);
-    jalib::fclose(args);
-  }
-
-  return *rv;
 }
 
 dmtcp::vector<int>

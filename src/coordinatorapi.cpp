@@ -50,6 +50,7 @@ namespace CoordinatorAPI {
 
 const int coordinatorSocket = PROTECTED_COORD_FD;
 int nsSock = -1;
+static int childCoordinatorSocket = -1;
 
 // Shared between getCoordHostAndPort() and setCoordPort()
 static int _cachedPort = 0;
@@ -92,6 +93,25 @@ eventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
       init();
       break;
 
+    case DMTCP_EVENT_ATFORK_PREPARE:
+    case DMTCP_EVENT_VFORK_PREPARE:
+      CoordinatorAPI::atForkPrepare();
+      break;
+
+    case DMTCP_EVENT_ATFORK_PARENT:
+    case DMTCP_EVENT_ATFORK_FAILED:
+    case DMTCP_EVENT_VFORK_PARENT:
+    case DMTCP_EVENT_VFORK_FAILED:
+      CoordinatorAPI::atForkParent();
+      break;
+
+    case DMTCP_EVENT_ATFORK_CHILD:
+      CoordinatorAPI::atForkChild();
+      break;
+
+    case DMTCP_EVENT_VFORK_CHILD:
+      CoordinatorAPI::vforkChild();
+      break;
     case DMTCP_EVENT_RESTART:
       restart();
       break;
@@ -229,7 +249,7 @@ void init()
   sendMsgToCoordinator(msg, jalib::Filesystem::GetProgramName());
 }
 
-void resetOnFork(int sock)
+void resetCoordinatorSocket(int sock)
 {
   JASSERT(Util::isValidFd(sock));
   JASSERT(sock != PROTECTED_COORD_FD);
@@ -245,8 +265,33 @@ void resetOnFork(int sock)
     msg.realPid = getpid();
   }
   sendMsgToCoordinator(msg);
+}
+
+void atForkPrepare()
+{
+  string child_name = jalib::Filesystem::GetProgramName() + "_(forked)";
+
+  childCoordinatorSocket =
+    CoordinatorAPI::createNewConnectionBeforeFork(child_name);
+}
+
+void atForkParent()
+{
+  _real_close(childCoordinatorSocket);
+}
+
+void atForkChild()
+{
+  resetCoordinatorSocket(childCoordinatorSocket);
+
   _real_close(nsSock);
   nsSock = -1;
+}
+
+void vforkChild()
+{
+  resetCoordinatorSocket(childCoordinatorSocket);
+  JASSERT(nsSock == -1) .Text("Not Implemented");
 }
 
 void
@@ -391,7 +436,8 @@ recvMsgFromCoordinatorRaw(int fd, DmtcpMessage *msg, void **extraData)
 
     // Caller must free this buffer
     void *buf = JALLOC_HELPER_MALLOC(tmpMsg.extraBytes);
-    if (Util::readAll(fd, buf, tmpMsg.extraBytes) != tmpMsg.extraBytes) {
+    if (Util::readAll(fd, buf, tmpMsg.extraBytes) !=
+        (ssize_t)tmpMsg.extraBytes) {
       JALLOC_HELPER_FREE(buf);
       return;
     }
@@ -436,7 +482,12 @@ bool waitForBarrier(const string& barrier,
     return true;
   }
 
-  sendMsgToCoordinator(DmtcpMessage(DMT_BARRIER), barrier);
+  DmtcpMessage barrierMsg(DMT_BARRIER);
+
+  JASSERT(barrier.length() < sizeof(barrierMsg.barrier)) (barrier);
+  strcpy(barrierMsg.barrier, barrier.c_str());
+
+  sendMsgToCoordinator(barrierMsg);
 
   JTRACE("waiting for DMT_BARRIER_RELEASED message") (barrier);
 
@@ -484,14 +535,19 @@ startNewCoordinator(CoordinatorMode mode)
                                                  port, 128);
   JASSERT(coordinatorListenerSocket.isValid())
     (coordinatorListenerSocket.port()) (JASSERT_ERRNO) (host) (port)
-    .Text("Failed to create socket to coordinator port."
-          "\nIf the above message (sterror) is:"
-          "\n           \"Address already in use\" or \"Bad file descriptor\","
-          "\n  then this may be an old coordinator."
-          "\nEither try again a few seconds or a minute later,"
-          "\nOr kill other coordinator (using same host and port):"
-          "\n    dmtcp_command ---coord-host XXX --coord-port YYY --quit"
-          "\nOr specify --join-coordinator if joining existing computation.");
+    .Text("Failed to create socket to connect to coordinator port."
+          "\n  If the above message (sterror) is:"
+          "\n            \"Address already in use\" or \"Bad file descriptor\","
+          "\n    then this may be an old coordinator."
+          "\n    Or maybe you're joining an existing coordinator, and forgot"
+          "\n      to use 'dmtcp_launch --join-coordinator'."
+          "\n  Either:"
+          "\n    (a) use '--join-coordinator; or"
+          "\n    (b) kill the old coordinator with 'pkill -9 dmtcp_coord' or"
+          "\n        (while using same host and port):"
+          "\n        dmtcp_command ---coord-host XX --coord-port YY --quit; or"
+          "\n    (c) if the old coordinator is already gone, wait a few seconds"
+          "\n        or a minute for the O/S to free up that port again.\n");
   // Now dup the sockfd to
   coordinatorListenerSocket.changeFd(PROTECTED_COORD_FD);
   setCoordPort(coordinatorListenerSocket.port());
@@ -789,8 +845,8 @@ sendKeyValPairToCoordinator(const char *id,
   }
 
   JASSERT(Util::writeAll(sock, &msg, sizeof(msg)) == sizeof(msg));
-  JASSERT(Util::writeAll(sock, key, key_len) == key_len);
-  JASSERT(Util::writeAll(sock, val, val_len) == val_len);
+  JASSERT(Util::writeAll(sock, key, key_len) == (ssize_t)key_len);
+  JASSERT(Util::writeAll(sock, val, val_len) == (ssize_t)val_len);
 
   return 1;
 }
@@ -832,7 +888,7 @@ sendQueryToCoordinator(const char *id,
   }
 
   JASSERT(Util::writeAll(sock, &msg, sizeof(msg)) == sizeof(msg));
-  JASSERT(Util::writeAll(sock, key, key_len) == key_len);
+  JASSERT(Util::writeAll(sock, key, key_len) == (ssize_t)key_len);
 
   msg.poison();
 
@@ -843,7 +899,7 @@ sendQueryToCoordinator(const char *id,
 
   JASSERT(*val_len >= msg.valLen);
   *val_len = msg.valLen;
-  JASSERT(Util::readAll(sock, val, *val_len) == *val_len);
+  JASSERT(Util::readAll(sock, val, *val_len) == (ssize_t)*val_len);
 
   return *val_len;
 }
@@ -883,7 +939,7 @@ int getUniqueIdFromCoordinator(const char *id,
   }
 
   JASSERT(Util::writeAll(sock, &msg, sizeof(msg)) == sizeof(msg));
-  JASSERT(Util::writeAll(sock, key, key_len) == key_len);
+  JASSERT(Util::writeAll(sock, key, key_len) == (ssize_t)key_len);
 
   msg.poison();
 
@@ -1076,21 +1132,24 @@ waitForCheckpointCommand()
 
   bool exitWhenDone = false;
   switch (msg.coordCmd) {
-  // case 'b': case 'B':  // prefix blocking command, prior to checkpoint
+  // case 'b':  // prefix blocking command, prior to checkpoint
   // command
   // JTRACE("blocking checkpoint beginning...");
   // blockUntilDone = true;
   // break;
-  case 's': case 'S':
+  case 's':
     JTRACE("Received status command");
     reply.numPeers = 1;
     reply.isRunning = 1;
     break;
-  case 'c': case 'C':
+  case 'l':
+    JTRACE("Received list command");
+    break;
+  case 'c':
     JTRACE("checkpointing...");
     break;
-  case 'k': case 'K':
-  case 'q': case 'Q':
+  case 'k':
+  case 'q':
     JTRACE("Received KILL command from user, exiting");
     exitWhenDone = true;
     break;

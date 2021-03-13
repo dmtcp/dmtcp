@@ -92,6 +92,7 @@ void mtcp_strcpy(char *dest, const char *src)
   while (*src != '\0') {
     *dest++ = *src++;
   }
+  *dest = '\0';
 }
 
 void mtcp_strncat(char *dest, const char *src, size_t n)
@@ -144,14 +145,24 @@ const void *mtcp_strstr(const char *string, const char *substring)
   return NULL;
 }
 
-//   The  strchr() function from earlier C library returns a ptr to the first
-//   occurrence  of  c  (converted  to a  char) in string s, or a
-//   null pointer  if  c  does  not  occur  in  the  string.
+// See 'man strchr'
 char *mtcp_strchr(const char *s, int c) {
   for (; *s != (char)'\0'; s++)
     if (*s == (char)c)
       return (char *)s;
   return NULL;
+}
+
+// See 'man strrchr'
+char *mtcp_strrchr(const char *s, int c) {
+  char *rc = NULL;
+  char *suffix = (char *)s;
+  while (1) {
+    if (*suffix == '\0') { break; }
+    if (*suffix == c) { rc = suffix; }
+    suffix++;
+  }
+  return rc;
 }
 
 int mtcp_strstartswith (const char *s1, const char *s2)

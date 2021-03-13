@@ -77,17 +77,20 @@ struct UniquePid : private DmtcpUniqueProcessId {
     void incrementGeneration();
 
     static void serialize(jalib::JBinarySerializer &o);
+    static void serialize(int fd);
 
     bool operator<(const UniquePid &that) const;
     bool operator==(const UniquePid &that) const;
     bool operator!=(const UniquePid &that) const { return !operator==(that); }
 
     static void restart();
-    static void resetOnFork(const UniquePid &newId);
+    static void resetOnFork();
 
     string toString() const;
 
     bool isNull() const;
+
+    static DmtcpPluginDescriptor_t pluginDescr();
 };
 
 ostream&operator<<(ostream &o, const UniquePid &id);

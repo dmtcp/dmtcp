@@ -22,7 +22,6 @@
 #include <signal.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/errno.h>
 #include <sys/syscall.h>
 #include <time.h>
 #include <unistd.h>

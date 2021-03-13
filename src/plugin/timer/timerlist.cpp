@@ -28,6 +28,7 @@
 using namespace dmtcp;
 
 static TimerList *_timerlist = NULL;
+static TimerList *vfork_timerlist = NULL;
 
 static DmtcpMutex timerLock = DMTCP_MUTEX_INITIALIZER;
 static void
@@ -59,26 +60,37 @@ timer_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   if (_timerlist != NULL) {
     switch (event) {
-    case DMTCP_EVENT_ATFORK_CHILD:
-      TimerList::instance().resetOnFork();
-      break;
+      case DMTCP_EVENT_ATFORK_CHILD:
+      case DMTCP_EVENT_VFORK_CHILD:
+        TimerList::instance().resetOnFork();
+        break;
 
-  case DMTCP_EVENT_PRESUSPEND:
-    break;
+      case DMTCP_EVENT_VFORK_PREPARE:
+        vfork_timerlist = new TimerList(TimerList::instance());
+        break;
 
-  case DMTCP_EVENT_PRECHECKPOINT:
-    preCheckpoint();
-    break;
+      case DMTCP_EVENT_VFORK_PARENT:
+      case DMTCP_EVENT_VFORK_FAILED:
+        delete _timerlist;
+        _timerlist = vfork_timerlist;
+        break;
 
-  case DMTCP_EVENT_RESUME:
-    break;
+      case DMTCP_EVENT_PRESUSPEND:
+        break;
 
-  case DMTCP_EVENT_RESTART:
-    postRestart();
-    break;
+      case DMTCP_EVENT_PRECHECKPOINT:
+        preCheckpoint();
+        break;
 
-    default:
-      break;
+      case DMTCP_EVENT_RESUME:
+        break;
+
+      case DMTCP_EVENT_RESTART:
+        postRestart();
+        break;
+
+      default:
+        break;
     }
   }
 }

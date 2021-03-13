@@ -216,8 +216,15 @@ _real_exit(int status)
 
 LIB_PRIVATE
 int
-_real_fcntl(int fd, int cmd, void *arg)
+_real_fcntl(int fd, int cmd, ...)
 {
+  void *arg = NULL;
+
+  va_list varg;
+  va_start(varg, cmd);
+  arg = va_arg(varg, void*);
+  va_end(varg);
+
   REAL_FUNC_PASSTHROUGH(fcntl) (fd, cmd, arg);
 }
 
@@ -249,12 +256,6 @@ int
 _dmtcp_unsetenv(const char *name)
 {
   REAL_FUNC_PASSTHROUGH(unsetenv) (name);
-}
-
-off_t
-_real_lseek(int fd, off_t offset, int whence)
-{
-  REAL_FUNC_PASSTHROUGH_TYPED(off_t, lseek) (fd, offset, whence);
 }
 
 pid_t

@@ -26,6 +26,8 @@
 #include <string>
 
 #include <fcntl.h>
+#include <libgen.h>  // for basename()
+#include <limits.h>  // for PATH_MAX
 #include <stdio.h>
 
 #include <sys/stat.h>
@@ -605,8 +607,14 @@ writeScript(const string &ckptDir,
       (filename) (dirname) (uniqueFilename);
 
     // FIXME:  Handle error case of symlink()
-    JWARNING(symlinkat(basename(uniqueFilename.c_str()), dirfd,
-                       filename.c_str()) == 0) (JASSERT_ERRNO);
+    unlink(filename.c_str());
+    JTRACE("linking \"dmtcp_restart_script.sh\" filename to uniqueFilename")
+          (filename) (dirname) (uniqueFilename);
+    char uniq_fname_str[PATH_MAX];
+    strncpy(uniq_fname_str, uniqueFilename.c_str(), PATH_MAX);
+    JASSERT(uniq_fname_str[PATH_MAX-1] == '\0'); // orig str less than PATH_MAX     // FIXME:  Handle error case of symlink()
+    JWARNING(symlinkat(basename(uniq_fname_str), dirfd, filename.c_str()) == 0)
+            (JASSERT_ERRNO);
     JASSERT(close(dirfd) == 0);
   }
   return uniqueFilename;

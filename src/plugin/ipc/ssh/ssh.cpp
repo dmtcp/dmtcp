@@ -1,5 +1,6 @@
 #include "ssh.h"
 #include <arpa/inet.h>
+#include <limits.h> // for HOST_NAME_MAX
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/syscall.h>
@@ -32,22 +33,36 @@ static int sshSockFd = -1;
 static bool isSshdProcess = false;
 static int noStrictHostKeyChecking = 0;
 static int isRshProcess = 0;
+static int isSshProcess = 0;
 
 static bool sshPluginEnabled = false;
 
-extern "C" void process_fd_event(int event, int arg1, int arg2 = -1);
 void dmtcp_ssh_drain();
 void dmtcp_ssh_resume();
 void dmtcp_ssh_restart();
 static void refill(bool isRestart);
 static void sshdReceiveFds();
 static void createNewDmtcpSshdProcess();
+static void updateCoordHost();
+static void prepareForExec(DmtcpEventData_t *data);
+
+void dmtcp_SocketConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
+
+static void
+process_close_fd_event(int fd)
+{
+  DmtcpEventData_t data;
+  data.closeFd.fd = fd;
+  dmtcp_SocketConnList_EventHook(DMTCP_EVENT_CLOSE_FD, &data);
+}
+
 
 void
 dmtcp_SSH_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   switch (event) {
-  case DMTCP_EVENT_PRESUSPEND:
+  case DMTCP_EVENT_PRE_EXEC:
+    prepareForExec(data);
     break;
 
   case DMTCP_EVENT_PRECHECKPOINT:
@@ -61,9 +76,28 @@ dmtcp_SSH_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
   case DMTCP_EVENT_RESTART:
     dmtcp_ssh_restart();
     break;
+
+  default:  // other events are not registered
+    break;
   }
 }
 
+
+DmtcpPluginDescriptor_t sshPlugin = {
+  DMTCP_PLUGIN_API_VERSION,
+  DMTCP_PACKAGE_VERSION,
+  "ssh",
+  "DMTCP",
+  "dmtcp@ccs.neu.edu",
+  "SSH plugin",
+  dmtcp_SSH_EventHook
+};
+
+void
+ipc_initialize_plugin_ssh()
+{
+  dmtcp_register_plugin(sshPlugin);
+}
 
 void
 dmtcp_ssh_drain()
@@ -241,16 +275,17 @@ createNewDmtcpSshdProcess()
     argv[idx++] = NULL;
     JASSERT(idx < max_args) (idx);
 
-    process_fd_event(SYS_close, in[1]);
-    process_fd_event(SYS_close, out[0]);
-    process_fd_event(SYS_close, err[0]);
+    // TODO: Hack until we improve the plugin design to remove these calls.
+    process_close_fd_event(in[1]);
+    process_close_fd_event(out[0]);
+    process_close_fd_event(err[0]);
     dup2(in[0], STDIN_FILENO);
     dup2(out[1], STDOUT_FILENO);
     dup2(err[1], STDERR_FILENO);
 
     JTRACE("Launching ")
       (argv[0]) (argv[1]) (argv[2]) (argv[3]) (argv[4]) (argv[5]);
-    _real_execvp(argv[0], argv);
+    execvp(argv[0], argv);
     JASSERT(false);
   }
 
@@ -272,9 +307,9 @@ createNewDmtcpSshdProcess()
   close(500 + sshStdout);
   close(500 + sshStderr);
 
-  process_fd_event(SYS_close, sshStdin);
-  process_fd_event(SYS_close, sshStdout);
-  process_fd_event(SYS_close, sshStderr);
+  process_close_fd_event(sshStdin);
+  process_close_fd_event(sshStdout);
+  process_close_fd_event(sshStderr);
 }
 
 extern "C" void
@@ -287,13 +322,13 @@ dmtcp_ssh_register_fds(int isSshd,
                        int rshProcess)
 {
   if (isSshd) { // dmtcp_sshd
-    process_fd_event(SYS_close, STDIN_FILENO);
-    process_fd_event(SYS_close, STDOUT_FILENO);
-    process_fd_event(SYS_close, STDERR_FILENO);
+    process_close_fd_event(STDIN_FILENO);
+    process_close_fd_event(STDOUT_FILENO);
+    process_close_fd_event(STDERR_FILENO);
   } else { // dmtcp_ssh
-    process_fd_event(SYS_close, in);
-    process_fd_event(SYS_close, out);
-    process_fd_event(SYS_close, err);
+    process_close_fd_event(in);
+    process_close_fd_event(out);
+    process_close_fd_event(err);
     isRshProcess = rshProcess;
   }
   sshStdin = in;
@@ -306,8 +341,20 @@ dmtcp_ssh_register_fds(int isSshd,
 }
 
 static void
-prepareForExec(char *const argv[], char ***newArgv)
+prepareForExec(DmtcpEventData_t *data)
 {
+  const char **argv = data->preExec.argv;
+  size_t maxArgs = data->preExec.maxArgs;
+
+  isSshProcess = (jalib::Filesystem::BaseName(data->preExec.filename) == "ssh");
+  isRshProcess = (jalib::Filesystem::BaseName(data->preExec.filename) == "rsh");
+
+  if (!isSshProcess && !isRshProcess) {
+    return;
+  }
+
+  updateCoordHost();
+
   size_t nargs = 0;
   bool noStrictChecking = false;
   string precmd, postcmd, tempcmd;
@@ -317,11 +364,9 @@ prepareForExec(char *const argv[], char ***newArgv)
   if (nargs < 3) {
     if (!isRshProcess) {
     JNOTE("ssh with less than 3 args") (argv[0]) (argv[1]);
-    *newArgv = (char **)argv;
     return;
     } else if (nargs < 2) {
         JNOTE("rsh with less than 2 args") (argv[0]);
-        *newArgv = (char**) argv;
         return;
       }
   }
@@ -412,8 +457,11 @@ prepareForExec(char *const argv[], char ***newArgv)
   }
 
   // now repack args
+  size_t numNewArgs = nargs + 11;
+  JASSERT(numNewArgs < maxArgs);
+
   char **new_argv =
-    (char **)JALLOC_HELPER_MALLOC(sizeof(char *) * (nargs + 11));
+    (char **)JALLOC_HELPER_MALLOC(sizeof(char *) * (numNewArgs));
   memset(new_argv, 0, sizeof(char *) * (nargs + 11));
 
   size_t idx = 0;
@@ -448,12 +496,23 @@ prepareForExec(char *const argv[], char ***newArgv)
       newCommand += ' ';
     }
   }
+
+  JASSERT(idx < maxArgs);
+
+  for (size_t i = 0; i <= idx; i++) {
+    data->preExec.argv[i] = new_argv[i];
+  }
+  argv[idx] = NULL;
+
+  strncpy(data->preExec.filename, data->preExec.argv[0], PATH_MAX - 1);
+
+  JALLOC_FREE(new_argv);
+
   if (isRshProcess) {
     JNOTE("New rsh command") (newCommand);
   } else {
     JNOTE("New ssh command") (newCommand);
   }
-  *newArgv = new_argv;
 }
 
 // This code is copied from dmtcp_coordinator.cpp:calLocalAddr()
@@ -562,64 +621,4 @@ updateCoordHost()
   }
 
   SharedData::setCoordHost(&localhostIPAddr);
-}
-
-/*
- * Side-effect: Modifies the global isRshProcess variable
- */
-static bool isRshOrSshProcess(const char *filename)
-{
-  bool isSshProcess = (jalib::Filesystem::BaseName(filename) == "ssh");
-  isRshProcess = (jalib::Filesystem::BaseName(filename) == "rsh");
-
-  return (isSshProcess || isRshProcess);
-}
-
-extern "C" int execve (const char *filename, char *const argv[],
-                       char *const envp[])
-{
-  if (!isRshOrSshProcess(filename)) {
-    return _real_execve(filename, argv, envp);
-  }
-
-  updateCoordHost();
-
-  char **newArgv = NULL;
-  prepareForExec(argv, &newArgv);
-  int ret = _real_execve(newArgv[0], newArgv, envp);
-  JALLOC_HELPER_FREE(newArgv);
-  return ret;
-}
-
-extern "C" int
-execvp(const char *filename, char *const argv[])
-{
-  if (!isRshOrSshProcess(filename)) {
-    return _real_execvp(filename, argv);
-  }
-
-  updateCoordHost();
-
-  char **newArgv = NULL;
-  prepareForExec(argv, &newArgv);
-  int ret = _real_execvp(newArgv[0], newArgv);
-  JALLOC_HELPER_FREE(newArgv);
-  return ret;
-}
-
-// This function first appeared in glibc 2.11
-extern "C" int
-execvpe(const char *filename, char *const argv[], char *const envp[])
-{
-  if (!isRshOrSshProcess(filename)) {
-    return _real_execvpe(filename, argv, envp);
-  }
-
-  updateCoordHost();
-
-  char **newArgv = NULL;
-  prepareForExec(argv, &newArgv);
-  int ret = _real_execvpe(newArgv[0], newArgv, envp);
-  JALLOC_HELPER_FREE(newArgv);
-  return ret;
 }

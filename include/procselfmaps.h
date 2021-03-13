@@ -22,6 +22,8 @@ class ProcSelfMaps
 
     size_t getNumAreas() const { return numAreas; }
 
+    void getStackInfo(ProcMapsArea *area);
+
     int getNextArea(ProcMapsArea *area);
 
   private:

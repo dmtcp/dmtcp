@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 # Copyright (C) 2016 Kyle Harrigan (kwharrigan@gmail.com)
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -39,23 +41,23 @@ getenv.restype = c_char_p # getenv returns a char*
 
 def do_ckpt():
     '''
-    Check point, and then indicate if we are in the initial checkpoint
+    Checkpoint, and then indicate if we are in the initial checkpoint
     or in a restarted version
     '''
-    print "About to checkpoint."
+    print("About to checkpoint.")
     dmtcp.checkpoint()
-    print "Checkpoint done."
+    print("Checkpoint done.")
     if dmtcp.isResume():
-        print "The process is resuming from a checkpoint."
+        print("The process is resuming from a checkpoint.")
     else:
-        print "The process is restarting from a previous checkpoint."
+        print("The process is restarting from a previous checkpoint.")
     return
 
-print "Calling do_ckpt()"
+print("Calling do_ckpt()")
 do_ckpt()
 if dmtcp.isRestart():
-    print 'Restarted...HOME should be set to value in dmtcp_env.txt'
+    print('Restarted...HOME should be set to value in dmtcp_env.txt')
 else:
-    print 'First time...HOME should be set to your home'
-print 'HOME=[%s] (from libc.so getenv)' % getenv('HOME')
-print 'HOME=[%s] (from os.getenv)' % os.getenv('HOME')
+    print('First time...HOME should be set to your home')
+print('HOME=[%s] (from libc.so getenv)' % getenv('HOME'))
+print('HOME=[%s] (from os.getenv)' % os.getenv('HOME'))

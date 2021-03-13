@@ -118,6 +118,14 @@ pid_initialize_wrappers()
 
 LIB_PRIVATE
 void *
+_real_func_addr(PidVirtWrapperOffset func)
+{
+  pid_initialize_wrappers();
+  return pid_real_func_addr[func];
+}
+
+LIB_PRIVATE
+void *
 _real_dlsym(void *handle, const char *symbol)
 {
   static dlsym_fnptr_t _libc_dlsym_fnptr = NULL;
@@ -348,6 +356,13 @@ _real_fork()
 }
 
 LIB_PRIVATE
+pid_t
+_real_vfork()
+{
+  REAL_FUNC_PASSTHROUGH_TYPED(pid_t, vfork) ();
+}
+
+LIB_PRIVATE
 int
 _real_clone(int (*function)(
               void *), void *child_stack, int flags, void *arg, int *parent_tidptr, struct user_desc *newtls,
@@ -508,6 +523,11 @@ _real_opendir(const char* name)
   REAL_FUNC_PASSTHROUGH_TYPED(DIR*, opendir) (name);
 }
 
+// FIXME:
+//   _real_*stat*() is not called anywhere in plugin/pid/*
+//   _real___*stat*() is defined and called in src/syscall*.*
+//   Therefore, we should delete all of these defs of _real_*stat*() below.
+#ifdef _STAT_VER
 int
 _real_xstat(int vers, const char *path, struct stat *buf)
 {
@@ -531,6 +551,23 @@ _real_lxstat64(int vers, const char *path, struct stat64 *buf)
 {
   REAL_FUNC_PASSTHROUGH(__lxstat64) (vers, path, buf);
 }
+#else
+int _real_stat(const char *path, struct stat *buf) {
+  REAL_FUNC_PASSTHROUGH(stat) (path, buf);
+}
+
+int _real_stat64(const char *path, struct stat64 *buf) {
+  REAL_FUNC_PASSTHROUGH(stat64) (path, buf);
+}
+
+int _real_lstat(const char *path, struct stat *buf) {
+  REAL_FUNC_PASSTHROUGH(lstat) (path, buf);
+}
+
+int _real_lstat64(const char *path, struct stat64 *buf) {
+  REAL_FUNC_PASSTHROUGH(lstat64) (path, buf);
+}
+#endif
 
 ssize_t
 _real_readlink(const char *path, char *buf, size_t bufsiz)

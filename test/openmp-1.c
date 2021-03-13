@@ -53,6 +53,7 @@ run()
 
     printf("Thread %d done.\n", tid);
   }  /* end of parallel section */
+  printf("c[0], c[1], c[2], c[3]: %f, %f, %f, %f\n", c[0], c[1], c[2], c[3]);
   return 0;
 }
 

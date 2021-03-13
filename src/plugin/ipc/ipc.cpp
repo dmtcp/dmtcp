@@ -21,7 +21,7 @@
 
 #include "ipc.h"
 #include <linux/version.h>
-#include <sys/errno.h>
+#include <errno.h>
 #include <sys/syscall.h>
 #include <unistd.h>
 #include "jassert.h"
@@ -30,72 +30,18 @@
 
 #include "event/eventconnlist.h"
 #include "file/fileconnlist.h"
+#include "file/filewrappers.h"
 #include "file/ptyconnlist.h"
 #include "socket/socketconnlist.h"
 #include "ssh/ssh.h"
 
 using namespace dmtcp;
 
-void dmtcp_SSH_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
-void dmtcp_FileConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
-void dmtcp_PtyConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
-void dmtcp_SocketConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
-void dmtcp_EventConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data);
-
-void dmtcp_FileConn_ProcessFdEvent(int event, int arg1, int arg2);
-void dmtcp_PtyConn_ProcessFdEvent(int event, int arg1, int arg2);
-void dmtcp_SocketConn_ProcessFdEvent(int event, int arg1, int arg2);
-void dmtcp_EventConn_ProcessFdEvent(int event, int arg1, int arg2);
-
-DmtcpPluginDescriptor_t sshPlugin = {
-  DMTCP_PLUGIN_API_VERSION,
-  PACKAGE_VERSION,
-  "ssh",
-  "DMTCP",
-  "dmtcp@ccs.neu.edu",
-  "SSH plugin",
-  dmtcp_SSH_EventHook
-};
-
-DmtcpPluginDescriptor_t filePlugin = {
-  DMTCP_PLUGIN_API_VERSION,
-  PACKAGE_VERSION,
-  "file",
-  "DMTCP",
-  "dmtcp@ccs.neu.edu",
-  "File plugin",
-  dmtcp_FileConnList_EventHook
-};
-
-DmtcpPluginDescriptor_t ptyPlugin = {
-  DMTCP_PLUGIN_API_VERSION,
-  PACKAGE_VERSION,
-  "pty",
-  "DMTCP",
-  "dmtcp@ccs.neu.edu",
-  "PTY plugin",
-  dmtcp_PtyConnList_EventHook
-};
-
-DmtcpPluginDescriptor_t socketPlugin = {
-  DMTCP_PLUGIN_API_VERSION,
-  PACKAGE_VERSION,
-  "socket",
-  "DMTCP",
-  "dmtcp@ccs.neu.edu",
-  "Socket plugin",
-  dmtcp_SocketConnList_EventHook
-};
-
-DmtcpPluginDescriptor_t eventPlugin = {
-  DMTCP_PLUGIN_API_VERSION,
-  PACKAGE_VERSION,
-  "event",
-  "DMTCP",
-  "dmtcp@ccs.neu.edu",
-  "Event plugin",
-  dmtcp_EventConnList_EventHook
-};
+void ipc_initialize_plugin_socket();
+void ipc_initialize_plugin_file();
+void ipc_initialize_plugin_pty();
+void ipc_initialize_plugin_event();
+void ipc_initialize_plugin_ssh();
 
 EXTERNC void
 dmtcp_initialize_plugin()
@@ -111,127 +57,15 @@ dmtcp_initialize_plugin()
    *    relies on the out-of-band socket to be restored in order to determine
    *    the current network address of the remote ssh-child.
    */
-  dmtcp_register_plugin(sshPlugin);
-  dmtcp_register_plugin(eventPlugin);
-  dmtcp_register_plugin(filePlugin);
-  dmtcp_register_plugin(ptyPlugin);
-  dmtcp_register_plugin(socketPlugin);
+
+  ipc_initialize_plugin_ssh();
+  ipc_initialize_plugin_event();
+  ipc_initialize_plugin_file();
+  ipc_initialize_plugin_pty();
+  ipc_initialize_plugin_socket();
 
   void (*fn)() = NEXT_FNC(dmtcp_initialize_plugin);
   if (fn != NULL) {
     (*fn)();
   }
 }
-
-/*
- *
- */
-extern "C" void
-process_fd_event(int event, int arg1, int arg2 = -1)
-{
-  dmtcp_FileConn_ProcessFdEvent(event, arg1, arg2);
-  dmtcp_PtyConn_ProcessFdEvent(event, arg1, arg2);
-  dmtcp_SocketConn_ProcessFdEvent(event, arg1, arg2);
-  dmtcp_EventConn_ProcessFdEvent(event, arg1, arg2);
-}
-
-extern "C" int
-close(int fd)
-{
-  if (dmtcp_is_protected_fd(fd)) {
-    JTRACE("blocked attempt to close protected fd") (fd);
-    errno = EBADF;
-    return -1;
-  }
-
-  DMTCP_PLUGIN_DISABLE_CKPT();
-  int rv = _real_close(fd);
-  if (rv == 0 && dmtcp_is_running_state()) {
-    process_fd_event(SYS_close, fd);
-  }
-  DMTCP_PLUGIN_ENABLE_CKPT();
-  return rv;
-}
-
-extern "C" int
-fclose(FILE *fp)
-{
-  int fd = fileno(fp);
-
-  if (dmtcp_is_protected_fd(fd)) {
-    JTRACE("blocked attempt to fclose protected fd") (fd);
-    errno = EBADF;
-    return -1;
-  }
-
-  DMTCP_PLUGIN_DISABLE_CKPT();
-  int rv = _real_fclose(fp);
-  if (rv == 0 && dmtcp_is_running_state()) {
-    process_fd_event(SYS_close, fd);
-  }
-  DMTCP_PLUGIN_ENABLE_CKPT();
-
-  return rv;
-}
-
-extern "C" int
-closedir(DIR *dir)
-{
-  int fd = dirfd(dir);
-
-  if (dmtcp_is_protected_fd(fd)) {
-    JTRACE("blocked attempt to closedir protected fd") (fd);
-    errno = EBADF;
-    return -1;
-  }
-
-  DMTCP_PLUGIN_DISABLE_CKPT();
-  int rv = _real_closedir(dir);
-  if (rv == 0 && dmtcp_is_running_state()) {
-    process_fd_event(SYS_close, fd);
-  }
-  DMTCP_PLUGIN_ENABLE_CKPT();
-
-  return rv;
-}
-
-extern "C" int
-dup(int oldfd)
-{
-  DMTCP_PLUGIN_DISABLE_CKPT();
-  int newfd = _real_dup(oldfd);
-  if (newfd != -1 && dmtcp_is_running_state()) {
-    process_fd_event(SYS_dup, oldfd, newfd);
-  }
-  DMTCP_PLUGIN_ENABLE_CKPT();
-  return newfd;
-}
-
-extern "C" int
-dup2(int oldfd, int newfd)
-{
-  DMTCP_PLUGIN_DISABLE_CKPT();
-  int res = _real_dup2(oldfd, newfd);
-  if (res != -1 && newfd != oldfd && dmtcp_is_running_state()) {
-    process_fd_event(SYS_dup, oldfd, newfd);
-  }
-  DMTCP_PLUGIN_ENABLE_CKPT();
-  return res;
-}
-
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)) && __GLIBC_PREREQ(2, 9)
-
-// dup3 appeared in Linux 2.6.27
-extern "C" int
-dup3(int oldfd, int newfd, int flags)
-{
-  DMTCP_PLUGIN_DISABLE_CKPT();
-  int res = _real_dup3(oldfd, newfd, flags);
-  if (res != -1 && newfd != oldfd && dmtcp_is_running_state()) {
-    process_fd_event(SYS_dup, oldfd, newfd);
-  }
-  DMTCP_PLUGIN_ENABLE_CKPT();
-  return newfd;
-}
-#endif // if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)) &&
-       // __GLIBC_PREREQ(2, 9)

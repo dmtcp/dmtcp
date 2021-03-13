@@ -59,6 +59,48 @@ Util::setVirtualPidEnvVar(pid_t pid, pid_t virtPpid, pid_t realPpid)
   }
 }
 
+void
+Util::getVirtualPidFromEnvVar(pid_t *virtPid, pid_t *virtPpid, pid_t *realPpid)
+{
+  pid_t pid;
+  const char *pidstr = getenv(ENV_VAR_VIRTUAL_PID);
+  char *virtPpidstr = NULL;
+  char *realPpidstr = NULL;
+
+  if (pidstr == NULL) {
+    fprintf(stderr, "ERROR at %s:%d: env var DMTCP_VIRTUAL_PID not set\n\n",
+            __FILE__, __LINE__);
+    _exit(DMTCP_FAIL_RC);
+  }
+
+  pid = strtol(pidstr, &virtPpidstr, 10);
+  if (virtPid) {
+    *virtPid = pid;
+  }
+
+  if (virtPpidstr[0] != ':' && !isdigit(virtPpidstr[1])) {
+    fprintf(stderr, "ERROR at %s:%d: env var DMTCP_VIRTUAL_PID invalid\n\n",
+            __FILE__, __LINE__);
+    _exit(DMTCP_FAIL_RC);
+  }
+
+  pid = strtol(virtPpidstr + 1, &realPpidstr, 10);
+  if (virtPpid) {
+    *virtPpid = pid;
+  }
+
+  if (realPpidstr[0] != ':' && !isdigit(realPpidstr[1])) {
+    fprintf(stderr, "ERROR at %s:%d: env var DMTCP_VIRTUAL_PID invalid\n\n",
+            __FILE__, __LINE__);
+    _exit(DMTCP_FAIL_RC);
+  }
+
+  pid = strtol(realPpidstr + 1, NULL, 10);
+  if (realPpid) {
+    *realPpid = pid;
+  }
+}
+
 // 'screen' requires directory with permissions 0700
 static int
 isdir0700(const char *pathname)
@@ -160,6 +202,74 @@ Util::expandPathname(const char *inpath, char *const outpath, size_t size)
     }
   }
   return success ? 0 : -1;
+}
+
+/*
+ * This function returns 0 if the given pathname points to a valid
+ * shell script with a valid interpreter. The function invokes
+ * elfType() on the interpreter specified in the first line of the
+ * shell script ("#!/path/to/interpreter") and returns the value
+ * returned by elfType().
+ */
+int
+Util::getInterpreterType(const char *pathname, bool *isElf, bool *is32bitElf)
+{
+  char magic_script[] = {"#!"};
+  char argv_buf[PATH_MAX] = {0};
+  char full_path[PATH_MAX] = {0};
+
+  const char *interp;
+  char *tmp;
+
+  expandPathname(pathname, full_path, sizeof(full_path));
+  int fd = _real_open(full_path, O_RDONLY, 0);
+  if (fd == -1) {
+    return -1;
+  }
+
+  ssize_t ret = readLine(fd, argv_buf, sizeof(argv_buf));
+  if (ret < (int)sizeof(magic_script)) {
+    close(fd);
+    return -1;
+  }
+
+  /*
+   * Here we check that it's a valid shell script; the kernel *cannot*
+   * exec a script without the "#!" characters, and fails with ENOEXEC.
+   *
+   * Note: dmtcp_launch uses execvp() for exec. This is a special
+   * case as glibc forces the exec through /bin/sh when a script with
+   * no interpreter is specified. (glibc first makes a call to the kernel
+   * using execve, and when that fails with an ENOEXEC, it makes a
+   * second attempt by prefixing an extra /bin/sh argument.)
+   *
+   * The usage of execve() in dmtcp_launch would have resulted in an
+   * ENOEXEC directly, if a script with no interpreter were specified.
+   *
+   * See `man 2 execvp`, `man 2 execve`, glibc sources (execvpe.c),
+   * and the kernel sources (binfmt_script.c and exec.c) for more
+   * details.
+   */
+  if (strncmp(magic_script, argv_buf, sizeof(magic_script)) == 0) {
+    close(fd);
+    return -1;
+  }
+
+  // Ignore whitespace in the beginning, after the "#!"
+  for (tmp = argv_buf + 2; (*tmp == ' ') || (*tmp == '\t'); tmp++);
+  if (*tmp == '\0') {
+    close(fd);
+    return -1; // No interpreter name found
+  }
+  interp = tmp;
+
+  // Ignore whitespace (and arguments) after the interpreter name
+  for (; *tmp != ' ' && *tmp != '\t' && *tmp != '\n'; tmp++);
+  *tmp = '\0';
+
+  close(fd);
+
+  return elfType(interp, isElf, is32bitElf);
 }
 
 int
@@ -298,8 +408,8 @@ Util::isSetuid(const char *filename)
 
 void
 Util::patchArgvIfSetuid(const char *filename,
-                        char *const origArgv[],
-                        char ***newArgv)
+                        const char *origArgv[],
+                        const char ***newArgv)
 {
   if (isSetuid(filename) == false) {
     return;
@@ -325,7 +435,7 @@ Util::patchArgvIfSetuid(const char *filename,
   void *buf = JALLOC_HELPER_MALLOC(newArgvSize + 2 + PATH_MAX);
   memset(buf, 0, newArgvSize + 2 + PATH_MAX);
 
-  *newArgv = (char **)buf;
+  *newArgv = (const char **)buf;
   char *newFilename = (char *)buf + newArgvSize + 1;
 
 #define COPY_BINARY
@@ -407,9 +517,9 @@ Util::patchArgvIfSetuid(const char *filename,
 }
 
 void
-Util::freePatchedArgv(char **newArgv)
+Util::freePatchedArgv(void *ptr)
 {
-  JALLOC_HELPER_FREE(*newArgv);
+  JALLOC_HELPER_FREE(ptr);
 }
 
 void
@@ -477,9 +587,9 @@ Util::runMtcpRestore(int is32bitElf,
   if (argvSizeDiff > 0) {
     dummyEnviron = (char *)malloc(argvSizeDiff);
     memset(dummyEnviron, '0', argvSizeDiff - 1);
-    strncpy(dummyEnviron,
-            ENV_VAR_DMTCP_DUMMY "=",
-            strlen(ENV_VAR_DMTCP_DUMMY "="));
+    memcpy(dummyEnviron,
+           ENV_VAR_DMTCP_DUMMY "=",
+           strlen(ENV_VAR_DMTCP_DUMMY "="));
     dummyEnviron[argvSizeDiff - 1] = '\0';
     newEnv[dummyEnvironIndex] = dummyEnviron;
   }
@@ -537,7 +647,7 @@ char *
 Util::getPath(const char *cmd, bool is32bit)
 {
   // search relative to base dir of dmtcp installation.
-  const char *p1[] = {
+  const char * const p1[] = {
     "/bin/",
     "/lib64/dmtcp/",
     "/lib/dmtcp/",
@@ -572,20 +682,9 @@ Util::getPath(const char *cmd, bool is32bit)
   return buf;
 }
 
-static const char *dmtcpArgs[128] = {
-  const_cast<const char *>("--coord-host"),
-};
-
-static size_t numDmtcpArgs = 0;
-
-// Buffer to hold all arg strings.
-static char dmtcpArgBuf[10*1024] = {0};
-
 char **
 Util::getDmtcpArgs(void)
 {
-  size_t ret = 0;
-
   const char *sigckpt = getenv(ENV_VAR_SIGCKPT);
   const char *compression = getenv(ENV_VAR_COMPRESSION);
   const char *allocPlugin = getenv(ENV_VAR_ALLOC_PLUGIN);

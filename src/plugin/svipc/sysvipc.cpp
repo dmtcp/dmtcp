@@ -89,6 +89,13 @@ using namespace dmtcp;
  */
 
 static DmtcpMutex tblLock = DMTCP_MUTEX_INITIALIZER;
+static SysVShm *sysvShmInst = NULL;
+static SysVSem *sysvSemInst = NULL;
+static SysVMsq *sysvMsqInst = NULL;
+
+static SysVShm *vfork_sysvShmInst = NULL;
+static SysVSem *vfork_sysvSemInst = NULL;
+static SysVMsq *vfork_sysvMsqInst = NULL;
 
 static void
 preCheckpoint()
@@ -151,14 +158,32 @@ sysvipc_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   switch (event) {
   case DMTCP_EVENT_ATFORK_CHILD:
+  case DMTCP_EVENT_VFORK_CHILD:
     SysVShm::instance().resetOnFork();
     SysVSem::instance().resetOnFork();
     SysVMsq::instance().resetOnFork();
     break;
 
+  case DMTCP_EVENT_VFORK_PREPARE:
+    vfork_sysvShmInst = (SysVShm*) SysVShm::instance().clone();
+    vfork_sysvSemInst = (SysVSem*) SysVSem::instance().clone();
+    vfork_sysvMsqInst = (SysVMsq*) SysVMsq::instance().clone();
+    break;
+
+  case DMTCP_EVENT_VFORK_PARENT:
+  case DMTCP_EVENT_VFORK_FAILED:
+    delete sysvShmInst;
+    delete sysvSemInst;
+    delete sysvMsqInst;
+
+    sysvShmInst = vfork_sysvShmInst;
+    sysvSemInst = vfork_sysvSemInst;
+    sysvMsqInst = vfork_sysvMsqInst;
+    break;
+
   case DMTCP_EVENT_PRE_EXEC:
   {
-    jalib::JBinarySerializeWriterRaw wr("", data->serializerInfo.fd);
+    jalib::JBinarySerializeWriterRaw wr("", data->preExec.serializationFd);
     SysVShm::instance().serialize(wr);
     SysVSem::instance().serialize(wr);
     SysVMsq::instance().serialize(wr);
@@ -167,7 +192,7 @@ sysvipc_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 
   case DMTCP_EVENT_POST_EXEC:
   {
-    jalib::JBinarySerializeReaderRaw rd("", data->serializerInfo.fd);
+    jalib::JBinarySerializeReaderRaw rd("", data->postExec.serializationFd);
     SysVShm::instance().serialize(rd);
     SysVSem::instance().serialize(rd);
     SysVMsq::instance().serialize(rd);
@@ -179,9 +204,9 @@ sysvipc_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 
   case DMTCP_EVENT_PRECHECKPOINT:
     leaderElection();
-    dmtcp_global_barrier("SVIPC:Leader_Election");
+    dmtcp_local_barrier("SVIPC:Leader_Election");
     preCkptDrain();
-    dmtcp_global_barrier("SVIPC:Drain");
+    dmtcp_local_barrier("SVIPC:Drain");
     preCheckpoint();
     break;
 
@@ -191,9 +216,9 @@ sysvipc_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 
   case DMTCP_EVENT_RESTART:
     postRestart();
-    dmtcp_global_barrier("SVIPC:Restart");
+    dmtcp_local_barrier("SVIPC:Restart");
     restartRefill();
-    dmtcp_global_barrier("SVIPC:Refill");
+    dmtcp_local_barrier("SVIPC:Refill");
     restartResume();
     break;
 
@@ -253,9 +278,6 @@ huge_memcpy(char *dest, char *src, size_t size)
   memcpy(dest, src, size);
 }
 
-static SysVShm *sysvShmInst = NULL;
-static SysVSem *sysvSemInst = NULL;
-static SysVMsq *sysvMsqInst = NULL;
 SysVShm&
 SysVShm::instance()
 {
@@ -297,6 +319,25 @@ SysVIPC::SysVIPC(const char *str, int32_t id, int type)
   _do_lock_tbl();
   _map.clear();
   _do_unlock_tbl();
+}
+
+SysVIPC::~SysVIPC()
+{
+  for (Iterator it = _map.begin(); it != _map.end(); it++) {
+    delete it->second;
+  }
+}
+
+SysVIPC *
+SysVIPC::clone()
+{
+  SysVIPC *obj = cloneInstance();
+
+  for (Iterator it = _map.begin(); it != _map.end(); it++) {
+    obj->_map[it->first] = it->second->clone();
+  }
+
+  return obj;
 }
 
 void

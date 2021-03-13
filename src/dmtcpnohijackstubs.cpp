@@ -26,6 +26,7 @@
 #undef dmtcp_checkpoint
 #undef dmtcp_disable_ckpt
 #undef dmtcp_enable_ckpt
+#undef dmtcp_get_libc_addr
 #undef dmtcp_get_coordinator_status
 #undef dmtcp_get_local_status
 #undef dmtcp_get_uniquepid_str

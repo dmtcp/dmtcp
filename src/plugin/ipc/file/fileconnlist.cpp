@@ -74,10 +74,14 @@
 #include "filewrappers.h"
 #include "procselfmaps.h"
 #include "ptywrappers.h"
+#include "ptyconnlist.h"
 #include "shareddata.h"
 #include "util.h"
 
 using namespace dmtcp;
+
+static FileConnList *fileConnList = NULL;
+static FileConnList *vfork_fileConnList = NULL;
 
 void
 dmtcp_FileConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
@@ -85,41 +89,100 @@ dmtcp_FileConnList_EventHook(DmtcpEvent_t event, DmtcpEventData_t *data)
   FileConnList::instance().eventHook(event, data);
 
   switch (event) {
+  case DMTCP_EVENT_OPEN_FD:
+    // TODO: Handle the following:
+    // if (Util::strStartsWith(path, "/dev/ptmx")) {
+    //   // Force O_RDWR flag here.
+    //   flags &= ~(O_RDONLY | O_WRONLY);
+    //   flags |= O_RDWR;
+    // }
+
+    if (Util::isPseudoTty(
+            jalib::Filesystem::GetDeviceName(data->openFd.fd).c_str())) {
+      PtyConnList::instance().processPtyConnection(data->openFd.fd,
+                                                   data->openFd.path,
+                                                   data->openFd.flags,
+                                                   data->openFd.mode);
+    } else {
+      FileConnList::instance().processFileConnection(data->openFd.fd,
+                                                     data->openFd.path,
+                                                     data->openFd.flags,
+                                                     data->openFd.mode);
+    }
+    break;
+
+  case DMTCP_EVENT_CLOSE_FD:
+    FileConnList::instance().processClose(data->closeFd.fd);
+    break;
+
+  case DMTCP_EVENT_DUP_FD:
+    FileConnList::instance().processDup(data->dupFd.oldFd, data->dupFd.newFd);
+    break;
+
+  case DMTCP_EVENT_REOPEN_FD:
+    FileConnList::instance().processReopen(data->reopenFd.fd,
+                                           data->reopenFd.path);
+
+     break;
+
+  case DMTCP_EVENT_VFORK_PREPARE:
+    vfork_fileConnList = (FileConnList*) FileConnList::instance().clone();
+    break;
+
+  case DMTCP_EVENT_VFORK_PARENT:
+  case DMTCP_EVENT_VFORK_FAILED:
+    delete fileConnList;
+    fileConnList = vfork_fileConnList;
+    break;
+
   case DMTCP_EVENT_PRESUSPEND:
     break;
 
   case DMTCP_EVENT_PRECHECKPOINT:
     FileConnList::saveOptions();
-    dmtcp_global_barrier("File::PRE_CKPT");
+    dmtcp_local_barrier("File::PRE_CKPT");
     FileConnList::leaderElection();
-    dmtcp_global_barrier("File::LEADER_ELECTION");
+    dmtcp_local_barrier("File::LEADER_ELECTION");
     FileConnList::drainFd();
-    dmtcp_global_barrier("File::DRAIN");
+    dmtcp_local_barrier("File::DRAIN");
     FileConnList::ckpt();
-    dmtcp_global_barrier("File::WRITE_CKPT");
 
     break;
 
   case DMTCP_EVENT_RESUME:
     FileConnList::resumeRefill();
-    dmtcp_global_barrier("File::RESUME_REFILL");
+    dmtcp_local_barrier("File::RESUME_REFILL");
     FileConnList::resumeResume();
-    dmtcp_global_barrier("File::RESUME_RESUME");
     break;
 
   case DMTCP_EVENT_RESTART:
     FileConnList::restart();
-    dmtcp_global_barrier("File::RESTART_POST_RESTART");
-    FileConnList::restartRegisterNSData();
-    dmtcp_global_barrier("File::RESTART_NS_REGISTER_DATA");
-    FileConnList::restartSendQueries();
-    dmtcp_global_barrier("File::RESTART_NS_SEND_QUERIES");
+    dmtcp_local_barrier("File::RESTART_POST_RESTART");
     FileConnList::restartRefill();
-    dmtcp_global_barrier("File::RESTART_REFILL");
+    dmtcp_local_barrier("File::RESTART_REFILL");
     FileConnList::restartResume();
-    dmtcp_global_barrier("File::RESTART_RESUME");
+    break;
+
+  default:  // other events are not registered
     break;
   }
+}
+
+
+DmtcpPluginDescriptor_t filePlugin = {
+  DMTCP_PLUGIN_API_VERSION,
+  PACKAGE_VERSION,
+  "file",
+  "DMTCP",
+  "dmtcp@ccs.neu.edu",
+  "File plugin",
+  dmtcp_FileConnList_EventHook
+};
+
+void
+ipc_initialize_plugin_file()
+{
+  dmtcp_register_plugin(filePlugin);
 }
 
 static vector<ProcMapsArea>shmAreas;
@@ -127,18 +190,13 @@ static vector<ProcMapsArea>unlinkedShmAreas;
 static vector<ProcMapsArea>missingUnlinkedShmFiles;
 static vector<FileConnection *>shmAreaConn;
 
-void
-dmtcp_FileConn_ProcessFdEvent(int event, int arg1, int arg2)
+void FileConnList::processReopen(int fd, const char *newPath)
 {
-  if (event == SYS_close) {
-    FileConnList::instance().processClose(arg1);
-  } else if (event == SYS_dup) {
-    FileConnList::instance().processDup(arg1, arg2);
-  } else {
-    JASSERT(false);
+  FileConnection *con = (FileConnection*) getConnection(fd);
+  if (con != NULL) {
+    con->updatePath(newPath);
   }
 }
-
 
 bool
 FileConnList::createDirectoryTree(const string &path)
@@ -184,7 +242,6 @@ FileConnList::createDirectoryTree(const string &path)
 }
 
 
-static FileConnList *fileConnList = NULL;
 FileConnList&
 FileConnList::instance()
 {
@@ -490,9 +547,7 @@ FileConnList::scanForPreExisting()
     }
     struct stat statbuf;
     JASSERT(fstat(fd, &statbuf) == 0);
-    bool isRegularFile =
-      (S_ISREG(statbuf.st_mode) || S_ISCHR(statbuf.st_mode) ||
-       S_ISDIR(statbuf.st_mode) || S_ISBLK(statbuf.st_mode));
+    bool isRegularFile = (S_ISREG(statbuf.st_mode) || S_ISDIR(statbuf.st_mode));
 
     string device = jalib::Filesystem::GetDeviceName(fd);
 
@@ -524,15 +579,15 @@ FileConnList::scanForPreExisting()
        */
       continue;
     } else if (Util::strStartsWith(device.c_str(), "/") &&
-               !Util::isPseudoTty(device.c_str())) {
-      if (isRegularFile) {
-        Connection *c = findDuplication(fd, device.c_str());
-        if (c != NULL) {
-          add(fd, c);
-          continue;
-        }
+               !Util::isPseudoTty(device.c_str()) &&
+               isRegularFile) {
+      Connection *c = findDuplication(fd, device.c_str());
+      if (c != NULL) {
+        add(fd, c);
+        continue;
       }
-      add(fd, new FileConnection(device.c_str(), -1, -1));
+    } else {
+      JTRACE("Ignoring pre-existing fd") (device);
     }
   }
 }

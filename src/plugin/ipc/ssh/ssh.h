@@ -5,13 +5,9 @@
 #include <sys/syscall.h>
 #include "ipc.h"
 
-# define _real_execve    NEXT_FNC(execve)
-# define _real_execvp    NEXT_FNC(execvp)
-# define _real_execvpe   NEXT_FNC(execvpe)
-
-# define SSHD_BINARY     "dmtcp_sshd"
+#define SSHD_BINARY     "dmtcp_sshd"
 #define RSH_BINARY "rsh"
-# define SSHD_RECEIVE_FD 100
+#define SSHD_RECEIVE_FD 100
 
 extern "C" void dmtcp_ssh_register_fds(int isSshd,
                                        int in,
