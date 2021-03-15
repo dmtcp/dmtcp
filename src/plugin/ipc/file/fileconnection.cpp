@@ -75,6 +75,8 @@ _isBlacklistedFile(string &path)
   if ((Util::strStartsWith(path.c_str(), "/dev/") &&
        !Util::strStartsWith(path.c_str(), "/dev/shm/")) ||
       Util::strStartsWith(path.c_str(), "/proc/") ||
+      (Util::strStartsWith(path.c_str(), "/var/") &&
+       strstr(path.c_str(), "/nvme/"))|| // skip nvme, e.g. /var/opt/nersc/nvme/
       Util::strStartsWith(path.c_str(), dmtcp_get_tmpdir())) {
     return true;
   }
@@ -301,6 +303,7 @@ FileConnection::refill(bool isRestart)
     return;
   }
   if (strstr(_path.c_str(), "infiniband/uverbs") ||
+      strstr(_path.c_str(), "/nvme/") || // skip nvme, e.g. /var/opt/nersc/nvme/
       strstr(_path.c_str(), "uverbs-event")) {
     return;
   }
