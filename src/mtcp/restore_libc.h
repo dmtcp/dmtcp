@@ -64,7 +64,7 @@ extern "C" {
 #ifdef LOGGING
 # define DPRINTF PRINTF
 #else // ifdef LOGGING
-# define DPRINTF(args ...) // debug printing
+# define DPRINTF(args ...) // debug printing if: ./configure --enable-logging
 #endif // ifdef LOGGING
 
 #define ASSERT(condition)                            \
