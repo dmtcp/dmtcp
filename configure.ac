@@ -5,9 +5,10 @@ AC_INIT([DMTCP],
         [http://dmtcp.sourceforge.net])
 
 AC_PREREQ([2.60])
-# TODO(kapil): Add 'subdir-objects after automake 1.16 has been released.
-AM_INIT_AUTOMAKE([foreign])
+AM_INIT_AUTOMAKE([foreign subdir-objects])
 AM_MAINTAINER_MODE
+# If you modify configure.ac, automake may complain: missing .deps/*.Po file
+# For: '.deps/*.Po: No such file or directory'; try:  'make -k'(--keep-going)
 AC_CANONICAL_HOST
 AC_PROG_INSTALL
 # Automake uses 'ar cru' by default.  The 'ar' program then issues a warning.
