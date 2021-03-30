@@ -39,6 +39,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <sys/select.h>
 #include <sys/syscall.h>
@@ -258,6 +259,7 @@ dmtcp_prepare_wrappers(void)
 
 #define REAL_FUNC_PASSTHROUGH(name) REAL_FUNC_PASSTHROUGH_TYPED(int, name)
 
+// FIXME: This should take two parameters:  name and fn
 #define REAL_FUNC_PASSTHROUGH_WORK(name)                                      \
   if (fn == NULL) {                                                           \
     if (_real_func_addr[ENUM(name)] == NULL) {                                \
@@ -619,6 +621,34 @@ void
 _real_closelog(void)
 {
   REAL_FUNC_PASSTHROUGH_VOID(closelog) ();
+}
+
+LIB_PRIVATE
+int
+_real_ioctl(int d, unsigned long int request, ...)
+{
+  void *arg;
+  va_list ap;
+
+  // Most calls to ioctl take 'void *', 'int' or no extra argument
+  // A few specialized ones take more args, but we don't need to handle those.
+  va_start(ap, request);
+  arg = va_arg(ap, void *);
+  va_end(ap);
+
+  ///usr/include/unistd.h says syscall returns long int (contrary to man page)
+  REAL_FUNC_PASSTHROUGH_TYPED(int, ioctl) (d, request, arg);
+}
+
+LIB_PRIVATE
+pid_t
+_real_tcgetpgrp(int fd)
+{
+  // REAL_FUNC_PASSTHROUGH(tcgetpgrp) (fd);
+  // SYS_tcgetpgrp doesn't exist; use _real_ioctl, not _real_syscall
+  pid_t arg;
+  _real_ioctl(fd, TIOCGPGRP, &arg);
+  return arg;
 }
 
 // set the handler

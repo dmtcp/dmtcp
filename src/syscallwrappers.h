@@ -380,6 +380,8 @@ int _real_socketpair(int d, int type, int protocol, int sv[2]);
 void _real_openlog(const char *ident, int option, int facility);
 void _real_closelog(void);
 
+int _real_tcgetpgrp(int fd);
+
 // Despite what 'man signal' says, signal.h already defines sighandler_t
 // But signal.h defines this only because we define GNU_SOURCE (or __USE_GNU_
 typedef void (*sighandler_t)(int);    /* POSIX has user define this type */

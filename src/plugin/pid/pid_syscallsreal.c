@@ -28,6 +28,7 @@
 #include <dlfcn.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/ioctl.h>
 #include <sys/syscall.h>
 #include <unistd.h>
 #include "dmtcp.h"
@@ -137,8 +138,8 @@ _real_dlsym(void *handle, const char *symbol)
   return (void *)(*_libc_dlsym_fnptr)(handle, symbol);
 }
 
-// Also copied into src/threadlist.cpp, so that libdmtcp.sp
-//   won't depend on libdmtcp_pid.sp
+// Also copied into src/threadlist.cpp, so that libdmtcp.so
+//   won't depend on libdmtcp_pid.so
 LIB_PRIVATE
 pid_t
 _real_getpid(void)
@@ -175,7 +176,11 @@ LIB_PRIVATE
 pid_t
 _real_tcgetpgrp(int fd)
 {
-  REAL_FUNC_PASSTHROUGH(tcgetpgrp) (fd);
+  // REAL_FUNC_PASSTHROUGH(tcgetpgrp) (fd);
+  // SYS_tcgetpgrp doesn't exist; use _real_ioctl, not _real_syscall
+  pid_t arg;
+  _real_ioctl(fd, TIOCGPGRP, &arg);
+  return arg;
 }
 
 LIB_PRIVATE
