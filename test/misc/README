@@ -4,15 +4,11 @@ Some of these special cases could be combined into autotest.py, and
 
 Examples of special cases are:
 * All CPU architectures:  x86, x86_64, arm, aarch64
-* The two major branches of distros:  Debian/Ubuntu and
-                                          RedHat/Fedora/CoreOS
+* The three major branches of distros:  Debian/Ubuntu, and
+                                          RedHat/Fedora/CoreOS, OpenSUSE/SUSE
 * 32-bit Linux:  native, --enable-m32, and multi-arch  (see multi-arch.sh)
-* Builds of DMTCP with other compilers:  icc LLVM/clang
-* musl libc (and Alpine Linux) (?)
 * 'make install' for native 64-bit and each of the 32-bit Linux combinations
 * for file in test/plugin/*; do (cd $file && make check); done
-* dmtcp_launch invoked in extra shell:  #!/bin/sh / dmtcp_launth test/dmtcp1
-                                        [ and test restart: foreground issue ]
 * forked checkpointing
 * fast restart
 * --no-gzip
@@ -30,9 +26,10 @@ Examples of special cases are:
   *  Network:  InfiniBand (CM and UD), TCP
   +  Shared filesystems:  NFS, Lustre
 * openmp and Intel TBB
-* MANA for MPI and CRAC for CUDA
-* SOON:  OpenGL (?)
+* MIC
+* SOON:  OpenGL
 * Widely used commercial software:  Matlab, ...
 * Non-default plugins:
-  modify-env, path-virt
+  --ptrace, modify-env
   test/plugin/{applic-inititated-ckdpt,applic-delayed-ckpt}
+* Builds of DMTCP with other compilers:  icc LLVM/Clang
