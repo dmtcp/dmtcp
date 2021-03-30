@@ -157,6 +157,7 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   MACRO(tcgetpgrp)                    \
   MACRO(tcsetpgrp)                    \
   MACRO(getpgrp)                      \
+  MACRO(_libc_getpgrp) /* src/plugin/pid/pid_syscallsreal.c */    \
   MACRO(setpgrp)                      \
                                       \
   MACRO(getpgid)                      \
@@ -381,6 +382,7 @@ void _real_openlog(const char *ident, int option, int facility);
 void _real_closelog(void);
 
 int _real_tcgetpgrp(int fd);
+int _libc_getpgrp(void);
 
 // Despite what 'man signal' says, signal.h already defines sighandler_t
 // But signal.h defines this only because we define GNU_SOURCE (or __USE_GNU_

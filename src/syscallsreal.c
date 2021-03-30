@@ -49,6 +49,7 @@
 #include "constants.h"
 #include "syscallwrappers.h"  /* glibc > ver. 2.33: redefines xstat to stat */
 #include "trampolines.h"
+#include "../include/dmtcp.h"
 
 typedef int (*funcptr_t) ();
 typedef pid_t (*funcptr_pid_t) ();
@@ -640,6 +641,16 @@ _real_ioctl(int d, unsigned long int request, ...)
   REAL_FUNC_PASSTHROUGH_TYPED(int, ioctl) (d, request, arg);
 }
 
+// FIXME:  This depends on libdmtcp_pid.so:_libc_getpgrp().
+//         It should `call dmtcp_get_libc_addr() instead.
+LIB_PRIVATE
+pid_t
+_libc_getpgrp()
+{
+  // This introduces a dependence of libdmtcp.so on libdmtcp_pid.so
+  REAL_FUNC_PASSTHROUGH(_libc_getpgrp) ();
+}
+
 LIB_PRIVATE
 pid_t
 _real_tcgetpgrp(int fd)
@@ -918,6 +929,8 @@ _real_syscall(long sys_num, ...)
   va_end(ap);
 
   ///usr/include/unistd.h says syscall returns long int (contrary to man page)
+  // This goes to libdmtcp_pid.so:syscall() which virtualizes pids,
+  //   or directly to libc.so if ther is no libdmtcp_pid.so.
   REAL_FUNC_PASSTHROUGH_TYPED(long, syscall) (sys_num, arg[0], arg[1],
                                               arg[2], arg[3], arg[4],
                                               arg[5], arg[6]);

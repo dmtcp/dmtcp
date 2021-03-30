@@ -145,16 +145,20 @@ pid_t
 _real_getpid(void)
 {
   // libc caches pid of the process and hence after restart, libc:getpid()
-  // returns the pre-ckpt value.
+  // returns the pre-ckpt value.  So, we call _real_syscall instead of
+  // REAL_FUNC_PASSTHROUGH(getpid).
   return (pid_t)_real_syscall(SYS_getpid);
 }
 
+// Also copied into src/syscallsreal.c, so that libdmtcp.so
+//   won't depend on libdmtcp_pid.so
 LIB_PRIVATE
 pid_t
 _real_getppid(void)
 {
   // libc caches ppid of the process and hence after restart, libc:getppid()
-  // returns the pre-ckpt value.
+  // returns the pre-ckpt value.  So, we call _real_syscall instead of
+  // REAL_FUNC_PASSTHROUGH(getppid).
   return (pid_t)_real_syscall(SYS_getppid);
 }
 
@@ -181,6 +185,15 @@ _real_tcgetpgrp(int fd)
   pid_t arg;
   _real_ioctl(fd, TIOCGPGRP, &arg);
   return arg;
+}
+
+// FIXME:  libdmtcp.so:_libc_getpgrp() depends on this.
+//         It should `call dmtcp_get_libc_addr() instead.
+//         Remove this _libc_getpgrp() when that works.
+pid_t
+_libc_getpgrp(void)
+{
+  REAL_FUNC_PASSTHROUGH_TYPED(pid_t, getpgrp) ();
 }
 
 LIB_PRIVATE
@@ -333,7 +346,7 @@ _real_tgkill(int tgid, int tid, int sig)
   return (int)_real_syscall(SYS_tgkill, tgid, tid, sig);
 }
 
-LIB_PRIVATE
+// libdmtcp.so:_real_syscall() will call here, which will relay to libc.so
 long
 _real_syscall(long sys_num, ...)
 {
