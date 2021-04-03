@@ -169,7 +169,7 @@ class ShowFilenameAtAddress(gdb.Command):
         if getpid() == 0:
           gdb.execute('print "Process not yet started"', False, False)
         else:
-          memory_region = "%s (r-x): 0x%x-0x%x" % \
+          memory_region = "%s (r[-w]x): 0x%x-0x%x" % \
                           memory_region_at_address(memory_address)
           gdb.execute('print "' + memory_region + '"', False, False)
 # This will add the new gdb command: show-filename-at-address MEMORY_ADDRESS
@@ -352,6 +352,7 @@ def procmap_filename_address(line):
   return (triple[-1],) + \
          tuple([int("0x"+elt, 16) for elt in triple[0].split("-")])
 def is_text_segment(procmap_line):
+  print(procmap_line)
   return "r-x" in procmap_line and \
          (procmap_line == "" or procmap_line.isspace() or '/' in procmap_line)
 def memory_regions():

@@ -7,6 +7,7 @@
 #endif  // ifdef HAS_PR_SET_PTRACER
 #include "../jalib/jassert.h"
 #include "config.h"
+#include "syscallwrappers.h"
 #include "dmtcp.h"
 
 /*************************************************************************
@@ -19,6 +20,7 @@ namespace dmtcp
 static int saved_termios_exists = 0;
 static struct termios saved_termios;
 static struct winsize win;
+static bool pgrp_is_foreground = false;
 
 static void save_term_settings();
 static void restore_term_settings();
@@ -34,6 +36,10 @@ save_term_settings()
                           && tcgetattr(STDIN_FILENO, &saved_termios) >= 0);
   if (saved_termios_exists) {
     ioctl(STDIN_FILENO, TIOCGWINSZ, (char *)&win);
+    // NOTE:  There can be at most one foreground process for a terminal.
+    //        Normally, the foreground process group leader is also pgrp leader.
+    //        It can be in this DMTCP computation group, or outside of DMTCP.
+    pgrp_is_foreground = (_real_tcgetpgrp(STDIN_FILENO) == _libc_getpgrp());
   }
 }
 
@@ -60,22 +66,48 @@ safe_tcsetattr(int fd, int optional_actions, const struct termios *termios_p)
   return 0;
 }
 
-// FIXME: Handle Virtual Pids
+static int
+get_parent_pid(int pid)
+{
+  char buf[8192];
+  // /proc/PID/stat is:  PID (COMMAND) STATE PPID ...
+  snprintf(buf, sizeof(buf), "/proc/%d/stat", pid);
+  FILE* fp = fopen(buf, "r");
+  JASSERT(fp != NULL)(pid)(JASSERT_ERRNO).Text("fopen");
+  int rc = -1;
+  if (fp) {
+    size_t size = fread(buf, 1, sizeof(buf), fp);
+    if (size > 0 && strstr(buf, ") ")) {
+      rc = strtol(strstr(strstr(buf, ") ")+2, " "), NULL, 10);
+    }
+  }
+  JASSERT(rc != -1)(pid).Text("parent pid not found in /proc/*/stat");
+  return rc;
+}
+
+// See:  info libc -> Job Control -> Implementing a Shell ->
+//                                               Foreground and Background
 static void
 restore_term_settings()
 {
   if (saved_termios_exists) {
     /* First check if we are in foreground. If not, skip this and print
      *   warning.  If we try to call tcsetattr in background, we will hang up.
+     * In some shells, the shell itself will be a pgrp that includes is
+     *   first child process, instead of the first child forming a pgrp.
      */
-    int foreground = (tcgetpgrp(STDIN_FILENO) == getpgrp());
     JTRACE("restore terminal attributes, check foreground status first")
-      (foreground);
-    if (foreground) {
-      if ((!isatty(STDIN_FILENO)
-           || safe_tcsetattr(STDIN_FILENO, TCSANOW, &saved_termios) == -1)) {
-        JWARNING(false).Text("failed to restore terminal");
-      } else {
+          (pgrp_is_foreground)
+          (_libc_getpgrp()) (_real_tcgetpgrp(STDIN_FILENO))
+          (get_parent_pid(_real_tcgetpgrp(STDIN_FILENO)));
+    if (pgrp_is_foreground && isatty(STDIN_FILENO)) {
+      // Set login shell (not under DMTCP control) to be the foreground process,
+      // instead of this process.
+      JASSERT(tcsetpgrp(STDIN_FILENO, getpgrp()) == 0)(JASSERT_ERRNO);
+      JTRACE("The process group ID of this process is the\n"
+             "  the process group ID for the foreground process group.\n"
+             "Make current process group the new foreground process group.");
+      if (safe_tcsetattr(STDIN_FILENO, TCSANOW, &saved_termios) != -1) {
         struct winsize cur_win;
         JTRACE("restored terminal");
         ioctl(STDIN_FILENO, TIOCGWINSZ, (char *)&cur_win);
@@ -87,10 +119,14 @@ restore_term_settings()
         if (cur_win.ws_row == 0 && cur_win.ws_col == 0) {
           ioctl(STDIN_FILENO, TIOCSWINSZ, (char *)&win);
         }
+      } else {
+        JWARNING(false).Text("failed to restore terminal attributes");
       }
+    } else if (pgrp_is_foreground) {
+      JWARNING(false).Text("failed to restore terminal. STDIN not a tty");
     } else {
       JWARNING(false)
-      .Text(":skip restore terminal step -- we are in BACKGROUND");
+      .Text("skip restore terminal step -- we are in BACKGROUND");
     }
   }
 

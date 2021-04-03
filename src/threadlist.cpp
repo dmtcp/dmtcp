@@ -80,7 +80,7 @@ static void Thread_SaveSigState(Thread *th);
 static void Thread_RestoreSigState(Thread *th);
 
 // Copied from src/plugin/pid/pid_syscallsreal.c
-// Without this, libdmtcp.so will depend on libdmtcp_plugin.so being loaded
+// Without this, libdmtcp.so will depend on libdmtcp_pid.so being loaded
 static pid_t _real_getpid(void)
 {
   JWARNING("_real_getpid")
