@@ -974,7 +974,7 @@ read_one_memory_area(int fd, VA endOfStack)
    * prepareMtcpHeader() in threadlist.cpp and ProcessInfo::growStack()
    * in processinfo.cpp.
    */
-  if ((area.name[0] && mtcp_strstr(area.name, "stack"))
+  if ((area.name[0] && area.name[0] != '/' && mtcp_strstr(area.name, "stack"))
       || (area.endAddr == endOfStack)) {
     area.flags = area.flags | MAP_GROWSDOWN;
     DPRINTF("Detected stack area. End of stack (%p); Area end address (%p)\n",

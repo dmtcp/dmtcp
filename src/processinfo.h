@@ -139,6 +139,7 @@ class ProcessInfo
     uint64_t endOfStack(void) const { return _endOfStack; }
 
     string getCkptFilename() const { return _ckptFileName; }
+    string getTempCkptFilename() const { return _ckptFileName + ".temp"; }
 
     string getCkptFilesSubDir() const { return _ckptFilesSubDir; }
 

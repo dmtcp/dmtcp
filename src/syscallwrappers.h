@@ -74,6 +74,30 @@
 #include "dmtcp.h"
 #include "mtcp/ldt.h"
 
+// glibc version 2.33 stopped defining _STAT_VER, which was the 'vers'
+// argument to the xtat family of function.  Now, glibc-2.33 is defining
+// lstat directly, instead of defining lstat as a macro that expands
+// to __lxstat.  We are macro expanding the xstat family to the stat family,
+// whenever _STAT_VER not defined.
+#ifndef _STAT_VER
+# undef __xstat
+# undef __xstat64
+# undef __lxstat
+# undef __lxstat64
+# undef _real_xstat
+# undef _real_xstat64
+# undef _real_lxstat
+# undef _real_lxstat64
+# define __xstat(vers,path,buf)          stat(path, buf)
+# define __xstat64(vers,path,buf)        stat64(path, buf)
+# define __lxstat(vers,path,buf)         lstat(path, buf)
+# define __lxstat64(vers,path,buf)       lstat64(path, buf)
+# define _real___xstat(vers,path,buf)    _real_stat(path, buf)
+# define _real___xstat64(vers,path,buf)  _real_stat64(path, buf)
+# define _real___lxstat(vers,path,buf)   _real_lstat(path, buf)
+# define _real___lxstat64(vers,path,buf) _real_lstat64(path, buf)
+#endif
+
 #ifdef HAVE_SYS_EPOLL_H
 # include <sys/epoll.h>
 #else // ifdef HAVE_SYS_EPOLL_H
@@ -108,6 +132,20 @@ LIB_PRIVATE int dmtcp_tgkill(int tgid, int tid, int sig);
 extern int dmtcp_wrappers_initializing;
 
 LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
+
+#ifdef _STAT_VER
+# define FOREACH_DMTCP_STAT_WRAPPER(MACRO)  \
+  MACRO(__xstat)                            \
+  MACRO(__xstat64)                          \
+  MACRO(__lxstat)                           \
+  MACRO(__lxstat64)
+#else
+# define FOREACH_DMTCP_STAT_WRAPPER(MACRO) \
+  MACRO(stat)                               \
+  MACRO(stat64)                             \
+  MACRO(lstat)                              \
+  MACRO(lstat64)
+#endif
 
 #define FOREACH_DMTCP_WRAPPER(MACRO)  \
   MACRO(dlopen)                       \
@@ -201,10 +239,6 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   MACRO(dup)                          \
   MACRO(dup2)                         \
   MACRO(dup3)                         \
-  MACRO(__xstat)                      \
-  MACRO(__xstat64)                    \
-  MACRO(__lxstat)                     \
-  MACRO(__lxstat64)                   \
   MACRO(readlink)                     \
   MACRO(realpath)                     \
   MACRO(access)                       \
@@ -244,7 +278,8 @@ LIB_PRIVATE extern __thread int thread_performing_dlopen_dlsym;
   MACRO(pthread_tryjoin_np)           \
   MACRO(pthread_timedjoin_np)         \
   MACRO(pthread_sigmask)              \
-  MACRO(pthread_getspecific)
+  MACRO(pthread_getspecific)          \
+  FOREACH_DMTCP_STAT_WRAPPER(MACRO)
 
 #define ENUM(x)     enum_ ## x
 #define GEN_ENUM(x) ENUM(x),

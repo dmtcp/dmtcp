@@ -433,7 +433,15 @@ case "$host_cpu" in
   arm*) is_arm_host=yes ;;
   aarch64*) is_aarch64_host=yes ;;
   i?86) is_i486_host=yes ;;
+  x86_64) is_x86_64_host=yes ;;
 esac
+
+AM_CONDITIONAL(X86_64_HOST, [test "$is_x86_64_host" == "yes"])
+if test "$is_x86_64_host" == "yes"; then
+  AC_SUBST([X86_64_HOST], [yes])
+else
+  AC_SUBST([X86_64_HOST], [no])
+fi
 
 AM_CONDITIONAL(ARM_HOST, [test "$is_arm_host" == "yes"])
 if test "$is_arm_host" == "yes"; then
@@ -658,9 +666,9 @@ else
   fi
 fi
 if test "mpich_path" != "no"; then
-  AC_PATH_PROG([MPICH_MPICC],      [mpicc],      [yes], [no], [$mpich_path])
-  AC_PATH_PROG([MPICH_MPIRUN],     [mpirun],     [yes], [no], [$mpich_path])
-  AC_PATH_PROG([MPICH_MPIEXEC],    [mpiexec],    [yes], [no], [$mpich_path])
+  AC_PATH_PROG([MPICH_MPICC],      [mpicc],      [no], [$mpich_path])
+  AC_PATH_PROG([MPICH_MPIRUN],     [mpirun],     [no], [$mpich_path])
+  AC_PATH_PROG([MPICH_MPIEXEC],    [mpiexec],    [no], [$mpich_path])
   if test "$MPICH_MPIRUN" = "no"     ||\
      test "$MPICH_MPICC" = "no"      ||\
      test "$MPICH_MPIEXEC" = "no";

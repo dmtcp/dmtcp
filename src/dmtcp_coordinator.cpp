@@ -64,13 +64,16 @@
 #include <netdb.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/stat.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <time.h>
 #include <unistd.h>
 #include <algorithm>
 #include <iomanip>
+#include <sys/prctl.h>
 #include "../jalib/jassert.h"
 #include "../jalib/jconvert.h"
 #include "../jalib/jfilesystem.h"
@@ -120,6 +123,9 @@ static const char *theUsage =
   "      Exit automatically when last client disconnects\n"
   "  --kill-after-ckpt\n"
   "      Kill peer processes of computation after first checkpoint is created\n"
+  "  --timeout seconds\n"
+  "      Coordinator exits after <seconds> even if jobs are active\n"
+  "      (Useful during testing to prevent runaway coordinator processes)\n"
   "  --daemon\n"
   "      Run silently in the background after detaching from the parent "
   "process.\n"
@@ -150,6 +156,8 @@ static bool blockUntilDone = false;
 static bool killAfterCkpt = false;
 static bool killAfterCkptOnce = false;
 static int blockUntilDoneRemote = -1;
+static time_t timeout = 0;
+static size_t start_time; // used with timeout
 
 static DmtcpCoordinator prog;
 
@@ -450,6 +458,12 @@ DmtcpCoordinator::releaseBarrier(const string &barrier)
   ComputationStatus status = getStatus();
 
   if (workersAtCurrentBarrier == status.numPeers) {
+    if (numPeers > 0 && status.numPeers != numPeers) {
+      JNOTE("Waiting for all restarting processes to connect.")
+        (numPeers) (status.numPeers);
+      return;
+    }
+
     JTRACE("Releasing barrier") (barrier);
     prevBarrier = currentBarrier;
     currentBarrier.clear();
@@ -1225,6 +1239,9 @@ signalHandler(int signum)
     prog.handleUserCommand('q');
   } else if (signum == SIGALRM) {
     timerExpired = true;
+    if (timeout && time(NULL) - start_time >= timeout - 1) { // -1 for roundoff
+      exit(1);
+    }
   } else {
     JASSERT(false).Text("Not reached");
   }
@@ -1349,7 +1366,11 @@ calcLocalAddr()
 static void
 resetCkptTimer()
 {
-  alarm(theCheckpointInterval);
+  if (theCheckpointInterval > 0) {
+    alarm(theCheckpointInterval);
+  } else {
+    alarm(timeout);
+  }
 }
 
 void
@@ -1479,6 +1500,64 @@ DmtcpCoordinator::addDataSocket(CoordClient *client)
     (JASSERT_ERRNO);
 }
 
+#define min(x,y) ((x)<(y) ? (x) : (y))
+
+// Copy name+suffix into short_buf of length len, and truncate name to fit.
+// This keeps only the last component of name (after last '/')
+char *short_name(char short_buf[], char *name, unsigned int len, char *suffix) {
+  // char *name_copy = malloc(strlen(name)+1);
+  char name_copy[strlen(name)+1];
+#pragma GCC diagnostic ignored "-Wstringop-overflow"
+  // gcc bad warning: complains 'sizeof(name_copy)' depends on 'strlen(name)'
+  strncpy(name_copy, name, sizeof(name_copy));
+#pragma GCC diagnostic pop
+  char *base_name = strrchr(name_copy, '/') == NULL ?
+                    name_copy : strrchr(name_copy, '/') + 1;
+  int suffix_len = strlen(suffix);
+  if (6 + strlen(suffix) > len) {
+    return NULL;
+  }
+  memset(short_buf, '\0', len);
+  int cmd_len = min(strlen(base_name)+1, len);
+  memcpy(short_buf, base_name, cmd_len);
+  int short_buf_len = min(strlen(base_name), len - suffix_len);
+  strncpy(short_buf + short_buf_len, suffix, suffix_len);
+  return short_buf;
+}
+
+void set_short_cmdline(char *argv0, const char *port) {
+  char buf[16] = "               ";
+  char port_str[16] =":";
+  strncpy(port_str+1, port, sizeof(port_str)+1-strlen(port));
+  short_name(buf, argv0, sizeof buf, port_str);
+  // For debugging
+  // printf("buf: %s\n", buf);
+  prctl(PR_SET_NAME, buf); // set /proc/self/comm
+}
+
+void set_long_cmdline(char *argv0, const char *port) {
+  char *argv0_copy = (char *)malloc(strlen(argv0) + 1);
+  strcpy(argv0_copy, argv0);
+  char *base_argv0 = strrchr(argv0_copy, '/') + 1 == NULL ?
+                     argv0_copy : strrchr(argv0_copy, '/') + 1;
+  char port_flag_long[100];
+  char port_flag_short[100];
+  snprintf(port_flag_long, sizeof(port_flag_long), " --port %s", port);
+  snprintf(port_flag_short, sizeof(port_flag_short), " -p%s", port);
+  if (strlen(base_argv0)+strlen(port_flag_long) <= strlen(argv0) &&
+      short_name(argv0, argv0, strlen(argv0), port_flag_long) != NULL) {
+  // For debugging
+  // printf("base_argv0-1: %s\n", argv0);
+  } else if (short_name(argv0, argv0, strlen(argv0), port_flag_short) != NULL) {
+  // For debugging
+  // printf("base_argv0-2: %s\n", argv0);
+  } else {
+  // For debugging
+  // printf("base_argv0-3: %s\n", argv0);
+  }
+  free(argv0_copy);
+}
+
 #define shift argc--; argv++
 
 int
@@ -1495,6 +1574,15 @@ main(int argc, char **argv)
   if (portStr != NULL) {
     thePort = jalib::StringToInt(portStr);
   }
+
+  // Change command line to: dmtcp_coordinator -p<portStr>
+  char portStrBuf[10];
+  if (portStr == NULL) {
+    sprintf(portStrBuf, "%d", thePort);
+    portStr = portStrBuf;
+  }
+  set_short_cmdline(argv[0], portStr);
+  set_long_cmdline(argv[0], portStr);
 
   bool daemon = false;
   bool useLogFile = false;
@@ -1532,6 +1620,11 @@ main(int argc, char **argv)
     } else if (s == "--kill-after-ckpt") {
       killAfterCkpt = true;
       shift;
+    } else if (argc > 1 && s == "--timeout") {
+      timeout = atol(argv[1]);
+      start_time = time(NULL);
+      alarm(timeout);  // and resetCkptTimer() will also set this.
+      shift; shift;
     } else if (s == "--daemon") {
       daemon = true;
       shift;

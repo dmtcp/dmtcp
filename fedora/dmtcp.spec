@@ -1,17 +1,20 @@
 %{!?_pkgdocdir: %global _pkgdocdir %{_docdir}/%{name}-%{version}}
 
 Name:		dmtcp
-Version:	2.4
-Release:	0%{?dist}
+Version:	3.0.0
+Release:	0.0%{?dist}
 Summary:	Checkpoint/Restart functionality for Linux processes
 Group:		Applications/System
-License:	LGPLv3+
+# dmtcp.h is ASL-2.0
+License: LGPLv3+ and ASL-2.0
 URL:		http://dmtcp.sourceforge.net
-Source0:	http://downloads.sourceforge.net/%{name}/%{name}-%{version}.tar.gz
-BuildRequires:	python
+Source0:	http://downloads.sourceforge.net/%{name}/3.0.0/%{name}-%{version}.tar.gz
+BuildRequires:	gcc-c++
+BuildRequires:	python3
 
-# This package is functional only on i386 and x86_64 architectures.
-ExclusiveArch:	%ix86 x86_64
+# This package is functional only on i386, x86_64 and aarch64 architectures.
+# It should also work on %%ix86, but Koji seems to have problems with it.
+ExclusiveArch:	x86_64 aarch64
 
 %description
 DMTCP (Distributed MultiThreaded Checkpointing) is a tool to
@@ -42,26 +45,34 @@ This package provides files for developing DMTCP plugins.
 
 %build
 %configure --docdir=%{_pkgdocdir}
-make %{?_smp_mflags}
+%make_build
 
+# A few tests may take a long time.  If a test times out, the check fails.
+# Hopefully, the test machine is fast enough, and timeouts are long
+#   enough to avoid that problem.
 %check
-./test/autotest.py --retry-once --slow || :
+AUTOTEST="--retry-once --slow --slow" make check
 
 %install
-make install DESTDIR=%{buildroot}
+%make_install
 
 %files
 %{_bindir}/dmtcp_*
 %{_bindir}/mtcp_restart
 %{_libdir}/%{name}
-%dir %{_pkgdocdir}
-%{_pkgdocdir}
-%{_mandir}/man1/*gz
+%{_pkgdocdir}/
+%{_mandir}/man1/*.1*
 
 %files -n dmtcp-devel
 %{_includedir}/dmtcp.h
 
 %changelog
+* Tue Feb 16 2021 Gene Cooperman <gene@ccs.neu.edu> - 3.0.0
+- Preparing for upstream release 3.0.
+
+* Tue Dec 17 2019 Gene Cooperman <gene@ccs.neu.edu> - 2.6.1~rc1-0.1
+- Preparing for upstream release 2.3.
+
 * Thu Jul 3 2014 Kapil Arya <kapil@ccs.neu.edu> - 2.3-1
 - Preparing for upstream release 2.3.
 

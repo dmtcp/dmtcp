@@ -547,9 +547,7 @@ FileConnList::scanForPreExisting()
     }
     struct stat statbuf;
     JASSERT(fstat(fd, &statbuf) == 0);
-    bool isRegularFile =
-      (S_ISREG(statbuf.st_mode) || S_ISCHR(statbuf.st_mode) ||
-       S_ISDIR(statbuf.st_mode) || S_ISBLK(statbuf.st_mode));
+    bool isRegularFile = (S_ISREG(statbuf.st_mode) || S_ISDIR(statbuf.st_mode));
 
     string device = jalib::Filesystem::GetDeviceName(fd);
 
@@ -581,15 +579,15 @@ FileConnList::scanForPreExisting()
        */
       continue;
     } else if (Util::strStartsWith(device.c_str(), "/") &&
-               !Util::isPseudoTty(device.c_str())) {
-      if (isRegularFile) {
-        Connection *c = findDuplication(fd, device.c_str());
-        if (c != NULL) {
-          add(fd, c);
-          continue;
-        }
+               !Util::isPseudoTty(device.c_str()) &&
+               isRegularFile) {
+      Connection *c = findDuplication(fd, device.c_str());
+      if (c != NULL) {
+        add(fd, c);
+        continue;
       }
-      add(fd, new FileConnection(device.c_str(), -1, -1));
+    } else {
+      JTRACE("Ignoring pre-existing fd") (device);
     }
   }
 }
