@@ -469,7 +469,8 @@ ProcessInfo::restart()
   }
 
   restoreProcessGroupInfo();
-  _real_close(PROTECTED_ENVIRON_FD);
+  // Closing PROTECTED_ENVIRON_FD here breaks dmtcp_get_restart_env()
+  //_real_close(PROTECTED_ENVIRON_FD);
 }
 
 void

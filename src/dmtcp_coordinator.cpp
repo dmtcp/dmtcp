@@ -1538,7 +1538,7 @@ void set_short_cmdline(char *argv0, const char *port) {
 void set_long_cmdline(char *argv0, const char *port) {
   char *argv0_copy = (char *)malloc(strlen(argv0) + 1);
   strcpy(argv0_copy, argv0);
-  char *base_argv0 = strrchr(argv0_copy, '/') + 1 == NULL ?
+  char *base_argv0 = strrchr(argv0_copy, '/') == NULL ?
                      argv0_copy : strrchr(argv0_copy, '/') + 1;
   char port_flag_long[100];
   char port_flag_short[100];
