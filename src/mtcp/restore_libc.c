@@ -279,7 +279,7 @@ TLSInfo_GetTidOffset(void)
       PRINTF("WARNING: tid_offset is not divisible by sizeof(int).\n"
              "  Now relying on the value determined using the\n"
              "  glibc version with which DMTCP was compiled.");
-      return STATIC_TLS_TID_OFFSET();
+      return tid_offset = STATIC_TLS_TID_OFFSET();
 
       // mtcp_abort();
     }
