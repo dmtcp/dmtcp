@@ -48,7 +48,11 @@ LIB_PRIVATE sem_t sem_launch;
 namespace dmtcp {
 namespace CoordinatorAPI {
 
-const int coordinatorSocket = PROTECTED_COORD_FD;
+// NOTE:  PROTECTED_COORD_FD looks like a macro, but it's a fnc,
+//        whose initial value changes as another part of DMTCP initializes.
+const int coordinatorSocket() {
+  return PROTECTED_COORD_FD;
+}
 int nsSock = -1;
 static int childCoordinatorSocket = -1;
 
@@ -252,9 +256,9 @@ void init()
 void resetCoordinatorSocket(int sock)
 {
   JASSERT(Util::isValidFd(sock));
-  JASSERT(sock != PROTECTED_COORD_FD);
+  JASSERT(sock != (int)PROTECTED_COORD_FD);
   Util::changeFd(sock, PROTECTED_COORD_FD);
-  JASSERT(Util::isValidFd(coordinatorSocket));
+  JASSERT(Util::isValidFd(coordinatorSocket()));
 
   JTRACE("Informing coordinator of new process") (UniquePid::ThisProcess());
 
@@ -297,7 +301,7 @@ void vforkChild()
 void
 closeConnection()
 {
-  _real_close(coordinatorSocket);
+  _real_close(coordinatorSocket());
 }
 
 char*
@@ -460,18 +464,18 @@ recvMsgFromCoordinatorRaw(int fd, DmtcpMessage *msg, void **extraData)
 
 void sendMsgToCoordinator(DmtcpMessage msg, const void *extraData, size_t len)
 {
-  sendMsgToCoordinatorRaw(coordinatorSocket, msg, extraData, len);
+  sendMsgToCoordinatorRaw(coordinatorSocket(), msg, extraData, len);
 }
 
 void sendMsgToCoordinator(const DmtcpMessage &msg, const string &data)
 {
-  sendMsgToCoordinatorRaw(coordinatorSocket, msg,
+  sendMsgToCoordinatorRaw(coordinatorSocket(), msg,
                           data.c_str(), data.length() + 1);
 }
 
 void recvMsgFromCoordinator(DmtcpMessage *msg, void **extraData)
 {
-  recvMsgFromCoordinatorRaw(coordinatorSocket, msg, extraData);
+  recvMsgFromCoordinatorRaw(coordinatorSocket(), msg, extraData);
 }
 
 bool waitForBarrier(const string& barrier,
@@ -615,7 +619,7 @@ createNewConnToCoord(CoordinatorMode mode)
   }
 
   Util::changeFd(sockfd, PROTECTED_COORD_FD);
-  JASSERT(Util::isValidFd(coordinatorSocket));
+  JASSERT(Util::isValidFd(coordinatorSocket()));
 }
 
 DmtcpMessage
@@ -690,7 +694,7 @@ connectToCoordOnStartup(CoordinatorMode mode,
   DmtcpMessage hello_local(DMT_NEW_WORKER);
   hello_local.virtualPid = -1;
 
-  DmtcpMessage hello_remote = sendRecvHandshake(coordinatorSocket,
+  DmtcpMessage hello_remote = sendRecvHandshake(coordinatorSocket(),
                                                 hello_local,
                                                 progname);
 
@@ -705,7 +709,7 @@ connectToCoordOnStartup(CoordinatorMode mode,
   coordInfo->id = hello_remote.from.upid();
   coordInfo->timeStamp = hello_remote.coordTimeStamp;
   coordInfo->addrLen = sizeof (coordInfo->addr);
-  JASSERT(getpeername(coordinatorSocket,
+  JASSERT(getpeername(coordinatorSocket(),
                       (struct sockaddr*) &coordInfo->addr,
                       &coordInfo->addrLen) == 0)
     (JASSERT_ERRNO);
@@ -761,7 +765,7 @@ connectToCoordOnRestart(CoordinatorMode  mode,
   hello_local.numPeers = np;
   hello_local.compGroup = compGroup;
 
-  DmtcpMessage hello_remote = sendRecvHandshake(coordinatorSocket,
+  DmtcpMessage hello_remote = sendRecvHandshake(coordinatorSocket(),
                                                 hello_local,
                                                 progname,
                                                 &compGroup);
@@ -770,7 +774,7 @@ connectToCoordOnRestart(CoordinatorMode  mode,
     coordInfo->id = hello_remote.from.upid();
     coordInfo->timeStamp = hello_remote.coordTimeStamp;
     coordInfo->addrLen = sizeof(coordInfo->addr);
-    JASSERT(getpeername(coordinatorSocket,
+    JASSERT(getpeername(coordinatorSocket(),
                         (struct sockaddr *)&coordInfo->addr,
                         &coordInfo->addrLen) == 0)
       (JASSERT_ERRNO);
@@ -831,7 +835,7 @@ sendKeyValPairToCoordinator(const char *id,
   msg.keyLen = key_len;
   msg.valLen = val_len;
   msg.extraBytes = key_len + val_len;
-  int sock = coordinatorSocket;
+  int sock = coordinatorSocket();
   if (dmtcp_is_running_state()) {
     if (nsSock == -1) {
       nsSock = createNewSocketToCoordinator(COORD_ANY);
@@ -869,7 +873,7 @@ sendQueryToCoordinator(const char *id,
   msg.keyLen = key_len;
   msg.valLen = 0;
   msg.extraBytes = key_len;
-  int sock = coordinatorSocket;
+  int sock = coordinatorSocket();
 
   if (key == NULL || key_len == 0 || val == NULL || val_len == 0) {
     return 0;
@@ -880,7 +884,7 @@ sendQueryToCoordinator(const char *id,
       nsSock = createNewSocketToCoordinator(COORD_ANY);
       JASSERT(nsSock != -1);
       nsSock = Util::changeFd(nsSock, PROTECTED_NS_FD);
-      JASSERT(nsSock == PROTECTED_NS_FD);
+      JASSERT(nsSock == (int)PROTECTED_NS_FD);
       DmtcpMessage m(DMT_NAME_SERVICE_WORKER);
       JASSERT(Util::writeAll(nsSock, &m, sizeof(m)) == sizeof(m));
     }
@@ -920,7 +924,7 @@ int getUniqueIdFromCoordinator(const char *id,
   msg.extraBytes = key_len;
   msg.uniqueIdOffset = offset;
   msg.valLen = *val_len;
-  int sock = coordinatorSocket;
+  int sock = coordinatorSocket();
 
   if (key == NULL || key_len == 0 || val == NULL || val_len == 0) {
     return 0;
@@ -931,7 +935,7 @@ int getUniqueIdFromCoordinator(const char *id,
       nsSock = createNewSocketToCoordinator(COORD_ANY);
       JASSERT(nsSock != -1);
       nsSock = Util::changeFd(nsSock, PROTECTED_NS_FD);
-      JASSERT(nsSock == PROTECTED_NS_FD);
+      JASSERT(nsSock == (int)PROTECTED_NS_FD);
       DmtcpMessage m(DMT_NAME_SERVICE_WORKER);
       JASSERT(Util::writeAll(nsSock, &m, sizeof(m)) == sizeof(m));
     }
@@ -962,13 +966,13 @@ sendQueryAllToCoordinator(const char *id, void **buf, int *len)
 
   JWARNING(strlen(id) < sizeof(msg.nsid));
   strncpy(msg.nsid, id, sizeof msg.nsid);
-  int sock = coordinatorSocket;
+  int sock = coordinatorSocket();
   if (dmtcp_is_running_state()) {
     if (nsSock == -1) {
       nsSock = createNewSocketToCoordinator(COORD_ANY);
       JASSERT(nsSock != -1);
       nsSock = Util::changeFd(nsSock, PROTECTED_NS_FD);
-      JASSERT(nsSock == PROTECTED_NS_FD);
+      JASSERT(nsSock == (int)PROTECTED_NS_FD);
       DmtcpMessage m(DMT_NAME_SERVICE_WORKER);
       JASSERT(Util::writeAll(nsSock, &m, sizeof(m)) == sizeof(m));
     }
@@ -1034,7 +1038,7 @@ setupVirtualCoordinator(CoordinatorInfo *coordInfo, struct in_addr *localIP)
     .Text("Failed to create listen socket.");
 
   Util::changeFd(sock.sockfd(), PROTECTED_COORD_FD);
-  JASSERT(Util::isValidFd(coordinatorSocket));
+  JASSERT(Util::isValidFd(coordinatorSocket()));
 
   setCoordPort(sock.port());
 
@@ -1085,7 +1089,7 @@ waitForCheckpointCommand()
     }
 
     struct pollfd socketFd = {0};
-    socketFd.fd = coordinatorSocket;
+    socketFd.fd = coordinatorSocket();
     socketFd.events = POLLIN;
     uint64_t millis = timeout ? ((timeout->tv_sec * (uint64_t)1000) +
                                  (timeout->tv_usec / 1000))
@@ -1118,7 +1122,7 @@ waitForCheckpointCommand()
   DmtcpMessage reply(DMT_USER_CMD_RESULT);
   do {
     cmdSock.close();
-    jalib::JServerSocket sock(coordinatorSocket);
+    jalib::JServerSocket sock(coordinatorSocket());
     cmdSock = sock.accept();
     msg.poison();
     JTRACE("Reading from incoming connection...");

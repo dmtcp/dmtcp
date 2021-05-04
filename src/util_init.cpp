@@ -23,7 +23,9 @@
 #include <fcntl.h>
 #include <pwd.h>
 #include <string.h>
+#include <sys/resource.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <sys/types.h>
 #include "../jalib/jassert.h"
 #include "../jalib/jconvert.h"
@@ -168,4 +170,62 @@ Util::initializeLogFile(const char *tmpDir,
   jassert_quiet = 2;
 #endif // ifdef QUIET
   unsetenv(ENV_VAR_STDERR_PATH);
+}
+
+#define FD_IS_OPEN(fd) (fcntl(fd, F_GETFL) != -1 || errno != EBADF)
+static void migrateProtectedFdBase(int fromBaseFd, int toBaseFd) {
+  int fromFd, toFd;
+  int num_fds = PROTECTED_FD_END - PROTECTED_FD_START;
+  // The range of protected fds for fromBaseFd and toBaseFd might overlap.
+  // So, dup2 from low fd to high fd, or from high fd to low fd, depending.
+  // toBaseFd < fromBaseFd; So, copy from low protected fd to high protected fd
+  if (toBaseFd < fromBaseFd) {
+    for (toFd = toBaseFd, fromFd = fromBaseFd;
+         toFd < toBaseFd + num_fds;
+         toFd++, fromFd++) {
+      if (FD_IS_OPEN(fromFd)) {
+        JASSERT(!FD_IS_OPEN(toFd))(toFd);
+        dup2(fromFd, toFd);
+        JASSERT(_real_close(fromFd) != -1)(JASSERT_ERRNO);
+      }
+    }
+  }
+  // toBaseFd > fromBaseFd; So, copy from high protected fd to low protected fd
+  if (toBaseFd > fromBaseFd) {
+    for (toFd = toBaseFd + num_fds - 1, fromFd = fromBaseFd + num_fds - 1;
+         toFd >= toBaseFd;
+         toFd--, fromFd--) {
+      if (FD_IS_OPEN(fromFd)) {
+        JASSERT(!FD_IS_OPEN(toFd))(toFd);
+        dup2(fromFd, toFd);
+        JASSERT(_real_close(fromFd) != -1)(JASSERT_ERRNO);
+      }
+    }
+  }
+  // toBaseFd == fromBaseFd; Nothing to do.
+}
+
+// NOTE:  This should be called only when no other thread would be
+// using the protected fd's:  e.g., dmtcp_launch, exec of new program.
+void Util::setProtectedFdBase()
+{
+  struct rlimit rlim = {0};
+  char protectedFdBaseBuf[64] = {0};
+  uint32_t base = 0;
+  // Check the max no. of FDs supported for the process
+  if (getrlimit(RLIMIT_NOFILE, &rlim) < 0) {
+    JWARNING(false)(JASSERT_ERRNO)
+            .Text("Could not figure out the max. number of fds");
+    return;
+  }
+  base = rlim.rlim_cur - (PROTECTED_FD_END - PROTECTED_FD_START) - 1;
+  JTRACE("new protected base for fd's")(base);
+  if (getenv(ENV_VAR_PROTECTED_FD_BASE) != NULL) {
+    int fromBaseFd = atol(getenv(ENV_VAR_PROTECTED_FD_BASE));
+    migrateProtectedFdBase(fromBaseFd, base);
+    JTRACE("old protected base for fd's")(fromBaseFd);
+  }
+  snprintf(protectedFdBaseBuf, sizeof protectedFdBaseBuf, "%u", base);
+  JASSERT(base).Text("Setting the base of protected fds to");
+  setenv(ENV_VAR_PROTECTED_FD_BASE, protectedFdBaseBuf, 1);
 }

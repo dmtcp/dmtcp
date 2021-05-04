@@ -442,6 +442,7 @@ dmtcpPrepareForExec(const char *path,
   JTRACE("Will exec filename instead of path") (path) (*filename);
 
   Util::adjustRlimitStack();
+  Util::setProtectedFdBase();
 
   // Remove FD_CLOEXEC flag from protected file descriptors.
   for (size_t i = PROTECTED_FD_START; i < PROTECTED_FD_END; i++) {

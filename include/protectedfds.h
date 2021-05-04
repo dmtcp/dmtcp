@@ -22,30 +22,71 @@
 #ifndef DMTCPPROTECTEDFDS_H
 #define DMTCPPROTECTEDFDS_H
 
+#include <stdint.h>
+#include <stdlib.h>
+
+#define DEFAULT_PROTECTED_FD_BASE   820
+
+uint32_t protectedFdBase();
+
+inline uint32_t protectedFdBase()
+{
+  static uint32_t base = DEFAULT_PROTECTED_FD_BASE;
+  const char *buf = getenv("DMTCP_PROTECTED_FD_BASE");
+
+  if (buf) {
+    base = atol(buf);
+  }
+  return base;
+}
+
 enum ProtectedFds {
-  PROTECTED_FD_START = 820,
-  PROTECTED_COORD_FD,
-  PROTECTED_VIRT_COORD_FD,
-  PROTECTED_RESTORE_IP4_SOCK_FD,
-  PROTECTED_RESTORE_IP6_SOCK_FD,
-  PROTECTED_RESTORE_UDS_SOCK_FD,
-  PROTECTED_COORD_ALT_FD,
-  PROTECTED_STDERR_FD,
-  PROTECTED_JASSERTLOG_FD,
-  PROTECTED_LIFEBOAT_FD,
-  PROTECTED_CKPT_DIR_FD,
-  PROTECTED_SHM_FD,
-  PROTECTED_PIDMAP_FD,
-  PROTECTED_PTRACE_FD,
-  PROTECTED_FILE_FDREWIRER_FD,
-  PROTECTED_SOCKET_FDREWIRER_FD,
-  PROTECTED_EVENT_FDREWIRER_FD,
-  PROTECTED_READLOG_FD,
-  PROTECTED_ENVIRON_FD,
-  PROTECTED_NS_FD,
-  PROTECTED_DEBUG_SOCKET_FD,
-  PROTECTED_FD_END
+  FD_START = 0,
+  COORD_FD,
+  VIRT_COORD_FD,
+  RESTORE_IP4_SOCK_FD,
+  RESTORE_IP6_SOCK_FD,
+  RESTORE_UDS_SOCK_FD,
+  COORD_ALT_FD,
+  STDERR_FD,
+  JASSERTLOG_FD,
+  LIFEBOAT_FD,
+  CKPT_DIR_FD,
+  SHM_FD,
+  PIDMAP_FD,
+  PTRACE_FD,
+  FILE_FDREWIRER_FD,
+  SOCKET_FDREWIRER_FD,
+  EVENT_FDREWIRER_FD,
+  READLOG_FD,
+  ENVIRON_FD,
+  NS_FD,
+  DEBUG_SOCKET_FD,
+  FD_END
 };
+
+#define PROTECTED_FD_START               (protectedFdBase() + FD_START)
+#define PROTECTED_COORD_FD               protectedFdBase() + COORD_FD
+#define PROTECTED_VIRT_COORD_FD          protectedFdBase() + VIRT_COORD_FD
+#define PROTECTED_RESTORE_IP4_SOCK_FD    protectedFdBase() + RESTORE_IP4_SOCK_FD
+#define PROTECTED_RESTORE_IP6_SOCK_FD    protectedFdBase() + RESTORE_IP6_SOCK_FD
+#define PROTECTED_RESTORE_UDS_SOCK_FD    protectedFdBase() + RESTORE_UDS_SOCK_FD
+#define PROTECTED_COORD_ALT_FD           protectedFdBase() + COORD_ALT_FD
+#define PROTECTED_STDERR_FD              protectedFdBase() + STDERR_FD
+#define PROTECTED_JASSERTLOG_FD          protectedFdBase() + JASSERTLOG_FD
+#define PROTECTED_LIFEBOAT_FD            protectedFdBase() + LIFEBOAT_FD
+#define PROTECTED_CKPT_DIR_FD            protectedFdBase() + CKPT_DIR_FD
+#define PROTECTED_SHM_FD                 protectedFdBase() + SHM_FD
+#define PROTECTED_PIDMAP_FD              protectedFdBase() + PIDMAP_FD
+#define PROTECTED_PTRACE_FD              protectedFdBase() + PTRACE_FD
+#define PROTECTED_FILE_FDREWIRER_FD      protectedFdBase() + FILE_FDREWIRER_FD
+#define PROTECTED_SOCKET_FDREWIRER_FD    protectedFdBase() + SOCKET_FDREWIRER_FD
+#define PROTECTED_EVENT_FDREWIRER_FD     protectedFdBase() + EVENT_FDREWIRER_FD
+#define PROTECTED_READLOG_FD             protectedFdBase() + READLOG_FD
+#define PROTECTED_ENVIRON_FD             protectedFdBase() + ENVIRON_FD
+#define PROTECTED_NS_FD                  protectedFdBase() + NS_FD
+#define PROTECTED_DEBUG_SOCKET_FD        protectedFdBase() + DEBUG_SOCKET_FD
+#define PROTECTED_FD_END                 protectedFdBase() + FD_END
 
 #define DMTCP_IS_PROTECTED_FD(fd) \
   ((fd) > PROTECTED_FD_START && (fd) < PROTECTED_FD_END)
