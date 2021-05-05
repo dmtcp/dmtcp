@@ -140,6 +140,8 @@ static const char *usage =
   "  --interval, -i, (environment variable DMTCP_CHECKPOINT_INTERVAL):\n"
   "      Time in seconds between automatic checkpoints\n"
   "      (Default: Use pre-checkpoint value)\n"
+  "  --exit-after-ckpt:\n"
+  "      The ckpt after which the program should exit\n"
   "  --coord-logfile PATH (environment variable DMTCP_COORD_LOG_FILENAME\n"
   "              Coordinator will dump its logs to the given file\n"
   "  --help:\n"
@@ -187,6 +189,9 @@ static const char *cmdlineArgHandler =
   "        --interval|-i)\n"
   "          checkpoint_interval=$2\n"
   "          shift; shift;;\n"
+  "        --exit-after-ckpt)\n"
+  "          exit_after_ckpt=$2\n"
+  "          shift; shift;;\n"
   "        *)\n"
   "          echo \"$0: unrecognized option \'$1\'. See correct usage below\"\n"
   "          echo \"$usage_str\"\n"
@@ -232,8 +237,13 @@ static const char *singleHostProcessing =
   "  coord_logfile=\"--coord-logfile $DMTCP_COORD_LOGFILE\"\n"
   "fi\n\n"
 
+  "exit_aftr_ckpt=\n"
+  "if [ ! -z \"$exit_after_ckpt\" ]; then\n"
+  "  exit_aftr_ckpt=\"--exit-after-ckpt $exit_after_ckpt\"\n"
+  "fi\n\n"
+
   "exec $dmt_rstr_cmd $coordinator_info $ckpt_dir \\\n"
-  "  $maybejoin --interval \"$checkpoint_interval\" $tmpdir $noStrictChecking $coord_logfile\\\n"
+  "  $maybejoin --interval \"$checkpoint_interval\" $exit_aftr_ckpt $tmpdir $noStrictChecking $coord_logfile\\\n"
   "  $ckpt_files\n"
 ;
 
@@ -305,6 +315,11 @@ static const char *multiHostProcessing =
   "  coord_logfile=\"--coord-logfile $DMTCP_COORD_LOGFILE\"\n"
   "fi\n\n"
 
+  "exit_aftr_ckpt=\n"
+  "if [ ! -z \"$exit_after_ckpt\" ]; then\n"
+  "  exit_aftr_ckpt=\"--exit-after-ckpt $exit_after_ckpt\"\n"
+  "fi\n\n"
+
   "  check_local $worker_host\n"
   "  if [ \"$is_local_node\" -eq 1 -o \"$num_worker_hosts\" == \"1\" ]; then\n"
   "    localhost_ckpt_files_group=\"$new_ckpt_files_group $localhost_ckpt_files_group\"\n"
@@ -315,7 +330,7 @@ static const char *multiHostProcessing =
   "    $maybexterm /usr/bin/$remote_shell_cmd -t \"$worker_host\" \\\n"
   "      $dmt_rstr_cmd --coord-host \"$coord_host\""
                                              " --cord-port \"$coord_port\"\\\n"
-  "      $ckpt_dir --join-coordinator --interval \"$checkpoint_interval\""
+  "      $ckpt_dir --join-coordinator --interval \"$checkpoint_interval\" $exit_aftr_ckpt"
                                              " $tmpdir \\\n"
   "      $new_ckpt_files_group\n"
   "  else\n"
@@ -324,7 +339,7 @@ static const char *multiHostProcessing =
   // end of the computation until user presses enter key.
   "      \"/bin/sh -c \'$dmt_rstr_cmd --coord-host $coord_host"
                                                 " --coord-port $coord_port\\\n"
-  "      $ckpt_dir --join-coordinator --interval \"$checkpoint_interval\""
+  "      $ckpt_dir --join-coordinator --interval \"$checkpoint_interval\" $exit_aftr_ckpt"
                                                 " $tmpdir \\\n"
   "      $new_ckpt_files_group\'\" &\n"
   "  fi\n\n"
@@ -332,7 +347,7 @@ static const char *multiHostProcessing =
   "if [ -n \"$localhost_ckpt_files_group\" ]; then\n"
   "exec $dmt_rstr_cmd --coord-host \"$coord_host\""
   " --coord-port \"$coord_port\" $coord_logfile \\\n"
-  "  $ckpt_dir $maybejoin --interval \"$checkpoint_interval\" $tmpdir $noStrictChecking $localhost_ckpt_files_group\n"
+  "  $ckpt_dir $maybejoin --interval \"$checkpoint_interval\" $exit_aftr_ckpt $tmpdir $noStrictChecking $localhost_ckpt_files_group\n"
   "fi\n\n"
 
   "#wait for them all to finish\n"
