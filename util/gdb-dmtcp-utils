@@ -63,6 +63,8 @@ def print_dmtcp_commands():
 
 
 def is_executable(filename):
+  if not os.path.exists(filename):
+    return False
   # 16 bytes for ELF magic number; then 2 bytes (short) for ELF type
   header = open(filename, "rb")
   elf_magic_number = header.read(16)
@@ -132,7 +134,8 @@ class AddSymbolFileFromSubstring(gdb.Command):
 
   def invoke(self, filename_substring, from_tty):
     (filename, base_addr, _) = memory_region(filename_substring)
-    add_symbol_files_from_filename(filename, base_addr)
+    if filename:
+      add_symbol_files_from_filename(filename, base_addr)
 # This will add the new gdb command: add-symbol-file-from-substring FILENAME
 AddSymbolFileFromSubstring()
 
@@ -172,6 +175,7 @@ class ShowFilenameAtAddress(gdb.Command):
           memory_region = "%s (r-x): 0x%x-0x%x" % \
                           memory_region_at_address(memory_address)
           gdb.execute('print "' + memory_region + '"', False, False)
+          gdb.execute('info symbol ' + memory_address)
 # This will add the new gdb command: show-filename-at-address MEMORY_ADDRESS
 ShowFilenameAtAddress()
 try:
@@ -193,8 +197,10 @@ class AddSymbolFileAtAddress(gdb.Command):
       gdb.execute('print "Process not yet started"', False, False)
     else:
       (filename, base_addr, _) = memory_region_at_address(address)
-      if filename == "NOT_FOUND":
-        gdb.execute('print "Memory address not found"', False, False)
+      print(filename, base_addr)
+      if filename.startswith("NOT_FOUND"):
+        gdb.execute('print "*** Memory address ' + address + ' not found"',
+                    False, False)
       else:
         add_symbol_files_from_filename(filename, base_addr)
 # This will add the new gdb command: add-symbol-file-at-address MEMORY_ADDRESS
@@ -222,6 +228,8 @@ AddSymbolFilesAll()
 
 
 def add_symbol_files_from_filename(filename, base_addr):
+  if not os.path.exists(filename):
+    return
   if is_executable(filename):
     base_addr = 0  # ELF executables already hard-wired absolute address
   (textaddr, sections) = relocatesections(filename)
@@ -246,9 +254,14 @@ class Procmaps(gdb.Command):
   def invoke(self, dummy_args, from_tty):
     if getpid() == 0:
       gdb.execute('print "Process not yet started; type \'run\'"', False, False)
+    elif (os.path.exists("/proc/" + str(getpid()) + "/maps") and
+          getpid() != 1):
+      # In Linux 4.12, gdb 8.3, our getpid()==1,
+      #   /proc/1/maps has read permission, but "Permission denied"
+      rc = gdb.execute("shell cat /proc/" + str(getpid()) + "/maps | less",
+                       False, True)
     else:
-      gdb.execute("shell cat /proc/" + str(getpid()) + "/maps | less",
-                  False, True)
+      gdb.execute("info proc mappings")
 Procmaps()
 
 class Procfd(gdb.Command):
@@ -347,12 +360,17 @@ Signals()
 # For /proc/*/maps line: ADDR1-ADDR2 ... FILE; returns (FILE, ADDR1, ADDR2)
 def procmap_filename_address(line):
   triple = line.split()
+  if line[0] == ' ':  # if this came from (gdb) info proc mapping
+    if '/' in triple[-1]:
+      return (triple[-1],) + (int(triple[0], 16),) + (int(triple[1], 16),)
+    else:
+      return ("NO_LABEL",) + (int(triple[0], 16),) + (int(triple[1], 16),)
   if '/' in triple[-2]:  # if procmaps line ends in "/tmp/a.out (deleted)"
     triple[-1] = triple[-2] + ' ' + triple[-1]
   return (triple[-1],) + \
          tuple([int("0x"+elt, 16) for elt in triple[0].split("-")])
 def is_text_segment(procmap_line):
-  return "r-x" in procmap_line and \
+  return "/dev/" not in procmap_line and "r-x" in procmap_line and \
          (procmap_line == "" or procmap_line.isspace() or '/' in procmap_line)
 def memory_regions():
   if getpid() == 0:
@@ -362,13 +380,29 @@ def memory_regions():
                        stdout = subprocess.PIPE)
   procmap_lines = [line.decode("utf-8").strip()
                    for line in p.stdout.readlines()]
-  return [procmap_filename_address(memory) for memory in procmap_lines
+  if not procmap_lines:
+    procmap_lines = gdb.execute("info proc mappings", False, True).split('\n')
+    unfiltered = [procmap_filename_address(memory) for memory in procmap_lines
+                                  if " 0x" in memory and "/dev/" not in memory]
+  else:
+    unfiltered = [procmap_filename_address(memory) for memory in procmap_lines
                                            if is_text_segment(memory)]
+  unique_filenames = []
+  unique_regions = []
+  for memory in unfiltered:
+    if memory[0] not in unique_filenames:
+      unique_filenames.append(memory[0])
+      unique_regions.append(memory)
+  return unique_regions
 
 # Returns triple:  (filename, base_address, end_address)
 def memory_region(filename_substring):
   regions = memory_regions()
-  return [region for region in regions if filename_substring in region[0]][0]
+  tmp = [region for region in regions if filename_substring in region[0]]
+  if tmp:
+    return tmp[0]
+  else:
+    return ("", 0, 0)
 
 
 def memory_region_at_address(memory_address):
