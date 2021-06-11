@@ -1,0 +1,139 @@
+'\" t
+.\" Manual page created with latex2man on Tue Nov 14 06:26:54 EST 2017
+.\" NOTE: This file is generated, DO NOT EDIT.
+.de Vb
+.ft CW
+.nf
+..
+.de Ve
+.ft R
+
+.fi
+..
+.TH "DMTCP\\_COORDINATOR" "1" "November, 2017" "Distributed MultiThreaded CheckPointing " "Distributed MultiThreaded CheckPointing "
+.SH NAME
+
+\fBdmtcp_coordinater\fP
+\-\- coordinates checkpoints among multiple processes. 
+.PP
+.SH SYNOPSIS
+
+\fBdmtcp_coordinater\fP
+[\fIOPTIONS\fP]
+.PP
+.SH DESCRIPTION
+
+.PP
+\fBdmtcp_coordinator\fP
+coordinates checkpoints among multiple processes. 
+.PP
+.SH OPTIONS
+
+.PP
+.TP
+\fB\-p\fP, 
+\fB\-\-coord\-port\fP \fIport\fP (environment variable DMTCP_COORD_PORT)
+ Port to listen on (default: 7779) 
+.PP
+.TP
+\fB\-\-port\-file\fP \fIfilename\fP
+ File to write listener port number. 
+(Useful with \fB\-\-coord\-port 0\fP,
+which is used to assign a random port) 
+.PP
+.TP
+\fB\-\-ckptdir\fP \fIpath\fP (environment variable DMTCP_CHECKPOINT_DIR)
+ Directory to store dmtcp_restart_script.sh (default: \&./) 
+.PP
+.TP
+\fB\-\-tmpdir\fP \fIpath\fP (environment variable DMTCP_TMPDIR)
+ Directory to store temporary files (default: env var TMDPIR or /tmp)
+.PP
+.TP
+\fB\-\-exit\-on\-last\fP
+ Exit automatically when last client disconnects 
+.PP
+.TP
+\fB\-\-exit\-after\-ckpt\fP
+ Exit automatically after checkpoint is created 
+.PP
+.TP
+\fB\-\-daemon\fP
+ Run silently in the background after detaching from the parent process. 
+.PP
+.TP
+\fB\-i\fP, 
+\fB\-\-interval\fP \fI<val>\fP (environment variable DMTCP_CHECKPOINT_INTERVAL)
+ Time in seconds between automatic checkpoints (default: 0, disabled) 
+.PP
+.TP
+\fB\-q\fP, \fB\-\-quiet\fP
+ Skip copyright notice. 
+.PP
+.TP
+\fB\-\-help\fP
+ Print this message and exit. 
+.PP
+.TP
+\fB\-\-version\fP
+ Print version information and exit. 
+.PP
+.SS Commands for Coordinator
+.PP
+\fBl\fP:
+List connected nodes
+.br
+\fBs\fP:
+Print status message
+.br
+\fBc\fP:
+Checkpoint all nodes
+.br
+\fBi\fP:
+Print current checkpoint interval
+.br
+\fB \fP\fB \fP\fB \fP(To change checkpoint interval, use dmtcp_command)
+.br 
+\fBk\fP:
+Kill all nodes
+.br
+\fBq\fP:
+Kill all nodes and quit
+.br
+\fB?\fP:
+Show this message
+.br
+.SH REPORTING BUGS
+
+Report bugs to: dmtcp\-forum@lists.sourceforge.net
+.br
+DMTCP home page: <http://dmtcp.sourceforge.net> 
+.PP
+.SH SEE ALSO
+
+\fBdmtcp\fP(1),
+\fBdmtcp_coordinator\fP(1),
+\fBdmtcp_launch\fP(1),
+\fBdmtcp_restart\fP(1),
+\fBdmtcp_command\fP(1)
+.PP
+.SH AUTHOR
+
+See /usr/share/doc/dmtcp\-3.0.0/AUTHORS.
+.PP
+.SH VERSION
+
+.PP
+DMTCP version 3.0.0 of November, 2017\&.
+.PP
+.SH COPYRIGHT
+
+See /usr/share/doc/dmtcp\-3.0.0/COPYING file.
+.PP
+License LGPLv3+: GNU LGPL version 3 or later <http://gnu.org/licenses/lgpl.html>. 
+.PP
+This program comes with ABSOLUTELY NO WARRANTY. 
+This is free software, and you are welcome to redistribute it under certain 
+conditions; see COPYING file for details. 
+.PP
+.\" NOTE: This file is generated, DO NOT EDIT.
