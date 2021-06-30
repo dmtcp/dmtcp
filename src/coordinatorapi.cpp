@@ -518,8 +518,8 @@ bool waitForBarrier(const string& barrier,
 void
 startNewCoordinator(CoordinatorMode mode)
 {
-  string host;
-  int port;
+  string host = "";
+  int port = UNINITIALIZED_PORT;
   getCoordHostAndPort(mode, &host, &port);
 
   JASSERT(strcmp(host.c_str(), "localhost") == 0 ||
