@@ -53,8 +53,8 @@ MANPAGES_AUTOGEN=dmtcp_nocheckpoint.1.gz mtcp_restart.1.gz \
 		 dmtcp_ssh.1.gz dmtcp_sshd.1.gz \
 		 dmtcp_discover_rm.1.gz dmtcp_rm_loclaunch.1.gz
 
-MANPAGES=dmtcp.1.gz dmtcp_coordinator.1.gz dmtcp_command.1.gz dmtcp_launch.1.gz \
-	 dmtcp_restart.1.gz
+MANPAGES=dmtcp.1.gz dmtcp_coordinator.1.gz dmtcp_command.1.gz \
+	 dmtcp_launch.1.gz dmtcp_restart.1.gz mana.1.gz
 
 # Macros TEST and XTERM_E used on command line by check1, check2, ...:
 #   make TEST=readline XTERM_E="xterm -e" check-readline
@@ -123,6 +123,45 @@ ifeq ($(M32),1)
 endif
 
 all: default
+
+mana: mana_prereqs
+	$(MAKE) mana_part2
+mana_part2: default \
+	bin/mana_launch bin/mana_restart bin/mana_coordinator bin/mana_status
+	cd contrib/mpi-proxy-split && make install && make -j tests
+
+${targetdir}/bin/mana_launch: src/mana_launch.sh
+	cp src/mana_launch.sh ${targetdir}/bin/mana_launch
+${targetdir}/bin/mana_restart: src/mana_restart.sh
+	cp src/mana_restart.sh ${targetdir}/bin/mana_restart
+${targetdir}/bin/mana_coordinator: src/mana_coordinator.sh
+	cp src/mana_coordinator.sh ${targetdir}/bin/mana_coordinator
+	cp src/mana_coordinator.sh ${targetdir}/bin/mana_start_coordinator
+${targetdir}/bin/mana_status: src/mana_status.sh
+	cp src/mana_status.sh ${targetdir}/bin/mana_status
+
+mana_prereqs:
+	@ if test -n "$$HUGETLB_DEFAULT_PAGE_SIZE"; then \
+	  echo '** Env. var. HUGETLB_DEFAULT_PAGE_SIZE detected.'; \
+	  echo '**   Currently, DMTCP can support targets that use HUGEPAGES.';\
+	  echo '**   But DMTCP itself must be built without HUGEPAGES.'; \
+	  echo '**   Please temporarily do: "module unload *hugepages*"'; \
+	  exit 1; \
+	fi
+	@ # The darshan module is used at NERSC.
+	@ if command -v module >/dev/null && module list 2>&1| grep -q darshan;\
+	  then \
+	    echo '** DMTCP is incompatible with the darshan module.'; \
+	    echo '** Please do "module unload darshan" before building DMTCP.';\
+	    exit 1; \
+	fi
+	@ # The altd module is used at NERSC.
+	@ if command -v module >/dev/null && module list 2>&1| grep -q altd;\
+	  then \
+	    echo '** DMTCP is incompatible with the altd module.'; \
+	    echo '** Please do "module unload altd" before building DMTCP.';\
+	    exit 1; \
+	fi
 
 display-build-env: display-config display-release
 	@- uname -a

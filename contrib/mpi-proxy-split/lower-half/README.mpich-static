@@ -1,0 +1,58 @@
+                INSTALLING A STATIC LIBRARY FOR MPICH
+
+MANA uses a static MPICH library for its lower half.  (But the application
+is still compiled normally as a dynamically linked executable.)
+
+The MPICH library, at least as packaged in CentOS 7, requires:
+  * libxml2: found in libxml2-static package, but often not installed
+  * libzma.a: not provided in any package; see instructions below
+  * libz.a: found in zlib-static package, but often not installed
+Both of these libraries can be installed in your own account, without
+root privilege.
+
+You will want to do:  module load mpich  (or build libmpi.a from source)
+
+When compiling statically, it reported that libxml2 was missing.
+  https://centos.pkgs.org/7/centos-x86_64/libxml2-static-2.9.1-6.el7.5.i686.rpm.html
+    http://mirror.centos.org/centos/7/os/x86_64/Packages/libxml2-static-2.9.1-6.el7.5.x86_64.rpm
+
+To unpack an rpm:
+  rpm2cpio libxml2-static-2.9.1-6.el7.5.x86_64.rpm | cpio -idv
+
+This will need libz.a from the zlib-static package
+    for inflateEnd, inflateReset, etc.:
+  https://centos.pkgs.org/7/centos-x86_64/zlib-static-1.2.7-18.el7.x86_64.rpm.html
+    http://mirror.centos.org/centos/7/os/x86_64/Packages/zlib-static-1.2.7-18.el7.x86_64.rpm
+
+That, in turn, needs libzma.a, which is not provided in CentOS 7 from pkg xz.
+However, you will need xz-dev instead of xz.
+To get around this, see this comment:
+  https://forums.centos.org/viewtopic.php?t=52214
+which says to build from the source package:
+  https://centos.pkgs.org/7/centos-x86_64/xz-devel-5.2.2-1.el7.x86_64.rpm.html
+    http://vault.centos.org/7.9.2009/os/Source/SPackages/xz-5.2.2-1.el7.src.rpm
+      mkdir liblzma_TEMP && cd liblzma_TEMP
+      yumdownloader --source xz-devel # Or find it on the web and download
+      rpm2cpio xz-5.1.2-9alpha.el7.src.rpm | cpio -idv
+      tar xf xz-5.1.2alpha.tar.gz
+      cd xz-5.1.2alpha
+      # Apply all patches from the package.  For this version, the patches were:
+      patch -Np1 < ../xz-5.2.2-compat-libs.patch
+      patch -Np1 < ../xz-5.2.2-man-page-day.patch 
+      ./configure --enable-static
+      make
+      [ FILE found in: ./src/liblzma/.libs/liblzma.a.; Copy to your usr/lib64/ ]
+
+This should now compile and work in simple environments.  Here, we have
+an example of compiling an MPI program, pingpong.c, into a.out:
+  mpicc -static pingpong.c -L$HOME/mpich-static/usr/lib64 -llzma -lz -lm \
+        -Wl,--unresolved-symbols=ignore-all 
+  [ Or you may be able to use:  -Wl,-start-group ... -Wl,-end-group ]
+
+Then run.  Something like one of:
+  ^ mpirun -np 2 ./a.out
+  ^ srun -N1 -n2 mpirun -np 2 ./a.out
+  ^ salloc -N1 -n2
+      mpirun -np 2 ./a.out
+[ At least on the Northeastern Discovery cluster with MPICH in 2021,
+  only the first form works. ]

@@ -1,0 +1,167 @@
+CONTENTS:
+ * General notes for building, testing and running on Cori supercomputer
+ * Debugging internals of MANA
+ * Building and testing on ordinary CentOS 7 (not the Cori supercomputer)
+
+================================================================================
+General notes for building, testing and running on Cori supercomputer:
+
+The main pointers for background information on MANA are:
+
+MANA at github:
+  https://github.com/mpickpt/mana/tree/refactoring
+  (This is the refactoring branch of https://github.com/mpickpt/mana;
+   soon, this should be merged into the 'master' branch.)
+and MANA documentation:
+  https://docs.google.com/document/d/1pT25gvMNeT1Vz4SU6Gp4Hx9MGLfkK8ZK-sSOwtu5R50/edit
+
+Building MANA:
+  cd MANA_ROOT_DIR && ./configure --enable-debug && make -j mana
+
+The main scripts for this:
+  mana_coordinator, mana_launch, mana_restart, mana_status
+See MANA_ROOT_DIR/manpages/mana.1 for the MANA man page.
+
+At this time, the steps to build MANA (on Cori) are roughly as follows.
+
+  module unload craype-hugepages2M
+  # Modify the salloc command according to your needs:
+  salloc -N 1 -C haswell -q interactive -t 03:00:00
+  git clone https://github.com/mpickpt/mana
+  git checkout refactoring  # current development branch; later to be 'master'
+  cd mana
+  # Development branch.  (Eventually, the 'master' branch will be preferred.)
+  git checkout refactoring
+  ./configure
+  make -j  # Build in source directory: create bin, lib directories.
+  pushd contrib/mpi-proxy-split  # Go to plugin directory.
+  (cd test && make -j)
+  make install
+  pushd  # Go back to the MANA root directory
+  make -j  # Make it again. The plugin 'make' added an extra file to core DMTCP.
+  pushd  # Go back to plugin directory: mpi-proxy-split
+  cd test # We're now in:  contrib/mpi-proxy-split/test
+
+To test MANA, see the MANA man page.  A short version is:
+  export MANA_ROOT=$HOME/mana  # Adjust for your directory.
+  cd $MANA_ROOT/contrib/mpi-proxy-split/test
+  make tidy # Remove old ckpt files from a previous session.
+  $MANA_ROOT/bin/mana_coordinator
+  # This does interval checkpointing every 5 seconds.
+  make mpi_hello_world.mana.exe
+  srun -n 1 $MANA_ROOT/bin/mana_launch -i5 ./mpi_hello_world.mana.exe
+  # [ creates ckpt:   ls ckpt_rank_*/ckpt_*.dmtcp ]
+  $MANA_ROOT/bin/mana_coordinator
+  srun -n 1 $MANA_ROOT/bin/mana_restart
+
+To see if a coordinator (or other process) is already running do:
+  ps uxw
+For the status of the various MANA ranks/processes, do:
+  $MANA_ROOT/bin/mana_status -l
+
+================================================================================
+Debugging internals of MANA:
+
+For either command line with srun (or mpirun), prefix the command line
+with 'DMTCP_MANA_PAUSE=1' and run the command in the background:
+  DMTCP_MANA_PAUSE=1 srun/mpirun ... &
+It will stop with a printout about how to attach in GDB.  Execute that command.
+Then:  (gdb) p dummy=0
+
+If you're debugging dmtcp_launch:
+  DMTCP_MANA_PAUSE=1 srun -n 1 $MANA_ROOT/bin/dmtcp_launch ...
+then it will drop you inside dmtcp_launch.  To reach, for example,
+mpi-proxy-split/split-process.c:splitProcess(), then do:
+  (gdb) b execvp
+  (gdb) continue
+  (gdb) b splitProcess
+  (gdb) continue
+This is in a global constructor that executes before main.  To reach 'main'
+of the target executable, do 'b main' instead.
+
+Similarly for dmtcp_restart, DMTCP_MANA_PAUSE=1 drops you in
+  src/mtcp/mtcp_restart.c shortly before mtcp_restart.c:splitProcess().
+If you want to reach the target executable, use DMTCP_RESTART_PAUSE=1 instead.
+
+When debugging in GDB, you can switch back and forth between upper half and
+lower half programs as follows (assuming you're in .../mpi-proxy-split/test).
+This is useful for examining both the upper and lower half stacks.
+  (gdb) file ../../../lh_proxy
+  (gdb) file ../mpi_hello_world.mana.exe
+If you had previously set a breakpoint before switching, then use:
+  (gdb) set breakpoint always-inserted on
+before switching among lower and upper halves.
+
+When debugging with GDB after restart, if you are debugging inside the
+target application, then a good strategy is:
+  DMTCP_RESTART_PAUSE=1 srun -n 1 $MANA_ROOT/bin/dmtcp_restart ...
+It will pause, with instructions:
+  (gdb) p dummy=0
+  (gdb) source DMTCP_ROOT/util/gdb-add-symbol-files-all
+  (gdb) add-symbol-files-all
+The script gdb-add-symbol-files-all is a workaround that became necessary
+since Linux 3.10, when Linux created a backwards-incompatible change
+after which GDB has been failing to find the symbols for debugging.
+
+================================================================================
+Building and testing on ordinary CentOS/Ubuntu (not the Cori supercomputer):
+
+Before going into details, there are a few prerequisites:
+A.  We have only tested with MPICH, not Open MPI.  Open MPI doesn't
+    seem to support a statically linked MPI library.  (MANA uses a
+    static MPI library in its lower half, while the MPI application continues
+    to be linked dynamically  MANA's lower-half static MPI library can
+    be replaced by a standard dynamic MPI library, but this would requires
+    further work, and is not a current priority.)
+B.  The MPICH package supplied with CentOS 7 provides mpicc, which
+    accepts a '-static' flag.  But this is not sufficient for
+    actual use.  To configure MANA to work with MPICH and '-static', see:
+      MANA_ROOT_DIR/contrib/mpi-proxy-split/lower-half/README.mpich-static
+C.  Note MANA_ROOT_DIR/contrib/mpi-proxy-split/Makefile_configure.in
+    for additional customization (for example, not Cori, not MPICH).
+D.  OPTIONAL: Probably the 'configure' above suffices.  But if 'mpicc -show'
+    indicates a flag '-lxml2' anyway, then this will create a dependency on
+    libxml2.a.  Even if you have installed the package 'libxml2', then you
+    _must_ also install 'libxml2-dev' (libxml2-devel in CentOS) to get
+    'libxml2.a'.
+    (If you are missing libxml2.a and lack root privilege, try copying libxml2.a
+     from some distro package, as described in README.mpich-static.)
+
+Building outside of Cori for MPICH:
+If you have satisfied the prerequisites above, then do 'make -j mana'
+and continue as for Cori.
+
+===
+Testing and running is mostly the same as described at the top.
+However, if not running on a traditional HPC cluster,
+your site, you may need to replace 'srun' with 'mpirun'
+in the two commands for dmtcp_launch and dmtcp_restart, above.
+
+In a further complication, if using 'mpirun' with MPICH-derived MPI
+implementations, you may need to replace 'srun' with:
+  mpirun -iface ETHERNET_INTERFACE
+You should find the correct definition of MPIRUN in:
+  contrib/mpi-proxy-split/Makefile_config
+
+MANA tries to guess the required Ethernet interface in 'configure-mana'.
+Hopefully, that guess will be correct.  But see below for the issues, and
+under what circumstances MANA might guess the wrong interface and fail
+for an MPICH-derived MPI on a non-HPC cluster.
+[ This issue may now be solved now, using gethostbyname-static.tar.gz.
+  The issue used to arise because the lower half, lh_proxy, was compiled
+  statically with libc.a.  However, libc.a does not directly support
+  gethostbyname and getaddrinfo.  Instead, it tries to load libnss_*.so.
+  But we wanted lh_proxy to be statically linked so that it would consist
+  only of text/data/stack, and later calls to mmap. ]
+
+NOTE: On HPC clusters, it is more common to use 'srun', along with a custom
+      network interface (InfiniBand, Cray GNI, etc.).  So, most likely
+      Ethernet will not be used, and libc.a will not call libnss_*.so.
+
+The file MANA_ROOT/configure-mana tries to guess the Ethernet interface with:
+  ip addr | grep -B1 link/ether  # and choose one of those interfaces
+OR ELSE:
+  ifconfig -a (deprecated)
+If necessary, change the definition of MPIRUN in configure-mana for the
+correct Ethernet interface on your compute node.  [ But this may no
+longer be necessary. ]

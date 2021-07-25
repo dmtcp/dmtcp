@@ -1,0 +1,142 @@
+## More detailed notes are here:
+
+   https://www.overleaf.com/project/5bb13ac57a2367687c54c68d
+
+
+## Assumptions made by upper half:
+
+1) We assume the following memory layout.
+
+   0x40000 -->  +------------------+  --> lh_info.startText
+                |       R-X        |
+   0x48000 -->  +------------------+  --> lh_info.endText
+                |                  |
+   0x50000 -->  +------------------+  --> lh_info.startData
+                |       R--        |
+                |       RW-        |
+                |      [heap]      |
+   0x60000 -->  +------------------+  --> lh_info.endOfHeap
+
+   Note that the addresses shown above are just for example purposes. The upper
+   half doesn't assume any fixed addresses.
+
+   The main thing to note is that it doesn't handle any "holes" in either the
+   text segment or the data segment.
+
+2) The upper half maps the entire data segment (including the heap) as RW. It
+   does not care about RO sections in the data segment.
+
+3) The function wrappers remember the addresses of the real functions
+   (defined in the lower half) post restart. The lower half (and hence, the
+   addresses of the functions) might change post restart; so, we need to update
+   to the new addresses post restart.
+
+## Design choices with restart
+
+At a high level, it seems that there are two approaches for restart:
+
+1) The lower half starts first and restores the upper half:
+
+   Steps:
+   Start the lh_proxy first, which then, initializes itself, calls
+   MPI_Init(), acquires a rank, and finally, restores the memory
+   of the process from a chosen checkpoint image.
+
+   In this design, one lower-half program does the work of three
+   separate programs:
+
+    - dmtcp_restart (connect with DMTCP coordinator, create DMTCP
+      shared memory area, etc.),
+    - mtcp_restart (restore memory of the process from a checkpoint
+      image)
+    - MPI lh_proxy (initialize MPI, acquire a rank, etc.)
+
+2) dmtcp_restart starts first (execs mtcp_restart), and
+   copies in the bits of the lh_proxy:
+
+   Steps:
+    a) Start dmtcp_restart first, which does its thing (connect
+       with DMTCP coord., create DMTCP shared-memory area, etc.) and execs
+       into mtcp_restart.
+    b) Then, mtcp_restart, starts a transient lh_proxy process and copies the
+       lh_proxy bits into a lower-half in its memory.
+    c) Then, mtcp_restart (which acts the upper half) initializes the
+       lower-half and calls MPI_Init() through the lower half, and
+       acquires a rank.
+    d) Finally, mtcp_restart restores the memory of the process from a
+       chosen checkpoint image.
+
+  In this design, we follow a similar strategy as we do at launch time,
+  and there are three separate programs involved in restart.
+
+It seems that aren't any particular advantages/disadvantages in
+either approach right now. In either case, we would need to modify
+mtcp_restart and dmtcp_restart to work for the given approach.
+
+## Issues with restart
+
+Note that these issues seem to affect all design choices we have
+so far, unless I'm missing something.
+
+The issues seem to stem from the requirement of avoiding virtualization
+of MPI ranks.
+
+In order to avoid this virtualization, we want to do the following
+steps in order:
+
+ 1) First, initialize the lh_proxy code (in particular, libc and other
+    lh_proxy libraries, such as, libmpi) in the lower half.
+
+ 2) Then we would like to call MPI_Init() in the lower half. This
+    allows the MPI coordinator to assign us an MPI rank.
+
+ 3) Finally, using the newly assigned rank, we choose the checkpoint image
+    and map in its contents -- i.e., restore the memory of the process (that
+    had the same rank at checkpoint time).
+
+Now, here are the problems.
+
+ 1) In order to initialize the lh_proxy code (initialize glibc), we
+    have to pass in a pointer to the beginning of stack to libc.
+
+    Recall that at launch time, the application, first, copies
+    the lh_proxy bits into its lower half, and then calls libc_init using
+    its own stack. Lower-half's libc uses the application's stack to
+    initialize itself and other lower-half libraries (MPI, etc.).
+
+    Lower-half's libc figures out the address of VDSO (for making system
+    calls such as, gettimeofday(), etc.) using the auxiliary vector in
+    the application stack.
+
+    However, in order to get the application stack we have to first restore
+    the memory of the process from a checkpoint image, which requires calling
+    MPI_Init, which requires initializing lower-half's glibc. So, this results
+    in an infinite recursion.
+
+ 2) MPI_Init() requires two arguments: application's `&argc` and `&argv`.
+    Again, we cannot get these unless we restore memory from a checkpoint
+    image, which requires calling MPI_Init.
+
+    To work around this issue, we can call MPI_Init() with `NULL` and
+    `NULL`. We have seen that MPI_Init() doesn't really use the two arguments
+    in any significant way and also the MPI standard doesn't seem to say
+    anything about this. So, we think it's okay.
+
+The first issue is a major issue. One possible workaround is to use a temporary
+stack (for example, mtcp_restart's original stack) to initialize the lower half.
+However, there's a potential problem with this: lower-half's libc, as part
+of this initialization, uses mtcp_restart's auxiliary vector and saves
+the location of mtcp_restart's VDSO.
+
+As part of the restoration process, MTCP `mremap`s its VDSO/VVAR sections
+to the VDSO/VVAR locations of the original application (which it gets from
+the checkpoint image). After the mremap operation, mtcp_restart's
+VDSO/VVAR sections are unmapped and moved to the original application's
+VDSO/VVAR locations. So, lower-half's libc would end up initalized with
+invalid pointers. Subsequent calls from the lower-half's libc into the
+(now invalid) VDSO/VVAR sections would result in a segfault.
+
+One assumption we can make is that all the MPI ranks have their VDSO/VVAR
+sections at the same address. This way we can temporarily patch mtcp_restart's
+auxiliary vector, and ask lower-half's libc to initialize with this auxiliary
+vector.

@@ -1,0 +1,34 @@
+# FIXME: We should eventually dynamically choose this address in setLhMemRange.
+#        Then, we won't need this configure variable.
+MANA_USE_LH_FIXED_ADDRESS = @MANA_USE_LH_FIXED_ADDRESS@
+
+CFLAGS = @CFLAGS@
+CXXFLAGS = @CXXFLAGS@
+
+ifeq ($(findstring cori,$(PLATFORM)),cori)
+  MPICC = cc
+  MPICXX = CC
+  MPIFORTRAN = ftn
+  MPI_LD_FLAG = -lmpich
+  MPIRUN = srun
+  MPI_CFLAGS?= -g3 -O0 -std=c99 -fPIC
+  MPI_CXXFLAGS?= -g3 -O0 -std=c99 -fPIC
+  MPI_LDFLAGS?= -dynamic
+# This is needed, or else mana_coordinator.o becomes the default target.
+default2: default
+## On Cori at NERSC, MPICC is CC, which translates to icpc(ICC)-v19
+## But this .o file will be linked with src/dmtcp_coordinator.o, which
+##   is built with g++.  So, we use $(CXX) for compatibility.
+## An alternative is to use -O2, which inlines calls to memcpy.
+mana_coordinator.o: mana_coordinator.cpp
+	${CXX} ${CXXFLAGS} `CC --cray-print-opts=cflags` -c -o $@ $<
+else
+  MPICC = mpicc
+  MPICXX = mpic++
+  MPIFORTRAN = mpifort
+  MPIRUN = mpirun
+  MPI_LD_FLAG = -L$$HOME/mpich-static/usr/lib64 -lmpi -llzma -lz -lm -lxml2
+  MPI_CFLAGS?= -g3 -O0 -std=c99 -fPIC
+  MPI_CXXFLAGS?= -g3 -O0 -std=c99 -fPIC
+  MPI_LDFLAGS?=
+endif

@@ -24,6 +24,8 @@
 #include <stdint.h>
 #include <sys/types.h>
 
+#define HUGEPAGES
+
 // MTCP_PAGE_SIZE must be page-aligned:  multiple of sysconf(_SC_PAGESIZE).
 #define MTCP_PAGE_SIZE        4096
 #define MTCP_PAGE_MASK        (~(MTCP_PAGE_SIZE - 1))
@@ -97,6 +99,12 @@ typedef union ProcMapsArea {
       ino_t inodenum;
       uint64_t __inodenum;
     };
+#ifdef HUGEPAGES
+    union {
+      int hugepages;
+      uint64_t __hugepages;
+    };
+#endif
 
     uint64_t properties;
 

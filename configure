@@ -5626,6 +5626,10 @@ ac_config_files="$ac_config_files Makefile contrib/Makefile contrib/ckptfile/Mak
 
 #AC_CONFIG_FILES([test/credentials/Makefile])
 
+if test -e contrib/mpi-proxy-split/Makefile_config.in; then
+  ac_config_files="$ac_config_files contrib/mpi-proxy-split/Makefile_config"
+fi
+
 #AC_CONFIG_SUBDIRS([dmtcp])
 
 enable_option_checking=fatal
@@ -8968,6 +8972,7 @@ do
     "test/Makefile") CONFIG_FILES="$CONFIG_FILES test/Makefile" ;;
     "test/autotest_config.py") CONFIG_FILES="$CONFIG_FILES test/autotest_config.py" ;;
     "test/plugin/Makefile") CONFIG_FILES="$CONFIG_FILES test/plugin/Makefile" ;;
+    "contrib/mpi-proxy-split/Makefile_config") CONFIG_FILES="$CONFIG_FILES contrib/mpi-proxy-split/Makefile_config" ;;
 
   *) as_fn_error $? "invalid argument: \`$ac_config_target'" "$LINENO" 5;;
   esac

@@ -114,11 +114,20 @@ class DmtcpCoordinator
 
     void processBarrier(const string &barrier);
     void releaseBarrier(const string &barrier);
+    void maybeClearWorkersAtCurrentBarrier();
+
+#ifdef MPI
+    void processPreSuspendClientMsg(CoordClient*, const DmtcpMessage&,
+                                    const void* );
+#endif
 
     bool startCheckpoint();
     void recordCkptFilename(CoordClient *client, const char *barrierList);
 
     void handleUserCommand(char cmd, DmtcpMessage *reply = NULL);
+#ifdef MPI
+    void writeSubmissionHostInfo();
+#endif
     void printStatus(size_t numPeers, bool isRunning);
     string printList();
 

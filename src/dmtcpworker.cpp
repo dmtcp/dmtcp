@@ -247,6 +247,24 @@ dmtcp_initialize_entry_point()
 
   dmtcp_initialize();
 
+#ifdef MPI
+  // USAGE:  DMTCP_MANA_PAUSE=1 srun -n XXX gdb --args dmtcp_restart ...
+  //   (for DEBUGGING by setting DMTCP_MANA_PAUSE environment variable)
+  // RATIONALE: When using Slurm's srun, dmtcp_launch is a child process
+  //   of slurmstepd.  So, 'gdb --args srun -n XX dmtcp_launch ...' doesn't
+  //   work, since 'dmtcp_launch ...' is fork/exec'ed from slurmstepd.
+  // ALTERNATIVE (tested under Slurm 19.05):
+  //   'srun --input all' should "broadcast stdin to all remote tasks".
+  //   But 'srun --input all -n 1 gdb --args dmtcp_restart ...'
+  //   fails.  GDB starts up, but then exits (due to end-of-stdin??).
+  // We already printed info in dmtcp_launch.cpp, when DMTCP_MANA_PAUSE is set.
+  if (getenv("DMTCP_LAUNCH_PAUSE") != NULL ||
+      getenv("DMTCP_MANA_PAUSE") != NULL) {
+    volatile int dummy = 1;
+    while (dummy) {};
+  }
+#endif
+
   initializeJalib();
   dmtcp_prepare_atfork();
 

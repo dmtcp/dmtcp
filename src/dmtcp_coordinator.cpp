@@ -71,9 +71,9 @@
 #include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
+#include <sys/prctl.h>
 #include <algorithm>
 #include <iomanip>
-#include <sys/prctl.h>
 #include "../jalib/jassert.h"
 #include "../jalib/jconvert.h"
 #include "../jalib/jfilesystem.h"
@@ -126,6 +126,8 @@ static const char *theUsage =
   "  --timeout seconds\n"
   "      Coordinator exits after <seconds> even if jobs are active\n"
   "      (Useful during testing to prevent runaway coordinator processes)\n"
+  "  --mpi\n"
+  "      Run in MPI mode (required for MANA/MPI)\n"
   "  --daemon\n"
   "      Run silently in the background after detaching from the parent "
   "process.\n"
@@ -158,6 +160,7 @@ static bool killAfterCkptOnce = false;
 static int blockUntilDoneRemote = -1;
 static time_t timeout = 0;
 static size_t start_time; // used with timeout
+static bool mpiMode = false;
 
 static DmtcpCoordinator prog;
 
@@ -399,6 +402,32 @@ DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage *reply /*= NULL*/)
   }
 }
 
+#ifdef MPI
+void
+DmtcpCoordinator::writeSubmissionHostInfo() {
+  ofstream o;
+  string home = getenv("HOME");
+  home = home + "/.mana";
+  o.open(home.c_str(), std::ios::out | std::ios::trunc);
+  if (o.fail()) {
+    fprintf(stderr, "%s", "Failed to truncate and open ~/.mana\n");
+    exit(1);
+  }
+  o << "Status..." << std::endl
+    << "Host: " << coordHostname
+    << " (" << inet_ntoa(localhostIPAddr) << ")" << std::endl
+    << "Port: " << thePort << std::endl
+    << "PID: " << getpid() << std::endl
+    << "Checkpoint Interval: ";
+  if (theCheckpointInterval == 0) {
+    o << "disabled (checkpoint manually instead)" << std::endl;
+  } else {
+    o << theCheckpointInterval << std::endl;
+  }
+  o.close();
+}
+#endif
+
 void
 DmtcpCoordinator::printStatus(size_t numPeers, bool isRunning)
 {
@@ -426,6 +455,10 @@ DmtcpCoordinator::printStatus(size_t numPeers, bool isRunning)
     << "NUM_PEERS=" << numPeers << std::endl
     << "RUNNING=" << (isRunning ? "yes" : "no") << std::endl;
   printf("%s", o.str().c_str());
+  if (mpiMode) {
+    printNonReadyRanks();
+    printMpiDrainStatus(lookupService);
+  }
   fflush(stdout);
 }
 
@@ -435,7 +468,12 @@ DmtcpCoordinator::printList()
   ostringstream o;
 
   o << "Client List:\n";
-  o << "#, PROG[virtPID:realPID]@HOST, DMTCP-UNIQUEPID, STATE, BARRIER\n";
+  if (mpiMode) {
+    o << "#, PROG[virtPID:realPID]@HOST, DMTCP-UNIQUEPID, STATE, BARRIER,"
+                                                      " rank/ckptState/comm\n";
+  } else {
+    o << "#, PROG[virtPID:realPID]@HOST, DMTCP-UNIQUEPID, STATE, BARRIER\n";
+  }
   for (size_t i = 0; i < clients.size(); i++) {
     o << clients[i]->clientNumber()
       << ", " << clients[i]->progname()
@@ -446,8 +484,11 @@ DmtcpCoordinator::printList()
 #endif // ifdef PRINT_REMOTE_IP
       << ", " << clients[i]->identity()
       << ", " << clients[i]->state()
-      << ", " << clients[i]->barrier()
-      << '\n';
+      << ", " << clients[i]->barrier();
+      if (mpiMode) {
+        o << getClientState(clients[i]);
+      }
+      o << '\n';
   }
   return o.str();
 }
@@ -478,6 +519,16 @@ DmtcpCoordinator::releaseBarrier(const string &barrier)
       resetCkptTimer();
     }
   }
+}
+
+// When we place the body inline in icpc (ICC) 19.0.3.199 20190206, a compiler
+// bug causes this to skip the 'if' stmt, as confirmed by viewing the assembly.
+void
+DmtcpCoordinator::maybeClearWorkersAtCurrentBarrier()
+{
+  ComputationStatus status = getStatus();
+  workersAtCurrentBarrier =
+   (workersAtCurrentBarrier == status.numPeers ? 0 : workersAtCurrentBarrier);
 }
 
 void
@@ -571,6 +622,18 @@ DmtcpCoordinator::recordCkptFilename(CoordClient *client, const char *extraData)
   }
 }
 
+#ifdef MPI
+void
+DmtcpCoordinator::processPreSuspendClientMsg(CoordClient *client,
+                                             const DmtcpMessage& msg,
+                                             const void *extraData)
+{
+  // Calls startCheckpoint() again after first time (DMT_PRE_SUSPEND_RESPONSE).
+  processPreSuspendClientMsgHelper(this, client, workersAtCurrentBarrier,
+                                   msg, extraData);
+}
+#endif
+
 void
 DmtcpCoordinator::onData(CoordClient *client)
 {
@@ -598,6 +661,26 @@ DmtcpCoordinator::onData(CoordClient *client)
     client->setBarrier("");
     break;
   }
+
+#ifdef MPI
+  case DMT_PRE_SUSPEND_RESPONSE:
+  {
+    if (!mpiMode) {
+      JWARNING(false)(msg.from)(msg.state)
+           .Text("Received PRE_SUSPEND msg but --mpi switch was not specified");
+      break;
+    }
+    JTRACE("got DMT_PRE_SUSPEND_RESPONSE message")
+          (client->state()) (msg.from) (msg.state);
+    client->setState(msg.state);
+    workersAtCurrentBarrier++;
+    updateMinimumState();
+    processPreSuspendClientMsg(client, msg, extraData);
+    // If numPeers reached barrier, release barrier
+    maybeClearWorkersAtCurrentBarrier();
+    break;
+  }
+#endif
 
   case DMT_BARRIER:
   {
@@ -1133,6 +1216,27 @@ DmtcpCoordinator::validateNewWorkerProcess(
 bool
 DmtcpCoordinator::startCheckpoint()
 {
+#ifdef MPI
+  static bool sentIntentMsg = false;
+
+  // When this gets called for the first time, we simply send the intent
+  // msg and return. For the subsequent call to startCheckpoint(), which would
+  // happen from processPreSuspendClientMsg(), we go ahead and do the
+  // checkpoint.
+  if (mpiMode && !sentIntentMsg) {
+    ComputationStatus s = getStatus();
+    if ((s.minimumState == WorkerState::RUNNING ||
+         s.minimumState == WorkerState::PRE_SUSPEND) &&
+        s.minimumStateUnanimous &&
+        !workersRunningAndSuspendMsgSent) {
+      sendCkptIntentMsg(this);
+      sentIntentMsg = true;
+      return true; // Our caller should know that the checkpoint has begun.
+    } // else fall through, and return 'false' (can't checkpoint now)
+  }
+  sentIntentMsg = false; // Reset the intent msg for the subsequent call
+#endif
+
   ComputationStatus s = getStatus();
   if (s.minimumState == WorkerState::RUNNING && s.minimumStateUnanimous
       && !workersRunningAndSuspendMsgSent) {
@@ -1500,7 +1604,7 @@ DmtcpCoordinator::addDataSocket(CoordClient *client)
     (JASSERT_ERRNO);
 }
 
-#define min(x,y) ((x)<(y) ? (x) : (y))
+#define min(x,y) ((x) < (y) ? (x) : (y))
 
 // Copy name+suffix into short_buf of length len, and truncate name to fit.
 // This keeps only the last component of name (after last '/')
@@ -1627,6 +1731,9 @@ main(int argc, char **argv)
       shift; shift;
     } else if (s == "--daemon") {
       daemon = true;
+      shift;
+    } else if (s == "--mpi") {
+      mpiMode = true;
       shift;
     } else if (s == "--coord-logfile") {
       useLogFile = true;
@@ -1814,6 +1921,12 @@ main(int argc, char **argv)
     // sigprocmask is only per-thread; but the coordinator is single-threaded.
     sigprocmask(SIG_BLOCK, &set, NULL);
   }
+
+#ifdef MPI
+  if (mpiMode) {
+    prog.writeSubmissionHostInfo();
+  }
+#endif
 
   prog.eventLoop(daemon);
   return 0;

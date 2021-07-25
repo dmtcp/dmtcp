@@ -1,0 +1,5 @@
+test/*.exe
+unit-test/*.exe
+proxy
+mpi-wrappers/*.c*
+mpi-wrappers/*.so*

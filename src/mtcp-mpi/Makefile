@@ -1,0 +1,180 @@
+# FIXME:  We should eventually dynamically choose this address in setLhMemRange.
+#         Then, we won't need this configure variable.
+MANA_USE_LH_FIXED_ADDRESS = @MANA_USE_LH_FIXED_ADDRESS@
+
+CC = gcc
+M32=0
+CFLAGS = -g -O2 -Wall -g3 -O0 -DDEBUG
+# Why do we define C preprocessor flags?  If we're not using them,
+#   then declaring them reduces the readability for a person.
+# - Gene
+CPPFLAGS =  -Wall -g3 -O0 -DDEBUG
+CXX = g++ -std=c++11
+CXXFLAGS = -g -O2 -Wall -g3 -O0 -DDEBUG
+LDFLAGS = 
+ARM_HOST = no
+PACKAGE = dmtcp
+FAST_RST_VIA_MMAP = no
+
+# Allow the user to specify the install program.
+INSTALL = /usr/bin/install -c
+INSTALL_PROGRAM = ${INSTALL}
+INSTALL_DATA = ${INSTALL} -m 644
+INSTALL_SCRIPT = ${INSTALL}
+
+prefix = /usr/local
+exec_prefix = ${prefix}
+bindir = ${exec_prefix}/bin
+#libdir = ${exec_prefix}/lib
+#pkglibdir = $(libdir)/dmtcp
+
+top_srcdir = ../..
+srcdir = .
+
+top_builddir = ../..
+targetdir = $(top_builddir)
+
+# VPATH specifies a list of directories that make should search for finding the
+# prerequisite files that are not in the current directory.  This is needed if
+# the build process is initiated in a separate build directory, in which case,
+# VPATH is set to the corresponding srcdir.
+#
+# VPATH is not required for the regular "./configure; make" in the source
+# directory.
+
+
+ifeq ($(M32),1)
+  MTCP_RESTART=mtcp_restart-32
+  # For mixed mode, 32-bit packages must be installed in the 64-bit libdir.
+  targetdir = $(top_builddir)/lib/$(PACKAGE)/32
+else
+  MTCP_RESTART=mtcp_restart-mpi
+endif
+
+# We currently use two files, procmapsarea.h and protectedfds.h, from the
+# top-level include dir.
+DMTCP_INCLUDE_PATH = $(top_srcdir)/include
+
+INCLUDES = -I$(DMTCP_INCLUDE_PATH) -I$(srcdir)
+
+ifneq (${MANA_USE_LH_FIXED_ADDRESS},)
+  CFLAGS += -DMANA_USE_LH_FIXED_ADDRESS
+endif
+
+COMPILE = $(CC) $(INCLUDES) $(CPPFLAGS) $(CFLAGS) -c -o $@
+LINK = $(CC) $(CFLAGS) $(LDFLAGS) -o $@
+
+ifeq (${ARM_HOST},yes)
+  ARM_EXTRAS = $(srcdir)/syscall-arm.S
+  ARM_BINARIES = $(srcdir)/syscall-arm.o
+  CFLAGS += -DMTCP_SYS_ERRNO_ON_STACK
+endif
+
+# This can be replaced when ARM_HOST is generalized.
+ifndef BUILDING_UTIL_ARCH
+  BUILDTYPE=${shell make BUILDING_UTIL_ARCH=1 util-arch > /dev/null; \
+                    ./util-arch}
+endif
+HOST_IS_AARCH64=${shell uname -m | grep '^aarch64'}
+ifeq ($(HOST_IS_AARCH64),aarch64)
+  ARM_EXTRAS = syscall-aarch64.S
+  ARM_BINARIES = syscall-aarch64.o
+  CFLAGS += -DMTCP_SYS_ERRNO_ON_STACK
+endif
+
+ifeq ($(FAST_RST_VIA_MMAP),yes)
+  CFLAGS += -DFAST_RST_VIA_MMAP
+endif
+
+HEADERS = mtcp_util.ic mtcp_sys.h mtcp_util.h ldt.h \
+	  $(srcdir)/../membarrier.h $(DMTCP_INCLUDE_PATH)/procmapsarea.h \
+	  mtcp_split_process.h ucontext_i.h
+
+all: default
+default: build
+libs: build
+build: $(targetdir)/bin/$(MTCP_RESTART) libmtcp.a
+
+$(targetdir)/bin/$(MTCP_RESTART): mtcp_restart.o mtcp_split_process.o getcontext.o
+	${ARM_BINARIES} ${LINK} -fPIC -g -O0 -nodefaultlibs $^
+
+# We need to compile mtcp_restart.c with "-fno-stack-protector" to avoid
+# runtime stack smashing detection.
+# We also need to build mtcp_restart without optimization (-O0), otherwise it
+# may fail to restart. Since these three objects are fairly low level, we avoid
+# any surprises by compiling them without any optimization.
+# FIXME:  Wasn't this an issue only for DMTCP-2.1 or earlier?
+#    The -fno-stack-protector concerned returning from the interrupt handler.
+#    That now happens in a different function.
+# IMPORTANT:  Compile with -O2 or higher.  On some 32-bit CPUs
+#   (e.g. ARM/gcc-4.8), the inlining of -O2 avoids bugs when fnc's are copied.
+mtcp_restart.o: mtcp_restart.c $(HEADERS) mtcp_check_vdso.ic
+	$(COMPILE) -DPIC -fPIC -fno-stack-protector -g -O0 $<
+
+mtcp_split_process.o: mtcp_split_process.c $(HEADERS) mtcp_check_vdso.ic
+	$(COMPILE) -DPIC -fPIC -fno-stack-protector -g -O0 $<
+
+getcontext.o: getcontext.S
+	${CC} ${CFLAGS} -c $<
+
+# procmapssrea.h taken from mtcp_util.h ; Is this necessary?
+mtcp_check_vdso.o: mtcp_check_vdso.ic mtcp_sys.h mtcp_util.h \
+	$(DMTCP_INCLUDE_PATH)/procmapsarea.h
+	$(COMPILE) -DPIC -fPIC -fno-stack-protector -g -O0 $<
+
+libmtcp.a: restore_libc.o ${ARM_BINARIES}
+	ar cr $@ $^
+# FIXME:  This is a low-level file.  Yet it draws from two directories.
+#    Part of the problem is that restore_libc.h copies DPRINTF from mtcp_util.h
+#    and uses protectedfds.h, which is in ../../include
+#    Do we need protectedfds.h for low-level, where there is no JASSERT?
+restore_libc.o: restore_libc.c $(HEADERS) $(DMTCP_INCLUDE_PATH)/protectedfds.h
+	$(COMPILE) -DPIC -fPIC -fno-stack-protector -g -O0 $<
+syscall-arm.o: syscall-arm.S
+	${CC} ${CFLAGS} -c $<
+syscall-aarch64.o: syscall-aarch64.S
+	${CC} ${CFLAGS} -c $<
+
+# Try 'make gdb' before 'make check' if you want debugging information
+#   available in the case of 'make check' dumping core.
+check: $(targetdir)/bin/$(MTCP_RESTART) ckpt_dmtcp1_test.dmtcp
+        @echo 'Expected result: "Error 99" (MTCP transfered to DMTCP correctly)'
+	$(targetdir)/bin/$(MTCP_RESTART) --text-offset `./text_offset.sh \
+	  $(targetdir)/bin/$(MTCP_RESTART)` ckpt_dmtcp1_test.dmtcp
+
+ckpt_dmtcp1_test.dmtcp: ../../test/dmtcp1 restore_libc.o
+	../../bin/dmtcp_launch -i3 ../../test/dmtcp1 &
+	sleep 8 && ../../bin/dmtcp_command --quit
+	rm -f `ls -t dmtcp_restart_script*.sh`
+	mv `ls -t ckpt_dmtcp1_*.dmtcp | head -1` ckpt_dmtcp1_test.dmtcp.gz
+	gunzip ckpt_dmtcp1_test.dmtcp.gz
+
+gdb:
+	make -f Makefile.debug gdb
+
+install: all
+	${INSTALL_PROGRAM} $(targetdir)/bin/$(MTCP_RESTART) $(DESTDIR)$(bindir)
+
+uninstall:
+	rm -f $(DESTDIR)$(bindir)/$(MTCP_RESTART)
+
+# The install-libs target is there to install plugin libraries when building
+# multi-arch builds. This prevents the installation of 32-bit binaries.
+# However, mtcp_restart is an exception -- we need to keep one copy for each
+# arch.
+install-libs: install
+
+uninstall-libs: uninstall
+
+tidy:
+	rm -rf ckpt_*_files
+	rm -f ckpt_*.dmtcp dmtcp_restart_script* core*
+
+clean: tidy
+	-rm -f *.o *.a
+	-rm -f $(targetdir)/bin/$(MTCP_RESTART)
+
+distclean: clean
+	rm -f Makefile
+
+.PHONY: default all build tidy clean distclean install uninstall gdb

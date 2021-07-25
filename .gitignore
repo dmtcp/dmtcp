@@ -11,7 +11,8 @@
 *.so
 *.pyc
 *.dirstamp
-Makefile
+# Some plugins have a Makefile, but no Makefile.in
+# Makefile
 core
 cscope.*
 dmtcpaware*

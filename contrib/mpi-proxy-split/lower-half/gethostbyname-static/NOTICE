@@ -1,0 +1,3 @@
+The two files, gethostbyname_r.c and gethostbyname_r_aux.c, are
+copyright under the Apache 2.0 license by Gene Cooperman (gene@ccs.neu.edu).
+See the file LICENSE for details.

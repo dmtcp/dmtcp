@@ -40,6 +40,9 @@ static int testJava(const char **argv);
 static bool testSetuid(const char *filename);
 static void testStaticallyLinked(const char *filename);
 static bool testScreen(const char **argv, const char ***newArgv);
+#ifdef MPI
+static void setLDLibraryPathForMPI(bool is32bitElf);
+#endif
 static void setLDPreloadLibs(bool is32bitElf);
 
 // gcc-4.3.4 -Wformat=2 issues false positives for warnings unless the format
@@ -607,6 +610,16 @@ main(int argc, const char **argv)
                          &coordInfo,
                          &localIPAddr);
 
+#ifdef MPI
+  setLDLibraryPathForMPI(is32bitElf);
+  // We print here.  But 'while (dummy);' is in constructor in dmtcp_worker.cpp.
+  if (getenv("DMTCP_MANA_PAUSE") != NULL) {
+    printf("*** PAUSED FOR DEBUGGING: Please do:\n  *** gdb %s %d\n\n",
+           argv[0], getpid());
+    printf("  *** Then do '(gdb) p dummy=0' to continue debugging.\n\n");
+    fflush(stdout);
+  }
+#endif
   setLDPreloadLibs(is32bitElf);
 
   // run the user program
@@ -754,6 +767,36 @@ testScreen(const char **argv, const char ***newArgv)
   }
   return false;
 }
+
+#ifdef MPI
+static void
+setLDLibraryPathForMPI(bool is32bitElf) {
+  // If libmpidummy.so found, add it to LD_LIBRARY_PATH and assume we're
+  // running with runMPI.  We don't need an explicit --mpi flag here.
+  // If this DMTCP was configured with libmpidummy.so and yet this is
+  // not running with the mpi-proxy-split plugin, then libmpidummy.so is
+  // never called, and so the extra library is harmless.
+  if (is32bitElf) return;  // exit if 32-bit applications; this shouldn't be MPI
+  string libmpidummy = Util::getPath("libmpidummy.so");
+  if (strcmp(libmpidummy.c_str(), "libmpidummy.so") == 0) {
+    return; // libmpidummy.so was not found.
+  }
+
+  char *last_slash = const_cast <char *>(strrchr(libmpidummy.c_str(), '/'));
+  if (last_slash) {
+    *last_slash = '\0'; // Modify the C string in place
+  }
+  // libmpidummy.so must appear before libmpi.so in library search order.
+  // Let's hope the MPI application is not running as root (no LD_LIBRARY_PATH),
+  // and is not using ELF's rpath.  (But ELF runpath is fine.)
+  string ld_library_path = libmpidummy.c_str(); // Using the modified C string.
+  if (getenv("LD_LIBRARY_PATH") != NULL) {
+    ld_library_path += ":";
+    ld_library_path += getenv("LD_LIBRARY_PATH");
+  }
+  setenv("LD_LIBRARY_PATH", ld_library_path.c_str(), 1);
+}
+#endif
 
 static void
 setLDPreloadLibs(bool is32bitElf)

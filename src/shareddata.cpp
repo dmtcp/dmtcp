@@ -452,6 +452,7 @@ SharedData::getLocalIPAddr(struct in_addr *in)
   memcpy(in, &sharedDataHeader->localIPAddr, sizeof *in);
 }
 
+// FIXME:  This seems to be unused.  Can we delete it?
 void
 SharedData::updateDlsymOffset(int32_t dlsymOffset, int32_t dlsymOffset_m32)
 {

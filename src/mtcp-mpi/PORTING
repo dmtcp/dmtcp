@@ -1,0 +1,79 @@
+ 			PORTING TO A NEW CPU
+
+FIXME:  This was valid with respect to DMTCP-2.1.  It must be updated
+        for DMTCP-2.2 and beyond.
+        See <DMTCP_ROOT>/doc/architecture-of-dmtcp.pdf for a more up-to-date
+        description of the DMTCP architecture, albeit less detailed.
+
+
+One of the trickier parts of updating MTCP is tls_get_thread_area,
+since it seems like it is implemented differently on each architecture.
+A problem is that pthread_t is defined only as 'unsigned long' for
+users, when inside glibc it is really 'struct pthread *'.  To find
+it and its size, the easiest way is:
+gdb test/pthread1
+(gdb) b pthread_create
+(gdb) r
+(gdb) step
+(gdb) p sizeof(struct pthread)
+(gdb) ptype struct pthread
+(gdb) dir GLIBC_ROOT_DIR/nptl
+(gdb) where
+
+===
+
+[ This considers only porting to a new CPU in Linux, and not to porting to a
+  new operating system.  That would require a discussion of other issues. ]
+
+Porting DMTCP to a new CPU is largely an issue of porting MTCP.
+In most cases, one can search on __arm__ to find the CPU-specific
+portions of code.  These are few (less than 20 lines of inline assembly).
+However, this provides a checklist of conceptual issues to consider
+in porting. 
+
+In addition, there were two issues particular to ARM.  First, ARM is not
+one of the central architectures for glibc, and so it is found
+in glibc-ports instead of glibc.  Second, Linux for ARM has more than 
+one API.  The API for a direct kernel system call changed between
+the older ARM API and the newer ARM-EABI API.  Thus, glibc has
+files specific to the ARM CPU (for any API), and files specific
+to the ARM CPU using the EABI API.
+
+ISSUES considered in the port to ARM:
+
+1.  Use of ELF linker - no changes needed for ARM
+2.  Use of POSIX API - In earlier years, getcontext/setcontext was
+        preferred over sigsetjump/siglongjmp.  Currently,
+        getcontext/setcontext is depracated, and not provided in
+        ARM for glibc-ports-2.14.
+3.  ARM EABI inline kernel system call - an example occurs in mtcp_futex.h.
+4.  Linux kernel system calls usually return an int on 32-bit systems.
+        That int, rc, has a value of  0 > rc > -4096  when an error
+        is returned, and "- rc" is the errno.  The comparison with -4096
+        can be important, and testing "rc < 0" is often not sufficient.
+        Some system calls may return a large unsigned int (e.g. pointer
+        to high memory) which appears to be negative when viewed simply
+        as an int.
+5.  MTCP needs to make direct kernel system calls.  Rather than reinvent the
+        appropriate macros, it uses macros from sysdep.h in glibc.
+        In the case of ARM, these come from glibc at:
+          glibc-ports-2.14/sysdeps/unix/sysv/linux/arm/sysdep.h
+          glibc-ports-2.14/sysdeps/unix/sysv/linux/arm/eabi/sysdep.h
+6.  When MTCP restarts, it asks the kernel for a new thread.  The kernel
+        may assign a new stack location and a new TLS (thread-local storage).
+        The kernel and glibc cooperate on Each CPU to maintain
+        a register that points to the TLS (%fs on x86, %gs on x86_64,
+        register c13 of co-processor p15 on ARM).  Specifically, the
+        register points to a TCB (thread control block) for the TLS.
+            On ARM, the host CPU can read p15/c13 using "mrc", but writing
+        to them ("mcr") is a privileged kernel-mode instruction on ARM.
+        Linux on ARM provides an additional kernel systems call with call
+        number:  __ARM_NR_set_tls .  This is used instead of "mcr".
+7.  On Linux ARM, the thread-local pointer register points to the byte after
+        the end of a TCB (thread control block, datatype: struct pthread)
+        instead of to the beginning of the TCB.  MTCP needs to find an offset
+        into the TCB where the pid and tid are stored, and then update those
+        to the current pid and tid on restart.  In the case of ARM, it must
+        first subtract "sizeof(struct pthread)" from the thread pointer
+        register, before adding the offset used to find the location
+        where pid/tid are stored.

@@ -101,7 +101,11 @@ static const char *theUsage =
   "              (environment variable DMTCP_DISABLE_STRICT_CHECKING)\n"
   "  --ckptdir (environment variable DMTCP_CHECKPOINT_DIR):\n"
   "              Directory to store checkpoint images\n"
+#ifdef MPI
   "              (default: use the same dir used in previous checkpoint)\n"
+  "  --restartdir Directory that contains checkpoint image directories\n"
+  "  --mpi       Use as MPI proxy (default: no MPI proxy)\n"
+#endif
   "  --tmpdir PATH (environment variable DMTCP_TMPDIR)\n"
   "              Directory to store temp files (default: $TMDPIR or /tmp)\n"
   "  -q, --quiet (or set environment variable DMTCP_QUIET = 0, 1, or 2)\n"
@@ -119,6 +123,7 @@ static const char *theUsage =
   "\n";
 
 static int requestedDebugLevel = 0;
+static bool runMpiProxy = 0;
 
 class RestoreTarget;
 
@@ -128,6 +133,7 @@ RestoreTargetMap independentProcessTreeRoots;
 bool noStrictChecking = false;
 
 string tmpDir = "/DMTCP/Uninitialized/Tmp/Dir";
+string restartDir = "";
 string coord_host = "";
 int coord_port = UNINITIALIZED_PORT;
 string thePortFile;
@@ -233,6 +239,86 @@ class RestoreTarget
         JASSERT(waitpid(pid, NULL, 0) == pid);
       }
     }
+
+#ifdef MPI
+    void initializeCoordConnection()
+    {
+      // TODO: Currently, this will register the virtual pid of the first
+      // MPI rank. We need to update the virtual pid with the coordinator
+      // later in postRestart.
+      UniquePid::ThisProcess() = _pInfo.upid();
+      UniquePid::ParentProcess() = _pInfo.uppid();
+      DmtcpUniqueProcessId compId = _pInfo.compGroup().upid();
+      CoordinatorInfo coordInfo;
+      struct in_addr localIPAddr;
+      if (_pInfo.noCoordinator()) {
+        allowedModes = COORD_NONE;
+      }
+
+      // dmtcp_restart sets ENV_VAR_NAME_HOST/PORT, even if cmd line flag used
+      string host = "";
+      int port = UNINITIALIZED_PORT;
+      CoordinatorAPI::getCoordHostAndPort(allowedModes, &host, &port);
+
+      // FIXME:  We will use the new HOST and PORT here, but after restart,
+      // we will use the old HOST and PORT from the ckpt image.
+      CoordinatorAPI::connectToCoordOnRestart(allowedModes,
+                                              _pInfo.procname(),
+                                              _pInfo.compGroup(),
+                                              _pInfo.numPeers(),
+                                              &coordInfo,
+                                              host.c_str(),
+                                              port,
+                                              &localIPAddr);
+
+      // If port was 0, we'll get new random port when coordinator starts up.
+      CoordinatorAPI::getCoordHostAndPort(allowedModes, &host, &port);
+      Util::writeCoordPortToFile(port, thePortFile.c_str());
+
+      string installDir =
+        jalib::Filesystem::DirName(jalib::Filesystem::GetProgramDir());
+
+#if defined(__i386__) || defined(__arm__)
+      if (Util::strEndsWith(installDir, "/lib/dmtcp/32")) {
+        // If dmtcp_launch was compiled for 32 bits in 64-bit O/S, then note:
+        // DMTCP_ROOT/bin/dmtcp_launch is a symbolic link to:
+        // DMTCP_ROOT/bin/dmtcp_launch/lib/dmtcp/32/bin
+        // GetProgramDir() followed the link.  So, need to remove the suffix.
+        char *str = const_cast<char *>(installDir.c_str());
+        str[strlen(str) - strlen("/lib/dmtcp/32")] = '\0';
+        installDir = str;
+      }
+#endif // if defined(__i386__) || defined(__arm__)
+
+      /* We need to initialize SharedData here to make sure that it is
+       * initialized with the correct coordinator timestamp.  The coordinator
+       * timestamp is updated only during postCkpt callback. However, the
+       * SharedData area may be initialized earlier (for example, while
+       * recreating threads), causing it to use *older* timestamp.
+       */
+      SharedData::initialize(tmpDir.c_str(),
+                             installDir.c_str(),
+                             &compId,
+                             &coordInfo,
+                             &localIPAddr);
+      Util::initializeLogFile(SharedData::getTmpDir().c_str(),
+                              _pInfo.procname().c_str(),
+                              NULL);
+
+      string ckptDir = jalib::Filesystem::GetDeviceName(PROTECTED_CKPT_DIR_FD);
+      if (ckptDir.length() == 0) {
+        // Create the ckpt-dir fd so that the restarted process can know about
+        // the abs-path of ckpt-image.
+        string dirName = jalib::Filesystem::DirName(_path);
+        int dirfd = open(dirName.c_str(), O_RDONLY);
+        JASSERT(dirfd != -1) (JASSERT_ERRNO);
+        if (dirfd != PROTECTED_CKPT_DIR_FD) {
+          JASSERT(dup2(dirfd, PROTECTED_CKPT_DIR_FD) == PROTECTED_CKPT_DIR_FD);
+          close(dirfd);
+        }
+      }
+    }
+#endif
 
     void createOrphanedProcess(bool createIndependentRootProcesses = false)
     {
@@ -421,6 +507,23 @@ class RestoreTarget
     ProcessInfo _pInfo;
     int _fd;
 };
+
+// FIXME:  Once mtcpMpiArgList is merges back into the newArgs logic,
+//         we won't need this duplicate logic for the MPI case.
+char *get_pause_param() {
+  char * pause_param = getenv("DMTCP_RESTART_PAUSE");
+  if (pause_param == NULL) {
+    pause_param = getenv("MTCP_RESTART_PAUSE");
+  }
+  if (pause_param != NULL) {
+#ifdef HAS_PR_SET_PTRACER
+    prctl(PR_SET_PTRACER, PR_SET_PTRACER_ANY, 0, 0, 0); // For: gdb attach
+#endif // ifdef HAS_PR_SET_PTRACER
+  }
+  // If pause_param is not NULL, mtcp_restart will invoke
+  //     postRestartDebug() in the checkpoint image instead of postRestart().
+  return pause_param;
+}
 
 static void
 runMtcpRestart(int is32bitElf, int fd, ProcessInfo *pInfo)
@@ -836,6 +939,9 @@ main(int argc, char **argv)
     } else if (argc > 1 && (s == "--gdb")) {
       requestedDebugLevel = atoi(argv[1]);
       shift; shift;
+    } else if (s == "--mpi") {
+      runMpiProxy = true;
+      shift;
     } else if (s == "-q" || s == "--quiet") {
       *getenv(ENV_VAR_QUIET) = *getenv(ENV_VAR_QUIET) + 1;
 
@@ -885,6 +991,27 @@ main(int argc, char **argv)
   JTRACE("New dmtcp_restart process; _argc_ ckpt images") (argc);
 
   bool doAbort = false;
+  // FIXME:  mtcpMpiArgList has the same logic as newArgs, but with
+  //         the added --mpi and --restartdir flag.  There's no reason
+  //         to keep this duplicate code.  Merge it into newArrgs.
+  vector<char *> mtcpMpiArgList;
+// TODO handle 32-Bit case (i.e., asking to duplicate the newArgs code ??)
+  if (runMpiProxy) {
+    mtcpMpiArgList.push_back((char *)"--mpi");
+    char stderrFdBuf[8];
+    mtcpMpiArgList.push_back((char *)"--stderr-fd");
+    sprintf(stderrFdBuf, "%d", PROTECTED_STDERR_FD);
+    mtcpMpiArgList.push_back(stderrFdBuf);
+    if(!restartDir.empty()) {
+      mtcpMpiArgList.push_back((char *)"--restartdir");
+      mtcpMpiArgList.push_back((char *)restartDir.c_str());
+    }
+    char *pause_param = get_pause_param();
+    if (pause_param) {
+      mtcpMpiArgList.push_back((char *)"--mtcp-restart-pause");
+      mtcpMpiArgList.push_back(pause_param);
+    }
+  }
   for (; argc > 0; shift) {
     string restorename(argv[0]);
     struct stat buf;
@@ -917,8 +1044,60 @@ main(int argc, char **argv)
     }
 
     JTRACE("Will restart ckpt image") (argv[0]);
-    RestoreTarget *t = new RestoreTarget(argv[0]);
-    targets[t->upid()] = t;
+    if (runMpiProxy) {
+        // TODO
+        if(restartDir.empty()) mtcpMpiArgList.push_back(argv[0]);
+    } else {
+      RestoreTarget *t = new RestoreTarget(argv[0]);
+      targets[t->upid()] = t;
+    }
+  }
+  if (runMpiProxy) {
+    // Connect with coordinator using the first checkpoint image in the list
+    // Also, create the DMTCP shared-memory area.
+    WorkerState::setCurrentState(WorkerState::RESTARTING);
+    RestoreTarget *t;
+    if(restartDir.empty()) {
+      t = new RestoreTarget(mtcpMpiArgList[3]);
+    } else {
+        string image_zero = restartDir; // copy constructor called
+        int image_zero_len = strlen(image_zero.c_str());
+        if(image_zero.c_str()[image_zero_len-1] != '/') {
+            image_zero.append("/");
+        }
+        image_zero.append("ckpt_rank_0/");
+        DIR *dir;
+        struct dirent *entry;
+        bool success = false;
+        JASSERT((dir = opendir(image_zero.c_str())) != NULL)
+        .Text("Failed to open checkpoint rank 0 directory to find"
+              " first checkpoint file!");
+        while((entry = readdir(dir)) != NULL) {
+            if(Util::strStartsWith(entry->d_name, "ckpt")
+                    && Util::strEndsWith(entry->d_name, ".dmtcp")) {
+                image_zero.append(entry->d_name);
+                success = true;
+                break;
+            }
+        }
+        closedir(dir);
+        JASSERT(success).Text("Failed to locate first checkpoint file!");
+
+        // read dmtcp files off underlying filesystemj
+        t = new RestoreTarget(image_zero.c_str());
+    }
+#ifdef MPI
+    // Do we need this and the definition, above, of initializeCoordConnection?
+    t->initializeCoordConnection();
+    delete t;
+#endif
+    // We can only call this Util method after having initialized
+    // the DMTCP shared-data area.
+    string mtcprestart = Util::getPath("mtcp_restart-mpi");
+    mtcpMpiArgList.insert(mtcpMpiArgList.begin(), (char *)mtcprestart.c_str());
+    mtcpMpiArgList.push_back(NULL);
+    execvp(mtcpMpiArgList[0], &mtcpMpiArgList[0]);
+    JASSERT(false)(mtcpMpiArgList[0]).Text("execvp failed!");
   }
 
   // Prepare list of independent process tree roots

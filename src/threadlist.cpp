@@ -2,6 +2,7 @@
 #include <pthread.h>
 #include <semaphore.h>
 #include <signal.h>
+#include <sys/personality.h> // for MPI
 #include <sys/resource.h>
 #include <sys/syscall.h>
 #include <sys/types.h>
@@ -19,6 +20,7 @@
 #include "dmtcpworker.h"
 #include "mtcp/mtcp_header.h"
 #include "pluginmanager.h"
+#include "procselfmaps.h" // for MPI
 #include "shareddata.h"
 #include "siginfo.h"
 #include "syscallwrappers.h"
@@ -284,6 +286,76 @@ ThreadList::updateTid(Thread *th)
  *  Prepare MTCP Header
  *
  *************************************************************************/
+#ifdef MPI
+static void
+prepareMtcpHeaderInfoForMPI(MtcpHeader *mtcpHdr)
+{
+  ProcSelfMaps procSelfMaps; // This will be deleted when out of scope.
+  Area area;
+
+  bool randomization = false;
+  // This code assumes that /proc/sys/kernel/randomize_va_space is 0
+  //   or that personality(ADDR_NO_RANDOMIZE) was set.
+  int fd = open("/proc/sys/kernel/randomize_va_space", O_RDONLY);
+  char buf[1];
+  if (fd != -1) {
+    while (1) {
+      int rc = read(fd, buf, 1);
+      if (rc == 1) break;
+      JASSERT(rc == -1 && errno == EAGAIN || rc == -1 && errno == EINTR);
+    }
+  }
+  if (*buf != '0') {
+    randomization = true;
+  }
+  if (randomization && (personality(0xffffffff) & ADDR_NO_RANDOMIZE) == 0) {
+    randomization = false;
+  }
+  if (randomization) {
+    // The analysis in the rest of this function assumes that
+    // randomization is turned off.  MPI needs this information.
+    JWARNING( ! randomization )
+      .Text("FIXME:  Linux process randomization is turned on.\n");
+  }
+
+  // Initialize the MPI information to NULL (unknown).
+  mtcpHdr->libsStart = NULL;
+  mtcpHdr->libsEnd = NULL;
+  mtcpHdr->highMemStart = NULL;
+
+  // We discover the last address that the kernel had mapped:
+  // ASSUMPTIONS:  Target app is not using mmap
+  // ASSUMPTIONS:  Kernel does not go back and fill previos gap after munmap
+  void *addr = mmap(NULL, 4096, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+  munmap(addr, 4096);
+  mtcpHdr->libsEnd = addr;
+
+  // Preprocess memory regions as needed.
+  while (procSelfMaps.getNextArea(&area)) {
+    const char *lastslash = strrchr(area.name, '/');
+    // Set mtcpHdr->libsStart if possible.
+    if (mtcpHdr->libsStart == NULL) {
+      // NOTE:  On typical CentOS/Ubuntu, with no randomization,
+      //   mmap starts about 128 MB below stack and grows downward.
+      // But on some HPC O/S's (e.g., Cray, May, 2020), this is likely
+      //   to be ld-XXX.so, and mmap allocations will grow upward.
+      if (lastslash && strstr(lastslash, ".so") != NULL) {
+        mtcpHdr->libsStart = (VA)area.addr;
+      }
+    }
+    if (lastslash && strstr(lastslash, ".so") != NULL) {
+      mtcpHdr->libsEnd = (VA)area.addr + area.size;
+    }
+    // Set mtcpHdr->highMemStart if possible.
+    // highMemStart not currently used.  We could change the constant logic.
+    if (mtcpHdr->highMemStart == NULL &&
+        (char *)area.addr > (char *)0x7fff00000000) {
+      mtcpHdr->highMemStart = (void *)area.addr;
+    }
+  }
+}
+#endif
+
 static void
 prepareMtcpHeader(MtcpHeader *mtcpHdr)
 {
@@ -300,6 +372,10 @@ prepareMtcpHeader(MtcpHeader *mtcpHdr)
   mtcpHdr->vdsoEnd = (void *)ProcessInfo::instance().vdsoEnd();
   mtcpHdr->vvarStart = (void *)ProcessInfo::instance().vvarStart();
   mtcpHdr->vvarEnd = (void *)ProcessInfo::instance().vvarEnd();
+
+#ifdef MPI
+  prepareMtcpHeaderInfoForMPI(mtcpHdr);
+#endif
 
   mtcpHdr->post_restart = &ThreadList::postRestart;
   mtcpHdr->post_restart_debug = &ThreadList::postRestartDebug;
@@ -555,6 +631,22 @@ ThreadList::resumeThreads()
 void
 stopthisthread(int signum)
 {
+#if 0
+#ifdef MPI
+  // If we are checkpointing when the user thread is in the trivial barrier
+  // (in lower half during the two-phase commit), we must abort the call to the
+  // trivial barrier.
+  // We will set the context to the point before entering the trivial barrier.
+  // Then the two-phase commit will set inTrivialBarrier to false, and raise
+  // the checkpoint signal again to start the checkpointing. After the
+  // checkpointing is finished, we return to the point before entering the
+  // trivial barrier and continue the user thread.
+  if (inTrivialBarrier) {
+    setcontext(&beforeTrivialBarrier);
+  }
+#endif
+#endif
+
   /* Possible state change scenarios:
    * 1. STOPSIGNAL received from ckpt-thread. In this case, the ckpt-thread
    * already changed the state to ST_SIGNALED. No need to check for locks.
@@ -644,6 +736,35 @@ stopthisthread(int signum)
       /* Else restoreinprog >= 1;  This stuff executes to do a restart */
       ThreadList::waitForAllRestored(curThread);
     }
+
+#ifdef MPI
+    // If we are in a restart, and the user thread was in the trivial barrier or
+    // phase 1, we return to early in the call frame before the trivial barrier
+    // was called.
+    char * pause_param = getenv("DMTCP_RESTART_PAUSE");
+    if (pause_param != NULL && pause_param[0] == '5'
+        && pause_param[1] == '\0') {
+#ifdef HAS_PR_SET_PTRACER
+      prctl(PR_SET_PTRACER, PR_SET_PTRACER_ANY, 0, 0, 0); // For: gdb attach
+#endif // ifdef HAS_PR_SET_PTRACER
+      printf("Paused before returning to user's code\n");
+      fflush(stdout);
+      int dummy = 1;
+      while (dummy);
+#ifdef HAS_PR_SET_PTRACER
+      prctl(PR_SET_PTRACER, 0, 0, 0, 0); // Revert permission to default.
+#endif // ifdef HAS_PR_SET_PTRACER
+    }
+#if 0
+    if (restoreInProgress) {
+      if (inTrivialBarrierOrPhase1) {
+        JTRACE("User thread returning to before trivial barrier")
+              (curThread->tid);
+        setcontext(&beforeTrivialBarrier);
+      }
+    }
+#endif
+#endif
 
     JTRACE("User thread returning to user code")
       (curThread->tid) (__builtin_return_address(0));
