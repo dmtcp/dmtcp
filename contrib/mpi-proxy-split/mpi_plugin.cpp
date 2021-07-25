@@ -111,6 +111,46 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       JASSERT(!splitProcess()).Text("Failed to create, initialize lower half");
       break;
     }
+    case DMTCP_EVENT_PRESUSPEND:
+      drainMpiCollectives(data); // two-phase-algo.cpp
+      break;
+
+    case DMTCP_EVENT_PRECHECKPOINT:
+      logIbarrierIfInTrivBarrier(); // two-phase-algo.cpp
+      dmtcp_local_barrier("MPI:GetLocalLhMmapList");
+      getLhMmapList(); // two-phase-algo.cpp
+      dmtcp_local_barrier("MPI:GetLocalRankInfo");
+      getLocalRankInfo(); // p2p_log_replay.cpp
+      dmtcp_global_barrier("MPI:update-ckpt-dir-by-rank");
+      updateCkptDirByRank(); // mpi_plugin.cpp
+      dmtcp_global_barrier("MPI:Register-local-sends-and-receives");
+      registerLocalSendsAndRecvs(); // p2p_drain_send_recv.cpp
+      dmtcp_global_barrier("MPI:Drain-Send-Recv");
+      drainSendRecv(); // p2p_drain_send_recv.cpp
+      break;
+
+    case DMTCP_EVENT_RESUME:
+      clearPendingCkpt(); // two-phase-algo.cpp
+      dmtcp_local_barrier("MPI:Reset-Drain-Send-Recv-Counters");
+      resetDrainCounters; //  // p2p_drain_send_recv.cpp
+      break;
+
+    case DMTCP_EVENT_RESTART:
+      save2pcGlobals(); // two-phase-algo.cpp
+      dmtcp_local_barrier("MPI:updateEnviron");
+      updateLhEnviron(); // mpi-plugin.cpp
+      dmtcp_local_barrier("MPI:Clear-Pending-Ckpt-Msg-Post-Restart");
+      clearPendingCkpt(); // two-phase-algo.cpp
+      dmtcp_local_barrier("MPI:Reset-Drain-Send-Recv-Counters");
+      resetDrainCounters(); // p2p_drain_send_recv.cpp
+      dmtcp_global_barrier("MPI:restoreMpiLogState");
+      restoreMpiLogState(); // record-replay.cpp
+      dmtcp_global_barrier("MPI:record-replay.cpp-void");
+      replayMpiP2pOnRestart(); // p2p_log_replay.cpp
+      dmtcp_local_barrier("MPI:p2p_log_replay.cpp-void");
+      restore2pcGlobals(); // two-phase-algo.cpp
+      break;
+
     case DMTCP_EVENT_EXIT:
       JTRACE("*** DMTCP_EVENT_EXIT");
       break;
@@ -142,49 +182,13 @@ updateLhEnviron()
   fnc(__environ);
 }
 
-static DmtcpBarrier mpiPluginBarriers[] = {
-  { DMTCP_GLOBAL_BARRIER_PRE_SUSPEND, NULL,
-    "Drain-MPI-Collectives", drainMpiCollectives},
-  { DMTCP_PRIVATE_BARRIER_PRE_CKPT, logIbarrierIfInTrivBarrier,
-    "Log-MPI_Ibarrier-if-in-trivial-barrier"},
-  { DMTCP_PRIVATE_BARRIER_PRE_CKPT, getLhMmapList,
-    "GetLocalLhMmapList"},
-  { DMTCP_PRIVATE_BARRIER_PRE_CKPT, getLocalRankInfo,
-    "GetLocalRankInfo"},
-  { DMTCP_GLOBAL_BARRIER_PRE_CKPT, updateCkptDirByRank,
-    "update-ckpt-dir-by-rank" },
-  { DMTCP_GLOBAL_BARRIER_PRE_CKPT, registerLocalSendsAndRecvs,
-    "Register-local-sends-and-receives" },
-  { DMTCP_GLOBAL_BARRIER_PRE_CKPT, drainSendRecv,
-    "Drain-Send-Recv" },
-  { DMTCP_PRIVATE_BARRIER_RESUME, clearPendingCkpt,
-    "Clear-Pending-Ckpt-Msg"},
-  { DMTCP_PRIVATE_BARRIER_RESUME, resetDrainCounters,
-    "Reset-Drain-Send-Recv-Counters"},
-  { DMTCP_PRIVATE_BARRIER_RESTART, save2pcGlobals,
-    "save-global-variables-in-2pc" },
-  { DMTCP_PRIVATE_BARRIER_RESTART, updateLhEnviron,
-    "updateEnviron" },
-  { DMTCP_PRIVATE_BARRIER_RESTART, clearPendingCkpt,
-    "Clear-Pending-Ckpt-Msg-Post-Restart"},
-  { DMTCP_PRIVATE_BARRIER_RESTART, resetDrainCounters,
-    "Reset-Drain-Send-Recv-Counters"},
-  { DMTCP_GLOBAL_BARRIER_RESTART, restoreMpiLogState,
-    "restoreMpiLogState"},
-  { DMTCP_GLOBAL_BARRIER_RESTART, replayMpiP2pOnRestart,
-    "replay-async-receives" },
-  { DMTCP_PRIVATE_BARRIER_RESTART, restore2pcGlobals,
-    "restore-global-variables-in-2pc" },
-};
-
 DmtcpPluginDescriptor_t mpi_plugin = {
   DMTCP_PLUGIN_API_VERSION,
   PACKAGE_VERSION,
   "mpi_plugin",
   "DMTCP",
   "dmtcp@ccs.neu.edu",
-  "MPI Proxy Plugin",
-  DMTCP_DECL_BARRIERS(mpiPluginBarriers),
+  "MPI (MANA) Plugin",
   mpi_plugin_event_hook
 };
 

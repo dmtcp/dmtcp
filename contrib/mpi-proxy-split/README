@@ -1,92 +1,10 @@
-Much of the information here is obsolete.  It is kept currently
-for reference to an earlier version of MANA.
-Please read 'INSTALL' in this directory for more up-to-date
-instructions on installing and debugging.
+For instructions on installing and debugging, read 'INSTALL' in this directory.
 
-## Instructions for building:
+Another good source of information is:
+  nroff -man MANA_ROOT_DIR/manpages/mana.1
 
- 0. Get DMTCP and checkout the v3 branch
+For reading the code, a good place to start is:
+  mpi_plugin.cpp:mpi_plugin_event_hook()
 
-    $ git clone git@github.com:rohgarg/dmtcp-mpi-proxy.git
-    $ cd dmtcp-mpi-proxy
-    $ git checkout mpi-proxy-plugin-v3
-
- 1. Configure DMTCP with:
-
-     $ ./configure --enable-debug CXXFLAGS='-std=c++11'
-
- 2. Build DMTCP with
-
-     $ make
-     $ ./compile-coord-cori.sh
-
-    (Usually, just running 'make' would suffice, but for Cori, I have
-     to compile the coordinator differently. The normal compilation
-     step doesn't work. At some point, I'll integrate this step into the
-     normal build process, and then, this additional script wouldn't be
-     required.)
-
- 3. Build the MPI plugin.
-
-     $ cd contrib/mpi-proxy-split
-     $ make install
-
-    This also creates an MPI stub library. Instead of the real MPI
-    library, we link the target program with this. For example,
-
-      $ cc -c mpi-test.c -o mpi-test.o
-      $ cc mpi-test.o -o mpi-test.exe -lmpidummy
-
-      $ make tests
-
-    This will create some test programs with the MPI stub library.
-
- 4. I have a version of GROMACS (mdrun_mpi) linked with the MPI stub
-    library at:
-
-       ~rohgarg/local/bin/mdrun_mpi.dummy
-
-## Instructions for running:
-
-I typically run interactively.
-
- 1. Allocate node(s).
-
-      $ salloc -N 2 -C haswell -q interactive -t 00:10:00
-
- 2. In one terminal, start the DMTCP coordinator process.
-
-      $ cd $DMTCP_ROOT
-      $ bin/dmtcp_coordinator --mpi
-
-      (I have added this special `--mpi` flag. This adds support
-       in the coordinator for checkpointing using the MPI plugin.
-       This flag is not available in regular DMTCP.)
-
- 3. In another terminal, launch the program.
-
-      $ cd $DMTCP_ROOT/contrib/mpi-proxy-split/
-      $ export LD_LIBRAY_PATH=$LD_LIBRAY_PATH:`pwd`
-      $ srun -n 2 $DMTCP_ROOT/bin/dmtcp_launch --no-gzip -j -h <coord-host> --disable-dl-plugin --with-plugin ./libdmtcp_mpi-proxy-split.so  ./test/ping_pong.dummy.exe
-
-    (Right now, the program has an additional fixed 2 second startup
-     time. I'll fix this in the next iteration.)
-
- 4. Invoke a checkpoint by entering 'c' in the coordinator window.
-
-    (You can also list the currently running ranks by entering 'l'
-     command.)
-
-    This will create checkpoint image files in the current directory.
-    Checkpoint image for each rank is placed in a different directory
-    (ckpt_rank_N/ckpt_*.dmtcp).
-
- 5. Kill the running ranks.
-
- 6. Restart by listing the checkpoint images in order.
-
-    $ srun -n 2 $DMTCP_ROOT/bin/dmtcp_restart -j -h <coord-host> --mpi ckpt_rank_0/ckpt_*.dmtcp ckpt_rank_1/ckpt_*.dmtcp ...
-
-    (Again, this `--mpi` is a special option I have added to the
-     restart command. This enables MPI-specific features in the restart
-     code.)
+For documentation of the internals of MANA, see the Google doc:
+ https://docs.google.com/document/d/1pT25gvMNeT1Vz4SU6Gp4Hx9MGLfkK8ZK-sSOwtu5R50

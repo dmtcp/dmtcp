@@ -72,8 +72,11 @@
 #include <time.h>
 #include <unistd.h>
 #include <sys/prctl.h>
+
 #include <algorithm>
 #include <iomanip>
+
+#include "../contrib/mpi-proxy-split/mana_coordinator.h"
 #include "../jalib/jassert.h"
 #include "../jalib/jconvert.h"
 #include "../jalib/jfilesystem.h"
