@@ -1,0 +1,110 @@
+'\" t
+.\" Manual page created with latex2man on Tue Nov 14 06:26:54 EST 2017
+.\" NOTE: This file is generated, DO NOT EDIT.
+.de Vb
+.ft CW
+.nf
+..
+.de Ve
+.ft R
+
+.fi
+..
+.TH "DMTCP\\_COMMAND" "1" "November, 2017" "Distributed MultiThreaded CheckPointing " "Distributed MultiThreaded CheckPointing "
+.SH NAME
+
+\fBdmtcp_command\fP
+\-\- send a command to the DMTCP coordinator remotely. 
+.PP
+.SH SYNOPSIS
+
+.PP
+\fBdmtcp_commmand\fP
+[\fIOPTIONS\fP]
+\fIcommand\fP
+[\fIcommand...\fP]
+.PP
+.SH DESCRIPTION
+
+.PP
+\fBdmtcp_command\fP
+is a tool to send user commands to the 
+DMTCP coordinator remotely. 
+.PP
+.SH OPTIONS
+
+.PP
+.TP
+\fB\-h\fP, \fB\-\-coord\-host\fP \fIhostname\fP (environment variable DMTCP_COORD_HOST)
+ Hostname where \fBdmtcp_coordinator\fP
+is run (default: localhost) 
+.PP
+.TP
+\fB\-p\fP, \fB\-\-port\fP \fIport\fP (environment variable DMTCP_PORT)
+ Port where \fBdmtcp_coordinator\fP
+is run (default: 7779) 
+.PP
+.TP
+\fB\-\-quiet\fP
+ Skip copyright notice 
+.TP
+\fB\-\-help\fP
+ Print this message and exit. 
+.TP
+\fB\-\-version\fP
+ Print version information and exit. 
+.PP
+.SS Commands for Coordinator
+.TP
+\fB\-s\fP \fB\-\-status\fP
+ Print status message 
+.TP
+\fB\-c\fP, \fB\-\-checkpoint\fP
+ Checkpoint all nodes 
+.TP
+\fB\-bc\fP, \fB\-\-bcheckpoint\fP
+ Checkpoint all nodes, blocking until done 
+.TP
+\fB\-i\fP, \fB\-\-interval\fP \fI<val>\fP
+ Update ckpt interval to <val> seconds (0=never) 
+.TP
+\fB\-k\fP, \fB\-\-kill\fP
+ Kill all nodes 
+.TP
+\fB\-q\fP, \fB\-\-quit\fP
+ Kill all nodes and quit 
+.PP
+.SH REPORTING BUGS
+
+Report bugs to: dmtcp\-forum@lists.sourceforge.net
+.br
+DMTCP home page: <http://dmtcp.sourceforge.net> 
+.PP
+.SH SEE ALSO
+
+\fBdmtcp\fP(1),
+\fBdmtcp_coordinator\fP(1),
+\fBdmtcp_launch\fP(1),
+\fBdmtcp_restart\fP(1),
+\fBdmtcp_command\fP(1)
+.PP
+.SH AUTHOR
+
+See /usr/share/doc/dmtcp\-3.0.0/AUTHORS.
+.PP
+.SH VERSION
+
+.PP
+DMTCP version 3.0.0 of November, 2017\&.
+.PP
+.SH COPYRIGHT
+
+See /usr/share/doc/dmtcp\-3.0.0/COPYING file.
+.PP
+License LGPLv3+: GNU LGPL version 3 or later <http://gnu.org/licenses/lgpl.html>. 
+.PP
+This program comes with ABSOLUTELY NO WARRANTY. 
+This is free software, and you are welcome to redistribute it under certain 
+conditions; see COPYING file for details. 
+.PP
+.\" NOTE: This file is generated, DO NOT EDIT.

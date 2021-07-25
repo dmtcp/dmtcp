@@ -1,0 +1,194 @@
+'\" t
+.\" Manual page created with latex2man on Sun Jun 20 15:09:00 2021
+.\" NOTE: This file is generated, DO NOT EDIT.
+.de Vb
+.ft CW
+.nf
+..
+.de Ve
+.ft R
+
+.fi
+..
+.TH "MANA" "1" "20 June 2021" "MPI\-Agnostic Netw.\-Agnostic Ckpt " "MPI\-Agnostic Netw.\-Agnostic Ckpt "
+.SH NAME
+
+\fBmana\fP
+\-\- MANA family of commands for checkpointing MPI jobs 
+.PP
+.SH SYNOPSIS
+
+.PP
+\fBmana_launch\fP
+[\fI\-\-help\fP]
+[\fI\-\-verbose\fP]
+[\fIDMTCP_OPTIONS\fP]
+[\fI\-\-ckptdir DIR\fP]
+.br
+            \fICOMMAND\fP
+[\fIARGS...\fP]
+.br
+\fBmana_coordinator\fP
+[\fI\-\-help\fP]
+[\fI\-\-verbose\fP]
+[\fIDMTCP_OPTIONS\fP]
+.br
+            #OR: mana_start_coordinator 
+.br
+\fBmana_status\fP
+[\fI\-\-help\fP]
+[\fI\-\-verbose\fP]
+[\fIDMTCP_OPTIONS\fP]
+.br
+\fBmana_restart\fP
+[\fI\-\-help\fP]
+[\fI\-\-verbose\fP]
+[\fIDMTCP_OPTIONS\fP]
+[\fI\-\-restartdir DIR\fP]
+.PP
+.SH DESCRIPTION
+
+.PP
+\fBMANA\fP
+is a package that enables checkpoint\-restart for MPI jobs. 
+The name MANA stands for 
+``MPI\-Agnostic Network\-Agnostic Checkpointing\&''\&. 
+It is designed to be compatible with most MPI implementations 
+and most underlying networks. 
+MANA is built on top of the DMTCP checkpointing package. 
+.PP
+.SH COMMAND LINE OPTIONS
+
+.PP
+.TP
+\fB\-\-help\fP
+ Show additional DMTCP_OPTIONS for a MANA command. 
+.PP
+.TP
+\fB\-\-verbose\fP
+ Display the underlying DMTCP command 
+and DMTCP_OPTIONS used, and other info. 
+.PP
+.SH MANA PROGRAM EXECUTION
+
+.PP
+Execute a MANA command with \-\-help for a usage statement. 
+Checkpoints may be invoked: 
+.TP
++ periodically: 
+via the `\-\-interval\&' or `\-i\&' flag (units in seconds) 
+.TP
++ under program control: 
+(see 
+`test/plugin/applic\-initiated\-ckpt\&'
+directory) 
+.TP
++ externally: 
+via `mana_status \-\-checkpoint\&'
+.PP
+A typical workflow for using MANA after untar\&'ing is: 
+.Vb
+  cd dmtcp\-mana
+  ./configure \-\-enable\-debug
+  make \-j mana
+  # Compile against libmana.so: Examples at contrib/mpi\-proxy\-split/test
+  salloc \-N 2 \-q interactive \-C haswell \-t 01:00:00
+  bin/mana_coordinator \-i10
+  srun \-N 2 bin/mana_launch <TARGET_DIR>/ping_pong.mana.exe
+  bin/mana_coordinator \-i10
+  srun \-N 2 bin/mana_restart
+.Ve
+.PP
+MANA supports most features of DMTCP, including: 
+.TP
+.B *
+plugins to extend the functionality of DMTCP 
+.TP
+.B *
+virtualization of pathname prefixes (plugin/pathvirt) 
+.TP
+.B *
+modification of environment variables at restart (plugin/modify\-env) 
+.TP
+.B *
+distinct checkpoint filenames 
+(`dmtcp_launch \-\-enable\-unique\-checkpoint\-filenames`)
+.br
+The default is to overwrite the last checkpoint; the default is to overwrite 
+the last checkpoint. 
+.PP
+.SH ENVIRONMENT VARIABLES AND DEBUGGING
+
+.TP
+\fBDMTCP_MANA_PAUSE or DMTCP_LAUNCH_PAUSE\fP
+ DMTCP/MANA will 
+pause during launch to allow `gdb attach\&' (GDB must be on same node.) 
+.TP
+\fBDMTCP_MANA_PAUSE\fP
+ DMTCP/MANA will pause very early in restart, 
+inside mtcp/mtcp_restart.c shortly before calling splitProcess() 
+(intended for developers) 
+.TP
+\fBDMTCP_RESTART_PAUSE\fP
+ DMTCP/MANA will 
+pause during restart, before resuming execution, to allow `gdb 
+attach\&' (GDB must be on same node.) 
+.PP
+To see status of ranks (especially during checkpoint), try: 
+.Vb
+   bin/mana_status \-\-list
+.Ve
+To inspect a checkpoint image from, for example, Rank 0, try: 
+.Vb
+   util/readdmtcp.sh ckpt_rank0/ckpt_*.dmtcp
+.Ve
+To debug during restart, try: 
+.Vb
+   srun ... env DMTCP\\_RESTART\\_PAUSE=1 mana\\_restart ... APPLICATION
+   gdb APPLICATION PID  # from a different terminal
+.Ve
+To see the stack, you then may or may not need to try some of the following: 
+.Vb
+  (gdb) add\-symbol\-file bin/lh_proxy
+  (gdb) source util/gdb\-dmtcp\-utils
+  (gdb) add\-symbol\-files\-all
+  (gdb) dmtcp
+.Ve
+If you are debugging the lower half internals of MANA, you may need: 
+(gdb) file bin/lh_proxy 
+.PP
+.SH BUGS
+
+NOTE: Compiling VASP\-5.4.4 uncovered some bugs in the combination 
+of icpc\-19.0.3.199 and GNU gcc. 
+The validation results were: 
+.TP
+.B *
+icpc+gcc\-7.5.0 (built at NERSC): Fails at runtime on VASP
+.br 
+during restart unless configured with: 
+.br
+\&./configure CXXFLAGS=\&'\-fno\-omit\-frame\-pointer
+.br
+\-fno\-optimize\-sibling\-calls\&'
+.TP
+.B *
+icpc+gcc\-9.3.0: Works correctly 
+.TP
+.B *
+icpc_gcc\-10.1.0 (built at NERSC): Fails to link using ld\-2.35.1 
+.PP
+Report bugs in MANA to: dmtcp\-forum@lists.sourceforge.net
+.br
+.PP
+.SH SEE ALSO
+
+\fBdmtcp\fP(1),
+\fBdmtcp_coordinator\fP(1),
+\fBdmtcp_launch\fP(1),
+\fBdmtcp_restart\fP(1),
+\fBdmtcp_command\fP(1)
+.br
+\fBDMTCP home page:\fP
+<http://dmtcp.sourceforge.net> 
+.\" NOTE: This file is generated, DO NOT EDIT.

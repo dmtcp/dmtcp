@@ -1,0 +1,141 @@
+'\" t
+.\" Manual page created with latex2man on Tue Nov 14 06:26:54 EST 2017
+.\" NOTE: This file is generated, DO NOT EDIT.
+.de Vb
+.ft CW
+.nf
+..
+.de Ve
+.ft R
+
+.fi
+..
+.TH "DMTCP\\_RESTART" "1" "November, 2017" "Distributed MultiThreaded CheckPointing " "Distributed MultiThreaded CheckPointing "
+.SH NAME
+
+\fBdmtcp_restart\fP
+\-\- restart processes from given checkpoint images. 
+.PP
+.SH SYNOPSIS
+
+.PP
+\fBdmtcp_restart\fP
+[\fIOPTIONS\fP]
+\fIckpt1.dmtcp\fP
+[\fIckpt2.dmtcp...\fP]
+.PP
+.SH DESCRIPTION
+
+.PP
+\fBdmtcp_restart\fP
+restarts processes from the given 
+checkpoint image files. Note that DMTCP also writes out a shell script 
+for restarting all processes. It is written in the current directory 
+of the coordinator by default. 
+.PP
+.SH OPTIONS
+
+.PP
+.SS Connecting to the DMTCP Coordinator
+.TP
+\fB\-h\fP, \fB\-\-coord\-host\fP \fIhostname\fP (environment variable DMTCP_COORD_HOST)
+ Hostname where dmtcp_coordinator is run (default: localhost) 
+.PP
+.TP
+\fB\-p\fP, \fB\-\-coord\-port\fP \fIport\fP (environment variable DMTCP_COORD_PORT)
+ Port where dmtcp_coordinator is run (default: 7779) 
+.PP
+.TP
+\fB\-\-port\-file\fP \fIfilename\fP
+ File to write listener port number. 
+(Useful with \fB\-\-port 0\fP,
+which is used to assign a random port) 
+.PP
+.TP
+\fB\-j\fP, \fB\-\-join\fP
+ Join an existing coordinator, raise error if one doesn\&'t 
+already exist 
+.PP
+.TP
+\fB\-\-new\-coordinator\fP
+ Create a new coordinator at the given port. Fail if one 
+already exists on the given port. The port can be specified 
+with \fB\-\-coord\-port\fP,
+or with environment variable DMTCP_COORD_PORT. 
+If no port is specified, start coordinator at a random port (same 
+as specifying port \&'0\&'). 
+.PP
+.TP
+\fB\-i\fP, \fB\-interval\fP \fIseconds\fP (environment variable DMTCP_CHECKPOINT_INTERVAL)
+ Time in seconds between automatic checkpoints. 
+0 implies never (manual ckpt only); if not set and no env var, 
+use default value set in dmtcp_coordinator or dmtcp_command. 
+Not allowed if \fB\-\-join\fP
+is specified 
+.PP
+.SS Other options
+.TP
+\fB\-\-run\-as\-root\fP
+ Allow root to run dmtcp_restart and disable uid checking. 
+(default: disabled) 
+.PP
+.TP
+\fB\-\-no\-strict\-uid\-checking\fP (environment variable DMTCP_DISABLE_UID_CHECKING)
+ Disable uid checking for the checkpoint image. This allows the checkpoint image 
+to be restarted by a different user than the one that created it. 
+.PP
+.TP
+\fB\-\-ckptdir\fP \fIpath\fP (environment variable DMTCP_CHECKPOINT_DIR)
+ Directory to store checkpoint images (default: use the same directory used in previous checkpoint) 
+.PP
+.TP
+\fB\-\-tmpdir\fP \fIpath\fP (environment variable DMTCP_TMPDIR)
+ Directory to store temporary files 
+(default: $TMDPIR/dmtcp\-$USER@$HOST or /tmp/dmtcp\-$USER@$HOST) 
+.PP
+.TP
+\fB\-q\fP, \fB\-\-quiet\fP (or set environment variable DMTCP_QUIET = 0, 1, or 2)
+ Skip NOTE messages; if given twice, also skip WARNINGs 
+.PP
+.TP
+\fB\-\-help\fP
+ Print this message and exit. 
+.PP
+.TP
+\fB\-\-version\fP
+ Print version information and exit. 
+.PP
+.SH REPORTING BUGS
+
+Report bugs to: dmtcp\-forum@lists.sourceforge.net
+.br
+DMTCP home page: <http://dmtcp.sourceforge.net> 
+.PP
+.SH SEE ALSO
+
+\fBdmtcp\fP(1),
+\fBdmtcp_coordinator\fP(1),
+\fBdmtcp_launch\fP(1),
+\fBdmtcp_restart\fP(1),
+\fBdmtcp_command\fP(1)
+.PP
+.SH AUTHOR
+
+See /usr/share/doc/dmtcp\-3.0.0/AUTHORS.
+.PP
+.SH VERSION
+
+.PP
+DMTCP version 3.0.0 of November, 2017\&.
+.PP
+.SH COPYRIGHT
+
+See /usr/share/doc/dmtcp\-3.0.0/COPYING file.
+.PP
+License LGPLv3+: GNU LGPL version 3 or later <http://gnu.org/licenses/lgpl.html>. 
+.PP
+This program comes with ABSOLUTELY NO WARRANTY. 
+This is free software, and you are welcome to redistribute it under certain 
+conditions; see COPYING file for details. 
+.PP
+.\" NOTE: This file is generated, DO NOT EDIT.

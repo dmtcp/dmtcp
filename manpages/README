@@ -1,0 +1,11 @@
+To build:
+./latex2man -t ./macros.trans FILE.latex2man FILE.1
+gzip FILE.1
+
+./latex2man -t -L ./macros.trans FILE.latex2man tmp.tex
+cat header.tex tmp.tex footer.tex > FILE.tex
+
+./latex2man -H -t ./macros.trans FILE.latex2man FILE.html
+
+See latex2man for other options.
+  http://ctan.math.washington.edu/tex-archive/support/latex2man/latex2man.html

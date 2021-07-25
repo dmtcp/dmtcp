@@ -1,0 +1,136 @@
+\begin{Name}{1}{mana}{Prashant Chouhan Arya, Gene Cooperman, Rohan Garg, Twinkle Jain, Yao Xu, et al.}{MPI-Agnostic Netw.-Agnostic Ckpt}{mana\_launch -- launch an MPI job under MANA}
+  \myProg{mana} -- MANA family of commands for checkpointing MPI jobs
+\end{Name}
+
+\section{Synopsis}
+%%%%%%%%%%%%%%%%%%
+
+\myProg{mana\_launch}  \oArg{--help} \oArg{--verbose} \oArg{DMTCP_OPTIONS}
+                       \oArg{--ckptdir DIR} \\
+                       ~~~~~~~~~~~~ \Arg{COMMAND} \oArg{ARGS...} \\
+\myProg{mana\_coordinator}  \oArg{--help} \oArg{--verbose}
+                       \oArg{DMTCP_OPTIONS} \\
+                       ~~~~~~~~~~~~ \# OR: mana\_start\_coordinator \\
+\myProg{mana\_status}  \oArg{--help} \oArg{--verbose} \oArg{DMTCP_OPTIONS} \\
+\myProg{mana\_restart} \oArg{--help} \oArg{--verbose} \oArg{DMTCP_OPTIONS}
+                        \oArg{--restartdir DIR}
+
+\section{Description}
+%%%%%%%%%%%%%%%%%%
+
+\myProg{MANA} is a package that enables checkpoint-restart for MPI jobs.
+The name MANA stands for
+``MPI-Agnostic Network-Agnostic Checkpointing''.
+It is designed to be compatible with most MPI implementations
+and most underlying networks.
+MANA is built on top of the DMTCP checkpointing package.
+
+\section{Command Line Options}
+%%%%%%%%%%%%%%%%%%
+
+\begin{Description}
+    \item[\Opt{--help}] Show additional DMTCP_OPTIONS for a MANA command.
+
+    \item[\Opt{--verbose}] Display the underlying DMTCP command
+                           and DMTCP_OPTIONS used, and other info.
+\end{Description}
+
+\section{MANA Program Execution}
+%%%%%%%%%%%%%%%%%%
+
+Execute a MANA command with --help for a usage statement.
+Checkpoints may be invoked:
+\begin{Description}
+\item[+ periodically:] via the `--interval' or `-i' flag (units in seconds)
+\item[+ under program control:] (see
+               `\texttt{test/plugin/applic-initiated-ckpt}' directory)
+\item[+ externally:] via `\texttt{mana\_status --checkpoint}'
+\end{Description}
+
+A typical workflow for using MANA after untar'ing is:
+\begin{verbatim}
+  cd dmtcp-mana
+  ./configure --enable-debug
+  make -j mana
+  # Compile against libmana.so: Examples at contrib/mpi-proxy-split/test
+  salloc -N 2 -q interactive -C haswell -t 01:00:00
+  bin/mana_coordinator -i10
+  srun -N 2 bin/mana_launch <TARGET_DIR>/ping_pong.mana.exe
+  bin/mana_coordinator -i10
+  srun -N 2 bin/mana_restart
+\end{verbatim}
+
+MANA supports most features of DMTCP, including:
+\begin{itemize}
+\item
+plugins to extend the functionality of DMTCP
+\item
+virtualization of pathname prefixes (plugin/pathvirt)
+\item
+modification of environment variables at restart (plugin/modify-env)
+\item
+distinct checkpoint filenames
+(`\texttt{dmtcp_launch --enable-unique-checkpoint-filenames}`) \\
+The default is to overwrite the last checkpoint; the default is to overwrite
+the last checkpoint.
+\end{itemize}
+
+\section{Environment Variables and Debugging}
+\begin{Description}
+    \item[\Opt{DMTCP_MANA_PAUSE or DMTCP_LAUNCH_PAUSE}] DMTCP/MANA will
+	pause during launch to allow `gdb attach' (GDB must be on same node.)
+    \item[\Opt{DMTCP_MANA_PAUSE}] DMTCP/MANA will pause very early in restart,
+        inside mtcp/mtcp_restart.c shortly before calling splitProcess()
+        (intended for developers)
+    \item[\Opt{DMTCP_RESTART_PAUSE}] DMTCP/MANA will
+	pause during restart, before resuming execution, to allow `gdb
+	attach' (GDB must be on same node.)
+\end{Description}
+To see status of ranks (especially during checkpoint), try:
+\begin{verbatim}
+   bin/mana_status --list
+\end{verbatim}
+To inspect a checkpoint image from, for example, Rank 0, try:
+\begin{verbatim}
+   util/readdmtcp.sh ckpt_rank0/ckpt_*.dmtcp
+\end{verbatim}
+To debug during restart, try:
+\begin{verbatim}
+   srun ... env DMTCP\_RESTART\_PAUSE=1 mana\_restart ... APPLICATION
+   gdb APPLICATION PID  # from a different terminal
+\end{verbatim}
+To see the stack, you then may or may not need to try some of the following:
+\begin{verbatim}
+  (gdb) add-symbol-file bin/lh_proxy
+  (gdb) source util/gdb-dmtcp-utils
+  (gdb) add-symbol-files-all
+  (gdb) dmtcp
+\end{verbatim}
+If you are debugging the lower half internals of MANA, you may need:
+\begin{verbatim}
+  (gdb) file bin/lh_proxy
+\end{verbatim}
+To force abort() (a core dump) on error, set the env. var.
+DMTCP\_ABORT\_ON\_FAILED\_ASSERT for mana\_launch and: 'ulimit -c unlimited'
+
+\section{Bugs}
+%%%%%%%%%%%%%%%%%%
+NOTE:  Compiling VASP-5.4.4 uncovered some bugs in the combination
+of icpc-19.0.3.199 and GNU gcc.
+The validation results were:
+\begin{itemize}
+\item icpc+gcc-7.5.0 (built at NERSC):  Fails at runtime on VASP\\
+  during restart unless configured with: \\
+  \texttt{./configure CXXFLAGS='-fno-omit-frame-pointer} \\
+  \texttt{-fno-optimize-sibling-calls'}
+\item icpc+gcc-9.3.0:  Works correctly
+\item icpc_gcc-10.1.0 (built at NERSC): Fails to link using ld-2.35.1
+\end{itemize}
+
+Report bugs in MANA to: dmtcp-forum@lists.sourceforge.net\\
+
+\section{See Also}
+%%%%%%%%%%%%%%%%%%
+\myCmd{dmtcp}{1}, \myCmd{dmtcp\_coordinator}{1}, \myCmd{dmtcp\_launch}{1},
+\myCmd{dmtcp\_restart}{1}, \myCmd{dmtcp\_command}{1} \\
+\myProg{DMTCP home page:} $<$http://dmtcp.sourceforge.net$>$

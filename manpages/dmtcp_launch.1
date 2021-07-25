@@ -1,0 +1,214 @@
+'\" t
+.\" Manual page created with latex2man on Tue Sep 18 19:10:46 EDT 2018
+.\" NOTE: This file is generated, DO NOT EDIT.
+.de Vb
+.ft CW
+.nf
+..
+.de Ve
+.ft R
+
+.fi
+..
+.TH "DMTCP\\_LAUNCH" "1" "September, 2018" "Distributed MultiThreaded CheckPointing " "Distributed MultiThreaded CheckPointing "
+.SH NAME
+
+\fBdmtcp_launch\fP
+\-\- launch a process under DMTCP control. 
+.PP
+.SH SYNOPSIS
+
+.PP
+\fBdmtcp_launch\fP
+[\fIOPTIONS\fP]
+\fI<command>\fP
+[\fIargs...\fP]
+.PP
+.SH DESCRIPTION
+
+.PP
+\fBdmtcp_launch\fP
+launches a process under DMTCP control. 
+.PP
+A typical usage is:
+.br
+  rm ckpt_a.out_*.dmtcp # Remove any stale copies of ckpt image
+.br
+  dmtcp_launch \-\-interval 5 a.out
+.br
+  dmtcp_command \-\-checkpoint # Execute this in another window
+.br
+  #Kill the currently running a.out process
+.br
+  dmtcp_restart ckpt_a.out_*.dmtcp
+.PP
+.SH OPTIONS
+
+.PP
+.SS Connecting to the DMTCP Coordinator
+.TP
+\fB\-h\fP, \fB\-\-coord\-host\fP \fIhostname\fP (environment variable DMTCP_COORD_HOST)
+ Hostname where dmtcp_coordinator is run (default: localhost) 
+.PP
+.TP
+\fB\-p\fP, \fB\-\-coord\-port\fP \fIport\fP (environment variable DMTCP_COORD_PORT)
+ Port where dmtcp_coordinator is run (default: 7779) 
+.PP
+.TP
+\fB\-\-port\-file\fP \fIfilename\fP
+ File to write listener port number. 
+(Useful with \fB\-\-coord\-port 0\fP,
+which is used to assign a random port) 
+.PP
+.TP
+\fB\-j\fP, \fB\-\-join\fP
+ Join an existing coordinator, raise error if one doesn\&'t 
+already exist 
+.PP
+.TP
+\fB\-\-new\-coordinator\fP
+ Create a new coordinator at the given port. Fail if one 
+already exists on the given port. The port can be specified 
+with \fB\-\-coord\-port\fP,
+or with environment variable DMTCP_COORD_PORT. 
+If no port is specified, start coordinator at a random port (same 
+as specifying port \&'0\&'). 
+.PP
+.TP
+\fB\-\-no\-coordinator\fP
+ Execute the process in stand\-alone coordinator\-less mode.
+.br
+Use \fBdmtcp_command\fP
+or \fB\-\-interval\fP
+to request checkpoints. 
+.PP
+.TP
+\fB\-i\fP, \fB\-\-interval\fP \fIseconds\fP (environment variable DMTCP_CHECKPOINT_INTERVAL)
+ Time in seconds between automatic checkpoints. 
+0 implies never (manual ckpt only); if not set and no env var, 
+use default value set in dmtcp_coordinator or dmtcp_command. 
+Not allowed if \fB\-\-join\fP
+is specified 
+.PP
+.SS Checkpoint image generation
+.TP
+\fB\-\-gzip\fP, \fB\-\-no\-gzip\fP (environment variable DMTCP_GZIP=[01])
+ Enable/disable compression of checkpoint images (default: 1 (enabled))
+.br
+WARNING: gzip adds seconds. Without gzip, ckpt is often < 1s 
+.PP
+.TP
+\fB\-\-ckptdir\fP \fIpath\fP (environment variable DMTCP_CHECKPOINT_DIR)
+ Directory to store checkpoint images (default: curr dir at launch) 
+.PP
+.TP
+\fB\-\-ckpt\-open\-files\fP
+ Checkpoint open files and restore old working dir. (default: do neither) 
+.PP
+.TP
+\fB\-\-checkpoint\-open\-files\fP
+ Deprecated. Use \fB\-\-ckpt\-open\-files\fP
+instead. 
+.PP
+.TP
+\fB\-\-ckpt\-signal\fP \fIsignum\fP
+ Signal number used internally by DMTCP for checkpointing (default: 12) 
+.PP
+.TP
+\fB\-\-ckpt\-signal\fP \fIsignum\fP
+ Deprecated. Use \fB\-\-ckpt\-signal\fP
+instead. 
+.PP
+.SS Enable/disable plugins
+.TP
+\fB\-\-with\-plugin\fP \fIplugins\fP (environment variable DMTCP_PLUGIN)
+ Colon\-separated list of DMTCP plugins to be preloaded with DMTCP. 
+(Absolute pathnames are required.) 
+.PP
+.TP
+\fB\-\-batch\-queue\fP, \fB\-\-rm\fP
+ Enable support for resource managers (Torque PBS and SLURM). 
+(default: disabled) 
+.PP
+.TP
+\fB\-\-ptrace\fP
+ Enable support for PTRACE system call for gdb/strace etc. (default: disabled) 
+.PP
+.TP
+\fB\-\-modify\-env\fP
+ Update environment variables based on the environment on the restart host 
+(e.g., DISPLAY=$DISPLAY). This can be set in a file dmtcp_env.txt. 
+(default: disabled) 
+.PP
+.TP
+\fB\-\-ib\fP, \fB\-\-infiniband\fP
+ Enable InfiniBand plugin. (default: disabled) 
+.PP
+.TP
+\fB\-\-disable\-alloc\-plugin\fP (environment variable DMTCP_ALLOC_PLUGIN=[01])
+ Disable alloc plugin (default: enabled). 
+.PP
+.TP
+\fB\-\-disable\-dl\-plugin\fP (environment variable DMTCP_DL_PLUGIN=[01])
+ Disable dl plugin (default: enabled). 
+.PP
+.TP
+\fB\-\-disable\-all\-plugins\fP (EXPERTS ONLY, FOR DEBUGGING)
+ Disable all plugins. 
+.PP
+.SS Other options
+.TP
+\fB\-\-prefix\fP \fIpath\fP
+ Prefix where DMTCP is installed on remote nodes. 
+.PP
+.TP
+\fB\-\-tmpdir\fP \fIpath\fP (environment variable DMTCP_TMPDIR)
+ Directory to store temporary files 
+(default: $TMDPIR/dmtcp\-$USER@$HOST or /tmp/dmtcp\-$USER@$HOST) 
+.PP
+.TP
+\fB\-q\fP, \fB\-\-quiet\fP (or set environment variable DMTCP_QUIET = 0, 1, or 2)
+ Skip NOTE messages; if given twice, also skip WARNINGs 
+.PP
+.TP
+\fB\-\-help\fP
+ Print this message and exit. 
+.PP
+.TP
+\fB\-\-version\fP
+ Print version information and exit. 
+.PP
+.SH REPORTING BUGS
+
+Report bugs to: dmtcp\-forum@lists.sourceforge.net
+.br
+DMTCP home page: <http://dmtcp.sourceforge.net> 
+.PP
+.SH SEE ALSO
+
+\fBdmtcp\fP(1),
+\fBdmtcp_coordinator\fP(1),
+\fBdmtcp_launch\fP(1),
+\fBdmtcp_restart\fP(1),
+\fBdmtcp_command\fP(1)
+.PP
+.SH AUTHOR
+
+See /usr/share/doc/dmtcp\-3.0.0/AUTHORS.
+.PP
+.SH VERSION
+
+.PP
+DMTCP version 3.0.0 of September, 2018\&.
+.PP
+.SH COPYRIGHT
+
+See /usr/share/doc/dmtcp\-3.0.0/COPYING file.
+.PP
+License LGPLv3+: GNU LGPL version 3 or later <http://gnu.org/licenses/lgpl.html>. 
+.PP
+This program comes with ABSOLUTELY NO WARRANTY. 
+This is free software, and you are welcome to redistribute it under certain 
+conditions; see COPYING file for details. 
+.PP
+.\" NOTE: This file is generated, DO NOT EDIT.
