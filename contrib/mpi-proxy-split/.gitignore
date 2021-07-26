@@ -1,4 +1,5 @@
 test/*.exe
 test/*.mana.exe
+cppunit-installed/
 unit-test/
 proxy

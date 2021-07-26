@@ -74,12 +74,21 @@ class KeyValue
     size_t _len;
 };
 
+#ifdef MPI
+    typedef map<KeyValue, KeyValue *>KeyValueMap;
+#endif
+
 class LookupService
 {
   public:
     LookupService() {}
 
     ~LookupService() { reset(); }
+
+#ifdef MPI
+    // FIXME:  Can we use  getUniqueId() or something instead of this?
+    const KeyValueMap* getMap(string name) const;
+#endif
 
     void reset();
     void registerData(const DmtcpMessage &msg, const void *data);
@@ -97,8 +106,13 @@ class LookupService
                          const DmtcpMessage &msg);
 
   private:
+#ifndef MPI
     typedef map<KeyValue, KeyValue *>KeyValueMap;
+#endif
     typedef map<string, KeyValueMap>::iterator MapIterator;
+    // FIXME:  ConstMapIterator used to be in DMTCP-3.0.  Why was it removed?
+    //         It's needed for getMap(), which is used by MANA (for MPI)
+    typedef map<string, KeyValueMap>::const_iterator ConstMapIterator;
     void addKeyValue(string id,
                      const void *key,
                      size_t keyLen,

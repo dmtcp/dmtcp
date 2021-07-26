@@ -100,6 +100,29 @@ initialize_segv_handler()
 }
 
 
+// Sets the global 'g_list' pointer to the beginning of the MmapInfo_t array
+// in the lower half
+static void
+getLhMmapList()
+{
+  getMmappedList_t fnc = (getMmappedList_t)lh_info.getMmappedListFptr;
+  if (fnc) {
+    g_list = fnc(&g_numMmaps);
+  }
+  JTRACE("Lower half region info")(g_numMmaps);
+  for (int i = 0; i < g_numMmaps; i++) {
+    JTRACE("Lh region")(g_list[i].addr)(g_list[i].len)(g_list[i].unmapped);
+  }
+}
+
+// Sets the lower half's __environ variable to point to upper half's __environ
+static void
+updateLhEnviron()
+{
+  updateEnviron_t fnc = (updateEnviron_t)lh_info.updateEnvironFptr;
+  fnc(__environ);
+}
+
 static void
 mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
@@ -157,29 +180,6 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     default:
       break;
   }
-}
-
-// Sets the global 'g_list' pointer to the beginning of the MmapInfo_t array
-// in the lower half
-static void
-getLhMmapList()
-{
-  getMmappedList_t fnc = (getMmappedList_t)lh_info.getMmappedListFptr;
-  if (fnc) {
-    g_list = fnc(&g_numMmaps);
-  }
-  JTRACE("Lower half region info")(g_numMmaps);
-  for (int i = 0; i < g_numMmaps; i++) {
-    JTRACE("Lh region")(g_list[i].addr)(g_list[i].len)(g_list[i].unmapped);
-  }
-}
-
-// Sets the lower half's __environ variable to point to upper half's __environ
-static void
-updateLhEnviron()
-{
-  updateEnviron_t fnc = (updateEnviron_t)lh_info.updateEnvironFptr;
-  fnc(__environ);
 }
 
 DmtcpPluginDescriptor_t mpi_plugin = {

@@ -25,6 +25,19 @@
 
 using namespace dmtcp;
 
+#ifdef MPI
+// FIXME:  This used to be in DMTCP-3.0.  Why was it removed?
+const KeyValueMap*
+LookupService::getMap(string mapName) const
+{
+  ConstMapIterator map = _maps.find(mapName);
+  if (map != _maps.end()) {
+    return &_maps.at(mapName);
+  }
+  return NULL;
+}
+#endif
+
 void
 LookupService::reset()
 {

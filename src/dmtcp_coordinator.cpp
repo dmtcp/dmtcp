@@ -76,7 +76,6 @@
 #include <algorithm>
 #include <iomanip>
 
-#include "../contrib/mpi-proxy-split/mana_coordinator.h"
 #include "../jalib/jassert.h"
 #include "../jalib/jconvert.h"
 #include "../jalib/jfilesystem.h"
@@ -89,6 +88,11 @@
 #include "tokenize.h"
 #include "syscallwrappers.h"
 #include "util.h"
+
+#ifdef MPI
+# include "mana_coordinator.icpp"
+#endif
+
 #undef min
 #undef max
 
