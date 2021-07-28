@@ -56,10 +56,36 @@ enum DmtcpMessageType {
                              // coordinator
   DMT_USER_CMD_RESULT,       // on reply coordinator -> dmtcp_command
 
-  DMT_DO_CHECKPOINT,         // when coordinator wants slave to checkpoint
+  // OUTLINE OF CONTROL FLOW FOR checkpoint/resume/restart
+  // A. Coordinator sends DMTP_DO_CHECKPOINT msg to each worker
+  //    On worker side, plugin mgr
+  //  1. sends DMTCP_EVENT_PRESUSPEND to ckpt thread for each plugin
+  //     (ckpt thread and user threads both active)
+  //  2. suspends all user threads
+  //  3. sends DMTCP_EVENT_PRECHECKPOINT to each plugin (ckpt thread acttive)
+  //  4. releases control, and the ckpt thread of each worker writes ckpt image
+  // B. Coordinator sends DMT_RESUMING (for resume or restart)
+  //    On worker side, plugin mgr
+  //  1. sends DMTCP_EVENT_RESUME or DMTCP_EVENT_RESTART
+  // C. Upon receiving some event, the worker calls the registered callback.
+  //    The callback function may call dmtcp_global_barrier, which sends back
+  //      back a DMT_BARRIER msg to coordinator.  The coordinator then
+  //      implements the barrier by responding with DMT_BARRIER_RESPONSE.
 
-  DMT_BARRIER,
-  DMT_BARRIER_RELEASED,
+  DMT_DO_CHECKPOINT,         // when coordinator wants worker to checkpoint
+
+  DMT_BARRIER,               // workers request global barrier from coordinator
+  DMT_BARRIER_RELEASED,      // coord. responds: release workers from barriers
+
+#ifdef MPI
+  // coord sends DMT_DO_CHECKPOINT; plugin mgr sends DMTCP_EVENT_PRESUSPEND;
+  // mpi_plugin.cpp then calls two-phase-algo.cpp:drainMpiCollectives(data)
+  // with data of message set to INTENT.
+  DMT_MPI_PRESUSPEND,        // coord: two-phase-commit: send PRESUSPEND msg's
+                             //   until workers in safe state.  Then coord
+                             //   calls dmtcp_coordinator.cpp:startCheckpoint()
+  DMT_MPI_PRESUSPEND_RESPONSE, // worker replies with RESPONSE msg and 2pc state
+#endif
 
   DMT_WORKER_RESUMING,
 
